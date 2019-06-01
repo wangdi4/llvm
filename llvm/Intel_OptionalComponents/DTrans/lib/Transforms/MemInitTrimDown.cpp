@@ -23,9 +23,11 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/PatternMatch.h"
 #include "llvm/Pass.h"
 
 using namespace llvm;
+using namespace PatternMatch;
 
 #define DTRANS_MEMINITTRIMDOWN "dtrans-meminittrimdown"
 
@@ -212,51 +214,68 @@ private:
   // is recognized by analyzing the function.
   DenseMap<Function *, FunctionKind> FinalFuncKind;
 
+  // Mapping between member function and its assumed functionality that
+  // is categorized using signature.
+  DenseMap<Function *, FunctionKind> InitialFuncKind;
+
   void collectElementDataTypes();
   bool checkDominatorInfo(Instruction *, Instruction *);
   FunctionKind categorizeFunctionUsingSignature(Function *, StructType *);
-  bool isAccessingFieldOfArgClass(const GetElementPtrInst *, Argument *,
+  bool isAccessingFieldOfArgClass(const GetElementPtrInst *, Value *,
                                   int32_t *);
   bool isAccessingVTableFieldInBaseClass(const GetElementPtrInst *, Argument *);
-  bool checkFieldOfArgClassLoad(const Value *, Argument *, int32_t);
+  bool checkFieldOfArgClassLoad(const Value *, Value *, int32_t);
   bool checkMemInterfacePointer(Value *, Argument *);
-  bool checkAllocSizeOfArray(const Value *, Argument *);
-  bool checkAllocCall(Value *, Argument *);
+  const Value *computeMultiplier(const Value *, int64_t *);
+  bool checkAllocSizeOfArray(const Value *, Value *, Value *);
+  bool checkAllocCall(Value *, Argument *, Value *);
   bool checkVtableLoadOfMemInt(Value *, Argument *);
   bool isIndirectCallCheck(Value *, Argument *);
-  bool checkAllocatedArrayPtr(Value *, Argument *);
-  bool checkBBControlledUnderCapacityVal(BasicBlock *, Argument *);
+  bool checkAllocatedArrayPtr(Value *, Argument *, SmallPtrSetImpl<Value *> &,
+                              Value *);
+  bool checkBBControlledUnderCapacityVal(BasicBlock *, Value *);
   bool checkBBControlledUnderFlagVal(BasicBlock *, Argument *);
-  bool checkMemset(SmallPtrSet<Value *, 4>, Argument *);
+  bool checkMemset(SmallPtrSetImpl<Value *> &, Value *);
   bool checkAllInstsProcessed(Function *,
                               SmallPtrSetImpl<const Instruction *> &);
   Value *isIntegerArgument(Value *);
-  Value *isArrayElementAt(const Value *, Argument *, bool);
-  Value *isArrayElementLoadAt(const Value *, Argument *, bool);
-  Value *isArrayElementAddressAt(Value *, Type *, Argument *, bool);
+  Value *isArrayElementAt(const Value *, Value *, bool);
+  Value *isArrayElementLoadAt(const Value *, Value *, bool);
+  Value *isArrayElementAddressAt(Value *, Type *, Value *, int *, bool);
+  Value *isArrayStructElementLoadAt(Value *, Type *, Value *, int *, bool);
+  Value *isElementIndexAddress(const Value *Val, Value *Addr);
+  Value *isStructElementIndexAddress(const Value *, Type *, Value *, int *);
   bool checkCompleteObjPtr(const Value *, Argument *);
   bool checkEHBlock(BasicBlock *, Argument *);
   bool isEHRelatedBB(BasicBlock *, Argument *);
+  BasicBlock *getBBControlledOps(BasicBlock *, Value **, Value **,
+                                 ICmpInst::Predicate *Pred);
   bool isControlledUnderSizeCheck(BasicBlock *, Argument *, Value *);
   FreeCallInfo *getFreeCall(Instruction *I);
   const Value *checkFree(FreeCallInfo *, Argument *, BasicBlock **);
   const Value *getFreeArg(FreeCallInfo *);
   Value *checkCondition(BasicBlock *, BasicBlock *);
-  bool checkZTT(BasicBlock *, Argument *);
-  Loop *checkLoop(Value *, Argument *, LoopInfo &);
+  bool checkZTT(BasicBlock *, Value *);
+  Loop *checkLoop(Value *, Value *, LoopInfo &);
+  Loop *checkLoopWithZTT(Value *, Value *, LoopInfo &);
+  bool checkCapacityIncrement(Value *);
   ReturnInst *getSingleRetInst(Function *);
-  void collectStoreInstsFreeCalls(Function *, SmallPtrSet<BasicBlock *, 16> &,
-                                  SmallPtrSet<StoreInst *, 1> &,
-                                  SmallPtrSet<FreeCallInfo *, 4> &);
+  void collectStoreInstsFreeCalls(Function *, SmallPtrSetImpl<BasicBlock *> &,
+                                  SmallPtrSetImpl<StoreInst *> &,
+                                  SmallPtrSetImpl<FreeCallInfo *> &);
+  bool checkCapacityIncrementPattern(Value *, Argument *);
+  bool isControlledUnderCapacityField(BasicBlock *, Value *, Value *);
+  Value *isLoadOfArg(Value *);
+  const Value *skipCasts(const Value *V);
   FunctionKind recognizeConstructor(Function *);
   FunctionKind recognizeDerivedConstructor(Function *, Type *, Type *);
   FunctionKind recognizeGetSizeOrCapacity(Function *);
   FunctionKind recognizeGetElem(Function *);
   FunctionKind recognizeSetElem(Function *);
   FunctionKind recognizeDestructor(Function *);
-  FunctionKind recognizeCopyConstructor();
-  FunctionKind recognizeAppendElem();
-  FunctionKind recognizeResize();
+  FunctionKind recognizeCopyConstructor(Function *);
+  FunctionKind recognizeAppendElem(Function *);
+  FunctionKind recognizeResize(Function *);
 };
 
 // Element of array can be a struct but member functions like SetElem,
@@ -399,7 +418,7 @@ FunctionKind ClassInfo::categorizeFunctionUsingSignature(Function *F,
 // %d = getelementptr %"class.D", %"class.D"* %b, i64 0, i32 0
 //
 bool ClassInfo::isAccessingFieldOfArgClass(const GetElementPtrInst *GEP,
-                                           Argument *Obj, int32_t *Idx) {
+                                           Value *Obj, int32_t *Idx) {
   // Return true if GEP is computing address of base object.
   auto IsGEPBaseObjAddr = [this](GetElementPtrInst *GEP) {
     auto *GEPTy = GEP->getSourceElementType();
@@ -424,6 +443,7 @@ bool ClassInfo::isAccessingFieldOfArgClass(const GetElementPtrInst *GEP,
   *Idx = cast<ConstantInt>(GEP->getOperand(2))->getLimitedValue();
   if (G)
     Visited.insert(G);
+  Visited.insert(GEP);
   return true;
 }
 
@@ -452,29 +472,57 @@ bool ClassInfo::isAccessingVTableFieldInBaseClass(const GetElementPtrInst *GEP,
 // Returns true if V is loading a field at index FI using Obj pointer
 // that points to class type.
 // Ex:
-//       %7 = getelementptr %"C", %"c"* Obj, i64 0, i32 FI
+//       %7 = getelementptr %"C", %"C"* Obj, i64 0, i32 FI
 //   V:  %25 = load i32, i32* %7
-bool ClassInfo::checkFieldOfArgClassLoad(const Value *V, Argument *Obj,
+//
+//      or
+//
+//   V:   %47 = phi i8* [ %41, %39 ], [ %45, %61 ]
+//   where %41 and %45 are both loading same field at FI.
+//
+bool ClassInfo::checkFieldOfArgClassLoad(const Value *V, Value *Obj,
                                          int32_t FI) {
-  auto *LI = dyn_cast<LoadInst>(V);
-  if (!LI)
+  auto IsFieldOfArgClassLoad = [this](const Value *V, Value *Obj, int32_t FI) {
+    auto *Zext = dyn_cast<ZExtInst>(V);
+    if (Zext)
+      V = Zext->getOperand(0);
+    auto *LI = dyn_cast<LoadInst>(V);
+    if (!LI)
+      return false;
+    const Value *LoadAddr = LI->getPointerOperand();
+    auto *BC = dyn_cast<BitCastInst>(LoadAddr);
+    if (BC)
+      LoadAddr = BC->getOperand(0);
+    auto *GEP = dyn_cast<GetElementPtrInst>(LoadAddr);
+    if (!GEP)
+      return false;
+    int32_t Idx;
+    if (!isAccessingFieldOfArgClass(GEP, Obj, &Idx))
+      return false;
+    if (Idx != FI)
+      return false;
+    Visited.insert(LI);
+    Visited.insert(GEP);
+    if (BC)
+      Visited.insert(BC);
+    if (Zext)
+      Visited.insert(Zext);
+    return true;
+  };
+
+  V = skipCasts(V);
+  auto *PN = dyn_cast<PHINode>(V);
+  if (!PN)
+    return IsFieldOfArgClassLoad(V, Obj, FI);
+
+  if (PN->getNumIncomingValues() != 2)
     return false;
-  const Value *LoadAddr = LI->getPointerOperand();
-  auto *BC = dyn_cast<BitCastInst>(LoadAddr);
-  if (BC)
-    LoadAddr = BC->getOperand(0);
-  auto *GEP = dyn_cast<GetElementPtrInst>(LoadAddr);
-  if (!GEP)
-    return false;
-  int32_t Idx;
-  if (!isAccessingFieldOfArgClass(GEP, Obj, &Idx))
-    return false;
-  if (Idx != FI)
-    return false;
-  Visited.insert(LI);
-  Visited.insert(GEP);
-  if (BC)
-    Visited.insert(BC);
+  for (auto I = 0; I < 2; I++) {
+    const Value *Val = skipCasts(PN->getIncomingValue(I));
+    if (!IsFieldOfArgClassLoad(Val, Obj, FI))
+      return false;
+  }
+  Visited.insert(PN);
   return true;
 }
 
@@ -495,6 +543,45 @@ bool ClassInfo::checkMemInterfacePointer(Value *V, Argument *Obj) {
   return false;
 }
 
+// Try to compute multiplier by processing Mul and Shl operators.
+// MulPtr is updated with computed value. Returns the first instruction
+// that is not Mul/Shl/Zext instruction. Returns nullptr if it is unable
+// to process Shl/Mul instructions.
+//
+//           %25 = load i32, i32* %7
+//           %26 = zext i32 %25 to i64
+//           %27 = shl i64 %26, 3
+//     V:    %28 = mul i64 %27, 2
+const Value *ClassInfo::computeMultiplier(const Value *V, int64_t *MulPtr) {
+  *MulPtr = 1;
+  // Compute multiplier by checking Shl and Mul instructions.
+  while (auto *BO = dyn_cast<BinaryOperator>(V)) {
+    auto OpC = BO->getOpcode();
+    if (OpC == Instruction::Shl) {
+      auto *ConstVal = dyn_cast<ConstantInt>(BO->getOperand(1));
+      if (!ConstVal)
+        return nullptr;
+      *MulPtr = *MulPtr * ((int64_t)1 << ConstVal->getLimitedValue());
+      Visited.insert(BO);
+    } else if (OpC == Instruction::Mul) {
+      auto *ConstVal = dyn_cast<ConstantInt>(BO->getOperand(1));
+      if (!ConstVal)
+        return nullptr;
+      *MulPtr = *MulPtr * ConstVal->getLimitedValue();
+      Visited.insert(BO);
+    } else {
+      break;
+    }
+    V = BO->getOperand(0);
+  }
+  // Skip ZExt instruction.
+  if (auto *Zext = dyn_cast<ZExtInst>(V)) {
+    Visited.insert(Zext);
+    V = Zext->getOperand(0);
+  }
+  return V;
+}
+
 // Returns true if V represents allocation size of array.
 //
 // 1. V is constant: This can occur when Capacity is constant.
@@ -504,14 +591,18 @@ bool ClassInfo::checkMemInterfacePointer(Value *V, Argument *Obj) {
 //    size of array.
 //
 //   Ex:
-//           %25 = load i32, i32* %7  // Load Capacity field or get
+// NumOfElems: %25 = load i32, i32* %7  // Load Capacity field or get
 //                                    // Capacity value from argument that
 //                                    // is stored in Capacity field.
 //           %26 = zext i32 %25 to i64
 //           %27 = shl i64 %26, 3
 //     V:    %28 = mul i64 %27, 2
 //
-bool ClassInfo::checkAllocSizeOfArray(const Value *V, Argument *ThisObj) {
+// If NumOfElems is not nullptr, it checks that *NumOfElems is the one
+// to be multiplied.
+//
+bool ClassInfo::checkAllocSizeOfArray(const Value *V, Value *ThisObj,
+                                      Value *NumOfElems) {
   Type *ElemTy = MICInfo->getFieldElemTy(FieldIdx);
   int64_t ElemSize = DL.getTypeAllocSize(ElemTy);
   assert(CapacityInitInst && " Expected valid CapacityInitInst");
@@ -531,30 +622,14 @@ bool ClassInfo::checkAllocSizeOfArray(const Value *V, Argument *ThisObj) {
 
   // Case 2: V is non-constant
   int64_t Multiplier = 1;
-  // Compute multiplier by checking Shl and Mul instructions.
-  while (auto *BO = dyn_cast<BinaryOperator>(V)) {
-    auto OpC = BO->getOpcode();
-    if (OpC == Instruction::Shl) {
-      auto *ConstVal = dyn_cast<ConstantInt>(BO->getOperand(1));
-      if (!ConstVal)
-        return false;
-      Multiplier = Multiplier * ((int64_t)1 << ConstVal->getLimitedValue());
-      Visited.insert(BO);
-    } else if (OpC == Instruction::Mul) {
-      auto *ConstVal = dyn_cast<ConstantInt>(BO->getOperand(1));
-      if (!ConstVal)
-        return false;
-      Multiplier = Multiplier * ConstVal->getLimitedValue();
-      Visited.insert(BO);
-    } else {
-      break;
-    }
-    V = BO->getOperand(0);
-  }
-  // Skip ZExt instruction.
-  if (auto *Zext = dyn_cast<ZExtInst>(V)) {
-    Visited.insert(Zext);
-    V = Zext->getOperand(0);
+  V = computeMultiplier(V, &Multiplier);
+  if (!V || Multiplier != ElemSize)
+    return false;
+
+  if (NumOfElems) {
+    if (V == NumOfElems)
+      return true;
+    return false;
   }
   // Check if V represents value of Capacity.
   if (V == StoredOp || checkFieldOfArgClassLoad(V, ThisObj, CapacityField))
@@ -572,7 +647,7 @@ bool ClassInfo::checkAllocSizeOfArray(const Value *V, Argument *ThisObj) {
 //      ...
 //
 bool ClassInfo::checkBBControlledUnderCapacityVal(BasicBlock *BB,
-                                                  Argument *ThisObj) {
+                                                  Value *ThisObj) {
   // Entry BB
   if (BB->hasNPredecessors(0))
     return true;
@@ -606,8 +681,8 @@ bool ClassInfo::checkBBControlledUnderCapacityVal(BasicBlock *BB,
 //     ...
 //     call void @llvm.memset.p0i8.i64(i8* %25, i8 0, i64 ArrSize, i1 false)
 //
-bool ClassInfo::checkMemset(SmallPtrSet<Value *, 4> ArrayPtrAliases,
-                            Argument *ThisObj) {
+bool ClassInfo::checkMemset(SmallPtrSetImpl<Value *> &ArrayPtrAliases,
+                            Value *ThisObj) {
   int32_t MemsetCalled = 0;
   IntrinsicInst *MemsetI;
   for (auto *APtr : ArrayPtrAliases)
@@ -621,7 +696,7 @@ bool ClassInfo::checkMemset(SmallPtrSet<Value *, 4> ArrayPtrAliases,
       if (!isa<ConstantInt>(Val1) || !cast<ConstantInt>(Val1)->isZeroValue())
         return false;
       // Check 3rd argument is size of element array.
-      if (checkAllocSizeOfArray(II->getArgOperand(2), ThisObj))
+      if (checkAllocSizeOfArray(II->getArgOperand(2), ThisObj, nullptr))
         MemsetCalled++;
       MemsetI = II;
     }
@@ -637,8 +712,10 @@ bool ClassInfo::checkMemset(SmallPtrSet<Value *, 4> ArrayPtrAliases,
 }
 
 // Returns true if Val is allocation call that allocates memory
-// for element array.
-bool ClassInfo::checkAllocCall(Value *Val, Argument *ThisObj) {
+// for element array. If NumOfElems is not null, it checks
+// that memory is allocated for *NumOfElems of elements.
+bool ClassInfo::checkAllocCall(Value *Val, Argument *ThisObj,
+                               Value *NumOfElems) {
   auto *AllocCall = dyn_cast<CallInst>(Val->stripPointerCasts());
   if (!AllocCall)
     return false;
@@ -657,7 +734,7 @@ bool ClassInfo::checkAllocCall(Value *Val, Argument *ThisObj) {
   const Value *SizeArg = *Args.begin();
 
   // Check size should be equal to element array size.
-  if (!checkAllocSizeOfArray(SizeArg, ThisObj))
+  if (!checkAllocSizeOfArray(SizeArg, ThisObj, NumOfElems))
     return false;
   Visited.insert(AllocCall);
   return true;
@@ -755,11 +832,16 @@ bool ClassInfo::isIndirectCallCheck(Value *BrCond, Argument *ThisObj) {
 //   26:                                               ; preds = %24
 // ValOp: %27 = bitcast i8* %25 to i16**
 //
+// ArrayPtrAliases will be updated with allocated pointer aliases.
+// If NumOfElems is not null, it checks that memory is allocated
+// for *NumOfElems of elements.
 //
-bool ClassInfo::checkAllocatedArrayPtr(Value *ValOp, Argument *ThisObj) {
+bool ClassInfo::checkAllocatedArrayPtr(
+    Value *ValOp, Argument *ThisObj, SmallPtrSetImpl<Value *> &ArrayPtrAliases,
+    Value *NumOfElems = nullptr) {
 
   // Collection of allocated pointer aliases.
-  SmallPtrSet<Value *, 4> ArrayPtrAliases;
+  ArrayPtrAliases.clear();
   ArrayPtrAliases.insert(ValOp);
   if (auto *BC = dyn_cast<BitCastInst>(ValOp)) {
     Visited.insert(BC);
@@ -767,7 +849,7 @@ bool ClassInfo::checkAllocatedArrayPtr(Value *ValOp, Argument *ThisObj) {
     ArrayPtrAliases.insert(ValOp);
   }
   // Just return true if it is alloc call.
-  if (checkAllocCall(ValOp, ThisObj) && checkMemset(ArrayPtrAliases, ThisObj))
+  if (checkAllocCall(ValOp, ThisObj, NumOfElems))
     return true;
   auto *Phi = dyn_cast<PHINode>(ValOp);
   // If it is PHI node, check all inputs are coming from allocation
@@ -801,16 +883,16 @@ bool ClassInfo::checkAllocatedArrayPtr(Value *ValOp, Argument *ThisObj) {
     // Ignore if it is a dummy allocated call.
     if (isDummyFuncWithThisAndIntArgs(AllocCall, TLI)) {
       Visited.insert(AllocCall);
+      auto *DummyIntArg = dyn_cast<Instruction>(AllocCall->getArgOperand(1));
+      if (DummyIntArg)
+        Visited.insert(DummyIntArg);
       continue;
     }
-    if (!checkAllocCall(Val, ThisObj))
+    if (!checkAllocCall(Val, ThisObj, NumOfElems))
       return false;
     AllocFound = true;
   }
   if (!AllocFound)
-    return false;
-  // Makes sure allocated array is initialized with memset.
-  if (!checkMemset(ArrayPtrAliases, ThisObj))
     return false;
 
   // Mark all instructions as processed.
@@ -890,24 +972,84 @@ Value *ClassInfo::isIntegerArgument(Value *V) {
 //      %45 = load i16**, i16*** %44
 // Val: %46 = getelementptr i16*, i16** %45, i64 %AtLoc
 //
-Value *ClassInfo::isArrayElementAt(const Value *Val, Argument *ThisObj,
+Value *ClassInfo::isArrayElementAt(const Value *Val, Value *ThisObj,
                                    bool CheckLocAsArgument = true) {
   Value *AtLoc = nullptr;
+  auto *BC2 = dyn_cast<BitCastInst>(Val);
+  if (BC2)
+    Val = BC2->getOperand(0);
   auto *GEP = dyn_cast<GetElementPtrInst>(Val);
   if (!GEP)
     return AtLoc;
   if (GEP->getNumIndices() != 1)
     return AtLoc;
-  if (!checkFieldOfArgClassLoad(GEP->getPointerOperand(), ThisObj, ArrayField))
+  const Value *GEPOp = GEP->getPointerOperand();
+  auto *BC = dyn_cast<BitCastInst>(GEPOp);
+  if (BC)
+    GEPOp = BC->getOperand(0);
+  if (!checkFieldOfArgClassLoad(GEPOp, ThisObj, ArrayField))
     return AtLoc;
   if (CheckLocAsArgument)
     AtLoc = isIntegerArgument(GEP->getOperand(1));
   else
     AtLoc = GEP->getOperand(1);
   Visited.insert(GEP);
+  if (BC)
+    Visited.insert(BC);
+  if (BC2)
+    Visited.insert(BC2);
   return AtLoc;
 }
 
+// Return some_index if Val is "Addr + some_index"
+//
+// Ex:
+//      %arrayidx = getelementptr i32**, i32*** %Addr, i64 %Loc
+// Val: %8 = bitcast i32*** %arrayidx12 to i64*
+//
+Value *ClassInfo::isElementIndexAddress(const Value *Val, Value *Addr) {
+  auto *BC = dyn_cast<BitCastInst>(Val);
+  if (BC)
+    Val = BC->getOperand(0);
+  auto *GEP = dyn_cast<GetElementPtrInst>(Val);
+  if (!GEP)
+    return nullptr;
+  if (GEP->getNumIndices() != 1)
+    return nullptr;
+  if (skipCasts(Addr) != skipCasts(GEP->getOperand(0)))
+    return nullptr;
+  Visited.insert(GEP);
+  if (BC)
+    Visited.insert(BC);
+  return GEP->getOperand(1);
+}
+
+// Returns some_index if Val is "(Addr + some_index).some_field"
+// ElemIdx is updated with field index of ElemTy that is accessed.
+//
+// Ex:
+//      %70 = getelementptr %"E", %"E"* %Addr, i64 %Loc
+//      %72 = getelementptr %"E", %"E"* %70, i64 0, i32 1
+// Val: %73 = bitcast %"D"** %72 to i64*
+//
+Value *ClassInfo::isStructElementIndexAddress(const Value *Val, Type *ElemTy,
+                                              Value *Addr, int *ElemIdx) {
+  auto *BC = dyn_cast<BitCastInst>(Val);
+  if (BC)
+    Val = BC->getOperand(0);
+  auto *GEP = dyn_cast<GetElementPtrInst>(Val);
+  if (!GEP || GEP->getSourceElementType() != ElemTy ||
+      GEP->getNumOperands() != 3 || !isa<ConstantInt>(GEP->getOperand(2)) ||
+      !isa<ConstantInt>(GEP->getOperand(1)) ||
+      !cast<ConstantInt>(GEP->getOperand(1))->isZero())
+    return nullptr;
+  if (BC)
+    Visited.insert(BC);
+  Visited.insert(GEP);
+  if (ElemIdx)
+    *ElemIdx = cast<ConstantInt>(GEP->getOperand(2))->getLimitedValue();
+  return isElementIndexAddress(GEP->getPointerOperand(), Addr);
+}
 // Returns location of the array element that is loading.
 // It returns %AtLoc in the example. If CheckLocAsArgument is
 // true, it makes sure AtLoc is integer argument.
@@ -919,7 +1061,7 @@ Value *ClassInfo::isArrayElementAt(const Value *Val, Argument *ThisObj,
 //        %18 = getelementptr i16*, i16** %16, i64 %AtLoc
 // Val:  %19 = load i16*, i16** %18
 //
-Value *ClassInfo::isArrayElementLoadAt(const Value *Val, Argument *ThisObj,
+Value *ClassInfo::isArrayElementLoadAt(const Value *Val, Value *ThisObj,
                                        bool CheckLocAsArgument = true) {
   Value *AtLoc = nullptr;
   const BitCastInst *BC = nullptr;
@@ -943,6 +1085,8 @@ Value *ClassInfo::isArrayElementLoadAt(const Value *Val, Argument *ThisObj,
 // type of vector class.
 // It returns %AtLoc in the example. If CheckLocAsArgument is
 // true, it makes sure AtLoc is integer argument.
+// If ElemIdx is not null, it updates with the field index of array
+// element that is accessed.
 // Ex:
 //      %15 = getelementptr %"class.V", %"class.V"* %0, i64 0, i32 3
 //      %16 = load %"ElemTy"*, %"ElemTy"** %15
@@ -951,7 +1095,8 @@ Value *ClassInfo::isArrayElementLoadAt(const Value *Val, Argument *ThisObj,
 // Val: %19 = getelementptr %"ElemTy", %"ElemTy"* %18, i64 0, i32 0
 //
 Value *ClassInfo::isArrayElementAddressAt(Value *Val, Type *ElemTy,
-                                          Argument *ThisObj,
+                                          Value *ThisObj,
+                                          int *ElemIdx = nullptr,
                                           bool CheckLocAsArgument = true) {
   Value *AtLoc = nullptr;
   BitCastInst *BC;
@@ -971,6 +1116,41 @@ Value *ClassInfo::isArrayElementAddressAt(Value *Val, Type *ElemTy,
   if (BC)
     Visited.insert(BC);
   Visited.insert(GEP);
+  if (ElemIdx)
+    *ElemIdx = cast<ConstantInt>(GEP->getOperand(2))->getLimitedValue();
+  return AtLoc;
+}
+
+// Returns the location of element address in struct if Val
+// is loading a field of array struct element.
+// It returns %Loc1 in the example. If CheckLocAsArgument is
+// true, it makes sure Loc1 is integer argument.
+// If ElemIdx is not null, it updates with the field index of array
+// element that is accessed.
+// Ex:
+//      %49 = getelementptr %"E", %"E"* %Array_ThisObj, i64 %Loc1
+//      %51 = getelementptr %"E", %"E"* %49, i64 0, i32 1
+//      %52 = bitcast %"D"** %51 to i64*
+// Val: %54 = load i64, i64* %52
+Value *ClassInfo::isArrayStructElementLoadAt(Value *Val, Type *ElemTy,
+                                             Value *ThisObj,
+                                             int *ElemIdx = nullptr,
+                                             bool CheckLocAsArgument = true) {
+  Value *AtLoc = nullptr;
+  auto *LI = dyn_cast<LoadInst>(Val);
+  if (!LI)
+    return AtLoc;
+  Value *PtrOp = LI->getPointerOperand();
+  BitCastInst *BC = dyn_cast<BitCastInst>(PtrOp);
+  if (BC)
+    PtrOp = BC->getOperand(0);
+  AtLoc = isArrayElementAddressAt(PtrOp, ElemTy, ThisObj, ElemIdx,
+                                  CheckLocAsArgument);
+  if (!AtLoc)
+    return AtLoc;
+  Visited.insert(LI);
+  if (BC)
+    Visited.insert(BC);
   return AtLoc;
 }
 
@@ -1132,6 +1312,38 @@ bool ClassInfo::isEHRelatedBB(BasicBlock *BB, Argument *ThisObj) {
   return true;
 }
 
+// Returns FalseBB if BB is controlled like below
+//
+//       if (Any_Predicate LValue, RValue)
+//           BB
+//  LValue and RValue are updated with operands of ICmp.
+//  Predi is updated with predicate of ICmp.
+//
+BasicBlock *ClassInfo::getBBControlledOps(BasicBlock *BB, Value **LValue,
+                                          Value **RValue,
+                                          ICmpInst::Predicate *Predi) {
+  // Makes sure BB has single predecessor.
+  BasicBlock *Pred = BB->getSinglePredecessor();
+  if (!Pred)
+    return nullptr;
+  auto *BI = dyn_cast<BranchInst>(Pred->getTerminator());
+  if (!BI || !BI->isConditional())
+    return nullptr;
+  Value *BrCond = BI->getCondition();
+  ICmpInst *IC = dyn_cast<ICmpInst>(BrCond);
+  if (!IC)
+    return nullptr;
+  if (BI->getSuccessor(0) != BB)
+    return nullptr;
+
+  *RValue = IC->getOperand(1);
+  *LValue = IC->getOperand(0);
+  *Predi = IC->getPredicate();
+  Visited.insert(BI);
+  Visited.insert(IC);
+  return BI->getSuccessor(1);
+}
+
 // Returns true if BB is controlled like below
 //
 //       if (SizeField > AtLoc)
@@ -1141,35 +1353,19 @@ bool ClassInfo::isEHRelatedBB(BasicBlock *BB, Argument *ThisObj) {
 //
 bool ClassInfo::isControlledUnderSizeCheck(BasicBlock *BB, Argument *ThisObj,
                                            Value *AtLoc) {
-  // Makes sure BB has single predecessor.
-  BasicBlock *Pred = BB->getSinglePredecessor();
-  if (!Pred)
-    return false;
-  auto *BI = dyn_cast<BranchInst>(Pred->getTerminator());
-  if (!BI || !BI->isConditional())
-    return false;
-  Value *BrCond = BI->getCondition();
-  ICmpInst *IC = dyn_cast<ICmpInst>(BrCond);
-  if (!IC)
-    return false;
-  if (IC->getPredicate() != ICmpInst::ICMP_UGT)
+  Value *LValue;
+  Value *RValue;
+  ICmpInst::Predicate Predi;
+  BasicBlock *FBlock = getBBControlledOps(BB, &LValue, &RValue, &Predi);
+  if (!FBlock || Predi != ICmpInst::ICMP_UGT)
     return false;
 
-  // Check RValue is AtLoc and LValue is value of SizeField.
-  Value *RValue = IC->getOperand(1);
-  Value *LValue = IC->getOperand(0);
-  if (RValue != AtLoc)
-    return false;
-  if (!checkFieldOfArgClassLoad(LValue, ThisObj, SizeField))
-    return false;
-  if (BI->getSuccessor(0) != BB)
+  if (RValue != AtLoc || !checkFieldOfArgClassLoad(LValue, ThisObj, SizeField))
     return false;
 
   // Checks False Block is just EH related code.
-  if (!isEHRelatedBB(BI->getSuccessor(1), ThisObj))
+  if (!isEHRelatedBB(FBlock, ThisObj))
     return false;
-  Visited.insert(BI);
-  Visited.insert(IC);
   return true;
 }
 
@@ -1322,7 +1518,7 @@ bool ClassInfo::checkBBControlledUnderFlagVal(BasicBlock *BB,
 //      EntryBI:...
 //              Loop
 //
-bool ClassInfo::checkZTT(BasicBlock *PH, Argument *ThisObj) {
+bool ClassInfo::checkZTT(BasicBlock *PH, Value *ThisObj) {
   if (!PH)
     return false;
   auto *EntryBI = dyn_cast<BranchInst>(PH->getTerminator());
@@ -1351,7 +1547,7 @@ bool ClassInfo::checkZTT(BasicBlock *PH, Argument *ThisObj) {
 //             %Cond = icmp ult i64 %AddI, %Zext
 //             br i1 %Cond, label %Loop, label %some_bb
 //
-Loop *ClassInfo::checkLoop(Value *Ind, Argument *ThisObj, LoopInfo &LI) {
+Loop *ClassInfo::checkLoop(Value *Ind, Value *ThisObj, LoopInfo &LI) {
   auto *PN = dyn_cast<PHINode>(Ind);
   if (!PN || PN->getNumIncomingValues() != 2)
     return nullptr;
@@ -1374,16 +1570,16 @@ Loop *ClassInfo::checkLoop(Value *Ind, Argument *ThisObj, LoopInfo &LI) {
     return nullptr;
 
   ICmpInst::Predicate Pred = Cond->getPredicate();
-  if (Pred != ICmpInst::ICMP_ULT || BI->getSuccessor(0) != L->getHeader())
+  // Allow both ICMP_ULT and ICMP_EQ predicates for now.
+  if ((Pred != ICmpInst::ICMP_ULT || BI->getSuccessor(0) != L->getHeader()) &&
+
+      (Pred != ICmpInst::ICMP_EQ || BI->getSuccessor(1) != L->getHeader()))
     return nullptr;
 
   Value *CmpOp0 = Cond->getOperand(0);
   Value *CmpOp1 = Cond->getOperand(1);
   if (V2 != CmpOp0)
     return nullptr;
-  auto *Zext = dyn_cast<ZExtInst>(CmpOp1);
-  if (Zext)
-    CmpOp1 = Zext->getOperand(0);
   if (!checkFieldOfArgClassLoad(CmpOp1, ThisObj, SizeField))
     return nullptr;
 
@@ -1395,12 +1591,22 @@ Loop *ClassInfo::checkLoop(Value *Ind, Argument *ThisObj, LoopInfo &LI) {
   ConstantInt *Inc = dyn_cast<ConstantInt>(AddI->getOperand(1));
   if (!Inc || !Inc->isOne())
     return nullptr;
-  if (Zext)
-    Visited.insert(Zext);
   Visited.insert(AddI);
   Visited.insert(Cond);
   Visited.insert(BI);
   Visited.insert(PN);
+  return L;
+}
+
+// Returns true if Loc is induction variable of a loop that
+// iterates from 0 to "size" field of "Obj" with increment 1.
+Loop *ClassInfo::checkLoopWithZTT(Value *Loc, Value *Obj, LoopInfo &LI) {
+  Loop *L = checkLoop(Loc, Obj, LI);
+  if (!L)
+    return nullptr;
+  BasicBlock *PH = L->getLoopPreheader();
+  if (!checkZTT(PH, Obj))
+    return nullptr;
   return L;
 }
 
@@ -1420,9 +1626,9 @@ ReturnInst *ClassInfo::getSingleRetInst(Function *Fn) {
 // Collect all store and free call instructions in all basic blocks in Fn
 // except basic blocks in IgnoreBBSet.
 void ClassInfo::collectStoreInstsFreeCalls(
-    Function *Fn, SmallPtrSet<BasicBlock *, 16> &IgnoreBBSet,
-    SmallPtrSet<StoreInst *, 1> &StoresSet,
-    SmallPtrSet<FreeCallInfo *, 4> &FreeCallsSet) {
+    Function *Fn, SmallPtrSetImpl<BasicBlock *> &IgnoreBBSet,
+    SmallPtrSetImpl<StoreInst *> &StoresSet,
+    SmallPtrSetImpl<FreeCallInfo *> &FreeCallsSet) {
   for (auto &BB : *Fn) {
     if (IgnoreBBSet.count(&BB))
       continue;
@@ -1432,6 +1638,33 @@ void ClassInfo::collectStoreInstsFreeCalls(
       else if (FreeCallInfo *FInfo = getFreeCall(&I))
         FreeCallsSet.insert(FInfo);
   }
+}
+
+// Return the argument if Val is Load of an argument.
+Value *ClassInfo::isLoadOfArg(Value *Val) {
+  if (auto *LI = dyn_cast<LoadInst>(Val)) {
+    Value *ValOp = LI->getPointerOperand();
+    auto *BC = dyn_cast<BitCastInst>(ValOp);
+    if (BC)
+      ValOp = BC->getOperand(0);
+    if (isa<Argument>(ValOp)) {
+      Visited.insert(LI);
+      if (BC)
+        Visited.insert(BC);
+      return ValOp;
+    }
+  }
+  return nullptr;
+}
+
+// Skip BitCastInst/ZExtInst/TruncInst instructions.
+const Value *ClassInfo::skipCasts(const Value *V) {
+  while (isa<BitCastInst>(V) || isa<ZExtInst>(V) || isa<TruncInst>(V)) {
+    auto *I = cast<Instruction>(V);
+    Visited.insert(I);
+    V = I->getOperand(0);
+  }
+  return V;
 }
 
 // Return false if any instruction of F is not found in Processed.
@@ -1664,63 +1897,67 @@ FunctionKind ClassInfo::recognizeConstructor(Function *F) {
   // This allows two assignments to array pointer field. One is simple
   // nullptr assignment and other is actual allocated memory allocation
   // assignment.
-  auto AnalyzeArrayPtrFields =
-      [this](SmallVector<GetElementPtrInst *, 8> &GEPList, Argument *ThisObj) {
-        StoreInst *NullPtrStore = nullptr;
-        StoreInst *AllocPtrStore = nullptr;
+  auto AnalyzeArrayPtrFields = [this](
+                                   SmallVector<GetElementPtrInst *, 8> &GEPList,
+                                   Argument *ThisObj) {
+    StoreInst *NullPtrStore = nullptr;
+    StoreInst *AllocPtrStore = nullptr;
 
-        for (auto *GEP : GEPList) {
-          int32_t Idx;
-          auto *GEPTy = GEP->getResultElementType();
+    for (auto *GEP : GEPList) {
+      int32_t Idx;
+      auto *GEPTy = GEP->getResultElementType();
 
-          // Skip non-array pointer fields here.
-          if (!isa<PointerType>(GEPTy))
-            continue;
-          auto *PTy = cast<PointerType>(GEPTy);
-          auto *PtrElemTy = PTy->getElementType();
-          if (PtrElemTy == MICInfo->getMemInterfaceType() ||
-              isPtrToVFTable(GEPTy))
-            continue;
+      // Skip non-array pointer fields here.
+      if (!isa<PointerType>(GEPTy))
+        continue;
+      auto *PTy = cast<PointerType>(GEPTy);
+      auto *PtrElemTy = PTy->getElementType();
+      if (PtrElemTy == MICInfo->getMemInterfaceType() || isPtrToVFTable(GEPTy))
+        continue;
 
-          if (!isAccessingFieldOfArgClass(GEP, ThisObj, &Idx))
+      if (!isAccessingFieldOfArgClass(GEP, ThisObj, &Idx))
+        return false;
+      Visited.insert(GEP);
+      SmallPtrSet<Value *, 4> ArrayPtrAliases;
+      for (auto *U : GEP->users()) {
+        // Something wrong if it is not array pointer field.
+        if (PtrElemTy != MICInfo->getFieldElemTy(FieldIdx))
+          return false;
+        if (!isa<StoreInst>(U))
+          continue;
+        auto *SI = cast<StoreInst>(U);
+        Value *ValOp = SI->getValueOperand();
+        if (SI->getPointerOperand() != GEP)
+          return false;
+        if (isa<Constant>(ValOp) && cast<Constant>(ValOp)->isNullValue()) {
+          // nullptr assignment to array pointer field.
+          if (NullPtrStore)
             return false;
-          Visited.insert(GEP);
-          for (auto *U : GEP->users()) {
-            // Something wrong if it is not array pointer field.
-            if (PtrElemTy != MICInfo->getFieldElemTy(FieldIdx))
-              return false;
-            if (!isa<StoreInst>(U))
-              continue;
-            auto *SI = cast<StoreInst>(U);
-            Value *ValOp = SI->getValueOperand();
-            if (SI->getPointerOperand() != GEP)
-              return false;
-            if (isa<Constant>(ValOp) && cast<Constant>(ValOp)->isNullValue()) {
-              // nullptr assignment to array pointer field.
-              if (NullPtrStore)
-                return false;
-              NullPtrStore = SI;
-            } else if (checkAllocatedArrayPtr(ValOp, ThisObj)) {
-              // Memory allocation assignment to array pointer field.
-              if (AllocPtrStore)
-                return false;
-              AllocPtrStore = SI;
-              ArrayField = Idx;
-            } else {
-              return false;
-            }
-          }
+          NullPtrStore = SI;
+        } else if (checkAllocatedArrayPtr(ValOp, ThisObj, ArrayPtrAliases)) {
+          // Makes sure allocated array is initialized with memset.
+          if (!checkMemset(ArrayPtrAliases, ThisObj))
+            return false;
+          // Memory allocation assignment to array pointer field.
+          if (AllocPtrStore)
+            return false;
+          AllocPtrStore = SI;
+          ArrayField = Idx;
+        } else {
+          return false;
         }
-        // Making NullPtrStore as optional.
-        if (!AllocPtrStore)
-          return false;
-        // Makes sure AllocPtrStore is executed later.
-        if (NullPtrStore && !checkDominatorInfo(NullPtrStore, AllocPtrStore))
-          return false;
-        Visited.insert(NullPtrStore);
-        Visited.insert(AllocPtrStore);
-        return true;
-      };
+      }
+    }
+    // Making NullPtrStore as optional.
+    if (!AllocPtrStore)
+      return false;
+    // Makes sure AllocPtrStore is executed later.
+    if (NullPtrStore && !checkDominatorInfo(NullPtrStore, AllocPtrStore))
+      return false;
+    Visited.insert(NullPtrStore);
+    Visited.insert(AllocPtrStore);
+    return true;
+  };
 
   // Clear all processed instructions first.
   Visited.clear();
@@ -1869,22 +2106,6 @@ FunctionKind ClassInfo::recognizeGetElem(Function *Fn) {
 //  3. Both 1 and 2 are controlled under "Loc >= Size_field" check.
 //
 FunctionKind ClassInfo::recognizeSetElem(Function *Fn) {
-  // Returns true if Val is load of argument.
-  auto IsLoadOfArg = [this](Value *Val) {
-    if (auto *LI = dyn_cast<LoadInst>(Val)) {
-      Value *ValOp = LI->getPointerOperand();
-      auto *BC = dyn_cast<BitCastInst>(ValOp);
-      if (BC)
-        ValOp = BC->getOperand(0);
-      if (isa<Argument>(ValOp)) {
-        Visited.insert(LI);
-        if (BC)
-          Visited.insert(BC);
-        return true;
-      }
-    }
-    return false;
-  };
   // Clear all processed instructions first.
   Visited.clear();
   Argument *ThisObj = &*Fn->arg_begin();
@@ -1904,7 +2125,7 @@ FunctionKind ClassInfo::recognizeSetElem(Function *Fn) {
   if (isa<StructType>(ElemTy)) {
     SetAtLoc =
         isArrayElementAddressAt(SI->getPointerOperand(), ElemTy, ThisObj);
-    if (!SetAtLoc || !IsLoadOfArg(SI->getValueOperand()))
+    if (!SetAtLoc || !isLoadOfArg(SI->getValueOperand()))
       return UnKnown;
   } else {
     SetAtLoc = isArrayElementAt(SI->getPointerOperand(), ThisObj);
@@ -2124,19 +2345,883 @@ FunctionKind ClassInfo::recognizeDestructor(Function *Fn) {
   return Destructor;
 }
 
-FunctionKind ClassInfo::recognizeCopyConstructor() {
-  // TODO: Need to analyze CopyConstructor functionality.
-  return UnKnown;
+// Analyze Fn as CopyConstructor.
+//
+//  It expects mainly 3 things (All are mandatory).
+//   1. Except array field, all fields of 2nd argument are copied
+//      to the same field of "this" pointer (1st argument).
+//   2. Allocate memory with "capacity" field of either 1st or 2nd
+//      argument and assign it to the "array" field of "this" pointer.
+//      memset that allocated array to null.
+//   3. Copy all array element from 2nd argument to 1st argument.
+//
+// It checks for the following pattern.
+//
+// Ex:
+//   CConst(this, A) {
+//     this->flag = A.flag;
+//     this->capacity = A.capacity;
+//     this->size = A.size;
+//     this->base = nullptr;
+//     this->memint = A.memint;
+//     base = malloc(capacity * sizeof_elem)
+//     memset(base, 0, capacity * sizeof_elem);
+//     for (i = 0; i < size; i++)
+//       base[i] = A.base[i];
+//   }
+FunctionKind ClassInfo::recognizeCopyConstructor(Function *Fn) {
+
+  // Returns true if SI is doing array element copy from SrcObj to
+  // DstObj in a loop like below.
+  //
+  // Ex:
+  //  Loop:
+  //     %ind = phi i64 [ 0, %ph ], [ %indvars.iv.next, %Loop ]
+  //     %arrayidx = getelementptr i32**, i32*** %SrcObj, i64 %ind
+  //     %9 = bitcast i32*** %arrayidx to i64*
+  //     %10 = load i64, i64* %9
+  //     %arrayidx16 = getelementptr i32**, i32*** %DstObj, i64 %ind
+  //     %11 = bitcast i32*** %arrayidx16 to i64*
+  // SI: store i64 %10, i64* %11
+  //     %ind = add i64 %ind, 1
+  //     %exitcond = icmp eq i64 %ind, %Size_field
+  //     br i1 %exitcond, label %cleanup, label %Loop
+  //
+  // If type of array element is struct, insert field index that is copied
+  // into ElemIdxSet.
+  //
+  auto CheckArrayCopyFromSrcObjToDstObj = [this](StoreInst *SI, Value *SrcObj,
+                                                 Value *DstObj, LoopInfo &LI,
+                                                 SmallSet<int, 2> &ElemIdxSet) {
+    Type *ElemTy = MICInfo->getFieldElemTy(FieldIdx);
+    Value *Loc;
+    Value *PtrOp = SI->getPointerOperand();
+    Value *ValOp = SI->getValueOperand();
+    int32_t ElemIdx1;
+    int32_t ElemIdx2;
+    if (isa<StructType>(ElemTy)) {
+      // %49 = getelementptr %"E", %"E"* %Array_SrcObj, i64 %Loc1
+      // %51 = getelementptr %"E", %"E"* %49, i64 0, i32 1
+      // %52 = bitcast %"D"** %51 to i64*
+      // %54 = load i64, i64* %52
+      Value *Loc1 =
+          isArrayStructElementLoadAt(ValOp, ElemTy, SrcObj, &ElemIdx1, false);
+      if (!Loc1)
+        return false;
+      // %56 = getelementptr %"E", %"E"* %Array_DstObj, i64 %Loc2
+      // %58 = getelementptr %"E", %"E"* %56, i64 0, i32 1
+      // %59 = bitcast %"D"** %58 to i64*
+      Value *Loc2 =
+          isArrayElementAddressAt(PtrOp, ElemTy, DstObj, &ElemIdx2, false);
+      if (Loc1 != Loc2 || ElemIdx1 != ElemIdx2)
+        return false;
+      Loc = Loc1;
+      ElemIdxSet.insert(ElemIdx1);
+    } else {
+      // %arrayidx = getelementptr i32**, i32*** %SrcObj, i64 %ind
+      // %9 = bitcast i32*** %arrayidx to i64*
+      // %ValOp = load i64, i64* %9
+      Value *Loc1 = isArrayElementLoadAt(ValOp, SrcObj, false);
+      if (!Loc1)
+        return false;
+
+      // %arrayidx16 = getelementptr i32**, i32*** %DstObj, i64 %ind
+      // %PtrOp = bitcast i32*** %arrayidx16 to i64*
+      Value *Loc2 = isArrayElementAt(PtrOp, DstObj, false);
+      if (Loc1 != Loc2)
+        return false;
+      Loc = Loc1;
+    }
+    // Allow size field of either DstObj or SrcObj as loop trip count.
+    if (!checkLoopWithZTT(Loc, DstObj, LI) &&
+        !checkLoopWithZTT(Loc, SrcObj, LI))
+      return false;
+    Visited.insert(SI);
+    return true;
+  };
+
+  SmallPtrSet<StoreInst *, 8> SIList;
+  Argument *ThisObj = Fn->arg_begin();
+  Argument *SrcObj = Fn->arg_begin() + 1;
+  // Collect all store instructions.
+  for (auto &I : instructions(Fn))
+    if (auto *SI = dyn_cast<StoreInst>(&I))
+      SIList.insert(SI);
+
+  int32_t MemIntAssign = 0;
+  int32_t FlagFieldAssign = 0;
+  int32_t SizeFieldAssign = 0;
+  int32_t CapacityFieldAssign = 0;
+  StoreInst *NullPtrStore = nullptr;
+  StoreInst *AllocArrayStore = nullptr;
+  SmallPtrSet<Value *, 4> ArrayPtrAliases;
+  Visited.clear();
+  // Process all stores except array element stores.
+  for (auto *SI : SIList) {
+    const Value *PtrOp = skipCasts(SI->getPointerOperand());
+    Value *ValOp = SI->getValueOperand();
+    auto *GEP = dyn_cast<GetElementPtrInst>(PtrOp);
+    int32_t Idx;
+    if (!GEP || !isAccessingFieldOfArgClass(GEP, ThisObj, &Idx))
+      continue;
+    if (Idx != ArrayField) {
+      // Ex:
+      // %flag = getelementptr %A, %A* %this, i64 0, i32 0
+      // %flag2 = getelementptr %A, %A* %A, i64 0, i32 0
+      // %0 = load i8, i8* %flag2
+      // store i8 %0, i8* %flag
+      if (!checkFieldOfArgClassLoad(ValOp, SrcObj, Idx))
+        return UnKnown;
+      if (Idx == FlagField)
+        FlagFieldAssign++;
+      else if (Idx == SizeField)
+        SizeFieldAssign++;
+      else if (Idx == CapacityField)
+        CapacityFieldAssign++;
+      else if (Idx == MemIntField)
+        MemIntAssign++;
+      else
+        return UnKnown;
+    } else {
+      if (isa<Constant>(ValOp) && cast<Constant>(ValOp)->isNullValue()) {
+        // nullptr assignment to array pointer field.
+        if (NullPtrStore)
+          return UnKnown;
+        NullPtrStore = SI;
+      } else if (checkAllocatedArrayPtr(ValOp, SrcObj, ArrayPtrAliases)) {
+        // Ex:
+        //  %call = tail call noalias i8* @malloc(i64 %mul)
+        //  store i8* %call, i8** %array_addr
+        //  call @memset(i8* align 8 %call, i8 0, i64 %mul, i1 false)
+        //
+        //  Allow size of the array can either be capacity field of
+        //  1st or 2nd argument.
+        if (!checkMemset(ArrayPtrAliases, ThisObj) &&
+            !checkMemset(ArrayPtrAliases, SrcObj))
+          return UnKnown;
+        if (AllocArrayStore)
+          return UnKnown;
+        AllocArrayStore = SI;
+      } else {
+        return UnKnown;
+      }
+    }
+    Visited.insert(SI);
+  }
+
+  // Make sure all fields of vector are assigned once.
+  if (MemIntAssign != 1 || FlagFieldAssign != 1 || CapacityFieldAssign != 1 ||
+      SizeFieldAssign != 1 || !AllocArrayStore)
+    return UnKnown;
+  // Make sure actual NullPtrStore dominates allocation.
+  if (NullPtrStore && !checkDominatorInfo(NullPtrStore, AllocArrayStore))
+    return UnKnown;
+
+  // Set of fields of array struct elements that are copied.
+  SmallSet<int, 2> ElemIdxSet;
+  LoopInfo LI((GetDT)(*Fn));
+  unsigned ElemStoreCount = 0;
+  // This loop handles array element stores.
+  for (auto *SI : SIList) {
+    if (Visited.count(SI))
+      continue;
+    if (!CheckArrayCopyFromSrcObjToDstObj(SI, SrcObj, ThisObj, LI, ElemIdxSet))
+      return UnKnown;
+    if (!checkDominatorInfo(AllocArrayStore, SI))
+      return UnKnown;
+    ElemStoreCount++;
+  }
+  Type *ElemTy = MICInfo->getFieldElemTy(FieldIdx);
+  if (isa<StructType>(ElemTy)) {
+    // Check all fields of array struct element are copied.
+    unsigned NumFields = cast<StructType>(ElemTy)->getNumElements();
+    if (ElemStoreCount != NumFields || ElemIdxSet.size() != NumFields)
+      return UnKnown;
+  } else {
+    if (ElemStoreCount != 1)
+      return UnKnown;
+  }
+
+  if (!checkAllInstsProcessed(Fn, Visited)) {
+    DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+      dbgs() << " Failed: Missing to process some instructions.\n";
+    });
+    return UnKnown;
+  }
+  return CopyConstructor;
 }
 
-FunctionKind ClassInfo::recognizeAppendElem() {
-  // TODO: Need to analyze AddElem functionality.
-  return UnKnown;
+// Analyze Fn as AppendElem.
+//
+//  It expects mainly 3 things (All are mandatory).
+//   1. Call to Resize.
+//   2. Store array elements that are passed as arguments at size
+//      location.
+//   3. Increment size field by 1.
+//
+// It checks for the following pattern.
+//
+// Ex:
+//  append(this, elem)
+//  {
+//   Resize();
+//   this->array[this->size] = elem;
+//   this->size++;
+//  }
+//
+FunctionKind ClassInfo::recognizeAppendElem(Function *Fn) {
+  // Returns true if V is address of SizeField.
+  auto IsSizeFieldAddress = [this](Value *V, Value *ThisObj) {
+    auto *GEP = dyn_cast<GetElementPtrInst>(V);
+    int32_t Idx;
+    if (!GEP || !isAccessingFieldOfArgClass(GEP, ThisObj, &Idx) ||
+        Idx != SizeField)
+      return false;
+    return true;
+  };
+
+  SmallPtrSet<StoreInst *, 4> SIList;
+  CallInst *Call = nullptr;
+  Argument *ThisObj = Fn->arg_begin();
+  StoreInst *SizeIncSI = nullptr;
+  SmallPtrSet<StoreInst *, 4> ArrayElemStores;
+  // Set of arguments that are stored as array elements.
+  SmallPtrSet<Value *, 2> ArgValueSet;
+  // If type of array element is struct, each field of the struct is
+  // treated as independent element. This set indicates locations that
+  // are appended.
+  SmallSet<int, 2> ElemIdxSet;
+  Type *ElemTy = MICInfo->getFieldElemTy(FieldIdx);
+  Visited.clear();
+  for (auto &I : instructions(Fn)) {
+    // Collect Resize call here.
+    if (auto *CI = dyn_cast<CallInst>(&I)) {
+      // Allowed only one call.
+      if (Call)
+        return UnKnown;
+      Call = CI;
+      continue;
+    }
+    auto *SI = dyn_cast<StoreInst>(&I);
+    if (!SI)
+      continue;
+    Value *ValOp = SI->getValueOperand();
+    Value *PtrOp = SI->getPointerOperand();
+    if (IsSizeFieldAddress(PtrOp, ThisObj)) {
+      Value *Op1;
+      Value *Inc;
+      // Check if this store represents  "size++" instruction
+      // Ex:
+      //   %size = getelementptr %A, %A* %this, i64 0, i32 2
+      //   %1 = load i32, i32* %size
+      //   %inc = add i32 %1, 1
+      //   store i32 %inc, i32* %size
+      if (!match(ValOp, m_Add(m_Value(Op1), m_Value(Inc))) ||
+          !match(Inc, m_One()) ||
+          !checkFieldOfArgClassLoad(Op1, ThisObj, SizeField) || SizeIncSI)
+        return UnKnown;
+      SizeIncSI = SI;
+      Visited.insert(cast<Instruction>(ValOp));
+    } else {
+      // Check if this store represents "array[size] = elem;" instruction.
+      Value *SetAtLoc;
+      if (isa<StructType>(ElemTy)) {
+        int ElemIdx;
+        // Ex:
+        //   %valLoad = load %val
+        //   %0 = load %array_addr
+        //   %1 = load %size_addr
+        //   %arrayidx = getelementptr %"E", %"E"* %0, i64 %1
+        //   %elem = getelementptr  %"E", %"E"* %arrayidx, i64 0, i32 1
+        //   %bc = bitcast %"D"** %elem to i64*
+        //   store i64 %valLoad, i64* %bc
+        SetAtLoc =
+            isArrayElementAddressAt(PtrOp, ElemTy, ThisObj, &ElemIdx, false);
+        if (!SetAtLoc)
+          return UnKnown;
+        Value *ArgVal = isLoadOfArg(ValOp);
+        if (!ArgVal)
+          return UnKnown;
+        // Collect arguments that are being stored.
+        ArgValueSet.insert(ArgVal);
+        // Collect all fields of array struct element that are stored.
+        ElemIdxSet.insert(ElemIdx);
+      } else {
+        // Ex:
+        //   %0 = load float***, float**** %array_addr
+        //   %1 = load i32, i32* %size_addr
+        //   %arrayidx = getelementptr float**, float*** %0, i64 %1
+        //   store float** %val, float*** %arrayidx, align 8, !tbaa !25
+        SetAtLoc = isArrayElementAt(PtrOp, ThisObj, false);
+        if (!SetAtLoc || !isa<Argument>(ValOp))
+          return UnKnown;
+        ArgValueSet.insert(ValOp);
+      }
+      if (!checkFieldOfArgClassLoad(SetAtLoc, ThisObj, SizeField))
+        return UnKnown;
+      ArrayElemStores.insert(SI);
+    }
+    Visited.insert(SI);
+  }
+  if (!Call || !SizeIncSI)
+    return UnKnown;
+  if (isa<StructType>(ElemTy)) {
+    unsigned ElemCount = cast<StructType>(ElemTy)->getNumElements();
+    // Makes sure all fields of array struct element are stored with
+    // different argument values.
+    if (ArrayElemStores.size() != ElemCount ||
+        ArgValueSet.size() != ElemCount || ElemIdxSet.size() != ElemCount)
+      return UnKnown;
+  } else {
+    // It should be only one element if array element type is not struct.
+    if (ArrayElemStores.size() != 1)
+      return UnKnown;
+  }
+  // Make sure Call dominates all instructions.
+  for (auto *I : Visited)
+    if (!checkDominatorInfo(Call, const_cast<Instruction *>(I)))
+      return UnKnown;
+  // Make sure "size++" is dominated by all element store instructions.
+  for (auto *I : ArrayElemStores)
+    if (!checkDominatorInfo(I, SizeIncSI))
+      return UnKnown;
+  // Check Call is categorized as Resize. No need to recognize
+  // functionality of Resize here.
+  auto *Callee = Call->getCalledFunction();
+  if (!Callee || InitialFuncKind.find(Callee) == InitialFuncKind.end() ||
+      InitialFuncKind[Callee] != Resize)
+    return UnKnown;
+  Visited.insert(Call);
+
+  if (!checkAllInstsProcessed(Fn, Visited)) {
+    DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+      dbgs() << " Failed: Missing to process some instructions.\n";
+    });
+    return UnKnown;
+  }
+  return AppendElem;
 }
 
-FunctionKind ClassInfo::recognizeResize() {
-  // TODO: Need to analyze Resize functionality.
-  return UnKnown;
+// Returns true if BB is controlled like below
+//
+//       if (AtLoc > Capacity)
+//           BB
+//       else
+//           END_BasicBlock_with_No_IR
+//
+bool ClassInfo::isControlledUnderCapacityField(BasicBlock *BB, Value *ThisObj,
+                                               Value *AtLoc) {
+  Value *LValue;
+  Value *RValue;
+  ICmpInst::Predicate Predi;
+  BasicBlock *FBlock = getBBControlledOps(BB, &LValue, &RValue, &Predi);
+  if (!FBlock || Predi != ICmpInst::ICMP_UGT)
+    return false;
+  if (LValue != AtLoc ||
+      !checkFieldOfArgClassLoad(RValue, ThisObj, CapacityField))
+    return false;
+
+  // Make sure false block has just return.
+  Instruction *I = FBlock->getFirstNonPHIOrDbg();
+  if (!I || !isa<ReturnInst>(I))
+    return false;
+
+  return true;
+}
+
+// Returns true if Val matches the expected patterns.
+//
+// Pattern 1:
+//      unsigned int newMax = size + inc;
+//      if (newMax < capacity + capacity/2)
+//         newMax = capacity + capacity/2;
+//
+//
+// Pattern 2:
+//        unsigned int newMax = size + inc;
+//        unsigned int minNewMax = (unsigned int)((double)size * 1.25);
+//        if (newMax < minNewMax)
+//            newMax = minNewMax;
+//
+// Ex:
+//       %0 = load i32, i32* %size
+//       %add = add i32 %0, 1
+//       %capacity = getelementptr %A, %A* %this, i64 0, i32 1
+//       %1 = load i32, i32* %capacity
+//       %cmp = icmp ugt i32 %add, %1
+//       br i1 %cmp, label %NextBB, label %EndBB
+//
+//      NextBB:
+//       %div = lshr i32 %1, 1
+//       %add4 = add i32 %div, %1
+//       %cmp5 = icmp ult i32 %add, %add4
+//  Val: %spec.select = select i1 %cmp5, i32 %add4, i32 %add
+//
+//
+bool ClassInfo::checkCapacityIncrementPattern(Value *Val, Argument *ThisObj) {
+
+  // Returns %1 in the below example pattern.
+  //  Ex:
+  //             %1 = load i32, i32* %capacity_ThisObj
+  //             %div = lshr i32 %1, 1
+  // *MemGrowth: %add4 = add i32 %div, %1
+  auto AllowedMemGrowthPatternOne = [this](Value *MemGrowth,
+                                           Argument *ThisObj) -> Value * {
+    Value *Op1;
+    Value *Op2;
+    Value *Inc;
+    if (!match(MemGrowth, m_Add(m_Value(Op1), m_Value(Op2))))
+      return nullptr;
+    if (match(Op1, m_LShr(m_Specific(Op2), m_Value(Inc))) &&
+        match(Inc, m_One()) &&
+        checkFieldOfArgClassLoad(Op2, ThisObj, CapacityField)) {
+      Visited.insert(cast<Instruction>(MemGrowth));
+      Visited.insert(cast<Instruction>(Op1));
+      return Op2;
+    }
+    if (match(Op2, m_LShr(m_Specific(Op1), m_Value(Inc))) &&
+        match(Inc, m_One()) &&
+        checkFieldOfArgClassLoad(Op1, ThisObj, CapacityField)) {
+      Visited.insert(cast<Instruction>(MemGrowth));
+      Visited.insert(cast<Instruction>(Op2));
+      return Op1;
+    }
+    return nullptr;
+  };
+
+  // Returns %0 in the below example pattern.
+  // Ex:
+  //            %0 = load i32, i32* %size_ThisObj
+  //            %conv = uitofp i32 %0 to double
+  //            %mul = fmul double %conv, 1.250000e+00
+  // MemGrowth: %conv3 = fptoui double %mul to i32
+  //
+  auto AllowedMemGrowthPatternTwo = [this](Value *MemGrowth,
+                                           Argument *ThisObj) -> Value * {
+    auto *FToU = dyn_cast<FPToUIInst>(MemGrowth);
+    if (!FToU)
+      return nullptr;
+    Value *FOp = FToU->getOperand(0);
+    Value *Op1;
+    if (!match(FOp, m_FMul(m_Value(Op1), m_SpecificFP(1.25))))
+      return nullptr;
+    auto *UToF = dyn_cast<UIToFPInst>(Op1);
+    if (!UToF)
+      return nullptr;
+    if (!checkFieldOfArgClassLoad(UToF->getOperand(0), ThisObj, SizeField))
+      return nullptr;
+    Visited.insert(FToU);
+    Visited.insert(cast<Instruction>(FOp));
+    Visited.insert(UToF);
+    return UToF->getOperand(0);
+  };
+
+  ICmpInst::Predicate Pred;
+  Value *LHS;
+  Value *RHS;
+  Value *Cond;
+  //       %cmp5 = icmp ult i32 %add, %add4
+  //  Val: %spec.select = select i1 %cmp5, i32 %add4, i32 %add
+  if (!match(Val, m_Select(m_Value(Cond), m_Value(LHS), m_Value(RHS))) ||
+      !match(Cond, m_ICmp(Pred, m_Specific(RHS), m_Specific(LHS))) ||
+      Pred != ICmpInst::ICMP_ULT)
+    return false;
+
+  Value *CurSize;
+  Value *Inc;
+  auto *Select = cast<SelectInst>(Val);
+  //      %0 = load i32, i32* %size
+  // RHS: %add = add i32 %0, 1
+  if (!match(RHS, m_Add(m_Value(CurSize), m_Value(Inc))) ||
+      !match(Inc, m_One()) ||
+      !checkFieldOfArgClassLoad(CurSize, ThisObj, SizeField))
+    return false;
+
+  // Check if memory growth is in expected pattern.
+  Value *Ptr = AllowedMemGrowthPatternOne(LHS, ThisObj);
+  if (!Ptr) {
+    Ptr = AllowedMemGrowthPatternTwo(LHS, ThisObj);
+    if (!Ptr)
+      return false;
+  }
+  if (!isControlledUnderCapacityField(Select->getParent(), ThisObj, RHS))
+    return false;
+  Visited.insert(cast<Instruction>(Val));
+  Visited.insert(cast<Instruction>(Cond));
+  Visited.insert(cast<Instruction>(RHS));
+  Visited.insert(cast<Instruction>(CurSize));
+  return true;
+}
+
+// Analyze Fn as Resize.
+//
+//  It expects mainly the below things (All are mandatory).
+//   1. Stores:
+//      a. Set capacity field with new capacity value.
+//      b. Set array field with newly allocated memory.
+//      c. Copy elements from array to newly allocated memory in loop.
+//   2. Free: Free array before assigning newly allocated memory
+//
+// It checks for the following pattern.
+//
+// Ex:
+//    resize() {
+//      if (size + 1 < capacity)
+//        return;
+//      newMax = Use some formula to get new capacity.
+//      newList = malloc(newMax * sizeof(Elem));
+//      for (unsigned int index = 0; index < size; index++)
+//        newList[index] = array[index];
+//      for (; index < newMax; index++)
+//        newList[index] = 0;
+//
+//      free(array);
+//      array = newList;
+//      capacity = newMax;
+//    }
+FunctionKind ClassInfo::recognizeResize(Function *Fn) {
+
+  // Returns the Loop if SI is copying all elements from array field of ThisObj
+  // to AllocPtr location using a Loop.
+  // Ex:
+  //  i = 0;
+  //  Loop:
+  //    AllocPtr[i] = ThisObj->array[i];
+  //    i++;
+  //    if (i < ThisObj->size) goto Loop;
+  auto IsArrayToAllocatedMemoryCopy =
+      [this](StoreInst *SI, Value *ThisObj, Value *AllocPtr, LoopInfo &LI,
+             SmallSet<int, 2> &ElemIdxSet) -> Loop * {
+    Type *ElemTy = MICInfo->getFieldElemTy(FieldIdx);
+    Value *Loc;
+    Value *PtrOp = SI->getPointerOperand();
+    Value *ValOp = SI->getValueOperand();
+    if (isa<StructType>(ElemTy)) {
+      int32_t ElemIdx1;
+      int32_t ElemIdx2;
+      // %49 = getelementptr %"E", %"E"* %Array_ThisObj, i64 %Loc1
+      // %51 = getelementptr %"E", %"E"* %49, i64 0, i32 1
+      // %52 = bitcast %"D"** %51 to i64*
+      // %54 = load i64, i64* %52
+      Value *Loc1 =
+          isArrayStructElementLoadAt(ValOp, ElemTy, ThisObj, &ElemIdx1, false);
+      if (!Loc1)
+        return nullptr;
+      // %70 = getelementptr %"E", %"E"* %AllocPtr, i64 %Loc2
+      // %72 = getelementptr %"E", %"E"* %70, i64 0, i32 1
+      // %73 = bitcast %"D"** %72 to i64*
+      Value *Loc2 =
+          isStructElementIndexAddress(PtrOp, ElemTy, AllocPtr, &ElemIdx2);
+      if (Loc1 != Loc2 || ElemIdx1 != ElemIdx2)
+        return nullptr;
+      Loc = Loc1;
+      ElemIdxSet.insert(ElemIdx1);
+    } else {
+      // %arrayidx = getelementptr i32**, i32*** %Array_ThisObj, i64 %Loc1
+      // %6 = bitcast i32*** %arrayidx to i64*
+      // %7 = load i64, i64* %6
+      Value *Loc1 = isArrayElementLoadAt(ValOp, ThisObj, false);
+      if (!Loc1)
+        return nullptr;
+      // %arrayidx = getelementptr i32**, i32*** %AllocPtr, i64 %Loc2
+      // %8 = bitcast i32*** %arrayidx12 to i64*
+      Value *Loc2 = isElementIndexAddress(PtrOp, AllocPtr);
+      if (Loc1 != Loc2)
+        return nullptr;
+      Loc = Loc1;
+    }
+    return checkLoopWithZTT(Loc, ThisObj, LI);
+  };
+
+  // Returns true if Phi is index value of L after exiting the
+  // loop.
+  //
+  //     Pre-Loop:
+  //
+  //     Loop:
+  //       ...
+  //       %60 = add nuw nsw i64 %54, 1
+  //       %61 = icmp ult i64 %60, %38
+  //       br i1 %61, label %53, label %39
+  //
+  //     Loop_Exit:
+  //       %40 = trunc i64 %60 to i32
+  //
+  //     BLK:
+  // Phi:  %42 = phi i32 [ 0, %Pre-Loop ], [ %40, %Loop_Exit ]
+  //
+  auto IsValueOfIndexCountAfterLoopExit = [this](PHINode *Phi, Loop *L) {
+    if (!Phi || Phi->getNumIncomingValues() != 2)
+      return false;
+    BasicBlock *Pred0 = Phi->getIncomingBlock(0);
+    BasicBlock *Pred1 = Phi->getIncomingBlock(1);
+    // Make sure incoming blocks of Phi are ZTT's block of the Loop and
+    // exit block of the loop.
+    if (Pred0 != L->getLoopPreheader()->getSinglePredecessor())
+      return false;
+    if (!L->isLoopExiting(Pred1))
+      return false;
+
+    // Make sure one incoming value is zero.
+    ConstantInt *Init = dyn_cast<ConstantInt>(Phi->getIncomingValue(0));
+    if (!Init || !Init->isZero())
+      return false;
+    // Check that other incoming value is index value of the loop after
+    // exiting the loop.
+    BranchInst *BI = cast<BranchInst>(L->getLoopLatch()->getTerminator());
+    ICmpInst *Cond = cast<ICmpInst>(BI->getCondition());
+    const Value *IncInd = skipCasts(Phi->getIncomingValue(1));
+    if (Cond->getOperand(0) != IncInd)
+      return false;
+    Visited.insert(Phi);
+    return true;
+  };
+
+  Visited.clear();
+  Argument *ThisObj = &*Fn->arg_begin();
+  SmallPtrSet<StoreInst *, 4> SIList;
+  SmallPtrSet<FreeCallInfo *, 1> FreeList;
+  SmallPtrSet<BasicBlock *, 16> IgnoreBBSet;
+  FunctionKind FKind = UnKnown;
+  LoopInfo LI((GetDT)(*Fn));
+
+  // Collect Stores and Free call.
+  collectStoreInstsFreeCalls(Fn, IgnoreBBSet, SIList, FreeList);
+
+  // Check Free Call.
+  BasicBlock *FreeBB = nullptr;
+  if (FreeList.size() != 1)
+    return FKind;
+  // Check delete array.
+  const Value *FreeArg = checkFree(*FreeList.begin(), ThisObj, &FreeBB);
+  if (!FreeArg || !checkFieldOfArgClassLoad(FreeArg, ThisObj, ArrayField))
+    return FKind;
+
+  // Process assignment to capacity field.
+  unsigned CapacityFieldAssigns = 0;
+  StoreInst *CapacityFieldStore = nullptr;
+  for (auto *SI : SIList) {
+    const Value *PtrOp = skipCasts(SI->getPointerOperand());
+    auto *GEP = dyn_cast<GetElementPtrInst>(PtrOp);
+    int32_t Idx;
+    if (!GEP || !isAccessingFieldOfArgClass(GEP, ThisObj, &Idx) ||
+        Idx != CapacityField)
+      continue;
+    if (!checkCapacityIncrementPattern(SI->getValueOperand(), ThisObj))
+      return FKind;
+    CapacityFieldAssigns++;
+    CapacityFieldStore = SI;
+    Visited.insert(CapacityFieldStore);
+  }
+  if (CapacityFieldAssigns != 1 || !CapacityFieldStore)
+    return FKind;
+
+  // Process assignment to array field.
+  SmallPtrSet<Value *, 4> ArrayPtrAliases;
+  unsigned ArrayFieldAssigns = 0;
+  StoreInst *ArrayFieldStore = nullptr;
+  Value *NewSize = CapacityFieldStore->getValueOperand();
+  for (auto *SI : SIList) {
+    const Value *PtrOp = skipCasts(SI->getPointerOperand());
+    auto *GEP = dyn_cast<GetElementPtrInst>(PtrOp);
+    int32_t Idx;
+    if (!GEP || !isAccessingFieldOfArgClass(GEP, ThisObj, &Idx) ||
+        Idx != ArrayField)
+      continue;
+    Value *ValOp = SI->getValueOperand();
+    // Check memory is allocated properly.
+    if (!checkAllocatedArrayPtr(ValOp, ThisObj, ArrayPtrAliases, NewSize))
+      return FKind;
+    ArrayPtrAliases.insert(ValOp);
+    if (auto *BC = dyn_cast<BitCastInst>(ValOp)) {
+      ValOp = BC->getOperand(0);
+      ArrayPtrAliases.insert(ValOp);
+    }
+    ArrayFieldStore = SI;
+    ArrayFieldAssigns++;
+    Visited.insert(ArrayFieldStore);
+  }
+  if (ArrayFieldAssigns != 1 || !ArrayFieldStore)
+    return FKind;
+
+  // Check elements are copied from array to newly allocated memory in loop.
+  Loop *CopyLoop = nullptr;
+  Value *AllocPtr = ArrayFieldStore->getValueOperand();
+  unsigned NumArrayElemStores = 0;
+  SmallSet<int, 2> ElemIdxSet;
+  for (auto *SI : SIList) {
+    if (Visited.count(SI))
+      continue;
+    Loop *L =
+        IsArrayToAllocatedMemoryCopy(SI, ThisObj, AllocPtr, LI, ElemIdxSet);
+    if (!L)
+      return UnKnown;
+    if (!CopyLoop)
+      CopyLoop = L;
+    else if (CopyLoop != L)
+      return UnKnown;
+    Visited.insert(SI);
+    NumArrayElemStores++;
+  }
+  Type *ElemTy = MICInfo->getFieldElemTy(FieldIdx);
+  if (isa<StructType>(ElemTy)) {
+    unsigned ElemCount = cast<StructType>(ElemTy)->getNumElements();
+    // Makes sure all fields of array struct element are stored with
+    // different argument values.
+    if (NumArrayElemStores != ElemCount || ElemIdxSet.size() != ElemCount)
+      return UnKnown;
+  } else {
+    // It should be only one element if array element type is not struct.
+    if (NumArrayElemStores != 1)
+      return UnKnown;
+  }
+  assert(CopyLoop && "Expected valid loop");
+
+  // The remainder loop in above example source code is
+  //  converted to memset like below in IR.
+  //
+  // Source code:
+  //   for (; index < newMax; index++)
+  //     base[index] = 0;
+  //
+  // IR:
+  //   memset(base + index, 0, newMax - index + 1)
+  //
+  // Ex:
+  //     %13 is NewSize
+  //     %30 is pointer to newly allocated memory.
+  //
+  //     Pre-Loop:
+  //
+  //     Loop:
+  //       ...
+  //       %60 = add nuw nsw i64 %54, 1
+  //       %61 = icmp ult i64 %60, %38
+  //       br i1 %61, label %53, label %39
+  //
+  //     Loop_Exit:
+  //       %40 = trunc i64 %60 to i32
+  //
+  //     BLK:
+  //       %42 = phi i32 [ 0, %Pre-Loop ], [ %40, %Loop_Exit ]
+  //       %43 = icmp ult i32 %42, %13
+  //       br i1 %43, label %MEM_BLK, label %SOMEOTHER
+  //
+  //     MEM_BLK:
+  //       %45 = zext i32 %42 to i64
+  //       %46 = shl nuw nsw i64 %45, 3
+  //       %47 = getelementptr i8, i8* %30, i64 %46
+  //       %48 = xor i32 %42, -1
+  //       %49 = add i32 %13, %48
+  //       %50 = zext i32 %49 to i64
+  //       %51 = shl nuw nsw i64 %50, 3
+  //       %52 = add nuw nsw i64 %51, 8
+  //       memset.p0i8.i64(i8* align 8 %47, i8 0, i64 %52, i1 false)
+
+  MemSetInst *Memset = nullptr;
+
+  for (auto *APtr : ArrayPtrAliases)
+    for (auto *U : APtr->users()) {
+      auto *GEP = dyn_cast<GetElementPtrInst>(U);
+      if (!GEP || GEP->getNumIndices() != 1)
+        continue;
+      for (auto *UU : GEP->users()) {
+        MemSetInst *II = dyn_cast<MemSetInst>(UU);
+        if (!II)
+          continue;
+        if (II->getArgOperand(0) != GEP)
+          return UnKnown;
+        if (Memset)
+          return UnKnown;
+        Memset = II;
+      }
+    }
+  // Memset is not mandatory.
+  if (Memset) {
+    auto *GEP = cast<GetElementPtrInst>(Memset->getArgOperand(0));
+    // Make sure it is initializing zero values.
+    Value *ZeroVal = Memset->getArgOperand(1);
+    if (!isa<ConstantInt>(ZeroVal) ||
+        !cast<ConstantInt>(ZeroVal)->isZeroValue())
+      return UnKnown;
+
+    Value *LValue;
+    Value *RValue;
+    ICmpInst::Predicate Predi;
+    // Check this memset is controlled under index value of previous loop
+    // and NewSize.
+    //   %43 = icmp ult i32 %42, %NewSize
+    //   br i1 %43, label %MEM_BLK, label %SOME
+    BasicBlock *FBlock =
+        getBBControlledOps(Memset->getParent(), &LValue, &RValue, &Predi);
+    if (!FBlock || Predi != ICmpInst::ICMP_ULT)
+      return UnKnown;
+    if (NewSize != RValue)
+      return UnKnown;
+    // Make sure LValue is index value of previous loop.
+    auto *Phi = dyn_cast<PHINode>(LValue);
+    if (!IsValueOfIndexCountAfterLoopExit(Phi, CopyLoop))
+      return UnKnown;
+
+    // Check index value multiplied with size of element.
+    //   %45 = zext i32 %Phi to i64
+    //   %46 = shl nuw nsw i64 %45, 3
+    //   %47 = getelementptr i8, i8* %30, i64 %46
+    if (!checkAllocSizeOfArray(GEP->getOperand(1), ThisObj, Phi))
+      return UnKnown;
+
+    // Check the size of memset as "newMax - index + 1"
+    // XorI:          %48 = xor i32 %Phi, -1
+    // RemainSize:    %49 = add i32 %NewSize, %48
+    //                %50 = zext i32 %49 to i64
+    //                %51 = shl nuw nsw i64 %50, 3
+    // MemsetSize:    %52 = add nuw nsw i64 %51, 8
+    //
+    ConstantInt *AddC;
+    Value *AddOp;
+    Value *MemsetSize = Memset->getArgOperand(2);
+    if (!match(MemsetSize, m_Add(m_Value(AddOp), m_ConstantInt(AddC))))
+      return UnKnown;
+    Type *ElemTy = MICInfo->getFieldElemTy(FieldIdx);
+    unsigned ElemSize = DL.getTypeAllocSize(ElemTy);
+    if (AddC->getLimitedValue() != ElemSize)
+      return UnKnown;
+    int64_t Multiplier = 1;
+    const Value *RemainSize = computeMultiplier(AddOp, &Multiplier);
+    if (!RemainSize || Multiplier != ElemSize)
+      return UnKnown;
+    Instruction *XorI;
+    if (!match(RemainSize, m_Add(m_Specific(NewSize), m_Instruction(XorI))))
+      return UnKnown;
+    if (!match(XorI, m_Xor(m_Specific(Phi), m_AllOnes())))
+      return UnKnown;
+    Visited.insert(cast<Instruction>(XorI));
+    Visited.insert(cast<Instruction>(RemainSize));
+    Visited.insert(cast<Instruction>(MemsetSize));
+    Visited.insert(GEP);
+    Visited.insert(Memset);
+  }
+
+  // Array field assignment should be dominated by Free call.
+  BasicBlock *LHead = CopyLoop->getLoopPreheader()->getSinglePredecessor();
+  FreeCallInfo *FInfo = *FreeList.begin();
+  Instruction *FreeRelatedInst = FInfo->getInstruction();
+  if (FreeBB != FreeRelatedInst->getParent())
+    FreeRelatedInst = &FreeBB->front();
+  Instruction *CopyRelatedInst = &LHead->front();
+  if (!checkDominatorInfo(FreeRelatedInst, ArrayFieldStore))
+    return UnKnown;
+  // Free Call should be dominated by Array element assignment.
+  if (!checkDominatorInfo(CopyRelatedInst, FreeRelatedInst))
+    return UnKnown;
+
+  if (!checkAllInstsProcessed(Fn, Visited)) {
+    DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+      dbgs() << " Failed: Missing to process some instructions.\n";
+    });
+    return UnKnown;
+  }
+  return Resize;
 }
 
 // Analyze all member functions of class.
@@ -2147,7 +3232,7 @@ FunctionKind ClassInfo::recognizeResize() {
 bool ClassInfo::analyzeClassFunctions() {
 
   // Try to recognize functionality of Fn based on initial FunctionKind.
-  auto RecognizeFunctionality = [this](Function *Fn, FunctionKind InitKind) {
+  auto RecognizeFunctionality = [this](Function *Fn) {
     FunctionKind FKind = UnKnown;
 
     // Check if the function is already analyzed.
@@ -2158,15 +3243,16 @@ bool ClassInfo::analyzeClassFunctions() {
     DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
       dbgs() << "  Analyzing functionality of " << Fn->getName() << "...\n";
     });
+    FunctionKind InitKind = InitialFuncKind[Fn];
     switch (InitKind) {
     case CopyConstructor:
-      FKind = recognizeCopyConstructor();
+      FKind = recognizeCopyConstructor(Fn);
       break;
     case AppendElem:
-      FKind = recognizeAppendElem();
+      FKind = recognizeAppendElem(Fn);
       break;
     case Resize:
-      FKind = recognizeResize();
+      FKind = recognizeResize(Fn);
       break;
     case Destructor:
       FKind = recognizeDestructor(Fn);
@@ -2206,7 +3292,6 @@ bool ClassInfo::analyzeClassFunctions() {
   DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
                   { dbgs() << "  Categorize functions using signature: \n"; });
 
-  DenseMap<Function *, FunctionKind> InitialFuncKind;
   SmallPtrSet<Function *, 2> ConstructorSet;
 
   collectElementDataTypes();
@@ -2255,7 +3340,7 @@ bool ClassInfo::analyzeClassFunctions() {
 
   // Analyze remaining member functions.
   for (auto *Fn : MICInfo->member_functions(FieldIdx))
-    if (!RecognizeFunctionality(Fn, InitialFuncKind[Fn])) {
+    if (!RecognizeFunctionality(Fn)) {
       if (!DTransMemInitRecognizeAll)
         return false;
     }
