@@ -23,10 +23,6 @@ def warn_main_arg_wrong : Warning<"%select{first|second|third|fourth}0 "
 def warn_pragma_unroll_invalid_factor_ignored : Warning<
   "unrolling factor '%0' is %select{negative|too large}1 and will be ignored">,
   InGroup<Pragmas>;
-// Fix for CQ373961: redeclaration of class member with different access.
-def warn_class_redeclared_with_different_access : Warning<
-  "%0 redeclared with '%1' access">,
-  AccessControl, InGroup<RedeclaredClassMember>;
 def warn_access_dtor_vbase :
     Warning<"inherited virtual base class %1 has "
     "%select{private|protected}2 destructor">,

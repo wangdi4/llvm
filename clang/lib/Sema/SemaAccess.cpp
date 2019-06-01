@@ -48,22 +48,6 @@ bool Sema::SetMemberAccessSpecifier(NamedDecl *MemberDecl,
   // C++ [class.access.spec]p3: When a member is redeclared its access
   // specifier must be same as its initial declaration.
   if (LexicalAS != AS_none && LexicalAS != PrevMemberDecl->getAccess()) {
-#if INTEL_CUSTOMIZATION
-    // Fix for CQ373961: redeclaration of class member with different access.
-    if (getLangOpts().IntelCompat) {
-      Diag(MemberDecl->getLocation(),
-           diag::warn_class_redeclared_with_different_access)
-          << MemberDecl << LexicalAS;
-      Diag(PrevMemberDecl->getLocation(),
-           diag::note_previous_access_declaration)
-          << PrevMemberDecl << PrevMemberDecl->getAccess();
-
-      MemberDecl->setAccess(PrevMemberDecl->getAccess() > LexicalAS
-                                ? LexicalAS
-                                : PrevMemberDecl->getAccess());
-      return false;
-    }
-#endif // INTEL_CUSTOMIZATION
     Diag(MemberDecl->getLocation(),
          diag::err_class_redeclared_with_different_access)
       << MemberDecl << LexicalAS;
