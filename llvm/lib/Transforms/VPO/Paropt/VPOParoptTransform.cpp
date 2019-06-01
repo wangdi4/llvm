@@ -3188,15 +3188,27 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
 
       Value *ReplacementVal = getClauseItemReplacementValue(LprivI, InsertPt);
       genPrivatizationReplacement(W, Orig, ReplacementVal, LprivI);
-      if (!ForTask) {
-        // Emit constructor call for lastprivate var if it is not also a
-        // firstprivate (in which case the firsprivate init emits a cctor).
-        if (LprivI->getInFirstprivate() == nullptr)
-          VPOParoptUtils::genConstructorCall(LprivI->getConstructor(),
-                                             NewPrivInst, NewPrivInst);
+
+      // Emit constructor call for lastprivate var if it is not also a
+      // firstprivate (in which case the firstprivate init emits a cctor).
+      if (LprivI->getInFirstprivate() == nullptr)
+        VPOParoptUtils::genConstructorCall(LprivI->getConstructor(),
+                                           NewPrivInst, NewPrivInst);
+      // Generate the if-last-then-copy-out code.
+      if (!ForTask)
         genLprivFini(LprivI, IfLastIterBB->getTerminator());
-      } else
+      else
         genLprivFiniForTaskLoop(LprivI, IfLastIterBB->getTerminator());
+
+      // For tasks, call the destructor for the internal lastprivate var
+      // at the very end (after the thread may have copied-out)
+      // If the var is also firstprivate, the runtime will destruct it.
+      if (ForTask && LprivI->getDestructor() &&
+          LprivI->getInFirstprivate() == nullptr) {
+        VPOParoptUtils::genDestructorCall(LprivI->getDestructor(),
+                                          LprivI->getNew(),
+                                          W->getExitBBlock()->getTerminator());
+      }
 
       if (isa<WRNVecLoopNode>(W) && LprivI->getIsConditional()) {
         // For the following case:
@@ -3971,7 +3983,6 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
   bool Changed = false;
 
   BasicBlock *EntryBB = W->getEntryBBlock();
-  BasicBlock *ExitBB = W->getExitBBlock();
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genPrivatizationCode\n");
 
@@ -4006,7 +4017,7 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
 
     bool ForTask = W->getWRegionKindID() == WRegionNode::WRNTaskloop ||
                    W->getWRegionKindID() == WRegionNode::WRNTask;
-
+    BasicBlock *DestrBlock = nullptr;
     // Walk through each PrivateItem list in the private clause to perform
     // privatization for each Value item
     for (PrivateItem *PrivI : PrivClause.items()) {
@@ -4040,6 +4051,9 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
         //
         //   Instruction *AllocaInsertPt = EntryBB->front().getNextNode();
 
+        // TODO: Restructure this code so that the alloca is only done for
+        // non-tasks. We could just use the thunk's private space pointer
+        // directly in the task body.
         Instruction *AllocaInsertPt = EntryBB->getFirstNonPHI();
         NewPrivInst = genPrivatizationAlloca(PrivI, AllocaInsertPt, ".priv");
         PrivI->setNew(NewPrivInst);
@@ -4047,28 +4061,17 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
             getClauseItemReplacementValue(PrivI, AllocaInsertPt);
         genPrivatizationReplacement(W, Orig, ReplacementVal, PrivI);
 
-        if (!ForTask) {
-          PrivI->setNew(NewPrivInst);
-          VPOParoptUtils::genConstructorCall(PrivI->getConstructor(),
-                                             NewPrivInst, NewPrivInst);
-        } else {
-          AllocaInst *AI = cast<AllocaInst>(NewPrivInst);
-          const DataLayout &DL = AI->getModule()->getDataLayout();
-          // The compiler creates the stack space for the local vars. Thus
-          // the data needs to be copied from the thunk to the local vars.
-          if (!VPOUtils::canBeRegisterized(AI->getAllocatedType(), DL)) {
-            VPOUtils::genMemcpy(AI, PrivI->getNew(), DL, AI->getAlignment(),
-                                EntryBB);
-            VPOUtils::genMemcpy(PrivI->getNew(), AI, DL, AI->getAlignment(),
-                                ExitBB);
-          } else {
-            IRBuilder<> Builder(EntryBB->getTerminator());
-            Builder.CreateStore(Builder.CreateLoad(PrivI->getNew()),
-                                NewPrivInst);
-            Builder.SetInsertPoint(ExitBB->getTerminator());
-            Builder.CreateStore(Builder.CreateLoad(NewPrivInst),
-                                PrivI->getNew());
-          }
+        // checks for constructor existence
+        VPOParoptUtils::genConstructorCall(PrivI->getConstructor(), NewPrivInst,
+                                           NewPrivInst);
+        if (ForTask && PrivI->getDestructor()) {
+          // For tasks, call the destructor at the end of the region.
+          // For non-tasks, genDestructorCode takes care of this.
+          if (!DestrBlock)
+            createEmptyPrivFiniBB(W, DestrBlock);
+          VPOParoptUtils::genDestructorCall(PrivI->getDestructor(),
+                                            PrivI->getNew(),
+                                            DestrBlock->getTerminator());
         }
 
         LLVM_DEBUG(dbgs() << __FUNCTION__ << ": privatized '";
