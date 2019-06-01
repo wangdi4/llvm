@@ -1744,6 +1744,18 @@ adjustNullPointerValidAttr(Function &Caller, const Function &Callee) {
   }
 }
 
+#if INTEL_CUSTOMIZATION
+/// If the inlined function has "contains-rec-pro-clone" attribute,
+/// set this attribute in the caller post inlining.
+static void
+adjustContainsRecProCloneAttr(Function &Caller, const Function &Callee) {
+  if (Callee.hasFnAttribute("contains-rec-pro-clone") &&
+     !Caller.hasFnAttribute("contains-rec-pro-clone")) {
+    Caller.addFnAttr("contains-rec-pro-clone");
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 #define GET_ATTR_COMPAT_FUNC
 #include "AttributesCompatFunc.inc"
 

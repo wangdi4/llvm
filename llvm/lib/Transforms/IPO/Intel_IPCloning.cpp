@@ -906,7 +906,11 @@ static void createRecProgressiveClones(Function &F,
       NewF->addFnAttr("prefer-inline-rec-pro-clone");
     else
       NewF->addFnAttr("prefer-noinline-rec-pro-clone");
-
+    // In any case, it contains a recursive progressive clone, because it is
+    // one, and the merge rule function ContainsRecProCloneAttr guarentees
+    // that any function this function is inlined into will also contain a
+    // recursive progressive clone.
+    NewF->addFnAttr("contains-rec-pro-clone");
     if (LastCloneF)
       fixRecProgressiveRecCalls(F, *LastCloneF, *NewF);
     else
