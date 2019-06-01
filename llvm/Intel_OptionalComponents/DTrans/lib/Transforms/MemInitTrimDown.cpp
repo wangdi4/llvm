@@ -1925,6 +1925,7 @@ FunctionKind ClassInfo::recognizeSetElem(Function *Fn) {
     Value *DeleteAtLoc = isArrayElementLoadAt(PtrArg, ThisObj);
     if (!DeleteAtLoc || DeleteAtLoc != SetAtLoc)
       return UnKnown;
+    assert(FreeBB && "Expected valid FreeBB");
     // Check deleting is controlled under flag field.
     if (!checkBBControlledUnderFlagVal(FreeBB, ThisObj))
       return UnKnown;
@@ -2083,6 +2084,7 @@ FunctionKind ClassInfo::recognizeDestructor(Function *Fn) {
         return UnKnown;
       // Check if the entire loop controlled under the flag field.
       auto *PreCondBB = PH->getSinglePredecessor();
+      assert(PreCondBB && "Expected ZTT Basic Block");
       if (!checkBBControlledUnderFlagVal(PreCondBB, ThisObj))
         return UnKnown;
       FlagCheckInst = PreCondBB->getSinglePredecessor()->getTerminator();
