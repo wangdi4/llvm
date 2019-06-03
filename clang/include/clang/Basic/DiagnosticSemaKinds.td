@@ -5955,11 +5955,6 @@ def ext_standalone_specifier : ExtWarn<"'%0' is not permitted on a declaration "
 def err_standalone_class_nested_name_specifier : Error<
   "forward declaration of %select{class|struct|interface|union|enum}0 cannot "
   "have a nested name specifier">;
-// if INTEL_CUSTOMIZATION
-//   CQ409175: allow class name specifiers of forward declarations.
-def warn_standalone_class_nested_name_specifier : Warning<
-  err_standalone_class_nested_name_specifier.Text>, InGroup<IntelCompat>;
-// endif INTEL_CUSTOMIZATION
 def err_typecheck_sclass_func : Error<"illegal storage class on function">;
 def err_static_block_func : Error<
   "function declared in block scope cannot have 'static' storage class">;
