@@ -96,9 +96,10 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
   if (CGM.getLangOpts().OpenMPLateOutline) {
 #endif // INTEL_CUSTOMIZATION
     // Combined target directives
-    auto *Dir = dyn_cast<OMPExecutableDirective>(S);
-    if (Dir && requiresImplicitTask(*Dir))
-      return EmitLateOutlineOMPDirective(*Dir, OMPD_task);
+    if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
+      if (requiresImplicitTask(*Dir))
+        return EmitLateOutlineOMPDirective(*Dir, OMPD_task);
+
     if (S->getStmtClass() == Stmt::OMPTargetParallelDirectiveClass ||
         S->getStmtClass() == Stmt::OMPTargetParallelForDirectiveClass ||
         S->getStmtClass() == Stmt::OMPTargetParallelForSimdDirectiveClass ||
@@ -110,6 +111,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
             Stmt::OMPTargetTeamsDistributeParallelForDirectiveClass ||
         S->getStmtClass() ==
             Stmt::OMPTargetTeamsDistributeParallelForSimdDirectiveClass) {
+      auto *Dir = dyn_cast<OMPExecutableDirective>(S);
       return EmitLateOutlineOMPDirective(*Dir, OMPD_target);
     }
     // Combined teams directives
