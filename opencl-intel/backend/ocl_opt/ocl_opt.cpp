@@ -595,9 +595,9 @@ int main(int argc, char **argv) {
       errs() << EC.message() << '\n';
       return 1;
     }
-    Context.setRemarkStreamer(
-        llvm::make_unique<RemarkStreamer>(RemarksFilename,
-                                          OptRemarkFile->os()));
+    Context.setRemarkStreamer(llvm::make_unique<RemarkStreamer>(
+        RemarksFilename,
+        llvm::make_unique<remarks::YAMLSerializer>(OptRemarkFile->os())));
   }
 
   // Load the input module...
