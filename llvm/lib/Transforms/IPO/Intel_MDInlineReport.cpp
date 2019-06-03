@@ -419,18 +419,31 @@ void InlineReportBuilder::setDead(Function *F) {
 static Metadata *
 cloneInliningReportHelper(LLVMContext &C, Metadata *OldMD,
                           DenseMap<Metadata *, Metadata *> &MDMap,
-                          std::set<MDTuple *> &LeafMDIR) {
+                          std::set<MDTuple *> &LeafMDIR,
+                          Metadata *CurrentCallInstReport) {
   if (!OldMD)
     return nullptr;
   Metadata *NewMD = nullptr;
   if (MDString *OldStrMD = dyn_cast<MDString>(OldMD))
     NewMD = llvm::MDString::get(C, OldStrMD->getString());
-  else if (MDTuple *OldTupleMD = dyn_cast<MDTuple>(OldMD)) {
+  else if (OldMD == CurrentCallInstReport) {
+    // It means that we have a recursive inlining call. Make a default inline
+    // report out of the stored inlining report since call instruction is
+    // already invalid.
+    CallSiteInliningReport OldRep(cast<MDTuple>(CurrentCallInstReport));
+    unsigned LineNum = 0, ColNum = 0;
+    OldRep.getLineAndCol(&LineNum, &ColNum);
+    CallSiteInliningReport *NewRep = new CallSiteInliningReport(
+        &C, OldRep.getName(), nullptr, NinlrNoReason, false, -1, -1, -1,
+        INT_MAX, INT_MAX, LineNum, ColNum, OldRep.getModuleName());
+    NewMD = NewRep->get();
+  } else if (MDTuple *OldTupleMD = dyn_cast<MDTuple>(OldMD)) {
     SmallVector<Metadata *, 20> Ops;
     int NumOps = OldTupleMD->getNumOperands();
     for (int I = 0; I < NumOps; ++I)
       Ops.push_back(cloneInliningReportHelper(C, OldTupleMD->getOperand(I),
-                                              MDMap, LeafMDIR));
+                                              MDMap, LeafMDIR,
+                                              CurrentCallInstReport));
     MDTuple *NewTupleMD = nullptr;
     if (OldTupleMD->isDistinct())
       NewTupleMD = MDTuple::getDistinct(C, Ops);
@@ -463,21 +476,28 @@ Metadata *InlineReportBuilder::cloneInliningReport(Function *F,
   if (!FuncMD)
     return nullptr;
   std::set<MDTuple *> LeafMDIR;
-  Metadata *NewFuncMD = cloneInliningReportHelper(F->getParent()->getContext(),
-                                                  FuncMD, MDMap, LeafMDIR);
+  LLVMContext &C = F->getParent()->getContext();
+  Metadata *NewFuncMD = cloneInliningReportHelper(C, FuncMD, MDMap, LeafMDIR,
+                                                  CurrentCallInstReport);
   if (!NewFuncMD)
     return nullptr;
+
   for (ValueToValueMapTy::iterator InstIt = VMap.begin(),
                                    InstItEnd = VMap.end();
        InstIt != InstItEnd; InstIt++) {
-    if (!InstIt->first || !InstIt->second)
-      continue;
-
-    const Instruction *OldI = dyn_cast<Instruction>(InstIt->first);
-    if (!OldI || !isa<CallBase>(OldI))
-      continue;
-    Metadata *OldMetadata = OldI->getMetadata(CallSiteTag);
-    if (!OldMetadata)
+    Metadata *OldMetadata = nullptr;
+    if (!InstIt->first) {
+      // It means that we have a recursive inlining call. Make a default inline
+      // report out of the stored inlining report since call instruction is
+      // already invalid.
+      OldMetadata = CurrentCallInstReport;
+    } else {
+      const Instruction *OldI = dyn_cast<Instruction>(InstIt->first);
+      if (!OldI || !isa<CallBase>(OldI))
+        continue;
+      OldMetadata = OldI->getMetadata(CallSiteTag);
+    }
+    if (!OldMetadata || !InstIt->second)
       continue;
     Instruction *NewI = dyn_cast_or_null<Instruction>(InstIt->second);
     if (!NewI)

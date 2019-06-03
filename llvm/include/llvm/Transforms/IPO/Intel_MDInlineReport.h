@@ -315,6 +315,15 @@ public:
     }
     return false;
   }
+
+  // Return module name of the call site inline report
+  StringRef getModuleName() {
+    assert((Report->getNumOperands() == MDInliningReport::CallSiteMDSize) &&
+           "bad metadata for callsite inline report");
+    return llvm::getOpStr(
+        Report->getOperand(MDInliningReport::CSMDIR_ModuleName),
+        "moduleName: ");
+  }
 };
 
 // Set of functions which set not-inlined reason to call site

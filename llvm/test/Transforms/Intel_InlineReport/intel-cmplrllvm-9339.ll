@@ -35,8 +35,7 @@
 ; CHECK-MD-OLD: I241872{{.*}}Callee has recursion
 ; CHECK-MD-OLD: INLINE: I241872{{.*}}<<Inlining is profitable>>
 ; CHECK-MD-OLD: I241872{{.*}}Callee has recursion
-; Delete does not appear to be correct here. Olga will investigate.
-; CHECK-MD-OLD: DELETE: I241872
+; CHECK-MD-OLD: I241872{{.*}}Callee has recursion
 
 ; Checks for new pass manager (metadata report)
 
@@ -44,8 +43,7 @@
 ; CHECK-MD-NEW: I241872{{.*}}Callee has recursion
 ; CHECK-MD-NEW: COMPILE FUNC: I241872
 ; CHECK-MD-NEW: INLINE: I241872{{.*}}<<Inlining is profitable>>
-; Delete does not appear to be correct here. Olga will investigate.
-; CHECK-MD-NEW: DELETE: I241872
+; CHECK-MD-NEW: I241872{{.*}}Not tested for inlining
 ; CHECK-MD-NEW: I241872{{.*}}Not tested for inlining
 ; CHECK-MD-NEW: I241872{{.*}}Callee has recursion
 
