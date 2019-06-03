@@ -985,27 +985,22 @@ MacroArgs *Preprocessor::ReadMacroCallArgumentList(Token &MacroName,
       //   #define C(...) blah(a, ## __VA_ARGS__)
       //  A(x) B(x) C()
       isVarargsElided = true;
-    } else if (!ContainsCodeCompletionTok) {
 #if INTEL_CUSTOMIZATION
-      // CQ#365448 - allow passing less arguments to function-like macro,
-      // replacing missing arguments with empty strings and emit a warning.
-      if (getLangOpts().IntelMSCompat) {
-        Diag(Tok, diag::warn_too_few_args_in_macro_invoc);
-        Diag(Tok, diag::warn_missing_fnmacro_args_replaced_by_empty)
+    } else if (!ContainsCodeCompletionTok &&
+               getLangOpts().isIntelCompat(LangOptions::AllowFewerMacroArgs)) {
+      Diag(Tok, diag::warn_too_few_args_in_macro_invoc);
+      Diag(Tok, diag::warn_missing_fnmacro_args_replaced_by_empty)
           << MinArgsExpected - NumActuals;
-        Diag(MI->getDefinitionLoc(), diag::note_macro_here)
+      Diag(MI->getDefinitionLoc(), diag::note_macro_here)
           << MacroName.getIdentifierInfo();
-        // Don't return nullptr in this case, because we didn't emit any error.
-      } else {
+      // Don't return nullptr in this case, because we didn't emit any error.
 #endif // INTEL_CUSTOMIZATION
+    } else if (!ContainsCodeCompletionTok) {
       // Otherwise, emit the error.
       Diag(Tok, diag::err_too_few_args_in_macro_invoc);
       Diag(MI->getDefinitionLoc(), diag::note_macro_here)
         << MacroName.getIdentifierInfo();
       return nullptr;
-#if INTEL_CUSTOMIZATION
-      }
-#endif // INTEL_CUSTOMIZATION
     }
 
     // Add a marker EOF token to the end of the token list for this argument.
@@ -1017,9 +1012,9 @@ MacroArgs *Preprocessor::ReadMacroCallArgumentList(Token &MacroName,
     ArgTokens.push_back(Tok);
 
 #if INTEL_CUSTOMIZATION
-    // CQ#365448 - add empty tokens for all missing arguments in IntelMSCompat.
+    // CQ#365448 - add empty tokens for all missing arguments.
     // Note that one empty token was already added at the previous line.
-    if (getLangOpts().IntelMSCompat)
+    if (getLangOpts().isIntelCompat(LangOptions::AllowFewerMacroArgs))
       for (unsigned I = NumActuals + 1; I < MinArgsExpected; ++I)
         ArgTokens.push_back(Tok);
     else

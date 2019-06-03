@@ -106,6 +106,60 @@ Microsoft allows you to catch a string literal with catch(char \*).
 
   }];
 }
+
+def AllowFewerMacroArgsDocs : Documentation {
+  let Category = DocCatMSCompat;
+  let Option = "IntelCompat";
+  let BugTracker = "cq365448";
+  let RegressionTest = "Preprocessor/intel/missing_macro_args.cpp";
+  let Owner = "mprice1";
+  let Default = 0;
+  let Content = [{
+Microsoft allows passing fewer arguments to function-like macros, replacing
+each missing argument with the empty string. A warning is given. This
+behavior is off-by-default.
+
+.. code-block:: c++
+
+  #define FUNC(x,y) (0)
+  void foo() {
+    FUNC(0);
+  }
+
+.. code-block:: console
+
+  $ cl /c /nologo t.cpp
+  t.cpp
+  t.cpp(3): warning C4003: not enough actual parameters for macro 'FUNC'
+
+.. code-block:: console
+
+  $ clang-cl /c /nologo t.cpp
+  t.cpp(3,11): error: too few arguments provided to function-like macro invocation
+      FUNC(0);
+          ^
+  t.cpp(1,9): note: macro 'FUNC' defined here
+  #define FUNC(x,y) (0)
+          ^
+  t.cpp(3,5): error: use of undeclared identifier 'FUNC'
+      FUNC(0);
+      ^
+  2 errors generated.
+
+.. code-block:: console
+
+  $ clang -cc1 -fintel-compatibility-enable=AllowFewerMacroArgs t.cpp
+  t.cpp:3:9: warning: too few arguments provided to function-like macro invocation
+    FUNC(0);
+          ^
+  t.cpp:3:9: warning: 1 missing macro argument treated as empty string
+  t.cpp:1:9: note: macro 'FUNC' defined here
+  #define FUNC(x,y) (0)
+          ^
+  2 warnings generated.
+  }];
+}
+
 def IntelTBAABFDocs : Documentation {
   let Category = DocCatIntelOptimization;
   let Option = "IntelCompat";
