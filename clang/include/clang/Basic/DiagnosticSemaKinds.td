@@ -372,11 +372,6 @@ def ext_use_out_of_scope_declaration : ExtWarn<
   InGroup<DiagGroup<"out-of-scope-function">>;
 def err_inline_non_function : Error<
   "'inline' can only appear on functions%select{| and non-local variables}0">;
-// if INTEL_CUSTOMIZATION
-// CQ#370751
-def warn_inline_non_function : Warning<err_inline_non_function.Text>,
-    InGroup<IntelCompat>;
-// endif INTEL_CUSTOMIZATION
 def err_noreturn_non_function : Error<
   "'_Noreturn' can only appear on functions">;
 def warn_qual_return_type : Warning<
