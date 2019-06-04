@@ -22,6 +22,12 @@
 #ifndef LLVM_CODEGEN_INTEL_FMACOMMON_H
 #define LLVM_CODEGEN_INTEL_FMACOMMON_H
 
+#include "llvm/Support/raw_ostream.h"
+#include <algorithm>
+#include <cassert>
+#include <cstdint>
+#include <vector>
+
 namespace llvm {
 
 
