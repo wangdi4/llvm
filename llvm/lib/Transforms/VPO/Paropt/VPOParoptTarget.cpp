@@ -134,6 +134,9 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
         cast<PointerType>(I->getType())->getAddressSpace();
     Value *NewArgV = ArgV;
     if (NewAddressSpace != OldAddressSpace) {
+      // FIXME: we should cast everything to the generic address space,
+      //        and rewrite all the users recursively. Right now, we are
+      //        casting global to private, which is incorrect.
       NewArgV = Builder.CreatePointerBitCastOrAddrSpaceCast(ArgV, I->getType());
     }
     I->replaceAllUsesWith(NewArgV);
@@ -150,8 +153,14 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
     FunctionDIs.erase(DI);
     FunctionDIs[NFn] = SP;
   }
-  if (VPOAnalysisUtils::isTargetSPIRV(NFn->getParent()) &&
-      hasOffloadCompilation())
+  if (isTargetSPIRV())
+    // FIXME: InferAddrSpaces() expects a flat address space number,
+    //        which is vpo:ADDRESS_SPACE_GENERIC, but we currently pass
+    //        vpo::ADDRESS_SPACE_PRIVATE. We hope that InferAddrSpaces()
+    //        will remove casts to the private address space, but this
+    //        may not happen always, since InferAddrSpaces() is an optimization.
+    //        See a FIXME note above - this is what we have to do
+    //        (i.e. follow the lines of GenericToNVVM pass).
     InferAddrSpaces(*TTI, 0, *NFn);
 
   return NFn;
@@ -194,6 +203,10 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   if (VPOAnalysisUtils::isTargetSPIRV(F->getParent()) &&
       hasOffloadCompilation())
     finalizeKernelFunction(W, NewF, NewCall);
+
+  if (hasOffloadCompilation())
+    // Everything below only makes sense on the host.
+    return true;
 
   // allocas should stay close to the call, in case the target region is
   // enclosed in another region which is outlined later.
@@ -655,6 +668,8 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
                                                 Value *RegionId,
                                                 Instruction *InsertPt) {
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTargetInitCode\n");
+  assert(!hasOffloadCompilation() &&
+         "genTargetInitCode() called for device compilation.");
   LLVMContext &C = F->getContext();
 
   TgDataInfo Info;
@@ -749,8 +764,6 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
   }
 
   genOffloadArraysArgument(&Info, InsertPt);
-  if (hasOffloadCompilation())
-    return Call;
 
   CallInst *TgtCall = nullptr;
   if (isa<WRNTargetNode>(W)) {
