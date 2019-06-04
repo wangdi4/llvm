@@ -2954,10 +2954,7 @@ getNoteDiagForInvalidRedeclaration(const T *Old, const T *New) {
 static bool canRedefineFunction(const FunctionDecl *FD,
                                 const LangOptions& LangOpts) {
   return ((FD->hasAttr<GNUInlineAttr>() || LangOpts.GNUInline) &&
-#if INTEL_CUSTOMIZATION
-          // CQ#377372 - allow to redefine functions in C++.
-          (!LangOpts.CPlusPlus || LangOpts.IntelCompat) &&
-#endif // INTEL_CUSTOMIZATION
+          !LangOpts.CPlusPlus &&
           FD->isInlineSpecified() &&
           FD->getStorageClass() == SC_Extern);
 }
@@ -13273,17 +13270,8 @@ Sema::CheckForFunctionRedefinition(FunctionDecl *FD,
   if (!Definition)
     return;
 
-#if INTEL_CUSTOMIZATION
-  if (canRedefineFunction(Definition, getLangOpts())) {
-    if (getLangOpts().CPlusPlus) {
-      // CQ#377372 - show warning that we use Intel extension.
-      Diag(FD->getLocation(), diag::ext_intel_redefinition_extern_inline)
-          << FD->getDeclName();
-      Diag(Definition->getLocation(), diag::note_previous_definition);
-    }
+  if (canRedefineFunction(Definition, getLangOpts()))
     return;
-  }
-#endif // INTEL_CUSTOMIZATION
 
   // Don't emit an error when this is redefinition of a typo-corrected
   // definition.

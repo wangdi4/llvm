@@ -63,11 +63,6 @@ def warn_default_arg_makes_ctor_special : Warning<
 def warn_int_typedef_redefinition_ignored : ExtWarn<
   "integer typedef redefinition%diff{ ($ vs $)|}0,1 is an Intel extension">,
   InGroup<IntelCompat>;
-// CQ#377372 - allow to redefine extern inline functions in C++ mode
-def ext_intel_redefinition_extern_inline : ExtWarn<
-  "redefinition of a 'extern inline' function %0 in "
-  "C++ mode is an Intel extension">,
-  InGroup<IntelCompat>;
 def err_recursive_attribute_expected : Error<
   "recursive keyword expected after a pragma inline directive">;
 // CQ#364598, CQ#374878.
