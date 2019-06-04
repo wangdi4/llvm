@@ -23,31 +23,12 @@ namespace llvm {
 namespace vpo {
 
 class VPVLSClientMemref : public OVLSMemref {
-#if INTEL_CUSTOMIZATION
-protected:
-  explicit VPVLSClientMemref(const OVLSMemrefKind &Kind,
-                             const OVLSAccessType &AccTy, const OVLSType &Ty,
-                             const VPInstruction *Inst)
-      : OVLSMemref(Kind, Ty, AccTy), Inst(Inst) {}
-#endif // INTEL_CUSTOMIZATION
-
   const VPInstruction *Inst;
 
-  static llvm::OVLSType getOVLSType(const VPInstruction *Inst,
-                                    const unsigned VF) {
-    return llvm::OVLSType();
-  }
-
-  static llvm::OVLSAccessType getOVLSAccessType(const VPInstruction *Inst) {
-    // FIXME: The type should be known at this point.
-    return OVLSAccessType::getUnknownTy();
-  }
-
 public:
-  explicit VPVLSClientMemref(const VPInstruction *Inst, const unsigned VF)
-      : OVLSMemref(VLSK_VPlanVLSClientMemref, getOVLSType(Inst, VF),
-                   getOVLSAccessType(Inst)),
-        Inst(Inst) {}
+  VPVLSClientMemref(const OVLSMemrefKind &Kind, const OVLSAccessType &AccTy,
+                    const OVLSType &Ty, const VPInstruction *Inst)
+      : OVLSMemref(Kind, Ty, AccTy), Inst(Inst) {}
 
   virtual ~VPVLSClientMemref() {}
 
@@ -78,6 +59,10 @@ public:
   virtual bool hasAConstStride(int64_t *Stride) const override {
     // FIXME: Implement this function.
     return false;
+  }
+
+  virtual unsigned getLocation() const override {
+    llvm_unreachable("Unimplemented");
   }
 
   const VPInstruction *getInstruction(void) const { return Inst; }

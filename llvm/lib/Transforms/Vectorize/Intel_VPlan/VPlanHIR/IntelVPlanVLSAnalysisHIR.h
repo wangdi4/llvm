@@ -51,8 +51,9 @@ private:
                                    int64_t *Stride);
 
 public:
-  explicit VPlanVLSAnalysisHIR(HIRDDAnalysis *DDA, LLVMContext &Context)
-      : VPlanVLSAnalysis(Context), DDA(DDA) {}
+  VPlanVLSAnalysisHIR(HIRDDAnalysis *DDA, LLVMContext &Context,
+                      const DataLayout &DL)
+      : VPlanVLSAnalysis(Context, DL), DDA(DDA) {}
 
   static bool isUnitStride(const RegDDRef *Ref, unsigned Level);
 

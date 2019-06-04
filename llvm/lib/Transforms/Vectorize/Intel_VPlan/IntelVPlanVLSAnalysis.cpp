@@ -25,6 +25,29 @@ namespace llvm {
 
 namespace vpo {
 
+OVLSMemref *VPlanVLSAnalysis::createVLSMemref(const VPInstruction *VPInst,
+                                              const VPVectorShape *Shape,
+                                              const unsigned VF) const {
+  OVLSAccessType AccTy = OVLSAccessType::getUnknownTy();
+  if (!Shape->isAnyStrided())
+    return nullptr;
+
+  int Opcode = VPInst->getOpcode();
+  int AccessSize;
+  if (Opcode == Instruction::Load) {
+    AccTy = OVLSAccessType::getStridedLoadTy();
+    AccessSize = DL.getTypeAllocSizeInBits(VPInst->getType());
+  } else {
+    assert(Opcode == Instruction::Store);
+    AccTy = OVLSAccessType::getStridedStoreTy();
+    AccessSize = DL.getTypeAllocSizeInBits(VPInst->getOperand(0)->getType());
+  }
+
+  OVLSType Ty(AccessSize, VF);
+  return new VPVLSClientMemref(OVLSMemref::VLSK_VPlanVLSClientMemref, AccTy, Ty,
+                               VPInst);
+}
+
 void VPlanVLSAnalysis::collectMemrefs(const VPRegionBlock *Region,
                                       const VPlanDivergenceAnalysis &DA,
                                       OVLSMemrefVector &MemrefVector,

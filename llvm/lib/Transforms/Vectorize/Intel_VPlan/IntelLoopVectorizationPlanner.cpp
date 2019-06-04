@@ -564,6 +564,7 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   State.UniformCBVs = &Plan->UniformCBVs;
 
   ILV->collectUniformsAndScalars(BestVF);
+  ILV->getVLS()->getOVLSMemrefs(Plan, BestVF);
 
   Plan->execute(&State);
 

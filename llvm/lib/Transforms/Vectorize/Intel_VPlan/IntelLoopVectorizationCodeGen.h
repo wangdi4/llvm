@@ -35,6 +35,7 @@ namespace vpo {
 class VPValue;
 class VPInstruction;
 class VPPHINode;
+class VPlanVLSAnalysis;
 struct VPTransformState;
 class VPOVectorizationLegality;
 
@@ -46,9 +47,10 @@ public:
   VPOCodeGen(Loop *OrigLoop, PredicatedScalarEvolution &PSE, LoopInfo *LI,
              DominatorTree *DT, TargetLibraryInfo *TLI,
              const TargetTransformInfo *TTI, unsigned VecWidth,
-             unsigned UnrollFactor, VPOVectorizationLegality *LVL)
+             unsigned UnrollFactor, VPOVectorizationLegality *LVL,
+             VPlanVLSAnalysis *VLSA)
       : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI), TTI(TTI),
-        Legal(LVL), TripCount(nullptr), VectorTripCount(nullptr),
+        Legal(LVL), VLSA(VLSA), TripCount(nullptr), VectorTripCount(nullptr),
         Induction(nullptr), OldInduction(nullptr), VF(VecWidth),
         UF(UnrollFactor), Builder(PSE.getSE()->getContext()),
         StartValue(nullptr), StrideValue(nullptr), LoopVectorPreHeader(nullptr),
@@ -153,6 +155,8 @@ public:
 
   /// Set transform state
   void setTransformState(struct VPTransformState *SP) { State = SP; }
+
+  VPlanVLSAnalysis *getVLS() { return VLSA; }
 
 private:
 
@@ -341,6 +345,7 @@ private:
   const TargetTransformInfo *TTI;
 
   VPOVectorizationLegality *Legal;
+  VPlanVLSAnalysis *VLSA;
 
   // Loop trip count
   Value *TripCount;
