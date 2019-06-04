@@ -415,13 +415,7 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
     // they only appear on the RHS of assignments later.
     ExprResult RHS;
     bool RHSIsInitList = false;
-    if ((getLangOpts().CPlusPlus11 || getLangOpts().IntelCompat) && // INTEL
-        Tok.is(tok::l_brace)) { // INTEL
-#if INTEL_CUSTOMIZATION
-      // CQ375240
-      if (!getLangOpts().CPlusPlus11 && getLangOpts().IntelCompat)
-        Diag(Tok, diag::ext_generalized_initializer_lists);
-#endif // INTEL_CUSTOMIZATION
+    if (getLangOpts().CPlusPlus11 && Tok.is(tok::l_brace)) {
       RHS = ParseBraceInitializer();
       RHSIsInitList = true;
     } else if (getLangOpts().CPlusPlus && NextTokPrec <= prec::Conditional)
