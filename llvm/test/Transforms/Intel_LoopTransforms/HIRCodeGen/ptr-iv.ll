@@ -25,10 +25,7 @@
 ; CHECK: [[UB:%.*]] = udiv i64 [[PTR_MINUS_4]], 4
 
 ; Check wrap flags on IV
-; CHECK: [[IV_UPDATE:%.*]] = add nuw nsw i64 {{%.*}}, 1
-
-; Ensure UB is used in loop cmp
-; CHECK: icmp sle i64 [[IV_UPDATE]], [[UB]]
+; CHECK: [[IV_UPDATE:%nextiv.*]] = add nuw nsw i64 {{%.*}}, 1
 
 
 ; ModuleID = 'ptr-iv.c'

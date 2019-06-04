@@ -40,8 +40,9 @@
 ; CHECK: zext i32 [[ADD_IV2]] to i64
 
 ; Check wrap flags on IV
-; CHECK: [[IV_UPDATE:%.*]] = add nuw nsw i64 {{%.*}}, 1
-; CHECK: icmp sle i64 [[IV_UPDATE]]
+; CHECK: [[IV_LOAD3:%.*]] = load i64, i64* %i1.i64
+; CHECK: [[IV_UPDATE:%.*]] = add nuw nsw i64 [[IV_LOAD3]], 1
+; CHECK: icmp ne i64 [[IV_LOAD3]]
 
 ; ModuleID = 'test.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
