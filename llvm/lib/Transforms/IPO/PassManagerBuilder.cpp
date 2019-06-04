@@ -277,7 +277,7 @@ static cl::opt<bool> EnableMultiVersioning("enable-multiversioning",
 #if INTEL_FEATURE_CSA
 // CSA graph splitter.
 static cl::opt<bool> RunCSAGraphSplitter("enable-csa-graph-splitter",
-  cl::init(false), cl::Hidden,
+  cl::init(false), cl::Hidden, cl::ZeroOrMore,
   cl::desc("Run CSA graph splitter after late outlining."));
 #endif  // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
