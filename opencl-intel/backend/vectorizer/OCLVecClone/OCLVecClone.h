@@ -23,7 +23,7 @@
 using namespace llvm;
 
 namespace intel {
-class OCLVecClone : public VecClonePass, public VecClone {
+class OCLVecClone : public VecClone {
 private:
   // Configuration options
   const OptimizerConfig *Config = nullptr;
