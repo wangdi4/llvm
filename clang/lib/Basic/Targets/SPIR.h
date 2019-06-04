@@ -33,7 +33,24 @@ static const unsigned SPIRAddrSpaceMap[] = {
     0  // cuda_shared
 };
 
+#if INTEL_COLLAB
+static const unsigned SPIRAddrSpaceDefIsGenMap[] = {
+    4, // Default
+    1, // opencl_global
+    3, // opencl_local
+    2, // opencl_constant
+    0, // opencl_private
+    4, // opencl_generic
+    0, // cuda_device
+    0, // cuda_constant
+    0  // cuda_shared
+};
+#endif // INTEL_COLLAB
+
 class LLVM_LIBRARY_VISIBILITY SPIRTargetInfo : public TargetInfo {
+#if INTEL_COLLAB
+  bool UseAutoOpenCLAddrSpaceForOpenMP = false;
+#endif  // INTEL_COLLAB
 public:
   SPIRTargetInfo(const llvm::Triple &Triple, const TargetOptions &)
       : TargetInfo(Triple) {
@@ -59,6 +76,31 @@ public:
 
   void getTargetDefines(const LangOptions &Opts,
                         MacroBuilder &Builder) const override;
+
+#if INTEL_COLLAB
+  void adjust(LangOptions &Opts) override {
+    TargetInfo::adjust(Opts);
+    if (Opts.OpenMPLateOutline &&
+        // FIXME: Temporarily quaery for ENABLE_INFER_AS environment variable.
+        //        In the long term we should probably rely on
+        //        UseAutoOpenCLAddrSpaceForOpenMP language option.
+        //        The check for OpenMPLateOutline is also unnecessary.
+        (Opts.UseAutoOpenCLAddrSpaceForOpenMP || getenv("ENABLE_INFER_AS"))) {
+      // Use generic address space for all pointers except
+      // globals and stack locals.
+      Opts.UseAutoOpenCLAddrSpaceForOpenMP = true; // FIXME: remove this
+      UseAutoOpenCLAddrSpaceForOpenMP = true;
+      AddrSpaceMap = &SPIRAddrSpaceDefIsGenMap;
+    }
+  }
+
+  llvm::Optional<LangAS> getConstantAddressSpace() const override {
+    if (UseAutoOpenCLAddrSpaceForOpenMP)
+      // Place constants into a global address space.
+      return getLangASFromTargetAS(1);
+    return LangAS::Default;
+  }
+#endif  // INTEL_COLLAB
 
   bool hasFeature(StringRef Feature) const override {
     return Feature == "spir";

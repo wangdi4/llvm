@@ -82,10 +82,6 @@ Address CodeGenFunction::CreateTempAlloca(llvm::Type *Ty, CharUnits Align,
   if (AllocaAddr)
     *AllocaAddr = Alloca;
   llvm::Value *V = Alloca.getPointer();
-#if INTEL_COLLAB
-  if (CapturedStmtInfo && !ArraySize)
-    CapturedStmtInfo->recordValueDefinition(V);
-#endif // INTEL_COLLAB
   // Alloca always returns a pointer in alloca address space, which may
   // be different from the type defined by the language. For example,
   // in C++ the auto variables are in the default address space. Therefore
@@ -102,7 +98,10 @@ Address CodeGenFunction::CreateTempAlloca(llvm::Type *Ty, CharUnits Align,
         *this, V, getASTAllocaAddressSpace(), LangAS::Default,
         Ty->getPointerTo(DestAddrSpace), /*non-null*/ true);
   }
-
+#if INTEL_COLLAB
+  if (CapturedStmtInfo && !ArraySize)
+    CapturedStmtInfo->recordValueDefinition(V);
+#endif // INTEL_COLLAB
   return Address(V, Align);
 }
 

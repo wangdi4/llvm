@@ -234,6 +234,12 @@ LANGOPT(OpenMPSimd        , 1, 0, "Use SIMD only OpenMP support.")
 LANGOPT(OpenMPUseTLS      , 1, 0, "Use TLS for threadprivates or runtime calls")
 #if INTEL_COLLAB
 LANGOPT(OpenMPLateOutline , 1, 0, "Outline OpenMP constructs in the back end")
+LANGOPT(UseAutoOpenCLAddrSpaceForOpenMP, 1, 0,
+    "For address space agnostic languages deduce address space as:"
+    " - use target AS 0 for alloca objects;"
+    " - use LangAS::opencl_global for constant and global variables;"
+    " - use LangAS::Default for all other pointer types;"
+    " - map LangAS::Default to target AS 4.")
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 LANGOPT(OpenMPLateOutlineTarget, 1, 1, "Outline OpenMP target construct in the back end")
