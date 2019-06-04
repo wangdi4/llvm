@@ -59,10 +59,6 @@ def warn_default_arg_makes_ctor_special : Warning<
   "addition of default argument on redeclaration makes this constructor a "
   "%select{default|copy|move}0 constructor">, InGroup<IntelCompat>;
 
-// CQ#373258 - allow class member typedef redefinition in IntelCompat mode.
-def ext_intel_member_typedef_redefinition : ExtWarn<
-  "class member typedef redefinition is an Intel extension">,
-  InGroup<IntelCompat>;
 // CQ#377518 - allow integer typedef redefinition in IntelMSCompat mode.
 def warn_int_typedef_redefinition_ignored : ExtWarn<
   "integer typedef redefinition%diff{ ($ vs $)|}0,1 is an Intel extension">,
