@@ -622,7 +622,7 @@ struct InlineReportSetup : public ModulePass {
     AU.setPreservesAll();
   }
 
-  bool runOnModule(Module &M) {
+  bool runOnModule(Module &M) override {
     if (skipModule(M))
       return false;
     return setupInlineReport(M, *MDIR);

@@ -358,7 +358,7 @@ struct InlineReportEmitter : public ModulePass {
     AU.setPreservesAll();
   }
 
-  bool runOnModule(Module &M) {
+  bool runOnModule(Module &M) override {
     if (skipModule(M))
       return false;
     return emitInlineReport(M, IntelInlineReportLevel, OptLevel, SizeLevel,
