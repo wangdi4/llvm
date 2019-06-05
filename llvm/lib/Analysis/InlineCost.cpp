@@ -4010,7 +4010,8 @@ static bool worthInliningForArrayStructArgs(CallBase &CB,
   Function *Caller = CB.getCaller();
   auto AB = Caller->arg_begin();
   auto AE = Caller->arg_end();
-  return std::distance(AB, AE) >= ArrayStructArgMinCallerArgs;
+  unsigned Diff = std::distance(AB, AE);
+  return Diff >= ArrayStructArgMinCallerArgs;
 }
 
 //
