@@ -5964,16 +5964,6 @@ multiclass avx512_fp_binop_p<bits<8> opc, string OpcodeStr, SDPatternOperator Op
                               EVEX_CD8<64, CD8VF>;
   }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-  let Predicates = [prd, HasFP16] in {
-    defm PHZ : avx512_fp_packed<opc, OpcodeStr, OpNode, v32f16_info,
-                                sched.PH.ZMM, IsCommutable>, EVEX_V512, T_MAP5PS,
-                                EVEX_CD8<16, CD8VF>;
-  }
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-
     // Define only if AVX512VL feature is present.
   let Predicates = [prd, HasVLX] in {
     defm PSZ128 : avx512_fp_packed<opc, OpcodeStr, OpNode, v4f32x_info,
@@ -5990,10 +5980,19 @@ multiclass avx512_fp_binop_p<bits<8> opc, string OpcodeStr, SDPatternOperator Op
                                    sched.PD.YMM, IsCommutable>, EVEX_V256, PD, VEX_W,
                                    EVEX_CD8<64, CD8VF>;
   }
+}
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-  let Predicates = [prd, HasVLX, HasFP16] in {
+multiclass avx512_fp_binop_ph<bits<8> opc, string OpcodeStr, SDPatternOperator OpNode,
+                              X86SchedWriteSizes sched, bit IsCommutable = 0,
+                              bit IsPD128Commutable = IsCommutable> {
+  let Predicates = [HasFP16] in {
+    defm PHZ : avx512_fp_packed<opc, OpcodeStr, OpNode, v32f16_info,
+                                sched.PH.ZMM, IsCommutable>, EVEX_V512, T_MAP5PS,
+                                EVEX_CD8<16, CD8VF>;
+  }
+  let Predicates = [HasVLX, HasFP16] in {
     defm PHZ128 : avx512_fp_packed<opc, OpcodeStr, OpNode, v8f16x_info,
                                    sched.PH.XMM, IsCommutable>, EVEX_V128, T_MAP5PS,
                                    EVEX_CD8<16, CD8VF>;
@@ -6001,9 +6000,10 @@ multiclass avx512_fp_binop_p<bits<8> opc, string OpcodeStr, SDPatternOperator Op
                                    sched.PH.YMM, IsCommutable>, EVEX_V256, T_MAP5PS,
                                    EVEX_CD8<16, CD8VF>;
   }
+}
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
-}
+
 
 multiclass avx512_fp_binop_p_round<bits<8> opc, string OpcodeStr, SDNode OpNodeRnd,
                                    X86SchedWriteSizes sched> {
@@ -6045,26 +6045,68 @@ multiclass avx512_fp_binop_p_sae<bits<8> opc, string OpcodeStr, SDNode OpNodeRnd
 
 defm VADD : avx512_fp_binop_p<0x58, "vadd", fadd, HasAVX512,
                               SchedWriteFAddSizes, 1>,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+            avx512_fp_binop_ph<0x58, "vadd", fadd, SchedWriteFAddSizes, 1>,
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
             avx512_fp_binop_p_round<0x58, "vadd", X86faddRnd, SchedWriteFAddSizes>;
 defm VMUL : avx512_fp_binop_p<0x59, "vmul", fmul, HasAVX512,
                               SchedWriteFMulSizes, 1>,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+            avx512_fp_binop_ph<0x59, "vmul", fmul, SchedWriteFMulSizes, 1>,
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
             avx512_fp_binop_p_round<0x59, "vmul", X86fmulRnd, SchedWriteFMulSizes>;
 defm VSUB : avx512_fp_binop_p<0x5C, "vsub", fsub, HasAVX512,
                               SchedWriteFAddSizes>,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+            avx512_fp_binop_ph<0x5C, "vsub", fsub, SchedWriteFAddSizes>,
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
             avx512_fp_binop_p_round<0x5C, "vsub", X86fsubRnd, SchedWriteFAddSizes>;
 defm VDIV : avx512_fp_binop_p<0x5E, "vdiv", fdiv, HasAVX512,
                               SchedWriteFDivSizes>,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+            avx512_fp_binop_ph<0x5E, "vdiv", fdiv, SchedWriteFDivSizes>,
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
             avx512_fp_binop_p_round<0x5E, "vdiv", X86fdivRnd, SchedWriteFDivSizes>;
 defm VMIN : avx512_fp_binop_p<0x5D, "vmin", X86fmin, HasAVX512,
                               SchedWriteFCmpSizes, 0>,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+            avx512_fp_binop_ph<0x5D, "vmin", X86fmin, SchedWriteFCmpSizes, 0>,
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
             avx512_fp_binop_p_sae<0x5D, "vmin", X86fminSAE, SchedWriteFCmpSizes>;
 defm VMAX : avx512_fp_binop_p<0x5F, "vmax", X86fmax, HasAVX512,
                               SchedWriteFCmpSizes, 0>,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+            avx512_fp_binop_ph<0x5F, "vmax", X86fmax, SchedWriteFCmpSizes, 0>,
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
             avx512_fp_binop_p_sae<0x5F, "vmax", X86fmaxSAE, SchedWriteFCmpSizes>;
 let isCodeGenOnly = 1 in {
   defm VMINC : avx512_fp_binop_p<0x5D, "vmin", X86fminc, HasAVX512,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+                                 SchedWriteFCmpSizes, 1>,
+               avx512_fp_binop_ph<0x5D, "vmin", X86fminc,
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
                                  SchedWriteFCmpSizes, 1>;
   defm VMAXC : avx512_fp_binop_p<0x5F, "vmax", X86fmaxc, HasAVX512,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+                                 SchedWriteFCmpSizes, 1>,
+               avx512_fp_binop_ph<0x5F, "vmax", X86fmaxc,
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
                                  SchedWriteFCmpSizes, 1>;
 }
 defm VAND  : avx512_fp_binop_p<0x54, "vand", null_frag, HasDQI,
