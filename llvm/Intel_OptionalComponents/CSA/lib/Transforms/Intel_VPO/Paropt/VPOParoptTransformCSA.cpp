@@ -187,6 +187,7 @@ protected:
 
   // Creates reduction code for the given var.
   void genRedVar(ReductionItem *I, WRegionNode *W) {
+    PT.computeArraySectionTypeOffsetSize(*I, getInitInsPt());
     genPrivItem(I, W, ".red");
     PT.genReductionInit(W, I, getInitInsPt(), DT);
     PT.genReductionFini(W, I, I->getOrig(), getFiniInsPt(), DT);
