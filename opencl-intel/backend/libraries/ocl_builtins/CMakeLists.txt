@@ -463,7 +463,6 @@ list (APPEND OCL_20_SOURCE_FILES
 
 list (APPEND C_SOURCE_FILES
   ${CL_BUILTIN_SOURCE_DIR}/cbk_helper.c
-  ${CL_BUILTIN_SOURCE_DIR}/intrinsics.c
   )
 
 
