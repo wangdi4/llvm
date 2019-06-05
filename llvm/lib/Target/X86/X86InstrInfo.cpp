@@ -3943,6 +3943,11 @@ bool X86InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     return true;
   }
   case X86::AVX512_128_SET0:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::AVX512_FsFLD0SH:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::AVX512_FsFLD0SS:
   case X86::AVX512_FsFLD0SD: {
     bool HasVLX = Subtarget.hasVLX();
@@ -5113,6 +5118,13 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
     case X86::AVX512_FsFLD0SS:
       Alignment = 4;
       break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    case X86::AVX512_FsFLD0SH:
+      Alignment = 2;
+      break;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     default:
       return nullptr;
     }
@@ -5148,6 +5160,11 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
   case X86::AVX512_256_SET0:
   case X86::AVX512_512_SET0:
   case X86::AVX512_512_SETALLONES:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::AVX512_FsFLD0SH:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::FsFLD0SD:
   case X86::AVX512_FsFLD0SD:
   case X86::FsFLD0SS:
@@ -5181,6 +5198,12 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
       Ty = Type::getFloatTy(MF.getFunction().getContext());
     else if (Opc == X86::FsFLD0SD || Opc == X86::AVX512_FsFLD0SD)
       Ty = Type::getDoubleTy(MF.getFunction().getContext());
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    else if (Opc == X86::AVX512_FsFLD0SH)
+      Ty = Type::getHalfTy(MF.getFunction().getContext());
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     else if (Opc == X86::AVX512_512_SET0 || Opc == X86::AVX512_512_SETALLONES)
       Ty = VectorType::get(Type::getInt32Ty(MF.getFunction().getContext()),16);
     else if (Opc == X86::AVX2_SETALLONES || Opc == X86::AVX_SET0 ||

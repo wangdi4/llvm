@@ -512,6 +512,16 @@ let isReMaterializable = 1, isAsCheapAsAMove = 1, canFoldAsLoad = 1,
                           [(set FR64X:$dst, fpimm0)]>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+let isReMaterializable = 1, isAsCheapAsAMove = 1, canFoldAsLoad = 1,
+    isPseudo = 1, SchedRW = [WriteZero], Predicates = [HasFP16] in {
+  def AVX512_FsFLD0SH : I<0, Pseudo, (outs FR16X:$dst), (ins), "",
+                          [(set FR16X:$dst, fp16imm0)]>;
+}
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+
 //===----------------------------------------------------------------------===//
 // AVX-512 - VECTOR INSERT
 //

@@ -1776,6 +1776,12 @@ static const X86MemoryFoldTableEntry MemoryFoldTable2[] = {
   { X86::VDIVSDZrr_Int,            X86::VDIVSDZrm_Int,            TB_NO_REVERSE },
   { X86::VDIVSDrr,                 X86::VDIVSDrm,                 0 },
   { X86::VDIVSDrr_Int,             X86::VDIVSDrm_Int,             TB_NO_REVERSE },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  { X86::VDIVSHZrr,                X86::VDIVSHZrm,                0 },
+  { X86::VDIVSHZrr_Int,            X86::VDIVSHZrm_Int,            TB_NO_REVERSE },
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   { X86::VDIVSSZrr,                X86::VDIVSSZrm,                0 },
   { X86::VDIVSSZrr_Int,            X86::VDIVSSZrm_Int,            TB_NO_REVERSE },
   { X86::VDIVSSrr,                 X86::VDIVSSrm,                 0 },
