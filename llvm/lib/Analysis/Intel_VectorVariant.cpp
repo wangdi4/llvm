@@ -31,7 +31,15 @@ using namespace llvm;
 /// example: "_ZGVxN4". The name mangling is defined in the vector function
 /// ABI. Based on this string, the parameter kinds (uniform, linear, vector),
 /// vector length, parameter alignment, and masking are determined.
-VectorVariant::VectorVariant(StringRef FuncName) {
+VectorVariant::VectorVariant(StringRef MangledVariantName) {
+  size_t AliasStart = MangledVariantName.find_first_of('(');
+  StringRef FuncName = MangledVariantName.take_front(AliasStart);
+  if (AliasStart != MangledVariantName.npos) {
+    assert(MangledVariantName[MangledVariantName.size() - 1] == ')' &&
+           "No matching parenthesis!");
+    this->Alias =
+        MangledVariantName.slice(AliasStart + 1, MangledVariantName.size() - 1);
+  }
 
   assert(isVectorVariant(FuncName) && "invalid vector variant format");
 
@@ -119,6 +127,12 @@ VectorVariant::VectorVariant(StringRef FuncName) {
     }
   }
 
+  // Ignore the underscore.
+  SST.ignore(1);
+
+  // The remaining symbols are the base name.
+  SST >> BaseName;
+
   if (Mask) {
     // Masked variants will have an additional mask parameter
     Parameters.push_back(VectorKind::vector());
@@ -140,7 +154,7 @@ unsigned int VectorVariant::calcVlen(ISAClass I,
   return VectorRegisterSize / CharacteristicDataType->getPrimitiveSizeInBits();
 }
 
-std::string VectorVariant::encodeVectorKind(VectorKind VK) {
+std::string VectorVariant::encodeVectorKind(const VectorKind VK) {
     std::stringstream SST;
     if (VK.isVector())
       SST << static_cast<char>(VECTOR_KIND);
