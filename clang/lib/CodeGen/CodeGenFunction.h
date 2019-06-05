@@ -3994,7 +3994,7 @@ public:
 
   llvm::Value *EmitSVMLBuiltinExpr(unsigned BuiltinID, const char *LibCallName,
                                    unsigned Modifier, const CallExpr *E,
-                                   ArrayRef<llvm::Value *> Ops);
+                                   SmallVectorImpl<llvm::Value *> &Ops);
 #endif // INTEL_CUSTOMIZATION
 
   llvm::Value *EmitCommonNeonBuiltinExpr(unsigned BuiltinID,
