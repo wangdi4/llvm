@@ -344,6 +344,7 @@ namespace {
       (void) llvm::createHIRPropagateCastedIVPass();
       (void) llvm::createHIRMultiExitLoopRerollPass();
       (void) llvm::createHIRIdentityMatrixIdiomRecognitionPass();
+      (void) llvm::createHIRPrefetchingPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();

@@ -1011,6 +1011,23 @@ HLInst *HLNodeUtils::createCall(Function *Func,
   return createCallImpl(Func, CallArgs, Name, LvalRef, Bundle, BundelOps).first;
 }
 
+HLInst *HLNodeUtils::createPrefetch(RegDDRef *AddressRef, RegDDRef *RW,
+                                    RegDDRef *Locality, RegDDRef *CacheTy) {
+
+  Function *PrefetchFunc =
+      Intrinsic::getDeclaration(&getModule(), Intrinsic::prefetch);
+
+  SmallVector<RegDDRef *, 4> Ops = {AddressRef, RW, Locality, CacheTy};
+
+  CallInst *Call;
+  HLInst *HInst;
+  std::tie(HInst, Call) = createCallImpl(PrefetchFunc, Ops);
+
+  Call->setDebugLoc(AddressRef->getDebugLoc());
+
+  return HInst;
+}
+
 HLInst *HLNodeUtils::createMemcpy(RegDDRef *StoreRef, RegDDRef *LoadRef,
                                   RegDDRef *Size) {
   RegDDRef *IsVolatile = getDDRefUtils().createConstDDRef(
@@ -3059,7 +3076,6 @@ bool HLNodeUtils::isKnownNonZero(unsigned BlobIdx, const HLNode *ParentNode) {
   return isKnownPositiveOrNegative(BlobIdx, ParentNode, MinMaxVal);
 }
 
-
 #if __GNUC__ >= 7
 // The switch ladders below uses implicit fallthrough for compactness.
 // Please note the ordering when adding cases.
@@ -4578,8 +4594,7 @@ void HLNodeUtils::updateNumLoopExits(HLNode *Node) {
   HLNodeUtils::visit(V, Node);
 }
 
-template<typename T>
-void sortInTopOrderAndUniqHelper(T &Nodes) {
+template <typename T> void sortInTopOrderAndUniqHelper(T &Nodes) {
   auto NodeComparator = [](const HLNode *N1, const HLNode *N2) {
     return N1->getTopSortNum() < N2->getTopSortNum();
   };
@@ -4587,7 +4602,7 @@ void sortInTopOrderAndUniqHelper(T &Nodes) {
   std::sort(Nodes.begin(), Nodes.end(), NodeComparator);
   auto Last = std::unique(Nodes.begin(), Nodes.end(),
                           [](const HLNode *N1, const HLNode *N2) {
-                          return N1->getTopSortNum() == N2->getTopSortNum();
+                            return N1->getTopSortNum() == N2->getTopSortNum();
                           });
 
   Nodes.erase(Last, Nodes.end());

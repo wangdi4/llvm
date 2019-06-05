@@ -1807,8 +1807,11 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
       PM.add(createHIRGeneralUnrollPass(DisableUnrollLoops));
     }
 
-    if (RunLoopOpts == LoopOptMode::Full)
+    if (RunLoopOpts == LoopOptMode::Full) {
       PM.add(createHIRScalarReplArrayPass());
+      if (OptLevel > 2)
+        PM.add(createHIRPrefetchingPass());
+    }
   }
 
   if (IntelOptReportEmitter == OptReportOptions::HIR)
