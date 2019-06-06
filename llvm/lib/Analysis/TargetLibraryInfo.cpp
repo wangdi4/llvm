@@ -759,6 +759,17 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_nvvm_reflect);
   }
 
+#if INTEL_CUSTOMIZATION
+  if (!T.isOSWindows()) {
+    TLI.setUnavailable(LibFunc_acrt_iob_func);
+    TLI.setUnavailable(LibFunc_stdio_common_vfprintf);
+    TLI.setUnavailable(LibFunc_stdio_common_vsprintf);
+    TLI.setUnavailable(LibFunc_stdio_common_vsscanf);
+    TLI.setUnavailable(LibFunc_local_stdio_printf_options);
+    TLI.setUnavailable(LibFunc_local_stdio_scanf_options);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   TLI.addVectorizableFunctionsFromVecLib(ClVectorLibrary);
 }
 
@@ -2622,6 +2633,10 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_abort:
     return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
 
+  case LibFunc_acrt_iob_func:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
   case LibFunc_alphasort:
     return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy() &&
@@ -2846,6 +2861,12 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
     return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_local_stdio_printf_options:
+    return (NumParams == 0 && FTy.getReturnType()->isPointerTy());
+
+  case LibFunc_local_stdio_scanf_options:
+    return (NumParams == 0 && FTy.getReturnType()->isPointerTy());
 
   case LibFunc_localeconv:
     return (NumParams == 0 && FTy.getReturnType()->isPointerTy());
@@ -3081,6 +3102,32 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_srand:
     return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_stdio_common_vfprintf:
+    return (NumParams == 5 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isPointerTy() &&
+            FTy.getParamType(3)->isPointerTy() &&
+            FTy.getParamType(4)->isPointerTy());
+
+  case LibFunc_stdio_common_vsprintf:
+    return (NumParams == 6 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isPointerTy() &&
+            FTy.getParamType(4)->isPointerTy() &&
+            FTy.getParamType(5)->isPointerTy());
+
+  case LibFunc_stdio_common_vsscanf:
+    return (NumParams == 6 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isPointerTy() &&
+            FTy.getParamType(4)->isPointerTy() &&
+            FTy.getParamType(5)->isPointerTy());
 
   case LibFunc_strerror:
     return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&

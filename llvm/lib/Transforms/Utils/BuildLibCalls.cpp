@@ -1193,6 +1193,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_abort:
     Changed |= setDoesNotReturn(F);
     return Changed;
+  case LibFunc_acrt_iob_func:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_alphasort:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
@@ -1372,6 +1375,12 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_link:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_local_stdio_printf_options:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_local_stdio_scanf_options:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_localeconv:
@@ -1613,6 +1622,24 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_srand:
     Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_stdio_common_vfprintf:
+    Changed |= setDoesNotThrow(F);
+    Changed |= setDoesNotCapture(F, 1);
+    Changed |= setDoesNotCapture(F, 3);
+    Changed |= setOnlyReadsMemory(F, 2);
+    return Changed;
+  case LibFunc_stdio_common_vsprintf:
+    Changed |= setDoesNotThrow(F);
+    Changed |= setDoesNotCapture(F, 1);
+    Changed |= setDoesNotCapture(F, 3);
+    Changed |= setOnlyReadsMemory(F, 3);
+    return Changed;
+  case LibFunc_stdio_common_vsscanf:
+    Changed |= setDoesNotThrow(F);
+    Changed |= setDoesNotCapture(F, 1);
+    Changed |= setDoesNotCapture(F, 3);
+    Changed |= setOnlyReadsMemory(F, 3);
     return Changed;
   case LibFunc_strerror:
     Changed |= setDoesNotThrow(F);

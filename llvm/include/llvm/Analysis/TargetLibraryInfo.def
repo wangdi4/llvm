@@ -584,6 +584,13 @@ TLI_DEFINE_STRING_INTERNAL("__acoshl_finite")
 /// long double __acosl_finite(long double x);
 TLI_DEFINE_ENUM_INTERNAL(acosl_finite)
 TLI_DEFINE_STRING_INTERNAL("__acosl_finite")
+
+#if INTEL_CUSTOMIZATION
+/// FILE* __acrt_iob_func(int32_t);
+TLI_DEFINE_ENUM_INTERNAL(acrt_iob_func)
+TLI_DEFINE_STRING_INTERNAL("__acrt_iob_func")
+#endif // INTEL_CUSTOMIZATION
+
 /// double __asin_finite(double x);
 TLI_DEFINE_ENUM_INTERNAL(asin_finite)
 TLI_DEFINE_STRING_INTERNAL("__asin_finite")
@@ -833,6 +840,12 @@ TLI_DEFINE_STRING_INTERNAL("__kmpc_serialized_parallel")
 /// int32_t __kmpc_single(kmp_Indent *loc, int32_t global_tid);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_single)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_single")
+/// i64* __local_stdio_printf_options();
+TLI_DEFINE_ENUM_INTERNAL(local_stdio_printf_options)
+TLI_DEFINE_STRING_INTERNAL("__local_stdio_printf_options")
+/// i64* __local_stdio_scanf_options();
+TLI_DEFINE_ENUM_INTERNAL(local_stdio_scanf_options)
+TLI_DEFINE_STRING_INTERNAL("__local_stdio_scanf_options")
 #endif // INTEL_CUSTOMIZATION
 
 /// double __log10_finite(double x);
@@ -940,6 +953,19 @@ TLI_DEFINE_STRING_INTERNAL("__sqrtf_finite")
 /// long double __sqrt_finite(long double x);
 TLI_DEFINE_ENUM_INTERNAL(sqrtl_finite)
 TLI_DEFINE_STRING_INTERNAL("__sqrtl_finite")
+
+#if INTEL_CUSTOMIZATION
+/// int __stdio_common_vfprintf(uint64_t location,FILE *, const char *format, locale_t *locale, va_list ap);
+TLI_DEFINE_ENUM_INTERNAL(stdio_common_vfprintf)
+TLI_DEFINE_STRING_INTERNAL("__stdio_common_vfprintf")
+/// int __stdio_common_vsprintf(uint64_t location, char *str, size_t size,const char *fmt, locale_t *locale, va_list ap);
+TLI_DEFINE_ENUM_INTERNAL(stdio_common_vsprintf)
+TLI_DEFINE_STRING_INTERNAL("__stdio_common_vsprintf")
+/// int __stdio_common_vsscanf(uint64_t location, char *str, size_t size,const char *fmt, locale_t *locale, va_list ap);
+TLI_DEFINE_ENUM_INTERNAL(stdio_common_vsscanf)
+TLI_DEFINE_STRING_INTERNAL("__stdio_common_vsscanf")
+#endif // INTEL_CUSTOMIZATION
+
 /// char *__stpcpy_chk(char *s1, const char *s2, size_t s1size);
 TLI_DEFINE_ENUM_INTERNAL(stpcpy_chk)
 TLI_DEFINE_STRING_INTERNAL("__stpcpy_chk")
