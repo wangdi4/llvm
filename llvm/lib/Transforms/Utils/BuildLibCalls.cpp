@@ -387,6 +387,10 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     return Changed;
+#if INTEL_CUSTOMIZATION
+  case LibFunc_atexit:
+    return Changed;
+#endif // INTEL_CUSTOMIZATION
   case LibFunc_atoi:
   case LibFunc_atol:
   case LibFunc_atof:
@@ -743,6 +747,22 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   // TODO: add LibFunc entries for:
   // case LibFunc_memset_pattern4:
   // case LibFunc_memset_pattern8:
+#if INTEL_CUSTOMIZATION
+  case LibFunc_msvc_std_CxxThrowException:
+  case LibFunc_msvc_std_facet_register:
+  case LibFunc_msvc_std_locimp_Getgloballocale:
+  case LibFunc_msvc_std_locinfo_ctor:
+  case LibFunc_msvc_std_locinfo_dtor:
+  case LibFunc_msvc_std_lockit:
+  case LibFunc_msvc_std_lockit_dtor:
+  case LibFunc_msvc_std_Xbad_alloc:
+  case LibFunc_msvc_std_yarn_dtor:
+    return Changed;
+  case LibFunc_msvc_std_Xlength_error:
+  case LibFunc_msvc_std_Xout_of_range:
+    Changed |= setDoesNotReturn(F);
+    return Changed;
+#endif // INTEL_CUSTOMIZATION
   case LibFunc_memset_pattern16:
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setDoesNotCapture(F, 0);
@@ -895,10 +915,17 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_sigsetjmp:
     return Changed;
+  case LibFunc_std_exception_copy:
+    return Changed;
+  case LibFunc_std_exception_destroy:
+    return Changed;
   case LibFunc_sysv_signal:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_under_exit:
+    Changed |= setDoesNotReturn(F);
+    return Changed;
+  case LibFunc_under_invalid_parameter_noinfo_noreturn:
     Changed |= setDoesNotReturn(F);
     return Changed;
   case LibFunc_obstack_begin:

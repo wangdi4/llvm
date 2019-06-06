@@ -26,6 +26,17 @@
 #define TLI_DEFINE_STRING_INTERNAL(string_repr) string_repr,
 #endif
 
+#if INTEL_CUSTOMIZATION
+/// "public: __cdecl std::_Lockit::_Lockit(int) __ptr64;
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_lockit)
+TLI_DEFINE_STRING_INTERNAL("??0_Lockit@std@@QEAA@H@Z")
+/// __cdecl std::_Yarn<char>::~_Yarn<char>(void) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_yarn_dtor)
+TLI_DEFINE_STRING_INTERNAL("??1?$_Yarn@D@std@@QEAA@XZ")
+/// __cdecl std::_Lockit::~_Lockit(void) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_lockit_dtor)
+TLI_DEFINE_STRING_INTERNAL("??1_Lockit@std@@QEAA@XZ")
+#endif
 /// void *new(unsigned int);
 TLI_DEFINE_ENUM_INTERNAL(msvc_new_int)
 TLI_DEFINE_STRING_INTERNAL("??2@YAPAXI@Z")
@@ -106,6 +117,32 @@ TLI_DEFINE_STRING_INTERNAL("??_V@YAXPEAXAEBUnothrow_t@std@@@Z")
 TLI_DEFINE_ENUM_INTERNAL(msvc_delete_array_ptr64_longlong)
 TLI_DEFINE_STRING_INTERNAL("??_V@YAXPEAX_K@Z")
 
+#if INTEL_CUSTOMIZATION
+/// void __cdecl std::_Facet_Register(class std::_Facet_base * __ptr64)
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_facet_register)
+TLI_DEFINE_STRING_INTERNAL("?_Facet_Register@std@@YAXPEAV_Facet_base@1@@Z")
+/// static class std::locale::_Locimp * __ptr64 __cdecl std::locale::_Getgloballocale(void)
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_locimp_Getgloballocale)
+TLI_DEFINE_STRING_INTERNAL("?_Getgloballocale@locale@std@@CAPEAV_Locimp@12@XZ")
+/// void __cdecl std::_Locinfo::_Locinfo_ctor(class std::_Locinfo * __ptr64,char const * __ptr64);
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_locinfo_ctor)
+TLI_DEFINE_STRING_INTERNAL("?_Locinfo_ctor@_Locinfo@std@@SAXPEAV12@PEBD@Z")
+/// void __cdecl std::_Locinfo::_Locinfo_dtor(class std::_Locinfo * __ptr64)
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_locinfo_dtor)
+TLI_DEFINE_STRING_INTERNAL("?_Locinfo_dtor@_Locinfo@std@@SAXPEAV12@@Z")
+/// void __cdecl std::_Xbad_alloc(void)
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_Xbad_alloc)
+TLI_DEFINE_STRING_INTERNAL("?_Xbad_alloc@std@@YAXXZ")
+/// void __cdecl std::_Xlength_error(char const * __ptr64)
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_Xlength_error)
+TLI_DEFINE_STRING_INTERNAL("?_Xlength_error@std@@YAXPEBD@Z")
+/// void __cdecl std::_Xout_of_range(char const * __ptr64)
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_Xout_of_range)
+TLI_DEFINE_STRING_INTERNAL("?_Xout_of_range@std@@YAXPEBD@Z")
+/// extern "C" void __stdcall _CxxThrowException(void* pExceptionObject, _ThrowInfo* pThrowInfo);
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_CxxThrowException)
+TLI_DEFINE_STRING_INTERNAL("_CxxThrowException")
+#endif // INTEL_CUSTOMIZATION
 /// int _IO_getc(_IO_FILE * __fp);
 TLI_DEFINE_ENUM_INTERNAL(under_IO_getc)
 TLI_DEFINE_STRING_INTERNAL("_IO_getc")
@@ -953,8 +990,13 @@ TLI_DEFINE_STRING_INTERNAL("__sqrtf_finite")
 /// long double __sqrt_finite(long double x);
 TLI_DEFINE_ENUM_INTERNAL(sqrtl_finite)
 TLI_DEFINE_STRING_INTERNAL("__sqrtl_finite")
-
 #if INTEL_CUSTOMIZATION
+/// void __std_exception_copy(__std_exception_data *src, __std_exception_data *dst);
+TLI_DEFINE_ENUM_INTERNAL(std_exception_copy)
+TLI_DEFINE_STRING_INTERNAL("__std_exception_copy")
+/// void __std_exception_destroy(__std_exception_data *data);
+TLI_DEFINE_ENUM_INTERNAL(std_exception_destroy)
+TLI_DEFINE_STRING_INTERNAL("__std_exception_destroy")
 /// int __stdio_common_vfprintf(uint64_t location,FILE *, const char *format, locale_t *locale, va_list ap);
 TLI_DEFINE_ENUM_INTERNAL(stdio_common_vfprintf)
 TLI_DEFINE_STRING_INTERNAL("__stdio_common_vfprintf")
@@ -965,7 +1007,6 @@ TLI_DEFINE_STRING_INTERNAL("__stdio_common_vsprintf")
 TLI_DEFINE_ENUM_INTERNAL(stdio_common_vsscanf)
 TLI_DEFINE_STRING_INTERNAL("__stdio_common_vsscanf")
 #endif // INTEL_CUSTOMIZATION
-
 /// char *__stpcpy_chk(char *s1, const char *s2, size_t s1size);
 TLI_DEFINE_ENUM_INTERNAL(stpcpy_chk)
 TLI_DEFINE_STRING_INTERNAL("__stpcpy_chk")
@@ -1001,6 +1042,9 @@ TLI_DEFINE_STRING_INTERNAL("__xstat64")
 /// void _exit(int status);
 TLI_DEFINE_ENUM_INTERNAL(under_exit)
 TLI_DEFINE_STRING_INTERNAL("_exit")
+/// void __cdecl _invalid_parameter_noinfo(void)
+TLI_DEFINE_ENUM_INTERNAL(under_invalid_parameter_noinfo_noreturn)
+TLI_DEFINE_STRING_INTERNAL("_invalid_parameter_noinfo_noreturn")
 /// int _obstack_begin (struct obstack *, size_t, size_t, void *(*) (size_t), void (*) (void *));
 TLI_DEFINE_ENUM_INTERNAL(obstack_begin)
 TLI_DEFINE_STRING_INTERNAL("_obstack_begin")
@@ -1104,6 +1148,11 @@ TLI_DEFINE_STRING_INTERNAL("atanhl")
 /// long double atanl(long double x);
 TLI_DEFINE_ENUM_INTERNAL(atanl)
 TLI_DEFINE_STRING_INTERNAL("atanl")
+#if INTEL_CUSTOMIZATION
+/// int atexit(void (*func)(void))
+TLI_DEFINE_ENUM_INTERNAL(atexit)
+TLI_DEFINE_STRING_INTERNAL("atexit")
+#endif // INTEL_CUSTOMIZATION
 /// double atof(const char *str);
 TLI_DEFINE_ENUM_INTERNAL(atof)
 TLI_DEFINE_STRING_INTERNAL("atof")
