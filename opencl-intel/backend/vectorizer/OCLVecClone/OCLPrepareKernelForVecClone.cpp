@@ -46,8 +46,8 @@ using namespace Intel::MetadataAPI;
 namespace intel {
 
 OCLPrepareKernelForVecClone::OCLPrepareKernelForVecClone(
-    const OptimizerConfig *Config)
-    : Config(Config) {}
+    const Intel::CPUId *CPUId)
+    : CPUId(CPUId) {}
 
 OCLPrepareKernelForVecClone::OCLPrepareKernelForVecClone() {}
 
@@ -59,17 +59,17 @@ void OCLPrepareKernelForVecClone::createEncodingForVectorVariants(
 
   // Finds the biggest vector type supported by the target and encodes.
   char ISAEncoding = 0;
-  if (Config->GetCpuId().HasAVX512Core())
+  if (CPUId->HasAVX512Core())
     ISAEncoding = 'e';
-  else if (Config->GetCpuId().HasAVX2())
+  else if (CPUId->HasAVX2())
     ISAEncoding = 'd';
-  else if (Config->GetCpuId().HasAVX1())
+  else if (CPUId->HasAVX1())
     ISAEncoding = 'c';
-  else if (Config->GetCpuId().HasSSE2())
+  else if (CPUId->HasSSE2())
     ISAEncoding = 'b';
-  else if (Config->GetCpuId().HasSSE41())
+  else if (CPUId->HasSSE41())
     ISAEncoding = 'b';
-  else if (Config->GetCpuId().HasSSE42())
+  else if (CPUId->HasSSE42())
     ISAEncoding = 'b';
   else
     llvm_unreachable("Missing vector type!");

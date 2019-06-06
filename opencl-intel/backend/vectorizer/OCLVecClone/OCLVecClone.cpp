@@ -60,9 +60,9 @@ OCL_INITIALIZE_PASS_BEGIN(OCLVecClone, SV_NAME, lv_name,
 OCL_INITIALIZE_PASS_END(OCLVecClone, SV_NAME, lv_name,
                         false /* modififies CFG */, false /* transform pass */)
 
-OCLVecClone::OCLVecClone(const OptimizerConfig *Config,
+OCLVecClone::OCLVecClone(const Intel::CPUId *CPUId,
                          bool EnableVPlanVecForOpenCL)
-    : VecClone(), Config(Config),
+    : VecClone(), CPUId(CPUId),
       EnableVPlanVecForOpenCL(EnableVPlanVecForOpenCL) {
   V_INIT_PRINT;
 }
@@ -138,7 +138,7 @@ void OCLVecClone::handleLanguageSpecifics(Function &F, PHINode *Phi,
 }
 
 void OCLVecClone::languageSpecificInitializations(Module &M) {
-  OCLPrepareKernelForVecClone PK(Config);
+  OCLPrepareKernelForVecClone PK(CPUId);
 
   auto Kernels = KernelList(*&M).getList();
 
@@ -179,7 +179,7 @@ void OCLVecClone::languageSpecificInitializations(Module &M) {
 }
 } // namespace intel
 
-extern "C" Pass *createOCLVecClonePass(const intel::OptimizerConfig *Config,
+extern "C" Pass *createOCLVecClonePass(const Intel::CPUId *CPUId,
                                        bool EnableVPlanVecForOpenCL) {
-  return new intel::OCLVecClone(Config, EnableVPlanVecForOpenCL);
+  return new intel::OCLVecClone(CPUId, EnableVPlanVecForOpenCL);
 }
