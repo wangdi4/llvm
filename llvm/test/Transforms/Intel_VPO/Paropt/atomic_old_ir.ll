@@ -1,6 +1,10 @@
 ; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -S < %s | FileCheck %s
 ; RUN: opt -passes="vpo-cfg-restructuring,vpo-paropt-prepare" -S < %s | FileCheck %s
 
+; Deprecated the llvm.intel.directive* representation.
+; TODO: Update this test to use llvm.directive.region.entry/exit instead.
+; XFAIL: *
+
 ; CMPLRS-50452: Verify that with the old representation of OMP directives, the
 ; BEGIN/END directives are removed after VPO
 ;

@@ -1,5 +1,9 @@
 ; RUN: opt %s -S -VPlanDriver -vplan-force-vf=4 2>&1 | FileCheck %s
 
+; Deprecated the llvm.intel.directive* representation.
+; TODO: Update this test to use llvm.directive.region.entry/exit instead.
+; XFAIL: *
+
 ; CHECK: __write_pipe_2_bl_fpga_v4i8
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

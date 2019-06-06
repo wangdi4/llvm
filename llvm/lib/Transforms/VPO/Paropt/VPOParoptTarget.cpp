@@ -83,7 +83,7 @@ void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
     for (int I = MapChain.size() - 1; I >= 0; --I) {
       MapAggrTy *Aggr = MapChain[I];
       Value *SectionPtr = Aggr->getSectionPtr();
-      resetValueInIntelClauseGeneric(W, SectionPtr);
+      resetValueInOmpClauseGeneric(W, SectionPtr);
 
       if (deviceTriplesHasSPIRV() && MapChain.size() > 1 &&
           I != 0 && !ForceMapping)
@@ -91,7 +91,7 @@ void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
 
       Value *Size = Aggr->getSize();
       if (!dyn_cast<ConstantInt>(Size))
-        resetValueInIntelClauseGeneric(W, Size);
+        resetValueInOmpClauseGeneric(W, Size);
     }
   }
 }
@@ -172,8 +172,8 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
   W->populateBBSet();
 
-  resetValueInIntelClauseGeneric(W, W->getIf());
-  resetValueInIntelClauseGeneric(W, W->getDevice());
+  resetValueInOmpClauseGeneric(W, W->getIf());
+  resetValueInOmpClauseGeneric(W, W->getDevice());
   resetValueInIsDevicePtrClause(W);
   resetValueInPrivateClause(W);
   resetValueInMapClause(W);
@@ -307,17 +307,17 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 void VPOParoptTransform::resetValueInNumTeamsAndThreadsClause(WRegionNode *W) {
   if (W->getIsTeams()) {
     if (auto *NumTeamsPtr = W->getNumTeams())
-      resetValueInIntelClauseGeneric(W, NumTeamsPtr);
+      resetValueInOmpClauseGeneric(W, NumTeamsPtr);
 
     if (auto *ThreadLimitPtr = W->getThreadLimit())
-      resetValueInIntelClauseGeneric(W, ThreadLimitPtr);
+      resetValueInOmpClauseGeneric(W, ThreadLimitPtr);
 
     return;
   }
 
   if (W->getIsPar())
     if (auto *NumThreadsPtr = W->getNumThreads())
-      resetValueInIntelClauseGeneric(W, NumThreadsPtr);
+      resetValueInOmpClauseGeneric(W, NumThreadsPtr);
 }
 
 // Reset the expression value in IsDevicePtr clause to be empty.
@@ -330,7 +330,7 @@ void VPOParoptTransform::resetValueInIsDevicePtrClause(WRegionNode *W) {
     return;
 
   for (auto *I : IDevicePtrClause.items()) {
-    resetValueInIntelClauseGeneric(W, I->getOrig());
+    resetValueInOmpClauseGeneric(W, I->getOrig());
   }
 }
 

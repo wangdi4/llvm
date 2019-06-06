@@ -1,5 +1,9 @@
 ; RUN: opt -VPlanDriver -vplan-force-vf=4 -S %s | FileCheck %s
 
+; Deprecated the llvm.intel.directive* representation.
+; TODO: Update this test to use llvm.directive.region.entry/exit instead.
+; XFAIL: *
+
 
 ; CHECK: vector.body:
 ; Prepare GEP for gather

@@ -1,5 +1,9 @@
 ; RUN: opt -VPlanDriver -vplan-force-vf=4 -S %s | FileCheck %s
 
+; Deprecated the llvm.intel.directive* representation.
+; TODO: Update this test to use llvm.directive.region.entry/exit instead.
+; XFAIL: *
+
 ; This test checks for handling of linear values and that we do a unit stride store
 ; CHECK: vector.ph
 ; CHECK:  load i32, i32* %i2

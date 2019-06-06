@@ -1,6 +1,10 @@
 ; REQUIRES: asserts
 ; RUN: opt %s -VPlanDriver -vplan-force-build -loopopt=0 -debug -vplan-plain-dump=true -vplan-dump-liveness=1 -disable-vplan-codegen 2>&1 | FileCheck %s 
 
+; Deprecated the llvm.intel.directive* representation.
+; TODO: Update this test to use llvm.directive.region.entry/exit instead.
+; XFAIL: *
+
 ; verify live-in and live-out analysis
 ; CHECK: Live-in and Live-out info:
 ; CHECK-NEXT:External defs:

@@ -1,5 +1,9 @@
 ; RUN: opt -VPlanDriver -use-i1-mask-for-simd-funcs -disable-vplan-subregions -S < %s  | FileCheck %s
 
+; Deprecated the llvm.intel.directive* representation.
+; TODO: Update this test to use llvm.directive.region.entry/exit instead.
+; XFAIL: *
+
 ; CHECK-LABEL: vector.body
 ; CHECK-NOT: zext <4 x i1>
 ; CHECK: call <4 x i32> @_ZGVbM4vv_vec_sum

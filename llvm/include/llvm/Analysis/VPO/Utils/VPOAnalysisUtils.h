@@ -48,7 +48,7 @@ namespace vpo {
 typedef SmallVector<BasicBlock *, 32> VPOSmallVectorBB;
 typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 
-/// \brief ClauseSpecifier holds information for an OMP clause name. Fullname
+/// ClauseSpecifier holds information for an OMP clause name. Fullname
 /// is the string obtained directly from the intrinsic. Its format is:
 ///     FullName = BaseName[:Modifier]
 /// Most clauses don't need a the modifier so usually FullName == BaseName
@@ -152,7 +152,7 @@ public:
   bool getIsMapAggr() const { return IsMapAggr; }
 };
 
-/// \brief This class contains a set of utility functions used by VPO passes.
+/// This class contains a set of utility functions used by VPO passes.
 class VPOAnalysisUtils {
 
 public:
@@ -160,172 +160,138 @@ public:
     VPOAnalysisUtils() {}
     ~VPOAnalysisUtils() {}
 
-    /// \brief Return true for a directive_region_entry/exit intrinsic.
+    /// Return true for a directive_region_entry/exit intrinsic.
     static bool isRegionDirective(Intrinsic::ID Id);
     static bool isRegionDirective(const Instruction *I, bool *IsEntry=nullptr);
 
-    /// \brief If the instruction is a directive_region_entry/exit intrinsic,
+    /// If the instruction is a directive_region_entry/exit intrinsic,
     /// return its first OperandBundle's tagname. Otherwise, return an empty
     /// StringRef.
     /// \param IsEntry is filled accorrding to whether the directive is entry
     static StringRef getRegionDirectiveString(const Instruction *I,
                                               bool *IsEntry = nullptr);
 
-    /// \brief If getRegionDirectiveString(I) is an OpenMP directive name, then
+    /// If getRegionDirectiveString(I) is an OpenMP directive name, then
     /// return its corresponding ID (enum). Otherwise, return -1.
     /// \param IsEntry is filled accorrding to whether the directive is entry
     static int getRegionDirectiveID(const Instruction *I,
                                     bool *IsEntry = nullptr);
 
-    /// \brief Return true if the instruction is an intel_directive intrinsic
-    /// or a directive_region_entry/exit intrinsic whose first OperandBundle's
-    /// tagname matches the name of an OpenMP directive.
-    static bool isIntelDirective(Instruction *I, bool doClauses=false);
-
-    /// \brief Return true if the intrinsic Id is intel_directive.
-    static bool isIntelDirective(Intrinsic::ID Id);
-
-    /// \brief Return true if the intrinsic Id corresponds to a clause:
-    ///    intel_directive_qual,
-    ///    intel_directive_qual_opnd, or
-    ///    intel_directive_qual_opndlist.
-    static bool isIntelClause(Intrinsic::ID Id);
-
-    /// \brief Return true if the instruction is an intel_directive* intrinsic
-    /// or a directive_region_entry/exit intrinsic whose first OperandBundle's
-    /// tagname matches the name of an OpenMP directive.
-    static bool isIntelDirectiveOrClause(Instruction *I);
-
-    /// \brief Return true if the intrinsic Id corresponds to an
-    /// Intel directive or clause.
-    static bool isIntelDirectiveOrClause(Intrinsic::ID Id);
-
-    /// \brief Return the string representation of the metadata argument used
-    /// within a call to one of these intrinsics:
-    ///    llvm.intel.directive,
-    ///    llvm.intel.directive.qual,
-    ///    llvm.intel.directive.qual.opnd, and
-    ///    llvm.intel.directive.qual.opndlist.
-    static StringRef getDirectiveMetadataString(const IntrinsicInst *Call);
-
-    /// \brief Return the string representation of the modifier metadata
-    /// argument used in an llvm.intel.directive.qual.opndlist intrinsic
-    /// that represents a schedule clause
-    static StringRef getScheduleModifierMDString(const IntrinsicInst *Call);
-    static StringRef getScheduleModifierMDString(Value *Modifier);
-
-    /// \brief If the instruction is an OpenMP directive or clause, return the
+    /// If the instruction is an OpenMP directive or clause, return the
     /// directive or clause name. Otherwise, return an empty StringRef.
     static StringRef getDirOrClauseString(Instruction *I);
 
-    /// \brief If the instruction is an OpenMP directive, return the directive
+    /// If the instruction is an OpenMP directive, return the directive
     /// name. Otherwise, return an empty StringRef.
-    static StringRef getDirectiveString(Instruction *I, bool doClauses=false);
+    static StringRef getDirectiveString(Instruction *I);
 
-    /// \brief Returns strings corresponding to OpenMP directives.
+    /// Returns strings corresponding to OpenMP directives.
     static StringRef getDirectiveString(int Id);
 
-    /// \brief Returns strings corresponding to OpenMP clauses.
+    /// Returns strings corresponding to OpenMP clauses.
     static StringRef getClauseString(int Id);
 
-    /// \brief Similar to getDirectiveString(int), but strips out the leading
+    /// Similar to getDirectiveString(int), but strips out the leading
     /// "DIR_OMP_" prefix substring.
     static StringRef getDirectiveName(int Id);
 
-    /// \brief Similar to getClauseString(), but strips out the leading
+    /// Similar to getClauseString(), but strips out the leading
     /// "QUAL_OMP_" prefix substring.
     static StringRef getClauseName(int Id);
 
-    /// \brief Given a ClauseId for a reduction, strip out the leading
+    /// Given a ClauseId for a reduction, strip out the leading
     /// "QUAL_OMP_REDUCTION_" prefix substring, and return the remaining
     /// substring which describes the reduction operation (eg "ADD", "MUL").
     static StringRef getReductionOpName(int Id);
 
-    /// \brief Returns true if the string corresponds to an OpenMP directive.
+    /// Returns true if the instruction represents an OpenMP directive.
+    static bool isOpenMPDirective(Instruction *I);
+
+    /// Returns true if the string corresponds to an OpenMP directive.
     static bool isOpenMPDirective(StringRef DirFullName);
 
-    /// \brief Returns true if the string corresponds to an OpenMP clause.
+    /// Returns true if the string corresponds to an OpenMP clause.
     static bool isOpenMPClause(StringRef ClauseFullName);
 
-    /// \brief Returns the ID (enum) corresponding to OpenMP directives.
+    /// Returns the ID (enum) corresponding to OpenMP directives.
     static int getDirectiveID(StringRef DirFullName);
     static int getDirectiveID(Instruction *I);
 
-    /// \brief Returns the ID (enum) corresponding to OpenMP clauses.
+    /// Returns the ID (enum) corresponding to OpenMP clauses.
     static int getClauseID(StringRef ClauseFullName);
 
     /// Utilities to handle directives & clauses
 
-    /// \brief Return true for a directive that begins a region, such as
+    /// Return true for a directive that begins a region, such as
     /// DIR_OMP_PARALLEL and DIR_OMP_SIMD.
     static bool isBeginDirective(int DirID);
     static bool isBeginDirective(StringRef DirString);
     static bool isBeginDirective(Instruction *I);
     static bool isBeginDirective(BasicBlock *BB);
 
-    /// \brief Return true for a directive that ends a region, such as
+    /// Return true for a directive that ends a region, such as
     /// DIR_OMP_END_PARALLEL and DIR_OMP_END_SIMD.
     static bool isEndDirective(int DirID);
     static bool isEndDirective(StringRef DirString);
     static bool isEndDirective(Instruction *I);
     static bool isEndDirective(BasicBlock *BB);
 
-    /// \brief Return true for a directive that begins or ends a region.
+    /// Return true for a directive that begins or ends a region.
     static bool isBeginOrEndDirective(int DirID);
     static bool isBeginOrEndDirective(StringRef DirString);
     static bool isBeginOrEndDirective(Instruction *I);
     static bool isBeginOrEndDirective(BasicBlock *BB);
 
-    /// \brief Return true if it begins a stand-alone directive
+    /// Return true if it begins a stand-alone directive
     static bool isStandAloneBeginDirective(int DirID);
     static bool isStandAloneBeginDirective(StringRef DirString);
     static bool isStandAloneBeginDirective(Instruction *I);
     static bool isStandAloneBeginDirective(BasicBlock *BB);
 
-    /// \brief Return true if it ends a stand-alone directive
+    /// Return true if it ends a stand-alone directive
     static bool isStandAloneEndDirective(int DirID);
     static bool isStandAloneEndDirective(StringRef DirString);
     static bool isStandAloneEndDirective(Instruction *I);
     static bool isStandAloneEndDirective(BasicBlock *BB);
 
-    /// \brief Return true if it corresponds to DIR_QUAL_LIST_END, the
+    /// Return true if it corresponds to DIR_QUAL_LIST_END, the
     /// mandatory marker to end a directive
     static bool isListEndDirective(int DirID);
     static bool isListEndDirective(StringRef DirString);
     static bool isListEndDirective(Instruction *I);
 
-    /// \brief Given an instruction for a region.begin directive, return its
+    /// Given an instruction for a region.begin directive, return its
     /// corresponding region.end directive instruction or BB
     static Instruction *getEndRegionDir(Instruction *BeginDir);
     static BasicBlock *getEndRegionDirBB(Instruction *BeginDir);
 
-    /// \brief Given a DirID for a BEGIN directive, return the DirID of its
+    /// Given a DirID for a BEGIN directive, return the DirID of its
     /// corresponding END directive.
     static int getMatchingEndDirective(int BeginDirID);
 
-    /// \brief Return true iff the ClauseID represents a DEPEND clause,
+    /// Return true iff the ClauseID represents a DEPEND clause,
     /// such as QUAL_OMP_DEPEND_IN
     static bool isDependClause(int ClauseID);
 
-    /// \brief Return true iff the ClauseID represents a REDUCTION clause,
+    /// Return true iff the ClauseID represents a REDUCTION clause,
     /// such as QUAL_OMP_REDUCTION_ADD
     static bool isReductionClause(int ClauseID);
 
-    /// \brief Return true iff the ClauseID represents a SCHEDULE or a
+    /// Return true iff the ClauseID represents a SCHEDULE or a
     /// DIST_SCHEDULE clause
     static bool isScheduleClause(int ClauseID);
 
-    /// \brief True for MAP, TO, or FROM clauses
+    /// True for MAP, TO, or FROM clauses
     static bool isMapClause(int ClauseID);
 
-    /// \brief Return 0, 1, or 2 based on the number of arguments that the
+    /// Return 0, 1, or 2 based on the number of arguments that the
     /// clause can take:
     ///   0 for clauses that take no arguments
     ///   1 for clauses that take exactly 1 argument
     ///   2 for all else (such as clauses that take lists)
     static unsigned getClauseType(int ClauseID);
 
-    /// \brief Verify if the BB is malformed w.r.t. OpenMP directive rules.
+    /// Verify if the BB is malformed w.r.t. OpenMP directive rules.
     /// Return false if malform, true otherwise.
     static bool verifyBB(BasicBlock &BB, bool DoAssert);
 
@@ -334,23 +300,23 @@ public:
     //   GENERAL UTILS   //
     ///////////////////////
 
-    /// \brief Check whether the instruction is a call of the given \p Name
+    /// Check whether the instruction is a call of the given \p Name
     static bool isCallOfName(Instruction *I, StringRef Name);
 
-    /// \brief If V is an AllocaInst, return it. If V is a CastInst, trace
+    /// If V is an AllocaInst, return it. If V is a CastInst, trace
     /// back the cast chain and return an AllocaInst if it's found, or nullptr
     /// if no AllocaInst is found.
     static AllocaInst *findAllocaInst(Value *V);
 
-    /// \brief \returns true if the function has the string attribute
+    /// \returns true if the function has the string attribute
     /// "may-have-openmp-directive" set to "true"
     static bool mayHaveOpenmpDirective(Function &F);
 
-    /// \brief \returns !mayHaveOpenmpDirective(F). This is mainly used in
+    /// \returns !mayHaveOpenmpDirective(F). This is mainly used in
     /// passes required by OpenMP that would otherwise be skipped at -O0.
     static bool skipFunctionForOpenmp(Function &F);
 
-    /// \brief \return true if the program is compiled for SPIRV.
+    /// \return true if the program is compiled for SPIRV.
     static bool isTargetSPIRV(Module *M);
 };
 

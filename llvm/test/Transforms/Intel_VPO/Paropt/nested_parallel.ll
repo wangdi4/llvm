@@ -1,6 +1,11 @@
 ; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare  -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
 ; RUN: opt < %s -passes='function(loop(rotate),vpo-cfg-restructuring,vpo-paropt-prepare,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
 
+; Deprecated the llvm.intel.directive* representation.
+; TODO: Update this test to use llvm.directive.region.entry/exit instead.
+; XFAIL: *
+
+
 target triple = "x86_64-unknown-linux-gnu"
 
 @b = common global [100 x [100 x i32]] zeroinitializer, align 16

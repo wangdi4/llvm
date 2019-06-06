@@ -51,22 +51,9 @@ bool VPOUtils::unsetMayHaveOpenmpDirectiveAttribute(Function &F) {
 }
 
 bool VPOUtils::stripDirectives(WRegionNode *WRN) {
-  bool success = true;
   BasicBlock *ExitBB = WRN->getExitBBlock();
 
-  // Under the old representation, we still need to remove dirs from EntryBB
-  BasicBlock *EntryBB = WRN->getEntryBBlock();
-  bool SeenRegionDirective = false;
-  for (Instruction &I : *ExitBB) // use ExitBB until EntryBB issue is fixed
-    if (VPOAnalysisUtils::isIntelDirective(&I)) {
-      if (VPOAnalysisUtils::isRegionDirective(&I))
-        SeenRegionDirective = true;
-      break;
-    }
-  if (!SeenRegionDirective)
-    success = VPOUtils::stripDirectives(*EntryBB);
-
-  // Under the new region representation:
+  // With the region.entry/exit representation:
   //   %1 = call token @llvm.directive.region.entry() [...]
   //     ...
   //   call void @llvm.directive.region.exit(token %1) [...]
@@ -74,16 +61,14 @@ bool VPOUtils::stripDirectives(WRegionNode *WRN) {
   // the BEGIN it will first remove the END (which is a use of the token
   // defined by the BEGIN intrinsic) and then later stripDirectives(*ExitBB)
   // would return false because there's nothing left in the ExitBB to remove.
-  success = VPOUtils::stripDirectives(*ExitBB) && success;
-
-  return success;
+  return VPOUtils::stripDirectives(*ExitBB);
 }
 
 bool VPOUtils::stripDirectives(BasicBlock &BB) {
   SmallVector<Instruction *, 4> IntrinsicsToRemove;
 
   for (Instruction &I : BB) {
-    if (VPOAnalysisUtils::isIntelDirectiveOrClause(&I)) {
+    if (VPOAnalysisUtils::isOpenMPDirective(&I)) {
       // Should not add I.Users() to IntrinsicsToRemove Vector,
       // otherwise, I.users() will be deleted twice,
       bool IsUser = false;
@@ -154,42 +139,6 @@ bool VPOUtils::stripDirectives(Function &F) {
   }
 
   return changed;
-}
-
-bool VPOUtils::stripPrivateClauses(WRegionNode *WRN) {
-  BasicBlock *EntryBB = WRN->getEntryBBlock();
-  return VPOUtils::stripPrivateClauses(*EntryBB);
-}
-
-bool VPOUtils::stripPrivateClauses(BasicBlock &BB) {
-  SmallVector<Instruction *, 4> IntrinsicsToRemove;
-
-  for (Instruction &I : BB) {
-    IntrinsicInst *Call = dyn_cast<IntrinsicInst>(&I);
-    if (Call) {
-      Intrinsic::ID Id = Call->getIntrinsicID();
-      if (Id == Intrinsic::directive_region_entry) {
-        // TODO: add support for this representation
-        LLVM_DEBUG(
-            dbgs() << "** WARNING: stripPrivateClauses() support for the "
-                   << "OperandBundle representation will be done later.\n");
-      }
-      else if (Id == Intrinsic::intel_directive_qual_opndlist) {
-        StringRef ClauseString = VPOAnalysisUtils::getDirOrClauseString(Call);
-        ClauseSpecifier ClauseInfo(ClauseString);
-        int ClauseID = ClauseInfo.getId();
-        if (ClauseID == QUAL_OMP_PRIVATE)
-          IntrinsicsToRemove.push_back(&I);
-      }
-    }
-  }
-
-  unsigned Idx = 0;
-  for (Idx = 0; Idx < IntrinsicsToRemove.size(); ++Idx) {
-    Instruction *I = IntrinsicsToRemove[Idx];
-    I->eraseFromParent();
-  }
-  return Idx > 0;
 }
 
 CallInst *VPOUtils::createMaskedGatherCall(Value *VecPtr,

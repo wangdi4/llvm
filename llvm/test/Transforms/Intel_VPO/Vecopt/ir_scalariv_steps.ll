@@ -1,3 +1,7 @@
+; Deprecated the llvm.intel.directive* representation.
+; TODO: Update this test to use llvm.directive.region.entry/exit instead.
+; XFAIL: *
+
 ; ModuleID = 's4.c'
 ; void baz1(long);
 ; 

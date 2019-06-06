@@ -1,6 +1,11 @@
 ; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt  -S | FileCheck %s
 ; RUN: opt < %s -passes="function(vpo-cfg-restructuring,vpo-paropt-prepare),vpo-paropt"  -S | FileCheck %s
 ;
+
+; Deprecated the llvm.intel.directive* representation.
+; TODO: Update this test to use llvm.directive.region.entry/exit instead.
+; XFAIL: *
+
 ; The compiler is expected to emit the call llvm.memcpy.p0i8.p0i8.i64 for the array a.
 ;
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

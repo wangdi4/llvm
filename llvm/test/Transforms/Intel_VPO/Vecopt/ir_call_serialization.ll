@@ -1,6 +1,10 @@
 ; RUN: opt -S -VPlanDriver -disable-vplan-subregions -vplan-force-vf=4 < %s | FileCheck %s
 ;void baz(int i);
 ;
+; Deprecated the llvm.intel.directive* representation.
+; TODO: Update this test to use llvm.directive.region.entry/exit instead.
+; XFAIL: *
+
 ;void foo(int *arr) {
 ;#pragma omp simd
 ;  for (int i = 0; i < 100; i++)

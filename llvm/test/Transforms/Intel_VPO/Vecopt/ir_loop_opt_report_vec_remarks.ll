@@ -2,6 +2,10 @@
 
 ; RUN: opt -VPlanDriver -vplan-force-vf=4 -intel-loop-optreport=low -intel-ir-optreport-emitter %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
+; Deprecated the llvm.intel.directive* representation.
+; TODO: Update this test to use llvm.directive.region.entry/exit instead.
+; XFAIL: *
+
 ; Check output from opt-report emitter
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT-NEXT:    Remark: LOOP WAS VECTORIZED

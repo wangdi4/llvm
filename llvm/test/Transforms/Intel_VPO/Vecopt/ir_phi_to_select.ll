@@ -1,5 +1,9 @@
 ; RUN: opt -vplan-force-vf=4 -S %s -O2 -loopopt=0 -vplan-driver | FileCheck %s
 
+; Deprecated the llvm.intel.directive* representation.
+; TODO: Update this test to use llvm.directive.region.entry/exit instead.
+; XFAIL: *
+
 ;void foo(int *arr1, int *__restrict__ arr2, int *__restrict__ arr3) {
 ;#pragma omp simd
 ;  for (int i = 0; i < 100; i++) {

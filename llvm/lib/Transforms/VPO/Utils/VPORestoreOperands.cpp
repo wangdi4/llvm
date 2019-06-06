@@ -220,7 +220,7 @@ bool VPOUtils::restoreOperands(Function &F) {
   for (Function::iterator B = F.begin(), BE = F.end(); B != BE; ++B)
     for (BasicBlock::iterator I = B->begin(), IE = B->end(); I != IE; ++I) {
       CallInst *CI = dyn_cast<CallInst>(&*I);
-      if (!CI || !VPOAnalysisUtils::isIntelDirective(CI))
+      if (!CI || !VPOAnalysisUtils::isOpenMPDirective(CI))
         continue;
 
       if (CI->getNumOperandBundles() == 0)

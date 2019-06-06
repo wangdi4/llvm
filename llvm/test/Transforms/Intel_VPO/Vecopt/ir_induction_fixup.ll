@@ -1,5 +1,9 @@
 ; RUN: opt -S -VPlanDriver -disable-vplan-predicator -disable-vplan-subregions -vplan-force-vf=4 < %s | FileCheck %s
 
+; Deprecated the llvm.intel.directive* representation.
+; TODO: Update this test to use llvm.directive.region.entry/exit instead.
+; XFAIL: *
+
 ; CHECK-LABEL: foo
 ; CHECK: ._crit_edge:                                      ; preds = %middle.block, %.lr.ph
 ; CHECK:  %inc.lcssa = phi i64 [ %inc, %.lr.ph ], [ %n.vec, %middle.block ]

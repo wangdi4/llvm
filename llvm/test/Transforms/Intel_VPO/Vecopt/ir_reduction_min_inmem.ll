@@ -1,5 +1,9 @@
 ;RUN: opt -VPlanDriver -S %s | FileCheck %s
 
+; Deprecated the llvm.intel.directive* representation.
+; TODO: Update this test to use llvm.directive.region.entry/exit instead.
+; XFAIL: *
+
 ; CHECK:    %Min.vec = alloca <8 x i32>
 ; CHECK:  vector.ph:                                        ; preds = %min.iters.checked
 ; CHECK:    %MinInitVal = load i32, i32* %Min

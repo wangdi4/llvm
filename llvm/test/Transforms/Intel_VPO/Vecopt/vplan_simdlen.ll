@@ -1,6 +1,10 @@
 ; RUN: opt %s -S -vpo-cfg-restructuring -VPlanDriver 2>&1 | FileCheck %s
 ; Verify that VPlan understands simdlen directive information.
 
+; Deprecated the llvm.intel.directive* representation.
+; TODO: Update this test to use llvm.directive.region.entry/exit instead.
+; XFAIL: *
+
 ; CHECK: load <2 x float>, <2 x float>* 
 ; CHECK: load <2 x float>, <2 x float>* 
 ; CHECK: store <2 x float> 

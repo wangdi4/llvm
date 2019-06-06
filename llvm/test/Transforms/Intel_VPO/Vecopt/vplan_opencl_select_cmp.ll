@@ -1,5 +1,9 @@
 ; RUN: opt %s -vector-library=SVML -VPlanDriver -disable-vplan-subregions -disable-vplan-predicator -vplan-force-vf=4 -S 2>&1 | FileCheck %s
 
+; Deprecated the llvm.intel.directive* representation.
+; TODO: Update this test to use llvm.directive.region.entry/exit instead.
+; XFAIL: *
+
 ; Verify vectorization of Opencl select build-in. Generic case.
 ; This test is from Volcano compiler but it's been highly modified by hand.
 ; The IR is only intended to trigger the code generation of the vector select

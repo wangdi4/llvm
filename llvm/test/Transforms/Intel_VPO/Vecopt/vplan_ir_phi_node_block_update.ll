@@ -1,5 +1,9 @@
 ; RUN: opt -VPlanDriver -vplan-print-after-simplify-cfg -S -disable-output < %s 2>&1 | FileCheck %s
 
+; Deprecated the llvm.intel.directive* representation.
+; TODO: Update this test to use llvm.directive.region.entry/exit instead.
+; XFAIL: *
+
 ; Test to check that the incoming blocks for a VPPHINode are correctly updated after simplifyPlainCFG. The incoming blocks are strictly predecessors of the VPPHINode's parent VPBasicBlock.
 ; The test checks for the block entires of a VPPHINode based on the HCFG structure which is also verified.
 

@@ -1,5 +1,9 @@
 ; RUN: opt -S -VPlanDriver -disable-vplan-predicator -disable-vplan-subregions -vplan-force-vf=4 < %s  -instcombine | FileCheck %s
 
+; Deprecated the llvm.intel.directive* representation.
+; TODO: Update this test to use llvm.directive.region.entry/exit instead.
+; XFAIL: *
+
 ;float fp_inc;
 ;void fp_iv_loop(float init, float * __restrict__ A, int N) {
 ;  float x = init;

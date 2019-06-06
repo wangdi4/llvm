@@ -1,5 +1,9 @@
 ; RUN: opt -VPlanDriver -vplan-force-vf=4 -S %s | FileCheck %s
 
+; Deprecated the llvm.intel.directive* representation.
+; TODO: Update this test to use llvm.directive.region.entry/exit instead.
+; XFAIL: *
+
 ; CHECK-LABEL: foo1
 ; CHECK: vector.body:
 ; CHECK:  %replicatedMaskElts. = shufflevector <4 x i1> %[[MASK:.*]], <4 x i1> undef, <8 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>

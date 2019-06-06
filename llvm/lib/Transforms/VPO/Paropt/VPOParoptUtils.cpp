@@ -2102,8 +2102,7 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
   // critical calls at the places marked below:
   //
   //    EntryBB:
-  //      call void @llvm.intel.directive(metadata !"DIR.OMP.CRITICAL")
-  //      call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  //      directive "DIR.OMP.CRITICAL"
   // +------< begin critical >
   // |    br label %BB1
   // |
@@ -2113,8 +2112,7 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
   // |    br label %ExitBB
   // |
   // |  ExitBB:
-  // |    call void @llvm.intel.directive(metadata !"DIR.OMP.END.CRITICAL")
-  // |    call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  // |    directive "DIR.OMP.END.CRITICAL"
   // +------< end critical >
   //      br label %..
 
@@ -2125,8 +2123,7 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
 
   // BeginInst: `br label %BB1` (EntryBB) in the above example.
   Instruction *BeginInst = &(*(EntryBB->rbegin()));
-  // EndInst: `call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")`
-  // (ExitBB) in the above example.
+  // EndInst: directive "DIR.OMP.END.CRITICAL" in the above example.
   Instruction *EndInst = &(*(++(ExitBB->rbegin())));
 
   assert(BeginInst != nullptr && "BeginInst is null.");

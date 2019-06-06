@@ -162,6 +162,7 @@ void WRegionNode::finalize(BasicBlock *ExitBB, DominatorTree *DT) {
       else
         setSchedCode(0);
     }
+#if INTEL_CUSTOMIZATION
 
     // For OpenCL, the vectorizer requires that the second operand of
     // __read_pipe_2_bl_intel() be privatized. The code below will look at
@@ -196,6 +197,7 @@ void WRegionNode::finalize(BasicBlock *ExitBB, DominatorTree *DT) {
           }
       resetBBSet();
     }
+#endif // INTEL_CUSTOMIZATION
   } // if (getIsOmpLoop())
 
   // All target constructs except for "target data" are task-generating
@@ -450,21 +452,6 @@ void WRegionNode::dump(unsigned Verbosity) const {
 // functions below are used to update WRNs with clause information
 //
 
-// Parse the clause in the llvm.intel.directive.qual* representation.
-void WRegionNode::parseClause(const ClauseSpecifier &ClauseInfo,
-                              IntrinsicInst *Call){
-
-  // Get argument list from the intrinsic call
-  const Use *Args = Call->getOperandList();
-
-  // Skip Args[0] as it's the clause name metadata; hence the -1 below
-  unsigned NumArgs = Call->getNumArgOperands() - 1;
-
-  parseClause(ClauseInfo, &Args[1], NumArgs);
-}
-
-// Common code to parse the clause. This routine is used for both
-// representations: llvm.intel.directive.qual* and directive.region.entry/exit.
 void WRegionNode::parseClause(const ClauseSpecifier &ClauseInfo,
                               const Use *Args, unsigned NumArgs) {
   int ClauseID = ClauseInfo.getId();
@@ -619,8 +606,7 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
     break;
   case QUAL_OMP_NAME: {
     // The operand is expected to be a constant string. Example:
-    // call void @llvm.intel.directive.qual.opnd.a9i8(metadata
-    // !"QUAL.OMP.NAME", [9 x i8] c"lock_name")
+    // "QUAL.OMP.NAME"([9 x i8] c"lock_name")
     assert(isa<ConstantDataSequential>(V) &&
            "QUAL_OMP_NAME opnd is not constant data.");
     ConstantDataSequential *CD = cast<ConstantDataSequential>(V);

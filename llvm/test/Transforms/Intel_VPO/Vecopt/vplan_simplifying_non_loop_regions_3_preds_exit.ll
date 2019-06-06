@@ -1,6 +1,10 @@
 ; RUN: opt < %s -VPlanDriver -vplan-predicator-report -disable-vplan-codegen \
 ; RUN:       -vplan-print-after-simplify-cfg 2>&1 | FileCheck %s --check-prefix=CHECK-PHI
 ;
+; Deprecated the llvm.intel.directive* representation.
+; TODO: Update this test to use llvm.directive.region.entry/exit instead.
+; XFAIL: *
+
 ; Tests that simplification of non-loop region with 3 predecessors for exit VPBB
 ; doesn't cause compfail.
 ; It should be revisited after adding verification that non-loop regions

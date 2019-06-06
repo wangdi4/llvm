@@ -193,13 +193,12 @@ public:
   /// matches the construct type based on DirID.
   static WRegionNode *createWRegion(int DirID, BasicBlock *EntryBB,
                                     LoopInfo *LI, unsigned NestingLevel,
-                                    bool IsRegionIntrinsic, CallInst *Dir);
+                                    CallInst *Dir);
 
 #if INTEL_CUSTOMIZATION
   /// \brief Similar to createWRegion, but for HIR vectorizer support
   static WRegionNode *createWRegionHIR(int DirID, loopopt::HLNode *EntryHLNode,
                                        unsigned NestingLevel,
-                                       bool IsRegionIntrinsic,
                                        IntrinsicInst *Call);
 
   /// \brief Driver routine to build WRGraph based on HIR representation

@@ -59,9 +59,9 @@ public:
   /// \brief Returns strings corresponding to OpenMP clauses.
   static StringRef getClauseString(int Id);
 
-  /// \brief Return true if the instruction is an llvm.intel.directive*()
-  /// intrinsic call
-  static bool isIntelDirective(Instruction *I);
+  /// \brief Return true if the instruction is an OpenMP directive
+  /// represented as a directive.region.entry/exit intrinsic call
+  static bool isOpenMPDirective(Instruction *I);
 };
 
 } // namespace llvm

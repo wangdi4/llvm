@@ -1,3 +1,7 @@
+; Deprecated the llvm.intel.directive* representation.
+; TODO: Update this test to use llvm.directive.region.entry/exit instead.
+; XFAIL: *
+
 ; void foo(long *ip, long *ip2)
 ; {
 ;   long index;

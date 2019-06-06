@@ -1010,7 +1010,6 @@ bool VPOParoptTransform::paroptTransforms() {
     bool Changed = false;
 
     bool RemoveDirectives = false;
-    bool RemovePrivateClauses = false;
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -1364,7 +1363,6 @@ bool VPOParoptTransform::paroptTransforms() {
           }
           // keep SIMD directives; will be processed by the Vectorizer
           RemoveDirectives = false;
-          RemovePrivateClauses = false;
         }
         break;
       case WRegionNode::WRNAtomic:
@@ -1565,8 +1563,6 @@ bool VPOParoptTransform::paroptTransforms() {
       bool DirRemoved = VPOUtils::stripDirectives(W);
       assert(DirRemoved && "Directive intrinsics not removed for WRN.\n");
       (void) DirRemoved;
-    } else if (RemovePrivateClauses) {
-      VPOUtils::stripPrivateClauses(W);
     }
 
     if (Changed) { // Code transformations happened for this WRN
@@ -3742,7 +3738,7 @@ void VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
         StInst->setVolatile(false);
     }
     if (PromoteToReg) {
-      resetValueInIntelClauseGeneric(W, V);
+      resetValueInOmpClauseGeneric(W, V);
       Allocas.push_back(AI);
     }
   }
@@ -4049,6 +4045,7 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
         // removed by genPrivatizationReplacement(), so we need to recompute
         // AllocaInsertPt at every iteration of this for-loop.
 
+#if INTEL_CUSTOMIZATION
         // For now, back out this change to AllocaInsertPt until we figure
         // out why it causes an assert in VPOCodeGen::getVectorPrivateBase
         // when running run_gf_channels (gridfusion4.3_tuned_channels).
@@ -4058,6 +4055,7 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
         // TODO: Restructure this code so that the alloca is only done for
         // non-tasks. We could just use the thunk's private space pointer
         // directly in the task body.
+#endif // INTEL_CUSTOMIZATION
         Instruction *AllocaInsertPt = EntryBB->getFirstNonPHI();
         NewPrivInst = genPrivatizationAlloca(PrivI, AllocaInsertPt, ".priv");
         PrivI->setNew(NewPrivInst);
@@ -4506,7 +4504,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
       // FIXME: enable this back, when FE starts capturing dist_schedule
       //        chunk size.
       if (!isa<Constant>(DistChunkVal)) {
-        resetValueInIntelClauseGeneric(W, DistChunkVal);
+        resetValueInOmpClauseGeneric(W, DistChunkVal);
         DistChunkVal =
             VPOParoptUtils::cloneInstructions(DistChunkVal, PHTerm);
         PHBuilder.SetInsertPoint(PHTerm);
@@ -4567,7 +4565,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
           ConstantInt::get(IndValTy, 1) : W->getSchedule().getChunkExpr();
 
   if (!isa<Constant>(ChunkVal) && !isa<WRNWksLoopNode>(W)) {
-    resetValueInIntelClauseGeneric(W, ChunkVal);
+    resetValueInOmpClauseGeneric(W, ChunkVal);
     ChunkVal = VPOParoptUtils::cloneInstructions(ChunkVal, PHTerm);
     PHBuilder.SetInsertPoint(PHTerm);
   }
@@ -5975,7 +5973,7 @@ bool VPOParoptTransform::propagateCancellationPointsToIR(WRegionNode *W) {
   assert(CI && "propagateCancellationPointsToIR: Exit BBlocks's first "
                "non-PHI Instruction is not a Call");
   assert(
-      VPOAnalysisUtils::isIntelDirectiveOrClause(CI) &&
+      VPOAnalysisUtils::isOpenMPDirective(CI) &&
       "propagateCancellationPointsToIR: Cannot find region.exit() directive");
 
   // We first create Allocas to store the return values of the runtime calls.
@@ -6077,7 +6075,7 @@ bool VPOParoptTransform::clearCancellationPointAllocasFromIR(WRegionNode *W) {
 
     assert(RegionEntry &&
            "Unable to find intrinsic using cancellation point alloca.");
-    assert(VPOAnalysisUtils::isIntelDirectiveOrClause(RegionEntry) &&
+    assert(VPOAnalysisUtils::isOpenMPDirective(RegionEntry) &&
            "Unexpected user of cancellation point alloca.");
 
     LLVMContext &C = F->getContext();
@@ -6388,12 +6386,12 @@ void VPOParoptTransform::resetValueInPrivateClause(WRegionNode *W) {
     return;
 
   for (auto *I : PrivClause.items()) {
-    resetValueInIntelClauseGeneric(W, I->getOrig());
+    resetValueInOmpClauseGeneric(W, I->getOrig());
   }
 }
 
-// Set the the arguments in the Intel compiler generated clause to be empty.
-void VPOParoptTransform::resetValueInIntelClauseGeneric(WRegionNode *W,
+// Set the the operands V of OpenMP clauses in W to be empty.
+void VPOParoptTransform::resetValueInOmpClauseGeneric(WRegionNode *W,
                                                         Value *V) {
   if (!V)
     return;
@@ -6410,7 +6408,7 @@ void VPOParoptTransform::resetValueInIntelClauseGeneric(WRegionNode *W,
 
   while (!IfUses.empty()) {
     Instruction *UI = IfUses.pop_back_val();
-    if (VPOAnalysisUtils::isIntelDirectiveOrClause(UI)) {
+    if (VPOAnalysisUtils::isOpenMPDirective(UI)) {
       LLVMContext &C = F->getContext();
       UI->replaceUsesOfWith(V, ConstantPointerNull::get(Type::getInt8PtrTy(C)));
       break;

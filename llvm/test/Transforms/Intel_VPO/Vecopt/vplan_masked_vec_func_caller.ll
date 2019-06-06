@@ -1,5 +1,9 @@
 ; RUN: opt -VPlanDriver -disable-vplan-subregions -S < %s  | FileCheck %s
 
+; Deprecated the llvm.intel.directive* representation.
+; TODO: Update this test to use llvm.directive.region.entry/exit instead.
+; XFAIL: *
+
 ; CHECK-LABEL: vector.body
 ; CHECK: call <4 x float> @_ZGVbM4vv_vec_sum
 

@@ -613,8 +613,8 @@ private:
   /// Reset the value in the Map clause to be empty.
   void resetValueInMapClause(WRegionNode *W);
 
-  /// Reset the expression value of Intel clause to be empty.
-  void resetValueInIntelClauseGeneric(WRegionNode *W, Value *V);
+  /// Reset the value of \p V in OpenMP clauses of \p W to be empty.
+  void resetValueInOmpClauseGeneric(WRegionNode *W, Value *V);
 
   /// Generate the code for the directive omp target
   bool genTargetOffloadingCode(WRegionNode *W);

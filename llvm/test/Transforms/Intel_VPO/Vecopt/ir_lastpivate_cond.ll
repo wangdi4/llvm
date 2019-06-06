@@ -1,4 +1,9 @@
 ; RUN: opt -VPlanDriver -vplan-force-vf=4 -S %s | FileCheck %s
+
+; Deprecated the llvm.intel.directive* representation.
+; TODO: Update this test to use llvm.directive.region.entry/exit instead.
+; XFAIL: *
+
 ; This test checks for a widened alloca and a wide store to the widened alloca
 ; CHECK:  %[[VEC_PRIV:.*]] = alloca <4 x i32>, align 4
 ; CHECK:  %tmp.mask = alloca i4

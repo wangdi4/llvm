@@ -176,11 +176,7 @@ protected:
   // Routines for parsing clauses
   //
 
-  /// Parse a clause in the llvm.intel.directive.qual* representation.
-  void parseClause(const ClauseSpecifier &ClauseInfo, IntrinsicInst *Call);
-
-  /// Common code to parse a clause, used for both representations:
-  /// llvm.intel.directive.qual* and directive.region.entry/exit.
+  /// Top-level code to parse a clause
   void parseClause(const ClauseSpecifier &ClauseInfo, const Use *Args,
                    unsigned NumArgs);
 
@@ -667,11 +663,11 @@ public:
     WRNParallelWorkshare,             // IsPar, IsOmpLoop
     WRNTeams,                         // IsTeams
     WRNDistributeParLoop,             // IsPar, IsOmpLoop, IsDistribute
-    WRNTarget,                        // IsTarget, IsTask (if depend/nowait)
+    WRNTarget,                        // IsTarget
     WRNTargetData,                    // IsTarget
-    WRNTargetEnterData,               // IsTarget, IsTask (if depend/nowait)
-    WRNTargetExitData,                // IsTarget, IsTask (if depend/nowait)
-    WRNTargetUpdate,                  // IsTarget, IsTask (if depend/nowait)
+    WRNTargetEnterData,               // IsTarget
+    WRNTargetExitData,                // IsTarget
+    WRNTargetUpdate,                  // IsTarget
     WRNTask,                          // IsTask
     WRNTaskloop,                      // IsTask, IsOmpLoop
 

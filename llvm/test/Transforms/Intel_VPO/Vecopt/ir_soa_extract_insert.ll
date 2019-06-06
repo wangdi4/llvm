@@ -1,5 +1,9 @@
 ; RUN: opt -VPlanDriver -vplan-force-vf=4 -S %s | FileCheck %s
 
+; Deprecated the llvm.intel.directive* representation.
+; TODO: Update this test to use llvm.directive.region.entry/exit instead.
+; XFAIL: *
+
 ; CHECK: vector.body:
 ; CHECK:  [[EXTRACT1:%.*]] = shufflevector <8 x i32> %{{.*}}, <8 x i32> undef, <4 x i32> <i32 1, i32 3, i32 5, i32 7>
 ; CHECK-NEXT:  [[OP1:%.*]] = sitofp <4 x i32> [[EXTRACT1]] to <4 x float> 

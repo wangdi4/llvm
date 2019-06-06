@@ -174,7 +174,7 @@ bool llvm::MergeBlockIntoPredecessor(BasicBlock *BB, DomTreeUpdater *DTU,
     return false;
 
 #if INTEL_COLLAB
-  if (IntrinsicUtils::isIntelDirective(&(BB->front())))
+  if (IntrinsicUtils::isOpenMPDirective(&(BB->front())))
     return false;
 #endif // INTEL_COLLAB
 
