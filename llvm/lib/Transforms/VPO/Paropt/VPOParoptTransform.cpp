@@ -239,7 +239,7 @@ void VPOParoptTransform::
 // new_team_lb = lb + get_group_id(Idx) * team_chunk_size;
 // new_team_ub = min(new_team_lb + team_chunk_size - 1, ub);
 //
-// for (i = new_team_lb; i <= new_team_ub; i++TeamUB)
+// for (i = new_team_lb; i <= new_team_ub; i += TeamStride)
 //
 // Idx -- the dimension index.
 // LowerBnd -- the stack variable which holds the loop lower bound.
@@ -508,9 +508,13 @@ void VPOParoptTransform::genOCLLoopPartitionCode(
     wrnUpdateLiveOutVals(L, LoopRegionExitBB, LiveOutVals, ECs);
     rewriteUsesOfOutInstructions(ValueToLiveinMap, LiveOutVals, ECs);
   } else if (SchedKind == WRNScheduleStatic) {
+    // With "teams distribute" the workitem's loop iteration count
+    // threshold is the team's upper bound, otherwise, it is
+    // the original loop's upper bound.
     Loop *OuterLoop = genDispatchLoopForStatic(
-        L, LoadLB, LoadUB, LowerBnd, UpperBnd, UpperBndVal, SchedStride,
-        LoopExitBB, StaticInitBB, LoopRegionExitBB);
+        L, LoadLB, LoadUB, LowerBnd, UpperBnd,
+        TeamUB ? TeamUB : UpperBndVal,
+        SchedStride, LoopExitBB, StaticInitBB, LoopRegionExitBB);
     wrnUpdateLiveOutVals(OuterLoop, LoopRegionExitBB, LiveOutVals, ECs);
     wrnUpdateSSAPreprocessForOuterLoop(OuterLoop, ValueToLiveinMap, LiveOutVals,
                                        ECs);
