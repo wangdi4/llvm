@@ -187,6 +187,9 @@ add_llvm_library(LLVMCodeGen
 
   DEPENDS
   intrinsics_gen
+# INTEL_CUSTOMIZATION
+  directives_gen
+# end INTEL_CUSTOMIZATION
   )
 
 add_subdirectory(SelectionDAG)
