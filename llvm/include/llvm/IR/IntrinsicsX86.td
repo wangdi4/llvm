@@ -5138,10 +5138,19 @@ let TargetPrefix = "x86" in {
                   [ llvm_v8f16_ty, llvm_v8f16_ty, llvm_i32_ty, llvm_i32_ty ],
                   [ IntrNoMem, ImmArg<2>, ImmArg<3> ]>;
 
-  def int_x86_avx512fp16_vcvtph2psx_512
-      : GCCBuiltin<"__builtin_ia32_vcvtph2psx512">,
-        Intrinsic<[ llvm_v16f32_ty ], [ llvm_v16f16_ty, llvm_i32_ty ],
-                  [ IntrNoMem, ImmArg<1> ]>;
+  def int_x86_avx512fp16_mask_vcvtph2psx_128
+      : GCCBuiltin<"__builtin_ia32_vcvtph2psx128_mask">,
+        Intrinsic<[ llvm_v4f32_ty ],
+                  [ llvm_v8f16_ty, llvm_v4f32_ty, llvm_i8_ty ], [ IntrNoMem ]>;
+  def int_x86_avx512fp16_mask_vcvtph2psx_256
+      : GCCBuiltin<"__builtin_ia32_vcvtph2psx256_mask">,
+        Intrinsic<[ llvm_v8f32_ty ],
+                  [ llvm_v8f16_ty, llvm_v8f32_ty, llvm_i8_ty ], [ IntrNoMem ]>;
+  def int_x86_avx512fp16_mask_vcvtph2psx_512
+      : GCCBuiltin<"__builtin_ia32_vcvtph2psx512_mask">,
+        Intrinsic<[ llvm_v16f32_ty ],
+                  [ llvm_v16f16_ty, llvm_v16f32_ty, llvm_i16_ty, llvm_i32_ty ],
+                  [ IntrNoMem, ImmArg<3> ]>;
   def int_x86_avx512fp16_mask_vcvtps2phx_128
       : GCCBuiltin<"__builtin_ia32_vcvtps2phx128_mask">,
         Intrinsic<[ llvm_v8f16_ty ],
@@ -5150,10 +5159,11 @@ let TargetPrefix = "x86" in {
       : GCCBuiltin<"__builtin_ia32_vcvtps2phx256_mask">,
         Intrinsic<[ llvm_v8f16_ty ],
                   [ llvm_v8f32_ty, llvm_v8f16_ty, llvm_i8_ty ], [ IntrNoMem ]>;
-  def int_x86_avx512fp16_vcvtps2phx_512
-      : GCCBuiltin<"__builtin_ia32_vcvtps2phx512">,
-        Intrinsic<[ llvm_v16f16_ty ], [ llvm_v16f32_ty, llvm_i32_ty ],
-                  [ IntrNoMem, ImmArg<1> ]>;
+  def int_x86_avx512fp16_mask_vcvtps2phx_512
+      : GCCBuiltin<"__builtin_ia32_vcvtps2phx512_mask">,
+        Intrinsic<[ llvm_v16f16_ty ],
+                  [ llvm_v16f32_ty, llvm_v16f16_ty, llvm_i16_ty, llvm_i32_ty ],
+                  [ IntrNoMem, ImmArg<3> ]>;
   def int_x86_avx512fp16_mask_vcvtpd2ph_128
       : GCCBuiltin<"__builtin_ia32_vcvtpd2ph128_mask">,
         Intrinsic<[ llvm_v8f16_ty ],
