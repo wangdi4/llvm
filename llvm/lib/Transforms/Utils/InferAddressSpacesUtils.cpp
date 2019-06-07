@@ -298,13 +298,15 @@ static void remangleOpenCLBuiltin(CallInst *CI,
    }
 
    size_t PtrManglingStart = 0;
+   size_t PtrManglingEnd = PtrManglingStart + FlatASMangling.size();
+
    for (unsigned PtrManglingNo = 0; PtrManglingNo < PtrArgOccurence;
         ++PtrManglingNo) {
-     PtrManglingStart = OldName.find(FlatASMangling, PtrManglingStart);
+     PtrManglingStart = OldName.find(FlatASMangling, PtrManglingEnd);
+     PtrManglingEnd   = PtrManglingStart + FlatASMangling.size();
      assert(PtrManglingStart != OldName.npos &&
             "Could not find Nth occurence of a pointer mangling substring.");
    }
-   size_t PtrManglingEnd = PtrManglingStart + FlatASMangling.size();
 
    NewName << OldName.substr(0, PtrManglingStart);
    NewName << ReplacementASMangling;
