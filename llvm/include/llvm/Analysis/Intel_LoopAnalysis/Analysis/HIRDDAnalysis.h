@@ -246,7 +246,7 @@ public:
   ///  When ForFusion is true, DD assumes both references are inside the
   ///  deepest nesting.
 
-  RefinedDependence refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
+  RefinedDependence refineDV(const DDRef *SrcDDRef, const DDRef *DstDDRef,
                              unsigned StartNestingLevel,
                              unsigned DeepestNestingLevel, bool ForFusion);
 

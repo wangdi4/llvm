@@ -184,7 +184,7 @@ public:
           PeelLast(false), Splitable(false), Distance(nullptr) {}
   };
 
-  Dependences(DDRef *SrcDDRef, DDRef *DstDDRef, unsigned Levels);
+  Dependences(const DDRef *SrcDDRef, const DDRef *DstDDRef, unsigned Levels);
   ~Dependences();
 
   /// isLoopIndependent - Returns true if this is a loop-independent
@@ -236,7 +236,7 @@ public:
   void dump(raw_ostream &OS) const;
 
 private:
-  DDRef *Src, *Dst;
+  const DDRef *Src, *Dst;
   unsigned CommonLevels; // Common Levels for the Src & Dst Refs
   bool LoopIndependent;
   bool Consistent; // Init to true, then refine.
@@ -275,7 +275,8 @@ class DDTest {
   /// \brief Tests for a dependence between the Src and Dst DDRefs
   /// Returns NULL if no dependence; otherwise, returns a Dependence (or a
   /// FullDependence) with as much information as can be gleaned.
-  std::unique_ptr<Dependences> depends(DDRef *SrcDDRef, DDRef *DstDDRef,
+  std::unique_ptr<Dependences> depends(const DDRef *SrcDDRef,
+                                       const DDRef *DstDDRef,
                                        const DirectionVector &InputDV,
                                        bool ForDDGBuild, bool ForFusion);
 
