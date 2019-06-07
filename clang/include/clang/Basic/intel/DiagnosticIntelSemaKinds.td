@@ -145,6 +145,12 @@ def err_pragma_loop_invalid_argument : Error<
   "invalid argument of type %0; expected a scalar type">;
 def err_pragma_block_loop_private_expected_var_arg : Error<
   "only variables can be arguments to '#pragma block_loop private'">;
+// CMPLRLLVM-1125 - Emit warnings about redundant #pragma ivdeps.
+def warn_redundant_ivdep_pragma : Warning<
+  "redundant directive '%0'">,
+  InGroup<Pragmas>;
+def note_overriding_ivdep_pragma_is_specified_here : Note<
+  "overriding ivdep pragma is specified here">;
 }
 
 def warn_d_suffix : ExtWarn<"d-suffix in FP literal is a GNU extension">,

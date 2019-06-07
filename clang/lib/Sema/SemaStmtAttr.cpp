@@ -613,6 +613,139 @@ bool Sema::CheckIntelBlockLoopAttribute(const IntelBlockLoopAttr *BL) {
   }
   return true;
 }
+
+// A class to compare two #pragma ivdep safelen values in
+// an anonymous namespace.
+namespace {
+  class IVDepCompare {
+    llvm::APSInt SafeLen;
+    bool IsMaxSafeLen = false;
+  public:
+    IVDepCompare(Sema &S, const LoopHintAttr* LH) {
+      if (LH->getState() == LoopHintAttr::Enable ||
+          LH->getState() == LoopHintAttr::LoopExpr)
+        IsMaxSafeLen = true;
+      else
+        SafeLen = LH->getValue()->EvaluateKnownConstInt(S.Context);
+    }
+    bool isMaxSafeLen() { return IsMaxSafeLen; }
+    bool operator==(const IVDepCompare &C) {
+      return IsMaxSafeLen == C.IsMaxSafeLen && SafeLen == C.SafeLen;
+    }
+    bool operator>(const IVDepCompare& C) {
+       if (IsMaxSafeLen && !C.IsMaxSafeLen) return true;
+       if (C.IsMaxSafeLen) return false;
+       return SafeLen > C.SafeLen;
+    }
+    bool operator>=(const IVDepCompare& C) { return *this == C || *this > C; }
+  };
+} // end anonymous namespace
+
+static void
+CheckForRedundantIVDepAttributes(Sema &S,
+                                 const SmallVectorImpl<const Attr *> &Attrs) {
+
+  const LoopHintAttr* OverridingAttr = nullptr;
+
+  for (const auto *I : Attrs) {
+    const LoopHintAttr *LH = dyn_cast<LoopHintAttr>(I);
+    if (!LH || (LH->getOption() != LoopHintAttr::IVDepHLS &&
+        LH->getOption() != LoopHintAttr::IVDepHLSIntel))
+      continue;
+
+    // Only Enable [#pragma ivdep] and Numeric [#pragma ivdep safelen(a)]
+    // pragma can modify the OverridingAttr.
+    if (LH->getState() != LoopHintAttr::Enable &&
+        LH->getState() != LoopHintAttr::Numeric)
+      continue;
+
+    // The first OverridingAttr is found.
+    if (!OverridingAttr) {
+      OverridingAttr = LH;
+      continue;
+    }
+
+    // Enable [#pragma ivdep] overrides any Numeric
+    // [#pragma ivdep safelen(a)] pragma.
+    if (LH->getState() == LoopHintAttr::Enable) {
+      if (OverridingAttr->getState() == LoopHintAttr::Numeric)
+        OverridingAttr = LH;
+      continue;
+    }
+
+    assert(LH->getState() == LoopHintAttr::Numeric && "expecting Numeric");
+
+    // The larger safelen value of #pragma ivdep overrides the smaller one
+    // for two Numerics safelen values.
+    IVDepCompare SL(S, LH);
+    IVDepCompare OverridingSafeLen(S, OverridingAttr);
+    if (SL > OverridingSafeLen)
+      OverridingAttr = LH;
+  }
+
+  // If there is an overriding attribute, go through again,
+  // and give diagnostics.
+  if (OverridingAttr) {
+    PrintingPolicy Policy(S.Context.getLangOpts());
+    const auto &DiagnoseRedundant = [&](const LoopHintAttr *Attr) {
+      S.Diag(Attr->getRange().getBegin(), diag::warn_redundant_ivdep_pragma)
+          << Attr->getDiagnosticName(Policy);
+      S.Diag(OverridingAttr->getRange().getBegin(),
+             diag::note_overriding_ivdep_pragma_is_specified_here)
+          << OverridingAttr->getDiagnosticName(Policy);
+    };
+
+    IVDepCompare OverridingSafeLen(S, OverridingAttr);
+
+    for (const auto *I : Attrs) {
+      const LoopHintAttr *LH = dyn_cast<LoopHintAttr>(I);
+      if (!LH || (LH->getOption() != LoopHintAttr::IVDepHLS &&
+          LH->getOption() != LoopHintAttr::IVDepHLSIntel) ||
+          LH == OverridingAttr)
+        continue;
+
+      IVDepCompare SL(S, LH);
+      switch (LH->getState()) {
+        // Give diagnostic based on OverridingSafeLen and the safelen
+        // associated with LH.
+      case LoopHintAttr::Numeric:
+        // Give redundant diagnostic for the smaller safelen value of
+        // #pragma ivdep safelen (a) for two Numerics.
+        // Duplicate when LH matches the overridingAttr.
+        if (OverridingSafeLen > SL) {
+          DiagnoseRedundant(LH);
+        } else {
+          S.Diag(LH->getRange().getBegin(), diag::err_pragma_loop_compatibility)
+              << /*Duplicate=*/true
+              << OverridingAttr->getDiagnosticName(Policy)
+              << LH->getDiagnosticName(Policy);
+        }
+        break;
+      case LoopHintAttr::Full:
+        // An [ivdep] or [ivdep safelen(a)] pragma exists greater than the
+        // safelen associated with LH.
+        if (OverridingSafeLen >= SL) {
+          DiagnoseRedundant(LH);
+        }
+        break;
+      case LoopHintAttr::LoopExpr:
+        // An Enable [#pragma ivdep] pragma exists that overrides
+        // all LoopExpr [#pragma ivdep array(Arr)] pragmas.
+        if (OverridingSafeLen.isMaxSafeLen())
+          DiagnoseRedundant(LH);
+        break;
+      case LoopHintAttr::Enable:
+        // Duplicate directives for #pragma ivdep is
+        // diagnosed elsewhere.
+        break;
+      case LoopHintAttr::Disable:
+      case LoopHintAttr::AssumeSafety:
+        llvm_unreachable("unexpected loop pragma state");
+      }
+    }
+  }
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 static void
@@ -793,9 +926,9 @@ CheckForIncompatibleAttributes(Sema &S,
         Option == LoopHintAttr::IVDepHLSIntel) {
       switch (LH->getState()) {
       case LoopHintAttr::Numeric:
-        // safelen only - diagnose duplicates
-        PrevAttr = CategoryState.NumericAttr;
-        CategoryState.NumericAttr = LH;
+        // safelen only - don't diagnose
+        // for duplicate directives on redundant IVDepHLS pragma
+        PrevAttr = nullptr;
         break;
       case LoopHintAttr::LoopExpr:
       case LoopHintAttr::Full:
@@ -1057,6 +1190,10 @@ StmtResult Sema::ProcessStmtAttributes(Stmt *S,
   }
 
   CheckForIncompatibleAttributes(*this, Attrs);
+
+#if INTEL_CUSTOMIZATION
+  CheckForRedundantIVDepAttributes(*this, Attrs);
+#endif // INTEL_CUSTOMIZATION
 
   if (Attrs.empty())
     return S;

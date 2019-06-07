@@ -1,4 +1,5 @@
 //RUN: %clang_cc1 -fhls -fsyntax-only -ast-dump -verify -pedantic %s | FileCheck %s
+//RUN: %clang_cc1 -fhls -fsyntax-only -fintel-compatibility -ast-dump -verify -pedantic %s | FileCheck %s
 
 //CHECK: FunctionDecl{{.*}}foo_unroll
 void foo_unroll()
@@ -141,7 +142,7 @@ void foo_ivdep()
 {
   int myArray[40];
   //CHECK: AttributedStmt
-  //CHECK-NEXT: LoopHintAttr{{.*}}IVDepHLS Enable
+  //CHECK-NEXT: LoopHintAttr{{.*}}IVDepHLS{{.*}}Enable
   #pragma ivdep
   for (int i=0;i<32;++i) {}
 
@@ -206,6 +207,118 @@ void foo_ivdep()
   //expected-error@+1{{no member named 'lala'}}
   #pragma ivdep array(mysp->lala)
   for (int i=0;i<32;++i) {}
+
+  // Tests for redundant ivdep pragma directives
+  // 1. Fully overlapping pragmas [optionally with safelens]:
+  // #pragma ivdep [safelen(n)]
+  // #pragma ivdep [safelen(m)]
+  // In this case, the max(n,m) will be used by the optimizer. Thus the
+  // smaller one is redundant and should trigger a warning. No "safelen"
+  // is equivalent to safelen(infinity).
+
+  #pragma ivdep safelen(4) // expected-warning {{redundant directive}}
+  #pragma ivdep safelen(8) // expected-note {{overriding ivdep pragma is specified here}}
+  for (int i=0;i<32;++i) {}
+
+  #pragma ivdep safelen(4) // expected-note {{overriding ivdep pragma is specified here}}
+  #pragma ivdep safelen(2) // expected-warning {{redundant directive}}
+  for (int i=0;i<32;++i) {}
+
+  #pragma ivdep safelen(4)
+  #pragma ivdep safelen(4) // expected-error {{duplicate directive}}
+  for (int i=0;i<32;++i) {}
+
+  #pragma ivdep safelen(8) // expected-warning {{redundant directive}}
+  #pragma ivdep            // expected-note {{overriding ivdep pragma is specified here}}
+  for (int i=0;i<32;++i) {}
+
+  #pragma ivdep // expected-note {{overriding ivdep pragma is specified here}}
+  #pragma ivdep safelen(8) // expected-warning {{redundant directive}}
+  for (int i=0;i<32;++i) {}
+
+  // 2. Partially overlapping pragmas:
+  // #pragma ivdep [safelen(n)]
+  // #pragma ivdep array(a) [safelen(m)]
+  // In this case, the max(n,m) will be used for array a by the optimizer.
+  // Thus if m <= n, the "array" pragma is redundant and should trigger a
+  // warning.
+
+  //expected-warning@+3 {{redundant directive}}
+  //expected-note@+1 {{overriding ivdep pragma is specified here}}
+  #pragma ivdep
+  #pragma ivdep array(myArray) safelen(4)
+  for (int i=0;i<32;++i) {}
+
+  //expected-warning@+2 {{redundant directive}}
+  //expected-note@+2 {{overriding ivdep pragma is specified here}}
+  #pragma ivdep array(myArray) safelen(4)
+  #pragma ivdep
+  for (int i=0;i<32;++i) {}
+
+  //expected-warning@+3 {{redundant directive}}
+  //expected-note@+1 {{overriding ivdep pragma is specified here}}
+  #pragma ivdep safelen(8)
+  #pragma ivdep array(myArray) safelen(4)
+  for (int i=0;i<32;++i) {}
+
+  //expected-warning@+2 {{redundant directive}}
+  //expected-note@+2 {{overriding ivdep pragma is specified here}}
+  #pragma ivdep array(myArray) safelen(4)
+  #pragma ivdep safelen(8)
+  for (int i=0;i<32;++i) {}
+
+  //expected-warning@+2 {{redundant directive}}
+  //expected-note@+2 {{overriding ivdep pragma is specified here}}
+  #pragma ivdep array(myArray) safelen(8)
+  #pragma ivdep safelen(8)
+  for (int i=0;i<32;++i) {}
+
+  //expected-warning@+3 {{redundant directive}}
+  //expected-note@+1 {{overriding ivdep pragma is specified here}}
+  #pragma ivdep safelen(8)
+  #pragma ivdep array(myArray) safelen(8)
+  for (int i=0;i<32;++i) {}
+
+  #pragma ivdep safelen(6) array(myArray)
+  #pragma ivdep safelen(4) // not redundant directive since  m > n
+  for (int i=0;i<32;++i) {}
+
+  #pragma ivdep safelen(4) // not redundant directive since  m > n
+  #pragma ivdep safelen(6) array(myArray)
+  for (int i=0;i<32;++i) {}
+
+  int myArray2[24];
+  //expected-warning@+1 {{redundant directive}}
+  #pragma ivdep array(myArray) safelen(4)
+  #pragma ivdep array(myArray2) safelen(16)  // this one not redundant
+  #pragma ivdep safelen(8)
+  //expected-note@-1 {{overriding ivdep pragma is specified here}}
+  for (int i=0;i<32;++i) {}
+
+  //expected-warning@+3 {{redundant directive}}
+  //expected-note@+1 {{overriding ivdep pragma is specified here}}
+  #pragma ivdep
+  #pragma ivdep array(myArray)
+  for (int i=0;i<32;++i) {}
+
+  //expected-warning@+2 {{redundant directive}}
+  //expected-note@+2 {{overriding ivdep pragma is specified here}}
+  #pragma ivdep array(myArray)
+  #pragma ivdep
+  for (int i=0;i<32;++i) {}
+
+  //expected-warning@+6{{redundant directive}}
+  //expected-note@+6 {{overriding ivdep pragma is specified here}}
+  //expected-warning@+6 {{redundant directive}}
+  //expected-note@+4 {{overriding ivdep pragma is specified here}}
+  //expected-warning@+5 {{redundant directive}}
+  //expected-note@+2 {{overriding ivdep pragma is specified here}}
+  #pragma ivdep array(myArray)
+  #pragma ivdep
+  #pragma ivdep safelen(8)
+  #pragma ivdep array(myArray) safelen(16)
+  for (int i=0;i<32;++i) {}
+
 }
 
 //CHECK: FunctionDecl{{.*}}foo_ii_at_most
