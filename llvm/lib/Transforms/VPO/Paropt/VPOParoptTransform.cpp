@@ -5919,9 +5919,13 @@ bool VPOParoptTransform::genCancelCode(WRNCancelNode *W) {
 
   auto *IfExpr = W->getIf();
   if (IfExpr) {
+    assert(!W->getIsCancellationPoint() && "IF expr on a Cancellation Point.");
+
     // If the construct has an 'IF' clause, we need to generate code like:
     // if (if_expr != 0) {
-    //   %1 = __kmpc_cancel[lationpoint](...);
+    //   %1 = __kmpc_cancel(...);
+    // } else {
+    //   %2 = __kmpc_cancellationpoint(...);
     // }
     Function *F = EntryBB->getParent();
     LLVMContext &C = F->getContext();
@@ -5930,15 +5934,32 @@ bool VPOParoptTransform::genCancelCode(WRNCancelNode *W) {
     auto *CondInst = new ICmpInst(InsertPt, ICmpInst::ICMP_NE, IfExpr,
                                   ValueZero, "cancel.if");
 
-    Instruction *IfCancelThen =
-        SplitBlockAndInsertIfThen(CondInst, InsertPt, false, nullptr, DT, LI);
-    assert(IfCancelThen && "genCancelCode: Cannot split BB at Cancel If");
+    Instruction *IfCancelThen = nullptr;
+    Instruction *IfCancelElse = nullptr;
 
-    InsertPt = IfCancelThen;
+    SplitBlockAndInsertIfThenElse(CondInst, InsertPt, &IfCancelThen,
+                                  &IfCancelElse);
+    assert(IfCancelThen && "genCancelCode: Null Then Inst for Cancel If");
+    assert(IfCancelElse && "genCancelCode: Null Else Inst for Cancel If");
+
+    IfCancelThen->getParent()->setName(CondInst->getName() + ".then");
+    IfCancelElse->getParent()->setName(CondInst->getName() + ".else");
+
     LLVM_DEBUG(
         dbgs() << "genCancelCode: Emitted If-Then-Else for IF EXPR: if (";
         IfExpr->printAsOperand(dbgs());
-        dbgs() << ") then <%x = __kmpc_cancel[lationpoint]>.\n");
+        dbgs() << ") then <%x = __kmpc_cancel>; else <%y = "
+                  "__kmpc_cancellationpoint>;.\n");
+
+    // Insert the __kmpc_cancellationpoint for the ELSE branch here.
+    CallInst *ElseCPCall = VPOParoptUtils::genKmpcCancelOrCancellationPointCall(
+        W, IdentTy, TidPtrHolder, IfCancelElse, W->getCancelKind(), true);
+    (void)ElseCPCall;
+    assert(ElseCPCall && "genCancelCode: Failed to emit cancellationpoint call "
+                         "for cancel 'if'.");
+
+    // Set the insert point for the __kmpc_cancel call.
+    InsertPt = IfCancelThen;
   }
 
   CallInst *CancelCall = VPOParoptUtils::genKmpcCancelOrCancellationPointCall(
@@ -6138,6 +6159,11 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
         (VPOParoptUtils::getLoopScheduleKind(W) == WRNScheduleStaticEven ||
          VPOParoptUtils::getLoopScheduleKind(W) == WRNScheduleStatic)));
 
+  auto isCancelBarrier = [](Instruction *I) {
+    return cast<CallInst>(I)->getCalledFunction()->getName() ==
+           "__kmpc_cancel_barrier";
+  };
+
   // For a parallel construct, 'kmpc_cancel' and 'kmpc_cancellationpoint', when
   // cancelled, should call '__kmpc_cancel_barrier'. This is needed to free up
   // threads that are waiting at existing 'kmpc_cancel_barrier's.
@@ -6162,7 +6188,11 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
   //    |               |             |              |
   // ---+---------------+-------------+--------------+--- <fork/join barrier>
   //
-  bool NeedCancelBarrierForNonBarriers = isa<WRNParallelNode>(W);
+
+  bool NeedCancelBarrierForNonBarriers =
+      isa<WRNParallelNode>(W) &&
+      std::any_of(CancellationPoints.begin(), CancellationPoints.end(),
+                  isCancelBarrier);
 
   assert((!NeedStaticFiniCall || !NeedCancelBarrierForNonBarriers) &&
          "genCancellationBranchingCode: Cannot need both kmpc_static_fini and "
@@ -6190,10 +6220,7 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
     assert(CancellationPoint &&
            "genCancellationBranchingCode: Illegal cancellation point");
 
-    bool CancellationPointIsBarrier =
-        (dyn_cast<CallInst>(CancellationPoint)
-             ->getCalledFunction()
-             ->getName() == "__kmpc_cancel_barrier");
+    bool CancellationPointIsBarrier = isCancelBarrier(CancellationPoint);
 
     // At this point, IR looks like:
     //
