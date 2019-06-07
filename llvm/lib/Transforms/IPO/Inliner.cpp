@@ -634,12 +634,10 @@ static void collectDtransCallSites(Module &M,
     // struct and candidate array field structs.
     MemInfo.collectCallSites(&MemInitCallSites);
   }
-  // TODO: Disable Inlining for:
   //   1. Member functions of candidate struct
   //   2. Member functions of all candidate array field structs.
-  // for (auto CS : MemInitCallSites)
-  //   CallSitesForDTrans->insert(MemInitCallSites.begin(),
-  //                              MemInitCallSites.end());
+  CallSitesForDTrans->insert(MemInitCallSites.begin(),
+                                MemInitCallSites.end());
 
 #endif // INTEL_INCLUDE_DTRANS
 }

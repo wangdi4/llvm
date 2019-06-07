@@ -1515,6 +1515,34 @@ private:
             ++NumAllocCalls;
             continue;
           }
+          if (FL.first == I.getParent()) {
+            // Not required to check instructions in first basicblock
+            // before AllocCall, which is called before actual constructor
+            // is invoked. All instructions before first AllocCall can be
+            // ignored to prove that Ctos can be combined safely. Since
+            // I is neither AllocCall nor Ctor in first BB, just ignore
+            // instructions till I. For now, just ignoring BitCast/
+            // GetElementPtr/Unrelated Loads.
+            BasicBlock::const_iterator EndIt = I.getIterator();
+            BasicBlock::const_iterator It = FL.first->begin();
+            for (; It != EndIt; ++It) {
+              const Instruction &II = *It;
+              switch (II.getOpcode()) {
+              case Instruction::BitCast:
+              case Instruction::GetElementPtr:
+                continue;
+              case Instruction::Load:
+                if (StructIdioms::isLoadOrStoreOfArrayPtr(DM, Arrays, S, II))
+                  return false;
+                continue;
+              default:
+                if (isa<DbgInfoIntrinsic>(II))
+                  continue;
+                return false;
+              }
+            }
+            continue;
+          }
           return false;
         case Instruction::Ret:
           NextBB = nullptr;

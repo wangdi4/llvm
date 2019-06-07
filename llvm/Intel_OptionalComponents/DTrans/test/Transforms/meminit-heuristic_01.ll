@@ -1,26 +1,17 @@
 ; This testcase verifies that MemInitTrimDown transformation shouldn't
-; recognize Resize(resize), Copy-constructor, and AppendElem(add) member
-; functions of Arr and Arr1 classes.
+; be triggered due to heuristics. MemInitTrimDown expects AppendElem
+; (i.e add) function is called only once in member functions of
+; candidate class.
 
-; RUN: opt < %s -dtrans-meminit-recognize-all -dtrans-meminittrimdown -enable-dtrans-meminittrimdown -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-meminittrimdown -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -dtrans-meminit-recognize-all -passes=dtrans-meminittrimdown -enable-dtrans-meminittrimdown -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-meminittrimdown -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -dtrans-meminittrimdown -enable-dtrans-meminittrimdown -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-meminittrimdown -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes=dtrans-meminittrimdown -enable-dtrans-meminittrimdown -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-meminittrimdown -disable-output 2>&1 | FileCheck %s
 
 ; REQUIRES: asserts
 
 ; Here is C++ version of the testcase. "F" will be detected as candidate
 ; struct. "f1" and "f2" will be considered as candidate vector fields.
 ;
-; This test verified that the following functions are not recognized since
-; they are not in expected pattern.
-;
-; resize: Missing to update capacity field. "capacity = newMax;" is missing.
-;
-; copy-constructor: Initialization of "flag" field is missing. "flag(A.flag)"
-; is missing.
-;
-; add: "size" field is incremented before appending element at size.
-;     "size++;" should be after "base[size] = val;" statement.
-;
+
 ;  struct Mem {
 ;   virtual void *allocate() = 0;
 ;   virtual void *deallocate() = 0;
@@ -47,32 +38,43 @@
 ;
 ;     free(base); //delete [] fElemList;
 ;     base = newList;
+;     capacity = newMax;
 ;   }
 ;
 ;   void add(S* val) {
 ;     resize(1);
-;     size++;
 ;     base[size] = val;
+;     size++;
 ;   }
 ;
 ;   Arr(const Arr &A) :
-;     capacity(A.capacity), size(A.size), base(0), mem(A.mem) {
+;     flag(A.flag), capacity(A.capacity), size(A.size), base(0), mem(A.mem) {
 ;     base = (S**)malloc(capacity * sizeof(S*));
 ;     memset(base, 0, capacity * sizeof(S*));
 ;     for (unsigned int index = 0; index < size; index++)
-;       base[index] = A.base[index];
+;     base[index] = A.base[index];
 ;   }
 ;
 ;   unsigned getSize() { return size; }
 ;   unsigned getCapacity() { return capacity; }
-;   void set(unsigned i, S* val) { }
-;   S* get(unsigned i) { return nullptr; }
+;   void set(unsigned i, S* val) {
+;     if (i >= size)
+;       throw;
+;     base[i] = val;
+;   }
+;   S* get(unsigned i) {
+;     if (i >= size)
+;       throw;
+;     return base[i];
+;   }
 ;   Arr(unsigned c = 2, Mem *mem = 0)
 ;      : flag(false), capacity(c), size(0), base(0), mem(mem) {
 ;    base = (S**)malloc(capacity * sizeof(S*));
 ;    memset(base, 0, capacity * sizeof(S*));
 ;  }
-;  ~Arr() { }
+;  ~Arr() {
+;    free(base);
+;  }
 ;};
 ;
 ;template <typename S>
@@ -90,18 +92,19 @@
 ;  Arr<int*>* f1;
 ;  Arr1<float*>* f2;
 ;  F() {
-;    f1 = new Arr<int *>(10, nullptr);
-;    f2 = new Arr1<float *>();
+;    f1 = new Arr<int *>(4, nullptr);
+;    f2 = new Arr1<float *>(f1->getCapacity());
 ;    int** pi = f1->get(1);
 ;    float** pf = f2->get(1);
 ;    f1->set(0, pi);
 ;    f2->set(0, pf);
 ;    f2->add(nullptr);
 ;    f1->add(nullptr);
+;    f1->add(nullptr);
 ;    Arr<int*>* f3 = new Arr<int *>(*f1);
-;    f3->add(nullptr);
 ;    f1->getSize();
 ;    f1->getCapacity();
+;    Arr1<float*>* f4 = new Arr1<float *>(4);
 ;    delete f1;
 ;    delete f2;
 ;  }
@@ -111,17 +114,11 @@
 ;  F *f = new F();
 ;}
 
-;CHECK: MemInitTrimDown transformation:
-;CHECK:  Analyzing Constructor _ZN3ArrIPiEC2EiP3Mem
-;CHECK:  Passed: Constructor recognized
-;CHECK-DAG:  Functionality of _ZN3ArrIPiE3addEPS0_: Failed to recognize as AppendElem
-;CHECK-DAG:  Functionality of _ZN3ArrIPiE6resizeEi: Failed to recognize as Resize
-;CHECK-DAG:  Functionality of _ZN3ArrIPiEC2ERKS1_: Failed to recognize as CopyConstructor
-
-;CHECK:  Analyzing Constructor _ZN4Arr1IPfEC2EiP3Mem
-;CHECK:  Passed: Constructor recognized
-;CHECK-DAG:  Functionality of _ZN3ArrIPfE3addEPS0_: Failed to recognize as AppendElem
-;CHECK-DAG:  Functionality of _ZN3ArrIPfE6resizeEi: Failed to recognize as Resize
+; "add" member function of "Arr" vector is called twice in "F".
+; This is the reason why MemInitTrimDown is not triggered due
+; to heuristic.
+;
+;CHECK: Failed: Heuristics
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -189,6 +186,7 @@ entry:
   %flag = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 0
   %flag2 = getelementptr inbounds %struct.Arr, %struct.Arr* %A, i64 0, i32 0
   %0 = load i8, i8* %flag2
+  store i8 %0, i8* %flag
   %capacity = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 1
   %capacity3 = getelementptr inbounds %struct.Arr, %struct.Arr* %A, i64 0, i32 1
   %1 = load i32, i32* %capacity3
@@ -238,11 +236,41 @@ for.body:                                         ; preds = %for.body, %for.body
 
 define void @_ZN3ArrIPiE3setEiPS0_(%struct.Arr* %this, i32 %i, i32** %val) {
 entry:
+  %size = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 2
+  %0 = load i32, i32* %size
+  %cmp = icmp ugt i32 %0, %i
+  br i1 %cmp, label %if.end, label %if.then
+
+if.then:                                          ; preds = %entry
+  tail call void @__cxa_rethrow()
+  unreachable
+
+if.end:                                           ; preds = %entry
+  %base = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 3
+  %1 = load i32***, i32**** %base
+  %idxprom = zext i32 %i to i64
+  %arrayidx = getelementptr inbounds i32**, i32*** %1, i64 %idxprom
+  store i32** %val, i32*** %arrayidx
   ret void
 }
 
 define void @_ZN3ArrIPfE3setEiPS0_(%struct.Arr.0* %this, i32 %i, float** %val) {
 entry:
+  %size = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 2
+  %0 = load i32, i32* %size
+  %cmp = icmp ugt i32 %0, %i
+  br i1 %cmp, label %if.end, label %if.then
+
+if.then:                                          ; preds = %entry
+  tail call void @__cxa_rethrow()
+  unreachable
+
+if.end:                                           ; preds = %entry
+  %base = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 3
+  %1 = load float***, float**** %base
+  %idxprom = zext i32 %i to i64
+  %arrayidx = getelementptr inbounds float**, float*** %1, i64 %idxprom
+  store float** %val, float*** %arrayidx
   ret void
 }
 
@@ -253,11 +281,11 @@ entry:
   %0 = load float***, float**** %base
   %size = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 2
   %1 = load i32, i32* %size
-  %inc = add i32 %1, 1
-  store i32 %inc, i32* %size
-  %idxprom = zext i32 %inc to i64
+  %idxprom = zext i32 %1 to i64
   %arrayidx = getelementptr inbounds float**, float*** %0, i64 %idxprom
   store float** %val, float*** %arrayidx
+  %inc = add i32 %1, 1
+  store i32 %inc, i32* %size
   ret void
 }
 
@@ -268,11 +296,11 @@ entry:
   %0 = load i32***, i32**** %base
   %size = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 2
   %1 = load i32, i32* %size
-  %inc = add i32 %1, 1
-  store i32 %inc, i32* %size
-  %idxprom = zext i32 %inc to i64
+  %idxprom = zext i32 %1 to i64
   %arrayidx = getelementptr inbounds i32**, i32*** %0, i64 %idxprom
   store i32** %val, i32*** %arrayidx
+  %inc = add i32 %1, 1
+  store i32 %inc, i32* %size
   ret void
 }
 
@@ -310,6 +338,7 @@ for.cond.cleanup:                                 ; preds = %for.body, %if.end
   %5 = load i8*, i8** %4
   tail call void @free(i8* %5)
   store i8* %call, i8** %4
+  store i32 %spec.select, i32* %capacity
   br label %cleanup
 
 for.body:                                         ; preds = %for.body, %for.body.lr.ph
@@ -362,6 +391,7 @@ for.cond.cleanup:                                 ; preds = %for.body, %if.end
   %5 = load i8*, i8** %4
   tail call void @free(i8* %5)
   store i8* %call, i8** %4
+  store i32 %spec.select, i32* %capacity
   br label %cleanup
 
 for.body:                                         ; preds = %for.body, %for.body.lr.ph
@@ -382,21 +412,59 @@ cleanup:                                          ; preds = %entry, %for.cond.cl
 
 define i32** @_ZN3ArrIPiE3getEi(%struct.Arr* %this, i32 %i) {
 entry:
-  ret i32** null
+  %size = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 2
+  %0 = load i32, i32* %size
+  %cmp = icmp ugt i32 %0, %i
+  br i1 %cmp, label %if.end, label %if.then
+
+if.then:                                          ; preds = %entry
+  tail call void @__cxa_rethrow()
+  unreachable
+
+if.end:                                           ; preds = %entry
+  %base = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 3
+  %1 = load i32***, i32**** %base
+  %idxprom = zext i32 %i to i64
+  %arrayidx = getelementptr inbounds i32**, i32*** %1, i64 %idxprom
+  %2 = load i32**, i32*** %arrayidx
+  ret i32** %2
 }
 
 define float** @_ZN3ArrIPfE3getEi(%struct.Arr.0* %this, i32 %i) {
 entry:
-  ret float** null
+  %size = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 2
+  %0 = load i32, i32* %size, align 8
+  %cmp = icmp ugt i32 %0, %i
+  br i1 %cmp, label %if.end, label %if.then
+
+if.then:                                          ; preds = %entry
+  tail call void @__cxa_rethrow()
+  unreachable
+
+if.end:                                           ; preds = %entry
+  %base = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 3
+  %1 = load float***, float**** %base
+  %idxprom = zext i32 %i to i64
+  %arrayidx = getelementptr inbounds float**, float*** %1, i64 %idxprom
+  %2 = load float**, float*** %arrayidx
+  ret float** %2
 }
 
 define void @_ZN3ArrIPiED2Ev(%struct.Arr* %this) {
 entry:
+  %base = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i64 0, i32 3
+  %0 = bitcast i32**** %base to i8**
+  %1 = load i8*, i8** %0
+  tail call void @free(i8* %1)
   ret void
 }
 
 define void @_ZN3ArrIPfED2Ev(%struct.Arr.0* %this) {
 entry:
+  %base = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i64 0, i32 3
+  %0 = bitcast float**** %base to i8**
+  %1 = load i8*, i8** %0
+  tail call void @free(i8* %1)
   ret void
 }
 
@@ -426,13 +494,14 @@ define void @_ZN1FC2Ev(%class.F* %this) {
 entry:
   %call = tail call i8* @_Znwm(i64 32)
   %0 = bitcast i8* %call to %struct.Arr*
-  tail call void @_ZN3ArrIPiEC2EiP3Mem(%struct.Arr* %0, i32 10, %struct.Mem* null)
+  tail call void @_ZN3ArrIPiEC2EiP3Mem(%struct.Arr* %0, i32 4, %struct.Mem* null)
   %f1 = getelementptr inbounds %class.F, %class.F* %this, i64 0, i32 1
   %1 = bitcast %struct.Arr** %f1 to i8**
   store %struct.Arr* %0, %struct.Arr** %f1
   %call2 = tail call i8* @_Znwm(i64 32)
   %2 = bitcast i8* %call2 to %struct.Arr1*
-  tail call void @_ZN4Arr1IPfEC2EiP3Mem(%struct.Arr1* %2, i32 2, %struct.Mem* null)
+  %cap1 = tail call i32 @_ZN3ArrIPiE11getCapacityEv(%struct.Arr* nonnull %0)
+  tail call void @_ZN4Arr1IPfEC2EiP3Mem(%struct.Arr1* %2, i32 %cap1, %struct.Mem* null)
   %f2 = getelementptr inbounds %class.F, %class.F* %this, i64 0, i32 2
   %3 = bitcast %struct.Arr1** %f2 to i8**
   store %struct.Arr1* %2, %struct.Arr1** %f2
@@ -449,11 +518,11 @@ entry:
   tail call void @_ZN3ArrIPfE3addEPS0_(%struct.Arr.0* %9, float** null)
   %10 = load %struct.Arr*, %struct.Arr** %f1
   tail call void @_ZN3ArrIPiE3addEPS0_(%struct.Arr* %10, i32** null)
+  tail call void @_ZN3ArrIPiE3addEPS0_(%struct.Arr* %10, i32** null)
   %call13 = tail call i8* @_Znwm(i64 32)
   %11 = bitcast i8* %call13 to %struct.Arr*
   %12 = load %struct.Arr*, %struct.Arr** %f1
   tail call void @_ZN3ArrIPiEC2ERKS1_(%struct.Arr* %11, %struct.Arr* %12)
-  tail call void @_ZN3ArrIPiE3addEPS0_(%struct.Arr* %11, i32** null)
   %s = load %struct.Arr*, %struct.Arr** %f1, align 8
   %call18 = tail call i32 @_ZN3ArrIPiE7getSizeEv(%struct.Arr* %s)
   %d = load %struct.Arr*, %struct.Arr** %f1, align 8
@@ -463,6 +532,10 @@ entry:
   %14 = load %struct.Arr1*, %struct.Arr1** %f2
   %15 = getelementptr inbounds %struct.Arr1, %struct.Arr1* %14, i64 0, i32 0
   tail call void @_ZN3ArrIPfED2Ev(%struct.Arr.0* %15)
+  %16 = tail call i8* @_Znwm(i64 32) #8
+  %17 = bitcast i8* %16 to %struct.Arr1*
+  tail call void @_ZN4Arr1IPfEC2EiP3Mem(%struct.Arr1* nonnull %17, i32 4, %struct.Mem* null)
+
   ret void
 }
 

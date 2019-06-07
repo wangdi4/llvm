@@ -33,7 +33,7 @@ using namespace PatternMatch;
 
 // This option is used for testing.
 cl::opt<bool>
-    DTransMemInitRecognizeAll("dtrans-meminit-recognize-all", cl::init(true),
+    DTransMemInitRecognizeAll("dtrans-meminit-recognize-all", cl::init(false),
                               cl::Hidden,
                               cl::desc("Recognize All member functions"));
 
@@ -160,6 +160,14 @@ inline raw_ostream &operator<<(raw_ostream &OS, FunctionKind FKind) {
 // of each member function of vector class.
 class ClassInfo {
 public:
+  // Max limit for number of fields in candidate struct.
+  constexpr static int MinCapacityLimit = 1;
+  constexpr static int MaxCapacityLimit = 4;
+  constexpr static int NewCapacityValue = 1;
+
+  using EscapePointTy = SmallSet<std::pair<Function *, int32_t>, 2>;
+  using CapacityValuesTy = SmallPtrSet<Value *, 4>;
+
   ClassInfo(const DataLayout &DL, DTransAnalysisInfo &DTInfo,
             TargetLibraryInfo &TLI, MemInitDominatorTreeType GetDT,
             MemInitCandidateInfo *MICInfo, int32_t FieldIdx)
@@ -168,6 +176,23 @@ public:
 
   // Analyze each member function to detect functionality.
   bool analyzeClassFunctions();
+  bool checkMemberFunctionCalls();
+  bool checkHeuristics();
+  bool isCtorCapacityArgPositionPair(std::pair<Function *, int32_t> &);
+  bool isClassGetCapacityFunction(Function *);
+  void trimDowmMemInit();
+
+  // Iterator for capacity escape points.
+  typedef EscapePointTy::const_iterator c_const_iterator;
+  inline iterator_range<c_const_iterator> capacity_escape_points() {
+    return make_range(CapacityEscapePoints.begin(), CapacityEscapePoints.end());
+  }
+
+  // Iterator for capacity values.
+  typedef CapacityValuesTy::const_iterator cv_const_iterator;
+  inline iterator_range<cv_const_iterator> capacity_values() {
+    return make_range(CapacityValues.begin(), CapacityValues.end());
+  }
 
 private:
   const DataLayout &DL;
@@ -218,6 +243,33 @@ private:
   // is categorized using signature.
   DenseMap<Function *, FunctionKind> InitialFuncKind;
 
+  // Ctor function.
+  Function *CtorFunction = nullptr;
+
+  // MemSet instruction that resets newly allocated memory in Ctor.
+  CallBase *MemsetInCtor = nullptr;
+
+  // Alloc instructions that allocates memory for array  in Ctor.
+  SmallSet<std::pair<CallInst *, unsigned>, 2> AllocsInCtor;
+
+  // GetCapacity function.
+  Function *GetCapacityFunction = nullptr;
+
+  // AppendElem function.
+  Function *AppendElemFunction = nullptr;
+
+  // Position of argument that the capacity value is passed to Ctor.
+  int32_t CapacityArgPos = -1;
+
+  // Value of capacity can be escaped through GetCapacity function call.
+  // If return value of GetCapacity function call is passed to some other
+  // function call, collect called function and the position of argument
+  //  the value is passed for further analysis later.
+  EscapePointTy CapacityEscapePoints;
+
+  // Collection of capacity values that are passed to Ctor calls.
+  CapacityValuesTy CapacityValues;
+
   void collectElementDataTypes();
   bool checkDominatorInfo(Instruction *, Instruction *);
   FunctionKind categorizeFunctionUsingSignature(Function *, StructType *);
@@ -228,14 +280,14 @@ private:
   bool checkMemInterfacePointer(Value *, Argument *);
   const Value *computeMultiplier(const Value *, int64_t *);
   bool checkAllocSizeOfArray(const Value *, Value *, Value *);
-  bool checkAllocCall(Value *, Argument *, Value *);
+  bool checkAllocCall(Value *, Argument *, Value *, bool);
   bool checkVtableLoadOfMemInt(Value *, Argument *);
   bool isIndirectCallCheck(Value *, Argument *);
   bool checkAllocatedArrayPtr(Value *, Argument *, SmallPtrSetImpl<Value *> &,
-                              Value *);
+                              Value *, bool);
   bool checkBBControlledUnderCapacityVal(BasicBlock *, Value *);
   bool checkBBControlledUnderFlagVal(BasicBlock *, Argument *);
-  bool checkMemset(SmallPtrSetImpl<Value *> &, Value *);
+  bool checkMemset(SmallPtrSetImpl<Value *> &, Value *, bool);
   bool checkAllInstsProcessed(Function *,
                               SmallPtrSetImpl<const Instruction *> &);
   Value *isIntegerArgument(Value *);
@@ -299,6 +351,19 @@ bool ClassInfo::checkDominatorInfo(Instruction *D, Instruction *U) {
   if (DT.dominates(D, U))
     return true;
   return false;
+}
+
+// Returns true if CtorArgPosPair is pair of Ctor and position of capacity that
+// is passed as argument to the Ctor.
+bool ClassInfo::isCtorCapacityArgPositionPair(
+    std::pair<Function *, int32_t> &CtorArgPosPair) {
+  return (CtorArgPosPair.first == CtorFunction &&
+          CtorArgPosPair.second == CapacityArgPos);
+}
+
+// Returns true if F is GetCapacityFunction.
+bool ClassInfo::isClassGetCapacityFunction(Function *F) {
+  return (GetCapacityFunction == F);
 }
 
 // Categorize given function F using return type and signature of the
@@ -673,7 +738,7 @@ bool ClassInfo::checkBBControlledUnderCapacityVal(BasicBlock *BB,
 }
 
 // Returns true if any pointer in ArrayPtrAliases is initialized with
-// valid memset.
+// valid memset. Set MemsetInCtor if "CalledFromCtor" is true.
 //
 // Ex:
 //     %25 = phi i8* [ %21, %20 ], [ %23, %22 ]
@@ -682,7 +747,7 @@ bool ClassInfo::checkBBControlledUnderCapacityVal(BasicBlock *BB,
 //     call void @llvm.memset.p0i8.i64(i8* %25, i8 0, i64 ArrSize, i1 false)
 //
 bool ClassInfo::checkMemset(SmallPtrSetImpl<Value *> &ArrayPtrAliases,
-                            Value *ThisObj) {
+                            Value *ThisObj, bool CalledFromCtor = false) {
   int32_t MemsetCalled = 0;
   IntrinsicInst *MemsetI;
   for (auto *APtr : ArrayPtrAliases)
@@ -704,6 +769,12 @@ bool ClassInfo::checkMemset(SmallPtrSetImpl<Value *> &ArrayPtrAliases,
   if (MemsetCalled != 1)
     return false;
   assert(MemsetI && "Expected valid memset instruction");
+  if (CalledFromCtor) {
+    // MemsetInCtor is used later during transformation.
+    if (MemsetInCtor)
+      return false;
+    MemsetInCtor = MemsetI;
+  }
   // Check if it is controlled under "Capacity != 0" condition.
   if (!checkBBControlledUnderCapacityVal(MemsetI->getParent(), ThisObj))
     return false;
@@ -714,8 +785,10 @@ bool ClassInfo::checkMemset(SmallPtrSetImpl<Value *> &ArrayPtrAliases,
 // Returns true if Val is allocation call that allocates memory
 // for element array. If NumOfElems is not null, it checks
 // that memory is allocated for *NumOfElems of elements.
-bool ClassInfo::checkAllocCall(Value *Val, Argument *ThisObj,
-                               Value *NumOfElems) {
+// Collect allocation calls and position of size argument in
+// AllocsInCtor if CallFromCtor is true.
+bool ClassInfo::checkAllocCall(Value *Val, Argument *ThisObj, Value *NumOfElems,
+                               bool CallFromCtor = false) {
   auto *AllocCall = dyn_cast<CallInst>(Val->stripPointerCasts());
   if (!AllocCall)
     return false;
@@ -737,6 +810,14 @@ bool ClassInfo::checkAllocCall(Value *Val, Argument *ThisObj,
   if (!checkAllocSizeOfArray(SizeArg, ThisObj, NumOfElems))
     return false;
   Visited.insert(AllocCall);
+  // Allocation call and size arguments are collected in AllocsInCtor
+  // to use them during transformation.
+  if (CallFromCtor) {
+    unsigned SizeInd = 0;
+    unsigned CountInd = 0;
+    getAllocSizeArgs(AKind, AllocCall, SizeInd, CountInd, TLI);
+    AllocsInCtor.insert(std::make_pair(AllocCall, SizeInd));
+  }
   return true;
 }
 
@@ -835,10 +916,11 @@ bool ClassInfo::isIndirectCallCheck(Value *BrCond, Argument *ThisObj) {
 // ArrayPtrAliases will be updated with allocated pointer aliases.
 // If NumOfElems is not null, it checks that memory is allocated
 // for *NumOfElems of elements.
-//
+// Collect allocation calls and position of size argument in
+// AllocsInCtor if CallFromCtor is true.
 bool ClassInfo::checkAllocatedArrayPtr(
     Value *ValOp, Argument *ThisObj, SmallPtrSetImpl<Value *> &ArrayPtrAliases,
-    Value *NumOfElems = nullptr) {
+    Value *NumOfElems = nullptr, bool CallFromCtor = false) {
 
   // Collection of allocated pointer aliases.
   ArrayPtrAliases.clear();
@@ -849,7 +931,7 @@ bool ClassInfo::checkAllocatedArrayPtr(
     ArrayPtrAliases.insert(ValOp);
   }
   // Just return true if it is alloc call.
-  if (checkAllocCall(ValOp, ThisObj, NumOfElems))
+  if (checkAllocCall(ValOp, ThisObj, NumOfElems, CallFromCtor))
     return true;
   auto *Phi = dyn_cast<PHINode>(ValOp);
   // If it is PHI node, check all inputs are coming from allocation
@@ -883,9 +965,13 @@ bool ClassInfo::checkAllocatedArrayPtr(
     // Ignore if it is a dummy allocated call.
     if (isDummyFuncWithThisAndIntArgs(AllocCall, TLI)) {
       Visited.insert(AllocCall);
-      auto *DummyIntArg = dyn_cast<Instruction>(AllocCall->getArgOperand(1));
-      if (DummyIntArg)
-        Visited.insert(DummyIntArg);
+      Value *DSizeArg = AllocCall->getArgOperand(1);
+      // Make sure size value that is passed to dummy allocation is
+      // valid array size even though it is not used.
+      if (!checkAllocSizeOfArray(DSizeArg, ThisObj, NumOfElems))
+        return false;
+      if (CallFromCtor)
+        AllocsInCtor.insert(std::make_pair(AllocCall, 1));
       continue;
     }
     if (!checkAllocCall(Val, ThisObj, NumOfElems))
@@ -1683,6 +1769,8 @@ bool ClassInfo::checkAllInstsProcessed(
     if (isa<BranchInst>(&I) && cast<BranchInst>(&I)->isUnconditional())
       continue;
 
+    if (isa<DbgInfoIntrinsic>(&I))
+      continue;
     // Return false if any instruction is not found in Processed list.
     return false;
   }
@@ -1897,67 +1985,68 @@ FunctionKind ClassInfo::recognizeConstructor(Function *F) {
   // This allows two assignments to array pointer field. One is simple
   // nullptr assignment and other is actual allocated memory allocation
   // assignment.
-  auto AnalyzeArrayPtrFields = [this](
-                                   SmallVector<GetElementPtrInst *, 8> &GEPList,
-                                   Argument *ThisObj) {
-    StoreInst *NullPtrStore = nullptr;
-    StoreInst *AllocPtrStore = nullptr;
+  auto AnalyzeArrayPtrFields =
+      [this](SmallVector<GetElementPtrInst *, 8> &GEPList, Argument *ThisObj) {
+        StoreInst *NullPtrStore = nullptr;
+        StoreInst *AllocPtrStore = nullptr;
 
-    for (auto *GEP : GEPList) {
-      int32_t Idx;
-      auto *GEPTy = GEP->getResultElementType();
+        for (auto *GEP : GEPList) {
+          int32_t Idx;
+          auto *GEPTy = GEP->getResultElementType();
 
-      // Skip non-array pointer fields here.
-      if (!isa<PointerType>(GEPTy))
-        continue;
-      auto *PTy = cast<PointerType>(GEPTy);
-      auto *PtrElemTy = PTy->getElementType();
-      if (PtrElemTy == MICInfo->getMemInterfaceType() || isPtrToVFTable(GEPTy))
-        continue;
+          // Skip non-array pointer fields here.
+          if (!isa<PointerType>(GEPTy))
+            continue;
+          auto *PTy = cast<PointerType>(GEPTy);
+          auto *PtrElemTy = PTy->getElementType();
+          if (PtrElemTy == MICInfo->getMemInterfaceType() ||
+              isPtrToVFTable(GEPTy))
+            continue;
 
-      if (!isAccessingFieldOfArgClass(GEP, ThisObj, &Idx))
-        return false;
-      Visited.insert(GEP);
-      SmallPtrSet<Value *, 4> ArrayPtrAliases;
-      for (auto *U : GEP->users()) {
-        // Something wrong if it is not array pointer field.
-        if (PtrElemTy != MICInfo->getFieldElemTy(FieldIdx))
-          return false;
-        if (!isa<StoreInst>(U))
-          continue;
-        auto *SI = cast<StoreInst>(U);
-        Value *ValOp = SI->getValueOperand();
-        if (SI->getPointerOperand() != GEP)
-          return false;
-        if (isa<Constant>(ValOp) && cast<Constant>(ValOp)->isNullValue()) {
-          // nullptr assignment to array pointer field.
-          if (NullPtrStore)
+          if (!isAccessingFieldOfArgClass(GEP, ThisObj, &Idx))
             return false;
-          NullPtrStore = SI;
-        } else if (checkAllocatedArrayPtr(ValOp, ThisObj, ArrayPtrAliases)) {
-          // Makes sure allocated array is initialized with memset.
-          if (!checkMemset(ArrayPtrAliases, ThisObj))
-            return false;
-          // Memory allocation assignment to array pointer field.
-          if (AllocPtrStore)
-            return false;
-          AllocPtrStore = SI;
-          ArrayField = Idx;
-        } else {
-          return false;
+          Visited.insert(GEP);
+          SmallPtrSet<Value *, 4> ArrayPtrAliases;
+          for (auto *U : GEP->users()) {
+            // Something wrong if it is not array pointer field.
+            if (PtrElemTy != MICInfo->getFieldElemTy(FieldIdx))
+              return false;
+            if (!isa<StoreInst>(U))
+              continue;
+            auto *SI = cast<StoreInst>(U);
+            Value *ValOp = SI->getValueOperand();
+            if (SI->getPointerOperand() != GEP)
+              return false;
+            if (isa<Constant>(ValOp) && cast<Constant>(ValOp)->isNullValue()) {
+              // nullptr assignment to array pointer field.
+              if (NullPtrStore)
+                return false;
+              NullPtrStore = SI;
+            } else if (checkAllocatedArrayPtr(ValOp, ThisObj, ArrayPtrAliases,
+                                              nullptr, true)) {
+              // Makes sure allocated array is initialized with memset.
+              if (!checkMemset(ArrayPtrAliases, ThisObj, true))
+                return false;
+              // Memory allocation assignment to array pointer field.
+              if (AllocPtrStore)
+                return false;
+              AllocPtrStore = SI;
+              ArrayField = Idx;
+            } else {
+              return false;
+            }
+          }
         }
-      }
-    }
-    // Making NullPtrStore as optional.
-    if (!AllocPtrStore)
-      return false;
-    // Makes sure AllocPtrStore is executed later.
-    if (NullPtrStore && !checkDominatorInfo(NullPtrStore, AllocPtrStore))
-      return false;
-    Visited.insert(NullPtrStore);
-    Visited.insert(AllocPtrStore);
-    return true;
-  };
+        // Making NullPtrStore as optional.
+        if (!AllocPtrStore)
+          return false;
+        // Makes sure AllocPtrStore is executed later.
+        if (NullPtrStore && !checkDominatorInfo(NullPtrStore, AllocPtrStore))
+          return false;
+        Visited.insert(NullPtrStore);
+        Visited.insert(AllocPtrStore);
+        return true;
+      };
 
   // Clear all processed instructions first.
   Visited.clear();
@@ -2594,6 +2683,8 @@ FunctionKind ClassInfo::recognizeAppendElem(Function *Fn) {
   Type *ElemTy = MICInfo->getFieldElemTy(FieldIdx);
   Visited.clear();
   for (auto &I : instructions(Fn)) {
+    if (isa<DbgInfoIntrinsic>(&I))
+      continue;
     // Collect Resize call here.
     if (auto *CI = dyn_cast<CallInst>(&I)) {
       // Allowed only one call.
@@ -3316,17 +3407,22 @@ bool ClassInfo::analyzeClassFunctions() {
     });
     return false;
   }
-  auto *Fn = *ConstructorSet.begin();
-  auto *ClassTy = getClassType(Fn);
+  CtorFunction = *ConstructorSet.begin();
+  if (CtorFunction->hasAddressTaken()) {
+    DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
+                    { dbgs() << "  Failed: Constructor address taken\n"; });
+    return false;
+  }
+  auto *ClassTy = getClassType(CtorFunction);
   Type *BaseClassTy = getMemInitSimpleBaseType(ClassTy);
   DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
-    dbgs() << "  Analyzing Constructor " << Fn->getName() << "\n";
+    dbgs() << "  Analyzing Constructor " << CtorFunction->getName() << "\n";
   });
   FunctionKind FKind;
   if (BaseClassTy)
-    FKind = recognizeDerivedConstructor(Fn, ClassTy, BaseClassTy);
+    FKind = recognizeDerivedConstructor(CtorFunction, ClassTy, BaseClassTy);
   else
-    FKind = recognizeConstructor(Fn);
+    FKind = recognizeConstructor(CtorFunction);
   if (FKind == UnKnown) {
     DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
                     { dbgs() << "  Failed: Constructor not recognized\n"; });
@@ -3346,6 +3442,363 @@ bool ClassInfo::analyzeClassFunctions() {
     }
 
   return true;
+}
+
+// Analyze calls of vector class to prove that it is safe
+// to trim down capacity value.
+//  1. Limit how the member functions are called and their
+//     functionalities.
+//  2. Make sure Capacity value is modified only when AppendElem
+//     is called.
+//  3. Make sure capacity value is not escaped. If escaped, collect
+//     all escape point for further analysis later.
+//  4. Collect capacity values that are passed at callsites of Ctor
+//     if possible.
+//
+bool ClassInfo::checkMemberFunctionCalls() {
+
+  // Collect escape points if value of capacity is escaped
+  // through GetCapacity function. Return false if it is
+  // unable to collect.
+  auto CheckCapacityValueEscaped = [this]() {
+    // Safe if GetCapacity function is not defined/used.
+    if (!GetCapacityFunction)
+      return true;
+    // Check uses of capacity value.
+    for (auto &U : GetCapacityFunction->uses()) {
+      auto *GetCapacityCall = cast<CallBase>(U.getUser());
+      for (auto &UU : GetCapacityCall->uses()) {
+        auto *Call = dyn_cast<CallBase>(UU.getUser());
+        // Only passing it as argument to some other call is allowed.
+        if (!Call)
+          return false;
+        Function *CalledF = Call->getCalledFunction();
+        // Can't analyze further if value of capacity is used
+        // by indirect call.
+        if (!CalledF)
+          return false;
+        auto CAI = Call->arg_begin();
+        auto CAE = Call->arg_end();
+        int32_t ArgPos = 0;
+        // Find the position of argument that is passed as argument.
+        for (; CAI != CAE; CAI++) {
+          if (*CAI == GetCapacityCall) {
+            DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+              dbgs() << "  Escape Point: " << CalledF->getName() << " Arg_"
+                     << ArgPos << "\n";
+            });
+            CapacityEscapePoints.insert(std::make_pair(CalledF, ArgPos));
+            // Not adding break here to continue collect if it is passed
+            // as more than argument.
+          }
+          ArgPos++;
+        }
+      }
+    }
+    return true;
+  };
+
+  // Append "V" to CapacityValues if it is valid. For now,
+  // we allow only constants and return value of other calls.
+  auto VerifyCapacityValueAndAppend = [this](Value *V) {
+    if (auto *C = dyn_cast<ConstantInt>(V)) {
+      // Not valid to have capacity values that are less than
+      // MinCapacityLimit.
+      if (C->getLimitedValue() < MinCapacityLimit)
+        return false;
+    } else if (auto *Call = dyn_cast<CallBase>(V)) {
+      if (!Call->getCalledFunction())
+        return false;
+    } else {
+      return false;
+    }
+    CapacityValues.insert(V);
+    return true;
+  };
+
+  // Try to find position of capacity value that is passed as
+  // argument for Ctor calls.
+  //
+  // Ex:
+  //     Derived_Ctor(DThis, d_capacity_v, ..) {
+  //        ...
+  //        Base_Ctor(BThis, false, d_capacity_v, );
+  //     }
+  //
+  //     Base_Ctor(This, , b_capacity_v) {
+  //        This->capacity = b_capacity_v;
+  //        ...
+  //     }
+  // In the example, it tries to find argument position of d_capacity_v
+  // for the given "b_capacity_v".
+  //
+  auto FindCapacityArgPos = [this](Value *ValOp) {
+    auto *Arg = dyn_cast<Argument>(ValOp);
+    if (!Arg)
+      return false;
+    int32_t ArgNo = Arg->getArgNo();
+    Function *Caller = Arg->getParent();
+    if (CtorFunction == Caller) {
+      CapacityArgPos = ArgNo;
+      return true;
+    }
+    // If Caller is not actual constructor, go one more level up to
+    // avoid base class constructor call.
+    if (!Caller->hasOneUse())
+      return false;
+    auto *CallerCall = dyn_cast<CallBase>(*Caller->user_begin());
+    if (!CallerCall)
+      return false;
+    auto *SecondLevArg = dyn_cast<Argument>(CallerCall->getArgOperand(ArgNo));
+    if (!SecondLevArg || SecondLevArg->getParent() != CtorFunction)
+      return false;
+    CapacityArgPos = SecondLevArg->getArgNo();
+    return true;
+  };
+
+  // Collect capacity values.
+  auto CollectCapacityValues = [this, &VerifyCapacityValueAndAppend,
+                                &FindCapacityArgPos]() {
+    Value *ValOp = CapacityInitInst->getValueOperand();
+
+    // If constant value saved to capacity value, there is no
+    // need to find CapacityArgPos.
+    if (isa<Constant>(ValOp))
+      return VerifyCapacityValueAndAppend(ValOp);
+
+    if (!FindCapacityArgPos(ValOp))
+      return false;
+
+    // Collect capacity values using CapacityArgPos and CtorFunction.
+    assert(CapacityArgPos != -1 && "Expected valid CapacityArgPos");
+    for (auto &U : CtorFunction->uses()) {
+      auto *CtorCall = cast<CallBase>(U.getUser());
+      Value *CVal = CtorCall->getArgOperand(CapacityArgPos);
+      if (!VerifyCapacityValueAndAppend(CVal))
+        return false;
+    }
+    return true;
+  };
+
+  int32_t NumCopyConstructor = 0;
+  int32_t NumAppendElem = 0;
+  int32_t NumResize = 0;
+  int32_t NumDestructors = 0;
+  int32_t NumGetCapacity = 0;
+  int32_t NumGetSize = 0;
+  // Verify that candidate vector has at least some minimum set
+  // of functionality like AppendElem, Resize etc.
+  for (auto *Fn : MICInfo->member_functions(FieldIdx)) {
+    FunctionKind FKind = FinalFuncKind[Fn];
+    switch (FKind) {
+    case CopyConstructor:
+      NumCopyConstructor++;
+      break;
+    case AppendElem:
+      NumAppendElem++;
+      AppendElemFunction = Fn;
+      break;
+    case Resize:
+      // Resize is the only function that changes the value of
+      // capacity other than constructor. We already checked that
+      // Resize is called from AppendElem before adding new element.
+      // Make sure there are no other calls to Resize.
+      if (!Fn->hasOneUse()) {
+        DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+          dbgs() << "  Failed: Resize has more than one use.\n";
+        });
+        return false;
+      }
+      NumResize++;
+      break;
+    case Destructor:
+      NumDestructors++;
+      break;
+    case GetCapacity:
+      if (Fn->hasAddressTaken()) {
+        DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
+                        { dbgs() << "  Failed: GetCapacity address taken\n"; });
+        return false;
+      }
+      NumGetCapacity++;
+      GetCapacityFunction = Fn;
+      break;
+    case GetSize:
+      NumGetSize++;
+      break;
+    // Constructor is already verified. Not doing any checks
+    // for SetElem/GetElem.
+    default:
+      break;
+    }
+  }
+  // Not allowed to have more than one member function for any
+  // functionality except SetElem/GetElem.
+  // CopyConstructor/GetCapacity/GetSize are not mandatory functionality.
+  if (NumCopyConstructor > 1 || NumAppendElem != 1 || NumResize != 1 ||
+      NumDestructors != 1 || NumGetCapacity > 1 || NumGetSize > 1) {
+    DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+      dbgs() << "  Failed: Missing required member functions.\n";
+    });
+    return false;
+  }
+  assert(AppendElemFunction && "Expected AppendElem function");
+  // Make sure Ctor is called from methods of candidate struct only.
+  for (auto &U : CtorFunction->uses()) {
+    auto *Call = cast<CallBase>(U.getUser());
+    Function *Caller = Call->getCaller();
+    if (!MICInfo->isStructMethod(Caller)) {
+      DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
+                      { dbgs() << "  Failed: Ctor not in struct methods.\n"; });
+      return false;
+    }
+  }
+
+  if (!CheckCapacityValueEscaped()) {
+    DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
+                    { dbgs() << "  Failed: Capacity value escaped.\n"; });
+    return false;
+  }
+
+  if (!CollectCapacityValues()) {
+    DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
+                    { dbgs() << "  Failed: Capacity value Collection.\n"; });
+    return false;
+  }
+  return true;
+}
+
+// Apply some heuristics to trigger the transformation.
+//
+bool ClassInfo::checkHeuristics(void) {
+  // Returns true if Fn is potential a copy-constructor.
+  // Type of "this" pointer is checked at callsite.
+  auto IsPotentialCandidateCopyCtor = [](Function *Fn) {
+    auto *FTy = Fn->getFunctionType();
+    if (Fn->arg_size() == 2 && FTy->getParamType(0) == FTy->getParamType(1))
+      return true;
+    return false;
+  };
+
+  // No capacity value should exceed MaxCapacityLimit that is currently
+  // set to 4. Better not to trigger the transformation if user uses
+  // big capacity numbers.
+  for (auto *CVal : CapacityValues) {
+    // Later, we will prove that non-constant capacity values are return
+    // values of GetCapacityFunction of other vector classes that are
+    // selected for the same transformation.
+    if (auto *C = dyn_cast<ConstantInt>(CVal)) {
+      int32_t IntVal = C->getLimitedValue();
+      if (IntVal > MaxCapacityLimit)
+        return false;
+    }
+  }
+
+  // AppendElem is the only function that adds new elements to vector.
+  // Just make sure AppendElem is not called too frequently.
+  int32_t NumCalled = 0;
+  for (auto &U : AppendElemFunction->uses()) {
+    Function *Caller = cast<CallBase>(U.getUser())->getCaller();
+    if (!MICInfo->isStructMethod(Caller))
+      return false;
+    // If AppendElem is called from Copy-Constructor, probably it
+    // is copying elements from one array to another (i.e not adding
+    // new elements). Don't consider this as callsite of AppendElem.
+    if (IsPotentialCandidateCopyCtor(Caller))
+      continue;
+    NumCalled++;
+  }
+  // Allow only one callsite that can potentially add new elements.
+  // TODO: This heuristic can be extended by analyzing callsite
+  // of AppendElem's caller to conclude AppendElem is not called
+  // frequently at runtime.
+  if (NumCalled > 1)
+    return false;
+  return true;
+}
+
+// Trim down capacity values either in CapacityInitInst instruction
+// (constant) or at Ctor callsite (non-constant).
+void ClassInfo::trimDowmMemInit() {
+  Value *ValOp = CapacityInitInst->getValueOperand();
+
+  // Replace capacity value in StoreInst if it is constant.
+  // Ex:
+  //  Before:
+  //    store i32 4, i32* %7
+  //
+  //  After:
+  //    store i32 1, i32* %7
+  //
+  if (isa<Constant>(ValOp)) {
+    DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
+                    { dbgs() << "  Before: " << *CapacityInitInst << "\n"; });
+    Value *NewVal = ConstantInt::get(ValOp->getType(), NewCapacityValue);
+    CapacityInitInst->setOperand(0, NewVal);
+    DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
+                    { dbgs() << "  After: " << *CapacityInitInst << "\n"; });
+
+    // Compute new array size.
+    Type *ElemTy = MICInfo->getFieldElemTy(FieldIdx);
+    int64_t NewSize = NewCapacityValue * DL.getTypeAllocSize(ElemTy);
+    // We already proved that memory is allocated for "capacity" number
+    // of elements. Since we know the value of "capacity" now, just
+    // set new constant array size in allocation statement.
+    //
+    //  Before:
+    //       %1 = tail call i8* malloc(i64 %mul)
+    //  After:
+    //       %1 = tail call i8* malloc(i64 16)
+    //
+    assert(AllocsInCtor.size() != 0 && "Expected allocation in Ctor");
+    for (auto &AllocP : AllocsInCtor) {
+      DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
+                      { dbgs() << "  Before: " << *AllocP.first << "\n"; });
+      Value *AllocSize = AllocP.first->getOperand(AllocP.second);
+      NewVal = ConstantInt::get(AllocSize->getType(), NewSize);
+      AllocP.first->replaceUsesOfWith(AllocSize, NewVal);
+      DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
+                      { dbgs() << "  After: " << *AllocP.first << "\n"; });
+    }
+    // Fix size argument of memset.
+    //  Before:
+    //    call void @llvm.memset(i8* align 8 %22, i8 0, i64 %28, i1 false)
+    //  After:
+    //    call void @llvm.memset(i8* align 8 %22, i8 0, i64 16, i1 false)
+    assert(MemsetInCtor && "Expected valid Memset in Ctor");
+    DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
+                    { dbgs() << "  Before: " << *MemsetInCtor << "\n"; });
+    Value *MemsetSize = MemsetInCtor->getOperand(2);
+    NewVal = ConstantInt::get(MemsetSize->getType(), NewSize);
+    MemsetInCtor->replaceUsesOfWith(MemsetSize, NewVal);
+    DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
+                    { dbgs() << "  After: " << *MemsetInCtor << "\n"; });
+    return;
+  }
+  assert(isa<Argument>(ValOp) && "Expected Argument");
+
+  for (auto &U : CtorFunction->uses()) {
+    auto *Call = cast<CallBase>(U.getUser());
+    Value *CVal = Call->getArgOperand(CapacityArgPos);
+    // No Need to do anything if capacity value is passed as non-constant
+    // since we already proved that it is return value of GetCapacity of
+    // other vector class.
+    // Ex:
+    //  Before:
+    //   @Ctor(%"C"* %20, i32 4, i1 zeroext true, %"M"* %21)
+    //
+    //  After:
+    //   @Ctor(%"C"* %20, i32 1, i1 zeroext true, %"M"* %21)
+    //
+    if (isa<Constant>(CVal)) {
+      DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
+                      { dbgs() << "  Before: " << *Call << "\n"; });
+      Value *NewVal = ConstantInt::get(CVal->getType(), NewCapacityValue);
+      Call->setArgOperand(CapacityArgPos, NewVal);
+      DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
+                      { dbgs() << "  After: " << *Call << "\n"; });
+    }
+  }
 }
 
 class MemInitTrimDownImpl {
@@ -3378,9 +3831,73 @@ private:
   // transformation.
   SmallPtrSet<ClassInfo *, 4> ClassInfoSet;
 
+  bool isEscapePointOkay(std::pair<Function *, int32_t> &);
+  bool isAnyClassGetCapacityFunction(Function *F);
   bool gatherCandidateInfo(void);
   bool analyzeCandidate(MemInitCandidateInfo *);
+  bool verifyFinalSafetyChecks(void);
+  void transformMemInit(void);
 };
+
+// Transformation for all vector classes in ClassInfoSet.
+void MemInitTrimDownImpl::transformMemInit(void) {
+  DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
+                  { dbgs() << "  Applying trim down transformations ...\n"; });
+  assert(ClassInfoSet.size() && "Expected atleast one ClassInfo element");
+  for (auto *ClassI : ClassInfoSet)
+    ClassI->trimDowmMemInit();
+}
+
+// Return true if EP is just position of capacity value that is passed to Ctor
+// of someother class that is also selected for the transformation.
+bool MemInitTrimDownImpl::isEscapePointOkay(
+    std::pair<Function *, int32_t> &EP) {
+  for (auto *ClassI : ClassInfoSet)
+    if (ClassI->isCtorCapacityArgPositionPair(EP))
+      return true;
+  return false;
+}
+
+// Returns true if F is a GetCapacity function of any class in ClassInfoSet.
+bool MemInitTrimDownImpl::isAnyClassGetCapacityFunction(Function *F) {
+  for (auto *ClassI : ClassInfoSet)
+    if (ClassI->isClassGetCapacityFunction(F))
+      return true;
+  return false;
+}
+
+// Verify final safety checks that are across vector classes.
+// Entire transformation is disabled if any vector class is
+// failed with these checks.
+bool MemInitTrimDownImpl::verifyFinalSafetyChecks(void) {
+
+  for (auto *ClassI : ClassInfoSet) {
+    // Check all escaped capacity values are consumed by other
+    // vector classes that are also selected for the transformation.
+    for (auto EP : ClassI->capacity_escape_points()) {
+      if (!isEscapePointOkay(EP)) {
+        DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
+                        { dbgs() << "  Failed: Escape point not okay\n"; });
+        return false;
+      }
+    }
+    // Make sure all non-constant capacity values that are passed as
+    // arguments for Ctor calls are capacity values of other vector
+    // classes that selected for the transformation.
+    for (auto *CVal : ClassI->capacity_values()) {
+      if (isa<Constant>(CVal))
+        continue;
+      // Already verified that it is direct call.
+      auto *CFn = cast<CallBase>(CVal)->getCalledFunction();
+      if (!isAnyClassGetCapacityFunction(CFn)) {
+        DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
+                        { dbgs() << "  Failed: Unknown Capacity value\n"; });
+        return false;
+      }
+    }
+  }
+  return true;
+}
 
 // Analyze functionality of each member function of candidate
 // field classes to prove that the classes are vector classes.
@@ -3390,8 +3907,22 @@ bool MemInitTrimDownImpl::analyzeCandidate(MemInitCandidateInfo *Cand) {
         new ClassInfo(DL, DTInfo, TLI, GetDT, Cand, Loc));
     if (!ClassI->analyzeClassFunctions())
       return false;
+    // Continue checking remaining candidate fields if
+    // DTransMemInitRecognizeAll is true.
+    if (DTransMemInitRecognizeAll)
+      continue;
+    if (!ClassI->checkMemberFunctionCalls())
+      return false;
+    if (!ClassI->checkHeuristics()) {
+      DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
+                      { dbgs() << "  Failed: Heuristics\n"; });
+      return false;
+    }
     ClassInfoSet.insert(ClassI.release());
   }
+  // Skip further analysis if DTransMemInitRecognizeAll is true.
+  if (DTransMemInitRecognizeAll)
+    return false;
   return true;
 }
 
@@ -3473,7 +4004,13 @@ bool MemInitTrimDownImpl::run(void) {
     });
     return false;
   }
-  // TODO: More analysis and transformation code needs to be added here.
+
+  if (!verifyFinalSafetyChecks()) {
+    DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
+                    { dbgs() << "  Failed: Final safety checks.\n"; });
+    return false;
+  }
+  transformMemInit();
   return false;
 }
 
