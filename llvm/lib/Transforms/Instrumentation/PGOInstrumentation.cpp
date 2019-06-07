@@ -79,6 +79,7 @@
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstIterator.h" // INTEL
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
@@ -1612,6 +1613,21 @@ static bool annotateAllFunctions(
       F.setEntryCount(ProfileCount(0, Function::PCT_Real));
       if (Func.getProgramMaxCount() != 0)
         ColdFunctions.push_back(&F);
+#if INTEL_CUSTOMIZATION
+      // Add metadata for zero valued callsite profile counts.
+      for (auto &II: instructions(&F)) {
+        auto Call = dyn_cast<CallBase>(&II);
+        if (!Call || isa<IntrinsicInst>(Call))
+          continue;
+        uint64_t Count = 0;
+        SmallVector<Metadata *, 2> Vals(2);
+        Vals[0] = MDString::get(M.getContext(), "intel_profx");
+        Type *Int64Ty = Type::getInt64Ty(M.getContext());
+        Vals[1] = ConstantAsMetadata::get(ConstantInt::get(Int64Ty, Count));
+        II.setMetadata(LLVMContext::MD_intel_profx,
+            MDNode::get(M.getContext(), Vals));
+      }
+#endif // INTEL_CUSTOMIZATION
       continue;
     }
     Func.populateCounters();
