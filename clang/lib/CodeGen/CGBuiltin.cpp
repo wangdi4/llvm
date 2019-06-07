@@ -2264,15 +2264,6 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
         Builder.CreateCall(FnExpect, {ArgValue, ExpectedValue}, "expval");
     return RValue::get(Result);
   }
-#if INTEL_CUSTOMIZATION
-  // CQ#373129 - support for __assume_aligned builtin.
-  case Builtin::BI__assume_aligned:
-    if (!getLangOpts().IntelCompat)
-      break;
-    assert(E->getNumArgs() == 2 &&
-           "Wrong number of arguments for __assume_aligned builtin");
-    // Intentional fall through.
-#endif // INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_assume_aligned: {
     const Expr *Ptr = E->getArg(0);
     Value *PtrValue = EmitScalarExpr(Ptr);

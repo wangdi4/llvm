@@ -104,9 +104,6 @@ def warn_non_asm_stmt_in_naked_function : Warning<
 def err_attribute_argument_is_not_in_range : Error<
   "invalid attribute value, possible values are: %0">;
 
-// CQ#373129 - support for __assume_aligned builtin.
-def err_assume_aligned_first_arg_not_pointer : Error<
-  "first argument to '__assume_aligned' must be a pointer">;
 def warn_bad_cxx_cast_generic : Warning<
   "%select{const_cast|static_cast|reinterpret_cast|dynamic_cast|C-style cast|"
   "functional-style cast}0 from %1 to %2 is allowed in Intel/GCC compatibility mode only">,
