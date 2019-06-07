@@ -1422,9 +1422,15 @@ unsigned AndersensAAResult::getNodeForConstantPointer(Constant *C) {
     case Instruction::BitCast:
     case Instruction::AddrSpaceCast:
       return getNodeForConstantPointer(CE->getOperand(0));
+    case Instruction::ExtractElement:
+      return UniversalSet;
     default:
-      errs() << "Constant Expr not yet handled: " << *CE << "\n";
-      llvm_unreachable(0);
+      if (SkipAndersUnreachableAsserts) {
+        return UniversalSet;
+      } else {
+        errs() << "Constant Expr not yet handled: " << *CE << "\n";
+        llvm_unreachable(0);
+      }
     }
   } else if (isa<BlockAddress>(C)) {
       return UniversalSet;
@@ -1442,8 +1448,12 @@ unsigned AndersensAAResult::getNodeForConstantPointer(Constant *C) {
       //
       return UniversalSet;
   } else {
-    errs() << "Constant not yet handled: " << *C << "\n";
-    llvm_unreachable("Unknown constant pointer!");
+    if (SkipAndersUnreachableAsserts) {
+      return UniversalSet;
+    } else {
+      errs() << "Constant not yet handled: " << *C << "\n";
+      llvm_unreachable("Unknown constant pointer!");
+    }
   }
   return 0;
 }
@@ -1471,9 +1481,15 @@ unsigned AndersensAAResult::getNodeForConstantPointerTarget(Constant *C) {
     case Instruction::BitCast:
     case Instruction::AddrSpaceCast:
       return getNodeForConstantPointerTarget(CE->getOperand(0));
+    case Instruction::ExtractElement:
+      return UniversalSet;
     default:
-      errs() << "Constant Expr not yet handled: " << *CE << "\n";
-      llvm_unreachable(0);
+      if (SkipAndersUnreachableAsserts) {
+        return UniversalSet;
+      } else {
+        errs() << "Constant Expr not yet handled: " << *CE << "\n";
+        llvm_unreachable(0);
+      }
     }
   } else if (isa<BlockAddress>(C)) {
       return UniversalSet;
@@ -1491,7 +1507,10 @@ unsigned AndersensAAResult::getNodeForConstantPointerTarget(Constant *C) {
       //
       return UniversalSet;
   } else {
-    llvm_unreachable("Unknown constant pointer!");
+    if (SkipAndersUnreachableAsserts)
+      return UniversalSet;
+    else
+      llvm_unreachable("Unknown constant pointer!");
   }
   return 0;
 }
