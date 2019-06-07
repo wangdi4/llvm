@@ -547,13 +547,7 @@ KEYWORD(__fastcall                  , KEYALL)
 KEYWORD(__thiscall                  , KEYALL)
 KEYWORD(__regcall                   , KEYALL)
 KEYWORD(__vectorcall                , KEYALL)
-#if INTEL_CUSTOMIZATION
-// CQ#368488 - keyword fixes for iclang.
-// CQ#367651 - keyword fix for xmain.
-KEYWORD(__unaligned                 , KEYMS|KEYINTELALL)
-#else
 KEYWORD(__unaligned                 , KEYMS)
-#endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
 // Fix for CQ375085: allow to use __forceinline modifier even in non-MS mode.
 KEYWORD(__forceinline               , KEYALL)
