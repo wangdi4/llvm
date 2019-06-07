@@ -647,6 +647,33 @@ static Instruction *combineLoadToOperationType(InstCombiner &IC, LoadInst &LI) {
           return SI && SI->getPointerOperand() != &LI &&
                  !SI->getPointerOperand()->isSwiftError();
         })) {
+#if INTEL_CUSTOMIZATION
+      // For DTRANS and other optimizations that require the type info to be
+      // intact, we want to delay modifying some load/store sequences that
+      // convert a pointer to a structure type into an integer type in some
+      // cases to avoid ambiguous data types during DTrans analysis.
+      // Specifically, when the store is to the first field of a structure type,
+      // we inhibit the conversion because the first field can also be accessed
+      // directly from a pointer to the structure. This conversion could lead to
+      // ambiguous types for the access because it can also introduce a generic
+      // pointer type accessing the first field element. For now, we will only
+      // consider the case where the store is to this field. In the future, it
+      // may be useful to consider the case where the load is for the first
+      // field as well.
+      if (!IC.allowTypeLoweringOpts() && Ty->isPointerTy() &&
+          Ty->getPointerElementType()->isStructTy())
+        if (!all_of(LI.users(), [](User *U) {
+              // We know all the uses are StoreInst from the above condition.
+              // Check whether these are element 0 members.
+              auto *SI = cast<StoreInst>(U);
+              if (auto *GEP =
+                      dyn_cast<GetElementPtrInst>(SI->getPointerOperand()))
+                return !GEP->hasAllZeroIndices();
+              return true;
+            }))
+          return nullptr;
+#endif // INTEL_CUSTOMIZATION
+
       LoadInst *NewLoad = combineLoadToNewType(
           IC, LI,
           Type::getIntNTy(LI.getContext(), DL.getTypeStoreSizeInBits(Ty)));

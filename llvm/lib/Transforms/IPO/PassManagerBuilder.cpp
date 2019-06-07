@@ -527,12 +527,24 @@ void PassManagerBuilder::addPGOInstrPasses(legacy::PassManagerBase &MPM,
     // FIXME: The hint threshold has the same value used by the regular inliner.
     // This should probably be lowered after performance testing.
     IP.HintThreshold = 325;
+    IP.PrepareForLTO = PrepareForLTO; // INTEL
 
     MPM.add(createFunctionInliningPass(IP));
     MPM.add(createSROAPass());
     MPM.add(createEarlyCSEPass());             // Catch trivial redundancies
     MPM.add(createCFGSimplificationPass());    // Merge & remove BBs
-    MPM.add(createInstructionCombiningPass()); // Combine silly seq's
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+    // Configure the instruction combining pass to avoid some transformations
+    // that lose type information for DTrans.
+    bool GEPInstOptimizations = !(PrepareForLTO && EnableDTrans);
+#else
+    bool GEPInstOptimizations = true;
+#endif // INTEL_INCLUDE_DTRANS
+    MPM.add(createInstructionCombiningPass(
+        /*ExpensiveCombines=default value*/ true,
+        GEPInstOptimizations)); // Combine silly seq's
+#endif                          // INTEL_CUSTOMIZATION
     addExtensionsToPM(EP_Peephole, MPM);
   }
   if ((EnablePGOInstrGen && !IsCS) || (EnablePGOCSInstrGen && IsCS)) {
