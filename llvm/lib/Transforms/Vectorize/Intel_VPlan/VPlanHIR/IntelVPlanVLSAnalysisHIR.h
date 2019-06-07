@@ -44,7 +44,7 @@ private:
       DDNodeRefs;
 
   virtual OVLSMemref *createVLSMemref(const VPInstruction *Inst,
-                                      const VPVectorShape *Shape,
+                                      const VPVectorShape &Shape,
                                       const unsigned VF) const final;
 
   static MemAccessTy getAccessType(const RegDDRef *Ref, const unsigned Level,

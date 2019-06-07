@@ -64,7 +64,7 @@ protected:
   }
 
   virtual OVLSMemref *createVLSMemref(const VPInstruction *Inst,
-                                      const VPVectorShape *Shape,
+                                      const VPVectorShape &Shape,
                                       const unsigned VF) const;
 
 private:

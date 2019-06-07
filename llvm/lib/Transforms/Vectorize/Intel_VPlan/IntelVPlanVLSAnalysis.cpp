@@ -26,10 +26,10 @@ namespace llvm {
 namespace vpo {
 
 OVLSMemref *VPlanVLSAnalysis::createVLSMemref(const VPInstruction *VPInst,
-                                              const VPVectorShape *Shape,
+                                              const VPVectorShape &Shape,
                                               const unsigned VF) const {
   OVLSAccessType AccTy = OVLSAccessType::getUnknownTy();
-  if (!Shape->isAnyStrided())
+  if (!Shape.isAnyStrided())
     return nullptr;
 
   int Opcode = VPInst->getOpcode();
@@ -74,10 +74,9 @@ void VPlanVLSAnalysis::collectMemrefs(const VPRegionBlock *Region,
       VPValue *Address = Opcode == Instruction::Load ? VPInst.getOperand(0)
                                                      : VPInst.getOperand(1);
       const VPVectorShape *Shape = DA.getVectorShape(Address);
-      if (!Shape || !Shape->isAnyStrided())
-        continue;
+      assert(Shape && "DA is not supposed to return null shape");
 
-      OVLSMemref *Memref = createVLSMemref(&VPInst, Shape, VF);
+      OVLSMemref *Memref = createVLSMemref(&VPInst, *Shape, VF);
       if (!Memref)
         continue;
 
