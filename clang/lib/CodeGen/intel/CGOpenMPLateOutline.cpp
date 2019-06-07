@@ -1793,6 +1793,24 @@ operator<<(ArrayRef<OMPClause *> Clauses) {
   return *this;
 }
 
+// OpenMP spec 5.0, sec 2.19.7:
+// If a list item appears in a reduction, lastprivate or linear clause on a
+// combined target construct then it is treated as if it also appears in a
+// map clause with a map-type of tofrom.
+void OpenMPLateOutliner::emitCombinedTargetMapClauses() {
+  // Add to the target of a combined target construct.
+  if (CurrentDirectiveKind != OMPD_target ||
+      Directive.getDirectiveKind() == OMPD_target)
+    return;
+
+  for (const auto *C : Directive.getClausesOfKind<OMPReductionClause>())
+    AddMapToFromClauses(C);
+  for (const auto *C : Directive.getClausesOfKind<OMPLastprivateClause>())
+    AddMapToFromClauses(C);
+  for (const auto *C : Directive.getClausesOfKind<OMPLinearClause>())
+    AddMapToFromClauses(C);
+}
+
 bool OpenMPLateOutliner::isFirstDirectiveInSet(const OMPExecutableDirective &S,
                                                OpenMPDirectiveKind Kind) {
   if (Kind == OMPD_unknown)
@@ -2214,6 +2232,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   case OMPD_teams_distribute_parallel_for_simd:
     llvm_unreachable("Combined directives not handled here");
   }
+  Outliner.emitCombinedTargetMapClauses();
   Outliner << S.clauses();
   Outliner.insertMarker();
   if (S.hasAssociatedStmt() && S.getAssociatedStmt() != nullptr) {

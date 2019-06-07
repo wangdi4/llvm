@@ -327,6 +327,20 @@ public:
   }
 
   OpenMPLateOutliner &operator<<(ArrayRef<OMPClause *> Clauses);
+
+  template <typename ClauseType>
+  void AddMapToFromClauses(const ClauseType *C) {
+    for (auto *E : C->varlists()) {
+      const VarDecl *VD = getExplicitVarDecl(E);
+      assert(VD && "expected VarDecl in clause");
+      emitImplicit(VD, ICK_map_tofrom);
+      // Adding to explicit list to prevent additional clauses from implicit
+      // rules.
+      addExplicit(VD);
+    }
+  }
+  void emitCombinedTargetMapClauses();
+
   void emitImplicitLoopBounds(const OMPLoopDirective *LD);
   void emitImplicit(Expr *E, ImplicitClauseKind K);
   void emitImplicit(const VarDecl *VD, ImplicitClauseKind K);
