@@ -91,6 +91,12 @@ using namespace llvm;
 // Make virtual table appear in this compilation unit.
 AssemblyAnnotationWriter::~AssemblyAnnotationWriter() = default;
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> PrintDbgLoc(
+    "print-debug-loc", cl::init(false), cl::Hidden,
+    cl::desc("Print DebugLoc of instructions besides them as comments"));
+#endif
+
 #if INTEL_PRODUCT_RELEASE
 #if !defined(NDEBUG)
 #error INTEL_PRODUCT_RELEASE requires that NDEBUG also be defined.
@@ -4055,6 +4061,20 @@ void AssemblyWriter::printInstruction(const Instruction &I) {
 
   // Print a nice comment.
   printInfoComment(I);
+#if INTEL_CUSTOMIZATION
+  if (PrintDbgLoc) {
+    // Print location besides instructions for ease of debugging IR dumps.
+    if (const DebugLoc Loc = I.getDebugLoc()) {
+      Out.PadToColumn(49);
+      Out << " ; ";
+      // Not using Loc.print() because inlinedAt info can get messy with heavy
+      // inlnining.
+      auto *Scope = cast<DIScope>(Loc.getScope());
+      Out << Scope->getFilename() << ":" << Loc.getLine() << ':'
+          << Loc.getCol();
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 void AssemblyWriter::printMetadataAttachments(
