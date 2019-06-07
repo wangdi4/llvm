@@ -1033,6 +1033,8 @@ HLInst *HLNodeUtils::createMemcpy(RegDDRef *StoreRef, RegDDRef *LoadRef,
   MemCpyCall->setSourceAlignment(LoadRef->getAlignment());
   MemCpyCall->setDestAlignment(StoreRef->getAlignment());
 
+  Call->setDebugLoc(StoreRef->getDebugLoc());
+
   return HInst;
 }
 
@@ -1053,6 +1055,8 @@ HLInst *HLNodeUtils::createMemset(RegDDRef *StoreRef, RegDDRef *Value,
 
   MemSetInst *MemSetCall = cast<MemSetInst>(Call);
   MemSetCall->setDestAlignment(StoreRef->getAlignment());
+
+  Call->setDebugLoc(StoreRef->getDebugLoc());
 
   return HInst;
 }
