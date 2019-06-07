@@ -38,6 +38,7 @@ subdirectories =
  Remarks
  Passes
  ProfileData
+ SYCL
  Support
  TableGen
  TextAPI

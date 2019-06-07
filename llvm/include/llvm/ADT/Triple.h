@@ -224,6 +224,7 @@ public:
     Cygnus,
     CoreCLR,
     Simulator,  // Simulator variants of other systems, e.g., Apple's iOS
+    SYCLDevice,
     LastEnvironmentType = Simulator
   };
   enum ObjectFormatType {
@@ -492,6 +493,10 @@ public:
 
   bool isSimulatorEnvironment() const {
     return getEnvironment() == Triple::Simulator;
+  }
+
+  bool isSYCLDeviceEnvironment() const {
+    return getEnvironment() == Triple::SYCLDevice;
   }
 
   bool isOSNetBSD() const {
