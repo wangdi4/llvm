@@ -688,6 +688,10 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
       }
       IfBlock = NextIfBlock;
     }
+  } else if (!LatchExitBlock && ExitBlocks.size() == 1) {
+    VPBlockBase *ExitBlock = ExitBlocks[0];
+    NewLoopLatch->appendSuccessor(ExitBlock);
+    ExitBlock->appendPredecessor(NewLoopLatch);
   }
 
   VPRegionBlock *CurrentLoopRegion =
