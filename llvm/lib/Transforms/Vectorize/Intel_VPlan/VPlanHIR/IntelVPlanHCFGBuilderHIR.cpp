@@ -817,6 +817,7 @@ private:
                               : MinMaxRecurrenceKind::MRK_FloatMin;
         break;
       }
+      break;
     }
     default:
       llvm_unreachable("Unexpected reduction opcode");
