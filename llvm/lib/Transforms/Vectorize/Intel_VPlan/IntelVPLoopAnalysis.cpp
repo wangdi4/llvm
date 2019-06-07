@@ -437,10 +437,15 @@ void VPLoopEntityList::processFinalValue(VPLoopEntity &E, VPValue *AI,
 void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
   if (!VPlanUseVPEntityInstructions)
     return;
+  VPBlockBase *BB = Loop.getUniqueExitBlock();
+  // If the loop is multi-exit then the code gen for it is done using underlying
+  // IR and we don't need to emit anything here
+  if (!BB)
+    return;
+  VPBasicBlock *PostExit = cast<VPBasicBlock>(BB);
+  VPBasicBlock *Preheader = cast<VPBasicBlock>(Loop.getLoopPreheader());
+
   VPBuilder::InsertPointGuard Guard(Builder);
-  VPBasicBlock *Preheader = dyn_cast<VPBasicBlock>(Loop.getLoopPreheader());
-  VPBasicBlock *PostExit = dyn_cast<VPBasicBlock>(Loop.getUniqueExitBlock());
-  assert((Preheader && PostExit) && "Loop preheader and exit expected");
 
   for (auto &RedPtr : ReductionList) {
     VPReduction *Reduction = RedPtr.get();
