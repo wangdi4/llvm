@@ -731,10 +731,10 @@ static bool IsFunctionPtrCloneCandidate(Function &F) {
 
 //
 // Fix the basis call of the recursive progression clone candidate 'OrigF' by
-// redirecting it to call the first in the series of recursive progressive
+// redirecting it to call the first in the series of recursive progression
 // clones, 'NewF'.
 //
-static void fixRecProgressiveBasisCall(Function &OrigF, Function &NewF) {
+static void fixRecProgressionBasisCall(Function &OrigF, Function &NewF) {
   auto UI = OrigF.use_begin();
   auto UE = OrigF.use_end();
   for (; UI != UE;) {
@@ -751,7 +751,7 @@ static void fixRecProgressiveBasisCall(Function &OrigF, Function &NewF) {
 }
 
 // Fix the recursive calls within 'PrevF' to call 'NewF' rather than 'OrigF'.
-// After this is done, the recursive progressive clone 'foo.1' will look like:
+// After this is done, the recursive progression clone 'foo.1' will look like:
 //   static void foo.1(int i) {
 //     ..
 //     int p = (i + 1) % 4;
@@ -760,7 +760,7 @@ static void fixRecProgressiveBasisCall(Function &OrigF, Function &NewF) {
 //   }
 // where 'OrigF' is foo(), 'PrevF' is foo.1(), and 'NewF' is foo.2().
 //
-static void fixRecProgressiveRecCalls(Function &OrigF, Function &PrevF,
+static void fixRecProgressionRecCalls(Function &OrigF, Function &PrevF,
                                       Function &NewF) {
   auto UI = OrigF.use_begin();
   auto UE = OrigF.use_end();
@@ -783,7 +783,7 @@ static void fixRecProgressiveRecCalls(Function &OrigF, Function &PrevF,
 // (This is done to ensure that the recursive progression terminates for a
 // non-cyclic recursive progression clone candidate.)
 //
-static void deleteRecProgressiveRecCalls(Function &OrigF, Function &PrevF) {
+static void deleteRecProgressionRecCalls(Function &OrigF, Function &PrevF) {
   auto UI = OrigF.use_begin();
   auto UE = OrigF.use_end();
   for (; UI != UE;) {
@@ -801,12 +801,12 @@ static void deleteRecProgressiveRecCalls(Function &OrigF, Function &PrevF) {
 }
 
 //
-// Create the recursive progressive clones for the recursive progressive
-// clone candidate 'F'.  'ArgPos' is the position of the recursive progressive
+// Create the recursive progression clones for the recursive progression
+// clone candidate 'F'.  'ArgPos' is the position of the recursive progression
 // argument, whose initial value is 'Start', and is incremented by 'Inc', a
 // total of 'Count' times, and then repeats.
 //
-// If 'IsByRef' is 'true', the recursive progressive argument is by reference.
+// If 'IsByRef' is 'true', the recursive progression argument is by reference.
 // If 'IsCyclic' is 'true', the recursive progression is cyclic.
 //
 // For example, in the case of a cyclic recursive progression:
@@ -889,14 +889,14 @@ static void deleteRecProgressiveRecCalls(Function &OrigF, Function &PrevF) {
 //     ..
 //   }
 //
-static void createRecProgressiveClones(Function &F,
+static void createRecProgressionClones(Function &F,
                                        unsigned ArgPos, unsigned Count,
                                        int Start, int Inc, bool IsByRef,
                                        bool IsCyclic) {
   int FormalValue = Start;
   Function *FirstCloneF = nullptr;
   Function *LastCloneF = nullptr;
-  assert(Count > 0 && "Expecting at least one RecProgressive Clone");
+  assert(Count > 0 && "Expecting at least one RecProgression Clone");
   for (unsigned I = 0; I < Count; ++I) {
     ValueToValueMapTy VMap;
     Function *NewF = CloneFunction(&F, VMap);
@@ -906,15 +906,15 @@ static void createRecProgressiveClones(Function &F,
       NewF->addFnAttr("prefer-inline-rec-pro-clone");
     else
       NewF->addFnAttr("prefer-noinline-rec-pro-clone");
-    // In any case, it contains a recursive progressive clone, because it is
+    // In any case, it contains a recursive progression clone, because it is
     // one, and the merge rule function ContainsRecProCloneAttr guarentees
     // that any function this function is inlined into will also contain a
-    // recursive progressive clone.
+    // recursive progression clone.
     NewF->addFnAttr("contains-rec-pro-clone");
     if (LastCloneF)
-      fixRecProgressiveRecCalls(F, *LastCloneF, *NewF);
+      fixRecProgressionRecCalls(F, *LastCloneF, *NewF);
     else
-      fixRecProgressiveBasisCall(F, *NewF);
+      fixRecProgressionBasisCall(F, *NewF);
     NumIPCloned++;
     Argument *NewFormal = NewF->arg_begin() + ArgPos;
     auto ConstantType = NewFormal->getType();
@@ -940,9 +940,9 @@ static void createRecProgressiveClones(Function &F,
     LastCloneF = NewF;
   }
   if (IsCyclic)
-    fixRecProgressiveRecCalls(F, *LastCloneF, *FirstCloneF);
+    fixRecProgressionRecCalls(F, *LastCloneF, *FirstCloneF);
   else
-    deleteRecProgressiveRecCalls(F, *LastCloneF);
+    deleteRecProgressionRecCalls(F, *LastCloneF);
 }
 
 // Create argument set for CallInst 'CI' of  'F' and save it in
@@ -1771,7 +1771,7 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
         CloneType = RecProgressionClone;
         if (IPCloningTrace)
           errs() << "    Selected RecProgression cloning  " << "\n";
-        createRecProgressiveClones(F, ArgPos, Count, Start, Inc, IsByRef,
+        createRecProgressionClones(F, ArgPos, Count, Start, Inc, IsByRef,
                                    IsCyclic);
         continue;
       }

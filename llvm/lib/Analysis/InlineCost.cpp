@@ -3489,10 +3489,10 @@ static bool preferNotToInlineForSwitchComputations(CallBase &CB,
 
 //
 // Return 'true' if 'Callee' is preferred for not inlining because it is
-// a recursive progressive clone marked with an attribute as being
+// a recursive progression clone marked with an attribute as being
 // preferred for not inlining ("prefer-noinline-rec-pro-clone").
 //
-static bool preferNotToInlineForRecProgressiveClone(Function *Callee) {
+static bool preferNotToInlineForRecProgressionClone(Function *Callee) {
   return Callee && Callee->hasFnAttribute("prefer-noinline-rec-pro-clone");
 }
 
@@ -3849,10 +3849,10 @@ static bool worthInliningSingleBasicBlockWithStructTest(Function *Callee,
 
 //
 // Return 'true' if 'Callee' is preferred for inlining because it is
-// a recursive progressive clone marked with an attribute as being
+// a recursive progression clone marked with an attribute as being
 // preferred for inlining ("prefer-inline-rec-pro-clone").
 //
-static bool worthInliningForRecProgressiveClone(Function *Callee) {
+static bool worthInliningForRecProgressionClone(Function *Callee) {
   return Callee && Callee->hasFnAttribute("prefer-inline-rec-pro-clone");
 }
 
@@ -4153,7 +4153,7 @@ static int worthInliningUnderSpecialCondition(CallBase &CB,
     YesReasonVector.push_back(InlrSingleBasicBlockWithStructTest);
     return -InlineConstants::InliningHeuristicBonus;;
   }
-  if (worthInliningForRecProgressiveClone(F)) {
+  if (worthInliningForRecProgressionClone(F)) {
     YesReasonVector.push_back(InlrRecProClone);
     return -InlineConstants::DeepInliningHeuristicBonus;
   }
@@ -4274,7 +4274,7 @@ InlineResult CallAnalyzer::analyzeCall(CallBase &Call,
       *ReasonAddr = NinlrSwitchComputations;
       return false;
     }
-    if (preferNotToInlineForRecProgressiveClone(Callee)) {
+    if (preferNotToInlineForRecProgressionClone(Callee)) {
       *ReasonAddr = NinlrRecursive;
       return false;
     }

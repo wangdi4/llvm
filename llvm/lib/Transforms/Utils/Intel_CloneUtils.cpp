@@ -87,8 +87,8 @@ static bool hasLoopIndexArg(CallSite &CS) {
 }
 
 //
-// Return 'true' if 'Arg' is a Type I recursive progressive argument of
-// recursive progressive function. A Type I recursive progressive argument
+// Return 'true' if 'Arg' is a Type I recursive progression argument of
+// recursive progression function. A Type I recursive progression argument
 // has the following properties:
 //   (1) It is by reference.
 //   (2) It is not cyclic.
@@ -247,8 +247,8 @@ static bool isRecProgressionCloneArgument1(bool TestCountForConstant,
 }
 
 //
-// Return 'true' if 'Arg' is a Type II recursive progressive argument of
-// recursive progressive function. A Type II recursive progressive argument
+// Return 'true' if 'Arg' is a Type II recursive progression argument of
+// recursive progression function. A Type II recursive progression argument
 // has the following properties:
 //   (1) It is not by reference.
 //   (2) It is cyclic.
@@ -337,10 +337,10 @@ static bool isRecProgressionCloneArgument2(bool TestCountForConstant,
 }
 
 //
-// Return 'true' if 'Arg' is a recursive progressive argument for a recursive
-// progressive clone candidate. If 'true' is returned, set 'Start', 'Inc' and
+// Return 'true' if 'Arg' is a recursive progression argument for a recursive
+// progression clone candidate. If 'true' is returned, set 'Start', 'Inc' and
 // 'Count' to the beginning, increment, and length of the recursive
-// progression. Also, set 'IsByRef' if the recursive progressive argument is
+// progression. Also, set 'IsByRef' if the recursive progression argument is
 // a by reference value, and set 'IsCyclic' if the recursive progression is
 // cyclic.
 //
@@ -349,7 +349,7 @@ static bool isRecProgressionCloneArgument2(bool TestCountForConstant,
 // progression, we should set 'TestForConstant' to 'true'. We use this
 // query function with 'TestForConstant' equal to 'false' to inhibit the
 // performing of the tail call elimination optimization on functions which
-// are potential recursive progressive clone candidates.  This is because
+// are potential recursive progression clone candidates.  This is because
 // the tail call elimination optimization can occur in the 'PrepareForLTO'
 // step before IP cloning and we may not know at that point the value of
 // 'Count'.
@@ -366,7 +366,7 @@ static bool isRecProgressionCloneArgument2(bool TestCountForConstant,
 //     foo(0);
 //     ..
 //   }
-// The recursive progressive argument is "i", 'ArgPos' is 0, 'Start'
+// The recursive progression argument is "i", 'ArgPos' is 0, 'Start'
 // is 0, 'Inc' is 1, and 'Count' is 4.  The call to foo() in bar() which
 // launches the recursive progression is called the basis call. The argument
 // is has the values 0, 1, 2, 3, 0, 1, 2, 3, ... on successive recursive calls
@@ -385,7 +385,7 @@ static bool isRecProgressionCloneArgument2(bool TestCountForConstant,
 //     foo(1);
 //     ..
 //   }
-// The recursive progressive argument is "j", 'ArgPos' is 0, 'Start'
+// The recursive progression argument is "j", 'ArgPos' is 0, 'Start'
 // is 1, 'Inc' is 1, and 'Count' is 8. The argument has the values 1, 2, 3, 4,
 // 5, 6, 7, 8 on successive recursive calls to foo. The guard test around
 // the recursive call ensures that the values do not cycle.

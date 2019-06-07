@@ -2,11 +2,11 @@
 ; RUN: opt < %s -passes='module(ip-cloning)' -print-ip-cloning -disable-output -S 2>&1 | FileCheck %s
 
 ; Various checks for conditions where a function can fail to be recognized
-; as a recursive progressive clone candidate.
+; as a recursive progression clone candidate.
 
 @count = available_externally dso_local local_unnamed_addr global i32 0, align 8
 
-; Check that foofail1 is not a recursive progressive clone candidate
+; Check that foofail1 is not a recursive progression clone candidate
 ; because its argument has more than one use.
 ; CHECK-LABEL: Cloning Analysis for:  foofail1
 ; CHECK-NOT: Selected RecProgression cloning
@@ -41,7 +41,7 @@ define internal void @foofail1(i32* noalias nocapture readonly) {
   ret void
 }
 
-; Check that foofail2 is not a recursive progressive clone candidate
+; Check that foofail2 is not a recursive progression clone candidate
 ; because its argument's use is not a load.
 ; CHECK-LABEL: Cloning Analysis for:  foofail2
 ; CHECK-NOT: Selected RecProgression cloning
@@ -74,7 +74,7 @@ define internal void @foofail2(i32* noalias nocapture readonly) {
   ret void
 }
 
-; Check that foofail3 is not a recursive progressive clone candidate
+; Check that foofail3 is not a recursive progression clone candidate
 ; because its progression binary operator is not an Add.
 ; CHECK-LABEL: Cloning Analysis for:  foofail3
 ; CHECK-NOT: Selected RecProgression cloning
@@ -107,7 +107,7 @@ define internal void @foofail3(i32* noalias nocapture readonly) {
   ret void
 }
 
-; Check that foofail4 is not a recursive progressive clone candidate
+; Check that foofail4 is not a recursive progression clone candidate
 ; because its increment is not a constant.
 ; CHECK-LABEL: Cloning Analysis for:  foofail4
 ; CHECK-NOT: Selected RecProgression cloning
@@ -141,7 +141,7 @@ define internal void @foofail4(i32* noalias nocapture readonly) {
   ret void
 }
 
-; Check that foofail5 is not a recursive progressive clone candidate
+; Check that foofail5 is not a recursive progression clone candidate
 ; because its increment expression has more than one use.
 ; CHECK-LABEL: Cloning Analysis for:  foofail5
 ; CHECK-NOT: Selected RecProgression cloning
@@ -176,7 +176,7 @@ define internal void @foofail5(i32* noalias nocapture readonly) {
   ret void
 }
 
-; Check that foofail6 is not a recursive progressive clone candidate
+; Check that foofail6 is not a recursive progression clone candidate
 ; because its increment expression has a use that is not a store.
 ; CHECK-LABEL: Cloning Analysis for:  foofail6
 ; CHECK-NOT: Selected RecProgression cloning
@@ -210,7 +210,7 @@ define internal void @foofail6(i32* noalias nocapture readonly) {
   ret void
 }
 
-; Check that foofail7 is not a recursive progressive clone candidate
+; Check that foofail7 is not a recursive progression clone candidate
 ; because its increment expression has a use which a store back to a
 ; different location.
 ; CHECK-LABEL: Cloning Analysis for:  foofail7
@@ -245,7 +245,7 @@ define internal void @foofail7(i32* noalias nocapture readonly) {
   ret void
 }
 
-; Check that foofail8 is not a recursive progressive clone candidate
+; Check that foofail8 is not a recursive progression clone candidate
 ; because has more than one recursive callsite.
 ; CHECK-LABEL: Cloning Analysis for:  foofail8
 ; CHECK-NOT: Selected RecProgression cloning
@@ -279,7 +279,7 @@ define internal void @foofail8(i32* noalias nocapture readonly) {
   ret void
 }
 
-; Check that foofail9 is not a recursive progressive clone candidate
+; Check that foofail9 is not a recursive progression clone candidate
 ; because the location that holds the recursive progression is stored to
 ; in multiple places.
 ; CHECK-LABEL: Cloning Analysis for:  foofail9
@@ -314,7 +314,7 @@ define internal void @foofail9(i32* noalias nocapture readonly) {
   ret void
 }
 
-; Check that foofail10 is not a recursive progressive clone candidate
+; Check that foofail10 is not a recursive progression clone candidate
 ; because it does not have a recursive callsite.
 ; CHECK-LABEL: Cloning Analysis for:  foofail10
 ; CHECK-NOT: Selected RecProgression cloning
@@ -347,7 +347,7 @@ define internal void @foofail10(i32* noalias nocapture readonly) {
   ret void
 }
 
-; Check that foofail11 is not a recursive progressive clone candidate
+; Check that foofail11 is not a recursive progression clone candidate
 ; because the recursive progression does not go to the correct argument
 ; in the recursive call.
 ; CHECK-LABEL: Cloning Analysis for:  foofail11
@@ -381,7 +381,7 @@ define internal void @foofail11(i32* noalias nocapture readonly, i32* noalias no
   ret void
 }
 
-; Check that foofail12 is not a recursive progressive clone candidate
+; Check that foofail12 is not a recursive progression clone candidate
 ; because it has more than one basis callsite.
 ; CHECK-LABEL: Cloning Analysis for:  foofail12
 ; CHECK-NOT: Selected RecProgression cloning
@@ -414,7 +414,7 @@ define internal void @foofail12(i32* noalias nocapture readonly) {
   ret void
 }
 
-; Check that foofail13 is not a recursive progressive clone candidate
+; Check that foofail13 is not a recursive progression clone candidate
 ; because its basis callsite argument is from an unintialized location.
 ; CHECK-LABEL: Cloning Analysis for:  foofail13
 ; CHECK-NOT: Selected RecProgression cloning
@@ -447,7 +447,7 @@ define internal void @foofail13(i32* noalias nocapture readonly) {
   ret void
 }
 
-; Check that foofail14 is not a recursive progressive clone candidate
+; Check that foofail14 is not a recursive progression clone candidate
 ; because its basis callsite argument is stored multiple times.
 ; CHECK-LABEL: Cloning Analysis for:  foofail14
 ; CHECK-NOT: Selected RecProgression cloning
@@ -480,7 +480,7 @@ define internal void @foofail14(i32* noalias nocapture readonly) {
   ret void
 }
 
-; Check that foofail15 is not a recursive progressive clone candidate
+; Check that foofail15 is not a recursive progression clone candidate
 ; because its basis callsite argument is used in places other than the
 ; initial store and the basis callsite.
 ; CHECK-LABEL: Cloning Analysis for:  foofail15
@@ -514,7 +514,7 @@ define internal void @foofail15(i32* noalias nocapture readonly) {
   ret void
 }
 
-; Check that foofail16 is not a recursive progressive clone candidate
+; Check that foofail16 is not a recursive progression clone candidate
 ; because its basis callsite argument is not a constant.
 ; CHECK-LABEL: Cloning Analysis for:  foofail16
 ; CHECK-NOT: Selected RecProgression cloning
@@ -547,7 +547,7 @@ define internal void @foofail16(i32* noalias nocapture readonly) {
   ret void
 }
 
-; Check that foofail17 is not a recursive progressive clone candidate
+; Check that foofail17 is not a recursive progression clone candidate
 ; because it has no constant termination test.
 ; CHECK-LABEL: Cloning Analysis for:  foofail17
 ; CHECK-NOT: Selected RecProgression cloning
@@ -580,7 +580,7 @@ define internal void @foofail17(i32* noalias nocapture readonly) {
   ret void
 }
 
-; Check that foofail18 is not a recursive progressive clone candidate
+; Check that foofail18 is not a recursive progression clone candidate
 ; because the start value of its sequence precedes its stop value and
 ; the increment is positive.
 ; CHECK-LABEL: Cloning Analysis for:  foofail18
@@ -614,7 +614,7 @@ define internal void @foofail18(i32* noalias nocapture readonly) {
   ret void
 }
 
-; Check that foofail19 is not a recursive progressive clone candidate
+; Check that foofail19 is not a recursive progression clone candidate
 ; because the (stop - start) value in the recursive progression is not a
 ; multiple of the increment.
 ; CHECK-LABEL: Cloning Analysis for:  foofail19

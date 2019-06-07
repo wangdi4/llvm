@@ -92,7 +92,7 @@ STATISTIC(NumRetDuped,   "Number of return duplicated");
 STATISTIC(NumAccumAdded, "Number of accumulators introduced");
 
 #if INTEL_CUSTOMIZATION
-// Option to inhibit tail call elimination on recursive progressive
+// Option to inhibit tail call elimination on recursive progression
 // clone candidates. Useful for LIT tests.
 static cl::opt<bool> NoTailCallForRecProClone("no-tail-call-for-rec-pro-clone",
                                               cl::init(false),

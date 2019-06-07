@@ -99,7 +99,7 @@ const static InlPrtRecord InlineReasonText[] = {
     // InlrHotProfile,
     {InlPrtCost, "Callsite has hot profile"},
     // InlrRecProClone
-    {InlPrtCost, "Callee is recursive progressive clone"},
+    {InlPrtCost, "Callee is recursive progression clone"},
     // InlrHasExtractedRecursiveCall
     {InlPrtCost, "Callee has extracted recursive call"},
     // InlrSingleLocalCall,
