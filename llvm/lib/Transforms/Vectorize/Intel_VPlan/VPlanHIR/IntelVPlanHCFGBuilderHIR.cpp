@@ -97,8 +97,8 @@ static bool isSIMDDescriptorDDRef(RegDDRef *DescrRef, DDRef *Ref) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void HIRVectorizationLegality::dump(raw_ostream &OS) const {
   OS << "HIRLegality Descriptor Lists\n";
-  OS << "\n\nHIRLegality PrivateList:\n";
-  for (auto &Pvt : PrivateList) {
+  OS << "\n\nHIRLegality PrivatesList:\n";
+  for (auto &Pvt : PrivatesList) {
     Pvt.dump();
     OS << "\n";
   }
@@ -839,6 +839,7 @@ public:
   using InductionList = VPDecomposerHIR::VPInductionHIRList;
   using LinearList = HIRVectorizationLegality::LinearListTy;
   using ExplicitReductionList = HIRVectorizationLegality::ReductionListTy;
+  using PrivatesListTy = HIRVectorizationLegality::PrivatesListTy;
   using RecurrenceKind = VPReduction::RecurrenceKind;
   using MinMaxRecurrenceKind = VPReduction::MinMaxRecurrenceKind;
   using InductionKind = VPInduction::InductionKind;
@@ -1000,6 +1001,27 @@ public:
     Descriptor.setSigned(CurrValue.IsSigned);
     Descriptor.setLinkPhi(nullptr);
   }
+};
+
+// Convert data from Privates list
+class PrivatesListCvt : public VPEntityConverterBase {
+public:
+  PrivatesListCvt(VPDecomposerHIR &Decomp, bool IsCond = false,
+                  bool IsLast = false)
+      : VPEntityConverterBase(Decomp), IsCondPriv(IsCond), IsLastPriv(IsLast) {}
+
+  void operator()(PrivateDescr &Descriptor,
+                  const PrivatesListTy::value_type &CurValue) {
+    Descriptor.setAllocaInst(nullptr);
+    Descriptor.setIsConditional(IsCondPriv);
+    Descriptor.setIsLast(IsLastPriv);
+    Descriptor.setIsExplicit(true);
+    Descriptor.setIsMemOnly(false);
+  }
+
+private:
+  bool IsCondPriv;
+  bool IsLastPriv;
 };
 
 class HLLoop2VPLoopMapper {

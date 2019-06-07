@@ -311,14 +311,15 @@ VPInduction *VPLoopEntityList::addInduction(VPInstruction *Start,
   createMemDescFor(Ind, AI);
   return Ind;
 }
-VPPrivate *VPLoopEntityList::addPrivate(VPInstruction *Assign,
-                                        bool isConditional, bool Explicit,
-                                        VPValue *AI, bool ValidMemOnly) {
-  assert(Assign && "null assign");
+
+VPPrivate *VPLoopEntityList::addPrivate(VPInstruction *FinalI,
+                                        bool IsConditional, bool IsLast,
+                                        bool Explicit, VPValue *AI,
+                                        bool ValidMemOnly) {
   VPPrivate *Priv =
-      new VPPrivate(Assign, isConditional, Explicit, ValidMemOnly);
-  PrivateList.emplace_back(Priv);
-  linkValue(PrivateMap, Priv, Assign);
+      new VPPrivate(FinalI, IsConditional, IsLast, Explicit, ValidMemOnly);
+  PrivatesList.emplace_back(Priv);
+  linkValue(PrivateMap, Priv, AI);
   createMemDescFor(Priv, AI);
   return Priv;
 }
@@ -377,8 +378,8 @@ void VPLoopEntityList::dump(raw_ostream &OS,
     dumpList("\nReduction list\n", ReductionList, OS);
   if (!InductionList.empty())
     dumpList("\nInduction list\n", InductionList, OS);
-  if (!PrivateList.empty())
-    dumpList("\nPrivate list\n", PrivateList, OS);
+  if (!PrivatesList.empty())
+    dumpList("\nPrivate list\n", PrivatesList, OS);
   OS << "\n";
 }
 #endif //NDEBUG
@@ -547,6 +548,20 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
             : Builder.createInductionFinal(Start, Induction->getStep(), Opc);
     processFinalValue(*Induction, AI, Builder, *Final, Ty, Exit);
   }
+
+  // Process the list of Privates.
+  for (auto &Priv : PrivatesList) {
+    VPPrivate *PrivPtr = Priv.get();
+    Builder.setInsertPoint(Preheader);
+    VPValue *AI = nullptr;
+    VPValue *PrivateMem = createPrivateMemory(*PrivPtr, Builder, AI);
+    if (PrivateMem) {
+      LLVM_DEBUG(dbgs() << "Replacing all instances of {" << AI << "} with "
+                        << *PrivateMem << "\n");
+      AI->replaceAllUsesWithInLoop(PrivateMem, Loop);
+    }
+    // Add special handling for 'Cond' and 'Last' - privates
+  }
 }
 
 // Create so called "close-form calculation" for induction. The close-form
@@ -714,6 +729,30 @@ void ReductionDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
     bool ForLast = LE->isMinMaxInclusive(*Parent);
     LE->addIndexReduction(StartPhi, Parent, Start, Exit, RT, Signed, ForLast,
                           AllocaInst, ValidMemOnly);
+  }
+}
+
+void PrivateDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
+  VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
+  LE->addPrivate(FinalInst, IsConditional, IsLast, IsExplicit, AllocaInst,
+                 isMemOnly());
+}
+
+void PrivateDescr::checkParentVPLoop(const VPlan *Plan,
+                                     const VPLoop *Loop) const {
+  // TODO: Add robust check for FinalI and some more checks related to
+  // AllocaInst in this function.
+}
+
+void PrivateDescr::tryToCompleteByVPlan(const VPlan *Plan, const VPLoop *Loop) {
+  for (auto User : AllocaInst->users()) {
+    if (auto Inst = dyn_cast<VPInstruction>(User)) {
+      // TODO: Need to revisit the logic. This is not quite correct. We have to
+      // get the last, i.e., the store writing into the private which
+      // post-dominates all other stores in the loop.
+      if (Inst->getOpcode() == Instruction::Store && User->hasExternalUse())
+        FinalInst = Inst;
+    }
   }
 }
 

@@ -12,7 +12,8 @@
 ; CHECK-DAG: [101 x float]* %a
 ; CHECK-DAG: i64* %ub
 ; CHECK-DAG: i64 %3
-; CHECK-NEXT:Used externally:
+; CHECK-DAG: i64* %ret
+; CHECK-NEXT: Used externally
 ; CHECK-DAG: i64 {{%vp[0-9]+}}
 ; CHECK-DAG: i64 {{%vp[0-9]+}}
 ; CHECK-DAG: i64 {{%vp[0-9]+}}

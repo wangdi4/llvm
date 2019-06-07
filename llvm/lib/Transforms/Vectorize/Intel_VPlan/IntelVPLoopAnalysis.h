@@ -329,20 +329,27 @@ private:
 /// Private descriptor. Privates can be declared explicitly or detected
 /// by analysis.
 class VPPrivate : public VPLoopEntity {
+
   // The assignment is under condition.
   bool IsConditional;
+
+  // The last-value is used outside the loop.
+  bool IsLast;
+
   // Is defined explicitly.
   bool IsExplicit;
+
   // The assignment instruction.
-  VPInstruction *AssignInst;
+  VPInstruction *FinalInst;
 
 public:
-  VPPrivate(VPInstruction *Inst, bool Conditional, bool Explicit,
+  VPPrivate(VPInstruction *FinalI, bool Conditional, bool Last, bool Explicit,
             bool IsMemOnly = false)
       : VPLoopEntity(Private, IsMemOnly), IsConditional(Conditional),
-        IsExplicit(Explicit), AssignInst(Inst) {}
+        IsLast(Last), IsExplicit(Explicit), FinalInst(FinalI) {}
 
   bool isConditional() const { return IsConditional; }
+  bool isLast() const { return IsLast; }
   bool isExplicit() const { return IsExplicit; }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
@@ -433,9 +440,11 @@ public:
                             VPInstruction *InductionBinOp, unsigned int Opc,
                             VPValue *AI = nullptr, bool ValidMemOnly = false);
 
-  /// Add private for instruction \p Assign, which is \p Conditional and
-  /// \p Explicit, and alloca-instruction \p AI.
-  VPPrivate *addPrivate(VPInstruction *Assign, bool isConditional,
+  /// Add private corresponding to \p Alloca along with the final store
+  /// instruction which writes to the private memory witin the for-loop. Also
+  /// store other relavant attributes of the private like the conditional, last
+  /// and explicit.
+  VPPrivate *addPrivate(VPInstruction *FinalI, bool IsConditional, bool IsLast,
                         bool Explicit, VPValue *AI = nullptr,
                         bool ValidMemOnly = false);
 
@@ -490,7 +499,7 @@ public:
   /// the init/fini code is generated always the same for the same loops.
   typedef SmallVector<std::unique_ptr<VPReduction>, 4> VPReductionList;
   typedef SmallVector<std::unique_ptr<VPInduction>, 4> VPInductionList;
-  typedef SmallVector<std::unique_ptr<VPPrivate>, 4> VPPrivateList;
+  typedef SmallVector<std::unique_ptr<VPPrivate>, 4> VPPrivatesList;
 
   /// Mapping of VPValues to entities. Created after entities lists are formed
   /// to ensure correct masking.
@@ -505,8 +514,8 @@ public:
   VPReductionList::iterator reductionsBegin();
   VPReductionList::iterator reductionsEnd();
 
-  VPPrivateList::iterator privatesBegin();
-  VPPrivateList::iterator privatesEnd();
+  VPPrivatesList::iterator privatesBegin();
+  VPPrivatesList::iterator privatesEnd();
 
   VPIndexReduction *getMinMaxIndex(const VPReduction *Red) {
     MinMaxIndexTy::const_iterator It = MinMaxIndexes.find(Red);
@@ -552,7 +561,7 @@ private:
 
   VPReductionList ReductionList;
   VPInductionList InductionList;
-  VPPrivateList PrivateList;
+  VPPrivatesList PrivatesList;
 
   VPReductionMap ReductionMap;
   VPInductionMap InductionMap;
@@ -752,7 +761,7 @@ public:
 
   /// Return true if not all data is completed.
   bool isIncomplete() const;
-  /// Attemp to fix incomplete data using VPlan and VPLoop.
+  /// Attempt to fix incomplete data using VPlan and VPLoop.
   void tryToCompleteByVPlan(const VPlan *Plan, const VPLoop *Loop);
   /// Pass the data to VPlan
   void passToVPlan(VPlan *Plan, const VPLoop *Loop);
@@ -822,6 +831,56 @@ private:
   VPValue *Step = nullptr;
   VPInstruction *InductionBinOp =nullptr;
   unsigned BinOpcode = Instruction::BinaryOpsEnd;
+};
+
+/// Intermediate private descriptor. Same as ReductionDescr above but for
+/// privates.
+class PrivateDescr : public VPEntityImportDescr {
+  using BaseT = VPEntityImportDescr;
+
+public:
+  PrivateDescr() { clear(); }
+
+  VPValue *getAllocaInst() const { return AllocaInst; }
+  bool isConditional() const { return IsConditional; }
+  bool isLast() const { return IsLast; }
+  bool isExplicit() const { return IsExplicit; }
+  bool isMemOnly() const { return getValidMemOnly(); }
+
+  /// Clear the content.
+  void clear() override {
+    BaseT::clear();
+    AllocaInst = nullptr;
+    FinalInst = nullptr;
+    IsConditional = false;
+    IsLast = false;
+    IsExplicit = false;
+  }
+  /// Check for all non-null VPInstructions in the descriptor are in the \p
+  /// Loop.
+  void checkParentVPLoop(const VPlan *Plan, const VPLoop *Loop) const;
+
+  /// Return true if not all data is completed.
+  bool isIncomplete() const { return FinalInst == nullptr; }
+
+  /// Attemp to fix incomplete data using VPlan and VPLoop.
+  void tryToCompleteByVPlan(const VPlan *Plan, const VPLoop *Loop);
+
+  /// Pass the data to VPlan
+  void passToVPlan(VPlan *Plan, const VPLoop *Loop);
+
+  void setAllocaInst(VPValue* AllocaI) { AllocaInst = AllocaI; }
+  void setIsConditional(bool IsCond) { IsConditional = IsCond; }
+  void setIsLast(bool IsLastPriv) { IsLast = IsLastPriv; }
+  void setIsExplicit(bool IsExplicitVal) { IsExplicit = IsExplicitVal; }
+  void setIsMemOnly(bool IsMem) { setValidMemOnly(IsMem); }
+
+private:
+  VPValue *AllocaInst = nullptr;
+  VPInstruction *FinalInst = nullptr;
+  bool IsConditional;
+  bool IsLast;
+  bool IsExplicit;
 };
 
 // Base class for loop entities converter. Used to create a list of converters
