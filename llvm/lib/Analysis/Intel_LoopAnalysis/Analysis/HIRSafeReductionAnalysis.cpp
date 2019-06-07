@@ -27,6 +27,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeVisitor.h"
 
@@ -143,8 +144,6 @@ void HIRSafeReductionAnalysis::identifySafeReduction(const HLLoop *Loop) {
   //  - non-linear temps
   //  - flow edge (<) ; anti edge (=)
   //  - single use (single flow edge) in loop
-  //  - not under if
-  //  - stmt post-dom loop-entry
 
   if (!Loop->isDo() || !(FirstChild = Loop->getFirstChild())) {
     return;
@@ -225,9 +224,28 @@ bool HIRSafeReductionAnalysis::isValidSR(const RegDDRef *LRef,
 
     *SinkDDRef = Edge->getSink();
     HLNode *SinkNode = (*SinkDDRef)->getHLDDNode();
-    if (!HLNodeUtils::postDominates(SinkNode, FirstChild)) {
-      return false;
-    }
+    HLNode *SinkParent = SinkNode->getParent();
+
+    if (isa<HLLoop>(SinkParent)) {
+      if (!HLNodeUtils::postDominates(SinkNode, FirstChild)) {
+        return false;
+      }
+    } else {
+      if (isa<HLSwitch>(SinkParent)) {
+	return false;
+      }
+      HLNode *SrcNode = (Edge->getSrc())->getHLDDNode();
+      HLNode *SrcParent = SrcNode->getParent();
+      // Both Src and Sink are under same If
+      if (SrcParent != SinkParent) {
+        return false;
+      }
+      HLIf *If;
+      if ((If = dyn_cast<HLIf>(SrcParent)) &&
+	  (If->isThenChild(SrcNode) != If->isThenChild(SinkNode))) {
+	return false;
+      } 
+     }
 
     *SinkInst = dyn_cast<HLInst>(SinkNode);
     if (!(*SinkInst)) {
@@ -336,75 +354,79 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(const HLLoop *Loop,
 
   LLVM_DEBUG(dbgs() << "\nIn Sum Reduction Chain\n");
 
-  for (auto It = Loop->child_begin(), E = Loop->child_end(); It != E; ++It) {
-    FirstRvalSB = 0;
-    unsigned ReductionOpCode = 0;
-    SafeRedChain RedInsts;
-    bool SingleStmtReduction;
-    const HLNode *NodeI = &(*It);
-    const HLInst *FirstInstOfChain = nullptr;
+  ForEach<const HLInst>::visitRange(
+      Loop->child_begin(), Loop->child_end(),
+      [this, Loop, DDG](const HLInst *Inst) {
+        FirstRvalSB = 0;
+        unsigned ReductionOpCode = 0;
+        SafeRedChain RedInsts;
+        bool SingleStmtReduction;
+        const HLInst *FirstInstOfChain = nullptr;
 
-    const HLInst *Inst = dyn_cast<HLInst>(NodeI);
-    if (!Inst) {
-      continue;
-    }
+        if (isa<HLSwitch>(Inst->getParent())) {
+	  return;
+	}
 
-    // By checking for PostDomination, it allows goto and label
-    if (!HLNodeUtils::postDominates(Inst, FirstChild)) {
-      continue;
-    }
-
-    // If already marked as part of some reduction chain, skip to the next
-    if (isSafeReduction(Inst)) {
-      continue;
-    }
-
-    if (!findFirstRedStmt(Loop, Inst, &SingleStmtReduction, &FirstRvalSB,
-                          &ReductionOpCode, DDG)) {
-      continue;
-    }
-
-    RedInsts.push_back(Inst);
-    FirstInstOfChain = Inst;
-
-    HLInst *SinkInst = nullptr;
-    DDRef *SinkDDRef = nullptr;
-
-    // Loop thru all flow edges to sink stmt
-    //      t1 = t2 +
-    //      t3 = t1 +
-    //      t2 = t3 +
-    //       - sink stmt postdom FirstChild
-    //       - reduction Op matches
-    //       - single use
-    while (true) {
-
-      const RegDDRef *LRef = Inst->getLvalDDRef();
-      if (!isValidSR(LRef, Loop, &SinkInst, &SinkDDRef, ReductionOpCode, DDG)) {
-        break;
-      }
-      if (FirstRvalSB == SinkDDRef->getSymbase() &&
-          SinkInst == FirstInstOfChain) {
-        if (SingleStmtReduction) {
-          LLVM_DEBUG(dbgs() << "\nSelf-reduction found\n");
-        } else {
-          LLVM_DEBUG(dbgs() << "\nSafe Reduction chain found\n");
+        if (isa<HLLoop>(Inst->getParent()) &&
+            !HLNodeUtils::postDominates(Inst, FirstChild)) {
+          // By checking for PostDomination, it allows goto and label
+          return;
         }
-        setSafeRedChainList(RedInsts, Loop, FirstRvalSB, ReductionOpCode);
-        LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
-                   printAChain(FOS, 1, RedInsts));
-        break;
-      }
 
-      // We only expect to go lexically forward starting from FirstInstOfChain
-      if (SinkInst->getTopSortNum() <= Inst->getTopSortNum()) {
-        break;
-      }
+        // If already marked as part of some reduction chain, skip to the next
+        if (isSafeReduction(Inst)) {
+          return;
+        }
 
-      RedInsts.push_back(SinkInst);
-      Inst = SinkInst;
-    }
-  }
+        if (!findFirstRedStmt(Loop, Inst, &SingleStmtReduction, &FirstRvalSB,
+                              &ReductionOpCode, DDG)) {
+          return;
+          ;
+        }
+
+        RedInsts.push_back(Inst);
+        FirstInstOfChain = Inst;
+
+        HLInst *SinkInst = nullptr;
+        DDRef *SinkDDRef = nullptr;
+
+        // Loop thru all flow edges to sink stmt
+        //      t1 = t2 +
+        //      t3 = t1 +
+        //      t2 = t3 +
+        //       - sink stmt postdom FirstChild
+        //       - reduction Op matches
+        //       - single use
+        while (true) {
+
+          const RegDDRef *LRef = Inst->getLvalDDRef();
+          if (!isValidSR(LRef, Loop, &SinkInst, &SinkDDRef, ReductionOpCode,
+                         DDG)) {
+            break;
+          }
+          if (FirstRvalSB == SinkDDRef->getSymbase() &&
+              SinkInst == FirstInstOfChain) {
+            if (SingleStmtReduction) {
+              LLVM_DEBUG(dbgs() << "\nSelf-reduction found\n");
+            } else {
+              LLVM_DEBUG(dbgs() << "\nSafe Reduction chain found\n");
+            }
+            setSafeRedChainList(RedInsts, Loop, FirstRvalSB, ReductionOpCode);
+            LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
+                       printAChain(FOS, 1, RedInsts));
+            break;
+          }
+
+          // We only expect to go lexically forward starting from
+          // FirstInstOfChain
+          if (SinkInst->getTopSortNum() <= Inst->getTopSortNum()) {
+            break;
+          }
+
+          RedInsts.push_back(SinkInst);
+          Inst = SinkInst;
+        }
+      });
 }
 
 bool HIRSafeReductionAnalysis::findFirstRedStmt(
@@ -518,8 +540,7 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(
 
     // Blob dd refs of rval dd refs scanned as well because
     // rval sinks of incoming edges can be a blob ddref.
-    for (auto BI = RRef->blob_begin(), BE = RRef->blob_end(); BI != BE;
-         ++BI) {
+    for (auto BI = RRef->blob_begin(), BE = RRef->blob_end(); BI != BE; ++BI) {
       auto Found = Finder(*BI);
       if (Found == POTENTIAL_REDUCTION) {
         return true;

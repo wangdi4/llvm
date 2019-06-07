@@ -546,6 +546,10 @@ void HIROptVarPredicate::splitLoop(
   bool SecondLoopNeeded = false;
   bool ThirdLoopNeeded = false;
 
+  // Invalidate the loop before it would be split.
+  HIRInvalidationUtils::invalidateBounds(Loop);
+  HIRInvalidationUtils::invalidateBody(Loop);
+
   Loop->extractZtt();
   Loop->extractPreheaderAndPostexit();
 
@@ -629,6 +633,7 @@ void HIROptVarPredicate::splitLoop(
 
       ThirdLoop->createZtt(false, true);
       ThirdLoop->normalize();
+
       ThirdLoopNeeded = true;
     }
   }
@@ -645,10 +650,7 @@ void HIROptVarPredicate::splitLoop(
     Loop->getUpperDDRef()->makeConsistent(&Aux, Level);
     Loop->createZtt(false, true);
 
-    HIRInvalidationUtils::invalidateBounds(Loop);
-    HIRInvalidationUtils::invalidateBody(Loop);
     FirstLoopNeeded = true;
-
   } else {
     HLNodeUtils::remove(Loop);
 
