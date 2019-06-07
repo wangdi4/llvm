@@ -1026,7 +1026,10 @@ let Types = [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
 
 let Types = [ void ],
     Attrs = [OVERLOADABLE] in {
-  def wait_group_events : OclBuiltin<"wait_group_events", (outs), (ins v1i32:$num_events, pevent_t:$event_list), [], [], 0, 0>, PRIVATE;
+  def wait_group_events_generic : OclBuiltin<"wait_group_events", (outs), (ins v1i32:$num_events, pevent_t:$event_list), [], [], 0, 0>;
+  def wait_group_events_global  : OclBuiltin<"wait_group_events", (outs), (ins v1i32:$num_events, pevent_t:$event_list), [], [], 0, 0>, PRIVATE;
+  def wait_group_events_local   : OclBuiltin<"wait_group_events", (outs), (ins v1i32:$num_events, pevent_t:$event_list), [], [], 0, 0>, LOCAL;
+  def wait_group_events_private : OclBuiltin<"wait_group_events", (outs), (ins v1i32:$num_events, pevent_t:$event_list), [], [], 0, 0>, GLOBAL;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
