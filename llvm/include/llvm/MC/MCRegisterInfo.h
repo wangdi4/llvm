@@ -42,11 +42,6 @@ public:
   const uint16_t ID;
   const int8_t CopyCost;
   const bool Allocatable;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-  const bool Virtual;
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
 
   /// getID() - Return the register class ID number.
   ///
@@ -91,14 +86,6 @@ public:
   /// isAllocatable - Return true if this register class may be used to create
   /// virtual registers.
   bool isAllocatable() const { return Allocatable; }
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-  /// isVirtual - Return true if this register class should skip register
-  /// allocation.
-  bool isVirtual() const { return Virtual; }
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
 };
 
 /// MCRegisterDesc - This record contains information about a particular

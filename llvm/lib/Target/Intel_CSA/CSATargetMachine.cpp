@@ -186,6 +186,8 @@ public:
     disablePass(&StackMapLivenessID);
     disablePass(&LiveDebugValuesID);
     disablePass(&PatchableFunctionID);
+    disablePass(&PostRAMachineSinkingID);
+    disablePass(&PrologEpilogCodeInserterID);
 
     // Register coalescing causes issues with our def-after-use nature of
     // dataflow.
@@ -288,6 +290,16 @@ public:
     addPass(createCSADeadInstructionElimPass(), false);
     addPass(createCSAReassocReducPass(), false);
     addPass(createCSANormalizeDebugPass(), false);
+  }
+
+  void addOptimizedRegAlloc() override {
+    // If we go back to suppoting SXU code, we should add code here to enable
+    // register allocation passes only on functions that have the SXU subtarget
+    // feature. But for the moment, we have none of that.
+  }
+
+  void addFastRegAlloc() override {
+    // See note above in addOptimizedRegAlloc.
   }
 
 // Last call in TargetPassConfig.cpp to disable passes.

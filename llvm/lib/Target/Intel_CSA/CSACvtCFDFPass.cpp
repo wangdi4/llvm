@@ -188,9 +188,9 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
 
   LLVM_DEBUG(dbgs() << "Function after switch generation:\n"; MF.print(dbgs()));
 
-  // We are now exiting SSA mode. At the moment, we can't actually tell MRI that
-  // we are doing so, since we need to remain in SSA mode for register
-  // allocation.
+  // We are now exiting SSA mode.
+  MRI->leaveSSA();
+  MF.getProperties().set(MachineFunctionProperties::Property::NoPHIs);
 
   if (needDynamicPreds() || UseDynamicPred) {
     computeBlockPredicates();

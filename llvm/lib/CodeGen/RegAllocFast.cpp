@@ -159,15 +159,9 @@ namespace {
       spillImpossible = ~0u
     };
 
-#if INTEL_CUSTOMIZATION
     bool isVirtualRegister(unsigned Reg) const {
-      return TargetRegisterInfo::isVirtualRegister(Reg) &&
-#if INTEL_FEATURE_CSA
-          !MRI->getRegClass(Reg)->isVirtual() &&
-#endif  // INTEL_FEATURE_CSA
-          true;
+      return TargetRegisterInfo::isVirtualRegister(Reg);
     }
-#endif  // INTEL_CUSTOMIZATION
   public:
     StringRef getPassName() const override { return "Fast Register Allocator"; }
 
@@ -1037,14 +1031,6 @@ bool RegAllocFast::allocateInstruction(MachineInstr &MI) { // INTEL
     unsigned Reg = MO.getReg();
     if (!Reg) continue;
     if (TargetRegisterInfo::isVirtualRegister(Reg)) {
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-      if (MRI->getRegClass(Reg)->isVirtual()) {
-        HasVirtualRegs = true;
-        continue;
-      }
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
       VirtOpEnd = i+1;
       if (MO.isUse()) {
         hasTiedOps = hasTiedOps ||
@@ -1174,17 +1160,11 @@ bool RegAllocFast::allocateInstruction(MachineInstr &MI) { // INTEL
       continue;
     unsigned Reg = MO.getReg();
 
-    // We have already dealt with phys regs in the previous scan.
-    if (TargetRegisterInfo::isPhysicalRegister(Reg))
+    if (TargetRegisterInfo::isPhysicalRegister(Reg)) {
+      if (!MRI->isAllocatable(Reg)) continue;
+      definePhysReg(MI, Reg, MO.isDead() ? regFree : regReserved);
       continue;
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-    else if (MRI->getRegClass(Reg)->isVirtual())
-      continue;
-#endif // INTEL_FEATURE_CSA
-#endif // INTEL_CUSTOMIZATION
-
+    }
     MCPhysReg PhysReg = defineVirtReg(MI, I, Reg, CopySrcReg);
     if (setPhysReg(MI, MI.getOperand(I), PhysReg)) {
       VirtDead.push_back(Reg);
@@ -1321,17 +1301,9 @@ bool RegAllocFast::runOnMachineFunction(MachineFunction &MF) {
 
   // All machine operands and other references to virtual registers have been
   // replaced. Remove the virtual registers.
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-#else  // INTEL_FEATURE_CSA
   (void)HasVirtualRegs;
   assert(!HasVirtualRegs && "Unallocated instruction.");
-#endif // INTEL_FEATURE_CSA
-#if INTEL_FEATURE_CSA
-  if (!HasVirtualRegs)
-#endif // INTEL_FEATURE_CSA
-    MRI->clearVirtRegs();
-#endif // INTEL_CUSTOMIZATION
+  MRI->clearVirtRegs();
 
   StackSlotForVirtReg.clear();
   LiveDbgValueMap.clear();
