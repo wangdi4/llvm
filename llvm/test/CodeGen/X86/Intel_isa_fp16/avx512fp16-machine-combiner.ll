@@ -214,8 +214,8 @@ define half @reassociate_mins_half(half %x0, half %x1, half %x2, half %x3) {
 ; CHECK-LABEL: reassociate_mins_half:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vdivsh %xmm1, %xmm0, %xmm0
-; CHECK-NEXT:    vminss %xmm3, %xmm2, %xmm1
-; CHECK-NEXT:    vminss %xmm1, %xmm0, %xmm0
+; CHECK-NEXT:    vminsh %xmm3, %xmm2, %xmm1
+; CHECK-NEXT:    vminsh %xmm1, %xmm0, %xmm0
 ; CHECK-NEXT:    retq
   %t0 = fdiv half %x0, %x1
   %cmp1 = fcmp olt half %x2, %t0
@@ -231,8 +231,8 @@ define half @reassociate_maxs_half(half %x0, half %x1, half %x2, half %x3) {
 ; CHECK-LABEL: reassociate_maxs_half:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vdivsh %xmm1, %xmm0, %xmm0
-; CHECK-NEXT:    vmaxss %xmm3, %xmm2, %xmm1
-; CHECK-NEXT:    vmaxss %xmm1, %xmm0, %xmm0
+; CHECK-NEXT:    vmaxsh %xmm3, %xmm2, %xmm1
+; CHECK-NEXT:    vmaxsh %xmm1, %xmm0, %xmm0
 ; CHECK-NEXT:    retq
   %t0 = fdiv half %x0, %x1
   %cmp1 = fcmp ogt half %x2, %t0

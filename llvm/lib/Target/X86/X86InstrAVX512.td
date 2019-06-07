@@ -5891,10 +5891,10 @@ defm VMAXCSDZ : avx512_comutable_binop_s<0x5F, "vmaxsd", f64x_info, X86fmaxc,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-defm VMINCSHZ : avx512_comutable_binop_s<0x5F, "vminss", f16x_info, X86fminc,
+defm VMINCSHZ : avx512_comutable_binop_s<0x5F, "vminsh", f16x_info, X86fminc,
                                          SchedWriteFCmp.Scl>, T_MAP5XS, EVEX_4V,
                                          VEX_LIG, EVEX_CD8<16, CD8VT1>;
-defm VMAXCSHZ : avx512_comutable_binop_s<0x5F, "vmaxss", f16x_info, X86fmaxc,
+defm VMAXCSHZ : avx512_comutable_binop_s<0x5F, "vmaxsh", f16x_info, X86fmaxc,
                                          SchedWriteFCmp.Scl>, T_MAP5XS, EVEX_4V,
                                          VEX_LIG, EVEX_CD8<16, CD8VT1>;
 #endif // INTEL_FEATURE_ISA_FP16
