@@ -131,7 +131,7 @@ namespace {
 
       M->setTargetTriple(Ctx->getTargetInfo().getTriple().getTriple());
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
       // The target device information is represented as module level
       // attribute.
       SmallString<128> Res;
@@ -142,7 +142,7 @@ namespace {
       }
       if (!Res.empty())
         M->setTargetDevices(Res);
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
       M->setDataLayout(Ctx->getTargetInfo().getDataLayout());
       const auto &SDKVersion = Ctx->getTargetInfo().getSDKVersion();
