@@ -201,16 +201,6 @@ bool HIRIdiomRecognition::isLegalEdge(const RegDDRef *Ref, const DDEdge &E,
     return true;
   }
 
-  // This is a workaround because of not precise DDG for multiple level
-  // loopnests. We consider any * outer level DV illegal. Ex.: (* * ?).
-  // Only outer "=" DVs are handled for multilevel loopnests. Ex.: (= = ?).
-  // Note that we already checked for isIndepFromLevel() before.
-  for (unsigned L = 0; L < Level - 1; ++L) {
-    if (DV[L] != DVKind::EQ) {
-      return false;
-    }
-  }
-
   // No stores should be before the idiom DDRef.
   if (IsStore && E.isOUTPUTdep()) {
     DVKind Kind = DV[Level - 1];
