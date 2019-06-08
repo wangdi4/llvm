@@ -12,6 +12,7 @@
 // expected-no-diagnostics
 
 void goo(), moo(), moo2(), moo3(), another();
+const int& min(const int& __a, const int& __b);
 
 #pragma omp declare target
 //CHECK: define {{.*}}boov() #[[DECLARE_TARGET:[0-9]+]]
@@ -49,9 +50,21 @@ void moo2() { moo3(); }       // declare-target
 //CHECK: define {{.*}}moo3v() #[[DECLARE_TARGET]]
 void moo3() { }
 
+//CHECK: define {{.*}}Compute{{.*}} #[[CONTAINS_TARGET]]
+void Compute(int *A) {
+  #pragma omp target parallel for map(tofrom: A)
+  for (int i = 0; i < 10; i++)
+    A[i] = min(A[i],5);
+}
+
+//CHECK: define {{.*}}min{{.*}} #[[DECLARE_TARGET]]
+const int& min(const int& __a, const int& __b) {
+  if (__b < __a) return __b;
+  return __a;
+}
+
 //CHECK: define {{.*}}moov() #[[DECLARE_TARGET]]
 void moo() { }                // declare-target
-
 
 //CHECK: attributes #[[DECLARE_TARGET]] = {{.*}}"openmp-target-declare"="true"
 //CHECK: attributes #[[NOATTRS]]

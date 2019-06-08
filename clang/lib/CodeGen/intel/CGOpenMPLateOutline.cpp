@@ -2300,6 +2300,11 @@ void CodeGenFunction::EmitLateOutlineOMPLoopDirective(
   auto &&CodeGen = [&S,Kind](CodeGenFunction &CGF, PrePostActionTy &) {
     CGF.EmitLateOutlineOMPLoop(S, Kind);
   };
+  bool IsDeviceTarget = getLangOpts().OpenMPIsDevice &&
+    isOpenMPTargetExecutionDirective(S.getDirectiveKind());
+  if (IsDeviceTarget)
+    CurFn->addFnAttr("contains-openmp-target", "true");
+  CodeGenModule::InTargetRegionRAII ITR(CGM, IsDeviceTarget);
   emitLateOutlineDirective(*this, CodeGen);
 }
 #endif // INTEL_COLLAB
