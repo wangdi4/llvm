@@ -3217,28 +3217,6 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD,
   QualType NewQType = Context.getCanonicalType(New->getType());
   const FunctionType *OldType = cast<FunctionType>(OldQType);
   const FunctionType *NewType = cast<FunctionType>(NewQType);
-
-#if INTEL_CUSTOMIZATION
-  // CQ#375830 - handling '__restrict' in function declaraion, see CQ#47410 for
-  // details.
-  if (getLangOpts().IntelCompat) {
-    const FunctionProtoType *OldPr = OldType->getAs<FunctionProtoType>();
-    const FunctionProtoType *NewPr = NewType->getAs<FunctionProtoType>();
-    if (OldPr && NewPr && (OldPr->isRestrict() != NewPr->isRestrict())) {
-      FunctionProtoType::ExtProtoInfo EPI = NewPr->getExtProtoInfo();
-      if (!OldPr->isRestrict() && NewPr->isRestrict()) {
-        EPI.TypeQuals.removeRestrict();
-      } else if (OldPr->isRestrict() && !NewPr->isRestrict()) {
-        EPI.TypeQuals.addRestrict();
-      }
-      New->setType(Context.getFunctionType(NewPr->getReturnType(),
-                                           NewPr->getParamTypes(), EPI));
-      NewQType = Context.getCanonicalType(New->getType());
-      NewType = cast<FunctionType>(NewQType);
-    }
-  }
-#endif // INTEL_CUSTOMIZATION
-
   FunctionType::ExtInfo OldTypeInfo = OldType->getExtInfo();
   FunctionType::ExtInfo NewTypeInfo = NewType->getExtInfo();
   bool RequiresAdjustment = false;
