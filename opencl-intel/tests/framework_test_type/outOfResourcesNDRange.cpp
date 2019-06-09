@@ -46,7 +46,8 @@ cl_program buildProgram(cl_context clContext, cl_device_id clDevice, const char 
         return NULL;
 
     char buildOptions[1024];
-    SPRINTF_S(buildOptions, 1024, "-cl-opt-disable -DSIZE_OF_LOCAL=%ld -DSIZE_OF_PRIVATE=%ld", localSize, privateSize);
+    SPRINTF_S(buildOptions, 1024, "-cl-opt-disable -DSIZE_OF_LOCAL=%llu -DSIZE_OF_PRIVATE=%llu",
+        (unsigned long long)localSize, (unsigned long long)privateSize);
 
     printf("Build options <%s>, source:%s\n", buildOptions, programSrc);
     // Build program executable from source. Prevent any optimizations (we want big memory etc.)
