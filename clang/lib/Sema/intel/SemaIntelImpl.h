@@ -11,26 +11,8 @@
 using namespace clang;
 
 template <typename AttrType>
-bool Sema::checkRangedIntegralArgument(Expr *E, const AttrType *TmpAttr,
-                                       ExprResult &Result) {
-  llvm::APSInt Value;
-  Result = VerifyIntegerConstantExpression(E, &Value);
-  if (Result.isInvalid())
-    return true;
-
-  if (Value < AttrType::getMinValue() || Value > AttrType::getMaxValue()) {
-    Diag(TmpAttr->getRange().getBegin(),
-         diag::err_attribute_argument_out_of_range)
-        << TmpAttr << AttrType::getMinValue() << AttrType::getMaxValue()
-        << E->getSourceRange();
-    return true;
-  }
-  return false;
-}
-
-template <typename AttrType>
-void Sema::AddOneConstantValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
-                                   unsigned SpellingListIndex) {
+void Sema::HLSAddOneConstantValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
+                                      unsigned SpellingListIndex) {
   AttrType TmpAttr(AttrRange, Context, E, SpellingListIndex);
 
   if (!E->isValueDependent()) {
@@ -53,9 +35,9 @@ void Sema::AddOneConstantValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
 }
 
 template <typename AttrType>
-void Sema::AddOneConstantPowerTwoValueAttr(SourceRange AttrRange, Decl *D,
-                                           Expr *E,
-                                           unsigned SpellingListIndex) {
+void Sema::HLSAddOneConstantPowerTwoValueAttr(SourceRange AttrRange, Decl *D,
+                                              Expr *E,
+                                              unsigned SpellingListIndex) {
   AttrType TmpAttr(AttrRange, Context, E, SpellingListIndex);
 
   if (!E->isValueDependent()) {

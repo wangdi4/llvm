@@ -39,6 +39,7 @@
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/Support/BuryPointer.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/TargetRegistry.h"
@@ -71,7 +72,13 @@
 #include "llvm/Transforms/Utils/EntryExitInstrumenter.h"
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
+#include "llvm/SYCL/ASFixer.h"
 #include <memory>
+
+namespace SPIRV {
+  extern llvm::cl::opt<bool> SPIRVNoDerefAttr;
+}
+
 using namespace clang;
 using namespace llvm;
 
@@ -839,6 +846,11 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
     break;
 
   case Backend_EmitBC:
+    if (LangOpts.SYCLIsDevice) {
+      if (!getenv("ENABLE_INFER_AS"))
+        PerModulePasses.add(createASFixerPass());
+      PerModulePasses.add(createDeadCodeEliminationPass());
+    }
     if (CodeGenOpts.PrepareForThinLTO && !CodeGenOpts.DisableLLVMPasses) {
       if (!CodeGenOpts.ThinLinkBitcodeFile.empty()) {
         ThinLinkOS = openOutputFile(CodeGenOpts.ThinLinkBitcodeFile);
@@ -1255,6 +1267,11 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
     break;
 
   case Backend_EmitBC:
+    if (LangOpts.SYCLIsDevice) {
+      if (!getenv("ENABLE_INFER_AS"))
+        CodeGenPasses.add(createASFixerPass());
+      CodeGenPasses.add(createDeadCodeEliminationPass());
+    }
     if (CodeGenOpts.PrepareForThinLTO && !CodeGenOpts.DisableLLVMPasses) {
       if (!CodeGenOpts.ThinLinkBitcodeFile.empty()) {
         ThinLinkOS = openOutputFile(CodeGenOpts.ThinLinkBitcodeFile);

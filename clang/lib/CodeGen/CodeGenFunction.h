@@ -4137,6 +4137,10 @@ public:
   /// Emits a reference binding to the passed in expression.
   RValue EmitReferenceBindingToExpr(const Expr *E);
 
+  /// Emit Intel FPGA field annotations for the given field and value. Returns
+  /// the annotation result.
+  Address EmitIntelFPGAFieldAnnotations(const FieldDecl *D, Address V,
+                                        StringRef AnnotStr);
   //===--------------------------------------------------------------------===//
   //                           Expression Emission
   //===--------------------------------------------------------------------===//

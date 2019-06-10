@@ -560,7 +560,7 @@ def Memory : Attr {
   let Documentation = [Undocumented];
 }
 
-def Register : Attr {
+def HLSRegister : Attr {
   let Spellings = [GNU<"register">];
   let Subjects = SubjectList<[HLSConstVar, HLSLocalOrStaticVar,
                               Field], ErrorDiag>;

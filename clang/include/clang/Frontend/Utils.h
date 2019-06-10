@@ -140,6 +140,7 @@ private:
 
   std::string OutputFile;
   std::vector<std::string> Targets;
+  std::string DependencyFilter;
   bool IncludeSystemHeaders;
   bool PhonyTarget;
   bool AddMissingHeaderDeps;

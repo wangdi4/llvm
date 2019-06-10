@@ -1620,6 +1620,18 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
   }
 #endif // INTEL_CUSTOMIZATION
 
+  // Emit Intel FPGA attribute annotation for a local variable.
+  if (getLangOpts().SYCLIsDevice) {
+    SmallString<256> AnnotStr;
+    CGM.generateIntelFPGAAnnotation(&D, AnnotStr);
+    if (!AnnotStr.empty()) {
+      llvm::Value *V = address.getPointer();
+      EmitAnnotationCall(CGM.getIntrinsic(llvm::Intrinsic::var_annotation),
+                         Builder.CreateBitCast(V, CGM.Int8PtrTy, V->getName()),
+                         AnnotStr, D.getLocation());
+    }
+  }
+
   if (D.hasAttr<AnnotateAttr>() && HaveInsertPoint())
     EmitVarAnnotations(&D, address.getPointer());
 

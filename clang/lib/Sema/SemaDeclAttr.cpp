@@ -2876,6 +2876,19 @@ static void handleWeakImportAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
                             AL.getAttributeSpellingListIndex()));
 }
 
+/// Give a warning for duplicate attributes, return true if duplicate.
+template <typename AttrType>
+static bool checkForDuplicateAttribute(Sema &S, Decl *D,
+                                       const ParsedAttr &Attr) {
+  // Give a warning for duplicates but not if it's one we've implicitly added.
+  auto *A = D->getAttr<AttrType>();
+  if (A && !A->isImplicit()) {
+    S.Diag(Attr.getLoc(), diag::warn_duplicate_attribute_exact) << A;
+    return true;
+  }
+  return false;
+}
+
 #if INTEL_CUSTOMIZATION
 // Checks correctness of mutual usage of different work_group_size attributes:
 // reqd_work_group_size, work_group_size_hint, max_work_group_size,
@@ -3200,27 +3213,14 @@ void Sema::AddSchedulerTargetFmaxMHzAttr(SourceRange AttrRange, Decl *D,
       AttrRange, Context, E, SpellingListIndex));
 }
 
-/// Give a warning for duplicate attributes, return true if duplicate.
-template <typename AttrType>
-static bool checkForDuplicateAttribute(Sema &S, Decl *D,
-                                       const ParsedAttr &Attr) {
-  // Give a warning for duplicates but not if it's one we've implicitly added.
-  auto *A = D->getAttr<AttrType>();
-  if (A && !A->isImplicit()) {
-    S.Diag(Attr.getLoc(), diag::warn_duplicate_attribute_exact) << A;
-    return true;
-  }
-  return false;
-}
-
-static void handleInternalMaxBlockRamDepthAttr(Sema &S, Decl *D,
+static void handleHLSInternalMaxBlockRamDepthAttr(Sema &S, Decl *D,
                                                const ParsedAttr &Attr) {
   checkForDuplicateAttribute<InternalMaxBlockRamDepthAttr>(S, D, Attr);
   if (checkAttrMutualExclusion<OptimizeFMaxAttr>(S, D, Attr))
     return;
   if (checkAttrMutualExclusion<OptimizeRamUsageAttr>(S, D, Attr))
     return;
-  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr))
+  if (checkAttrMutualExclusion<HLSRegisterAttr>(S, D, Attr))
     return;
 
   if (D->isInvalidDecl())
@@ -3423,8 +3423,8 @@ static void handleOpenCLLocalMemSizeAttr(Sema & S, Decl * D,
       Attr.getAttributeSpellingListIndex()));
 }
 
-static void handleOptimizeFMaxAttr(Sema &S, Decl *D,
-                                   const ParsedAttr &Attr) {
+static void handleHLSOptimizeFMaxAttr(Sema &S, Decl *D,
+                                      const ParsedAttr &Attr) {
   checkForDuplicateAttribute<OptimizeFMaxAttr>(S, D, Attr);
 
   if (checkAttrMutualExclusion<OptimizeRamUsageAttr>(S, D, Attr))
@@ -3433,7 +3433,7 @@ static void handleOptimizeFMaxAttr(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<InternalMaxBlockRamDepthAttr>(S, D, Attr))
     return;
 
-  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr))
+  if (checkAttrMutualExclusion<HLSRegisterAttr>(S, D, Attr))
     return;
 
   if (const auto *AIA = D->getAttr<ArgumentInterfaceAttr>()) {
@@ -3459,7 +3459,7 @@ static void handleOptimizeRamUsageAttr(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<InternalMaxBlockRamDepthAttr>(S, D, Attr))
     return;
 
-  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr))
+  if (checkAttrMutualExclusion<HLSRegisterAttr>(S, D, Attr))
     return;
 
   if (const auto *AIA = D->getAttr<ArgumentInterfaceAttr>()) {
@@ -3484,7 +3484,7 @@ static void handlePumpAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   if (checkAttrMutualExclusion<IncompatAttrType>(S, D, Attr))
     return;
 
-  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr))
+  if (checkAttrMutualExclusion<HLSRegisterAttr>(S, D, Attr))
     return;
 
   if (!D->hasAttr<MemoryAttr>())
@@ -3498,7 +3498,7 @@ static void handlePumpAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
 static void handleMemoryAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
 
   checkForDuplicateAttribute<MemoryAttr>(S, D, Attr);
-  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr))
+  if (checkAttrMutualExclusion<HLSRegisterAttr>(S, D, Attr))
     return;
 
   MemoryAttr::MemoryKind Kind;
@@ -3528,8 +3528,8 @@ static void handleMemoryAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
 
 /// Check for and diagnose attributes incompatible with register.
 /// return true if any incompatible attributes exist.
-static bool checkRegisterAttrCompatibility(Sema &S, Decl *D,
-                                           const ParsedAttr &Attr) {
+static bool checkHLSRegisterAttrCompatibility(Sema &S, Decl *D,
+                                              const ParsedAttr &Attr) {
   bool InCompat = false;
   if (auto *MA = D->getAttr<MemoryAttr>())
     if (!MA->isImplicit() && checkAttrMutualExclusion<MemoryAttr>(S, D, Attr))
@@ -3574,13 +3574,13 @@ static bool checkRegisterAttrCompatibility(Sema &S, Decl *D,
 
 /// Handle the __register__ attribute.
 /// This is incompatible with most of the other memory attributes.
-static void handleRegisterAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+static void handleHLSRegisterAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
 
-  checkForDuplicateAttribute<RegisterAttr>(S, D, Attr);
-  if (checkRegisterAttrCompatibility(S, D, Attr))
+  checkForDuplicateAttribute<HLSRegisterAttr>(S, D, Attr);
+  if (checkHLSRegisterAttrCompatibility(S, D, Attr))
     return;
 
-  handleSimpleAttribute<RegisterAttr>(S, D, Attr);
+  handleSimpleAttribute<HLSRegisterAttr>(S, D, Attr);
 }
 
 /// Handle the numreadports and numwriteports attributes.
@@ -3588,20 +3588,21 @@ static void handleRegisterAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
 /// than zero. They are incompatible with the register and
 /// max_replicate(N) attributes.
 template <typename AttrType>
-static void handleOneConstantValueAttr(Sema &S, Decl *D,
+static void handleHLSOneConstantValueAttr(Sema &S, Decl *D,
                                        const ParsedAttr &Attr) {
   // The attributes NumReadPorts/NumWritePorts will eventually be
   // replaced by max_replicates attribute. Warn the user.
   S.Diag(Attr.getLoc(), diag::warn_attribute_deprecated) << Attr;
   checkForDuplicateAttribute<AttrType>(S, D, Attr);
-  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr))
+  if (checkAttrMutualExclusion<HLSRegisterAttr>(S, D, Attr))
     return;
 
   if (checkAttrMutualExclusion<MaxReplicatesAttr>(S, D, Attr))
     return;
 
-  S.AddOneConstantValueAttr<AttrType>(Attr.getRange(), D, Attr.getArgAsExpr(0),
-                                      Attr.getAttributeSpellingListIndex());
+  S.HLSAddOneConstantValueAttr<AttrType>(Attr.getRange(), D,
+                                         Attr.getArgAsExpr(0),
+                                         Attr.getAttributeSpellingListIndex());
 }
 
 /// Handle the bankwidth and numbanks attributes.
@@ -3610,13 +3611,13 @@ static void handleOneConstantValueAttr(Sema &S, Decl *D,
 /// The numbanks and bank_bits attributes are related.  If bank_bits exists
 /// when handling numbanks they are checked for consistency.
 template <typename AttrType>
-static void handleOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
-                                               const ParsedAttr &Attr) {
+static void handleHLSOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
+                                                  const ParsedAttr &Attr) {
   checkForDuplicateAttribute<AttrType>(S, D, Attr);
-  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr))
+  if (checkAttrMutualExclusion<HLSRegisterAttr>(S, D, Attr))
     return;
 
-  S.AddOneConstantPowerTwoValueAttr<AttrType>(
+  S.HLSAddOneConstantPowerTwoValueAttr<AttrType>(
       Attr.getRange(), D, Attr.getArgAsExpr(0),
       Attr.getAttributeSpellingListIndex());
 }
@@ -3633,15 +3634,15 @@ static void handleNumPortsReadOnlyWriteOnlyAttr(Sema &S, Decl *D,
   S.Diag(Attr.getLoc(), diag::warn_attribute_deprecated) << Attr;
   checkForDuplicateAttribute<NumReadPortsAttr>(S, D, Attr);
   checkForDuplicateAttribute<NumWritePortsAttr>(S, D, Attr);
-  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr))
+  if (checkAttrMutualExclusion<HLSRegisterAttr>(S, D, Attr))
     return;
   if (checkAttrMutualExclusion<MaxReplicatesAttr>(S, D, Attr))
     return;
 
-  S.AddOneConstantValueAttr<NumReadPortsAttr>(Attr.getRange(), D,
-                                              Attr.getArgAsExpr(0), 0);
-  S.AddOneConstantValueAttr<NumWritePortsAttr>(Attr.getRange(), D,
-                                               Attr.getArgAsExpr(1), 0);
+  S.HLSAddOneConstantValueAttr<NumReadPortsAttr>(Attr.getRange(), D,
+                                                 Attr.getArgAsExpr(0), 0);
+  S.HLSAddOneConstantValueAttr<NumWritePortsAttr>(Attr.getRange(), D,
+                                                  Attr.getArgAsExpr(1), 0);
 }
 
 /// Handle the static_array_reset attribute.
@@ -3651,18 +3652,19 @@ static void handleStaticArrayResetAttr(Sema &S, Decl *D,
                                        const ParsedAttr &Attr) {
   checkForDuplicateAttribute<StaticArrayResetAttr>(S, D, Attr);
 
-  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr))
+  if (checkAttrMutualExclusion<HLSRegisterAttr>(S, D, Attr))
     return;
 
-  S.AddOneConstantValueAttr<StaticArrayResetAttr>(Attr.getRange(), D, Attr.getArgAsExpr(0),
-                                                  Attr.getAttributeSpellingListIndex());
+  S.HLSAddOneConstantValueAttr<StaticArrayResetAttr>(
+      Attr.getRange(), D, Attr.getArgAsExpr(0),
+      Attr.getAttributeSpellingListIndex());
 }
 
 static void handleSimpleDualPortAttr(Sema &S, Decl *D,
                                      const ParsedAttr &Attr) {
   checkForDuplicateAttribute<SimpleDualPortAttr>(S, D, Attr);
 
-  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr))
+  if (checkAttrMutualExclusion<HLSRegisterAttr>(S, D, Attr))
     return;
 
   if (!D->hasAttr<MemoryAttr>())
@@ -3676,7 +3678,7 @@ static void handleMaxReplicatesAttr(Sema &S, Decl *D,
                                     const ParsedAttr &Attr) {
   checkForDuplicateAttribute<MaxReplicatesAttr>(S, D, Attr);
 
-  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr))
+  if (checkAttrMutualExclusion<HLSRegisterAttr>(S, D, Attr))
     return;
 
   if (checkAttrMutualExclusion<NumReadPortsAttr>(S, D, Attr))
@@ -3686,8 +3688,9 @@ static void handleMaxReplicatesAttr(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<NumPortsReadOnlyWriteOnlyAttr>(S, D, Attr))
     return;
 
-  S.AddOneConstantValueAttr<MaxReplicatesAttr>(Attr.getRange(), D, Attr.getArgAsExpr(0),
-                                               Attr.getAttributeSpellingListIndex());
+  S.HLSAddOneConstantValueAttr<MaxReplicatesAttr>(
+      Attr.getRange(), D, Attr.getArgAsExpr(0),
+      Attr.getAttributeSpellingListIndex());
 }
 
 /// Handle the merge attribute.
@@ -3698,7 +3701,7 @@ static void handleMergeAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
 
   checkForDuplicateAttribute<MergeAttr>(S, D, Attr);
 
-  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr))
+  if (checkAttrMutualExclusion<HLSRegisterAttr>(S, D, Attr))
     return;
 
   SmallVector<StringRef, 2> Results;
@@ -3737,7 +3740,7 @@ static void handleBankBitsAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   if (!checkAttributeAtLeastNumArgs(S, Attr, 1))
     return;
 
-  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr))
+  if (checkAttrMutualExclusion<HLSRegisterAttr>(S, D, Attr))
     return;
 
   SmallVector<Expr *, 8> Args;
@@ -3889,10 +3892,10 @@ static void handleMaxConcurrencyAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   }
 
   checkForDuplicateAttribute<MaxConcurrencyAttr>(S, D, Attr);
-  if (isa<VarDecl>(D) && checkAttrMutualExclusion<RegisterAttr>(S, D, Attr))
+  if (isa<VarDecl>(D) && checkAttrMutualExclusion<HLSRegisterAttr>(S, D, Attr))
     return;
 
-  S.AddOneConstantValueAttr<MaxConcurrencyAttr>(
+  S.HLSAddOneConstantValueAttr<MaxConcurrencyAttr>(
       Attr.getRange(), D, Attr.getArgAsExpr(0),
       Attr.getAttributeSpellingListIndex());
 }
@@ -3964,8 +3967,9 @@ static void handleHLSIIAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
     return;
   }
 
-  S.AddOneConstantValueAttr<AttrType>(Attr.getRange(), D, Attr.getArgAsExpr(0),
-                 Attr.getAttributeSpellingListIndex());
+  S.HLSAddOneConstantValueAttr<AttrType>(Attr.getRange(), D,
+                                         Attr.getArgAsExpr(0),
+                                         Attr.getAttributeSpellingListIndex());
 }
 
 static void handleHLSMaxInvocationDelayAttr(Sema &S, Decl *D,
@@ -3983,8 +3987,9 @@ static void handleHLSMaxInvocationDelayAttr(Sema &S, Decl *D,
     return;
   }
 
-  S.AddOneConstantValueAttr<HLSMaxInvocationDelayAttr>(Attr.getRange(),
-        D, Attr.getArgAsExpr(0), Attr.getAttributeSpellingListIndex());
+  S.HLSAddOneConstantValueAttr<HLSMaxInvocationDelayAttr>(
+      Attr.getRange(), D, Attr.getArgAsExpr(0),
+      Attr.getAttributeSpellingListIndex());
 }
 
 static void handleHLSForceLoopPipeliningAttr(Sema &S, Decl *D,
@@ -4194,12 +4199,12 @@ static void handleSubGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
     return;
   }
 
-  OpenCLIntelReqdSubGroupSizeAttr *Existing =
-      D->getAttr<OpenCLIntelReqdSubGroupSizeAttr>();
+  IntelReqdSubGroupSizeAttr *Existing =
+      D->getAttr<IntelReqdSubGroupSizeAttr>();
   if (Existing && Existing->getSubGroupSize() != SGSize)
     S.Diag(AL.getLoc(), diag::warn_duplicate_attribute) << AL;
 
-  D->addAttr(::new (S.Context) OpenCLIntelReqdSubGroupSizeAttr(
+  D->addAttr(::new (S.Context) IntelReqdSubGroupSizeAttr(
       AL.getRange(), S.Context, SGSize,
       AL.getAttributeSpellingListIndex()));
 }
@@ -5042,6 +5047,64 @@ static void handleAlignedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 
   S.AddAlignedAttr(AL.getRange(), D, E, AL.getAttributeSpellingListIndex(),
                    AL.isPackExpansion());
+}
+
+template <typename AttrType>
+void Sema::IntelFPGAAddOneConstantValueAttr(SourceRange AttrRange, Decl *D,
+                                            Expr *E,
+                                            unsigned SpellingListIndex) {
+  AttrType TmpAttr(AttrRange, Context, E, SpellingListIndex);
+
+  if (!E->isValueDependent()) {
+    ExprResult ICE;
+    if (checkRangedIntegralArgument<AttrType>(E, &TmpAttr, ICE))
+      return;
+    E = ICE.get();
+  }
+
+  if (IntelFPGAMaxPrivateCopiesAttr::classof(&TmpAttr)) {
+    if (!D->hasAttr<IntelFPGAMemoryAttr>())
+      D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
+          Context, IntelFPGAMemoryAttr::Default));
+  }
+
+  D->addAttr(::new (Context)
+                 AttrType(AttrRange, Context, E, SpellingListIndex));
+}
+
+template <typename AttrType>
+void Sema::IntelFPGAAddOneConstantPowerTwoValueAttr(
+    SourceRange AttrRange, Decl *D, Expr *E, unsigned SpellingListIndex) {
+  AttrType TmpAttr(AttrRange, Context, E, SpellingListIndex);
+
+  if (!E->isValueDependent()) {
+    ExprResult ICE;
+    if (checkRangedIntegralArgument<AttrType>(E, &TmpAttr, ICE))
+      return;
+    Expr::EvalResult Result;
+    E->EvaluateAsInt(Result, Context);
+    llvm::APSInt Value = Result.Val.getInt();
+    if (!Value.isPowerOf2()) {
+      Diag(AttrRange.getBegin(), diag::err_attribute_argument_not_power_of_two)
+          << &TmpAttr;
+      return;
+    }
+    E = ICE.get();
+  }
+
+  if (!D->hasAttr<IntelFPGAMemoryAttr>())
+    D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
+        Context, IntelFPGAMemoryAttr::Default));
+
+  // We are adding a user NumBanks, drop any implicit default.
+  if (IntelFPGANumBanksAttr::classof(&TmpAttr)) {
+    if (auto *NBA = D->getAttr<IntelFPGANumBanksAttr>())
+      if (NBA->isImplicit())
+        D->dropAttr<IntelFPGANumBanksAttr>();
+  }
+
+  D->addAttr(::new (Context)
+                 AttrType(AttrRange, Context, E, SpellingListIndex));
 }
 
 void Sema::AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E,
@@ -6204,6 +6267,127 @@ static void handleTypeTagForDatatypeAttr(Sema &S, Decl *D,
                                     AL.getLayoutCompatible(),
                                     AL.getMustBeNull(),
                                     AL.getAttributeSpellingListIndex()));
+}
+
+/// Handle the [[intelfpga::doublepump]] and [[intelfpga::singlepump]] attributes.
+/// One but not both can be specified
+/// Both are incompatible with the __register__ attribute.
+template <typename AttrType, typename IncompatAttrType>
+static void handleIntelFPGAPumpAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+
+  checkForDuplicateAttribute<AttrType>(S, D, Attr);
+  if (checkAttrMutualExclusion<IncompatAttrType>(S, D, Attr))
+    return;
+
+  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
+    return;
+
+  if (!D->hasAttr<IntelFPGAMemoryAttr>())
+    D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
+        S.Context, IntelFPGAMemoryAttr::Default));
+
+  handleSimpleAttribute<AttrType>(S, D, Attr);
+}
+
+/// Handle the [[intelfpga::memory]] attribute.
+/// This is incompatible with the [[intelfpga::register]] attribute.
+static void handleIntelFPGAMemoryAttr(Sema &S, Decl *D,
+                                      const ParsedAttr &Attr) {
+
+  checkForDuplicateAttribute<IntelFPGAMemoryAttr>(S, D, Attr);
+  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
+    return;
+
+  IntelFPGAMemoryAttr::MemoryKind Kind;
+  if (Attr.getNumArgs() == 0)
+    Kind = IntelFPGAMemoryAttr::Default;
+  else {
+    StringRef Str;
+    if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str))
+      return;
+    if (Str.empty() ||
+        !IntelFPGAMemoryAttr::ConvertStrToMemoryKind(Str, Kind)) {
+      SmallString<256> ValidStrings;
+      IntelFPGAMemoryAttr::generateValidStrings(ValidStrings);
+      S.Diag(Attr.getLoc(), diag::err_intel_fpga_memory_arg_invalid)
+          << Attr << ValidStrings;
+      return;
+    }
+  }
+
+  // We are adding a user memory attribute, drop any implicit default.
+  if (auto *MA = D->getAttr<IntelFPGAMemoryAttr>())
+    if (MA->isImplicit())
+      D->dropAttr<IntelFPGAMemoryAttr>();
+
+  D->addAttr(::new (S.Context) IntelFPGAMemoryAttr(
+      Attr.getRange(), S.Context, Kind, Attr.getAttributeSpellingListIndex()));
+}
+
+/// Check for and diagnose attributes incompatible with register.
+/// return true if any incompatible attributes exist.
+static bool checkIntelFPGARegisterAttrCompatibility(Sema &S, Decl *D,
+                                                    const ParsedAttr &Attr) {
+  bool InCompat = false;
+  if (auto *MA = D->getAttr<IntelFPGAMemoryAttr>())
+    if (!MA->isImplicit() &&
+        checkAttrMutualExclusion<IntelFPGAMemoryAttr>(S, D, Attr))
+      InCompat = true;
+  if (checkAttrMutualExclusion<IntelFPGADoublePumpAttr>(S, D, Attr))
+    InCompat = true;
+  if (checkAttrMutualExclusion<IntelFPGASinglePumpAttr>(S, D, Attr))
+    InCompat = true;
+  if (checkAttrMutualExclusion<IntelFPGABankWidthAttr>(S, D, Attr))
+    InCompat = true;
+  if (checkAttrMutualExclusion<IntelFPGAMaxPrivateCopiesAttr>(S, D, Attr))
+    InCompat = true;
+  if (auto *NBA = D->getAttr<IntelFPGANumBanksAttr>())
+    if (!NBA->isImplicit() &&
+        checkAttrMutualExclusion<IntelFPGANumBanksAttr>(S, D, Attr))
+      InCompat = true;
+
+  return InCompat;
+}
+
+/// Handle the [[intelfpga::register]] attribute.
+/// This is incompatible with most of the other memory attributes.
+static void handleIntelFPGARegisterAttr(Sema &S, Decl *D,
+                                        const ParsedAttr &Attr) {
+
+  checkForDuplicateAttribute<IntelFPGARegisterAttr>(S, D, Attr);
+  if (checkIntelFPGARegisterAttrCompatibility(S, D, Attr))
+    return;
+
+  handleSimpleAttribute<IntelFPGARegisterAttr>(S, D, Attr);
+}
+
+/// Handle the [[intelfpga::bankwidth]] and [[intelfpga::numbanks]] attributes.
+/// These require a single constant power of two greater than zero.
+/// These are incompatible with the register attribute.
+/// The numbanks and bank_bits attributes are related.  If bank_bits exists
+/// when handling numbanks they are checked for consistency.
+template <typename AttrType>
+static void
+handleIntelFPGAOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
+                                            const ParsedAttr &Attr) {
+  checkForDuplicateAttribute<AttrType>(S, D, Attr);
+  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
+    return;
+
+  S.IntelFPGAAddOneConstantPowerTwoValueAttr<AttrType>(
+      Attr.getRange(), D, Attr.getArgAsExpr(0),
+      Attr.getAttributeSpellingListIndex());
+}
+
+static void handleIntelFPGAMaxPrivateCopiesAttr(Sema &S, Decl *D,
+                                                const ParsedAttr &Attr) {
+  checkForDuplicateAttribute<IntelFPGAMaxPrivateCopiesAttr>(S, D, Attr);
+  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
+    return;
+
+  S.IntelFPGAAddOneConstantValueAttr<IntelFPGAMaxPrivateCopiesAttr>(
+      Attr.getRange(), D, Attr.getArgAsExpr(0),
+      Attr.getAttributeSpellingListIndex());
 }
 
 static void handleXRayLogArgsAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
@@ -8046,6 +8230,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_Flatten:
     handleSimpleAttribute<FlattenAttr>(S, D, AL);
     break;
+  case ParsedAttr::AT_SYCLKernel:
+    handleSimpleAttribute<SYCLKernelAttr>(S, D, AL);
+    break;
   case ParsedAttr::AT_Format:
     handleFormatAttr(S, D, AL);
     break;
@@ -8225,7 +8412,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_ReqdWorkGroupSize:
     handleWorkGroupSize<ReqdWorkGroupSizeAttr>(S, D, AL);
     break;
-  case ParsedAttr::AT_OpenCLIntelReqdSubGroupSize:
+  case ParsedAttr::AT_IntelReqdSubGroupSize:
     handleSubGroupSize(S, D, AL);
     break;
   case ParsedAttr::AT_VecTypeHint:
@@ -8558,6 +8745,31 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_TypeTagForDatatype:
     handleTypeTagForDatatypeAttr(S, D, AL);
     break;
+
+  // Intel FPGA specific attributes
+  case ParsedAttr::AT_IntelFPGADoublePump:
+    handleIntelFPGAPumpAttr<IntelFPGADoublePumpAttr, IntelFPGASinglePumpAttr>(
+        S, D, AL);
+    break;
+  case ParsedAttr::AT_IntelFPGASinglePump:
+    handleIntelFPGAPumpAttr<IntelFPGASinglePumpAttr, IntelFPGADoublePumpAttr>(
+        S, D, AL);
+    break;
+  case ParsedAttr::AT_IntelFPGAMemory:
+    handleIntelFPGAMemoryAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_IntelFPGARegister:
+    handleIntelFPGARegisterAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_IntelFPGABankWidth:
+    handleIntelFPGAOneConstantPowerTwoValueAttr<IntelFPGABankWidthAttr>(S, D, AL);
+    break;
+  case ParsedAttr::AT_IntelFPGANumBanks:
+    handleIntelFPGAOneConstantPowerTwoValueAttr<IntelFPGANumBanksAttr>(S, D, AL);
+    break;
+  case ParsedAttr::AT_IntelFPGAMaxPrivateCopies:
+    handleIntelFPGAMaxPrivateCopiesAttr(S, D, AL);
+    break;
 #if INTEL_CUSTOMIZATION
   case ParsedAttr::AT_VecLenHint:
     handleVecLenHint(S, D, AL);
@@ -8606,7 +8818,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleSchedulerTargetFmaxMHzAttr(S, D, AL);
     break;
   case ParsedAttr::AT_InternalMaxBlockRamDepth:
-    handleInternalMaxBlockRamDepthAttr(S, D, AL);
+    handleHLSInternalMaxBlockRamDepthAttr(S, D, AL);
     break;
   case ParsedAttr::AT_Cluster:
     handleClusterAttr(S, D, AL);
@@ -8619,7 +8831,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   // Intel HLS specific attributes
   case ParsedAttr::AT_OptimizeFMax:
-    handleOptimizeFMaxAttr(S, D, AL);
+    handleHLSOptimizeFMaxAttr(S, D, AL);
     break;
   case ParsedAttr::AT_OptimizeRamUsage:
     handleOptimizeRamUsageAttr(S, D, AL);
@@ -8633,20 +8845,20 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_Memory:
     handleMemoryAttr(S, D, AL);
     break;
-  case ParsedAttr::AT_Register:
-    handleRegisterAttr(S, D, AL);
+  case ParsedAttr::AT_HLSRegister:
+    handleHLSRegisterAttr(S, D, AL);
     break;
   case ParsedAttr::AT_BankWidth:
-    handleOneConstantPowerTwoValueAttr<BankWidthAttr>(S, D, AL);
+    handleHLSOneConstantPowerTwoValueAttr<BankWidthAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_NumBanks:
-    handleOneConstantPowerTwoValueAttr<NumBanksAttr>(S, D, AL);
+    handleHLSOneConstantPowerTwoValueAttr<NumBanksAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_NumReadPorts:
-    handleOneConstantValueAttr<NumReadPortsAttr>(S, D, AL);
+    handleHLSOneConstantValueAttr<NumReadPortsAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_NumWritePorts:
-    handleOneConstantValueAttr<NumWritePortsAttr>(S, D, AL);
+    handleHLSOneConstantValueAttr<NumWritePortsAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_NumPortsReadOnlyWriteOnly:
     handleNumPortsReadOnlyWriteOnlyAttr(S, D, AL);
@@ -8820,9 +9032,11 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
         D->setInvalidDecl();
       }
 #endif // INTEL_CUSTOMIZATION
-    } else if (const auto *A = D->getAttr<OpenCLIntelReqdSubGroupSizeAttr>()) {
-      Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
-      D->setInvalidDecl();
+    } else if (const auto *A = D->getAttr<IntelReqdSubGroupSizeAttr>()) {
+      if (!getLangOpts().SYCLIsDevice) {
+        Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
+        D->setInvalidDecl();
+      }
     } else if (!D->hasAttr<CUDAGlobalAttr>()) {
       if (const auto *A = D->getAttr<AMDGPUFlatWorkGroupSizeAttr>()) {
         Diag(D->getLocation(), diag::err_attribute_wrong_decl_type)

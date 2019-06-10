@@ -40,6 +40,10 @@ const char *Action::getClassName(ActionClass AC) {
     return "clang-offload-bundler";
   case OffloadUnbundlingJobClass:
     return "clang-offload-unbundler";
+  case OffloadWrappingJobClass:
+    return "clang-offload-wrapper";
+  case SPIRVTranslatorJobClass:
+    return "llvm-spirv";
   }
 
   llvm_unreachable("invalid class");
@@ -98,6 +102,8 @@ std::string Action::getOffloadingKindPrefix() const {
     return "device-openmp";
   case OFK_HIP:
     return "device-hip";
+  case OFK_SYCL:
+    return "device-sycl";
 
     // TODO: Add other programming models here.
   }
@@ -115,6 +121,8 @@ std::string Action::getOffloadingKindPrefix() const {
     Res += "-hip";
   if (ActiveOffloadKindMask & OFK_OpenMP)
     Res += "-openmp";
+  if (ActiveOffloadKindMask & OFK_SYCL)
+    Res += "-sycl";
 
   // TODO: Add other programming models here.
 
@@ -151,6 +159,8 @@ StringRef Action::GetOffloadKindName(OffloadKind Kind) {
     return "openmp";
   case OFK_HIP:
     return "hip";
+  case OFK_SYCL:
+    return "sycl";
 
     // TODO: Add other programming models here.
   }
@@ -399,5 +409,17 @@ OffloadBundlingJobAction::OffloadBundlingJobAction(ActionList &Inputs)
 
 void OffloadUnbundlingJobAction::anchor() {}
 
-OffloadUnbundlingJobAction::OffloadUnbundlingJobAction(Action *Input)
-    : JobAction(OffloadUnbundlingJobClass, Input, Input->getType()) {}
+OffloadUnbundlingJobAction::OffloadUnbundlingJobAction(ActionList &Inputs)
+    : JobAction(OffloadUnbundlingJobClass, Inputs, Inputs.back()->getType()) {}
+
+void OffloadWrappingJobAction::anchor() {}
+
+OffloadWrappingJobAction::OffloadWrappingJobAction(Action *Input,
+                                                   types::ID Type)
+    : JobAction(OffloadWrappingJobClass, Input, Type) {}
+
+void SPIRVTranslatorJobAction::anchor() {}
+
+SPIRVTranslatorJobAction::SPIRVTranslatorJobAction(Action *Input,
+                                                   types::ID Type)
+    : JobAction(SPIRVTranslatorJobClass, Input, Type) {}

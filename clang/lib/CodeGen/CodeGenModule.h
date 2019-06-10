@@ -1065,6 +1065,10 @@ public:
   bool inTargetRegion() { return InTargetRegion > 0; }
 #endif // INTEL_COLLAB
 
+  void generateIntelFPGAAnnotation(const Decl *D,
+                                     llvm::SmallString<256> &AnnotStr);
+  void addGlobalIntelFPGAAnnotation(const VarDecl *VD, llvm::GlobalValue *GV);
+
   /// Given a builtin id for a function like "__builtin_fabsf", return a
   /// Function* for "fabsf".
   llvm::Constant *getBuiltinLibFunction(const FunctionDecl *FD,

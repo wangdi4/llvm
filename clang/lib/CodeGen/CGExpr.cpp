@@ -1095,10 +1095,8 @@ Address CodeGenFunction::EmitPointerWithAlignment(const Expr *E,
                                       CodeGenFunction::CFITCK_UnrelatedCast,
                                       CE->getBeginLoc());
         }
-        return CE->getCastKind() != CK_AddressSpaceConversion
-                   ? Builder.CreateBitCast(Addr, ConvertType(E->getType()))
-                   : Builder.CreateAddrSpaceCast(Addr,
-                                                 ConvertType(E->getType()));
+        return Builder.CreatePointerBitCastOrAddrSpaceCast(
+            Addr, ConvertType(E->getType()));
       }
       break;
 
@@ -1753,6 +1751,18 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *Value, Address Addr,
     return;
   }
 
+  if (getenv("ENABLE_INFER_AS")) {
+    if (auto *PtrTy = dyn_cast<llvm::PointerType>(Value->getType())) {
+      auto *ExpectedPtrType =
+          cast<llvm::PointerType>(Addr.getType()->getElementType());
+      unsigned ValueAS = PtrTy->getAddressSpace();
+      unsigned ExpectedAS = ExpectedPtrType->getAddressSpace();
+      if (ValueAS != ExpectedAS) {
+        Value =
+            Builder.CreatePointerBitCastOrAddrSpaceCast(Value, ExpectedPtrType);
+      }
+    }
+  }
   llvm::StoreInst *Store = Builder.CreateStore(Value, Addr, Volatile);
   if (isNontemporal) {
     llvm::MDNode *Node =
@@ -4278,6 +4288,14 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
       addr = EmitHLSFieldAnnotations(field, addr, AnnotStr);
   }
 #endif // INTEL_CUSTOMIZATION
+
+  // Emit attribute annotation for a field.
+  if (getLangOpts().SYCLIsDevice) {
+    SmallString<256> AnnotStr;
+    CGM.generateIntelFPGAAnnotation(field, AnnotStr);
+    if (!AnnotStr.empty())
+      addr = EmitIntelFPGAFieldAnnotations(field, addr, AnnotStr);
+  }
 
   LValue LV = MakeAddrLValue(addr, FieldType, FieldBaseInfo, FieldTBAAInfo);
   LV.getQuals().addCVRQualifiers(RecordCVR);

@@ -568,36 +568,58 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
       return new X86_64TargetInfo(Triple, Opts);
     }
 
-#if INTEL_CUSTOMIZATION
   case llvm::Triple::spir: {
-    if (Triple.getOS() != llvm::Triple::UnknownOS)
-      return nullptr;
-    switch (Triple.getEnvironment()) {
-    case llvm::Triple::IntelFPGA:
-      return new SPIR32INTELFpgaTargetInfo(Triple, Opts);
-    case llvm::Triple::IntelEyeQ:
-      return new SPIR32TargetInfo(Triple, Opts);
-    case llvm::Triple::UnknownEnvironment:
-      return new SPIR32TargetInfo(Triple, Opts);
-    default:
-      return nullptr;
+    if (Triple.getEnvironment() == llvm::Triple::SYCLDevice) {
+      switch (os) {
+      case llvm::Triple::Linux:
+        return new LinuxTargetInfo<SPIR32SYCLDeviceTargetInfo>(Triple, Opts);
+      default:
+        return new SPIR32SYCLDeviceTargetInfo(Triple, Opts);
+      }
+#if INTEL_CUSTOMIZATION
+    } else {
+      if (os != llvm::Triple::UnknownOS)
+        return nullptr;
+      switch (Triple.getEnvironment()) {
+      case llvm::Triple::IntelFPGA:
+        return new SPIR32INTELFpgaTargetInfo(Triple, Opts);
+      case llvm::Triple::IntelEyeQ:
+        return new SPIR32TargetInfo(Triple, Opts);
+      case llvm::Triple::UnknownEnvironment:
+        return new SPIR32TargetInfo(Triple, Opts);
+      default:
+        return nullptr;
+      }
+#endif // INTEL_CUSTOMIZATION
     }
+    return new SPIR32TargetInfo(Triple, Opts);
   }
   case llvm::Triple::spir64: {
-    if (Triple.getOS() != llvm::Triple::UnknownOS)
-      return nullptr;
-    switch (Triple.getEnvironment()) {
-    case llvm::Triple::IntelFPGA:
-      return new SPIR64INTELFpgaTargetInfo(Triple, Opts);
-    case llvm::Triple::IntelEyeQ:
-      return new SPIR64TargetInfo(Triple, Opts);
-    case llvm::Triple::UnknownEnvironment:
-      return new SPIR64TargetInfo(Triple, Opts);
-    default:
-      return nullptr;
-    }
-  }
+    if (Triple.getEnvironment() == llvm::Triple::SYCLDevice) {
+      switch (os) {
+      case llvm::Triple::Linux:
+        return new LinuxTargetInfo<SPIR64SYCLDeviceTargetInfo>(Triple, Opts);
+      default:
+        return new SPIR64SYCLDeviceTargetInfo(Triple, Opts);
+      }
+#if INTEL_CUSTOMIZATION
+    } else {
+      if (os != llvm::Triple::UnknownOS)
+        return nullptr;
+      switch (Triple.getEnvironment()) {
+      case llvm::Triple::IntelFPGA:
+        return new SPIR64INTELFpgaTargetInfo(Triple, Opts);
+      case llvm::Triple::IntelEyeQ:
+        return new SPIR64TargetInfo(Triple, Opts);
+      case llvm::Triple::UnknownEnvironment:
+        return new SPIR64TargetInfo(Triple, Opts);
+      default:
+        return nullptr;
+      }
 #endif // INTEL_CUSTOMIZATION
+    }
+    return new SPIR64TargetInfo(Triple, Opts);
+  }
   case llvm::Triple::wasm32:
     if (Triple.getSubArch() != llvm::Triple::NoSubArch ||
         Triple.getVendor() != llvm::Triple::UnknownVendor ||

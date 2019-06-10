@@ -99,15 +99,16 @@ namespace {
     KEYCXX2A      = 0x200000,
     KEYOPENCLCXX  = 0x400000,
     KEYMSCOMPAT   = 0x800000,
-    KEYALLCXX = KEYCXX | KEYCXX11 | KEYCXX2A,
+    KEYSYCL       = 0x1000000,
+    KEYALLCXX = KEYSYCL | KEYCXX | KEYCXX11 | KEYCXX2A,
 #if INTEL_CUSTOMIZATION
     KEYALL = (0x7fffffff & ~KEYNOMS18 & // INTEL_CUSTOMIZATION 0x7fffffff
               ~KEYNOOPENCL), // KEYNOMS18 and KEYNOOPENCL are used to exclude.
-    KEYFLOAT128 = 0x1000000,
-    KEYRESTRICT = 0x2000000,
-    KEYMSASM    = 0x4000000,
-    KEYBASES    = 0x8000000,
-    KEYDECIMAL  = 0x10000000,
+    KEYFLOAT128 = 0x2000000,
+    KEYRESTRICT = 0x4000000,
+    KEYMSASM    = 0x8000000,
+    KEYBASES    = 0x10000000,
+    KEYDECIMAL  = 0x20000000,
     KEYINTELALL = KEYFLOAT128 | KEYRESTRICT | KEYMSASM | KEYBASES | KEYDECIMAL,
     KEYNOINTELALL = KEYALL & ~KEYINTELALL,
 #endif // INTEL_CUSTOMIZATION
@@ -175,6 +176,7 @@ static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
   if (LangOpts.OpenCL && !LangOpts.OpenCLCPlusPlus && (Flags & KEYOPENCLC))
     return KS_Enabled;
   if (LangOpts.OpenCLCPlusPlus && (Flags & KEYOPENCLCXX)) return KS_Enabled;
+  if (LangOpts.SYCLIsDevice && (Flags & KEYSYCL)) return KS_Enabled;
   if (!LangOpts.CPlusPlus && (Flags & KEYNOCXX)) return KS_Enabled;
   if (LangOpts.C11 && (Flags & KEYC11)) return KS_Enabled;
   // We treat bridge casts as objective-C keywords so we can warn on them

@@ -420,6 +420,8 @@ def header_include_file : Separate<["-"], "header-include-file">,
   HelpText<"Filename (or -) to write header include output to">;
 def show_includes : Flag<["--"], "show-includes">,
   HelpText<"Print cl.exe style /showIncludes to stdout">;
+def dependency_filter : Separate<["-"], "dependency-filter">,
+  HelpText<"Filter dependencies with prefix from the dependency output.">;
 
 //===----------------------------------------------------------------------===//
 // Diagnostic Options
@@ -963,6 +965,14 @@ def fopenmp_host_ir_file_path : Separate<["-"], "fopenmp-host-ir-file-path">,
 
 def fsycl_is_device : Flag<["-"], "fsycl-is-device">,
   HelpText<"Generate code for SYCL device.">;
+
+def fsycl_int_header : Separate<["-"], "fsycl-int-header">,
+  HelpText<"Generate SYCL integration header into this file.">;
+def fsycl_int_header_EQ : Joined<["-"], "fsycl-int-header=">,
+  Alias<fsycl_int_header>;
+def fsycl_allow_func_ptr : Flag<["-"], "fsycl-allow-func-ptr">,
+  HelpText<"Allow function pointers in SYCL device.">;
+def fno_sycl_allow_func_ptr : Flag<["-"], "fno-sycl-allow-func-ptr">;
 
 } // let Flags = [CC1Option]
 

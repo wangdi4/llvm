@@ -301,6 +301,7 @@ class LangOpt<string name, code customCode = [{}]> {
 def MicrosoftExt : LangOpt<"MicrosoftExt">;
 def Borland : LangOpt<"Borland">;
 def CUDA : LangOpt<"CUDA">;
+def SYCL : LangOpt<"SYCLIsDevice">;
 def COnly : LangOpt<"COnly", "!LangOpts.CPlusPlus">;
 def CPlusPlus : LangOpt<"CPlusPlus">;
 def OpenCL : LangOpt<"OpenCL">;
@@ -1019,6 +1020,20 @@ def CUDAShared : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def SYCLDevice : InheritableAttr {
+  let Spellings = [GNU<"sycl_device">];
+  let Subjects = SubjectList<[Function, Var]>;
+  let LangOpts = [SYCL];
+  let Documentation = [Undocumented];
+}
+
+def SYCLKernel : InheritableAttr {
+  let Spellings = [GNU<"sycl_kernel">];
+  let Subjects = SubjectList<[Function]>;
+  let LangOpts = [SYCL];
+  let Documentation = [Undocumented];
+}
+
 def C11NoReturn : InheritableAttr {
   let Spellings = [Keyword<"_Noreturn">];
   let Subjects = SubjectList<[Function], ErrorDiag>;
@@ -1046,11 +1061,12 @@ def OpenCLUnrollHint : InheritableAttr {
   let Documentation = [OpenCLUnrollHintDocs];
 }
 
-def OpenCLIntelReqdSubGroupSize: InheritableAttr {
-  let Spellings = [GNU<"intel_reqd_sub_group_size">];
+def IntelReqdSubGroupSize: InheritableAttr {
+  let Spellings = [GNU<"intel_reqd_sub_group_size">, CXX11<"cl", "intel_reqd_sub_group_size">];
   let Args = [UnsignedArgument<"SubGroupSize">];
-  let Subjects = SubjectList<[Function], ErrorDiag>;
-  let Documentation = [OpenCLIntelReqdSubGroupSizeDocs];
+  let Subjects = SubjectList<[Function, CXXMethod], ErrorDiag>;
+  let Documentation = [IntelReqdSubGroupSizeDocs];
+  let LangOpts = [OpenCL, SYCL];
 }
 
 // This attribute is both a type attribute, and a declaration attribute (for
@@ -1397,6 +1413,169 @@ def Mode : Attr {
   // This is notionally a type attribute, which #pragma clang attribute
   // generally does not support.
   let PragmaAttributeSupport = 0;
+}
+
+def SYCLIntelFPGAIVDep : Attr {
+  let Spellings = [CXX11<"intelfpga","ivdep">];
+  let Args = [IntArgument<"Safelen">];
+  let LangOpts = [SYCL];
+  let AdditionalMembers = [{
+    static const char *getName() {
+      return "ivdep";
+    }
+  }];
+  let Documentation = [SYCLIntelFPGAIVDepAttrDocs];
+}
+
+def SYCLIntelFPGAII : Attr {
+  let Spellings = [CXX11<"intelfpga","ii">];
+  let Args = [IntArgument<"Interval">];
+  let LangOpts = [SYCL];
+  let AdditionalMembers = [{
+    static const char *getName() {
+      return "ii";
+    }
+  }];
+  let Documentation = [SYCLIntelFPGAIIAttrDocs];
+}
+
+def SYCLIntelFPGAMaxConcurrency : Attr {
+  let Spellings = [CXX11<"intelfpga","max_concurrency">];
+  let Args = [IntArgument<"NThreads">];
+  let LangOpts = [SYCL];
+  let AdditionalMembers = [{
+    static const char *getName() {
+      return "max_concurrency";
+    }
+  }];
+  let Documentation = [SYCLIntelFPGAMaxConcurrencyAttrDocs];
+}
+
+def IntelFPGALocalNonConstVar : SubsetSubject<Var,
+                              [{S->hasLocalStorage() &&
+                                S->getKind() != Decl::ImplicitParam &&
+                                S->getKind() != Decl::ParmVar &&
+                                S->getKind() != Decl::NonTypeTemplateParm &&
+                                !S->getType().isConstQualified()}],
+                              "local non-const variables">;
+
+def IntelFPGAConstVar : SubsetSubject<Var,
+                      [{S->getKind() != Decl::ImplicitParam &&
+                        S->getKind() != Decl::ParmVar &&
+                        S->getKind() != Decl::NonTypeTemplateParm &&
+                        (S->getType().isConstQualified() ||
+                         S->getType().getAddressSpace() ==
+                            LangAS::opencl_constant)}],
+                      "constant variables">;
+
+def IntelFPGALocalStaticSlaveMemVar : SubsetSubject<Var,
+      [{S->getKind() != Decl::ImplicitParam &&
+        S->getKind() != Decl::NonTypeTemplateParm &&
+        (S->getStorageClass() == SC_Static ||
+         S->hasLocalStorage())}],
+         "local variables, static variables, slave memory arguments">;
+
+def IntelFPGALocalOrStaticVar : SubsetSubject<Var,
+                              [{S->getKind() != Decl::ImplicitParam &&
+                                S->getKind() != Decl::ParmVar &&
+                                S->getKind() != Decl::NonTypeTemplateParm &&
+                                (S->getStorageClass() == SC_Static ||
+                                 S->hasLocalStorage())}],
+                              "local variables, static variables">;
+
+def IntelFPGADoublePump : Attr {
+  let Spellings = [CXX11<"intelfpga", "doublepump">];
+  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalOrStaticVar,
+                              Field], ErrorDiag>;
+  let LangOpts = [SYCL];
+  let Documentation = [IntelFPGADoublePumpAttrDocs];
+}
+
+def IntelFPGASinglePump : Attr {
+  let Spellings = [CXX11<"intelfpga", "singlepump">];
+  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalOrStaticVar,
+                              Field], ErrorDiag>;
+  let LangOpts = [SYCL];
+  let Documentation = [IntelFPGASinglePumpAttrDocs];
+}
+
+def IntelFPGAMemory : Attr {
+  let Spellings = [CXX11<"intelfpga", "memory">];
+  let Args = [EnumArgument<"Kind", "MemoryKind",
+                           ["MLAB", "BLOCK_RAM", ""],
+                           ["MLAB", "BlockRAM", "Default"], 1>];
+  let AdditionalMembers = [{
+    static void generateValidStrings(SmallString<256> &Str) {
+      auto Last = BlockRAM;
+      for (int I = 0; I <= Last; ++I) {
+        Str += ConvertMemoryKindToStr(static_cast<MemoryKind>(I));
+        if (I != Last) Str += " ";
+      }
+    }
+  }];
+  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticSlaveMemVar,
+                              Field], ErrorDiag>;
+  let LangOpts = [SYCL];
+  let Documentation = [IntelFPGAMemoryAttrDocs];
+}
+
+def IntelFPGARegister : Attr {
+  let Spellings = [CXX11<"intelfpga", "register">];
+  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalOrStaticVar,
+                              Field], ErrorDiag>;
+  let LangOpts = [SYCL];
+  let Documentation = [IntelFPGARegisterAttrDocs];
+}
+
+// One integral argument.
+def IntelFPGABankWidth : Attr {
+  let Spellings = [CXX11<"intelfpga","bankwidth">];
+  let Args = [ExprArgument<"Value">];
+  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticSlaveMemVar,
+                              Field], ErrorDiag>;
+  let LangOpts = [SYCL];
+  let Documentation = [IntelFPGABankWidthAttrDocs];
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 1;
+    }
+    static unsigned getMaxValue() {
+      return 1024*1024;
+    }
+  }];
+}
+
+def IntelFPGANumBanks : Attr {
+  let Spellings = [CXX11<"intelfpga","numbanks">];
+  let Args = [ExprArgument<"Value">];
+  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticSlaveMemVar,
+                              Field], ErrorDiag>;
+  let LangOpts = [SYCL];
+  let Documentation = [IntelFPGANumBanksAttrDocs];
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 1;
+    }
+    static unsigned getMaxValue() {
+      return 1024*1024;
+    }
+  }];
+}
+
+def IntelFPGAMaxPrivateCopies : InheritableAttr {
+  let Spellings = [CXX11<"intelfpga","max_private_copies">];
+  let Args = [ExprArgument<"Value">];
+  let LangOpts = [SYCL];
+  let Subjects = SubjectList<[IntelFPGALocalNonConstVar, Field], ErrorDiag>;
+  let Documentation = [IntelFPGAMaxPrivateCopiesAttrDocs];
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 0;
+    }
+    static unsigned getMaxValue() {
+      return 1024*1024;
+    }
+  }];
 }
 
 def Naked : InheritableAttr {

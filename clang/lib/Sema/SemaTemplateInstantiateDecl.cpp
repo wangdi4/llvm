@@ -202,7 +202,7 @@ static void instantiateDependentSchedulerTargetFmaxMHzAttr(
 }
 
 template <typename AttrType>
-static void instantiateDependentOneConstantValueAttr(
+static void instantiateDependentHLSOneConstantValueAttr(
     Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
     const AttrType *A, Decl *New) {
   // The expression is a constant expression.
@@ -210,12 +210,12 @@ static void instantiateDependentOneConstantValueAttr(
       S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
   ExprResult Result = S.SubstExpr(A->getValue(), TemplateArgs);
   if (!Result.isInvalid())
-    S.AddOneConstantValueAttr<AttrType>(
+    S.HLSAddOneConstantValueAttr<AttrType>(
         A->getLocation(), New, Result.getAs<Expr>(), A->getSpellingListIndex());
 }
 
 template <typename AttrType>
-static void instantiateDependentOneConstantPowerTwoValueAttr(
+static void instantiateDependentHLSOneConstantPowerTwoValueAttr(
     Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
     const AttrType *A, Decl *New) {
   // The expression is a constant expression.
@@ -223,11 +223,11 @@ static void instantiateDependentOneConstantPowerTwoValueAttr(
       S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
   ExprResult Result = S.SubstExpr(A->getValue(), TemplateArgs);
   if (!Result.isInvalid())
-    S.AddOneConstantPowerTwoValueAttr<AttrType>(
+    S.HLSAddOneConstantPowerTwoValueAttr<AttrType>(
         A->getLocation(), New, Result.getAs<Expr>(), A->getSpellingListIndex());
 }
 
-static void instantiateDependentBankBitsAttr(
+static void instantiateDependentHLSBankBitsAttr(
     Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
     const BankBitsAttr *BBA, Decl *New) {
   // The bank_bits expressions are constant expressions.
@@ -558,21 +558,21 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
 #if INTEL_CUSTOMIZATION
     const HLSIIAttr *II = dyn_cast<HLSIIAttr>(TmplAttr);
     if (II) {
-      instantiateDependentOneConstantValueAttr<HLSIIAttr>(
+      instantiateDependentHLSOneConstantValueAttr<HLSIIAttr>(
           *this, TemplateArgs, II, New);
       continue;
     }
 
     const HLSMinIIAttr *MinII = dyn_cast<HLSMinIIAttr>(TmplAttr);
     if (MinII) {
-      instantiateDependentOneConstantValueAttr<HLSMinIIAttr>(
+      instantiateDependentHLSOneConstantValueAttr<HLSMinIIAttr>(
           *this, TemplateArgs, MinII, New);
       continue;
     }
 
     const HLSMaxIIAttr *MaxII = dyn_cast<HLSMaxIIAttr>(TmplAttr);
     if (MaxII) {
-      instantiateDependentOneConstantValueAttr<HLSMaxIIAttr>(
+      instantiateDependentHLSOneConstantValueAttr<HLSMaxIIAttr>(
           *this, TemplateArgs, MaxII, New);
       continue;
     }
@@ -580,14 +580,14 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
     const HLSMaxInvocationDelayAttr *MID =
         dyn_cast<HLSMaxInvocationDelayAttr>(TmplAttr);
     if (MID) {
-      instantiateDependentOneConstantValueAttr<HLSMaxInvocationDelayAttr>(
+      instantiateDependentHLSOneConstantValueAttr<HLSMaxInvocationDelayAttr>(
           *this, TemplateArgs, MID, New);
       continue;
     }
 
     const MaxConcurrencyAttr *MCA = dyn_cast<MaxConcurrencyAttr>(TmplAttr);
     if (MCA) {
-      instantiateDependentOneConstantValueAttr<MaxConcurrencyAttr>(
+      instantiateDependentHLSOneConstantValueAttr<MaxConcurrencyAttr>(
           *this, TemplateArgs, MCA, New);
       continue;
     }
@@ -607,43 +607,43 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
     }
     const NumReadPortsAttr *NRPA = dyn_cast<NumReadPortsAttr>(TmplAttr);
     if (NRPA) {
-      instantiateDependentOneConstantValueAttr<NumReadPortsAttr>(
+      instantiateDependentHLSOneConstantValueAttr<NumReadPortsAttr>(
           *this, TemplateArgs, NRPA, New);
       continue;
     }
     const NumWritePortsAttr *NWPA = dyn_cast<NumWritePortsAttr>(TmplAttr);
     if (NWPA) {
-      instantiateDependentOneConstantValueAttr<NumWritePortsAttr>(
+      instantiateDependentHLSOneConstantValueAttr<NumWritePortsAttr>(
           *this, TemplateArgs, NWPA, New);
       continue;
     }
     const MaxReplicatesAttr *MRA = dyn_cast<MaxReplicatesAttr>(TmplAttr);
     if (MRA) {
-      instantiateDependentOneConstantValueAttr<MaxReplicatesAttr>(
+      instantiateDependentHLSOneConstantValueAttr<MaxReplicatesAttr>(
         *this, TemplateArgs, MRA, New);
       continue;
     }
     const StaticArrayResetAttr *SARA = dyn_cast<StaticArrayResetAttr>(TmplAttr);
     if (SARA) {
-      instantiateDependentOneConstantValueAttr<StaticArrayResetAttr>(
+      instantiateDependentHLSOneConstantValueAttr<StaticArrayResetAttr>(
           *this, TemplateArgs, SARA, New);
       continue;
     }
     const BankWidthAttr *BWA = dyn_cast<BankWidthAttr>(TmplAttr);
     if (BWA) {
-      instantiateDependentOneConstantPowerTwoValueAttr<BankWidthAttr>(
+      instantiateDependentHLSOneConstantPowerTwoValueAttr<BankWidthAttr>(
           *this, TemplateArgs, BWA, New);
       continue;
     }
     const NumBanksAttr *NBA = dyn_cast<NumBanksAttr>(TmplAttr);
     if (NBA) {
-      instantiateDependentOneConstantPowerTwoValueAttr<NumBanksAttr>(
+      instantiateDependentHLSOneConstantPowerTwoValueAttr<NumBanksAttr>(
           *this, TemplateArgs, NBA, New);
       continue;
     }
     const BankBitsAttr *BBA = dyn_cast<BankBitsAttr>(TmplAttr);
     if (BBA) {
-      instantiateDependentBankBitsAttr(*this, TemplateArgs, BBA, New);
+      instantiateDependentHLSBankBitsAttr(*this, TemplateArgs, BBA, New);
       continue;
     }
 #endif // INTEL_CUSTOMIZATION
@@ -5698,14 +5698,30 @@ void Sema::PerformPendingInstantiations(bool LocalOnly) {
             Function, [this, Inst, DefinitionRequired](FunctionDecl *CurFD) {
               InstantiateFunctionDefinition(/*FIXME:*/ Inst.second, CurFD, true,
                                             DefinitionRequired, true);
-              if (CurFD->isDefined())
+              if (CurFD->isDefined()) {
+                // Because all SYCL kernel functions are template functions - they
+                // have deferred instantination. We need bodies of these functions
+                // so we are checking for SYCL kernel attribute after instantination.
+                if (getLangOpts().SYCLIsDevice &&
+                        CurFD->hasAttr<SYCLKernelAttr>()) {
+                  ConstructOpenCLKernel(CurFD);
+                }
                 CurFD->setInstantiationIsPending(false);
+              }
             });
       } else {
         InstantiateFunctionDefinition(/*FIXME:*/ Inst.second, Function, true,
                                       DefinitionRequired, true);
-        if (Function->isDefined())
+        if (Function->isDefined()) {
+          // Because all SYCL kernel functions are template functions - they
+          // have deferred instantination. We need bodies of these functions
+          // so we are checking for SYCL kernel attribute after instantination.
+          if (getLangOpts().SYCLIsDevice &&
+                  Function->hasAttr<SYCLKernelAttr>()) {
+              ConstructOpenCLKernel(Function);
+          }
           Function->setInstantiationIsPending(false);
+        }
       }
       continue;
     }
