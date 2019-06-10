@@ -43,6 +43,19 @@
 using namespace llvm;
 using namespace Intel::MetadataAPI;
 
+enum IsaEncodingValue {
+  AVX512Core = 'e',
+  AVX2 = 'd',
+  AVX1 = 'c',
+  SSE42 = 'b'
+};
+
+static cl::opt<IsaEncodingValue> CPUIsaEncodingOverride(
+    "ocl-vec-clone-isa-encoding-override", cl::Hidden,
+    cl::desc("Override target CPU ISA encoding for the OCL Vec Clone pass."),
+    cl::values(clEnumVal(AVX512Core, "AVX512Core"), clEnumVal(AVX2, "AVX2"),
+               clEnumVal(AVX1, "AVX1"), clEnumVal(SSE42, "SSE42")));
+
 namespace intel {
 
 OCLPrepareKernelForVecClone::OCLPrepareKernelForVecClone(
@@ -59,7 +72,10 @@ void OCLPrepareKernelForVecClone::createEncodingForVectorVariants(
 
   // Finds the biggest vector type supported by the target and encodes.
   char ISAEncoding = 0;
-  if (CPUId->HasAVX512Core())
+
+  if (CPUIsaEncodingOverride.getNumOccurrences())
+    ISAEncoding = static_cast<char>(CPUIsaEncodingOverride.getValue());
+  else if (CPUId->HasAVX512Core())
     ISAEncoding = 'e';
   else if (CPUId->HasAVX2())
     ISAEncoding = 'd';
