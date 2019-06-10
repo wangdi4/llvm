@@ -237,6 +237,7 @@ LANGOPT(OpenMPLateOutline , 1, 0, "Outline OpenMP constructs in the back end")
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 LANGOPT(OpenMPLateOutlineTarget, 1, 1, "Outline OpenMP target construct in the back end")
+LANGOPT(OpenMPLateOutlineAtomic, 1, 0, "Outline OpenMP atomic construct in the back end")
 #endif // INTEL_CUSTOMIZATION
 LANGOPT(OpenMPIsDevice    , 1, 0, "Generate code only for OpenMP target device")
 LANGOPT(OpenMPCUDAMode    , 1, 0, "Generate code for OpenMP pragmas in SIMT/SPMD mode")

@@ -3043,6 +3043,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
     Opts.OpenMPLateOutline =
         Opts.OpenMP && Args.hasArg(OPT_fintel_openmp_region);
   Opts.OpenMPLateOutlineTarget = !Args.hasArg(OPT_fno_intel_openmp_offload);
+  Opts.OpenMPLateOutlineAtomic = Args.hasArg(OPT_fintel_openmp_region_atomic);
 #endif // INTEL_CUSTOMIZATION
 
   // Check if -fopenmp-simd is specified.

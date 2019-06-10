@@ -1,5 +1,5 @@
-// INTEL_COLLAB
 // RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN:   -fintel-openmp-region-atomic \
 // RUN:   -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 // CHECK-LABEL: foo
@@ -103,4 +103,3 @@ void foo() {
 #pragma omp atomic seq_cst, capture
   n2 = ++n1;
 }
-// end INTEL_COLLAB

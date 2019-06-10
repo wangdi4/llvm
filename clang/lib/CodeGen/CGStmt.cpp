@@ -33,14 +33,11 @@ static bool useFrontEndOutlining(CodeGenModule &CGM, const Stmt *S) {
   if (S->getStmtClass() == Stmt::OMPTargetDirectiveClass)
     return !CGM.getLangOpts().OpenMPLateOutlineTarget;
 
-  if (S->getStmtClass() != Stmt::OMPAtomicDirectiveClass)
-    return false;
-
-#if INTEL_FEATURE_CSA
-  ASTContext &Ctx = CGM.getContext();
-  if (Ctx.getTargetInfo().getTriple().getArch() == llvm::Triple::csa)
-   return true;
-#endif  // INTEL_FEATURE_CSA
+  if (S->getStmtClass() == Stmt::OMPAtomicDirectiveClass) {
+    if (CGM.getLangOpts().OpenMPLateOutlineAtomic)
+      return false;
+    return true;
+  }
 
   return false;
 }

@@ -170,13 +170,12 @@ void foo1()
   #pragma omp target
   {
     int i = 0;
-    //ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
-    //ALL-SAME:"DIR.OMP.ATOMIC"
-    //ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.ATOMIC"
+    //HOST: atomicrmw add i32* %i{{.*}}monotonic
+    //TARG-SPIR: call{{.*}}__atomic_load
+    //TARG-SPIR: call{{.*}}__atomic_compare_exchange
     #pragma omp atomic
     i++;
-    //ALL: [[T2:%[0-9]+]] = call token @llvm.directive.region.entry()
-    //ALL-SAME:"DIR.OMP.BARRIER"
+    //ALL: [[T2:%[0-9]+]]{{.*}}region.entry(){{.*}}"DIR.OMP.BARRIER"
     //ALL: region.exit(token [[T2]]) [ "DIR.OMP.END.BARRIER"
     #pragma omp barrier
 
@@ -361,9 +360,9 @@ void hp_bar(int M, int N)
 
       hp_func(444);
 
-      //ALL: [[A0:%[0-9]+]] = call token @llvm.directive.region.entry()
-      //ALL-SAME:"DIR.OMP.ATOMIC"
-      //ALL: region.exit(token [[A0]]) [ "DIR.OMP.END.ATOMIC"
+      //HOST: atomicrmw add i32* %myV{{.*}}monotonic
+      //TARG-SPIR: call{{.*}}__atomic_load
+      //TARG-SPIR: call{{.*}}__atomic_compare_exchange
       #pragma omp atomic
       myV += x;
     }
@@ -429,9 +428,9 @@ void hp_bar(int M, int N)
 
       hp_func(333);
 
-      //ALL: [[A0:%[0-9]+]] = call token @llvm.directive.region.entry()
-      //ALL-SAME:"DIR.OMP.ATOMIC"
-      //ALL: region.exit(token [[A0]]) [ "DIR.OMP.END.ATOMIC"
+      //HOST: atomicrmw add i32* %myV{{.*}}monotonic
+      //TARG-SPIR: call{{.*}}__atomic_load
+      //TARG-SPIR: call{{.*}}__atomic_compare_exchange
       #pragma omp atomic
       myV += x;
     }
