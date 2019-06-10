@@ -280,7 +280,8 @@ static inline bool hasMemoryFormat(const Record *Inst) {
   uint64_t FormBitsNum = getValueFromBitsInit(FormBits);
 
   // Values from X86Local namespace defined in X86RecognizableInstr.cpp
-  return FormBitsNum >= X86Local::MRMDestMem && FormBitsNum <= X86Local::MRM7m;
+  return FormBitsNum >= X86Local::MRMSrcMem4VOp3FSIB // INTEL
+         && FormBitsNum <= X86Local::MRM7m;          // INTEL
 }
 
 static inline bool isNOREXRegClass(const Record *Op) {

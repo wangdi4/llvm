@@ -30,6 +30,12 @@ let Namespace = "X86" in {
   def sub_ymm      : SubRegIndex<256>;
   def sub_mask_0   : SubRegIndex<-1>;
   def sub_mask_1   : SubRegIndex<-1, -1>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX2
+  def sub_t0   : SubRegIndex<-1>;
+  def sub_t1   : SubRegIndex<-1, -1>;
+#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_CUSTOMIZATION
 }
 
 //===----------------------------------------------------------------------===//
@@ -286,6 +292,16 @@ def TMM13: X86Reg<"tmm13", 13>;
 def TMM14: X86Reg<"tmm14", 14>;
 def TMM15: X86Reg<"tmm15", 15>;
 #endif // INTEL_FEATURE_ISA_AMX
+
+#if INTEL_FEATURE_ISA_AMX2
+// TMM register pairs
+def TPAIRS : RegisterTuples<[sub_t0, sub_t1],
+                            [(add TMM0, TMM2, TMM4, TMM6, TMM8, TMM10, TMM12, TMM14),
+                             (add TMM1, TMM3, TMM5, TMM7, TMM9, TMM11, TMM13, TMM15)]>;
+
+// Need check alignment 3rd operand size=1024*2*8
+def VTILEPAIR : RegisterClass<"X86", [untyped], 32, (add TPAIRS)> {let Size = 16384;}
+#endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
 
 // Mask Registers, used by AVX-512 instructions.

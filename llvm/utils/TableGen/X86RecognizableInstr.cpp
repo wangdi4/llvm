@@ -517,6 +517,7 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPTIONAL(immediate)
     break;
   case X86Local::MRMDestMem:
+  case X86Local::MRMDestMemFSIB: // INTEL
     // Operand 1 is a memory operand (possibly SIB-extended)
     // Operand 2 is a register operand in the Reg/Opcode field.
     // - In AVX, there is a register operand in the VEX.vvvv field here -
@@ -614,6 +615,7 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPTIONAL(immediate) // above might be a register in 7:4
     break;
   case X86Local::MRMSrcMem4VOp3:
+  case X86Local::MRMSrcMem4VOp3FSIB: // INTEL
     assert(numPhysicalOperands == 3 &&
            "Unexpected number of operands for MRMSrcMem4VOp3Frm");
     HANDLE_OPERAND(roRegister)
@@ -776,13 +778,13 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
     filter = llvm::make_unique<ModFilter>(true);
     break;
   case X86Local::MRMDestMem:
+  case X86Local::MRMDestMemFSIB: // INTEL
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
   case X86Local::MRMSrcMemFSIB:
-#endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
   case X86Local::MRMSrcMem:
   case X86Local::MRMSrcMem4VOp3:
+  case X86Local::MRMSrcMem4VOp3FSIB: // INTEL
   case X86Local::MRMSrcMemOp4:
   case X86Local::MRMSrcMemCC:
   case X86Local::MRMXmCC:
@@ -997,6 +999,9 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
 #if INTEL_FEATURE_ISA_AMX
   TYPE("VTILE",               TYPE_TMM)
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX2
+  TYPE("VTILEPair",           TYPE_TMM_PAIR)
+#endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled type string " << s << "\n";
   llvm_unreachable("Unhandled type string");
@@ -1093,6 +1098,9 @@ RecognizableInstr::rmRegisterEncodingFromString(const std::string &s,
 #if INTEL_FEATURE_ISA_AMX
   ENCODING("VTILE",           ENCODING_RM)
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX2
+  ENCODING("VTILEPAIR",       ENCODING_RM)
+#endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled R/M register encoding " << s << "\n";
   llvm_unreachable("Unhandled R/M register encoding");
@@ -1149,6 +1157,9 @@ RecognizableInstr::roRegisterEncodingFromString(const std::string &s,
 #if INTEL_FEATURE_ISA_AMX
   ENCODING("VTILE",           ENCODING_REG)
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX2
+  ENCODING("VTILEPair",       ENCODING_REG)
+#endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled reg/opcode register encoding " << s << "\n";
   llvm_unreachable("Unhandled reg/opcode register encoding");
@@ -1190,6 +1201,9 @@ RecognizableInstr::vvvvRegisterEncodingFromString(const std::string &s,
 #if INTEL_FEATURE_ISA_AMX
   ENCODING("VTILE",           ENCODING_VVVV)
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX2
+  ENCODING("VTILEPAIR",       ENCODING_VVVV)
+#endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled VEX.vvvv register encoding " << s << "\n";
   llvm_unreachable("Unhandled VEX.vvvv register encoding");

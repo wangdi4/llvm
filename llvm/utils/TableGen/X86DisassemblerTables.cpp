@@ -1064,10 +1064,8 @@ void DisassemblerTables::emitContextDecisions(raw_ostream &o1, raw_ostream &o2,
   emitContextDecision(o1, o2, i1, i2, ModRMTableNum, *Tables[6], XOPA_MAP_STR);
   emitContextDecision(o1, o2, i1, i2, ModRMTableNum, *Tables[7], THREEDNOW_MAP_STR);
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   emitContextDecision(o1, o2, i1, i2, ModRMTableNum, *Tables[8], THREEBYTE39_STR);
   emitContextDecision(o1, o2, i1, i2, ModRMTableNum, *Tables[9], THREEBYTE3B_STR);
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 }
 

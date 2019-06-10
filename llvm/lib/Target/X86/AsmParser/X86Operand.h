@@ -531,6 +531,55 @@ struct X86Operand final : public MCParsedAsmOperand {
     Inst.addOperand(MCOperand::createReg(Reg));
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX2
+  bool isVTILEPair() const {
+    return Kind == Register &&
+      X86MCRegisterClasses[X86::VTILERegClassID].contains(getReg());
+  }
+
+  void addTILEPairOperands(MCInst &Inst, unsigned N) const {
+    assert(N == 1 && "Invalid number of operands!");
+    unsigned Reg = getReg();
+    switch (Reg) {
+    case X86::TMM0:
+    case X86::TMM1:
+      Reg = X86::TMM0_TMM1;
+      break;
+    case X86::TMM2:
+    case X86::TMM3:
+      Reg = X86::TMM2_TMM3;
+      break;
+    case X86::TMM4:
+    case X86::TMM5:
+      Reg = X86::TMM4_TMM5;
+      break;
+    case X86::TMM6:
+    case X86::TMM7:
+      Reg = X86::TMM6_TMM7;
+      break;
+    case X86::TMM8:
+    case X86::TMM9:
+      Reg = X86::TMM8_TMM9;
+      break;
+    case X86::TMM10:
+    case X86::TMM11:
+      Reg = X86::TMM10_TMM11;
+      break;
+    case X86::TMM12:
+    case X86::TMM13:
+      Reg = X86::TMM12_TMM13;
+      break;
+    case X86::TMM14:
+    case X86::TMM15:
+      Reg = X86::TMM14_TMM15;
+      break;
+    }
+    Inst.addOperand(MCOperand::createReg(Reg));
+  }
+
+#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_CUSTOMIZATION
   void addMemOperands(MCInst &Inst, unsigned N) const {
     assert((N == 5) && "Invalid number of operands!");
     Inst.addOperand(MCOperand::createReg(getMemBaseReg()));

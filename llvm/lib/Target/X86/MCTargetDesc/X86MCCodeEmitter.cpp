@@ -701,10 +701,8 @@ void X86MCCodeEmitter::EmitVEXOpcodePrefix(uint64_t TSFlags, unsigned &CurByte,
   case X86II::XOP9: VEX_5M = 0x9; break;
   case X86II::XOPA: VEX_5M = 0xA; break;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86II::T_MAP5: VEX_5M = 0x5; break; //0F 39
   case X86II::T_MAP6: VEX_5M = 0x6; break; //0F 3B
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -764,6 +762,7 @@ void X86MCCodeEmitter::EmitVEXOpcodePrefix(uint64_t TSFlags, unsigned &CurByte,
   case X86II::MRM_C0: // INTEL
   case X86II::RawFrm:
     break;
+  case X86II::MRMDestMemFSIB: // INTEL
   case X86II::MRMDestMem: {
     // MRMDestMem instructions forms:
     //  MemAddr, src1(ModR/M)
@@ -825,6 +824,7 @@ void X86MCCodeEmitter::EmitVEXOpcodePrefix(uint64_t TSFlags, unsigned &CurByte,
 
     break;
   }
+  case X86II::MRMSrcMem4VOp3FSIB: // INTEL
   case X86II::MRMSrcMem4VOp3: {
     // Instruction format for 4VOp3:
     //   src1(ModR/M), MemAddr, src3(VEX_4V)
@@ -1024,13 +1024,8 @@ void X86MCCodeEmitter::EmitVEXOpcodePrefix(uint64_t TSFlags, unsigned &CurByte,
     // | 62h | | RXBR' | 00mm | | W | vvvv | U | pp | | z | L'L | b | v' | aaa |
     // +-----+ +--------------+ +-------------------+ +------------------------+
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
     assert((VEX_5M & 0x7) == VEX_5M
            && "More than 3 significant bits in VEX.m-mmmm fields for EVEX!");
-#else // INTEL_FEATURE_ISA_FP16
-    assert((VEX_5M & 0x3) == VEX_5M
-           && "More than 2 significant bits in VEX.m-mmmm fields for EVEX!");
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
     EmitByte(0x62, CurByte, OS);
@@ -1110,6 +1105,7 @@ uint8_t X86MCCodeEmitter::DetermineREXPrefix(const MCInst &MI, uint64_t TSFlags,
     REX |= isREXExtendedReg(MI, CurOp++) << 0; // REX.B
     REX |= isREXExtendedReg(MI, CurOp++) << 2; // REX.R
     break;
+  case X86II::MRMDestMemFSIB: // INTEL
   case X86II::MRMDestMem:
     REX |= isREXExtendedReg(MI, MemOperand+X86::AddrBaseReg) << 0; // REX.B
     REX |= isREXExtendedReg(MI, MemOperand+X86::AddrIndexReg) << 1; // REX.X
@@ -1424,6 +1420,7 @@ encodeInstruction(const MCInst &MI, raw_ostream &OS,
     CurOp = SrcRegNum + 1;
     break;
   }
+  case X86II::MRMDestMemFSIB: // INTEL
   case X86II::MRMDestMem: {
     EmitByte(BaseOpcode, CurByte, OS);
     unsigned SrcRegNum = CurOp + X86::AddrNumOperands;
@@ -1434,8 +1431,11 @@ encodeInstruction(const MCInst &MI, raw_ostream &OS,
     if (HasVEX_4V) // Skip 1st src (which is encoded in VEX_VVVV)
       ++SrcRegNum;
 
+#if INTEL_CUSTOMIZATION
+    bool BFSIB = (Form == X86II::MRMDestMemFSIB);
     emitMemModRMByte(MI, CurOp, GetX86RegNum(MI.getOperand(SrcRegNum)), TSFlags,
-                     Rex, CurByte, OS, Fixups, STI);
+                     Rex, CurByte, OS, Fixups, STI, BFSIB);
+#endif // INTEL_CUSTOMIZATION
     CurOp = SrcRegNum + 1;
     break;
   }
@@ -1518,13 +1518,17 @@ encodeInstruction(const MCInst &MI, raw_ostream &OS,
       I8RegNum = getX86RegEncoding(MI, CurOp++);
     break;
   }
+  case X86II::MRMSrcMem4VOp3FSIB: // INTEL
   case X86II::MRMSrcMem4VOp3: {
     unsigned FirstMemOp = CurOp+1;
 
     EmitByte(BaseOpcode, CurByte, OS);
 
+#if INTEL_CUSTOMIZATION
+    bool BFSIB = (Form == X86II::MRMSrcMem4VOp3FSIB);
     emitMemModRMByte(MI, FirstMemOp, GetX86RegNum(MI.getOperand(CurOp)),
-                     TSFlags, Rex, CurByte, OS, Fixups, STI);
+                     TSFlags, Rex, CurByte, OS, Fixups, STI, BFSIB);
+#endif // INTEL_CUSTOMIZATION
     CurOp = FirstMemOp + X86::AddrNumOperands;
     ++CurOp; // Encoded in VEX.VVVV.
     break;

@@ -382,3 +382,38 @@ void X86InstPrinterCommon::printVKPair(const MCInst *MI, unsigned OpNo,
   }
   llvm_unreachable("Unknown mask pair register name");
 }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX2
+void X86InstPrinterCommon::printVTILEPair(const MCInst *MI, unsigned OpNo,
+                                       raw_ostream &OS) {
+  switch (MI->getOperand(OpNo).getReg()) {
+  case X86::TMM0_TMM1:
+    printRegName(OS, X86::TMM0);
+    return;
+  case X86::TMM2_TMM3:
+    printRegName(OS, X86::TMM2);
+    return;
+  case X86::TMM4_TMM5:
+    printRegName(OS, X86::TMM4);
+    return;
+  case X86::TMM6_TMM7:
+    printRegName(OS, X86::TMM6);
+    return;
+  case X86::TMM8_TMM9:
+    printRegName(OS, X86::TMM8);
+    return;
+  case X86::TMM10_TMM11:
+    printRegName(OS, X86::TMM10);
+    return;
+  case X86::TMM12_TMM13:
+    printRegName(OS, X86::TMM12);
+    return;
+  case X86::TMM14_TMM15:
+    printRegName(OS, X86::TMM14);
+    return;
+  }
+  llvm_unreachable("Unknown mask pair register name");
+}
+#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_CUSTOMIZATION

@@ -385,6 +385,7 @@ namespace X86Disassembler {
   ENTRY(BND1)         \
   ENTRY(BND2)         \
   ENTRY(BND3)
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
 #define REGS_TMM  \
@@ -405,6 +406,18 @@ namespace X86Disassembler {
   ENTRY(TMM14)    \
   ENTRY(TMM15)
 #endif // INTEL_FEATURE_ISA_AMX
+
+#if INTEL_FEATURE_ISA_AMX2
+#define REGS_TMM_PAIRS  \
+  ENTRY(TMM0_TMM1)     \
+  ENTRY(TMM2_TMM3)     \
+  ENTRY(TMM4_TMM5)     \
+  ENTRY(TMM6_TMM7)     \
+  ENTRY(TMM8_TMM9)     \
+  ENTRY(TMM10_TMM11)   \
+  ENTRY(TMM12_TMM13)   \
+  ENTRY(TMM14_TMM15)
+#endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
 
 #define ALL_EA_BASES  \
@@ -422,6 +435,12 @@ namespace X86Disassembler {
 #else // INTEL_FEATURE_ISA_AMX
 #define TMM_REGS
 #endif // INTEL_FEATURE_ISA_AMX
+
+#if INTEL_FEATURE_ISA_AMX2
+#define TMM_REGS_PAIRS REGS_TMM_PAIRS
+#else // INTEL_FEATURE_ISA_AMX2
+#define TMM_REGS_PAIRS
+#endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
@@ -441,6 +460,7 @@ namespace X86Disassembler {
   REGS_CONTROL        \
   REGS_BOUND          \
   TMM_REGS            \
+  TMM_REGS_PAIRS      \
   ENTRY(RIP)
 #endif // INTEL_CUSTOMIZATION
 /// All possible values of the base field for effective-address
@@ -515,13 +535,9 @@ enum VEXLeadingOpcodeByte {
   VEX_LOB_0F = 0x1,
   VEX_LOB_0F38 = 0x2,
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   VEX_LOB_0F3A = 0x3,
   VEX_LOB_0F39 = 0x5,
   VEX_LOB_0F3B = 0x6
-#else // INTEL_FEATURE_ISA_FP16
-  VEX_LOB_0F3A = 0x3
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 };
 

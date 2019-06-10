@@ -797,6 +797,18 @@ def VK16Pair : RegisterOperand<VK16PAIR, "printVKPair"> {
   let ParserMatchClass = VK16PairAsmOperand;
 }
 
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX2
+let RenderMethod = "addTILEPairOperands" in {
+  def VTILEPairAsmOperand : AsmOperandClass { let Name = "VTILEPair"; }
+}
+
+def VTILEPair : RegisterOperand<VTILEPAIR, "printVTILEPair"> {
+  let ParserMatchClass = VTILEPairAsmOperand;
+}
+#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // X86 Complex Pattern Definitions.
 //
@@ -980,6 +992,13 @@ def HasAMXTILE   : Predicate<"Subtarget->hasAMXTILE()">;
 def HasAMXBF16   : Predicate<"Subtarget->hasAMXBF16()">;
 def HasAMXINT8   : Predicate<"Subtarget->hasAMXINT8()">;
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX2
+def HasAMXELEMENT   : Predicate<"Subtarget->hasAMXTELEMENT()">;
+def HasAMXREDUCE    : Predicate<"Subtarget->hasAMXREDUCE()">;
+def HasAMXFORMAT    : Predicate<"Subtarget->hasAMXFORMAT()">;
+def HasAMXTRANSPOSE : Predicate<"Subtarget->hasAMXTRANSPOSE()">;
+def HasAMXMEMORY    : Predicate<"Subtarget->hasAMXMEMORY()">;
+#endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
 def Not64BitMode : Predicate<"!Subtarget->is64Bit()">,
                              AssemblerPredicate<"!Mode64Bit", "Not 64-bit mode">;

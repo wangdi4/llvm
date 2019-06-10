@@ -3038,6 +3038,52 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
     }
     break;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX2
+  //E11x
+  case X86::TPERMBrr:
+  case X86::TPERMWrr:
+  case X86::TPERMDrr:
+  //E6
+  case X86::TADDPSrr:
+  case X86::TANDDrr:
+  case X86::TANDNDrr:
+  case X86::TCMPPSrr:
+  case X86::TINTERLEAVEEB:
+  case X86::TINTERLEAVEEW:
+  case X86::TINTERLEAVEOB:
+  case X86::TINTERLEAVEOW:
+  case X86::TMAXPSrr:
+  case X86::TMINPSrr:
+  case X86::TMULPSrr:
+  case X86::TORDrr:
+  case X86::TSCALEFPSrr:
+  case X86::TSRLVDrr:
+  case X86::TSUBPSrr:
+  case X86::TXORDrr: {
+    unsigned Src1 = MRI->getEncodingValue(Inst.getOperand(1).getReg());
+    unsigned Src2 = MRI->getEncodingValue(Inst.getOperand(2).getReg());
+    if (Src1 == Src2)
+      return Warning(Ops[0]->getStartLoc(), "src1 and src2 "
+                                            "registers should be distinct");
+    break;
+  }
+  //E8
+  case X86::TBLENDVD:
+  case X86::TFMADDPSrr:
+  case X86::TFMSUBPSrr:
+  case X86::TFNMADDPSrr:
+  case X86::TFNMSUBPSrr:{
+    unsigned Dest = MRI->getEncodingValue(Inst.getOperand(0).getReg());
+    unsigned Src1 = MRI->getEncodingValue(Inst.getOperand(2).getReg());
+    unsigned Src2 = MRI->getEncodingValue(Inst.getOperand(3).getReg());
+    if (Src1 == Src2 || Dest == Src1 || Dest == Src2)
+      return Warning(Ops[0]->getStartLoc(), "src1 src2 and dest "
+                                            "registers should be distinct");
+    break;
+  }
+#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_CUSTOMIZATION
   }
 
   return false;

@@ -106,14 +106,12 @@ static int modRMRequired(OpcodeType type,
     decision = &THREEDNOW_MAP_SYM;
     break;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case THREEBYTE_39:
       decision = &THREEBYTE39_SYM;
       break;
   case THREEBYTE_3B:
       decision = &THREEBYTE3B_SYM;
       break;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -163,14 +161,12 @@ static InstrUID decode(OpcodeType type,
     dec = &THREEDNOW_MAP_SYM.opcodeDecisions[insnContext].modRMDecisions[opcode];
     break;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case THREEBYTE_39:
     dec = &THREEBYTE39_SYM.opcodeDecisions[insnContext].modRMDecisions[opcode];
     break;
   case THREEBYTE_3B:
     dec = &THREEBYTE3B_SYM.opcodeDecisions[insnContext].modRMDecisions[opcode];
     break;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -735,6 +731,14 @@ static int readOpcode(struct InternalInstruction* insn) {
     case VEX_LOB_0F3A:
       insn->opcodeType = THREEBYTE_3A;
       return consumeByte(insn, &insn->opcode);
+#if INTEL_CUSTOMIZATION
+    case VEX_LOB_0F39:
+      insn->opcodeType = THREEBYTE_39;
+      return consumeByte(insn, &insn->opcode);
+    case VEX_LOB_0F3B:
+      insn->opcodeType = THREEBYTE_3B;
+      return consumeByte(insn, &insn->opcode);
+#endif // INTEL_CUSTOMIZATION
     }
   } else if (insn->vectorExtensionType == TYPE_VEX_2B) {
     insn->opcodeType = TWOBYTE;
@@ -1482,6 +1486,14 @@ static int readModRM(struct InternalInstruction* insn) {
 #else // INTEL_FEATURE_ISA_AMX
 #define TMM_TYPE(prefix)
 #endif // INTEL_FEATURE_ISA_AMX
+
+#if INTEL_FEATURE_ISA_AMX2
+#define TMM_TYPE_PAIR(prefix)                             \
+    case TYPE_TMM_PAIR:                                   \
+      return prefix##_TMM0_TMM1 + (index / 2 );
+#else // INTEL_FEATURE_ISA_AMX2
+#define TMM_TYPE_PAIR(prefix)
+#endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
@@ -1530,6 +1542,7 @@ static int readModRM(struct InternalInstruction* insn) {
     case TYPE_XMM:                                        \
       return prefix##_XMM0 + index;                       \
     TMM_TYPE(prefix)                                      \
+    TMM_TYPE_PAIR(prefix)                                 \
     case TYPE_VK:                                         \
       index &= 0xf;                                       \
       if (index > 7)                                      \
