@@ -31,17 +31,6 @@ private:
   // linked modules or dynamic libraries.
   bool WholeProgramRead = false;
 
-  // True if the LTO process finds that all symbols are inside the LTO unit.
-  // The only symbols that will be treated as externals are main and those
-  // that are in the RuntimeLibcalls table.
-  bool HiddenVisibility = false;
-
-  // SetVector for storing the symbols that are visible to regular objects.
-  // These symbols might have IR in the summary section, but the LTO
-  // visibility analysis found that there might be a none-LTO unit that
-  // are accessing them.
-  SetVector<StringRef> VisibleSymbolsVector;
-
 public:
   WholeProgramUtils() {}
 
@@ -64,21 +53,6 @@ public:
   // Return true if the input GlobName is a form of main,
   // else return false.
   bool isMainEntryPoint(llvm::StringRef GlobName);
-
-  // Store if all symbols have hidden visibility. Called during LTO
-  // symbols resolution.
-  void setVisibilityHidden(bool AllSymbolsHidden);
-
-  // Return if the LTO process could internalize all symbols
-  bool getHiddenVisibility();
-
-  // Store the input symbol name in the VisibleSymbolsVector. These
-  // symbols will be printed during the whole program analysis trace.
-  void storeVisibleSymbols(StringRef SymbolName);
-
-  // Print the symbols that weren't marked as hidden during LTO
-  void dumpVisibleSymbols();
-
 };  // WholeProgramUtils
 
 extern WholeProgramUtils WPUtils;

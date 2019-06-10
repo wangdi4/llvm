@@ -52,7 +52,10 @@ private:
   // that were found and not found.
   SetVector<const Function *> LibFuncsFound;
   SetVector<const Function *> LibFuncsNotFound;
-  SetVector<const Function *> ExternalSymbols;
+
+  // SetVector for storing the functions that are visible outside the
+  // LTO module
+  SetVector<const Function *> VisibleFunctions;
 
   // Return true if all symbols have hidden visibility, else
   // return false.
@@ -69,6 +72,10 @@ private:
   // Compute the values of IsAdvancedOptEnabled[].
   void computeIsAdvancedOptEnabled(Module &M,
       function_ref<TargetTransformInfo &(Function &)> GTTI);
+
+  // Compute if all functions in the module M are internal with the exception
+  // of libfuncs, main and functions added by the linker.
+  void computeFunctionsVisibility(Module &M, const TargetLibraryInfo &TLI);
 
 public:
   WholeProgramInfo();
