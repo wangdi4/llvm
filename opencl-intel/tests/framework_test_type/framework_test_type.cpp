@@ -386,7 +386,7 @@ TEST(FrameworkTestType, Test_VecTypeHintTest)
     EXPECT_TRUE(VecTypeHintTest());
 }
 
-TEST(FrameworkTestType, Test_intelVecTypeHintTest)
+TEST(FrameworkTestType, DISABLED_Test_intelVecTypeHintTest)
 {
     intelVecTypeHintTest();
 }
