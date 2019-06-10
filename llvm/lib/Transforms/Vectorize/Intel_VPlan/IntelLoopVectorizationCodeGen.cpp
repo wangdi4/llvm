@@ -2619,9 +2619,13 @@ void VPOCodeGen::vectorizeCallArgs(CallInst *Call, VectorVariant *VecVariant,
   if (!VecVariant || !VecVariant->isMasked())
     return;
 
+  Value *MaskToUse = MaskValue ? MaskValue
+                               : Constant::getAllOnesValue(VectorType::get(
+                                     Type::getInt1Ty(F->getContext()), VF));
+
   // Add the mask parameter for masked simd functions.
   // Mask should already be vectorized as i1 type.
-  VectorType *MaskTy = cast<VectorType>(MaskValue->getType());
+  VectorType *MaskTy = cast<VectorType>(MaskToUse->getType());
   assert(MaskTy->getVectorElementType()->isIntegerTy(1) &&
          "Mask parameter is not vector of i1");
 
@@ -2629,7 +2633,7 @@ void VPOCodeGen::vectorizeCallArgs(CallInst *Call, VectorVariant *VecVariant,
   // Therefore, the mask is promoted to the characteristic type of the
   // function, unless we're specifically told not to do so.
   if (Usei1MaskForSimdFunctions) {
-    VecArgs.push_back(MaskValue);
+    VecArgs.push_back(MaskToUse);
     VecArgTys.push_back(MaskTy);
     return;
   }
@@ -2646,7 +2650,7 @@ void VPOCodeGen::vectorizeCallArgs(CallInst *Call, VectorVariant *VecVariant,
   Type *ScalarToType =
       IntegerType::get(MaskTy->getContext(), CharacteristicTypeSize);
   VectorType *VecToType = VectorType::get(ScalarToType, VF);
-  Value *MaskExt = Builder.CreateSExt(MaskValue, VecToType, "maskext");
+  Value *MaskExt = Builder.CreateSExt(MaskToUse, VecToType, "maskext");
 
   // Bitcast if the promoted type is not the same as the characteristic
   // type.
@@ -2749,6 +2753,12 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
     //    appropriate match.
     // 2) A SIMD function is not a library function.
     MatchedVariant = matchVectorVariant(CalledFunc, IsMasked);
+    if (!MatchedVariant && !IsMasked) {
+      // If non-masked version isn't available, try running the masked version
+      // with all-ones mask.
+      MatchedVariant = matchVectorVariant(CalledFunc, true);
+      IsMasked = true;
+    }
     assert(MatchedVariant && "Unexpected null matched vector variant");
     LLVM_DEBUG(dbgs() << "Matched Variant: " << MatchedVariant->encode()
                       << "\n");
@@ -3096,9 +3106,9 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
     VectorVariant *MatchedVariant = nullptr;
     if (TLI->isFunctionVectorizable(CalledFunc, VF) ||
         (F->hasFnAttribute("vector-variants") &&
-         (MatchedVariant = matchVectorVariant(F, isMasked))) ||
-        (isOpenCLReadChannel(CalledFunc) ||
-           isOpenCLWriteChannel(CalledFunc))) {
+         ((MatchedVariant = matchVectorVariant(F, isMasked)) ||
+          (!isMasked && (MatchedVariant = matchVectorVariant(F, true))))) ||
+        (isOpenCLReadChannel(CalledFunc) || isOpenCLWriteChannel(CalledFunc))) {
       vectorizeCallInstruction(Call);
       if (MatchedVariant)
         delete MatchedVariant;
