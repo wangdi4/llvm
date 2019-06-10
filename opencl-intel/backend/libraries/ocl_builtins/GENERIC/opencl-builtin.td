@@ -187,6 +187,8 @@ defm f16 : _OCLTYPE2_<"f16", 16, "half">;
 defm f32 : _OCLTYPE2_<"f32", 32, "float">;
 defm f64 : _OCLTYPE2_<"f64", 64, "double">;
 def size_t : OclType<"size_t", "size_t", 1, 0, 0>;
+def uint  : OclType<"uint", "uint", 1, 0, 0>;
+def int32   : OclType<"int", "int", 1, 0, 0>;
 def cl_mem_fence_flags : OclType<"cl_mem_fence_flags", "cl_mem_fence_flags", 1, 0, 0>;
 def image1d_ro: OclType<"image1d_ro", "__read_only image1d_t", 1, 0, 0>;
 def image1d_wo: OclType<"image1d_wo", "__write_only image1d_t", 1, 0, 0>;
