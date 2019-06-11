@@ -5057,6 +5057,53 @@ static bool isNonFoldablePartialRegisterLoad(const MachineInstr &LoadMI,
     }
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  if (Opc == X86::VMOVSHZrm && RegSize > 16) {
+    // These instructions only load 16 bits, we can't fold them if the
+    // destination register is wider than 16 bits (2 bytes), and its user
+    // instruction isn't scalar (SS).
+    switch (UserOpc) {
+    case X86::VADDSHZrr_Int:
+    case X86::VCMPSHZrr_Int:
+    case X86::VDIVSHZrr_Int:
+    case X86::VMAXSHZrr_Int:
+    case X86::VMINSHZrr_Int:
+    case X86::VMULSHZrr_Int:
+    case X86::VSUBSHZrr_Int:
+    case X86::VADDSHZrr_Intk: case X86::VADDSHZrr_Intkz:
+    case X86::VCMPSHZrr_Intk:
+    case X86::VDIVSHZrr_Intk: case X86::VDIVSHZrr_Intkz:
+    case X86::VMAXSHZrr_Intk: case X86::VMAXSHZrr_Intkz:
+    case X86::VMINSHZrr_Intk: case X86::VMINSHZrr_Intkz:
+    case X86::VMULSHZrr_Intk: case X86::VMULSHZrr_Intkz:
+    case X86::VSUBSHZrr_Intk: case X86::VSUBSHZrr_Intkz:
+    case X86::VFMADD132SHZr_Int: case X86::VFNMADD132SHZr_Int:
+    case X86::VFMADD213SHZr_Int: case X86::VFNMADD213SHZr_Int:
+    case X86::VFMADD231SHZr_Int: case X86::VFNMADD231SHZr_Int:
+    case X86::VFMSUB132SHZr_Int: case X86::VFNMSUB132SHZr_Int:
+    case X86::VFMSUB213SHZr_Int: case X86::VFNMSUB213SHZr_Int:
+    case X86::VFMSUB231SHZr_Int: case X86::VFNMSUB231SHZr_Int:
+    case X86::VFMADD132SHZr_Intk: case X86::VFNMADD132SHZr_Intk:
+    case X86::VFMADD213SHZr_Intk: case X86::VFNMADD213SHZr_Intk:
+    case X86::VFMADD231SHZr_Intk: case X86::VFNMADD231SHZr_Intk:
+    case X86::VFMSUB132SHZr_Intk: case X86::VFNMSUB132SHZr_Intk:
+    case X86::VFMSUB213SHZr_Intk: case X86::VFNMSUB213SHZr_Intk:
+    case X86::VFMSUB231SHZr_Intk: case X86::VFNMSUB231SHZr_Intk:
+    case X86::VFMADD132SHZr_Intkz: case X86::VFNMADD132SHZr_Intkz:
+    case X86::VFMADD213SHZr_Intkz: case X86::VFNMADD213SHZr_Intkz:
+    case X86::VFMADD231SHZr_Intkz: case X86::VFNMADD231SHZr_Intkz:
+    case X86::VFMSUB132SHZr_Intkz: case X86::VFNMSUB132SHZr_Intkz:
+    case X86::VFMSUB213SHZr_Intkz: case X86::VFNMSUB213SHZr_Intkz:
+    case X86::VFMSUB231SHZr_Intkz: case X86::VFNMSUB231SHZr_Intkz:
+      return false;
+    default:
+      return true;
+    }
+  }
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+
   return false;
 }
 

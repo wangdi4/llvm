@@ -12918,6 +12918,15 @@ defm : AVX512_scalar_math_fp_patterns<fsub, "SUBSD", X86Movsd, v2f64x_info, fp64
 defm : AVX512_scalar_math_fp_patterns<fmul, "MULSD", X86Movsd, v2f64x_info, fp64imm0>;
 defm : AVX512_scalar_math_fp_patterns<fdiv, "DIVSD", X86Movsd, v2f64x_info, fp64imm0>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+defm : AVX512_scalar_math_fp_patterns<fadd, "ADDSH", X86Movsh, v8f16x_info, fp16imm0>;
+defm : AVX512_scalar_math_fp_patterns<fsub, "SUBSH", X86Movsh, v8f16x_info, fp16imm0>;
+defm : AVX512_scalar_math_fp_patterns<fmul, "MULSH", X86Movsh, v8f16x_info, fp16imm0>;
+defm : AVX512_scalar_math_fp_patterns<fdiv, "DIVSH", X86Movsh, v8f16x_info, fp16imm0>;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+
 multiclass AVX512_scalar_unary_math_patterns<SDNode OpNode, string OpcPrefix,
                                              SDNode Move, X86VectorVTInfo _> {
   let Predicates = [HasAVX512] in {
@@ -12929,6 +12938,13 @@ multiclass AVX512_scalar_unary_math_patterns<SDNode OpNode, string OpcPrefix,
 
 defm : AVX512_scalar_unary_math_patterns<fsqrt, "SQRTSS", X86Movss, v4f32x_info>;
 defm : AVX512_scalar_unary_math_patterns<fsqrt, "SQRTSD", X86Movsd, v2f64x_info>;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+defm : AVX512_scalar_unary_math_patterns<fsqrt, "SQRTSH", X86Movsh, v8f16x_info>;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+
 
 //===----------------------------------------------------------------------===//
 // AES instructions
