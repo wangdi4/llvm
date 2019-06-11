@@ -786,6 +786,14 @@ int target(int64_t device_id, void *host_ptr, int32_t arg_num,
       TargetTable->EntriesBegin[TM->Index].name,
       DPxPTR(TargetTable->EntriesBegin[TM->Index].addr), TM->Index);
 #if INTEL_COLLAB
+  rc = Device.manifest_data_for_region(
+      TargetTable->EntriesBegin[TM->Index].addr);
+
+  if (rc != OFFLOAD_SUCCESS) {
+    DP("Data manifestation failed.\n");
+    return OFFLOAD_FAIL;
+  }
+
   if (LoopLevel <= 1) {
     if (IsTeamConstruct) {
       rc = Device.run_team_region(TargetTable->EntriesBegin[TM->Index].addr,

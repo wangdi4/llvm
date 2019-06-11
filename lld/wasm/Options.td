@@ -31,6 +31,8 @@ defm demangle: B<"demangle",
     "Demangle symbol names",
     "Do not demangle symbol names">;
 
+def emit_relocs: F<"emit-relocs">, HelpText<"Generate relocations in output">;
+
 defm export_dynamic: B<"export-dynamic",
     "Put symbols in the dynamic symbol table",
     "Do not put symbols in the dynamic symbol table (default)">;
@@ -84,6 +86,8 @@ defm print_gc_sections: B<"print-gc-sections",
     "Do not list removed unused sections">;
 
 def relocatable: F<"relocatable">, HelpText<"Create relocatable object file">;
+
+defm reproduce: Eq<"reproduce", "Dump linker invocation and input files for debugging">;
 
 def shared: F<"shared">, HelpText<"Build a shared object">;
 
