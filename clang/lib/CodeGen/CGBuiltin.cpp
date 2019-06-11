@@ -6480,6 +6480,14 @@ struct SVMLBuiltinInfo {
   const char *LibCallName;
   unsigned BuiltinID;
   unsigned TypeModifier;
+  // There are a few integer div/rem/divrem intrinsics which operate on
+  // different integer types, but we only have vector types of 32-bit integers
+  // defined in header. The arguments and return value of these intrinsics need
+  // to be casted to the right type.
+  //
+  // For other intrinsics which have no need of type casting, this field has a
+  // default value of 0.
+  unsigned IntBitWidth;
 
   bool operator<(unsigned RHSBuiltinID) const {
     return BuiltinID < RHSBuiltinID;
@@ -6491,12 +6499,14 @@ struct SVMLBuiltinInfo {
 } // end anonymous namespace
 
 #define SVMLMAP0(Name) \
-  { "__svml_" #Name, clang::X86::BI__builtin_svml_ ## Name, 0 }
+  { "__svml_" #Name, clang::X86::BI__builtin_svml_ ## Name, 0, 0 }
 #define SVMLMAP1(Name, Modifier) \
-  { "__svml_" #Name, clang::X86::BI__builtin_svml_ ## Name, Modifier }
+  { "__svml_" #Name, clang::X86::BI__builtin_svml_ ## Name, Modifier, 0 }
 
 #define SVML2MAP0(LibName, BuiltinName) \
-  { "__svml_" LibName, clang::X86::BI ## BuiltinName, 0 }
+  { "__svml_" LibName, clang::X86::BI ## BuiltinName, 0, 0 }
+#define SVML2MAP_DIV_OR_REM(LibName, BuiltinName, IntBitWidth) \
+  { "__svml_" LibName, clang::X86::BI ## BuiltinName, 0, IntBitWidth }
 
 static const SVMLBuiltinInfo SIMDBuiltinMap[] = {
   // SSE1 FP
@@ -6818,62 +6828,70 @@ static const SVMLBuiltinInfo SIMDBuiltinMap[] = {
   SVML2MAP0("tanh8_mask", _mm512_mask_tanh_pd),
 
   // SSE2 Int
-  SVMLMAP0(i8div16),
-  SVMLMAP0(u8div16),
-  SVMLMAP0(i16div8),
-  SVMLMAP0(u16div8),
-  SVMLMAP0(idiv4),
-  SVMLMAP0(udiv4),
-  SVMLMAP0(i64div2),
-  SVMLMAP0(u64div2),
-  SVMLMAP0(i8rem16),
-  SVMLMAP0(u8rem16),
-  SVMLMAP0(i16rem8),
-  SVMLMAP0(u16rem8),
-  SVMLMAP0(irem4),
-  SVMLMAP0(urem4),
-  SVMLMAP0(i64rem2),
-  SVMLMAP0(u64rem2),
+  SVML2MAP_DIV_OR_REM("i8div16", _mm_div_epi8, 8),
+  SVML2MAP_DIV_OR_REM("u8div16", _mm_div_epu8, 8),
+  SVML2MAP_DIV_OR_REM("i16div8", _mm_div_epi16, 16),
+  SVML2MAP_DIV_OR_REM("u16div8", _mm_div_epu16, 16),
+  SVML2MAP_DIV_OR_REM("idiv4", _mm_div_epi32, 32),
+  SVML2MAP_DIV_OR_REM("udiv4", _mm_div_epu32, 32),
+  SVML2MAP_DIV_OR_REM("i64div2", _mm_div_epi64, 64),
+  SVML2MAP_DIV_OR_REM("u64div2", _mm_div_epu64, 64),
+  SVML2MAP_DIV_OR_REM("idiv4", _mm_idiv_epi32, 32),
+  SVML2MAP_DIV_OR_REM("irem4", _mm_irem_epi32, 32),
+  SVML2MAP_DIV_OR_REM("i8rem16", _mm_rem_epi8, 8),
+  SVML2MAP_DIV_OR_REM("u8rem16", _mm_rem_epu8, 8),
+  SVML2MAP_DIV_OR_REM("i16rem8", _mm_rem_epi16, 16),
+  SVML2MAP_DIV_OR_REM("u16rem8", _mm_rem_epu16, 16),
+  SVML2MAP_DIV_OR_REM("irem4", _mm_rem_epi32, 32),
+  SVML2MAP_DIV_OR_REM("urem4", _mm_rem_epu32, 32),
+  SVML2MAP_DIV_OR_REM("i64rem2", _mm_rem_epi64, 64),
+  SVML2MAP_DIV_OR_REM("u64rem2", _mm_rem_epu64, 64),
+  SVML2MAP_DIV_OR_REM("udiv4", _mm_udiv_epi32, 32),
+  SVML2MAP_DIV_OR_REM("urem4", _mm_urem_epi32, 32),
 
   // AVX2 Int
-  SVMLMAP0(i8div32),
-  SVMLMAP0(u8div32),
-  SVMLMAP0(i16div16),
-  SVMLMAP0(u16div16),
-  SVMLMAP0(idiv8),
-  SVMLMAP0(udiv8),
-  SVMLMAP0(i64div4),
-  SVMLMAP0(u64div4),
-  SVMLMAP0(i8rem32),
-  SVMLMAP0(u8rem32),
-  SVMLMAP0(i16rem16),
-  SVMLMAP0(u16rem16),
-  SVMLMAP0(irem8),
-  SVMLMAP0(urem8),
-  SVMLMAP0(i64rem4),
-  SVMLMAP0(u64rem4),
+  SVML2MAP_DIV_OR_REM("i8div32", _mm256_div_epi8, 8),
+  SVML2MAP_DIV_OR_REM("u8div32", _mm256_div_epu8, 8),
+  SVML2MAP_DIV_OR_REM("i16div16", _mm256_div_epi16, 16),
+  SVML2MAP_DIV_OR_REM("u16div16", _mm256_div_epu16, 16),
+  SVML2MAP_DIV_OR_REM("idiv8", _mm256_div_epi32, 32),
+  SVML2MAP_DIV_OR_REM("udiv8", _mm256_div_epu32, 32),
+  SVML2MAP_DIV_OR_REM("i64div4", _mm256_div_epi64, 64),
+  SVML2MAP_DIV_OR_REM("u64div4", _mm256_div_epu64, 64),
+  SVML2MAP_DIV_OR_REM("idiv8", _mm256_idiv_epi32, 32),
+  SVML2MAP_DIV_OR_REM("irem8", _mm256_irem_epi32, 32),
+  SVML2MAP_DIV_OR_REM("i8rem32", _mm256_rem_epi8, 8),
+  SVML2MAP_DIV_OR_REM("u8rem32", _mm256_rem_epu8, 8),
+  SVML2MAP_DIV_OR_REM("i16rem16", _mm256_rem_epi16, 16),
+  SVML2MAP_DIV_OR_REM("u16rem16", _mm256_rem_epu16, 16),
+  SVML2MAP_DIV_OR_REM("irem8", _mm256_rem_epi32, 32),
+  SVML2MAP_DIV_OR_REM("urem8", _mm256_rem_epu32, 32),
+  SVML2MAP_DIV_OR_REM("i64rem4", _mm256_rem_epi64, 64),
+  SVML2MAP_DIV_OR_REM("u64rem4", _mm256_rem_epu64, 64),
+  SVML2MAP_DIV_OR_REM("udiv8", _mm256_udiv_epi32, 32),
+  SVML2MAP_DIV_OR_REM("urem8", _mm256_urem_epi32, 32),
 
   // AVX512 Int
-  SVMLMAP0(i8div64),
-  SVMLMAP0(u8div64),
-  SVMLMAP0(i16div32),
-  SVMLMAP0(u16div32),
-  SVMLMAP0(idiv16),
-  SVMLMAP0(udiv16),
-  SVMLMAP0(idiv16_mask),
-  SVMLMAP0(udiv16_mask),
-  SVMLMAP0(i64div8),
-  SVMLMAP0(u64div8),
-  SVMLMAP0(i8rem64),
-  SVMLMAP0(u8rem64),
-  SVMLMAP0(i16rem32),
-  SVMLMAP0(u16rem32),
-  SVMLMAP0(irem16),
-  SVMLMAP0(urem16),
-  SVMLMAP0(irem16_mask),
-  SVMLMAP0(urem16_mask),
-  SVMLMAP0(i64rem8),
-  SVMLMAP0(u64rem8),
+  SVML2MAP_DIV_OR_REM("i8div64", _mm512_div_epi8, 8),
+  SVML2MAP_DIV_OR_REM("u8div64", _mm512_div_epu8, 8),
+  SVML2MAP_DIV_OR_REM("i16div32", _mm512_div_epi16, 16),
+  SVML2MAP_DIV_OR_REM("u16div32", _mm512_div_epu16, 16),
+  SVML2MAP_DIV_OR_REM("idiv16", _mm512_div_epi32, 32),
+  SVML2MAP_DIV_OR_REM("udiv16", _mm512_div_epu32, 32),
+  SVML2MAP_DIV_OR_REM("idiv16_mask", _mm512_mask_div_epi32, 32),
+  SVML2MAP_DIV_OR_REM("udiv16_mask", _mm512_mask_div_epu32, 32),
+  SVML2MAP_DIV_OR_REM("i64div8", _mm512_div_epi64, 64),
+  SVML2MAP_DIV_OR_REM("u64div8", _mm512_div_epu64, 64),
+  SVML2MAP_DIV_OR_REM("i8rem64", _mm512_rem_epi8, 8),
+  SVML2MAP_DIV_OR_REM("u8rem64", _mm512_rem_epu8, 8),
+  SVML2MAP_DIV_OR_REM("i16rem32", _mm512_rem_epi16, 16),
+  SVML2MAP_DIV_OR_REM("u16rem32", _mm512_rem_epu16, 16),
+  SVML2MAP_DIV_OR_REM("irem16", _mm512_rem_epi32, 32),
+  SVML2MAP_DIV_OR_REM("urem16", _mm512_rem_epu32, 32),
+  SVML2MAP_DIV_OR_REM("irem16_mask", _mm512_mask_rem_epi32, 32),
+  SVML2MAP_DIV_OR_REM("urem16_mask", _mm512_mask_rem_epu32, 32),
+  SVML2MAP_DIV_OR_REM("i64rem8", _mm512_rem_epi64, 64),
+  SVML2MAP_DIV_OR_REM("u64rem8", _mm512_rem_epu64, 64),
 };
 
 static const SVMLBuiltinInfo *
@@ -6897,15 +6915,28 @@ findSVMLBuiltinInMap(unsigned BuiltinID) {
   return nullptr;
 }
 
-Value *CodeGenFunction::EmitSVMLBuiltinExpr(unsigned BuiltinID,
-                                            const char *LibCallName,
-                                            unsigned Modifier,
-                                            const CallExpr *E,
-                                            SmallVectorImpl<llvm::Value *> &Ops) {
-  llvm::Type *RetTy = ConvertType(E->getType());
+Value *
+CodeGenFunction::EmitSVMLBuiltinExpr(unsigned BuiltinID,
+                                     const char *LibCallName, unsigned Modifier,
+                                     unsigned IntBitWidth, const CallExpr *E,
+                                     SmallVectorImpl<llvm::Value *> &Ops) {
+  // All integer div/rem intrinsics' signatures are defined with <n x i64>
+  // vectors. Arguments and return value of their calls need to be casted to
+  // proper vector types with correct scalar element type (which is implied by
+  // IntBitWidth).
+  llvm::VectorType *OrigVectorTy =
+      cast<llvm::VectorType>(ConvertType(E->getType()));
+  llvm::VectorType *VectorTy = OrigVectorTy;
+  if (IntBitWidth && VectorTy->getScalarSizeInBits() != IntBitWidth) {
+    assert(VectorTy->getScalarType()->isIntegerTy());
+    VectorTy = llvm::VectorType::get(Builder.getIntNTy(IntBitWidth),
+                                     VectorTy->getBitWidth() / IntBitWidth);
+  }
+
+  llvm::Type *RetTy = VectorTy;
   Value *RetPtr = nullptr;
   if (Modifier & SVMLTwoRets) {
-    RetTy = llvm::StructType::get(RetTy, RetTy);
+    RetTy = llvm::StructType::get(VectorTy, VectorTy);
     RetPtr = Ops[0];
     Ops.erase(Ops.begin());
   }
@@ -6922,6 +6953,9 @@ Value *CodeGenFunction::EmitSVMLBuiltinExpr(unsigned BuiltinID,
         Ty = llvm::VectorType::get(Builder.getInt1Ty(), 8);
       else if (Ty == Int16Ty)
         Ty = llvm::VectorType::get(Builder.getInt1Ty(), 16);
+      Ops[i] = Builder.CreateBitCast(Ops[i], Ty);
+    } else if (Ty != VectorTy) {
+      Ty = VectorTy;
       Ops[i] = Builder.CreateBitCast(Ops[i], Ty);
     }
     Tys.push_back(Ty);
@@ -6943,10 +6977,14 @@ Value *CodeGenFunction::EmitSVMLBuiltinExpr(unsigned BuiltinID,
 
   llvm::Value *Res = Call;
   if (Modifier & SVMLTwoRets) {
-    Builder.CreateDefaultAlignedStore(Builder.CreateExtractValue(Res, 1),
-                                      RetPtr);
+    llvm::Value *StoredValue = Builder.CreateExtractValue(Res, 1);
+    if (VectorTy != OrigVectorTy)
+      StoredValue = Builder.CreateBitCast(Res, OrigVectorTy);
+    Builder.CreateDefaultAlignedStore(StoredValue, RetPtr);
     Res = Builder.CreateExtractValue(Res, 0);
   }
+  if (VectorTy != OrigVectorTy)
+    Res = Builder.CreateBitCast(Res, OrigVectorTy);
 
   return Res;
 }
@@ -11045,7 +11083,8 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   const SVMLBuiltinInfo *Builtin = findSVMLBuiltinInMap(BuiltinID);
   if (Builtin)
     return EmitSVMLBuiltinExpr(Builtin->BuiltinID, Builtin->LibCallName,
-                               Builtin->TypeModifier, E, Ops);
+                               Builtin->TypeModifier, Builtin->IntBitWidth,
+                               E, Ops);
 #endif // INTEL_CUSTOMIZATION
 
   // These exist so that the builtin that takes an immediate can be bounds

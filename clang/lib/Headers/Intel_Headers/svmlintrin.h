@@ -34,48 +34,139 @@ extern "C" {
 
 #if defined(__XMMINTRIN_H) && defined(__EMMINTRIN_H)
 
-/* Define the default attributes for the functions in this section. */
-#define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__, __target__("sse2"), __min_vector_width__(128)))
+/*
+ * Divide packed 8-bit integers in "a" by packed elements in "b", and store the
+ * truncated results in "dst".
+ */
+__m128i _mm_div_epi8(__m128i __a, __m128i __b);
 
 /*
- * Divide packed 32-bit integers in a by packed elements in b, and store the
- * truncated results in dst.
+ * Divide packed unsigned 8-bit integers in "a" by packed elements in "b", and
+ * store the truncated results in "dst".
  */
-static __inline__ __m128i __DEFAULT_FN_ATTRS
-_mm_idiv_epi32(__m128i __a, __m128i __b)
-{
-  return (__m128i)__builtin_svml_idiv4((__v4si)__a, (__v4si)__b);
-}
+__m128i _mm_div_epu8(__m128i __a, __m128i __b);
 
 /*
- * Divide packed 32-bit integers in a by packed elements in b, and store the
- * remainders as packed 32-bit integers in dst.
+ * Divide packed 16-bit integers in "a" by packed elements in "b", and store the
+ * truncated results in "dst".
  */
-static __inline__ __m128i __DEFAULT_FN_ATTRS
-_mm_irem_epi32(__m128i __a, __m128i __b)
-{
-  return (__m128i)__builtin_svml_irem4((__v4si)__a, (__v4si)__b);
-}
+__m128i _mm_div_epi16(__m128i __a, __m128i __b);
 
 /*
- * Divide packed unsigned 32-bit integers in a by packed elements in b, and
- * tore the truncated results in dst.
+ * Divide packed unsigned 16-bit integers in "a" by packed elements in "b", and
+ * store the truncated results in "dst".
  */
-static __inline__ __m128i __DEFAULT_FN_ATTRS
-_mm_udiv_epi32(__m128i __a, __m128i __b)
-{
-  return (__m128i)__builtin_svml_udiv4((__v4su)__a, (__v4su)__b);
-}
+__m128i _mm_div_epu16(__m128i __a, __m128i __b);
 
 /*
- * Divide packed unsigned 32-bit integers in a by packed elements in b, and
- * store the remainders as packed unsigned 32-bit integers in dst.
+ * Divide packed 32-bit integers in "a" by packed elements in "b", and store the
+ * truncated results in "dst".
  */
-static __inline__ __m128i __DEFAULT_FN_ATTRS
-_mm_urem_epi32(__m128i __a, __m128i __b)
-{
-  return (__m128i)__builtin_svml_urem4((__v4su)__a, (__v4su)__b);
-}
+__m128i _mm_div_epi32(__m128i __a, __m128i __b);
+
+/*
+ * Divide packed unsigned 32-bit integers in "a" by packed elements in "b", and
+ * store the truncated results in "dst".
+ */
+__m128i _mm_div_epu32(__m128i __a, __m128i __b);
+
+/*
+ * Divide packed 64-bit integers in "a" by packed elements in "b", and store the
+ * truncated results in "dst".
+ */
+__m128i _mm_div_epi64(__m128i __a, __m128i __b);
+
+/*
+ * Divide packed unsigned 64-bit integers in "a" by packed elements in "b", and
+ * store the truncated results in "dst".
+ */
+__m128i _mm_div_epu64(__m128i __a, __m128i __b);
+
+/*
+ * Divide packed 32-bit integers in "a" by packed elements in "b", and store the
+ * truncated results in "dst".
+ */
+__m128i _mm_idiv_epi32(__m128i __a, __m128i __b);
+
+/*
+ * Divide packed 32-bit integers in "a" by packed elements in "b", store the
+ * truncated results in "dst", and store the remainders as packed 32-bit
+ * integers into memory at "mem_addr".
+ */
+__m128i _mm_idivrem_epi32(__m128i *__mem_addr, __m128i __a, __m128i __b);
+
+/*
+ * Divide packed 32-bit integers in "a" by packed elements in "b", and store the
+ * remainders as packed 32-bit integers in "dst".
+ */
+__m128i _mm_irem_epi32(__m128i __a, __m128i __b);
+
+/*
+ * Divide packed 8-bit integers in "a" by packed elements in "b", and store the
+ * remainders as packed 32-bit integers in "dst".
+ */
+__m128i _mm_rem_epi8(__m128i __a, __m128i __b);
+
+/*
+ * Divide packed unsigned 8-bit integers in "a" by packed elements in "b", and
+ * store the remainders as packed unsigned 32-bit integers in "dst".
+ */
+__m128i _mm_rem_epu8(__m128i __a, __m128i __b);
+
+/*
+ * Divide packed 16-bit integers in "a" by packed elements in "b", and store the
+ * remainders as packed 32-bit integers in "dst".
+ */
+__m128i _mm_rem_epi16(__m128i __a, __m128i __b);
+
+/*
+ * Divide packed unsigned 16-bit integers in "a" by packed elements in "b", and
+ * store the remainders as packed unsigned 32-bit integers in "dst".
+ */
+__m128i _mm_rem_epu16(__m128i __a, __m128i __b);
+
+/*
+ * Divide packed 32-bit integers in "a" by packed elements in "b", and store the
+ * remainders as packed 32-bit integers in "dst".
+ */
+__m128i _mm_rem_epi32(__m128i __a, __m128i __b);
+
+/*
+ * Divide packed unsigned 32-bit integers in "a" by packed elements in "b", and
+ * store the remainders as packed unsigned 32-bit integers in "dst".
+ */
+__m128i _mm_rem_epu32(__m128i __a, __m128i __b);
+
+/*
+ * Divide packed 64-bit integers in "a" by packed elements in "b", and store the
+ * remainders as packed 32-bit integers in "dst".
+ */
+__m128i _mm_rem_epi64(__m128i __a, __m128i __b);
+
+/*
+ * Divide packed unsigned 64-bit integers in "a" by packed elements in "b", and
+ * store the remainders as packed unsigned 32-bit integers in "dst".
+ */
+__m128i _mm_rem_epu64(__m128i __a, __m128i __b);
+
+/*
+ * Divide packed unsigned 32-bit integers in "a" by packed elements in "b", and
+ * store the truncated results in "dst".
+ */
+__m128i _mm_udiv_epi32(__m128i __a, __m128i __b);
+
+/*
+ * Divide packed unsigned 32-bit integers in "a" by packed elements in "b",
+ * store the truncated results in "dst", and store the remainders as packed
+ * unsigned 32-bit integers into memory at "mem_addr".
+ */
+__m128i _mm_udivrem_epi32(__m128i *__mem_addr, __m128i __a, __m128i __b);
+
+/*
+ * Divide packed unsigned 32-bit integers in "a" by packed elements in "b", and
+ * store the remainders as packed unsigned 32-bit integers in "dst".
+ */
+__m128i _mm_urem_epi32(__m128i __a, __m128i __b);
 
 /*
  * Compute the cube root of packed single-precision (32-bit) floating-point
@@ -539,6 +630,12 @@ __m128d _mm_cdfnorminv_pd(__m128d __a);
 __m128 _mm_erf_ps(__m128 __a);
 
 /*
+ * Compute the error function of packed double-precision (64-bit) floating-point
+ * elements in "a", and store the results in "dst".
+ */
+__m128d _mm_erf_pd(__m128d __a);
+
+/*
  * Compute the complementary error function of packed single-precision (32-bit)
  * floating-point elements in "a", and store the results in "dst".
  */
@@ -573,8 +670,6 @@ __m128 _mm_erfinv_ps(__m128 __a);
  * floating-point elements in "a", and store the results in "dst".
  */
 __m128d _mm_erfinv_pd(__m128d __a);
-
-#undef __DEFAULT_FN_ATTRS
 
 #endif // defined(__XMMINTRIN_H) && defined(__EMMINTRIN_H)
 
@@ -1235,50 +1330,139 @@ __m256d _mm256_erfinv_pd(__m256d __a);
 
 #if defined(__AVX2INTRIN_H)
 
-/* Define the default attributes for the functions in this section. */
-#define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__, __target__("avx2"), __min_vector_width__(256)))
+/*
+ * Divide packed 8-bit integers in "a" by packed elements in "b", and store the
+ * truncated results in "dst".
+ */
+__m256i _mm256_div_epi8(__m256i __a, __m256i __b);
 
 /*
- * Divide packed 32-bit integers in a by packed elements in b, and store the
- * truncated results in dst.
+ * Divide packed unsigned 8-bit integers in "a" by packed elements in "b", and
+ * store the truncated results in "dst".
  */
-static __inline__ __m256i __DEFAULT_FN_ATTRS
-_mm256_div_epi32(__m256i __a, __m256i __b)
-{
-  return (__m256i)__builtin_svml_idiv8((__v8si)__a, (__v8si)__b);
-}
+__m256i _mm256_div_epu8(__m256i __a, __m256i __b);
 
 /*
- * Divide packed 32-bit integers in a by packed elements in b, and store the
- * remainders as packed 32-bit integers in dst.
+ * Divide packed 16-bit integers in "a" by packed elements in "b", and store the
+ * truncated results in "dst".
  */
-static __inline__ __m256i __DEFAULT_FN_ATTRS
-_mm256_rem_epi32(__m256i __a, __m256i __b)
-{
-  return (__m256i)__builtin_svml_irem8((__v8si)__a, (__v8si)__b);
-}
+__m256i _mm256_div_epi16(__m256i __a, __m256i __b);
 
 /*
- * Divide packed unsigned 32-bit integers in a by packed elements in b, and
- * store the truncated results in dst.
+ * Divide packed unsigned 16-bit integers in "a" by packed elements in "b", and
+ * store the truncated results in "dst".
  */
-static __inline__ __m256i __DEFAULT_FN_ATTRS
-_mm256_div_epu32(__m256i __a, __m256i __b)
-{
-  return (__m256i)__builtin_svml_udiv8((__v8su)__a, (__v8su)__b);
-}
+__m256i _mm256_div_epu16(__m256i __a, __m256i __b);
 
 /*
- * Divide packed unsigned 32-bit integers in a by packed elements in b, and
- * store the remainders as packed unsigned 32-bit integers in dst.
+ * Divide packed 32-bit integers in "a" by packed elements in "b", and store the
+ * truncated results in "dst".
  */
-static __inline__ __m256i __DEFAULT_FN_ATTRS
-_mm256_rem_epu32(__m256i __a, __m256i __b)
-{
-  return (__m256i)__builtin_svml_urem8((__v8su)__a, (__v8su)__b);
-}
+__m256i _mm256_div_epi32(__m256i __a, __m256i __b);
 
-#undef __DEFAULT_FN_ATTRS
+/*
+ * Divide packed unsigned 32-bit integers in "a" by packed elements in "b", and
+ * store the truncated results in "dst".
+ */
+__m256i _mm256_div_epu32(__m256i __a, __m256i __b);
+
+/*
+ * Divide packed 64-bit integers in "a" by packed elements in "b", and store the
+ * truncated results in "dst".
+ */
+__m256i _mm256_div_epi64(__m256i __a, __m256i __b);
+
+/*
+ * Divide packed unsigned 64-bit integers in "a" by packed elements in "b", and
+ * store the truncated results in "dst".
+ */
+__m256i _mm256_div_epu64(__m256i __a, __m256i __b);
+
+/*
+ * Divide packed 32-bit integers in "a" by packed elements in "b", and store the
+ * truncated results in "dst".
+ */
+__m256i _mm256_idiv_epi32(__m256i __a, __m256i __b);
+
+/*
+ * Divide packed 32-bit integers in "a" by packed elements in "b", store the
+ * truncated results in "dst", and store the remainders as packed 32-bit
+ * integers into memory at "mem_addr".
+ */
+__m256i _mm256_idivrem_epi32(__m256i *__mem_addr, __m256i __a, __m256i __b);
+
+/*
+ * Divide packed 32-bit integers in "a" by packed elements in "b", and store the
+ * remainders as packed 32-bit integers in "dst".
+ */
+__m256i _mm256_irem_epi32(__m256i __a, __m256i __b);
+
+/*
+ * Divide packed 8-bit integers in "a" by packed elements in "b", and store the
+ * remainders as packed 32-bit integers in "dst".
+ */
+__m256i _mm256_rem_epi8(__m256i __a, __m256i __b);
+
+/*
+ * Divide packed unsigned 8-bit integers in "a" by packed elements in "b", and
+ * store the remainders as packed unsigned 32-bit integers in "dst".
+ */
+__m256i _mm256_rem_epu8(__m256i __a, __m256i __b);
+
+/*
+ * Divide packed 16-bit integers in "a" by packed elements in "b", and store the
+ * remainders as packed 32-bit integers in "dst".
+ */
+__m256i _mm256_rem_epi16(__m256i __a, __m256i __b);
+
+/*
+ * Divide packed unsigned 16-bit integers in "a" by packed elements in "b", and
+ * store the remainders as packed unsigned 32-bit integers in "dst".
+ */
+__m256i _mm256_rem_epu16(__m256i __a, __m256i __b);
+
+/*
+ * Divide packed 32-bit integers in "a" by packed elements in "b", and store the
+ * remainders as packed 32-bit integers in "dst".
+ */
+__m256i _mm256_rem_epi32(__m256i __a, __m256i __b);
+
+/*
+ * Divide packed unsigned 32-bit integers in "a" by packed elements in "b", and
+ * store the remainders as packed unsigned 32-bit integers in "dst".
+ */
+__m256i _mm256_rem_epu32(__m256i __a, __m256i __b);
+
+/*
+ * Divide packed 64-bit integers in "a" by packed elements in "b", and store the
+ * remainders as packed 32-bit integers in "dst".
+ */
+__m256i _mm256_rem_epi64(__m256i __a, __m256i __b);
+
+/*
+ * Divide packed unsigned 64-bit integers in "a" by packed elements in "b", and
+ * store the remainders as packed unsigned 32-bit integers in "dst".
+ */
+__m256i _mm256_rem_epu64(__m256i __a, __m256i __b);
+
+/*
+ * Divide packed unsigned 32-bit integers in "a" by packed elements in "b", and
+ * store the truncated results in "dst".
+ */
+__m256i _mm256_udiv_epi32(__m256i __a, __m256i __b);
+
+/*
+ * Divide packed unsigned 32-bit integers in "a" by packed elements in "b",
+ * store the truncated results in "dst", and store the remainders as packed
+ * unsigned 32-bit integers into memory at "mem_addr".
+ */
+__m256i _mm256_udivrem_epi32(__m256i *__mem_addr, __m256i __a, __m256i __b);
+
+/*
+ * Divide packed unsigned 32-bit integers in "a" by packed elements in "b", and
+ * store the remainders as packed unsigned 32-bit integers in "dst".
+ */
+__m256i _mm256_urem_epi32(__m256i __a, __m256i __b);
 
 #endif // defined(__AVX2INTRIN_H)
 
@@ -1286,6 +1470,135 @@ _mm256_rem_epu32(__m256i __a, __m256i __b)
 
 /* Define the default attributes for the functions in this section. */
 #define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__, __target__("avx512f"), __min_vector_width__(512)))
+
+/*
+ * Divide packed 8-bit integers in "a" by packed elements in "b", and store the
+ * truncated results in "dst".
+ */
+__m512i _mm512_div_epi8(__m512i __a, __m512i __b);
+
+/*
+ * Divide packed unsigned 8-bit integers in "a" by packed elements in "b", and
+ * store the truncated results in "dst".
+ */
+__m512i _mm512_div_epu8(__m512i __a, __m512i __b);
+
+/*
+ * Divide packed 16-bit integers in "a" by packed elements in "b", and store the
+ * truncated results in "dst".
+ */
+__m512i _mm512_div_epi16(__m512i __a, __m512i __b);
+
+/*
+ * Divide packed unsigned 16-bit integers in "a" by packed elements in "b", and
+ * store the truncated results in "dst".
+ */
+__m512i _mm512_div_epu16(__m512i __a, __m512i __b);
+
+/*
+ * Divide packed 32-bit integers in "a" by packed elements in "b", and store the
+ * truncated results in "dst".
+ */
+__m512i _mm512_div_epi32(__m512i __a, __m512i __b);
+
+/*
+ * Divide packed unsigned 32-bit integers in "a" by packed elements in "b", and
+ * store the truncated results in "dst".
+ */
+__m512i _mm512_div_epu32(__m512i __a, __m512i __b);
+
+/*
+ * Divide packed 32-bit integers in "a" by packed elements in "b", and store the
+ * truncated results in "dst" using writemask "k" (elements are copied from
+ * "src" when the corresponding mask bit is not set).
+ */
+__m512i _mm512_mask_div_epi32(__m512i __src, __mmask16 __k, __m512i __a,
+                              __m512i __b);
+
+/*
+ * Divide packed unsigned 32-bit integers in "a" by packed elements in "b", and
+ * store the truncated results in "dst" using writemask "k" (elements are copied
+ * from "src" when the corresponding mask bit is not set).
+ */
+__m512i _mm512_mask_div_epu32(__m512i __src, __mmask16 __k, __m512i __a,
+                              __m512i __b);
+
+/*
+ * Divide packed 64-bit integers in "a" by packed elements in "b", and store the
+ * truncated results in "dst".
+ */
+__m512i _mm512_div_epi64(__m512i __a, __m512i __b);
+
+/*
+ * Divide packed unsigned 64-bit integers in "a" by packed elements in "b", and
+ * store the truncated results in "dst".
+ */
+__m512i _mm512_div_epu64(__m512i __a, __m512i __b);
+
+/*
+ * Divide packed 8-bit integers in "a" by packed elements in "b", and store the
+ * remainders as packed 32-bit integers in "dst".
+ */
+__m512i _mm512_rem_epi8(__m512i __a, __m512i __b);
+
+/*
+ * Divide packed unsigned 8-bit integers in "a" by packed elements in "b", and
+ * store the remainders as packed unsigned 32-bit integers in "dst".
+ */
+__m512i _mm512_rem_epu8(__m512i __a, __m512i __b);
+
+/*
+ * Divide packed 16-bit integers in "a" by packed elements in "b", and store the
+ * remainders as packed 32-bit integers in "dst".
+ */
+__m512i _mm512_rem_epi16(__m512i __a, __m512i __b);
+
+/*
+ * Divide packed unsigned 16-bit integers in "a" by packed elements in "b", and
+ * store the remainders as packed unsigned 32-bit integers in "dst".
+ */
+__m512i _mm512_rem_epu16(__m512i __a, __m512i __b);
+
+/*
+ * Divide packed 32-bit integers in "a" by packed elements in "b", and store the
+ * remainders as packed 32-bit integers in "dst".
+ */
+__m512i _mm512_rem_epi32(__m512i __a, __m512i __b);
+
+/*
+ * Divide packed unsigned 32-bit integers in "a" by packed elements in "b", and
+ * store the remainders as packed unsigned 32-bit integers in "dst".
+ */
+__m512i _mm512_rem_epu32(__m512i __a, __m512i __b);
+
+/*
+ * Divide packed 32-bit integers in "a" by packed elements in "b", and store the
+ * remainders as packed 32-bit integers in "dst" using writemask "k" (elements
+ * are copied from "src" when the corresponding mask bit is not set).
+ */
+__m512i _mm512_mask_rem_epi32(__m512i __src, __mmask16 __k, __m512i __a,
+                              __m512i __b);
+
+/*
+ * Divide packed unsigned 32-bit integers in "a" by packed elements in "b", and
+ * store the remainders as packed unsigned 32-bit integers in "dst" using
+ * writemask "k" (elements are copied from "src" when the corresponding mask bit
+ * is not set).
+ */
+__m512i _mm512_mask_rem_epu32(__m512i __src, __mmask16 __k, __m512i __a,
+                              __m512i __b);
+
+/*
+ * Divide packed 64-bit integers in "a" by packed elements in "b", and store the
+ * remainders as packed 32-bit integers in "dst".
+ */
+__m512i _mm512_rem_epi64(__m512i __a, __m512i __b);
+
+/*
+ * Divide packed unsigned 64-bit integers in "a" by packed elements in "b", and
+ * store the remainders as packed unsigned 32-bit integers in "dst".
+ */
+__m512i _mm512_rem_epu64(__m512i __a, __m512i __b);
 
 /*
  * Compute the cube root of packed single-precision (32-bit) floating-point
@@ -2418,46 +2731,6 @@ static __inline __m512d __DEFAULT_FN_ATTRS
 _mm512_trunc_pd(__m512d __a)
 {
   return __svml_trunc8(__a);
-}
-
-/*
- * Divide packed 32-bit integers in a by packed elements in b, and store the
- * truncated results in dst.
- */
-static __inline__ __m512i __DEFAULT_FN_ATTRS
-_mm512_div_epi32(__m512i __a, __m512i __b)
-{
-  return (__m512i)__builtin_svml_idiv16((__v16si)__a, (__v16si)__b);
-}
-
-/*
- * Divide packed 32-bit integers in a by packed elements in b, and store the
- *    remainders as packed 32-bit integers in dst.
- */
-static __inline__ __m512i __DEFAULT_FN_ATTRS
-_mm512_rem_epi32(__m512i __a, __m512i __b)
-{
-  return (__m512i)__builtin_svml_irem16((__v16si)__a, (__v16si)__b);
-}
-
-/*
- * Divide packed unsigned 32-bit integers in a by packed elements in b, and
- *    store the truncated results in dst.
- */
-static __inline__ __m512i __DEFAULT_FN_ATTRS
-_mm512_div_epu32(__m512i __a, __m512i __b)
-{
-  return (__m512i)__builtin_svml_udiv16((__v16su)__a, (__v16su)__b);
-}
-
-/*
- * Divide packed unsigned 32-bit integers in a by packed elements in b, and
- *    store the remainders as packed unsigned 32-bit integers in dst.
- */
-static __inline__ __m512i __DEFAULT_FN_ATTRS
-_mm512_rem_epu32(__m512i __a, __m512i __b)
-{
-  return (__m512i)__builtin_svml_urem16((__v16su)__a, (__v16su)__b);
 }
 
 #undef __DEFAULT_FN_ATTRS
