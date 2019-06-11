@@ -2289,7 +2289,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       RedI->setNew(NewRedInst);
 
       Value *ReplacementVal = getClauseItemReplacementValue(RedI, InsertPt);
-      genPrivatizationReplacement(W, Orig, ReplacementVal, RedI);
+      genPrivatizationReplacement(W, Orig, ReplacementVal);
 
       createEmptyPrvInitBB(W, RedInitEntryBB);
       genReductionInit(W, RedI, RedInitEntryBB->getTerminator(), DT);
@@ -2782,8 +2782,7 @@ VPOParoptTransform::genPrivatizationAlloca(Item *I, Instruction *InsertPt,
 // Replace the variable with the privatized variable
 void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
                                                      Value *PrivValue,
-                                                     Value *NewPrivValue,
-                                                     Item *IT) {
+                                                     Value *NewPrivValue) {
 
   // Find instructions in W that use V
   SmallVector<Instruction *, 8> PrivUses;
@@ -2933,7 +2932,7 @@ bool VPOParoptTransform::genLinearCode(WRegionNode *W,
     // Replace original var with the new var inside the region.
     Value *ReplacementVal =
         getClauseItemReplacementValue(LinearI, NewLinearInsertPt);
-    genPrivatizationReplacement(W, Orig, ReplacementVal, LinearI);
+    genPrivatizationReplacement(W, Orig, ReplacementVal);
 
     // For by-refs, do a pointer dereference to reach the actual operand.
     if (LinearI->getIsByRef())
@@ -3052,7 +3051,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         FprivI->setNewOnTaskStack(NewPrivInst);
 
         Value *ReplacementVal = getClauseItemReplacementValue(FprivI, InsertPt);
-        genPrivatizationReplacement(W, Orig, ReplacementVal, FprivI);
+        genPrivatizationReplacement(W, Orig, ReplacementVal);
 
         // For task firstprivate, copy the data from the task entry object
         // to the task's local stack copy, and back again
@@ -3187,7 +3186,7 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
       LprivI->setNew(NewPrivInst);
 
       Value *ReplacementVal = getClauseItemReplacementValue(LprivI, InsertPt);
-      genPrivatizationReplacement(W, Orig, ReplacementVal, LprivI);
+      genPrivatizationReplacement(W, Orig, ReplacementVal);
 
       // Emit constructor call for lastprivate var if it is not also a
       // firstprivate (in which case the firstprivate init emits a cctor).
@@ -3524,7 +3523,7 @@ AllocaInst *VPOParoptTransform::genRegionLocalCopy(WRegionNode *W, Value *V) {
   // Replace all uses of the original alloca's result with the new alloca
   // definition.
   Value *ReplacementVal = getClauseItemReplacementValue(&FprivI, InsertPt);
-  genPrivatizationReplacement(W, OrigAlloca, ReplacementVal, &FprivI);
+  genPrivatizationReplacement(W, OrigAlloca, ReplacementVal);
 
   // Copy value from the original "variable" to the new one.
   // We have to create an empty block after the region entry
@@ -4061,7 +4060,7 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
         PrivI->setNew(NewPrivInst);
         Value *ReplacementVal =
             getClauseItemReplacementValue(PrivI, AllocaInsertPt);
-        genPrivatizationReplacement(W, Orig, ReplacementVal, PrivI);
+        genPrivatizationReplacement(W, Orig, ReplacementVal);
 
         // checks for constructor existence
         VPOParoptUtils::genConstructorCall(PrivI->getConstructor(), NewPrivInst,
