@@ -214,7 +214,7 @@ CPPLanguageRuntime::FindLibCppStdFunctionCallableInfo(
       return llvm::Regex::escape(first_template_parameter.str()) +
              R"(::operator\(\)\(.*\))";
 
-    if (symbol != NULL &&
+    if (symbol != nullptr &&
         symbol->GetName().GetStringRef().contains("__invoke")) {
 
       llvm::StringRef symbol_name = symbol->GetName().GetStringRef();
@@ -241,8 +241,8 @@ CPPLanguageRuntime::FindLibCppStdFunctionCallableInfo(
 
   SymbolContextList scl;
 
-  target.GetImages().FindFunctions(RegularExpression{func_to_match}, true, true,
-                                   true, scl);
+  target.GetImages().FindSymbolsMatchingRegExAndType(
+      RegularExpression{R"(^)" + func_to_match}, eSymbolTypeAny, scl, true);
 
   // Case 1,2 or 3
   if (scl.GetSize() >= 1) {
