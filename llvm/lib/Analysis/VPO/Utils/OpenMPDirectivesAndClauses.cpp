@@ -375,20 +375,6 @@ bool VPOAnalysisUtils::isStandAloneEndDirective(BasicBlock *BB) {
   return VPOAnalysisUtils::isStandAloneEndDirective(&(BB->front()));
 }
 
-bool VPOAnalysisUtils::isListEndDirective(int DirID) {
-  return DirID == DIR_QUAL_LIST_END;
-}
-
-bool VPOAnalysisUtils::isListEndDirective(StringRef DirString) {
-  int DirID = VPOAnalysisUtils::getDirectiveID(DirString);
-  return VPOAnalysisUtils::isListEndDirective(DirID);
-}
-
-bool VPOAnalysisUtils::isListEndDirective(Instruction *I) {
-  int DirID = VPOAnalysisUtils::getDirectiveID(I);
-  return VPOAnalysisUtils::isListEndDirective(DirID);
-}
-
 Instruction * VPOAnalysisUtils::getEndRegionDir(Instruction *BeginDir) {
   assert(VPOAnalysisUtils::isRegionDirective(BeginDir) &&
          "getEndRegionDir: expected BeginDir to be a REGION directive");

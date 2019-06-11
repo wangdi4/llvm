@@ -254,12 +254,6 @@ public:
     static bool isStandAloneEndDirective(Instruction *I);
     static bool isStandAloneEndDirective(BasicBlock *BB);
 
-    /// Return true if it corresponds to DIR_QUAL_LIST_END, the
-    /// mandatory marker to end a directive
-    static bool isListEndDirective(int DirID);
-    static bool isListEndDirective(StringRef DirString);
-    static bool isListEndDirective(Instruction *I);
-
     /// Given an instruction for a region.begin directive, return its
     /// corresponding region.end directive instruction or BB
     static Instruction *getEndRegionDir(Instruction *BeginDir);

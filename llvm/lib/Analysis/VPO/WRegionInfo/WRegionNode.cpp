@@ -568,8 +568,6 @@ void WRegionNode::handleQual(int ClauseID) {
   case QUAL_OMP_CANCEL_TASKGROUP:
     setCancelKind(WRNCancelTaskgroup);
     break;
-  case QUAL_LIST_END: //TODO: remove this obsolete case
-    break;
   default:
     llvm_unreachable("Unknown ClauseID in handleQual()");
   }

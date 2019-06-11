@@ -1682,7 +1682,7 @@ Value *VPOParoptTransform::genReductionScalarInit(ReductionItem *RedI,
 //    %my.tid16 = load i32, i32* %tid, align 4
 //    call void @__kmpc_end_critical({ i32, i32, i32, i32, i8* }*
 //    @.kmpc_loc.0.0.5, i32 %my.tid16, [8 x i32]* @.gomp_critical_user_.var)
-//  br label %DIR.QUAL.LIST.END.2.exitStub
+//  br label %exitStub
 //
 // Similiarly, here is the output for bool "or" operator given the direcitive in
 // the form of #pragma omp parallel reduction( +: a1 ) reducion( ||: a2 ).
@@ -1726,7 +1726,7 @@ Value *VPOParoptTransform::genReductionScalarInit(ReductionItem *RedI,
 //    %my.tid16 = load i32, i32* %tid, align 4
 //    call void @__kmpc_end_critical({ i32, i32, i32, i32, i8* }*
 //    @.kmpc_loc.0.0.5, i32 %my.tid16, [8 x i32]* @.gomp_critical_user_.var)
-//    br label %DIR.QUAL.LIST.END.2.exitStub
+//    br label %exitStub
 //
 Value* VPOParoptTransform::genReductionFiniForBoolOps(ReductionItem *RedI,
                                           Value *Rhs1, Value *Rhs2,
@@ -1908,7 +1908,7 @@ bool VPOParoptTransform::genReductionScalarFini(
 //   %my.tid31 = load i32, i32* %tid, align 4
 //   call void @__kmpc_end_critical({ i32, i32, i32, i32, i8* }*
 //   @.kmpc_loc.0.0.4, i32 %my.tid31, [8 x i32]* @.gomp_critical_user_.var)
-//   br label %DIR.QUAL.LIST.END.2.exitStub
+//   br label %exitStub
 //
 bool VPOParoptTransform::genReductionFini(WRegionNode *W,
                                           ReductionItem *RedI, Value *OldV,
@@ -1975,7 +1975,7 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W,
 //   }
 //
 //   /* B[%red.init.done]  */
-//   br label %DIR.QUAL.LIST.END.1
+//   br label %dir.exit
 //
 //   The output of the reduction array update is as follows.
 //
@@ -2018,7 +2018,7 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W,
 //   %my.tid85 = load i32, i32* %tid, align 4
 //   call void @__kmpc_end_critical({ i32, i32, i32, i32, i8* }*
 //   @.kmpc_loc.0.0.5, i32 %my.tid85, [8 x i32]* @.gomp_critical_user_.var)
-//   br label %DIR.QUAL.LIST.END.2.exitStub
+//   br label %exitStub
 //
 bool VPOParoptTransform::genRedAggregateInitOrFini(WRegionNode *W,
                                                    ReductionItem *RedI,
@@ -2139,10 +2139,9 @@ void VPOParoptTransform::genFprivInit(FirstprivateItem *FprivI,
 // The output of the array update is as follows.
 //
 //    %a = alloca [100 x float]
-//    br label %DIR.QUAL.LIST.END.1
-//
+//    br label %for.end
+//  ...
 //  for.end:                                          ; preds = %dispatch.latch,
-//  %DIR.QUAL.LIST.END.1
 //    %1 = bitcast [100 x float]* %a to i8*
 //    call void @llvm.memcpy.p0i8.p0i8.i64(i8* bitcast ([100 x float]* @a to
 //    i8*), i8* %1, i64 400, i32 0, i1 false)
@@ -2185,7 +2184,7 @@ void VPOParoptTransform::genLprivFini(LastprivateItem *LprivI,
 //
 //    /* B[%DIR.OMP.PARALLEL.LOOP.1.split]  */
 //    store float 0.000000e+00, float* %sum.red
-//    br label %DIR.QUAL.LIST.END.1
+//    br label %dir.exit
 //
 void VPOParoptTransform::genReductionInit(WRegionNode *W,
                                           ReductionItem *RedI,
