@@ -5,13 +5,6 @@
 
 #include <immintrin.h>
 
-void test_uiret() {
-// CHECK-LABEL: @test_uiret
-// CHECK: call void @llvm.x86.uiret()
-// CHECK: ret
-  _uiret();
-}
-
 void test_clui() {
 // CHECK-LABEL: @test_clui
 // CHECK: call void @llvm.x86.clui()

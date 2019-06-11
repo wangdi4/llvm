@@ -111,7 +111,6 @@ TARGET_BUILTIN(__builtin_ia32_ptwrite64, "vULLi", "n", "ptwrite")
 #if INTEL_FEATURE_ISA_ULI
 
 // ULI
-TARGET_BUILTIN(__builtin_ia32_uiret, "v", "n", "uli")
 TARGET_BUILTIN(__builtin_ia32_clui, "v", "n", "uli")
 TARGET_BUILTIN(__builtin_ia32_stui, "v", "n", "uli")
 TARGET_BUILTIN(__builtin_ia32_testui, "Uc", "n", "uli")
