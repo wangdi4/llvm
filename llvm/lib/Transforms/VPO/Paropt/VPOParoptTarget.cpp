@@ -201,8 +201,8 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   // Temporary set external linkage for outlined target regions when emitting
   // binary vISA. This is a workaround for csa_as limitation that should be
   // removed in future.
-  NewF->setLinkage(CSAvISA ? GlobalValue::ExternalLinkage
-                           : GlobalValue::WeakAnyLinkage);
+  if (CSAvISA)
+    NewF->setLinkage(GlobalValue::ExternalLinkage);
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
   CallInst *NewCall = cast<CallInst>(NewF->user_back());
