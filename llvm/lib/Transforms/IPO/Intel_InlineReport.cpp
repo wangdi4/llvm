@@ -325,6 +325,9 @@ void InlineReport::beginFunction(Function *F) {
       // never be inlined.
       if (!CS)
         continue;
+      if (isa<IntrinsicInst>(I) && !(Level & DontSkipIntrin) &&
+          shouldSkipIntrinsic(cast<IntrinsicInst>(&I)))
+        continue;
       addNewCallSite(F, CS, M);
       if (isa<IntrinsicInst>(I)) {
         setReasonNotInlined(CS, NinlrIntrinsic);
@@ -635,6 +638,9 @@ void InlineReport::makeCurrent(Module *M, Function *F) {
       if (!CS) {
         continue;
       }
+      if (isa<IntrinsicInst>(I) && !(Level & DontSkipIntrin) &&
+          shouldSkipIntrinsic(cast<IntrinsicInst>(I)))
+        continue;
       Instruction *NI = CS.getInstruction();
       InlineReportInstructionCallSiteMap::const_iterator MapItICS;
       MapItICS = IRInstructionCallSiteMap.find(NI);

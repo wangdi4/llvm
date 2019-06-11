@@ -39,8 +39,11 @@ typedef enum {
   RealCost = 64, // Compute both real and early exit inlining costs
   BasedOnMetadata = 128,
                  // Create metadata-based inline report
-  CompositeReport = 256
+  CompositeReport = 256,
                  // Create composite inline report for an -flto compilation
+  DontSkipIntrin = 512
+                 // Do create the inlining report info for the special
+                 // intrinsic call sites
 } InlineReportOptions;
 }
 
@@ -246,6 +249,8 @@ void printOptionValues(unsigned OptLevel = 0, unsigned SizeLevel = 0);
 void printFunctionInlineReport(Function *F, unsigned Level);
 // Print call site inline report
 void printCallSiteInlineReport(Instruction *I, unsigned Level);
+// Skip some llvm-specific intrinsics to make inline report shorter.
+bool shouldSkipIntrinsic(IntrinsicInst *I);
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_IPO_INTEL_INLINEREPORTCOMMON_H
