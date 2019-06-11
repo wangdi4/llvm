@@ -193,11 +193,6 @@ private:
 
   // Statistics:
   intel::Statistic::ActiveStatsT m_kernelStats;
-  // a "low quality" statistics. The fact that early exit was given up due to loads
-  // does not imply that otherwise it could have been done.
-  // testing for side effects is done Before checking the condition
-  // is actually in a supported format, and might not include tid at all.
-  Statistic Early_Exit_Givenup_Due_To_Loads;
   // set to 1 if early exit (or late start) was done for this
   // kernel. This counter is only 0 or 1,
   // even if early-exit was done for several conditions and/or dimensions.
@@ -230,7 +225,7 @@ private:
   ///@returns true iff early exit pattern found.
   bool findAndHandleTIDMinMaxBound();
 
-  ///@brief returns true iff BB contains instruction with side effect.
+  ///@brief returns true if BB contains instruction with side effect.
   ///@param BB - basic block to check.
   ///@retruns as above.
   bool hasSideEffectInst(llvm::BasicBlock *BB);

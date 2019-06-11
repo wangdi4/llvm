@@ -49,7 +49,9 @@ configure_lit_site_cfg(
 add_subdirectory( test_utils )
 include_directories( test_utils/export )
 
-add_subdirectory( fpga_test_type )
+if (NOT ${ADDR} STREQUAL "32")
+  add_subdirectory( fpga_test_type )
+endif (NOT ${ADDR} STREQUAL "32")
 add_subdirectory( tbb_native_test_type )
 add_subdirectory( cpu_device_test_type )
 add_subdirectory( framework_test_type )
@@ -81,8 +83,10 @@ list(APPEND RUNTIME_UNITTESTS
   backend_test_type
   name_mangling_test_type
   metadata_api_test_type
-  fpga_test_type
 )
+if (NOT ${ADDR} STREQUAL "32")
+  list(APPEND RUNTIME_UNITTESTS fpga_test_type )
+endif (NOT ${ADDR} STREQUAL "32")
 
 list(APPEND RT_TEST_DEPS
   ${RUNTIME_UNITTESTS}

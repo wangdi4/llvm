@@ -697,14 +697,14 @@ VarDescription DebugServer::DebugServerImpl::CreateVarDescription(
         const DIGlobalVariable* di_global_type =
               cast<DIGlobalVariable>(var_info.description);
         var_name_str = di_global_type->getName().str();
-        di_type = di_global_type->getType().resolve();
+        di_type = di_global_type->getType();
     }
     else {
         assert(dyn_cast<DIVariable>(var_info.description)
                && "DIVariable is expected");
         const DIVariable* di_local_type = cast<DIVariable>(var_info.description);
         var_name_str = di_local_type->getName().str();
-        di_type = di_local_type->getType().resolve();
+        di_type = di_local_type->getType();
     }
 
     string var_type_str = DescribeVarType(di_type);

@@ -27,7 +27,7 @@ class OCLPrepareKernelForVecClone {
 
 private:
   // Configuration options
-  const OptimizerConfig *Config = nullptr;
+  const Intel::CPUId *CPUId = nullptr;
 
   // Kind of parameter in a function with 'declare simd' directive.
   enum ParamKindTy { LinearWithVarStride, Linear, Uniform, Vector };
@@ -56,7 +56,7 @@ private:
 public:
   void run(Function *F);
 
-  OCLPrepareKernelForVecClone(const OptimizerConfig *Config);
+  OCLPrepareKernelForVecClone(const Intel::CPUId *CPUId);
 
   OCLPrepareKernelForVecClone();
 

@@ -26,7 +26,7 @@ namespace intel {
 class OCLVecClone : public VecClone {
 private:
   // Configuration options
-  const OptimizerConfig *Config = nullptr;
+  const Intel::CPUId *CPUId;
 
   // OpenCL-related code transformation: 1. updates all the uses of TID calls
   // with TID + new induction variable. TIDs are updated in this way because
@@ -46,7 +46,7 @@ public:
   static char ID;
   bool EnableVPlanVecForOpenCL = false;
 
-  OCLVecClone(const OptimizerConfig *Config, bool EnableVPlanVecForOpenCL);
+  OCLVecClone(const Intel::CPUId *CPUId, bool EnableVPlanVecForOpenCL);
 
   OCLVecClone();
 };
