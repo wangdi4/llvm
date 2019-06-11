@@ -13,6 +13,9 @@
 ; CHECK:   call void @llvm.masked.scatter.v8i32.v8p0i32(<8 x i32> %[[VALUE_TO_STORE]], <8 x i32*> %[[S_GEP]], i32 4, <8 x i1> %[[ReplicatedMaskVec]])
 
 
+; XFAIL: *
+; TODO: This test makes assumptions about SOA layout of the code. This will be enabled when we remove code which assumes SOA layout in Vector Codegen
+
 @varr2p = external global <2 x i32>*, align 8
 @sarr2p = external global i32*, align 8
 @arrB = external global i32*, align 8

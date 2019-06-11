@@ -17,7 +17,7 @@
 ;  
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -print-after=hir-vec-dir-insert -S < %s 2>&1 | FileCheck %s
 ; HIR Test.
-; CHECK: @llvm.intel.directive(!1)
+; CHECK: @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
 ; CHECK: DO i1 = 0, 1023, 1   <DO_LOOP>
 ; ModuleID = 'j4.c'
 source_filename = "j4.c"

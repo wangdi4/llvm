@@ -360,12 +360,8 @@ protected:
   /// Processor has AVX-512 Vector Neural Network Instructions
   bool HasVNNI = false;
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16
-  /// Processor has AVX-512 bfloat16 floating-point extenstions
+  /// Processor has AVX-512 bfloat16 floating-point extensions
   bool HasBF16 = false;
-#endif // INTEL_FEATURE_ISA_BF16
-#endif // INTEL_CUSTOMIZATION
 
   /// Processor has AVX-512 Bit Algorithms instructions
   bool HasBITALG = false;
@@ -447,6 +443,9 @@ protected:
 
   /// Try harder to combine to horizontal vector ops if they are fast.
   bool HasFastHorizontalOps = false;
+
+  /// Prefer a left/right scalar logical shifts pair over a shift+and pair.
+  bool HasFastScalarShiftMasks = false;
 
   /// Prefer a left/right vector logical shifts pair over a shift+and pair.
   bool HasFastVectorShiftMasks = false;
@@ -702,6 +701,7 @@ public:
   bool hasFastSHLDRotate() const { return HasFastSHLDRotate; }
   bool hasFastBEXTR() const { return HasFastBEXTR; }
   bool hasFastHorizontalOps() const { return HasFastHorizontalOps; }
+  bool hasFastScalarShiftMasks() const { return HasFastScalarShiftMasks; }
   bool hasFastVectorShiftMasks() const { return HasFastVectorShiftMasks; }
   bool hasMacroFusion() const { return HasMacroFusion; }
   bool hasBranchFusion() const { return HasBranchFusion; }
@@ -728,10 +728,8 @@ public:
 #endif // INTEL_CUSTOMIZATION
   bool hasPKU() const { return HasPKU; }
   bool hasVNNI() const { return HasVNNI; }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16
   bool hasBF16() const { return HasBF16; }
-#endif // INTEL_FEATURE_ISA_BF16
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_VP2INTERSECT
   bool hasVP2INTERSECT() const { return HasVP2INTERSECT; }
 #endif // INTEL_FEATURE_ISA_VP2INTERSECT

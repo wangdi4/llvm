@@ -30,6 +30,7 @@ class VPLoopRegionHIR : public VPLoopRegion {
   friend class VPLoopAnalysisHIR;
   friend class VPlanVerifierHIR;
   friend class VPlanHCFGBuilderHIR;
+  friend class VPCloneUtils;
 
 private:
   // Pointer to the underlying HLLoop.

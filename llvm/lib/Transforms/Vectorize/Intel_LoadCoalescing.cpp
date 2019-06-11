@@ -37,6 +37,7 @@ const long MAX_SCHEDULER_ATTEMPTS = 60000;
 
 using namespace llvm;
 using namespace llvm::vpmemrefanalysis;
+using namespace llvm::vpo;
 
 // Turn this ON for testing
 static cl::opt<bool>

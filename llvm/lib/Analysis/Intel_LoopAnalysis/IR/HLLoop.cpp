@@ -1052,26 +1052,9 @@ bool HLLoop::hasDirective(int DirectiveID) const {
       return false;
     }
 
-    if (I->isIntelDirective(DirectiveID)) {
+    if (I->isDirective(DirectiveID)) {
       return true;
     }
-  }
-
-  return false;
-}
-
-bool HLLoop::isSIMD() const {
-  const HLNode *PrevNode = this;
-
-  while ((PrevNode = PrevNode->getPrevNode())) {
-    const HLInst *Inst = dyn_cast<HLInst>(PrevNode);
-
-    // Loop, IF, Switch, etc.
-    if (!Inst)
-      return false;
-
-    if (Inst->isSIMDDirective())
-      return true;
   }
 
   return false;

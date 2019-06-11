@@ -46,6 +46,10 @@ class TargetTransformInfo;
 class Type;
 class LLVMContext;
 
+class OVLSGroup;
+class OVLSMemref;
+class OVLSInstruction;
+
 // OptVLS data structures
 template <typename T> class OVLSVector : public SmallVector<T, 8> {};
 
@@ -65,13 +69,8 @@ typedef class raw_ostream OVLSostream;
 #define BYTE 8
 
 // OptVLS Abstract Types
-typedef class OVLSMemref OVLSMemref;
 typedef OVLSVector<OVLSMemref *> OVLSMemrefVector;
-
-typedef class OVLSGroup OVLSGroup;
 typedef OVLSVector<OVLSGroup *> OVLSGroupVector;
-
-typedef class OVLSInstruction OVLSInstruction;
 typedef OVLSVector<OVLSInstruction *> OVLSInstructionVector;
 
 typedef OVLSMap<OVLSMemref *, OVLSGroup *> OVLSMemrefToGroupMap;

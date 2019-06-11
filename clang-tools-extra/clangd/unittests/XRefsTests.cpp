@@ -25,10 +25,10 @@ namespace clang {
 namespace clangd {
 namespace {
 
-using testing::ElementsAre;
-using testing::IsEmpty;
-using testing::Matcher;
-using testing::UnorderedElementsAreArray;
+using ::testing::ElementsAre;
+using ::testing::IsEmpty;
+using ::testing::Matcher;
+using ::testing::UnorderedElementsAreArray;
 
 class IgnoreDiagnostics : public DiagnosticsConsumer {
   void onDiagnosticsReady(PathRef File,
@@ -120,7 +120,7 @@ MATCHER_P3(Sym, Name, Decl, DefOrNone, "") {
   }
   return true;
 }
-testing::Matcher<LocatedSymbol> Sym(std::string Name, Range Decl) {
+::testing::Matcher<LocatedSymbol> Sym(std::string Name, Range Decl) {
   return Sym(Name, Decl, llvm::None);
 }
 MATCHER_P(Sym, Name, "") { return arg.Name == Name; }
@@ -495,6 +495,17 @@ TEST(LocateSymbol, Ambiguous) {
   EXPECT_THAT(locateSymbolAt(AST, T.point("9")),
               // First one is class definition, second is the constructor.
               ElementsAre(Sym("Foo"), Sym("Foo")));
+}
+
+TEST(LocateSymbol, TemplateTypedefs) {
+  auto T = Annotations(R"cpp(
+    template <class T> struct function {};
+    template <class T> using callback = function<T()>;
+
+    c^allback<int> foo;
+  )cpp");
+  auto AST = TestTU::withCode(T.code()).build();
+  EXPECT_THAT(locateSymbolAt(AST, T.point()), ElementsAre(Sym("callback")));
 }
 
 TEST(LocateSymbol, RelPathsInCompileCommand) {

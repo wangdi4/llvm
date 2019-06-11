@@ -61,7 +61,7 @@ public:
   bool runOnFunction(Function &F) override;
   void releaseMemory() override;
 
-  void getAnalysisUsage(AnalysisUsage &AU) const {
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRParVecAnalysisWrapperPass>();
     AU.setPreservesAll();

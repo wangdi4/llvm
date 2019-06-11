@@ -82,6 +82,11 @@ static cl::opt<bool> EnableFirstIterPeelMEVec(
     cl::desc(
         "Enable first iteration peel loop for vectorized multi-exit loops."));
 
+// Force full VPValue based code generation.
+static cl::opt<bool>
+    EnableVPValueCodegen("enable-vp-value-codegen", cl::init(false), cl::Hidden,
+                         cl::desc("Enable VPValue based codegen"));
+
 extern cl::opt<bool> AllowMemorySpeculation;
 
 /// Don't vectorize loops with a known constant trip count below this number if
@@ -130,6 +135,8 @@ private:
     NewOpsStart = Instruction::OtherOpsEnd + 1,
     UMaxOp,
     SMaxOp,
+    UMinOp,
+    SMinOp,
     NewOpsEnd
   };
 
@@ -189,6 +196,8 @@ public:
   RegDDRef *visitAddRecExpr(const SCEVAddRecExpr *Expr);
   RegDDRef *visitSMaxExpr(const SCEVSMaxExpr *Expr);
   RegDDRef *visitUMaxExpr(const SCEVUMaxExpr *Expr);
+  RegDDRef *visitSMinExpr(const SCEVSMinExpr *Expr);
+  RegDDRef *visitUMinExpr(const SCEVUMinExpr *Expr);
   RegDDRef *visitUnknown(const SCEVUnknown *Expr);
   RegDDRef *visitCouldNotCompute(const SCEVCouldNotCompute *Expr);
 };
@@ -253,14 +262,25 @@ RegDDRef *NestedBlobCG::codegenNAryOp(const SCEVNAryExpr *SC, unsigned OpCode) {
     RegDDRef *InnerDDRef = visit(*Op);
     HLInst *WideInst;
 
-    if (OpCode == UMaxOp) {
-      WideInst = HNU.createSelect(CmpInst::ICMP_UGT, CurDDRef->clone(),
-                                  InnerDDRef->clone(), CurDDRef->clone(),
-                                  InnerDDRef->clone(), "NAry");
-    } else if (OpCode == SMaxOp) {
-      WideInst = HNU.createSelect(CmpInst::ICMP_SGT, CurDDRef->clone(),
-                                  InnerDDRef->clone(), CurDDRef->clone(),
-                                  InnerDDRef->clone(), "NAry");
+    if (OpCode == UMaxOp || OpCode == SMaxOp ||
+        OpCode == UMinOp || OpCode == SMinOp) {
+      const CmpInst::Predicate Pred = [&OpCode]() {
+        switch (OpCode) {
+        case UMaxOp:
+          return CmpInst::ICMP_UGT;
+        case SMaxOp:
+          return CmpInst::ICMP_SGT;
+        case UMinOp:
+          return CmpInst::ICMP_ULT;
+        case SMinOp:
+          return CmpInst::ICMP_SLT;
+        default:
+          llvm_unreachable("Unimplemented new OpCode");
+        }
+      } ();
+      WideInst =
+          HNU.createSelect(Pred, CurDDRef->clone(), InnerDDRef->clone(),
+                           CurDDRef->clone(), InnerDDRef->clone(), "NAry");
     } else {
       WideInst = HNU.createBinaryHLInst(OpCode, CurDDRef->clone(),
                                         InnerDDRef->clone(), "NAry");
@@ -321,6 +341,14 @@ RegDDRef *NestedBlobCG::visitSMaxExpr(const SCEVSMaxExpr *Expr) {
 
 RegDDRef *NestedBlobCG::visitUMaxExpr(const SCEVUMaxExpr *Expr) {
   return codegenNAryOp(Expr, UMaxOp);
+}
+
+RegDDRef *NestedBlobCG::visitSMinExpr(const SCEVSMinExpr *Expr) {
+  return codegenNAryOp(Expr, SMinOp);
+}
+
+RegDDRef *NestedBlobCG::visitUMinExpr(const SCEVUMinExpr *Expr) {
+  return codegenNAryOp(Expr, UMinOp);
 }
 
 RegDDRef *NestedBlobCG::visitUnknown(const SCEVUnknown *Expr) {
@@ -460,6 +488,13 @@ void HandledCheck::visit(HLDDNode *Node) {
     }
 
     auto TLval = Inst->getLvalDDRef();
+    if (EnableVPValueCodegen && TLval && TLval->isTerminalRef() &&
+        OrigLoop->isLiveOut(TLval->getSymbase())) {
+      LLVM_DEBUG(Inst->dump());
+      LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: VPValCG liveout not handled\n");
+      IsHandled = false;
+      return;
+    }
 
     if (!CG->isSearchLoop() && TLval && TLval->isTerminalRef() &&
         OrigLoop->isLiveOut(TLval->getSymbase()) &&
@@ -748,6 +783,8 @@ void VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
   // to have 1-iteration peeling functionality working for vectorized search
   // loops.
   bool SearchLoopNeedsPeeling =
+      TTI->isAdvancedOptEnabled(
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2) &&
       EnableFirstIterPeelMEVec && isSearchLoop() &&
       getSearchLoopType() == VPlanIdioms::SearchLoopStrEq;
   // We cannot peel any iteration of the loop when the trip count is constant
@@ -897,24 +934,14 @@ void VPOCodeGenHIR::eraseLoopIntrinsImpl(bool BeginDir) {
     if (auto *Inst = HInst->getIntrinCall()) {
       Intrinsic::ID IntrinID = Inst->getIntrinsicID();
 
-      if (vpo::VPOAnalysisUtils::isIntelClause(IntrinID)) {
-        HLNodeUtils::remove(HInst);
-        continue;
-      }
-
-      if (vpo::VPOAnalysisUtils::isIntelDirective(IntrinID) ||
-          vpo::VPOAnalysisUtils::isRegionDirective(IntrinID)) {
+      if (vpo::VPOAnalysisUtils::isRegionDirective(IntrinID)) {
         StringRef DirStr = vpo::VPOAnalysisUtils::getDirectiveString(
             const_cast<IntrinsicInst *>(Inst));
 
         int DirID = vpo::VPOAnalysisUtils::getDirectiveID(DirStr);
 
-        if (BeginOrEndDirIDs.count(DirID)) {
+        if (BeginOrEndDirIDs.count(DirID))
           HLNodeUtils::remove(HInst);
-        } else if (VPOAnalysisUtils::isListEndDirective(DirID)) {
-          HLNodeUtils::remove(HInst);
-          return;
-        }
       }
     }
   }
@@ -2034,12 +2061,14 @@ HLInst *VPOCodeGenHIR::widenNonMaskedUniformStore(const HLInst *INode) {
 HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
                                  SmallVectorImpl<RegDDRef *> &WideOps,
                                  RegDDRef *Mask,
-                                 SmallVectorImpl<RegDDRef *> &CallArgs) {
+                                 SmallVectorImpl<RegDDRef *> &CallArgs,
+                                 bool HasLvalArg) {
   const CallInst *Call = INode->getCallInst();
   assert(Call && "Unexpected null call");
   Function *Fn = Call->getCalledFunction();
   assert(Fn && "Unexpected null called function");
   StringRef FnName = Fn->getName();
+  RegDDRef *WideLval = HasLvalArg ? WideOps[0] : nullptr;
 
   // Default to svml. If svml is not available, try the intrinsic.
   Intrinsic::ID ID = Intrinsic::not_intrinsic;
@@ -2054,7 +2083,9 @@ HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
   }
 
   unsigned ArgOffset = 0;
-  if (!Fn->getReturnType()->isVoidTy()) {
+  // If WideOps contains the widened Lval, the actual call arguments start
+  // at position 1 in the WideOps vector.
+  if (HasLvalArg) {
     ArgOffset = 1;
   }
   SmallVector<Type *, 1> ArgTys;
@@ -2076,7 +2107,7 @@ HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
   assert(VectorF && "Can't create vector function.");
 
   auto *WideInst = INode->getHLNodeUtils().createCall(
-      VectorF, CallArgs, VectorF->getName(), WideOps[0]);
+      VectorF, CallArgs, VectorF->getName(), WideLval);
   Instruction *Inst = const_cast<Instruction *>(WideInst->getLLVMInstruction());
 
   if (isa<FPMathOperator>(Inst)) {
@@ -2102,10 +2133,12 @@ HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
   return WideInst;
 }
 
-void VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask,
-                              const OVLSGroup *Grp, int64_t InterleaveFactor,
-                              int64_t InterleaveIndex,
-                              const HLInst *GrpStartInst) {
+void VPOCodeGenHIR::widenNodeImpl(const HLInst *INode, RegDDRef *Mask,
+                                  const OVLSGroup *Grp,
+                                  int64_t InterleaveFactor,
+                                  int64_t InterleaveIndex,
+                                  const HLInst *GrpStartInst,
+                                  const VPInstruction *VPInst) {
   auto CurInst = INode->getLLVMInstruction();
   SmallVector<RegDDRef *, 6> WideOps;
   SmallVector<RegDDRef *, 1> CallArgs;
@@ -2164,6 +2197,7 @@ void VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask,
       INode->getLvalDDRef()->isTerminalRef() &&
       INode->getLvalDDRef()->isLiveOutOfParentLoop() && INode->hasRval() &&
       !INode->getRvalDDRef()->isNonLinear()) {
+    assert(Mask && "HLInst with linear ref does not have mask.");
     handleLiveOutLinearInEarlyExit(INode->clone(), Mask);
     return;
   }
@@ -2222,10 +2256,11 @@ void VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask,
     WideInst = INode->getHLNodeUtils().createCopyInst(
         WideOps[1], CurInst->getName() + ".vec", WideOps[0]);
   } else if (INode->isCallInst()) {
-    WideInst = widenCall(INode, WideOps, Mask, CallArgs);
+    bool HasLvalArg = INode->hasLval();
+    WideInst = widenCall(INode, WideOps, Mask, CallArgs, HasLvalArg);
     if (!WideInst)
       return;
-    if (WideInst->hasLval()) {
+    if (HasLvalArg) {
       // If this is a void function, there will be no LVal DDRef for it, so
       // don't try to insert it in the map. i.e., there are no users of an
       // LVal for a void function.
@@ -2241,6 +2276,7 @@ void VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask,
   // Add to WidenMap and handle generating code for any liveouts
   if (InsertInMap) {
     addToMapAndHandleLiveOut(INode->getLvalDDRef(), WideInst, MainLoop);
+    addVPValueWideRefMapping(VPInst, WideInst->getLvalDDRef());
     if (WideInst->getLvalDDRef()->isTerminalRef())
       WideInst->getLvalDDRef()->makeSelfBlob();
   }
@@ -2373,22 +2409,382 @@ void VPOCodeGenHIR::addPaddingRuntimeCheck(
 
 RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
   RegDDRef *WideRef = nullptr;
+  DDRefUtils &DDU = OrigLoop->getDDRefUtils();
+  HLNodeUtils &HNU = OrigLoop->getHLNodeUtils();
+  CanonExprUtils &CEU = HNU.getCanonExprUtils();
 
   // If the DDREF has a widened counterpart, return the same.
   if ((WideRef = getWideRefForVPVal(VPVal)))
     return WideRef->clone();
 
-  // TODO - Support for generating widened REF for VPVal will be added in
-  // subsequent patches that enable VPValue based code generation.
-  llvm_unreachable("Failed to find widened DDRef for VPVal");
+  if (auto *VPExtDef = dyn_cast<VPExternalDef>(VPVal)) {
+    const VPOperandHIR *HIROperand = VPExtDef->getOperandHIR();
+
+    if (const auto *Blob = dyn_cast<VPBlob>(HIROperand)) {
+      auto *BDDR = Blob->getBlob();
+      WideRef = DDU.createSelfBlobRef(BDDR->getSelfBlobIndex(),
+                                      BDDR->getDefinedAtLevel());
+      WideRef = widenRef(WideRef, VF);
+    } else {
+      const auto *IV = cast<VPIndVar>(HIROperand);
+      auto IVLevel = IV->getIVLevel();
+      auto RefDestTy = VPExtDef->getType();
+      auto VecRefDestTy = VectorType::get(RefDestTy, VF);
+
+      auto *CE = CEU.createCanonExpr(VecRefDestTy);
+      CE->addIV(IVLevel, InvalidBlobIndex /* no blob */,
+                1 /* constant IV coefficient */);
+      WideRef = DDU.createScalarRegDDRef(DDU.getNewSymbase(), CE);
+    }
+  } else {
+    assert(isa<VPConstant>(VPVal) && "Expected a VPConstant");
+    auto *VPConst = cast<VPConstant>(VPVal);
+    WideRef = DDU.createConstDDRef(VPConst->getConstant());
+    WideRef = widenRef(WideRef, VF);
+  }
+
+  assert(WideRef && "Expected non-null widened ref");
+  LLVM_DEBUG(WideRef->dump(true));
+  LLVM_DEBUG(errs() << "\n");
+  return WideRef;
+}
+
+// Given a widened ref corresponding to the pointer operand of
+// a load/store instruction, setup and return the pointer operand
+// for use in generating the load/store HLInst.
+static RegDDRef *getPointerOperand(RegDDRef *PtrOp, HLNodeUtils &HNU,
+                                   DDRefUtils &DDU, CanonExprUtils &CEU,
+                                   Type *VecRefDestTy, unsigned AddressSpace) {
+  RegDDRef *AddrRef;
+  if (PtrOp->isAddressOf()) {
+    // We generate an addressof ref from the GEP instruction. For
+    // generating load/store instruction, we need to clear the
+    // addressof.
+    AddrRef = PtrOp;
+    AddrRef->setAddressOf(false);
+  } else {
+    // PtrOp is an invariant blob - we need to generate a
+    // reference of the form blob[0].
+    assert(PtrOp->isSelfBlob() && "Expected self blob DDRef");
+    auto &HIRF = HNU.getHIRFramework();
+    llvm::Triple TargetTriple(HIRF.getModule().getTargetTriple());
+    auto Is64Bit = TargetTriple.isArch64Bit();
+    AddrRef = DDU.createMemRef(PtrOp->getSelfBlobIndex());
+    auto Int32Ty = Type::getInt32Ty(HNU.getContext());
+    auto Int64Ty = Type::getInt64Ty(HNU.getContext());
+    auto Zero = CEU.createCanonExpr(Is64Bit ? Int64Ty : Int32Ty);
+    AddrRef->addDimension(Zero);
+  }
+  AddrRef->setBitCastDestType(PointerType::get(VecRefDestTy, AddressSpace));
+  return AddrRef;
+}
+
+// Widen PHI instruction. The implementation here generates a sequence
+// of selects if VPPhi is marked as blend. Consider the following scalar
+// phi in bb0
+//      vp1 = phi [vp2, bb1] [vp3, bb2] [vp4, bb3].
+// The selects are generated as follows:
+//      select1 = mask_for_edge(bb0, bb2) ? vp3_vec : vp2_vec
+//      vp1_vec = mask_for_edge(bb0, bb3) ? vp4_vec : select1
+// The implementation here assumes that any PHI not marked as a blend
+// is the loop IV and widens it by generating the ref i1 + <0, 1, 2, .. VF-1>.
+// This assumption needs to change when we start handling reductions/linears.
+void VPOCodeGenHIR::widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask) {
+  HLNodeUtils &HNU = OrigLoop->getHLNodeUtils();
+  CanonExprUtils &CEU = HNU.getCanonExprUtils();
+  DDRefUtils &DDU = OrigLoop->getDDRefUtils();
+
+  // Blend marked PHIs using selects and incoming masks
+  if (VPPhi->getBlend()) {
+    unsigned NumIncomingValues = VPPhi->getNumIncomingValues();
+    auto *VPBB = VPPhi->getParent();
+    RegDDRef *BlendVal;
+    assert(NumIncomingValues && "Unexpected PHI with zero values");
+
+    // Generate a sequence of selects of the form:
+    // SELECT(Mask3, In3,
+    //      SELECT(Mask2, In2,
+    //                   ( ...)))
+    const SmallVectorImpl<VPBasicBlock::MaskBlockPair> &IncomingMasks =
+        VPBB->getIncomingMasks();
+
+    for (unsigned In = 0; In < NumIncomingValues; In++) {
+      // We might have single edge PHIs (blocks) - use an identity
+      // 'select' for the first PHI operand.
+      auto *PredVPBB = IncomingMasks[In].second;
+      RegDDRef *IncomingVecVal =
+          widenRef(VPPhi->getIncomingValue(PredVPBB), getVF());
+      if (In == 0)
+        BlendVal = IncomingVecVal; // Initialize with the first incoming value.
+      else {
+        // Select between the current value and the previous incoming edge
+        // based on the incoming mask.
+        RegDDRef *Cond = widenRef(IncomingMasks[In].first, getVF());
+        Type *CondTy = Cond->getDestType();
+        Constant *OneVal = Constant::getAllOnesValue(CondTy->getScalarType());
+        RegDDRef *OneValRef = getConstantSplatDDRef(DDU, OneVal, getVF());
+        HLInst *BlendInst = HNU.createSelect(CmpInst::ICMP_EQ, Cond, OneValRef,
+                                             IncomingVecVal, BlendVal);
+        addInst(BlendInst, Mask);
+        BlendVal = BlendInst->getLvalDDRef()->clone();
+      }
+    }
+    addVPValueWideRefMapping(VPPhi, BlendVal);
+    return;
+  }
+
+  // Assuming remaining PHIs to be loop induction - this will change with
+  // support for live-outs.
+  auto RefDestTy = VPPhi->getType();
+  auto VecRefDestTy = VectorType::get(RefDestTy, VF);
+
+  auto *CE = CEU.createCanonExpr(RefDestTy);
+  CE->setSrcType(VecRefDestTy);
+  CE->setDestType(VecRefDestTy);
+  CE->addIV(OrigLoop->getNestingLevel(), InvalidBlobIndex /* no blob */,
+            1 /* constant IV coefficient */);
+  SmallVector<Constant *, 4> ConstVec;
+  for (unsigned i = 0; i < VF; ++i)
+    ConstVec.push_back(ConstantInt::getSigned(RefDestTy, i));
+  unsigned Idx = 0;
+  CE->getBlobUtils().createConstantBlob(ConstantVector::get(ConstVec), true,
+                                        &Idx);
+  CE->addBlob(Idx, 1);
+  auto *NewRef = DDU.createScalarRegDDRef(DDU.getNewSymbase(), CE);
+  addVPValueWideRefMapping(VPPhi, NewRef);
+}
+
+void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
+                                  const OVLSGroup *Grp,
+                                  int64_t InterleaveFactor,
+                                  int64_t InterleaveIndex,
+                                  const HLInst *GrpStartInst) {
+  HLNodeUtils &HNU = OrigLoop->getHLNodeUtils();
+  CanonExprUtils &CEU = HNU.getCanonExprUtils();
+  DDRefUtils &DDU = OrigLoop->getDDRefUtils();
+  HLInst *WInst = nullptr;
+  SmallVector<RegDDRef *, 1> CallArgs;
+  const HLInst *CallInst = nullptr;
+
+  if (!Mask)
+    Mask = CurMaskValue;
+
+  if (auto *VPPhi = dyn_cast<VPPHINode>(VPInst)) {
+    widenPhiImpl(VPPhi, Mask);
+    return;
+  }
+
+  // Skip widening the first select operand. The select instruction is generated
+  // using operands of the instruction corresponding to the select mask.
+  bool SkipFirstSelectOp = VPInst->getOpcode() == Instruction::Select;
+  SmallVector<RegDDRef *, 6> WideOps;
+  for (const VPValue *Operand : VPInst->operands()) {
+    if (SkipFirstSelectOp) {
+      SkipFirstSelectOp = false;
+      continue;
+    }
+    RegDDRef *WideRef = widenRef(Operand, getVF());
+    WideOps.push_back(WideRef);
+  }
+
+  switch (VPInst->getOpcode()) {
+  case Instruction::UDiv:
+  case Instruction::SDiv:
+  case Instruction::SRem:
+  case Instruction::URem:
+  case Instruction::Add:
+  case Instruction::FAdd:
+  case Instruction::Sub:
+  case Instruction::FSub:
+  case Instruction::Mul:
+  case Instruction::FMul:
+  case Instruction::FDiv:
+  case Instruction::FRem:
+  case Instruction::Shl:
+  case Instruction::LShr:
+  case Instruction::AShr:
+  case Instruction::And:
+  case Instruction::Or:
+  case Instruction::Xor:
+    WInst = HNU.createBinaryHLInst(VPInst->getOpcode(), WideOps[0], WideOps[1],
+                                   ".vec");
+    break;
+
+  case Instruction::ICmp:
+  case Instruction::FCmp: {
+    auto *VPCmp = cast<VPCmpInst>(VPInst);
+    WInst =
+        HNU.createCmp(VPCmp->getPredicate(), WideOps[0], WideOps[1], ".vec");
+    break;
+  }
+
+  case Instruction::Select: {
+    auto PredInst = cast<VPCmpInst>(VPInst->getOperand(0));
+    RegDDRef *Pred0, *Pred1;
+
+    // In order for HIR idiom recognition to work, when generating the widened
+    // select we need to use operands of the compare instruction corresponding
+    // to the select mask.
+    Pred0 = widenRef(PredInst->getOperand(0), getVF());
+    Pred1 = widenRef(PredInst->getOperand(1), getVF());
+    WInst = HNU.createSelect(PredInst->getPredicate(), Pred0, Pred1, WideOps[0],
+                             WideOps[1], ".vec");
+    break;
+  }
+
+  case Instruction::ZExt:
+  case Instruction::SExt:
+  case Instruction::FPToUI:
+  case Instruction::FPToSI:
+  case Instruction::FPExt:
+  case Instruction::PtrToInt:
+  case Instruction::IntToPtr:
+  case Instruction::SIToFP:
+  case Instruction::UIToFP:
+  case Instruction::Trunc:
+  case Instruction::FPTrunc:
+  case Instruction::BitCast: {
+    auto RefDestTy = VPInst->getType();
+    auto VecRefDestTy = VectorType::get(RefDestTy, VF);
+
+    // For bitcasts of addressof refs, it is enough to set the bitcast
+    // destination type.
+    if (VPInst->getOpcode() == Instruction::BitCast &&
+        WideOps[0]->isAddressOf()) {
+      WideOps[0]->setBitCastDestType(VecRefDestTy);
+      addVPValueWideRefMapping(VPInst, WideOps[0]);
+      return;
+    }
+    WInst = HNU.createCastHLInst(VecRefDestTy, VPInst->getOpcode(), WideOps[0],
+                                 ".vec");
+    break;
+  }
+  case VPInstruction::SMax:
+    WInst = HNU.createSelect(CmpInst::ICMP_SGT, WideOps[0], WideOps[1],
+                             WideOps[0]->clone(), WideOps[1]->clone(), ".vec");
+    break;
+
+  case VPInstruction::UMax:
+    WInst = HNU.createSelect(CmpInst::ICMP_UGT, WideOps[0], WideOps[1],
+                             WideOps[0]->clone(), WideOps[1]->clone(), ".vec");
+    break;
+
+  case Instruction::GetElementPtr: {
+    auto RefDestTy = VPInst->getType();
+    auto VecRefDestTy = VectorType::get(RefDestTy, VF);
+    auto VPGEP = cast<VPGEPInstruction>(VPInst);
+
+    auto *NewRef = DDU.createAddressOfRef(WideOps[0]->getSelfBlobIndex(),
+                                          WideOps[0]->getDefinedAtLevel());
+    NewRef->setBitCastDestType(VecRefDestTy);
+    SmallVector<const RegDDRef *, 4> AuxRefs;
+
+    // Widened operands contain reference dimensions and trailing struct
+    // offsets. Add reference dimensions and trailing struct offsets.
+    for (unsigned OpIdx = 1; OpIdx < WideOps.size();) {
+      auto Operand = WideOps[OpIdx];
+      AuxRefs.push_back(Operand);
+      ++OpIdx;
+      SmallVector<unsigned, 2> StructOffsets;
+      while (OpIdx < WideOps.size() && VPGEP->isOperandStructOffset(OpIdx)) {
+        const VPValue *VPOffset = VPInst->getOperand(OpIdx);
+        ConstantInt *CVal =
+            cast<ConstantInt>(cast<VPConstant>(VPOffset)->getConstant());
+        unsigned Offset = CVal->getZExtValue();
+        StructOffsets.push_back(Offset);
+        ++OpIdx;
+      }
+      NewRef->addDimension(Operand->getSingleCanonExpr(), StructOffsets);
+    }
+
+    NewRef->makeConsistent(&AuxRefs, OrigLoop->getNestingLevel());
+    addVPValueWideRefMapping(VPInst, NewRef);
+    return;
+  }
+
+  case Instruction::Load: {
+    auto RefDestTy = VPInst->getType();
+    auto VecRefDestTy = VectorType::get(RefDestTy, VF);
+    unsigned AddressSpace =
+        cast<PointerType>(VPInst->getOperand(0)->getType())->getAddressSpace();
+    RegDDRef *AddrRef = getPointerOperand(WideOps[0], HNU, DDU, CEU,
+                                          VecRefDestTy, AddressSpace);
+    // TODO - Alignment information needs to be obtained from VPInstruction.
+    // For now we are forcing alignment based on RefDestTy.
+    setRefAlignment(RefDestTy, AddrRef);
+    WInst = HNU.createLoad(AddrRef, ".vec");
+    break;
+  }
+
+  case Instruction::Store: {
+    auto VecRefDestTy = WideOps[0]->getDestType();
+    unsigned AddressSpace =
+        cast<PointerType>(VPInst->getOperand(1)->getType())->getAddressSpace();
+    RegDDRef *AddrRef = getPointerOperand(WideOps[1], HNU, DDU, CEU,
+                                          VecRefDestTy, AddressSpace);
+    // TODO - Alignment information needs to be obtained from VPInstruction.
+    // For now we are forcing alignment based on scalar type of value being
+    // stored.
+    setRefAlignment(VPInst->getOperand(0)->getType(), AddrRef);
+    WInst = HNU.createStore(WideOps[0], ".vec", AddrRef);
+    addInst(WInst, Mask);
+    return;
+  }
+
+  case Instruction::Call: {
+    // TODO - VPValue codegen for call instructions still accesses
+    // underlying node. This needs to be changed when we add all
+    // necessary information such as call properties to VPInstruction.
+    CallInst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingNode());
+    assert(CallInst && CallInst->isCallInst() &&
+           "Expected non-null underlying call instruction");
+
+    // The Lval is not represented as an explicit operand in VPInstructions.
+    WInst =
+        widenCall(CallInst, WideOps, Mask, CallArgs, false /* HasLvalArg */);
+    if (!WInst)
+      return;
+    break;
+  }
+
+  case VPInstruction::Not:
+    WInst = HNU.createNot(WideOps[0], ".vec");
+    break;
+
+  case VPInstruction::Pred:
+    // Pred instruction is only used to mark the current block predicate. Simply
+    // set the current mask value.
+    setCurMaskValue(WideOps[0]);
+    return;
+
+  default:
+    LLVM_DEBUG(VPInst->dump());
+    llvm_unreachable("Unexpected VPInstruction opcode");
+  }
+
+  addInst(WInst, Mask);
+  if (WInst->hasLval())
+    addVPValueWideRefMapping(VPInst, WInst->getLvalDDRef());
+
+  // We need to hook up WideInst before we call analyzeCallArgMemoryReferences
+  // as getConstStrideAtLevel expects a ref whose stride is being checked to be
+  // attached to HIR. We analyze memory references in call args for stride
+  // information if CallArgs is non-empty.
+  if (!CallArgs.empty())
+    analyzeCallArgMemoryReferences(CallInst, WInst, CallArgs);
 }
 
 void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
                               const OVLSGroup *Grp, int64_t InterleaveFactor,
                               int64_t InterleaveIndex,
                               const HLInst *GrpStartInst) {
+  if (EnableVPValueCodegen) {
+    widenNodeImpl(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
+                  GrpStartInst);
+    return;
+  }
+
   HLInst *WInst = nullptr;
-  HLNodeUtils &HNU = OrigLoop->getHLNodeUtils();
   const VPInstruction::HIRSpecifics &HIR = VPInst->HIR;
   if (!Mask)
     Mask = CurMaskValue;
@@ -2427,8 +2823,8 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
 
     // Generate code using underlying HLInst.
     if (auto *Inst = dyn_cast<HLInst>(HNode)) {
-      widenNode(Inst, Mask, Grp, InterleaveFactor, InterleaveIndex,
-                GrpStartInst);
+      widenNodeImpl(Inst, Mask, Grp, InterleaveFactor, InterleaveIndex,
+                    GrpStartInst, VPInst);
       return;
     }
 
@@ -2456,43 +2852,18 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
   // Invalid HIR for a non-decomposed PHI node means that it was most probably a
   // PHI node introduced while fixing PHI nodes (by IDF) after HIR decomposer.
   // In this case it's safe to just skip such PHI because other, decomposed,
-  // instructions will handle code gen properly.
+  // instructions will handle code gen properly. Even with full VPValue based
+  // code generation, we run into this issue for cases such as reductions. This
+  // code can be removed once we have code generation support for explicit
+  // reductions is added.
   if (isa<VPPHINode>(VPInst)) {
     LLVM_DEBUG(dbgs() << "Skipping PHI node added by IDF after HIR decomposer:"
                       << *VPInst << "\n");
     return;
   }
 
-  SmallVector<RegDDRef *, 6> WideOps;
-  for (const VPValue *Operand : VPInst->operands()) {
-    RegDDRef *WideRef = widenRef(Operand, getVF());
-    WideOps.push_back(WideRef);
-  }
-
-  switch (VPInst->getOpcode()) {
-  case Instruction::And:
-  case Instruction::Or:
-    WInst = HNU.createBinaryHLInst(VPInst->getOpcode(), WideOps[0], WideOps[1],
-                                   ".vec");
-    break;
-
-  case VPInstruction::Not:
-    WInst = HNU.createNot(WideOps[0], ".vec");
-    break;
-
-  case VPInstruction::Pred:
-    // Pred instruction is only used to mark the current block predicate. Simply
-    // set the current mask value.
-    setCurMaskValue(WideOps[0]);
-    return;
-
-  default:
-    LLVM_DEBUG(VPInst->dump());
-    llvm_unreachable("Unexpected VPInstruction opcode");
-  }
-
-  addInst(WInst, Mask);
-  addVPValueWideRefMapping(VPInst, WInst->getLvalDDRef());
+  widenNodeImpl(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
+                GrpStartInst);
 }
 
 } // end namespace llvm

@@ -6,13 +6,13 @@
 
 ; CHECK: BEGIN REGION
 ; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>
-; CHECK: |   @llvm.intel.directive(![[OMP_SIMD:[0-9]+]]);
+; CHECK: |   [[ENTRY:%.*]] = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
 ;        |
 ; CHECK: |   + DO i2 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>
 ; CHECK: |   |   (%p)[i2] = i2;
 ; CHECK: |   + END LOOP
 ;        |
-; CHECK: |   @llvm.intel.directive(![[OMP_SIMD]]);
+; CHECK: |   @llvm.directive.region.exit([[ENTRY]]); [ DIR.VPO.END.AUTO.VEC() ]
 ;        |
 ; CHECK: |   + DO i2 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>
 ; CHECK: |   |   (%q)[i2] = i2;

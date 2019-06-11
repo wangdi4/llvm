@@ -1917,7 +1917,7 @@ void LoopSPMDization::AddZeroTripCountCheck(Loop *L, ScalarEvolution *SE,
 
   PreHeaderBR->eraseFromParent();
 
-  BasicBlock *NewPH = InsertPreheaderForLoop(L, DT, LI, true);
+  BasicBlock *NewPH = InsertPreheaderForLoop(L, DT, LI, nullptr, true);
   if (ZTCType == ZTCMode::Nested) {
     // Move section entry from .e block to the  new preheader to avoid bad
     // section placement

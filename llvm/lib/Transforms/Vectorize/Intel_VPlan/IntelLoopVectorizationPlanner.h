@@ -80,7 +80,7 @@ public:
   /// Build initial VPlans according to the information gathered by Legal
   /// when it checked if it is legal to vectorize this loop.
   /// Returns the number of VPlans built, zero if failed.
-  unsigned buildInitialVPlans(LLVMContext *Context);
+  unsigned buildInitialVPlans(LLVMContext *Context, const DataLayout *DL);
 
   virtual void collectDeadInstructions();
 
@@ -126,6 +126,8 @@ public:
     return It != VPlans.end() ? It->second.get() : nullptr;
   }
 
+  VPlan *getScalarVPlan(void) const { return getVPlanForVF(1); }
+
   bool hasVPlanForVF(const unsigned VF) const { return VPlans.count(VF) != 0; }
 
 protected:
@@ -138,7 +140,8 @@ protected:
   // class.
   virtual std::shared_ptr<VPlan> buildInitialVPlan(unsigned StartRangeVF,
                                                    unsigned &EndRangeVF,
-                                                   LLVMContext *Context);
+                                                   LLVMContext *Context,
+                                                   const DataLayout *DL);
 
   /// \Returns a pair of the <min, max> types' width used in the underlying loop.
   /// Doesn't take into account i1 type.

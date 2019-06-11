@@ -102,7 +102,9 @@ VPBasicBlock *VPBlockUtils::splitBlock(VPBlockBase *Block,
                                        VPPostDominatorTree &PostDomTree,
                                        VPlan *Plan) {
   VPBasicBlock *NewBlock = new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
-  insertBlockAfter(NewBlock, Block, Plan);
+  if (isa<VPBasicBlock>(Block))
+    cast<VPBasicBlock>(Block)->moveConditionalEOBTo(NewBlock, Plan);
+  insertBlockAfter(NewBlock, Block);
 
   // Add NewBlock to VPLoopInfo
   if (VPLoop *Loop = VPLInfo->getLoopFor(Block)) {
@@ -205,6 +207,15 @@ VPBlockBase *VPBlockBase::getAncestorWithPredecessors() {
   return Parent->getAncestorWithPredecessors();
 }
 
+void VPBlockBase::setTwoSuccessors(VPValue *ConditionV, VPBlockBase *IfTrue,
+                                   VPBlockBase *IfFalse, VPlan *Plan) {
+  assert(Successors.empty() && "Setting two successors when others exist.");
+  setCondBit(ConditionV);
+  Plan->setCondBitUser(ConditionV, this);
+  appendSuccessor(IfTrue);
+  appendSuccessor(IfFalse);
+}
+
 void VPBlockBase::deleteCFG(VPBlockBase *Entry) {
   SmallVector<VPBlockBase *, 8> Blocks;
   for (VPBlockBase *Block : depth_first(Entry))
@@ -213,14 +224,6 @@ void VPBlockBase::deleteCFG(VPBlockBase *Entry) {
   for (VPBlockBase *Block : Blocks)
     delete Block;
 }
-
-#if INTEL_CUSTOMIZATION
-void VPBlockBase::setCondBit(VPValue *CB, VPlan *Plan) {
-  CondBit = CB;
-  if (CB)
-    Plan->setCondBitUser(CB, this);
-}
-#endif
 
 BasicBlock *
 #if INTEL_CUSTOMIZATION
@@ -487,11 +490,13 @@ void VPBasicBlock::moveConditionalEOBTo(VPBasicBlock *ToBB, VPlan *Plan) {
   // original VPBB recipe list.
   if (getNumSuccessors() > 1) {
     assert(getCondBit() && "Missing CondBit");
-    ToBB->setCondBit(getCondBit(), Plan);
+    ToBB->setCondBit(getCondBit());
+    Plan->setCondBitUser(getCondBit(), ToBB);
     ToBB->setCBlock(CBlock);
     ToBB->setTBlock(TBlock);
     ToBB->setFBlock(FBlock);
-    setCondBit(nullptr, Plan);
+    Plan->removeCondBitUser(getCondBit(), this);
+    setCondBit(nullptr);
     CBlock = TBlock = FBlock = nullptr;
   }
 }
@@ -525,8 +530,11 @@ void VPBasicBlock::dump(raw_ostream &OS, unsigned Indent) const {
     const VPInstruction *CBI = dyn_cast<VPInstruction>(CB);
     if (CBI && CBI->getNumOperands()) {
       if (CBI->getParent() != this) {
-        OS << StrIndent << " Condition(" << CBI->getParent()->getName()
-           << "): " << *CBI;
+        OS << StrIndent << " Condition(";
+        if (CBI->getParent()) {
+          OS << CBI->getParent()->getName();
+        }
+        OS << "): " << *CBI;
       }
     } else {
       // We fall here if VPInstruction has no operands or Value is
@@ -834,6 +842,45 @@ void VPInstruction::execute(VPTransformState &State) {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+const char *VPInstruction::getOpcodeName(unsigned Opcode) {
+  switch (Opcode) {
+  case VPInstruction::Not:
+    return "not";
+#if INTEL_CUSTOMIZATION
+  case VPInstruction::AllZeroCheck:
+    return "all-zero-check";
+  case VPInstruction::Pred:
+    return "block-predicate";
+  case VPInstruction::SMax:
+    return "smax";
+  case VPInstruction::UMax:
+    return "umax";
+  case VPInstruction::SMin:
+    return "smin";
+  case VPInstruction::UMin:
+    return "umin";
+  case VPInstruction::FMax:
+    return "fmax";
+  case VPInstruction::FMin:
+    return "fmin";
+  case VPInstruction::InductionInit:
+    return "induction-init";
+  case VPInstruction::InductionInitStep:
+    return "induction-init-step";
+  case VPInstruction::InductionFinal:
+    return "induction-final";
+  case VPInstruction::ReductionInit:
+    return "reduction-init";
+  case VPInstruction::ReductionFinal:
+    return "reduction-final";
+  case VPInstruction::AllocatePrivate:
+    return "allocate-priv";
+#endif
+  default:
+    return Instruction::getOpcodeName(Opcode);
+  }
+}
+
 void VPInstruction::print(raw_ostream &O, const Twine &Indent) const {
   O << " +\n" << Indent << "\"EMIT ";
   print(O);
@@ -859,36 +906,48 @@ void VPInstruction::print(raw_ostream &O) const {
 #endif /* INTEL_CUSTOMIZATION */
 
   switch (getOpcode()) {
-  case VPInstruction::Not:
-    O << "not";
-    break;
 #if INTEL_CUSTOMIZATION
-  case VPInstruction::AllZeroCheck:
-    O << "all-zero-check";
-    break;
-  case VPInstruction::Pred:
-    O << "block-predicate";
-    break;
-  case VPInstruction::SMax:
-    O << "smax";
-    break;
-  case VPInstruction::UMax:
-    O << "umax";
-    break;
   case Instruction::Br:
     cast<VPBranchInst>(this)->print(O);
     return;
   case Instruction::GetElementPtr:
-    O << Instruction::getOpcodeName(getOpcode());
+    O << getOpcodeName(getOpcode());
     if (auto *VPGEP = dyn_cast<const VPGEPInstruction>(this)) {
       if (VPGEP->isInBounds()) {
         O << " inbounds";
       }
     }
     break;
+  case VPInstruction::InductionInit:
+    O << getOpcodeName(getOpcode()) << "{"
+      << getOpcodeName(cast<const VPInductionInit>(this)->getBinOpcode())
+      << "}";
+    break;
+  case VPInstruction::InductionInitStep:
+    O << getOpcodeName(getOpcode()) << "{"
+      << getOpcodeName(cast<const VPInductionInitStep>(this)->getBinOpcode())
+      << "}";
+    break;
+  case VPInstruction::InductionFinal: {
+    O << getOpcodeName(getOpcode());
+    const VPInductionFinal *Ind = cast<const VPInductionFinal>(this);
+    if (Ind->getBinOpcode() != Instruction::BinaryOpsEnd)
+      O << "{" << getOpcodeName(Ind->getBinOpcode()) << "}";
+    break;
+  }
+  case VPInstruction::ReductionFinal: {
+    O << getOpcodeName(getOpcode()) << "{";
+    Type *Ty = getType();
+    if (Ty->isIntegerTy()) {
+      O << (cast<const VPReductionFinal>(this)->isSigned() ? "s_" : "u_");
+    }
+    O << getOpcodeName(cast<const VPReductionFinal>(this)->getBinOpcode())
+      << "}";
+    break;
+  }
 #endif
   default:
-    O << Instruction::getOpcodeName(getOpcode());
+    O << getOpcodeName(getOpcode());
   }
 
 #if INTEL_CUSTOMIZATION
@@ -910,6 +969,10 @@ void VPInstruction::print(raw_ostream &O) const {
       PrintValueWithBB(i);
     }
   } else {
+    if (getOpcode() == VPInstruction::AllocatePrivate) {
+      O << " ";
+      getType()->print(O);
+    }
 #endif // INTEL_CUSTOMIZATION
     for (const VPValue *Operand : operands()) {
       O << " ";
@@ -940,7 +1003,6 @@ void VPInstruction::print(raw_ostream &O) const {
 // LoopVectorBody basic block was created for this; introduces additional
 // basic blocks as needed, and fills them all.
 void VPlan::execute(VPTransformState *State) {
-
 #if INTEL_CUSTOMIZATION
   // The community version and "vpo" version of "execute" for VPlan, diverge
   // considerably. Instead of having INTEL_CUSTOMIZATION for every few lines
@@ -1211,10 +1273,15 @@ void VPlan::dump(raw_ostream &OS) const {
     VPLoopEntityList *E = EIter->second.get();
     E->dump(OS, EIter->first->getHeader());
   }
-  getEntry()->dump(OS, 1);
+  const VPBlockBase *Entry = getEntry();
+  Entry->dump(OS, 1);
+  for (auto &Succ : Entry->getSuccessors()) {
+    Succ->dump(OS, 1);
+  }
 }
+
 void VPlan::dump() const {
-  dump(errs());
+  dump(dbgs());
 }
 
 void VPlan::dumpLivenessInfo(raw_ostream &OS) const {
@@ -1748,7 +1815,8 @@ void VPBranchInst::print(raw_ostream &O) const {
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-void VPValue::replaceAllUsesWith(VPValue *NewVal, VPLoop *Loop) {
+void VPValue::replaceAllUsesWithImpl(VPValue *NewVal, VPLoop *Loop) {
+  assert(NewVal && "Can't replace uses with null value");
   assert(getType() == NewVal->getType() && "Incompatible data types");
   unsigned Cnt = 0;
   while (getNumUsers() > Cnt) {
@@ -1760,6 +1828,35 @@ void VPValue::replaceAllUsesWith(VPValue *NewVal, VPLoop *Loop) {
         }
     Users[Cnt]->replaceUsesOfWith(this, NewVal);
   }
+}
+
+void VPBlockUtils::setParentRegionForBody(VPRegionBlock *Region) {
+  for (VPBlockBase *Block :
+       make_range(df_iterator<VPBlockBase *>::begin(Region->getEntry()),
+                  df_iterator<VPBlockBase *>::end(Region->getExit()))) {
+    Block->setParent(Region);
+  }
+}
+
+const VPLoopRegion *VPlanUtils::findNthLoopDFS(const VPlan *Plan, unsigned N) {
+  std::function<const VPLoopRegion *(const VPBlockBase *)> Dfs =
+      [&](const VPBlockBase *Block) -> const VPLoopRegion * {
+    if (const auto Loop = dyn_cast<const VPLoopRegion>(Block)) {
+      --N;
+      if (N == 0) {
+        return Loop;
+      }
+    }
+
+    if (const auto Region = dyn_cast<const VPRegionBlock>(Block))
+      for (const VPBlockBase *Block : depth_first(Region->getEntry()))
+        if (const VPLoopRegion *Loop = Dfs(Block))
+          return Loop;
+
+    return nullptr;
+  };
+
+  return Dfs(Plan->getEntry());
 }
 
 using VPDomTree = DomTreeBase<VPBlockBase>;

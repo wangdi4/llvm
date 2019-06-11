@@ -51,7 +51,7 @@
 2 Label 28
 4 Load 14 29 27
 5 SLessThan 12 30 29 4
-5 LoopMerge 31 32 5890 4
+6 LoopMerge 31 32 2147483648 5890 4
 4 BranchConditional 30 33 31
 
 2 Label 33

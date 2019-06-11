@@ -40,6 +40,7 @@
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/Instructions.h"
@@ -238,7 +239,7 @@ void VPOParoptTransform::
 // new_team_lb = lb + get_group_id(Idx) * team_chunk_size;
 // new_team_ub = min(new_team_lb + team_chunk_size - 1, ub);
 //
-// for (i = new_team_lb; i <= new_team_ub; i++TeamUB)
+// for (i = new_team_lb; i <= new_team_ub; i += TeamStride)
 //
 // Idx -- the dimension index.
 // LowerBnd -- the stack variable which holds the loop lower bound.
@@ -250,7 +251,8 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
     Instruction *&TeamST) {
   if (!W->getIsDistribute())
     return;
-  assert(W->getIsOmpLoop() && "genOCLLoopBoundUpdateCode: W is not a loop-type WRN");
+  assert(W->getIsOmpLoop() &&
+         "genOCLDistParLoopBoundUpdateCode: W is not a loop-type WRN");
   Loop *L = W->getWRNLoopInfo().getLoop(Idx);
   assert(L && "genOCLDistParLoopBoundUpdateCode: Expect non-empty loop.");
   Instruction *InsertPt =
@@ -354,6 +356,8 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
 void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
                                                    AllocaInst *LowerBnd,
                                                    AllocaInst *UpperBnd,
+                                                   AllocaInst *TeamLowerBnd,
+                                                   AllocaInst *TeamUpperBnd,
                                                    AllocaInst *SchedStride) {
   assert(W->getIsOmpLoop() && "genOCLLoopBoundUpdateCode: W is not a loop-type WRN");
   assert (LowerBnd->getType() == UpperBnd->getType() &&
@@ -372,8 +376,26 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
       VPOParoptUtils::genOCLGenericCall("_Z14get_local_sizej",
                                         GeneralUtils::getSizeTTy(F),
                                         Arg, InsertPt);
-  Value *LB = Builder.CreateLoad(LowerBnd);
-  Value *UB = Builder.CreateLoad(UpperBnd);
+  assert(((TeamLowerBnd && TeamUpperBnd) ||
+          (!TeamLowerBnd && !TeamUpperBnd)) &&
+         "genOCLLoopBoundUpdateCode: team lower/upper bounds "
+         "must be created together.");
+
+  Value *LB = nullptr;
+  Value *UB = nullptr;
+
+  if (TeamLowerBnd) {
+    // Update lower/upper bounds from the team bounds.
+    LB = Builder.CreateLoad(TeamLowerBnd);
+    Builder.CreateStore(LB, LowerBnd);
+    UB = Builder.CreateLoad(TeamUpperBnd);
+    Builder.CreateStore(UB, UpperBnd);
+  }
+  else {
+    LB = Builder.CreateLoad(LowerBnd);
+    UB = Builder.CreateLoad(UpperBnd);
+  }
+
   Value *ItSpace = Builder.CreateSub(UB, LB);
 
   WRNScheduleKind SchedKind = VPOParoptUtils::getLoopScheduleKind(W);
@@ -486,9 +508,13 @@ void VPOParoptTransform::genOCLLoopPartitionCode(
     wrnUpdateLiveOutVals(L, LoopRegionExitBB, LiveOutVals, ECs);
     rewriteUsesOfOutInstructions(ValueToLiveinMap, LiveOutVals, ECs);
   } else if (SchedKind == WRNScheduleStatic) {
+    // With "teams distribute" the workitem's loop iteration count
+    // threshold is the team's upper bound, otherwise, it is
+    // the original loop's upper bound.
     Loop *OuterLoop = genDispatchLoopForStatic(
-        L, LoadLB, LoadUB, LowerBnd, UpperBnd, UpperBndVal, SchedStride,
-        LoopExitBB, StaticInitBB, LoopRegionExitBB);
+        L, LoadLB, LoadUB, LowerBnd, UpperBnd,
+        TeamUB ? TeamUB : UpperBndVal,
+        SchedStride, LoopExitBB, StaticInitBB, LoopRegionExitBB);
     wrnUpdateLiveOutVals(OuterLoop, LoopRegionExitBB, LiveOutVals, ECs);
     wrnUpdateSSAPreprocessForOuterLoop(OuterLoop, ValueToLiveinMap, LiveOutVals,
                                        ECs);
@@ -803,7 +829,8 @@ bool VPOParoptTransform::genOCLParallelLoop(WRegionNode *W) {
 
     if (isa<WRNParallelSectionsNode>(W) || isa<WRNParallelLoopNode>(W) ||
         isa<WRNDistributeParLoopNode>(W))
-      genOCLLoopBoundUpdateCode(W, I - 1, LowerBnd, UpperBnd, SchedStride);
+      genOCLLoopBoundUpdateCode(W, I - 1, LowerBnd, UpperBnd,
+                                TeamLowerBnd, TeamUpperBnd, SchedStride);
 
     genOCLLoopPartitionCode(W, I - 1, LowerBnd, UpperBnd, SchedStride,
                             TeamLowerBnd, TeamUpperBnd, TeamStride, UpperBndVal,
@@ -812,6 +839,74 @@ bool VPOParoptTransform::genOCLParallelLoop(WRegionNode *W) {
 
   W->resetBBSet(); // CFG changed; clear BBSet
   return true;
+}
+
+bool VPOParoptTransform::renameAndReplaceLibatomicCallsForSPIRV(Function *F) {
+  bool Changed = false;
+  for (inst_iterator II = inst_begin(F), E = inst_end(F); II != E; ++II) {
+    Instruction *I = &*II;
+    if (!isa<CallInst>(I))
+      continue;
+
+    auto *CI = cast<CallInst>(I);
+    Function *CF = CI->getCalledFunction();
+    if (!CF || !CF->hasName())
+      continue;
+
+    StringRef FName = CF->getName();
+    if (FName != "__atomic_load" && FName != "__atomic_store" &&
+        FName != "__atomic_compare_exchange")
+      continue;
+
+    const auto &Attributes = CF->getAttributes();
+    Module *M = F->getParent();
+    IRBuilder<> Builder(CI);
+
+    Type *PtrTy =
+        PointerType::get(Builder.getInt8Ty(), 4 /*ADDRESS_SPACE_GENERIC*/);
+    Type *VoidTy = Builder.getVoidTy();
+    Type *I32Ty = Builder.getInt32Ty();
+    Type *I64Ty = Builder.getInt64Ty();
+    Type *I1Ty = Builder.getInt1Ty();
+
+    auto castArgumentToAddressSpaceGeneric = [&Builder, &PtrTy,
+                                              &CI](unsigned Idx) {
+      CI->setArgOperand(Idx, Builder.CreatePointerBitCastOrAddrSpaceCast(
+                                 CI->getArgOperand(Idx), PtrTy));
+    };
+
+    auto castArgumentToI64 = [&Builder, &I64Ty, &CI](unsigned Idx) {
+      CI->setArgOperand(
+          Idx, Builder.CreateIntCast(CI->getArgOperand(Idx), I64Ty, false));
+    };
+
+    FunctionCallee NewFC;
+    if (FName == "__atomic_load") {
+      NewFC = M->getOrInsertFunction("__kmpc_atomic_load", Attributes, VoidTy,
+                                     I64Ty, PtrTy, PtrTy, I32Ty);
+      CI->setCalledFunction(NewFC);
+    } else if (FName == "__atomic_store") {
+      NewFC = M->getOrInsertFunction("__kmpc_atomic_store", Attributes, VoidTy,
+                                     I64Ty, PtrTy, PtrTy, I32Ty);
+      CI->setCalledFunction(NewFC);
+    } else if (FName == "__atomic_compare_exchange") {
+      NewFC = M->getOrInsertFunction("__kmpc_atomic_compare_exchange",
+                                     Attributes, I1Ty, I64Ty, PtrTy, PtrTy,
+                                     PtrTy, I32Ty, I32Ty);
+      CI->setCalledFunction(NewFC);
+      castArgumentToAddressSpaceGeneric(3);
+    } else
+      llvm_unreachable("Unexpected function name");
+
+    castArgumentToI64(0); // Needed as it is I32 for __atomic* for spir target
+    castArgumentToAddressSpaceGeneric(1);
+    castArgumentToAddressSpaceGeneric(2);
+
+    cast<Function>(NewFC.getCallee())->setDSOLocal(true);
+    Changed = true;
+  }
+
+  return Changed;
 }
 
 //
@@ -873,6 +968,9 @@ bool VPOParoptTransform::paroptTransforms() {
   bool IsTargetSPIRV = VPOAnalysisUtils::isTargetSPIRV(F->getParent()) &&
                        hasOffloadCompilation();
   bool NeedTID, NeedBID;
+
+  if (IsTargetSPIRV && (Mode & ParPrepare))
+    RoutineChanged |= renameAndReplaceLibatomicCallsForSPIRV(F);
 
   // Collects the list of WRNs into WRegionList, and sets NeedTID and NeedBID
   // to true/false depending on whether it finds a WRN that needs the TID or
@@ -3094,15 +3192,27 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
 
       Value *ReplacementVal = getClauseItemReplacementValue(LprivI, InsertPt);
       genPrivatizationReplacement(W, Orig, ReplacementVal, LprivI);
-      if (!ForTask) {
-        // Emit constructor call for lastprivate var if it is not also a
-        // firstprivate (in which case the firsprivate init emits a cctor).
-        if (LprivI->getInFirstprivate() == nullptr)
-          VPOParoptUtils::genConstructorCall(LprivI->getConstructor(),
-                                             NewPrivInst, NewPrivInst);
+
+      // Emit constructor call for lastprivate var if it is not also a
+      // firstprivate (in which case the firstprivate init emits a cctor).
+      if (LprivI->getInFirstprivate() == nullptr)
+        VPOParoptUtils::genConstructorCall(LprivI->getConstructor(),
+                                           NewPrivInst, NewPrivInst);
+      // Generate the if-last-then-copy-out code.
+      if (!ForTask)
         genLprivFini(LprivI, IfLastIterBB->getTerminator());
-      } else
+      else
         genLprivFiniForTaskLoop(LprivI, IfLastIterBB->getTerminator());
+
+      // For tasks, call the destructor for the internal lastprivate var
+      // at the very end (after the thread may have copied-out)
+      // If the var is also firstprivate, the runtime will destruct it.
+      if (ForTask && LprivI->getDestructor() &&
+          LprivI->getInFirstprivate() == nullptr) {
+        VPOParoptUtils::genDestructorCall(LprivI->getDestructor(),
+                                          LprivI->getNew(),
+                                          W->getExitBBlock()->getTerminator());
+      }
 
       if (isa<WRNVecLoopNode>(W) && LprivI->getIsConditional()) {
         // For the following case:
@@ -3483,7 +3593,7 @@ bool VPOParoptTransform::sinkSIMDDirectives(WRegionNode *W) {
     // FIXME: pass false for PreserveLCSSA for the time being.
     //        Pass the actual value, when it is clear, how
     //        to compute it with the new pass manager.
-    PreheaderBB = InsertPreheaderForLoop(L, DT, LI, false);
+    PreheaderBB = InsertPreheaderForLoop(L, DT, LI, nullptr, false);
     Changed = true;
   }
 
@@ -3877,7 +3987,6 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
   bool Changed = false;
 
   BasicBlock *EntryBB = W->getEntryBBlock();
-  BasicBlock *ExitBB = W->getExitBBlock();
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genPrivatizationCode\n");
 
@@ -3912,7 +4021,7 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
 
     bool ForTask = W->getWRegionKindID() == WRegionNode::WRNTaskloop ||
                    W->getWRegionKindID() == WRegionNode::WRNTask;
-
+    BasicBlock *DestrBlock = nullptr;
     // Walk through each PrivateItem list in the private clause to perform
     // privatization for each Value item
     for (PrivateItem *PrivI : PrivClause.items()) {
@@ -3946,6 +4055,9 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
         //
         //   Instruction *AllocaInsertPt = EntryBB->front().getNextNode();
 
+        // TODO: Restructure this code so that the alloca is only done for
+        // non-tasks. We could just use the thunk's private space pointer
+        // directly in the task body.
         Instruction *AllocaInsertPt = EntryBB->getFirstNonPHI();
         NewPrivInst = genPrivatizationAlloca(PrivI, AllocaInsertPt, ".priv");
         PrivI->setNew(NewPrivInst);
@@ -3953,28 +4065,17 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
             getClauseItemReplacementValue(PrivI, AllocaInsertPt);
         genPrivatizationReplacement(W, Orig, ReplacementVal, PrivI);
 
-        if (!ForTask) {
-          PrivI->setNew(NewPrivInst);
-          VPOParoptUtils::genConstructorCall(PrivI->getConstructor(),
-                                             NewPrivInst, NewPrivInst);
-        } else {
-          AllocaInst *AI = cast<AllocaInst>(NewPrivInst);
-          const DataLayout &DL = AI->getModule()->getDataLayout();
-          // The compiler creates the stack space for the local vars. Thus
-          // the data needs to be copied from the thunk to the local vars.
-          if (!VPOUtils::canBeRegisterized(AI->getAllocatedType(), DL)) {
-            VPOUtils::genMemcpy(AI, PrivI->getNew(), DL, AI->getAlignment(),
-                                EntryBB);
-            VPOUtils::genMemcpy(PrivI->getNew(), AI, DL, AI->getAlignment(),
-                                ExitBB);
-          } else {
-            IRBuilder<> Builder(EntryBB->getTerminator());
-            Builder.CreateStore(Builder.CreateLoad(PrivI->getNew()),
-                                NewPrivInst);
-            Builder.SetInsertPoint(ExitBB->getTerminator());
-            Builder.CreateStore(Builder.CreateLoad(NewPrivInst),
-                                PrivI->getNew());
-          }
+        // checks for constructor existence
+        VPOParoptUtils::genConstructorCall(PrivI->getConstructor(), NewPrivInst,
+                                           NewPrivInst);
+        if (ForTask && PrivI->getDestructor()) {
+          // For tasks, call the destructor at the end of the region.
+          // For non-tasks, genDestructorCode takes care of this.
+          if (!DestrBlock)
+            createEmptyPrivFiniBB(W, DestrBlock);
+          VPOParoptUtils::genDestructorCall(PrivI->getDestructor(),
+                                            PrivI->getNew(),
+                                            DestrBlock->getTerminator());
         }
 
         LLVM_DEBUG(dbgs() << __FUNCTION__ << ": privatized '";

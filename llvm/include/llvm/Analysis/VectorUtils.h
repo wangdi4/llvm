@@ -188,6 +188,10 @@ std::string typeToString(Type *Ty);
 /// vectorizable scalar function \p FnName.
 bool isSVMLFunction(TargetLibraryInfo *TLI, StringRef FnName,
                     StringRef VFnName);
+
+/// \brief A helper function that returns value after skipping 'bitcast' and
+/// 'addrspacecast' on pointers.
+template <typename CastInstTy> Value *getPtrThruCast(Value *Ptr);
 #endif // INTEL_CUSTOMIZATION
 
 /// Compute the union of two access-group lists.

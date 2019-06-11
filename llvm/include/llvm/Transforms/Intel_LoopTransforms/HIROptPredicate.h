@@ -20,10 +20,13 @@ namespace loopopt {
 
 class HIROptPredicatePass : public PassInfoMixin<HIROptPredicatePass> {
   bool EnablePartialUnswitch;
+  bool KeepLoopnestPerfect;
 
 public:
-  HIROptPredicatePass(bool EnablePartialUnswitch = true)
-      : EnablePartialUnswitch(EnablePartialUnswitch) {}
+  HIROptPredicatePass(bool EnablePartialUnswitch = true,
+                      bool KeepLoopnestPerfect = false)
+      : EnablePartialUnswitch(EnablePartialUnswitch),
+        KeepLoopnestPerfect(KeepLoopnestPerfect) {}
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
 

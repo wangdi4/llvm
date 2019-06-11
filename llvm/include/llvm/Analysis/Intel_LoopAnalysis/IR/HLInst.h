@@ -16,6 +16,7 @@
 #ifndef LLVM_IR_INTEL_LOOPIR_HLINST_H
 #define LLVM_IR_INTEL_LOOPIR_HLINST_H
 
+#include "llvm/Analysis/Directives.h"
 #include "llvm/IR/Instructions.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLDDNode.h"
@@ -300,15 +301,11 @@ public:
   /// populated back.
   bool isIntrinCall(Intrinsic::ID &IntrinID) const;
 
-  /// Checks whether the instruction is a call to a specific Intel Directive,
-  /// i.e. the intel_directive call with the right metadata.
-  bool isIntelDirective(int DirectiveID) const;
+  /// Checks whether the instruction is a call to a specific Directive.
+  bool isDirective(int DirectiveID) const;
 
   /// Checks whether the instruction is a call to a omp simd directive.
-  bool isSIMDDirective() const {
-    return getNumOperandBundles() &&
-           getOperandBundleAt(0).getTagName().equals("DIR.OMP.SIMD");
-  }
+  bool isSIMDDirective() const { return isDirective(DIR_OMP_SIMD); }
 
   /// Checks whether the instruction is a call to an auto vectorization
   /// directive.

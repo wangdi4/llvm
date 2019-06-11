@@ -1,22 +1,22 @@
 ; RUN: opt -instcombine %s -S | FileCheck %s
 
 ; CHECK-NOT:    call void @llvm.memcpy.p0i8.p0i8.i64
-; CHECK:        %2 = getelementptr inbounds %struct.s64, %struct.s64* %q, i64 0, i32 0
-; CHECK-NEXT:   %3 = load i32, i32* %2, align 4, !tbaa !9
-; CHECK-NEXT:   %4 = getelementptr inbounds %struct.s64, %struct.s64* %p, i64 0, i32 0
-; CHECK-NEXT:   store i32 %3, i32* %4, align 4, !tbaa !9
-; CHECK-NEXT:   %5 = getelementptr inbounds %struct.s64, %struct.s64* %q, i64 0, i32 1
-; CHECK-NEXT:   %6 = load i16, i16* %5, align 2, !tbaa !11
-; CHECK-NEXT:   %7 = getelementptr inbounds %struct.s64, %struct.s64* %p, i64 0, i32 1
-; CHECK-NEXT:   store i16 %6, i16* %7, align 2, !tbaa !11
-; CHECK-NEXT:   %8 = getelementptr inbounds %struct.s64, %struct.s64* %q, i64 0, i32 2
-; CHECK-NEXT:   %9 = load i8, i8* %8, align 1, !tbaa !13
-; CHECK-NEXT:   %10 = getelementptr inbounds %struct.s64, %struct.s64* %p, i64 0, i32 2
-; CHECK-NEXT:   store i8 %9, i8* %10, align 1, !tbaa !13
-; CHECK-NEXT:   %11 = getelementptr inbounds %struct.s64, %struct.s64* %q, i64 0, i32 3
-; CHECK-NEXT:   %12 = load i8, i8* %11, align 1, !tbaa !13
-; CHECK-NEXT:   %13 = getelementptr inbounds %struct.s64, %struct.s64* %p, i64 0, i32 3
-; CHECK-NEXT:   store i8 %12, i8* %13, align 1, !tbaa !13
+; CHECK:        %1 = getelementptr inbounds %struct.s64, %struct.s64* %q, i64 0, i32 0
+; CHECK-NEXT:   %2 = load i32, i32* %1, align 4, !tbaa !9
+; CHECK-NEXT:   %3 = getelementptr inbounds %struct.s64, %struct.s64* %p, i64 0, i32 0
+; CHECK-NEXT:   store i32 %2, i32* %3, align 4, !tbaa !9
+; CHECK-NEXT:   %4 = getelementptr inbounds %struct.s64, %struct.s64* %q, i64 0, i32 1
+; CHECK-NEXT:   %5 = load i16, i16* %4, align 2, !tbaa !11
+; CHECK-NEXT:   %6 = getelementptr inbounds %struct.s64, %struct.s64* %p, i64 0, i32 1
+; CHECK-NEXT:   store i16 %5, i16* %6, align 2, !tbaa !11
+; CHECK-NEXT:   %7 = getelementptr inbounds %struct.s64, %struct.s64* %q, i64 0, i32 2
+; CHECK-NEXT:   %8 = load i8, i8* %7, align 1, !tbaa !13
+; CHECK-NEXT:   %9 = getelementptr inbounds %struct.s64, %struct.s64* %p, i64 0, i32 2
+; CHECK-NEXT:   store i8 %8, i8* %9, align 1, !tbaa !13
+; CHECK-NEXT:   %10 = getelementptr inbounds %struct.s64, %struct.s64* %q, i64 0, i32 3
+; CHECK-NEXT:   %11 = load i8, i8* %10, align 1, !tbaa !13
+; CHECK-NEXT:   %12 = getelementptr inbounds %struct.s64, %struct.s64* %p, i64 0, i32 3
+; CHECK-NEXT:   store i8 %11, i8* %12, align 1, !tbaa !13
 
 
 ; ModuleID = 'test.cpp'

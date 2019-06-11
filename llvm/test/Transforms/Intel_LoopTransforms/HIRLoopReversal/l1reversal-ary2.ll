@@ -39,7 +39,7 @@
 ; Expected output before Loop Reversal
 ; 
 ; BEFORE:    BEGIN REGION { }
-; BEFORE:       + DO i1 = 0, (%cond323330 + smax(-11, (-1 + (-1 * %cond323330))) + 10)/u10, 1   <DO_LOOP>
+; BEFORE:       + DO i1 = 0, (%cond323330 + -1 * smin(10, %cond323330) + 9)/u10, 1   <DO_LOOP>
 ; BEFORE:       |   %12 = (%1)[-10 * i1 + %cond323330 + -1];
 ; BEFORE:       |   (%2)[-10 * i1 + %cond323330 + -1] = %12;
 ; BEFORE:       |   %13 = (%1)[-10 * i1 + %cond323330 + -2];
@@ -70,7 +70,7 @@
 ; === -------------------------------------- ===
 ;
 ; AFTER:    BEGIN REGION { }
-; AFTER:       + DO i1 = 0, (%cond323330 + smax(-11, (-1 + (-1 * %cond323330))) + 10)/u10, 1   <DO_LOOP>
+; AFTER:       + DO i1 = 0, (%cond323330 + -1 * smin(10, %cond323330) + 9)/u10, 1   <DO_LOOP>
 ; AFTER:       |   %12 = (%1)[-10 * i1 + %cond323330 + -1];
 ; AFTER:       |   (%2)[-10 * i1 + %cond323330 + -1] = %12;
 ; AFTER:       |   %13 = (%1)[-10 * i1 + %cond323330 + -2];

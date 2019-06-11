@@ -13,8 +13,7 @@ declare void @llvm.assume(i1)
 define void @doit(i1 %arg) local_unnamed_addr #0 {
 ; Ensure that call to @llvm.assume does not prevent the insertion of vec directives.
 ; CHECK-DIRECTIVE-LABEL: BEGIN REGION
-; CHECK-DIRECTIVE-NEXT: @llvm.intel.directive
-; CHECK-DIRECTIVE-NEXT: @llvm.intel.directive
+; CHECK-DIRECTIVE-NEXT: @llvm.directive.region.entry
 
 
 ; CHECK-LABEL: @doit

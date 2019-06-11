@@ -31,45 +31,148 @@ class DDGraph;
 class HLLoop;
 class HIRSafeReductionAnalysis;
 class RegDDRef;
+class DDRef;
+class DDRefUtils;
 } // namespace loopopt
 
 namespace vpo {
 
+// High-level class to capture and provide loop vectorization legality analysis
+// for incoming HIR. Currently various loop entities like reductions, inductions
+// and privates are identified and stored within this class.
 class HIRVectorizationLegality {
   using RecurrenceKind = RecurrenceDescriptor::RecurrenceKind;
   using MMRecurrenceKind = RecurrenceDescriptor::MinMaxRecurrenceKind;
 
 public:
-  struct RedDescr {
-    using RecurrenceKind = RecurrenceDescriptor::RecurrenceKind;
-    using MMRecurrenceKind = RecurrenceDescriptor::MinMaxRecurrenceKind;
+  struct CompareByDDRefSymbase {
+    bool operator()(const DDRef *Ref1, const DDRef *Ref2) const {
+      return Ref1->getSymbase() < Ref2->getSymbase();
+    }
+  };
+  // Base class for descriptors which have init/finalize HIR values
+  struct DescrValues {
+    DescrValues(DDRef *RefV) : Ref(RefV), InitValue(nullptr) {}
+    // Move constructor
+    DescrValues(DescrValues &&Other) = default;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    void dump(raw_ostream &OS, unsigned Indent = 0) const {
+      OS << "Ref: ";
+      Ref->dump();
+      OS << "\n";
+      if (InitValue) {
+        OS.indent(Indent + 2) << "InitValue: ";
+        InitValue->dump();
+        OS << "\n";
+      }
+      for (auto &V : UpdateInstructions) {
+        OS.indent(Indent + 2) << "UpdateInstruction: ";
+        V->dump();
+      }
+    }
+
+    void dump() { dump(errs()); }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+    DDRef *Ref;
+    // NOTE: InitValue holds only DDRefs for which VPExternalDefs were created
+    // for a descriptor/alias. DDRefs with VPConstants are not accounted for.
+    // Each descriptor/alias may have multiple updating HLInsts within the loop.
+    DDRef *InitValue;
+    SmallVector<HLInst *, 4> UpdateInstructions;
+  };
+  // Base class for descriptors which may have alias DDRefs used within the loop
+  // of incoming HIR. These descriptors are specific to HIR, so any analysis
+  // which requires underyling HIR information must be done with these
+  // descriptors. NOTE : Only original descriptors can have aliases and they are
+  // always of the form &(%a)[0]
+  struct DescrWithAliases : public DescrValues {
+    DescrWithAliases(RegDDRef *RefV) : DescrValues(RefV) {
+      assert(RefV->isSelfAddressOf() && "Unexpected clause Ref!");
+    }
+    // Move constructor
+    DescrWithAliases(DescrWithAliases &&Other) = default;
+
+    // Filter out invalid aliases and return the valid one. If no valid alias is
+    // found return nullptr.
+    DescrValues *getValidAlias() const {
+      DescrValues *ValidAlias = nullptr;
+      for (auto &AliasItPair : Aliases) {
+        DescrValues *Alias = AliasItPair.second.get();
+        if (Alias->InitValue && Alias->UpdateInstructions.size() > 0) {
+          assert(!ValidAlias &&
+                 "HIRLegality descriptor has multiple valid aliases.");
+          ValidAlias = Alias;
+        }
+      }
+
+      return ValidAlias;
+    }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    void dump(raw_ostream &OS) const {
+      DescrValues::dump(OS);
+      for (const auto &AliasIt : Aliases) {
+        OS << "\n";
+        OS.indent(2) << "Alias";
+        AliasIt.second->dump(OS, 2);
+      }
+    }
+
+    void dump() const { dump(errs()); }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+    std::map<DDRef *, std::unique_ptr<DescrValues>, CompareByDDRefSymbase>
+        Aliases;
+  };
+  // Specialized class to represent reduction descriptors specified explicitly
+  // via SIMD reduction clause. The reduction's kind and signed datatype
+  // information is also stored within this class.
+  struct RedDescr : public DescrWithAliases {
     RedDescr(RegDDRef *RegV, RecurrenceKind KindV, MMRecurrenceKind MMKindV,
              bool Signed)
-        : DDRef(RegV), Kind(KindV), MMKind(MMKindV), IsSigned(Signed) {}
-    RedDescr() = delete;
+        : DescrWithAliases(RegV), Kind(KindV), MMKind(MMKindV),
+          IsSigned(Signed) {}
+    // Move constructor
+    RedDescr(RedDescr &&Other) = default;
 
-    RegDDRef *DDRef;
     RecurrenceKind Kind;
     MMRecurrenceKind MMKind;
     bool IsSigned;
   };
-  typedef std::vector<RedDescr> ReductionListTy;
-  struct PrivDescr {
+  typedef SmallVector<RedDescr, 8> ReductionListTy;
+  // Specialized class to represent private descriptors specified explicitly via
+  // SIMD private clause.
+  struct PrivDescr : public DescrWithAliases {
     PrivDescr(RegDDRef *RegV, bool IsLastV, bool IsCondV)
-        : DDRef(RegV), IsLast(IsLastV), IsCond(IsCondV) {}
-    PrivDescr() = delete;
+        : DescrWithAliases(RegV), IsLast(IsLastV), IsCond(IsCondV) {}
+    // Move constructor
+    PrivDescr(PrivDescr &&Other) = default;
 
-    RegDDRef *DDRef;
     bool IsLast;
     bool IsCond;
   };
-  typedef std::vector<PrivDescr> PrivateListTy;
-  typedef std::pair<RegDDRef *, RegDDRef *> LinearDescr;
-  typedef std::vector<LinearDescr> LinearListTy;
+  typedef SmallVector<PrivDescr, 8> PrivateListTy;
+  // Specialized class to represent linear descriptors specified explicitly via
+  // SIMD linear clause. The linear's Step value is also stored within this
+  // class.
+  struct LinearDescr : public DescrWithAliases {
+    LinearDescr(RegDDRef *RegV, RegDDRef *StepV)
+        : DescrWithAliases(RegV), Step(StepV) {}
+    // Move constructor
+    LinearDescr(LinearDescr &&Other) = default;
 
-  HIRVectorizationLegality() = delete;
+    DDRef *Step;
+  };
+  typedef SmallVector<LinearDescr, 8> LinearListTy;
+
+  // Delete copy/assignment/move operations
   HIRVectorizationLegality(const HIRVectorizationLegality &) = delete;
+  HIRVectorizationLegality &
+  operator=(const HIRVectorizationLegality &) = delete;
+  HIRVectorizationLegality(HIRVectorizationLegality &&) = delete;
+  HIRVectorizationLegality &operator=(HIRVectorizationLegality &&) = delete;
 
   HIRVectorizationLegality(HIRSafeReductionAnalysis *SafeReds)
       : SRA(SafeReds) {}
@@ -77,6 +180,7 @@ public:
   // Add explicit private.
   void addLoopPrivate(RegDDRef *PrivVal, bool IsLast = false,
                       bool IsConditional = false) {
+    assert(PrivVal->isAddressOf() && "Private ref is not address of type.");
     PrivateList.emplace_back(PrivVal, IsLast, IsConditional);
   }
 
@@ -107,20 +211,76 @@ public:
     addReduction(V, RecurrenceKind::RK_IntegerOr);
   }
 
-  // Add linear value to Linears map
+  // Add explicit linear.
   void addLinear(RegDDRef *LinearVal, RegDDRef *Step) {
+    assert(LinearVal->isAddressOf() && "Linear ref is not address of type.");
     LinearList.emplace_back(LinearVal, Step);
   }
 
-  HIRSafeReductionAnalysis *getSRA() { return SRA; }
-  PrivateListTy *getPrivates() { return &PrivateList; }
-  LinearListTy *getLinears() { return &LinearList; }
-  ReductionListTy *getReductions() { return &ReductionList; }
+  HIRSafeReductionAnalysis *getSRA() const { return SRA; }
+
+  const PrivateListTy &getPrivates() const { return PrivateList; }
+  const LinearListTy &getLinears() const { return LinearList; }
+  const ReductionListTy &getReductions() const { return ReductionList; }
+
+  PrivDescr *isPrivate(DDRef *Ref) {
+    return findDescr<PrivDescr>(PrivateList, Ref);
+  }
+  LinearDescr *isLinear(DDRef *Ref) {
+    return findDescr<LinearDescr>(LinearList, Ref);
+  }
+  RedDescr *isReduction(DDRef *Ref) {
+    return findDescr<RedDescr>(ReductionList, Ref);
+  }
+
+  /// Identify any DDRefs in the \p HLoop's pre-loop nodes which alias the OMP
+  /// SIMD clause descriptor DDRefs
+  void findAliasDDRefs(HLNode *ClauseNode, HLLoop *HLoop);
+
+  /// Check if the given DDRef \p Ref corresponds to any linear/reduction
+  /// HIRLegality descriptors. If found, then update the corresponding
+  /// descriptor with \p Ref as its initialization value since it is directly
+  /// used inside loop. NOTE: The default InitValue for all descriptors/aliases
+  /// is nullptr since it may never be actually used within the loop.
+  void recordPotentialSIMDDescrUse(DDRef *Ref);
+
+  /// Check if the given HLInst \p UpdateInst writes in an LVal DDRef that
+  /// potentially corresponds to any linear/reduction HIRLegality descriptors.
+  /// If found, then update the descriptor with \p UpdateInst as its updating
+  /// instruction.
+  void recordPotentialSIMDDescrUpdate(HLInst *UpdateInst);
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  /// Debug print utility to display contents of the descriptor lists
+  void dump(raw_ostream &OS) const;
+  void dump() const { dump(errs()); }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
   void addReduction(RegDDRef *V, RecurrenceKind Kind, bool IsSigned = false,
                     MMRecurrenceKind MMKind = MMRecurrenceKind::MRK_Invalid) {
+    assert(V->isAddressOf() && "Reduction ref is not an address-of type.");
     ReductionList.emplace_back(V, Kind, MMKind, IsSigned);
+  }
+
+  /// Check if the given \p Ref is an explicit SIMD descriptor variable of type
+  /// \p DescrType in the list \p List, if yes then return the descriptor object
+  /// corresponding to it, else nullptr
+  template <typename DescrType>
+  DescrType *findDescr(SmallVectorImpl<DescrType> &List, DDRef *Ref);
+
+  /// Return the descriptor object corresponding to the input \p Ref, if it
+  /// represents a reduction or linear SIMD variable (original or aliases). If
+  /// \p Ref is not a SIMD descriptor variable nullptr is returned.
+  DescrWithAliases *getLinearRednDescriptors(DDRef *Ref) {
+    // Check if Ref is a linear descriptor
+    DescrWithAliases *Descr = isLinear(Ref);
+
+    // If Ref is not linear, check if it is a reduction variable
+    if (!Descr)
+      Descr = isReduction(Ref);
+
+    return Descr;
   }
 
   HIRSafeReductionAnalysis *SRA;

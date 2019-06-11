@@ -1466,6 +1466,44 @@ static bool allocaWouldBeStaticInEntry(const AllocaInst *AI ) {
   return isa<Constant>(AI->getArraySize()) && !AI->isUsedWithInAlloca();
 }
 
+/// Returns a DebugLoc for a new DILocation which is a clone of \p OrigDL
+/// inlined at \p InlinedAt. \p IANodes is an inlined-at cache.
+static DebugLoc inlineDebugLoc(DebugLoc OrigDL, DILocation *InlinedAt,
+                               LLVMContext &Ctx,
+                               DenseMap<const MDNode *, MDNode *> &IANodes) {
+  auto IA = DebugLoc::appendInlinedAt(OrigDL, InlinedAt, Ctx, IANodes);
+  return DebugLoc::get(OrigDL.getLine(), OrigDL.getCol(), OrigDL.getScope(),
+                       IA);
+}
+
+/// Returns the LoopID for a loop which has has been cloned from another
+/// function for inlining with the new inlined-at start and end locs.
+static MDNode *inlineLoopID(const MDNode *OrigLoopId, DILocation *InlinedAt,
+                            LLVMContext &Ctx,
+                            DenseMap<const MDNode *, MDNode *> &IANodes) {
+  assert(OrigLoopId && OrigLoopId->getNumOperands() > 0 &&
+         "Loop ID needs at least one operand");
+  assert(OrigLoopId && OrigLoopId->getOperand(0).get() == OrigLoopId &&
+         "Loop ID should refer to itself");
+
+  // Save space for the self-referential LoopID.
+  SmallVector<Metadata *, 4> MDs = {nullptr};
+
+  for (unsigned i = 1; i < OrigLoopId->getNumOperands(); ++i) {
+    Metadata *MD = OrigLoopId->getOperand(i);
+    // Update the DILocations to encode the inlined-at metadata.
+    if (DILocation *DL = dyn_cast<DILocation>(MD))
+      MDs.push_back(inlineDebugLoc(DL, InlinedAt, Ctx, IANodes));
+    else
+      MDs.push_back(MD);
+  }
+
+  MDNode *NewLoopID = MDNode::getDistinct(Ctx, MDs);
+  // Insert the self-referential LoopID.
+  NewLoopID->replaceOperandWith(0, NewLoopID);
+  return NewLoopID;
+}
+
 /// Update inlined instructions' line numbers to
 /// to encode location where these instructions are inlined.
 static void fixupLineNumbers(Function *Fn, Function::iterator FI,
@@ -1491,10 +1529,17 @@ static void fixupLineNumbers(Function *Fn, Function::iterator FI,
   for (; FI != Fn->end(); ++FI) {
     for (BasicBlock::iterator BI = FI->begin(), BE = FI->end();
          BI != BE; ++BI) {
+      // Loop metadata needs to be updated so that the start and end locs
+      // reference inlined-at locations.
+      if (MDNode *LoopID = BI->getMetadata(LLVMContext::MD_loop)) {
+        MDNode *NewLoopID =
+            inlineLoopID(LoopID, InlinedAtNode, BI->getContext(), IANodes);
+        BI->setMetadata(LLVMContext::MD_loop, NewLoopID);
+      }
+
       if (DebugLoc DL = BI->getDebugLoc()) {
-        auto IA = DebugLoc::appendInlinedAt(DL, InlinedAtNode, BI->getContext(),
-                                            IANodes);
-        auto IDL = DebugLoc::get(DL.getLine(), DL.getCol(), DL.getScope(), IA);
+        DebugLoc IDL =
+            inlineDebugLoc(DL, InlinedAtNode, BI->getContext(), IANodes);
         BI->setDebugLoc(IDL);
         continue;
       }
@@ -1700,6 +1745,18 @@ static void updateCallProfile(Function *Callee, const ValueToValueMapTy &VMap,
       CalleeEntryCount.getCount() < 1)
     return;
   auto CallSiteCount = PSI ? PSI->getProfileCount(TheCall, CallerBFI) : None;
+#if INTEL_CUSTOMIZATION
+  if (CallSiteCount == None) {
+    // Get profile for call from intel_profx if not available elsewhere
+    auto *MD = TheCall->getMetadata(LLVMContext::MD_intel_profx);
+    if (MD) {
+      assert(MD->getNumOperands() == 2);
+      ConstantInt *CI = mdconst::extract<ConstantInt>(MD->getOperand(1));
+      assert(CI);
+      CallSiteCount = CI->getValue().getZExtValue();
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
   int64_t CallCount =
       std::min(CallSiteCount.hasValue() ? CallSiteCount.getValue() : 0,
                CalleeEntryCount.getCount());
@@ -1728,17 +1785,30 @@ void llvm::updateProfileCallee(
   // During inlining ?
   if (VMap) {
     uint64_t cloneEntryCount = priorEntryCount - newEntryCount;
-    for (auto const &Entry : *VMap)
+    for (auto const &Entry : *VMap) { // INTEL
+#if INTEL_CUSTOMIZATION
+      // Update intel_profx metadata, which can be on CallInst or InvokeInst
+      if (isa<CallBase>(Entry.first))
+        if (auto *Call = dyn_cast_or_null<CallBase>(Entry.second))
+          Call->updateProfxWeight(cloneEntryCount, priorEntryCount);
+#endif // INTEL_CUSTOMIZATION
       if (isa<CallInst>(Entry.first))
         if (auto *CI = dyn_cast_or_null<CallInst>(Entry.second))
           CI->updateProfWeight(cloneEntryCount, priorEntryCount);
+    } // INTEL
   }
   for (BasicBlock &BB : *Callee)
     // No need to update the callsite if it is pruned during inlining.
     if (!VMap || VMap->count(&BB))
-      for (Instruction &I : BB)
+      for (Instruction &I : BB) { // INTEL
+#if INTEL_CUSTOMIZATION
+        // Update intel_profx metadata, which can be on CallInst or InvokeInst
+        if (CallBase *Call = dyn_cast<CallBase>(&I))
+          Call->updateProfxWeight(newEntryCount, priorEntryCount);
+#endif // INTEL_CUSTOMIZATION
         if (CallInst *CI = dyn_cast<CallInst>(&I))
           CI->updateProfWeight(newEntryCount, priorEntryCount);
+      } // INTEL
 }
 
 #if INTEL_CUSTOMIZATION
@@ -2163,8 +2233,7 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
     // Move any dbg.declares describing the allocas into the entry basic block.
     DIBuilder DIB(*Caller->getParent());
     for (auto &AI : IFI.StaticAllocas)
-      replaceDbgDeclareForAlloca(AI, AI, DIB, DIExpression::NoDeref, 0,
-                                 DIExpression::NoDeref);
+      replaceDbgDeclareForAlloca(AI, AI, DIB, DIExpression::ApplyOffset, 0);
   }
   SmallVector<Value*,4> VarArgsToForward;
   SmallVector<AttributeSet, 4> VarArgsAttrs;

@@ -227,17 +227,6 @@ class HIRParser {
   /// be eliminated.
   bool isEssential(const Instruction *Inst) const;
 
-  /// Returns true if this SCEV represents a min/max expr.
-  /// Checks that at least one of the operands is an addrec is \p
-  /// CheckAddRecOperand is set to true.
-  bool isMinMax(const SCEV *SC, bool CheckAddRecOperand = false) const;
-
-  /// Returns true if this SCEV represents a min/max expr with an AddRec
-  /// Operand.
-  bool isMinMaxWithAddRecOperand(const SCEV *SC) const {
-    return isMinMax(SC, true);
-  }
-
   /// Wrapper over ScalarEvolution's getSCEVForHIR().
   const SCEV *getSCEV(Value *Val) const;
 
@@ -660,16 +649,6 @@ class HIRParser {
 
   /// Returns true if this is a temp blob.
   static bool isTempBlob(BlobTy Blob);
-
-  /// Returns true if \p Blob is a umin blob.
-  /// Please note that umin is represented as -1 + -1 * umax() but we only match
-  /// -1 * umax() part of it.
-  static bool isUMinBlob(BlobTy Blob);
-
-  /// Returns true if \p Blob is a smin blob.
-  /// Please note that smin is represented as -1 + -1 * smax() but we only match
-  /// -1 * smax() part of it.
-  static bool isSMinBlob(BlobTy Blob);
 
   /// Returns true if minimum value of blob is known and sets it in \p Val.
   bool getMinBlobValue(BlobTy Blob, int64_t &Val) const;

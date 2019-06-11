@@ -4,6 +4,7 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
   COMPLEMENT LLVM_OPTIONAL_SOURCES
 # Add custom Intel files below.  Files listed here will be included in
 # INTEL_CUSTOMIZATION build.
+  Intel_FMACGCommon.cpp
   Intel_FMACommon.cpp
   Intel_MIRMatcher.cpp
   Intel_MachineLoopOptReportEmitter.cpp
@@ -155,6 +156,7 @@ add_llvm_library(LLVMCodeGen
   StackMaps.cpp
   StackProtector.cpp
   StackSlotColoring.cpp
+  SwiftErrorValueTracking.cpp
   TailDuplication.cpp
   TailDuplicator.cpp
   TargetFrameLoweringImpl.cpp
@@ -185,6 +187,9 @@ add_llvm_library(LLVMCodeGen
 
   DEPENDS
   intrinsics_gen
+# INTEL_CUSTOMIZATION
+  directives_gen
+# end INTEL_CUSTOMIZATION
   )
 
 add_subdirectory(SelectionDAG)

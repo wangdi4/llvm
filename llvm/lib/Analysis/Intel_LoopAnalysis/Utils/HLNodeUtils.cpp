@@ -948,10 +948,10 @@ HLInst *HLNodeUtils::createMax(RegDDRef *OpRef1, RegDDRef *OpRef2,
                       Name, LvalRef);
 }
 
-std::pair<HLInst *, CallInst *>
-HLNodeUtils::createCallImpl(Function *Func,
-                            const SmallVectorImpl<RegDDRef *> &CallArgs,
-                            const Twine &Name, RegDDRef *LvalRef) {
+std::pair<HLInst *, CallInst *> HLNodeUtils::createCallImpl(
+    Function *Func, const SmallVectorImpl<RegDDRef *> &CallArgs,
+    const Twine &Name, RegDDRef *LvalRef, ArrayRef<OperandBundleDef> Bundle,
+    ArrayRef<RegDDRef *> BundelOps) {
   bool HasReturn = !Func->getReturnType()->isVoidTy();
   unsigned NumArgs = CallArgs.size();
   HLInst *HInst;
@@ -971,7 +971,8 @@ HLNodeUtils::createCallImpl(Function *Func,
     Args.push_back(Val ? Val : UndefValue::get(CallArgs[I]->getDestType()));
   }
   auto InstVal = DummyIRBuilder->CreateCall(
-      Func, Args, HasReturn ? (Name.isTriviallyEmpty() ? "dummy" : Name) : "");
+      Func, Args, Bundle,
+      HasReturn ? (Name.isTriviallyEmpty() ? "dummy" : Name) : "");
   if (HasReturn) {
     //    HInst = createLvalHLInst(cast<Instruction>(InstVal), LvalRef);
     HInst = createLvalHLInst(InstVal, LvalRef);
@@ -993,13 +994,21 @@ HLNodeUtils::createCallImpl(Function *Func,
     HInst->setOperandDDRef(CallArgs[I], I + ArgOffset);
   }
 
+  // Set bundle operands as DDRef operands.
+  unsigned NumOps = InstVal->getNumOperands() - 1;
+  for (unsigned I = NumArgs, J = 0; I < NumOps; I++) {
+    HInst->setOperandDDRef(BundelOps[J++], I + ArgOffset);
+  }
+
   return std::make_pair(HInst, InstVal);
 }
 
 HLInst *HLNodeUtils::createCall(Function *Func,
                                 const SmallVectorImpl<RegDDRef *> &CallArgs,
-                                const Twine &Name, RegDDRef *LvalRef) {
-  return createCallImpl(Func, CallArgs, Name, LvalRef).first;
+                                const Twine &Name, RegDDRef *LvalRef,
+                                ArrayRef<OperandBundleDef> Bundle,
+                                ArrayRef<RegDDRef *> BundelOps) {
+  return createCallImpl(Func, CallArgs, Name, LvalRef, Bundle, BundelOps).first;
 }
 
 HLInst *HLNodeUtils::createMemcpy(RegDDRef *StoreRef, RegDDRef *LoadRef,
@@ -2973,14 +2982,8 @@ bool HLNodeUtils::getMinBlobValue(unsigned BlobIdx, const HLNode *ParentNode,
     return BU.getMinBlobValue(BlobIdx, Val);
   }
 
-  if (BU.isUMaxBlob(BlobIdx)) {
+  if (BU.isUMaxBlob(BlobIdx) || BU.isUMinBlob(BlobIdx)) {
     Val = 0;
-    return true;
-  }
-
-  if (BU.isUMinBlob(BlobIdx)) {
-    // Refer to description of function to see why value is set to 1.
-    Val = 1;
     return true;
   }
 
@@ -4587,33 +4590,9 @@ void sortInTopOrderAndUniqHelper(T &Nodes) {
 }
 
 void HLNodeUtils::sortInTopOrderAndUniq(VecNodesTy &Nodes) {
-#if 0
-  auto NodeComparator = [](const HLNode *N1, const HLNode *N2) {
-    return N1->getTopSortNum() < N2->getTopSortNum();
-  };
-  std::sort(Nodes.begin(), Nodes.end(), NodeComparator);
-  auto Last = std::unique(Nodes.begin(), Nodes.end(),
-                          [](const HLNode *N1, const HLNode *N2) {
-                          return N1->getTopSortNum() == N2->getTopSortNum();
-                          });
-  Nodes.erase(Last, Nodes.end());
-#else
   sortInTopOrderAndUniqHelper<VecNodesTy>(Nodes);
-#endif
 }
 
 void HLNodeUtils::sortInTopOrderAndUniq(ConstVecNodesTy &Nodes) {
-#if 0
-  auto NodeComparator = [](const HLNode *N1, const HLNode *N2) {
-    return N1->getTopSortNum() < N2->getTopSortNum();
-  };
-  std::sort(Nodes.begin(), Nodes.end(), NodeComparator);
-  auto Last = std::unique(Nodes.begin(), Nodes.end(),
-                          [](const HLNode *N1, const HLNode *N2) {
-                          return N1->getTopSortNum() == N2->getTopSortNum();
-                          });
-  Nodes.erase(Last, Nodes.end());
-#else
   sortInTopOrderAndUniqHelper<ConstVecNodesTy>(Nodes);
-#endif
 }

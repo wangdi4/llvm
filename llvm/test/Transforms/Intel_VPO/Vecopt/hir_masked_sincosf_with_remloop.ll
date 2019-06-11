@@ -9,6 +9,7 @@
 ;}
 ;
 ; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -S -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
+; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -S -vplan-force-vf=4 -enable-vp-value-codegen < %s 2>&1 | FileCheck %s
 
 ; Check to see that the main vector loop was vectorized with svml
 ; CHECK: call svml_cc void @__svml_sincosf4_mask

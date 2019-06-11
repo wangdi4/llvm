@@ -17,6 +17,7 @@
 //===----------------------------------------------------------------------===//
 #include "IntelVPlanHCFGBuilder.h"
 #include "IntelVPlan.h"
+#include "IntelLoopVectorizationLegality.h"
 #include "IntelVPlanBuilder.h"
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanLoopInfo.h"
@@ -211,16 +212,16 @@ void VPlanHCFGBuilder::splitLoopsPreheader(VPLoop *VPL) {
 //  FROM                        TO
 // -------------------------------------------
 //
-// -->BB1                       BB1
-// |   | \                       | \
-// |   |  \                      |  \
-// |  BB2  \                    BB2  \
-// |   | \  |                    | \  \
-// |   |  \ |    =>              |  \  Intermediate_BB
-// ---BB3  ||                   BB3  | /
-//     |  //                     |  / /
-//     | //                      | / /
-//    BB4                   NEW_LOOP_LATCH
+// -->BB1               ------->BB1
+// |   | \              |        | \
+// |   |  \             |        |  \
+// |  BB2  \            |       BB2  \
+// |   | \  |           |        | \  \
+// |   |  \ |    =>     |        |  \  Intermediate_BB
+// ---BB3  ||           |       BB3  | /
+//     |  //            |        |  / /
+//     | //             |        | / /
+//    BB4               ----NEW_LOOP_LATCH
 //
 // CASE 3: The inner loop has two side exits that land on the same exit block.
 // Therefore, the control flow for BB1 and BB2 should be redirected on the same
@@ -271,11 +272,40 @@ void VPlanHCFGBuilder::splitLoopsPreheader(VPLoop *VPL) {
 //                             F /    \ T
 //                              /      \
 //                          IFBLOCK    BB4
-//                      (if ExitID==2)
+//                      (if ExitID==1)
 //                         F /   \ T
 //                          /     \
 //        (LatchExitBlock)BB6     BB5
-
+//
+// CASE 5: Loop rotate does not always canonicalize the while loops. In this
+// case, the original loop latch has an unconditional branch. The merge loop
+// exits tranformation does the same transformation.
+// -------------------------------------------
+//  FROM                          TO
+// -------------------------------------------
+//
+// -->BB1                ----------->BB1--------------------------
+// |   | \               |            |                          |
+// |   |  \              |            |                          |
+// |  BB2  \       =>    |           BB2                         |
+// |   | \  \            |            | \                        |
+// |   |  \  \           |            |  \                       V
+// |   |   \  \          |            | Intermediate_BB2  Intermediate_BB1
+// ---BB3 BB4 BB5        |           BB3 ExitID=1             ExitID=2
+//          \ /          |            |   /                      |
+//          BB6          |   ExitID=0 |  /                       |
+//                       --------NEW_LOOP_LATCH<------------------
+//                                    |
+//                                    |
+//                            CASCADED_IF_BLOCK(HEAD)
+//                              (if ExitID==2)
+//                               F /    \ T
+//                                /      \
+//                              BB4      BB5
+//                                \      /
+//                                 \    /
+//                                  BB6
+//
 // Returns the exit block of a block.
 static VPBlockBase *getBlocksExitBlock(VPBlockBase *ExitingBlock, VPLoop *VPL) {
   for (VPBlockBase *SuccBlock : ExitingBlock->getSuccessors()) {
@@ -433,16 +463,20 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   SmallDenseMap<VPBlockBase *, VPBlockBase *> ExitExitingBlocksMap;
   VPBasicBlock *OrigLoopLatch = dyn_cast<VPBasicBlock>(VPL->getLoopLatch());
   VPBasicBlock *LoopHeader = dyn_cast<VPBasicBlock>(VPL->getHeader());
-  VPBlockBase *LatchExitBlock =
-      (OrigLoopLatch->getSuccessors()[0] == LoopHeader)
-          ? OrigLoopLatch->getSuccessors()[1]
-          : OrigLoopLatch->getSuccessors()[0];
+  // If the loop is a while loop (case 5), then it might not have a fall-through
+  // edge. Therefore, in this case, the LatchExitBlock will be null.
+  VPBlockBase *LatchExitBlock = nullptr;
+  if (OrigLoopLatch->getNumSuccessors() > 1)
+    LatchExitBlock = (OrigLoopLatch->getSuccessors()[0] == LoopHeader)
+                         ? OrigLoopLatch->getSuccessors()[1]
+                         : OrigLoopLatch->getSuccessors()[0];
 
   // Step 1 : Creates a new loop latch and fills it with all the necessary
   // instructions.
   VPBasicBlock *NewLoopLatch =
       new VPBasicBlock(VPlanUtils::createUniqueName("NewLoopLatch"));
-  VPBlockUtils::insertBlockAfter(NewLoopLatch, OrigLoopLatch, Plan);
+  OrigLoopLatch->moveConditionalEOBTo(NewLoopLatch, Plan);
+  VPBlockUtils::insertBlockAfter(NewLoopLatch, OrigLoopLatch);
   VPL->addBasicBlockToLoop(NewLoopLatch, *VPLInfo);
   // Remove the original loop latch from the blocks of the phi node of the loop
   // header.
@@ -450,27 +484,30 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   // Add a VPPHINode at the top of the new latch. This phi node shows whether
   // the control-flow reaches the new loop latch from the original loop latch or
   // one of the intermediate blocks or one of the exiting blocks.
-  Type *Ty = Type::getInt32Ty(*Plan->getLLVMContext());
+  Type *Ty32 = Type::getInt32Ty(*Plan->getLLVMContext());
+  Type *Ty1 = Type::getInt1Ty(*Plan->getLLVMContext());
+  VPConstant *ZeroConst = Plan->getVPConstant(ConstantInt::get(Ty32, 0));
+  VPConstant *ZeroConstTy1 = Plan->getVPConstant(ConstantInt::get(Ty1, 0));
   VPBuilder VPBldr;
   VPBldr.setInsertPoint(NewLoopLatch);
-  VPPHINode *VPPhi = cast<VPPHINode>(VPBldr.createPhiInstruction(Ty));
-  VPInstruction *OldCondBit =
-      dyn_cast<VPInstruction>(NewLoopLatch->getCondBit());
+  VPPHINode *VPPhi = cast<VPPHINode>(VPBldr.createPhiInstruction(Ty32));
   // This phi node is a marker of the backedge. It shows if the backedge is
   // taken.
-  VPPHINode *VPPhiMarker =
-      cast<VPPHINode>(VPBldr.createPhiInstruction(OldCondBit->getType()));
-  VPPhiMarker->addIncoming(OldCondBit, cast<VPBasicBlock>(OrigLoopLatch));
+  VPPHINode *VPPhiMarker = cast<VPPHINode>(VPBldr.createPhiInstruction(Ty1));
+  if (LatchExitBlock) {
+    VPInstruction *OldCondBit =
+        dyn_cast<VPInstruction>(NewLoopLatch->getCondBit());
+    VPPhiMarker->addIncoming(OldCondBit, cast<VPBasicBlock>(OrigLoopLatch));
+  } else {
+    VPConstant *OneConstTy1 = Plan->getVPConstant(ConstantInt::get(Ty1, 1));
+    VPPhiMarker->addIncoming(OneConstTy1, cast<VPBasicBlock>(OrigLoopLatch));
+  }
   // Update the condbit.
-  VPConstant *ZeroConst =
-      Plan->getVPConstant(ConstantInt::get(VPPhi->getType(), 0));
-  VPConstant *ZeroConst2 =
-      Plan->getVPConstant(ConstantInt::get(OldCondBit->getType(), 0));
   VPInstruction *Cond = new VPCmpInst(VPPhi, ZeroConst, CmpInst::ICMP_EQ);
   NewLoopLatch->addRecipeAfter(Cond, VPPhiMarker);
   VPInstruction *NewCondBit =
       cast<VPInstruction>(VPBldr.createAnd(Cond, VPPhiMarker));
-  NewLoopLatch->setCondBit(NewCondBit, Plan);
+  NewLoopLatch->setCondBit(NewCondBit);
   VPlanDivergenceAnalysis *VPlanDA = Plan->getVPlanDA();
   VPlanDA->markDivergent(*NewCondBit);
   // Add the original loop latch in the NewLoopLatch's phi node.
@@ -479,8 +516,10 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   VPPhi->addIncoming(NewLoopHeaderPhiNode, cast<VPBasicBlock>(OrigLoopLatch));
 
   // This is needed for the generation of cascaded if blocks.
-  VPConstant *ExitIDConst = Plan->getVPConstant(ConstantInt::get(Ty, ExitID));
-  ExitBlockIDPairs.push_back(std::make_pair(LatchExitBlock, ExitIDConst));
+  if (LatchExitBlock) {
+    VPConstant *ExitIDConst = Plan->getVPConstant(ConstantInt::get(Ty32, ExitID));
+    ExitBlockIDPairs.push_back(std::make_pair(LatchExitBlock, ExitIDConst));
+  }
 
   // Step 2: Disconnects the exit blocks from the exiting blocks. If it is
   // needed, an intermediate basic block is created. Otherwise, the exiting
@@ -527,9 +566,9 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
       }
       ExitID++;
       VPConstant *ExitIDConst =
-          Plan->getVPConstant(ConstantInt::get(Ty, ExitID));
+          Plan->getVPConstant(ConstantInt::get(Ty32, ExitID));
       VPPhi->addIncoming(ExitIDConst, NewExitingBB);
-      VPPhiMarker->addIncoming(ZeroConst2, NewExitingBB);
+      VPPhiMarker->addIncoming(ZeroConstTy1, NewExitingBB);
 
       // The VPPHINode of the exit block should be moved in the new loop latch
       // if all the predecessors are in the loop. If not, then we remove the
@@ -585,9 +624,9 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
       // Add ExitID and update NewLoopLatch's phi node.
       ExitID++;
       VPConstant *ExitIDConst =
-          Plan->getVPConstant(ConstantInt::get(Ty, ExitID));
+          Plan->getVPConstant(ConstantInt::get(Ty32, ExitID));
       VPPhi->addIncoming(ExitIDConst, cast<VPBasicBlock>(NewBlock));
-      VPPhiMarker->addIncoming(ZeroConst2, cast<VPBasicBlock>(NewBlock));
+      VPPhiMarker->addIncoming(ZeroConstTy1, cast<VPBasicBlock>(NewBlock));
       ExitBlockIDPairs.push_back(std::make_pair(ExitBlock, ExitIDConst));
       ExitExitingBlocksMap[ExitBlock] = ExitingBlock;
       ExitBlockNewBlockMap[ExitBlock] = NewBlock;
@@ -601,12 +640,17 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   if (ExitBlocks.size() > 1) {
     VPBasicBlock *IfBlock =
         new VPBasicBlock(VPlanUtils::createUniqueName("IfBlock"));
-    VPRegionBlock *Parent = LatchExitBlock->getParent();
+    VPRegionBlock *Parent = NewLoopLatch->getParent();
     IfBlock->setParent(Parent);
     Parent->setSize(Parent->getSize() + 1);
     ParentLoop->addBasicBlockToLoop(IfBlock, *VPLInfo);
     // Update the predecessors of the IfBlock.
-    VPBlockUtils::movePredecessor(NewLoopLatch, LatchExitBlock, IfBlock);
+    if (LatchExitBlock)
+      VPBlockUtils::movePredecessor(NewLoopLatch, LatchExitBlock, IfBlock);
+    else {
+      NewLoopLatch->appendSuccessor(IfBlock);
+      IfBlock->appendPredecessor(NewLoopLatch);
+    }
 
     for (int i = 1, end = ExitBlockIDPairs.size(); i != end; ++i) {
       const auto &Pair = ExitBlockIDPairs[i];
@@ -624,7 +668,7 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
       } else {
         // The current NextIfBlock is the LatchExitBlock.
         NextIfBlock = cast<VPBasicBlock>(ExitBlockIDPairs[0].first);
-        if (hasVPPhiNode(cast<VPBasicBlock>(LatchExitBlock)))
+        if (LatchExitBlock && hasVPPhiNode(cast<VPBasicBlock>(LatchExitBlock)))
           updateBlocksPhiNode(cast<VPBasicBlock>(LatchExitBlock),
                               cast<VPBasicBlock>(OrigLoopLatch), IfBlock);
       }
@@ -1107,7 +1151,7 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
     // i.e., values are either uniform or divergent for all VFs.
     VPLoop *CandidateLoop = *VPLInfo->begin();
     auto VPDA = make_unique<VPlanDivergenceAnalysis>();
-    VPDA->compute(CandidateLoop, VPLInfo, VPDomTree, VPPostDomTree, true);
+    VPDA->compute(Plan, CandidateLoop, VPLInfo, VPDomTree, VPPostDomTree, true);
     Plan->setVPlanDA(std::move(VPDA));
   }
 
@@ -1461,13 +1505,19 @@ public:
       V = UndefStep->getValue();
     else if (auto ConstStep = dyn_cast<SCEVConstant>(Step))
       V = ConstStep->getValue();
-    assert(V && "Unknown scev kind");
-    Descriptor.setStep(Builder.getOrCreateVPOperand(V));
+    if (V)
+      Descriptor.setStep(Builder.getOrCreateVPOperand(V));
+    else {
+      // Step of induction is variable, populate it later via VPlan
+      Descriptor.setStep(nullptr);
+    }
     if (ID.getInductionBinOp()) {
       Descriptor.setInductionBinOp(dyn_cast<VPInstruction>(
           Builder.getOrCreateVPOperand(ID.getInductionBinOp())));
       Descriptor.setBinOpcode(Instruction::BinaryOpsEnd);
     } else {
+      assert(Descriptor.getStartPhi() &&
+             "Induction descriptor does not have starting PHI.");
       Type *IndTy = Descriptor.getStartPhi()->getType();
       (void)IndTy;
       assert((IndTy->isIntegerTy() || IndTy->isPointerTy()) &&
@@ -1499,9 +1549,10 @@ public:
       Descriptor.setKind(InductionDescriptor::IK_IntInduction);
     else if (IndTy->isPointerTy()) {
       Descriptor.setKind(InductionDescriptor::IK_PtrInduction);
-      const DataLayout &DL = dyn_cast<Instruction>(CurValue.first)
-                                 ->getModule()
-                                 ->getDataLayout();
+      assert(isa<Instruction>(CurValue.first) &&
+             "Linear descriptor is not an instruction.");
+      const DataLayout &DL =
+          cast<Instruction>(CurValue.first)->getModule()->getDataLayout();
       StepTy = DL.getIntPtrType(IndTy);
     } else {
       assert(IndTy->isFloatingPointTy() && "unexpected induction type");
@@ -1987,4 +2038,3 @@ void VPlanHCFGBuilder::passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) {
     Converter->passToVPlan(Plan, Mapper);
   }
 }
-

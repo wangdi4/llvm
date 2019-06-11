@@ -296,7 +296,7 @@ bool CSAStreamingMemoryImpl::runOnLoop(Loop *L) {
   // Get the loop preheader, creating it if it doesn't exist.
   auto *Preheader = L->getLoopPreheader();
   if (!Preheader) {
-    Preheader = InsertPreheaderForLoop(L, &DT, &LI, false);
+    Preheader = InsertPreheaderForLoop(L, &DT, &LI, nullptr, false);
     Changed = true;
   }
   assert(Preheader && "How did we not create a preheader?");

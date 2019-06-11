@@ -629,6 +629,8 @@ public:
   /// \p IndexExprs The expressions for the indices.
   const SCEV *getGEPExpr(GEPOperator *GEP,
                          const SmallVectorImpl<const SCEV *> &IndexExprs);
+  const SCEV *getMinMaxExpr(unsigned Kind,
+                            SmallVectorImpl<const SCEV *> &Operands);
   const SCEV *getSMaxExpr(const SCEV *LHS, const SCEV *RHS);
   const SCEV *getSMaxExpr(SmallVectorImpl<const SCEV *> &Operands);
   const SCEV *getUMaxExpr(const SCEV *LHS, const SCEV *RHS);
@@ -1273,6 +1275,12 @@ private:
 
   // Mark SCEVUnknown Phis currently being processed by isImpliedViaMerge.
   SmallPtrSet<const PHINode *, 6> PendingMerges;
+
+#if INTEL_CUSTOMIZATION
+  // Recursion depth for PHINode traversal. Avoids adding a parameter to all
+  // the intermediate functions such as getSCEV.
+  unsigned int PhiDepth = 0;
+#endif // INTEL_CUSTOMIZATION
 
   /// Set to true by isLoopBackedgeGuardedByCond when we're walking the set of
   /// conditions dominating the backedge of a loop.

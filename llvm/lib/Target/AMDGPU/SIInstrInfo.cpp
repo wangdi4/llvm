@@ -2219,6 +2219,10 @@ bool SIInstrInfo::FoldImmediate(MachineInstr &UseMI, MachineInstr &DefMI,
       // These come before src2.
       removeModOperands(UseMI);
       UseMI.setDesc(get(NewOpc));
+      // It might happen that UseMI was commuted
+      // and we now have SGPR as SRC1. If so 2 inlined
+      // constant and SGPR are illegal.
+      legalizeOperands(UseMI);
 
       bool DeleteDef = MRI->hasOneNonDBGUse(Reg);
       if (DeleteDef)
@@ -2486,7 +2490,7 @@ bool SIInstrInfo::hasUnwantedEffectsWhenEXECEmpty(const MachineInstr &MI) const 
       Opcode == AMDGPU::DS_ORDERED_COUNT)
     return true;
 
-  if (MI.isInlineAsm())
+  if (MI.isCall() || MI.isInlineAsm())
     return true; // conservative assumption
 
   // These are like SALU instructions in terms of effects, so it's questionable
@@ -2514,6 +2518,10 @@ bool SIInstrInfo::mayReadEXEC(const MachineRegisterInfo &MRI,
     return MI.readsRegister(AMDGPU::EXEC, &RI);
   }
 
+  // Make a conservative assumption about the callee.
+  if (MI.isCall())
+    return true;
+
   // Be conservative with any unhandled generic opcodes.
   if (!isTargetSpecificOpcode(MI.getOpcode()))
     return true;
@@ -2523,6 +2531,9 @@ bool SIInstrInfo::mayReadEXEC(const MachineRegisterInfo &MRI,
 
 bool SIInstrInfo::isInlineConstant(const APInt &Imm) const {
   switch (Imm.getBitWidth()) {
+  case 1: // This likely will be a condition code mask.
+    return true;
+
   case 32:
     return AMDGPU::isInlinableLiteral32(Imm.getSExtValue(),
                                         ST.hasInv2PiInlineImm());
@@ -3191,17 +3202,43 @@ bool SIInstrInfo::verifyInstruction(const MachineInstr &MI,
     }
   }
 
+  if (isSOP2(MI) || isSOPC(MI)) {
+    const MachineOperand &Src0 = MI.getOperand(Src0Idx);
+    const MachineOperand &Src1 = MI.getOperand(Src1Idx);
+    unsigned Immediates = 0;
+
+    if (!Src0.isReg() &&
+        !isInlineConstant(Src0, Desc.OpInfo[Src0Idx].OperandType))
+      Immediates++;
+    if (!Src1.isReg() &&
+        !isInlineConstant(Src1, Desc.OpInfo[Src1Idx].OperandType))
+      Immediates++;
+
+    if (Immediates > 1) {
+      ErrInfo = "SOP2/SOPC instruction requires too many immediate constants";
+      return false;
+    }
+  }
+
   if (isSOPK(MI)) {
-    int64_t Imm = getNamedOperand(MI, AMDGPU::OpName::simm16)->getImm();
-    if (sopkIsZext(MI)) {
-      if (!isUInt<16>(Imm)) {
-        ErrInfo = "invalid immediate for SOPK instruction";
+    auto Op = getNamedOperand(MI, AMDGPU::OpName::simm16);
+    if (Desc.isBranch()) {
+      if (!Op->isMBB()) {
+        ErrInfo = "invalid branch target for SOPK instruction";
         return false;
       }
     } else {
-      if (!isInt<16>(Imm)) {
-        ErrInfo = "invalid immediate for SOPK instruction";
-        return false;
+      uint64_t Imm = Op->getImm();
+      if (sopkIsZext(MI)) {
+        if (!isUInt<16>(Imm)) {
+          ErrInfo = "invalid immediate for SOPK instruction";
+          return false;
+        }
+      } else {
+        if (!isInt<16>(Imm)) {
+          ErrInfo = "invalid immediate for SOPK instruction";
+          return false;
+        }
       }
     }
   }
@@ -3370,7 +3407,7 @@ unsigned SIInstrInfo::getVALUOp(const MachineInstr &MI) const {
   case AMDGPU::S_SUB_U32:
     return AMDGPU::V_SUB_I32_e32;
   case AMDGPU::S_SUBB_U32: return AMDGPU::V_SUBB_U32_e32;
-  case AMDGPU::S_MUL_I32: return AMDGPU::V_MUL_LO_I32;
+  case AMDGPU::S_MUL_I32: return AMDGPU::V_MUL_LO_U32;
   case AMDGPU::S_MUL_HI_U32: return AMDGPU::V_MUL_HI_U32;
   case AMDGPU::S_MUL_HI_I32: return AMDGPU::V_MUL_HI_I32;
   case AMDGPU::S_AND_B32: return AMDGPU::V_AND_B32_e64;
@@ -3880,7 +3917,7 @@ void SIInstrInfo::legalizeGenericOperand(MachineBasicBlock &InsertMBB,
     return;
 
   // Try to eliminate the copy if it is copying an immediate value.
-  if (Def->isMoveImmediate())
+  if (Def->isMoveImmediate() && DstRC != &AMDGPU::VReg_1RegClass)
     FoldImmediate(*Copy, *Def, OpReg, &MRI);
 }
 
@@ -4114,7 +4151,10 @@ void SIInstrInfo::legalizeOperands(MachineInstr &MI,
     if (VRC || !RI.isSGPRClass(getOpRegClass(MI, 0))) {
       if (!VRC) {
         assert(SRC);
-        VRC = RI.getEquivalentVGPRClass(SRC);
+       if (getOpRegClass(MI, 0) == &AMDGPU::VReg_1RegClass) {
+          VRC = &AMDGPU::VReg_1RegClass;
+        } else
+          VRC = RI.getEquivalentVGPRClass(SRC);
       }
       RC = VRC;
     } else {
@@ -5276,7 +5316,7 @@ const TargetRegisterClass *SIInstrInfo::getDestEquivalentVGPRClass(
   case AMDGPU::INSERT_SUBREG:
   case AMDGPU::WQM:
   case AMDGPU::WWM:
-    if (RI.hasVGPRs(NewDstRC))
+    if (RI.hasVGPRs(NewDstRC) || NewDstRC == &AMDGPU::VReg_1RegClass)
       return nullptr;
 
     NewDstRC = RI.getEquivalentVGPRClass(NewDstRC);
@@ -5545,7 +5585,8 @@ unsigned SIInstrInfo::getInstSizeInBytes(const MachineInstr &MI) const {
   case TargetOpcode::INLINEASM_BR: {
     const MachineFunction *MF = MI.getParent()->getParent();
     const char *AsmStr = MI.getOperand(0).getSymbolName();
-    return getInlineAsmLength(AsmStr, *MF->getTarget().getMCAsmInfo());
+    return getInlineAsmLength(AsmStr, *MF->getTarget().getMCAsmInfo(),
+                              &MF->getSubtarget());
   }
   default:
     return DescSize;

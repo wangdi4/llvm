@@ -24,6 +24,7 @@ add_public_tablegen_target(X86CommonTableGen)
 
 set(sources
   Intel_X86FMA.cpp        # INTEL
+  Intel_X86FeatureInitCall.cpp        # INTEL
   X86AsmPrinter.cpp
   X86CallFrameOptimization.cpp
   X86CallingConv.cpp
@@ -76,7 +77,6 @@ add_llvm_target(X86CodeGen ${sources})
 
 add_subdirectory(AsmParser)
 add_subdirectory(Disassembler)
-add_subdirectory(InstPrinter)
 add_subdirectory(MCTargetDesc)
 add_subdirectory(TargetInfo)
 add_subdirectory(Utils)

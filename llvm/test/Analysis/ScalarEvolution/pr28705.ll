@@ -1,11 +1,13 @@
 ; PR28705
 ; RUN: opt < %s -indvars -S | FileCheck %s
 
-; Check IndVarSimplify doesn't replace external use of the induction var
-; "%inc.i.i" with "%.sroa.speculated + 1" because it is not profitable.
+;INTEL_CUSTOMIZATION
+; Check IndVarSimplify replaces the exitval use of the induction var "%inc.i.i"
+; with "%.sroa.speculated + 1".
+;END INTEL_CUSTOMIZATION
 ;
 ; CHECK-LABEL: @foo(
-; CHECK: %[[EXIT:.+]] = phi i32 [ %inc.i.i, %for.body650 ]
+; CHECK: %[[EXIT:.+]] = add i32 %.sroa.speculated, 1           ;INTEL
 ; CHECK: %DB.sroa.9.0.lcssa = phi i32 [ 1, %entry ], [ %[[EXIT]], %loopexit ]
 ;
 define void @foo(i32 %sub.ptr.div.i, i8* %ref.i1174) local_unnamed_addr {

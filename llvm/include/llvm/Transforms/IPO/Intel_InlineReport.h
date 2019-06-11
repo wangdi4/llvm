@@ -357,9 +357,6 @@ private:
                      InlineReportCallSite *NewCallSite,
                      ValueToValueMapTy &IIMap);
 
-  // \brief Print the inlining option values
-  void printOptionValues(void) const;
-
   ///
   /// \brief CallbackVM for Instructions and Functions in the InlineReport
   ///

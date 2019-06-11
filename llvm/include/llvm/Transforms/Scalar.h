@@ -434,7 +434,7 @@ Pass *createLowerWidenableConditionPass();
 //
 // MergeICmps - Merge integer comparison chains into a memcmp
 //
-Pass *createMergeICmpsPass();
+Pass *createMergeICmpsLegacyPass();
 
 //===----------------------------------------------------------------------===//
 //

@@ -3,7 +3,7 @@
 ; RUN:     -hir-last-value-computation -hir-vec-dir-insert \
 ; RUN:     -vplan-force-vf=4 -VPlanDriverHIR -hir-cg -disable-output \
 ; RUN:     -debug-only=vplan-idioms -vplan-use-padding-info=true < %s 2>&1 | FileCheck %s
-; REQUIRES: asserts
+; REQUIRES: asserts, include_dtrans
 
 ; This test case tests padding propagation and use of it in vectorizer.
 ;

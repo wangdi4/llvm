@@ -17,6 +17,7 @@
 
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelLoopVectorizationCodeGen.h"
+#include "IntelLoopVectorizationLegality.h"
 #include "IntelNewVPlanPredicator.h"
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlanHCFGBuilder.h"
@@ -26,6 +27,7 @@
 #if INTEL_CUSTOMIZATION
 #include "IntelVPlanCostModelProprietary.h"
 #include "IntelVPlanIdioms.h"
+#include "IntelVPlanClone.h"
 #include "VPlanHIR/IntelVPlanHCFGBuilderHIR.h"
 #endif // INTEL_CUSTOMIZATION
 
@@ -82,26 +84,13 @@ static unsigned getSafelen(const WRNVecLoopNode *WRLp) {
 // explicitly represented in VPlan. Also it's incorrect for multi level loop
 // vectorization.
 static uint64_t getTripCountForFirstLoopInDfs(const VPlan *VPlan) {
-
-  std::function<const VPLoopRegion *(const VPBlockBase *)> FindLoop =
-      [&](const VPBlockBase *VPBlock) -> const VPLoopRegion * {
-    if (const auto Loop = dyn_cast<const VPLoopRegion>(VPBlock))
-      return Loop;
-
-    if (const auto Region = dyn_cast<const VPRegionBlock>(VPBlock))
-      for (const VPBlockBase *Block : depth_first(Region->getEntry()))
-        if (const VPLoopRegion *Loop = FindLoop(Block))
-          return Loop;
-
-    return nullptr;
-  };
-
-  const auto Loop = FindLoop(VPlan->getEntry());
+  const VPLoopRegion *Loop = VPlanUtils::findFirstLoopDFS(VPlan);
 
   return VPlan->getVPLoopAnalysis()->getTripCountFor(Loop);
 }
 
-unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context) {
+unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
+                                                      const DataLayout *DL) {
   collectDeadInstructions();
 
   unsigned MinVF, MaxVF;
@@ -186,7 +175,17 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context) {
   for (; StartRangeVF < EndRangeVF; ++i) {
     // TODO: revisit when we build multiple VPlans.
     std::shared_ptr<VPlan> Plan =
-        buildInitialVPlan(StartRangeVF, EndRangeVF, Context);
+        buildInitialVPlan(StartRangeVF, EndRangeVF, Context, DL);
+
+    if (VPlanUseVPEntityInstructions) {
+      VPLoop *MainLoop = *(Plan->getVPLoopInfo()->begin());
+      // Loop entities may be not created in some cases.
+      VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
+      VPBuilder VPIRBuilder;
+      LE->insertVPInstructions(VPIRBuilder);
+      LLVM_DEBUG(Plan->setName("After insertion VPEntities instructions\n");
+                 dbgs() << *Plan;);
+    }
 
     for (unsigned TmpVF = StartRangeVF; TmpVF < EndRangeVF; TmpVF *= 2)
       VPlans[TmpVF] = Plan;
@@ -424,9 +423,11 @@ LoopVectorizationPlanner::getTypesWidthRangeInBits() const {
 }
 
 std::shared_ptr<VPlan> LoopVectorizationPlanner::buildInitialVPlan(
-    unsigned StartRangeVF, unsigned &EndRangeVF, LLVMContext *Context) {
+    unsigned StartRangeVF, unsigned &EndRangeVF, LLVMContext *Context,
+    const DataLayout *DL) {
   // Create new empty VPlan
-  std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(VPLA, Context);
+  std::shared_ptr<VPlan> SharedPlan =
+      std::make_shared<VPlan>(VPLA, Context, DL);
   VPlan *Plan = SharedPlan.get();
 
   // Build hierarchical CFG
@@ -558,6 +559,7 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
 #endif // INTEL_CUSTOMIZATION
 
   VPlan *Plan = getVPlanForVF(BestVF);
+  assert(Plan && "No VPlan found for BestVF.");
   // TODO: This should be removed once we get proper divergence analysis
   State.UniformCBVs = &Plan->UniformCBVs;
 

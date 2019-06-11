@@ -105,6 +105,16 @@ static StringRef argPrefix(StringRef ArgName) {
   return ArgPrefixLong;
 }
 
+// Option predicates...
+static inline bool isGrouping(const Option *O) {
+  return O->getMiscFlags() & cl::Grouping;
+}
+static inline bool isPrefixedOrGrouping(const Option *O) {
+  return isGrouping(O) || O->getFormattingFlag() == cl::Prefix ||
+         O->getFormattingFlag() == cl::AlwaysPrefix;
+}
+
+
 namespace {
 
 class PrintArg {
@@ -148,7 +158,8 @@ public:
   void ResetAllOptionOccurrences();
 
   bool ParseCommandLineOptions(int argc, const char *const *argv,
-                               StringRef Overview, raw_ostream *Errs = nullptr);
+                               StringRef Overview, raw_ostream *Errs = nullptr,
+                               bool LongOptionsUseDoubleDash = false);
 
   void addLiteralOption(Option &Opt, SubCommand *SC, StringRef Name) {
     if (Opt.hasArgStr())
@@ -394,6 +405,13 @@ private:
   SubCommand *ActiveSubCommand;
 
   Option *LookupOption(SubCommand &Sub, StringRef &Arg, StringRef &Value);
+  Option *LookupLongOption(SubCommand &Sub, StringRef &Arg, StringRef &Value,
+                           bool LongOptionsUseDoubleDash, bool HaveDoubleDash) {
+    Option *Opt = LookupOption(Sub, Arg, Value);
+    if (Opt && LongOptionsUseDoubleDash && !HaveDoubleDash && !isGrouping(Opt))
+      return nullptr;
+    return Opt;
+  }
   SubCommand *LookupSubCommand(StringRef Name);
 };
 
@@ -423,6 +441,17 @@ void Option::setArgStr(StringRef S) {
   ArgStr = S;
   if (ArgStr.size() == 1)
     setMiscFlag(Grouping);
+}
+
+void Option::addCategory(OptionCategory &C) {
+  assert(!Categories.empty() && "Categories cannot be empty.");
+  // Maintain backward compatibility by replacing the default GeneralCategory
+  // if it's still set.  Otherwise, just add the new one.  The GeneralCategory
+  // must be explicitly added if you want multiple categories that include it.
+  if (&C != &GeneralCategory && Categories[0] == &GeneralCategory)
+    Categories[0] = &C;
+  else if (find(Categories, &C) == Categories.end())
+    Categories.push_back(&C);
 }
 
 void Option::reset() {
@@ -668,15 +697,6 @@ static bool ProvidePositionalOption(Option *Handler, StringRef Arg, int i) {
   return ProvideOption(Handler, Handler->ArgStr, Arg, 0, nullptr, Dummy);
 }
 
-// Option predicates...
-static inline bool isGrouping(const Option *O) {
-  return O->getMiscFlags() & cl::Grouping;
-}
-static inline bool isPrefixedOrGrouping(const Option *O) {
-  return isGrouping(O) || O->getFormattingFlag() == cl::Prefix ||
-         O->getFormattingFlag() == cl::AlwaysPrefix;
-}
-
 // getOptionPred - Check to see if there are any options that satisfy the
 // specified predicate with names that are the prefixes in Name.  This is
 // checked by progressively stripping characters off of the name, checking to
@@ -686,8 +706,9 @@ static inline bool isPrefixedOrGrouping(const Option *O) {
 static Option *getOptionPred(StringRef Name, size_t &Length,
                              bool (*Pred)(const Option *),
                              const StringMap<Option *> &OptionsMap) {
-
   StringMap<Option *>::const_iterator OMI = OptionsMap.find(Name);
+  if (OMI != OptionsMap.end() && !Pred(OMI->getValue()))
+    OMI = OptionsMap.end();
 
   // Loop while we haven't found an option and Name still has at least two
   // characters in it (so that the next iteration will not be the empty
@@ -695,6 +716,8 @@ static Option *getOptionPred(StringRef Name, size_t &Length,
   while (OMI == OptionsMap.end() && Name.size() > 1) {
     Name = Name.substr(0, Name.size() - 1); // Chop off the last character.
     OMI = OptionsMap.find(Name);
+    if (OMI != OptionsMap.end() && !Pred(OMI->getValue()))
+      OMI = OptionsMap.end();
   }
 
   if (OMI != OptionsMap.end() && Pred(OMI->second)) {
@@ -1155,7 +1178,8 @@ void cl::ParseEnvironmentOptions(const char *progName, const char *envVar,
 
 bool cl::ParseCommandLineOptions(int argc, const char *const *argv,
                                  StringRef Overview, raw_ostream *Errs,
-                                 const char *EnvVar) {
+                                 const char *EnvVar,
+                                 bool LongOptionsUseDoubleDash) {
   SmallVector<const char *, 20> NewArgv;
   BumpPtrAllocator A;
   StringSaver Saver(A);
@@ -1175,7 +1199,7 @@ bool cl::ParseCommandLineOptions(int argc, const char *const *argv,
 
   // Parse all options.
   return GlobalParser->ParseCommandLineOptions(NewArgc, &NewArgv[0], Overview,
-                                               Errs);
+                                               Errs, LongOptionsUseDoubleDash);
 }
 
 void CommandLineParser::ResetAllOptionOccurrences() {
@@ -1190,7 +1214,8 @@ void CommandLineParser::ResetAllOptionOccurrences() {
 bool CommandLineParser::ParseCommandLineOptions(int argc,
                                                 const char *const *argv,
                                                 StringRef Overview,
-                                                raw_ostream *Errs) {
+                                                raw_ostream *Errs,
+                                                bool LongOptionsUseDoubleDash) {
   assert(hasOptions() && "No options specified!");
 
   // Expand response files.
@@ -1300,6 +1325,7 @@ bool CommandLineParser::ParseCommandLineOptions(int argc,
     std::string NearestHandlerString;
     StringRef Value;
     StringRef ArgName = "";
+    bool HaveDoubleDash = false;
 
     // Check to see if this is a positional argument.  This argument is
     // considered to be positional if it doesn't start with '-', if it is "-"
@@ -1338,25 +1364,30 @@ bool CommandLineParser::ParseCommandLineOptions(int argc,
       // otherwise feed it to the eating positional.
       ArgName = StringRef(argv[i] + 1);
       // Eat second dash.
-      if (!ArgName.empty() && ArgName[0] == '-')
+      if (!ArgName.empty() && ArgName[0] == '-') {
+        HaveDoubleDash = true;
         ArgName = ArgName.substr(1);
+      }
 
-      Handler = LookupOption(*ChosenSubCommand, ArgName, Value);
+      Handler = LookupLongOption(*ChosenSubCommand, ArgName, Value,
+                                 LongOptionsUseDoubleDash, HaveDoubleDash);
       if (!Handler || Handler->getFormattingFlag() != cl::Positional) {
         ProvidePositionalOption(ActivePositionalArg, StringRef(argv[i]), i);
         continue; // We are done!
       }
-
     } else { // We start with a '-', must be an argument.
       ArgName = StringRef(argv[i] + 1);
       // Eat second dash.
-      if (!ArgName.empty() && ArgName[0] == '-')
+      if (!ArgName.empty() && ArgName[0] == '-') {
+        HaveDoubleDash = true;
         ArgName = ArgName.substr(1);
+      }
 
-      Handler = LookupOption(*ChosenSubCommand, ArgName, Value);
+      Handler = LookupLongOption(*ChosenSubCommand, ArgName, Value,
+                                 LongOptionsUseDoubleDash, HaveDoubleDash);
 
       // Check to see if this "option" is really a prefixed or grouped argument.
-      if (!Handler)
+      if (!Handler && !(LongOptionsUseDoubleDash && HaveDoubleDash))
         Handler = HandlePrefixedOrGroupedOption(ArgName, Value, ErrorParsing,
                                                 OptionsMap);
 
@@ -1922,6 +1953,7 @@ void basic_parser_impl::printOptionNoValue(const Option &O,
   outs() << "= *cannot print option value*\n";
 }
 
+#if !INTEL_PRODUCT_RELEASE
 //===----------------------------------------------------------------------===//
 // -help and -help-hidden option implementation
 //
@@ -2132,9 +2164,11 @@ protected:
     // options within categories will also be alphabetically sorted.
     for (size_t I = 0, E = Opts.size(); I != E; ++I) {
       Option *Opt = Opts[I].second;
-      assert(CategorizedOptions.count(Opt->Category) > 0 &&
-             "Option has an unregistered category");
-      CategorizedOptions[Opt->Category].push_back(Opt);
+      for (auto &Cat : Opt->Categories) {
+        assert(CategorizedOptions.count(Cat) > 0 &&
+               "Option has an unregistered category");
+        CategorizedOptions[Cat].push_back(Opt);
+      }
     }
 
     // Now do printing.
@@ -2203,10 +2237,12 @@ static HelpPrinterWrapper WrappedNormalPrinter(UncategorizedNormalPrinter,
                                                CategorizedNormalPrinter);
 static HelpPrinterWrapper WrappedHiddenPrinter(UncategorizedHiddenPrinter,
                                                CategorizedHiddenPrinter);
+#endif // !INTEL_PRODUCT_RELEASE
 
 // Define a category for generic options that all tools should have.
 static cl::OptionCategory GenericCategory("Generic Options");
 
+#if !INTEL_PRODUCT_RELEASE
 // Define uncategorized help printers.
 // --help-list is hidden by default because if Option categories are being used
 // then --help behaves the same as --help-list.
@@ -2265,11 +2301,13 @@ void HelpPrinterWrapper::operator=(bool Value) {
   } else
     UncategorizedPrinter = true; // Invoke uncategorized printer
 }
+#endif // !INTEL_PRODUCT_RELEASE
 
 // Print the value of each option.
 void cl::PrintOptionValues() { GlobalParser->printOptionValues(); }
 
 void CommandLineParser::printOptionValues() {
+#if !INTEL_PRODUCT_RELEASE
   if (!PrintOptions && !PrintAllOptions)
     return;
 
@@ -2283,6 +2321,7 @@ void CommandLineParser::printOptionValues() {
 
   for (size_t i = 0, e = Opts.size(); i != e; ++i)
     Opts[i].second->printOptionValue(MaxArgLen, PrintAllOptions);
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 static VersionPrinterTy OverrideVersionPrinter = nullptr;
@@ -2348,13 +2387,16 @@ public:
 // Define the --version option that prints out the LLVM version for the tool
 static VersionPrinter VersionPrinterInstance;
 
+#if !INTEL_PRODUCT_RELEASE
 static cl::opt<VersionPrinter, true, parser<bool>>
     VersOp("version", cl::desc("Display the version of this program"),
            cl::location(VersionPrinterInstance), cl::ValueDisallowed,
            cl::cat(GenericCategory));
+#endif // !INTEL_PRODUCT_RELEASE
 
 // Utility function for printing the help message.
 void cl::PrintHelpMessage(bool Hidden, bool Categorized) {
+#if !INTEL_PRODUCT_RELEASE
   if (!Hidden && !Categorized)
     UncategorizedNormalPrinter.printHelp();
   else if (!Hidden && Categorized)
@@ -2363,6 +2405,7 @@ void cl::PrintHelpMessage(bool Hidden, bool Categorized) {
     UncategorizedHiddenPrinter.printHelp();
   else
     CategorizedHiddenPrinter.printHelp();
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 /// Utility function for printing version number.
@@ -2391,21 +2434,21 @@ cl::getRegisteredSubcommands() {
 
 void cl::HideUnrelatedOptions(cl::OptionCategory &Category, SubCommand &Sub) {
   for (auto &I : Sub.OptionsMap) {
-    if (I.second->Category != &Category &&
-        I.second->Category != &GenericCategory)
-      I.second->setHiddenFlag(cl::ReallyHidden);
+    for (auto &Cat : I.second->Categories) {
+      if (Cat != &Category &&
+          Cat != &GenericCategory)
+        I.second->setHiddenFlag(cl::ReallyHidden);
+    }
   }
 }
 
 void cl::HideUnrelatedOptions(ArrayRef<const cl::OptionCategory *> Categories,
                               SubCommand &Sub) {
-  auto CategoriesBegin = Categories.begin();
-  auto CategoriesEnd = Categories.end();
   for (auto &I : Sub.OptionsMap) {
-    if (std::find(CategoriesBegin, CategoriesEnd, I.second->Category) ==
-            CategoriesEnd &&
-        I.second->Category != &GenericCategory)
-      I.second->setHiddenFlag(cl::ReallyHidden);
+    for (auto &Cat : I.second->Categories) {
+      if (find(Categories, Cat) == Categories.end() && Cat != &GenericCategory)
+        I.second->setHiddenFlag(cl::ReallyHidden);
+    }
   }
 }
 

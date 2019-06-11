@@ -26,7 +26,7 @@ const uint8_t FMADagCommon::TermZERO;
 const uint8_t FMADagCommon::TermONE;
 const uint8_t FMADagCommon::MaxTermIndex;
 
-/// FAExprSPCommon static fields.
+/// FMAExprSPCommon static fields.
 const unsigned FMAExprSPCommon::MaxNumOfTermsInProduct;
 const unsigned FMAExprSPCommon::MaxNumOfUniqueTermsInSP;
 const uint8_t FMAExprSPCommon::TermZERO;

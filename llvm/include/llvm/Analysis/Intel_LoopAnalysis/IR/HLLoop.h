@@ -656,7 +656,7 @@ public:
   virtual void verify() const override;
 
   /// Checks whether SIMD directive is attached to the loop.
-  bool isSIMD() const;
+  bool isSIMD() const { return hasDirective(DIR_OMP_SIMD); }
 
   /// Checks whether we have a vectorizable loop by checking if SIMD
   /// or AUTO_VEC directive is attached to the loop.

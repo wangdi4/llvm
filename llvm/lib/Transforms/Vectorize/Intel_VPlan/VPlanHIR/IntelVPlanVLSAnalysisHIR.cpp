@@ -45,14 +45,17 @@ bool VPlanVLSAnalysisHIR::isUnitStride(const RegDDRef *Ref, unsigned Level) {
 }
 
 OVLSMemref *VPlanVLSAnalysisHIR::createVLSMemref(const VPInstruction *Inst,
-                                                 const MemAccessTy &AT,
-                                                 const unsigned Level,
+                                                 const VPVectorShape *Shape,
                                                  const unsigned VF) const {
   unsigned Opcode = Inst->getOpcode();
 
   const HLNode *Node = Inst->HIR.getUnderlyingNode();
   const HLDDNode *DDNode = cast_or_null<HLDDNode>(Node);
   assert(DDNode && "HLDDNode is expected.");
+
+  int Level = 0;
+  if (HLLoop *Lp = Node->getParentLoop())
+    Level = Lp->getNestingLevel();
 
   // Restrict creation of VLSMemrefs to load/store instructions only
   // TODO: Remove this bailout when VLS is made an explicit transformation in

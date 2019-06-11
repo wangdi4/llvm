@@ -44,15 +44,6 @@ private:
     return createInstruction(Opcode, BaseTy, ArrayRef<VPValue *>(Operands));
   }
 
-  /// \brief Create VPCmpInst with its two operands.
-  VPCmpInst *createCmpInst(CmpInst::Predicate Pred, VPValue *LeftOp,
-                           VPValue *RightOp) {
-    assert(LeftOp && RightOp && "VPCmpInst's operands can't be null!");
-    VPCmpInst *Instr = new VPCmpInst(LeftOp, RightOp, Pred);
-    if (BB)
-      BB->insert(Instr, InsertPt);
-    return Instr;
-  }
 #else
   VPInstruction *createInstruction(unsigned Opcode,
                                    std::initializer_list<VPValue *> Operands) {
@@ -209,6 +200,16 @@ public:
     return VPCI;
   }
 
+  /// \brief Create VPCmpInst with its two operands.
+  VPCmpInst *createCmpInst(CmpInst::Predicate Pred, VPValue *LeftOp,
+                           VPValue *RightOp) {
+    assert(LeftOp && RightOp && "VPCmpInst's operands can't be null!");
+    VPCmpInst *Instr = new VPCmpInst(LeftOp, RightOp, Pred);
+    if (BB)
+      BB->insert(Instr, InsertPt);
+    return Instr;
+  }
+
   // Create dummy VPBranchInst instruction.
   VPBranchInst *createBr(Type *BaseTy) {
     VPBranchInst *Instr = new VPBranchInst(BaseTy);
@@ -235,9 +236,13 @@ public:
   // pointer \p Ptr and list of index operands \p IdxList
   VPInstruction *createGEP(VPValue *Ptr, ArrayRef<VPValue *> IdxList,
                            Instruction *Inst) {
-    assert(Inst && "Instruction cannot be a nullptr");
-    VPInstruction *NewVPInst =
-        new VPGEPInstruction(Inst->getType(), Ptr, IdxList);
+    assert((Inst || Ptr->getType()->isPointerTy()) &&
+           "Can't define type for GEP instruction");
+    // TODO. Currently, it's expected that newly created GEP (e.g. w/o
+    // underlying IR) is created for a non-array types. Need to handle those
+    // arrays when simd reductions/privates will support arrays.
+    Type *Ty = Inst ? Inst->getType() : Ptr->getType();
+    VPInstruction *NewVPInst = new VPGEPInstruction(Ty, Ptr, IdxList);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     NewVPInst->setUnderlyingValue(Inst);
@@ -252,6 +257,83 @@ public:
     cast<VPGEPInstruction>(NewVPInst)->setIsInBounds(true);
     return NewVPInst;
   }
+
+  // Reduction init/final
+  VPInstruction *createReductionInit(VPValue *Identity,
+                                     VPValue *Start = nullptr) {
+    VPInstruction *NewVPInst = Start ? new VPReductionInit(Identity, Start)
+                                     : new VPReductionInit(Identity);
+    if (BB)
+      BB->insert(NewVPInst, InsertPt);
+    return NewVPInst;
+  }
+
+  VPInstruction *createReductionFinal(unsigned BinOp, VPValue *ReducVec,
+                                      VPValue *StartValue, bool Sign) {
+    VPInstruction *NewVPInst =
+        new VPReductionFinal(BinOp, ReducVec, StartValue, Sign);
+    if (BB)
+      BB->insert(NewVPInst, InsertPt);
+    return NewVPInst;
+  }
+
+  VPInstruction *createReductionFinal(unsigned BinOp, VPValue *ReducVec) {
+    VPInstruction *NewVPInst = new VPReductionFinal(BinOp, ReducVec);
+    if (BB)
+      BB->insert(NewVPInst, InsertPt);
+    return NewVPInst;
+  }
+
+  // Final value of index part of min/max+index
+  VPInstruction *createReductionFinal(unsigned BinOp, VPValue *ReducVec,
+                                      VPValue *StartValue, bool Sign,
+                                      VPReductionFinal *MinMax) {
+    VPInstruction *NewVPInst =
+        new VPReductionFinal(BinOp, ReducVec, StartValue, Sign, MinMax);
+    if (BB)
+      BB->insert(NewVPInst, InsertPt);
+    return NewVPInst;
+  }
+
+  // Induction init/final
+  VPInstruction *createInductionInit(VPValue *Start, VPValue *Step,
+                                     Instruction::BinaryOps Opc) {
+    VPInstruction *NewVPInst = new VPInductionInit(Start, Step, Opc);
+    if (BB)
+      BB->insert(NewVPInst, InsertPt);
+    return NewVPInst;
+  }
+
+  VPInstruction *createInductionInitStep(VPValue *Step,
+                                         Instruction::BinaryOps Opcode) {
+    VPInstruction *NewVPInst = new VPInductionInitStep(Step, Opcode);
+    if (BB)
+      BB->insert(NewVPInst, InsertPt);
+    return NewVPInst;
+  }
+
+  VPInstruction *createInductionFinal(VPValue *InducVec) {
+    VPInstruction *NewVPInst = new VPInductionFinal(InducVec);
+    if (BB)
+      BB->insert(NewVPInst, InsertPt);
+    return NewVPInst;
+  }
+
+  VPInstruction *createInductionFinal(VPValue *Start, VPValue *Step,
+                                      Instruction::BinaryOps Opcode) {
+    VPInstruction *NewVPInst = new VPInductionFinal(Start, Step, Opcode);
+    if (BB)
+      BB->insert(NewVPInst, InsertPt);
+    return NewVPInst;
+  }
+
+  VPInstruction *createAllocaPrivate(Type *Ty, bool IsSOALayout) {
+    VPInstruction *NewVPInst = new VPAllocatePrivate(Ty, IsSOALayout);
+    if (BB)
+      BB->insert(NewVPInst, InsertPt);
+    return NewVPInst;
+  }
+
 
   //===--------------------------------------------------------------------===//
   // RAII helpers.

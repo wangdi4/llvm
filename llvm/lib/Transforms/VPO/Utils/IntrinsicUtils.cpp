@@ -37,6 +37,19 @@ static cl::opt<unsigned>
     RefsThreshold("refs-threshold", cl::Hidden, cl::init(500),
                     cl::desc("The number of references threshold"));
 
+bool VPOUtils::unsetMayHaveOpenmpDirectiveAttribute(Function &F) {
+  StringRef AttributeName = "may-have-openmp-directive";
+  if (!F.hasFnAttribute(AttributeName))
+    return false;
+
+  if (F.getFnAttribute(AttributeName).getValueAsString() == "false")
+    return false;
+
+  F.removeFnAttr(AttributeName);
+  F.addFnAttr(AttributeName, "false");
+  return true;
+}
+
 bool VPOUtils::stripDirectives(WRegionNode *WRN) {
   bool success = true;
   BasicBlock *ExitBB = WRN->getExitBBlock();

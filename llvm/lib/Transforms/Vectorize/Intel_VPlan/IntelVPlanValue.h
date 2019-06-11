@@ -67,6 +67,9 @@ class VPValue {
   friend class VPlanPredicator;
   friend class VPlanHCFGBuilder;
   friend class VPOCodeGen;
+  friend class VPlanDivergenceAnalysis;
+  friend class VPVectorShape;
+  friend class VPInstruction;
 #endif
 
 private:
@@ -85,6 +88,10 @@ private:
 
   // Hold the underlying Val, if any, attached to this VPValue.
   Value *UnderlyingVal;
+
+  /// Replace all uses of *this with \p NewVal. If the \p Loop is not null then
+  /// replacement is restricted by VPInstructions from the \p Loop.
+  void replaceAllUsesWithImpl(VPValue* NewVal, VPLoop* L);
 
 protected:
 
@@ -128,6 +135,7 @@ public:
     VPExternalDefSC,
     VPMetadataAsValueSC,
     VPExternalUseSC,
+    VPPrivateMemorySC,
   };
 #else
   enum { VPValueSC, VPUserSC, VPInstructionSC };
@@ -187,10 +195,15 @@ void printAsOperand(raw_ostream &OS) const {
            });
   }
 
-  /// Replace all uses of *this with \p NewVal. If the \p Loop is not null then
-  /// replacement is restricted by VPInstructions from the \p Loop.
-  void replaceAllUsesWith(VPValue *NewVal, VPLoop *L = nullptr);
+  /// Replace all uses of *this with \p NewVal.
+  void replaceAllUsesWith(VPValue *NewVal) {
+    replaceAllUsesWithImpl(NewVal, nullptr);
+  }
 
+  /// Replace all uses of *this with \p NewVal in the \p Loop.
+  void replaceAllUsesWithInLoop(VPValue *NewVal, VPLoop &Loop) {
+    replaceAllUsesWithImpl(NewVal, &Loop);
+  }
 #endif // INTEL_CUSTOMIZATION
 
   typedef SmallVectorImpl<VPUser *>::iterator user_iterator;
@@ -306,6 +319,14 @@ public:
       if (getOperand(I) == From)
         setOperand(I, To);
   }
+
+  /// Return index of a given \p Operand.
+  int getOperandIndex(const VPValue *Operand) const {
+    auto It = llvm::find(make_range(op_begin(), op_end()), Operand);
+    if (It != op_end())
+      return std::distance(op_begin(), It);
+    return -1;
+  }
 #endif // INTEL_CUSTOMIZATION
 
   typedef SmallVectorImpl<VPValue *>::iterator operand_iterator;
@@ -342,6 +363,8 @@ public:
 class VPConstant : public VPValue {
   // VPlan is currently the context where we hold the pool of VPConstants.
   friend class VPlan;
+  friend class VPlanDivergenceAnalysis;
+  friend class VPOCodeGenHIR;
 
 protected:
   VPConstant(Constant *Const)
@@ -383,6 +406,7 @@ public:
 class VPExternalDef : public VPValue, public FoldingSetNode {
   // VPlan is currently the context where the pool of VPExternalDefs is held.
   friend class VPlan;
+  friend class VPOCodeGenHIR;
 
 private:
   // Hold the DDRef or IV information related to this external definition.
@@ -529,6 +553,7 @@ public:
     return V->getVPValueID() == VPMetadataAsValueSC;
   }
 };
+
 } // namespace vpo
 #endif // INTEL_CUSTOMIZATION
 } // namespace llvm

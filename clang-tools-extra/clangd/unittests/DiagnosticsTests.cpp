@@ -27,23 +27,24 @@ namespace clang {
 namespace clangd {
 namespace {
 
-using testing::_;
-using testing::ElementsAre;
-using testing::Field;
-using testing::IsEmpty;
-using testing::Pair;
-using testing::UnorderedElementsAre;
+using ::testing::_;
+using ::testing::ElementsAre;
+using ::testing::Field;
+using ::testing::IsEmpty;
+using ::testing::Pair;
+using ::testing::UnorderedElementsAre;
 
-testing::Matcher<const Diag &> WithFix(testing::Matcher<Fix> FixMatcher) {
+::testing::Matcher<const Diag &> WithFix(::testing::Matcher<Fix> FixMatcher) {
   return Field(&Diag::Fixes, ElementsAre(FixMatcher));
 }
 
-testing::Matcher<const Diag &> WithFix(testing::Matcher<Fix> FixMatcher1,
-                                       testing::Matcher<Fix> FixMatcher2) {
+::testing::Matcher<const Diag &> WithFix(::testing::Matcher<Fix> FixMatcher1,
+                                         ::testing::Matcher<Fix> FixMatcher2) {
   return Field(&Diag::Fixes, UnorderedElementsAre(FixMatcher1, FixMatcher2));
 }
 
-testing::Matcher<const Diag &> WithNote(testing::Matcher<Note> NoteMatcher) {
+::testing::Matcher<const Diag &>
+WithNote(::testing::Matcher<Note> NoteMatcher) {
   return Field(&Diag::Notes, ElementsAre(NoteMatcher));
 }
 
@@ -54,7 +55,7 @@ MATCHER_P2(Diag, Range, Message,
 
 MATCHER_P3(Fix, Range, Replacement, Message,
            "Fix " + llvm::to_string(Range) + " => " +
-               testing::PrintToString(Replacement) + " = [" + Message + "]") {
+               ::testing::PrintToString(Replacement) + " = [" + Message + "]") {
   return arg.Message == Message && arg.Edits.size() == 1 &&
          arg.Edits[0].range == Range && arg.Edits[0].newText == Replacement;
 }
@@ -72,6 +73,7 @@ MATCHER_P(EqualToLSPDiag, LSPDiag,
 
 MATCHER_P(DiagSource, S, "") { return arg.Source == S; }
 MATCHER_P(DiagName, N, "") { return arg.Name == N; }
+MATCHER_P(DiagSeverity, S, "") { return arg.Severity == S; }
 
 MATCHER_P(EqualToFix, Fix, "LSP fix " + llvm::to_string(Fix)) {
   if (arg.Message != Fix.Message)
@@ -118,7 +120,7 @@ o]]();
                      "use of undeclared identifier 'goo'; did you mean 'foo'?"),
                 DiagSource(Diag::Clang), DiagName("undeclared_var_use_suggest"),
                 WithFix(
-                    Fix(Test.range("typo"), "foo", "change 'go\\ o' to 'foo'")),
+                    Fix(Test.range("typo"), "foo", "change 'go\\…' to 'foo'")),
                 // This is a pretty normal range.
                 WithNote(Diag(Test.range("decl"), "'foo' declared here"))),
           // This range is zero-width and insertion. Therefore make sure we are
@@ -159,7 +161,7 @@ TEST(DiagnosticsTest, DiagnosticPreamble) {
 
   auto TU = TestTU::withCode(Test.code());
   EXPECT_THAT(TU.build().getDiagnostics(),
-              ElementsAre(testing::AllOf(
+              ElementsAre(::testing::AllOf(
                   Diag(Test.range(), "'not-found.h' file not found"),
                   DiagSource(Diag::Clang), DiagName("pp_file_not_found"))));
 }
@@ -204,6 +206,94 @@ TEST(DiagnosticsTest, ClangTidy) {
                   Diag(Test.range("macrodef"), "macro 'SQUARE' defined here"))),
           Diag(Test.range("macroarg"),
                "multiple unsequenced modifications to 'y'")));
+}
+
+TEST(DiagnosticTest, ClangTidySuppressionComment) {
+  Annotations Main(R"cpp(
+    int main() {
+      int i = 3;
+      double d = 8 / i;  // NOLINT
+      // NOLINTNEXTLINE
+      double e = 8 / i;
+      double f = [[8]] / i;
+    }
+  )cpp");
+  TestTU TU = TestTU::withCode(Main.code());
+  TU.ClangTidyChecks = "bugprone-integer-division";
+  EXPECT_THAT(
+      TU.build().getDiagnostics(),
+      UnorderedElementsAre(::testing::AllOf(
+          Diag(Main.range(), "result of integer division used in a floating "
+                             "point context; possible loss of precision"),
+          DiagSource(Diag::ClangTidy), DiagName("bugprone-integer-division"))));
+}
+
+TEST(DiagnosticTest, ClangTidyWarningAsError) {
+  Annotations Main(R"cpp(
+    int main() {
+      int i = 3;
+      double f = [[8]] / i;
+    }
+  )cpp");
+  TestTU TU = TestTU::withCode(Main.code());
+  TU.ClangTidyChecks = "bugprone-integer-division";
+  TU.ClangTidyWarningsAsErrors = "bugprone-integer-division";
+  EXPECT_THAT(
+      TU.build().getDiagnostics(),
+      UnorderedElementsAre(::testing::AllOf(
+          Diag(Main.range(), "result of integer division used in a floating "
+                             "point context; possible loss of precision"),
+          DiagSource(Diag::ClangTidy), DiagName("bugprone-integer-division"),
+          DiagSeverity(DiagnosticsEngine::Error))));
+}
+
+TEST(DiagnosticTest, LongFixMessages) {
+  // We limit the size of printed code.
+  Annotations Source(R"cpp(
+    int main() {
+      int somereallyreallyreallyreallyreallyreallyreallyreallylongidentifier;
+      [[omereallyreallyreallyreallyreallyreallyreallyreallylongidentifier]]= 10;
+    }
+  )cpp");
+  TestTU TU = TestTU::withCode(Source.code());
+  EXPECT_THAT(
+      TU.build().getDiagnostics(),
+      ElementsAre(WithFix(Fix(
+          Source.range(),
+          "somereallyreallyreallyreallyreallyreallyreallyreallylongidentifier",
+          "change 'omereallyreallyreallyreallyreallyreallyreallyreall…' to "
+          "'somereallyreallyreallyreallyreallyreallyreallyreal…'"))));
+  // Only show changes up to a first newline.
+  Source = Annotations(R"cpp(
+    int main() {
+      int ident;
+      [[ide\
+n]] = 10;
+    }
+  )cpp");
+  TU = TestTU::withCode(Source.code());
+  EXPECT_THAT(TU.build().getDiagnostics(),
+              ElementsAre(WithFix(
+                  Fix(Source.range(), "ident", "change 'ide\\…' to 'ident'"))));
+}
+
+TEST(DiagnosticTest, ClangTidyWarningAsErrorTrumpsSuppressionComment) {
+  Annotations Main(R"cpp(
+    int main() {
+      int i = 3;
+      double f = [[8]] / i;  // NOLINT
+    }
+  )cpp");
+  TestTU TU = TestTU::withCode(Main.code());
+  TU.ClangTidyChecks = "bugprone-integer-division";
+  TU.ClangTidyWarningsAsErrors = "bugprone-integer-division";
+  EXPECT_THAT(
+      TU.build().getDiagnostics(),
+      UnorderedElementsAre(::testing::AllOf(
+          Diag(Main.range(), "result of integer division used in a floating "
+                             "point context; possible loss of precision"),
+          DiagSource(Diag::ClangTidy), DiagName("bugprone-integer-division"),
+          DiagSeverity(DiagnosticsEngine::Error))));
 }
 
 TEST(DiagnosticsTest, Preprocessor) {
@@ -766,6 +856,7 @@ TEST(DiagsInHeaders, OnlyErrorOrFatal) {
                                      "a type specifier for all declarations"),
                   WithNote(Diag(Header.range(), "error occurred here")))));
 }
+
 } // namespace
 
 } // namespace clangd

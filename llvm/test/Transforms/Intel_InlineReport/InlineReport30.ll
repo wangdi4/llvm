@@ -1,5 +1,9 @@
+; Inline report
 ; RUN: opt -inline -inline-report=7 -dtrans-inline-heuristics < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 ; RUN: opt -passes='cgscc(inline)' -inline-report=7 -dtrans-inline-heuristics %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; Inline report via metadata
+; RUN: opt -inlinereportsetup -inline-report=134 < %s -S | opt -inline -inline-report=134 -dtrans-inline-heuristics -S | opt -inlinereportemitter -inline-report=134 -S 2>&1 | FileCheck %s --check-prefix=CHECK-MD
+; RUN: opt -passes='inlinereportsetup' -inline-report=134 < %s -S | opt -passes='cgscc(inline)' -inline-report=134 -dtrans-inline-heuristics -S | opt -passes='inlinereportemitter' -inline-report=134 -S 2>&1 | FileCheck %s --check-prefix=CHECK-MD
 
 ; This test checks that the two calls to _ZN12cMessageHeap11removeFirstEv and
 ; the calls to _ZN12cMessageHeap7shiftupEi inside
@@ -8,6 +12,15 @@
 ; should be marked as "Callee is single basic block with structure test"
 ; in the inlining report. After inlining that instance, the other will be
 ; a single callsite and will be indicated as such in the inlining report.
+
+; CHECK-MD: COMPILE FUNC: _ZN11cSimulation16selectNextModuleEv
+; CHECK-MD: INLINE: _ZN12cMessageHeap11removeFirstEv{{.*}}Callee is single basic block with structure test
+; CHECK-MD: INLINE: _ZN12cMessageHeap7shiftupEi
+; CHECK-MD: INLINE: _ZN12cMessageHeap11removeFirstEv{{.*}}Callee has single callsite and local linkage
+; CHECK-MD: INLINE: _ZN12cMessageHeap7shiftupEi
+; CHECK-MD: DEAD STATIC FUNC: _ZN12cMessageHeap11removeFirstEv
+; CHECK-MD: COMPILE FUNC: _ZN12cMessageHeap7shiftupEi
+; CHECK-MD-NOT: call{{.*}}_ZN12cMessageHeap11removeFirstEv
 
 ; CHECK-OLD: DEAD STATIC FUNC: _ZN12cMessageHeap11removeFirstEv
 ; CHECK-OLD: COMPILE FUNC: _ZN12cMessageHeap7shiftupEi

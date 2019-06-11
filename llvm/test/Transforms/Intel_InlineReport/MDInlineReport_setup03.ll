@@ -1,5 +1,5 @@
-; RUN: opt -inlinereportsetup -inline-report=128 < %s -S 2>&1 | FileCheck %s
-; RUN: opt -passes=inlinereportsetup -inline-report=128 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -inlinereportsetup -inline-report=0x180 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes=inlinereportsetup -inline-report=0x180 < %s -S 2>&1 | FileCheck %s
 
 ; This test checks that if verification fails then we replace function inline report with a new one.
 ; TODO: mark link-only inline report with special symbol.
@@ -62,7 +62,7 @@ declare dso_local void @c(...) local_unnamed_addr
 !5 = distinct !{!"intel.callsite.inlining.report", !6, null, !7, !8, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
 !6 = !{!"name: a"}
 !7 = !{!"isInlined: 0"}
-!8 = !{!"reason: 31"}
+!8 = !{!"reason: 33"}
 !9 = !{!"inlineCost: -1"}
 !10 = !{!"outerInlineCost: -1"}
 !11 = !{!"inlineThreshold: -1"}

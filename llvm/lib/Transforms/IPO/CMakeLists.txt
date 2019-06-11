@@ -23,6 +23,7 @@ add_llvm_library(LLVMipo
   Intel_MDInlineReport.cpp   # INTEL
   Intel_InlineReportSetup.cpp # INTEL
   Intel_InlineReportCommon.cpp   # INTEL
+  Intel_InlineReportEmitter.cpp # INTEL
   InlineSimple.cpp
   Inliner.cpp
   Intel_CallTreeCloning.cpp # INTEL

@@ -446,11 +446,17 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
 public:
   AndersensAAResult(AndersensAAResult &&Arg);
 
+  enum AndersenSetResult {
+    Complete,                // All targets have the same type
+    PartiallyComplete,       // All targets have the same or similar types
+    Incomplete,              // At least one target is unsafe or invalid
+  };
+
   static AndersensAAResult analyzeModule(Module &M, const TargetLibraryInfo &TLI,
                                        CallGraph &CG);
 
   // Interface routine to get possible targets of function pointers
-  bool GetFuncPointerPossibleTargets(Value *FP, 
+  AndersenSetResult GetFuncPointerPossibleTargets(Value *FP, 
               std::vector<llvm::Value*>& Targets, CallSite CS, bool Trace);
 
   //------------------------------------------------
@@ -527,6 +533,11 @@ private:
   void IndirectCallActualsToFormals(CallSite CS, Function *F);
   void InitIndirectCallActualsToUniversalSet(CallSite CS);
   void AddEdgeInGraph(unsigned N1, unsigned N2);
+
+  // Return true if the type of a function pointer (FPType) matches with
+  // the type of the target (TargetType).
+  bool isSimilarType(Type *FPType, Type *TargetType,
+      DenseSet<std::pair<Type *, Type *>> &TypesUsed);
 
   bool IsLibFunction(const Function *F);
   void CreateInOutEdgesforNodes();

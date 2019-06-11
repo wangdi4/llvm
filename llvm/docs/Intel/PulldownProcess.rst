@@ -110,6 +110,12 @@ Once you have resolved the conflicts, there are several useful commands to help
 you sanity check your changes prior to committing them and uploading them for
 review.
 
+   .. note:: As soon as we start merging various github repositories into xmain,
+             one cannot rely on the fact that every line of code different
+             between xmain and llorg is marked with `INTEL_CUSTOMIZATION`.
+             Conflict resolution for such cases may require inspecting
+             these other repositories (e.g. `Intel LLVM on github <https://github.com/intel/llvm>`).
+
 #. See the final net effect of merging the most recent change set from
    llvm.org after your conflict resolutions.
 

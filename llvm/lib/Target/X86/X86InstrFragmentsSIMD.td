@@ -121,46 +121,46 @@ def X86vmtrunc   : SDNode<"X86ISD::VMTRUNC",   SDTVmtrunc>;
 def X86vmtruncs  : SDNode<"X86ISD::VMTRUNCS",  SDTVmtrunc>;
 def X86vmtruncus : SDNode<"X86ISD::VMTRUNCUS", SDTVmtrunc>;
 
+#if INTEL_CUSTOMIZATION
 def X86vfpext  : SDNode<"X86ISD::VFPEXT",
-                        SDTypeProfile<1, 1, [SDTCVecEltisVT<0, f64>,
-                                             SDTCVecEltisVT<1, f32>,
-                                             SDTCisSameSizeAs<0, 1>]>>;
+                        SDTypeProfile<1, 1, [SDTCisFP<0>, SDTCisVec<0>,
+                                             SDTCisFP<1>, SDTCisVec<1>]>>;
 def X86vfpround: SDNode<"X86ISD::VFPROUND",
-                        SDTypeProfile<1, 1, [SDTCVecEltisVT<0, f32>,
-                                             SDTCVecEltisVT<1, f64>,
+                        SDTypeProfile<1, 1, [SDTCisFP<0>, SDTCisVec<0>,
+                                             SDTCisFP<1>, SDTCisVec<1>,
                                              SDTCisOpSmallerThanOp<0, 1>]>>;
 
 def X86frounds   : SDNode<"X86ISD::VFPROUNDS",
-                           SDTypeProfile<1, 2, [SDTCVecEltisVT<0, f32>,
+                           SDTypeProfile<1, 2, [SDTCisFP<0>, SDTCisVec<0>,
                                                 SDTCisSameAs<0, 1>,
-                                                SDTCVecEltisVT<2, f64>,
+                                                SDTCisFP<2>, SDTCisVec<2>,
                                                 SDTCisSameSizeAs<0, 2>]>>;
 
 def X86froundsRnd: SDNode<"X86ISD::VFPROUNDS_RND",
-                        SDTypeProfile<1, 3, [SDTCVecEltisVT<0, f32>,
+                        SDTypeProfile<1, 3, [SDTCisFP<0>, SDTCisVec<0>,
                                              SDTCisSameAs<0, 1>,
-                                             SDTCVecEltisVT<2, f64>,
+                                             SDTCisFP<2>, SDTCisVec<2>,
                                              SDTCisSameSizeAs<0, 2>,
                                              SDTCisVT<3, i32>]>>;
 
 def X86fpexts     : SDNode<"X86ISD::VFPEXTS",
-                        SDTypeProfile<1, 2, [SDTCVecEltisVT<0, f64>,
+                        SDTypeProfile<1, 2, [SDTCisFP<0>, SDTCisVec<0>,
                                              SDTCisSameAs<0, 1>,
-                                             SDTCVecEltisVT<2, f32>,
+                                             SDTCisFP<2>, SDTCisVec<2>,
                                              SDTCisSameSizeAs<0, 2>]>>;
 def X86fpextsSAE  : SDNode<"X86ISD::VFPEXTS_SAE",
-                        SDTypeProfile<1, 2, [SDTCVecEltisVT<0, f64>,
+                        SDTypeProfile<1, 2, [SDTCisFP<0>, SDTCisVec<0>,
                                              SDTCisSameAs<0, 1>,
-                                             SDTCVecEltisVT<2, f32>,
+                                             SDTCisFP<2>, SDTCisVec<2>,
                                              SDTCisSameSizeAs<0, 2>]>>;
 
 def X86vmfpround: SDNode<"X86ISD::VMFPROUND",
-                         SDTypeProfile<1, 3, [SDTCVecEltisVT<0, f32>,
-                                              SDTCVecEltisVT<1, f64>,
-                                              SDTCisSameSizeAs<0, 1>,
+                         SDTypeProfile<1, 3, [SDTCisFP<0>, SDTCisVec<0>,
+                                              SDTCisFP<1>, SDTCisVec<1>,
                                               SDTCisSameAs<0, 2>,
                                               SDTCVecEltisVT<3, i1>,
                                               SDTCisSameNumEltsAs<1, 3>]>>;
+#endif // INTEL_CUSTOMIZATION
 
 def X86vshiftimm : SDTypeProfile<1, 2, [SDTCisVec<0>, SDTCisSameAs<0,1>,
                                         SDTCisVT<2, i8>, SDTCisInt<0>]>;
@@ -365,16 +365,32 @@ def X86Movddup  : SDNode<"X86ISD::MOVDDUP", SDTShuff1Op>;
 def X86Movshdup : SDNode<"X86ISD::MOVSHDUP", SDTShuff1Op>;
 def X86Movsldup : SDNode<"X86ISD::MOVSLDUP", SDTShuff1Op>;
 
-def X86Movsd : SDNode<"X86ISD::MOVSD", SDTShuff2OpFP>;
-def X86Movss : SDNode<"X86ISD::MOVSS", SDTShuff2OpFP>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-def X86Movsh : SDNode<"X86ISD::MOVSH", SDTShuff2OpFP>;
+def X86Movsh : SDNode<"X86ISD::MOVSH",
+                      SDTypeProfile<1, 2, [SDTCisVT<0, v8f16>,
+                                           SDTCisVT<1, v8f16>,
+                                           SDTCisVT<2, v8f16>]>>;
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
-def X86Movlhps : SDNode<"X86ISD::MOVLHPS", SDTShuff2OpFP>;
-def X86Movhlps : SDNode<"X86ISD::MOVHLPS", SDTShuff2OpFP>;
+def X86Movsd : SDNode<"X86ISD::MOVSD",
+                      SDTypeProfile<1, 2, [SDTCisVT<0, v2f64>,
+                                           SDTCisVT<1, v2f64>,
+                                           SDTCisVT<2, v2f64>]>>;
+def X86Movss : SDNode<"X86ISD::MOVSS",
+                      SDTypeProfile<1, 2, [SDTCisVT<0, v4f32>,
+                                           SDTCisVT<1, v4f32>,
+                                           SDTCisVT<2, v4f32>]>>;
+
+def X86Movlhps : SDNode<"X86ISD::MOVLHPS",
+                        SDTypeProfile<1, 2, [SDTCisVT<0, v4f32>,
+                                             SDTCisVT<1, v4f32>,
+                                             SDTCisVT<2, v4f32>]>>;
+def X86Movhlps : SDNode<"X86ISD::MOVHLPS",
+                        SDTypeProfile<1, 2, [SDTCisVT<0, v4f32>,
+                                             SDTCisVT<1, v4f32>,
+                                             SDTCisVT<2, v4f32>]>>;
 
 def SDTPack : SDTypeProfile<1, 2, [SDTCisVec<0>, SDTCisInt<0>,
                                    SDTCisVec<1>, SDTCisInt<1>,
@@ -626,12 +642,13 @@ def X86cvtp2UInt     : SDNode<"X86ISD::CVTP2UI",  SDTFloatToInt>;
 
 
 // Masked versions of above
+#if INTEL_CUSTOMIZATION
 def SDTMVintToFP: SDTypeProfile<1, 3, [SDTCisVec<0>, SDTCisVec<1>,
                                        SDTCisFP<0>, SDTCisInt<1>,
-                                       SDTCisSameSizeAs<0, 1>,
                                        SDTCisSameAs<0, 2>,
                                        SDTCVecEltisVT<3, i1>,
                                        SDTCisSameNumEltsAs<1, 3>]>;
+#endif // INTEL_CUSTOMIZATION
 def SDTMFloatToInt: SDTypeProfile<1, 3, [SDTCisVec<0>, SDTCisVec<1>,
                                          SDTCisInt<0>, SDTCisFP<1>,
                                          SDTCisSameSizeAs<0, 1>,
@@ -667,18 +684,17 @@ def X86mcvtps2ph   : SDNode<"X86ISD::MCVTPS2PH",
                                              SDTCisSameAs<0, 3>,
                                              SDTCVecEltisVT<4, i1>,
                                              SDTCisSameNumEltsAs<1, 4>]> >;
+#if INTEL_CUSTOMIZATION
 def X86vfpextSAE  : SDNode<"X86ISD::VFPEXT_SAE",
-                        SDTypeProfile<1, 1, [SDTCVecEltisVT<0, f64>,
-                                             SDTCVecEltisVT<1, f32>,
+                        SDTypeProfile<1, 1, [SDTCisFP<0>, SDTCisVec<0>,
+                                             SDTCisFP<1>, SDTCisVec<1>,
                                              SDTCisOpSmallerThanOp<1, 0>]>>;
 def X86vfproundRnd: SDNode<"X86ISD::VFPROUND_RND",
-                        SDTypeProfile<1, 2, [SDTCVecEltisVT<0, f32>,
-                                             SDTCVecEltisVT<1, f64>,
+                        SDTypeProfile<1, 2, [SDTCisFP<0>, SDTCisVec<0>,
+                                             SDTCisFP<1>, SDTCisVec<1>,
                                              SDTCisOpSmallerThanOp<0, 1>,
                                              SDTCisVT<2, i32>]>>;
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16
+#endif // INTEL_CUSTOMIZATION
 // cvt fp to bfloat16
 def X86cvtne2ps2bf16 : SDNode<"X86ISD::CVTNE2PS2BF16",
                        SDTypeProfile<1, 2, [SDTCisVec<0>, SDTCisVec<1>,
@@ -697,13 +713,18 @@ def X86dpbf16ps :      SDNode<"X86ISD::DPBF16PS",
                                             SDTCisSameAs<0,1>,
                                             SDTCVecEltisVT<2, i32>,
                                             SDTCisSameAs<2,3>]>>;
-#endif // INTEL_FEATURE_ISA_BF16
-#endif // INTEL_CUSTOMIZATION
 
 // galois field arithmetic
 def X86GF2P8affineinvqb : SDNode<"X86ISD::GF2P8AFFINEINVQB", SDTBlend>;
 def X86GF2P8affineqb    : SDNode<"X86ISD::GF2P8AFFINEQB", SDTBlend>;
 def X86GF2P8mulb        : SDNode<"X86ISD::GF2P8MULB", SDTIntBinOp>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+// FP16 specific
+def X86frcps    : SDNode<"X86ISD::FRCPS",      SDTFPBinOp>;
+def X86frsqrts  : SDNode<"X86ISD::FRSQRTS",    SDTFPBinOp>;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // SSE Complex Patterns
@@ -781,6 +802,14 @@ def loadv64i8    : PatFrag<(ops node:$ptr), (v64i8  (load node:$ptr))>;
 def extloadv2f32 : PatFrag<(ops node:$ptr), (v2f64 (extloadvf32 node:$ptr))>;
 def extloadv4f32 : PatFrag<(ops node:$ptr), (v4f64 (extloadvf32 node:$ptr))>;
 def extloadv8f32 : PatFrag<(ops node:$ptr), (v8f64 (extloadvf32 node:$ptr))>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+def extloadv2f16 : PatFrag<(ops node:$ptr), (extloadvf16 node:$ptr)>;
+def extloadv4f16 : PatFrag<(ops node:$ptr), (extloadvf16 node:$ptr)>;
+def extloadv8f16 : PatFrag<(ops node:$ptr), (extloadvf16 node:$ptr)>;
+def extloadv16f16 : PatFrag<(ops node:$ptr), (extloadvf16 node:$ptr)>;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
 // Like 'store', but always requires vector size alignment.
 def alignedstore : PatFrag<(ops node:$val, node:$ptr),
@@ -1036,8 +1065,10 @@ def INSERT_get_vinsert256_imm : SDNodeXForm<insert_subvector, [{
 
 def vextract128_extract : PatFrag<(ops node:$bigvec, node:$index),
                                    (extract_subvector node:$bigvec,
-                                                      node:$index), [{}],
-                                  EXTRACT_get_vextract128_imm>;
+                                                      node:$index), [{
+  // Index 0 can be handled via extract_subreg.
+  return !isNullConstant(N->getOperand(1));
+}], EXTRACT_get_vextract128_imm>;
 
 def vinsert128_insert : PatFrag<(ops node:$bigvec, node:$smallvec,
                                       node:$index),
@@ -1047,8 +1078,10 @@ def vinsert128_insert : PatFrag<(ops node:$bigvec, node:$smallvec,
 
 def vextract256_extract : PatFrag<(ops node:$bigvec, node:$index),
                                    (extract_subvector node:$bigvec,
-                                                      node:$index), [{}],
-                                  EXTRACT_get_vextract256_imm>;
+                                                      node:$index), [{
+  // Index 0 can be handled via extract_subreg.
+  return !isNullConstant(N->getOperand(1));
+}], EXTRACT_get_vextract256_imm>;
 
 def vinsert256_insert : PatFrag<(ops node:$bigvec, node:$smallvec,
                                       node:$index),

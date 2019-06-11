@@ -578,6 +578,9 @@ public:
       : AnalysisState(LPIS_NotAnalyzed), AliasesToAggregatePointer(false),
         IsPartialPtrLoadStore(false) {}
 
+  LocalPointerInfo(const LocalPointerInfo &) = delete;
+  LocalPointerInfo &operator=(const LocalPointerInfo &) = delete;
+
   void setAnalyzed() { AnalysisState = LPIS_AnalysisComplete; }
   bool getAnalyzed() { return AnalysisState == LPIS_AnalysisComplete; }
 
@@ -748,7 +751,7 @@ public:
   PointerTypeAliasSetRef getPointerTypeAliasSet() { return PointerTypeAliases; }
   ElementPointeeSetRef getElementPointeeSet() { return ElementPointees; }
 
-  void merge(LocalPointerInfo &Other) {
+  void merge(const LocalPointerInfo &Other) {
     // This routine is called during analysis, so don't change AnalysisState.
     AliasesToAggregatePointer |= Other.AliasesToAggregatePointer;
     for (auto *Ty : Other.PointerTypeAliases)
@@ -2150,8 +2153,14 @@ private:
       LocalPointerInfo &DepInfo = LocalMap[Dep];
       // If we have complete results for this value, don't repeat the analysis.
       if (DepInfo.getAnalyzed()) {
-        DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE,
-                        dbgs() << "  Already analyzed: " << *Dep << "\n");
+        DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE, {
+          dbgs() << "  Already analyzed: ";
+          if (isa<Function>(Dep))
+            Dep->printAsOperand(dbgs());
+          else
+            dbgs() << *Dep;
+          dbgs() << "\n";
+        });
         continue;
       }
       analyzeValueImpl(Dep, DepInfo);
@@ -2433,8 +2442,14 @@ private:
 
   void dumpDependencyStack(SmallVectorImpl<Value *> &DependentVals) {
     dbgs() << "  DependentVals:\n";
-    for (auto *V : DependentVals)
-      dbgs() << "    " << *V << "\n";
+    for (auto *V : DependentVals) {
+      dbgs() << "    ";
+      if (isa<Function>(V))
+        V->printAsOperand(dbgs());
+      else
+        dbgs() << *V;
+      dbgs() << "\n";
+    }
     dbgs() << "\n";
   }
 
@@ -3015,6 +3030,35 @@ private:
         if (AliasTy->isPointerTy() &&
             AliasTy->getPointerElementType()->isPointerTy())
           Types.insert(cast<PointerType>(AliasTy->getPointerElementType()));
+
+      // In order to handle the case where the allocation is stored into a
+      // structure member field which is a pointer, look at the member type to
+      // infer the allocation type.
+      //
+      // For example:
+      //    %struct.P1 = type{ i32*, i32, i32, i32 }
+      //    %struct.P2 = type{ i32, %struct.P1* }
+      //    %ptr_i8 = bitcast %struct.P1** %ptr to i8**
+      //    %ptr = getelementptr % struct.P2, %struct.P2* %s2, i64 0, i32 1
+      //    %mem = call noalias i8* @malloc(i64 24)
+      //    store i8* %mem, i8** %ptr_i8
+      //
+      // In this case, %ptr_i8 will be resolved to being field member 1 of
+      // %struct.P2, which means the allocation will be inferred as a pointer to
+      // %struct.P1.
+      //
+      if (DestInfo.pointsToSomeElement()) {
+        auto ElementPointees = DestInfo.getElementPointeeSet();
+        for (auto &PointeePair : ElementPointees) {
+          llvm::Type *Ty = PointeePair.first;
+          if (auto *StructTy = dyn_cast<StructType>(Ty)) {
+            llvm::Type *ElemTy = StructTy->getElementType(PointeePair.second);
+            if (auto PtrTy = dyn_cast<PointerType>(ElemTy))
+              Types.insert(PtrTy);
+          }
+        }
+      }
+
       return;
     }
 
@@ -3024,7 +3068,7 @@ private:
            "Can't infer type from unused value of interest.");
     // For each type aliased by the stored value, add a pointer to that type
     // to the Types set for the destination.
-    LocalPointerInfo StoredLPI = LocalMap[StoredVal];
+    LocalPointerInfo &StoredLPI = LocalMap[StoredVal];
     if (!StoredLPI.getAnalyzed())
       IsPartial = true;
     for (auto *AliasTy : StoredLPI.getPointerTypeAliasSet())
@@ -9952,11 +9996,13 @@ bool DTransAnalysisInfo::analyzeModule(
       }
     }
     outs() << "\n MaxTotalFrequency: " << getMaxTotalFrequency() << "\n\n";
+    outs().flush();
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (DTransPrintAnalyzedCalls)
     printCallInfo(outs());
+    outs().flush();
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   return false;

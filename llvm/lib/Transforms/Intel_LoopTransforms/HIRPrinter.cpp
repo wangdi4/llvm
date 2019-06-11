@@ -51,7 +51,7 @@ public:
     return false;
   }
 
-  void getAnalysisUsage(AnalysisUsage &AU) const {
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesAll();
     AU.addRequired<HIRFrameworkWrapperPass>();
   }

@@ -267,11 +267,35 @@ void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
   OS << "{\"_Z3expf\", \"_Z3expDv8_f\", 8, false},\n";
   OS << "{\"_Z3expf\", \"_Z3expDv16_f\", 16, false},\n";
 
+  OS << "{\"_Z3expd\", \"_Z3expDv2_d\", 2, false},\n";
+  OS << "{\"_Z3expd\", \"_Z3expDv3_d\", 3, false},\n";
+  OS << "{\"_Z3expd\", \"_Z3expDv4_d\", 4, false},\n";
+  OS << "{\"_Z3expd\", \"_Z3expDv8_d\", 8, false},\n";
+  OS << "{\"_Z3expd\", \"_Z3expDv16_d\", 16, false},\n";
+
+  OS << "{\"_Z3expd\", \"_Z3expDv2_d\", 2, true},\n";
+  OS << "{\"_Z3expd\", \"_Z3expDv3_d\", 3, true},\n";
+  OS << "{\"_Z3expd\", \"_Z3expDv4_d\", 4, true},\n";
+  OS << "{\"_Z3expd\", \"_Z3expDv8_d\", 8, true},\n";
+  OS << "{\"_Z3expd\", \"_Z3expDv16_d\", 16, true},\n";
+
   OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv2_f\", 2, false},\n";
   OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv3_f\", 3, false},\n";
   OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv4_f\", 4, false},\n";
   OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv8_f\", 8, false},\n";
   OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv16_f\", 16, false},\n";
+
+  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv2_d\", 2, false},\n";
+  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv3_d\", 3, false},\n";
+  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv4_d\", 4, false},\n";
+  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv8_d\", 8, false},\n";
+  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv16_d\", 16, false},\n";
+
+  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv2_d\", 2, true},\n";
+  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv3_d\", 3, true},\n";
+  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv4_d\", 4, true},\n";
+  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv8_d\", 8, true},\n";
+  OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv16_d\", 16, true},\n";
 
   OS << "{\"_Z3madfff\", \"_Z3madDv2_fS_S_\", 2, false},\n";
   OS << "{\"_Z3madfff\", \"_Z3madDv3_fS_S_\", 3, false},\n";

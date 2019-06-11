@@ -44,7 +44,7 @@ add_llvm_library(LLVMVPOTransforms
 # Utils/IntrinsicUtils.cpp // moved to Transforms/Utils/CMakeLists.txt
 
 # INTEL_CUSTOMIZATION
-  ../Intel_VPO/Vecopt/VPODriver.cpp
+  ../Intel_VPO/Vecopt/VPODirectiveCleanup.cpp
 #end INTEL_CUSTOMIZATION
 
   Paropt/VPOParopt.cpp

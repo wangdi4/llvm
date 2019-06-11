@@ -1672,7 +1672,7 @@ private:
                            }) != DtorCSs.end()) {
             ++NumDtorCalls;
             ThisArgs.insert(
-                dyn_cast<CallBase>(&I)->getArgOperand(0)->stripPointerCasts());
+                cast<CallBase>(&I)->getArgOperand(0)->stripPointerCasts());
             continue;
           }
 
@@ -1859,6 +1859,8 @@ public:
         // Store should be processed checkArrPtrStoreUses.
         const CallBase *MethodCall = CtorDtorCheck::getSingleMethodCall(
             DTInfo, TLI, SI->getValueOperand(), getArrayType(I));
+        if (!MethodCall)
+          return false;
         auto *FCalled = MethodCall->getCalledFunction();
         // Not ctor call, hence cannot merge.
         if (std::find_if(CSInfo.Ctors.begin(), CSInfo.Ctors.end(),

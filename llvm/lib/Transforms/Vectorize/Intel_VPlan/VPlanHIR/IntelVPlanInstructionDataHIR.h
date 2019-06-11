@@ -74,6 +74,7 @@ protected:
   VPOperandHIR(const unsigned char ID) : SubclassID(ID) {}
 
 public:
+  virtual ~VPOperandHIR() {}
   VPOperandHIR() = delete;
   VPOperandHIR(const VPOperandHIR &) = delete;
   VPOperandHIR &operator=(const VPOperandHIR &) = delete;

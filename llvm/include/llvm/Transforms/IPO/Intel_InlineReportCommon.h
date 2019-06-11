@@ -37,8 +37,10 @@ typedef enum {
                  //     (F.hasAvailableExternallyLinkage())
                  //   A: alternate (something other than L, O, or X)
   RealCost = 64, // Compute both real and early exit inlining costs
-  BasedOnMetadata = 128
+  BasedOnMetadata = 128,
                  // Create metadata-based inline report
+  CompositeReport = 256
+                 // Create composite inline report for an -flto compilation
 } InlineReportOptions;
 }
 
@@ -94,6 +96,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtSimple, "Callee is always inline (recursive)"},
     // InlrInlineList,
     {InlPrtSimple, "Callee is in inline list"},
+    // InlrHotProfile,
+    {InlPrtCost, "Callsite has hot profile"},
     // InlrRecProClone
     {InlPrtCost, "Callee is recursive progressive clone"},
     // InlrHasExtractedRecursiveCall
@@ -143,6 +147,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtSimple, "Callee is in noinline list"},
     // NinlrColdCC,
     {InlPrtCost, "Callee has cold calling convention"},
+    // NinlrColdProfile,
+    {InlPrtCost, "Callsite has cold profile"},
     // NinlrDeleted,
     {InlPrtSpecial, nullptr},
     // NinlrDuplicateCall,
@@ -234,7 +240,12 @@ void printIndentCount(unsigned indentCount);
 StringRef getOpStr(Metadata *Node, StringRef Front);
 // Get integer value from metadata consuming 'Front' of the MDString
 void getOpVal(Metadata *Node, StringRef Front, int64_t *Val);
-
+// Print the inlining option values
+void printOptionValues(unsigned OptLevel = 0, unsigned SizeLevel = 0);
+// Print function inline report
+void printFunctionInlineReport(Function *F, unsigned Level);
+// Print call site inline report
+void printCallSiteInlineReport(Instruction *I, unsigned Level);
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_IPO_INTEL_INLINEREPORTCOMMON_H

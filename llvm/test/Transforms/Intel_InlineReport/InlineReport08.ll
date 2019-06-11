@@ -1,5 +1,9 @@
-; RUN: opt -inline -inline-report=33 -inline-threshold=50 -inlinehint-threshold=100 -inlinecold-threshold=25 -inlineoptsize-threshold=10 < %s -S 2>&1 | FileCheck %s
-; RUN: opt -passes='cgscc(inline)' -inline-report=33 -inline-threshold=50 -inlinehint-threshold=100 -inlinecold-threshold=25 -inlineoptsize-threshold=10 < %s -S 2>&1 | FileCheck %s
+; Inline report
+; RUN: opt -inline -inline-report=33 -inline-threshold=50 -inlinehint-threshold=100 -inlinecold-threshold=25 -inlineoptsize-threshold=10 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK_INLREP
+; RUN: opt -passes='cgscc(inline)' -inline-report=33 -inline-threshold=50 -inlinehint-threshold=100 -inlinecold-threshold=25 -inlineoptsize-threshold=10 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK_INLREP
+; Inline report via metadata
+; RUN: opt -inlinereportsetup -inline-report=160 < %s -S | opt -inline -inline-report=160 -inline-threshold=50 -inlinehint-threshold=100 -inlinecold-threshold=25 -inlineoptsize-threshold=10 -S | opt -inlinereportemitter -inline-report=160 -inline-threshold=50 -inlinehint-threshold=100 -inlinecold-threshold=25 -inlineoptsize-threshold=10 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
+; RUN: opt -passes='inlinereportsetup' -inline-report=160 < %s -S | opt -passes='cgscc(inline)' -inline-report=160 -inline-threshold=50 -inlinehint-threshold=100 -inlinecold-threshold=25 -inlineoptsize-threshold=10 -S | opt -passes='inlinereportemitter' -inline-report=160 -inline-threshold=50 -inlinehint-threshold=100 -inlinecold-threshold=25 -inlineoptsize-threshold=10 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
 
 ; Generated with clang -c -S -emit-llvm sm1.c
 ; Inline inlineoptsize-threshold will be overriden and will print as 0.
@@ -14,10 +18,12 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; CHECK: DEAD STATIC FUNC: L foo
+; CHECK-INLREP: DEAD STATIC FUNC: L foo
 
 ; CHECK: COMPILE FUNC: A main
 ; CHECK-NEXT: INLINE: L foo
+
+; CHECK-MD-INLREP: DEAD STATIC FUNC: L foo
 
 ; Function Attrs: nounwind uwtable
 define i32 @main() #0 {

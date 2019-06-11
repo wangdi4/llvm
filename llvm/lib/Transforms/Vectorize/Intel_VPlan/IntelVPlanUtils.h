@@ -1,4 +1,4 @@
-//===---Intel_VPlanUtils.h - General Utilities for VPlan and LoadCoalescing-==//
+//===---IntelVPlanUtils.h - General Utilities for VPlan and LoadCoalescing-==//
 //
 // Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
@@ -14,6 +14,7 @@
 #include "llvm/IR/Instructions.h"
 
 namespace llvm {
+namespace vpo {
 
 /// \returns true if \p I is a memory instruction.
 // NOTE: This is copied from GVNSink.cpp
@@ -77,4 +78,5 @@ bool isMemoryDependency(const Instruction *SrcI, const Instruction *DstI) {
   return RAW || WAR;
 }
 
+} // namespace vpo
 } // namespace llvm

@@ -8,14 +8,14 @@
 ; |   |   %1 = (%src)[sext.i32.i64(%i_src_stride) * i1 + i2 + -1];
 ; |   |   %2 = (%weight)[0].0;
 ; |   |   %3 = (%weight)[0].2;
-; |   |   (%src)[sext.i32.i64(%i_src_stride) * i1 + i2] = -1 * smax(-256, (-1 + (-1 * smax(0, ((zext.i8.i32(%1) * %2) + %3))))) + -1;
+; |   |   (%src)[sext.i32.i64(%i_src_stride) * i1 + i2] = smin(255, smax(0, ((zext.i8.i32(%1) * %2) + %3)));
 ; |   + END LOOP
 ; + END LOOP
 ; END REGION
 
 ; CHECK: %mv.upper.base = &((i8*)(%weight)[0].2);
 ; CHECK: %mv.test = &((%src)[sext.i32.i64(%i_width) + (sext.i32.i64((-1 + %i_height)) * smax(0, sext.i32.i64(%i_src_stride))) + -1]) >=u &((i8*)(%weight)[0].0);
-; CHECK: %mv.test2 = &((%mv.upper.base)[3]) >=u &((%src)[(sext.i32.i64((-1 + %i_height)) * (-1 + (-1 * smax(-1, (-1 + (-1 * sext.i32.i64(%i_src_stride))))))) + -1]);
+; CHECK: %mv.test2 = &((%mv.upper.base)[3]) >=u &((%src)[(sext.i32.i64((-1 + %i_height)) * smin(0, sext.i32.i64(%i_src_stride))) + -1]);
 ; CHECK: %mv.and = %mv.test  &&  %mv.test2;
 ; CHECK: if (%mv.and == 0)
 

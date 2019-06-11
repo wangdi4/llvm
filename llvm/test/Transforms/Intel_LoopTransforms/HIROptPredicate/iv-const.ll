@@ -13,7 +13,7 @@
 ;           END REGION
 
 ; CHECK:    BEGIN REGION { modified }
-; CHECK:          + DO i1 = 0, (-1 + (-1 * smax(-201, (-1 * %n)))), 1   <DO_LOOP>
+; CHECK:          + DO i1 = 0, smin(200, (-1 + %n)), 1   <DO_LOOP>
 ; CHECK:          |   (%q)[i1] = i1;
 ; CHECK:          |   (%p)[i1] = i1;
 ; CHECK:          + END LOOP

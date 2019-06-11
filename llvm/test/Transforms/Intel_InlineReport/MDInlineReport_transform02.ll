@@ -118,7 +118,7 @@ entry:
 !5 = distinct !{!"intel.callsite.inlining.report", !6, null, !7, !8, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
 !6 = !{!"name: z"}
 !7 = !{!"isInlined: 0"}
-!8 = !{!"reason: 32"} ;NinlrExtern
+!8 = !{!"reason: 34"} ;NinlrExtern
 !9 = !{!"inlineCost: -1"}
 !10 = !{!"outerInlineCost: -1"}
 !11 = !{!"inlineThreshold: -1"}
@@ -143,7 +143,7 @@ entry:
 !30 = !{!"name: main"}
 !31 = distinct !{!"intel.callsites.inlining.report", !32, !34, !35}
 !32 = distinct !{!"intel.callsite.inlining.report", !3, null, !7, !33, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
-!33 = !{!"reason: 25"} ;NinlrNoReason
+!33 = !{!"reason: 27"} ;NinlrNoReason
 !34 = distinct !{!"intel.callsite.inlining.report", !21, null, !7, !33, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
 !35 = distinct !{!"intel.callsite.inlining.report", !3, null, !7, !33, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
 

@@ -224,3 +224,163 @@ entry:
   %0 = fcmp une <32 x half> %x, %y
   ret <32 x i1> %0
 }
+
+define half @fneg(half %x) {
+; CHECK-LABEL: fneg:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:    vxorps {{.*}}(%rip), %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %a = fneg half %x
+  ret half %a
+}
+
+define half @fneg_idiom(half %x) {
+; CHECK-LABEL: fneg_idiom:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:    vxorps {{.*}}(%rip), %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %a = fsub half -0.0, %x
+  ret half %a
+}
+
+define half @fabs(half %x) {
+; CHECK-LABEL: fabs:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:    vandps {{.*}}(%rip), %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %a = call half @llvm.fabs.f16(half %x)
+  ret half %a
+}
+declare half @llvm.fabs.f16(half)
+
+define half @fcopysign(half %x, half %y) {
+; CHECK-LABEL: fcopysign:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:    vandps {{.*}}(%rip), %xmm1, %xmm1
+; CHECK-NEXT:    vandps {{.*}}(%rip), %xmm0, %xmm0
+; CHECK-NEXT:    vorps %xmm1, %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %a = call half @llvm.copysign.f16(half %x, half %y)
+  ret half %a
+}
+declare half @llvm.copysign.f16(half, half)
+
+define <8 x half> @fnegv8f16(<8 x half> %x) {
+; CHECK-LABEL: fnegv8f16:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:    vxorps {{.*}}(%rip), %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %a = fneg <8 x half> %x
+  ret <8 x half> %a
+}
+
+define <8 x half> @fneg_idiomv8f16(<8 x half> %x) {
+; CHECK-LABEL: fneg_idiomv8f16:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:    vxorps {{.*}}(%rip), %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %a = fsub <8 x half> <half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0>, %x
+  ret <8 x half> %a
+}
+
+define <8 x half> @fabsv8f16(<8 x half> %x) {
+; CHECK-LABEL: fabsv8f16:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:    vandps {{.*}}(%rip), %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %a = call <8 x half> @llvm.fabs.v8f16(<8 x half> %x)
+  ret <8 x half> %a
+}
+declare <8 x half> @llvm.fabs.v8f16(<8 x half>)
+
+define <8 x half> @fcopysignv8f16(<8 x half> %x, <8 x half> %y) {
+; CHECK-LABEL: fcopysignv8f16:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:    vandps {{.*}}(%rip), %xmm1, %xmm1
+; CHECK-NEXT:    vandps {{.*}}(%rip), %xmm0, %xmm0
+; CHECK-NEXT:    vorps %xmm1, %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %a = call <8 x half> @llvm.copysign.v8f16(<8 x half> %x, <8 x half> %y)
+  ret <8 x half> %a
+}
+declare <8 x half> @llvm.copysign.v8f16(<8 x half>, <8 x half>)
+
+define <16 x half> @fnegv16f16(<16 x half> %x) {
+; CHECK-LABEL: fnegv16f16:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:    vxorps {{.*}}(%rip), %ymm0, %ymm0
+; CHECK-NEXT:    retq
+  %a = fneg <16 x half> %x
+  ret <16 x half> %a
+}
+
+define <16 x half> @fneg_idiomv16f16(<16 x half> %x) {
+; CHECK-LABEL: fneg_idiomv16f16:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:    vxorps {{.*}}(%rip), %ymm0, %ymm0
+; CHECK-NEXT:    retq
+  %a = fsub <16 x half> <half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0>, %x
+  ret <16 x half> %a
+}
+
+define <16 x half> @fabsv16f16(<16 x half> %x) {
+; CHECK-LABEL: fabsv16f16:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:    vandps {{.*}}(%rip), %ymm0, %ymm0
+; CHECK-NEXT:    retq
+  %a = call <16 x half> @llvm.fabs.v16f16(<16 x half> %x)
+  ret <16 x half> %a
+}
+declare <16 x half> @llvm.fabs.v16f16(<16 x half>)
+
+define <16 x half> @fcopysignv16f16(<16 x half> %x, <16 x half> %y) {
+; CHECK-LABEL: fcopysignv16f16:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:    vandps {{.*}}(%rip), %ymm1, %ymm1
+; CHECK-NEXT:    vandps {{.*}}(%rip), %ymm0, %ymm0
+; CHECK-NEXT:    vorps %ymm1, %ymm0, %ymm0
+; CHECK-NEXT:    retq
+  %a = call <16 x half> @llvm.copysign.v16f16(<16 x half> %x, <16 x half> %y)
+  ret <16 x half> %a
+}
+declare <16 x half> @llvm.copysign.v16f16(<16 x half>, <16 x half>)
+
+define <32 x half> @fnegv32f16(<32 x half> %x) {
+; CHECK-LABEL: fnegv32f16:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:    vxorps {{.*}}(%rip), %zmm0, %zmm0
+; CHECK-NEXT:    retq
+  %a = fneg <32 x half> %x
+  ret <32 x half> %a
+}
+
+define <32 x half> @fneg_idiomv32f16(<32 x half> %x) {
+; CHECK-LABEL: fneg_idiomv32f16:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:    vxorps {{.*}}(%rip), %zmm0, %zmm0
+; CHECK-NEXT:    retq
+  %a = fsub <32 x half> <half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0, half -0.0>, %x
+  ret <32 x half> %a
+}
+
+define <32 x half> @fabsv32f16(<32 x half> %x) {
+; CHECK-LABEL: fabsv32f16:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:    vandps {{.*}}(%rip), %zmm0, %zmm0
+; CHECK-NEXT:    retq
+  %a = call <32 x half> @llvm.fabs.v32f16(<32 x half> %x)
+  ret <32 x half> %a
+}
+declare <32 x half> @llvm.fabs.v32f16(<32 x half>)
+
+define <32 x half> @fcopysignv32f16(<32 x half> %x, <32 x half> %y) {
+; CHECK-LABEL: fcopysignv32f16:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:    vandps {{.*}}(%rip), %zmm1, %zmm1
+; CHECK-NEXT:    vandps {{.*}}(%rip), %zmm0, %zmm0
+; CHECK-NEXT:    vorps %zmm1, %zmm0, %zmm0
+; CHECK-NEXT:    retq
+  %a = call <32 x half> @llvm.copysign.v32f16(<32 x half> %x, <32 x half> %y)
+  ret <32 x half> %a
+}
+declare <32 x half> @llvm.copysign.v32f16(<32 x half>, <32 x half>)

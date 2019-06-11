@@ -1,5 +1,8 @@
-; RUN: opt -inline -inline-report=71 -inline-threshold=10 -disable-output < %s -S 2>&1 | FileCheck %s
-; RUN: opt -passes='cgscc(inline)' -inline-report=71 -inline-threshold=10 -disable-output < %s -S 2>&1 | FileCheck %s
+; RUN: opt -inline -inline-report=71 -inline-threshold=10 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=71 -inline-threshold=10 -disable-output < %s 2>&1 | FileCheck %s
+; Inline report via metadata
+; RUN: opt -inlinereportsetup -inline-report=198 < %s -S | opt -inline -inline-report=198 -inline-threshold=10 -S | opt -inlinereportemitter -inline-report=198 -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup' -inline-report=198 < %s -S | opt -passes='cgscc(inline)' -inline-threshold=10 -inline-report=198 -S | opt -passes='inlinereportemitter' -inline-report=198 -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: foo{{.*}}EE{{.*}}Inlining is not profitable
 

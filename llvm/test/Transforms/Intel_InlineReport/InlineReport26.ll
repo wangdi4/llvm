@@ -1,5 +1,9 @@
+; Inline report
 ; RUN: opt -inline -inline-report=7 -disable-output < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 ; RUN: opt -passes='cgscc(inline)' -inline-report=7 -disable-output < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; Inline report via metadata
+; RUN: opt -inlinereportsetup -inline-report=134 < %s -S | opt -inline -inline-report=134 -S | opt -inlinereportemitter -inline-report=134 -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-MD
+; RUN: opt -passes='inlinereportsetup' -inline-report=134 < %s -S | opt -passes='cgscc(inline)' -inline-report=134 -S | opt -passes='inlinereportemitter' -inline-report=134 -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-MD
 
 ; This test tests various inlining report features for programs that
 ; contain varags intrinsics like llvm.va_arg_pack and llvm.va_arg_pack_len.
@@ -350,3 +354,41 @@ attributes #6 = { noreturn }
 ; CHECK-NEW: myopenva{{.*}}Callee has noinline attribute]]
 ; CHECK-NEW: EXTERN: abort
 
+
+; CHECK-MD-LABEL: COMPILE FUNC: myopen
+; CHECK-MD: llvm.va_arg_pack_len{{.*}}Callee is intrinsic
+; CHECK-MD: EXTERN: warn_open_too_many_arguments
+; CHECK-MD: llvm.va_arg_pack_len{{.*}}Callee is intrinsic
+; CHECK-MD: myopen2{{.*}}Callee has noinline attribute
+; CHECK-MD: llvm.va_arg_pack{{.*}}Callee is intrinsic
+; CHECK-MD: myopenva{{.*}}Callee has noinline attribute
+
+; CHECK-MD-LABEL: COMPILE FUNC: myopener
+; CHECK-MD: llvm.va_arg_pack{{.*}}Callee is intrinsic
+; CHECK-MD: myopenva{{.*}}Callee has noinline attribute
+
+; CHECK-MD-LABEL: COMPILE FUNC: myopen2
+; CHECK-MD: EXTERN: abort
+; CHECK-MD: EXTERN: abort
+; CHECK-MD: EXTERN: abort
+; CHECK-MD: EXTERN: abort
+
+; CHECK-MD-LABEL: COMPILE FUNC: myopenva
+; CHECK-MD: llvm.va_start{{.*}}Callee is intrinsic
+; CHECK-MD: llvm.va_end{{.*}}Callee is intrinsic
+; CHECK-MD: EXTERN: abort
+; CHECK-MD: EXTERN: abort
+; CHECK-MD: EXTERN: abort
+; CHECK-MD: EXTERN: abort
+; CHECK-MD: EXTERN: abort
+; CHECK-MD: EXTERN: abort
+; CHECK-MD: EXTERN: abort
+
+; CHECK-MD-LABEL: COMPILE FUNC: main
+; CHECK-MD: INLINE: myopener{{.*}}Callee is always inline
+; CHECK-MD: myopenva{{.*}}Callee has noinline attribute
+; CHECK-MD: INLINE: myopen{{.*}}Callee is always inline
+; CHECK-MD: EXTERN: warn_open_too_many_arguments
+; CHECK-MD: myopen2{{.*}}Callee has noinline attribute]]
+; CHECK-MD: myopenva{{.*}}Callee has noinline attribute]]
+; CHECK-MD: EXTERN: abort

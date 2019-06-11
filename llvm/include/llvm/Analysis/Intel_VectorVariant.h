@@ -30,112 +30,98 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/CommandLine.h"
 
-using namespace llvm;
 
 #if INTEL_CUSTOMIZATION
-extern cl::opt<bool> Usei1MaskForSimdFunctions;
+extern llvm::cl::opt<bool> Usei1MaskForSimdFunctions;
 #endif
 
-#define STRIDE_KIND 's'
-#define LINEAR_KIND 'l'
-#define UNIFORM_KIND 'u'
-#define VECTOR_KIND 'v'
-
-#define NOT_ALIGNED 1
-
-#define POSITIVE 1
-#define NEGATIVE -1
+namespace llvm {
 
 class VectorKind {
+  enum class Kind { LINEAR, UNIFORM, VECTOR };
+  unsigned char KindData : 2;
+  unsigned char IsVariableStride : 1;
+
+  int StrideOrStrideArgumentPosition;
+  unsigned Alignment;
+
+  Kind getKind() const { return static_cast<Kind>(KindData); }
+
+  VectorKind(Kind Kind, bool IsVariableStride,
+             int StrideOrStrideArgumentPosition, unsigned Alignment)
+      : KindData(static_cast<unsigned char>(Kind)),
+        IsVariableStride(IsVariableStride),
+        StrideOrStrideArgumentPosition(StrideOrStrideArgumentPosition),
+        Alignment(Alignment) {}
 
 public:
-  VectorKind(char K, int S, int A = NOT_ALIGNED) {
-
-    assert((S == notAValue() || K == STRIDE_KIND || K == LINEAR_KIND) &&
-           "only linear vectors have strides");
-
-    assert((K != LINEAR_KIND || S != notAValue()) &&
-           "linear vectors must have a stride");
-
-    assert((K != STRIDE_KIND || S != notAValue()) &&
-           "variable stride vectors must have a stride");
-
-    assert((K != STRIDE_KIND || S >= 0) &&
-           "variable stride position must be non-negative");
-
-    assert(A > 0 && "alignment must be positive");
-
-    Kind = K;
-    Stride = S;
-    Alignment = A;
+  static VectorKind linear(unsigned Stride, unsigned Alignment = 0) {
+    return VectorKind(Kind::LINEAR, false, Stride, Alignment);
   }
 
-  VectorKind(const VectorKind &Other) {
-    Kind = Other.Kind;
-    Stride = Other.Stride;
-    Alignment = Other.Alignment;
+  static VectorKind variableStrided(int StrideArgumentPosition,
+                                    unsigned Alignment = 0) {
+    assert(StrideArgumentPosition >= 0 && "Negative argument position?");
+    return VectorKind{Kind::LINEAR, true, StrideArgumentPosition, Alignment};
   }
 
-  /// \brief Is the stride for a linear parameter a uniform variable? (i.e.,
+  static VectorKind vector(unsigned Alignment = 0) {
+    return VectorKind{Kind::VECTOR, false, 0, Alignment};
+  }
+
+  static VectorKind uniform(unsigned Alignment = 0) {
+    return VectorKind{Kind::UNIFORM, false, 0, Alignment};
+  }
+
+  VectorKind(const VectorKind &Other) = default;
+
+  /// Is this a linear parameter?
+  bool isLinear() const { return getKind() == Kind::LINEAR; }
+
+  /// Is this a uniform parameter?
+  bool isUniform() const { return getKind() == Kind::UNIFORM; }
+
+  /// Is this a vector parameter?
+  bool isVector() const { return getKind() == Kind::VECTOR; }
+
+  /// Is the stride for a linear parameter a uniform variable? (i.e.,
   /// the stride is stored in a variable but is uniform)
-  bool isVariableStride() { return Kind == STRIDE_KIND; }
+  bool isVariableStride() const { return isLinear() && IsVariableStride; }
 
-  /// \brief Is the stride for a linear variable non-unit stride?
-  bool isNonUnitStride() { return Kind == LINEAR_KIND && Stride != 1; }
-
-  /// \brief Is the stride for a linear variable unit stride?
-  bool isUnitStride() { return Kind == LINEAR_KIND && Stride == 1; }
-
-  /// \brief Is this a linear parameter?
-  bool isLinear() {
-    return isVariableStride() || isNonUnitStride() || isUnitStride();
+  /// Is the stride for a linear parameter a compile-time constant?
+  bool isConstantStrideLinear() const {
+    return isLinear() && !IsVariableStride;
   }
 
-  /// \brief Is this a uniform parameter?
-  bool isUniform() { return Kind == UNIFORM_KIND; }
-
-  /// \brief Is this a vector parameter?
-  bool isVector() { return Kind == VECTOR_KIND; }
-
-  /// \brief Is the parameter aligned?
-  bool isAligned() { return Alignment != NOT_ALIGNED; }
-
-  /// \brief Get the stride associated with a linear parameter.
-  int getStride() { return Stride; }
-
-  /// \brief Get the alignment associated with a linear parameter.
-  int getAlignment() { return Alignment; }
-
-  /// \brief Represents a don't care value for strides of parameters other
-  /// than linear parameters.
-  static int notAValue() { return -1; }
-
-  /// \brief Encode the parameter information into a mangled string
-  /// corresponding to the standards defined in the vector function ABI.
-  std::string encode() {
-    std::stringstream SST;
-    SST << Kind;
-
-    if (isNonUnitStride()) {
-      if (Stride >= 0)
-        SST << Stride;
-      else
-        SST << "n" << -Stride;
-    }
-
-    if (isVariableStride())
-      SST << Stride;
-
-    if (isAligned())
-      SST << 'a' << Alignment;
-
-    return SST.str();
+  /// Is the stride for a linear variable non-unit stride?
+  bool isConstantNonUnitStride() const {
+    return isConstantStrideLinear() && StrideOrStrideArgumentPosition != 1;
   }
 
-private:
-  char Kind;      // linear, uniform, vector
-  int  Stride;
-  int  Alignment;
+  /// Is the stride for a linear variable unit stride?
+  bool isUnitStride() const {
+    return isConstantStrideLinear() && StrideOrStrideArgumentPosition == 1;
+  }
+
+  /// Is the parameter aligned?
+  // TODO: Should we conside Alignment == 1 as aligned or not?
+  bool isAligned() const { return Alignment != 0; }
+
+  /// Get the stride associated with a linear parameter.
+  int getStride() const {
+    assert(isConstantStrideLinear() && "This is not constant-stride linear!");
+    return StrideOrStrideArgumentPosition;
+  }
+
+  int getStrideArgumentPosition() const {
+    assert(isVariableStride() && "This is not variable-stride linear!");
+    return StrideOrStrideArgumentPosition;
+  }
+
+  /// Get the alignment associated with a linear parameter.
+  unsigned getAlignment() {
+    return Alignment;
+  }
 };
 
 class VectorVariant {
@@ -171,7 +157,13 @@ private:
   unsigned int Vlen;
   std::vector<VectorKind> Parameters;
 
+  enum KindEncodings {
+    LINEAR_KIND = 'l',
+    UNIFORM_KIND = 'u',
+    VECTOR_KIND = 'v'
+  };
   static std::string prefix() { return "_ZGV"; }
+  static std::string encodeVectorKind(VectorKind VK);
 
   /// \brief Determine the maximum vector register width based on the ISA classes
   /// defined in the vector function ABI.
@@ -183,8 +175,7 @@ public:
       : Isa(I), Mask(M), Vlen(V), Parameters(P) {
     if (Mask) {
       // Masked variants will have an additional mask parameter
-      VectorKind VKind(VECTOR_KIND, VectorKind::notAValue());
-      Parameters.push_back(VKind);
+      Parameters.push_back(VectorKind::vector());
     }
   }
 
@@ -221,7 +212,7 @@ public:
       End--; // mask parameter is not encoded
 
     for (; It != End; ++It)
-      SST << (*It).encode();
+      SST << encodeVectorKind(*It);
 
     SST << "_";
 
@@ -293,7 +284,7 @@ public:
   static unsigned ISAClassMaxRegisterWidth(ISAClass IsaClass) {
     switch (IsaClass) {
       case XMM:
-        return 128; 
+        return 128;
       case YMM1:
       case YMM2:
         return 256;
@@ -406,4 +397,5 @@ public:
   static unsigned int calcVlen(ISAClass I, Type *Ty);
 };
 
+} // namespace llvm
 #endif // LLVM_TRANSFORMS_UTILS_INTEL_VECTORVARIANT_H

@@ -289,6 +289,7 @@ VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlan *Plan,
   SmallDenseSet<const VPBlockBase *> IgnoreBlocks;
   IgnoreBlocks.insert(MELoop->getEntry());
   const VPBasicBlock *Latch = dyn_cast<VPBasicBlock>(VPL->getLoopLatch());
+  assert(Latch && "VPLoop does not have loop latch block.");
   if (!isSafeLatchBlockForSearchLoop(Latch)) {
     LLVM_DEBUG(dbgs() << "    Search loop is unsafe.\n");
     return VPlanIdioms::Unsafe;

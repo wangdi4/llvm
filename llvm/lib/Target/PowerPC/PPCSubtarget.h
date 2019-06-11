@@ -98,6 +98,7 @@ protected:
   bool HasSPE;
   bool HasQPX;
   bool HasVSX;
+  bool NeedsTwoConstNR;
   bool HasP8Vector;
   bool HasP8Altivec;
   bool HasP8Crypto;
@@ -246,6 +247,7 @@ public:
   bool hasFPU() const { return HasFPU; }
   bool hasQPX() const { return HasQPX; }
   bool hasVSX() const { return HasVSX; }
+  bool needsTwoConstNR() const { return NeedsTwoConstNR; }
   bool hasP8Vector() const { return HasP8Vector; }
   bool hasP8Altivec() const { return HasP8Altivec; }
   bool hasP8Crypto() const { return HasP8Crypto; }
@@ -312,7 +314,8 @@ public:
   bool isTargetLinux() const { return TargetTriple.isOSLinux(); }
 
   bool isDarwinABI() const { return isTargetMachO() || isDarwin(); }
-  bool isSVR4ABI() const { return !isDarwinABI(); }
+  bool isAIXABI() const { return TargetTriple.isOSAIX(); }
+  bool isSVR4ABI() const { return !isDarwinABI() && !isAIXABI(); }
   bool isELFv2ABI() const;
 
   /// Originally, this function return hasISEL(). Now we always enable it,

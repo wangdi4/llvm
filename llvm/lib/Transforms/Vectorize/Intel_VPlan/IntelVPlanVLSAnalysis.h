@@ -62,17 +62,17 @@ protected:
     return nullptr;
   }
 
-  static MemAccessTy getInstructionAccessType(const VPInstruction *Inst,
-                                              const unsigned Level);
-
   virtual OVLSMemref *createVLSMemref(const VPInstruction *Inst,
-                                      const MemAccessTy &AccTy,
-                                      const unsigned Level,
+                                      const VPVectorShape *Shape,
                                       const unsigned VF) const {
     llvm_unreachable("Is not implemented yet.");
   }
 
 private:
+  void collectMemrefs(const VPRegionBlock *Region,
+                      const VPlanDivergenceAnalysis &DA,
+                      OVLSMemrefVector &MemrefVector, unsigned VF);
+
   /// To call OptVLSInterface, vectorizer has to pass maximum physical
   /// vector length for a given target. From vectorization point of view,
   /// this is redundant argument and OVLSCostModel + VPlanCostModel will

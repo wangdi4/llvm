@@ -322,8 +322,10 @@ private:
                                    SmallPtrSetImpl<const SCEV *> &Processed);
 
     /// Insert the specified binary operator, doing a small amount of work to
-    /// avoid inserting an obviously redundant operation.
-    Value *InsertBinop(Instruction::BinaryOps Opcode, Value *LHS, Value *RHS);
+    /// avoid inserting an obviously redundant operation, and hoisting to an
+    /// outer loop when the opportunity is there and it is safe.
+    Value *InsertBinop(Instruction::BinaryOps Opcode, Value *LHS, Value *RHS,
+                       bool IsSafeToHoist);
 
     /// Arrange for there to be a cast of V to Ty at IP, reusing an existing
     /// cast if a suitable one exists, moving an existing cast if a suitable one
@@ -373,6 +375,10 @@ private:
     Value *visitSMaxExpr(const SCEVSMaxExpr *S);
 
     Value *visitUMaxExpr(const SCEVUMaxExpr *S);
+
+    Value *visitSMinExpr(const SCEVSMinExpr *S);
+
+    Value *visitUMinExpr(const SCEVUMinExpr *S);
 
 #if INTEL_CUSTOMIZATION
     virtual

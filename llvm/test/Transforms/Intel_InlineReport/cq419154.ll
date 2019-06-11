@@ -1,8 +1,16 @@
-; RUN: opt -inline -inline-report=0xff -inline-for-xmain=false -inline-threshold=-1000 < %s -S 2>&1 | FileCheck %s
-; RUN: opt -passes='cgscc(inline)' -inline-report=0xff -inline-for-xmain=false -inline-threshold=-1000 < %s -S 2>&1 | FileCheck %s
+; Inline report
+; RUN: opt -inline -inline-report=0x7f -inline-for-xmain=false -inline-threshold=-1000 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-OLD
+; RUN: opt -passes='cgscc(inline)' -inline-report=0x7f -inline-for-xmain=false -inline-threshold=-1000 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-NEW
+; Inline report via metadata
+; RUN: opt -inlinereportsetup -inline-report=0xfe < %s -S | opt -inline -inline-report=0xfe -inline-for-xmain=false -inline-threshold=-1000 -S | opt -inlinereportemitter -inline-report=0xfe -inline-threshold=-1000 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-OLD
+; RUN: opt -passes='inlinereportsetup' -inline-report=0xfe < %s -S | opt -passes='cgscc(inline)' -inline-report=0xfe -inline-for-xmain=false -inline-threshold=-1000 -S | opt -passes='inlinereportemitter' -inline-report=0xfe -inline-threshold=-1000 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-OLD
 
+; CHECK-OLD: Begin
+; CHECK-OLD-NOT: single callsite and local linkage
 ; CHECK: call i32 @_ZN8two_ints7int_oneEv
-; CHECK-NOT: single callsite and local linkage
+; CHECK-NEW: Begin
+; CHECK-NEW-NOT: single callsite and local linkage
+
 ; Will check that the call to _ZN8two_ints7int_oneEv is not inlined when
 ; -inline-for-xmain=false is thrown, indicating that he community inlining
 ; heuristics will be used and not those of xmain.  Also, checks that the

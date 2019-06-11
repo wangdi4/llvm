@@ -47,10 +47,12 @@
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Scalar/InstSimplifyPass.h"
 #include "llvm/Transforms/Scalar/LICM.h"
+#include "llvm/Transforms/Scalar/LoopUnrollPass.h"
 #include "llvm/Transforms/Scalar/SimpleLoopUnswitch.h"
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Vectorize.h"
 #include "llvm/Transforms/Vectorize/LoopVectorize.h"
+#include "llvm/Transforms/Vectorize/SLPVectorizer.h"
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
@@ -59,6 +61,7 @@
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"
+#include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h"
 #include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"
 #include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
@@ -81,6 +84,8 @@ using namespace llvm;
 #if INTEL_CUSTOMIZATION
 
 using namespace llvm::llvm_intel_wp_analysis;
+
+extern cl::opt<unsigned> IntelInlineReportLevel;
 
 static cl::opt<bool> ConvertToSubs(
     "convert-to-subs-before-loopopt", cl::init(false), cl::ReallyHidden,
@@ -114,10 +119,6 @@ static cl::opt<bool>
                           cl::Hidden, cl::ZeroOrMore,
                           cl::desc("Run LTO Partial inlinining pass"));
 #endif // INTEL_CUSTOMIZATION
-
-static cl::opt<bool>
-RunSLPVectorization("vectorize-slp", cl::Hidden,
-                    cl::desc("Run the SLP vectorization passes"));
 
 static cl::opt<bool>
 UseGVNAfterVectorization("use-gvn-after-vectorization",
@@ -338,12 +339,6 @@ cl::opt<bool> FlattenedProfileUsed(
 cl::opt<bool> EnableOrderFileInstrumentation(
     "enable-order-file-instrumentation", cl::init(false), cl::Hidden,
     cl::desc("Enable order file instrumentation (default = off)"));
-
-cl::opt<bool> ForgetSCEVInLoopUnroll(
-    "forget-scev-loop-unroll", cl::init(false), cl::Hidden,
-    cl::desc("Forget everything in SCEV when doing LoopUnroll, instead of just"
-             " the current top-most loop. This is somtimes preferred to reduce"
-             " compile time."));
 
 PassManagerBuilder::PassManagerBuilder() {
     OptLevel = 2;
@@ -718,8 +713,6 @@ void PassManagerBuilder::populateModulePassManager(
   // is handled separately, so just check this is not the ThinLTO post-link.
   bool DefaultOrPreLinkPipeline = !PerformThinLTO;
 
-  if (Inliner)                                                // INTEL
-      MPM.add(createInlineReportSetupPass(getMDInlineReport())); // INTEL
   MPM.add(createXmainOptLevelWrapperPass(OptLevel)); // INTEL
   if (!PGOSampleUse.empty()) {
     MPM.add(createPruneEHPass());
@@ -738,6 +731,7 @@ void PassManagerBuilder::populateModulePassManager(
   if (OptLevel == 0) {
     addPGOInstrPasses(MPM);
     if (Inliner) {
+      MPM.add(createInlineReportSetupPass(getMDInlineReport())); // INTEL
       MPM.add(createInlineListsPass()); // INTEL: -[no]inline-list parsing
       MPM.add(Inliner);
       Inliner = nullptr;
@@ -858,6 +852,7 @@ void PassManagerBuilder::populateModulePassManager(
 
 #if INTEL_CUSTOMIZATION
   if (Inliner) {
+    MPM.add(createInlineReportSetupPass(getMDInlineReport()));
     MPM.add(createInlineListsPass()); // -[no]inline-list parsing
   }
 #endif  // INTEL_CUSTOMIZATION
@@ -1164,12 +1159,18 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createPromoteMemoryToRegisterPass(true, true));
   MPM.add(createSROAPass());
 #endif // INTEL_FEATURE_CSA
+  MPM.add(createInlineReportEmitterPass(OptLevel, SizeLevel,
+                                        PrepareForLTO || PrepareForThinLTO));
 #endif // INTEL_CUSTOMIZATION
 }
 
 void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
-  if (Inliner)                                                  // INTEL
-      PM.add(createInlineReportSetupPass(getMDInlineReport())); // INTEL
+#if INTEL_CUSTOMIZATION
+  if (Inliner &&
+      (IntelInlineReportLevel & InlineReportOptions::CompositeReport)) {
+    PM.add(createInlineReportSetupPass(getMDInlineReport()));
+  }
+#endif // INTEL_CUSTOMIZATION
   // Load sample profile before running the LTO optimization pipeline.
   if (!PGOSampleUse.empty()) {
     PM.add(createPruneEHPass());
@@ -1383,6 +1384,11 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createIntelPartialInlineLegacyPass());
 
   bool RunInliner = Inliner;
+#if INTEL_CUSTOMIZATION
+  if (RunInliner &&
+      !(IntelInlineReportLevel & InlineReportOptions::CompositeReport))
+    PM.add(createInlineReportSetupPass(getMDInlineReport()));
+#endif // INTEL_CUSTOMIZATION
   if (RunInliner) {
     PM.add(createInlineListsPass()); // -[no]inline-list parsing
   }
@@ -1535,6 +1541,11 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   addExtensionsToPM(EP_Peephole, PM);
 
   PM.add(createJumpThreadingPass());
+
+#if INTEL_CUSTOMIZATION
+  if (RunInliner)
+    PM.add(createInlineReportEmitterPass(OptLevel, SizeLevel, false));
+#endif // INTEL_CUSTOMIZATION
 }
 
 void PassManagerBuilder::addLateLTOOptimizationPasses(
@@ -1721,12 +1732,15 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
         // If VPO is disabled, we don't have to insert ParVec directives.
         if (RunVPOOpt)
           PM.add(createHIRParDirInsertPass());
+
+        PM.add(createHIROptPredicatePass(OptLevel == 3, true));
         PM.add(createHIRRuntimeDDPass());
         PM.add(createHIRMVForConstUBPass());
       }
 
       PM.add(createHIRLoopDistributionForLoopNestPass());
       PM.add(createHIRLoopInterchangePass());
+      PM.add(createHIRGenerateMKLCallPass());
       PM.add(createHIRLoopBlockingPass());
       PM.add(createHIRLoopReversalPass());
       PM.add(createHIRIdentityMatrixIdiomRecognitionPass());
@@ -1759,7 +1773,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
       if (RunLoopOpts == LoopOptMode::Full) {
         PM.add(createHIRUnrollAndJamPass(DisableUnrollLoops));
         PM.add(createHIROptVarPredicatePass());
-        PM.add(createHIROptPredicatePass(OptLevel == 3));
+        PM.add(createHIROptPredicatePass(OptLevel == 3, false));
       }
       if (RunVPOOpt) {
         PM.add(createHIRVecDirInsertPass(OptLevel == 3));

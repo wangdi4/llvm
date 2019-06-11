@@ -30,6 +30,7 @@
 ; CHECK2:  |   %0 = (%p)[0];
 ; CHECK2:  |   if (%0 > 100)
 ; CHECK1:  |   if ((%p)[0] > 100)
+; CHECK-SAME: <no_unswitch>
 ; CHECK:   |   {
 ; CHECK:   |      (%p)[i1] = i1;
 ; CHECK:   |      %.pre-phi = i1;

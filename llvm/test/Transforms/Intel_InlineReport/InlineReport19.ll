@@ -1,5 +1,9 @@
+; Inline report
 ; RUN: opt -inline -inline-report=7 -dtrans-inline-heuristics < %s -S 2>&1 | FileCheck %s
 ; RUN: opt -passes='cgscc(inline)' -inline-report=7 -dtrans-inline-heuristics < %s -S 2>&1 | FileCheck %s
+; Inline report via metadata
+; RUN: opt -inlinereportsetup -inline-report=134 < %s -S | opt -inline -inline-report=134 -dtrans-inline-heuristics -S | opt -inlinereportemitter -inline-report=134 -S 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup' -inline-report=134 < %s -S | opt -passes='cgscc(inline)' -inline-report=134 -dtrans-inline-heuristics -S | opt -passes='inlinereportemitter' -inline-report=134 -S 2>&1 | FileCheck %s
 
 ; Test for inlining heuristic for stack computations.  All calls to @mypushptr
 ; should be inlined and the inlining report should report "Inlining for stack

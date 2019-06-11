@@ -19,6 +19,7 @@
 
 #include "IntelVPLoopAnalysis.h"
 #include "IntelVPlan.h"
+#include "IntelVPlanBuilder.h"
 #include "llvm/ADT/GraphTraits.h"
 
 #define DEBUG_TYPE "vploop-analysis"
@@ -34,9 +35,13 @@ static cl::opt<bool> DumpVPlanEntities("vplan-entities-dump", cl::init(false),
 // Temporary flag to disable loop entities import until CMPLRLLVM-9026 is
 // fixed.
 cl::opt<bool>
-    LoopEntityImportEnabled("vplan-import-entities", cl::init(false),
+    LoopEntityImportEnabled("vplan-import-entities", cl::init(true),
                             cl::Hidden,
                             cl::desc("Enable VPloop entities import"));
+
+cl::opt<bool> VPlanUseVPEntityInstructions(
+    "vplan-use-entity-instr", cl::init(false), cl::Hidden,
+    cl::desc("Generate VPInstructions for VPEntities"));
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
@@ -165,8 +170,90 @@ void VPLoopEntityMemoryDescriptor::dump(raw_ostream &OS) const {
 
 VPLoopEntity::~VPLoopEntity() {}
 
+static VPValue *getLiveInOrConstOperand(const VPInstruction *Instr,
+                                        const VPLoop &Loop) {
+  auto Iter = llvm::find_if(Instr->operands(), [&Loop](const VPValue *Operand) {
+    return Loop.isLiveIn(Operand) || isa<VPConstant>(Operand);
+  });
+  return Iter != Instr->op_end() ? *Iter : nullptr;
+}
+
+static bool hasLiveInOrConstOperand(const VPInstruction *Instr,
+                                    const VPLoop &Loop) {
+  return getLiveInOrConstOperand(Instr, Loop) != nullptr;
+}
+
+unsigned VPReduction::getReductionOpcode() const {
+  switch (getRecurrenceKind()) {
+  case RecurrenceKind::RK_IntegerMinMax:
+  case RecurrenceKind::RK_FloatMinMax:
+    switch (getMinMaxRecurrenceKind()) {
+    default:
+      llvm_unreachable("Unknown recurrence kind");
+      return Instruction::BinaryOpsEnd;
+    case MRK_UIntMin:
+      return VPInstruction::UMin;
+    case MRK_UIntMax:
+      return VPInstruction::UMax;
+    case MRK_SIntMin:
+      return VPInstruction::SMin;
+    case MRK_SIntMax:
+      return VPInstruction::SMax;
+    case MRK_FloatMin:
+      return VPInstruction::FMin;
+    case MRK_FloatMax:
+      return VPInstruction::FMax;
+    }
+  default:
+    return RDTempl::getRecurrenceBinOp(getRecurrenceKind());
+  }
+}
+
 unsigned int VPInduction::getInductionOpcode() const {
   return getInductionBinOp() ? getInductionBinOp()->getOpcode() : BinOpcode;
+}
+
+VPInstruction *VPLoopEntityList::getInductionLoopExitInstr(
+    const VPInduction *Induction) const {
+  auto BinOp = Induction->getInductionBinOp();
+  if (BinOp && Loop.isLiveOut(BinOp)) {
+    return BinOp;
+  }
+  for (auto *Val : Induction->getLinkedVPValues())
+    if (auto *Instr = dyn_cast<VPInstruction>(Val))
+      if (Loop.isLiveOut(Instr))
+        return Instr;
+  return nullptr;
+}
+
+bool VPLoopEntityList::isInductionLastValPreInc(const VPInduction *Ind) const {
+  if (Ind->getIsMemOnly())
+    return false;
+  VPInstruction *Instr = getInductionLoopExitInstr(Ind);
+  if (!Instr)
+    return false;
+  if (Instr == Ind->getInductionBinOp())
+    return false;
+  if (isa<VPPHINode>(Instr) && Instr->getParent() == Loop.getLoopPreheader())
+    return true;
+
+  return false;
+}
+
+VPPHINode *
+VPLoopEntityList::findInductionStartPhi(const VPInduction *Induction) const {
+  VPPHINode *StartPhi = nullptr;
+  auto BinOp = Induction->getInductionBinOp();
+  if (BinOp)
+    for (auto User : BinOp->users())
+      if (auto Instr = dyn_cast<VPInstruction>(User))
+        if (isa<VPPHINode>(Instr) &&
+            Loop.contains(cast<VPBlockBase>(Instr->getParent())) &&
+            hasLiveInOrConstOperand(Instr, Loop)) {
+          StartPhi = cast<VPPHINode>(Instr);
+          break;
+        }
+  return StartPhi;
 }
 
 VPReduction *VPLoopEntityList::addReduction(
@@ -180,6 +267,7 @@ VPReduction *VPLoopEntityList::addReduction(
   createMemDescFor(Red, AI);
   return Red;
 }
+
 VPIndexReduction *VPLoopEntityList::addIndexReduction(
     VPInstruction *Instr, const VPReduction *Parent, VPValue *Incoming,
     VPInstruction *Exit, Type *RedTy, bool Signed, bool ForLast, VPValue *AI,
@@ -204,6 +292,9 @@ VPInduction *VPLoopEntityList::addInduction(VPInstruction *Start,
       new VPInduction(Incoming, Kind, Step, InductionBinOp, ValidMemOnly, Opc);
   InductionList.emplace_back(Ind);
   linkValue(InductionMap, Ind, Start);
+  if (InductionBinOp) {
+    linkValue(InductionMap, Ind, InductionBinOp);
+  }
   createMemDescFor(Ind, AI);
   return Ind;
 }
@@ -243,7 +334,7 @@ VPValue *VPLoopEntityList::getReductionIdentity(const VPReduction *Red) const {
   case RecurrenceKind::RK_FloatAdd: {
     Constant *C = VPReduction::getRecurrenceIdentity(Red->getRecurrenceKind(),
                                                      Red->getRecurrenceType());
-    return Plan->getVPConstant(C);
+    return Plan.getVPConstant(C);
   }
   case RecurrenceKind::RK_IntegerMinMax:
   case RecurrenceKind::RK_FloatMinMax:
@@ -289,25 +380,265 @@ void VPLoopEntityList::finalizeImport() {
   }
 }
 
+VPValue *VPLoopEntityList::createPrivateMemory(VPLoopEntity &E,
+                                               VPBuilder &Builder,
+                                               VPValue *&AI) {
+  AI = nullptr;
+  const VPLoopEntityMemoryDescriptor *MemDescr = getMemoryDescriptor(&E);
+  if (!MemDescr)
+    return nullptr;
+  if (MemDescr->canRegisterize())
+    return nullptr;
+  AI = MemDescr->getMemoryPtr();
+  bool MakeSOA = MemDescr->isSafeSOA() && MemDescr->isProfitableSOA();
+  VPValue *Ret = Builder.createAllocaPrivate(AI->getType(), MakeSOA);
+  linkValue(&E, Ret);
+  return Ret;
+}
+
+void VPLoopEntityList::processInitValue(VPLoopEntity &E, VPValue *AI,
+                                        VPValue *PrivateMem, VPBuilder &Builder,
+                                        VPValue &Init, Type *Ty,
+                                        VPValue &Start) {
+  if (PrivateMem) {
+    Builder.createNaryOp(Instruction::Store, Ty, {&Init, PrivateMem});
+    AI->replaceAllUsesWithInLoop(PrivateMem, Loop);
+  }
+  // Now replace Start by Init inside the loop. It may be a
+  // constant or something else and can be used in instructions not related to
+  // this entity calculation. We should replace it only where it's needed.
+  if (!E.getIsMemOnly()) {
+    const SmallVectorImpl<VPValue *> &LinkedVals = E.getLinkedVPValues();
+    for (auto *Val : LinkedVals)
+      if (auto *Instr = dyn_cast<VPInstruction>(Val))
+        Instr->replaceUsesOfWith(&Start, &Init);
+  }
+  linkValue(&E, &Init);
+}
+
+void VPLoopEntityList::processFinalValue(VPLoopEntity &E, VPValue *AI,
+                                         VPBuilder &Builder, VPValue &Final,
+                                         Type *Ty, VPValue *Exit) {
+  if (AI) {
+    VPValue *V = Builder.createNaryOp(Instruction::Store, Ty, {&Final, AI});
+    linkValue(&E, V);
+  }
+  if (Exit && !E.getIsMemOnly())
+    // Replace external uses of the Exit by the calculated last value. Code
+    // generation should transform those uses to the final IR.
+    for (auto *User : Exit->users())
+      if (User != &Final && (isa<VPExternalUse>(User) ||
+                             !Loop.contains(cast<VPBlockBase>(
+                                 cast<VPInstruction>(User)->getParent()))))
+        User->replaceUsesOfWith(Exit, &Final);
+  linkValue(&E, &Final);
+}
+
+void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
+  if (!VPlanUseVPEntityInstructions)
+    return;
+  VPBuilder::InsertPointGuard Guard(Builder);
+  VPBasicBlock *Preheader = dyn_cast<VPBasicBlock>(Loop.getLoopPreheader());
+  VPBasicBlock *PostExit = dyn_cast<VPBasicBlock>(Loop.getUniqueExitBlock());
+  assert((Preheader && PostExit) && "Loop preheader and exit expected");
+
+  for (auto &RedPtr : ReductionList) {
+    VPReduction *Reduction = RedPtr.get();
+    Builder.setInsertPoint(Preheader);
+    VPValue *Identity = getReductionIdentity(Reduction);
+    Type *Ty = Reduction->getRecurrenceType();
+    VPValue *AI = nullptr;
+    VPValue *PrivateMem = createPrivateMemory(*Reduction, Builder, AI);
+    if (Reduction->getIsMemOnly())
+      if (!isa<VPConstant>(Identity))
+        // min/max in-memory reductions. Need to generate a load.
+        Identity = Builder.createNaryOp(Instruction::Load, Ty, {AI});
+
+    // We can initialize reduction either with broadcasted identity only or
+    // inserting additionally the initial value into 0th element. In the second
+    // case we don't need an additional instruction when reducing.
+    // Currently, we use broadcast-only for FP data types and min/max
+    // reductions. For integers and pointers we use the broadcast-and-insert
+    // method.
+    bool StartIncluded = !Ty->isFloatingPointTy();
+    VPInstruction *Init =
+        StartIncluded && !Reduction->isMinMax()
+            ? Builder.createReductionInit(Identity,
+                                          Reduction->getRecurrenceStartValue())
+            : Builder.createReductionInit(Identity);
+    processInitValue(*Reduction, AI, PrivateMem, Builder, *Init, Ty,
+                     *Reduction->getRecurrenceStartValue());
+
+    // Create instruction for last value
+    Builder.setInsertPoint(PostExit);
+    VPValue *Exit =
+        Reduction->getIsMemOnly()
+            ? Builder.createNaryOp(Instruction::Load, Ty, {PrivateMem})
+            : Reduction->getLoopExitInstr();
+
+    VPInstruction *Final =
+        StartIncluded || Reduction->isMinMax()
+            ? Builder.createReductionFinal(Reduction->getReductionOpcode(),
+                                           Exit)
+            : Builder.createReductionFinal(
+                  Reduction->getReductionOpcode(), Exit,
+                  Reduction->getRecurrenceStartValue(), Reduction->isSigned());
+    processFinalValue(*Reduction, AI, Builder, *Final, Ty, Exit);
+  }
+  for (auto &IndPtr : InductionList) {
+    VPInduction *Induction = IndPtr.get();
+    Builder.setInsertPoint(Preheader);
+    VPValue *AI = nullptr;
+    VPValue *PrivateMem = createPrivateMemory(*Induction, Builder, AI);
+    VPValue *Start = Induction->getStartValue();
+    Type *Ty = Start->getType();
+    if (Induction->getIsMemOnly())
+      Start = Builder.createNaryOp(Instruction::Load, Ty, {AI});
+
+    Instruction::BinaryOps Opc =
+        static_cast<Instruction::BinaryOps>(Induction->getInductionOpcode());
+    VPInstruction *Init =
+        Builder.createInductionInit(Start, Induction->getStep(), Opc);
+    processInitValue(*Induction, AI, PrivateMem, Builder, *Init, Ty,
+                     *Start);
+    VPInstruction *InitStep =
+        Builder.createInductionInitStep(Induction->getStep(), Opc);
+    if (!Induction->needCloseForm()) {
+      const SmallVectorImpl<VPValue *> &LinkedVals =
+          Induction->getLinkedVPValues();
+      for (auto *Val : LinkedVals)
+        if (auto *Instr = dyn_cast<VPInstruction>(Val))
+          if (!isa<VPInductionInit>(Instr))
+            Instr->replaceUsesOfWith(Induction->getStep(), InitStep);
+    } else {
+      createInductionCloseForm(Induction, Builder, *InitStep, *PrivateMem);
+    }
+    VPInstruction *ExitInstr = getInductionLoopExitInstr(Induction);
+    // Create instruction for last value
+    Builder.setInsertPoint(PostExit);
+    unsigned OpT = static_cast<unsigned>(Opc);
+    bool IsExtract = OpT != Instruction::Add && OpT != Instruction::FAdd &&
+                     OpT != Instruction::GetElementPtr;
+    VPValue *Exit =
+        Induction->getIsMemOnly()
+            ? Builder.createNaryOp(Instruction::Load, Ty, {PrivateMem})
+            : ExitInstr;
+    VPInstruction *Final =
+        IsExtract && Exit
+            ? Builder.createInductionFinal(Exit)
+            : Builder.createInductionFinal(Start, Induction->getStep(), Opc);
+    processFinalValue(*Induction, AI, Builder, *Final, Ty, Exit);
+  }
+}
+
+// Create so called "close-form calculation" for induction. The close-form
+// calculation is calculation by the formula v = i MUL step OP v0. In case of
+// the loop inductions, the need of the close-form means that we need up-to-date
+// induction value at the beginning of each loop iteration. That can be achieved
+// in two ways: insert calculation exactly by the formula at the beginning of
+// the loop, or insert increment of the induction in the end of the loop (see
+// examples below for the "+" induction). In both cases the Init and InitStep
+// are generated. The initial loop is
+// DO
+//   %ind = phi(init, %inc_ind)
+//   ... uses of %ind
+//   %inc_ind = %ind OP step
+//   ... uses of inc_ind
+// ENDDO
+//
+// Possible transformations.
+// Init = Initialize(identity, VF, Oper); --- generated always
+// InitStep = InitializeStep(Step, VF, OPer); --- generated always
+// ...
+// case 1 (exact close form)
+// DO
+//   %temp = InitStep MUL %primary_IV         --- new instruction
+//   %Induction = Init OP %temp               --- new instruction
+//   ... uses of %Induction (replacing %ind)
+//   %inc_ind = %Induction OP step --- step is not replaced in such cases
+//   ... uses of %inc_ind
+// ENDDO
+//
+// case 2 (second variant, simplest case)
+// DO
+//   %ind = phi(Init, %Induction) ; %ind replaced by %Induction
+//   ... uses of %ind
+//   %inc_ind = %ind OP step       --- step is not replaced in such cases
+//   ... uses of %inc_ind
+//   %Induction = %ind OP %InitStep           --- new instruction
+// ENDDO
+//
+// Another loop, in memory induction
+// DO
+//   %ind = load %induction_mem ;
+//   ... uses of %ind
+//   %inc_ind = %ind OP step ; step is not replaced in such cases
+//   ... uses of %inc_ind
+//   store %inc_ind, %induction_mem
+// ENDDO
+// case 2 (second variant, in memory induction, no start-phi)
+// DO
+//   %Induction_phi= phi(Init,%Induction)        --- new instruction
+//   store %Induction_phi, %Induction_priv_mem   --- new instruction
+//   %ind = load %Induction_priv_mem ;
+//   ... uses of %ind
+//   %inc_ind = %ind OP step ; step is not replaced in such cases
+//   ... uses of %inc_ind
+//   store %inc_ind, %Induction_priv_mem --------- this is redundant
+//   %Induction = %Induction_phi OP %InitStep    --- new instruction
+// ENDDO
+
+// The second variant looks preferrable.:
+//
+void VPLoopEntityList::createInductionCloseForm(
+    VPInduction *Induction, VPBuilder &Builder, VPValue &InitStep,
+    VPValue &PrivateMem) {
+  VPBuilder::InsertPointGuard Guard(Builder);
+  auto Opc = Induction->getInductionOpcode();
+  Type *Ty = Induction->getStartValue()->getType();
+  if (Induction->getInductionBinOp()) {
+    // Non-memory induction.
+    VPPHINode *StartPhi = findInductionStartPhi(Induction);
+    VPBasicBlock *Block = Induction->getInductionBinOp()->getParent();
+    Builder.setInsertPoint(Block);
+    VPValue *NewInd = nullptr;
+    // TODO. Replace by VPInstruction::clone
+    if ((Opc == Instruction::Add && Ty->isPointerTy()) ||
+        Opc == Instruction::GetElementPtr)
+      NewInd = Builder.createInBoundsGEP(StartPhi, &InitStep, nullptr);
+    else
+      NewInd = Builder.createNaryOp(Opc, Ty, {StartPhi, &InitStep});
+    auto Ndx = StartPhi->getOperandIndex(Induction->getInductionBinOp());
+    StartPhi->setOperand(Ndx, NewInd);
+  } else {
+    // First insert phi and store at the beginning of the block.
+    VPBasicBlock *Block = cast<VPBasicBlock>(Loop.getHeader());
+    Builder.setInsertPoint(Block, Block->begin());
+    VPPHINode *IndPhi = cast<VPPHINode>(Builder.createPhiInstruction(Ty));
+    Builder.insert(IndPhi);
+    Builder.createNaryOp(Instruction::Store, Ty, {IndPhi, &PrivateMem});
+    // Then insert increment of induction and update phi.
+    Block = cast<VPBasicBlock>(Loop.getLoopLatch());
+    Builder.setInsertPoint(Block);
+    VPValue *NewInd;
+    if ((Opc == Instruction::Add && Ty->isPointerTy()) ||
+        Opc == Instruction::GetElementPtr)
+      NewInd = Builder.createInBoundsGEP(IndPhi, &InitStep, nullptr);
+    else
+      NewInd = Builder.createNaryOp(Opc, Ty, {IndPhi, &InitStep});
+    VPBasicBlock *InitParent =
+        cast<VPBasicBlock>(IndPhi->getParent()->getSinglePredecessor());
+    IndPhi->addIncoming(&InitStep, InitParent);
+    IndPhi->addIncoming(NewInd, Block);
+  }
+}
+
 static bool checkInstructionInLoop(const VPValue *V, const VPlan *Plan,
                                    const VPLoop *Loop) {
   // Check for null and VPInstruction here to avoid these checks at caller(s)
   // side
   return V == nullptr || !isa<VPInstruction>(V) ||
          Loop->contains(cast<VPBlockBase>(cast<VPInstruction>(V)->getParent()));
-}
-
-static VPValue *getLiveInOrConstOperand(const VPInstruction *Instr,
-                                        const VPLoop *Loop) {
-  auto Iter = llvm::find_if(Instr->operands(), [&Loop](const VPValue *Operand) {
-    return Loop->isLiveIn(Operand) || isa<VPConstant>(Operand);
-  });
-  return Iter != Instr->op_end() ? *Iter : nullptr;
-}
-
-static bool hasLiveInOrConstOperand(const VPInstruction *Instr,
-                                    const VPLoop *Loop) {
-  return getLiveInOrConstOperand(Instr, Loop) != nullptr;
 }
 
 void ReductionDescr::checkParentVPLoop(const VPlan *Plan,
@@ -319,7 +650,7 @@ void ReductionDescr::checkParentVPLoop(const VPlan *Plan,
 }
 
 bool ReductionDescr::isIncomplete() const {
-  return StartPhi == nullptr || Start == nullptr;
+  return StartPhi == nullptr || Start == nullptr || RT == nullptr;
 }
 
 void ReductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
@@ -329,17 +660,28 @@ void ReductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
       if (auto Instr = dyn_cast<VPInstruction>(User))
         if (isa<VPPHINode>(Instr) &&
             checkInstructionInLoop(Instr, Plan, Loop) &&
-            hasLiveInOrConstOperand(Instr, Loop)) {
+            hasLiveInOrConstOperand(Instr, *Loop)) {
           StartPhi = Instr;
           break;
         }
   if (StartPhi == nullptr) {
     // The phi was not found. That means we have an explicit reduction.
+    if (!Start) {
+      // Reduction variable is not used inside the loop. Stop importing.
+      // TODO: This check should be removed after alias analysis replacement is
+      // implemented.
+      setImporting(false);
+      return;
+    }
     assert(isa<VPExternalDef>(Start) && "Reduction is not properly defined");
     Start = findMemoryUses(Start, Loop);
   } else if (Start == nullptr) {
-    Start = getLiveInOrConstOperand(StartPhi, Loop);
+    Start = getLiveInOrConstOperand(StartPhi, *Loop);
     assert(Start && "Can't identify reduction start value");
+  }
+  if (!RT) {
+    RT = Exit ? Exit->getType()
+              : (StartPhi ? StartPhi->getType() : Start->getType());
   }
 }
 
@@ -417,7 +759,7 @@ void InductionDescr::checkParentVPLoop(const VPlan *Plan,
 }
 
 bool InductionDescr::isIncomplete() const {
-  return StartPhi == nullptr || InductionBinOp == nullptr;
+  return StartPhi == nullptr || InductionBinOp == nullptr || Step == nullptr;
 }
 
 void InductionDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
@@ -435,7 +777,7 @@ void InductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
       if (auto Instr = dyn_cast<VPInstruction>(User))
         if (isa<VPPHINode>(Instr) &&
             Loop->contains(cast<VPBlockBase>(Instr->getParent())) &&
-            hasLiveInOrConstOperand(Instr, Loop)) {
+            hasLiveInOrConstOperand(Instr, *Loop)) {
           StartPhi = Instr;
           break;
         }
@@ -459,6 +801,16 @@ void InductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
                      ? StartPhi->getOperand(1)
                      : StartPhi->getOperand(0));
     }
+
+  if (Step == nullptr) {
+    // Induction variable with variable step
+    assert((StartPhi && InductionBinOp) &&
+           "Variable step occurs only for auto-recognized inductions.");
+    int PhiOpIdx = InductionBinOp->getOperandIndex(StartPhi);
+    assert(PhiOpIdx != -1 && "InductionBinOp does not use starting PHI node.");
+    unsigned StepOpIdx = PhiOpIdx == 0 ? 1 : 0;
+    Step = InductionBinOp->getOperand(StepOpIdx);
+  }
 }
 
 namespace llvm {
@@ -548,6 +900,8 @@ void VPLoopAnalysis::computeTripCountImpl(const VPLoopRegion *Lp) {
             MDNode *MD = dyn_cast<MDNode>(LoopID->getOperand(i));
             if (MD) {
               const MDString *S = dyn_cast<MDString>(MD->getOperand(0));
+              if (!S)
+                continue;
               if (MaxInfo.equals(S->getString()))
                 MaxTripCount = mdconst::extract<ConstantInt>(MD->getOperand(1))
                                    ->getZExtValue();

@@ -1603,7 +1603,7 @@ public:
     AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
   }
 
-  bool runOnFunction(Function &F) {
+  bool runOnFunction(Function &F) override {
     if (skipFunction(F)) {
       return false;
     }

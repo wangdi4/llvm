@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation -hir-vec-dir-insert -allow-memory-speculation -vplan-force-vf=16 -VPlanDriverHIR -disable-output -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; RUN: opt -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation -hir-vec-dir-insert -allow-memory-speculation -vplan-force-vf=16 -VPlanDriverHIR -disable-output -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
 
 ; Verify that the first iteration of a multi-exit loop to be vectorized is properly
 ; peeled when -enable-first-it-peel-me-vec is used. -allow-memory-speculation enables
