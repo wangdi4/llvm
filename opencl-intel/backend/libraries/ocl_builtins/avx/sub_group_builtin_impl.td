@@ -18,14 +18,14 @@ list<OclType> sub_group_types_vec = [v4i32, v8i32, v16i32,
 
 // Scalar
 // int, uint, and float
-OclBuiltinImpl sub_group_shuffle_avx128v4ui32 = OclBuiltinImpl<sub_group_shuffle, [v4i32, v4u32, v4f32], 0,
+OclBuiltinImpl sub_group_shuffle_avx128v4ui32 = OclBuiltinImpl<sub_group_shuffle_avx, [v4i32, v4u32, v4f32], 0,
   [{
     return as_$ReturnType(_mm_permutevar_ps(__builtin_astype($Arg0VarName, __m128),
                                             __builtin_astype($Arg1VarName, __m128i)));
   }]>;
 
 // long and ulong
-OclBuiltinImpl sub_group_shuffle_avx128v4ui64 = OclBuiltinImpl<sub_group_shuffle, [v4i64, v4u64], 0,
+OclBuiltinImpl sub_group_shuffle_avx128v4ui64 = OclBuiltinImpl<sub_group_shuffle_avx, [v4i64, v4u64], 0,
  [{
     $Arg0Type res;
     int4 mask = {0, 2, 1, 3};

@@ -18,21 +18,21 @@ list<OclType> sub_group_types_vec = [v4i32, v8i32, v16i32,
 
 // Scalar
 // int and uint
-OclBuiltinImpl sub_group_shuffle_avx256v8ui32 = OclBuiltinImpl<sub_group_shuffle, [v8i32, v8u32], 0,
+OclBuiltinImpl sub_group_shuffle_avx256v8ui32 = OclBuiltinImpl<sub_group_shuffle_avx2, [v8i32, v8u32], 0,
   [{
     return as_$ReturnType(_mm256_permutevar8x32_epi32(__builtin_astype($Arg0VarName, __m256i),
                                                       __builtin_astype($Arg1VarName, __m256i)));
   }]>;
 
 // float
-OclBuiltinImpl sub_group_shuffle_avx256fv8f32 = OclBuiltinImpl<sub_group_shuffle, [v8f32], 0,
+OclBuiltinImpl sub_group_shuffle_avx256fv8f32 = OclBuiltinImpl<sub_group_shuffle_avx2, [v8f32], 0,
   [{
     return as_$ReturnType(_mm256_permutevar8x32_ps(__builtin_astype($Arg0VarName, __m256),
                                                    __builtin_astype($Arg1VarName, __m256i)));
   }]>;
 
 // long and ulong
-OclBuiltinImpl sub_group_shuffle_avx512fv8ui64 = OclBuiltinImpl<sub_group_shuffle, [v8i64, v8u64], 0,
+OclBuiltinImpl sub_group_shuffle_avx512fv8ui64 = OclBuiltinImpl<sub_group_shuffle_avx2, [v8i64, v8u64], 0,
  [{
     $Arg0Type res;
     int8 mask = {0, 2, 4, 6, 1, 3, 5, 7};
