@@ -1122,6 +1122,9 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
              VPLInfo->print(dbgs()));
 
   passEntitiesToVPlan(CvtVec);
+  // Remove any duplicate induction PHIs collected during importing
+  Plan->getOrCreateLoopEntities(*VPLInfo->begin())
+      ->replaceDuplicateInductionPHIs();
 
   // Compute postdom tree for the plain CFG.
   VPPostDomTree.recalculate(*TopRegion);

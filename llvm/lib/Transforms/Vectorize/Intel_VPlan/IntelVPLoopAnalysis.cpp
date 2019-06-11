@@ -256,6 +256,19 @@ VPLoopEntityList::findInductionStartPhi(const VPInduction *Induction) const {
   return StartPhi;
 }
 
+void VPLoopEntityList::replaceDuplicateInductionPHIs() {
+  for (auto &PhiPair : DuplicateInductionPHIs) {
+    VPPHINode *Duplicate = PhiPair.first;
+    VPPHINode *Orig = PhiPair.second;
+    LLVM_DEBUG(dbgs() << "VPLoopEntity: Replacing duplicate induction PHI ";
+               Duplicate->dump(); dbgs() << " with original PHI ";
+               Orig->dump());
+    Duplicate->replaceAllUsesWithInLoop(Orig, Loop);
+  }
+
+  DuplicateInductionPHIs.clear();
+}
+
 VPReduction *VPLoopEntityList::addReduction(
     VPInstruction *Instr, VPValue *Incoming, VPInstruction *Exit,
     RecurrenceKind Kind, FastMathFlags FMF, MinMaxRecurrenceKind MKind,
@@ -767,11 +780,64 @@ bool InductionDescr::isIncomplete() const {
   return StartPhi == nullptr || InductionBinOp == nullptr || Step == nullptr;
 }
 
+bool InductionDescr::isDuplicate(const VPlan *Plan, const VPLoop *Loop) const {
+  if (VPEntityImportDescr::isDuplicate(Plan, Loop))
+    return true;
+
+  // Induction specific checks for duplication.
+  // 2 cases are possible for induction PHIs because of optimizations of IR
+  // before VPlan -
+  // Case 1:
+  // %phi1 = [%v, PreHeader], [%update, Latch]
+  // %phi2 = [%v, PreHeader], [%update, Latch]
+  // ...
+  // %update = add %phi1, 1
+  //
+  // In this case the second induction %phi2 should not be imported, and all its
+  // uses should be replaced by %phi1 inside the loop (collect in
+  // DuplicateInductionPHIs)
+  //
+  // Case 2:
+  // %phi1 = [%v1, PreHeader], [%update, Latch]
+  // %phi2 = [%v2, PreHeader], [%phi1, Latch]
+  // ...
+  // %update = add %phi1, 1
+  //
+  // Here although %phi2 is an induction, it duplicates values of %phi1
+  // partially. %phi2 should not be imported since VPLoopEnties framework cannot
+  // handle such cases.
+
+  const VPLoopEntityList *LE = Plan->getLoopEntities(Loop);
+
+  if (LE && InductionBinOp) {
+    if (const VPInduction *OtherInd = LE->getInduction(InductionBinOp)) {
+      if (OtherInd->getStartValue() == Start) {
+        // Record that current induction descriptor's PHI node duplicates
+        // another induction descriptor (OtherInd)
+        VPPHINode *OrigIndPHI = LE->findInductionStartPhi(OtherInd);
+        assert(OrigIndPHI && StartPhi &&
+               "Could not find PHI node for original induction and current "
+               "duplicate.");
+        const_cast<VPLoopEntityList *>(LE)->addDuplicateInductionPHIs(
+            cast<VPPHINode>(StartPhi) /*Duplicate*/, OrigIndPHI);
+      }
+
+      // This is a duplicate induction descriptor, don't continue to import it
+      return true;
+    }
+  }
+
+  // All checks failed
+  return false;
+}
+
 void InductionDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
-  if (Importing)
-    Plan->getOrCreateLoopEntities(Loop)->addInduction(StartPhi, Start, K, Step,
-                                                      InductionBinOp, BinOpcode,
-                                                      AllocaInst, ValidMemOnly);
+  if (!Importing)
+    return;
+
+  Plan->getOrCreateLoopEntities(Loop)->addInduction(StartPhi, Start, K, Step,
+                                                    InductionBinOp, BinOpcode,
+                                                    AllocaInst, ValidMemOnly);
 }
 
 void InductionDescr::tryToCompleteByVPlan(const VPlan *Plan,

@@ -532,6 +532,20 @@ public:
   /// penultimate iteration of the loop.
   bool isInductionLastValPreInc(const VPInduction *Ind) const;
 
+  VPPHINode *findInductionStartPhi(const VPInduction *Induction) const;
+
+  // Record that PHI node \p Duplicate is exactly identical to the original
+  // induction PHI node \p Orig.
+  void addDuplicateInductionPHIs(VPPHINode *Duplicate, VPPHINode *Orig) {
+    DuplicateInductionPHIs.push_back(std::make_pair(Duplicate, Orig));
+  }
+
+  // Replace all uses of duplicate induction PHI nodes with their corresponding
+  // original induction PHIs within the current loop. This method also clears
+  // DuplicateInductionPHIs after replacement. NOTE: The duplicate PHI is not
+  // removed from HCFG.
+  void replaceDuplicateInductionPHIs();
+
 private:
   VPlan &Plan;
   VPLoop &Loop;
@@ -557,6 +571,11 @@ private:
   // MinMax reduction to index reduction
   typedef DenseMap<const VPReduction *, VPIndexReduction *> MinMaxIndexTy;
   MinMaxIndexTy MinMaxIndexes;
+
+  // Collection of duplicate induction PHI nodes. First element of the pair
+  // represents the duplicate PHI node and the second element represents the
+  // original PHI.
+  SmallVector<std::pair<VPPHINode *, VPPHINode *>, 4> DuplicateInductionPHIs;
 
   // Find an item in the map defined as T<K,item>
   template <typename T, class K>
@@ -652,7 +671,6 @@ private:
                                 VPValue &InitStep, VPValue &PrivateMem);
 
   VPInstruction *getInductionLoopExitInstr(const VPInduction *Induction) const;
-  VPPHINode *findInductionStartPhi(const VPInduction *Induction) const;
 };
 
 class VPEntityImportDescr {
@@ -793,6 +811,9 @@ public:
   void tryToCompleteByVPlan(const VPlan *Plan, const VPLoop *Loop);
   /// Pass the data to VPlan
   void passToVPlan(VPlan *Plan, const VPLoop *Loop);
+  /// Check if current induction descriptor duplicates another that is already
+  /// imported.
+  bool isDuplicate(const VPlan *Plan, const VPLoop *Loop) const override;
 
 private:
   VPInstruction *StartPhi = nullptr;
@@ -876,11 +897,11 @@ public:
       const VPLoop *Loop = M[LLItem.first];
       assert(Loop != nullptr && "Can't find corresponding VPLoop");
       for (auto &Descr : LLItem.second) {
-        if (Descr.isDuplicate(Plan, Loop))
-          continue; // Skip duplication
         Descr.checkParentVPLoop(Plan, Loop);
         if (Descr.isIncomplete())
           Descr.tryToCompleteByVPlan(Plan, Loop);
+        if (Descr.isDuplicate(Plan, Loop))
+          continue; // Skip duplication
         Descr.passToVPlan(Plan, Loop);
       }
     }
