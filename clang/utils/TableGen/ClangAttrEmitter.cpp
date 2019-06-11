@@ -4274,18 +4274,41 @@ void EmitClangIntelCustDocs(RecordKeeper &Records, raw_ostream &OS) {
       OS << Name << "\n" << std::string(Name.size(), '-') << "\n";
       OS << ".. csv-table::\n";
       OS << "   :header: ";
+      bool hasOption = Doc->getValueAsString("Option") != "";
+      auto skipField = [=](const RecordVal &V, StringRef FieldName) {
+        if (FieldName == "NAME")
+          return true;
+        // If not related to an option, skip Option and Default
+        if (!hasOption && (FieldName == "Option" || FieldName == "Default"))
+          return true;
+        // Skip if not a string or bit.
+        if (V.getType()->getRecTyKind() != RecTy::StringRecTyKind &&
+            V.getType()->getRecTyKind() != RecTy::BitRecTyKind)
+          return true;
+        return false;
+      };
       for (auto &Val : Doc->getValues()) {
-        if (Val.getType()->getRecTyKind() != RecTy::StringRecTyKind) continue;
         StringRef FieldName = Val.getName();
-        if (FieldName == "NAME") continue;
+        if (skipField(Val, FieldName))
+          continue;
         OS << '"' << FieldName << "\",";
       }
       OS << "\n\n   ";
       for (auto &Val : Doc->getValues()) {
-        if (Val.getType()->getRecTyKind() != RecTy::StringRecTyKind) continue;
         StringRef FieldName = Val.getName();
-        if (FieldName == "NAME") continue;
-        OS << '"' << Doc->getValueAsString(FieldName) << "\",";
+        if (skipField(Val, FieldName))
+          continue;
+        switch (Val.getType()->getRecTyKind()) {
+        case RecTy::BitRecTyKind:
+          OS << '"' << (Doc->getValueAsBit(FieldName) ? "Yes" : "No");
+          break;
+        case RecTy::StringRecTyKind:
+          OS << '"' << Doc->getValueAsString(FieldName);
+          break;
+        default:
+          llvm_unreachable("unexpected type in IntelCustDocs");
+        }
+        OS << "\",";
       }
       OS << "\n\n";
 
@@ -4321,6 +4344,7 @@ void EmitClangIntelCustImpl(RecordKeeper &Records, raw_ostream &OS) {
     OS << "\nenum " << EnumName << " {\n";
     SmallString<2048> SwitchCases;
     SmallString<2048> HelpItems;
+    SmallString<2048> DefaultStateInits;
     int Count = 0;
     for (const auto *Doc : I.second) {
       StringRef ItemName = Doc->getName();
@@ -4337,6 +4361,11 @@ void EmitClangIntelCustImpl(RecordKeeper &Records, raw_ostream &OS) {
       HelpItems += "\n    \"  ";
       HelpItems += ItemName;
       HelpItems += "\\n\"";
+      DefaultStateInits += "  IntelCompatItemsState[";
+      DefaultStateInits += ItemName;
+      DefaultStateInits += "] = ";
+      DefaultStateInits += std::to_string(Doc->getValueAsBit("Default"));
+      DefaultStateInits += ";\n";
       Count++;
     }
     OS << "};\nstd::array<bool," << Count << "> " << StateName << " = {};\n";
@@ -4350,9 +4379,8 @@ void EmitClangIntelCustImpl(RecordKeeper &Records, raw_ostream &OS) {
     OS << "  return llvm::StringSwitch<int>(S)\n";
     OS << SwitchCases << "    .Default(-1);\n";
     OS << "}\n";
-    OS << "void setAll" << StateName << "(bool Enable) {\n";
-    OS << "  for (auto &Item : " << StateName << ")\n";
-    OS << "    Item = Enable;\n";
+    OS << "void setAll" << StateName << "Default() {\n";
+    OS << DefaultStateInits;
     OS << "}\n";
     OS << "bool set" << StateName << "(StringRef S, bool Enable) {\n";
     OS << "  int N = fromString" << EnumName << "(S);\n";

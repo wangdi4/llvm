@@ -401,7 +401,8 @@ static ControlFlowKind CheckFallThrough(AnalysisDeclContext &AC) {
     for (const auto *B : *cfg) {
       if (!live[B->getBlockID()]) {
         if (B->pred_begin() == B->pred_end()) {
-          if (B->getTerminator() && isa<CXXTryStmt>(B->getTerminator()))
+          const Stmt *Term = B->getTerminatorStmt();
+          if (Term && isa<CXXTryStmt>(Term))
             // When not adding EH edges from calls, catch clauses
             // can otherwise seem dead.  Avoid noting them as dead.
             count += reachable_code::ScanReachableFromBlock(B, live);
@@ -449,7 +450,8 @@ static ControlFlowKind CheckFallThrough(AnalysisDeclContext &AC) {
 
     // No more CFGElements in the block?
     if (ri == re) {
-      if (B.getTerminator() && isa<CXXTryStmt>(B.getTerminator())) {
+      const Stmt *Term = B.getTerminatorStmt();
+      if (Term && isa<CXXTryStmt>(Term)) {
         HasAbnormalEdge = true;
         continue;
       }
@@ -1080,7 +1082,7 @@ namespace {
         BlockQueue.pop_front();
         if (!P) continue;
 
-        const Stmt *Term = P->getTerminator();
+        const Stmt *Term = P->getTerminatorStmt();
         if (Term && isa<SwitchStmt>(Term))
           continue; // Switch statement, good.
 
@@ -1178,7 +1180,7 @@ namespace {
     }
 
     static const Stmt *getLastStmt(const CFGBlock &B) {
-      if (const Stmt *Term = B.getTerminator())
+      if (const Stmt *Term = B.getTerminatorStmt())
         return Term;
       for (CFGBlock::const_reverse_iterator ElemIt = B.rbegin(),
                                             ElemEnd = B.rend();
@@ -1284,11 +1286,11 @@ static void DiagnoseSwitchLabelsFallthrough(Sema &S, AnalysisDeclContext &AC,
       if (L.isMacroID())
         continue;
       if (S.getLangOpts().CPlusPlus11) {
-        const Stmt *Term = B->getTerminator();
+        const Stmt *Term = B->getTerminatorStmt();
         // Skip empty cases.
         while (B->empty() && !Term && B->succ_size() == 1) {
           B = *B->succ_begin();
-          Term = B->getTerminator();
+          Term = B->getTerminatorStmt();
         }
         if (!(B->empty() && Term && isa<BreakStmt>(Term))) {
           Preprocessor &PP = S.getPreprocessor();

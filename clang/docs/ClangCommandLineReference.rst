@@ -2396,6 +2396,11 @@ Generate code which only uses the general purpose registers (AArch64 only)
 
 AMDGPU
 ------
+.. option:: -mcumode, -mno-cumode
+
+CU wavefront execution mode is used if enabled and WGP wavefront execution mode
+is used if disabled (AMDGPU only)
+
 .. option:: -mxnack, -mno-xnack
 
 Enable XNACK (AMDGPU only)
@@ -2620,6 +2625,8 @@ X86
 
 .. option:: -mavx512bitalg, -mno-avx512bitalg
 
+.. option:: -mavx512bf16, -mno-avx512bf16
+
 .. option:: -mavx512bw, -mno-avx512bw
 
 .. option:: -mavx512cd, -mno-avx512cd
@@ -2634,6 +2641,9 @@ X86
 .. INTEL_FEATURE_ISA_BF16
 .. option:: -mavx512bf16, -mno-avx512bf16
 .. end INTEL_FEATURE_ISA_BF16
+.. INTEL_FEATURE_ISA_FP16
+.. option:: -mavx512fp16, -mno-avx512fp16
+.. end INTEL_FEATURE_ISA_FP16
 .. end INTEL_CUSTOMIZATION
 
 .. option:: -mavx512ifma, -mno-avx512ifma
@@ -2761,6 +2771,12 @@ X86
 .. option:: -mssse3, -mno-ssse3
 
 .. option:: -mtbm, -mno-tbm
+
+.. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_ULI
+.. option:: -muli, -mno-uli
+.. end INTEL_FEATURE_ISA_ULI
+.. end INTEL_CUSTOMIZATION
 
 .. option:: -mvaes, -mno-vaes
 

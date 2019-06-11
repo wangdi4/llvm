@@ -35,14 +35,11 @@ class InputSegment;
 // There is one add* function per symbol type.
 class SymbolTable {
 public:
-  void addFile(InputFile *File);
-  void addCombinedLTOObject();
+  void wrap(Symbol *Sym, Symbol *Real, Symbol *Wrap);
 
-  std::vector<ObjFile *> ObjectFiles;
-  std::vector<SharedFile *> SharedFiles;
-  std::vector<BitcodeFile *> BitcodeFiles;
-  std::vector<InputFunction *> SyntheticFunctions;
-  std::vector<InputGlobal *> SyntheticGlobals;
+  void addFile(InputFile *File);
+
+  void addCombinedLTOObject();
 
   void reportRemainingUndefines();
 
@@ -81,9 +78,17 @@ public:
                                     InputGlobal *Global);
   DefinedFunction *addSyntheticFunction(StringRef Name, uint32_t Flags,
                                         InputFunction *Function);
+  DefinedData *addOptionalDataSymbol(StringRef Name, uint32_t Value,
+                                     uint32_t Flags);
 
   void handleSymbolVariants();
   void handleWeakUndefines();
+
+  std::vector<ObjFile *> ObjectFiles;
+  std::vector<SharedFile *> SharedFiles;
+  std::vector<BitcodeFile *> BitcodeFiles;
+  std::vector<InputFunction *> SyntheticFunctions;
+  std::vector<InputGlobal *> SyntheticGlobals;
 
 private:
   std::pair<Symbol *, bool> insert(StringRef Name, const InputFile *File);
@@ -104,7 +109,10 @@ private:
   // variants of the same symbol with different signatures.
   llvm::DenseMap<llvm::CachedHashStringRef, std::vector<Symbol *>> SymVariants;
 
-  llvm::DenseSet<llvm::CachedHashStringRef> Comdats;
+  // Comdat groups define "link once" sections. If two comdat groups have the
+  // same name, only one of them is linked, and the other is ignored. This set
+  // is used to uniquify them.
+  llvm::DenseSet<llvm::CachedHashStringRef> ComdatGroups;
 
   // For LTO.
   std::unique_ptr<BitcodeCompiler> LTO;

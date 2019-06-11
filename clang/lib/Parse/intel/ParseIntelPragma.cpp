@@ -30,7 +30,7 @@ static void EnterTokenS(Preprocessor &PP, SmallVector<Token, N> Tokens,
   auto Toks = std::unique_ptr<Token[]>(new Token[Size]);
   for (unsigned i=0; i < Size; i++)
     Toks[i] = Tokens [i];
-  PP.EnterTokenStream(std::move(Toks), Size, DisableMacroExpansion);
+  PP.EnterTokenStream(std::move(Toks), Size, DisableMacroExpansion, /*IsReinject*/ false);
 }
 
 // #pragma inline [recursive]
@@ -108,7 +108,7 @@ StmtResult Parser::ParsePragmaInline(StmtVector &Stmts,
 }
 
 void PragmaInlineHandler::HandlePragma(Preprocessor &PP,
-                                       PragmaIntroducerKind Introducer,
+                                       PragmaIntroducer Introducer,
                                        Token &FirstTok) {
   Token Tok;
   SmallVector<Token, 4> Tokens;
@@ -159,7 +159,7 @@ bool Parser::HandlePragmaBlockLoop(ArgsVector *ArgExprs) {
     ArgExprs->push_back(IdentifierLoc::create(Actions.Context,
                                              Info->Factor.getLocation(),
                                              Info->Factor.getIdentifierInfo()));
-    PP.EnterTokenStream(Info->Factors, /*DisableMacroExpansion=*/false);
+    PP.EnterTokenStream(Info->Factors, /*DisableMacroExpansion=*/false, /*IsReinject*/ false);
     ConsumeAnnotationToken();
     ExprResult VarExpr =
         Actions.CorrectDelayedTyposInExpr(ParseExpression());
@@ -171,7 +171,7 @@ bool Parser::HandlePragmaBlockLoop(ArgsVector *ArgExprs) {
                                               Info->Level.getLocation(),
                                               Info->Level.getIdentifierInfo()));
     for (auto &L : Info->Levels) {
-      PP.EnterTokenStream(L, /*DisableMacroExpansion=*/false);
+      PP.EnterTokenStream(L, /*DisableMacroExpansion=*/false, /*IsReinject*/ false);
       if (Tok.is(tok::annot_pragma_blockloop))
         ConsumeAnnotationToken();
       else
@@ -192,7 +192,7 @@ bool Parser::HandlePragmaBlockLoop(ArgsVector *ArgExprs) {
         IdentifierLoc::create(Actions.Context, Info->Private.getLocation(),
                               Info->Private.getIdentifierInfo()));
     for (auto &P : Info->Privates) {
-      PP.EnterTokenStream(P, /*DisableMacroExpansion=*/false);
+      PP.EnterTokenStream(P, /*DisableMacroExpansion=*/false, /*IsReinject*/false);
       if (Tok.is(tok::annot_pragma_blockloop))
         ConsumeAnnotationToken();
       else
@@ -320,7 +320,7 @@ static bool ParseIntelBlockLoopToken(Preprocessor &PP, Token &Tok,
 ///   private (variable-list) :
 ///     variable-list (scalar-variable, scalar-variable)
 void PragmaBlockLoopHandler::HandlePragma(Preprocessor &PP,
-                                          PragmaIntroducerKind Introducer,
+                                          PragmaIntroducer Introducer,
                                           Token &Tok) {
   // Incoming token is "block_loop"
   Token PragmaName = Tok;
@@ -417,7 +417,7 @@ void PragmaBlockLoopHandler::HandlePragma(Preprocessor &PP,
   std::copy(TokenList.begin(), TokenList.end(), TokenArray.get());
 
   PP.EnterTokenStream(std::move(TokenArray), TokenList.size(),
-                      /*DisableMacroExpansion=*/false);
+                      /*DisableMacroExpansion=*/false, /*IsReinject*/ false);
 }
 
 void Parser::initializeIntelPragmaHandlers() {

@@ -391,6 +391,18 @@ static Value *emitFPIntBuiltin(CodeGenFunction &CGF,
   return CGF.Builder.CreateCall(F, {Src0, Src1});
 }
 
+// Emit an intrinsic that has overloaded integer result and fp operand.
+static Value *emitFPToIntRoundBuiltin(CodeGenFunction &CGF,
+                                      const CallExpr *E,
+                                      unsigned IntrinsicID) {
+   llvm::Type *ResultType = CGF.ConvertType(E->getType());
+   llvm::Value *Src0 = CGF.EmitScalarExpr(E->getArg(0));
+
+   Function *F = CGF.CGM.getIntrinsic(IntrinsicID,
+                                      {ResultType, Src0->getType()});
+   return CGF.Builder.CreateCall(F, Src0);
+}
+
 /// EmitFAbs - Emit a call to @llvm.fabs().
 static Value *EmitFAbs(CodeGenFunction &CGF, Value *V) {
   Function *F = CGF.CGM.getIntrinsic(Intrinsic::fabs, V->getType());
@@ -459,40 +471,6 @@ static llvm::Value *EmitOverflowIntrinsic(CodeGenFunction &CGF,
   Carry = CGF.Builder.CreateExtractValue(Tmp, 1);
   return CGF.Builder.CreateExtractValue(Tmp, 0);
 }
-
-#if INTEL_CUSTOMIZATION
-/// Evaluate argument of the call as constant int, checking its value's
-/// constraints.
-///
-/// \arg CGF The current codegen function.
-/// \arg ArgIndex The index of the argument of interest.
-/// \arg Low The lower constraint of the value.
-/// \arg High The higher constraint of the value.
-/// \arg DefaultForIncorrect Value returned if the argument's value doesn't
-/// satisfy constraints.
-/// \arg DefaultForMissing Value returned if the argument is not given.
-///
-/// \returns The value of the argument, if it is given and lies between \p Low
-/// and \p High. Otherwise returns the corresponding default value.
-static llvm::Value* GetCallArgAsConstInt(CodeGenFunction &CGF,
-                                         const CallExpr *E, unsigned ArgIndex,
-                                         int Low, int High,
-                                         llvm::ConstantInt *DefaultForIncorrect,
-                                         llvm::ConstantInt *DefaultForMissing) {
-  llvm::Value *Result = nullptr;
-  if (E->getNumArgs() > ArgIndex) {
-    llvm::APSInt ArgValue =
-      E->getArg(ArgIndex)->EvaluateKnownConstInt(CGF.getContext());
-    // Check value constraints and assign default value if it fails.
-    if (ArgValue < Low || ArgValue > High)
-      Result = DefaultForIncorrect;
-    else
-      Result = CGF.EmitScalarExpr(E->getArg(ArgIndex));
-  } else
-    Result = DefaultForMissing;
-  return Result;
-}
-#endif // INTEL_CUSTOMIZATION
 
 static Value *emitRangedBuiltin(CodeGenFunction &CGF,
                                 unsigned IntrinsicID,
@@ -1164,9 +1142,10 @@ llvm::Function *CodeGenFunction::generateBuiltinOSLogHelperFunction(
     return F;
 
   llvm::SmallVector<QualType, 4> ArgTys;
-  llvm::SmallVector<ImplicitParamDecl, 4> Params;
-  Params.emplace_back(Ctx, nullptr, SourceLocation(), &Ctx.Idents.get("buffer"),
-                      Ctx.VoidPtrTy, ImplicitParamDecl::Other);
+  FunctionArgList Args;
+  Args.push_back(ImplicitParamDecl::Create(
+      Ctx, nullptr, SourceLocation(), &Ctx.Idents.get("buffer"), Ctx.VoidPtrTy,
+      ImplicitParamDecl::Other));
   ArgTys.emplace_back(Ctx.VoidPtrTy);
 
   for (unsigned int I = 0, E = Layout.Items.size(); I < E; ++I) {
@@ -1175,16 +1154,12 @@ llvm::Function *CodeGenFunction::generateBuiltinOSLogHelperFunction(
       continue;
 
     QualType ArgTy = getOSLogArgType(Ctx, Size);
-    Params.emplace_back(
+    Args.push_back(ImplicitParamDecl::Create(
         Ctx, nullptr, SourceLocation(),
         &Ctx.Idents.get(std::string("arg") + llvm::to_string(I)), ArgTy,
-        ImplicitParamDecl::Other);
+        ImplicitParamDecl::Other));
     ArgTys.emplace_back(ArgTy);
   }
-
-  FunctionArgList Args;
-  for (auto &P : Params)
-    Args.push_back(&P);
 
   QualType ReturnTy = Ctx.VoidTy;
   QualType FuncionTy = Ctx.getFunctionType(ReturnTy, ArgTys, {});
@@ -1218,7 +1193,7 @@ llvm::Function *CodeGenFunction::generateBuiltinOSLogHelperFunction(
   auto AL = ApplyDebugLocation::CreateArtificial(*this);
 
   CharUnits Offset;
-  Address BufAddr(Builder.CreateLoad(GetAddrOfLocalVar(&Params[0]), "buf"),
+  Address BufAddr(Builder.CreateLoad(GetAddrOfLocalVar(Args[0]), "buf"),
                   BufferAlignment);
   Builder.CreateStore(Builder.getInt8(Layout.getSummaryByte()),
                       Builder.CreateConstByteGEP(BufAddr, Offset++, "summary"));
@@ -1238,7 +1213,7 @@ llvm::Function *CodeGenFunction::generateBuiltinOSLogHelperFunction(
     if (!Size.getQuantity())
       continue;
 
-    Address Arg = GetAddrOfLocalVar(&Params[I]);
+    Address Arg = GetAddrOfLocalVar(Args[I]);
     Address Addr = Builder.CreateConstByteGEP(BufAddr, Offset, "argData");
     Addr = Builder.CreateBitCast(Addr, Arg.getPointer()->getType(),
                                  "argDataCast");
@@ -1656,8 +1631,6 @@ static llvm::Value *dumpRecord(CodeGenFunction &CGF, QualType RType,
   const auto *RT = RType->getAs<RecordType>();
   ASTContext &Context = CGF.getContext();
   RecordDecl *RD = RT->getDecl()->getDefinition();
-  ASTContext &Ctx = RD->getASTContext();
-  const ASTRecordLayout &RL = Ctx.getASTRecordLayout(RD);
   std::string Pad = std::string(Lvl * 4, ' ');
 
   Value *GString =
@@ -1687,9 +1660,6 @@ static llvm::Value *dumpRecord(CodeGenFunction &CGF, QualType RType,
   }
 
   for (const auto *FD : RD->fields()) {
-    uint64_t Off = RL.getFieldOffset(FD->getFieldIndex());
-    Off = Ctx.toCharUnitsFromBits(Off).getQuantity();
-
     Value *FieldPtr = RecordPtr;
     if (RD->isUnion())
       FieldPtr = CGF.Builder.CreatePointerCast(
@@ -1988,6 +1958,22 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     case Builtin::BI__builtin_truncf:
     case Builtin::BI__builtin_truncl:
       return RValue::get(emitUnaryBuiltin(*this, E, Intrinsic::trunc));
+
+    case Builtin::BIlround:
+    case Builtin::BIlroundf:
+    case Builtin::BIlroundl:
+    case Builtin::BI__builtin_lround:
+    case Builtin::BI__builtin_lroundf:
+    case Builtin::BI__builtin_lroundl:
+      return RValue::get(emitFPToIntRoundBuiltin(*this, E, Intrinsic::lround));
+
+    case Builtin::BIllround:
+    case Builtin::BIllroundf:
+    case Builtin::BIllroundl:
+    case Builtin::BI__builtin_llround:
+    case Builtin::BI__builtin_llroundf:
+    case Builtin::BI__builtin_llroundl:
+      return RValue::get(emitFPToIntRoundBuiltin(*this, E, Intrinsic::llround));
 
     default:
       break;
@@ -2379,21 +2365,10 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   case Builtin::BI__builtin_prefetch: {
     Value *Locality, *RW, *Address = EmitScalarExpr(E->getArg(0));
     // FIXME: Technically these constants should of type 'int', yes?
-#if INTEL_CUSTOMIZATION
-    // CQ#371990 - let __prefetch_builtin arguments be out of their range (0..1
-    // for the first argument, 0..3 for the second one), assigning 0 if argument
-    // is out of its range.
-    RW = GetCallArgAsConstInt(/*CGF=*/*this, E, /*ArgIndex=*/1, /*Low=*/0,
-                              /*High=*/1, /*DefaultForIncorrect=*/
-                              llvm::ConstantInt::get(Int32Ty, 0),
-                              /*DefaultForMissing=*/
-                              llvm::ConstantInt::get(Int32Ty, 0));
-    Locality = GetCallArgAsConstInt(/*CGF=*/*this, E, /*ArgIndex=*/2, /*Low=*/0,
-                                    /*High=*/3, /*DefaultForIncorrect=*/
-                                    llvm::ConstantInt::get(Int32Ty, 0),
-                                    /*DefaultForMissing=*/
-                                    llvm::ConstantInt::get(Int32Ty, 3));
-#endif // INTEL_CUSTOMIZATION
+    RW = (E->getNumArgs() > 1) ? EmitScalarExpr(E->getArg(1)) :
+      llvm::ConstantInt::get(Int32Ty, 0);
+    Locality = (E->getNumArgs() > 2) ? EmitScalarExpr(E->getArg(2)) :
+      llvm::ConstantInt::get(Int32Ty, 3);
     Value *Data = llvm::ConstantInt::get(Int32Ty, 1);
     Function *F = CGM.getIntrinsic(Intrinsic::prefetch);
     return RValue::get(Builder.CreateCall(F, {Address, RW, Locality, Data}));
@@ -6495,6 +6470,274 @@ RValue CodeGenFunction::EmitFPGARegBuiltin(unsigned BuiltinID,
 
   return RValue::get(Builder.CreateCall(Func, Args));
 }
+
+enum {
+  SVMLTwoRets = (1 << 0),
+};
+
+namespace {
+struct SVMLBuiltinInfo {
+  const char *LibCallName;
+  unsigned BuiltinID;
+  unsigned TypeModifier;
+
+  bool operator<(unsigned RHSBuiltinID) const {
+    return BuiltinID < RHSBuiltinID;
+  }
+  bool operator<(const SVMLBuiltinInfo &TE) const {
+    return BuiltinID < TE.BuiltinID;
+  }
+};
+} // end anonymous namespace
+
+#define SVMLMAP0(Name) \
+  { "__svml_" #Name, clang::X86::BI__builtin_svml_ ## Name, 0 }
+#define SVMLMAP1(Name, Modifier) \
+  { "__svml_" #Name, clang::X86::BI__builtin_svml_ ## Name, Modifier }
+
+#define SVML2MAP0(LibName, BuiltinName) \
+  { "__svml_" LibName, clang::X86::BI ## BuiltinName, 0 }
+
+static const SVMLBuiltinInfo SIMDBuiltinMap[] = {
+  // SSE1 FP
+  SVML2MAP0("acoshf4", _mm_acosh_ps),
+  SVML2MAP0("acosf4", _mm_acos_ps),
+  SVML2MAP0("asinhf4", _mm_asinh_ps),
+  SVML2MAP0("asinf4", _mm_asin_ps),
+  SVML2MAP0("atan2f4", _mm_atan2_ps),
+  SVML2MAP0("atanhf4", _mm_atanh_ps),
+  SVML2MAP0("atanf4", _mm_atan_ps),
+  SVML2MAP0("cbrtf4", _mm_cbrt_ps),
+  SVML2MAP0("coshf4", _mm_cosh_ps),
+  SVML2MAP0("cosf4", _mm_cos_ps),
+  SVML2MAP0("erfcf4", _mm_erfc_ps),
+  SVML2MAP0("erfinvf4", _mm_erfinv_ps),
+  SVML2MAP0("erff4", _mm_erf_ps),
+  SVML2MAP0("exp2f4", _mm_exp2_ps),
+  SVML2MAP0("expf4", _mm_exp_ps),
+  SVML2MAP0("invcbrtf4", _mm_invcbrt_ps),
+  SVML2MAP0("invsqrtf4", _mm_invsqrt_ps),
+  SVML2MAP0("log10f4", _mm_log10_ps),
+  SVML2MAP0("log2f4", _mm_log2_ps),
+  SVML2MAP0("logf4", _mm_log_ps),
+  SVML2MAP0("powf4", _mm_pow_ps),
+  SVML2MAP0("sinhf4", _mm_sinh_ps),
+  SVML2MAP0("sinf4", _mm_sin_ps),
+  SVML2MAP0("tanhf4", _mm_tanh_ps),
+  SVML2MAP0("tanf4", _mm_tan_ps),
+  // FIXME: The backend can't handle this yet.
+  //SVMLMAP1(sincosf4, SVMLTwoRets),
+  // SSE2 FP
+  SVML2MAP0("acosh2", _mm_acosh_pd),
+  SVML2MAP0("acos2", _mm_acos_pd),
+  SVML2MAP0("asinh2", _mm_asinh_pd),
+  SVML2MAP0("asin2", _mm_asin_pd),
+  SVML2MAP0("atan22", _mm_atan2_pd),
+  SVML2MAP0("atanh2", _mm_atanh_pd),
+  SVML2MAP0("atan2", _mm_atan_pd),
+  SVML2MAP0("cbrt2", _mm_cbrt_pd),
+  SVML2MAP0("cosh2", _mm_cosh_pd),
+  SVML2MAP0("cos2", _mm_cos_pd),
+  SVML2MAP0("erfc2", _mm_erfc_pd),
+  SVML2MAP0("erfinv2", _mm_erfinv_pd),
+  SVML2MAP0("erf2", _mm_erf_pd),
+  SVML2MAP0("exp22", _mm_exp2_pd),
+  SVML2MAP0("exp2", _mm_exp_pd),
+  SVML2MAP0("invcbrt2", _mm_invcbrt_pd),
+  SVML2MAP0("invsqrt2", _mm_invsqrt_pd),
+  SVML2MAP0("log102", _mm_log10_pd),
+  SVML2MAP0("log22", _mm_log2_pd),
+  SVML2MAP0("log2", _mm_log_pd),
+  SVML2MAP0("pow2", _mm_pow_pd),
+  SVML2MAP0("sinh2", _mm_sinh_pd),
+  SVML2MAP0("sin2", _mm_sin_pd),
+  SVML2MAP0("tanh2", _mm_tanh_pd),
+  SVML2MAP0("tan2", _mm_tan_pd),
+  // FIXME: The backend can't handle this yet.
+  //SVMLMAP1(sincos2, SVMLTwoRets),
+  // AVX single precision
+  SVML2MAP0("acoshf8", _mm256_acosh_ps),
+  SVML2MAP0("acosf8", _mm256_acos_ps),
+  SVML2MAP0("asinhf8", _mm256_asinh_ps),
+  SVML2MAP0("asinf8", _mm256_asin_ps),
+  SVML2MAP0("atan2f8", _mm256_atan2_ps),
+  SVML2MAP0("atanhf8", _mm256_atanh_ps),
+  SVML2MAP0("atanf8", _mm256_atan_ps),
+  SVML2MAP0("cbrtf8", _mm256_cbrt_ps),
+  SVML2MAP0("coshf8", _mm256_cosh_ps),
+  SVML2MAP0("cosf8", _mm256_cos_ps),
+  SVML2MAP0("erfcf8", _mm256_erfc_ps),
+  SVML2MAP0("erfinvf8", _mm256_erfinv_ps),
+  SVML2MAP0("erff8", _mm256_erf_ps),
+  SVML2MAP0("exp2f8", _mm256_exp2_ps),
+  SVML2MAP0("expf8", _mm256_exp_ps),
+  SVML2MAP0("invcbrtf8", _mm256_invcbrt_ps),
+  SVML2MAP0("invsqrtf8", _mm256_invsqrt_ps),
+  SVML2MAP0("log10f8", _mm256_log10_ps),
+  SVML2MAP0("log2f8", _mm256_log2_ps),
+  SVML2MAP0("logf8", _mm256_log_ps),
+  SVML2MAP0("powf8", _mm256_pow_ps),
+  SVML2MAP0("sinhf8", _mm256_sinh_ps),
+  SVML2MAP0("sinf8", _mm256_sin_ps),
+  SVML2MAP0("tanhf8", _mm256_tanh_ps),
+  SVML2MAP0("tanf8", _mm256_tan_ps),
+  // AVX double precision
+  SVML2MAP0("acosh4", _mm256_acosh_pd),
+  SVML2MAP0("acos4", _mm256_acos_pd),
+  SVML2MAP0("asinh4", _mm256_asinh_pd),
+  SVML2MAP0("asin4", _mm256_asin_pd),
+  SVML2MAP0("atan24", _mm256_atan2_pd),
+  SVML2MAP0("atanh4", _mm256_atanh_pd),
+  SVML2MAP0("atan4", _mm256_atan_pd),
+  SVML2MAP0("cbrt4", _mm256_cbrt_pd),
+  SVML2MAP0("cosh4", _mm256_cosh_pd),
+  SVML2MAP0("cos4", _mm256_cos_pd),
+  SVML2MAP0("erfc4", _mm256_erfc_pd),
+  SVML2MAP0("erfinv4", _mm256_erfinv_pd),
+  SVML2MAP0("erf4", _mm256_erf_pd),
+  SVML2MAP0("exp24", _mm256_exp2_pd),
+  SVML2MAP0("exp4", _mm256_exp_pd),
+  SVML2MAP0("invcbrt4", _mm256_invcbrt_pd),
+  SVML2MAP0("invsqrt4", _mm256_invsqrt_pd),
+  SVML2MAP0("log104", _mm256_log10_pd),
+  SVML2MAP0("log24", _mm256_log2_pd),
+  SVML2MAP0("log4", _mm256_log_pd),
+  SVML2MAP0("pow4", _mm256_pow_pd),
+  SVML2MAP0("sinh4", _mm256_sinh_pd),
+  SVML2MAP0("sin4", _mm256_sin_pd),
+  SVML2MAP0("tanh4", _mm256_tanh_pd),
+  SVML2MAP0("tan4", _mm256_tan_pd),
+  // AVX512F single precision
+  SVML2MAP0("acoshf16", _mm512_acosh_ps),
+  SVML2MAP0("acosf16", _mm512_acos_ps),
+  SVML2MAP0("asinhf16", _mm512_asinh_ps),
+  SVML2MAP0("asinf16", _mm512_asin_ps),
+  SVML2MAP0("atan2f16", _mm512_atan2_ps),
+  SVML2MAP0("atanhf16", _mm512_atanh_ps),
+  SVML2MAP0("atanf16", _mm512_atan_ps),
+  SVML2MAP0("cbrtf16", _mm512_cbrt_ps),
+  SVML2MAP0("coshf16", _mm512_cosh_ps),
+  SVML2MAP0("cosf16", _mm512_cos_ps),
+  SVML2MAP0("erfcf16", _mm512_erfc_ps),
+  SVML2MAP0("erfinvf16", _mm512_erfinv_ps),
+  SVML2MAP0("erff16", _mm512_erf_ps),
+  SVML2MAP0("exp2f16", _mm512_exp2_ps),
+  SVML2MAP0("expf16", _mm512_exp_ps),
+  SVML2MAP0("invcbrtf16", _mm512_invcbrt_ps),
+  SVML2MAP0("invsqrtf16", _mm512_invsqrt_ps),
+  SVML2MAP0("log10f16", _mm512_log10_ps),
+  SVML2MAP0("log2f16", _mm512_log2_ps),
+  SVML2MAP0("logf16", _mm512_log_ps),
+  SVML2MAP0("powf16", _mm512_pow_ps),
+  SVML2MAP0("sinhf16", _mm512_sinh_ps),
+  SVML2MAP0("sinf16", _mm512_sin_ps),
+  SVML2MAP0("tanhf16", _mm512_tanh_ps),
+  SVML2MAP0("tanf16", _mm512_tan_ps),
+  // AVX512F double precision
+  SVML2MAP0("acosh8", _mm512_acosh_pd),
+  SVML2MAP0("acos8", _mm512_acos_pd),
+  SVML2MAP0("asinh8", _mm512_asinh_pd),
+  SVML2MAP0("asin8", _mm512_asin_pd),
+  SVML2MAP0("atan28", _mm512_atan2_pd),
+  SVML2MAP0("atanh8", _mm512_atanh_pd),
+  SVML2MAP0("atan8", _mm512_atan_pd),
+  SVML2MAP0("cbrt8", _mm512_cbrt_pd),
+  SVML2MAP0("cosh8", _mm512_cosh_pd),
+  SVML2MAP0("cos8", _mm512_cos_pd),
+  SVML2MAP0("erfc8", _mm512_erfc_pd),
+  SVML2MAP0("erfinv8", _mm512_erfinv_pd),
+  SVML2MAP0("erf8", _mm512_erf_pd),
+  SVML2MAP0("exp28", _mm512_exp2_pd),
+  SVML2MAP0("exp8", _mm512_exp_pd),
+  SVML2MAP0("invcbrt8", _mm512_invcbrt_pd),
+  SVML2MAP0("invsqrt8", _mm512_invsqrt_pd),
+  SVML2MAP0("log108", _mm512_log10_pd),
+  SVML2MAP0("log28", _mm512_log2_pd),
+  SVML2MAP0("log8", _mm512_log_pd),
+  SVML2MAP0("pow8", _mm512_pow_pd),
+  SVML2MAP0("sinh8", _mm512_sinh_pd),
+  SVML2MAP0("sin8", _mm512_sin_pd),
+  SVML2MAP0("tanh8", _mm512_tanh_pd),
+  SVML2MAP0("tan8", _mm512_tan_pd),
+  // SSE2 Int
+  SVMLMAP0(idiv4),
+  SVMLMAP0(irem4),
+  SVMLMAP0(udiv4),
+  SVMLMAP0(urem4),
+  // AVX2 Int
+  SVMLMAP0(idiv8),
+  SVMLMAP0(irem8),
+  SVMLMAP0(udiv8),
+  SVMLMAP0(urem8),
+  // AVX512 Int
+  SVMLMAP0(idiv16),
+  SVMLMAP0(irem16),
+  SVMLMAP0(udiv16),
+  SVMLMAP0(urem16),
+};
+
+static const SVMLBuiltinInfo *
+findSVMLBuiltinInMap(unsigned BuiltinID) {
+#ifndef NDEBUG
+  static bool MapProvenSorted = false;
+  if (!MapProvenSorted) {
+    assert(std::is_sorted(std::begin(SIMDBuiltinMap),
+                          std::end(SIMDBuiltinMap)));
+    MapProvenSorted = true;
+  }
+#endif
+
+  const SVMLBuiltinInfo *Builtin =
+      std::lower_bound(std::begin(SIMDBuiltinMap), std::end(SIMDBuiltinMap),
+                       BuiltinID);
+
+  if (Builtin != std::end(SIMDBuiltinMap) && Builtin->BuiltinID == BuiltinID)
+    return Builtin;
+
+  return nullptr;
+}
+
+Value *CodeGenFunction::EmitSVMLBuiltinExpr(unsigned BuiltinID,
+                                            const char *LibCallName,
+                                            unsigned Modifier,
+                                            const CallExpr *E,
+                                            ArrayRef<llvm::Value *> Ops) {
+  llvm::Type *RetTy = ConvertType(E->getType());
+  Value *RetPtr = nullptr;
+  if (Modifier & SVMLTwoRets) {
+    RetTy = llvm::StructType::get(RetTy, RetTy);
+    RetPtr = Ops[0];
+    Ops = Ops.drop_front();
+  }
+
+  SmallVector<llvm::Type *, 3> Tys;
+  for (int i = 0, e = Ops.size(); i != e; ++i)
+    Tys.push_back(Ops[i]->getType());
+
+  llvm::FunctionType *FTy =
+      llvm::FunctionType::get(RetTy, Tys, /*Variadic*/false);
+
+  llvm::FunctionCallee Func =
+      CGM.CreateSVMLFunction(FTy, LibCallName);
+
+  llvm::CallInst *Call = Builder.CreateCall(Func, Ops);
+  Call->setCallingConv(llvm::CallingConv::SVML);
+
+  StringRef Name = CGM.getContext().BuiltinInfo.getName(BuiltinID);
+  llvm::AttributeList AttrList;
+  CGM.ConstructSVMLCallAttributes(Name, AttrList);
+  Call->setAttributes(AttrList);
+
+  llvm::Value *Res = Call;
+  if (Modifier & SVMLTwoRets) {
+    Builder.CreateDefaultAlignedStore(Builder.CreateExtractValue(Res, 1),
+                                      RetPtr);
+    Res = Builder.CreateExtractValue(Res, 0);
+  }
+
+  return Res;
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 Value *CodeGenFunction::EmitARMBuiltinExpr(unsigned BuiltinID,
@@ -7804,6 +8047,11 @@ Value *CodeGenFunction::EmitAArch64BuiltinExpr(unsigned BuiltinID,
 
   if (BuiltinID == AArch64::BI_AddressOfReturnAddress) {
     llvm::Function *F = CGM.getIntrinsic(Intrinsic::addressofreturnaddress);
+    return Builder.CreateCall(F);
+  }
+
+  if (BuiltinID == AArch64::BI__builtin_sponentry) {
+    llvm::Function *F = CGM.getIntrinsic(Intrinsic::sponentry);
     return Builder.CreateCall(F);
   }
 
@@ -10508,6 +10756,13 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     Ops.push_back(llvm::ConstantInt::get(getLLVMContext(), Result));
   }
 
+#if INTEL_CUSTOMIZATION
+  const SVMLBuiltinInfo *Builtin = findSVMLBuiltinInMap(BuiltinID);
+  if (Builtin)
+    return EmitSVMLBuiltinExpr(Builtin->BuiltinID, Builtin->LibCallName,
+                               Builtin->TypeModifier, E, Ops);
+#endif // INTEL_CUSTOMIZATION
+
   // These exist so that the builtin that takes an immediate can be bounds
   // checked by clang to avoid passing bad immediates to the backend. Since
   // AVX has a larger immediate than SSE we would need separate builtins to
@@ -10710,6 +10965,11 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_storeups512_mask:
     return EmitX86MaskedStore(*this, Ops, 1);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_storesh128_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_storess128_mask:
   case X86::BI__builtin_ia32_storesd128_mask: {
     return EmitX86MaskedStore(*this, Ops, 1);
@@ -10849,6 +11109,11 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_loaddqudi512_mask:
     return EmitX86MaskedLoad(*this, Ops, 1);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_loadsh128_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_loadss128_mask:
   case X86::BI__builtin_ia32_loadsd128_mask:
     return EmitX86MaskedLoad(*this, Ops, 1);
@@ -11742,6 +12007,13 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_selectq_128:
   case X86::BI__builtin_ia32_selectq_256:
   case X86::BI__builtin_ia32_selectq_512:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_selectph_128:
+  case X86::BI__builtin_ia32_selectph_256:
+  case X86::BI__builtin_ia32_selectph_512:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_selectps_128:
   case X86::BI__builtin_ia32_selectps_256:
   case X86::BI__builtin_ia32_selectps_512:
@@ -11749,6 +12021,11 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_selectpd_256:
   case X86::BI__builtin_ia32_selectpd_512:
     return EmitX86Select(*this, Ops[0], Ops[1], Ops[2]);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_selectsh_128:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_selectss_128:
   case X86::BI__builtin_ia32_selectsd_128: {
     Value *A = Builder.CreateExtractElement(Ops[1], (uint64_t)0);
@@ -12376,6 +12653,13 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_cmpps256:
   case X86::BI__builtin_ia32_cmppd:
   case X86::BI__builtin_ia32_cmppd256:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_cmpph128_mask:
+  case X86::BI__builtin_ia32_cmpph256_mask:
+  case X86::BI__builtin_ia32_cmpph512_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_cmpps128_mask:
   case X86::BI__builtin_ia32_cmpps256_mask:
   case X86::BI__builtin_ia32_cmpps512_mask:
@@ -12435,6 +12719,13 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     // Builtins without the _mask suffix return a vector of integers
     // of the same width as the input vectors
     switch (BuiltinID) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    case X86::BI__builtin_ia32_cmpph512_mask:
+    case X86::BI__builtin_ia32_cmpph256_mask:
+    case X86::BI__builtin_ia32_cmpph128_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     case X86::BI__builtin_ia32_cmpps512_mask:
     case X86::BI__builtin_ia32_cmppd512_mask:
     case X86::BI__builtin_ia32_cmpps128_mask:
@@ -12484,8 +12775,6 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_cmpordsd:
     return getCmpIntrinsicCall(Intrinsic::x86_sse2_cmp_sd, 7);
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16
 // AVX512 bf16 intrinsics
   case X86::BI__builtin_ia32_cvtneps2bf16_128_mask: {
     Ops[2] = getMaskVecValue(*this, Ops[2],
@@ -12493,8 +12782,22 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     Intrinsic::ID IID = Intrinsic::x86_avx512bf16_mask_cvtneps2bf16_128;
     return Builder.CreateCall(CGM.getIntrinsic(IID), Ops);
   }
-#endif // INTEL_FEATURE_ISA_BF16
-#endif // INTEL_CUSTOMIZATION
+
+  case X86::BI__builtin_ia32_cvtneps2bf16_256_mask:
+  case X86::BI__builtin_ia32_cvtneps2bf16_512_mask: {
+    Intrinsic::ID IID;
+    switch (BuiltinID) {
+    default: llvm_unreachable("Unsupported intrinsic!");
+    case X86::BI__builtin_ia32_cvtneps2bf16_256_mask:
+      IID = Intrinsic::x86_avx512bf16_cvtneps2bf16_256;
+      break;
+    case X86::BI__builtin_ia32_cvtneps2bf16_512_mask:
+      IID = Intrinsic::x86_avx512bf16_cvtneps2bf16_512;
+      break;
+    }
+    Value *Res = Builder.CreateCall(CGM.getIntrinsic(IID), Ops[0]);
+    return EmitX86Select(*this, Ops[2], Res, Ops[1]);
+  }
 
   case X86::BI__emul:
   case X86::BI__emulu: {

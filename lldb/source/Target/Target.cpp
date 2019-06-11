@@ -1856,7 +1856,7 @@ size_t Target::ReadCStringFromMemory(const Address &addr, std::string &out_str,
   out_str.clear();
   addr_t curr_addr = addr.GetLoadAddress(this);
   Address address(addr);
-  while (1) {
+  while (true) {
     size_t length = ReadCStringFromMemory(address, buf, sizeof(buf), error);
     if (length == 0)
       break;
@@ -2652,6 +2652,7 @@ void Target::RunStopHooks() {
         options.SetStopOnError(true);
         options.SetEchoCommands(false);
         options.SetPrintResults(true);
+        options.SetPrintErrors(true);
         options.SetAddToHistory(false);
 
         // Force Async:
@@ -3251,11 +3252,11 @@ static constexpr OptionEnumValueElement g_inline_breakpoint_enums[] = {
      "Always look for inline breakpoint locations when setting file and line "
      "breakpoints (slower but most accurate)."} };
 
-typedef enum x86DisassemblyFlavor {
+enum x86DisassemblyFlavor {
   eX86DisFlavorDefault,
   eX86DisFlavorIntel,
   eX86DisFlavorATT
-} x86DisassemblyFlavor;
+};
 
 static constexpr OptionEnumValueElement g_x86_dis_flavor_value_types[] = {
     {eX86DisFlavorDefault, "default", "Disassembler default (currently att)."},

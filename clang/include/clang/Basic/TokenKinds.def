@@ -411,6 +411,11 @@ KEYWORD(__alignof                   , KEYALL)
 KEYWORD(__attribute                 , KEYALL)
 KEYWORD(__builtin_choose_expr       , KEYALL)
 KEYWORD(__builtin_offsetof          , KEYALL)
+KEYWORD(__builtin_FILE              , KEYALL)
+KEYWORD(__builtin_FUNCTION          , KEYALL)
+KEYWORD(__builtin_LINE              , KEYALL)
+KEYWORD(__builtin_COLUMN            , KEYALL)
+
 // __builtin_types_compatible_p is a GNU C extension that we handle like a C++
 // type trait.
 TYPE_TRAIT_2(__builtin_types_compatible_p, TypeCompatible, KEYNOCXX)
@@ -439,9 +444,6 @@ TYPE_TRAIT_1(__is_sealed, IsSealed, KEYMS)
 #if INTEL_CUSTOMIZATION
 // CQ#367834 - Make _Quad an alias for __float128
 ALIAS("_Quad"    , __float128       , 0)
-// CQ#369185 - support of __bases and __direct_bases intrinsics.
-KEYWORD(__bases                     , KEYBASES)
-KEYWORD(__direct_bases              , KEYBASES)
 #endif  // INTEL_CUSTOMIZATION
 // MSVC12.0 / VS2013 Type Traits
 TYPE_TRAIT_1(__is_destructible, IsDestructible, KEYMS)
@@ -593,7 +595,7 @@ KEYWORD(vec_step                    , KEYOPENCLC | KEYALTIVEC | KEYZVECTOR)
 // OpenMP Type Traits
 KEYWORD(__builtin_omp_required_simd_align, KEYALL)
 
-KEYWORD(pipe                        , KEYOPENCLC)
+KEYWORD(pipe                        , KEYOPENCLC | KEYOPENCLCXX)
 #if INTEL_CUSTOMIZATION
 KEYWORD(channel                     , KEYOPENCLC)
 #endif // INTEL_CUSTOMIZATION

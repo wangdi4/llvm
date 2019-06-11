@@ -300,11 +300,6 @@ public:
   static const TST TST_decltype = clang::TST_decltype;
   static const TST TST_decltype_auto = clang::TST_decltype_auto;
   static const TST TST_underlyingType = clang::TST_underlyingType;
-#if INTEL_CUSTOMIZATION
-  // CQ#369185 - support of __bases and __direct_bases intrinsics.
-  static const TST TST_bases = clang::TST_bases;
-  static const TST TST_directBases = clang::TST_directBases;
-#endif // INTEL_CUSTOMIZATION
   static const TST TST_auto = clang::TST_auto;
   static const TST TST_auto_type = clang::TST_auto_type;
   static const TST TST_unknown_anytype = clang::TST_unknown_anytype;
@@ -352,10 +347,10 @@ private:
   unsigned TypeAltiVecPixel : 1;
   unsigned TypeAltiVecBool : 1;
   unsigned TypeSpecOwned : 1;
-  unsigned TypeSpecPipe : 1;
 #if INTEL_CUSTOMIZATION
   unsigned TypeSpecChannel : 1;
 #endif // INTEL_CUSTOMIZATION
+  unsigned TypeSpecPipe : 1;
   unsigned TypeSpecSat : 1;
 
   // type-qualifiers
@@ -419,10 +414,6 @@ private:
 
   static bool isTypeRep(TST T) {
     return (T == TST_typename || T == TST_typeofType ||
-#if INTEL_CUSTOMIZATION
-            // CQ#369185 - support of __bases and __direct_bases intrinsics.
-            T == TST_bases || T == TST_directBases ||
-#endif // INTEL_CUSTOMIZATION
             T == TST_underlyingType || T == TST_atomic);
   }
   static bool isExprRep(TST T) {
@@ -445,11 +436,10 @@ public:
         TypeSpecComplex(TSC_unspecified), TypeSpecSign(TSS_unspecified),
         TypeSpecType(TST_unspecified), TypeAltiVecVector(false),
         TypeAltiVecPixel(false), TypeAltiVecBool(false), TypeSpecOwned(false),
-        TypeSpecPipe(false), 
 #if INTEL_CUSTOMIZATION
         TypeSpecChannel(false),
 #endif // INTEL_CUSTOMIZATION
-	TypeSpecSat(false), TypeQualifiers(TQ_unspecified),
+        TypeSpecPipe(false), TypeSpecSat(false), TypeQualifiers(TQ_unspecified),
         FS_inline_specified(false), FS_forceinline_specified(false),
         FS_virtual_specified(false), FS_noreturn_specified(false),
         Friend_specified(false), Constexpr_specified(false),

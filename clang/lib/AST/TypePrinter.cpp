@@ -264,6 +264,7 @@ bool TypePrinter::canPrefixQualifiers(const Type *T,
     case Type::Paren:
     case Type::PackExpansion:
     case Type::SubstTemplateTypeParm:
+    case Type::MacroQualified:
       CanPrefixQualifiers = false;
       break;
 
@@ -968,6 +969,21 @@ void TypePrinter::printTypedefBefore(const TypedefType *T, raw_ostream &OS) {
   printTypeSpec(T->getDecl(), OS);
 }
 
+void TypePrinter::printMacroQualifiedBefore(const MacroQualifiedType *T,
+                                            raw_ostream &OS) {
+  StringRef MacroName = T->getMacroIdentifier()->getName();
+  OS << MacroName << " ";
+
+  // Since this type is meant to print the macro instead of the whole attribute,
+  // we trim any attributes and go directly to the original modified type.
+  printBefore(T->getModifiedType(), OS);
+}
+
+void TypePrinter::printMacroQualifiedAfter(const MacroQualifiedType *T,
+                                           raw_ostream &OS) {
+  printAfter(T->getModifiedType(), OS);
+}
+
 void TypePrinter::printTypedefAfter(const TypedefType *T, raw_ostream &OS) {}
 
 void TypePrinter::printTypeOfExprBefore(const TypeOfExprType *T,
@@ -1011,21 +1027,6 @@ void TypePrinter::printUnaryTransformBefore(const UnaryTransformType *T,
       OS << ')';
       spaceBeforePlaceHolder(OS);
       return;
-#if INTEL_CUSTOMIZATION
-    // CQ#369185 - support of __bases and __direct_bases intrinsics.
-    case UnaryTransformType::BasesOfType:
-      OS << "__bases(";
-      print(T->getBaseType(), OS, StringRef());
-      OS << ')';
-      spaceBeforePlaceHolder(OS);
-      return;
-    case UnaryTransformType::DirectBasesOfType:
-      OS << "__direct_bases(";
-      print(T->getBaseType(), OS, StringRef());
-      OS << ')';
-      spaceBeforePlaceHolder(OS);
-      return;
-#endif // INTEL_CUSTOMIZATION
   }
 
   printBefore(T->getBaseType(), OS);
@@ -1037,11 +1038,6 @@ void TypePrinter::printUnaryTransformAfter(const UnaryTransformType *T,
 
   switch (T->getUTTKind()) {
     case UnaryTransformType::EnumUnderlyingType:
-#if INTEL_CUSTOMIZATION
-    // CQ#369185 - support of __bases and __direct_bases intrinsics.
-    case UnaryTransformType::BasesOfType:
-    case UnaryTransformType::DirectBasesOfType:
-#endif // INTEL_CUSTOMIZATION
       return;
   }
 

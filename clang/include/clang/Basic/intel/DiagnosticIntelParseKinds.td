@@ -65,9 +65,6 @@ def warn_pragma_omp_ignored_for_target : Warning<
 
 // CQ#364426
 def warn_empty_enum : Warning<"use of empty enum">, InGroup<IntelCompat>;
-// CQ#369185 - support of __bases and __direct_bases intrinsics.
-def err_bases_arg_type_not_dependent: Error<"'%select{__bases|__direct_bases}0' "
-  "specifier must be used with dependent type">;
 def err_expected_ellipsis : Error<"expected '...' after "
   "'%select{__bases|__direct_bases}0' specifier">;
 // CQ#364737

@@ -141,11 +141,6 @@ bool Sema::isSimpleTypeSpecifier(tok::TokenKind Kind) const {
   case tok::kw_wchar_t:
   case tok::kw_bool:
   case tok::kw___underlying_type:
-#if INTEL_CUSTOMIZATION
-// CQ#369185 - support of __bases and __direct_bases intrinsics.
-  case tok::kw___bases:
-  case tok::kw___direct_bases:
-#endif // INTEL_CUSTOMIZATION
   case tok::kw___auto_type:
     return true;
 
@@ -929,6 +924,16 @@ Corrected:
       }
     }
 
+    if (getLangOpts().CPlusPlus2a && !SS.isSet() && NextToken.is(tok::less)) {
+      // In C++20 onwards, this could be an ADL-only call to a function
+      // template, and we're required to assume that this is a template name.
+      //
+      // FIXME: Find a way to still do typo correction in this case.
+      TemplateName Template =
+          Context.getAssumedTemplateName(NameInfo.getName());
+      return NameClassification::UndeclaredTemplate(Template);
+    }
+
     // In C, we first see whether there is a tag type by the same name, in
     // which case it's likely that the user just forgot to write "enum",
     // "struct", or "union".
@@ -1057,52 +1062,62 @@ Corrected:
 
   if (getLangOpts().CPlusPlus && NextToken.is(tok::less) &&
       (IsFilteredTemplateName ||
-       hasAnyAcceptableTemplateNames(Result, /*AllowFunctionTemplates=*/true,
-                                     /*AllowDependent=*/false))) {
+       hasAnyAcceptableTemplateNames(
+           Result, /*AllowFunctionTemplates=*/true,
+           /*AllowDependent=*/false,
+           /*AllowNonTemplateFunctions*/ !SS.isSet() &&
+               getLangOpts().CPlusPlus2a))) {
     // C++ [temp.names]p3:
     //   After name lookup (3.4) finds that a name is a template-name or that
     //   an operator-function-id or a literal- operator-id refers to a set of
     //   overloaded functions any member of which is a function template if
     //   this is followed by a <, the < is always taken as the delimiter of a
     //   template-argument-list and never as the less-than operator.
+    // C++2a [temp.names]p2:
+    //   A name is also considered to refer to a template if it is an
+    //   unqualified-id followed by a < and name lookup finds either one
+    //   or more functions or finds nothing.
     if (!IsFilteredTemplateName)
       FilterAcceptableTemplateNames(Result);
 
-    if (!Result.empty()) {
-      bool IsFunctionTemplate;
-      bool IsVarTemplate;
-      TemplateName Template;
-      if (Result.end() - Result.begin() > 1) {
-        IsFunctionTemplate = true;
-        Template = Context.getOverloadedTemplateName(Result.begin(),
-                                                     Result.end());
-      } else {
-        auto *TD = cast<TemplateDecl>(getAsTemplateNameDecl(
-            *Result.begin(), /*AllowFunctionTemplates=*/true,
-            /*AllowDependent=*/false));
-        IsFunctionTemplate = isa<FunctionTemplateDecl>(TD);
-        IsVarTemplate = isa<VarTemplateDecl>(TD);
+    bool IsFunctionTemplate;
+    bool IsVarTemplate;
+    TemplateName Template;
+    if (Result.end() - Result.begin() > 1) {
+      IsFunctionTemplate = true;
+      Template = Context.getOverloadedTemplateName(Result.begin(),
+                                                   Result.end());
+    } else if (!Result.empty()) {
+      auto *TD = cast<TemplateDecl>(getAsTemplateNameDecl(
+          *Result.begin(), /*AllowFunctionTemplates=*/true,
+          /*AllowDependent=*/false));
+      IsFunctionTemplate = isa<FunctionTemplateDecl>(TD);
+      IsVarTemplate = isa<VarTemplateDecl>(TD);
 
-        if (SS.isSet() && !SS.isInvalid())
-          Template =
-              Context.getQualifiedTemplateName(SS.getScopeRep(),
-                                               /*TemplateKeyword=*/false, TD);
-        else
-          Template = TemplateName(TD);
-      }
-
-      if (IsFunctionTemplate) {
-        // Function templates always go through overload resolution, at which
-        // point we'll perform the various checks (e.g., accessibility) we need
-        // to based on which function we selected.
-        Result.suppressDiagnostics();
-
-        return NameClassification::FunctionTemplate(Template);
-      }
-
-      return IsVarTemplate ? NameClassification::VarTemplate(Template)
-                           : NameClassification::TypeTemplate(Template);
+      if (SS.isSet() && !SS.isInvalid())
+        Template =
+            Context.getQualifiedTemplateName(SS.getScopeRep(),
+                                             /*TemplateKeyword=*/false, TD);
+      else
+        Template = TemplateName(TD);
+    } else {
+      // All results were non-template functions. This is a function template
+      // name.
+      IsFunctionTemplate = true;
+      Template = Context.getAssumedTemplateName(NameInfo.getName());
     }
+
+    if (IsFunctionTemplate) {
+      // Function templates always go through overload resolution, at which
+      // point we'll perform the various checks (e.g., accessibility) we need
+      // to based on which function we selected.
+      Result.suppressDiagnostics();
+
+      return NameClassification::FunctionTemplate(Template);
+    }
+
+    return IsVarTemplate ? NameClassification::VarTemplate(Template)
+                         : NameClassification::TypeTemplate(Template);
   }
 
   NamedDecl *FirstDecl = (*Result.begin())->getUnderlyingDecl();
@@ -2335,14 +2350,6 @@ void Sema::MergeTypedefNameDecl(Scope *S, TypedefNameDecl *New,
     // since that was the intent of DR56.
     if (!isa<TypedefNameDecl>(Old))
       return;
-#if INTEL_CUSTOMIZATION
-    // CQ#373258 - allow class member typedef redefinition in IntelCompat mode.
-    if (getLangOpts().IntelCompat) {
-      Diag(New->getLocation(), diag::ext_intel_member_typedef_redefinition);
-      Diag(Old->getLocation(), diag::note_previous_definition);
-      return;
-    }
-#endif // INTEL_CUSTOMIZATION
 
     Diag(New->getLocation(), diag::err_redefinition)
       << New->getDeclName();
@@ -2947,10 +2954,7 @@ getNoteDiagForInvalidRedeclaration(const T *Old, const T *New) {
 static bool canRedefineFunction(const FunctionDecl *FD,
                                 const LangOptions& LangOpts) {
   return ((FD->hasAttr<GNUInlineAttr>() || LangOpts.GNUInline) &&
-#if INTEL_CUSTOMIZATION
-          // CQ#377372 - allow to redefine functions in C++.
-          (!LangOpts.CPlusPlus || LangOpts.IntelCompat) &&
-#endif // INTEL_CUSTOMIZATION
+          !LangOpts.CPlusPlus &&
           FD->isInlineSpecified() &&
           FD->getStorageClass() == SC_Extern);
 }
@@ -3283,20 +3287,6 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD,
   // Merge regparm attribute.
   if (OldTypeInfo.getHasRegParm() != NewTypeInfo.getHasRegParm() ||
       OldTypeInfo.getRegParm() != NewTypeInfo.getRegParm()) {
-#if INTEL_CUSTOMIZATION
-    // CQ#374880: If regparm attribute is available in the old declaration -
-    // take it. Otherwise take regparm attribute from the new declaration.
-    if (getLangOpts().IntelCompat) {
-      // Emit a warning about incompatible declaration if regparm attributes
-      // are different.
-      if (OldTypeInfo.getHasRegParm() && NewTypeInfo.getHasRegParm()) {
-        bool isOldAADefiniton = Old->isThisDeclarationADefinition();
-        Diag(New->getLocation(), diag::warn_func_redecl_conflicting_types)
-             << New->getDeclName() << isOldAADefiniton;
-        Diag(OldLocation, PrevDiag) << Old << Old->getType();
-      }
-    } else
-#endif // INTEL_CUSTOMIZATION
     if (NewTypeInfo.getHasRegParm()) {
       Diag(New->getLocation(), diag::err_regparm_mismatch)
         << NewType->getRegParmType()
@@ -3305,14 +3295,8 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD,
       return true;
     }
 
-#if INTEL_CUSTOMIZATION
-    // CQ#374880. If regparm attribute is available in the old declaration -
-    // take it. Otherwise take regparm attribute from the new declaration.
-    if (!getLangOpts().IntelCompat || OldTypeInfo.getHasRegParm()) {
-#endif // INTEL_CUSTOMIZATION
     NewTypeInfo = NewTypeInfo.withRegParm(OldTypeInfo.getRegParm());
     RequiresAdjustment = true;
-    } // INTEL
   }
 
   // Merge ns_returns_retained attribute.
@@ -4226,18 +4210,10 @@ void Sema::MergeVarDecl(VarDecl *New, LookupResult &Previous) {
   }
 
   if (haveIncompatibleLanguageLinkages(Old, New)) {
-#if INTEL_CUSTOMIZATION
-  // CQ#377628 - print warning if Intel compatibility.
-  if (getLangOpts().IntelCompat)
-    Diag(New->getLocation(), diag::warn_different_language_linkage) << New;
-  else
-#endif // INTEL_CUSTOMIZATION
-  { // INTEL
     Diag(New->getLocation(), diag::err_different_language_linkage) << New;
     Diag(OldLocation, PrevDiag);
     New->setInvalidDecl();
     return;
-  } // INTEL
   }
 
   // Merge "used" flag.
@@ -4501,12 +4477,7 @@ Sema::ParsedFreeStandingDeclSpec(Scope *S, AccessSpecifier AS, DeclSpec &DS,
   }
 
   if (DS.isInlineSpecified())
-#if INTEL_CUSTOMIZATION
-    Diag(DS.getInlineSpecLoc(),
-         // CQ#370751: Ignore 'inline' attribute for non functions
-         getLangOpts().IntelCompat ? diag::warn_inline_non_function :
-         diag::err_inline_non_function)
-#endif // INTEL_CUSTOMIZATION
+    Diag(DS.getInlineSpecLoc(), diag::err_inline_non_function)
         << getLangOpts().CPlusPlus17;
 
   if (DS.isConstexprSpecified()) {
@@ -4545,13 +4516,6 @@ Sema::ParsedFreeStandingDeclSpec(Scope *S, AccessSpecifier AS, DeclSpec &DS,
     // obvious intent of DR1819.
     //
     // Per C++ [dcl.enum]p1, an opaque-enum-declaration can't either.
-#if INTEL_CUSTOMIZATION
-    // CQ#409175: Replace error with warning
-    if (getLangOpts().IntelCompat)
-      Diag(SS.getBeginLoc(), diag::warn_standalone_class_nested_name_specifier)
-           << GetDiagnosticTypeSpecifierID(DS.getTypeSpecType()) << SS.getRange();
-    else
-#endif // INTEL_CUSTOMIZATION
     Diag(SS.getBeginLoc(), diag::err_standalone_class_nested_name_specifier)
         << GetDiagnosticTypeSpecifierID(DS.getTypeSpecType()) << SS.getRange();
     return nullptr;
@@ -5399,11 +5363,6 @@ static bool RebuildDeclaratorInCurrentInstantiation(Sema &S, Declarator &D,
   case DeclSpec::TST_typename:
   case DeclSpec::TST_typeofType:
   case DeclSpec::TST_underlyingType:
-#if INTEL_CUSTOMIZATION
-  // CQ#369185 - support of __bases and __direct_bases intrinsics.
-  case DeclSpec::TST_bases:
-  case DeclSpec::TST_directBases:
-#endif // INTEL_CUSTOMIZATION
   case DeclSpec::TST_atomic: {
     // Grab the type from the parser.
     TypeSourceInfo *TSI = nullptr;
@@ -5983,12 +5942,7 @@ Sema::ActOnTypedefDeclarator(Scope* S, Declarator& D, DeclContext* DC,
   DiagnoseFunctionSpecifiers(D.getDeclSpec());
 
   if (D.getDeclSpec().isInlineSpecified())
-#if INTEL_CUSTOMIZATION
-    Diag(D.getDeclSpec().getInlineSpecLoc(),
-         // CQ#370751: Ignore 'inline' attribute for non functions
-         getLangOpts().IntelCompat ? diag::warn_inline_non_function :
-         diag::err_inline_non_function)
-#endif // INTEL_CUSTOMIZATION
+    Diag(D.getDeclSpec().getInlineSpecLoc(), diag::err_inline_non_function)
         << getLangOpts().CPlusPlus17;
   if (D.getDeclSpec().isConstexprSpecified())
     Diag(D.getDeclSpec().getConstexprSpecLoc(), diag::err_invalid_constexpr)
@@ -7007,20 +6961,11 @@ NamedDecl *Sema::ActOnVariableDeclarator(
 
   if (D.getDeclSpec().isInlineSpecified()) {
     if (!getLangOpts().CPlusPlus) {
-#if INTEL_CUSTOMIZATION
-      Diag(D.getDeclSpec().getInlineSpecLoc(),
-           // CQ#370751: Ignore 'inline' attribute for non functions
-           getLangOpts().IntelCompat ?
-           diag::warn_inline_non_function : diag::err_inline_non_function)
-#endif // INTEL_CUSTOMIZATION
-          << 0;
+      Diag(D.getDeclSpec().getInlineSpecLoc(), diag::err_inline_non_function)
+	  << 0;
     } else if (CurContext->isFunctionOrMethod()) {
       // 'inline' is not allowed on block scope variable declaration.
       Diag(D.getDeclSpec().getInlineSpecLoc(),
-#if INTEL_CUSTOMIZATION
-         // CQ#370751: Ignore 'inline' attribute for non functions
-           getLangOpts().IntelCompat ? diag::warn_inline_declaration_block_scope :
-#endif // INTEL_CUSTOMIZATION
            diag::err_inline_declaration_block_scope) << Name
         << FixItHint::CreateRemoval(D.getDeclSpec().getInlineSpecLoc());
     } else {
@@ -8960,10 +8905,6 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
       if (CurContext->isFunctionOrMethod()) {
         // 'inline' is not allowed on block scope function declaration.
         Diag(D.getDeclSpec().getInlineSpecLoc(),
-#if INTEL_CUSTOMIZATION
-             // CQ#370751: Ignore 'inline' attribute for non functions
-             getLangOpts().IntelCompat ? diag::warn_inline_declaration_block_scope :
-#endif // INTEL_CUSTOMIZATION
              diag::err_inline_declaration_block_scope) << Name
           << FixItHint::CreateRemoval(D.getDeclSpec().getInlineSpecLoc());
       }
@@ -9085,9 +9026,12 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
 #endif // INTEL_CUSTOMIZATION
 
       // MSVC permits the use of a 'static' storage specifier on an out-of-line
-      // member function template declaration, warn about this.
+      // member function template declaration and class member template
+      // declaration (MSVC versions before 2015), warn about this.
       Diag(D.getDeclSpec().getStorageClassSpecLoc(),
-           NewFD->getDescribedFunctionTemplate() && getLangOpts().MSVCCompat
+           ((!getLangOpts().isCompatibleWithMSVC(LangOptions::MSVC2015) &&
+             cast<CXXRecordDecl>(DC)->getDescribedClassTemplate()) ||
+           (getLangOpts().MSVCCompat && NewFD->getDescribedFunctionTemplate()))
            ? diag::ext_static_out_of_line : diag::err_static_out_of_line)
         << FixItHint::CreateRemoval(D.getDeclSpec().getStorageClassSpecLoc());
     }
@@ -9647,18 +9591,9 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
 
   MarkUnusedFileScopedDecl(NewFD);
 
-  if (getLangOpts().CPlusPlus) {
-    if (FunctionTemplate) {
-      if (NewFD->isInvalidDecl())
-        FunctionTemplate->setInvalidDecl();
-      return FunctionTemplate;
-    }
 
-    if (isMemberSpecialization && !NewFD->isInvalidDecl())
-      CompleteMemberSpecialization(NewFD, Previous);
-  }
 
-  if (NewFD->hasAttr<OpenCLKernelAttr>()) {
+  if (getLangOpts().OpenCL && NewFD->hasAttr<OpenCLKernelAttr>()) {
     // OpenCL v1.2 s6.8 static is invalid for kernel functions.
     if ((getLangOpts().OpenCLVersion >= 120)
         && (SC == SC_Static)) {
@@ -9678,14 +9613,37 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
     llvm::SmallPtrSet<const Type *, 16> ValidTypes;
     for (auto Param : NewFD->parameters())
       checkIsValidOpenCLKernelParameter(*this, D, Param, ValidTypes);
+
+    if (getLangOpts().OpenCLCPlusPlus) {
+      if (DC->isRecord()) {
+        Diag(D.getIdentifierLoc(), diag::err_method_kernel);
+        D.setInvalidType();
+      }
+      if (FunctionTemplate) {
+        Diag(D.getIdentifierLoc(), diag::err_template_kernel);
+        D.setInvalidType();
+      }
+    }
   }
+
+  if (getLangOpts().CPlusPlus) {
+    if (FunctionTemplate) {
+      if (NewFD->isInvalidDecl())
+        FunctionTemplate->setInvalidDecl();
+      return FunctionTemplate;
+    }
+
+    if (isMemberSpecialization && !NewFD->isInvalidDecl())
+      CompleteMemberSpecialization(NewFD, Previous);
+  }
+
   for (const ParmVarDecl *Param : NewFD->parameters()) {
     QualType PT = Param->getType();
 
     // OpenCL 2.0 pipe restrictions forbids pipe packet types to be non-value
     // types.
 #if INTEL_CUSTOMIZATION
-    if (getLangOpts().OpenCLVersion >= 200 ||
+    if (getLangOpts().OpenCLVersion >= 200 || getLangOpts().OpenCLCPlusPlus ||
         Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
 #endif // INTEL_CUSTOMIZATION
       if(const PipeType *PipeTy = PT->getAs<PipeType>()) {
@@ -12915,12 +12873,7 @@ Decl *Sema::ActOnParamDeclarator(Scope *S, Declarator &D) {
     Diag(DS.getThreadStorageClassSpecLoc(), diag::err_invalid_thread)
       << DeclSpec::getSpecifierName(TSCS);
   if (DS.isInlineSpecified())
-#if INTEL_CUSTOMIZATION
-    Diag(DS.getInlineSpecLoc(),
-         // CQ#370751: Ignore 'inline' attribute for non functions
-         getLangOpts().IntelCompat ? diag::warn_inline_non_function :
-         diag::err_inline_non_function)
-#endif // INTEL_CUSTOMIZATION
+    Diag(DS.getInlineSpecLoc(), diag::err_inline_non_function)
         << getLangOpts().CPlusPlus17;
   if (DS.isConstexprSpecified())
     Diag(DS.getConstexprSpecLoc(), diag::err_invalid_constexpr)
@@ -13317,17 +13270,8 @@ Sema::CheckForFunctionRedefinition(FunctionDecl *FD,
   if (!Definition)
     return;
 
-#if INTEL_CUSTOMIZATION
-  if (canRedefineFunction(Definition, getLangOpts())) {
-    if (getLangOpts().CPlusPlus) {
-      // CQ#377372 - show warning that we use Intel extension.
-      Diag(FD->getLocation(), diag::ext_intel_redefinition_extern_inline)
-          << FD->getDeclName();
-      Diag(Definition->getLocation(), diag::note_previous_definition);
-    }
+  if (canRedefineFunction(Definition, getLangOpts()))
     return;
-  }
-#endif // INTEL_CUSTOMIZATION
 
   // Don't emit an error when this is redefinition of a typo-corrected
   // definition.
@@ -15857,12 +15801,7 @@ FieldDecl *Sema::HandleField(Scope *S, RecordDecl *Record,
   DiagnoseFunctionSpecifiers(D.getDeclSpec());
 
   if (D.getDeclSpec().isInlineSpecified())
-#if INTEL_CUSTOMIZATION
-    Diag(D.getDeclSpec().getInlineSpecLoc(),
-         // CQ#370751: Ignore 'inline' attribute for non functions
-         getLangOpts().IntelCompat ? diag::warn_inline_non_function :
-         diag::err_inline_non_function)
-#endif // INTEL_CUSTOMIZATION
+    Diag(D.getDeclSpec().getInlineSpecLoc(), diag::err_inline_non_function)
         << getLangOpts().CPlusPlus17;
   if (DeclSpec::TSCS TSCS = D.getDeclSpec().getThreadStorageClassSpec())
     Diag(D.getDeclSpec().getThreadStorageClassSpecLoc(),

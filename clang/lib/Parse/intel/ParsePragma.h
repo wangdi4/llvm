@@ -13,14 +13,14 @@
 class PragmaInlineHandler: public PragmaHandler {
   public:
     explicit PragmaInlineHandler(const char *name) : PragmaHandler(name) {}
-    virtual void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok);
+    virtual void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer, Token &FirstTok);
 };
 
 // #pragma block_loop
 class PragmaBlockLoopHandler : public PragmaHandler {
   public:
     PragmaBlockLoopHandler(const char *name) : PragmaHandler(name) {}
-    virtual void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
+    virtual void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
                               Token &Tok);
 };
 #endif // INTEL_CUSTOMIZATION

@@ -16,6 +16,7 @@
 #include "CGObjCRuntime.h"
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
+#include "ConstantEmitter.h"
 #include "TargetInfo.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/DeclObjC.h"
@@ -640,12 +641,20 @@ public:
   Value *VisitMaterializeTemporaryExpr(const MaterializeTemporaryExpr *E) {
     return EmitLoadOfLValue(E);
   }
+  Value *VisitSourceLocExpr(SourceLocExpr *SLE) {
+    auto &Ctx = CGF.getContext();
+    APValue Evaluated =
+        SLE->EvaluateInContext(Ctx, CGF.CurSourceLocExprScope.getDefaultExpr());
+    return ConstantEmitter(CGF.CGM, &CGF)
+        .emitAbstract(SLE->getLocation(), Evaluated, SLE->getType());
+  }
 
   Value *VisitCXXDefaultArgExpr(CXXDefaultArgExpr *DAE) {
+    CodeGenFunction::CXXDefaultArgExprScope Scope(CGF, DAE);
     return Visit(DAE->getExpr());
   }
   Value *VisitCXXDefaultInitExpr(CXXDefaultInitExpr *DIE) {
-    CodeGenFunction::CXXDefaultInitExprScope Scope(CGF);
+    CodeGenFunction::CXXDefaultInitExprScope Scope(CGF, DIE);
     return Visit(DIE->getExpr());
   }
   Value *VisitCXXThisExpr(CXXThisExpr *TE) {
@@ -2998,7 +3007,7 @@ LValue ScalarExprEmitter::EmitCompoundAssignLValue(
 Value *ScalarExprEmitter::EmitCompoundAssign(const CompoundAssignOperator *E,
                       Value *(ScalarExprEmitter::*Func)(const BinOpInfo &)) {
   bool Ignore = TestAndClearIgnoreResultAssign();
-  Value *RHS;
+  Value *RHS = nullptr;
   LValue LHS = EmitCompoundAssignLValue(E, Func, RHS);
 
   // If the result is clearly ignored, return now.
@@ -3688,12 +3697,6 @@ Value *ScalarExprEmitter::EmitShl(const BinOpInfo &Ops) {
   Value *RHS = Ops.RHS;
   if (Ops.LHS->getType() != RHS->getType())
     RHS = Builder.CreateIntCast(RHS, Ops.LHS->getType(), false, "sh_prom");
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ375045: xmain's bitwise shift show results that differ from
-  // results of icc/gcc
-  if (CGF.getLangOpts().IntelCompat)
-    RHS = ConstrainShiftValue(Ops.Ty, Ops.LHS, RHS, "shl.mask");
-#endif // INTEL_CUSTOMIZATION
 
   bool SanitizeBase = CGF.SanOpts.has(SanitizerKind::ShiftBase) &&
                       Ops.Ty->hasSignedIntegerRepresentation() &&
@@ -3763,12 +3766,6 @@ Value *ScalarExprEmitter::EmitShr(const BinOpInfo &Ops) {
   Value *RHS = Ops.RHS;
   if (Ops.LHS->getType() != RHS->getType())
     RHS = Builder.CreateIntCast(RHS, Ops.LHS->getType(), false, "sh_prom");
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ375045: xmain's bitwise shift show results that differ from
-  // results of icc/gcc
-  if (CGF.getLangOpts().IntelCompat)
-    RHS = ConstrainShiftValue(Ops.Ty, Ops.LHS, RHS, "shl.mask");
-#endif // INTEL_CUSTOMIZATION
 
   // OpenCL 6.3j: shift values are effectively % word size of LHS.
   if (CGF.getLangOpts().OpenCL)

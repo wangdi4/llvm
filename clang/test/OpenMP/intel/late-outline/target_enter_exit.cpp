@@ -21,6 +21,10 @@ void foo1() {
 
 void foo2() {
   int b;
+  // CHECK: [[B:%.+]] = alloca i32,
+  // CHECK: "DIR.OMP.TASK"()
+  // CHECK-SAME: "QUAL.OMP.TARGET.TASK"()
+  // CHECK-SAME: "QUAL.OMP.SHARED"(i32* [[B]])
   // CHECK: DIR.OMP.TARGET.ENTER.DATA
   // CHECK-SAME: "QUAL.OMP.NOWAIT"()
   // CHECK: DIR.OMP.END.TARGET.ENTER.DATA
@@ -32,11 +36,15 @@ void foo3() {
   // CHECK: [[Y1:%.+]] = alloca float,
   // CHECK: [[B1:%.+]] = alloca double,
   int x1; float y1; double b1;
+  // CHECK: DIR.OMP.TASK
+  // CHECK-SAME "QUAL.OMP.IF"(i32 0)
+  // CHECK-SAME "QUAL.OMP.TARGET.TASK"
+  // CHECK-SAME:"QUAL.OMP.DEPEND.IN"(i32* [[X1]])
+  // CHECK-SAME:"QUAL.OMP.DEPEND.OUT"(float* [[Y1]])
   // CHECK: DIR.OMP.TARGET.ENTER.DATA
-  // CHECK-SAME: "QUAL.OMP.DEPEND.IN"(i32* [[X1]])
-  // CHECK-SAME: "QUAL.OMP.DEPEND.OUT"(float* [[Y1]])
   // CHECK-SAME: "QUAL.OMP.MAP.TO"(double* [[B1]])
   // CHECK: DIR.OMP.END.TARGET.ENTER.DATA
+  // CHECK: DIR.OMP.END.TASK
   #pragma omp target enter data depend(in:x1) depend(out:y1) map(to:b1)
 }
 
@@ -45,12 +53,15 @@ void foo4() {
   // CHECK: [[Y2:%.+]] = alloca float,
   // CHECK: [[B2:%.+]] = alloca double,
   int x2; float y2; double b2;
-  // CHECK: DIR.OMP.TARGET.ENTER.DATA
+  // CHECK: DIR.OMP.TASK
+  // CHECK-SAME "QUAL.OMP.TARGET.TASK"
   // CHECK-SAME: "QUAL.OMP.DEPEND.IN"(i32* [[X2]])
   // CHECK-SAME: "QUAL.OMP.DEPEND.OUT"(float* [[Y2]])
+  // CHECK: DIR.OMP.TARGET.ENTER.DATA
   // CHECK-SAME: "QUAL.OMP.NOWAIT"()
   // CHECK-SAME: "QUAL.OMP.MAP.TO"(double* [[B2]])
   // CHECK: DIR.OMP.END.TARGET.ENTER.DATA
+  // CHECK: DIR.OMP.END.TASK
   #pragma omp target enter data depend(in:x2) depend(out:y2) nowait map(to:b2)
 }
 
@@ -87,11 +98,17 @@ void foo7() {
   // CHECK: [[Y7:%.+]] = alloca float,
   // CHECK: [[B7:%.+]] = alloca double,
   int x7; float y7; double b7;
+  // CHECK: DIR.OMP.TASK
+  // CHECK-SAME "QUAL.OMP.IF"(i32 0)
+  // CHECK-SAME "QUAL.OMP.TARGET.TASK"
+  // CHECK-SAME:"QUAL.OMP.DEPEND.IN"(i32* [[X7]])
+  // CHECK-SAME:"QUAL.OMP.DEPEND.OUT"(float* [[Y7]])
+  // CHECK-SAME:"QUAL.OMP.SHARED"(double* [[B7]])
+  // CHECK-SAME "QUAL.OMP.TARGET.TASK"
   // CHECK: DIR.OMP.TARGET.EXIT.DATA
-  // CHECK-SAME: "QUAL.OMP.DEPEND.IN"(i32* [[X7]])
-  // CHECK-SAME: "QUAL.OMP.DEPEND.OUT"(float* [[Y7]])
   // CHECK-SAME: "QUAL.OMP.MAP.FROM"(double* [[B7]])
   // CHECK: DIR.OMP.END.TARGET.EXIT.DATA
+  // CHECK: DIR.OMP.END.TASK
   #pragma omp target exit data depend(in:x7) depend(out:y7) map(from:b7)
 }
 
@@ -100,9 +117,12 @@ void foo8() {
   // CHECK: [[Y8:%.+]] = alloca float,
   // CHECK: [[B8:%.+]] = alloca double,
   int x8; float y8; double b8;
-  // CHECK: DIR.OMP.TARGET.EXIT.DATA
+  // CHECK: DIR.OMP.TASK
+  // CHECK-SAME "QUAL.OMP.TARGET.TASK"
   // CHECK-SAME: "QUAL.OMP.DEPEND.IN"(i32* [[X8]])
   // CHECK-SAME: "QUAL.OMP.DEPEND.OUT"(float* [[Y8]])
+  // CHECK-SAME: "QUAL.OMP.SHARED"(double* [[B8]])
+  // CHECK: DIR.OMP.TARGET.EXIT.DATA
   // CHECK-SAME: "QUAL.OMP.NOWAIT"()
   // CHECK-SAME: "QUAL.OMP.MAP.FROM"(double* [[B8]])
   // CHECK: DIR.OMP.END.TARGET.EXIT.DATA

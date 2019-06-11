@@ -25,7 +25,9 @@
 # it will be copied without special handling for Intel_Headers directory.
 #
 # For more examples, please, read Intel_Headers/README.txt.
-set(INTEL_HEADERS)
+set(INTEL_HEADERS
+  Intel_Headers/svmlintrin.h
+  )
 # INTEL_FEATURE_CSA
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_CSA
@@ -56,6 +58,12 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/avx512vlvp2intersectintrin.h
   )
 # end INTEL_FEATURE_ISA_VP2INTERSECT
+# INTEL_FEATURE_ISA_ULI
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_ULI
+  Intel_Headers/uliintrin.h
+  )
+# end INTEL_FEATURE_ISA_ULI
 # INTEL_FEATURE_ISA_SERIALIZE
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_SERIALIZE
@@ -79,6 +87,16 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/keylockerintrin.h
   )
 # end INTEL_FEATURE_ISA_KEYLOCKER
+# INTEL_FEATURE_ISA_FP16
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_FP16
+  Intel_Headers/avx512fp16intrin.h
+  )
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_FP16
+  Intel_Headers/avx512vlfp16intrin.h
+  )
+# end INTEL_FEATURE_ISA_FP16
 # INTEL_FEATURE_ISA_AVX_VNNI
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_VNNI
@@ -95,6 +113,7 @@ set(files
   armintr.h
   arm64intr.h
   avx2intrin.h
+  avx512bf16intrin.h
   avx512bwintrin.h
   avx512bitalgintrin.h
   avx512vlbitalgintrin.h
@@ -110,6 +129,7 @@ set(files
   avx512vbmivlintrin.h
   avx512vbmi2intrin.h
   avx512vlvbmi2intrin.h
+  avx512vlbf16intrin.h
   avx512vlbwintrin.h
   avx512vlcdintrin.h
   avx512vldqintrin.h
@@ -188,9 +208,6 @@ set(files
   __stddef_max_align_t.h
   stdint.h
   stdnoreturn.h
-# INTEL_CUSTOMIZATION
-  svmlintrin.h
-# end INTEL_CUSTOMIZATION
   tbmintrin.h
   tgmath.h
   tmmintrin.h
@@ -225,6 +242,13 @@ set(ppc_wrapper_files
   ppc_wrappers/mmintrin.h
 )
 
+set(openmp_wrapper_files
+  openmp_wrappers/math.h
+  openmp_wrappers/cmath
+  openmp_wrappers/__clang_openmp_math.h
+  openmp_wrappers/__clang_openmp_math_declares.h
+)
+
 set(output_dir ${LLVM_LIBRARY_OUTPUT_INTDIR}/clang/${CLANG_VERSION}/include)
 set(out_files)
 set(generated_files)
@@ -253,7 +277,7 @@ endfunction(clang_generate_header)
 
 
 # Copy header files from the source directory to the build directory
-foreach( f ${files} ${cuda_wrapper_files} ${ppc_wrapper_files} )
+foreach( f ${files} ${cuda_wrapper_files} ${ppc_wrapper_files} ${openmp_wrapper_files})
   copy_header_to_output_dir(${CMAKE_CURRENT_SOURCE_DIR} ${f})
 endforeach( f )
 
@@ -304,6 +328,11 @@ install(
 install(
   FILES ${ppc_wrapper_files}
   DESTINATION ${header_install_dir}/ppc_wrappers
+  COMPONENT clang-resource-headers)
+
+install(
+  FILES ${openmp_wrapper_files}
+  DESTINATION ${header_install_dir}/openmp_wrappers
   COMPONENT clang-resource-headers)
 
 if (NOT LLVM_ENABLE_IDE)

@@ -4460,27 +4460,9 @@ static void handleCleanupAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   QualType ParamTy = FD->getParamDecl(0)->getType();
   if (S.CheckAssignmentConstraints(FD->getParamDecl(0)->getLocation(),
                                    ParamTy, Ty) != Sema::Compatible) {
-#if INTEL_CUSTOMIZATION
-    // CQ#371284 - allow 'PtrToInt' cast for cleanup function's argument.
-    // We also need to generate corresponding cast operation (ptrtoint
-    // instead of bitcast) at CodeGen stage.
-    // For IntelCompat mode only.
-    if (S.getLangOpts().IntelCompat &&
-        S.CheckAssignmentConstraints(FD->getParamDecl(0)->getLocation(),
-                                     ParamTy, Ty) == Sema::PointerToInt) {
-      S.Diag(Loc, diag::ext_typecheck_convert_pointer_int)
-          << Ty << ParamTy << Sema::AA_Sending << 0;
-      S.Diag(FD->getParamDecl(0)->getLocation(),
-             diag::note_attribute_cleanup_func_ptr_to_int_conversion)
-          << NI.getName();
-    } else {
-#endif // INTEL_CUSTOMIZATION
     S.Diag(Loc, diag::err_attribute_cleanup_func_arg_incompatible_type)
       << NI.getName() << ParamTy << Ty;
     return;
-#if INTEL_CUSTOMIZATION
-    }
-#endif // INTEL_CUSTOMIZATION
   }
 
   D->addAttr(::new (S.Context)
@@ -6716,17 +6698,6 @@ UuidAttr *Sema::mergeUuidAttr(Decl *D, SourceRange Range,
 }
 
 static void handleUuidAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
-#if INTEL_CUSTOMIZATION
-  if (!S.getLangOpts().MicrosoftExt && !S.getLangOpts().Borland &&
-      !S.getLangOpts().IntelCompat) {
-    // CQ380552: xmain should allow uuid MS attribute on linux in intel
-    // compatibility mode. The check has been moved here from
-    // include/clang/Basic/Attr.td
-    S.Diag(AL.getRange().getBegin(), diag::warn_attribute_ignored)
-        << AL.getName();
-    return;
-  }
-#endif // INTEL_CUSTOMIZATION
   if (!S.LangOpts.CPlusPlus) {
     S.Diag(AL.getLoc(), diag::err_attribute_not_supported_in_lang)
         << AL << AttributeLangSupport::C;
@@ -6793,18 +6764,6 @@ static void handleMSInheritanceAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 }
 
 static void handleDeclspecThreadAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
-
-#if INTEL_CUSTOMIZATION
-  if (!S.getLangOpts().MicrosoftExt && !S.getLangOpts().IntelCompat) {
-  // CQ375205: xmain should allow thread attribute on linux in intel
-  // compatibility mode. The check has been moved here from
-  // include/clang/Basic/Attr.td
-    S.Diag(AL.getRange().getBegin(), diag::warn_attribute_ignored)
-        << AL.getName();
-    return;
-  }
-#endif // INTEL_CUSTOMIZATION
-
   const auto *VD = cast<VarDecl>(D);
   if (!S.Context.getTargetInfo().isTLSSupported()) {
     S.Diag(AL.getLoc(), diag::err_thread_unsupported);
@@ -7656,9 +7615,21 @@ static void handleNoSanitizeSpecificAttr(Sema &S, Decl *D,
   if (isGlobalVar(D) && SanitizerName != "address")
     S.Diag(D->getLocation(), diag::err_attribute_wrong_decl_type)
         << AL << ExpectedFunction;
-  D->addAttr(::new (S.Context)
-                 NoSanitizeAttr(AL.getRange(), S.Context, &SanitizerName, 1,
-                                AL.getAttributeSpellingListIndex()));
+
+  // FIXME: Rather than create a NoSanitizeSpecificAttr, this creates a
+  // NoSanitizeAttr object; but we need to calculate the correct spelling list
+  // index rather than incorrectly assume the index for NoSanitizeSpecificAttr
+  // has the same spellings as the index for NoSanitizeAttr. We don't have a
+  // general way to "translate" between the two, so this hack attempts to work
+  // around the issue with hard-coded indicies. This is critical for calling
+  // getSpelling() or prettyPrint() on the resulting semantic attribute object
+  // without failing assertions.
+  unsigned TranslatedSpellingIndex = 0;
+  if (AL.isC2xAttribute() || AL.isCXX11Attribute())
+    TranslatedSpellingIndex = 1;
+
+  D->addAttr(::new (S.Context) NoSanitizeAttr(
+      AL.getRange(), S.Context, &SanitizerName, 1, TranslatedSpellingIndex));
 }
 
 static void handleInternalLinkageAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
@@ -9080,13 +9051,8 @@ void Sema::ProcessDeclAttributes(Scope *S, Decl *D, const Declarator &PD) {
   //   int *__attr__(x)** D;
   // when X is a decl attribute.
   for (unsigned i = 0, e = PD.getNumTypeObjects(); i != e; ++i)
-#if INTEL_CUSTOMIZATION
-    // Fix for CQ#373601: applying gnu::aligned attribute.
-    ProcessDeclAttributeList(
-        S, D, PD.getTypeObject(i).getAttrs(),
-        /*IncludeCXX11Attributes=*/getLangOpts().IntelCompat &&
-            PD.getDeclSpec().getStorageClassSpec() == DeclSpec::SCS_typedef);
-#endif // INTEL_CUSTOMIZATION
+     ProcessDeclAttributeList(S, D, PD.getTypeObject(i).getAttrs(),
+                             /*IncludeCXX11Attributes=*/false);
 
   // Finally, apply any attributes on the decl itself.
   ProcessDeclAttributeList(S, D, PD.getAttributes());

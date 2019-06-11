@@ -10,7 +10,7 @@
 
 #pragma omp declare target
 // Target declare variable should be retained in both compilations.
-// CHECK-ALL: @Var1 = target_declare global i32 5
+// CHECK-ALL: @Var1 ={{ dso_local | }}target_declare global i32 5
 int Var1 = 5;
 
 // Target declare variable with constructor/destructor. It should be retained in
@@ -43,7 +43,7 @@ void foo() {}
 void bar() {}
 
 // Function with target region.
-// CHECK-ALL: define void @_Z3goov()
+// CHECK-ALL: define{{ dso_local | }}void @_Z3goov()
 void goo() {
   // CHECK-ALL-NEXT: entry:
   // CHECK-ALL-NEXT: [[REGION:%[0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 [[ENTRYIDX:[0-9]+]]) ]
@@ -54,7 +54,7 @@ void goo() {
 }
 
 // Implict target declare function. Should be in target compilation.
-// CHECK-TGT: define void @_Z3barv()
+// CHECK-TGT: define{{ dso_local | }}void @_Z3barv()
 
 // Offload registration code should not be emitted with late outlining.
 // CHECK-ALL-NOT: @__tgt_register_lib

@@ -1395,13 +1395,6 @@ FieldHasTrivialDestructorBody(ASTContext &Context,
 /// any vtable pointers before calling this destructor.
 static bool CanSkipVTablePointerInitialization(CodeGenFunction &CGF,
                                                const CXXDestructorDecl *Dtor) {
-#if INTEL_CUSTOMIZATION
-  // CQ#382299 MSVC always initialize vtable in destructor.
-  if (CGF.getContext().getLangOpts().IntelMSCompat &&
-      CGF.getTarget().getCXXABI().isMicrosoft())
-    return false;
-#endif // INTEL_CUSTOMIZATION
-
   const CXXRecordDecl *ClassDecl = Dtor->getParent();
   if (!ClassDecl->isDynamicClass())
     return true;

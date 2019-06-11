@@ -35,7 +35,8 @@ class DocumentationCategory<string name> {
 // New categories can be added by adding a new record here.
 def DocCatIntelLoops : DocumentationCategory<"Intel Loop Pragmas">;
 def DocCatIntelOptimization : DocumentationCategory<"Optimization">;
-def DocCatIntelHLS : DocumentationCategory<"HLS/FPGA">;
+def DocCatIntelHLSAttributes : DocumentationCategory<"HLS/FPGA Attributes">;
+def DocCatIntelHLSPragmas : DocumentationCategory<"HLS/FPGA Pragmas">;
 def DocCatIntelOpenMP : DocumentationCategory<"OpenMP">;
 def DocCatIntelCompat : DocumentationCategory<"Intel Compatibility">;
 def DocCatMSCompat : DocumentationCategory<"Microsoft Compatibility">;
@@ -48,8 +49,12 @@ class Documentation {
   // This works well for options like IntelCompat which control many small
   // "features".
   string Option = "";
-  // The remaining fields are TBD. Items can be added (with an initialized
-  // string) or removed here without the need to change the tblgen code.
+  // Default determines if the feature is on by default when the option is
+  // specified. It can still be turned on using the -enable option.
+  bit Default = 1;
+  // The remaining fields are TBD. Additional string or bit fields can be
+  // added (with initializers) or removed here without the need to change
+  // the tblgen code.
   string BugTracker = "";
   string Customer = "";
   string RegressionTest = "";
@@ -101,6 +106,60 @@ Microsoft allows you to catch a string literal with catch(char \*).
 
   }];
 }
+
+def AllowFewerMacroArgsDocs : Documentation {
+  let Category = DocCatMSCompat;
+  let Option = "IntelCompat";
+  let BugTracker = "cq365448";
+  let RegressionTest = "Preprocessor/intel/missing_macro_args.cpp";
+  let Owner = "mprice1";
+  let Default = 0;
+  let Content = [{
+Microsoft allows passing fewer arguments to function-like macros, replacing
+each missing argument with the empty string. A warning is given. This
+behavior is off-by-default.
+
+.. code-block:: c++
+
+  #define FUNC(x,y) (0)
+  void foo() {
+    FUNC(0);
+  }
+
+.. code-block:: console
+
+  $ cl /c /nologo t.cpp
+  t.cpp
+  t.cpp(3): warning C4003: not enough actual parameters for macro 'FUNC'
+
+.. code-block:: console
+
+  $ clang-cl /c /nologo t.cpp
+  t.cpp(3,11): error: too few arguments provided to function-like macro invocation
+      FUNC(0);
+          ^
+  t.cpp(1,9): note: macro 'FUNC' defined here
+  #define FUNC(x,y) (0)
+          ^
+  t.cpp(3,5): error: use of undeclared identifier 'FUNC'
+      FUNC(0);
+      ^
+  2 errors generated.
+
+.. code-block:: console
+
+  $ clang -cc1 -fintel-compatibility-enable=AllowFewerMacroArgs t.cpp
+  t.cpp:3:9: warning: too few arguments provided to function-like macro invocation
+    FUNC(0);
+          ^
+  t.cpp:3:9: warning: 1 missing macro argument treated as empty string
+  t.cpp:1:9: note: macro 'FUNC' defined here
+  #define FUNC(x,y) (0)
+          ^
+  2 warnings generated.
+  }];
+}
+
 def IntelTBAABFDocs : Documentation {
   let Category = DocCatIntelOptimization;
   let Option = "IntelCompat";
@@ -960,8 +1019,8 @@ IR:
   }];
 }
 
-def PragmaMaxInterleavingDocs : Documentation {
-  let Category = DocCatIntelHLS;
+def MaxInterleavingDocs : Documentation {
+  let Category = DocCatIntelHLSPragmas;
   let BugTracker="CMPLRLLVM-9099";
   let Owner = "achikin";
   let Content = [{
@@ -1012,14 +1071,14 @@ IR:
   }];
 }
 
-def HLSPragmaDocs : Documentation {
-  let Category = DocCatIntelHLS;
+def SimplePragmasDocs : Documentation {
+  let Category = DocCatIntelHLSPragmas;
   let BugTracker = "CMPLRLLVM-5584";
   let RegressionTest = "SemaIntelHLS/pragma.cpp, CodeGenIntelHLS/pragma.cpp";
   let Owner = "jyu2";
   let Content = [{
 These are simple HLS/FPGA loop pragmas that either have one constant integral
-argument,or no arguments.  ** Note: Let's add new topics for any additional
+argument, or no arguments.  ** Note: Let's add new topics for any additional
 pragmas instead of adding onto to this topic. **
 
 Syntax:
@@ -1100,8 +1159,8 @@ IR:
   }];
 }
 
-def HLSForceHyperoptPragmaDocs : Documentation {
-  let Category = DocCatIntelHLS;
+def ForceHyperoptDocs : Documentation {
+  let Category = DocCatIntelHLSPragmas;
   let BugTracker = "CMPLRLLVM-7128";
   let RegressionTest = "SemaIntelHLS/pragma.cpp, CodeGenIntelHLS/pragma.cpp";
   let Owner = "mprice1";
@@ -1594,7 +1653,6 @@ controlled by -fintel-compatibility, retains volatile.
 
 def MayIUseFeatureDocs : Documentation {
   let Category = DocCatIntelCompat;
-  let Option = "None";
   let RegressionTest ="test/CodeGen/intel/may-i-use-cpu-feature.cpp";
   let Owner = "ekeane1";
   let Content = [{
@@ -1630,7 +1688,7 @@ https://software.intel.com/en-us/node/523363
 }
 
 def ClusterDocs : Documentation {
-  let Category = DocCatIntelHLS;
+  let Category = DocCatIntelHLSAttributes;
   let BugTracker = "CMPLRLLVM-5585";
   let RegressionTest = "SemaIntelHLS/cluster.cpp, CodeGenIntelHLS/cluster.cpp, SemaOpenCL/intel-fpga-cluster.cl, CodeGenOpenCL/intel-fpga-cluster.cl";
   let Owner = "eandrews";
@@ -1706,7 +1764,7 @@ It is i32 0 if not.
 }
 
 def StallEnableDocs : Documentation {
-  let Category = DocCatIntelHLS;
+  let Category = DocCatIntelHLSAttributes;
   let BugTracker = "CMPLRLLVM-5585";
   let RegressionTest = "SemaIntelHLS/stall_enable.cpp, CodeGenIntelHLS/stall_enable.cpp, SemaOpenCL/intel-fpga-stall_enable.cl, CodeGenOpenCL/intel-fpga-stall_enable.cl";
   let Owner = "eandrews";
@@ -1760,7 +1818,7 @@ IR:
 }
 
 def StallLatencyDocs : Documentation {
-  let Category = DocCatIntelHLS;
+  let Category = DocCatIntelHLSAttributes;
   let BugTracker = "CMPLRLLVM-7128";
   let RegressionTest = "SemaIntelHLS/stall_latency.cpp, CodeGenIntelHLS/stall_latency.cpp, SemaOpenCL/intel-fpga-stall_latency.cl, CodeGenOpenCL/intel-fpga-stall_latency.cl";
   let Owner = "mprice1";
@@ -1860,8 +1918,8 @@ OpenCL IR:
   }];
 }
 
-def AttributeMaxConcurrencyDocs : Documentation {
-  let Category = DocCatIntelHLS;
+def MaxConcurrencyDocs : Documentation {
+  let Category = DocCatIntelHLSAttributes;
   let BugTracker = "CMPLRLLVM-7539";
   let RegressionTest = "SemaIntelHLS/local.cpp, CodeGenIntelHLS/local.cpp, SemaOpenCL/intel-fpga-local-hls.cl, CodeGenOpenCL/intel-fpga-local-hls.cl";
   let Owner = "mprice1";
@@ -1947,8 +2005,8 @@ IR:
   }];
 }
 
-def AttributeMaxReplicateDocs : Documentation {
-  let Category = DocCatIntelHLS;
+def MaxReplicatesDocs : Documentation {
+  let Category = DocCatIntelHLSAttributes;
   let BugTracker = "CMPLRLLVM-8810";
   let RegressionTest = "SemaIntelHLS/local.cpp, CodeGenIntelHLS/local.cpp, SemaOpenCL/intel-fpga-local-hls.cl, CodeGenOpenCL/intel-fpga-local-hls.cl";
   let Owner = "zahiraam";
@@ -2023,25 +2081,25 @@ IR:
   @.str = private unnamed_addr constant [47 x i8] c"{memory:DEFAULT}{sizeinfo:4}{max_replicates:2}\00", section "llvm.metadata"
   @.str.1 = private unnamed_addr constant [6 x i8] c"t.cpp\00", section "llvm.metadata"
 
-  define dso_local void @"?foo@@YAXXZ"() #0 {
+  define void @"?foo@@YAXXZ"() #0 {
   entry:
     %lc = alloca i32, align 4
     %lc1 = bitcast i32* %lc to i8*
     call void @llvm.var.annotation(i8* %lc1, i8* getelementptr inbounds ([47 x i8], [47 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str.1, i32 0, i32 0), i32 5)
     ret void
-    }
+  }
 
-    define dso_local void @"?bar@@YAXXZ"() #0 {
-    entry:
-      %0 = call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.st, %struct.st* @s1, i32 0, i32 0), i8* getelementptr inbounds ([47 x i8], [47 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str.1, i32 0, i32 0), i32 9)
-      store i32 0, i32* %0, align 4
-      ret void
-    }
+  define void @"?bar@@YAXXZ"() #0 {
+  entry:
+    %0 = call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.st, %struct.st* @s1, i32 0, i32 0), i8* getelementptr inbounds ([47 x i8], [47 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str.1, i32 0, i32 0), i32 9)
+    store i32 0, i32* %0, align 4
+    ret void
+  }
   }];
 }
 
 def SimpleDualPortDocs : Documentation {
-  let Category = DocCatIntelHLS;
+  let Category = DocCatIntelHLSAttributes;
   let BugTracker = "CMPLRLLVM-8810";
   let RegressionTest = "SemaIntelHLS/local.cpp, CodeGenIntelHLS/local.cpp, SemaOpenCL/intel-fpga-local-hls.cl, CodeGenOpenCL/intel-fpga-local-hls.cl";
   let Owner = "zahiraam";
@@ -2112,26 +2170,25 @@ IR:
    @.str = private unnamed_addr constant [49 x i8] c"{memory:DEFAULT}{sizeinfo:4}{simple_dual_port:1}\00", section "llvm.metadata"
    @.str.1 = private unnamed_addr constant [6 x i8] c"t.cpp\00", section "llvm.metadata"
 
-   define dso_local void @"?foo@@YAXXZ"() #0 {
+   define void @"?foo@@YAXXZ"() #0 {
    entry:
      %lc = alloca i32, align 4
      %lc1 = bitcast i32* %lc to i8*
      call void @llvm.var.annotation(i8* %lc1, i8* getelementptr inbounds ([49 x i8], [49 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str.1, i32 0, i32 0), i32 5)
      ret void
-     }
+   }
 
-     define dso_local void @"?bar@@YAXXZ"() #0 {
-     entry:
-       %0 = call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.st, %struct.st* @s1, i32 0, i32 0), i8* getelementptr inbounds ([49 x i8], [49 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str.1, i32 0, i32 0), i32 9)
-       store i32 0, i32* %0, align 4
-       ret void
-     }
-
+   define void @"?bar@@YAXXZ"() #0 {
+   entry:
+     %0 = call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.st, %struct.st* @s1, i32 0, i32 0), i8* getelementptr inbounds ([49 x i8], [49 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str.1, i32 0, i32 0), i32 9)
+     store i32 0, i32* %0, align 4
+     ret void
+   }
   }];
 }
 
-def AttributeHLSIIDocs : Documentation {
-  let Category = DocCatIntelHLS;
+def HLSIIDocs : Documentation {
+  let Category = DocCatIntelHLSAttributes;
   let BugTracker = "CMPLRLLVM-7080";
   let RegressionTest = "SemaIntelHLS/hls_ii.cpp, CodeGenIntelHLS/hls_ii.cpp";
   let Owner = "eandrews";
@@ -2182,8 +2239,8 @@ IR:
   }];
 }
 
-def AttributeHLSMinIIDocs : Documentation {
-  let Category = DocCatIntelHLS;
+def HLSMinIIDocs : Documentation {
+  let Category = DocCatIntelHLSAttributes;
   let BugTracker = "CMPLRLLVM-7080";
   let RegressionTest = "SemaIntelHLS/hls_min_ii.cpp, CodeGenIntelHLS/hls_min_ii.cpp";
   let Owner = "eandrews";
@@ -2234,8 +2291,8 @@ IR:
   }];
 }
 
-def AttributeHLSMaxIIDocs : Documentation {
-  let Category = DocCatIntelHLS;
+def HLSMaxIIDocs : Documentation {
+  let Category = DocCatIntelHLSAttributes;
   let BugTracker = "CMPLRLLVM-7080";
   let RegressionTest = "SemaIntelHLS/hls_max_ii.cpp, CodeGenIntelHLS/hls_max_ii.cpp";
   let Owner = "eandrews";
@@ -2286,8 +2343,8 @@ IR:
   }];
 }
 
-def AttributeHLSMaxInvocationDelayDocs : Documentation {
-  let Category = DocCatIntelHLS;
+def HLSMaxInvocationDelayDocs : Documentation {
+  let Category = DocCatIntelHLSAttributes;
   let BugTracker = "CMPLRLLVM-7080";
   let RegressionTest = "SemaIntelHLS/hls_max_invocation_delay.cpp, CodeGenIntelHLS/hls_max_invocation_delay.cpp";
   let Owner = "eandrews";
@@ -2338,8 +2395,8 @@ IR:
   }];
 }
 
-def AttributeHLSForceLoopPipeliningDocs : Documentation {
-  let Category = DocCatIntelHLS;
+def HLSForceLoopPipeliningDocs : Documentation {
+  let Category = DocCatIntelHLSAttributes;
   let BugTracker = "CMPLRLLVM-7080";
   let RegressionTest = "SemaIntelHLS/hls_force_loop_pipelining.cpp, CodeGenIntelHLS/hls_force_loop_pipelining.cpp";
   let Owner = "eandrews";

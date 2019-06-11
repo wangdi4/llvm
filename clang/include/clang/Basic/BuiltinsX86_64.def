@@ -108,6 +108,16 @@ TARGET_BUILTIN(__builtin_ia32_cvtusi2ss64, "V4fV4fULLiIi", "ncV:128:", "avx512f"
 TARGET_BUILTIN(__builtin_ia32_directstore_u64, "vULi*ULi", "n", "movdiri")
 TARGET_BUILTIN(__builtin_ia32_ptwrite64, "vULLi", "n", "ptwrite")
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ULI
+
+// ULI
+TARGET_BUILTIN(__builtin_ia32_uiret, "v", "n", "uli")
+TARGET_BUILTIN(__builtin_ia32_clui, "v", "n", "uli")
+TARGET_BUILTIN(__builtin_ia32_stui, "v", "n", "uli")
+TARGET_BUILTIN(__builtin_ia32_testui, "Uc", "n", "uli")
+TARGET_BUILTIN(__builtin_ia32_senduipi, "vUWi", "n", "uli")
+#endif // INTEL_FEATURE_ISA_ULI
+
 #if INTEL_FEATURE_ISA_AMX
 // AMX
 TARGET_BUILTIN(__builtin_ia32_tile_loadconfig, "vvC*", "n", "amx-tile")

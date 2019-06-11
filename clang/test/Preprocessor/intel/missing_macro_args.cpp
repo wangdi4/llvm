@@ -1,8 +1,11 @@
 // CQ#365448
-// RUN: %clang_cc1 -fintel-ms-compatibility -verify %s -DWARNING1
-// RUN: %clang_cc1 -fintel-ms-compatibility -verify %s -DWARNING2
+// RUN: %clang_cc1 -fintel-compatibility-enable=AllowFewerMacroArgs -verify \
+// RUN:  %s -DWARNING1
+// RUN: %clang_cc1 -fintel-compatibility-enable=AllowFewerMacroArgs -verify \
+// RUN:  %s -DWARNING2
 // RUN: %clang_cc1 -verify %s -DERROR
-// RUN: %clang_cc1 -fintel-ms-compatibility -DPREPROC -E %s -o - | FileCheck %s
+// RUN: %clang_cc1 -fintel-compatibility-enable=AllowFewerMacroArgs \
+// RUN:  -DPREPROC -E %s -o - | FileCheck %s
 
 #define RETERROR(x, y, z) return x + y##3 + z##4 // expected-note {{macro 'RETERROR' defined here}}
 

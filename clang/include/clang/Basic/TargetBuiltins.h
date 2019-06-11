@@ -100,6 +100,10 @@ namespace clang {
   namespace X86 {
   enum {
     LastTIBuiltin = clang::Builtin::FirstTSBuiltin - 1,
+#if INTEL_CUSTOMIZATION
+#define BUILTIN(ID, TYPE, ATTRS) BI##ID,
+#include "clang/Basic/Intel_BuiltinsSVML.def"
+#endif // INTEL_CUSTOMIZATION
 #define BUILTIN(ID, TYPE, ATTRS) BI##ID,
 #include "clang/Basic/BuiltinsX86.def"
     FirstX86_64Builtin,

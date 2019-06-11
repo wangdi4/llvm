@@ -305,6 +305,9 @@ def ObjC : LangOpt<"ObjC">;
 def BlocksSupported : LangOpt<"Blocks">;
 def ObjCAutoRefCount : LangOpt<"ObjCAutoRefCount">;
 
+// Language option for CMSE extensions
+def Cmse : LangOpt<"Cmse">;
+
 // Defines targets for target-specific attributes. Empty lists are unchecked.
 class TargetSpec {
   // Specifies Architectures for which the target applies, based off the
@@ -2250,7 +2253,6 @@ def Uuid : InheritableAttr {
   let Subjects = SubjectList<[Record, Enum]>;
   // FIXME: Allow expressing logical AND for LangOpts. Our condition should be:
   // CPlusPlus && (MicrosoftExt || Borland)
-//  let LangOpts = [MicrosoftExt, Borland]; // INTEL
   let Documentation = [Undocumented];
 }
 
@@ -2833,7 +2835,7 @@ def SelectAny : InheritableAttr {
 
 def Thread : Attr {
   let Spellings = [Declspec<"thread">];
-  //let LangOpts = [MicrosoftExt];  // INTEL
+  let LangOpts = [MicrosoftExt];
   let Documentation = [ThreadDocs];
   let Subjects = SubjectList<[Var]>;
 }

@@ -29,10 +29,10 @@ def warn_pragma_message_malformed : Warning<
   "pragma %select{message|warning|error}0 requires parenthesized string">,
   InGroup<IntelCompat>;
 
+// IntelCompat: AllowFewerMacroArgs
 def warn_too_few_args_in_macro_invoc : Warning<
   "too few arguments provided to function-like macro invocation">,
   InGroup<IntelCompat>;
-
 def warn_missing_fnmacro_args_replaced_by_empty : Warning<
   "%0 missing macro argument%s0 treated as empty string%s0">,
   InGroup<IntelCompat>;

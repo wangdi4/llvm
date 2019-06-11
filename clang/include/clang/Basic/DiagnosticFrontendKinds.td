@@ -232,11 +232,6 @@ def err_invalid_vfs_overlay : Error<
 def warn_option_invalid_ocl_version : Warning<
   "OpenCL version %0 does not support the option '%1'">, InGroup<Deprecated>;
 
-def warn_stdlibcxx_not_found : Warning<
-  "include path for stdlibc++ headers not found; pass '-stdlib=libc++' on the "
-  "command line to use the libc++ standard library instead">,
-  InGroup<DiagGroup<"stdlibcxx-not-found">>;
-
 // if INTEL_CUSTOMIZATION
 def err_unable_to_load_vfs_overlay : Error<
   "unable to load virtual filesystem overlay '%0': %1">, DefaultFatal;

@@ -285,6 +285,8 @@ public:
   OpenMPLateOutliner(CodeGenFunction &CGF, const OMPExecutableDirective &D,
                      OpenMPDirectiveKind Kind);
   ~OpenMPLateOutliner();
+  bool isImplicitTask(OpenMPDirectiveKind K);
+  bool shouldSkipExplicitClause(OpenMPClauseKind K);
   void emitOMPParallelDirective();
   void emitOMPParallelForDirective();
   void emitOMPSIMDDirective();

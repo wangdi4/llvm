@@ -1161,15 +1161,6 @@ void TextNodeDumper::VisitUnaryTransformType(const UnaryTransformType *T) {
   case UnaryTransformType::EnumUnderlyingType:
     OS << " underlying_type";
     break;
-#if INTEL_CUSTOMIZATION
-  // CQ#369185 - support of __bases and __direct_bases intrinsics.
-  case UnaryTransformType::BasesOfType:
-    OS << " bases";
-    break;
-  case UnaryTransformType::DirectBasesOfType:
-    OS << " direct_bases";
-    break;
-#endif // INTEL_CUSTOMIZATION
   }
 }
 
@@ -1375,6 +1366,8 @@ void TextNodeDumper::VisitVarDecl(const VarDecl *D) {
       break;
     }
   }
+  if (D->isParameterPack())
+    OS << " pack";
 }
 
 void TextNodeDumper::VisitBindingDecl(const BindingDecl *D) {

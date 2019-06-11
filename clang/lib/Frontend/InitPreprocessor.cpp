@@ -1105,8 +1105,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     Builder.defineMacro(#Ext);
 #include "clang/Basic/OpenCLExtensions.def"
 
-    auto Arch = TI.getTriple().getArch();
-    if (Arch == llvm::Triple::spir || Arch == llvm::Triple::spir64)
+    if (TI.getTriple().isSPIR())
 #if INTEL_CUSTOMIZATION
       if (TI.getTriple().getEnvironment() != llvm::Triple::IntelFPGA)
 #endif // INTEL_CUSTOMIZATION

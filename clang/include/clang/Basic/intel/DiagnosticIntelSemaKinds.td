@@ -23,10 +23,6 @@ def warn_main_arg_wrong : Warning<"%select{first|second|third|fourth}0 "
 def warn_pragma_unroll_invalid_factor_ignored : Warning<
   "unrolling factor '%0' is %select{negative|too large}1 and will be ignored">,
   InGroup<Pragmas>;
-// Fix for CQ373961: redeclaration of class member with different access.
-def warn_class_redeclared_with_different_access : Warning<
-  "%0 redeclared with '%1' access">,
-  AccessControl, InGroup<RedeclaredClassMember>;
 def warn_access_dtor_vbase :
     Warning<"inherited virtual base class %1 has "
     "%select{private|protected}2 destructor">,
@@ -63,18 +59,9 @@ def warn_default_arg_makes_ctor_special : Warning<
   "addition of default argument on redeclaration makes this constructor a "
   "%select{default|copy|move}0 constructor">, InGroup<IntelCompat>;
 
-// CQ#373258 - allow class member typedef redefinition in IntelCompat mode.
-def ext_intel_member_typedef_redefinition : ExtWarn<
-  "class member typedef redefinition is an Intel extension">,
-  InGroup<IntelCompat>;
 // CQ#377518 - allow integer typedef redefinition in IntelMSCompat mode.
 def warn_int_typedef_redefinition_ignored : ExtWarn<
   "integer typedef redefinition%diff{ ($ vs $)|}0,1 is an Intel extension">,
-  InGroup<IntelCompat>;
-// CQ#377372 - allow to redefine extern inline functions in C++ mode
-def ext_intel_redefinition_extern_inline : ExtWarn<
-  "redefinition of a 'extern inline' function %0 in "
-  "C++ mode is an Intel extension">,
   InGroup<IntelCompat>;
 def err_recursive_attribute_expected : Error<
   "recursive keyword expected after a pragma inline directive">;

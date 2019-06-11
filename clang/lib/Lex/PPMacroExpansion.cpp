@@ -43,6 +43,7 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Format.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cassert>
@@ -363,6 +364,7 @@ void Preprocessor::RegisterBuiltinMacros() {
   }
 
   // Clang Extensions.
+  Ident__FILE_NAME__      = RegisterBuiltinMacro(*this, "__FILE_NAME__");
   Ident__has_feature      = RegisterBuiltinMacro(*this, "__has_feature");
   Ident__has_extension    = RegisterBuiltinMacro(*this, "__has_extension");
   Ident__has_builtin      = RegisterBuiltinMacro(*this, "__has_builtin");
@@ -807,7 +809,7 @@ MacroArgs *Preprocessor::ReadMacroCallArgumentList(Token &MacroName,
         // Do not lose the EOF/EOD.
         auto Toks = llvm::make_unique<Token[]>(1);
         Toks[0] = Tok;
-        EnterTokenStream(std::move(Toks), 1, true);
+        EnterTokenStream(std::move(Toks), 1, true, /*IsReinject*/ false);
         break;
       } else if (Tok.is(tok::r_paren)) {
         // If we found the ) token, the macro arg list is done.
@@ -983,27 +985,22 @@ MacroArgs *Preprocessor::ReadMacroCallArgumentList(Token &MacroName,
       //   #define C(...) blah(a, ## __VA_ARGS__)
       //  A(x) B(x) C()
       isVarargsElided = true;
-    } else if (!ContainsCodeCompletionTok) {
 #if INTEL_CUSTOMIZATION
-      // CQ#365448 - allow passing less arguments to function-like macro,
-      // replacing missing arguments with empty strings and emit a warning.
-      if (getLangOpts().IntelMSCompat) {
-        Diag(Tok, diag::warn_too_few_args_in_macro_invoc);
-        Diag(Tok, diag::warn_missing_fnmacro_args_replaced_by_empty)
+    } else if (!ContainsCodeCompletionTok &&
+               getLangOpts().isIntelCompat(LangOptions::AllowFewerMacroArgs)) {
+      Diag(Tok, diag::warn_too_few_args_in_macro_invoc);
+      Diag(Tok, diag::warn_missing_fnmacro_args_replaced_by_empty)
           << MinArgsExpected - NumActuals;
-        Diag(MI->getDefinitionLoc(), diag::note_macro_here)
+      Diag(MI->getDefinitionLoc(), diag::note_macro_here)
           << MacroName.getIdentifierInfo();
-        // Don't return nullptr in this case, because we didn't emit any error.
-      } else {
+      // Don't return nullptr in this case, because we didn't emit any error.
 #endif // INTEL_CUSTOMIZATION
+    } else if (!ContainsCodeCompletionTok) {
       // Otherwise, emit the error.
       Diag(Tok, diag::err_too_few_args_in_macro_invoc);
       Diag(MI->getDefinitionLoc(), diag::note_macro_here)
         << MacroName.getIdentifierInfo();
       return nullptr;
-#if INTEL_CUSTOMIZATION
-      }
-#endif // INTEL_CUSTOMIZATION
     }
 
     // Add a marker EOF token to the end of the token list for this argument.
@@ -1015,9 +1012,9 @@ MacroArgs *Preprocessor::ReadMacroCallArgumentList(Token &MacroName,
     ArgTokens.push_back(Tok);
 
 #if INTEL_CUSTOMIZATION
-    // CQ#365448 - add empty tokens for all missing arguments in IntelMSCompat.
+    // CQ#365448 - add empty tokens for all missing arguments.
     // Note that one empty token was already added at the previous line.
-    if (getLangOpts().IntelMSCompat)
+    if (getLangOpts().isIntelCompat(LangOptions::AllowFewerMacroArgs))
       for (unsigned I = NumActuals + 1; I < MinArgsExpected; ++I)
         ArgTokens.push_back(Tok);
     else
@@ -1500,7 +1497,8 @@ void Preprocessor::ExpandBuiltinMacro(Token &Tok) {
     // __LINE__ expands to a simple numeric value.
     OS << (PLoc.isValid()? PLoc.getLine() : 1);
     Tok.setKind(tok::numeric_constant);
-  } else if (II == Ident__FILE__ || II == Ident__BASE_FILE__) {
+  } else if (II == Ident__FILE__ || II == Ident__BASE_FILE__ ||
+             II == Ident__FILE_NAME__) {
     // C99 6.10.8: "__FILE__: The presumed name of the current source file (a
     // character string literal)". This can be affected by #line.
     PresumedLoc PLoc = SourceMgr.getPresumedLoc(Tok.getLocation());
@@ -1521,7 +1519,19 @@ void Preprocessor::ExpandBuiltinMacro(Token &Tok) {
     // Escape this filename.  Turn '\' -> '\\' '"' -> '\"'
     SmallString<128> FN;
     if (PLoc.isValid()) {
-      FN += PLoc.getFilename();
+      // __FILE_NAME__ is a Clang-specific extension that expands to the
+      // the last part of __FILE__.
+      if (II == Ident__FILE_NAME__) {
+        // Try to get the last path component, failing that return the original
+        // presumed location.
+        StringRef PLFileName = llvm::sys::path::filename(PLoc.getFilename());
+        if (PLFileName != "")
+          FN += PLFileName;
+        else
+          FN += PLoc.getFilename();
+      } else {
+        FN += PLoc.getFilename();
+      }
       Lexer::Stringify(FN);
       OS << '"' << FN << '"';
     }

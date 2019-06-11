@@ -635,8 +635,7 @@ void Preprocessor::SkipTokensWhileUsingPCH() {
       CurTokenLexer->Lex(Tok);
       break;
     case CLK_CachingLexer:
-      bool IsNewToken;
-      CachingLex(Tok, IsNewToken);
+      CachingLex(Tok);
       break;
     case CLK_LexAfterModuleImport:
       LexAfterModuleImport(Tok);
@@ -894,7 +893,6 @@ void Preprocessor::Lex(Token &Result) {
 
   // We loop here until a lex function returns a token; this avoids recursion.
   bool ReturnedToken;
-  bool IsNewToken = true;
   do {
     switch (CurLexerKind) {
     case CLK_Lexer:
@@ -904,7 +902,7 @@ void Preprocessor::Lex(Token &Result) {
       ReturnedToken = CurTokenLexer->Lex(Result);
       break;
     case CLK_CachingLexer:
-      CachingLex(Result, IsNewToken);
+      CachingLex(Result);
       ReturnedToken = true;
       break;
     case CLK_LexAfterModuleImport:
@@ -924,7 +922,8 @@ void Preprocessor::Lex(Token &Result) {
 
   // Update ImportSeqState to track our position within a C++20 import-seq
   // if this token is being produced as a result of phase 4 of translation.
-  if (getLangOpts().CPlusPlusModules && LexLevel == 1 && IsNewToken) {
+  if (getLangOpts().CPlusPlusModules && LexLevel == 1 &&
+      !Result.getFlag(Token::IsReinjected)) {
     switch (Result.getKind()) {
     case tok::l_paren: case tok::l_square: case tok::l_brace:
       ImportSeqState.handleOpenBracket();
@@ -965,6 +964,8 @@ void Preprocessor::Lex(Token &Result) {
 
   LastTokenWasAt = Result.is(tok::at);
   --LexLevel;
+  if (OnToken && LexLevel == 0 && !Result.getFlag(Token::IsReinjected))
+    OnToken(Result);
 }
 
 /// Lex a header-name token (including one formed from header-name-tokens if
@@ -1144,7 +1145,7 @@ bool Preprocessor::LexAfterModuleImport(Token &Result) {
     auto ToksCopy = llvm::make_unique<Token[]>(Toks.size());
     std::copy(Toks.begin(), Toks.end(), ToksCopy.get());
     EnterTokenStream(std::move(ToksCopy), Toks.size(),
-                     /*DisableMacroExpansion*/ true);
+                     /*DisableMacroExpansion*/ true, /*IsReinject*/ false);
   };
 
   // Check for a header-name.

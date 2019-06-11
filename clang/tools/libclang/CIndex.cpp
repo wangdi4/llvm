@@ -1430,6 +1430,10 @@ bool CursorVisitor::VisitTemplateName(TemplateName Name, SourceLocation Loc) {
 
     return false;
 
+  case TemplateName::AssumedTemplate:
+    // FIXME: Visit DeclarationName?
+    return false;
+
   case TemplateName::DependentTemplate:
     // FIXME: Visit nested-name-specifier.
     return false;
@@ -1611,6 +1615,10 @@ bool CursorVisitor::VisitObjCObjectPointerTypeLoc(ObjCObjectPointerTypeLoc TL) {
 }
 
 bool CursorVisitor::VisitParenTypeLoc(ParenTypeLoc TL) {
+  return Visit(TL.getInnerLoc());
+}
+
+bool CursorVisitor::VisitMacroQualifiedTypeLoc(MacroQualifiedTypeLoc TL) {
   return Visit(TL.getInnerLoc());
 }
 
@@ -3145,18 +3153,22 @@ bool CursorVisitor::RunVisitorWorkList(VisitorWorkList &WL) {
       }
         
       case VisitorJob::LambdaExprPartsKind: {
-        // Visit captures.
+        // Visit non-init captures.
         const LambdaExpr *E = cast<LambdaExprParts>(&LI)->get();
         for (LambdaExpr::capture_iterator C = E->explicit_capture_begin(),
                                        CEnd = E->explicit_capture_end();
              C != CEnd; ++C) {
-          // FIXME: Lambda init-captures.
           if (!C->capturesVariable())
             continue;
 
           if (Visit(MakeCursorVariableRef(C->getCapturedVar(),
                                           C->getLocation(),
                                           TU)))
+            return true;
+        }
+        // Visit init captures
+        for (auto InitExpr : E->capture_inits()) {
+          if (Visit(InitExpr))
             return true;
         }
         
@@ -7264,15 +7276,14 @@ void AnnotateTokensWorker::HandlePostPonedChildCursors(
 
 void AnnotateTokensWorker::HandlePostPonedChildCursor(
     CXCursor Cursor, unsigned StartTokenIndex) {
-  const auto flags = CXNameRange_WantQualifier | CXNameRange_WantQualifier;
   unsigned I = StartTokenIndex;
 
   // The bracket tokens of a Call or Subscript operator are mapped to
   // CallExpr/CXXOperatorCallExpr because we skipped visiting the corresponding
   // DeclRefExpr. Remap these tokens to the DeclRefExpr cursors.
   for (unsigned RefNameRangeNr = 0; I < NumTokens; RefNameRangeNr++) {
-    const CXSourceRange CXRefNameRange =
-        clang_getCursorReferenceNameRange(Cursor, flags, RefNameRangeNr);
+    const CXSourceRange CXRefNameRange = clang_getCursorReferenceNameRange(
+        Cursor, CXNameRange_WantQualifier, RefNameRangeNr);
     if (clang_Range_isNull(CXRefNameRange))
       break; // All ranges handled.
 
