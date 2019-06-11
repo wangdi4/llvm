@@ -2,6 +2,39 @@
 ; REQUIRES: intel_feature_isa_fp16
 ; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+avx512fp16 | FileCheck %s
 
+define <8 x half> @broadcastph128(half* %x) {
+; CHECK-LABEL: broadcastph128:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpbroadcastw (%rdi), %xmm0
+; CHECK-NEXT:    retq
+  %l1 = load half, half* %x, align 2
+  %vec = insertelement <8 x half> undef, half %l1, i32 0
+  %res = shufflevector <8 x half> %vec, <8 x half> undef, <8 x i32> zeroinitializer
+  ret <8 x half> %res
+}
+
+define <16 x half> @broadcastph256(half* %x) {
+; CHECK-LABEL: broadcastph256:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpbroadcastw (%rdi), %ymm0
+; CHECK-NEXT:    retq
+  %l1 = load half, half* %x, align 2
+  %vec = insertelement <16 x half> undef, half %l1, i32 0
+  %res = shufflevector <16 x half> %vec, <16 x half> undef, <16 x i32> zeroinitializer
+  ret <16 x half> %res
+}
+
+define <32 x half> @broadcastph512(half* %x) {
+; CHECK-LABEL: broadcastph512:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpbroadcastw (%rdi), %zmm0
+; CHECK-NEXT:    retq
+  %l1 = load half, half* %x, align 2
+  %vec = insertelement <32 x half> undef, half %l1, i32 0
+  %res = shufflevector <32 x half> %vec, <32 x half> undef, <32 x i32> zeroinitializer
+  ret <32 x half> %res
+}
+
 define void @test5(half %x, half* %y) {
 ; CHECK-LABEL: test5:
 ; CHECK:       # %bb.0:

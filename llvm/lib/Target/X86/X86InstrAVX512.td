@@ -1499,6 +1499,20 @@ let Predicates = [HasVLX, HasBWI] in {
               (i16 (trunc (i32 (zextloadi16 addr:$src)))))),
             (VPBROADCASTWZ256m addr:$src)>;
 }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+let Predicates = [HasFP16] in {
+  def : Pat<(v32f16 (X86VBroadcast (loadf16 addr:$src))),
+            (VPBROADCASTWZm addr:$src)>;
+}
+let Predicates = [HasVLX, HasFP16] in {
+  def : Pat<(v8f16 (X86VBroadcast (loadf16 addr:$src))),
+            (VPBROADCASTWZ128m addr:$src)>;
+  def : Pat<(v16f16 (X86VBroadcast (loadf16 addr:$src))),
+            (VPBROADCASTWZ256m addr:$src)>;
+}
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 let Predicates = [HasBWI] in {
   // loadi16 is tricky to fold, because !isTypeDesirableForOp, justifiably.
   // This means we'll encounter truncated i32 loads; match that here.
