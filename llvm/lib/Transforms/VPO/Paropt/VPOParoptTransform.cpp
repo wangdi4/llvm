@@ -1870,6 +1870,37 @@ bool VPOParoptTransform::genReductionScalarFini(
       return false;
     }
 
+    // Try to generate a horizontal (sub-group) reduction.
+    // Without the horizontal reduction the generated code may be
+    // incorrectly widened by the device compiler.
+
+    // We clone the Rhs2 definition, because we have to use Rhs2 value
+    // in the horizontal reduction call, and then replace all uses
+    // of Rhs2 with the call's return value. The cloning just makes
+    // it easier.
+    //
+    // Insert new instruction(s) after the definition of the private
+    // reduction value.
+    auto *TempRedLoad = Rhs2->clone();
+    TempRedLoad->insertAfter(Rhs2);
+    TempRedLoad->takeName(Rhs2);
+    auto HRCall = VPOParoptUtils::genSPIRVHorizontalReduction(
+        RedI, ScalarTy, TempRedLoad, spirv::Scope::Subgroup);
+
+    if (!HRCall)
+      LLVM_DEBUG(dbgs() << __FUNCTION__ <<
+                 ": SPIRV horizontal reduction is not available "
+                 "for critical section reduction: " << RedI->getOpName() <<
+                 " with type " << *ScalarTy << "\n");
+    else {
+      LLVM_DEBUG(dbgs() << __FUNCTION__ <<
+                 ": SPIRV horizontal reduction is used "
+                 "for critical section reduction: " <<
+                 HRCall->getCalledFunction()->getName() << "\n");
+
+      Rhs2->replaceAllUsesWith(HRCall);
+    }
+
     OptimizationRemarkMissed R(DEBUG_TYPE, "ReductionAtomic", Tmp0);
     R << ore::NV("Kind", RedI->getOpName()) << " reduction update of type " <<
         ore::NV("Type", ScalarTy) << " cannot be done using atomic API";

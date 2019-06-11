@@ -29,6 +29,7 @@
 #define LLVM_TRANSFORMS_VPO_PAROPT_ATOMICS_H
 
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
 
 #include <map>
 
@@ -85,12 +86,11 @@ private:
   ~VPOParoptAtomics() = delete;
   /// @}
 
-  /// This is an std::pair with TypeID as first member, and size as second.
-  /// This can be expanded to be a Tuple in the future if needed.
-  typedef std::pair<Type::TypeID, unsigned> AtomicOperandTy;
   /// This is a pair with an Instruction Op-code as the first member, and a pair
-  /// of AtomicOperandTy's as the second member.
-  typedef std::pair<unsigned, std::pair<AtomicOperandTy, AtomicOperandTy>>
+  /// of IntrinsicOperandTy's as the second member.
+  typedef std::pair<unsigned,
+                    std::pair<intrinsics::IntrinsicOperandTy,
+                              intrinsics::IntrinsicOperandTy>>
       AtomicOperationTy;
 
   /// Enum for different types of Atomic Capture operations.
@@ -101,13 +101,6 @@ private:
     CaptureSwap      ///< {v = x; x = expr;}
   };
 
-  /// \name Instances of AtomicOperadnTy objects of different kinds.
-  /// @{
-  static const AtomicOperandTy I8, I16, I32, I64;
-  static const AtomicOperandTy P32, P64;
-  static const AtomicOperandTy F32, F64, F80, F128;
-  /// @}
-
   /// \name Atomic Intrinsic Maps.
   /// Maps are maintained to decide which call to the KMPC runtime library to
   /// make for handling a given atomic operation, on the basis of the
@@ -115,15 +108,15 @@ private:
   /// @{
 
   /// \brief Map from operand Type to intrinsic name for atomic read.
-  static const std::map<AtomicOperandTy, const std::string>
+  static const std::map<intrinsics::IntrinsicOperandTy, const std::string>
       TypeToReadIntrinsicMap;
 
   /// \brief Map from operand Type to intrinsic name for atomic write.
-  static const std::map<AtomicOperandTy, const std::string>
+  static const std::map<intrinsics::IntrinsicOperandTy, const std::string>
       TypeToWriteIntrinsicMap;
 
   /// \brief Map from operand Type to intrinsic name for atomic capture swap.
-  static const std::map<AtomicOperandTy, const std::string>
+  static const std::map<intrinsics::IntrinsicOperandTy, const std::string>
       TypeToSwapIntrinsicMap;
 
   /// \brief Map from operation and operand types to intrinsic name for atomic

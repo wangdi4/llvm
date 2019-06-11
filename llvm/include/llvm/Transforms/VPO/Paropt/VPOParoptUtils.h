@@ -30,12 +30,14 @@
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/Type.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionUtils.h"
 #include <unordered_map>
+#include <utility>
 
 // Use trampoline for internal microtasks
 #define KMP_IDENT_IMB              0x01
@@ -97,6 +99,44 @@ class LLVMContext;
 class BasicBlock;
 
 namespace vpo {
+
+namespace spirv {
+  enum Scope {
+    CrossDevice = 0,
+    Device      = 1,
+    Workgroup   = 2,
+    Subgroup    = 3,
+    Invocation  = 4
+  };
+
+  enum GroupOperations {
+    GroupOperationReduce        = 0,
+    GroupOperationInclusiveScan = 1,
+    GroupOperationExclusiveScan = 2
+  };
+} // end namespace spirv
+
+namespace intrinsics {
+  /// This is an std::pair with TypeID as first member, and size as second.
+  /// This can be expanded to be a Tuple in the future if needed.
+  typedef std::pair<Type::TypeID, unsigned> IntrinsicOperandTy;
+
+  /// \name Instances of IntrinsicOperandTy objects of different kinds.
+  /// @{
+  constexpr IntrinsicOperandTy I8   = { Type::IntegerTyID,  8 };
+  constexpr IntrinsicOperandTy I16  = { Type::IntegerTyID,  16 };
+  constexpr IntrinsicOperandTy I32  = { Type::IntegerTyID,  32 };
+  constexpr IntrinsicOperandTy I64  = { Type::IntegerTyID,  64 };
+  constexpr IntrinsicOperandTy P32  = { Type::PointerTyID,  32 };
+  constexpr IntrinsicOperandTy P64  = { Type::PointerTyID,  64 };
+  constexpr IntrinsicOperandTy F16  = { Type::HalfTyID,     16 };
+  constexpr IntrinsicOperandTy F32  = { Type::FloatTyID,    32 };
+  constexpr IntrinsicOperandTy F64  = { Type::DoubleTyID,   64 };
+  constexpr IntrinsicOperandTy F80  = { Type::X86_FP80TyID, 80 };
+  constexpr IntrinsicOperandTy F128 = { Type::FP128TyID,    128 };
+  /// @}
+
+} // end namespace intrinsics
 
 /// This class contains a set of utility functions used by VPO Paropt
 /// Transformation passes.
@@ -1077,6 +1117,14 @@ public:
   // \p DT DominatorTree is updated accordingly.
   static Function *genOutlineFunction(const WRegionNode &W, DominatorTree *DT,
                                       AssumptionCache *AC);
+
+  // If there is a SPIRV builtin performing horizontal reduction for the given
+  // reduction operation, this method will insert a call to this builtin
+  // with \p RedDef as the reduction argument. \p Scope defines the SPIRV
+  // reduction scope (e.g. Group, Subgroup, etc.)
+  static CallInst *genSPIRVHorizontalReduction(
+      ReductionItem *RedI, Type *ScalarTy, Instruction *RedDef,
+      spirv::Scope Scope);
 
   /// @}
 
