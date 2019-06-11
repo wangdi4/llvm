@@ -158,6 +158,7 @@ struct DeviceTy {
 #if INTEL_COLLAB
   int32_t manifest_data_for_region(void *TgtEntryPtr);
   void *data_alloc_base(int64_t Size, void *HstPtrBegin, void *HstPtrBase);
+  void *data_alloc_user(int64_t Size, void *HstPtrBegin);
   int32_t data_submit_nowait(void *TgtPtrBegin, void *HstPtrBegin,
                              int64_t Size, void *AsyncData);
   int32_t data_retrieve_nowait(void *HstPtrBegin, void *TgtPtrBegin,

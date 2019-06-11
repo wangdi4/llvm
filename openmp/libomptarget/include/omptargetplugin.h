@@ -99,6 +99,10 @@ int32_t __tgt_rtl_manifest_data_for_region(int32_t ID, void *TgtEntryPtr,
 void *__tgt_rtl_data_alloc_base(int32_t ID, int64_t Size, void *HostPtr,
                                 void *HostBase);
 
+// Similar to __tgt_rtl_data_alloc, but additionally specify that user initiated
+// the allocation
+void *__tgt_rtl_data_alloc_user(int32_t ID, int64_t Size, void *HostPtr);
+
 // Unlike __tgt_rtl_run_target_team_region, a loop descriptor for
 // multi-dimensional loop is passed to this function.
 int32_t __tgt_rtl_run_target_team_nd_region(int32_t ID, void *Entry,
