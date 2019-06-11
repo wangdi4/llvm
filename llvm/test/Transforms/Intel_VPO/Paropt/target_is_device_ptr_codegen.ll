@@ -21,7 +21,7 @@
 ; CHECK: @.offload_maptypes = private unnamed_addr constant [4 x i64] [i64 34, i64 545, i64 545, i64 800]
 ;
 ; Verify that the offload entry has the 4 matching arguments
-; CHECK: call void @__omp_offloading{{.*}}(double* %gg, double* %hh, i32* %n.addr, i32** %a)
+; CHECK: call void @__omp_offloading{{.*}}(double* %gg, i32* %n.addr, double* %hh, i32** %a)
 
 target triple = "x86_64-unknown-linux-gnu"
 target device_triples = "x86_64-mic"

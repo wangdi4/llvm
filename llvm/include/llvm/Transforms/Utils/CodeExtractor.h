@@ -79,7 +79,7 @@ class Value;
     using OrderedArgs = SetVector<ArgWithAlways>;
 
   private:
-    const OrderedArgs *TgtClauseArgs;
+    const OrderedArgs *TgtClauseArgs = nullptr;
 #endif // INTEL_COLLAB
 
     // Suffix to use when creating extracted function (appended to the original

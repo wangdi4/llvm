@@ -3338,11 +3338,13 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
   // of appearance is different. In order to enforce a consistent interface, we
   // pass to the CodeExtractor a vector of arguments in the order they appear in
   // the target clause. This order will be enforced across all devices.
-  // Arguments include mapped and firstprivate variables both explicitly
-  // appearing in the target clause and implicitly included by the compiler.
+  // Arguments include mapped, firstprivate and is_device_ptr variables both
+  // explicitly appearing in the target clause and implicitly included by the
+  // compiler.
   CodeExtractor::OrderedArgs TgtClauseArgs;
+  bool IsTarget = isa<WRNTargetNode>(W);
 
-  if (W.getIsTarget()) {
+  if (IsTarget) {
     // Get mapped arguments
     for (auto *Item : W.getMap().items()) {
       TgtClauseArgs.insert(
@@ -3352,11 +3354,15 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
     for (auto *Item : W.getFpriv().items()) {
       TgtClauseArgs.insert(std::make_pair(Item->getOrig(), false));
     }
+    // Get is_device_ptr arguments
+    for (auto *Item : W.getIsDevicePtr().items()) {
+      TgtClauseArgs.insert(std::make_pair(Item->getOrig(), false));
+    }
   }
 
   CodeExtractor CE(makeArrayRef(W.bbset_begin(), W.bbset_end()), DT, false,
                    nullptr, nullptr, AC, false, true, true,
-                   W.getIsTarget() ? &TgtClauseArgs : nullptr);
+                   IsTarget ? &TgtClauseArgs : nullptr);
   assert(CE.isEligible() && "Region is not eligible for extraction.");
 
   auto *NewFunction = CE.extractCodeRegion();
