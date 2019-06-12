@@ -86,6 +86,12 @@ static cl::opt<bool> ForceIFSwitchHeuristic(
           "ip-gen-cloning-force-if-switch-heuristic", cl::init(false),
           cl::ReallyHidden);
 
+// This switch will be enabled (and removed) once the associated loop opt work
+// for CMPLRLLVM-8680 is complete.
+static cl::opt<bool> EnableMorphologyCloning(
+          "ip-gen-cloning-enable-morphology", cl::init(false),
+          cl::ReallyHidden);
+
 // Do not qualify a routine for cloning under the "if" heuristic unless we
 // see at least this many "if" values that will be made constant.
 static cl::opt<unsigned> IPGenCloningMinIFCount(
@@ -95,6 +101,16 @@ static cl::opt<unsigned> IPGenCloningMinIFCount(
 // see at least this many "switch" values that will be made constant.
 static cl::opt<unsigned> IPGenCloningMinSwitchCount(
           "ip-gen-cloning-min-switch-count", cl::init(6), cl::ReallyHidden);
+
+// Do not specially qualify a recursive routine for generic cloning unless we
+// see at least this many formals that qualify under the "if-switch" heuristic.
+static cl::opt<unsigned> IPGenCloningMinRecFormalCount(
+          "ip-gen-cloning-min-rec-formal-count", cl::init(2), cl::ReallyHidden);
+
+// Do not specially qualify a recursive routine for generic cloning unless we
+// see at least this many callsites to the routine.
+static cl::opt<unsigned> IPGenCloningMinRecCallsites(
+          "ip-gen-cloning-min-rec-callsites", cl::init(10), cl::ReallyHidden);
 
 // It is a mapping between formals of current function that is being processed
 // for cloning and set of possible constant values that can reach from
@@ -1047,8 +1063,19 @@ static void dumpFormalsConstants(Function &F) {
 // For now, no heuristics are applied if AfterInl is false.
 // It returns true if there are any worthy formals.
 //
+// If 'IFSwitchHeuristic' is true, the if-switch heuristic may be applied.
+// If 'IsGenRec' is true, we are testing a recursive function for generic
+// cloning. In this case, we may qualify the formals if there are at
+// least 'IPGenCloningMinRecFormalCount' formals that qualify under the
+// if-switch heuristic, but an additional test on the number of clones and
+// callsites will be performed after we return from this function.
+// In that case, set '*IsGenRecQualified' to true to indicate that the
+// worthy formals are only qualified, if this additional condition is
+// fulfilled.
+//
 static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
-                                        bool IFSwitchHeuristic) {
+                                        bool IFSwitchHeuristic, bool IsGenRec,
+                                        bool *IsGenRecQualified) {
 
   SmallPtrSet<Value *, 16> PossiblyWorthyFormalsForCloning;
   WorthyFormalsForCloning.clear();
@@ -1101,8 +1128,7 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
                    << SwitchCount << "\n";
           }
         }
-      }
-      else {
+      } else {
         if (IPCloningTrace) {
           errs() << "  Skipping FORMAL_" << (f_count - 1);
           errs() << " due to heuristics\n";
@@ -1114,7 +1140,7 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
       WorthyFormalsForCloning.insert(V);
     }
   }
-  if (GlobalIFCount >= IPGenCloningMinIFCount &&
+  if (EnableMorphologyCloning && GlobalIFCount >= IPGenCloningMinIFCount &&
       GlobalSwitchCount >= IPGenCloningMinSwitchCount) {
     // There are enough "if" and "switch" values to qualify the clone under
     // the if-switch heuristic. Convert the pending formals to qualified.
@@ -1123,7 +1149,15 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
     for (Value *W : PossiblyWorthyFormalsForCloning)
       WorthyFormalsForCloning.insert(W);
   }
-  else if (SawPending) {
+  else if (IsGenRec && PossiblyWorthyFormalsForCloning.size() >=
+      IPGenCloningMinRecFormalCount) {
+    if (IPCloningTrace)
+      errs() << "  Possibly selecting all Pending FORMALs in "
+             << "Recursive Function\n";
+    for (Value *W : PossiblyWorthyFormalsForCloning)
+      WorthyFormalsForCloning.insert(W);
+    *IsGenRecQualified = true;
+  } else if (SawPending) {
     if (GlobalIFCount < IPGenCloningMinIFCount)
       errs() << "  IFCount (" << GlobalIFCount << ") < Limit ("
              << IPGenCloningMinIFCount << ")\n";
@@ -1727,6 +1761,21 @@ static void clearAllMaps(void) {
   SpecialConstGEPMap.clear();
 }
 
+//
+// Return 'true' if 'F' is a directly recursive routine. (There is a callsite
+// in 'F' that calls 'F'.)
+//
+static bool isDirectlyRecursive(Function *F) {
+  for (User *U : F->users()) {
+    auto CB = dyn_cast<CallBase>(U);
+    if (!CB || CB->getCalledFunction() != F)
+      continue;
+    if (CB->getCaller() == F)
+      return true;
+  }
+  return false;
+}
+
 // Main routine to analyze all calls and clone functions if profitable.
 //
 static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
@@ -1834,7 +1883,12 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
       continue;
     }
 
-    if (!findWorthyFormalsForCloning(F, AfterInl, IFSwitchHeuristic)) {
+    // For a function that is recursive and for which we are producing a
+    // generic clone, potentially relax the rules on the if-switch heuristic.
+    bool IsGenRec = CloneType == GenericClone && isDirectlyRecursive(&F);
+    bool IsGenRecQualified = false;
+    if (!findWorthyFormalsForCloning(F, AfterInl, IFSwitchHeuristic, IsGenRec,
+      &IsGenRecQualified)) {
       if (IPCloningTrace)
         errs() << " Skipping due to Heuristics " << F.getName() << "\n";
       continue;
@@ -1843,6 +1897,17 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
     if (!collectAllConstantArgumentsSets(F, AfterInl)) {
       if (IPCloningTrace)
         errs() << " Skipping not profitable candidate " << F.getName() << "\n";
+      continue;
+    }
+
+    // If we are relaxing the rules on formals for a generic clone of a
+    // recursive function, only clone if there is only one possible clone
+    // and at least 'IPGenCloningMinRecCallsites' callsites.
+    if (IsGenRecQualified && (FunctionAllArgumentsSets.size() != 1
+      || CurrCallList.size() < IPGenCloningMinRecCallsites)) {
+      if (IPCloningTrace)
+        errs() << " Skipping not profitable recursive candidate "
+               << F.getName() << "\n";
       continue;
     }
 

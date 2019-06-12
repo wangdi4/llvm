@@ -45,11 +45,11 @@ static cl::opt<bool> IPCloningLoopHeuristic("ip-cloning-loop-heuristic",
 
 // Enable switch related heuristic for Cloning.
 static cl::opt<bool> IPCloningSwitchHeuristic("ip-cloning-switch-heuristic",
-                                   cl::init(false), cl::ReallyHidden);
+                                   cl::init(true), cl::ReallyHidden);
 
 // Enable IF related heuristic for Cloning.
 static cl::opt<bool> IPCloningIFHeuristic("ip-cloning-if-heuristic",
-                                   cl::init(false), cl::ReallyHidden);
+                                   cl::init(true), cl::ReallyHidden);
 
 // Maximum number of formal uses explored while collecting formals that
 // are candidates for cloning using different heuristics.
