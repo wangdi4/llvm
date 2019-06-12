@@ -1,4 +1,5 @@
-// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-unknown-linux-gnu -target-feature +sse2 -emit-llvm -o - -Wall -Werror | FileCheck %s
+// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-unknown-linux-gnu -target-feature +sse2 -emit-llvm -o - -Wall -Werror | FileCheck %s --check-prefixes=CHECK,CHECK-NOSSE41
+// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-unknown-linux-gnu -target-feature +sse4.1 -emit-llvm -o - -Wall -Werror | FileCheck %s --check-prefixes=CHECK,CHECK-SSE41
 // RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-unknown-linux-gnu -target-feature +avx -emit-llvm -o - -Wall -Werror | FileCheck %s --check-prefixes=CHECK,CHECK-AVX1
 // RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-unknown-linux-gnu -target-feature +avx2 -emit-llvm -o - -Wall -Werror | FileCheck %s --check-prefixes=CHECK,CHECK-AVX1,CHECK-AVX2
 // RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-unknown-linux-gnu -target-feature +avx512f -emit-llvm -o - -Wall -Werror | FileCheck %s --check-prefixes=CHECK,CHECK-AVX1,CHECK-AVX2,CHECK-AVX512F
@@ -246,6 +247,33 @@ __m128 test_mm_erfinv_ps(__m128 A) {
   return _mm_erfinv_ps(A);
 }
 
+__m128 test_mm_svml_round_ps(__m128 A) {
+  // CHECK-LABEL: test_mm_svml_round_ps
+  // CHECK: call svml_cc <4 x float> @__svml_roundf4(<4 x float> %{{.*}})
+  return _mm_svml_round_ps(A);
+}
+
+__m128 test_mm_svml_ceil_ps(__m128 A) {
+  // CHECK-LABEL: test_mm_svml_ceil_ps
+  // CHECK-NOSSE41: call svml_cc <4 x float> @__svml_ceilf4(<4 x float> %{{.*}})
+  // CHECK-SSE41: call <4 x float> @llvm.x86.sse41.round.ps(<4 x float> %{{.*}}, i32 2)
+  return _mm_svml_ceil_ps(A);
+}
+
+__m128 test_mm_svml_floor_ps(__m128 A) {
+  // CHECK-LABEL: test_mm_svml_floor_ps
+  // CHECK-NOSSE41: call svml_cc <4 x float> @__svml_floorf4(<4 x float> %{{.*}})
+  // CHECK-SSE41: call <4 x float> @llvm.x86.sse41.round.ps(<4 x float> %{{.*}}, i32 1)
+  return _mm_svml_floor_ps(A);
+}
+
+__m128 test_mm_trunc_ps(__m128 A) {
+  // CHECK-LABEL: test_mm_trunc_ps
+  // CHECK-NOSSE41: call svml_cc <4 x float> @__svml_truncf4(<4 x float> %{{.*}})
+  // CHECK-SSE41: call <4 x float> @llvm.x86.sse41.round.ps(<4 x float> %{{.*}}, i32 3)
+  return _mm_trunc_ps(A);
+}
+
 // SSE2 FP
 __m128d test_mm_erf_pd(__m128d A) {
   // CHECK-LABEL: test_mm_erf_pd
@@ -467,6 +495,33 @@ __m128d test_mm_erfinv_pd(__m128d A) {
   // CHECK-LABEL: test_mm_erfinv_pd
   // CHECK: call svml_cc <2 x double> @__svml_erfinv2(<2 x double> %{{.*}})
   return _mm_erfinv_pd(A);
+}
+
+__m128d test_mm_svml_round_pd(__m128d A) {
+  // CHECK-LABEL: test_mm_svml_round_pd
+  // CHECK: call svml_cc <2 x double> @__svml_round2(<2 x double> %{{.*}})
+  return _mm_svml_round_pd(A);
+}
+
+__m128d test_mm_svml_ceil_pd(__m128d A) {
+  // CHECK-LABEL: test_mm_svml_ceil_pd
+  // CHECK-NOSSE41: call svml_cc <2 x double> @__svml_ceil2(<2 x double> %{{.*}})
+  // CHECK-SSE41: call <2 x double> @llvm.x86.sse41.round.pd(<2 x double> %{{.*}}, i32 2)
+  return _mm_svml_ceil_pd(A);
+}
+
+__m128d test_mm_svml_floor_pd(__m128d A) {
+  // CHECK-LABEL: test_mm_svml_floor_pd
+  // CHECK-NOSSE41: call svml_cc <2 x double> @__svml_floor2(<2 x double> %{{.*}})
+  // CHECK-SSE41: call <2 x double> @llvm.x86.sse41.round.pd(<2 x double> %{{.*}}, i32 1)
+  return _mm_svml_floor_pd(A);
+}
+
+__m128d test_mm_trunc_pd(__m128d A) {
+  // CHECK-LABEL: test_mm_trunc_pd
+  // CHECK-NOSSE41: call svml_cc <2 x double> @__svml_trunc2(<2 x double> %{{.*}})
+  // CHECK-SSE41: call <2 x double> @llvm.x86.sse41.round.pd(<2 x double> %{{.*}}, i32 3)
+  return _mm_trunc_pd(A);
 }
 
 // SSE2 Int
@@ -880,6 +935,30 @@ __m256 test_mm256_erfinv_ps(__m256 A) {
   return _mm256_erfinv_ps(A);
 }
 
+__m256 test_mm256_svml_round_ps(__m256 A) {
+  // CHECK-AVX1-LABEL: test_mm256_svml_round_ps
+  // CHECK-AVX1: call svml_cc <8 x float> @__svml_roundf8(<8 x float> %{{.*}})
+  return _mm256_svml_round_ps(A);
+}
+
+__m256 test_mm256_svml_ceil_ps(__m256 A) {
+  // CHECK-AVX1-LABEL: test_mm256_svml_ceil_ps
+  // CHECK-AVX1: call <8 x float> @llvm.x86.avx.round.ps.256(<8 x float> %{{.*}}, i32 2)
+  return _mm256_svml_ceil_ps(A);
+}
+
+__m256 test_mm256_svml_floor_ps(__m256 A) {
+  // CHECK-AVX1-LABEL: test_mm256_svml_floor_ps
+  // CHECK-AVX1: call <8 x float> @llvm.x86.avx.round.ps.256(<8 x float> %{{.*}}, i32 1)
+  return _mm256_svml_floor_ps(A);
+}
+
+__m256 test_mm256_trunc_ps(__m256 A) {
+  // CHECK-AVX1-LABEL: test_mm256_trunc_ps
+  // CHECK-AVX1: call <8 x float> @llvm.x86.avx.round.ps.256(<8 x float> %{{.*}}, i32 3)
+  return _mm256_trunc_ps(A);
+}
+
 // AVX double precision
 __m256d test_mm256_cbrt_pd(__m256d A) {
   // CHECK-AVX1-LABEL: test_mm256_cbrt_pd
@@ -1101,6 +1180,30 @@ __m256d test_mm256_erfinv_pd(__m256d A) {
   // CHECK-AVX1-LABEL: test_mm256_erfinv_pd
   // CHECK-AVX1: call svml_cc <4 x double> @__svml_erfinv4(<4 x double> %{{.*}})
   return _mm256_erfinv_pd(A);
+}
+
+__m256d test_mm256_svml_round_pd(__m256d A) {
+  // CHECK-AVX1-LABEL: test_mm256_svml_round_pd
+  // CHECK-AVX1: call svml_cc <4 x double> @__svml_round4(<4 x double> %{{.*}})
+  return _mm256_svml_round_pd(A);
+}
+
+__m256d test_mm256_svml_ceil_pd(__m256d A) {
+  // CHECK-AVX1-LABEL: test_mm256_svml_ceil_pd
+  // CHECK-AVX1: call <4 x double> @llvm.x86.avx.round.pd.256(<4 x double> %{{.*}}, i32 2)
+  return _mm256_svml_ceil_pd(A);
+}
+
+__m256d test_mm256_svml_floor_pd(__m256d A) {
+  // CHECK-AVX1-LABEL: test_mm256_svml_floor_pd
+  // CHECK-AVX1: call <4 x double> @llvm.x86.avx.round.pd.256(<4 x double> %{{.*}}, i32 1)
+  return _mm256_svml_floor_pd(A);
+}
+
+__m256d test_mm256_trunc_pd(__m256d A) {
+  // CHECK-AVX1-LABEL: test_mm256_trunc_pd
+  // CHECK-AVX1: call <4 x double> @llvm.x86.avx.round.pd.256(<4 x double> %{{.*}}, i32 3)
+  return _mm256_trunc_pd(A);
 }
 #endif // __AVX__
 
@@ -1771,6 +1874,42 @@ __m512 test_mm512_mask_rint_ps(__m512 A, __mmask16 B, __m512 C) {
   return _mm512_mask_rint_ps(A, B, C);
 }
 
+__m512 test_mm512_ceil_ps(__m512 A) {
+  // CHECK-AVX512F-LABEL: test_mm512_ceil_ps
+  // CHECK-AVX512F: call <16 x float> @llvm.x86.avx512.mask.rndscale.ps.512(<16 x float> %{{.*}}, i32 2, <16 x float> {{.*}}, i16 -1, i32 4)
+  return _mm512_ceil_ps(A);
+}
+
+__m512 test_mm512_mask_ceil_ps(__m512 A, __mmask16 B, __m512 C) {
+  // CHECK-AVX512F-LABEL: test_mm512_mask_ceil_ps
+  // CHECK-AVX512F: call <16 x float> @llvm.x86.avx512.mask.rndscale.ps.512(<16 x float> %{{.*}}, i32 2, <16 x float> %{{.*}}, i16 %{{.*}}, i32 4)
+  return _mm512_mask_ceil_ps(A, B, C);
+}
+
+__m512 test_mm512_floor_ps(__m512 A) {
+  // CHECK-AVX512F-LABEL: test_mm512_floor_ps
+  // CHECK-AVX512F: call <16 x float> @llvm.x86.avx512.mask.rndscale.ps.512(<16 x float> %{{.*}}, i32 1, <16 x float> {{.*}}, i16 -1, i32 4)
+  return _mm512_floor_ps(A);
+}
+
+__m512 test_mm512_mask_floor_ps(__m512 A, __mmask16 B, __m512 C) {
+  // CHECK-AVX512F-LABEL: test_mm512_mask_floor_ps
+  // CHECK-AVX512F: call <16 x float> @llvm.x86.avx512.mask.rndscale.ps.512(<16 x float> %{{.*}}, i32 1, <16 x float> %{{.*}}, i16 %{{.*}}, i32 4)
+  return _mm512_mask_floor_ps(A, B, C);
+}
+
+__m512 test_mm512_trunc_ps(__m512 A) {
+  // CHECK-AVX512F-LABEL: test_mm512_trunc_ps
+  // CHECK-AVX512F: call <16 x float> @llvm.x86.avx512.mask.rndscale.ps.512(<16 x float> %{{.*}}, i32 3, <16 x float> {{.*}}, i16 -1, i32 4)
+  return _mm512_trunc_ps(A);
+}
+
+__m512 test_mm512_mask_trunc_ps(__m512 A, __mmask16 B, __m512 C) {
+  // CHECK-AVX512F-LABEL: test_mm512_mask_trunc_ps
+  // CHECK-AVX512F: call <16 x float> @llvm.x86.avx512.mask.rndscale.ps.512(<16 x float> %{{.*}}, i32 3, <16 x float> %{{.*}}, i16 %{{.*}}, i32 4)
+  return _mm512_mask_trunc_ps(A, B, C);
+}
+
 // AVX512 double precision
 __m512d test_mm512_cbrt_pd(__m512d A) {
   // CHECK-AVX512F-LABEL: test_mm512_cbrt_pd
@@ -2264,6 +2403,55 @@ __m512d test_mm512_mask_rint_pd(__m512d A, __mmask8 B, __m512d C) {
   // CHECK-AVX512F: [[MASK:%.*]] = bitcast i8 %{{.*}} to <8 x i1>
   // CHECK-AVX512F: call svml_cc <8 x double> @__svml_rint8_mask(<8 x double> %{{.*}}, <8 x i1> [[MASK]], <8 x double> %{{.*}})
   return _mm512_mask_rint_pd(A, B, C);
+}
+
+__m512d test_mm512_svml_round_pd(__m512d A) {
+  // CHECK-AVX512F-LABEL: test_mm512_svml_round_pd
+  // CHECK-AVX512F: call svml_cc <8 x double> @__svml_round8(<8 x double> %{{.*}})
+  return _mm512_svml_round_pd(A);
+}
+
+__m512d test_mm512_mask_svml_round_pd(__m512d A, __mmask8 B, __m512d C) {
+  // CHECK-AVX512F-LABEL: test_mm512_mask_svml_round_pd
+  // CHECK-AVX512F: [[MASK:%.*]] = bitcast i8 %{{.*}} to <8 x i1>
+  // CHECK-AVX512F: call svml_cc <8 x double> @__svml_round8_mask(<8 x double> %{{.*}}, <8 x i1> [[MASK]], <8 x double> %{{.*}})
+  return _mm512_mask_svml_round_pd(A, B, C);
+}
+
+__m512d test_mm512_ceil_pd(__m512d A) {
+  // CHECK-AVX512F-LABEL: test_mm512_ceil_pd
+  // CHECK-AVX512F: call <8 x double> @llvm.x86.avx512.mask.rndscale.pd.512(<8 x double> %{{.*}}, i32 2, <8 x double> {{.*}}, i8 -1, i32 4)
+  return _mm512_ceil_pd(A);
+}
+
+__m512d test_mm512_mask_ceil_pd(__m512d A, __mmask8 B, __m512d C) {
+  // CHECK-AVX512F-LABEL: test_mm512_mask_ceil_pd
+  // CHECK-AVX512F: call <8 x double> @llvm.x86.avx512.mask.rndscale.pd.512(<8 x double> %{{.*}}, i32 2, <8 x double> %{{.*}}, i8 %{{.*}}, i32 4)
+  return _mm512_mask_ceil_pd(A, B, C);
+}
+
+__m512d test_mm512_floor_pd(__m512d A) {
+  // CHECK-AVX512F-LABEL: test_mm512_floor_pd
+  // CHECK-AVX512F: call <8 x double> @llvm.x86.avx512.mask.rndscale.pd.512(<8 x double> %{{.*}}, i32 1, <8 x double> {{.*}}, i8 -1, i32 4)
+  return _mm512_floor_pd(A);
+}
+
+__m512d test_mm512_mask_floor_pd(__m512d A, __mmask8 B, __m512d C) {
+  // CHECK-AVX512F-LABEL: test_mm512_mask_floor_pd
+  // CHECK-AVX512F: call <8 x double> @llvm.x86.avx512.mask.rndscale.pd.512(<8 x double> %{{.*}}, i32 1, <8 x double> %{{.*}}, i8 %{{.*}}, i32 4)
+  return _mm512_mask_floor_pd(A, B, C);
+}
+
+__m512d test_mm512_trunc_pd(__m512d A) {
+  // CHECK-AVX512F-LABEL: test_mm512_trunc_pd
+  // CHECK-AVX512F: call <8 x double> @llvm.x86.avx512.mask.rndscale.pd.512(<8 x double> %{{.*}}, i32 3, <8 x double> {{.*}}, i8 -1, i32 4)
+  return _mm512_trunc_pd(A);
+}
+
+__m512d test_mm512_mask_trunc_pd(__m512d A, __mmask8 B, __m512d C) {
+  // CHECK-AVX512F-LABEL: test_mm512_mask_trunc_pd
+  // CHECK-AVX512F: call <8 x double> @llvm.x86.avx512.mask.rndscale.pd.512(<8 x double> %{{.*}}, i32 3, <8 x double> %{{.*}}, i8 %{{.*}}, i32 4)
+  return _mm512_mask_trunc_pd(A, B, C);
 }
 
 // AVX512 Int

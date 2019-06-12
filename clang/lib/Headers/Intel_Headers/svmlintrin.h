@@ -671,9 +671,21 @@ __m128 _mm_erfinv_ps(__m128 __a);
  */
 __m128d _mm_erfinv_pd(__m128d __a);
 
-#endif // defined(__XMMINTRIN_H) && defined(__EMMINTRIN_H)
+/*
+ * Round the packed single-precision (32-bit) floating-point elements in a to
+ * the nearest integer value, and store the results as packed single-precision
+ * floating-point elements in dst.
+ */
+__m128 _mm_svml_round_ps(__m128 __a);
 
-#if defined(__SMMINTRIN_H)
+/*
+ * Round the packed double-precision (64-bit) floating-point elements in a to
+ * the nearest integer value, and store the results as packed double-precision
+ * floating-point elements in dst.
+ */
+__m128d _mm_svml_round_pd(__m128d __a);
+
+#if defined(__SSE4_1__)
 
 /*
  * Round the packed single-precision (32-bit) floating-point elements in a up
@@ -692,15 +704,6 @@ __m128d _mm_erfinv_pd(__m128d __a);
  * This intrinsic may generate the roundps/vroundps instruction.
  */
 #define _mm_svml_floor_ps(X)  _mm_floor_ps(X)
-
-/*
- * Round the packed single-precision (32-bit) floating-point elements in a to
- * the nearest integer value, and store the results as packed
- * single-precision floating-point elements in dst.
- *
- * This intrinsic may generate the roundps/vroundps instruction.
- */
-#define _mm_svml_round_ps(X)  _mm_round_ps((X), _MM_FROUND_NEARBYINT)
 
 /*
  * Truncate the packed single-precision (32-bit) floating-point elements in a,
@@ -730,15 +733,6 @@ __m128d _mm_erfinv_pd(__m128d __a);
 #define _mm_svml_floor_pd(X)  _mm_floor_pd(X)
 
 /*
- * Round the packed double-precision (64-bit) floating-point elements in a to
- * the nearest integer value, and store the results as packed
- * double-precision floating-point elements in dst.
- *
- * This intrinsic may generate the roundpd/vroundpd instruction.
- */
-#define _mm_svml_round_pd(X)  _mm_round_pd((X), _MM_FROUND_NEARBYINT)
-
-/*
  * Truncate the packed double-precision (64-bit) floating-point elements in a,
  * and store the results as packed double-precision floating-point elements
  * in dst.
@@ -747,7 +741,65 @@ __m128d _mm_erfinv_pd(__m128d __a);
  */
 #define _mm_trunc_pd(X)       _mm_round_pd((X), _MM_FROUND_TRUNC)
 
-#endif // defined(__SMMINTRIN_H)
+#else // defined(__SSE4_1__)
+
+/*
+ * Round the packed single-precision (32-bit) floating-point elements in "a" up
+ * to an integer value, and store the results as packed single-precision
+ * floating-point elements in "dst".
+ *
+ * This intrinsic may generate the "roundps"/"vroundps" instruction.
+ */
+__m128 _mm_svml_ceil_ps(__m128 __a);
+
+/*
+ * Round the packed double-precision (64-bit) floating-point elements in "a" up
+ * to an integer value, and store the results as packed double-precision
+ * floating-point elements in "dst".
+ *
+ * This intrinsic may generate the "roundpd"/"vroundpd" instruction.
+ */
+__m128d _mm_svml_ceil_pd(__m128d __a);
+
+/*
+ * Round the packed single-precision (32-bit) floating-point elements in "a"
+ * down to an integer value, and store the results as packed single-precision
+ * floating-point elements in "dst".
+ *
+ * This intrinsic may generate the "roundps"/"vroundps" instruction.
+ */
+__m128 _mm_svml_floor_ps(__m128 __a);
+
+/*
+ * Round the packed double-precision (64-bit) floating-point elements in "a"
+ * down to an integer value, and store the results as packed double-precision
+ * floating-point elements in "dst".
+ *
+ * This intrinsic may generate the "roundpd"/"vroundpd" instruction.
+ */
+__m128d _mm_svml_floor_pd(__m128d __a);
+
+/*
+ * Truncate the packed single-precision (32-bit) floating-point elements in "a",
+ * and store the results as packed single-precision floating-point elements in
+ * "dst".
+ *
+ * This intrinsic may generate the "roundps"/"vroundps" instruction.
+ */
+__m128 _mm_trunc_ps(__m128 __a);
+
+/*
+ * Truncate the packed double-precision (64-bit) floating-point elements in "a",
+ * and store the results as packed double-precision floating-point elements in
+ * "dst".
+ *
+ * This intrinsic may generate the "roundpd"/"vroundpd" instruction.
+ */
+__m128d _mm_trunc_pd(__m128d __a);
+
+#endif // defined(__SSE4_1__)
+
+#endif // defined(__XMMINTRIN_H) && defined(__EMMINTRIN_H)
 
 #if defined(__AVXINTRIN_H)
 
@@ -1255,6 +1307,20 @@ __m256 _mm256_erfinv_ps(__m256 __a);
 __m256d _mm256_erfinv_pd(__m256d __a);
 
 /*
+ * Round the packed double-precision (64-bit) floating-point elements in a to
+ * the nearest integer value, and store the results as packed
+ * double-precision floating-point elements in dst.
+ */
+__m256 _mm256_svml_round_ps(__m256 __a);
+
+/*
+ * Round the packed double-precision (64-bit) floating-point elements in a to
+ * the nearest integer value, and store the results as packed
+ * double-precision floating-point elements in dst.
+ */
+__m256d _mm256_svml_round_pd(__m256d __a);
+
+/*
  * Round the packed single-precision (32-bit) floating-point elements in a up
  *  o an integer value, and store the results as packed single-precision
  * floating-point elements in dst.
@@ -1271,15 +1337,6 @@ __m256d _mm256_erfinv_pd(__m256d __a);
  * This intrinsic may generate the roundps/vroundps instruction.
  */
 #define _mm256_svml_floor_ps(X)  _mm256_floor_ps(X)
-
-/*
- * Round the packed single-precision (32-bit) floating-point elements in a to
- * the nearest integer value, and store the results as packed
- * single-precision floating-point elements in dst.
- *
- * This intrinsic may generate the roundps/vroundps instruction.
- */
-#define _mm256_svml_round_ps(X)  _mm256_round_ps((X), _MM_FROUND_NEARBYINT)
 
 /*
  * Truncate the packed single-precision (32-bit) floating-point elements in a,
@@ -1307,15 +1364,6 @@ __m256d _mm256_erfinv_pd(__m256d __a);
  * This intrinsic may generate the roundpd/vroundpd instruction.
  */
 #define _mm256_svml_floor_pd(X)  _mm256_floor_pd(X)
-
-/*
- * Round the packed double-precision (64-bit) floating-point elements in a to
- * the nearest integer value, and store the results as packed
- * double-precision floating-point elements in dst.
- *
- * This intrinsic may generate the roundpd/vroundpd instruction.
- */
-#define _mm256_svml_round_pd(X)  _mm256_round_pd((X), _MM_FROUND_NEARBYINT)
 
 /*
  * Truncate the packed double-precision (64-bit) floating-point elements in a,
@@ -2707,30 +2755,65 @@ __m512d _mm512_rint_pd(__m512d __a);
  */
 __m512d _mm512_mask_rint_pd(__m512d __src, __mmask8 __k, __m512d __a);
 
-extern __m512 __svml_truncf16(__m512);
+/*
+ * Round the packed double-precision (64-bit) floating-point elements in "a" to
+ * the nearest integer value, and store the results as packed double-precision
+ * floating-point elements in "dst".
+ */
+__m512d _mm512_svml_round_pd(__m512d __a);
 
 /*
- * Truncate the packed single-precision (32-bit) floating-point elements in a,
- * and store the results as packed single-precision floating-point elements
- * in dst.
+ * Round the packed double-precision (64-bit) floating-point elements in "a" to
+ * the nearest integer value, and store the results as packed double-precision
+ * floating-point elements in "dst" using writemask "k" (elements are copied
+ * from "src" when the corresponding mask bit is not set).
+ */
+__m512d _mm512_mask_svml_round_pd(__m512d __src, __mmask8 __k, __m512d __a);
+
+/*
+ * Truncate the packed single-precision (32-bit) floating-point elements in "a",
+ * and store the results as packed single-precision floating-point elements in
+ * "dst".
  */
 static __inline __m512 __DEFAULT_FN_ATTRS
 _mm512_trunc_ps(__m512 __a)
 {
-  return __svml_truncf16(__a);
+  return _mm512_roundscale_ps(__a, _MM_FROUND_TRUNC);
 }
 
-extern __m512d __svml_trunc8(__m512d);
+/*
+ * Truncate the packed single-precision (32-bit) floating-point elements in "a",
+ * and store the results as packed single-precision floating-point elements in
+ * "dst" using writemask "k" (elements are copied from "src" when the
+ * corresponding mask bit is not set).
+ */
+static __inline__ __m512 __DEFAULT_FN_ATTRS
+_mm512_mask_trunc_ps (__m512 __src, __mmask16 __k, __m512 __a)
+{
+  return _mm512_mask_roundscale_ps(__src, __k, __a, _MM_FROUND_TRUNC);
+}
 
 /*
- * Truncate the packed double-precision (64-bit) floating-point elements in a,
- * and store the results as packed single-precision floating-point elements
- * in dst.
+ * Truncate the packed double-precision (64-bit) floating-point elements in "a",
+ * and store the results as packed double-precision floating-point elements in
+ * "dst".
  */
 static __inline __m512d __DEFAULT_FN_ATTRS
 _mm512_trunc_pd(__m512d __a)
 {
-  return __svml_trunc8(__a);
+  return _mm512_roundscale_pd(__a, _MM_FROUND_TRUNC);
+}
+
+/*
+ * Truncate the packed double-precision (64-bit) floating-point elements in "a",
+ * and store the results as packed double-precision floating-point elements in
+ * "dst" using writemask "k" (elements are copied from "src" when the
+ * corresponding mask bit is not set).
+ */
+static __inline__ __m512d __DEFAULT_FN_ATTRS
+_mm512_mask_trunc_pd (__m512d __src, __mmask8 __k, __m512d __a)
+{
+  return _mm512_mask_roundscale_pd(__src, __k, __a, _MM_FROUND_TRUNC);
 }
 
 #undef __DEFAULT_FN_ATTRS
