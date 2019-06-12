@@ -1,3 +1,4 @@
+; XFAIL: *
 ; This test checks that whole program seen and safe weren't achieved because
 ; the definition for @sub is missing in the IR. Whole program read is still
 ; achieved since @sub is being resolved by the linker

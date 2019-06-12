@@ -1,3 +1,4 @@
+; XFAIL: *
 ; This test checks that whole program read was achieved when linking
 ; an executable and a library is present. Whole program seen won't be
 ; achieved since @exportfn doesn't have IR.

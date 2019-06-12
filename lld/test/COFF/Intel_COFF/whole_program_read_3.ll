@@ -1,3 +1,4 @@
+; XFAIL: *
 ; This test checks that whole program wasn't achieved because the
 ; definition for @sub is missing in IR and libraries.
 ; NOTE: lld will throw a exit error since the definition of sub
