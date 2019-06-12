@@ -36,6 +36,7 @@ struct RTLInfoTy {
                                  int32_t);
   typedef int32_t(run_team_region_ty)(int32_t, void *, void **, ptrdiff_t *,
                                       int32_t, int32_t, int32_t, uint64_t);
+  typedef int64_t(init_requires_ty)(int64_t);
 #if INTEL_COLLAB
   typedef int32_t(data_submit_nowait_ty)(int32_t, void *, void *, int64_t,
                                          void *);
@@ -79,6 +80,7 @@ struct RTLInfoTy {
   data_delete_ty *data_delete;
   run_region_ty *run_region;
   run_team_region_ty *run_team_region;
+  init_requires_ty *init_requires;
 #if INTEL_COLLAB
   data_submit_nowait_ty *data_submit_nowait;
   data_retrieve_nowait_ty *data_retrieve_nowait;
@@ -107,16 +109,17 @@ struct RTLInfoTy {
 #endif
         is_valid_binary(0), number_of_devices(0), init_device(0),
         load_binary(0), data_alloc(0), data_submit(0), data_retrieve(0),
-#if INTEL_COLLAB
         data_delete(0), run_region(0), run_team_region(0),
+#if INTEL_COLLAB
+        init_requires(0),
         data_submit_nowait(0), data_retrieve_nowait(0),
         manifest_data_for_region(0), data_alloc_base(0),
         run_team_nd_region(0), run_team_nd_region_nowait(0),
-        run_region_nowait(0), run_team_region_nowait(0), isUsed(false),
+        run_region_nowait(0), run_team_region_nowait(0),
+        isUsed(false), Mtx() {}
 #else
-        data_delete(0), run_region(0), run_team_region(0), isUsed(false),
+        init_requires(0), isUsed(false), Mtx() {}
 #endif // INTEL_COLLAB
-        Mtx() {}
 
   RTLInfoTy(const RTLInfoTy &r) : Mtx() {
     Idx = r.Idx;
@@ -135,6 +138,7 @@ struct RTLInfoTy {
     data_delete = r.data_delete;
     run_region = r.run_region;
     run_team_region = r.run_team_region;
+    init_requires = r.init_requires;
 #if INTEL_COLLAB
     data_submit_nowait = r.data_submit_nowait;
     data_retrieve_nowait = r.data_retrieve_nowait;
