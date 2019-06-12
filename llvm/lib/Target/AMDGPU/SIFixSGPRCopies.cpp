@@ -302,30 +302,6 @@ static bool foldVGPRCopyIntoRegSequence(MachineInstr &MI,
   return true;
 }
 
-static bool phiHasBreakDef(const MachineInstr &PHI,
-                           const MachineRegisterInfo &MRI,
-                           SmallSet<unsigned, 8> &Visited) {
-  for (unsigned i = 1; i < PHI.getNumOperands(); i += 2) {
-    unsigned Reg = PHI.getOperand(i).getReg();
-    if (Visited.count(Reg))
-      continue;
-
-    Visited.insert(Reg);
-
-    MachineInstr *DefInstr = MRI.getVRegDef(Reg);
-    switch (DefInstr->getOpcode()) {
-    default:
-      break;
-    case AMDGPU::SI_IF_BREAK:
-      return true;
-    case AMDGPU::PHI:
-      if (phiHasBreakDef(*DefInstr, MRI, Visited))
-        return true;
-    }
-  }
-  return false;
-}
-
 static bool isSafeToFoldImmIntoCopy(const MachineInstr *Copy,
                                     const MachineInstr *MoveImm,
                                     const SIInstrInfo *TII,
@@ -612,14 +588,18 @@ bool SIFixSGPRCopies::runOnMachineFunction(MachineFunction &MF) {
             }
 
             if (UseMI->isPHI()) {
-              if (!TRI->isSGPRReg(MRI, Use.getReg()))
+              const TargetRegisterClass *UseRC = MRI.getRegClass(Use.getReg());
+              if (!TRI->isSGPRReg(MRI, Use.getReg()) &&
+                  UseRC != &AMDGPU::VReg_1RegClass)
                 hasVGPRUses++;
               continue;
             }
 
             unsigned OpNo = UseMI->getOperandNo(&Use);
             const MCInstrDesc &Desc = TII->get(UseMI->getOpcode());
-            if (Desc.OpInfo && Desc.OpInfo[OpNo].RegClass != -1) {
+            if (!Desc.isPseudo() && Desc.OpInfo &&
+                OpNo < Desc.getNumOperands() &&
+                Desc.OpInfo[OpNo].RegClass != -1) {
               const TargetRegisterClass *OpRC =
                   TRI->getRegClass(Desc.OpInfo[OpNo].RegClass);
               if (!TRI->isSGPRClass(OpRC) && OpRC != &AMDGPU::VS_32RegClass &&
@@ -655,8 +635,10 @@ bool SIFixSGPRCopies::runOnMachineFunction(MachineFunction &MF) {
 
         if ((!TRI->isVGPR(MRI, PHIRes) && RC0 != &AMDGPU::VReg_1RegClass) &&
             (hasVGPRInput || hasVGPRUses > 1)) {
+          LLVM_DEBUG(dbgs() << "Fixing PHI: " << MI);
           TII->moveToVALU(MI);
         } else {
+          LLVM_DEBUG(dbgs() << "Legalizing PHI: " << MI);
           TII->legalizeOperands(MI, MDT);
         }
 

@@ -627,10 +627,8 @@ void X86TargetInfo::setSSELevel(llvm::StringMap<bool> &Features,
     Features["avx512ifma"] = Features["avx512vpopcntdq"] = false;
     Features["avx512bitalg"] = Features["avx512vnni"] = false;
     Features["avx512vbmi2"] = Features["avx512bf16"] = false;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_VP2INTERSECT
     Features["avx512vp2intersect"] = false;
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
     Features["avx512fp16"] = false;
 #endif // INTEL_FEATURE_ISA_FP16
@@ -931,12 +929,8 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasAVX512VBMI2 = true;
     } else if (Feature == "+avx512ifma") {
       HasAVX512IFMA = true;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_VP2INTERSECT
     } else if (Feature == "+avx512vp2intersect") {
       HasAVX512VP2INTERSECT = true;
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
-#endif // INTEL_CUSTOMIZATION
     } else if (Feature == "+sha") {
       HasSHA = true;
     } else if (Feature == "+mpx") {
@@ -1380,12 +1374,8 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AVX512VBMI2__");
   if (HasAVX512IFMA)
     Builder.defineMacro("__AVX512IFMA__");
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_VP2INTERSECT
   if (HasAVX512VP2INTERSECT)
     Builder.defineMacro("__AVX512VP2INTERSECT__");
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
-#endif // INTEL_CUSTOMIZATION
   if (HasSHA)
     Builder.defineMacro("__SHA__");
 
@@ -1611,10 +1601,8 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("avx512vbmi", true)
       .Case("avx512vbmi2", true)
       .Case("avx512ifma", true)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_VP2INTERSECT
       .Case("avx512vp2intersect", true)
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_VNNI
       .Case("avxvnni", true)
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
@@ -1736,11 +1724,7 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("avx512vbmi", HasAVX512VBMI)
       .Case("avx512vbmi2", HasAVX512VBMI2)
       .Case("avx512ifma", HasAVX512IFMA)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_VP2INTERSECT
       .Case("avx512vp2intersect", HasAVX512VP2INTERSECT)
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
-#endif // INTEL_CUSTOMIZATION
       .Case("bmi", HasBMI)
       .Case("bmi2", HasBMI2)
       .Case("cldemote", HasCLDEMOTE)

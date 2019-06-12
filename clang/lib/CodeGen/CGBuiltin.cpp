@@ -1975,6 +1975,22 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     case Builtin::BI__builtin_llroundl:
       return RValue::get(emitFPToIntRoundBuiltin(*this, E, Intrinsic::llround));
 
+    case Builtin::BIlrint:
+    case Builtin::BIlrintf:
+    case Builtin::BIlrintl:
+    case Builtin::BI__builtin_lrint:
+    case Builtin::BI__builtin_lrintf:
+    case Builtin::BI__builtin_lrintl:
+      return RValue::get(emitFPToIntRoundBuiltin(*this, E, Intrinsic::lrint));
+
+    case Builtin::BIllrint:
+    case Builtin::BIllrintf:
+    case Builtin::BIllrintl:
+    case Builtin::BI__builtin_llrint:
+    case Builtin::BI__builtin_llrintf:
+    case Builtin::BI__builtin_llrintl:
+      return RValue::get(emitFPToIntRoundBuiltin(*this, E, Intrinsic::llrint));
+
     default:
       break;
     }
@@ -4123,7 +4139,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
           Builder.CreatePointerCast(Info.BlockArg, GenericVoidPtrTy);
 
       AttrBuilder B;
-      B.addAttribute(Attribute::ByVal);
+      B.addByValAttr(NDRangeL.getAddress().getElementType());
       llvm::AttributeList ByValAttrSet =
           llvm::AttributeList::get(CGM.getModule().getContext(), 3U, B);
 
@@ -12918,8 +12934,6 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     return EmitX86MaskedCompareResult(*this, Fpclass, NumElts, MaskIn);
   }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_VP2INTERSECT
   case X86::BI__builtin_ia32_vp2intersect_q_512:
   case X86::BI__builtin_ia32_vp2intersect_q_256:
   case X86::BI__builtin_ia32_vp2intersect_q_128:
@@ -12961,8 +12975,7 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     Store = Builder.CreateDefaultAlignedStore(Result, Ops[3]);
     return Store;
   }
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
-#endif // INTEL_CUSTOMIZATION
+
   case X86::BI__builtin_ia32_vpmultishiftqb128:
   case X86::BI__builtin_ia32_vpmultishiftqb256:
   case X86::BI__builtin_ia32_vpmultishiftqb512: {

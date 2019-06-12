@@ -28,17 +28,33 @@ SymbolTable *lld::wasm::Symtab;
 
 void SymbolTable::addFile(InputFile *File) {
   log("Processing: " + toString(File));
+
+  // .a file
+  if (auto *F = dyn_cast<ArchiveFile>(File)) {
+    F->parse();
+    return;
+  }
+
+  // .so file
+  if (auto *F = dyn_cast<SharedFile>(File)) {
+    SharedFiles.push_back(F);
+    return;
+  }
+
   if (Config->Trace)
     message(toString(File));
-  File->parse();
 
   // LLVM bitcode file
-  if (auto *F = dyn_cast<BitcodeFile>(File))
+  if (auto *F = dyn_cast<BitcodeFile>(File)) {
+    F->parse();
     BitcodeFiles.push_back(F);
-  else if (auto *F = dyn_cast<ObjFile>(File))
-    ObjectFiles.push_back(F);
-  else if (auto *F = dyn_cast<SharedFile>(File))
-    SharedFiles.push_back(F);
+    return;
+  }
+
+  // Regular object file
+  auto *F = cast<ObjFile>(File);
+  F->parse(false);
+  ObjectFiles.push_back(F);
 }
 
 // This function is where all the optimizations of link-time
@@ -136,14 +152,13 @@ static void reportTypeError(const Symbol *Existing, const InputFile *File,
 // mismatch.
 static bool signatureMatches(FunctionSymbol *Existing,
                              const WasmSignature *NewSig) {
-  if (!NewSig)
-    return true;
-
   const WasmSignature *OldSig = Existing->Signature;
-  if (!OldSig) {
-    Existing->Signature = NewSig;
+
+  // If either function is missing a signature (this happend for bitcode
+  // symbols) then assume they match.  Any mismatch will be reported later
+  // when the LTO objects are added.
+  if (!NewSig || !OldSig)
     return true;
-  }
 
   return *NewSig == *OldSig;
 }
@@ -200,10 +215,15 @@ DefinedFunction *SymbolTable::addSyntheticFunction(StringRef Name,
                                         Flags, nullptr, Function);
 }
 
+// Adds an optional, linker generated, data symbols.  The symbol will only be
+// added if there is an undefine reference to it, or if it is explictly exported
+// via the --export flag.  Otherwise we don't add the symbol and return nullptr.
 DefinedData *SymbolTable::addOptionalDataSymbol(StringRef Name, uint32_t Value,
                                                 uint32_t Flags) {
   Symbol *S = find(Name);
-  if (!S || S->isDefined())
+  if (!S && (Config->ExportAll || Config->ExportedSymbols.count(Name) != 0))
+    S = insertName(Name).first;
+  else if (!S || S->isDefined())
     return nullptr;
   LLVM_DEBUG(dbgs() << "addOptionalDataSymbol: " << Name << "\n");
   auto *rtn = replaceSymbol<DefinedData>(S, Name, Flags);
@@ -286,7 +306,11 @@ Symbol *SymbolTable::addDefinedFunction(StringRef Name, uint32_t Flags,
     return S;
   }
 
-  if (Function && !signatureMatches(ExistingFunction, &Function->Signature)) {
+  bool CheckSig = true;
+  if (auto UD = dyn_cast<UndefinedFunction>(ExistingFunction))
+    CheckSig = UD->IsCalledDirectly;
+
+  if (CheckSig && Function && !signatureMatches(ExistingFunction, &Function->Signature)) {
     Symbol* Variant;
     if (getFunctionVariant(S, &Function->Signature, File, &Variant))
       // New variant, always replace
@@ -384,9 +408,11 @@ Symbol *SymbolTable::addDefinedEvent(StringRef Name, uint32_t Flags,
 Symbol *SymbolTable::addUndefinedFunction(StringRef Name, StringRef ImportName,
                                           StringRef ImportModule,
                                           uint32_t Flags, InputFile *File,
-                                          const WasmSignature *Sig) {
-  LLVM_DEBUG(dbgs() << "addUndefinedFunction: " << Name <<
-             " [" << (Sig ? toString(*Sig) : "none") << "]\n");
+                                          const WasmSignature *Sig,
+                                          bool IsCalledDirectly) {
+  LLVM_DEBUG(dbgs() << "addUndefinedFunction: " << Name << " ["
+                    << (Sig ? toString(*Sig) : "none")
+                    << "] IsCalledDirectly:" << IsCalledDirectly << "\n");
 
   Symbol *S;
   bool WasInserted;
@@ -396,7 +422,7 @@ Symbol *SymbolTable::addUndefinedFunction(StringRef Name, StringRef ImportName,
 
   auto Replace = [&]() {
     replaceSymbol<UndefinedFunction>(S, Name, ImportName, ImportModule, Flags,
-                                     File, Sig);
+                                     File, Sig, IsCalledDirectly);
   };
 
   if (WasInserted)
@@ -409,7 +435,9 @@ Symbol *SymbolTable::addUndefinedFunction(StringRef Name, StringRef ImportName,
       reportTypeError(S, File, WASM_SYMBOL_TYPE_FUNCTION);
       return S;
     }
-    if (!signatureMatches(ExistingFunction, Sig))
+    if (!ExistingFunction->Signature && Sig)
+      ExistingFunction->Signature = Sig;
+    if (IsCalledDirectly && !signatureMatches(ExistingFunction, Sig))
       if (getFunctionVariant(S, Sig, File, &S))
         Replace();
   }

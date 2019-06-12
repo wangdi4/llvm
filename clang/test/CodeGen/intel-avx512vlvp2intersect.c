@@ -1,5 +1,3 @@
-// INTEL_FEATURE_ISA_VP2INTERSECT
-// REQUIRES: intel_feature_isa_vp2intersect
 // RUN: %clang_cc1 %s -ffreestanding -triple=x86_64-unknown-unknown -target-feature +avx512vp2intersect -target-feature +avx512vl -emit-llvm -o - -Wall -Werror | FileCheck %s
 // RUN: %clang_cc1 %s -ffreestanding -triple=i386-unknown-unknown -target-feature +avx512vp2intersect -target-feature +avx512vl -emit-llvm -o - -Wall -Werror | FileCheck %s
 
@@ -36,4 +34,3 @@ void test_mm_2intersect_epi64(__m128i a, __m128i b, __mmask8 *m0, __mmask8 *m1) 
 // CHECK: extractvalue { <2 x i1>, <2 x i1> } %{{.*}}, 1
   _mm_2intersect_epi64(a, b, m0, m1);
 }
-// end INTEL_FEATURE_ISA_VP2INTERSECT

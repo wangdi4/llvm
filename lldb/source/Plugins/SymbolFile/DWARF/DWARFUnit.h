@@ -157,8 +157,6 @@ public:
 
   const DWARFDebugAranges &GetFunctionAranges();
 
-  DWARFFormValue::FixedFormSizes GetFixedFormSizes();
-
   void SetBaseAddress(dw_addr_t base_addr);
 
   DWARFBaseDIE GetUnitDIEOnly() { return DWARFDIE(this, GetUnitDIEPtrOnly()); }
@@ -212,6 +210,15 @@ public:
   DIERef::Section GetDebugSection() const { return m_section; }
 
   uint8_t GetUnitType() const { return m_header.GetUnitType(); }
+
+  /// Return a list of address ranges resulting from a (possibly encoded)
+  /// range list starting at a given offset in the appropriate ranges section.
+  llvm::Expected<DWARFRangeList> FindRnglistFromOffset(dw_offset_t offset) const;
+
+  /// Return a list of address ranges retrieved from an encoded range
+  /// list whose offset is found via a table lookup given an index (DWARF v5
+  /// and later).
+  llvm::Expected<DWARFRangeList> FindRnglistFromIndex(uint32_t index) const;
 
 protected:
   DWARFUnit(SymbolFileDWARF *dwarf, lldb::user_id_t uid,

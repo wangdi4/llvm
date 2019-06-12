@@ -46,7 +46,7 @@ channel float4 fch1;
 
 // CHECK: declare void @_Z19write_channel_intel11ocl_channelii(%opencl.channel_t {{.*}}*, i32)
 // CHECK: declare void @_Z19write_channel_intel11ocl_channelll(%opencl.channel_t {{.*}}*, i64)
-// CHECK: declare void @_Z19write_channel_intel11ocl_channel2stS_(%opencl.channel_t {{.*}}*, %struct.st* byval align 4)
+// CHECK: declare void @_Z19write_channel_intel11ocl_channel2stS_(%opencl.channel_t {{.*}}*, %struct.st* byval(%struct.st) align 4)
 // CHECK: declare void @_Z19write_channel_intel11ocl_channelDv4_fS_(%opencl.channel_t {{.*}}*, <4 x float>)
 //
 // CHECKWIN: declare dso_local void @"?write_channel_intel@@$$J0YAXU?$ocl_channel@H@__clang@@H@Z"(%opencl.channel_t*, i32)
@@ -56,7 +56,7 @@ channel float4 fch1;
 //
 // CHECK: declare zeroext i1 @_Z22write_channel_nb_intel11ocl_channelii(%opencl.channel_t {{.*}}*, i32)
 // CHECK: declare zeroext i1 @_Z22write_channel_nb_intel11ocl_channelll(%opencl.channel_t {{.*}}*, i64)
-// CHECK: declare zeroext i1 @_Z22write_channel_nb_intel11ocl_channel2stS_(%opencl.channel_t {{.*}}*, %struct.st* byval align 4)
+// CHECK: declare zeroext i1 @_Z22write_channel_nb_intel11ocl_channel2stS_(%opencl.channel_t {{.*}}*, %struct.st* byval(%struct.st) align 4)
 // CHECK: declare zeroext i1 @_Z22write_channel_nb_intel11ocl_channelDv4_fS_(%opencl.channel_t {{.*}}*, <4 x float>)
 //
 // CHECKWIN: declare dso_local zeroext i1 @"?write_channel_nb_intel@@$$J0YA_NU?$ocl_channel@H@__clang@@H@Z"(%opencl.channel_t*, i32)

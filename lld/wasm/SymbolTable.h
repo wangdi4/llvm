@@ -63,7 +63,8 @@ public:
 
   Symbol *addUndefinedFunction(StringRef Name, StringRef ImportName,
                                StringRef ImportModule, uint32_t Flags,
-                               InputFile *File, const WasmSignature *Signature);
+                               InputFile *File, const WasmSignature *Signature,
+                               bool IsCalledDirectly);
   Symbol *addUndefinedData(StringRef Name, uint32_t Flags, InputFile *File);
   Symbol *addUndefinedGlobal(StringRef Name, StringRef ImportName,
                              StringRef ImportModule,  uint32_t Flags,
@@ -78,8 +79,8 @@ public:
                                     InputGlobal *Global);
   DefinedFunction *addSyntheticFunction(StringRef Name, uint32_t Flags,
                                         InputFunction *Function);
-  DefinedData *addOptionalDataSymbol(StringRef Name, uint32_t Value,
-                                     uint32_t Flags);
+  DefinedData *addOptionalDataSymbol(StringRef Name, uint32_t Value = 0,
+                                     uint32_t Flags = 0);
 
   void handleSymbolVariants();
   void handleWeakUndefines();

@@ -2178,10 +2178,11 @@ public:
 
   OperatingSystem *GetOperatingSystem() { return m_os_up.get(); }
 
+  std::vector<LanguageRuntime *>
+  GetLanguageRuntimes(bool retry_if_null = true);
+
   LanguageRuntime *GetLanguageRuntime(lldb::LanguageType language,
                                       bool retry_if_null = true);
-
-  CPPLanguageRuntime *GetCPPLanguageRuntime(bool retry_if_null = true);
 
   ObjCLanguageRuntime *GetObjCLanguageRuntime(bool retry_if_null = true);
 

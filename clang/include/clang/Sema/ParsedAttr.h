@@ -439,7 +439,7 @@ public:
   }
 
   bool isUsedAsTypeAttr() const { return UsedAsTypeAttr; }
-  void setUsedAsTypeAttr() { UsedAsTypeAttr = true; }
+  void setUsedAsTypeAttr(bool Used = true) { UsedAsTypeAttr = Used; }
 
   /// True if the attribute is specified using '#pragma clang attribute'.
   bool isPragmaClangAttribute() const { return IsPragmaClangAttribute; }

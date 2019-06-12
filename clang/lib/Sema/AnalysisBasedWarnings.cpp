@@ -623,7 +623,7 @@ struct CheckFallThroughDiagnostics {
 /// of a noreturn function.  We assume that functions and blocks not marked
 /// noreturn will return.
 static void CheckFallThroughForBody(Sema &S, const Decl *D, const Stmt *Body,
-                                    const BlockExpr *blkExpr,
+                                    QualType BlockType,
                                     const CheckFallThroughDiagnostics &CD,
                                     AnalysisDeclContext &AC,
                                     sema::FunctionScopeInfo *FSI) {
@@ -644,9 +644,8 @@ static void CheckFallThroughForBody(Sema &S, const Decl *D, const Stmt *Body,
     HasNoReturn = MD->hasAttr<NoReturnAttr>();
   }
   else if (isa<BlockDecl>(D)) {
-    QualType BlockTy = blkExpr->getType();
     if (const FunctionType *FT =
-          BlockTy->getPointeeType()->getAs<FunctionType>()) {
+          BlockType->getPointeeType()->getAs<FunctionType>()) {
       if (FT->getReturnType()->isVoidType())
         ReturnsVoid = true;
       if (FT->getNoReturnAttr())
@@ -2023,7 +2022,7 @@ static void flushDiagnostics(Sema &S, const sema::FunctionScopeInfo *fscope) {
 void clang::sema::
 AnalysisBasedWarnings::IssueWarnings(sema::AnalysisBasedWarnings::Policy P,
                                      sema::FunctionScopeInfo *fscope,
-                                     const Decl *D, const BlockExpr *blkExpr) {
+                                     const Decl *D, QualType BlockType) {
 
   // We avoid doing analysis-based warnings when there are errors for
   // two reasons:
@@ -2156,7 +2155,7 @@ AnalysisBasedWarnings::IssueWarnings(sema::AnalysisBasedWarnings::Policy P,
                    : (fscope->isCoroutine()
                           ? CheckFallThroughDiagnostics::MakeForCoroutine(D)
                           : CheckFallThroughDiagnostics::MakeForFunction(D)));
-    CheckFallThroughForBody(S, D, Body, blkExpr, CD, AC, fscope);
+    CheckFallThroughForBody(S, D, Body, BlockType, CD, AC, fscope);
   }
 
   // Warning: check for unreachable code

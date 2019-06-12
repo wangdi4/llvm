@@ -37,26 +37,12 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/csa/bits/mathinline.h
   )
 # end INTEL_FEATURE_CSA
-# INTEL_FEATURE_ISA_BF16
-intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_BF16
-  intel_avx512bf16intrin.h
-  intel_avx512vlbf16intrin.h
-  )
-# end INTEL_FEATURE_ISA_BF16
 # INTEL_FEATURE_ISA_ENQCMD
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_ENQCMD
   Intel_Headers/enqcmdintrin.h
   )
 # end INTEL_FEATURE_ISA_ENQCMD
-# INTEL_FEATURE_ISA_VP2INTERSECT
-intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_VP2INTERSECT
-  Intel_Headers/avx512vp2intersectintrin.h
-  Intel_Headers/avx512vlvp2intersectintrin.h
-  )
-# end INTEL_FEATURE_ISA_VP2INTERSECT
 # INTEL_FEATURE_ISA_ULI
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_ULI
@@ -133,6 +119,8 @@ set(files
   avx512vlcdintrin.h
   avx512vldqintrin.h
   avx512vlintrin.h
+  avx512vp2intersectintrin.h
+  avx512vlvp2intersectintrin.h
   avx512vpopcntdqvlintrin.h
   avx512vnniintrin.h
   avx512vlvnniintrin.h
@@ -239,6 +227,8 @@ set(cuda_wrapper_files
 
 set(ppc_wrapper_files
   ppc_wrappers/mmintrin.h
+  ppc_wrappers/xmmintrin.h
+  ppc_wrappers/mm_malloc.h
 )
 
 set(openmp_wrapper_files

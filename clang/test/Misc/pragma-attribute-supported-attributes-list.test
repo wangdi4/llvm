@@ -95,7 +95,7 @@
 // CHECK-NEXT: NoSplitStack (SubjectMatchRule_function)
 // CHECK-NEXT: NoStackProtector (SubjectMatchRule_function)
 // CHECK-NEXT: NoThreadSafetyAnalysis (SubjectMatchRule_function)
-// CHECK-NEXT: NoThrow (SubjectMatchRule_function)
+// CHECK-NEXT: NoThrow (SubjectMatchRule_hasType_functionType)
 // CHECK-NEXT: NotTailCalled (SubjectMatchRule_function)
 // if INTEL_CUSTOMIZATION
 // CHECK-NEXT: NumComputeUnits (SubjectMatchRule_function)
@@ -109,6 +109,7 @@
 // CHECK-NEXT: ObjCBridge (SubjectMatchRule_record, SubjectMatchRule_type_alias)
 // CHECK-NEXT: ObjCBridgeMutable (SubjectMatchRule_record)
 // CHECK-NEXT: ObjCBridgeRelated (SubjectMatchRule_record)
+// CHECK-NEXT: ObjCClassStub (SubjectMatchRule_objc_interface)
 // CHECK-NEXT: ObjCDesignatedInitializer (SubjectMatchRule_objc_method)
 // CHECK-NEXT: ObjCException (SubjectMatchRule_objc_interface)
 // CHECK-NEXT: ObjCExplicitProtocolImpl (SubjectMatchRule_objc_protocol)
