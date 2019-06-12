@@ -550,6 +550,10 @@ bool OpenMPLateOutliner::isExplicit(const VarDecl *V) {
   return ExplicitRefs.find(V) != ExplicitRefs.end();
 }
 
+bool OpenMPLateOutliner::hasMapClause(const VarDecl *V) {
+  return MapRefs.find(V) != MapRefs.end();
+}
+
 bool OpenMPLateOutliner::alreadyHandled(llvm::Value *V) {
   return HandledValues.find(V) != HandledValues.end();
 }
@@ -1376,7 +1380,7 @@ void OpenMPLateOutliner::emitOMPMapClause(const OMPMapClause *C) {
         ImplicitMap.insert(std::make_pair(PVD, ICK_shared));
         continue;
       } else {
-        addExplicit(PVD);
+        addExplicit(PVD, /*IsMap=*/true);
       }
     }
     SmallVector<CGOpenMPRuntime::MapInfo, 4> Info;
@@ -2232,8 +2236,8 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   case OMPD_teams_distribute_parallel_for_simd:
     llvm_unreachable("Combined directives not handled here");
   }
-  Outliner.emitCombinedTargetMapClauses();
   Outliner << S.clauses();
+  Outliner.emitCombinedTargetMapClauses();
   Outliner.insertMarker();
   if (S.hasAssociatedStmt() && S.getAssociatedStmt() != nullptr) {
     LateOutlineOpenMPRegionRAII Region(*this, Outliner, S);

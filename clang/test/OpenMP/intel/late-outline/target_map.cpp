@@ -166,6 +166,15 @@ double foo_three(double *x) {
   for (int i = 0; i < 100; ++i)
     x[i+(int)(*sp_foo)]++;
 
+  // Check that no implicit map is added if there is an explicit map.
+  // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(double* [[SFOO]])
+  // CHECK-NOT: "QUAL.OMP.MAP.TOFROM"(double* [[SFOO]])
+  // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
+  #pragma omp target teams distribute parallel for \
+     map(tofrom: s_foo) reduction(+:s_foo)
+  for (int i = 0; i < 100; ++i) {}
+
   return s_foo;
 }
 // end INTEL_COLLAB
