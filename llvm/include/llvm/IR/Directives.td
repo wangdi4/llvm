@@ -250,6 +250,11 @@ def "QUAL.OMP.CANCEL.SECTIONS" : Clause;
 def "QUAL.OMP.CANCEL.TASKGROUP" : Clause;
 def "QUAL.OMP.HINT" : Clause;
 def "QUAL.OMP.NAME" : Clause;
+// INTEL_CUSTOMIZATION
+// Support Intel extension for CSA.
+def "QUAL.OMP.NUM_WORKERS" : Clause;
+def "QUAL.OMP.PIPELINE" : Clause;
+// end INTEL_CUSTOMIZATION
 
 // *** Begin Auxiliary Clauses ***
 // These "clauses" don't correspond to actual OpenMP clauses, but are used
