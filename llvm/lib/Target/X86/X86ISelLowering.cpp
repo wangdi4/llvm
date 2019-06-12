@@ -1665,7 +1665,6 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setOperationAction(ISD::FMA,                VT, Legal);
       setOperationAction(ISD::VSELECT,            VT, Legal);
       setOperationAction(ISD::BUILD_VECTOR,       VT, Custom);
-      setOperationAction(ISD::CONCAT_VECTORS,     VT, Custom);
 
       setOperationAction(ISD::FNEG,               VT, Custom);
       setOperationAction(ISD::FABS,               VT, Custom);
@@ -1694,6 +1693,10 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setOperationPromotedToType(ISD::VECTOR_SHUFFLE, MVT::v32f16, MVT::v32i16);
       setOperationAction(ISD::INSERT_VECTOR_ELT,      MVT::v32f16, Custom);
       setOperationAction(ISD::FP_ROUND,               MVT::v16f32, Legal);
+
+      setOperationAction(ISD::EXTRACT_SUBVECTOR,      MVT::v16f16, Legal);
+      setOperationAction(ISD::INSERT_SUBVECTOR,       MVT::v32f16, Legal);
+      setOperationAction(ISD::CONCAT_VECTORS,         MVT::v32f16, Custom);
 
       setLoadExtAction(ISD::EXTLOAD, MVT::v8f64,  MVT::v8f16,  Legal);
       setLoadExtAction(ISD::EXTLOAD, MVT::v16f32, MVT::v16f16, Legal);
@@ -1724,6 +1727,10 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
 
       setOperationAction(ISD::FP_TO_SINT,           MVT::v4f16, Custom);
       setOperationAction(ISD::FP_ROUND,             MVT::v8f32, Legal);
+
+      setOperationAction(ISD::EXTRACT_SUBVECTOR,    MVT::v8f16, Legal);
+      setOperationAction(ISD::INSERT_SUBVECTOR,     MVT::v16f16, Legal);
+      setOperationAction(ISD::CONCAT_VECTORS,       MVT::v16f16, Custom);
 
       setLoadExtAction(ISD::EXTLOAD, MVT::v4f64, MVT::v4f16, Legal);
       setLoadExtAction(ISD::EXTLOAD, MVT::v2f64, MVT::v2f16, Legal);
