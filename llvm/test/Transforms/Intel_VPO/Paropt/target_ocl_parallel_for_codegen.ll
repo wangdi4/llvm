@@ -42,7 +42,7 @@ entry:
   br label %DIR.OMP.TARGET.1
 
 DIR.OMP.TARGET.1:                                 ; preds = %entry
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.MAP.TO"([100 x [100 x i32]]* @A), "QUAL.OMP.MAP.TO"([100 x [100 x i32]]* @B), "QUAL.OMP.MAP.TOFROM"([100 x [100 x i32]]* @C), "QUAL.OMP.PRIVATE"(i32* %.omp.lb), "QUAL.OMP.PRIVATE"(i32* %.omp.stride), "QUAL.OMP.PRIVATE"(i32* %.omp.is_last), "QUAL.OMP.PRIVATE"(i32* %j), "QUAL.OMP.PRIVATE"(i32* %k), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.MAP.TO"([100 x [100 x i32]]* @A), "QUAL.OMP.MAP.TO"([100 x [100 x i32]]* @B), "QUAL.OMP.MAP.TOFROM"([100 x [100 x i32]]* @C), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %.omp.lb), "QUAL.OMP.PRIVATE"(i32* %.omp.stride), "QUAL.OMP.PRIVATE"(i32* %.omp.is_last), "QUAL.OMP.PRIVATE"(i32* %j), "QUAL.OMP.PRIVATE"(i32* %k), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
   store i32 0, i32* %.omp.lb, align 4
   store volatile i32 99, i32* %.omp.ub, align 4
   store i32 1, i32* %.omp.stride, align 4
