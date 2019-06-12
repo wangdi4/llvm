@@ -273,7 +273,6 @@ class VPInduction
     : public VPLoopEntity,
       public InductionDescriptorTempl<VPValue, VPInstruction, VPValue *> {
   friend class VPLoopEntityList;
-  void setNeedCloseForm(bool Val) { NeedCloseForm = Val; }
 
 public:
   VPInduction(VPValue *Start, InductionKind K, VPValue *Step,
@@ -311,6 +310,8 @@ public:
   /// }
   ///
   bool needCloseForm() const { return NeedCloseForm; }
+
+  void setNeedCloseForm(bool Val) { NeedCloseForm = Val; }
 
   /// Returns binary opcode of the induction operator. Hides parent's method.
   unsigned int getInductionOpcode() const;
@@ -918,14 +919,27 @@ public:
   /// Check if current induction descriptor duplicates another that is already
   /// imported.
   bool isDuplicate(const VPlan *Plan, const VPLoop *Loop) const override;
+  /// Check if induction needs close form representation in vector code.
+  // NOTE: This analysis is done for both auto-recognized and explicit
+  // inductions.
+  bool inductionNeedsCloseForm(const VPLoop *Loop) const;
 
 private:
+  /// Check if the VPlan instruction \p IncrementVPI which increments the
+  /// induction variable has any non-whitelist users within \p Loop. Whitelist
+  /// can be found in the function's implementation.
+  bool hasUserOfIndIncrement(VPInstruction *IncrementVPI,
+                             SmallPtrSetImpl<VPInstruction *> &AnalyzedVPIs,
+                             const VPLoop *Loop) const;
+
   VPInstruction *StartPhi = nullptr;
   InductionKind K = InductionKind::IK_NoInduction;
   VPValue *Start = nullptr;
   VPValue *Step = nullptr;
   VPInstruction *InductionBinOp =nullptr;
+  SmallVector<VPInstruction *, 4> UpdateVPInsts; // TODO: unpopulated
   unsigned BinOpcode = Instruction::BinaryOpsEnd;
+  bool IsExplicitInduction = false; // TODO: unpopulated
 };
 
 /// Intermediate private descriptor. Same as ReductionDescr above but for

@@ -885,6 +885,9 @@ public:
     return LLVMInst->getType();
   }
 
+  // Return true if this VPInstruction represents a cast operation.
+  bool isCast() const { return Instruction::isCast(getOpcode()); }
+
   // Return number of successors that this VPInstruction has. The instruction
   // must be a terminator.
   // TODO: Implement function when/if terminator instructions are added to

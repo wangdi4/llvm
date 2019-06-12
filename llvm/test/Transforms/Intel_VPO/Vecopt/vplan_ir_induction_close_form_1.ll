@@ -1,0 +1,116 @@
+; Test to check correctness of closed-form analysis for auto-recognized inductions in LLVM-IR VPlan vectorizer.
+
+; C++ source:
+; int foo(int* ptr, int step, int n) {
+;     int s = 0; char c = step;
+; #pragma omp simd reduction(+:s)
+;     for (int i = 0; i < n; i++) {
+;         ptr++;
+;         c++;
+;         s += *ptr * c;
+;     }
+;     return s;
+; }
+
+; Here both "ptr" and "c" are recognized by VPOLegality as induction variables. Since they are both used after their corresponding
+; increment instruction, closed-form is needed for their representation in VPlan.
+
+; RUN: opt -VPlanDriver -vplan-entities-dump -vplan-use-entity-instr -disable-vplan-codegen -debug-only=VPlanPredicator -disable-output < %s 2>&1 | FileCheck %s
+; REQUIRES: asserts
+
+; Check entities
+; CHECK-LABEL: Loop Entities of the loop with header
+; CHECK: Induction list
+; CHECK-NEXT: IntInduction(+) Start: i32 0 Step: i32 1 BinOp: i32 [[LOOP_IV_BINOP:%vp.*]] = add i32 [[LOOP_IV_PHI:%vp.*]] i32 [[LOOP_IV_INIT_STEP:%vp.*]]
+; CHECK-NEXT: PtrInduction(+) Start: i32* %ptr Step: i64 1 BinOp: i32* [[IV1_BINOP:%vp.*]] = getelementptr inbounds i32* [[IV1_PHI:%vp.*]] i64 1 need close form
+; CHECK-NEXT: IntInduction(+) Start: i8 %conv Step: i8 1 BinOp: i8 [[IV2_BINOP:%vp.*]] = add i8 [[IV2_PHI:%vp.*]] i8 1 need close form
+
+; Check entity VPInstructions
+; CHECK-LABEL: REGION
+; Check induction initialization instructions
+; CHECK: i32 [[LOOP_IV_INIT:%vp.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT: i32 [[LOOP_IV_INIT_STEP]] = induction-init-step{add} i32 1
+; CHECK-NEXT: i32* [[IV1_INIT:%vp.*]] = induction-init{getelementptr} i32* %ptr i64 1
+; CHECK-NEXT: i64 [[IV1_INIT_STEP:%vp.*]] = induction-init-step{getelementptr} i64 1
+; CHECK-NEXT: i8 [[IV2_INIT:%vp.*]] = induction-init{add} i8 %conv i8 1
+; CHECK-NEXT: i8 [[IV2_INIT_STEP:%vp.*]] = induction-init-step{add} i8 1
+
+; Check induction PHIs
+; CHECK: i32 [[LOOP_IV_PHI]] = phi  [ i32 [[LOOP_IV_BINOP]], [[LATCH:BB.*]] ],  [ i32 [[LOOP_IV_INIT]], [[PH:BB.*]] ]
+; CHECK-NEXT: i32* [[IV1_PHI]] = phi  [ i32* [[IV1_CLOSE_FORM:%vp.*]], [[LATCH]] ],  [ i32* [[IV1_INIT]], [[PH]] ]
+; CHECK-NEXT: i8 [[IV2_PHI]] = phi  [ i8 [[IV2_CLOSE_FORM:%vp.*]], [[LATCH]] ],  [ i8 [[IV2_INIT]], [[PH]] ]
+
+; Check induction binops
+; CHECK: i32* [[IV1_BINOP]] = getelementptr inbounds i32* [[IV1_PHI]] i64 1
+; CHECK: i8 [[IV2_BINOP]] = add i8 [[IV2_PHI]] i8 1
+; CHECK: i32 [[LOOP_IV_BINOP]] = add i32 [[LOOP_IV_PHI]] i32 [[LOOP_IV_INIT_STEP]]
+
+; Check induction close-form instructions
+; CHECK: i32* [[IV1_CLOSE_FORM]] = getelementptr inbounds i32* [[IV1_PHI]] i64 [[IV1_INIT_STEP]]
+; CHECK: i8 [[IV2_CLOSE_FORM]] = add i8 [[IV2_PHI]] i8 [[IV2_INIT_STEP]]
+
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+; Function Attrs: nounwind uwtable
+define dso_local i32 @_Z3fooPiii(i32* nocapture readonly %ptr, i32 %step, i32 %n) local_unnamed_addr {
+entry:
+  %cmp = icmp sgt i32 %n, 0
+  br i1 %cmp, label %DIR.OMP.SIMD.1, label %omp.precond.end
+
+DIR.OMP.SIMD.1:                                   ; preds = %entry
+  %conv = trunc i32 %step to i8
+  %s.red = alloca i32, align 4
+  br label %DIR.OMP.SIMD.126
+
+DIR.OMP.SIMD.126:                                 ; preds = %DIR.OMP.SIMD.1
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(i32* %s.red), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  br label %DIR.OMP.SIMD.2
+
+DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.126
+  store i32 0, i32* %s.red, align 4
+  br label %omp.inner.for.body
+
+omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.2
+  %add824 = phi i32 [ %add8, %omp.inner.for.body ], [ 0, %DIR.OMP.SIMD.2 ]
+  %.omp.iv.0 = phi i32 [ %add9, %omp.inner.for.body ], [ 0, %DIR.OMP.SIMD.2 ]
+  %ptr.addr.019 = phi i32* [ %incdec.ptr, %omp.inner.for.body ], [ %ptr, %DIR.OMP.SIMD.2 ]
+  %c.018 = phi i8 [ %inc, %omp.inner.for.body ], [ %conv, %DIR.OMP.SIMD.2 ]
+  %incdec.ptr = getelementptr inbounds i32, i32* %ptr.addr.019, i64 1
+  %inc = add i8 %c.018, 1
+  %1 = load i32, i32* %incdec.ptr, align 4, !tbaa !2
+  %conv6 = sext i8 %inc to i32
+  %mul7 = mul nsw i32 %1, %conv6
+  %add8 = add nsw i32 %mul7, %add824
+  %add9 = add nuw nsw i32 %.omp.iv.0, 1
+  %exitcond = icmp eq i32 %add9, %n
+  br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body
+
+omp.loop.exit:                                    ; preds = %omp.inner.for.body
+  %add8.lcssa = phi i32 [ %add8, %omp.inner.for.body ]
+  store i32 %add8.lcssa, i32* %s.red, align 4, !tbaa !2
+  br label %DIR.OMP.END.SIMD.3
+
+DIR.OMP.END.SIMD.3:                               ; preds = %omp.loop.exit
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
+  br label %omp.precond.end
+
+omp.precond.end:                                  ; preds = %DIR.OMP.END.SIMD.3, %entry
+  %s.1 = phi i32 [ %add8.lcssa, %DIR.OMP.END.SIMD.3 ], [ 0, %entry ]
+  ret i32 %s.1
+}
+
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry() #1
+
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token) #1
+
+attributes #1 = { nounwind }
+
+
+!2 = !{!3, !3, i64 0}
+!3 = !{!"int", !4, i64 0}
+!4 = !{!"omnipotent char", !5, i64 0}
+!5 = !{!"Simple C++ TBAA"}
+

@@ -710,8 +710,9 @@ void VPLoopEntityList::createInductionCloseForm(
       NewInd = Builder.createInBoundsGEP(IndPhi, &InitStep, nullptr);
     else
       NewInd = Builder.createNaryOp(Opc, Ty, {IndPhi, &InitStep});
-    VPBasicBlock *InitParent =
-        cast<VPBasicBlock>(IndPhi->getParent()->getSinglePredecessor());
+    // Step will be initialized in loop preheader always.
+    // TODO: Can there be cases where init-step is not in loop PH?
+    VPBasicBlock *InitParent = cast<VPBasicBlock>(Loop.getLoopPreheader());
     IndPhi->addIncoming(&InitStep, InitParent);
     IndPhi->addIncoming(NewInd, Block);
   }
@@ -1064,13 +1065,112 @@ bool InductionDescr::isDuplicate(const VPlan *Plan, const VPLoop *Loop) const {
   return false;
 }
 
+// If the induction's increment instruction has users which are not one of the
+// following, then it has an invalid extra user which would need close-form
+// code.
+// 1. StartPhi
+// 2. Store to the alloca of induction variable
+// 3. Loop latch condbit (Bottom-test)
+// 4. VPExternalUse
+bool InductionDescr::hasUserOfIndIncrement(
+    VPInstruction *IncrementVPI, SmallPtrSetImpl<VPInstruction *> &AnalyzedVPIs,
+    const VPLoop *Loop) const {
+  for (auto *User : IncrementVPI->users()) {
+    if (!isa<VPInstruction>(User)) {
+      assert(isa<VPExternalUse>(User) &&
+             "Non-VPI user of increment instruction is not an external user.");
+      continue;
+    }
+
+    VPInstruction *UserVPI = cast<VPInstruction>(User);
+
+    // Ignore this user if it is -
+    // 1. Non-loop user of increment instruction.
+    // 2. Already processed in recursion chain.
+    // 3. One of the whitelist instruction listed above.
+    if (!Loop->contains(cast<VPBlockBase>(UserVPI->getParent())) ||
+        AnalyzedVPIs.count(UserVPI) ||
+        UserVPI == StartPhi ||
+        (UserVPI->getOpcode() == Instruction::Store &&
+         UserVPI->getOperand(1) == AllocaInst) ||
+        (isa<VPCmpInst>(UserVPI) &&
+         Loop->getLoopLatch()->getCondBit() == UserVPI))
+      continue;
+
+    if (isa<VPPHINode>(UserVPI))
+      // Conservatively mark all non-Start PHI users as invalid users.
+      // TODO: We need a more comprehensive analysis to find out if a non-Start
+      // PHI user of an induction's increment represents an induction. Some
+      // preliminary version could be to inspect the incoming values being
+      // blended by the PHI node.
+      return true;
+
+    // Invalid user.
+    return true;
+  }
+
+  // All whitelist checks passed.
+  return false;
+}
+
+bool InductionDescr::inductionNeedsCloseForm(const VPLoop *Loop) const {
+  if (UpdateVPInsts.size() > 1)
+    // More than one updating instructions for linear, there will be a PHI to
+    // blend them. There might be uses between the updates.
+    return true;
+
+  VPInstruction *IndIncrementVPI = InductionBinOp ? InductionBinOp : nullptr;
+
+  if (!IndIncrementVPI) {
+    // TODO: Currently we don't have analyses for memory inductions in
+    // VPLoopEntities to determine final updating instruction. Temporarily using
+    // close-form representation for them to be conservative. This will change
+    // once additional analyses are added to converters and VPLoopEntities.
+    return true;
+    // In-memory induction scenario.
+    assert(IsExplicitInduction && "in-memory induction is auto-recognized?");
+    // The single update to descriptor should be a store to the original
+    // descriptor.
+    assert(UpdateVPInsts[0]->getOpcode() == Instruction::Store &&
+           "Single update to in-memory induction is not store.");
+    assert(AllocaInst && UpdateVPInsts[0]->getOperand(1) == AllocaInst &&
+           "In-memory induction store not writing into alloca.");
+    IndIncrementVPI = cast<VPInstruction>(UpdateVPInsts[0]->getOperand(0));
+  }
+
+  // Analyse all users of induction's increment instruction.
+  // NOTE: If increment is a conversion operation, we recurse the analysis on
+  // source instruction.
+  SmallPtrSet<VPInstruction *, 8> AnalyzedIncrementVPIs;
+  while (true) {
+    if (hasUserOfIndIncrement(IndIncrementVPI, AnalyzedIncrementVPIs, Loop))
+      // The increment instruction has a valid user, so close-form is needed.
+      return true;
+
+    if (!IndIncrementVPI->isCast())
+      // We've reached and processed an actual incrementing instruction, stop
+      // analysis.
+      break;
+
+    // Cast increment instruction, recurse on source.
+    AnalyzedIncrementVPIs.insert(IndIncrementVPI);
+    IndIncrementVPI = cast<VPInstruction>(IndIncrementVPI->getOperand(0));
+  }
+
+  // All checks failed.
+  return false;
+}
+
 void InductionDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
   if (!Importing)
     return;
 
-  Plan->getOrCreateLoopEntities(Loop)->addInduction(StartPhi, Start, K, Step,
-                                                    InductionBinOp, BinOpcode,
-                                                    AllocaInst, ValidMemOnly);
+  VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
+  VPInduction *VPInd =
+      LE->addInduction(StartPhi, Start, K, Step, InductionBinOp, BinOpcode,
+                       AllocaInst, ValidMemOnly);
+  if (inductionNeedsCloseForm(Loop))
+    VPInd->setNeedCloseForm(true);
 }
 
 void InductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
