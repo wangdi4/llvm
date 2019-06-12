@@ -82,6 +82,7 @@ enum class PrimitiveKind {
   Char,
   Schar,
   Uchar,
+  Char8,
   Char16,
   Char32,
   Short,
@@ -343,7 +344,7 @@ struct FunctionSignatureNode : public TypeNode {
   // Function parameters
   NodeArrayNode *Params = nullptr;
 
-  // True if the function type is noexcept
+  // True if the function type is noexcept.
   bool IsNoexcept = false;
 };
 
@@ -408,6 +409,7 @@ struct LocalStaticGuardIdentifierNode : public IdentifierNode {
 
   void output(OutputStream &OS, OutputFlags Flags) const override;
 
+  bool IsThread = false;
   uint32_t ScopeIndex = 0;
 };
 

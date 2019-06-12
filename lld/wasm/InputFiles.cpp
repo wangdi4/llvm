@@ -272,7 +272,14 @@ void ObjFile::parse(bool IgnoreComdats) {
   }
 
   uint32_t SectionIndex = 0;
-  SymbolIsCalledDirectly.resize(WasmObj->getNumberOfSymbols(), false);
+
+  // Bool for each symbol, true if called directly.  This allows us to implement
+  // a weaker form of signature checking where undefined functions that are not
+  // called directly (i.e. only address taken) don't have to match the defined
+  // function's signature.  We cannot do this for directly called functions
+  // because those signatures are checked at validation times.
+  // See https://bugs.llvm.org/show_bug.cgi?id=40412
+  std::vector<bool> IsCalledDirectly(WasmObj->getNumberOfSymbols(), false);
   for (const SectionRef &Sec : WasmObj->sections()) {
     const WasmSection &Section = WasmObj->getWasmSection(Sec);
     // Wasm objects can have at most one code and one data section.
@@ -292,18 +299,17 @@ void ObjFile::parse(bool IgnoreComdats) {
     // directly
     for (const WasmRelocation &Reloc : Section.Relocations)
       if (Reloc.Type == R_WASM_FUNCTION_INDEX_LEB)
-        SymbolIsCalledDirectly[Reloc.Index] = true;
+        IsCalledDirectly[Reloc.Index] = true;
   }
 
   TypeMap.resize(getWasmObj()->types().size());
   TypeIsUsed.resize(getWasmObj()->types().size(), false);
 
   ArrayRef<StringRef> Comdats = WasmObj->linkingData().Comdats;
-  for (unsigned I = 0; I < Comdats.size(); ++I)
-    if (IgnoreComdats)
-      KeptComdats.push_back(true);
-    else
-      KeptComdats.push_back(Symtab->addComdat(Comdats[I]));
+  for (unsigned I = 0; I < Comdats.size(); ++I) {
+    bool IsNew = IgnoreComdats || Symtab->addComdat(Comdats[I]);
+    KeptComdats.push_back(IsNew);
+  }
 
   // Populate `Segments`.
   for (const WasmSegment &S : WasmObj->dataSegments())
@@ -342,7 +348,7 @@ void ObjFile::parse(bool IgnoreComdats) {
       }
     }
     size_t Idx = Symbols.size();
-    Symbols.push_back(createUndefined(WasmSym, SymbolIsCalledDirectly[Idx]));
+    Symbols.push_back(createUndefined(WasmSym, IsCalledDirectly[Idx]));
   }
 }
 
@@ -448,7 +454,7 @@ Symbol *ObjFile::createUndefined(const WasmSymbol &Sym, bool IsCalledDirectly) {
   llvm_unreachable("unknown symbol kind");
 }
 
-void ArchiveFile::parse(bool IgnoreComdats) {
+void ArchiveFile::parse() {
   // Parse a MemoryBufferRef as an archive file.
   LLVM_DEBUG(dbgs() << "Parsing library: " << toString(this) << "\n");
   File = CHECK(Archive::create(MB), toString(this));
@@ -518,7 +524,7 @@ static Symbol *createBitcodeSymbol(const std::vector<bool> &KeptComdats,
   return Symtab->addDefinedData(Name, Flags, &F, nullptr, 0, 0);
 }
 
-void BitcodeFile::parse(bool IgnoreComdats) {
+void BitcodeFile::parse() {
   Obj = check(lto::InputFile::create(MemoryBufferRef(
       MB.getBuffer(), Saver.save(ArchiveName + MB.getBufferIdentifier()))));
   Triple T(Obj->getTargetTriple());
@@ -528,10 +534,7 @@ void BitcodeFile::parse(bool IgnoreComdats) {
   }
   std::vector<bool> KeptComdats;
   for (StringRef S : Obj->getComdatTable())
-    if (IgnoreComdats)
-      KeptComdats.push_back(true);
-    else
-      KeptComdats.push_back(Symtab->addComdat(S));
+    KeptComdats.push_back(Symtab->addComdat(S));
 
   for (const lto::InputFile::Symbol &ObjSym : Obj->symbols())
     Symbols.push_back(createBitcodeSymbol(KeptComdats, ObjSym, *this));

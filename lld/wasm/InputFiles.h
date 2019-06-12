@@ -51,9 +51,6 @@ public:
   // Returns the filename.
   StringRef getName() const { return MB.getBufferIdentifier(); }
 
-  // Reads a file (the constructor doesn't do that).
-  virtual void parse(bool IgnoreComdats = false) = 0;
-
   Kind kind() const { return FileKind; }
 
   // An archive file name if this file is created from an archive.
@@ -69,13 +66,6 @@ protected:
 
   // List of all symbols referenced or defined by this file.
   std::vector<Symbol *> Symbols;
-  // Bool for each symbol, true if called directly.  This allows us to implement
-  // a weaker form of signature checking where undefined functions that are not
-  // called directly (i.e. only address taken) don't have to match the defined
-  // function's signature.  We cannot do this for directly called functions
-  // because those signatures are checked at validation times.
-  // See https://bugs.llvm.org/show_bug.cgi?id=40412
-  std::vector<bool> SymbolIsCalledDirectly;
 
 private:
   const Kind FileKind;
@@ -89,7 +79,7 @@ public:
 
   void addMember(const llvm::object::Archive::Symbol *Sym);
 
-  void parse(bool IgnoreComdats) override;
+  void parse();
 
 private:
   std::unique_ptr<llvm::object::Archive> File;
@@ -105,7 +95,7 @@ public:
   }
   static bool classof(const InputFile *F) { return F->kind() == ObjectKind; }
 
-  void parse(bool IgnoreComdats) override;
+  void parse(bool IgnoreComdats = false);
 
   // Returns the underlying wasm file.
   const WasmObjectFile *getWasmObj() const { return WasmObj.get(); }
@@ -157,8 +147,6 @@ class SharedFile : public InputFile {
 public:
   explicit SharedFile(MemoryBufferRef M) : InputFile(SharedKind, M) {}
   static bool classof(const InputFile *F) { return F->kind() == SharedKind; }
-
-  void parse(bool IgnoreComdats) override {}
 };
 
 // .bc file
@@ -170,7 +158,7 @@ public:
   }
   static bool classof(const InputFile *F) { return F->kind() == BitcodeKind; }
 
-  void parse(bool IgnoreComdats) override;
+  void parse();
   std::unique_ptr<llvm::lto::InputFile> Obj;
 };
 
