@@ -28,12 +28,8 @@ let Namespace = "X86" in {
   def sub_32bit    : SubRegIndex<32>;
   def sub_xmm      : SubRegIndex<128>;
   def sub_ymm      : SubRegIndex<256>;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_VP2INTERSECT
   def sub_mask_0   : SubRegIndex<-1>;
   def sub_mask_1   : SubRegIndex<-1, -1>;
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
-#endif // INTEL_CUSTOMIZATION
 }
 
 //===----------------------------------------------------------------------===//
@@ -658,8 +654,6 @@ def VK8     : RegisterClass<"X86", [v8i1],  16,  (add VK4)> {let Size = 16;}
 def VK16    : RegisterClass<"X86", [v16i1], 16, (add VK8)> {let Size = 16;}
 def VK32    : RegisterClass<"X86", [v32i1], 32, (add VK16)> {let Size = 32;}
 def VK64    : RegisterClass<"X86", [v64i1], 64, (add VK32)> {let Size = 64;}
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_VP2INTERSECT
 
 // Mask register pairs
 def KPAIRS : RegisterTuples<[sub_mask_0, sub_mask_1],
@@ -670,8 +664,6 @@ def VK2PAIR   : RegisterClass<"X86", [untyped], 16, (add KPAIRS)> {let Size = 32
 def VK4PAIR   : RegisterClass<"X86", [untyped], 16, (add KPAIRS)> {let Size = 32;}
 def VK8PAIR   : RegisterClass<"X86", [untyped], 16, (add KPAIRS)> {let Size = 32;}
 def VK16PAIR  : RegisterClass<"X86", [untyped], 16, (add KPAIRS)> {let Size = 32;}
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
-#endif // INTEL_CUSTOMIZATION
 
 def VK1WM   : RegisterClass<"X86", [v1i1],  16,  (sub VK1, K0)> {let Size = 16;}
 def VK2WM   : RegisterClass<"X86", [v2i1],  16,  (sub VK2, K0)> {let Size = 16;}

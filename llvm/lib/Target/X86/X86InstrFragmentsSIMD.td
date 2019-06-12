@@ -513,15 +513,11 @@ def X86FmsubRnd     : SDNode<"X86ISD::FMSUB_RND",     SDTFmaRound, [SDNPCommutat
 def X86FnmsubRnd    : SDNode<"X86ISD::FNMSUB_RND",    SDTFmaRound, [SDNPCommutative]>;
 def X86FmaddsubRnd  : SDNode<"X86ISD::FMADDSUB_RND",  SDTFmaRound, [SDNPCommutative]>;
 def X86FmsubaddRnd  : SDNode<"X86ISD::FMSUBADD_RND",  SDTFmaRound, [SDNPCommutative]>;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_VP2INTERSECT
 
 def X86vp2intersect : SDNode<"X86ISD::VP2INTERSECT",
                               SDTypeProfile<1, 2, [SDTCisVT<0, untyped>,
                                                    SDTCisVec<1>, SDTCisSameAs<1, 2>]>>;
 
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
-#endif // INTEL_CUSTOMIZATION
 def SDTIFma : SDTypeProfile<1, 3, [SDTCisInt<0>, SDTCisSameAs<0,1>,
                            SDTCisSameAs<1,2>, SDTCisSameAs<1,3>]>;
 def x86vpmadd52l     : SDNode<"X86ISD::VPMADD52L",     SDTIFma, [SDNPCommutative]>;
@@ -821,9 +817,9 @@ def loadv32i16   : PatFrag<(ops node:$ptr), (v32i16 (load node:$ptr))>;
 def loadv64i8    : PatFrag<(ops node:$ptr), (v64i8  (load node:$ptr))>;
 
 // 128-/256-/512-bit extload pattern fragments
-def extloadv2f32 : PatFrag<(ops node:$ptr), (v2f64 (extloadvf32 node:$ptr))>;
-def extloadv4f32 : PatFrag<(ops node:$ptr), (v4f64 (extloadvf32 node:$ptr))>;
-def extloadv8f32 : PatFrag<(ops node:$ptr), (v8f64 (extloadvf32 node:$ptr))>;
+def extloadv2f32 : PatFrag<(ops node:$ptr), (extloadvf32 node:$ptr)>;
+def extloadv4f32 : PatFrag<(ops node:$ptr), (extloadvf32 node:$ptr)>;
+def extloadv8f32 : PatFrag<(ops node:$ptr), (extloadvf32 node:$ptr)>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
 def extloadv2f16 : PatFrag<(ops node:$ptr), (extloadvf16 node:$ptr)>;

@@ -681,7 +681,6 @@
     CPU_FEATURE_END
 #endif // INTEL_FEATURE_ISA_FP16
 
-#if INTEL_FEATURE_ISA_VP2INTERSECT
     CPU_FEATURE_BEGIN(c_feature_avx512_vp2intersect)
         CPU_FEATURE_DOC("load/store stride, gather/scatter aggregates.")
         CPU_FEATURE_ADD_FEATURE(c_feature_avx512f)
@@ -690,7 +689,6 @@
         CPU_FEATURE_LIBIRC_NAME("AVX512_VP2INTERSECT")
         CPU_FEATURE_ADD_MACRO_NAME("__AVX512VP2INTERSECT__")
     CPU_FEATURE_END
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
 
 #if INTEL_FEATURE_ISA_AVX_VNNI
     CPU_FEATURE_BEGIN(c_feature_avxvnni)

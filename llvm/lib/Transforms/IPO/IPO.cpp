@@ -51,6 +51,7 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeLowerTypeTestsPass(Registry);
   initializeMergeFunctionsPass(Registry);
   initializePartialInlinerLegacyPassPass(Registry);
+  initializeAttributorLegacyPassPass(Registry);
   initializePostOrderFunctionAttrsLegacyPassPass(Registry);
   initializeReversePostOrderFunctionAttrsLegacyPassPass(Registry);
   initializePruneEHPass(Registry);

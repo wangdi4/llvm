@@ -358,9 +358,6 @@ void X86InstPrinterCommon::printInstFlags(const MCInst *MI, raw_ostream &O) {
     O << "\trep\t";
 }
 
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_VP2INTERSECT
 void X86InstPrinterCommon::printVKPair(const MCInst *MI, unsigned OpNo,
                                        raw_ostream &OS) {
   // In assembly listings, a pair is represented by one of its members, any
@@ -385,5 +382,3 @@ void X86InstPrinterCommon::printVKPair(const MCInst *MI, unsigned OpNo,
   }
   llvm_unreachable("Unknown mask pair register name");
 }
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
-#endif // INTEL_CUSTOMIZATION

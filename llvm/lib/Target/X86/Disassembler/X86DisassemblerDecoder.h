@@ -330,16 +330,12 @@ namespace X86Disassembler {
   ENTRY(K6)        \
   ENTRY(K7)
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_VP2INTERSECT
 #define REGS_MASK_PAIRS \
   ENTRY(K0_K1)     \
   ENTRY(K2_K3)     \
   ENTRY(K4_K5)     \
   ENTRY(K6_K7)
 
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
-#endif // INTEL_CUSTOMIZATION
 #define REGS_SEGMENT \
   ENTRY(ES)          \
   ENTRY(CS)          \
@@ -426,12 +422,6 @@ namespace X86Disassembler {
 #else // INTEL_FEATURE_ISA_AMX
 #define TMM_REGS
 #endif // INTEL_FEATURE_ISA_AMX
-
-#if INTEL_FEATURE_ISA_VP2INTERSECT
-#define VP2_MASK REGS_MASK_PAIRS
-#else // INTEL_FEATURE_ISA_VP2INTERSECT
-#define VP2_MASK
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
@@ -445,7 +435,7 @@ namespace X86Disassembler {
   REGS_YMM            \
   REGS_ZMM            \
   REGS_MASKS          \
-  VP2_MASK            \
+  REGS_MASK_PAIRS     \
   REGS_SEGMENT        \
   REGS_DEBUG          \
   REGS_CONTROL        \

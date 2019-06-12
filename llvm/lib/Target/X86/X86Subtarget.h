@@ -363,15 +363,15 @@ protected:
   /// Processor has AVX-512 bfloat16 floating-point extensions
   bool HasBF16 = false;
 
+  /// Processor supports ENQCMD instructions
+  bool HasENQCMD = false;
+
   /// Processor has AVX-512 Bit Algorithms instructions
   bool HasBITALG = false;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_VP2INTERSECT
+
   /// Processor has AVX-512 vp2intersect instructions
   bool HasVP2INTERSECT = false;
 
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
-#endif // INTEL_CUSTOMIZATION
   /// Processor supports MPX - Memory Protection Extensions
   bool HasMPX = false;
 
@@ -404,11 +404,6 @@ protected:
   bool HasPCONFIG = false;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ENQCMD
-  /// Processor supports ENQCMD instructions
-  bool HasENQCMD = false;
-#endif // INTEL_FEATURE_ISA_ENQCMD
-
 #if INTEL_FEATURE_ISA_KEYLOCKER
   /// Processor support Keylocker instructions
   bool HasKeyLocker = false;
@@ -729,11 +724,7 @@ public:
   bool hasPKU() const { return HasPKU; }
   bool hasVNNI() const { return HasVNNI; }
   bool hasBF16() const { return HasBF16; }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_VP2INTERSECT
   bool hasVP2INTERSECT() const { return HasVP2INTERSECT; }
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
-#endif // INTEL_CUSTOMIZATION
   bool hasBITALG() const { return HasBITALG; }
   bool hasMPX() const { return HasMPX; }
   bool hasSHSTK() const { return HasSHSTK; }
@@ -746,10 +737,8 @@ public:
   bool hasSGX() const { return HasSGX; }
   bool threewayBranchProfitable() const { return ThreewayBranchProfitable; }
   bool hasINVPCID() const { return HasINVPCID; }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ENQCMD
   bool hasENQCMD() const { return HasENQCMD; }
-#endif // INTEL_FEATURE_ISA_ENQCMD
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_KEYLOCKER
   bool hasKeyLocker() const { return HasKeyLocker; }
 #endif // INTEL_FEATURE_ISA_KEYLOCKER

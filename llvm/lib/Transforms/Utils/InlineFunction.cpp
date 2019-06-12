@@ -99,39 +99,21 @@ PreserveAlignmentAssumptions("preserve-alignment-assumptions-during-inlining",
 namespace llvm {
 
 
-InlineResult InlineFunction(CallInst *CI, InlineFunctionInfo &IFI,
+InlineResult InlineFunction(CallBase *CB, InlineFunctionInfo &IFI,
                             InlineReport *IR,
                             InlineReportBuilder *MDIR,
                             InlineReason *Reason,
                             AAResults *CalleeAAR,
                             bool InsertLifetime) {
-  return InlineFunction(CallSite(CI), IFI, IR, MDIR, Reason, CalleeAAR,
+  return InlineFunction(CallSite(CB), IFI, IR, MDIR, Reason, CalleeAAR,
                         InsertLifetime);
 }
 
-InlineResult InlineFunction(InvokeInst *II, InlineFunctionInfo &IFI,
-                            InlineReport *IR,
-                            InlineReportBuilder *MDIR,
-                            InlineReason* Reason,
-                            AAResults *CalleeAAR,
-                            bool InsertLifetime) {
-  return InlineFunction(CallSite(II), IFI, IR, MDIR, Reason, CalleeAAR,
-                        InsertLifetime);
-}
-
-InlineResult InlineFunction(CallInst *CI, InlineFunctionInfo &IFI,
+InlineResult InlineFunction(CallBase *CB, InlineFunctionInfo &IFI,
                             AAResults *CalleeAAR,
                             bool InsertLifetime) {
   InlineReason Reason = NinlrNoReason;
-  return InlineFunction(CallSite(CI), IFI, nullptr, nullptr, &Reason,
-                        CalleeAAR, InsertLifetime);
-}
-
-InlineResult InlineFunction(InvokeInst *II, InlineFunctionInfo &IFI,
-                            AAResults *CalleeAAR,
-                            bool InsertLifetime) {
-  InlineReason Reason = NinlrNoReason;
-  return InlineFunction(CallSite(II), IFI, nullptr, nullptr, &Reason,
+  return InlineFunction(CallSite(CB), IFI, nullptr, nullptr, &Reason,
                         CalleeAAR, InsertLifetime);
 }
 

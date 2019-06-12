@@ -104,6 +104,7 @@ void initializeAndersensAAWrapperPassPass(PassRegistry&); // INTEL
 void initializeArgPromotionPass(PassRegistry&);
 void initializeAssumptionCacheTrackerPass(PassRegistry&);
 void initializeAtomicExpandPass(PassRegistry&);
+void initializeAttributorLegacyPassPass(PassRegistry&);
 void initializeBDCELegacyPassPass(PassRegistry&);
 void initializeBarrierNoopPass(PassRegistry&);
 void initializeBasicAAWrapperPassPass(PassRegistry&);

@@ -640,7 +640,10 @@ void TypePrinting::print(Type *Ty, raw_ostream &OS) {
   }
   case Type::VectorTyID: {
     VectorType *PTy = cast<VectorType>(Ty);
-    OS << "<" << PTy->getNumElements() << " x ";
+    OS << "<";
+    if (PTy->isScalable())
+      OS << "vscale x ";
+    OS << PTy->getNumElements() << " x ";
     print(PTy->getElementType(), OS);
     OS << '>';
     return;
@@ -3287,6 +3290,12 @@ void AssemblyWriter::printGlobal(const GlobalVariable *GV) {
     printEscapedString(GV->getSection(), Out);
     Out << '"';
   }
+  if (GV->hasPartition()) {
+    Out << ", partition \"";
+    printEscapedString(GV->getPartition(), Out);
+    Out << '"';
+  }
+
   maybePrintComdat(Out, *GV);
   if (GV->getAlignment())
     Out << ", align " << GV->getAlignment();
@@ -3336,6 +3345,12 @@ void AssemblyWriter::printIndirectSymbol(const GlobalIndirectSymbol *GIS) {
     Out << " <<NULL ALIASEE>>";
   } else {
     writeOperand(IS, !isa<ConstantExpr>(IS));
+  }
+
+  if (GIS->hasPartition()) {
+    Out << ", partition \"";
+    printEscapedString(GIS->getPartition(), Out);
+    Out << '"';
   }
 
   printInfoComment(*GIS);
@@ -3484,6 +3499,11 @@ void AssemblyWriter::printFunction(const Function *F) {
   if (F->hasSection()) {
     Out << " section \"";
     printEscapedString(F->getSection(), Out);
+    Out << '"';
+  }
+  if (F->hasPartition()) {
+    Out << " partition \"";
+    printEscapedString(F->getPartition(), Out);
     Out << '"';
   }
   maybePrintComdat(Out, *F);

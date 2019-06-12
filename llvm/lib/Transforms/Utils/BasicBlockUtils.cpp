@@ -41,6 +41,8 @@
 #if INTEL_COLLAB
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
 #endif // INTEL_COLLAB
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include <cassert>
 #include <cstdint>
@@ -49,6 +51,8 @@
 #include <vector>
 
 using namespace llvm;
+
+#define DEBUG_TYPE "basicblock-utils"
 
 void llvm::DetatchDeadBlocks(
     ArrayRef<BasicBlock *> BBs,
@@ -197,6 +201,9 @@ bool llvm::MergeBlockIntoPredecessor(BasicBlock *BB, DomTreeUpdater *DTU,
     for (Value *IncValue : PN.incoming_values())
       if (IncValue == &PN)
         return false;
+
+  LLVM_DEBUG(dbgs() << "Merging: " << BB->getName() << " into "
+                    << PredBB->getName() << "\n");
 
   // Begin by getting rid of unneeded PHIs.
   SmallVector<AssertingVH<Value>, 4> IncomingValues;

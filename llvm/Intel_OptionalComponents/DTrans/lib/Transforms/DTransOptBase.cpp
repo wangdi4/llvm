@@ -598,6 +598,15 @@ void DTransOptBase::transformIR(Module &M, ValueMapper &Mapper) {
                         TypeRemapper, Materializer);
       updateCallInfoForFunction(&F, /* IsCloned=*/true);
 
+      // CloneFunctionInto() copies all the parameter attributes of the original
+      // function's arguments onto the arguments of the new function. For
+      // attributes that reference data types, we need to update these for
+      // the cloned function when changing the structure type. We do this after
+      // the function body is cloned, because otherwise we would need to change
+      // the attributes for the original function's arguments prior to the
+      // cloning, but we do not want to modify the original function.
+      updateAttributeTypes(CloneFunc);
+
       // Let the derived class perform any additional actions needed on the
       // cloned function. For example, if the transformation is changing
       // data types that will create incompatible parameter attributes, the
@@ -720,6 +729,33 @@ void DTransOptBase::updateCallInfoForFunction(Function *F, bool isCloned) {
       for (size_t i = 0; i < Num; ++i)
         PTI.setType(i, TypeRemapper->remapType(PTI.getType(i)));
     }
+}
+
+// Update the attributes which contain types which have been remapped to new
+// types, such as created when cloning the following function definition:
+//   define void @test01(%struct.type01b* byval(%struct.type01b) %in)
+//
+// CloneFunctionInto() will have propagated the source attributes to produce:
+//  define void @test01.1(%_DT_struct.type01b* byval(%struct.type01b) %in)
+//
+// Update this to have the remapped type for the byval attribute.
+//   define void @test0.1(%_DT_struct.type01b* byval(%_DT_struct.type01b) %in)
+//
+void DTransOptBase::updateAttributeTypes(Function *CloneFunc) {
+  unsigned ArgIdx = 0;
+  LLVMContext &Context = CloneFunc->getContext();
+  for (Argument &I : CloneFunc->args()) {
+    if (I.hasByValAttr()) {
+      llvm::Type *Ty = I.getParamByValType();
+      llvm::Type *RemapTy = TypeRemapper->remapType(Ty);
+      if (Ty != RemapTy) {
+        CloneFunc->removeParamAttr(ArgIdx, Attribute::ByVal);
+        CloneFunc->addParamAttr(ArgIdx,
+                                Attribute::getWithByValType(Context, RemapTy));
+      }
+    }
+    ++ArgIdx;
+  }
 }
 
 // Clear all the data in the Function to CallInfo mapping

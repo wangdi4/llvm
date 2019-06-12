@@ -1482,18 +1482,7 @@ static int readModRM(struct InternalInstruction* insn) {
 #else // INTEL_FEATURE_ISA_AMX
 #define TMM_TYPE(prefix)
 #endif // INTEL_FEATURE_ISA_AMX
-
-#if INTEL_FEATURE_ISA_VP2INTERSECT
-#define VP2_TYPE(prefix)                                  \
-    case TYPE_VK_PAIR:                                    \
-      if (index > 7)                                      \
-        *valid = 0;                                       \
-      return prefix##_K0_K1 + (index / 2);
-#else // INTEL_FEATURE_ISA_VP2INTERSECT
-#define VP2_TYPE(prefix)
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
 #endif // INTEL_CUSTOMIZATION
-
 
 #if INTEL_CUSTOMIZATION
 #define GENERIC_FIXUP_FUNC(name, base, prefix, mask)      \
@@ -1546,7 +1535,10 @@ static int readModRM(struct InternalInstruction* insn) {
       if (index > 7)                                      \
         *valid = 0;                                       \
       return prefix##_K0 + index;                         \
-    VP2_TYPE(prefix)                                      \
+    case TYPE_VK_PAIR:                                    \
+      if (index > 7)                                      \
+        *valid = 0;                                       \
+      return prefix##_K0_K1 + (index / 2);                \
     case TYPE_MM64:                                       \
       return prefix##_MM0 + (index & 0x7);                \
     case TYPE_SEGMENTREG:                                 \

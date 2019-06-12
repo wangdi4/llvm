@@ -451,8 +451,6 @@ struct X86Operand final : public MCParsedAsmOperand {
       X86MCRegisterClasses[X86::GR64RegClassID].contains(getReg()));
   }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_VP2INTERSECT
   bool isVK1Pair() const {
     return Kind == Register &&
       X86MCRegisterClasses[X86::VK1RegClassID].contains(getReg());
@@ -478,8 +476,6 @@ struct X86Operand final : public MCParsedAsmOperand {
       X86MCRegisterClasses[X86::VK16RegClassID].contains(getReg());
   }
 
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
-#endif // INTEL_CUSTOMIZATION
   void addExpr(MCInst &Inst, const MCExpr *Expr) const {
     // Add as immediates when possible.
     if (const MCConstantExpr *CE = dyn_cast<MCConstantExpr>(Expr))
@@ -493,8 +489,24 @@ struct X86Operand final : public MCParsedAsmOperand {
     Inst.addOperand(MCOperand::createReg(getReg()));
   }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_VP2INTERSECT
+  void addGR32orGR64Operands(MCInst &Inst, unsigned N) const {
+    assert(N == 1 && "Invalid number of operands!");
+    unsigned RegNo = getReg();
+    if (X86MCRegisterClasses[X86::GR64RegClassID].contains(RegNo))
+      RegNo = getX86SubSuperRegister(RegNo, 32);
+    Inst.addOperand(MCOperand::createReg(RegNo));
+  }
+
+  void addAVX512RCOperands(MCInst &Inst, unsigned N) const {
+    assert(N == 1 && "Invalid number of operands!");
+    addExpr(Inst, getImm());
+  }
+
+  void addImmOperands(MCInst &Inst, unsigned N) const {
+    assert(N == 1 && "Invalid number of operands!");
+    addExpr(Inst, getImm());
+  }
+
   void addMaskPairOperands(MCInst &Inst, unsigned N) const {
     assert(N == 1 && "Invalid number of operands!");
     unsigned Reg = getReg();
@@ -517,26 +529,6 @@ struct X86Operand final : public MCParsedAsmOperand {
       break;
     }
     Inst.addOperand(MCOperand::createReg(Reg));
-  }
-
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
-#endif // INTEL_CUSTOMIZATION
-  void addGR32orGR64Operands(MCInst &Inst, unsigned N) const {
-    assert(N == 1 && "Invalid number of operands!");
-    unsigned RegNo = getReg();
-    if (X86MCRegisterClasses[X86::GR64RegClassID].contains(RegNo))
-      RegNo = getX86SubSuperRegister(RegNo, 32);
-    Inst.addOperand(MCOperand::createReg(RegNo));
-  }
-
-  void addAVX512RCOperands(MCInst &Inst, unsigned N) const {
-    assert(N == 1 && "Invalid number of operands!");
-    addExpr(Inst, getImm());
-  }
-
-  void addImmOperands(MCInst &Inst, unsigned N) const {
-    assert(N == 1 && "Invalid number of operands!");
-    addExpr(Inst, getImm());
   }
 
   void addMemOperands(MCInst &Inst, unsigned N) const {

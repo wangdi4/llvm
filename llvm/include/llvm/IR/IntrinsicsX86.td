@@ -4697,8 +4697,6 @@ let TargetPrefix = "x86" in {
                     [IntrNoMem, ImmArg<3>]>;
 }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_VP2INTERSECT
 // vp2intersect
 let TargetPrefix = "x86" in {
   def int_x86_avx512_vp2intersect_q_512 :
@@ -4726,8 +4724,6 @@ let TargetPrefix = "x86" in {
                     [llvm_v4i32_ty, llvm_v4i32_ty],
                     [IntrNoMem]>;
 }
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
-#endif // INTEL_CUSTOMIZATION
 
 // Misc.
 let TargetPrefix = "x86" in {
@@ -4905,6 +4901,16 @@ let TargetPrefix = "x86" in {
               [llvm_v16f32_ty, llvm_v16i32_ty, llvm_v16i32_ty], [IntrNoMem]>;
 }
 
+//===----------------------------------------------------------------------===//
+// ENQCMD - Enqueue Stores Instructions
+
+let TargetPrefix = "x86" in {
+  def int_x86_enqcmd : GCCBuiltin<"__builtin_ia32_enqcmd">,
+              Intrinsic<[llvm_i8_ty], [llvm_ptr_ty, llvm_ptr_ty], []>;
+  def int_x86_enqcmds : GCCBuiltin<"__builtin_ia32_enqcmds">,
+              Intrinsic<[llvm_i8_ty], [llvm_ptr_ty, llvm_ptr_ty], []>;
+}
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_KEYLOCKER
 //===----------------------------------------------------------------------===//
@@ -4959,19 +4965,6 @@ let TargetPrefix = "x86" in {
                  llvm_v2i64_ty, llvm_v2i64_ty, llvm_v2i64_ty], []>;
 }
 #endif // INTEL_FEATURE_ISA_KEYLOCKER
-
-
-#if INTEL_FEATURE_ISA_ENQCMD
-//===----------------------------------------------------------------------===//
-// ENQCMD - Enqueue Stores Instructions
-
-let TargetPrefix = "x86" in {
-  def int_x86_enqcmd : GCCBuiltin<"__builtin_ia32_enqcmd">,
-              Intrinsic<[llvm_i8_ty], [llvm_ptr_ty, llvm_ptr_ty], []>;
-  def int_x86_enqcmds : GCCBuiltin<"__builtin_ia32_enqcmds">,
-              Intrinsic<[llvm_i8_ty], [llvm_ptr_ty, llvm_ptr_ty], []>;
-}
-#endif // INTEL_FEATURE_ISA_ENQCMD
 
 #if INTEL_FEATURE_ISA_ULI
 //===----------------------------------------------------------------------===//

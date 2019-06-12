@@ -265,8 +265,7 @@ define <8 x double> @test_int_x86_avx512_mask_vcvt_ph2pd_load(<8 x half>* %px0, 
 ; CHECK-LABEL: test_int_x86_avx512_mask_vcvt_ph2pd_load:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %esi, %k1
-; CHECK-NEXT:    vcvtph2pd (%rdi), %zmm1
-; CHECK-NEXT:    vmovapd %zmm1, %zmm0 {%k1}
+; CHECK-NEXT:    vcvtph2pd (%rdi), %zmm0 {%k1}
 ; CHECK-NEXT:    retq
   %x0 = load <8 x half>, <8 x half>* %px0, align 16
   %res = call <8 x double> @llvm.x86.avx512fp16.mask.vcvtph2pd.512(<8 x half> %x0, <8 x double> %x1, i8 %x2, i32 4)

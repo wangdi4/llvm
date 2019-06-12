@@ -6029,12 +6029,16 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
     return;
   }
   case Intrinsic::lround:
-  case Intrinsic::llround: {
+  case Intrinsic::llround:
+  case Intrinsic::lrint:
+  case Intrinsic::llrint: {
     unsigned Opcode;
     switch (Intrinsic) {
     default: llvm_unreachable("Impossible intrinsic");  // Can't reach here.
     case Intrinsic::lround:  Opcode = ISD::LROUND;  break;
     case Intrinsic::llround: Opcode = ISD::LLROUND; break;
+    case Intrinsic::lrint:   Opcode = ISD::LRINT;   break;
+    case Intrinsic::llrint:  Opcode = ISD::LLRINT;  break;
     }
 
     EVT RetVT = TLI.getValueType(DAG.getDataLayout(), I.getType());
@@ -9109,8 +9113,11 @@ TargetLowering::LowerCallTo(TargetLowering::CallLoweringInfo &CLI) const {
       if (Args[i].IsByVal || Args[i].IsInAlloca) {
         PointerType *Ty = cast<PointerType>(Args[i].Ty);
         Type *ElementTy = Ty->getElementType();
-        Flags.setByValSize(DL.getTypeAllocSize(ElementTy));
-        // For ByVal, alignment should come from FE.  BE will guess if this
+
+        unsigned FrameSize = DL.getTypeAllocSize(
+            Args[i].ByValType ? Args[i].ByValType : ElementTy);
+        Flags.setByValSize(FrameSize);
+
         // info is not there but there are cases it cannot get right.
         unsigned FrameAlign;
         if (Args[i].Alignment)
@@ -9141,8 +9148,11 @@ TargetLowering::LowerCallTo(TargetLowering::CallLoweringInfo &CLI) const {
       // for now.
       if (Args[i].IsReturned && !Op.getValueType().isVector() &&
           CanLowerReturn) {
-        assert(CLI.RetTy == Args[i].Ty && RetTys.size() == NumValues &&
-               "unexpected use of 'returned'");
+        assert((CLI.RetTy == Args[i].Ty ||
+                (CLI.RetTy->isPointerTy() && Args[i].Ty->isPointerTy() &&
+                 CLI.RetTy->getPointerAddressSpace() ==
+                     Args[i].Ty->getPointerAddressSpace())) &&
+               RetTys.size() == NumValues && "unexpected use of 'returned'");
         // Before passing 'returned' to the target lowering code, ensure that
         // either the register MVT and the actual EVT are the same size or that
         // the return value and argument are extended in the same way; in these
@@ -9607,9 +9617,13 @@ void SelectionDAGISel::LowerArguments(const Function &F) {
       if (Flags.isByVal() || Flags.isInAlloca()) {
         PointerType *Ty = cast<PointerType>(Arg.getType());
         Type *ElementTy = Ty->getElementType();
-        Flags.setByValSize(DL.getTypeAllocSize(ElementTy));
-        // For ByVal, alignment should be passed from FE.  BE will guess if
-        // this info is not there but there are cases it cannot get right.
+
+        // For ByVal, size and alignment should be passed from FE.  BE will
+        // guess if this info is not there but there are cases it cannot get
+        // right.
+        unsigned FrameSize = DL.getTypeAllocSize(Arg.getParamByValType());
+        Flags.setByValSize(FrameSize);
+
         unsigned FrameAlign;
         if (Arg.getParamAlignment())
           FrameAlign = Arg.getParamAlignment();

@@ -71,6 +71,7 @@
 #include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h" // INTEL
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/ArgumentPromotion.h"
+#include "llvm/Transforms/IPO/Attributor.h"
 #include "llvm/Transforms/IPO/CalledValuePropagation.h"
 #include "llvm/Transforms/IPO/ConstantMerge.h"
 #include "llvm/Transforms/IPO/CrossDSOCFI.h"

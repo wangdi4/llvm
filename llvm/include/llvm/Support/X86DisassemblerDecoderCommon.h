@@ -446,12 +446,6 @@ enum OperandEncoding {
 #else // INTEL_FEATURE_ISA_AMX
 #define XTM_ENUM_ENTRY
 #endif // INTEL_FEATURE_ISA_AMX
-
-#if INTEL_FEATURE_ISA_VP2INTERSECT
-#define VP2_ENUM_ENTRY ENUM_ENTRY(TYPE_VK_PAIR,    "mask register pair")
-#else // INTEL_FEATURE_ISA_VP2INTERSECT
-#define VP2_ENUM_ENTRY
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
 #endif // INTEL_CUSTOMIZATION
 
 // Semantic interpretations of instruction operands.
@@ -481,8 +475,8 @@ enum OperandEncoding {
   ENUM_ENTRY(TYPE_YMM,        "32-byte")                                       \
   ENUM_ENTRY(TYPE_ZMM,        "64-byte")                                       \
   ENUM_ENTRY(TYPE_VK,         "mask register")                                 \
-  VP2_ENUM_ENTRY                                                               \
   XTM_ENUM_ENTRY                                                               \
+  ENUM_ENTRY(TYPE_VK_PAIR,    "mask register pair")                            \
   ENUM_ENTRY(TYPE_SEGMENTREG, "Segment register operand")                      \
   ENUM_ENTRY(TYPE_DEBUGREG,   "Debug register operand")                        \
   ENUM_ENTRY(TYPE_CONTROLREG, "Control register operand")                      \
