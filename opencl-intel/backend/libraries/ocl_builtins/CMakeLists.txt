@@ -502,6 +502,18 @@ if (ENABLE_KNL AND BUILD_X64 AND NOT WIN32)
   add_subdirectory (avx512phi)
 endif()
 
+# Configuring and adding the EyeQ builtins
+set(EYEQ_BUILTINS_ARCHS "x86-64" CACHE STRING "Architecture to compile the eyeq builtins for (-march)")
+set(EYEQ_BUILTINS_TARGETS "eyeqemu")
+set(EYEQ_BUILTINS_TARGET_SPECIFIC_ARGS "-D__INTELEYEQ_CL__")
+set(EYEQ_BUILTINS_OUTPUT_DIR ${BUILTINS_OUTPUT_DIR}/eyeq_builtins)
+set(EYEQ_BUILTINS_INSTALL_DIR bin)
+option(EYEQ_BUILTINS_BITCODE_OUTPUT_REQUIRES_LTO "Is bitcode output only supported with LTO" ON)
+option(EYEQ_BUILTINS_OCL_FAKE_ADDRESS_SPACE_MAP_MANGLING "Does ocl bitcode compliation requires fake address space map mangling" ON)
+add_subdirectory (eyeq_builtins)
+
+install_to(${EYEQ_BUILTINS_OUTPUT_DIR} DESTINATION lib COMPONENT ocl-eyeq-builtins)
+
 if (CMAKE_SIZEOF_VOID_P EQUAL 4)
   set(MINIMAL_SUFFIX n8)
 else ()

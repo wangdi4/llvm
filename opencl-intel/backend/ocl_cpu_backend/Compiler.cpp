@@ -503,6 +503,27 @@ llvm::Module* Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
 void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary,
                    llvm::SmallVector<llvm::Module*, 2>& builtinsModules) const
 {
+    llvm::SmallVector<std::unique_ptr<llvm::MemoryBuffer>, 4>
+        rtlBuffersForEyeQEmulationMode = pLibrary->GetRtlBuffersForEyeQEmulationMode();
+    // This is an empty loop unless in EyeQ emulation mode
+    for (std::unique_ptr<llvm::MemoryBuffer> &rtlBufferForEyeQEmulationMode :
+         rtlBuffersForEyeQEmulationMode) {
+        assert(rtlBufferForEyeQEmulationMode &&
+               "rtlBufferForEyeQEmulationMode is NULL pointer");
+        llvm::ErrorOr<std::unique_ptr<llvm::Module>> spModuleOrErr =
+            expectedToErrorOrAndEmitErrors(
+                *m_pLLVMContext,
+                llvm::getOwningLazyBitcodeModule(
+                    std::move(rtlBufferForEyeQEmulationMode), *m_pLLVMContext));
+
+        if (!spModuleOrErr) {
+            throw Exceptions::CompilerException(
+                "Failed to allocate/parse buitin module");
+        }
+        auto *pModule = spModuleOrErr.get().release();
+        builtinsModules.push_back(pModule);
+    }
+
     std::unique_ptr<llvm::MemoryBuffer> rtlBuffer(std::move(
                                         pLibrary->GetRtlBuffer()));
     assert(rtlBuffer && "pRtlBuffer is NULL pointer");
