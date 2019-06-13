@@ -243,7 +243,9 @@ CPUCompiler::CPUCompiler(const ICompilerConfig& config):
     // Initialize the BuiltinModules
     if(config.GetLoadBuiltins())
     {
-        BuiltinLibrary* pLibrary = BuiltinModuleManager::GetInstance()->GetOrLoadCPULibrary(m_CpuId);
+        BuiltinLibrary* pLibrary = EYEQ_EMU_DEVICE == config.TargetDevice() ?
+                                                      BuiltinModuleManager::GetInstance()->GetOrLoadEyeQLibrary(m_CpuId) :
+                                                      BuiltinModuleManager::GetInstance()->GetOrLoadCPULibrary(m_CpuId);
 
         llvm::SmallVector<llvm::Module*, 2> bltnFuncList;
         LoadBuiltinModules(pLibrary, bltnFuncList);
