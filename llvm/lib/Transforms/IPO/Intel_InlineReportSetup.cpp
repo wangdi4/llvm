@@ -35,23 +35,6 @@ extern cl::opt<unsigned> IntelInlineReportLevel;
 
 #define DEBUG_TYPE "inlinereportsetup"
 
-// Skip some intrinsics for now to make it easier to match between the compile
-// and link steps.
-bool shouldSkipIntrinsic(IntrinsicInst *I) {
-  Intrinsic::ID Intrin = I->getIntrinsicID();
-  switch (Intrin) {
-  default:
-    return false;
-  case Intrinsic::dbg_declare:
-  case Intrinsic::dbg_value:
-  case Intrinsic::lifetime_end:
-  case Intrinsic::lifetime_start:
-  case Intrinsic::ptr_annotation:
-  case Intrinsic::var_annotation:
-    return true;
-  }
-  return false;
-}
 
 // Walking metadata nodes is not convenient. To make the procedure of inserting
 // new nodes easier I use auxiliary structure: InlineReportTree. It replicates
@@ -382,7 +365,8 @@ static bool verifyFunctionInliningReport(Function *F,
   for (BasicBlock &BB : *F)
     for (Instruction &I : BB) {
       if (auto *II = dyn_cast<IntrinsicInst>(&I))
-        if (shouldSkipIntrinsic(II))
+        if (!(MDIR.getLevel() & DontSkipIntrin) &&
+            shouldSkipIntrinsic(II))
           continue;
       auto CB = dyn_cast<CallBase>(&I);
       if (!CB)
@@ -466,7 +450,8 @@ MDNode *createFunctionInliningReport(Function *F, InlineReportBuilder &MDIR) {
         continue;
       InlineReason Reason = NinlrNoReason;
       if (auto *II = dyn_cast<IntrinsicInst>(&I)) {
-        if (shouldSkipIntrinsic(II))
+        if (!(MDIR.getLevel() & DontSkipIntrin) &&
+            shouldSkipIntrinsic(II))
           continue;
         Reason = NinlrIntrinsic;
       } else if (Function *Callee = CB->getCalledFunction()) {

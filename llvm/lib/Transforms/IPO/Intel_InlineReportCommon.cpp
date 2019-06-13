@@ -71,3 +71,24 @@ void llvm::printOptionValues(unsigned OptLevel, unsigned SizeLevel) {
   llvm::errs() << "\n";
 }
 
+// Skip some llvm-specific intrinsics to make inline report shorter.
+bool llvm::shouldSkipIntrinsic(IntrinsicInst *II) {
+  if (!II)
+    return false;
+  Intrinsic::ID Intrin = II->getIntrinsicID();
+  switch (Intrin) {
+  default:
+    return false;
+  case Intrinsic::dbg_addr:
+  case Intrinsic::dbg_declare:
+  case Intrinsic::dbg_value:
+  case Intrinsic::lifetime_end:
+  case Intrinsic::lifetime_start:
+  case Intrinsic::ptr_annotation:
+  case Intrinsic::var_annotation:
+  case Intrinsic::assume:
+  case Intrinsic::type_test:
+    return true;
+  }
+  return false;
+}
