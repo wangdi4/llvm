@@ -13573,18 +13573,11 @@ def VMOVWrm : AVX512<0x6E, MRMSrcMem, (outs VR128X:$dst), (ins i16mem:$src),
                         (v8i16 (scalar_to_vector (loadi16 addr:$src))))]>,
                       T_MAP5PD, EVEX, EVEX_CD8<16, CD8VT1>;
 
-// Move word to Single scalar
-let isCodeGenOnly = 1 in {
-  def VMOVW2SHZrr : AVX512<0x6E, MRMSrcReg, (outs FR16X:$dst), (ins GR32:$src),
-                      "vmovw\t{$src, $dst|$dst, $src}",
-                      [(set FR16X:$dst, (bitconvert (i16 (trunc GR32:$src))))]>,
-                      T_MAP5PD, EVEX;
-  def VMOVW2SHrm : AVX512<0x6E, MRMSrcMem, (outs FR16X:$dst), (ins i16mem:$src),
-                      "vmovw\t{$src, $dst|$dst, $src}",
-                      [(set FR16X:$dst, (bitconvert (loadi16 addr:$src)))]>,
-                      T_MAP5PD, EVEX, EVEX_CD8<16, CD8VT1>;
-}
-
+def : Pat<(f16 (bitconvert GR16:$src)),
+          (f16 (COPY_TO_REGCLASS
+                (VMOVW2SHrr
+                 (INSERT_SUBREG (IMPLICIT_DEF), GR16:$src, sub_16bit)),
+                FR16X))>;
 def : Pat<(v8i16 (scalar_to_vector (i16 GR16:$src))),
           (VMOVW2SHrr (INSERT_SUBREG (IMPLICIT_DEF), GR16:$src, sub_16bit))>;
 
@@ -13598,21 +13591,10 @@ def VMOVWmr  : AVX512<0x7E, MRMDestMem, (outs),
                                      (iPTR 0))), addr:$dst)]>,
                        T_MAP5PD, EVEX, EVEX_CD8<16, CD8VT1>;
 
-// Move Scalar Single to word
-let isCodeGenOnly = 1 in {
-  def VMOVSH2WZrr : AVX512<0x7E, MRMDestReg, (outs GR32:$dst), (ins FR16X:$src),
-                      "vmovw\t{$src, $dst|$dst, $src}",
-                      [(set GR32:$dst, (i32 (anyext (i16 (bitconvert FR16X:$src)))))]>,
-                      T_MAP5PD, EVEX;
-  def VMOVSH2Wmr  : AVX512<0x7E, MRMDestMem, (outs),
-                      (ins i16mem:$dst, FR16X:$src),
-                      "vmovw\t{$src, $dst|$dst, $src}",
-                      [(store (i16 (bitconvert FR16X:$src)), addr:$dst)]>,
-                      T_MAP5PD, EVEX, EVEX_CD8<16, CD8VT1>;
-}
-
 def : Pat<(i16 (bitconvert FR16X:$src)),
-          (i16 (EXTRACT_SUBREG (VMOVSH2WZrr FR16X:$src), sub_16bit))>;
+          (i16 (EXTRACT_SUBREG
+                (VMOVSH2Wrr (COPY_TO_REGCLASS FR16X:$src, VR128X)),
+                sub_16bit))>;
 def : Pat<(i16 (extractelt (v8i16 VR128X:$src), (iPTR 0))),
           (i16 (EXTRACT_SUBREG (VMOVSH2Wrr VR128X:$src), sub_16bit))>;
 }

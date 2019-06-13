@@ -35,6 +35,35 @@ define <32 x half> @broadcastph512(half* %x) {
   ret <32 x half> %res
 }
 
+define i16 @test1(half %x) {
+; CHECK-LABEL: test1:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmovw %xmm0, %eax
+; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
+; CHECK-NEXT:    retq
+   %res = bitcast half %x to i16
+   ret i16 %res
+}
+
+define <8 x i16> @test2(i16 %x) {
+; CHECK-LABEL: test2:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmovw %edi, %xmm0
+; CHECK-NEXT:    retq
+   %res = insertelement <8 x i16>undef, i16 %x, i32 0
+   ret <8 x i16>%res
+}
+
+define <8 x i16> @test4(i16* %x) {
+; CHECK-LABEL: test4:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpbroadcastw (%rdi), %xmm0
+; CHECK-NEXT:    retq
+   %y = load i16, i16* %x
+   %res = insertelement <8 x i16>undef, i16 %y, i32 0
+   ret <8 x i16>%res
+}
+
 define void @test5(half %x, half* %y) {
 ; CHECK-LABEL: test5:
 ; CHECK:       # %bb.0:
@@ -54,6 +83,16 @@ define half @test7(i16* %x) {
    ret half %res
 }
 
+define i16 @test8(<8 x i16> %x) {
+; CHECK-LABEL: test8:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmovw %xmm0, %eax
+; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x i16> %x, i32 0
+   ret i16 %res
+}
+
 define <8 x i16> @test10(i16* %x) {
 ; CHECK-LABEL: test10:
 ; CHECK:       # %bb.0:
@@ -71,6 +110,16 @@ define <8 x half> @test11(half* %x) {
 ; CHECK-NEXT:    retq
    %y = load half, half* %x, align 2
    %res = insertelement <8 x half>zeroinitializer, half %y, i32 0
+   ret <8 x half>%res
+}
+
+define <8 x half> @test14(half %x) {
+; CHECK-LABEL: test14:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpxor %xmm1, %xmm1, %xmm1
+; CHECK-NEXT:    vpblendw {{.*#+}} xmm0 = xmm0[0],xmm1[1,2,3,4,5,6,7]
+; CHECK-NEXT:    retq
+   %res = insertelement <8 x half>zeroinitializer, half %x, i32 0
    ret <8 x half>%res
 }
 
@@ -609,4 +658,17 @@ define half @test_movw2(i16 %x) {
 ; CHECK-NEXT:    retq
   %res = bitcast i16 %x to half
   ret half %res
+}
+
+; sext avoids having a truncate in front of the bitcast input due to calling
+; convention or i16 op promotion.
+define half @test_movw3(i8 %x) {
+; CHECK-LABEL: test_movw3:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    movsbl %dil, %eax
+; CHECK-NEXT:    vmovw %eax, %xmm0
+; CHECK-NEXT:    retq
+  %z = sext i8 %x to i16
+  %a = bitcast i16 %z to half
+  ret half %a
 }
