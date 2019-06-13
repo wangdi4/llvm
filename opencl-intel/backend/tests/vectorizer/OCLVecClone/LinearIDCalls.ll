@@ -17,21 +17,40 @@ define void @"_ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test"(i32 addrspace(1)*,
 
 ; get_global_id call should be hoisted outside region!
 ; CHECK-NEXT: %gid = call i64 @_Z13get_global_idj(i32 0) #1
+; CHECK-NEXT: %slid = call i32 @_Z22get_sub_group_local_idv() #1
+
 ; CHECK-LABEL: simd.begin.region:
-; CHECK-NEXT: %entry.region = call token @llvm.directive.region.entry()
+; CHECK-NEXT:    %entry.region = call token @llvm.directive.region.entry()
+; CHECK-NEXT:    br label %simd.loop
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop:
+; CHECK-NEXT:    [[INDEX:%.*]] = phi i32
+; CHECK-NEXT:    [[SLID_LINEAR:%.*]] = add nuw i32 [[INDEX]], %slid
+; CHECK-NEXT:    [[INDEX_I64:%.*]] = sext i32 [[INDEX]] to i64
+; CHECK-NEXT:    [[GID_LINEAR:%.*]] = add nuw i64 [[INDEX_I64]], %gid
 ; CHECK-NOT: call
+; CHECK:         [[GID_LINEAR_I32:%.*]] = trunc i64 [[GID_LINEAR]] to i32
+; CHECK-NEXT:    store i32 [[GID_LINEAR_I32]]
+; CHECK-NEXT:    store i32 [[SLID_LINEAR]]
 ; CHECK-LABEL: simd.end.region:
 ; CHECK-NEXT: call void @llvm.directive.region.exit(token %entry.region)
   %gid = call i64 @_Z13get_global_idj(i32 0) #1
   %gep1 = getelementptr inbounds i32, i32 addrspace(1)* %0, i64 %gid
   %ld = load i32, i32 addrspace(1)* %gep1, align 4
-  %trunc = trunc i64 %gid to i32
-  store i32 %trunc, i32 addrspace(1)* %gep1, align 4
+  %gid.trunc = trunc i64 %gid to i32
+  store i32 %gid.trunc, i32 addrspace(1)* %gep1, align 4
+
+  %slid = call i32 @_Z22get_sub_group_local_idv() #1
+  store i32 %slid, i32 addrspace(1)* %gep1, align 4
+
   ret void
 }
 
 ; Function Attrs: nounwind readnone
 declare i64 @_Z13get_global_idj(i32) local_unnamed_addr #1
+
+; Function Attrs: nounwind readnone
+declare i32 @_Z22get_sub_group_local_idv() #1
 
 
 attributes #0 = { nounwind }

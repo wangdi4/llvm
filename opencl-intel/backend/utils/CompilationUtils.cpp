@@ -817,6 +817,11 @@ std::string CompilationUtils::mangledWGBarrier(WG_BARRIER_TYPE wgBarrierType) {
   }
 }
 
+std::string CompilationUtils::mangledGetSubGroupLID() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+      NAME_GET_SUB_GROUP_LOCAL_ID.c_str());
+}
+
 static bool isOptionalMangleOf(const std::string& LHS, const std::string& RHS) {
   //LHS should be mangled
   const char*const LC = LHS.c_str();
