@@ -210,13 +210,6 @@
 /* end INTEL_FEATURE_ISA_AMX */
 /* end INTEL_CUSTOMIZATION */
 
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ISA_BF16 */
-/* Features in %eax for leaf 7 sub-leaf 1 */
-#define bit_AVX512BF16    0x00000020
-/* end INTEL_FEATURE_ISA_BF16 */
-/* end INTEL_CUSTOMIZATION */
-
 /* Features in %eax for leaf 7 sub-leaf 1 */
 #define bit_AVX512BF16    0x00000020
 
