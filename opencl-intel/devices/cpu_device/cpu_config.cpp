@@ -100,6 +100,11 @@ VectorizerType CPUDeviceConfig::GetVectorizerType() const
     }
 }
 
+bool CPUDeviceConfig::GetUseNativeSubgroups() const {
+  return m_pConfigFile->Read<bool>(
+      CL_CONFIG_CPU_ENABLE_NATIVE_SUBGROUPS, false);
+}
+
 bool CPUDeviceConfig::IsSpirSupported() const
 {
     return true;
@@ -186,19 +191,13 @@ const char* CPUDeviceConfig::GetExtensions() const
         m_extensions += OCL_EXT_KHR_DEPTH_IMAGES " ";
         m_extensions += OCL_EXT_KHR_3D_IMAGE_WRITES " ";
 
-        // The env var is meant to be temporary and must removed when
-        // the implementation is fully complete.
-#ifndef INTEL_PRODUCT_RELEASE
-        if (const char *pEnv = getenv("VOLCANO_ENABLE_INTEL_SUBGROUPS"))
-        {
-            if (pEnv[0] != 0)
-            {
-                // common Intel extensions
-                m_extensions += OCL_EXT_INTEL_SUBGROUPS " ";
-                m_extensions += OCL_EXT_INTEL_SUBGROUPS_REQD_SIZE " ";
-            }
+        // common Intel extensions
+        // TODO: The switch is required until subgroup implementation passes
+        // the conformance test fully (meaning that masked kernel is integrated).
+        if (GetUseNativeSubgroups()) {
+            m_extensions += OCL_EXT_INTEL_SUBGROUPS " ";
+            m_extensions += OCL_EXT_INTEL_SUBGROUPS_REQD_SIZE " ";
         }
-#endif // INTEL_PRODUCT_RELEASE
 
         // INTEL CPU execlusive extensions
         m_extensions += OCL_EXT_INTEL_EXEC_BY_LOCAL_THREAD " ";

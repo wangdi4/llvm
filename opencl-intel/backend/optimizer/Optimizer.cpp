@@ -70,6 +70,13 @@ static cl::opt<bool>
                             cl::desc("Enable VPlan Kernel Vectorizer"));
 // INTEL VPO END
 
+// TODO: The switch is required until subgroup implementation passes
+// the conformance test fully (meaning that masked kernel is integrated).
+static cl::opt<bool>
+    EnableNativeOpenCLSubgroups("enable-native-opencl-subgroups", cl::init(false),
+                                cl::Hidden,
+                                cl::desc("Enable native subgroup functionality"));
+
 extern "C"{
 
 void *createInstToFuncCallPass(bool);
@@ -355,7 +362,9 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
     PM.add(llvm::createInstSimplifyLegacyPass());
   }
 
-  PM.add(createSubGroupAdaptationPass());
+  // No adaptation layer is required for native subgroups
+  if (!EnableNativeOpenCLSubgroups)
+    PM.add(createSubGroupAdaptationPass());
 
   if (isOcl20) {
     // Flatten get_{local, global}_linear_id()
@@ -497,6 +506,9 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
     PM.add(llvm::createCFGSimplificationPass());
   }
 
+  // Mark the kernels using subgroups
+  PM.add(createKernelSubGroupInfoPass());
+
   // In Apple build TRANSPOSE_SIZE_1 is not declared
   if (pConfig->GetTransposeSize() != 1 /*TRANSPOSE_SIZE_1*/
       && debugType == intel::None && OptLevel != 0) {
@@ -568,7 +580,8 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
   PM.add(llvm::createVerifierPass());
 #endif
 
-  PM.add(createResolveSubGroupWICallPass());
+  if (EnableNativeOpenCLSubgroups)
+    PM.add(createResolveSubGroupWICallPass());
 
   // Unroll small loops with unknown trip count.
   PM.add(llvm::createLoopUnrollPass(OptLevel, false, false, 16, 0, 0, 1));
