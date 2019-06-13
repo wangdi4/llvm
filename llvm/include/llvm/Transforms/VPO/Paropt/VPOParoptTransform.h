@@ -338,7 +338,7 @@ private:
 
   /// Replace the variable with the privatized variable
   void genPrivatizationReplacement(WRegionNode *W, Value *PrivValue,
-                                   Value *NewPrivInst, Item *IT);
+                                   Value *NewPrivInst);
 
   /// \name Reduction Specific Functions
   /// {@
@@ -1117,11 +1117,6 @@ private:
   void wrnUpdateLiveOutVals(Loop *L, BasicBlock *BB,
                             SmallSetVector<Instruction *, 8> &LiveOutVals,
                             EquivalenceClasses<Value *> &ECs);
-
-  // For a given Value V, capture it, and rename all its occurrences within
-  // the WRegion W (including the region entry directive).
-  Value *genRenamePrivatizationImpl(WRegionNode *W, Value *V,
-                                    BasicBlock *EntryBB, Item *IT);
 
   /// Generate the copyprivate code.
   bool genCopyPrivateCode(WRegionNode *W, AllocaInst *IsSingleThread);

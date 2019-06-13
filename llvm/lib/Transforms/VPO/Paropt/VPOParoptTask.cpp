@@ -72,7 +72,7 @@ bool VPOParoptTransform::genRedCodeForTaskGeneric(WRegionNode *W) {
         Instruction *AllocaInsertPt = EntryBB->getFirstNonPHI();
         AllocaInst *NewPrivInst =
             genPrivatizationAlloca(RedI, AllocaInsertPt, ".red");
-        genPrivatizationReplacement(W, Orig, NewPrivInst, RedI);
+        genPrivatizationReplacement(W, Orig, NewPrivInst);
 
         IRBuilder<> Builder(EntryBB->getTerminator());
         VPOParoptUtils::genCopyByAddr(NewPrivInst, RedI->getNew(),
@@ -148,7 +148,7 @@ bool VPOParoptTransform::genSharedCodeForTaskGeneric(WRegionNode *W) {
 
       Value *NewPrivInst = nullptr;
       NewPrivInst = ShaI->getNew();
-      genPrivatizationReplacement(W, Orig, NewPrivInst, ShaI);
+      genPrivatizationReplacement(W, Orig, NewPrivInst);
     }
 
     Changed = true;
