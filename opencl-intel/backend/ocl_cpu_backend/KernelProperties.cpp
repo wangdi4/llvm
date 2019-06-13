@@ -50,6 +50,7 @@ KernelProperties::KernelProperties():
     m_maxPrivateMemorySize(0),
     m_reqdNumSG(0),
     m_kernelExecutionLength(0),
+    m_vectorizationWidth(1),
     m_minGroupSizeFactorial(1),
     m_isVectorizedWithTail(false),
     m_uiSizeT(sizeof(void*)),
@@ -104,6 +105,8 @@ void KernelProperties::Serialize(IOutputStream& ost, SerializationStatus* stats)
     Serializer::SerialPrimitive<bool>(&m_isVectorizedWithTail, ost);
     tmp = (unsigned long long int)m_kernelExecutionLength;
     Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+    tmp = (unsigned long long int)m_vectorizationWidth;
+    Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
     Serializer::SerialPrimitive<unsigned int>(&m_minGroupSizeFactorial, ost);
     Serializer::SerialPrimitive<unsigned int>(&m_uiSizeT, ost);
     Serializer::SerialPrimitive<bool>(&m_bIsNonUniformWGSizeSupported, ost);
@@ -153,6 +156,8 @@ void KernelProperties::Deserialize(IInputStream& ist, SerializationStatus* stats
     Serializer::DeserialPrimitive<bool>(&m_isVectorizedWithTail, ist);
     Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
     m_kernelExecutionLength = tmp;
+    Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
+    m_vectorizationWidth = tmp;
     unsigned int ui_tmp;
     Serializer::DeserialPrimitive<unsigned int>(&ui_tmp, ist);
     m_minGroupSizeFactorial = ui_tmp;
