@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_CSA
 ; REQUIRES: csa-registered-target
-; RUN: opt < %s  -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-cfg-restructuring -vpo-paropt -scoped-noalias -aa-eval -evaluate-aa-metadata -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s  -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -scoped-noalias -aa-eval -evaluate-aa-metadata -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 ;
 ; It test whether the compiler can generate the scope alias metadata
 ; to indicate that a[i][j-1] or a[i][j+1] are overlapped with a[i][j].
