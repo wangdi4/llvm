@@ -58,13 +58,13 @@ namespace intel {
           // #define CLK_GLOBAL_MEM_FENCE   0x2
           static const uint64_t CLK_GLOBAL_MEM_FENCE = 2;
 
-          // handle contant int
+          // handle constant int
           if(const llvm::ConstantInt* CI = dyn_cast<ConstantInt>(Arg0))
             // check in 0th argument CLK_GLOBAL_MEM_FENCE is set
             return CI->getZExtValue() & CLK_GLOBAL_MEM_FENCE;
           else
             // 0th argument is not constant
-            // assuming worst case - has CLK_GLOBAL_MEM_FENCE flag set
+            // assuming the worst case - has CLK_GLOBAL_MEM_FENCE flag set
             return true;
         }
         PointerType* ptr = cast<PointerType>(Arg0->getType());
