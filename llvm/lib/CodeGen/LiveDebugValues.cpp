@@ -288,6 +288,7 @@ private:
                            const VarLocMap &VarLocIDs);
   bool transferTerminatorInst(MachineInstr &MI, OpenRangesSet &OpenRanges,
                               VarLocInMBB &OutLocs, const VarLocMap &VarLocIDs);
+
   bool process(MachineInstr &MI, OpenRangesSet &OpenRanges,
                VarLocInMBB &OutLocs, VarLocMap &VarLocIDs,
                TransferMap &Transfers, bool transferChanges);
@@ -429,9 +430,15 @@ void LiveDebugValues::insertTransferDebugPair(
   MachineFunction *MF = MI.getParent()->getParent();
   MachineInstr *NewDebugInstr;
 
-  auto ProcessVarLoc = [&MI, &OpenRanges, &Transfers,
+  auto ProcessVarLoc = [&MI, &OpenRanges, &Transfers, &DebugInstr,
                         &VarLocIDs](VarLoc &VL, MachineInstr *NewDebugInstr) {
     unsigned LocId = VarLocIDs.insert(VL);
+
+    // Close this variable's previous location range.
+    DebugVariable V(DebugInstr->getDebugVariable(),
+                    DebugInstr->getDebugLoc()->getInlinedAt());
+    OpenRanges.erase(V);
+
     OpenRanges.insert(LocId, VL.Var);
     // The newly created DBG_VALUE instruction NewDebugInstr must be inserted
     // after MI. Keep track of the pairing.
@@ -456,7 +463,9 @@ void LiveDebugValues::insertTransferDebugPair(
     VarLoc VL(*NewDebugInstr, LS);
     ProcessVarLoc(VL, NewDebugInstr);
     LLVM_DEBUG(dbgs() << "Creating DBG_VALUE inst for register copy: ";
-               NewDebugInstr->print(dbgs(), false, false, false, TII));
+               NewDebugInstr->print(dbgs(), /*IsStandalone*/false,
+                                    /*SkipOpers*/false, /*SkipDebugLoc*/false,
+                                    /*AddNewLine*/true, TII));
     return;
   }
   case TransferKind::TransferSpill: {
@@ -473,7 +482,9 @@ void LiveDebugValues::insertTransferDebugPair(
               SpillLocation.SpillOffset, LS);
     ProcessVarLoc(VL, NewDebugInstr);
     LLVM_DEBUG(dbgs() << "Creating DBG_VALUE inst for spill: ";
-               NewDebugInstr->print(dbgs(), false, false, false, TII));
+               NewDebugInstr->print(dbgs(), /*IsStandalone*/false,
+                                    /*SkipOpers*/false, /*SkipDebugLoc*/false,
+                                    /*AddNewLine*/true, TII));
     return;
   }
   case TransferKind::TransferRestore: {
@@ -487,7 +498,9 @@ void LiveDebugValues::insertTransferDebugPair(
     VarLoc VL(*NewDebugInstr, LS);
     ProcessVarLoc(VL, NewDebugInstr);
     LLVM_DEBUG(dbgs() << "Creating DBG_VALUE inst for register restore: ";
-               NewDebugInstr->print(dbgs(), false, false, false, TII));
+               NewDebugInstr->print(dbgs(), /*IsStandalone*/false,
+                                    /*SkipOpers*/false, /*SkipDebugLoc*/false,
+                                    /*AddNewLine*/true, TII));
     return;
   }
   }
@@ -707,6 +720,10 @@ bool LiveDebugValues::transferTerminatorInst(MachineInstr &MI,
   });
   VarLocSet &VLS = OutLocs[CurMBB];
   Changed = VLS |= OpenRanges.getVarLocs();
+  // New OutLocs set may be different due to spill, restore or register
+  // copy instruction processing.
+  if (Changed)
+    VLS = OpenRanges.getVarLocs();
   OpenRanges.clear();
   return Changed;
 }

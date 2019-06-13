@@ -1,6 +1,7 @@
 set(LLVM_LINK_COMPONENTS
   AllTargetsAsmParsers
   AllTargetsCodeGens
+  AllTargetsDescs
   AllTargetsInfos
   AggressiveInstCombine
   Analysis
@@ -14,6 +15,7 @@ set(LLVM_LINK_COMPONENTS
   Instrumentation
   MC
   ObjCARCOpts
+  Remarks
   ScalarOpts
   Support
   Target

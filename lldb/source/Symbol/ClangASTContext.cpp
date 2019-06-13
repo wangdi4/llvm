@@ -2457,7 +2457,7 @@ bool ClangASTContext::DeclsAreEquivalent(clang::Decl *lhs_decl,
       clang::DeclContext *lhs_decl_ctx = lhs_decl->getDeclContext();
       clang::DeclContext *rhs_decl_ctx = rhs_decl->getDeclContext();
       if (lhs_decl_ctx && rhs_decl_ctx) {
-        while (1) {
+        while (true) {
           if (lhs_decl_ctx && rhs_decl_ctx) {
             const clang::Decl::Kind lhs_decl_ctx_kind =
                 lhs_decl_ctx->getDeclKind();
@@ -2495,7 +2495,7 @@ bool ClangASTContext::DeclsAreEquivalent(clang::Decl *lhs_decl,
         // make sure the names match as well
         lhs_decl_ctx = lhs_decl->getDeclContext();
         rhs_decl_ctx = rhs_decl->getDeclContext();
-        while (1) {
+        while (true) {
           switch (lhs_decl_ctx->getDeclKind()) {
           case clang::Decl::TranslationUnit:
             // We don't care about the translation unit names
@@ -3909,6 +3909,14 @@ bool ClangASTContext::IsVoidType(lldb::opaque_compiler_type_t type) {
   if (!type)
     return false;
   return GetCanonicalQualType(type)->isVoidType();
+}
+
+bool ClangASTContext::CanPassInRegisters(const CompilerType &type) {
+  if (auto *record_decl =
+      ClangASTContext::GetAsRecordDecl(type)) {
+    return record_decl->canPassInRegisters();
+  }
+  return false;
 }
 
 bool ClangASTContext::SupportsLanguage(lldb::LanguageType language) {
@@ -9629,7 +9637,7 @@ bool ClangASTContext::DumpTypeValue(
       break;
     }
   }
-  return 0;
+  return false;
 }
 
 void ClangASTContext::DumpSummary(lldb::opaque_compiler_type_t type,
