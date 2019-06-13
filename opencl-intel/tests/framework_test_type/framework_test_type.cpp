@@ -7,6 +7,7 @@
 #include "CL.h"
 #include "CL20.h"
 #include "CL21.h"
+#include "IntelSubgroups.h"
 #include "FrameworkTest.h"
 #include "cl_env.h"
 #include "cl_types.h"
@@ -790,6 +791,29 @@ TEST(FrameworkTestType, cl_CheckBuildNumber)
 {
     EXPECT_TRUE(cl_CheckBuildNumber());
 }
+
+/////////////////////////////////////////////////////////////////////
+////////////////   NativeSubgroups tests. ///////////////////////////
+/////////////////////////////////////////////////////////////////////
+
+TEST_F(NativeSubgroups, NativeSubgroups_MAX_NUM_SUB_GROUPS)
+{
+    NativeSubgroups_MAX_SB_SIZE();
+}
+
+TEST_F(NativeSubgroups, NativeSubgroups_SG_COUNT)
+{
+    NativeSubgroups_SG_COUNT();
+}
+
+TEST_F(NativeSubgroups, NativeSubgroups_LOCAL_SIZE_FOR_SG_COUNT)
+{
+    NativeSubgroups_LOCAL_SIZE_FOR_SG_COUNT();
+}
+
+/////////////////////////////////////////////////////////////////////
+////////////////   End of NativeSubgroups tests. ////////////////////
+/////////////////////////////////////////////////////////////////////
 
 CommandLineOption<std::string> deviceOption("--device_type");
 

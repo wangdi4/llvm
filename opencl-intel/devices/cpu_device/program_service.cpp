@@ -809,33 +809,42 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
             const size_t desiredSGCount = *(const size_t*)input_value;
             vValues.resize(dim, 0);
             pValue = &vValues[0];
-            if(1 == desiredSGCount)
+            size_t maxPrivateMemSize =
+              (m_pCPUConfig->GetForcedPrivateMemSize() > 0)
+              ? m_pCPUConfig->GetForcedPrivateMemSize()
+              : CPU_DEV_MAX_WG_PRIVATE_SIZE;
+            if (FPGA_EMU_DEVICE == m_pCPUConfig->GetDeviceMode())
             {
-                size_t maxPrivateMemSize =
-                  (m_pCPUConfig->GetForcedPrivateMemSize() > 0)
-                  ? m_pCPUConfig->GetForcedPrivateMemSize()
-                  : CPU_DEV_MAX_WG_PRIVATE_SIZE;
-                if (FPGA_EMU_DEVICE == m_pCPUConfig->GetDeviceMode())
-                {
-                    vValues[0] = pKernelProps->GetMaxWorkGroupSize(
-                        FPGA_MAX_WORK_GROUP_SIZE, maxPrivateMemSize);
-                }
-                else
-                {
-                    vValues[0] = pKernelProps->GetMaxWorkGroupSize(
-                        CPU_MAX_WORK_GROUP_SIZE, maxPrivateMemSize);
-                }
-                for(size_t i = 1; i < dim; ++i)
-                    vValues[i] = 1;
+                pKernelProps->GetLocalSizeForSubGroupCount(
+                    desiredSGCount,
+                    FPGA_MAX_WORK_GROUP_SIZE,
+                    maxPrivateMemSize,
+                    &vValues[0],
+                    dim);
             }
-            else vValues[0] = 0;
+            else
+            {
+                pKernelProps->GetLocalSizeForSubGroupCount(
+                    desiredSGCount,
+                    CPU_MAX_WORK_GROUP_SIZE,
+                    maxPrivateMemSize,
+                    &vValues[0],
+                    dim);
+            }
         }
         stValSize = (nullptr != value && nullptr != input_value)? sizeof(size_t) * dim: 0;
         break;
     }
     case CL_DEV_KERNEL_MAX_NUM_SUB_GROUPS:
     {
-        ullValue = pKernelProps->GetMaxNumSubGroups();
+        if (FPGA_EMU_DEVICE == m_pCPUConfig->GetDeviceMode())
+        {
+            ullValue = pKernelProps->GetMaxNumSubGroups(FPGA_MAX_WORK_GROUP_SIZE);
+        }
+        else
+        {
+            ullValue = pKernelProps->GetMaxNumSubGroups(CPU_MAX_WORK_GROUP_SIZE);
+        }
         stValSize = sizeof(size_t);
         break;
     }

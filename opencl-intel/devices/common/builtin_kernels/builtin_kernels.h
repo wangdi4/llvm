@@ -89,10 +89,12 @@ protected:
         size_t GetMaxWorkGroupSize(size_t const maxWGSize, size_t const) const {return maxWGSize;}
         size_t GetMaxSubGroupSize(size_t size, const size_t* WGSizes) const {return 1;}
         size_t GetNumberOfSubGroups(size_t size, const size_t* WGSizes) const {return 1;}
-        size_t GetMaxNumSubGroups() const {return 0;}
+        size_t GetMaxNumSubGroups(size_t const) const {return 0;}
         size_t GetRequiredNumSubGroups() const {return 0;};
         size_t GetImplicitLocalMemoryBufferSize() const {return 0;}
         size_t GetKernelExecutionLength() const {return -1;}
+        void GetLocalSizeForSubGroupCount(
+            size_t const, size_t const, size_t const, size_t*, size_t const) const { }
         bool HasPrintOperation() const {return false;}
         bool HasBarrierOperation() const {return false;}
         bool HasDebugInfo() const {return false;}

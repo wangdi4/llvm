@@ -498,6 +498,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   const unsigned int localBufferSize = skimd.LocalBufferSize.get();
   const bool hasBarrier = skimd.KernelHasBarrier.get();
   const bool hasGlobalSync = skimd.KernelHasGlobalSync.get();
+  const bool hasNativeSubgroups = skimd.KernelHasSubgroups.get();
   const size_t scalarExecutionLength = skimd.KernelExecutionLength.get();
   const unsigned int scalarBufferStride = skimd.BarrierBufferSize.get();
   unsigned int privateMemorySize = skimd.PrivateMemorySize.get();
@@ -545,6 +546,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   pProps->SetTotalImplSize(localBufferSize);
   pProps->SetHasBarrier(hasBarrier);
   pProps->SetHasGlobalSync(hasGlobalSync);
+  pProps->SetHasNativeSubgroups(hasNativeSubgroups);
   pProps->SetKernelExecutionLength(executionLength);
   pProps->SetVectorizationWidth(VF);
   pProps->SetIsAutorun(isAutorun);
