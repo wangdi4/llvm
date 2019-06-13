@@ -1,3 +1,4 @@
+; XFAIL: *
 ; This test checks that whole program wasn't achieved since
 ; there is no main.
 
