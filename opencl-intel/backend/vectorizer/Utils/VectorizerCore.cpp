@@ -158,13 +158,13 @@ bool VectorizerCore::runOnFunction(Function &F) {
 
   V_PRINT(VectorizerCore, "\nEntered VectorizerCore Wrapper!\n");
 
-  auto kimd = KernelMetadataAPI(&F);
+  auto kmd = KernelMetadataAPI(&F);
   uint32_t forcedVecWidth = 0;
   // If global setting is not set check vec_len_hint attr
   if (TRANSPOSE_SIZE_NOT_SET != m_pConfig->GetTransposeSize())
     forcedVecWidth = (uint32_t)m_pConfig->GetTransposeSize();
   else
-    forcedVecWidth = (kimd.VecLenHint.hasValue()) ? kimd.VecLenHint.get() : 0;
+    forcedVecWidth = (kmd.VecLenHint.hasValue()) ? kmd.VecLenHint.get() : 0;
 
   // No need to vectorize kernel, exiting...
   if (1 == forcedVecWidth)
@@ -181,6 +181,8 @@ bool VectorizerCore::runOnFunction(Function &F) {
   V_ASSERT(forcedVecWidth <= MAX_PACKET_WIDTH && "unssupported vector width");
 
   auto vkimd = KernelInternalMetadataAPI(&F);
+
+  bool KernelHasSubgroups = vkimd.KernelHasSubgroups.get();
 
   // The scalar function of the function we vectorize.
   Function* scalarFunc = vkimd.ScalarizedKernel.get();
@@ -260,7 +262,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
       m_vectorizationDim = chooser->getVectorizationDim();
       m_canUniteWorkgroups = chooser->getCanUniteWorkgroups();
       if(!forcedVecWidth) {
-         V_ASSERT(preCounter && "pre counter should be initialzied");
+         V_ASSERT(preCounter && "pre counter should be initialized");
          m_packetWidth = preCounter->getDesiredWidth();
          m_preWeight = preCounter->getWeight();
          // for statistical purposes, we need to keep the
@@ -271,6 +273,9 @@ bool VectorizerCore::runOnFunction(Function &F) {
       }
     } else {
       // Unsafe to vectorize the function should quit now.
+      // In case of subroups this has to be a compilation error
+      // We have to vectorize otherwise subgroup semantics is broken.
+      V_ASSERT(!KernelHasSubgroups && "Subgroup code could not be vectorized!");
       m_isFunctionVectorized = false;
       m_packetWidth = 0;
       return true;
@@ -369,7 +374,10 @@ bool VectorizerCore::runOnFunction(Function &F) {
       m_postWeight = postCounter->getWeight();
       float Ratio = (float)m_postWeight / m_preWeight;
       int attemptedWidth = m_packetWidth;
-      if (Ratio >= WeightedInstCounter::RATIO_MULTIPLIER * m_packetWidth) {
+      // TODO: I'm allowing forced vec width to override the subgroup size for now.
+      // It's debatable how exactly that should behave.
+      if ((Ratio >= WeightedInstCounter::RATIO_MULTIPLIER * m_packetWidth) &&
+          (!KernelHasSubgroups)) {
         m_packetWidth = 1;
         m_isFunctionVectorized = false;
         Statistic::ActiveStatsT kernelStats;
