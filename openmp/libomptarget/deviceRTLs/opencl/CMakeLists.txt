@@ -24,9 +24,12 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
   set(opencl_device_rtl_bc ${LIBOMPTARGET_LIBRARY_DIR}/libomptarget-opencl.bc)
   set(opencl_device_rtl ${LIBOMPTARGET_LIBRARY_DIR}/libomptarget-opencl.a)
   set(opencl_flags_spirv
-    -cc1 -emit-spirv -triple spir64-unknown-unknown -cl-std=CL2.0
-    -include opencl-c.h -D INTEL_COLLAB=1
+    -cc1 -emit-llvm-bc -triple spir64-unknown-unknown -cl-std=CL2.0
+    -disable-llvm-passes -include opencl-c.h -D INTEL_COLLAB=1
   )
+  if(INTEL_CUSTOMIZATION)
+    list(APPEND opencl_flags_spirv -disable-intel-proprietary-opts)
+  endif(INTEL_CUSTOMIZATION)
 
   add_custom_target(omptarget-opencl ALL DEPENDS ${opencl_device_rtl})
 
@@ -36,10 +39,9 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
     get_filename_component(cl_src ${src} ABSOLUTE)
     get_filename_component(filename ${src} NAME_WE)
     add_custom_command(
-      OUTPUT ${filename}.spv ${filename}.bc
-      COMMAND clang ${opencl_flags_spirv} -o ${filename}.spv ${cl_src}
-      COMMAND llvm-spirv -r -o ${filename}.bc ${filename}.spv
-      DEPENDS ${cl_src} ${opencl_inc} clang llvm-spirv
+      OUTPUT ${filename}.bc
+      COMMAND clang ${opencl_flags_spirv} -o ${filename}.bc ${cl_src}
+      DEPENDS ${cl_src} ${opencl_inc} clang
       VERBATIM
     )
     list(APPEND bc_all ${filename}.bc)
