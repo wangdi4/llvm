@@ -1757,16 +1757,6 @@ Sema::AccessResult Sema::CheckMemberOperatorAccess(SourceLocation OpLoc,
 
   AccessTarget Entity(Context, AccessTarget::Member, NamingClass, Found,
                       ObjectExpr->getType());
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ372975: allow access to private members if they are
-  // called inside template.
-  if (getLangOpts().IntelCompat &&
-      ((!getLangOpts().IntelMSCompat && ParsingTemplateArg) ||
-       (CurContext->isDependentContext() &&
-        CodeSynthesisContexts.empty())))
-    Entity.setDiag(diag::warn_access);
-  else
-#endif // INTEL_CUSTOMIZATION
   Entity.setDiag(diag::err_access)
     << ObjectExpr->getSourceRange()
     << (ArgExpr ? ArgExpr->getSourceRange() : SourceRange());
