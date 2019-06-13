@@ -506,6 +506,17 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 /* end INTEL_FEATURE_ISA_AMX */
 
+/* INTEL_FEATURE_ISA_AMX2 */
+/*
+ * TODO: when AMX2 is public change the #if checks below to also check:
+ *        !defined(_MSC_VER) || __has_feature(modules) || ...
+ */
+#if defined(__AMX2TILE__) || defined(__AMXINT8__) || defined(__AMXBF16__)
+// TODO: when AMX2 clang part is finished, fix here.
+#include <Intel_amx2intrin.h>
+#endif
+/* end INTEL_FEATURE_ISA_AMX2 */
+
 /* INTEL_FEATURE_ISA_KEYLOCKER */
 /*
  * TODO: when KeyLocker is public change the #if checks below to also check:

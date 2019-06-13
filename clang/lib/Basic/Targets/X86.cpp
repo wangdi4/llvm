@@ -1454,6 +1454,10 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (HasAMXBF16)
     Builder.defineMacro("__AMXBF16__");
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX2
+// TODO: when AMX2 clang part is finished, fix here.
+    Builder.defineMacro("__AMX2TILE__");
+#endif // INTEL_FEATURE_ISA_AMX2
 #if INTEL_FEATURE_ISA_AVX_VNNI
   if (HasAVXVNNI)
     Builder.defineMacro("__AVXVNNI__");
