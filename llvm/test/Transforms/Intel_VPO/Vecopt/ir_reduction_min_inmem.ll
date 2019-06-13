@@ -1,9 +1,5 @@
 ;RUN: opt -VPlanDriver -S %s | FileCheck %s
 
-; Deprecated the llvm.intel.directive* representation.
-; TODO: Update this test to use llvm.directive.region.entry/exit instead.
-; XFAIL: *
-
 ; CHECK:    %Min.vec = alloca <8 x i32>
 ; CHECK:  vector.ph:                                        ; preds = %min.iters.checked
 ; CHECK:    %MinInitVal = load i32, i32* %Min
@@ -67,10 +63,7 @@ DIR.OMP.SIMD.2:                                   ; preds = %for.body
   br label %DIR.OMP.SIMD.28
 
 DIR.OMP.SIMD.28:                                  ; preds = %DIR.OMP.SIMD.2
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  tail call void @llvm.intel.directive.qual.opnd.i32(metadata !"QUAL.OMP.SIMDLEN", i32 8)
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.REDUCTION.MIN", i32* nonnull %Min)
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.REDUCTION.MIN"(i32* %Min) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.28, %omp.inner.for.inc
@@ -91,8 +84,7 @@ omp.inner.for.inc:                                ; preds = %if.then13, %omp.inn
   br i1 %exitcond, label %omp.inner.for.body, label %omp.loop.exit
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.inc
-  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.QUAL.LIST.END.1
 
 DIR.QUAL.LIST.END.1:                              ; preds = %omp.loop.exit
@@ -104,13 +96,11 @@ if.end18:                                         ; preds = %DIR.QUAL.LIST.END.1
   ret void
 }
 
-; Function Attrs: nounwind argmemonly
-declare void @llvm.intel.directive(metadata) #1
+; Function Attrs: argmemonly nounwind
+declare token @llvm.directive.region.entry() #1
 
-declare void @llvm.intel.directive.qual.opnd.i32(metadata, i32)
-
-; Function Attrs: nounwind argmemonly
-declare void @llvm.intel.directive.qual.opndlist(metadata, ...) #1
+; Function Attrs: argmemonly nounwind
+declare void @llvm.directive.region.exit(token) #1
 
 ; Function Attrs: nounwind
 declare i32 @printf(i8 addrspace(2)*, ...)

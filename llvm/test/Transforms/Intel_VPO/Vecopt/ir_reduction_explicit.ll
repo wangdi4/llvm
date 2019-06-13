@@ -1,9 +1,5 @@
 ;RUN: opt -VPlanDriver -S %s | FileCheck %s
 
-; Deprecated the llvm.intel.directive* representation.
-; TODO: Update this test to use llvm.directive.region.entry/exit instead.
-; XFAIL: *
-
 ; CHECK-LABEL: expl_reduction_add
 ; CHECK: vector.body
 ; CHECK: %[[VRES:.*]] = fadd <8 x float>
@@ -30,10 +26,7 @@ entry:
   br label %entry.split
 
 entry.split:                                      ; preds = %entry
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  call void @llvm.intel.directive.qual.opnd.i32(metadata !"QUAL.OMP.SIMDLEN", i32 8)
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.REDUCTION.ADD", float* nonnull %x)
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.REDUCTION.ADD"(float* %x) ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %entry.split
@@ -53,8 +46,7 @@ for.end:                                          ; preds = %for.body
   br label %for.end1
 
 for.end1:                                         ; preds = %for.end
-  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.QUAL.LIST.END.3
 
 DIR.QUAL.LIST.END.3:                              ; preds = %for.end
@@ -86,10 +78,7 @@ entry:
   br label %entry.split
 
 entry.split:                                      ; preds = %entry
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  call void @llvm.intel.directive.qual.opnd.i32(metadata !"QUAL.OMP.SIMDLEN", i32 8)
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.REDUCTION.SUB", float* nonnull %x)
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.REDUCTION.ADD"(float* %x) ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %entry.split
@@ -109,8 +98,7 @@ for.end:                                          ; preds = %for.body
   br label %for.end1
 
 for.end1:                                         ; preds = %for.end
-  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.QUAL.LIST.END.3
 
 DIR.QUAL.LIST.END.3:                              ; preds = %for.end
@@ -122,13 +110,10 @@ DIR.QUAL.LIST.END.3:                              ; preds = %for.end
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive(metadata) #0
+declare token @llvm.directive.region.entry() #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive.qual.opnd.i32(metadata, i32) #0
-
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive.qual.opndlist(metadata, ...) #0
+declare void @llvm.directive.region.exit(token) #1
 
 declare i32 @printf(i8* nocapture readonly, ...)
 

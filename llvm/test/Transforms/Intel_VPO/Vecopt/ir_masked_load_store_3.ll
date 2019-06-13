@@ -1,9 +1,5 @@
 ; RUN: opt -S -VPlanDriver -vplan-force-vf=4 < %s | FileCheck %s
 
-; Deprecated the llvm.intel.directive* representation.
-; TODO: Update this test to use llvm.directive.region.entry/exit instead.
-; XFAIL: *
-
 ; CHECK: vector.body:
 ; CHECK:  %wide.masked.load = call {{.*}} @llvm.masked.load
 ; CHECK:  call {{.*}} @llvm.masked.store
@@ -21,8 +17,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind uwtable
 define void @foo() local_unnamed_addr #0 {
 entry:
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body.preheader
   
 for.body.preheader:
@@ -55,15 +50,15 @@ for.inc:                                          ; preds = %if.then, %for.body,
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.inc
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
   br label %for.cleanup
 
 for.cleanup:                              ; preds = %for.end
   ret void
 }
 
-declare void @llvm.intel.directive(metadata)
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)
 
 attributes #0 = { norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 

@@ -1,10 +1,6 @@
 ; RUN: opt -S -VPlanDriver -disable-vplan-subregions -vplan-force-vf=4 < %s | FileCheck %s
 ;void baz(int i);
 ;
-; Deprecated the llvm.intel.directive* representation.
-; TODO: Update this test to use llvm.directive.region.entry/exit instead.
-; XFAIL: *
-
 ;void foo(int *arr) {
 ;#pragma omp simd
 ;  for (int i = 0; i < 100; i++)
@@ -24,8 +20,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @foo(i32* nocapture readonly %arr) {
 entry:
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body
 
 for.body:                                         ; preds = %for.inc, %entry
@@ -46,13 +41,13 @@ for.inc:                                          ; preds = %for.body, %if.then
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.inc
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.QUAL.LIST.END.1
 
 DIR.QUAL.LIST.END.1:                              ; preds = %for.end
   ret void
 }
 
-declare void @llvm.intel.directive(metadata)
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)
 declare void @baz(i32 )

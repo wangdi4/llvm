@@ -1,13 +1,5 @@
 ;RUN: opt -VPlanDriver -vplan-force-vf=4 -S %s | FileCheck %s
 
-; Deprecated the llvm.intel.directive* representation.
-; TODO: Update this test to use llvm.directive.region.entry/exit instead.
-; XFAIL: *
-
-; Deprecated the llvm.intel.directive* representation.
-; TODO: Update this test to use llvm.directive.region.entry/exit instead.
-; XFAIL: *
-
 ; CHECK:   %min.vec = alloca <4 x i32>
 ; CHECK: vector.ph: 
 ; CHECK:   %minInitVal = load i32, i32* %min
@@ -39,9 +31,7 @@ define i32 @foo(i32* nocapture readonly %ip) {
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %0
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.REDUCTION.MIN", i32* nonnull %min)
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MIN"(i32* %min) ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.SIMD.1
@@ -71,13 +61,12 @@ for.end:                                      ; preds = %6
   br label %DIR.OMP.END.SIMD.3
 
 DIR.OMP.END.SIMD.3:                               ; preds = %8
-  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.QUAL.LIST.END.4
 
 DIR.QUAL.LIST.END.4:                              ; preds = %DIR.OMP.END.SIMD.3
   ret i32 %.lcssa
 }
 
-declare void @llvm.intel.directive(metadata)
-declare void @llvm.intel.directive.qual.opndlist(metadata , ...)
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)

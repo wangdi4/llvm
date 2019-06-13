@@ -1,9 +1,5 @@
 ; RUN: opt -vplan-force-vf=4 -S -VPlanDriver -disable-vplan-predicator -disable-vplan-subregions -instcombine < %s | FileCheck %s
 
-; Deprecated the llvm.intel.directive* representation.
-; TODO: Update this test to use llvm.directive.region.entry/exit instead.
-; XFAIL: *
-
 ;int inc_x;
 ;int foo(int * __restrict__ A, int N, int init) {
 ;  int x = init;
@@ -31,8 +27,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 define i32 @foo(i32* noalias nocapture %A, i32 %N, i32 %init)  {
 entry:
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %L1
 
 L1:
@@ -64,12 +59,12 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
   br label %DIR.OMP.END.SIMD.1
 
 DIR.OMP.END.SIMD.1:                               ; preds = %for.cond.cleanup
-  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.END.SIMD.1
   ret i32 %x.0.lcssa
 }
 
-declare void @llvm.intel.directive(metadata)
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)

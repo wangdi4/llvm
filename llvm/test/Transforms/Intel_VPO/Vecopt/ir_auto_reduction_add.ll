@@ -1,9 +1,5 @@
 ; RUN: opt -VPlanDriver -disable-vplan-predicator -disable-vplan-subregions -S -vplan-force-vf=4 < %s  -instcombine | FileCheck %s
 
-; Deprecated the llvm.intel.directive* representation.
-; TODO: Update this test to use llvm.directive.region.entry/exit instead.
-; XFAIL: *
-
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -31,8 +27,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define i32 @foo(i32* nocapture readonly %A, i32 %N, i32 %Init) {
 entry:
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:  
@@ -62,12 +57,12 @@ for.cond.cleanup:                                      ; preds = %for.cond.clean
   br label %end.simd
 
 end.simd:
-  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.QUAL.LIST.END.3
 
 DIR.QUAL.LIST.END.3:
   ret i32 %Sum.0.lcssa
 
 }
-declare void @llvm.intel.directive(metadata)
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)
