@@ -10,7 +10,9 @@
 
 extern cl_device_type gDeviceType;
 
-class CheckSamplerTypedefInSPIRV : public ::testing::Test {
+// The test is temporary disabled until https://git-amr-2.devtools.intel.com/gerrit/#/c/181490/
+// is merged.
+class DISABLED_CheckSamplerTypedefInSPIRV : public ::testing::Test {
 protected:
   cl_platform_id m_platform;
   cl_device_id m_device;
@@ -43,7 +45,7 @@ protected:
 
 // The test checks that OCL RT is able to recognize sampler typedef kernel
 // argument and set it
-TEST_F(CheckSamplerTypedefInSPIRV, Run) {
+TEST_F(DISABLED_CheckSamplerTypedefInSPIRV, Run) {
   cl_program m_program;
   cl_kernel m_kernel;
   cl_sampler m_sampler;
