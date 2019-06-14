@@ -21,5 +21,6 @@ class AVX2 : AVX {
   include "avx2/vloadstore.td"
   include "avx2/transpose.td"
   include "avx2/masked_load_store.td"
+  include "avx2/sub_group_builtin_impl.td"
 }
 
