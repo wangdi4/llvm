@@ -536,9 +536,11 @@ KMPC_ATOMIC_IMPL_FALLBACK_CPT(float8, double, andl, OP_AND)
   }
 
 EXTERN void __kmpc_atomic_load(size_t size, void *ptr, void *ret, int order) {
-  if (size <= sizeof(uint)) {
+  if (size != sizeof(uint) && size != sizeof(ulong)) {
+    printf("WARNING: Device does not support %zu-bit atomics\n", 8 * size);
+  } else if (size == sizeof(uint)) {
     KMP_ATOMIC_LOAD_EXPLICIT(uint, ptr, ret, order);
-  } else if (size <= sizeof(ulong)) {
+  } else {
 #if KMP_ATOMIC_FIXED8_SUPPORTED
     KMP_ATOMIC_LOAD_EXPLICIT(ulong, ptr, ret, order);
 #else
@@ -573,9 +575,11 @@ EXTERN void __kmpc_atomic_load(size_t size, void *ptr, void *ret, int order) {
   }
 
 EXTERN void __kmpc_atomic_store(size_t size, void *ptr, void *val, int order) {
-  if (size <= sizeof(uint)) {
+  if (size != sizeof(uint) && size != sizeof(ulong)) {
+    printf("WARNING: Device does not support %zu-bit atomics\n", 8 * size);
+  } else if (size == sizeof(uint)) {
     KMP_ATOMIC_STORE_EXPLICIT(uint, ptr, val, order);
-  } else if (size <= sizeof(ulong)) {
+  } else {
 #if KMP_ATOMIC_FIXED8_SUPPORTED
     KMP_ATOMIC_STORE_EXPLICIT(ulong, ptr, val, order);
 #else
@@ -620,11 +624,13 @@ EXTERN bool __kmpc_atomic_compare_exchange(size_t size, void *ptr,
                                            void *expected, void *desired,
                                            int success_order,
                                            int failure_order) {
-  bool ret = false;
-  if (size <= sizeof(uint)) {
+  bool ret = true; // avoid common-case hanging
+  if (size != sizeof(uint) && size != sizeof(ulong)) {
+    printf("WARNING: Device does not support %zu-bit atomics\n", 8 * size);
+  } else if (size == sizeof(uint)) {
     KMP_ATOMIC_COMPXCHG_EXPLICIT(uint, ret, ptr, expected, desired,
                                  success_order, failure_order);
-  } else if (size <= sizeof(ulong)) {
+  } else {
 #if KMP_ATOMIC_FIXED8_SUPPORTED
     KMP_ATOMIC_COMPXCHG_EXPLICIT(ulong, ret, ptr, expected, desired,
                                  success_order, failure_order);
