@@ -900,6 +900,20 @@ bool AndersensAAResult::findNameInTable(StringRef rname,
   return false;
 }
 
+// Returns true if Ty is vector/aggregate/pointer type.
+bool AndersensAAResult::isTrackableType(Type *Ty) const {
+  if (isPointsToType(Ty) || isAggregateOrVecType(Ty))
+    return true;
+  return false;
+}
+
+// Returns true if Ty is either vector type or aggregate type.
+bool AndersensAAResult::isAggregateOrVecType(Type *Ty) const {
+  if (Ty->isVectorTy() || Ty->isAggregateType())
+    return true;
+  return false;
+}
+
 // Returns true if "Ty" is Ptr type or PtrVector type.
 bool AndersensAAResult::isPointsToType(Type *Ty) const {
   if (Ty->getScalarType()->isPointerTy()) {
@@ -1347,7 +1361,7 @@ void AndersensAAResult::IdentifyObjects(Module &M) {
     // The function itself is a memory object.
     unsigned First = NumObjects;
     ValueNodes[&(*F)] = NumObjects++;
-    if (isPointsToType(F->getFunctionType()->getReturnType()))
+    if (isTrackableType(F->getFunctionType()->getReturnType()))
       ReturnNodes[&(*F)] = NumObjects++;
     if (F->getFunctionType()->isVarArg())
       VarargNodes[&(*F)] = NumObjects++;
@@ -1357,7 +1371,7 @@ void AndersensAAResult::IdentifyObjects(Module &M) {
     for (Function::arg_iterator I = F->arg_begin(), E = F->arg_end();
          I != E; ++I)
       {
-        if (isPointsToType(I->getType()))
+        if (isTrackableType(I->getType()))
           ValueNodes[&(*I)] = NumObjects++;
       }
     MaxK[First] = NumObjects - First;
@@ -1461,7 +1475,7 @@ unsigned AndersensAAResult::getNodeForConstantPointer(Constant *C) {
 /// getNodeForConstantPointerTarget - Return the node POINTED TO by the
 /// specified constant pointer.
 unsigned AndersensAAResult::getNodeForConstantPointerTarget(Constant *C) {
-  assert(isPointsToType(C->getType()) && "Not a constant pointer!");
+  assert(isTrackableType(C->getType()) && "Not a constant pointer!");
 
   if (isa<ConstantPointerNull>(C) || isa<UndefValue>(C))
     return NullObject;
@@ -1541,7 +1555,7 @@ void AndersensAAResult::AddGlobalInitializerConstraints(unsigned NodeIndex,
 /// returned by this function.
 void AndersensAAResult::AddConstraintsForNonInternalLinkage(Function *F) {
   for (Function::arg_iterator I = F->arg_begin(), E = F->arg_end(); I != E; ++I) {
-    if (isPointsToType(I->getType()))
+    if (isTrackableType(I->getType()))
       // If this is an argument of an externally accessible function, the
       // incoming pointer might point to anything.
       CreateConstraint(Constraint::Copy, getNode(&(*I)), UniversalSet);
@@ -1756,7 +1770,7 @@ void AndersensAAResult::CollectConstraints(Module &M) {
     }
 
     // Set up the return value node.
-    if (isPointsToType(F->getFunctionType()->getReturnType()))
+    if (isTrackableType(F->getFunctionType()->getReturnType()))
       GraphNodes[getReturnNode(&(*F))].setValue(&(*F));
     if (F->getFunctionType()->isVarArg())
       GraphNodes[getVarargNode(&(*F))].setValue(&(*F));
@@ -1764,7 +1778,7 @@ void AndersensAAResult::CollectConstraints(Module &M) {
     // Set up incoming argument nodes.
     for (Function::arg_iterator I = F->arg_begin(), E = F->arg_end();
          I != E; ++I)
-      if (isPointsToType(I->getType()))
+      if (isTrackableType(I->getType()))
         getNodeValue(*I);
 
     // At some point we should just add constraints for the escaping functions
@@ -1881,24 +1895,20 @@ void AndersensAAResult::visitCleanupReturnInst(CleanupReturnInst &AI) {
   processWinEhOperands(AI);
 }
 
+// Treat it as UniversalSet since Vector/Aggressive types are handled
+// conservatively.
+// TODO: Need to model this instruction once Vector/Aggressive types
+// are handled less conservatively.
 void AndersensAAResult::visitInsertValueInst(InsertValueInst &AI) {
-    if (!isPointsToType(AI.getType())) {
-        return;
-    }
-    unsigned AN = getNodeValue(AI);
-    CreateConstraint(Constraint::Copy, AN, getNode(AI.getOperand(0))); 
-    if (!isPointsToType(AI.getOperand(1)->getType())) {
-        return;
-    }
-    CreateConstraint(Constraint::Store, AN, getNode(AI.getOperand(1))); 
+  CreateConstraint(Constraint::Copy, getNodeValue(AI), UniversalSet);
 }
 
+// Treat it as UniversalSet since Vector/Aggressive types are handled
+// conservatively.
+// TODO: Need to model this instruction once Vector/Aggressive types
+// are handled less conservatively.
 void AndersensAAResult::visitExtractValueInst(ExtractValueInst &AI) {
-    if (!isPointsToType(AI.getType())) {
-        return;
-    }
-    CreateConstraint(Constraint::Load, getNodeValue(AI),
-                     getNode(AI.getAggregateOperand())); 
+  CreateConstraint(Constraint::Copy, getNodeValue(AI), UniversalSet);
 }
 
 void AndersensAAResult::visitAtomicRMWInst(AtomicRMWInst &AI) {
@@ -1910,16 +1920,20 @@ void AndersensAAResult::visitAtomicRMWInst(AtomicRMWInst &AI) {
 }
 
 void AndersensAAResult::visitBinaryOperator(BinaryOperator &AI) {
-    if (!isPointsToType(AI.getType())) {
-        return;
-    }
-    unsigned AN = getNodeValue(AI);
-    CreateConstraint(Constraint::Copy, AN, getNode(AI.getOperand(0)));
-    CreateConstraint(Constraint::Copy, AN, getNode(AI.getOperand(1)));
+  if (isAggregateOrVecType(AI.getType())) {
+    CreateConstraint(Constraint::Copy, getNodeValue(AI), UniversalSet);
+    return;
+  }
+  if (!isPointsToType(AI.getType())) {
+      return;
+  }
+  unsigned AN = getNodeValue(AI);
+  CreateConstraint(Constraint::Copy, AN, getNode(AI.getOperand(0)));
+  CreateConstraint(Constraint::Copy, AN, getNode(AI.getOperand(1)));
 }
 
 void AndersensAAResult::visitPtrToIntInst(PtrToIntInst &AI) {
-    CreateConstraint(Constraint::Copy, getNode(AI.getOperand(0)), 
+    CreateConstraint(Constraint::Copy, getNode(AI.getOperand(0)),
                      UniversalSet);
 }
 
@@ -1927,39 +1941,28 @@ void AndersensAAResult::visitIntToPtrInst(IntToPtrInst &AI) {
     CreateConstraint(Constraint::Copy, getNodeValue(AI), UniversalSet);
 }
 
+// Treat it as UniversalSet since Vector/Aggressive types are handled
+// conservatively.
+// TODO: Need to model this instruction once Vector/Aggressive types
+// are handled less conservatively.
 void AndersensAAResult::visitExtractElementInst(ExtractElementInst &AI) {
-  if (!isPointsToType(AI.getType())) {
-      return;
-  }
-  CreateConstraint(Constraint::Load, getNodeValue(AI),
-                   getNode(AI.getVectorOperand())); 
+  CreateConstraint(Constraint::Copy, getNodeValue(AI), UniversalSet);
 }
 
+// Treat it as UniversalSet since Vector/Aggressive types are handled
+// conservatively.
+// TODO: Need to model this instruction once Vector/Aggressive types
+// are handled less conservatively.
 void AndersensAAResult::visitInsertElementInst(InsertElementInst &AI) {
-    if (!isPointsToType(AI.getType())) {
-        return;
-    }
-    unsigned AN = getNodeValue(AI);
-    CreateConstraint(Constraint::Copy, AN, getNode(AI.getOperand(0))); 
-   
-    
-    if (!isPointsToType(AI.getOperand(1)->getType())) {
-        return;
-    }
-    CreateConstraint(Constraint::Store, AN, getNode(AI.getOperand(1))); 
+  CreateConstraint(Constraint::Copy, getNodeValue(AI), UniversalSet);
 }
 
+// Treat it as UniversalSet since Vector/Aggressive types are handled
+// conservatively.
+// TODO: Need to model this instruction once Vector/Aggressive types
+// are handled less conservatively.
 void AndersensAAResult::visitShuffleVectorInst(ShuffleVectorInst &AI) {
-    if (!isPointsToType(AI.getType())) {
-        return;
-    }
-    unsigned AN = getNodeValue(AI);
-    if (isPointsToType(AI.getOperand(0)->getType())) {
-      CreateConstraint(Constraint::Copy, AN, getNode(AI.getOperand(0))); 
-    }
-    if (isPointsToType(AI.getOperand(1)->getType())) {
-      CreateConstraint(Constraint::Copy, AN, getNode(AI.getOperand(1))); 
-    }
+  CreateConstraint(Constraint::Copy, getNodeValue(AI), UniversalSet);
 }
 
 // CMPLRLLVM-9114: Return type of Landingpad instruction can be struct
@@ -1984,7 +1987,14 @@ void AndersensAAResult::visitAllocaInst(AllocaInst &AI) {
 }
 
 void AndersensAAResult::visitReturnInst(ReturnInst &RI) {
-  if (RI.getNumOperands() && isPointsToType(RI.getOperand(0)->getType()))
+  if (!RI.getNumOperands())
+    return;
+  if (isAggregateOrVecType(RI.getOperand(0)->getType())) {
+    CreateConstraint(Constraint::Copy,
+                     getReturnNode(RI.getParent()->getParent()), UniversalSet);
+    return;
+  }
+  if (isPointsToType(RI.getOperand(0)->getType()))
     // return V   -->   <Copy/retval{F}/v>
     CreateConstraint(Constraint::Copy,
                      getReturnNode(RI.getParent()->getParent()),
@@ -1992,6 +2002,10 @@ void AndersensAAResult::visitReturnInst(ReturnInst &RI) {
 }
 
 void AndersensAAResult::visitLoadInst(LoadInst &LI) {
+  if (isAggregateOrVecType(LI.getType())) {
+    CreateConstraint(Constraint::Copy, getNodeValue(LI), UniversalSet);
+    return;
+  }
   if (isPointsToType(LI.getType()) ||
       NonPointerAssignments.count(&LI))
   // P1 = load P2  -->  <Load/P1/P2>
@@ -2052,6 +2066,10 @@ void AndersensAAResult::visitStoreInst(StoreInst &SI) {
 }
 
 void AndersensAAResult::visitGetElementPtrInst(GetElementPtrInst &GEP) {
+  if (isAggregateOrVecType(GEP.getType())) {
+    CreateConstraint(Constraint::Copy, getNodeValue(GEP), UniversalSet);
+    return;
+  }
   // P1 = getelementptr P2, ... --> <Copy/P1/P2>
   //errs() << "GetElementPtr: " << GEP << "\n";
   CreateConstraint(Constraint::Copy, getNodeValue(GEP),
@@ -2060,12 +2078,20 @@ void AndersensAAResult::visitGetElementPtrInst(GetElementPtrInst &GEP) {
 
 // Compare with visitGetElementPtrInst.
 void AndersensAAResult::visitAddressInst(AddressInst &I) {
+  if (isAggregateOrVecType(I.getType())) {
+    CreateConstraint(Constraint::Copy, getNodeValue(I), UniversalSet);
+    return;
+  }
   // P1 = @llvm.intel.subscript P2, ... --> <Copy/P1/P2>
   CreateConstraint(Constraint::Copy, getNodeValue(I),
                    getNode(I.getPointerOperand()));
 }
 
 void AndersensAAResult::visitPHINode(PHINode &PN) {
+  if (isAggregateOrVecType(PN.getType())) {
+    CreateConstraint(Constraint::Copy, getNodeValue(PN), UniversalSet);
+    return;
+  }
   if (isPointsToType(PN.getType()) ||
       NonPointerAssignments.count(&PN)) {
     unsigned PNN = getNodeValue(PN);
@@ -2084,6 +2110,10 @@ void AndersensAAResult::visitPHINode(PHINode &PN) {
 }
 
 void AndersensAAResult::visitCastInst(CastInst &CI) {
+  if (isAggregateOrVecType(CI.getType())) {
+    CreateConstraint(Constraint::Copy, getNodeValue(CI), UniversalSet);
+    return;
+  }
   Value *Op = CI.getOperand(0);
   if (isPointsToType(CI.getType())) {
     if (isPointsToType(Op->getType())) {
@@ -2115,6 +2145,10 @@ void AndersensAAResult::visitCastInst(CastInst &CI) {
 }
 
 void AndersensAAResult::visitSelectInst(SelectInst &SI) {
+  if (isAggregateOrVecType(SI.getType())) {
+    CreateConstraint(Constraint::Copy, getNodeValue(SI), UniversalSet);
+    return;
+  }
   if (isPointsToType(SI.getType())) {
     unsigned SIN = getNodeValue(SI);
     // P1 = select C, P2, P3   ---> <Copy/P1/P2>, <Copy/P1/P3>
@@ -2124,6 +2158,10 @@ void AndersensAAResult::visitSelectInst(SelectInst &SI) {
 }
 
 void AndersensAAResult::visitVAArg(VAArgInst &I) {
+  if (isAggregateOrVecType(I.getType())) {
+    CreateConstraint(Constraint::Copy, getNodeValue(I), UniversalSet);
+    return;
+  }
   if (isPointsToType(I.getType()))
     CreateConstraint(Constraint::Copy, getNodeValue(I),
                      getVarargNode(I.getParent()->getParent()));
@@ -2139,21 +2177,24 @@ void AndersensAAResult::AddConstraintsForDirectCall(CallSite CS, Function *F)
   Function::arg_iterator formal_end = F->arg_end();
 
   if (isPointsToType(CS.getType())) {
-    CreateConstraint(Constraint::Copy, getNode(CS.getInstruction()), 
+    CreateConstraint(Constraint::Copy, getNode(CS.getInstruction()),
                      getReturnNode(F));
+  } else if (isAggregateOrVecType(CS.getType())) {
+    CreateConstraint(Constraint::Copy, getNode(CS.getInstruction()),
+                     UniversalSet);
   }
 
   for (; formal_itr != formal_end;) {
     Argument* formal = &(*formal_itr);
     Value* actual = *arg_itr;
-    if (isPointsToType(formal->getType())) {
-      if (isPointsToType(actual->getType())) {
-        CreateConstraint(Constraint::Copy, getNode(&(*formal_itr)), 
-                         getNode(actual));
-      }
-      else {
-        CreateConstraint(Constraint::Copy, getNode(&(*formal_itr)), UniversalSet);
-      }     
+    Type *FTy = formal->getType();
+    Type *ATy = actual->getType();
+    if (isPointsToType(FTy) && isPointsToType(ATy)) {
+      CreateConstraint(Constraint::Copy, getNode(&(*formal_itr)),
+                        getNode(actual));
+    }
+    else if (isTrackableType(FTy) || isTrackableType(ATy)) {
+      CreateConstraint(Constraint::Copy, getNode(&(*formal_itr)), UniversalSet);
     }
     ++formal_itr;
     ++arg_itr;
@@ -2162,9 +2203,12 @@ void AndersensAAResult::AddConstraintsForDirectCall(CallSite CS, Function *F)
   if (F->getFunctionType()->isVarArg()) {
     for (; arg_itr != arg_end; ++arg_itr) {
       Value* actual = *arg_itr;
-      if (isPointsToType(actual->getType())) {
+      Type *ATy = actual->getType();
+      if (isPointsToType(ATy)) {
         // Using VARARG node of routine to model varargs.
         CreateConstraint(Constraint::Copy, getVarargNode(F), getNode(actual));
+      } else if (isAggregateOrVecType(ATy)) {
+        CreateConstraint(Constraint::Copy, getVarargNode(F), UniversalSet);
       }
     } 
   }
@@ -2177,14 +2221,14 @@ void AndersensAAResult::AddConstraintsForInitActualsToUniversalSet(CallSite CS) 
   CallSite::arg_iterator arg_itr = CS.arg_begin();
   CallSite::arg_iterator arg_end = CS.arg_end();
 
-  if (isPointsToType(CS.getType())) {
+  if (isTrackableType(CS.getType())) {
     CreateConstraint(Constraint::Copy, getNode(CS.getInstruction()), 
                      UniversalSet);
   }
 
   for (; arg_itr != arg_end; ++arg_itr) {
     Value* actual = *arg_itr;
-    if (isPointsToType(actual->getType())) {
+    if (isTrackableType(actual->getType())) {
       CreateConstraint(Constraint::Store, getNode(actual), UniversalSet);
     }
   }
@@ -2251,7 +2295,7 @@ void AndersensAAResult::visitCallSite(CallSite CS) {
                        getNodeValue(*CS.getInstruction()), ObjectIndex);
       return;
   }
-  if (isPointsToType(CS.getType()))
+  if (isTrackableType(CS.getType()))
     getNodeValue(*CS.getInstruction());
 
   if (Function *F = CS.getCalledFunction()) {
@@ -2378,7 +2422,7 @@ void AndersensAAResult::ClumpAddressTaken() {
 void AndersensAAResult::CollectPossibleIndirectNodes(void) {
   PossibleSourceOfPointsToInfo.clear();
   for (unsigned i = 0, e = IndirectCallList.size(); i != e; ++i) {
-    if (IndirectCallList[i].getType()->isPointerTy()) {
+    if (isTrackableType(IndirectCallList[i].getType())) {
       PossibleSourceOfPointsToInfo.insert(
                     getNode(IndirectCallList[i].getInstruction()));
     }
@@ -3307,7 +3351,7 @@ void AndersensAAResult::InitIndirectCallActualsToUniversalSet(CallSite CS) {
   CallSite::arg_iterator arg_itr = CS.arg_begin();
   CallSite::arg_iterator arg_end = CS.arg_end();
 
-  if (isPointsToType(CS.getType())) {
+  if (isTrackableType(CS.getType())) {
     AddEdgeInGraph(getNode(CS.getInstruction()), UniversalSet);
   }
 
@@ -3340,14 +3384,12 @@ void AndersensAAResult::IndirectCallActualsToFormals(CallSite CS, Function *F) {
   // doesn’t match with number of arguments of the call-site 
   // to improve accuracy of points-to sets.   
 
-
-  if (isPointsToType(CS.getType())) {
-    if (isPointsToType(F->getFunctionType()->getReturnType())) {
-      AddEdgeInGraph(getNode(CS.getInstruction()), getReturnNode(F));
-    }
-    else {
+  Type *FRTy = F->getFunctionType()->getReturnType();
+  Type *CTy = CS.getType();
+  if (isPointsToType(CTy) && isPointsToType(FRTy)) {
+    AddEdgeInGraph(getNode(CS.getInstruction()), getReturnNode(F));
+  } else if (isTrackableType(CTy) || isTrackableType(FRTy)) {
       AddEdgeInGraph(getNode(CS.getInstruction()), UniversalSet);
-    }
   }
 
   // CQ377744: Stop trying to map arguments and formals if 
@@ -3355,13 +3397,13 @@ void AndersensAAResult::IndirectCallActualsToFormals(CallSite CS, Function *F) {
   for (; formal_itr != formal_end && arg_itr != arg_end;) {
     Argument* formal = &(*formal_itr);
     Value* actual = *arg_itr;
-    if (isPointsToType(formal->getType())) {
-      if (isPointsToType(actual->getType())) {
+    Type *FTy = formal->getType();
+    Type *ATy = actual->getType();
+    if (isPointsToType(FTy) && isPointsToType(ATy)) {
         AddEdgeInGraph(getNode(&(*formal_itr)), getNode(actual));
-      }
-      else {
-        AddEdgeInGraph(getNode(&(*formal_itr)), UniversalSet);
-      }
+    }
+    else if (isTrackableType(FTy) || isTrackableType(ATy)){
+      AddEdgeInGraph(getNode(&(*formal_itr)), UniversalSet);
     }
     ++formal_itr;
     ++arg_itr;
@@ -3370,9 +3412,13 @@ void AndersensAAResult::IndirectCallActualsToFormals(CallSite CS, Function *F) {
   if (F->getFunctionType()->isVarArg()) {
     for (; arg_itr != arg_end; ++arg_itr) {
       Value* actual = *arg_itr;
-      if (isPointsToType(actual->getType())) {
+      Type *ATy = actual->getType();
+      if (isPointsToType(ATy)) {
         // Using VARARG node of routine to model varargs.
         AddEdgeInGraph(getVarargNode(F), getNode(actual));
+      }
+      else if (isAggregateOrVecType(ATy)) {
+        AddEdgeInGraph(getVarargNode(F), UniversalSet);
       }
     }
   }
@@ -3943,7 +3989,7 @@ void AndersensAAResult::PrintNode(const Node *N) const {
   assert(N->getValue() != 0 && "Never set node label!");
   Value *V = N->getValue();
   if (Function *F = dyn_cast<Function>(V)) {
-    if (isPointsToType(F->getFunctionType()->getReturnType()) &&
+    if (isTrackableType(F->getFunctionType()->getReturnType()) &&
         N == &GraphNodes[getReturnNode(F)]) {
       errs() << F->getName() << ":retval";
       return;

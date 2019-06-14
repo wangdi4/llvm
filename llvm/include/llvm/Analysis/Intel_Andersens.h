@@ -483,6 +483,10 @@ public:
 private:
   bool findNameInTable(StringRef rname, const char** name_table);
 
+  bool isTrackableType(Type *Ty) const;
+
+  bool isAggregateOrVecType(Type *Ty) const;
+
   bool isPointsToType(Type *Ty) const;
 
   unsigned getNode(Value *V);
