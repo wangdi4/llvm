@@ -749,16 +749,14 @@ def ProcessorFeatures {
 #if INTEL_CUSTOMIZATION
   list<SubtargetFeature> IntelAnonymousFeatures1 = [
 #if INTEL_FEATURE_ISA_KEYLOCKER
-    FeatureKeyLocker,
+    FeatureKeyLocker
 #endif // INTEL_FEATURE_ISA_KEYLOCKER
-#if INTEL_FEATURE_ISA_VP2INTERSECT
-    FeatureVP2INTERSECT
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
   ];
   //Tigerlake
   list<SubtargetFeature> TGLAdditionalFeatures1 = [FeatureMOVDIRI,
                                                    FeatureMOVDIR64B,
-                                                   FeatureSHSTK];
+                                                   FeatureSHSTK,
+                                                   FeatureVP2INTERSECT];
 
   list<SubtargetFeature> TGLAdditionalFeatures2 =
     !listconcat(IntelAnonymousFeatures1, TGLAdditionalFeatures1);
