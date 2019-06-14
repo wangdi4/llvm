@@ -8,9 +8,8 @@
 // ===--------------------------------------------------------------------=== //
 ///
 /// \file
-/// This file provides a set of utilities for VPO-based intrinsic function
-/// calls. E.g., directives that mark the beginning and end of SIMD and
-/// parallel regions.
+/// Utilities to support llvm.directive.region.entry/exit intrinsics,
+/// which are used to represent compiler directives in the IR.
 ///
 // ===--------------------------------------------------------------------=== //
 
@@ -115,7 +114,7 @@ StringRef IntrinsicUtils::getClauseString(int Id) {
   return Directives::ClauseStrings[Id];
 }
 
-bool IntrinsicUtils::isOpenMPDirective(Instruction *I) {
+bool IntrinsicUtils::isDirective(Instruction *I) {
   if (I == nullptr)
     return false;
   IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
@@ -123,12 +122,7 @@ bool IntrinsicUtils::isOpenMPDirective(Instruction *I) {
     Intrinsic::ID Id = Call->getIntrinsicID();
     if (Id == Intrinsic::directive_region_entry ||
         Id == Intrinsic::directive_region_exit)
-      if (Call->getNumOperandBundles() > 0) {
-        // First operand bundle has the directive name
-        OperandBundleUse BU = Call->getOperandBundleAt(0);
-        // Check if the TagName corresponds to an OpenMP directive name
-        return Directives::DirectiveIDs.count(BU.getTagName());
-      }
+      return true;
   }
   return false;
 }

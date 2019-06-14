@@ -286,13 +286,13 @@ void WRegionNode::print(formatted_raw_ostream &OS, unsigned Depth,
 
 void WRegionNode::printBegin(formatted_raw_ostream &OS, unsigned Depth) const {
   int Id = getDirID();
-  StringRef DirName = VPOAnalysisUtils::getDirectiveName(Id);
+  StringRef DirName = VPOAnalysisUtils::getOmpDirectiveName(Id);
   OS.indent(2*Depth) << "BEGIN " << DirName <<" ID=" << getNumber() << " {\n\n";
 }
 
 void WRegionNode::printEnd(formatted_raw_ostream &OS, unsigned Depth) const {
   int Id = getDirID();
-  StringRef DirName = VPOAnalysisUtils::getDirectiveName(Id);
+  StringRef DirName = VPOAnalysisUtils::getOmpDirectiveName(Id);
   OS.indent(2*Depth) << "} END " << DirName <<" ID=" << getNumber() << "\n\n";
 }
 
@@ -1525,7 +1525,7 @@ void WRegionNode::errorClause(StringRef ClauseName) const {
 }
 
 void WRegionNode::errorClause(int ClauseID) const {
-  StringRef ClauseName = VPOAnalysisUtils::getClauseName(ClauseID);
+  StringRef ClauseName = VPOAnalysisUtils::getOmpClauseName(ClauseID);
   errorClause(ClauseName);
 }
 

@@ -8,9 +8,7 @@
 // ===--------------------------------------------------------------------=== //
 ///
 /// \file
-/// This file provides a set of utilities for VPO-based intrinsic function
-/// calls. E.g., directives that mark the beginning and end of SIMD and
-/// parallel regions.
+/// VPO Analysis utilities for the llvm.directive.region.entry/exit intrinsics.
 ///
 // ===--------------------------------------------------------------------=== //
 

@@ -1323,8 +1323,8 @@ static bool HoistThenElseCodeToIf(BranchInst *BI,
       return Changed;
 
 #if INTEL_COLLAB
-    // Do not hoist llvm intrinsics that represent OpenMP directives.
-    if (IntrinsicUtils::isOpenMPDirective(I1))
+    // Do not hoist llvm.directive.region.entry/exit intrinsics.
+    if (IntrinsicUtils::isDirective(I1))
       return Changed;
 #endif //INTEL_COLLAB
 
@@ -2176,7 +2176,7 @@ static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
       return false; // Don't clone large BB's.
 
 #if INTEL_COLLAB
-    if (IntrinsicUtils::isOpenMPDirective(&I))
+    if (IntrinsicUtils::isDirective(&I))
       return false;
 #endif // INTEL_COLLAB
 

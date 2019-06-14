@@ -8,9 +8,7 @@
 // ===--------------------------------------------------------------------=== //
 ///
 /// \file
-/// This file provides a set of utilities for generating strings for OpenMP
-/// directives and qualifiers. These are used to create Metadata that can be
-/// attached to directive intrinsics, etc.
+/// VPO Analysis utilities for handling OpenMP directives and clauses.
 ///
 // ===--------------------------------------------------------------------=== //
 
@@ -61,7 +59,7 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
   if (VPOAnalysisUtils::isOpenMPClause(Base))
     setId(VPOAnalysisUtils::getClauseID(Base));
   else
-    llvm_unreachable("String is not a clause name");
+    llvm_unreachable("String is not an OpenMP clause name");
 
   // If Modifier exists, then split it into its component substrings, and
   // update ClauseSpecifier's properties accordingly
@@ -114,10 +112,6 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
   LLVM_DEBUG(dbgs() << "\n");
 }
 
-StringRef VPOAnalysisUtils::getDirOrClauseString(Instruction *I) {
-  return VPOAnalysisUtils::getDirectiveString(I);
-}
-
 StringRef VPOAnalysisUtils::getDirectiveString(Instruction *I){
   StringRef DirString;  // ctor initializes its data to nullptr
   if (I) {
@@ -141,12 +135,12 @@ StringRef VPOAnalysisUtils::getClauseString(int Id) {
   return Directives::ClauseStrings[Id];
 }
 
-StringRef VPOAnalysisUtils::getDirectiveName(int Id) {
+StringRef VPOAnalysisUtils::getOmpDirectiveName(int Id) {
   // skip "DIR_OMP_"
   return VPOAnalysisUtils::getDirectiveString(Id).substr(8);
 }
 
-StringRef VPOAnalysisUtils::getClauseName(int Id) {
+StringRef VPOAnalysisUtils::getOmpClauseName(int Id) {
   // Handle special cases first: REDUCTION, DEPEND, MAP:
   if (VPOAnalysisUtils::isDependClause(Id))
     return "DEPEND";
@@ -183,22 +177,20 @@ bool VPOAnalysisUtils::isOpenMPClause(StringRef ClauseFullName) {
 }
 
 int VPOAnalysisUtils::getDirectiveID(StringRef DirFullName) {
-  if (VPOAnalysisUtils::isOpenMPDirective(DirFullName))
+  if (Directives::DirectiveIDs.count(DirFullName))
     return Directives::DirectiveIDs[DirFullName];
-  else
-    return -1;
+  return -1;
 }
 
-int VPOAnalysisUtils::getDirectiveID(Instruction *I)
-{
+int VPOAnalysisUtils::getDirectiveID(Instruction *I) {
   StringRef DirString = VPOAnalysisUtils::getDirectiveString(I);
   return VPOAnalysisUtils::getDirectiveID(DirString);
 }
 
 int VPOAnalysisUtils::getClauseID(StringRef ClauseFullName) {
-  assert(VPOAnalysisUtils::isOpenMPClause(ClauseFullName) &&
-         "Clause string not found");
-  return Directives::ClauseIDs[ClauseFullName];
+  if (Directives::ClauseIDs.count(ClauseFullName))
+    return Directives::ClauseIDs[ClauseFullName];
+  return -1;
 }
 
 bool VPOAnalysisUtils::isBeginDirective(int DirID) {

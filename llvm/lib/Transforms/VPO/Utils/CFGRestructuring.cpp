@@ -68,8 +68,9 @@ void VPOUtils::CFGRestructuring(Function &F, DominatorTree *DT, LoopInfo *LI) {
   for (Instruction *I : InstructionsToSplit) {
 
     StringRef DirString = VPOAnalysisUtils::getDirectiveString(I);
-    assert(VPOAnalysisUtils::isOpenMPDirective(DirString) &&
-           "CFGRestructuring: unknown directive.");
+    if (!VPOAnalysisUtils::isOpenMPDirective(DirString))
+      // Do not process unrelated directives as they may not need restructuring
+      continue;
 
     // Get the basic block where this instruction resides in.
     BasicBlock *BB = I->getParent();

@@ -39,14 +39,14 @@ void WRegionUtils::updateWRGraph(IntrinsicInst *Call, WRContainerImpl *WRGraph,
 
   WRegionNode *W = nullptr;
 
-  // Name of the directive or clause represented by this intrinsic
-  StringRef DirOrClause = VPOAnalysisUtils::getDirOrClauseString(Call);
+  // Name of the directive represented by this intrinsic
+  StringRef DirString = VPOAnalysisUtils::getDirectiveString(Call);
 
-  LLVM_DEBUG(dbgs() << "\n=== updateWRGraph found: " << DirOrClause << "\n");
+  LLVM_DEBUG(dbgs() << "\n=== updateWRGraph found: " << DirString << "\n");
 
-  if (VPOAnalysisUtils::isOpenMPDirective(DirOrClause)) {
+  if (VPOAnalysisUtils::isOpenMPDirective(DirString)) {
 
-    int DirID = VPOAnalysisUtils::getDirectiveID(DirOrClause);
+    int DirID = VPOAnalysisUtils::getDirectiveID(DirString);
 
     if (WRegionUtils::skipDirFromWrnConstruction(DirID))
       // Ignore DirID, which is likely a new Dir still under development

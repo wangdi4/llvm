@@ -8,9 +8,8 @@
 // ===--------------------------------------------------------------------=== //
 ///
 /// \file
-/// Set of utilities that operate on intrinsics introduced by using OpenMP and
-/// SIMD directives. They are also used by auto parallelization/vectorization
-/// to generate parallel/vector code.
+/// Utilities to support llvm.directive.region.entry/exit intrinsics,
+/// which are used to represent compiler directives in the IR.
 ///
 // ===--------------------------------------------------------------------=== //
 
@@ -19,49 +18,49 @@
 
 namespace llvm {
 
-/// \brief This class provides a set of utility functions that operate on
-/// intrinsics introduced by OpenMP/SIMD directives.
+/// This class provides a set of utility functions that operate on
+/// the llvm.directive.region.entery/exit intrinsics
 class IntrinsicUtils {
 
 public:
 #if INTEL_CUSTOMIZATION
-  /// \brief Return a call to the llvm.directive.region.entry() intrinsic for
+  /// Return a call to the llvm.directive.region.entry() intrinsic for
   /// SIMD.
   static CallInst *createSimdDirectiveBegin(
       Module &M,
       SmallDenseMap<StringRef, SmallVector<Value *, 4>> &DirectiveStrMap);
 
-  /// \brief Return a call to the llvm.directive.region.exit() intrinsic for
+  /// Return a call to the llvm.directive.region.exit() intrinsic for
   /// SIMD.
   static CallInst *createSimdDirectiveEnd(Module &M, CallInst *DirCall);
 
-  /// \brief Private utility function used to encode a StringRef as a
+  /// Private utility function used to encode a StringRef as a
   /// Metadata Value. This Value is then used by the createDirective*
   /// functions as the parameter representing the type of directive.
   static Value *createMetadataAsValueFromString(Module &M, StringRef Str);
 
-  /// \brief Returns MetadataAsValue corresponding to OpenMP directives.
+  /// Returns MetadataAsValue corresponding to OpenMP directives.
   static MetadataAsValue *createDirectiveMetadataAsValue(Module &M, int Id) {
     StringRef Str(getDirectiveString(Id));
     return cast<MetadataAsValue>(createMetadataAsValueFromString(M, Str));
   }
 
-  /// \brief Returns MetadataAsValue corresponding to OpenMP clauses.
+  /// Returns MetadataAsValue corresponding to OpenMP clauses.
   static MetadataAsValue *createClauseMetadataAsValue(Module &M, int Id) {
     StringRef Str(getClauseString(Id));
     return cast<MetadataAsValue>(createMetadataAsValueFromString(M, Str));
   }
 #endif // INTEL_CUSTOMIZATION
 
-  /// \brief Returns strings corresponding to OpenMP directives.
+  /// Given an enum \p Id for a directive, return its corresponding string
   static StringRef getDirectiveString(int Id);
 
-  /// \brief Returns strings corresponding to OpenMP clauses.
+  /// Given an enum \p Id for a clause, return its corresponding string
   static StringRef getClauseString(int Id);
 
-  /// \brief Return true if the instruction is an OpenMP directive
-  /// represented as a directive.region.entry/exit intrinsic call
-  static bool isOpenMPDirective(Instruction *I);
+  /// Return true if the instruction is a directive represented
+  /// as a llvm.directive.region.entry/exit intrinsic call
+  static bool isDirective(Instruction *I);
 };
 
 } // namespace llvm

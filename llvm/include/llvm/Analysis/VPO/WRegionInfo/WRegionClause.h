@@ -1123,7 +1123,7 @@ print(formatted_raw_ostream &OS, unsigned Depth, unsigned Verbosity) const {
   if (Verbosity==0 && !size())
     return false;  // Don't print absent clause message if Verbosity==0
 
-  StringRef Name = VPOAnalysisUtils::getClauseName(getClauseID());
+  StringRef Name = VPOAnalysisUtils::getOmpClauseName(getClauseID());
   OS.indent(2*Depth) << Name << " clause";
   if (!size()) {  // this clause was not used in the directive
     OS << ": UNSPECIFIED\n";

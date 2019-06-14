@@ -167,37 +167,33 @@ public:
     /// If the instruction is a directive_region_entry/exit intrinsic,
     /// return its first OperandBundle's tagname. Otherwise, return an empty
     /// StringRef.
-    /// \param IsEntry is filled accorrding to whether the directive is entry
+    /// \p IsEntry is filled according to whether the directive is an entry
     static StringRef getRegionDirectiveString(const Instruction *I,
                                               bool *IsEntry = nullptr);
 
-    /// If getRegionDirectiveString(I) is an OpenMP directive name, then
+    /// If getRegionDirectiveString(I) is a directive name, then
     /// return its corresponding ID (enum). Otherwise, return -1.
-    /// \param IsEntry is filled accorrding to whether the directive is entry
+    /// \p IsEntry is filled according to whether the directive is an entry
     static int getRegionDirectiveID(const Instruction *I,
                                     bool *IsEntry = nullptr);
 
-    /// If the instruction is an OpenMP directive or clause, return the
-    /// directive or clause name. Otherwise, return an empty StringRef.
-    static StringRef getDirOrClauseString(Instruction *I);
-
-    /// If the instruction is an OpenMP directive, return the directive
-    /// name. Otherwise, return an empty StringRef.
+    /// If the instruction is a directive, return the directive name.
+    /// Otherwise, return an empty StringRef.
     static StringRef getDirectiveString(Instruction *I);
 
-    /// Returns strings corresponding to OpenMP directives.
+    /// Returns the string corresponding to a directive.
     static StringRef getDirectiveString(int Id);
 
-    /// Returns strings corresponding to OpenMP clauses.
+    /// Returns the string corresponding to a clause.
     static StringRef getClauseString(int Id);
 
-    /// Similar to getDirectiveString(int), but strips out the leading
-    /// "DIR_OMP_" prefix substring.
-    static StringRef getDirectiveName(int Id);
+    /// Given an enum \p Id for an OpenMP directive, return its
+    /// corresponding directive name without the "DIR_OMP_" prefix.
+    static StringRef getOmpDirectiveName(int Id);
 
-    /// Similar to getClauseString(), but strips out the leading
-    /// "QUAL_OMP_" prefix substring.
-    static StringRef getClauseName(int Id);
+    /// Given an enum \p Id for an OpenMP clause, return its
+    /// corresponding clause name without the "QUAL_OMP_" prefix.
+    static StringRef getOmpClauseName(int Id);
 
     /// Given a ClauseId for a reduction, strip out the leading
     /// "QUAL_OMP_REDUCTION_" prefix substring, and return the remaining
@@ -213,11 +209,13 @@ public:
     /// Returns true if the string corresponds to an OpenMP clause.
     static bool isOpenMPClause(StringRef ClauseFullName);
 
-    /// Returns the ID (enum) corresponding to OpenMP directives.
+    /// Returns the ID (enum) corresponding to a directive,
+    /// or -1 if \p DirFullName does not correspond to a directive name.
     static int getDirectiveID(StringRef DirFullName);
     static int getDirectiveID(Instruction *I);
 
-    /// Returns the ID (enum) corresponding to OpenMP clauses.
+    /// Returns the ID (enum) corresponding to a clause,
+    /// or -1 if \p ClauseFullName does not correspond to a clause name.
     static int getClauseID(StringRef ClauseFullName);
 
     /// Utilities to handle directives & clauses
