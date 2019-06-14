@@ -1,9 +1,5 @@
 ;RUN: opt -VPlanDriver -disable-vplan-subregions -disable-vplan-predicator -vplan-force-vf=4 -S %s | FileCheck %s
 
-; Deprecated the llvm.intel.directive* representation.
-; TODO: Update this test to use llvm.directive.region.entry/exit instead.
-; XFAIL: *
-
 ;void foo(int *ip, int n)
 ;{
 ;  int i
@@ -34,8 +30,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define void @var_tripcount(i32* nocapture %ip, i32 %n) local_unnamed_addr #0 {
 entry:
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:
@@ -59,17 +54,18 @@ for.end:                                          ; preds = %for.body, %DIR.QUAL
   br label %for.cond.cleanup
   
 for.cond.cleanup:
-  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.QUAL.LIST.END.3
 
 DIR.QUAL.LIST.END.3:
   ret void
 }
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive(metadata) #1
-declare void @llvm.intel.directive.qual.opnd.i32(metadata, i32)
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry()
+
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token)
 
 attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

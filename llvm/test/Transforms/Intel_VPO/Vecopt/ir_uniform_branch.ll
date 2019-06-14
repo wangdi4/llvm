@@ -1,9 +1,5 @@
 ; RUN: opt -vplan-force-vf=4 -S -VPlanDriver -disable-vplan-subregions -disable-vplan-predicator < %s | FileCheck %s
 
-; Deprecated the llvm.intel.directive* representation.
-; TODO: Update this test to use llvm.directive.region.entry/exit instead.
-; XFAIL: *
-
 ; CHECK-LABEL: foo
 ; CHECK: vector.body
 ; CHECK:  %index = phi i64 [ 0, %vector.ph ], [ %index.next, %[[VPBB1:.*]] ]
@@ -28,8 +24,7 @@
 ;}
 define void @foo(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32 %N, i32 %c) local_unnamed_addr #0 {
 entry:
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %L1
 
 L1:
@@ -45,8 +40,7 @@ for.cond.cleanup.loopexit:                        ; preds = %if.end
   br label %for.cond.cleanup
 
 for.cond.cleanup:                                 ; preds = %for.cond.cleanup.loopexit, %entry
-  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   ret void
 
 for.body:                                         ; preds = %if.end, %for.body.lr.ph
@@ -69,6 +63,8 @@ if.end:                                           ; preds = %for.body, %if.then
   br i1 %exitcond, label %for.cond.cleanup.loopexit, label %for.body
 }
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive(metadata)
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry()
 
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token)

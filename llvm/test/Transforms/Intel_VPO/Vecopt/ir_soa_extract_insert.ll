@@ -1,9 +1,5 @@
 ; RUN: opt -VPlanDriver -vplan-force-vf=4 -S %s | FileCheck %s
 
-; Deprecated the llvm.intel.directive* representation.
-; TODO: Update this test to use llvm.directive.region.entry/exit instead.
-; XFAIL: *
-
 ; CHECK: vector.body:
 ; CHECK:  [[EXTRACT1:%.*]] = shufflevector <8 x i32> %{{.*}}, <8 x i32> undef, <4 x i32> <i32 1, i32 3, i32 5, i32 7>
 ; CHECK-NEXT:  [[OP1:%.*]] = sitofp <4 x i32> [[EXTRACT1]] to <4 x float> 
@@ -24,8 +20,7 @@ entry:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.SIMD.1
@@ -63,8 +58,7 @@ for.inc:                                          ; preds = %for.body, %if.then
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                    ; preds = %omp.inner.for.body
-  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.QUAL.LIST.END.3
 
 DIR.QUAL.LIST.END.3:                              ; preds = %omp.loop.exit
@@ -72,10 +66,8 @@ DIR.QUAL.LIST.END.3:                              ; preds = %omp.loop.exit
   ret void
 }
 
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry()
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive(metadata) #1
-
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive.qual.opndlist(metadata, ...) #1
-
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token)

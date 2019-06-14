@@ -1,7 +1,8 @@
 ; RUN: opt -VPlanDriver -disable-vplan-subregions -S < %s  | FileCheck %s
 
-; Deprecated the llvm.intel.directive* representation.
-; TODO: Update this test to use llvm.directive.region.entry/exit instead.
+; Changed deprecated llvm.intel.directive* representation to use llvm.directive.region.entry/exit instead but test still fails:
+; Can't find "call <4 x float> @_ZGVbM4vv_vec_sum" with possible intended match "call <4 x float> @_ZGVbM4vv_foo"
+; This happens after this xmain commit: be92f34c48c21c10470806eab350a4099a62b200: Merge from 'xmain-cand' to 'xmain' (xmain-cand@head => xmain)
 ; XFAIL: *
 
 ; CHECK-LABEL: vector.body
@@ -93,9 +94,7 @@ for.body:                                         ; preds = %for.body, %entry
   br i1 %exitcond64, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  tail call void @llvm.intel.directive.qual.opnd.i32(metadata !"QUAL.OMP.SIMDLEN", i32 4)
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.inc, %for.end
@@ -120,8 +119,7 @@ omp.inner.for.inc:                                ; preds = %omp.inner.for.body,
   br i1 %exitcond61, label %omp.loop.exit, label %omp.inner.for.body
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.inc
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   br label %for.body18
 
 for.body18:                                       ; preds = %for.body18, %omp.loop.exit
@@ -156,11 +154,11 @@ declare void @llvm.lifetime.start(i64, i8* nocapture) #2
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.end(i64, i8* nocapture) #2
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive(metadata) #2
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry()
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive.qual.opnd.i32(metadata, i32) #2
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token)
 
 declare i32 @printf(i8*, ...) #4
 

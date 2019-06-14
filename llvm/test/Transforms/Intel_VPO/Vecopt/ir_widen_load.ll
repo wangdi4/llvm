@@ -1,10 +1,5 @@
 ;RUN: opt -VPlanDriver -disable-vplan-subregions -disable-vplan-predicator -S %s | FileCheck %s
 
-; Deprecated the llvm.intel.directive* representation.
-; TODO: Update this test to use llvm.directive.region.entry/exit instead.
-; XFAIL: *
-
-
 ;#define N 1024
 ;#define SIZE 1024*10
 ;unsigned long A[SIZE];
@@ -29,9 +24,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @load_consecutive() {
 entry:
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  call void @llvm.intel.directive.qual.opnd.i32(metadata !"QUAL.OMP.SIMDLEN", i32 4)
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
@@ -46,16 +39,18 @@ for.body:                                         ; preds = %for.body, %entry
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body
-  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:
   ret void
 }
 
-declare void @llvm.intel.directive(metadata)
-declare void @llvm.intel.directive.qual.opnd.i32(metadata, i32)
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry()
+
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token)
 
 ;#define N 1024
 ;#define SIZE 1024*10
@@ -80,9 +75,7 @@ declare void @llvm.intel.directive.qual.opnd.i32(metadata, i32)
 
 define void @load_invariant(i64* nocapture readonly %C) {
 entry:
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  call void @llvm.intel.directive.qual.opnd.i32(metadata !"QUAL.OMP.SIMDLEN", i32 4)
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
@@ -98,8 +91,7 @@ for.body:                                         ; preds = %for.body, %entry
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body
-  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.QUAL.LIST.END.3
 
 DIR.QUAL.LIST.END.3:

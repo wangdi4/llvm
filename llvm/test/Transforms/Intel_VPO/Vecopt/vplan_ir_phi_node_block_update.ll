@@ -1,9 +1,5 @@
 ; RUN: opt -VPlanDriver -vplan-print-after-simplify-cfg -S -disable-output < %s 2>&1 | FileCheck %s
 
-; Deprecated the llvm.intel.directive* representation.
-; TODO: Update this test to use llvm.directive.region.entry/exit instead.
-; XFAIL: *
-
 ; Test to check that the incoming blocks for a VPPHINode are correctly updated after simplifyPlainCFG. The incoming blocks are strictly predecessors of the VPPHINode's parent VPBasicBlock.
 ; The test checks for the block entires of a VPPHINode based on the HCFG structure which is also verified.
 
@@ -53,8 +49,7 @@ define i32 @foo() local_unnamed_addr {
 ; CHECK-NEXT:    END Region([[REGION0]])
 ;
 entry:
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %L1
 
 L1:
@@ -105,13 +100,15 @@ loop.exit:                                        ; preds = %if.end26
   br label %DIR.OMP.END.SIMD.1
 
 DIR.OMP.END.SIMD.1:                               ; preds = loop.exit
-  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.END.SIMD.1
   ret i32 0
 }
 
-declare void @llvm.intel.directive(metadata)
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry()
 
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token)

@@ -1,9 +1,5 @@
 ; RUN: opt -VPlanDriver -disable-vplan-subregions -disable-vplan-predicator -S < %s  | FileCheck %s
 
-; Deprecated the llvm.intel.directive* representation.
-; TODO: Update this test to use llvm.directive.region.entry/exit instead.
-; XFAIL: *
-
 ; CHECK-LABEL: vector.body
 ; CHECK: call <4 x i32> @_ZGVbN4vv_foo
 
@@ -88,9 +84,7 @@ for.body:                                         ; preds = %for.body, %entry
   br i1 %exitcond29, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  tail call void @llvm.intel.directive.qual.opnd.i32(metadata !"QUAL.OMP.SIMDLEN", i32 4)
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %for.end
@@ -107,8 +101,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.body
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.QUAL.LIST.END.1
 
 DIR.QUAL.LIST.END.1:                              ; preds = %omp.loop.exit
@@ -127,11 +120,11 @@ declare void @llvm.lifetime.start(i64, i8* nocapture) #2
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.end(i64, i8* nocapture) #2
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive(metadata) #2
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry()
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive.qual.opnd.i32(metadata, i32) #2
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token)
 
 declare i32 @printf(i8*, ...) #4
 

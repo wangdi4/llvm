@@ -1,9 +1,5 @@
 ; RUN: opt %s -vector-library=SVML -VPlanDriver -disable-vplan-subregions -disable-vplan-predicator -vplan-force-vf=4 -S 2>&1 | FileCheck %s
 
-; Deprecated the llvm.intel.directive* representation.
-; TODO: Update this test to use llvm.directive.region.entry/exit instead.
-; XFAIL: *
-
 ; Verify vectorization of Opencl select build-in. Generic case.
 ; This test is from Volcano compiler but it's been highly modified by hand.
 ; The IR is only intended to trigger the code generation of the vector select
@@ -22,8 +18,7 @@ simd.begin.region:
   br label %DIR.OMP.SIMD.3
 
 DIR.OMP.SIMD.3:                                   ; preds = %simd.begin.region
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %DIR.QUAL.LIST.END.1
 
 DIR.QUAL.LIST.END.1:                              ; preds = %DIR.OMP.SIMD.3
@@ -42,8 +37,7 @@ simd.loop:                                        ; preds = %simd.loop, %DIR.QUA
   br i1 %exitcond, label %simd.loop, label %simd.end.region 
 
 simd.end.region:                                  ; preds = %simd.loop
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %simd.end.region
@@ -51,8 +45,9 @@ DIR.QUAL.LIST.END.2:                              ; preds = %simd.end.region
 }
 
 declare float @_Z6selectffi(float %x, float %y, i32 %m) nounwind readnone 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive(metadata) #1
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive.qual.opnd.i32(metadata, i32) #1
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry()
+
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token)
