@@ -318,6 +318,7 @@ void InlineReport::beginFunction(Function *F) {
   if (!F || F->isDeclaration())
     return;
   InlineReportFunction *IRF = addFunction(F, M);
+  assert(IRF != nullptr);
   for (BasicBlock &BB : *F) {
     for (Instruction &I : BB) {
       CallSite CS(cast<Value>(&I));
