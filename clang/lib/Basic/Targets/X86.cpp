@@ -137,13 +137,8 @@ bool X86TargetInfo::setFPMath(StringRef Name) {
 #else // INTEL_FEATURE_ISA_KEYLOCKER
 #define TGLXFEATURE1
 #endif // INTEL_FEATURE_ISA_KEYLOCKER
-
-#if INTEL_FEATURE_ISA_VP2INTERSECT
-#define TGLXFEATURE2 setFeatureEnabledImpl(Features, "avx512vp2intersect", true);
-#else // INTEL_FEATURE_ISA_VP2INTERSECT
-#define TGLXFEATURE2
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
 #endif // INTEL_CUSTOMIZATION
+
 bool X86TargetInfo::initFeatureMap(
     llvm::StringMap<bool> &Features, DiagnosticsEngine &Diags, StringRef CPU,
     const std::vector<std::string> &FeaturesVec) const {
@@ -203,7 +198,7 @@ bool X86TargetInfo::initFeatureMap(
 #endif // INTEL_FEATURE_CPU_GLC
   case CK_Tigerlake:
     TGLXFEATURE1
-    TGLXFEATURE2
+    setFeatureEnabledImpl(Features, "avx512vp2intersect", true);
     setFeatureEnabledImpl(Features, "movdiri", true);
     setFeatureEnabledImpl(Features, "movdir64b", true);
     setFeatureEnabledImpl(Features, "shstk", true);
