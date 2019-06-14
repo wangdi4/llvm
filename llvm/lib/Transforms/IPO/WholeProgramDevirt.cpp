@@ -552,6 +552,9 @@ struct DevirtModule {
       std::vector<TargetData *> TargetsVector,
       TargetData *DefaultTarget);
 
+  // Find the possible downcasting to prevent devirtualization
+  void filterDowncasting(Function *AssumeFunc);
+
   // Verify that the transformation was done correctly
   void runDevirtVerifier(Module &M);
 
@@ -1726,6 +1729,154 @@ void DevirtModule::runDevirtVerifier(Module &M) {
   }
 }
 
+// Prevent devirtualization on those virtual call sites that are related to
+// downcasting. A possible downcasting occurs when a pointer from a base class
+// is cast to a derived class. For example:
+//
+//   %"class.Base" = type { i32 (...)** }
+//   %"class.DerivedA" = type { %"class.Base" }
+//   %"class.DerivedB" = type { %"class.Base" }
+//
+//   %2 = bitcast %"class.Base"* %1 to i32 (%"class.DerivedA"*)***
+//   %3 = load i32 (%"class.Base"*)**, i32 (%"class.DerivedA"*)*** %2
+//   %4 = bitcast i32 (%"class.DerivedA"*)** %3 to i8*
+//   %5 = call i1 @llvm.type.test(i8* %4, metadata !"_ZTS8DerivedA")
+//   call void @llvm.assume(i1 %5)
+//
+// The types %"class.DerivedA" and %"class.DerivedB" have Base as element.
+// This means that the classes DerivedA and DerivedB could be derived from
+// Base. Consider that %1 is a Value and its type is %"class.Base". The
+// bitcasting in %2 converts the %1 into a function pointer. This casting goes
+// from %"class.Base" to %"class.DerivedA". This could cause that the
+// devirtualization process to convert the virtual call into an incorrect
+// direct call.
+
+// The following function will identify the bitcasting mentioned above by
+// tracing from the assume call site up to the bitcasting (%2). Then it will
+// check if the source type of the casting (%"class.Base") is an element of
+// the destination type (%"class.DerivedA"). If so, then remove the assume
+// intrinsic, which will prevent the devirtualization.
+void DevirtModule::filterDowncasting(Function *AssumeFunc) {
+  if (!IsWholeProgramSafe || !AssumeFunc ||
+      AssumeFunc->use_empty() || !AssumeFunc->isIntrinsic() ||
+      AssumeFunc->getIntrinsicID() != Intrinsic::assume)
+    return;
+
+  // Given a Type, find the first non-pointer type that it points-to.
+  auto GetElemType = [](llvm::Type *InputType) {
+
+    Type *RootType = nullptr;
+
+    if (!InputType)
+      return RootType;
+
+    RootType = InputType;
+
+    while (RootType && RootType->isPointerTy()) {
+      PointerType *PtrTy = cast<PointerType>(RootType);
+      RootType = PtrTy->getElementType();
+    }
+
+    return RootType;
+  };
+
+  // Return true if SrcType is one of the elements of DestType, else
+  // return false.
+  auto DowncastingFound = [](StructType *SrcType, StructType *DestType) {
+    if (!SrcType || !DestType)
+      return false;
+
+    unsigned NumElem = DestType->getNumElements();
+    if (NumElem == 0)
+      return false;
+
+    for (unsigned CurrElem = 0; CurrElem < NumElem; CurrElem++)
+      if (DestType->getElementType(CurrElem) == SrcType)
+        return true;
+
+    return false;
+  };
+
+  // Vector that holds the assume callsites that will be removed
+  std::vector<CallBase *> AssumesVector;
+
+  // Go through each of the users for the intrinsic assume
+  for (User *User : AssumeFunc->users()) {
+
+    CallBase *AssumeCall = dyn_cast<CallBase>(User);
+    if (!AssumeCall)
+      continue;
+
+    // Collect type.test intrinsic
+    CallBase *TestCall = dyn_cast<CallBase>(AssumeCall->getArgOperand(0));
+    if (!TestCall)
+      continue;
+
+    // Collect the VTable that the metadata is being assigned to
+    BitCastInst *VTableBCInst = dyn_cast<BitCastInst>(
+                                  TestCall->getArgOperand(0));
+    if (!VTableBCInst)
+      continue;
+
+    // Get the pointer loaded
+    LoadInst *LoadPtr = dyn_cast<LoadInst>(VTableBCInst->getOperand(0));
+    if (!LoadPtr)
+      continue;
+
+    // Collect the bitcasting from base to derived
+    BitCastInst *TypeCasting = dyn_cast<BitCastInst>(LoadPtr->getOperand(0));
+    if (!TypeCasting)
+      continue;
+
+    // Get the source
+    StructType *SrcType = dyn_cast<StructType>(
+                              GetElemType(TypeCasting->getSrcTy()));
+    if (!SrcType)
+      continue;
+
+    // Get the destination
+    FunctionType *DestType = dyn_cast<FunctionType>(
+                               GetElemType(TypeCasting->getDestTy()));
+    if (!DestType)
+      continue;
+
+    // Go through each parameter of the virtual function and check
+    // if there is a possible downcasting
+    unsigned NumParams = DestType->getNumParams();
+    for (unsigned CurrParam = 0; CurrParam < NumParams; CurrParam++) {
+      StructType *ParamStruct = dyn_cast<StructType>(
+                         GetElemType(DestType->getParamType(CurrParam)));
+
+      if (!ParamStruct)
+        continue;
+
+      // If SrcType is in ParamStruct's element types list then
+      // we found a possible downcasting (Base -> Derived).
+      if (DowncastingFound(SrcType, ParamStruct)) {
+        AssumesVector.push_back(AssumeCall);
+        break;
+      }
+    }
+  }
+
+  // Remove the assumes related to downcasting
+  for (CallBase *AssumeCall : AssumesVector) {
+    CallBase *TestCall = cast<CallBase>(AssumeCall->getArgOperand(0));
+    BitCastInst *VTableBCInst = cast<BitCastInst>(
+                                  TestCall->getArgOperand(0));
+
+    // Delete the call to assume
+    AssumeCall->eraseFromParent();
+
+    // Delete the call to type.test
+    if (TestCall->use_empty())
+      TestCall->eraseFromParent();
+
+    // Delete the bitcast for the vtable
+    if (VTableBCInst->use_empty())
+      VTableBCInst->eraseFromParent();
+  }
+}
 #endif // INTEL_CUSTOMIZATION
 
 bool DevirtModule::tryEvaluateFunctionsWithArgs(
@@ -2357,6 +2508,10 @@ bool DevirtModule::run() {
       (!TypeCheckedLoadFunc || TypeCheckedLoadFunc->use_empty()))
     return false;
 
+#if INTEL_CUSTOMIZATION
+  // Find the possible places where a downcasting can occur
+  filterDowncasting(AssumeFunc);
+#endif // INTEL_CUSTOMIZATION
   if (TypeTestFunc && AssumeFunc)
     scanTypeTestUsers(TypeTestFunc, AssumeFunc);
 
