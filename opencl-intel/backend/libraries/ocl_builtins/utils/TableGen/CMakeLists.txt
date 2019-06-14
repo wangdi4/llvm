@@ -13,6 +13,7 @@ set(CLANG_BIN_PATH "${LLVM_BINARY_DIR}/clang")
 add_definitions(
   -D CCLANG_INCLUDE_PATH=${CCLANG_INCLUDE_DIRS}
   -D CLANG_BIN_PATH=${CLANG_BIN_PATH}
+  -D CL_BUILTIN_SOURCE_DIR=${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins
 )
 
 include_directories(
