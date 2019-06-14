@@ -710,6 +710,102 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   LLVM_DEBUG(Plan->dump());
 }
 
+// The single-exit while tranformation creates a new loop latch where the
+// side-exit is redirected.
+// -------------------------------------------
+//  FROM                          TO
+// -------------------------------------------
+//
+// -->BB1                ----------->BB1
+// |   |\               |            |\
+// |   | \              |            | \
+// |  BB2 \       =>    |           BB2 \
+// |   |   \            |            |   \
+// |   |    \           |            |    \
+// |   |    BB4         |            |     |
+// ---BB3               |           BB3    |
+//                      |            |     |
+//                      |            |     |
+//                       --------NEW_LOOP_LATCH
+//                                   |
+//                                   |
+//                                  BB4
+//
+void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
+  for (auto VPSL : VPL->getSubLoops())
+    singleExitWhileLoopCanonicalization(VPSL);
+
+  VPBasicBlock *OrigLoopLatch = dyn_cast<VPBasicBlock>(VPL->getLoopLatch());
+  if (OrigLoopLatch->getNumSuccessors() > 1)
+    return;
+
+  VPLoop *ParentLoop = VPL->getParentLoop();
+  if (!VPL->getExitingBlock() || ParentLoop == nullptr)
+    return;
+
+  LLVM_DEBUG(dbgs() << "Before single exit while loop transformation.\n");
+  LLVM_DEBUG(Plan->dump());
+
+  // Create new loop latch
+  VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
+  VPBasicBlock *NewLoopLatch = VPBlockUtils::splitBlock(
+      OrigLoopLatch, VPLInfo, VPDomTree, VPPostDomTree, Plan);
+
+  // Update the control-flow for the ExitingBlock, the NewLoopLatch and the
+  // ExitBlock.
+  VPBlockBase *ExitingBlock = VPL->getExitingBlock();
+  VPBlockBase *ExitBlock = getBlocksExitBlock(ExitingBlock, VPL);
+  VPBlockUtils::movePredecessor(ExitingBlock, ExitBlock, NewLoopLatch);
+  VPBlockUtils::connectBlocks(NewLoopLatch, ExitBlock);
+  // Update the blocks of the phi node (if it exists) in the exit block.
+  updateBlocksPhiNode(cast<VPBasicBlock>(ExitBlock),
+                      cast<VPBasicBlock>(ExitingBlock), NewLoopLatch);
+
+  // Fill-in NewLoopLatch with new instructions.
+  VPBuilder VPBldr;
+  VPBldr.setInsertPoint(NewLoopLatch);
+  Type *Int1Ty = Type::getInt1Ty(*Plan->getLLVMContext());
+  VPConstant *FalseConst = Plan->getVPConstant(ConstantInt::get(Int1Ty, 0));
+  VPConstant *TrueConst = Plan->getVPConstant(ConstantInt::get(Int1Ty, 1));
+  VPPHINode *TakeBackedgeCond =
+      cast<VPPHINode>(VPBldr.createPhiInstruction(Int1Ty));
+  // TODO: The while-loop canonicalization does not preserve the SSA form. If a
+  // value from the OrigLoopLatch feeds the phi in the BB1, then this value
+  // stops dominating its use (not defined on the BB2->NEW_LOOP_LATCH edge).
+  // Currently, this is not a problem because the proper dominance will be
+  // restored after CFG linearization by predicator.
+  TakeBackedgeCond->addIncoming(TrueConst, cast<VPBasicBlock>(OrigLoopLatch));
+  TakeBackedgeCond->addIncoming(FalseConst, cast<VPBasicBlock>(ExitingBlock));
+  NewLoopLatch->setCondBit(TakeBackedgeCond);
+  // Update DA.
+  VPlanDivergenceAnalysis *VPlanDA = Plan->getVPlanDA();
+  VPInstruction *OldCondBit =
+      dyn_cast<VPInstruction>(ExitingBlock->getCondBit());
+  auto copyDivergence = [VPlanDA](VPInstruction *From, VPInstruction *To) {
+    // We should only mark divergent values. DA checks if a value is in
+    // DivergentValues set. If it is not there, then the value is considered
+    // uniform.
+    if (VPlanDA->isDivergent(*From))
+      VPlanDA->markDivergent(*To);
+  };
+  copyDivergence(OldCondBit, TakeBackedgeCond);
+
+  // TODO: CMPLRLLVM-9535 Update VPDomTree and VPPostDomTree instead of
+  // recalculating it.
+  VPRegionBlock *CurrentLoopRegion =
+      cast<VPRegionBlock>(VPL->getHeader()->getParent());
+  VPDomTree.recalculate(*CurrentLoopRegion);
+  VPPostDomTree.recalculate(*CurrentLoopRegion);
+
+  VPRegionBlock *ParentLoopRegion =
+      cast<VPRegionBlock>(ParentLoop->getHeader()->getParent());
+  VPDomTree.recalculate(*ParentLoopRegion);
+  VPPostDomTree.recalculate(*ParentLoopRegion);
+
+  LLVM_DEBUG(dbgs() << "After single exit while loop transformation.\n");
+  LLVM_DEBUG(Plan->dump());
+}
+
 #if INTEL_CUSTOMIZATION
 // Return the nearest common post dominator of all the VPBlockBases in \p
 // InputVPBlocks.
@@ -888,6 +984,7 @@ void VPlanHCFGBuilder::simplifyPlainCFG() {
   if (LoopMassagingEnabled) {
     // LLVM_DEBUG(dbgs() << "Dominator Tree Before mergeLoopExits\n";
     // VPDomTree.print(dbgs()));
+    singleExitWhileLoopCanonicalization(TopLoop);
     mergeLoopExits(TopLoop);
     LLVM_DEBUG(Verifier->verifyHierarchicalCFG(Plan, TopRegion));
     // LLVM_DEBUG(dbgs() << "Dominator Tree After mergeLoopExits\n";

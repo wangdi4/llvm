@@ -98,6 +98,7 @@ protected:
 
   void simplifyPlainCFG();
   void splitLoopsPreheader(VPLoop *VPLp);
+  void singleExitWhileLoopCanonicalization(VPLoop *VPLp);
   void mergeLoopExits(VPLoop *VPLp);
   void splitLoopsExit(VPLoop *VPLp);
   void simplifyNonLoopRegions();
