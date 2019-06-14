@@ -170,6 +170,24 @@ let Types = [v4i8, v4i16, v4i32, v4f32],
   def __ocl_masked_transpose_scatter4x16 : OclBuiltin<"__ocl_masked_transpose_scatter_$Arg0BaseType_4x16", (outs), (ins pgentype:$pStoreAdd0, pgentype:$pStoreAdd1, pgentype:$pStoreAdd2, pgentype:$pStoreAdd3, pgentype:$pStoreAdd4, pgentype:$pStoreAdd5, pgentype:$pStoreAdd6, pgentype:$pStoreAdd7, pgentype:$pStoreAdd8, pgentype:$pStoreAdd9, pgentype:$pStoreAdd10, pgentype:$pStoreAdd11, pgentype:$pStoreAdd12, pgentype:$pStoreAdd13, pgentype:$pStoreAdd14, pgentype:$pStoreAdd15, v16gentype:$xIn, v16gentype:$yIn, v16gentype:$zIn, v16gentype:$wIn, v16i32:$mask), [], [], 0, 0>, PRIVATE;
 }
 
+let Attrs = [OVERLOADABLE],
+  NeedForwardDecl = 1 in {
+    let Types = [v64i32, v64u32, v64f32] in {
+      def __ocl_shuffle_transpose_4x16 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_4x16", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_16x4 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_16x4", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_8x8  : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_8x8",  (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+    }
+
+    let Types = [v128i32, v128u32, v128f32] in {
+      def __ocl_shuffle_transpose_8x16 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_8x16", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_16x8 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_16x8", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+    }
+
+    let Types = [v256i32, v256u32, v256f32] in {
+      def __ocl_shuffle_transpose_16x16 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_16x16", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+    }
+  }
+
 // ****************************************************************************
 //                                 masked_load_store
 // ****************************************************************************
