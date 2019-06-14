@@ -19,12 +19,8 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANHCFGBUILDER_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANHCFGBUILDER_H
 
-#include "IntelLoopVectorizationCodeGen.h" //Only for Legal.
 #include "IntelVPlan.h"
-#include "IntelVPlanDominatorTree.h"
-#include "IntelVPlanVerifier.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
+#include "llvm/ADT/SmallVector.h"
 
 extern cl::opt<bool> LoopMassagingEnabled;
 
@@ -33,6 +29,11 @@ class ScalarEvolution;
 class Loop;
 
 namespace vpo {
+
+  class VPOVectorizationLegality;
+  class VPlanVerifier;
+  class WRNVecLoopNode;
+  class VPlan;
 
 class VPlanHCFGBuilder {
 public:
@@ -107,11 +108,11 @@ protected:
 
   // Utility functions.
   bool isNonLoopRegion(VPBlockBase *Entry, VPRegionBlock *ParentRegion,
-                       VPBlockBase *&Exit);
+                       VPBlockBase *&Exit) const;
   bool regionIsBackEdgeCompliant(const VPBlockBase *Entry,
                                  const VPBlockBase *Exit,
-                                 VPRegionBlock *ParentRegion);
-  bool isDivergentBlock(VPBlockBase *Block);
+                                 VPRegionBlock *ParentRegion) const;
+  bool isDivergentBlock(VPBlockBase *Block) const;
 
 public:
   VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, ScalarEvolution *SE,

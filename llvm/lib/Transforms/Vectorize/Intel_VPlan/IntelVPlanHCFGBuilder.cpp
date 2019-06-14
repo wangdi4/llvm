@@ -16,18 +16,20 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "IntelVPlanHCFGBuilder.h"
-#include "IntelVPlan.h"
 #include "IntelLoopVectorizationLegality.h"
+#include "IntelVPLoopAnalysis.h"
+#include "IntelVPlan.h"
 #include "IntelVPlanBuilder.h"
 #include "IntelVPlanDivergenceAnalysis.h"
+#include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanLoopInfo.h"
 #include "IntelVPlanSyncDependenceAnalysis.h"
-#include "IntelVPLoopAnalysis.h"
+#include "IntelVPlanVerifier.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include <deque>
 
 #define DEBUG_TYPE "VPlanHCFGBuilder"
 
@@ -1234,7 +1236,7 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
 // returns region's exit for the detected region.
 bool VPlanHCFGBuilder::isNonLoopRegion(VPBlockBase *Entry,
                                        VPRegionBlock *ParentRegion,
-                                       VPBlockBase *&Exit) {
+                                       VPBlockBase *&Exit) const {
 
   // Region's entry must have multiple successors and must be a VPBasicBlock at
   // this point. Also skip ParentRegion's Entry to prevent infinite recursion
@@ -1269,9 +1271,9 @@ bool VPlanHCFGBuilder::isNonLoopRegion(VPBlockBase *Entry,
 // a VPLoopRegion). In order to detect such cases, we currently check whether
 // the loop header is reachable starting from region's entry block up to
 // region's exit block.
-bool VPlanHCFGBuilder::regionIsBackEdgeCompliant(const VPBlockBase *Entry,
-                                                 const VPBlockBase *Exit,
-                                                 VPRegionBlock *ParentRegion) {
+bool VPlanHCFGBuilder::regionIsBackEdgeCompliant(
+    const VPBlockBase *Entry, const VPBlockBase *Exit,
+    VPRegionBlock *ParentRegion) const {
 
   // If the immediate parent region is not a loop region, current region won't
   // have any problem with loop cycles, so it's back edge compliant
@@ -1314,7 +1316,7 @@ bool VPlanHCFGBuilder::regionIsBackEdgeCompliant(const VPBlockBase *Entry,
 // Return true if \p Block is a VPBasicBlock that contains a successor selector
 // (CondBit) that is not uniform. If Block is a VPRegionBlock,
 // it returns false since a region can only have a single successor (by now).
-bool VPlanHCFGBuilder::isDivergentBlock(VPBlockBase *Block) {
+bool VPlanHCFGBuilder::isDivergentBlock(VPBlockBase *Block) const {
   if (DisableUniformRegions)
     return true;
 
