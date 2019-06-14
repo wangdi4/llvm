@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #endif // INTEL_PRODUCT_RELEASE
 
+#include <algorithm>
 #include <string>
 #include <sstream>
 
@@ -84,6 +85,19 @@ cl_int CPUDeviceConfig::GetVectorizerMode() const
     using namespace Intel::OpenCL::DeviceBackend;
     return m_pConfigFile->Read(CL_CONFIG_CPU_VECTORIZER_MODE,
                                static_cast<uint32_t>(TRANSPOSE_SIZE_NOT_SET));
+}
+
+VectorizerType CPUDeviceConfig::GetVectorizerType() const
+{
+    std::string VType = m_pConfigFile->Read<string>(
+        CL_CONFIG_CPU_VECTORIZER_TYPE, "volcano");
+    std::transform(VType.begin(), VType.end(), VType.begin(), ::tolower);
+
+    if ("vpo" == VType) {
+        return VPO_VECTORIZER;
+    } else {
+        return VOLCANO_VECTORIZER;
+    }
 }
 
 bool CPUDeviceConfig::IsSpirSupported() const
