@@ -403,6 +403,10 @@ void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
     // Original min/avg trip count metadata does not apply to remainder loop.
     OrigLoop->removeLoopMetadata("llvm.loop.intel.loopcount_minimum");
     OrigLoop->removeLoopMetadata("llvm.loop.intel.loopcount_average");
+
+    // Add unroll disabling pragma to non-const trip remainder loop so LLVM
+    // unrolling pass doesn't unroll it.
+    OrigLoop->markDoNotUnroll();
   }
 
   LLVM_DEBUG(dbgs() << "\n Remainder Loop \n");

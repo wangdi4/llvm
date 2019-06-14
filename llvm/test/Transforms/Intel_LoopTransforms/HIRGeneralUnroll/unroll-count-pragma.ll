@@ -10,7 +10,7 @@
 ; CHECK: + DO i1 = 0, 2, 1   <DO_LOOP> <nounroll>
 ; CHECK: + END LOOP
 
-; CHECK: + DO i1 = 9, 9, 1   <DO_LOOP> <nounroll>
+; CHECK: + DO i1 = 9, 9, 1   <DO_LOOP> 
 ; CHECK: + END LOOP
 
 ; Check that enable metadata is replaced with disable metadata.

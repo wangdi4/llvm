@@ -264,22 +264,12 @@ void HIRGeneralUnroll::processGeneralUnroll(
         isProfitable(Loop, HasEnablingPragma, &UnrollFactor)) {
       HLLoop *UnrolledLoop, *RemainderLoop;
 
-      bool IsConstTrip = Loop->isConstTripLoop();
-
       unrollLoop(Loop, UnrollFactor, &UnrolledLoop, &RemainderLoop);
 
       // Following logic will not be needed once we disable LLVM's loop unroll
       // pass after LoopOpt.
-
       // Add disabling pragma to unrolled loop.
       UnrolledLoop->markDoNotUnroll();
-
-      // Add disabling pragma to remainder loop unless there is a possibility of
-      // complete unroll by LLVM pass.
-      // TODO: perform complete unroll in HIR.
-      if (RemainderLoop && (HasEnablingPragma || !IsConstTrip)) {
-        RemainderLoop->markDoNotUnroll();
-      }
 
       IsUnrollTriggered = true;
       LoopsGenUnrolled++;
