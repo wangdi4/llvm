@@ -14055,8 +14055,8 @@ multiclass avx512_fp16_p_vl_all<bits<8> opc, string OpcodeStr, SDNode OpNode,
   }
 }
 
-defm VRSQRTPH : avx512_fp16_p_vl_all<0x4E, "vrsqrtph", X86frsqrt, SchedWriteFRsqrt>;
-defm VRCPPH : avx512_fp16_p_vl_all<0x4C, "vrcpph", X86frcp, SchedWriteFRcp>;
+defm VRSQRT : avx512_fp16_p_vl_all<0x4E, "vrsqrtph", X86frsqrt, SchedWriteFRsqrt>;
+defm VRCP : avx512_fp16_p_vl_all<0x4C, "vrcpph", X86frcp, SchedWriteFRcp>;
 
 let Constraints = "@earlyclobber $dst, $src1 = $dst" in {
   multiclass avx512_cfmop_rm<bits<8> opc, string OpcodeStr, SDNode OpNode, X86VectorVTInfo _> {

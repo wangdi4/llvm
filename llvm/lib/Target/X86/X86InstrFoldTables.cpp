@@ -1169,9 +1169,9 @@ static const X86MemoryFoldTableEntry MemoryFoldTable1[] = {
   { X86::VRCP28PSZr,           X86::VRCP28PSZm,           0 },
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-  { X86::VRCPPHPHZ128r,        X86::VRCPPHPHZ128m,        0 },
-  { X86::VRCPPHPHZ256r,        X86::VRCPPHPHZ256m,        0 },
-  { X86::VRCPPHPHZr,           X86::VRCPPHPHZm,           0 },
+  { X86::VRCPPHZ128r,          X86::VRCPPHZ128m,          0 },
+  { X86::VRCPPHZ256r,          X86::VRCPPHZ256m,          0 },
+  { X86::VRCPPHZr,             X86::VRCPPHZm,             0 },
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   { X86::VRCPPSYr,             X86::VRCPPSYm,             0 },
@@ -1216,9 +1216,9 @@ static const X86MemoryFoldTableEntry MemoryFoldTable1[] = {
   { X86::VRSQRT28PSZr,         X86::VRSQRT28PSZm,         0 },
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-  { X86::VRSQRTPHPHZ128r,      X86::VRSQRTPHPHZ128m,      0 },
-  { X86::VRSQRTPHPHZ256r,      X86::VRSQRTPHPHZ256m,      0 },
-  { X86::VRSQRTPHPHZr,         X86::VRSQRTPHPHZm,         0 },
+  { X86::VRSQRTPHZ128r,        X86::VRSQRTPHZ128m,        0 },
+  { X86::VRSQRTPHZ256r,        X86::VRSQRTPHZ256m,        0 },
+  { X86::VRSQRTPHZr,           X86::VRSQRTPHZm,           0 },
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   { X86::VRSQRTPSYr,           X86::VRSQRTPSYm,           0 },
@@ -3039,9 +3039,9 @@ static const X86MemoryFoldTableEntry MemoryFoldTable2[] = {
   { X86::VRCP28SSZr,               X86::VRCP28SSZm,               TB_NO_REVERSE },
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-  { X86::VRCPPHPHZ128rkz,          X86::VRCPPHPHZ128mkz,          0 },
-  { X86::VRCPPHPHZ256rkz,          X86::VRCPPHPHZ256mkz,          0 },
-  { X86::VRCPPHPHZrkz,             X86::VRCPPHPHZmkz,             0 },
+  { X86::VRCPPHZ128rkz,            X86::VRCPPHZ128mkz,            0 },
+  { X86::VRCPPHZ256rkz,            X86::VRCPPHZ256mkz,            0 },
+  { X86::VRCPPHZrkz,               X86::VRCPPHZmkz,               0 },
   { X86::VRCPSHZrr,                X86::VRCPSHZrm,                TB_NO_REVERSE },
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
@@ -3108,9 +3108,9 @@ static const X86MemoryFoldTableEntry MemoryFoldTable2[] = {
   { X86::VRSQRT28SSZr,             X86::VRSQRT28SSZm,             TB_NO_REVERSE },
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-  { X86::VRSQRTPHPHZ128rkz,        X86::VRSQRTPHPHZ128mkz,        0 },
-  { X86::VRSQRTPHPHZ256rkz,        X86::VRSQRTPHPHZ256mkz,        0 },
-  { X86::VRSQRTPHPHZrkz,           X86::VRSQRTPHPHZmkz,           0 },
+  { X86::VRSQRTPHZ128rkz,          X86::VRSQRTPHZ128mkz,          0 },
+  { X86::VRSQRTPHZ256rkz,          X86::VRSQRTPHZ256mkz,          0 },
+  { X86::VRSQRTPHZrkz,             X86::VRSQRTPHZmkz,             0 },
   { X86::VRSQRTSHZrr,              X86::VRSQRTSHZrm,              TB_NO_REVERSE },
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
@@ -4815,9 +4815,9 @@ static const X86MemoryFoldTableEntry MemoryFoldTable3[] = {
   { X86::VRCP28SSZrkz,               X86::VRCP28SSZmkz,               TB_NO_REVERSE },
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-  { X86::VRCPPHPHZ128rk,             X86::VRCPPHPHZ128mk,             0 },
-  { X86::VRCPPHPHZ256rk,             X86::VRCPPHPHZ256mk,             0 },
-  { X86::VRCPPHPHZrk,                X86::VRCPPHPHZmk,                0 },
+  { X86::VRCPPHZ128rk,               X86::VRCPPHZ128mk,               0 },
+  { X86::VRCPPHZ256rk,               X86::VRCPPHZ256mk,               0 },
+  { X86::VRCPPHZrk,                  X86::VRCPPHZmk,                  0 },
   { X86::VRCPSHZrrkz,                X86::VRCPSHZrmkz,                TB_NO_REVERSE },
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
@@ -4875,9 +4875,9 @@ static const X86MemoryFoldTableEntry MemoryFoldTable3[] = {
   { X86::VRSQRT28SSZrkz,             X86::VRSQRT28SSZmkz,             TB_NO_REVERSE },
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-  { X86::VRSQRTPHPHZ128rk,           X86::VRSQRTPHPHZ128mk,           0 },
-  { X86::VRSQRTPHPHZ256rk,           X86::VRSQRTPHPHZ256mk,           0 },
-  { X86::VRSQRTPHPHZrk,              X86::VRSQRTPHPHZmk,              0 },
+  { X86::VRSQRTPHZ128rk,             X86::VRSQRTPHZ128mk,             0 },
+  { X86::VRSQRTPHZ256rk,             X86::VRSQRTPHZ256mk,             0 },
+  { X86::VRSQRTPHZrk,                X86::VRSQRTPHZmk,                0 },
   { X86::VRSQRTSHZrrkz,              X86::VRSQRTSHZrmkz,              TB_NO_REVERSE },
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
