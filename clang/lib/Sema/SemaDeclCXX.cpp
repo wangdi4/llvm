@@ -681,10 +681,6 @@ bool Sema::MergeCXXFunctionDecl(FunctionDecl *New, FunctionDecl *Old,
   // argument expression, that declaration shall be a definition and shall be
   // the only declaration of the function or function template in the
   // translation unit.
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ#373130: friend functions with default parameter without name.
-  if (!getLangOpts().IntelCompat)
-#endif // INTEL_CUSTOMIZATION
   if (Old->getFriendObjectKind() == Decl::FOK_Undeclared &&
       functionDeclHasDefaultArgument(Old)) {
     Diag(New->getLocation(), diag::err_friend_decl_with_def_arg_redeclared);
@@ -14732,11 +14728,6 @@ NamedDecl *Sema::ActOnFriendFunctionDecl(Scope *S, Declarator &D,
     // and shall be the only declaration of the function or function
     // template in the translation unit.
     if (functionDeclHasDefaultArgument(FD)) {
-#if INTEL_CUSTOMIZATION
-      // Fix for CQ#373130: friend functions with default parameter without
-      // name.
-      if (!getLangOpts().IntelCompat) {
-#endif // INTEL_CUSTOMIZATION
       // We can't look at FD->getPreviousDecl() because it may not have been set
       // if we're in a dependent context. If the function is known to be a
       // redeclaration, we will have narrowed Previous down to the right decl.
@@ -14746,15 +14737,6 @@ NamedDecl *Sema::ActOnFriendFunctionDecl(Scope *S, Declarator &D,
              diag::note_previous_declaration);
       } else if (!D.isFunctionDefinition())
         Diag(FD->getLocation(), diag::err_friend_decl_with_def_arg_must_be_def);
-#if INTEL_CUSTOMIZATION
-      // Fix for CQ#374679: Several negative tests are failed after promotion
-      // due to patches allowing too permissive xmain's behavior.
-      // Fix for CQ#376452: friend declaration specifying a default argument
-      // must be a definition.
-      } else if (!D.isFunctionDefinition() &&
-                 FD->getTemplatedKind() != FunctionDecl::TK_NonTemplate)
-        Diag(FD->getLocation(), diag::err_friend_decl_with_def_arg_must_be_def);
-#endif // INTEL_CUSTOMIZATION
     }
 
     // Mark templated-scope function declarations as unsupported.
