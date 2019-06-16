@@ -13304,22 +13304,6 @@ ExprResult Sema::BuildBinOp(Scope *S, SourceLocation OpLoc,
       }
     }
 
-#if INTEL_CUSTOMIZATION
-    // Fix for CQ373962: taking address of overloaded functions.
-    if (getLangOpts().IntelCompat && getLangOpts().CPlusPlus &&
-        !getLangOpts().ObjC &&
-        BinaryOperator::isComparisonOp(Opc)) {
-      auto ICS = TryImplicitConversion(
-          LHSExpr, RHSExpr->getType(), /*SuppressUserConversions=*/true,
-          /*AllowExplicit=*/false, /*InOverloadResolution=*/true,
-          /*CStyle=*/false, /*AllowObjCWritebackConversion=*/false);
-      if (ICS.isStandard())
-        LHSExpr = PerformImplicitConversion(LHSExpr, RHSExpr->getType(), ICS,
-                                            AA_Converting)
-                      .get();
-    }
-#endif // INTEL_CUSTOMIZATION
-
     ExprResult LHS = CheckPlaceholderExpr(LHSExpr);
     if (LHS.isInvalid()) return ExprError();
     LHSExpr = LHS.get();
@@ -13343,21 +13327,6 @@ ExprResult Sema::BuildBinOp(Scope *S, SourceLocation OpLoc,
         LHSExpr->getType()->isOverloadableType())
       return BuildOverloadedBinOp(*this, S, OpLoc, Opc, LHSExpr, RHSExpr);
 
-#if INTEL_CUSTOMIZATION
-    // Fix for CQ373962: taking address of overloaded functions.
-    if (getLangOpts().IntelCompat && getLangOpts().CPlusPlus &&
-        !getLangOpts().ObjC &&
-        BinaryOperator::isComparisonOp(Opc)) {
-      auto ICS = TryImplicitConversion(
-          RHSExpr, LHSExpr->getType(), /*SuppressUserConversions=*/true,
-          /*AllowExplicit=*/false, /*InOverloadResolution=*/true,
-          /*CStyle=*/false, /*AllowObjCWritebackConversion=*/false);
-      if (ICS.isStandard())
-        RHSExpr = PerformImplicitConversion(RHSExpr, LHSExpr->getType(), ICS,
-                                            AA_Converting)
-                      .get();
-    }
-#endif // INTEL_CUSTOMIZATION
     ExprResult resolvedRHS = CheckPlaceholderExpr(RHSExpr);
     if (!resolvedRHS.isUsable()) return ExprError();
     RHSExpr = resolvedRHS.get();
