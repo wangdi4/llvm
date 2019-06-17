@@ -58,12 +58,12 @@ define i32 @bug(i32*) !dbg !24 {
   %12 = load i32, i32* %2, align 4, !dbg !35
   ret i32 %12, !dbg !35
 
-  ; CHECK: [[phi:%.*]] = phi i32 [ {{.*}} ], [ {{.*}} ], !dbg [[mergedLoc:![0-9]+]]
+  ; CHECK: [[phi:%.*]] = phi i32 [ {{.*}} ], [ {{.*}} ]                  ;INTEL
   ; CHECK-NEXT: ret i32 [[phi]], !dbg [[retLoc:![0-9]+]]
 }
 
 ; CHECK: [[commonScope:![0-9]+]] = distinct !DILexicalBlock(scope: {{.*}}, file: !1, line: 15, column: 7)
-; CHECK: [[mergedLoc]] = !DILocation(line: 0, scope: [[commonScope]])
+; CHECK-NOT: !DILocation(line: 0, scope: [[commonScope]])                ;INTEL
 ; CHECK: [[retLoc]] = !DILocation(line: 23, column: 1
 
 declare i32 @cond(...)
