@@ -1158,12 +1158,14 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
       WorthyFormalsForCloning.insert(W);
     *IsGenRecQualified = true;
   } else if (SawPending) {
-    if (GlobalIFCount < IPGenCloningMinIFCount)
-      errs() << "  IFCount (" << GlobalIFCount << ") < Limit ("
-             << IPGenCloningMinIFCount << ")\n";
-    if (GlobalSwitchCount < IPGenCloningMinSwitchCount)
-      errs() << "  SwitchCount (" << GlobalSwitchCount << ") < Limit ("
-             << IPGenCloningMinSwitchCount << ")\n";
+    if (IPCloningTrace) {
+      if (GlobalIFCount < IPGenCloningMinIFCount)
+        errs() << "  IFCount (" << GlobalIFCount << ") < Limit ("
+               << IPGenCloningMinIFCount << ")\n";
+      if (GlobalSwitchCount < IPGenCloningMinSwitchCount)
+        errs() << "  SwitchCount (" << GlobalSwitchCount << ") < Limit ("
+               << IPGenCloningMinSwitchCount << ")\n";
+    }
   }
   // Return false if none of formals is selected.
   if (WorthyFormalsForCloning.size() == 0)
