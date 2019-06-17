@@ -1,6 +1,6 @@
 ; RUN: opt -S -licm %s | FileCheck %s
 ;
-; LICM should null out debug locations when it hoists instructions out of a loop.
+; LICM should keep debug locations when it hoists instructions out of a loop.
 ;
 ; Generated with
 ; clang -O0 -S -emit-llvm test.cpp -g -gline-tables-only -o t.ll
@@ -18,9 +18,9 @@
 ; We make sure that the instruction that is hoisted into the preheader
 ; does not have a debug location.
 ; CHECK: for.body.lr.ph:
-; CHECK: getelementptr{{.*}}%p.addr, i64 4{{.*}} !dbg [[zero:![0-9]+]]
+; CHECK: getelementptr{{.*}}%p.addr, i64 4{{.*}} !dbg [[LINE_5:![0-9]+]]
 ; CHECK: for.body:
-; CHECK: [[zero]] = !DILocation(line: 0
+; CHECK: [[LINE_5]] = !DILocation(line: 5,{{.*}})
 ;
 ; ModuleID = 't.ll'
 source_filename = "test.c"
