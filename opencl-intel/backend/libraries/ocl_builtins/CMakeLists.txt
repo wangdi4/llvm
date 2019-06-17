@@ -509,6 +509,7 @@ set(EYEQ_BUILTINS_OUTPUT_DIR ${BUILTINS_OUTPUT_DIR}/eyeq_builtins)
 set(EYEQ_BUILTINS_INSTALL_DIR bin)
 option(EYEQ_BUILTINS_BITCODE_OUTPUT_REQUIRES_LTO "Is bitcode output only supported with LTO" ON)
 option(EYEQ_BUILTINS_OCL_FAKE_ADDRESS_SPACE_MAP_MANGLING "Does ocl bitcode compliation requires fake address space map mangling" ON)
+option(EYEQ_BUILTINS_OCL_FORCE_VECTOR_ABI "Does ocl bitcode compliation requires forcing vector ABI for compatibility" ON)
 add_subdirectory (eyeq_builtins)
 
 install_to(${EYEQ_BUILTINS_OUTPUT_DIR} DESTINATION lib COMPONENT ocl-eyeq-builtins)
