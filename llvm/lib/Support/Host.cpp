@@ -1413,10 +1413,6 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
   Features["enqcmd"]          = HasLeaf7 && ((ECX >> 29) & 1);
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ENQCMD
-  Features["enqcmd"]          = HasLeaf7 && ((ECX >> 29) & 1);
-#endif // INTEL_FEATURE_ISA_ENQCMD
-
 #if INTEL_FEATURE_ISA_ULI
   Features["uli"]             = HasLeaf7 && ((EDX >> 5) & 1);
 #endif // INTEL_FEATURE_ISA_ULI

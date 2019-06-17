@@ -842,11 +842,6 @@ if(INTEL_CUSTOMIZATION)
       list(REMOVE_ITEM features_enabled_by_default
            "${LLVM_INTELFEATURE_PREFIX}_XISA")
 
-# INTEL_FEATURE_ISA_ENQCMD
-      list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_ISA_ENQCMD)
-# end INTEL_FEATURE_ISA_ENQCMD
-
 # INTEL_FEATURE_ISA_ULI
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_ULI)
