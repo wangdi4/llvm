@@ -1681,6 +1681,118 @@ void WidenIV::pushNarrowIVUsers(Instruction *NarrowDef, Instruction *WideDef) {
   }
 }
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<unsigned> NewParentLoopIVThreshold(
+    "indvars-new-parent-loop-iv-threshold", cl::Hidden, cl::init(7),
+    cl::desc("Threshold for number of new IVs allowed to be created in parent "
+             "loops when widening IVs"));
+
+static cl::opt<unsigned> DeepLoopnestThreshold(
+    "indvars-deep-loopnest-threshold", cl::Hidden, cl::init(8),
+    cl::desc("Loopnest is considered deep if its depth is greater than or "
+             "equal to this threshold"));
+
+namespace {
+
+class NewIVCounter {
+  ScalarEvolution &SE;
+  const Loop *CurLp;
+  unsigned IVCount;
+
+public:
+  NewIVCounter(ScalarEvolution &SE, const Loop *CurLp)
+      : SE(SE), CurLp(CurLp), IVCount(0) {}
+
+  bool follow(const SCEV *SC);
+
+  bool foundAddRecWithSameStride(const Loop *Lp, int64_t Stride);
+
+  unsigned numNewIVs() const { return IVCount; }
+
+  bool isDone() const { return false; }
+};
+
+bool NewIVCounter::follow(const SCEV *SC) {
+  auto *AddRec = dyn_cast<SCEVAddRecExpr>(SC);
+
+  // Restrict analysis to affine AddRecs for simplicity.
+  if (!AddRec || !AddRec->isAffine())
+    return true;
+
+  auto *Lp = AddRec->getLoop();
+
+  // Skip if AddRec is not in the parent loop chain.
+  if ((Lp == CurLp) || !Lp->contains(CurLp))
+    return true;
+
+  // We check whether an AddRec with the same stride as this one exists in the
+  // loop. If so, assume that it can be 'reused' for the loop so new IV will not
+  // be needed when expanding code for this one. This is an incomplete check but
+  // it works for the benchmark case where i9 loop bound (45 - (i1 + i2 + ... +
+  // i8)) is being expanded by creating a decrementing IV for each parent loop
+  // (-i1, -i2 etc).
+  auto *Step = AddRec->getOperand(1);
+  auto *ConstStride = dyn_cast<SCEVConstant>(Step);
+
+  // Restrict analysis to constant stride for simplicity.
+  if (!ConstStride)
+    return true;
+
+  int64_t StrideVal = ConstStride->getAPInt().getSExtValue();
+
+  if (!foundAddRecWithSameStride(Lp, StrideVal))
+    ++IVCount;
+
+  return true;
+}
+
+bool NewIVCounter::foundAddRecWithSameStride(const Loop *Lp, int64_t Stride) {
+  bool Found = false;
+
+  for (auto &PN : Lp->getHeader()->phis()) {
+    auto *PhiSC = SE.getSCEV(const_cast<PHINode *>(&PN));
+
+    auto *PhiAddRec = dyn_cast<SCEVAddRecExpr>(PhiSC);
+
+    if (!PhiAddRec || !PhiAddRec->isAffine())
+      continue;
+
+    auto *PhiConstStride = dyn_cast<SCEVConstant>(PhiAddRec->getOperand(1));
+
+    if (!PhiConstStride)
+      continue;
+
+    if (PhiConstStride->getAPInt().getSExtValue() == Stride) {
+      Found = true;
+      break;
+    }
+  }
+
+  return Found;
+}
+
+bool canIncreaseRegisterPressure(const SCEVAddRecExpr *AddRec,
+                                 ScalarEvolution &SE) {
+  // Only analyze affine addrecs for simplicity.
+  if (!AddRec->isAffine())
+    return false;
+
+  auto *Lp = AddRec->getLoop();
+
+  // Only analyze deep loopnests.
+  if (Lp->getLoopDepth() < DeepLoopnestThreshold)
+    return false;
+
+  NewIVCounter NIC(SE, Lp);
+  SCEVTraversal<NewIVCounter> Counter(NIC);
+
+  Counter.visitAll(AddRec);
+
+  return NIC.numNewIVs() > NewParentLoopIVThreshold;
+}
+
+} // end anonymous namespace
+#endif // INTEL_CUSTOMIZATION
 /// Process a single induction variable. First use the SCEVExpander to create a
 /// wide induction variable that evaluates to the same recurrence as the
 /// original narrow IV. Then use a worklist to forward traverse the narrow IV's
@@ -1716,6 +1828,10 @@ PHINode *WidenIV::createWideIV(SCEVExpander &Rewriter) {
       SE->properlyDominates(AddRec->getStepRecurrence(*SE), L->getHeader()) &&
       "Loop header phi recurrence inputs do not dominate the loop");
 
+#if INTEL_CUSTOMIZATION
+  if (canIncreaseRegisterPressure(AddRec, *SE))
+    return nullptr;
+#endif // INTEL_CUSTOMIZATION
   // Iterate over IV uses (including transitive ones) looking for IV increments
   // of the form 'add nsw %iv, <const>'. For each increment and each use of
   // the increment calculate control-dependent range information basing on
