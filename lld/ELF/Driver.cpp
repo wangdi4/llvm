@@ -1819,6 +1819,13 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &Args) {
   // contain a hint to tweak linker's and loader's behaviors.
   Config->AndFeatures = getAndFeatures<ELFT>();
 
+# if INTEL_CUSTOMIZATION
+  // The Target instance handles target-specific stuff, such as applying
+  // relocations or writing a PLT section. It also contains target-dependent
+  // values such as a default image base address.
+  Target = getTarget();
+#endif // INTEL_CUSTOMIZATION
+
   Config->EFlags = Target->calcEFlags();
   // MaxPageSize (sometimes called abi page size) is the maximum page size that
   // the output can be run on. For example if the OS can use 4k or 64k page

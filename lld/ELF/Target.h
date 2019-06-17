@@ -42,6 +42,9 @@ public:
   virtual void writePlt(uint8_t *Buf, uint64_t GotEntryAddr,
                         uint64_t PltEntryAddr, int32_t Index,
                         unsigned RelOff) const {}
+#if INTEL_CUSTOMIZATION
+  virtual void writeIBTPlt(uint8_t *Buf, size_t NumEntries) const {}
+#endif // INTEL_CUSTOMIZATION
   virtual void addPltHeaderSymbols(InputSection &IS) const {}
   virtual void addPltSymbols(InputSection &IS, uint64_t Off) const {}
 

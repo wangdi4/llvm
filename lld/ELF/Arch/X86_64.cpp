@@ -148,7 +148,9 @@ void X86_64::writePltHeader(uint8_t *Buf) const {
   };
   memcpy(Buf, PltData, sizeof(PltData));
   uint64_t GotPlt = In.GotPlt->getVA();
-  uint64_t Plt = In.Plt->getVA();
+#if INTEL_CUSTOMIZATION
+  uint64_t Plt = In.IBTPlt ? In.IBTPlt->getVA() : In.Plt->getVA();
+#endif // INTEL_CUSTOMIZATION
   write32le(Buf + 2, GotPlt - Plt + 2); // GOTPLT+8
   write32le(Buf + 8, GotPlt - Plt + 4); // GOTPLT+16
 }
@@ -567,6 +569,62 @@ bool X86_64::adjustPrologueForCrossSplitStack(uint8_t *Loc, uint8_t *End,
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+// If Intel CET (Control-Flow Enforcement Technology) is enabled,
+// we have to emit special PLT entries containing endbr64 instructions.
+namespace {
+class IntelCET : public X86_64 {
+public:
+  IntelCET();
+  void writeGotPlt(uint8_t *Buf, const Symbol &S) const override;
+  void writePlt(uint8_t *Buf, uint64_t GotPltEntryAddr, uint64_t PltEntryAddr,
+                int32_t Index, unsigned RelOff) const override;
+  void writeIBTPlt(uint8_t *Buf, size_t NumEntries) const override;
+
+  enum { IBTPltHeaderSize = 16 };
+};
+} // namespace
+
+IntelCET::IntelCET() { PltHeaderSize = 0; }
+
+void IntelCET::writeGotPlt(uint8_t *Buf, const Symbol &S) const {
+  uint64_t VA =
+      In.IBTPlt->getVA() + IBTPltHeaderSize + S.PltIndex * PltEntrySize;
+  write64le(Buf, VA);
+}
+
+void IntelCET::writePlt(uint8_t *Buf, uint64_t GotPltEntryAddr,
+                        uint64_t PltEntryAddr, int32_t Index,
+                        unsigned RelOff) const {
+  const uint8_t Inst[] = {
+      0xf3, 0x0f, 0x1e, 0xfa,       // endbr64
+      0xff, 0x25, 0,    0,    0, 0, // jmpq *got(%rip)
+      0x66, 0x0f, 0x1f, 0x44, 0, 0, // nop
+  };
+  memcpy(Buf, Inst, sizeof(Inst));
+  write32le(Buf + 6, GotPltEntryAddr - PltEntryAddr - 10);
+}
+
+void IntelCET::writeIBTPlt(uint8_t *Buf, size_t NumEntries) const {
+  writePltHeader(Buf);
+  Buf += IBTPltHeaderSize;
+
+  const uint8_t Inst[] = {
+      0xf3, 0x0f, 0x1e, 0xfa,    // endbr64
+      0x68, 0,    0,    0,    0, // pushq <relocation index>
+      0xe9, 0,    0,    0,    0, // jmpq plt[0]
+      0x66, 0x90,                // nop
+  };
+
+  for (size_t I = 0; I < NumEntries; ++I) {
+    memcpy(Buf, Inst, sizeof(Inst));
+    write32le(Buf + 5, I);
+    write32le(Buf + 10, -PltHeaderSize - sizeof(Inst) * I - 30);
+    Buf += sizeof(Inst);
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 // These nonstandard PLT entries are to migtigate Spectre v2 security
 // vulnerability. In order to mitigate Spectre v2, we want to avoid indirect
 // branch instructions such as `jmp *GOTPLT(%rip)`. So, in the following PLT
@@ -693,6 +751,13 @@ static TargetInfo *getTargetInfo() {
     static Retpoline T;
     return &T;
   }
+
+#if INTEL_CUSTOMIZATION
+  if (Config->AndFeatures & GNU_PROPERTY_X86_FEATURE_1_IBT) {
+    static IntelCET T;
+    return &T;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   static X86_64 T;
   return &T;
