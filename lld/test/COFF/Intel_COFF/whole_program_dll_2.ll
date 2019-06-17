@@ -1,4 +1,3 @@
-; XFAIL: *
 ; This test checks that whole program read was achieved when linking
 ; an executable and a library is present. Whole program seen won't be
 ; achieved since @exportfn doesn't have IR.
@@ -14,7 +13,6 @@
 ; CHECK:  Main definition seen
 ; CHECK:  LIBFUNCS NOT FOUND: 1
 ; CHECK:      exportfn
-; CHECK:  EXTERNAL FUNCTIONS: 1
 ; CHECK:  VISIBLE OUTSIDE LTO: 1
 ; CHECK:      exportfn
 ; CHECK:  WHOLE PROGRAM NOT DETECTED

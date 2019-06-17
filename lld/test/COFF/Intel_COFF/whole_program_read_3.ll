@@ -1,4 +1,3 @@
-; XFAIL: *
 ; This test checks that whole program wasn't achieved because the
 ; definition for @sub is missing in IR and libraries.
 ; NOTE: lld will throw a exit error since the definition of sub
@@ -12,7 +11,6 @@
 ; CHECK:   Main definition seen
 ; CHECK:   LIBFUNCS NOT FOUND: 1
 ; CHECK:       sub
-; CHECK:   EXTERNAL FUNCTIONS: 1
 ; CHECK:   VISIBLE OUTSIDE LTO: 1
 ; CHECK:       sub
 ; CHECK:   WHOLE PROGRAM NOT DETECTED

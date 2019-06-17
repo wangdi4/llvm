@@ -1,4 +1,3 @@
-; XFAIL: *
 ; This test checks that whole program wasn't achieved since
 ; there is no main.
 
@@ -14,7 +13,6 @@
 ; CHECK:  GLOBALS UNRESOLVED: 0
 ; CHECK:  ALIASES UNRESOLVED: 0
 ; CHECK:  LIBFUNCS NOT FOUND: 0
-; CHECK:  EXTERNAL FUNCTIONS: 0
 ; CHECK:  VISIBLE OUTSIDE LTO: 1
 ; CHECK:      foo
 ; CHECK:  WHOLE PROGRAM NOT DETECTED

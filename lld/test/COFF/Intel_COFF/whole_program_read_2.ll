@@ -1,4 +1,3 @@
-; XFAIL: *
 ; This test checks that whole program wasn't achieved because the
 ; definition for @sub is missing in the IR. Whole program read
 ; can still be achieved.
@@ -13,7 +12,6 @@
 ; CHECK:   Main definition seen
 ; CHECK:   LIBFUNCS NOT FOUND: 1
 ; CHECK:       sub
-; CHECK:   EXTERNAL FUNCTIONS: 1
 ; CHECK:   VISIBLE OUTSIDE LTO: 1
 ; CHECK:       sub
 ; CHECK:   WHOLE PROGRAM NOT DETECTED

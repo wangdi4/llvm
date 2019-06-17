@@ -1,4 +1,3 @@
-; XFAIL: *
 ; This test checks that whole program seen and safe weren't achieved because
 ; the definition for @sub is missing in the IR. Whole program read is still
 ; achieved since @sub is being resolved by the linker
@@ -14,7 +13,6 @@
 ; CHECK:   Main definition seen
 ; CHECK:   LIBFUNCS NOT FOUND: 1
 ; CHECK:       sub
-; CHECK:   EXTERNAL FUNCTIONS: 1
 ; CHECK:   VISIBLE OUTSIDE LTO: 1
 ; CHECK:       sub
 ; CHECK:   WHOLE PROGRAM NOT DETECTED
