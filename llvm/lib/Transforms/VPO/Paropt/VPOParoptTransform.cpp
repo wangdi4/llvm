@@ -1945,9 +1945,13 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W,
                                           ReductionItem *RedI, Value *OldV,
                                           Instruction *InsertPt,
                                           DominatorTree *DT) {
-  assert(isa<AllocaInst>(RedI->getNew()) &&
-         "genReductionFini: Expect non-empty alloca instruction.");
-  AllocaInst *NewAI = cast<AllocaInst>(RedI->getNew());
+  Value *NewAI = RedI->getNew();
+  // NewAI is either AllocaInst or an AddrSpaceCastInst of AllocaInst.
+  assert(GeneralUtils::isOMPItemLocalVAR(NewAI) &&
+         "genReductionFini: Expect non-empty optionally casted "
+         "alloca instruction.");
+  Type *AllocaTy =
+      GeneralUtils::getOMPItemLocalVARPointerType(NewAI)->getElementType();
 
   IRBuilder<> Builder(InsertPt);
   // For by-refs, do a pointer dereference to reach the actual operand.
@@ -1958,14 +1962,14 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W,
   bool NeedsKmpcCritical = false;
 
   if (RedI->getIsArraySection() ||
-      NewAI->getAllocatedType()->isArrayTy())
+      AllocaTy->isArrayTy())
     NeedsKmpcCritical |=
         genRedAggregateInitOrFini(W, RedI, NewAI, OldV, InsertPt, false, DT);
   else {
-    assert(VPOUtils::canBeRegisterized(NewAI->getAllocatedType(),
-                                       NewAI->getModule()->getDataLayout()) &&
+    assert(VPOUtils::canBeRegisterized(
+               AllocaTy, InsertPt->getModule()->getDataLayout()) &&
            "genReductionFini: Expect incoming scalar type.");
-    Type *ScalarTy = NewAI->getAllocatedType()->getScalarType();
+    Type *ScalarTy = AllocaTy->getScalarType();
 
     NeedsKmpcCritical |=
         genReductionScalarFini(W, RedI, OldV, NewAI, ScalarTy, Builder);
@@ -2053,7 +2057,7 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W,
 //
 bool VPOParoptTransform::genRedAggregateInitOrFini(WRegionNode *W,
                                                    ReductionItem *RedI,
-                                                   AllocaInst *AI, Value *OldV,
+                                                   Value *AI, Value *OldV,
                                                    Instruction *InsertPt,
                                                    bool IsInit,
                                                    DominatorTree *DT) {
@@ -2155,9 +2159,11 @@ bool VPOParoptTransform::genRedAggregateInitOrFini(WRegionNode *W,
 //
 void VPOParoptTransform::genFprivInit(FirstprivateItem *FprivI,
                                       Instruction *InsertPt) {
-  assert(isa<AllocaInst>(FprivI->getNew()) &&
-         "genFprivInit: Expect non-empty alloca instruction");
-  VPOParoptUtils::genCopyByAddr(FprivI->getNew(), FprivI->getOrig(), InsertPt,
+  auto *NewV = FprivI->getNew();
+  // NewV is either AllocaInst or an AddrSpaceCastInst of AllocaInst.
+  assert(GeneralUtils::isOMPItemLocalVAR(NewV) &&
+         "genFprivInit: Expect non-empty optionally casted alloca instruction");
+  VPOParoptUtils::genCopyByAddr(NewV, FprivI->getOrig(), InsertPt,
                                 FprivI->getCopyConstructor(),
                                 FprivI->getIsByRef());
 }
@@ -2180,8 +2186,10 @@ void VPOParoptTransform::genFprivInit(FirstprivateItem *FprivI,
 //
 void VPOParoptTransform::genLprivFini(Value *NewV, Value *OldV,
                                       Instruction *InsertPt) {
-  assert(isa<AllocaInst>(NewV) &&
-         "genLprivFini: Expect non-empty alloca instruction.");
+  // NewV is either AllocaInst or an AddrSpaceCastInst of AllocaInst.
+  assert(GeneralUtils::isOMPItemLocalVAR(NewV) &&
+         "genLprivFini: Expect non-empty optionally casted "
+         "alloca instruction.");
   // todo: copy constructor call needed?
   VPOParoptUtils::genCopyByAddr(OldV, NewV,
                                 InsertPt->getParent()->getTerminator());
@@ -2221,18 +2229,21 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
                                           ReductionItem *RedI,
                                           Instruction *InsertPt,
                                           DominatorTree *DT) {
-  assert(isa<AllocaInst>(RedI->getNew()) &&
-         "genReductionInit: Expect non-empty alloca instruction");
-  AllocaInst *AI = cast<AllocaInst>(RedI->getNew());
-  Type *AllocaTy = AI->getAllocatedType();
+  Value *AI = RedI->getNew();
+  // AI is either AllocaInst or an AddrSpaceCastInst of AllocaInst.
+  assert(GeneralUtils::isOMPItemLocalVAR(AI) &&
+         "genReductionInit: Expect non-empty optionally casted "
+         "alloca instruction.");
+  Type *AllocaTy =
+      GeneralUtils::getOMPItemLocalVARPointerType(AI)->getElementType();
   Type *ScalarTy = AllocaTy->getScalarType();
 
   IRBuilder<> Builder(InsertPt);
   if (RedI->getIsArraySection() ||
-      AI->getAllocatedType()->isArrayTy())
+      AllocaTy->isArrayTy())
     genRedAggregateInitOrFini(W, RedI, AI, nullptr, InsertPt, true, DT);
   else {
-    assert(VPOUtils::canBeRegisterized(AI->getAllocatedType(),
+    assert(VPOUtils::canBeRegisterized(AllocaTy,
            InsertPt->getModule()->getDataLayout()) &&
            "genReductionInit: Expect incoming scalar type.");
     Value *V = genReductionScalarInit(RedI, ScalarTy);
@@ -2367,7 +2378,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 // For array [section] reduction init loop, compute the base address of the
 // destination array, number of elements, and destination element type.
 void VPOParoptTransform::genAggrReductionInitDstInfo(
-    const ReductionItem &RedI, AllocaInst *AI, Instruction *InsertPt,
+    const ReductionItem &RedI, Value *AI, Instruction *InsertPt,
     IRBuilder<> &Builder, Value *&NumElements, Value *&DestArrayBegin,
     Type *&DestElementTy) {
 
@@ -2382,15 +2393,20 @@ void VPOParoptTransform::genAggrReductionInitDstInfo(
     NumElements = VPOParoptUtils::genArrayLength(AI, AI, InsertPt, Builder,
                                                  DestElementTy, DestArrayBegin);
 
-  DestArrayBegin = Builder.CreateBitCast(DestArrayBegin,
-                                         PointerType::getUnqual(DestElementTy));
+  auto *DestPointerTy = DestArrayBegin->getType();
+  assert(isa<PointerType>(DestPointerTy) &&
+         "Reduction destination must have pointer type.");
+  DestArrayBegin = Builder.CreateBitCast(
+      DestArrayBegin,
+      PointerType::get(DestElementTy,
+                       cast<PointerType>(DestPointerTy)->getAddressSpace()));
 }
 
 // For array [section] reduction finalization loop, compute the base address
 // of the source and destination arrays, number of elements, and the type of
 // destination array elements.
 void VPOParoptTransform::genAggrReductionFiniSrcDstInfo(
-    const ReductionItem &RedI, AllocaInst *AI, Value *OldV,
+    const ReductionItem &RedI, Value *AI, Value *OldV,
     Instruction *InsertPt, IRBuilder<> &Builder, Value *&NumElements,
     Value *&SrcArrayBegin, Value *&DestArrayBegin, Type *&DestElementTy) {
 
@@ -2400,13 +2416,23 @@ void VPOParoptTransform::genAggrReductionFiniSrcDstInfo(
   if (!IsArraySection) {
     NumElements = VPOParoptUtils::genArrayLength(AI, OldV, InsertPt, Builder,
                                                  DestElementTy, DestArrayBegin);
+    auto *DestPointerTy = DestArrayBegin->getType();
+    assert(isa<PointerType>(DestPointerTy) &&
+           "Reduction destination must have pointer type.");
     DestArrayBegin = Builder.CreateBitCast(
-        DestArrayBegin, PointerType::getUnqual(DestElementTy));
+        DestArrayBegin,
+        PointerType::get(DestElementTy,
+                         cast<PointerType>(DestPointerTy)->getAddressSpace()));
 
     VPOParoptUtils::genArrayLength(AI, AI, InsertPt, Builder, SrcElementTy,
                                    SrcArrayBegin);
-    SrcArrayBegin = Builder.CreateBitCast(SrcArrayBegin,
-                                          PointerType::getUnqual(SrcElementTy));
+    auto *SrcPointerTy = SrcArrayBegin->getType();
+    assert(isa<PointerType>(SrcPointerTy) &&
+           "Reduction source must have pointer type.");
+    SrcArrayBegin = Builder.CreateBitCast(
+        SrcArrayBegin,
+        PointerType::get(SrcElementTy,
+                         cast<PointerType>(SrcPointerTy)->getAddressSpace()));
     return;
   }
 
@@ -2421,8 +2447,13 @@ void VPOParoptTransform::genAggrReductionFiniSrcDstInfo(
 
   SrcElementTy = DestElementTy;
   SrcArrayBegin = RedI.getNew();
-  SrcArrayBegin = Builder.CreateBitCast(SrcArrayBegin,
-                                        PointerType::getUnqual(SrcElementTy));
+  auto *SrcPointerTy = SrcArrayBegin->getType();
+  assert(isa<PointerType>(SrcPointerTy) &&
+         "Reduction source must have pointer type.");
+  SrcArrayBegin = Builder.CreateBitCast(
+      SrcArrayBegin,
+      PointerType::get(SrcElementTy,
+                       cast<PointerType>(SrcPointerTy)->getAddressSpace()));
 
   // Generated IR for destination starting address for the above example:
   //
@@ -2441,8 +2472,13 @@ void VPOParoptTransform::genAggrReductionFiniSrcDstInfo(
   assert(DestArrayBegin && isa<PointerType>(DestArrayBegin->getType()) &&
          "Illegal Destination Array for reduction fini.");
 
+  auto *DestPointerTy = DestArrayBegin->getType();
+  assert(isa<PointerType>(DestPointerTy) &&
+         "Reduction destination must have pointer type.");
   DestArrayBegin = Builder.CreateBitCast(
-      DestArrayBegin, PointerType::getUnqual(DestElementTy),
+      DestArrayBegin,
+      PointerType::get(DestElementTy,
+                       cast<PointerType>(DestPointerTy)->getAddressSpace()),
       DestArrayBegin->getName() + ".cast"); //                            (2)
   DestArrayBegin =
       Builder.CreateGEP(DestArrayBegin, ArrSecInfo.getOffset(),
@@ -2676,7 +2712,8 @@ Value *VPOParoptTransform::getArrSecReductionItemReplacementValue(
 // OrigValue.
 void VPOParoptTransform::getItemInfoFromValue(Value *OrigValue,
                                               Type *&ElementType,    // out
-                                              Value *&NumElements) { // out
+                                              Value *&NumElements,   // out
+                                              unsigned &AddrSpace) { // out
 
   assert(OrigValue && "Null input value.");
 
@@ -2685,6 +2722,7 @@ void VPOParoptTransform::getItemInfoFromValue(Value *OrigValue,
 
   if (AllocaInst *AI = dyn_cast<AllocaInst>(OrigValue)) {
     ElementType = AI->getAllocatedType();
+    AddrSpace = AI->getType()->getAddressSpace();
     if (AI->isArrayAllocation())
       NumElements = AI->getArraySize();
 
@@ -2693,24 +2731,28 @@ void VPOParoptTransform::getItemInfoFromValue(Value *OrigValue,
 
   if (GlobalVariable *GV = dyn_cast<GlobalVariable>(OrigValue)) {
     ElementType = GV->getValueType();
+    AddrSpace = GV->getAddressSpace();
     return;
   }
 
   assert(
       (isa<Argument>(OrigValue) || isa<GetElementPtrInst>(OrigValue) ||
        isa<LoadInst>(OrigValue) || isa<BitCastInst>(OrigValue) ||
+       GeneralUtils::isOMPItemLocalVAR(OrigValue) ||
        (isa<CallInst>(OrigValue) && isFenceCall(cast<CallInst>(OrigValue)))) &&
       "unsupported input Value");
 
   ElementType = cast<PointerType>(OrigValue->getType())->getElementType();
+  AddrSpace = cast<PointerType>(OrigValue->getType())->getAddressSpace();
 }
 
 // Generate an AllocaInst for an array of Type ElementType, size NumElements,
 // and name VarName.
-AllocaInst *VPOParoptTransform::genPrivatizationAlloca(Type *ElementType,
-                                                       Value *NumElements,
-                                                       Instruction *InsertPt,
-                                                       const Twine &VarName) {
+Instruction *VPOParoptTransform::genPrivatizationAlloca(Type *ElementType,
+                                                        Value *NumElements,
+                                                        Instruction *InsertPt,
+                                                        const Twine &VarName,
+                                                        unsigned AddrSpace) {
   assert(ElementType && "Null element type.");
   assert(InsertPt && "Null insertion anchor.");
 
@@ -2718,32 +2760,51 @@ AllocaInst *VPOParoptTransform::genPrivatizationAlloca(Type *ElementType,
   const DataLayout &DL = M->getDataLayout();
   IRBuilder<> Builder(InsertPt);
 
-  return Builder.CreateAlloca(ElementType, DL.getAllocaAddrSpace(), NumElements,
-                              VarName);
+  auto AI = Builder.CreateAlloca(ElementType, DL.getAllocaAddrSpace(),
+                                 NumElements, VarName);
+
+  if (AddrSpace == 0)
+    return AI;
+
+  auto *ASCI = dyn_cast<Instruction>(
+      Builder.CreateAddrSpaceCast(
+          AI, AI->getAllocatedType()->getPointerTo(AddrSpace),
+          AI->getName() + ".ascast"));
+
+  assert(ASCI && "genPrivatizationAlloca: AddrSpaceCast for an AllocaInst "
+         "must be an Instruction.");
+
+  return ASCI;
 }
 
 // Extract the type and size of local Alloca to be created to privatize I.
 void VPOParoptTransform::getItemInfo(Item *I,
                                      Type *&ElementType,    // out
-                                     Value *&NumElements) { // out
+                                     Value *&NumElements,   // out
+                                     unsigned &AddrSpace) { // out
   assert(I && "Null Clause Item.");
 
   Value *Orig = I->getOrig();
   assert(Orig && "Null original Value in clause item.");
 
-  auto getItemInfoIfArraySection = [I, &ElementType, &NumElements]() -> bool {
+  auto getItemInfoIfArraySection = [I, &ElementType, &NumElements,
+                                    &AddrSpace]() -> bool {
     if (ReductionItem *RedI = dyn_cast<ReductionItem>(I))
       if (RedI->getIsArraySection()) {
         const ArraySectionInfo &ArrSecInfo = RedI->getArraySectionInfo();
         ElementType = ArrSecInfo.getElementType();
         NumElements = ArrSecInfo.getSize();
+        auto *ItemTy = RedI->getOrig()->getType();
+        assert(isa<PointerType>(ItemTy) &&
+               "Array section item has to have pointer type.");
+        AddrSpace = cast<PointerType>(ItemTy)->getAddressSpace();
         return true;
       }
     return false;
   };
 
   if (!getItemInfoIfArraySection()) {
-    getItemInfoFromValue(Orig, ElementType, NumElements);
+    getItemInfoFromValue(Orig, ElementType, NumElements, AddrSpace);
     assert(ElementType && "Failed to find element type for reduction operand.");
 
     if (I->getIsByRef()) {
@@ -2764,17 +2825,20 @@ void VPOParoptTransform::getItemInfo(Item *I,
 }
 
 // Generate an AllocaInst for the local copy of OrigValue.
-AllocaInst *VPOParoptTransform::genPrivatizationAlloca(
-    Value *OrigValue, Instruction *InsertPt, const Twine &NameSuffix) {
+Instruction *VPOParoptTransform::genPrivatizationAlloca(
+    Value *OrigValue, Instruction *InsertPt, const Twine &NameSuffix,
+    bool ForceDefaultAddressSpace) {
 
   assert(OrigValue && "genPrivatizationAlloca: Null input value.");
 
   Type *ElementType = nullptr;
   Value *NumElements = nullptr;
+  unsigned AddrSpace = 0;
 
-  getItemInfoFromValue(OrigValue, ElementType, NumElements);
-  AllocaInst *NewVal = genPrivatizationAlloca(
-      ElementType, NumElements, InsertPt, OrigValue->getName() + NameSuffix);
+  getItemInfoFromValue(OrigValue, ElementType, NumElements, AddrSpace);
+  auto *NewVal = genPrivatizationAlloca(
+      ElementType, NumElements, InsertPt, OrigValue->getName() + NameSuffix,
+      ForceDefaultAddressSpace ? 0 : AddrSpace);
   assert(NewVal && "Failed to create local copy.");
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": New Alloca for operand '";
@@ -2785,9 +2849,10 @@ AllocaInst *VPOParoptTransform::genPrivatizationAlloca(
 
 // Generate an AllocaInst for the local copy of ClauseItem I for various
 // data-sharing clauses.
-AllocaInst *
-VPOParoptTransform::genPrivatizationAlloca(Item *I, Instruction *InsertPt,
-                                           const Twine &NameSuffix) {
+Instruction *VPOParoptTransform::genPrivatizationAlloca(
+    Item *I, Instruction *InsertPt,
+    const Twine &NameSuffix,
+    bool ForceDefaultAddressSpace) {
   assert(I && "Null Clause Item.");
 
   Value *Orig = I->getOrig();
@@ -2795,12 +2860,14 @@ VPOParoptTransform::genPrivatizationAlloca(Item *I, Instruction *InsertPt,
 
   Type *ElementType = nullptr;
   Value *NumElements = nullptr;
+  unsigned AddrSpace = 0;
 
-  getItemInfo(I, ElementType, NumElements);
+  getItemInfo(I, ElementType, NumElements, AddrSpace);
   assert(ElementType && "Could not find Type of local element.");
 
-  AllocaInst *NewVal = genPrivatizationAlloca(
-      ElementType, NumElements, InsertPt, Orig->getName() + NameSuffix);
+  auto *NewVal = genPrivatizationAlloca(
+      ElementType, NumElements, InsertPt, Orig->getName() + NameSuffix,
+      ForceDefaultAddressSpace ? 0 : AddrSpace);
   assert(NewVal && "Failed to create local copy.");
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": New Alloca for operand '";
@@ -2825,7 +2892,7 @@ void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
     Instruction *UI = PrivUses.pop_back_val();
     UI->replaceUsesOfWith(PrivValue, NewPrivValue);
 
-    if (isa<GlobalVariable>(PrivValue)) {
+    if (GeneralUtils::isOMPItemGlobalVAR(PrivValue)) {
       // If PrivValue is a global, its uses could be in ConstantExprs
       SmallVector<Instruction *, 2> NewInstArr;
       GeneralUtils::breakExpressions(UI, &NewInstArr);
@@ -3534,10 +3601,15 @@ void VPOParoptTransform::fixOmpDoWhileLoopImpl(Loop *L) {
   }
 }
 
-AllocaInst *VPOParoptTransform::genRegionLocalCopy(WRegionNode *W, Value *V) {
-  auto *OrigAlloca = cast<AllocaInst>(V);
+Value *VPOParoptTransform::genRegionPrivateValue(
+    WRegionNode *W, Value *V, bool IsFirstPrivate) {
+  // V is either AllocaInst or an AddrSpaceCastInst of AllocaInst.
+  assert(GeneralUtils::isOMPItemLocalVAR(V) &&
+         "genRegionPrivateValue: Expect non-empty optionally casted "
+         "alloca instruction.");
+
   // Create a fake firstprivate item referencing the original alloca.
-  FirstprivateItem FprivI(OrigAlloca);
+  FirstprivateItem FprivI(V);
   auto *EntryBB = W->getEntryBBlock();
   auto *InsertPt = EntryBB->getFirstNonPHI();
 
@@ -3547,20 +3619,26 @@ AllocaInst *VPOParoptTransform::genRegionLocalCopy(WRegionNode *W, Value *V) {
   // but did not succeed.  In the current use cases the generated
   // alloca will be removed by PromoteMemToReg, so it is currently
   // not a problem.
-  auto *NewAlloca = genPrivatizationAlloca(&FprivI, InsertPt, ".local");
+  // FIXME: we have to set ForceDefaultAddressSpace to true,
+  //        because otherwise PromoteMemToReg will not be able
+  //        to promote the new AllocaInst. This should be fixed
+  //        in PromoteMemToReg.
+  auto *NewAlloca = genPrivatizationAlloca(&FprivI, InsertPt, ".local", true);
   FprivI.setNew(NewAlloca);
 
   // Replace all uses of the original alloca's result with the new alloca
   // definition.
   Value *ReplacementVal = getClauseItemReplacementValue(&FprivI, InsertPt);
-  genPrivatizationReplacement(W, OrigAlloca, ReplacementVal);
+  genPrivatizationReplacement(W, V, ReplacementVal);
 
-  // Copy value from the original "variable" to the new one.
-  // We have to create an empty block after the region entry
-  // directive to simplify the insertion.
-  BasicBlock *PrivInitEntryBB;
-  createEmptyPrvInitBB(W, PrivInitEntryBB);
-  genFprivInit(&FprivI, PrivInitEntryBB->getTerminator());
+  if (IsFirstPrivate) {
+    // Copy value from the original "variable" to the new one.
+    // We have to create an empty block after the region entry
+    // directive to simplify the insertion.
+    BasicBlock *PrivInitEntryBB;
+    createEmptyPrvInitBB(W, PrivInitEntryBB);
+    genFprivInit(&FprivI, PrivInitEntryBB->getTerminator());
+  }
 
   return NewAlloca;
 }
@@ -3668,9 +3746,20 @@ void VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
   LoopRotation(L, LI, TTI, AC, DT, SE, nullptr, SQ, true, unsigned(-1), true);
   std::vector<AllocaInst *> Allocas;
   SmallVector<std::pair<Value *, bool>, 3> LoopEssentialValues;
-  if (Index < W->getWRNLoopInfo().getNormIVSize())
-    LoopEssentialValues.push_back(
-        std::make_pair(W->getWRNLoopInfo().getNormIV(Index), true));
+  if (Index < W->getWRNLoopInfo().getNormIVSize()) {
+    auto *OrigAlloca = W->getWRNLoopInfo().getNormIV(Index);
+    // OrigAlloca may actually be an AddrSpaceCastInst, which
+    // operand is the real AllocaInst. PromoteMemToReg will not work
+    // in this case, so we have to privatize the normalized induction
+    // variable in the region. This is not a big deal, since
+    // normalized induction variable *is* private for the region.
+    auto *NewAlloca = genRegionPrivateValue(W, OrigAlloca);
+    // We apply PromoteMemToReg to the private version generated
+    // by genRegionPrivateValue(). We cannot apply PromoteMemToReg
+    // to the original normalized induction variable.
+    LoopEssentialValues.push_back(std::make_pair(NewAlloca, true));
+    LoopEssentialValues.push_back(std::make_pair(OrigAlloca, false));
+  }
 
   if (Index < W->getWRNLoopInfo().getNormUBSize()) {
     // Create a local copy of the normalized upper bound.
@@ -3689,7 +3778,7 @@ void VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
     //        to propagate constant normalized upper bounds and
     //        do not propagate non-constant ones.
     auto *OrigAlloca = W->getWRNLoopInfo().getNormUB(Index);
-    auto *NewAlloca = genRegionLocalCopy(W, OrigAlloca);
+    auto *NewAlloca = genRegionPrivateValue(W, OrigAlloca, true);
     // The original load/stores from/to the normalized upper bound
     // "variable" may be marked volatile, e.g.:
     //
@@ -3703,7 +3792,7 @@ void VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
     //              [ "QUAL.OMP.NORMALIZED.UB"(i64* %orig.omp.ub) ]
     //     %2 = load volatile i64, i64* %orig.omp.ub
     //
-    // genRegionLocalCopy() inserts a new alloca %new.omp.ub and replaces
+    // genRegionPrivateValue() inserts a new alloca %new.omp.ub and replaces
     // all uses of %orig.omp.ub inside the region with %new.omp.ub.
     // It also generates code to copy data from *(%orig.omp.ub)
     // to *(%new.omp.ub):
@@ -3758,8 +3847,11 @@ void VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
   for (auto &P : LoopEssentialValues) {
     auto *V = P.first;
     bool PromoteToReg = P.second;
-    AllocaInst *AI = dyn_cast<AllocaInst>(V);
-    assert(AI && "Expect alloca instruction for omp_iv or omp_ub");
+
+    // V is either AllocaInst or an AddrSpaceCastInst of AllocaInst.
+    assert(GeneralUtils::isOMPItemLocalVAR(V) &&
+           "Expect optionally casted alloca instruction for omp_iv or omp_ub.");
+
     for (auto IB = V->user_begin(), IE = V->user_end(); IB != IE; ++IB) {
       if (LoadInst *LdInst = dyn_cast<LoadInst>(*IB))
         LdInst->setVolatile(false);
@@ -3768,6 +3860,9 @@ void VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
     }
     if (PromoteToReg) {
       resetValueInOmpClauseGeneric(W, V);
+      // Only AllocaInst can be here.
+      auto *AI = dyn_cast<AllocaInst>(V);
+      assert(AI && "Trying mem-to-reg for not an AllocaInst.");
       Allocas.push_back(AI);
     }
   }
@@ -3816,8 +3911,9 @@ bool VPOParoptTransform::regularizeOMPLoop(WRegionNode *W, bool First) {
         LoopEssentialValues.push_back(W->getWRNLoopInfo().getNormUB(I));
 
     for (auto V : LoopEssentialValues) {
-      assert(dyn_cast<AllocaInst>(V) &&
-             "Expect alloca instruction for omp_iv or omp_ub");
+      assert(GeneralUtils::isOMPItemLocalVAR(V) &&
+             "Expect optionally casted alloca instruction "
+             "for omp_iv or omp_ub.");
       for (auto IB = V->user_begin(), IE = V->user_end(); IB != IE; ++IB) {
         if (LoadInst *LdInst = dyn_cast<LoadInst>(*IB))
           LdInst->setVolatile(true);
@@ -4056,15 +4152,15 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
           // On CSA we also need to do privatization for function arguments
-          // because parallel region are not getting outlined. Thus we have
+          // because parallel region are not getting outlined. Thus we have to
           // create private instances for function arguments which are
           // annotated as private to avoid modification of the original
           // argument.
           (isa<Argument>(Orig) && isTargetCSA()) ||
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
-          isa<AllocaInst>(Orig) || isa<GetElementPtrInst>(Orig) ||
-          isa<BitCastInst>(Orig) ||
+          GeneralUtils::isOMPItemLocalVAR(Orig) ||
+          isa<GetElementPtrInst>(Orig) || isa<BitCastInst>(Orig) ||
           (isa<CallInst>(Orig) && isFenceCall(cast<CallInst>(Orig))) ||
           (isa<LoadInst>(Orig) && isa<PointerType>(Orig->getType()))) {
         Value *NewPrivInst;
@@ -6658,5 +6754,4 @@ BasicBlock *VPOParoptTransform::getLoopExitBB(WRegionNode *W, unsigned Idx) {
   assert(LoopExitBB && "getLoopExitBB: failed to find the loop's exit block.");
   return LoopExitBB;
 }
-
 #endif // INTEL_COLLAB

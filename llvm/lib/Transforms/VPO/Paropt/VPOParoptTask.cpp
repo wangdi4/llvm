@@ -70,7 +70,7 @@ bool VPOParoptTransform::genRedCodeForTaskGeneric(WRegionNode *W) {
 
       if (isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) {
         Instruction *AllocaInsertPt = EntryBB->getFirstNonPHI();
-        AllocaInst *NewPrivInst =
+        auto *NewPrivInst =
             genPrivatizationAlloca(RedI, AllocaInsertPt, ".red");
         genPrivatizationReplacement(W, Orig, NewPrivInst);
 
@@ -304,7 +304,8 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
         Value *Orig = LprivI->getOrig();
         Type *ElementTy = nullptr;
         Value *NumElements = nullptr;
-        getItemInfo(LprivI, ElementTy, NumElements);
+        unsigned AddrSpace = 0;
+        getItemInfo(LprivI, ElementTy, NumElements, AddrSpace);
         if (NumElements) {
           assert(isa<ConstantInt>(NumElements) &&
                  "genKmpTaskTWithPrivatesRecordDecl: VLAs are not supported.");

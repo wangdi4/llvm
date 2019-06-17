@@ -3006,9 +3006,14 @@ Value *VPOParoptUtils::computeOmpUpperBound(
   assert(NormUB && RegionInfo.getNormUBSize() == 1 &&
          "NORMALIZED.UB clause must specify exactly one upper bound.");
 
-  auto *NormUBAlloca = cast<AllocaInst>(NormUB);
-  assert(NormUBAlloca && "NORMALIZED.UB clause must specify an AllocaInst.");
-  assert(NormUBAlloca->getAllocatedType()->isIntegerTy() &&
+  assert(GeneralUtils::isOMPItemLocalVAR(NormUB) &&
+         "NORMALIZED.UB clause must specify an AllocaInst or"
+         " AddrSpaceCastInst.");
+
+  auto *NormUBAlloca = cast<Instruction>(NormUB);
+  assert(isa<PointerType>(NormUBAlloca->getType()) &&
+         cast<PointerType>(
+             NormUBAlloca->getType())->getElementType()->isIntegerTy() &&
          "Normalized upper bound must have an integer type.");
 
   return Builder.CreateLoad(NormUBAlloca, ".norm.ub" + Name);
@@ -3220,11 +3225,16 @@ Value *VPOParoptUtils::cloneInstructions(Value *V, Instruction *InsertBefore) {
 }
 
 // Generate the pointer pointing to the head of the array.
-Value *VPOParoptUtils::genArrayLength(AllocaInst *AI, Value *BaseAddr,
+Value *VPOParoptUtils::genArrayLength(Value *AI, Value *BaseAddr,
                                       Instruction *InsertPt,
                                       IRBuilder<> &Builder, Type *&ElementTy,
                                       Value *&ArrayBegin) {
-  Type *AllocaTy = AI->getAllocatedType();
+  // FIXME: we can probably gather the type information from
+  //        BaseAddr, and do not pass AI at all.
+  assert(GeneralUtils::isOMPItemLocalVAR(AI) &&
+         "genArrayLength: Expect non-empty optionally casted "
+         "alloca instruction.");
+  Type *AllocaTy = cast<PointerType>(AI->getType())->getElementType();
   Type *ScalarTy = AllocaTy->getScalarType();
   ArrayType *ArrTy = dyn_cast<ArrayType>(ScalarTy);
   assert(ArrTy && "Expect array type. ");

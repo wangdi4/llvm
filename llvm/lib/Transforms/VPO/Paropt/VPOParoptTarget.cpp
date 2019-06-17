@@ -1253,7 +1253,7 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(WRegionNode *W) {
     if (VOrigAndNew != RenameMap.end())
       return VOrigAndNew->second;
 
-    if (!isa<GlobalVariable>(V) && !isa<ConstantExpr>(V)) {
+    if (!GeneralUtils::isOMPItemGlobalVAR(V) && !isa<ConstantExpr>(V)) {
       RenameMap.insert({V, V});
       return V;
     }
@@ -1274,7 +1274,7 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(WRegionNode *W) {
       if (V == NewV)
         continue;
 
-      if (Globals != isa<GlobalVariable>(V))
+      if (Globals != GeneralUtils::isOMPItemGlobalVAR(V))
         continue;
 
       genPrivatizationReplacement(W, V, NewV);

@@ -68,7 +68,7 @@ entry:
 
 ; Initialization of linear var per iteration
 ; CHECK: [[LOAD2:%[a-zA-Z._0-9]+]] = load i32*, i32** [[LINEAR_INIT]]
-; CHECK: [[CAST1:%[a-zA-Z._0-9]+]] = sext i32 %.omp.iv{{[.0-9]*}} to i64
+; CHECK: [[CAST1:%[a-zA-Z._0-9]+]] = sext i32 %.omp.iv.local{{[.0-9]*}} to i64
 ; CHECK: [[MUL:%[a-zA-Z._0-9]+]] = mul i64 [[CAST1]], [[LOAD_STEP]]
 ; CHECK: [[GEP:%[a-zA-Z._0-9]+]] = getelementptr inbounds i32, i32* [[LOAD2]], i64 [[MUL]]
 ; CHECK: store i32* [[GEP]], i32** [[LINEAR_LOCAL:%[a-zA-Z._0-9]+]]

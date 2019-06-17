@@ -733,7 +733,7 @@ public:
   static Value *cloneInstructions(Value *V, Instruction *InsertPt);
 
   /// Generate the pointer pointing to the head of the array.
-  static Value *genArrayLength(AllocaInst *AI, Value *BaseAddr,
+  static Value *genArrayLength(Value *AI, Value *BaseAddr,
                                Instruction *InsertPt, IRBuilder<> &Builder,
                                Type *&ElementTy, Value *&ArrayBegin);
 
