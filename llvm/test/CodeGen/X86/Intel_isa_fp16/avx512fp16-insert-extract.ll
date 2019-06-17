@@ -35,7 +35,7 @@ define <8 x half> @extract_v32f16_v8f16_0(<32 x half> %x) {
 define <8 x half> @extract_v32f16_v8f16_1(<32 x half> %x) {
 ; CHECK-LABEL: extract_v32f16_v8f16_1:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vextractf32x4 $1, %zmm0, %xmm0
+; CHECK-NEXT:    vextractf128 $1, %ymm0, %xmm0
 ; CHECK-NEXT:    vzeroupper
 ; CHECK-NEXT:    retq
   %a = shufflevector <32 x half> %x, <32 x half> undef, <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
