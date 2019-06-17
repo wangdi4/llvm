@@ -35,6 +35,63 @@ define <32 x half> @broadcastph512(half* %x) {
   ret <32 x half> %res
 }
 
+define <8 x half> @broadcastph128_scalar(half %x) {
+; CHECK-LABEL: broadcastph128_scalar:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpbroadcastw %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %vec = insertelement <8 x half> undef, half %x, i32 0
+  %res = shufflevector <8 x half> %vec, <8 x half> undef, <8 x i32> zeroinitializer
+  ret <8 x half> %res
+}
+
+define <16 x half> @broadcastph256_scalar(half %x) {
+; CHECK-LABEL: broadcastph256_scalar:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpbroadcastw %xmm0, %ymm0
+; CHECK-NEXT:    retq
+  %vec = insertelement <16 x half> undef, half %x, i32 0
+  %res = shufflevector <16 x half> %vec, <16 x half> undef, <16 x i32> zeroinitializer
+  ret <16 x half> %res
+}
+
+define <32 x half> @broadcastph512_scalar(half %x) {
+; CHECK-LABEL: broadcastph512_scalar:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpbroadcastw %xmm0, %zmm0
+; CHECK-NEXT:    retq
+  %vec = insertelement <32 x half> undef, half %x, i32 0
+  %res = shufflevector <32 x half> %vec, <32 x half> undef, <32 x i32> zeroinitializer
+  ret <32 x half> %res
+}
+
+define <8 x half> @broadcastph128_reg(<8 x half> %x) {
+; CHECK-LABEL: broadcastph128_reg:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpbroadcastw %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %res = shufflevector <8 x half> %x, <8 x half> undef, <8 x i32> zeroinitializer
+  ret <8 x half> %res
+}
+
+define <16 x half> @broadcastph256_reg(<16 x half> %x) {
+; CHECK-LABEL: broadcastph256_reg:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpbroadcastw %xmm0, %ymm0
+; CHECK-NEXT:    retq
+  %res = shufflevector <16 x half> %x, <16 x half> undef, <16 x i32> zeroinitializer
+  ret <16 x half> %res
+}
+
+define <32 x half> @broadcastph512_reg(<32 x half> %x) {
+; CHECK-LABEL: broadcastph512_reg:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpbroadcastw %xmm0, %zmm0
+; CHECK-NEXT:    retq
+  %res = shufflevector <32 x half> %x, <32 x half> undef, <32 x i32> zeroinitializer
+  ret <32 x half> %res
+}
+
 define i16 @test1(half %x) {
 ; CHECK-LABEL: test1:
 ; CHECK:       # %bb.0:

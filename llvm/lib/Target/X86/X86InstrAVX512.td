@@ -1509,20 +1509,6 @@ let Predicates = [HasVLX, HasBWI] in {
               (i16 (trunc (i32 (zextloadi16 addr:$src)))))),
             (VPBROADCASTWZ256m addr:$src)>;
 }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-let Predicates = [HasFP16] in {
-  def : Pat<(v32f16 (X86VBroadcast (loadf16 addr:$src))),
-            (VPBROADCASTWZm addr:$src)>;
-}
-let Predicates = [HasVLX, HasFP16] in {
-  def : Pat<(v8f16 (X86VBroadcast (loadf16 addr:$src))),
-            (VPBROADCASTWZ128m addr:$src)>;
-  def : Pat<(v16f16 (X86VBroadcast (loadf16 addr:$src))),
-            (VPBROADCASTWZ256m addr:$src)>;
-}
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
 let Predicates = [HasBWI] in {
   // loadi16 is tricky to fold, because !isTypeDesirableForOp, justifiably.
   // This means we'll encounter truncated i32 loads; match that here.
@@ -1535,6 +1521,36 @@ let Predicates = [HasBWI] in {
               (i16 (trunc (i32 (zextloadi16 addr:$src)))))),
             (VPBROADCASTWZm addr:$src)>;
 }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+let Predicates = [HasFP16] in {
+  def : Pat<(v32f16 (X86VBroadcast (loadf16 addr:$src))),
+            (VPBROADCASTWZm addr:$src)>;
+
+  def : Pat<(v32f16 (X86VBroadcast (v8f16 VR128X:$src))),
+            (VPBROADCASTWZr VR128X:$src)>;
+  def : Pat<(v32f16 (X86VBroadcast (f16 FR16X:$src))),
+            (VPBROADCASTWZr (COPY_TO_REGCLASS FR16X:$src, VR128X))>;
+}
+let Predicates = [HasVLX, HasFP16] in {
+  def : Pat<(v8f16 (X86VBroadcast (loadf16 addr:$src))),
+            (VPBROADCASTWZ128m addr:$src)>;
+  def : Pat<(v16f16 (X86VBroadcast (loadf16 addr:$src))),
+            (VPBROADCASTWZ256m addr:$src)>;
+
+  def : Pat<(v8f16 (X86VBroadcast (v8f16 VR128X:$src))),
+            (VPBROADCASTWZ128r VR128X:$src)>;
+  def : Pat<(v16f16 (X86VBroadcast (v8f16 VR128X:$src))),
+            (VPBROADCASTWZ256r VR128X:$src)>;
+
+  def : Pat<(v8f16 (X86VBroadcast (f16 FR16X:$src))),
+            (VPBROADCASTWZ128r (COPY_TO_REGCLASS FR16X:$src, VR128X))>;
+  def : Pat<(v16f16 (X86VBroadcast (f16 FR16X:$src))),
+            (VPBROADCASTWZ256r (COPY_TO_REGCLASS FR16X:$src, VR128X))>;
+}
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // AVX-512 BROADCAST SUBVECTORS
