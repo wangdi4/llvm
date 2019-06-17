@@ -35,13 +35,13 @@
 ; is that p can point to a DerivedA object. The devirtualization process
 ; can convert ptr->foo() into DevirtB::foo() and that is incorrect.
 
-; RUN: opt -S -wholeprogramdevirt -wholeprogramdevirt-assume-safe -instnamer %s | FileCheck %s
+; RUN: opt -S -wholeprogramdevirt -wholeprogramdevirt-assume-safe %s | FileCheck %s
 
 ; Check that the indirect call wasn't converted into a direct call
-; CHECK: %tmp4 = tail call i32 %tmp3(%class.DerivedB* %tmp)
+; CHECK: %tmp6 = tail call i32 %tmp5(%class.DerivedB* %tmp)
 
 ; Check that the direct call wasn't generated
-; CHECK-NOT: %tmp5 = tail call i32 bitcast (void (%class.DerivedB*)* @_ZN8DerivedB3fooEv to i32 (%class.DerivedB*)*)(%class.DerivedB* %tmp)
+; CHECK-NOT: %tmp6 = tail call i32 bitcast (void (%class.DerivedB*)* @_ZN8DerivedB3fooEv to i32 (%class.DerivedB*)*)(%class.DerivedB* %tmp), !_Intel.Devirt.Call !9
 
 %class.Base = type { i32 (...)** }
 %class.DerivedA = type { %class.Base }
@@ -85,20 +85,20 @@ define internal void @_ZN8DerivedB3fooEv(%class.DerivedB* nocapture readnone) {
 }
 
 define internal void @_Z3barP4Base(%class.Base*) {
-  %2 = bitcast %class.Base* %0 to %class.DerivedB*
+  %tmp = bitcast %class.Base* %0 to %class.DerivedB*
 
   ; Cast from Base to DerivedB (downcasting)
-  %3 = bitcast %class.Base* %0 to i32 (%class.DerivedB*)***
+  %tmp1 = bitcast %class.Base* %0 to i32 (%class.DerivedB*)***
 
   ; Load the V-Table of DerivedB
-  %4 = load i32 (%class.DerivedB*)**, i32 (%class.DerivedB*)*** %3, align 8, !tbaa !6
-  %5 = bitcast i32 (%class.DerivedB*)** %4 to i8*
-  %6 = tail call i1 @llvm.type.test(i8* %5, metadata !"_ZTS8DerivedB")
-  tail call void @llvm.assume(i1 %6)
-  %7 = load i32 (%class.DerivedB*)*, i32 (%class.DerivedB*)** %4, align 8
+  %tmp2 = load i32 (%class.DerivedB*)**, i32 (%class.DerivedB*)*** %tmp1, align 8, !tbaa !6
+  %tmp3 = bitcast i32 (%class.DerivedB*)** %tmp2 to i8*
+  %tmp4 = tail call i1 @llvm.type.test(i8* %tmp3, metadata !"_ZTS8DerivedB")
+  tail call void @llvm.assume(i1 %tmp4)
+  %tmp5 = load i32 (%class.DerivedB*)*, i32 (%class.DerivedB*)** %tmp2, align 8
 
   ; Virtual Call
-  tail call i32 %7(%class.DerivedB* %2)
+  %tmp6 = tail call i32 %tmp5(%class.DerivedB* %tmp)
   ret void
 }
 
