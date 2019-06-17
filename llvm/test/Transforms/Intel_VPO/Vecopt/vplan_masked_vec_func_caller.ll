@@ -1,10 +1,5 @@
 ; RUN: opt -VPlanDriver -disable-vplan-subregions -S < %s  | FileCheck %s
 
-; Changed deprecated llvm.intel.directive* representation to use llvm.directive.region.entry/exit instead but test still fails:
-; Can't find "call <4 x float> @_ZGVbM4vv_vec_sum" with possible intended match "call <4 x float> @_ZGVbM4vv_foo"
-; This happens after this xmain commit: be92f34c48c21c10470806eab350a4099a62b200: Merge from 'xmain-cand' to 'xmain' (xmain-cand@head => xmain)
-; XFAIL: *
-
 ; CHECK-LABEL: vector.body
 ; CHECK: call <4 x float> @_ZGVbM4vv_vec_sum
 
@@ -168,7 +163,7 @@ declare void @llvm.masked.store.v4f32.p0v4f32(<4 x float>, <4 x float>*, i32, <4
 
 declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i32, i1) #2
 
-attributes #0 = { noinline norecurse nounwind readnone uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" "vector-variants"="_ZGVbM4vv_foo" }
+attributes #0 = { noinline norecurse nounwind readnone uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" "vector-variants"="_ZGVbM4vv_vec_sum" }
 attributes #1 = { noinline norecurse nounwind readnone uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #2 = { argmemonly nounwind }
 attributes #3 = { argmemonly nounwind readonly }
