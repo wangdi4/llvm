@@ -10126,6 +10126,14 @@ OMPClause *Sema::ActOnOpenMPSimdlenClause(Expr *Len, SourceLocation StartLoc,
   ExprResult Simdlen = VerifyPositiveIntegerConstantInClause(Len, OMPC_simdlen);
   if (Simdlen.isInvalid())
     return nullptr;
+#if INTEL_CUSTOMIZATION
+  llvm::Triple T = getASTContext().getTargetInfo().getTriple();
+  if (T.getArch() == llvm::Triple::spir64 ||
+      T.getArch() == llvm::Triple::spir) {
+    Diag(StartLoc, diag::warn_omp_simdlen_in_target_spir);
+    return nullptr;
+  }
+#endif // INTEL_CUSTOMIZATION
   return new (Context)
       OMPSimdlenClause(Simdlen.get(), StartLoc, LParenLoc, EndLoc);
 }

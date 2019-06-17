@@ -28,3 +28,6 @@ def PrivateVBaseDtor : DiagGroup<"private-vbase-dtor">;
 
 // Error/warning messages about inappropriate usage of OpenCL FPGA Channels
 def FPGAChannelsUsage : DiagGroup<"analyze-channels-usage">;
+
+// Openmp: a warning group for unsupported simd clauses.
+def SimdUnsupported : DiagGroup<"simd-unsupported">;
