@@ -105,7 +105,7 @@ define i16 @test1(half %x) {
 define <8 x i16> @test2(i16 %x) {
 ; CHECK-LABEL: test2:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vmovw %edi, %xmm0
+; CHECK-NEXT:    vmovd %edi, %xmm0
 ; CHECK-NEXT:    retq
    %res = insertelement <8 x i16>undef, i16 %x, i32 0
    ret <8 x i16>%res
@@ -160,6 +160,26 @@ define <8 x i16> @test10(i16* %x) {
    ret <8 x i16>%res
 }
 
+define <16 x i16> @test10b(i16* %x) {
+; CHECK-LABEL: test10b:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmovw (%rdi), %xmm0
+; CHECK-NEXT:    retq
+   %y = load i16, i16* %x, align 2
+   %res = insertelement <16 x i16>zeroinitializer, i16 %y, i32 0
+   ret <16 x i16>%res
+}
+
+define <32 x i16> @test10c(i16* %x) {
+; CHECK-LABEL: test10c:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmovw (%rdi), %xmm0
+; CHECK-NEXT:    retq
+   %y = load i16, i16* %x, align 2
+   %res = insertelement <32 x i16>zeroinitializer, i16 %y, i32 0
+   ret <32 x i16>%res
+}
+
 define <8 x half> @test11(half* %x) {
 ; CHECK-LABEL: test11:
 ; CHECK:       # %bb.0:
@@ -170,14 +190,56 @@ define <8 x half> @test11(half* %x) {
    ret <8 x half>%res
 }
 
+define <16 x half> @test11b(half* %x) {
+; CHECK-LABEL: test11b:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmovsh (%rdi), %xmm0
+; CHECK-NEXT:    retq
+   %y = load half, half* %x, align 2
+   %res = insertelement <16 x half>zeroinitializer, half %y, i32 0
+   ret <16 x half>%res
+}
+
+define <32 x half> @test11c(half* %x) {
+; CHECK-LABEL: test11c:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmovsh (%rdi), %xmm0
+; CHECK-NEXT:    retq
+   %y = load half, half* %x, align 2
+   %res = insertelement <32 x half>zeroinitializer, half %y, i32 0
+   ret <32 x half>%res
+}
+
 define <8 x half> @test14(half %x) {
 ; CHECK-LABEL: test14:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vpxor %xmm1, %xmm1, %xmm1
-; CHECK-NEXT:    vpblendw {{.*#+}} xmm0 = xmm0[0],xmm1[1,2,3,4,5,6,7]
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
+; CHECK-NEXT:    vmovsh %xmm0, %xmm1, %xmm0
 ; CHECK-NEXT:    retq
    %res = insertelement <8 x half>zeroinitializer, half %x, i32 0
    ret <8 x half>%res
+}
+
+define <16 x half> @test14b(half %x) {
+; CHECK-LABEL: test14b:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    # kill: def $xmm0 killed $xmm0 def $ymm0
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
+; CHECK-NEXT:    vmovsh %xmm0, %xmm1, %xmm0
+; CHECK-NEXT:    retq
+   %res = insertelement <16 x half>zeroinitializer, half %x, i32 0
+   ret <16 x half>%res
+}
+
+define <32 x half> @test14c(half %x) {
+; CHECK-LABEL: test14c:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    # kill: def $xmm0 killed $xmm0 def $zmm0
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
+; CHECK-NEXT:    vmovsh %xmm0, %xmm1, %xmm0
+; CHECK-NEXT:    retq
+   %res = insertelement <32 x half>zeroinitializer, half %x, i32 0
+   ret <32 x half>%res
 }
 
 define <8 x i16> @test15(i16 %x) {
@@ -187,6 +249,51 @@ define <8 x i16> @test15(i16 %x) {
 ; CHECK-NEXT:    retq
    %res = insertelement <8 x i16>zeroinitializer, i16 %x, i32 0
    ret <8 x i16>%res
+}
+
+define <16 x i16> @test16(i16 %x) {
+; CHECK-LABEL: test16:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmovw %edi, %xmm0
+; CHECK-NEXT:    retq
+   %res = insertelement <16 x i16>zeroinitializer, i16 %x, i32 0
+   ret <16 x i16>%res
+}
+
+define <32 x i16> @test17(i16 %x) {
+; CHECK-LABEL: test17:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmovw %edi, %xmm0
+; CHECK-NEXT:    retq
+   %res = insertelement <32 x i16>zeroinitializer, i16 %x, i32 0
+   ret <32 x i16>%res
+}
+
+define <8 x i16> @test18(i16 %x) {
+; CHECK-LABEL: test18:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmovd %edi, %xmm0
+; CHECK-NEXT:    retq
+   %res = insertelement <8 x i16> undef, i16 %x, i32 0
+   ret <8 x i16>%res
+}
+
+define <16 x i16> @test19(i16 %x) {
+; CHECK-LABEL: test19:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmovd %edi, %xmm0
+; CHECK-NEXT:    retq
+   %res = insertelement <16 x i16> undef, i16 %x, i32 0
+   ret <16 x i16>%res
+}
+
+define <32 x i16> @test20(i16 %x) {
+; CHECK-LABEL: test20:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmovd %edi, %xmm0
+; CHECK-NEXT:    retq
+   %res = insertelement <32 x i16> undef, i16 %x, i32 0
+   ret <32 x i16>%res
 }
 
 @g8f16 = external global <8 x half>

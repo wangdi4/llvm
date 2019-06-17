@@ -4839,12 +4839,37 @@ let Predicates = [HasAVX512] in {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
 let Predicates = [HasFP16] in {
+  def : Pat<(v8f16 (X86vzmovl (v8f16 VR128X:$src))),
+            (VMOVSHZrr (v8f16 (AVX512_128_SET0)), VR128X:$src)>;
+
+  // FIXME we need better canonicalization in dag combine
+  def : Pat<(v16f16 (X86vzmovl (v16f16 VR256X:$src))),
+            (SUBREG_TO_REG (i32 0),
+             (v8f16 (VMOVSHZrr (v8f16 (AVX512_128_SET0)),
+              (v8f16 (EXTRACT_SUBREG (v16f16 VR256X:$src), sub_xmm)))), sub_xmm)>;
+  def : Pat<(v32f16 (X86vzmovl (v32f16 VR512:$src))),
+            (SUBREG_TO_REG (i32 0),
+             (v8f16 (VMOVSHZrr (v8f16 (AVX512_128_SET0)),
+              (v8f16 (EXTRACT_SUBREG (v32f16 VR512:$src), sub_xmm)))), sub_xmm)>;
+
   def : Pat<(v8f16 (X86vzmovl (v8f16 (scalar_to_vector (loadf16 addr:$src))))),
             (COPY_TO_REGCLASS (VMOVSHZrm addr:$src), VR128X)>;
   def : Pat<(v8f16 (X86vzmovl (loadv8f16 addr:$src))),
             (COPY_TO_REGCLASS (VMOVSHZrm addr:$src), VR128X)>;
   def : Pat<(v8f16 (X86vzload addr:$src)),
             (COPY_TO_REGCLASS (VMOVSHZrm addr:$src), VR128X)>;
+
+  def : Pat<(v16f16 (X86vzmovl (insert_subvector undef,
+                     (v8f16 (scalar_to_vector (loadf16 addr:$src))), (iPTR 0)))),
+            (SUBREG_TO_REG (i32 0), (VMOVSSZrm addr:$src), sub_xmm)>;
+  def : Pat<(v16f16 (X86vzload addr:$src)),
+            (SUBREG_TO_REG (i32 0), (VMOVSHZrm addr:$src), sub_xmm)>;
+
+  def : Pat<(v32f16 (X86vzmovl (insert_subvector undef,
+                     (v8f16 (scalar_to_vector (loadf16 addr:$src))), (iPTR 0)))),
+            (SUBREG_TO_REG (i32 0), (VMOVSSZrm addr:$src), sub_xmm)>;
+  def : Pat<(v32f16 (X86vzload addr:$src)),
+            (SUBREG_TO_REG (i32 0), (VMOVSHZrm addr:$src), sub_xmm)>;
 }
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
@@ -13615,6 +13640,38 @@ def : Pat<(f16 (bitconvert GR16:$src)),
                 FR16X))>;
 def : Pat<(v8i16 (scalar_to_vector (i16 GR16:$src))),
           (VMOVW2SHrr (INSERT_SUBREG (IMPLICIT_DEF), GR16:$src, sub_16bit))>;
+def : Pat<(v4i32 (X86vzmovl (scalar_to_vector (and GR32:$src, 0xffff)))),
+          (VMOVW2SHrr GR32:$src)>;
+// FIXME: We should really find a way to improve these patterns.
+def : Pat<(v8i32 (X86vzmovl
+                  (insert_subvector undef,
+                                    (v4i32 (scalar_to_vector
+                                            (and GR32:$src, 0xffff))),
+                                    (iPTR 0)))),
+          (SUBREG_TO_REG (i32 0), (VMOVW2SHrr GR32:$src), sub_xmm)>;
+def : Pat<(v16i32 (X86vzmovl
+                   (insert_subvector undef,
+                                     (v4i32 (scalar_to_vector
+                                             (and GR32:$src, 0xffff))),
+                                     (iPTR 0)))),
+          (SUBREG_TO_REG (i32 0), (VMOVW2SHrr GR32:$src), sub_xmm)>;
+
+def : Pat<(v4i32 (scalar_to_vector (i32 (extloadi16 addr:$src)))),
+          (VMOVWrm addr:$src)>;
+def : Pat<(v4i32 (X86vzmovl (scalar_to_vector (i32 (zextloadi16 addr:$src))))),
+          (VMOVWrm addr:$src)>;
+def : Pat<(v8i32 (X86vzmovl
+                  (insert_subvector undef,
+                                    (v4i32 (scalar_to_vector
+                                            (i32 (zextloadi16 addr:$src)))),
+                                    (iPTR 0)))),
+          (SUBREG_TO_REG (i32 0), (VMOVWrm addr:$src), sub_xmm)>;
+def : Pat<(v16i32 (X86vzmovl
+                   (insert_subvector undef,
+                                     (v4i32 (scalar_to_vector
+                                             (i32 (zextloadi16 addr:$src)))),
+                                     (iPTR 0)))),
+          (SUBREG_TO_REG (i32 0), (VMOVWrm addr:$src), sub_xmm)>;
 
 // Move word from xmm register to r/m16
 def VMOVSH2Wrr  : AVX512<0x7E, MRMDestReg, (outs GR32:$dst), (ins VR128X:$src),

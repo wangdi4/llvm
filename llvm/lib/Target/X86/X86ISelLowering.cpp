@@ -1670,6 +1670,7 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setOperationAction(ISD::FABS,               VT, Custom);
       setOperationAction(ISD::FCOPYSIGN,          VT, Custom);
       setOperationAction(ISD::EXTRACT_VECTOR_ELT, VT, Custom);
+      setOperationAction(ISD::VECTOR_SHUFFLE,     VT, Custom);
     };
 
     // AVX512_FP16 scalar operations
@@ -1690,7 +1691,6 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setOperationAction(ISD::SCALAR_TO_VECTOR,       MVT::v32f16, Custom);
       setOperationAction(ISD::SINT_TO_FP,             MVT::v32i16, Legal);
       setOperationAction(ISD::UINT_TO_FP,             MVT::v32i16, Legal);
-      setOperationPromotedToType(ISD::VECTOR_SHUFFLE, MVT::v32f16, MVT::v32i16);
       setOperationAction(ISD::INSERT_VECTOR_ELT,      MVT::v32f16, Custom);
 
       setOperationAction(ISD::EXTRACT_SUBVECTOR,      MVT::v16f16, Legal);
@@ -1716,9 +1716,6 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
 
       setOperationAction(ISD::FP_TO_SINT,         MVT::v8i16, Legal);
       setOperationAction(ISD::FP_TO_UINT,         MVT::v8i16, Legal);
-
-      setOperationAction(ISD::VECTOR_SHUFFLE,     MVT::v8f16, Custom);
-      setOperationPromotedToType(ISD::VECTOR_SHUFFLE, MVT::v16f16, MVT::v16i16);
 
       // INSERT_VECTOR_ELT v8f16 extended to VECTOR_SHUFFLE
       setOperationAction(ISD::INSERT_VECTOR_ELT,    MVT::v8f16,  Custom);
@@ -9440,15 +9437,6 @@ X86TargetLowering::LowerBUILD_VECTOR(SDValue Op, SelectionDAG &DAG) const {
         return getShuffleVectorZeroOrUndef(Item, 0, true, Subtarget, DAG);
       }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-      if (EltVT == MVT::i16 && Subtarget.hasFP16()) {
-        Item = DAG.getNode(ISD::SCALAR_TO_VECTOR, dl, MVT::v8i16, Item);
-        return Item;
-      }
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-
       // We can't directly insert an i8 or i16 into a vector, so zero extend
       // it to i32 first.
       if (EltVT == MVT::i16 || EltVT == MVT::i8) {
@@ -15988,6 +15976,17 @@ static SDValue lower256BitShuffle(const SDLoc &DL, ArrayRef<int> Mask, MVT VT,
     return DAG.getBitcast(VT, DAG.getVectorShuffle(FpVT, DL, V1, V2, Mask));
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  if (VT == MVT::v16f16) {
+    V1 = DAG.getBitcast(MVT::v16i16, V1);
+    V2 = DAG.getBitcast(MVT::v16i16, V2);
+    return DAG.getBitcast(MVT::v16f16,
+                          DAG.getVectorShuffle(MVT::v16i16, DL, V1, V2, Mask));
+  }
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+
   switch (VT.SimpleTy) {
   case MVT::v4f64:
     return lowerV4F64Shuffle(DL, Mask, Zeroable, V1, V2, Subtarget, DAG);
@@ -16495,6 +16494,17 @@ static SDValue lower512BitShuffle(const SDLoc &DL, ArrayRef<int> Mask,
   if (SDValue Broadcast = lowerShuffleAsBroadcast(DL, VT, V1, V2, Mask,
                                                   Subtarget, DAG))
     return Broadcast;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  if (VT == MVT::v32f16) {
+    V1 = DAG.getBitcast(MVT::v32i16, V1);
+    V2 = DAG.getBitcast(MVT::v32i16, V2);
+    return DAG.getBitcast(MVT::v32f16,
+                          DAG.getVectorShuffle(MVT::v32i16, DL, V1, V2, Mask));
+  }
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
   // Dispatch to each element type for lowering. If we don't have support for
   // specific element type shuffles at 512 bits, immediately split them and
@@ -17311,31 +17321,26 @@ SDValue X86TargetLowering::LowerINSERT_VECTOR_ELT(SDValue Op,
   assert(VT.is128BitVector() && "Only 128-bit vector types should be left!");
 
   // This will be just movd/movq/movss/movsd.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  if (IdxVal == 0 && ISD::isBuildVectorAllZeros(N0.getNode()) &&
+      (EltVT == MVT::i32 || EltVT == MVT::f32 || EltVT == MVT::f64 ||
+       EltVT == MVT::i64 || EltVT == MVT::f16)) {
+#else // INTEL_FEATURE_ISA_FP16
   if (IdxVal == 0 && ISD::isBuildVectorAllZeros(N0.getNode()) &&
       (EltVT == MVT::i32 || EltVT == MVT::f32 || EltVT == MVT::f64 ||
        EltVT == MVT::i64)) {
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     N1 = DAG.getNode(ISD::SCALAR_TO_VECTOR, dl, VT, N1);
     return getShuffleVectorZeroOrUndef(N1, 0, true, Subtarget, DAG);
   }
 
   // Transform it so it match pinsr{b,w} which expects a GR32 as its second
   // argument. SSE41 required for pinsrb.
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-  if (VT == MVT::v8i16 || (VT == MVT::v8f16 && !Subtarget.hasFP16()) ||
-      (VT == MVT::v16i8 && Subtarget.hasSSE41())) {
-#else  // INTEL_FEATURE_ISA_FP16
   if (VT == MVT::v8i16 || (VT == MVT::v16i8 && Subtarget.hasSSE41())) {
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
     unsigned Opc;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-    if (VT == MVT::v8i16 || VT == MVT::v8f16) {
-#else  // INTEL_FEATURE_ISA_FP16
     if (VT == MVT::v8i16) {
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
       assert(Subtarget.hasSSE2() && "SSE2 required for PINSRW");
       Opc = X86ISD::PINSRW;
     } else {
@@ -17352,14 +17357,7 @@ SDValue X86TargetLowering::LowerINSERT_VECTOR_ELT(SDValue Op,
   }
 
   if (Subtarget.hasSSE41()) {
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-    if (EltVT == MVT::f32 || (EltVT == MVT::f16 && Subtarget.hasFP16())) {
-#else  // INTEL_FEATURE_ISA_FP16
-
     if (EltVT == MVT::f32) {
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
       // Bits [7:6] of the constant are the source select. This will always be
       //   zero here. The DAG Combiner may combine an extract_elt index into
       //   these bits. For example (insert (extract, 3), 2) could be matched by
@@ -17369,11 +17367,6 @@ SDValue X86TargetLowering::LowerINSERT_VECTOR_ELT(SDValue Op,
       // Bits [3:0] of the constant are the zero mask. The DAG Combiner may
       //   combine either bitwise AND or insert of float 0.0 to set these bits.
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-      MVT VecVT = EltVT == MVT::f32 ? MVT::v4f32 : MVT::v8f16;
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
       bool MinSize = DAG.getMachineFunction().getFunction().hasMinSize();
       if (IdxVal == 0 && (!MinSize || !MayFoldLoad(N1))) {
         // If this is an insertion of 32-bits into the low 32-bits of
@@ -17384,24 +17377,12 @@ SDValue X86TargetLowering::LowerINSERT_VECTOR_ELT(SDValue Op,
         // generate insertps because blendps does not have a 32-bit memory
         // operand form.
         N2 = DAG.getIntPtrConstant(1, dl);
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-        N1 = DAG.getNode(ISD::SCALAR_TO_VECTOR, dl, VecVT, N1);
-#else  // INTEL_FEATURE_ISA_FP16
         N1 = DAG.getNode(ISD::SCALAR_TO_VECTOR, dl, MVT::v4f32, N1);
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
         return DAG.getNode(X86ISD::BLENDI, dl, VT, N0, N1, N2);
       }
       N2 = DAG.getIntPtrConstant(IdxVal << 4, dl);
       // Create this as a scalar to vector..
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-      N1 = DAG.getNode(ISD::SCALAR_TO_VECTOR, dl, VecVT, N1);
-#else  // INTEL_FEATURE_ISA_FP16
       N1 = DAG.getNode(ISD::SCALAR_TO_VECTOR, dl, MVT::v4f32, N1);
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
       return DAG.getNode(X86ISD::INSERTPS, dl, VT, N0, N1, N2);
     }
 
@@ -17438,16 +17419,8 @@ static SDValue LowerSCALAR_TO_VECTOR(SDValue Op, const X86Subtarget &Subtarget,
   }
   assert(OpVT.is128BitVector() && "Expected an SSE type!");
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-  // Pass through a v4i32 or v8i16 SCALAR_TO_VECTOR as that's what we use in
-  // tblgen.
-  if (OpVT == MVT::v4i32 || (OpVT == MVT::v8i16 && Subtarget.hasFP16()))
-#else  // INTEL_FEATURE_ISA_FP16
   // Pass through a v4i32 SCALAR_TO_VECTOR as that's what we use in tblgen.
   if (OpVT == MVT::v4i32)
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
     return Op;
 
   SDValue AnyExt = DAG.getNode(ISD::ANY_EXTEND, dl, MVT::i32, Op.getOperand(0));
@@ -33105,6 +33078,14 @@ static SDValue combineX86ShufflesRecursively(
   MVT VT = Op.getSimpleValueType();
   if (!VT.isVector())
     return SDValue(); // Bail if we hit a non-vector.
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  // FIXME: Just bail on f16 for now.
+  if (VT.getVectorElementType() == MVT::f16)
+    return SDValue();
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
   assert(Root.getSimpleValueType().isVector() &&
          "Shuffles operate on vector types!");
