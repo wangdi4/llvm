@@ -4875,18 +4875,9 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         if (FTI.NumParams && FTI.Params[0].Param == nullptr) {
           // C99 6.7.5.3p3: Reject int(x,y,z) when it's not a function
           // definition.
-#if INTEL_CUSTOMIZATION
-          // In IntelCompat mode we allow a parameter list without types for
-          // compatibility reasons. CQ#376510.
-          if (S.getLangOpts().IntelCompat) {
-            S.Diag(FTI.Params[0].IdentLoc,
-                   diag::warn_ident_list_in_fn_declaration);
-          } else {
-#endif // INTEL_CUSTOMIZATION
           S.Diag(FTI.Params[0].IdentLoc,
                  diag::err_ident_list_in_fn_declaration);
           D.setInvalidType(true);
-          } // INTEL
           // Recover by creating a K&R-style function type.
           T = Context.getFunctionNoProtoType(T, EI);
           break;
