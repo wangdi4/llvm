@@ -61,6 +61,9 @@ static cl::opt<bool>
                      cl::desc("Show modified HIR Regions only"),
                      cl::init(false));
 
+static cl::list<unsigned>
+    HIRPrintOnly("hir-print-only", cl::desc("Show specified HIR Regions only"));
+
 enum HIRFrameworkDebugEnum {
   P0_None = 0,
   P1_Creation,
@@ -500,15 +503,20 @@ void HIRFramework::print(bool FrameworkDetails, raw_ostream &OS) const {
   for (auto I = hir_begin(), E = hir_end(); I != E; ++I, ++Offset) {
     assert(isa<HLRegion>(I) && "Top level node is not a region!");
     const HLRegion *Region = cast<HLRegion>(I);
-    if (!HIRPrintModified || Region->shouldGenCode()) {
-      // Print SCCs in hir-parser output and in detailed mode.
-      if (PrintFrameworkDetails) {
-        SCCF.print(FOS, RegBegin + Offset);
-      }
-
-      FOS << "\n";
-      Region->print(FOS, 0, PrintFrameworkDetails, HIRPrinterDetails);
+    if ((HIRPrintModified && !Region->shouldGenCode()) ||
+        (!HIRPrintOnly.empty() &&
+         (std::find(HIRPrintOnly.begin(), HIRPrintOnly.end(),
+                    Region->getNumber())) == HIRPrintOnly.end())) {
+      continue;
     }
+
+    // Print SCCs in hir-parser output and in detailed mode.
+    if (PrintFrameworkDetails) {
+      SCCF.print(FOS, RegBegin + Offset);
+    }
+
+    FOS << "\n";
+    Region->print(FOS, 0, PrintFrameworkDetails, HIRPrinterDetails);
   }
   FOS << "\n";
 #endif // !INTEL_PRODUCT_RELEASE
