@@ -4435,6 +4435,9 @@ void HIRParser::phase2Parse() {
     ParentLoop->setHasDistributePoint(true);
     HLNodeUtils::erase(Call);
   }
+
+  // DistributePoints needs to be clear for next HIR regions.
+  DistributePoints.clear();
 }
 
 void HIRParser::run() {
