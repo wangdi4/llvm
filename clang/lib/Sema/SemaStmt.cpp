@@ -3739,10 +3739,6 @@ StmtResult Sema::BuildReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp) {
     // the C version of which boils down to CheckSingleAssignmentConstraints.
     if (RetValExp)
       NRVOCandidate = getCopyElisionCandidate(FnRetType, RetValExp, CES_Strict);
-#if INTEL_CUSTOMIZATION
-    // CQ377385: don't check return expression until template instantiation
-    if (!(getLangOpts().IntelCompat && CurContext->isDependentContext()))
-#endif // INTEL_CUSTOMIZATION
     if (!HasDependentReturnType && !RetValExp->isTypeDependent()) {
       // we have a non-void function with an expression, continue checking
       InitializedEntity Entity = InitializedEntity::InitializeResult(ReturnLoc,
