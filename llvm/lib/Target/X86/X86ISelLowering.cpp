@@ -1692,7 +1692,6 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setOperationAction(ISD::UINT_TO_FP,             MVT::v32i16, Legal);
       setOperationPromotedToType(ISD::VECTOR_SHUFFLE, MVT::v32f16, MVT::v32i16);
       setOperationAction(ISD::INSERT_VECTOR_ELT,      MVT::v32f16, Custom);
-      setOperationAction(ISD::FP_ROUND,               MVT::v16f32, Legal);
 
       setOperationAction(ISD::EXTRACT_SUBVECTOR,      MVT::v16f16, Legal);
       setOperationAction(ISD::INSERT_SUBVECTOR,       MVT::v32f16, Legal);
@@ -1726,7 +1725,6 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setOperationAction(ISD::INSERT_VECTOR_ELT,    MVT::v16f16, Custom);
 
       setOperationAction(ISD::FP_TO_SINT,           MVT::v4f16, Custom);
-      setOperationAction(ISD::FP_ROUND,             MVT::v8f32, Legal);
 
       setOperationAction(ISD::EXTRACT_SUBVECTOR,    MVT::v8f16, Legal);
       setOperationAction(ISD::INSERT_SUBVECTOR,     MVT::v16f16, Legal);

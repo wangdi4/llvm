@@ -121,9 +121,18 @@ class X86VectorVTInfo<int numelts, ValueType eltvt, RegisterClass rc,
   SubRegIndex SubRegIdx = !if (!eq (Size, 128), sub_xmm,
                           !if (!eq (Size, 256), sub_ymm, ?));
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  Domain ExeDomain = !if (!eq (EltTypeName, "f32"), SSEPackedSingle,
+                     !if (!eq (EltTypeName, "f64"), SSEPackedDouble,
+                     !if (!eq (EltTypeName, "f16"), SSEPackedSingle, // FIXME?
+                     SSEPackedInt)));
+#else // INTEL_FEATURE_ISA_FP16
   Domain ExeDomain = !if (!eq (EltTypeName, "f32"), SSEPackedSingle,
                      !if (!eq (EltTypeName, "f64"), SSEPackedDouble,
                      SSEPackedInt));
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16

@@ -34,7 +34,7 @@ define <32 x half> @test_int_x86_avx512fp16_add_ph_512_round(<32 x half> %x1, <3
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vaddph {ru-sae}, %zmm1, %zmm0, %zmm2 {%k1}
-; CHECK-NEXT:    vmovdqa64 %zmm2, %zmm0
+; CHECK-NEXT:    vmovaps %zmm2, %zmm0
 ; CHECK-NEXT:    retq
   %mask = bitcast i32 %msk to <32 x i1>
   %t1 = call <32 x half> @llvm.x86.avx512fp16.add.ph.512(<32 x half> %x1, <32 x half> %x2, i32 10)
@@ -74,7 +74,7 @@ define <32 x half> @test_int_x86_avx512fp16_sub_ph_512_round(<32 x half> %x1, <3
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vsubph {ru-sae}, %zmm1, %zmm0, %zmm2 {%k1}
-; CHECK-NEXT:    vmovdqa64 %zmm2, %zmm0
+; CHECK-NEXT:    vmovaps %zmm2, %zmm0
 ; CHECK-NEXT:    retq
   %mask = bitcast i32 %msk to <32 x i1>
   %t1 = call <32 x half> @llvm.x86.avx512fp16.sub.ph.512(<32 x half> %x1, <32 x half> %x2, i32 10)
@@ -114,7 +114,7 @@ define <32 x half> @test_int_x86_avx512fp16_mul_ph_512_round(<32 x half> %x1, <3
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vmulph {ru-sae}, %zmm1, %zmm0, %zmm2 {%k1}
-; CHECK-NEXT:    vmovdqa64 %zmm2, %zmm0
+; CHECK-NEXT:    vmovaps %zmm2, %zmm0
 ; CHECK-NEXT:    retq
   %mask = bitcast i32 %msk to <32 x i1>
   %t1 = call <32 x half> @llvm.x86.avx512fp16.mul.ph.512(<32 x half> %x1, <32 x half> %x2, i32 10)
@@ -154,7 +154,7 @@ define <32 x half> @test_int_x86_avx512fp16_div_ph_512_round(<32 x half> %x1, <3
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vdivph {ru-sae}, %zmm1, %zmm0, %zmm2 {%k1}
-; CHECK-NEXT:    vmovdqa64 %zmm2, %zmm0
+; CHECK-NEXT:    vmovaps %zmm2, %zmm0
 ; CHECK-NEXT:    retq
   %mask = bitcast i32 %msk to <32 x i1>
   %t1 = call <32 x half> @llvm.x86.avx512fp16.div.ph.512(<32 x half> %x1, <32 x half> %x2, i32 10)
