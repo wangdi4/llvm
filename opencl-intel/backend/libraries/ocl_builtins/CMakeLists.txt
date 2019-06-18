@@ -452,6 +452,7 @@ list (APPEND OCL_20_SOURCE_FILES
   image_functions.cpp
   extended_execution_functions.cpp
   generic_functions.cl
+  kmp_acquire_release_lock.cl
 )
 
 list (APPEND OCL_20_SOURCE_FILES
