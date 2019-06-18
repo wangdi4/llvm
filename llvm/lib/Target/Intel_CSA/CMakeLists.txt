@@ -36,6 +36,7 @@ add_llvm_target(CSACodeGen
   CSAIROpt.cpp
   CSAISelDAGToDAG.cpp
   CSAISelLowering.cpp
+  CSALoopPrep.cpp
   CSAInnerLoopPrep.cpp
   CSAInstBuilder.cpp
   CSAInstrInfo.cpp

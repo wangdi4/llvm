@@ -28,6 +28,7 @@ void initializeCSADataflowVerifierPass(PassRegistry &);
 void initializeCSADeadInstructionElimPass(PassRegistry &);
 void initializeCSAExpandInlineAsmPass(PassRegistry &);
 void initializeCSAFortranIntrinsicsPass(PassRegistry &);
+void initializeCSALoopPrepPass(PassRegistry &);
 void initializeCSAInnerLoopPrepPass(PassRegistry &);
 void initializeCSALowerLoopIdiomsPass(PassRegistry &);
 void initializeCSAMemopOrderingPass(PassRegistry &);

@@ -43,6 +43,17 @@ static cl::opt<bool> DoLoopSplitting(
   "csa-omp-paropt-loop-splitting", cl::init(false), cl::ReallyHidden,
   cl::desc("Do OpenMP loop splitting in VPO Paropt."));
 
+// Temporary: until hookup to dataflow(pipeline(p)) clause is completed.
+static cl::opt<unsigned>
+    LoopPipelineDepth("csa-omp-ls-pipeline-depth", cl::init(0),
+                      cl::ReallyHidden,
+                      cl::desc("Set pipeline depth for OpenMP loops."));
+
+static Value *genParDepthRegionEntryCall(unsigned ID, Instruction *EntryPt,
+                                         const Twine &Name = "depth.region");
+
+static void genParDepthRegionExitCall(Value *Region, Instruction *ExitPt);
+
 namespace {
 
 class CSADiagInfo : public DiagnosticInfoWithLocationBase {
@@ -627,14 +638,61 @@ public:
   }
 };
 
+// Insert a CSA parallel depth-limited region entry call
+// at specified insertion point.
+static Value *genParDepthRegionEntryCall(unsigned ID, Instruction *EntryPt,
+                                         const Twine &Name) {
+
+  if (LoopPipelineDepth > 0) {
+    auto *M = EntryPt->getModule();
+    auto *DepthLimitedRegionEntry =
+        Intrinsic::getDeclaration(M, Intrinsic::csa_pipeline_limited_entry);
+    IRBuilder<> Builder(EntryPt);
+    auto *UniqueID = Builder.getInt32(2000u + ID);
+    auto *F = EntryPt->getParent()->getParent();
+    Value *pipelineDepth = ConstantInt::get(
+        IntegerType::get(F->getContext(), 32), LoopPipelineDepth);
+    auto *Region = Builder.CreateCall(DepthLimitedRegionEntry,
+                                      {UniqueID, pipelineDepth}, Name);
+    return Region;
+  }
+  return 0;
+}
+
+// Insert a CSA parallel depth-limited region exit call
+// at specified insertion point.
+static void genParDepthRegionExitCall(Value *Region, Instruction *ExitPt) {
+
+  if (Region and LoopPipelineDepth > 0) {
+    auto *M = ExitPt->getModule();
+    auto *DepthLimitedRegionExit =
+        Intrinsic::getDeclaration(M, Intrinsic::csa_pipeline_limited_exit);
+    IRBuilder<> Builder(ExitPt);
+    Builder.SetInsertPoint(ExitPt);
+    Builder.CreateCall(DepthLimitedRegionExit, {Region}, {""});
+  }
+}
+
+static void genParDepthRegionCalls(unsigned ID, Instruction *EntryPt,
+                                   Instruction *ExitPt, const Twine &Name) {
+
+  Value *DepthRegion =
+      genParDepthRegionEntryCall(5000 + ID, EntryPt, "depth." + Name);
+  genParDepthRegionExitCall(DepthRegion, ExitPt);
+}
+
 // Insert a pair of CSA parallel region entry/exit calls at specified insertion
 // points.
-static Value* genParRegionCalls(unsigned ID,
-                                Instruction *EntryPt,
-                                Instruction *ExitPt,
+static Value *genParRegionCalls(unsigned ID, Instruction *EntryPt,
+                                Instruction *ExitPt, bool depth = false,
                                 const Twine &Name = "region") {
   auto *M = EntryPt->getModule();
   assert(M == ExitPt->getModule());
+
+  Value *DepthRegion;
+  if (depth)
+    DepthRegion =
+        genParDepthRegionEntryCall(5000 + ID, EntryPt, "depth." + Name);
 
   // CSA parallel region entry/exit intrinsics
   auto *RegionEntry = Intrinsic::getDeclaration(M,
@@ -649,6 +707,9 @@ static Value* genParRegionCalls(unsigned ID,
 
   Builder.SetInsertPoint(ExitPt);
   Builder.CreateCall(RegionExit, { Region }, {}, "");
+
+  if (depth)
+    genParDepthRegionExitCall(DepthRegion, ExitPt);
 
   return Region;
 }
@@ -685,6 +746,13 @@ static unsigned getNumWorkers(const WRegionNode *W) {
       NumWorkers = cast<ConstantInt>(NumThreads)->getZExtValue();
   if (!NumWorkers)
     NumWorkers = LoopWorkersDefault;
+
+  // Temporary hack until hookup to dataflow(...) clause is completed
+  if (NumWorkers >= 1000) {
+    LoopPipelineDepth = NumWorkers / 1000;
+    NumWorkers = NumWorkers % 1000;
+  }
+
   return NumWorkers;
 }
 
@@ -1010,10 +1078,9 @@ class VPOParoptTransform::CSALoopSplitter {
       fixupLoopBounds(BLB, BUB, CLoop);
 
       // Mark inner loop as parallel.
-      auto *Region = genParRegionCalls(getParRegionID(W, ID + 1u, true),
-                                       CLoop->getTerminator(),
-                                       CLatch->getFirstNonPHI(),
-                                       "inner.region" + Suffix);
+      auto *Region = genParRegionCalls(
+          getParRegionID(W, ID + 1u, true), CLoop->getTerminator(),
+          CLatch->getFirstNonPHI(), false, "inner.region" + Suffix);
       genParSectionCalls(Region,
                          WL->getHeader()->getFirstNonPHI(),
                          WL->getLoopLatch()->getTerminator(),
@@ -1034,10 +1101,9 @@ class VPOParoptTransform::CSALoopSplitter {
 
     void addParallelIntrinsicCalls() {
       // Add region entry/exit calls.
-      auto *Region = genParRegionCalls(getParRegionID(W, ID + 1u),
-                                       Head->getTerminator(),
-                                       Tail->getFirstNonPHI(),
-                                       "region" + Suffix);
+      auto *Region =
+          genParRegionCalls(getParRegionID(W, ID + 1u), Head->getTerminator(),
+                            Tail->getFirstNonPHI(), false, "region" + Suffix);
 
       // And section entry/exit calls.
       auto *L = HL ? HL : WL;
@@ -1474,13 +1540,17 @@ public:
 
     // Make workers independent.
     if (Workers.size() > 1u) {
-      auto *Region = genParRegionCalls(getParRegionID(W),
-                                       W->getEntryBBlock()->getTerminator(),
-                                       W->getExitBBlock()->getFirstNonPHI());
+      auto *Region = genParRegionCalls(
+          getParRegionID(W), W->getEntryBBlock()->getTerminator(),
+          W->getExitBBlock()->getFirstNonPHI(), LoopPipelineDepth > 0);
       for (auto &WI : Workers)
         genParSectionCalls(Region,
                            WI.Head->getFirstNonPHI(),
                            WI.Tail->getTerminator());
+    } else {
+      genParDepthRegionCalls(
+          getParRegionID(W), W->getEntryBBlock()->getTerminator(),
+          W->getExitBBlock()->getFirstNonPHI(), "depth.region");
     }
     return true;
   }

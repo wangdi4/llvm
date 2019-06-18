@@ -49,6 +49,7 @@ MachineFunctionPass *createCSARASReplayableLoadsDetectionPass();
 MachineFunctionPass *createCSADataflowVerifier();
 MachineFunctionPass *createCSAGlobalFMAPass();
 // FunctionPass *createCSALowerStructArgsPass();
+Pass *createCSALoopPrepPass();
 Pass *createCSAInnerLoopPrepPass();
 Pass *createCSALowerScratchpadsPass();
 Pass *createCSAReplaceAllocaWithMallocPass(CSATargetMachine &TM);

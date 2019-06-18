@@ -90,6 +90,7 @@ extern "C" void LLVMInitializeCSATarget() {
   initializeCSADeadInstructionElimPass(PR);
   initializeCSAExpandInlineAsmPass(PR);
   initializeCSAFortranIntrinsicsPass(PR);
+  initializeCSALoopPrepPass(PR);
   initializeCSAInnerLoopPrepPass(PR);
   initializeCSALowerLoopIdiomsPass(PR);
   initializeCSAMemopOrderingPasses(PR);
@@ -222,6 +223,7 @@ public:
     // only happens at O1+ so as to avoid requiring excessive additional
     // analyses at O0.
     if (getOptLevel() != CodeGenOpt::None) {
+      addPass(createCSALoopPrepPass());
       addPass(createCSAInnerLoopPrepPass());
     }
 
