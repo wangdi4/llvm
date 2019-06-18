@@ -1000,6 +1000,40 @@ void LinkerDriver::maybeExportMinGWSymbols(const opt::InputArgList &Args) {
   });
 }
 
+#if INTEL_CUSTOMIZATION
+// Return true if Argv contains a response file (@) and the file calls "/lib".
+// This function basically wraps the process of extracting a response file (@)
+// file that is done by the parser in order to read the stored command. If
+// "/lib" is found then process the lld version of LIB. If the first argument
+// of the command is not a response file or "/lib" is not found in the stored
+// command then return false.
+bool LinkerDriver::processLibInResponseFile(ArrayRef<const char *> Argv) {
+
+  // Check that the first argument is "@"
+  if (Argv.size() > 1 && StringRef(Argv[1]).startswith("@")) {
+
+    SmallVector<const char *, 256> ExpandedArgv(Argv.data(),
+                                                Argv.data() + Argv.size());
+
+    cl::TokenizerCallback QuotingStyle = collectQuotingStyle(Argv) ?
+          cl::TokenizeWindowsCommandLine : cl::TokenizeGNUCommandLine;
+
+    // Expand the command stored in the file
+    cl::ExpandResponseFiles(Saver, QuotingStyle, ExpandedArgv);
+
+    // Check that "/lib" is the first argument in the expanded command
+    if (ExpandedArgv.size() > 1 &&
+        StringRef(ExpandedArgv[1]).equals_lower("/lib")) {
+      if (llvm::libDriverMain(makeArrayRef(ExpandedArgv).slice(1)) != 0)
+        fatal("lib failed");
+      return true;
+    }
+  }
+
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 void LinkerDriver::link(ArrayRef<const char *> ArgsArr) {
   // Needed for LTO.
   InitializeAllTargetInfos();
@@ -1007,6 +1041,12 @@ void LinkerDriver::link(ArrayRef<const char *> ArgsArr) {
   InitializeAllTargetMCs();
   InitializeAllAsmParsers();
   InitializeAllAsmPrinters();
+
+#if INTEL_CUSTOMIZATION
+  // Check if the the first argument is a response file (@) with "/lib"
+  if (processLibInResponseFile(ArgsArr))
+    return;
+#endif // INTEL_CUSTOMIZATION
 
   // If the first command line argument is "/lib", link.exe acts like lib.exe.
   // We call our own implementation of lib.exe that understands bitcode files.

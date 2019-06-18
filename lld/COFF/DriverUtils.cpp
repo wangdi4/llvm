@@ -929,5 +929,18 @@ void printHelp(const char *Argv0) {
                            "LLVM Linker", false);
 }
 
+#if INTEL_CUSTOMIZATION
+// Return true if the quoting style is in Windows form, else return false
+// (GNU quoting style). This function is a wrapper of getQuotingStyle.
+bool collectQuotingStyle(ArrayRef<const char *> Argv) {
+  unsigned MissingIndex;
+  unsigned MissingCount;
+  COFFOptTable Table;
+
+  opt::InputArgList Args = Table.ParseArgs(Argv, MissingIndex, MissingCount);
+  return getQuotingStyle(Args) == cl::TokenizeWindowsCommandLine;
+}
+#endif // INTEL_CUSTOMIZATION
+
 } // namespace coff
 } // namespace lld
