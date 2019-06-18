@@ -62,6 +62,11 @@ static cl::opt<bool> AssumeWholeProgramHidden("whole-program-assume-hidden",
 static cl::opt<bool> AssumeWholeProgramExecutable(
     "whole-program-assume-executable", cl::init(false), cl::ReallyHidden);
 
+// Flag to get whole program advanced optimization computation trace.
+static cl::opt<bool>
+    WholeProgramAdvanceOptTrace("whole-program-advanced-opt-trace",
+                                cl::init(false), cl::ReallyHidden);
+
 #define DEBUG_TYPE  "wholeprogramanalysis"
 
 INITIALIZE_PASS_BEGIN(WholeProgramWrapperPass, "wholeprogramanalysis",
@@ -498,6 +503,18 @@ void WholeProgramInfo::computeIsAdvancedOptEnabled(Module &M,
       auto II = static_cast<TargetTransformInfo::AdvancedOptLevel>(I);
       IsAdvancedOptEnabled[I] &= TTI.isAdvancedOptEnabled(II);
     }
+  }
+
+  if (WholeProgramAdvanceOptTrace) {
+    auto &Enabled = IsAdvancedOptEnabled;
+    if (Enabled[TargetTransformInfo::AdvancedOptLevel::AO_TargetHasSSE42])
+      errs() << "Target has SSE42\n";
+    if (Enabled[TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX])
+      errs() << "Target has AVX\n";
+    if (Enabled[TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2])
+      errs() << "Target has AVX2\n";
+    if (Enabled[TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX512])
+      errs() << "Target has AVX512\n";
   }
 }
 
