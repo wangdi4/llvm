@@ -8006,6 +8006,11 @@ static SDValue lowerBuildVectorAsBroadcast(BuildVectorSDNode *BVOp,
     // with AVX2, also splat i8 and i16.
     // With pattern matching, the VBROADCAST node may become a VMOVDDUP.
     if (ScalarSize == 32 || (IsGE256 && ScalarSize == 64) ||
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+        (ScalarSize == 16 && Subtarget.hasFP16() && CVT.isFloatingPoint()) ||
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
         (OptForSize && (ScalarSize == 64 || Subtarget.hasAVX2()))) {
       const Constant *C = nullptr;
       if (ConstantSDNode *CI = dyn_cast<ConstantSDNode>(Ld))
