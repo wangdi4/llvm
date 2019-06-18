@@ -76,6 +76,9 @@ static lto::Config createConfig() {
   // Always emit a section per function/datum with LTO.
   C.Options.FunctionSections = true;
   C.Options.DataSections = true;
+#if INTEL_CUSTOMIZATION
+  C.Options.IntelAdvancedOptim = Config->IntelAdvancedOptim;
+#endif // INTEL_CUSTOMIZATION
 
   if (Config->Relocatable)
     C.RelocModel = None;
