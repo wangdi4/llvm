@@ -112,7 +112,7 @@ static cl::opt<DefaultOnOff> UnknownLocations(
     cl::desc("Make an absence of debug location information explicit."),
     cl::values(clEnumVal(Default, "At top of block or after label"),
                clEnumVal(Enable, "In all cases"), clEnumVal(Disable, "Never")),
-    cl::init(Default));
+    cl::init(Disable)); // INTEL - Default to not emitting unknown locations.
 
 static cl::opt<AccelTableKind> AccelTables(
     "accel-tables", cl::Hidden, cl::desc("Output dwarf accelerator tables."),
