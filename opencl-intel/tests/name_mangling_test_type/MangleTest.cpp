@@ -156,6 +156,11 @@ static void fixImageTypeNames(std::string &s) {
   replaceAll(s, "__read_write ", "");
 }
 
+static void fixGenericAddressSpaceQualifier(std::string &s) {
+  // All pointers are __generic, unless stated otherwise
+  replaceAll(s, "__generic ", "");
+}
+
 // returns true, if the following function prototypes are semantically the same
 //(the itanium standard allows attributes to be order insensitive)
 static bool isSematicallyEqual(const std::string &l, const std::string &r) {
@@ -177,6 +182,9 @@ static bool isSematicallyEqual(const std::string &l, const std::string &r) {
 
   fixImageTypeNames(left);
   fixImageTypeNames(right);
+
+  fixGenericAddressSpaceQualifier(left);
+  fixGenericAddressSpaceQualifier(right);
 
   // if they have different length at this point, they can't be semantically the
   // same
