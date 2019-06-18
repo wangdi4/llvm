@@ -4065,7 +4065,8 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
 #endif  // INTEL_CUSTOMIZATION
           isa<AllocaInst>(Orig) || isa<GetElementPtrInst>(Orig) ||
           isa<BitCastInst>(Orig) ||
-          (isa<CallInst>(Orig) && isFenceCall(cast<CallInst>(Orig)))) {
+          (isa<CallInst>(Orig) && isFenceCall(cast<CallInst>(Orig))) ||
+          (isa<LoadInst>(Orig) && isa<PointerType>(Orig->getType()))) {
         Value *NewPrivInst;
 
         // Insert alloca for privatization right after the BEGIN directive.
