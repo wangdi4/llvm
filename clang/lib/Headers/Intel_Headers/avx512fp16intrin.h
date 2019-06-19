@@ -207,14 +207,14 @@ _mm512_castph512_ph256(__m512h __a)
                                            8,  9, 10, 11, 12, 13, 14, 15);
 }
 
-static __inline__ __m256h __DEFAULT_FN_ATTRS128
+static __inline__ __m256h __DEFAULT_FN_ATTRS256
 _mm256_castph128_ph256(__m128h __a)
 {
   return __builtin_shufflevector(__a, __a, 0,  1,  2,  3,  4,  5,  6,  7,
                                           -1, -1, -1, -1, -1, -1, -1, -1);
 }
 
-static __inline__ __m512h __DEFAULT_FN_ATTRS128
+static __inline__ __m512h __DEFAULT_FN_ATTRS512
 _mm512_castph128_ph512(__m128h __a)
 {
   return __builtin_shufflevector(__a, __a, 0,  1,  2,  3,  4,  5,  6,  7,
@@ -223,7 +223,7 @@ _mm512_castph128_ph512(__m128h __a)
                                           -1, -1, -1, -1, -1, -1, -1, -1);
 }
 
-static __inline__ __m512h __DEFAULT_FN_ATTRS256
+static __inline__ __m512h __DEFAULT_FN_ATTRS512
 _mm512_castph256_ph512(__m256h __a)
 {
   return __builtin_shufflevector(__a, __a, 0,  1,  2,  3,  4,  5,  6,  7,
@@ -232,7 +232,7 @@ _mm512_castph256_ph512(__m256h __a)
                                           -1, -1, -1, -1, -1, -1, -1, -1);
 }
 
-static __inline__ __m256h __DEFAULT_FN_ATTRS128
+static __inline__ __m256h __DEFAULT_FN_ATTRS256
 _mm256_zextph128_ph256(__m128h __a)
 {
   return __builtin_shufflevector(__a, (__v8hf)_mm_setzero_ph(),
@@ -240,7 +240,7 @@ _mm256_zextph128_ph256(__m128h __a)
                                  8,  9, 10, 11, 12, 13, 14, 15);
 }
 
-static __inline__ __m512h __DEFAULT_FN_ATTRS128
+static __inline__ __m512h __DEFAULT_FN_ATTRS512
 _mm512_zextph128_ph512(__m128h __a)
 {
   return __builtin_shufflevector(__a, (__v8hf)_mm_setzero_ph(),
@@ -250,7 +250,7 @@ _mm512_zextph128_ph512(__m128h __a)
                                  8,  9, 10, 11, 12, 13, 14, 15);
 }
 
-static __inline__ __m512h __DEFAULT_FN_ATTRS256
+static __inline__ __m512h __DEFAULT_FN_ATTRS512
 _mm512_zextph256_ph512(__m256h __a)
 {
   return __builtin_shufflevector(__a, (__v16hf)_mm256_setzero_ph(),

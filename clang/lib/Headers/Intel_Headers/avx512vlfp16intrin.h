@@ -34,7 +34,7 @@ _mm_set_sh(_Float16 __h)
   return __extension__ (__m128h){ __h, 0, 0, 0, 0, 0, 0, 0 };
 }
 
-static __inline __m128h __DEFAULT_FN_ATTRS256
+static __inline __m128h __DEFAULT_FN_ATTRS128
 _mm_set1_ph(_Float16 __h)
 {
   return (__m128h)(__v8hf){__h, __h, __h, __h, __h, __h, __h, __h};
@@ -835,7 +835,7 @@ _mm_maskz_fcmadd_pch(__mmask8 __U, __m128h __A, __m128h __B, __m128h __C)
                                                     (__mmask8) __U);
 }
 
-static __inline__ __m256h __DEFAULT_FN_ATTRS128
+static __inline__ __m256h __DEFAULT_FN_ATTRS256
 _mm256_fcmadd_pch(__m256h __A, __m256h __B, __m256h __C)
 {
   return (__m256h) __builtin_ia32_vfcmaddcph256_mask ((__v8sf) __A,
