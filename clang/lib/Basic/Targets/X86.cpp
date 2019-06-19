@@ -1089,6 +1089,13 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     DefineStd(Builder, "i386", Opts);
   }
 
+#if INTEL_CUSTOMIZATION
+  // IntrinsicPromotion implementation.
+  if (Opts.IntrinsicAutoPromote)
+    // TODO: Does this have value?!
+    Builder.defineMacro("__M_INTRINSIC_PROMOTE__");
+#endif // INTEL_CUSTOMIZATION
+
   // Subtarget options.
   // FIXME: We are hard-coding the tune parameters based on the CPU, but they
   // truly should be based on -mtune options.

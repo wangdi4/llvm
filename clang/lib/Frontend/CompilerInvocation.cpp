@@ -2563,6 +2563,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
                                                 << A->getValue();
     }
   }
+  // IntrinsicPromotion implementation.
+  Opts.IntrinsicAutoPromote = Args.hasArg(OPT_intel_mintrinsic_promote);
 #endif  // INTEL_CUSTOMIZATION
 
   // -cl-strict-aliasing needs to emit diagnostic in the case where CL > 1.0.

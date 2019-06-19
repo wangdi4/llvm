@@ -2551,6 +2551,40 @@ which allows it to be quieted with the option -Wno-missing-prototype-for-cc.
   }];
 }
 
+def IntrinsicPromotionDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Option = "IntelCompat";
+  let BugTracker = "CMPLRLLVM-8909";
+  let RegressionTest = "CodeGen/intel/intrin-promotion.c";
+  let Owner = "ekeane1";
+  let Content = [{
+This change automatically promotes the target features of functions that use intrinsics
+or intrinsic builtins that would otherwise be disallowed due to always-inlining. The
+error message that this should prevent is "<intrin-name> needs target feature <feature>."
+Only intrinsics defined in the system headers will cause this promotion to happen
+automatically.
+
+This feature can be enabled by using the -Xclang -mintrinsic-promote flag.
+
+Use of this feature is highly discouraged and can cause difficult to diagnose runtime
+errors to occur. Using this flag will result in the promoted function containing
+instructions not supported by the target architecture, so it should only be used
+in combination with some sort of feature based manual dispatch system.
+
+A less intrusive (generated-code wise) mechanism of accomplishing the same task
+is to explicitly mark functions using the target attribute:
+
+.. code-block:: c
+
+  __attribute__((target("avx")))
+  void uses_avx_intrin(__m128 a, __m128 b) {
+    return _mm_cmp_ps(a, b, 0);
+  }
+
+
+  }];
+}
+
 def GlobalDocumentation {
   code Intro =[{..
   -------------------------------------------------------------------

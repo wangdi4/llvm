@@ -5538,6 +5538,128 @@ tryImplicitlyCaptureThisIfImplicitMemberFunctionAccessWithDependentArgs(
   }
 }
 
+#if INTEL_CUSTOMIZATION
+// IntrinsicPromotion implementation.
+static void PromoteIntelIntrins(Sema &S, ExprResult Call) {
+  auto *CurFD = dyn_cast<FunctionDecl>(S.CurContext);
+  // Don't promote if we are not in a function, in a multiversion function, or
+  // in a function that would otherwise be always inlined.
+  if (!CurFD || CurFD->isMultiVersion() || CurFD->hasAttr<AlwaysInlineAttr>() ||
+      CurFD->hasAttr<TargetAttr>() || CurFD->hasAttr<CPUDispatchAttr>() ||
+      CurFD->hasAttr<CPUSpecificAttr>())
+    return;
+
+  const auto *CE = dyn_cast<CallExpr>(Call.get());
+
+  // No idea how to deal with something that isn't a call expression.
+  if (!CE)
+    return;
+
+  const auto *Callee = CE->getDirectCallee();
+  // If our callee isn't defined in the system header, we do not wish to do
+  // target promoting.
+  if (!Callee)
+    return;
+  if (Callee->getBuiltinID(true) == 0) {
+    Callee = Callee->getDefinition();
+    if (!Callee)
+      return;
+    if (Callee->getSourceRange().getBegin().isInvalid())
+      return;
+    if (!S.getSourceManager().isInSystemHeader(
+        Callee->getSourceRange().getBegin()))
+      return;
+    if (!Callee->hasAttr<TargetAttr>() || !Callee->hasAttr<AlwaysInlineAttr>())
+      return;
+  }
+
+  // Assemble the list of required features.
+  SmallVector<StringRef, 8> ReqFeatures;
+  if (auto BuiltinID = Callee->getBuiltinID(true)) {
+    const char* FeatureStr =
+      S.getASTContext().BuiltinInfo.getRequiredFeatures(BuiltinID);
+
+    if (FeatureStr && FeatureStr[0] != '\0') {
+      StringRef(FeatureStr).split(ReqFeatures, ',');
+    }
+  } else if (const auto *TA = Callee->getAttr<TargetAttr>()){
+    TargetAttr::ParsedTargetAttr ParsedInfo = TA->parse();
+
+    // Setting the CPU isn't supported for target promoting.
+    if (!ParsedInfo.Architecture.empty())
+      return;
+    TA->getAddedFeatures(ReqFeatures);
+  }
+
+  // Nothing to do!
+  if (ReqFeatures.empty())
+    return;
+
+  // Figure out which features we currently have.
+  const TargetInfo &TI = S.getASTContext().getTargetInfo();
+  std::vector<std::string> Features(TI.getTargetOpts().Features);
+
+  if (const auto *FeatAttr = CurFD->getAttr<TargetPromotionAttr>()) {
+    // Get already added features from attribute.
+    StringRef FeatList = FeatAttr->getFeatures();
+    while (!FeatList.empty()) {
+      std::pair<StringRef, StringRef> FPair = FeatList.split(',');
+      Features.push_back(FPair.first);
+      FeatList = FPair.second;
+    }
+  }
+
+  llvm::StringMap<bool> FeatureMap;
+  TI.initFeatureMap(FeatureMap, S.getDiagnostics(),
+                    TI.getTargetOpts().CPU, Features);
+
+
+  SmallVector<std::string, 8> FeaturesToAdd;
+
+  // Check Feature List
+  for (StringRef ReqFeature : ReqFeatures)
+    if (!FeatureMap.lookup(ReqFeature))
+      FeaturesToAdd.push_back(ReqFeature);
+
+  if (FeaturesToAdd.empty())
+    return;
+
+  std::transform(FeaturesToAdd.begin(),
+                 FeaturesToAdd.end(),
+                 FeaturesToAdd.begin(),
+                 [](std::string Item) {
+                   auto I = Item.find('|');
+                   if (I != std::string::npos)
+                     Item = Item.substr(0, I);
+                   return Item.insert(0, 1, '+');
+                 });
+
+  std::string FeaturesToAddList = llvm::join(FeaturesToAdd, ",");
+
+   S.Diag(CurFD->getLocation(), diag::warn_intrinsic_promote) << FeaturesToAddList;
+   S.Diag(Call.get()->getExprLoc(), diag::note_intrinsic_promote);
+
+
+  // Update Feature Attribute.
+  if (auto *FeatAttr = CurFD->getAttr<TargetPromotionAttr>()) {
+    std::string NewFeatureString = FeatAttr->getFeatures();
+    NewFeatureString += ',';
+    NewFeatureString += FeaturesToAddList;
+    FeatAttr->setFeatures(S.getASTContext(), NewFeatureString);
+    return;
+  }
+
+  CurFD->addAttr(new (S.getASTContext())
+                 TargetPromotionAttr(SourceRange{},
+                                     S.getASTContext(),
+                                     FeaturesToAddList,
+                                     0));
+
+  // Add new feature.
+  return;
+}
+#endif // INTEL_CUSTOMIZATION
+
 ExprResult Sema::ActOnCallExpr(Scope *Scope, Expr *Fn, SourceLocation LParenLoc,
                                MultiExprArg ArgExprs, SourceLocation RParenLoc,
                                Expr *ExecConfig) {
@@ -5558,6 +5680,12 @@ ExprResult Sema::ActOnCallExpr(Scope *Scope, Expr *Fn, SourceLocation LParenLoc,
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  // IntrinsicPromotion implementation.
+  if (LangOpts.isIntelCompat(LangOptions::IntrinsicPromotion) &&
+      LangOpts.IntrinsicAutoPromote)
+    PromoteIntelIntrins(*this, Call);
+#endif // INTEL_CUSTOMIZATION
   return Call;
 }
 

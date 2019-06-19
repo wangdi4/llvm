@@ -794,3 +794,11 @@ def OMPDeclareVariantDecl : Attr {
     }
   }];
 }
+
+// IntrinsicPromotion implementation.
+// This is an AST only attribute that should never appear in customer code.
+def TargetPromotion : InheritableAttr {
+  let Spellings = [];
+  let Args = [StringArgument<"Features">];
+  let Documentation = [Undocumented];
+}

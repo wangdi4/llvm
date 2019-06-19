@@ -1793,7 +1793,10 @@ bool CodeGenModule::GetCPUAndFeaturesAttributes(GlobalDecl GD,
   const auto *TD = FD ? FD->getAttr<TargetAttr>() : nullptr;
   const auto *SD = FD ? FD->getAttr<CPUSpecificAttr>() : nullptr;
   bool AddedAttr = false;
-  if (TD || SD) {
+#if INTEL_CUSTOMIZATION
+  // IntrinsicPromotion implementation.
+  if (TD || SD || (FD && FD->hasAttr<TargetPromotionAttr>())) {
+#endif // INTEL_CUSTOMIZATION
     llvm::StringMap<bool> FeatureMap;
     getFunctionFeatureMap(FeatureMap, GD);
 
@@ -6297,6 +6300,19 @@ void CodeGenModule::getFunctionFeatureMap(llvm::StringMap<bool> &FeatureMap,
         SD->getCPUName(GD.getMultiVersionIndex())->getName(), FeaturesTmp);
     std::vector<std::string> Features(FeaturesTmp.begin(), FeaturesTmp.end());
     Target.initFeatureMap(FeatureMap, getDiags(), TargetCPU, Features);
+#if INTEL_CUSTOMIZATION
+  // IntrinsicPromotion implementation.
+  } else if (const auto *TP = FD->getAttr<TargetPromotionAttr>()) {
+    std::vector<std::string> FeaturesTmp(Target.getTargetOpts().Features);
+    StringRef NewFeats(TP->getFeatures());
+    while (!NewFeats.empty()) {
+      std::pair<StringRef, StringRef> split = NewFeats.split(',');
+      FeaturesTmp.push_back(split.first);
+      NewFeats = split.second;
+    }
+
+    Target.initFeatureMap(FeatureMap, getDiags(), TargetCPU, FeaturesTmp);
+#endif // INTEL_CUSTOMIZATION
   } else {
     Target.initFeatureMap(FeatureMap, getDiags(), TargetCPU,
                           Target.getTargetOpts().Features);

@@ -217,6 +217,10 @@ def fno_math_builtin : Flag<["-"], "fno-math-builtin">,
 def disable_intel_proprietary_opts : Flag<["-"],
   "disable-intel-proprietary-opts">,
   HelpText<"Disable Intel proprietary optimizations">;
+// IntrinsicPromotion implementation.
+def intel_mintrinsic_promote : Flag<["-"], "mintrinsic-promote">, HelpText<"Force "
+  "certain functions using intrinsics to promote their architectures and make "
+  "the intrinsic headers included by default">;
 // endif INTEL_CUSTOMIZATION
 
 def disable_llvm_verifier : Flag<["-"], "disable-llvm-verifier">,
