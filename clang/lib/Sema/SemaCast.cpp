@@ -578,15 +578,6 @@ CastsAwayConstness(Sema &Self, QualType SrcType, QualType DestType,
   QualType UnwrappedSrcType = Self.Context.getCanonicalType(SrcType),
            UnwrappedDestType = Self.Context.getCanonicalType(DestType);
 
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ#374747 (CMPLRS-28275): reinterpret_cast casts away qualifiers.
-  if (CheckCVR && Self.getLangOpts().IntelCompat &&
-      (Self.getLangOpts().GNUMode || Self.getLangOpts().IntelMSCompat) &&
-      UnwrappedSrcType->isAnyPointerType() &&
-      UnwrappedDestType->isFunctionPointerType())
-    return CastAwayConstnessKind::CACK_None;
-#endif //INTEL_CUSTOMIZATION
-
   // Find the qualifiers. We only care about cvr-qualifiers for the
   // purpose of this check, because other qualifiers (address spaces,
   // Objective-C GC, etc.) are part of the type's identity.
