@@ -76,7 +76,7 @@ simd.loop.exit:                                   ; preds = %simd.loop
   br i1 %vl.cond, label %simd.loop, label %simd.end.region, !llvm.loop !23
 
 simd.end.region:                                  ; preds = %simd.loop.exit
-  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"(), "DIR.QUAL.LIST.END"() ]
+  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   br label %return
 
 return:                                           ; preds = %simd.end.region
