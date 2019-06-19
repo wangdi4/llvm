@@ -69,8 +69,7 @@ define i32 @foo() local_unnamed_addr {
 ; CHECK-NEXT:    END Region([[REGION0]])
 ;
 entry:
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %L1
 
 L1:
@@ -121,13 +120,12 @@ loop.exit:                                        ; preds = %if.end26
   br label %DIR.OMP.END.SIMD.1
 
 DIR.OMP.END.SIMD.1:                               ; preds = loop.exit
-  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.END.SIMD.1
   ret i32 0
 }
 
-declare void @llvm.intel.directive(metadata)
-
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)

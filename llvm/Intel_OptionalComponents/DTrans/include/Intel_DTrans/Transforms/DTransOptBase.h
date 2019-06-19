@@ -361,6 +361,10 @@ private:
   // Updates the CallInfo objects associated with a specific function.
   void updateCallInfoForFunction(Function *F, bool isCloned);
 
+  // Update types used in the parameter attributes of a function that is
+  // cloned.
+  void updateAttributeTypes(Function *CloneFunc);
+
   // Clear the Function to CallInfo mapping.
   void resetFunctionCallInfoMapping();
 };

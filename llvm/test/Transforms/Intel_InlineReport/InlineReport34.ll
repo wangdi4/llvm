@@ -2,7 +2,7 @@
 ; RUN: opt < %s -passes='module(ip-cloning),cgscc(inline)' -inline-report=7 -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
 @count = available_externally dso_local local_unnamed_addr global i32 0, align 8
 
-; Test that all recursive progressive clones are inlined.
+; Test that all recursive progression clones are inlined.
 
 ; CHECK-OLD-DAG: DEAD STATIC FUNC: foo.1
 ; CHECK-OLD-DAG: DEAD STATIC FUNC: foo.2
@@ -13,14 +13,14 @@
 ; CHECK-OLD-DAG: DEAD STATIC FUNC: foo.7
 ; CHECK-OLD-DAG: DEAD STATIC FUNC: foo.8
 ; CHECK-OLD: COMPILE FUNC: MAIN__
-; CHECK-OLD: INLINE: foo.1{{.*}}<<Callee is recursive progressive clone>>
-; CHECK-OLD: INLINE: foo.2{{.*}}<<Callee is recursive progressive clone>>
-; CHECK-OLD: INLINE: foo.3{{.*}}<<Callee is recursive progressive clone>>
-; CHECK-OLD: INLINE: foo.4{{.*}}<<Callee is recursive progressive clone>>
-; CHECK-OLD: INLINE: foo.5{{.*}}<<Callee is recursive progressive clone>>
-; CHECK-OLD: INLINE: foo.6{{.*}}<<Callee is recursive progressive clone>>
-; CHECK-OLD: INLINE: foo.7{{.*}}<<Callee is recursive progressive clone>>
-; CHECK-OLD: INLINE: foo.8{{.*}}<<Callee is recursive progressive clone>>
+; CHECK-OLD: INLINE: foo.1{{.*}}<<Callee is recursive progression clone>>
+; CHECK-OLD: INLINE: foo.2{{.*}}<<Callee is recursive progression clone>>
+; CHECK-OLD: INLINE: foo.3{{.*}}<<Callee is recursive progression clone>>
+; CHECK-OLD: INLINE: foo.4{{.*}}<<Callee is recursive progression clone>>
+; CHECK-OLD: INLINE: foo.5{{.*}}<<Callee is recursive progression clone>>
+; CHECK-OLD: INLINE: foo.6{{.*}}<<Callee is recursive progression clone>>
+; CHECK-OLD: INLINE: foo.7{{.*}}<<Callee is recursive progression clone>>
+; CHECK-OLD: INLINE: foo.8{{.*}}<<Callee is recursive progression clone>>
 
 ; CHECK-LABEL: define{{.*}}MAIN__
 ; CHECK-NOT: define{{.*}}foo
@@ -35,14 +35,14 @@
 ; CHECK-NEW-DAG: DEAD STATIC FUNC: foo.7
 ; CHECK-NEW-DAG: DEAD STATIC FUNC: foo.8
 ; CHECK-NEW: COMPILE FUNC: MAIN__
-; CHECK-NEW: INLINE: foo.1{{.*}}<<Callee is recursive progressive clone>>
-; CHECK-NEW: INLINE: foo.2{{.*}}<<Callee is recursive progressive clone>>
-; CHECK-NEW: INLINE: foo.3{{.*}}<<Callee is recursive progressive clone>>
-; CHECK-NEW: INLINE: foo.4{{.*}}<<Callee is recursive progressive clone>>
-; CHECK-NEW: INLINE: foo.5{{.*}}<<Callee is recursive progressive clone>>
-; CHECK-NEW: INLINE: foo.6{{.*}}<<Callee is recursive progressive clone>>
-; CHECK-NEW: INLINE: foo.7{{.*}}<<Callee is recursive progressive clone>>
-; CHECK-NEW: INLINE: foo.8{{.*}}<<Callee is recursive progressive clone>>
+; CHECK-NEW: INLINE: foo.1{{.*}}<<Callee is recursive progression clone>>
+; CHECK-NEW: INLINE: foo.2{{.*}}<<Callee is recursive progression clone>>
+; CHECK-NEW: INLINE: foo.3{{.*}}<<Callee is recursive progression clone>>
+; CHECK-NEW: INLINE: foo.4{{.*}}<<Callee is recursive progression clone>>
+; CHECK-NEW: INLINE: foo.5{{.*}}<<Callee is recursive progression clone>>
+; CHECK-NEW: INLINE: foo.6{{.*}}<<Callee is recursive progression clone>>
+; CHECK-NEW: INLINE: foo.7{{.*}}<<Callee is recursive progression clone>>
+; CHECK-NEW: INLINE: foo.8{{.*}}<<Callee is recursive progression clone>>
 
 define dso_local void @MAIN__() #0 {
   %1 = alloca i32, align 4

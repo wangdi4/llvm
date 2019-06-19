@@ -117,10 +117,14 @@ public:
   // Add a pair of old and new call sites.  The 'NewCall' is a clone of
   // the 'OldCall' produced by InlineFunction().
   void addActiveCallSitePair(Instruction *OldCall, Instruction *NewCall) {
+    // If there were no metadata on the original instruction, we have nothing
+    // to assign to the new instruction. Skip them.
+    if (!OldCall->getMetadata(MDInliningReport::CallSiteTag))
+      return;
     ActiveOriginalCalls.push_back(OldCall);
     ActiveInlinedCalls.push_back(NewCall);
     if (NewCall)
-      addCallback(NewCall, NewCall->getMetadata(MDInliningReport::FunctionTag));
+      addCallback(NewCall, NewCall->getMetadata(MDInliningReport::CallSiteTag));
   }
 
   // Update the 'OldCall' to 'NewCall' in the ActiveInlinedCalls.
@@ -132,7 +136,7 @@ public:
         ActiveInlinedCalls[I] = NewCall;
         if (NewCall)
           addCallback(NewCall,
-                      NewCall->getMetadata(MDInliningReport::FunctionTag));
+                      NewCall->getMetadata(MDInliningReport::CallSiteTag));
         break;
       }
   }
@@ -180,8 +184,8 @@ private:
         /// \brief Indicate in the inline report that the call site
         /// corresponding to the Value has been deleted
         Instruction *I = cast<Instruction>(getValPtr());
-        if (IRB && IRB->CurrentCallInstr != I)
-          if (MDIR)
+        if (IRB) {
+          if (IRB->CurrentCallInstr != I && MDIR)
             if (auto *CSIR = dyn_cast<MDTuple>(MDIR)) {
               LLVMContext &Ctx = MDIR->getContext();
               std::string ReasonStr = "reason: ";
@@ -193,6 +197,13 @@ private:
               if (I->getMetadata(MDInliningReport::CallSiteTag))
                 I->setMetadata(MDInliningReport::CallSiteTag, nullptr);
             }
+          // If necessary, remove any reference in the ActiveInlinedCalls
+          for (unsigned II = 0, E = IRB->ActiveInlinedCalls.size(); II < E;
+               ++II)
+            if (IRB->ActiveInlinedCalls[II] == I) {
+              IRB->ActiveInlinedCalls[II] = nullptr;
+            }
+        }
       } else if (isa<Function>(getValPtr())) {
         /// \brief Indicate in the inline report that the function
         /// corresponding to the Value has been deleted
@@ -223,8 +234,6 @@ private:
 public:
   // Add callback for function or instruction.
   void addCallback(Value *V, MDNode *MDIR) {
-    if (!MDIR)
-      return;
     InliningReportCallback *IRCB = new InliningReportCallback(V, this, MDIR);
     IRCallbackVector.push_back(IRCB);
   }

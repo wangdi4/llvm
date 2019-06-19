@@ -68,28 +68,3 @@ bool WholeProgramUtils::isMainEntryPoint(llvm::StringRef GlobName) {
       .Default(false);
 
 }
-
-// Store if all symbols have hidden visibility. Called during LTO
-// symbols resolution.
-void WholeProgramUtils::setVisibilityHidden(bool AllSymbolsHidden) {
-  HiddenVisibility = AllSymbolsHidden;
-}
-
-// Return if the LTO process could internalize all symbols in the module
-bool WholeProgramUtils::getHiddenVisibility(){
-  return HiddenVisibility;
-}
-
-// Store the input symbol name in the VisibleSymbolsVector. These
-// symbols will be printed during the whole program analysis trace.
-void WholeProgramUtils::storeVisibleSymbols(StringRef SymbolName) {
-  VisibleSymbolsVector.insert(SymbolName);
-}
-
-// Print the symbols that weren't marked as hidden during LTO
-void WholeProgramUtils::dumpVisibleSymbols() {
-  errs() << "  VISIBLE OUTSIDE LTO: " << VisibleSymbolsVector.size() << "\n";
-  for (StringRef SymbolName : VisibleSymbolsVector) {
-    errs() << "      " << SymbolName << "\n";
-  }
-}

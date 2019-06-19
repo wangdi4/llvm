@@ -89,9 +89,7 @@ for.body:                                         ; preds = %for.body, %entry
   br i1 %exitcond64, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  tail call void @llvm.intel.directive.qual.opnd.i32(metadata !"QUAL.OMP.SIMDLEN", i32 4)
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.inc, %for.end
@@ -116,8 +114,7 @@ omp.inner.for.inc:                                ; preds = %omp.inner.for.body,
   br i1 %exitcond61, label %omp.loop.exit, label %omp.inner.for.body
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.inc
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   br label %for.body18
 
 for.body18:                                       ; preds = %for.body18, %omp.loop.exit
@@ -152,11 +149,11 @@ declare void @llvm.lifetime.start(i64, i8* nocapture) #2
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.end(i64, i8* nocapture) #2
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive(metadata) #2
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry()
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive.qual.opnd.i32(metadata, i32) #2
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token)
 
 declare i32 @printf(i8*, ...) #4
 
@@ -166,7 +163,7 @@ declare void @llvm.masked.store.v4f32.p0v4f32(<4 x float>, <4 x float>*, i32, <4
 
 declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i32, i1) #2
 
-attributes #0 = { noinline norecurse nounwind readnone uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" "vector-variants"="_ZGVbM4vv_foo" }
+attributes #0 = { noinline norecurse nounwind readnone uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" "vector-variants"="_ZGVbM4vv_vec_sum" }
 attributes #1 = { noinline norecurse nounwind readnone uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #2 = { argmemonly nounwind }
 attributes #3 = { argmemonly nounwind readonly }

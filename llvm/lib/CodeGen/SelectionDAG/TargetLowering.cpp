@@ -112,6 +112,9 @@ void TargetLoweringBase::ArgListEntry::setAttributes(const CallBase *Call,
   IsSwiftSelf = Call->paramHasAttr(ArgIdx, Attribute::SwiftSelf);
   IsSwiftError = Call->paramHasAttr(ArgIdx, Attribute::SwiftError);
   Alignment = Call->getParamAlignment(ArgIdx);
+  ByValType = nullptr;
+  if (Call->paramHasAttr(ArgIdx, Attribute::ByVal))
+    ByValType = Call->getParamByValType(ArgIdx);
 }
 
 /// Generate a libcall taking the given operands as arguments and returning a
@@ -675,27 +678,27 @@ bool TargetLowering::SimplifyDemandedBits(
 
     // If index isn't constant, assume we need all vector elements AND the
     // inserted element.
-    APInt DemandedVecElts(OriginalDemandedElts);
+    APInt DemandedVecElts(DemandedElts);
     if (CIdx && CIdx->getAPIntValue().ult(VecVT.getVectorNumElements())) {
       unsigned Idx = CIdx->getZExtValue();
       DemandedVecElts.clearBit(Idx);
 
       // Inserted element is not required.
-      if (!OriginalDemandedElts[Idx])
+      if (!DemandedElts[Idx])
         return TLO.CombineTo(Op, Vec);
     }
 
     KnownBits KnownScl;
     unsigned NumSclBits = Scl.getScalarValueSizeInBits();
-    APInt DemandedSclBits = OriginalDemandedBits.zextOrTrunc(NumSclBits);
+    APInt DemandedSclBits = DemandedBits.zextOrTrunc(NumSclBits);
     if (SimplifyDemandedBits(Scl, DemandedSclBits, KnownScl, TLO, Depth + 1))
       return true;
 
     Known = KnownScl.zextOrTrunc(BitWidth, false);
 
     KnownBits KnownVec;
-    if (SimplifyDemandedBits(Vec, OriginalDemandedBits, DemandedVecElts,
-                             KnownVec, TLO, Depth + 1))
+    if (SimplifyDemandedBits(Vec, DemandedBits, DemandedVecElts, KnownVec, TLO,
+                             Depth + 1))
       return true;
 
     if (!!DemandedVecElts) {
@@ -1135,6 +1138,7 @@ bool TargetLowering::SimplifyDemandedBits(
       if (SA->getAPIntValue().uge(BitWidth))
         break;
 
+      EVT ShiftVT = Op1.getValueType();
       unsigned ShAmt = SA->getZExtValue();
       APInt InDemandedMask = (DemandedBits << ShAmt);
 
@@ -1159,7 +1163,7 @@ bool TargetLowering::SimplifyDemandedBits(
                 Opc = ISD::SHL;
               }
 
-              SDValue NewSA = TLO.DAG.getConstant(Diff, dl, Op1.getValueType());
+              SDValue NewSA = TLO.DAG.getConstant(Diff, dl, ShiftVT);
               return TLO.CombineTo(
                   Op, TLO.DAG.getNode(Opc, dl, VT, Op0.getOperand(0), NewSA));
             }
@@ -1800,11 +1804,11 @@ static APInt getKnownUndefForVectorBinop(SDValue BO, SelectionDAG &DAG,
 }
 
 bool TargetLowering::SimplifyDemandedVectorElts(
-    SDValue Op, const APInt &DemandedEltMask, APInt &KnownUndef,
+    SDValue Op, const APInt &OriginalDemandedElts, APInt &KnownUndef,
     APInt &KnownZero, TargetLoweringOpt &TLO, unsigned Depth,
     bool AssumeSingleUse) const {
   EVT VT = Op.getValueType();
-  APInt DemandedElts = DemandedEltMask;
+  APInt DemandedElts = OriginalDemandedElts;
   unsigned NumElts = DemandedElts.getBitWidth();
   assert(VT.isVector() && "Expected vector op");
   assert(VT.getVectorNumElements() == NumElts &&
@@ -2236,8 +2240,8 @@ bool TargetLowering::SimplifyDemandedVectorElts(
     } else {
       KnownBits Known;
       APInt DemandedBits = APInt::getAllOnesValue(EltSizeInBits);
-      if (SimplifyDemandedBits(Op, DemandedBits, DemandedEltMask, Known, TLO,
-                               Depth, AssumeSingleUse))
+      if (SimplifyDemandedBits(Op, DemandedBits, OriginalDemandedElts, Known,
+                               TLO, Depth, AssumeSingleUse))
         return true;
     }
     break;

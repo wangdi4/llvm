@@ -34,8 +34,7 @@ for.body:                                         ; preds = %for.inc, %entry
   br i1 %cmp6, label %for.inc, label %omp.precond.then
 
 omp.precond.then:                                 ; preds = %for.body
-  call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %omp.precond.then
@@ -58,8 +57,7 @@ DIR.OMP.END.SIMD.2:                               ; preds = %omp.inner.for.body
   br label %DIR.OMP.END.SIMD.1
 
 DIR.OMP.END.SIMD.1:                               ; preds = %DIR.OMP.END.SIMD.2
-  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   br label %for.inc
 
 for.inc:                                          ; preds = %DIR.OMP.END.SIMD.1, %for.body
@@ -78,8 +76,11 @@ declare i32 @__read_pipe_2_bl_fpga(%struct.__pipe_t addrspace(1)*, i8 addrspace(
 ; Function Attrs: alwaysinline nounwind
 declare i32 @__write_pipe_2_bl_fpga(%struct.__pipe_t addrspace(1)*, i8 addrspace(4)*) #5
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive(metadata) #3
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry()
+
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token)
 
 attributes #0 = { nounwind "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "stackrealign" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind }

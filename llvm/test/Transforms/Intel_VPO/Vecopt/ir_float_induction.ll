@@ -31,8 +31,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @fp_iv_loop(float %init, float* noalias nocapture %A, i32 %N) local_unnamed_addr #0 {
 entry:
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:
@@ -58,14 +57,12 @@ for.cond.cleanup.loopexit:                        ; preds = %for.body
   br label %for.cond.cleanup
 
 for.cond.cleanup:                                 ; preds = %for.cond.cleanup.loopexit, %DIR.QUAL.LIST.END.2
-  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.QUAL.LIST.END.3
 
 DIR.QUAL.LIST.END.3:
   ret void
 }
 
-declare void @llvm.intel.directive(metadata)
-declare void @llvm.intel.directive.qual.opnd.i32(metadata, i32)
-
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)

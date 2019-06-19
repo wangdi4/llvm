@@ -1524,10 +1524,22 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
       genCsaIntrinCall(Intrinsic::csa_parallel_section_exit, {CsaParSection}, "");
 #endif  // INTEL_FEATURE_CSA
 
+    auto *ConstStepVal = dyn_cast<ConstantInt>(StepVal);
+
     // generate bottom test.
-    Value *EndCond =
-        Builder.CreateICmp(IsNSW ? CmpInst::ICMP_SLE : CmpInst::ICMP_ULE,
-                           NextVar, Upper, "cond" + LName);
+    Value *EndCond = nullptr;
+    // For step of 1, generate canonical comparison type of '!='. These are more
+    // likely to be handled by LLVM passes like loop strength reduction.
+    if (ConstStepVal && ConstStepVal->isOne()) {
+      // Generates: (i != upper).
+      EndCond =
+          Builder.CreateICmp(CmpInst::ICMP_NE, CurVar, Upper, "cond" + LName);
+    } else {
+      // Generates: (i+1 <= upper).
+      EndCond =
+          Builder.CreateICmp(IsNSW ? CmpInst::ICMP_SLE : CmpInst::ICMP_ULE,
+                             NextVar, Upper, "cond" + LName);
+    }
 
     BasicBlock *AfterBB =
         BasicBlock::Create(F.getContext(), "after" + LName, &F);

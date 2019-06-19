@@ -38,6 +38,7 @@
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/Attributor.h"
 #include "llvm/Transforms/IPO/ForceFunctionAttrs.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
@@ -532,12 +533,24 @@ void PassManagerBuilder::addPGOInstrPasses(legacy::PassManagerBase &MPM,
     // FIXME: The hint threshold has the same value used by the regular inliner.
     // This should probably be lowered after performance testing.
     IP.HintThreshold = 325;
+    IP.PrepareForLTO = PrepareForLTO; // INTEL
 
     MPM.add(createFunctionInliningPass(IP));
     MPM.add(createSROAPass());
     MPM.add(createEarlyCSEPass());             // Catch trivial redundancies
     MPM.add(createCFGSimplificationPass());    // Merge & remove BBs
-    MPM.add(createInstructionCombiningPass()); // Combine silly seq's
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+    // Configure the instruction combining pass to avoid some transformations
+    // that lose type information for DTrans.
+    bool GEPInstOptimizations = !(PrepareForLTO && EnableDTrans);
+#else
+    bool GEPInstOptimizations = true;
+#endif // INTEL_INCLUDE_DTRANS
+    MPM.add(createInstructionCombiningPass(
+        /*ExpensiveCombines=default value*/ true,
+        GEPInstOptimizations)); // Combine silly seq's
+#endif                          // INTEL_CUSTOMIZATION
     addExtensionsToPM(EP_Peephole, MPM);
   }
   if ((EnablePGOInstrGen && !IsCS) || (EnablePGOCSInstrGen && IsCS)) {
@@ -825,6 +838,10 @@ void PassManagerBuilder::populateModulePassManager(
 
   MPM.add(createIPSCCPPass());          // IP SCCP
   MPM.add(createCalledValuePropagationPass());
+
+  // Infer attributes on declarations, call sites, arguments, etc.
+  MPM.add(createAttributorLegacyPass());
+
   MPM.add(createGlobalOptimizerPass()); // Optimize out global vars
   // Promote any localized global vars.
   MPM.add(createPromoteMemoryToRegisterPass());
@@ -1309,6 +1326,9 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     // Attach metadata to indirect call sites indicating the set of functions
     // they may target at run-time. This should follow IPSCCP.
     PM.add(createCalledValuePropagationPass());
+
+    // Infer attributes on declarations, call sites, arguments, etc.
+    PM.add(createAttributorLegacyPass());
   }
 
   // Infer attributes about definitions. The readnone attribute in particular is
@@ -1471,8 +1491,9 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // link-time inlining, and visibility of nocapture attribute.
   PM.add(createTailCallEliminationPass());
 
-  // Run a few AA driven optimizations here and now, to cleanup the code.
+  // Infer attributes on declarations, call sites, arguments, etc.
   PM.add(createPostOrderFunctionAttrsLegacyPass()); // Add nocapture.
+  // Run a few AA driven optimizations here and now, to cleanup the code.
   PM.add(createGlobalsAAWrapperPass()); // IP alias analysis.
 
 #if INTEL_CUSTOMIZATION
@@ -1793,8 +1814,11 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
       PM.add(createHIRGeneralUnrollPass(DisableUnrollLoops));
     }
 
-    if (RunLoopOpts == LoopOptMode::Full)
+    if (RunLoopOpts == LoopOptMode::Full) {
       PM.add(createHIRScalarReplArrayPass());
+      if (OptLevel > 2)
+        PM.add(createHIRPrefetchingPass());
+    }
   }
 
   if (IntelOptReportEmitter == OptReportOptions::HIR)

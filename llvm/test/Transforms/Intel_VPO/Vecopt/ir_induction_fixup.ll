@@ -19,8 +19,7 @@ define void @foo() local_unnamed_addr #0 {
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %0
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.SIMD.1
@@ -49,12 +48,11 @@ DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.SIMD.1
   br label %4
 
 ; <label>:4:                                      ; preds = %._crit_edge, %DIR.QUAL.LIST.END.2
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.QUAL.LIST.END.4
 
 DIR.QUAL.LIST.END.4:                              ; preds = %4
   ret void
 }
-declare void @llvm.intel.directive(metadata)
-declare void @llvm.intel.directive.qual.opnd.i32(metadata, i32)
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)

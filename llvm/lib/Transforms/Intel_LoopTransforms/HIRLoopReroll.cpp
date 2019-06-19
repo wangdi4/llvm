@@ -103,22 +103,19 @@
 //
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReroll.h"
 
+#include "HIRReroll.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeIterator.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeIterator.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
-#include "HIRReroll.h"
-
-#include <stack>
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -158,11 +155,8 @@ public:
 
 } // namespace
 
-namespace llvm {
-namespace loopopt{
-namespace reroll {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-std::string getOpcodeString(unsigned Opcode) {
+std::string llvm::loopopt::reroll::getOpcodeString(unsigned Opcode) {
   if ((Opcode == Instruction::Add) || (Opcode == Instruction::FAdd)) {
     return "  +  ";
   } else if ((Opcode == Instruction::Sub) || (Opcode == Instruction::FSub)) {
@@ -193,18 +187,17 @@ std::string getOpcodeString(unsigned Opcode) {
   return "Non-binary";
 }
 
-LLVM_DUMP_METHOD void dumpOprdOpSequence(const HLInst *HInst,
-                                         const CEOpSequence &Seq,
-                                         bool Detail) {
+LLVM_DUMP_METHOD void llvm::loopopt::reroll::dumpOprdOpSequence(
+    const HLInst *HInst, const CEOpSequence &Seq, bool Detail) {
   dbgs() << " RefList For Inst ";
   HInst->dump();
 
-    for (auto CE : Seq.CEList) {
-      CE->dump();
-      dbgs() << ", ";
-    }
+  for (auto CE : Seq.CEList) {
+    CE->dump();
+    dbgs() << ", ";
+  }
 
-    dbgs() << "\n";
+  dbgs() << "\n";
 
   if (Detail) {
     for (auto CE : Seq.CEList) {
@@ -229,21 +222,15 @@ LLVM_DUMP_METHOD void dumpOprdOpSequence(const HLInst *HInst,
 }
 #endif
 
-namespace rerollcomparator {
-
-bool blobIndexLess(unsigned BI1, unsigned BI2) { return BI1 < BI2; }
-
-} // namespace rerollcomparator
-
-} // namespace reroll
-} // namespace loopopt
-} // namespace llvm
+bool llvm::loopopt::reroll::rerollcomparator::blobIndexLess(unsigned BI1,
+                                                            unsigned BI2) {
+  return BI1 < BI2;
+}
 
 namespace {
 
-typedef std::vector<const HLNode *> VecNodesTy;
-
-///  Information about a seed.
+///  Information about a seed for rerolling.
+///  More pieces of information due to (Self) Safe Reductions.
 ///  A seed is a starting point where a tracing of CEOpSequence begins.
 ///  A seed is usually a DDRef, either MemRef or TempRef.
 ///  For example, for a store inst, A[2i] = %t,
@@ -260,7 +247,7 @@ typedef std::vector<const HLNode *> VecNodesTy;
 ///  - DDRef or SCEV
 ///  - Set of Instructions encountered during extension of CEOpSequence
 ///    of a seed.
-struct RerollSeedInfo {
+struct RerollSeedInfo : public SeedInfo {
   typedef union {
     // Seed in the form of SCEV, can be from self SR
     BlobTy SCEVSeed;
@@ -269,15 +256,13 @@ struct RerollSeedInfo {
     const DDRef *DDRefSeed;
   } SeedTy;
 
-  RerollSeedInfo(const HLInst *HInst, BlobTy SSeed)
-      : IsSCEV(true), IsFromSelfSR(true), ContainingInst(HInst) {
+  RerollSeedInfo(HLInst *HInst, BlobTy SSeed)
+      : SeedInfo(HInst), IsSCEV(true), IsFromSelfSR(true) {
     Seed.SCEVSeed = SSeed;
-    TrackedUpwardInsts.push_back(HInst);
   }
-  RerollSeedInfo(const HLInst *HInst, const DDRef *Ref, bool IsFromSelf = false)
-      : IsSCEV(false), IsFromSelfSR(IsFromSelf), ContainingInst(HInst) {
+  RerollSeedInfo(HLInst *HInst, const DDRef *Ref, bool IsFromSelf = false)
+      : SeedInfo(HInst), IsSCEV(false), IsFromSelfSR(IsFromSelf) {
     Seed.DDRefSeed = Ref;
-    TrackedUpwardInsts.push_back(HInst);
   }
 
   // TODO: Following two member vars are being used only for debugging.
@@ -289,202 +274,53 @@ struct RerollSeedInfo {
   // and IsFromSelfSR is true. The latter is needed for correct rewriting
   bool IsFromSelfSR;
 
-  // Due to Self SR, DDRef knows where it is.
-  const HLInst *ContainingInst;
-
   SeedTy Seed;
-
-  // List of upward HLInsts tracked starting from this seed.
-  // Used for reroll rewriting.
-  VecNodesTy TrackedUpwardInsts;
 };
 
-typedef std::vector<const DDRef *> VecDDRefsTy;
-typedef std::stack<const DDRef *, VecDDRefsTy> TempStackTy;
-typedef std::vector<CEOpSequence> VecCEOpSeqTy;
-typedef std::vector<RerollSeedInfo> VecRerollSeedInfoTy;
+typedef VecSeedInfoTy VecRerollSeedInfoTy;
 typedef DenseMap<BlobTy, unsigned> LoopInvariantBlobTy; // SCEV, BID
 typedef DenseMap<BlobTy, const HLInst *> TempBlobTyToHInstTy;
 typedef DenseMap<BlobTy, const DDRef *> TempToDDRefTy;
 
+class SequenceBuilderForLoop
+    : public SequenceBuilder<SequenceBuilderForLoop, HLLoop> {
 
-/// Expands CEOpSequence by tracing defs of a temp.
-/// Maintains covered instructions met during expansion.
-///
-/// Example:
-/// %n = ...
-/// DO
-///   %1  = B[2*i];       -- (1)
-///   A[2*i] = %n * %1;   -- (2)
-///
-/// END DO
-///
-/// Inst (2) is a Store inst. This function collects
-///  - its LVAL reference, A[2*i]
-///  - its RVAL references
-///     In case temp refs are present, it tracks the instruction defining
-///     that temp. Then adds non-temp DDRefs to list. If another temp ref
-///     is found, this process repeats. If that temp is defined outside the
-///     loop interest (linear at innermost level), the repetition stop.
-///     Thus, for the example code above, %n, B[2*i], are collected.
-/// The final CEOpSequence will be {A[2*i], %n * %1, B[2*i]} and {("*",1)}.
-/// "*" means mul operator at index 1.
-class SequenceBuilder {
 public:
-  explicit SequenceBuilder(const HLLoop *Lp, DDGraph &G, CEOpSequence &Sq,
-                           VecNodesTy &IL)
-      : SequenceBuilder(nullptr, Lp, G, Sq, IL) {}
+  explicit SequenceBuilderForLoop(const HLLoop *Lp, DDGraph &G,
+                                  CEOpSequence &Seq, VecNodesTy &IL)
+      : SequenceBuilder<SequenceBuilderForLoop, HLLoop>(Lp, G, Seq, IL),
+        Level(Lp->getNestingLevel()) {}
 
-  explicit SequenceBuilder(const TempStackTy *S, const HLLoop *Lp, DDGraph &G,
-                           CEOpSequence &Sq, VecNodesTy &IL)
-      : Loop(Lp), Level(Lp->getNestingLevel()), DDG(G), Seq(Sq), InstList(IL) {
-    if (S) {
-      TempStack = *S;
-    }
-  }
+  explicit SequenceBuilderForLoop(const TempStackTy *S, const HLLoop *Lp,
+                                  DDGraph &G, CEOpSequence &Seq, VecNodesTy &IL)
+      : SequenceBuilder<SequenceBuilderForLoop, HLLoop>(S, Lp, G, Seq, IL),
+        Level(Lp->getNestingLevel()) {}
 
-  /// Given a ref, extend CEOpSequence
-  /// and replenish stack as needed.
-  void processRegDDRef(const RegDDRef *Ref);
-
-  /// Track the temp at the top and process RHS of the defining inst.
-  bool trackTemps();
-
-private:
-  void preprocessRvals(const HLInst *DefInst,
-                       SmallVectorImpl<const RegDDRef *> &ChildrenRvals) const {
-    std::copy(DefInst->rval_op_ddref_begin(), DefInst->rval_op_ddref_end(),
-              std::back_inserter(ChildrenRvals));
-
-    std::sort(ChildrenRvals.begin(), ChildrenRvals.end(),
-              rerollcomparator::RegDDRefLess());
-  }
-
-  void processOpcode(const HLInst *DefInst) {
-    // TODO: Predicate handle for icmp/select
-    Seq.addOpcodeToSeq(DefInst->getLLVMInstruction()->getOpcode());
-  }
-
-  TempStackTy TempStack;
-
-  // Loop level where the seed is found
-  const HLLoop *Loop;
-  unsigned Level;
-  DDGraph &DDG;
-
-  // Seq of CEs and OpCodes starting from a seed.
-  // A seed is
-  //  - RVAL DDRef of a store inst
-  //  - Terms that are not reduction variable of a reduction inst. (float add)
-  //  - SCEVs of a self reduction inst. (e.g. (%1*%2) or (%3*%4)
-  CEOpSequence &Seq;
-
-  // List of Insts that are visited for this Seq.
-  VecNodesTy &InstList;
-};
-
-void SequenceBuilder::processRegDDRef(const RegDDRef *Ref) {
-  if (Ref->isConstant()) {
-    Seq.add(Ref);
-    return;
-  }
-
-  if (Ref->isSelfBlob()) {
-    if (Ref->getSingleCanonExpr()->isLinearAtLevel(Level)) {
-      // Output it to RefList and than return.
-      Seq.add(Ref);
-    } else if (!Loop->isLiveIn(Ref->getSymbase())) {
-      // If Ref is not linear-at-level then push it to stack and return.
-      TempStack.push(Ref);
-    }
-    return;
-  }
-
-  Seq.add(Ref);
-
-  // Push non-LinearAtLevel temps among blob ddrefs into stack.
-  // Check for LiveIn is used instead of isLinearAtLevel because
-  // - Usually !isLiveIn implies !isLinearAtLevel
-  // - If not, e.g. "K = 5" in the innermost loop, chances are
-  //   the innermost loop is not a reroll pattern.
-  // - Most importantly, current algorithm for straight line codes
-  //   does not handle reductions, i.e. live-in but non-loop-invariant
-  //   temps.
-  //
-  // Sort the blobs to handle a case like
-  //   %1  = B[2*i];
-  //   A[2*i] = %n * %1;
-  //          blob ddrefs are in the order of %n, %1.
-  //   %3  = B[2*i+1];
-  //   A[2*i+1] = %n * %3;
-  //          blob ddrefs are in the order of %3, %n.
-  // Sort blobs to make both have
-  //     %n, %1
-  //     %n, %3
-  SmallVector<const BlobDDRef *, 8> Blobs;
-  const HLLoop *Lp = Loop;
-  std::copy_if(Ref->blob_begin(), Ref->blob_end(), std::back_inserter(Blobs),
-               [Lp](const BlobDDRef *Blob) {
-                 return !Lp->isLiveIn(Blob->getSymbase());
-               });
-  std::sort(Blobs.begin(), Blobs.end(), rerollcomparator::BlobDDRefLess());
-
-  for (const DDRef *Blob : Blobs) {
-    TempStack.push(Blob);
-  }
-}
-
-// Ref is a temp ref, either a blob ddref or a self blob
-// Scan DD edges to this ref, which is a flow edge.
-const HLInst *findTempDef(const DDRef *TempRef, DDGraph &DDG, unsigned Level) {
-  for (DDEdge *E : DDG.incoming(TempRef)) {
-    if (E->isFLOWdep() && E->getDVAtLevel(Level) == DVKind::EQ) {
-      DDRef *Src = E->getSrc();
-      if (HLInst *DefInst = dyn_cast<HLInst>(Src->getHLDDNode())) {
-        return DefInst;
+  // Ref is a temp ref, either a blob ddref or a self blob
+  // Scan DD edges to this ref, which is a flow edge.
+  HLInst *findTempDef(const DDRef *TempRef) const {
+    for (DDEdge *E : DDG.incoming(TempRef)) {
+      if (E->isFLOWdep() && E->getDVAtLevel(Level) == DVKind::EQ) {
+        DDRef *Src = E->getSrc();
+        if (HLInst *DefInst = dyn_cast<HLInst>(Src->getHLDDNode())) {
+          return DefInst;
+        }
       }
     }
-  }
-  return nullptr;
-}
-
-bool SequenceBuilder::trackTemps() {
-
-  while (!TempStack.empty()) {
-    const DDRef *TempRef = TempStack.top();
-    TempStack.pop();
-
-    assert(TempRef->isSelfBlob());
-
-    const HLInst *DefInst = findTempDef(TempRef, DDG, Level);
-    if (!DefInst) {
-      // DefInst should exists within the
-      // loop when a temp is not loop-invariant. Otherwise, we don't know how
-      // to reroll. Just bail out.
-      //
-      // + DO i1 = 0, %len.18.lcssa + -1, 1
-      //   %cuv = %cuv  + trunc.i32.i1((%bits /u 128));
-      //   %bits = %bits  <<  1;
-      // + END LOOP
-      // %bits --> %bits ANTI (=) (0)
-      return false;
-    }
-    assert(!TempRef->getSingleCanonExpr()->isLinearAtLevel(Level));
-    InstList.push_back(DefInst);
-    processOpcode(DefInst);
-
-    // Push Def's RHS, no LVAL
-    SmallVector<const RegDDRef *, 4> ChildrenRvalDDRefs;
-    preprocessRvals(DefInst, ChildrenRvalDDRefs);
-    for (const RegDDRef *ChildDDRef :
-         make_range(ChildrenRvalDDRefs.begin(), ChildrenRvalDDRefs.end())) {
-      // TODO: Forward typecast in a CE?
-      processRegDDRef(ChildDDRef);
-    }
+    return nullptr;
   }
 
-  return true;
-}
+  bool stopTrackingTemp(const RegDDRef *Ref) const {
+    return Ref->getSingleCanonExpr()->isLinearAtLevel(Level);
+  }
+
+private:
+  unsigned Level;
+};
+
+} // namespace
+
+namespace {
 
 class SequenceChecker {
   const HLLoop *Loop;
@@ -1112,9 +948,9 @@ bool FastRerollRewriter::reroll() {
   // Locate the last inst of the first group
   // Inst at the (II-1) from 0
   unsigned II = VecSeedInfo.size() / RerollFactor;
-  HLNodeUtils::remove(std::next(HLContainerTy::iterator(const_cast<HLInst *>(
-                          VecSeedInfo[II - 1].ContainingInst))),
-                      Loop->child_end());
+  HLNodeUtils::remove(
+      std::next(HLContainerTy::iterator(VecSeedInfo[II - 1].ContainingInst)),
+      Loop->child_end());
 
   updateChainSRs();
   updateCEs();
@@ -1257,16 +1093,15 @@ bool MoveRerollRewriter::reroll(const TempToDDRefTy &TempToDDRef) {
   updateChainSRs();
 
   for (auto &Node : NewAllInsts) {
-    HLInst *Inst = const_cast<HLInst *>(cast<HLInst>(Node));
+    HLInst *Inst = cast<HLInst>(Node);
     SelfSRToSeedsTy::const_iterator It = SelfSRToSeeds->find(Inst);
     if (It != SelfSRToSeeds->end()) {
       rewriteSelfSR(Inst, It->second, TempToDDRef);
     }
   }
 
-  HLNodeUtils::remove(
-      std::next(const_cast<HLNode *>(NewAllInsts.back())->getIterator()),
-      Loop->child_end());
+  HLNodeUtils::remove(std::next(NewAllInsts.back()->getIterator()),
+                      Loop->child_end());
   updateCEs();
   invalidate();
 
@@ -1291,7 +1126,6 @@ bool rewriteLoopBody(unsigned RerollFactor, VecRerollSeedInfoTy &VecSeedInfo,
                             &SelfSRToSeeds)
       .reroll(TempToDDRef);
 }
-
 
 class SelfSRRerollAnalyzer {
 public:
@@ -1692,47 +1526,6 @@ bool SelfSRRerollAnalyzer::analyze(
   return true;
 }
 
-bool extendSeq(const RegDDRef *StartRef, const HLLoop *Loop, DDGraph &DDG,
-               CEOpSequence &Seq, VecNodesTy &InstList) {
-
-  SequenceBuilder Builder(Loop, DDG, Seq, InstList);
-  Builder.processRegDDRef(StartRef);
-  return Builder.trackTemps();
-}
-
-/// RHS of Store is the children to push to the stack.
-/// Children ddrefs of a ddref in this context
-/// are ddrefs in the right hand side of the inst which
-/// defines this ddref.
-/// Example:
-/// %m = A[i] + %q; -- (2)
-///    = %m ..      -- (1)
-/// Child of %m at (1) are A[i] and %q in (2)
-/// Return the number of sequences: 1 if seccessful, otherwise, 0.
-bool buildFromStoreInst(const HLInst *HInst, const HLLoop *Loop, DDGraph &DDG,
-                        VecCEOpSeqTy &VecSeq,
-                        VecRerollSeedInfoTy &VecSeedInfo) {
-  // Lval of Store is the root
-  const RegDDRef *LVal = HInst->getLvalDDRef();
-  VecSeq.push_back(CEOpSequence());
-  VecSeedInfo.push_back(RerollSeedInfo(HInst, LVal));
-  if (!extendSeq(LVal, Loop, DDG, VecSeq.back(),
-                 VecSeedInfo.back().TrackedUpwardInsts)) {
-    return false;
-  }
-
-  const RegDDRef *RVal = HInst->getRvalDDRef();
-
-  if (!extendSeq(RVal, Loop, DDG, VecSeq.back(),
-                 VecSeedInfo.back().TrackedUpwardInsts)) {
-    return false;
-  }
-
-  LLVM_DEBUG(dumpOprdOpSequence(HInst, VecSeq.back()));
-
-  return true;
-}
-
 /// Return a RvalRef, which is NOT a reduction temp.
 /// For example,
 /// given S1 = S2 + A[i], this function returns A[i];
@@ -1785,7 +1578,7 @@ bool isSupportedOpForChainSR(const SafeRedInfo *SRInfo) {
          SRInfo->OpCode == Instruction::FSub;
 }
 
-bool buildFromChainSRInst(const HLInst *HInst, const HLLoop *Loop,
+bool buildFromChainSRInst(HLInst *HInst, const HLLoop *Loop,
                           const SafeRedInfo *SRInfo, DDGraph &DDG,
                           unsigned NthRedInst, VecCEOpSeqTy &VecSeq,
                           VecRerollSeedInfoTy &VecSeedInfo) {
@@ -1804,8 +1597,9 @@ bool buildFromChainSRInst(const HLInst *HInst, const HLLoop *Loop,
 
   VecSeedInfo.push_back(RerollSeedInfo(HInst, RVal));
 
-  if (!extendSeq(RVal, Loop, DDG, VecSeq.back(),
-                 VecSeedInfo.back().TrackedUpwardInsts)) {
+  if (!extendSeq<SequenceBuilderForLoop, HLLoop>(
+          RVal, Loop, DDG, VecSeq.back(),
+          VecSeedInfo.back().TrackedUpwardInsts)) {
     return false;
   }
 
@@ -1813,7 +1607,7 @@ bool buildFromChainSRInst(const HLInst *HInst, const HLLoop *Loop,
   return true;
 }
 
-bool genTempStackAndTrack(const HLInst *HInst, DDGraph DDG, BlobTy SCEVTerm,
+bool genTempStackAndTrack(HLInst *HInst, DDGraph DDG, BlobTy SCEVTerm,
                           const TempToDDRefTy &TempToDDRef,
                           VecCEOpSeqTy &VecSeq,
                           VecRerollSeedInfoTy &VecSeedInfo) {
@@ -1843,8 +1637,8 @@ bool genTempStackAndTrack(const HLInst *HInst, DDGraph DDG, BlobTy SCEVTerm,
   }
 
   VecSeedInfo.push_back(RerollSeedInfo(HInst, SCEVTerm));
-  SequenceBuilder Builder(&TempStack, ParentLoop, DDG, VecSeq.back(),
-                          VecSeedInfo.back().TrackedUpwardInsts);
+  SequenceBuilderForLoop Builder(&TempStack, ParentLoop, DDG, VecSeq.back(),
+                                 VecSeedInfo.back().TrackedUpwardInsts);
   if (!Builder.trackTemps()) {
     return false;
   }
@@ -1859,7 +1653,7 @@ bool genTempStackAndTrack(const HLInst *HInst, DDGraph DDG, BlobTy SCEVTerm,
 /// A SCEV term of a self SR stmt makes a seed.
 /// By definition of reroll, a self SR stmt may have as many as RF SCEV terms.
 /// Return how many SCEV seeds are generated.
-unsigned buildFromSelfSRInst(const HLInst *HInst, const HLLoop *Loop,
+unsigned buildFromSelfSRInst(HLInst *HInst, const HLLoop *Loop,
                              const SafeRedInfo *SRInfo, DDGraph &DDG,
                              const TempToDDRefTy &TempToDDRef,
                              const TempBlobTyToHInstTy &MapBlobToDefInst,
@@ -1994,7 +1788,8 @@ bool areRerollSequencesBuilt(const HLLoop *Loop, HIRDDAnalysis &DDA,
   for (const HLNode &Node :
        make_range(Loop->child_begin(), Loop->child_end())) {
 
-    const HLInst *HInst = cast<HLInst>(&Node);
+    // WHERE CONST propagation ends
+    HLInst *HInst = const_cast<HLInst *>(cast<HLInst>(&Node));
     // TODO: Handle Cmp and Select if needed.
     const Instruction *Inst = HInst->getLLVMInstruction();
     if (isa<CmpInst>(Inst) || isa<SelectInst>(Inst)) {
@@ -2015,9 +1810,11 @@ bool areRerollSequencesBuilt(const HLLoop *Loop, HIRDDAnalysis &DDA,
     if (IsStore) {
 
       LLVM_DEBUG(dbgs() << "Hitting Store Inst\n");
-      if (!buildFromStoreInst(HInst, Loop, DDG, VecSeq, VecSeedInfo)) {
+      if (!buildFromStoreInst<SequenceBuilderForLoop, HLLoop>(
+              HInst, Loop, DDG, VecSeq, VecSeedInfo)) {
         return false;
       }
+      LLVM_DEBUG(dumpOprdOpSequence(HInst, VecSeq.back()));
 
       MarkConsumedInsts(VecSeedInfo.back().TrackedUpwardInsts);
       continue;
@@ -2198,11 +1995,10 @@ bool rerollStraightCodes(HLLoop *Loop, HIRDDAnalysis &DDA,
 unsigned doLoopReroll(HIRFramework &HIRF, HIRDDAnalysis &DDA,
                       HIRLoopStatistics &HLS, HIRSafeReductionAnalysis &SRA) {
   unsigned NumLoopsRerolled = 0;
-  for (HLRangeIterator
-       It = HLRangeIterator(HIRF.hir_begin()),
-       EIt = HLRangeIterator(HIRF.hir_end());
+  for (HLRangeIterator It = HLRangeIterator(HIRF.hir_begin()),
+                       EIt = HLRangeIterator(HIRF.hir_end());
        It != EIt; ++It) {
-    if (HLLoop* Loop = dyn_cast<HLLoop>(*It)) {
+    if (HLLoop *Loop = dyn_cast<HLLoop>(*It)) {
       if (rerollStraightCodes(Loop, DDA, HLS, SRA)) {
         ++NumLoopsRerolled;
       }

@@ -78,7 +78,7 @@ entry:
   store i32 0, i32* %.omp.is_last, align 4, !tbaa !2
   %8 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.SCHEDULE.STATIC"(i32 0), "QUAL.OMP.REDUCTION.ADD"(i32* @y), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* @j) ]
 ; Updated region entry intrinsic after vpo-paropt-prepare
-; PREPR: %{{[a-zA-Z._0-9]+}} = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(),{{.*}} "QUAL.OMP.CANCELLATION.POINTS"(i32* [[CP2ALLOCA:%[a-zA-Z._0-9]+]], i32* [[CP1ALLOCA:%[a-zA-Z._0-9]+]]) ]
+; PREPR: %{{[a-zA-Z._0-9]+}} = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(),{{.*}} "QUAL.OMP.CANCELLATION.POINTS"(i32* [[CP3ALLOCA:%[a-zA-Z._0-9]+]], i32* [[CP2ALLOCA:%[a-zA-Z._0-9]+]], i32* [[CP1ALLOCA:%[a-zA-Z._0-9]+]]) ]
 
   %9 = load i32, i32* %.omp.lb, align 4, !tbaa !2
   store i32 %9, i32* %.omp.iv, align 4, !tbaa !2
@@ -112,6 +112,12 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.cond
 ; PREPR-NEXT: store i32 [[CANCEL2]], i32* [[CP2ALLOCA]]
 ; TFORM: [[CHECK2:%cancel.check[0-9]*]] = icmp ne i32 [[CANCEL2]], 0
 ; TFORM: br i1 [[CHECK2]], label %[[FOREXITLABEL]], label %{{[a-zA-Z._0-9]+}}
+
+; Cancellation point for if(cancel_expr) {kmpc_cancel()}; else {kmpc_cancellationpoint()}
+; ALL: [[CP2:%[0-9]+]] = call i32 @__kmpc_cancellationpoint({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}}, i32 2)
+; PREPR-NEXT: store i32 [[CP2]], i32* [[CP3ALLOCA]]
+; TFORM: [[CHECK3:%cancel.check[0-9]*]] = icmp ne i32 [[CP2]], 0
+; TFORM: br i1 [[CHECK3]], label %[[FOREXITLABEL]], label %{{[a-zA-Z._0-9]+}}
 
   %16 = load i32, i32* @y, align 4, !tbaa !2
   %inc2 = add nsw i32 %16, 1

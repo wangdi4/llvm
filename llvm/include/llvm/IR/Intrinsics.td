@@ -554,6 +554,8 @@ let IntrProperties = [IntrNoMem, IntrSpeculatable] in {
 
   def int_lround : Intrinsic<[llvm_anyint_ty], [llvm_anyfloat_ty]>;
   def int_llround : Intrinsic<[llvm_anyint_ty], [llvm_anyfloat_ty]>;
+  def int_lrint : Intrinsic<[llvm_anyint_ty], [llvm_anyfloat_ty]>;
+  def int_llrint : Intrinsic<[llvm_anyint_ty], [llvm_anyfloat_ty]>;
 }
 
 def int_minnum : Intrinsic<[llvm_anyfloat_ty],
@@ -1098,31 +1100,6 @@ def int_masked_compressstore: Intrinsic<[],
 // Test whether a pointer is associated with a type metadata identifier.
 def int_type_test : Intrinsic<[llvm_i1_ty], [llvm_ptr_ty, llvm_metadata_ty],
                               [IntrNoMem]>;
-
-// INTEL_COLLAB
-// These intrinsics will be deprecated.
-// Use int_directive_region_entry/exit instead.
-//===--------------------- Intel Directive Intrinsics ---------------------===//
-
-def int_intel_directive : Intrinsic<[], [llvm_metadata_ty],
-                                    [IntrArgMemOnly],
-                                    "llvm.intel.directive">;
-
-def int_intel_directive_qual : Intrinsic<[], [llvm_metadata_ty],
-                                         [IntrArgMemOnly],
-                                         "llvm.intel.directive.qual">;
-
-def int_intel_directive_qual_opnd : Intrinsic<[],
-                                              [llvm_metadata_ty, llvm_any_ty],
-                                              [IntrArgMemOnly],
-                                              "llvm.intel.directive.qual.opnd">;
-
-def int_intel_directive_qual_opndlist : Intrinsic<
-                                        [],
-                                        [llvm_metadata_ty, llvm_vararg_ty],
-                                        [IntrArgMemOnly],
-                                        "llvm.intel.directive.qual.opndlist">;
-// end INTEL_COLLAB
 
 // Safely loads a function pointer from a virtual table pointer using type metadata.
 def int_type_checked_load : Intrinsic<[llvm_ptr_ty, llvm_i1_ty],

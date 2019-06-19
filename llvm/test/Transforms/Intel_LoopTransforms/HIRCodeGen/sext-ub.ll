@@ -15,10 +15,10 @@
 ; CHECK [[L1Label]]:
 
 ; Check wrap flags on IV
-; CHECK: [[IV_UPDATE:%nextiv.*]] = add nuw nsw i64 {{%.*}}, 1
+; CHECK: [[IV_UPDATE:%nextiv.*]] = add nuw nsw i64 {{.*}}, 1
 
 ; make sure ub is used in bt of loop
-; CHECK: %cond[[L1Label]] = icmp sle i64 [[IV_UPDATE]], [[UB1]]
+; CHECK: %cond[[L1Label]] = icmp ne i64 {{.*}}, [[UB1]]
 ; CHECK-NEXT: br i1 %cond[[L1Label]], label %[[L1Label]], label %after[[L1Label]]
 
 ; CHECK: after[[L1Label]]

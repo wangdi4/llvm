@@ -399,6 +399,7 @@ WRNTaskNode::WRNTaskNode(BasicBlock *BB)
   setDefault(WRNDefaultAbsent);
   setUntied(false);
   setMergeable(false);
+  setIsTargetTask(false);
   setTaskFlag(WRNTaskFlag::Tied);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNTaskNode<" << getNumber() << ">\n");
@@ -893,6 +894,7 @@ void vpo::printExtraForTask(WRegionNode const *W, formatted_raw_ostream &OS,
   vpo::printVal("FINAL", W->getFinal(), OS, Indent, Verbosity);
   vpo::printVal("PRIORITY", W->getPriority(), OS, Indent, Verbosity);
   vpo::printBool("UNTIED", W->getUntied(), OS, Indent, Verbosity);
+  vpo::printBool("TARGET_TASK", W->getIsTargetTask(), OS, Indent, Verbosity);
   vpo::printBool("MERGEABLE", W->getMergeable(), OS, Indent, Verbosity);
 
   // WRNTaskloop has a few more additional fields to print

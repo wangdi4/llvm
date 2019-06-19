@@ -576,17 +576,18 @@ bool HIRDDAnalysis::isRefinableDepAtLevel(const DDEdge *Edge,
   return true;
 }
 
-RefinedDependence HIRDDAnalysis::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
+RefinedDependence HIRDDAnalysis::refineDV(const DDRef *SrcDDRef,
+                                          const DDRef *DstDDRef,
                                           unsigned StartNestingLevel,
                                           unsigned DeepestNestingLevel,
                                           bool ForFusion) {
 
   RefinedDependence Dep;
 
-  RegDDRef *RegDDref = dyn_cast<RegDDRef>(DstDDRef);
+  const RegDDRef *RegRef = dyn_cast<RegDDRef>(DstDDRef);
 
-  if (RegDDref && !(RegDDref->isTerminalRef())) {
-    DDTest DT(*AAR, RegDDref->getHLDDNode()->getHLNodeUtils());
+  if (RegRef && !(RegRef->isTerminalRef())) {
+    DDTest DT(*AAR, RegRef->getHLDDNode()->getHLNodeUtils());
 
     DirectionVector &InputDV = Dep.getDV();
     //  For Start = 3, Deepest = 3, when testing for innermost loop dep,

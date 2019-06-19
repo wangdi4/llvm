@@ -113,7 +113,7 @@ protected:
     auto *Rep = getClauseItemReplacementValue(I, getInitInsPt());
     if (Rep != New)
       addAlloca(Rep);
-    PT.genPrivatizationReplacement(W, I->getOrig(), Rep, I);
+    PT.genPrivatizationReplacement(W, I->getOrig(), Rep);
   }
 
   virtual Instruction* getInitInsPt() {
@@ -431,7 +431,7 @@ protected:
       auto *Rep = getClauseItemReplacementValue(I, getInitInsPt());
       assert(Rep != New && isa<AllocaInst>(Rep) && "unexpected replacement");
       addAlloca(Rep);
-      PT.genPrivatizationReplacement(W, I->getOrig(), Rep, I);
+      PT.genPrivatizationReplacement(W, I->getOrig(), Rep);
 
       auto *NewNF = genPrivatizationAlloca(I, AllocaInsPt,
                                            Suffix + ".not.first");
@@ -440,7 +440,7 @@ protected:
     }
 
     // Replace original value with a private instance.
-    PT.genPrivatizationReplacement(W, I->getOrig(), New, I);
+    PT.genPrivatizationReplacement(W, I->getOrig(), New);
 
     // Find all instructions depending on the private variable which need to be
     // replicated.
@@ -1161,7 +1161,7 @@ class VPOParoptTransform::CSALoopSplitter {
         auto *Rep = getClauseItemReplacementValue(I, getInitInsPt());
         assert(Rep != New && isa<AllocaInst>(Rep) && "unexpected replacement");
         addAlloca(Rep);
-        PT.genPrivatizationReplacement(W, Old, Rep, I);
+        PT.genPrivatizationReplacement(W, Old, Rep);
 
         auto *NewNF = genPrivatizationAlloca(I, AllocaInsPt,
                                              Suffix + WI.Suffix + ".not.first");

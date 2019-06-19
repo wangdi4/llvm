@@ -52,7 +52,7 @@ CallInst *IntrinsicUtils::createSimdDirectiveBegin(
 
   assert(
       DirIntrin &&
-      "Cannot get declaration for @llvm.intel.directive(metadata) intrinsic");
+      "Cannot get declaration for the @llvm.directive.region.entry intrinsic");
 
   SmallVector<llvm::OperandBundleDef, 1> IntrinOpBundle;
 
@@ -115,18 +115,12 @@ StringRef IntrinsicUtils::getClauseString(int Id) {
   return Directives::ClauseStrings[Id];
 }
 
-bool IntrinsicUtils::isIntelDirective(Instruction *I) {
+bool IntrinsicUtils::isOpenMPDirective(Instruction *I) {
   if (I == nullptr)
     return false;
   IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
   if (Call) {
     Intrinsic::ID Id = Call->getIntrinsicID();
-    if (Id == Intrinsic::intel_directive ||
-        Id == Intrinsic::intel_directive_qual ||
-        Id == Intrinsic::intel_directive_qual_opnd ||
-        Id == Intrinsic::intel_directive_qual_opndlist)
-      return true;
-
     if (Id == Intrinsic::directive_region_entry ||
         Id == Intrinsic::directive_region_exit)
       if (Call->getNumOperandBundles() > 0) {

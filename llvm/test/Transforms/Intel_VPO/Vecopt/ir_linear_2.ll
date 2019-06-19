@@ -25,9 +25,7 @@ entry:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.LINEAR", i32* nonnull %i2, i32 3)
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR"(i32* %i2, i32 3) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
@@ -44,8 +42,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.body
-  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %omp.loop.exit
@@ -59,10 +56,10 @@ declare void @llvm.lifetime.start(i64, i8* nocapture) #1
 declare void @baz(...) local_unnamed_addr #2
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive(metadata) #1
+declare token @llvm.directive.region.entry() #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive.qual.opndlist(metadata, ...) #1
+declare void @llvm.directive.region.exit(token) #1
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.end(i64, i8* nocapture) #1

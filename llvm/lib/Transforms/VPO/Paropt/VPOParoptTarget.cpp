@@ -92,7 +92,7 @@ void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
     for (int I = MapChain.size() - 1; I >= 0; --I) {
       MapAggrTy *Aggr = MapChain[I];
       Value *SectionPtr = Aggr->getSectionPtr();
-      resetValueInIntelClauseGeneric(W, SectionPtr);
+      resetValueInOmpClauseGeneric(W, SectionPtr);
 
       if (deviceTriplesHasSPIRV() && MapChain.size() > 1 &&
           I != 0 && !ForceMapping)
@@ -100,7 +100,7 @@ void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
 
       Value *Size = Aggr->getSize();
       if (!dyn_cast<ConstantInt>(Size))
-        resetValueInIntelClauseGeneric(W, Size);
+        resetValueInOmpClauseGeneric(W, Size);
     }
   }
 }
@@ -181,8 +181,8 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
   W->populateBBSet();
 
-  resetValueInIntelClauseGeneric(W, W->getIf());
-  resetValueInIntelClauseGeneric(W, W->getDevice());
+  resetValueInOmpClauseGeneric(W, W->getIf());
+  resetValueInOmpClauseGeneric(W, W->getDevice());
   resetValueInIsDevicePtrClause(W);
   resetValueInPrivateClause(W);
   resetValueInMapClause(W);
@@ -322,17 +322,17 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 void VPOParoptTransform::resetValueInNumTeamsAndThreadsClause(WRegionNode *W) {
   if (W->getIsTeams()) {
     if (auto *NumTeamsPtr = W->getNumTeams())
-      resetValueInIntelClauseGeneric(W, NumTeamsPtr);
+      resetValueInOmpClauseGeneric(W, NumTeamsPtr);
 
     if (auto *ThreadLimitPtr = W->getThreadLimit())
-      resetValueInIntelClauseGeneric(W, ThreadLimitPtr);
+      resetValueInOmpClauseGeneric(W, ThreadLimitPtr);
 
     return;
   }
 
   if (W->getIsPar())
     if (auto *NumThreadsPtr = W->getNumThreads())
-      resetValueInIntelClauseGeneric(W, NumThreadsPtr);
+      resetValueInOmpClauseGeneric(W, NumThreadsPtr);
 }
 
 // Reset the expression value in IsDevicePtr clause to be empty.
@@ -345,7 +345,7 @@ void VPOParoptTransform::resetValueInIsDevicePtrClause(WRegionNode *W) {
     return;
 
   for (auto *I : IDevicePtrClause.items()) {
-    resetValueInIntelClauseGeneric(W, I->getOrig());
+    resetValueInOmpClauseGeneric(W, I->getOrig());
   }
 }
 
@@ -1048,35 +1048,6 @@ void VPOParoptTransform::genOffloadArraysArgument(
   }
 }
 
-/// For a given Value \p V, capture it, and rename all its occurrences within
-/// the WRegion \p W (including the region entry directive).
-///
-/// Before:
-/// \code
-///   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
-///        "QUAL.OMP.FIRSTPRIVATE"(i32* @V) ]
-/// \endcode
-///
-/// After:
-/// \code
-///   %0 = bitcast i32* @V to i8*
-///   %1 = call i8* @llvm.launder.invariant.group.p0i8(i8 * %0)
-///   %V1 = bitcast i8* %1 to i32*
-///   %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
-///        "QUAL.OMP.FIRSTPRIVATE"(i32* %V1) ]
-/// \endcode
-Value *VPOParoptTransform::genRenamePrivatizationImpl(WRegionNode *W, Value *V,
-                                                      BasicBlock *EntryBB,
-                                                      Item *IT) {
-  IRBuilder<> Builder(EntryBB->getTerminator());
-  Value *NewPrivInst = Builder.CreateLaunderInvariantGroup(V);
-  NewPrivInst->setName(V->getName());
-  genPrivatizationReplacement(W, V, NewPrivInst, IT);
-  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Captured via launder intrinsic: '";
-             V->printAsOperand(dbgs()); dbgs() << "'.\n");
-
-  return NewPrivInst;
-}
 
 /// Remove the launder intrinsics inserted while renaming globals by
 /// genGlobalPrivatizationLaunderIntrin(). The capturing happens in
@@ -1234,7 +1205,6 @@ Value *VPOParoptTransform::getRootValueFromFenceCall(Value *Orig) {
 /// this global variable within the WRegion (including the directive).
 /// The outline function will have an entry for the renamed variable. We do the
 /// renaming for ConstantExpr operands as well.
-/// This renaming is done using genRenamePrivatizationImpl().
 ///
 /// Before:
 /// \code
@@ -1275,10 +1245,25 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(WRegionNode *W) {
   assert(W->canHaveMap() &&
          "Function called for a WRegion that cannot have a Map clause.");
 
+  // For the example in the header comment, this function will create the
+  // renamed %1 for the gep on @a, and %a for @a.
+  auto createRenamedValueForV = [&](Value *V) {
+    IRBuilder<> Builder(EntryBB->getTerminator());
+    Value *NewV = Builder.CreateLaunderInvariantGroup(V);
+    NewV->setName(V->getName());
+    LLVM_DEBUG(dbgs() << "createRenamedValueForV : Created renamed value via "
+                         "launder intrinsic: '";
+               V->printAsOperand(dbgs()); dbgs() << "'.\n");
+    return NewV;
+  };
+
   // Map between Original Value V and the renamed value NewV. If no renaming
-  // happens, The map will have {V, V}.
-  DenseMap<Value *, Value *> RenameMap;
-  auto renameGlobalsAndConstExprs = [&](Value *V, Item *It) {
+  // happens, The map will have {V, V}. Use MapVector so that the replacement
+  // happens in the same order as the generation of renamed values.
+  MapVector<Value *, Value *> RenameMap;
+
+  // Create a renamed value for V if it's a Global or ConstantExpr.
+  auto createRenamedValueForGlobalsAndConstExprs = [&](Value *V) {
     auto VOrigAndNew = RenameMap.find(V);
     if (VOrigAndNew != RenameMap.end())
       return VOrigAndNew->second;
@@ -1288,10 +1273,27 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(WRegionNode *W) {
       return V;
     }
 
-    Value *VNew = genRenamePrivatizationImpl(W, V, EntryBB, It);
+    Value *VNew = createRenamedValueForV(V);
     RenameMap.insert({V, VNew});
     Changed = true;
     return VNew;
+  };
+
+  // For all renamed values created, replace the original value with the renamed
+  // value in the region. This will update the region directive in the header
+  // example, from %0 to %3, and replace all uses of @a with %a in the region.
+  auto replaceRenamedGlobalsAndConstExprs = [&](bool Globals) {
+    for (auto &VNewV: RenameMap) {
+      Value *V = VNewV.first;
+      Value *NewV = VNewV.second;
+      if (V == NewV)
+        continue;
+
+      if (Globals != isa<GlobalVariable>(V))
+        continue;
+
+      genPrivatizationReplacement(W, V, NewV);
+    }
   };
 
   MapClause &MpClause = W->getMap();
@@ -1308,21 +1310,21 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(WRegionNode *W) {
       //   ... target map(tofrom:p1[0][1]) ...
       for (int I = MapChain.size() - 1; I >= 0; --I) {
         MapAggrTy *Aggr = MapChain[I];
-        VNew = renameGlobalsAndConstExprs(Aggr->getSectionPtr(), MapI);
+        VNew = createRenamedValueForGlobalsAndConstExprs(Aggr->getSectionPtr());
         Aggr->setSectionPtr(VNew);
-        VNew = renameGlobalsAndConstExprs(Aggr->getBasePtr(), MapI);
+        VNew = createRenamedValueForGlobalsAndConstExprs(Aggr->getBasePtr());
         Aggr->setBasePtr(VNew);
       }
     }
 
-    VNew = renameGlobalsAndConstExprs(MapI->getOrig(), MapI);
+    VNew = createRenamedValueForGlobalsAndConstExprs(MapI->getOrig());
     MapI->setOrig(VNew);
   }
 
   if (W->canHaveFirstprivate()) {
     FirstprivateClause &FprivClause = W->getFpriv();
     for (FirstprivateItem *FprivI : FprivClause.items()) {
-      VNew = renameGlobalsAndConstExprs(FprivI->getOrig(), FprivI);
+      VNew = createRenamedValueForGlobalsAndConstExprs(FprivI->getOrig());
       FprivI->setOrig(VNew);
     }
   }
@@ -1330,10 +1332,16 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(WRegionNode *W) {
   if (W->canHaveIsDevicePtr()) {
     IsDevicePtrClause &IsDevPtrClause = W->getIsDevicePtr();
     for (IsDevicePtrItem *Item : IsDevPtrClause.items()) {
-      VNew = renameGlobalsAndConstExprs(Item->getOrig(), Item);
+      VNew = createRenamedValueForGlobalsAndConstExprs(Item->getOrig());
       Item->setOrig(VNew);
     }
   }
+
+  // Replace all ConstExpressions first, as replacing a global would cause
+  // break-expressions to be called, and re-evalutation of existing
+  // ConstantExpressions on the global.
+  replaceRenamedGlobalsAndConstExprs(false); // Replace non-globals
+  replaceRenamedGlobalsAndConstExprs(true);  // Replace globals
 
   W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
   return Changed;

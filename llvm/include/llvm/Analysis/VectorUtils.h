@@ -154,12 +154,10 @@ void getFunctionsToVectorize(
 /// inserts the appropriate function declaration if not already created. This
 /// function will insert functions for library calls, intrinsics, and simd
 /// functions.
-Function* getOrInsertVectorFunction(const CallInst *Call, unsigned VL,
-                                    SmallVectorImpl<Type*> &ArgTys,
-                                    TargetLibraryInfo *TLI,
-                                    Intrinsic::ID ID,
-                                    VectorVariant *VecVariant,
-                                    bool Masked);
+Function *getOrInsertVectorFunction(const CallInst *Call, unsigned VL,
+                                    ArrayRef<Type *> ArgTys,
+                                    TargetLibraryInfo *TLI, Intrinsic::ID ID,
+                                    VectorVariant *VecVariant, bool Masked);
 
 /// \brief Return true if \p FnName is an OpenCL SinCos function
 bool isOpenCLSinCos(StringRef FcnName);

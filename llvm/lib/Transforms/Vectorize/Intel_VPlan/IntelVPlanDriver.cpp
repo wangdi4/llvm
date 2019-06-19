@@ -444,7 +444,8 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
   // process for vectorization
   VPlanOptReportBuilder VPORBuilder(LORBuilder, LI);
 
-  VPlanVLSAnalysis VLSA(Lp->getHeader()->getContext());
+  BasicBlock *Header = Lp->getHeader();
+  VPlanVLSAnalysis VLSA(Header->getContext(), *DL);
   LoopVectorizationPlanner LVP(WRLp, Lp, LI, SE, TLI, TTI, DL, DT, &LVL, &VLSA);
 
 #if INTEL_CUSTOMIZATION
@@ -499,7 +500,7 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
       LLVM_DEBUG(dbgs() << "VD: VPlan Generating code in function: "
                         << Fn.getName() << "\n");
 
-    VPOCodeGen VCodeGen(Lp, PSE, LI, DT, TLI, TTI, VF, 1, &LVL);
+    VPOCodeGen VCodeGen(Lp, PSE, LI, DT, TLI, TTI, VF, 1, &LVL, &VLSA);
     VCodeGen.initOpenCLScalarSelectSet(volcanoScalarSelect);
     if (VF != 1) {
       LVP.executeBestPlan(VCodeGen);
@@ -739,7 +740,7 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   // process for vectorization
   VPlanOptReportBuilder VPORBuilder(LORBuilder);
 
-  VPlanVLSAnalysisHIR VLSA(DDA, Fn.getContext());
+  VPlanVLSAnalysisHIR VLSA(DDA, Fn.getContext(), *DL);
 
   HIRSafeReductionAnalysis *SafeRedAnalysis =
       &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();

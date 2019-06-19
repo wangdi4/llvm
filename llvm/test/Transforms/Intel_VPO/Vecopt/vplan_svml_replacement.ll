@@ -62,30 +62,30 @@ target triple = "x86_64-pc-linux"
 %"class.cl::sycl::detail::array" = type { [1 x i64] }
 
 ; Function Attrs: nounwind
-declare float @_Z3expf(float) local_unnamed_addr #1
+declare float @_Z3expf(float) local_unnamed_addr
 
 ; Function Attrs: nounwind
-declare float @_Z4sqrtf(float) local_unnamed_addr #1
+declare float @_Z4sqrtf(float) local_unnamed_addr
 
 ; Function Attrs: nounwind
-declare float @_Z3logf(float) local_unnamed_addr #1
+declare float @_Z3logf(float) local_unnamed_addr
 
 ; Function Attrs: nounwind
-declare float @_Z4fmaxff(float, float) local_unnamed_addr #1
+declare float @_Z4fmaxff(float, float) local_unnamed_addr
 
 ; Function Attrs: nounwind
-declare float @_Z3madfff(float, float, float) local_unnamed_addr #1
+declare float @_Z3madfff(float, float, float) local_unnamed_addr
 
 ; Function Attrs: nounwind readnone
-declare i64 @_Z13get_global_idj(i32) local_unnamed_addr #2
+declare i64 @_Z13get_global_idj(i32) local_unnamed_addr
 
 declare i64 @_Z14get_local_sizej(i32)
 
 declare i64 @get_base_global_id.(i32)
 
 ; Function Attrs: nounwind
-define void @"_ZGVdN8uuuuuu_TSZZ4mainENK3$_0clERN2cl4sycl7handlerEE10VecScalMul"(float addrspace(1)*, %"class.cl::sycl::range"* byval, %"class.cl::sycl::range"* byval, float addrspace(1)*, %"class.cl::sycl::range"* byval, %"class.cl::sycl::range"* byval) local_unnamed_addr #0 !kernel_arg_addr_space !7 !kernel_arg_access_qual !8 !kernel_arg_type !9 !kernel_arg_type_qual !10 !kernel_arg_base_type !9 !vectorized_kernel !14 !no_barrier_path !12 !ocl_recommended_vector_length !15 !vectorized_width !15 !vectorization_dimension !6 !can_unite_workgroups !16 {
-  %7 = call i64 @_Z13get_global_idj(i32 0) #2
+define void @"_ZGVdN8uuuuuu_TSZZ4mainENK3$_0clERN2cl4sycl7handlerEE10VecScalMul"(float addrspace(1)*, %"class.cl::sycl::range"* byval, %"class.cl::sycl::range"* byval, float addrspace(1)*, %"class.cl::sycl::range"* byval, %"class.cl::sycl::range"* byval) {
+  %7 = call i64 @_Z13get_global_idj(i32 0)
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %6
@@ -100,20 +100,20 @@ simd.loop:                                        ; preds = %simd.loop.exit, %si
   %9 = ashr exact i64 %sext.i, 32
   %10 = getelementptr inbounds float, float addrspace(1)* %3, i64 %9
   %11 = load float, float addrspace(1)* %10, align 4
-  %12 = call float @_Z3expf(float %11) #1
+  %12 = call float @_Z3expf(float %11)
   %13 = getelementptr inbounds float, float addrspace(1)* %0, i64 %9
   store float %12, float addrspace(1)* %13, align 4
   %14 = load float, float addrspace(1)* %10, align 4
-  %15 = call float @_Z4sqrtf(float %14) #1
+  %15 = call float @_Z4sqrtf(float %14)
   store float %15, float addrspace(1)* %13, align 4
   %16 = load float, float addrspace(1)* %10, align 4
-  %17 = call float @_Z3logf(float %16) #1
+  %17 = call float @_Z3logf(float %16)
   store float %17, float addrspace(1)* %13, align 4
   %18 = load float, float addrspace(1)* %10, align 4
-  %19 = call float @_Z4fmaxff(float %18, float %17) #1
+  %19 = call float @_Z4fmaxff(float %18, float %17)
   store float %19, float addrspace(1)* %13, align 4
   %20 = load float, float addrspace(1)* %10, align 4
-  %21 = call float @_Z3madfff(float %20, float %19, float %20) #1
+  %21 = call float @_Z3madfff(float %20, float %19, float %20)
   store float %21, float addrspace(1)* %13, align 4
   br label %simd.loop.exit
 
@@ -131,23 +131,10 @@ return:                                           ; preds = %simd.end.region
 }
 
 ; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #1
+declare token @llvm.directive.region.entry()
 
 ; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #1
+declare void @llvm.directive.region.exit(token)
 
-attributes #1 = { nounwind }
-attributes #2 = { nounwind readnone }
-
-!6 = !{i32 0}
-!7 = !{i32 1, i32 0, i32 0, i32 1, i32 0, i32 0}
-!8 = !{!"none", !"none", !"none", !"none", !"none", !"none"}
-!9 = !{!"float*", !"class.cl::sycl::range", !"class.cl::sycl::range", !"float*", !"class.cl::sycl::range", !"class.cl::sycl::range"}
-!10 = !{!"", !"", !"", !"", !"", !""}
-!12 = !{i1 true}
-!13 = !{i32 1}
-!14 = !{null}
-!15 = !{i32 8}
-!16 = !{i1 false}
 !17 = distinct !{!17, !18}
 !18 = !{!"llvm.loop.unroll.disable"}

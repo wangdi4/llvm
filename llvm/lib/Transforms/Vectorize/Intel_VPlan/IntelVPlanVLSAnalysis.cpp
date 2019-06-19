@@ -25,6 +25,29 @@ namespace llvm {
 
 namespace vpo {
 
+OVLSMemref *VPlanVLSAnalysis::createVLSMemref(const VPInstruction *VPInst,
+                                              const VPVectorShape &Shape,
+                                              const unsigned VF) const {
+  OVLSAccessType AccTy = OVLSAccessType::getUnknownTy();
+  if (!Shape.isAnyStrided())
+    return nullptr;
+
+  int Opcode = VPInst->getOpcode();
+  int AccessSize;
+  if (Opcode == Instruction::Load) {
+    AccTy = OVLSAccessType::getStridedLoadTy();
+    AccessSize = DL.getTypeAllocSizeInBits(VPInst->getType());
+  } else {
+    assert(Opcode == Instruction::Store);
+    AccTy = OVLSAccessType::getStridedStoreTy();
+    AccessSize = DL.getTypeAllocSizeInBits(VPInst->getOperand(0)->getType());
+  }
+
+  OVLSType Ty(AccessSize, VF);
+  return new VPVLSClientMemref(OVLSMemref::VLSK_VPlanVLSClientMemref, AccTy, Ty,
+                               VPInst);
+}
+
 void VPlanVLSAnalysis::collectMemrefs(const VPRegionBlock *Region,
                                       const VPlanDivergenceAnalysis &DA,
                                       OVLSMemrefVector &MemrefVector,
@@ -51,10 +74,9 @@ void VPlanVLSAnalysis::collectMemrefs(const VPRegionBlock *Region,
       VPValue *Address = Opcode == Instruction::Load ? VPInst.getOperand(0)
                                                      : VPInst.getOperand(1);
       const VPVectorShape *Shape = DA.getVectorShape(Address);
-      if (!Shape || !Shape->isAnyStrided())
-        continue;
+      assert(Shape && "DA is not supposed to return null shape");
 
-      OVLSMemref *Memref = createVLSMemref(&VPInst, Shape, VF);
+      OVLSMemref *Memref = createVLSMemref(&VPInst, *Shape, VF);
       if (!Memref)
         continue;
 

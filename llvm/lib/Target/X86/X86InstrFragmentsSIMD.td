@@ -513,19 +513,37 @@ def X86FmsubRnd     : SDNode<"X86ISD::FMSUB_RND",     SDTFmaRound, [SDNPCommutat
 def X86FnmsubRnd    : SDNode<"X86ISD::FNMSUB_RND",    SDTFmaRound, [SDNPCommutative]>;
 def X86FmaddsubRnd  : SDNode<"X86ISD::FMADDSUB_RND",  SDTFmaRound, [SDNPCommutative]>;
 def X86FmsubaddRnd  : SDNode<"X86ISD::FMSUBADD_RND",  SDTFmaRound, [SDNPCommutative]>;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_VP2INTERSECT
 
 def X86vp2intersect : SDNode<"X86ISD::VP2INTERSECT",
                               SDTypeProfile<1, 2, [SDTCisVT<0, untyped>,
                                                    SDTCisVec<1>, SDTCisSameAs<1, 2>]>>;
 
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
-#endif // INTEL_CUSTOMIZATION
 def SDTIFma : SDTypeProfile<1, 3, [SDTCisInt<0>, SDTCisSameAs<0,1>,
                            SDTCisSameAs<1,2>, SDTCisSameAs<1,3>]>;
 def x86vpmadd52l     : SDNode<"X86ISD::VPMADD52L",     SDTIFma, [SDNPCommutative]>;
 def x86vpmadd52h     : SDNode<"X86ISD::VPMADD52H",     SDTIFma, [SDNPCommutative]>;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+def x86vfmaddc     : SDNode<"X86ISD::VFMADDC",         SDTFPTernaryOp>;
+def x86vfmaddcRnd  : SDNode<"X86ISD::VFMADDC_RND",     SDTFmaRound>;
+def x86vfcmaddc    : SDNode<"X86ISD::VFCMADDC",        SDTFPTernaryOp>;
+def x86vfcmaddcRnd : SDNode<"X86ISD::VFCMADDC_RND",    SDTFmaRound>;
+def x86vfmulc      : SDNode<"X86ISD::VFMULC",          SDTFPBinOp>;
+def x86vfmulcRnd   : SDNode<"X86ISD::VFMULC_RND",      SDTFPBinOpRound>;
+def x86vfcmulc     : SDNode<"X86ISD::VFCMULC",         SDTFPBinOp>;
+def x86vfcmulcRnd  : SDNode<"X86ISD::VFCMULC_RND",     SDTFPBinOpRound>;
+
+def x86vfmaddcSh   : SDNode<"X86ISD::VFMADDCSH",       SDTFPTernaryOp>;
+def x86vfcmaddcSh  : SDNode<"X86ISD::VFCMADDCSH",      SDTFPTernaryOp>;
+def x86vfmulcSh    : SDNode<"X86ISD::VFMULCSH",        SDTFPBinOp>;
+def x86vfcmulcSh   : SDNode<"X86ISD::VFCMULCSH",       SDTFPBinOp>;
+def x86vfmaddcShRnd   : SDNode<"X86ISD::VFMADDCSH_RND",  SDTFmaRound>;
+def x86vfcmaddcShRnd  : SDNode<"X86ISD::VFCMADDCSH_RND", SDTFmaRound>;
+def x86vfmulcShRnd    : SDNode<"X86ISD::VFMULCSH_RND",   SDTFPBinOpRound>;
+def x86vfcmulcShRnd   : SDNode<"X86ISD::VFCMULCSH_RND",  SDTFPBinOpRound>;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
 def X86rsqrt14   : SDNode<"X86ISD::RSQRT14",  SDTFPUnaryOp>;
 def X86rcp14     : SDNode<"X86ISD::RCP14",    SDTFPUnaryOp>;
@@ -799,9 +817,9 @@ def loadv32i16   : PatFrag<(ops node:$ptr), (v32i16 (load node:$ptr))>;
 def loadv64i8    : PatFrag<(ops node:$ptr), (v64i8  (load node:$ptr))>;
 
 // 128-/256-/512-bit extload pattern fragments
-def extloadv2f32 : PatFrag<(ops node:$ptr), (v2f64 (extloadvf32 node:$ptr))>;
-def extloadv4f32 : PatFrag<(ops node:$ptr), (v4f64 (extloadvf32 node:$ptr))>;
-def extloadv8f32 : PatFrag<(ops node:$ptr), (v8f64 (extloadvf32 node:$ptr))>;
+def extloadv2f32 : PatFrag<(ops node:$ptr), (extloadvf32 node:$ptr)>;
+def extloadv4f32 : PatFrag<(ops node:$ptr), (extloadvf32 node:$ptr)>;
+def extloadv8f32 : PatFrag<(ops node:$ptr), (extloadvf32 node:$ptr)>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
 def extloadv2f16 : PatFrag<(ops node:$ptr), (extloadvf16 node:$ptr)>;

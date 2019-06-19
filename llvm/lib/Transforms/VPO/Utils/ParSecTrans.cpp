@@ -79,53 +79,37 @@ using namespace llvm::vpo;
 //
 // the compiler will generate the following CFG:
 //
-//      DIR_OMP_PARALLEL_SECTIONS    (or DIR_OMP_SECTIONS)
+//     DIR_OMP_PARALLEL_SECTIONS    (or DIR_OMP_SECTIONS)
 //                |
-//          DIR_OMP_SECTION          (this directive must present in CFG)
+//       DIR_OMP_SECTION            (this directive must be present in CFG)
 //                |
 //            Xdirection()
 //                |
-//       DIR_OMP_END_SECTION         (this directive must present in CFG)
+//       DIR_OMP_END_SECTION        (this directive must be present in CFG)
 //                |
-//          DIR_OMP_SECTION
+//       DIR_OMP_SECTION
 //                |
 //            Ydirection()
 //                |
 //       DIR_OMP_END_SECTION
 //                |
-//          DIR_OMP_SECTION
+//       DIR_OMP_SECTION
 //                |
 //            Zdirection()
 //                |
 //       DIR_OMP_END_SECTION
 //                |
-//    DIR_OMP_END_PARALLEL_SECTIONS (or DIR_END_OMP_SECTIONS)
+//     DIR_OMP_END_PARALLEL_SECTIONS (or DIR_OMP_END_SECTIONS)
 //
 // which is the input to this transformation. Note that:
 //
 // 1) Each directive must have an END directive to pair with;
 //
-// 2) Each directive is represented by a group of Intel directive intrinsics
-// that must reside in a standalone basic block, e.g.,
-//
-// par.sections.begin:
-//   call void @llvm.intel.directive(metadata !"DIR.OMP.PARALLEL.SECTIONS")
-//   .... // directive qualifiers
-//   ...
-//   call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
-//   br label %par.sections.body
-//
-// ...
-//
-// par.sections.end:
-//   call void @llvm.intel.directive(metadata !"DIR.OMP.END.PARALLEL.SECTIONS")
-//   .... // directive qualifiers
-//   ...
-//   call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
-//   br label %after.par
+// 2) Each directive is in a BasicBlock by itself. The only other instruction
+//    in the BB is the terminating unconditional branch.
 //
 // 3) The directive DIR_OMP_SECTION/DIR_OMP_END_SECTION for the first section
-// must be presented in the CFG, although it can be omitted in the user code;
+// must be present in the CFG, although it can be omitted in the user code;
 //
 // 4) There can be data flow across sections inside a parallel
 // section or work-sharing section; however, if that happens, the variable and
@@ -752,10 +736,10 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
 
   Instruction *InsertPt;
   BasicBlock *InsertBB = &(F->getEntryBlock());
-  // If the basic block contains the IntelDirective call, the compiler
+  // If the basic block contains the OpenMP directive, the compiler
   // splits this basic block into two and chooses the second BB as the
   // insertion basic block.
-  if (VPOAnalysisUtils::isIntelDirectiveOrClause(InsertBB->getFirstNonPHI()))
+  if (VPOAnalysisUtils::isOpenMPDirective(InsertBB->getFirstNonPHI()))
     InsertBB = SplitBlock(InsertBB, InsertBB->getTerminator(), DT, nullptr);
 
   InsertPt = InsertBB->getTerminator();
@@ -915,26 +899,14 @@ void VPOUtils::genParSectSwitch(
       DT->changeImmediateDominator(SectionEntryBB, SwitchBB);
     }
 
-    // Delete DIR_OMP_END_SECTION directive, which has the following form:
-    //
-    // sec.end:
-    // call void @llvm.intel.directive(metadata !"DIR.OMP.END.SECTION");
-    // call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END");
-    // br label %after.sec
-    //
+    // Delete DIR_OMP_END_SECTION directive
     SectionExitBB->getInstList().pop_front();
 
-    // Delete DIR_OMP_SECTION directive, which has the following form:
-    //
-    // sec.begin:
-    // call void @llvm.intel.directive(metadata !"DIR.OMP.SECTION");
-    // call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END");
-    // br label %sec.body
-    //
+    // Delete DIR_OMP_SECTION directive
     SectionEntryBB->getInstList().pop_front();
 
     auto I = SectionEntryBB->begin();
-    if (VPOAnalysisUtils::isIntelDirective(&*I)) {
+    if (VPOAnalysisUtils::isOpenMPDirective(&*I)) {
       SectionExitBB->getInstList().pop_front();
       SectionEntryBB->getInstList().pop_front();
     }

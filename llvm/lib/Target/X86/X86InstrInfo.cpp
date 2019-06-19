@@ -2903,8 +2903,6 @@ static unsigned getLoadStoreRegOpcode(unsigned Reg,
       assert(STI.hasBWI() && "KMOVD requires BWI");
       return load ? X86::KMOVDkm : X86::KMOVDmk;
     }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_VP2INTERSECT
     // All of these mask pair classes have the same spill size, the same kind
     // of kmov instructions can be used with all of them.
     if (X86::VK1PAIRRegClass.hasSubClassEq(RC) ||
@@ -2913,8 +2911,6 @@ static unsigned getLoadStoreRegOpcode(unsigned Reg,
         X86::VK8PAIRRegClass.hasSubClassEq(RC) ||
         X86::VK16PAIRRegClass.hasSubClassEq(RC))
       return load ? X86::MASKPAIR16LOAD : X86::MASKPAIR16STORE;
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
-#endif // INTEL_CUSTOMIZATION
     llvm_unreachable("Unknown 4-byte regclass");
   case 8:
     if (X86::GR64RegClass.hasSubClassEq(RC))
@@ -3943,6 +3939,11 @@ bool X86InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     return true;
   }
   case X86::AVX512_128_SET0:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::AVX512_FsFLD0SH:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::AVX512_FsFLD0SS:
   case X86::AVX512_FsFLD0SD: {
     bool HasVLX = Subtarget.hasVLX();
@@ -3969,6 +3970,12 @@ bool X86InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
                        get(HasVLX ? X86::VPXORDZ128rr : X86::VXORPSrr));
       MIB.addReg(SrcReg, RegState::ImplicitDefine);
       return true;
+    }
+    if (MI.getOpcode() == X86::AVX512_256_SET0) {
+      // No VLX so we must reference a zmm.
+      unsigned ZReg =
+        TRI->getMatchingSuperReg(SrcReg, X86::sub_ymm, &X86::VR512RegClass);
+      MIB->getOperand(0).setReg(ZReg);
     }
     return Expand2AddrUndef(MIB, get(X86::VPXORDZrr));
   }
@@ -5050,6 +5057,53 @@ static bool isNonFoldablePartialRegisterLoad(const MachineInstr &LoadMI,
     }
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  if (Opc == X86::VMOVSHZrm && RegSize > 16) {
+    // These instructions only load 16 bits, we can't fold them if the
+    // destination register is wider than 16 bits (2 bytes), and its user
+    // instruction isn't scalar (SS).
+    switch (UserOpc) {
+    case X86::VADDSHZrr_Int:
+    case X86::VCMPSHZrr_Int:
+    case X86::VDIVSHZrr_Int:
+    case X86::VMAXSHZrr_Int:
+    case X86::VMINSHZrr_Int:
+    case X86::VMULSHZrr_Int:
+    case X86::VSUBSHZrr_Int:
+    case X86::VADDSHZrr_Intk: case X86::VADDSHZrr_Intkz:
+    case X86::VCMPSHZrr_Intk:
+    case X86::VDIVSHZrr_Intk: case X86::VDIVSHZrr_Intkz:
+    case X86::VMAXSHZrr_Intk: case X86::VMAXSHZrr_Intkz:
+    case X86::VMINSHZrr_Intk: case X86::VMINSHZrr_Intkz:
+    case X86::VMULSHZrr_Intk: case X86::VMULSHZrr_Intkz:
+    case X86::VSUBSHZrr_Intk: case X86::VSUBSHZrr_Intkz:
+    case X86::VFMADD132SHZr_Int: case X86::VFNMADD132SHZr_Int:
+    case X86::VFMADD213SHZr_Int: case X86::VFNMADD213SHZr_Int:
+    case X86::VFMADD231SHZr_Int: case X86::VFNMADD231SHZr_Int:
+    case X86::VFMSUB132SHZr_Int: case X86::VFNMSUB132SHZr_Int:
+    case X86::VFMSUB213SHZr_Int: case X86::VFNMSUB213SHZr_Int:
+    case X86::VFMSUB231SHZr_Int: case X86::VFNMSUB231SHZr_Int:
+    case X86::VFMADD132SHZr_Intk: case X86::VFNMADD132SHZr_Intk:
+    case X86::VFMADD213SHZr_Intk: case X86::VFNMADD213SHZr_Intk:
+    case X86::VFMADD231SHZr_Intk: case X86::VFNMADD231SHZr_Intk:
+    case X86::VFMSUB132SHZr_Intk: case X86::VFNMSUB132SHZr_Intk:
+    case X86::VFMSUB213SHZr_Intk: case X86::VFNMSUB213SHZr_Intk:
+    case X86::VFMSUB231SHZr_Intk: case X86::VFNMSUB231SHZr_Intk:
+    case X86::VFMADD132SHZr_Intkz: case X86::VFNMADD132SHZr_Intkz:
+    case X86::VFMADD213SHZr_Intkz: case X86::VFNMADD213SHZr_Intkz:
+    case X86::VFMADD231SHZr_Intkz: case X86::VFNMADD231SHZr_Intkz:
+    case X86::VFMSUB132SHZr_Intkz: case X86::VFNMSUB132SHZr_Intkz:
+    case X86::VFMSUB213SHZr_Intkz: case X86::VFNMSUB213SHZr_Intkz:
+    case X86::VFMSUB231SHZr_Intkz: case X86::VFNMSUB231SHZr_Intkz:
+      return false;
+    default:
+      return true;
+    }
+  }
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+
   return false;
 }
 
@@ -5113,6 +5167,13 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
     case X86::AVX512_FsFLD0SS:
       Alignment = 4;
       break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    case X86::AVX512_FsFLD0SH:
+      Alignment = 2;
+      break;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     default:
       return nullptr;
     }
@@ -5148,6 +5209,11 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
   case X86::AVX512_256_SET0:
   case X86::AVX512_512_SET0:
   case X86::AVX512_512_SETALLONES:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::AVX512_FsFLD0SH:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::FsFLD0SD:
   case X86::AVX512_FsFLD0SD:
   case X86::FsFLD0SS:
@@ -5181,6 +5247,12 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
       Ty = Type::getFloatTy(MF.getFunction().getContext());
     else if (Opc == X86::FsFLD0SD || Opc == X86::AVX512_FsFLD0SD)
       Ty = Type::getDoubleTy(MF.getFunction().getContext());
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    else if (Opc == X86::AVX512_FsFLD0SH)
+      Ty = Type::getHalfTy(MF.getFunction().getContext());
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     else if (Opc == X86::AVX512_512_SET0 || Opc == X86::AVX512_512_SETALLONES)
       Ty = VectorType::get(Type::getInt32Ty(MF.getFunction().getContext()),16);
     else if (Opc == X86::AVX2_SETALLONES || Opc == X86::AVX_SET0 ||
@@ -7019,6 +7091,20 @@ bool X86InstrInfo::isAssociativeAndCommutative(const MachineInstr &Inst) const {
   case X86::PADDWrr:
   case X86::PADDDrr:
   case X86::PADDQrr:
+  case X86::PMULLWrr:
+  case X86::PMULLDrr:
+  case X86::PMAXSBrr:
+  case X86::PMAXSDrr:
+  case X86::PMAXSWrr:
+  case X86::PMAXUBrr:
+  case X86::PMAXUDrr:
+  case X86::PMAXUWrr:
+  case X86::PMINSBrr:
+  case X86::PMINSDrr:
+  case X86::PMINSWrr:
+  case X86::PMINUBrr:
+  case X86::PMINUDrr:
+  case X86::PMINUWrr:
   case X86::VPANDrr:
   case X86::VPANDYrr:
   case X86::VPANDDZ128rr:
@@ -7122,6 +7208,78 @@ bool X86InstrInfo::isAssociativeAndCommutative(const MachineInstr &Inst) const {
   case X86::VPMULLQZ128rr:
   case X86::VPMULLQZ256rr:
   case X86::VPMULLQZrr:
+  case X86::VPMAXSBrr:
+  case X86::VPMAXSBYrr:
+  case X86::VPMAXSBZ128rr:
+  case X86::VPMAXSBZ256rr:
+  case X86::VPMAXSBZrr:
+  case X86::VPMAXSDrr:
+  case X86::VPMAXSDYrr:
+  case X86::VPMAXSDZ128rr:
+  case X86::VPMAXSDZ256rr:
+  case X86::VPMAXSDZrr:
+  case X86::VPMAXSQZ128rr:
+  case X86::VPMAXSQZ256rr:
+  case X86::VPMAXSQZrr:
+  case X86::VPMAXSWrr:
+  case X86::VPMAXSWYrr:
+  case X86::VPMAXSWZ128rr:
+  case X86::VPMAXSWZ256rr:
+  case X86::VPMAXSWZrr:
+  case X86::VPMAXUBrr:
+  case X86::VPMAXUBYrr:
+  case X86::VPMAXUBZ128rr:
+  case X86::VPMAXUBZ256rr:
+  case X86::VPMAXUBZrr:
+  case X86::VPMAXUDrr:
+  case X86::VPMAXUDYrr:
+  case X86::VPMAXUDZ128rr:
+  case X86::VPMAXUDZ256rr:
+  case X86::VPMAXUDZrr:
+  case X86::VPMAXUQZ128rr:
+  case X86::VPMAXUQZ256rr:
+  case X86::VPMAXUQZrr:
+  case X86::VPMAXUWrr:
+  case X86::VPMAXUWYrr:
+  case X86::VPMAXUWZ128rr:
+  case X86::VPMAXUWZ256rr:
+  case X86::VPMAXUWZrr:
+  case X86::VPMINSBrr:
+  case X86::VPMINSBYrr:
+  case X86::VPMINSBZ128rr:
+  case X86::VPMINSBZ256rr:
+  case X86::VPMINSBZrr:
+  case X86::VPMINSDrr:
+  case X86::VPMINSDYrr:
+  case X86::VPMINSDZ128rr:
+  case X86::VPMINSDZ256rr:
+  case X86::VPMINSDZrr:
+  case X86::VPMINSQZ128rr:
+  case X86::VPMINSQZ256rr:
+  case X86::VPMINSQZrr:
+  case X86::VPMINSWrr:
+  case X86::VPMINSWYrr:
+  case X86::VPMINSWZ128rr:
+  case X86::VPMINSWZ256rr:
+  case X86::VPMINSWZrr:
+  case X86::VPMINUBrr:
+  case X86::VPMINUBYrr:
+  case X86::VPMINUBZ128rr:
+  case X86::VPMINUBZ256rr:
+  case X86::VPMINUBZrr:
+  case X86::VPMINUDrr:
+  case X86::VPMINUDYrr:
+  case X86::VPMINUDZ128rr:
+  case X86::VPMINUDZ256rr:
+  case X86::VPMINUDZrr:
+  case X86::VPMINUQZ128rr:
+  case X86::VPMINUQZ256rr:
+  case X86::VPMINUQZrr:
+  case X86::VPMINUWrr:
+  case X86::VPMINUWYrr:
+  case X86::VPMINUWZ128rr:
+  case X86::VPMINUWZ256rr:
+  case X86::VPMINUWZrr:
   // Normal min/max instructions are not commutative because of NaN and signed
   // zero semantics, but these are. Thus, there's no need to check for global
   // relaxed math; the instructions themselves have the properties we need.
@@ -7161,6 +7319,18 @@ bool X86InstrInfo::isAssociativeAndCommutative(const MachineInstr &Inst) const {
   case X86::VMINCSSrr:
   case X86::VMINCSDZrr:
   case X86::VMINCSSZrr:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::VMAXCPHZ128rr:
+  case X86::VMAXCPHZ256rr:
+  case X86::VMAXCPHZrr:
+  case X86::VMAXCSHZrr:
+  case X86::VMINCPHZ128rr:
+  case X86::VMINCPHZ256rr:
+  case X86::VMINCPHZrr:
+  case X86::VMINCSHZrr:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     return true;
   case X86::ADDPDrr:
   case X86::ADDPSrr:
@@ -7198,6 +7368,18 @@ bool X86InstrInfo::isAssociativeAndCommutative(const MachineInstr &Inst) const {
   case X86::VMULSSrr:
   case X86::VMULSDZrr:
   case X86::VMULSSZrr:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::VADDPHZ128rr:
+  case X86::VADDPHZ256rr:
+  case X86::VADDPHZrr:
+  case X86::VADDSHZrr:
+  case X86::VMULPHZ128rr:
+  case X86::VMULPHZ256rr:
+  case X86::VMULPHZrr:
+  case X86::VMULSHZrr:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     return Inst.getParent()->getParent()->getTarget().Options.UnsafeFPMath;
   default:
     return false;

@@ -45,6 +45,7 @@ protected:
   // this class, rather then obtain the context from deep inside of
   // vectorizer.
   LLVMContext &Context;
+  const DataLayout &DL;
 
   /// Finds a group for a given VPInstruction.
   OVLSGroup *getGroupForInstruction(const VPlan *Plan,
@@ -63,10 +64,8 @@ protected:
   }
 
   virtual OVLSMemref *createVLSMemref(const VPInstruction *Inst,
-                                      const VPVectorShape *Shape,
-                                      const unsigned VF) const {
-    llvm_unreachable("Is not implemented yet.");
-  }
+                                      const VPVectorShape &Shape,
+                                      const unsigned VF) const;
 
 private:
   void collectMemrefs(const VPRegionBlock *Region,
@@ -102,7 +101,8 @@ private:
   SmallDenseMap<const VPlan *, VLSInfo> Plan2VLSInfo;
 
 public:
-  explicit VPlanVLSAnalysis(LLVMContext &Context) : Context(Context) {}
+  VPlanVLSAnalysis(LLVMContext &Context, const DataLayout &DL)
+      : Context(Context), DL(DL) {}
   virtual ~VPlanVLSAnalysis() {}
   /// Collect all memrefs within given VPlan and reflect given VF in
   /// each collected memref.

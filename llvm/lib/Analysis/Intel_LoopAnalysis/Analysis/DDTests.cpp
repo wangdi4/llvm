@@ -126,7 +126,7 @@ STATISTIC(WeakZeroSIVindependence, "Weak-Zero SIV independence");
 //===----------------------------------------------------------------------===//
 // FullDependence methods
 
-Dependences::Dependences(DDRef *Source, DDRef *Destination,
+Dependences::Dependences(const DDRef *Source, const DDRef *Destination,
                          unsigned CommonLevels)
     : Src(Source), Dst(Destination), CommonLevels(CommonLevels) {
 
@@ -4201,7 +4201,8 @@ bool DDTest::queryAAIndep(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef) {
 //
 // ForFusion: Assumes both Src and Dst DDRef are in the same loopnest
 
-std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
+std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
+                                             const DDRef *DstDDRef,
                                              const DirectionVector &InputDV,
                                              bool ForDDGBuild, bool ForFusion) {
 
@@ -4266,8 +4267,8 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
   assert((SrcDDRef->isLval() || DstDDRef->isLval()) &&
          "DDA is not handling input dependencies");
 
-  RegDDRef *SrcRegDDRef = dyn_cast<RegDDRef>(SrcDDRef);
-  RegDDRef *DstRegDDRef = dyn_cast<RegDDRef>(DstDDRef);
+  const RegDDRef *SrcRegDDRef = dyn_cast<RegDDRef>(SrcDDRef);
+  const RegDDRef *DstRegDDRef = dyn_cast<RegDDRef>(DstDDRef);
 
   // If both are memory refs
   bool TestingMemRefs = SrcRegDDRef && SrcRegDDRef->isMemRef();
@@ -4318,15 +4319,13 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
   //  except for IVDEP
   if (CommonIVDEPLoop && TestingMemRefs && !EqualBaseAndShape &&
       adjustDVforIVDEP(Result, false)) { // SameBase = false
-    auto Final = make_unique<Dependences>(Result);
-    return std::move(Final);
+    return make_unique<Dependences>(Result);
   }
 
   if (!EqualBaseAndShape || (NoCommonNest && !ForFusion)) {
     LLVM_DEBUG(dbgs() << "\nDiff dim,  base, or no common nests\n");
-    auto Final = make_unique<Dependences>(Result);
     // DV has been initialized as *
-    return std::move(Final);
+    return make_unique<Dependences>(Result);
   }
 
   unsigned Pairs = SrcRegDDRef->getNumDimensions();
@@ -4811,8 +4810,7 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
     }
   }
 
-  auto Final = make_unique<Dependences>(Result);
-  return std::move(Final);
+  return make_unique<Dependences>(Result);
 }
 
 ///  Create  DV for Backward Edge

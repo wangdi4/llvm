@@ -487,57 +487,6 @@ LTO::~LTO() = default;
 void LTO::addModuleToGlobalRes(ArrayRef<InputFile::Symbol> Syms,
                                ArrayRef<SymbolResolution> Res,
                                unsigned Partition, bool InSummary) {
-#if INTEL_CUSTOMIZATION
-  // The runtime library calls are defined in
-  // include/llvm/IR/RuntimeLibcalls.def.
-  const char* RuntimeLibcalls[] = {
-    #define HANDLE_LIBCALL(code, name) name,
-    #include "llvm/IR/RuntimeLibcalls.def"
-    #undef HANDLE_LIBCALL
-  };
-
-  // Array that holds the function that are defined as
-  // LibFuncs.
-  const char* LibFunccalls[] = {
-    #define TLI_DEFINE_STRING(name) name,
-    #include "llvm/Analysis/TargetLibraryInfo.def"
-    #undef TLI_DEFINE_STRING
-  };
-
-  // Lambda function that will check if the input symbol is
-  // in the runtime library calls array.
-  auto IsRuntimeLibcall = [&](const char *SymbolName) {
-    for (auto &RTCallName : RuntimeLibcalls) {
-      // There is an entry in the runtime libcalls table defined
-      // as UNKNOWN_LIBCALL and it returns a null pointer. The
-      // issue is that the entries are out of order. If the
-      // UNKNOWN_LIBCALL entry is found, just skip it.
-      if (RTCallName == nullptr)
-        continue;
-
-      if (strcmp(SymbolName, RTCallName) == 0)
-        return true;
-    }
-    return false;
-  };
-
-  // Lambda function that will check if the input symbol is
-  // could be a LibFunc. This process only checks if the name
-  // is in the array. The whole program seen analysis will
-  // confirm if the actual call is a LibFunc.
-  auto IsLibFunccall = [&](const char *SymbolName) {
-    for (auto &LibFuncName : LibFunccalls) {
-
-      if (LibFuncName == nullptr)
-        continue;
-
-      if (strcmp(SymbolName, LibFuncName) == 0)
-        return true;
-    }
-    return false;
-  };
-#endif // INTEL_CUSTOMIZATION
-
   auto *ResI = Res.begin();
   auto *ResE = Res.end();
   (void)ResE;
@@ -585,44 +534,7 @@ void LTO::addModuleToGlobalRes(ArrayRef<InputFile::Symbol> Syms,
     // from a module that does not have a summary.
     GlobalRes.VisibleOutsideSummary |=
         (Res.VisibleToRegularObj || Sym.isUsed() || !InSummary);
-
-#if INTEL_CUSTOMIZATION
-    if (GlobalRes.Libcall == GlobalResolution::LibcallKind::UnknownLibcall) {
-      // There is IR information in the summary section
-      if (InSummary) {
-        // Runtime library calls are marked as used when the symbol table
-        // is being created. This means that these symbols will be added in
-        // the @llvm.compiler.used global list. This is a list containing
-        // the symbols that the compiler isn't allow to touch. The idea is
-        // that the linker can take these symbols and substitute them with
-        // another symbol (e.g. faster function). On the other hand, these
-        // symbols aren't marked as visible to regular object when the
-        // resolution is collected and they have information in the LTO
-        // summary section.
-        if (!Res.VisibleToRegularObj &&
-             IsRuntimeLibcall(GlobalRes.IRName.c_str())) {
-          GlobalRes.Libcall = GlobalResolution::LibcallKind::RuntimeLibcall;
-        }
-
-        // If the current symbol is not a runtime library call, then check
-        // if it is in the library functions (LibFuncs) table. If so, the
-        // whole program seen analysis will take care of confirming that
-        // the symbol is a LibFunc.
-        else if (IsLibFunccall(GlobalRes.IRName.c_str()))
-          GlobalRes.Libcall = GlobalResolution::LibcallKind::LibFunc;
-
-        // It is neither LibFunc nor runtime call
-        else
-          GlobalRes.Libcall = GlobalResolution::LibcallKind::NotLibcall;
-      }
-
-      // The IR information is not in the summary section
-      else
-        GlobalRes.Libcall = GlobalResolution::LibcallKind::NotLibcall;
-    }
-
-    GlobalRes.ResolvedByLinker |= Res.ResolvedByLinker;
-#endif // INTEL_CUSTOMIZATION
+    GlobalRes.ResolvedByLinker |= Res.ResolvedByLinker;               // INTEL
   }
 }
 
@@ -986,7 +898,6 @@ Error LTO::run(AddStreamFn AddStream, NativeObjectCache Cache) {
   if (WholeProgramReadTrace)
     dbgs() << "WHOLE-PROGRAM-ANALYSIS: WHOLE PROGRAM READ\n";
   bool AllResolved = true;
-  bool AllSymbolsHidden = true;
   bool MainFound = false;
   unsigned SymbolsResolved = 0;
   unsigned SymbolsUnresolved = 0;
@@ -1012,43 +923,14 @@ Error LTO::run(AddStreamFn AddStream, NativeObjectCache Cache) {
     StringRef SymbolName =
         GlobalValue::dropLLVMManglingEscape(Res.second.IRName);
 
-    bool IsLinkerAddedSymbol = WPUtils.isLinkerAddedSymbol(SymbolName);
-
     bool IsMain = WPUtils.isMainEntryPoint(SymbolName);
     MainFound |= IsMain;
-
-    bool IsNotExternalSymbol = !(Res.second.VisibleOutsideSummary ||
-        Res.second.Partition != GlobalResolution::RegularLTO) &&
-        !IsMain;
-
-    bool IsLibFunc = (Res.second.Libcall ==
-                         GlobalResolution::LibcallKind::LibFunc ||
-                      Res.second.Libcall ==
-                         GlobalResolution::LibcallKind::RuntimeLibcall);
-
-    // A whole program hidden symbol will be one or more of the following:
-    //   * is main (or one of it's form)
-    //   * is not external (internalized symbol and is not main)
-    //   * is a library function
-    //   * is a linker added symbol (will be treated as libfunc)
-    bool IsWPHiddenSymbol = IsNotExternalSymbol || IsLinkerAddedSymbol ||
-                         IsLibFunc || IsMain;
-
-    // The only symbols that should be external are main, runtime
-    // library calls, library functions (LibFuncs) or special symbols
-    // added by the linker.
-    if (!IsWPHiddenSymbol) {
-      WPUtils.storeVisibleSymbols(SymbolName);
-    }
-
-    // NOTE: The hidden symbols aren't part of the whole program read,
-    // they are part of the visibility analysis. This analysis checks that
-    // all data is inside the compilation unit.
-    AllSymbolsHidden &= IsWPHiddenSymbol;
-
     AllResolved &= Res.second.ResolvedByLinker;
 
+
     if (WholeProgramReadTrace) {
+      bool IsLinkerAddedSymbol = WPUtils.isLinkerAddedSymbol(SymbolName);
+
       dbgs() << "SYMBOL NAME: " << SymbolName << "\n";
       dbgs() << "  RESULT:";
       dbgs() << (IsMain ? " MAIN |" : "");
@@ -1074,9 +956,6 @@ Error LTO::run(AddStreamFn AddStream, NativeObjectCache Cache) {
   //                     was found
   WPUtils.setWholeProgramRead(AllResolved && MainFound);
 
-  // Hidden Visibility: All functions are in one module and were internalized or
-  //                    are libfuncs
-  WPUtils.setVisibilityHidden(AllSymbolsHidden);
 #endif // INTEL_CUSTOMIZATION
   auto isPrevailing = [&](GlobalValue::GUID G) {
     auto It = GUIDPrevailingResolutions.find(G);
@@ -1531,8 +1410,9 @@ lto::setupOptimizationRemarks(LLVMContext &Context,
       llvm::make_unique<ToolOutputFile>(Filename, EC, sys::fs::F_None);
   if (EC)
     return errorCodeToError(EC);
-  Context.setRemarkStreamer(
-      llvm::make_unique<RemarkStreamer>(Filename, DiagnosticFile->os()));
+  Context.setRemarkStreamer(llvm::make_unique<RemarkStreamer>(
+      Filename,
+      llvm::make_unique<remarks::YAMLSerializer>(DiagnosticFile->os())));
 
   if (!LTORemarksPasses.empty())
     if (Error E = Context.getRemarkStreamer()->setFilter(LTORemarksPasses))

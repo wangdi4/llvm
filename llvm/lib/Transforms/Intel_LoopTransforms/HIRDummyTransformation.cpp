@@ -122,7 +122,7 @@ bool HIRDummyTransformation::runOnFunction(Function &F) {
           Intrinsic::ID IntrinID;
 
           if (!Inst->isIntrinCall(IntrinID) ||
-              !vpo::VPOAnalysisUtils::isIntelDirective(IntrinID)) {
+              !vpo::VPOAnalysisUtils::isRegionDirective(IntrinID)) {
             return;
           }
 

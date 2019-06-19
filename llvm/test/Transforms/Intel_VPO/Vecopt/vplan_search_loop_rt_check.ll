@@ -55,7 +55,7 @@
 ; CHECK:       {
 ; CHECK:          %tgu = 0;
 ; CHECK:       }
-; CHECK:       + DO i1 = 4 * %tgu, 9, 1   <DO_MULTI_EXIT_LOOP> <novectorize>
+; CHECK:       + DO i1 = 4 * %tgu, 9, 1   <DO_MULTI_EXIT_LOOP> <nounroll> <novectorize>
 ; CHECK:       |   if ((%pv1)[i1] != (%pv1)[i1])
 ; CHECK:       |   {
 ; CHECK:       |      goto bb3;

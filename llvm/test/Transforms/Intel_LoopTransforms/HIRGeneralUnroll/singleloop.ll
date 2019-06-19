@@ -43,7 +43,7 @@
 ; CHECK: getelementptr
 
 ; UB of Unrolled Loop
-; CHECK: icmp sle i64 %nextivloop{{.*}}, 34
+; CHECK: icmp ne i64 {{.*}}, 34
 
 ; Check that unrolled loop has disable pragma
 ; CHECK: !llvm.loop

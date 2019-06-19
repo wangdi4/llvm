@@ -10000,9 +10000,10 @@ bool DTransAnalysisInfo::analyzeModule(
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  if (DTransPrintAnalyzedCalls)
+  if (DTransPrintAnalyzedCalls) {
     printCallInfo(outs());
     outs().flush();
+  }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   return false;

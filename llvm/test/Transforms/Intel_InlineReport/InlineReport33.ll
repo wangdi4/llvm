@@ -1,21 +1,21 @@
 ; RUN: opt < %s -ip-cloning -inline -inline-report=7 -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-OLD %s
 ; RUN: opt < %s -passes='module(ip-cloning),cgscc(inline)' -inline-report=7 -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-NEW %s
 
-; Test that the first n-1 recursive progressive clones are inlined, while
+; Test that the first n-1 recursive progression clones are inlined, while
 ; the n-th is not.
 
 ; CHECK-OLD-DAG: DEAD STATIC FUNC: foo.1
 ; CHECK-OLD-DAG: DEAD STATIC FUNC: foo.2
 ; CHECK-OLD-DAG: DEAD STATIC FUNC: foo.3
 ; CHECK-OLD: COMPILE FUNC: foo.4
-; CHECK-OLD: INLINE: foo.1{{.*}}Callee is recursive progressive clone
-; CHECK-OLD: INLINE: foo.2{{.*}}Callee is recursive progressive clone
-; CHECK-OLD: INLINE: foo.3{{.*}}Callee is recursive progressive clone
+; CHECK-OLD: INLINE: foo.1{{.*}}Callee is recursive progression clone
+; CHECK-OLD: INLINE: foo.2{{.*}}Callee is recursive progression clone
+; CHECK-OLD: INLINE: foo.3{{.*}}Callee is recursive progression clone
 ; CHECK-OLD: foo.4{{.*}}Callee has recursion
 ; CHECK-OLD: COMPILE FUNC: main
-; CHECK-OLD: INLINE: foo.1{{.*}}Callee is recursive progressive clone
-; CHECK-OLD: INLINE: foo.2{{.*}}Callee is recursive progressive clone
-; CHECK-OLD: INLINE: foo.3{{.*}}Callee is recursive progressive clone
+; CHECK-OLD: INLINE: foo.1{{.*}}Callee is recursive progression clone
+; CHECK-OLD: INLINE: foo.2{{.*}}Callee is recursive progression clone
+; CHECK-OLD: INLINE: foo.3{{.*}}Callee is recursive progression clone
 ; CHECK-OLD: foo.4{{.*}}Callee has recursion
 
 ; CHECK-LABEL: define{{.*}}main
@@ -27,14 +27,14 @@
 ; CHECK-NEW-DAG: DEAD STATIC FUNC: foo.2
 ; CHECK-NEW-DAG: DEAD STATIC FUNC: foo.3
 ; CHECK-NEW: COMPILE FUNC: foo.4
-; CHECK-NEW: INLINE: foo.1{{.*}}Callee is recursive progressive clone
-; CHECK-NEW: INLINE: foo.2{{.*}}Callee is recursive progressive clone
-; CHECK-NEW: INLINE: foo.3{{.*}}Callee is recursive progressive clone
+; CHECK-NEW: INLINE: foo.1{{.*}}Callee is recursive progression clone
+; CHECK-NEW: INLINE: foo.2{{.*}}Callee is recursive progression clone
+; CHECK-NEW: INLINE: foo.3{{.*}}Callee is recursive progression clone
 ; CHECK-NEW: foo.4{{.*}}Callee has recursion
 ; CHECK-NEW: COMPILE FUNC: main
-; CHECK-NEW: INLINE: foo.1{{.*}}Callee is recursive progressive clone
-; CHECK-NEW: INLINE: foo.2{{.*}}Callee is recursive progressive clone
-; CHECK-NEW: INLINE: foo.3{{.*}}Callee is recursive progressive clone
+; CHECK-NEW: INLINE: foo.1{{.*}}Callee is recursive progression clone
+; CHECK-NEW: INLINE: foo.2{{.*}}Callee is recursive progression clone
+; CHECK-NEW: INLINE: foo.3{{.*}}Callee is recursive progression clone
 ; CHECK-NEW: foo.4{{.*}}Callee has recursion
 
 define internal i32 @foo(i32, i32) {

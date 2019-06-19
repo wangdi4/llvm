@@ -5,7 +5,7 @@
 ; RUN: llvm-lto -exported-symbol=main -whole-program-trace-symbols -o %t2 %t1 2>&1 | FileCheck %s
 
 ; CHECK: WHOLE-PROGRAM-ANALYSIS: EXTERNAL FUNCTIONS TRACE
-; CHECK:      EXTERNAL FUNCTIONS: 1
+; CHECK:      VISIBLE OUTSIDE LTO: 1
 ; CHECK-NEXT:    _ZN8Derived23fooEv
 
 ; Create the Base, Derived and Derived2 classes

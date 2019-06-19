@@ -22,7 +22,7 @@
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP
 
-; CHECK: + DO i1 = 20 * %tgu, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 19> <nounroll and jam>
+; CHECK: + DO i1 = 20 * %tgu, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 19> <nounroll> <nounroll and jam>
 ; CHECK: |   + DO i2 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP

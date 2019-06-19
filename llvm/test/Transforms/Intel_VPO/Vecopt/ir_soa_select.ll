@@ -11,10 +11,7 @@ entry:
   br label %DIR.OMP.SIMD.3
 
 DIR.OMP.SIMD.3:                                   ; preds = %entry
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  tail call void @llvm.intel.directive.qual.opnd.i32(metadata !"QUAL.OMP.SIMDLEN", i32 4)
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", <2 x i32>* nonnull %tmp.priv)
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.PRIVATE"(<2 x i32>* %tmp.priv) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.3, %omp.inner.for.body
@@ -38,14 +35,15 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.body
   br label %DIR.OMP.END.SIMD.1
 
 DIR.OMP.END.SIMD.1:                               ; preds = %omp.loop.exit
-  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.END.SIMD.1
   ret void
 }
-declare void @llvm.intel.directive(metadata)
-declare void @llvm.intel.directive.qual.opndlist(metadata , ...)
-declare void @llvm.intel.directive.qual.opnd.i32(metadata, i32)
 
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry()
+
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token)

@@ -23,7 +23,7 @@
 ;Check wrap flags on IV 
 ;CHECK: [[IV_LOAD1:%.*]] = load i32, i32* %i1.i32
 ;CHECK: [[IV_UPDATE:%.*]] = add nuw nsw i32 [[IV_LOAD1]], 1
-;CHECK: icmp sle i32 [[IV_UPDATE]]
+;CHECK: icmp ne i32 [[IV_LOAD1]]
 
 ; ModuleID = 'blob-undef2.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

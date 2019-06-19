@@ -1,6 +1,11 @@
 ; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg  -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt  -S | FileCheck %s
 ; RUN: opt < %s -passes='function(loop(rotate),vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop(simplify-cfg),sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
 
+; Deprecated the llvm.intel.directive* representation.
+; TODO: Update this test to use llvm.directive.region.entry/exit instead.
+; XFAIL: *
+
+
 ; This file tests the code generation for the omp do loop for the combination cases among differnt type of loop index and positive/negative stride.
 ;
 ; void without_schedule_clause(float *a, float *b, float *c, float *d) {

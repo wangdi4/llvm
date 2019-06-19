@@ -191,6 +191,13 @@ static cl::opt<bool>
 EnableIntelAdvancedOpts("enable-intel-advanced-opts",
                         cl::desc("Enable Intel advanced optimizations"),
                         cl::init(false));
+
+// This option can be used to configure the pipeline to run like the
+// PrepareForLTO mode of a -c compilation.
+static cl::opt<bool>
+    PrepareForLTOFlag("prepare-for-lto",
+                      cl::desc("Enable the passmanager PrepareForLTO mode"),
+                      cl::init(false));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<std::string>
@@ -448,6 +455,10 @@ static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
   default:
     break;
   }
+#if INTEL_CUSTOMIZATION
+  if (PrepareForLTOFlag)
+    Builder.PrepareForLTO = true;
+#endif // INTEL_CUSTOMIZATION
 
   Builder.populateFunctionPassManager(FPM);
   Builder.populateModulePassManager(MPM);
@@ -607,7 +618,8 @@ int main(int argc, char **argv) {
       return 1;
     }
     Context.setRemarkStreamer(llvm::make_unique<RemarkStreamer>(
-        RemarksFilename, OptRemarkFile->os()));
+        RemarksFilename,
+        llvm::make_unique<remarks::YAMLSerializer>(OptRemarkFile->os())));
 
     if (!RemarksPasses.empty())
       if (Error E = Context.getRemarkStreamer()->setFilter(RemarksPasses)) {

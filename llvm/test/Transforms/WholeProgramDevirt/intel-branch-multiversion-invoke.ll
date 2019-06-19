@@ -64,7 +64,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt < %s -wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -instnamer -S 2>&1 | FileCheck %s
+; RUN: opt < %s -wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -S 2>&1 | FileCheck %s
 
 %"class.std::ios_base::Init" = type { i8 }
 %class.Base = type { i32 (...)** }
@@ -144,11 +144,11 @@ entry:
   %.16 = select i1 %cmp, %class.Base* getelementptr inbounds (%class.Derived, %class.Derived* @d, i64 0, i32 0), %class.Base* getelementptr inbounds (%class.Derived2, %class.Derived2* @d2, i64 0, i32 0)
   store i1 (%class.Base*, i32)*** %., i1 (%class.Base*, i32)**** bitcast (%class.Base** @b to i1 (%class.Base*, i32)****), align 8, !tbaa !8
   %vtable = load i1 (%class.Base*, i32)**, i1 (%class.Base*, i32)*** %., align 8, !tbaa !12
-  %0 = bitcast i1 (%class.Base*, i32)** %vtable to i8*
-  %1 = tail call i1 @llvm.type.test(i8* %0, metadata !"_ZTS4Base")
-  tail call void @llvm.assume(i1 %1)
-  %2 = load i1 (%class.Base*, i32)*, i1 (%class.Base*, i32)** %vtable, align 8
-  %call = invoke zeroext i1 %2(%class.Base* %.16, i32 %argc)
+  %tmp = bitcast i1 (%class.Base*, i32)** %vtable to i8*
+  %tmp1 = tail call i1 @llvm.type.test(i8* %tmp, metadata !"_ZTS4Base")
+  tail call void @llvm.assume(i1 %tmp1)
+  %tmp2 = load i1 (%class.Base*, i32)*, i1 (%class.Base*, i32)** %vtable, align 8
+  %call = invoke zeroext i1 %tmp2(%class.Base* %.16, i32 %argc)
           to label %invoke.cont unwind label %lpad
 
 invoke.cont:                                      ; preds = %entry
@@ -163,49 +163,49 @@ invoke.cont3:                                     ; preds = %invoke.cont1
   ret i32 0
 
 lpad:                                             ; preds = %invoke.cont1, %invoke.cont, %entry
-  %3 = landingpad { i8*, i32 }
+  %tmp3 = landingpad { i8*, i32 }
           cleanup
           catch i8* bitcast (i8** @_ZTIPKc to i8*)
-  %4 = extractvalue { i8*, i32 } %3, 0
-  %5 = extractvalue { i8*, i32 } %3, 1
-  %6 = tail call i32 @llvm.eh.typeid.for(i8* bitcast (i8** @_ZTIPKc to i8*)) #2
-  %matches = icmp eq i32 %5, %6
+  %tmp4 = extractvalue { i8*, i32 } %tmp3, 0
+  %tmp5 = extractvalue { i8*, i32 } %tmp3, 1
+  %tmp6 = tail call i32 @llvm.eh.typeid.for(i8* bitcast (i8** @_ZTIPKc to i8*)) #2
+  %matches = icmp eq i32 %tmp5, %tmp6
   br i1 %matches, label %catch, label %eh.resume
 
 catch:                                            ; preds = %lpad
-  %7 = tail call i8* @__cxa_begin_catch(i8* %4) #2
-  %tobool.i = icmp eq i8* %7, null
+  %tmp7 = tail call i8* @__cxa_begin_catch(i8* %tmp4) #2
+  %tobool.i = icmp eq i8* %tmp7, null
   br i1 %tobool.i, label %if.then.i, label %if.else.i
 
 if.then.i:                                        ; preds = %catch
   %vtable.i = load i8*, i8** bitcast (%"class.std::basic_ostream"* @_ZSt4cerr to i8**), align 8, !tbaa !12
   %vbase.offset.ptr.i = getelementptr i8, i8* %vtable.i, i64 -24
-  %8 = bitcast i8* %vbase.offset.ptr.i to i64*
-  %vbase.offset.i = load i64, i64* %8, align 8
+  %tmp8 = bitcast i8* %vbase.offset.ptr.i to i64*
+  %vbase.offset.i = load i64, i64* %tmp8, align 8
   %add.ptr.i = getelementptr inbounds i8, i8* bitcast (%"class.std::basic_ostream"* @_ZSt4cerr to i8*), i64 %vbase.offset.i
-  %9 = bitcast i8* %add.ptr.i to %"class.std::basic_ios"*
+  %tmp9 = bitcast i8* %add.ptr.i to %"class.std::basic_ios"*
   %_M_streambuf_state.i.i.i = getelementptr inbounds i8, i8* %add.ptr.i, i64 32
-  %10 = bitcast i8* %_M_streambuf_state.i.i.i to i32*
-  %11 = load i32, i32* %10, align 8, !tbaa !14
-  %or.i.i.i = or i32 %11, 1
-  invoke void @_ZNSt9basic_iosIcSt11char_traitsIcEE5clearESt12_Ios_Iostate(%"class.std::basic_ios"* %9, i32 %or.i.i.i)
+  %tmp10 = bitcast i8* %_M_streambuf_state.i.i.i to i32*
+  %tmp11 = load i32, i32* %tmp10, align 8, !tbaa !14
+  %or.i.i.i = or i32 %tmp11, 1
+  invoke void @_ZNSt9basic_iosIcSt11char_traitsIcEE5clearESt12_Ios_Iostate(%"class.std::basic_ios"* %tmp9, i32 %or.i.i.i)
           to label %invoke.cont6 unwind label %lpad5
 
 if.else.i:                                        ; preds = %catch
-  %call.i.i19 = tail call i64 @strlen(i8* nonnull %7) #2
-  %call1.i20 = invoke dereferenceable(272) %"class.std::basic_ostream"* @_ZSt16__ostream_insertIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_PKS3_l(%"class.std::basic_ostream"* nonnull dereferenceable(272) @_ZSt4cerr, i8* nonnull %7, i64 %call.i.i19)
+  %call.i.i19 = tail call i64 @strlen(i8* nonnull %tmp7) #2
+  %call1.i20 = invoke dereferenceable(272) %"class.std::basic_ostream"* @_ZSt16__ostream_insertIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_PKS3_l(%"class.std::basic_ostream"* nonnull dereferenceable(272) @_ZSt4cerr, i8* nonnull %tmp7, i64 %call.i.i19)
           to label %invoke.cont6 unwind label %lpad5
 
-invoke.cont6:                                     ; preds = %if.then.i, %if.else.i
+invoke.cont6:                                     ; preds = %if.else.i, %if.then.i
   %vtable.i23 = load i8*, i8** bitcast (%"class.std::basic_ostream"* @_ZSt4cerr to i8**), align 8, !tbaa !12
   %vbase.offset.ptr.i24 = getelementptr i8, i8* %vtable.i23, i64 -24
-  %12 = bitcast i8* %vbase.offset.ptr.i24 to i64*
-  %vbase.offset.i25 = load i64, i64* %12, align 8
+  %tmp12 = bitcast i8* %vbase.offset.ptr.i24 to i64*
+  %vbase.offset.i25 = load i64, i64* %tmp12, align 8
   %add.ptr.i26 = getelementptr inbounds i8, i8* bitcast (%"class.std::basic_ostream"* @_ZSt4cerr to i8*), i64 %vbase.offset.i25
   %_M_ctype.i = getelementptr inbounds i8, i8* %add.ptr.i26, i64 240
-  %13 = bitcast i8* %_M_ctype.i to %"class.std::ctype"**
-  %14 = load %"class.std::ctype"*, %"class.std::ctype"** %13, align 8, !tbaa !23
-  %tobool.i42 = icmp eq %"class.std::ctype"* %14, null
+  %tmp13 = bitcast i8* %_M_ctype.i to %"class.std::ctype"**
+  %tmp14 = load %"class.std::ctype"*, %"class.std::ctype"** %tmp13, align 8, !tbaa !23
+  %tobool.i42 = icmp eq %"class.std::ctype"* %tmp14, null
   br i1 %tobool.i42, label %if.then.i43, label %call.i.noexc33
 
 if.then.i43:                                      ; preds = %invoke.cont6
@@ -216,30 +216,30 @@ if.then.i43:                                      ; preds = %invoke.cont6
   unreachable
 
 call.i.noexc33:                                   ; preds = %invoke.cont6
-  %_M_widen_ok.i = getelementptr inbounds %"class.std::ctype", %"class.std::ctype"* %14, i64 0, i32 8
-  %15 = load i8, i8* %_M_widen_ok.i, align 8, !tbaa !26
-  %tobool.i36 = icmp eq i8 %15, 0
+  %_M_widen_ok.i = getelementptr inbounds %"class.std::ctype", %"class.std::ctype"* %tmp14, i64 0, i32 8
+  %tmp15 = load i8, i8* %_M_widen_ok.i, align 8, !tbaa !26
+  %tobool.i36 = icmp eq i8 %tmp15, 0
   br i1 %tobool.i36, label %if.end.i, label %if.then.i37
 
 if.then.i37:                                      ; preds = %call.i.noexc33
-  %arrayidx.i = getelementptr inbounds %"class.std::ctype", %"class.std::ctype"* %14, i64 0, i32 9, i64 10
-  %16 = load i8, i8* %arrayidx.i, align 1, !tbaa !31
+  %arrayidx.i = getelementptr inbounds %"class.std::ctype", %"class.std::ctype"* %tmp14, i64 0, i32 9, i64 10
+  %tmp16 = load i8, i8* %arrayidx.i, align 1, !tbaa !31
   br label %call.i.noexc
 
 if.end.i:                                         ; preds = %call.i.noexc33
-  invoke void @_ZNKSt5ctypeIcE13_M_widen_initEv(%"class.std::ctype"* nonnull %14)
+  invoke void @_ZNKSt5ctypeIcE13_M_widen_initEv(%"class.std::ctype"* nonnull %tmp14)
           to label %.noexc39 unwind label %lpad5
 
 .noexc39:                                         ; preds = %if.end.i
-  %17 = bitcast %"class.std::ctype"* %14 to i8 (%"class.std::ctype"*, i8)***
-  %vtable.i38 = load i8 (%"class.std::ctype"*, i8)**, i8 (%"class.std::ctype"*, i8)*** %17, align 8, !tbaa !12
+  %tmp17 = bitcast %"class.std::ctype"* %tmp14 to i8 (%"class.std::ctype"*, i8)***
+  %vtable.i38 = load i8 (%"class.std::ctype"*, i8)**, i8 (%"class.std::ctype"*, i8)*** %tmp17, align 8, !tbaa !12
   %vfn.i = getelementptr inbounds i8 (%"class.std::ctype"*, i8)*, i8 (%"class.std::ctype"*, i8)** %vtable.i38, i64 6
-  %18 = load i8 (%"class.std::ctype"*, i8)*, i8 (%"class.std::ctype"*, i8)** %vfn.i, align 8
-  %call.i41 = invoke signext i8 %18(%"class.std::ctype"* nonnull %14, i8 signext 10)
+  %tmp18 = load i8 (%"class.std::ctype"*, i8)*, i8 (%"class.std::ctype"*, i8)** %vfn.i, align 8
+  %call.i41 = invoke signext i8 %tmp18(%"class.std::ctype"* nonnull %tmp14, i8 signext 10)
           to label %call.i.noexc unwind label %lpad5
 
 call.i.noexc:                                     ; preds = %.noexc39, %if.then.i37
-  %retval.0.i = phi i8 [ %16, %if.then.i37 ], [ %call.i41, %.noexc39 ]
+  %retval.0.i = phi i8 [ %tmp16, %if.then.i37 ], [ %call.i41, %.noexc39 ]
   %call1.i29 = invoke dereferenceable(272) %"class.std::basic_ostream"* @_ZNSo3putEc(%"class.std::basic_ostream"* nonnull @_ZSt4cerr, i8 signext %retval.0.i)
           to label %call1.i.noexc28 unwind label %lpad5
 
@@ -251,17 +251,17 @@ invoke.cont8:                                     ; preds = %call1.i.noexc28
   tail call void @exit(i32 1) #11
   unreachable
 
-lpad5:                                            ; preds = %if.then.i43, %.noexc39, %if.end.i, %call1.i.noexc28, %call.i.noexc, %if.else.i, %if.then.i
-  %19 = landingpad { i8*, i32 }
+lpad5:                                            ; preds = %call1.i.noexc28, %call.i.noexc, %.noexc39, %if.end.i, %if.then.i43, %if.else.i, %if.then.i
+  %tmp19 = landingpad { i8*, i32 }
           cleanup
-  %20 = extractvalue { i8*, i32 } %19, 0
-  %21 = extractvalue { i8*, i32 } %19, 1
+  %tmp20 = extractvalue { i8*, i32 } %tmp19, 0
+  %tmp21 = extractvalue { i8*, i32 } %tmp19, 1
   tail call void @__cxa_end_catch() #2
   br label %eh.resume
 
 eh.resume:                                        ; preds = %lpad5, %lpad
-  %ehselector.slot.0 = phi i32 [ %21, %lpad5 ], [ %5, %lpad ]
-  %exn.slot.0 = phi i8* [ %20, %lpad5 ], [ %4, %lpad ]
+  %ehselector.slot.0 = phi i32 [ %tmp21, %lpad5 ], [ %tmp5, %lpad ]
+  %exn.slot.0 = phi i8* [ %tmp20, %lpad5 ], [ %tmp4, %lpad ]
   %lpad.val = insertvalue { i8*, i32 } undef, i8* %exn.slot.0, 0
   %lpad.val12 = insertvalue { i8*, i32 } %lpad.val, i32 %ehselector.slot.0, 1
   resume { i8*, i32 } %lpad.val12
@@ -293,8 +293,8 @@ entry:
 
 if.then:                                          ; preds = %entry
   %exception = tail call i8* @__cxa_allocate_exception(i64 8) #2
-  %0 = bitcast i8* %exception to i8**
-  store i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str.3, i64 0, i64 0), i8** %0, align 16, !tbaa !32
+  %tmp = bitcast i8* %exception to i8**
+  store i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str.3, i64 0, i64 0), i8** %tmp, align 16, !tbaa !32
   tail call void @__cxa_throw(i8* nonnull %exception, i8* bitcast (i8** @_ZTIPKc to i8*), i8* null) #7
   unreachable
 
@@ -315,8 +315,8 @@ entry:
 
 if.then:                                          ; preds = %entry
   %exception = tail call i8* @__cxa_allocate_exception(i64 8) #2
-  %0 = bitcast i8* %exception to i8**
-  store i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str.3, i64 0, i64 0), i8** %0, align 16, !tbaa !32
+  %tmp = bitcast i8* %exception to i8**
+  store i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str.3, i64 0, i64 0), i8** %tmp, align 16, !tbaa !32
   tail call void @__cxa_throw(i8* nonnull %exception, i8* bitcast (i8** @_ZTIPKc to i8*), i8* null) #7
   unreachable
 
@@ -346,7 +346,7 @@ declare dso_local void @_ZNKSt5ctypeIcE13_M_widen_initEv(%"class.std::ctype"*) l
 define internal void @_GLOBAL__sub_I_driver2.cpp() #10 section ".text.startup" {
 entry:
   tail call void @_ZNSt8ios_base4InitC1Ev(%"class.std::ios_base::Init"* nonnull @_ZSt8__ioinit)
-  %0 = tail call i32 @__cxa_atexit(void (i8*)* bitcast (void (%"class.std::ios_base::Init"*)* @_ZNSt8ios_base4InitD1Ev to void (i8*)*), i8* getelementptr inbounds (%"class.std::ios_base::Init", %"class.std::ios_base::Init"* @_ZSt8__ioinit, i64 0, i32 0), i8* nonnull @__dso_handle) #2
+  %tmp = tail call i32 @__cxa_atexit(void (i8*)* bitcast (void (%"class.std::ios_base::Init"*)* @_ZNSt8ios_base4InitD1Ev to void (i8*)*), i8* getelementptr inbounds (%"class.std::ios_base::Init", %"class.std::ios_base::Init"* @_ZSt8__ioinit, i64 0, i32 0), i8* nonnull @__dso_handle) #2
   store i32 (...)** bitcast (i8** getelementptr inbounds ({ [3 x i8*] }, { [3 x i8*] }* @_ZTV7Derived, i64 0, inrange i32 0, i64 2) to i32 (...)**), i32 (...)*** getelementptr inbounds (%class.Derived, %class.Derived* @d, i64 0, i32 0, i32 0), align 8, !tbaa !12
   store i32 (...)** bitcast (i8** getelementptr inbounds ({ [3 x i8*] }, { [3 x i8*] }* @_ZTV8Derived2, i64 0, inrange i32 0, i64 2) to i32 (...)**), i32 (...)*** getelementptr inbounds (%class.Derived2, %class.Derived2* @d2, i64 0, i32 0, i32 0), align 8, !tbaa !12
   ret void
@@ -407,53 +407,53 @@ attributes #11 = { noreturn nounwind }
 ; CHECK:       define hidden i32 @main(i32 %argc, i8** nocapture readnone %argv) local_unnamed_addr #3 personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) {
 
 ; Compare the address of the virtual function with Derived::foo
-; CHECK:       %tmp2 = bitcast i1 (%class.Base*, i32)* %tmp1 to i8*
-; CHECK-NEXT:  %tmp3 = bitcast i1 (%class.Derived*, i32)* @_ZN7Derived3fooEi to i8*
-; CHECK-NEXT:  %tmp4 = icmp eq i8* %tmp2, %tmp3
-; CHECK-NEXT:  br i1 %tmp4, label %BBDevirt__ZN7Derived3fooEi_0_0, label %ElseDevirt__ZN7Derived3fooEi_0_0
+; CHECK:       %0 = bitcast i1 (%class.Base*, i32)* %tmp2 to i8*
+; CHECK-NEXT:  %1 = bitcast i1 (%class.Derived*, i32)* @_ZN7Derived3fooEi to i8*
+; CHECK-NEXT:  %2 = icmp eq i8* %0, %1
+; CHECK-NEXT:  br i1 %2, label %BBDevirt__ZN7Derived3fooEi_0_0, label %ElseDevirt__ZN7Derived3fooEi_0_0
 
 ; If the address matches with Derived:foo, then call it
 ; CHECK-LABEL: BBDevirt__ZN7Derived3fooEi_0_0:
-; CHECK:        %tmp5 = invoke zeroext i1 bitcast (i1 (%class.Derived*, i32)* @_ZN7Derived3fooEi to i1 (%class.Base*, i32)*)(%class.Base* %.16, i32 %argc)
+; CHECK:        %3 = invoke zeroext i1 bitcast (i1 (%class.Derived*, i32)* @_ZN7Derived3fooEi to i1 (%class.Base*, i32)*)(%class.Base* %.16, i32 %argc)
 ; CHECK-NEXT:          to label %MergeBB_0_0 unwind label %lpad
 
 ; Else, compare the address with Derived2:foo
 ; CHECK-LABEL: ElseDevirt__ZN7Derived3fooEi_0_0:
-; CHECK:        %tmp6 = bitcast i1 (%class.Derived2*, i32)* @_ZN8Derived23fooEi to i8*
-; CHECK-NEXT:   %tmp7 = icmp eq i8* %tmp2, %tmp6
-; CHECK-NEXT:   br i1 %tmp7, label %BBDevirt__ZN8Derived23fooEi_0_0, label %DefaultBB_0_0
+; CHECK:        %4 = bitcast i1 (%class.Derived2*, i32)* @_ZN8Derived23fooEi to i8*
+; CHECK-NEXT:   %5 = icmp eq i8* %0, %4
+; CHECK-NEXT:   br i1 %5, label %BBDevirt__ZN8Derived23fooEi_0_0, label %DefaultBB_0_0
 
 ; The address matches Derived2::foo
 ; CHECK-LABEL: BBDevirt__ZN8Derived23fooEi_0_0:
-; CHECK:        %tmp8 = invoke zeroext i1 bitcast (i1 (%class.Derived2*, i32)* @_ZN8Derived23fooEi to i1 (%class.Base*, i32)*)(%class.Base* %.16, i32 %argc)
+; CHECK:        %6 = invoke zeroext i1 bitcast (i1 (%class.Derived2*, i32)* @_ZN8Derived23fooEi to i1 (%class.Base*, i32)*)(%class.Base* %.16, i32 %argc)
 ; CHECK-NEXT:          to label %MergeBB_0_0 unwind label %lpad
 
 ; Default case
 ; CHECK-LABEL: DefaultBB_0_0:
-; CHECK:        %tmp9 = invoke zeroext i1 %tmp1(%class.Base* %.16, i32 %argc)
+; CHECK:        %7 = invoke zeroext i1 %tmp2(%class.Base* %.16, i32 %argc)
 ; CHECK-NEXT:          to label %MergeBB_0_0 unwind label %lpad
 
 ; Check that the PhiNode was generated correctly
 ; CHECK-LABEL: MergeBB_0_0:
-; CHECK:        %tmp10 = phi i1 [ %tmp5, %BBDevirt__ZN7Derived3fooEi_0_0 ], [ %tmp8, %BBDevirt__ZN8Derived23fooEi_0_0 ], [ %tmp9, %DefaultBB_0_0 ]
+; CHECK:        %8 = phi i1 [ %3, %BBDevirt__ZN7Derived3fooEi_0_0 ], [ %6, %BBDevirt__ZN8Derived23fooEi_0_0 ], [ %7, %DefaultBB_0_0 ]
 ; CHECK-NEXT: br label %invoke.cont
 
 
 ; Make sure that the users were replaced correctly
 ; CHECK-LABEL: invoke.cont:
-; CHECK:        %call.i17 = invoke dereferenceable(272) %"class.std::basic_ostream"* @_ZNSo9_M_insertIbEERSoT_(%"class.std::basic_ostream"* nonnull @_ZSt4cout, i1 zeroext %tmp10)
+; CHECK:        %call.i17 = invoke dereferenceable(272) %"class.std::basic_ostream"* @_ZNSo9_M_insertIbEERSoT_(%"class.std::basic_ostream"* nonnull @_ZSt4cout, i1 zeroext %8)
 ; CHECK-NEXT:          to label %invoke.cont1 unwind label %lpad
 
 
 ; Check that the unwind destination have all the basic blocks connected correctly
 ; CHECK:       lpad:                                             ; preds = %BBDevirt__ZN8Derived23fooEi_0_0, %BBDevirt__ZN7Derived3fooEi_0_0, %invoke.cont1, %invoke.cont, %DefaultBB_0_0
-; CHECK-NEXT:   %tmp11 = landingpad { i8*, i32 }
+; CHECK-NEXT:   %tmp3 = landingpad { i8*, i32 }
 ; CHECK-NEXT:            cleanup
 ; CHECK-NEXT:            catch i8* bitcast (i8** @_ZTIPKc to i8*)
-; CHECK-NEXT:   %tmp12 = extractvalue { i8*, i32 } %tmp11, 0
-; CHECK-NEXT:   %tmp13 = extractvalue { i8*, i32 } %tmp11, 1
-; CHECK-NEXT:   %tmp14 = tail call i32 @llvm.eh.typeid.for(i8* bitcast (i8** @_ZTIPKc to i8*)) #2
-; CHECK-NEXT:   %matches = icmp eq i32 %tmp13, %tmp14
+; CHECK-NEXT:   %tmp4 = extractvalue { i8*, i32 } %tmp3, 0
+; CHECK-NEXT:   %tmp5 = extractvalue { i8*, i32 } %tmp3, 1
+; CHECK-NEXT:   %tmp6 = tail call i32 @llvm.eh.typeid.for(i8* bitcast (i8** @_ZTIPKc to i8*)) #2
+; CHECK-NEXT:   %matches = icmp eq i32 %tmp5, %tmp6
 ; CHECK-NEXT:   br i1 %matches, label %catch, label %eh.resume
 
 ; Check that the metadata was added correctly

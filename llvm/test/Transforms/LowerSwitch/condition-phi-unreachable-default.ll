@@ -1,10 +1,6 @@
-; INTEL_CUSTOMIZATION
-; This file is being submitted to llorg, but is going into xmain
-; first to prevent OCL lit test failures.
+; RUN: opt < %s -lowerswitch -S | FileCheck %s
 
-; RUN: opt < %s -lowerswitch -disable-output
-
-; This test verify -lowerswitch does not crash when an removing an
+; This test verifies -lowerswitch does not crash when an removing an
 ; unreachable default branch causes a PHI node used as the switch
 ; condition to be erased.
 
@@ -23,7 +19,7 @@ for.body:                                         ; preds = %sw.epilog
   ]
 
 sw.epilog.outer.backedge.loopexit:                ; preds = %for.body
-  unreachable
+  br label %for.end
 
 sw.epilog.outer.backedge:                         ; preds = %for.body
   unreachable
@@ -31,4 +27,10 @@ sw.epilog.outer.backedge:                         ; preds = %for.body
 for.end:                                          ; preds = %sw.epilog
   ret void
 }
-; end INTEL_CUSTOMIZATION
+
+; The phi and the switch should both be eliminated.
+; CHECK: @f()
+; CHECK: sw.epilog:
+; CHECK-NOT: phi
+; CHECK: for.body:
+; CHECK-NOT: switch

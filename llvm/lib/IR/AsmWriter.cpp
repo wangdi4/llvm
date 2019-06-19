@@ -91,6 +91,12 @@ using namespace llvm;
 // Make virtual table appear in this compilation unit.
 AssemblyAnnotationWriter::~AssemblyAnnotationWriter() = default;
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> PrintDbgLoc(
+    "print-debug-loc", cl::init(false), cl::Hidden,
+    cl::desc("Print DebugLoc of instructions besides them as comments"));
+#endif
+
 #if INTEL_PRODUCT_RELEASE
 #if !defined(NDEBUG)
 #error INTEL_PRODUCT_RELEASE requires that NDEBUG also be defined.
@@ -634,7 +640,10 @@ void TypePrinting::print(Type *Ty, raw_ostream &OS) {
   }
   case Type::VectorTyID: {
     VectorType *PTy = cast<VectorType>(Ty);
-    OS << "<" << PTy->getNumElements() << " x ";
+    OS << "<";
+    if (PTy->isScalable())
+      OS << "vscale x ";
+    OS << PTy->getNumElements() << " x ";
     print(PTy->getElementType(), OS);
     OS << '>';
     return;
@@ -3281,6 +3290,12 @@ void AssemblyWriter::printGlobal(const GlobalVariable *GV) {
     printEscapedString(GV->getSection(), Out);
     Out << '"';
   }
+  if (GV->hasPartition()) {
+    Out << ", partition \"";
+    printEscapedString(GV->getPartition(), Out);
+    Out << '"';
+  }
+
   maybePrintComdat(Out, *GV);
   if (GV->getAlignment())
     Out << ", align " << GV->getAlignment();
@@ -3330,6 +3345,12 @@ void AssemblyWriter::printIndirectSymbol(const GlobalIndirectSymbol *GIS) {
     Out << " <<NULL ALIASEE>>";
   } else {
     writeOperand(IS, !isa<ConstantExpr>(IS));
+  }
+
+  if (GIS->hasPartition()) {
+    Out << ", partition \"";
+    printEscapedString(GIS->getPartition(), Out);
+    Out << '"';
   }
 
   printInfoComment(*GIS);
@@ -3478,6 +3499,11 @@ void AssemblyWriter::printFunction(const Function *F) {
   if (F->hasSection()) {
     Out << " section \"";
     printEscapedString(F->getSection(), Out);
+    Out << '"';
+  }
+  if (F->hasPartition()) {
+    Out << " partition \"";
+    printEscapedString(F->getPartition(), Out);
     Out << '"';
   }
   maybePrintComdat(Out, *F);
@@ -4055,6 +4081,20 @@ void AssemblyWriter::printInstruction(const Instruction &I) {
 
   // Print a nice comment.
   printInfoComment(I);
+#if INTEL_CUSTOMIZATION
+  if (PrintDbgLoc) {
+    // Print location besides instructions for ease of debugging IR dumps.
+    if (const DebugLoc Loc = I.getDebugLoc()) {
+      Out.PadToColumn(49);
+      Out << " ; ";
+      // Not using Loc.print() because inlinedAt info can get messy with heavy
+      // inlnining.
+      auto *Scope = cast<DIScope>(Loc.getScope());
+      Out << Scope->getFilename() << ":" << Loc.getLine() << ':'
+          << Loc.getCol();
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 void AssemblyWriter::printMetadataAttachments(

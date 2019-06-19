@@ -40,7 +40,7 @@
 #include "llvm/IR/InstVisitor.h"                    // INTEL
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
-#include "llvm/IR/PatternMatch.h"                   // INTEL
+#include "llvm/IR/PatternMatch.h"
 #include "llvm/Support/GenericDomTree.h"            // INTEL
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -856,7 +856,7 @@ bool CallAnalyzer::visitIntToPtr(IntToPtrInst &I) {
 }
 
 bool CallAnalyzer::visitCastInst(CastInst &I) {
-  // Propagate constants through ptrtoint.
+  // Propagate constants through casts.
   if (simplifyInstruction(I, [&](SmallVectorImpl<Constant *> &COps) {
         return ConstantExpr::getCast(I.getOpcode(), COps[0], I.getType());
       }))
@@ -892,7 +892,7 @@ bool CallAnalyzer::visitUnaryInstruction(UnaryInstruction &I) {
       }))
     return true;
 
-  // Disable any SROA on the argument to arbitrary unary operators.
+  // Disable any SROA on the argument to arbitrary unary instructions.
   disableSROA(Operand);
 
   return false;
@@ -1276,9 +1276,11 @@ bool CallAnalyzer::visitBinaryOperator(BinaryOperator &I) {
 
   // If the instruction is floating point, and the target says this operation
   // is expensive, this may eventually become a library call. Treat the cost
-  // as such.
+  // as such. Unless it's fneg which can be implemented with an xor.
+  using namespace llvm::PatternMatch;
   if (I.getType()->isFloatingPointTy() &&
-      TTI.getFPOpCost(I.getType()) == TargetTransformInfo::TCC_Expensive)
+      TTI.getFPOpCost(I.getType()) == TargetTransformInfo::TCC_Expensive &&
+      !match(&I, m_FNeg(m_Value())))
     addCost(InlineConstants::CallPenalty);
 
   return false;
@@ -3489,10 +3491,10 @@ static bool preferNotToInlineForSwitchComputations(CallBase &CB,
 
 //
 // Return 'true' if 'Callee' is preferred for not inlining because it is
-// a recursive progressive clone marked with an attribute as being
+// a recursive progression clone marked with an attribute as being
 // preferred for not inlining ("prefer-noinline-rec-pro-clone").
 //
-static bool preferNotToInlineForRecProgressiveClone(Function *Callee) {
+static bool preferNotToInlineForRecProgressionClone(Function *Callee) {
   return Callee && Callee->hasFnAttribute("prefer-noinline-rec-pro-clone");
 }
 
@@ -3849,10 +3851,10 @@ static bool worthInliningSingleBasicBlockWithStructTest(Function *Callee,
 
 //
 // Return 'true' if 'Callee' is preferred for inlining because it is
-// a recursive progressive clone marked with an attribute as being
+// a recursive progression clone marked with an attribute as being
 // preferred for inlining ("prefer-inline-rec-pro-clone").
 //
-static bool worthInliningForRecProgressiveClone(Function *Callee) {
+static bool worthInliningForRecProgressionClone(Function *Callee) {
   return Callee && Callee->hasFnAttribute("prefer-inline-rec-pro-clone");
 }
 
@@ -4010,7 +4012,8 @@ static bool worthInliningForArrayStructArgs(CallBase &CB,
   Function *Caller = CB.getCaller();
   auto AB = Caller->arg_begin();
   auto AE = Caller->arg_end();
-  return std::distance(AB, AE) >= ArrayStructArgMinCallerArgs;
+  unsigned Diff = std::distance(AB, AE);
+  return Diff >= ArrayStructArgMinCallerArgs;
 }
 
 //
@@ -4152,7 +4155,7 @@ static int worthInliningUnderSpecialCondition(CallBase &CB,
     YesReasonVector.push_back(InlrSingleBasicBlockWithStructTest);
     return -InlineConstants::InliningHeuristicBonus;;
   }
-  if (worthInliningForRecProgressiveClone(F)) {
+  if (worthInliningForRecProgressionClone(F)) {
     YesReasonVector.push_back(InlrRecProClone);
     return -InlineConstants::DeepInliningHeuristicBonus;
   }
@@ -4273,7 +4276,7 @@ InlineResult CallAnalyzer::analyzeCall(CallBase &Call,
       *ReasonAddr = NinlrSwitchComputations;
       return false;
     }
-    if (preferNotToInlineForRecProgressiveClone(Callee)) {
+    if (preferNotToInlineForRecProgressionClone(Callee)) {
       *ReasonAddr = NinlrRecursive;
       return false;
     }

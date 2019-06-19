@@ -1,88 +1,95 @@
-; This test checks for VLS-grouping from the VPO vectorizer
-;
-; Generated the IR using the following command:
-;icx -O2 vectvls.cpp -S -emit-llvm -mllvm -print-module-before-loopopt -mllvm -disable-hir-loop-reroll=true -xSSE3
-;
-; Original C/C++ source
-;
-; int x[300];
-; void foo(int N) {
-; int i,a,b,c;
-; for (i=0;i<300;i+=3){
-;   a=x[i];
-;   b=x[i+1];
-;   c=x[i+2];
-;   x[i]=a+1;
-;   x[i+1]=b+1;
-;   x[i+2]=c+1;
-;  }
-;}
-
+; RUN: opt -VPlanDriver -vplan-force-vf=4 -enable-vplan-vls-cg -debug-only=ovls -disable-output < %s 2>&1  | FileCheck %s
 ; REQUIRES: asserts
-; RUN: opt < %s -O2 -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -debug-only=ovls -disable-hir-complete-unroll -enable-vplan-vls-cg=false 2>&1 | FileCheck %s
 
-; CHECK-LABEL: Received a request from Client---FORM GROUPS
-; CHECK: Set #1
-; CHECK-NEXT: [[L1:#.*]] <[[VF:[0-9]+]] x 32> SLoad   Dist: 0
-; CHECK-NEXT: [[L2:#.*]] <[[VF]] x 32> SLoad   Dist: 4
-; CHECK-NEXT: [[L3:#.*]] <[[VF]] x 32> SLoad   Dist: 8
-; CHECK: Set #2
-; CHECK-NEXT: [[S1:#.*]] <[[VF]] x 32> SStore   Dist: 0
-; CHECK-NEXT: [[S2:#.*]] <[[VF]] x 32> SStore   Dist: 4
-; CHECK-NEXT: [[S3:#.*]] <[[VF]] x 32> SStore   Dist: 8
-; CHECK-LABEL: Printing Groups- Total Groups 2
-; CHECK: Group#1
-; CHECK: [[L1]] <[[VF]] x 32> SLoad
-; CHECK: [[L2]] <[[VF]] x 32> SLoad
-; CHECK: [[L3]] <[[VF]] x 32> SLoad
-; CHECK: Group#2
-; CHECK: [[S1]] <[[VF]] x 32> SStore
-; CHECK: [[S2]] <[[VF]] x 32> SStore
-; CHECK: [[S3]] <[[VF]] x 32> SStore
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
 
-; ModuleID = 'vectvls.cpp'
-source_filename = "vectvls.cpp"
-
-@x = dso_local local_unnamed_addr global [300 x i32] zeroinitializer, align 16
-
-; Function Attrs: norecurse nounwind uwtable
-define dso_local void @_Z3fooi(i32 %N) local_unnamed_addr #0 {
+define void @foo(i32* nocapture %ary) {
+;  for (i = 0; i < 1024; i += 4) {
+;    t0 = ary[i + 0] + 7;
+;    t1 = ary[i + 1] + 11;
+;    t2 = ary[i + 2] + 12;
+;    t3 = ary[i + 3] + 61;
+;    ary[i + 0] = t0;
+;    ary[i + 1] = t1;
+;    ary[i + 2] = t2;
+;    ary[i + 3] = t3;
+;  }
+;
+; CHECK:       Printing Groups- Total Groups 8
+; CHECK-NEXT:  Group#1
+; CHECK-NEXT:    Vector Length(in bytes): 64
+; CHECK-NEXT:    AccType: SLoad
+; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
+; CHECK-NEXT:   #1 <4 x 32> SLoad
+; CHECK-NEXT:  Group#2
+; CHECK-NEXT:    Vector Length(in bytes): 64
+; CHECK-NEXT:    AccType: SLoad
+; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
+; CHECK-NEXT:   #2 <4 x 32> SLoad
+; CHECK-NEXT:  Group#3
+; CHECK-NEXT:    Vector Length(in bytes): 64
+; CHECK-NEXT:    AccType: SLoad
+; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
+; CHECK-NEXT:   #3 <4 x 32> SLoad
+; CHECK-NEXT:  Group#4
+; CHECK-NEXT:    Vector Length(in bytes): 64
+; CHECK-NEXT:    AccType: SLoad
+; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
+; CHECK-NEXT:   #4 <4 x 32> SLoad
+; CHECK-NEXT:  Group#5
+; CHECK-NEXT:    Vector Length(in bytes): 64
+; CHECK-NEXT:    AccType: SStore
+; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
+; CHECK-NEXT:   #5 <4 x 32> SStore
+; CHECK-NEXT:  Group#6
+; CHECK-NEXT:    Vector Length(in bytes): 64
+; CHECK-NEXT:    AccType: SStore
+; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
+; CHECK-NEXT:   #6 <4 x 32> SStore
+; CHECK-NEXT:  Group#7
+; CHECK-NEXT:    Vector Length(in bytes): 64
+; CHECK-NEXT:    AccType: SStore
+; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
+; CHECK-NEXT:   #7 <4 x 32> SStore
+; CHECK-NEXT:  Group#8
+; CHECK-NEXT:    Vector Length(in bytes): 64
+; CHECK-NEXT:    AccType: SStore
+; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
+; CHECK-NEXT:   #8 <4 x 32> SStore
 entry:
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [300 x i32], [300 x i32]* @x, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !2
-  %1 = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx2 = getelementptr inbounds [300 x i32], [300 x i32]* @x, i64 0, i64 %1, !intel-tbaa !2
-  %2 = load i32, i32* %arrayidx2, align 4, !tbaa !2
-  %3 = add nuw nsw i64 %indvars.iv, 2
-  %arrayidx5 = getelementptr inbounds [300 x i32], [300 x i32]* @x, i64 0, i64 %3, !intel-tbaa !2
-  %4 = load i32, i32* %arrayidx5, align 4, !tbaa !2
-  %add6 = add nsw i32 %0, 1
-  store i32 %add6, i32* %arrayidx, align 4, !tbaa !2
-  %add9 = add nsw i32 %2, 1
-  store i32 %add9, i32* %arrayidx2, align 4, !tbaa !2
-  %add13 = add nsw i32 %4, 1
-  store i32 %add13, i32* %arrayidx5, align 4, !tbaa !2
-  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 3
-  %cmp = icmp ult i64 %indvars.iv.next, 300
+  %arrayidx = getelementptr inbounds i32, i32* %ary, i64 %indvars.iv
+  %0 = load i32, i32* %arrayidx, align 4
+  %add1 = add nsw i32 %0, 7
+  %1 = add nsw i64 %indvars.iv, 1
+  %arrayidx4 = getelementptr inbounds i32, i32* %ary, i64 %1
+  %2 = load i32, i32* %arrayidx4, align 4
+  %add5 = add nsw i32 %2, 11
+  %3 = add nsw i64 %indvars.iv, 2
+  %arrayidx8 = getelementptr inbounds i32, i32* %ary, i64 %3
+  %4 = load i32, i32* %arrayidx8, align 4
+  %add9 = add nsw i32 %4, 12
+  %5 = add nsw i64 %indvars.iv, 3
+  %arrayidx12 = getelementptr inbounds i32, i32* %ary, i64 %5
+  %6 = load i32, i32* %arrayidx12, align 4
+  %add13 = add nsw i32 %6, 61
+  store i32 %add1, i32* %arrayidx, align 4
+  store i32 %add5, i32* %arrayidx4, align 4
+  store i32 %add9, i32* %arrayidx8, align 4
+  store i32 %add13, i32* %arrayidx12, align 4
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 4
+  %cmp = icmp ult i64 %indvars.iv.next, 1024
   br i1 %cmp, label %for.body, label %for.end
 
 for.end:                                          ; preds = %for.body
+  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   ret void
 }
 
-attributes #0 = { norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="nocona" "target-features"="+cx16,+cx8,+fxsr,+mmx,+sse,+sse2,+sse3,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-
-!llvm.module.flags = !{!0}
-!llvm.ident = !{!1}
-
-!0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"icx (ICX) dev.8.x.0"}
-!2 = !{!3, !4, i64 0}
-!3 = !{!"array@_ZTSA300_i", !4, i64 0}
-!4 = !{!"int", !5, i64 0}
-!5 = !{!"omnipotent char", !6, i64 0}
-!6 = !{!"Simple C++ TBAA"}
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)

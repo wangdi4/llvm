@@ -318,12 +318,16 @@ void InlineReport::beginFunction(Function *F) {
   if (!F || F->isDeclaration())
     return;
   InlineReportFunction *IRF = addFunction(F, M);
+  assert(IRF != nullptr);
   for (BasicBlock &BB : *F) {
     for (Instruction &I : BB) {
       CallSite CS(cast<Value>(&I));
       // If this isn't a call, or it is a call to an intrinsic, it can
       // never be inlined.
       if (!CS)
+        continue;
+      if (isa<IntrinsicInst>(I) && !(Level & DontSkipIntrin) &&
+          shouldSkipIntrinsic(cast<IntrinsicInst>(&I)))
         continue;
       addNewCallSite(F, CS, M);
       if (isa<IntrinsicInst>(I)) {
@@ -635,6 +639,9 @@ void InlineReport::makeCurrent(Module *M, Function *F) {
       if (!CS) {
         continue;
       }
+      if (isa<IntrinsicInst>(I) && !(Level & DontSkipIntrin) &&
+          shouldSkipIntrinsic(cast<IntrinsicInst>(I)))
+        continue;
       Instruction *NI = CS.getInstruction();
       InlineReportInstructionCallSiteMap::const_iterator MapItICS;
       MapItICS = IRInstructionCallSiteMap.find(NI);

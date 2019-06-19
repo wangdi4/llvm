@@ -28,11 +28,13 @@ let Namespace = "X86" in {
   def sub_32bit    : SubRegIndex<32>;
   def sub_xmm      : SubRegIndex<128>;
   def sub_ymm      : SubRegIndex<256>;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_VP2INTERSECT
   def sub_mask_0   : SubRegIndex<-1>;
   def sub_mask_1   : SubRegIndex<-1, -1>;
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX2
+  def sub_t0   : SubRegIndex<-1>;
+  def sub_t1   : SubRegIndex<-1, -1>;
+#endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -290,6 +292,16 @@ def TMM13: X86Reg<"tmm13", 13>;
 def TMM14: X86Reg<"tmm14", 14>;
 def TMM15: X86Reg<"tmm15", 15>;
 #endif // INTEL_FEATURE_ISA_AMX
+
+#if INTEL_FEATURE_ISA_AMX2
+// TMM register pairs
+def TPAIRS : RegisterTuples<[sub_t0, sub_t1],
+                            [(add TMM0, TMM2, TMM4, TMM6, TMM8, TMM10, TMM12, TMM14),
+                             (add TMM1, TMM3, TMM5, TMM7, TMM9, TMM11, TMM13, TMM15)]>;
+
+// Need check alignment 3rd operand size=1024*2*8
+def VTILEPAIR : RegisterClass<"X86", [untyped], 32, (add TPAIRS)> {let Size = 16384;}
+#endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
 
 // Mask Registers, used by AVX-512 instructions.
@@ -658,8 +670,6 @@ def VK8     : RegisterClass<"X86", [v8i1],  16,  (add VK4)> {let Size = 16;}
 def VK16    : RegisterClass<"X86", [v16i1], 16, (add VK8)> {let Size = 16;}
 def VK32    : RegisterClass<"X86", [v32i1], 32, (add VK16)> {let Size = 32;}
 def VK64    : RegisterClass<"X86", [v64i1], 64, (add VK32)> {let Size = 64;}
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_VP2INTERSECT
 
 // Mask register pairs
 def KPAIRS : RegisterTuples<[sub_mask_0, sub_mask_1],
@@ -670,8 +680,6 @@ def VK2PAIR   : RegisterClass<"X86", [untyped], 16, (add KPAIRS)> {let Size = 32
 def VK4PAIR   : RegisterClass<"X86", [untyped], 16, (add KPAIRS)> {let Size = 32;}
 def VK8PAIR   : RegisterClass<"X86", [untyped], 16, (add KPAIRS)> {let Size = 32;}
 def VK16PAIR  : RegisterClass<"X86", [untyped], 16, (add KPAIRS)> {let Size = 32;}
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
-#endif // INTEL_CUSTOMIZATION
 
 def VK1WM   : RegisterClass<"X86", [v1i1],  16,  (sub VK1, K0)> {let Size = 16;}
 def VK2WM   : RegisterClass<"X86", [v2i1],  16,  (sub VK2, K0)> {let Size = 16;}

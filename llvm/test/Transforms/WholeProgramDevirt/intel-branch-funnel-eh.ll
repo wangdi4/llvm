@@ -2,20 +2,20 @@
 ; in functions that contain exception handling. It should generate the
 ; branch funnel intrinsic.
 
-; RUN: opt -S -wholeprogramdevirt -wholeprogramdevirt-multiversion=true -instnamer %s | FileCheck %s
+; RUN: opt -S -wholeprogramdevirt -wholeprogramdevirt-multiversion=true %s | FileCheck %s
 
 ; Check that the virtual call in %result was substituted with a call to
 ; the branch funnel
 ; CHECK: define i32 @test1(i8* %obj)
-; CHECK: %tmp1 = call i32 bitcast (void (i8*, ...)* @__typeid_type_id1_0_branch_funnel to i32 (i8*, i8*, i32)*)(i8* nest %tmp, i8* %obj, i32 1)
+; CHECK: %2 = call i32 bitcast (void (i8*, ...)* @__typeid_type_id1_0_branch_funnel to i32 (i8*, i8*, i32)*)(i8* nest %1, i8* %obj, i32 1)
 
 
 ; Check that the wrapper for the branch funnel was created
-; CHECK: define hidden void @__typeid_type_id1_0_branch_funnel(i8* nest %arg, ...
+; CHECK: define hidden void @__typeid_type_id1_0_branch_funnel(i8* nest, ...
 
 ; Check that the branch funnel call was created with with the virtual calls vfn_1
 ; and vfn_2
-; CHECK: musttail call void (...) @llvm.icall.branch.funnel(i8* %arg, i8* bitcast ([1 x i8*]* @vt_1 to i8*), i32 (i8*, i32)* @vfn_1, i8* bitcast ([1 x i8*]* @vt_2 to i8*), i32 (i8*, i32)* @vfn_2, ...)
+; CHECK: musttail call void (...) @llvm.icall.branch.funnel(i8* %0, i8* bitcast ([1 x i8*]* @vt_1 to i8*), i32 (i8*, i32)* @vfn_1, i8* bitcast ([1 x i8*]* @vt_2 to i8*), i32 (i8*, i32)* @vfn_2, ...)
 
 ; Check that the intrinsic for branch funnel was created
 ; CHECK: declare void @llvm.icall.branch.funnel(...)

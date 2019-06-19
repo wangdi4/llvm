@@ -331,6 +331,14 @@ namespace X86II {
     /// information.  In the intel manual these are represented as /0, /1, ...
     ///
 
+#if INTEL_CUSTOMIZATION
+    /// MRMSrcMem4VOp3 - But force to use the SIB field.
+    MRMSrcMem4VOp3FSIB = 30,
+
+    /// MRMDestMem - But force to use the SIB field.
+    MRMDestMemFSIB = 31,
+#endif // INTEL_CUSTOMIZATION
+
     /// MRMDestMem - This form is used for instructions that use the Mod/RM byte
     /// to specify a destination, which in this case is memory.
     ///
@@ -489,11 +497,7 @@ namespace X86II {
     //
     OpMapShift = OpPrefixShift + 2,
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
     OpMapMask  = 0xF << OpMapShift,
-#else // INTEL_FEATURE_ISA_FP16
-    OpMapMask  = 0x7 << OpMapShift,
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
     // OB - OneByte - Set if this instruction has a one byte opcode.
@@ -524,11 +528,9 @@ namespace X86II {
     ThreeDNow = 7 << OpMapShift,
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
     // MAP5, MAP6 - Prefix after the 0x0F prefix.
     T_MAP5 = 8 << OpMapShift,
     T_MAP6 = 9 << OpMapShift,
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
     //===------------------------------------------------------------------===//
@@ -538,11 +540,7 @@ namespace X86II {
     // statically determined.
     //
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
     REXShift    = OpMapShift + 4,
-#else // INTEL_FEATURE_ISA_FP16
-    REXShift    = OpMapShift + 3,
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     REX_W       = 1 << REXShift,
 
@@ -808,6 +806,9 @@ namespace X86II {
     case X86II::AddCCFrm:
       return -1;
     case X86II::MRMDestMem:
+#if INTEL_CUSTOMIZATION
+    case X86II::MRMDestMemFSIB:
+#endif // INTEL_CUSTOMIZATION
       return 0;
     case X86II::MRMSrcMem:
 #if INTEL_CUSTOMIZATION
@@ -816,7 +817,10 @@ namespace X86II {
       // Start from 1, skip any registers encoded in VEX_VVVV or I8IMM, or a
       // mask register.
       return 1 + HasVEX_4V + HasEVEX_K;
+#if INTEL_CUSTOMIZATION
     case X86II::MRMSrcMem4VOp3:
+    case X86II::MRMSrcMem4VOp3FSIB:
+#endif // INTEL_CUSTOMIZATION
       // Skip registers encoded in reg.
       return 1 + HasEVEX_K;
     case X86II::MRMSrcMemOp4:

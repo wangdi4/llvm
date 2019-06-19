@@ -108,7 +108,7 @@ define <8 x half> @test_min_v8f16(<8 x half>* %a_ptr, <8 x half> %b)  {
 define half @test_max_f16(half %a, half* %ptr) {
 ; CHECK_UNSAFE-LABEL: test_max_f16:
 ; CHECK_UNSAFE:       # %bb.0: # %entry
-; CHECK_UNSAFE-NEXT:    vmaxss (%rdi), %xmm0, %xmm0
+; CHECK_UNSAFE-NEXT:    vmaxsh (%rdi), %xmm0, %xmm0
 ; CHECK_UNSAFE-NEXT:    retq
 ;
 ; CHECK-LABEL: test_max_f16:
@@ -126,7 +126,7 @@ entry:
 define half @test_min_f16(half %a, half* %ptr) {
 ; CHECK_UNSAFE-LABEL: test_min_f16:
 ; CHECK_UNSAFE:       # %bb.0: # %entry
-; CHECK_UNSAFE-NEXT:    vminss (%rdi), %xmm0, %xmm0
+; CHECK_UNSAFE-NEXT:    vminsh (%rdi), %xmm0, %xmm0
 ; CHECK_UNSAFE-NEXT:    retq
 ;
 ; CHECK-LABEL: test_min_f16:

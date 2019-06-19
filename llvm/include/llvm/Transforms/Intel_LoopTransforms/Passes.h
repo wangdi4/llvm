@@ -161,6 +161,9 @@ FunctionPass *createHIRRecognizeParLoopPass();
 
 /// Create pass that recognize identity matrix.
 FunctionPass *createHIRIdentityMatrixIdiomRecognitionPass();
+
+/// Create pass that prefetches memrefs.
+FunctionPass *createHIRPrefetchingPass();
 } // namespace llvm
 
 #endif

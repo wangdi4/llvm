@@ -115,22 +115,15 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
 }
 
 StringRef VPOAnalysisUtils::getDirOrClauseString(Instruction *I) {
-  return VPOAnalysisUtils::getDirectiveString(I, true);
+  return VPOAnalysisUtils::getDirectiveString(I);
 }
 
-StringRef VPOAnalysisUtils::getDirectiveString(Instruction *I, bool doClauses){
+StringRef VPOAnalysisUtils::getDirectiveString(Instruction *I){
   StringRef DirString;  // ctor initializes its data to nullptr
   if (I) {
     IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
     if (Call) {
-      Intrinsic::ID Id = Call->getIntrinsicID();
-      if (VPOAnalysisUtils::isIntelDirective(Id) ||
-          (doClauses && VPOAnalysisUtils::isIntelClause(Id)))
-        // this is an llvm.intel.directive intrinsic
-        DirString = VPOAnalysisUtils::getDirectiveMetadataString(Call);
-      else
-        // check if it's an llvm.directive.region.entry/exit intrinsic
-        DirString = VPOAnalysisUtils::getRegionDirectiveString(I);
+      DirString = VPOAnalysisUtils::getRegionDirectiveString(I);
     }
   }
   return DirString;
@@ -174,6 +167,11 @@ StringRef VPOAnalysisUtils::getReductionOpName(int Id) {
 
   // skip "QUAL_OMP_REDUCTION_"
   return VPOAnalysisUtils::getClauseString(Id).substr(19);
+}
+
+bool VPOAnalysisUtils::isOpenMPDirective(Instruction *I) {
+  StringRef DirString = VPOAnalysisUtils::getRegionDirectiveString(I);
+  return VPOAnalysisUtils::isOpenMPDirective(DirString);
 }
 
 bool VPOAnalysisUtils::isOpenMPDirective(StringRef DirFullName) {
@@ -377,20 +375,6 @@ bool VPOAnalysisUtils::isStandAloneEndDirective(BasicBlock *BB) {
   return VPOAnalysisUtils::isStandAloneEndDirective(&(BB->front()));
 }
 
-bool VPOAnalysisUtils::isListEndDirective(int DirID) {
-  return DirID == DIR_QUAL_LIST_END;
-}
-
-bool VPOAnalysisUtils::isListEndDirective(StringRef DirString) {
-  int DirID = VPOAnalysisUtils::getDirectiveID(DirString);
-  return VPOAnalysisUtils::isListEndDirective(DirID);
-}
-
-bool VPOAnalysisUtils::isListEndDirective(Instruction *I) {
-  int DirID = VPOAnalysisUtils::getDirectiveID(I);
-  return VPOAnalysisUtils::isListEndDirective(DirID);
-}
-
 Instruction * VPOAnalysisUtils::getEndRegionDir(Instruction *BeginDir) {
   assert(VPOAnalysisUtils::isRegionDirective(BeginDir) &&
          "getEndRegionDir: expected BeginDir to be a REGION directive");
@@ -587,6 +571,7 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_CANCEL_LOOP:
     case QUAL_OMP_CANCEL_SECTIONS:
     case QUAL_OMP_CANCEL_TASKGROUP:
+    case QUAL_OMP_TARGET_TASK:
       return 0;
 
     // Clauses that take one argument

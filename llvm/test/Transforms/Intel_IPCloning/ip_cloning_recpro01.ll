@@ -1,7 +1,7 @@
 ; RUN: opt < %s -ip-cloning -print-ip-cloning -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(ip-cloning)' -print-ip-cloning -S 2>&1 | FileCheck %s
 
-; Test that the function foo is recognized as a recursive progressive clone
+; Test that the function foo is recognized as a recursive progression clone
 ; and four clones of it are created.
 
 ; CHECK: Enter IP cloning: (Before inlining)

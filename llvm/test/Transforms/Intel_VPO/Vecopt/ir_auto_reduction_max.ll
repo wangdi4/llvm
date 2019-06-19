@@ -32,8 +32,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define i32 @foo(i32* nocapture readonly %A, i32 %N) {
 
 entry:
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:
@@ -65,14 +64,12 @@ for.cond.cleanup:                                      ; preds = %for.cond.clean
   br label %end.simd
 
 end.simd:
-  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.QUAL.LIST.END.3
 
 DIR.QUAL.LIST.END.3:
   ret i32 %Max.0.lcssa
 }
 
-
-
-declare void @llvm.intel.directive(metadata)
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)

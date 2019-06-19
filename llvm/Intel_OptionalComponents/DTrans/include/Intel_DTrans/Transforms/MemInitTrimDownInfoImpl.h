@@ -122,6 +122,10 @@ public:
                       CandidateFieldMemberFuncs[FI].end());
   }
 
+  inline bool isStructMethod(Function *F) {
+    return StructMethods.count(F);
+  }
+
 private:
   // Candidate struct.
   StructType *SType = nullptr;

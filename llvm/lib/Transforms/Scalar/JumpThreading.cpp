@@ -538,7 +538,7 @@ static unsigned getJumpThreadDuplicationCost(
       if (I->isTerminator() && BB == RegionBottom)
         continue;
 
-      if (IntrinsicUtils::isIntelDirective(const_cast<Instruction *>(&*I)))
+      if (IntrinsicUtils::isOpenMPDirective(const_cast<Instruction *>(&*I)))
         return Threshold + 1;
 
       // Stop scanning the block if we've reached the threshold.

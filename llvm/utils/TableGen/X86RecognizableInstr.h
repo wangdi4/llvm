@@ -102,6 +102,8 @@ namespace X86Local {
     RawFrmImm8    = 7,
     RawFrmImm16   = 8,
     AddCCFrm      = 9,
+    MRMSrcMem4VOp3FSIB = 30, // INTEL
+    MRMDestMemFSIB     = 31, // INTEL
     MRMDestMem     = 32,
     MRMSrcMem      = 33,
     MRMSrcMem4VOp3 = 34,
@@ -131,12 +133,8 @@ namespace X86Local {
 
   enum {
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
     OB = 0, TB = 1, T8 = 2, TA = 3, XOP8 = 4, XOP9 = 5, XOPA = 6, ThreeDNow = 7,
     T_MAP5 = 8, T_MAP6 = 9
-#else // INTEL_FEATURE_ISA_FP16
-    OB = 0, TB = 1, T8 = 2, TA = 3, XOP8 = 4, XOP9 = 5, XOPA = 6, ThreeDNow = 7
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   };
 

@@ -44,15 +44,16 @@ private:
       DDNodeRefs;
 
   virtual OVLSMemref *createVLSMemref(const VPInstruction *Inst,
-                                      const VPVectorShape *Shape,
+                                      const VPVectorShape &Shape,
                                       const unsigned VF) const final;
 
   static MemAccessTy getAccessType(const RegDDRef *Ref, const unsigned Level,
                                    int64_t *Stride);
 
 public:
-  explicit VPlanVLSAnalysisHIR(HIRDDAnalysis *DDA, LLVMContext &Context)
-      : VPlanVLSAnalysis(Context), DDA(DDA) {}
+  VPlanVLSAnalysisHIR(HIRDDAnalysis *DDA, LLVMContext &Context,
+                      const DataLayout &DL)
+      : VPlanVLSAnalysis(Context, DL), DDA(DDA) {}
 
   static bool isUnitStride(const RegDDRef *Ref, unsigned Level);
 

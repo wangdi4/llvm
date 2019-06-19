@@ -57,6 +57,7 @@
 #include "VPlan.h"
 #include "LoopVectorizationPlanner.h"
 #include "VPRecipeBuilder.h"
+#include "VPlan.h"
 #include "VPlanHCFGBuilder.h"
 #include "VPlanHCFGTransforms.h"
 #include "VPlanPredicator.h"
@@ -3971,6 +3972,7 @@ void InnerLoopVectorizer::widenInstruction(Instruction &I) {
   case Instruction::FAdd:
   case Instruction::Sub:
   case Instruction::FSub:
+  case Instruction::FNeg:
   case Instruction::Mul:
   case Instruction::FMul:
   case Instruction::FDiv:
@@ -3981,21 +3983,22 @@ void InnerLoopVectorizer::widenInstruction(Instruction &I) {
   case Instruction::And:
   case Instruction::Or:
   case Instruction::Xor: {
-    // Just widen binops.
-    auto *BinOp = cast<BinaryOperator>(&I);
-    setDebugLocFromInst(Builder, BinOp);
+    // Just widen unops and binops.
+    setDebugLocFromInst(Builder, &I);
 
     for (unsigned Part = 0; Part < UF; ++Part) {
-      Value *A = getOrCreateVectorValue(BinOp->getOperand(0), Part);
-      Value *B = getOrCreateVectorValue(BinOp->getOperand(1), Part);
-      Value *V = Builder.CreateBinOp(BinOp->getOpcode(), A, B);
+      SmallVector<Value *, 2> Ops;
+      for (Value *Op : I.operands())
+        Ops.push_back(getOrCreateVectorValue(Op, Part));
 
-      if (BinaryOperator *VecOp = dyn_cast<BinaryOperator>(V))
-        VecOp->copyIRFlags(BinOp);
+      Value *V = Builder.CreateNAryOp(I.getOpcode(), Ops);
+
+      if (auto *VecOp = dyn_cast<Instruction>(V))
+        VecOp->copyIRFlags(&I);
 
       // Use this vector value for all users of the original instruction.
       VectorLoopValueMap.setVectorValue(&I, Part, V);
-      addMetadata(V, BinOp);
+      addMetadata(V, &I);
     }
 
     break;
@@ -5974,6 +5977,14 @@ unsigned LoopVectorizationCostModel::getInstructionCost(Instruction *I,
                    I->getOpcode(), VectorTy, TargetTransformInfo::OK_AnyValue,
                    Op2VK, TargetTransformInfo::OP_None, Op2VP, Operands);
   }
+  case Instruction::FNeg: {
+    unsigned N = isScalarAfterVectorization(I, VF) ? VF : 1;
+    return N * TTI.getArithmeticInstrCost(
+                   I->getOpcode(), VectorTy, TargetTransformInfo::OK_AnyValue,
+                   TargetTransformInfo::OK_AnyValue,
+                   TargetTransformInfo::OP_None, TargetTransformInfo::OP_None,
+                   I->getOperand(0));
+  }
   case Instruction::Select: {
     SelectInst *SI = cast<SelectInst>(I);
     const SCEV *CondSCEV = SE->getSCEV(SI->getCondition());
@@ -6603,6 +6614,7 @@ bool VPRecipeBuilder::tryToWiden(Instruction *I, VPBasicBlock *VPBB,
     case Instruction::FCmp:
     case Instruction::FDiv:
     case Instruction::FMul:
+    case Instruction::FNeg:
     case Instruction::FPExt:
     case Instruction::FPToSI:
     case Instruction::FPToUI:
@@ -6832,8 +6844,7 @@ void LoopVectorizationPlanner::buildVPlansWithVPRecipes(unsigned MinVF,
   }
 }
 
-LoopVectorizationPlanner::VPlanPtr
-LoopVectorizationPlanner::buildVPlanWithVPRecipes(
+VPlanPtr LoopVectorizationPlanner::buildVPlanWithVPRecipes(
     VFRange &Range, SmallPtrSetImpl<Value *> &NeedDef,
     SmallPtrSetImpl<Instruction *> &DeadInstructions) {
   // Hold a mapping from predicated instructions to their recipes, in order to
@@ -6957,8 +6968,7 @@ LoopVectorizationPlanner::buildVPlanWithVPRecipes(
   return Plan;
 }
 
-LoopVectorizationPlanner::VPlanPtr
-LoopVectorizationPlanner::buildVPlan(VFRange &Range) {
+VPlanPtr LoopVectorizationPlanner::buildVPlan(VFRange &Range) {
   // Outer loop handling: They may require CFG and instruction level
   // transformations before even evaluating whether vectorization is profitable.
   // Since we cannot modify the incoming IR, we need to build VPlan upfront in

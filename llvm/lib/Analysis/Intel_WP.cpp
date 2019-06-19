@@ -247,7 +247,6 @@ bool WholeProgramInfo::resolveAllLibFunctions(Module &M,
   int unresolved_aliases_count = 0;
 
   UnresolvedCallsCount = 0;
-  uint32_t ExternalFunctions = 0;
 
   // Walk through all functions to find unresolved calls.
   LibFunc TheLibFunc;
@@ -268,16 +267,6 @@ bool WholeProgramInfo::resolveAllLibFunctions(Module &M,
           LibFuncsFound.insert(&F);
 
       } else {
-        // If the external isn't an intrinsic or a LibFunc, then we have
-        // an symbol outside the compilation unit or LTO module
-
-        // TODO: For now, we insert the Function into ExternalSymbols
-        // rather than LibFuncsNotFound. The difference is that at this
-        // point we can't prove if the missing symbol is a LibFunc or not.
-        if (WholeProgramTraceSymbols)
-          ExternalSymbols.insert(&F);
-
-        ExternalFunctions++;
         all_resolved &= false;
       }
       // We can skip because there is no IR
@@ -318,14 +307,10 @@ bool WholeProgramInfo::resolveAllLibFunctions(Module &M,
     for (const Function *F : LibFuncsNotFound)
       errs() << "      " << F->getName() << "\n";
 
-    errs() << "  EXTERNAL FUNCTIONS: " << ExternalFunctions << "\n";
-    if (WholeProgramTraceSymbols) {
-      for (const Function *F : ExternalSymbols)
-        errs() << "      " << F->getName() << "\n";
-    }
-
     // Print those symbols that are visible outside the LTO unit
-    WPUtils.dumpVisibleSymbols();
+    errs() << "  VISIBLE OUTSIDE LTO: " << VisibleFunctions.size() << "\n";
+    for (const Function *F : VisibleFunctions)
+      errs() << "      " << F->getName() << "\n";
   }
 
   // Print only the libfuncs
@@ -351,6 +336,108 @@ bool WholeProgramInfo::resolveAllLibFunctions(Module &M,
   return all_resolved;
 }
 
+// Compute if all functions in the module M are internal with the exception
+// of libfuncs, main and functions added by the linker.
+//
+void WholeProgramInfo::computeFunctionsVisibility(Module &M,
+    const TargetLibraryInfo &TLI) {
+  LibFunc TheLibFunc;
+
+  // Branch funnel functions are wrappers to the branch funnel intrinsics.
+  // These are created during devirtualization. The purpose of the branch
+  // funnel intrinsic is to contain all the possible targets for a virtual
+  // call, which could be used in a manner similar to multiversioning. Then
+  // the virtual call will be replaced with a direct call to the wrapper
+  // function. This is an example of a branch funnel wrapper function:
+  //
+  //  define hidden void @__typeid__ZTS4Base_0_branch_funnel(i8* nest, ...) {
+  //    musttail call void (...)
+  //    @llvm.icall.branch.funnel(i8* %0, i8* getelementptr
+  //       (i8, i8* bitcast ([3 x i8*]* @_ZTV7Derived.0 to i8*), i64 16),
+  //        i1 (%class.Derived*)* @_ZN7Derived3fooEv,
+  //        i8* getelementptr (i8, i8* bitcast ([3 x i8*]* @_ZTV8Derived2.0 to
+  //        i8*), i64 16), i1 (%class.Derived2*)* @_ZN8Derived23fooEv, ...)
+  //    ret void
+  //  }
+  //
+  // The linkage type for these functions is ExternalLinkage. We can treat
+  // these wrapper functions as libfuncs since they only wrap an intrinsic.
+  // Also, if devirtualization ran then it means that we achieved whole
+  // program already and all the functions are internal to the module during
+  // LTO.
+  auto IsBranchFunnelFunc = [](Function &F) {
+
+    // If there is no IR then there is nothing to check
+    if (F.isDeclaration())
+      return false;
+
+    // Return type will always be void
+    if (!F.getReturnType()->isVoidTy())
+      return false;
+
+    // Only one basic block
+    if (F.size() != 1)
+      return false;
+
+    BasicBlock &BB = F.front();
+
+    // Branch funnels contains only 2 instructions:
+    //   call to intrinsic
+    //   return void
+    if (BB.size() != 2)
+      return false;
+
+    CallBase *FunnelCall = dyn_cast<CallBase>(&(BB.front()));
+    ReturnInst *Ret = dyn_cast<ReturnInst>(&(BB.back()));
+
+    if (!FunnelCall || !Ret)
+      return false;
+
+    // Check that the return type is void
+    if (!Ret->getType()->isVoidTy())
+      return false;
+
+    Function *Func = FunnelCall->getCalledFunction();
+
+    if (!Func || !Func->isIntrinsic())
+      return false;
+
+    // Calls the intrinsic to branch funnel
+    if (Func->getIntrinsicID() == llvm::Intrinsic::icall_branch_funnel)
+      return true;
+
+    return false;
+  };
+
+  for (Function &F : M) {
+
+    if (!F.hasLocalLinkage()) {
+
+      StringRef SymbolName = F.getName();
+
+      bool IsLinkerAddedSymbol = WPUtils.isLinkerAddedSymbol(SymbolName);
+
+      bool IsMain = WPUtils.isMainEntryPoint(SymbolName);
+
+      bool IsLibFunc = F.isIntrinsic() ||
+                       (TLI.getLibFunc(F.getName(), TheLibFunc) &&
+                        TLI.has(TheLibFunc)) || IsBranchFunnelFunc(F);
+
+      // A whole program hidden symbol will be one or more of the following:
+      //   * is main (or one of it's form)
+      //   * is not external (internalized symbol and is not main)
+      //   * is a library function
+      //   * is a linker added symbol (will be treated as libfunc)
+      bool IsWPHiddenSymbol = IsLinkerAddedSymbol || IsLibFunc || IsMain;
+
+      // The only symbols that should be external are main, library functions
+      // (LibFuncs) or special symbols added by the linker.
+      if (!IsWPHiddenSymbol)
+        VisibleFunctions.insert(&F);
+    }
+  }
+}
+
 // Detect whole program using intrinsic table.
 //
 void WholeProgramInfo::wholeProgramAllExternsAreIntrins(Module &M,
@@ -358,6 +445,8 @@ void WholeProgramInfo::wholeProgramAllExternsAreIntrins(Module &M,
     if (WholeProgramTrace)
       errs() << "\nWHOLE-PROGRAM-ANALYSIS: SIMPLE ANALYSIS\n\n";
 
+    // Compute if all functions are internal
+    computeFunctionsVisibility(M, TLI);
     bool resolved = resolveAllLibFunctions(M, TLI);
 
     if (resolved) {
@@ -387,10 +476,11 @@ void WholeProgramInfo::wholeProgramAllExternsAreIntrins(Module &M,
     }
 
     if (WholeProgramTraceSymbols && !WholeProgramTrace) {
-      errs() << "\nWHOLE-PROGRAM-ANALYSIS: EXTERNAL FUNCTIONS TRACE\n\n";
-      errs() << "  EXTERNAL FUNCTIONS: " << ExternalSymbols.size() << "\n";
-      for (const Function *F : ExternalSymbols)
-        errs() << "      " << F->getName() << "\n";
+      errs() <<"WHOLE-PROGRAM-ANALYSIS: EXTERNAL FUNCTIONS TRACE\n";
+      errs() << "  VISIBLE OUTSIDE LTO: " << VisibleFunctions.size() << "\n";
+      if (WholeProgramTraceSymbols)
+        for (const Function *F : VisibleFunctions)
+          errs() << "      " << F->getName() << "\n";
     }
 }
 
@@ -438,7 +528,7 @@ bool WholeProgramInfo::isWholeProgramHidden(void) {
   if (AssumeWholeProgramHidden)
     return true;
 
-  return WPUtils.getHiddenVisibility();
+  return VisibleFunctions.empty() || AssumeWholeProgram;
 }
 
 // Return true if the linker finds that all symbols were resolved or

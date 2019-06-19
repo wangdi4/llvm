@@ -21,9 +21,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define void @foo(i64* nocapture %ip)  {
 entry:
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  tail call void @llvm.intel.directive.qual.opnd.i32(metadata !"QUAL.OMP.SIMDLEN", i32 4)
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %entry
@@ -35,16 +33,15 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.body
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
   ret void
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive(metadata) #1
+declare token @llvm.directive.region.entry() #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive.qual.opnd.i32(metadata, i32) #1
+declare void @llvm.directive.region.exit(token) #1
 
 attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

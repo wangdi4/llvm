@@ -71,6 +71,7 @@
 #include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h" // INTEL
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/ArgumentPromotion.h"
+#include "llvm/Transforms/IPO/Attributor.h"
 #include "llvm/Transforms/IPO/CalledValuePropagation.h"
 #include "llvm/Transforms/IPO/ConstantMerge.h"
 #include "llvm/Transforms/IPO/CrossDSOCFI.h"
@@ -250,6 +251,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMultiExitLoopReroll.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRRecognizeParLoop.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRIdentityMatrixIdiomRecognition.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRPrefetching.h"
 
 #if INTEL_INCLUDE_DTRANS
 #include "Intel_DTrans/DTransCommon.h"
@@ -704,6 +706,7 @@ void PassBuilder::addPGOInstrPasses(ModulePassManager &MPM, bool DebugLogging,
     // This should probably be lowered after performance testing.
     // FIXME: this comment is cargo culted from the old pass manager, revisit).
     IP.HintThreshold = 325;
+    IP.PrepareForLTO = PrepareForLTO; // INTEL
 
 #if INTEL_CUSTOMIZATION
     // Parse -[no]inline-list option and set corresponding attributes.
@@ -718,7 +721,18 @@ void PassBuilder::addPGOInstrPasses(ModulePassManager &MPM, bool DebugLogging,
     FPM.addPass(SROA());
     FPM.addPass(EarlyCSEPass());    // Catch trivial redundancies.
     FPM.addPass(SimplifyCFGPass()); // Merge & remove basic blocks.
-    FPM.addPass(InstCombinePass()); // Combine silly sequences.
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+    // Configure the instruction combining pass to avoid some transformations
+    // that lose type information for DTrans.
+    bool GEPInstOptimizations = !(PrepareForLTO && EnableDTrans);
+#else
+    bool GEPInstOptimizations = true;
+#endif // INTEL_INCLUDE_DTRANS
+    FPM.addPass(
+        InstCombinePass(/*ExpensiveCombines=default value*/ true,
+                        GEPInstOptimizations)); // Combine silly sequences.
+#endif                                          // INTEL_CUSTOMIZATION
     invokePeepholeEPCallbacks(FPM, Level);
 
     CGPipeline.addPass(createCGSCCToFunctionPassAdaptor(std::move(FPM)));

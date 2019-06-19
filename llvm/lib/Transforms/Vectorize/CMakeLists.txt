@@ -12,6 +12,7 @@ add_llvm_library(LLVMVectorize
   VPlanVerifier.cpp
 # INTEL_CUSTOMIZATION
   Intel_LoadCoalescing.cpp
+  IntelMFReplacement.cpp
   Intel_VPlan/IntelLoopVectorizationCodeGen.cpp
   Intel_VPlan/IntelLoopVectorizationLegality.cpp
   Intel_VPlan/IntelLoopVectorizationPlanner.cpp

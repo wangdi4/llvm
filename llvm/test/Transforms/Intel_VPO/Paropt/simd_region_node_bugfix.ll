@@ -5,6 +5,11 @@
 ; generation for privatized vars.This test in particular asserts that
 ; we generate correct private copy of the array.
 
+; Deprecated the llvm.intel.directive* representation.
+; TODO: Update this test to use llvm.directive.region.entry/exit instead.
+; XFAIL: *
+
+
 
 ; RUN: opt -vpo-cfg-restructuring -vpo-paropt -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s
 

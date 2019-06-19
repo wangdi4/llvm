@@ -72,7 +72,7 @@ bool VPOParoptTransform::genRedCodeForTaskGeneric(WRegionNode *W) {
         Instruction *AllocaInsertPt = EntryBB->getFirstNonPHI();
         AllocaInst *NewPrivInst =
             genPrivatizationAlloca(RedI, AllocaInsertPt, ".red");
-        genPrivatizationReplacement(W, Orig, NewPrivInst, RedI);
+        genPrivatizationReplacement(W, Orig, NewPrivInst);
 
         IRBuilder<> Builder(EntryBB->getTerminator());
         VPOParoptUtils::genCopyByAddr(NewPrivInst, RedI->getNew(),
@@ -144,11 +144,11 @@ bool VPOParoptTransform::genSharedCodeForTaskGeneric(WRegionNode *W) {
     for (SharedItem *ShaI : ShaClause.items()) {
 
       Value *Orig = ShaI->getOrig();
-      resetValueInIntelClauseGeneric(W, Orig);
+      resetValueInOmpClauseGeneric(W, Orig);
 
       Value *NewPrivInst = nullptr;
       NewPrivInst = ShaI->getNew();
-      genPrivatizationReplacement(W, Orig, NewPrivInst, ShaI);
+      genPrivatizationReplacement(W, Orig, NewPrivInst);
     }
 
     Changed = true;
@@ -1133,7 +1133,7 @@ void VPOParoptTransform::resetValueInTaskDependClause(WRegionNode *W) {
   if (DepClause.empty())
     return;
   for (DependItem *DepI : DepClause.items()) {
-    resetValueInIntelClauseGeneric(W, DepI->getOrig());
+    resetValueInOmpClauseGeneric(W, DepI->getOrig());
   }
 }
 
@@ -1207,7 +1207,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
 
   W->populateBBSet();
 
-  resetValueInIntelClauseGeneric(W, W->getIf());
+  resetValueInOmpClauseGeneric(W, W->getIf());
 
   resetValueInTaskDependClause(W);
 

@@ -65,8 +65,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
-#include <stack>
-
 using namespace llvm;
 using namespace llvm::loopopt;
 using namespace llvm::loopopt::reroll;
@@ -117,240 +115,63 @@ public:
 namespace {
 
 // Hard to estimate the size: not using small vector.
-typedef std::vector<const DDRef *> VecDDRefsTy;
-typedef std::stack<const DDRef *, VecDDRefsTy> StackDDRefsTy;
-typedef std::vector<HLNode *> VecNodesTy;
-typedef std::vector<CEOpSequence> VecCEOpSeqTy;
-typedef std::vector<VecNodesTy> VecVecNodesTy;
 typedef std::set<const HLNode *> SetNodesTy;        // SmallSet allows < 32
 typedef DenseMap<BlobTy, unsigned> InvariantBlobTy; // SCEV, BID
 
-/// Information about a seed Instruction from which temp tracking starts.
-typedef struct SeedInfo {
-  /// Instruction that contains a seed.
-  /// Store-instruction only for now.
-  HLNode *ContainingInst;
-
-  /// A set of instructions tracked from ContainingInst.
-  /// It includes ContainingInst also.
-  VecNodesTy TrackedInsts;
-
-  SeedInfo(HLNode *SeedInst) : ContainingInst(SeedInst) {}
-
-} SeedInfoTy;
-
-typedef SmallVector<SeedInfoTy, 4> VecSeedInfoTy;
-
-/// T should be either Loop or Region,
-/// a part of its body will be materialized as a loop.
-/// ContainerTypename can be either HLLoop or HLRegion.
-/// Currently, only HLRegion is instantiated.
-template <typename ContainerTypename> class SequenceBuilder {
-private:
-  void processRegDDRef(const RegDDRef *Ref, CEOpSequence &Seq,
-                       StackDDRefsTy &Stack) const;
-
-  bool stopTrackingTemp(const RegDDRef *Ref) const;
-
-  bool collectDDRefsFromAStore(HLInst *HInst, DDGraph &DDG, CEOpSequence &Seq,
-                               VecNodesTy &InstList) const;
-
-  const ContainerTypename *Container;
-
-  // TODO: make it a static member of HIRLoopMaterialize
-  static bool isNonHandlableInst(const HLInst *HInst) {
-    const Instruction *Inst = HInst->getLLVMInstruction();
-    if (isa<CmpInst>(Inst) || isa<SelectInst>(Inst) || isa<AllocaInst>(Inst) ||
-        HInst->isCallInst()) {
-      return true;
-    }
-    return false;
-  }
+/// SequenceBuilder for Rematerialization.
+/// It is for rematerialization of flat codes in a HLRegion
+/// (i.e. not in loop). HLRegion is a LoopMaterializationCandidate.
+/// Main logic for building sequences is in the base class.
+class SequenceBuilderForRematerialze
+    : public SequenceBuilder<SequenceBuilderForRematerialze, HLRegion> {
 
 public:
-  explicit SequenceBuilder(const ContainerTypename *Cp) : Container(Cp) {}
+  explicit SequenceBuilderForRematerialze(const HLRegion *Region, DDGraph &G,
+                                          CEOpSequence &Seq, VecNodesTy &IL)
+      : SequenceBuilder<SequenceBuilderForRematerialze, HLRegion>(
+            nullptr, Region, G, Seq, IL) {}
 
-  /// Rematerialize a range between [begin, end). Parent is
-  /// the containing node of the range.
-  /// Differently from reroll, not all insts in the given
-  /// range need to be consumed.
-  bool buildSequences(ContainerTypename *Parent, HLContainerTy::iterator begin,
-                      HLContainerTy::iterator end, HIRDDAnalysis &DDA,
-                      VecCEOpSeqTy &VecSeq, VecSeedInfoTy &VecSeedInfo,
-                      SetNodesTy &TrackedInsts);
-};
-
-template <typename ContainerTypename>
-bool SequenceBuilder<ContainerTypename>::stopTrackingTemp(
-    const RegDDRef *Ref) const {
-
-  if (isa<HLLoop>(Container)) {
-    return Ref->getSingleCanonExpr()->isLinearAtLevel(
-        Container->getNodeLevel());
-  }
-
-  // Should be region
-  // This is not perfectly accurate, because a Live-In temp might be
-  // redefined within the region.
-  // However, for rematerialize candidate region, no redefinitions
-  // are guaranteed by the region identification logic.
-  return Container->isLiveIn(Ref->getSymbase());
-}
-
-template <typename ContainerTypename>
-void SequenceBuilder<ContainerTypename>::processRegDDRef(
-    const RegDDRef *Ref, CEOpSequence &Seq, StackDDRefsTy &Stack) const {
-  if (Ref->isConstant()) {
-    Seq.add(Ref);
-    return;
-  }
-
-  if (Ref->isSelfBlob()) {
-    if (stopTrackingTemp(Ref)) {
-      Seq.add(Ref);
-    } else if (!Container->isLiveIn(Ref->getSymbase())) {
-      // This check is to avoid infinit looping
-      // (i.e. temp stack never becomes emtpy)
-      // when Container is a Loop
-      Stack.push(Ref);
-    }
-    return;
-  }
-
-  Seq.add(Ref);
-
-  // Push non-LinearAtLevel temps among blob ddrefs into stack.
-  // Check for LiveIn is used instead of isLinearAtLevel because
-  // - Usually !isLiveIn implies !isLinearAtLevel
-  // - If not, e.g. "K = 5" in the innermost loop, chances are
-  //   the innermost loop is not a reroll pattern.
-  // - Most importantly, current algorithm for straight line codes
-  //   does not handle reductions, i.e. live-in but non-loop-invariant
-  //   temps.
-  //
-  // Sort the blobs to handle a case like
-  //   %1  = B[2*i];
-  //   A[2*i] = %n * %1;
-  //          blob ddrefs are in the order of %n, %1.
-  //   %3  = B[2*i+1];
-  //   A[2*i+1] = %n * %3;
-  //          blob ddrefs are in the order of %3, %n.
-  // Sort blobs to make both have
-  //     %n, %1
-  //     %n, %3
-  SmallVector<const BlobDDRef *, 8> Blobs;
-  const ContainerTypename *Cp = Container;
-  std::copy_if(Ref->blob_begin(), Ref->blob_end(), std::back_inserter(Blobs),
-               [Cp](const BlobDDRef *Blob) {
-                 return !Cp->isLiveIn(Blob->getSymbase());
-               });
-  std::sort(Blobs.begin(), Blobs.end(), rerollcomparator::BlobDDRefLess());
-
-  for (const DDRef *Blob : Blobs) {
-    Stack.push(Blob);
-  }
-}
-
-void processOpcode(const HLInst *DefInst, CEOpSequence &Seq) {
-  unsigned Opcode = DefInst->getLLVMInstruction()->getOpcode();
-  Seq.addOpcodeToSeq(Opcode);
-}
-
-void sortRvals(const HLInst *DefInst,
-               SmallVectorImpl<const RegDDRef *> &RvalDDRefCopy) {
-  unsigned NumOps = DefInst->getNumOperands();
-  unsigned CopySize = RvalDDRefCopy.size();
-  assert(NumOps == (CopySize + 1));
-  (void)NumOps;
-  (void)CopySize;
-
-  std::copy(DefInst->rval_op_ddref_begin(), DefInst->rval_op_ddref_end(),
-            RvalDDRefCopy.begin());
-
-  std::sort(RvalDDRefCopy.begin(), RvalDDRefCopy.end(),
-            rerollcomparator::RegDDRefLess());
-}
-
-/// Ref is a temp ref, either a blob ddref or a self blob
-/// Scan DD edges to this ref, which is a flow edge.
-HLInst *findTempDef(const DDRef *TempRef, DDGraph &DDG) {
-  for (DDEdge *E : DDG.incoming(TempRef)) {
-    if (E->isFLOWdep()) {
-      DDRef *Src = E->getSrc();
-      if (HLInst *DefInst = dyn_cast<HLInst>(Src->getHLDDNode())) {
-        return DefInst;
+  HLInst *findTempDef(const DDRef *TempRef) const {
+    for (DDEdge *E : DDG.incoming(TempRef)) {
+      if (E->isFLOWdep()) {
+        DDRef *Src = E->getSrc();
+        if (HLInst *DefInst = dyn_cast<HLInst>(Src->getHLDDNode())) {
+          return DefInst;
+        }
       }
     }
+    return nullptr;
   }
-  return nullptr;
+
+  bool stopTrackingTemp(const RegDDRef *Ref) const {
+    return Container->isLiveIn(Ref->getSymbase());
+  }
+};
+
+} // namespace
+
+namespace {
+
+// TODO: make it a static member of HIRLoopMaterialize
+static bool isNonHandlableInst(const HLInst *HInst) {
+  const Instruction *Inst = HInst->getLLVMInstruction();
+  if (isa<CmpInst>(Inst) || isa<SelectInst>(Inst) || isa<AllocaInst>(Inst) ||
+      HInst->isCallInst()) {
+    return true;
+  }
+  return false;
 }
 
 template <typename ContainerTypename>
-bool SequenceBuilder<ContainerTypename>::collectDDRefsFromAStore(
-    HLInst *HInst, DDGraph &DDG, CEOpSequence &Seq,
-    VecNodesTy &InstList) const {
-  StackDDRefsTy TempTracker;
-
-  // Lval of Store is the root
-  processRegDDRef(HInst->getLvalDDRef(), Seq, TempTracker);
-
-  if (HInst->getLvalDDRef()->hasTrailingStructOffsets()) {
-    return false;
-  }
-
-  InstList.push_back(HInst);
-
-  // RHS of Store is the children to push to the stack.
-  // Children ddrefs of a ddref in this context
-  // are ddrefs in the right hand side of the inst which
-  // defines this ddref.
-  // Example:
-  // %m = A[i] + %q; -- (2)
-  //    = %m ..      -- (1)
-  // Child of %m at (1) are A[i] and %q in (2)
-  processRegDDRef(HInst->getRvalDDRef(), Seq, TempTracker);
-
-  while (!TempTracker.empty()) {
-    const DDRef *TempRef = TempTracker.top();
-    TempTracker.pop();
-
-    assert(TempRef->isSelfBlob());
-
-    HLInst *DefInst = findTempDef(TempRef, DDG);
-
-    assert(DefInst && "DefInst should exists within the"
-                      "loop when a temp is not loop-invariant");
-    assert((isa<HLLoop>(Container) &&
-            !TempRef->getSingleCanonExpr()->isLinearAtLevel(
-                Container->getNodeLevel())) ||
-           (isa<HLRegion>(Container) &&
-            !Container->isLiveIn(TempRef->getSymbase())));
-
-    InstList.push_back(DefInst);
-    processOpcode(DefInst, Seq);
-
-    // Push Def's RHS, no LVAL
-    SmallVector<const RegDDRef *, 4> RvalDDRefCopy(DefInst->getNumOperands() -
-                                                   1);
-    sortRvals(DefInst, RvalDDRefCopy);
-    for (const RegDDRef *ChildDDRef :
-         make_range(RvalDDRefCopy.begin(), RvalDDRefCopy.end())) {
-      processRegDDRef(ChildDDRef, Seq, TempTracker);
-    }
-  }
-  return true;
-}
-
-template <typename ContainerTypename>
-bool SequenceBuilder<ContainerTypename>::buildSequences(
-    ContainerTypename *Parent, HLContainerTy::iterator Begin,
-    HLContainerTy::iterator End, HIRDDAnalysis &DDA, VecCEOpSeqTy &VecSeq,
-    VecSeedInfoTy &VecSeedInfo, SetNodesTy &TrackedInsts) {
+bool buildSequences(ContainerTypename *Parent, HLContainerTy::iterator Begin,
+                    HLContainerTy::iterator End, HIRDDAnalysis &DDA,
+                    VecCEOpSeqTy &VecSeq, VecSeedInfoTy &VecSeedInfo,
+                    SetNodesTy &TrackedUpwardInsts) {
 
   // Map to make sure consumption of all instructions in the loop body
-  auto MarkConsumedInsts = [&TrackedInsts](const VecNodesTy &InstList) {
+  auto MarkConsumedInsts = [&TrackedUpwardInsts](const VecNodesTy &InstList) {
     for (auto Node : InstList) {
-      TrackedInsts.insert(Node);
+      TrackedUpwardInsts.insert(Node);
     }
   };
 
@@ -375,21 +196,13 @@ bool SequenceBuilder<ContainerTypename>::buildSequences(
 
     // A store inst is a seed: collected all ddrefs involved
     // in the store.
-    CEOpSequence Seq;
-    VecSeedInfo.push_back(SeedInfo(&Node));
-
-    if (!collectDDRefsFromAStore(HInst, DDG, Seq,
-                                 VecSeedInfo.back().TrackedInsts)) {
+    if (!buildFromStoreInst<SequenceBuilderForRematerialze, HLRegion>(
+            HInst, Parent, DDG, VecSeq, VecSeedInfo)) {
       return false;
     }
+    LLVM_DEBUG(dumpOprdOpSequence(HInst, VecSeq.back()));
 
-    MarkConsumedInsts(VecSeedInfo.back().TrackedInsts);
-
-    assert(Seq.size() > 0 &&
-           "collectDDRefsFromAStore is not correctly working!");
-    VecSeq.push_back(Seq);
-
-    LLVM_DEBUG(dumpOprdOpSequence(HInst, Seq, 1));
+    MarkConsumedInsts(VecSeedInfo.back().TrackedUpwardInsts);
   }
   return true;
 }
@@ -896,8 +709,9 @@ private:
   ///       when an inner loop is materialized into existing Loop.
   ///       In that case, first argument's type can be HLLoop*
   bool materializeALoop(HLRegion *Parent, const VecSeedInfoTy &VecSeedInfo,
-                        const SetNodesTy &TrackedInsts, unsigned RerollFactor,
-                        unsigned II, const MapCEToDistTy &MapCEToDist);
+                        const SetNodesTy &TrackedUpwardInsts,
+                        unsigned RerollFactor, unsigned II,
+                        const MapCEToDistTy &MapCEToDist);
 
   /// Write a loop of TC being RerollFactor
   /// Loop body becomes insts in NewLoopInsts.
@@ -1263,9 +1077,9 @@ void updateDefAtLevel(HLLoop *NewLoop) {
 /// If so, bail-out.
 bool untrackedInBetweenInsts(HLContainerTy::const_iterator NewLoopBodyBegin,
                              HLContainerTy::const_iterator NewLoopBodyEnd,
-                             const SetNodesTy &TrackedInsts) {
+                             const SetNodesTy &TrackedUpwardInsts) {
   for (auto &Node : make_range(NewLoopBodyBegin, NewLoopBodyEnd)) {
-    if (!TrackedInsts.count(&Node)) {
+    if (!TrackedUpwardInsts.count(&Node)) {
       // Untracked Inst is in the range.
       return true;
     }
@@ -1291,7 +1105,7 @@ bool dependencyCheck(DDGraph G, const VecSeedInfoTy &VecSeedInfo, unsigned II) {
   auto IsInLaterIterations = [VecSeedInfo, II](const HLNode *Node) {
     for (auto &Info :
          make_range(std::next(VecSeedInfo.begin(), II), VecSeedInfo.end())) {
-      for (auto &NodeInLater : Info.TrackedInsts) {
+      for (auto &NodeInLater : Info.TrackedUpwardInsts) {
         if (NodeInLater == Node) {
           return true;
         }
@@ -1304,7 +1118,7 @@ bool dependencyCheck(DDGraph G, const VecSeedInfoTy &VecSeedInfo, unsigned II) {
   LLVM_DEBUG(dbgs() << "See Edges\n");
   for (auto &Info :
        make_range(VecSeedInfo.begin(), std::next(VecSeedInfo.begin(), II))) {
-    for (auto Node : Info.TrackedInsts) {
+    for (auto Node : Info.TrackedUpwardInsts) {
       const DDRef *Lval = cast<HLDDNode>(Node)->getLvalDDRef();
       for (const DDRef *Ref : make_range(cast<HLDDNode>(Node)->all_dd_begin(),
                                          cast<HLDDNode>(Node)->all_dd_end())) {
@@ -1385,8 +1199,8 @@ void collectInstsForNewLoopBody(const VecSeedInfoTy &VecSeedInfo, unsigned II,
   // These NewLoopInsts will be the body of a newly materialized loop.
   for (auto Info :
        make_range(VecSeedInfo.begin(), std::next(VecSeedInfo.begin(), II))) {
-    NewLoopInsts.insert(NewLoopInsts.end(), Info.TrackedInsts.begin(),
-                        Info.TrackedInsts.end());
+    NewLoopInsts.insert(NewLoopInsts.end(), Info.TrackedUpwardInsts.begin(),
+                        Info.TrackedUpwardInsts.end());
   }
 }
 
@@ -1428,11 +1242,10 @@ LLVM_DUMP_METHOD void printRegionDetail(const HLRegion *Parent) {
 }
 #endif
 
-bool HIRLoopRematerialize::materializeALoop(HLRegion *Parent,
-                                            const VecSeedInfoTy &VecSeedInfo,
-                                            const SetNodesTy &TrackedInsts,
-                                            unsigned RerollFactor, unsigned II,
-                                            const MapCEToDistTy &MapCEToDist) {
+bool HIRLoopRematerialize::materializeALoop(
+    HLRegion *Parent, const VecSeedInfoTy &VecSeedInfo,
+    const SetNodesTy &TrackedUpwardInsts, unsigned RerollFactor, unsigned II,
+    const MapCEToDistTy &MapCEToDist) {
 
   // Dependency check
   // TODO: too conservative. Remove when loop invariant codes are hoisted.
@@ -1461,7 +1274,7 @@ bool HIRLoopRematerialize::materializeALoop(HLRegion *Parent,
   HLNode *LastNodeOfLastLoopIter = VecSeedInfo.back().ContainingInst;
   if (untrackedInBetweenInsts(FirstNodeOfFirstLoopIter->getIterator(),
                               std::next(LastNodeOfLastLoopIter->getIterator()),
-                              TrackedInsts)) {
+                              TrackedUpwardInsts)) {
     return false;
   }
 
@@ -1523,9 +1336,9 @@ bool HIRLoopRematerialize::tryRematerialize(HLRegion *Parent,
 
   VecCEOpSeqTy VecSeq;
   VecSeedInfoTy VecSeedInfo; // Separately maintained for rewriting
-  SetNodesTy TrackedInsts;
-  if (!SequenceBuilder<HLRegion>(Parent).buildSequences(
-          Parent, Begin, End, DDA, VecSeq, VecSeedInfo, TrackedInsts)) {
+  SetNodesTy TrackedUpwardInsts;
+  if (!buildSequences<HLRegion>(Parent, Begin, End, DDA, VecSeq, VecSeedInfo,
+                                TrackedUpwardInsts)) {
     return false;
   }
 
@@ -1544,8 +1357,8 @@ bool HIRLoopRematerialize::tryRematerialize(HLRegion *Parent,
   LLVM_DEBUG(dbgs() << "Reroll Factor: " << RerollFactor << ", "
                     << "II : " << II << "\n");
 
-  if (!materializeALoop(Parent, VecSeedInfo, TrackedInsts, RerollFactor, II,
-                        MapCEToDist)) {
+  if (!materializeALoop(Parent, VecSeedInfo, TrackedUpwardInsts, RerollFactor,
+                        II, MapCEToDist)) {
     return false;
   }
 

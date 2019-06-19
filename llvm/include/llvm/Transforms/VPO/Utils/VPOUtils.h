@@ -127,11 +127,6 @@ public:
   /// stripped from \p F; \b false otherwise.
   static bool stripDirectives(Function &F);
 
-  /// Remove OpenMP PRIVATE clauses if present.
-  /// \returns \b true if removal happened.
-  static bool stripPrivateClauses(WRegionNode *WRN);
-  static bool stripPrivateClauses(BasicBlock &BB);
-
   /// Remove `@llvm.dbg.declare`, `@llvm.dbg.value` calls from \p F.
   /// This is a temporary workaround needed because CodeExtractor does not
   /// update these calls present in the region to be extracted. So they have

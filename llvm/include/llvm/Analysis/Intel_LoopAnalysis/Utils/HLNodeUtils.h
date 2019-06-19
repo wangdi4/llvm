@@ -45,6 +45,7 @@ class HLNodeUtils {
 public:
   typedef std::vector<HLNode *> VecNodesTy;
   typedef std::vector<const HLNode *> ConstVecNodesTy;
+
 private:
   /// Special deleter is required to call HLNodeUtils private destructor.
   struct HLNodeUtilsDeleter {
@@ -480,7 +481,7 @@ private:
   }
 
   /// Returns true if the value in question is known to be positive or negative.
-  static bool isKnownPositiveOrNegative(VALType ValType, int64_t Val)  {
+  static bool isKnownPositiveOrNegative(VALType ValType, int64_t Val) {
     return isKnownPositive(ValType, Val) || isKnownNegative(ValType, Val);
   }
 
@@ -832,6 +833,10 @@ public:
                      ArrayRef<OperandBundleDef> Bundle = {},
                      ArrayRef<RegDDRef *> BundleOps = {});
 
+  /// Creates a new Prefetch intrinsic call.
+  HLInst *createPrefetch(RegDDRef *AddressRef, RegDDRef *RW, RegDDRef *Locality,
+                         RegDDRef *CacheTy);
+
   /// Creates a new Memcpy intrinsic call.
   HLInst *createMemcpy(RegDDRef *StoreRef, RegDDRef *LoadRef, RegDDRef *Size);
 
@@ -974,7 +979,8 @@ public:
   }
 
   /// Inserts nodes in \p NodeContainer as first then children of \p If.
-  static void insertAsFirstThenChildren(HLIf *If, HLContainerTy *NodeContainer) {
+  static void insertAsFirstThenChildren(HLIf *If,
+                                        HLContainerTy *NodeContainer) {
     insertAsFirstChildren(If, NodeContainer, true);
   }
 
@@ -994,7 +1000,8 @@ public:
   }
 
   /// Inserts nodes in \p NodeContainer as first else children of \p If.
-  static void insertAsFirstElseChildren(HLIf *If, HLContainerTy *NodeContainer) {
+  static void insertAsFirstElseChildren(HLIf *If,
+                                        HLContainerTy *NodeContainer) {
     insertAsFirstChildren(If, NodeContainer, false);
   }
 
@@ -1061,22 +1068,26 @@ public:
   /// loop.
   static void moveAsLastChild(HLLoop *Loop, HLNode *Node);
 
-  /// Unlinks \p Node from its current position and inserts as first then child of \p If.
+  /// Unlinks \p Node from its current position and inserts as first then child
+  /// of \p If.
   static void moveAsFirstThenChild(HLIf *If, HLNode *Node) {
     moveAsFirstChild(If, Node, true);
   }
 
-  /// Unlinks \p Node from its current position and inserts as last then child of \p If.
+  /// Unlinks \p Node from its current position and inserts as last then child
+  /// of \p If.
   static void moveAsLastThenChild(HLIf *If, HLNode *Node) {
     moveAsLastChild(If, Node, true);
   }
 
-  /// Unlinks \p Node from its current position and inserts as first else child of \p If.
+  /// Unlinks \p Node from its current position and inserts as first else child
+  /// of \p If.
   static void moveAsFirstElseChild(HLIf *If, HLNode *Node) {
     moveAsFirstChild(If, Node, false);
   }
 
-  /// Unlinks \p Node from its current position and inserts as last else child of \p If.
+  /// Unlinks \p Node from its current position and inserts as last else child
+  /// of \p If.
   static void moveAsLastElseChild(HLIf *If, HLNode *Node) {
     moveAsLastChild(If, Node, false);
   }
@@ -1139,27 +1150,31 @@ public:
   static void moveAsLastChildren(HLLoop *Loop, HLContainerTy::iterator First,
                                  HLContainerTy::iterator Last);
 
-  /// Unlinks [First, Last) from their current position and inserts them as first then children of \p If. 
+  /// Unlinks [First, Last) from their current position and inserts them as
+  /// first then children of \p If.
   static void moveAsFirstThenChildren(HLIf *If, HLContainerTy::iterator First,
-                                  HLContainerTy::iterator Last) {
+                                      HLContainerTy::iterator Last) {
     moveAsFirstChildren(If, First, Last, true);
   }
 
-  /// Unlinks [First, Last) from their current position and inserts them as last then children of \p If.
+  /// Unlinks [First, Last) from their current position and inserts them as last
+  /// then children of \p If.
   static void moveAsLastThenChildren(HLIf *If, HLContainerTy::iterator First,
-                                 HLContainerTy::iterator Last) {
+                                     HLContainerTy::iterator Last) {
     moveAsLastChildren(If, First, Last, true);
   }
 
-  /// Unlinks [First, Last) from their current position and inserts them as first else children of \p If. 
+  /// Unlinks [First, Last) from their current position and inserts them as
+  /// first else children of \p If.
   static void moveAsFirstElseChildren(HLIf *If, HLContainerTy::iterator First,
-                                  HLContainerTy::iterator Last) {
+                                      HLContainerTy::iterator Last) {
     moveAsFirstChildren(If, First, Last, false);
   }
 
-  /// Unlinks [First, Last) from their current position and inserts them as last else children of \p If.
+  /// Unlinks [First, Last) from their current position and inserts them as last
+  /// else children of \p If.
   static void moveAsLastElseChildren(HLIf *If, HLContainerTy::iterator First,
-                                 HLContainerTy::iterator Last) {
+                                     HLContainerTy::iterator Last) {
     moveAsLastChildren(If, First, Last, false);
   }
 

@@ -1680,8 +1680,6 @@ void X86AsmPrinter::EmitInstruction(const MachineInstr *MI) {
   case X86::TLS_base_addr64:
     return LowerTlsAddr(MCInstLowering, *MI);
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_VP2INTERSECT
   // Loading/storing mask pairs requires two kmov operations. The second one of these
   // needs a 2 byte displacement relative to the specified address (with 32 bit spill
   // size). The pairs of 1bit masks up to 16 bit masks all use the same spill size,
@@ -1753,8 +1751,6 @@ void X86AsmPrinter::EmitInstruction(const MachineInstr *MI) {
     return;
   }
 
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
-#endif // INTEL_CUSTOMIZATION
   case X86::MOVPC32r: {
     // This is a pseudo op for a two instruction sequence with a label, which
     // looks like:

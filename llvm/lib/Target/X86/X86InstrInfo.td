@@ -127,12 +127,8 @@ def SDT_X86TCRET : SDTypeProfile<0, 2, [SDTCisPtrTy<0>, SDTCisVT<1, i32>]>;
 
 def SDT_X86MEMBARRIER : SDTypeProfile<0, 0, []>;
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ENQCMD
 def SDT_X86ENQCMD : SDTypeProfile<1, 2, [SDTCisVT<0, i32>,
                                          SDTCisPtrTy<1>, SDTCisSameAs<1, 2>]>;
-#endif // INTEL_FEATURE_ISA_ENQCMD
-#endif // INTEL_CUSTOMIZATION
 
 def X86MemBarrier : SDNode<"X86ISD::MEMBARRIER", SDT_X86MEMBARRIER,
                             [SDNPHasChain,SDNPSideEffect]>;
@@ -314,14 +310,12 @@ def X86tpause : SDNode<"X86ISD::TPAUSE",
                                             SDTCisVT<2, i32>, SDTCisVT<3, i32>]>,
                        [SDNPHasChain, SDNPSideEffect]>;
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ENQCMD
 def X86enqcmd : SDNode<"X86ISD::ENQCMD", SDT_X86ENQCMD,
                        [SDNPHasChain, SDNPSideEffect]>;
 def X86enqcmds : SDNode<"X86ISD::ENQCMDS", SDT_X86ENQCMD,
                        [SDNPHasChain, SDNPSideEffect]>;
-#endif // INTEL_FEATURE_ISA_ENQCMD
 
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_ULI
 def X86testui : SDNode<"X86ISD::TESTUI",
                        SDTypeProfile<1, 0, [SDTCisVT<0, i32>]>, [SDNPHasChain]>;
@@ -775,8 +769,6 @@ def lea64mem : Operand<i64> {
   let ParserMatchClass = X86MemAsmOperand;
 }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_VP2INTERSECT
 let RenderMethod = "addMaskPairOperands" in {
   def VK1PairAsmOperand : AsmOperandClass { let Name = "VK1Pair"; }
   def VK2PairAsmOperand : AsmOperandClass { let Name = "VK2Pair"; }
@@ -804,9 +796,19 @@ def VK8Pair : RegisterOperand<VK8PAIR, "printVKPair"> {
 def VK16Pair : RegisterOperand<VK16PAIR, "printVKPair"> {
   let ParserMatchClass = VK16PairAsmOperand;
 }
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
-#endif // INTEL_CUSTOMIZATION
 
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX2
+let RenderMethod = "addTILEPairOperands" in {
+  def VTILEPairAsmOperand : AsmOperandClass { let Name = "VTILEPair"; }
+}
+
+def VTILEPair : RegisterOperand<VTILEPAIR, "printVTILEPair"> {
+  let ParserMatchClass = VTILEPairAsmOperand;
+}
+#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // X86 Complex Pattern Definitions.
 //
@@ -892,11 +894,9 @@ def NoVLX_Or_NoBWI : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasBWI()">;
 def NoVLX_Or_NoDQI : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasDQI()">;
 def PKU        : Predicate<"Subtarget->hasPKU()">;
 def HasVNNI    : Predicate<"Subtarget->hasVNNI()">;
+def HasVP2INTERSECT : Predicate<"Subtarget->hasVP2INTERSECT()">;
 def HasBF16      : Predicate<"Subtarget->hasBF16()">;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_VP2INTERSECT
-def HasVP2INTERSECT : Predicate<"Subtarget->hasVP2INTERSECT()">;
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
 #if INTEL_FEATURE_ISA_AVX_VNNI
 def HasAVXVNNI : Predicate <"Subtarget->hasAVXVNNI()">,
                             AssemblerPredicate<"FeatureAVXVNNI", "AVXVNNI">;
@@ -973,10 +973,8 @@ def HasINVPCID   : Predicate<"Subtarget->hasINVPCID()">;
 def HasCmpxchg8b : Predicate<"Subtarget->hasCmpxchg8b()">;
 def HasCmpxchg16b: Predicate<"Subtarget->hasCmpxchg16b()">;
 def HasPCONFIG   : Predicate<"Subtarget->hasPCONFIG()">;
+def HasENQCMD    : Predicate<"Subtarget->hasENQCMD()">;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ENQCMD
-def HasENQCMD : Predicate<"Subtarget->hasENQCMD()">;
-#endif // INTEL_FEATURE_ISA_ENQCMD
 #if INTEL_FEATURE_ISA_KEYLOCKER
 def HasKeyLocker : Predicate<"Subtarget->hasKeyLocker()">;
 #endif // INTEL_FEATURE_ISA_KEYLOCKER
@@ -994,6 +992,13 @@ def HasAMXTILE   : Predicate<"Subtarget->hasAMXTILE()">;
 def HasAMXBF16   : Predicate<"Subtarget->hasAMXBF16()">;
 def HasAMXINT8   : Predicate<"Subtarget->hasAMXINT8()">;
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX2
+def HasAMXELEMENT   : Predicate<"Subtarget->hasAMXTELEMENT()">;
+def HasAMXREDUCE    : Predicate<"Subtarget->hasAMXREDUCE()">;
+def HasAMXFORMAT    : Predicate<"Subtarget->hasAMXFORMAT()">;
+def HasAMXTRANSPOSE : Predicate<"Subtarget->hasAMXTRANSPOSE()">;
+def HasAMXMEMORY    : Predicate<"Subtarget->hasAMXMEMORY()">;
+#endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
 def Not64BitMode : Predicate<"!Subtarget->is64Bit()">,
                              AssemblerPredicate<"!Mode64Bit", "Not 64-bit mode">;
@@ -2856,23 +2861,6 @@ def MOVDIR64B64 : I<0xF8, MRMSrcMem, (outs), (ins GR64:$dst, i512mem:$src),
 } // SchedRW
 
 //===----------------------------------------------------------------------===//
-// CLZERO Instruction
-//
-let SchedRW = [WriteSystem] in {
-  let Uses = [EAX] in
-  def CLZERO32r : I<0x01, MRM_FC, (outs), (ins), "clzero", []>,
-                  TB, Requires<[HasCLZERO, Not64BitMode]>;
-  let Uses = [RAX] in
-  def CLZERO64r : I<0x01, MRM_FC, (outs), (ins), "clzero", []>,
-                  TB, Requires<[HasCLZERO, In64BitMode]>;
-} // SchedRW
-
-def : InstAlias<"clzero\t{%eax|eax}", (CLZERO32r)>, Requires<[Not64BitMode]>;
-def : InstAlias<"clzero\t{%rax|rax}", (CLZERO64r)>, Requires<[In64BitMode]>;
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ENQCMD
-//===----------------------------------------------------------------------===//
 // ENQCMD/S - Enqueue 64-byte command as user with 64-byte write atomicity
 //
 let SchedRW = [WriteStore], Defs = [EFLAGS] in {
@@ -2902,8 +2890,23 @@ let SchedRW = [WriteStore], Defs = [EFLAGS] in {
                  [(set EFLAGS, (X86enqcmds GR64:$dst, addr:$src))]>,
                  T8XS, AdSize64, Requires<[HasENQCMD, In64BitMode]>;
 }
-#endif // INTEL_FEATURE_ISA_ENQCMD
 
+//===----------------------------------------------------------------------===//
+// CLZERO Instruction
+//
+let SchedRW = [WriteSystem] in {
+  let Uses = [EAX] in
+  def CLZERO32r : I<0x01, MRM_FC, (outs), (ins), "clzero", []>,
+                  TB, Requires<[HasCLZERO, Not64BitMode]>;
+  let Uses = [RAX] in
+  def CLZERO64r : I<0x01, MRM_FC, (outs), (ins), "clzero", []>,
+                  TB, Requires<[HasCLZERO, In64BitMode]>;
+} // SchedRW
+
+def : InstAlias<"clzero\t{%eax|eax}", (CLZERO32r)>, Requires<[Not64BitMode]>;
+def : InstAlias<"clzero\t{%rax|rax}", (CLZERO64r)>, Requires<[In64BitMode]>;
+
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_ULI
 //===----------------------------------------------------------------------===//
 // ULI Instructions

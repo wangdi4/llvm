@@ -37,8 +37,6 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
@@ -179,7 +177,8 @@ public:
     AU.addRequired<TargetLibraryInfoWrapperPass>();
   }
 
-  bool getTargetAttributes(Function &F, std::vector<StringRef> &TargetFeatures) {
+  bool getTargetAttributes(Function &F,
+                           std::vector<StringRef> &TargetFeatures) {
     StringRef TF = F.getFnAttribute("target-features").getValueAsString();
 
     if (TF.empty())
@@ -192,12 +191,11 @@ public:
         TargetFeatures.push_back(Feature.substr(1));
       else if (Feature.startswith("-")) {
         StringRef S = Feature.substr(1);
-        auto Itr = std::find_if(std::begin(TargetFeatures), std::end(TargetFeatures), [&](StringRef A) {
-                     return A == S;
-                     });
+        auto Itr =
+            std::find_if(std::begin(TargetFeatures), std::end(TargetFeatures),
+                         [&](StringRef A) { return A == S; });
         TargetFeatures.erase(Itr);
       }
-
     }
     return true;
   }
@@ -255,10 +253,22 @@ public:
           int idx = bitpos / c_isa_vec_element_size;
           masks[idx] |= 1ULL << (bitpos - idx * c_isa_vec_element_size);
         }
-      } END_FOR_EACH_LIBIRC_FEATURE;
+      }
+      END_FOR_EACH_LIBIRC_FEATURE;
     }
 
     return true;
+  }
+
+  bool isMainFunction(Function &F) {
+    return llvm::StringSwitch<bool>(F.getName())
+      .Cases("main",
+             "MAIN__", true)
+      .Cases("wmain",
+             "WinMain",
+             "wWinMain",
+             TM->getTargetTriple().isOSMSVCRT())
+      .Default(false);  
   }
 
   bool runOnFunction(Function &F) override {
@@ -266,21 +276,22 @@ public:
 
     if (TM->Options.IntelAdvancedOptim == false)
       return false;
-    if (F.getName() != "main")
+    if (isMainFunction(F) == false)
       return false;
 
     // Collect target feature mask
     std::vector<StringRef> TargetFeatures;
     if (getTargetAttributes(F, TargetFeatures) == false)
-      report_fatal_error("Advanced optimizations are enabled, but no target features");
+      report_fatal_error(
+          "Advanced optimizations are enabled, but no target features");
 
     isa_vec_element_type CpuBitMap[ISA_VEC_ARRAY_SIZE] = {0, 0};
-    if (TM->getOptLevel() > CodeGenOpt::None)
-      getCpuFeatureBitmap(CpuBitMap, TargetFeatures);
+    getCpuFeatureBitmap(CpuBitMap, TargetFeatures);
 
     LLVM_DEBUG(dbgs() << "[Feature bitmap] : " << CpuBitMap << "\n");
 
-    IRBuilder<> IRB(&F.front(), F.begin()->getFirstInsertionPt());
+    auto Entry = &F.getEntryBlock();
+    IRBuilder<> IRB(Entry, Entry->getFirstInsertionPt());
     Value *Args[] = {
         ConstantInt::get(IRB.getInt32Ty(), 0),
         ConstantInt::get(IRB.getInt64Ty(), CpuBitMap[0]),

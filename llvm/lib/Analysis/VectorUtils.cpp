@@ -710,8 +710,8 @@ template <typename CastInstTy> Value *llvm::getPtrThruCast(Value *Ptr) {
 template Value *llvm::getPtrThruCast<BitCastInst>(Value *Ptr);
 template Value *llvm::getPtrThruCast<AddrSpaceCastInst>(Value *Ptr);
 
-Function* llvm::getOrInsertVectorFunction(const CallInst *Call, unsigned VL,
-                                          SmallVectorImpl<Type*> &ArgTys,
+Function *llvm::getOrInsertVectorFunction(const CallInst *Call, unsigned VL,
+                                          ArrayRef<Type *> ArgTys,
                                           TargetLibraryInfo *TLI,
                                           Intrinsic::ID ID,
                                           VectorVariant *VecVariant,
@@ -723,12 +723,11 @@ Function* llvm::getOrInsertVectorFunction(const CallInst *Call, unsigned VL,
   Function *OrigF = Call->getCalledFunction();
   assert(OrigF && "Function not found for call instruction");
   StringRef FnName = OrigF->getName();
-  if (!TLI->isFunctionVectorizable(FnName, VL) && !ID && !VecVariant
-      && !isOpenCLReadChannel(FnName) && !isOpenCLWriteChannel(FnName))
+  if (!TLI->isFunctionVectorizable(FnName, VL) && !ID && !VecVariant &&
+      !isOpenCLReadChannel(FnName) && !isOpenCLWriteChannel(FnName))
     return nullptr;
 
   Module *M = OrigF->getParent();
-  Function *VectorF = nullptr;
   Type *RetTy = OrigF->getReturnType();
   Type *VecRetTy = RetTy;
   if (!RetTy->isVoidTy()) {
@@ -736,15 +735,17 @@ Function* llvm::getOrInsertVectorFunction(const CallInst *Call, unsigned VL,
   }
 
   if (VecVariant) {
-    std::string VFnName = VecVariant->encode() + FnName.str();
-    VectorF = M->getFunction(VFnName);
+    std::string VFnName = VecVariant->getName();
+    Function *VectorF = M->getFunction(VFnName);
     if (!VectorF) {
       FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
-      VectorF =
-        Function::Create(FTy, Function::ExternalLinkage, VFnName, M);
+      VectorF = Function::Create(FTy, Function::ExternalLinkage, VFnName, M);
       VectorF->copyAttributesFrom(OrigF);
     }
-  } else if (ID) {
+    return VectorF;
+  }
+
+  if (ID) {
     // Generate a vector intrinsic. Remember, all intrinsics defined in
     // Intrinsics.td that can be vectorized are those for which the return
     // type matches the call arguments. Thus, TysForDecl should only contain
@@ -753,63 +754,64 @@ Function* llvm::getOrInsertVectorFunction(const CallInst *Call, unsigned VL,
     // to generate the declaration. This code will need to be changed to
     // support different types of function signatures.
     assert(!RetTy->isVoidTy() && "Expected non-void function");
-    for (unsigned i = 0; i < ArgTys.size(); i++) {
-      assert(VecRetTy == ArgTys[i] && "Expected return type to match arg type");
-    }
-    SmallVector<Type*, 1> TysForDecl;
+    assert(
+        llvm::all_of(ArgTys,
+                     [&](Type *ArgTy) -> bool { return VecRetTy == ArgTy; }) &&
+        "Expected return type to match arg type");
+    SmallVector<Type *, 1> TysForDecl;
     TysForDecl.push_back(VecRetTy);
-    VectorF = Intrinsic::getDeclaration(M, ID, TysForDecl);
-  } else if (isOpenCLReadChannel(FnName) || isOpenCLWriteChannel(FnName)) {
-      Value *Alloca = getOpenCLReadWriteChannelAlloc(Call);
-      std::string VLStr = APInt(32, VL).toString(10, false);
-      std::string TyStr =
-        typeToString(Alloca->getType()->getPointerElementType());
-      std::string VFnName = FnName.str() + "_v" + VLStr + TyStr;
-
-      if (isOpenCLReadChannel(FnName)) {
-        // The return type of the vector read channel call is a vector of the
-        // pointer element type of the read destination pointer alloca. The
-        // function call below traces back through bitcast instructions to
-        // find the alloca.
-        VecRetTy =
-          VectorType::get(Alloca->getType()->getPointerElementType(), VL);
-      }
-      if (isOpenCLWriteChannel(FnName)) {
-        VecRetTy = RetTy;
-      }
-
-      VectorF = M->getFunction(VFnName);
-      if (!VectorF) {
-        FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
-        VectorF =
-          Function::Create(FTy, Function::ExternalLinkage, VFnName, M);
-      }
-      // Note: The function signature is different for the vector version of
-      // these functions. E.g., in the case of __read_pipe the 2nd parameter
-      // is dropped, and for __write_pipe the 2nd parameter becomes a vector
-      // of instead of a pointer. Thus, the attributes cannot blindly be
-      // copied because some attributes for the parameters on the original
-      // scalar call will be incompatible with the vector parameter types.
-      // Or, in the case of __read_pipe, the attribute for the 2nd parameter
-      // will still be copied to the vector call site and will result in an
-      // assert in the verifier because there is no longer a 2nd parameter.
-      // TODO: determine if attributes really need to be copied for those
-      // parameters that still match the scalar version.
-  } else {
-    // Generate a vector library call.
-    StringRef VFnName = TLI->getVectorizedFunction(FnName, VL, Masked);
-    VectorF = M->getFunction(VFnName);
-    if (!VectorF) {
-      // isFunctionVectorizable() returned true, so it is guaranteed that
-      // the svml function exists and the call is legal. Generate a declaration
-      // for it if one does not already exist.
-      FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
-      VectorF = Function::Create(FTy, Function::ExternalLinkage, VFnName, M);
-      VectorF->copyAttributesFrom(OrigF);
-    }
+    return Intrinsic::getDeclaration(M, ID, TysForDecl);
   }
 
-  assert(VectorF && "Can't create vector function.");
+  if (isOpenCLReadChannel(FnName) || isOpenCLWriteChannel(FnName)) {
+    Value *Alloca = getOpenCLReadWriteChannelAlloc(Call);
+    std::string VLStr = APInt(32, VL).toString(10, false);
+    std::string TyStr =
+        typeToString(Alloca->getType()->getPointerElementType());
+    std::string VFnName = FnName.str() + "_v" + VLStr + TyStr;
+
+    if (isOpenCLReadChannel(FnName)) {
+      // The return type of the vector read channel call is a vector of the
+      // pointer element type of the read destination pointer alloca. The
+      // function call below traces back through bitcast instructions to
+      // find the alloca.
+      VecRetTy =
+          VectorType::get(Alloca->getType()->getPointerElementType(), VL);
+    }
+    if (isOpenCLWriteChannel(FnName)) {
+      VecRetTy = RetTy;
+    }
+
+    Function *VectorF = M->getFunction(VFnName);
+    if (!VectorF) {
+      FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
+      VectorF = Function::Create(FTy, Function::ExternalLinkage, VFnName, M);
+    }
+    // Note: The function signature is different for the vector version of
+    // these functions. E.g., in the case of __read_pipe the 2nd parameter
+    // is dropped, and for __write_pipe the 2nd parameter becomes a vector
+    // of instead of a pointer. Thus, the attributes cannot blindly be
+    // copied because some attributes for the parameters on the original
+    // scalar call will be incompatible with the vector parameter types.
+    // Or, in the case of __read_pipe, the attribute for the 2nd parameter
+    // will still be copied to the vector call site and will result in an
+    // assert in the verifier because there is no longer a 2nd parameter.
+    // TODO: determine if attributes really need to be copied for those
+    // parameters that still match the scalar version.
+    return VectorF;
+  }
+
+  // Generate a vector library call.
+  StringRef VFnName = TLI->getVectorizedFunction(FnName, VL, Masked);
+  Function *VectorF = M->getFunction(VFnName);
+  if (!VectorF) {
+    // isFunctionVectorizable() returned true, so it is guaranteed that
+    // the svml function exists and the call is legal. Generate a declaration
+    // for it if one does not already exist.
+    FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
+    VectorF = Function::Create(FTy, Function::ExternalLinkage, VFnName, M);
+    VectorF->copyAttributesFrom(OrigF);
+  }
   return VectorF;
 }
 #endif // INTEL_CUSTOMIZATION

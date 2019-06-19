@@ -86,6 +86,12 @@ static cl::opt<bool> ForceIFSwitchHeuristic(
           "ip-gen-cloning-force-if-switch-heuristic", cl::init(false),
           cl::ReallyHidden);
 
+// This switch will be enabled (and removed) once the associated loop opt work
+// for CMPLRLLVM-8680 is complete.
+static cl::opt<bool> EnableMorphologyCloning(
+          "ip-gen-cloning-enable-morphology", cl::init(false),
+          cl::ReallyHidden);
+
 // Do not qualify a routine for cloning under the "if" heuristic unless we
 // see at least this many "if" values that will be made constant.
 static cl::opt<unsigned> IPGenCloningMinIFCount(
@@ -95,6 +101,16 @@ static cl::opt<unsigned> IPGenCloningMinIFCount(
 // see at least this many "switch" values that will be made constant.
 static cl::opt<unsigned> IPGenCloningMinSwitchCount(
           "ip-gen-cloning-min-switch-count", cl::init(6), cl::ReallyHidden);
+
+// Do not specially qualify a recursive routine for generic cloning unless we
+// see at least this many formals that qualify under the "if-switch" heuristic.
+static cl::opt<unsigned> IPGenCloningMinRecFormalCount(
+          "ip-gen-cloning-min-rec-formal-count", cl::init(2), cl::ReallyHidden);
+
+// Do not specially qualify a recursive routine for generic cloning unless we
+// see at least this many callsites to the routine.
+static cl::opt<unsigned> IPGenCloningMinRecCallsites(
+          "ip-gen-cloning-min-rec-callsites", cl::init(10), cl::ReallyHidden);
 
 // It is a mapping between formals of current function that is being processed
 // for cloning and set of possible constant values that can reach from
@@ -731,10 +747,10 @@ static bool IsFunctionPtrCloneCandidate(Function &F) {
 
 //
 // Fix the basis call of the recursive progression clone candidate 'OrigF' by
-// redirecting it to call the first in the series of recursive progressive
+// redirecting it to call the first in the series of recursive progression
 // clones, 'NewF'.
 //
-static void fixRecProgressiveBasisCall(Function &OrigF, Function &NewF) {
+static void fixRecProgressionBasisCall(Function &OrigF, Function &NewF) {
   auto UI = OrigF.use_begin();
   auto UE = OrigF.use_end();
   for (; UI != UE;) {
@@ -751,7 +767,7 @@ static void fixRecProgressiveBasisCall(Function &OrigF, Function &NewF) {
 }
 
 // Fix the recursive calls within 'PrevF' to call 'NewF' rather than 'OrigF'.
-// After this is done, the recursive progressive clone 'foo.1' will look like:
+// After this is done, the recursive progression clone 'foo.1' will look like:
 //   static void foo.1(int i) {
 //     ..
 //     int p = (i + 1) % 4;
@@ -760,7 +776,7 @@ static void fixRecProgressiveBasisCall(Function &OrigF, Function &NewF) {
 //   }
 // where 'OrigF' is foo(), 'PrevF' is foo.1(), and 'NewF' is foo.2().
 //
-static void fixRecProgressiveRecCalls(Function &OrigF, Function &PrevF,
+static void fixRecProgressionRecCalls(Function &OrigF, Function &PrevF,
                                       Function &NewF) {
   auto UI = OrigF.use_begin();
   auto UE = OrigF.use_end();
@@ -783,7 +799,7 @@ static void fixRecProgressiveRecCalls(Function &OrigF, Function &PrevF,
 // (This is done to ensure that the recursive progression terminates for a
 // non-cyclic recursive progression clone candidate.)
 //
-static void deleteRecProgressiveRecCalls(Function &OrigF, Function &PrevF) {
+static void deleteRecProgressionRecCalls(Function &OrigF, Function &PrevF) {
   auto UI = OrigF.use_begin();
   auto UE = OrigF.use_end();
   for (; UI != UE;) {
@@ -801,12 +817,12 @@ static void deleteRecProgressiveRecCalls(Function &OrigF, Function &PrevF) {
 }
 
 //
-// Create the recursive progressive clones for the recursive progressive
-// clone candidate 'F'.  'ArgPos' is the position of the recursive progressive
+// Create the recursive progression clones for the recursive progression
+// clone candidate 'F'.  'ArgPos' is the position of the recursive progression
 // argument, whose initial value is 'Start', and is incremented by 'Inc', a
 // total of 'Count' times, and then repeats.
 //
-// If 'IsByRef' is 'true', the recursive progressive argument is by reference.
+// If 'IsByRef' is 'true', the recursive progression argument is by reference.
 // If 'IsCyclic' is 'true', the recursive progression is cyclic.
 //
 // For example, in the case of a cyclic recursive progression:
@@ -889,14 +905,14 @@ static void deleteRecProgressiveRecCalls(Function &OrigF, Function &PrevF) {
 //     ..
 //   }
 //
-static void createRecProgressiveClones(Function &F,
+static void createRecProgressionClones(Function &F,
                                        unsigned ArgPos, unsigned Count,
                                        int Start, int Inc, bool IsByRef,
                                        bool IsCyclic) {
   int FormalValue = Start;
   Function *FirstCloneF = nullptr;
   Function *LastCloneF = nullptr;
-  assert(Count > 0 && "Expecting at least one RecProgressive Clone");
+  assert(Count > 0 && "Expecting at least one RecProgression Clone");
   for (unsigned I = 0; I < Count; ++I) {
     ValueToValueMapTy VMap;
     Function *NewF = CloneFunction(&F, VMap);
@@ -906,15 +922,15 @@ static void createRecProgressiveClones(Function &F,
       NewF->addFnAttr("prefer-inline-rec-pro-clone");
     else
       NewF->addFnAttr("prefer-noinline-rec-pro-clone");
-    // In any case, it contains a recursive progressive clone, because it is
+    // In any case, it contains a recursive progression clone, because it is
     // one, and the merge rule function ContainsRecProCloneAttr guarentees
     // that any function this function is inlined into will also contain a
-    // recursive progressive clone.
+    // recursive progression clone.
     NewF->addFnAttr("contains-rec-pro-clone");
     if (LastCloneF)
-      fixRecProgressiveRecCalls(F, *LastCloneF, *NewF);
+      fixRecProgressionRecCalls(F, *LastCloneF, *NewF);
     else
-      fixRecProgressiveBasisCall(F, *NewF);
+      fixRecProgressionBasisCall(F, *NewF);
     NumIPCloned++;
     Argument *NewFormal = NewF->arg_begin() + ArgPos;
     auto ConstantType = NewFormal->getType();
@@ -940,9 +956,9 @@ static void createRecProgressiveClones(Function &F,
     LastCloneF = NewF;
   }
   if (IsCyclic)
-    fixRecProgressiveRecCalls(F, *LastCloneF, *FirstCloneF);
+    fixRecProgressionRecCalls(F, *LastCloneF, *FirstCloneF);
   else
-    deleteRecProgressiveRecCalls(F, *LastCloneF);
+    deleteRecProgressionRecCalls(F, *LastCloneF);
 }
 
 // Create argument set for CallInst 'CI' of  'F' and save it in
@@ -1047,8 +1063,19 @@ static void dumpFormalsConstants(Function &F) {
 // For now, no heuristics are applied if AfterInl is false.
 // It returns true if there are any worthy formals.
 //
+// If 'IFSwitchHeuristic' is true, the if-switch heuristic may be applied.
+// If 'IsGenRec' is true, we are testing a recursive function for generic
+// cloning. In this case, we may qualify the formals if there are at
+// least 'IPGenCloningMinRecFormalCount' formals that qualify under the
+// if-switch heuristic, but an additional test on the number of clones and
+// callsites will be performed after we return from this function.
+// In that case, set '*IsGenRecQualified' to true to indicate that the
+// worthy formals are only qualified, if this additional condition is
+// fulfilled.
+//
 static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
-                                        bool IFSwitchHeuristic) {
+                                        bool IFSwitchHeuristic, bool IsGenRec,
+                                        bool *IsGenRecQualified) {
 
   SmallPtrSet<Value *, 16> PossiblyWorthyFormalsForCloning;
   WorthyFormalsForCloning.clear();
@@ -1101,8 +1128,7 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
                    << SwitchCount << "\n";
           }
         }
-      }
-      else {
+      } else {
         if (IPCloningTrace) {
           errs() << "  Skipping FORMAL_" << (f_count - 1);
           errs() << " due to heuristics\n";
@@ -1114,7 +1140,7 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
       WorthyFormalsForCloning.insert(V);
     }
   }
-  if (GlobalIFCount >= IPGenCloningMinIFCount &&
+  if (EnableMorphologyCloning && GlobalIFCount >= IPGenCloningMinIFCount &&
       GlobalSwitchCount >= IPGenCloningMinSwitchCount) {
     // There are enough "if" and "switch" values to qualify the clone under
     // the if-switch heuristic. Convert the pending formals to qualified.
@@ -1123,13 +1149,23 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
     for (Value *W : PossiblyWorthyFormalsForCloning)
       WorthyFormalsForCloning.insert(W);
   }
-  else if (SawPending) {
-    if (GlobalIFCount < IPGenCloningMinIFCount)
-      errs() << "  IFCount (" << GlobalIFCount << ") < Limit ("
-             << IPGenCloningMinIFCount << ")\n";
-    if (GlobalSwitchCount < IPGenCloningMinSwitchCount)
-      errs() << "  SwitchCount (" << GlobalSwitchCount << ") < Limit ("
-             << IPGenCloningMinSwitchCount << ")\n";
+  else if (IsGenRec && PossiblyWorthyFormalsForCloning.size() >=
+      IPGenCloningMinRecFormalCount) {
+    if (IPCloningTrace)
+      errs() << "  Possibly selecting all Pending FORMALs in "
+             << "Recursive Function\n";
+    for (Value *W : PossiblyWorthyFormalsForCloning)
+      WorthyFormalsForCloning.insert(W);
+    *IsGenRecQualified = true;
+  } else if (SawPending) {
+    if (IPCloningTrace) {
+      if (GlobalIFCount < IPGenCloningMinIFCount)
+        errs() << "  IFCount (" << GlobalIFCount << ") < Limit ("
+               << IPGenCloningMinIFCount << ")\n";
+      if (GlobalSwitchCount < IPGenCloningMinSwitchCount)
+        errs() << "  SwitchCount (" << GlobalSwitchCount << ") < Limit ("
+               << IPGenCloningMinSwitchCount << ")\n";
+    }
   }
   // Return false if none of formals is selected.
   if (WorthyFormalsForCloning.size() == 0)
@@ -1727,6 +1763,21 @@ static void clearAllMaps(void) {
   SpecialConstGEPMap.clear();
 }
 
+//
+// Return 'true' if 'F' is a directly recursive routine. (There is a callsite
+// in 'F' that calls 'F'.)
+//
+static bool isDirectlyRecursive(Function *F) {
+  for (User *U : F->users()) {
+    auto CB = dyn_cast<CallBase>(U);
+    if (!CB || CB->getCalledFunction() != F)
+      continue;
+    if (CB->getCaller() == F)
+      return true;
+  }
+  return false;
+}
+
 // Main routine to analyze all calls and clone functions if profitable.
 //
 static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
@@ -1771,7 +1822,7 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
         CloneType = RecProgressionClone;
         if (IPCloningTrace)
           errs() << "    Selected RecProgression cloning  " << "\n";
-        createRecProgressiveClones(F, ArgPos, Count, Start, Inc, IsByRef,
+        createRecProgressionClones(F, ArgPos, Count, Start, Inc, IsByRef,
                                    IsCyclic);
         continue;
       }
@@ -1834,7 +1885,12 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
       continue;
     }
 
-    if (!findWorthyFormalsForCloning(F, AfterInl, IFSwitchHeuristic)) {
+    // For a function that is recursive and for which we are producing a
+    // generic clone, potentially relax the rules on the if-switch heuristic.
+    bool IsGenRec = CloneType == GenericClone && isDirectlyRecursive(&F);
+    bool IsGenRecQualified = false;
+    if (!findWorthyFormalsForCloning(F, AfterInl, IFSwitchHeuristic, IsGenRec,
+      &IsGenRecQualified)) {
       if (IPCloningTrace)
         errs() << " Skipping due to Heuristics " << F.getName() << "\n";
       continue;
@@ -1843,6 +1899,17 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
     if (!collectAllConstantArgumentsSets(F, AfterInl)) {
       if (IPCloningTrace)
         errs() << " Skipping not profitable candidate " << F.getName() << "\n";
+      continue;
+    }
+
+    // If we are relaxing the rules on formals for a generic clone of a
+    // recursive function, only clone if there is only one possible clone
+    // and at least 'IPGenCloningMinRecCallsites' callsites.
+    if (IsGenRecQualified && (FunctionAllArgumentsSets.size() != 1
+      || CurrCallList.size() < IPGenCloningMinRecCallsites)) {
+      if (IPCloningTrace)
+        errs() << " Skipping not profitable recursive candidate "
+               << F.getName() << "\n";
       continue;
     }
 

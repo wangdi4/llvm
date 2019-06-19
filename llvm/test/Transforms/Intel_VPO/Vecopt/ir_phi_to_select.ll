@@ -24,8 +24,7 @@
 
 define void @foo(i32* nocapture %arr1, i32* noalias nocapture %arr2, i32* noalias nocapture %arr3) {
 entry:
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body
 
 for.body:                                         ; preds = %if.end, %entry
@@ -59,12 +58,12 @@ if.end:                                           ; preds = %if.else, %if.then
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %if.end
-  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:
   ret void
 }
 
-declare void @llvm.intel.directive(metadata)
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)

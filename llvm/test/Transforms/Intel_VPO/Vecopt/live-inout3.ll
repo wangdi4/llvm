@@ -43,10 +43,7 @@ omp.precond.then:                                 ; preds = %entry
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.precond.then
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.NORMALIZED.IV", i64* nonnull %.omp.iv)
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.NORMALIZED.UB", i64* nonnull %.omp.ub)
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i64* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i64* %.omp.ub) ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.SIMD.1
@@ -89,8 +86,7 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.cond.
   br label %DIR.OMP.END.SIMD.3
 
 DIR.OMP.END.SIMD.3:                               ; preds = %omp.loop.exit
-  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   br label %omp.precond.end
 
 omp.precond.end:                                  ; preds = %entry.omp.precond.end_crit_edge, %DIR.OMP.END.SIMD.3
@@ -113,12 +109,6 @@ declare token @llvm.directive.region.entry() #2
 
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #2
-
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive(metadata) #1
-
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive.qual.opndlist(metadata, ...) #1
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1

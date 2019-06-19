@@ -491,6 +491,23 @@ namespace llvm {
       FMADDSUB_RND,
       FMSUBADD_RND,
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+      // AVX-512-FP16 complex addition and multiplication
+      VFMADDC, VFMADDC_RND,
+      VFCMADDC, VFCMADDC_RND,
+
+      VFMULC, VFMULC_RND,
+      VFCMULC, VFCMULC_RND,
+
+      VFMADDCSH, VFMADDCSH_RND,
+      VFCMADDCSH, VFCMADDCSH_RND,
+
+      VFMULCSH, VFMULCSH_RND,
+      VFCMULCSH, VFCMULCSH_RND,
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+
       // Compress and expand.
       COMPRESS,
       EXPAND,
@@ -601,19 +618,17 @@ namespace llvm {
       // User level wait
       UMWAIT, TPAUSE,
 
+      // Enqueue Stores Instructions
+      ENQCMD, ENQCMDS,
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_VP2INTERSECT
-      VP2INTERSECT,
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
 #if INTEL_FEATURE_ISA_ULI
       // User level interrupts - testui
       TESTUI,
 #endif // INTEL_FEATURE_ISA_ULI
-
-#if INTEL_FEATURE_ISA_ENQCMD
-      ENQCMD, ENQCMDS,
-#endif // INTEL_FEATURE_ISA_ENQCMD
 #endif // INTEL_CUSTOMIZATION
+
+      // For avx512-vp2intersect
+      VP2INTERSECT,
 
       // Compare and swap.
       LCMPXCHG_DAG = ISD::FIRST_TARGET_MEMORY_OPCODE,
@@ -819,7 +834,11 @@ namespace llvm {
     /// This method returns the name of a target specific DAG node.
     const char *getTargetNodeName(unsigned Opcode) const override;
 
-    bool mergeStoresAfterLegalization() const override { return true; }
+    /// Do not merge vector stores after legalization because that may conflict
+    /// with x86-specific store splitting optimizations.
+    bool mergeStoresAfterLegalization(EVT MemVT) const override {
+      return !MemVT.isVector();
+    }
 
     bool canMergeStoresTo(unsigned AddressSpace, EVT MemVT,
                           const SelectionDAG &DAG) const override;

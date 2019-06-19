@@ -293,7 +293,6 @@ attributes #6 = { noreturn }
 ; CHECK-OLD: EXTERN: abort
 
 ; CHECK-LABEL-OLD: COMPILE FUNC: myopenva
-; CHECK-OLD: llvm.lifetime.start.p0i8{{.*}}Callee is intrinsic
 ; CHECK-OLD: llvm.va_start{{.*}}Callee is intrinsic
 ; CHECK-OLD: llvm.va_end{{.*}}Callee is intrinsic
 ; CHECK-OLD: EXTERN: abort
@@ -303,7 +302,6 @@ attributes #6 = { noreturn }
 ; CHECK-OLD: EXTERN: abort
 ; CHECK-OLD: EXTERN: abort
 ; CHECK-OLD: EXTERN: abort
-; CHECK-OLD: llvm.lifetime.end.p0i8{{.*}}Callee is intrinsic
 
 ; CHECK-LABEL-OLD: COMPILE FUNC: main
 ; CHECK-OLD: INLINE: myopener{{.*}}Callee is always inline
@@ -315,7 +313,6 @@ attributes #6 = { noreturn }
 ; CHECK-OLD: EXTERN: abort
 
 ; CHECK-NEW-LABEL: COMPILE FUNC: myopenva
-; CHECK-NEW: llvm.lifetime.start.p0i8{{.*}}Callee is intrinsic
 ; CHECK-NEW: llvm.va_start{{.*}}Callee is intrinsic
 ; CHECK-NEW: llvm.va_end{{.*}}Callee is intrinsic
 ; CHECK-NEW: EXTERN: abort
@@ -325,7 +322,6 @@ attributes #6 = { noreturn }
 ; CHECK-NEW: EXTERN: abort
 ; CHECK-NEW: EXTERN: abort
 ; CHECK-NEW: EXTERN: abort
-; CHECK-NEW: llvm.lifetime.end.p0i8{{.*}}Callee is intrinsic
 
 ; CHECK-NEW-LABEL: COMPILE FUNC: myopener
 ; CHECK-NEW: llvm.va_arg_pack{{.*}}Callee is intrinsic

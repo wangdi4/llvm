@@ -183,13 +183,11 @@ def FeatureBF16    : SubtargetFeature<"avx512bf16", "HasBF16", "true",
 def FeatureBITALG  : SubtargetFeature<"avx512bitalg", "HasBITALG", "true",
                        "Enable AVX-512 Bit Algorithms",
                         [FeatureBWI]>;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_VP2INTERSECT
 def FeatureVP2INTERSECT  : SubtargetFeature<"avx512vp2intersect",
                                             "HasVP2INTERSECT", "true",
                                             "Enable AVX-512 vp2intersect",
                                             [FeatureAVX512]>;
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
 // FIXME: FP16 scaler inrinsics use the type v8f16, which is supposed to be guarded
 // under condition hasVLX. So we imply it in FeatureFP16 currently.
@@ -276,6 +274,23 @@ def FeatureAMXBF16     : SubtargetFeature<"amx-bf16", "HasAMXBF16", "true",
                                       "Support AMX amx-bf16 instructions",
                                       [FeatureAMXTILE]>;
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX2
+def FeatureAMXELEMENT     : SubtargetFeature<"amx-element", "HasAMXELEMENT", "true",
+                                      "Support AMX amx-element instructions",
+                                      [FeatureAMXTILE]>;
+def FeatureAMXREDUCE     : SubtargetFeature<"amx-reduce", "HasAMXREDUCE", "true",
+                                      "Support AMX amx-reduce instructions",
+                                      [FeatureAMXTILE]>;
+def FeatureAMXFORMAT     : SubtargetFeature<"amx-format", "HasAMXFORMAT", "true",
+                                      "Support AMX amx-format instructions",
+                                      [FeatureAMXTILE]>;
+def FeatureAMXTRANSPOSE     : SubtargetFeature<"amx-transpose", "HasAMXTRANSPOSE", "true",
+                                      "Support AMX amx-transpose instructions",
+                                      [FeatureAMXTILE]>;
+def FeatureAMXMEMORY     : SubtargetFeature<"amx-memory", "HasAMXMEMORY", "true",
+                                      "Support AMX amx-memory instructions",
+                                      [FeatureAMXTILE]>;
+#endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
 def FeatureLEAForSP : SubtargetFeature<"lea-sp", "UseLeaForSP", "true",
                                      "Use LEA for adjusting the stack pointer">;
@@ -302,11 +317,9 @@ def FeatureRDPID : SubtargetFeature<"rdpid", "HasRDPID", "true",
                                     "Support RDPID instructions">;
 def FeatureWAITPKG  : SubtargetFeature<"waitpkg", "HasWAITPKG", "true",
                                       "Wait and pause enhancements">;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ENQCMD
 def FeatureENQCMD : SubtargetFeature<"enqcmd", "HasENQCMD", "true",
-                                    "Has ENQCMD instructions">;
-#endif // INTEL_FEATURE_ISA_ENQCMD
+                                     "Has ENQCMD instructions">;
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_KEYLOCKER
 def FeatureKeyLocker  : SubtargetFeature<"keylocker", "HasKeyLocker", "true",
                                          "Support KeyLocker Instructions",

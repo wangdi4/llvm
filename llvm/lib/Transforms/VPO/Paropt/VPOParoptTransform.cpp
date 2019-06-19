@@ -1010,7 +1010,6 @@ bool VPOParoptTransform::paroptTransforms() {
     bool Changed = false;
 
     bool RemoveDirectives = false;
-    bool RemovePrivateClauses = false;
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -1364,7 +1363,6 @@ bool VPOParoptTransform::paroptTransforms() {
           }
           // keep SIMD directives; will be processed by the Vectorizer
           RemoveDirectives = false;
-          RemovePrivateClauses = false;
         }
         break;
       case WRegionNode::WRNAtomic:
@@ -1565,8 +1563,6 @@ bool VPOParoptTransform::paroptTransforms() {
       bool DirRemoved = VPOUtils::stripDirectives(W);
       assert(DirRemoved && "Directive intrinsics not removed for WRN.\n");
       (void) DirRemoved;
-    } else if (RemovePrivateClauses) {
-      VPOUtils::stripPrivateClauses(W);
     }
 
     if (Changed) { // Code transformations happened for this WRN
@@ -1686,7 +1682,7 @@ Value *VPOParoptTransform::genReductionScalarInit(ReductionItem *RedI,
 //    %my.tid16 = load i32, i32* %tid, align 4
 //    call void @__kmpc_end_critical({ i32, i32, i32, i32, i8* }*
 //    @.kmpc_loc.0.0.5, i32 %my.tid16, [8 x i32]* @.gomp_critical_user_.var)
-//  br label %DIR.QUAL.LIST.END.2.exitStub
+//  br label %exitStub
 //
 // Similiarly, here is the output for bool "or" operator given the direcitive in
 // the form of #pragma omp parallel reduction( +: a1 ) reducion( ||: a2 ).
@@ -1730,7 +1726,7 @@ Value *VPOParoptTransform::genReductionScalarInit(ReductionItem *RedI,
 //    %my.tid16 = load i32, i32* %tid, align 4
 //    call void @__kmpc_end_critical({ i32, i32, i32, i32, i8* }*
 //    @.kmpc_loc.0.0.5, i32 %my.tid16, [8 x i32]* @.gomp_critical_user_.var)
-//    br label %DIR.QUAL.LIST.END.2.exitStub
+//    br label %exitStub
 //
 Value* VPOParoptTransform::genReductionFiniForBoolOps(ReductionItem *RedI,
                                           Value *Rhs1, Value *Rhs2,
@@ -1874,6 +1870,37 @@ bool VPOParoptTransform::genReductionScalarFini(
       return false;
     }
 
+    // Try to generate a horizontal (sub-group) reduction.
+    // Without the horizontal reduction the generated code may be
+    // incorrectly widened by the device compiler.
+
+    // We clone the Rhs2 definition, because we have to use Rhs2 value
+    // in the horizontal reduction call, and then replace all uses
+    // of Rhs2 with the call's return value. The cloning just makes
+    // it easier.
+    //
+    // Insert new instruction(s) after the definition of the private
+    // reduction value.
+    auto *TempRedLoad = Rhs2->clone();
+    TempRedLoad->insertAfter(Rhs2);
+    TempRedLoad->takeName(Rhs2);
+    auto HRCall = VPOParoptUtils::genSPIRVHorizontalReduction(
+        RedI, ScalarTy, TempRedLoad, spirv::Scope::Subgroup);
+
+    if (!HRCall)
+      LLVM_DEBUG(dbgs() << __FUNCTION__ <<
+                 ": SPIRV horizontal reduction is not available "
+                 "for critical section reduction: " << RedI->getOpName() <<
+                 " with type " << *ScalarTy << "\n");
+    else {
+      LLVM_DEBUG(dbgs() << __FUNCTION__ <<
+                 ": SPIRV horizontal reduction is used "
+                 "for critical section reduction: " <<
+                 HRCall->getCalledFunction()->getName() << "\n");
+
+      Rhs2->replaceAllUsesWith(HRCall);
+    }
+
     OptimizationRemarkMissed R(DEBUG_TYPE, "ReductionAtomic", Tmp0);
     R << ore::NV("Kind", RedI->getOpName()) << " reduction update of type " <<
         ore::NV("Type", ScalarTy) << " cannot be done using atomic API";
@@ -1912,7 +1939,7 @@ bool VPOParoptTransform::genReductionScalarFini(
 //   %my.tid31 = load i32, i32* %tid, align 4
 //   call void @__kmpc_end_critical({ i32, i32, i32, i32, i8* }*
 //   @.kmpc_loc.0.0.4, i32 %my.tid31, [8 x i32]* @.gomp_critical_user_.var)
-//   br label %DIR.QUAL.LIST.END.2.exitStub
+//   br label %exitStub
 //
 bool VPOParoptTransform::genReductionFini(WRegionNode *W,
                                           ReductionItem *RedI, Value *OldV,
@@ -1979,7 +2006,7 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W,
 //   }
 //
 //   /* B[%red.init.done]  */
-//   br label %DIR.QUAL.LIST.END.1
+//   br label %dir.exit
 //
 //   The output of the reduction array update is as follows.
 //
@@ -2022,7 +2049,7 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W,
 //   %my.tid85 = load i32, i32* %tid, align 4
 //   call void @__kmpc_end_critical({ i32, i32, i32, i32, i8* }*
 //   @.kmpc_loc.0.0.5, i32 %my.tid85, [8 x i32]* @.gomp_critical_user_.var)
-//   br label %DIR.QUAL.LIST.END.2.exitStub
+//   br label %exitStub
 //
 bool VPOParoptTransform::genRedAggregateInitOrFini(WRegionNode *W,
                                                    ReductionItem *RedI,
@@ -2143,10 +2170,9 @@ void VPOParoptTransform::genFprivInit(FirstprivateItem *FprivI,
 // The output of the array update is as follows.
 //
 //    %a = alloca [100 x float]
-//    br label %DIR.QUAL.LIST.END.1
-//
+//    br label %for.end
+//  ...
 //  for.end:                                          ; preds = %dispatch.latch,
-//  %DIR.QUAL.LIST.END.1
 //    %1 = bitcast [100 x float]* %a to i8*
 //    call void @llvm.memcpy.p0i8.p0i8.i64(i8* bitcast ([100 x float]* @a to
 //    i8*), i8* %1, i64 400, i32 0, i1 false)
@@ -2189,7 +2215,7 @@ void VPOParoptTransform::genLprivFini(LastprivateItem *LprivI,
 //
 //    /* B[%DIR.OMP.PARALLEL.LOOP.1.split]  */
 //    store float 0.000000e+00, float* %sum.red
-//    br label %DIR.QUAL.LIST.END.1
+//    br label %dir.exit
 //
 void VPOParoptTransform::genReductionInit(WRegionNode *W,
                                           ReductionItem *RedI,
@@ -2293,7 +2319,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       RedI->setNew(NewRedInst);
 
       Value *ReplacementVal = getClauseItemReplacementValue(RedI, InsertPt);
-      genPrivatizationReplacement(W, Orig, ReplacementVal, RedI);
+      genPrivatizationReplacement(W, Orig, ReplacementVal);
 
       createEmptyPrvInitBB(W, RedInitEntryBB);
       genReductionInit(W, RedI, RedInitEntryBB->getTerminator(), DT);
@@ -2786,8 +2812,7 @@ VPOParoptTransform::genPrivatizationAlloca(Item *I, Instruction *InsertPt,
 // Replace the variable with the privatized variable
 void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
                                                      Value *PrivValue,
-                                                     Value *NewPrivValue,
-                                                     Item *IT) {
+                                                     Value *NewPrivValue) {
 
   // Find instructions in W that use V
   SmallVector<Instruction *, 8> PrivUses;
@@ -2937,7 +2962,7 @@ bool VPOParoptTransform::genLinearCode(WRegionNode *W,
     // Replace original var with the new var inside the region.
     Value *ReplacementVal =
         getClauseItemReplacementValue(LinearI, NewLinearInsertPt);
-    genPrivatizationReplacement(W, Orig, ReplacementVal, LinearI);
+    genPrivatizationReplacement(W, Orig, ReplacementVal);
 
     // For by-refs, do a pointer dereference to reach the actual operand.
     if (LinearI->getIsByRef())
@@ -3056,7 +3081,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         FprivI->setNewOnTaskStack(NewPrivInst);
 
         Value *ReplacementVal = getClauseItemReplacementValue(FprivI, InsertPt);
-        genPrivatizationReplacement(W, Orig, ReplacementVal, FprivI);
+        genPrivatizationReplacement(W, Orig, ReplacementVal);
 
         // For task firstprivate, copy the data from the task entry object
         // to the task's local stack copy, and back again
@@ -3191,7 +3216,7 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
       LprivI->setNew(NewPrivInst);
 
       Value *ReplacementVal = getClauseItemReplacementValue(LprivI, InsertPt);
-      genPrivatizationReplacement(W, Orig, ReplacementVal, LprivI);
+      genPrivatizationReplacement(W, Orig, ReplacementVal);
 
       // Emit constructor call for lastprivate var if it is not also a
       // firstprivate (in which case the firstprivate init emits a cctor).
@@ -3528,7 +3553,7 @@ AllocaInst *VPOParoptTransform::genRegionLocalCopy(WRegionNode *W, Value *V) {
   // Replace all uses of the original alloca's result with the new alloca
   // definition.
   Value *ReplacementVal = getClauseItemReplacementValue(&FprivI, InsertPt);
-  genPrivatizationReplacement(W, OrigAlloca, ReplacementVal, &FprivI);
+  genPrivatizationReplacement(W, OrigAlloca, ReplacementVal);
 
   // Copy value from the original "variable" to the new one.
   // We have to create an empty block after the region entry
@@ -3761,7 +3786,7 @@ void VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
         StInst->setVolatile(false);
     }
     if (PromoteToReg) {
-      resetValueInIntelClauseGeneric(W, V);
+      resetValueInOmpClauseGeneric(W, V);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
       if (AI == NormUB && !isAllocaPromotable(AI))
@@ -4065,7 +4090,8 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
 #endif  // INTEL_CUSTOMIZATION
           isa<AllocaInst>(Orig) || isa<GetElementPtrInst>(Orig) ||
           isa<BitCastInst>(Orig) ||
-          (isa<CallInst>(Orig) && isFenceCall(cast<CallInst>(Orig)))) {
+          (isa<CallInst>(Orig) && isFenceCall(cast<CallInst>(Orig))) ||
+          (isa<LoadInst>(Orig) && isa<PointerType>(Orig->getType()))) {
         Value *NewPrivInst;
 
         // Insert alloca for privatization right after the BEGIN directive.
@@ -4074,6 +4100,7 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
         // removed by genPrivatizationReplacement(), so we need to recompute
         // AllocaInsertPt at every iteration of this for-loop.
 
+#if INTEL_CUSTOMIZATION
         // For now, back out this change to AllocaInsertPt until we figure
         // out why it causes an assert in VPOCodeGen::getVectorPrivateBase
         // when running run_gf_channels (gridfusion4.3_tuned_channels).
@@ -4083,12 +4110,13 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
         // TODO: Restructure this code so that the alloca is only done for
         // non-tasks. We could just use the thunk's private space pointer
         // directly in the task body.
+#endif // INTEL_CUSTOMIZATION
         Instruction *AllocaInsertPt = EntryBB->getFirstNonPHI();
         NewPrivInst = genPrivatizationAlloca(PrivI, AllocaInsertPt, ".priv");
         PrivI->setNew(NewPrivInst);
         Value *ReplacementVal =
             getClauseItemReplacementValue(PrivI, AllocaInsertPt);
-        genPrivatizationReplacement(W, Orig, ReplacementVal, PrivI);
+        genPrivatizationReplacement(W, Orig, ReplacementVal);
 
         // checks for constructor existence
         VPOParoptUtils::genConstructorCall(PrivI->getConstructor(), NewPrivInst,
@@ -4531,7 +4559,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
       // FIXME: enable this back, when FE starts capturing dist_schedule
       //        chunk size.
       if (!isa<Constant>(DistChunkVal)) {
-        resetValueInIntelClauseGeneric(W, DistChunkVal);
+        resetValueInOmpClauseGeneric(W, DistChunkVal);
         DistChunkVal =
             VPOParoptUtils::cloneInstructions(DistChunkVal, PHTerm);
         PHBuilder.SetInsertPoint(PHTerm);
@@ -4592,7 +4620,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
           ConstantInt::get(IndValTy, 1) : W->getSchedule().getChunkExpr();
 
   if (!isa<Constant>(ChunkVal) && !isa<WRNWksLoopNode>(W)) {
-    resetValueInIntelClauseGeneric(W, ChunkVal);
+    resetValueInOmpClauseGeneric(W, ChunkVal);
     ChunkVal = VPOParoptUtils::cloneInstructions(ChunkVal, PHTerm);
     PHBuilder.SetInsertPoint(PHTerm);
   }
@@ -5946,9 +5974,13 @@ bool VPOParoptTransform::genCancelCode(WRNCancelNode *W) {
 
   auto *IfExpr = W->getIf();
   if (IfExpr) {
+    assert(!W->getIsCancellationPoint() && "IF expr on a Cancellation Point.");
+
     // If the construct has an 'IF' clause, we need to generate code like:
     // if (if_expr != 0) {
-    //   %1 = __kmpc_cancel[lationpoint](...);
+    //   %1 = __kmpc_cancel(...);
+    // } else {
+    //   %2 = __kmpc_cancellationpoint(...);
     // }
     Function *F = EntryBB->getParent();
     LLVMContext &C = F->getContext();
@@ -5957,15 +5989,32 @@ bool VPOParoptTransform::genCancelCode(WRNCancelNode *W) {
     auto *CondInst = new ICmpInst(InsertPt, ICmpInst::ICMP_NE, IfExpr,
                                   ValueZero, "cancel.if");
 
-    Instruction *IfCancelThen =
-        SplitBlockAndInsertIfThen(CondInst, InsertPt, false, nullptr, DT, LI);
-    assert(IfCancelThen && "genCancelCode: Cannot split BB at Cancel If");
+    Instruction *IfCancelThen = nullptr;
+    Instruction *IfCancelElse = nullptr;
 
-    InsertPt = IfCancelThen;
+    SplitBlockAndInsertIfThenElse(CondInst, InsertPt, &IfCancelThen,
+                                  &IfCancelElse);
+    assert(IfCancelThen && "genCancelCode: Null Then Inst for Cancel If");
+    assert(IfCancelElse && "genCancelCode: Null Else Inst for Cancel If");
+
+    IfCancelThen->getParent()->setName(CondInst->getName() + ".then");
+    IfCancelElse->getParent()->setName(CondInst->getName() + ".else");
+
     LLVM_DEBUG(
         dbgs() << "genCancelCode: Emitted If-Then-Else for IF EXPR: if (";
         IfExpr->printAsOperand(dbgs());
-        dbgs() << ") then <%x = __kmpc_cancel[lationpoint]>.\n");
+        dbgs() << ") then <%x = __kmpc_cancel>; else <%y = "
+                  "__kmpc_cancellationpoint>;.\n");
+
+    // Insert the __kmpc_cancellationpoint for the ELSE branch here.
+    CallInst *ElseCPCall = VPOParoptUtils::genKmpcCancelOrCancellationPointCall(
+        W, IdentTy, TidPtrHolder, IfCancelElse, W->getCancelKind(), true);
+    (void)ElseCPCall;
+    assert(ElseCPCall && "genCancelCode: Failed to emit cancellationpoint call "
+                         "for cancel 'if'.");
+
+    // Set the insert point for the __kmpc_cancel call.
+    InsertPt = IfCancelThen;
   }
 
   CallInst *CancelCall = VPOParoptUtils::genKmpcCancelOrCancellationPointCall(
@@ -6000,7 +6049,7 @@ bool VPOParoptTransform::propagateCancellationPointsToIR(WRegionNode *W) {
   assert(CI && "propagateCancellationPointsToIR: Exit BBlocks's first "
                "non-PHI Instruction is not a Call");
   assert(
-      VPOAnalysisUtils::isIntelDirectiveOrClause(CI) &&
+      VPOAnalysisUtils::isOpenMPDirective(CI) &&
       "propagateCancellationPointsToIR: Cannot find region.exit() directive");
 
   // We first create Allocas to store the return values of the runtime calls.
@@ -6102,7 +6151,7 @@ bool VPOParoptTransform::clearCancellationPointAllocasFromIR(WRegionNode *W) {
 
     assert(RegionEntry &&
            "Unable to find intrinsic using cancellation point alloca.");
-    assert(VPOAnalysisUtils::isIntelDirectiveOrClause(RegionEntry) &&
+    assert(VPOAnalysisUtils::isOpenMPDirective(RegionEntry) &&
            "Unexpected user of cancellation point alloca.");
 
     LLVMContext &C = F->getContext();
@@ -6165,6 +6214,11 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
         (VPOParoptUtils::getLoopScheduleKind(W) == WRNScheduleStaticEven ||
          VPOParoptUtils::getLoopScheduleKind(W) == WRNScheduleStatic)));
 
+  auto isCancelBarrier = [](Instruction *I) {
+    return cast<CallInst>(I)->getCalledFunction()->getName() ==
+           "__kmpc_cancel_barrier";
+  };
+
   // For a parallel construct, 'kmpc_cancel' and 'kmpc_cancellationpoint', when
   // cancelled, should call '__kmpc_cancel_barrier'. This is needed to free up
   // threads that are waiting at existing 'kmpc_cancel_barrier's.
@@ -6189,7 +6243,11 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
   //    |               |             |              |
   // ---+---------------+-------------+--------------+--- <fork/join barrier>
   //
-  bool NeedCancelBarrierForNonBarriers = isa<WRNParallelNode>(W);
+
+  bool NeedCancelBarrierForNonBarriers =
+      isa<WRNParallelNode>(W) &&
+      std::any_of(CancellationPoints.begin(), CancellationPoints.end(),
+                  isCancelBarrier);
 
   assert((!NeedStaticFiniCall || !NeedCancelBarrierForNonBarriers) &&
          "genCancellationBranchingCode: Cannot need both kmpc_static_fini and "
@@ -6217,10 +6275,7 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
     assert(CancellationPoint &&
            "genCancellationBranchingCode: Illegal cancellation point");
 
-    bool CancellationPointIsBarrier =
-        (dyn_cast<CallInst>(CancellationPoint)
-             ->getCalledFunction()
-             ->getName() == "__kmpc_cancel_barrier");
+    bool CancellationPointIsBarrier = isCancelBarrier(CancellationPoint);
 
     // At this point, IR looks like:
     //
@@ -6413,12 +6468,12 @@ void VPOParoptTransform::resetValueInPrivateClause(WRegionNode *W) {
     return;
 
   for (auto *I : PrivClause.items()) {
-    resetValueInIntelClauseGeneric(W, I->getOrig());
+    resetValueInOmpClauseGeneric(W, I->getOrig());
   }
 }
 
-// Set the the arguments in the Intel compiler generated clause to be empty.
-void VPOParoptTransform::resetValueInIntelClauseGeneric(WRegionNode *W,
+// Set the the operands V of OpenMP clauses in W to be empty.
+void VPOParoptTransform::resetValueInOmpClauseGeneric(WRegionNode *W,
                                                         Value *V) {
   if (!V)
     return;
@@ -6435,7 +6490,7 @@ void VPOParoptTransform::resetValueInIntelClauseGeneric(WRegionNode *W,
 
   while (!IfUses.empty()) {
     Instruction *UI = IfUses.pop_back_val();
-    if (VPOAnalysisUtils::isIntelDirectiveOrClause(UI)) {
+    if (VPOAnalysisUtils::isOpenMPDirective(UI)) {
       LLVMContext &C = F->getContext();
       UI->replaceUsesOfWith(V, ConstantPointerNull::get(Type::getInt8PtrTy(C)));
       break;

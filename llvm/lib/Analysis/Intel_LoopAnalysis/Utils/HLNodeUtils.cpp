@@ -1011,6 +1011,23 @@ HLInst *HLNodeUtils::createCall(Function *Func,
   return createCallImpl(Func, CallArgs, Name, LvalRef, Bundle, BundelOps).first;
 }
 
+HLInst *HLNodeUtils::createPrefetch(RegDDRef *AddressRef, RegDDRef *RW,
+                                    RegDDRef *Locality, RegDDRef *CacheTy) {
+
+  Function *PrefetchFunc =
+      Intrinsic::getDeclaration(&getModule(), Intrinsic::prefetch);
+
+  SmallVector<RegDDRef *, 4> Ops = {AddressRef, RW, Locality, CacheTy};
+
+  CallInst *Call;
+  HLInst *HInst;
+  std::tie(HInst, Call) = createCallImpl(PrefetchFunc, Ops);
+
+  Call->setDebugLoc(AddressRef->getDebugLoc());
+
+  return HInst;
+}
+
 HLInst *HLNodeUtils::createMemcpy(RegDDRef *StoreRef, RegDDRef *LoadRef,
                                   RegDDRef *Size) {
   RegDDRef *IsVolatile = getDDRefUtils().createConstDDRef(
@@ -1033,6 +1050,8 @@ HLInst *HLNodeUtils::createMemcpy(RegDDRef *StoreRef, RegDDRef *LoadRef,
   MemCpyCall->setSourceAlignment(LoadRef->getAlignment());
   MemCpyCall->setDestAlignment(StoreRef->getAlignment());
 
+  Call->setDebugLoc(StoreRef->getDebugLoc());
+
   return HInst;
 }
 
@@ -1053,6 +1072,8 @@ HLInst *HLNodeUtils::createMemset(RegDDRef *StoreRef, RegDDRef *Value,
 
   MemSetInst *MemSetCall = cast<MemSetInst>(Call);
   MemSetCall->setDestAlignment(StoreRef->getAlignment());
+
+  Call->setDebugLoc(StoreRef->getDebugLoc());
 
   return HInst;
 }
@@ -3055,7 +3076,6 @@ bool HLNodeUtils::isKnownNonZero(unsigned BlobIdx, const HLNode *ParentNode) {
   return isKnownPositiveOrNegative(BlobIdx, ParentNode, MinMaxVal);
 }
 
-
 #if __GNUC__ >= 7
 // The switch ladders below uses implicit fallthrough for compactness.
 // Please note the ordering when adding cases.
@@ -4123,6 +4143,23 @@ private:
            (Goto->getTargetLabel()->getTopSortNum() > Loop->getMaxTopSortNum());
   }
 
+  // Tries to find lexical control flow successor of internal \p Goto by looking
+  // for next node in the parent chain.
+  static HLNode *getInternalGotoNodeSingleSuccessor(HLGoto *Goto) {
+    assert(!Goto->isExternal() && "Expected internal HLGoto");
+    HLNode *Node = Goto;
+    HLNode *Parent, *Next;
+    while (!(Next = Node->getNextNode()) && (Parent = Node->getParent())) {
+      // Do not go over loops as they have back edges.
+      if (isa<HLLoop>(Parent)) {
+        break;
+      }
+
+      Node = Parent;
+    }
+    return Next;
+  };
+
 public:
   RedundantNodeRemoverVisitor()
       : SkipNode(nullptr), LastNodeToRemove(nullptr),
@@ -4233,14 +4270,12 @@ public:
   void removeSiblingGotosWithTarget(HLLabel *Label) {
     SmallVector<HLGoto *, 4> FoundGotos;
 
-    // Collect all gotos pointing to Node which are either a direct siblings to
-    // the target label or a last node in their parent containers.
+    // Collect all gotos pointing to Node which are direct or indirect siblings
+    // to the target label.
     std::for_each(GotosToRemove.begin(), GotosToRemove.end(),
                   [Label, &FoundGotos](HLGoto *Goto) {
                     if (Goto->getTargetLabel() == Label &&
-                        (Goto->getNextNode() == Label ||
-                         HLNodeUtils::getLastLexicalChild(Goto->getParent(),
-                                                          Goto) == Goto)) {
+                        (getInternalGotoNodeSingleSuccessor(Goto) == Label)) {
                       FoundGotos.push_back(Goto);
                     }
                   });
@@ -4279,9 +4314,9 @@ public:
     HLNode *ContainerLastNode =
         HLNodeUtils::getLastLexicalChild(Goto->getParent(), Goto);
 
-    GotosToRemove.insert(Goto);
-
     if (!Goto->isExternal()) {
+      GotosToRemove.insert(Goto);
+
       if (LabelSafeContainer) {
         LabelJumps[Goto->getTargetLabel()]++;
       }
@@ -4451,18 +4486,14 @@ public:
       if (Node == LastNodeToRemove) {
         LastNodeToRemove = nullptr;
       }
-    } else {
-      // Clear gotos as we are not able to remove any of them because there's a
-      // node between gotos and a label.
-      if (IsJoinNode) {
-        GotosToRemove.clear();
-      }
 
-      // Unable to remove node means this is not a join point now.
-      IsJoinNode = false;
-
-      EmptyNodeRemoverVisitorImpl::visit(Node);
+      return;
     }
+
+    // Unable to remove node means this is not a join point now.
+    IsJoinNode = false;
+
+    EmptyNodeRemoverVisitorImpl::visit(Node);
   }
 
   virtual bool skipRecursion(const HLNode *Node) const {
@@ -4574,8 +4605,7 @@ void HLNodeUtils::updateNumLoopExits(HLNode *Node) {
   HLNodeUtils::visit(V, Node);
 }
 
-template<typename T>
-void sortInTopOrderAndUniqHelper(T &Nodes) {
+template <typename T> void sortInTopOrderAndUniqHelper(T &Nodes) {
   auto NodeComparator = [](const HLNode *N1, const HLNode *N2) {
     return N1->getTopSortNum() < N2->getTopSortNum();
   };
@@ -4583,7 +4613,7 @@ void sortInTopOrderAndUniqHelper(T &Nodes) {
   std::sort(Nodes.begin(), Nodes.end(), NodeComparator);
   auto Last = std::unique(Nodes.begin(), Nodes.end(),
                           [](const HLNode *N1, const HLNode *N2) {
-                          return N1->getTopSortNum() == N2->getTopSortNum();
+                            return N1->getTopSortNum() == N2->getTopSortNum();
                           });
 
   Nodes.erase(Last, Nodes.end());

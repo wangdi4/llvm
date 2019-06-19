@@ -91,8 +91,8 @@ class HIRIdiomRecognition {
   SmallPtrSet<HLNode *, 8> RemovedNodes;
 
   // Checks if the candidate is legal from DDG point of view.
-  bool isLegalEdge(const RegDDRef *Ref, const DDEdge &E, unsigned Level,
-                   bool IsStore);
+  bool isLegalEdge(const RegDDRef *Ref, const DDEdge &E,
+                   const DirectionVector &DV, unsigned Level, bool IsStore);
 
   template <bool IsOutgoing>
   bool isLegalGraph(const DDGraph &DDG, const HLLoop *Loop, const RegDDRef *Ref,
@@ -195,21 +195,10 @@ bool HIRIdiomRecognition::isBytewiseValue(RegDDRef *Ref, bool DoBitcast) {
 
 // Check that it's legal to hoist store/load to the pre-header.
 bool HIRIdiomRecognition::isLegalEdge(const RegDDRef *Ref, const DDEdge &E,
-                                      unsigned Level, bool IsStore) {
-  const DirectionVector &DV = E.getDV();
-
+                                      const DirectionVector &DV, unsigned Level,
+                                      bool IsStore) {
   if (DV.isIndepFromLevel(Level)) {
     return true;
-  }
-
-  // This is a workaround because of not precise DDG for multiple level
-  // loopnests. We consider any * outer level DV illegal. Ex.: (* * ?).
-  // Only outer "=" DVs are handled for multilevel loopnests. Ex.: (= = ?).
-  // Note that we already checked for isIndepFromLevel() before.
-  for (unsigned L = 0; L < Level - 1; ++L) {
-    if (DV[L] != DVKind::EQ) {
-      return false;
-    }
   }
 
   // No stores should be before the idiom DDRef.
@@ -250,7 +239,29 @@ bool HIRIdiomRecognition::isLegalGraph(const DDGraph &DDG, const HLLoop *Loop,
       continue;
     }
 
-    if (!isLegalEdge(Ref, *E, Level, IsStore)) {
+    const DirectionVector *DV = &E->getDV();
+
+    // In case of the target loop is not the topmost loop we need to refine the
+    // dependency to be less conservative.
+    RefinedDependence RefinedDep;
+    if (Level != 1) {
+      const DDRef *SrcRef = Ref;
+      const DDRef *DstRef = OtherRef;
+      if (!IsOutgoing) {
+        std::swap(SrcRef, DstRef);
+      }
+
+      RefinedDep = DDA.refineDV(SrcRef, DstRef, Level, Level, false);
+      if (RefinedDep.isIndependent()) {
+        continue;
+      }
+
+      if (RefinedDep.isRefined()) {
+        DV = &RefinedDep.getDV();
+      }
+    }
+
+    if (!isLegalEdge(Ref, *E, *DV, Level, IsStore)) {
       LLVM_DEBUG(E->dump());
       return false;
     }
@@ -289,7 +300,7 @@ bool HIRIdiomRecognition::isLegalCandidate(const HLLoop *Loop,
 
 bool HIRIdiomRecognition::analyzeStore(HLLoop *Loop, RegDDRef *Ref,
                                        MemOpCandidate &Candidate) {
-  Candidate = std::move(MemOpCandidate(Ref));
+  Candidate = MemOpCandidate(Ref);
 
   bool ForMemset = false;
   bool ForMemcpy = false;

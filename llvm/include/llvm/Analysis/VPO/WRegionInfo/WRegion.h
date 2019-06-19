@@ -793,6 +793,7 @@ private:
   WRNDefaultKind Default;
   bool Untied;
   bool Mergeable;
+  bool IsTargetTask; // Task is the implicit task surrounding a target region.
   unsigned TaskFlag; // flag bit vector used to invoke tasking RTL
   SmallVector<Instruction *, 2> CancellationPoints;
   SmallVector<AllocaInst *, 2> CancellationPointAllocas;
@@ -807,6 +808,7 @@ protected:
   void setDefault(WRNDefaultKind D) { Default = D; }
   void setUntied(bool B) { Untied = B; }
   void setMergeable(bool B) { Mergeable = B; }
+  void setIsTargetTask(bool B) { IsTargetTask = B; }
   void setTaskFlag(unsigned F) { TaskFlag = F; }
 
 public:
@@ -822,6 +824,7 @@ public:
   WRNDefaultKind getDefault() const { return Default; }
   bool getUntied() const { return Untied; }
   bool getMergeable() const { return Mergeable; }
+  bool getIsTargetTask() const { return IsTargetTask; }
   unsigned getTaskFlag() const { return TaskFlag; }
   const SmallVectorImpl<Instruction *> &getCancellationPoints() const {
     return CancellationPoints;

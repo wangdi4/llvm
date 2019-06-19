@@ -44,7 +44,7 @@
 ; else
 ;   call b->foo
 
-; RUN: opt < %s -wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -instnamer -S 2>&1 | FileCheck %s
+; RUN: opt < %s -wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -S 2>&1 | FileCheck %s
 
 %"class.std::ios_base::Init" = type { i8 }
 %class.Base = type { i32 (...)** }
@@ -121,11 +121,11 @@ entry:
   %.4 = select i1 %cmp, %class.Base* getelementptr inbounds (%class.Derived, %class.Derived* @d, i64 0, i32 0), %class.Base* getelementptr inbounds (%class.Derived2, %class.Derived2* @d2, i64 0, i32 0)
   store i1 (%class.Base*, i32)*** %., i1 (%class.Base*, i32)**** bitcast (%class.Base** @b to i1 (%class.Base*, i32)****), align 8, !tbaa !8
   %vtable = load i1 (%class.Base*, i32)**, i1 (%class.Base*, i32)*** %., align 8, !tbaa !12
-  %0 = bitcast i1 (%class.Base*, i32)** %vtable to i8*
-  %1 = tail call i1 @llvm.type.test(i8* %0, metadata !"_ZTS4Base")
-  tail call void @llvm.assume(i1 %1)
-  %2 = load i1 (%class.Base*, i32)*, i1 (%class.Base*, i32)** %vtable, align 8
-  %call = tail call zeroext i1 %2(%class.Base* %.4, i32 %argc)
+  %tmp = bitcast i1 (%class.Base*, i32)** %vtable to i8*
+  %tmp1 = tail call i1 @llvm.type.test(i8* %tmp, metadata !"_ZTS4Base")
+  tail call void @llvm.assume(i1 %tmp1)
+  %tmp2 = load i1 (%class.Base*, i32)*, i1 (%class.Base*, i32)** %vtable, align 8
+  %call = tail call zeroext i1 %tmp2(%class.Base* %.4, i32 %argc)
   %call.i = tail call dereferenceable(272) %"class.std::basic_ostream"* @_ZNSo9_M_insertIbEERSoT_(%"class.std::basic_ostream"* nonnull @_ZSt4cout, i1 zeroext %call)
   %call1.i = tail call dereferenceable(272) %"class.std::basic_ostream"* @_ZSt16__ostream_insertIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_PKS3_l(%"class.std::basic_ostream"* nonnull dereferenceable(272) %call.i, i8* nonnull getelementptr inbounds ([2 x i8], [2 x i8]* @.str, i64 0, i64 0), i64 1)
   ret i32 0
@@ -157,7 +157,7 @@ declare dso_local dereferenceable(272) %"class.std::basic_ostream"* @_ZSt16__ost
 define internal void @_GLOBAL__sub_I_driver2.cpp() #6 section ".text.startup" {
 entry:
   tail call void @_ZNSt8ios_base4InitC1Ev(%"class.std::ios_base::Init"* nonnull @_ZSt8__ioinit)
-  %0 = tail call i32 @__cxa_atexit(void (i8*)* bitcast (void (%"class.std::ios_base::Init"*)* @_ZNSt8ios_base4InitD1Ev to void (i8*)*), i8* getelementptr inbounds (%"class.std::ios_base::Init", %"class.std::ios_base::Init"* @_ZSt8__ioinit, i64 0, i32 0), i8* nonnull @__dso_handle) #2
+  %tmp = tail call i32 @__cxa_atexit(void (i8*)* bitcast (void (%"class.std::ios_base::Init"*)* @_ZNSt8ios_base4InitD1Ev to void (i8*)*), i8* getelementptr inbounds (%"class.std::ios_base::Init", %"class.std::ios_base::Init"* @_ZSt8__ioinit, i64 0, i32 0), i8* nonnull @__dso_handle) #2
   store i32 (...)** bitcast (i8** getelementptr inbounds ({ [3 x i8*] }, { [3 x i8*] }* @_ZTV7Derived, i64 0, inrange i32 0, i64 2) to i32 (...)**), i32 (...)*** getelementptr inbounds (%class.Derived, %class.Derived* @d, i64 0, i32 0, i32 0), align 8, !tbaa !12
   store i32 (...)** bitcast (i8** getelementptr inbounds ({ [3 x i8*] }, { [3 x i8*] }* @_ZTV8Derived2, i64 0, inrange i32 0, i64 2) to i32 (...)**), i32 (...)*** getelementptr inbounds (%class.Derived2, %class.Derived2* @d2, i64 0, i32 0, i32 0), align 8, !tbaa !12
   ret void
@@ -189,46 +189,45 @@ attributes #6 = { uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disab
 !12 = !{!13, !13, i64 0}
 !13 = !{!"vtable pointer", !11, i64 0}
 
-
 ; Check that the transformation was applied correctly in function main.
 ; CHECK:       define hidden i32 @main(i32 %argc, i8** nocapture readnone %argv) local_unnamed_addr #3 {
 
 
 ; This part checks if the address of the virtual function is the same as Derived::foo
-; CHECK:       %tmp2 = bitcast i1 (%class.Base*, i32)* %tmp1 to i8*
-; CHECK-NEXT:  %tmp3 = bitcast i1 (%class.Derived*, i32)* @_ZN7Derived3fooEi to i8*
-; CHECK-NEXT:  %tmp4 = icmp eq i8* %tmp2, %tmp3
-; CHECK-NEXT:  br i1 %tmp4, label %BBDevirt__ZN7Derived3fooEi_0_0, label %ElseDevirt__ZN7Derived3fooEi_0_0
+; CHECK:       %0 = bitcast i1 (%class.Base*, i32)* %tmp2 to i8*
+; CHECK-NEXT:  %1 = bitcast i1 (%class.Derived*, i32)* @_ZN7Derived3fooEi to i8*
+; CHECK-NEXT:  %2 = icmp eq i8* %0, %1
+; CHECK-NEXT:  br i1 %2, label %BBDevirt__ZN7Derived3fooEi_0_0, label %ElseDevirt__ZN7Derived3fooEi_0_0
 
 ; If the address is the same, then call Derived::foo
 ; CHECK-LABEL: BBDevirt__ZN7Derived3fooEi_0_0:
-; CHECK:        %tmp5 = tail call zeroext i1 bitcast (i1 (%class.Derived*, i32)* @_ZN7Derived3fooEi to i1 (%class.Base*, i32)*)(%class.Base* %.4, i32 %argc)
+; CHECK:        %3 = tail call zeroext i1 bitcast (i1 (%class.Derived*, i32)* @_ZN7Derived3fooEi to i1 (%class.Base*, i32)*)(%class.Base* %.4, i32 %argc)
 ; CHECK-NEXT:   br label %MergeBB_0_0
 
 ; Now check if the address is the same as Derived2::foo
 ; CHECK-LABEL: ElseDevirt__ZN7Derived3fooEi_0_0:
-; CHECK:        %tmp6 = bitcast i1 (%class.Derived2*, i32)* @_ZN8Derived23fooEi to i8*
-; CHECK-NEXT:   %tmp7 = icmp eq i8* %tmp2, %tmp6
-; CHECK-NEXT:   br i1 %tmp7, label %BBDevirt__ZN8Derived23fooEi_0_0, label %DefaultBB_0_0
+; CHECK:        %4 = bitcast i1 (%class.Derived2*, i32)* @_ZN8Derived23fooEi to i8*
+; CHECK-NEXT:   %5 = icmp eq i8* %0, %4
+; CHECK-NEXT:   br i1 %5, label %BBDevirt__ZN8Derived23fooEi_0_0, label %DefaultBB_0_0
 
 ; If the address is the same as Derived2::foo, then call it
 ; CHECK-LABEL: BBDevirt__ZN8Derived23fooEi_0_0:
-; CHECK:        %tmp8 = tail call zeroext i1 bitcast (i1 (%class.Derived2*, i32)* @_ZN8Derived23fooEi to i1 (%class.Base*, i32)*)(%class.Base* %.4, i32 %argc)
+; CHECK:        %6 = tail call zeroext i1 bitcast (i1 (%class.Derived2*, i32)* @_ZN8Derived23fooEi to i1 (%class.Base*, i32)*)(%class.Base* %.4, i32 %argc)
 ; CHECK-NEXT:   br label %MergeBB_0_0
 
 ; This is the fail safe case. In case the address doesn't match any of the functions, then
 ; CHECK-LABEL: DefaultBB_0_0:
-; CHECK-NEXT:   %tmp9 = tail call zeroext i1 %tmp1(%class.Base* %.4, i32 %argc)
+; CHECK-NEXT:   %7 = tail call zeroext i1 %tmp2(%class.Base* %.4, i32 %argc)
 ; CHECK-NEXT:   br label %MergeBB_0_0
 
 ; We need to collect back the result and generate the PhiNode
 ; CHECK-LABEL: MergeBB_0_0:
-; CHECK-NEXT:   %tmp10 = phi i1 [ %tmp5, %BBDevirt__ZN7Derived3fooEi_0_0 ], [ %tmp8, %BBDevirt__ZN8Derived23fooEi_0_0 ], [ %tmp9, %DefaultBB_0_0 ]
-; CHECK-NEXT:   br label %bb
+; CHECK-NEXT:   %8 = phi i1 [ %3, %BBDevirt__ZN7Derived3fooEi_0_0 ], [ %6, %BBDevirt__ZN8Derived23fooEi_0_0 ], [ %7, %DefaultBB_0_0 ]
+; CHECK-NEXT:   br label %9
 
 ; Now check that the users were replaced correctly
-; CHECK-LABEL: bb:
-; CHECK-NEXT:   %call.i = tail call dereferenceable(272) %"class.std::basic_ostream"* @_ZNSo9_M_insertIbEERSoT_(%"class.std::basic_ostream"* nonnull @_ZSt4cout, i1 zeroext %tmp10)
+; CHECK-LABEL: 9:
+; CHECK-NEXT:   %call.i = tail call dereferenceable(272) %"class.std::basic_ostream"* @_ZNSo9_M_insertIbEERSoT_(%"class.std::basic_ostream"* nonnull @_ZSt4cout, i1 zeroext %8)
 ; CHECK-NEXT:   %call1.i = tail call dereferenceable(272) %"class.std::basic_ostream"* @_ZSt16__ostream_insertIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_PKS3_l(%"class.std::basic_ostream"* nonnull dereferenceable(272) %call.i, i8* nonnull getelementptr inbounds ([2 x i8], [2 x i8]* @.str, i64 0, i64 0), i64 1)
 ; CHECK-NEXT:   ret i32 0
 ; CHECK-NEXT: }

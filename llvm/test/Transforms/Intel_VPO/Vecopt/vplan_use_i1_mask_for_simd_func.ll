@@ -50,10 +50,7 @@ for.body:                                         ; preds = %for.body, %entry
   br i1 %exitcond58, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  tail call void @llvm.intel.directive.qual.opnd.i32(metadata !"QUAL.OMP.SIMDLEN", i32 4)
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", i32* nonnull %t)
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.PRIVATE"(i32* %t) ]
   br label %DIR.QUAL.LIST.END.1
 
 DIR.QUAL.LIST.END.1:                              ; preds = %for.end
@@ -87,8 +84,7 @@ if.end:                                           ; preds = %omp.inner.for.body,
   br i1 %exitcond55, label %omp.loop.exit, label %omp.inner.for.body
 
 omp.loop.exit:                                    ; preds = %if.end
-  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   br label %for.body15
 
 for.body15:                                       ; preds = %for.body15, %omp.loop.exit
@@ -120,14 +116,11 @@ declare void @llvm.lifetime.start(i64, i8* nocapture) #2
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.end(i64, i8* nocapture) #2
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive(metadata) #2
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry()
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive.qual.opnd.i32(metadata, i32) #2
-
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive.qual.opndlist(metadata, ...) #2
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token)
 
 declare i32 @printf(i8*, ...) #4
 

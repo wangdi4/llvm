@@ -33,10 +33,8 @@ namespace X86Disassembler {
 #define THREEDNOW_MAP_SYM x86Disassembler3DNowOpcodes
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
 #define THREEBYTE39_SYM   x86DisassemblerThreeByte39Opcodes
 #define THREEBYTE3B_SYM   x86DisassemblerThreeByte3BOpcodes
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
 #define INSTRUCTIONS_STR  "x86DisassemblerInstrSpecifiers"
@@ -51,10 +49,8 @@ namespace X86Disassembler {
 #define THREEDNOW_MAP_STR "x86Disassembler3DNowOpcodes"
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
 #define THREEBYTE39_STR   "x86DisassemblerThreeByte39Opcodes"
 #define THREEBYTE3B_STR   "x86DisassemblerThreeByte3BOpcodes"
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
 // Attributes of an instruction that must be known before the opcode can be
@@ -311,13 +307,9 @@ enum OpcodeType {
   XOP9_MAP      = 5,
   XOPA_MAP      = 6,
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   THREEDNOW_MAP = 7,
   THREEBYTE_39  = 8,
   THREEBYTE_3B  = 9
-#else // INTEL_FEATURE_ISA_FP16
-  THREEDNOW_MAP = 7
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 };
 
@@ -447,11 +439,11 @@ enum OperandEncoding {
 #define XTM_ENUM_ENTRY
 #endif // INTEL_FEATURE_ISA_AMX
 
-#if INTEL_FEATURE_ISA_VP2INTERSECT
-#define VP2_ENUM_ENTRY ENUM_ENTRY(TYPE_VK_PAIR,    "mask register pair")
-#else // INTEL_FEATURE_ISA_VP2INTERSECT
-#define VP2_ENUM_ENTRY
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
+#if INTEL_FEATURE_ISA_AMX2
+#define XTP_ENUM_ENTRY ENUM_ENTRY(TYPE_TMM_PAIR,   "tile pair")
+#else // INTEL_FEATURE_ISA_AMX2
+#define XTP_ENUM_ENTRY
+#endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
 
 // Semantic interpretations of instruction operands.
@@ -481,8 +473,9 @@ enum OperandEncoding {
   ENUM_ENTRY(TYPE_YMM,        "32-byte")                                       \
   ENUM_ENTRY(TYPE_ZMM,        "64-byte")                                       \
   ENUM_ENTRY(TYPE_VK,         "mask register")                                 \
-  VP2_ENUM_ENTRY                                                               \
   XTM_ENUM_ENTRY                                                               \
+  ENUM_ENTRY(TYPE_VK_PAIR,    "mask register pair")                            \
+  XTP_ENUM_ENTRY                                                               \
   ENUM_ENTRY(TYPE_SEGMENTREG, "Segment register operand")                      \
   ENUM_ENTRY(TYPE_DEBUGREG,   "Debug register operand")                        \
   ENUM_ENTRY(TYPE_CONTROLREG, "Control register operand")                      \

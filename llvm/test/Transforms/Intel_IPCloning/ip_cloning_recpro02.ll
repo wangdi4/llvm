@@ -2,9 +2,9 @@
 ; RUN: opt < %s -passes='module(ip-cloning)' -print-ip-cloning -disable-output -S 2>&1 | FileCheck %s
 
 ; Various checks for conditions where a function can fail to be recognized
-; as a recursive progressive clone candidate.
+; as a recursive progression clone candidate.
 
-; Check that foofail1 is not a recursive progressive clone candidate
+; Check that foofail1 is not a recursive progression clone candidate
 ; because its basis step is not included in a loop.
 ; CHECK-LABEL: Cloning Analysis for:  foofail1
 ; CHECK-NOT: Selected RecProgression cloning
@@ -24,7 +24,7 @@ define internal fastcc i32 @foofail1(i32, i32) unnamed_addr #0 {
   ret i32 %9
 }
 
-; Check that foofail2 is not a recursive progressive clone candidate
+; Check that foofail2 is not a recursive progression clone candidate
 ; because its recursive processive candidate argument has more than one use.
 ; CHECK-LABEL: Cloning Analysis for:  foofail2
 ; CHECK-NOT: Selected RecProgression cloning
@@ -45,7 +45,7 @@ define internal fastcc i32 @foofail2(i32, i32) unnamed_addr #0 {
   ret i32 %10
 }
 
-; Check that foofail3 is not a recursive progressive clone candidate
+; Check that foofail3 is not a recursive progression clone candidate
 ; because it does not contain a 'srem' instruction.
 ; CHECK-LABEL: Cloning Analysis for:  foofail3
 ; CHECK-NOT: Selected RecProgression cloning
@@ -66,7 +66,7 @@ define internal fastcc i32 @foofail3(i32, i32) unnamed_addr #0 {
   ret i32 %10
 }
 
-; Check that foofail4 is not a recursive progressive clone candidate
+; Check that foofail4 is not a recursive progression clone candidate
 ; because its 'srem' instruction does not have a constant denominator.
 ; CHECK-LABEL: Cloning Analysis for:  foofail4
 ; CHECK-NOT: Selected RecProgression cloning
@@ -86,7 +86,7 @@ define internal fastcc i32 @foofail4(i32, i32) unnamed_addr #0 {
   ret i32 %9
 }
 
-; Check that foofail5 is not a recursive progressive clone candidate
+; Check that foofail5 is not a recursive progression clone candidate
 ; because it has a call to a function other than itself.
 ; CHECK-LABEL: Cloning Analysis for:  foofail5
 ; CHECK-NOT: Selected RecProgression cloning
@@ -106,7 +106,7 @@ define internal fastcc i32 @foofail5(i32, i32) unnamed_addr #0 {
   ret i32 %9
 }
 
-; Check that foofail6 is not a recursive progressive clone candidate
+; Check that foofail6 is not a recursive progression clone candidate
 ; because it has more than 2 call sites.
 ; CHECK-LABEL: Cloning Analysis for:  foofail6
 ; CHECK-NOT: Selected RecProgression cloning
@@ -130,7 +130,7 @@ define internal fastcc i32 @foofail6(i32, i32) unnamed_addr #0 {
   ret i32 %13
 }
 
-; Check that foofail7 is not a recursive progressive clone candidate
+; Check that foofail7 is not a recursive progression clone candidate
 ; because the result of the 'srem' is not fed into a binary operator.
 ; CHECK-LABEL: Cloning Analysis for:  foofail7
 ; CHECK-NOT: Selected RecProgression cloning
@@ -156,7 +156,7 @@ define internal i32 @foofail7(i32, i32, i32) {
 }
 
 
-; Check that foofail8 is not a recursive progressive clone candidate
+; Check that foofail8 is not a recursive progression clone candidate
 ; because the binary operator controlling the progression is not an 'add'.
 ; CHECK-LABEL: Cloning Analysis for:  foofail8
 ; CHECK-NOT: Selected RecProgression cloning
@@ -176,7 +176,7 @@ define internal fastcc i32 @foofail8(i32, i32) unnamed_addr #0 {
   ret i32 %9
 }
 
-; Check that foofail9 is not a recursive progressive clone candidate
+; Check that foofail9 is not a recursive progression clone candidate
 ; because the increment of the recursive progression is not a constant.
 ; CHECK-LABEL: Cloning Analysis for:  foofail9
 ; CHECK-NOT: Selected RecProgression cloning
@@ -196,7 +196,7 @@ define internal fastcc i32 @foofail9(i32, i32) unnamed_addr #0 {
   ret i32 %9
 }
 
-; Check that foofail10 is not a recursive progressive clone candidate
+; Check that foofail10 is not a recursive progression clone candidate
 ; because it has different increments in its 2 call sites.
 ; CHECK-LABEL: Cloning Analysis for:  foofail10
 ; CHECK-NOT: Selected RecProgression cloning
@@ -217,7 +217,7 @@ define internal fastcc i32 @foofail10(i32, i32) unnamed_addr #0 {
   ret i32 %10
 }
 
-; Check that foofail11 is not a recursive progressive clone candidate
+; Check that foofail11 is not a recursive progression clone candidate
 ; because it has more than one basis call site.
 ; CHECK-LABEL: Cloning Analysis for:  foofail11
 ; CHECK-NOT: Selected RecProgression cloning
@@ -237,7 +237,7 @@ define internal fastcc i32 @foofail11(i32, i32) unnamed_addr #0 {
   ret i32 %9
 }
 
-; Check that foofail12 is not a recursive progressive clone candidate
+; Check that foofail12 is not a recursive progression clone candidate
 ; because the initial value from the basis call site is not a constant.
 ; CHECK-LABEL: Cloning Analysis for:  foofail12
 ; CHECK-NOT: Selected RecProgression cloning

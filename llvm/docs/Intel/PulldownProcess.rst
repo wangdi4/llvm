@@ -269,15 +269,16 @@ updated to that revision using the following process.
 
    .. code-block:: bash
 
-     $ ics mk xmain-web-ws xmain-web head -git
+     $ ics mk xmain-cand-ws xmain-cand head -git
      <copy the heads.txt attachment from the alloy results to $ICS_WSDIR>
-     $ sh update-xmain-cand.sh
+     $ ./update-xmain-cand.sh
 
 Alternatively, the following command will create the heads.txt file with the
 current state of the repository:
 
    .. code-block:: bash
 
+     <the command must be executed from xmain-web>
      $ repo forall -c 'echo $REPO_PATH:`git rev-list -1 HEAD`' > heads.txt
 
 This is especially useful if all the remaining issues were just fixed in the
@@ -361,6 +362,27 @@ opposite to generated code performance):
   Some deeper initial analysis is welcome as it will ease the gatekeeper's work
   on assessing the severeness of the fails and will allow to get an approve for
   the pulldown faster, so such analysis is worth doing.
+
+Recommendations for pulldown coordinators
+=========================================
+
+* Build local xmain-web workspaces with “-Werror” enabled. This allow promptly
+  catching warnings that will be exposed as errors once “-Werror” flag will be
+  enabled (in xmain-cand).
+
+* Run zperf_checkin_xmain alloy on xmain-web at least once per week. Currently
+  SPEC2017 is not automatically tested on xmain-web in alloy nightly runs.
+  That may result in unexpected failures in the very last stages of
+  pulldown promotion. To catch SPEC2017 issues early it is recommended to
+  manually run zperf_checkin_xmain alloy from your local workspace at least
+  once per week.
+
+* Copy failed LIT tests in gerrit comments after each conflict resolution.
+  This makes triaging easier, since the time interval when new LIT failure
+  occured can be easily detected.
+
+* After taking xmain-cand for stabilization save heads.txt.
+  This file can be attached to the email when pulldown promotion is completed.
 
 Xmain Pulldown History
 ======================

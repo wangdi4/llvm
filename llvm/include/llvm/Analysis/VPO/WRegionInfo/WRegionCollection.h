@@ -203,6 +203,19 @@ public:
   vpo::WRegionCollection run(Function &F, FunctionAnalysisManager &AM);
 };
 
+class WRegionCollectionAnalysisPrinterPass
+    : public PassInfoMixin<WRegionCollectionAnalysisPrinterPass> {
+  raw_ostream &OS;
+
+public:
+  explicit WRegionCollectionAnalysisPrinterPass(raw_ostream &OS) : OS(OS) {}
+
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM) {
+    AM.getResult<WRegionCollectionAnalysis>(F).print(OS);
+    return PreservedAnalyses::all();
+  }
+};
+
 } // End namespace llvm
 
 #endif // LLVM_ANALYSIS_VPO_WREGIONCOLLECTION_H

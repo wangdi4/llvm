@@ -338,7 +338,7 @@ private:
 
   /// Replace the variable with the privatized variable
   void genPrivatizationReplacement(WRegionNode *W, Value *PrivValue,
-                                   Value *NewPrivInst, Item *IT);
+                                   Value *NewPrivInst);
 
   /// \name Reduction Specific Functions
   /// {@
@@ -613,8 +613,8 @@ private:
   /// Reset the value in the Map clause to be empty.
   void resetValueInMapClause(WRegionNode *W);
 
-  /// Reset the expression value of Intel clause to be empty.
-  void resetValueInIntelClauseGeneric(WRegionNode *W, Value *V);
+  /// Reset the value of \p V in OpenMP clauses of \p W to be empty.
+  void resetValueInOmpClauseGeneric(WRegionNode *W, Value *V);
 
   /// Generate the code for the directive omp target
   bool genTargetOffloadingCode(WRegionNode *W);
@@ -1117,11 +1117,6 @@ private:
   void wrnUpdateLiveOutVals(Loop *L, BasicBlock *BB,
                             SmallSetVector<Instruction *, 8> &LiveOutVals,
                             EquivalenceClasses<Value *> &ECs);
-
-  // For a given Value V, capture it, and rename all its occurrences within
-  // the WRegion W (including the region entry directive).
-  Value *genRenamePrivatizationImpl(WRegionNode *W, Value *V,
-                                    BasicBlock *EntryBB, Item *IT);
 
   /// Generate the copyprivate code.
   bool genCopyPrivateCode(WRegionNode *W, AllocaInst *IsSingleThread);

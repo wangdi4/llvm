@@ -119,7 +119,8 @@ public:
   }
 
   /// Get the alignment associated with a linear parameter.
-  unsigned getAlignment() {
+  unsigned getAlignment() const {
+    assert(isAligned() && "It is not aligned!");
     return Alignment;
   }
 };
@@ -157,13 +158,16 @@ private:
   unsigned int Vlen;
   std::vector<VectorKind> Parameters;
 
+  std::string BaseName;
+  std::string Alias;
+
   enum KindEncodings {
     LINEAR_KIND = 'l',
     UNIFORM_KIND = 'u',
     VECTOR_KIND = 'v'
   };
   static std::string prefix() { return "_ZGV"; }
-  static std::string encodeVectorKind(VectorKind VK);
+  static std::string encodeVectorKind(const VectorKind VK);
 
   /// \brief Determine the maximum vector register width based on the ISA classes
   /// defined in the vector function ABI.
@@ -171,28 +175,28 @@ private:
 
 public:
   VectorVariant(ISAClass I, bool M, unsigned int V,
-                const std::vector<VectorKind> &P)
-      : Isa(I), Mask(M), Vlen(V), Parameters(P) {
+                const std::vector<VectorKind> &P, std::string BaseName,
+                std::string Alias)
+      : Isa(I), Mask(M), Vlen(V), Parameters(P), BaseName(std::move(BaseName)),
+        Alias(std::move(Alias)) {
     if (Mask) {
       // Masked variants will have an additional mask parameter
       Parameters.push_back(VectorKind::vector());
     }
   }
 
-  VectorVariant(const VectorVariant &Other)
-      : Isa(Other.Isa), Mask(Other.Mask), Vlen(Other.Vlen),
-        Parameters(Other.Parameters) {}
+  VectorVariant(const VectorVariant &Other) = default;
 
-  VectorVariant(StringRef FuncName);
+  VectorVariant(StringRef MangledVariantName);
 
   /// \brief Get the ISA corresponding to this vector variant.
-  ISAClass getISA() { return Isa; }
+  ISAClass getISA() const { return Isa; }
 
   /// \brief Is this a masked vector function variant?
-  bool isMasked() { return Mask; }
+  bool isMasked() const { return Mask; }
 
   /// \brief Get the vector length of the vector variant.
-  unsigned int getVlen() { return Vlen; }
+  unsigned int getVlen() const { return Vlen; }
 
   /// \brief Get the parameters of the vector variant.
   std::vector<VectorKind> &getParameters() { return Parameters; }
@@ -200,13 +204,13 @@ public:
   /// \brief Build the mangled name for the vector variant. This function
   /// builds a mangled name by including the encodings for the ISA class,
   /// mask information, and all parameters.
-  std::string encode() {
+  std::string encode() const {
 
     std::stringstream SST;
     SST << prefix() << encodeISAClass(Isa) << encodeMask(Mask) << Vlen;
 
-    std::vector<VectorKind>::iterator It = Parameters.begin();
-    std::vector<VectorKind>::iterator End = Parameters.end();
+    std::vector<VectorKind>::const_iterator It = Parameters.begin();
+    std::vector<VectorKind>::const_iterator End = Parameters.end();
 
     if (isMasked())
       End--; // mask parameter is not encoded
@@ -220,7 +224,7 @@ public:
   }
 
   /// \brief Generate a function name corresponding to a vector variant.
-  std::string generateFunctionName(StringRef ScalarFuncName) {
+  std::string generateFunctionName(StringRef ScalarFuncName) const {
 
     static StringRef ManglingPrefix("_Z");
     std::string Name = encode();
@@ -229,6 +233,22 @@ public:
       return Name + ScalarFuncName.drop_front(ManglingPrefix.size()).str();
     else
       return Name + ScalarFuncName.str();
+  }
+
+  std::string getName() const {
+    if (!Alias.empty())
+      return Alias;
+
+    assert(!BaseName.empty() && "No function name information!");
+    return generateFunctionName(BaseName);
+  }
+
+  std::string toString() const {
+    std::string Result = generateFunctionName(BaseName);
+    if (!Alias.empty())
+      Result += '(' + Alias + ')';
+
+    return Result;
   }
 
   /// \brief Some targets do not support particular types, so promote to a type

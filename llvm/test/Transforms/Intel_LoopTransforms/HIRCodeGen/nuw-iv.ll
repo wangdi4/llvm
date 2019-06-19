@@ -12,7 +12,6 @@
 
 ; Check that CG generatres nuw only IV for this loop
 ; CG: [[IV_UPDATE:%nextiv.*]] = add nuw i64 {{%.*}}, 1
-; CG: icmp ule i64 [[IV_UPDATE]]
 
 ; ModuleID = 'nuw-iv.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

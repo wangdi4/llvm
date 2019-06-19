@@ -104,6 +104,7 @@ void initializeAndersensAAWrapperPassPass(PassRegistry&); // INTEL
 void initializeArgPromotionPass(PassRegistry&);
 void initializeAssumptionCacheTrackerPass(PassRegistry&);
 void initializeAtomicExpandPass(PassRegistry&);
+void initializeAttributorLegacyPassPass(PassRegistry&);
 void initializeBDCELegacyPassPass(PassRegistry&);
 void initializeBarrierNoopPass(PassRegistry&);
 void initializeBasicAAWrapperPassPass(PassRegistry&);
@@ -530,6 +531,7 @@ void initializeHIRPropagateCastedIVLegacyPassPass(PassRegistry&);
 void initializeHIRMultiExitLoopRerollLegacyPassPass(PassRegistry&);
 void initializeHIRRecognizeParLoopPass(PassRegistry&);
 void initializeHIRIdentityMatrixIdiomRecognitionLegacyPassPass(PassRegistry&);
+void initializeHIRPrefetchingLegacyPassPass(PassRegistry&);
 // VPO Vectorizer Passes
 void initializeAVRGeneratePass(PassRegistry&);
 void initializeAVRGenerateHIRPass(PassRegistry&);
@@ -582,6 +584,7 @@ void initializeVPOParoptTpvPass(PassRegistry&);
 
 #if INTEL_CUSTOMIZATION
 void initializeLoadCoalescingLegacyPassPass(PassRegistry &);
+void initializeMathLibraryFunctionsReplacementLegacyPassPass(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
 
 } // end namespace llvm

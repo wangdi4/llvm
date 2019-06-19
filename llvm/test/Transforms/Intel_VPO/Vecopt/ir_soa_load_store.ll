@@ -30,8 +30,7 @@ entry:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.SIMD.1
@@ -66,8 +65,7 @@ for.inc:                                          ; preds = %for.body, %if.then
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                    ; preds = %omp.inner.for.body
-  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.QUAL.LIST.END.3
 
 DIR.QUAL.LIST.END.3:                              ; preds = %omp.loop.exit
@@ -80,8 +78,7 @@ DIR.QUAL.LIST.END.3:                              ; preds = %omp.loop.exit
 ; CHECK: store <4 x i64> %[[WideLoad]]
 define void @simd_copy_loop(<2 x i32>* %src, <2 x i32>* %dest){
 entry:
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %entry, %omp.inner.for.body
@@ -97,8 +94,7 @@ omp.inner.for.body:                               ; preds = %entry, %omp.inner.f
   br i1 %exitcond, label %omp.inner.for.body, label %omp.loop.exit
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.body
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.QUAL.LIST.END.1
 
 DIR.QUAL.LIST.END.1:                              ; preds = %omp.loop.exit
@@ -112,8 +108,7 @@ DIR.QUAL.LIST.END.1:                              ; preds = %omp.loop.exit
 ; CHECK: store <4 x i64> %[[Rev2]]
 define void @simd_copy_reverse(<2 x i32>* %src, <2 x i32>* %dest) #0 {
 entry:
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %entry, %omp.inner.for.body
@@ -130,17 +125,15 @@ omp.inner.for.body:                               ; preds = %entry, %omp.inner.f
   br i1 %exitcond, label %omp.inner.for.body, label %omp.loop.exit
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.body
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.QUAL.LIST.END.1
 
 DIR.QUAL.LIST.END.1:                              ; preds = %omp.loop.exit
   ret void
 }
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive(metadata) #1
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry()
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive.qual.opndlist(metadata, ...) #1
-
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token)

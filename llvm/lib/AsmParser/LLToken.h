@@ -37,6 +37,7 @@ enum Kind {
   bar,     // |
   colon,   // :
 
+  kw_vscale,
   kw_x,
   kw_true,
   kw_false,
@@ -118,6 +119,7 @@ enum Kind {
   kw_align,
   kw_addrspace,
   kw_section,
+  kw_partition,
   kw_alias,
   kw_ifunc,
   kw_module,

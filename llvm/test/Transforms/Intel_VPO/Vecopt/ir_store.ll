@@ -1,6 +1,5 @@
 ; RUN: opt -VPlanDriver -disable-vplan-subregions -disable-vplan-predicator -S -vplan-force-vf=4 < %s  | FileCheck %s
 
-
 ;  for (int i=0; i<n; ++i) {}
 ;    ip[i] = i;
 ;}
@@ -19,8 +18,7 @@
 
 define void @foo(i32* nocapture %ip, i32 %N) local_unnamed_addr #0 {
 entry:
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:
@@ -40,14 +38,15 @@ for.body:
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   br label %for.cleanup
 
 for.cleanup:                              ; preds = %for.end
   ret void
 }
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive(metadata) #1
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry()
 
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token)

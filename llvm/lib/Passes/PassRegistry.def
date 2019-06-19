@@ -50,6 +50,7 @@ MODULE_ALIAS_ANALYSIS("anders-aa", AndersensAA())    // INTEL
 #define MODULE_PASS(NAME, CREATE_PASS)
 #endif
 MODULE_PASS("always-inline", AlwaysInlinerPass())
+MODULE_PASS("attributor", AttributorPass())
 MODULE_PASS("called-value-propagation", CalledValuePropagationPass())
 MODULE_PASS("canonicalize-aliases", CanonicalizeAliasesPass())
 MODULE_PASS("cg-profile", CGProfilePass())
@@ -378,9 +379,12 @@ FUNCTION_PASS("addsub-reassociate", AddSubReassociatePass())
 FUNCTION_PASS("loop-carried-cse", LoopCarriedCSEPass())
 FUNCTION_PASS("hir-multi-exit-loop-reroll", loopopt::HIRMultiExitLoopRerollPass())
 FUNCTION_PASS("hir-identity-matrix-idiom-recognition", loopopt::HIRIdentityMatrixIdiomRecognitionPass())
+FUNCTION_PASS("hir-prefetching", loopopt::HIRPrefetchingPass())
 
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
+FUNCTION_PASS("print<vpo-wrncollection>",
+              WRegionCollectionAnalysisPrinterPass(dbgs()))
 FUNCTION_PASS("vpo-cfg-restructuring", VPOCFGRestructuringPass())
 FUNCTION_PASS("vpo-restore-operands", VPORestoreOperandsPass())
 FUNCTION_PASS("vpo-paropt-prepare", VPOParoptPreparePass())

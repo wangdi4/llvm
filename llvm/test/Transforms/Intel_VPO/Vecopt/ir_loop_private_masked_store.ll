@@ -33,10 +33,7 @@ entry:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  tail call void @llvm.intel.directive.qual.opnd.i32(metadata !"QUAL.OMP.SIMDLEN", i32 4)
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", i64* nonnull %val)
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.PRIVATE"(i64* %val) ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.SIMD.1
@@ -67,8 +64,7 @@ if.end:                                           ; preds = %omp.inner.for.body,
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body
 
 omp.loop.exit:                                    ; preds = %if.end
-  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.QUAL.LIST.END.3
 
 DIR.QUAL.LIST.END.3:                              ; preds = %omp.loop.exit
@@ -82,13 +78,10 @@ declare void @llvm.lifetime.start(i64, i8* nocapture) #1
 declare void @llvm.lifetime.end(i64, i8* nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive(metadata) #1
+declare token @llvm.directive.region.entry() #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive.qual.opnd.i32(metadata, i32) #1
-
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive.qual.opndlist(metadata, ...) #1
+declare void @llvm.directive.region.exit(token) #1
 
 attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

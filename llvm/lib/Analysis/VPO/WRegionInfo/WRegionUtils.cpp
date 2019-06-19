@@ -39,11 +39,6 @@ void WRegionUtils::updateWRGraph(IntrinsicInst *Call, WRContainerImpl *WRGraph,
 
   WRegionNode *W = nullptr;
 
-  Intrinsic::ID IntrinId = Call->getIntrinsicID();
-
-  // Are we dealing with the directive.region.entry/exit representation?
-  bool IsRegion = VPOAnalysisUtils::isRegionDirective(IntrinId);
-
   // Name of the directive or clause represented by this intrinsic
   StringRef DirOrClause = VPOAnalysisUtils::getDirOrClauseString(Call);
 
@@ -57,15 +52,14 @@ void WRegionUtils::updateWRGraph(IntrinsicInst *Call, WRContainerImpl *WRGraph,
       // Ignore DirID, which is likely a new Dir still under development
       return;
 
-    // If the intrinsic represents an intel BEGIN directive, then
-    // W is a pointer to an object for the corresponding WRN.
-    // Otherwise, W is nullptr.
+    // If the intrinsic represents a BEGIN directive, then W points to the
+    // corresponding WRN.  Otherwise, W is nullptr.
 #if INTEL_CUSTOMIZATION
     if (H)
-      W = WRegionUtils::createWRegionHIR(DirID, H, S.size(), IsRegion, Call);
+      W = WRegionUtils::createWRegionHIR(DirID, H, S.size(), Call);
     else
 #endif // INTEL_CUSTOMIZATION
-    W = WRegionUtils::createWRegion(DirID, BB, LI, S.size(), IsRegion, Call);
+    W = WRegionUtils::createWRegion(DirID, BB, LI, S.size(), Call);
     if (W) {
       // The intrinsic represents a BEGIN directive.
       // W points to the WRN created for it.
@@ -105,49 +99,19 @@ void WRegionUtils::updateWRGraph(IntrinsicInst *Call, WRContainerImpl *WRGraph,
       S.pop();
       LLVM_DEBUG(dbgs() << "\n  === Closed WRegion. ");
       LLVM_DEBUG(dbgs() << "Stacksize after pop = " << S.size() << "\n");
-    } else if (VPOAnalysisUtils::isListEndDirective(DirID) &&
-             !(S.empty())) {
-      // We reach here only if using the intel_directive representation.
-      // Under this representation, stand-alone directives don't have a
-      // matching end directive.
-      W = S.top();
-      if (VPOAnalysisUtils::isStandAloneBeginDirective(W->getDirID())) {
-        // Current WRN is for a stand-alone directive, so
-        // pop the stack as soon as DIR_QUAL_LIST_END is seen
-        S.pop();
-        LLVM_DEBUG(dbgs() << "\n  === Closed WRegion (standalone dir). ");
-        LLVM_DEBUG(dbgs() << "Stacksize after pop = " << S.size() << "\n");
-      }
     }
-  } else if (VPOAnalysisUtils::isIntelClause(IntrinId)) {
-    // Process clauses from intel_directive_qual* intrinsics. We reach here
-    // only if using the intel_directive_qual* representation.
-    assert(!IsRegion &&
-           "Unexpected directive.region.entry/exit representation");
-
-    assert(!(S.empty()) &&
-           "Unexpected empty WRN stack when seeing a clause");
-    W = S.top();
-
-    // Extract clause properties
-    ClauseSpecifier ClauseInfo(DirOrClause);
-
-    // Parse the clause and update W
-    W->parseClause(ClauseInfo, Call);
   }
 }
 
-/// \brief Create a specialized WRN based on the DirString.
+/// Create a specialized WRN based on the DirString.
 /// If the string corrensponds to a BEGIN directive, then create
 /// a WRN node of WRegionNodeKind corresponding to the directive,
 /// and return a pointer to it. Otherwise; return nullptr.
 ///
-/// When dealing with the llvm.directive.region.entry representation
-/// (IsRegionIntrinsic==true) we call W->handleOperandBundles() to extract
+/// After creating the WRN, call W->handleOperandBundles() to extract
 /// the clause info from the OperandBundles and update WRN accordingly.
 WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
                                          LoopInfo *LI, unsigned NestingLevel,
-                                         bool IsRegionIntrinsic,
                                          CallInst *Dir) {
   WRegionNode *W = nullptr;
 
@@ -265,9 +229,7 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
     W->setLevel(NestingLevel);
     W->setDirID(DirID);
     W->setEntryDirective(Dir);
-    if (IsRegionIntrinsic) {
-      W->getClausesFromOperandBundles();
-    }
+    W->getClausesFromOperandBundles();
   }
   return W;
 }
@@ -277,7 +239,6 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
 WRegionNode *WRegionUtils::createWRegionHIR(int DirID,
                                             loopopt::HLNode *EntryHLNode,
                                             unsigned NestingLevel,
-                                            bool IsRegionIntrinsic,
                                             IntrinsicInst *Call) {
   WRegionNode *W = nullptr;
 
@@ -297,9 +258,7 @@ WRegionNode *WRegionUtils::createWRegionHIR(int DirID,
   if (W) {
     W->setLevel(NestingLevel);
     W->setDirID(DirID);
-    if (IsRegionIntrinsic) {
-      W->getClausesFromOperandBundles(Call, cast<HLInst>(EntryHLNode));
-    }
+    W->getClausesFromOperandBundles(Call, cast<HLInst>(EntryHLNode));
   }
   return W;
 }
@@ -659,7 +618,7 @@ MapItem *WRegionUtils::wrnSeenAsMap(WRegionNode *W, Value *V) {
 bool WRegionUtils::usedInRegionEntryDirective(WRegionNode *W, Value *I) {
   for (auto IB = I->user_begin(), IE = I->user_end(); IB != IE; IB++)
     if (Instruction *User = dyn_cast<Instruction>(*IB))
-      if (VPOAnalysisUtils::isIntelDirectiveOrClause(User) &&
+      if (VPOAnalysisUtils::isOpenMPDirective(User) &&
           User->getParent() == W->getEntryBBlock())
         return true;
   return false;
@@ -669,7 +628,7 @@ bool WRegionUtils::usedInRegionEntryDirective(WRegionNode *W, Value *I) {
 // If \p Users is not null (default is nullptr), then find all users of \p V
 // in \p W and put them in \p *Users.
 // If \p ExcludeDirective is true (default is true), then ignore the
-// instructions for which isIntelDirectiveOrClause() is true.
+// instructions for which isOpenMPDirective() is true.
 //
 // Prerequisite: W's BBSet must be populated before calling this util.
 bool WRegionUtils::findUsersInRegion(WRegionNode *W, Value *V,

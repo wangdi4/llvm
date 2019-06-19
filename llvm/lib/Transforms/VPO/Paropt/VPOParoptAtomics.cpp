@@ -35,12 +35,16 @@
 
 using namespace llvm;
 using namespace llvm::vpo;
+using namespace llvm::vpo::intrinsics;
 
 #define DEBUG_TYPE "vpo-paropt-atomics"
 
 cl::opt<bool> Enable64BitOpenCLAtomics(
   "vpo-paropt-enable-64bit-opencl-atomics", cl::Hidden, cl::init(false),
   cl::desc("Enables usage of 64-bit atomic OpenCL RTL API."));
+cl::opt<bool> Enable16BitOpenCLAtomics(
+  "vpo-paropt-enable-16bit-opencl-atomics", cl::Hidden, cl::init(false),
+  cl::desc("Enables usage of 16-bit atomic OpenCL RTL API."));
 
 // Main driver for handling a WRNAtomicNode.
 bool VPOParoptAtomics::handleAtomic(WRNAtomicNode *AtomicNode,
@@ -1166,8 +1170,8 @@ VPOParoptAtomics::getAtomicRWSIntrinsicName(const BasicBlock &BB,
                              ? TypeToSwapIntrinsicMap
                              : TypeToWriteIntrinsicMap;
 
-  const AtomicOperandTy Ty = {OpndTy.getTypeID(),
-                              OpndTy.getPrimitiveSizeInBits()};
+  const IntrinsicOperandTy Ty = {OpndTy.getTypeID(),
+                                 OpndTy.getPrimitiveSizeInBits()};
 
   auto MapEntry = MapToUse.find(Ty);
 
@@ -1203,10 +1207,13 @@ const std::string VPOParoptAtomics::getAtomicUCIntrinsicName(
 
   unsigned OpCode = Operation.getOpcode();
 
-  if (IsTargetSPIRV &&
-      !Enable64BitOpenCLAtomics &&
-      (AtomicOpndType->getScalarSizeInBits() > 32 ||
-       ValueOpndType->getScalarSizeInBits() > 32)) {
+  if (IsTargetSPIRV)
+    if ((!Enable64BitOpenCLAtomics &&
+         (AtomicOpndType->getScalarSizeInBits() > 32 ||
+          ValueOpndType->getScalarSizeInBits() > 32)) ||
+        (!Enable16BitOpenCLAtomics &&
+         (AtomicOpndType->getScalarSizeInBits() == 16 ||
+          ValueOpndType->getScalarSizeInBits() == 16))) {
     // If 64-bit OpenCL atomics are not supported,
     // then we have to use critical section.
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Intrinsic not found for "
@@ -1222,10 +1229,10 @@ const std::string VPOParoptAtomics::getAtomicUCIntrinsicName(
                                             : OpToCaptureIntrinsicMap);
 
   // We need the operand types and the operation's op code to do a map lookup.
-  const AtomicOperandTy AtomicOpndTy = {
+  const IntrinsicOperandTy AtomicOpndTy = {
       AtomicOpndType->getTypeID(), AtomicOpndType->getPrimitiveSizeInBits()};
-  const AtomicOperandTy ValueOpndTy = {ValueOpndType->getTypeID(),
-                                       ValueOpndType->getPrimitiveSizeInBits()};
+  const IntrinsicOperandTy ValueOpndTy = {
+      ValueOpndType->getTypeID(), ValueOpndType->getPrimitiveSizeInBits()};
 
   // Special case for atomic update:
   // For the case: x = x/v, when x is an integer or unsigned, and y is
@@ -1379,28 +1386,13 @@ const std::string VPOParoptAtomics::adjustIntrinsicNameForArchitecture(
   return ArchAdjustedIntrinsicName;
 }
 
-// Static member initializations
-
-// Initialize AtomicOperandTy object instances for different types.
-const VPOParoptAtomics::AtomicOperandTy
-    VPOParoptAtomics::I8 = {Type::IntegerTyID, 8},
-    VPOParoptAtomics::I16 = {Type::IntegerTyID, 16},
-    VPOParoptAtomics::I32 = {Type::IntegerTyID, 32},
-    VPOParoptAtomics::I64 = {Type::IntegerTyID, 64},
-    VPOParoptAtomics::P32 = {Type::PointerTyID, 32},
-    VPOParoptAtomics::P64 = {Type::PointerTyID, 64},
-    VPOParoptAtomics::F32 = {Type::FloatTyID, 32},
-    VPOParoptAtomics::F64 = {Type::DoubleTyID, 64},
-    VPOParoptAtomics::F80 = {Type::X86_FP80TyID, 80},
-    VPOParoptAtomics::F128 = {Type::FP128TyID, 128};
-
 // Initialize intrinsic maps
 
 // TODO: Add calls for complexes when supported.
 // NOTE: Read Intrinsic for a complex takes 3 args instead of two.
 // TODO: Use different non '_a16` versions for float128 on x86.
 // TODO: Use TableGen for maps.
-const std::map<VPOParoptAtomics::AtomicOperandTy, const std::string>
+const std::map<IntrinsicOperandTy, const std::string>
     VPOParoptAtomics::TypeToReadIntrinsicMap = {
         {I8, "__kmpc_atomic_fixed1_rd"},
         {I16, "__kmpc_atomic_fixed2_rd"},
@@ -1413,7 +1405,7 @@ const std::map<VPOParoptAtomics::AtomicOperandTy, const std::string>
         {F80, "__kmpc_atomic_float10_rd"},
         {F128, "__kmpc_atomic_float16_a16_rd"}};
 
-const std::map<VPOParoptAtomics::AtomicOperandTy, const std::string>
+const std::map<IntrinsicOperandTy, const std::string>
     VPOParoptAtomics::TypeToWriteIntrinsicMap = {
         {I8, "__kmpc_atomic_fixed1_wr"},
         {I16, "__kmpc_atomic_fixed2_wr"},
@@ -1426,7 +1418,7 @@ const std::map<VPOParoptAtomics::AtomicOperandTy, const std::string>
         {F80, "__kmpc_atomic_float10_wr"},
         {F128, "__kmpc_atomic_float16_a16_wr"}};
 
-const std::map<VPOParoptAtomics::AtomicOperandTy, const std::string>
+const std::map<IntrinsicOperandTy, const std::string>
     VPOParoptAtomics::TypeToSwapIntrinsicMap = {
         {I8, "__kmpc_atomic_fixed1_swp"},
         {I16, "__kmpc_atomic_fixed2_swp"},

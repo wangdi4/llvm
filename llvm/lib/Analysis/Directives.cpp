@@ -30,28 +30,24 @@ using namespace llvm;
 std::unordered_map<int, StringRef> Directives::DirectiveStrings = {
 #define GET_DIRECTIVES_STRINGS_TABLE
 #include "llvm/IR/Directives.gen"
-  { DIR_QUAL_LIST_END,
-    "DIR.QUAL.LIST.END" } };
+};
 #undef GET_DIRECTIVES_STRINGS_TABLE
 
 std::unordered_map<int, StringRef> Directives::ClauseStrings = {
 #define GET_CLAUSES_STRINGS_TABLE
 #include "llvm/IR/Directives.gen"
-  { QUAL_LIST_END,
-    "DIR.QUAL.LIST.END" } };
+};
 #undef GET_CLAUSES_STRINGS_TABLE
 
 StringMap<int> Directives::DirectiveIDs = {
 #define GET_DIRECTIVES_IDS_TABLE
 #include "llvm/IR/Directives.gen"
-  { "DIR.QUAL.LIST.END",
-    DIR_QUAL_LIST_END } };
+};
 #undef GET_DIRECTIVES_IDS_TABLE
 
 StringMap<int> Directives::ClauseIDs = {
 #define GET_CLAUSES_IDS_TABLE
 #include "llvm/IR/Directives.gen"
-  { "DIR.QUAL.LIST.END",
-    QUAL_LIST_END } };
+};
 #undef GET_CLAUSES_IDS_TABLE
 #endif // INTEL_COLLAB

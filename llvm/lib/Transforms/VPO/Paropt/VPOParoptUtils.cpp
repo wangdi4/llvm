@@ -2102,8 +2102,7 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
   // critical calls at the places marked below:
   //
   //    EntryBB:
-  //      call void @llvm.intel.directive(metadata !"DIR.OMP.CRITICAL")
-  //      call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  //      directive "DIR.OMP.CRITICAL"
   // +------< begin critical >
   // |    br label %BB1
   // |
@@ -2113,8 +2112,7 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
   // |    br label %ExitBB
   // |
   // |  ExitBB:
-  // |    call void @llvm.intel.directive(metadata !"DIR.OMP.END.CRITICAL")
-  // |    call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  // |    directive "DIR.OMP.END.CRITICAL"
   // +------< end critical >
   //      br label %..
 
@@ -2125,8 +2123,7 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
 
   // BeginInst: `br label %BB1` (EntryBB) in the above example.
   Instruction *BeginInst = &(*(EntryBB->rbegin()));
-  // EndInst: `call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")`
-  // (ExitBB) in the above example.
+  // EndInst: directive "DIR.OMP.END.CRITICAL" in the above example.
   Instruction *EndInst = &(*(++(ExitBB->rbegin())));
 
   assert(BeginInst != nullptr && "BeginInst is null.");
@@ -3425,4 +3422,110 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
 
   return NewFunction;
 }
+
+// Allow using short names for llvm::vpo::intrinsics::IntrinsicOperandTy
+// constants (e.g. I8, I16, etc.)
+using namespace llvm::vpo::intrinsics;
+
+CallInst *VPOParoptUtils::genSPIRVHorizontalReduction(
+    ReductionItem *RedI, Type *ScalarTy, Instruction *RedDef,
+    spirv::Scope Scope) {
+
+  // Reduction operation is defined by the operation kind (e.g. add)
+  // and its signedness (true/false for integer types and llvm::None
+  // for floating point types).
+  typedef Optional<bool> IsSignedTy;
+  typedef std::pair<ReductionItem::WRNReductionKind, IsSignedTy>
+      ReductionOperationTy;
+
+  // The horizontal reduction SPIRV builting is picked based on
+  // the reduction operation and the type of the reduction value.
+  typedef std::pair<ReductionOperationTy, IntrinsicOperandTy>
+      SPIRVHorizontalReductionTy;
+
+  static const std::map<SPIRVHorizontalReductionTy, const std::string>
+      SPIRVHorizontalReductionMap = {
+        //    OperationKind                   IsSigned      Type
+        //Builtin name
+        { { { ReductionItem::WRNReductionAdd, true       }, I16 },
+          "__builtin_spirv_OpGroupIAdd_i32_i32_i16" },
+        { { { ReductionItem::WRNReductionAdd, false      }, I16 },
+          "__builtin_spirv_OpGroupIAdd_i32_i32_i16" },
+        { { { ReductionItem::WRNReductionAdd, true       }, I32 },
+          "__builtin_spirv_OpGroupIAdd_i32_i32_i32" },
+        { { { ReductionItem::WRNReductionAdd, false      }, I32 },
+          "__builtin_spirv_OpGroupIAdd_i32_i32_i32" },
+        { { { ReductionItem::WRNReductionAdd, true       }, I64 },
+          "__builtin_spirv_OpGroupIAdd_i32_i32_i64" },
+        { { { ReductionItem::WRNReductionAdd, false      }, I64 },
+          "__builtin_spirv_OpGroupIAdd_i32_i32_i64" },
+        { { { ReductionItem::WRNReductionAdd, llvm::None }, F16 },
+          "__builtin_spirv_OpGroupFAdd_i32_i32_f16" },
+        { { { ReductionItem::WRNReductionAdd, llvm::None }, F32 },
+          "__builtin_spirv_OpGroupFAdd_i32_i32_f32" },
+        { { { ReductionItem::WRNReductionAdd, llvm::None }, F64 },
+          "__builtin_spirv_OpGroupFAdd_i32_i32_f64" },
+        { { { ReductionItem::WRNReductionMin, true       }, I16 },
+          "__builtin_spirv_OpGroupSMin_i32_i32_i16" },
+        { { { ReductionItem::WRNReductionMin, false      }, I16 },
+          "__builtin_spirv_OpGroupUMin_i32_i32_i16" },
+        { { { ReductionItem::WRNReductionMin, true       }, I32 },
+          "__builtin_spirv_OpGroupSMin_i32_i32_i32" },
+        { { { ReductionItem::WRNReductionMin, false      }, I32 },
+          "__builtin_spirv_OpGroupUMin_i32_i32_i32" },
+        { { { ReductionItem::WRNReductionMin, true       }, I64 },
+          "__builtin_spirv_OpGroupSMin_i32_i32_i64" },
+        { { { ReductionItem::WRNReductionMin, false      }, I64 },
+          "__builtin_spirv_OpGroupUMin_i32_i32_i64" },
+        { { { ReductionItem::WRNReductionMin, llvm::None }, F16 },
+          "__builtin_spirv_OpGroupFMin_i32_i32_f16" },
+        { { { ReductionItem::WRNReductionMin, llvm::None }, F32 },
+          "__builtin_spirv_OpGroupFMin_i32_i32_f32" },
+        { { { ReductionItem::WRNReductionMin, llvm::None }, F64 },
+          "__builtin_spirv_OpGroupFMin_i32_i32_f64" },
+        { { { ReductionItem::WRNReductionMax, true       }, I16 },
+          "__builtin_spirv_OpGroupSMax_i32_i32_i16" },
+        { { { ReductionItem::WRNReductionMax, false      }, I16 },
+          "__builtin_spirv_OpGroupUMax_i32_i32_i16" },
+        { { { ReductionItem::WRNReductionMax, true       }, I32 },
+          "__builtin_spirv_OpGroupSMax_i32_i32_i32" },
+        { { { ReductionItem::WRNReductionMax, false      }, I32 },
+          "__builtin_spirv_OpGroupUMax_i32_i32_i32" },
+        { { { ReductionItem::WRNReductionMax, true       }, I64 },
+          "__builtin_spirv_OpGroupSMax_i32_i32_i64" },
+        { { { ReductionItem::WRNReductionMax, false      }, I64 },
+          "__builtin_spirv_OpGroupUMax_i32_i32_i64" },
+        { { { ReductionItem::WRNReductionMax, llvm::None }, F16 },
+          "__builtin_spirv_OpGroupFMax_i32_i32_f16" },
+        { { { ReductionItem::WRNReductionMax, llvm::None }, F32 },
+          "__builtin_spirv_OpGroupFMax_i32_i32_f32" },
+        { { { ReductionItem::WRNReductionMax, llvm::None }, F64 },
+          "__builtin_spirv_OpGroupFMax_i32_i32_f64" },
+      };
+
+  ReductionItem::WRNReductionKind Kind = RedI->getType();
+  Optional<bool> IsSigned = llvm::None;
+  if (ScalarTy->isIntegerTy())
+    IsSigned = !RedI->getIsUnsigned();
+  auto TyID = ScalarTy->getTypeID();
+  auto TySize = ScalarTy->getScalarSizeInBits();
+
+  auto MapEntry = SPIRVHorizontalReductionMap.find(
+      { { Kind, IsSigned }, { TyID, TySize } });
+
+  if (MapEntry == SPIRVHorizontalReductionMap.end())
+    return nullptr;
+
+  StringRef Name = MapEntry->second;
+  auto &C = RedDef->getContext();
+  Value *Args[] = { ConstantInt::get(Type::getInt32Ty(C), Scope),
+                    ConstantInt::get(
+                        Type::getInt32Ty(C),
+                        spirv::GroupOperations::GroupOperationReduce),
+                    RedDef };
+
+  return genCall(RedDef->getModule(), Name, ScalarTy, Args,
+                 RedDef->getNextNode());
+}
+
 #endif // INTEL_COLLAB

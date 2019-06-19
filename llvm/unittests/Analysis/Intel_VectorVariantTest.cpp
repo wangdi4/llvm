@@ -32,6 +32,7 @@ TEST(VectorManglingTest, Basic) {
 
 
   EXPECT_TRUE(FuncName == VV.generateFunctionName("foo"));
+  EXPECT_TRUE(FuncName == VV.getName());
 }
 
 TEST(VectorManglingTest, VariableStride) {
@@ -44,6 +45,13 @@ TEST(VectorManglingTest, VariableStride) {
   EXPECT_EQ(Params[0].getStrideArgumentPosition(), 1);
 
   EXPECT_TRUE(FuncName == VV.generateFunctionName("foo"));
+}
+
+TEST(VectorManglingTest, Alias) {
+  std::string Input = "_ZGVcN8ls1u_foo(bar)";
+  VectorVariant VV(Input);
+
+  EXPECT_TRUE(VV.getName() == "bar");
 }
 
 } // anonymous namespace

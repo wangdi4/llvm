@@ -30,14 +30,12 @@ typedef enum OMP_DIRECTIVES {
 #define GET_DIRECTIVES_ENUM_VALUES
 #include "llvm/IR/Directives.gen"
 #undef GET_DIRECTIVES_ENUM_VALUES
-  DIR_QUAL_LIST_END // must be last; marks end of directives
 } OMP_DIRECTIVES;
 
 typedef enum OMP_CLAUSES {
 #define GET_CLAUSES_ENUM_VALUES
 #include "llvm/IR/Directives.gen"
 #undef GET_CLAUSES_ENUM_VALUES
-  QUAL_LIST_END     // must be last; marks end of clauses
 } OMP_CLAUSES;
 
 class Directives {

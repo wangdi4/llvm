@@ -46,6 +46,7 @@
 #include "llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
+#include "llvm/Transforms/IPO/Attributor.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
 #include "llvm/Transforms/IPO/Intel_InlineLists.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h" // INTEL
@@ -239,6 +240,7 @@ namespace {
       (void) llvm::createPostDomTree();
       (void) llvm::createInstructionNamerPass();
       (void) llvm::createMetaRenamerPass();
+      (void) llvm::createAttributorLegacyPass();
       (void) llvm::createPostOrderFunctionAttrsLegacyPass();
       (void) llvm::createReversePostOrderFunctionAttrsPass();
       (void) llvm::createMergeFunctionsPass();
@@ -292,6 +294,7 @@ namespace {
 
 #if INTEL_CUSTOMIZATION
       (void)llvm::createLoadCoalescingPass();
+      (void)llvm::createMathLibraryFunctionsReplacementPass();
       (void) llvm::createSNodeAnalysisPass();
       (void) llvm::createLoopOptMarkerLegacyPass();
       // HIR passes
@@ -341,6 +344,7 @@ namespace {
       (void) llvm::createHIRPropagateCastedIVPass();
       (void) llvm::createHIRMultiExitLoopRerollPass();
       (void) llvm::createHIRIdentityMatrixIdiomRecognitionPass();
+      (void) llvm::createHIRPrefetchingPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();
