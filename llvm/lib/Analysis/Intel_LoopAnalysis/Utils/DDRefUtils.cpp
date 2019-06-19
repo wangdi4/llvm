@@ -244,7 +244,7 @@ bool DDRefUtils::haveEqualBaseAndShape(const RegDDRef *Ref1,
 }
 
 bool DDRefUtils::areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
-                              bool RelaxedMode) {
+                              bool RelaxedMode, bool IgnoreAddressOf) {
 
   // Match the symbase. Type checking is done inside the CEUtils.
   if ((Ref1->getSymbase() != Ref2->getSymbase())) {
@@ -261,7 +261,7 @@ bool DDRefUtils::areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
   if (HasGEPInfo) {
     // TODO: compare attributes like volatile, alignment etc.
 
-    if (Ref1->isMemRef() != Ref2->isMemRef()) {
+    if (!IgnoreAddressOf && (Ref1->isMemRef() != Ref2->isMemRef())) {
       return false;
     }
 

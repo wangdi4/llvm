@@ -76,7 +76,7 @@ class DDRefUtils {
   /// This routine compares the symbase, type and each of the canon exprs inside
   /// the references.
   static bool areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
-                           bool RelaxedMode);
+                           bool RelaxedMode, bool IgnoreAddressOf = false);
 
   /// Returns true if BlobDDRef1 equals BlobDDRef2.
   static bool areEqualImpl(const BlobDDRef *Ref1, const BlobDDRef *Ref2);
@@ -170,6 +170,17 @@ public:
   /// RelaxedMode is passed to CanonExprUtils::areEqual().
   static bool areEqual(const DDRef *Ref1, const DDRef *Ref2,
                        bool RelaxedMode = false);
+
+  /// Returns true if GEPRef1 and GEPRef2 are equal if we ignore the AddressOf
+  /// flag. In addition to identical refs, this will also return true for &A[i]
+  /// and A[i]. RelaxedMode is passed to CanonExprUtils::areEqual().
+  static bool areEqualWithoutAddressOf(const RegDDRef *GEPRef1,
+                                       const RegDDRef *GEPRef2,
+                                       bool RelaxedMode = false) {
+    assert(GEPRef1->hasGEPInfo() && "GEPRef1 is not a GEP ref!");
+    assert(GEPRef2->hasGEPInfo() && "GEPRef2 is not a GEP ref!");
+    return areEqualImpl(GEPRef1, GEPRef2, RelaxedMode, true);
+  }
 
   /// Prints metadata nodes attached to RegDDRef.
   void printMDNodes(formatted_raw_ostream &OS,
