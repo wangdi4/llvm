@@ -172,6 +172,7 @@ private:
 
   bool tryOptVectorShuffle(MachineInstr &I) const;
   bool tryOptVectorDup(MachineInstr &MI) const;
+  bool tryOptSelect(MachineInstr &MI) const;
 
   const AArch64TargetMachine &TM;
   const AArch64Subtarget &STI;
@@ -739,6 +740,33 @@ static unsigned selectFPConvOpc(unsigned GenericOpc, LLT DstTy, LLT SrcTy) {
     return GenericOpc;
   };
   return GenericOpc;
+}
+
+static unsigned selectSelectOpc(MachineInstr &I, MachineRegisterInfo &MRI,
+                                const RegisterBankInfo &RBI) {
+  const TargetRegisterInfo &TRI = *MRI.getTargetRegisterInfo();
+  bool IsFP = (RBI.getRegBank(I.getOperand(0).getReg(), MRI, TRI)->getID() !=
+               AArch64::GPRRegBankID);
+  LLT Ty = MRI.getType(I.getOperand(0).getReg());
+  if (Ty == LLT::scalar(32))
+    return IsFP ? AArch64::FCSELSrrr : AArch64::CSELWr;
+  else if (Ty == LLT::scalar(64) || Ty == LLT::pointer(0, 64))
+    return IsFP ? AArch64::FCSELDrrr : AArch64::CSELXr;
+  return 0;
+}
+
+/// Helper function to select the opcode for a G_FCMP.
+static unsigned selectFCMPOpc(MachineInstr &I, MachineRegisterInfo &MRI) {
+  // If this is a compare against +0.0, then we don't have to explicitly
+  // materialize a constant.
+  const ConstantFP *FPImm = getConstantFPVRegVal(I.getOperand(3).getReg(), MRI);
+  bool ShouldUseImm = FPImm && (FPImm->isZero() && !FPImm->isNegative());
+  unsigned OpSize = MRI.getType(I.getOperand(2).getReg()).getSizeInBits();
+  if (OpSize != 32 && OpSize != 64)
+    return 0;
+  unsigned CmpOpcTbl[2][2] = {{AArch64::FCMPSrr, AArch64::FCMPDrr},
+                              {AArch64::FCMPSri, AArch64::FCMPDri}};
+  return CmpOpcTbl[ShouldUseImm][OpSize == 64];
 }
 
 static AArch64CC::CondCode changeICMPPredToAArch64CC(CmpInst::Predicate P) {
@@ -1760,16 +1788,11 @@ bool AArch64InstructionSelector::select(MachineInstr &I,
     // select instead of an integer select.
     bool IsFP = (RBI.getRegBank(I.getOperand(0).getReg(), MRI, TRI)->getID() !=
                  AArch64::GPRRegBankID);
-    unsigned CSelOpc = 0;
 
-    if (Ty == LLT::scalar(32)) {
-      CSelOpc = IsFP ? AArch64::FCSELSrrr : AArch64::CSELWr;
-    } else if (Ty == LLT::scalar(64) || Ty == LLT::pointer(0, 64)) {
-      CSelOpc = IsFP ? AArch64::FCSELDrrr : AArch64::CSELXr;
-    } else {
-      return false;
-    }
+    if (IsFP && tryOptSelect(I))
+      return true;
 
+    unsigned CSelOpc = selectSelectOpc(I, MRI, RBI);
     MachineInstr &TstMI =
         *BuildMI(MBB, I, I.getDebugLoc(), TII.get(AArch64::ANDSWri))
              .addDef(AArch64::WZR)
@@ -1845,15 +1868,9 @@ bool AArch64InstructionSelector::select(MachineInstr &I,
       return false;
     }
 
-    unsigned CmpOpc = 0;
-    LLT CmpTy = MRI.getType(I.getOperand(2).getReg());
-    if (CmpTy == LLT::scalar(32)) {
-      CmpOpc = AArch64::FCMPSrr;
-    } else if (CmpTy == LLT::scalar(64)) {
-      CmpOpc = AArch64::FCMPDrr;
-    } else {
+    unsigned CmpOpc = selectFCMPOpc(I, MRI);
+    if (!CmpOpc)
       return false;
-    }
 
     // FIXME: regbank
 
@@ -1861,9 +1878,16 @@ bool AArch64InstructionSelector::select(MachineInstr &I,
     changeFCMPPredToAArch64CC(
         (CmpInst::Predicate)I.getOperand(1).getPredicate(), CC1, CC2);
 
-    MachineInstr &CmpMI = *BuildMI(MBB, I, I.getDebugLoc(), TII.get(CmpOpc))
-                               .addUse(I.getOperand(2).getReg())
-                               .addUse(I.getOperand(3).getReg());
+    // Partially build the compare. Decide if we need to add a use for the
+    // third operand based off whether or not we're comparing against 0.0.
+    auto CmpMI = BuildMI(MBB, I, I.getDebugLoc(), TII.get(CmpOpc))
+                     .addUse(I.getOperand(2).getReg());
+
+    // If we don't have an immediate compare, then we need to add a use of the
+    // register which wasn't used for the immediate.
+    // Note that the immediate will always be the last operand.
+    if (CmpOpc != AArch64::FCMPSri && CmpOpc != AArch64::FCMPDri)
+      CmpMI = CmpMI.addUse(I.getOperand(3).getReg());
 
     const unsigned DefReg = I.getOperand(0).getReg();
     unsigned Def1Reg = DefReg;
@@ -1893,8 +1917,7 @@ bool AArch64InstructionSelector::select(MachineInstr &I,
       constrainSelectedInstRegOperands(OrMI, TII, TRI, RBI);
       constrainSelectedInstRegOperands(CSet2MI, TII, TRI, RBI);
     }
-
-    constrainSelectedInstRegOperands(CmpMI, TII, TRI, RBI);
+    constrainSelectedInstRegOperands(*CmpMI, TII, TRI, RBI);
     constrainSelectedInstRegOperands(CSetMI, TII, TRI, RBI);
 
     I.eraseFromParent();
@@ -2794,6 +2817,85 @@ MachineInstr *AArch64InstructionSelector::emitFMovForFConstant(
   I.setDesc(TII.get(MovOpc));
   constrainSelectedInstRegOperands(I, TII, TRI, RBI);
   return &I;
+}
+
+bool AArch64InstructionSelector::tryOptSelect(MachineInstr &I) const {
+  MachineIRBuilder MIB(I);
+  MachineRegisterInfo &MRI = *MIB.getMRI();
+  const TargetRegisterInfo &TRI = *MRI.getTargetRegisterInfo();
+
+  // We want to recognize this pattern:
+  //
+  // $z = G_FCMP pred, $x, $y
+  // ...
+  // $w = G_SELECT $z, $a, $b
+  //
+  // Where the value of $z is *only* ever used by the G_SELECT (possibly with
+  // some copies/truncs in between.)
+  //
+  // If we see this, then we can emit something like this:
+  //
+  // fcmp $x, $y
+  // fcsel $w, $a, $b, pred
+  //
+  // Rather than emitting both of the rather long sequences in the standard
+  // G_FCMP/G_SELECT select methods.
+
+  // First, check if the condition is defined by a compare.
+  MachineInstr *CondDef = MRI.getVRegDef(I.getOperand(1).getReg());
+  while (CondDef) {
+    // We can only fold if all of the defs have one use.
+    if (!MRI.hasOneUse(CondDef->getOperand(0).getReg()))
+      return false;
+
+    // We can skip over G_TRUNC since the condition is 1-bit.
+    // Truncating/extending can have no impact on the value.
+    unsigned Opc = CondDef->getOpcode();
+    if (Opc != TargetOpcode::COPY && Opc != TargetOpcode::G_TRUNC)
+      break;
+
+    CondDef = MRI.getVRegDef(CondDef->getOperand(1).getReg());
+  }
+
+  // Is the condition defined by a compare?
+  // TODO: Handle G_ICMP.
+  if (!CondDef || CondDef->getOpcode() != TargetOpcode::G_FCMP)
+    return false;
+
+  // Get the condition code for the select.
+  AArch64CC::CondCode CondCode;
+  AArch64CC::CondCode CondCode2;
+  changeFCMPPredToAArch64CC(
+      (CmpInst::Predicate)CondDef->getOperand(1).getPredicate(), CondCode,
+      CondCode2);
+
+  // changeFCMPPredToAArch64CC sets CondCode2 to AL when we require two
+  // instructions to emit the comparison.
+  // TODO: Handle FCMP_UEQ and FCMP_ONE. After that, this check will be
+  // unnecessary.
+  if (CondCode2 != AArch64CC::AL)
+    return false;
+
+  // Make sure we'll be able to select the compare.
+  unsigned CmpOpc = selectFCMPOpc(*CondDef, MRI);
+  if (!CmpOpc)
+    return false;
+
+  // Emit a new compare.
+  auto Cmp = MIB.buildInstr(CmpOpc, {}, {CondDef->getOperand(2).getReg()});
+  if (CmpOpc != AArch64::FCMPSri && CmpOpc != AArch64::FCMPDri)
+    Cmp.addUse(CondDef->getOperand(3).getReg());
+
+  // Emit the select.
+  unsigned CSelOpc = selectSelectOpc(I, MRI, RBI);
+  auto CSel =
+      MIB.buildInstr(CSelOpc, {I.getOperand(0).getReg()},
+                     {I.getOperand(2).getReg(), I.getOperand(3).getReg()})
+          .addImm(CondCode);
+  constrainSelectedInstRegOperands(*Cmp, TII, TRI, RBI);
+  constrainSelectedInstRegOperands(*CSel, TII, TRI, RBI);
+  I.eraseFromParent();
+  return true;
 }
 
 bool AArch64InstructionSelector::tryOptVectorDup(MachineInstr &I) const {

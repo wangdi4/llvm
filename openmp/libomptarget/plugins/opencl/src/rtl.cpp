@@ -239,9 +239,11 @@ public:
   std::vector<std::map<void *, void *> > BaseBuffers;
 
   int64_t flag;
+  int32_t DataTransferLatency;
   const int64_t DEVICE_LIMIT_NUM_WORK_GROUPS = 0x1;
+  const int64_t DATA_TRANSFER_LATENCY = 0x2;
 
-  RTLDeviceInfoTy() : numDevices(0), flag(0) {
+  RTLDeviceInfoTy() : numDevices(0), flag(0), DataTransferLatency(0) {
 #ifdef OMPTARGET_DEBUG
     if (char *envStr = getenv("LIBOMPTARGET_DEBUG")) {
       DebugLevel = std::stoi(envStr);
@@ -251,6 +253,15 @@ public:
     const char *env = std::getenv("SIMT");
     if (!env || std::string(env) != "on") {
       flag |= DEVICE_LIMIT_NUM_WORK_GROUPS;
+    }
+    // Read LIBOMPTARGET_DATA_TRANSFER_LATENCY (experimental input)
+    if ((env = std::getenv("LIBOMPTARGET_DATA_TRANSFER_LATENCY"))) {
+      std::string value(env);
+      if (value.substr(0, 2) == "T,") {
+        flag |= DATA_TRANSFER_LATENCY;
+        int32_t usec = std::stoi(value.substr(2).c_str());
+        DataTransferLatency = (usec > 0) ? usec : 0;
+      }
     }
 
     DP("Start initializing OpenCL\n");
@@ -349,6 +360,17 @@ static RTLProfileTy profile;
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+extern "C" double omp_get_wtime(void) __attribute__((weak));
+
+static inline void addDataTransferLatency() {
+  if (!(DeviceInfo.flag & DeviceInfo.DATA_TRANSFER_LATENCY))
+    return;
+  double goal = omp_get_wtime() + 1e-6 * DeviceInfo.DataTransferLatency;
+  // Naive spinning should be enough
+  while (omp_get_wtime() < goal)
+    ;
+}
 
 int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *image) {
   uint32_t magicWord = *(uint32_t *)image->ImageStart;
@@ -669,6 +691,10 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
                                      void *async_event) {
   cl_command_queue queue = DeviceInfo.Queues[device_id];
   cl_device_id id = DeviceInfo.deviceIDs[device_id];
+
+  // Add synthetic delay for experiments
+  addDataTransferLatency();
+
 #if USE_SVM_MEMCPY
   cl_event event;
   if (async_event) {
@@ -720,6 +746,10 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
                                        void *async_event) {
   cl_command_queue queue = DeviceInfo.Queues[device_id];
   cl_device_id id = DeviceInfo.deviceIDs[device_id];
+
+  // Add synthetic delay for experiments
+  addDataTransferLatency();
+
 #if USE_SVM_MEMCPY
   cl_event event;
   if (async_event) {
