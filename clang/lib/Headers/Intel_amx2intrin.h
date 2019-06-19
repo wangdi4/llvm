@@ -64,21 +64,21 @@
                    "r"(index))
 #define _tile_storehd(tile, base, index, scale)                                \
   __asm__ volatile("tstorehd %%tmm" #tile ", (%0,%1," #scale ")" ::"r"(base),  \
-                   "r"((uint64_t)(index)))
+                   "r"((unsigned long long)(index)))
 #define _tile_storehdt1(tile, base, index, scale)                              \
   __asm__ volatile("tstorehdt1 %%tmm" #tile ", (%0,%1," #scale                 \
                    ")" ::"r"(base),                                            \
-                   "r"((uint64_t)(index)))
+                   "r"((unsigned long long)(index)))
 #define _tile_storentd(tile, base, index, scale)                               \
   __asm__ volatile("tstorentd %%tmm" #tile ", (%0,%1," #scale ")" ::"r"(base), \
-                   "r"((uint64_t)(index)))
+                   "r"((unsigned long long)(index)))
 #define _tile_storeqd(tile, base, index, scale)                                \
   __asm__ volatile("tstoreqd %%tmm" #tile ", (%0,%1," #scale ")" ::"r"(base),  \
-                   "r"((uint64_t)(index)))
+                   "r"((unsigned long long)(index)))
 #define _tile_storeqdt1(tile, base, index, scale)                              \
   __asm__ volatile("tstoreqdt1 %%tmm" #tile ", (%0,%1," #scale                 \
                    ")" ::"r"(base),                                            \
-                   "r"((uint64_t)(index)))
+                   "r"((unsigned long long)(index)))
 #define _tile_storerowd(tile, mem)                                             \
   __asm__ volatile("tstorerowd %%tmm" #tile ", %0" ::"m"(mem))
 // Format
