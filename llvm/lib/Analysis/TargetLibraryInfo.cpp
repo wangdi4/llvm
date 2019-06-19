@@ -461,6 +461,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE7compareEPKc);
     TLI.setUnavailable(LibFunc_ZNKSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE3strEv);
     TLI.setUnavailable(LibFunc_ZNKSt9bad_alloc4whatEv);
+    TLI.setUnavailable(LibFunc_ZNKSt9basic_iosIcSt11char_traitsIcEE5widenEc);
     TLI.setUnavailable(LibFunc_ZNKSt9exception4whatEv);
     TLI.setUnavailable(LibFunc_ZNSi10_M_extractIdEERSiRT_);
     TLI.setUnavailable(LibFunc_ZNSi10_M_extractIfEERSiRT_);
@@ -2206,6 +2207,11 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_ZNKSt9bad_alloc4whatEv:
     return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy()); // this pointer
+
+  case LibFunc_ZNKSt9basic_iosIcSt11char_traitsIcEE5widenEc:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isIntegerTy());
 
   case LibFunc_ZNKSt9exception4whatEv:
     return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&

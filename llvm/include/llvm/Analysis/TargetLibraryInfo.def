@@ -193,6 +193,9 @@ TLI_DEFINE_STRING_INTERNAL("_ZNKSt7__cxx1115basic_stringbufIcSt11char_traitsIcES
 /// const char * std::bad_alloc::what()
 TLI_DEFINE_ENUM_INTERNAL(ZNKSt9bad_alloc4whatEv)
 TLI_DEFINE_STRING_INTERNAL("_ZNKSt9bad_alloc4whatEv")
+/// char std::basic_ios<char, std::char_traits<char> >::widen(char)
+TLI_DEFINE_ENUM_INTERNAL(ZNKSt9basic_iosIcSt11char_traitsIcEE5widenEc)
+TLI_DEFINE_STRING_INTERNAL("_ZNKSt9basic_iosIcSt11char_traitsIcEE5widenEc")
 /// const char *std::exception::what() const
 TLI_DEFINE_ENUM_INTERNAL(ZNKSt9exception4whatEv)
 TLI_DEFINE_STRING_INTERNAL("_ZNKSt9exception4whatEv")

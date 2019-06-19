@@ -670,6 +670,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE7compareEPKc(i8*, i8*)\n"
       "declare void @_ZNKSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE3strEv(i8*, i8*)\n"
       "declare i8* @_ZNKSt9bad_alloc4whatEv(i8*)\n"
+      "declare i8 @_ZNKSt9basic_iosIcSt11char_traitsIcEE5widenEc(i8*, i8)\n"
       "declare i8* @_ZNKSt9exception4whatEv(i8*)\n"
       "declare i8* @_ZNSi10_M_extractIdEERSiRT_(i8*, double*)\n"
       "declare i8* @_ZNSi10_M_extractIfEERSiRT_(i8*, i8*)\n"

@@ -991,6 +991,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     Changed |= setRetNonNull(F);
     return Changed;
+  case LibFunc_ZNKSt9basic_iosIcSt11char_traitsIcEE5widenEc:
+    return Changed;
   case LibFunc_ZNKSt9exception4whatEv:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
