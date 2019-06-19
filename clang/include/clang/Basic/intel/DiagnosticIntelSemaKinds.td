@@ -52,9 +52,6 @@ def warn_int_typedef_redefinition_ignored : ExtWarn<
   InGroup<IntelCompat>;
 def err_recursive_attribute_expected : Error<
   "recursive keyword expected after a pragma inline directive">;
-// CQ#364598, CQ#374878.
-def ext_intel_elaborated_type_refers_to_typedef : ExtWarn<
-  "elaborated type refers to a typedef">, InGroup<IntelCompat>;
 // CQ#366612
 def warn_func_redecl_conflicting_types: Warning<
   "declaration of %0 is incompatible with previous "

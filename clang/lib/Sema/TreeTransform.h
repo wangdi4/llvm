@@ -1117,26 +1117,6 @@ public:
         case LookupResult::FoundOverloaded:
         case LookupResult::FoundUnresolvedValue: {
           NamedDecl *SomeDecl = Result.getRepresentativeDecl();
-#if INTEL_CUSTOMIZATION
-          unsigned KindFlag = 0;
-          if (isa<TypedefDecl>(SomeDecl)) KindFlag = 1;
-          else if (isa<TypeAliasDecl>(SomeDecl)) KindFlag = 2;
-          else if (isa<ClassTemplateDecl>(SomeDecl)) KindFlag = 3;
-          // CQ#374878. Allow elaborated type refer to a typedef if the
-          // underlying type is a record type in IntelCompat mode.
-          if (SemaRef.Context.getLangOpts().IntelCompat && KindFlag &&
-              KindFlag < 3) {
-            auto *TypedefD = dyn_cast<TypedefNameDecl>(SomeDecl);
-            if (TypedefD && TypedefD->getUnderlyingType()->isRecordType()) {
-              SemaRef.Diag(IdLoc,
-                           diag::ext_intel_elaborated_type_refers_to_typedef);
-              SemaRef.Diag(SomeDecl->getLocation(), diag::note_declared_at);
-              return SemaRef.Context.getElaboratedType(
-                  Keyword, QualifierLoc.getNestedNameSpecifier(),
-                  SemaRef.Context.getTypeDeclType(TypedefD));
-            }
-          }
-#endif // INTEL_CUSTOMIZATION
           Sema::NonTagKind NTK = SemaRef.getNonTagTypeDeclKind(SomeDecl, Kind);
           SemaRef.Diag(IdLoc, diag::err_tag_reference_non_tag) << SomeDecl
                                                                << NTK << Kind;
