@@ -47,6 +47,14 @@ public:
 private:
   virtual unsigned getCost(const VPBlockBase *VPBlock) const final;
   static bool isUnitStrideLoadStore(const VPInstruction *VPinst);
+
+  // FIXME: This is a temporary workaround until proper cost modeling is implemented.
+  //
+  // To bail out if too many i1 operations are inside the loop as that (most
+  // probably) represents complicated CFG and we need to use Basic Block
+  // Frequency info to correctly calculate the cost. Until it's done, just
+  // report high vector cost for loops with too many i1 instructions.
+  mutable unsigned NumberOfBoolComputations = 0;
 };
 
 } // namespace vpo

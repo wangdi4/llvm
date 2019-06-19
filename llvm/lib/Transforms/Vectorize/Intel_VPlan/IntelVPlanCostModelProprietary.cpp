@@ -27,6 +27,10 @@
 static cl::opt<bool> UseOVLSCM("vplan-cm-use-ovlscm", cl::init(true),
                                cl::desc("Consider cost returned by OVLSCostModel "
                                         "for optimized gathers and scatters."));
+static cl::opt<unsigned> BoolInstsBailOut(
+    "vplan-cost-model-i1-bail-out-limit", cl::init(45), cl::Hidden,
+    cl::desc("Don't vectorize if number of boolean computations in the VPlan "
+             "is higher than the threshold."));
 
 using namespace llvm::loopopt;
 
@@ -108,6 +112,9 @@ VPlanCostModelProprietary::getLoadStoreCost(const VPInstruction *VPInst,
 }
 
 unsigned VPlanCostModelProprietary::getCost(const VPInstruction *VPInst) const {
+  if (VPInst->getType()->isIntegerTy(1))
+    ++NumberOfBoolComputations;
+
   unsigned Opcode = VPInst->getOpcode();
   switch (Opcode) {
   case Instruction::Load:
@@ -135,6 +142,7 @@ unsigned VPlanCostModelProprietary::getCost(const VPBlockBase *VPBlock) const {
 }
 
 unsigned VPlanCostModelProprietary::getCost() const {
+  NumberOfBoolComputations = 0;
   unsigned Cost = VPlanCostModel::getCost();
 
   switch (VPlanIdioms::isSearchLoop(Plan, VF, true)) {
@@ -154,6 +162,14 @@ unsigned VPlanCostModelProprietary::getCost() const {
     // regressions.
     if (VF == 32)
       return UnknownCost;
+  }
+
+  LLVM_DEBUG(dbgs() << "Number of i1 calculations: " << NumberOfBoolComputations
+                    << "\n");
+  if (VF != 1 && NumberOfBoolComputations >= BoolInstsBailOut) {
+    LLVM_DEBUG(
+        dbgs() << "Returning UnknownCost due to too many i1 calculations.\n");
+    return UnknownCost;
   }
 
   return Cost;
