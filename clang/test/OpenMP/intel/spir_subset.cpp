@@ -170,13 +170,12 @@ void foo1()
   #pragma omp target
   {
     int i = 0;
-    //ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
-    //ALL-SAME:"DIR.OMP.ATOMIC"
-    //ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.ATOMIC"
+    //HOST: atomicrmw add i32* %i{{.*}}monotonic
+    //TARG-SPIR: call{{.*}}__atomic_load
+    //TARG-SPIR: call{{.*}}__atomic_compare_exchange
     #pragma omp atomic
     i++;
-    //ALL: [[T2:%[0-9]+]] = call token @llvm.directive.region.entry()
-    //ALL-SAME:"DIR.OMP.BARRIER"
+    //ALL: [[T2:%[0-9]+]]{{.*}}region.entry(){{.*}}"DIR.OMP.BARRIER"
     //ALL: region.exit(token [[T2]]) [ "DIR.OMP.END.BARRIER"
     #pragma omp barrier
 
@@ -207,15 +206,15 @@ void foo1()
 
   //ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   //ALL-SAME:"DIR.OMP.TARGET"
-  //HOST: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
-  //HOST-SAME:"DIR.OMP.TEAMS"
+  //ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.TEAMS"
   //HOST: [[T2:%[0-9]+]] = call token @llvm.directive.region.entry()
   //HOST-SAME:"DIR.OMP.DISTRIBUTE.PARLOOP"
   //HOST: region.exit(token [[T2]]) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"
-  //HOST: region.exit(token [[T1]]) [ "DIR.OMP.END.TEAMS"
+  //ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.TEAMS"
   //ALL: region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"
-  /* Host compile allows, spir target allows target, ignores others, warns. */
-  //expected-warning@+3 {{OpenMP directive 'teams' ignored for target}}
+  //Host compile allows, spir target allows target and teams,
+  //ignores others, warns.
   //expected-warning@+3 {{OpenMP directive 'distribute parallel for' ignored for target}}
   #pragma omp target
   #pragma omp teams
@@ -361,9 +360,9 @@ void hp_bar(int M, int N)
 
       hp_func(444);
 
-      //ALL: [[A0:%[0-9]+]] = call token @llvm.directive.region.entry()
-      //ALL-SAME:"DIR.OMP.ATOMIC"
-      //ALL: region.exit(token [[A0]]) [ "DIR.OMP.END.ATOMIC"
+      //HOST: atomicrmw add i32* %myV{{.*}}monotonic
+      //TARG-SPIR: call{{.*}}__atomic_load
+      //TARG-SPIR: call{{.*}}__atomic_compare_exchange
       #pragma omp atomic
       myV += x;
     }
@@ -429,9 +428,9 @@ void hp_bar(int M, int N)
 
       hp_func(333);
 
-      //ALL: [[A0:%[0-9]+]] = call token @llvm.directive.region.entry()
-      //ALL-SAME:"DIR.OMP.ATOMIC"
-      //ALL: region.exit(token [[A0]]) [ "DIR.OMP.END.ATOMIC"
+      //HOST: atomicrmw add i32* %myV{{.*}}monotonic
+      //TARG-SPIR: call{{.*}}__atomic_load
+      //TARG-SPIR: call{{.*}}__atomic_compare_exchange
       #pragma omp atomic
       myV += x;
     }
@@ -475,5 +474,43 @@ void hp_bar(int M, int N)
   //ALL: region.exit(token [[S0]]) [ "DIR.OMP.END.SIMD"
   //ALL: region.exit(token [[T2]]) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"
   //ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.TEAMS"
+  //ALL: region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"
+
+  //ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.TARGET"
+  //ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.TEAMS"
+  //ALL: [[T2:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.PARALLEL.LOOP"
+  #pragma omp target
+  #pragma omp teams
+  #pragma omp parallel for
+  for (int i=0;i<16;++i) {}
+  //ALL: region.exit(token [[T2]]) [ "DIR.OMP.END.PARALLEL.LOOP"
+  //ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.TEAMS"
+  //ALL: region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"
+
+  //ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.TARGET"
+  //ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.TEAMS"
+  //ALL: [[T2:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.PARALLEL.LOOP"
+  #pragma omp target teams
+  #pragma omp parallel for
+  for (int i=0;i<16;++i) {}
+  //ALL: region.exit(token [[T2]]) [ "DIR.OMP.END.PARALLEL.LOOP"
+  //ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.TEAMS"
+  //ALL: region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"
+
+  //ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.TARGET"
+  //ALL: [[T2:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.PARALLEL"
+  #pragma omp target parallel
+  {
+    hp_func(42);
+  }
+  //ALL: region.exit(token [[T2]]) [ "DIR.OMP.END.PARALLEL"
   //ALL: region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"
 }

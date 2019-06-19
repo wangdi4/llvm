@@ -550,6 +550,10 @@ bool OpenMPLateOutliner::isExplicit(const VarDecl *V) {
   return ExplicitRefs.find(V) != ExplicitRefs.end();
 }
 
+bool OpenMPLateOutliner::hasMapClause(const VarDecl *V) {
+  return MapRefs.find(V) != MapRefs.end();
+}
+
 bool OpenMPLateOutliner::alreadyHandled(llvm::Value *V) {
   return HandledValues.find(V) != HandledValues.end();
 }
@@ -1376,7 +1380,7 @@ void OpenMPLateOutliner::emitOMPMapClause(const OMPMapClause *C) {
         ImplicitMap.insert(std::make_pair(PVD, ICK_shared));
         continue;
       } else {
-        addExplicit(PVD);
+        addExplicit(PVD, /*IsMap=*/true);
       }
     }
     SmallVector<CGOpenMPRuntime::MapInfo, 4> Info;
@@ -1791,6 +1795,24 @@ operator<<(ArrayRef<OMPClause *> Clauses) {
     }
   }
   return *this;
+}
+
+// OpenMP spec 5.0, sec 2.19.7:
+// If a list item appears in a reduction, lastprivate or linear clause on a
+// combined target construct then it is treated as if it also appears in a
+// map clause with a map-type of tofrom.
+void OpenMPLateOutliner::emitCombinedTargetMapClauses() {
+  // Add to the target of a combined target construct.
+  if (CurrentDirectiveKind != OMPD_target ||
+      Directive.getDirectiveKind() == OMPD_target)
+    return;
+
+  for (const auto *C : Directive.getClausesOfKind<OMPReductionClause>())
+    AddMapToFromClauses(C);
+  for (const auto *C : Directive.getClausesOfKind<OMPLastprivateClause>())
+    AddMapToFromClauses(C);
+  for (const auto *C : Directive.getClausesOfKind<OMPLinearClause>())
+    AddMapToFromClauses(C);
 }
 
 bool OpenMPLateOutliner::isFirstDirectiveInSet(const OMPExecutableDirective &S,
@@ -2215,6 +2237,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
     llvm_unreachable("Combined directives not handled here");
   }
   Outliner << S.clauses();
+  Outliner.emitCombinedTargetMapClauses();
   Outliner.insertMarker();
   if (S.hasAssociatedStmt() && S.getAssociatedStmt() != nullptr) {
     LateOutlineOpenMPRegionRAII Region(*this, Outliner, S);
@@ -2300,6 +2323,11 @@ void CodeGenFunction::EmitLateOutlineOMPLoopDirective(
   auto &&CodeGen = [&S,Kind](CodeGenFunction &CGF, PrePostActionTy &) {
     CGF.EmitLateOutlineOMPLoop(S, Kind);
   };
+  bool IsDeviceTarget = getLangOpts().OpenMPIsDevice &&
+    isOpenMPTargetExecutionDirective(S.getDirectiveKind());
+  if (IsDeviceTarget)
+    CurFn->addFnAttr("contains-openmp-target", "true");
+  CodeGenModule::InTargetRegionRAII ITR(CGM, IsDeviceTarget);
   emitLateOutlineDirective(*this, CodeGen);
 }
 #endif // INTEL_COLLAB

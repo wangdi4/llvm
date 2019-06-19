@@ -192,6 +192,7 @@ Sema::ImplicitExceptionSpecification::CalledDecl(SourceLocation CallLoc,
   // If this function has a basic noexcept, it doesn't affect the outcome.
   case EST_BasicNoexcept:
   case EST_NoexceptTrue:
+  case EST_NoThrow:
     return;
   // If we're still at noexcept(true) and there's a throw() callee,
   // change to that specification.
@@ -680,10 +681,6 @@ bool Sema::MergeCXXFunctionDecl(FunctionDecl *New, FunctionDecl *Old,
   // argument expression, that declaration shall be a definition and shall be
   // the only declaration of the function or function template in the
   // translation unit.
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ#373130: friend functions with default parameter without name.
-  if (!getLangOpts().IntelCompat)
-#endif // INTEL_CUSTOMIZATION
   if (Old->getFriendObjectKind() == Decl::FOK_Undeclared &&
       functionDeclHasDefaultArgument(Old)) {
     Diag(New->getLocation(), diag::err_friend_decl_with_def_arg_redeclared);
@@ -6154,9 +6151,60 @@ void Sema::CheckCompletedCXXClass(CXXRecordDecl *Record) {
   if (HasTrivialABI)
     Record->setHasTrivialSpecialMemberForCall();
 
+  auto CompleteMemberFunction = [&](CXXMethodDecl *M) {
+    // Check whether the explicitly-defaulted special members are valid.
+    if (!M->isInvalidDecl() && M->isExplicitlyDefaulted())
+      CheckExplicitlyDefaultedSpecialMember(M);
+
+    // For an explicitly defaulted or deleted special member, we defer
+    // determining triviality until the class is complete. That time is now!
+    CXXSpecialMember CSM = getSpecialMember(M);
+    if (!M->isImplicit() && !M->isUserProvided()) {
+      if (CSM != CXXInvalid) {
+        M->setTrivial(SpecialMemberIsTrivial(M, CSM));
+        // Inform the class that we've finished declaring this member.
+        Record->finishedDefaultedOrDeletedMember(M);
+        M->setTrivialForCall(
+            HasTrivialABI ||
+            SpecialMemberIsTrivial(M, CSM, TAH_ConsiderTrivialABI));
+        Record->setTrivialForCallFlags(M);
+      }
+    }
+
+    // Set triviality for the purpose of calls if this is a user-provided
+    // copy/move constructor or destructor.
+    if ((CSM == CXXCopyConstructor || CSM == CXXMoveConstructor ||
+         CSM == CXXDestructor) && M->isUserProvided()) {
+      M->setTrivialForCall(HasTrivialABI);
+      Record->setTrivialForCallFlags(M);
+    }
+
+    if (!M->isInvalidDecl() && M->isExplicitlyDefaulted() &&
+        M->hasAttr<DLLExportAttr>()) {
+      if (getLangOpts().isCompatibleWithMSVC(LangOptions::MSVC2015) &&
+          M->isTrivial() &&
+          (CSM == CXXDefaultConstructor || CSM == CXXCopyConstructor ||
+           CSM == CXXDestructor))
+        M->dropAttr<DLLExportAttr>();
+
+      if (M->hasAttr<DLLExportAttr>()) {
+        DefineImplicitSpecialMember(*this, M, M->getLocation());
+        ActOnFinishInlineFunctionDef(M);
+      }
+    }
+  };
+
   bool HasMethodWithOverrideControl = false,
        HasOverridingMethodWithoutOverrideControl = false;
   if (!Record->isDependentType()) {
+    // Check the destructor before any other member function. We need to
+    // determine whether it's trivial in order to determine whether the claas
+    // type is a literal type, which is a prerequisite for determining whether
+    // other special member functions are valid and whether they're implicitly
+    // 'constexpr'.
+    if (CXXDestructorDecl *Dtor = Record->getDestructor())
+      CompleteMemberFunction(Dtor);
+
     for (auto *M : Record->methods()) {
       // See if a method overloads virtual methods in a base
       // class without overriding any.
@@ -6166,46 +6214,9 @@ void Sema::CheckCompletedCXXClass(CXXRecordDecl *Record) {
         HasMethodWithOverrideControl = true;
       else if (M->size_overridden_methods() > 0)
         HasOverridingMethodWithoutOverrideControl = true;
-      // Check whether the explicitly-defaulted special members are valid.
-      if (!M->isInvalidDecl() && M->isExplicitlyDefaulted())
-        CheckExplicitlyDefaultedSpecialMember(M);
 
-      // For an explicitly defaulted or deleted special member, we defer
-      // determining triviality until the class is complete. That time is now!
-      CXXSpecialMember CSM = getSpecialMember(M);
-      if (!M->isImplicit() && !M->isUserProvided()) {
-        if (CSM != CXXInvalid) {
-          M->setTrivial(SpecialMemberIsTrivial(M, CSM));
-          // Inform the class that we've finished declaring this member.
-          Record->finishedDefaultedOrDeletedMember(M);
-          M->setTrivialForCall(
-              HasTrivialABI ||
-              SpecialMemberIsTrivial(M, CSM, TAH_ConsiderTrivialABI));
-          Record->setTrivialForCallFlags(M);
-        }
-      }
-
-      // Set triviality for the purpose of calls if this is a user-provided
-      // copy/move constructor or destructor.
-      if ((CSM == CXXCopyConstructor || CSM == CXXMoveConstructor ||
-           CSM == CXXDestructor) && M->isUserProvided()) {
-        M->setTrivialForCall(HasTrivialABI);
-        Record->setTrivialForCallFlags(M);
-      }
-
-      if (!M->isInvalidDecl() && M->isExplicitlyDefaulted() &&
-          M->hasAttr<DLLExportAttr>()) {
-        if (getLangOpts().isCompatibleWithMSVC(LangOptions::MSVC2015) &&
-            M->isTrivial() &&
-            (CSM == CXXDefaultConstructor || CSM == CXXCopyConstructor ||
-             CSM == CXXDestructor))
-          M->dropAttr<DLLExportAttr>();
-
-        if (M->hasAttr<DLLExportAttr>()) {
-          DefineImplicitSpecialMember(*this, M, M->getLocation());
-          ActOnFinishInlineFunctionDef(M);
-        }
-      }
+      if (!isa<CXXDestructorDecl>(M))
+        CompleteMemberFunction(M);
     }
   }
 
@@ -11551,7 +11562,7 @@ class RefBuilder: public ExprBuilder {
 
 public:
   Expr *build(Sema &S, SourceLocation Loc) const override {
-    return assertNotNull(S.BuildDeclRefExpr(Var, VarType, VK_LValue, Loc).get());
+    return assertNotNull(S.BuildDeclRefExpr(Var, VarType, VK_LValue, Loc));
   }
 
   RefBuilder(VarDecl *Var, QualType VarType)
@@ -12953,7 +12964,7 @@ void Sema::DefineImplicitLambdaToFunctionPointerConversion(
 
   // Construct the body of the conversion function { return __invoke; }.
   Expr *FunctionRef = BuildDeclRefExpr(Invoker, Invoker->getType(),
-                                       VK_LValue, Conv->getLocation()).get();
+                                       VK_LValue, Conv->getLocation());
   assert(FunctionRef && "Can't refer to __invoke function?");
   Stmt *Return = BuildReturnStmt(Conv->getLocation(), FunctionRef).get();
   Conv->setBody(CompoundStmt::Create(Context, Return, Conv->getLocation(),
@@ -14717,11 +14728,6 @@ NamedDecl *Sema::ActOnFriendFunctionDecl(Scope *S, Declarator &D,
     // and shall be the only declaration of the function or function
     // template in the translation unit.
     if (functionDeclHasDefaultArgument(FD)) {
-#if INTEL_CUSTOMIZATION
-      // Fix for CQ#373130: friend functions with default parameter without
-      // name.
-      if (!getLangOpts().IntelCompat) {
-#endif // INTEL_CUSTOMIZATION
       // We can't look at FD->getPreviousDecl() because it may not have been set
       // if we're in a dependent context. If the function is known to be a
       // redeclaration, we will have narrowed Previous down to the right decl.
@@ -14731,15 +14737,6 @@ NamedDecl *Sema::ActOnFriendFunctionDecl(Scope *S, Declarator &D,
              diag::note_previous_declaration);
       } else if (!D.isFunctionDefinition())
         Diag(FD->getLocation(), diag::err_friend_decl_with_def_arg_must_be_def);
-#if INTEL_CUSTOMIZATION
-      // Fix for CQ#374679: Several negative tests are failed after promotion
-      // due to patches allowing too permissive xmain's behavior.
-      // Fix for CQ#376452: friend declaration specifying a default argument
-      // must be a definition.
-      } else if (!D.isFunctionDefinition() &&
-                 FD->getTemplatedKind() != FunctionDecl::TK_NonTemplate)
-        Diag(FD->getLocation(), diag::err_friend_decl_with_def_arg_must_be_def);
-#endif // INTEL_CUSTOMIZATION
     }
 
     // Mark templated-scope function declarations as unsupported.
@@ -15567,6 +15564,7 @@ bool Sema::checkThisInStaticMemberFunctionExceptionSpec(CXXMethodDecl *Method) {
   case EST_Uninstantiated:
   case EST_Unevaluated:
   case EST_BasicNoexcept:
+  case EST_NoThrow:
   case EST_DynamicNone:
   case EST_MSAny:
   case EST_None:

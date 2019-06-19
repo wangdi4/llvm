@@ -253,6 +253,7 @@ class OpenMPLateOutliner {
   bool isIgnoredImplicit(const VarDecl *);
   bool isImplicit(const VarDecl *);
   bool isExplicit(const VarDecl *);
+  bool hasMapClause(const VarDecl *);
   bool alreadyHandled(llvm::Value *);
   void addImplicitClauses();
   void addRefsToOuter();
@@ -274,6 +275,7 @@ class OpenMPLateOutliner {
 
   llvm::MapVector<const VarDecl *, ImplicitClauseKind> ImplicitMap;
   llvm::DenseSet<const VarDecl *> ExplicitRefs;
+  llvm::DenseSet<const VarDecl *> MapRefs;
   llvm::DenseSet<const VarDecl *> VarDefs;
   llvm::SmallSetVector<const VarDecl *, 32> VarRefs;
 
@@ -327,6 +329,22 @@ public:
   }
 
   OpenMPLateOutliner &operator<<(ArrayRef<OMPClause *> Clauses);
+
+  template <typename ClauseType>
+  void AddMapToFromClauses(const ClauseType *C) {
+    for (auto *E : C->varlists()) {
+      const VarDecl *VD = getExplicitVarDecl(E);
+      assert(VD && "expected VarDecl in clause");
+      if (hasMapClause(VD))
+        continue;
+      emitImplicit(VD, ICK_map_tofrom);
+      // Adding to explicit list to prevent additional clauses from implicit
+      // rules.
+      addExplicit(VD, /*IsMap=*/true);
+    }
+  }
+  void emitCombinedTargetMapClauses();
+
   void emitImplicitLoopBounds(const OMPLoopDirective *LD);
   void emitImplicit(Expr *E, ImplicitClauseKind K);
   void emitImplicit(const VarDecl *VD, ImplicitClauseKind K);
@@ -342,7 +360,11 @@ public:
   }
   void addValueSuppress(llvm::Value *V) { HandledValues.insert(V); }
   OpenMPDirectiveKind getCurrentDirectiveKind() { return CurrentDirectiveKind; }
-  void addExplicit(const VarDecl *VD) { ExplicitRefs.insert(VD); }
+  void addExplicit(const VarDecl *VD, bool IsMap = false) {
+    ExplicitRefs.insert(VD);
+    if (IsMap)
+      MapRefs.insert(VD);
+  }
   bool insertPointChangeNeeded() { return MarkerInstruction != nullptr; }
   void setInsertPoint() {
     assert(MarkerInstruction);

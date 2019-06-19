@@ -4092,6 +4092,13 @@ void CodeGenFunction::EmitOMPAtomicDirective(const OMPAtomicDirective &S) {
                       S.isXLHSInRHSPart(), S.getBeginLoc());
   };
   OMPLexicalScope Scope(*this, S, OMPD_unknown);
+#if INTEL_CUSTOMIZATION
+  if (getLangOpts().OpenMPLateOutline) {
+    // Use the clang outlining logic, but don't create a new CapturedStmtInfo.
+    PrePostActionTy Action;
+    CodeGen(*this, Action);
+  } else
+#endif // INTEL_CUSTOMIZATION
   CGM.getOpenMPRuntime().emitInlinedDirective(*this, OMPD_atomic, CodeGen);
 }
 

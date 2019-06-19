@@ -24,12 +24,6 @@
 #ifdef __x86_64__
 
 static __inline__ void __DEFAULT_FN_ATTRS
-_uiret (void)
-{
-  __builtin_ia32_uiret();
-}
-
-static __inline__ void __DEFAULT_FN_ATTRS
 _clui (void)
 {
   __builtin_ia32_clui();

@@ -58,11 +58,6 @@ enum ActionKind {
   /// Emit a .bc file.
   EmitBC,
 
-#if INTEL_CUSTOMIZATION
-  /// Emit a .spv file.
-  EmitSPIRV,
-#endif // INTEL_CUSTOMIZATION
-
   /// Translate input source into HTML.
   EmitHTML,
 
@@ -133,7 +128,10 @@ enum ActionKind {
   MigrateSource,
 
   /// Just lex, no output.
-  RunPreprocessorOnly
+  RunPreprocessorOnly,
+
+  /// Print the output of the dependency directives source minimizer.
+  PrintDependencyDirectivesSourceMinimizerOutput
 };
 
 } // namespace frontend

@@ -124,4 +124,57 @@ void foo_two(int *ip, A *ap, int n) {
   #pragma omp target map(tofrom : ip[n])
   {}
 }
+
+// CHECK-LABEL: foo_three
+double foo_three(double *x) {
+  int i;
+  double s_foo = 0.0;
+  double *sp_foo = &s_foo;
+
+  // CHECK: [[SFOO:%s_foo.*]] = alloca double,
+  // CHECK: [[SPFOO:%sp_foo.*]] = alloca double*,
+
+  // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(double* [[SFOO]])
+  // CHECK: [[L:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(double* [[SFOO]]
+  // CHECK: region.exit(token [[L]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
+  // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
+  #pragma omp target parallel for reduction(+:s_foo) map(to: x[:100])
+  for (int i = 0; i < 100; ++i)
+    s_foo += x[i];
+
+  // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
+  // CHECK-NOT: "QUAL.OMP.FIRSTPRIVATE"(double* [[SFOO]]
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(double* [[SFOO]])
+  // CHECK-NOT: "QUAL.OMP.FIRSTPRIVATE"(double* [[SFOO]]
+  // CHECK: [[L:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
+  // CHECK: region.exit(token [[L]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
+  // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
+  #pragma omp target parallel for lastprivate(s_foo) map(to: x[:100])
+  for (int i = 0; i < 100; ++i)
+    s_foo += x[i];
+
+  // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
+  // CHECK-NOT: "QUAL.OMP.FIRSTPRIVATE"(double* [[SPFOO]]
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(double** [[SPFOO]])
+  // CHECK-NOT: "QUAL.OMP.FIRSTPRIVATE"(double* [[SPFOO]]
+  // CHECK: [[L:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
+  // CHECK: region.exit(token [[L]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
+  // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
+  #pragma omp target parallel for linear(sp_foo) map(to: x[:100])
+  for (int i = 0; i < 100; ++i)
+    x[i+(int)(*sp_foo)]++;
+
+  // Check that no implicit map is added if there is an explicit map.
+  // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(double* [[SFOO]])
+  // CHECK-NOT: "QUAL.OMP.MAP.TOFROM"(double* [[SFOO]])
+  // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
+  #pragma omp target teams distribute parallel for \
+     map(tofrom: s_foo) reduction(+:s_foo)
+  for (int i = 0; i < 100; ++i) {}
+
+  return s_foo;
+}
 // end INTEL_COLLAB

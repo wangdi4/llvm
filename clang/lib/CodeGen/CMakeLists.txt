@@ -17,13 +17,11 @@ set(LLVM_LINK_COMPONENTS
   Object
   Passes
   ProfileData
+  Remarks
   ScalarOpts
   Support
   Target
   TransformUtils
-# INTEL_CUSTOMIZATION
-  SPIRVlib
-# end INTEL_CUSTOMIZATION
   )
 
 # INTEL_CUSTOMIZATION

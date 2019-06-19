@@ -1,4 +1,8 @@
 // INTEL_COLLAB
+//
+// Ensures that a potentially throwing call is caught by a terminate
+// handler inside the parallel region.
+//
 // RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fexceptions -fopenmp \
 // RUN:  -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s \
 // RUN:  | FileCheck %s
@@ -28,19 +32,19 @@ void foo(float *x)
 }
 
 extern "C" {
-  extern double omp_get_wtime (void);
+  extern double something (void);
 }
 
 //CHECK-LABEL: zap
 void zap()
 {
   //CHECK: call token{{.*}}DIR.OMP.PARALLEL
-  //CHECK: invoke double @omp_get_wtime
+  //CHECK: invoke double @something
   //CHECK-NEXT: unwind label %[[TLP_Z:terminate.lpad[0-9]*]]
   //CHECK: region.exit{{.*}}DIR.OMP.END.PARALLEL
   #pragma omp parallel
   {
-    omp_get_wtime();
+    something();
   }
   //CHECK: [[TLP_Z]]:
 }

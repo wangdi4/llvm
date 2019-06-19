@@ -237,6 +237,7 @@ LANGOPT(OpenMPLateOutline , 1, 0, "Outline OpenMP constructs in the back end")
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 LANGOPT(OpenMPLateOutlineTarget, 1, 1, "Outline OpenMP target construct in the back end")
+LANGOPT(OpenMPLateOutlineAtomic, 1, 0, "Outline OpenMP atomic construct in the back end")
 #if INTEL_FEATURE_CSA
 LANGOPT(CSAvISA, 1, 0, "[CSA] Customize target IR for binary vISA")
 #endif // INTEL_FEATURE_CSA
@@ -295,6 +296,7 @@ LANGOPT(OpenCLForceVectorABI, 1, 0, "OpenCL vector to scalar coercion disabling"
 #endif // INTEL_CUSTOMIZATION
 ENUM_LANGOPT(AddressSpaceMapMangling , AddrSpaceMapMangling, 2, ASMM_Target, "OpenCL address space map mangling mode")
 LANGOPT(IncludeDefaultHeader, 1, 0, "Include default header file for OpenCL")
+LANGOPT(DeclareOpenCLBuiltins, 1, 0, "Declare OpenCL builtin functions")
 BENIGN_LANGOPT(DelayedTemplateParsing , 1, 0, "delayed template parsing")
 LANGOPT(BlocksRuntimeOptional , 1, 0, "optional blocks runtime")
 LANGOPT(

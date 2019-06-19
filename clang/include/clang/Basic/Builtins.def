@@ -53,6 +53,7 @@
 //  Z   -> int32_t (require a native 32-bit integer type on the target)
 //  W   -> int64_t (require a native 64-bit integer type on the target)
 //  N   -> 'int' size if target is LP64, 'L' otherwise.
+//  O   -> long for OpenCL targets, long long otherwise.
 //  S   -> signed
 //  U   -> unsigned
 //  I   -> Required to constant fold to an integer constant expression.
@@ -1801,6 +1802,39 @@ BUILTIN(__builtin_os_log_format, "v*v*cC*.", "p:0:nt")
 
 // OpenMP 4.0
 LANGBUILTIN(omp_is_initial_device, "i", "nc", OMP_LANG)
+#if INTEL_COLLAB
+// These OMP library-defined functions are callable in device target regions
+// and have the "nothrow" property. This list is a subset representing the
+// functions that use primitive types.
+LIBBUILTIN(omp_get_active_level, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_ancestor_thread_num, "ii", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_cancellation, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_default_device, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_dynamic, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_initial_device, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_level, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_max_active_levels, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_max_task_priority, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_max_threads, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_nested, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_num_devices, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_num_procs, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_num_teams, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_num_threads, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_team_num, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_team_size, "ii", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_thread_limit, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_thread_num, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_wtick, "d", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_wtime, "d", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_in_final, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_in_parallel, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_set_default_device, "vi", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_set_dynamic, "vi", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_set_max_active_levels, "vi", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_set_num_threads, "vi", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_set_nested, "vi", "nf", "omp.h", OMP_LANG)
+#endif // INTEL_COLLAB
 
 // Builtins for XRay
 BUILTIN(__xray_customevent, "vcC*z", "")

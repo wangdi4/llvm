@@ -226,10 +226,6 @@ static void diagnoseInstanceReference(Sema &SemaRef,
     SemaRef.Diag(Loc, diag::err_invalid_non_static_member_use)
       << nameInfo.getName() << Range;
   else
-#if INTEL_CUSTOMIZATION
-    // CQ374723: allow reference to non-static method if it is function template
-    if (!SemaRef.getLangOpts().IntelCompat || !isa<FunctionTemplateDecl>(Rep))
-#endif // INTEL_CUSTOMIZATION
     SemaRef.Diag(Loc, diag::err_member_call_without_object)
       << Range;
 }

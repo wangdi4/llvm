@@ -279,7 +279,8 @@ namespace clang {
         }
 
         Ctx.setRemarkStreamer(llvm::make_unique<RemarkStreamer>(
-            CodeGenOpts.OptRecordFile, OptRecordFile->os()));
+            CodeGenOpts.OptRecordFile,
+            llvm::make_unique<remarks::YAMLSerializer>(OptRecordFile->os())));
 
         if (!CodeGenOpts.OptRecordPasses.empty())
           if (Error E = Ctx.getRemarkStreamer()->setFilter(
@@ -846,10 +847,6 @@ GetOutputStream(CompilerInstance &CI, StringRef InFile, BackendAction Action) {
     return CI.createDefaultOutputFile(false, InFile, "ll");
   case Backend_EmitBC:
     return CI.createDefaultOutputFile(true, InFile, "bc");
-#if INTEL_CUSTOMIZATION
-  case Backend_EmitSPIRV:
-    return CI.createDefaultOutputFile(true, InFile, "spv");
-#endif // INTEL_CUSTOMIZATION
   case Backend_EmitNothing:
     return nullptr;
   case Backend_EmitMCNull:
@@ -1073,12 +1070,6 @@ EmitAssemblyAction::EmitAssemblyAction(llvm::LLVMContext *_VMContext)
 void EmitBCAction::anchor() { }
 EmitBCAction::EmitBCAction(llvm::LLVMContext *_VMContext)
   : CodeGenAction(Backend_EmitBC, _VMContext) {}
-
-#if INTEL_CUSTOMIZATION
-void EmitSPIRVAction::anchor() { }
-EmitSPIRVAction::EmitSPIRVAction(llvm::LLVMContext *_VMContext)
-  : CodeGenAction(Backend_EmitSPIRV, _VMContext) {}
-#endif // INTEL_CUSTOMIZATION
 
 void EmitLLVMAction::anchor() { }
 EmitLLVMAction::EmitLLVMAction(llvm::LLVMContext *_VMContext)

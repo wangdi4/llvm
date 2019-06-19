@@ -606,10 +606,6 @@ def emit_llvm_bc : Flag<["-"], "emit-llvm-bc">,
   HelpText<"Build ASTs then convert to LLVM, emit .bc file">;
 def emit_llvm_only : Flag<["-"], "emit-llvm-only">,
   HelpText<"Build ASTs and convert to LLVM, discarding output">;
-// if INTEL_CUSTOMIZATION
-def emit_spirv : Flag<["-"], "emit-spirv">,
-  HelpText<"Build ASTs then convert to LLVM then convert to SPIR-V, emit .spv file">;
-// endif INTEL_CUSTOMIZATION
 def emit_codegen_only : Flag<["-"], "emit-codegen-only">,
   HelpText<"Generate machine code, but discard output">;
 def emit_obj : Flag<["-"], "emit-obj">,
@@ -622,6 +618,9 @@ def migrate : Flag<["-"], "migrate">,
   HelpText<"Migrate source code">;
 def compiler_options_dump : Flag<["-"], "compiler-options-dump">,
   HelpText<"Dump the compiler configuration options">;
+def print_dependency_directives_minimized_source : Flag<["-"],
+  "print-dependency-directives-minimized-source">,
+  HelpText<"Print the output of the dependency directives source minimizer">;
 }
 
 def emit_llvm_uselists : Flag<["-"], "emit-llvm-uselists">,
@@ -840,6 +839,8 @@ def fintel_openmp_region : Flag<["-"], "fintel-openmp-region">,
   HelpText<"Enable emitting of Intel specific OpenMP code with regions">;
 def fno_intel_openmp_offload : Flag<["-"], "fno-intel-openmp-offload">,
   HelpText<"Enable emitting of Intel specific OpenMP offload code">;
+def fintel_openmp_region_atomic : Flag<["-"], "fintel-openmp-region-atomic">,
+  HelpText<"Enable emitting of OpenMP atomics with regions">;
 def fopenmp_threadprivate_legacy : Flag<["-"], "fopenmp-threadprivate-legacy">,
   HelpText<"Generate legacy OpenMP threadprivates">;
 def fintel_openmp_tbb : Flag<["-"], "fopenmp-tbb">,
@@ -858,7 +859,9 @@ def fcsa_visa : Flag<["-"], "fcsa-visa">,
 def fdefault_calling_conv_EQ : Joined<["-"], "fdefault-calling-conv=">,
   HelpText<"Set default calling convention">, Values<"cdecl,fastcall,stdcall,vectorcall,regcall">;
 def finclude_default_header : Flag<["-"], "finclude-default-header">,
-  HelpText<"Include the default header file for OpenCL">;
+  HelpText<"Include default header file for OpenCL">;
+def fdeclare_opencl_builtins : Flag<["-"], "fdeclare-opencl-builtins">,
+  HelpText<"Add OpenCL builtin function declarations (experimental)">;
 def fpreserve_vec3_type : Flag<["-"], "fpreserve-vec3-type">,
   HelpText<"Preserve 3-component vector type">;
 def fwchar_type_EQ : Joined<["-"], "fwchar-type=">,

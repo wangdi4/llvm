@@ -466,24 +466,6 @@ _storebe_i64(void * __P, long long __D) {
 
 /* end INTEL_FEATURE_ISA_ENQCMD */
 
-/* INTEL_FEATURE_ISA_VP2INTERSECT */
-/*
- * TODO: when VP2INTERSECT is public change the #if checks below to also check:
- *        !defined(_MSC_VER) || __has_feature(modules)
- */
-#if defined(__AVX512VP2INTERSECT__)
-#include <avx512vp2intersectintrin.h>
-#endif
-
-/*
- * TODO: when VP2INTERSECT is public change the #if checks below to also check:
- *        !defined(_MSC_VER) || __has_feature(modules)
- */
-#if (defined(__AVX512VL__) && defined(__AVX512VP2INTERSECT__))
-#include <avx512vlvp2intersectintrin.h>
-#endif
-/* end INTEL_FEATURE_ISA_VP2INTERSECT */
-
 /* INTEL_FEATURE_ISA_ULI */
 /*
  * TODO: when ULI is public change the #if checks below to also check:
@@ -524,6 +506,17 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 /* end INTEL_FEATURE_ISA_AMX */
 
+/* INTEL_FEATURE_ISA_AMX2 */
+/*
+ * TODO: when AMX2 is public change the #if checks below to also check:
+ *        !defined(_MSC_VER) || __has_feature(modules) || ...
+ */
+#if defined(__AMX2TILE__) || defined(__AMXINT8__) || defined(__AMXBF16__)
+// TODO: when AMX2 clang part is finished, fix here.
+#include <Intel_amx2intrin.h>
+#endif
+/* end INTEL_FEATURE_ISA_AMX2 */
+
 /* INTEL_FEATURE_ISA_KEYLOCKER */
 /*
  * TODO: when KeyLocker is public change the #if checks below to also check:
@@ -534,6 +527,16 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 /* end INTEL_FEATURE_ISA_KEYLOCKER */
 /* end INTEL_CUSTOMIZATION */
+
+#if !defined(_MSC_VER) || __has_feature(modules) || \
+  defined(__AVX512VP2INTERSECT__)
+#include <avx512vp2intersectintrin.h>
+#endif
+
+#if !defined(_MSC_VER) || __has_feature(modules) || \
+  (defined(__AVX512VL__) && defined(__AVX512VP2INTERSECT__))
+#include <avx512vlvp2intersectintrin.h>
+#endif
 
 #if defined(_MSC_VER) && __has_extension(gnu_asm)
 /* Define the default attributes for these intrinsics */

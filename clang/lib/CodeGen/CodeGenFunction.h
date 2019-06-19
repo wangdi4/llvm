@@ -3993,8 +3993,9 @@ public:
                                  ReturnValueSlot ReturnValue);
 
   llvm::Value *EmitSVMLBuiltinExpr(unsigned BuiltinID, const char *LibCallName,
-                                   unsigned Modifier, const CallExpr *E,
-                                   ArrayRef<llvm::Value *> Ops);
+                                   unsigned Modifier, unsigned IntBitWidth,
+                                   const CallExpr *E,
+                                   SmallVectorImpl<llvm::Value *> &Ops);
 #endif // INTEL_CUSTOMIZATION
 
   llvm::Value *EmitCommonNeonBuiltinExpr(unsigned BuiltinID,

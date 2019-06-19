@@ -2919,12 +2919,6 @@ public:
   void InitBuiltinTypes(const TargetInfo &Target,
                         const TargetInfo *AuxTarget = nullptr);
 
-#if INTEL_CUSTOMIZATION
-  /// Determines whether NamedDecl is a library-defined builtin function
-  /// without '__builtin_' prefix.
-  bool IsPredefinedLibBuiltin(const NamedDecl *ND) const;
-#endif // INTEL_CUSTOMIZATION
-
 private:
   void InitBuiltinType(CanQualType &R, BuiltinType::Kind K);
 
@@ -2945,7 +2939,6 @@ private:
   V(IsStructField, 4)                                                          \
   V(EncodeBlockParameters, 5)                                                  \
   V(EncodeClassNames, 6)                                                       \
-  V(EncodePointerToObjCTypedef, 7)
 
 #define V(N,I) ObjCEncOptions& set##N() { Bits |= 1 << I; return *this; }
 OPT_LIST(V)
@@ -2964,8 +2957,7 @@ OPT_LIST(V)
     LLVM_NODISCARD ObjCEncOptions forComponentType() const {
       ObjCEncOptions Mask = ObjCEncOptions()
                                 .setIsOutermostType()
-                                .setIsStructField()
-                                .setEncodePointerToObjCTypedef();
+                                .setIsStructField();
       return Bits & ~Mask.Bits;
     }
   };

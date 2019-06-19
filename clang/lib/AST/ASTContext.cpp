@@ -1333,21 +1333,6 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target,
 #endif // INTEL_CUSTOMIZATION
 }
 
-#if INTEL_CUSTOMIZATION
-bool ASTContext::IsPredefinedLibBuiltin(const NamedDecl *ND) const {
-  const auto FD = ND->getAsFunction();
-
-  // Predefined library builtin must be an implicit function.
-  if (!FD || !FD->isImplicit())
-    return false;
-
-  unsigned BuiltinID = FD->getBuiltinID();
-  // isPredefinedLibFunction() determines whether a builtin is used
-  // without '__builtin_' prefix.
-  return (BuiltinID > 0) && BuiltinInfo.isPredefinedLibFunction(BuiltinID);
-}
-#endif // INTEL_CUSTOMIZATION
-
 DiagnosticsEngine &ASTContext::getDiagnostics() const {
   return SourceMgr.getDiagnostics();
 }
@@ -3814,7 +3799,10 @@ QualType ASTContext::getFunctionTypeInternal(
         break;
       }
 
-      case EST_DynamicNone: case EST_BasicNoexcept: case EST_NoexceptTrue:
+      case EST_DynamicNone:
+      case EST_BasicNoexcept:
+      case EST_NoexceptTrue:
+      case EST_NoThrow:
         CanonicalEPI.ExceptionSpec.Type = EST_BasicNoexcept;
         break;
 
@@ -7098,13 +7086,10 @@ void ASTContext::getObjCEncodingForTypeImpl(QualType T, std::string &S,
           getObjCEncodingForTypeImpl(Field->getType(), S,
                                      ObjCEncOptions().setExpandStructures(),
                                      Field);
-        else {
-          ObjCEncOptions NewOptions = ObjCEncOptions().setExpandStructures();
-          if (Options.EncodePointerToObjCTypedef())
-            NewOptions.setEncodePointerToObjCTypedef();
-          getObjCEncodingForTypeImpl(Field->getType(), S, NewOptions, FD,
+        else
+          getObjCEncodingForTypeImpl(Field->getType(), S,
+                                     ObjCEncOptions().setExpandStructures(), FD,
                                      NotEncodedT);
-        }
       }
     }
     S += '}';
@@ -7144,36 +7129,6 @@ void ASTContext::getObjCEncodingForTypeImpl(QualType T, std::string &S,
         }
         S += '"';
       }
-      return;
-    }
-
-    QualType PointeeTy = OPT->getPointeeType();
-    if (!Options.EncodingProperty() &&
-        isa<TypedefType>(PointeeTy.getTypePtr()) &&
-        !Options.EncodePointerToObjCTypedef()) {
-      // Another historical/compatibility reason.
-      // We encode the underlying type which comes out as
-      // {...};
-      S += '^';
-      if (FD && OPT->getInterfaceDecl()) {
-        // Prevent recursive encoding of fields in some rare cases.
-        ObjCInterfaceDecl *OI = OPT->getInterfaceDecl();
-        SmallVector<const ObjCIvarDecl*, 32> Ivars;
-        DeepCollectObjCIvars(OI, true, Ivars);
-        for (unsigned i = 0, e = Ivars.size(); i != e; ++i) {
-          if (Ivars[i] == FD) {
-            S += '{';
-            S += OI->getObjCRuntimeNameAsString();
-            S += '}';
-            return;
-          }
-        }
-      }
-      ObjCEncOptions NewOptions =
-          ObjCEncOptions().setEncodePointerToObjCTypedef();
-      if (Options.ExpandPointedToStructures())
-        NewOptions.setExpandStructures();
-      getObjCEncodingForTypeImpl(PointeeTy, S, NewOptions, /*Field=*/nullptr);
       return;
     }
 
@@ -9575,13 +9530,13 @@ static QualType DecodeTypeFromStr(const char *&Str, const ASTContext &Context,
       Unsigned = true;
       break;
     case 'L':
-      assert(!IsSpecial && "Can't use 'L' with 'W', 'N' or 'Z' modifiers");
+      assert(!IsSpecial && "Can't use 'L' with 'W', 'N', 'Z' or 'O' modifiers");
       assert(HowLong <= 2 && "Can't have LLLL modifier");
       ++HowLong;
       break;
     case 'N':
       // 'N' behaves like 'L' for all non LP64 targets and 'int' otherwise.
-      assert(!IsSpecial && "Can't use two 'N', 'W' or 'Z' modifiers!");
+      assert(!IsSpecial && "Can't use two 'N', 'W', 'Z' or 'O' modifiers!");
       assert(HowLong == 0 && "Can't use both 'L' and 'N' modifiers!");
       #ifndef NDEBUG
       IsSpecial = true;
@@ -9591,7 +9546,7 @@ static QualType DecodeTypeFromStr(const char *&Str, const ASTContext &Context,
       break;
     case 'W':
       // This modifier represents int64 type.
-      assert(!IsSpecial && "Can't use two 'N', 'W' or 'Z'  modifiers!");
+      assert(!IsSpecial && "Can't use two 'N', 'W', 'Z' or 'O' modifiers!");
       assert(HowLong == 0 && "Can't use both 'L' and 'W' modifiers!");
       #ifndef NDEBUG
       IsSpecial = true;
@@ -9609,7 +9564,7 @@ static QualType DecodeTypeFromStr(const char *&Str, const ASTContext &Context,
       break;
     case 'Z':
       // This modifier represents int32 type.
-      assert(!IsSpecial && "Can't use two 'N', 'W' or 'Z' modifiers!");
+      assert(!IsSpecial && "Can't use two 'N', 'W', 'Z' or 'O' modifiers!");
       assert(HowLong == 0 && "Can't use both 'L' and 'Z' modifiers!");
       #ifndef NDEBUG
       IsSpecial = true;
@@ -9627,6 +9582,17 @@ static QualType DecodeTypeFromStr(const char *&Str, const ASTContext &Context,
         HowLong = 2;
         break;
       }
+      break;
+    case 'O':
+      assert(!IsSpecial && "Can't use two 'N', 'W', 'Z' or 'O' modifiers!");
+      assert(HowLong == 0 && "Can't use both 'L' and 'O' modifiers!");
+      #ifndef NDEBUG
+      IsSpecial = true;
+      #endif
+      if (Context.getLangOpts().OpenCL)
+        HowLong = 1;
+      else
+        HowLong = 2;
       break;
     }
   }

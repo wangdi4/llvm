@@ -1975,6 +1975,22 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     case Builtin::BI__builtin_llroundl:
       return RValue::get(emitFPToIntRoundBuiltin(*this, E, Intrinsic::llround));
 
+    case Builtin::BIlrint:
+    case Builtin::BIlrintf:
+    case Builtin::BIlrintl:
+    case Builtin::BI__builtin_lrint:
+    case Builtin::BI__builtin_lrintf:
+    case Builtin::BI__builtin_lrintl:
+      return RValue::get(emitFPToIntRoundBuiltin(*this, E, Intrinsic::lrint));
+
+    case Builtin::BIllrint:
+    case Builtin::BIllrintf:
+    case Builtin::BIllrintl:
+    case Builtin::BI__builtin_llrint:
+    case Builtin::BI__builtin_llrintf:
+    case Builtin::BI__builtin_llrintl:
+      return RValue::get(emitFPToIntRoundBuiltin(*this, E, Intrinsic::llrint));
+
     default:
       break;
     }
@@ -4123,7 +4139,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
           Builder.CreatePointerCast(Info.BlockArg, GenericVoidPtrTy);
 
       AttrBuilder B;
-      B.addAttribute(Attribute::ByVal);
+      B.addByValAttr(NDRangeL.getAddress().getElementType());
       llvm::AttributeList ByValAttrSet =
           llvm::AttributeList::get(CGM.getModule().getContext(), 3U, B);
 
@@ -6480,6 +6496,14 @@ struct SVMLBuiltinInfo {
   const char *LibCallName;
   unsigned BuiltinID;
   unsigned TypeModifier;
+  // There are a few integer div/rem/divrem intrinsics which operate on
+  // different integer types, but we only have vector types of 32-bit integers
+  // defined in header. The arguments and return value of these intrinsics need
+  // to be casted to the right type.
+  //
+  // For other intrinsics which have no need of type casting, this field has a
+  // default value of 0.
+  unsigned IntBitWidth;
 
   bool operator<(unsigned RHSBuiltinID) const {
     return BuiltinID < RHSBuiltinID;
@@ -6491,189 +6515,411 @@ struct SVMLBuiltinInfo {
 } // end anonymous namespace
 
 #define SVMLMAP0(Name) \
-  { "__svml_" #Name, clang::X86::BI__builtin_svml_ ## Name, 0 }
+  { "__svml_" #Name, clang::X86::BI__builtin_svml_ ## Name, 0, 0 }
 #define SVMLMAP1(Name, Modifier) \
-  { "__svml_" #Name, clang::X86::BI__builtin_svml_ ## Name, Modifier }
+  { "__svml_" #Name, clang::X86::BI__builtin_svml_ ## Name, Modifier, 0 }
 
 #define SVML2MAP0(LibName, BuiltinName) \
-  { "__svml_" LibName, clang::X86::BI ## BuiltinName, 0 }
+  { "__svml_" LibName, clang::X86::BI ## BuiltinName, 0, 0 }
+#define SVML2MAP_DIV_OR_REM(LibName, BuiltinName, IntBitWidth) \
+  { "__svml_" LibName, clang::X86::BI ## BuiltinName, 0, IntBitWidth }
 
 static const SVMLBuiltinInfo SIMDBuiltinMap[] = {
   // SSE1 FP
-  SVML2MAP0("acoshf4", _mm_acosh_ps),
   SVML2MAP0("acosf4", _mm_acos_ps),
-  SVML2MAP0("asinhf4", _mm_asinh_ps),
+  SVML2MAP0("acoshf4", _mm_acosh_ps),
   SVML2MAP0("asinf4", _mm_asin_ps),
+  SVML2MAP0("asinhf4", _mm_asinh_ps),
+  SVML2MAP0("atanf4", _mm_atan_ps),
   SVML2MAP0("atan2f4", _mm_atan2_ps),
   SVML2MAP0("atanhf4", _mm_atanh_ps),
-  SVML2MAP0("atanf4", _mm_atan_ps),
   SVML2MAP0("cbrtf4", _mm_cbrt_ps),
-  SVML2MAP0("coshf4", _mm_cosh_ps),
+  SVML2MAP0("cdfnormf4", _mm_cdfnorm_ps),
+  SVML2MAP0("cdfnorminvf4", _mm_cdfnorminv_ps),
+  SVML2MAP0("ceilf4", _mm_svml_ceil_ps),
+  SVML2MAP0("cexpf2", _mm_cexp_ps),
+  SVML2MAP0("clogf2", _mm_clog_ps),
   SVML2MAP0("cosf4", _mm_cos_ps),
-  SVML2MAP0("erfcf4", _mm_erfc_ps),
-  SVML2MAP0("erfinvf4", _mm_erfinv_ps),
+  SVML2MAP0("cosdf4", _mm_cosd_ps),
+  SVML2MAP0("coshf4", _mm_cosh_ps),
+  SVML2MAP0("csqrtf2", _mm_csqrt_ps),
   SVML2MAP0("erff4", _mm_erf_ps),
-  SVML2MAP0("exp2f4", _mm_exp2_ps),
+  SVML2MAP0("erfcf4", _mm_erfc_ps),
+  SVML2MAP0("erfcinvf4", _mm_erfcinv_ps),
+  SVML2MAP0("erfinvf4", _mm_erfinv_ps),
   SVML2MAP0("expf4", _mm_exp_ps),
+  SVML2MAP0("exp10f4", _mm_exp10_ps),
+  SVML2MAP0("exp2f4", _mm_exp2_ps),
+  SVML2MAP0("expm1f4", _mm_expm1_ps),
+  SVML2MAP0("floorf4", _mm_svml_floor_ps),
+  SVML2MAP0("hypotf4", _mm_hypot_ps),
   SVML2MAP0("invcbrtf4", _mm_invcbrt_ps),
   SVML2MAP0("invsqrtf4", _mm_invsqrt_ps),
-  SVML2MAP0("log10f4", _mm_log10_ps),
-  SVML2MAP0("log2f4", _mm_log2_ps),
   SVML2MAP0("logf4", _mm_log_ps),
+  SVML2MAP0("log10f4", _mm_log10_ps),
+  SVML2MAP0("log1pf4", _mm_log1p_ps),
+  SVML2MAP0("log2f4", _mm_log2_ps),
+  SVML2MAP0("logbf4", _mm_logb_ps),
   SVML2MAP0("powf4", _mm_pow_ps),
-  SVML2MAP0("sinhf4", _mm_sinh_ps),
+  SVML2MAP0("roundf4", _mm_svml_round_ps),
   SVML2MAP0("sinf4", _mm_sin_ps),
-  SVML2MAP0("tanhf4", _mm_tanh_ps),
+  SVML2MAP0("sindf4", _mm_sind_ps),
+  SVML2MAP0("sinhf4", _mm_sinh_ps),
+  SVML2MAP0("sqrtf4", _mm_svml_sqrt_ps),
   SVML2MAP0("tanf4", _mm_tan_ps),
-  // FIXME: The backend can't handle this yet.
-  //SVMLMAP1(sincosf4, SVMLTwoRets),
+  SVML2MAP0("tandf4", _mm_tand_ps),
+  SVML2MAP0("tanhf4", _mm_tanh_ps),
+  SVML2MAP0("truncf4", _mm_trunc_ps),
+
   // SSE2 FP
-  SVML2MAP0("acosh2", _mm_acosh_pd),
   SVML2MAP0("acos2", _mm_acos_pd),
-  SVML2MAP0("asinh2", _mm_asinh_pd),
+  SVML2MAP0("acosh2", _mm_acosh_pd),
   SVML2MAP0("asin2", _mm_asin_pd),
+  SVML2MAP0("asinh2", _mm_asinh_pd),
+  SVML2MAP0("atan2", _mm_atan_pd),
   SVML2MAP0("atan22", _mm_atan2_pd),
   SVML2MAP0("atanh2", _mm_atanh_pd),
-  SVML2MAP0("atan2", _mm_atan_pd),
   SVML2MAP0("cbrt2", _mm_cbrt_pd),
-  SVML2MAP0("cosh2", _mm_cosh_pd),
+  SVML2MAP0("cdfnorm2", _mm_cdfnorm_pd),
+  SVML2MAP0("cdfnorminv2", _mm_cdfnorminv_pd),
+  SVML2MAP0("ceil2", _mm_svml_ceil_pd),
   SVML2MAP0("cos2", _mm_cos_pd),
-  SVML2MAP0("erfc2", _mm_erfc_pd),
-  SVML2MAP0("erfinv2", _mm_erfinv_pd),
+  SVML2MAP0("cosd2", _mm_cosd_pd),
+  SVML2MAP0("cosh2", _mm_cosh_pd),
   SVML2MAP0("erf2", _mm_erf_pd),
-  SVML2MAP0("exp22", _mm_exp2_pd),
+  SVML2MAP0("erfc2", _mm_erfc_pd),
+  SVML2MAP0("erfcinv2", _mm_erfcinv_pd),
+  SVML2MAP0("erfinv2", _mm_erfinv_pd),
   SVML2MAP0("exp2", _mm_exp_pd),
+  SVML2MAP0("exp102", _mm_exp10_pd),
+  SVML2MAP0("exp22", _mm_exp2_pd),
+  SVML2MAP0("expm12", _mm_expm1_pd),
+  SVML2MAP0("floor2", _mm_svml_floor_pd),
+  SVML2MAP0("hypot2", _mm_hypot_pd),
   SVML2MAP0("invcbrt2", _mm_invcbrt_pd),
   SVML2MAP0("invsqrt2", _mm_invsqrt_pd),
-  SVML2MAP0("log102", _mm_log10_pd),
-  SVML2MAP0("log22", _mm_log2_pd),
   SVML2MAP0("log2", _mm_log_pd),
+  SVML2MAP0("log102", _mm_log10_pd),
+  SVML2MAP0("log1p2", _mm_log1p_pd),
+  SVML2MAP0("log22", _mm_log2_pd),
+  SVML2MAP0("logb2", _mm_logb_pd),
   SVML2MAP0("pow2", _mm_pow_pd),
-  SVML2MAP0("sinh2", _mm_sinh_pd),
+  SVML2MAP0("round2", _mm_svml_round_pd),
   SVML2MAP0("sin2", _mm_sin_pd),
-  SVML2MAP0("tanh2", _mm_tanh_pd),
+  SVML2MAP0("sind2", _mm_sind_pd),
+  SVML2MAP0("sinh2", _mm_sinh_pd),
+  SVML2MAP0("sqrt2", _mm_svml_sqrt_pd),
   SVML2MAP0("tan2", _mm_tan_pd),
-  // FIXME: The backend can't handle this yet.
-  //SVMLMAP1(sincos2, SVMLTwoRets),
+  SVML2MAP0("tand2", _mm_tand_pd),
+  SVML2MAP0("tanh2", _mm_tanh_pd),
+  SVML2MAP0("trunc2", _mm_trunc_pd),
+
   // AVX single precision
-  SVML2MAP0("acoshf8", _mm256_acosh_ps),
   SVML2MAP0("acosf8", _mm256_acos_ps),
-  SVML2MAP0("asinhf8", _mm256_asinh_ps),
+  SVML2MAP0("acoshf8", _mm256_acosh_ps),
   SVML2MAP0("asinf8", _mm256_asin_ps),
+  SVML2MAP0("asinhf8", _mm256_asinh_ps),
+  SVML2MAP0("atanf8", _mm256_atan_ps),
   SVML2MAP0("atan2f8", _mm256_atan2_ps),
   SVML2MAP0("atanhf8", _mm256_atanh_ps),
-  SVML2MAP0("atanf8", _mm256_atan_ps),
   SVML2MAP0("cbrtf8", _mm256_cbrt_ps),
-  SVML2MAP0("coshf8", _mm256_cosh_ps),
+  SVML2MAP0("cdfnormf8", _mm256_cdfnorm_ps),
+  SVML2MAP0("cdfnorminvf8", _mm256_cdfnorminv_ps),
+  SVML2MAP0("cexpf4", _mm256_cexp_ps),
+  SVML2MAP0("clogf4", _mm256_clog_ps),
   SVML2MAP0("cosf8", _mm256_cos_ps),
-  SVML2MAP0("erfcf8", _mm256_erfc_ps),
-  SVML2MAP0("erfinvf8", _mm256_erfinv_ps),
+  SVML2MAP0("cosdf8", _mm256_cosd_ps),
+  SVML2MAP0("coshf8", _mm256_cosh_ps),
+  SVML2MAP0("csqrtf4", _mm256_csqrt_ps),
   SVML2MAP0("erff8", _mm256_erf_ps),
-  SVML2MAP0("exp2f8", _mm256_exp2_ps),
+  SVML2MAP0("erfcf8", _mm256_erfc_ps),
+  SVML2MAP0("erfcinvf8", _mm256_erfcinv_ps),
+  SVML2MAP0("erfinvf8", _mm256_erfinv_ps),
   SVML2MAP0("expf8", _mm256_exp_ps),
+  SVML2MAP0("exp10f8", _mm256_exp10_ps),
+  SVML2MAP0("exp2f8", _mm256_exp2_ps),
+  SVML2MAP0("expm1f8", _mm256_expm1_ps),
+  SVML2MAP0("hypotf8", _mm256_hypot_ps),
   SVML2MAP0("invcbrtf8", _mm256_invcbrt_ps),
   SVML2MAP0("invsqrtf8", _mm256_invsqrt_ps),
-  SVML2MAP0("log10f8", _mm256_log10_ps),
-  SVML2MAP0("log2f8", _mm256_log2_ps),
   SVML2MAP0("logf8", _mm256_log_ps),
+  SVML2MAP0("log10f8", _mm256_log10_ps),
+  SVML2MAP0("log1pf8", _mm256_log1p_ps),
+  SVML2MAP0("log2f8", _mm256_log2_ps),
+  SVML2MAP0("logbf8", _mm256_logb_ps),
   SVML2MAP0("powf8", _mm256_pow_ps),
-  SVML2MAP0("sinhf8", _mm256_sinh_ps),
+  SVML2MAP0("roundf8", _mm256_svml_round_ps),
   SVML2MAP0("sinf8", _mm256_sin_ps),
-  SVML2MAP0("tanhf8", _mm256_tanh_ps),
+  SVML2MAP0("sindf8", _mm256_sind_ps),
+  SVML2MAP0("sinhf8", _mm256_sinh_ps),
+  SVML2MAP0("sqrtf8", _mm256_svml_sqrt_ps),
   SVML2MAP0("tanf8", _mm256_tan_ps),
+  SVML2MAP0("tandf8", _mm256_tand_ps),
+  SVML2MAP0("tanhf8", _mm256_tanh_ps),
+
   // AVX double precision
-  SVML2MAP0("acosh4", _mm256_acosh_pd),
   SVML2MAP0("acos4", _mm256_acos_pd),
-  SVML2MAP0("asinh4", _mm256_asinh_pd),
+  SVML2MAP0("acosh4", _mm256_acosh_pd),
   SVML2MAP0("asin4", _mm256_asin_pd),
+  SVML2MAP0("asinh4", _mm256_asinh_pd),
+  SVML2MAP0("atan4", _mm256_atan_pd),
   SVML2MAP0("atan24", _mm256_atan2_pd),
   SVML2MAP0("atanh4", _mm256_atanh_pd),
-  SVML2MAP0("atan4", _mm256_atan_pd),
   SVML2MAP0("cbrt4", _mm256_cbrt_pd),
-  SVML2MAP0("cosh4", _mm256_cosh_pd),
+  SVML2MAP0("cdfnorm4", _mm256_cdfnorm_pd),
+  SVML2MAP0("cdfnorminv4", _mm256_cdfnorminv_pd),
   SVML2MAP0("cos4", _mm256_cos_pd),
-  SVML2MAP0("erfc4", _mm256_erfc_pd),
-  SVML2MAP0("erfinv4", _mm256_erfinv_pd),
+  SVML2MAP0("cosd4", _mm256_cosd_pd),
+  SVML2MAP0("cosh4", _mm256_cosh_pd),
   SVML2MAP0("erf4", _mm256_erf_pd),
-  SVML2MAP0("exp24", _mm256_exp2_pd),
+  SVML2MAP0("erfc4", _mm256_erfc_pd),
+  SVML2MAP0("erfcinv4", _mm256_erfcinv_pd),
+  SVML2MAP0("erfinv4", _mm256_erfinv_pd),
   SVML2MAP0("exp4", _mm256_exp_pd),
+  SVML2MAP0("exp104", _mm256_exp10_pd),
+  SVML2MAP0("exp24", _mm256_exp2_pd),
+  SVML2MAP0("expm14", _mm256_expm1_pd),
+  SVML2MAP0("hypot4", _mm256_hypot_pd),
   SVML2MAP0("invcbrt4", _mm256_invcbrt_pd),
   SVML2MAP0("invsqrt4", _mm256_invsqrt_pd),
-  SVML2MAP0("log104", _mm256_log10_pd),
-  SVML2MAP0("log24", _mm256_log2_pd),
   SVML2MAP0("log4", _mm256_log_pd),
+  SVML2MAP0("log104", _mm256_log10_pd),
+  SVML2MAP0("log1p4", _mm256_log1p_pd),
+  SVML2MAP0("log24", _mm256_log2_pd),
+  SVML2MAP0("logb4", _mm256_logb_pd),
   SVML2MAP0("pow4", _mm256_pow_pd),
-  SVML2MAP0("sinh4", _mm256_sinh_pd),
+  SVML2MAP0("round4", _mm256_svml_round_pd),
   SVML2MAP0("sin4", _mm256_sin_pd),
-  SVML2MAP0("tanh4", _mm256_tanh_pd),
+  SVML2MAP0("sind4", _mm256_sind_pd),
+  SVML2MAP0("sinh4", _mm256_sinh_pd),
+  SVML2MAP0("sqrt4", _mm256_svml_sqrt_pd),
   SVML2MAP0("tan4", _mm256_tan_pd),
-  // AVX512F single precision
-  SVML2MAP0("acoshf16", _mm512_acosh_ps),
+  SVML2MAP0("tand4", _mm256_tand_pd),
+  SVML2MAP0("tanh4", _mm256_tanh_pd),
+
+  // AVX512 single precision
   SVML2MAP0("acosf16", _mm512_acos_ps),
-  SVML2MAP0("asinhf16", _mm512_asinh_ps),
+  SVML2MAP0("acosf16_mask", _mm512_mask_acos_ps),
+  SVML2MAP0("acoshf16", _mm512_acosh_ps),
+  SVML2MAP0("acoshf16_mask", _mm512_mask_acosh_ps),
   SVML2MAP0("asinf16", _mm512_asin_ps),
-  SVML2MAP0("atan2f16", _mm512_atan2_ps),
-  SVML2MAP0("atanhf16", _mm512_atanh_ps),
+  SVML2MAP0("asinf16_mask", _mm512_mask_asin_ps),
+  SVML2MAP0("asinhf16", _mm512_asinh_ps),
+  SVML2MAP0("asinhf16_mask", _mm512_mask_asinh_ps),
   SVML2MAP0("atanf16", _mm512_atan_ps),
+  SVML2MAP0("atanf16_mask", _mm512_mask_atan_ps),
+  SVML2MAP0("atan2f16", _mm512_atan2_ps),
+  SVML2MAP0("atan2f16_mask", _mm512_mask_atan2_ps),
+  SVML2MAP0("atanhf16", _mm512_atanh_ps),
+  SVML2MAP0("atanhf16_mask", _mm512_mask_atanh_ps),
   SVML2MAP0("cbrtf16", _mm512_cbrt_ps),
-  SVML2MAP0("coshf16", _mm512_cosh_ps),
+  SVML2MAP0("cbrtf16_mask", _mm512_mask_cbrt_ps),
+  SVML2MAP0("cdfnormf16", _mm512_cdfnorm_ps),
+  SVML2MAP0("cdfnormf16_mask", _mm512_mask_cdfnorm_ps),
+  SVML2MAP0("cdfnorminvf16", _mm512_cdfnorminv_ps),
+  SVML2MAP0("cdfnorminvf16_mask", _mm512_mask_cdfnorminv_ps),
   SVML2MAP0("cosf16", _mm512_cos_ps),
-  SVML2MAP0("erfcf16", _mm512_erfc_ps),
-  SVML2MAP0("erfinvf16", _mm512_erfinv_ps),
+  SVML2MAP0("cosf16_mask", _mm512_mask_cos_ps),
+  SVML2MAP0("cosdf16", _mm512_cosd_ps),
+  SVML2MAP0("cosdf16_mask", _mm512_mask_cosd_ps),
+  SVML2MAP0("coshf16", _mm512_cosh_ps),
+  SVML2MAP0("coshf16_mask", _mm512_mask_cosh_ps),
   SVML2MAP0("erff16", _mm512_erf_ps),
-  SVML2MAP0("exp2f16", _mm512_exp2_ps),
+  SVML2MAP0("erff16_mask", _mm512_mask_erf_ps),
+  SVML2MAP0("erfcf16", _mm512_erfc_ps),
+  SVML2MAP0("erfcf16_mask", _mm512_mask_erfc_ps),
+  SVML2MAP0("erfcinvf16", _mm512_erfcinv_ps),
+  SVML2MAP0("erfcinvf16_mask", _mm512_mask_erfcinv_ps),
+  SVML2MAP0("erfinvf16", _mm512_erfinv_ps),
+  SVML2MAP0("erfinvf16_mask", _mm512_mask_erfinv_ps),
   SVML2MAP0("expf16", _mm512_exp_ps),
-  SVML2MAP0("invcbrtf16", _mm512_invcbrt_ps),
+  SVML2MAP0("expf16_mask", _mm512_mask_exp_ps),
+  SVML2MAP0("exp10f16", _mm512_exp10_ps),
+  SVML2MAP0("exp10f16_mask", _mm512_mask_exp10_ps),
+  SVML2MAP0("exp2f16", _mm512_exp2_ps),
+  SVML2MAP0("exp2f16_mask", _mm512_mask_exp2_ps),
+  SVML2MAP0("expm1f16", _mm512_expm1_ps),
+  SVML2MAP0("expm1f16_mask", _mm512_mask_expm1_ps),
+  SVML2MAP0("hypotf16", _mm512_hypot_ps),
+  SVML2MAP0("hypotf16_mask", _mm512_mask_hypot_ps),
   SVML2MAP0("invsqrtf16", _mm512_invsqrt_ps),
-  SVML2MAP0("log10f16", _mm512_log10_ps),
-  SVML2MAP0("log2f16", _mm512_log2_ps),
+  SVML2MAP0("invsqrtf16_mask", _mm512_mask_invsqrt_ps),
   SVML2MAP0("logf16", _mm512_log_ps),
+  SVML2MAP0("logf16_mask", _mm512_mask_log_ps),
+  SVML2MAP0("log10f16", _mm512_log10_ps),
+  SVML2MAP0("log10f16_mask", _mm512_mask_log10_ps),
+  SVML2MAP0("log1pf16", _mm512_log1p_ps),
+  SVML2MAP0("log1pf16_mask", _mm512_mask_log1p_ps),
+  SVML2MAP0("log2f16", _mm512_log2_ps),
+  SVML2MAP0("log2f16_mask", _mm512_mask_log2_ps),
+  SVML2MAP0("logbf16", _mm512_logb_ps),
+  SVML2MAP0("logbf16_mask", _mm512_mask_logb_ps),
+  SVML2MAP0("nearbyintf16", _mm512_nearbyint_ps),
+  SVML2MAP0("nearbyintf16_mask", _mm512_mask_nearbyint_ps),
   SVML2MAP0("powf16", _mm512_pow_ps),
-  SVML2MAP0("sinhf16", _mm512_sinh_ps),
+  SVML2MAP0("powf16_mask", _mm512_mask_pow_ps),
+  SVML2MAP0("rcpf16", _mm512_recip_ps),
+  SVML2MAP0("rcpf16_mask", _mm512_mask_recip_ps),
+  SVML2MAP0("rintf16", _mm512_rint_ps),
+  SVML2MAP0("rintf16_mask", _mm512_mask_rint_ps),
   SVML2MAP0("sinf16", _mm512_sin_ps),
-  SVML2MAP0("tanhf16", _mm512_tanh_ps),
+  SVML2MAP0("sinf16_mask", _mm512_mask_sin_ps),
+  SVML2MAP0("sindf16", _mm512_sind_ps),
+  SVML2MAP0("sindf16_mask", _mm512_mask_sind_ps),
+  SVML2MAP0("sinhf16", _mm512_sinh_ps),
+  SVML2MAP0("sinhf16_mask", _mm512_mask_sinh_ps),
   SVML2MAP0("tanf16", _mm512_tan_ps),
-  // AVX512F double precision
-  SVML2MAP0("acosh8", _mm512_acosh_pd),
+  SVML2MAP0("tanf16_mask", _mm512_mask_tan_ps),
+  SVML2MAP0("tandf16", _mm512_tand_ps),
+  SVML2MAP0("tandf16_mask", _mm512_mask_tand_ps),
+  SVML2MAP0("tanhf16", _mm512_tanh_ps),
+  SVML2MAP0("tanhf16_mask", _mm512_mask_tanh_ps),
+
+  // AVX512 double precision
   SVML2MAP0("acos8", _mm512_acos_pd),
-  SVML2MAP0("asinh8", _mm512_asinh_pd),
+  SVML2MAP0("acos8_mask", _mm512_mask_acos_pd),
+  SVML2MAP0("acosh8", _mm512_acosh_pd),
+  SVML2MAP0("acosh8_mask", _mm512_mask_acosh_pd),
   SVML2MAP0("asin8", _mm512_asin_pd),
-  SVML2MAP0("atan28", _mm512_atan2_pd),
-  SVML2MAP0("atanh8", _mm512_atanh_pd),
+  SVML2MAP0("asin8_mask", _mm512_mask_asin_pd),
+  SVML2MAP0("asinh8", _mm512_asinh_pd),
+  SVML2MAP0("asinh8_mask", _mm512_mask_asinh_pd),
   SVML2MAP0("atan8", _mm512_atan_pd),
+  SVML2MAP0("atan8_mask", _mm512_mask_atan_pd),
+  SVML2MAP0("atan28", _mm512_atan2_pd),
+  SVML2MAP0("atan28_mask", _mm512_mask_atan2_pd),
+  SVML2MAP0("atanh8", _mm512_atanh_pd),
+  SVML2MAP0("atanh8_mask", _mm512_mask_atanh_pd),
   SVML2MAP0("cbrt8", _mm512_cbrt_pd),
-  SVML2MAP0("cosh8", _mm512_cosh_pd),
+  SVML2MAP0("cbrt8_mask", _mm512_mask_cbrt_pd),
+  SVML2MAP0("cdfnorm8", _mm512_cdfnorm_pd),
+  SVML2MAP0("cdfnorm8_mask", _mm512_mask_cdfnorm_pd),
+  SVML2MAP0("cdfnorminv8", _mm512_cdfnorminv_pd),
+  SVML2MAP0("cdfnorminv8_mask", _mm512_mask_cdfnorminv_pd),
   SVML2MAP0("cos8", _mm512_cos_pd),
-  SVML2MAP0("erfc8", _mm512_erfc_pd),
-  SVML2MAP0("erfinv8", _mm512_erfinv_pd),
+  SVML2MAP0("cos8_mask", _mm512_mask_cos_pd),
+  SVML2MAP0("cosd8", _mm512_cosd_pd),
+  SVML2MAP0("cosd8_mask", _mm512_mask_cosd_pd),
+  SVML2MAP0("cosh8", _mm512_cosh_pd),
+  SVML2MAP0("cosh8_mask", _mm512_mask_cosh_pd),
   SVML2MAP0("erf8", _mm512_erf_pd),
-  SVML2MAP0("exp28", _mm512_exp2_pd),
+  SVML2MAP0("erf8_mask", _mm512_mask_erf_pd),
+  SVML2MAP0("erfc8", _mm512_erfc_pd),
+  SVML2MAP0("erfc8_mask", _mm512_mask_erfc_pd),
+  SVML2MAP0("erfcinv8", _mm512_erfcinv_pd),
+  SVML2MAP0("erfcinv8_mask", _mm512_mask_erfcinv_pd),
+  SVML2MAP0("erfinv8", _mm512_erfinv_pd),
+  SVML2MAP0("erfinv8_mask", _mm512_mask_erfinv_pd),
   SVML2MAP0("exp8", _mm512_exp_pd),
-  SVML2MAP0("invcbrt8", _mm512_invcbrt_pd),
+  SVML2MAP0("exp8_mask", _mm512_mask_exp_pd),
+  SVML2MAP0("exp108", _mm512_exp10_pd),
+  SVML2MAP0("exp108_mask", _mm512_mask_exp10_pd),
+  SVML2MAP0("exp28", _mm512_exp2_pd),
+  SVML2MAP0("exp28_mask", _mm512_mask_exp2_pd),
+  SVML2MAP0("expm18", _mm512_expm1_pd),
+  SVML2MAP0("expm18_mask", _mm512_mask_expm1_pd),
+  SVML2MAP0("hypot8", _mm512_hypot_pd),
+  SVML2MAP0("hypot8_mask", _mm512_mask_hypot_pd),
   SVML2MAP0("invsqrt8", _mm512_invsqrt_pd),
-  SVML2MAP0("log108", _mm512_log10_pd),
-  SVML2MAP0("log28", _mm512_log2_pd),
+  SVML2MAP0("invsqrt8_mask", _mm512_mask_invsqrt_pd),
   SVML2MAP0("log8", _mm512_log_pd),
+  SVML2MAP0("log8_mask", _mm512_mask_log_pd),
+  SVML2MAP0("log108", _mm512_log10_pd),
+  SVML2MAP0("log108_mask", _mm512_mask_log10_pd),
+  SVML2MAP0("log1p8", _mm512_log1p_pd),
+  SVML2MAP0("log1p8_mask", _mm512_mask_log1p_pd),
+  SVML2MAP0("log28", _mm512_log2_pd),
+  SVML2MAP0("log28_mask", _mm512_mask_log2_pd),
+  SVML2MAP0("logb8", _mm512_logb_pd),
+  SVML2MAP0("logb8_mask", _mm512_mask_logb_pd),
+  SVML2MAP0("nearbyint8", _mm512_nearbyint_pd),
+  SVML2MAP0("nearbyint8_mask", _mm512_mask_nearbyint_pd),
   SVML2MAP0("pow8", _mm512_pow_pd),
-  SVML2MAP0("sinh8", _mm512_sinh_pd),
+  SVML2MAP0("pow8_mask", _mm512_mask_pow_pd),
+  SVML2MAP0("rcp8", _mm512_recip_pd),
+  SVML2MAP0("rcp8_mask", _mm512_mask_recip_pd),
+  SVML2MAP0("rint8", _mm512_rint_pd),
+  SVML2MAP0("rint8_mask", _mm512_mask_rint_pd),
+  SVML2MAP0("round8", _mm512_svml_round_pd),
+  SVML2MAP0("round8_mask", _mm512_mask_svml_round_pd),
   SVML2MAP0("sin8", _mm512_sin_pd),
-  SVML2MAP0("tanh8", _mm512_tanh_pd),
+  SVML2MAP0("sin8_mask", _mm512_mask_sin_pd),
+  SVML2MAP0("sind8", _mm512_sind_pd),
+  SVML2MAP0("sind8_mask", _mm512_mask_sind_pd),
+  SVML2MAP0("sinh8", _mm512_sinh_pd),
+  SVML2MAP0("sinh8_mask", _mm512_mask_sinh_pd),
   SVML2MAP0("tan8", _mm512_tan_pd),
+  SVML2MAP0("tan8_mask", _mm512_mask_tan_pd),
+  SVML2MAP0("tand8", _mm512_tand_pd),
+  SVML2MAP0("tand8_mask", _mm512_mask_tand_pd),
+  SVML2MAP0("tanh8", _mm512_tanh_pd),
+  SVML2MAP0("tanh8_mask", _mm512_mask_tanh_pd),
+
   // SSE2 Int
-  SVMLMAP0(idiv4),
-  SVMLMAP0(irem4),
-  SVMLMAP0(udiv4),
-  SVMLMAP0(urem4),
+  SVML2MAP_DIV_OR_REM("i8div16", _mm_div_epi8, 8),
+  SVML2MAP_DIV_OR_REM("u8div16", _mm_div_epu8, 8),
+  SVML2MAP_DIV_OR_REM("i16div8", _mm_div_epi16, 16),
+  SVML2MAP_DIV_OR_REM("u16div8", _mm_div_epu16, 16),
+  SVML2MAP_DIV_OR_REM("idiv4", _mm_div_epi32, 32),
+  SVML2MAP_DIV_OR_REM("udiv4", _mm_div_epu32, 32),
+  SVML2MAP_DIV_OR_REM("i64div2", _mm_div_epi64, 64),
+  SVML2MAP_DIV_OR_REM("u64div2", _mm_div_epu64, 64),
+  SVML2MAP_DIV_OR_REM("idiv4", _mm_idiv_epi32, 32),
+  SVML2MAP_DIV_OR_REM("irem4", _mm_irem_epi32, 32),
+  SVML2MAP_DIV_OR_REM("i8rem16", _mm_rem_epi8, 8),
+  SVML2MAP_DIV_OR_REM("u8rem16", _mm_rem_epu8, 8),
+  SVML2MAP_DIV_OR_REM("i16rem8", _mm_rem_epi16, 16),
+  SVML2MAP_DIV_OR_REM("u16rem8", _mm_rem_epu16, 16),
+  SVML2MAP_DIV_OR_REM("irem4", _mm_rem_epi32, 32),
+  SVML2MAP_DIV_OR_REM("urem4", _mm_rem_epu32, 32),
+  SVML2MAP_DIV_OR_REM("i64rem2", _mm_rem_epi64, 64),
+  SVML2MAP_DIV_OR_REM("u64rem2", _mm_rem_epu64, 64),
+  SVML2MAP_DIV_OR_REM("udiv4", _mm_udiv_epi32, 32),
+  SVML2MAP_DIV_OR_REM("urem4", _mm_urem_epi32, 32),
+
   // AVX2 Int
-  SVMLMAP0(idiv8),
-  SVMLMAP0(irem8),
-  SVMLMAP0(udiv8),
-  SVMLMAP0(urem8),
+  SVML2MAP_DIV_OR_REM("i8div32", _mm256_div_epi8, 8),
+  SVML2MAP_DIV_OR_REM("u8div32", _mm256_div_epu8, 8),
+  SVML2MAP_DIV_OR_REM("i16div16", _mm256_div_epi16, 16),
+  SVML2MAP_DIV_OR_REM("u16div16", _mm256_div_epu16, 16),
+  SVML2MAP_DIV_OR_REM("idiv8", _mm256_div_epi32, 32),
+  SVML2MAP_DIV_OR_REM("udiv8", _mm256_div_epu32, 32),
+  SVML2MAP_DIV_OR_REM("i64div4", _mm256_div_epi64, 64),
+  SVML2MAP_DIV_OR_REM("u64div4", _mm256_div_epu64, 64),
+  SVML2MAP_DIV_OR_REM("idiv8", _mm256_idiv_epi32, 32),
+  SVML2MAP_DIV_OR_REM("irem8", _mm256_irem_epi32, 32),
+  SVML2MAP_DIV_OR_REM("i8rem32", _mm256_rem_epi8, 8),
+  SVML2MAP_DIV_OR_REM("u8rem32", _mm256_rem_epu8, 8),
+  SVML2MAP_DIV_OR_REM("i16rem16", _mm256_rem_epi16, 16),
+  SVML2MAP_DIV_OR_REM("u16rem16", _mm256_rem_epu16, 16),
+  SVML2MAP_DIV_OR_REM("irem8", _mm256_rem_epi32, 32),
+  SVML2MAP_DIV_OR_REM("urem8", _mm256_rem_epu32, 32),
+  SVML2MAP_DIV_OR_REM("i64rem4", _mm256_rem_epi64, 64),
+  SVML2MAP_DIV_OR_REM("u64rem4", _mm256_rem_epu64, 64),
+  SVML2MAP_DIV_OR_REM("udiv8", _mm256_udiv_epi32, 32),
+  SVML2MAP_DIV_OR_REM("urem8", _mm256_urem_epi32, 32),
+
   // AVX512 Int
-  SVMLMAP0(idiv16),
-  SVMLMAP0(irem16),
-  SVMLMAP0(udiv16),
-  SVMLMAP0(urem16),
+  SVML2MAP_DIV_OR_REM("i8div64", _mm512_div_epi8, 8),
+  SVML2MAP_DIV_OR_REM("u8div64", _mm512_div_epu8, 8),
+  SVML2MAP_DIV_OR_REM("i16div32", _mm512_div_epi16, 16),
+  SVML2MAP_DIV_OR_REM("u16div32", _mm512_div_epu16, 16),
+  SVML2MAP_DIV_OR_REM("idiv16", _mm512_div_epi32, 32),
+  SVML2MAP_DIV_OR_REM("udiv16", _mm512_div_epu32, 32),
+  SVML2MAP_DIV_OR_REM("idiv16_mask", _mm512_mask_div_epi32, 32),
+  SVML2MAP_DIV_OR_REM("udiv16_mask", _mm512_mask_div_epu32, 32),
+  SVML2MAP_DIV_OR_REM("i64div8", _mm512_div_epi64, 64),
+  SVML2MAP_DIV_OR_REM("u64div8", _mm512_div_epu64, 64),
+  SVML2MAP_DIV_OR_REM("i8rem64", _mm512_rem_epi8, 8),
+  SVML2MAP_DIV_OR_REM("u8rem64", _mm512_rem_epu8, 8),
+  SVML2MAP_DIV_OR_REM("i16rem32", _mm512_rem_epi16, 16),
+  SVML2MAP_DIV_OR_REM("u16rem32", _mm512_rem_epu16, 16),
+  SVML2MAP_DIV_OR_REM("irem16", _mm512_rem_epi32, 32),
+  SVML2MAP_DIV_OR_REM("urem16", _mm512_rem_epu32, 32),
+  SVML2MAP_DIV_OR_REM("irem16_mask", _mm512_mask_rem_epi32, 32),
+  SVML2MAP_DIV_OR_REM("urem16_mask", _mm512_mask_rem_epu32, 32),
+  SVML2MAP_DIV_OR_REM("i64rem8", _mm512_rem_epi64, 64),
+  SVML2MAP_DIV_OR_REM("u64rem8", _mm512_rem_epu64, 64),
 };
 
 static const SVMLBuiltinInfo *
@@ -6697,22 +6943,51 @@ findSVMLBuiltinInMap(unsigned BuiltinID) {
   return nullptr;
 }
 
-Value *CodeGenFunction::EmitSVMLBuiltinExpr(unsigned BuiltinID,
-                                            const char *LibCallName,
-                                            unsigned Modifier,
-                                            const CallExpr *E,
-                                            ArrayRef<llvm::Value *> Ops) {
-  llvm::Type *RetTy = ConvertType(E->getType());
+Value *
+CodeGenFunction::EmitSVMLBuiltinExpr(unsigned BuiltinID,
+                                     const char *LibCallName, unsigned Modifier,
+                                     unsigned IntBitWidth, const CallExpr *E,
+                                     SmallVectorImpl<llvm::Value *> &Ops) {
+  // All integer div/rem intrinsics' signatures are defined with <n x i64>
+  // vectors. Arguments and return value of their calls need to be casted to
+  // proper vector types with correct scalar element type (which is implied by
+  // IntBitWidth).
+  llvm::VectorType *OrigVectorTy =
+      cast<llvm::VectorType>(ConvertType(E->getType()));
+  llvm::VectorType *VectorTy = OrigVectorTy;
+  if (IntBitWidth && VectorTy->getScalarSizeInBits() != IntBitWidth) {
+    assert(VectorTy->getScalarType()->isIntegerTy());
+    VectorTy = llvm::VectorType::get(Builder.getIntNTy(IntBitWidth),
+                                     VectorTy->getBitWidth() / IntBitWidth);
+  }
+
+  llvm::Type *RetTy = VectorTy;
   Value *RetPtr = nullptr;
   if (Modifier & SVMLTwoRets) {
-    RetTy = llvm::StructType::get(RetTy, RetTy);
+    RetTy = llvm::StructType::get(VectorTy, VectorTy);
     RetPtr = Ops[0];
-    Ops = Ops.drop_front();
+    Ops.erase(Ops.begin());
   }
 
   SmallVector<llvm::Type *, 3> Tys;
-  for (int i = 0, e = Ops.size(); i != e; ++i)
-    Tys.push_back(Ops[i]->getType());
+  // All arguments of SVML functions should be vector type, including masks,
+  // but __mmask8 and __mmask16 are defined as unsigned char (i8) and
+  // unsigned short (i18) respectively in headers. They need to be casted to
+  // <8 x i1> and <16 x i1>.
+  for (int i = 0, e = Ops.size(); i != e; ++i) {
+    llvm::Type *Ty = Ops[i]->getType();
+    if (!Ty->isVectorTy()) {
+      if (Ty == Int8Ty)
+        Ty = llvm::VectorType::get(Builder.getInt1Ty(), 8);
+      else if (Ty == Int16Ty)
+        Ty = llvm::VectorType::get(Builder.getInt1Ty(), 16);
+      Ops[i] = Builder.CreateBitCast(Ops[i], Ty);
+    } else if (Ty != VectorTy) {
+      Ty = VectorTy;
+      Ops[i] = Builder.CreateBitCast(Ops[i], Ty);
+    }
+    Tys.push_back(Ty);
+  }
 
   llvm::FunctionType *FTy =
       llvm::FunctionType::get(RetTy, Tys, /*Variadic*/false);
@@ -6730,10 +7005,14 @@ Value *CodeGenFunction::EmitSVMLBuiltinExpr(unsigned BuiltinID,
 
   llvm::Value *Res = Call;
   if (Modifier & SVMLTwoRets) {
-    Builder.CreateDefaultAlignedStore(Builder.CreateExtractValue(Res, 1),
-                                      RetPtr);
+    llvm::Value *StoredValue = Builder.CreateExtractValue(Res, 1);
+    if (VectorTy != OrigVectorTy)
+      StoredValue = Builder.CreateBitCast(Res, OrigVectorTy);
+    Builder.CreateDefaultAlignedStore(StoredValue, RetPtr);
     Res = Builder.CreateExtractValue(Res, 0);
   }
+  if (VectorTy != OrigVectorTy)
+    Res = Builder.CreateBitCast(Res, OrigVectorTy);
 
   return Res;
 }
@@ -10357,6 +10636,25 @@ static Value *EmitX86FMAExpr(CodeGenFunction &CGF, ArrayRef<Value *> Ops,
   Intrinsic::ID IID = Intrinsic::not_intrinsic;
   switch (BuiltinID) {
   default: break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case clang::X86::BI__builtin_ia32_vfmsubph512_mask3:
+    Subtract = true;
+    LLVM_FALLTHROUGH;
+  case clang::X86::BI__builtin_ia32_vfmaddph512_mask:
+  case clang::X86::BI__builtin_ia32_vfmaddph512_maskz:
+  case clang::X86::BI__builtin_ia32_vfmaddph512_mask3:
+    IID = llvm::Intrinsic::x86_avx512fp16_vfmadd_ph_512; break;
+  case clang::X86::BI__builtin_ia32_vfmsubaddph512_mask3:
+    Subtract = true;
+    LLVM_FALLTHROUGH;
+  case clang::X86::BI__builtin_ia32_vfmaddsubph512_mask:
+  case clang::X86::BI__builtin_ia32_vfmaddsubph512_maskz:
+  case clang::X86::BI__builtin_ia32_vfmaddsubph512_mask3:
+    IID = llvm::Intrinsic::x86_avx512fp16_vfmaddsub_ph_512;
+    break;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case clang::X86::BI__builtin_ia32_vfmsubps512_mask3:
     Subtract = true;
     LLVM_FALLTHROUGH;
@@ -10424,22 +10722,54 @@ static Value *EmitX86FMAExpr(CodeGenFunction &CGF, ArrayRef<Value *> Ops,
   // Handle any required masking.
   Value *MaskFalseVal = nullptr;
   switch (BuiltinID) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case clang::X86::BI__builtin_ia32_vfmaddph512_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case clang::X86::BI__builtin_ia32_vfmaddps512_mask:
   case clang::X86::BI__builtin_ia32_vfmaddpd512_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case clang::X86::BI__builtin_ia32_vfmaddsubph512_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case clang::X86::BI__builtin_ia32_vfmaddsubps512_mask:
   case clang::X86::BI__builtin_ia32_vfmaddsubpd512_mask:
     MaskFalseVal = Ops[0];
     break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case clang::X86::BI__builtin_ia32_vfmaddph512_maskz:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case clang::X86::BI__builtin_ia32_vfmaddps512_maskz:
   case clang::X86::BI__builtin_ia32_vfmaddpd512_maskz:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case clang::X86::BI__builtin_ia32_vfmaddsubph512_maskz:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case clang::X86::BI__builtin_ia32_vfmaddsubps512_maskz:
   case clang::X86::BI__builtin_ia32_vfmaddsubpd512_maskz:
     MaskFalseVal = Constant::getNullValue(Ops[0]->getType());
     break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case clang::X86::BI__builtin_ia32_vfmsubph512_mask3:
+  case clang::X86::BI__builtin_ia32_vfmaddph512_mask3:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case clang::X86::BI__builtin_ia32_vfmsubps512_mask3:
   case clang::X86::BI__builtin_ia32_vfmaddps512_mask3:
   case clang::X86::BI__builtin_ia32_vfmsubpd512_mask3:
   case clang::X86::BI__builtin_ia32_vfmaddpd512_mask3:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case clang::X86::BI__builtin_ia32_vfmsubaddph512_mask3:
+  case clang::X86::BI__builtin_ia32_vfmaddsubph512_mask3:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case clang::X86::BI__builtin_ia32_vfmsubaddps512_mask3:
   case clang::X86::BI__builtin_ia32_vfmaddsubps512_mask3:
   case clang::X86::BI__builtin_ia32_vfmsubaddpd512_mask3:
@@ -10470,9 +10800,30 @@ EmitScalarFMAExpr(CodeGenFunction &CGF, MutableArrayRef<Value *> Ops,
   Ops[2] = CGF.Builder.CreateExtractElement(Ops[2], (uint64_t)0);
   Value *Res;
   if (Rnd != 4) {
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    Intrinsic::ID IID;
+
+    switch (Ops[0]->getType()->getPrimitiveSizeInBits()) {
+    case 16:
+      IID = Intrinsic::x86_avx512fp16_vfmadd_f16;
+      break;
+    case 32:
+      IID = Intrinsic::x86_avx512_vfmadd_f32;
+      break;
+    case 64:
+      IID = Intrinsic::x86_avx512_vfmadd_f64;
+      break;
+    default: llvm_unreachable("Unexpected size");
+    }
+#else // INTEL_FEATURE_ISA_FP16
     Intrinsic::ID IID = Ops[0]->getType()->getPrimitiveSizeInBits() == 32 ?
                         Intrinsic::x86_avx512_vfmadd_f32 :
                         Intrinsic::x86_avx512_vfmadd_f64;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+
     Res = CGF.Builder.CreateCall(CGF.CGM.getIntrinsic(IID),
                                  {Ops[0], Ops[1], Ops[2], Ops[4]});
   } else {
@@ -10760,7 +11111,8 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   const SVMLBuiltinInfo *Builtin = findSVMLBuiltinInMap(BuiltinID);
   if (Builtin)
     return EmitSVMLBuiltinExpr(Builtin->BuiltinID, Builtin->LibCallName,
-                               Builtin->TypeModifier, E, Ops);
+                               Builtin->TypeModifier, Builtin->IntBitWidth,
+                               E, Ops);
 #endif // INTEL_CUSTOMIZATION
 
   // These exist so that the builtin that takes an immediate can be bounds
@@ -11029,6 +11381,11 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
 
   case X86::BI__builtin_ia32_vfmaddss3:
   case X86::BI__builtin_ia32_vfmaddsd3:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vfmaddsh3_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfmaddss3_mask:
   case X86::BI__builtin_ia32_vfmaddsd3_mask:
     return EmitScalarFMAExpr(*this, Ops, Ops[0]);
@@ -11036,20 +11393,52 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_vfmaddsd:
     return EmitScalarFMAExpr(*this, Ops,
                              Constant::getNullValue(Ops[0]->getType()));
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vfmaddsh3_maskz:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfmaddss3_maskz:
   case X86::BI__builtin_ia32_vfmaddsd3_maskz:
     return EmitScalarFMAExpr(*this, Ops, Ops[0], /*ZeroMask*/true);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vfmaddsh3_mask3:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfmaddss3_mask3:
   case X86::BI__builtin_ia32_vfmaddsd3_mask3:
     return EmitScalarFMAExpr(*this, Ops, Ops[2], /*ZeroMask*/false, 2);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vfmsubsh3_mask3:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfmsubss3_mask3:
   case X86::BI__builtin_ia32_vfmsubsd3_mask3:
     return EmitScalarFMAExpr(*this, Ops, Ops[2], /*ZeroMask*/false, 2,
                              /*NegAcc*/true);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vfmaddph:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfmaddps:
   case X86::BI__builtin_ia32_vfmaddpd:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vfmaddph256:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfmaddps256:
   case X86::BI__builtin_ia32_vfmaddpd256:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vfmaddph512_mask:
+  case X86::BI__builtin_ia32_vfmaddph512_maskz:
+  case X86::BI__builtin_ia32_vfmaddph512_mask3:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfmaddps512_mask:
   case X86::BI__builtin_ia32_vfmaddps512_maskz:
   case X86::BI__builtin_ia32_vfmaddps512_mask3:
@@ -11058,11 +11447,34 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_vfmaddpd512_maskz:
   case X86::BI__builtin_ia32_vfmaddpd512_mask3:
   case X86::BI__builtin_ia32_vfmsubpd512_mask3:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vfmsubph512_mask3:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     return EmitX86FMAExpr(*this, Ops, BuiltinID, /*IsAddSub*/false);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vfmaddsubph:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfmaddsubps:
   case X86::BI__builtin_ia32_vfmaddsubpd:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vfmaddsubph256:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfmaddsubps256:
   case X86::BI__builtin_ia32_vfmaddsubpd256:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vfmaddsubph512_mask:
+  case X86::BI__builtin_ia32_vfmaddsubph512_maskz:
+  case X86::BI__builtin_ia32_vfmaddsubph512_mask3:
+  case X86::BI__builtin_ia32_vfmsubaddph512_mask3:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfmaddsubps512_mask:
   case X86::BI__builtin_ia32_vfmaddsubps512_maskz:
   case X86::BI__builtin_ia32_vfmaddsubps512_mask3:
@@ -12534,8 +12946,6 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     return EmitX86MaskedCompareResult(*this, Fpclass, NumElts, MaskIn);
   }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_VP2INTERSECT
   case X86::BI__builtin_ia32_vp2intersect_q_512:
   case X86::BI__builtin_ia32_vp2intersect_q_256:
   case X86::BI__builtin_ia32_vp2intersect_q_128:
@@ -12577,8 +12987,7 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     Store = Builder.CreateDefaultAlignedStore(Result, Ops[3]);
     return Store;
   }
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
-#endif // INTEL_CUSTOMIZATION
+
   case X86::BI__builtin_ia32_vpmultishiftqb128:
   case X86::BI__builtin_ia32_vpmultishiftqb256:
   case X86::BI__builtin_ia32_vpmultishiftqb512: {

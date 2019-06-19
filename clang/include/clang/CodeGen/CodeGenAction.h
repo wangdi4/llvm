@@ -92,14 +92,6 @@ public:
   EmitBCAction(llvm::LLVMContext *_VMContext = nullptr);
 };
 
-#if INTEL_CUSTOMIZATION
-class EmitSPIRVAction : public CodeGenAction {
-  virtual void anchor();
-public:
-  EmitSPIRVAction(llvm::LLVMContext *_VMContext = nullptr);
-};
-#endif // INTEL_CUSTOMIZATION
-
 class EmitLLVMAction : public CodeGenAction {
   virtual void anchor();
 public:
