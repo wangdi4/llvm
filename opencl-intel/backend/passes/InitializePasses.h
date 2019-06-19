@@ -107,6 +107,7 @@ void initializeKernelSubGroupInfoPass(llvm::PassRegistry&);
 void initializeSYCLPipesHackPass(llvm::PassRegistry&);
 void initializePatchCallbackArgsPass(llvm::PassRegistry &);
 void initializeAddTLSGlobalsPass(llvm::PassRegistry &);
+void initializeCoerceTypesPass(llvm::PassRegistry &);
 }
 
 #endif

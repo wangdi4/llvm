@@ -17,6 +17,7 @@
 
 #include "exceptions.h"
 
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Attributes.h"
@@ -27,6 +28,7 @@
 #include <PipeCommon.h>
 #include <OCLAddressSpace.h>
 
+#include <set>
 #include <string>
 #include <vector>
 #include <map>
@@ -650,6 +652,16 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     /// @brief Returns true if the function is a block invoke kernel
     static bool isBlockInvocationKernel(Function *F);
+
+    /// @brief Recursively update metadata nodes with new functions
+    static void updateMetadataTreeWithNewFuncs(
+        Module *M, DenseMap<Function *, Function *> &FunctionMap,
+        MDNode *MDTreeNode, std::set<MDNode *> &Visited);
+
+    /// @brief Update references to old functions in metadata with new ones
+    static void
+    updateFunctionMetadata(Module *M,
+                           DenseMap<Function *, Function *> &FunctionMap);
   };
 
   class OCLBuiltins {
