@@ -42,15 +42,6 @@ def warn_attribute_requires_integer_param_type : Warning<
   InGroup<IgnoredAttributes>;
 def note_param_index_specified_here : Note<
   "parameter's index specified here">;
-// CQ#370092
-def warn_decl_attribute_invalid_on_stmt : Warning<
-  "%0 attribute cannot be applied to a statement; "
-  "attribute ignored">,
-  InGroup<IgnoredAttributes>;
-// CQ#370092
-def warn_mismatched_visibility: Warning<"visibility does not match previous declaration; "
-  "attribute ignored">,
-  InGroup<IgnoredAttributes>;
 def warn_default_arg_makes_ctor_special : Warning<
   "addition of default argument on redeclaration makes this constructor a "
   "%select{default|copy|move}0 constructor">, InGroup<IntelCompat>;

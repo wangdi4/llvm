@@ -1165,13 +1165,6 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
   default:
     // if we're here, then we parsed a known attribute, but didn't recognize
     // it as a statement attribute => it is declaration attribute
-#if INTEL_CUSTOMIZATION
-    // CQ#370092 - emit a warning, not error in IntelCompat mode
-    if (S.getLangOpts().IntelCompat)
-      S.Diag(A.getRange().getBegin(), diag::warn_decl_attribute_invalid_on_stmt)
-        << A.getName() << St->getBeginLoc();
-    else
-#endif // INTEL_CUSTOMIZATION
     S.Diag(A.getRange().getBegin(), diag::err_decl_attribute_invalid_on_stmt)
         << A.getName() << St->getBeginLoc();
     return nullptr;

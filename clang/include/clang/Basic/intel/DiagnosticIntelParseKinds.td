@@ -71,10 +71,6 @@ def err_expected_ellipsis : Error<"expected '...' after "
 def warn_inline_not_allowed : Warning<
   "\"inline\" is not allowed">,
   InGroup<IntelCompat>;
-// CQ#370092
-def warn_attributes_not_allowed : Warning<
-  "an attribute list cannot appear here; attributes are ignored">,
-  InGroup<IgnoredAttributes>;
 // CQ#373607
 def warn_member_function_initialization : Warning<
   "initializer on function does not look like a pure-specifier">,

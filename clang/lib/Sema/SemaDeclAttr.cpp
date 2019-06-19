@@ -2577,12 +2577,6 @@ static T *mergeVisibilityAttr(Sema &S, Decl *D, SourceRange range,
     typename T::VisibilityType existingValue = existingAttr->getVisibility();
     if (existingValue == value)
       return nullptr;
-#if INTEL_CUSTOMIZATION
-    // CQ#370092 - emit a warning, not error in IntelCompat mode
-    if (S.getLangOpts().IntelCompat)
-      S.Diag(existingAttr->getLocation(), diag::warn_mismatched_visibility);
-    else
-#endif // INTEL_CUSTOMIZATION
     S.Diag(existingAttr->getLocation(), diag::err_mismatched_visibility);
     S.Diag(range.getBegin(), diag::note_previous_attribute);
     D->dropAttr<T>();
