@@ -190,32 +190,19 @@ INLINE size_t __kmp_get_num_groups() {
   return (work_dim == 3) ? ret : 1;
 }
 
+/// Lock builtins which are not widened (considered
+/// uniform) by the device compiler(s).
+extern void __builtin_IB_kmp_acquire_lock(__global int *);
+extern void __builtin_IB_kmp_release_lock(__global int *);
 
 /// Acquire lock
-INLINE void __kmp_acquire_lock(atomic_uint *lock) {
-  if (get_sub_group_size() > 1) {
-    printf("Not acquring lock due to multiple sub group members\n");
-    return;
-  }
-  volatile atomic_uint *lck = (volatile atomic_uint *)lock;
-  uint expected = KMP_LOCK_FREE;
-  while (atomic_load_explicit(lck, memory_order_relaxed) != KMP_LOCK_FREE ||
-      !atomic_compare_exchange_strong_explicit(lck, &expected, KMP_LOCK_BUSY,
-                                               memory_order_acquire,
-                                               memory_order_relaxed)) {
-    expected = KMP_LOCK_FREE;
-    KMP_PAUSE();
-  }
+INLINE void __kmp_acquire_lock(__global int *lock) {
+  __builtin_IB_kmp_acquire_lock(lock);
 }
 
 /// Release lock
-INLINE void __kmp_release_lock(atomic_uint *lock) {
-  if (get_sub_group_size() > 1) {
-    printf("Not releasing lock due to multiple sub group members\n");
-    return;
-  }
-  volatile atomic_uint *lck = (volatile atomic_uint *)lock;
-  atomic_store_explicit(lck, KMP_LOCK_FREE, memory_order_release);
+INLINE void __kmp_release_lock(__global int *lock) {
+  __builtin_IB_kmp_release_lock(lock);
 }
 
 

@@ -29,11 +29,11 @@ void __kmpc_barrier() {
 
 // Requires correctly initialized "*name" (=0).
 EXTERN void __kmpc_critical(kmp_critical_name *name) {
-  __kmp_acquire_lock((atomic_uint *)name);
+  __kmp_acquire_lock((__global int *)name);
 }
 
 EXTERN void __kmpc_end_critical(kmp_critical_name *name) {
-  __kmp_release_lock((atomic_uint *)name);
+  __kmp_release_lock((__global int *)name);
 }
 
 
