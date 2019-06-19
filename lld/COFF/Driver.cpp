@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "DebugTypes.h"
 #include "Driver.h"
 #include "Config.h"
 #include "ICF.h"
@@ -180,6 +181,9 @@ void LinkerDriver::addBuffer(std::unique_ptr<MemoryBuffer> MB,
   case file_magic::coff_object:
   case file_magic::coff_import_library:
     Symtab->addFile(make<ObjFile>(MBRef));
+    break;
+  case file_magic::pdb:
+    loadTypeServerSource(MBRef);
     break;
   case file_magic::coff_cl_gl_object:
     error(Filename + ": is not a native COFF file. Recompile without /GL");
@@ -1196,6 +1200,13 @@ void LinkerDriver::link(ArrayRef<const char *> ArgsArr) {
   // Handle /base
   if (auto *Arg = Args.getLastArg(OPT_base))
     parseNumbers(Arg->getValue(), &Config->ImageBase);
+
+  // Handle /filealign
+  if (auto *Arg = Args.getLastArg(OPT_filealign)) {
+    parseNumbers(Arg->getValue(), &Config->FileAlign);
+    if (!isPowerOf2_64(Config->FileAlign))
+      error("/filealign: not a power of two: " + Twine(Config->FileAlign));
+  }
 
   // Handle /stack
   if (auto *Arg = Args.getLastArg(OPT_stack))

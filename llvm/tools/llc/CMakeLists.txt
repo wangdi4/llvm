@@ -1,6 +1,8 @@
 set(LLVM_LINK_COMPONENTS
   AllTargetsAsmParsers
   AllTargetsCodeGens
+  AllTargetsDescs
+  AllTargetsInfos
   Analysis
   AsmPrinter
   CodeGen
@@ -8,6 +10,7 @@ set(LLVM_LINK_COMPONENTS
   IRReader
   MC
   MIRParser
+  Remarks
   ScalarOpts
   SelectionDAG
   Support
