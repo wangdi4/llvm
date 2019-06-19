@@ -342,6 +342,12 @@ ENUM_CODEGENOPT(DefaultTLSModel, TLSModel, 2, GeneralDynamicTLSModel)
 ENUM_CODEGENOPT(MSDebugInfoFile, MSDebugInfoFileKind, 2, MSDebugInfoNoFile)
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+// Support for Intel customization LangOptions::FArgumentNoalias
+/// No aliasing for all pointer arguments
+CODEGENOPT(NoAliasForPtrArgs, 1, 0)
+#endif // INTEL_CUSTOMIZATION
+
 /// Number of path components to strip when emitting checks. (0 == full
 /// filename)
 VALUE_CODEGENOPT(EmitCheckPathComponentsToStrip, 32, 0)

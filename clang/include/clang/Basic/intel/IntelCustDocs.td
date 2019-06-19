@@ -212,6 +212,36 @@ xage and zage2.
 
   }];
 }
+def FArgumentNoaliasDocs : Documentation {
+  let Category = DocCatIntelOptimization;
+  let Option = "IntelCompat";
+  let BugTracker= "CMPLRLLVM-4138";
+  let RegressionTest = "test/CodeGen/intel/fargument-noalias.c";
+  let Content = [{
+This patch adds support for the gcc- and icc- -fargument-noalias option.
+It sets the internal CodeGen option: NoAliasForPtrArgs and adds the
+NoAlias attribute on each parameter.
+Example:
+
+.. code-block:: c
+
+  void test1(int *a, int *b) {
+      a = b;
+  }
+
+IR:
+
+.. code-block:: console
+
+  $ clang -fargument-noalias -emit-llvm test.c -o -
+
+.. code-block:: llvm
+
+  ; Function Attrs: noinline nounwind optnone
+  define void @test1(i32* noalias %a, i32* noalias %b) #0 {
+
+  }];
+}
 
 // Intel Compatibility
 
