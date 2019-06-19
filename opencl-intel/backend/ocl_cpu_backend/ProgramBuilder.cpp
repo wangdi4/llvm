@@ -282,7 +282,7 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
 #ifndef INTEL_PRODUCT_RELEASE
         if (const char *pEnv = getenv("VOLCANO_EQUALIZER_STATS"))
         {
-            if (pEnv[0] != 0 && strcmp("ALL", pEnv) && strcmp("all", pEnv))
+            if (pEnv[0] != 0 && (strcmp("ALL", pEnv) || strcmp("all", pEnv)))
             {
                 DumpModuleStats(pModule, /*isEqualizerStats = */ true);
             }

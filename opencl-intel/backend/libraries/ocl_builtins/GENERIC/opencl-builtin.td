@@ -10,7 +10,11 @@ class VectorSuffixString<int len> {
                  !if(!eq(len,  4),  "4",
                  !if(!eq(len,  8),  "8",
                  !if(!eq(len, 16), "16",
-                 "__invalid__"))))));
+                 !if(!eq(len, 32), "32",
+                 !if(!eq(len, 64), "64",
+                 !if(!eq(len, 128), "128",
+                 !if(!eq(len, 256), "256",
+                 "__invalid__"))))))))));
 }
 
 class VectorVTypeSuffixString<string base, int len> {
@@ -20,7 +24,11 @@ class VectorVTypeSuffixString<string base, int len> {
                   !if(!eq(len,  4),  "v4",
                   !if(!eq(len,  8),  "v8",
                   !if(!eq(len, 16), "v16",
-                  "__invalid__"))))));
+                  !if(!eq(len, 32), "v32",
+                  !if(!eq(len, 64), "v64",
+                  !if(!eq(len, 128), "v128",
+                  !if(!eq(len, 256), "v256",
+                  "__invalid__"))))))))));
   string TypeName = !subst("double",  "f64",
                     !subst("long",    "i64",
                     !subst("ulong",   "u64",
@@ -174,6 +182,10 @@ multiclass _OCLTYPE2_<string ss, int width, string base> {
   defm  v4#NAME# : _OCLTYPE1_<!strconcat( "v4", ss),  4, width, base>;
   defm  v8#NAME# : _OCLTYPE1_<!strconcat( "v8", ss),  8, width, base>;
   defm v16#NAME# : _OCLTYPE1_<!strconcat("v16", ss), 16, width, base>;
+  defm v32#NAME# : _OCLTYPE1_<!strconcat("v32", ss), 32, width, base>;
+  defm v64#NAME# : _OCLTYPE1_<!strconcat("v64", ss), 64, width, base>;
+  defm v128#NAME# : _OCLTYPE1_<!strconcat("v128", ss), 128, width, base>;
+  defm v256#NAME# : _OCLTYPE1_<!strconcat("v256", ss), 256, width, base>;
 }
 defm i8  : _OCLTYPE2_<"i8",  8, "char">;
 defm u8  : _OCLTYPE2_<"u8",  8, "uchar">;
@@ -187,6 +199,8 @@ defm f16 : _OCLTYPE2_<"f16", 16, "half">;
 defm f32 : _OCLTYPE2_<"f32", 32, "float">;
 defm f64 : _OCLTYPE2_<"f64", 64, "double">;
 def size_t : OclType<"size_t", "size_t", 1, 0, 0>;
+def uint  : OclType<"uint", "uint", 1, 0, 0>;
+def int32   : OclType<"int", "int", 1, 0, 0>;
 def cl_mem_fence_flags : OclType<"cl_mem_fence_flags", "cl_mem_fence_flags", 1, 0, 0>;
 def image1d_ro: OclType<"image1d_ro", "__read_only image1d_t", 1, 0, 0>;
 def image1d_wo: OclType<"image1d_wo", "__write_only image1d_t", 1, 0, 0>;
@@ -240,6 +254,11 @@ def ocl_types : TypeNameList<[
   v1f32.TypeName, v2f32.TypeName, v3f32.TypeName, v4f32.TypeName, v8f32.TypeName, v16f32.TypeName,
   v1f64.TypeName, v2f64.TypeName, v3f64.TypeName, v4f64.TypeName, v8f64.TypeName, v16f64.TypeName,
   atom_v1i32.TypeName, atom_v1u32.TypeName, atom_v1f32.TypeName, atom_flag.TypeName,
+
+  // Wide vectors for shuffles
+  v32i32.TypeName, v64i32.TypeName, v128i32.TypeName, v256i32.TypeName,
+  v32u32.TypeName, v64u32.TypeName, v128u32.TypeName, v256u32.TypeName,
+  v32f32.TypeName, v64f32.TypeName, v128f32.TypeName, v256f32.TypeName,
 
   image1d_ro.TypeName, image1d_wo.TypeName, image1d_rw.TypeName,
   image2d_ro.TypeName, image2d_wo.TypeName, image2d_rw.TypeName,

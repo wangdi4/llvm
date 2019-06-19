@@ -42,7 +42,7 @@ OCLPostVect::OCLPostVect() : ModulePass(ID) {}
 bool OCLPostVect::isKernelVectorized(Function *Clone) {
   for (BasicBlock &Block : *Clone)
     for (Instruction &I : Block)
-      if (VPOAnalysisUtils::isIntelDirectiveOrClause(&I))
+      if (VPOAnalysisUtils::isOpenMPDirective(&I))
         return false;
   return true;
 }

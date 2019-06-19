@@ -433,6 +433,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     //                      WG_BARRIER_WITH_SCOPE - for
     // void work_group_barrier (cl_mem_fence_flags flags, memory_scope scope)
     //////////////////////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////
+    // @brief: returns the mangled name of the function get_sub_group_local_id
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledGetSubGroupLID();
+
     typedef enum {
       WG_BARRIER_NO_SCOPE,
       WG_BARRIER_WITH_SCOPE

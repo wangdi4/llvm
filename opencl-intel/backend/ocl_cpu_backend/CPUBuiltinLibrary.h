@@ -23,11 +23,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 class CPUBuiltinLibrary : public BuiltinLibrary
 {
 public:
-    CPUBuiltinLibrary(const Intel::CPUId &cpuId) :
-    BuiltinLibrary(cpuId) { }
-    ~CPUBuiltinLibrary() { }
+    CPUBuiltinLibrary(const Intel::CPUId &cpuId, bool useDynamicSvmlLibrary = true) :
+    BuiltinLibrary(cpuId), m_useDynamicSvmlLibrary(useDynamicSvmlLibrary) { }
 
-    void Load();
+    virtual void Load();
+
+private:
+    bool m_useDynamicSvmlLibrary;
 };
 
 }}} // namespace

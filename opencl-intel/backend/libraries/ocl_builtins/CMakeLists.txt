@@ -159,7 +159,7 @@ endforeach( LLVM_INCLUDE_DIR_ITEM)
 # FMAs even in 'standard' CodeGen setting.
 set (CLANG_CL_COMMON_COMPILER_FLAGS
   -cc1 -triple ${DEVICE_TRIPLE} -emit-llvm-bc -fwrapv -O3 -disable-intel-proprietary-opts
-  -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CCLANG_INCLUDE_DIRS} -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -include opencl-c.h
+  -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CCLANG_INCLUDE_DIRS} -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -include opencl-c.h -include long_vector_types.h
   -cl-std=CL2.0 -D __OPENCL_C_VERSION__=200 -fopencl-force-vector-abi
   -fblocks -ffake-address-space-map -faddress-space-map-mangling=yes -mstackrealign -ffp-contract=fast
   -cl-ext=+cl_khr_fp16
@@ -452,6 +452,7 @@ list (APPEND OCL_20_SOURCE_FILES
   image_functions.cpp
   extended_execution_functions.cpp
   generic_functions.cl
+  kmp_acquire_release_lock.cl
 )
 
 list (APPEND OCL_20_SOURCE_FILES
@@ -463,7 +464,6 @@ list (APPEND OCL_20_SOURCE_FILES
 
 list (APPEND C_SOURCE_FILES
   ${CL_BUILTIN_SOURCE_DIR}/cbk_helper.c
-  ${CL_BUILTIN_SOURCE_DIR}/intrinsics.c
   )
 
 
@@ -501,6 +501,19 @@ if (ENABLE_KNL AND BUILD_X64 AND NOT WIN32)
     # includes AVX-512 F, CD, ER, PF.
   add_subdirectory (avx512phi)
 endif()
+
+# Configuring and adding the EyeQ builtins
+set(EYEQ_BUILTINS_ARCHS "x86-64" CACHE STRING "Architecture to compile the eyeq builtins for (-march)")
+set(EYEQ_BUILTINS_TARGETS "eyeqemu")
+set(EYEQ_BUILTINS_TARGET_SPECIFIC_ARGS "-D__INTELEYEQ_CL__")
+set(EYEQ_BUILTINS_OUTPUT_DIR ${BUILTINS_OUTPUT_DIR}/eyeq_builtins)
+set(EYEQ_BUILTINS_INSTALL_DIR bin)
+option(EYEQ_BUILTINS_BITCODE_OUTPUT_REQUIRES_LTO "Is bitcode output only supported with LTO" ON)
+option(EYEQ_BUILTINS_OCL_FAKE_ADDRESS_SPACE_MAP_MANGLING "Does ocl bitcode compliation requires fake address space map mangling" ON)
+option(EYEQ_BUILTINS_OCL_FORCE_VECTOR_ABI "Does ocl bitcode compliation requires forcing vector ABI for compatibility" ON)
+add_subdirectory (eyeq_builtins)
+
+install_to(${EYEQ_BUILTINS_OUTPUT_DIR} DESTINATION lib COMPONENT ocl-eyeq-builtins)
 
 if (CMAKE_SIZEOF_VOID_P EQUAL 4)
   set(MINIMAL_SUFFIX n8)

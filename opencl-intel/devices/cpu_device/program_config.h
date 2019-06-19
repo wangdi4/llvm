@@ -41,6 +41,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         ProgramConfig() :
             m_useVectorizer(false),
             m_vectorizerMode(TRANSPOSE_SIZE_NOT_SET),
+            m_vectorizerType(VOLCANO_VECTORIZER),
             m_rtLoopUnrollFactor(0),
             m_useVTune(false),
             m_forcedPrivateMemorySize(0),
@@ -82,6 +83,10 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
                 {
                     return m_channelDepthEmulationMode;
                 }
+                case CL_DEV_BACKEND_OPTION_VECTORIZER_TYPE:
+                {
+                    return m_vectorizerType;
+                }
                 default:
                     return defaultValue;
             }
@@ -100,6 +105,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
     private:
         bool m_useVectorizer;
         int  m_vectorizerMode;
+        VectorizerType m_vectorizerType;
         int  m_rtLoopUnrollFactor;
         bool m_useVTune;
         int  m_forcedPrivateMemorySize;

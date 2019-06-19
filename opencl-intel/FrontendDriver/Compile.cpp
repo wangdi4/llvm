@@ -209,6 +209,9 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
     optionsEx << " -cl-ext=+cl_khr_fp16";
     optionsEx << " -cl-ext=+cl_khr_3d_image_writes ";
   }
+  else if (!m_pProgDesc->bEyeQEmulator) {
+    optionsEx << " -Dcl_intel_planar_yuv";
+  }
 
   if (m_pProgDesc->bEyeQEmulator) {
 #if defined(_WIN64) || defined(__x86_64__) || defined(_M_AMD64) ||             \

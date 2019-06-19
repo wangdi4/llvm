@@ -38,18 +38,20 @@ void CPUBuiltinLibrary::Load() {
   const char* CPUPrefix = m_cpuId.GetCPUPrefix();
   std::string PathStr(Path);
 
-  // Load SVML functions
-  std::string SVMLPath = PathStr + "__ocl_svml_" + CPUPrefix;
+  if (m_useDynamicSvmlLibrary) {
+    // Load SVML functions
+    std::string SVMLPath = PathStr + "__ocl_svml_" + CPUPrefix;
 #if defined (_WIN32)
-  SVMLPath += ".dll";
+    SVMLPath += ".dll";
 #else
-  SVMLPath += ".so";
+    SVMLPath += ".so";
 #endif
 
-  std::string Err;
-  if (sys::DynamicLibrary::LoadLibraryPermanently(SVMLPath.c_str(), &Err)) {
-    throw Exceptions::DeviceBackendExceptionBase(
-        std::string("Loading SVML library failed - ") + Err);
+    std::string Err;
+    if (sys::DynamicLibrary::LoadLibraryPermanently(SVMLPath.c_str(), &Err)) {
+      throw Exceptions::DeviceBackendExceptionBase(
+          std::string("Loading SVML library failed - ") + Err);
+    }
   }
 
   // Load LLVM built-ins module(s)

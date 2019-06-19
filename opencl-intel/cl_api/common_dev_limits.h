@@ -43,4 +43,10 @@ enum DeviceMode {
   FPGA_EMU_DEVICE = 1,
   EYEQ_EMU_DEVICE = 2
 };
+
+// List of supported vectorizers
+enum VectorizerType {
+  VOLCANO_VECTORIZER, VPO_VECTORIZER
+};
+
 #endif // __COMMON_DEV_LIMITES_H__

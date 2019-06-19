@@ -54,11 +54,18 @@ public:
      */
     BuiltinLibrary* GetOrLoadCPULibrary(Intel::CPUId cpuId);
     /**
+     * Returns the \see BuiltinsLibrary for an EyeQ device, based on the given cpu. Loads it if necessary
+     */
+    BuiltinLibrary* GetOrLoadEyeQLibrary(Intel::CPUId cpuId);
+    /**
      * Creates the builtins module for the given cpu using the given LLVMContext
      */
     BuiltinModules*  CreateBuiltinModule(int cpuId, llvm::LLVMContext* pContext);
 
 private:
+    template <typename DeviceBuiltinLibrary>
+    BuiltinLibrary* GetOrLoadDeviceLibrary(Intel::CPUId cpuId);
+
     typedef std::pair<int, CPUId> DevIdCpuId;
     typedef std::map<DevIdCpuId, BuiltinLibrary*> BuiltinsMap;
     static BuiltinModuleManager* s_pInstance;

@@ -90,7 +90,7 @@ bool opencl_printf_floating_point_test()
             make_pair(kernel_code.c_str(), strlen(kernel_code.c_str())));
         cl::Program program_ = cl::Program(context, source);
 
-        if (CL_SUCCESS != program_.build(devices, "-cl-std=CL1.1"))
+        if (CL_SUCCESS != program_.build(devices, "-cl-std=CL1.2"))
         {
             string buildlog;
             program_.getBuildInfo(devices[0], CL_PROGRAM_BUILD_LOG, &buildlog);

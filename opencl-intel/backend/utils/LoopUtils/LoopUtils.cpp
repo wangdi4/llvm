@@ -232,10 +232,23 @@ void collectTIDCallInst(const char *name, IVecVec &tidCalls, Function *F) {
 
   for (unsigned i = 0, e = allDimTIDCalls.size(); i < e; ++i) {
     CallInst *CI = allDimTIDCalls[i];
-    ConstantInt *C = dyn_cast<ConstantInt>(CI->getArgOperand(0));
-    assert(C && "tid arg must be constant");
-    unsigned dim = C->getValue().getZExtValue();
-    assert(dim < MAX_OCL_NUM_DIM && "tid not in range");
+    unsigned dim;
+    if (CI->getNumArgOperands() == 0) {
+      // No-operand version - does not really matter what dimension we will be
+      // vectorizing over. Some examples:
+      //   * <something>_linear_id,
+      //   * get_sub_group_local_id.
+      //
+      // FIXME: Separate index for such kind of functions. Currently we're
+      // vectorizing over 0-dimension only.
+      dim = 0;
+    } else {
+      assert(CI->getNumArgOperands() == 1 && "Expected one-operand call!");
+      ConstantInt *C = dyn_cast<ConstantInt>(CI->getArgOperand(0));
+      assert(C && "tid arg must be constant");
+      dim = C->getValue().getZExtValue();
+      assert(dim < MAX_OCL_NUM_DIM && "tid not in range");
+    }
     tidCalls[dim].push_back(CI);
   }
 }

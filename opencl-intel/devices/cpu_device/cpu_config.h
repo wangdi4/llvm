@@ -24,6 +24,7 @@
 
 // CPU specific:
 #define CL_CONFIG_CPU_VECTORIZER_MODE           "CL_CONFIG_CPU_VECTORIZER_MODE"             // cl_int
+#define CL_CONFIG_CPU_VECTORIZER_TYPE           "CL_CONFIG_CPU_VECTORIZER_TYPE"             // string/VectorizerType
 #define CL_CONFIG_CPU_FORCE_GLOBAL_MEM_SIZE     "CL_CONFIG_CPU_FORCE_GLOBAL_MEM_SIZE"       // cl_ulong
 #define CL_CONFIG_CPU_FORCE_MAX_MEM_ALLOC_SIZE  "CL_CONFIG_CPU_FORCE_MAX_MEM_ALLOC_SIZE"    // cl_ulong
 #define CL_CONFIG_CPU_RT_LOOP_UNROLL_FACTOR     "CL_CONFIG_CPU_RT_LOOP_UNROLL_FACTOR"       // int
@@ -49,6 +50,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         cl_int          GetVectorizerMode() const;
         int             GetNumDevices() const;
 
+        VectorizerType  GetVectorizerType() const;
         bool            UseVectorizer() const  { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VECTORIZER, true ); }
         bool            UseVTune()      const  { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VTUNE,      false); }
         int             GetRTLoopUnrollFactor() const { return m_pConfigFile->Read<int>(CL_CONFIG_CPU_RT_LOOP_UNROLL_FACTOR, 1); }

@@ -46,52 +46,6 @@ typedef unsigned long long __u64;
 #endif
 #endif // __OPENCL__
 
-#ifdef __MMX__
-#include <mmintrin.h>
-#endif
-
-#ifdef __SSE__
-#include <xmmintrin.h>
-#endif
-
-#ifdef __SSE2__
-#include <emmintrin.h>
-#endif
-
-#ifdef __SSE3__
-#include <pmmintrin.h>
-#endif
-
-#ifdef __SSSE3__
-#include <tmmintrin.h>
-#endif
-
-#if defined (__SSE4_2__) || defined (__SSE4_1__)
-#include <smmintrin.h>
-#endif
-
-#ifdef __AVX__
-#include <avxintrin.h>
-#endif
-
-#ifdef __AVX2__
-#include <avx2intrin.h>
-#endif
-
-#ifdef __FMA__
-#include <fmaintrin.h>
-#endif
-
-#ifdef __AVX512F__
-#include <avx512fintrin.h>
-#endif
-
-#ifdef __AVX512ER__
-#include <avx512erintrin.h>
-#endif
-
-#ifdef __AVX512DQ__
-#include <avx512dqintrin.h>
-#endif
+#include <immintrin.h>
 
 #endif

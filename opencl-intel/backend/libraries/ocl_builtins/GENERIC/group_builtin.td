@@ -50,8 +50,10 @@ OclBuiltinImpl async_work_group_copy_l2g_impl  = OclBuiltinImpl<async_work_group
 OclBuiltinImpl async_work_group_copy_g2l_impl  = OclBuiltinImpl<async_work_group_copy_g2l,  async_work_group_copy_g2l.Types, 0, AsyncWorkGroupCopyCode_g2l>;
 OclBuiltinImpl async_work_group_strided_copy_l2g_impl  = OclBuiltinImpl<async_work_group_strided_copy_l2g,  async_work_group_strided_copy_l2g.Types, 0, AsyncWorkGroupStridedCopyCode_l2g>;
 OclBuiltinImpl async_work_group_strided_copy_g2l_impl = OclBuiltinImpl<async_work_group_strided_copy_g2l, async_work_group_strided_copy_g2l.Types, 0, AsyncWorkGroupStridedCopyCode_g2l>;
-OclBuiltinImpl wait_group_events_impl = OclBuiltinImpl<wait_group_events, wait_group_events.Types, 0, [{
-  }]>;
+OclBuiltinImpl wait_group_events_generic_impl = OclBuiltinImpl<wait_group_events_generic, wait_group_events_generic.Types, 0, [{ }]>;
+OclBuiltinImpl wait_group_events_global_impl  = OclBuiltinImpl<wait_group_events_global, wait_group_events_global.Types, 0, [{ }]>;
+OclBuiltinImpl wait_group_events_local_impl   = OclBuiltinImpl<wait_group_events_local, wait_group_events_local.Types, 0, [{ }]>;
+OclBuiltinImpl wait_group_events_private_impl = OclBuiltinImpl<wait_group_events_private, wait_group_events_private.Types, 0, [{ }]>;
 
 
 // Helpers for implementation of OpenCL 2.0 work-group functions.

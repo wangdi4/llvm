@@ -392,6 +392,7 @@ set(INTEL_DEPLOY_COMPONENTS
   ocl-builtins-shared
   ocl-cl_logger
   ocl-gdb-plugin
+  ocl-eyeq-builtins
 )
 
 if(WIN32)
