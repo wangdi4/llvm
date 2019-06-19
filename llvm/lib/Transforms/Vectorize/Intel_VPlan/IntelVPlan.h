@@ -606,9 +606,31 @@ class VPInstruction : public VPUser, public VPRecipeBase {
   friend class VPOCodeGenHIR;
   friend class VPCloneUtils;
   friend class VPValueMapper;
+  friend class VPValue;
 
   /// Hold all the HIR-specific data and interfaces for a VPInstruction.
   class HIRSpecifics {
+    friend class VPValue;
+
+  private:
+    /// Return true if the underlying HIR data is valid. If it's a decomposed
+    /// VPInstruction, the HIR of the attached master VPInstruction is checked.
+    bool isValid() const {
+      if (isMaster() || isDecomposed())
+        return getVPInstData()->isValid();
+
+      // For other VPInstructions without underlying HIR.
+      assert(!isSet() && "HIR data must be unset!");
+      return false;
+    }
+
+    /// Invalidate underlying HIR deta. If decomposed VPInstruction, the HIR of
+    /// its master VPInstruction is invalidated.
+    void invalidate() {
+      if (isMaster() || isDecomposed())
+        getVPInstData()->setInvalid();
+    }
+
   public:
     HIRSpecifics() {}
     ~HIRSpecifics() {
@@ -737,28 +759,10 @@ class VPInstruction : public VPUser, public VPRecipeBase {
       MasterData = MasterVPI;
     }
 
-    /// Return true if the underlying HIR data is valid. If it's a decomposed
-    /// VPInstruction, the HIR of the attached master VPInstruction is checked.
-    bool isValid() const {
-      if (isMaster() || isDecomposed())
-        return getVPInstData()->isValid();
-
-      // For other VPInstructions without underlying HIR.
-      assert(!isSet() && "HIR data must be unset!");
-      return false;
-    }
-
     /// Mark the underlying HIR data as valid.
     void setValid() {
       assert(isMaster() && "Only a master VPInstruction must set HIR!");
       getVPInstData()->setValid();
-    }
-
-    /// Invalidate underlying HIR deta. If decomposed VPInstruction, the HIR of
-    /// its master VPInstruction is invalidated.
-    void invalidate() {
-      if (isMaster() || isDecomposed())
-        getVPInstData()->setInvalid();
     }
 
     /// Print HIR-specific flags. It's mainly for debugging purposes.

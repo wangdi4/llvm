@@ -726,7 +726,7 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
   int64_t InterleaveFactor = 0, InterleaveIndex = 0;
 
   // Compute group information if we have a valid master instruction
-  if (HIR.isMaster() && HIR.isValid()) {
+  if (HIR.isMaster() && isUnderlyingIRValid()) {
     HLNode *HNode = HIR.getUnderlyingNode();
     if (isa<HLInst>(HNode)) {
       unsigned Opcode = getOpcode();
@@ -1815,7 +1815,8 @@ void VPBranchInst::print(raw_ostream &O) const {
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-void VPValue::replaceAllUsesWithImpl(VPValue *NewVal, VPLoop *Loop) {
+void VPValue::replaceAllUsesWithImpl(VPValue *NewVal, VPLoop *Loop,
+                                     bool InvalidateIR) {
   assert(NewVal && "Can't replace uses with null value");
   assert(getType() == NewVal->getType() && "Incompatible data types");
   unsigned Cnt = 0;
@@ -1826,7 +1827,35 @@ void VPValue::replaceAllUsesWithImpl(VPValue *NewVal, VPLoop *Loop) {
           ++Cnt;
           continue;
         }
-    Users[Cnt]->replaceUsesOfWith(this, NewVal);
+    Users[Cnt]->replaceUsesOfWith(this, NewVal, InvalidateIR);
+  }
+}
+
+bool VPValue::isUnderlyingIRValid() const {
+  if (auto *VPI = dyn_cast<VPInstruction>(this))
+    return UnderlyingVal != nullptr || VPI->HIR.isValid();
+  else {
+    // Non VPInstruction values can never be invalidated.
+    return true;
+  }
+}
+
+void VPValue::invalidateUnderlyingIR() {
+  // Non VPInstruction values should not be invalidated since they represent
+  // entities outside the loop being vectorized and it is illegal to modify
+  // their underlying IR. Hence invalidation is strictly limited to
+  // VPInstructions only.
+  if (auto *VPI = dyn_cast<VPInstruction>(this)) {
+    UnderlyingVal = nullptr;
+    VPI->HIR.invalidate();
+
+    // At this point, we don't have a use-case where invalidation of users of
+    // instruction is needed. This is because VPInstructions mostly represent
+    // r-value of a HLInst and modifying the r-value should not affect l-value
+    // temp refs. For stores this was never an issue since store instructions
+    // cannot have users. In case of LLVM-IR invalidating an instruction might
+    // mean that the underlying bit value is different. If this is the case then
+    // invalidation should be propagated to users as well.
   }
 }
 

@@ -1299,7 +1299,9 @@ void VPDecomposerHIR::fixPhiNodes() {
     if (FixedPhi->getNumIncomingValues() == 1) {
       // Solution for case 1
       unsigned Idx = 0;
-      FixedPhi->replaceAllUsesWith(FixedPhi->getIncomingValue(Idx));
+      // HIR should not be invalidated, we are still building initial HCFG.
+      FixedPhi->replaceAllUsesWith(FixedPhi->getIncomingValue(Idx),
+                                   false /*InvalidateIR*/);
       FixedPhi->getParent()->eraseRecipe(FixedPhi);
     } else {
       // Solution for case 2
@@ -1334,8 +1336,9 @@ void VPDecomposerHIR::fixPhiNodes() {
                  FirstDefNode->dump(); dbgs() << "\n FirstDefVPI: ";
                  FirstDefVPI->dump(); dbgs() << "\n");
 
-      // Replace the PHI node and remove it from HCFG
-      FixedPhi->replaceAllUsesWith(FirstDefVPI);
+      // Replace the PHI node and remove it from HCFG. HIR should not be
+      // invalidated, we are still building initial HCFG.
+      FixedPhi->replaceAllUsesWith(FirstDefVPI, false /*InvalidateIR*/);
       FixedPhi->getParent()->eraseRecipe(FixedPhi);
     }
   }

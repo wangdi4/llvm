@@ -2827,7 +2827,7 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
   if (!Mask)
     Mask = CurMaskValue;
 
-  if (HIR.isDecomposed() && HIR.isValid()) {
+  if (HIR.isDecomposed() && VPInst->isUnderlyingIRValid()) {
     // Skip decomposed VPInstruction with valid HIR. This will be codegen'ed by
     // its master VPInstruction.
     LLVM_DEBUG(dbgs() << "Skipping decomposed VPInstruction with valid HIR:"
@@ -2853,7 +2853,7 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
     return;
   }
 
-  if (HIR.isValid()) {
+  if (VPInst->isUnderlyingIRValid()) {
     // Master VPInstruction with valid HIR.
     assert(HIR.isMaster() && "VPInstruction with valid HIR must be a Master "
                              "VPInstruction at this point.");

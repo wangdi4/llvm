@@ -129,7 +129,7 @@ VPlanIdioms::isStrEqSearchLoop(const VPBasicBlock *Block,
     const auto Inst = cast<const VPInstruction>(&Recipe);
 
     if (isa<const VPBranchInst>(Inst) ||
-        (Inst->HIR.isDecomposed() && Inst->HIR.isValid()))
+        (Inst->HIR.isDecomposed() && Inst->isUnderlyingIRValid()))
       continue;
 
     // FIXME: Without proper decomposition we have to parse predicates of
@@ -257,7 +257,7 @@ VPlanIdioms::isStructPtrEqSearchLoop(const VPBasicBlock *Block,
     const auto Inst = cast<const VPInstruction>(&Recipe);
 
     if (isa<const VPBranchInst>(Inst) ||
-        (Inst->HIR.isDecomposed() && Inst->HIR.isValid()))
+        (Inst->HIR.isDecomposed() && Inst->isUnderlyingIRValid()))
       continue;
 
     // FIXME: Without proper decomposition we have to parse predicates of
@@ -441,7 +441,7 @@ bool VPlanIdioms::isSafeExitBlockForSearchLoop(const VPBasicBlock *Block) {
       continue;
 
     if (isa<const VPBranchInst>(Inst) ||
-        (Inst->HIR.isDecomposed() && Inst->HIR.isValid()))
+        (Inst->HIR.isDecomposed() && Inst->isUnderlyingIRValid()))
       continue;
 
     const HLDDNode *DDNode = cast<HLDDNode>(Inst->HIR.getUnderlyingNode());
