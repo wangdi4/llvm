@@ -140,16 +140,6 @@ define half @test7(i16* %x) {
    ret half %res
 }
 
-define i16 @test8(<8 x i16> %x) {
-; CHECK-LABEL: test8:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    vmovw %xmm0, %eax
-; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
-; CHECK-NEXT:    retq
-   %res = extractelement <8 x i16> %x, i32 0
-   ret i16 %res
-}
-
 define <8 x i16> @test10(i16* %x) {
 ; CHECK-LABEL: test10:
 ; CHECK:       # %bb.0:
@@ -835,4 +825,342 @@ define half @test_movw3(i8 %x) {
   %z = sext i8 %x to i16
   %a = bitcast i16 %z to half
   ret half %a
+}
+
+define half @extract_f16_0(<8 x half> %x) {
+; CHECK-LABEL: extract_f16_0:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x half> %x, i32 0
+   ret half %res
+}
+
+define half @extract_f16_1(<8 x half> %x) {
+; CHECK-LABEL: extract_f16_1:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpsrld $16, %xmm0, %xmm0
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x half> %x, i32 1
+   ret half %res
+}
+
+define half @extract_f16_2(<8 x half> %x) {
+; CHECK-LABEL: extract_f16_2:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmovshdup {{.*#+}} xmm0 = xmm0[1,1,3,3]
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x half> %x, i32 2
+   ret half %res
+}
+
+define half @extract_f16_3(<8 x half> %x) {
+; CHECK-LABEL: extract_f16_3:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpsrlq $48, %xmm0, %xmm0
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x half> %x, i32 3
+   ret half %res
+}
+
+define half @extract_f16_4(<8 x half> %x) {
+; CHECK-LABEL: extract_f16_4:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpermilpd {{.*#+}} xmm0 = xmm0[1,0]
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x half> %x, i32 4
+   ret half %res
+}
+
+define half @extract_f16_5(<8 x half> %x) {
+; CHECK-LABEL: extract_f16_5:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpsrldq {{.*#+}} xmm0 = xmm0[10,11,12,13,14,15],zero,zero,zero,zero,zero,zero,zero,zero,zero,zero
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x half> %x, i32 5
+   ret half %res
+}
+
+define half @extract_f16_6(<8 x half> %x) {
+; CHECK-LABEL: extract_f16_6:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpermilps {{.*#+}} xmm0 = xmm0[3,1,2,3]
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x half> %x, i32 6
+   ret half %res
+}
+
+define half @extract_f16_7(<8 x half> %x) {
+; CHECK-LABEL: extract_f16_7:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpsrldq {{.*#+}} xmm0 = xmm0[14,15],zero,zero,zero,zero,zero,zero,zero,zero,zero,zero,zero,zero,zero,zero
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x half> %x, i32 7
+   ret half %res
+}
+
+define i16 @extract_i16_0(<8 x i16> %x) {
+; CHECK-LABEL: extract_i16_0:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmovd %xmm0, %eax
+; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x i16> %x, i32 0
+   ret i16 %res
+}
+
+define i16 @extract_i16_1(<8 x i16> %x) {
+; CHECK-LABEL: extract_i16_1:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpextrw $1, %xmm0, %eax
+; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x i16> %x, i32 1
+   ret i16 %res
+}
+
+define i16 @extract_i16_2(<8 x i16> %x) {
+; CHECK-LABEL: extract_i16_2:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpextrw $2, %xmm0, %eax
+; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x i16> %x, i32 2
+   ret i16 %res
+}
+
+define i16 @extract_i16_3(<8 x i16> %x) {
+; CHECK-LABEL: extract_i16_3:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpextrw $3, %xmm0, %eax
+; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x i16> %x, i32 3
+   ret i16 %res
+}
+
+define i16 @extract_i16_4(<8 x i16> %x) {
+; CHECK-LABEL: extract_i16_4:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpextrw $4, %xmm0, %eax
+; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x i16> %x, i32 4
+   ret i16 %res
+}
+
+define i16 @extract_i16_5(<8 x i16> %x) {
+; CHECK-LABEL: extract_i16_5:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpextrw $5, %xmm0, %eax
+; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x i16> %x, i32 5
+   ret i16 %res
+}
+
+define i16 @extract_i16_6(<8 x i16> %x) {
+; CHECK-LABEL: extract_i16_6:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpextrw $6, %xmm0, %eax
+; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x i16> %x, i32 6
+   ret i16 %res
+}
+
+define i16 @extract_i16_7(<8 x i16> %x) {
+; CHECK-LABEL: extract_i16_7:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpextrw $7, %xmm0, %eax
+; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x i16> %x, i32 7
+   ret i16 %res
+}
+
+define void @extract_store_f16_0(<8 x half> %x, half* %y) {
+; CHECK-LABEL: extract_store_f16_0:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmovsh %xmm0, (%rdi)
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x half> %x, i32 0
+   store half %res, half* %y
+   ret void
+}
+
+define void @extract_store_f16_1(<8 x half> %x, half* %y) {
+; CHECK-LABEL: extract_store_f16_1:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpsrld $16, %xmm0, %xmm0
+; CHECK-NEXT:    vmovsh %xmm0, (%rdi)
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x half> %x, i32 1
+   store half %res, half* %y
+   ret void
+}
+
+define void @extract_store_f16_2(<8 x half> %x, half* %y) {
+; CHECK-LABEL: extract_store_f16_2:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmovshdup {{.*#+}} xmm0 = xmm0[1,1,3,3]
+; CHECK-NEXT:    vmovsh %xmm0, (%rdi)
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x half> %x, i32 2
+   store half %res, half* %y
+   ret void
+}
+
+define void @extract_store_f16_3(<8 x half> %x, half* %y) {
+; CHECK-LABEL: extract_store_f16_3:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpsrlq $48, %xmm0, %xmm0
+; CHECK-NEXT:    vmovsh %xmm0, (%rdi)
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x half> %x, i32 3
+   store half %res, half* %y
+   ret void
+}
+
+define void @extract_store_f16_4(<8 x half> %x, half* %y) {
+; CHECK-LABEL: extract_store_f16_4:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpermilpd {{.*#+}} xmm0 = xmm0[1,0]
+; CHECK-NEXT:    vmovsh %xmm0, (%rdi)
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x half> %x, i32 4
+   store half %res, half* %y
+   ret void
+}
+
+define void @extract_store_f16_5(<8 x half> %x, half* %y) {
+; CHECK-LABEL: extract_store_f16_5:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpsrldq {{.*#+}} xmm0 = xmm0[10,11,12,13,14,15],zero,zero,zero,zero,zero,zero,zero,zero,zero,zero
+; CHECK-NEXT:    vmovsh %xmm0, (%rdi)
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x half> %x, i32 5
+   store half %res, half* %y
+   ret void
+}
+
+define void @extract_store_f16_6(<8 x half> %x, half* %y) {
+; CHECK-LABEL: extract_store_f16_6:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpermilps {{.*#+}} xmm0 = xmm0[3,1,2,3]
+; CHECK-NEXT:    vmovsh %xmm0, (%rdi)
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x half> %x, i32 6
+   store half %res, half* %y
+   ret void
+}
+
+define void @extract_store_f16_7(<8 x half> %x, half* %y) {
+; CHECK-LABEL: extract_store_f16_7:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpsrldq {{.*#+}} xmm0 = xmm0[14,15],zero,zero,zero,zero,zero,zero,zero,zero,zero,zero,zero,zero,zero,zero
+; CHECK-NEXT:    vmovsh %xmm0, (%rdi)
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x half> %x, i32 7
+   store half %res, half* %y
+   ret void
+}
+
+define void @extract_store_i16_0(<8 x i16> %x, i16* %y) {
+; CHECK-LABEL: extract_store_i16_0:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpextrw $0, %xmm0, (%rdi)
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x i16> %x, i32 0
+   store i16 %res, i16* %y
+   ret void
+}
+
+define void @extract_store_i16_1(<8 x i16> %x, i16* %y) {
+; CHECK-LABEL: extract_store_i16_1:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpextrw $1, %xmm0, (%rdi)
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x i16> %x, i32 1
+   store i16 %res, i16* %y
+   ret void
+}
+
+define void @extract_store_i16_2(<8 x i16> %x, i16* %y) {
+; CHECK-LABEL: extract_store_i16_2:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpextrw $2, %xmm0, (%rdi)
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x i16> %x, i32 2
+   store i16 %res, i16* %y
+   ret void
+}
+
+define void @extract_store_i16_3(<8 x i16> %x, i16* %y) {
+; CHECK-LABEL: extract_store_i16_3:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpextrw $3, %xmm0, (%rdi)
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x i16> %x, i32 3
+   store i16 %res, i16* %y
+   ret void
+}
+
+define void @extract_store_i16_4(<8 x i16> %x, i16* %y) {
+; CHECK-LABEL: extract_store_i16_4:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpextrw $4, %xmm0, (%rdi)
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x i16> %x, i32 4
+   store i16 %res, i16* %y
+   ret void
+}
+
+define void @extract_store_i16_5(<8 x i16> %x, i16* %y) {
+; CHECK-LABEL: extract_store_i16_5:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpextrw $5, %xmm0, (%rdi)
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x i16> %x, i32 5
+   store i16 %res, i16* %y
+   ret void
+}
+
+define void @extract_store_i16_6(<8 x i16> %x, i16* %y) {
+; CHECK-LABEL: extract_store_i16_6:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpextrw $6, %xmm0, (%rdi)
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x i16> %x, i32 6
+   store i16 %res, i16* %y
+   ret void
+}
+
+define void @extract_store_i16_7(<8 x i16> %x, i16* %y) {
+; CHECK-LABEL: extract_store_i16_7:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpextrw $7, %xmm0, (%rdi)
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x i16> %x, i32 7
+   store i16 %res, i16* %y
+   ret void
+}
+
+define i32 @extract_zext_i16_0(<8 x i16> %x) {
+; CHECK-LABEL: extract_zext_i16_0:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpextrw $0, %xmm0, %eax
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x i16> %x, i32 0
+   %res2 = zext i16 %res to i32
+   ret i32 %res2
+}
+
+define i32 @extract_zext_i16_1(<8 x i16> %x) {
+; CHECK-LABEL: extract_zext_i16_1:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpextrw $1, %xmm0, %eax
+; CHECK-NEXT:    retq
+   %res = extractelement <8 x i16> %x, i32 1
+   %res2 = zext i16 %res to i32
+   ret i32 %res2
 }

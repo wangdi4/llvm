@@ -5,7 +5,7 @@
 define signext i16 @test_mm_cvtsi128_si16(<2 x i64> %A) local_unnamed_addr #0 {
 ; CHECK-LABEL: test_mm_cvtsi128_si16:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vmovw %xmm0, %eax
+; CHECK-NEXT:    vmovd %xmm0, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:

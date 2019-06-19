@@ -17132,9 +17132,6 @@ X86TargetLowering::LowerEXTRACT_VECTOR_ELT(SDValue Op,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
   if (VT == MVT::i16) {
-    if (IdxVal == 0 && Subtarget.hasFP16()) {
-      return Op;
-    }
 #else  // INTEL_FEATURE_ISA_FP16
   if (VT.getSizeInBits() == 16) {
 #endif // INTEL_FEATURE_ISA_FP16
