@@ -230,7 +230,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isGetEnqueuedLocalSize(const std::string&);
     static bool isGetGlobalLinearId(const std::string&);
     static bool isGetLocalLinearId(const std::string&);
-    static bool isGetSubGroupLocalID(const std::string&);
+    static bool isGetSubGroupLocalId(const std::string&);
     static bool isGetSubGroupId(const std::string&);
     static bool isGetNumGroups(const std::string&);
     static bool isGetNumSubGroups(const std::string&);
@@ -441,17 +441,39 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     //                      WG_BARRIER_WITH_SCOPE - for
     // void work_group_barrier (cl_mem_fence_flags flags, memory_scope scope)
     //////////////////////////////////////////////////////////////////
-
-    //////////////////////////////////////////////////////////////////
-    // @brief: returns the mangled name of the function get_sub_group_local_id
-    //////////////////////////////////////////////////////////////////
-    static std::string mangledGetSubGroupLID();
-
     typedef enum {
       WG_BARRIER_NO_SCOPE,
       WG_BARRIER_WITH_SCOPE
     } WG_BARRIER_TYPE;
     static std::string mangledWGBarrier(WG_BARRIER_TYPE wgBarrierType);
+
+    //////////////////////////////////////////////////////////////////
+    // @brief: returns the mangled name of the function get_sub_group_local_id
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledGetSubGroupLID();
+    //////////////////////////////////////////////////////////////////
+    // @brief: returns the mangled name of the function get_num_sub_groups
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledNumSubGroups();
+    //////////////////////////////////////////////////////////////////
+    // @brief: returns the mangled name of the function get_sub_group_id
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledGetSubGroupId();
+    //////////////////////////////////////////////////////////////////
+    // @brief: returns the mangled name of the function get_enqueued_num_sub_groups
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledEnqueuedNumSubGroups();
+    //////////////////////////////////////////////////////////////////
+    // @brief: returns the mangled name of the function get_sub_group_size
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledGetSubGroupSize();
+    //////////////////////////////////////////////////////////////////
+    // @brief: returns the mangled name of the function get_max_sub_group_size
+    static std::string mangledGetMaxSubGroupSize();
+    //////////////////////////////////////////////////////////////////
+    // @brief: returns the mangled name of the function get_sub_group_local_id
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledGetSubGroupLocalId();
 
     static const std::string NAME_GET_DEFAULT_QUEUE;
 

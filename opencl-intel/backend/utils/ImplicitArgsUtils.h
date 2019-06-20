@@ -60,6 +60,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     ICT_GET_NUM_GROUPS,
     ICT_GET_GROUP_ID,
     ICT_GET_GLOBAL_OFFSET,
+    // special functions that need update
     ICT_PRINTF,
     ICT_PREFETCH,
     // int enqueue_kernel_varargs()

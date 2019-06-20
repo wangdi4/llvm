@@ -68,7 +68,7 @@ bool SubGroupAdaptation::runOnModule(Module &M) {
     llvm::StringRef func_name = pFunc->getName();
     if (CompilationUtils::isSubGroupBarrier(func_name)) {
       replaceFunction(pFunc, CompilationUtils::WG_BARRIER_FUNC_NAME);
-    } else if (CompilationUtils::isGetSubGroupLocalID(func_name)) {
+    } else if (CompilationUtils::isGetSubGroupLocalId(func_name)) {
 
       BasicBlock *entry = BasicBlock::Create(*m_pLLVMContext, "entry", pFunc);
       std::string fName = func_name.str();

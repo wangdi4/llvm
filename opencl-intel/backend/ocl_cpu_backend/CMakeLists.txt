@@ -248,6 +248,7 @@ set( BACKEND_PASSES
     ProfilingInfoPass
     RelaxedPass
     ResolveWICall
+    ResolveSubGroupWICall
     ShiftZeroUpperBits
     BuiltinCallToInst
     UndefExternalFuncs

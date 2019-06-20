@@ -40,6 +40,7 @@ set(OCL_BE_PASSES
     RelaxedPass
     ResolveBlockToStaticCall
     ResolveWICall
+    ResolveSubGroupWICall
     ShiftZeroUpperBits
     SinCosFold
     SmartGVN
