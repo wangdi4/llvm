@@ -84,3 +84,10 @@ OclBuiltinImpl sub_group_shuffle_fake = OclBuiltinImpl<sub_group_shuffle, work_g
   [{
     return $Arg0VarName;
   }]>;
+
+OclBuiltinImpl sub_group_shuffle_vec_type_fake = OclBuiltinImpl<sub_group_shuffle_vec_type, [v2i32, v4i32, v8i32, v16i32,
+                                                                                             v2u32, v4u32, v8u32, v16u32,
+                                                                                             v2f32, v4f32, v8f32, v16f32], 0,
+  [{
+    return $Arg0VarName;
+  }]>;

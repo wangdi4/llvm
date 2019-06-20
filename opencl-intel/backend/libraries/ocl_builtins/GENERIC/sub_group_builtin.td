@@ -38,6 +38,14 @@ let NeedForwardDecl = 1 in {
       }
 
   // Vector types stubs. vec_len = [2, 4, 8, 16]
+  // Declare "scalar" (not vectorized) versions of shuffle.
+  let Types = [v2i32, v4i32, v8i32, v16i32,
+               v2u32, v4u32, v8u32, v16u32,
+               v2f32, v4f32, v8f32, v16f32],
+      Attrs = [OVERLOADABLE] in {
+        def sub_group_shuffle_vec_type : OclBuiltin<"intel_sub_group_shuffle", (outs gentype:$ret), (ins gentype:$data, v1u32: $sub_group_local_id), [], [], 1, 0>;
+      }
+
   // AVX (VF = 4)
   let Types = [v8i32, v16i32, v32i32, v64i32,
                v8u32, v16u32, v32u32, v64u32,
