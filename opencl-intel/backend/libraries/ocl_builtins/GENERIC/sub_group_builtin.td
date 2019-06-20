@@ -34,7 +34,8 @@ let NeedForwardDecl = 1 in {
                 v1f32, v4f32, v8f32, v16f32,
                 v1f64, v4f64, v8f64, v16f64 ],
      Attrs = [OVERLOADABLE] in {
-        def sub_group_shuffle : OclBuiltin<"intel_sub_group_shuffle", (outs gentype:$ret), (ins gentype:$data, u32gentype:$sub_group_local_id), [], [], 1, 0>;
+        def sub_group_shuffle     : OclBuiltin<"intel_sub_group_shuffle", (outs gentype:$ret), (ins gentype:$data, u32gentype:$sub_group_local_id), [], [], 1, 0>;
+        def sub_group_shuffle_xor : OclBuiltin<"intel_sub_group_shuffle_xor", (outs gentype:$ret), (ins gentype:$data, u32gentype:$value), [], [], 1, 0>;
       }
 
   // Vector types stubs. vec_len = [2, 4, 8, 16]
@@ -43,7 +44,8 @@ let NeedForwardDecl = 1 in {
                v2u32, v4u32, v8u32, v16u32,
                v2f32, v4f32, v8f32, v16f32],
       Attrs = [OVERLOADABLE] in {
-        def sub_group_shuffle_vec_type : OclBuiltin<"intel_sub_group_shuffle", (outs gentype:$ret), (ins gentype:$data, v1u32: $sub_group_local_id), [], [], 1, 0>;
+        def sub_group_shuffle_vec_type :     OclBuiltin<"intel_sub_group_shuffle", (outs gentype:$ret), (ins gentype:$data, v1u32: $sub_group_local_id), [], [], 1, 0>;
+        def sub_group_shuffle_xor_vec_type : OclBuiltin<"intel_sub_group_shuffle_xor", (outs gentype:$ret), (ins gentype:$data, v1u32: $value), [], [], 1, 0>;
       }
 
   // AVX (VF = 4)
