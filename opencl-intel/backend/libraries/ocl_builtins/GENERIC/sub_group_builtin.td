@@ -54,7 +54,7 @@ let NeedForwardDecl = 1 in {
         def sub_group_shuffle_avx2 : OclBuiltin<"intel_sub_group_shuffle", (outs gentype:$ret), (ins gentype:$data, v8u32:$sub_group_local_id), [], [], 1, 0>;
       }
 
-  // AVX512 (VF = 512)
+  // AVX512 (VF = 16)
   let Types = [v32i32, v64i32, v128i32, v256i32,
                v32u32, v64u32, v128u32, v256u32,
                v32f32, v64f32, v128f32, v256f32 ],

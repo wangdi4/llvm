@@ -1674,8 +1674,8 @@ OclBuiltinImpl sub_group_shuffle_avx512fv16f32 = OclBuiltinImpl<sub_group_shuffl
                                                 __builtin_astype($Arg0VarName, __m512)));
   }]>;
 
-// long and ulong
-OclBuiltinImpl sub_group_shuffle_avx512fv16i64 = OclBuiltinImpl<sub_group_shuffle, [v16i64, v16u64], 0,
+// long, ulong, int, uint, float
+OclBuiltinImpl sub_group_shuffle_avx512fv16i64 = OclBuiltinImpl<sub_group_shuffle, [v16i64, v16u64, v32i32, v32u32, v32f32], 0,
  [{
      $Arg0Type dest;
      uint32 idx;
@@ -1685,4 +1685,29 @@ OclBuiltinImpl sub_group_shuffle_avx512fv16i64 = OclBuiltinImpl<sub_group_shuffl
      dest.hi = as_$Arg0BaseType#8(_mm512_permutex2var_epi64((__m512i)$Arg0VarName.lo, (__m512i)idx.hi, (__m512i)$Arg0VarName.hi));
      return dest;
  }]>;
+
+// float2, int2 and uint2 have the same size as long (64 bit).
+// So we can shuffle them as double precision numbers
+OclBuiltinImpl sub_group_shuffle_avx512fv16i64 = OclBuiltinImpl<sub_group_shuffle_avx512, [v32i32, v32u32, v32f32], 0,
+ [{
+     $Arg0Type dest;
+     uint32 idx;
+     idx.lo = as_uint16(_mm512_cvtepi32_epi64((__m256i)$Arg1VarName.lo));
+     idx.hi = as_uint16(_mm512_cvtepi32_epi64((__m256i)$Arg1VarName.hi));
+     dest.lo = as_$Arg0BaseType#16(_mm512_permutex2var_epi64((__m512i)$Arg0VarName.lo, (__m512i)idx.lo, (__m512i)$Arg0VarName.hi));
+     dest.hi = as_$Arg0BaseType#16(_mm512_permutex2var_epi64((__m512i)$Arg0VarName.lo, (__m512i)idx.hi, (__m512i)$Arg0VarName.hi));
+     return dest;
+ }]>;
+
+
+// float4, int4, uint4
+// TODO und FIXME: replace this implementation with more efficient one.
+OclBuiltinImpl sub_group_shuffle_avx512f_v64fui32 = OclBuiltinImpl<sub_group_shuffle_avx512, [v64f32], 0,
+  [{
+      $Arg0Type dest;
+      for (int i = 0; i < 16; ++i)
+          for (int j = 0; j < 4; ++j)
+              dest[i * 4 + j] = $Arg0VarName[4 * $Arg1VarName[i] + j];
+      return dest;
+  }]>;
 
