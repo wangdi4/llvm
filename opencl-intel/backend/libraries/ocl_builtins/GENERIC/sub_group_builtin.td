@@ -107,3 +107,73 @@ foreach func_name = [ "sub_group_broadcast", "sub_group_reduce_add", "sub_group_
     0,1>;          //not scalarizable, packetizable
   }
 }
+
+foreach func_name = [ "sub_group_shuffle" ] in {
+  foreach base_type = [ "i32", "u32", "i64", "u64", "f32", "f64" ] in {
+    def func_name#_#base_type#_cell1  : MapCell<!cast<OclBuiltin>(func_name), !cast<OclType>("v1"#base_type)>;
+    def func_name#_#base_type#_cell4  : MapCell<!cast<OclBuiltin>(func_name), !cast<OclType>("v4"#base_type)>;
+    def func_name#_#base_type#_cell8  : MapCell<!cast<OclBuiltin>(func_name), !cast<OclType>("v8"#base_type)>;
+    def func_name#_#base_type#_cell16 : MapCell<!cast<OclBuiltin>(func_name), !cast<OclType>("v16"#base_type)>;
+    def func_name#_#base_type#_vectorized : MapRow<[
+    !cast<MapCell>(func_name#_#base_type#"_cell1"),  //scalar
+    nullCell,
+    !cast<MapCell>(func_name#_#base_type#"_cell4"),  //v4
+    !cast<MapCell>(func_name#_#base_type#"_cell8"),  //v8
+    !cast<MapCell>(func_name#_#base_type#"_cell16"), //16
+    nullCell],
+    0,1>;          //not scalarizable, packetizable
+  }
+  foreach base_type = [ "i32", "u32", "f32" ] in {
+    def func_name#_#base_type#_v2_cell1  : MapCell<!cast<OclBuiltin>(func_name#_#"vec_type"), !cast<OclType>("v2"#base_type)>;
+    def func_name#_#base_type#_v2_cell4  : MapCell<!cast<OclBuiltin>(func_name#_#"avx"), !cast<OclType>("v8"#base_type)>;
+    def func_name#_#base_type#_v2_cell8  : MapCell<!cast<OclBuiltin>(func_name#_#"avx2"), !cast<OclType>("v16"#base_type)>;
+    def func_name#_#base_type#_v2_cell16 : MapCell<!cast<OclBuiltin>(func_name#_#"avx512"), !cast<OclType>("v32"#base_type)>;
+    def func_name#_#base_type#_v2_vectorized : MapRow<[
+    !cast<MapCell>(func_name#_#base_type#"_v2_cell1"), //scalar
+    nullCell,
+    !cast<MapCell>(func_name#_#base_type#"_v2_cell4"), //v4
+    !cast<MapCell>(func_name#_#base_type#"_v2_cell8"), //v8
+    !cast<MapCell>(func_name#_#base_type#"_v2_cell16"),//v16
+    nullCell],
+    0,1>;          //not scalarizable, packetizable
+
+    def func_name#_#base_type#_v4_cell1  : MapCell<!cast<OclBuiltin>(func_name#_#"vec_type"), !cast<OclType>("v4"#base_type)>;
+    def func_name#_#base_type#_v4_cell4  : MapCell<!cast<OclBuiltin>(func_name#_#"avx"), !cast<OclType>("v16"#base_type)>;
+    def func_name#_#base_type#_v4_cell8  : MapCell<!cast<OclBuiltin>(func_name#_#"avx2"), !cast<OclType>("v32"#base_type)>;
+    def func_name#_#base_type#_v4_cell16 : MapCell<!cast<OclBuiltin>(func_name#_#"avx512"), !cast<OclType>("v64"#base_type)>;
+    def func_name#_#base_type#_v4_vectorized : MapRow<[
+    !cast<MapCell>(func_name#_#base_type#"_v4_cell1"), //scalar
+    nullCell,
+    !cast<MapCell>(func_name#_#base_type#"_v4_cell4"), //v4
+    !cast<MapCell>(func_name#_#base_type#"_v4_cell8"), //v8
+    !cast<MapCell>(func_name#_#base_type#"_v4_cell16"),//v16
+    nullCell],
+    0,1>;          //not scalarizable, packetizable
+
+    def func_name#_#base_type#_v8_cell1  : MapCell<!cast<OclBuiltin>(func_name#_#"vec_type"), !cast<OclType>("v8"#base_type)>;
+    def func_name#_#base_type#_v8_cell4  : MapCell<!cast<OclBuiltin>(func_name#_#"avx"), !cast<OclType>("v32"#base_type)>;
+    def func_name#_#base_type#_v8_cell8  : MapCell<!cast<OclBuiltin>(func_name#_#"avx2"), !cast<OclType>("v64"#base_type)>;
+    def func_name#_#base_type#_v8_cell16 : MapCell<!cast<OclBuiltin>(func_name#_#"avx512"), !cast<OclType>("v128"#base_type)>;
+    def func_name#_#base_type#_v8_vectorized : MapRow<[
+    !cast<MapCell>(func_name#_#base_type#"_v8_cell1"), //scalar
+    nullCell,
+    !cast<MapCell>(func_name#_#base_type#"_v8_cell4"), //v4
+    !cast<MapCell>(func_name#_#base_type#"_v8_cell8"), //v8
+    !cast<MapCell>(func_name#_#base_type#"_v8_cell16"),//v16
+    nullCell],
+    0,1>;          //not scalarizable, packetizable
+
+    def func_name#_#base_type#_v16_cell1  : MapCell<!cast<OclBuiltin>(func_name#_#"vec_type"), !cast<OclType>("v16"#base_type)>;
+    def func_name#_#base_type#_v16_cell4  : MapCell<!cast<OclBuiltin>(func_name#_#"avx"), !cast<OclType>("v64"#base_type)>;
+    def func_name#_#base_type#_v16_cell8  : MapCell<!cast<OclBuiltin>(func_name#_#"avx2"), !cast<OclType>("v128"#base_type)>;
+    def func_name#_#base_type#_v16_cell16 : MapCell<!cast<OclBuiltin>(func_name#_#"avx512"), !cast<OclType>("v256"#base_type)>;
+    def func_name#_#base_type#_v16_vectorized : MapRow<[
+    !cast<MapCell>(func_name#_#base_type#"_v16_cell1"), //scalar
+    nullCell,
+    !cast<MapCell>(func_name#_#base_type#"_v16_cell4"), //v4
+    !cast<MapCell>(func_name#_#base_type#"_v16_cell8"), //v8
+    !cast<MapCell>(func_name#_#base_type#"_v16_cell16"),//v16
+    nullCell],
+    0,1>;          //not scalarizable, packetizable
+  }
+}
