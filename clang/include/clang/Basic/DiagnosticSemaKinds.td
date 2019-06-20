@@ -7459,12 +7459,6 @@ def err_cast_selector_expr : Error<
 def ext_typecheck_cond_incompatible_pointers : ExtWarn<
   "pointer type mismatch%diff{ ($ and $)|}0,1">,
   InGroup<DiagGroup<"pointer-type-mismatch">>;
-// if INTEL_CUSTOMIZATION
-// CQ#375765.
-def ext_regparm_cond_mismatch : Warning<
-  "function type mismatch: different regparm attributes%diff{ ($ and $)|}0,1">,
-  InGroup<IncompatiblePointerTypes>;
-// endif // INTEL_CUSTOMIZATION
 def ext_typecheck_cond_pointer_integer_mismatch : ExtWarn<
   "pointer/integer type mismatch in conditional expression"
   "%diff{ ($ and $)|}0,1">,

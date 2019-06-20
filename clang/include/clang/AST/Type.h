@@ -3590,15 +3590,6 @@ public:
       return ExtInfo((Bits & ~RegParmMask) |
                      ((RegParm + 1) << RegParmOffset));
     }
-#if INTEL_CUSTOMIZATION
-    // This overloaded version allows us to drop the attribute as well.
-    ExtInfo withRegParm(unsigned RegParm, bool HasRegParm) const {
-      assert(RegParm < 7 && "Invalid regparm value");
-      if (!HasRegParm)
-        return ExtInfo(Bits & ~RegParmMask);
-      return ExtInfo((Bits & ~RegParmMask) | ((RegParm + 1) << RegParmOffset));
-    }
-#endif // INTEL_CUSTOMIZATION
 
     ExtInfo withCallingConv(CallingConv cc) const {
       return ExtInfo((Bits & ~CallConvMask) | (unsigned) cc);
