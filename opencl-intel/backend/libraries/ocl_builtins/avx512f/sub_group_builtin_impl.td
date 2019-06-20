@@ -1661,21 +1661,21 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx512v16f64 = OclBuiltinImpl<sub_gr
 //
 
 // int and uint
-OclBuiltinImpl sub_group_shuffle_avx512fv16i32 = OclBuiltinImpl<sub_group_shuffle, [v16i32, v16u32], 0,
+OclBuiltinImpl sub_group_shuffle_avx512fv16i32 = OclBuiltinImpl<sub_group_shuffle_avx512, [v16i32, v16u32], 0,
   [{
     return as_$ReturnType(_mm512_permutexvar_epi32(__builtin_astype($Arg1VarName, __m512i),
                                                    __builtin_astype($Arg0VarName, __m512i)));
   }]>;
 
 // float
-OclBuiltinImpl sub_group_shuffle_avx512fv16f32 = OclBuiltinImpl<sub_group_shuffle, [v16f32], 0,
+OclBuiltinImpl sub_group_shuffle_avx512fv16f32 = OclBuiltinImpl<sub_group_shuffle_avx512, [v16f32], 0,
   [{
     return as_$ReturnType(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i),
                                                 __builtin_astype($Arg0VarName, __m512)));
   }]>;
 
 // long, ulong, int, uint, float
-OclBuiltinImpl sub_group_shuffle_avx512fv16i64 = OclBuiltinImpl<sub_group_shuffle, [v16i64, v16u64, v32i32, v32u32, v32f32], 0,
+OclBuiltinImpl sub_group_shuffle_avx512fv16i64 = OclBuiltinImpl<sub_group_shuffle_avx512, [v16i64, v16u64, v32i32, v32u32, v32f32], 0,
  [{
      $Arg0Type dest;
      uint32 idx;
