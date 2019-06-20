@@ -119,6 +119,7 @@ createBuiltinLibInfoPass(SmallVector<Module *, 2> pRtlModuleList,
 llvm::ModulePass *createUndifinedExternalFunctionsPass(
     std::vector<std::string> &undefinedExternalFunctions);
 llvm::ModulePass *createKernelInfoWrapperPass();
+llvm::ModulePass *createKernelSubGroupInfoPass();
 llvm::ModulePass *createDuplicateCalledKernelsPass();
 llvm::ModulePass *createPatchCallbackArgsPass();
 llvm::ModulePass *createDeduceMaxWGDimPass();

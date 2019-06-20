@@ -102,6 +102,7 @@ void initializeStripIntelIPPass(llvm::PassRegistry&);
 void initializeOCLVecClonePass(llvm::PassRegistry&);
 void initializeOCLPostVectPass(llvm::PassRegistry&);
 void initializeChannelsUsageAnalysisPass(llvm::PassRegistry&);
+void initializeKernelSubGroupInfoPass(llvm::PassRegistry&);
 }
 
 #endif

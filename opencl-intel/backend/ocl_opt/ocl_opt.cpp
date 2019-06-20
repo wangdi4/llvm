@@ -351,6 +351,7 @@ static void initializeOCLPasses(PassRegistry &Registry) {
     intel::initializeOCLVecClonePass(Registry);
     intel::initializeOCLPostVectPass(Registry);
     intel::initializeChannelsUsageAnalysisPass(Registry);
+    intel::initializeKernelSubGroupInfoPass(Registry);
 }
 
 static void addMustHaveOCLPasses(llvm::LLVMContext& context,
