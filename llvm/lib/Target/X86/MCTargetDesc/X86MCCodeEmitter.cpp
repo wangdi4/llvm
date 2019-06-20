@@ -964,7 +964,16 @@ void X86MCCodeEmitter::EmitVEXOpcodePrefix(uint64_t TSFlags, unsigned &CurByte,
       EncodeRC = true;
     break;
   }
-  case X86II::MRMr0: // INTEL
+#if INTEL_CUSTOMIZATION
+  case X86II::MRMr0: {
+    // MRMr0 instructions forms:
+    //  11:rrr:000
+    //  dst(ModR/M)
+    unsigned RegEnc = getX86RegEncoding(MI, CurOp++);
+    VEX_R = ~(RegEnc >> 3) & 1;
+    break;
+  }
+#endif // INTEL_CUSTOMIZATION
   case X86II::MRM0r: case X86II::MRM1r:
   case X86II::MRM2r: case X86II::MRM3r:
   case X86II::MRM4r: case X86II::MRM5r:

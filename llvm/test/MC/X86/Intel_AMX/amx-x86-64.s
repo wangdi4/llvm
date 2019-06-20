@@ -133,11 +133,11 @@ tdpbuud %tmm3, %tmm2, %tmm1
 
 // TMM8-15Test
 // CHECK: tilezero      %tmm10
-// CHECK: encoding: [0xc4,0xc2,0x7b,0x49,0xd0]
+// CHECK: encoding: [0xc4,0x62,0x7b,0x49,0xd0]
 tilezero  %tmm10
 
 // CHECK: tilezero      %tmm15
-// CHECK: encoding: [0xc4,0xc2,0x7b,0x49,0xf8]
+// CHECK: encoding: [0xc4,0x62,0x7b,0x49,0xf8]
 tilezero  %tmm15
 
 // CHECK: tdpbssd %tmm10, %tmm13, %tmm15
