@@ -2332,6 +2332,7 @@ multiclass PushPop<ValueType VT, RegisterClass RC> {
             (COPY_TO_REGCLASS (CSA_LIC_READ (i32 imm:$lic)), RC)>;
 }
 
+defm : PushPop<   i1, CI1>;
 defm : PushPop<   i8, CI8>;
 defm : PushPop<  i16, CI16>;
 defm : PushPop<  i32, CI32>;
