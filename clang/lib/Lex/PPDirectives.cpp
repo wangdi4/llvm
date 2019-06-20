@@ -1399,12 +1399,7 @@ void Preprocessor::HandleIdentSCCSDirective(Token &Tok) {
   // If the token kind isn't a string, it's a malformed directive.
   if (StrTok.isNot(tok::string_literal) &&
       StrTok.isNot(tok::wide_string_literal)) {
-#if INTEL_CUSTOMIZATION
-    // CQ#372653 - just ignore malformed #ident directive.
-    if (getLangOpts().IntelCompat)
-      Diag(StrTok, diag::warn_pp_malformed_ident);
-    else
-#endif // INTEL_CUSTOMIZATION
+    Diag(StrTok, diag::err_pp_malformed_ident);
     if (StrTok.isNot(tok::eod))
       DiscardUntilEndOfDirective();
     return;
