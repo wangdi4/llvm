@@ -71,6 +71,7 @@ void KernelProperties::Serialize(IOutputStream& ost, SerializationStatus* stats)
 {
     // Need to revert dbgPrint flag
     //Serializer::SerialPrimitive<bool>(&m_dbgPrint, ost);
+    Serializer::SerialPrimitive<bool>(&m_bIsBlock, ost);
     Serializer::SerialPrimitive<bool>(&m_hasBarrier, ost);
     Serializer::SerialPrimitive<bool>(&m_DAZ, ost);
     Serializer::SerialPrimitive<unsigned int>(&m_optWGSize, ost);
@@ -118,6 +119,7 @@ void KernelProperties::Deserialize(IInputStream& ist, SerializationStatus* stats
 {
     // Need to revert dbgPrint flag
     //Serializer::DeserialPrimitive<bool>(&m_dbgPrint, ist);
+    Serializer::DeserialPrimitive<bool>(&m_bIsBlock, ist);
     Serializer::DeserialPrimitive<bool>(&m_hasBarrier, ist);
     Serializer::DeserialPrimitive<bool>(&m_DAZ, ist);
     Serializer::DeserialPrimitive<unsigned int>(&m_optWGSize, ist);
