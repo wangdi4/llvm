@@ -403,7 +403,6 @@ void FrameworkProxy::Initialize()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 bool FrameworkProxy::NeedToDisableAPIsAtShutdown() const
 {
-#if defined (_WIN32)
     // On Windows OS kills all threads at shutdown except of one that is used to
     // call atexit() and DllMain(). As all thread killing is done when threads
     // are in an arbitrary state we cannot assume that they are not owning some
@@ -412,18 +411,24 @@ bool FrameworkProxy::NeedToDisableAPIsAtShutdown() const
     // cannot assume that performing normal shutdown will not block or will free
     // resources. So on Windows we should just block our external APIs to avoid
     // global object destructors from DLLs to enter our OpenCL DLLs.
-    return true;
-#endif
+    //
     // On FPGA emulator we should not kill contexts, execution modules, etc.
     // because program can contain `while (true)` kernels which can not be
     // finished using regular finish operation on command queue.
-    if (FPGA_EMU_DEVICE == m_pConfig->GetDeviceMode())
-    {
-        return true;
-    }
-    // On Linux all threads are alive and fully functional at atexit() time - do
-    // the full shutdown.
-    return false;
+    //
+    // On Linux all threads are alive and fully functional at atexit() time - so
+    // full shutdown is possible.
+    //
+    // The shutdown mechanism is disabled for all configurations now.
+    // The functionality provides is not required by the OpenCL specification
+    // and there is no known customer request for it. But it leads to the
+    // problems in real application quite often due to problems in the mechanism
+    // itself. For example, some applications just hang at exit instead of
+    // finishing with leaks. Some crashes due to bugs. Those problems are very
+    // hard to debug because environment the logic works in is very specific -
+    // multi-thread multi-library process shutdown.
+
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
