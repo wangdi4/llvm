@@ -123,17 +123,17 @@ namespace intrinsics {
 
   /// \name Instances of IntrinsicOperandTy objects of different kinds.
   /// @{
-  constexpr IntrinsicOperandTy I8   = { Type::IntegerTyID,  8 };
-  constexpr IntrinsicOperandTy I16  = { Type::IntegerTyID,  16 };
-  constexpr IntrinsicOperandTy I32  = { Type::IntegerTyID,  32 };
-  constexpr IntrinsicOperandTy I64  = { Type::IntegerTyID,  64 };
-  constexpr IntrinsicOperandTy P32  = { Type::PointerTyID,  32 };
-  constexpr IntrinsicOperandTy P64  = { Type::PointerTyID,  64 };
-  constexpr IntrinsicOperandTy F16  = { Type::HalfTyID,     16 };
-  constexpr IntrinsicOperandTy F32  = { Type::FloatTyID,    32 };
-  constexpr IntrinsicOperandTy F64  = { Type::DoubleTyID,   64 };
-  constexpr IntrinsicOperandTy F80  = { Type::X86_FP80TyID, 80 };
-  constexpr IntrinsicOperandTy F128 = { Type::FP128TyID,    128 };
+  static const IntrinsicOperandTy I8   = { Type::IntegerTyID,  8 };
+  static const IntrinsicOperandTy I16  = { Type::IntegerTyID,  16 };
+  static const IntrinsicOperandTy I32  = { Type::IntegerTyID,  32 };
+  static const IntrinsicOperandTy I64  = { Type::IntegerTyID,  64 };
+  static const IntrinsicOperandTy P32  = { Type::PointerTyID,  32 };
+  static const IntrinsicOperandTy P64  = { Type::PointerTyID,  64 };
+  static const IntrinsicOperandTy F16  = { Type::HalfTyID,     16 };
+  static const IntrinsicOperandTy F32  = { Type::FloatTyID,    32 };
+  static const IntrinsicOperandTy F64  = { Type::DoubleTyID,   64 };
+  static const IntrinsicOperandTy F80  = { Type::X86_FP80TyID, 80 };
+  static const IntrinsicOperandTy F128 = { Type::FP128TyID,    128 };
   /// @}
 
 } // end namespace intrinsics
