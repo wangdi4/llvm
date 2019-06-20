@@ -13354,7 +13354,8 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_csa_parallel_section_exit:
   case X86::BI__builtin_csa_parallel_loop:
   case X86::BI__builtin_csa_spmdization:
-  case X86::BI__builtin_csa_spmd: {
+  case X86::BI__builtin_csa_spmd:
+  case X86::BI__builtin_csa_spmd_worker_num: {
     return UndefValue::get(ConvertType(E->getType())); // noop
   }
 #endif  // INTEL_FEATURE_CSA
@@ -13526,6 +13527,11 @@ Value *CodeGenFunction::EmitCSABuiltinExpr(unsigned BuiltinID,
     Value *Callee = CGM.getIntrinsic(Intrinsic::csa_spmd,
                                      {X->getType(), Y->getType()});
     return Builder.CreateCall(Callee, {X, Y});
+  }
+  case CSA::BI__builtin_csa_spmd_worker_num: {
+    //this will be replaced by omp_get_thread_num?
+    Value *Callee = CGM.getIntrinsic(Intrinsic::csa_spmd_worker_num, {});
+    return Builder.CreateCall(Callee, {});
   }
   case CSA::BI__builtin_csa_pipeline_loop: {
     Value *X = EmitScalarExpr(E->getArg(0));
