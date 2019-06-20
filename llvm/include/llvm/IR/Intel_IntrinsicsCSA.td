@@ -63,6 +63,11 @@ def int_csa_spmd : GCCBuiltin<"__builtin_csa_spmd">,
               [IntrInaccessibleMemOrArgMemOnly,
                IntrInaccessibleMemOrArgMemOnly]>;
 
+// llvm.csa.spmd.worker.num
+def int_csa_spmd_worker_num : GCCBuiltin<"__builtin_csa_spmd_worker_num">,
+    Intrinsic<[llvm_i32_ty], [],
+              [IntrInaccessibleMemOrArgMemOnly]>;
+
 // llvm.csa.spmdization_entry
 def int_csa_spmdization_entry : GCCBuiltin<"__builtin_csa_spmdization_entry">,
     Intrinsic<[llvm_i32_ty], [llvm_i32_ty, llvm_i32_ty],

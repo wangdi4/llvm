@@ -112,6 +112,7 @@ private:
                               std::vector<Value *> &ReduceVarExitOrig,
                               std::vector<Instruction *> &ReduceVarOrig,
                               std::vector<Instruction *> &OldInst);
+  void lowerSPMDWorkerNum(Loop *L, int PE);
   void setLoopAlreadySPMDized(Loop *L);
   void AddUnrollDisableMetadata(Loop *L);
   bool FindReductionVariables(Loop *L, ScalarEvolution *SE,
@@ -337,6 +338,10 @@ try a different SPMDization strategy instead.
       else
         DT->addNewBlock(NewE, NewLoop->getHeader());
 
+      //If __builtin_csa_spmd_worker_num is used in the loop
+      //lower this to a constant to scalarize the array of streams
+      lowerSPMDWorkerNum(NewLoop, PE);
+
       Instruction *ExitTerm = Exit->getTerminator();
       BranchInst::Create(NewLoop->getLoopPreheader(), Exit);
       ExitTerm->eraseFromParent();
@@ -404,6 +409,7 @@ try a different SPMDization strategy instead.
       // for the original loop and it will be copied to each new loop
       // automatically, by cloneLoopWithPreheader().
     }
+    lowerSPMDWorkerNum(OrigL, 0);
 
     if (ZTCType == ZTCMode::Nested) {
       // Fix missed Phi operands in AfterLoop
@@ -462,6 +468,24 @@ INITIALIZE_PASS_END(LoopSPMDization, DEBUG_TYPE, "Loop SPMDization", false,
                     false)
 
 Pass *llvm::createLoopSPMDizationPass() { return new LoopSPMDization(); }
+
+void LoopSPMDization::lowerSPMDWorkerNum(Loop *L, int PE) {
+  LLVMContext &Context = L->getHeader()->getContext();
+  SmallVector<Instruction *, 4> toDelete;
+  for (BasicBlock *const BB : L->getBlocks()) {
+    for (Instruction &inst : *BB)
+      if (IntrinsicInst *intr_inst = dyn_cast<IntrinsicInst>(&inst))
+        if (intr_inst->getIntrinsicID() == Intrinsic::csa_spmd_worker_num) {
+          Value *pe =
+            llvm::ConstantInt::get(llvm::Type::getInt32Ty(Context), PE);
+          inst.replaceAllUsesWith(pe);
+          toDelete.push_back(&inst);
+        }
+  }
+  for (auto I : toDelete)
+    I->eraseFromParent();
+  return;
+}
 
 void LoopSPMDization::setLoopAlreadySPMDized(Loop *L) {
   // Add SPMDization(disable) metadata to disable future SPMDization.
