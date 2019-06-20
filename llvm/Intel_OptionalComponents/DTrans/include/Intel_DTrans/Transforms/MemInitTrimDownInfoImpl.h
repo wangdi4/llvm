@@ -89,7 +89,7 @@ class MemInitCandidateInfo {
 public:
   inline bool isCandidateType(Type *Ty);
   inline bool collectMemberFunctions(Module &M, bool AtLTO = true);
-  inline void collectCallSites(SmallSet<CallBase *, 32> *MemInitCallSites);
+  inline void collectFuncs(SmallSet<Function *, 32> *MemInitCallSites);
   inline void printCandidateInfo(void);
 
   using FieldPositionTy = SmallVector<int32_t, MaxNumElemsInCandidate>;
@@ -493,17 +493,13 @@ bool MemInitCandidateInfo::collectMemberFunctions(Module &M, bool AtLTO) {
 // Collect callsites for all member functions of
 //   1. Candidate Struct
 //   2. Candidate array field structs
-void MemInitCandidateInfo::collectCallSites(
-    SmallSet<CallBase *, 32> *MemInitCallSites) {
+void MemInitCandidateInfo::collectFuncs(
+    SmallSet<Function *, 32> *MemInitFuncs) {
   for (auto *F : StructMethods)
-    for (auto &U : F->uses())
-      if (auto CB = dyn_cast<CallBase>(U.getUser()))
-        MemInitCallSites->insert(CB);
+    MemInitFuncs->insert(F);
   for (auto Loc : CandidateFieldPositions)
     for (auto *F : CandidateFieldMemberFuncs[Loc])
-      for (auto &U : F->uses())
-        if (auto CB = dyn_cast<CallBase>(U.getUser()))
-          MemInitCallSites->insert(CB);
+      MemInitFuncs->insert(F);
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

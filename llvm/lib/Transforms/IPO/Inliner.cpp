@@ -552,16 +552,16 @@ static bool InlineHistoryIncludes(
 }
 
 #if INTEL_CUSTOMIZATION
-static void collectDtransCallSites(Module &M,
-                                   SmallSet<CallBase *, 20>
-                                       *CallSitesForDTrans) {
+static void collectDtransFuncs(Module &M,
+                                   SmallSet<Function *, 20>
+                                       *FuncsForDTrans) {
 #if INTEL_INCLUDE_DTRANS
-  assert(CallSitesForDTrans && CallSitesForDTrans->empty() &&
+  assert(FuncsForDTrans && FuncsForDTrans->empty() &&
          "Inconsistent state of LegacyInlinerBase");
   // Set of SOAToAOS candidates.
   SmallPtrSet<StructType*, 4> SOAToAOSCandidates;
   // Suppress inlining for SOAToAOS candidates.
-  SmallSet<CallBase *, 20> LocalCallSitesForSOAToAOS;
+  SmallSet<Function *, 20> SOAToAOSCandidateMethods;
   for (auto *Str : M.getIdentifiedStructTypes()) {
     dtrans::soatoaos::SOAToAOSCFGInfo Info;
     if (!Info.populateLayoutInformation(Str)) {
@@ -585,10 +585,10 @@ static void collectDtransCallSites(Module &M,
     }
 
     // Not more than 1 candidate.
-    if (!LocalCallSitesForSOAToAOS.empty()) {
+    if (!SOAToAOSCandidateMethods.empty()) {
       DEBUG_WITH_TYPE(DTRANS_LAYOUT_DEBUG_TYPE,
                       dbgs() << "  ; Too many candidates found\n");
-      LocalCallSitesForSOAToAOS.clear();
+      SOAToAOSCandidateMethods.clear();
       break;
     }
 
@@ -599,12 +599,12 @@ static void collectDtransCallSites(Module &M,
     });
 
     SOAToAOSCandidates.insert(Str);
-    Info.collectCallSites(&LocalCallSitesForSOAToAOS);
+    Info.collectFuncs(&SOAToAOSCandidateMethods);
   }
-  CallSitesForDTrans->insert(LocalCallSitesForSOAToAOS.begin(),
-                             LocalCallSitesForSOAToAOS.end());
+  FuncsForDTrans->insert(SOAToAOSCandidateMethods.begin(),
+                         SOAToAOSCandidateMethods.end());
 
-  SmallSet<CallBase*, 32> MemInitCallSites;
+  SmallSet<Function *, 32> MemInitFuncs;
   // Only SOAToAOS candidates are considered for MemInitTrimDown.
   for (auto *TI : SOAToAOSCandidates) {
     dtrans::MemInitCandidateInfo MemInfo;
@@ -623,21 +623,20 @@ static void collectDtransCallSites(Module &M,
       continue;
     }
 
-    if (!MemInitCallSites.empty()) {
+    if (!MemInitFuncs.empty()) {
       DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
         dbgs() << "  Failed: More than one candidate struct found.\n";
       });
-      MemInitCallSites.clear();
+      MemInitFuncs.clear();
       break;
     }
-    // Collect CallSites of all member functions of candidate
+    // Collect all member functions of candidate
     // struct and candidate array field structs.
-    MemInfo.collectCallSites(&MemInitCallSites);
+    MemInfo.collectFuncs(&MemInitFuncs);
   }
   //   1. Member functions of candidate struct
   //   2. Member functions of all candidate array field structs.
-  CallSitesForDTrans->insert(MemInitCallSites.begin(),
-                                MemInitCallSites.end());
+  FuncsForDTrans->insert(MemInitFuncs.begin(), MemInitFuncs.end());
 
 #endif // INTEL_INCLUDE_DTRANS
 }
@@ -651,7 +650,7 @@ bool LegacyInlinerBase::doInitialization(CallGraph &CG) {
   // SimpleInliner provides InlineParams.
   if (auto *Params = getInlineParams())
     if (Params->PrepareForLTO.getValueOr(false))
-      collectDtransCallSites(CG.getModule(), &CallSitesForDTrans);
+      collectDtransFuncs(CG.getModule(), &FuncsForDTrans);
 #endif // INTEL_CUSTOMIZATION
   return false; // No changes to CallGraph.
 }
@@ -709,7 +708,7 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
                 InlineReport& IR,            // INTEL
                 InlineReportBuilder& MDIR,            // INTEL
                 SmallSet<CallBase *, 20> *CallSitesForFusion,   // INTEL
-                SmallSet<CallBase *, 20> *CallSitesForDTrans) { // INTEL
+                SmallSet<Function *, 20> *FuncsForDTrans) { // INTEL
   SmallPtrSet<Function *, 8> SCCFunctions;
   LLVM_DEBUG(dbgs() << "Inliner visiting SCC:");
   for (CallGraphNode *Node : SCC) {
@@ -1040,7 +1039,7 @@ bool LegacyInlinerBase::inlineCalls(CallGraphSCC &SCC) {
                             ImportedFunctionsStats, // INTEL
                             ILIC, getReport(), getMDReport(), // INTEL
                             &CallSitesForFusion,    // INTEL
-                            &CallSitesForDTrans);   // INTEL
+                            &FuncsForDTrans);   // INTEL
   delete ILIC;    // INTEL
   ILIC = nullptr; // INTEL
   return rv;      // INTEL
@@ -1053,7 +1052,7 @@ bool LegacyInlinerBase::doFinalization(CallGraph &CG) {
     ImportedFunctionsStats.dump(InlinerFunctionImportStats ==
                                 InlinerFunctionImportStatsOpts::Verbose);
 #if INTEL_CUSTOMIZATION
-  CallSitesForDTrans.clear();
+  FuncsForDTrans.clear();
 
   bool ReturnValue = removeDeadFunctions(CG);
   getReport().print();
@@ -1168,7 +1167,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   InliningLoopInfoCache* ILIC = new InliningLoopInfoCache(); // INTEL
 
   SmallSet<CallBase *, 20> CallSitesForFusion;  // INTEL
-  SmallSet<CallBase *, 20> CallSitesForDTrans;  // INTEL
+  SmallSet<Function *, 20> FuncsForDTrans;  // INTEL
   assert(InitialC.size() > 0 && "Cannot handle an empty SCC!");
   Module &M = *InitialC.begin()->getFunction().getParent();
 #if INTEL_CUSTOMIZATION
@@ -1190,7 +1189,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   Report.beginSCC(CG, InitialC);
   MDReport->beginSCC(CG, InitialC);
   if (Params.PrepareForLTO.getValueOr(false))
-    collectDtransCallSites(CG.getModule(), &CallSitesForDTrans);
+    collectDtransFuncs(CG.getModule(), &FuncsForDTrans);
 #endif // INTEL_CUSTOMIZATION
 
   // We use a single common worklist for calls across the entire SCC. We
@@ -1342,7 +1341,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       return getInlineCost(cast<CallBase>(*CS.getInstruction()), Params,
                            CalleeTTI, GetAssumptionCache, {GetBFI}, // INTEL
                            TLI, ILIC, AggI, &CallSitesForFusion,    // INTEL
-                           &CallSitesForDTrans, PSI,                // INTEL
+                           &FuncsForDTrans, PSI,                // INTEL
                            RemarksEnabled ? &ORE : nullptr);
     };
 

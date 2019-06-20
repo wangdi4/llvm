@@ -409,7 +409,8 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
                                           // *this as DepMap to query.
                                           *this, S,
                                           // Info for transformation
-                                          *Data);
+                                          *Data,
+                                          Impl.TLI);
       auto Res = MC.classify();
       auto Kind = Res.first;
 

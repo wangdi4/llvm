@@ -164,6 +164,17 @@ const Dep *DepCompute::computeValueDep(const Value *Val) const {
 // Compute approximation of arithmetic computations
 // in post-order of SCCs according to AllDepGraph.
 const Dep* DepCompute::computeInstDep(const Instruction *I) const {
+
+  // Check if called function F is a library function LB.
+  auto IsLibFunction = [this](Function *F, LibFunc LB) {
+    LibFunc LibF;
+    if (!F || !TLI.getLibFunc(*F, LibF) || !TLI.has(LibF))
+      return false;
+    if (LibF != LB)
+      return false;
+    return true;
+  };
+
   const Dep *Rep = nullptr;
   switch (I->getOpcode()) {
   case Instruction::Load:
@@ -288,6 +299,8 @@ const Dep* DepCompute::computeInstDep(const Instruction *I) const {
     else if (isDummyFuncWithPtr)
       Rep = Dep::mkFree(DM, Dep::mkNonEmptyArgList(DM, Special),
                         Dep::mkArgList(DM, Remaining));
+    else if (F && IsLibFunction(F, LibFunc_clang_call_terminate))
+      Rep = Dep::mkCall(DM, Dep::mkArgList(DM, Remaining), true);
     else
       Rep = Dep::mkCall(DM, Dep::mkArgList(DM, Remaining),
                         F && getStructTypeOfMethod(*F) == ClassType);

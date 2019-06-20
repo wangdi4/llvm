@@ -262,7 +262,7 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   // Set of candidate call sites for loop fusion
   SmallSet<CallBase *, 20> *CallSitesForFusion;
   // Set of candidate call sites for dtrans.
-  SmallSet<CallBase *, 20> *CallSitesForDTrans;
+  SmallSet<Function *, 20> *FuncsForDTrans;
 #endif // INTEL_CUSTOMIZATION
 
   bool IsCallerRecursive = false;
@@ -429,7 +429,7 @@ public:
                InliningLoopInfoCache *ILIC,        // INTEL
                InlineAggressiveInfo *AI,           // INTEL
                SmallSet<CallBase *, 20> *CSForFusion, // INTEL
-               SmallSet<CallBase *, 20> *CSForDTrans, // INTEL
+               SmallSet<Function *, 20> *FForDTrans, // INTEL
                const InlineParams &Params)
       : TTI(TTI), GetAssumptionCache(GetAssumptionCache), GetBFI(GetBFI),
         PSI(PSI), F(Callee), DL(F.getParent()->getDataLayout()), ORE(ORE),
@@ -439,7 +439,7 @@ public:
 #if INTEL_CUSTOMIZATION
         EarlyExitThreshold(INT_MAX), EarlyExitCost(INT_MAX), TLI(TLI),
         ILIC(ILIC), AI(AI), CallSitesForFusion(CSForFusion),
-        CallSitesForDTrans(CSForDTrans),
+        FuncsForDTrans(FForDTrans),
 #endif // INTEL_CUSTOMIZATION
         EnableLoadElimination(true) {}
 
@@ -1486,7 +1486,7 @@ bool CallAnalyzer::visitCallBase(CallBase &Call) {
   IndirectCallParams.DefaultThreshold = InlineConstants::IndirectCallThreshold;
   CallAnalyzer CA(TTI, GetAssumptionCache, GetBFI, PSI, ORE, *F, Call,
                   TLI, ILIC, AI, CallSitesForFusion,   // INTEL
-                  CallSitesForDTrans,                  //INTEL
+                  FuncsForDTrans,                  //INTEL
                   IndirectCallParams);
   if (CA.analyzeCall(Call, TTI, nullptr)) { // INTEL
     // We were able to inline the indirect call! Subtract the cost from the
@@ -2973,17 +2973,19 @@ bool CallAnalyzer::preferDTransToInlining(CallBase &CB,
   if (!DTransInlineHeuristics)
     return false;
 
-  if (!CallSitesForDTrans) {
-    LLVM_DEBUG(llvm::dbgs() << "IC: inlining for dtrans: no call site "
-                               "candidates to suppress inline.\n");
+  if (!FuncsForDTrans) {
+    LLVM_DEBUG(
+        llvm::dbgs()
+        << "IC: inlining for dtrans: no candidates to suppress inline.\n");
     return false;
   }
 
-  // The call site was stored as candidate to suppress inlining.
-  if (!CallSitesForDTrans->count(&CB))
-    return false;
+  // The callee was stored as candidate to suppress inlining.
+  if (Function *Callee = CB.getCalledFunction())
+    if (FuncsForDTrans->count(Callee))
+      return true;
 
-  return true;
+  return false;
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -4669,12 +4671,12 @@ InlineCost llvm::getInlineCost(
     InliningLoopInfoCache *ILIC, // INTEL
     InlineAggressiveInfo *AI,    // INTEL
     SmallSet<CallBase *, 20> *CallSitesForFusion, // INTEL
-    SmallSet<CallBase *, 20> *CallSitesForDTrans, // INTEL
+    SmallSet<Function *, 20> *FuncsForDTrans, // INTEL
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE) {
   return getInlineCost(Call, Call.getCalledFunction(), Params, CalleeTTI,
                        GetAssumptionCache, GetBFI, TLI, ILIC, AI, // INTEL
                        CallSitesForFusion,                        // INTEL
-                       CallSitesForDTrans, PSI, ORE);             // INTEL
+                       FuncsForDTrans, PSI, ORE);             // INTEL
 }
 
 InlineCost llvm::getInlineCost(
@@ -4686,7 +4688,7 @@ InlineCost llvm::getInlineCost(
     InliningLoopInfoCache *ILIC,    // INTEL
     InlineAggressiveInfo *AI,       // INTEL
     SmallSet<CallBase *, 20> *CallSitesForFusion, // INTEL
-    SmallSet<CallBase *, 20> *CallSitesForDTrans, // INTEL
+    SmallSet<Function *, 20> *FuncsForDTrans, // INTEL
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE) {
 
   // Cannot inline indirect calls.
@@ -4776,7 +4778,7 @@ InlineCost llvm::getInlineCost(
 
   CallAnalyzer CA(CalleeTTI, GetAssumptionCache, GetBFI, PSI, ORE, *Callee,
                   Call, TLI, ILIC, AI, CallSitesForFusion,   // INTEL
-                  CallSitesForDTrans, Params);               // INTEL
+                  FuncsForDTrans, Params);               // INTEL
 #if INTEL_CUSTOMIZATION
   InlineReason Reason = InlrNoReason;
   InlineResult ShouldInline = CA.analyzeCall(Call, CalleeTTI, &Reason);

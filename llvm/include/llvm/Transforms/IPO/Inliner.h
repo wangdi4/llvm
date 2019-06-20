@@ -90,7 +90,7 @@ protected:
   ProfileSummaryInfo *PSI;
   ImportedFunctionsInliningStatistics ImportedFunctionsStats;
   SmallSet<CallBase *, 20> CallSitesForFusion; // INTEL
-  SmallSet<CallBase *, 20> CallSitesForDTrans; // INTEL
+  SmallSet<Function *, 20> FuncsForDTrans; // INTEL
 };
 
 /// The inliner pass for the new pass manager.

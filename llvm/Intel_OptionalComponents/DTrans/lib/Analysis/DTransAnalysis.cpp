@@ -1942,13 +1942,20 @@ bool DTransAllocAnalyzer::isFreeWithStoredMMPtr(const Function *F) {
       continue;
     auto PBN = RootBlock(PB);
     for (const BasicBlock *PPB : predecessors(PBN)) {
-      if (PPB->size() != 2)
-        return false;
-      auto BI = dyn_cast<BranchInst>(PPB->getTerminator());
-      if (!BI || !BI->isUnconditional())
-        return false;
-      if (!IsFreeCall(Callee, &PPB->front()))
-        return false;
+      if (PPB->size() == 1) {
+        // Expecting single invoke instruction.
+        if (!IsFreeCall(Callee, &PPB->front()))
+          return false;
+      } else {
+        // Expecting call instruction + branch instruction.
+        if (PPB->size() != 2)
+          return false;
+        auto BI = dyn_cast<BranchInst>(PPB->getTerminator());
+        if (!BI || !BI->isUnconditional())
+          return false;
+        if (!IsFreeCall(Callee, &PPB->front()))
+          return false;
+      }
     }
   }
 
