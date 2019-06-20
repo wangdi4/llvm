@@ -1465,15 +1465,10 @@ TryStaticDowncast(Sema &Self, CanQualType SrcType, CanQualType DestType,
   }
 
   if (!CStyle) {
-#if INTEL_CUSTOMIZATION
-    // CQ#409860 report warning instead of error in compatibility mode.
-    unsigned Diag =
-        (Self.getLangOpts().IntelCompat && Self.getLangOpts().IntelMSCompat)
-            ? diag::ext_ms_downcast_from_inaccessible_base
-            : diag::err_downcast_from_inaccessible_base;
-    switch (Self.CheckBaseClassAccess(OpRange.getBegin(), SrcType, DestType,
-                                      Paths.front(), Diag)) {
-#endif // INTEL_CUSTOMIZATION
+    switch (Self.CheckBaseClassAccess(OpRange.getBegin(),
+                                      SrcType, DestType,
+                                      Paths.front(),
+                                diag::err_downcast_from_inaccessible_base)) {
     case Sema::AR_accessible:
     case Sema::AR_delayed:     // be optimistic
     case Sema::AR_dependent:   // be optimistic
