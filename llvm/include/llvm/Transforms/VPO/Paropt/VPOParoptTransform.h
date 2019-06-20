@@ -1319,6 +1319,14 @@ private:
   void improveAliasForOutlinedFunc(WRegionNode *W);
 #endif  // INTEL_CUSTOMIZATION
 
+  /// Guard each instruction that has a side effect with master thread id
+  /// check, so that only the master thread (id == 0) in the team executes
+  /// the code, then put a barrier before the start and after the end of
+  /// every parallel region, so that all the threads in the team wait for
+  /// the master thread, and can see its update of team shared memory.
+  void guardSideEffectStatements(Function *KernelF,
+                                 SmallPtrSetImpl<Value*> &PrivateVariables);
+
   /// Set the kernel arguments' address space as ADDRESS_SPACE_GLOBAL.
   /// Propagate the address space from the arguments to the usage of the
   /// arguments.

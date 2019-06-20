@@ -204,5 +204,5 @@ attributes #3 = { inaccessiblememonly nounwind speculatable }
 
 ; CHECK: %{{.*}} = call i64 @_Z14get_num_groupsj(i32 0)
 ; CHECK: %{{.*}} = call i64 @_Z12get_group_idj(i32 0)
+; CHECK: %{{.*}} = call i64 @_Z12get_local_idj(i32 0)
 ; CHECK-NOT: %{{.*}} = call i64 @_Z14get_local_sizej(i32 0)
-; CHECK-NOT: %{{.*}} = call i64 @_Z12get_local_idj(i32 0)

@@ -969,6 +969,7 @@ bool VPOParoptTransform::paroptTransforms() {
                        hasOffloadCompilation();
   bool NeedTID, NeedBID;
 
+  LLVM_DEBUG(dbgs()<<"\n In transform "<<IsTargetSPIRV <<" Dump the function ::"<<*F);
   if (IsTargetSPIRV && (Mode & ParPrepare))
     RoutineChanged |= renameAndReplaceLibatomicCallsForSPIRV(F);
 
@@ -1078,7 +1079,21 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= captureAndAddCollectedNonPointerValuesToSharedClause(W);
             Changed |= genMultiThreadedCode(W);
           }
+          else {
+            Changed |= genPrivatizationCode(W);
+            Changed |= genReductionCode(W);
+          }
+
           RemoveDirectives = true;
+
+          LLVM_DEBUG(dbgs()<<"\n Parallel W-Region::"<<*W->getEntryBBlock());
+
+          if (IsTargetSPIRV && isa<WRNParallelNode>(W)) {
+            // The directive gets removed, when processing the target region,
+            // do not remove it here, since guardSideEffects needs the
+            // parallel directive to insert barriers.
+            RemoveDirectives = false;
+          }
         }
         break;
       case WRegionNode::WRNParallelSections:
@@ -1176,6 +1191,16 @@ bool VPOParoptTransform::paroptTransforms() {
           }
           Changed |= sinkSIMDDirectives(W);
           RemoveDirectives = true;
+
+          LLVM_DEBUG(dbgs()<<"\n Parallel W-Region::"<<*W->getEntryBBlock());
+
+          if (IsTargetSPIRV && (isa<WRNParallelLoopNode>(W)
+                || isa<WRNDistributeParLoopNode>(W))) {
+            // The directive gets removed, when processing the target region,
+            // do not remove it here, since guardSideEffects needs the
+            // parallel directive to insert barriers.
+            RemoveDirectives = false;
+          }
         }
         break;
       case WRegionNode::WRNTask:

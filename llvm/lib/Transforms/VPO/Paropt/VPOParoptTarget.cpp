@@ -19,6 +19,7 @@
 
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/Support/Debug.h"
 
 #include "llvm/CodeGen/Passes.h"
@@ -165,6 +166,280 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
 
   return NFn;
 }
+
+/// This function checks if the instruction is an intrinsic instruction,
+/// and depending on the boolean flag, whether it is target, parallel
+/// parallel loop or simd loop.
+static bool isParOrTargetDirective(Instruction *Inst,
+                                   bool isTarget = false, bool isSIMD = false) {
+  auto IntrinInst = dyn_cast<IntrinsicInst>(Inst);
+
+  if (!IntrinInst || !IntrinInst->hasOperandBundles()) {
+    return false;
+  }
+
+  int ID = VPOAnalysisUtils::getDirectiveID(Inst);
+
+  if (isSIMD)
+    return ID==DIR_OMP_SIMD;
+
+  if (isTarget)
+    return ID==DIR_OMP_TARGET;
+
+  switch (ID) {
+    case DIR_OMP_PARALLEL:
+    case DIR_OMP_PARALLEL_LOOP:
+    case DIR_OMP_DISTRIBUTE_PARLOOP:
+    case DIR_OMP_SIMD:
+      return true;
+  }
+
+  return false;
+}
+
+/// Get the exit region directive intrinsic instruction, corresponding
+/// to the begin region directive. The user instruction of the
+/// begin region is the exit region directive.
+static Instruction *getExitInstruction(IntrinsicInst *DirectiveBegin) {
+  assert(DirectiveBegin != nullptr);
+  // Assumption: Every intrinsic instruction that begins a directive
+  // has a single exit directive corresponding to it.
+  // So, if we iterate through its users, then the
+  // intrinsic instruction that uses it must be the exit directive
+  for (auto U : DirectiveBegin->users()) {
+    if (auto DEnd = dyn_cast<IntrinsicInst>(U)) {
+      LLVM_DEBUG(dbgs() << "\n Direc End::" << *DEnd);
+      return DEnd;
+    }
+  }
+  return nullptr;
+}
+
+/// This function ignores special instructions with side effect.
+/// Returns true if the store address is one of the \p PrivateVariables.
+/// Returns true if the call instruction is a special call.
+/// Returns true if the store address is an alloca instruction,
+/// that is allocated locally in the thread.
+static bool ignoreSpecialOperands(const Instruction *I,
+                                  SmallPtrSetImpl<Value *> &PrivateVariables) {
+
+  //   Ignore calls to the following OpenCL functions
+  const std::set<std::string> IgnoreCalls = {
+      "_Z13get_global_idj",  "_Z12get_local_idj",   "_Z14get_local_sizej",
+      "_Z14get_num_groupsj", "_Z12get_group_idj",   "_Z18work_group_barrierj",
+      "_Z9mem_fencej",       "_Z14read_mem_fencej", "_Z15write_mem_fencej",
+      "__kmpc_critical",     "__kmpc_end_critical", "omp_get_thread_num" };
+
+  if (auto CallI = dyn_cast<CallInst>(I)) {
+    auto CalledF = CallI->getCalledFunction();
+    assert(CalledF != nullptr && "Called Function not found ");
+    if (CalledF->hasName() &&
+        IgnoreCalls.find(CalledF->getName()) != IgnoreCalls.end())
+      return true;
+  } else if (auto StoreI = dyn_cast<StoreInst>(I)) {
+    const Value *StorePointer = StoreI->getPointerOperand();
+    LLVM_DEBUG(dbgs() << "Store op:: " << *StorePointer);
+    if (isa<AllocaInst>(StorePointer)) {
+      return true;
+    }
+    if (PrivateVariables.find(StorePointer) != PrivateVariables.end())
+      return true;
+  }
+  return false;
+}
+
+/// Guard instructions that have side effects, so that only master thread
+/// (thread_id == 0) in each team executes it.
+void VPOParoptTransform::guardSideEffectStatements(
+    Function *KernelF, SmallPtrSetImpl<Value *> &PrivateVariables) {
+
+  SmallVector<Instruction *, 6> SideEffectInstructions;
+  SmallPtrSet<BasicBlock  *, 6> SideEffectBasicBlocks;
+  SmallPtrSet<BasicBlock  *, 6> InsertedBarrierBlocks;
+
+  LLVM_DEBUG(dbgs() << "\n Before inserting master thread guard" << *KernelF);
+
+  Instruction *ParDirectiveBegin    = nullptr;
+  Instruction *ParDirectiveExit     = nullptr;
+  Instruction *TargetDirectiveBegin = nullptr;
+  Instruction *TargetDirectiveExit  = nullptr;
+  BasicBlock *CriticalBegin  = nullptr;
+  BasicBlock *CriticalExit  = nullptr;
+
+  SmallPtrSet<Instruction *, 6> InsertBarrierAt;
+  SmallVector<BasicBlock *, 10> ParBBVector, TargetBBSet;
+  SmallVector<BasicBlock *, 10> ParDirectiveExitBlocks;
+  SmallVector<BasicBlock *, 10> CriticalSectionBlocks;
+
+  // Find the parallel region begin and end directives,
+  // and add barriers at the entry and exit of parallel region.
+  for (inst_iterator I = inst_begin(KernelF), E = inst_end(KernelF);
+       I != E; ++I) {
+
+    if (isParOrTargetDirective(&*I)) {
+
+      ParDirectiveBegin = &*I;
+      ParDirectiveExit =
+          getExitInstruction(dyn_cast<IntrinsicInst>(ParDirectiveBegin));
+      assert(ParDirectiveExit != nullptr);
+
+      SmallVector<BasicBlock *, 10> TempParBBVec;
+      GeneralUtils::collectBBSet(ParDirectiveBegin->getParent(),
+                                 ParDirectiveExit->getParent(), TempParBBVec);
+      ParBBVector.append(TempParBBVec.begin(), TempParBBVec.end());
+      InsertBarrierAt.insert(ParDirectiveBegin);
+
+      InsertBarrierAt.insert(ParDirectiveExit);
+
+      //Remove the directive only if it is not SIMD
+      if (!isParOrTargetDirective(&*I, false, true))
+        ParDirectiveExitBlocks.push_back(ParDirectiveExit->getParent());
+
+      LLVM_DEBUG(dbgs() << "\n Insert Barrier before :" << *ParDirectiveBegin
+                        << "\n and after ::" << *ParDirectiveExit);
+
+      ParDirectiveBegin = nullptr;
+      ParDirectiveExit = nullptr;
+
+    } else if (TargetDirectiveBegin == nullptr &&
+               isParOrTargetDirective(&*I, true)) {
+      TargetDirectiveBegin = &*I;
+      TargetDirectiveExit =
+          getExitInstruction(dyn_cast<IntrinsicInst>(TargetDirectiveBegin));
+      GeneralUtils::collectBBSet(TargetDirectiveBegin->getParent(),
+          TargetDirectiveExit->getParent(), TargetBBSet);
+    } else if (CriticalBegin == nullptr && isa<CallInst>(&*I)){
+      auto CallI = dyn_cast<CallInst>(&*I);
+      auto CalledF = CallI->getCalledFunction();
+      if (CalledF->hasName() &&
+          CalledF->getName() == "__kmpc_critical") {
+        CriticalBegin = CallI->getParent();
+      }
+    } else if (CriticalExit == nullptr && isa<CallInst>(&*I)){
+      auto CallI = dyn_cast<CallInst>(&*I);
+      auto CalledF = CallI->getCalledFunction();
+      if (CalledF->hasName() &&
+          CalledF->getName() == "__kmpc_end_critical") {
+        CriticalExit = CallI->getParent();
+        GeneralUtils::collectBBSet(CriticalBegin,
+            CriticalExit, CriticalSectionBlocks);
+      }
+    }
+  }
+
+  SmallPtrSet<BasicBlock *, 10> ParBBSet(ParBBVector.begin(),
+                                         ParBBVector.end());
+  SmallPtrSet<BasicBlock *, 10> CriticalBBSet(CriticalSectionBlocks.begin(),
+                                         CriticalSectionBlocks.end());
+  // Iterate over all instructions and add the side effect instructions
+  // to the set "SideEffectInstructions".
+
+  TargetDirectiveBegin = nullptr;
+  TargetDirectiveExit = nullptr;
+
+  for (auto BB : TargetBBSet) {
+    if (ParBBSet.find(BB) != ParBBSet.end())
+      continue;
+
+    for (auto &I : *BB) {
+      if (TargetDirectiveBegin == nullptr &&
+          isParOrTargetDirective(&I, true)) {
+        TargetDirectiveBegin = &I;
+        TargetDirectiveExit =
+            getExitInstruction(dyn_cast<IntrinsicInst>(TargetDirectiveBegin));
+      }
+
+      if (TargetDirectiveBegin == nullptr)
+        continue;
+      if (TargetDirectiveExit == &I)
+        break;
+      // they donot have side effect Ignore intrinsic calls
+      if (isa<IntrinsicInst>(&I))
+        continue;
+      if (I.mayHaveSideEffects()) {
+        if (ignoreSpecialOperands(&I, PrivateVariables))
+          continue;
+
+        LLVM_DEBUG(dbgs() << "\n Instruction Has Sideeffect::" << I
+                          << "\n BasicBlock:: " << I.getParent());
+        SideEffectInstructions.push_back(&I);
+      }
+    }
+  }
+
+  for (auto I : SideEffectInstructions) {
+
+    // Get the basic block of the side effect instruction,
+    // then guard the block, and
+    // Make sure to ignore other side effect instructions
+    // within the block, since they are already guarded.
+    Instruction *InsertPt = I;
+    BasicBlock *ThisBB = InsertPt->getParent();
+
+    // If BB already guarded continue
+    if (SideEffectBasicBlocks.find(ThisBB) != SideEffectBasicBlocks.end())
+      continue;
+
+    //   Split the Basic Block at InsertPt, into 2 blocks (1st and 2nd Block)
+    //   Insert a check, at the end of the 1st block
+    //   if the thread id is not equal to zero, then
+    //   jump to the successor block of 2nd block
+    //   else execute the 2nd block
+
+    LLVM_DEBUG(dbgs()<<"\n Guarding::"<<*I);
+    Instruction* Term = InsertPt->getNextNonDebugInstruction();
+    if (CriticalBBSet.find(ThisBB) != CriticalBBSet.end()){
+      // Add master thread guard the basic block in the critical section.
+      // That is, get the terminator instruction, and split that into another
+      // BB, and guard everything else under the condition.
+      Term = ThisBB->getTerminator();
+    }
+
+    BasicBlock *TailBlock = SplitBlock(ThisBB, Term, DT, LI);
+
+    // Create an empty bb before the Thenblock, that just jumps to it
+    auto ThenBlock = BasicBlock::Create(TailBlock->getContext(), "",
+                                        TailBlock->getParent(), TailBlock);
+
+    // The unconditional branch instruction, that jumps to the single successor
+    auto GotoTail = BranchInst::Create(TailBlock, ThenBlock);
+    GotoTail->setDebugLoc(InsertPt->getDebugLoc());
+    IRBuilder<> Builder(InsertPt);
+    SmallVector<Value *, 3> Arg;
+
+    // TODO: select dimension of thread_id,
+    initArgArray(&Arg, 0);
+    CallInst *LocalId = VPOParoptUtils::genOCLGenericCall(
+        "_Z12get_local_idj", GeneralUtils::getSizeTTy(F), Arg, InsertPt);
+    auto *ValueZero = ConstantInt::get(LocalId->getType(), 0);
+    auto IsThread0 = Builder.CreateICmpNE(LocalId, ValueZero);
+    SplitBlockAndInsertIfThen(IsThread0, InsertPt, false, nullptr, DT, LI,
+                              ThenBlock);
+    // Add the new split basic block, since it is already guarded
+    //SideEffectBasicBlocks.insert(InsertPt->getParent());
+
+    SideEffectBasicBlocks.insert(InsertPt->getParent());
+    LLVM_DEBUG(dbgs() << "\n Has Side Effect::" << *I);
+  }
+
+  if (!SideEffectInstructions.empty()){
+    for (auto InsertPt : InsertBarrierAt) {
+      LLVM_DEBUG(dbgs() << "\n Insert Barrier at :" << *InsertPt);
+      IRBuilder<> Builder(InsertPt);
+      SmallVector<Value *, 3> Arg;
+      // TODO: select dimension of thread_id,
+      initArgArray(&Arg, 0);
+      VPOParoptUtils::genOCLGenericCall("_Z18work_group_barrierj",
+                                        GeneralUtils::getSizeTTy(F), Arg,
+                                        InsertPt);
+    }
+  }
+
+  for (auto BB : ParDirectiveExitBlocks) {
+    VPOUtils::stripDirectives(*BB);
+  }
+}
+
 // Generate the code for the directive omp target
 bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
@@ -181,6 +456,10 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   // Set up Fn Attr for the new function
   Function *NewF = VPOParoptUtils::genOutlineFunction(*W, DT, AC);
 
+  LLVM_DEBUG(
+      dbgs()
+      << "\nEnter VPOParoptTransform::genTargetOffloadingCode: Dump Func::\n"
+      << *NewF);
   if (!VPOAnalysisUtils::isTargetSPIRV(F->getParent()))
     NewF->addFnAttr("target.declare", "true");
 
@@ -201,8 +480,33 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   // Please note that the name of NewF is updated in the
   // function registerTargetRegion.
   if (VPOAnalysisUtils::isTargetSPIRV(F->getParent()) &&
-      hasOffloadCompilation())
-    finalizeKernelFunction(W, NewF, NewCall);
+      hasOffloadCompilation()) {
+    LLVM_DEBUG(dbgs() << "\n Before finalizeKernel Dump the function ::"
+                      << *NewF);
+    NewF = finalizeKernelFunction(W, NewF, NewCall);
+    LLVM_DEBUG(dbgs() << "\n After finalizeKernel Dump the function ::"
+                      << *NewF);
+
+    SmallPtrSet<Value *, 10> PrivateVariables;
+    if (W->canHavePrivate()) {
+      PrivateClause const &PrivClause = W->getPriv();
+      for (PrivateItem *PrivI : PrivClause.items()) {
+        LLVM_DEBUG(dbgs() << "\n Private Clause Items:: "
+                          << PrivI->getOrig()->getName()
+                          << " New:: " << PrivI->getNew()->getName());
+        PrivateVariables.insert(PrivI->getNew());
+      }
+      for (auto *PrivI : W->getFpriv().items()) {
+        LLVM_DEBUG(dbgs() << "\n Private Clause Items:: "
+                          << PrivI->getOrig()->getName()
+                          << " New:: " << PrivI->getNew()->getName());
+        PrivateVariables.insert(PrivI->getNew());
+      }
+    }
+    guardSideEffectStatements(NewF, PrivateVariables);
+    LLVM_DEBUG(dbgs() << "\n After guardSideEffectStatemets the function ::"
+                      << *NewF);
+  }
 
   if (hasOffloadCompilation())
     // Everything below only makes sense on the host.
