@@ -212,6 +212,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static CallInst *AddMoreArgsToCall(CallInst *OldC,
                                        ArrayRef<Value *> NewArgs,
                                        Function *NewF);
+
+    /// @brief Replaces an indirect CallInst with a new indirect CallInst which
+    ///        has the same arguments as orignal plus more args appeneded.
+    /// @param OldC the original CallInst to be replaced
+    /// @NewArgs New arguments to append to existing arguments
+    /// @returns the new CallInst
+    static CallInst *AddMoreArgsToIndirectCall(CallInst *OldC,
+                                              ArrayRef<Value *> NewArgs);
     static bool isGetWorkDim(const std::string&);
     static bool isGetGlobalId(const std::string&);
     static bool isGetGlobalSize(const std::string&);
