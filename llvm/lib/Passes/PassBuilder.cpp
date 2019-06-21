@@ -1331,7 +1331,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
       MPM.addPass(IPSCCPPass());
 #endif // INTEL_INCLUDE_DTRANS
     MPM.addPass(IPCloningPass(/*AfterInl*/ false,
-                              /*IFSwitchHeuristic*/ false));
+                              /*IFSwitchHeuristic*/ true));
   }
 #endif // INTEL_CUSTOMIZATION
 

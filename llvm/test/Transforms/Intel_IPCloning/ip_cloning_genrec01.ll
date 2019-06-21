@@ -1,9 +1,9 @@
-; RUN: opt < %s -ip-cloning -ip-cloning-after-inl -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-rec-callsites=4 -print-ip-cloning -S 2>&1 | FileCheck %s
-; R;UN: opt < %s -passes='module(post-inline-ip-cloning)' -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-rec-callsites=4 -print-ip-cloning -S 2>&1 | FileCheck %s
+; RUN: opt < %s -ip-cloning -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-rec-callsites=4 -print-ip-cloning -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-rec-callsites=4 -print-ip-cloning -S 2>&1 | FileCheck %s
 
 ; Test that foo is selected for generic cloning of a recursive routine.
 
-; CHECK: Enter IP cloning: (After inlining)
+; CHECK: Enter IP cloning: (Before inlining)
 ; CHECK: Cloning Analysis for:  foo
 ; CHECK: Selected generic cloning
 ; CHECK: Formal_0:  (Inexact)

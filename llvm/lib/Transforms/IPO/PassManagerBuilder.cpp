@@ -1284,7 +1284,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     if (EnableDTrans)
       PM.add(createIPSCCPPass());
 #endif // INTEL_INCLUDE_DTRANS
-    PM.add(createIPCloningLegacyPass());
+    PM.add(createIPCloningLegacyPass(false, true));
   }
 
   // Apply dynamic_casts optimization pass.
