@@ -322,3 +322,9 @@ EXTERN void __kmpc_push_target_tripcount(int64_t device_id,
       loop_tripcount);
   Devices[device_id].loopTripCnt = loop_tripcount;
 }
+
+#if INTEL_COLLAB
+EXTERN bool __tgt_is_device_available(int device_num, void *device_type) {
+  return (device_num >= 0 && device_num < omp_get_num_devices());
+}
+#endif // INTEL_COLLAB

@@ -200,6 +200,9 @@ int __tgt_target_teams_nowait(int64_t device_id, void *host_ptr,
                               int32_t depNum, void *depList,
                               int32_t noAliasDepNum, void *noAliasDepList);
 void __kmpc_push_target_tripcount(int64_t device_id, uint64_t loop_tripcount);
+#if INTEL_COLLAB
+bool __tgt_is_device_available(int device_num, void *device_type);
+#endif // INTEL_COLLAB
 
 #ifdef __cplusplus
 }
