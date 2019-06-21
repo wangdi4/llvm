@@ -617,6 +617,7 @@ void VPLoopEntityList::createInductionCloseForm(
   if (Induction->getInductionBinOp()) {
     // Non-memory induction.
     VPPHINode *StartPhi = findInductionStartPhi(Induction);
+    assert(StartPhi && "null induction StartPhi");
     VPBasicBlock *Block = Induction->getInductionBinOp()->getParent();
     Builder.setInsertPoint(Block);
     VPValue *NewInd = nullptr;
