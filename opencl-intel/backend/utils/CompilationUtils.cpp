@@ -75,9 +75,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_SUB_GROUP_RESERVE_WRITE_PIPE = "__sub_group_reserve_write_pipe";
   const std::string CompilationUtils::NAME_SUB_GROUP_COMMIT_WRITE_PIPE = "__sub_group_commit_write_pipe";
 
+  // atomic fence functions
+  const std::string CompilationUtils::NAME_ATOMIC_WORK_ITEM_FENCE = "atomic_work_item_fence";
+
+  // mem_fence functions
   const std::string CompilationUtils::NAME_MEM_FENCE = "mem_fence";
   const std::string CompilationUtils::NAME_READ_MEM_FENCE = "read_mem_fence";
   const std::string CompilationUtils::NAME_WRITE_MEM_FENCE = "write_mem_fence";
+
   // Extended execution var args OpenCL 2.x
   const std::string CompilationUtils::NAME_ENQUEUE_KERNEL = "enqueue_kernel";
 
@@ -815,6 +820,19 @@ static std::string mangleWithParam(const char*const N,
   return mangle(FD);
 }
 
+std::string CompilationUtils::mangledMemFence() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_MEM_FENCE.c_str());
+}
+
+std::string CompilationUtils::mangledAtomicWorkItemFence() {
+  reflection::TypePrimitiveEnum Params[] = {
+    reflection::PRIMITIVE_UINT,
+    reflection::PRIMITIVE_MEMORY_ORDER,
+    reflection::PRIMITIVE_MEMORY_SCOPE };
+
+   return mangleWithParam(NAME_ATOMIC_WORK_ITEM_FENCE.c_str(), Params);
+}
+
 std::string CompilationUtils::mangledGetGID() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_GID.c_str());
 }
@@ -1277,7 +1295,7 @@ bool CompilationUtils::isAtomicWorkItemFenceBuiltin(const std::string& funcName)
   // - it's equal to "atomic_work_item_fence" string
   if (!isMangledName(funcName.c_str()))
     return false;
-  return stripName(funcName.c_str()) == "atomic_work_item_fence";
+  return stripName(funcName.c_str()) == NAME_ATOMIC_WORK_ITEM_FENCE;
 
 }
 
