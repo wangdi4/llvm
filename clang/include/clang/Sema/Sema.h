@@ -11326,13 +11326,6 @@ public:
   SmallVector<CXXRecordDecl*, 4> DelayedDllExportClasses;
 
 #if INTEL_CUSTOMIZATION
-  // CQ#410807: To be compatible with MS, we should parse initializers
-  // differently (always assuming that an identifier might be a reference to a
-  // class method). To do this in every situation and not add an additional
-  // argument to every function, we should remember that we are inside
-  // initializer parsing.
-  bool IsInInitializerContext = false;
-
   llvm::DenseMap<const Type *, SmallVector<FunctionDecl *, 4>> OCLChannelBIs;
 #endif // INTEL_CUSTOMIZATION
 

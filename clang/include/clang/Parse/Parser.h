@@ -1903,18 +1903,9 @@ private:  //***INTEL
   ///         assignment-expression
   ///         '{' ...
   ExprResult ParseInitializer() {
-#if INTEL_CUSTOMIZATION
-    ExprResult res;
-    Actions.IsInInitializerContext = true;
-
     if (Tok.isNot(tok::l_brace))
-      res = ParseAssignmentExpression();
-    else
-      res = ParseBraceInitializer();
-
-    Actions.IsInInitializerContext = false;
-    return res;
-#endif // INTEL_CUSTOMIZATION
+      return ParseAssignmentExpression();
+    return ParseBraceInitializer();
   }
   bool MayBeDesignationStart();
   ExprResult ParseBraceInitializer();

@@ -1076,25 +1076,6 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
       return ParseCastExpression(isUnaryExpression, isAddressOfOperand,
                                  NotCastExpr, isTypeCast);
     }
-
-#if INTEL_CUSTOMIZATION
-    // CQ#410807: To be compatible with MS, we should always assume that an
-    // identifier might be a reference to a class method and treat it as such.
-    // This is only applicable to "inside initializer" context and only when we
-    // sure that a function call doesn't follow (hence "l_paren" check).
-    if (getLangOpts().IntelMSCompat && !isAddressOfOperand &&
-        Actions.IsInInitializerContext && Tok.isNot(tok::l_paren) &&
-        !Res.isInvalid() &&
-        (Res.get()->getStmtClass() == Stmt::DeclRefExprClass)) {
-      ValueDecl *dcl = cast<DeclRefExpr>(Res.get())->getDecl();
-
-      if (dyn_cast<FunctionDecl>(dcl) && dcl->isCXXClassMember()) {
-        Res = Actions.ActOnUnaryOp(getCurScope(), ILoc, tok::amp, Res.get());
-        return Res;
-      }
-    }
-#endif // INTEL_CUSTOMIZATION
-
     if (!Res.isInvalid() && Tok.is(tok::less))
       checkPotentialAngleBracket(Res);
     break;
