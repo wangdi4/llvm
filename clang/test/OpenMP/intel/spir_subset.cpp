@@ -208,14 +208,11 @@ void foo1()
   //ALL-SAME:"DIR.OMP.TARGET"
   //ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
   //ALL-SAME:"DIR.OMP.TEAMS"
-  //HOST: [[T2:%[0-9]+]] = call token @llvm.directive.region.entry()
-  //HOST-SAME:"DIR.OMP.DISTRIBUTE.PARLOOP"
-  //HOST: region.exit(token [[T2]]) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"
+  //ALL: [[T2:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.DISTRIBUTE.PARLOOP"
+  //ALL: region.exit(token [[T2]]) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"
   //ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.TEAMS"
   //ALL: region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"
-  //Host compile allows, spir target allows target and teams,
-  //ignores others, warns.
-  //expected-warning@+3 {{OpenMP directive 'distribute parallel for' ignored for target}}
   #pragma omp target
   #pragma omp teams
   #pragma omp distribute parallel for
