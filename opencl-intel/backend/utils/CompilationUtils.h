@@ -434,18 +434,31 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     //////////////////////////////////////////////////////////////////
     static std::string mangledBarrier();
     //////////////////////////////////////////////////////////////////
+    // @brief: returns the mangled name of the sub_group_barrier
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledSGBarrier();
+    //////////////////////////////////////////////////////////////////
     // @brief: returns the mangled name of the work_group_barrier function
     // @param wgBarrierType
-    //                      WG_BARRIER_NO_SCOPE - for
+    //                      BARRIER_NO_SCOPE - for
     // void work_group_barrier (cl_mem_fence_flags flags)
-    //                      WG_BARRIER_WITH_SCOPE - for
+    //                      BARRIER_WITH_SCOPE - for
     // void work_group_barrier (cl_mem_fence_flags flags, memory_scope scope)
     //////////////////////////////////////////////////////////////////
     typedef enum {
-      WG_BARRIER_NO_SCOPE,
-      WG_BARRIER_WITH_SCOPE
-    } WG_BARRIER_TYPE;
-    static std::string mangledWGBarrier(WG_BARRIER_TYPE wgBarrierType);
+      BARRIER_NO_SCOPE,
+      BARRIER_WITH_SCOPE
+    } BARRIER_TYPE;
+    static std::string mangledWGBarrier(BARRIER_TYPE wgBarrierType);
+    //////////////////////////////////////////////////////////////////
+    // @brief: returns the mangled name of the sub_group_barrier function
+    // @param sgBarrierType
+    //                      BARRIER_NO_SCOPE - for
+    // void sub_group_barrier (cl_mem_fence_flags flags)
+    //                      BARRIER_WITH_SCOPE - for
+    // void sub_group_barrier (cl_mem_fence_flags flags, memory_scope scope)
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledSGBarrier(BARRIER_TYPE sgBarrierType);
 
     //////////////////////////////////////////////////////////////////
     // @brief: returns the mangled name of the function get_sub_group_local_id

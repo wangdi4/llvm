@@ -36,7 +36,7 @@ while.cond:                                       ; preds = %while.body, %entry
 
 while.body:                                       ; preds = %while.cond
   store i32 1, i32* %done, align 4
-  call spir_func void @_Z18work_group_barrierji(i32 1, i32 1)
+  call spir_func void @_Z18work_group_barrierj12memory_scope(i32 1, i32 1)
   br label %while.cond
 
 while.end:                                        ; preds = %while.cond
@@ -45,7 +45,7 @@ while.end:                                        ; preds = %while.cond
 
 declare spir_func i32 @_Z14work_group_alli(i32) #1
 
-declare spir_func void @_Z18work_group_barrierji(i32, i32) #1
+declare spir_func void @_Z18work_group_barrierj12memory_scope(i32, i32) #1
 
 attributes #0 = { nounwind "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-realign-stack" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-realign-stack" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }

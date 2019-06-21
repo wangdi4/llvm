@@ -267,8 +267,10 @@ bool OpenclRuntime::isSyncWithSideEffect(const std::string &func_name) const {
 bool OpenclRuntime::isSyncWithNoSideEffect(const std::string &func_name) const {
   using namespace Intel::OpenCL::DeviceBackend;
   if (func_name == CompilationUtils::mangledBarrier() ||
-      func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::WG_BARRIER_NO_SCOPE) ||
-      func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::WG_BARRIER_WITH_SCOPE) )
+      func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::BARRIER_NO_SCOPE) ||
+      func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::BARRIER_WITH_SCOPE)||
+      func_name == CompilationUtils::mangledSGBarrier(CompilationUtils::BARRIER_NO_SCOPE) ||
+      func_name == CompilationUtils::mangledSGBarrier(CompilationUtils::BARRIER_WITH_SCOPE) )
     return true;
 
   if (CompilationUtils::isWaitGroupEvents(func_name))
@@ -277,7 +279,7 @@ bool OpenclRuntime::isSyncWithNoSideEffect(const std::string &func_name) const {
   const char* Fname = func_name.c_str();
   bool IsMangled = isMangledName(Fname);
 
-  //builtin functions are always mangeled
+  //builtin functions are always mangled
   if (!IsMangled)
     return false;
 

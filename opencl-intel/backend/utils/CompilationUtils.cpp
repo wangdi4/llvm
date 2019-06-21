@@ -294,8 +294,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       llvm::StringRef func_name = fi->getName();
       if ( /* barrier built-ins */
           func_name == CompilationUtils::mangledBarrier() ||
-          func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::WG_BARRIER_NO_SCOPE) ||
-          func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::WG_BARRIER_WITH_SCOPE) ||
+          func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::BARRIER_NO_SCOPE) ||
+          func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::BARRIER_WITH_SCOPE) ||
           /* work group built-ins */
           CompilationUtils::isWorkGroupBuiltin(func_name)  ||
           /* built-ins synced as if were called by a single work item */
@@ -851,21 +851,45 @@ std::string CompilationUtils::mangledBarrier() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(BARRIER_FUNC_NAME.c_str());
 }
 
-std::string CompilationUtils::mangledWGBarrier(WG_BARRIER_TYPE wgBarrierType) {
+std::string CompilationUtils::mangledWGBarrier(BARRIER_TYPE wgBarrierType) {
   switch(wgBarrierType) {
-  case WG_BARRIER_NO_SCOPE:
-    return mangleWithParam<reflection::PRIMITIVE_UINT>(WG_BARRIER_FUNC_NAME.c_str(), 1);
-  case WG_BARRIER_WITH_SCOPE: {
+  case BARRIER_NO_SCOPE:
+    return mangleWithParam<reflection::PRIMITIVE_UINT>(
+      WG_BARRIER_FUNC_NAME.c_str(), 1);
+  case BARRIER_WITH_SCOPE: {
     reflection::TypePrimitiveEnum Params[] = {
       reflection::PRIMITIVE_UINT,
-      reflection::PRIMITIVE_INT };
+      reflection::PRIMITIVE_MEMORY_SCOPE };
 
     return mangleWithParam(WG_BARRIER_FUNC_NAME.c_str(), Params);
   }
   default:
-    assert(false && "Unknown work_group_barrier version");
-    return "";
+    llvm_unreachable("Unknown work_group_barrier version");
   }
+  return "";
+}
+
+std::string CompilationUtils::mangledSGBarrier() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(
+    SG_BARRIER_FUNC_NAME.c_str());
+}
+
+std::string CompilationUtils::mangledSGBarrier(BARRIER_TYPE sgBarrierType) {
+  switch(sgBarrierType) {
+  case BARRIER_NO_SCOPE:
+    return mangleWithParam<reflection::PRIMITIVE_UINT>(
+      SG_BARRIER_FUNC_NAME.c_str(), 1);
+  case BARRIER_WITH_SCOPE : {
+    reflection::TypePrimitiveEnum Params[] = {
+      reflection::PRIMITIVE_UINT,
+      reflection::PRIMITIVE_MEMORY_SCOPE };
+
+    return mangleWithParam(SG_BARRIER_FUNC_NAME.c_str(), Params);
+  }
+  default:
+    llvm_unreachable("Unknown sub_group_barrier version");
+  }
+  return "";
 }
 
 std::string CompilationUtils::mangledGetSubGroupLID() {
