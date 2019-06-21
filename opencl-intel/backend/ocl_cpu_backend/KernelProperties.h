@@ -215,6 +215,7 @@ public:
     void SetBarrierBufferSize(size_t size) { m_barrierBufferSize = size; }
     void SetPrivateMemorySize(size_t size) { m_privateMemorySize = size; }
     void SetMaxPrivateMemorySize(size_t size) { m_maxPrivateMemorySize = size; }
+    void SetVectorizationWidth(size_t VF) { m_vectorizationWidth = VF; }
     void SetCpuId( const Intel::CPUId &cpuId ) { m_cpuId = cpuId; }
     void SetMinGroupSizeFactorial(unsigned int size) { m_minGroupSizeFactorial = size; }
     void EnableVectorizedWithTail() { m_isVectorizedWithTail = true; }
@@ -262,6 +263,7 @@ protected:
     size_t m_maxPrivateMemorySize;
     size_t m_reqdNumSG;
     size_t m_kernelExecutionLength;
+    size_t m_vectorizationWidth;
     std::string m_kernelAttributes;
     unsigned int m_minGroupSizeFactorial;
     bool m_isVectorizedWithTail;

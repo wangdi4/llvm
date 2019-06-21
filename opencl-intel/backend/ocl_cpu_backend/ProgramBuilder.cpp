@@ -499,6 +499,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   const size_t scalarExecutionLength = skimd.KernelExecutionLength.get();
   const unsigned int scalarBufferStride = skimd.BarrierBufferSize.get();
   unsigned int privateMemorySize = skimd.PrivateMemorySize.get();
+  size_t VF = skimd.VectorizedWidth.get();
 
   size_t vectorExecutionLength = 0;
   unsigned int vectorBufferStride = 0;
@@ -511,6 +512,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
     vectorBufferStride = vkimd.BarrierBufferSize.get();
     privateMemorySize = std::max<unsigned int>(privateMemorySize,
                                                vkimd.PrivateMemorySize.get());
+    VF = vkimd.VectorizedWidth.get();
   }
 
   // Execution length contains the max size between
@@ -542,6 +544,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   pProps->SetHasBarrier(hasBarrier);
   pProps->SetHasGlobalSync(hasGlobalSync);
   pProps->SetKernelExecutionLength(executionLength);
+  pProps->SetVectorizationWidth(VF);
   pProps->SetIsAutorun(isAutorun);
   pProps->SetNeedSerializeWGs(needSerializeWGs);
   pProps->SetIsTask(isTask);
