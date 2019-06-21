@@ -2100,36 +2100,9 @@ static void filterNonConflictingPreviousTypedefDecls(Sema &S,
   Filter.done();
 }
 
-#if INTEL_CUSTOMIZATION
-// CQ#377518 - allow integer typedef redefinition in IntelMSCompat mode.
-static bool areCompatibleTypedefs(TypedefNameDecl *Old, TypedefNameDecl *New,
-                                  ASTContext &Context) {
-#ifndef NDEBUG
-  const LangOptions &Opts = Context.getLangOpts();
-  assert(Opts.IntelMSCompat &&
-         "This routine must be called in IntelMSCompat mode only!");
-  assert(!Opts.CPlusPlus && !Opts.ObjC &&
-         "This routine must be called in C mode only!");
-  assert(Old && New && "Expected valid typedef declarations!");
-#endif // not NDEBUG
-
-  // If both are locally-scoped, emit an error.
-  if (!Old->getDeclContext()->isFileContext() &&
-      !New->getDeclContext()->isFileContext())
-    return false;
-
-  return Context.areCompatibleTypedefTypesInC(Old->getUnderlyingType(),
-                                              New->getUnderlyingType());
-}
-#endif // INTEL_CUSTOMIZATION
-
 bool Sema::isIncompatibleTypedef(TypeDecl *Old, TypedefNameDecl *New) {
   QualType OldType;
-#if INTEL_CUSTOMIZATION
-  // CQ#377518 - allow integer typedef redefinition in IntelMSCompat mode.
-  auto *OldTypedef = dyn_cast<TypedefNameDecl>(Old);
-  if (OldTypedef)
-#endif // INTEL_CUSTOMIZATION
+  if (TypedefNameDecl *OldTypedef = dyn_cast<TypedefNameDecl>(Old))
     OldType = OldTypedef->getUnderlyingType();
   else
     OldType = Context.getTypeDeclType(Old);
@@ -2150,33 +2123,13 @@ bool Sema::isIncompatibleTypedef(TypeDecl *Old, TypedefNameDecl *New) {
       !OldType->isDependentType() &&
       !NewType->isDependentType() &&
       !Context.hasSameType(OldType, NewType)) {
-#if INTEL_CUSTOMIZATION
-    // CQ#377518 - allow integer typedef redefinition in IntelMSCompat mode.
-    const LangOptions &Opts = Context.getLangOpts();
-    bool AllowedAsIntelExtInC =
-        Opts.IntelMSCompat && !Opts.CPlusPlus && !Opts.ObjC &&
-        OldTypedef && areCompatibleTypedefs(OldTypedef, New, Context);
-
-    TypeDecl *OldDecl = Old;
-    if (AllowedAsIntelExtInC) {
-      Diag(New->getLocation(), diag::warn_int_typedef_redefinition_ignored)
-          << NewType << OldType;
-      if (OldTypedef->isModed())
-        New->setModedTypeSourceInfo(OldTypedef->getTypeSourceInfo(),
-                                    OldTypedef->getUnderlyingType());
-      else
-        New->setTypeSourceInfo(OldTypedef->getTypeSourceInfo());
-      OldDecl = OldTypedef->getFirstDecl();
-    } else {
-      int Kind = isa<TypeAliasDecl>(Old) ? 1 : 0;
-      Diag(New->getLocation(), diag::err_redefinition_different_typedef)
-        << Kind << NewType << OldType;
-      New->setInvalidDecl();
-    }
-    if (OldDecl->getLocation().isValid())
-      notePreviousDefinition(OldDecl, New->getLocation());
-    return !AllowedAsIntelExtInC;
-#endif // INTEL_CUSTOMIZATION
+    int Kind = isa<TypeAliasDecl>(Old) ? 1 : 0;
+    Diag(New->getLocation(), diag::err_redefinition_different_typedef)
+      << Kind << NewType << OldType;
+    if (Old->getLocation().isValid())
+      notePreviousDefinition(Old, New->getLocation());
+    New->setInvalidDecl();
+    return true;
   }
   return false;
 }
