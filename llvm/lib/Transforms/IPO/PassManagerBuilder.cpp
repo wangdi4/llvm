@@ -1017,7 +1017,7 @@ void PassManagerBuilder::populateModulePassManager(
   // In LTO mode, loopopt needs to run in link phase along with community
   // vectorizer and unroll after it until they are phased out.
   if (!PrepareForLTO || !isLoopOptEnabled()) {
-    addLoopOptAndAssociatedVPOPasses(MPM);
+    addLoopOptAndAssociatedVPOPasses(MPM, false);
 #endif // INTEL_CUSTOMIZATION
 
   // Distribute loops to allow partial vectorization.  I.e. isolate dependences
@@ -1520,7 +1520,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createSimpleLoopUnrollPass(OptLevel,
                                     DisableUnrollLoops, // Unroll small loops
                                     ForgetAllSCEVInLoopUnroll));
-  addLoopOptAndAssociatedVPOPasses(PM);
+  addLoopOptAndAssociatedVPOPasses(PM, true);
   if (EnableLV)
     PM.add(createLoopVectorizePass(true, !LoopVectorize));
 #endif  // INTEL_CUSTOMIZATION
@@ -1707,10 +1707,16 @@ void PassManagerBuilder::addLoopOptCleanupPasses(
   }
 }
 
-void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
+void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
+                                          bool IsLTO) const {
 
   if (!isLoopOptEnabled())
     return;
+
+  // Run additional cleanup passes that help to cleanup the code.
+  if (IsLTO && RunLoopOpts == LoopOptMode::Full) {
+    PM.add(createCFGSimplificationPass());
+  }
 
   // This pass "canonicalizes" loops and makes analysis easier.
   PM.add(createLoopSimplifyPass());
@@ -1828,7 +1834,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
 }
 
 void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
-    legacy::PassManagerBase &PM) const {
+    legacy::PassManagerBase &PM, bool IsLTO) const {
   // We should never get here if proprietary options are disabled,
   // but it's a release-mode feature so we can't just assert.
   if (DisableIntelProprietaryOpts)
@@ -1847,7 +1853,7 @@ void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
   if (RunVPOOpt && RunPreLoopOptVPOPasses && EnableVPlanDriver)
     addVPOPassesPreLoopOpt(PM);
 
-  addLoopOptPasses(PM);
+  addLoopOptPasses(PM, IsLTO);
 
   // Process directives inserted by LoopOpt Autopar.
   // Call with RunVec==true (2nd argument) to cleanup any vec directives

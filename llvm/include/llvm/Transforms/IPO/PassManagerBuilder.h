@@ -210,9 +210,11 @@ private:
   // loops using VPlanDriver
   void addVPOPassesPreLoopOpt(legacy::PassManagerBase &PM) const;
   bool isLoopOptEnabled() const;
-  void addLoopOptPasses(legacy::PassManagerBase &PM) const;
+  void addLoopOptPasses(legacy::PassManagerBase &PM, bool IsLTO) const;
   void addLoopOptCleanupPasses(legacy::PassManagerBase &PM) const;
-  void addLoopOptAndAssociatedVPOPasses(legacy::PassManagerBase &PM) const;
+  void addLoopOptAndAssociatedVPOPasses(legacy::PassManagerBase &PM,
+                                        bool IsLTO) const;
+
 public:
   llvm::InlineReportBuilder *getMDInlineReport() const;
 #endif // INTEL_CUSTOMIZATION
