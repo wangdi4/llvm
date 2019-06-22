@@ -460,7 +460,9 @@ void PassManagerBuilder::populateFunctionPassManager(
     legacy::FunctionPassManager &FPM) {
   addExtensionsToPM(EP_EarlyAsPossible, FPM);
 #if INTEL_CUSTOMIZATION
-  if (!isLoopOptEnabled())
+  if (isLoopOptEnabled())
+    FPM.add(createLoopOptMarkerLegacyPass());
+  else
     FPM.add(createLowerSubscriptIntrinsicLegacyPass());
 #endif // INTEL_CUSTOMIZATION
   FPM.add(createEntryExitInstrumenterPass());
@@ -581,8 +583,6 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     legacy::PassManagerBase &MPM) {
   // Start of function pass.
 #if INTEL_CUSTOMIZATION
-  if (isLoopOptEnabled())
-    MPM.add(createLoopOptMarkerLegacyPass());
   // Propagate TBAA information before SROA so that we can remove mid-function
   // fakeload intrinsics which would block SROA.
   if (EnableTbaaProp)
