@@ -983,6 +983,19 @@ public:
   static CallInst *genCxaAtExit(Value *TgtDescUnregFn, Value *Desc,
                                 Value *Handle, Instruction *InsertPt);
 
+  /// Generate a call to
+  /// \code
+  ///    bool __tgt_is_device_available(int device_num, void *device_type)
+  /// \endcode
+  static CallInst *genTgtIsDeviceAvailable(Value *DeviceNum, Value *DeviceType,
+                                           Instruction *InsertPt);
+
+  /// Generate a call to
+  /// \code
+  ///   int omp_get_num_devices()
+  /// \endcode
+  static CallInst *genOmpGetNumDevices(Instruction *InsertPt);
+
   /// Generate a call to `__kmpc_task_reduction_get_th_data`. Prototype:
   /// \code
   ///    i8* @__kmpc_task_reduction_get_th_data(i32, i8*, i8*)
@@ -1106,6 +1119,13 @@ public:
                            ArrayRef<Value *> FnArgs,
                            ArrayRef<Type *> FnArgTypes, Instruction *InsertPt,
                            bool IsTail = false, bool IsVarArg = false);
+
+  /// Given a call \p BaseCall, create another call with name \p VariantName
+  /// using the same arguments from \p BaseCall. Both functions are expected
+  /// to have identical signatures.
+  static CallInst *genVariantCall(CallInst *BaseCall, StringRef VariantName,
+                                  Instruction *InsertPt = nullptr,
+                                  bool IsTail = false, bool IsVarArg = false);
 
   // Creates a call with no parameters.
   // If \p InsertPt is not null, insert the call before InsertPt

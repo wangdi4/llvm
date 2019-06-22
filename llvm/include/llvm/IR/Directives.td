@@ -119,6 +119,9 @@ def "DIR.OMP.END.TARGET.ENTER.DATA" : Directive;
 def "DIR.OMP.TARGET.EXIT.DATA" : Directive;
 def "DIR.OMP.END.TARGET.EXIT.DATA" : Directive;
 
+def "DIR.OMP.TARGET.VARIANT.DISPATCH" : Directive;
+def "DIR.OMP.END.TARGET.VARIANT.DISPATCH" : Directive;
+
 def "DIR.OMP.CANCEL" : Directive;
 def "DIR.OMP.END.CANCEL" : Directive;
 

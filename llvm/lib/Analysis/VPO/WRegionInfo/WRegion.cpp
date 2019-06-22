@@ -386,6 +386,26 @@ void WRNTargetUpdateNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
 }
 
 //
+// Methods for WRNTargetVariantNode
+//
+
+// constructor
+WRNTargetVariantNode::WRNTargetVariantNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNTargetVariant, BB) {
+  setDevice(nullptr);
+
+  LLVM_DEBUG(dbgs() << "\nCreated WRNTargetVariantNode<" << getNumber()
+                    << ">\n");
+}
+
+// printer
+void WRNTargetVariantNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                      unsigned Verbosity) const {
+  unsigned Indent = 2 * Depth;
+  vpo::printVal("DEVICE", getDevice(), OS, Indent, Verbosity);
+}
+
+//
 // Methods for WRNTaskNode
 //
 

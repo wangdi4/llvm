@@ -39,6 +39,7 @@ std::unordered_map<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNTargetEnterData, "target enter data"},
     {WRegionNode::WRNTargetExitData, "target exit data"},
     {WRegionNode::WRNTargetUpdate, "target update"},
+    {WRegionNode::WRNTargetVariant, "target variant dispatch"},
     {WRegionNode::WRNTask, "task"},
     {WRegionNode::WRNTaskloop, "taskloop"},
     {WRegionNode::WRNVecLoop, "simd"},

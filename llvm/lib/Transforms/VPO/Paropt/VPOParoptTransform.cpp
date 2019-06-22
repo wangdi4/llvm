@@ -1345,6 +1345,17 @@ bool VPOParoptTransform::paroptTransforms() {
       // 2. Below are constructs that do not need to perform outlining.
       //    E.g., simd, taskgroup, atomic, for, sections, etc.
 
+      case WRegionNode::WRNTargetVariant:
+        // The target variant dispatch construct does not need outlining so
+        // it is codegen'ed during the Prepare phase of the HOST compilation
+        if (Mode & ParPrepare) {
+          debugPrintHeader(W, true);
+          if (!hasOffloadCompilation()) // for host only
+            Changed |= genTargetVariantDispatchCode(W);
+          RemoveDirectives = true;
+        }
+        break;
+
       case WRegionNode::WRNTaskgroup:
         debugPrintHeader(W, IsPrepare);
         if ((Mode & OmpPar) && (Mode & ParTrans)) {

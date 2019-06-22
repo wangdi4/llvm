@@ -1767,4 +1767,265 @@ bool VPOParoptTransform::promoteClauseArgumentUses(WRegionNode *W) {
 
   return Changed;
 }
+
+// Find and return the variant function name from the Declare Variant
+// information embedded in the "openmp-variant" string attribute of BaseCall.
+// The context to match is given by MatchConstruct and MatchArch.
+StringRef getVariantName(CallInst *BaseCall, StringRef &MatchConstruct,
+                         StringRef &MatchArch) {
+  assert(BaseCall && "BaseCall is null");
+  Function *BaseFunc = BaseCall->getCalledFunction();
+
+  StringRef VariantAttributeString =
+      BaseFunc->getFnAttribute("openmp-variant").getValueAsString();
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Base function " << BaseFunc->getName()
+                    << " has openmp-variant attribute: "
+                    << VariantAttributeString << "\n");
+
+  // VariantAttributeString is of the form
+  //   <variant>[;;<variant>...]
+  // where <variant> is a string of the form
+  //   <field>:<value>[;<field>:<value>...]
+  // Currently <field> can be "name", "construct", or "arch"
+  //
+  // An example of VariantAttributeString with only one <variant>:
+  //   "name:foo_gpu;construct:target_variant_dispatch;arch:gen"
+  //
+  // An example of VariantAttributeString with two <variant>s:
+  //   "name:foo_gpu;construct:target_variant_dispatch;arch:gen;;
+  //    name:foo_xxx;construct:parallel;arch:xxx"
+  //
+  // We want to find the <variant> whose "construt" field's <value> is
+  // MatchConstruct and "arch" field's <value> is MatchArch.
+  // If such a <variant> is found, return the string from its "name" field.
+
+  SmallVector<StringRef,1> Variants;   // holds <variant> substrings
+  SmallVector<StringRef,3> Fields;     // holds <field>:<value> substrings
+  SmallVector<StringRef,2> FV;         // FV[0]= <field>; FV[1]= <value>
+  StringRef VariantName;               // string to return
+  bool FoundConstruct = false;
+  bool FoundArch = false;
+  bool FoundName = false;
+
+  // Split VariantAttributeString so that each <variant> substring is
+  // separately stored in the Variants vector
+  VariantAttributeString.split(Variants, ";;");
+
+  // Inspect each <variant> to find the "construct" and "arch" of interest.
+  for (StringRef &Variant : Variants) {
+
+    // LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Variant: " << Variant << "\n");
+
+    // Split Variant so that each <field>:<value> substring is separately
+    // stored in the Fields vector
+    Fields.clear();
+    Variant.split(Fields, ";");
+
+    FoundConstruct = false;
+    FoundArch = false;
+    FoundName = false;
+    for (StringRef &Field : Fields) {
+
+      // LLVM_DEBUG(dbgs() << __FUNCTION__ << ":   Field: " << Field << "\n");
+
+      // Split Field so that FV[0] has <field> and FV[1] has <value>
+      FV.clear();
+      Field.split(FV, ":");
+      assert(FV.size() == 2 &&
+             "Malformed <field>:<value> in openmp-variant attribute");
+      if (FV[0] == "construct" && FV[1] == MatchConstruct)
+        FoundConstruct = true;
+      else if (FV[0] == "arch" && FV[1] == MatchArch)
+        FoundArch = true;
+      else if (FV[0] == "name") {
+        VariantName = FV[1];
+        FoundName = true;
+      }
+    } // for (StringRef &Field : Fields)
+
+    if (FoundConstruct && FoundArch) {
+      if (FoundName)
+        break;
+      // found <variant> with matching construct and arch, but without a
+      // "name" field. It must be corrupt.
+      llvm_unreachable("No variant function name in openmp-variant attribute");
+    }
+  } // for (StringRef &Variant : Variants)
+
+  if (FoundConstruct && FoundArch && FoundName) {
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Found variant function: "
+                      << VariantName << "\n");
+  } else {
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Variant function not found\n");
+  }
+  return VariantName;
+}
+
+/// Given
+/// \code
+///   #pragma omp target variant dispatch [device(dnum)]
+///      foo(<args>);
+/// \endcode
+///
+/// Emit variant dispatch code for foo():
+/// \code
+///   if (__tgt_is_device_available(dnum, nullptr))
+///      foo_variant(<args>);
+///   else
+///      foo(<args>);
+/// \endcode
+///
+/// The variant version of the base function "foo" is assumed to have been
+/// specified in a declare variant construct which Clang has processed and
+/// saved the information in the string attribute "openmp-variant" of foo.
+///
+/// If foo() has users, then we must create a Phi and replace its uses. E.g.,
+///
+/// ***IR BEFORE:
+///
+///   %call = call i32 @foo(i32 %2)   ; base func call
+///   store i32 %call, i32* %rrr      ; use of base call
+///
+/// ***IR AFTER:
+///
+///   %1 = load i32, i32* @dnum, align 4
+///   %available = call i32 @__tgt_is_device_available(i32 %1, i8* null)
+///   %dispatch = icmp ne i32 %available, 0
+///   br i1 %dispatch, label %if.then, label %if.else
+///
+/// if.then:
+///   %variant = call i32 @foo_gpu(i32 %1)
+///   br label %if.end
+///
+/// if.else:
+///   %call = call i32 @foo(i32 %1)
+///   br label %if.end
+///
+/// if.end:                               ; preds = %if.else, %if.then
+///   %callphi = phi i32 [ %variant, %if.then ], [ %call, %if.else ]
+///   store i32 %callphi, i32* %rrr, align 4
+///
+/// TODO: The second argument of __tgt_is_device_available() is a pointer
+/// that is currently unused. I the future when we support device types,
+/// it will point to a struct holding device-type information.
+///
+/// If the device(dnum) clause is absent, then the dispatch code is:
+/// \code
+///   if (omp_get_num_devices() > 0)
+///      foo_variant(<args>);
+///   else
+///      foo(<args>);
+/// \endcode
+bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
+  LLVM_DEBUG(
+      dbgs() << "\nEnter VPOParoptTransform::genTargetVariantDispatchCode\n");
+  W->populateBBSet();
+
+  if (W->getBBSetSize() != 3) {
+    LLVM_DEBUG(dbgs() << __FUNCTION__
+                      << ": Expected 3 BBs in Target Variant Dispatch\n");
+    return false;
+  }
+
+  // The first and last BasicBlocks contain the region.entry/exit calls.
+  // The middle one has the base function call we're interested in.
+  BasicBlock *BB = *(W->bbset_begin() + 1);
+
+  CallInst *BaseCall = nullptr;
+  for (Instruction &I : *BB)
+    if ((BaseCall = dyn_cast<CallInst>(&I)) != nullptr)
+      break;
+
+  assert(BaseCall && "Base call not found in Target Variant Dispatch");
+  if (!BaseCall)
+    return false;
+
+  // Find the variant name from BaseCall's attributes, which is expected to
+  // contain a string attribute of this form:
+  // "openmp-variant"="name:foo_gpu;construct:target_variant_dispatch;arch:gen"
+  // where the variant name is "foo_gpu" in this example.
+  StringRef MatchConstruct("target_variant_dispatch");
+  StringRef MatchArch("gen");
+  StringRef VariantName = getVariantName(BaseCall, MatchConstruct, MatchArch);
+
+  if (VariantName.empty()) {
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Variant function not found\n");
+    return false;
+  }
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Found variant function name: "
+                    << VariantName << "\n");
+
+  // Emit code to compute %dispatch, the IF-condition for dispatching:
+  // 1. If the device(dnum) clause is specified, emit this:
+  //
+  //     %available = call i32 @__tgt_is_device_available(i32 %dnum, i8* null)
+  //     %dispatch  = icmp ne i32 %available, 0
+  //
+  // 2. Otherwise (device clause is absent), emit this:
+  //
+  //     %numdevices = call i32 @omp_get_num_devices()
+  //     %dispatch   = icmp sgt i32 %numdevices, 0
+
+  Instruction *InsertPt = BaseCall;
+  IRBuilder<> Builder(InsertPt);
+  Value *Dispatch;
+  Value *DeviceNum = W->getDevice();
+  LLVMContext &C = F->getContext();
+  ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
+  if (DeviceNum) { // case 1
+    PointerType *Int8PtrTy = Type::getInt8PtrTy(C);
+    Value *DeviceType = ConstantPointerNull::get(Int8PtrTy);
+    CallInst *IsDeviceAvailable = VPOParoptUtils::genTgtIsDeviceAvailable(
+        DeviceNum, DeviceType, InsertPt);
+    IsDeviceAvailable->setName("available");
+    Dispatch = Builder.CreateICmpNE(IsDeviceAvailable, ValueZero, "dispatch");
+  } else { // case 2
+    CallInst *NumDevices = VPOParoptUtils::genOmpGetNumDevices(InsertPt);
+    NumDevices->setName("numdevices");
+    Dispatch = Builder.CreateICmpSGT(NumDevices, ValueZero, "dispatch");
+  }
+
+  // Emit dispatch code:
+  //   if (%dispatch != 0)
+  //     call variant function
+  //   else
+  //     call base function
+
+  Instruction *ThenTerm, *ElseTerm;
+  buildCFGForIfClause(Dispatch, ThenTerm, ElseTerm, InsertPt);
+
+  // Create and insert Variant call before ThenTerm
+  bool IsVoidType = (BaseCall->getType() == Type::getVoidTy(C));
+  CallInst *VariantCall =
+      VPOParoptUtils::genVariantCall(BaseCall, VariantName, ThenTerm);
+  if (!IsVoidType)
+    VariantCall->setName("variant");
+
+  // Move BaseCall to before ElseTerm
+  InsertPt = BaseCall->getNextNode(); // insert PHI before this point later
+  assert(InsertPt && "Corrupt IR: BaseCall cannot be last instruction in BB");
+  BaseCall->moveBefore(ElseTerm);
+
+  // If BaseCall has users, then insert a PHI before InsertPt
+  // and replace all uses of BaseCall with PHI
+  if (BaseCall->getNumUses() > 0) {
+    Builder.SetInsertPoint(InsertPt);
+    PHINode *Phi = Builder.CreatePHI(BaseCall->getType(), 2, "callphi");
+    Phi->addIncoming(VariantCall, ThenTerm->getParent());
+    Phi->addIncoming(BaseCall, ElseTerm->getParent());
+    for (User *U : BaseCall->users())
+      if (Instruction *UI = dyn_cast<Instruction>(U)) {
+        if (UI != Phi) { // don't replace in Phi
+          UI->replaceUsesOfWith(BaseCall, Phi);
+        }
+      }
+  }
+
+  LLVM_DEBUG(
+      dbgs() << "\nExit VPOParoptTransform::genTargetVariantDispatchCode\n");
+
+  W->resetBBSet(); // Invalidate BBSet after transformations
+  return true;
+}
 #endif // INTEL_COLLAB

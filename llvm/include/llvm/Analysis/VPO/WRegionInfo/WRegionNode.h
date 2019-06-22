@@ -668,6 +668,7 @@ public:
     WRNTargetEnterData,               // IsTarget
     WRNTargetExitData,                // IsTarget
     WRNTargetUpdate,                  // IsTarget
+    WRNTargetVariant,
     WRNTask,                          // IsTask
     WRNTaskloop,                      // IsTask, IsOmpLoop
 

@@ -29,6 +29,7 @@
 ///   WRNTargetEnterDataNode  | #pragma omp target enter data
 ///   WRNTargetExitDataNode   | #pragma omp target exit data
 ///   WRNTargetUpdateNode     | #pragma omp target update
+///   WRNTargetVariantNode    | #pragma omp target variand dispatch
 ///   WRNTaskNode             | #pragma omp task
 ///   WRNTaskloopNode         | #pragma omp taskloop
 ///   WRNVecLoopNode          | #pragma omp simd
@@ -64,6 +65,7 @@
 #endif //INTEL_CUSTOMIZATION
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionNode.h"
+#include "llvm/IR/Instructions.h"
 
 
 #include <set>
@@ -759,6 +761,32 @@ public:
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNTargetUpdate;
+  }
+};
+
+/// WRN for
+/// \code
+///   #pragma omp target variant dispatch
+/// \endcode
+class WRNTargetVariantNode : public WRegionNode {
+private:
+  EXPR Device;
+
+public:
+  WRNTargetVariantNode(BasicBlock *BB);
+
+protected:
+  void setDevice(EXPR E) { Device = E; }
+
+public:
+  EXPR getDevice() const { return Device; }
+
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                             unsigned Verbosity=1) const;
+
+  /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const WRegionNode *W) {
+    return W->getWRegionKindID() == WRegionNode::WRNTargetVariant;
   }
 };
 

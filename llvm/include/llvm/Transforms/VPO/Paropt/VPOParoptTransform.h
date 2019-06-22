@@ -1492,6 +1492,9 @@ private:
   /// Insert artificial uses for arguments of some clauses
   /// of the given region before the region.
   bool promoteClauseArgumentUses(WRegionNode *W);
+
+  /// Emit dispatch code for the "target variant dispatch" construct
+  bool genTargetVariantDispatchCode(WRegionNode *W);
 };
 } /// namespace vpo
 } /// namespace llvm

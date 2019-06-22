@@ -213,6 +213,7 @@ bool VPOAnalysisUtils::isBeginDirective(int DirID) {
   case DIR_OMP_TASKLOOP:
   case DIR_OMP_TARGET:
   case DIR_OMP_TARGET_DATA:
+  case DIR_OMP_TARGET_VARIANT_DISPATCH:
   case DIR_OMP_TEAMS:
   case DIR_OMP_DISTRIBUTE:
   case DIR_OMP_DISTRIBUTE_PARLOOP:
@@ -259,6 +260,7 @@ bool VPOAnalysisUtils::isEndDirective(int DirID) {
   case DIR_OMP_END_TASKLOOP:
   case DIR_OMP_END_TARGET:
   case DIR_OMP_END_TARGET_DATA:
+  case DIR_OMP_END_TARGET_VARIANT_DISPATCH:
   case DIR_OMP_END_TEAMS:
   case DIR_OMP_END_DISTRIBUTE:
   case DIR_OMP_END_DISTRIBUTE_PARLOOP:
@@ -427,6 +429,8 @@ int VPOAnalysisUtils::getMatchingEndDirective(int DirID) {
     return DIR_OMP_END_TARGET;
   case DIR_OMP_TARGET_DATA:
     return DIR_OMP_END_TARGET_DATA;
+  case DIR_OMP_TARGET_VARIANT_DISPATCH:
+    return DIR_OMP_END_TARGET_VARIANT_DISPATCH;
   case DIR_OMP_TEAMS:
     return DIR_OMP_END_TEAMS;
   case DIR_OMP_DISTRIBUTE:

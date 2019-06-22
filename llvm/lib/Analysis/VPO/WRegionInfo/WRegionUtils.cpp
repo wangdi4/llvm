@@ -149,6 +149,9 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
     case DIR_OMP_TARGET_UPDATE:
       W = new WRNTargetUpdateNode(EntryBB);
       break;
+    case DIR_OMP_TARGET_VARIANT_DISPATCH:
+      W = new WRNTargetVariantNode(EntryBB);
+      break;
     case DIR_OMP_TASK:
       W = new WRNTaskNode(EntryBB);
       break;
