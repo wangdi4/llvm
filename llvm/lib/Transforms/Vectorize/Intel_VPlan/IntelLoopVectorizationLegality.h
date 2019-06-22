@@ -18,10 +18,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZERLEGALITY_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZERLEGALITY_H
 
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
-#include "llvm/Analysis/Intel_VectorVariant.h"
-#include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 
@@ -31,6 +28,7 @@ class PredicatedScalarEvolution;
 class TargetTransformInfo;
 class TargetLibraryInfo;
 class LoopInfo;
+class Function;
 
 namespace vpo {
 

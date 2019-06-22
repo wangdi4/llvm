@@ -16,11 +16,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZERCODEGEN_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZERCODEGEN_H
 
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallSet.h"
-#include "llvm/Analysis/Intel_VectorVariant.h"
-#include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 
@@ -29,6 +25,9 @@ namespace llvm {
 class TargetTransformInfo;
 class TargetLibraryInfo;
 class LoopInfo;
+class Function;
+class VectorVariant;
+class LLVMContext;
 
 namespace vpo {
 
@@ -44,16 +43,16 @@ class VPOVectorizationLegality;
 
 class VPOCodeGen {
 public:
-  VPOCodeGen(Loop *OrigLoop, PredicatedScalarEvolution &PSE, LoopInfo *LI,
-             DominatorTree *DT, TargetLibraryInfo *TLI,
-             const TargetTransformInfo *TTI, unsigned VecWidth,
-             unsigned UnrollFactor, VPOVectorizationLegality *LVL,
-             VPlanVLSAnalysis *VLSA)
+  VPOCodeGen(Loop *OrigLoop, LLVMContext &Context,
+             PredicatedScalarEvolution &PSE, LoopInfo *LI, DominatorTree *DT,
+             TargetLibraryInfo *TLI, const TargetTransformInfo *TTI,
+             unsigned VecWidth, unsigned UnrollFactor,
+             VPOVectorizationLegality *LVL, VPlanVLSAnalysis *VLSA)
       : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI), TTI(TTI),
         Legal(LVL), VLSA(VLSA), TripCount(nullptr), VectorTripCount(nullptr),
         Induction(nullptr), OldInduction(nullptr), VF(VecWidth),
-        UF(UnrollFactor), Builder(PSE.getSE()->getContext()),
-        StartValue(nullptr), StrideValue(nullptr), LoopVectorPreHeader(nullptr),
+        UF(UnrollFactor), Builder(Context), StartValue(nullptr),
+        StrideValue(nullptr), LoopVectorPreHeader(nullptr),
         LoopScalarPreHeader(nullptr), LoopMiddleBlock(nullptr),
         LoopExitBlock(nullptr), LoopVectorBody(nullptr),
         LoopScalarBody(nullptr), MaskValue(nullptr) {}
@@ -344,7 +343,10 @@ private:
   /// Target Transform Info.
   const TargetTransformInfo *TTI;
 
+  /// Vectorization Legality.
   VPOVectorizationLegality *Legal;
+
+  /// Variable-length stridedness analysis.
   VPlanVLSAnalysis *VLSA;
 
   // Loop trip count

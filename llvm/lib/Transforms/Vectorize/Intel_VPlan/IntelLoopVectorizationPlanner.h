@@ -17,16 +17,12 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZATIONPLANNER_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZATIONPLANNER_H
 
-#include "IntelVPLoopAnalysis.h"
 #if INTEL_CUSTOMIZATION
 #include "IntelVPlan.h"
-#include "IntelVPlanVLSAnalysis.h"
-#include "llvm/Analysis/VPO/WRegionInfo/WRegionClause.h"
 #else
 #include "VPlan.h"
 #endif
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/Support/CommandLine.h"
 
 #if INTEL_CUSTOMIZATION
 extern cl::opt<uint64_t> VPlanDefaultEstTrip;
@@ -48,6 +44,10 @@ class DDGraph;
 using namespace llvm::loopopt;
 
 namespace vpo {
+#if INTEL_CUSTOMIZATION
+class VPlanVLSAnalysis;
+class WRNVecLoopNode;
+#endif
 class VPOCodeGen;
 class VPOVectorizationLegality;
 class WRNVecLoopNode;

@@ -22,14 +22,11 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANVALUE_H
 
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/IR/Value.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
 #if INTEL_CUSTOMIZATION
 #include "VPlanHIR/IntelVPlanInstructionDataHIR.h"
-#include "llvm/IR/Constant.h"
 #endif
 
 namespace llvm {

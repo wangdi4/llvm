@@ -500,7 +500,8 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
       LLVM_DEBUG(dbgs() << "VD: VPlan Generating code in function: "
                         << Fn.getName() << "\n");
 
-    VPOCodeGen VCodeGen(Lp, PSE, LI, DT, TLI, TTI, VF, 1, &LVL, &VLSA);
+    VPOCodeGen VCodeGen(Lp, Fn.getContext(), PSE, LI, DT, TLI, TTI, VF, 1, &LVL,
+                        &VLSA);
     VCodeGen.initOpenCLScalarSelectSet(volcanoScalarSelect);
     if (VF != 1) {
       LVP.executeBestPlan(VCodeGen);
