@@ -317,7 +317,8 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
                                        bool isOcl20,
                                        bool isFpgaEmulator,
                                        bool UnrollLoops,
-                                       bool EnableInferAS) {
+                                       bool EnableInferAS,
+                                       bool isSPIRV) {
   DebuggingServiceType debugType =
       getDebuggingServiceType(pConfig->GetDebugInfoFlag() ||
                               getDebugFlagFromMetadata(M));
@@ -378,7 +379,9 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   }
 
   // OCL2.0 add Generic Address Resolution
-  if (isOcl20) {
+  // LLVM IR converted from any version of SPIRV may have Generic
+  // adress space pointers.
+  if (isOcl20 || isSPIRV) {
     // Static resolution of generic address space pointers
     if (OptLevel > 0) {
       PM.add(llvm::createPromoteMemoryToRegisterPass());
@@ -774,6 +777,9 @@ Optimizer::Optimizer(llvm::Module *pModule,
   // Detect OCL2.0 compilation mode
   const bool isOcl20 = (CompilationUtils::fetchCLVersionFromMetadata(
                             *pModule) >= OclVersion::CL_VER_2_0);
+
+  const bool isSPIRV = CompilationUtils::generatedFromSPIRV(*pModule);
+
   bool UnrollLoops = true;
 
   // Initialize TTI
@@ -793,7 +799,7 @@ Optimizer::Optimizer(llvm::Module *pModule,
   populatePassesPreFailCheck(m_PreFailCheckPM, pModule, m_pRtlModuleList,
                              OptLevel, pConfig, isOcl20,
                              isFpgaEmulator, UnrollLoops,
-                             EnableInferAS);
+                             EnableInferAS, isSPIRV);
 
   // Add passes which will be run only if hasFunctionPtrCalls() and
   // hasRecursion() will return false
