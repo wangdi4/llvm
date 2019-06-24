@@ -92,7 +92,7 @@ _mm_dpwssds_epi32(__m128i __S, __m128i __A, __m128i __B)
 }
 
 #if !defined(_MSC_VER) || __has_feature(modules) || \
-    (defined(__AVX512VL__) && defined(__AVX512VNNI__))
+    (defined(__AVX512VL__) && defined(__AVX512VNNI__)) || defined(__M_INTRINSIC_PROMOTE__)
 static __inline__ __m256i __DEFAULT_FN_ATTRS256_MASK
 _mm256_mask_dpbusd_epi32(__m256i __S, __mmask8 __U, __m256i __A, __m256i __B)
 {
