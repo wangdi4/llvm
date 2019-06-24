@@ -544,13 +544,17 @@ void HIRTransformUtils::addCloningInducedLiveouts(HLLoop *LiveoutLoop,
 HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
     HLLoop *OrigLoop, unsigned UnrollOrVecFactor, bool &NeedRemainderLoop,
     LoopOptReportBuilder &LORBuilder, OptimizationType OptTy, HLLoop **PeelLoop,
-    bool PeelFirstIteration,
+    bool PeelFirstIteration, const RegDDRef *PeelArrayRef,
     SmallVectorImpl<std::tuple<HLPredicate, RegDDRef *, RegDDRef *>>
         *RuntimeChecks) {
 
   uint64_t TrueVal = 0;
   uint64_t FalseVal = 0;
   bool ProfExists = OrigLoop->extractProfileData(TrueVal, FalseVal);
+
+  assert(!(PeelFirstIteration && PeelArrayRef) &&
+         "First iteration peeling idiom cannot have PeelArrayRef set.");
+
   if (PeelFirstIteration) {
     // Peel first iteration of the loop. Ztt, preheader and postexit are
     // extracted as part of the peeling utility.
@@ -563,6 +567,23 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
     }
     if (PeelLoop)
       *PeelLoop = PeelLp;
+  } else if (PeelArrayRef) {
+    // Generic peeling of the loop to align acceses to the memref PeelArrayRef
+    LLVM_DEBUG(dbgs() << "Generating peel loop!\n");
+    HLLoop *PeelLp =
+        OrigLoop->generatePeelLoop(PeelArrayRef, UnrollOrVecFactor);
+    if (!PeelLp) {
+      assert(false && "Could not generate peel loop.");
+      // Initiate bail-out for prod build
+      return nullptr;
+    }
+    if (PeelLoop)
+      *PeelLoop = PeelLp;
+
+    // After peeling a new ZTT was created for the main loop, extract it and add
+    // outside the loop.
+    OrigLoop->extractZtt();
+    // TODO: Profiling info for peel loop?
   } else {
     // Extract Ztt and add it outside the loop.
     OrigLoop->extractZtt();

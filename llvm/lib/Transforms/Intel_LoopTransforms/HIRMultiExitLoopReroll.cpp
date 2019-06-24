@@ -186,9 +186,10 @@ using namespace llvm::loopopt;
 
 STATISTIC(LoopsRerolled, "Number of HIR multi-exit loops rerolled");
 
-// Optimization is currently disabled by default.
-// TODO: Enable when vectorizer is ready to process rerolled loop.
-static cl::opt<bool> DisableReroll("disable-" OPT_SWITCH, cl::init(true),
+// Optimization is currently enabled by default.
+// TODO: Vectorizer currently processes only some rerolled loops via idiom
+// recognition.
+static cl::opt<bool> DisableReroll("disable-" OPT_SWITCH, cl::init(false),
                                    cl::Hidden, cl::desc("Disable " OPT_DESC));
 
 namespace {
@@ -744,7 +745,7 @@ class CanonExprUpdater final : public HLNodeVisitorBase {
 
 public:
   CanonExprUpdater(unsigned RerollFactor, unsigned LoopLevel)
-      : RerollFactor(RerollFactor), LoopLevel(LoopLevel) {}
+      : RerollFactor(RerollFactor), LoopLevel(LoopLevel), NumGotos(0) {}
 
   void visit(HLDDNode *Node) {
     for (auto *Ref : llvm::make_range(Node->ddref_begin(), Node->ddref_end())) {

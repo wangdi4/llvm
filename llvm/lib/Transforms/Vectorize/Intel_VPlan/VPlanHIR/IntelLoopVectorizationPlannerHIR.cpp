@@ -26,7 +26,7 @@ cl::opt<uint64_t>
     VPlanDefaultEstTripHIR("vplan-default-est-trip-hir", cl::init(300),
                            cl::desc("Default estimated trip count"));
 
-void LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG) {
+bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG) {
   assert(BestVF != 1 && "Non-vectorized loop should be handled elsewhere!");
   VPlan *Plan = getVPlanForVF(BestVF);
   assert(Plan && "VPlan not found!");
@@ -35,7 +35,10 @@ void LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG) {
   VPlanVLSAnalysis *VLSA = CG->getVLS();
   VLSA->getOVLSMemrefs(Plan, BestVF);
 
-  CG->initializeVectorLoop(BestVF);
+  bool VecLoopsInit = CG->initializeVectorLoop(BestVF);
+  if (!VecLoopsInit)
+    return false;
   Plan->executeHIR(CG);
   CG->finalizeVectorLoop();
+  return true;
 }

@@ -145,7 +145,9 @@ unsigned VPlanCostModelProprietary::getCost() const {
   NumberOfBoolComputations = 0;
   unsigned Cost = VPlanCostModel::getCost();
 
-  switch (VPlanIdioms::isSearchLoop(Plan, VF, true)) {
+  // Array ref which needs to be aligned via loop peeling, if any.
+  RegDDRef *PeelArrayRef = nullptr;
+  switch (VPlanIdioms::isSearchLoop(Plan, VF, true, PeelArrayRef)) {
   case VPlanIdioms::Unsafe:
     return UnknownCost;
   case VPlanIdioms::SearchLoopStrEq:
@@ -154,6 +156,15 @@ unsigned VPlanCostModelProprietary::getCost() const {
     if (VF == 1)
       return 1000;
     if (VF != 32)
+      // Return some huge value, so that VectorCost still could be computed.
+      return UnknownCost;
+    break;
+  case VPlanIdioms::SearchLoopStructPtrEq:
+    // Without proper type information, cost model cannot properly compute the
+    // cost, thus hard code VF.
+    if (VF == 1)
+      return 1000;
+    if (VF != 4)
       // Return some huge value, so that VectorCost still could be computed.
       return UnknownCost;
     break;

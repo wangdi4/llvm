@@ -801,8 +801,11 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   if (!DisableCodeGen) {
     HIRSafeReductionAnalysis *SRA;
     SRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
+    RegDDRef *PeelArrayRef = nullptr;
+    VPlanIdioms::Opcode SearchLoopOpcode =
+        VPlanIdioms::isSearchLoop(Plan, VF, true, PeelArrayRef);
     VPOCodeGenHIR VCodeGen(TLI, TTI, SRA, &VLSA, Plan, Fn, Lp, LORBuilder, WRLp,
-                           VPlanIdioms::isSearchLoop(Plan, VF, true));
+                           SearchLoopOpcode, PeelArrayRef);
     bool LoopIsHandled = (VF != 1 && VCodeGen.loopIsHandled(Lp, VF));
 
     // Erase intrinsics before and after the loop if we either vectorized the
@@ -813,10 +816,11 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
 
     if (LoopIsHandled) {
       CandLoopsVectorized++;
-      LVP.executeBestPlan(&VCodeGen);
-      ModifiedLoop = true;
-      VPlanDriver::addOptReportRemarks<VPOCodeGenHIR, loopopt::HLLoop>(
-          VPORBuilder, &VCodeGen);
+      if (LVP.executeBestPlan(&VCodeGen)) {
+        ModifiedLoop = true;
+        VPlanDriver::addOptReportRemarks<VPOCodeGenHIR, loopopt::HLLoop>(
+            VPORBuilder, &VCodeGen);
+      }
     }
   }
 

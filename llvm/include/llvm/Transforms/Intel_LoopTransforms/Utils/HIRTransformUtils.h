@@ -229,20 +229,22 @@ public:
   /// This function creates and returns a new loop that will be used as the
   /// main loop for unrolling or vectorization(current clients). The bounds
   /// for this newly created loop are set appropriately using the bounds of
-  /// \p OrigLoop and \p UnrollOrVecFactor. If \p PeelFirstIteration is true, a
-  /// peel loop executing a single iteration is created and inserted before the
-  /// the main loop. The peel loop is returned in \p PeelLoop. If a remainder
-  /// loop is needed, \p NeedRemainderLoop is set to true and the bounds of \p
-  /// OrigLoop are updated appropriately. Client is responsible for deleting
-  /// OrigLoop if a remainder loop is not needed. \p VecMode specifies whether
-  /// the client is vectorizer - which is used to set loop bounds and stride
-  /// appropriately as vectorizer uses \p UnrollOrVecFactor as stride whereas
-  /// unroller users a stride of 1. The default client is assumed to be the
-  /// unroller.
+  /// \p OrigLoop and \p UnrollOrVecFactor. If \p PeelFirstIteration is set, a
+  /// peel loop executing a single iteration is created and inserted before
+  /// the the main loop. If \p PeelArrayRef is set, then generic peeling is done
+  /// to align memory accesses to this array. The peel loop is returned in \p
+  /// PeelLoop. If a remainder loop is needed, \p NeedRemainderLoop is set to
+  /// true and the bounds of \p OrigLoop are updated appropriately. Client is
+  /// responsible for deleting OrigLoop if a remainder loop is not needed. \p
+  /// VecMode specifies whether the client is vectorizer - which is used to set
+  /// loop bounds and stride appropriately as vectorizer uses \p
+  /// UnrollOrVecFactor as stride whereas unroller users a stride of 1. The
+  /// default client is assumed to be the unroller.
   static HLLoop *setupPeelMainAndRemainderLoops(
       HLLoop *OrigLoop, unsigned UnrollOrVecFactor, bool &NeedRemainderLoop,
       LoopOptReportBuilder &LORBuilder, OptimizationType,
       HLLoop **PeelLoop = nullptr, bool PeelFirstIteration = false,
+      const RegDDRef *PeelArrayRef = nullptr,
       SmallVectorImpl<std::tuple<HLPredicate, RegDDRef *, RegDDRef *>>
           *RTChecks = nullptr);
 
