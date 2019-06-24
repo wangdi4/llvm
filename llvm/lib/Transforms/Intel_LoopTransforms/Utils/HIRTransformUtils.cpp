@@ -21,6 +21,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNodeMapper.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeIterator.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #include "HIRLMMImpl.h"
@@ -608,6 +609,7 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
       OrigLoop, UnrollOrVecFactor, &NewTripCount, &NewTCRef, RuntimeCheck);
 
   // Create the main loop.
+  // Profile data is calculated internally in createUnrollOrVecLoop
   HLLoop *MainLoop = createUnrollOrVecLoop(
       OrigLoop, UnrollOrVecFactor, NewTripCount, NewTCRef, LORBuilder, OptTy,
       RuntimeCheck, ProfExists ? &Prof : nullptr);
@@ -1186,4 +1188,12 @@ bool HIRTransformUtils::multiplyTripCount(HLLoop *Lp, unsigned Multiplier) {
 
   updateTripCountPragma(Lp, Multiplier);
   return true;
+}
+
+void HIRTransformUtils::divideProfileDataBy(HLContainerTy::iterator Begin,
+                                            HLContainerTy::iterator End,
+                                            uint64_t Denominator) {
+  std::for_each(
+      HLRangeIterator(Begin), HLRangeIterator(End),
+      [Denominator](HLNode *Node) { Node->divideProfileData(Denominator); });
 }
