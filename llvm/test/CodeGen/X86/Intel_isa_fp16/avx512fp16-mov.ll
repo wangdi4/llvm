@@ -1164,3 +1164,77 @@ define i32 @extract_zext_i16_1(<8 x i16> %x) {
    %res2 = zext i16 %res to i32
    ret i32 %res2
 }
+
+define <8 x half> @build_vector_xxxxuuuu(half %a0, half %a1, half %a2, half %a3) {
+; CHECK-LABEL: build_vector_xxxxuuuu:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpunpcklwd {{.*#+}} xmm2 = xmm2[0],xmm3[0],xmm2[1],xmm3[1],xmm2[2],xmm3[2],xmm2[3],xmm3[3]
+; CHECK-NEXT:    vpunpcklwd {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1],xmm0[2],xmm1[2],xmm0[3],xmm1[3]
+; CHECK-NEXT:    vinsertps {{.*#+}} xmm0 = xmm0[0],xmm2[0],zero,zero
+; CHECK-NEXT:    retq
+  %a = insertelement <8 x half> undef, half %a0, i32 0
+  %b = insertelement <8 x half> %a, half %a1, i32 1
+  %c = insertelement <8 x half> %b, half %a2, i32 2
+  %d = insertelement <8 x half> %c, half %a3, i32 3
+  ret <8 x half> %d
+}
+
+define <8 x half> @build_vector_uuuuxxxx(half %a0, half %a1, half %a2, half %a3) {
+; CHECK-LABEL: build_vector_uuuuxxxx:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpunpcklwd {{.*#+}} xmm2 = xmm2[0],xmm3[0],xmm2[1],xmm3[1],xmm2[2],xmm3[2],xmm2[3],xmm3[3]
+; CHECK-NEXT:    vpunpcklwd {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1],xmm0[2],xmm1[2],xmm0[3],xmm1[3]
+; CHECK-NEXT:    vpunpckldq {{.*#+}} xmm0 = xmm0[0],xmm2[0],xmm0[1],xmm2[1]
+; CHECK-NEXT:    vpbroadcastq %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %a = insertelement <8 x half> undef, half %a0, i32 4
+  %b = insertelement <8 x half> %a, half %a1, i32 5
+  %c = insertelement <8 x half> %b, half %a2, i32 6
+  %d = insertelement <8 x half> %c, half %a3, i32 7
+  ret <8 x half> %d
+}
+
+define <8 x half> @build_vector_xxxxxxxx(half %a0, half %a1, half %a2, half %a3, half %a4, half %a5, half %a6, half %a7) {
+; CHECK-LABEL: build_vector_xxxxxxxx:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpunpcklwd {{.*#+}} xmm6 = xmm6[0],xmm7[0],xmm6[1],xmm7[1],xmm6[2],xmm7[2],xmm6[3],xmm7[3]
+; CHECK-NEXT:    vpunpcklwd {{.*#+}} xmm4 = xmm4[0],xmm5[0],xmm4[1],xmm5[1],xmm4[2],xmm5[2],xmm4[3],xmm5[3]
+; CHECK-NEXT:    vinsertps {{.*#+}} xmm4 = xmm4[0],xmm6[0],zero,zero
+; CHECK-NEXT:    vpunpcklwd {{.*#+}} xmm2 = xmm2[0],xmm3[0],xmm2[1],xmm3[1],xmm2[2],xmm3[2],xmm2[3],xmm3[3]
+; CHECK-NEXT:    vpunpcklwd {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1],xmm0[2],xmm1[2],xmm0[3],xmm1[3]
+; CHECK-NEXT:    vinsertps {{.*#+}} xmm0 = xmm0[0],xmm2[0],zero,zero
+; CHECK-NEXT:    vmovlhps {{.*#+}} xmm0 = xmm0[0],xmm4[0]
+; CHECK-NEXT:    retq
+  %a = insertelement <8 x half> undef, half %a0, i32 0
+  %b = insertelement <8 x half> %a, half %a1, i32 1
+  %c = insertelement <8 x half> %b, half %a2, i32 2
+  %d = insertelement <8 x half> %c, half %a3, i32 3
+  %e = insertelement <8 x half> %d, half %a4, i32 4
+  %f = insertelement <8 x half> %e, half %a5, i32 5
+  %g = insertelement <8 x half> %f, half %a6, i32 6
+  %h = insertelement <8 x half> %g, half %a7, i32 7
+  ret <8 x half> %h
+}
+
+define <16 x half> @build_vector_xxxxuuuuuuuuxxxx(half %a0, half %a1, half %a2, half %a3, half %a4, half %a5, half %a6, half %a7) {
+; CHECK-LABEL: build_vector_xxxxuuuuuuuuxxxx:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpunpcklwd {{.*#+}} xmm2 = xmm2[0],xmm3[0],xmm2[1],xmm3[1],xmm2[2],xmm3[2],xmm2[3],xmm3[3]
+; CHECK-NEXT:    vpunpcklwd {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1],xmm0[2],xmm1[2],xmm0[3],xmm1[3]
+; CHECK-NEXT:    vinsertps {{.*#+}} xmm0 = xmm0[0],xmm2[0],zero,zero
+; CHECK-NEXT:    vpunpcklwd {{.*#+}} xmm1 = xmm6[0],xmm7[0],xmm6[1],xmm7[1],xmm6[2],xmm7[2],xmm6[3],xmm7[3]
+; CHECK-NEXT:    vpunpcklwd {{.*#+}} xmm2 = xmm4[0],xmm5[0],xmm4[1],xmm5[1],xmm4[2],xmm5[2],xmm4[3],xmm5[3]
+; CHECK-NEXT:    vpunpckldq {{.*#+}} xmm1 = xmm2[0],xmm1[0],xmm2[1],xmm1[1]
+; CHECK-NEXT:    vpbroadcastq %xmm1, %xmm1
+; CHECK-NEXT:    vinsertf128 $1, %xmm1, %ymm0, %ymm0
+; CHECK-NEXT:    retq
+  %a = insertelement <16 x half> undef, half %a0, i32 0
+  %b = insertelement <16 x half> %a, half %a1, i32 1
+  %c = insertelement <16 x half> %b, half %a2, i32 2
+  %d = insertelement <16 x half> %c, half %a3, i32 3
+  %e = insertelement <16 x half> %d, half %a4, i32 12
+  %f = insertelement <16 x half> %e, half %a5, i32 13
+  %g = insertelement <16 x half> %f, half %a6, i32 14
+  %h = insertelement <16 x half> %g, half %a7, i32 15
+  ret <16 x half> %h
+}
