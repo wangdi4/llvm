@@ -154,12 +154,6 @@ public:
     return DDRefUtils::getConstByteDistance(Ref, Ref2, Distance);
   }
 
-  /// \bried Returns true if this and Memref have the same number of elements.
-  bool haveSameNumElements(const OVLSMemref &Memref) {
-    // TODO: Verify that have same VecContext?
-    return true; // Assuming same VF. CHECKME.
-  }
-
   /// \brief Checks if this memref can be moved to the location of \p Mrf.
   /// Both aliasing and control flow conditions are checked, to make sure
   /// that the semantics of the vectorized loop will be preserved (namely

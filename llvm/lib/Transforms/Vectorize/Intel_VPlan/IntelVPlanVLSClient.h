@@ -41,13 +41,6 @@ public:
     return false;
   }
 
-  /// Return true if number of elements in \p Memref is identical to number of
-  /// elements in current memref.
-  virtual bool haveSameNumElements(const OVLSMemref &Memref) override {
-    // FIXME: Implement this function.
-    return false;
-  }
-
   /// Return true if current memref can be moved to memref \p To.
   virtual bool canMoveTo(const OVLSMemref &To) override {
     // FIXME: Implement this function.

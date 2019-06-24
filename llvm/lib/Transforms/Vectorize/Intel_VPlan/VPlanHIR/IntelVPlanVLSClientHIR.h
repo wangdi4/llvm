@@ -56,10 +56,6 @@ public:
                                             FromMem->getRegDDRef(), Dist);
   }
 
-  virtual bool haveSameNumElements(const OVLSMemref &Memref) final {
-    return getNumElements() == Memref.getNumElements();
-  }
-
   virtual bool canMoveTo(const OVLSMemref &To) final {
     const VPVLSClientMemrefHIR *ToHIR = cast<const VPVLSClientMemrefHIR>(&To);
     const RegDDRef *ToRef = ToHIR->getRegDDRef();

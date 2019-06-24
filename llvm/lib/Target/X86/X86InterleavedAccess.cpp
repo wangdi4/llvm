@@ -51,13 +51,12 @@ namespace {
 /// In this example, %strided.v0 and  %strided.v1 reflect two access patterns
 /// of this abstract memory reference.
 ///
-/// Some of the callback functions(such as canMoveto(), haveSameNumElements())
-/// are implemented based on the properties of an interleaved access group. An
-/// interleaved access group(wide-load+shuffles or shuffles+wide-store) gets
-/// formed if its shuffles have the same number of elements and the shuffles
-/// come in a sequence which means there are no other instructions in between
-/// the shuffles.
-/// Therefore, this should not be used by any other clients other than the
+/// Some of the callback functions(such as canMoveto()) are implemented based on
+/// the properties of an interleaved access group. An interleaved access
+/// group(wide-load+shuffles or shuffles+wide-store) gets formed if its shuffles
+/// have the same number of elements and the shuffles come in a sequence which
+/// means there are no other instructions in between the shuffles. Therefore,
+/// this should not be used by any other clients other than the
 /// X86InterleavedAccess group.
 class X86InterleavedClientMemref : public OVLSMemref {
 public:
@@ -88,8 +87,6 @@ public:
     *Distance = Dist - CLMemref->getDistance();
     return true;
   }
-  bool haveSameNumElements(const OVLSMemref &Memref) { return true; }
-
   bool canMoveTo(const OVLSMemref &MemRef) { return true; }
 
   bool hasAConstStride(int64_t *Stride) const {

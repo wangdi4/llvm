@@ -263,9 +263,6 @@ public:
   virtual bool isAConstDistanceFrom(const OVLSMemref &Memref,
                                     int64_t *Dist) = 0;
 
-  /// \brief Returns true if this and Memref have the same number of elements.
-  virtual bool haveSameNumElements(const OVLSMemref &Memref) = 0;
-
   /// \brief Returns true if this and Memref have the same OVLSType.
   virtual bool haveSameOVLSType(const OVLSMemref &Memref) {
     return (DType == Memref.getType());
