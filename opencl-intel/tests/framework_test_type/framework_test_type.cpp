@@ -807,7 +807,7 @@ int main(int argc, char** argv)
 
     std::map<std::string, cl_device_type> clDeviceTypeMap;
     clDeviceTypeMap["cpu"] = CL_DEVICE_TYPE_CPU;
-    clDeviceTypeMap["fpga_fast_emu"] = CL_DEVICE_TYPE_ACCELERATOR;
+    clDeviceTypeMap["fpga-emu"] = CL_DEVICE_TYPE_ACCELERATOR;
     clDeviceTypeMap["gpu"] = CL_DEVICE_TYPE_GPU;
     clDeviceTypeMap["default"] = CL_DEVICE_TYPE_DEFAULT;
     clDeviceTypeMap["all"] = CL_DEVICE_TYPE_ALL;
@@ -834,13 +834,13 @@ int main(int argc, char** argv)
         }
     }
 
-    if (GetEnv(deviceTypeStr, "CL_DEVICE_TYPE"))
+    if (GetEnv(deviceTypeStr, "CL_CONFIG_DEVICES"))
     {
         std::map<std::string, cl_device_type>::iterator iter =
             clDeviceTypeMap.find(deviceTypeStr);
         if (iter == clDeviceTypeMap.end())
         {
-            printf("error: unkown value of CL_DEVICE_TYPE env variable: %s\n",
+            printf("error: unknown value of CL_CONFIG_DEVICES env variable: %s\n",
                 deviceTypeStr.c_str());
             return 1;
         }
