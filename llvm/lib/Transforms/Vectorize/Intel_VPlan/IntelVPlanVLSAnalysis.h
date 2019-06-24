@@ -130,6 +130,7 @@ public:
   const Loop *getMainLoop() const { return MainLoop; }
   LLVMContext &getContext() const { return Context; }
   ScalarEvolution *getSE() const { return SE; }
+  const DataLayout &getDL() const { return DL; }
 };
 
 } // namespace vpo

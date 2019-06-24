@@ -16,46 +16,22 @@ define void @foo(i32* nocapture %ary) {
 ;    ary[i + 3] = t3;
 ;  }
 ;
-; CHECK:       Printing Groups- Total Groups 8
+; CHECK:       Printing Groups- Total Groups 2
 ; CHECK-NEXT:  Group#1
 ; CHECK-NEXT:    Vector Length(in bytes): 64
 ; CHECK-NEXT:    AccType: SLoad
-; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
+; CHECK-NEXT:    AccessMask(per byte, R to L): 1111111111111111
 ; CHECK-NEXT:   #1 <4 x 32> SLoad
+; CHECK-NEXT:   #2 <4 x 32> SLoad
+; CHECK-NEXT:   #3 <4 x 32> SLoad
+; CHECK-NEXT:   #4 <4 x 32> SLoad
 ; CHECK-NEXT:  Group#2
 ; CHECK-NEXT:    Vector Length(in bytes): 64
-; CHECK-NEXT:    AccType: SLoad
-; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
-; CHECK-NEXT:   #2 <4 x 32> SLoad
-; CHECK-NEXT:  Group#3
-; CHECK-NEXT:    Vector Length(in bytes): 64
-; CHECK-NEXT:    AccType: SLoad
-; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
-; CHECK-NEXT:   #3 <4 x 32> SLoad
-; CHECK-NEXT:  Group#4
-; CHECK-NEXT:    Vector Length(in bytes): 64
-; CHECK-NEXT:    AccType: SLoad
-; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
-; CHECK-NEXT:   #4 <4 x 32> SLoad
-; CHECK-NEXT:  Group#5
-; CHECK-NEXT:    Vector Length(in bytes): 64
 ; CHECK-NEXT:    AccType: SStore
-; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
+; CHECK-NEXT:    AccessMask(per byte, R to L): 1111111111111111
 ; CHECK-NEXT:   #5 <4 x 32> SStore
-; CHECK-NEXT:  Group#6
-; CHECK-NEXT:    Vector Length(in bytes): 64
-; CHECK-NEXT:    AccType: SStore
-; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
 ; CHECK-NEXT:   #6 <4 x 32> SStore
-; CHECK-NEXT:  Group#7
-; CHECK-NEXT:    Vector Length(in bytes): 64
-; CHECK-NEXT:    AccType: SStore
-; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
 ; CHECK-NEXT:   #7 <4 x 32> SStore
-; CHECK-NEXT:  Group#8
-; CHECK-NEXT:    Vector Length(in bytes): 64
-; CHECK-NEXT:    AccType: SStore
-; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
 ; CHECK-NEXT:   #8 <4 x 32> SStore
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]

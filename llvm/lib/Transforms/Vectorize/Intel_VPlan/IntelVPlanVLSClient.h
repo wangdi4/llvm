@@ -42,16 +42,13 @@ public:
   bool isAConstDistanceFrom(const OVLSMemref &From, int64_t *Dist) override;
 
   /// Return true if current memref can be moved to memref \p To.
-  virtual bool canMoveTo(const OVLSMemref &To) override {
-    // FIXME: Implement this function.
-    return false;
-  }
+  bool canMoveTo(const OVLSMemref &To) override;
 
   /// Return true if current memref has constant stride and return this stride
   /// in \p Stride.
   bool hasAConstStride(int64_t *Stride) const override;
 
-  virtual unsigned getLocation() const override {
+  unsigned getLocation() const override {
     llvm_unreachable("Unimplemented");
   }
 

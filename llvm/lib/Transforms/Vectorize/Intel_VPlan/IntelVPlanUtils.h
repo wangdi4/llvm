@@ -99,7 +99,7 @@ inline VPValue *getLoadStorePointerOperand(const VPValue *V) {
 
 /// Helper function to return type of operand based on whether it is a
 /// load/store VPInstruction.
-inline Type *getLoadStoreType(VPInstruction *VPI) {
+inline Type *getLoadStoreType(const VPInstruction *VPI) {
   if (VPI->getOpcode() == Instruction::Load)
     return VPI->getType();
   else if (VPI->getOpcode() == Instruction::Store)
