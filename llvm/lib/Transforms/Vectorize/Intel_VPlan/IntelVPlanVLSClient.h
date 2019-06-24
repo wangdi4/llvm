@@ -39,11 +39,7 @@ public:
   /// Return true if constant distance between current memref and \p From
   /// can be computed and assign this distance in \p Dist.
   /// If distance cannot be computed or it's non-constant, return false.
-  virtual bool isAConstDistanceFrom(const OVLSMemref &From,
-                                    int64_t *Dist) override {
-    // FIXME: Implement this function.
-    return false;
-  }
+  bool isAConstDistanceFrom(const OVLSMemref &From, int64_t *Dist) override;
 
   /// Return true if current memref can be moved to memref \p To.
   virtual bool canMoveTo(const OVLSMemref &To) override {

@@ -59,6 +59,19 @@ static bool hasAConstStrideImpl(const SCEV *Expr, int64_t *Stride,
   return false;
 }
 
+static bool isAConstDistanceFromImpl(const SCEV *LHS, const SCEV *RHS,
+                                     ScalarEvolution *SE, int64_t *Dist) {
+  // computeConstantDifference has a significant advantage over getMinusSCEV: it
+  // doesn't crash if LHS and RHS contain AddRecs for unrelated loops (e.g.
+  // sibling loops).
+  Optional<APInt> Difference = SE->computeConstantDifference(LHS, RHS);
+  if (!Difference)
+    return false;
+
+  writeSignedAPInt(Dist, *Difference);
+  return true;
+}
+
 const SCEV *VPVLSClientMemref::getSCEVForVPValue(const VPValue *Val) const {
   ScalarEvolution *SE = VLSA->getSE();
   Value *Underlying = Val->getUnderlyingValue();
@@ -66,6 +79,20 @@ const SCEV *VPVLSClientMemref::getSCEVForVPValue(const VPValue *Val) const {
     return SE->getCouldNotCompute();
 
   return SE->getSCEV(Underlying);
+}
+
+bool VPVLSClientMemref::isAConstDistanceFrom(const OVLSMemref &From,
+                                             int64_t *Dist) {
+  const VPInstruction *FromInst = cast<VPVLSClientMemref>(From).Inst;
+
+  // Don't waste time if memrefs are in different basic blocks. This case is not
+  // supported yet.
+  if (Inst->getParent() != FromInst->getParent())
+    return false;
+
+  auto *ThisSCEV = getSCEVForVPValue(getLoadStorePointerOperand(Inst));
+  auto *FromSCEV = getSCEVForVPValue(getLoadStorePointerOperand(FromInst));
+  return isAConstDistanceFromImpl(ThisSCEV, FromSCEV, VLSA->getSE(), Dist);
 }
 
 bool VPVLSClientMemref::hasAConstStride(int64_t *Stride) const {
