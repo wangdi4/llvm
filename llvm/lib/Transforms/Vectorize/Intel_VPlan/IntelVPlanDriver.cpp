@@ -505,6 +505,9 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
                         &VLSA, Plan);
     VCodeGen.initOpenCLScalarSelectSet(volcanoScalarSelect);
     if (VF != 1) {
+      // Run VLS analysis before IR for the current loop is modified.
+      VCodeGen.getVLS()->getOVLSMemrefs(LVP.getVPlanForVF(VF), VF);
+
       LVP.executeBestPlan(VCodeGen);
 
       // Strip the directives once the loop is vectorized. In stress testing,
