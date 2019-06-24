@@ -43,7 +43,8 @@ public:
                                 const VPInstruction *Inst,
                                 const unsigned LoopLevel, HIRDDAnalysis *DDA,
                                 const RegDDRef *Ref)
-      : VPVLSClientMemref(VLSK_VPlanHIRVLSClientMemref, AccTy, Ty, Inst),
+      : VPVLSClientMemref(VLSK_VPlanHIRVLSClientMemref, AccTy, Ty, Inst,
+                          /*VLSA=*/nullptr),
         LoopLevel(LoopLevel), DDA(DDA), Ref(Ref) {}
 
   virtual ~VPVLSClientMemrefHIR() {}

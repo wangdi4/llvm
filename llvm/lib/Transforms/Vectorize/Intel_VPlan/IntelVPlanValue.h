@@ -67,6 +67,7 @@ class VPValue {
   friend class VPlanDivergenceAnalysis;
   friend class VPVectorShape;
   friend class VPInstruction;
+  friend class VPVLSClientMemref;
 #endif
 
 private:

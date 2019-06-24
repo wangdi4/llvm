@@ -45,7 +45,7 @@ OVLSMemref *VPlanVLSAnalysis::createVLSMemref(const VPInstruction *VPInst,
 
   OVLSType Ty(AccessSize, VF);
   return new VPVLSClientMemref(OVLSMemref::VLSK_VPlanVLSClientMemref, AccTy, Ty,
-                               VPInst);
+                               VPInst, this);
 }
 
 void VPlanVLSAnalysis::collectMemrefs(const VPRegionBlock *Region,

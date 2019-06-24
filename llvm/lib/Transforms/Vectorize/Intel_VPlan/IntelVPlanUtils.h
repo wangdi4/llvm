@@ -87,7 +87,7 @@ inline bool isMemoryDependency(const Instruction *SrcI,
 
 /// A helper function that returns the pointer operand of a load or store
 /// VPInstruction. Returns nullptr if not load or store.
-inline VPValue *getLoadStorePointerOperand(VPValue *V) {
+inline VPValue *getLoadStorePointerOperand(const VPValue *V) {
   if (auto *VPInst = dyn_cast<VPInstruction>(V)) {
     if (VPInst->getOpcode() == Instruction::Load)
       return VPInst->getOperand(0);

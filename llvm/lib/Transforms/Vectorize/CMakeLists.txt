@@ -29,6 +29,7 @@ add_llvm_library(LLVMVectorize
   Intel_VPlan/IntelVPlanSyncDependenceAnalysis.cpp
   Intel_VPlan/IntelVPlanVerifier.cpp
   Intel_VPlan/IntelVPlanVLSAnalysis.cpp
+  Intel_VPlan/IntelVPlanVLSClient.cpp
   Intel_VPlan/IntelVPlanLoopInfo.cpp
   Intel_VPlan/IntelVPLoopAnalysis.cpp
   Intel_VPlan/IntelVPlanVectorShape.cpp

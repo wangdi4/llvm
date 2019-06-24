@@ -22,13 +22,17 @@
 namespace llvm {
 namespace vpo {
 
+class VPlanVLSAnalysis;
+
 class VPVLSClientMemref : public OVLSMemref {
   const VPInstruction *Inst;
+  const VPlanVLSAnalysis *VLSA;
 
 public:
   VPVLSClientMemref(const OVLSMemrefKind &Kind, const OVLSAccessType &AccTy,
-                    const OVLSType &Ty, const VPInstruction *Inst)
-      : OVLSMemref(Kind, Ty, AccTy), Inst(Inst) {}
+                    const OVLSType &Ty, const VPInstruction *Inst,
+                    const VPlanVLSAnalysis *VLSA)
+      : OVLSMemref(Kind, Ty, AccTy), Inst(Inst), VLSA(VLSA) {}
 
   virtual ~VPVLSClientMemref() {}
 
@@ -49,10 +53,7 @@ public:
 
   /// Return true if current memref has constant stride and return this stride
   /// in \p Stride.
-  virtual bool hasAConstStride(int64_t *Stride) const override {
-    // FIXME: Implement this function.
-    return false;
-  }
+  bool hasAConstStride(int64_t *Stride) const override;
 
   virtual unsigned getLocation() const override {
     llvm_unreachable("Unimplemented");
@@ -73,6 +74,9 @@ public:
     return Memref->getKind() == VLSK_VPlanVLSClientMemref ||
            Memref->getKind() == VLSK_VPlanHIRVLSClientMemref;
   }
+
+private:
+  const SCEV *getSCEVForVPValue(const VPValue *Val) const;
 };
 
 } // namespace vpo
