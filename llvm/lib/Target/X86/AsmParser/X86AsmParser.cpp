@@ -3199,15 +3199,15 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
   case X86::VFCMULCPHZrrb:
   case X86::VFCMULCPHZrrbk:
   case X86::VFCMULCPHZrrbkz:
-  case X86::VFCMULCSHZm:
-  case X86::VFCMULCSHZmk:
-  case X86::VFCMULCSHZmkz:
-  case X86::VFCMULCSHZr:
-  case X86::VFCMULCSHZrb:
-  case X86::VFCMULCSHZrbk:
-  case X86::VFCMULCSHZrbkz:
-  case X86::VFCMULCSHZrk:
-  case X86::VFCMULCSHZrkz:
+  case X86::VFCMULCSHZrm:
+  case X86::VFCMULCSHZrmk:
+  case X86::VFCMULCSHZrmkz:
+  case X86::VFCMULCSHZrr:
+  case X86::VFCMULCSHZrrb:
+  case X86::VFCMULCSHZrrbk:
+  case X86::VFCMULCSHZrrbkz:
+  case X86::VFCMULCSHZrrk:
+  case X86::VFCMULCSHZrrkz:
   case X86::VFMULCPHZ128rm:
   case X86::VFMULCPHZ256rm:
   case X86::VFMULCPHZrm:
@@ -3238,15 +3238,15 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
   case X86::VFMULCPHZrrb:
   case X86::VFMULCPHZrrbk:
   case X86::VFMULCPHZrrbkz:
-  case X86::VFMULCSHZm:
-  case X86::VFMULCSHZmk:
-  case X86::VFMULCSHZmkz:
-  case X86::VFMULCSHZr:
-  case X86::VFMULCSHZrb:
-  case X86::VFMULCSHZrbk:
-  case X86::VFMULCSHZrbkz:
-  case X86::VFMULCSHZrk:
-  case X86::VFMULCSHZrkz: {
+  case X86::VFMULCSHZrm:
+  case X86::VFMULCSHZrmk:
+  case X86::VFMULCSHZrmkz:
+  case X86::VFMULCSHZrr:
+  case X86::VFMULCSHZrrb:
+  case X86::VFMULCSHZrrbk:
+  case X86::VFMULCSHZrrbkz:
+  case X86::VFMULCSHZrrk:
+  case X86::VFMULCSHZrrkz: {
     unsigned Dest = Inst.getOperand(0).getReg();
     for (unsigned i = 1; i < Inst.getNumOperands(); i++)
       if (Inst.getOperand(i).isReg() && Dest == Inst.getOperand(i).getReg())

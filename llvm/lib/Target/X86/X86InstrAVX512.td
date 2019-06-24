@@ -14244,18 +14244,18 @@ multiclass avx512_cfmop_sh_common<bits<8> opc, string OpcodeStr, SDNode OpNode, 
 multiclass avx512_cfmbinop_sh_common<bits<8> opc, string OpcodeStr, SDNode OpNode,
                                      SDNode OpNodeRnd, X86SchedWriteWidths sched = SchedWriteFMA> {
   let Predicates = [HasFP16] in {
-    defm r : AVX512_maskable<opc, MRMSrcReg, f32x_info, (outs VR128X:$dst),
+    defm rr : AVX512_maskable<opc, MRMSrcReg, f32x_info, (outs VR128X:$dst),
                         (ins VR128X:$src1, VR128X:$src2), OpcodeStr,
                         "$src2, $src1", "$src1, $src2",
                         (v4f32 (OpNode VR128X:$src1, VR128X:$src2)),
                         0, 0, 0, X86selects, "@earlyclobber $dst">, Sched<[sched.XMM]>;
-    defm m : AVX512_maskable<opc, MRMSrcMem, f32x_info, (outs VR128X:$dst),
+    defm rm : AVX512_maskable<opc, MRMSrcMem, f32x_info, (outs VR128X:$dst),
                         (ins VR128X:$src1, ssmem:$src2), OpcodeStr,
                         "$src2, $src1", "$src1, $src2",
                         (v4f32 (OpNode VR128X:$src1, sse_load_f32:$src2)),
                         0, 0, 0, X86selects, "@earlyclobber $dst">,
                         Sched<[sched.XMM.Folded, sched.XMM.ReadAfterFold]>;
-    defm rb : AVX512_maskable<opc, MRMSrcReg, f32x_info, (outs VR128X:$dst),
+    defm rrb : AVX512_maskable<opc, MRMSrcReg, f32x_info, (outs VR128X:$dst),
                         (ins VR128X:$src1, VR128X:$src2, AVX512RC:$rc), OpcodeStr,
                         "$rc, $src2, $src1", "$src1, $src2, $rc",
                         (OpNodeRnd (v4f32 VR128X:$src1), (v4f32 VR128X:$src2), (i32 timm:$rc)),

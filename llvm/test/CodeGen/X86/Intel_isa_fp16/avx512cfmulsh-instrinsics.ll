@@ -13,23 +13,23 @@ declare <4 x float> @llvm.x86.avx512fp16.maskz.vfcmaddc.sh(<4 x float>, <4 x flo
 
 ;; no mask, no rounding
 
-define <4 x float> @test_nm_nr_int_x86_avx512fp16_mask_cfmul_sh(<4 x float> %x0, <4 x float> %x1, <4 x float> %x2) {
+define <4 x float> @test_nm_nr_int_x86_avx512fp16_mask_cfmul_sh(<4 x float> %x0, <4 x float> %x1) {
 ; CHECK-LABEL: test_nm_nr_int_x86_avx512fp16_mask_cfmul_sh:
 ; CHECK:       ## %bb.0:
 ; CHECK-NEXT:    vfmulcsh %xmm1, %xmm0, %xmm2
 ; CHECK-NEXT:    vmovaps %xmm2, %xmm0
 ; CHECK-NEXT:    retq
-  %res = call <4 x float> @llvm.x86.avx512fp16.mask.vfmulc.sh(<4 x float> %x0, <4 x float> %x1, <4 x float> %x2, i8 -1, i32 4)
+  %res = call <4 x float> @llvm.x86.avx512fp16.mask.vfmulc.sh(<4 x float> %x0, <4 x float> %x1, <4 x float> undef, i8 -1, i32 4)
   ret <4 x float> %res
 }
 
-define <4 x float> @test_nm_nr_int_x86_avx512fp16_mask_cfcmul_sh(<4 x float> %x0, <4 x float> %x1, <4 x float> %x2) {
+define <4 x float> @test_nm_nr_int_x86_avx512fp16_mask_cfcmul_sh(<4 x float> %x0, <4 x float> %x1) {
 ; CHECK-LABEL: test_nm_nr_int_x86_avx512fp16_mask_cfcmul_sh:
 ; CHECK:       ## %bb.0:
 ; CHECK-NEXT:    vfcmulcsh %xmm1, %xmm0, %xmm2
 ; CHECK-NEXT:    vmovaps %xmm2, %xmm0
 ; CHECK-NEXT:    retq
-  %res = call <4 x float> @llvm.x86.avx512fp16.mask.vfcmulc.sh(<4 x float> %x0, <4 x float> %x1, <4 x float> %x2, i8 -1, i32 4)
+  %res = call <4 x float> @llvm.x86.avx512fp16.mask.vfcmulc.sh(<4 x float> %x0, <4 x float> %x1, <4 x float> undef, i8 -1, i32 4)
   ret <4 x float> %res
 }
 
@@ -53,23 +53,23 @@ define <4 x float> @test_nm_nr_int_x86_avx512fp16_cfcmadd_sh(<4 x float> %x0, <4
 
 ;; no mask, rounding
 
-define <4 x float> @test_nm_r_int_x86_avx512fp16_mask_cfmul_sh(<4 x float> %x0, <4 x float> %x1, <4 x float> %x2) {
+define <4 x float> @test_nm_r_int_x86_avx512fp16_mask_cfmul_sh(<4 x float> %x0, <4 x float> %x1) {
 ; CHECK-LABEL: test_nm_r_int_x86_avx512fp16_mask_cfmul_sh:
 ; CHECK:       ## %bb.0:
 ; CHECK-NEXT:    vfmulcsh {rd-sae}, %xmm1, %xmm0, %xmm2
 ; CHECK-NEXT:    vmovaps %xmm2, %xmm0
 ; CHECK-NEXT:    retq
-  %res = call <4 x float> @llvm.x86.avx512fp16.mask.vfmulc.sh(<4 x float> %x0, <4 x float> %x1, <4 x float> %x2, i8 -1, i32 9)
+  %res = call <4 x float> @llvm.x86.avx512fp16.mask.vfmulc.sh(<4 x float> %x0, <4 x float> %x1, <4 x float> undef, i8 -1, i32 9)
   ret <4 x float> %res
 }
 
-define <4 x float> @test_nm_r_int_x86_avx512fp16_mask_cfcmul_sh(<4 x float> %x0, <4 x float> %x1, <4 x float> %x2) {
+define <4 x float> @test_nm_r_int_x86_avx512fp16_mask_cfcmul_sh(<4 x float> %x0, <4 x float> %x1) {
 ; CHECK-LABEL: test_nm_r_int_x86_avx512fp16_mask_cfcmul_sh:
 ; CHECK:       ## %bb.0:
 ; CHECK-NEXT:    vfcmulcsh {rd-sae}, %xmm1, %xmm0, %xmm2
 ; CHECK-NEXT:    vmovaps %xmm2, %xmm0
 ; CHECK-NEXT:    retq
-  %res = call <4 x float> @llvm.x86.avx512fp16.mask.vfcmulc.sh(<4 x float> %x0, <4 x float> %x1, <4 x float> %x2, i8 -1, i32 9)
+  %res = call <4 x float> @llvm.x86.avx512fp16.mask.vfcmulc.sh(<4 x float> %x0, <4 x float> %x1, <4 x float> undef, i8 -1, i32 9)
   ret <4 x float> %res
 }
 
