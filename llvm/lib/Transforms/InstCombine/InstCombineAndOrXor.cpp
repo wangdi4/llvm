@@ -2509,6 +2509,24 @@ Instruction *InstCombiner::visitOr(BinaryOperator &I) {
   if (Instruction *CastedOr = foldCastedBitwiseLogic(I))
     return CastedOr;
 
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-9154: suppress the following transform when loopopt is enabled
+  // ("pre_loopopt" attribute) as vectorizer and other loop transformations
+  // work better without conditional expressions.
+  Function *F = I.getFunction();
+  bool SuppressSextOpt = false;
+  if (F->isPreLoopOpt()) {
+    for (const User *U : I.users()) {
+      auto *UI = cast<Instruction>(U);
+      if (DT.dominates(UI, &cast<Instruction>(I))) {
+        SuppressSextOpt = true;
+        break;
+      }
+    }
+  }
+#endif  //INTEL_CUSTOMIZATION
+
+  if (!SuppressSextOpt) {   // INTEL
   // or(sext(A), B) / or(B, sext(A)) --> A ? -1 : B, where A is i1 or <N x i1>.
   if (match(Op0, m_OneUse(m_SExt(m_Value(A)))) &&
       A->getType()->isIntOrIntVectorTy(1))
@@ -2516,6 +2534,8 @@ Instruction *InstCombiner::visitOr(BinaryOperator &I) {
   if (match(Op1, m_OneUse(m_SExt(m_Value(A)))) &&
       A->getType()->isIntOrIntVectorTy(1))
     return SelectInst::Create(A, ConstantInt::getSigned(I.getType(), -1), Op0);
+  } // INTEL
+
 
   // Note: If we've gotten to the point of visiting the outer OR, then the
   // inner one couldn't be simplified.  If it was a constant, then it won't
