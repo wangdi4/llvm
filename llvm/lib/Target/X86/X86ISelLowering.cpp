@@ -35471,8 +35471,16 @@ static SDValue combineBitcast(SDNode *N, SelectionDAG &DAG,
     default: return SDValue();
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  if (!((Subtarget.hasSSE1() && VT == MVT::f32) ||
+        (Subtarget.hasSSE2() && VT == MVT::f64) ||
+        (Subtarget.hasFP16() && VT == MVT::f16)))
+#else // INTEL_FEATURE_ISA_FP16
   if (!((Subtarget.hasSSE1() && VT == MVT::f32) ||
         (Subtarget.hasSSE2() && VT == MVT::f64)))
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     return SDValue();
 
   SDValue LogicOp0 = N0.getOperand(0);
@@ -38568,9 +38576,18 @@ static SDValue convertIntLogicToFPLogic(SDNode *N, SelectionDAG &DAG,
   EVT N10Type = N10.getValueType();
 
   // Ensure that both types are the same and are legal scalar fp types.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  if (N00Type != N10Type ||
+      !((Subtarget.hasSSE1() && N00Type == MVT::f32) ||
+        (Subtarget.hasSSE2() && N00Type == MVT::f64) ||
+        (Subtarget.hasFP16() && N00Type == MVT::f16)))
+#else // INTEL_FEATURE_ISA_FP16
   if (N00Type != N10Type ||
       !((Subtarget.hasSSE1() && N00Type == MVT::f32) ||
         (Subtarget.hasSSE2() && N00Type == MVT::f64)))
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     return SDValue();
 
   unsigned FPOpcode;

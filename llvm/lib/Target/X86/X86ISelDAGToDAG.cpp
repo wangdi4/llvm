@@ -844,6 +844,57 @@ void X86DAGToDAGISel::PreprocessISelDAG() {
       CurDAG->DeleteNode(N);
       continue;
     }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    // Cherry picked from community and modified for fp16.
+    case X86ISD::FANDN:
+    case X86ISD::FAND:
+    case X86ISD::FOR:
+    case X86ISD::FXOR: {
+      // Widen scalar fp logic ops to vector to reduce isel patterns.
+      // FIXME: Can we do this during lowering/combine.
+      MVT VT = N->getSimpleValueType(0);
+      // INTEL: remove f16 when community pulls down.
+      if (VT.isVector() || VT == MVT::f128 || VT != MVT::f16)
+        break;
+
+      MVT VecVT = VT == MVT::f64 ? MVT::v2f64 :
+                  VT == MVT::f32 ? MVT::v4f32 :
+                                   MVT::v8f16;
+      SDLoc dl(N);
+      SDValue Op0 = CurDAG->getNode(ISD::SCALAR_TO_VECTOR, dl, VecVT,
+                                    N->getOperand(0));
+      SDValue Op1 = CurDAG->getNode(ISD::SCALAR_TO_VECTOR, dl, VecVT,
+                                    N->getOperand(1));
+
+      SDValue Res;
+      if (Subtarget->hasSSE2()) {
+        EVT IntVT = EVT(VecVT).changeVectorElementTypeToInteger();
+        Op0 = CurDAG->getNode(ISD::BITCAST, dl, IntVT, Op0);
+        Op1 = CurDAG->getNode(ISD::BITCAST, dl, IntVT, Op1);
+        unsigned Opc;
+        switch (N->getOpcode()) {
+        default: llvm_unreachable("Unexpected opcode!");
+        case X86ISD::FANDN: Opc = X86ISD::ANDNP; break;
+        case X86ISD::FAND:  Opc = ISD::AND;      break;
+        case X86ISD::FOR:   Opc = ISD::OR;       break;
+        case X86ISD::FXOR:  Opc = ISD::XOR;      break;
+        }
+        Res = CurDAG->getNode(Opc, dl, IntVT, Op0, Op1);
+        Res = CurDAG->getNode(ISD::BITCAST, dl, VecVT, Res);
+      } else {
+        Res = CurDAG->getNode(N->getOpcode(), dl, VecVT, Op0, Op1);
+      }
+      Res = CurDAG->getNode(ISD::EXTRACT_VECTOR_ELT, dl, VT, Res,
+                            CurDAG->getIntPtrConstant(0, dl));
+      --I;
+      CurDAG->ReplaceAllUsesOfValueWith(SDValue(N, 0), Res);
+      ++I;
+      CurDAG->DeleteNode(N);
+      continue;
+    }
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     }
 
     if (OptLevel != CodeGenOpt::None &&

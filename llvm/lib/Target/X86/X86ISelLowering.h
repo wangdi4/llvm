@@ -850,7 +850,14 @@ namespace llvm {
     bool isCtlzFast() const override;
 
     bool hasBitPreservingFPLogic(EVT VT) const override {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+      return VT == MVT::f32 || VT == MVT::f64 || VT.isVector() ||
+             (VT == MVT::f16 && X86ScalarAVXf16);
+#else // INTEL_FEATURE_ISA_FP16
       return VT == MVT::f32 || VT == MVT::f64 || VT.isVector();
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     }
 
     bool isMultiStoresCheaperThanBitsMerge(EVT LTy, EVT HTy) const override {
