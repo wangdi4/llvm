@@ -518,11 +518,7 @@ bool Parser::ParseOptionalCXXScopeSpecifier(CXXScopeSpec &SS,
         // parse correctly as a template, so suggest the keyword 'template'
         // before 'getAs' and treat this as a dependent template name.
         unsigned DiagID = diag::err_missing_dependent_template_keyword;
-#if INTEL_CUSTOMIZATION
-        // CQ#375523 - gimagereader application failed with error:
-        // use 'template' keyword to treat 'value' as a dependent template name.
-        if (getLangOpts().MicrosoftExt || getLangOpts().IntelCompat)
-#endif // INTEL_CUSTOMIZATION
+        if (getLangOpts().MicrosoftExt)
           DiagID = diag::warn_missing_dependent_template_keyword;
 
         Diag(Tok.getLocation(), DiagID)
