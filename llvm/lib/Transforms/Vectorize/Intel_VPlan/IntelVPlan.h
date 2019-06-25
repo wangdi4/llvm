@@ -606,6 +606,7 @@ class VPInstruction : public VPUser, public VPRecipeBase {
   friend class VPOCodeGenHIR;
   friend class VPCloneUtils;
   friend class VPValueMapper;
+  friend class VPLoopEntityList;
   friend class VPValue;
 
   /// Hold all the HIR-specific data and interfaces for a VPInstruction.

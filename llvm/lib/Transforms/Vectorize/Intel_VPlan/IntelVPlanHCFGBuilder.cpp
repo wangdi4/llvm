@@ -1689,6 +1689,21 @@ public:
 
     Descriptor.clear();
     auto *VPAllocaVal = Builder.getOrCreateVPOperand(CurValue);
+    // TODO: This is a temporary solution. Aliases to the private descriptor
+    // should be collected earlier with new descriptor representation in
+    // VPOLegality.
+    for (auto *Use : make_range(CurValue->user_begin(), CurValue->user_end())) {
+      // Skip uses like the one from being an operand for the region-entry/exit
+      // directive
+      if (isa<IntrinsicInst>(Use) &&
+          VPOAnalysisUtils::isOpenMPDirective(cast<IntrinsicInst>(Use)))
+        continue;
+      if (isa<BitCastInst>(Use) || isa<AddrSpaceCastInst>(Use) ||
+          isa<GetElementPtrInst>(Use)) {
+        auto *NewVPOperand = Builder.getOrCreateVPOperand(Use);
+        Descriptor.addAlias(NewVPOperand);
+      }
+    }
     Descriptor.setAllocaInst(VPAllocaVal);
     Descriptor.setIsConditional(IsCondPriv);
     Descriptor.setIsLast(IsLastPriv);

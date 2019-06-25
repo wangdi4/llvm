@@ -13,6 +13,7 @@
 ; CHECK-DAG: i64* %ub
 ; CHECK-DAG: i64 %3
 ; CHECK-DAG: i64* %ret
+; CHECK-DAG: i8* %0
 ; CHECK-NEXT: Used externally
 ; CHECK-DAG: i64 {{%vp[0-9]+}}
 ; CHECK-DAG: i64 {{%vp[0-9]+}}
