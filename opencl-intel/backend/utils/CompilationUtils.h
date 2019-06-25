@@ -514,6 +514,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// from "!spirv.Source" named metadata
     static bool generatedFromOCLCPP(const Module &M);
 
+    /// generatedFromSPIRV - check that IR was generated from SPIRV
+    static bool generatedFromSPIRV(const Module &M);
+
     /// Import a declaration of \p Orig into module \p Dst
     ///
     /// Parameter types will be translated to match the corresponding

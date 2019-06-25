@@ -633,6 +633,16 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     return false;
   }
 
+  bool CompilationUtils::generatedFromSPIRV(const Module &M) {
+    /*
+    Example of the metadata
+    !spirv.Source = !{!0}
+    */
+    auto spirvSource =
+        ModuleMetadataAPI(const_cast<llvm::Module *>(&M)).SPIRVSourceList;
+    return spirvSource.hasValue();
+  }
+
 Function *CompilationUtils::AddMoreArgsToFunc(
     Function *F, ArrayRef<Type *> NewTypes, ArrayRef<const char *> NewNames,
     ArrayRef<AttributeSet> NewAttrs, StringRef Prefix) {
