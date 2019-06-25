@@ -923,6 +923,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_sysv_signal:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_under_errno:
+    return Changed;
   case LibFunc_under_exit:
     Changed |= setDoesNotReturn(F);
     return Changed;

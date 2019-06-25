@@ -1119,6 +1119,9 @@ TLI_DEFINE_STRING_INTERNAL("__xstat")
 /// int __xstat64 (int vers, const char *file, struct stat64 *buf);
 TLI_DEFINE_ENUM_INTERNAL(dunder_xstat64)
 TLI_DEFINE_STRING_INTERNAL("__xstat64")
+/// int* _errno();
+TLI_DEFINE_ENUM_INTERNAL(under_errno)
+TLI_DEFINE_STRING_INTERNAL("_errno")
 /// void _exit(int status);
 TLI_DEFINE_ENUM_INTERNAL(under_exit)
 TLI_DEFINE_STRING_INTERNAL("_exit")

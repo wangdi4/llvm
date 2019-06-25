@@ -346,7 +346,10 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_mkdir);
     TLI.setUnavailable(LibFunc_ntohl);
     TLI.setUnavailable(LibFunc_ntohs);
-    TLI.setUnavailable(LibFunc_open);
+#if INTEL_CUSTOMIZATION
+    // This function should be available on Windows.
+    //TLI.setUnavailable(LibFunc_open);
+#endif // INTEL_CUSTOMIZATION
     TLI.setUnavailable(LibFunc_opendir);
     TLI.setUnavailable(LibFunc_pclose);
     TLI.setUnavailable(LibFunc_popen);
@@ -382,7 +385,6 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_backtrace);
     TLI.setUnavailable(LibFunc_backtrace_symbols);
     TLI.setUnavailable(LibFunc_chdir);
-    TLI.setUnavailable(LibFunc_close);
     TLI.setUnavailable(LibFunc_dup);
     TLI.setUnavailable(LibFunc_dup2);
     TLI.setUnavailable(LibFunc_error);
@@ -800,6 +802,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_stdio_common_vsscanf);
     TLI.setUnavailable(LibFunc_std_exception_copy);
     TLI.setUnavailable(LibFunc_std_exception_destroy);
+    TLI.setUnavailable(LibFunc_under_errno);
     TLI.setUnavailable(LibFunc_under_invalid_parameter_noinfo_noreturn);
     TLI.setUnavailable(LibFunc_under_stat64i32);
   }
@@ -2101,6 +2104,9 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
     return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isIntegerTy() &&
             FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_under_errno:
+    return (NumParams == 0 && FTy.getReturnType()->isPointerTy());
 
   case LibFunc_under_exit:
     return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&

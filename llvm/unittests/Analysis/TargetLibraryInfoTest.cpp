@@ -652,6 +652,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @__stdio_common_vsprintf(i64, i8*, i64, i8*, %struct*, i8*)\n"
       "declare i32 @__stdio_common_vsscanf(i64, i8*, i64, i8*, %struct*, i8*)\n"
       "declare i8* @__sysv_signal(i32, i8*)\n"
+      "declare i32* @_errno()\n"
       "declare void @_exit(i32)\n"
       "declare void @_invalid_parameter_noinfo_noreturn()\n"
       "declare i32 @_obstack_begin(i8*, i32, i32, i8*, i8*)\n"
