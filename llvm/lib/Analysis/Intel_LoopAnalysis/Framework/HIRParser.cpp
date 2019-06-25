@@ -2511,8 +2511,6 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
 
 void HIRParser::parse(HLRegion *Reg) {
   CurRegion = Reg;
-  // HIR cache built for another region may not be valid for this one.
-  SE.clearHIRCache();
 }
 
 void HIRParser::parse(HLLoop *HLoop) {
@@ -4418,7 +4416,6 @@ void HIRParser::phase2Parse() {
     }
   }
 
-  UnclassifiedSymbaseInsts.clear();
 
   for (auto *Call : DistributePoints) {
     auto *NextNode = Call->getNextNode();
@@ -4435,17 +4432,19 @@ void HIRParser::phase2Parse() {
     ParentLoop->setHasDistributePoint(true);
     HLNodeUtils::erase(Call);
   }
+}
 
-  // DistributePoints needs to be clear for next HIR regions.
+void HIRParser::clearRegionData() {
+  UnclassifiedSymbaseInsts.clear();
   DistributePoints.clear();
+  // HIR cache built for one region may not be valid for another.
+  SE.clearHIRCache();
 }
 
 void HIRParser::run() {
   // We parse one region at a time to preserve CurRegion during phase2.
   for (auto I = HIRF.get().hir_begin(), E = HIRF.get().hir_end(); I != E; ++I) {
-    assert(UnclassifiedSymbaseInsts.empty() &&
-           "UnclassifiedSymbaseInsts is not empty!");
-    assert(RequiredSymbases.empty() && "RequiredSymbases is not empty!");
+    clearRegionData();
 
     // Start phase 1 of parsing.
     phase1Parse(&*I);
