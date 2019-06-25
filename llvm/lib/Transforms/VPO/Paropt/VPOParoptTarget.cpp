@@ -190,6 +190,7 @@ static bool isParOrTargetDirective(Instruction *Inst,
     case DIR_OMP_PARALLEL:
     case DIR_OMP_PARALLEL_LOOP:
     case DIR_OMP_DISTRIBUTE_PARLOOP:
+    case DIR_OMP_TEAMS:
     case DIR_OMP_SIMD:
       return true;
   }

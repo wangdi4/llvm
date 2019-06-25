@@ -1088,7 +1088,7 @@ bool VPOParoptTransform::paroptTransforms() {
 
           LLVM_DEBUG(dbgs()<<"\n Parallel W-Region::"<<*W->getEntryBBlock());
 
-          if (IsTargetSPIRV && isa<WRNParallelNode>(W)) {
+          if (IsTargetSPIRV) {
             // The directive gets removed, when processing the target region,
             // do not remove it here, since guardSideEffects needs the
             // parallel directive to insert barriers.
