@@ -727,6 +727,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @_ZNSt15basic_streambufIcSt11char_traitsIcEE5uflowEv(i8*)\n"
       "declare i32 @_ZNSt15basic_streambufIcSt11char_traitsIcEE6xsgetnEPcl(i8*, i8*, i32)\n"
       "declare i32 @_ZNSt15basic_streambufIcSt11char_traitsIcEE6xsputnEPKcl(i8*, i8*, i32)\n"
+      "declare void @_ZNSt15basic_streambufIcSt11char_traitsIcEED2Ev(i8*)\n"
       "declare void @_ZNSt15basic_stringbufIcSt11char_traitsIcESaIcEE7_M_syncEPcmm(i8*, i8*, i32, i32)\n"
       "declare i8* @_ZNSt15basic_stringbufIcSt11char_traitsIcESaIcEE7seekoffElSt12_Ios_SeekdirSt13_Ios_Openmode(i8*, i64, i32, i32)\n"
       "declare i8* @_ZNSt15basic_stringbufIcSt11char_traitsIcESaIcEE7seekposESt4fposI11__mbstate_tESt13_Ios_Openmode(i8*, i8*, i32)\n"
