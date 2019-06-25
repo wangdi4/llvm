@@ -1481,7 +1481,8 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
 
 #if INTEL_CUSTOMIZATION
   if (RunLTOPartialInlining)
-    MPM.addPass(PartialInlinerPass(true /*RunLTOPartialInline*/));
+    MPM.addPass(PartialInlinerPass(true /*RunLTOPartialInline*/,
+                                   false /*EnableSpecialCases*/));
 
   if (EnableIPCloning)
 #if INTEL_INCLUDE_DTRANS

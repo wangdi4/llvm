@@ -215,7 +215,8 @@ ModulePass *createHotColdSplittingPass();
 /// createPartialInliningPass - This pass inlines parts of functions.
 ///
 #if INTEL_CUSTOMIZATION
-ModulePass *createPartialInliningPass(bool RunLTOPartialInline = false);
+ModulePass *createPartialInliningPass(bool RunLTOPartialInline = false,
+                                      bool EnableSpecialCases = false);
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

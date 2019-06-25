@@ -168,6 +168,14 @@ static cl::opt<unsigned> DevirtBranchProbability(
 static cl::opt<bool> LTOPartialInlineVirtual(
     "partial-inline-virtual-functions", cl::init(false), cl::Hidden,
     cl::desc("Force partial inlining on virtual function targets"));
+
+static cl::opt<bool> ForceRunLTOPartialInline(
+    "force-run-lto-partial-inline", cl::init(false), cl::Hidden,
+    cl::desc("Force partial inliner to believe it in on the LTO pass"));
+
+static cl::opt<bool> ForceEnableSpecialCasesPartialInline(
+    "force-enable-special-cases-partial-inline", cl::init(false), cl::Hidden,
+    cl::desc("Force partial inliner to handle special cases"));
 #endif
 
 namespace {
@@ -221,11 +229,11 @@ struct PartialInlinerImpl {
       std::function<TargetTransformInfo &(Function &)> *GTTI,
       Optional<function_ref<BlockFrequencyInfo &(Function &)>> GBFI,
       InliningLoopInfoCache *InlLoopIC, ProfileSummaryInfo *ProfSI, // INTEL
-      bool RunLTOPartialInline)                                     // INTEL
+      bool RunLTOPartialInline, bool EnableSpecialCases)            // INTEL
       : GetAssumptionCache(GetAC), LookupAssumptionCache(LookupAC),
         GetTTI(GTTI), GetBFI(GBFI), ILIC(InlLoopIC), PSI(ProfSI),   // INTEL
-        RunLTOPartialInline(RunLTOPartialInline) {}                 // INTEL
-
+        RunLTOPartialInline(RunLTOPartialInline),                   // INTEL
+        EnableSpecialCases(EnableSpecialCases) {}                   // INTEL
   bool run(Module &M);
   // Main part of the transformation that calls helper functions to find
   // outlining candidates, clone & outline the function, and attempt to
@@ -390,6 +398,9 @@ private:
   // The partial inliner is being called from the LTO pass
   bool RunLTOPartialInline = false;
 
+  // Special cases of partial inlining should be handled
+  bool EnableSpecialCases = false;
+
   // Return true if all the call sites for the input function
   // are direct calls.
   bool allCallSitesAreDirect(Function *Func);
@@ -417,13 +428,16 @@ struct PartialInlinerLegacyPass : public ModulePass {
   }
 
 #if INTEL_CUSTOMIZATION
-  PartialInlinerLegacyPass(bool RunLTOPartialInline) : ModulePass(ID),
-        RunLTOPartialInline(RunLTOPartialInline) {
+  PartialInlinerLegacyPass(bool RunLTOPartialInline, bool EnableSpecialCases) :
+        ModulePass(ID), RunLTOPartialInline(RunLTOPartialInline),
+        EnableSpecialCases(EnableSpecialCases) {
     initializePartialInlinerLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
   // The partial inlining is being called from the LTO process
   bool RunLTOPartialInline = false;
+  // Special cases of partial inlining should be handled
+  bool EnableSpecialCases = false;
 #endif // INTEL_CUSTOMIZATION
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -460,7 +474,7 @@ struct PartialInlinerLegacyPass : public ModulePass {
     auto ILIC = make_unique<InliningLoopInfoCache>();
     return PartialInlinerImpl(&GetAssumptionCache, LookupAssumptionCache,
                               &GetTTI, NoneType::None, ILIC.get(), PSI,
-                              RunLTOPartialInline)
+                              RunLTOPartialInline, EnableSpecialCases)
         .run(M);
 #endif // INTEL_CUSTOMIZATION
   }
@@ -1397,22 +1411,92 @@ bool PartialInlinerImpl::isVirtualFunctionTarget(Function *Func) {
 
 #endif
 
+#if INTEL_CUSTOMIZATION
+//
+// Return 'true' if this is a special case that we would like to handle
+// via partial inlining.  Essentially, we are looking for an initial basic
+// block of the form:
+//  %2 = load i1, i1* @time_check_log, align 4
+//  %3 = select i1 %2, i64 16383, i64 0
+//  %4 = and i64 %3, %0
+//  %5 = icmp eq i64 %4, 0
+//  br i1 %5, label %6, label %462
+// which branches to a return block of the form:
+//  462: ; preds = %461, %453, %319, %6, %1
+//  %463 = phi i32 [ 1, %461 ], [ 0, %6 ], [ 0, %1 ], [ 0, %319 ], [ 0, %453 ]
+//  ret i32 %463
+//
+static bool SpecialEarlySwitch(Function *F) {
+  BasicBlock *BE = &(F->getEntryBlock());
+  if (BE->size() != 5)
+    return false;
+  if (F->arg_begin() == F->arg_end() || F->arg_begin() + 1 != F->arg_end())
+    return false;
+  auto LI = dyn_cast<LoadInst>(&(BE->front()));
+  if (!LI || !LI->hasOneUse())
+    return false;
+  auto GV = dyn_cast<GlobalValue>(LI->getPointerOperand());
+  if (!GV)
+    return false;
+  auto SI = dyn_cast<SelectInst>(*LI->user_begin());
+  if (!SI || !SI->hasOneUse())
+    return false;
+  if (SI->getCondition() != LI)
+    return false;
+  auto CITrue = dyn_cast<ConstantInt>(SI->getTrueValue());
+  if (!CITrue || CITrue->getSExtValue() != 16383)
+    return false;
+  auto CIFalse = dyn_cast<ConstantInt>(SI->getFalseValue());
+  if (!CIFalse || CIFalse->getSExtValue() != 0)
+    return false;
+  auto BO = dyn_cast<BinaryOperator>(*SI->user_begin());
+  if (!BO || BO->getOpcode() != Instruction::And || !BO->hasOneUse())
+    return false;
+  if (BO->getOperand(0) != SI)
+    return false;
+  if (!isa<Argument>(BO->getOperand(1)))
+    return false;
+  auto CmpI = dyn_cast<CmpInst>(*BO->user_begin());
+  if (!CmpI || !CmpI->hasOneUse())
+    return false;
+  if (CmpI->getOperand(0) != BO)
+    return false;
+  auto CIZero = dyn_cast<ConstantInt>(CmpI->getOperand(1));
+  if (!CIZero || CIZero->getSExtValue() != 0)
+    return false;
+  auto BI = dyn_cast<BranchInst>(*CmpI->user_begin());
+  if (!BI || BI->getNumSuccessors() != 2)
+    return false;
+  BasicBlock *BTS = BI->getSuccessor(0);
+  if (!BTS || !BTS->hasNPredecessors(1))
+    return false;
+  BasicBlock *BFS = BI->getSuccessor(1);
+  if (!BFS || BFS->size() != 2 || !BFS->hasNPredecessorsOrMore(5))
+    return false;
+  auto PHIN = dyn_cast<PHINode>(&(BFS->front()));
+  if (!PHIN || !PHIN->hasOneUse())
+    return false;
+  auto RI = dyn_cast<ReturnInst>(*PHIN->user_begin());
+  return RI;
+}
+#endif // INTEL_CUSTOMIZATION
+
 std::pair<bool, Function *> PartialInlinerImpl::unswitchFunction(Function *F) {
 
 #if INTEL_CUSTOMIZATION
-  // Only do LTO partial inlining for functions that are targets of
-  // virtual calls
-  if ((RunLTOPartialInline || LTOPartialInlineVirtual)
-      && !F->hasAddressTaken())
+  if (!(EnableSpecialCases && SpecialEarlySwitch(F))) {
+    // Only do LTO partial inlining for functions that are targets of
+    // virtual calls
+    if ((RunLTOPartialInline || LTOPartialInlineVirtual)
+          && !F->hasAddressTaken())
+      return {false, nullptr};
+    IsVirtualTarget = isVirtualFunctionTarget(F) &&
+                      allCallSitesAreDirect(F);
+    if (F->hasAddressTaken() && !IsVirtualTarget)
+      return {false, nullptr};
+  } else if (F->hasAddressTaken())
     return {false, nullptr};
-
-  IsVirtualTarget = isVirtualFunctionTarget(F) &&
-                    allCallSitesAreDirect(F);
 #endif // INTEL_CUSTOMIZATION
-
-  if (F->hasAddressTaken() && !IsVirtualTarget)    // INTEL
-    return {false, nullptr};
-
   // Let inliner handle it
   if (F->hasFnAttribute(Attribute::AlwaysInline))
     return {false, nullptr};
@@ -1616,7 +1700,12 @@ bool PartialInlinerImpl::tryPartialInline(FunctionCloner &Cloner) {
 bool PartialInlinerImpl::run(Module &M) {
   if (DisablePartialInlining)
     return false;
-
+#if INTEL_CUSTOMIZATION
+  if (ForceRunLTOPartialInline)
+    RunLTOPartialInline = true;
+  if (ForceEnableSpecialCasesPartialInline)
+    EnableSpecialCases = true;
+#endif // INTEL_CUSTOMIZATION
   std::vector<Function *> Worklist;
   Worklist.reserve(M.size());
   for (Function &F : M)
@@ -1661,8 +1750,9 @@ INITIALIZE_PASS_END(PartialInlinerLegacyPass, "partial-inliner",
                     "Partial Inliner", false, false)
 
 #if INTEL_CUSTOMIZATION
-ModulePass *llvm::createPartialInliningPass(bool RunLTOPartialInline) {
-  return new PartialInlinerLegacyPass(RunLTOPartialInline);
+ModulePass *llvm::createPartialInliningPass(bool RunLTOPartialInline,
+                                            bool EnableSpecialCases) {
+  return new PartialInlinerLegacyPass(RunLTOPartialInline, EnableSpecialCases);
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1694,7 +1784,8 @@ PreservedAnalyses PartialInlinerPass::run(Module &M,
 #if INTEL_CUSTOMIZATION
   auto ILIC = make_unique<InliningLoopInfoCache>();
   if (PartialInlinerImpl(&GetAssumptionCache, LookupAssumptionCache, &GetTTI,
-                         {GetBFI}, ILIC.get(), PSI, RunLTOPartialInline)
+                         {GetBFI}, ILIC.get(), PSI, RunLTOPartialInline,
+                         EnableSpecialCases)
           .run(M))
 #endif // INTEL_CUSTOMIZATION
     return PreservedAnalyses::none();

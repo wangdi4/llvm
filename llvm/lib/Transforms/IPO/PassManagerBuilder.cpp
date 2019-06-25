@@ -1442,7 +1442,12 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
 #if INTEL_CUSTOMIZATION
   if (RunLTOPartialInlining)
-    PM.add(createPartialInliningPass(true /*RunLTOPartialInlining*/));
+    PM.add(createPartialInliningPass(true /*RunLTOPartialInlining*/,
+#if INTEL_INCLUDE_DTRANS
+                                     EnableDTrans /*EnableSpecialCases*/));
+#else
+                                     false /*EnableSpecialCases*/));
+#endif // INTEL_INCLUDE_DTRANS
 
   if (EnableIPCloning || EnableCallTreeCloning) {
     if (EnableIPCloning)
