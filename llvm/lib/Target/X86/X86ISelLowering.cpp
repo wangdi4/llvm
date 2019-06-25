@@ -20725,6 +20725,50 @@ static SDValue EmitKORTEST(SDValue Op0, SDValue Op1, ISD::CondCode CC,
   if (CC != ISD::SETEQ && CC != ISD::SETNE)
     return SDValue();
 
+#if INTEL_CUSTOMIZATION
+  // FIXME: This a bit of hack and we can probably do a better job of
+  // combining out the AND elsewhere.
+  // We're trying to find (seteq (and (bitcast (concat setcc, undef))))
+  if (Op0.getOpcode() == ISD::AND && Subtarget.hasVLX() && Op0.hasOneUse() &&
+      isNullConstant(Op1) &&
+      isa<ConstantSDNode>(Op0.getOperand(1)) &&
+      Op0.getOperand(0).getOpcode() == ISD::BITCAST) {
+    SDValue CastIn = Op0.getOperand(0).getOperand(0);
+    MVT CastVT = CastIn.getSimpleValueType();
+    if (!(Subtarget.hasAVX512() && CastVT == MVT::v16i1) &&
+        !(Subtarget.hasDQI() && CastVT == MVT::v8i1) &&
+        !(Subtarget.hasBWI() && (CastVT == MVT::v32i1 || CastVT == MVT::v64i1)))
+      return SDValue();
+
+    // Look for concat_vectors. This will probably be with undef, but it doesn't
+    // really matter. We'll check later that the upper bits are masked.
+    if (CastIn.getOpcode() != ISD::CONCAT_VECTORS)
+      return SDValue();
+
+    SDValue In = CastIn.getOperand(0);
+    MVT InVT = In.getSimpleValueType();
+
+    if (In.getOpcode() != ISD::SETCC)
+      return SDValue();
+
+    // Make sure the original AND is clearing out the undef bits.
+    unsigned NumElts = InVT.getVectorNumElements();
+    if (!Op0.getConstantOperandAPInt(1).isMask(NumElts))
+      return SDValue();
+
+    SmallVector<SDValue, 4> Ops(CastIn.getNumOperands(),
+                                DAG.getConstant(0, dl, InVT));
+    Ops[0] = In;
+
+    // Ok reinsert into a zero vector to remove the AND and bitcast.
+    SDValue Res = DAG.getNode(ISD::CONCAT_VECTORS, dl, CastVT, Ops);
+
+    X86::CondCode X86Cond = CC == ISD::SETEQ ? X86::COND_E : X86::COND_NE;
+    X86CC = DAG.getConstant(X86Cond, dl, MVT::i8);
+    return DAG.getNode(X86ISD::KORTEST, dl, MVT::i32, Res, Res);
+  }
+#endif
+
   // Must be a bitcast from vXi1.
   if (Op0.getOpcode() != ISD::BITCAST)
     return SDValue();
