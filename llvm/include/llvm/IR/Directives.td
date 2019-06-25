@@ -252,8 +252,9 @@ def "QUAL.OMP.HINT" : Clause;
 def "QUAL.OMP.NAME" : Clause;
 // INTEL_CUSTOMIZATION
 // Support Intel extension for CSA.
-def "QUAL.OMP.NUM_WORKERS" : Clause;
-def "QUAL.OMP.PIPELINE" : Clause;
+def "QUAL.OMP.SA.NUM_WORKERS" : Clause;
+def "QUAL.OMP.SA.SCHEDULE.STATIC" : Clause;
+def "QUAL.OMP.SA.PIPELINE" : Clause;
 // end INTEL_CUSTOMIZATION
 
 // *** Begin Auxiliary Clauses ***
