@@ -1,7 +1,8 @@
 --- |
   ; RUN: llc -run-pass=machinelicm -o - %s | FileCheck %s
-  ; Line numbers should be retained when loop invariant instructions are
-  ; hoisted.
+  ; Line numbers should not be retained when loop invariant instructions are hoisted.
+  ; Doing so causes poor stepping behavior.
+  ; INTEL: Line numbers must be presered through LICM for code analysis tools.
   ;
   ; Created from:
   ; int x;
@@ -14,12 +15,14 @@
   ; with clang -emit-llvm -S -O2 -g -o t.ll t.c
   ;      llc -relocation-model=pic -stop-after=machine-combine -O2 t.ll -o t.mir
   ;
-  ; We check the debug information location is retained when the machine loop
-  ; invariant pass hoists instructions out of a loop.
+  ; We check that when the machine loop invariant pass hoists instructions
+  ; out of a loop the debug information is not retained.
+  ; INTEL: We check the debug information location is retained when the
+  ;        machine loop invariant pass hoists instructions out of a loop.
   ;
-  ; CHECK:        [[LINE_5:![0-9]+]] = !DILocation(line: 5, column: 7,{{.*}})
+  ; CHECK:        [[LINE_5:![0-9]+]] = !DILocation(line: 5, column: 7,{{.*}}) ;INTEL
   ; CHECK-LABEL:  bb.0.entry:
-  ; CHECK:        MOV64rm $rip, 1, $noreg, target-flags(x86-gotpcrel) @x, $noreg, debug-location [[LINE_5]] :: (load 8 from got)
+  ; CHECK:        MOV64rm $rip, 1, $noreg, target-flags(x86-gotpcrel) @x, $noreg, debug-location [[LINE_5]] :: (load 8 from got) ;INTEL
   ; CHECK-LABEL:  bb.1.while.body:
   ;
   ; ModuleID = 'tx.ll'
