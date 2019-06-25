@@ -23,6 +23,7 @@
 
 #ifndef __CSASTREAM_H
 #define __CSASTREAM_H
+#include <cstddef>
 
 /* Define the C++ interface for High-level LICs or streams on CSA */
 namespace csa
