@@ -3308,11 +3308,7 @@ LexNextToken:
     // Notify MIOpt that we read a non-whitespace/non-comment token.
     MIOpt.ReadToken();
 
-#if INTEL_CUSTOMIZATION
-    // CQ372551: in IntelCompat mode allow character and string literals
-    if (LangOpts.CPlusPlus11 || LangOpts.C11 ||
-        (getLangOpts().IntelCompat && LangOpts.C99 && getLangOpts().GNUMode)) {
-#endif // INTEL_CUSTOMIZATION
+    if (LangOpts.CPlusPlus11 || LangOpts.C11) {
       Char = getCharAndSize(CurPtr, SizeTmp);
 
       // UTF-16 string literal
@@ -3370,11 +3366,7 @@ LexNextToken:
     // Notify MIOpt that we read a non-whitespace/non-comment token.
     MIOpt.ReadToken();
 
-#if INTEL_CUSTOMIZATION
-    // CQ372551: in IntelCompat mode allow character and string literals
-    if (LangOpts.CPlusPlus11 || LangOpts.C11 ||
-        (getLangOpts().IntelCompat && LangOpts.C99 && getLangOpts().GNUMode)) {
-#endif // INTEL_CUSTOMIZATION
+    if (LangOpts.CPlusPlus11 || LangOpts.C11) {
       Char = getCharAndSize(CurPtr, SizeTmp);
 
       // UTF-32 string literal
