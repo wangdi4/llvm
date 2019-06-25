@@ -84,11 +84,6 @@ def ext_intel_typecheck_call_too_many_args : ExtWarn<
 def warn_return_missing_expr_no_err : Warning<
   "non-void %select{function|method}1 %0 should return a value">,
   InGroup<IntelCompat>;
-// Same as ext_return_has_expr, but a warning, not an error, for
-// IntelCompat mode. CQ#367767
-def warn_ext_return_has_expr : Warning<
-  "%select{void function|void method|constructor|destructor}1 %0 "
-  "should not return a value">, InGroup<IntelCompat>;
 // CQ#371990 - let argument be out of Low..High range, assuming Low.
 def warn_arg_invalid_range_low_assumed : Warning<
   "expected a value between %0 and %1, defaults to %0">,
