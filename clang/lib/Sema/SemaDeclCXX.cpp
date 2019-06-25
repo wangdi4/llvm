@@ -628,15 +628,6 @@ bool Sema::MergeCXXFunctionDecl(FunctionDecl *New, FunctionDecl *Old,
     if (NewSM != OldSM) {
       ParmVarDecl *NewParam = New->getParamDecl(New->getMinRequiredArguments());
       assert(NewParam->hasDefaultArg());
-#if INTEL_CUSTOMIZATION
-      // Fix for CQ375076: Althreat application failed with error addition of
-      // default argument on redeclaration makes this constructor a default
-      // constructor
-      if (getLangOpts().IntelCompat)
-        Diag(NewParam->getLocation(), diag::warn_default_arg_makes_ctor_special)
-            << NewParam->getDefaultArgRange() << NewSM;
-      else
-#endif //INTEL_CUSTOMIZATION
       Diag(NewParam->getLocation(), diag::err_default_arg_makes_ctor_special)
         << NewParam->getDefaultArgRange() << NewSM;
       Diag(Old->getLocation(), diag::note_previous_declaration);

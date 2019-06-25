@@ -42,10 +42,6 @@ def warn_attribute_requires_integer_param_type : Warning<
   InGroup<IgnoredAttributes>;
 def note_param_index_specified_here : Note<
   "parameter's index specified here">;
-def warn_default_arg_makes_ctor_special : Warning<
-  "addition of default argument on redeclaration makes this constructor a "
-  "%select{default|copy|move}0 constructor">, InGroup<IntelCompat>;
-
 def err_recursive_attribute_expected : Error<
   "recursive keyword expected after a pragma inline directive">;
 // CQ#366612
