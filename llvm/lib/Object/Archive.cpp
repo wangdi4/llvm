@@ -150,6 +150,33 @@ Expected<StringRef> ArchiveMemberHeader::getName(uint64_t Size) const {
       return Name;
     if (Name.size() == 2 && Name[1] == '/') // String table.
       return Name;
+#if INTEL_CUSTOMIZATION
+    // The offset of archives inside thin archives made with GNU are presented
+    // as /XX:YY. The XX is the offset of the file name in the string table.
+    // For example:
+    //
+    //  /arch1.a
+    //
+    //  /0:84    .....
+    //
+    // The thin archive presented before has "arch1.a" in the string table
+    // starting at offset 0. The number after the colon can be ignored since
+    // it is used by the member.
+    if (Name.contains(':')) {
+      std::size_t PosColon = Name.find(':');
+      // Remove everything after the colon
+      StringRef NewName = Name.take_front(PosColon);
+      // Remove everything before the colon
+      StringRef RemainderData = Name.substr(PosColon + 1);
+      std::size_t NameOffset;
+      std::size_t RemainderOffset;
+      // Make sure that everything before and after the colon can be converted
+      // to integers, if so then the new offset is the data before the colon.
+      if (!(NewName.substr(1).getAsInteger(10, NameOffset)) &&
+          !(RemainderData.getAsInteger(10, RemainderOffset)))
+        Name = NewName;
+    }
+#endif // INTEL_CUSTOMIZATION
     // It's a long name.
     // Get the string table offset.
     std::size_t StringOffset;

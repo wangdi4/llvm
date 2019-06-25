@@ -1,0 +1,22 @@
+# This test checks that LLVM can read nested archives generated with GNU ar.
+# The offset for the archive %t2.a inside %t.a will appear as follows:
+
+# /142:114        0           0     0     644     7         `
+
+# The integer "142" is the offset of the filename in the string table of %t.a.
+# This test makes sure that the file %t2.a was collected correctly and prints
+# the content ("hello2").
+
+UNSUPPORTED: windows
+
+RUN: echo hello > %t.file
+RUN: echo hello2 > %t2.file
+RUN: llvm-ar rc --format=gnu %t2.a %t2.file
+RUN: ar rcT %t.a %t.file %t2.a
+RUN: llvm-ar p %t.a | FileCheck %s
+
+CHECK: hello
+CHECK: hello2
+
+RUN: rm %t.a
+RUN: rm %t2.a
