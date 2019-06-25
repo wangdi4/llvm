@@ -1079,10 +1079,6 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= captureAndAddCollectedNonPointerValuesToSharedClause(W);
             Changed |= genMultiThreadedCode(W);
           }
-          else {
-            Changed |= genPrivatizationCode(W);
-            Changed |= genReductionCode(W);
-          }
 
           RemoveDirectives = true;
 
