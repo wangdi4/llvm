@@ -488,6 +488,8 @@ bool X86PassConfig::addPreISel() {
 #if INTEL_CUSTOMIZATION
   if (getOptLevel() != CodeGenOpt::None)
     addPass(createFeatureInitPass());
+  if (getOptLevel() == CodeGenOpt::Aggressive)
+    addPass(createIVSplitLegacyPass());
 #endif // INTEL_CUSTOMIZATION
   return true;
 }
