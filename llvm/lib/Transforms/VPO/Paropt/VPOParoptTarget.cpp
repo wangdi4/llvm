@@ -133,13 +133,14 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
         cast<PointerType>(ArgV->getType())->getAddressSpace();
     unsigned OldAddressSpace =
         cast<PointerType>(I->getType())->getAddressSpace();
+    // Assert the correct addrspacecast here instead of failing
+    // during SPIRV emission.
+    assert(OldAddressSpace == vpo::ADDRESS_SPACE_GENERIC &&
+           "finalizeKernelFunction: OpenCL global addrspaces can only be "
+           "casted to generic.");
     Value *NewArgV = ArgV;
-    if (NewAddressSpace != OldAddressSpace) {
-      // FIXME: we should cast everything to the generic address space,
-      //        and rewrite all the users recursively. Right now, we are
-      //        casting global to private, which is incorrect.
+    if (NewAddressSpace != OldAddressSpace)
       NewArgV = Builder.CreatePointerBitCastOrAddrSpaceCast(ArgV, I->getType());
-    }
     I->replaceAllUsesWith(NewArgV);
     NewArgI->takeName(&*I);
     ++NewArgI;
@@ -155,14 +156,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
     FunctionDIs[NFn] = SP;
   }
   if (isTargetSPIRV())
-    // FIXME: InferAddrSpaces() expects a flat address space number,
-    //        which is vpo:ADDRESS_SPACE_GENERIC, but we currently pass
-    //        vpo::ADDRESS_SPACE_PRIVATE. We hope that InferAddrSpaces()
-    //        will remove casts to the private address space, but this
-    //        may not happen always, since InferAddrSpaces() is an optimization.
-    //        See a FIXME note above - this is what we have to do
-    //        (i.e. follow the lines of GenericToNVVM pass).
-    InferAddrSpaces(*TTI, 0, *NFn);
+    InferAddrSpaces(*TTI, vpo::ADDRESS_SPACE_GENERIC, *NFn);
 
   return NFn;
 }
@@ -310,16 +304,18 @@ void VPOParoptTransform::guardSideEffectStatements(
       GeneralUtils::collectBBSet(TargetDirectiveBegin->getParent(),
           TargetDirectiveExit->getParent(), TargetBBSet);
     } else if (CriticalBegin == nullptr && isa<CallInst>(&*I)){
-      auto CallI = dyn_cast<CallInst>(&*I);
-      auto CalledF = CallI->getCalledFunction();
-      if (CalledF->hasName() &&
+      auto CallI = cast<CallInst>(&*I);
+      // Unprototyped function calls may result in a call of a bitcasted
+      // Function.
+      auto CalledF = CallI->getCalledOperand()->stripPointerCasts();
+      if (isa<Function>(CalledF) &&
           CalledF->getName() == "__kmpc_critical") {
         CriticalBegin = CallI->getParent();
       }
     } else if (CriticalExit == nullptr && isa<CallInst>(&*I)){
-      auto CallI = dyn_cast<CallInst>(&*I);
-      auto CalledF = CallI->getCalledFunction();
-      if (CalledF->hasName() &&
+      auto CallI = cast<CallInst>(&*I);
+      auto CalledF = CallI->getCalledOperand()->stripPointerCasts();
+      if (isa<Function>(CalledF) &&
           CalledF->getName() == "__kmpc_end_critical") {
         CriticalExit = CallI->getParent();
         GeneralUtils::collectBBSet(CriticalBegin,
