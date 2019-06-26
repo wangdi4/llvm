@@ -32,7 +32,7 @@
 BUILTIN(__builtin_cpu_init, "v", "n")
 BUILTIN(__builtin_cpu_supports, "bcC*", "nc")
 // #if INTEL_CUSTOMIZATION
-BUILTIN(_may_i_use_cpu_feature, "iIULLi", "nc")
+BUILTIN(_may_i_use_cpu_feature, "iIUOi", "nc")
 // #endif // INTEL_CUSTOMIZATION
 BUILTIN(__builtin_cpu_is, "bcC*", "nc")
 
@@ -871,7 +871,7 @@ TARGET_BUILTIN(__builtin_ia32_xtest, "i", "n", "rtm")
 
 BUILTIN(__builtin_ia32_rdpmc, "UOii", "")
 BUILTIN(__builtin_ia32_rdtsc, "UOi", "")
-BUILTIN(_rdtsc, "ULLi", "") // INTEL
+BUILTIN(_rdtsc, "UOi", "") // INTEL
 BUILTIN(__rdtsc, "UOi", "")
 BUILTIN(__builtin_ia32_rdtscp, "UOiUi*", "")
 
@@ -2140,23 +2140,23 @@ TARGET_BUILTIN(__builtin_ia32_enqcmds, "Ucv*vC*", "n", "enqcmd")
 
 #if INTEL_FEATURE_ISA_KEYLOCKER
 // KEYLOCKER
-TARGET_BUILTIN(__builtin_ia32_loadiwkey, "vUiV2LLiV2LLiV2LLi", "nV:128:", "keylocker")
+TARGET_BUILTIN(__builtin_ia32_loadiwkey, "vUiV2OiV2OiV2Oi", "nV:128:", "keylocker")
 TARGET_BUILTIN(__builtin_ia32_encodekey128,
-               "UiUiV2LLiV2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*", "nV:128:", "keylocker")
+               "UiUiV2OiV2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*", "nV:128:", "keylocker")
 TARGET_BUILTIN(__builtin_ia32_encodekey256,
-               "UiUiV2LLiV2LLiV2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*", "nV:128:", "keylocker")
-TARGET_BUILTIN(__builtin_ia32_aesenc128kl, "V2LLiV2LLivC*", "nV:128:", "keylocker")
-TARGET_BUILTIN(__builtin_ia32_aesenc256kl, "V2LLiV2LLivC*", "nV:128:", "keylocker")
-TARGET_BUILTIN(__builtin_ia32_aesdec128kl, "V2LLiV2LLivC*", "nV:128:", "keylocker")
-TARGET_BUILTIN(__builtin_ia32_aesdec256kl, "V2LLiV2LLivC*", "nV:128:", "keylocker")
+               "UiUiV2OiV2OiV2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*", "nV:128:", "keylocker")
+TARGET_BUILTIN(__builtin_ia32_aesenc128kl, "V2OiV2OivC*", "nV:128:", "keylocker")
+TARGET_BUILTIN(__builtin_ia32_aesenc256kl, "V2OiV2OivC*", "nV:128:", "keylocker")
+TARGET_BUILTIN(__builtin_ia32_aesdec128kl, "V2OiV2OivC*", "nV:128:", "keylocker")
+TARGET_BUILTIN(__builtin_ia32_aesdec256kl, "V2OiV2OivC*", "nV:128:", "keylocker")
 TARGET_BUILTIN(__builtin_ia32_aesencwide128kl,
-               "UcvC*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLiV2LLiV2LLiV2LLiV2LLiV2LLiV2LLiV2LLi", "nV:128:", "keylocker")
+               "UcvC*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2OiV2OiV2OiV2OiV2OiV2OiV2OiV2Oi", "nV:128:", "keylocker")
 TARGET_BUILTIN(__builtin_ia32_aesencwide256kl,
-               "UcvC*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLiV2LLiV2LLiV2LLiV2LLiV2LLiV2LLiV2LLi", "nV:128:", "keylocker")
+               "UcvC*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2OiV2OiV2OiV2OiV2OiV2OiV2OiV2Oi", "nV:128:", "keylocker")
 TARGET_BUILTIN(__builtin_ia32_aesdecwide128kl,
-               "UcvC*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLiV2LLiV2LLiV2LLiV2LLiV2LLiV2LLiV2LLi", "nV:128:", "keylocker")
+               "UcvC*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2OiV2OiV2OiV2OiV2OiV2OiV2OiV2Oi", "nV:128:", "keylocker")
 TARGET_BUILTIN(__builtin_ia32_aesdecwide256kl,
-               "UcvC*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLiV2LLiV2LLiV2LLiV2LLiV2LLiV2LLiV2LLi", "nV:128:", "keylocker")
+               "UcvC*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2OiV2OiV2OiV2OiV2OiV2OiV2OiV2Oi", "nV:128:", "keylocker")
 #endif // INTEL_FEATURE_ISA_KEYLOCKER
 
 #if INTEL_FEATURE_ISA_SERIALIZE
