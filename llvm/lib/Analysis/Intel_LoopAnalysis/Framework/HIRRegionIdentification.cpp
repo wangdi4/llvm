@@ -470,15 +470,31 @@ bool HIRRegionIdentification::isHeaderPhi(const PHINode *Phi) const {
   return false;
 }
 
-bool HIRRegionIdentification::isSupported(Type *Ty) {
+static void printOptReportRemark(const Loop *Lp, const Twine &Remark) {
+  // There can be many messages from bblocks checked for loop materialization
+  // which can drown out loop related ones. Skipping them for now.
+  if (!Lp) {
+    return;
+  }
+
+  LLVM_DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop ");
+  LLVM_DEBUG(Lp->getHeader()->printAsOperand(dbgs(), false));
+
+  if (const DebugLoc Loc = Lp->getStartLoc()) {
+    LLVM_DEBUG(dbgs() << " at "
+                      << "(" << Loc.getLine() << "," << Loc.getCol() << ")");
+  }
+
+  LLVM_DEBUG(dbgs() << ": " << Remark << "\n");
+}
+
+bool HIRRegionIdentification::isSupported(Type *Ty, const Loop *Lp) {
   assert(Ty && "Type is null!");
 
   while (isa<SequentialType>(Ty) || isa<PointerType>(Ty)) {
     if (auto SeqTy = dyn_cast<SequentialType>(Ty)) {
       if (SeqTy->isVectorTy()) {
-        LLVM_DEBUG(
-            dbgs()
-            << "LOOPOPT_OPTREPORT: vector types currently not supported.\n");
+        printOptReportRemark(Lp, "Vector types currently not supported.");
         return false;
       }
       Ty = SeqTy->getElementType();
@@ -491,9 +507,8 @@ bool HIRRegionIdentification::isSupported(Type *Ty) {
   // Integer type greater than 64 bits not supported.This is mainly to throttle
   // 128 bit integers.
   if (IntType && (IntType->getPrimitiveSizeInBits() > 64)) {
-    LLVM_DEBUG(
-        dbgs() << "LOOPOPT_OPTREPORT: integer types greater than 64 bits "
-                  "currently not supported.\n");
+    printOptReportRemark(
+        Lp, "Integer types greater than 64 bits currently not supported.");
     return false;
   }
 
@@ -501,15 +516,15 @@ bool HIRRegionIdentification::isSupported(Type *Ty) {
 }
 
 bool HIRRegionIdentification::containsUnsupportedTy(
-    const GEPOrSubsOperator *GEPOp) {
+    const GEPOrSubsOperator *GEPOp, const Loop *Lp) {
   // Subscript intrinsic indexes only a single type which is
   // PointerOperandType.
   if (isa<SubscriptInst>(GEPOp)) {
-    return !isSupported(GEPOp->getPointerOperandType());
+    return !isSupported(GEPOp->getPointerOperandType(), Lp);
   }
 
   for (auto I = gep_type_begin(GEPOp), E = gep_type_end(GEPOp); I != E; ++I) {
-    if (!isSupported(I.getIndexedType())) {
+    if (!isSupported(I.getIndexedType(), Lp)) {
       return true;
     }
   }
@@ -517,10 +532,11 @@ bool HIRRegionIdentification::containsUnsupportedTy(
   return false;
 }
 
-bool HIRRegionIdentification::containsUnsupportedTy(const Instruction *Inst) {
+bool HIRRegionIdentification::containsUnsupportedTy(const Instruction *Inst,
+                                                    const Loop *Lp) {
 
   if (auto GEPOp = dyn_cast<GEPOrSubsOperator>(Inst)) {
-    return containsUnsupportedTy(GEPOp);
+    return containsUnsupportedTy(GEPOp, Lp);
   }
 
   unsigned NumOp = Inst->getNumOperands();
@@ -534,7 +550,7 @@ bool HIRRegionIdentification::containsUnsupportedTy(const Instruction *Inst) {
 
   // Check instruction operands
   for (unsigned I = 0; I < NumOp; ++I) {
-    if (!isSupported(Inst->getOperand(I)->getType())) {
+    if (!isSupported(Inst->getOperand(I)->getType(), Lp)) {
       return true;
     }
   }
@@ -656,9 +672,8 @@ void HIRRegionIdentification::CostModelAnalyzer::analyze() {
 
   // Only allow innermost multi-exit loops for now.
   if (!Lp.getExitingBlock() && !Lp.empty()) {
-    LLVM_DEBUG(
-        dbgs() << "LOOPOPT_OPTREPORT: outer multi-exit loop throttled for "
-                  "compile time reasons.\n");
+    printOptReportRemark(
+        &Lp, "Outer multi-exit loop throttled for compile time reasons.");
     IsProfitable = false;
     return;
   }
@@ -670,9 +685,8 @@ void HIRRegionIdentification::CostModelAnalyzer::analyze() {
   // throttled for compile time reasons.
   if (IsUnknownLoop &&
       (((OptLevel < 3) && (Lp.getNumBlocks() != 1)) || !Lp.empty())) {
-    LLVM_DEBUG(
-        dbgs() << "LOOPOPT_OPTREPORT: unknown loop throttled for compile "
-                  "time reasons.\n");
+    printOptReportRemark(
+        &Lp, "Non-countable loop throttled for compile time reasons.");
     IsProfitable = false;
     return;
   }
@@ -698,9 +712,8 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBasicBlock(
 
   // Bail out early instead of analyzing each individual instruction.
   if ((BBInstCount + InstCount) > 10 * MaxInstThreshold) {
-    LLVM_DEBUG(
-        dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of too "
-                  "many statements.\n");
+    printOptReportRemark(&Lp,
+                         "Throttled due to presence of too many statements.");
     return false;
   }
 
@@ -746,9 +759,8 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitInstruction(
   bool Ret = (InstCount <= MaxInstThreshold);
 
   if (!Ret) {
-    LLVM_DEBUG(
-        dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of too "
-                  "many statements.\n");
+    printOptReportRemark(&Lp,
+                         "Throttled due to presence of too many statements.");
   }
 
   return Ret;
@@ -757,8 +769,7 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitInstruction(
 bool HIRRegionIdentification::CostModelAnalyzer::visitLoadInst(
     const LoadInst &LI) {
   if (LI.isVolatile()) {
-    LLVM_DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of "
-                         "volatile load.\n");
+    printOptReportRemark(&Lp, "Throttled due to presence of volatile load.");
     return false;
   }
 
@@ -768,8 +779,7 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitLoadInst(
 bool HIRRegionIdentification::CostModelAnalyzer::visitStoreInst(
     const StoreInst &SI) {
   if (SI.isVolatile()) {
-    LLVM_DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of "
-                         "volatile store.\n");
+    printOptReportRemark(&Lp, "Throttled due to presence of volatile store.");
     return false;
   }
 
@@ -804,8 +814,7 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitCallInst(
     }
   }
 
-  LLVM_DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of "
-                       "user calls.\n");
+  printOptReportRemark(&Lp, "Throttled due to presence of user calls.");
   return false;
 }
 
@@ -823,9 +832,7 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
   }
 
   if (++IfCount > MaxIfThreshold) {
-    LLVM_DEBUG(
-        dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of too "
-                  "many ifs.\n");
+    printOptReportRemark(&Lp, "Throttled due to presence of too many ifs.");
     return false;
   }
 
@@ -878,9 +885,8 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
 
   // Add 1 to include reaching header node.
   if ((IfNestCount + 1) > IfNestThreshold) {
-    LLVM_DEBUG(
-        dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of too "
-                  "many nested ifs.\n");
+    printOptReportRemark(
+        &Lp, "Loop throttled due to presence of too many nested ifs.");
     return false;
   }
 
@@ -899,9 +905,7 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
        !RI.PDT.dominates(Succ0, ParentBB)) ||
       (!RI.DT.dominates(ParentBB, Succ1) &&
        !RI.PDT.dominates(Succ1, ParentBB))) {
-    LLVM_DEBUG(
-        dbgs()
-        << "LOOPOPT_OPTREPORT: Loop throttled due to presence of goto.\n");
+    printOptReportRemark(&Lp, "Loop throttled due to presence of goto.");
     return false;
   }
 
@@ -1140,8 +1144,7 @@ bool isIrreducible(const LoopInfo *LI, const Loop *Lp,
   for (auto PoIter = Iter::begin(Start, dfs), PoEnd = Iter::end(Start, dfs);
        PoIter != PoEnd; ++PoIter) {
     if (PoIter.getFoundCycle()) {
-      LLVM_DEBUG(
-          dbgs() << "LOOPOPT_OPTREPORT: Irreducible CFG not supported.\n");
+      printOptReportRemark(Lp, "Irreducible CFG not supported.");
       return true;
     }
   }
@@ -1171,24 +1174,21 @@ bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
   auto FirstInst = BB->getFirstNonPHI();
 
   if (isa<LandingPadInst>(FirstInst) || isa<FuncletPadInst>(FirstInst)) {
-    LLVM_DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Exception handling currently not "
-                         "supported.\n");
+    printOptReportRemark(Lp, "Exception handling currently not supported.");
     return false;
   }
 
   auto Term = BB->getTerminator();
 
   if (isa<IndirectBrInst>(Term)) {
-    LLVM_DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Indirect branches currently not "
-                         "supported.\n");
+    printOptReportRemark(Lp, "Indirect branches currently not supported.");
     return false;
   }
 
   if (isa<InvokeInst>(Term) || isa<ResumeInst>(Term) ||
       isa<CatchSwitchInst>(Term) || isa<CatchReturnInst>(Term) ||
       isa<CleanupReturnInst>(Term)) {
-    LLVM_DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Exception handling currently not "
-                         "supported.\n");
+    printOptReportRemark(Lp, "Exception handling currently not supported.");
     return false;
   }
 
@@ -1212,10 +1212,10 @@ bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
 
         if (!Lp->contains(SuccBB)) {
           if (LoopExitBBs.count(SuccBB) && isa<PHINode>(SuccBB->begin())) {
-            LLVM_DEBUG(dbgs()
-                       << "LOOPOPT_OPTREPORT: Switch instruction with "
-                          "multiple successors outside the loop currently "
-                          "not supported.\n");
+            printOptReportRemark(
+                Lp, "Switch instruction with "
+                    "multiple successors outside the loop currently "
+                    "not supported.");
             return false;
           }
           LoopExitBBs.insert(SuccBB);
@@ -1228,43 +1228,37 @@ bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
   for (auto Inst = BB->begin(), E = std::prev(BB->end()); Inst != E; ++Inst) {
 
     if (Inst->isAtomic()) {
-      LLVM_DEBUG(
-          dbgs() << "LOOPOPT_OPTREPORT: Atomic instructions are currently "
-                    "not supported.\n");
+      printOptReportRemark(Lp,
+                           "Atomic instructions are currently not supported.");
       return false;
     }
 
     // TODO: think about HIR representation for
     // InsertValueInst/ExtractValueInst.
     if (isa<InsertValueInst>(Inst) || isa<ExtractValueInst>(Inst)) {
-      LLVM_DEBUG(
-          dbgs() << "LOOPOPT_OPTREPORT: InsertValueInst/ExtractValueInst "
-                    "currently not supported.\n");
+      printOptReportRemark(
+          Lp, "InsertValueInst/ExtractValueInst currently not supported.");
       return false;
     }
 
     if (Inst->getType()->isVectorTy()) {
-      LLVM_DEBUG(
-          dbgs()
-          << "LOOPOPT_OPTREPORT: Vector types currently not supported.\n");
+      printOptReportRemark(Lp, "Vector types currently not supported.");
       return false;
     }
 
     if (auto CInst = dyn_cast<CallInst>(Inst)) {
       if (CInst->isInlineAsm()) {
-        LLVM_DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Inline assembly currently not "
-                             "supported.\n");
+        printOptReportRemark(Lp, "Inline assembly currently not supported.");
         return false;
       }
 
       if (hasUnsupportedOperandBundle(CInst)) {
-        LLVM_DEBUG(
-            dbgs() << "LOOPOPT_OPTREPORT: Unsupported operand bundle.\n");
+        printOptReportRemark(Lp, "Unsupported operand bundle.");
         return false;
       }
     }
 
-    if (containsUnsupportedTy(&*Inst)) {
+    if (containsUnsupportedTy(&*Inst, Lp)) {
       return false;
     }
   }
@@ -1315,15 +1309,14 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
   // At least one of this loop's subloops reach MaxLoopNestLevel so we cannot
   // generate this loop.
   if (LoopnestDepth > MaxLoopNestLevel) {
-    LLVM_DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loopnest is more than "
-                      << MaxLoopNestLevel << " deep.\n");
+    printOptReportRemark(&Lp, "Loopnest is more than " +
+                                  Twine(MaxLoopNestLevel) + " deep.");
     return false;
   }
 
   // Loop is not in a handleable form.
   if (!Lp.isLoopSimplifyForm()) {
-    LLVM_DEBUG(
-        dbgs() << "LOOPOPT_OPTREPORT: Loop structure is not handleable.\n");
+    printOptReportRemark(&Lp, "Loop structure is not handleable.");
     return false;
   }
 
@@ -1331,7 +1324,7 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
   MDNode *LoopID = Lp.getLoopID();
   if (!DisablePragmaBailOut && !isSIMDOrParLoop(Lp) && LoopID &&
       !isSupportedMetadata(LoopID)) {
-    LLVM_DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loops has unsupported pragma.\n");
+    printOptReportRemark(&Lp, "Loop has unsupported pragma.");
     return false;
   }
 
@@ -1340,9 +1333,7 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
   // We cannot build lexical links if dominator/post-dominator info is absent.
   // This can be due to unreachable/infinite loops.
   if (!DT.getNode(LatchBB) || !PDT.getNode(LatchBB)) {
-    LLVM_DEBUG(
-        dbgs()
-        << "LOOPOPT_OPTREPORT: Unreachable/Infinite loops not supported.\n");
+    printOptReportRemark(&Lp, "Unreachable/Infinite loop not supported.");
     return false;
   }
 
@@ -1350,16 +1341,14 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
   auto BrInst = dyn_cast<BranchInst>(LatchBB->getTerminator());
 
   if (!BrInst) {
-    LLVM_DEBUG(
-        dbgs() << "LOOPOPT_OPTREPORT: Non-branch instructions in loop latch "
-                  "currently not supported.\n");
+    printOptReportRemark(
+        &Lp, "Non-branch instructions in loop latch currently not supported.");
     return false;
   }
 
   if (BrInst->isUnconditional()) {
-    LLVM_DEBUG(
-        dbgs() << "LOOPOPT_OPTREPORT: Unconditional branch instructions in "
-                  "loop latch currently not supported.\n");
+    printOptReportRemark(&Lp, "Unconditional branch instructions in loop latch "
+                              "currently not supported.");
     return false;
   }
 
@@ -1368,8 +1357,8 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
   auto LatchCmpInst = dyn_cast<Instruction>(LatchVal);
 
   if (!LatchCmpInst) {
-    LLVM_DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Non-instruction latch condition "
-                         "currently not supported.\n");
+    printOptReportRemark(
+        &Lp, "Non-instruction latch condition currently not supported.");
     return false;
   }
 
@@ -1385,9 +1374,8 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
   // This represents a trip count of 2^n while we can only handle a trip count
   // up to 2^n-1.
   if (ConstBECount && ConstBECount->getValue()->isMinusOne()) {
-    LLVM_DEBUG(
-        dbgs() << "LOOPOPT_OPTREPORT: Loops with trip count greater than the "
-                  "IV range currently not supported.\n");
+    printOptReportRemark(&Lp, "Loop with trip count greater than the IV range "
+                              "currently not supported.");
     return false;
   }
 
@@ -1402,7 +1390,8 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
   auto IVNode = findIVDefInHeader(Lp, LatchCmpInst);
 
   if (!IVNode) {
-    LLVM_DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Could not find loop IV.\n");
+    // TODO: remove this restriction
+    printOptReportRemark(&Lp, "Loop without IV not supported.");
     return false;
   }
 
@@ -1413,8 +1402,7 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
     // for.i:
     // %i.08.i = phi i1 [ true, %entry ], [ false, %for.i ]
     // br i1 %i.08.i, label %for.i, label %exit
-    LLVM_DEBUG(
-        dbgs() << "LOOPOPT_OPTREPORT: i1 type IV currently not handled.\n");
+    printOptReportRemark(&Lp, "i1 type IV currently not handled.");
     return false;
   }
 
@@ -1432,9 +1420,8 @@ void HIRRegionIdentification::createRegion(
     const SmallPtrSetImpl<const BasicBlock *> *IntermediateBlocks) {
 
   if (RegionNumThreshold && (RegionCount == RegionNumThreshold)) {
-    LLVM_DEBUG(
-        dbgs() << "LOOPOPT_OPTREPORT: Region throttled due to region number "
-                  "threshold.\n");
+    printOptReportRemark(Loops.front(),
+                         "Region throttled due to region number threshold.");
     return;
   }
 
@@ -1818,9 +1805,8 @@ void HIRRegionIdentification::formRegionsForLoopMaterialization(
     // for loop materialization as they are created after regular regions even
     // though lexically they may fall between regular regions.
     if (RegionNumThreshold && (RegionCount == RegionNumThreshold)) {
-      LLVM_DEBUG(
-          dbgs() << "LOOPOPT_OPTREPORT: Region throttled due to region number "
-                    "threshold.\n");
+      printOptReportRemark(nullptr,
+                           "Region throttled due to region number threshold.");
       return;
     }
 
@@ -1869,9 +1855,8 @@ void HIRRegionIdentification::formRegions(Function &Func) {
 
 void HIRRegionIdentification::createFunctionLevelRegion(Function &Func) {
   if (RegionNumThreshold && (RegionCount == RegionNumThreshold)) {
-    LLVM_DEBUG(
-        dbgs() << "LOOPOPT_OPTREPORT: Region throttled due to region number "
-                  "threshold.\n");
+    printOptReportRemark(nullptr,
+                         "Region throttled due to region number threshold.");
     return;
   }
 
