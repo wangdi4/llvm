@@ -94,6 +94,10 @@
 # INTEL_FEATURE_CSA
 @CSA:SECRET@
 # end INTEL_FEATURE_CSA
+
+# INTEL_FEATURE_ICECODE
+@ICECODE:SECRET@
+# end INTEL_FEATURE_ICECODE
 # === New targets section end ===
 
 # Software features that need to be kept in the "safe" repo use SW_ prefix,

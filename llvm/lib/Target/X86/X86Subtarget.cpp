@@ -331,7 +331,15 @@ X86Subtarget::X86Subtarget(const Triple &TT, StringRef CPU, StringRef FS,
       StackAlignOverride(StackAlignOverride),
       PreferVectorWidthOverride(PreferVectorWidthOverride),
       RequiredVectorWidth(RequiredVectorWidth),
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+      InIceCodeMode(TargetTriple.getArch() == Triple::x86_icecode),
+      In64BitMode(TargetTriple.getArch() == Triple::x86_64 ||
+                  TargetTriple.getArch() == Triple::x86_icecode),
+#else // INTEL_FEATURE_ICECODE
       In64BitMode(TargetTriple.getArch() == Triple::x86_64),
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
       In32BitMode(TargetTriple.getArch() == Triple::x86 &&
                   TargetTriple.getEnvironment() != Triple::CODE16),
       In16BitMode(TargetTriple.getArch() == Triple::x86 &&

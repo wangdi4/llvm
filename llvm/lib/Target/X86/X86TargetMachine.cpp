@@ -72,6 +72,11 @@ extern "C" void LLVMInitializeX86Target() {
   // Register the target.
   RegisterTargetMachine<X86TargetMachine> X(getTheX86_32Target());
   RegisterTargetMachine<X86TargetMachine> Y(getTheX86_64Target());
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  RegisterTargetMachine<X86TargetMachine> Z(getTheX86_IceCodeTarget());
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 
   PassRegistry &PR = *PassRegistry::getPassRegistry();
   initializeGlobalISel(PR);

@@ -510,7 +510,16 @@ private:
   /// Required vector width from function attribute.
   unsigned RequiredVectorWidth;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  /// True if compiling for IceCode, false for 16-bit, 32-bit or 64-bit.
+  bool InIceCodeMode;
+
+  /// True if compiling for 64-bit or IceCode, false for 16-bit or 32-bit.
+#else // INTEL_FEATURE_ICECODE
   /// True if compiling for 64-bit, false for 16-bit or 32-bit.
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
   bool In64BitMode;
 
   /// True if compiling for 32-bit, false for 16-bit or 64-bit.
@@ -583,6 +592,14 @@ private:
   void initSubtargetFeatures(StringRef CPU, StringRef FS);
 
 public:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  bool isIceCode() const {
+    return InIceCodeMode;
+  }
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
+
   /// Is this x86_64? (disregarding specific ABI / programming model)
   bool is64Bit() const {
     return In64BitMode;

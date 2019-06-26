@@ -524,7 +524,14 @@ static MCInstrAnalysis *createX86MCInstrAnalysis(const MCInstrInfo *Info) {
 
 // Force static initialization.
 extern "C" void LLVMInitializeX86TargetMC() {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  for (Target *T : {&getTheX86_32Target(), &getTheX86_64Target(),
+                    &getTheX86_IceCodeTarget()}) {
+#else // INTEL_FEATURE_ICECODE
   for (Target *T : {&getTheX86_32Target(), &getTheX86_64Target()}) {
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
     // Register the MC asm info.
     RegisterMCAsmInfoFn X(*T, createX86MCAsmInfo);
 
@@ -565,6 +572,12 @@ extern "C" void LLVMInitializeX86TargetMC() {
                                        createX86_32AsmBackend);
   TargetRegistry::RegisterMCAsmBackend(getTheX86_64Target(),
                                        createX86_64AsmBackend);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  TargetRegistry::RegisterMCAsmBackend(getTheX86_IceCodeTarget(),
+                                       createX86_IceCodeAsmBackend);
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 }
 
 unsigned llvm::getX86SubSuperRegisterOrZero(unsigned Reg, unsigned Size,
