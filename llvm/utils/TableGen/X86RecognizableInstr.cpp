@@ -125,6 +125,16 @@ RecognizableInstr::RecognizableInstr(DisassemblerTables &tables,
     return;
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  for (unsigned i = 0, e = Predicates.size(); i != e; ++i)
+    if (Predicates[i]->getName().find("NotIceCodeMode") != StringRef::npos) {
+      ShouldBeEmitted = false;
+      return;
+    }
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
+
   // Special case since there is no attribute class for 64-bit and VEX
   if (Name == "VMASKMOVDQU64") {
     ShouldBeEmitted = false;

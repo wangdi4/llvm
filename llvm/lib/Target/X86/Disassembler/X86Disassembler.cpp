@@ -858,4 +858,10 @@ extern "C" void LLVMInitializeX86Disassembler() {
                                          createX86Disassembler);
   TargetRegistry::RegisterMCDisassembler(getTheX86_64Target(),
                                          createX86Disassembler);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  TargetRegistry::RegisterMCDisassembler(getTheX86_IceCodeTarget(),
+                                         createX86Disassembler);
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 }

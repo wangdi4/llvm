@@ -1005,6 +1005,14 @@ def Not64BitMode : Predicate<"!Subtarget->is64Bit()">,
                              AssemblerPredicate<"!Mode64Bit", "Not 64-bit mode">;
 def In64BitMode  : Predicate<"Subtarget->is64Bit()">,
                              AssemblerPredicate<"Mode64Bit", "64-bit mode">;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+def NotIceCodeMode : Predicate<"!Subtarget->isIceCode()">,
+                               AssemblerPredicate<"!ModeIceCode", "Not IceCode mode">;
+def InIceCodeMode  : Predicate<"Subtarget->isIceCode()">,
+                               AssemblerPredicate<"ModeIceCode", "IceCode mode">;
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 def IsLP64  : Predicate<"Subtarget->isTarget64BitLP64()">;
 def NotLP64 : Predicate<"!Subtarget->isTarget64BitLP64()">;
 def In16BitMode  : Predicate<"Subtarget->is16Bit()">,
@@ -3108,6 +3116,12 @@ include "Intel_X86InstrKL.td"
 #if INTEL_FEATURE_ISA_AMX
 include "Intel_X86InstrAMX.td"
 #endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+include "Intel_X86InstrIceCode.td"
+#endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
 
 // System instructions.
