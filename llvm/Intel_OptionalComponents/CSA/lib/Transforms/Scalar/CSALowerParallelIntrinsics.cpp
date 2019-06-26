@@ -492,11 +492,11 @@ void Section::collectSectionRecursively(
   bool MatchFound = false;
 
   BlocksToVisit.push(StartBlock);
+  VisitedBlocks.insert(StartBlock);
 
   while (!BlocksToVisit.empty()) {
     auto *BB = BlocksToVisit.front();
     BlocksToVisit.pop();
-    VisitedBlocks.insert(BB);
 
     Instruction *NextInst =
       (EntryCall->getParent() != BB) ?
@@ -552,8 +552,10 @@ void Section::collectSectionRecursively(
     }
     else {
       for (auto *SB : successors(BB)) {
-        if (VisitedBlocks.find(SB) == VisitedBlocks.end())
+        if (VisitedBlocks.find(SB) == VisitedBlocks.end()) {
           BlocksToVisit.push(SB);
+          VisitedBlocks.insert(SB);
+        }
       }
     }
   }
