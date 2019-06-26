@@ -739,6 +739,27 @@ void Instruction::swapProfMetadata() {
               MDNode::get(ProfileData->getContext(), Ops));
 }
 
+#if INTEL_CUSTOMIZATION
+static MDNode *eraseLoopOptReport(MDNode *LoopID, LLVMContext &Context) {
+  SmallVector<Metadata *, 4> Ops;
+  Ops.push_back(nullptr);
+  std::copy_if(
+      std::next(LoopID->op_begin()), LoopID->op_end(), std::back_inserter(Ops),
+      [](Metadata *M) { return !LoopOptReport::isOptReportMetadata(M); });
+  if (Ops.size() == 1) {
+    return nullptr;
+  }
+
+  // Opt report was not found, return original LoopID.
+  if (Ops.size() == LoopID->getNumOperands()) {
+    return LoopID;
+  }
+
+  MDTuple *NewLoopID = MDTuple::get(Context, Ops);
+  NewLoopID->replaceOperandWith(0, NewLoopID);
+  return NewLoopID;
+}
+#endif // INTEL_CUSTOMIZATION
 void Instruction::copyMetadata(const Instruction &SrcInst,
                                ArrayRef<unsigned> WL) {
   if (!SrcInst.hasMetadata())
@@ -760,6 +781,12 @@ void Instruction::copyMetadata(const Instruction &SrcInst,
   for (const auto &MD : TheMDs) {
     if (WL.empty() || WLS.count(MD.first))
 #if INTEL_CUSTOMIZATION
+      // Erase loop opt report before copying loop metadata.
+      if (MD.first == LLVMContext::MD_loop) {
+        auto *NewMD = eraseLoopOptReport(MD.second, getContext());
+        setMetadata(MD.first, NewMD);
+        continue;
+      }
       if (MD.second != MDIR)
         setMetadata(MD.first, MD.second);
 #endif // INTEL_CUSTOMIZATION
