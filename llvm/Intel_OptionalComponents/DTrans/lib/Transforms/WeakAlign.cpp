@@ -382,6 +382,7 @@ bool WeakAlignImpl::isSupportedIntrinsicInst(IntrinsicInst *II) {
   case Intrinsic::annotation:
   case Intrinsic::ptr_annotation:
   case Intrinsic::var_annotation:
+  case Intrinsic::is_constant:
   case Intrinsic::eh_typeid_for:
   case Intrinsic::trap:
   case Intrinsic::vastart:
