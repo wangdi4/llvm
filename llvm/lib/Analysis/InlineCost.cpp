@@ -45,6 +45,8 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"    // INTEL
+#include <algorithm>                                // INTEL
+#include <queue>                                    // INTEL
 
 using namespace llvm;
 using namespace InlineReportTypes;  // INTEL
@@ -4038,12 +4040,26 @@ static Optional<uint64_t> profInstrumentCount(ProfileSummaryInfo *PSI,
 
 //
 // Set the percentage within 100% for which any callsite is considered
-// hot via instrumented profile info. (For now, use "0" which provides for
-// inlining only the hottest callsite(s).)
+// hot via instrumented profile info. (For example, a value of 85 means
+// any callsite with an execution count of at least 15% (=100%-85%) of
+// the hottest callsite's execution count could be considered.
 //
 static cl::opt<unsigned> ProfInstrumentHotPercentage(
-    "inline-prof-instr-hot-percentage", cl::Hidden, cl::init(0),
+    "inline-prof-instr-hot-percentage", cl::Hidden, cl::init(85),
     cl::desc("Calls within this percentage of the hottest call are hot"));
+
+//
+// Sets a limit on the number of callsites that can be considered hot
+// due to instrumented profile execution count. For example, "5" means
+// that, on entry to the inliner, only the callsites with the 5 hottest
+// execution counts will be considered as having "hot" profiles. (Note
+// that there could be actually be more than this number in the inline
+// report if a callsite marked hot gets cloned (for example, during
+// inlining).
+//
+static cl::opt<unsigned> ProfInstrumentHotCount(
+    "inline-prof-instr-hot-count", cl::Hidden, cl::init(5),
+    cl::desc("Number of call sites to be considered hot"));
 
 //
 // Return the threshold over which a callsite is considered hot.
@@ -4054,8 +4070,10 @@ static uint64_t profInstrumentThreshold(ProfileSummaryInfo *PSI,
   static uint64_t Threshold = 0;
   if (ComputedThreshold)
     return Threshold;
-  // Find hottest callsite and its profile count.
   uint64_t MaxProfCount = 0;
+  // Find hottest callsite and its profile count.
+  std::priority_queue<uint64_t, std::vector<uint64_t>, std::greater<uint64_t>>
+      ProfQueue;
   for (auto &F :  M->functions()) {
     for (User *U : F.users()) {
       auto CB = dyn_cast<CallBase>(U);
@@ -4065,12 +4083,21 @@ static uint64_t profInstrumentThreshold(ProfileSummaryInfo *PSI,
       if (ProfCount == None)
         continue;
       uint64_t NewValue = ProfCount.getValue();
+      if (ProfQueue.size() < ProfInstrumentHotCount) {
+        ProfQueue.push(NewValue);
+      } else if (NewValue > ProfQueue.top()) {
+        ProfQueue.pop();
+        ProfQueue.push(NewValue);
+      }
       if (NewValue > MaxProfCount)
         MaxProfCount = NewValue;
     }
   }
   // Adjust the threshold by the ProfInstrumentHotPercentage.
-  Threshold = MaxProfCount - ProfInstrumentHotPercentage * MaxProfCount / 100;
+  uint64_t PercentThreshold = MaxProfCount -
+      ProfInstrumentHotPercentage * MaxProfCount / 100;
+  uint64_t CountThreshold = ProfQueue.size() > 0 ? ProfQueue.top() : 0;
+  Threshold = std::max(CountThreshold, PercentThreshold);
   ComputedThreshold = true;
   return Threshold;
 }
