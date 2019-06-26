@@ -3045,6 +3045,14 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.OpenMPLateOutlineTarget = !Args.hasArg(OPT_fno_intel_openmp_offload);
   Opts.OpenMPLateOutlineAtomic = Args.hasArg(OPT_fintel_openmp_region_atomic);
 #endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+  if (Opts.OpenMPLateOutline) {
+    llvm::Triple T(TargetOpts.Triple);
+
+    if (T.isSPIR())
+      Opts.UseAutoOpenCLAddrSpaceForOpenMP = true;
+  }
+#endif  // INTEL_COLLAB
 
   // Check if -fopenmp-simd is specified.
   bool IsSimdSpecified =

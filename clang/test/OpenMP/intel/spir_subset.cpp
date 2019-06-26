@@ -291,9 +291,10 @@ ios_base *Obj;
 void bar(...);
 void execute_offload () {
 //TARG-SPIR: [[IBASE:%ibase.*]] = alloca i32,
+//TARG-SPIR: [[IBASE_CAST:%[0-9]+]] = addrspacecast i32* [[IBASE]] to i32 addrspace(4)*
    bar(Obj);
 //TARG-SPIR: DIR.OMP.TARGET
-//TARG-SPIR-SAME: "QUAL.OMP.PRIVATE"(i32* [[IBASE]])
+//TARG-SPIR-SAME: "QUAL.OMP.PRIVATE"(i32 addrspace(4)* [[IBASE_CAST]])
 //TARG-SPIR: DIR.OMP.END.TARGET
    #pragma omp target
        int ibase = 3;

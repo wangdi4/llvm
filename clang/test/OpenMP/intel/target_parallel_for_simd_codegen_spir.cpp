@@ -36,34 +36,39 @@ void bar(int,int,...);
 void foo1() {
   int j = 20;
   // CHECK: [[J:%j.*]] = alloca i32,
+  // CHECK: [[J_CAST:%[0-9]+]] = addrspacecast i32* [[J]] to i32 addrspace(4)*
   // CHECK: [[OMP_LB:%.omp.lb.*]] = alloca i32,
+  // CHECK: [[OMP_LB_CAST:%[0-9]+]] = addrspacecast i32* [[OMP_LB]] to i32 addrspace(4)*
   // CHECK: [[OMP_UB:%.omp.ub.*]] = alloca i32,
+  // CHECK: [[OMP_UB_CAST:%[0-9]+]] = addrspacecast i32* [[OMP_UB]] to i32 addrspace(4)*
   // CHECK: [[OMP_IV:%.omp.iv.*]] = alloca i32,
+  // CHECK: [[OMP_IV_CAST:%[0-9]+]] = addrspacecast i32* [[OMP_IV]] to i32 addrspace(4)*
   // CHECK: [[I:%i.*]] = alloca i32,
-  // CHECK: store i32 0, i32* [[OMP_LB]],
-  // CHECK: store i32 15, i32* [[OMP_UB]],
+  // CHECK: [[I_CAST:%[0-9]+]] = addrspacecast i32* [[I]] to i32 addrspace(4)*
+  // CHECK: store i32 0, i32 addrspace(4)* [[OMP_LB_CAST]],
+  // CHECK: store i32 15, i32 addrspace(4)* [[OMP_UB_CAST]],
 
   // CHECK: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.TARGET"()
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[J]]
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[J_CAST]]
 
   // CHECK: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.PARALLEL.LOOP"()
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB]]),
-  // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[OMP_IV]]),
-  // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[OMP_UB]]),
-  // CHECK-SAME: "QUAL.OMP.SHARED"(i32* [[J]])
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[OMP_LB_CAST]]),
+  // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32 addrspace(4)* [[OMP_IV_CAST]]),
+  // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32 addrspace(4)* [[OMP_UB_CAST]]),
+  // CHECK-SAME: "QUAL.OMP.SHARED"(i32 addrspace(4)* [[J_CAST]])
 
   // CHECK: [[T2:%[0-9]+]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.SIMD"()
 
-  // CHECK: [[L1:%[0-9]+]] = load i32, i32* [[OMP_IV]], align 4
-  // CHECK-NEXT: [[L2:%[0-9]+]] = load i32, i32* [[OMP_UB]], align 4
+  // CHECK: [[L1:%[0-9]+]] = load i32, i32 addrspace(4)* [[OMP_IV_CAST]], align 4
+  // CHECK-NEXT: [[L2:%[0-9]+]] = load i32, i32 addrspace(4)* [[OMP_UB_CAST]], align 4
   // CHECK-NEXT: icmp sle i32 [[L1]], [[L2]]
-  // CHECK: [[L1:%[0-9]+]] = load i32, i32* [[OMP_IV]], align 4
-  // CHECK: store i32 {{.*}} i32* [[I]], align 4
-  // CHECK: [[L2:%[0-9]+]] = load i32, i32* [[I]], align 4
-  // CHECK: [[L3:%[0-9]+]] = load i32, i32* [[J]], align 4
+  // CHECK: [[L1:%[0-9]+]] = load i32, i32 addrspace(4)* [[OMP_IV_CAST]], align 4
+  // CHECK: store i32 {{.*}} i32 addrspace(4)* [[I_CAST]], align 4
+  // CHECK: [[L2:%[0-9]+]] = load i32, i32 addrspace(4)* [[I_CAST]], align 4
+  // CHECK: [[L3:%[0-9]+]] = load i32, i32 addrspace(4)* [[J_CAST]], align 4
   // CHECK-NEXT: {{call|invoke}} spir_func void {{.*}}bar
   // CHECK-SAME: (i32 43, i32 [[L2]], i32 [[L3]])
 

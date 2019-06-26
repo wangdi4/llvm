@@ -51,6 +51,7 @@ void foo_base(float *A, int dnum) {
 void caller2(int n, float* x, int dnum)
 {
   //ALL: [[DNUM:%dnum.*]] = alloca i32, align 4
+  //TARG: [[DNUM_CAST:%[0-9]+]] = addrspacecast i32* [[DNUM]] to i32 addrspace(4)*
 
   #pragma omp target data map(tofrom:x[0:n]) \
                           use_device_ptr(x) device(dnum)
@@ -58,7 +59,8 @@ void caller2(int n, float* x, int dnum)
     //ALL: [[T0:%[0-9]+]] = {{.*}}region.entry(){{.*}}"DIR.OMP.TARGET"()
     #pragma omp target
     {
-      //ALL: [[L:%[0-9]+]] = load i32, i32* [[DNUM]]
+      //HOST: [[L:%[0-9]+]] = load i32, i32* [[DNUM]]
+      //TARG: [[L:%[0-9]+]] = load i32, i32 addrspace(4)* [[DNUM_CAST]]
       //ALL: [[T1:%[0-9]+]] = {{.*}}region.entry(){{.*}}TARGET.VARIANT.DISPATCH
       //ALL-SAME: "QUAL.OMP.DEVICE"(i32 [[L]])
       #pragma omp target variant dispatch device(dnum)
