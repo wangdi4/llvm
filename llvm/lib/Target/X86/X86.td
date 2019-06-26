@@ -290,6 +290,9 @@ def FeatureAMXTRANSPOSE     : SubtargetFeature<"amx-transpose", "HasAMXTRANSPOSE
 def FeatureAMXMEMORY     : SubtargetFeature<"amx-memory", "HasAMXMEMORY", "true",
                                       "Support AMX amx-memory instructions",
                                       [FeatureAMXTILE]>;
+def FeatureAMXFP16     : SubtargetFeature<"amx-bf16", "HasAMXFP16", "true",
+                                      "Support AMX amx-fp16 instructions",
+                                      [FeatureAMXTILE]>;
 #endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
 def FeatureLEAForSP : SubtargetFeature<"lea-sp", "UseLeaForSP", "true",

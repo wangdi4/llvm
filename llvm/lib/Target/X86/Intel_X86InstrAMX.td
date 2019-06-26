@@ -130,6 +130,18 @@ let Predicates = [HasAMXBF16, In64BitMode] in {
 
 // end INTEL_FEATURE_ISA_AMX
 // INTEL_FEATURE_ISA_AMX2
+// TDPFP16PS
+let Predicates = [HasAMXFP16, In64BitMode] in {
+  let SchedRW = [WriteSystem] in {
+    let Constraints = "$src1 = $dst" in {
+      def TDPFP16PS : I<0x5c, MRMSrcReg4VOp3, (outs VTILE:$dst),
+                      (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+                      "tdpfp16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
+                      []>, VEX_4V, T8XD;
+    }
+  }
+} // HasAMXTILE, HasAMXFP16
+
 // T2RPNTLVW T2RPNTLVWT1 T2TRANSPOSEW T2TRANSPOSEWT1
 let Predicates = [HasAMXTRANSPOSE, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
@@ -370,9 +382,9 @@ defm TGATHERROW : m_tgatherrow;
 let Predicates = [HasAMXTILE, HasAVX512, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
     def TILEMOV2ZMM : Ii8<0x7, MRMSrcReg, (outs VR512:$dst),
-                          (ins VTILE:$src1, u8imm:$src2),
-                          "tilemov2zmm\t{$src2, $src1, $dst|$dst, $src1, $src2}",
-                          []>, TAPD, EVEX_V512;
+                        (ins VTILE:$src1, u8imm:$src2),
+                        "tilemov2zmm\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                        []>, TAPD, EVEX, EVEX_V512;
   }
 } // HasAMXTILE, HasAVX512
 

@@ -1,0 +1,6 @@
+// REQUIRES: intel_feature_isa_amx2
+// RUN: llvm-mc -triple x86_64-unknown-unknown --show-encoding %s | FileCheck %s
+
+// CHECK:      tilemov2zmm     $128, %tmm1, %zmm2
+// CHECK: encoding: [0x62,0xf3,0x7d,0x48,0x07,0xd1,0x80]
+               tilemov2zmm     $128, %tmm1, %zmm2

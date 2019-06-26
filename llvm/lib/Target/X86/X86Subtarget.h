@@ -433,6 +433,7 @@ protected:
   bool HasAMXFORMAT = false;
   bool HasAMXTRANSPOSE = false;
   bool HasAMXMEMORY = false;
+  bool HasAMXFP16 = false;
 #endif // INTEL_FEATURE_ISA_AMX2
 
 #if INTEL_FEATURE_ISA_AVX_VNNI
