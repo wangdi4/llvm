@@ -217,6 +217,7 @@ bool VPOAnalysisUtils::isBeginDirective(int DirID) {
   case DIR_OMP_TEAMS:
   case DIR_OMP_DISTRIBUTE:
   case DIR_OMP_DISTRIBUTE_PARLOOP:
+  case DIR_OMP_GENERICLOOP:
 #if INTEL_CUSTOMIZATION
   case DIR_VPO_AUTO_VEC:
   case DIR_PRAGMA_IVDEP:
@@ -264,6 +265,7 @@ bool VPOAnalysisUtils::isEndDirective(int DirID) {
   case DIR_OMP_END_TEAMS:
   case DIR_OMP_END_DISTRIBUTE:
   case DIR_OMP_END_DISTRIBUTE_PARLOOP:
+  case DIR_OMP_END_GENERICLOOP:
 #if INTEL_CUSTOMIZATION
   case DIR_VPO_END_AUTO_VEC:
   case DIR_PRAGMA_END_IVDEP:
@@ -395,6 +397,8 @@ int VPOAnalysisUtils::getMatchingEndDirective(int DirID) {
   switch(DirID) {
   case DIR_OMP_PARALLEL:
     return DIR_OMP_END_PARALLEL;
+  case DIR_OMP_GENERICLOOP:
+    return DIR_OMP_END_GENERICLOOP;
   case DIR_OMP_LOOP:
     return DIR_OMP_END_LOOP;
   case DIR_OMP_PARALLEL_LOOP:
@@ -533,6 +537,21 @@ bool VPOAnalysisUtils::isMapClause(int ClauseID) {
   return false;
 }
 
+bool VPOAnalysisUtils::isBindClause(int ClauseID) {
+  switch (ClauseID) {
+    case QUAL_OMP_BIND_PARALLEL:
+    case QUAL_OMP_BIND_THREAD:
+    case QUAL_OMP_BIND_TEAMS:
+    return true;
+  }
+  return false;
+}
+
+bool VPOAnalysisUtils::isBindClause(StringRef ClauseFullName) {
+  int ClauseID = VPOAnalysisUtils::getClauseID(ClauseFullName);
+  return isBindClause(ClauseID);
+}
+
 /// \brief Return 0, 1, or 2:
 ///   0 for clauses that take no arguments
 ///   1 for clauses that take exactly 1 argument
@@ -568,6 +587,10 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_CANCEL_SECTIONS:
     case QUAL_OMP_CANCEL_TASKGROUP:
     case QUAL_OMP_TARGET_TASK:
+    case QUAL_OMP_BIND_TEAMS:
+    case QUAL_OMP_BIND_PARALLEL:
+    case QUAL_OMP_BIND_THREAD:
+    case QUAL_OMP_ORDER_CONCURRENT:
       return 0;
 
     // Clauses that take one argument

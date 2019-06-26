@@ -45,6 +45,16 @@ std::unordered_map<int, StringRef> WRNProcBindName = {
     {WRNProcBindKind::WRNProcBindClose,  "CLOSE"},
     {WRNProcBindKind::WRNProcBindSpread, "SPREAD"}};
 
+std::unordered_map<int, StringRef> WRNLoopBindName = {
+    {WRNLoopBindKind::WRNLoopBindAbsent, "UNSPECIFIED"},
+    {WRNLoopBindKind::WRNLoopBindTeams, "TEAMS"},
+    {WRNLoopBindKind::WRNLoopBindParallel, "PARALLEL"},
+    {WRNLoopBindKind::WRNLoopBindThread, "THREAD"}};
+
+std::unordered_map<int, StringRef> WRNLoopOrderName = {
+    {WRNLoopOrderKind::WRNLoopOrderAbsent, "UNSPECIFIED"},
+    {WRNLoopOrderKind::WRNLoopOrderConcurrent, "CONCURRENT"}};
+
 std::unordered_map<int, StringRef> WRNScheduleName = {
     {WRNScheduleKind::WRNScheduleCrewloop, "Crew Loop"},
     {WRNScheduleKind::WRNScheduleStatic, "Static"},

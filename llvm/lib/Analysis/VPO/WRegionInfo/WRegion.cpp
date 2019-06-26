@@ -812,7 +812,96 @@ WRNTaskyieldNode::WRNTaskyieldNode(BasicBlock *BB)
   LLVM_DEBUG(dbgs() << "\nCreated WRNTaskyieldNode <" << getNumber() << ">\n");
 }
 
+//
+// Methods for WRNGenericLoopNode
+//
 
+// constructor
+WRNGenericLoopNode::WRNGenericLoopNode(BasicBlock *BB, LoopInfo *Li)
+    : WRegionNode(WRegionNode::WRNGenericLoop, BB), WRNLI(Li) {
+  MappedDir = -1;
+  setIsOmpLoop();
+  setCollapse(0);
+
+  setLoopBind(WRNLoopBindAbsent);
+  setLoopOrder(WRNLoopOrderAbsent);
+  LLVM_DEBUG(dbgs() << "\nCreated WRNGenericLoopNode<" << getNumber() << ">\n");
+}
+
+//
+// If BIND is present:
+//   BIND=parallel  ==> change to DIR_OMP_LOOP
+//   BIND=teams     ==> change to DIR_OMP_DISTRIBUTE_PARLOOP
+//   BIND=thread    ==> change to DIR_OMP_SIMD
+//
+// If BIND is absent, then we should look at the immediate parent WRN:
+//   Parent=null       ==> assert; BIND clause must be present
+//   Parent=Parallel   ==> DIR_OMP_LOOP
+//   Parent=Teams      ==> DIR_OMP_DISTRIBUTE_PARLOOP
+//   Parent=Distribute ==> DIR_OMP_PARALLEL_LOOP
+//   Parent=WksLoop||ParallelLoop||DistributeParLoop||Taskloop ==> DIR_OMP_SIMD
+//   Parent=anything else  ==> DIR_OMP_SIMD
+//
+bool WRNGenericLoopNode::mapLoopScheme() {
+  bool Mapped = false;
+  if (getLoopBind() == WRNLoopBindParallel) {
+    MappedDir = DIR_OMP_LOOP;
+    Mapped = true;
+  } else if (getLoopBind() == WRNLoopBindTeams) {
+    MappedDir = DIR_OMP_DISTRIBUTE_PARLOOP;
+    Mapped = true;
+  } else if (getLoopBind() == WRNLoopBindThread) {
+    MappedDir = DIR_OMP_SIMD;
+    Mapped = true;
+  } else {
+    assert(getLoopBind() == WRNLoopBindAbsent &&
+           "Unknown binding in BIND clause");
+    // This is used to map loop construct to other parallelization scheme.
+    // Now it's mapped to for/simd if it's in parallel region or omp for loop.
+    WRegionNode *Parent = getParent();
+    if (Parent == nullptr) {
+      llvm_unreachable(
+          "Bind clause must be present if no parent directive exists");
+      Mapped = false;
+    } else {
+      LLVM_DEBUG(dbgs() << "GenericLoop's parent WRN: " << Parent->getName()
+                        << "\n");
+      if (Parent->getWRegionKindID() == WRegionNode::WRNParallel) {
+        MappedDir = DIR_OMP_LOOP;
+        Mapped = true;
+      } else if (Parent->getWRegionKindID() == WRegionNode::WRNTeams) {
+        MappedDir = DIR_OMP_DISTRIBUTE_PARLOOP;
+        Mapped = true;
+      } else if (Parent->getWRegionKindID() == WRegionNode::WRNDistribute) {
+        MappedDir = DIR_OMP_PARALLEL_LOOP;
+        Mapped = true;
+      } else {
+        MappedDir = DIR_OMP_SIMD;
+        Mapped = true;
+      }
+    }
+  }
+
+  if (Mapped) {
+    LLVM_DEBUG(dbgs() << "Mapped DIR_OMP_GENERICLOOP to "
+                      << VPOAnalysisUtils::getDirectiveString(MappedDir)
+                      << "\n");
+    LLVM_DEBUG(dbgs() << "Binding rules: " << WRNLoopBindName[getLoopBind()]
+                      << "\n");
+  }
+
+  return Mapped;
+}
+
+void WRNGenericLoopNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                    unsigned Verbosity) const {
+  unsigned Indent = 2 * Depth;
+  vpo::printStr("LOOPBIND", WRNLoopBindName[getLoopBind()], OS, Indent,
+                Verbosity);
+  vpo::printStr("LOOPORDER", WRNLoopOrderName[getLoopOrder()], OS, Indent,
+                Verbosity);
+  vpo::printInt("COLLAPSE", getCollapse(), OS, Indent, Verbosity);
+}
 
 //
 // Auxiliary print routines

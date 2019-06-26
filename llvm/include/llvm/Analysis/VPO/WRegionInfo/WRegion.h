@@ -35,6 +35,7 @@
 ///   WRNVecLoopNode          | #pragma omp simd
 ///   WRNWksLoopNode          | #pragma omp for
 ///   WRNSectionsNode         | #pragma omp sections
+///   WRNGenericLoopNode      | #pragma omp loop
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
 ///   WRNSectionNode          | #pragma omp section
@@ -1516,6 +1517,53 @@ public:
   }
 };
 
+/// WRN for
+/// \code
+///   #pragma omp loop
+/// \endcode
+class WRNGenericLoopNode : public WRegionNode {
+private:
+  PrivateClause Priv;
+  LastprivateClause Lpriv;
+  ReductionClause Reduction;
+  int Collapse;
+
+  WRNLoopBindKind LoopBind;
+  WRNLoopOrderKind LoopOrder;
+  WRNLoopInfo WRNLI;
+  int MappedDir;
+
+public:
+  WRNGenericLoopNode(BasicBlock *BB, LoopInfo *L);
+
+protected:
+  void setLoopBind(WRNLoopBindKind LB) { LoopBind = LB; }
+  void setLoopOrder(WRNLoopOrderKind LO) { LoopOrder = LO; }
+  void setCollapse(int N) { Collapse = N; }
+
+public:
+  DEFINE_GETTER(PrivateClause, getPriv, Priv)
+  DEFINE_GETTER(LastprivateClause, getLpriv, Lpriv)
+  DEFINE_GETTER(ReductionClause, getRed, Reduction)
+  DEFINE_GETTER(WRNLoopInfo, getWRNLoopInfo, WRNLI)
+
+  int getCollapse() const { return Collapse; }
+
+  WRNLoopBindKind getLoopBind() const { return LoopBind; }
+  WRNLoopOrderKind getLoopOrder() const { return LoopOrder; }
+
+  bool mapLoopScheme();
+
+  int getMappedDir() const { return MappedDir; }
+
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                  unsigned Verbosity = 1) const;
+
+  /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const WRegionNode *W) {
+    return W->getWRegionKindID() == WRegionNode::WRNGenericLoop;
+  }
+};
 
 /// \brief Print the fields common to WRNs for which getIsPar()==true.
 /// Possible constructs are: WRNParallel, WRNParallelLoop,

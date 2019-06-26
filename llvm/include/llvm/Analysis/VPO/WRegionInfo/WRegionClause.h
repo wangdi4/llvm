@@ -58,6 +58,8 @@ extern std::unordered_map<int, StringRef> WRNDefaultName;
 extern std::unordered_map<int, StringRef> WRNAtomicName;
 extern std::unordered_map<int, StringRef> WRNCancelName;
 extern std::unordered_map<int, StringRef> WRNProcBindName;
+extern std::unordered_map<int, StringRef> WRNLoopBindName;
+extern std::unordered_map<int, StringRef> WRNLoopOrderName;
 
 //
 // Classes below represent list items used in many OMP clauses
@@ -1227,6 +1229,23 @@ typedef enum WRNProcBindKind {
     WRNProcBindSpread = 4    // proc_bind(srpead)
 } WRNProcBindKind;
 
+//
+// Support for binding rules in loop construct
+//
+typedef enum WRNLoopBindKind {
+  WRNLoopBindAbsent = 0,
+  WRNLoopBindTeams = 1,
+  WRNLoopBindParallel = 2,
+  WRNLoopBindThread = 3
+} WRNLoopBindKind;
+
+//
+// Support for order clauses in loop construct
+//
+typedef enum WRNLoopOrderKind {
+  WRNLoopOrderAbsent = 0,
+  WRNLoopOrderConcurrent = 1
+} WRNLoopOrderKind;
 
 //
 // The values of the enums are used to invoke the RTL,

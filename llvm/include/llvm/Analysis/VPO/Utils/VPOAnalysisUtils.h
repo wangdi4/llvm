@@ -310,6 +310,10 @@ public:
 
     /// \return true if the program is compiled for SPIRV.
     static bool isTargetSPIRV(Module *M);
+
+    /// True for bind clauses
+    static bool isBindClause(int ClauseID);
+    static bool isBindClause(StringRef ClauseFullName);
 };
 
 } // End vpo namespace

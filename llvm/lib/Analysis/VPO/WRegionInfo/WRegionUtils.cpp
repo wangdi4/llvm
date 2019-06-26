@@ -171,6 +171,9 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
     case DIR_OMP_LOOP:
       W = new WRNWksLoopNode(EntryBB, LI);
       break;
+    case DIR_OMP_GENERICLOOP:
+      W = new WRNGenericLoopNode(EntryBB, LI);
+      break;
     case DIR_OMP_SECTIONS:
       W = new WRNSectionsNode(EntryBB, LI);
       break;

@@ -128,6 +128,9 @@ def "DIR.OMP.END.CANCEL" : Directive;
 def "DIR.OMP.CANCELLATION.POINT" : Directive;
 def "DIR.OMP.END.CANCELLATION.POINT" : Directive;
 
+def "DIR.OMP.GENERICLOOP" : Directive;
+def "DIR.OMP.END.GENERICLOOP" : Directive;
+
 // INTEL_CUSTOMIZATION
 // Directives used to mark begin/end of a loop determined by VPO vectorizer
 // legality analysis to be legal to vectorize.
@@ -256,6 +259,10 @@ def "QUAL.OMP.CANCEL.SECTIONS" : Clause;
 def "QUAL.OMP.CANCEL.TASKGROUP" : Clause;
 def "QUAL.OMP.HINT" : Clause;
 def "QUAL.OMP.NAME" : Clause;
+def "QUAL.OMP.BIND.TEAMS" : Clause;
+def "QUAL.OMP.BIND.PARALLEL" : Clause;
+def "QUAL.OMP.BIND.THREAD" : Clause;
+def "QUAL.OMP.ORDER.CONCURRENT" : Clause;
 
 // *** Begin Auxiliary OpenMP Clauses ***
 // These quals don't correspond to actual clauses in the OpenMP spec,

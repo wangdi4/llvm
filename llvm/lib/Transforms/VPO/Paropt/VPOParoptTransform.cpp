@@ -1584,6 +1584,15 @@ bool VPOParoptTransform::paroptTransforms() {
           RemoveDirectives = true;
         }
         break;
+      case WRegionNode::WRNGenericLoop:
+        if (Mode & ParPrepare) {
+          debugPrintHeader(W, true);
+          Changed = replaceGenericLoop(W);
+          Changed |= regularizeOMPLoop(W);
+          Changed |= renameOperandsUsingStoreThenLoad(W);
+          RemoveDirectives = false;
+        }
+        break;
       default:
         break;
       } // switch
@@ -6786,4 +6795,59 @@ BasicBlock *VPOParoptTransform::getLoopExitBB(WRegionNode *W, unsigned Idx) {
   assert(LoopExitBB && "getLoopExitBB: failed to find the loop's exit block.");
   return LoopExitBB;
 }
+
+// Initial Implementation for loop construct in OpenMP 5.0
+//   The loop construct will be mapped to underlying loop scheme according to
+//   binding rules and parent region/directive. See details in mapLoopScheme
+//   function.
+bool VPOParoptTransform::replaceGenericLoop(WRegionNode *W) {
+  WRNGenericLoopNode *WL = cast<WRNGenericLoopNode>(W);
+
+  // Map loop construct to underlying loop scheme
+  bool Changed = WL->mapLoopScheme();
+  assert(Changed &&
+         "Loop directive must be mapped to right parallization scheme.");
+
+  // replace entry directive with the mapped directive
+  StringRef MappedEntryDir =
+      VPOAnalysisUtils::getDirectiveString(WL->getMappedDir());
+  LLVM_DEBUG(dbgs() << "Entry Directive: " << W->getEntryDirective()
+                    << " maps to Directive: " << MappedEntryDir << "\n");
+
+  CallInst *EntryCI = cast<CallInst>(W->getEntryDirective());
+
+  SmallVector<OperandBundleDef, 8> OpBundles;
+  EntryCI->getOperandBundlesAsDefs(OpBundles);
+  for (unsigned i = 0; i < OpBundles.size(); i++) {
+    EntryCI = VPOParoptUtils::removeOperandBundlesFromCall(
+        EntryCI, OpBundles[i].getTag());
+  }
+  SmallVector<std::pair<StringRef, ArrayRef<Value *>>, 8> OpBundlesToAdd;
+  OpBundlesToAdd.emplace_back(MappedEntryDir, ArrayRef<Value *>{});
+  for (unsigned i = 1; i < OpBundles.size(); i++) {
+    // Skip bind clause since it's used for loop contruct
+    if (VPOAnalysisUtils::isBindClause(OpBundles[i].getTag()))
+      continue;
+    OpBundlesToAdd.emplace_back(OpBundles[i].getTag(), OpBundles[i].inputs());
+  }
+  EntryCI = VPOParoptUtils::addOperandBundlesInCall(EntryCI, OpBundlesToAdd);
+  W->setEntryDirective(EntryCI);
+
+  // replace exit directive accordingly
+  CallInst *ExitCI =
+      dyn_cast<CallInst>(VPOAnalysisUtils::getEndRegionDir(EntryCI));
+  StringRef ExitDir = VPOAnalysisUtils::getDirectiveString(ExitCI);
+
+  StringRef MappedExitDir = VPOAnalysisUtils::getDirectiveString(
+      VPOAnalysisUtils::getMatchingEndDirective(WL->getMappedDir()));
+  LLVM_DEBUG(dbgs() << "Exit Directive: " << ExitDir
+                    << " maps to directive: " << MappedExitDir << "\n");
+
+  ExitCI = VPOParoptUtils::removeOperandBundlesFromCall(ExitCI, {ExitDir});
+  ExitCI = VPOParoptUtils::addOperandBundlesInCall(
+      ExitCI, {{MappedExitDir, ArrayRef<Value *>{}}});
+
+  return Changed;
+}
+
 #endif // INTEL_COLLAB

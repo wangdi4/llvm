@@ -1495,6 +1495,9 @@ private:
 
   /// Emit dispatch code for the "target variant dispatch" construct
   bool genTargetVariantDispatchCode(WRegionNode *W);
+
+  /// Replace loop construct with the mapped directive in IR
+  bool replaceGenericLoop(WRegionNode *W);
 };
 } /// namespace vpo
 } /// namespace llvm
