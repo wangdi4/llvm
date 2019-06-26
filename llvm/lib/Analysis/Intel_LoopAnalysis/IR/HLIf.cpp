@@ -395,11 +395,11 @@ void HLIf::verify() const {
   HLDDNode::verify();
 }
 
-#ifndef NDEBUG
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 LLVM_DUMP_METHOD
 void HLIf::dumpHeader() const {
   formatted_raw_ostream OS(dbgs());
-  OS << "<" << getNumber() << "> ";
+  indent(OS, 0);
   printHeader(OS, 0);
 }
 #endif

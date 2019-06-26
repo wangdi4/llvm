@@ -1,7 +1,8 @@
-;RUN: opt -hir-loop-distribute-memrec -S -print-after=hir-loop-distribute-memrec   < %s 2>&1 | FileCheck %s
-;RUN: opt -passes="hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -S   < %s 2>&1 | FileCheck %s
-;There is a breakable recurrence from 15:32 but we cannot distribute
-;across if thenblocks
+; RUN: opt -hir-loop-distribute-memrec -S -print-after=hir-loop-distribute-memrec   < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -S   < %s 2>&1 | FileCheck %s
+
+; There is a breakable recurrence from 15:32 across if thenblocks
+
 ;          BEGIN REGION { }
 ;<37>         + DO i1 = 0, 99998, 1   <DO_LOOP>
 ;<38>         |   + DO i2 = 0, 99998, 1   <DO_LOOP>
@@ -22,10 +23,13 @@
 ;<37>         + END LOOP
 ;          END REGION
 ;
-;CHECK-NOT : BEGIN REGION{{.*}}MODIFIED
-;Only original two loops exist, no others
-;CHECK: DO i1 = 
-;CHECK: DO i2 =
+
+; CHECK: BEGIN REGION
+; CHECK: modified
+; CHECK: DO i1
+
+; CHECK: DO i2
+; CHECK: DO i2
 
 ;CHECK-NOT: DO i1 = 
 ;CHECK-NOT: DO i2 =
