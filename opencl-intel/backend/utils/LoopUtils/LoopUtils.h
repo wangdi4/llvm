@@ -37,6 +37,9 @@ struct loopRegion {
     ///@brief C'tor.
     loopRegion(BasicBlock *preHeader, BasicBlock *exit)
         : m_preHeader(preHeader), m_exit(exit) {}
+
+    loopRegion()
+        : m_preHeader(nullptr), m_exit(nullptr) {}
 };
 
 namespace LoopUtils {

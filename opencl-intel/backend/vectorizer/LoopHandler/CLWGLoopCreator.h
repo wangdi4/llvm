@@ -195,6 +195,9 @@ private:
   ///@retruns a struct with entry and exit block of the WG loop region.
   loopRegion createVectorAndRemainderLoops();
 
+  ///@brief create WG loops over vector kernel.
+  loopRegion createVectorAndMaskedRemainderLoops();
+
   ///@brief replace the get***tid calls with incremented phi in loop head.
   ///@param TIDs - array of get***id to replace.
   ///@param initVal - inital value (for the first iteration).
