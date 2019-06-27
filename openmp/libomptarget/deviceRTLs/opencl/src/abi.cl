@@ -49,4 +49,32 @@ EXTERN void __kmpc_end_master() {
   // nothing to be done
 }
 
+#if INTEL_CUSTOMIZATION
+// Temporary define these builtins here.  Eventually, IGC must define
+// them, and we should remove it from here.
+#define KMP_LOCK_FREE 0
+#define KMP_LOCK_BUSY 1
+
+EXTERN void __builtin_IB_kmp_acquire_lock(__global int *lock)
+{
+  volatile atomic_uint *lck = (volatile atomic_uint *)lock;
+  uint expected = KMP_LOCK_FREE;
+  while (atomic_load_explicit(lck, memory_order_relaxed) != KMP_LOCK_FREE ||
+         !atomic_compare_exchange_strong_explicit(lck, &expected, KMP_LOCK_BUSY,
+                                                  memory_order_acquire,
+                                                  memory_order_relaxed)) {
+    expected = KMP_LOCK_FREE;
+  }
+}
+
+EXTERN void __builtin_IB_kmp_release_lock(__global int *lock)
+{
+  volatile atomic_uint *lck = (volatile atomic_uint *)lock;
+  atomic_store_explicit(lck, KMP_LOCK_FREE, memory_order_release);
+}
+
+#undef KMP_LOCK_FREE
+#undef KMP_LOCK_BUSY
+#endif // INTEL_CUSTOMIZATION
+
 #endif // INTEL_COLLAB

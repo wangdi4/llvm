@@ -27,8 +27,6 @@
 #define KMP_FALSE 0
 #define KMP_UNSPECIFIED -1
 
-#define KMP_LOCK_BUSY 1
-#define KMP_LOCK_FREE 0
 #define KMP_PAUSE() // We don't have any candidates for this.
 
 ///
@@ -192,8 +190,8 @@ INLINE size_t __kmp_get_num_groups() {
 
 /// Lock builtins which are not widened (considered
 /// uniform) by the device compiler(s).
-extern void __builtin_IB_kmp_acquire_lock(__global int *);
-extern void __builtin_IB_kmp_release_lock(__global int *);
+EXTERN void __builtin_IB_kmp_acquire_lock(__global int *);
+EXTERN void __builtin_IB_kmp_release_lock(__global int *);
 
 /// Acquire lock
 INLINE void __kmp_acquire_lock(__global int *lock) {
