@@ -1314,6 +1314,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_fcntl:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_fcntl64:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_fnmatch:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setOnlyAccessesArgMemory(F);
@@ -1668,6 +1671,10 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotReturn(F);
     return Changed;
   case LibFunc_signal:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_signbit:
+    Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_sleep:

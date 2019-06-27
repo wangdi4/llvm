@@ -986,6 +986,9 @@ TLI_DEFINE_STRING_INTERNAL("__powl_finite")
 /// int __pthread_key_create(pthread_key_t *key, void (*destructor)(void*));
 TLI_DEFINE_ENUM_INTERNAL(pthread_key_create)
 TLI_DEFINE_STRING_INTERNAL("__pthread_key_create")
+/// int __signbit(double arg);
+TLI_DEFINE_ENUM_INTERNAL(signbit)
+TLI_DEFINE_STRING_INTERNAL("__signbit")
 /// int __sigsetjmp(sigjmp_buf env, int savemask);
 TLI_DEFINE_ENUM_INTERNAL(sigsetjmp)
 TLI_DEFINE_STRING_INTERNAL("__sigsetjmp")
@@ -1461,6 +1464,9 @@ TLI_DEFINE_STRING_INTERNAL("fclose")
 ///  int fcntl(int fd, int cmd, ...);
 TLI_DEFINE_ENUM_INTERNAL(fcntl)
 TLI_DEFINE_STRING_INTERNAL("fcntl")
+///  int fcntl64(int fd, int cmd, ...);
+TLI_DEFINE_ENUM_INTERNAL(fcntl64)
+TLI_DEFINE_STRING_INTERNAL("fcntl64")
 #endif // INTEL_CUSTOMIZATION
 
 /// FILE *fdopen(int fildes, const char *mode);

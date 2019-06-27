@@ -390,6 +390,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_execv);
     TLI.setUnavailable(LibFunc_execvp);
     TLI.setUnavailable(LibFunc_fcntl);
+    TLI.setUnavailable(LibFunc_fcntl64);
     TLI.setUnavailable(LibFunc_fnmatch);
     TLI.setUnavailable(LibFunc_fork);
     TLI.setUnavailable(LibFunc_freopen64);
@@ -439,6 +440,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_setrlimit);
     TLI.setUnavailable(LibFunc_setuid);
     TLI.setUnavailable(LibFunc_siglongjmp);
+    TLI.setUnavailable(LibFunc_signbit);
     TLI.setUnavailable(LibFunc_strsignal);
     TLI.setUnavailable(LibFunc_symlink);
     TLI.setUnavailable(LibFunc_sysconf);
@@ -2929,6 +2931,11 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(0)->isIntegerTy() &&
             FTy.getParamType(1)->isIntegerTy());
 
+  case LibFunc_fcntl64:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
   case LibFunc_fnmatch:
     return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy() &&
@@ -3305,6 +3312,10 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
     return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isIntegerTy() &&
             FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_signbit:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isDoubleTy());
 
   case LibFunc_sleep:
     return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
