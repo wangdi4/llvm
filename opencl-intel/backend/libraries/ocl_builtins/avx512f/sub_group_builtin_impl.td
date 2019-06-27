@@ -1798,6 +1798,21 @@ OclBuiltinImpl sub_group_shuffle_avx512f_v256fiu32 = OclBuiltinImpl<sub_group_sh
       return $Arg0VarName;
   }]>;
 
+
+//
+// Shuffle xor
+//
+OclBuiltinImpl sub_group_shuffle_xor_avx512_gen = OclBuiltinImpl<sub_group_shuffle_xor_avx512,
+               [v16i32, v16u32, v16f32, v16i64, v16u64, v16f64,
+                v32i32, v32u32, v32f32, v64i32, v64u32, v64f32,
+                v128i32, v128u32, v128f32, v256i32, v256u32, v256f32], 0,
+  [{
+    uint16 indexes = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+    indexes = indexes ^ $Arg1VarName;
+    return intel_sub_group_shuffle($Arg0VarName, indexes, $Arg2VarName);
+  }]>;
+
+
 OclBuiltinImpl intel_sub_group_block_read1_4_avx512f = OclBuiltinImpl<intel_sub_group_block_read1_4, [ v4i32 ], 0,
   [{
     const uint4 res = _mm_load_epi32($Arg0VarName);
