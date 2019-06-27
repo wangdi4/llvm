@@ -56,9 +56,8 @@
 ; CHECK: [[FOO3_MAIN_CS]] = distinct !{!"intel.callsite.inlining.report", [[FOO3_NAME:![0-9]+]], null, [[IS_INL_0]]{{.*}}
 ; CHECK: [[FOO3_NAME]] = !{!"name: foo3"}
 ; CHECK: [[B_MAIN_CS]] = distinct !{!"intel.callsite.inlining.report", [[B_NAME]], [[B_MAIN_CSs:![0-9]+]], [[IS_INL_1]]{{.*}}
-; CHECK: [[B_MAIN_CSs]] = distinct !{!"intel.callsites.inlining.report", [[X_B_MAIN_CS]], [[Y_B_MAIN_CS:![0-9]+]]}
+; CHECK: [[B_MAIN_CSs]] = distinct !{!"intel.callsites.inlining.report", [[X_B_MAIN_CS]]}
 ; CHECK: [[X_B_MAIN_CS]] = distinct !{!"intel.callsite.inlining.report", [[X_NAME]], null, [[IS_INL_0]]{{.*}}
-; CHECK: [[Y_B_MAIN_CS]] = distinct !{!"intel.callsite.inlining.report", [[Y_NAME]], null, [[IS_INL_0]]{{.*}}
 ; CHECK: [[FOO4_MAIN_CS]] = distinct !{!"intel.callsite.inlining.report", [[FOO4_NAME:![0-9]+]], null, [[IS_INL_0]]{{.*}}
 ; CHECK: [[FOO4_NAME]] = !{!"name: foo4"}
 ; CHECK: [[FOO1_FIR]] = distinct !{!"intel.function.inlining.report", [[FOO1_NAME]], null, {{.*}}
@@ -134,7 +133,7 @@ declare dso_local void @foo4(...) local_unnamed_addr
 !5 = distinct !{!"intel.callsite.inlining.report", !6, null, !7, !8, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
 !6 = !{!"name: k"}
 !7 = !{!"isInlined: 0"}
-!8 = !{!"reason: 34"} ;NinlrExtern
+!8 = !{!"reason: 34"}
 !9 = !{!"inlineCost: -1"}
 !10 = !{!"outerInlineCost: -1"}
 !11 = !{!"inlineThreshold: -1"}
@@ -169,11 +168,9 @@ declare dso_local void @foo4(...) local_unnamed_addr
 !40 = !{!"reason: 9"}
 !41 = !{!"inlineCost: 30"}
 !42 = !{!"inlineThreshold: 337"}
-!43 = distinct !{!"intel.callsite.inlining.report", !24, !44, !39, !40, !48, !10, !42, !12, !13, !"line: 0 col: 0", !14}
-!44 = distinct !{!"intel.callsites.inlining.report", !45, !46}
+!43 = distinct !{!"intel.callsite.inlining.report", !24, !44, !39, !40, !46, !10, !42, !12, !13, !"line: 0 col: 0", !14}
+!44 = distinct !{!"intel.callsites.inlining.report", !45}
 !45 = distinct !{!"intel.callsite.inlining.report", !27, null, !7, !8, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
-!46 = distinct !{!"intel.callsite.inlining.report", !29, null, !7, !47, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
-!47 = !{!"reason: 31"} ;NinlrDeleted
-!48 = !{!"inlineCost: -5"}
+!46 = !{!"inlineCost: -5"}
 
 
