@@ -135,6 +135,7 @@ llvm::Pass *createSmartGVNPass(bool);
 
 llvm::ModulePass *createSinCosFoldPass();
 llvm::ModulePass *createResolveWICallPass(bool isUniformWGSize);
+llvm::Pass       *createResolveSubGroupWICallPass();
 llvm::ModulePass *createDetectRecursionPass();
 llvm::Pass *createResolveBlockToStaticCallPass();
 llvm::ImmutablePass *createOCLAliasAnalysisPass();
@@ -566,6 +567,8 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
 #ifdef _DEBUG
   PM.add(llvm::createVerifierPass());
 #endif
+
+  PM.add(createResolveSubGroupWICallPass());
 
   // Unroll small loops with unknown trip count.
   PM.add(llvm::createLoopUnrollPass(OptLevel, false, false, 16, 0, 0, 1));

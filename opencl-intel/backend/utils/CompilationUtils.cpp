@@ -873,6 +873,31 @@ std::string CompilationUtils::mangledGetSubGroupLID() {
       NAME_GET_SUB_GROUP_LOCAL_ID.c_str());
 }
 
+std::string CompilationUtils::mangledNumSubGroups() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+    NAME_GET_NUM_SUB_GROUPS.c_str());
+}
+
+std::string CompilationUtils::mangledGetSubGroupId() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+    NAME_GET_SUB_GROUP_ID.c_str());
+}
+
+std::string CompilationUtils::mangledEnqueuedNumSubGroups() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+    NAME_GET_ENQUEUED_NUM_SUB_GROUPS.c_str());
+}
+
+std::string CompilationUtils::mangledGetSubGroupSize() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+    NAME_GET_SUB_GROUP_SIZE.c_str());
+}
+
+std::string CompilationUtils::mangledGetSubGroupLocalId() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+    NAME_GET_SUB_GROUP_LOCAL_ID.c_str());
+}
+
 static bool isOptionalMangleOf(const std::string& LHS, const std::string& RHS) {
   //LHS should be mangled
   const char*const LC = LHS.c_str();
@@ -912,7 +937,7 @@ bool CompilationUtils::isGetLocalLinearId(const std::string& S){
   return isOptionalMangleOf(S, NAME_GET_LINEAR_LID);
 }
 
-bool CompilationUtils::isGetSubGroupLocalID(const std::string& S){
+bool CompilationUtils::isGetSubGroupLocalId(const std::string& S){
   return isOptionalMangleOf(S, NAME_GET_SUB_GROUP_LOCAL_ID);
 }
 

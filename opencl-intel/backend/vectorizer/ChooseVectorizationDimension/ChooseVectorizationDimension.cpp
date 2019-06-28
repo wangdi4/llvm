@@ -78,6 +78,14 @@ bool ChooseVectorizationDimension::canSwitchDimensions(Function* F) {
   if (!result)
     return false;
 
+  // 1a. test whether we use subgroups. That is not a hard requirement,
+  // it is possible to switch vec dim, but with current Volcano vectorizer
+  // it eases implementation. That can be lifted in VPO.
+  bool HasSubGroups =
+    skimd.KernelHasSubgroups.hasValue() && skimd.KernelHasSubgroups.get();
+  if (HasSubGroups)
+    return false;
+
   // 2. test if we use get_local_id / get_group_id / get_local_size
   Function* lid = F->getParent()->getFunction
     (CompilationUtils::mangledGetLID());

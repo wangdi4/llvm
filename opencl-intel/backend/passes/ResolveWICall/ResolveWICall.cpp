@@ -13,11 +13,13 @@
 // License.
 
 #define DEBUG_TYPE "resolve-wi-call"
+
 #include "ResolveWICall.h"
 #include "CompilationUtils.h"
 #include "OCLAddressSpace.h"
 #include "common_dev_limits.h"
 #include "OCLPassSupport.h"
+#include "MetadataAPI.h"
 
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/InstIterator.h"
@@ -40,6 +42,7 @@ extern "C" {
 }
 
 using namespace Intel::OpenCL::DeviceBackend;
+using namespace Intel::MetadataAPI;
 
 namespace intel {
 
@@ -504,6 +507,7 @@ namespace intel {
       return ICT_GET_GROUP_ID;
     if(CompilationUtils::isGlobalOffset(calledFuncName))
       return ICT_GET_GLOBAL_OFFSET;
+    // special built-ins that need update
     if(calledFuncName == CompilationUtils::NAME_PRINTF)
       return ICT_PRINTF;
     if(CompilationUtils::isPrefetch(calledFuncName))
