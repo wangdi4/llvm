@@ -65,6 +65,17 @@ let NeedForwardDecl = 1 in {
         def sub_group_shuffle_avx512 : OclBuiltin<"intel_sub_group_shuffle", (outs gentype:$ret), (ins gentype:$data, v16u32:$sub_group_local_id, v16u32:$vec_mask), [], [], 1, 0>;
       }
 
+  let Types = [ v1u32 ],
+      Attrs = [OVERLOADABLE] in {
+        foreach len = [ 1, 2, 4, 8 ] in {
+          foreach vf = [ 1, 4, 8, 16 ] in {
+            def intel_sub_group_block_read#!cast<string>(len)#"_"#!cast<string>(vf) :
+              OclBuiltin<"intel_sub_group_block_read"#len#"_"#vf, (outs !cast<OclType>("v"#!mul(len, vf)#"u32"):$ret), (ins cgpv1u32:$data), [], [], 1, 0>;
+            def intel_sub_group_block_write#!cast<string>(len)#"_"#!cast<string>(vf) :
+              OclBuiltin<"intel_sub_group_block_read"#len#"_"#vf, (outs void:$ret), (ins cgpv1u32:$data, !cast<OclType>("v"#!mul(len, vf)#"u32"):$src), [], [], 1, 0>;
+          }
+        }
+      }
 }
 
 //
@@ -172,3 +183,4 @@ foreach func_name = [ "sub_group_shuffle" ] in {
     0,1>;          //not scalarizable, packetizable
   }
 }
+
