@@ -725,6 +725,11 @@ void *__tgt_rtl_data_alloc_user(int32_t device_id, int64_t size,
 int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
                                      void *hst_ptr, int64_t size,
                                      void *async_event) {
+  if (size == 0)
+    // All other plugins seem to be handling 0 size gracefully,
+    // so we should do as well.
+    return OFFLOAD_SUCCESS;
+
   cl_command_queue queue = DeviceInfo.Queues[device_id];
   cl_device_id id = DeviceInfo.deviceIDs[device_id];
 
@@ -780,6 +785,11 @@ int32_t __tgt_rtl_data_submit(int32_t device_id, void *tgt_ptr, void *hst_ptr,
 int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
                                        void *tgt_ptr, int64_t size,
                                        void *async_event) {
+  if (size == 0)
+    // All other plugins seem to be handling 0 size gracefully,
+    // so we should do as well.
+    return OFFLOAD_SUCCESS;
+
   cl_command_queue queue = DeviceInfo.Queues[device_id];
   cl_device_id id = DeviceInfo.deviceIDs[device_id];
 
