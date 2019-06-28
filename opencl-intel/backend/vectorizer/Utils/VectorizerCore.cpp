@@ -164,7 +164,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
   if (TRANSPOSE_SIZE_NOT_SET != m_pConfig->GetTransposeSize())
     forcedVecWidth = (uint32_t)m_pConfig->GetTransposeSize();
   else
-    forcedVecWidth = (kmd.VecLenHint.hasValue()) ? kmd.VecLenHint.get() : 0;
+    forcedVecWidth = (kmd.hasVecLength()) ? kmd.getVecLength() : 0;
 
   // No need to vectorize kernel, exiting...
   if (1 == forcedVecWidth)

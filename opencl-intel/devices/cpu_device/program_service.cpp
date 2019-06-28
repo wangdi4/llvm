@@ -863,6 +863,19 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
         stValSize = sizeof(cl_bool);
         break;
     }
+    case CL_DEV_KERNEL_SPILL_MEM_SIZE_INTEL:
+    {
+        // Despite we can obtain real value, we always return 0 for now
+        *(cl_ulong*)pValue = 0UL;
+        stValSize = sizeof(cl_ulong);
+        break;
+    }
+    case CL_DEV_KERNEL_COMPILE_SUB_GROUP_SIZE_INTEL:
+    {
+        *(size_t*)pValue = pKernelProps->GetRequiredSubGroupSize();
+        stValSize = sizeof(size_t);
+        break;
+    }
 
     default:
         return CL_DEV_INVALID_VALUE;

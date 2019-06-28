@@ -390,6 +390,11 @@ TEST(FrameworkTestType, Test_intelVecTypeHintTest)
     intelVecTypeHintTest();
 }
 
+TEST(FrameworkTestType, Test_intelReqdSubGroupSizeTest)
+{
+    intelReqdSubGroupSizeTest();
+}
+
 TEST(FrameworkTestType, Test_EventCallbackTest)
 {
     EXPECT_TRUE(EventCallbackTest());
