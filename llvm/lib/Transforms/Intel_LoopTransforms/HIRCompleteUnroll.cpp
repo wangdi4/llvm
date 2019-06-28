@@ -91,8 +91,8 @@ static cl::opt<unsigned> CommandLineOptLevel(
     cl::desc(
         "Opt level for complete unroll (2 or 3). This affects unroll limits."));
 
-const unsigned O2LoopTripThreshold = 64;
-const unsigned O3LoopTripThreshold = 64;
+const unsigned O2LoopTripThreshold = 63;
+const unsigned O3LoopTripThreshold = 63;
 
 // The trip count threshold is intentionally set to a high value as profitablity
 // should be driven by the combination of trip count and loop resource.
@@ -2770,7 +2770,7 @@ HIRCompleteUnroll::computeAvgTripCount(const HLLoop *Loop) {
 
   if (UpperCE->isIntConstant(&UpperVal)) {
     int64_t TC = UpperVal + 1;
-    if (TC >= Limits.LoopTripThreshold) {
+    if (TC > Limits.LoopTripThreshold) {
       TC = -1;
     }
 
