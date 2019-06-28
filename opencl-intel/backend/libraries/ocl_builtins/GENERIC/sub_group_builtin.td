@@ -58,6 +58,8 @@ let NeedForwardDecl = 1 in {
       Attrs = [OVERLOADABLE] in {
         def sub_group_shuffle_avx2 : OclBuiltin<"intel_sub_group_shuffle", (outs gentype:$ret), (ins gentype:$data, v8u32:$sub_group_local_id, v8u32:$vec_mask), [], [], 1, 0>;
         def sub_group_shuffle_xor_avx2 : OclBuiltin<"intel_sub_group_shuffle_xor", (outs gentype:$ret), (ins gentype:$data, v8u32:$value, v8u32:$vec_mask), [], [], 1, 0>;
+        def sub_group_shuffle_down_avx2 : OclBuiltin<"intel_sub_group_shuffle_down", (outs gentype:$ret), (ins gentype:$current, gentype:$next, v8u32:$value, v8u32:$vec_mask), [], [], 1, 0>;
+        def sub_group_shuffle_up_avx2 : OclBuiltin<"intel_sub_group_shuffle_up", (outs gentype:$ret), (ins gentype:$previous, gentype:$current, v8u32:$value, v8u32:$vec_mask), [], [], 1, 0>;
       }
 
   // AVX512 (VF = 16)

@@ -6,6 +6,45 @@
   OclBuiltinImpl sign_expand  = OclBuiltinImpl <sign, [v8f32, v16f32, v3f64, v4f64, v8f64], 0, Expand1>;
 
 
+OclBuiltinImpl ext_mask_to_8 = OclBuiltinImpl<__ocl_extend_mask_v8, [v8i32], 0,
+  [{
+    return $Arg0VarName;
+  }]>;
+
+OclBuiltinImpl ext_mask_to_8 = OclBuiltinImpl<__ocl_extend_mask_v8, [v16i32], 0,
+  [{
+    return __builtin_shufflevector($Arg0VarName, $Arg0VarName,
+      0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7);
+  }]>;
+
+OclBuiltinImpl ext_mask_to_8 = OclBuiltinImpl<__ocl_extend_mask_v8, [v32i32], 0,
+  [{
+    return __builtin_shufflevector($Arg0VarName, $Arg0VarName,
+      0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 7);
+  }]>;
+
+OclBuiltinImpl ext_mask_to_8 = OclBuiltinImpl<__ocl_extend_mask_v8, [v64i32], 0,
+  [{
+    return __builtin_shufflevector($Arg0VarName, $Arg0VarName,
+      0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2,
+      3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5,
+      6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7);
+  }]>;
+
+OclBuiltinImpl ext_mask_to_8 = OclBuiltinImpl<__ocl_extend_mask_v8, [v128i32], 0,
+  [{
+    return __builtin_shufflevector($Arg0VarName, $Arg0VarName,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+      2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+      3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+      4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+      5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+      6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+      7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7);
+  }]>;
+
+
 OclBuiltinImpl ext_mask_to_16 = OclBuiltinImpl<__ocl_extend_mask_v16, [v16i32], 0,
   [{
     return $Arg0VarName;
