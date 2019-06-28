@@ -170,6 +170,10 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
   for (auto Ext : ExtVec)
     optionsEx << ",+" << Ext.str();
 
+#ifndef INTEL_PRODUCT_RELEASE
+  optionsEx << " -Dcl_intel_required_subgroup_size";
+#endif
+
   // If working as fpga emulator, pass special triple.
   if (m_pProgDesc->bFpgaEmulator) {
 #if defined(_WIN64) || defined(__x86_64__) || defined(_M_AMD64) ||             \

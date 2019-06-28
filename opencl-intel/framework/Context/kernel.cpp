@@ -30,6 +30,7 @@
 #include <Device.h>
 #include <assert.h>
 #include <cl_utils.h>
+#include <CL/cl_ext.h>
 
 
 using namespace Intel::OpenCL::Utils;
@@ -579,6 +580,15 @@ cl_err_code Kernel::GetSubGroupInfo(const       SharedPtr<FissionableDevice>& de
                                                               pParamValue,
                                                               pszParamValueSizeRet);
         break;
+    case CL_KERNEL_COMPILE_SUB_GROUP_SIZE_INTEL:
+        clErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(clDevKernel,
+                                                              CL_DEV_KERNEL_COMPILE_SUB_GROUP_SIZE_INTEL,
+                                                              0,
+                                                              nullptr,
+                                                              szParamValueSize,
+                                                              pParamValue,
+                                                              pszParamValueSizeRet);
+        break;
     default:
         clErr = CL_INVALID_VALUE;
     }
@@ -643,6 +653,9 @@ cl_err_code    Kernel::GetWorkGroupInfo(const SharedPtr<FissionableDevice>& devi
         break;
     case CL_KERNEL_PRIVATE_MEM_SIZE:
         clErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(clDevKernel, CL_DEV_KERNEL_PRIVATE_SIZE, 0, nullptr, szParamValueSize, pParamValue, pszParamValueSizeRet);
+        break;
+    case CL_KERNEL_SPILL_MEM_SIZE_INTEL:
+        clErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(clDevKernel, CL_DEV_KERNEL_SPILL_MEM_SIZE_INTEL, 0, nullptr, szParamValueSize, pParamValue, pszParamValueSizeRet);
         break;
 
     default:

@@ -105,6 +105,7 @@ protected:
         bool CanUseGlobalWorkOffset() const { return true; }
         bool NeedSerializeWGs() const { return false; }
         const char* GetKernelAttributes() const { return attributes; }
+        size_t GetRequiredSubGroupSize() const { return 0; }
     protected:
         static const char* attributes;
     };

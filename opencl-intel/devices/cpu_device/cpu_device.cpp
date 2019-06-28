@@ -1869,6 +1869,32 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 *(size_t*)paramVal = 64;
             }
             return CL_DEV_SUCCESS;
+#ifndef INTEL_PRODUCT_RELEASE
+        case CL_DEVICE_SUB_GROUP_SIZES_INTEL:
+        {
+            const bool avx1Support = CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX10);
+            const bool avx2Support = CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX20);
+            const bool avx512Support = CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX512F);
+
+            std::vector<size_t> sizes;
+            sizes.push_back(4);
+
+            if (avx2Support || avx1Support)
+                sizes.push_back(8);
+            if (avx512Support)
+                sizes.push_back(16);
+
+            *pinternalRetunedValueSize = sizeof(size_t) * sizes.size();
+
+            if (paramVal != nullptr)
+            {
+                MEMCPY_S(paramVal, valSize, sizes.data(),
+                        *pinternalRetunedValueSize);
+            }
+
+            break;
+        }
+#endif
         default:
             return CL_DEV_INVALID_VALUE;
     };

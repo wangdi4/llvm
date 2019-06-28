@@ -1,4 +1,4 @@
-//==--- intelVecLenHint.cpp - intel_vec_len_hint attribute test -*- C++ -*---==//
+//==--- intelReqdSubGroupSize.cpp - intel_reqd_sub_group_size attribute test -*- C++ -*---==//
 ////
 //// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 ////
@@ -12,6 +12,7 @@
 #include "FrameworkTest.h"
 #include "cl_device_api.h"
 #include "cl_cpu_detect.h"
+#include "common_utils.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -22,27 +23,14 @@
     kernelName = std::string("kernel_" + std::string(#lenght)); \
     kernelCode = \
     "#pragma OPENCL EXTENSION cl_intel_vec_len_hint: enable\n" \
-    "__attribute__((intel_vec_len_hint(" + std::string(#lenght) + ")))\n" \
+    "#pragma OPENCL EXTENSION cl_intel_required_subgroup_size: enable\n" \
+    "__attribute__((intel_reqd_sub_group_size(" + std::string(#lenght) + ")))\n" \
     "__kernel void kernel_" + std::string(#lenght) + "(__global int* in,\n" \
     "                                                  __global int* out)\n" \
     "{\n" \
     "    size_t gid = get_global_id(0);\n" \
     "    out[gid] = in[gid];\n" \
     "}\n";
-
-#define KERNEL_TYPE_HINT(lenght, type_hint) \
-    vectorizationTo = #lenght; \
-    kernelName = std::string("kernel_" + std::string(#lenght) + "_vec_hint_" + std::string(#type_hint)); \
-    kernelCode = \
-    "#pragma OPENCL EXTENSION cl_intel_vec_len_hint: enable\n" \
-    "__attribute__((intel_vec_len_hint(" + std::string(#lenght) +  ")))\n" \
-    "__attribute__((vec_type_hint(" + std::string(#type_hint) + ")))\n" \
-    "__kernel void kernel_" + std::string(#lenght) + "_vec_hint_" + std::string(#type_hint) + "(__global int* in, \n" \
-    "                                     __global int* out)\n" \
-    "{ \n" \
-    "    size_t gid = get_global_id(0);\n" \
-    "    out[gid] = in[gid];\n" \
-    "} \n";
 
 extern cl_device_type gDeviceType;
 using namespace Intel::OpenCL::Utils;
@@ -60,11 +48,19 @@ struct SupportForKernelVector
       vectorizationTo(std::move(vectorization)), expectedRes(Res) { }
 };
 
-void intelVecTypeHintTest()
+void intelReqdSubGroupSizeTest()
 {
+    if (!SETENV("CL_CONFIG_CPU_ENABLE_NATIVE_SUBGROUPS", "True") ||
+        !SETENV("CL_CONFIG_CPU_VECTORIZER_TYPE", "volcano") ||
+        !SETENV("VOLCANO_ENABLE_INTEL_SUBGROUPS", "True")) {
+      printf ("ERROR: ReqdSubGroupSize: Can't set environment variables. Test FAILED\n");
+      FAIL();
+      return;
+    }
+
     std::string vectorizedString = "was successfully vectorized";
     std::string notVectorizedString = "was not vectorized";
-    std::string expectedError = "invalid attribute value";
+    std::string expectedError = "Error! Specified intel_reqd_sub_group_size";
     std::string warningString = "is not supported by the architecture. Fall back to autovectorization mode";
 
     cl_device_id device;
@@ -96,24 +92,16 @@ void intelVecTypeHintTest()
     std::string kernelCode = "";
     std::string vectorizationTo = "";
 
-    // expected to be vectorized
-    KERNEL(0);
-    kernelVec.emplace_back(kernelCode, kernelName, vectorizationTo, true);
     // expected not to be vectorized
     KERNEL(1);
-    kernelVec.emplace_back(kernelCode, kernelName, vectorizationTo, false);
-    // expected to fail during a compilation
-    KERNEL(7);
     kernelVec.emplace_back(kernelCode, kernelName, vectorizationTo, false);
     // expected to be vectorized
     KERNEL(4);
     kernelVec.emplace_back(kernelCode, kernelName, vectorizationTo, true);
-    // expected to be vectorized to 4 ignoring type_hint int
-    KERNEL_TYPE_HINT(4, int);
-    kernelVec.emplace_back(kernelCode, kernelName, vectorizationTo, true);
-    // expected not to be vectorized
-    KERNEL_TYPE_HINT(1, float4);
+    // expected to fail
+    KERNEL(7);
     kernelVec.emplace_back(kernelCode, kernelName, vectorizationTo, false);
+
 
     for (size_t i = 0; i != kernelVec.size(); ++i)
     {
@@ -177,4 +165,13 @@ void intelVecTypeHintTest()
     // Release objects
     kernelVec.clear();
     clReleaseContext(context);
+    if (!UNSETENV("CL_CONFIG_CPU_ENABLE_NATIVE_SUBGROUPS") ||
+        !UNSETENV("CL_CONFIG_CPU_VECTORIZER_TYPE") ||
+        !UNSETENV("VOLCANO_ENABLE_INTEL_SUBGROUPS")) {
+      printf ("ERROR: ReqdSubGroupSize: Can't unset environment variables. Test FAILED\n");
+      FAIL();
+      return;
+    }
+
+
 }

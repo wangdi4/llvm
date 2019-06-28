@@ -200,6 +200,13 @@ public:
     virtual bool IsNonUniformWGSizeSupported() const;
 
     /**
+     * @returns required Intel sub group size (0 if none was required)
+     */
+    size_t GetRequiredSubGroupSize() const override {
+        return m_reqdSubGroupSize;
+    };
+
+    /**
      * Kernel Properties methods
      */
     void SetTotalImplSize(size_t size) { m_totalImplSize = size;}
@@ -230,6 +237,7 @@ public:
     void SetCanUniteWG(const bool value) { m_canUniteWG = value; }
     void SetVerctorizeOnDimention(unsigned int value) { m_verctorizeOnDimention = value; }
     void SetHasDebugInfo(const bool value) { m_debugInfo = value; }
+    void SetRequiredSubGroupSize(const size_t value) { m_reqdSubGroupSize = value; }
 
     unsigned int  GetOptWGSize()      const { return m_optWGSize; }
     const size_t* GetReqdWGSize()     const { return m_reqdWGSize; }
@@ -264,6 +272,7 @@ protected:
     size_t m_reqdNumSG;
     size_t m_kernelExecutionLength;
     size_t m_vectorizationWidth;
+    size_t m_reqdSubGroupSize;
     std::string m_kernelAttributes;
     unsigned int m_minGroupSizeFactorial;
     bool m_isVectorizedWithTail;
