@@ -96,6 +96,22 @@ OclBuiltinImpl sub_group_shuffle_xor_vec_type_fake = OclBuiltinImpl<sub_group_sh
     return $Arg0VarName;
   }]>;
 
+OclBuiltinImpl sub_group_shuffle_up_vec_type_fake = OclBuiltinImpl<sub_group_shuffle_up, [v1i32, v1u32, v1i64, v1u64, v1f32, v1f64,
+                                                                                            v2i32, v4i32, v8i32, v16i32,
+                                                                                            v2u32, v4u32, v8u32, v16u32,
+                                                                                            v2f32, v4f32, v8f32, v16f32], 0,
+  [{
+    return $Arg0VarName;
+  }]>;
+
+OclBuiltinImpl sub_group_shuffle_down_vec_type_fake = OclBuiltinImpl<sub_group_shuffle_down, [v1i32, v1u32, v1i64, v1u64, v1f32, v1f64,
+                                                                                            v2i32, v4i32, v8i32, v16i32,
+                                                                                            v2u32, v4u32, v8u32, v16u32,
+                                                                                            v2f32, v4f32, v8f32, v16f32], 0,
+  [{
+    return $Arg0VarName;
+  }]>;
+
 
 OclBuiltinImpl intel_sub_group_block_read1_4_fake = OclBuiltinImpl<intel_sub_group_block_read1_4, [ v4i32 ], 0,
   [{

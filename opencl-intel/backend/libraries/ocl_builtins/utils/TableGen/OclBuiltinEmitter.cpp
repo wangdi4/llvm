@@ -162,6 +162,10 @@ OclType::getCVecLength() const
     case 4: return "4";
     case 8: return "8";
     case 16: return "16";
+    case 32: return "32";
+    case 64: return "64";
+    case 128: return "128";
+    case 256: return "256";
   }
   GENOCL_WARNING("Invalid vector length(" << m_VecLength << ") is found for type '" << m_Name << "' on rewrite pattern $VecLength.\n");
   return "__invalid_vec_length__";
