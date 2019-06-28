@@ -221,8 +221,17 @@ cl_err_code IOclCommandQueueBase::WaitForCompletion(const SharedPtr<QueueEvent>&
 
     cl_dev_cmd_desc* pCmdDesc = pEvent->GetCommand()->GetDeviceCommandDescriptor();
 
+    // If queue is out of order and pEvent command is not ready to execute,
+    // i.e. its dependencies have not notified their completions, pEvent
+    // command type is CL_DEV_CMD_INVALID. In this case, set cmdToWait to
+    // nullptr so that master thread can be added to exection pool.
+    cl_dev_cmd_desc * cmdToWait = pCmdDesc;
+    if (IsOutOfOrderExecModeEnabled() && cmdToWait &&
+        cmdToWait->type == CL_DEV_CMD_INVALID)
+        cmdToWait = nullptr;
+
     cl_dev_err_code ret = m_pDefaultDevice->GetDeviceAgent()->clDevCommandListWaitCompletion(
-        m_clDevCmdListId, pCmdDesc);
+        m_clDevCmdListId, cmdToWait);
 
     // If device does't supporting waiting, need to call explicit Wait() method
     if ( CL_DEV_NOT_SUPPORTED == ret )
@@ -237,8 +246,12 @@ cl_err_code IOclCommandQueueBase::WaitForCompletion(const SharedPtr<QueueEvent>&
     while ( CL_DEV_SUCCEEDED(ret) && (EVENT_STATE_DONE != state) )
     {
         clSleep(0);
+        cmdToWait = pCmdDesc;
+        if (IsOutOfOrderExecModeEnabled() && cmdToWait &&
+            cmdToWait->type == CL_DEV_CMD_INVALID)
+            cmdToWait = nullptr;
         ret = m_pDefaultDevice->GetDeviceAgent()->clDevCommandListWaitCompletion(
-                m_clDevCmdListId, pCmdDesc);
+                m_clDevCmdListId, cmdToWait);
         state = pEvent->GetEventState();
     }
 
