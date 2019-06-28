@@ -52,10 +52,11 @@ public:
                                    BasicBlock *EntryBB, BasicBlock *ExitBB);
 
   /// \brief Generates BB set in sub CFG for a given WRegionNode.
-  /// The entry basic bblock 'EntryBB' and the exit basic
+  /// The entry basic block 'EntryBB' and the exit basic
   /// block 'ExitBB' are the inputs, and 'BBSet' is the output containing all
   /// the basic blocks that belong to this region. It guarantees that the
-  /// first item in BBSet is 'EntryBB' and the last item is 'ExitBB'.
+  /// first item in BBSet is 'EntryBB' and the last item is 'ExitBB'. 'EntryBB'
+  /// and 'ExitBB' should not be the same basic block.
   static void collectBBSet(BasicBlock *EntryBB, BasicBlock *ExitBB,
                            SmallVectorImpl<BasicBlock *> &BBSet);
   /// \brief Breaks up the instruction recursively for all the constant
