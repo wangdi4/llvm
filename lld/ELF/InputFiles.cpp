@@ -178,13 +178,13 @@ template <class ELFT> static void doParseFile(InputFile *File) {
   // LLVM bitcode file
   if (auto *F = dyn_cast<BitcodeFile>(File)) {
     BitcodeFiles.push_back(F);
-    F->parse<ELFT>(Symtab->ComdatGroups);
+    F->parse<ELFT>();
     return;
   }
 
   // Regular object file
   ObjectFiles.push_back(File);
-  cast<ObjFile<ELFT>>(File)->parse(Symtab->ComdatGroups);
+  cast<ObjFile<ELFT>>(File)->parse();
 }
 
 // Add symbols in File to the symbol table.
@@ -449,14 +449,12 @@ template <class ELFT> ArrayRef<Symbol *> ObjFile<ELFT>::getGlobalSymbols() {
   return makeArrayRef(this->Symbols).slice(this->FirstGlobal);
 }
 
-template <class ELFT>
-void ObjFile<ELFT>::parse(
-    DenseMap<CachedHashStringRef, const InputFile *> &ComdatGroups) {
+template <class ELFT> void ObjFile<ELFT>::parse(bool IgnoreComdats) {
   // Read a section table. JustSymbols is usually false.
   if (this->JustSymbols)
     initializeJustSymbols();
   else
-    initializeSections(ComdatGroups);
+    initializeSections(IgnoreComdats);
 
   // Read a symbol table.
   initializeSymbols();
@@ -564,8 +562,7 @@ static void addDependentLibrary(StringRef Specifier, const InputFile *F) {
 }
 
 template <class ELFT>
-void ObjFile<ELFT>::initializeSections(
-    DenseMap<CachedHashStringRef, const InputFile *> &ComdatGroups) {
+void ObjFile<ELFT>::initializeSections(bool IgnoreComdats) {
   const ELFFile<ELFT> &Obj = this->getObj();
 
   ArrayRef<Elf_Shdr> ObjSections = CHECK(Obj.sections(), this);
@@ -625,7 +622,9 @@ void ObjFile<ELFT>::initializeSections(
         fatal(toString(this) + ": unsupported SHT_GROUP format");
 
       bool IsNew =
-          ComdatGroups.try_emplace(CachedHashStringRef(Signature), this).second;
+          IgnoreComdats ||
+          Symtab->ComdatGroups.try_emplace(CachedHashStringRef(Signature), this)
+              .second;
       if (IsNew) {
         if (Config->Relocatable)
           this->Sections[I] = createInputSection(Sec);
@@ -788,6 +787,10 @@ static uint32_t readAndFeatures(ObjFile<ELFT> *Obj, ArrayRef<uint8_t> Data) {
       continue;
     }
 
+    uint32_t FeatureAndType = Config->EMachine == EM_AARCH64
+                                  ? GNU_PROPERTY_AARCH64_FEATURE_1_AND
+                                  : GNU_PROPERTY_X86_FEATURE_1_AND;
+
     // Read a body of a NOTE record, which consists of type-length-value fields.
     ArrayRef<uint8_t> Desc = Note.getDesc();
     while (!Desc.empty()) {
@@ -797,7 +800,7 @@ static uint32_t readAndFeatures(ObjFile<ELFT> *Obj, ArrayRef<uint8_t> Data) {
       uint32_t Type = read32le(Desc.data());
       uint32_t Size = read32le(Desc.data() + 4);
 
-      if (Type == GNU_PROPERTY_X86_FEATURE_1_AND) {
+      if (Type == FeatureAndType) {
         // We found a FEATURE_1_AND field. There may be more than one of these
         // in a .note.gnu.propery section, for a relocatable object we
         // accumulate the bits set.
@@ -967,8 +970,9 @@ InputSectionBase *ObjFile<ELFT>::createInputSection(const Elf_Shdr &Sec) {
   if (Name == ".note.GNU-stack")
     return &InputSection::Discarded;
 
-  // If an object file is compatible with Intel Control-Flow Enforcement
-  // Technology (CET), it has a .note.gnu.property section containing the
+  // Object files that use processor features such as Intel Control-Flow
+  // Enforcement (CET) or AArch64 Branch Target Identification BTI, use a
+  // .note.gnu.property section containing a bitfield of feature bits like the
   // GNU_PROPERTY_X86_FEATURE_1_IBT flag. Read a bitmap containing the flag.
   //
   // Since we merge bitmaps from multiple object files to create a new
@@ -1478,13 +1482,11 @@ static Symbol *createBitcodeSymbol(const std::vector<bool> &KeptComdats,
   return Symtab->addSymbol(New);
 }
 
-template <class ELFT>
-void BitcodeFile::parse(
-    DenseMap<CachedHashStringRef, const InputFile *> &ComdatGroups) {
+template <class ELFT> void BitcodeFile::parse() {
   std::vector<bool> KeptComdats;
   for (StringRef S : Obj->getComdatTable())
     KeptComdats.push_back(
-        ComdatGroups.try_emplace(CachedHashStringRef(S), this).second);
+        Symtab->ComdatGroups.try_emplace(CachedHashStringRef(S), this).second);
 
   for (const lto::InputFile::Symbol &ObjSym : Obj->symbols())
     Symbols.push_back(createBitcodeSymbol<ELFT>(KeptComdats, ObjSym, *this));
@@ -1617,14 +1619,10 @@ std::string elf::replaceThinLTOSuffix(StringRef Path) {
   return Path;
 }
 
-template void
-BitcodeFile::parse<ELF32LE>(DenseMap<CachedHashStringRef, const InputFile *> &);
-template void
-BitcodeFile::parse<ELF32BE>(DenseMap<CachedHashStringRef, const InputFile *> &);
-template void
-BitcodeFile::parse<ELF64LE>(DenseMap<CachedHashStringRef, const InputFile *> &);
-template void
-BitcodeFile::parse<ELF64BE>(DenseMap<CachedHashStringRef, const InputFile *> &);
+template void BitcodeFile::parse<ELF32LE>();
+template void BitcodeFile::parse<ELF32BE>();
+template void BitcodeFile::parse<ELF64LE>();
+template void BitcodeFile::parse<ELF64BE>();
 
 template void LazyObjFile::parse<ELF32LE>();
 template void LazyObjFile::parse<ELF32BE>();

@@ -18,6 +18,7 @@
 #include "llvm-objdump.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SetOperations.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/ADT/Triple.h"
@@ -375,6 +376,10 @@ void warn(StringRef Message) {
   errs().flush();
 }
 
+void warn(Twine Message) {
+  WithColor::warning(errs(), ToolName) << Message << "\n";
+}
+
 LLVM_ATTRIBUTE_NORETURN void report_error(StringRef File, Twine Message) {
   WithColor::error(errs(), ToolName)
       << "'" << File << "': " << Message << ".\n";
@@ -524,9 +529,10 @@ private:
 public:
   SourcePrinter() = default;
   SourcePrinter(const ObjectFile *Obj, StringRef DefaultArch) : Obj(Obj) {
-    symbolize::LLVMSymbolizer::Options SymbolizerOpts(
-        DILineInfoSpecifier::FunctionNameKind::None, true, false, false,
-        DefaultArch);
+    symbolize::LLVMSymbolizer::Options SymbolizerOpts;
+    SymbolizerOpts.PrintFunctions = DILineInfoSpecifier::FunctionNameKind::None;
+    SymbolizerOpts.Demangle = false;
+    SymbolizerOpts.DefaultArch = DefaultArch;
     Symbolizer.reset(new symbolize::LLVMSymbolizer(SymbolizerOpts));
   }
   virtual ~SourcePrinter() = default;
@@ -566,6 +572,7 @@ void SourcePrinter::printSourceLine(raw_ostream &OS,
                                     StringRef Delimiter) {
   if (!Symbolizer)
     return;
+
   DILineInfo LineInfo = DILineInfo();
   auto ExpectedLineInfo =
       Symbolizer->symbolizeCode(Obj->getFileName(), Address);
@@ -574,8 +581,9 @@ void SourcePrinter::printSourceLine(raw_ostream &OS,
   else
     LineInfo = *ExpectedLineInfo;
 
-  if ((LineInfo.FileName == "<invalid>") || OldLineInfo.Line == LineInfo.Line ||
-      LineInfo.Line == 0)
+  if ((LineInfo.FileName == "<invalid>") || LineInfo.Line == 0 ||
+      ((OldLineInfo.Line == LineInfo.Line) &&
+       (OldLineInfo.FileName == LineInfo.FileName)))
     return;
 
   if (PrintLines)
@@ -605,9 +613,8 @@ static bool isArmElf(const ObjectFile *Obj) {
 }
 
 static void printRelocation(const RelocationRef &Rel, uint64_t Address,
-                            uint8_t AddrSize) {
-  StringRef Fmt =
-      AddrSize > 4 ? "\t\t%016" PRIx64 ":  " : "\t\t\t%08" PRIx64 ":  ";
+                            bool Is64Bits) {
+  StringRef Fmt = Is64Bits ? "\t\t%016" PRIx64 ":  " : "\t\t\t%08" PRIx64 ":  ";
   SmallString<16> Name;
   SmallString<32> Val;
   Rel.getTypeName(Name);
@@ -652,6 +659,7 @@ public:
   }
 };
 PrettyPrinter PrettyPrinterInst;
+
 class HexagonPrettyPrinter : public PrettyPrinter {
 public:
   void printLead(ArrayRef<uint8_t> Bytes, uint64_t Address,
@@ -697,7 +705,7 @@ public:
     auto PrintReloc = [&]() -> void {
       while ((RelCur != RelEnd) && (RelCur->getOffset() <= Address.Address)) {
         if (RelCur->getOffset() == Address.Address) {
-          printRelocation(*RelCur, Address.Address, 4);
+          printRelocation(*RelCur, Address.Address, false);
           return;
         }
         ++RelCur;
@@ -742,8 +750,6 @@ public:
     if (SP && (PrintSource || PrintLines))
       SP->printSourceLine(OS, Address);
 
-    typedef support::ulittle32_t U32;
-
     if (MI) {
       SmallString<40> InstStr;
       raw_svector_ostream IS(InstStr);
@@ -757,7 +763,7 @@ public:
       // remaining
       if (Bytes.size() >= 4) {
         OS << format("\t.long 0x%08" PRIx32 " ",
-                     static_cast<uint32_t>(*reinterpret_cast<const U32*>(Bytes.data())));
+                     support::endian::read32<support::little>(Bytes.data()));
         OS.indent(42);
       } else {
           OS << format("\t.byte 0x%02" PRIx8, Bytes[0]);
@@ -767,20 +773,21 @@ public:
       }
     }
 
-    OS << format("// %012" PRIX64 ": ", Address.Address);
-    if (Bytes.size() >=4) {
-      for (auto D : makeArrayRef(reinterpret_cast<const U32*>(Bytes.data()),
-                                 Bytes.size() / sizeof(U32)))
-        // D should be explicitly casted to uint32_t here as it is passed
-        // by format to snprintf as vararg.
-        OS << format("%08" PRIX32 " ", static_cast<uint32_t>(D));
+    OS << format("// %012" PRIX64 ":", Address.Address);
+    if (Bytes.size() >= 4) {
+      // D should be casted to uint32_t here as it is passed by format to
+      // snprintf as vararg.
+      for (uint32_t D : makeArrayRef(
+               reinterpret_cast<const support::little32_t *>(Bytes.data()),
+               Bytes.size() / 4))
+        OS << format(" %08" PRIX32, D);
     } else {
-      for (unsigned int i = 0; i < Bytes.size(); i++)
-        OS << format("%02" PRIX8 " ", Bytes[i]);
+      for (unsigned char B : Bytes)
+        OS << format(" %02" PRIX8, B);
     }
 
     if (!Annot.empty())
-      OS << "// " << Annot;
+      OS << " // " << Annot;
   }
 };
 AMDGCNPrettyPrinter AMDGCNPrettyPrinterInst;
@@ -1025,6 +1032,7 @@ static void disassembleObject(const Target *TheTarget, const ObjectFile *Obj,
   std::map<SectionRef, std::vector<RelocationRef>> RelocMap;
   if (InlineRelocs)
     RelocMap = getRelocsMap(*Obj);
+  bool Is64Bits = Obj->getBytesInAddress() > 4;
 
   // Create a mapping from virtual address to symbol name.  This is used to
   // pretty print the symbols while disassembling.
@@ -1090,6 +1098,7 @@ static void disassembleObject(const Target *TheTarget, const ObjectFile *Obj,
 
   // Sort all the symbols, this allows us to use a simple binary search to find
   // a symbol near an address.
+  StringSet<> FoundDisasmFuncsSet;
   for (std::pair<const SectionRef, SectionSymbolsTy> &SecSyms : AllSymbols)
     array_pod_sort(SecSyms.second.begin(), SecSyms.second.end());
   array_pod_sort(AbsoluteSymbols.begin(), AbsoluteSymbols.end());
@@ -1181,6 +1190,8 @@ static void disassembleObject(const Target *TheTarget, const ObjectFile *Obj,
       uint64_t Start = std::get<0>(Symbols[SI]);
       if (Start < SectionAddr || StopAddress <= Start)
         continue;
+      else
+        FoundDisasmFuncsSet.insert(std::get<1>(Symbols[SI]));
 
       // The end is the section end, the beginning of the next symbol, or
       // --stop-address.
@@ -1219,7 +1230,7 @@ static void disassembleObject(const Target *TheTarget, const ObjectFile *Obj,
 
       outs() << '\n';
       if (!NoLeadingAddr)
-        outs() << format("%016" PRIx64 " ",
+        outs() << format(Is64Bits ? "%016" PRIx64 " " : "%08" PRIx64 " ",
                          SectionAddr + Start + VMAAdjustment);
 
       StringRef SymbolName = std::get<1>(Symbols[SI]);
@@ -1391,8 +1402,7 @@ static void disassembleObject(const Target *TheTarget, const ObjectFile *Obj,
                 Offset += AdjustVMA;
             }
 
-            printRelocation(*RelCur, SectionAddr + Offset,
-                            Obj->getBytesInAddress());
+            printRelocation(*RelCur, SectionAddr + Offset, Is64Bits);
             ++RelCur;
           }
         }
@@ -1401,11 +1411,15 @@ static void disassembleObject(const Target *TheTarget, const ObjectFile *Obj,
       }
     }
   }
+  StringSet<> MissingDisasmFuncsSet =
+      set_difference(DisasmFuncsSet, FoundDisasmFuncsSet);
+  for (StringRef MissingDisasmFunc : MissingDisasmFuncsSet.keys())
+    warn("failed to disassemble missing function " + MissingDisasmFunc);
 }
 
 static void disassembleObject(const ObjectFile *Obj, bool InlineRelocs) {
-  if (StartAddress > StopAddress)
-    error("Start address should be less than stop address");
+  if (StartAddress >= StopAddress)
+    error("start address should be less than stop address");
 
   const Target *TheTarget = getTarget(Obj);
 
