@@ -102,16 +102,14 @@ public:
                                         // no unsigned wrap.
     NoSWrap      = 1 << 12,             // Instruction supports binary operator
                                         // no signed wrap.
-    IsExact      = 1 << 13              // Instruction supports division is
+    IsExact      = 1 << 13,             // Instruction supports division is
                                         // known to be exact.
+    FPExcept     = 1 << 14,             // Instruction may raise floating-point
+                                        // exceptions.
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
-    // WARNING: we use the last two free bits for CSA.  If community
-    // WARNING: uses (1 << 14), we will have to change the Flags
-    // WARNING: member declaration below to hold more than 16 bits.
-    ,
-    NonSequential = 1 << 14,            // Instruction removed from sequence
-    RasReplayable = 1 << 15             // Instruction can be replayed
+    NonSequential = 1 << 15,            // Instruction removed from sequence
+    RasReplayable = 1 << 16,            // Instruction can be replayed
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
   };
@@ -126,7 +124,7 @@ private:
   using OperandCapacity = ArrayRecycler<MachineOperand>::Capacity;
   OperandCapacity CapOperands;          // Capacity of the Operands array.
 
-  uint16_t Flags = 0;                   // Various bits of additional
+  uint32_t Flags : 24;                  // Various bits of additional // INTEL
                                         // information about machine
                                         // instruction.
 
@@ -307,7 +305,7 @@ public:
 
   /// Set a MI flag.
   void setFlag(MIFlag Flag) {
-    Flags |= (uint16_t)Flag;
+    Flags |= ((uint32_t)Flag & 0xFFFFFF); // INTEL
   }
 
   void setFlags(unsigned flags) {
@@ -318,7 +316,7 @@ public:
 
   /// clearFlag - Clear a MI flag.
   void clearFlag(MIFlag Flag) {
-    Flags &= ~((uint16_t)Flag);
+    Flags &= ~((uint32_t)Flag & 0xFFFFFF); // INTEL
   }
 
   /// Return true if MI is in a bundle (but not the first MI in a bundle).
@@ -838,6 +836,17 @@ public:
   /// Return true if this instruction could possibly read or modify memory.
   bool mayLoadOrStore(QueryType Type = AnyInBundle) const {
     return mayLoad(Type) || mayStore(Type);
+  }
+
+  /// Return true if this instruction could possibly raise a floating-point
+  /// exception.  This is the case if the instruction is a floating-point
+  /// instruction that can in principle raise an exception, as indicated
+  /// by the MCID::MayRaiseFPException property, *and* at the same time,
+  /// the instruction is used in a context where we expect floating-point
+  /// exceptions might be enabled, as indicated by the FPExcept MI flag.
+  bool mayRaiseFPException() const {
+    return hasProperty(MCID::MayRaiseFPException) &&
+           getFlag(MachineInstr::MIFlag::FPExcept);
   }
 
   //===--------------------------------------------------------------------===//

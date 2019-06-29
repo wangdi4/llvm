@@ -8,8 +8,8 @@
 ; CHECK: |   for.body3:
 ; CHECK: |   %j.013.out = %j.013;
 ; CHECK: |   %add14 = %add14  +  %j.013.out;
-; CHECK: |   %mul = %j.013  <<  1;
-; CHECK: |   if (%mul < %n)
+; CHECK: |   %j.013 = 2 * %j.013.out;
+; CHECK: |   if (2 * %j.013.out < %n)
 ; CHECK: |   {
 ; CHECK: |      <i1 = i1 + 1>
 ; CHECK: |      goto for.body3;

@@ -213,7 +213,6 @@ define <8 x half> @test14(half %x) {
 define <16 x half> @test14b(half %x) {
 ; CHECK-LABEL: test14b:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    # kill: def $xmm0 killed $xmm0 def $ymm0
 ; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vmovsh %xmm0, %xmm1, %xmm0
 ; CHECK-NEXT:    retq
@@ -224,7 +223,6 @@ define <16 x half> @test14b(half %x) {
 define <32 x half> @test14c(half %x) {
 ; CHECK-LABEL: test14c:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    # kill: def $xmm0 killed $xmm0 def $zmm0
 ; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vmovsh %xmm0, %xmm1, %xmm0
 ; CHECK-NEXT:    retq

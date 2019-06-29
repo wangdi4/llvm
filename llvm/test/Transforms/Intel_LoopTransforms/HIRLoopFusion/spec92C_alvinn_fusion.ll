@@ -241,6 +241,7 @@ output_hidden.exit:                               ; preds = %for.body50.i
 for.cond2.preheader.i:                            ; preds = %for.end.i80, %output_hidden.exit
   %w_ch.019.i = phi float* [ getelementptr inbounds ([30 x [1221 x float]], [30 x [1221 x float]]* @i_h_w_ch_sum_array, i64 0, i64 0, i64 0), %output_hidden.exit ], [ %scevgep.i79, %for.end.i80 ]
   %delta.018.i = phi float* [ getelementptr inbounds ([31 x float], [31 x float]* @hidden_delta, i64 0, i64 0), %output_hidden.exit ], [ %incdec.ptr6.i, %for.end.i80 ]
+  %ii = phi i64 [ 0, %output_hidden.exit ], [ %ip, %for.end.i80 ]
   br label %for.body4.i
 
 for.body4.i:                                      ; preds = %for.body4.i, %for.cond2.preheader.i
@@ -261,7 +262,8 @@ for.body4.i:                                      ; preds = %for.body4.i, %for.c
 for.end.i80:                                      ; preds = %for.body4.i
   %scevgep.i79 = getelementptr float, float* %w_ch.019.i, i64 1221
   %incdec.ptr6.i = getelementptr inbounds float, float* %delta.018.i, i64 1
-  %cmp.i = icmp ugt float* %incdec.ptr6.i, getelementptr inbounds ([31 x float], [31 x float]* @hidden_delta, i64 0, i64 29)
+  %ip = add nsw i64 %ii, 1
+  %cmp.i = icmp ugt i64 %ii, 28
   br i1 %cmp.i, label %hidden_input.exit, label %for.cond2.preheader.i
 
 hidden_input.exit:                                ; preds = %for.end.i80

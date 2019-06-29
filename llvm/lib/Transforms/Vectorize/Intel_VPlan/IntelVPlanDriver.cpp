@@ -878,7 +878,7 @@ bool VPlanDriver::isVPlanCandidate(Function &Fn, Loop *Lp) {
   LoopVectorizeHints Hints(Lp, true, *ORE);
   std::function<const LoopAccessInfo &(Loop &)> GetLAA =
       [&](Loop &L) -> const LoopAccessInfo & { return LAA->getInfo(&L); };
-  LoopVectorizationLegality LVL(Lp, PSE, DT, TLI, AA, &Fn, &GetLAA, LI, ORE,
+  LoopVectorizationLegality LVL(Lp, PSE, DT, TTI, TLI, AA, &Fn, &GetLAA, LI, ORE,
                                 &Requirements, &Hints, DB, AC);
 
   if (!LVL.canVectorize(false /* EnableVPlanNativePath */))

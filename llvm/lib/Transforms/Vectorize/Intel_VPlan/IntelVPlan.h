@@ -1508,11 +1508,11 @@ public:
       return Intrinsic::experimental_vector_reduce_add;
     case Instruction::FAdd:
     case Instruction::FSub:
-      return Intrinsic::experimental_vector_reduce_fadd;
+      return Intrinsic::experimental_vector_reduce_v2_fadd;
     case Instruction::Mul:
       return Intrinsic::experimental_vector_reduce_mul;
     case Instruction::FMul:
-      return Intrinsic::experimental_vector_reduce_fmul;
+      return Intrinsic::experimental_vector_reduce_v2_fmul;
     case Instruction::And:
       return Intrinsic::experimental_vector_reduce_and;
     case Instruction::Or:

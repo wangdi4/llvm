@@ -1,8 +1,9 @@
-; RUN: opt < %s -functionattrs -S | FileCheck %s
-; RUN: opt < %s -passes=function-attrs -S | FileCheck %s
-; INTEL
-; RUN: opt -S -convert-to-subscript < %s | opt -functionattrs -S | FileCheck %s
-; RUN: opt -S -passes=convert-to-subscript < %s | opt -passes=function-attrs -S | FileCheck %s
+; INTEL_CUSTOMIZATION
+; RUN: opt < %s -functionattrs -S | FileCheck %s --check-prefixes=CHECK,CHECK-NO-SUBSCRIPT
+; RUN: opt < %s -passes=function-attrs -S | FileCheck %s --check-prefixes=CHECK,CHECK-NO-SUBSCRIPT
+; RUN: opt -S -convert-to-subscript < %s | opt -functionattrs -S | FileCheck %s --check-prefixes=CHECK,CHECK-SUBSCRIPT
+; RUN: opt -S -passes=convert-to-subscript < %s | opt -passes=function-attrs -S | FileCheck %s --check-prefixes=CHECK,CHECK-SUBSCRIPT
+; end INTEL_CUSTOMIZATION
 
 @g = global i32* null		; <i32**> [#uses=1]
 
@@ -254,6 +255,46 @@ define void @captureStrip(i8* %p) {
   %b = call i8* @llvm.strip.invariant.group.p0i8(i8* %p)
   store i8* %b, i8** @g3
   ret void
+}
+
+; CHECK: define i1 @captureICmp(i32* readnone %x)
+define i1 @captureICmp(i32* %x) {
+  %1 = icmp eq i32* %x, null
+  ret i1 %1
+}
+
+; CHECK: define i1 @nocaptureInboundsGEPICmp(i32* nocapture readnone %x)
+define i1 @nocaptureInboundsGEPICmp(i32* %x) {
+  %1 = getelementptr inbounds i32, i32* %x, i32 5
+  %2 = bitcast i32* %1 to i8*
+  %3 = icmp eq i8* %2, null
+  ret i1 %3
+}
+
+; INTEL_CUSTOMIZATION
+; FIXME: after converting GEP to llvm.intel.subscript the pointer shouldn't be nocapture.
+; CHECK-NO-SUBSCRIPT: define i1 @captureGEPICmp(i32* readnone %x)
+; CHECK-SUBSCRIPT: define i1 @captureGEPICmp(i32* nocapture readnone %x)
+define i1 @captureGEPICmp(i32* %x) {
+  %1 = getelementptr i32, i32* %x, i32 5
+  %2 = bitcast i32* %1 to i8*
+  %3 = icmp eq i8* %2, null
+  ret i1 %3
+}
+; end INTEL_CUSTOMIZATION
+
+; CHECK: define i1 @nocaptureDereferenceableOrNullICmp(i32* nocapture readnone dereferenceable_or_null(4) %x)
+define i1 @nocaptureDereferenceableOrNullICmp(i32* dereferenceable_or_null(4) %x) {
+  %1 = bitcast i32* %x to i8*
+  %2 = icmp eq i8* %1, null
+  ret i1 %2
+}
+
+; CHECK: define i1 @captureDereferenceableOrNullICmp(i32* readnone dereferenceable_or_null(4) %x)
+define i1 @captureDereferenceableOrNullICmp(i32* dereferenceable_or_null(4) %x) "null-pointer-is-valid"="true" {
+  %1 = bitcast i32* %x to i8*
+  %2 = icmp eq i8* %1, null
+  ret i1 %2
 }
 
 declare i8* @llvm.launder.invariant.group.p0i8(i8*)

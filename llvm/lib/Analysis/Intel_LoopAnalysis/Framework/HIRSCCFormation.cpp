@@ -768,7 +768,8 @@ bool HIRSCCFormation::isValidSCCRootNode(const NodeTy *Root) const {
   // all occurences of temps in the SCC with the base/root temp. If such
   // simplification occurs during substitution, we will form incorrect HIR.
   // TODO: refine this logic?
-  if (!SE.getUnsignedRange(SC).isFullSet()) {
+  if (!SE.getUnsignedRange(SC).isFullSet() ||
+      !SE.getSignedRange(SC).isFullSet()) {
     return false;
   }
 

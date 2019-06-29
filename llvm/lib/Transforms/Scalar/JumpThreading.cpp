@@ -1739,8 +1739,7 @@ bool JumpThreadingPass::SimplifyPartiallyRedundantLoad(LoadInst *LoadI) {
   for (pred_iterator PI = PB; PI != PE; ++PI) {
     BasicBlock *P = *PI;
     AvailablePredsTy::iterator I =
-      std::lower_bound(AvailablePreds.begin(), AvailablePreds.end(),
-                       std::make_pair(P, (Value*)nullptr));
+        llvm::lower_bound(AvailablePreds, std::make_pair(P, (Value *)nullptr));
 
     assert(I != AvailablePreds.end() && I->first == P &&
            "Didn't find entry for predecessor!");

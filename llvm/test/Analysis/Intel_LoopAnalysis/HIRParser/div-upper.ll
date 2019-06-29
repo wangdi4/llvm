@@ -4,22 +4,22 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll 2>&1 | FileCheck %s
 
 ; Check parsing output for the loop with division in upper
-; CHECK: DO i1 = 0, 6, 1
-; CHECK-NEXT: %ipntp.0.out = %ipntp.0
-; CHECK-NEXT: %ii.0.out = %ii.0
-; CHECK-NEXT: %ipntp.0 = %ipntp.0  +  %ii.0.out
-; CHECK-NEXT: %ii.0 = %ii.0  /  2
-; CHECK-NEXT: if (%ipntp.0.out + 1 < %ipntp.0)
-; CHECK-NEXT: {
-; CHECK-NEXT: DO i2 = 0, %ipntp.0.out + -1 * %ipntp.0 + %ii.0.out + ((-2 + %ii.0.out) /u 2), 1
-; CHECK-NEXT: %4 = (%A)[2 * i2 + %ipntp.0.out + 1]
-; CHECK-NEXT: %5 = (%A)[2 * i2 + %ipntp.0.out];
-; CHECK-NEXT: %6 = (%A)[2 * i2 + %ipntp.0.out + 2]
-; CHECK-NEXT: (%A)[i2 + %ipntp.0 + 1] = ((1 + (-1 * %5)) * %4) + -1 * (%6 * %6)
-; CHECK-NEXT: END LOOP
-; CHECK-NEXT: }
-; CHECK-NEXT: END LOOP
-
+; CHECK: + DO i1 = 0, 6, 1   <DO_LOOP>
+; CHECK: |   %ipntp.0.out = %ipntp.0;
+; CHECK: |   %ii.0.out = %ii.0;
+; CHECK: |   %ipntp.0 = %ipntp.0  +  %ii.0.out;
+; CHECK: |   %div = %ii.0.out  /  2;
+; CHECK: |   if (%ipntp.0.out + 1 < %ipntp.0)
+; CHECK: |   {
+; CHECK: |      + DO i2 = 0, %ipntp.0.out + -1 * %ipntp.0 + %ii.0.out + ((-2 + %ii.0.out) /u 2), 1   <DO_LOOP>
+; CHECK: |      |   %4 = (%A)[2 * i2 + %ipntp.0.out + 1];
+; CHECK: |      |   %5 = (%A)[2 * i2 + %ipntp.0.out];
+; CHECK: |      |   %6 = (%A)[2 * i2 + %ipntp.0.out + 2];
+; CHECK: |      |   (%A)[i2 + %ipntp.0 + 1] = ((1 + (-1 * %5)) * %4) + -1 * (%6 * %6);
+; CHECK: |      + END LOOP
+; CHECK: |   }
+; CHECK: |   %ii.0 = %div;
+; CHECK: + END LOOP
 
 
 ; ModuleID = 'div1.c'

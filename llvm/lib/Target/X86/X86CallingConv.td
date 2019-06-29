@@ -147,7 +147,8 @@ def CC_#NAME : CallingConv<[
       CCAssignToStack<32, 32>>,
 
     // 512-bit vectors get 64-byte stack slots that are 64-byte aligned.
-    CCIfType<[v16i32, v8i64, v16f32, v8f64], CCAssignToStack<64, 64>>
+    CCIfType<[v64i8, v32i16, v16i32, v8i64, v16f32, v8f64],
+      CCAssignToStack<64, 64>>
 ]>;
 
 def RetCC_#NAME : CallingConv<[
@@ -624,7 +625,7 @@ def CC_X86_64_C : CallingConv<[
            CCAssignToStack<32, 32>>,
 
   // 512-bit vectors get 64-byte stack slots that are 64-byte aligned.
-  CCIfType<[v16i32, v8i64, v16f32, v8f64],
+  CCIfType<[v64i8, v32i16, v16i32, v8i64, v16f32, v8f64],
            CCAssignToStack<64, 64>>
 ]>;
 
@@ -683,9 +684,9 @@ def CC_X86_Win64_C : CallingConv<[
   // 512 bit vectors are passed by pointer
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-  CCIfType<[v16i32, v32f16, v16f32, v8f64, v8i64], CCPassIndirect<i64>>,
+  CCIfType<[v64i8, v32i16, v16i32, v32f16, v16f32, v8f64, v8i64], CCPassIndirect<i64>>,
 #else // INTEL_FEATURE_ISA_FP16
-  CCIfType<[v16i32, v16f32, v8f64, v8i64], CCPassIndirect<i64>>,
+  CCIfType<[v64i8, v32i16, v16i32, v16f32, v8f64, v8i64], CCPassIndirect<i64>>,
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 

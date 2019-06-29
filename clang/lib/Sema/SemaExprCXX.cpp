@@ -90,7 +90,7 @@ ParsedType Sema::getConstructorName(IdentifierInfo &II,
   // When naming a constructor as a member of a dependent context (eg, in a
   // friend declaration or an inherited constructor declaration), form an
   // unresolved "typename" type.
-  if (CurClass->isDependentContext() && !EnteringContext) {
+  if (CurClass->isDependentContext() && !EnteringContext && SS.getScopeRep()) {
     QualType T = Context.getDependentNameType(ETK_None, SS.getScopeRep(), &II);
     return ParsedType::make(T);
   }
@@ -7189,12 +7189,12 @@ ExprResult Sema::BuildCXXMemberCallExpr(Expr *E, NamedDecl *FoundDecl,
     }
   }
 
-  MemberExpr *ME = new (Context) MemberExpr(
-      Exp.get(), /*IsArrow=*/false, SourceLocation(), Method, SourceLocation(),
-      Context.BoundMemberTy, VK_RValue, OK_Ordinary);
-  if (HadMultipleCandidates)
-    ME->setHadMultipleCandidates(true);
-  MarkMemberReferenced(ME);
+  MemberExpr *ME =
+      BuildMemberExpr(Exp.get(), /*IsArrow=*/false, SourceLocation(),
+                      NestedNameSpecifierLoc(), SourceLocation(), Method,
+                      DeclAccessPair::make(FoundDecl, FoundDecl->getAccess()),
+                      HadMultipleCandidates, DeclarationNameInfo(),
+                      Context.BoundMemberTy, VK_RValue, OK_Ordinary);
 
   QualType ResultType = Method->getReturnType();
   ExprValueKind VK = Expr::getValueKindForType(ResultType);
@@ -7395,7 +7395,7 @@ static inline bool VariableCanNeverBeAConstantExpression(VarDecl *Var,
     return false;
   }
 
-  return !IsVariableAConstantExpression(Var, Context);
+  return !Var->isUsableInConstantExpressions(Context);
 }
 
 /// Check if the current lambda has any potential captures

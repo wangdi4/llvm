@@ -701,6 +701,15 @@ def ProcessorFeatures {
   list<SubtargetFeature> CLXFeatures =
     !listconcat(CLXInheritableFeatures, CLXSpecificFeatures);
 
+  // Cooperlake
+  list<SubtargetFeature> CPXAdditionalFeatures = [FeatureBF16];
+  list<SubtargetFeature> CPXSpecificFeatures = [FeatureHasFastGather,
+                                                FeaturePOPCNTFalseDeps];
+  list<SubtargetFeature> CPXInheritableFeatures =
+    !listconcat(CLXInheritableFeatures, CPXAdditionalFeatures);
+  list<SubtargetFeature> CPXFeatures =
+    !listconcat(CPXInheritableFeatures, CPXSpecificFeatures);
+
   // Cannonlake
   list<SubtargetFeature> CNLAdditionalFeatures = [FeatureAVX512,
 #if INTEL_CUSTOMIZATION
@@ -1207,6 +1216,8 @@ def : ProcessorModel<"common-avx512", SkylakeServerModel,
 
 def : ProcessorModel<"cascadelake", SkylakeServerModel,
                      ProcessorFeatures.CLXFeatures>;
+def : ProcessorModel<"cooperlake", SkylakeServerModel,
+                     ProcessorFeatures.CPXFeatures>;
 def : ProcessorModel<"cannonlake", SkylakeServerModel,
                      ProcessorFeatures.CNLFeatures>;
 def : ProcessorModel<"icelake-client", SkylakeServerModel,

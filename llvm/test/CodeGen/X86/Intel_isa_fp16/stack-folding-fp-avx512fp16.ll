@@ -30,7 +30,7 @@ define <32 x half> @stack_fold_addph_zmm_k(<32 x half> %a0, <32 x half> %a1, i32
 
 define <32 x half> @stack_fold_addph_zmm_k_commuted(<32 x half> %a0, <32 x half> %a1, i32 %mask, <32 x half>* %passthru) {
   ;CHECK-LABEL: stack_fold_addph_zmm_k_commuted:
-  ;CHECK-NOT:       vaddph {{-?[0-9]*}}(%rsp), {{%zmm[0-9][0-9]*}}, {{%zmm[0-9][0-9]*}} {{{%k[1-7]}}} {{.*#+}} 64-byte Folded Reload
+  ;CHECK:       vaddph {{-?[0-9]*}}(%rsp), {{%zmm[0-9][0-9]*}}, {{%zmm[0-9][0-9]*}} {{{%k[1-7]}}} {{.*#+}} 64-byte Folded Reload
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = fadd <32 x half> %a1, %a0
   %3 = bitcast i32 %mask to <32 x i1>
@@ -94,7 +94,7 @@ define <32 x half> @stack_fold_cmpph_mask(<32 x half> %a0, <32 x half> %a1, <32 
 
 define <32 x half> @stack_fold_cmpph_mask_commuted(<32 x half> %a0, <32 x half> %a1, <32 x half>* %a2, i32 %mask, <32 x half> %b0, <32 x half> %b1) {
   ;CHECK-LABEL: stack_fold_cmpph_mask_commuted:
-  ;CHECK-NOT:       vcmpeqph {{-?[0-9]*}}(%rsp), {{%zmm[0-9][0-9]*}}, {{%k[0-7]}} {{{%k[1-7]}}} {{.*#+}} 64-byte Folded Reload
+  ;CHECK:       vcmpeqph {{-?[0-9]*}}(%rsp), {{%zmm[0-9][0-9]*}}, {{%k[0-7]}} {{{%k[1-7]}}} {{.*#+}} 64-byte Folded Reload
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm1},~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   ; load and fadd are here to keep the operations below the side effecting block and to avoid folding the wrong load
   %2 = load <32 x half>, <32 x half>* %a2
@@ -360,7 +360,7 @@ define <32 x half> @stack_fold_maxph_zmm_commutable_k(<32 x half> %a0, <32 x hal
 
 define <32 x half> @stack_fold_maxph_zmm_commutable_k_commuted(<32 x half> %a0, <32 x half> %a1, i32 %mask, <32 x half>* %passthru) #1 {
   ;CHECK-LABEL: stack_fold_maxph_zmm_commutable_k_commuted:
-  ;CHECK-NOT:       vmaxph {{-?[0-9]*}}(%rsp), {{%zmm[0-9][0-9]*}}, {{%zmm[0-9][0-9]*}} {{{%k[1-7]}}} {{.*#+}} 64-byte Folded Reload
+  ;CHECK:       vmaxph {{-?[0-9]*}}(%rsp), {{%zmm[0-9][0-9]*}}, {{%zmm[0-9][0-9]*}} {{{%k[1-7]}}} {{.*#+}} 64-byte Folded Reload
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = call <32 x half> @llvm.x86.avx512fp16.max.ph.512(<32 x half> %a1, <32 x half> %a0, i32 4)
   %3 = bitcast i32 %mask to <32 x i1>
@@ -539,7 +539,7 @@ define <32 x half> @stack_fold_minph_zmm_commutable_k(<32 x half> %a0, <32 x hal
 
 define <32 x half> @stack_fold_minph_zmm_commutable_k_commuted(<32 x half> %a0, <32 x half> %a1, i32 %mask, <32 x half>* %passthru) #1 {
   ;CHECK-LABEL: stack_fold_minph_zmm_commutable_k_commuted:
-  ;CHECK-NOT:       vminph {{-?[0-9]*}}(%rsp), {{%zmm[0-9][0-9]*}}, {{%zmm[0-9][0-9]*}} {{{%k[1-7]}}} {{.*#+}} 64-byte Folded Reload
+  ;CHECK:       vminph {{-?[0-9]*}}(%rsp), {{%zmm[0-9][0-9]*}}, {{%zmm[0-9][0-9]*}} {{{%k[1-7]}}} {{.*#+}} 64-byte Folded Reload
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = call <32 x half> @llvm.x86.avx512fp16.min.ph.512(<32 x half> %a1, <32 x half> %a0, i32 4)
   %3 = bitcast i32 %mask to <32 x i1>
@@ -651,7 +651,7 @@ define <32 x half> @stack_fold_mulph_zmm_k(<32 x half> %a0, <32 x half> %a1, i32
 
 define <32 x half> @stack_fold_mulph_zmm_k_commuted(<32 x half> %a0, <32 x half> %a1, i32 %mask, <32 x half>* %passthru) {
   ;CHECK-LABEL: stack_fold_mulph_zmm_k_commuted:
-  ;CHECK-NOT:       vmulph {{-?[0-9]*}}(%rsp), {{%zmm[0-9][0-9]*}}, {{%zmm[0-9][0-9]*}} {{{%k[1-7]}}} {{.*#+}} 64-byte Folded Reload
+  ;CHECK:       vmulph {{-?[0-9]*}}(%rsp), {{%zmm[0-9][0-9]*}}, {{%zmm[0-9][0-9]*}} {{{%k[1-7]}}} {{.*#+}} 64-byte Folded Reload
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = fmul <32 x half> %a1, %a0
   %3 = bitcast i32 %mask to <32 x i1>
