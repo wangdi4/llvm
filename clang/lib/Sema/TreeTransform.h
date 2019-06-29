@@ -11490,7 +11490,7 @@ TreeTransform<Derived>::TransformLambdaExpr(LambdaExpr *E) {
       Class, E->getIntroducerRange(), NewCallOpTSI,
       E->getCallOperator()->getEndLoc(),
       NewCallOpTSI->getTypeLoc().castAs<FunctionProtoTypeLoc>().getParams(),
-      E->getCallOperator()->isConstexpr(), Mangling);
+      E->getCallOperator()->getConstexprKind(), Mangling);
 
   LSI->CallOperator = NewCallOperator;
 

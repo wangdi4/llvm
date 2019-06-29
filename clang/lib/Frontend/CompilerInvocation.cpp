@@ -312,6 +312,7 @@ static bool ParseAnalyzerArgs(AnalyzerOptions &Opts, ArgList &Args,
     Args.hasArg(OPT_analyzer_viz_egraph_graphviz);
   Opts.DumpExplodedGraphTo = Args.getLastArgValue(OPT_analyzer_dump_egraph);
   Opts.NoRetryExhausted = Args.hasArg(OPT_analyzer_disable_retry_exhausted);
+  Opts.AnalyzerWerror = Args.hasArg(OPT_analyzer_werror);
   Opts.AnalyzeAll = Args.hasArg(OPT_analyzer_opt_analyze_headers);
   Opts.AnalyzerDisplayProgress = Args.hasArg(OPT_analyzer_display_progress);
   Opts.AnalyzeNestedBlocks =
@@ -739,6 +740,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.WholeProgramVTables = Args.hasArg(OPT_fwhole_program_vtables);
   Opts.LTOVisibilityPublicStd = Args.hasArg(OPT_flto_visibility_public_std);
   Opts.SplitDwarfFile = Args.getLastArgValue(OPT_split_dwarf_file);
+  Opts.SplitDwarfOutput = Args.getLastArgValue(OPT_split_dwarf_output);
   Opts.SplitDwarfInlining = !Args.hasArg(OPT_fno_split_dwarf_inlining);
 
   if (Arg *A =
@@ -1279,6 +1281,11 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
     NeedLocTracking = true;
   }
 
+  if (Arg *A = Args.getLastArg(OPT_opt_record_format)) {
+    Opts.OptRecordFormat = A->getValue();
+    NeedLocTracking = true;
+  }
+
   if (Arg *A = Args.getLastArg(OPT_Rpass_EQ)) {
     Opts.OptimizationRemarkPattern =
         GenerateOptimizationRemarkRegex(Diags, Args, A);
@@ -1388,6 +1395,8 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.DefaultFunctionAttrs = Args.getAllArgValues(OPT_default_function_attr);
 
   Opts.PassPlugins = Args.getAllArgValues(OPT_fpass_plugin_EQ);
+
+  Opts.SymbolPartition = Args.getLastArgValue(OPT_fsymbol_partition_EQ);
 
   return Success;
 }
@@ -1716,6 +1725,25 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
       Opts.ProgramAction = frontend::GenerateHeaderModule; break;
     case OPT_emit_pch:
       Opts.ProgramAction = frontend::GeneratePCH; break;
+    case OPT_emit_iterface_stubs: {
+      llvm::Optional<frontend::ActionKind> ProgramAction =
+          llvm::StringSwitch<llvm::Optional<frontend::ActionKind>>(
+              Args.hasArg(OPT_iterface_stub_version_EQ)
+                  ? Args.getLastArgValue(OPT_iterface_stub_version_EQ)
+                  : "")
+              .Case("experimental-yaml-elf-v1",
+                    frontend::GenerateInterfaceYAMLExpV1)
+              .Case("experimental-tapi-elf-v1",
+                    frontend::GenerateInterfaceTBEExpV1)
+              .Default(llvm::None);
+      if (!ProgramAction)
+        Diags.Report(diag::err_drv_invalid_value)
+            << "Must specify a valid interface stub format type using "
+            << "-interface-stub-version=<experimental-tapi-elf-v1 | "
+               "experimental-yaml-elf-v1>";
+      Opts.ProgramAction = *ProgramAction;
+      break;
+    }
     case OPT_init_only:
       Opts.ProgramAction = frontend::InitOnly; break;
     case OPT_fsyntax_only:
@@ -1793,6 +1821,7 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
   Opts.ShowHelp = Args.hasArg(OPT_help);
   Opts.ShowStats = Args.hasArg(OPT_print_stats);
   Opts.ShowTimers = Args.hasArg(OPT_ftime_report);
+  Opts.PrintSupportedCPUs = Args.hasArg(OPT__print_supported_cpus);
   Opts.TimeTrace = Args.hasArg(OPT_ftime_trace);
   Opts.ShowVersion = Args.hasArg(OPT_version);
   Opts.ASTMergeFiles = Args.getAllArgValues(OPT_ast_merge);
@@ -3331,6 +3360,8 @@ static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {
   case frontend::GenerateModuleInterface:
   case frontend::GenerateHeaderModule:
   case frontend::GeneratePCH:
+  case frontend::GenerateInterfaceYAMLExpV1:
+  case frontend::GenerateInterfaceTBEExpV1:
   case frontend::ParseSyntaxOnly:
   case frontend::ModuleFileInfo:
   case frontend::VerifyPCH:

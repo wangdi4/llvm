@@ -581,16 +581,6 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 
 /* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ISA_ENQCMD */
-/*
- * TODO: when ENQCMD is public change the #if checks below to also check:
- *        !defined(_MSC_VER) || __has_feature(modules)
- */
-#if defined(__ENQCMD__)
-#include <enqcmdintrin.h>
-#endif
-
-/* end INTEL_FEATURE_ISA_ENQCMD */
 
 /* INTEL_FEATURE_ISA_ULI */
 /*
@@ -666,6 +656,10 @@ _storebe_i64(void * __P, long long __D) {
   (defined(__AVX512VL__) && defined(__AVX512VP2INTERSECT__)) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx512vlvp2intersectintrin.h>
+#endif
+
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__ENQCMD__)
+#include <enqcmdintrin.h>
 #endif
 
 #if defined(_MSC_VER) && __has_extension(gnu_asm)

@@ -9,6 +9,11 @@ if (MSVC)
   set_source_files_properties(SemaTemplate.cpp PROPERTIES COMPILE_FLAGS /bigobj)
 endif()
 
+clang_tablegen(OpenCLBuiltins.inc -gen-clang-opencl-builtins
+  SOURCE OpenCLBuiltins.td
+  TARGET ClangOpenCLBuiltinsImpl
+  )
+
 add_clang_library(clangSema
   AnalysisBasedWarnings.cpp
   CodeCompleteConsumer.cpp
@@ -62,6 +67,8 @@ add_clang_library(clangSema
   # INTEL_CUSTOMIZATION
   intel/FPGAAnalyzeChannelsUsage.cpp
   # end INTEL_CUSTOMIZATION
+  DEPENDS
+  ClangOpenCLBuiltinsImpl
 
   LINK_LIBS
   clangAST
