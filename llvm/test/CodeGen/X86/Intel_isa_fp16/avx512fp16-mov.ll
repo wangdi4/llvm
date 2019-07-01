@@ -1807,3 +1807,32 @@ define <16 x half> @build_vector_xxxxuuuuuuuuxxxx(half %a0, half %a1, half %a2, 
   %h = insertelement <16 x half> %g, half %a7, i32 15
   ret <16 x half> %h
 }
+
+; Make sure load/stores of v4f16 are handled well on 32-bit targets where
+; default widening legalization can't use i64.
+define void @load_store_v4f16(<4 x half>* %x, <4 x half>* %y, <4 x half>* %z) {
+; X64-LABEL: load_store_v4f16:
+; X64:       # %bb.0:
+; X64-NEXT:    vmovsd {{.*#+}} xmm0 = mem[0],zero
+; X64-NEXT:    vmovsd {{.*#+}} xmm1 = mem[0],zero
+; X64-NEXT:    vaddph %xmm1, %xmm0, %xmm0
+; X64-NEXT:    vmovlps %xmm0, (%rdx)
+; X64-NEXT:    retq
+;
+; X86-LABEL: load_store_v4f16:
+; X86:       # %bb.0:
+; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
+; X86-NEXT:    movl {{[0-9]+}}(%esp), %ecx
+; X86-NEXT:    movl {{[0-9]+}}(%esp), %edx
+; X86-NEXT:    vmovsd {{.*#+}} xmm0 = mem[0],zero
+; X86-NEXT:    vmovsd {{.*#+}} xmm1 = mem[0],zero
+; X86-NEXT:    vaddph %xmm1, %xmm0, %xmm0
+; X86-NEXT:    vmovlps %xmm0, (%eax)
+; X86-NEXT:    retl
+  %a = load <4 x half>, <4 x half>* %x
+  %b = load <4 x half>, <4 x half>* %y
+  %c = fadd <4 x half> %a, %b
+  store <4 x half> %c, <4 x half>* %z
+  ret void
+}
+

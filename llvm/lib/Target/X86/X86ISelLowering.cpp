@@ -1732,6 +1732,10 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setLoadExtAction(ISD::EXTLOAD, MVT::v2f64, MVT::v2f16, Legal);
       setLoadExtAction(ISD::EXTLOAD, MVT::v8f32, MVT::v8f16, Legal);
       setLoadExtAction(ISD::EXTLOAD, MVT::v4f32, MVT::v4f16, Legal);
+
+      // Need to custom widen these to prevent scalarization.
+      setOperationAction(ISD::LOAD,  MVT::v4f16, Custom);
+      setOperationAction(ISD::STORE, MVT::v4f16, Custom);
     }
 
     // Support fp16 0 immediate
