@@ -36,12 +36,12 @@
 # RUN: llvm-objdump -s -d %t | FileCheck -check-prefix=DISASM %s
 
 # DISASM:      Disassembly of section .text:
-# DISASM:      0000000000401000 func1:
+# DISASM:      00401000 func1:
 # DISASM-NEXT: 401000:       e8 2b 00 00 00  calll   43 <func2+0x401030>
 # DISASM-NEXT: 401005:       c3      retl
 
 # DISASM:      Disassembly of section .plt:
-# DISASM:      0000000000401010 .plt:
+# DISASM:      00401010 .plt:
 # DISASM-NEXT: 401010:       ff 35 04 30 40 00       pushl   4206596
 # DISASM-NEXT: 401016:       ff 25 08 30 40 00       jmpl    *4206600
 # DISASM-NEXT: 40101c:       90      nop
@@ -54,7 +54,7 @@
 # DISASM-NEXT: 40102e:       66 90   nop
 
 # DISASM:      Disassembly of section .plt.sec:
-# DISASM:      0000000000401030 .plt.sec:
+# DISASM:      00401030 .plt.sec:
 # DISASM-NEXT: 401030:       f3 0f 1e fb     endbr32
 # DISASM-NEXT: 401034:       ff 25 0c 30 40 00       jmpl    *4206604
 # DISASM-NEXT: 40103a:       66 0f 1f 44 00 00       nopw    (%eax,%eax)

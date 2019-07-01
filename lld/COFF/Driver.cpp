@@ -6,9 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "DebugTypes.h"
 #include "Driver.h"
 #include "Config.h"
+#include "DebugTypes.h"
 #include "ICF.h"
 #include "InputFiles.h"
 #include "MarkLive.h"
@@ -30,6 +30,7 @@
 #include "llvm/Object/ArchiveWriter.h"
 #include "llvm/Object/COFFImportFile.h"
 #include "llvm/Object/COFFModuleDefinition.h"
+#include "llvm/Object/WindowsMachineFlag.h"
 #include "llvm/Option/Arg.h"
 #include "llvm/Option/ArgList.h"
 #include "llvm/Option/Option.h"
@@ -91,6 +92,7 @@ bool link(ArrayRef<const char *> Args, bool CanExitEarly, raw_ostream &Diag) {
   ObjFile::Instances.clear();
   ImportFile::Instances.clear();
   BitcodeFile::Instances.clear();
+  memset(MergeChunk::Instances, 0, sizeof(MergeChunk::Instances));
   return !errorCount();
 }
 
@@ -148,8 +150,8 @@ static StringRef mangle(StringRef Sym) {
 }
 
 static bool findUnderscoreMangle(StringRef Sym) {
-  StringRef Entry = Symtab->findMangle(mangle(Sym));
-  return !Entry.empty() && !isa<Undefined>(Symtab->find(Entry));
+  Symbol *S = Symtab->findMangle(mangle(Sym));
+  return S && !isa<Undefined>(S);
 }
 
 MemoryBufferRef LinkerDriver::takeBuffer(std::unique_ptr<MemoryBuffer> MB) {
@@ -494,6 +496,24 @@ Symbol *LinkerDriver::addUndefined(StringRef Name) {
     Config->GCRoot.push_back(B);
   }
   return B;
+}
+
+StringRef LinkerDriver::mangleMaybe(Symbol *S) {
+  // If the plain symbol name has already been resolved, do nothing.
+  Undefined *Unmangled = dyn_cast<Undefined>(S);
+  if (!Unmangled)
+    return "";
+
+  // Otherwise, see if a similar, mangled symbol exists in the symbol table.
+  Symbol *Mangled = Symtab->findMangle(Unmangled->getName());
+  if (!Mangled)
+    return "";
+
+  // If we find a similar mangled symbol, make this an alias to it and return
+  // its name.
+  log(Unmangled->getName() + " aliased to " + Mangled->getName());
+  Unmangled->WeakAlias = Symtab->addUndefined(Mangled->getName());
+  return Mangled->getName();
 }
 
 // Windows specific -- find default entry point name.
@@ -962,6 +982,32 @@ static void parsePDBAltPath(StringRef AltPath) {
   Config->PDBAltPath = Buf;
 }
 
+/// Check that at most one resource obj file was used.
+/// Call after ObjFile::Instances is complete.
+static void diagnoseMultipleResourceObjFiles() {
+  // The .rsrc$01 section in a resource obj file contains a tree description
+  // of resources.  Merging multiple resource obj files would require merging
+  // the trees instead of using usual linker section merging semantics.
+  // Since link.exe disallows linking more than one resource obj file with
+  // LNK4078, mirror that.  The normal use of resource files is to give the
+  // linker many .res files, which are then converted to a single resource obj
+  // file internally, so this is not a big restriction in practice.
+  ObjFile *ResourceObjFile = nullptr;
+  for (ObjFile *F : ObjFile::Instances) {
+    if (!F->IsResourceObjFile)
+      continue;
+
+    if (!ResourceObjFile) {
+      ResourceObjFile = F;
+      continue;
+    }
+
+    error(toString(F) +
+          ": more than one resource obj file not allowed, already got " +
+          toString(ResourceObjFile));
+  }
+}
+
 // In MinGW, if no symbols are chosen to be exported, then all symbols are
 // automatically exported by default. This behavior can be forced by the
 // -export-all-symbols option, so that it happens even when exports are
@@ -1236,8 +1282,11 @@ void LinkerDriver::link(ArrayRef<const char *> ArgsArr) {
       Args.hasFlag(OPT_appcontainer, OPT_appcontainer_no, false);
 
   // Handle /machine
-  if (auto *Arg = Args.getLastArg(OPT_machine))
+  if (auto *Arg = Args.getLastArg(OPT_machine)) {
     Config->Machine = getMachineType(Arg->getValue());
+    if (Config->Machine == IMAGE_FILE_MACHINE_UNKNOWN)
+      fatal(Twine("unknown /machine argument: ") + Arg->getValue());
+  }
 
   // Handle /nodefaultlib:<filename>
   for (auto *Arg : Args.filtered(OPT_nodefaultlib))
@@ -1694,7 +1743,7 @@ void LinkerDriver::link(ArrayRef<const char *> ArgsArr) {
     // Windows specific -- if entry point is not found,
     // search for its mangled names.
     if (Config->Entry)
-      Symtab->mangleMaybe(Config->Entry);
+      mangleMaybe(Config->Entry);
 
     // Windows specific -- Make sure we resolve all dllexported symbols.
     for (Export &E : Config->Exports) {
@@ -1702,7 +1751,7 @@ void LinkerDriver::link(ArrayRef<const char *> ArgsArr) {
         continue;
       E.Sym = addUndefined(E.Name);
       if (!E.Directives)
-        Symtab->mangleMaybe(E.Sym);
+        E.SymbolName = mangleMaybe(E.Sym);
     }
 
     // Add weak aliases. Weak aliases is a mechanism to give remaining
@@ -1730,6 +1779,14 @@ void LinkerDriver::link(ArrayRef<const char *> ArgsArr) {
   // link those files.
   Symtab->addCombinedLTOObjects();
   run();
+
+  if (Args.hasArg(OPT_include_optional)) {
+    // Handle /includeoptional
+    for (auto *Arg : Args.filtered(OPT_include_optional))
+      if (dyn_cast_or_null<Lazy>(Symtab->find(Arg->getValue())))
+        addUndefined(Arg->getValue());
+    while (run());
+  }
 
   if (Config->MinGW) {
     // Load any further object files that might be needed for doing automatic
@@ -1831,6 +1888,9 @@ void LinkerDriver::link(ArrayRef<const char *> ArgsArr) {
   // Identify unreferenced COMDAT sections.
   if (Config->DoGC)
     markLive(Symtab->getChunks());
+
+  // Needs to happen after the last call to addFile().
+  diagnoseMultipleResourceObjFiles();
 
   // Identify identical COMDAT sections to merge them.
   if (Config->DoICF) {
