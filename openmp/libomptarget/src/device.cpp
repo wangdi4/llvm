@@ -406,6 +406,12 @@ void *DeviceTy::data_alloc_base(int64_t Size, void *HstPtrBegin,
   return RTL->data_alloc_base(RTLDeviceID, Size, HstPtrBegin, HstPtrBase);
 }
 
+void *DeviceTy::data_alloc_user(int64_t Size, void *HstPtrBegin) {
+  if (!RTL->data_alloc_user)
+    return RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin);
+  return RTL->data_alloc_user(RTLDeviceID, Size, HstPtrBegin);
+}
+
 int32_t DeviceTy::data_submit_nowait(void *TgtPtrBegin, void *HstPtrBegin,
                                      int64_t Size, void *AsyncData) {
   if (!RTL->data_submit_nowait)
