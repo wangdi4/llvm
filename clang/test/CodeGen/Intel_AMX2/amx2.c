@@ -1,7 +1,8 @@
 // REQUIRES: intel_feature_isa_amx2
 // RUN: %clang_cc1 %s -ffreestanding -triple=x86_64-unknown-unknown \
-// RUN: -target-feature +amx-int8 -target-feature +amx-bf16 -emit-llvm -o - \
-// RUN: -Wall -Werror -pedantic | FileCheck %s
+// RUN: -target-feature +amx-int8 -target-feature +amx-bf16 -target-feature \
+// RUN: +avx512f -emit-llvm -o - -Wall -Werror -pedantic \
+// RUN: -Wno-gnu-statement-expression| FileCheck %s
 
 #include <immintrin.h>
 // Transpose
@@ -477,4 +478,17 @@ void test_tile_xord_mem(void *A) {
   // CHECK-LABEL: @test_tile_xord_mem
   // CHECK: call void asm sideeffect "txord $0, %tmm2, %tmm3"
   _tile_xord_mem(A, 2, 3);
+}
+// FP16
+void test_tile_dpfp16ps() {
+  // CHECK-LABEL: @test_tile_dpfp16ps
+  //CHECK: call void asm sideeffect "tdpfp16ps %tmm1, %tmm2, %tmm3"
+  _tile_dpfp16ps(1, 2, 3);
+}
+// Tile to AVX512
+__m512 test_tile_mov2zmm() {
+  // CHECK-LABEL: @test_tile_mov2zmm
+  // CHECK: call <16 x float> asm sideeffect "tilemov2zmm $1, %tmm1, $0"
+  // CHECK: ret <16 x float>
+  return _tile_mov2zmm(1,128);
 }
