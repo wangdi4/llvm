@@ -1869,7 +1869,6 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 *(size_t*)paramVal = 64;
             }
             return CL_DEV_SUCCESS;
-#ifndef INTEL_PRODUCT_RELEASE
         case CL_DEVICE_SUB_GROUP_SIZES_INTEL:
         {
             const bool avx1Support = CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX10);
@@ -1894,7 +1893,6 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
 
             break;
         }
-#endif
         default:
             return CL_DEV_INVALID_VALUE;
     };
