@@ -4466,7 +4466,18 @@ public:
   void visit(HLInst *Inst) {
     // Record side effect of unsafe calls.
     if (!LoopSideEffects.empty() && !LoopSideEffects.back().second) {
-      if (Inst->isUnsafeSideEffectCallInst()) {
+      bool HasSideEffect = false;
+      if (auto *Call = Inst->getCallInst()) {
+        HasSideEffect = HLInst::hasUnsafeSideEffect(Call);
+        HasSideEffect =
+            HasSideEffect || Call->getIntrinsicID() == Intrinsic::prefetch;
+        if (auto *F = Call->getCalledFunction()) {
+          HasSideEffect =
+              HasSideEffect || !F->hasFnAttribute(Attribute::NoUnwind);
+        }
+      }
+
+      if (HasSideEffect) {
         LoopSideEffects.back().second = true;
       }
     }
