@@ -285,6 +285,14 @@ def RetCC_X86_32_C : CallingConv<[
   CCIfInReg<CCIfSubtarget<"hasSSE2()",
     CCIfType<[f32, f64], CCAssignToReg<[XMM0,XMM1,XMM2]>>>>,
   CCIfType<[f32,f64], CCAssignToReg<[FP0, FP1]>>,
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  // FIXME: Is this correct?
+  CCIfType<[f16], CCAssignToReg<[XMM0,XMM1,XMM2]>>,
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+
   CCDelegateTo<RetCC_X86Common>
 ]>;
 
@@ -611,22 +619,49 @@ def CC_X86_64_C : CallingConv<[
 
   // Integer/FP values get stored in stack slots that are 8 bytes in size and
   // 8-byte aligned if there are no more registers to hold them.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  // FIXME: Is this correct for f16?
+  CCIfType<[i32, i64, f16, f32, f64], CCAssignToStack<8, 8>>,
+#else // INTEL_FEATURE_ISA_FP16
   CCIfType<[i32, i64, f32, f64], CCAssignToStack<8, 8>>,
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
   // Long doubles get stack slots whose size and alignment depends on the
   // subtarget.
   CCIfType<[f80, f128], CCAssignToStack<0, 0>>,
 
   // Vectors get 16-byte stack slots that are 16-byte aligned.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  CCIfType<[v16i8, v8i16, v4i32, v2i64, v8f16, v4f32, v2f64], CCAssignToStack<16, 16>>,
+#else // INTEL_FEATURE_ISA_FP16
   CCIfType<[v16i8, v8i16, v4i32, v2i64, v4f32, v2f64], CCAssignToStack<16, 16>>,
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
   // 256-bit vectors get 32-byte stack slots that are 32-byte aligned.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  CCIfType<[v32i8, v16i16, v8i32, v4i64, v16f16, v8f32, v4f64],
+           CCAssignToStack<32, 32>>,
+#else // INTEL_FEATURE_ISA_FP16
   CCIfType<[v32i8, v16i16, v8i32, v4i64, v8f32, v4f64],
            CCAssignToStack<32, 32>>,
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
   // 512-bit vectors get 64-byte stack slots that are 64-byte aligned.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  CCIfType<[v64i8, v32i16, v16i32, v8i64, v32f16, v16f32, v8f64],
+           CCAssignToStack<64, 64>>
+#else // INTEL_FEATURE_ISA_FP16
   CCIfType<[v64i8, v32i16, v16i32, v8i64, v16f32, v8f64],
            CCAssignToStack<64, 64>>
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 ]>;
 
 // Calling convention for X86-64 HHVM.
@@ -811,15 +846,36 @@ def CC_X86_64_AnyReg : CallingConv<[
 /// values are spilled on the stack.
 def CC_X86_32_Vector_Common : CallingConv<[
   // Other SSE vectors get 16-byte stack slots that are 16-byte aligned.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  CCIfType<[v16i8, v8i16, v4i32, v2i64, v8f16, v4f32, v2f64],
+           CCAssignToStack<16, 16>>,
+#else // INTEL_FEATURE_ISA_FP16
   CCIfType<[v16i8, v8i16, v4i32, v2i64, v4f32, v2f64], CCAssignToStack<16, 16>>,
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
   // 256-bit AVX vectors get 32-byte stack slots that are 32-byte aligned.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  CCIfType<[v32i8, v16i16, v8i32, v4i64, v16f16, v8f32, v4f64],
+           CCAssignToStack<32, 32>>,
+#else // INTEL_FEATURE_ISA_FP16
   CCIfType<[v32i8, v16i16, v8i32, v4i64, v8f32, v4f64],
            CCAssignToStack<32, 32>>,
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
   // 512-bit AVX 512-bit vectors get 64-byte stack slots that are 64-byte aligned.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  CCIfType<[v64i8, v32i16, v16i32, v8i64, v32f16, v16f32, v8f64],
+           CCAssignToStack<64, 64>>
+#else // INTEL_FEATURE_ISA_FP16
   CCIfType<[v64i8, v32i16, v16i32, v8i64, v16f32, v8f64],
            CCAssignToStack<64, 64>>
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 ]>;
 
 // CC_X86_32_Vector_Standard - The first 3 vector arguments are passed in
@@ -908,10 +964,24 @@ def CC_X86_32_Common : CallingConv<[
                 CCIfSubtarget<"hasSSE2()",
                 CCAssignToReg<[XMM0,XMM1,XMM2]>>>>>,
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  // FIXME is this correct?
+  CCIfNotVarArg<CCIfInReg<CCIfType<[f16], CCAssignToReg<[XMM0,XMM1,XMM2]>>>>,
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+
   // The first 3 __m64 vector arguments are passed in mmx registers if the
   // call is not a vararg call.
   CCIfNotVarArg<CCIfType<[x86mmx],
                 CCAssignToReg<[MM0, MM1, MM2]>>>,
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  // FIXME is this correct?
+  CCIfType<[f16], CCAssignToStack<2, 2>>,
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
   // Integer/Float values get stored in stack slots that are 4 bytes in
   // size and 4-byte aligned.
