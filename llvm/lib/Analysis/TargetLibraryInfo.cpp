@@ -586,26 +586,6 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
 #endif // INTEL_CUSTOMIZATION
   }
 
-#if INTEL_CUSTOMIZATION
-  // Windows specific libfuncs
-  if (!T.isOSWindows()) {
-    TLI.setUnavailable(LibFunc_atexit);
-    TLI.setUnavailable(LibFunc_under_invalid_parameter_noinfo_noreturn);
-    TLI.setUnavailable(LibFunc_msvc_std_CxxThrowException);
-    TLI.setUnavailable(LibFunc_msvc_std_facet_register);
-    TLI.setUnavailable(LibFunc_msvc_std_lockit);
-    TLI.setUnavailable(LibFunc_msvc_std_lockit_dtor);
-    TLI.setUnavailable(LibFunc_msvc_std_locimp_Getgloballocale);
-    TLI.setUnavailable(LibFunc_msvc_std_locinfo_ctor);
-    TLI.setUnavailable(LibFunc_msvc_std_locinfo_dtor);
-    TLI.setUnavailable(LibFunc_msvc_std_Xbad_alloc);
-    TLI.setUnavailable(LibFunc_msvc_std_Xout_of_range);
-    TLI.setUnavailable(LibFunc_msvc_std_Xlength_error);
-    TLI.setUnavailable(LibFunc_msvc_std_yarn_dtor);
-    TLI.setUnavailable(LibFunc_std_exception_copy);
-    TLI.setUnavailable(LibFunc_std_exception_destroy);
-  }
-#endif // INTEL_CUSTOMIZATION
   switch (T.getOS()) {
   case Triple::MacOSX:
     // exp10 and exp10f are not available on OS X until 10.9 and iOS until 7.0
@@ -796,13 +776,32 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
   }
 
 #if INTEL_CUSTOMIZATION
+  // Windows specific
   if (!T.isOSWindows()) {
     TLI.setUnavailable(LibFunc_acrt_iob_func);
-    TLI.setUnavailable(LibFunc_stdio_common_vfprintf);
-    TLI.setUnavailable(LibFunc_stdio_common_vsprintf);
-    TLI.setUnavailable(LibFunc_stdio_common_vsscanf);
+    TLI.setUnavailable(LibFunc_atexit);
+    TLI.setUnavailable(LibFunc_islower);
     TLI.setUnavailable(LibFunc_local_stdio_printf_options);
     TLI.setUnavailable(LibFunc_local_stdio_scanf_options);
+    TLI.setUnavailable(LibFunc_msvc_std_CxxThrowException);
+    TLI.setUnavailable(LibFunc_msvc_std_facet_register);
+    TLI.setUnavailable(LibFunc_msvc_std_lockit);
+    TLI.setUnavailable(LibFunc_msvc_std_lockit_dtor);
+    TLI.setUnavailable(LibFunc_msvc_std_locimp_Getgloballocale);
+    TLI.setUnavailable(LibFunc_msvc_std_locinfo_ctor);
+    TLI.setUnavailable(LibFunc_msvc_std_locinfo_dtor);
+    TLI.setUnavailable(LibFunc_msvc_std_Xbad_alloc);
+    TLI.setUnavailable(LibFunc_msvc_std_Xout_of_range);
+    TLI.setUnavailable(LibFunc_msvc_std_Xlength_error);
+    TLI.setUnavailable(LibFunc_msvc_std_yarn_dtor);
+    TLI.setUnavailable(LibFunc_stdio_common_vfprintf);
+    TLI.setUnavailable(LibFunc_stdio_common_vfscanf);
+    TLI.setUnavailable(LibFunc_stdio_common_vsprintf);
+    TLI.setUnavailable(LibFunc_stdio_common_vsscanf);
+    TLI.setUnavailable(LibFunc_std_exception_copy);
+    TLI.setUnavailable(LibFunc_std_exception_destroy);
+    TLI.setUnavailable(LibFunc_under_invalid_parameter_noinfo_noreturn);
+    TLI.setUnavailable(LibFunc_under_stat64i32);
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -2110,6 +2109,11 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_under_invalid_parameter_noinfo_noreturn:
     return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
 
+  case LibFunc_under_stat64i32:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
   case LibFunc_obstack_begin:
     return (NumParams == 5 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy() &&
@@ -3050,6 +3054,10 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
     return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isIntegerTy());
 
+  case LibFunc_islower:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
   case LibFunc_isspace:
     return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isIntegerTy());
@@ -3326,6 +3334,14 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(0)->isIntegerTy());
 
   case LibFunc_stdio_common_vfprintf:
+    return (NumParams == 5 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isPointerTy() &&
+            FTy.getParamType(3)->isPointerTy() &&
+            FTy.getParamType(4)->isPointerTy());
+
+  case LibFunc_stdio_common_vfscanf:
     return (NumParams == 5 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isIntegerTy() &&
             FTy.getParamType(1)->isPointerTy() &&

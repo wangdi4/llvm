@@ -1051,6 +1051,9 @@ TLI_DEFINE_STRING_INTERNAL("__std_exception_destroy")
 /// int __stdio_common_vfprintf(uint64_t location,FILE *, const char *format, locale_t *locale, va_list ap);
 TLI_DEFINE_ENUM_INTERNAL(stdio_common_vfprintf)
 TLI_DEFINE_STRING_INTERNAL("__stdio_common_vfprintf")
+/// int __stdio_common_vfscanf(uint64_t options, FILE *file, const char *format, locale_t *locale, va_list *valist)
+TLI_DEFINE_ENUM_INTERNAL(stdio_common_vfscanf)
+TLI_DEFINE_STRING_INTERNAL("__stdio_common_vfscanf")
 /// int __stdio_common_vsprintf(uint64_t location, char *str, size_t size,const char *fmt, locale_t *locale, va_list ap);
 TLI_DEFINE_ENUM_INTERNAL(stdio_common_vsprintf)
 TLI_DEFINE_STRING_INTERNAL("__stdio_common_vsprintf")
@@ -1134,6 +1137,9 @@ TLI_DEFINE_STRING_INTERNAL("_obstack_newchunk")
 /// int _setjmp(jmp_buf env);
 TLI_DEFINE_ENUM_INTERNAL(setjmp)
 TLI_DEFINE_STRING_INTERNAL("_setjmp")
+/// int _stat64i32(const char *path, struct _stat64i32 *buf);
+TLI_DEFINE_ENUM_INTERNAL(under_stat64i32)
+TLI_DEFINE_STRING_INTERNAL("_stat64i32")
 /// void abort(void);
 TLI_DEFINE_ENUM_INTERNAL(abort)
 TLI_DEFINE_STRING_INTERNAL("abort")
@@ -1820,6 +1826,9 @@ TLI_DEFINE_ENUM_INTERNAL(isdigit)
 TLI_DEFINE_STRING_INTERNAL("isdigit")
 
 #if INTEL_CUSTOMIZATION
+/// int islower(int c);
+TLI_DEFINE_ENUM_INTERNAL(islower)
+TLI_DEFINE_STRING_INTERNAL("islower")
 /// int isspace(int c);
 TLI_DEFINE_ENUM_INTERNAL(isspace)
 TLI_DEFINE_STRING_INTERNAL("isspace")
