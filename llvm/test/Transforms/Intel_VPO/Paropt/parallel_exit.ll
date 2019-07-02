@@ -1,4 +1,4 @@
-; RUN: opt -simplifycfg -prune-eh -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg -prune-eh -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s
 ;
 ; Pass conditon: There is no crash in WRegion construction, due to the
 ; `region.exit` directive being deleted for being unreachable, by either

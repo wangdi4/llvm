@@ -84,6 +84,13 @@ void VPOUtils::CFGRestructuring(Function &F, DominatorTree *DT, LoopInfo *LI) {
         (std::distance(pred_begin(BB), pred_end(BB))>1))
       splitBB(I, DT, LI, DirString, Counter);
 
+    if (VPOAnalysisUtils::isBeginDirectiveOfRegionsNeedingOutlining(DirString))
+      // For regions that need outlining, create an extra empty BBlock before
+      // the region entry's BBlock, otherwise code-generation for the region may
+      // hinder the Loop recognition of any outer loop construct, if present.
+      // Check par_in_section.ll Lit test for reference.
+      splitBB(I, DT, LI, DirString, Counter);
+
     // Split after I.
     BasicBlock::iterator Inst(I);
     Instruction *SplitPoint = &*(++Inst);

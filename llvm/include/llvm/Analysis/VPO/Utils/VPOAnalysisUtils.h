@@ -155,11 +155,12 @@ public:
 /// This class contains a set of utility functions used by VPO passes.
 class VPOAnalysisUtils {
 
-public:
-    /// Constructor and destructor
-    VPOAnalysisUtils() {}
-    ~VPOAnalysisUtils() {}
+private:
+    // Deleted constructor and destructor to prevent instantiation.
+    VPOAnalysisUtils() = delete;
+    ~VPOAnalysisUtils() = delete;
 
+public:
     /// Return true for a directive_region_entry/exit intrinsic.
     static bool isRegionDirective(Intrinsic::ID Id);
     static bool isRegionDirective(const Instruction *I, bool *IsEntry=nullptr);
@@ -260,6 +261,13 @@ public:
     /// Given a DirID for a BEGIN directive, return the DirID of its
     /// corresponding END directive.
     static int getMatchingEndDirective(int BeginDirID);
+
+    /// If \p DirString is a begin directive of a construct which needs
+    /// outlining, such as parallel, task etc., return \b true. Otherwise,
+    /// return \b false.
+    static bool isBeginDirectiveOfRegionsNeedingOutlining(StringRef DirString);
+    /// Alternate version of the above function, which takes in a directive ID.
+    static bool isBeginDirectiveOfRegionsNeedingOutlining(int DirID);
 
     /// Return true iff the ClauseID represents a DEPEND clause,
     /// such as QUAL_OMP_DEPEND_IN

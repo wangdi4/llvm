@@ -92,6 +92,10 @@ public:
   // pass.
   static bool restoreOperands(Function &F);
 
+  // Remove the branch from entry directive to end directive generated to
+  // prevent deletion of end directive in case it's dead code.
+  static bool removeBranchesFromBeginToEndDirective(Function &F);
+
   /// If \p ValWithCasts is a CastInst, or a chain of CastInsts, the function
   /// recursively gets its operand until it encounters a non-CastInst. All
   /// CastInsts seen in this process are added to \p SeenCastInsts.

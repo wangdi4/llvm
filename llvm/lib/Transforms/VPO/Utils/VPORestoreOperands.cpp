@@ -20,6 +20,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils/Local.h"
 
 #include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
 #include "llvm/Transforms/VPO/Utils/VPORestoreOperands.h"
@@ -243,9 +244,7 @@ bool VPOUtils::restoreOperands(Function &F) {
         StoreInst *VAddrStore = nullptr;
         Instruction *VAddrStoreCast = nullptr;
         Instruction *VAddrLoadCast = nullptr;
-        assert((VAddr->hasNUses(3) ||  // store, directive and load
-                VAddr->hasNUses(2)) && // store and directive (no load)
-               "Unexpected number of users of QUAL.OMP.OPERAND.ADDR operand.");
+        SmallVector<Instruction *, 4> VAddrUsersInLifetimeMarkers;
 
         for (User *U : VAddr->users()) {
           if (U == CI)
@@ -270,6 +269,7 @@ bool VPOUtils::restoreOperands(Function &F) {
           assert((U->hasOneUse() || U->hasNUses(2)) &&
                  "Unexpected number of uses of a bitcast on operand addr.");
           Instruction *CastI = cast<Instruction>(U);
+          bool CastIsUsedInLifetimeMarkers = false;
 
           for (User *CastUser : CastI->users()) {
             if (isa<LoadInst>(CastUser)) {
@@ -280,10 +280,22 @@ bool VPOUtils::restoreOperands(Function &F) {
                      "QUAL.OMP.OPERAND.ADDR addr operand is stored somewhere.");
               VAddrStoreCast = CastI;     // C, E, F: %y.addr.cast
               VAddrStore = CastUserStore; // C, E, F: store %y, %y.addr.cast
+            } else if (auto *IntrinsicUser =
+                           dyn_cast<IntrinsicInst>(CastUser)) {
+              Intrinsic::ID ID = IntrinsicUser->getIntrinsicID();
+              assert((ID == Intrinsic::lifetime_start ||
+                      ID == Intrinsic::lifetime_end) &&
+                     "Unexpected intrinsic using a cast on ADDR operand of "
+                     "'QUAL.OMP.OPERAND.ADDR'.");
+              (void)ID;
+              VAddrUsersInLifetimeMarkers.push_back(IntrinsicUser);
+              CastIsUsedInLifetimeMarkers = true;
             } else
               llvm_unreachable("Unexpected use of a cast on ADDR operand of "
                                "'QUAL.OMP.OPERAND.ADDR'.");
           } // For all users of CastI
+          if (CastIsUsedInLifetimeMarkers)
+            VAddrUsersInLifetimeMarkers.push_back(CastI);
         }   // For all users of VAddr
 
         assert(VAddrStore && "No store found to OPERAND.ADDR opnd.");
@@ -307,6 +319,10 @@ bool VPOUtils::restoreOperands(Function &F) {
 
         VAddrStore->eraseFromParent();
 
+        for (auto *VAU : VAddrUsersInLifetimeMarkers) {
+          if (VAU != VAddrLoadCast && VAU != VAddrStoreCast)
+            VAU->eraseFromParent();
+        }
         if (VAddrStoreCast)
           VAddrStoreCast->eraseFromParent();
         if (VAddrLoadCast && VAddrLoadCast != VAddrStoreCast)
@@ -324,6 +340,130 @@ bool VPOUtils::restoreOperands(Function &F) {
 
   for (CallInst *CI : DirectivesToUpdate)
     VPOParoptUtils::removeOperandBundlesFromCall(CI, {OperandAddrClauseString});
+
+  return Changed;
+}
+
+/// Remove the auxillary branch from begin to end directive, which is added in
+/// vpo-paropt-prepare phase to prevent deletion of unreachable `end.region`
+/// directives.
+///
+/// \code
+///            Before                   |            After
+///          ---------------------------+---------------------------
+///   ENTRY_BB:                         |   ENTRY_BB:
+///                                     |
+///   %t = alloca i1                    |
+///   %1 = begin_region[...             |   %1 = begin_region[...]
+///                     "JUMP.IF"       |
+///                     (i1* %t)]       |
+///                                     |
+///   %t.load = load volatile i1, i1* %t|
+///   %cmp = icmp ne i1 %.load, false   |
+///   br i1 %cmp, %END, %CONTINUE       |   br %CONTINUE
+///                                     |
+///   CONTINUE:                         |   CONTINUE:
+///   ...                               |   ...
+///                                     |
+///   END:                              |   END:
+///   end_region(%1)                    |   end_region(%1)
+/// \endcode
+///
+/// Note: The function assumes that the conditional branch to the
+/// `END` block is the terminator instruction of the BasicBlock containing
+/// `%t.load`.
+bool VPOUtils::removeBranchesFromBeginToEndDirective(Function &F) {
+  LLVM_DEBUG(dbgs() << "VPO Restore WRegions \n");
+
+  bool Changed = false;
+
+  SmallPtrSet<CallInst *, 8> DirectivesToUpdate;
+
+  StringRef ClauseString =
+      VPOAnalysisUtils::getClauseString(QUAL_OMP_JUMP_TO_END_IF);
+
+  for (Function::iterator B = F.begin(), BE = F.end(); B != BE; ++B)
+    for (BasicBlock::iterator I = B->begin(), IE = B->end(); I != IE; ++I) {
+      CallInst *CI = dyn_cast<CallInst>(&*I); //                          (%1)
+      if (!CI || !VPOAnalysisUtils::isOpenMPDirective(CI))
+        continue;
+
+      if (CI->getNumOperandBundles() == 0)
+        continue;
+
+      for (unsigned I = 0; I < CI->getNumOperandBundles(); ++I) {
+        OperandBundleUse BU = CI->getOperandBundleAt(I);
+        if (BU.getTagName() != ClauseString)
+          continue;
+
+        assert(BU.Inputs.size() == 1 && "Expected only one operand in a "
+                                        "'QUAL.OMP.JUMP.TO.END.IF' bundle.");
+        AllocaInst *VAddr = cast_or_null<AllocaInst>(BU.Inputs[0]); //    (%t)
+
+        assert(VAddr &&
+               "Null/non-alloca address in 'QUAL.OMP.JUMP.TO.END.IF'.");
+
+        LoadInst *VLoad = nullptr; //                                (%t.load)
+
+        // Now, users of VAddr may include VLoad, CI, and any bitcast
+        // instructions used for lifetime begin/end markers, that the inliner
+        // may have inserted. We collect users that need to be deleted here.
+        SmallVector<Instruction *, 4> VAddrUsersToDelete;
+
+        for (User *U : VAddr->users()) {
+          if (U == CI)
+            continue;
+
+          if (auto *LI = dyn_cast<LoadInst>(U)) {
+            VLoad = LI;
+            VAddrUsersToDelete.push_back(VLoad);
+          } else if (auto *CastI = dyn_cast<CastInst>(U)) {
+            for (User *CastUser : CastI->users()) {
+              assert(isa<IntrinsicInst>(CastUser) &&
+                     (cast<IntrinsicInst>(CastUser)->getIntrinsicID() ==
+                          Intrinsic::lifetime_start ||
+                      cast<IntrinsicInst>(CastUser)->getIntrinsicID() ==
+                          Intrinsic::lifetime_end) &&
+                     "Unexpected cast on 'QUAL.OMP.JUMP.TO.END.IF' operand.");
+              VAddrUsersToDelete.push_back(cast<Instruction>(CastUser));
+            }
+            VAddrUsersToDelete.push_back(CastI);
+          } else
+            llvm_unreachable(
+                "Unexpected user of QUAL.OMP.JUMP.TO.END.IF operand.");
+        }
+
+        assert(VLoad &&
+               "Failed to find a load from 'QUAL.OMP.JUMP.TO.END.IF' operand.");
+
+        assert((VLoad->hasNUses(0) || VLoad->hasOneUse()) &&
+               "Expected zero/one use of load from 'QUAL.OMP.JUMP.TO.END.IF' "
+               "operand.");
+
+        BasicBlock *BlockToSimplify = VLoad->getParent(); //        (ENTRY_BB)
+
+        IRBuilder<> Builder(CI);
+        VLoad->replaceAllUsesWith(Builder.getInt1(0));
+
+        for (Instruction *VAU : VAddrUsersToDelete)
+          VAU->eraseFromParent();
+
+        assert(VAddr->hasOneUse() &&
+               "Expected only one use of 'QUAL.OMP.JUMP.TO.END.IF' operand, "
+               "which is in the directive.");
+        VAddr->replaceAllUsesWith(UndefValue::get(VAddr->getType()));
+        VAddr->eraseFromParent();
+
+        llvm::SimplifyInstructionsInBlock(BlockToSimplify);
+        llvm::ConstantFoldTerminator(BlockToSimplify);
+
+        Changed = true;
+        DirectivesToUpdate.insert(CI);
+      } // For all Bundles on CI
+    }   // For all instructons in BB
+
+  for (CallInst *CI : DirectivesToUpdate)
+    VPOParoptUtils::removeOperandBundlesFromCall(CI, {ClauseString});
 
   return Changed;
 }

@@ -101,6 +101,7 @@ private:
   BasicBlock    *EntryBBlock;
   BasicBlock    *ExitBBlock;
   Instruction   *EntryDirective;
+  Instruction   *ExitDirective;
 
   /// Set containing all the BBs in this WRN.
   /// If BBlockSet is not empty, it must be valid. Therefore, any
@@ -163,14 +164,17 @@ protected:
   /// Sets the entry(first) Directive of this region.
   void setEntryDirective(Instruction *EntryDir) { EntryDirective = EntryDir; }
 
+  /// Sets the exit(last) Directive of this region.
+  void setExitDirective(Instruction *ExitDir) { ExitDirective = ExitDir; }
+
   /// Sets the graph parent of this WRegionNode.
   void setParent(WRegionNode *P) { Parent = P; }
 
-  /// Finish creating the WRN once its ExitBB is found. This routine
-  /// calls WRN->setExitBBlock(ExitBB). In addition, if the WRN is a loop
-  /// construct, this routine also calls GeneralUtils::getLoopFromLoopInfo
-  /// to find the Loop from LoopInfo
-  void finalize(BasicBlock *ExitBB, DominatorTree *DT);
+  /// Finish creating the WRN once its ExitDir is found. This routine calls
+  /// setExitDirective(ExitDir) and setExitBBlock(ExitDir->getParent()). In
+  /// addition, if the WRN is a loop construct, this routine also calls
+  /// GeneralUtils::getLoopFromLoopInfo to find the Loop from LoopInfo.
+  void finalize(Instruction *ExitDir, DominatorTree *DT);
 
   //
   // Routines for parsing clauses
@@ -566,6 +570,9 @@ public:
 
   /// Returns the entry(first) Directive of this region.
   Instruction *getEntryDirective() const { return EntryDirective; }
+
+  /// Returns the exit(last) Directive of this region.
+  Instruction *getExitDirective() const { return ExitDirective; }
 
   /// Basic Block set iterator methods.
   bbset_iterator bbset_begin() { return BBlockSet.begin(); }
