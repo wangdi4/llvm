@@ -573,10 +573,22 @@ CallInst *CSAStreamingMemoryImpl::getInordEdge(Instruction *MemInst) {
 }
 
 CallInst *CSAStreamingMemoryImpl::getOutordEdge(Instruction *MemInst) {
-  if (auto II = dyn_cast<IntrinsicInst>(MemInst->getNextNode())) {
-    if (II->getIntrinsicID() == Intrinsic::csa_outord) {
-      return II;
+  // Check for an outord instruction existing after the memory instruction. It's
+  // possible that some code (*cough*SCEVExpander*cough*) might insert some
+  // extra instruction, such as a bitcast, immediately after the load,
+  // preventing the outord from being immediately adjacent. However, we do want
+  // to ensure that the chain operand goes from the memory instruction to the
+  // outord instruction, so if another instruction creates a chain, stop
+  // searching.
+  for (auto NextInst = MemInst->getNextNode(); NextInst;
+      NextInst = NextInst->getNextNode()) {
+    if (auto II = dyn_cast<IntrinsicInst>(NextInst)) {
+      if (II->getIntrinsicID() == Intrinsic::csa_outord) {
+        return II;
+      }
     }
+    if (NextInst->mayReadOrWriteMemory())
+      break;
   }
 
   return nullptr;
