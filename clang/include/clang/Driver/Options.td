@@ -2562,6 +2562,13 @@ def multi__module : Flag<["-"], "multi_module">;
 def multiply__defined__unused : Separate<["-"], "multiply_defined_unused">;
 def multiply__defined : Separate<["-"], "multiply_defined">;
 def mwarn_nonportable_cfstrings : Flag<["-"], "mwarn-nonportable-cfstrings">, Group<m_Group>;
+#if INTEL_CUSTOMIZATION
+def ansi_alias : Flag<["-"], "ansi-alias">, Alias<fstrict_aliasing>,
+  HelpText<"enable use of ANSI aliasing rules optimizations"
+           " user asserts that the program adheres to these rules">;
+def no_ansi_alias : Flag<["-"], "no-ansi-alias">, Alias<fno_strict_aliasing>,
+  HelpText<"disable use of ANSI aliasing rules optimizations">;
+#endif //INTEL_CUSTOMIZATION
 def no_canonical_prefixes : Flag<["-"], "no-canonical-prefixes">, Flags<[HelpHidden, CoreOption]>,
   HelpText<"Use relative instead of canonical paths">;
 def no_cpp_precomp : Flag<["-"], "no-cpp-precomp">, Group<clang_ignored_f_Group>;
