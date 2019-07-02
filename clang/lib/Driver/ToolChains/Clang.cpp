@@ -5594,6 +5594,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
 #if INTEL_CUSTOMIZATION
+  if (Args.hasArg(options::OPT_fno_alias)) {
+    CmdArgs.push_back("-fargument-noalias");
+  }
   if (Args.hasArg(options::OPT__intel)) {
     CmdArgs.push_back("-fintel-compatibility");
     CmdArgs.push_back("-mllvm");
