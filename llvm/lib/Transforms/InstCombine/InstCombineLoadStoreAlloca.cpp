@@ -1024,6 +1024,133 @@ static bool canSimplifyNullLoadOrGEP(LoadInst &LI, Value *Op) {
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+// Attempt to replace code like this with a cttz intrinsic and a select.
+//
+// unsigned int v;  // find the number of trailing zeros in 32-bit v
+// int r;           // result goes here
+// static const int MultiplyDeBruijnBitPosition[32] =
+// {
+//   0, 1, 28, 2, 29, 14, 24, 3, 30, 22, 20, 15, 25, 17, 4, 8,
+//   31, 27, 13, 23, 21, 19, 16, 7, 26, 12, 18, 6, 11, 5, 10, 9
+// };
+// r = MultiplyDeBruijnBitPosition[((uint32_t)((v & -v) * 0x077CB531U)) >> 27];
+static Value *matchDeBruijnTableLookup(InstCombiner &IC, LoadInst &LI) {
+  // Make sure the load isn't volatile or atomic.
+  if (!LI.isSimple())
+    return nullptr;
+
+  auto *GEP = dyn_cast<GetElementPtrInst>(LI.getOperand(0));
+  if (!GEP || GEP->getNumIndices() != 2)
+    return nullptr;
+
+  // Make sure first GEP index is 0.
+  if (!isa<ConstantInt>(GEP->getOperand(1)) ||
+      !cast<ConstantInt>(GEP->getOperand(1))->isZero())
+    return nullptr;
+
+  // Look for a load of a constant global variable with definitive initializer.
+  auto *GV = dyn_cast<GlobalVariable>(GEP->getPointerOperand());
+  if (!GV || !GV->hasDefinitiveInitializer() || !GV->isConstant())
+    return nullptr;
+
+  // Global variable should be an array.
+  ArrayType *GVType = dyn_cast<ArrayType>(GV->getValueType());
+  if (!GVType)
+    return nullptr;
+
+  // If the initializer is null, don't bother.
+  Constant *Init = GV->getInitializer();
+  if (Init->isNullValue())
+    return nullptr;
+
+  // Array size should be a power of 2 of at least 8 bits. This will need to
+  // match the width of the type we're counting bits for. Limiting to 64 to
+  // minimize the worst case array size we need to scan.
+  uint64_t NumBits = GVType->getNumElements();
+  unsigned Log2Bits;
+  switch (NumBits) {
+  default: return nullptr;
+  case 8:  Log2Bits = 3; break;
+  case 16: Log2Bits = 4; break;
+  case 32: Log2Bits = 5; break;
+  case 64: Log2Bits = 6; break;
+  }
+
+  Value *Index = GEP->getOperand(2);
+  if (!isa<IntegerType>(Index->getType()))
+    return nullptr;
+
+  // Peek through any casts due to GEP index canonicalization.
+  if (isa<Instruction>(Index) &&
+      (cast<Instruction>(Index)->getOpcode() == Instruction::SExt ||
+       cast<Instruction>(Index)->getOpcode() == Instruction::ZExt ||
+       cast<Instruction>(Index)->getOpcode() == Instruction::Trunc)) {
+    // The index should have enough bits to represent all array indices. This
+    // is important to make sure a truncate doesn't lose bits.
+    if (Index->getType()->getIntegerBitWidth() < Log2Bits)
+      return nullptr;
+
+    Index = cast<Instruction>(Index)->getOperand(0);
+  }
+
+  // Now that we've looked through casts, make sure the array size is exactly
+  // the width of the type before the cast.
+  if (Index->getType()->getIntegerBitWidth() != NumBits)
+    return nullptr;
+
+  // Look for ((Y * Magic) >> (NumBits - log2(NumBits))).
+  Value *DebruijnIn;
+  const APInt *Magic;
+  unsigned Shift = NumBits - Log2Bits;
+  if (!match(Index, m_LShr(m_Mul(m_Value(DebruijnIn), m_APInt(Magic)),
+                           m_SpecificInt(Shift))))
+    return nullptr;
+
+  // Look for X & -X which will isolate the lowest set bit. When combined with
+  // the shift and multiply above, this can be used to implement a cttz via
+  // table lookup.
+  // TODO: Support the ctlz version of this.
+  Value *X;
+  if (!match(DebruijnIn, m_c_And(m_Value(X), m_Neg(m_Deferred(X)))))
+    return nullptr;
+
+  // Element type for array should be large enough to cover all possible counts.
+  Type *EltTy = GVType->getElementType();
+  if (!isa<IntegerType>(EltTy) || EltTy->getIntegerBitWidth() < Log2Bits)
+    return nullptr;
+
+  for (unsigned i = 0; i != NumBits; ++i) {
+    // Determine the index we would get from ((1 << i) * Magic) >> Shift.
+    unsigned Index = Magic->shl(i).lshr(Shift).getZExtValue();
+
+    // Verify that the table data at that index matches i.
+    auto *C = dyn_cast_or_null<ConstantInt>(Init->getAggregateElement(Index));
+    if (!C || C->getValue() != i)
+      return nullptr;
+  }
+
+  // Check cost of cttz.
+  const Value *Args[] = { X, IC.Builder.getTrue() };
+  if (IC.getTargetTransformInfo().getIntrinsicCost(Intrinsic::cttz,
+                                                   X->getType(), Args) >
+          TargetTransformInfo::TCC_Basic)
+    return nullptr;
+
+  Function *F = Intrinsic::getDeclaration(LI.getModule(), Intrinsic::cttz,
+                                          X->getType());
+  Value *Cttz = IC.Builder.CreateCall(F, { X, IC.Builder.getTrue() });
+  // Create a select to handle the zero case.
+  Value *Cmp = IC.Builder.CreateICmpNE(X, Constant::getNullValue(X->getType()));
+  // False value of select should be entry 0 of the table.
+  Constant *CZ = Init->getAggregateElement((unsigned)0);
+  unsigned ZVal = cast<ConstantInt>(CZ)->getZExtValue();
+  Value *Sel = IC.Builder.CreateSelect(Cmp, Cttz,
+                                       ConstantInt::get(X->getType(), ZVal));
+  return IC.Builder.CreateZExtOrTrunc(Sel, LI.getType());
+}
+#endif // INTEL_CUSTOMIZATION
+
 Instruction *InstCombiner::visitLoadInst(LoadInst &LI) {
   Value *Op = LI.getOperand(0);
 
@@ -1132,6 +1259,12 @@ Instruction *InstCombiner::visitLoadInst(LoadInst &LI) {
       }
     }
   }
+
+#if INTEL_CUSTOMIZATION
+  if (Value *V = matchDeBruijnTableLookup(*this, LI))
+    return replaceInstUsesWith(LI, V);
+#endif // INTEL_CUSTOMIZATION
+
   return nullptr;
 }
 

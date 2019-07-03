@@ -3520,7 +3520,8 @@ static bool prepareICWorklistFromFunction(Function &F, const DataLayout &DL,
 
 static bool combineInstructionsOverFunction(
     Function &F, InstCombineWorklist &Worklist, AliasAnalysis *AA,
-    AssumptionCache &AC, TargetLibraryInfo &TLI, DominatorTree &DT,
+    AssumptionCache &AC, TargetLibraryInfo &TLI, // INTEL
+    TargetTransformInfo &TTI, DominatorTree &DT, // INTEL
     OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
     ProfileSummaryInfo *PSI, bool ExpensiveCombines = true,
     bool TypeLoweringOpts = true, LoopInfo *LI = nullptr) { // INTEL
@@ -3554,9 +3555,9 @@ static bool combineInstructionsOverFunction(
 
     MadeIRChange |= prepareICWorklistFromFunction(F, DL, &TLI, Worklist);
 
-    InstCombiner IC(Worklist, Builder, F.hasMinSize(),       // INTEL
-                    ExpensiveCombines, TypeLoweringOpts,     // INTEL
-                    AA, AC, TLI, DT, ORE, BFI, PSI, DL, LI); // INTEL
+    InstCombiner IC(Worklist, Builder, F.hasMinSize(),            // INTEL
+                    ExpensiveCombines, TypeLoweringOpts,          // INTEL
+                    AA, AC, TLI, TTI, DT, ORE, BFI, PSI, DL, LI); // INTEL
     IC.MaxArraySizeForCombine = MaxArraySize;
 
     if (!IC.run())
@@ -3571,6 +3572,7 @@ PreservedAnalyses InstCombinePass::run(Function &F,
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
+  auto &TTI = AM.getResult<TargetIRAnalysis>(F); // INTEL
   auto &ORE = AM.getResult<OptimizationRemarkEmitterAnalysis>(F);
 
   auto *LI = AM.getCachedResult<LoopAnalysis>(F);
@@ -3583,9 +3585,10 @@ PreservedAnalyses InstCombinePass::run(Function &F,
   auto *BFI = (PSI && PSI->hasProfileSummary()) ?
       &AM.getResult<BlockFrequencyAnalysis>(F) : nullptr;
 
-  if (!combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, DT, ORE,
-                                       BFI, PSI, ExpensiveCombines, // INTEL
-                                       TypeLoweringOpts, LI))       // INTEL
+  if (!combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, // INTEL
+                                       DT, ORE, BFI, PSI,             // INTEL
+                                       ExpensiveCombines,             // INTEL
+                                       TypeLoweringOpts, LI))         // INTEL
     // No changes, all analyses are preserved.
     return PreservedAnalyses::all();
 
@@ -3606,6 +3609,7 @@ void InstructionCombiningPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<AAResultsWrapperPass>();
   AU.addRequired<AssumptionCacheTracker>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
+  AU.addRequired<TargetTransformInfoWrapperPass>(); // INTEL
   AU.addRequired<DominatorTreeWrapperPass>();
   AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
   AU.addPreserved<DominatorTreeWrapperPass>();
@@ -3627,6 +3631,7 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
   auto AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
   auto &AC = getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
   auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+  auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F); // INTEL
   auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   auto &ORE = getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
 
@@ -3640,9 +3645,10 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
       &getAnalysis<LazyBlockFrequencyInfoPass>().getBFI() :
       nullptr;
 
-  return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, DT, ORE,
-                                         BFI, PSI, ExpensiveCombines, // INTEL
-                                         TypeLoweringOpts, LI);       // INTEL
+  return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, // INTEL
+                                         DT, ORE, BFI, PSI,             // INTEL
+                                         ExpensiveCombines,             // INTEL
+                                         TypeLoweringOpts, LI);         // INTEL
 }
 
 char InstructionCombiningPass::ID = 0;
@@ -3651,6 +3657,7 @@ INITIALIZE_PASS_BEGIN(InstructionCombiningPass, "instcombine",
                       "Combine redundant instructions", false, false)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass) //INTEL
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
