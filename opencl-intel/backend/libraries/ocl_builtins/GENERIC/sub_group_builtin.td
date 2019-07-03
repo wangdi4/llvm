@@ -48,6 +48,8 @@ let NeedForwardDecl = 1 in {
       Attrs = [OVERLOADABLE] in {
         def sub_group_shuffle_avx : OclBuiltin<"intel_sub_group_shuffle", (outs gentype:$ret), (ins gentype:$data, v4u32:$sub_group_local_id, v4u32:$vec_mask), [], [], 1, 0>;
         def sub_group_shuffle_xor_avx : OclBuiltin<"intel_sub_group_shuffle_xor", (outs gentype:$ret), (ins gentype:$data, v4u32:$value, v4u32:$vec_mask), [], [], 1, 0>;
+        def sub_group_shuffle_down_avx : OclBuiltin<"intel_sub_group_shuffle_down", (outs gentype:$ret), (ins gentype:$current, gentype:$next, v4u32:$value, v4u32:$vec_mask), [], [], 1, 0>;
+        def sub_group_shuffle_up_avx : OclBuiltin<"intel_sub_group_shuffle_up", (outs gentype:$ret), (ins gentype:$previous, gentype:$current, v4u32:$value, v4u32:$vec_mask), [], [], 1, 0>;
       }
 
   // AVX2 (VF = 8)
@@ -123,7 +125,7 @@ foreach func_name = [ "sub_group_broadcast", "sub_group_reduce_add", "sub_group_
   }
 }
 
-foreach func_name = [ "sub_group_shuffle", "sub_group_shuffle_xor" ] in {
+foreach func_name = [ "sub_group_shuffle", "sub_group_shuffle_xor", "sub_group_shuffle_up", "sub_group_shuffle_down" ] in {
   foreach base_type = [ "i32", "u32", "i64", "u64", "f32", "f64" ] in {
     def func_name#_#base_type#_cell1  : MapCell<!cast<OclBuiltin>(func_name), !cast<OclType>("v1"#base_type)>;
     def func_name#_#base_type#_cell4  : MapCell<!cast<OclBuiltin>(func_name#_#"avx"), !cast<OclType>("v4"#base_type)>;
