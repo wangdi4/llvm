@@ -136,8 +136,10 @@ public:
   /// Get a condition mask between block \p From and block \p To.
   Value *getEdgeMask(BasicBlock *From, BasicBlock *To);
 
-  /// Find the best simd function variant. 
-  VectorVariant* matchVectorVariant(Function *CalledFunc, bool Masked);
+  /// Helper wrapper to find the best smid function variant for a given \p Call.
+  /// \p Masked parameter tells whether we need a masked version or not.
+  std::unique_ptr<VectorVariant> matchVectorVariant(const CallInst *Call,
+                                                    bool Masked);
 
   /// Vectorize call arguments, or for simd functions scalarize if the arg
   /// is linear or uniform.
@@ -158,6 +160,10 @@ public:
   VPlanVLSAnalysis *getVLS() { return VLSA; }
 
 private:
+  /// Find the best simd function variant.
+  std::unique_ptr<VectorVariant>
+  matchVectorVariantImpl(StringRef VecVariantStringValue, bool Masked);
+
 
   /// Emit blocks of vector loop
   /// Emit a bypass check to see if we have enough iterations \p Count to

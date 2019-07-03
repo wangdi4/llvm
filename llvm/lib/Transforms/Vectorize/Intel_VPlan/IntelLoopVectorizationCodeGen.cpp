@@ -168,6 +168,16 @@ static void addBlockToParentLoop(Loop *L, BasicBlock *BB, LoopInfo& LI) {
     ParentLoop->addBasicBlockToLoop(BB, LI);
 }
 
+/// We need to preserve call-site attributes, except the ones "consumed" by the
+/// vectorizer itself (like vector-variants). Copy ones that should be preserved
+/// from \p OrigCall to \p VecCall.
+static void copyRequiredAttributes(const CallInst *OrigCall,
+                                   CallInst *VecCall) {
+  AttributeList Attrs = OrigCall->getAttributes();
+  VecCall->setAttributes(Attrs.removeAttribute(
+      OrigCall->getContext(), AttributeList::FunctionIndex, "vector-variants"));
+}
+
 bool VPOCodeGen::isSerializedPrivateArray(Value *Priv) const {
   if (VPlanSerializeAlloca && Legal->isLoopPrivate(Priv)) {
     Type *PrivTy = Priv->getType();
@@ -2290,12 +2300,12 @@ void VPOCodeGen::vectorizePHIInstruction(VPPHINode *VPPhi) {
   }
 }
 
-VectorVariant* VPOCodeGen::matchVectorVariant(Function *CalledFunc,
-                                              bool Masked) {
+std::unique_ptr<VectorVariant>
+VPOCodeGen::matchVectorVariantImpl(StringRef VecVariantStringValue, bool Masked) {
+  assert(!VecVariantStringValue.empty() &&
+         "VectorVariant string value shouldn't be empty!");
 
-  VectorVariant *SelectedVariant = nullptr;
-
-  LLVM_DEBUG(dbgs() << "Trying to find match for: " << CalledFunc->getName()
+  LLVM_DEBUG(dbgs() << "Trying to find match for: " << VecVariantStringValue
                     << "\n");
   LLVM_DEBUG(dbgs() << "\nCall VF: " << VF << "\n");
   unsigned TargetMaxRegWidth = TTI->getRegisterBitWidth(true);
@@ -2327,43 +2337,47 @@ VectorVariant* VPOCodeGen::matchVectorVariant(Function *CalledFunc,
                     << VectorVariant::ISAClassToString(TargetIsaClass)
                     << "\n\n");
 
-  if (CalledFunc->hasFnAttribute("vector-variants")) {
-    Attribute Attr = CalledFunc->getFnAttribute("vector-variants");
-    StringRef VariantsStr = Attr.getValueAsString();
-    SmallVector<StringRef, 4> Variants;
-    VariantsStr.split(Variants, ",");
-    VectorVariant::ISAClass SelectedIsaClass = VectorVariant::ISAClass::XMM;
-    int VariantIdx = -1;
-    for (unsigned i = 0; i < Variants.size(); i++) {
-      VectorVariant *Variant = new VectorVariant(Variants[i]);
-      VectorVariant::ISAClass VariantIsaClass = Variant->getISA();
-      LLVM_DEBUG(dbgs() << "Variant ISA Class: "
-                        << VectorVariant::ISAClassToString(VariantIsaClass)
+  SmallVector<StringRef, 4> Variants;
+  VecVariantStringValue.split(Variants, ",");
+  VectorVariant::ISAClass SelectedIsaClass = VectorVariant::ISAClass::XMM;
+  int VariantIdx = -1;
+  for (unsigned i = 0; i < Variants.size(); i++) {
+    VectorVariant Variant(Variants[i]);
+    VectorVariant::ISAClass VariantIsaClass = Variant.getISA();
+    LLVM_DEBUG(dbgs() << "Variant ISA Class: "
+                      << VectorVariant::ISAClassToString(VariantIsaClass)
+                      << "\n");
+    unsigned IsaClassMaxRegWidth =
+      VectorVariant::ISAClassMaxRegisterWidth(VariantIsaClass);
+    LLVM_DEBUG(dbgs() << "Isa Class Max Vector Register Width: "
+                      << IsaClassMaxRegWidth << "\n");
+    (void) IsaClassMaxRegWidth;
+    unsigned FuncVF = Variant.getVlen();
+    LLVM_DEBUG(dbgs() << "Func VF: " << FuncVF << "\n\n");
+
+    // Select the largest supported ISA Class for this target.
+    if (FuncVF == VF && VariantIsaClass <= TargetIsaClass &&
+      Variant.isMasked() == Masked && VariantIsaClass >= SelectedIsaClass) {
+      LLVM_DEBUG(dbgs() << "Candidate Function: " << Variant.encode()
                         << "\n");
-      unsigned IsaClassMaxRegWidth =
-        VectorVariant::ISAClassMaxRegisterWidth(VariantIsaClass);
-      LLVM_DEBUG(dbgs() << "Isa Class Max Vector Register Width: "
-                        << IsaClassMaxRegWidth << "\n");
-      (void) IsaClassMaxRegWidth;
-      unsigned FuncVF = Variant->getVlen();
-      LLVM_DEBUG(dbgs() << "Func VF: " << FuncVF << "\n\n");
-
-      // Select the largest supported ISA Class for this target.
-      if (FuncVF == VF && VariantIsaClass <= TargetIsaClass &&
-        Variant->isMasked() == Masked && VariantIsaClass >= SelectedIsaClass) {
-        LLVM_DEBUG(dbgs() << "Candidate Function: " << Variant->encode()
-                          << "\n");
-        SelectedIsaClass = VariantIsaClass;
-        VariantIdx = i;
-      }
-      delete Variant;
+      SelectedIsaClass = VariantIsaClass;
+      VariantIdx = i;
     }
-
-    if (VariantIdx >= 0)
-      SelectedVariant = new VectorVariant(Variants[VariantIdx]);
   }
 
-  return SelectedVariant;
+  if (VariantIdx >= 0)
+    return make_unique<VectorVariant>(Variants[VariantIdx]);
+
+  return nullptr;
+}
+
+std::unique_ptr<VectorVariant>
+VPOCodeGen::matchVectorVariant(const CallInst *Call, bool Masked) {
+  if (!Call->hasFnAttr("vector-variants"))
+    return {};
+
+  return matchVectorVariantImpl(
+      Call->getFnAttr("vector-variants").getValueAsString(), Masked);
 }
 
 bool VPOCodeGen::isScalarArgument(StringRef FnName, unsigned Idx) {
@@ -2437,7 +2451,7 @@ void VPOCodeGen::vectorizeOpenCLSinCos(CallInst *Call, bool isMasked) {
   // Make sure we don't lose attributes at the call site. E.g., IMF
   // attributes are taken from call sites in MapIntrinToIml to refine
   // SVML calls for precision.
-  VecCall->setAttributes(Call->getAttributes());
+  copyRequiredAttributes(Call, VecCall);
 
   // Set calling convention for SVML function calls
   Function *CalledFunc = Call->getCalledFunction();
@@ -2736,7 +2750,7 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
   bool IsMasked = (MaskValue != nullptr) ? true : false;
 
   // Don't attempt vector function matching for SVML or built-in functions.
-  VectorVariant *MatchedVariant = nullptr;
+  std::unique_ptr<VectorVariant> MatchedVariant;
 
   // OpenCL SinCos, would have a 'nullptr' MatchedVariant
   if (isOpenCLSinCos(CalledFunc->getName())) {
@@ -2751,11 +2765,11 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
     // 1) A more sophisticated interface is needed to determine the most
     //    appropriate match.
     // 2) A SIMD function is not a library function.
-    MatchedVariant = matchVectorVariant(CalledFunc, IsMasked);
+    MatchedVariant = matchVectorVariant(Call, IsMasked);
     if (!MatchedVariant && !IsMasked) {
       // If non-masked version isn't available, try running the masked version
       // with all-ones mask.
-      MatchedVariant = matchVectorVariant(CalledFunc, true);
+      MatchedVariant = matchVectorVariant(Call, true);
       IsMasked = true;
     }
     assert(MatchedVariant && "Unexpected null matched vector variant");
@@ -2763,15 +2777,12 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
                       << "\n");
   }
 
-  vectorizeCallArgs(Call, MatchedVariant, VecArgs, VecArgTys);
+  vectorizeCallArgs(Call, MatchedVariant.get(), VecArgs, VecArgTys);
 
   Function *VectorF = getOrInsertVectorFunction(Call, VF, VecArgTys, TLI,
                                                 Intrinsic::not_intrinsic,
-                                                MatchedVariant,
+                                                MatchedVariant.get(),
                                                 IsMasked);
-  if (MatchedVariant)
-    delete MatchedVariant;
-
   assert(VectorF && "Can't create vector function.");
   CallInst *VecCall = Builder.CreateCall(VectorF, VecArgs);
 
@@ -2784,7 +2795,7 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
   // Make sure we don't lose attributes at the call site. E.g., IMF
   // attributes are taken from call sites in MapIntrinToIml to refine
   // SVML calls for precision.
-  VecCall->setAttributes(Call->getAttributes());
+  copyRequiredAttributes(Call, VecCall);
 
   // Set calling convention for SVML function calls
   if (isSVMLFunction(TLI, CalledFunc->getName(), VectorF->getName()))
@@ -3102,15 +3113,11 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
 
     StringRef CalledFunc = F->getName();
     bool isMasked = (MaskValue != nullptr) ? true : false;
-    VectorVariant *MatchedVariant = nullptr;
     if (TLI->isFunctionVectorizable(CalledFunc, VF) ||
-        (F->hasFnAttribute("vector-variants") &&
-         ((MatchedVariant = matchVectorVariant(F, isMasked)) ||
-          (!isMasked && (MatchedVariant = matchVectorVariant(F, true))))) ||
+        ((matchVectorVariant(Call, isMasked) ||
+          (!isMasked && matchVectorVariant(Call, true)))) ||
         (isOpenCLReadChannel(CalledFunc) || isOpenCLWriteChannel(CalledFunc))) {
       vectorizeCallInstruction(Call);
-      if (MatchedVariant)
-        delete MatchedVariant;
     } else {
       LLVM_DEBUG(dbgs() << "Function " << CalledFunc << " is serialized\n");
       serializeWithPredication(Call);

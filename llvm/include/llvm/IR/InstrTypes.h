@@ -1378,6 +1378,11 @@ public:
 
   /// Determine whether this call has the given attribute.
   bool hasFnAttr(StringRef Kind) const { return hasFnAttrImpl(Kind); }
+#if INTEL_CUSTOMIZATION
+  /// Return the Attribute associated with this call or an empty Attribute if
+  /// none of this \p Kind is set.
+  Attribute getFnAttr(StringRef Kind) const { return getFnAttrImpl(Kind); }
+#endif // INTEL_CUSTOMIZATION
 
   /// adds the attribute to the list of attributes.
   void addAttribute(unsigned i, Attribute::AttrKind Kind) {
@@ -2119,6 +2124,22 @@ private:
 
     return hasFnAttrOnCalledFunction(Kind);
   }
+
+#if INTEL_CUSTOMIZATION
+  template <typename AttrKind> Attribute getFnAttrImpl(AttrKind Kind) const {
+    if (Attrs.hasAttribute(AttributeList::FunctionIndex, Kind))
+      return Attrs.getAttribute(AttributeList::FunctionIndex, Kind);
+
+    if (isFnAttrDisallowedByOpBundle(Kind))
+      return Attribute();
+
+    if (const Function *F = getCalledFunction())
+      return F->getAttributes().getAttribute(AttributeList::FunctionIndex,
+                                             Kind);
+
+    return Attribute();
+  }
+#endif // INTEL_CUSTOMIZATION
 };
 
 template <>
