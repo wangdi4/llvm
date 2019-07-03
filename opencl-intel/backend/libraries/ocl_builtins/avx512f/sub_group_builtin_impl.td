@@ -1691,7 +1691,7 @@ OclBuiltinImpl sub_group_shuffle_avx512fv16i64 = OclBuiltinImpl<sub_group_shuffl
 
 // float2, int2 and uint2 have the same size as long (64 bit).
 // So we can shuffle them as double precision numbers
-OclBuiltinImpl sub_group_shuffle_avx512fv16i64 = OclBuiltinImpl<sub_group_shuffle_avx512, [v32i32, v32u32, v32f32], 0,
+OclBuiltinImpl sub_group_shuffle_avx512fv32f32 = OclBuiltinImpl<sub_group_shuffle_avx512, [v32i32, v32u32, v32f32], 0,
  [{
      $Arg1VarName = $Arg1VarName & $Arg2VarName;
      $Arg0Type dest;
