@@ -44,7 +44,7 @@ private:
   unsigned NumIntrinsics = 0;
   bool HasCallsWithUnsafeSideEffects = false;
   bool HasCallsWithNoDuplicate = false;
-  bool HasCallsWithUnknownMemoryAccess = false;
+  bool HasCallsWithUnknownAliasing = false;
 
 public:
   LoopStatistics() {}
@@ -96,10 +96,10 @@ public:
     return HasCallsWithNoDuplicate;
   }
 
-  bool hasCallsWithUnknownMemoryAccess() const {
-    assert((!HasCallsWithUnknownMemoryAccess || hasCalls()) &&
-           "Number of calls and HasUnknownMemoryAccess are out of sync!");
-    return HasCallsWithUnknownMemoryAccess;
+  bool hasCallsWithUnknownAliasing() const {
+    assert((!HasCallsWithUnknownAliasing || hasCalls()) &&
+           "Number of calls and HasUnknownAliasing are out of sync!");
+    return HasCallsWithUnknownAliasing;
   }
 
   /// Adds the loop statistics LS to this one.
@@ -113,7 +113,7 @@ public:
     NumIntrinsics += LS.NumIntrinsics;
     HasCallsWithUnsafeSideEffects |= LS.HasCallsWithUnsafeSideEffects;
     HasCallsWithNoDuplicate |= LS.HasCallsWithNoDuplicate;
-    HasCallsWithUnknownMemoryAccess |= LS.HasCallsWithUnknownMemoryAccess;
+    HasCallsWithUnknownAliasing |= LS.HasCallsWithUnknownAliasing;
 
     return *this;
   }

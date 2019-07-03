@@ -274,7 +274,7 @@ static bool runDeadStoreElimination(HIRFramework &HIRF,
   bool Result = false;
 
   for (auto &Lp : CandidateLoops) {
-    if (HLS.getTotalLoopStatistics(Lp).hasCallsWithUnknownMemoryAccess()) {
+    if (HLS.getTotalLoopStatistics(Lp).hasCallsWithUnknownAliasing()) {
       continue;
     }
     Result = doTransform(Lp) || Result;

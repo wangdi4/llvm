@@ -428,7 +428,7 @@ bool HIROptPredicate::processPUEdge(
     return false;
   }
 
-  if (Inst->isUnsafeSideEffectCallInst()) {
+  if (Inst->isUnsafeSideEffectsCallInst()) {
     // Unsafe to speculate
     return false;
   }
@@ -565,8 +565,10 @@ public:
   void postVisit(const HLNode *) {}
 
   void visit(const HLInst *Inst) {
-    if (Inst->isUnsafeSideEffectCallInst()) {
-      HasUnsafeCall = true;
+    if (auto *CInst = Inst->getCallInst()) {
+      if (!CInst->onlyReadsMemory() && HLInst::hasUnknownAliasing(CInst)) {
+        HasUnsafeCall = true;
+      }
     }
   }
 

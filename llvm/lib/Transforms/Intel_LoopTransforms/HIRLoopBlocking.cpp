@@ -625,7 +625,7 @@ public:
     }
 
     if (HLS.getTotalLoopStatistics(InnermostLoop)
-            .hasCallsWithUnknownMemoryAccess()) {
+            .hasCallsWithUnsafeSideEffects()) {
       SkipNode = Loop;
       return;
     }
