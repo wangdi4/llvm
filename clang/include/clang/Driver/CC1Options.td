@@ -821,10 +821,6 @@ def fintel_ms_compatibility : Flag<["-"], "fintel-ms-compatibility">,
   HelpText<"Enable Microsoft compatibility features that are not planned for clang/llvm trunk">;
 def fintel_advanced_optim : Flag<["-"], "fintel-advanced-optim">,
   HelpText<"Enable Intel specific advanced optimizations">;
-def restrict : Flag<["-"], "restrict">,
-  HelpText<"Enable the 'restrict' keyword for disambiguating pointers">;
-def no_restrict : Flag<["-"], "no-restrict">,
-  HelpText<"Disable the 'restrict' keyword for disambiguating pointers">;
 // CQ#368123 - support '-f[no-]emit-class-debug-always' options.
 def femit_class_debug_always : Flag<["-"], "femit-class-debug-always">,
   HelpText<"Enable emitting debug info for all class methods">;

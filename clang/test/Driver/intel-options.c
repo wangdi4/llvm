@@ -8,3 +8,13 @@
 // RUN: %clang -### -c -no-ansi-alias %s 2>&1 | FileCheck -check-prefix CHECK-NO_ANSI_ALIAS %s
 // RUN: %clang_cl -### -c /Qansi-alias- %s 2>&1 | FileCheck -check-prefix CHECK-NO_ANSI_ALIAS %s
 // CHECK-NO_ANSI_ALIAS: "-relaxed-aliasing"
+
+// Behavior with restrict/Qrestrict option
+// RUN: %clang -### -c -restrict %s 2>&1 | FileCheck -check-prefix CHECK-RESTRICT %s
+// RUN: %clang_cl -### -c /Qrestrict %s 2>&1 | FileCheck -check-prefix CHECK-RESTRICT %s
+// CHECK-RESTRICT: "-restrict"
+
+// Behavior with no-restrict/Qrestrict- option
+// RUN: %clang -### -c -no-restrict %s 2>&1 | FileCheck -check-prefix CHECK-NO-RESTRICT %s
+// RUN: %clang_cl -### -c /Qrestrict- %s 2>&1 | FileCheck -check-prefix CHECK-NO-RESTRICT %s
+// CHECK-NO-RESTRICT: "-no-restrict"
