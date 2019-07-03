@@ -507,7 +507,8 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
   }
 
   // Mark the kernels using subgroups
-  PM.add(createKernelSubGroupInfoPass());
+  if (EnableNativeOpenCLSubgroups)
+    PM.add(createKernelSubGroupInfoPass());
 
   // In Apple build TRANSPOSE_SIZE_1 is not declared
   if (pConfig->GetTransposeSize() != 1 /*TRANSPOSE_SIZE_1*/
