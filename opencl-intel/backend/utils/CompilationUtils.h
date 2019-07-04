@@ -335,6 +335,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static const std::string NAME_SUB_GROUP_RESERVE_WRITE_PIPE;
     static const std::string NAME_SUB_GROUP_COMMIT_WRITE_PIPE;
 
+    static const std::string NAME_ATOMIC_WORK_ITEM_FENCE;
+
     static const std::string NAME_MEM_FENCE;
     static const std::string NAME_READ_MEM_FENCE;
     static const std::string NAME_WRITE_MEM_FENCE;
@@ -397,6 +399,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static const std::string NAME_GET_BASE_GID;
     static const std::string NAME_GET_SPECIAL_BUFFER;
 
+    //////////////////////////////////////////////////////////////////
+    // @brief returns the mangled name of the function mem_fence
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledMemFence();
+    //////////////////////////////////////////////////////////////////
+    // @brief returns the mangled name of the function atomic_work_item_fence
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledAtomicWorkItemFence();
     //////////////////////////////////////////////////////////////////
     // @brief returns the mangled name of the function get_global_id
     //////////////////////////////////////////////////////////////////

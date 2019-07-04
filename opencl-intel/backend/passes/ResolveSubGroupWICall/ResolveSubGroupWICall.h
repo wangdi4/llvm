@@ -15,6 +15,8 @@
 #ifndef __RESOLVE_SUBGROUP_WI_CALL__
 #define __RESOLVE_SUBGROUP_WI_CALL__
 
+#include "BuiltinLibInfo.h"
+
 #include "llvm/Pass.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstrTypes.h"
@@ -32,11 +34,15 @@ namespace intel {
 
     ResolveSubGroupWICall();
 
-    virtual llvm::StringRef getPassName() const override {
+    llvm::StringRef getPassName() const override {
       return "ResolveSubGroupWICall";
     }
 
-    virtual bool runOnFunction(Function &F) override;
+    void getAnalysisUsage(AnalysisUsage &AU) const override {
+      AU.addRequired<BuiltinLibInfo>();
+    }
+
+    bool runOnFunction(Function &F) override;
 
   private:
 
@@ -48,11 +54,12 @@ namespace intel {
       Module *M, Instruction *insertBefore, size_t VF);
     Instruction* replaceGetNumSubGroups(
       Module *M, Instruction *insertBefore, size_t VF);
+    Instruction* replaceSubGroupBarrier(Module *M, CallInst *insertBefore);
 
     Instruction* replaceGetSubGroupId(Module *M, Instruction *insertBefore, size_t VF);
 
     // Helpers:
-    CallInst * createWIFunctionCall(
+    CallInst* createWIFunctionCall(
       Module *M, char const *twine, std::string const &name,
       Instruction *insertBefore, Value *actPar);
 
@@ -68,6 +75,8 @@ namespace intel {
     // The return type for the work-item functions
     Type  *m_ret;
 
+    // Pointer to runtime service object
+    const RuntimeServices *m_rtServices;
   };
 }
 

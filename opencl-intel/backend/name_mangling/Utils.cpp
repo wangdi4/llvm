@@ -72,6 +72,7 @@ static const char *PrimitiveNames[PRIMITIVE_NUM] = {"bool",
                                                     "pipe_t",
                                                     "pipe_ro_t",
                                                     "pipe_wo_t",
+                                                    "memory_order",
                                                     "memory_scope",
                                                     "sampler_t"};
 
@@ -128,6 +129,7 @@ const char *mangledTypes[PRIMITIVE_NUM] = {
     "8ocl_pipe",                    // PRIMITIVE_PIPE_T
     "11ocl_pipe_ro",                // PRIMITIVE_PIPE_RO_T
     "11ocl_pipe_wo",                // PRIMITIVE_PIPE_WO_T
+    "12memory_order",               // PRIMITIVE_MEMORY_ORDER
     "12memory_scope",               // PRIMITIVE_MEMORY_SCOPE
     "11ocl_sampler"                 // PRIMITIVE_SAMPLER_T
 };

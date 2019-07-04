@@ -38,15 +38,20 @@ namespace intel {
 
   char ResolveSubGroupWICall::ID = 0;
 
-  OCL_INITIALIZE_PASS(ResolveSubGroupWICall, "resolve-sub-group-wi-call",
+  OCL_INITIALIZE_PASS_BEGIN(ResolveSubGroupWICall, "resolve-sub-group-wi-call",
+                      "Resolve Sub Group WI functions", false, false)
+  OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
+  OCL_INITIALIZE_PASS_END(ResolveSubGroupWICall, "resolve-sub-group-wi-call",
                       "Resolve Sub Group WI functions", false, false)
 
   ResolveSubGroupWICall::ResolveSubGroupWICall() :
     FunctionPass(ID), m_zero(nullptr), m_one(nullptr), m_two(nullptr),
-    m_ret(nullptr)
+    m_ret(nullptr), m_rtServices(nullptr)
   { }
 
   bool ResolveSubGroupWICall::runOnFunction(Function &F) {
+    m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
+    assert(m_rtServices && "m_rtServices should exist!");
 
     std::vector<std::pair<Instruction *, Value *> > InstRepVec;
 
@@ -78,26 +83,27 @@ namespace intel {
       if (CompilationUtils::isGetNumSubGroups(funcName)) {
         InstRepVec.push_back(std::pair<Instruction*, Value*>(
           CI, replaceGetNumSubGroups(M, CI, VF)));
-      }
-      else if (CompilationUtils::isGetSubGroupId(funcName)) {
+      } else if (CompilationUtils::isGetSubGroupId(funcName)) {
         InstRepVec.push_back(std::pair<Instruction*, Value*>(
           CI, replaceGetSubGroupId(M, CI, VF)));
-      }
-      else if (CompilationUtils::isGetEnqueuedNumSubGroups(funcName)) {
+      } else if (CompilationUtils::isGetEnqueuedNumSubGroups(funcName)) {
         InstRepVec.push_back(std::pair<Instruction*, Value*>(
           CI, replaceGetEnqueuedNumSubGroups(M, CI, VF)));
-      }
-      else if (CompilationUtils::isGetSubGroupSize(funcName)) {
+      } else if (CompilationUtils::isGetSubGroupSize(funcName)) {
         InstRepVec.push_back(std::pair<Instruction*, Value*>(
           CI, replaceGetSubGroupSize(M, CI, VF)));
-      }
-      else if (CompilationUtils::isGetMaxSubGroupSize(funcName)) {
+      }  else if (CompilationUtils::isGetMaxSubGroupSize(funcName)) {
         InstRepVec.push_back(std::pair<Instruction*, Value*>(
           CI, replaceGetMaxSubGroupSize(M, CI, VF)));
-      }
-      else if (CompilationUtils::isGetSubGroupLocalId(funcName)) {
+      } else if (CompilationUtils::isGetSubGroupLocalId(funcName)) {
         InstRepVec.push_back(std::pair<Instruction*, Value*>(
           CI, replaceGetSubGroupLocalId(M, CI, VF)));
+      } else if ((funcName == CompilationUtils::mangledSGBarrier(
+                                CompilationUtils::BARRIER_WITH_SCOPE)) ||
+                 (funcName == CompilationUtils::mangledSGBarrier(
+                                CompilationUtils::BARRIER_NO_SCOPE))) {
+        InstRepVec.push_back(std::pair<Instruction*, Value*>(
+          CI, replaceSubGroupBarrier(M, CI)));
       }
     }
 
@@ -248,6 +254,53 @@ namespace intel {
                                                "llid.res.div.trunc", insertBefore);
 
     return res;
+  }
+
+  Instruction* ResolveSubGroupWICall::replaceSubGroupBarrier(
+      Module *M, CallInst *insertBefore) {
+    std::string AtomicWIFenceName = CompilationUtils::mangledAtomicWorkItemFence();
+    auto *AtomicWIFenceBIF = m_rtServices->findInRuntimeModule(AtomicWIFenceName);
+    assert(AtomicWIFenceBIF && "atomic_work_item_fence not found in BI library!");
+
+    auto *AtomicWIFenceF =
+      CompilationUtils::importFunctionDecl(M, AtomicWIFenceBIF);
+    assert(AtomicWIFenceF && "Failed generating function in current module");
+
+    // take mem_fence from the barrier
+    assert((insertBefore->getNumArgOperands() >= 1) &&
+           "Expect sub_group_barrier to have at least mem fence argument!");
+    Value *MemFence = insertBefore->getArgOperand(0);
+    // Obtain MemoryOrder.
+    // must be aligned with clang preprocessor foir
+    // __ATOMIC_ACQ_REL
+    const uint64_t memory_order_acq_rel = 4;
+    Value *MemOrder = ConstantInt::get(Type::getInt32Ty(
+                           M->getContext()),
+                           memory_order_acq_rel);
+    // obtain mem_scope.
+    Value* MemScope = nullptr;
+    if (insertBefore->getNumArgOperands() == 2)
+      // take memory scope from the barrier.
+      MemScope = insertBefore->getArgOperand(1);
+    else {
+      // must be aligned with clang preprocessor for
+      // __OPENCL_MEMORY_SCOPE_SUB_GROUP.
+      const uint64_t memory_scope_sub_group = 4;
+      MemScope = ConstantInt::get(Type::getInt32Ty(
+                   M->getContext()),
+                   memory_scope_sub_group);
+    }
+
+    SmallVector<Value*, 3> args;
+    args.push_back(MemFence);
+    args.push_back(MemOrder);
+    args.push_back(MemScope);
+
+    auto *AtomicWIFenceCall = CallInst::Create(AtomicWIFenceF, args, "", insertBefore);
+
+    AtomicWIFenceCall->setDebugLoc(insertBefore->getDebugLoc());
+
+    return AtomicWIFenceCall;
   }
 
   ConstantInt* ResolveSubGroupWICall::createVFConstant(
