@@ -25,7 +25,7 @@
 #include <llvm/IR/Verifier.h>
 #include <LLVMSPIRVLib/LLVMSPIRVLib.h> // llvm::ReadSPIRV
 #include <llvm/Support/SwapByteOrder.h>
-#include <spirv/1.0/spirv.hpp> // spv::MagicNumber
+#include <spirv/1.1/spirv.hpp> // spv::MagicNumber, spv::Version
 
 #include <memory>
 #include <string>
@@ -86,9 +86,10 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     return false;
   }
 
-  // SPIR-V version is 1.0
+  // Require SPIR-V version 1.1.
+  // We do not fully support 1.1, yet want to use some of the features.
   std::uint32_t const version = getSPIRVWord(spirvBC + SPIRVVersionIdx);
-  if (version != spv::Version) {
+  if (version > spv::Version) {
     errStr << "Version required by the module (" << version
            << ") is higher than supported version (" << spv::Version << ')';
     error = errStr.str();
