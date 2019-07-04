@@ -1761,6 +1761,29 @@ __m512h test_mm512_maskz_sqrt_round_ph(__mmask32 __U,__m512h __A)
   return _mm512_maskz_sqrt_round_ph(__U,__A,_MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC);
 }
 
+__m512h test_mm512_sqrt_ph(__m512h __A)
+{
+  // CHECK-LABEL: @test_mm512_sqrt_ph
+  // CHECK: %{{.*}} = call <32 x half> @llvm.sqrt.v32f16(<32 x half> %{{.*}})
+  return _mm512_sqrt_ph(__A);
+}
+__m512h test_mm512_mask_sqrt_ph(__m512h __W,__mmask32 __U,__m512h __A)
+{
+  // CHECK-LABEL: @test_mm512_mask_sqrt_ph
+  // CHECK: %{{.*}} = call <32 x half> @llvm.sqrt.v32f16(<32 x half> %{{.*}})
+  // CHECK: bitcast i32 %{{.*}} to <32 x i1>
+  // CHECK: select <32 x i1> %{{.*}}, <32 x half> %{{.*}}, <32 x half> %{{.*}}
+  return _mm512_mask_sqrt_ph(__W,__U,__A);
+}
+__m512h test_mm512_maskz_sqrt_ph(__mmask32 __U,__m512h __A)
+{
+  // CHECK-LABEL: @test_mm512_maskz_sqrt_ph
+  // CHECK: %{{.*}} = call <32 x half> @llvm.sqrt.v32f16(<32 x half> %{{.*}})
+  // CHECK: bitcast i32 %{{.*}} to <32 x i1>
+  // CHECK: select <32 x i1> %{{.*}}, <32 x half> %{{.*}}, <32 x half> {{.*}}
+  return _mm512_maskz_sqrt_ph(__U,__A);
+}
+
 __m128h test_mm_sqrt_round_sh(__m128h __A, __m128h __B) {
   // CHECK-LABEL: @test_mm_sqrt_round_sh
   // CHECK: call <8 x half> @llvm.x86.avx512fp16.mask.sqrt.sh(<8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x half> %{{.*}}, i8 -1, i32 11)
@@ -1778,6 +1801,23 @@ __m128h test_mm_maskz_sqrt_round_sh(__mmask8 __U, __m128h __A, __m128h __B){
   // CHECK: call <8 x half> @llvm.x86.avx512fp16.mask.sqrt.sh(<8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x half> %{{.*}}, i8 {{.*}}, i32 11)
   return _mm_maskz_sqrt_round_sh(__U,__A,__B,_MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC);
 }
+
+__m128h test_mm_sqrt_sh(__m128h __A, __m128h __B) {
+  // CHECK-LABEL: @test_mm_sqrt_sh
+  // CHECK: %{{.*}} = call half @llvm.sqrt.f16(half %{{.*}})
+  return _mm_sqrt_sh(__A, __B);
+}
+__m128h test_mm_mask_sqrt_sh(__m128h __W, __mmask8 __U, __m128h __A, __m128h __B){
+  // CHECK-LABEL: @test_mm_mask_sqrt_sh
+  // CHECK: %{{.*}} = call half @llvm.sqrt.f16(half %{{.*}})
+  return _mm_mask_sqrt_sh(__W,__U,__A,__B);
+}
+__m128h test_mm_maskz_sqrt_sh(__mmask8 __U, __m128h __A, __m128h __B){
+  // CHECK-LABEL: @test_mm_maskz_sqrt_sh
+  // CHECK: %{{.*}} = call half @llvm.sqrt.f16(half %{{.*}})
+  return _mm_maskz_sqrt_sh(__U,__A,__B);
+}
+
 __mmask32 test_mm512_mask_fpclass_ph_mask(__mmask32 __U, __m512h __A) {
   // CHECK-LABEL: @test_mm512_mask_fpclass_ph_mask
   // CHECK: @llvm.x86.avx512fp16.fpclass.ph.512

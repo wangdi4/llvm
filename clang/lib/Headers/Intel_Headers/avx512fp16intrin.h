@@ -1337,6 +1337,29 @@ _mm_maskz_scalef_sh (__mmask8 __U, __m128h __A, __m128 __B)
                                       (__v32hf)_mm512_sqrt_round_ph((A), (R)), \
                                       (__v32hf)_mm512_setzero_ph())
 
+static __inline__ __m512h __DEFAULT_FN_ATTRS512
+_mm512_sqrt_ph (__m512h __A)
+{
+  return (__m512h) __builtin_ia32_sqrtph512 ((__v32hf) __A,
+               _MM_FROUND_CUR_DIRECTION);
+}
+
+static __inline__ __m512h __DEFAULT_FN_ATTRS512
+_mm512_mask_sqrt_ph (__m512h __W, __mmask32 __U, __m512h __A)
+{
+  return (__m512h)__builtin_ia32_selectph_512((__mmask32)(__U),
+                                      (__v32hf)__builtin_ia32_sqrtph512((__A), (_MM_FROUND_CUR_DIRECTION)),
+                                      (__v32hf)(__m512h)(__W));
+}
+
+static __inline__ __m512h __DEFAULT_FN_ATTRS512
+_mm512_maskz_sqrt_ph (__mmask32 __U, __m512h __A)
+{
+  return (__m512h)__builtin_ia32_selectph_512((__mmask32)(__U),
+                                      (__v32hf)__builtin_ia32_sqrtph512((__A), (_MM_FROUND_CUR_DIRECTION)),
+                                      (__v32hf)_mm512_setzero_ph());
+}
+
 #define _mm_sqrt_round_sh(A, B, R) \
   (__m128h)__builtin_ia32_sqrtsh_round_mask((__v8hf)(__m128h)(A), \
                                            (__v8hf)(__m128h)(B), \
@@ -1354,6 +1377,34 @@ _mm_maskz_scalef_sh (__mmask8 __U, __m128h __A, __m128 __B)
                                            (__v8hf)(__m128h)(B), \
                                            (__v8hf)_mm_setzero_ph(), \
                                            (__mmask8)(U), (int)(R))
+
+static __inline__ __m128h __DEFAULT_FN_ATTRS128
+_mm_sqrt_sh (__m128h __A, __m128h __B)
+{
+  return (__m128h)__builtin_ia32_sqrtsh_round_mask((__v8hf)(__m128h)(__A),
+                                           (__v8hf)(__m128h)(__B),
+                                           (__v8hf)_mm_setzero_ph(),
+                                           (__mmask8)-1, _MM_FROUND_CUR_DIRECTION);
+}
+
+static __inline__ __m128h __DEFAULT_FN_ATTRS128
+_mm_mask_sqrt_sh (__m128h __W, __mmask32 __U, __m128h __A, __m128h __B)
+{
+  return (__m128h)__builtin_ia32_sqrtsh_round_mask((__v8hf)(__m128h)(__A),
+                                           (__v8hf)(__m128h)(__B),
+                                           (__v8hf)(__m128h)(__W), (__mmask8)(__U),
+                                           _MM_FROUND_CUR_DIRECTION);
+}
+
+static __inline__ __m128h __DEFAULT_FN_ATTRS128
+_mm_maskz_sqrt_sh (__mmask32 __U, __m128h __A, __m128h __B)
+{
+  return (__m128h)__builtin_ia32_sqrtsh_round_mask((__v8hf)(__m128h)(__A),
+                                           (__v8hf)(__m128h)(__B),
+                                           (__v8hf)_mm_setzero_ph(),
+                                           (__mmask8)(__U), _MM_FROUND_CUR_DIRECTION);
+}
+
 #define _mm512_mask_fpclass_ph_mask(U, A, imm) \
   (__mmask32)__builtin_ia32_fpclassph512_mask((__v32hf)(__m512h)(A), \
                                               (int)(imm), (__mmask32)(U))
