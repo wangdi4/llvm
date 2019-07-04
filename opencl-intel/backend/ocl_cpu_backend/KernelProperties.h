@@ -99,11 +99,26 @@ public:
 
     virtual size_t GetNumberOfSubGroups(size_t size, const size_t* WGSizes) const;
 
-    virtual size_t GetMaxNumSubGroups() const;
+    virtual size_t GetMaxNumSubGroups(size_t const wgSizeUpperBound) const;
 
     virtual size_t GetRequiredNumSubGroups() const;
 
     virtual size_t GetMaxSubGroupSize(size_t size, const size_t* WGSizes) const;
+
+    /**
+     * @returns locals size that would give the desired number of subgroups
+     * @param     desiredSGCount - requested number of subgroups
+     * @param     wgSizeUpperBound - maximum possible WG size
+     * @param     wgPrivateMemSizeUpperBound - maximum possible private memory size per WG
+     * @param OUT pValue - output local sizes
+     * @param     dim - number of dimensions we need to fill
+     */
+    virtual void GetLocalSizeForSubGroupCount(size_t const desiredSGCount,
+                                              size_t const wgSizeUpperBound,
+                                              size_t const wgPrivateMemSizeUpperBound,
+                                              size_t* pValue,
+                                              size_t const dim) const;
+
     /**
      * @returns the required minimum group size factorial
      *  1 when no minimum is required
@@ -219,6 +234,7 @@ public:
     void SetDAZ(bool value)        { m_DAZ = value; }
     void SetHasBarrier(bool value) { m_hasBarrier = value; }
     void SetHasGlobalSync(bool value) { m_hasGlobalSync = value; }
+    void SetHasNativeSubgroups(bool value) { m_hasNativeSubgroups = value; }
     void SetBarrierBufferSize(size_t size) { m_barrierBufferSize = size; }
     void SetPrivateMemorySize(size_t size) { m_privateMemorySize = size; }
     void SetMaxPrivateMemorySize(size_t size) { m_maxPrivateMemorySize = size; }
@@ -260,6 +276,7 @@ public:
 protected:
     bool m_hasBarrier;
     bool m_hasGlobalSync;
+    bool m_hasNativeSubgroups;
     bool m_DAZ;
     Intel::CPUId m_cpuId;       // selected cpuId for current kernel codegen
     unsigned int m_optWGSize;
