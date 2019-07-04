@@ -112,6 +112,34 @@ OclBuiltinImpl sub_group_shuffle_down_vec_type_fake = OclBuiltinImpl<sub_group_s
     return $Arg0VarName;
   }]>;
 
+
+///
+/// Block read
+///
+
+// scalar types
+
+OclBuiltinImpl intel_sub_group_block_read_fake = OclBuiltinImpl<intel_sub_group_block_read, [ v1u32 ], 0,
+  [{
+    return 0;
+  }]>;
+
+OclBuiltinImpl intel_sub_group_block_read2_fake = OclBuiltinImpl<intel_sub_group_block_read2, [ v1u32 ], 0,
+  [{
+    return 0;
+  }]>;
+
+OclBuiltinImpl intel_sub_group_block_read4_fake = OclBuiltinImpl<intel_sub_group_block_read4, [ v1u32 ], 0,
+  [{
+    return 0;
+  }]>;
+
+OclBuiltinImpl intel_sub_group_block_read8_fake = OclBuiltinImpl<intel_sub_group_block_read8, [ v1u32 ], 0,
+  [{
+    return 0;
+  }]>;
+
+// vector types
 OclBuiltinImpl intel_sub_group_block_read1_4_fake = OclBuiltinImpl<intel_sub_group_block_read1_4, [ v1u32 ], 0,
   [{
     return 0;
@@ -171,6 +199,34 @@ OclBuiltinImpl intel_sub_group_block_read8_16_fake = OclBuiltinImpl<intel_sub_gr
   [{
     return 0;
   }]>;
+
+///
+/// Block write
+///
+
+// scalar types
+
+OclBuiltinImpl intel_sub_group_block_write_fake = OclBuiltinImpl<intel_sub_group_block_write, [ v1u32 ], 0,
+  [{
+    return;
+  }]>;
+
+OclBuiltinImpl intel_sub_group_block_write2_fake = OclBuiltinImpl<intel_sub_group_block_write2, [ v1u32 ], 0,
+  [{
+    return;
+  }]>;
+
+OclBuiltinImpl intel_sub_group_block_write4_fake = OclBuiltinImpl<intel_sub_group_block_write4, [ v1u32 ], 0,
+  [{
+    return;
+  }]>;
+
+OclBuiltinImpl intel_sub_group_block_write8_fake = OclBuiltinImpl<intel_sub_group_block_write8, [ v1u32 ], 0,
+  [{
+    return;
+  }]>;
+
+// vector
 
 OclBuiltinImpl intel_sub_group_block_write1_4_fake = OclBuiltinImpl<intel_sub_group_block_write1_4, [ v1u32 ], 0,
   [{
