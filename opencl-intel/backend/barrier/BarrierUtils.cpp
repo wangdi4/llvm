@@ -469,9 +469,9 @@ namespace intel {
     findAllUsesOfFunc(CompilationUtils::mangledBarrier(), m_barriers);
     //Find all calls to work_group_barrier()
     findAllUsesOfFunc(CompilationUtils::mangledWGBarrier(
-      CompilationUtils::WG_BARRIER_NO_SCOPE), m_barriers);
+      CompilationUtils::BARRIER_NO_SCOPE), m_barriers);
     findAllUsesOfFunc(CompilationUtils::mangledWGBarrier(
-      CompilationUtils::WG_BARRIER_WITH_SCOPE), m_barriers);
+      CompilationUtils::BARRIER_WITH_SCOPE), m_barriers);
     //Find all calls to dummyBarrier()
     findAllUsesOfFunc(DUMMY_BARRIER_FUNC_NAME, m_dummyBarriers);
     //Find all calls to fiber()
