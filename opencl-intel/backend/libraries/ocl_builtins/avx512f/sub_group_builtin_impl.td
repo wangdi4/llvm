@@ -1812,6 +1812,155 @@ OclBuiltinImpl sub_group_shuffle_xor_avx512_gen = OclBuiltinImpl<sub_group_shuff
     return intel_sub_group_shuffle($Arg0VarName, indexes, $Arg2VarName);
   }]>;
 
+//
+// Shuffle down
+//
+OclBuiltinImpl sub_group_shuffle_down_avx512_gen = OclBuiltinImpl<sub_group_shuffle_down_avx512,
+               [v16i32, v16u32, v16f32, v32i32, v32u32, v32f32, v64i32, v64u32, v64f32,
+                v128i32, v128u32, v128f32, v256i32, v256u32, v256f32], 0,
+  [{
+    $Arg0Type res_cur, res_next;
+    int$VecLength temp;
+    uint16 sg_indexes = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+    const uint max_sg_size = 16;
+
+    // Calculate indexes
+    sg_indexes = sg_indexes + $Arg2VarName;
+
+    // Apply vec_mask
+    sg_indexes &= $Arg3VarName;
+
+    // Get the mask for elements which < VF
+    int16 indexes_mask = sg_indexes < max_sg_size;
+    int16 inv_indexes_mask = !indexes_mask;
+
+    int$VecLength ext_mask = __ocl_extend_mask_to_$VecLength(indexes_mask);
+
+    // Call masked shuffle 2 times: first for elements from current, second for elements from next
+    // Apply extended mask to get rid of unnecessary elements
+    res_cur = intel_sub_group_shuffle($Arg0VarName, sg_indexes, *(uint16*)&indexes_mask);
+    temp = *((int$VecLength*)&res_cur) & ext_mask;
+    res_cur = *($Arg0Type*)&temp;
+
+    res_next = intel_sub_group_shuffle($Arg1VarName, (sg_indexes - max_sg_size), *(uint16*)&inv_indexes_mask);
+    temp = *((int$VecLength*)&res_next) & !ext_mask;
+    res_next = *($Arg0Type*)&temp;
+
+    temp = (*(int$VecLength*)&res_cur | *(int$VecLength*)&res_next);
+    return *($Arg0Type*)&temp;
+  }]>;
+
+
+OclBuiltinImpl sub_group_shuffle_down_avx512_v16d64 = OclBuiltinImpl<sub_group_shuffle_down_avx512,
+               [v16i64, v16u64, v16f64], 0,
+  [{
+    $Arg0Type res_cur, res_next;
+    int32 temp;
+    uint16 sg_indexes = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+    const uint max_sg_size = 16;
+
+    // Calculate indexes
+    sg_indexes = sg_indexes + $Arg2VarName;
+
+    // Apply vec_mask
+    sg_indexes &= $Arg3VarName;
+
+    // Get the mask for elements which < VF
+    int16 indexes_mask = sg_indexes < max_sg_size;
+    int16 inv_indexes_mask = !indexes_mask;
+
+    int32 ext_mask = __ocl_extend_mask_to_32(indexes_mask);
+
+    // Call masked shuffle 2 times: first for elements from current, second for elements from next
+    // Apply extended mask to get rid of unnecessary elements
+    res_cur = intel_sub_group_shuffle($Arg0VarName, sg_indexes, *(uint16*)&indexes_mask);
+    temp = *((int32*)&res_cur) & ext_mask;
+    res_cur = *($Arg0Type*)&temp;
+
+    res_next = intel_sub_group_shuffle($Arg1VarName, (sg_indexes - max_sg_size), *(uint16*)&inv_indexes_mask);
+    temp = *((int32*)&res_next) & !ext_mask;
+    res_next = *($Arg0Type*)&temp;
+
+    temp = (*(int32*)&res_cur | *(int32*)&res_next);
+    return *($Arg0Type*)&temp;
+  }]>;
+
+
+//
+// Shuffle up
+//
+OclBuiltinImpl sub_group_shuffle_up_avx512_gen = OclBuiltinImpl<sub_group_shuffle_up_avx512,
+               [v16i32, v16u32, v16f32, v32i32, v32u32, v32f32, v64i32, v64u32, v64f32,
+                v128i32, v128u32, v128f32, v256i32, v256u32, v256f32], 0,
+  [{
+    $Arg0Type res_cur, res_next;
+    int$VecLength temp;
+    int16 sg_indexes = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+    const int max_sg_size = 16;
+
+    // Calculate indexes
+    sg_indexes = sg_indexes - *(int16*)&$Arg2VarName;
+
+    // Apply vec_mask
+    sg_indexes &= *(int16*)&$Arg3VarName;
+
+    // Get the mask for elements which >= 0
+    int16 indexes_mask = sg_indexes >= 0;
+    int16 inv_indexes_mask = !indexes_mask;
+
+    int$VecLength ext_mask = __ocl_extend_mask_to_$VecLength(indexes_mask);
+
+    // Call masked shuffle 2 times: first for elements from current, second for elements from next
+    // Apply extended mask to get rid of unnecessary elements
+    res_cur = intel_sub_group_shuffle($Arg1VarName, *(uint16*)&sg_indexes, *(uint16*)&indexes_mask);
+    temp = *((int$VecLength*)&res_cur) & ext_mask;
+    res_cur = *($Arg0Type*)&temp;
+
+    int16 other_ind = sg_indexes + max_sg_size;
+    res_next = intel_sub_group_shuffle($Arg0VarName, *(uint16*)&other_ind, *(uint16*)&inv_indexes_mask);
+    temp = *((int$VecLength*)&res_next) & !ext_mask;
+    res_next = *($Arg0Type*)&temp;
+
+    temp = (*(int$VecLength*)&res_cur | *(int$VecLength*)&res_next);
+    return *($Arg0Type*)&temp;
+  }]>;
+
+
+OclBuiltinImpl sub_group_shuffle_up_avx512_v16d64 = OclBuiltinImpl<sub_group_shuffle_up_avx512,
+               [v16i64, v16u64, v16f64], 0,
+  [{
+    $Arg0Type res_cur, res_next;
+    int32 temp;
+    int16 sg_indexes = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+    const int max_sg_size = 16;
+
+    // Calculate indexes
+    sg_indexes = sg_indexes - *(int16*)&$Arg2VarName;
+
+    // Apply vec_mask
+    sg_indexes &= *(int16*)&$Arg3VarName;
+
+    // Get the mask for elements which >= 0
+    int16 indexes_mask = sg_indexes >= 0;
+    int16 inv_indexes_mask = !indexes_mask;
+
+    int32 ext_mask = __ocl_extend_mask_to_32(indexes_mask);
+
+    // Call masked shuffle 2 times: first for elements from current, second for elements from next
+    // Apply extended mask to get rid of unnecessary elements
+    res_cur = intel_sub_group_shuffle($Arg1VarName, *(uint16*)&sg_indexes, *(uint16*)&indexes_mask);
+    temp = *((int32*)&res_cur) & ext_mask;
+    res_cur = *($Arg0Type*)&temp;
+
+    int16 other_ind = sg_indexes + max_sg_size;
+    res_next = intel_sub_group_shuffle($Arg0VarName, *(uint16*)&other_ind, *(uint16*)&inv_indexes_mask);
+    temp = *((int32*)&res_next) & !ext_mask;
+    res_next = *($Arg0Type*)&temp;
+
+    temp = (*(int32*)&res_cur | *(int32*)&res_next);
+    return *($Arg0Type*)&temp;
+  }]>;
+
 
 OclBuiltinImpl intel_sub_group_block_read1_4_avx512f = OclBuiltinImpl<intel_sub_group_block_read1_4, [ v4i32 ], 0,
   [{

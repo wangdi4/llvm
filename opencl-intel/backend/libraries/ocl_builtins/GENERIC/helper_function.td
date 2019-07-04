@@ -188,6 +188,13 @@ let Attrs = [OVERLOADABLE],
     }
   }
 
+let Attrs = [OVERLOADABLE],
+  NeedForwardDecl = 1 in {
+    let Types = [v16i32, v32i32, v64i32, v128i32, v256i32] in {
+      def __ocl_extend_mask_v16 : OclBuiltin<"__ocl_extend_mask_to_$VecLength", (outs gentype:$ret), (ins v16i32:$mask), [], [], 0, 0>, PRIVATE;
+    }
+  }
+
 // ****************************************************************************
 //                                 masked_load_store
 // ****************************************************************************
