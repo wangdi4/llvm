@@ -89,6 +89,19 @@ OclBuiltinImpl sub_group_shuffle_avx2v16 = OclBuiltinImpl<sub_group_shuffle_avx2
 
     return res;
   }]>;
+
+
+//
+// Shuffle xor
+//
+OclBuiltinImpl sub_group_shuffle_xor_avx2_gen = OclBuiltinImpl<sub_group_shuffle_xor_avx2,
+               [v8i32, v8u32, v8f32, v8i64, v8u64, v8f64, v8f64, v16u32, v16i32, v16f32], 0,
+  [{
+    uint8 indexes = {0, 1, 2, 3, 4, 5, 6, 7};
+    indexes = indexes ^ $Arg1VarName;
+    return intel_sub_group_shuffle($Arg0VarName, indexes, $Arg2VarName);
+  }]>;
+
 OclBuiltinImpl intel_sub_group_block_write1_4_avx2 = OclBuiltinImpl<intel_sub_group_block_write1_4, [ v4i32 ], 0,
   [{
     uint4 res = __builtin_shufflevector($Arg1VarName, $Arg1VarName, 0, 1, 2, 3);

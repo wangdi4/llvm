@@ -45,6 +45,7 @@ let NeedForwardDecl = 1 in {
                v8f32, v16f32, v32f32, v64f32 ],
       Attrs = [OVERLOADABLE] in {
         def sub_group_shuffle_avx : OclBuiltin<"intel_sub_group_shuffle", (outs gentype:$ret), (ins gentype:$data, v4u32:$sub_group_local_id, v4u32:$vec_mask), [], [], 1, 0>;
+        def sub_group_shuffle_xor_avx : OclBuiltin<"intel_sub_group_shuffle_xor", (outs gentype:$ret), (ins gentype:$data, v4u32:$value, v4u32:$vec_mask), [], [], 1, 0>;
       }
 
   // AVX2 (VF = 8)
@@ -54,6 +55,7 @@ let NeedForwardDecl = 1 in {
                v16f32, v32f32, v64f32, v128f32 ],
       Attrs = [OVERLOADABLE] in {
         def sub_group_shuffle_avx2 : OclBuiltin<"intel_sub_group_shuffle", (outs gentype:$ret), (ins gentype:$data, v8u32:$sub_group_local_id, v8u32:$vec_mask), [], [], 1, 0>;
+        def sub_group_shuffle_xor_avx2 : OclBuiltin<"intel_sub_group_shuffle_xor", (outs gentype:$ret), (ins gentype:$data, v8u32:$value, v8u32:$vec_mask), [], [], 1, 0>;
       }
 
   // AVX512 (VF = 16)
@@ -63,6 +65,7 @@ let NeedForwardDecl = 1 in {
                v32f32, v64f32, v128f32, v256f32 ],
       Attrs = [OVERLOADABLE] in {
         def sub_group_shuffle_avx512 : OclBuiltin<"intel_sub_group_shuffle", (outs gentype:$ret), (ins gentype:$data, v16u32:$sub_group_local_id, v16u32:$vec_mask), [], [], 1, 0>;
+        def sub_group_shuffle_xor_avx512 : OclBuiltin<"intel_sub_group_shuffle_xor", (outs gentype:$ret), (ins gentype:$data, v16u32:$value, v16u32:$vec_mask), [], [], 1, 0>;
       }
 
   let Types = [ v1u32 ],
@@ -114,7 +117,7 @@ foreach func_name = [ "sub_group_broadcast", "sub_group_reduce_add", "sub_group_
   }
 }
 
-foreach func_name = [ "sub_group_shuffle" ] in {
+foreach func_name = [ "sub_group_shuffle", "sub_group_shuffle_xor" ] in {
   foreach base_type = [ "i32", "u32", "i64", "u64", "f32", "f64" ] in {
     def func_name#_#base_type#_cell1  : MapCell<!cast<OclBuiltin>(func_name), !cast<OclType>("v1"#base_type)>;
     def func_name#_#base_type#_cell4  : MapCell<!cast<OclBuiltin>(func_name#_#"avx"), !cast<OclType>("v4"#base_type)>;
