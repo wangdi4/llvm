@@ -112,112 +112,111 @@ OclBuiltinImpl sub_group_shuffle_down_vec_type_fake = OclBuiltinImpl<sub_group_s
     return $Arg0VarName;
   }]>;
 
-
-OclBuiltinImpl intel_sub_group_block_read1_4_fake = OclBuiltinImpl<intel_sub_group_block_read1_4, [ v4i32 ], 0,
+OclBuiltinImpl intel_sub_group_block_read1_4_fake = OclBuiltinImpl<intel_sub_group_block_read1_4, [ v1u32 ], 0,
   [{
     return 0;
   }]>;
 
-OclBuiltinImpl intel_sub_group_block_read2_4_fake = OclBuiltinImpl<intel_sub_group_block_read2_4, [ v8i32 ], 0,
+OclBuiltinImpl intel_sub_group_block_read2_4_fake = OclBuiltinImpl<intel_sub_group_block_read2_4, [ v1u32 ], 0,
   [{
     return 0;
   }]>;
 
-OclBuiltinImpl intel_sub_group_block_read4_4_fake = OclBuiltinImpl<intel_sub_group_block_read4_4, [ v16i32 ], 0,
+OclBuiltinImpl intel_sub_group_block_read4_4_fake = OclBuiltinImpl<intel_sub_group_block_read4_4, [ v1u32 ], 0,
   [{
     return 0;
   }]>;
 
-OclBuiltinImpl intel_sub_group_block_read8_4_fake = OclBuiltinImpl<intel_sub_group_block_read8_4, [ v32i32 ], 0,
+OclBuiltinImpl intel_sub_group_block_read8_4_fake = OclBuiltinImpl<intel_sub_group_block_read8_4, [ v1u32 ], 0,
   [{
     return 0;
   }]>;
 
-OclBuiltinImpl intel_sub_group_block_read1_8_fake = OclBuiltinImpl<intel_sub_group_block_read1_8, [ v8i32 ], 0,
+OclBuiltinImpl intel_sub_group_block_read1_8_fake = OclBuiltinImpl<intel_sub_group_block_read1_8, [ v1u32 ], 0,
   [{
     return 0;
   }]>;
 
-OclBuiltinImpl intel_sub_group_block_read2_8_fake = OclBuiltinImpl<intel_sub_group_block_read2_8, [ v16i32 ], 0,
+OclBuiltinImpl intel_sub_group_block_read2_8_fake = OclBuiltinImpl<intel_sub_group_block_read2_8, [ v1u32 ], 0,
   [{
     return 0;
   }]>;
 
-OclBuiltinImpl intel_sub_group_block_read4_8_fake = OclBuiltinImpl<intel_sub_group_block_read4_8, [ v32i32 ], 0,
+OclBuiltinImpl intel_sub_group_block_read4_8_fake = OclBuiltinImpl<intel_sub_group_block_read4_8, [ v1u32 ], 0,
   [{
     return 0;
   }]>;
 
-OclBuiltinImpl intel_sub_group_block_read8_8_fake = OclBuiltinImpl<intel_sub_group_block_read8_8, [ v64i32 ], 0,
+OclBuiltinImpl intel_sub_group_block_read8_8_fake = OclBuiltinImpl<intel_sub_group_block_read8_8, [ v1u32 ], 0,
   [{
     return 0;
   }]>;
 
-OclBuiltinImpl intel_sub_group_block_read1_16_fake = OclBuiltinImpl<intel_sub_group_block_read1_16, [ v16i32 ], 0,
+OclBuiltinImpl intel_sub_group_block_read1_16_fake = OclBuiltinImpl<intel_sub_group_block_read1_16, [ v1u32 ], 0,
   [{
     return 0;
   }]>;
 
-OclBuiltinImpl intel_sub_group_block_read2_16_fake = OclBuiltinImpl<intel_sub_group_block_read2_16, [ v32i32 ], 0,
+OclBuiltinImpl intel_sub_group_block_read2_16_fake = OclBuiltinImpl<intel_sub_group_block_read2_16, [ v1u32 ], 0,
   [{
     return 0;
   }]>;
 
-OclBuiltinImpl intel_sub_group_block_read4_16_fake = OclBuiltinImpl<intel_sub_group_block_read4_16, [ v64i32 ], 0,
+OclBuiltinImpl intel_sub_group_block_read4_16_fake = OclBuiltinImpl<intel_sub_group_block_read4_16, [ v1u32 ], 0,
   [{
     return 0;
   }]>;
 
-OclBuiltinImpl intel_sub_group_block_read8_16_fake = OclBuiltinImpl<intel_sub_group_block_read8_16, [ v128i32 ], 0,
+OclBuiltinImpl intel_sub_group_block_read8_16_fake = OclBuiltinImpl<intel_sub_group_block_read8_16, [ v1u32 ], 0,
   [{
     return 0;
   }]>;
 
-OclBuiltinImpl intel_sub_group_block_write1_4_fake = OclBuiltinImpl<intel_sub_group_block_write1_4, [ v4i32 ], 0,
+OclBuiltinImpl intel_sub_group_block_write1_4_fake = OclBuiltinImpl<intel_sub_group_block_write1_4, [ v1u32 ], 0,
   [{
   }]>;
 
-OclBuiltinImpl intel_sub_group_block_write2_4_fake = OclBuiltinImpl<intel_sub_group_block_write2_4, [ v8i32 ], 0,
+OclBuiltinImpl intel_sub_group_block_write2_4_fake = OclBuiltinImpl<intel_sub_group_block_write2_4, [ v1u32 ], 0,
   [{
   }]>;
 
-OclBuiltinImpl intel_sub_group_block_write4_4_fake = OclBuiltinImpl<intel_sub_group_block_write4_4, [ v16i32 ], 0,
+OclBuiltinImpl intel_sub_group_block_write4_4_fake = OclBuiltinImpl<intel_sub_group_block_write4_4, [ v1u32 ], 0,
   [{
   }]>;
 
-OclBuiltinImpl intel_sub_group_block_write8_4_fake = OclBuiltinImpl<intel_sub_group_block_write8_4, [ v32i32 ], 0,
+OclBuiltinImpl intel_sub_group_block_write8_4_fake = OclBuiltinImpl<intel_sub_group_block_write8_4, [ v1u32 ], 0,
   [{
   }]>;
 
-OclBuiltinImpl intel_sub_group_block_write1_8_fake = OclBuiltinImpl<intel_sub_group_block_write1_8, [ v8i32 ], 0,
+OclBuiltinImpl intel_sub_group_block_write1_8_fake = OclBuiltinImpl<intel_sub_group_block_write1_8, [ v1u32 ], 0,
   [{
   }]>;
 
-OclBuiltinImpl intel_sub_group_block_write2_8_fake = OclBuiltinImpl<intel_sub_group_block_write2_8, [ v16i32 ], 0,
+OclBuiltinImpl intel_sub_group_block_write2_8_fake = OclBuiltinImpl<intel_sub_group_block_write2_8, [ v1u32 ], 0,
   [{
   }]>;
 
-OclBuiltinImpl intel_sub_group_block_write4_8_fake = OclBuiltinImpl<intel_sub_group_block_write4_8, [ v32i32 ], 0,
+OclBuiltinImpl intel_sub_group_block_write4_8_fake = OclBuiltinImpl<intel_sub_group_block_write4_8, [ v1u32 ], 0,
   [{
   }]>;
 
-OclBuiltinImpl intel_sub_group_block_write8_8_fake = OclBuiltinImpl<intel_sub_group_block_write8_8, [ v64i32 ], 0,
+OclBuiltinImpl intel_sub_group_block_write8_8_fake = OclBuiltinImpl<intel_sub_group_block_write8_8, [ v1u32 ], 0,
   [{
   }]>;
 
-OclBuiltinImpl intel_sub_group_block_write1_16_fake = OclBuiltinImpl<intel_sub_group_block_write1_16, [ v16i32 ], 0,
+OclBuiltinImpl intel_sub_group_block_write1_16_fake = OclBuiltinImpl<intel_sub_group_block_write1_16, [ v1u32 ], 0,
   [{
   }]>;
 
-OclBuiltinImpl intel_sub_group_block_write2_16_fake = OclBuiltinImpl<intel_sub_group_block_write2_16, [ v32i32 ], 0,
+OclBuiltinImpl intel_sub_group_block_write2_16_fake = OclBuiltinImpl<intel_sub_group_block_write2_16, [ v1u32 ], 0,
   [{
   }]>;
 
-OclBuiltinImpl intel_sub_group_block_write4_16_fake = OclBuiltinImpl<intel_sub_group_block_write4_16, [ v64i32 ], 0,
+OclBuiltinImpl intel_sub_group_block_write4_16_fake = OclBuiltinImpl<intel_sub_group_block_write4_16, [ v1u32 ], 0,
   [{
   }]>;
 
-OclBuiltinImpl intel_sub_group_block_write8_16_fake = OclBuiltinImpl<intel_sub_group_block_write8_16, [ v128i32 ], 0,
+OclBuiltinImpl intel_sub_group_block_write8_16_fake = OclBuiltinImpl<intel_sub_group_block_write8_16, [ v1u32 ], 0,
   [{
   }]>;
 

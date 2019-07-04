@@ -81,7 +81,7 @@ let NeedForwardDecl = 1 in {
             def intel_sub_group_block_read#!cast<string>(len)#"_"#!cast<string>(vf) :
               OclBuiltin<"intel_sub_group_block_read"#len#"_"#vf, (outs !cast<OclType>("v"#!mul(len, vf)#"u32"):$ret), (ins cgpv1u32:$data), [], [], 1, 0>;
             def intel_sub_group_block_write#!cast<string>(len)#"_"#!cast<string>(vf) :
-              OclBuiltin<"intel_sub_group_block_read"#len#"_"#vf, (outs void:$ret), (ins cgpv1u32:$data, !cast<OclType>("v"#!mul(len, vf)#"u32"):$src), [], [], 1, 0>;
+              OclBuiltin<"intel_sub_group_block_write"#len#"_"#vf, (outs void:$ret), (ins cgpv1u32:$data, !cast<OclType>("v"#!mul(len, vf)#"u32"):$src), [], [], 1, 0>;
           }
         }
       }
