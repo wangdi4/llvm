@@ -290,6 +290,21 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
   }
 
+  void CompilationUtils::getAllSyncBuiltinsDclsForNoDuplicateRelax(
+      FunctionSet &functionSet, Module *pModule) {
+    getAllSyncBuiltinsDcls(functionSet, pModule);
+    // add sub_group_barrier separately. It does not require
+    // following Barrier compilation flow, but
+    // requires noduplicate relaxation.
+    for (auto &F : pModule->functions())
+      if (F.isDeclaration()) {
+      llvm::StringRef func_name = F.getName();
+      if (func_name == CompilationUtils::mangledSGBarrier(CompilationUtils::BARRIER_NO_SCOPE) ||
+          func_name == CompilationUtils::mangledSGBarrier(CompilationUtils::BARRIER_WITH_SCOPE))
+        functionSet.insert(&F);
+      }
+  }
+
   void CompilationUtils::getAllSyncBuiltinsDcls(FunctionSet &functionSet, Module *pModule) {
     //Clear old collected data!
     functionSet.clear();
