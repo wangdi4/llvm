@@ -482,6 +482,8 @@ void initializeRemoveRegionDirectivesLegacyPassPass(PassRegistry &);
 void initializeLoopOptReportEmitterLegacyPassPass(PassRegistry&);
 // Pass for loop carried CSE
 void initializeLoopCarriedCSELegacyPass(PassRegistry&);
+// Pass for transforming __fpga_reg builtin representation
+void initializeTransformFPGARegPass(PassRegistry &);
 // HIR Passes
 void initializeHIRRegionIdentificationWrapperPassPass(PassRegistry&);
 void initializeHIRSCCFormationWrapperPassPass(PassRegistry&);
