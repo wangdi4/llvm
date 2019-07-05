@@ -87,12 +87,25 @@ OclBuiltinImpl sub_group_reduce_add_avx512fv8iu32 = OclBuiltinImpl<sub_group_red
 
 OclBuiltinImpl sub_group_reduce_add_avx512fv16iu64 = OclBuiltinImpl<sub_group_reduce_add, [ v16i64, v16u64 ], 0,
   [{
-    return _mm512_reduce_add_epi64(*(__m512i*)&$Arg0VarName) + _mm512_reduce_add_epi64(*(__m512i*)(&$Arg0VarName+8));
+    $Arg0BaseType#8 lo = $Arg0VarName.lo;
+    $Arg0BaseType#8 hi = $Arg0VarName.hi;
+    $Arg0BaseType lores = _mm512_reduce_add_epi64(*(__m512i*)&lo);
+    $Arg0BaseType hires = _mm512_reduce_add_epi64(*(__m512i*)&hi);
+    $Arg0BaseType scalar_res = lores + hires;
+    $Arg0Type res = ($Arg0Type) scalar_res;
+    return res;
   }]>;
 
 OclBuiltinImpl sub_group_reduce_add_avx512fv16f64 = OclBuiltinImpl<sub_group_reduce_add, [ v16f64 ], 0,
   [{
-    return _mm512_reduce_add_pd(*(__m512d*)&$Arg0VarName) + _mm512_reduce_add_pd(*(__m512d*)(&$Arg0VarName+8));
+    $Arg0BaseType#8 lo = $Arg0VarName.lo;
+    $Arg0BaseType#8 hi = $Arg0VarName.hi;
+    $Arg0BaseType lores = _mm512_reduce_add_pd(*(__m512d*)&lo);
+    $Arg0BaseType hires = _mm512_reduce_add_pd(*(__m512d*)&hi);
+    $Arg0BaseType scalar_res = lores + hires;
+    $Arg0Type res = ($Arg0Type) scalar_res;
+    return res;
+    //return _mm512_reduce_add_pd(*(__m512d*)&$Arg0VarName) + _mm512_reduce_add_pd(*(__m512d*)(&$Arg0VarName+8));
   }]>;
 
 // add end
@@ -144,9 +157,13 @@ OclBuiltinImpl sub_group_reduce_min_avx512fv8i64 = OclBuiltinImpl<sub_group_redu
 
 OclBuiltinImpl sub_group_reduce_min_avx512fv16i64 = OclBuiltinImpl<sub_group_reduce_min, [ v16i64 ], 0,
   [{
-    long a = _mm512_reduce_min_epi64(*((__m512i*)&$Arg0VarName));
-    long b = _mm512_reduce_min_epi64(*((__m512i*)(&$Arg0VarName+8)));
-    return a < b ? a : b;
+    $Arg0BaseType#8 lo = $Arg0VarName.lo;
+    $Arg0BaseType#8 hi = $Arg0VarName.hi;
+    $Arg0BaseType lores = _mm512_reduce_min_epi64(*((__m512i*)&lo));
+    $Arg0BaseType hires = _mm512_reduce_min_epi64(*((__m512i*)&hi));
+    $Arg0BaseType scalar_res = lores < hires ? lores : hires;
+    $Arg0Type res = ($Arg0Type) scalar_res;
+    return res;
   }]>;
 
 OclBuiltinImpl sub_group_reduce_min_avx512fv8u64 = OclBuiltinImpl<sub_group_reduce_min, [ v8u64 ], 0,
@@ -156,9 +173,13 @@ OclBuiltinImpl sub_group_reduce_min_avx512fv8u64 = OclBuiltinImpl<sub_group_redu
 
 OclBuiltinImpl sub_group_reduce_min_avx512fv16u64 = OclBuiltinImpl<sub_group_reduce_min, [ v16u64 ], 0,
   [{
-    unsigned long a = _mm512_reduce_min_epu64(*((__m512i*)&$Arg0VarName));
-    unsigned long b = _mm512_reduce_min_epu64(*((__m512i*)(&$Arg0VarName+8)));
-    return a < b ? a : b;
+    $Arg0BaseType#8 lo = $Arg0VarName.lo;
+    $Arg0BaseType#8 hi = $Arg0VarName.hi;
+    $Arg0BaseType lores = _mm512_reduce_min_epu64(*((__m512i*)&lo));
+    $Arg0BaseType hires = _mm512_reduce_min_epu64(*((__m512i*)&hi));
+    $Arg0BaseType scalar_res = lores < hires ? lores : hires;
+    $Arg0Type res = ($Arg0Type) scalar_res;
+    return res;
   }]>;
 
 OclBuiltinImpl sub_group_reduce_min_avx512fv8f64 = OclBuiltinImpl<sub_group_reduce_min, [ v8f64 ], 0,
@@ -168,9 +189,13 @@ OclBuiltinImpl sub_group_reduce_min_avx512fv8f64 = OclBuiltinImpl<sub_group_redu
 
 OclBuiltinImpl sub_group_reduce_min_avx512fv16f64 = OclBuiltinImpl<sub_group_reduce_min, [ v16f64 ], 0,
   [{
-    double a = _mm512_reduce_min_pd(*((__m512d*)&$Arg0VarName));
-    double b = _mm512_reduce_min_pd(*((__m512d*)(&$Arg0VarName+8)));
-    return a < b ? a : b;
+    $Arg0BaseType#8 lo = $Arg0VarName.lo;
+    $Arg0BaseType#8 hi = $Arg0VarName.hi;
+    $Arg0BaseType lores = _mm512_reduce_min_pd(*((__m512d*)&lo));
+    $Arg0BaseType hires = _mm512_reduce_min_pd(*((__m512d*)&hi));
+    $Arg0BaseType scalar_res = lores < hires ? lores : hires;
+    $Arg0Type res = ($Arg0Type) scalar_res;
+    return res;
   }]>;
 
 // min end
@@ -222,9 +247,13 @@ OclBuiltinImpl sub_group_reduce_max_avx512fv8i64 = OclBuiltinImpl<sub_group_redu
 
 OclBuiltinImpl sub_group_reduce_max_avx512fv16i64 = OclBuiltinImpl<sub_group_reduce_max, [ v16i64 ], 0,
   [{
-    long a = _mm512_reduce_max_epi64(*((__m512i*)&$Arg0VarName));
-    long b = _mm512_reduce_max_epi64(*((__m512i*)(&$Arg0VarName+8)));
-    return a > b ? a : b;
+    $Arg0BaseType#8 lo = $Arg0VarName.lo;
+    $Arg0BaseType#8 hi = $Arg0VarName.hi;
+    $Arg0BaseType lores = _mm512_reduce_max_epi64(*((__m512i*)&lo));
+    $Arg0BaseType hires = _mm512_reduce_max_epi64(*((__m512i*)&hi));
+    $Arg0BaseType scalar_res = lores > hires ? lores : hires;
+    $Arg0Type res = ($Arg0Type) scalar_res;
+    return res;
   }]>;
 
 OclBuiltinImpl sub_group_reduce_max_avx512fv8u64 = OclBuiltinImpl<sub_group_reduce_max, [ v8u64 ], 0,
@@ -232,11 +261,15 @@ OclBuiltinImpl sub_group_reduce_max_avx512fv8u64 = OclBuiltinImpl<sub_group_redu
     return _mm512_reduce_max_epu64((__m512i)$Arg0VarName);
   }]>;
 
-OclBuiltinImpl sub_group_reduce_min_avx512fv16u64 = OclBuiltinImpl<sub_group_reduce_min, [ v16u64 ], 0,
+OclBuiltinImpl sub_group_reduce_max_avx512fv16u64 = OclBuiltinImpl<sub_group_reduce_max, [ v16u64 ], 0,
   [{
-    unsigned long a = _mm512_reduce_max_epu64(*((__m512i*)&$Arg0VarName));
-    unsigned long b = _mm512_reduce_max_epu64(*((__m512i*)(&$Arg0VarName+8)));
-    return a > b ? a : b;
+    $Arg0BaseType#8 lo = $Arg0VarName.lo;
+    $Arg0BaseType#8 hi = $Arg0VarName.hi;
+    $Arg0BaseType lores = _mm512_reduce_max_epu64(*((__m512i*)&lo));
+    $Arg0BaseType hires = _mm512_reduce_max_epu64(*((__m512i*)&hi));
+    $Arg0BaseType scalar_res = lores > hires ? lores : hires;
+    $Arg0Type res = ($Arg0Type) scalar_res;
+    return res;
   }]>;
 
 OclBuiltinImpl sub_group_reduce_max_avx512fv8f64 = OclBuiltinImpl<sub_group_reduce_max, [ v8f64 ], 0,
@@ -244,11 +277,15 @@ OclBuiltinImpl sub_group_reduce_max_avx512fv8f64 = OclBuiltinImpl<sub_group_redu
     return _mm512_reduce_max_pd((__m512d)$Arg0VarName);
   }]>;
 
-OclBuiltinImpl sub_group_reduce_min_avx512fv16f64 = OclBuiltinImpl<sub_group_reduce_min, [ v16f64 ], 0,
+OclBuiltinImpl sub_group_reduce_max_avx512fv16f64 = OclBuiltinImpl<sub_group_reduce_max, [ v16f64 ], 0,
   [{
-    double a = _mm512_reduce_min_pd(*((__m512d*)&$Arg0VarName));
-    double b = _mm512_reduce_min_pd(*((__m512d*)(&$Arg0VarName+8)));
-    return a > b ? a : b;
+    $Arg0BaseType#8 lo = $Arg0VarName.lo;
+    $Arg0BaseType#8 hi = $Arg0VarName.hi;
+    $Arg0BaseType lores = _mm512_reduce_max_pd(*((__m512d*)&lo));
+    $Arg0BaseType hires = _mm512_reduce_max_pd(*((__m512d*)&hi));
+    $Arg0BaseType scalar_res = lores > hires ? lores : hires;
+    $Arg0Type res = ($Arg0Type) scalar_res;
+    return res;
   }]>;
 
 // max end
