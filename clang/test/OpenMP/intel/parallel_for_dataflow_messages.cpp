@@ -21,16 +21,10 @@ void foo() {
 #pragma omp parallel for num_threads(2) dataflow(static(4)) // expected-no-error
   for (int i = 0; i < 16; ++i) {
   }
-#pragma omp parallel for num_threads(2) dataflow(num_workers(4)) // expected-error {{'num_workers' modifier of 'dataflow' clause conflicts with 'num_threads' clause}} expected-note {{conflicting entry is here}}
+#pragma omp parallel for num_threads(2) dataflow(num_workers(4)) // expected-no-error
   for (int i = 0; i < 16; ++i) {
   }
-#pragma omp parallel for dataflow(num_workers(4)) num_threads(2) // expected-error {{'num_workers' modifier of 'dataflow' clause conflicts with 'num_threads' clause}} expected-note {{conflicting entry is here}}
-  for (int i = 0; i < 16; ++i) {
-  }
-#pragma omp parallel for dataflow(static(2),num_workers(4)) num_threads(2) // expected-error {{'num_workers' modifier of 'dataflow' clause conflicts with 'num_threads' clause}} expected-note {{conflicting entry is here}}
-  for (int i = 0; i < 16; ++i) {
-  }
-#pragma omp parallel for num_threads(7) dataflow(pipeline(2),num_workers(4)) num_threads(2) // expected-error {{'num_workers' modifier of 'dataflow' clause conflicts with 'num_threads' clause}} expected-note {{conflicting entry is here}} expected-error {{directive '#pragma omp parallel for' cannot contain more than one 'num_threads' clause}}
+#pragma omp parallel for dataflow(num_workers(4)) num_threads(2) // expected-no-error
   for (int i = 0; i < 16; ++i) {
   }
 }

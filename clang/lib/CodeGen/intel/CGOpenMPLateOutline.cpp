@@ -1039,17 +1039,17 @@ void OpenMPLateOutliner::emitOMPNumThreadsClause(
 void OpenMPLateOutliner::emitOMPDataflowClause(const OMPDataflowClause *Cl) {
   if (auto *E = Cl->getStaticChunkSize()) {
     ClauseEmissionHelper CEH(*this, OMPC_dataflow);
-    addArg("QUAL.OMP.SCHEDULE.STATIC");
+    addArg("QUAL.OMP.SA.SCHEDULE.STATIC");
     addArg(CGF.EmitScalarExpr(E));
   }
   if (auto *E = Cl->getNumWorkersNum()) {
     ClauseEmissionHelper CEH(*this, OMPC_dataflow);
-    addArg("QUAL.OMP.NUM_THREADS");
+    addArg("QUAL.OMP.SA.NUM_WORKERS");
     addArg(CGF.EmitScalarExpr(E));
   }
   if (auto *E = Cl->getPipelineDepth()) {
     ClauseEmissionHelper CEH(*this, OMPC_dataflow);
-    addArg("QUAL.OMP.PIPELINE");
+    addArg("QUAL.OMP.SA.PIPELINE");
     addArg(CGF.EmitScalarExpr(E));
   }
 }
