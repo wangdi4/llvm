@@ -72,7 +72,7 @@ const std::uint32_t SPIRVVersion       = 0x00010000;
 const std::uint32_t SPIRVOpCapability  = 0x00020000 | spv::OpCapability;
 const std::uint32_t SPIRVOpMemoryModel = 0x00030000 | spv::OpMemoryModel;
 
-// test what a module with device agnostic capabilities is accepted by FE
+// test that a module with device agnostic capabilities is accepted by FE
 TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesLittleEndian) {
     // Hand made SPIR-V module
     std::uint32_t const spvBC[] = {
@@ -104,7 +104,7 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesLittleEndian) {
 // Enable the following subtest once the byte order bug is fixed in SPIR-V consumer
 // https://jira01.devtools.intel.com/browse/CORC-1111
 // https://github.com/KhronosGroup/SPIRV-LLVM/issues/132
-// test what a module with device agnostic capabilities is accepted by FE
+// test that a module with device agnostic capabilities is accepted by FE
 TEST_F(ClangCompilerTestType, DISABLED_Test_AcceptCommonSpirvCapabilitiesBigEndian) {
     // Hand made SPIR-V module
     std::uint32_t spvBC[] = {
@@ -137,7 +137,7 @@ TEST_F(ClangCompilerTestType, DISABLED_Test_AcceptCommonSpirvCapabilitiesBigEndi
     ASSERT_EQ(CL_SUCCESS, err) << "Unexpected retcode for a valid SPIR-V module.\n";
 }
 
-// test what a module w\o mandatory memory model instruction is rejected
+// test that a module w\o mandatory memory model instruction is rejected
 TEST_F(ClangCompilerTestType, Test_NoSpirvMemoryModel) {
     // Hand made SPIR-V module
     std::uint32_t const spvBC[] = {
@@ -154,7 +154,7 @@ TEST_F(ClangCompilerTestType, Test_NoSpirvMemoryModel) {
         << "Unexpected retcode for a SPIR-V module w\\o mandatory OpMemoryModel .\n";
 }
 
-// test what a module requiring fp64 and images is accepted by a device
+// test that a module requiring fp64 and images is accepted by a device
 // which supports it
 TEST_F(ClangCompilerTestType, Test_SpirvWithFP64AndImages) {
     // Hand made SPIR-V module
@@ -189,7 +189,7 @@ TEST_F(ClangCompilerTestType, Test_SpirvWithFP64AndImages) {
         << "Unexpected retcode for a device supporting images/fp64 .\n";
 }
 
-// test what a module requiring fp64 is rejected by a device which doesn't support fp64
+// test that a module requiring fp64 is rejected by a device which doesn't support fp64
 TEST_F(ClangCompilerTestType, Test_SpirvDeviceWOFP64) {
     // Hand made SPIR-V module
     std::uint32_t const spvBC[] = {
@@ -219,7 +219,7 @@ TEST_F(ClangCompilerTestType, Test_SpirvDeviceWOFP64) {
         << "Unexpected retcode for a device w\\o fp64 support.\n";
 }
 
-// test what a module requiring images is rejected by a device which doesn't support images
+// test that a module requiring images is rejected by a device which doesn't support images
 TEST_F(ClangCompilerTestType, Test_SpirvDeviceWOImages) {
     CLANG_DEV_INFO devInfo = {
         "",   // extensions
