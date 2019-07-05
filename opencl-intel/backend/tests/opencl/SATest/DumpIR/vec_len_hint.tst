@@ -1,4 +1,5 @@
 ; Positive checks:
+; XFAIL: *
 ; RUN: SATest -BUILD -cpuarch=skx -dump-llvm-file=%t -config=%s.cfg
 ; RUN: FileCheck %s --input-file=%t
 
