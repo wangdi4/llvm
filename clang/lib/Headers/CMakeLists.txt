@@ -37,6 +37,18 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/csa/bits/mathinline.h
   )
 # end INTEL_FEATURE_CSA
+# INTEL_FEATURE_ICECODE
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ICECODE
+  Intel_Headers/icecode/ceintrin.h
+  )
+# end INTEL_FEATURE_ICECODE
+# INTEL_FEATURE_ISA_ENQCMD
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_ENQCMD
+  Intel_Headers/enqcmdintrin.h
+  )
+# end INTEL_FEATURE_ISA_ENQCMD
 # INTEL_FEATURE_ISA_ULI
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_ULI

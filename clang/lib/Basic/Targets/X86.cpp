@@ -147,6 +147,14 @@ bool X86TargetInfo::initFeatureMap(
   if (getTriple().getArch() == llvm::Triple::x86_64)
     setFeatureEnabledImpl(Features, "sse2", true);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  // Enable icecode-mode for IceCode target.
+  if (getTriple().getArch() == llvm::Triple::x86_icecode)
+    setFeatureEnabledImpl(Features, "icecode-mode", true);
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
+
   const CPUKind Kind = getCPUKind(CPU);
 
   // Enable X87 for all X86 processors but Lakemont.
@@ -1084,6 +1092,16 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   Builder.defineMacro("__code_model_" + CodeModel + "_");
 
   // Target identification.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  if (getTriple().getArch() == llvm::Triple::x86_icecode) {
+    Builder.defineMacro("__amd64__");
+    Builder.defineMacro("__amd64");
+    Builder.defineMacro("__x86_64");
+    Builder.defineMacro("__ICECODE__");
+  } else
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
   if (getTriple().getArch() == llvm::Triple::x86_64) {
     Builder.defineMacro("__amd64__");
     Builder.defineMacro("__amd64");
