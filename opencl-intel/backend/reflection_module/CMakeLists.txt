@@ -10,11 +10,11 @@ if( BACKEND_BUILD_VERIFICATION_LIB )
 endif( BACKEND_BUILD_VERIFICATION_LIB )
 
 add_custom_command(
-  OUTPUT BuiltinList.h
-  COMMAND ${CMAKE_COMMAND} -E copy ${OCL_SOURCE_DIR}/tests/name_mangling_test_type/MangledNames.h
-  BuiltinList.h
+  OUTPUT BuiltinList.inc
+  COMMAND ${CMAKE_COMMAND} -E copy ${OCL_BINARY_DIR}/tests/name_mangling_test_type/MangledNames.inc
+  BuiltinList.inc
   DEPENDS name_mangling_test_type
-  COMMENT "copying MangledNames.h ..."
+  COMMENT "copying MangledNames.inc ..."
   VERBATIM
 )
 
@@ -33,8 +33,8 @@ add_custom_command(
   VERBATIM
 )
 
-set(BUILT_IN_LIST_H
-  BuiltinList.h
+set(BUILT_IN_LIST_INC
+  BuiltinList.inc
 )
 set(CUSTOM_MAPPINGS_GEN
   CustomMappings.gen
@@ -53,7 +53,7 @@ set(TARGET_INCLUDE_FILES
   BuiltinKeeper.h
   CustomVersionMaping.h
   VersionStrategy.h
-  ${BUILT_IN_LIST_H}
+  ${BUILT_IN_LIST_INC}
   BuiltinMap.h
   utils.h
 )

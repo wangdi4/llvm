@@ -718,12 +718,12 @@ bool BuiltinKeeper::isInExceptionMap(const std::string& name)const{
   return false;
 }
 
-#include "BuiltinList.h"
+#include "BuiltinList.inc"
 
 bool BuiltinKeeper::searchAndCacheUpdate(const FunctionDescriptor& fd) const {
   bool bFound = false, bLineCached = false;
 
-  // Iterated over the mangledNames array (included in BuiltinList.h), and
+  // Iterated over the mangledNames array (included in BuiltinList.inc), and
   // search the name. As we go along, we populate the cache.
   for (size_t i=0 ; i<(sizeof(mangledNames)/sizeof(char*)) ; ++i){
     llvm::StringRef strippedName = stripName(mangledNames[i]);

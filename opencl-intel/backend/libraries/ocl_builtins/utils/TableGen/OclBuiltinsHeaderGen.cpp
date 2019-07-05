@@ -183,9 +183,9 @@ void OclBuiltinsHeaderGen::run(raw_ostream& stream){
   OclBuiltinDB bidb(m_recordKeeper);
   emitSourceFileHeader(DESC, stream);
   CodeFormatter formatter(stream);
-  formatter << "#ifndef __MANGLED_BI_NAMES_H__";
+  formatter << "#ifndef __MANGLED_NAMES_INC__";
   formatter.endl();
-  formatter << "#define __MANGLED_BI_NAMES_H__";
+  formatter << "#define __MANGLED_NAMES_INC__";
   formatter.endl();
   //
   //emit the UNUSED macro
@@ -211,7 +211,7 @@ void OclBuiltinsHeaderGen::run(raw_ostream& stream){
     }
   }
   formatter.endl();
-  formatter << "#endif//__MANGLED_BI_NAMES_H__";
+  formatter << "#endif//__MANGLED_NAMES_INC__";
   formatter.endl();
 }
 
