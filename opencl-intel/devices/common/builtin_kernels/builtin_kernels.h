@@ -54,6 +54,8 @@ public:
     virtual const Intel::OpenCL::DeviceBackend::ICLDevBackendProgramJITCodeProperties* GetProgramJITCodeProperties() const {return nullptr;}
     virtual size_t GetGlobalVariableTotalSize() const {return 0;}
 
+    cl_ulong GetFunctionPointerFor(const char *) const override { return 0; }
+
 protected:
     // Stores a list of MKL kernels perticipated in the Built-In kernel program
     typedef std::map<std::string, Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_*> BIKernelsMap_t;

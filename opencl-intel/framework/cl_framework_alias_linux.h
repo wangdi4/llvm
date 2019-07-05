@@ -138,4 +138,5 @@ DECLARE_ALIAS(clMapHostPipeIntelFPGA);
 DECLARE_ALIAS(clUnmapHostPipeIntelFPGA);
 DECLARE_ALIAS(clReadPipeIntelFPGA);
 DECLARE_ALIAS(clWritePipeIntelFPGA);
+DECLARE_ALIAS(clGetDeviceFunctionPointerINTEL);
 }}}

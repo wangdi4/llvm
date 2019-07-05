@@ -168,6 +168,8 @@ public:
      *      0 will be returned
      */
     virtual size_t GetGlobalVariableTotalSize() const = 0;
+
+    virtual cl_ulong GetFunctionPointerFor(const char *FunctionName) const = 0;
 };
 }}} // namespace
 

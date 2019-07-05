@@ -370,6 +370,27 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
     return CL_DEV_SUCCESS;
 }
 
+cl_dev_err_code ProgramService::GetFunctionPointerFor(cl_dev_program IN prog,
+    const char* IN func_name, cl_ulong* OUT func_pointer_ret) const
+{
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"),
+        TEXT("GetFunctionPointerFor enter"));
+
+    TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
+
+    // Program already built?
+    if (CL_BUILD_SUCCESS != pEntry->clBuildStatus)
+    {
+        return CL_DEV_INVALID_PROGRAM_EXECUTABLE;
+    }
+
+    assert(func_pointer_ret && "func_pointer ret is nullptr");
+    *func_pointer_ret = pEntry->pProgram->GetFunctionPointerFor(func_name);
+
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Exit"));
+    return CL_DEV_SUCCESS;
+}
+
 /********************************************************************************************************************
 clDevReleaseProgram
     Description

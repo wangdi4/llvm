@@ -237,6 +237,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
             cl_int *errcode_ret);
 
         ///////////////////////////////////////////////////////////////////////
+        // cl_intel_function_pointers functions
+        ///////////////////////////////////////////////////////////////////////
+
+        cl_int GetDeviceFunctionPointer(cl_device_id device,
+            cl_program program, const char* func_name,
+            cl_ulong* function_pointer_ret);
+
+        ///////////////////////////////////////////////////////////////////////
         // Utility functions
         ///////////////////////////////////////////////////////////////////////
         void CommandQueueCreated( OclCommandQueue* queue );

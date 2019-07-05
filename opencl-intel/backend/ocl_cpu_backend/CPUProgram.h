@@ -51,6 +51,8 @@ public:
 
     void SetObjectCache(ObjectCodeCache *);
 
+    cl_ulong GetFunctionPointerFor(const char *) const override;
+
 private:
     llvm::ExecutionEngine*  m_pExecutionEngine;
     llvm::SmallVector<llvm::Module*, 2> m_bltnFuncList;

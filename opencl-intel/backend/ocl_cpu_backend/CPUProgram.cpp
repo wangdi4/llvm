@@ -55,6 +55,10 @@ void* CPUProgram::GetPointerToFunction(llvm::Function* F) {
     return reinterpret_cast<void*>(m_pExecutionEngine->getFunctionAddress(F->getName().str()));
 }
 
+cl_ulong CPUProgram::GetFunctionPointerFor(const char *FunctionName) const {
+    return (cl_ulong)(m_pExecutionEngine->getFunctionAddress(FunctionName));
+}
+
 void CPUProgram::Deserialize(IInputStream& ist, SerializationStatus* stats)
 {
     void* pModule = (nullptr != m_pIRCodeContainer) ? m_pIRCodeContainer->GetModule() : nullptr;
