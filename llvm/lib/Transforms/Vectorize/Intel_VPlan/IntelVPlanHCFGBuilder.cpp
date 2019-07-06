@@ -1978,7 +1978,6 @@ VPValue *PlainCFGBuilder::getOrCreateVPOperand(Value *IRVal) {
   // definitions. We may introduce specific VPValue subclasses for them in the
   // future.
   assert(isExternalDef(IRVal) && "Expected external definition as operand.");
-
   // A and B: Create VPValue and add it to the pool of external definitions and
   // to the Value->VPValue map.
   VPExternalDef *ExtDef = Plan->getVPExternalDef(IRVal);
