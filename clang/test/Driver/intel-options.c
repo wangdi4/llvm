@@ -24,3 +24,8 @@
 // RUN: %clang_cl -### -c /Oa %s 2>&1 | FileCheck -check-prefix CHECK-FNO_ALIAS %s
 // CHECK-FNO_ALIAS: "-fargument-noalias"
 
+// Behavior with regcall option
+// RUN: %clang -### -c -regcall %s 2>&1 | FileCheck -check-prefix CHECK-REGCALL %s
+// RUN: %clang_cl -### -c /Qregcall %s 2>&1 | FileCheck -check-prefix CHECK-REGCALL %s
+// CHECK-REGCALL: "-fdefault-calling-conv=regcall"
+

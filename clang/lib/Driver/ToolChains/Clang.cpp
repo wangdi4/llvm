@@ -5597,6 +5597,11 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasArg(options::OPT_fno_alias)) {
     CmdArgs.push_back("-fargument-noalias");
   }
+  // This setting is for Non-windows targets.
+  if (!D.IsCLMode())
+    if (Args.hasArg(options::OPT_regcall))
+      CmdArgs.push_back("-fdefault-calling-conv=regcall");
+
   if (Args.hasArg(options::OPT__intel)) {
     CmdArgs.push_back("-fintel-compatibility");
     CmdArgs.push_back("-mllvm");
