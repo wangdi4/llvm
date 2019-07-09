@@ -3024,23 +3024,6 @@ llvm::Type *X86_64ABIInfo::GetByteVectorType(QualType Ty) const {
     Ty = QualType(InnerTy, 0);
 
   llvm::Type *IRType = CGT.ConvertType(Ty);
-#if INTEL_CUSTOMIZATION
-  if (llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(IRType)) {
-    llvm::Type *EltTy = AT->getElementType();
-    if (EltTy->isFloatTy() || EltTy->isDoubleTy() ||
-        EltTy->isIntegerTy(8) || EltTy->isIntegerTy(16) ||
-        EltTy->isIntegerTy(32) || EltTy->isIntegerTy(64) ||
-        EltTy->isIntegerTy(128)) {
-      unsigned BitWidth =
-          EltTy->getPrimitiveSizeInBits() * AT->getNumElements();
-      if (BitWidth >= 128 && BitWidth <= 256)
-        IRType = llvm::VectorType::get(EltTy, AT->getNumElements());
-    }
-    return IRType;
-  }
-  else if (IRType->isStructTy())
-    return IRType;
-#endif // INTEL_CUSTOMIZATION
 
   if (isa<llvm::VectorType>(IRType) ||
       IRType->getTypeID() == llvm::Type::FP128TyID)
