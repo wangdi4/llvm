@@ -15,6 +15,7 @@ option(INCLUDE_CMRT "Include Common Runtime into Build"  OFF)
 option(BUILD_LLVM_FROM_SOURCE "Build the llvm package from source instead of using pre-installed binaries" OFF)
 option(LLVM_BUILD_OCL_CPU_BACKEND "Build OpenCL CPU backend DLL." ON)
 option(USE_GPA "Enable GPA support" OFF)
+option(BUILD_EYEQ_BUILTINS "Build EyeQ built-ins" OFF)
 
 # validation
 # TODO: add 'master' option to disable all kinds of validation
