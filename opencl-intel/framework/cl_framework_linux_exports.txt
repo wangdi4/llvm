@@ -12,6 +12,7 @@
         clCreateProgramWithBinary;
         clCreateProgramWithSource;
         clCreateProgramWithIL;
+        clCreateProgramWithILKHR;
         clCreateSampler;
         clEnqueueBarrier;
         clEnqueueCopyBuffer;

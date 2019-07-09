@@ -7,6 +7,7 @@
 #include "test_utils.h"
 #include "CL/cl_platform.h"
 #include "cl_config.h"
+#include "common_utils.h"
 
 using Intel::OpenCL::Utils::OPENCL_VERSION;
 
@@ -46,6 +47,18 @@ protected:
         // Do not release OpenCL stub intantionally, want to check shutdown mechanism.
     }
 
+    void GetSimpleSPIRV(std::vector<char>& spirv) const
+    {
+        std::string filename = get_exe_dir() + "test.spv";
+        std::fstream spirv_file(filename, std::fstream::in | std::fstream::binary | std::fstream::ate);
+        ASSERT_TRUE((bool)(spirv_file.is_open())) << " Error while opening " << filename << " file. ";
+
+        size_t length = spirv_file.tellg();
+        spirv_file.seekg(0, spirv_file.beg);
+
+        spirv.resize(length, 0);
+        spirv_file.read(&spirv[0], length);
+    }
 };
 
 #endif /*__CL_BASE__*/

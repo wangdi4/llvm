@@ -34,6 +34,7 @@ EXPORTS
 	clGetSamplerInfo
 	clCreateProgramWithSource
 	clCreateProgramWithIL
+	clCreateProgramWithILKHR
 	clCreateProgramWithBinary
 	clCreateProgramWithBuiltInKernels
 	clRetainProgram

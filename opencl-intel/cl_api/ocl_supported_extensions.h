@@ -31,6 +31,7 @@
 #define OCL_EXT_INTEL_DEVICE_PARTITION_BY_NAMES "cl_intel_device_partition_by_names"
 
 #define OCL_EXT_KHR_SPIR                        "cl_khr_spir"
+#define OCL_EXT_KHR_IL_PROGRAM                  "cl_khr_il_program"
 
 #define OCL_EXT_KHR_IMAGE2D_FROM_BUFFER         "cl_khr_image2d_from_buffer"
 
