@@ -1262,6 +1262,11 @@ void DeclSpec::Finish(Sema &S, const PrintingPolicy &Policy) {
         S.Diag(TSTLoc, diag::ext_integer_complex);
     } else if (TypeSpecType != TST_float && // INTEL
                TypeSpecType != TST_double && // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+               TypeSpecType != TST_float16 && // INTEL
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
                TypeSpecType != TST_float128) { // INTEL
       S.Diag(TSCLoc, diag::err_invalid_complex_spec)
           << getSpecifierName((TST)TypeSpecType, Policy);

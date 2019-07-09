@@ -2611,6 +2611,12 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase,
       Current = Integer;
     } else if (k == BuiltinType::Float || k == BuiltinType::Double) {
       Current = SSE;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    } else if (k == BuiltinType::Float16) {
+      Current = SSE;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     } else if (k == BuiltinType::LongDouble) {
       const llvm::fltSemantics *LDF = &getTarget().getLongDoubleFormat();
       if (LDF == &llvm::APFloat::IEEEquad()) {
@@ -2737,6 +2743,12 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase,
         Current = Integer;
       else if (Size <= 128)
         Lo = Hi = Integer;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    } else if (ET->isFloat16Type()) {
+      Current = SSE;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     } else if (ET == getContext().FloatTy) {
       Current = SSE;
     } else if (ET == getContext().DoubleTy) {
@@ -3151,12 +3163,86 @@ static bool ContainsFloatAtOffset(llvm::Type *IRType, unsigned IROffset,
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+/// ContainsHalfAtOffset - Return true if the specified LLVM IR type has a
+/// half member at the specified offset.  For example, {int,{half}} has a
+/// float at offset 4.  It is conservatively correct for this routine to return
+/// false.
+/// FIXME: Merge with ContainsFloatAtOffset
+static bool ContainsHalfAtOffset(llvm::Type *IRType, unsigned IROffset,
+                                  const llvm::DataLayout &TD) {
+  // Base case if we find a float.
+  if (IROffset == 0 && IRType->isHalfTy())
+    return true;
+
+  // If this is a struct, recurse into the field at the specified offset.
+  if (llvm::StructType *STy = dyn_cast<llvm::StructType>(IRType)) {
+    const llvm::StructLayout *SL = TD.getStructLayout(STy);
+    unsigned Elt = SL->getElementContainingOffset(IROffset);
+    IROffset -= SL->getElementOffset(Elt);
+    return ContainsHalfAtOffset(STy->getElementType(Elt), IROffset, TD);
+  }
+
+  // If this is an array, recurse into the field at the specified offset.
+  if (llvm::ArrayType *ATy = dyn_cast<llvm::ArrayType>(IRType)) {
+    llvm::Type *EltTy = ATy->getElementType();
+    unsigned EltSize = TD.getTypeAllocSize(EltTy);
+    IROffset -= IROffset/EltSize*EltSize;
+    return ContainsHalfAtOffset(EltTy, IROffset, TD);
+  }
+
+  return false;
+}
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
 /// GetSSETypeAtOffset - Return a type that will be passed by the backend in the
 /// low 8 bytes of an XMM register, corresponding to the SSE class.
 llvm::Type *X86_64ABIInfo::
 GetSSETypeAtOffset(llvm::Type *IRType, unsigned IROffset,
                    QualType SourceTy, unsigned SourceOffset) const {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  // If only 16 bits are used, pass in half.
+  if (BitsContainNoUserData(SourceTy, SourceOffset*8+16,
+                            SourceOffset*8+64, getContext()))
+    return llvm::Type::getHalfTy(getVMContext());
+
+  // If only 32 bits are used, we have two choices. Single float or two halfs.
+  if (BitsContainNoUserData(SourceTy, SourceOffset*8+32,
+                            SourceOffset*8+64, getContext())) {
+    if (ContainsHalfAtOffset(IRType, IROffset, getDataLayout()) &&
+        ContainsHalfAtOffset(IRType, IROffset+2, getDataLayout()))
+      return llvm::VectorType::get(llvm::Type::getHalfTy(getVMContext()), 2);
+    return llvm::Type::getFloatTy(getVMContext());
+  }
+
+  // If 48 bits are used, we pass as <3 x half>.
+  if (BitsContainNoUserData(SourceTy, SourceOffset*8+48,
+                            SourceOffset*8+64, getContext())) {
+    return llvm::VectorType::get(llvm::Type::getHalfTy(getVMContext()), 3);
+  }
+
+  // We want to pass as <2 x float> if the LLVM IR type contains a float at
+  // offset+0 and offset+4.  Walk the LLVM IR type to find out if this is the
+  // case.
+  if (ContainsFloatAtOffset(IRType, IROffset, getDataLayout()) &&
+      ContainsFloatAtOffset(IRType, IROffset+4, getDataLayout()))
+    return llvm::VectorType::get(llvm::Type::getFloatTy(getVMContext()), 2);
+
+  // We want to pass as <4 x half> if the LLVM IR type contains a half at
+  // offset+0, +2, +4, +6.  Walk the LLVM IR type to find out if this is the
+  // case.
+  if (ContainsHalfAtOffset(IRType, IROffset, getDataLayout()) &&
+      ContainsHalfAtOffset(IRType, IROffset+2, getDataLayout()) &&
+      ContainsHalfAtOffset(IRType, IROffset+4, getDataLayout()) &&
+      ContainsHalfAtOffset(IRType, IROffset+6, getDataLayout()))
+    return llvm::VectorType::get(llvm::Type::getHalfTy(getVMContext()), 4);
+
+  // TODO: What about mixes of float and half?
+
+#else // INTEL_FEATURE_ISA_FP16
   // The only three choices we have are either double, <2 x float>, or float. We
   // pass as float if the last 4 bytes is just padding.  This happens for
   // structs that contain 3 floats.
@@ -3170,6 +3256,8 @@ GetSSETypeAtOffset(llvm::Type *IRType, unsigned IROffset,
   if (ContainsFloatAtOffset(IRType, IROffset, getDataLayout()) &&
       ContainsFloatAtOffset(IRType, IROffset+4, getDataLayout()))
     return llvm::VectorType::get(llvm::Type::getFloatTy(getVMContext()), 2);
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
   return llvm::Type::getDoubleTy(getVMContext());
 }
