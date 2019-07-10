@@ -43,7 +43,7 @@
 #define USE_SVM_MEMCPY 0
 #endif
 
-#ifdef OMPTARGET_DEBUG
+#ifdef OMPTARGET_OPENCL_DEBUG
 static int DebugLevel = 0;
 #define DP(...)                                                                \
   do {                                                                         \
@@ -54,7 +54,7 @@ static int DebugLevel = 0;
 #else
 #define DP(...)                                                                \
   {}
-#endif // OMPTARGET_DEBUG
+#endif // OMPTARGET_OPENCL_DEBUG
 
 #define FOREACH_CL_ERROR_CODE(FN)                                              \
   FN(CL_SUCCESS)                                                               \
@@ -121,7 +121,7 @@ static int DebugLevel = 0;
 
 #define TO_STR(s) case s: return #s;
 
-#ifdef OMPTARGET_DEBUG
+#ifdef OMPTARGET_OPENCL_DEBUG
 static const char *getCLErrorName(int error) {
   switch (error) {
     FOREACH_CL_ERROR_CODE(TO_STR)
@@ -129,7 +129,7 @@ static const char *getCLErrorName(int error) {
     return "Unknown Error";
   }
 }
-#endif // OMPTARGET_DEBUG
+#endif // OMPTARGET_OPENCL_DEBUG
 
 #define INVOKE_CL_RET(ret, fn, ...)                                            \
   do {                                                                         \
@@ -248,11 +248,11 @@ public:
   const int64_t DATA_TRANSFER_LATENCY = 0x2;
 
   RTLDeviceInfoTy() : numDevices(0), flag(0), DataTransferLatency(0) {
-#ifdef OMPTARGET_DEBUG
+#ifdef OMPTARGET_OPENCL_DEBUG
     if (char *envStr = getenv("LIBOMPTARGET_DEBUG")) {
       DebugLevel = std::stoi(envStr);
     }
-#endif // OMPTARGET_DEBUG
+#endif // OMPTARGET_OPENCL_DEBUG
     // set misc. flags
     const char *env = std::getenv("SIMT");
     if (!env || std::string(env) != "on") {
@@ -348,7 +348,7 @@ public:
       clGetDeviceInfo(deviceId, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t),
                       &maxWorkGroupSize[i], nullptr);
       DP("Maximum work group size is %d\n", maxWorkGroupSize[i]);
-#ifdef OMPTARGET_DEBUG
+#ifdef OMPTARGET_OPENCL_DEBUG
       cl_uint addressmode;
       clGetDeviceInfo(deviceId, CL_DEVICE_ADDRESS_BITS, 4, &addressmode,
                       nullptr);
@@ -576,7 +576,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     }
     entries[i].addr = &kernels[i];
     entries[i].name = name;
-#ifdef OMPTARGET_DEBUG
+#ifdef OMPTARGET_OPENCL_DEBUG
     // Show kernel information
     char kernel_info[80];
     cl_uint kernel_num_args = 0;
@@ -597,7 +597,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
                          &kernel_info[40], nullptr);
       DP("  Arg %2d: %s %s\n", idx, kernel_info, &kernel_info[40]);
     }
-#endif // OMPTARGET_DEBUG
+#endif // OMPTARGET_OPENCL_DEBUG
   }
 
   __tgt_target_table &table = DeviceInfo.FuncGblEntries[device_id].Table;

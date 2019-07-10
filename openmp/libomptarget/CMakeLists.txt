@@ -52,6 +52,9 @@ endif()
 if(LIBOMPTARGET_ENABLE_DEBUG)
   add_definitions(-DOMPTARGET_DEBUG)
 endif()
+# INTEL_CUSTOMIZATION
+add_definitions(-DOMPTARGET_DEBUG)
+# end INTEL_CUSTOMIZATION
 
 include_directories(include)
 
