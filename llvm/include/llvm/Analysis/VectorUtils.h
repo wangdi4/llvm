@@ -150,6 +150,13 @@ std::vector<Attribute> getVectorVariantAttributes(Function& F);
 /// specified according to the vector function ABI.
 Type* calcCharacteristicType(Function& F, VectorVariant& Variant);
 
+/// Helper function that returns widened type of given type \p Ty.
+inline Type *getWidenedType(Type *Ty, unsigned VF) {
+  unsigned NumElts =
+      Ty->isVectorTy() ? Ty->getVectorNumElements() * VF : VF;
+  return VectorType::get(Ty->getScalarType(), NumElts);
+}
+
 /// \brief Get all functions marked for vectorization in module and their
 /// list of variants.
 void getFunctionsToVectorize(

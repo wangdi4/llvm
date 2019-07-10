@@ -612,7 +612,8 @@ Type* llvm::calcCharacteristicType(Function& F, VectorVariant& Variant)
   }
 
   // TODO except Clang's ComplexType
-  if (!CharacteristicDataType || CharacteristicDataType->isStructTy()) {
+  if (!CharacteristicDataType || CharacteristicDataType->isStructTy() ||
+      CharacteristicDataType->isVectorTy()) {
     CharacteristicDataType = Type::getInt32Ty(F.getContext());
   }
 
@@ -768,7 +769,7 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
   Type *RetTy = OrigF->getReturnType();
   Type *VecRetTy = RetTy;
   if (!RetTy->isVoidTy()) {
-    VecRetTy = VectorType::get(RetTy, VL);
+    VecRetTy = getWidenedType(RetTy, VL);
   }
 
   if (VecVariant) {
