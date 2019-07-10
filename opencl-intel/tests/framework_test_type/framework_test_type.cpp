@@ -726,12 +726,12 @@ TEST_F(CL21, Timers_GetDeviceAndHostTimer)
     GetDeviceAndHostTimer();
 }
 
-TEST_F(CL21, DISABLED_Test_CreateProgramWithIL)
+TEST_F(CL21, Test_CreateProgramWithIL)
 {
     CreateProgramWithIL();
 }
 
-TEST_F(CL21, DISABLED_Test_CreateProgramWithIL_Negative)
+TEST_F(CL21, Test_CreateProgramWithIL_Negative)
 {
     CreateProgramWithIL_Negative();
 }
@@ -741,7 +741,7 @@ TEST_F(CL21, Test_CreateProgramWithIL_IL_VERSION)
     CreateProgramWithIL_IL_VERSION();
 }
 
-TEST_F(CL21, DISABLED_Test_CreateProgramWithIL_PROGRAM_IL)
+TEST_F(CL21, Test_CreateProgramWithIL_PROGRAM_IL)
 {
     CreateProgramWithIL_PROGRAM_IL();
 }
