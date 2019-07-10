@@ -920,6 +920,11 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_std_exception_destroy:
     return Changed;
+  case LibFunc_dunder_CxxFrameHandler3:
+    return Changed;
+  case LibFunc_dunder_std_terminate:
+    Changed |= setDoesNotReturn(F);
+    return Changed;
   case LibFunc_sysv_signal:
     Changed |= setDoesNotThrow(F);
     return Changed;
@@ -929,6 +934,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotReturn(F);
     return Changed;
   case LibFunc_under_invalid_parameter_noinfo_noreturn:
+    Changed |= setDoesNotReturn(F);
+    return Changed;
+  case LibFunc_under_purecall:
     Changed |= setDoesNotReturn(F);
     return Changed;
   case LibFunc_obstack_begin:
@@ -1286,6 +1294,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_difftime:
+  case LibFunc_under_difftime64:  // INTEL
     Changed |= setDoesNotAccessMemory(F);
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setDoesNotThrow(F);
@@ -1338,6 +1347,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_getcwd:
+  case LibFunc_under_getcwd:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_getegid:
@@ -1733,6 +1743,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_time:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_under_time64:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_tolower:

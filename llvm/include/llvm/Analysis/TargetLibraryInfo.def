@@ -639,6 +639,11 @@ TLI_DEFINE_STRING_INTERNAL("_ZnwmSt11align_val_t")
 /// void *new(unsigned long, align_val_t, nothrow)
 TLI_DEFINE_ENUM_INTERNAL(ZnwmSt11align_val_tRKSt9nothrow_t)
 TLI_DEFINE_STRING_INTERNAL("_ZnwmSt11align_val_tRKSt9nothrow_t")
+#if INTEL_CUSTOMIZATION
+/// int __CxxFrameHandler3(...)
+TLI_DEFINE_ENUM_INTERNAL(dunder_CxxFrameHandler3)
+TLI_DEFINE_STRING_INTERNAL("__CxxFrameHandler3")
+#endif // INTEL_CUSTOMIZATION
 /// double __acos_finite(double x);
 TLI_DEFINE_ENUM_INTERNAL(acos_finite)
 TLI_DEFINE_STRING_INTERNAL("__acos_finite")
@@ -1048,6 +1053,9 @@ TLI_DEFINE_STRING_INTERNAL("__std_exception_copy")
 /// void __std_exception_destroy(__std_exception_data *data);
 TLI_DEFINE_ENUM_INTERNAL(std_exception_destroy)
 TLI_DEFINE_STRING_INTERNAL("__std_exception_destroy")
+/// void __std_terminate()
+TLI_DEFINE_ENUM_INTERNAL(dunder_std_terminate)
+TLI_DEFINE_STRING_INTERNAL("__std_terminate")
 /// int __stdio_common_vfprintf(uint64_t location,FILE *, const char *format, locale_t *locale, va_list ap);
 TLI_DEFINE_ENUM_INTERNAL(stdio_common_vfprintf)
 TLI_DEFINE_STRING_INTERNAL("__stdio_common_vfprintf")
@@ -1119,12 +1127,18 @@ TLI_DEFINE_STRING_INTERNAL("__xstat")
 /// int __xstat64 (int vers, const char *file, struct stat64 *buf);
 TLI_DEFINE_ENUM_INTERNAL(dunder_xstat64)
 TLI_DEFINE_STRING_INTERNAL("__xstat64")
+/// double _difftime64(__time64_t timeEnd, __time64_t timeStart);
+TLI_DEFINE_ENUM_INTERNAL(under_difftime64)
+TLI_DEFINE_STRING_INTERNAL("_difftime64")
 /// int* _errno();
 TLI_DEFINE_ENUM_INTERNAL(under_errno)
 TLI_DEFINE_STRING_INTERNAL("_errno")
 /// void _exit(int status);
 TLI_DEFINE_ENUM_INTERNAL(under_exit)
 TLI_DEFINE_STRING_INTERNAL("_exit")
+/// char *_getcwd(char *buffer, int maxlen)
+TLI_DEFINE_ENUM_INTERNAL(under_getcwd)
+TLI_DEFINE_STRING_INTERNAL("_getcwd")
 /// void __cdecl _invalid_parameter_noinfo(void)
 TLI_DEFINE_ENUM_INTERNAL(under_invalid_parameter_noinfo_noreturn)
 TLI_DEFINE_STRING_INTERNAL("_invalid_parameter_noinfo_noreturn")
@@ -1137,12 +1151,18 @@ TLI_DEFINE_STRING_INTERNAL("_obstack_memory_used")
 /// int _obstack_newchunk(struct obstack*, int);
 TLI_DEFINE_ENUM_INTERNAL(obstack_newchunk)
 TLI_DEFINE_STRING_INTERNAL("_obstack_newchunk")
+/// void _purecall();
+TLI_DEFINE_ENUM_INTERNAL(under_purecall)
+TLI_DEFINE_STRING_INTERNAL("_purecall")
 /// int _setjmp(jmp_buf env);
 TLI_DEFINE_ENUM_INTERNAL(setjmp)
 TLI_DEFINE_STRING_INTERNAL("_setjmp")
 /// int _stat64i32(const char *path, struct _stat64i32 *buf);
 TLI_DEFINE_ENUM_INTERNAL(under_stat64i32)
 TLI_DEFINE_STRING_INTERNAL("_stat64i32")
+/// __time64_t _time64(__time64_t *destTime)
+TLI_DEFINE_ENUM_INTERNAL(under_time64)
+TLI_DEFINE_STRING_INTERNAL("_time64")
 /// void abort(void);
 TLI_DEFINE_ENUM_INTERNAL(abort)
 TLI_DEFINE_STRING_INTERNAL("abort")
