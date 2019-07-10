@@ -172,7 +172,8 @@ namespace intel{
     std::set<Function *> oclSyncFunctions;
 
     // Get all synchronize built-ins declared in module
-    CompilationUtils::getAllSyncBuiltinsDcls(oclSyncBuiltins, &M);
+    CompilationUtils::getAllSyncBuiltinsDclsForNoDuplicateRelax(
+      oclSyncBuiltins, &M);
     if (oclSyncBuiltins.empty()) {
       // No synchronize functions to mark
       return false;
@@ -181,15 +182,32 @@ namespace intel{
     oclSyncBuiltinsSet.insert(oclSyncBuiltins.begin(), oclSyncBuiltins.end());
     LoopUtils::fillFuncUsersSet(oclSyncBuiltinsSet, oclSyncFunctions);
 
+    // Relax noduplicate attribute into convergent.
+    // TODO: Renegotiate https://github.com/KhronosGroup/SPIRV-LLVM-Translator/pull/109
+    // and remove this handling. clang already produces convergent.
+
     bool Changed = false;
+    // process function (definitions and declaration attributes)
     for (Module::iterator I = M.begin(), E = M.end(); I != E; ++I) {
       Function* pFunc = &*I;
       if (oclSyncFunctions.count(pFunc) || oclSyncBuiltins.count(pFunc)) {
-        pFunc->setAttributes(pFunc->getAttributes().addAttribute(
-          pFunc->getContext(), AttributeList::FunctionIndex, Attribute::Convergent));
+        pFunc->setAttributes(pFunc->getAttributes()
+          .addAttribute(pFunc->getContext(),
+                        AttributeList::FunctionIndex, Attribute::Convergent)
+          .removeAttribute(pFunc->getContext(),
+                           AttributeList::FunctionIndex, Attribute::NoDuplicate));
         Changed = true;
       }
     }
+    // process call sites
+    for (auto *F : oclSyncBuiltinsSet)
+      for (auto *U : F->users())
+        if (auto *CI = dyn_cast<CallInst>(U))
+          CI->setAttributes(CI->getAttributes()
+            .addAttribute(CI->getContext(),
+                          AttributeList::FunctionIndex, Attribute::Convergent)
+            .removeAttribute(CI->getContext(),
+                             AttributeList::FunctionIndex, Attribute::NoDuplicate));
     return Changed;
   }
 

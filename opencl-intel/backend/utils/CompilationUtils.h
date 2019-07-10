@@ -172,6 +172,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @brief Moves alloca instructions from FromBB to ToBB
     static void moveAlloca(BasicBlock *FromBB, BasicBlock *ToBB);
 
+    /// @brief collect built-ins declared in the module that require
+    //         relaxation of noduplicate attribute to convergent.
+    static void getAllSyncBuiltinsDclsForNoDuplicateRelax(
+      FunctionSet &functionSet, Module *pModule);
+
     /// @brief collect built-ins declared in the module and force synchronization.
     //         I.e. implemented using barrier built-in.
     /// @param functionSet container to insert all synchronized built-ins into
