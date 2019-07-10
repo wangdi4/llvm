@@ -8,7 +8,6 @@
 #include "test_utils.h"
 #include "CL/cl_platform.h"
 #include "CL_BASE.h"
-#include "common_utils.h"
 
 class CL21 : public ::CL_base
 {
@@ -140,20 +139,5 @@ protected:
         kern = clCreateKernel(program, "dummy_kernel", &iRet);
         ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateKernel failed. ";
     }
-
-    void GetSimpleSPIRV(std::vector<char>& spirv) const
-    {
-        std::string filename = get_exe_dir() + "test.spv";
-        std::fstream spirv_file(filename, std::fstream::in | std::fstream::binary | std::fstream::ate);
-        ASSERT_TRUE((bool)(spirv_file.is_open())) << " Error while opening test.spv file. ";
-
-        size_t length = spirv_file.tellg();
-        spirv_file.seekg(0, spirv_file.beg);
-
-        spirv.resize(length, 0);
-        spirv_file.read(&spirv[0], length);
-    }
-
-
 };
 #endif /*__CL21__*/

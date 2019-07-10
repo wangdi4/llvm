@@ -10,12 +10,11 @@
 
 class CL : public ::CL_base
 {
+protected:
     cl_platform_id m_platform;
     cl_device_id m_device;
     cl_context m_context;
     cl_command_queue m_queue;
-
-protected:
 
     void Init()
     {

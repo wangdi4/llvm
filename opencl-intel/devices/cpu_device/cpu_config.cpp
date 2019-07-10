@@ -162,6 +162,7 @@ const char* CPUDeviceConfig::GetExtensions() const
             m_extensions += OCL_EXT_KHR_BYTE_ADDRESSABLE_STORE " ";
             m_extensions += OCL_EXT_INTEL_FPGA_HOST_PIPE " ";
             m_extensions += OCL_EXT_ES_KHR_INT64 " ";
+            m_extensions += OCL_EXT_KHR_IL_PROGRAM " ";
 
             return m_extensions.c_str();
         }
@@ -190,6 +191,7 @@ const char* CPUDeviceConfig::GetExtensions() const
         // KHR CPU execlusive extensions
         m_extensions += OCL_EXT_KHR_DEPTH_IMAGES " ";
         m_extensions += OCL_EXT_KHR_3D_IMAGE_WRITES " ";
+        m_extensions += OCL_EXT_KHR_IL_PROGRAM " ";
 
         // common Intel extensions
         // TODO: The switch is required until subgroup implementation passes
