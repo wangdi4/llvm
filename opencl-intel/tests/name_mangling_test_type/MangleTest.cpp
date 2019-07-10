@@ -219,7 +219,7 @@ static bool isPointer(const ParamType *T) {
 //
 
 TEST(NameMangle, demangleTostrightAndBack) {
-#include "MangledNames.h"
+#include "MangledNames.inc"
   for (unsigned int i = 0; i < sizeof(mangledNames) / sizeof(char *); i++) {
     const char *mname = mangledNames[i];
 
