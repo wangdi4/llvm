@@ -105,7 +105,6 @@ OclBuiltinImpl sub_group_reduce_add_avx512fv16f64 = OclBuiltinImpl<sub_group_red
     $Arg0BaseType scalar_res = lores + hires;
     $Arg0Type res = ($Arg0Type) scalar_res;
     return res;
-    //return _mm512_reduce_add_pd(*(__m512d*)&$Arg0VarName) + _mm512_reduce_add_pd(*(__m512d*)(&$Arg0VarName+8));
   }]>;
 
 // add end
@@ -362,13 +361,16 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx512ff32vf8 = OclBuiltinImpl<sub_g
 
 OclBuiltinImpl sub_group_scan_inclusive_add_avx512fv16iu64 = OclBuiltinImpl<sub_group_scan_inclusive_add, [ v16i64, v16u64 ], 0,
   [{
+    $Arg0BaseType#8 lo = $Arg0VarName.lo;
+    $Arg0BaseType#8 hi = $Arg0VarName.hi;
+
     unsigned short mask = 1;
     const __m512i rotate_mask = _mm512_setr_epi64(7, 0, 1, 2, 3, 4, 5, 6);
 
     ulong16 res;
 
     __v8du rotated;
-    __v8du res_lo = *(__v8du*)(&$Arg0VarName);
+    __v8du res_lo = *(__v8du*)(&lo);
 
 #pragma clang unroll(full)
     for (int i = 0; i < 7; i++) {
@@ -377,7 +379,7 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx512fv16iu64 = OclBuiltinImpl<sub_
         res_lo = (__v8du)_mm512_mask_add_epi64((__m512i)res_lo, mask, (__m512i)res_lo, (__m512i)rotated);
     }
 
-    __v8du res_hi = *(__v8du*)((ulong*)&$Arg0VarName + 8);
+    __v8du res_hi = *(__v8du*)((ulong*)&hi);
     res_hi[0] += res_lo[7];
     mask = 1;
 
@@ -396,13 +398,16 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx512fv16iu64 = OclBuiltinImpl<sub_
 
 OclBuiltinImpl sub_group_scan_inclusive_add_avx512fv16ff64 = OclBuiltinImpl<sub_group_scan_inclusive_add, [ v16f64 ], 0,
   [{
+    $Arg0BaseType#8 lo = $Arg0VarName.lo;
+    $Arg0BaseType#8 hi = $Arg0VarName.hi;
+
     unsigned short mask = 1;
     const __m512i rotate_mask = _mm512_setr_epi64(7, 0, 1, 2, 3, 4, 5, 6);
 
     double16 res;
 
     __v8df rotated;
-    __v8df res_lo = *(__v8df*)(&$Arg0VarName);
+    __v8df res_lo = *(__v8df*)(&lo);
 
 #pragma clang unroll(full)
     for (int i = 0; i < 7; i++) {
@@ -411,7 +416,7 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx512fv16ff64 = OclBuiltinImpl<sub_
         res_lo = (__v8df)_mm512_mask_add_pd((__m512d)res_lo, mask, (__m512d)res_lo, (__m512d)rotated);
     }
 
-    __v8df res_hi = *(__v8df*)((double*)&$Arg0VarName + 8);
+    __v8df res_hi = *(__v8df*)((double*)&hi);
     res_hi[0] += res_lo[7];
     mask = 1;
 
@@ -497,7 +502,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fu32vf8 = OclBuiltinImpl<sub_g
     return *(($ReturnType *)&res);
   }]>;
 
-OclBuiltinImpl sub_group_scan_inclusive_min_avx512fu32 = OclBuiltinImpl<sub_group_scan_inclusive_min, [ v16f32 ], 0,
+OclBuiltinImpl sub_group_scan_inclusive_min_avx512ff32vf16 = OclBuiltinImpl<sub_group_scan_inclusive_min, [ v16f32 ], 0,
   [{
     const __m512i rotate_mask = _mm512_setr_epi32(15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
     unsigned short mask = 1;
@@ -514,7 +519,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fu32 = OclBuiltinImpl<sub_grou
     return *(($ReturnType *)&res);
   }]>;
 
-OclBuiltinImpl sub_group_scan_inclusive_min_avx512fu32vf8 = OclBuiltinImpl<sub_group_scan_inclusive_min, [ v8f32 ], 0,
+OclBuiltinImpl sub_group_scan_inclusive_min_avx512ff32vf8 = OclBuiltinImpl<sub_group_scan_inclusive_min, [ v8f32 ], 0,
   [{
     const __m256i rotate_mask = _mm256_setr_epi32(7, 0, 1, 2, 3, 4, 5, 6);
     unsigned short mask = 1;
@@ -584,13 +589,16 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512v8f64 = OclBuiltinImpl<sub_gro
 
 OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv16ff64 = OclBuiltinImpl<sub_group_scan_inclusive_min, [ v16f64 ], 0,
   [{
+    $Arg0BaseType#8 lo = $Arg0VarName.lo;
+    $Arg0BaseType#8 hi = $Arg0VarName.hi;
+
     unsigned short mask = 1;
     const __m512i rotate_mask = _mm512_setr_epi64(7, 0, 1, 2, 3, 4, 5, 6);
 
     double16 res;
 
     __v8df rotated;
-    __v8df res_lo = *(__v8df*)(&$Arg0VarName);
+    __v8df res_lo = *(__v8df*)(&lo);
 
 #pragma clang unroll(full)
     for (int i = 0; i < 7; i++) {
@@ -599,7 +607,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv16ff64 = OclBuiltinImpl<sub_
         res_lo = (__v8df)_mm512_mask_min_pd((__m512d)res_lo, mask, (__m512d)res_lo, (__m512d)rotated);
     }
 
-    __v8df res_hi = *(__v8df*)((double*)&$Arg0VarName + 8);
+    __v8df res_hi = *(__v8df*)((double*)&hi);
     res_hi[0] = res_lo[7] < res_hi[0] ? res_lo[7] : res_hi[0];
     mask = 1;
 
@@ -618,13 +626,16 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv16ff64 = OclBuiltinImpl<sub_
 
 OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv16u64 = OclBuiltinImpl<sub_group_scan_inclusive_min, [ v16u64 ], 0,
   [{
+    $Arg0BaseType#8 lo = $Arg0VarName.lo;
+    $Arg0BaseType#8 hi = $Arg0VarName.hi;
+
     unsigned short mask = 1;
     const __m512i rotate_mask = _mm512_setr_epi64(7, 0, 1, 2, 3, 4, 5, 6);
 
     ulong16 res;
 
     __v8du rotated;
-    __v8du res_lo = *(__v8du*)(&$Arg0VarName);
+    __v8du res_lo = *(__v8du*)(&lo);
 
 #pragma clang unroll(full)
     for (int i = 0; i < 7; i++) {
@@ -633,7 +644,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv16u64 = OclBuiltinImpl<sub_g
         res_lo = (__v8du)_mm512_mask_min_epu64((__m512i)res_lo, mask, (__m512i)res_lo, (__m512i)rotated);
     }
 
-    __v8du res_hi = *(__v8du*)((long*)&$Arg0VarName + 8);
+    __v8du res_hi = *(__v8du*)((long*)&hi);
     res_hi[0] = res_lo[7] < res_hi[0] ? res_lo[7] : res_hi[0];
     mask = 1;
 
@@ -652,13 +663,16 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv16u64 = OclBuiltinImpl<sub_g
 
 OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv16i64 = OclBuiltinImpl<sub_group_scan_inclusive_min, [ v16i64 ], 0,
   [{
+    $Arg0BaseType#8 lo = $Arg0VarName.lo;
+    $Arg0BaseType#8 hi = $Arg0VarName.hi;
+
     unsigned short mask = 1;
     const __m512i rotate_mask = _mm512_setr_epi64(7, 0, 1, 2, 3, 4, 5, 6);
 
     ulong16 res;
 
     __v8di rotated;
-    __v8di res_lo = *(__v8di*)(&$Arg0VarName);
+    __v8di res_lo = *(__v8di*)(&lo);
 
 #pragma clang unroll(full)
     for (int i = 0; i < 7; i++) {
@@ -667,7 +681,7 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv16i64 = OclBuiltinImpl<sub_g
         res_lo = (__v8di)_mm512_mask_min_epi64((__m512i)res_lo, mask, (__m512i)res_lo, (__m512i)rotated);
     }
 
-    __v8di res_hi = *(__v8di*)((long*)&$Arg0VarName + 8);
+    __v8di res_hi = *(__v8di*)((long*)&hi);
     res_hi[0] = res_lo[7] < res_hi[0] ? res_lo[7] : res_hi[0];
     mask = 1;
 
@@ -804,7 +818,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512v8u64 = OclBuiltinImpl<sub_gro
     return res;
   }]>;
 
-OclBuiltinImpl sub_group_scan_inclusive_max_avx512v8u64 = OclBuiltinImpl<sub_group_scan_inclusive_max, [ v8i64 ], 0,
+OclBuiltinImpl sub_group_scan_inclusive_max_avx512v8i64 = OclBuiltinImpl<sub_group_scan_inclusive_max, [ v8i64 ], 0,
   [{
     const __m512i rotate_mask = _mm512_setr_epi64(7, 0, 1, 2, 3, 4, 5, 6);
     unsigned short mask = 1;
@@ -821,7 +835,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512v8u64 = OclBuiltinImpl<sub_gro
     return res;
   }]>;
 
-OclBuiltinImpl sub_group_scan_inclusive_max_avx512v8u64 = OclBuiltinImpl<sub_group_scan_inclusive_max, [ v8f64 ], 0,
+OclBuiltinImpl sub_group_scan_inclusive_max_avx512v8f64 = OclBuiltinImpl<sub_group_scan_inclusive_max, [ v8f64 ], 0,
   [{
     const __m512i rotate_mask = _mm512_setr_epi64(7, 0, 1, 2, 3, 4, 5, 6);
     unsigned short mask = 1;
@@ -840,13 +854,16 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512v8u64 = OclBuiltinImpl<sub_gro
 
 OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv16f64 = OclBuiltinImpl<sub_group_scan_inclusive_max, [ v16f64 ], 0,
   [{
+    $Arg0BaseType#8 lo = $Arg0VarName.lo;
+    $Arg0BaseType#8 hi = $Arg0VarName.hi;
+
     unsigned short mask = 1;
     const __m512i rotate_mask = _mm512_setr_epi64(7, 0, 1, 2, 3, 4, 5, 6);
 
     double16 res;
 
     __v8df rotated;
-    __v8df res_lo = *(__v8df*)(&$Arg0VarName);
+    __v8df res_lo = *(__v8df*)(&lo);
 
 #pragma clang unroll(full)
     for (int i = 0; i < 7; i++) {
@@ -855,7 +872,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv16f64 = OclBuiltinImpl<sub_g
         res_lo = (__v8df)_mm512_mask_max_pd((__m512d)res_lo, mask, (__m512d)res_lo, (__m512d)rotated);
     }
 
-    __v8df res_hi = *(__v8df*)((double*)&$Arg0VarName + 8);
+    __v8df res_hi = *(__v8df*)((double*)&hi);
     res_hi[0] = res_lo[7] > res_hi[0] ? res_lo[7] : res_hi[0];
     mask = 1;
 
@@ -874,13 +891,16 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv16f64 = OclBuiltinImpl<sub_g
 
 OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv16u64 = OclBuiltinImpl<sub_group_scan_inclusive_max, [ v16u64 ], 0,
   [{
+    $Arg0BaseType#8 lo = $Arg0VarName.lo;
+    $Arg0BaseType#8 hi = $Arg0VarName.hi;
+
     unsigned short mask = 1;
     const __m512i rotate_mask = _mm512_setr_epi64(7, 0, 1, 2, 3, 4, 5, 6);
 
     ulong16 res;
 
     __v8du rotated;
-    __v8du res_lo = *(__v8du*)(&$Arg0VarName);
+    __v8du res_lo = *(__v8du*)(&lo);
 
 #pragma clang unroll(full)
     for (int i = 0; i < 7; i++) {
@@ -889,7 +909,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv16u64 = OclBuiltinImpl<sub_g
         res_lo = (__v8du)_mm512_mask_max_epu64((__m512i)res_lo, mask, (__m512i)res_lo, (__m512i)rotated);
     }
 
-    __v8du res_hi = *(__v8du*)((long*)&$Arg0VarName + 8);
+    __v8du res_hi = *(__v8du*)((long*)&hi);
     res_hi[0] = res_lo[7] > res_hi[0] ? res_lo[7] : res_hi[0];
     mask = 1;
 
@@ -908,13 +928,16 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv16u64 = OclBuiltinImpl<sub_g
 
 OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv16i64 = OclBuiltinImpl<sub_group_scan_inclusive_max, [ v16i64 ], 0,
   [{
+    $Arg0BaseType#8 lo = $Arg0VarName.lo;
+    $Arg0BaseType#8 hi = $Arg0VarName.hi;
+
     unsigned short mask = 1;
     const __m512i rotate_mask = _mm512_setr_epi64(7, 0, 1, 2, 3, 4, 5, 6);
 
     ulong16 res;
 
     __v8di rotated;
-    __v8di res_lo = *(__v8di*)(&$Arg0VarName);
+    __v8di res_lo = *(__v8di*)(&lo);
 
 #pragma clang unroll(full)
     for (int i = 0; i < 7; i++) {
@@ -923,7 +946,7 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx512fv16i64 = OclBuiltinImpl<sub_g
         res_lo = (__v8di)_mm512_mask_max_epi64((__m512i)res_lo, mask, (__m512i)res_lo, (__m512i)rotated);
     }
 
-    __v8di res_hi = *(__v8di*)((long*)&$Arg0VarName + 8);
+    __v8di res_hi = *(__v8di*)((long*)&hi);
     res_hi[0] = res_lo[7] > res_hi[0] ? res_lo[7] : res_hi[0];
     mask = 1;
 
@@ -1027,7 +1050,7 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx512fv8ui64 = OclBuiltinImpl<sub_g
     const __m512i rotate_mask = _mm512_setr_epi64(7, 0, 1, 2, 3, 4, 5, 6);
     unsigned short mask = 1;
 
-    __v8di res;
+    __v8di res = { 0, 0, 0, 0, 0, 0, 0, 0 };
     res[1] = $Arg0VarName[0];
     __v8di rotated_d = (__v8di)_mm512_permutexvar_epi64(rotate_mask, (__m512i)$Arg0VarName);
     __v8di rotated;
@@ -1047,7 +1070,7 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx512fv8f64 = OclBuiltinImpl<sub_gr
     const __m512i rotate_mask = _mm512_setr_epi64(7, 0, 1, 2, 3, 4, 5, 6);
     unsigned short mask = 1;
 
-    __v8df res;
+    __v8df res = { 0, 0, 0, 0, 0, 0, 0, 0 };
     res[1] = $Arg0VarName[0];
     __v8df rotated_d = (__v8df)_mm512_permutexvar_pd(rotate_mask, (__m512d)$Arg0VarName);
     __v8df rotated;
@@ -1064,14 +1087,17 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx512fv8f64 = OclBuiltinImpl<sub_gr
 
 OclBuiltinImpl sub_group_scan_exclusive_add_avx512v16ui64 = OclBuiltinImpl<sub_group_scan_exclusive_add, [ v16u64, v16i64 ], 0,
   [{
+    $Arg0BaseType#8 lo = $Arg0VarName.lo;
+    $Arg0BaseType#8 hi = $Arg0VarName.hi;
+
     const __m512i rotate_mask = _mm512_setr_epi64(7, 0, 1, 2, 3, 4, 5, 6);
     unsigned short mask = 1;
 
-    ulong16 res;
+    $Arg0Type res;
     __v8du res_lo;
     __v8du res_hi;
-    __v8du d_lo = *(__v8du*)(&$Arg0VarName);
-    __v8du d_hi = *(__v8du*)((ulong*)(&$Arg0VarName) + 8);
+    __v8du d_lo = *(__v8du*)(&lo);
+    __v8du d_hi = *(__v8du*)((ulong*)(&hi));
     res_lo[1] = d_lo[0];
     __v8du rotated_d = (__v8du)_mm512_permutexvar_epi64(rotate_mask, (__m512i)d_lo);
     __v8du rotated;
@@ -1105,14 +1131,17 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx512v16ui64 = OclBuiltinImpl<sub_g
 
 OclBuiltinImpl sub_group_scan_exclusive_add_avx512v16f64 = OclBuiltinImpl<sub_group_scan_exclusive_add, [ v16f64 ], 0,
   [{
+    $Arg0BaseType#8 lo = $Arg0VarName.lo;
+    $Arg0BaseType#8 hi = $Arg0VarName.hi;
+
     const __m512i rotate_mask = _mm512_setr_epi64(7, 0, 1, 2, 3, 4, 5, 6);
     unsigned short mask = 1;
 
     double16 res;
     __v8df res_lo;
     __v8df res_hi;
-    __v8df d_lo = *(__v8df*)(&$Arg0VarName);
-    __v8df d_hi = *(__v8df*)((double*)(&$Arg0VarName) + 8);
+    __v8df d_lo = *(__v8df*)(&lo);
+    __v8df d_hi = *(__v8df*)((double*)(&hi));
     res_lo[1] = d_lo[0];
     __v8df rotated_d = (__v8df)_mm512_permutexvar_pd(rotate_mask, (__m512d)d_lo);
     __v8df rotated;
@@ -1327,14 +1356,17 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512fv8f64 = OclBuiltinImpl<sub_gr
 
 OclBuiltinImpl sub_group_scan_exclusive_min_avx512v16u64 = OclBuiltinImpl<sub_group_scan_exclusive_min, [ v16u64 ], 0,
   [{
+    $Arg0BaseType#8 lo = $Arg0VarName.lo;
+    $Arg0BaseType#8 hi = $Arg0VarName.hi;
+
     const __m512i rotate_mask = _mm512_setr_epi64(7, 0, 1, 2, 3, 4, 5, 6);
     unsigned short mask = 1;
 
     ulong16 res;
     __v8du res_lo;
     __v8du res_hi;
-    __v8du d_lo = *(__v8du*)(&$Arg0VarName);
-    __v8du d_hi = *(__v8du*)((ulong*)(&$Arg0VarName) + 8);
+    __v8du d_lo = *(__v8du*)(&lo);
+    __v8du d_hi = *(__v8du*)((ulong*)(&hi));
     res_lo[1] = d_lo[0];
     __v8du rotated_d = (__v8du)_mm512_permutexvar_epi64(rotate_mask, (__m512i)d_lo);
     __v8du rotated;
@@ -1366,16 +1398,19 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512v16u64 = OclBuiltinImpl<sub_gr
     return as_$ReturnType(res);
   }]>;
 
-OclBuiltinImpl sub_group_scan_exclusive_min_avx512v16f64 = OclBuiltinImpl<sub_group_scan_exclusive_min, [ v16i64 ], 0,
+OclBuiltinImpl sub_group_scan_exclusive_min_avx512v16i64 = OclBuiltinImpl<sub_group_scan_exclusive_min, [ v16i64 ], 0,
   [{
+    $Arg0BaseType#8 lo = $Arg0VarName.lo;
+    $Arg0BaseType#8 hi = $Arg0VarName.hi;
+
     const __m512i rotate_mask = _mm512_setr_epi64(7, 0, 1, 2, 3, 4, 5, 6);
     unsigned short mask = 1;
 
     ulong16 res;
     __v8di res_lo;
     __v8di res_hi;
-    __v8di d_lo = *(__v8di*)(&$Arg0VarName);
-    __v8di d_hi = *(__v8di*)((ulong*)(&$Arg0VarName) + 8);
+    __v8di d_lo = *(__v8di*)(&lo);
+    __v8di d_hi = *(__v8di*)((ulong*)(&hi));
     res_lo[1] = d_lo[0];
     __v8di rotated_d = (__v8di)_mm512_permutexvar_epi64(rotate_mask, (__m512i)d_lo);
     __v8di rotated;
@@ -1409,14 +1444,17 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx512v16f64 = OclBuiltinImpl<sub_gr
 
 OclBuiltinImpl sub_group_scan_exclusive_min_avx512v16f64 = OclBuiltinImpl<sub_group_scan_exclusive_min, [ v16f64 ], 0,
   [{
+    $Arg0BaseType#8 lo = $Arg0VarName.lo;
+    $Arg0BaseType#8 hi = $Arg0VarName.hi;
+
     const __m512i rotate_mask = _mm512_setr_epi64(7, 0, 1, 2, 3, 4, 5, 6);
     unsigned short mask = 1;
 
     double16 res;
     __v8df res_lo;
     __v8df res_hi;
-    __v8df d_lo = *(__v8df*)(&$Arg0VarName);
-    __v8df d_hi = *(__v8df*)((double*)(&$Arg0VarName) + 8);
+    __v8df d_lo = *(__v8df*)(&lo);
+    __v8df d_hi = *(__v8df*)((double*)(&hi));
     res_lo[1] = d_lo[0];
     __v8df rotated_d = (__v8df)_mm512_permutexvar_pd(rotate_mask, (__m512d)d_lo);
     __v8df rotated;
@@ -1571,14 +1609,17 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx512ff32vf8 = OclBuiltinImpl<sub_g
 
 OclBuiltinImpl sub_group_scan_exclusive_max_avx512v16u64 = OclBuiltinImpl<sub_group_scan_exclusive_max, [ v16u64 ], 0,
   [{
+    $Arg0BaseType#8 lo = $Arg0VarName.lo;
+    $Arg0BaseType#8 hi = $Arg0VarName.hi;
+
     const __m512i rotate_mask = _mm512_setr_epi64(7, 0, 1, 2, 3, 4, 5, 6);
     unsigned short mask = 1;
 
     ulong16 res;
     __v8du res_lo;
     __v8du res_hi;
-    __v8du d_lo = *(__v8du*)(&$Arg0VarName);
-    __v8du d_hi = *(__v8du*)((ulong*)(&$Arg0VarName) + 8);
+    __v8du d_lo = *(__v8du*)(&lo);
+    __v8du d_hi = *(__v8du*)((ulong*)(&hi));
     res_lo[1] = d_lo[0];
     __v8du rotated_d = (__v8du)_mm512_permutexvar_epi64(rotate_mask, (__m512i)d_lo);
     __v8du rotated;
@@ -1610,16 +1651,19 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx512v16u64 = OclBuiltinImpl<sub_gr
     return as_$ReturnType(res);
   }]>;
 
-OclBuiltinImpl sub_group_scan_exclusive_max_avx512v16f64 = OclBuiltinImpl<sub_group_scan_exclusive_max, [ v16i64 ], 0,
+OclBuiltinImpl sub_group_scan_exclusive_max_avx512v16i64 = OclBuiltinImpl<sub_group_scan_exclusive_max, [ v16i64 ], 0,
   [{
+    $Arg0BaseType#8 lo = $Arg0VarName.lo;
+    $Arg0BaseType#8 hi = $Arg0VarName.hi;
+
     const __m512i rotate_mask = _mm512_setr_epi64(7, 0, 1, 2, 3, 4, 5, 6);
     unsigned short mask = 1;
 
     ulong16 res;
     __v8di res_lo;
     __v8di res_hi;
-    __v8di d_lo = *(__v8di*)(&$Arg0VarName);
-    __v8di d_hi = *(__v8di*)((ulong*)(&$Arg0VarName) + 8);
+    __v8di d_lo = *(__v8di*)(&lo);
+    __v8di d_hi = *(__v8di*)((ulong*)(&hi));
     res_lo[1] = d_lo[0];
     __v8di rotated_d = (__v8di)_mm512_permutexvar_epi64(rotate_mask, (__m512i)d_lo);
     __v8di rotated;
@@ -1653,14 +1697,17 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx512v16f64 = OclBuiltinImpl<sub_gr
 
 OclBuiltinImpl sub_group_scan_exclusive_max_avx512v16f64 = OclBuiltinImpl<sub_group_scan_exclusive_max, [ v16f64 ], 0,
   [{
+    $Arg0BaseType#8 lo = $Arg0VarName.lo;
+    $Arg0BaseType#8 hi = $Arg0VarName.hi;
+
     const __m512i rotate_mask = _mm512_setr_epi64(7, 0, 1, 2, 3, 4, 5, 6);
     unsigned short mask = 1;
 
     double16 res;
     __v8df res_lo;
     __v8df res_hi;
-    __v8df d_lo = *(__v8df*)(&$Arg0VarName);
-    __v8df d_hi = *(__v8df*)((double*)(&$Arg0VarName) + 8);
+    __v8df d_lo = *(__v8df*)(&lo);
+    __v8df d_hi = *(__v8df*)((double*)(&hi));
     res_lo[1] = d_lo[0];
     __v8df rotated_d = (__v8df)_mm512_permutexvar_pd(rotate_mask, (__m512d)d_lo);
     __v8df rotated;
