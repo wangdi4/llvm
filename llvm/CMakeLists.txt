@@ -1404,21 +1404,18 @@ if (INTEL_CUSTOMIZATION)
 
     foreach( comp ${INTEL_DEPLOY_COMPONENTS} )
 
-      # Filter out xdev components
-      if ( NOT "${comp}"  MATCHES "^xdev-.*")
-        message( STATUS "Adding component ${comp} to deploy")
+      message( STATUS "Adding component ${comp} to deploy")
 
-        set (manifest ${CMAKE_CURRENT_BINARY_DIR}/install_manifest_${comp}.txt)
-        add_custom_command(OUTPUT ${manifest}
-                           COMMAND "${CMAKE_COMMAND}"
-                                   "-DCMAKE_INSTALL_COMPONENT=${comp}"
-                                   -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
-                           DEPENDS  ${chain_dep}
-                           COMMENT "Deploying component ${comp}"
-                           USES_TERMINAL)
-        list(APPEND manifest_list ${manifest})
-        set(chain_dep ${manifest})
-      endif()
+      set (manifest ${CMAKE_CURRENT_BINARY_DIR}/install_manifest_${comp}.txt)
+      add_custom_command(OUTPUT ${manifest}
+                         COMMAND "${CMAKE_COMMAND}"
+                                 "-DCMAKE_INSTALL_COMPONENT=${comp}"
+                                 -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
+                         DEPENDS  ${chain_dep}
+                         COMMENT "Deploying component ${comp}"
+                         USES_TERMINAL)
+      list(APPEND manifest_list ${manifest})
+      set(chain_dep ${manifest})
     endforeach( comp )
 
     # cmake does not allow to specify dependencies on cmakes' built-in targets such as all, clean, install etc.
