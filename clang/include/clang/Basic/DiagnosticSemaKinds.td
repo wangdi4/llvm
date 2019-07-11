@@ -1437,14 +1437,6 @@ def warn_weak_template_vtable : Warning<
 def ext_using_undefined_std : ExtWarn<
   "using directive refers to implicitly-defined namespace 'std'">;
 
-// if INTEL_CUSTOMIZATION
-// Fix for CQ374762: Retrieve a namespace, which may require us to
-// implicitly define.
-def warn_using_undefined_namespace : Warning<
-    "namespace '%0' is not defined">,
-    InGroup<IntelCompat>;
-// endif INTEL_CUSTOMIZATION
-
 // C++ exception specifications
 def err_exception_spec_in_typedef : Error<
   "exception specifications are not allowed in %select{typedefs|type aliases}0">;
