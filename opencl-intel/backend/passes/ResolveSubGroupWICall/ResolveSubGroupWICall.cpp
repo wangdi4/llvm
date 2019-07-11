@@ -23,6 +23,7 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Support/Debug.h"
 
+#include <tuple>
 #include <utility>
 
 using namespace Intel::OpenCL::DeviceBackend;
@@ -45,31 +46,76 @@ namespace intel {
                       "Resolve Sub Group WI functions", false, false)
 
   ResolveSubGroupWICall::ResolveSubGroupWICall() :
-    FunctionPass(ID), m_zero(nullptr), m_one(nullptr), m_two(nullptr),
+    ModulePass(ID), m_zero(nullptr), m_one(nullptr), m_two(nullptr),
     m_ret(nullptr), m_rtServices(nullptr)
   { }
 
-  bool ResolveSubGroupWICall::runOnFunction(Function &F) {
+  bool ResolveSubGroupWICall::runOnModule(Module &M) {
     m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
     assert(m_rtServices && "m_rtServices should exist!");
 
+    m_zero = ConstantInt::get(Type::getInt32Ty(M.getContext()), 0);
+    m_one  = ConstantInt::get(Type::getInt32Ty(M.getContext()), 1);
+    m_two  = ConstantInt::get(Type::getInt32Ty(M.getContext()), 2);
+
+    m_ret =
+      IntegerType::get(M.getContext(), M.getDataLayout().getPointerSizeInBits(0));
+
+    // Holds functions and respective vector factors.
+    std::vector<std::tuple<Function*, size_t>> WorkList;
+
+    // Get all kernels
+    CompilationUtils::FunctionSet Kernels;
+    CompilationUtils::getAllKernels(Kernels, &M);
+
+    for (auto *F : Kernels) {
+      auto kimd = KernelInternalMetadataAPI(F);
+      auto ScalarKernelMetadata = kimd.VectorizedWidth;
+      WorkList.push_back(std::make_tuple(
+          F, ScalarKernelMetadata.hasValue() ? ScalarKernelMetadata.get() : 1));
+
+      size_t VF = 1;
+      // Add vectorized counterparts WorkList
+      auto VectorizedKernelMetadata = kimd.VectorizedKernel;
+      auto *VecKernel = VectorizedKernelMetadata.hasValue() ?
+        VectorizedKernelMetadata.get() : nullptr;
+      if (VecKernel) {
+        auto vkimd = KernelInternalMetadataAPI(VecKernel);
+        VF = vkimd.VectorizedWidth.hasValue() ? vkimd.VectorizedWidth.get() : 1;
+        WorkList.push_back(std::make_tuple(
+          VecKernel,
+          VF));
+      }
+
+      // Add Loop Boundaries (if exist)
+      std::string FuncName = F->getName().str();
+      std::string EEFuncName = CompilationUtils::WG_BOUND_PREFIX + FuncName;
+      auto *EEFunc = M.getFunction(EEFuncName);
+      // EE function in general can be inlined into a scalar kernel as well as
+      // into a vector one, in native subgroups scalar kernel does not make sense
+      // and is not used, so we spoil EE with correct VF not equal to 1.
+      if (EEFunc)
+        WorkList.push_back(std::make_tuple(
+          EEFunc,
+          VF));
+
+      // TODO: add processing of vectorized function calls both direct and indirect.
+      // (like SYCL sub_group.invoke etc.).
+      // Scalarized function call does not hold subgroups semantics.
+    }
+
+    bool Changed = false;
+    for (auto WorkTuple : WorkList) {
+      Changed |= runOnFunction(*std::get<0>(WorkTuple), std::get<1>(WorkTuple));
+    }
+
+    return Changed;
+  }
+
+  bool ResolveSubGroupWICall::runOnFunction(Function &F, size_t VF) {
     std::vector<std::pair<Instruction *, Value *> > InstRepVec;
 
     Module *M = F.getParent();
-
-    m_zero = ConstantInt::get(Type::getInt32Ty(F.getParent()->getContext()), 0);
-    m_one  = ConstantInt::get(Type::getInt32Ty(F.getParent()->getContext()), 1);
-    m_two  = ConstantInt::get(Type::getInt32Ty(F.getParent()->getContext()), 2);
-
-    m_ret =
-      IntegerType::get(M->getContext(), M->getDataLayout().getPointerSizeInBits(0));
-
-    auto kimd = KernelInternalMetadataAPI(&F);
-    if (!(kimd.KernelHasSubgroups.hasValue() && kimd.KernelHasSubgroups.get()))
-      return false;
-
-    size_t VF =
-      kimd.VectorizedWidth.hasValue() ? kimd.VectorizedWidth.get() : 1;
 
     for (auto &I : instructions(F)) {
       CallInst *CI = dyn_cast<CallInst>(&I);
