@@ -13,6 +13,9 @@ VERS1.0 {
     __tgt_target_data_update_nowait;
     __tgt_target_nowait;
     __tgt_target_teams_nowait;
+# INTEL_COLLAB
+    __tgt_is_device_available;
+# end INTEL_COLLAB
     omp_get_num_devices;
     omp_get_initial_device;
     omp_target_alloc;

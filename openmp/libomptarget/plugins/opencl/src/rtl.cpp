@@ -26,6 +26,8 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <set>
+#include <mutex>
 
 #include "omptargetplugin.h"
 
@@ -237,6 +239,8 @@ public:
   std::vector<cl_command_queue> Queues;
   std::vector<FuncOrGblEntryTy> FuncGblEntries;
   std::vector<std::map<void *, void *> > BaseBuffers;
+  std::vector<std::map<cl_kernel, std::set<void *> > > ImplicitArgs;
+  std::mutex *Mutexes;
 
   int64_t flag;
   int32_t DataTransferLatency;
@@ -328,6 +332,8 @@ public:
     Queues.resize(numDevices);
     FuncGblEntries.resize(numDevices);
     BaseBuffers.resize(numDevices);
+    ImplicitArgs.resize(numDevices);
+    Mutexes = new std::mutex[numDevices];
 
     // get device specific information
     for (unsigned i = 0; i < numDevices; i++) {
@@ -351,6 +357,10 @@ public:
     }
     if (numDevices == 0)
       DP("WARNING: No OpenCL devices found.\n");
+  }
+
+  ~RTLDeviceInfoTy() {
+    delete[] Mutexes;
   }
 };
 
@@ -646,24 +656,24 @@ int32_t __tgt_rtl_manifest_data_for_region(
     void **tgt_ptrs,
     size_t num_ptrs) {
 
-  DP("Calling clSetKernelExecInfo for %" PRIu64 " target pointers.\n",
-     static_cast<uint64_t>(num_ptrs));
-
   cl_kernel *kernel = static_cast<cl_kernel *>(tgt_entry_ptr);
-  INVOKE_CL_RET_FAIL(clSetKernelExecInfo,
-                     *kernel, CL_KERNEL_EXEC_INFO_SVM_PTRS,
-                     num_ptrs * sizeof(void *), tgt_ptrs);
+  DP("Stashing %" PRIu64 " implicit arguments for kernel " DPxMOD "\n",
+     static_cast<uint64_t>(num_ptrs), DPxPTR(kernel));
+  DeviceInfo.Mutexes[device_id].lock();
+  if (DeviceInfo.ImplicitArgs[device_id].count(*kernel) == 0) {
+    // This happens only once for a kernel
+    DeviceInfo.ImplicitArgs[device_id][*kernel] =
+        std::set<void *>(tgt_ptrs, tgt_ptrs + num_ptrs);
+  }
+  DeviceInfo.Mutexes[device_id].unlock();
 
   return OFFLOAD_SUCCESS;
 }
 
-void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *hst_ptr) {
-  return __tgt_rtl_data_alloc_base(device_id, size, hst_ptr, hst_ptr);
-}
-
-// Allocate a base buffer with the given information.
-void *__tgt_rtl_data_alloc_base(int32_t device_id, int64_t size, void *hst_ptr,
-                                void *hst_base) {
+static inline
+void *tgt_rtl_data_alloc_template(int32_t device_id, int64_t size,
+                                  void *hst_ptr, void *hst_base,
+                                  int32_t is_implicit_arg) {
   intptr_t offset = (intptr_t)hst_ptr - (intptr_t)hst_base;
   if (offset < 0) {
     DP("Error: Failed to create base buffer due to invalid array section\n");
@@ -683,12 +693,43 @@ void *__tgt_rtl_data_alloc_base(int32_t device_id, int64_t size, void *hst_ptr,
   if (offset != 0)
     DeviceInfo.BaseBuffers[device_id][ret] = base;
 
+  // Store list of pointers to be passed to kernel implicitly
+  if (is_implicit_arg) {
+    DP("Stashing an implicit argument " DPxMOD " for next kernel\n",
+       DPxPTR(ret));
+    DeviceInfo.Mutexes[device_id].lock();
+    // key "0" for kernel-independent implicit arguments
+    DeviceInfo.ImplicitArgs[device_id][0].insert(ret);
+    DeviceInfo.Mutexes[device_id].unlock();
+  }
+
   return ret;
+}
+
+void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *hst_ptr) {
+  return tgt_rtl_data_alloc_template(device_id, size, hst_ptr, hst_ptr, 0);
+}
+
+// Allocate a base buffer with the given information.
+void *__tgt_rtl_data_alloc_base(int32_t device_id, int64_t size, void *hst_ptr,
+                                void *hst_base) {
+  return tgt_rtl_data_alloc_template(device_id, size, hst_ptr, hst_base, 0);
+}
+
+// Allocation was initiated by user (omp_target_alloc)
+void *__tgt_rtl_data_alloc_user(int32_t device_id, int64_t size,
+                                void *hst_ptr) {
+  return tgt_rtl_data_alloc_template(device_id, size, hst_ptr, hst_ptr, 1);
 }
 
 int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
                                      void *hst_ptr, int64_t size,
                                      void *async_event) {
+  if (size == 0)
+    // All other plugins seem to be handling 0 size gracefully,
+    // so we should do as well.
+    return OFFLOAD_SUCCESS;
+
   cl_command_queue queue = DeviceInfo.Queues[device_id];
   cl_device_id id = DeviceInfo.deviceIDs[device_id];
 
@@ -744,6 +785,11 @@ int32_t __tgt_rtl_data_submit(int32_t device_id, void *tgt_ptr, void *hst_ptr,
 int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
                                        void *tgt_ptr, int64_t size,
                                        void *async_event) {
+  if (size == 0)
+    // All other plugins seem to be handling 0 size gracefully,
+    // so we should do as well.
+    return OFFLOAD_SUCCESS;
+
   cl_command_queue queue = DeviceInfo.Queues[device_id];
   cl_device_id id = DeviceInfo.deviceIDs[device_id];
 
@@ -802,6 +848,13 @@ int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
   auto I = bases.find(tgt_ptr);
   if (I != bases.end())
     bases.erase(I);
+
+  DeviceInfo.Mutexes[device_id].lock();
+  // Erase from the internal list
+  for (auto &J : DeviceInfo.ImplicitArgs[device_id])
+    J.second.erase(tgt_ptr);
+  DeviceInfo.Mutexes[device_id].unlock();
+
   clSVMFree(DeviceInfo.CTX[device_id], base);
   return OFFLOAD_SUCCESS;
 }
@@ -812,14 +865,6 @@ static inline int32_t run_target_team_nd_region(
     int32_t thread_limit, void *loop_desc, void *async_event) {
 
   cl_kernel *kernel = static_cast<cl_kernel *>(tgt_entry_ptr);
-
-  // set kernel args
-  std::vector<void *> ptrs(num_args);
-  for (int32_t i = 0; i < num_args; ++i) {
-    ptrs[i] = (void *)((intptr_t)tgt_args[i] + tgt_offsets[i]);
-    INVOKE_CL_RET_FAIL(clSetKernelArgSVMPointer, *kernel, i, ptrs[i]);
-    DP("Kernel Arg %d set successfully\n", i);
-  }
 
   // compute local/global work size
 
@@ -881,10 +926,47 @@ static inline int32_t run_target_team_nd_region(
      local_work_size[1], local_work_size[2]);
   DP("Work dimension = %u\n", work_dim);
 
+  // Protect thread-unsafe OpenCL API calls
+  DeviceInfo.Mutexes[device_id].lock();
+
+  // Set implicit kernel args
+  std::vector<void *> implicit_args;
+  if (DeviceInfo.ImplicitArgs[device_id].count(*kernel) > 0) {
+    // kernel-dependent arguments
+    implicit_args.insert(implicit_args.end(),
+        DeviceInfo.ImplicitArgs[device_id][*kernel].begin(),
+        DeviceInfo.ImplicitArgs[device_id][*kernel].end());
+  }
+  if (DeviceInfo.ImplicitArgs[device_id].count(0) > 0) {
+    // kernel-independent arguments
+    implicit_args.insert(implicit_args.end(),
+        DeviceInfo.ImplicitArgs[device_id][0].begin(),
+        DeviceInfo.ImplicitArgs[device_id][0].end());
+  }
+
+  // set kernel args
+  std::vector<void *> ptrs(num_args);
+  for (int32_t i = 0; i < num_args; ++i) {
+    ptrs[i] = (void *)((intptr_t)tgt_args[i] + tgt_offsets[i]);
+    INVOKE_CL_RET_FAIL(clSetKernelArgSVMPointer, *kernel, i, ptrs[i]);
+    DP("Kernel Arg %d set successfully\n", i);
+  }
+
+  if (implicit_args.size() > 0) {
+    DP("Calling clSetKernelExecInfo to pass %zd implicit arguments to kernel "
+       DPxMOD "\n", implicit_args.size(), DPxPTR(kernel));
+    INVOKE_CL_RET_FAIL(clSetKernelExecInfo, *kernel,
+                       CL_KERNEL_EXEC_INFO_SVM_PTRS,
+                       sizeof(void *) * implicit_args.size(),
+                       implicit_args.data());
+  }
+
   cl_event event;
   INVOKE_CL_RET_FAIL(clEnqueueNDRangeKernel, DeviceInfo.Queues[device_id],
                      *kernel, work_dim, nullptr, global_work_size,
                      local_work_size, 0, nullptr, &event);
+
+  DeviceInfo.Mutexes[device_id].unlock();
 
   DP("Started executing kernel.\n");
 

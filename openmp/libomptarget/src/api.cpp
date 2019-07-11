@@ -58,7 +58,11 @@ EXTERN void *omp_target_alloc(size_t size, int device_num) {
   }
 
   DeviceTy &Device = Devices[device_num];
+#if INTEL_COLLAB
+  rc = Device.data_alloc_user(size, NULL);
+#else
   rc = Device.RTL->data_alloc(Device.RTLDeviceID, size, NULL);
+#endif // INTEL_COLLAB
   DP("omp_target_alloc returns device ptr " DPxMOD "\n", DPxPTR(rc));
   return rc;
 }
