@@ -42,28 +42,8 @@ def warn_attribute_requires_integer_param_type : Warning<
   InGroup<IgnoredAttributes>;
 def note_param_index_specified_here : Note<
   "parameter's index specified here">;
-// CQ#370092
-def warn_decl_attribute_invalid_on_stmt : Warning<
-  "%0 attribute cannot be applied to a statement; "
-  "attribute ignored">,
-  InGroup<IgnoredAttributes>;
-// CQ#370092
-def warn_mismatched_visibility: Warning<"visibility does not match previous declaration; "
-  "attribute ignored">,
-  InGroup<IgnoredAttributes>;
-def warn_default_arg_makes_ctor_special : Warning<
-  "addition of default argument on redeclaration makes this constructor a "
-  "%select{default|copy|move}0 constructor">, InGroup<IntelCompat>;
-
-// CQ#377518 - allow integer typedef redefinition in IntelMSCompat mode.
-def warn_int_typedef_redefinition_ignored : ExtWarn<
-  "integer typedef redefinition%diff{ ($ vs $)|}0,1 is an Intel extension">,
-  InGroup<IntelCompat>;
 def err_recursive_attribute_expected : Error<
   "recursive keyword expected after a pragma inline directive">;
-// CQ#364598, CQ#374878.
-def ext_intel_elaborated_type_refers_to_typedef : ExtWarn<
-  "elaborated type refers to a typedef">, InGroup<IntelCompat>;
 // CQ#366612
 def warn_func_redecl_conflicting_types: Warning<
   "declaration of %0 is incompatible with previous "
@@ -100,11 +80,6 @@ def ext_intel_typecheck_call_too_many_args : ExtWarn<
 def warn_return_missing_expr_no_err : Warning<
   "non-void %select{function|method}1 %0 should return a value">,
   InGroup<IntelCompat>;
-// Same as ext_return_has_expr, but a warning, not an error, for
-// IntelCompat mode. CQ#367767
-def warn_ext_return_has_expr : Warning<
-  "%select{void function|void method|constructor|destructor}1 %0 "
-  "should not return a value">, InGroup<IntelCompat>;
 // CQ#371990 - let argument be out of Low..High range, assuming Low.
 def warn_arg_invalid_range_low_assumed : Warning<
   "expected a value between %0 and %1, defaults to %0">,
@@ -116,9 +91,6 @@ def warn_non_asm_stmt_in_naked_function : Warning<
 def err_attribute_argument_is_not_in_range : Error<
   "invalid attribute value, possible values are: %0">;
 
-// CQ#373129 - support for __assume_aligned builtin.
-def err_assume_aligned_first_arg_not_pointer : Error<
-  "first argument to '__assume_aligned' must be a pointer">;
 def warn_bad_cxx_cast_generic : Warning<
   "%select{const_cast|static_cast|reinterpret_cast|dynamic_cast|C-style cast|"
   "functional-style cast}0 from %1 to %2 is allowed in Intel/GCC compatibility mode only">,
@@ -171,8 +143,6 @@ def err_component_func_attr :
   Error<"attribute %0 can only be applied to a component function">;
 def err_attribute_interface_invalid_type : Error<
   "string passed to %0 attribute is not a valid interface type. Valid component invocation interface types are: %1">;
-def err_attribute_argument_not_power_of_two : Error<
-  "%0 attribute argument must be a constant power of two greater than zero">;
 def err_hls_merge_dir_invalid : Error<
   "merge direction must be 'depth' or 'width'">;
 def err_hls_memory_arg_invalid : Error<
@@ -318,6 +288,21 @@ def illegal_type_declared_here : Note<
   "Field with illegal type declared here">;
 def err_pragma_loop_invalid_negative_value : Error<
   "invalid value '%0'; must be non-negative">;
+
+// IntrinsicPromotion implementation.
+def warn_intrinsic_promote : Warning<"Function target features %0 added due to"
+  " call to an intrinsic">,
+InGroup<DiagGroup<"intrinsic-promote">>;
+def note_intrinsic_promote : Note<"Intrinsic called here">;
+
+// OpenMP
+def err_omp_single_decl_in_declare_variant : Error<
+  "single declaration is expected after 'declare variant' directive">;
+def err_omp_function_expected_variant : Error<
+  "'#pragma omp declare variant' can only be applied to functions">;
+def warn_omp_simdlen_in_target_spir: Warning<
+  "simdlen clause is not supported for this target">,
+  InGroup<SimdUnsupported>;
 
 #if INTEL_FEATURE_CSA
 // Intel CSA extensions

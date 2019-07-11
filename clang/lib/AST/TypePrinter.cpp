@@ -1831,14 +1831,20 @@ void Qualifiers::print(raw_ostream &OS, const PrintingPolicy& Policy,
       addSpace = true;
       switch (addrspace) {
       case LangAS::opencl_global:
+      case LangAS::sycl_global:
         OS << "__global";
         break;
       case LangAS::opencl_local:
+      case LangAS::sycl_local:
         OS << "__local";
         break;
       case LangAS::opencl_private:
         break;
+      case LangAS::sycl_private:
+        OS << "__private";
+        break;
       case LangAS::opencl_constant:
+      case LangAS::sycl_constant:
         OS << "__constant";
         break;
       case LangAS::opencl_generic:

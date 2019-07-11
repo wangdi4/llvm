@@ -1828,12 +1828,6 @@ QualType Sema::BuildQualifiedType(QualType T, SourceLocation Loc,
         ProblemTy = EltTy;
       }
     } else if (!T->isDependentType()) {
-#if INTEL_CUSTOMIZATION
-      // CQ#374182: Ignore restict
-      if (getLangOpts().IntelCompat)
-        DiagID = diag::warn_typecheck_invalid_restrict_not_pointer;
-      else
-#endif // INTEL_CUSTOMIZATION
       DiagID = diag::err_typecheck_invalid_restrict_not_pointer;
       ProblemTy = T;
     }
@@ -2397,7 +2391,9 @@ QualType Sema::BuildArrayType(QualType T, ArrayType::ArraySizeModifier ASM,
     return QualType();
   }
 
-  if (T->isVariableArrayType() && !Context.getTargetInfo().isVLASupported()) {
+  // Delay diagnostic to SemaSYCL so only Kernel functions are diagnosed.
+  if (T->isVariableArrayType() && !Context.getTargetInfo().isVLASupported() &&
+      !getLangOpts().SYCLIsDevice) {
     // CUDA device code and some other targets don't support VLAs.
     targetDiag(Loc, (getLangOpts().CUDA && getLangOpts().CUDAIsDevice)
                         ? diag::err_cuda_vla
@@ -2432,7 +2428,7 @@ QualType Sema::BuildArrayType(QualType T, ArrayType::ArraySizeModifier ASM,
   // OpenCL v2.0 s6.12.5 - Arrays of blocks are not supported.
   // OpenCL v2.0 s6.16.13.1 - Arrays of pipe type are not supported.
   // OpenCL v2.0 s6.9.b - Arrays of image/sampler type are not supported.
-  if (getLangOpts().OpenCL) {
+  if (getLangOpts().OpenCL || getLangOpts().SYCLIsDevice) {
     const QualType ArrType = Context.getBaseElementType(T);
     if (ArrType->isBlockPointerType() || ArrType->isPipeType() ||
         ArrType->isSamplerT() || ArrType->isImageType()) {
@@ -2510,7 +2506,7 @@ QualType Sema::BuildExtVectorType(QualType T, Expr *ArraySize,
   // of bool aren't allowed.
   if ((!T->isDependentType() && !T->isIntegerType() &&
        !T->isRealFloatingType()) ||
-      T->isBooleanType()) {
+      (!Context.getLangOpts().SYCLIsDevice && T->isBooleanType())) {
     Diag(AttrLoc, diag::err_attribute_invalid_vector_type) << T;
     return QualType();
   }
@@ -4538,7 +4534,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
       // OpenCL v2.0 s6.9b - Pointer to image/sampler cannot be used.
       // OpenCL v2.0 s6.13.16.1 - Pointer to pipe cannot be used.
       // OpenCL v2.0 s6.12.5 - Pointers to Blocks are not allowed.
-      if (LangOpts.OpenCL) {
+      if (LangOpts.OpenCL || LangOpts.SYCLIsDevice) {
         if (T->isImageType() || T->isSamplerT() || T->isPipeType() ||
             T->isBlockPointerType()) {
           S.Diag(D.getIdentifierLoc(), diag::err_opencl_pointer_to_type) << T;
@@ -4736,7 +4732,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         }
       }
 
-      if (LangOpts.OpenCL) {
+      if (LangOpts.OpenCL || LangOpts.SYCLIsDevice) {
         // OpenCL v2.0 s6.12.5 - A block cannot be the return value of a
         // function.
         if (T->isBlockPointerType() || T->isImageType() || T->isSamplerT() ||
@@ -4748,7 +4744,9 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         // OpenCL doesn't support variadic functions and blocks
         // (s6.9.e and s6.12.5 OpenCL v2.0) except for printf.
         // We also allow here any toolchain reserved identifiers.
+        // FIXME: Use deferred diagnostics engine to skip host side issues.
         if (FTI.isVariadic &&
+            !LangOpts.SYCLIsDevice &&
             !(D.getIdentifier() &&
               ((D.getIdentifier()->getName() == "printf" &&
                 (LangOpts.OpenCLCPlusPlus || LangOpts.OpenCLVersion >= 120)) ||
@@ -5284,7 +5282,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
   // C++0x [dcl.constexpr]p9:
   //  A constexpr specifier used in an object declaration declares the object
   //  as const.
-  if (D.getDeclSpec().isConstexprSpecified() && T->isObjectType()) {
+  if (D.getDeclSpec().hasConstexprSpecifier() && T->isObjectType()) {
     T.addConst();
   }
 
@@ -6032,14 +6030,35 @@ static bool BuildAddressSpaceIndex(Sema &S, LangAS &ASIdx,
     llvm::APSInt max(addrSpace.getBitWidth());
     max =
         Qualifiers::MaxAddressSpace - (unsigned)LangAS::FirstTargetAddressSpace;
+
     if (addrSpace > max) {
       S.Diag(AttrLoc, diag::err_attribute_address_space_too_high)
           << (unsigned)max.getZExtValue() << AddrSpace->getSourceRange();
       return false;
     }
 
-    ASIdx =
-        getLangASFromTargetAS(static_cast<unsigned>(addrSpace.getZExtValue()));
+    if (S.LangOpts.SYCLIsDevice && (addrSpace >= 4)) {
+      S.Diag(AttrLoc, diag::err_sycl_attribute_address_space_invalid)
+          << AddrSpace->getSourceRange();
+      return false;
+    }
+
+    ASIdx = getLangASFromTargetAS(
+                             static_cast<unsigned>(addrSpace.getZExtValue()));
+
+    if (S.LangOpts.SYCLIsDevice) {
+      ASIdx =
+          [](unsigned AS) {
+            switch (AS) {
+            case 0: return LangAS::sycl_private;
+            case 1: return LangAS::sycl_global;
+            case 2: return LangAS::sycl_constant;
+            case 3: return LangAS::sycl_local;
+            case 4: default: llvm_unreachable("Invalid SYCL AS");
+            }
+          }(static_cast<unsigned>(ASIdx) -
+            static_cast<unsigned>(LangAS::FirstTargetAddressSpace));
+    }
     return true;
   }
 
@@ -6166,7 +6185,8 @@ static void HandleAddressSpaceTypeAttribute(QualType &Type,
       Attr.setInvalid();
   } else {
     // The keyword-based type attributes imply which address space to use.
-    ASIdx = Attr.asOpenCLLangAS();
+    ASIdx = S.getLangOpts().SYCLIsDevice ? 
+                Attr.asSYCLLangAS() : Attr.asOpenCLLangAS();
     if (ASIdx == LangAS::Default)
       llvm_unreachable("Invalid address space");
 

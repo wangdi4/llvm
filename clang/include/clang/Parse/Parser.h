@@ -1903,18 +1903,9 @@ private:  //***INTEL
   ///         assignment-expression
   ///         '{' ...
   ExprResult ParseInitializer() {
-#if INTEL_CUSTOMIZATION
-    ExprResult res;
-    Actions.IsInInitializerContext = true;
-
     if (Tok.isNot(tok::l_brace))
-      res = ParseAssignmentExpression();
-    else
-      res = ParseBraceInitializer();
-
-    Actions.IsInInitializerContext = false;
-    return res;
-#endif // INTEL_CUSTOMIZATION
+      return ParseAssignmentExpression();
+    return ParseBraceInitializer();
   }
   bool MayBeDesignationStart();
   ExprResult ParseBraceInitializer();
@@ -2641,8 +2632,16 @@ private:
   /// Parses opencl_unroll_hint attribute.
   /// \return false if error happens.
   bool ParseOpenCLUnrollHintAttribute(ParsedAttributes &Attrs);
-  void ParseNullabilityTypeSpecifiers(ParsedAttributes &attrs);
 
+  /// Parses intelfpga:: loop attributes if the language is SYCL
+  bool MaybeParseIntelFPGALoopAttributes(ParsedAttributes &Attrs) {
+    if (getLangOpts().SYCLIsDevice)
+      return ParseIntelFPGALoopAttributes(Attrs);
+    return true;
+  }
+  bool ParseIntelFPGALoopAttributes(ParsedAttributes &Attrs);
+
+  void ParseNullabilityTypeSpecifiers(ParsedAttributes &attrs);
   VersionTuple ParseVersionTuple(SourceRange &Range);
   void ParseAvailabilityAttribute(IdentifierInfo &Availability,
                                   SourceLocation AvailabilityLoc,
@@ -2923,6 +2922,12 @@ private:
   DeclGroupPtrTy ParseOMPDeclareSimdClauses(DeclGroupPtrTy Ptr,
                                             CachedTokens &Toks,
                                             SourceLocation Loc);
+#if INTEL_CUSTOMIZATION
+  /// Parse clauses for '#pragma omp declare variant'.
+  DeclGroupPtrTy ParseOMPDeclareVariantClauses(DeclGroupPtrTy Ptr,
+                                               CachedTokens &Toks,
+                                               SourceLocation Loc);
+#endif // INTEL_CUSTOMIZATION
   /// Parse clauses for '#pragma omp declare target'.
   DeclGroupPtrTy ParseOMPDeclareTargetClauses();
   /// Parse '#pragma omp end declare target'.

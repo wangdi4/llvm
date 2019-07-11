@@ -2068,6 +2068,14 @@ void CodeGenModule::ConstructAttributeList(
       }
     }
 
+#if INTEL_CUSTOMIZATION
+    // Support for '-fargument-noalias' option.
+    if (ParamType->isPointerType() &&
+        getLangOpts().isIntelCompat(LangOptions::FArgumentNoalias) &&
+        CodeGenOpts.NoAliasForPtrArgs)
+      Attrs.addAttribute(llvm::Attribute::NoAlias);
+#endif // INTEL_CUSTOMIZATION
+
     // 'restrict' -> 'noalias' is done in EmitFunctionProlog when we
     // have the corresponding parameter variable.  It doesn't make
     // sense to do it here because parameters are so messed up.
@@ -3842,6 +3850,16 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   llvm::FunctionType *IRFuncTy = getTypes().GetFunctionType(CallInfo);
 
   const Decl *TargetDecl = Callee.getAbstractInfo().getCalleeDecl().getDecl();
+  if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(TargetDecl))
+    // We can only guarantee that a function is called from the correct
+    // context/function based on the appropriate target attributes,
+    // so only check in the case where we have both always_inline and target
+    // since otherwise we could be making a conditional call after a check for
+    // the proper cpu features (and it won't cause code generation issues due to
+    // function based code generation).
+    if (TargetDecl->hasAttr<AlwaysInlineAttr>() &&
+        TargetDecl->hasAttr<TargetAttr>())
+      checkTargetFeatures(Loc, FD);
 
 #ifndef NDEBUG
   if (!(CallInfo.isVariadic() && CallInfo.getArgStruct())) {
@@ -4087,6 +4105,17 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
             V->getType()->isIntegerTy())
           V = Builder.CreateZExt(V, ArgInfo.getCoerceToType());
 
+        if (FirstIRArg < IRFuncTy->getNumParams()) {
+          const auto *LHSPtrTy =
+              dyn_cast_or_null<llvm::PointerType>(V->getType());
+          const auto *RHSPtrTy = dyn_cast_or_null<llvm::PointerType>(
+              IRFuncTy->getParamType(FirstIRArg));
+          if (LHSPtrTy && RHSPtrTy &&
+              LHSPtrTy->getAddressSpace() != RHSPtrTy->getAddressSpace())
+            V = Builder.CreateAddrSpaceCast(V,
+                                            IRFuncTy->getParamType(FirstIRArg));
+        }
+
         // If the argument doesn't match, perform a bitcast to coerce it.  This
         // can happen due to trivial type mismatches.
         if (FirstIRArg < IRFuncTy->getNumParams() &&
@@ -4294,6 +4323,22 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   // the call.
   if (!CallArgs.getCleanupsToDeactivate().empty())
     deactivateArgCleanupsBeforeCall(*this, CallArgs);
+
+  // Addrspace cast to generic if necessary
+  if (getenv("ENABLE_INFER_AS")) {
+    for (unsigned i = 0; i < IRFuncTy->getNumParams(); ++i) {
+      if (auto *PtrTy = dyn_cast<llvm::PointerType>(IRCallArgs[i]->getType())) {
+        auto *ExpectedPtrType =
+            cast<llvm::PointerType>(IRFuncTy->getParamType(i));
+        unsigned ValueAS = PtrTy->getAddressSpace();
+        unsigned ExpectedAS = ExpectedPtrType->getAddressSpace();
+        if (ValueAS != ExpectedAS) {
+          IRCallArgs[i] = Builder.CreatePointerBitCastOrAddrSpaceCast(
+              IRCallArgs[i], ExpectedPtrType);
+        }
+      }
+    }
+  }
 
   // Assert that the arguments we computed match up.  The IR verifier
   // will catch this, but this is a common enough source of problems

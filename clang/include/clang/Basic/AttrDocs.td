@@ -1009,6 +1009,32 @@ is not specified.
   }];
 }
 
+def NoUniqueAddressDocs : Documentation {
+  let Category = DocCatField;
+  let Content = [{
+The ``no_unique_address`` attribute allows tail padding in a non-static data
+member to overlap other members of the enclosing class (and in the special
+case when the type is empty, permits it to fully overlap other members).
+The field is laid out as if a base class were encountered at the corresponding
+point within the class (except that it does not share a vptr with the enclosing
+object).
+
+Example usage:
+
+.. code-block:: c++
+
+  template<typename T, typename Alloc> struct my_vector {
+    T *p;
+    [[no_unique_address]] Alloc alloc;
+    // ...
+  };
+  static_assert(sizeof(my_vector<int, std::allocator<int>>) == sizeof(int*));
+
+``[[no_unique_address]]`` is a standard C++20 attribute. Clang supports its use
+in C++11 onwards.
+  }];
+}
+
 def ObjCRequiresSuperDocs : Documentation {
   let Category = DocCatFunction;
   let Content = [{
@@ -1658,6 +1684,109 @@ These attributes have no effect for position-independent code.
 
 These attributes take priority over command line switches such
 as ``-mlong-calls`` and ``-mno-long-calls``.
+  }];
+}
+
+def IntelFPGADoublePumpAttrDocs : Documentation {
+let Category = DocCatVariable;
+  let Heading = "doublepump (IntelFPGA)";
+  let Content = [{
+This attribute may be attached to a variable or struct member declaration and
+instructs the backend to implement the variable or struct member in a memory
+that is clocked at twice the rate of its accessors.
+  }];
+}
+
+def IntelFPGASinglePumpAttrDocs : Documentation {
+let Category = DocCatVariable;
+  let Heading = "singlepump (IntelFPGA)";
+  let Content = [{
+This attribute may be attached to a variable or struct member declaration and
+instructs the backend to implement the variable or struct member in a memory
+that is clocked at the same rate as its accessors.
+  }];
+}
+
+def IntelFPGAMemoryAttrDocs : Documentation {
+  let Category = DocCatVariable;
+  let Heading = "memory (IntelFPGA)";
+  let Content = [{
+This attribute may be attached to a variable or struct member declaration and
+instructs the backend to implement the variable or struct member in memory
+rather than promoting to register(s).  If the optional parameter is specified
+it indicates what type of memory to use.
+  }];
+}
+
+def IntelFPGARegisterAttrDocs : Documentation {
+  let Category = DocCatVariable;
+  let Heading = "register (IntelFPGA)";
+  let Content = [{
+This attribute may be attached to a variable or struct member declaration and
+instructs the backend to promote the variable or struct member to register(s)
+if possible.
+  }];
+}
+
+def IntelFPGABankWidthAttrDocs : Documentation {
+  let Category = DocCatVariable;
+  let Heading = "bankwidth (IntelFPGA)";
+  let Content = [{
+This attribute may be attached to a variable or struct member declaration and
+instructs the backend to implement the variable or struct member in a memory
+with banks that are N bytes wide.
+  }];
+}
+
+def IntelFPGANumBanksAttrDocs : Documentation {
+  let Category = DocCatVariable;
+  let Heading = "numbanks (IntelFPGA)";
+  let Content = [{
+This attribute may be attached to a variable or struct member declaration and
+instructs the backend to implement the variable or struct member in a memory
+with N banks.
+  }];
+}
+
+def IntelFPGAMaxPrivateCopiesAttrDocs : Documentation {
+  let Category = DocCatVariable;
+  let Heading = "max_private_copies (IntelFPGA)";
+  let Content = [{
+This attribute may be attached to a variable or struct member declaration and
+instructs the backend to replicate the memory generated for the variable or
+struct member sufficiently to enable the specified number of simultaneous
+threads or loop iterations.
+  }];
+}
+
+def SYCLIntelFPGAIVDepAttrDocs : Documentation {
+  let Category = DocCatVariable;
+  let Heading = "ivdep";
+  let Content = [{
+This attribute applies to a loop. If no additional arguments are provided, it
+indicates that the backend may assume that the loop carries no dependences.
+If a safelen is provided then the backend may assume that all loop carried
+dependences have a dependence distance of at least that length.
+  }];
+}
+
+def SYCLIntelFPGAIIAttrDocs : Documentation {
+  let Category = DocCatVariable;
+  let Heading = "ii";
+  let Content = [{
+This attribute applies to a loop. Indicates that the loop should be pipelined
+with an initiation interval of N. N must be a positive integer. Cannot be
+applied multiple times to the same loop.
+  }];
+}
+
+def SYCLIntelFPGAMaxConcurrencyAttrDocs : Documentation {
+  let Category = DocCatVariable;
+  let Heading = "max_concurrency";
+  let Content = [{
+This attribute applies to a loop. Indicates that the loop should allow no more
+than N threads or iterations to execute it simultaneously. N must be a positive
+integer. Cannot be applied multiple times to the same loop.
   }];
 }
 
@@ -2806,9 +2935,12 @@ s6.11.5 for details.
   }];
 }
 
-def OpenCLIntelReqdSubGroupSizeDocs : Documentation {
+def IntelReqdSubGroupSizeDocs : Documentation {
   let Category = DocCatStmt;
   let Content = [{
+This attribute can be used in both OpenCL and SYCL.
+
+OpenCL documentation:
 The optional attribute intel_reqd_sub_group_size can be used to indicate that
 the kernel must be compiled and executed with the specified subgroup size. When
 this attribute is present, get_max_sub_group_size() is guaranteed to return the
@@ -2817,6 +2949,26 @@ algorithms, and in some cases may be used by the compiler to generate more optim
 code. See `cl_intel_required_subgroup_size
 <https://www.khronos.org/registry/OpenCL/extensions/intel/cl_intel_required_subgroup_size.txt>`
 for details.
+
+SYCL documentation:
+The [[cl::intel_reqd_sub_group_size(n)]] attribute indicates that the kernel
+must be compiled and executed with a sub-group of size n. The value of n must be
+set to a sub-group size supported by the device, or device compilation will fail.
+
+In addition to device functions, the required sub-group size attribute may also
+be specified in the definition of a named functor object, as in the example below:
+
+.. code-block:: c++
+
+  class Functor
+  {
+      void operator()(item<1> item) [[cl::intel_reqd_sub_group_size(16)]]
+      {
+          /* kernel code */
+      }
+  }
+
+See Sub-groups for NDRange Parallelism proposal in sycl/doc/extensions/sub_group_ndrange/sub_group_ndrange.md
   }];
 }
 

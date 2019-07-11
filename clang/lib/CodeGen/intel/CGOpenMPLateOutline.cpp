@@ -1776,6 +1776,14 @@ bool OpenMPLateOutliner::shouldSkipExplicitClause(OpenMPClauseKind Kind) {
   return !isAllowedClauseForDirective(CurrentDirectiveKind, Kind);
 }
 
+#if INTEL_CUSTOMIZATION
+void OpenMPLateOutliner::emitOMPTargetVariantDispatchDirective() {
+  startDirectiveIntrinsicSet("DIR.OMP.TARGET.VARIANT.DISPATCH",
+                             "DIR.OMP.END.TARGET.VARIANT.DISPATCH",
+                             OMPD_target_variant_dispatch);
+}
+#endif // INTEL_CUSTOMIZATION
+
 OpenMPLateOutliner &OpenMPLateOutliner::
 operator<<(ArrayRef<OMPClause *> Clauses) {
   for (auto *C : Clauses) {
@@ -1911,6 +1919,10 @@ bool OpenMPLateOutliner::needsVLAExprEmission() {
   case OMPD_declare_simd:
   case OMPD_declare_target:
   case OMPD_end_declare_target:
+#if INTEL_CUSTOMIZATION
+  case OMPD_declare_variant:
+  case OMPD_target_variant_dispatch:
+#endif // INTEL_CUSTOMIZATION
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
   case OMPD_requires:
@@ -2193,6 +2205,12 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
         cast<OMPCancellationPointDirective>(S).getCancelRegion());
     break;
 
+#if INTEL_CUSTOMIZATION
+  case OMPD_target_variant_dispatch:
+    Outliner.emitOMPTargetVariantDispatchDirective();
+    break;
+#endif // INTEL_CUSTOMIZATION
+
   // These directives are not yet implemented.
   case OMPD_allocate:
   case OMPD_requires:
@@ -2201,6 +2219,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   // These directives do not create region directives.
   case OMPD_declare_target:
   case OMPD_end_declare_target:
+  case OMPD_declare_variant: // INTEL
   case OMPD_threadprivate:
   case OMPD_declare_reduction:
   case OMPD_declare_simd:

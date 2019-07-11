@@ -423,9 +423,9 @@ void check() {
 // PATH: [[TYPE_D]] = !{!"struct@_ZTS7StructD", [[TYPE_SHORT]], i64 0, [[TYPE_B]], i64 4, [[TYPE_INT]], i64 28, [[TYPE_CHAR]], i64 32}
 // PATH: [[TAG_D_b_a_f32]] = !{[[TYPE_D]], [[TYPE_INT]], i64 12}
 // PATH: [[TAG_five_b]] = !{[[TYPE_five:!.*]], [[TYPE_CHAR]], i64 1}
-// PATH: [[TYPE_five]] = !{!"struct@_ZTS4five", [[TYPE_CHAR]], i64 0, [[TYPE_INT]], i64 1, [[TYPE_CHAR]], i64 1, [[TYPE_CHAR]], i64 2}
+// PATH: [[TYPE_five]] = !{!"struct@_ZTS4five", [[TYPE_CHAR]], i64 0, [[TYPE_CHAR]], i64 1, [[TYPE_CHAR]], i64 2}
 // PATH: [[TAG_six_b]] = !{[[TYPE_six:!.*]], [[TYPE_CHAR]], i64 4}
-// PATH: [[TYPE_six]] = !{!"struct@_ZTS3six", [[TYPE_CHAR]], i64 0, [[TYPE_INT]], i64 4, [[TYPE_CHAR]], i64 4, [[TYPE_CHAR]], i64 5}
+// PATH: [[TYPE_six]] = !{!"struct@_ZTS3six", [[TYPE_CHAR]], i64 0, [[TYPE_CHAR]], i64 4, [[TYPE_CHAR]], i64 5}
 // PATH: [[TAG_PI32]] = !{[[TYPE_PINT:!.*]], [[TYPE_PINT]], i64 0}
 // PATH: [[TYPE_PINT]] = !{!"pointer@_ZTSPi", [[TYPE_CHAR]], i64 0}
 // PATH: [[TAG_PFLOAT]] = !{[[TYPE_PFLOAT:!.*]], [[TYPE_PFLOAT]], i64 0}

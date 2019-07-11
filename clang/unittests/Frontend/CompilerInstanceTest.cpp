@@ -11,6 +11,7 @@
 #if INTEL_CUSTOMIZATION
 #include "llvm/Config/config.h"
 #endif // INTEL_CUSTOMIZATION
+#include "clang/Frontend/TextDiagnosticPrinter.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Format.h"
 #if INTEL_CUSTOMIZATION
@@ -112,5 +113,24 @@ TEST(CompilerInstance, VFSOverlayLibrary) {
 }
 #endif // !WINDOWS_ONECORE
 #endif // INTEL_CUSTOMIZATION
+TEST(CompilerInstance, AllowDiagnosticLogWithUnownedDiagnosticConsumer) {
+  auto DiagOpts = new DiagnosticOptions();
+  // Tell the diagnostics engine to emit the diagnostic log to STDERR. This
+  // ensures that a chained diagnostic consumer is created so that the test can
+  // exercise the unowned diagnostic consumer in a chained consumer.
+  DiagOpts->DiagnosticLogFile = "-";
+
+  // Create the diagnostic engine with unowned consumer.
+  std::string DiagnosticOutput;
+  llvm::raw_string_ostream DiagnosticsOS(DiagnosticOutput);
+  auto DiagPrinter = llvm::make_unique<TextDiagnosticPrinter>(
+      DiagnosticsOS, new DiagnosticOptions());
+  CompilerInstance Instance;
+  IntrusiveRefCntPtr<DiagnosticsEngine> Diags = Instance.createDiagnostics(
+      DiagOpts, DiagPrinter.get(), /*ShouldOwnClient=*/false);
+
+  Diags->Report(diag::err_expected) << "no crash";
+  ASSERT_EQ(DiagnosticsOS.str(), "error: expected no crash\n");
+}
 
 } // anonymous namespace

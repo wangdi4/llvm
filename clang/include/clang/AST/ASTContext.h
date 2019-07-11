@@ -277,6 +277,9 @@ private:
   llvm::DenseMap<const MaterializeTemporaryExpr *, APValue *>
     MaterializedTemporaryValues;
 
+  /// Used to cleanups APValues stored in the AST.
+  mutable llvm::SmallVector<APValue *, 0> APValueCleanups;
+
   /// A cache mapping a string value to a StringLiteral object with the same
   /// value.
   ///
@@ -2078,21 +2081,6 @@ public:
   /// types.
   bool areCompatibleVectorTypes(QualType FirstVec, QualType SecondVec);
 
-#if INTEL_CUSTOMIZATION
-  // CQ#377518 - allow integer typedef redefinition in IntelMSCompat mode.
-  // Return true is the given typedef types are compatible in C.
-  //
-  // Conditions:
-  //   1. Both typedef types are either integer, enumeral or pointers;
-  //   2. Both typedef types are equally qualified;
-  //   3. Both typedef types have the same size and alignment;
-  //   4. If pointers:
-  //     4.1. Levels of pointers are equal;
-  //     4.2. Pointee types are compatible OR
-  //     4.3. One type points to void and another points to char.
-  bool areCompatibleTypedefTypesInC(QualType OldType, QualType NewType);
-#endif // INTEL_CUSTOMIZATION
-
   /// Return true if this is an \c NSObject object with its \c NSObject
   /// attribute set.
   static bool isObjCNSObjectType(QualType Ty) {
@@ -2790,12 +2778,11 @@ public:
   ///
   /// \param Data Pointer data that will be provided to the callback function
   /// when it is called.
-  void AddDeallocation(void (*Callback)(void*), void *Data);
+  void AddDeallocation(void (*Callback)(void *), void *Data) const;
 
   /// If T isn't trivially destructible, calls AddDeallocation to register it
   /// for destruction.
-  template <typename T>
-  void addDestruction(T *Ptr) {
+  template <typename T> void addDestruction(T *Ptr) const {
     if (!std::is_trivially_destructible<T>::value) {
       auto DestroyPtr = [](void *V) { static_cast<T *>(V)->~T(); };
       AddDeallocation(DestroyPtr, Ptr);
@@ -3024,7 +3011,7 @@ private:
   // in order to track and run destructors while we're tearing things down.
   using DeallocationFunctionsAndArguments =
       llvm::SmallVector<std::pair<void (*)(void *), void *>, 16>;
-  DeallocationFunctionsAndArguments Deallocations;
+  mutable DeallocationFunctionsAndArguments Deallocations;
 
   // FIXME: This currently contains the set of StoredDeclMaps used
   // by DeclContext objects.  This probably should not be in ASTContext,

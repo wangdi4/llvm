@@ -755,7 +755,12 @@ static const LangASMap *getAddressSpaceMap(const TargetInfo &T,
       4, // opencl_generic
       5, // cuda_device
       6, // cuda_constant
-      7  // cuda_shared
+      7, // cuda_shared
+      1, // sycl_global
+      3, // sycl_local
+      2, // sycl_constant
+      0, // sycl_private
+      4, // sycl_generic
     };
     return &FakeAddrSpaceMap;
   } else {
@@ -831,6 +836,9 @@ ASTContext::~ASTContext() {
 
   for (const auto &Value : ModuleInitializers)
     Value.second->~PerModuleInitializers();
+
+  for (APValue *Value : APValueCleanups)
+    Value->~APValue();
 }
 
 class ASTContext::ParentMap {
@@ -909,7 +917,7 @@ void ASTContext::setTraversalScope(const std::vector<Decl *> &TopLevelDecls) {
   Parents.reset();
 }
 
-void ASTContext::AddDeallocation(void (*Callback)(void*), void *Data) {
+void ASTContext::AddDeallocation(void (*Callback)(void *), void *Data) const {
   Deallocations.push_back({Callback, Data});
 }
 
@@ -1284,7 +1292,7 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target,
   InitBuiltinType(ObjCBuiltinClassTy, BuiltinType::ObjCClass);
   InitBuiltinType(ObjCBuiltinSelTy, BuiltinType::ObjCSel);
 
-  if (LangOpts.OpenCL) {
+  if (LangOpts.OpenCL || LangOpts.SYCLIsDevice) {
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
     InitBuiltinType(SingletonId, BuiltinType::Id);
 #include "clang/Basic/OpenCLImageTypes.def"
@@ -1942,8 +1950,15 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
       Align = Target->getDoubleAlign();
       break;
     case BuiltinType::LongDouble:
-      Width = Target->getLongDoubleWidth();
-      Align = Target->getLongDoubleAlign();
+      if (getLangOpts().OpenMP && getLangOpts().OpenMPIsDevice &&
+          (Target->getLongDoubleWidth() != AuxTarget->getLongDoubleWidth() ||
+           Target->getLongDoubleAlign() != AuxTarget->getLongDoubleAlign())) {
+        Width = AuxTarget->getLongDoubleWidth();
+        Align = AuxTarget->getLongDoubleAlign();
+      } else {
+        Width = Target->getLongDoubleWidth();
+        Align = Target->getLongDoubleAlign();
+      }
       break;
     case BuiltinType::Float128:
       if (Target->hasFloat128Type() || !getLangOpts().OpenMP ||
@@ -8011,45 +8026,6 @@ bool ASTContext::areCompatibleVectorTypes(QualType FirstVec,
   return false;
 }
 
-#if INTEL_CUSTOMIZATION
-// CQ#377518 - allow integer typedef redefinition in IntelMSCompat mode.
-bool ASTContext::areCompatibleTypedefTypesInC(QualType OldType,
-                                              QualType NewType) {
-#ifndef NDEBUG
-  const LangOptions &Opts = getLangOpts();
-  assert(Opts.IntelMSCompat &&
-         "This routine must be called in IntelMSCompat mode only!");
-  assert(!Opts.CPlusPlus && !Opts.ObjC &&
-         "This routine must be called in C mode only!");
-#endif // not NDEBUG
-
-  QualType OldCan = getCanonicalType(OldType);
-  QualType NewCan = getCanonicalType(NewType);
-
-  if (OldCan.getCVRQualifiers() != NewCan.getCVRQualifiers())
-    return false;
-
-  if (OldCan->isPointerType() && NewCan->isPointerType()) {
-    QualType OldPointee = OldType->getPointeeType();
-    QualType NewPointee = NewType->getPointeeType();
-    // void * and char * are interchangeable.
-    if ((OldPointee->isCharType() && NewPointee->isVoidType()) ||
-        (OldPointee->isVoidType() && NewPointee->isCharType()))
-      return true;
-    return areCompatibleTypedefTypesInC(OldPointee, NewPointee);
-  }
-
-  if (!OldCan->isIntegralOrEnumerationType() ||
-      !NewCan->isIntegralOrEnumerationType())
-    return false;
-
-  auto OldTypeInfo = getTypeInfo(OldCan);
-  auto NewTypeInfo = getTypeInfo(NewCan);
-  return (OldTypeInfo.Width == NewTypeInfo.Width &&
-          OldTypeInfo.Align == NewTypeInfo.Align);
-}
-#endif // INTEL_CUSTOMIZATION
-
 //===----------------------------------------------------------------------===//
 // ObjCQualifiedIdTypesAreCompatible - Compatibility testing for qualified id's.
 //===----------------------------------------------------------------------===//
@@ -10063,10 +10039,25 @@ static GVALinkage basicGVALinkageForVariable(const ASTContext &Context,
     return StrongLinkage;
 
   case TSK_ExplicitSpecialization:
-    return Context.getTargetInfo().getCXXABI().isMicrosoft() &&
-                   VD->isStaticDataMember()
-               ? GVA_StrongODR
-               : StrongLinkage;
+    if (Context.getTargetInfo().getCXXABI().isMicrosoft()) {
+      // If this is a fully specialized constexpr variable template, pretend it
+      // was marked inline. MSVC 14.21.27702 headers define _Is_integral in a
+      // header this way, and we don't want to emit non-discardable definitions
+      // of these variables in every TU that includes <type_traits>. This
+      // behavior is non-conforming, since another TU could use an extern
+      // template declaration for this variable, but for constexpr variables,
+      // it's unlikely for a user to want to do that. This behavior can be
+      // removed if the headers change to explicitly mark such variable template
+      // specializations inline.
+      if (isa<VarTemplateSpecializationDecl>(VD) && VD->isConstexpr())
+        return GVA_DiscardableODR;
+
+      // Use ODR linkage for static data members of fully specialized templates
+      // to prevent duplicate definition errors with MSVC.
+      if (VD->isStaticDataMember())
+        return GVA_StrongODR;
+    }
+    return StrongLinkage;
 
   case TSK_ExplicitInstantiationDefinition:
     return GVA_StrongODR;
@@ -10253,7 +10244,7 @@ CallingConv ASTContext::getDefaultCallingConvention(bool IsVariadic,
                                                     bool IsCXXMethod,
                                                     bool IsBuiltin) const {
   // Pass through to the C++ ABI object
-  if (IsCXXMethod)
+  if (IsCXXMethod && !LangOpts.SYCLIsDevice)
     return ABI->getDefaultMethodCallConv(IsVariadic);
 
   // Builtins ignore user-specified default calling convention and remain the

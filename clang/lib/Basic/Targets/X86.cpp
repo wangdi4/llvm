@@ -137,13 +137,8 @@ bool X86TargetInfo::setFPMath(StringRef Name) {
 #else // INTEL_FEATURE_ISA_KEYLOCKER
 #define TGLXFEATURE1
 #endif // INTEL_FEATURE_ISA_KEYLOCKER
-
-#if INTEL_FEATURE_ISA_VP2INTERSECT
-#define TGLXFEATURE2 setFeatureEnabledImpl(Features, "avx512vp2intersect", true);
-#else // INTEL_FEATURE_ISA_VP2INTERSECT
-#define TGLXFEATURE2
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
 #endif // INTEL_CUSTOMIZATION
+
 bool X86TargetInfo::initFeatureMap(
     llvm::StringMap<bool> &Features, DiagnosticsEngine &Diags, StringRef CPU,
     const std::vector<std::string> &FeaturesVec) const {
@@ -194,6 +189,25 @@ bool X86TargetInfo::initFeatureMap(
     setFeatureEnabledImpl(Features, "mmx", true);
     break;
 
+  case CK_Cooperlake:
+    // CPX inherits all CLX features plus AVX512BF16
+    setFeatureEnabledImpl(Features, "avx512bf16", true);
+    LLVM_FALLTHROUGH;
+  case CK_Cascadelake:
+    // CLX inherits all SKX features plus AVX512VNNI
+    setFeatureEnabledImpl(Features, "avx512vnni", true);
+    LLVM_FALLTHROUGH;
+  case CK_SkylakeServer:
+    setFeatureEnabledImpl(Features, "avx512f", true);
+    setFeatureEnabledImpl(Features, "avx512cd", true);
+    setFeatureEnabledImpl(Features, "avx512dq", true);
+    setFeatureEnabledImpl(Features, "avx512bw", true);
+    setFeatureEnabledImpl(Features, "avx512vl", true);
+    setFeatureEnabledImpl(Features, "clwb", true);
+    setFeatureEnabledImpl(Features, "pku", true);
+    // SkylakeServer cores inherits all SKL features, except SGX
+    goto SkylakeCommon;
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_GLC
   case CK_Goldencove:
@@ -203,7 +217,7 @@ bool X86TargetInfo::initFeatureMap(
 #endif // INTEL_FEATURE_CPU_GLC
   case CK_Tigerlake:
     TGLXFEATURE1
-    TGLXFEATURE2
+    setFeatureEnabledImpl(Features, "avx512vp2intersect", true);
     setFeatureEnabledImpl(Features, "movdiri", true);
     setFeatureEnabledImpl(Features, "movdir64b", true);
     setFeatureEnabledImpl(Features, "shstk", true);
@@ -221,38 +235,29 @@ bool X86TargetInfo::initFeatureMap(
     setFeatureEnabledImpl(Features, "vpclmulqdq", true);
     setFeatureEnabledImpl(Features, "avx512bitalg", true);
     setFeatureEnabledImpl(Features, "avx512vbmi2", true);
+    setFeatureEnabledImpl(Features, "avx512vnni", true);
     setFeatureEnabledImpl(Features, "avx512vpopcntdq", true);
     setFeatureEnabledImpl(Features, "rdpid", true);
+    setFeatureEnabledImpl(Features, "clwb", true);
     LLVM_FALLTHROUGH;
   case CK_Cannonlake:
-    setFeatureEnabledImpl(Features, "avx512ifma", true);
-    setFeatureEnabledImpl(Features, "avx512vbmi", true);
-    setFeatureEnabledImpl(Features, "sha", true);
-    LLVM_FALLTHROUGH;
-  case CK_Cascadelake:
-    //Cannonlake has no VNNI feature inside while Icelake has
-    if (Kind != CK_Cannonlake)
-      // CLK inherits all SKX features plus AVX512_VNNI
-      setFeatureEnabledImpl(Features, "avx512vnni", true);
-    LLVM_FALLTHROUGH;
-  case CK_SkylakeServer:
     setFeatureEnabledImpl(Features, "avx512f", true);
     setFeatureEnabledImpl(Features, "avx512cd", true);
     setFeatureEnabledImpl(Features, "avx512dq", true);
     setFeatureEnabledImpl(Features, "avx512bw", true);
     setFeatureEnabledImpl(Features, "avx512vl", true);
+    setFeatureEnabledImpl(Features, "avx512ifma", true);
+    setFeatureEnabledImpl(Features, "avx512vbmi", true);
     setFeatureEnabledImpl(Features, "pku", true);
-    if (Kind != CK_Cannonlake) // CNL inherits all SKX features, except CLWB
-      setFeatureEnabledImpl(Features, "clwb", true);
+    setFeatureEnabledImpl(Features, "sha", true);
     LLVM_FALLTHROUGH;
   case CK_SkylakeClient:
+    setFeatureEnabledImpl(Features, "sgx", true);
+    // SkylakeServer cores inherits all SKL features, except SGX
+SkylakeCommon:
     setFeatureEnabledImpl(Features, "xsavec", true);
     setFeatureEnabledImpl(Features, "xsaves", true);
     setFeatureEnabledImpl(Features, "mpx", true);
-    if (Kind != CK_SkylakeServer
-        && Kind != CK_Cascadelake)
-      // SKX/CLX inherits all SKL features, except SGX
-      setFeatureEnabledImpl(Features, "sgx", true);
     setFeatureEnabledImpl(Features, "clflushopt", true);
     setFeatureEnabledImpl(Features, "aes", true);
     LLVM_FALLTHROUGH;
@@ -995,11 +1000,9 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasPTWRITE = true;
     } else if (Feature == "+invpcid") {
       HasINVPCID = true;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ENQCMD
     } else if (Feature == "+enqcmd") {
       HasENQCMD = true;
-#endif // INTEL_FEATURE_ISA_ENQCMD
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_ULI
     } else if (Feature == "+uli") {
       HasULI = true;
@@ -1094,6 +1097,13 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     DefineStd(Builder, "i386", Opts);
   }
 
+#if INTEL_CUSTOMIZATION
+  // IntrinsicPromotion implementation.
+  if (Opts.IntrinsicAutoPromote)
+    // TODO: Does this have value?!
+    Builder.defineMacro("__M_INTRINSIC_PROMOTE__");
+#endif // INTEL_CUSTOMIZATION
+
   // Subtarget options.
   // FIXME: We are hard-coding the tune parameters based on the CPU, but they
   // truly should be based on -mtune options.
@@ -1168,6 +1178,7 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_SkylakeClient:
   case CK_SkylakeServer:
   case CK_Cascadelake:
+  case CK_Cooperlake:
   case CK_Cannonlake:
   case CK_IcelakeClient:
   case CK_IcelakeServer:
@@ -1429,11 +1440,9 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__PTWRITE__");
   if (HasINVPCID)
     Builder.defineMacro("__INVPCID__");
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ENQCMD
   if (HasENQCMD)
     Builder.defineMacro("__ENQCMD__");
-#endif // INTEL_FEATURE_ISA_ENQCMD
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_ULI
   if (HasULI)
     Builder.defineMacro("__ULI__");
@@ -1475,6 +1484,7 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (!Opts.OpenMPIsDevice) {
 #endif  // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+
   // Each case falls through to the previous one here.
   switch (SSELevel) {
   case AVX512F:
@@ -1618,11 +1628,7 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("clwb", true)
       .Case("clzero", true)
       .Case("cx16", true)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ENQCMD
       .Case("enqcmd", true)
-#endif // INTEL_FEATURE_ISA_ENQCMD
-#endif // INTEL_CUSTOMIZATION
       .Case("f16c", true)
       .Case("fma", true)
       .Case("fma4", true)
@@ -1737,11 +1743,7 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("clzero", HasCLZERO)
       .Case("cx8", HasCX8)
       .Case("cx16", HasCX16)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_ENQCMD
       .Case("enqcmd", HasENQCMD)
-#endif // INTEL_FEATURE_ISA_ENQCMD
-#endif // INTEL_CUSTOMIZATION
       .Case("f16c", HasF16C)
       .Case("fma", HasFMA)
       .Case("fma4", XOPLevel >= FMA4)

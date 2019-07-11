@@ -15,15 +15,6 @@
 
 let Component = "Lex", CategoryName = "Lexical or Preprocessor Issue" in {
 
-// CQ#368194 - emit a warning, not an error on unterminated block comment.
-def warn_unterminated_block_comment : Warning<
-  err_unterminated_block_comment.Text>, InGroup<Comment>;
-
-// CQ#372653.
-def warn_pp_malformed_ident :
-  Warning<"invalid #ident directive will be ignored">,
-  InGroup<IntelCompat>;
-
 // CQ#367740
 def warn_pragma_message_malformed : Warning<
   "pragma %select{message|warning|error}0 requires parenthesized string">,

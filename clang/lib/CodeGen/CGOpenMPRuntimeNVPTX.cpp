@@ -792,6 +792,8 @@ static bool hasNestedSPMDDirective(ASTContext &Ctx,
     case OMPD_declare_simd:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
+    case OMPD_declare_variant:         // INTEL
+    case OMPD_target_variant_dispatch: // INTEL
     case OMPD_declare_reduction:
     case OMPD_declare_mapper:
     case OMPD_taskloop:
@@ -862,6 +864,8 @@ static bool supportsSPMDExecutionMode(ASTContext &Ctx,
   case OMPD_declare_simd:
   case OMPD_declare_target:
   case OMPD_end_declare_target:
+  case OMPD_declare_variant:         // INTEL
+  case OMPD_target_variant_dispatch: // INTEL
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
   case OMPD_taskloop:
@@ -1026,6 +1030,8 @@ static bool hasNestedLightweightDirective(ASTContext &Ctx,
     case OMPD_declare_target:
     case OMPD_end_declare_target:
     case OMPD_declare_reduction:
+    case OMPD_declare_variant:         // INTEL
+    case OMPD_target_variant_dispatch: // INTEL
     case OMPD_declare_mapper:
     case OMPD_taskloop:
     case OMPD_taskloop_simd:
@@ -1101,6 +1107,8 @@ static bool supportsLightweightRuntime(ASTContext &Ctx,
   case OMPD_declare_simd:
   case OMPD_declare_target:
   case OMPD_end_declare_target:
+  case OMPD_declare_variant:         // INTEL
+  case OMPD_target_variant_dispatch: // INTEL
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
   case OMPD_taskloop:

@@ -64,21 +64,21 @@
                    "r"(index))
 #define _tile_storehd(tile, base, index, scale)                                \
   __asm__ volatile("tstorehd %%tmm" #tile ", (%0,%1," #scale ")" ::"r"(base),  \
-                   "r"((uint64_t)(index)))
+                   "r"((unsigned long long)(index)))
 #define _tile_storehdt1(tile, base, index, scale)                              \
   __asm__ volatile("tstorehdt1 %%tmm" #tile ", (%0,%1," #scale                 \
                    ")" ::"r"(base),                                            \
-                   "r"((uint64_t)(index)))
+                   "r"((unsigned long long)(index)))
 #define _tile_storentd(tile, base, index, scale)                               \
   __asm__ volatile("tstorentd %%tmm" #tile ", (%0,%1," #scale ")" ::"r"(base), \
-                   "r"((uint64_t)(index)))
+                   "r"((unsigned long long)(index)))
 #define _tile_storeqd(tile, base, index, scale)                                \
   __asm__ volatile("tstoreqd %%tmm" #tile ", (%0,%1," #scale ")" ::"r"(base),  \
-                   "r"((uint64_t)(index)))
+                   "r"((unsigned long long)(index)))
 #define _tile_storeqdt1(tile, base, index, scale)                              \
   __asm__ volatile("tstoreqdt1 %%tmm" #tile ", (%0,%1," #scale                 \
                    ")" ::"r"(base),                                            \
-                   "r"((uint64_t)(index)))
+                   "r"((unsigned long long)(index)))
 #define _tile_storerowd(tile, mem)                                             \
   __asm__ volatile("tstorerowd %%tmm" #tile ", %0" ::"m"(mem))
 // Format
@@ -243,6 +243,19 @@
 #define _tile_xord_mem(mem, tile2, tile3)                                      \
   __asm__ volatile("txord %0, %%tmm" #tile2 ", "                               \
                    "%%tmm" #tile3 ::"m"(mem))
+// FP16
+#define _tile_dpfp16ps(tile1, tile2, tile3)                                    \
+  __asm__ volatile("tdpfp16ps %%tmm" #tile1 ", %%tmm" #tile2 ", "              \
+                   "%%tmm" #tile3 ::)
+// Tile to AVX512
+#define _tile_mov2zmm(tile, imm)                                               \
+  __extension__({                                                              \
+    __m512 __zmm;                                                              \
+    __asm__ volatile("tilemov2zmm %1, %%tmm" #tile ", %0"                      \
+                     : "=v"(__zmm)                                             \
+                     : "i"(imm));                                              \
+    __zmm;                                                                     \
+  })
 
 #endif /* __x86_64__ */
 #endif /* __AMX2INTRIN_H */

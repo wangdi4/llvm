@@ -17,39 +17,56 @@
 
 #include <immintrin.h>
 
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__3dNOW__)
+/* INTEL_CUSTOMIZATION */
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__3dNOW__) || defined(__M_INTRINSIC_PROMOTE__)
+/* end INTEL_CUSTOMIZATION */
 #include <mm3dnow.h>
 #endif
 
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__PRFCHW__)
+/* INTEL_CUSTOMIZATION */
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__PRFCHW__) || defined(__M_INTRINSIC_PROMOTE__)
+/* end INTEL_CUSTOMIZATION */
 #include <prfchwintrin.h>
 #endif
 
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__SSE4A__)
+/* INTEL_CUSTOMIZATION */
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__SSE4A__) || defined(__M_INTRINSIC_PROMOTE__)
+/* end INTEL_CUSTOMIZATION */
 #include <ammintrin.h>
 #endif
 
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__FMA4__)
+/* INTEL_CUSTOMIZATION */
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__FMA4__) || defined(__M_INTRINSIC_PROMOTE__)
+/* end INTEL_CUSTOMIZATION */
 #include <fma4intrin.h>
 #endif
 
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__XOP__)
+/* INTEL_CUSTOMIZATION */
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__XOP__) || defined(__M_INTRINSIC_PROMOTE__)
+/* end INTEL_CUSTOMIZATION */
 #include <xopintrin.h>
 #endif
 
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__TBM__)
+/* INTEL_CUSTOMIZATION */
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__TBM__) || defined(__M_INTRINSIC_PROMOTE__)
+/* end INTEL_CUSTOMIZATION */
 #include <tbmintrin.h>
 #endif
 
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__LWP__)
+/* INTEL_CUSTOMIZATION */
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__LWP__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <lwpintrin.h>
 #endif
 
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__MWAITX__)
+/* INTEL_CUSTOMIZATION */
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__MWAITX__) || defined(__M_INTRINSIC_PROMOTE__)
+/* end INTEL_CUSTOMIZATION */
 #include <mwaitxintrin.h>
 #endif
 
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__CLZERO__)
+/* INTEL_CUSTOMIZATION */
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__CLZERO__) || defined(__M_INTRINSIC_PROMOTE__)
+/* end INTEL_CUSTOMIZATION */
 #include <clzerointrin.h>
 #endif
 

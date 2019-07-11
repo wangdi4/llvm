@@ -326,6 +326,120 @@ public:
   }
 };
 
+// TODO SYCL Integration header approach relies on an assumption that kernel
+// lambda objects created by the host compiler and any of the device compilers
+// will be identical wrt to field types, order and offsets. Some verification
+// mechanism should be developed to enforce that.
+
+// TODO FIXME SYCL Support for SYCL in FE should be refactored:
+// - kernel identification and generation should be made a separate pass over
+// AST. RecursiveASTVisitor + VisitFunctionTemplateDecl +
+// FunctionTemplateDecl::getSpecializations() mechanism could be used for that.
+// - All SYCL stuff on Sema level should be encapsulated into a single Sema
+// field
+// - Move SYCL stuff into a separate header
+
+// Represents contents of a SYCL integration header file produced by a SYCL
+// device compiler and used by SYCL host compiler (via forced inclusion into
+// compiled SYCL source):
+// - SYCL kernel names
+// - SYCL kernel parameters and offsets of corresponding actual arguments
+class SYCLIntegrationHeader {
+public:
+  // Kind of kernel's parameters as captured by the compiler in the
+  // kernel lambda or function object
+  enum kernel_param_kind_t {
+    kind_first,
+    kind_accessor = kind_first,
+    kind_std_layout,
+    kind_sampler,
+    kind_last = kind_sampler
+  };
+
+public:
+  SYCLIntegrationHeader(DiagnosticsEngine &Diag);
+
+  /// Emits contents of the header into given stream.
+  void emit(raw_ostream &Out);
+
+  /// Emits contents of the header into a file with given name.
+  /// Returns true/false on success/failure.
+  bool emit(const StringRef &MainSrc);
+
+  ///  Signals that subsequent parameter descriptor additions will go to
+  ///  the kernel with given name. Starts new kernel invocation descriptor.
+  void startKernel(StringRef KernelName, QualType KernelNameType);
+
+  /// Adds a kernel parameter descriptor to current kernel invocation
+  /// descriptor.
+  void addParamDesc(kernel_param_kind_t Kind, int Info, unsigned Offset);
+
+  /// Signals that addition of parameter descriptors to current kernel
+  /// invocation descriptor has finished.
+  void endKernel();
+
+private:
+  // Kernel actual parameter descriptor.
+  struct KernelParamDesc {
+    // Represents a parameter kind.
+    kernel_param_kind_t Kind = kind_last;
+    // If Kind is kind_scalar or kind_struct, then
+    //   denotes parameter size in bytes (includes padding for structs)
+    // If Kind is kind_accessor
+    //   denotes access target; possible access targets are defined in
+    //   access/access.hpp
+    int Info = 0;
+    // Offset of the captured parameter value in the lambda or function object.
+    unsigned Offset = 0;
+
+    KernelParamDesc() = default;
+  };
+
+  // Kernel invocation descriptor
+  struct KernelDesc {
+    /// Kernel name.
+    std::string Name;
+
+    /// Kernel name type.
+    QualType NameType;
+
+    /// Descriptor of kernel actual parameters.
+    SmallVector<KernelParamDesc, 8> Params;
+
+    KernelDesc() = default;
+  };
+
+  /// Returns the latest invocation descriptor started by
+  /// SYCLIntegrationHeader::startKernel
+  KernelDesc *getCurKernelDesc() {
+    return KernelDescs.size() > 0 ? &KernelDescs[KernelDescs.size() - 1]
+                                  : nullptr;
+  }
+
+  /// Emits a forward declaration for given declaration.
+  void emitFwdDecl(raw_ostream &O, const Decl *D);
+
+  /// Emits forward declarations of classes and template classes on which
+  /// declaration of given type depends. See example in the comments for the
+  /// implementation.
+  /// \param O
+  ///     stream to emit to
+  /// \param T
+  ///     type to emit forward declarations for
+  /// \param Emitted
+  ///     a set of declarations forward declrations has been emitted for already
+  void emitForwardClassDecls(raw_ostream &O, QualType T,
+                             llvm::SmallPtrSetImpl<const void*> &Emitted);
+
+private:
+  /// Keeps invocation descriptors for each kernel invocation started by
+  /// SYCLIntegrationHeader::startKernel
+  SmallVector<KernelDesc, 4> KernelDescs;
+
+  /// Used for emitting diagnostics.
+  DiagnosticsEngine &Diag;
+};
+
 /// Keeps track of expected type during expression parsing. The type is tied to
 /// a particular token, all functions that update or consume the type take a
 /// start location of the token they are looking at as a parameter. This allows
@@ -888,6 +1002,15 @@ public:
       pop();
     }
   };
+
+  /// Used to change context to isConstantEvaluated without pushing a heavy
+  /// ExpressionEvaluationContextRecord object.
+  bool isConstantEvaluatedOverride;
+
+  bool isConstantEvaluated() {
+    return ExprEvalContexts.back().isConstantEvaluated() ||
+           isConstantEvaluatedOverride;
+  }
 
   /// RAII object to handle the state changes required to synthesize
   /// a function body.
@@ -2188,7 +2311,9 @@ public:
                                       QualType NewT, QualType OldT);
   void CheckMain(FunctionDecl *FD, const DeclSpec &D);
   void CheckMSVCRTEntryPoint(FunctionDecl *FD);
-  Attr *getImplicitCodeSegOrSectionAttrForFunction(const FunctionDecl *FD, bool IsDefinition);
+  Attr *getImplicitCodeSegOrSectionAttrForFunction(const FunctionDecl *FD,
+                                                   bool IsDefinition);
+  void CheckFunctionOrTemplateParamDeclarator(Scope *S, Declarator &D);
   Decl *ActOnParamDeclarator(Scope *S, Declarator &D);
   ParmVarDecl *BuildParmVarDeclForTypedef(DeclContext *DC,
                                           SourceLocation Loc,
@@ -4336,7 +4461,7 @@ public:
   void MarkCaptureUsedInEnclosingContext(VarDecl *Capture, SourceLocation Loc,
                                          unsigned CapturingScopeIndex);
 
-  void UpdateMarkingForLValueToRValue(Expr *E);
+  ExprResult CheckLValueToRValueConversionOperand(Expr *E);
   void CleanupVarDeclMarking();
 
   enum TryCaptureKind {
@@ -4455,6 +4580,10 @@ public:
                                         const DeclarationNameInfo &NameInfo,
                                         bool isAddressOfOperand,
                                 const TemplateArgumentListInfo *TemplateArgs);
+
+  /// If \p D cannot be odr-used in the current expression evaluation context,
+  /// return a reason explaining why. Otherwise, return NOUR_None.
+  NonOdrUseReason getNonOdrUseReasonInCurrentContext(ValueDecl *D);
 
   DeclRefExpr *BuildDeclRefExpr(ValueDecl *D, QualType Ty, ExprValueKind VK,
                                 SourceLocation Loc,
@@ -4666,6 +4795,23 @@ public:
                                    SourceLocation TemplateKWLoc,
                                    UnqualifiedId &Member,
                                    Decl *ObjCImpDecl);
+
+  MemberExpr *
+  BuildMemberExpr(Expr *Base, bool IsArrow, SourceLocation OpLoc,
+                  const CXXScopeSpec *SS, SourceLocation TemplateKWLoc,
+                  ValueDecl *Member, DeclAccessPair FoundDecl,
+                  bool HadMultipleCandidates,
+                  const DeclarationNameInfo &MemberNameInfo, QualType Ty,
+                  ExprValueKind VK, ExprObjectKind OK,
+                  const TemplateArgumentListInfo *TemplateArgs = nullptr);
+  MemberExpr *
+  BuildMemberExpr(Expr *Base, bool IsArrow, SourceLocation OpLoc,
+                  NestedNameSpecifierLoc NNS, SourceLocation TemplateKWLoc,
+                  ValueDecl *Member, DeclAccessPair FoundDecl,
+                  bool HadMultipleCandidates,
+                  const DeclarationNameInfo &MemberNameInfo, QualType Ty,
+                  ExprValueKind VK, ExprObjectKind OK,
+                  const TemplateArgumentListInfo *TemplateArgs = nullptr);
 
   void ActOnDefaultCtorInitializers(Decl *CDtorDecl);
   bool ConvertArgumentsForCall(CallExpr *Call, Expr *Fn,
@@ -5884,7 +6030,7 @@ public:
   startLambdaDefinition(CXXRecordDecl *Class, SourceRange IntroducerRange,
                         TypeSourceInfo *MethodType, SourceLocation EndLoc,
                         ArrayRef<ParmVarDecl *> Params,
-                        bool IsConstexprSpecified,
+                        ConstexprSpecKind ConstexprKind,
                         Optional<std::pair<unsigned, Decl *>> Mangling = None);
 
   /// Endow the lambda scope info with the relevant properties.
@@ -8908,20 +9054,29 @@ public:
   /// attribute to be added (usually because of a pragma).
   void AddOptnoneAttributeIfNoConflicts(FunctionDecl *FD, SourceLocation Loc);
 
-#if INTEL_CUSTOMIZATION
-  void AddSchedulerTargetFmaxMHzAttr(SourceRange AttrRange, Decl *D,
-                                           Expr *E, unsigned SpellingListIndex);
-  void AddInternalMaxBlockRamDepthAttr(SourceRange AttrRange, Decl *D, Expr *E,
-                                       unsigned SpellingListIndex);
   template <typename AttrType>
   bool checkRangedIntegralArgument(Expr *E, const AttrType *TmpAttr,
                                    ExprResult &Result);
   template <typename AttrType>
-  void AddOneConstantValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
-                               unsigned SpellingListIndex);
+  void IntelFPGAAddOneConstantValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
+                                        unsigned SpellingListIndex);
   template <typename AttrType>
-  void AddOneConstantPowerTwoValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
+  void IntelFPGAAddOneConstantPowerTwoValueAttr(SourceRange AttrRange, Decl *D,
+                                                Expr *E,
+                                                unsigned SpellingListIndex);
+
+#if INTEL_CUSTOMIZATION
+  void AddSchedulerTargetFmaxMHzAttr(SourceRange AttrRange, Decl *D, Expr *E,
+                                     unsigned SpellingListIndex);
+  void AddInternalMaxBlockRamDepthAttr(SourceRange AttrRange, Decl *D, Expr *E,
                                        unsigned SpellingListIndex);
+  template <typename AttrType>
+  void HLSAddOneConstantValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
+                                  unsigned SpellingListIndex);
+  template <typename AttrType>
+  void HLSAddOneConstantPowerTwoValueAttr(SourceRange AttrRange, Decl *D,
+                                          Expr *E, unsigned SpellingListIndex);
+
   void AddBankBitsAttr(SourceRange AttrRange, Decl *D, Expr **Exprs,
                        unsigned Size, unsigned SpellingListIndex);
 #endif // INTEL_CUSTOMIZATION
@@ -9310,6 +9465,22 @@ public:
   /// associated statement.
   StmtResult ActOnOpenMPSectionDirective(Stmt *AStmt, SourceLocation StartLoc,
                                          SourceLocation EndLoc);
+#if INTEL_CUSTOMIZATION
+  /// Called on well-formed '\#pragma omp target variant dispatch' after
+  /// parsing of the associated statement.
+  StmtResult ActOnOpenMPTargetVariantDispatchDirective(
+      ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
+      SourceLocation EndLoc);
+
+  /// Called on well-formed '\#pragma omp declare variant' after parsing of
+  /// the associated method/function.
+  DeclGroupPtrTy ActOnOpenMPDeclareVariantDirective(
+      DeclGroupPtrTy DG, FunctionDecl *FD,
+      SmallVectorImpl<OMPDeclareVariantDeclAttr::ConstructTy> &Constructs,
+      SmallVectorImpl<OMPDeclareVariantDeclAttr::DeviceTy> &Devices,
+      SourceRange SR);
+#endif // INTEL_CUSTOMIZATION
+
   /// Called on well-formed '\#pragma omp single' after parsing of the
   /// associated statement.
   StmtResult ActOnOpenMPSingleDirective(ArrayRef<OMPClause *> Clauses,
@@ -11310,13 +11481,6 @@ public:
   SmallVector<CXXRecordDecl*, 4> DelayedDllExportClasses;
 
 #if INTEL_CUSTOMIZATION
-  // CQ#410807: To be compatible with MS, we should parse initializers
-  // differently (always assuming that an identifier might be a reference to a
-  // class method). To do this in every situation and not add an additional
-  // argument to every function, we should remember that we are inside
-  // initializer parsing.
-  bool IsInInitializerContext = false;
-
   llvm::DenseMap<const Type *, SmallVector<FunctionDecl *, 4>> OCLChannelBIs;
 #endif // INTEL_CUSTOMIZATION
 
@@ -11406,6 +11570,29 @@ public:
     ConstructorDestructor,
     BuiltinFunction
   };
+
+private:
+  // We store SYCL Kernels here and handle separately -- which is a hack.
+  // FIXME: It would be best to refactor this.
+  SmallVector<Decl*, 4> SyclKernel;
+  // SYCL integration header instance for current compilation unit this Sema
+  // is associated with.
+  std::unique_ptr<SYCLIntegrationHeader> SyclIntHeader;
+
+public:
+  void AddSyclKernel(Decl * d) { SyclKernel.push_back(d); }
+  SmallVector<Decl*, 4> &SyclKernels() { return SyclKernel; }
+
+  /// Lazily creates and returns SYCL integration header instance.
+  SYCLIntegrationHeader &getSyclIntegrationHeader() {
+    if (SyclIntHeader == nullptr)
+      SyclIntHeader = llvm::make_unique<SYCLIntegrationHeader>(
+        getDiagnostics());
+    return *SyclIntHeader.get();
+  }
+
+  void ConstructOpenCLKernel(FunctionDecl *KernelCallerFunc);
+  void MarkDevice(void);
 };
 
 /// RAII object that enters a new expression evaluation context.

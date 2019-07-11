@@ -30,25 +30,73 @@ static const unsigned SPIRAddrSpaceMap[] = {
     4, // opencl_generic
     0, // cuda_device
     0, // cuda_constant
-    0  // cuda_shared
+    0, // cuda_shared
+    1, // sycl_global
+    3, // sycl_local
+    2, // sycl_constant
+    0, // sycl_private
+    4, // sycl_generic
 };
 
+static const unsigned SYCLAddrSpaceMap[] = {
+    4, // Default
+    1, // opencl_global
+    3, // opencl_local
+    2, // opencl_constant
+    0, // opencl_private
+    4, // opencl_generic
+    0, // cuda_device
+    0, // cuda_constant
+    0, // cuda_shared
+    1, // sycl_global
+    3, // sycl_local
+    2, // sycl_constant
+    0, // sycl_private
+    4, // sycl_generic
+};
+
+#if INTEL_COLLAB
+static const unsigned SPIRAddrSpaceDefIsGenMap[] = {
+    4, // Default
+    1, // opencl_global
+    3, // opencl_local
+    2, // opencl_constant
+    0, // opencl_private
+    4, // opencl_generic
+    0, // cuda_device
+    0, // cuda_constant
+    0, // cuda_shared
+    1, // sycl_global
+    3, // sycl_local
+    2, // sycl_constant
+    0, // sycl_private
+    4, // sycl_generic
+};
+#endif // INTEL_COLLAB
+
 class LLVM_LIBRARY_VISIBILITY SPIRTargetInfo : public TargetInfo {
+#if INTEL_COLLAB
+  bool UseAutoOpenCLAddrSpaceForOpenMP = false;
+#endif  // INTEL_COLLAB
 public:
   SPIRTargetInfo(const llvm::Triple &Triple, const TargetOptions &)
       : TargetInfo(Triple) {
-    assert(getTriple().getOS() == llvm::Triple::UnknownOS &&
-           "SPIR target must use unknown OS");
 #if INTEL_CUSTOMIZATION
     assert((getTriple().getEnvironment() == llvm::Triple::UnknownEnvironment ||
             getTriple().getEnvironment() == llvm::Triple::IntelFPGA ||
-            getTriple().getEnvironment() == llvm::Triple::IntelEyeQ) &&
+            getTriple().getEnvironment() == llvm::Triple::IntelEyeQ ||
+            getTriple().getEnvironment() == llvm::Triple::SYCLDevice) &&
            "SPIR target must use unknown environment type");
 #endif // INTEL_CUSTOMIZATION
     TLSSupported = false;
     VLASupported = false;
     LongWidth = LongAlign = 64;
-    AddrSpaceMap = &SPIRAddrSpaceMap;
+    if (Triple.getEnvironment() == llvm::Triple::SYCLDevice &&
+        getenv("ENABLE_INFER_AS")) {
+      AddrSpaceMap = &SYCLAddrSpaceMap;
+    } else {
+      AddrSpaceMap = &SPIRAddrSpaceMap;
+    }
     UseAddrSpaceMapMangling = true;
     HasLegalHalfType = true;
     HasFloat16 = true;
@@ -59,6 +107,31 @@ public:
 
   void getTargetDefines(const LangOptions &Opts,
                         MacroBuilder &Builder) const override;
+
+#if INTEL_COLLAB
+  void adjust(LangOptions &Opts) override {
+    TargetInfo::adjust(Opts);
+    if (Opts.OpenMPLateOutline &&
+        // FIXME: Temporarily quaery for ENABLE_INFER_AS environment variable.
+        //        In the long term we should probably rely on
+        //        UseAutoOpenCLAddrSpaceForOpenMP language option.
+        //        The check for OpenMPLateOutline is also unnecessary.
+        (Opts.UseAutoOpenCLAddrSpaceForOpenMP || getenv("ENABLE_INFER_AS"))) {
+      // Use generic address space for all pointers except
+      // globals and stack locals.
+      Opts.UseAutoOpenCLAddrSpaceForOpenMP = true; // FIXME: remove this
+      UseAutoOpenCLAddrSpaceForOpenMP = true;
+      AddrSpaceMap = &SPIRAddrSpaceDefIsGenMap;
+    }
+  }
+
+  llvm::Optional<LangAS> getConstantAddressSpace() const override {
+    if (UseAutoOpenCLAddrSpaceForOpenMP)
+      // Place constants into a global address space.
+      return getLangASFromTargetAS(1);
+    return LangAS::Default;
+  }
+#endif  // INTEL_COLLAB
 
   bool hasFeature(StringRef Feature) const override {
     return Feature == "spir";
@@ -130,6 +203,42 @@ public:
 
   void getTargetDefines(const LangOptions &Opts,
                         MacroBuilder &Builder) const override;
+};
+
+class LLVM_LIBRARY_VISIBILITY SPIR32SYCLDeviceTargetInfo
+    : public SPIR32TargetInfo {
+public:
+  SPIR32SYCLDeviceTargetInfo(const llvm::Triple &Triple,
+                             const TargetOptions &Opts)
+      : SPIR32TargetInfo(Triple, Opts) {
+    // This is workaround for exception_ptr class.
+    // Exceptions is not allowed in sycl device code but we should be able
+    // to parse host code. So we allow compilation of exception_ptr but
+    // if exceptions are used in device code we should emit a diagnostic.
+    MaxAtomicInlineWidth = 32;
+    // This is workaround for mutex class.
+    // I'm not sure about this hack but I guess that mutex_class is same
+    // problem.
+    TLSSupported = true;
+  }
+};
+
+class LLVM_LIBRARY_VISIBILITY SPIR64SYCLDeviceTargetInfo
+    : public SPIR64TargetInfo {
+public:
+  SPIR64SYCLDeviceTargetInfo(const llvm::Triple &Triple,
+                             const TargetOptions &Opts)
+      : SPIR64TargetInfo(Triple, Opts) {
+    // This is workaround for exception_ptr class.
+    // Exceptions is not allowed in sycl device code but we should be able
+    // to parse host code. So we allow compilation of exception_ptr but
+    // if exceptions are used in device code we should emit a diagnostic.
+    MaxAtomicInlineWidth = 64;
+    // This is workaround for mutex class.
+    // I'm not sure about this hack but I guess that mutex_class is same
+    // problem.
+    TLSSupported = true;
+  }
 };
 
 #if INTEL_CUSTOMIZATION

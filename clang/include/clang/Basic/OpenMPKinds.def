@@ -199,6 +199,12 @@
 # define OPENMP_ALLOCATE_CLAUSE(Name)
 #endif
 
+#if INTEL_CUSTOMIZATION
+#ifndef OPENMP_TARGET_VARIANT_DISPATCH_CLAUSE
+#define OPENMP_TARGET_VARIANT_DISPATCH_CLAUSE(Name)
+#endif
+#endif // INTEL_CUSTOMIZATION
+
 // OpenMP directives.
 OPENMP_DIRECTIVE(threadprivate)
 OPENMP_DIRECTIVE(parallel)
@@ -257,6 +263,9 @@ OPENMP_DIRECTIVE_EXT(target_teams_distribute_simd, "target teams distribute simd
 OPENMP_DIRECTIVE(allocate)
 
 #if INTEL_CUSTOMIZATION
+OPENMP_DIRECTIVE_EXT(declare_variant, "declare variant")
+OPENMP_DIRECTIVE_EXT(target_variant_dispatch, "target variant dispatch")
+
 // OpenMP directives in the -qopenmp-simd subset
 #ifndef OPENMP_DIRECTIVE_SIMD_SUBSET
 #define OPENMP_DIRECTIVE_SIMD_SUBSET(Name)
@@ -287,6 +296,7 @@ OPENMP_DIRECTIVE_SPIR_SUBSET(target_parallel_for)
 OPENMP_DIRECTIVE_SPIR_SUBSET(target_parallel_for_simd)
 OPENMP_DIRECTIVE_SPIR_SUBSET(target_teams_distribute_parallel_for)
 OPENMP_DIRECTIVE_SPIR_SUBSET(target_teams_distribute_parallel_for_simd)
+OPENMP_DIRECTIVE_SPIR_SUBSET(target_variant_dispatch)
 OPENMP_DIRECTIVE_SPIR_SUBSET(simd)
 OPENMP_DIRECTIVE_SPIR_SUBSET(master)
 OPENMP_DIRECTIVE_SPIR_SUBSET(atomic)
@@ -305,6 +315,7 @@ OPENMP_DIRECTIVE_SPIR_SUBSET(single)
 OPENMP_DIRECTIVE_SPIR_SUBSET(for)
 OPENMP_DIRECTIVE_SPIR_SUBSET(for_simd)
 OPENMP_DIRECTIVE_SPIR_SUBSET(parallel_for_simd)
+OPENMP_DIRECTIVE_SPIR_SUBSET(distribute_parallel_for)
 #endif // INTEL_CUSTOMIZATION
 
 // OpenMP clauses.
@@ -589,6 +600,11 @@ OPENMP_REQUIRES_CLAUSE(atomic_default_mem_order)
 
 // Clauses allowed for OpenMP directive 'allocate'.
 OPENMP_ALLOCATE_CLAUSE(allocator)
+
+#if INTEL_CUSTOMIZATION
+// Clauses allowed for OpenMP directive 'target variant dispatch'.
+OPENMP_TARGET_VARIANT_DISPATCH_CLAUSE(device)
+#endif // INTEL_CUSTOMIZATION
 
 // Modifiers for 'atomic_default_mem_order' clause.
 OPENMP_ATOMIC_DEFAULT_MEM_ORDER_KIND(seq_cst)
@@ -1032,6 +1048,7 @@ OPENMP_TASKGROUP_CLAUSE(allocate)
 // Clauses allowed for OpenMP directive 'declare mapper'.
 OPENMP_DECLARE_MAPPER_CLAUSE(map)
 
+#undef OPENMP_TARGET_VARIANT_DISPATCH_CLAUSE //INTEL
 #undef OPENMP_ALLOCATE_CLAUSE
 #undef OPENMP_DECLARE_MAPPER_CLAUSE
 #undef OPENMP_TASKGROUP_CLAUSE

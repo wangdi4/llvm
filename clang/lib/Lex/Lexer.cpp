@@ -2494,12 +2494,7 @@ bool Lexer::SkipBlockComment(Token &Result, const char *CurPtr,
   CurPtr += CharSize;
   if (C == 0 && CurPtr == BufferEnd+1) {
     if (!isLexingRawMode())
-#if INTEL_CUSTOMIZATION
-      // CQ#368194 - emit a warning, not an error on unterminated block comment.
-      Diag(BufferPtr, LangOpts.IntelCompat
-                          ? diag::warn_unterminated_block_comment
-                          : diag::err_unterminated_block_comment);
-#endif // INTEL_CUSTOMIZATION
+      Diag(BufferPtr, diag::err_unterminated_block_comment);
     --CurPtr;
 
     // KeepWhitespaceMode should return this broken comment as a token.  Since
@@ -2593,12 +2588,7 @@ bool Lexer::SkipBlockComment(Token &Result, const char *CurPtr,
       }
     } else if (C == 0 && CurPtr == BufferEnd+1) {
       if (!isLexingRawMode())
-#if INTEL_CUSTOMIZATION
-        // CQ#368194 - emit a warning, not an error on unterminated /* comment.
-        Diag(BufferPtr, LangOpts.IntelCompat
-                            ? diag::warn_unterminated_block_comment
-                            : diag::err_unterminated_block_comment);
-#endif // INTEL_CUSTOMIZATION
+        Diag(BufferPtr, diag::err_unterminated_block_comment);
       // Note: the user probably forgot a */.  We could continue immediately
       // after the /*, but this would involve lexing a lot of what really is the
       // comment, which surely would confuse the parser.
@@ -3318,11 +3308,7 @@ LexNextToken:
     // Notify MIOpt that we read a non-whitespace/non-comment token.
     MIOpt.ReadToken();
 
-#if INTEL_CUSTOMIZATION
-    // CQ372551: in IntelCompat mode allow character and string literals
-    if (LangOpts.CPlusPlus11 || LangOpts.C11 ||
-        (getLangOpts().IntelCompat && LangOpts.C99 && getLangOpts().GNUMode)) {
-#endif // INTEL_CUSTOMIZATION
+    if (LangOpts.CPlusPlus11 || LangOpts.C11) {
       Char = getCharAndSize(CurPtr, SizeTmp);
 
       // UTF-16 string literal
@@ -3380,11 +3366,7 @@ LexNextToken:
     // Notify MIOpt that we read a non-whitespace/non-comment token.
     MIOpt.ReadToken();
 
-#if INTEL_CUSTOMIZATION
-    // CQ372551: in IntelCompat mode allow character and string literals
-    if (LangOpts.CPlusPlus11 || LangOpts.C11 ||
-        (getLangOpts().IntelCompat && LangOpts.C99 && getLangOpts().GNUMode)) {
-#endif // INTEL_CUSTOMIZATION
+    if (LangOpts.CPlusPlus11 || LangOpts.C11) {
       Char = getCharAndSize(CurPtr, SizeTmp);
 
       // UTF-32 string literal

@@ -164,10 +164,10 @@ void Parser::ParseGNUAttributes(ParsedAttributes &attrs,
       return;
     }
     // Parse the attribute-list. e.g. __attribute__(( weak, alias("__f") ))
-    while (true) {
-      // Allow empty/non-empty attributes. ((__vector_size__(16),,,,))
-      if (TryConsumeToken(tok::comma))
-        continue;
+    do {
+      // Eat preceeding commas to allow __attribute__((,,,foo))
+      while (TryConsumeToken(tok::comma))
+        ;
 
       // Expect an identifier or declaration specifier (const, int, etc.)
       if (Tok.isAnnotation())
@@ -212,7 +212,7 @@ void Parser::ParseGNUAttributes(ParsedAttributes &attrs,
       Eof.startToken();
       Eof.setLocation(Tok.getLocation());
       LA->Toks.push_back(Eof);
-    }
+    } while (Tok.is(tok::comma));
 
     if (ExpectAndConsume(tok::r_paren))
       SkipUntil(tok::r_paren, StopAtSemi);
@@ -1719,13 +1719,6 @@ bool Parser::DiagnoseProhibitedCXX11Attribute() {
     SkipUntil(tok::r_square);
     assert(Tok.is(tok::r_square) && "isCXX11AttributeSpecifier lied");
     SourceLocation EndLoc = ConsumeBracket();
-#if INTEL_CUSTOMIZATION
-    // CQ#370092 - warn_attributes_not_allowed is used in IntelCompat mode
-    if (getLangOpts().IntelCompat)
-      Diag(BeginLoc, diag::warn_attributes_not_allowed)
-        << SourceRange(BeginLoc, EndLoc);
-    else
-#endif // INTEL_CUSTOMIZATION
     Diag(BeginLoc, diag::err_attributes_not_allowed)
       << SourceRange(BeginLoc, EndLoc);
     return true;
@@ -1747,15 +1740,6 @@ void Parser::DiagnoseMisplacedCXX11Attribute(ParsedAttributesWithRange &Attrs,
   ParseCXX11Attributes(Attrs);
   CharSourceRange AttrRange(SourceRange(Loc, Attrs.Range.getEnd()), true);
 
-#if INTEL_CUSTOMIZATION
-  // CQ#370092 - warn_attributes_not_allowed is used in IntelCompat mode
-  if (getLangOpts().IntelCompat)
-    Diag(Loc, diag::warn_attributes_not_allowed)
-        << FixItHint::CreateInsertionFromRange(CorrectLocation, AttrRange)
-        << FixItHint::CreateRemoval(AttrRange);
-  else
-#endif // INTEL_CUSTOMIZATION
-
   // FIXME: use err_attributes_misplaced
   Diag(Loc, diag::err_attributes_not_allowed)
     << FixItHint::CreateInsertionFromRange(CorrectLocation, AttrRange)
@@ -1770,14 +1754,6 @@ void Parser::DiagnoseProhibitedAttributes(
         << FixItHint::CreateInsertionFromRange(CorrectLocation, AttrRange)
         << FixItHint::CreateRemoval(AttrRange);
   } else
-
-#if INTEL_CUSTOMIZATION
-  // CQ#370092 - warn_attributes_not_allowed is used in IntelCompat mode
-  if (getLangOpts().IntelCompat)
-    Diag(Range.getBegin(), diag::warn_attributes_not_allowed) << Range;
-#endif // INTEL_CUSTOMIZATION
-
-  else
     Diag(Range.getBegin(), diag::err_attributes_not_allowed) << Range;
 }
 
@@ -2617,8 +2593,9 @@ void Parser::ParseSpecifierQualifierList(DeclSpec &DS, AccessSpecifier AS,
   }
 
   // Issue diagnostic and remove constexpr specifier if present.
-  if (DS.isConstexprSpecified() && DSC != DeclSpecContext::DSC_condition) {
-    Diag(DS.getConstexprSpecLoc(), diag::err_typename_invalid_constexpr);
+  if (DS.hasConstexprSpecifier() && DSC != DeclSpecContext::DSC_condition) {
+    Diag(DS.getConstexprSpecLoc(), diag::err_typename_invalid_constexpr)
+        << (DS.getConstexprSpecifier() == CSK_consteval);
     DS.ClearConstexprSpec();
   }
 }
@@ -3170,13 +3147,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
         // Reject C++11 attributes that appertain to decl specifiers as
         // we don't support any C++11 attributes that appertain to decl
         // specifiers. This also conforms to what g++ 4.8 is doing.
-#if INTEL_CUSTOMIZATION
-        // CQ#370092 - emit a warning, not error in IntelCompat mode
-        ProhibitCXX11Attributes(attrs, getLangOpts().IntelCompat ?
-                                diag::warn_attribute_not_type_attr :
-                                diag::err_attribute_not_type_attr);
-#endif // INTEL_CUSTOMIZATION
-
+	ProhibitCXX11Attributes(attrs, diag::err_attribute_not_type_attr);
         DS.takeAttributesFrom(attrs);
       }
 
@@ -3768,7 +3739,12 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
 
     // constexpr
     case tok::kw_constexpr:
-      isInvalid = DS.SetConstexprSpec(Loc, PrevSpec, DiagID);
+      isInvalid = DS.SetConstexprSpec(CSK_constexpr, Loc, PrevSpec, DiagID);
+      break;
+
+    // consteval
+    case tok::kw_consteval:
+      isInvalid = DS.SetConstexprSpec(CSK_consteval, Loc, PrevSpec, DiagID);
       break;
 
     // type-specifier
@@ -5223,6 +5199,9 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::annot_decltype:
   case tok::kw_constexpr:
 
+    // C++20 consteval.
+  case tok::kw_consteval:
+
     // C11 _Atomic
   case tok::kw__Atomic:
     return true;
@@ -5550,22 +5529,8 @@ void Parser::ParseTypeQualifierListOpt(
 
     case tok::kw___attribute:
       if (AttrReqs & AR_GNUAttributesParsedAndRejected)
-#if INTEL_CUSTOMIZATION
-      // This brace is necessary to suppress a warning suggesting brace
-      // insertion to avoid ambiguouse 'else'.
-      {
-#endif // INTEL_CUSTOMIZATION
         // When GNU attributes are expressly forbidden, diagnose their usage.
-#if INTEL_CUSTOMIZATION
-        // CQ#370092 - warn_attributes_not_allowed is used in IntelCompat mode
-        if (getLangOpts().IntelCompat)
-          Diag(Tok, diag::warn_attributes_not_allowed);
-        else
-#endif // INTEL_CUSTOMIZATION
         Diag(Tok, diag::err_attributes_not_allowed);
-#if INTEL_CUSTOMIZATION
-      }
-#endif // INTEL_CUSTOMIZATION
 
       // Parse the attributes even if they are rejected to ensure that error
       // recovery is graceful.
@@ -6534,7 +6499,7 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
            Actions.CurContext->isRecord());
 
       Qualifiers Q = Qualifiers::fromCVRUMask(DS.getTypeQualifiers());
-      if (D.getDeclSpec().isConstexprSpecified() && !getLangOpts().CPlusPlus14)
+      if (D.getDeclSpec().hasConstexprSpecifier() && !getLangOpts().CPlusPlus14)
         Q.addConst();
       // FIXME: Collect C++ address spaces.
       // If there are multiple different address spaces, the source is invalid.

@@ -578,15 +578,6 @@ CastsAwayConstness(Sema &Self, QualType SrcType, QualType DestType,
   QualType UnwrappedSrcType = Self.Context.getCanonicalType(SrcType),
            UnwrappedDestType = Self.Context.getCanonicalType(DestType);
 
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ#374747 (CMPLRS-28275): reinterpret_cast casts away qualifiers.
-  if (CheckCVR && Self.getLangOpts().IntelCompat &&
-      (Self.getLangOpts().GNUMode || Self.getLangOpts().IntelMSCompat) &&
-      UnwrappedSrcType->isAnyPointerType() &&
-      UnwrappedDestType->isFunctionPointerType())
-    return CastAwayConstnessKind::CACK_None;
-#endif //INTEL_CUSTOMIZATION
-
   // Find the qualifiers. We only care about cvr-qualifiers for the
   // purpose of this check, because other qualifiers (address spaces,
   // Objective-C GC, etc.) are part of the type's identity.
@@ -1474,15 +1465,10 @@ TryStaticDowncast(Sema &Self, CanQualType SrcType, CanQualType DestType,
   }
 
   if (!CStyle) {
-#if INTEL_CUSTOMIZATION
-    // CQ#409860 report warning instead of error in compatibility mode.
-    unsigned Diag =
-        (Self.getLangOpts().IntelCompat && Self.getLangOpts().IntelMSCompat)
-            ? diag::ext_ms_downcast_from_inaccessible_base
-            : diag::err_downcast_from_inaccessible_base;
-    switch (Self.CheckBaseClassAccess(OpRange.getBegin(), SrcType, DestType,
-                                      Paths.front(), Diag)) {
-#endif // INTEL_CUSTOMIZATION
+    switch (Self.CheckBaseClassAccess(OpRange.getBegin(),
+                                      SrcType, DestType,
+                                      Paths.front(),
+                                diag::err_downcast_from_inaccessible_base)) {
     case Sema::AR_accessible:
     case Sema::AR_delayed:     // be optimistic
     case Sema::AR_dependent:   // be optimistic

@@ -166,6 +166,9 @@ def analyzer_config_compatibility_mode : Separate<["-"], "analyzer-config-compat
 def analyzer_config_compatibility_mode_EQ : Joined<["-"], "analyzer-config-compatibility-mode=">,
   Alias<analyzer_config_compatibility_mode>;
 
+def analyzer_werror : Flag<["-"], "analyzer-werror">,
+  HelpText<"Emit analyzer results as errors rather than warnings">;
+
 //===----------------------------------------------------------------------===//
 // Migrator Options
 //===----------------------------------------------------------------------===//
@@ -187,8 +190,6 @@ def default_function_attr : Separate<["-"], "default-function-attr">,
   HelpText<"Apply given attribute to all functions">;
 def dwarf_version_EQ : Joined<["-"], "dwarf-version=">;
 def debugger_tuning_EQ : Joined<["-"], "debugger-tuning=">;
-def fdebug_compilation_dir : Separate<["-"], "fdebug-compilation-dir">,
-  HelpText<"The compilation directory to embed in the debug info.">;
 def dwarf_debug_flags : Separate<["-"], "dwarf-debug-flags">,
   HelpText<"The string to embed in the Dwarf debug flags record.">;
 def record_command_line : Separate<["-"], "record-command-line">,
@@ -217,6 +218,10 @@ def fno_math_builtin : Flag<["-"], "fno-math-builtin">,
 def disable_intel_proprietary_opts : Flag<["-"],
   "disable-intel-proprietary-opts">,
   HelpText<"Disable Intel proprietary optimizations">;
+// IntrinsicPromotion implementation.
+def intel_mintrinsic_promote : Flag<["-"], "mintrinsic-promote">, HelpText<"Force "
+  "certain functions using intrinsics to promote their architectures and make "
+  "the intrinsic headers included by default">;
 // endif INTEL_CUSTOMIZATION
 
 def disable_llvm_verifier : Flag<["-"], "disable-llvm-verifier">,
@@ -415,6 +420,8 @@ def header_include_file : Separate<["-"], "header-include-file">,
   HelpText<"Filename (or -) to write header include output to">;
 def show_includes : Flag<["--"], "show-includes">,
   HelpText<"Print cl.exe style /showIncludes to stdout">;
+def dependency_filter : Separate<["-"], "dependency-filter">,
+  HelpText<"Filter dependencies with prefix from the dependency output.">;
 
 //===----------------------------------------------------------------------===//
 // Diagnostic Options
@@ -641,6 +648,8 @@ def opt_record_file : Separate<["-"], "opt-record-file">,
   HelpText<"File name to use for YAML optimization record output">;
 def opt_record_passes : Separate<["-"], "opt-record-passes">,
   HelpText<"Only record remark information for passes whose names match the given regular expression">;
+def opt_record_format : Separate<["-"], "opt-record-format">,
+  HelpText<"The format used for serializing remarks (default: YAML)">;
 
 def print_stats : Flag<["-"], "print-stats">,
   HelpText<"Print performance metrics and statistics">;
@@ -686,7 +695,7 @@ def version : Flag<["-"], "version">,
   HelpText<"Print the compiler version">;
 def main_file_name : Separate<["-"], "main-file-name">,
   HelpText<"Main file name to use for debug info">;
-def split_dwarf_file : Separate<["-"], "split-dwarf-file">,
+def split_dwarf_output : Separate<["-"], "split-dwarf-output">,
   HelpText<"File name to use for split dwarf debug info output">;
 
 }
@@ -699,6 +708,8 @@ def enable_split_dwarf : Flag<["-"], "enable-split-dwarf">,
   HelpText<"Use DWARF fission in 'split' mode">;
 def enable_split_dwarf_EQ : Joined<["-"], "enable-split-dwarf=">,
   HelpText<"Set DWARF fission mode to either 'split' or 'single'">, Values<"split,single">;
+def split_dwarf_file : Separate<["-"], "split-dwarf-file">,
+  HelpText<"Name of the split dwarf debug info file to encode in the object file">;
 def fno_wchar : Flag<["-"], "fno-wchar">,
   HelpText<"Disable C++ builtin type wchar_t">;
 // if INTEL_CUSTOMIZATION
@@ -822,6 +833,10 @@ def fno_emit_class_debug_always : Flag<["-"], "fno-emit-class-debug-always">,
 // CQ#366796 - support '--no_expr_source_pos' option.
 def no_expr_source_pos : Flag<["--"], "no_expr_source_pos">,
   HelpText<"Disable emitting debug source positions for expressions">;
+// Support for Intel customization LangOptions::FArgumentNoalias
+// support for '-fargument-noalias' option.
+def fargument_noalias : Flag<["-"], "fargument-noalias">,
+  HelpText<"Enables 'noalias' attribute for all pointer-type arguments">;
 // CQ#373517,CQ#376357 - GCC option -fpermissive.
 def gnu_permissive : Flag<["-"], "gnu-permissive">,
   HelpText<"Turn on GNU -fpermissive mode">;
@@ -954,6 +969,14 @@ def fopenmp_host_ir_file_path : Separate<["-"], "fopenmp-host-ir-file-path">,
 
 def fsycl_is_device : Flag<["-"], "fsycl-is-device">,
   HelpText<"Generate code for SYCL device.">;
+
+def fsycl_int_header : Separate<["-"], "fsycl-int-header">,
+  HelpText<"Generate SYCL integration header into this file.">;
+def fsycl_int_header_EQ : Joined<["-"], "fsycl-int-header=">,
+  Alias<fsycl_int_header>;
+def fsycl_allow_func_ptr : Flag<["-"], "fsycl-allow-func-ptr">,
+  HelpText<"Allow function pointers in SYCL device.">;
+def fno_sycl_allow_func_ptr : Flag<["-"], "fno-sycl-allow-func-ptr">;
 
 } // let Flags = [CC1Option]
 

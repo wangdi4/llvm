@@ -38,12 +38,6 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/csa/bits/mathinline.h
   )
 # end INTEL_FEATURE_CSA
-# INTEL_FEATURE_ISA_ENQCMD
-intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_ENQCMD
-  Intel_Headers/enqcmdintrin.h
-  )
-# end INTEL_FEATURE_ISA_ENQCMD
 # INTEL_FEATURE_ISA_ULI
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_ULI
@@ -149,6 +143,7 @@ set(files
   clflushoptintrin.h
   clwbintrin.h
   emmintrin.h
+  enqcmdintrin.h
   f16cintrin.h
   float.h
   fma4intrin.h
@@ -236,6 +231,7 @@ set(ppc_wrapper_files
   ppc_wrappers/mmintrin.h
   ppc_wrappers/xmmintrin.h
   ppc_wrappers/mm_malloc.h
+  ppc_wrappers/emmintrin.h
 )
 
 set(openmp_wrapper_files

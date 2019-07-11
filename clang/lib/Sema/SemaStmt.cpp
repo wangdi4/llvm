@@ -3634,13 +3634,6 @@ StmtResult Sema::BuildReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp) {
       } else if (!RetValExp->isTypeDependent()) {
         // C99 6.8.6.4p1 (ext_ since GCC warns)
         unsigned D = diag::ext_return_has_expr;
-#if INTEL_CUSTOMIZATION
-        // CQ#367767 - allow returning a value from a void function.
-        // CQ#381258 - void template function should not return a value.
-        if (getLangOpts().IntelCompat &&
-            (!getLangOpts().CPlusPlus || CurContext->isDependentContext()))
-          D = diag::warn_ext_return_has_expr;
-#endif // INTEL_CUSTOMIZATION
         if (RetValExp->getType()->isVoidType()) {
           NamedDecl *CurDecl = getCurFunctionOrMethodDecl();
           if (isa<CXXConstructorDecl>(CurDecl) ||
@@ -3719,7 +3712,8 @@ StmtResult Sema::BuildReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp) {
     }
 
     if (FD)
-      Diag(ReturnLoc, DiagID) << FD->getIdentifier() << 0/*fn*/;
+      Diag(ReturnLoc, DiagID)
+          << FD->getIdentifier() << 0 /*fn*/ << FD->isConsteval();
     else
       Diag(ReturnLoc, DiagID) << getCurMethodDecl()->getDeclName() << 1/*meth*/;
 

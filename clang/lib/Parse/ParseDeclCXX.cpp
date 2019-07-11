@@ -3496,37 +3496,6 @@ MemInitResult Parser::ParseMemInitializer(Decl *ConstructorDecl) {
   // : template_name<...>
   ParsedType TemplateTypeTy;
 
-#if INTEL_CUSTOMIZATION
-  // CQ408231: Check the identifier is a template base class.
-  if (getLangOpts().IntelCompat && Tok.is(tok::identifier) &&
-      !(SS.isSet() && Actions.isDependentScopeSpecifier(SS))) {
-    if (auto *CD = dyn_cast<CXXConstructorDecl>(ConstructorDecl)) {
-      auto II = Tok.getIdentifierInfo();
-      const auto Name = II->getName();
-      const CXXRecordDecl *ClassDecl = CD->getParent();
-      // Check that II is not defined in the ClassDecl
-      DeclContext::lookup_result Result = ClassDecl->lookup(II);
-      if (Result.empty())
-        // Search a base class that identifies II and
-        //  - must have type TemplateSpecializationType which
-        //  - is dependent type and
-        //  - has TemplateName as TemplateDecl which
-        //  - has the name being equal to the name of II (Name).
-        for (const auto B : ClassDecl->bases())
-          if (const auto BType =
-                  dyn_cast<TemplateSpecializationType>(B.getType()))
-            if (BType->isDependentType())
-              if (auto const BDecl =
-                      BType->getTemplateName().getAsTemplateDecl())
-                if (BDecl->getName() == Name) {
-                  Diag(diag::warn_missing_template_parameters) << Name;
-                  TemplateTypeTy = clang::ParsedType::make(
-                      BType->getCanonicalTypeInternal());
-                  break;
-                }
-    }
-  } 
-#endif // INTEL_CUSTOMIZATION
   if (Tok.is(tok::identifier)) {
     // Get the identifier. This may be a member name or a class name,
     // but we'll let the semantic analysis determine which it is.
@@ -3956,6 +3925,7 @@ static bool IsBuiltInOrStandardCXX11Attribute(IdentifierInfo *AttrName,
   case ParsedAttr::AT_Deprecated:
   case ParsedAttr::AT_FallThrough:
   case ParsedAttr::AT_CXX11NoReturn:
+  case ParsedAttr::AT_NoUniqueAddress:
     return true;
   case ParsedAttr::AT_WarnUnusedResult:
     return !ScopeName && AttrName->getName().equals("nodiscard");

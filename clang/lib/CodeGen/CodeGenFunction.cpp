@@ -634,8 +634,8 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
   }
 #endif // INTEL_CUSTOMIZATION
 
-  if (const OpenCLIntelReqdSubGroupSizeAttr *A =
-          FD->getAttr<OpenCLIntelReqdSubGroupSizeAttr>()) {
+  if (const IntelReqdSubGroupSizeAttr *A =
+          FD->getAttr<IntelReqdSubGroupSizeAttr>()) {
     llvm::Metadata *AttrMDArgs[] = {
         llvm::ConstantAsMetadata::get(Builder.getInt32(A->getSubGroupSize()))};
     Fn->setMetadata("intel_reqd_sub_group_size",
@@ -832,7 +832,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
   }
 #endif // INTEL_CUSTOMIZATION
 
-  if (getLangOpts().OpenCL) {
+  if (getLangOpts().OpenCL || getLangOpts().SYCLIsDevice) {
     // Add metadata for a kernel function.
     if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
       EmitOpenCLKernelMetadata(FD, Fn);
@@ -977,6 +977,13 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
     if (CurFnInfo->getReturnInfo().isSRetAfterThis())
       ++AI;
     ReturnValue = Address(&*AI, CurFnInfo->getReturnInfo().getIndirectAlign());
+    if (!CurFnInfo->getReturnInfo().getIndirectByVal()) {
+      ReturnValuePointer =
+          CreateDefaultAlignTempAlloca(Int8PtrTy, "result.ptr");
+      Builder.CreateStore(Builder.CreatePointerBitCastOrAddrSpaceCast(
+                              ReturnValue.getPointer(), Int8PtrTy),
+                          ReturnValuePointer);
+    }
   } else if (CurFnInfo->getReturnInfo().getKind() == ABIArgInfo::InAlloca &&
              !hasScalarEvaluationKind(CurFnInfo->getReturnType())) {
     // Load the sret pointer from the argument struct and return into that.
@@ -984,6 +991,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
     llvm::Function::arg_iterator EI = CurFn->arg_end();
     --EI;
     llvm::Value *Addr = Builder.CreateStructGEP(nullptr, &*EI, Idx);
+    ReturnValuePointer = Address(Addr, getPointerAlign());
     Addr = Builder.CreateAlignedLoad(Addr, getPointerAlign(), "agg.result");
     ReturnValue = Address(Addr, getNaturalTypeAlignment(RetTy));
   } else {
@@ -2321,6 +2329,23 @@ Address CodeGenFunction::EmitHLSFieldAnnotations(const FieldDecl *D,
 }
 #endif // INTEL_CUSTOMIZATION
 
+Address CodeGenFunction::EmitIntelFPGAFieldAnnotations(const FieldDecl *D,
+                                                       Address Addr,
+                                                       StringRef AnnotStr) {
+  llvm::Value *V = Addr.getPointer();
+  llvm::Type *VTy = V->getType();
+  llvm::Function *F =
+      CGM.getIntrinsic(llvm::Intrinsic::ptr_annotation, CGM.Int8PtrTy);
+  // FIXME Always emit the cast inst so we can differentiate between
+  // annotation on the first field of a struct and annotation on the struct
+  // itself.
+  if (VTy != CGM.Int8PtrTy)
+    V = Builder.CreateBitCast(V, CGM.Int8PtrTy);
+  V = EmitAnnotationCall(F, V, AnnotStr, D->getLocation());
+  V = Builder.CreateBitCast(V, VTy);
+  return Address(V, Addr.getAlignment());
+}
+
 CodeGenFunction::CGCapturedStmtInfo::~CGCapturedStmtInfo() { }
 
 CodeGenFunction::SanitizerScope::SanitizerScope(CodeGenFunction *CGF)
@@ -2382,6 +2407,13 @@ static bool hasRequiredFeatures(const SmallVectorImpl<StringRef> &ReqFeatures,
 // called function.
 void CodeGenFunction::checkTargetFeatures(const CallExpr *E,
                                           const FunctionDecl *TargetDecl) {
+  return checkTargetFeatures(E->getBeginLoc(), TargetDecl);
+}
+
+// Emits an error if we don't have a valid set of target features for the
+// called function.
+void CodeGenFunction::checkTargetFeatures(SourceLocation Loc,
+                                          const FunctionDecl *TargetDecl) {
   // Early exit if this is an indirect call.
   if (!TargetDecl)
     return;
@@ -2406,7 +2438,7 @@ void CodeGenFunction::checkTargetFeatures(const CallExpr *E,
       return;
     StringRef(FeatureList).split(ReqFeatures, ',');
     if (!hasRequiredFeatures(ReqFeatures, CGM, FD, MissingFeature))
-      CGM.getDiags().Report(E->getBeginLoc(), diag::err_builtin_needs_feature)
+      CGM.getDiags().Report(Loc, diag::err_builtin_needs_feature)
           << TargetDecl->getDeclName()
           << CGM.getContext().BuiltinInfo.getRequiredFeatures(BuiltinID);
 
@@ -2432,7 +2464,7 @@ void CodeGenFunction::checkTargetFeatures(const CallExpr *E,
         ReqFeatures.push_back(F.getKey());
     }
     if (!hasRequiredFeatures(ReqFeatures, CGM, FD, MissingFeature))
-      CGM.getDiags().Report(E->getBeginLoc(), diag::err_function_needs_feature)
+      CGM.getDiags().Report(Loc, diag::err_function_needs_feature)
           << FD->getDeclName() << TargetDecl->getDeclName() << MissingFeature;
   }
 }

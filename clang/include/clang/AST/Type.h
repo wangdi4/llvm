@@ -478,7 +478,14 @@ public:
   /// Returns true if the address space in these qualifiers is equal to or
   /// a superset of the address space in the argument qualifiers.
   bool isAddressSpaceSupersetOf(Qualifiers other) const {
-    return isAddressSpaceSupersetOf(getAddressSpace(), other.getAddressSpace());
+    return
+      isAddressSpaceSupersetOf(getAddressSpace(), other.getAddressSpace()) ||
+        (!hasAddressSpace() &&
+         (other.getAddressSpace() == LangAS::sycl_private ||
+          other.getAddressSpace() == LangAS::sycl_local ||
+          other.getAddressSpace() == LangAS::sycl_global ||
+          other.getAddressSpace() == LangAS::sycl_constant ||
+          other.getAddressSpace() == LangAS::sycl_generic));
   }
 
   /// Determines if these qualifiers compatibly include another set.
@@ -3590,15 +3597,6 @@ public:
       return ExtInfo((Bits & ~RegParmMask) |
                      ((RegParm + 1) << RegParmOffset));
     }
-#if INTEL_CUSTOMIZATION
-    // This overloaded version allows us to drop the attribute as well.
-    ExtInfo withRegParm(unsigned RegParm, bool HasRegParm) const {
-      assert(RegParm < 7 && "Invalid regparm value");
-      if (!HasRegParm)
-        return ExtInfo(Bits & ~RegParmMask);
-      return ExtInfo((Bits & ~RegParmMask) | ((RegParm + 1) << RegParmOffset));
-    }
-#endif // INTEL_CUSTOMIZATION
 
     ExtInfo withCallingConv(CallingConv cc) const {
       return ExtInfo((Bits & ~CallConvMask) | (unsigned) cc);

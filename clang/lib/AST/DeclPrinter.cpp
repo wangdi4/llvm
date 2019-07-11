@@ -530,6 +530,9 @@ void DeclPrinter::VisitEnumDecl(EnumDecl *D) {
 
   Out << ' ' << *D;
 
+  if (Policy.SuppressDefinition)
+    return;
+
   if (D->isFixed() && D->getASTContext().getLangOpts().CPlusPlus11)
     Out << " : " << D->getIntegerType().stream(Policy);
 
@@ -549,6 +552,9 @@ void DeclPrinter::VisitRecordDecl(RecordDecl *D) {
 
   if (D->getIdentifier())
     Out << ' ' << *D;
+
+  if (Policy.SuppressDefinition)
+    return;
 
   if (D->isCompleteDefinition()) {
     Out << " {\n";
@@ -610,7 +616,9 @@ void DeclPrinter::VisitFunctionDecl(FunctionDecl *D) {
     if (D->isInlineSpecified())  Out << "inline ";
     if (D->isVirtualAsWritten()) Out << "virtual ";
     if (D->isModulePrivate())    Out << "__module_private__ ";
-    if (D->isConstexpr() && !D->isExplicitlyDefaulted()) Out << "constexpr ";
+    if (D->isConstexprSpecified() && !D->isExplicitlyDefaulted())
+      Out << "constexpr ";
+    if (D->isConsteval())        Out << "consteval ";
     ExplicitSpecifier ExplicitSpec = ExplicitSpecifier::getFromDecl(D);
     if (ExplicitSpec.isSpecified())
       printExplicitSpecifier(ExplicitSpec, Out, Policy, Indentation);
@@ -745,7 +753,7 @@ void DeclPrinter::VisitFunctionDecl(FunctionDecl *D) {
     Out << " = delete";
   else if (D->isExplicitlyDefaulted())
     Out << " = default";
-  else if (D->doesThisDeclarationHaveABody()) {
+  else if (D->doesThisDeclarationHaveABody() && !Policy.SuppressDefinition) {
     if (!Policy.TerseOutput) {
       if (!D->hasPrototype() && D->getNumParams()) {
         // This is a K&R function definition, so we need to print the
@@ -961,7 +969,7 @@ void DeclPrinter::VisitCXXRecordDecl(CXXRecordDecl *D) {
       printTemplateArguments(S->getTemplateArgs());
   }
 
-  if (D->isCompleteDefinition()) {
+  if (D->isCompleteDefinition() && !Policy.SuppressDefinition) {
     // Print the base classes
     if (D->getNumBases()) {
       Out << " : ";
@@ -1048,7 +1056,8 @@ void DeclPrinter::printTemplateParameters(const TemplateParameterList *Params,
 
       Out << *TTP;
 
-      if (TTP->hasDefaultArgument()) {
+      if (TTP->hasDefaultArgument()
+          && !Policy.SuppressDefaultTemplateArguments ) {
         Out << " = ";
         Out << TTP->getDefaultArgument().getAsString(Policy);
       };
@@ -1058,7 +1067,8 @@ void DeclPrinter::printTemplateParameters(const TemplateParameterList *Params,
         Name = II->getName();
       printDeclType(NTTP->getType(), Name, NTTP->isParameterPack());
 
-      if (NTTP->hasDefaultArgument()) {
+      if (NTTP->hasDefaultArgument()
+          && !Policy.SuppressDefaultTemplateArguments ) {
         Out << " = ";
         NTTP->getDefaultArgument()->printPretty(Out, nullptr, Policy,
                                                 Indentation);
@@ -1638,14 +1648,8 @@ void DeclPrinter::VisitOMPDeclareReductionDecl(OMPDeclareReductionDecl *D) {
   if (!D->isInvalidDecl()) {
     Out << "#pragma omp declare reduction (";
     if (D->getDeclName().getNameKind() == DeclarationName::CXXOperatorName) {
-      static const char *const OperatorNames[NUM_OVERLOADED_OPERATORS] = {
-          nullptr,
-#define OVERLOADED_OPERATOR(Name, Spelling, Token, Unary, Binary, MemberOnly)  \
-          Spelling,
-#include "clang/Basic/OperatorKinds.def"
-      };
       const char *OpName =
-          OperatorNames[D->getDeclName().getCXXOverloadedOperator()];
+          getOperatorSpelling(D->getDeclName().getCXXOverloadedOperator());
       assert(OpName && "not an overloaded operator");
       Out << OpName;
     } else {

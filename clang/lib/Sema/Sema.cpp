@@ -150,9 +150,9 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
       DictionaryWithObjectsMethod(nullptr), GlobalNewDeleteDeclared(false),
       TUKind(TUKind), NumSFINAEErrors(0),
 #if INTEL_CUSTOMIZATION
-    // Fix for CQ368409: Different behavior on accessing static private class
-    // members.
-    BuildingUsingDirective(false), ParsingTemplateArg(false),
+      // Fix for CQ368409: Different behavior on accessing static private class
+      // members.
+      BuildingUsingDirective(false), ParsingTemplateArg(false),
 #endif  // INTEL_CUSTOMIZATION
       FullyCheckedComparisonCategories(
           static_cast<unsigned>(ComparisonCategoryType::Last) + 1),
@@ -161,9 +161,10 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
       CurrentInstantiationScope(nullptr), DisableTypoCorrection(false),
       TyposCorrected(0), AnalysisWarnings(*this),
       ThreadSafetyDeclCache(nullptr), VarDataSharingAttributesStack(nullptr),
-      CurScope(nullptr), Ident_super(nullptr), Ident___float128(nullptr) 
-      {
+      CurScope(nullptr), Ident_super(nullptr), Ident___float128(nullptr),
+      SyclIntHeader(nullptr) {
   TUScope = nullptr;
+  isConstantEvaluatedOverride = false;
 
   LoadedExternalKnownNamespaces = false;
   for (unsigned I = 0; I != NSAPI::NumNSNumberLiteralMethods; ++I)
@@ -266,6 +267,10 @@ void Sema::Initialize() {
                         TUScope);
 
     addImplicitTypedef("size_t", Context.getSizeType());
+  }
+  if (getLangOpts().SYCLIsDevice) {
+    addImplicitTypedef("__ocl_event_t", Context.OCLEventTy);
+    addImplicitTypedef("__ocl_sampler_t", Context.OCLSamplerTy);
   }
 
   // Initialize predefined OpenCL types and supported extensions and (optional)
@@ -544,6 +549,7 @@ ExprResult Sema::ImpCastExprToType(Expr *E, QualType Ty,
     default:
       llvm_unreachable("can't implicitly cast lvalue to rvalue with this cast "
                        "kind");
+    case CK_Dependent:
     case CK_LValueToRValue:
     case CK_ArrayToPointerDecay:
     case CK_FunctionToPointerDecay:
@@ -552,7 +558,8 @@ ExprResult Sema::ImpCastExprToType(Expr *E, QualType Ty,
       break;
     }
   }
-  assert((VK == VK_RValue || !E->isRValue()) && "can't cast rvalue to lvalue");
+  assert((VK == VK_RValue || Kind == CK_Dependent || !E->isRValue()) &&
+         "can't cast rvalue to lvalue");
 #endif
 
   diagnoseNullableToNonnullConversion(Ty, E->getType(), E->getBeginLoc());
@@ -641,7 +648,7 @@ static bool ShouldRemoveFromUnused(Sema *SemaRef, const DeclaratorDecl *D) {
     // warn even if the variable isn't odr-used.  (isReferenced doesn't
     // precisely reflect that, but it's a decent approximation.)
     if (VD->isReferenced() &&
-        VD->isUsableInConstantExpressions(SemaRef->Context))
+        VD->mightBeUsableInConstantExpressions(SemaRef->Context))
       return true;
 
     if (VarTemplateDecl *Template = VD->getDescribedVarTemplate())
@@ -957,6 +964,13 @@ void Sema::ActOnEndOfTranslationUnitFragment(TUFragmentKind Kind) {
                                    StringRef(""));
     PerformPendingInstantiations();
   }
+
+  // Emit SYCL integration header for current translation unit if needed
+  if (getLangOpts().SYCLIsDevice && SyclIntHeader != nullptr) {
+    SyclIntHeader->emit(getLangOpts().SYCLIntHeader);
+  }
+  if (getLangOpts().SYCLIsDevice)
+    MarkDevice();
 
   assert(LateParsedInstantiations.empty() &&
          "end of TU template instantiation should not create more "

@@ -323,6 +323,7 @@ public:
   void emitOMPParallelSectionsDirective();
   void emitOMPCancelDirective(OpenMPDirectiveKind Kind);
   void emitOMPCancellationPointDirective(OpenMPDirectiveKind Kind);
+  void emitOMPTargetVariantDispatchDirective(); // INTEL
   void emitVLAExpressions() {
     if (needsVLAExprEmission())
       VSMH.EmitVLAExpressions();
@@ -461,6 +462,9 @@ public:
 
 #if INTEL_CUSTOMIZATION
   bool isLateOutlinedRegion() { return true; }
+  bool inTargetVariantDispatchRegion() {
+    return Outliner.getCurrentDirectiveKind() == OMPD_target_variant_dispatch;
+  }
 #endif // INTEL_CUSTOMIZATION
 
 private:

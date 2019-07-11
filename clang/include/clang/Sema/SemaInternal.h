@@ -38,15 +38,6 @@ FTIHasNonVoidParameters(const DeclaratorChunk::FunctionTypeInfo &FTI) {
   return FTI.NumParams && !FTIHasSingleVoidParameter(FTI);
 }
 
-// This requires the variable to be non-dependent and the initializer
-// to not be value dependent.
-inline bool IsVariableAConstantExpression(VarDecl *Var, ASTContext &Context) {
-  const VarDecl *DefVD = nullptr;
-  return !isa<ParmVarDecl>(Var) &&
-    Var->isUsableInConstantExpressions(Context) &&
-    Var->getAnyInitializer(DefVD) && DefVD->checkInitIsICE();
-}
-
 // Helper function to check whether D's attributes match current CUDA mode.
 // Decls with mismatched attributes and related diagnostics may have to be
 // ignored during this CUDA compilation pass.
@@ -335,6 +326,25 @@ operator=(Sema::TypoExprState &&other) noexcept {
   RecoveryHandler = std::move(other.RecoveryHandler);
   return *this;
 }
+
+template <typename AttrType>
+bool Sema::checkRangedIntegralArgument(Expr *E, const AttrType *TmpAttr,
+                                       ExprResult &Result) {
+  llvm::APSInt Value;
+  Result = VerifyIntegerConstantExpression(E, &Value);
+  if (Result.isInvalid())
+    return true;
+
+  if (Value < AttrType::getMinValue() || Value > AttrType::getMaxValue()) {
+    Diag(TmpAttr->getRange().getBegin(),
+         diag::err_attribute_argument_out_of_range)
+        << TmpAttr << AttrType::getMinValue() << AttrType::getMaxValue()
+        << E->getSourceRange();
+    return true;
+  }
+  return false;
+}
+
 
 } // end namespace clang
 

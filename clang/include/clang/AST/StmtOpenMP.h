@@ -1454,6 +1454,67 @@ public:
   }
 };
 
+#ifdef INTEL_CUSTOMIZATION
+/// This represents '#pragma omp target variant dispatch' directive.
+///
+/// \code
+/// #pragma omp target variant dispatch device(dnum)
+/// \endcode
+/// This example shows a directive '#pragma omp target variant dispatch' with a
+/// device clause with variable 'dnum'.
+///
+class OMPTargetVariantDispatchDirective : public OMPExecutableDirective {
+  friend class ASTStmtReader;
+  /// Build directive with the given start and end location.
+  ///
+  /// \param StartLoc Starting location of the directive kind.
+  /// \param EndLoc Ending location of the directive.
+  /// \param NumClauses Number of clauses.
+  ///
+  OMPTargetVariantDispatchDirective(SourceLocation StartLoc,
+                                    SourceLocation EndLoc, unsigned NumClauses)
+      : OMPExecutableDirective(this, OMPTargetVariantDispatchDirectiveClass,
+                               OMPD_target_variant_dispatch, StartLoc, EndLoc,
+                               NumClauses, /*NumChildren=*/1) {}
+
+  /// Build an empty directive.
+  ///
+  /// \param NumClauses Number of clauses.
+  ///
+  explicit OMPTargetVariantDispatchDirective(unsigned NumClauses)
+      : OMPExecutableDirective(this, OMPTargetVariantDispatchDirectiveClass,
+                               OMPD_target_variant_dispatch, SourceLocation(),
+                               SourceLocation(), NumClauses,
+                               /*NumChildren=*/1) {}
+
+public:
+  /// Creates directive with a list of \a Clauses.
+  ///
+  /// \param C AST context.
+  /// \param StartLoc Starting location of the directive kind.
+  /// \param EndLoc Ending Location of the directive.
+  /// \param Clauses List of clauses.
+  /// \param AssociatedStmt Statement, associated with the directive.
+  ///
+  static OMPTargetVariantDispatchDirective *
+  Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
+         ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt);
+
+  /// Creates an empty directive with the place for \a NumClauses
+  /// clauses.
+  ///
+  /// \param C AST context.
+  /// \param NumClauses Number of clauses.
+  ///
+  static OMPTargetVariantDispatchDirective *
+  CreateEmpty(const ASTContext &C, unsigned NumClauses, EmptyShell);
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == OMPTargetVariantDispatchDirectiveClass;
+  }
+};
+#endif // INTEL_CUSTOMIZATION
+
 /// This represents '#pragma omp single' directive.
 ///
 /// \code

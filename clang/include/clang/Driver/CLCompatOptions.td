@@ -148,12 +148,17 @@ def : CLFlag<"Oy">, Alias<_SLASH_O>, AliasArgs<["y"]>,
 def : CLFlag<"Oy-">, Alias<_SLASH_O>, AliasArgs<["y-"]>,
   HelpText<"Disable frame pointer omission (x86 only, default)">;
 
-//if INTEL_CUSTOMIZATION
-def _SLASH_Qipo :CLFlag<"Qipo">, Alias<flto>,
+#if INTEL_CUSTOMIZATION
+def _SLASH_Qansi_alias : CLFlag<"Qansi-alias">, Alias<fstrict_aliasing>,
+  HelpText<"enable use of ANSI aliasing rules optimizations"
+          " user asserts that the program adheres to these rules">;
+def _SLASH_Qansi_alias_ : CLFlag<"Qansi-alias-">, Alias<fno_strict_aliasing>,
+  HelpText<"disable use of ANSI aliasing rules optimizations">;
+def _SLASH_Qipo : CLFlag<"Qipo">, Alias<flto>,
   HelpText<"Enable LTO in 'full' mode">;
-def _SLASH_Qipo_ :CLFlag<"Qipo-">, Alias<fno_lto>,
+def _SLASH_Qipo_ : CLFlag<"Qipo-">, Alias<fno_lto>,
   HelpText<"Disable LTO mode (default)">;
-//endif INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 def _SLASH_QUESTION : CLFlag<"?">, Alias<help>,
   HelpText<"Display available options">;
 def _SLASH_Qvec : CLFlag<"Qvec">,

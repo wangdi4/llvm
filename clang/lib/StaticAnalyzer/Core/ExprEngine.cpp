@@ -149,9 +149,6 @@ public:
     if (!S)
       I = getItem().getCXXCtorInitializer();
 
-    // IDs
-    Out << "\"lctx_id\": " << getLocationContext()->getID() << ", ";
-
     if (S)
       Out << "\"stmt_id\": " << S->getID(getASTContext());
     else
@@ -1247,6 +1244,7 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::OMPForSimdDirectiveClass:
     case Stmt::OMPSectionsDirectiveClass:
     case Stmt::OMPSectionDirectiveClass:
+    case Stmt::OMPTargetVariantDispatchDirectiveClass: // INTEL
     case Stmt::OMPSingleDirectiveClass:
     case Stmt::OMPMasterDirectiveClass:
     case Stmt::OMPCriticalDirectiveClass:

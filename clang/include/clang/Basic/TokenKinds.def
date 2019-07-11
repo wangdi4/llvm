@@ -253,6 +253,7 @@ PUNCTUATOR(caretcaret,            "^^")
 //               MSVC <= v18.
 //   KEYOPENCLC   - This is a keyword in OpenCL C
 //   KEYOPENCLCXX - This is a keyword in OpenCL C++
+//   KEYSYCL      - This is a keyword in SYCL C++
 //   KEYNOOPENCL  - This is a keyword that is not supported in OpenCL C
 //                  nor in OpenCL C++.
 //   KEYALTIVEC - This is a keyword in AltiVec
@@ -388,8 +389,9 @@ COROUTINES_KEYWORD(co_yield)
 MODULES_KEYWORD(module)
 MODULES_KEYWORD(import)
 
-// C++ char8_t proposal
+// C++20 keywords.
 CXX2A_KEYWORD(char8_t               , CHAR8SUPPORT)
+CXX2A_KEYWORD(consteval             , 0)
 
 // C11 Extension
 KEYWORD(_Float16                    , KEYALL)
@@ -557,10 +559,10 @@ KEYWORD(__forceinline               , KEYMS)
 KEYWORD(__super                     , KEYMS)
 
 // OpenCL address space qualifiers
-KEYWORD(__global                    , KEYOPENCLC | KEYOPENCLCXX)
-KEYWORD(__local                     , KEYOPENCLC | KEYOPENCLCXX)
-KEYWORD(__constant                  , KEYOPENCLC | KEYOPENCLCXX)
-KEYWORD(__private                   , KEYOPENCLC | KEYOPENCLCXX)
+KEYWORD(__global                    , KEYOPENCLC | KEYOPENCLCXX | KEYSYCL)
+KEYWORD(__local                     , KEYOPENCLC | KEYOPENCLCXX | KEYSYCL)
+KEYWORD(__constant                  , KEYOPENCLC | KEYOPENCLCXX | KEYSYCL)
+KEYWORD(__private                   , KEYOPENCLC | KEYOPENCLCXX | KEYSYCL)
 #if INTEL_CUSTOMIZATION
 // CQ381345: Support tgmath.h usage of generic in all versions of C.
 KEYWORD(__generic                   , KEYNOCXX | KEYOPENCLC | KEYOPENCLCXX)

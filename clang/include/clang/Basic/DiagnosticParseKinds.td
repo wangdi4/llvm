@@ -376,7 +376,7 @@ def err_typename_invalid_storageclass : Error<
 def err_typename_invalid_functionspec : Error<
   "type name does not allow function specifier to be specified">;
 def err_typename_invalid_constexpr : Error<
-  "type name does not allow constexpr specifier to be specified">;
+  "type name does not allow %select{constexpr|consteval}0 specifier to be specified">;
 def err_typename_identifiers_only : Error<
   "typename is allowed for identifiers only">;
 
@@ -528,11 +528,6 @@ def warn_dangling_else : Warning<
   InGroup<DanglingElse>;
 def err_expected_member_or_base_name : Error<
   "expected class member or base class name">;
-// if INTEL_CUSTOMIZATION
-// CQ408231
-def warn_missing_template_parameters : Warning<
-  "missing parameter for template class '%0'">, InGroup<IntelCompat>;
-// endif INTEL_CUSTOMIZATION
 def err_expected_lbrace_after_base_specifiers : Error<
   "expected '{' after base class list">;
 def err_missing_end_of_definition : Error<
@@ -906,9 +901,9 @@ def warn_cxx98_compat_lambda : Warning<
   InGroup<CXX98Compat>, DefaultIgnore;
 def err_lambda_missing_parens : Error<
   "lambda requires '()' before %select{'mutable'|return type|"
-  "attribute specifier|'constexpr'}0">;
+  "attribute specifier|'constexpr'|'consteval'}0">;
 def err_lambda_decl_specifier_repeated : Error<
-  "%select{'mutable'|'constexpr'}0 cannot appear multiple times in a lambda declarator">;
+  "%select{'mutable'|'constexpr'|'consteval'}0 cannot appear multiple times in a lambda declarator">;
 def err_lambda_capture_misplaced_ellipsis : Error<
   "ellipsis in pack %select{|init-}0capture must appear %select{after|before}0 "
   "the name of the capture">;
@@ -1287,6 +1282,11 @@ def err_pragma_cannot_end_force_cuda_host_device : Error<
   "force_cuda_host_device end pragma without matching "
   "force_cuda_host_device begin">;
 } // end of Parse Issue category.
+
+// Intel FPGA pragmas and attributes support
+// Attribute ivdep, ii, max_concurrency support
+def err_intel_fpga_loop_attrs_on_non_loop : Error<
+  "intelfpga loop attributes must be applied to for, while or do statements">;
 
 let CategoryName = "Modules Issue" in {
 def err_unexpected_module_decl : Error<
