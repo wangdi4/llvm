@@ -748,14 +748,19 @@ static void performSink(MachineInstr &MI, MachineBasicBlock &SuccToSinkTo,
   else
     MI.collectDebugValues(DbgValuesToSink);
 
+#if INTEL_CUSTOMIZATION
+  // INTEL - Sinking a machine instruction does not invalidate the source
+  //         correlation, so leave it alone.
+  //
   // If we cannot find a location to use (merge with), then we erase the debug
   // location to prevent debug-info driven tools from potentially reporting
   // wrong location information.
-  if (!SuccToSinkTo.empty() && InsertPos != SuccToSinkTo.end())
-    MI.setDebugLoc(DILocation::getMergedLocation(MI.getDebugLoc(),
-                                                 InsertPos->getDebugLoc()));
-  else
-    MI.setDebugLoc(DebugLoc());
+  // if (!SuccToSinkTo.empty() && InsertPos != SuccToSinkTo.end())
+  //   MI.setDebugLoc(DILocation::getMergedLocation(MI.getDebugLoc(),
+  //                                                InsertPos->getDebugLoc()));
+  // else
+  //   MI.setDebugLoc(DebugLoc());
+#endif // INTEL_CUSTOMIZATION
 
   // Move the instruction.
   MachineBasicBlock *ParentBlock = MI.getParent();

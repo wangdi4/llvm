@@ -153,7 +153,7 @@ public:
     bool IsLast;
     bool IsCond;
   };
-  typedef SmallVector<PrivDescr, 8> PrivateListTy;
+  typedef SmallVector<PrivDescr, 8> PrivatesListTy;
   // Specialized class to represent linear descriptors specified explicitly via
   // SIMD linear clause. The linear's Step value is also stored within this
   // class.
@@ -181,7 +181,7 @@ public:
   void addLoopPrivate(RegDDRef *PrivVal, bool IsLast = false,
                       bool IsConditional = false) {
     assert(PrivVal->isAddressOf() && "Private ref is not address of type.");
-    PrivateList.emplace_back(PrivVal, IsLast, IsConditional);
+    PrivatesList.emplace_back(PrivVal, IsLast, IsConditional);
   }
 
   /// Register explicit reduction variables provided from outside.
@@ -219,12 +219,12 @@ public:
 
   HIRSafeReductionAnalysis *getSRA() const { return SRA; }
 
-  const PrivateListTy &getPrivates() const { return PrivateList; }
+  const PrivatesListTy &getPrivates() const { return PrivatesList; }
   const LinearListTy &getLinears() const { return LinearList; }
   const ReductionListTy &getReductions() const { return ReductionList; }
 
   PrivDescr *isPrivate(DDRef *Ref) {
-    return findDescr<PrivDescr>(PrivateList, Ref);
+    return findDescr<PrivDescr>(PrivatesList, Ref);
   }
   LinearDescr *isLinear(DDRef *Ref) {
     return findDescr<LinearDescr>(LinearList, Ref);
@@ -284,7 +284,7 @@ private:
   }
 
   HIRSafeReductionAnalysis *SRA;
-  PrivateListTy PrivateList;
+  PrivatesListTy PrivatesList;
   LinearListTy LinearList;
   ReductionListTy ReductionList;
 };

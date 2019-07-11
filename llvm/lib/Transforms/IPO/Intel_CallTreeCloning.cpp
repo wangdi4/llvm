@@ -140,6 +140,11 @@ STATISTIC(NumPostCTCMVFCreate,
 #define DBG_PARAM(x)
 #endif // NDEBUG
 
+// Option to disable call-tree cloning pass
+static cl::opt<bool> DisableCallTreeCloning(
+    PASS_NAME_STR "-disable", cl::init(false), cl::ReallyHidden,
+    cl::desc("disable call-tree cloning and multiversioning"));
+
 // Controls the maximum depth of a call tree for the call tree-based IP cloning
 static cl::opt<unsigned>
     CTCloningMaxDepth(PASS_NAME_STR "-max-depth", cl::init(3), cl::ReallyHidden,
@@ -288,6 +293,28 @@ static unsigned countPtrArgs(const Function &F) {
       ++NumPtrArgs;
   }
   return NumPtrArgs;
+}
+
+// Check if there is any floating-point argument
+static bool hasFloatArg(const Function &F) {
+  for (auto &Arg : F.args())
+    if (Arg.getType()->isFloatingPointTy())
+      return true;
+  return false;
+}
+
+// Check if there is any floating-point pointer argument
+static bool hasFloatPtrArg(const Function &F) {
+  for (auto &Arg : F.args())
+    if (Arg.getType()->isPointerTy()) {
+      auto PointeeTy =
+          dyn_cast<PointerType>(Arg.getType())->getPointerElementType();
+      if (!PointeeTy)
+        continue;
+      if (PointeeTy->isFloatingPointTy())
+        return true;
+    }
+  return false;
 }
 
 // Count the # of Double-Pointer Argument(s) in a given Function
@@ -611,7 +638,6 @@ public:
 #ifndef NDEBUG
   std::string toString() const;
   LLVM_DUMP_METHOD void dump() const { llvm::dbgs() << toString(); }
-
 #endif // NDEBUG
 };
 
@@ -673,10 +699,8 @@ class DCGNode;
 class DCGEdge : std::pair<DCGNode *, DCGNode *> {
 public:
   DCGEdge(DCGNode *M, DCGNode *N) : std::pair<DCGNode *, DCGNode *>(M, N) {}
-
   const DCGNode *src() const { return first; }
   const DCGNode *dst() const { return second; }
-
   DCGNode *src() { return first; }
   DCGNode *dst() { return second; }
 
@@ -695,16 +719,12 @@ public:
 
   const ArrayRef<DCGEdge *> inEdgesView() const { return InEdges; }
   const ArrayRef<DCGEdge *> outEdgesView() const { return OutEdges; }
-
   int &cnt() { return Cnt; }
   void resetTraversalState() { cnt() = 0; }
-
   const CallInst *getCallInst() const { return Impl; }
   CallInst *getCallInst() { return Impl; }
-
   const Function *getCaller() const { return Impl->getFunction(); }
   Function *getCaller() { return Impl->getFunction(); }
-
   const Function *getCallee() const { return Impl->getCalledFunction(); }
   Function *getCallee() { return Impl->getCalledFunction(); }
 
@@ -795,7 +815,6 @@ public:
 
     // take any node of f and get all predecessors
     auto Nit = Callee2Nodes.find(F);
-
     if (Nit == Callee2Nodes.end())
       return nullptr;
 
@@ -806,7 +825,6 @@ public:
   // Function *F
   const DCGNodeList *getNodesOf(const Function *F) const {
     auto I = find(F);
-
     if (I == end())
       return nullptr;
 
@@ -891,14 +909,11 @@ void DetailedCallGraph::addCallSite(CallInst *CI) {
 // Result of backwards parameter mapping
 enum ParamMappingResult {
   // actual parameter (set) is not a foldable function(s) of formals
-  params_cannot_fold, // 0
-  // actual parameter (set) a potentially foldable function(s) of
-  // formals
-  params_foldable, // 1
-  // actual parameter (set) is a constant
-  params_constant, // 2
-  // actual parameter has not been tried to be back-mapped
-  params_unprocessed // 3
+  Params_cannot_fold, // 0 actual parameter (set) a potentially foldable
+                      // function(s) of formals
+  Params_foldable,    // 1 actual parameter (set) is a constant
+  Params_constant,    // 2 actual parameter has not been tried to be back-mapped
+  Params_unprocessed  // 3
 };
 
 // A data dependence tree of an actual parameter flattened as a
@@ -939,13 +954,13 @@ raw_ostream &operator<<(raw_ostream &Os, const ActualParamFormula &APF) {
 // Convert the ParamMappingResult enum to its string representation
 StringRef to_string(ParamMappingResult R) {
   switch (R) {
-  case params_cannot_fold:
+  case Params_cannot_fold:
     return "cantfold";
-  case params_foldable:
+  case Params_foldable:
     return "foldable";
-  case params_constant:
+  case Params_constant:
     return "constant";
-  case params_unprocessed:
+  case Params_unprocessed:
     return "unproc";
   default:
     return "unknown";
@@ -995,7 +1010,6 @@ void print_value_list(const std::string &Msg,
   dbgs() << "\n";
 }
 #endif // 0
-
 #endif // NDEBUG
 
 using ActualParamFormulas =
@@ -1014,7 +1028,6 @@ public:
 
   void copyConstantParams(ConstParamVec &ConstParams) const;
   ParamIndSet getConstantParamInds() const;
-
   void evaluate(const ConstParamVec &Src, ConstParamVec &Dst) const;
 
   // 'back-maps' a set of actual parameters act_params to formal
@@ -1036,14 +1049,14 @@ public:
   // it depends on are constants.
   //
   // Returns:
-  // - params_cannot_fold
+  // - Params_cannot_fold
   //     if the parameters can't be folded
   //
-  // - params_foldable
+  // - Params_foldable
   //     if it can; 'Res' will contain indices of the formal
   //     parameters
   //
-  // - params_constant
+  // - Params_constant
   //     if the parameter is constant
   //
   ParamMappingResult mapBack(int ActParamInd, ParamIndSet &Res);
@@ -1210,7 +1223,6 @@ void print_FunctionMap(const std::string &Msg, std::map<Function *, bool> &Map,
   }
   dbgs() << "\n";
 }
-
 #endif // NDEBUG
 
 // Maps detailed call graph nodes to their parameter data flow information
@@ -1373,7 +1385,7 @@ void print_CloneRegistry(const std::string &Msg, CloneRegistry &Clones) {
 // element of the set
 inline ParamMappingResult merge_result(ParamMappingResult SetResult,
                                        ParamMappingResult ElemResult) {
-  assert(ElemResult != params_unprocessed && "");
+  assert(ElemResult != Params_unprocessed && "");
   return static_cast<ParamMappingResult>(std::min(SetResult, ElemResult));
 }
 
@@ -1438,18 +1450,18 @@ void ParamTform::evaluate(const ConstParamVec &Src, ConstParamVec &Dst) const {
 
 ParamMappingResult ParamTform::mapBack(ParamIndSet &Dst, ParamIndSet &Res) {
   // Early bail-out check:
-  // if any position (on ActParamStatus) is params_cannot_fold on
-  // over-sized Dst return params_cannot_fold
+  // if any position (on ActParamStatus) is Params_cannot_fold on
+  // over-sized Dst return Params_cannot_fold
   for (unsigned I = 0, E = ActParamStatus.size(); I < E; ++I) {
     auto S = ActParamStatus[I];
 
-    if (S == params_cannot_fold && Dst.size() > I && Dst[I])
+    if (S == Params_cannot_fold && Dst.size() > I && Dst[I])
       // can't fold one of the parameters in the set =>
       // can't fold the entire set
-      return params_cannot_fold;
+      return Params_cannot_fold;
   }
 
-  ParamMappingResult PMR = params_unprocessed;
+  ParamMappingResult PMR = Params_unprocessed;
   const DCGNode &N = *getDCGNode();
   const Function *Caller = N.getCaller();
   const Function *Callee = N.getCallee();
@@ -1461,7 +1473,7 @@ ParamMappingResult ParamTform::mapBack(ParamIndSet &Dst, ParamIndSet &Res) {
 
   if (ActParamStatus.size() == 0) {
     assert(DstSize > 0 && "unexpected empty parameter set");
-    ActParamStatus.resize(DstSize, params_unprocessed);
+    ActParamStatus.resize(DstSize, Params_unprocessed);
     assert(ActParamFormulas.size() == 0 && "");
     ActParamFormulas.resize(DstSize);
     Dst.resize(DstSize);
@@ -1480,15 +1492,15 @@ ParamMappingResult ParamTform::mapBack(ParamIndSet &Dst, ParamIndSet &Res) {
 
     auto Status = ActParamStatus[I];
 
-    if (Status == params_cannot_fold)
+    if (Status == Params_cannot_fold)
       // early bail-out
-      return params_cannot_fold;
+      return Params_cannot_fold;
 
-    if (Status == params_unprocessed) {
+    if (Status == Params_unprocessed) {
       // find how actual parameter maps to formals
       Status = mapBack(I, Res);
       ActParamStatus[I] = Status;
-    } else if (Status == params_foldable) {
+    } else if (Status == Params_foldable) {
       // parameter has been mapped back - just fill in from Act2Form cache
       const ParamIndSet &IparamDeps = Act2Form[I];
 
@@ -1545,7 +1557,7 @@ ParamMappingResult ParamTform::mapBack(int ActParamInd, ParamIndSet &Res) {
   const CallInst *CI = getDCGNode()->getCallInst();
   Value *Arg = CI->getArgOperand(ActParamInd);
   WrkList.push_back(Arg);
-  ParamMappingResult Ret = params_unprocessed;
+  ParamMappingResult Ret = Params_unprocessed;
   DBGX(2, dbgs() << "\n...map back actual param " << ActParamInd);
 
   while (!WrkList.empty()) {
@@ -1563,7 +1575,7 @@ ParamMappingResult ParamTform::mapBack(int ActParamInd, ParamIndSet &Res) {
         unsigned ArgNum = A->getArgNo();
         // formal parameter contributes to this actual parameter's value
         Res.set(ArgNum);
-        Ret = merge_result(Ret, params_foldable);
+        Ret = merge_result(Ret, Params_foldable);
         // update mapping:
         if (Form2Act.size() == 0)
           Form2Act.resize(getInputsSize());
@@ -1577,18 +1589,18 @@ ParamMappingResult ParamTform::mapBack(int ActParamInd, ParamIndSet &Res) {
         auto &ActSet = Act2Form[ActParamInd];
         ActSet.set(ArgNum);
       } else if (isa<ConstantInt>(V)) {
-        Ret = merge_result(Ret, params_constant);
+        Ret = merge_result(Ret, Params_constant);
       } else {
         // TODO: handle undefs
         // early bailout
-        Ret = params_cannot_fold;
+        Ret = Params_cannot_fold;
         break;
       }
       continue;
     } else {
       if (!might_constant_fold_inst(Inst)) {
         // can't fold - early bailout
-        Ret = params_cannot_fold;
+        Ret = Params_cannot_fold;
         break;
       }
       // don't change Ret, only leafs can tell whether the result is
@@ -1611,29 +1623,29 @@ ParamMappingResult ParamTform::mapBack(int ActParamInd, ParamIndSet &Res) {
 
       if ((I != V2N.end()) && (I->second < DfsNum - 1)) {
         // successor already visited and there is A dependence cycle - bail out
-        Ret = params_cannot_fold;
+        Ret = Params_cannot_fold;
         break;
       }
       Opnds.push_back(Opnd);
     }
-    if (Ret == params_cannot_fold)
+    if (Ret == Params_cannot_fold)
       break;
 
     std::copy(Opnds.rbegin(), Opnds.rend(), std::back_inserter(WrkList));
   }
 
-  assert(((Ret != params_foldable) ||
+  assert(((Ret != Params_foldable) ||
           ((Res.count() > 0) && (Act2Form[ActParamInd].count() > 0))) &&
          "foldable actual must be a function of formals");
 
 #ifndef NDEBUG
-  if (Ret == params_foldable || Ret == params_constant)
+  if (Ret == Params_foldable || Ret == Params_constant)
     DBGX(2, dbgs() << *Formula << "\n");
 
   DBGX(2, dbgs() << "...RESULT: " << to_string(Ret) << "\n");
 #endif // NDEBUG
 
-  if (Ret == params_cannot_fold)
+  if (Ret == Params_cannot_fold)
     // de-allocate formula
     ActParamFormulas[ActParamInd] = nullptr;
 
@@ -2017,7 +2029,6 @@ public:
 
 private:
   bool doPreliminaryTest(void);
-
   bool collectPPCallInst(CallInst *);
   bool doCollection(void);
 
@@ -2081,6 +2092,7 @@ struct MVFunctionInfo {
   void set(ConstParamVec &ConstParams, Function *ClonedF) {
     Param2CloneMap[ConstParams] = ClonedF;
   }
+
   void set(unsigned Idx, ConstantInt *C) { Pos2ValMap[Idx].insert(C); }
   void set(unsigned S) { Size = S; }
   void setGen2VarC(bool V) { Gen2VarClones = V; }
@@ -2109,13 +2121,18 @@ struct MVFunctionInfo {
 //
 class FunctionSignatureMatcher {
 public:
+  // Default constructor, needed for MultiVersionImpl's type declaration
+  FunctionSignatureMatcher()
+      : MinNumArgs(0), MaxNumArgs(0), MinNumDoublePtrArgs(0),
+        MaxNumDoublePtrArgs(0), IsLeaf(false) {}
+
   FunctionSignatureMatcher(unsigned MinNumArgs, unsigned MaxNumArgs,
                            unsigned NumPtrArgs0, unsigned NumPtrArgs1,
                            unsigned MinNumDoublePtrArgs,
-                           unsigned MaxNumDoublePtrArgs, bool IsLeafF)
+                           unsigned MaxNumDoublePtrArgs, bool IsLeaf)
       : MinNumArgs(MinNumArgs), MaxNumArgs(MaxNumArgs),
         MinNumDoublePtrArgs(MinNumDoublePtrArgs),
-        MaxNumDoublePtrArgs(MaxNumDoublePtrArgs), IsLeafF(IsLeafF) {
+        MaxNumDoublePtrArgs(MaxNumDoublePtrArgs), IsLeaf(IsLeaf) {
 
     assert((MinNumArgs <= MaxNumArgs) && "Expect MinNumArgs <= MaxNumArgs");
     assert((MinNumDoublePtrArgs <= MaxNumDoublePtrArgs) &&
@@ -2148,7 +2165,7 @@ public:
   // - LeafFunc matches: foo is a leaf function
   //
   // Note:
-  // NumArg, NumPtrArg, and NumDblPtrArg are provided in pairs because
+  // NumArg, NumPtrArg, NumDblPtrArg, and NumArg are provided in pairs because
   // the same FSM object will be used to match multiple function calls. So the
   // match is not necessarily exact.
   //
@@ -2161,8 +2178,8 @@ public:
   bool match(Function *F) const {
     assert(F && "Expect Function* F be a valid pointer\n");
 
-    // Check IsLeafF:
-    if (IsLeafF && !isLeafFunction(*F))
+    // Check IsLeaf:
+    if (IsLeaf && !isLeafFunction(*F))
       return false;
 
     // Check MinNumArgs, MaxNumArgs: strict compare
@@ -2182,15 +2199,18 @@ public:
                              MaxNumDoublePtrArgs))
       return false;
 
+    // Not allowing any Float and Float* argument type
+    if (hasFloatArg(*F) || hasFloatPtrArg(*F))
+      return false;
+
     return true;
   }
 
 private:
   unsigned MinNumArgs, MaxNumArgs;
-  // unsigned MinNumPtrArgs, MaxNumPtrArgs;
   std::vector<unsigned> NumPtrArgsV;
   unsigned MinNumDoublePtrArgs, MaxNumDoublePtrArgs;
-  bool IsLeafF;
+  bool IsLeaf;
 
 public:
 #ifndef NDEBUG
@@ -2206,7 +2226,28 @@ public:
       Module &M,
       std::map<Function *, SetOfParamIndSets, CompareFuncPtr> &LeafSeeds,
       CloneRegistry &Clones, TargetLibraryInfo *TLI, CallTreeCloningImpl *CTCI)
-      : M(M), LeafSeeds(LeafSeeds), Clones(Clones), CTCI(CTCI) {}
+      : M(M), LeafSeeds(LeafSeeds), Clones(Clones), CTCI(CTCI) {
+
+    // 2VarMV function matcher:
+    Match2VarMV = FunctionSignatureMatcher(
+        MV2VarCloneFMinExpectedArgs /* MinNumArg:8 */,
+        MV2VarCloneFMaxExpectedArgs /* MaxNumArg:9 */,
+        MV2VarCloneFMinPtrArgs /* NumPtrArg0:2 */,
+        MV2VarCloneFMaxPtrArgs /* NumPtrArg1:4 */,
+        MV2VarCloneFMinDblPtrArgs /* MinNumDoublePtrArgs:0 */,
+        MV2VarCloneFMaxDblPtrArgs /* MaxNumDoublePtrArgs:1 */,
+        true /* LeafFunc */);
+
+    // 1VarMV function matcher:
+    Match1VarMV = FunctionSignatureMatcher(
+        MV1VarCloneFExpectedArgs /* MinNumArg:9 */,
+        MV1VarCloneFExpectedArgs /* MaxNumArg:9 */,
+        MV1VarCloneFPtrArgs /* NumPtrArg0:4 */,
+        MV1VarCloneFPtrArgs /* NumPtrArg1:4 */,
+        MV1VarCloneFDblPtrArgs /* MinNumDoublePtrArgs:1 */,
+        MV1VarCloneFDblPtrArgs /* MaxNumDoublePtrArgs:1 */,
+        true /* LeafFunc */);
+  }
 
   bool run();
 
@@ -2340,6 +2381,12 @@ private:
 
   std::map<Function *, SetOfParamIndSets, CompareFuncPtr> MVSeeds;
   std::map<Function *, MVFunctionInfo, CompareFuncPtr> MVFIMap;
+
+  // 2VarMV function matcher:
+  FunctionSignatureMatcher Match2VarMV;
+  // 1VarMV function matcher:
+  FunctionSignatureMatcher Match1VarMV;
+
 }; // namespace
 
 } // end of anonymous namespace
@@ -2431,13 +2478,14 @@ std::string FunctionSignatureMatcher::toString(void) const {
   for (auto V : NumPtrArgsV) {
     S << V << ", ";
   }
+  S << "\n";
 
   // unsigned MinNumDoublePtrArgs, MaxNumDoublePtrArgs;
   S << "MinNumDoublePtrArgs: " << MinNumDoublePtrArgs
     << ", MaxNumDoublePtrArgs,: " << MaxNumDoublePtrArgs << "\n";
 
-  // IsLeafF:
-  S << "IsLeafF: " << std::boolalpha << IsLeafF << "\n";
+  // IsLeaf:
+  S << "IsLeaf: " << std::boolalpha << IsLeaf << "\n";
 
   return S.str();
 }
@@ -2460,6 +2508,7 @@ public:
   CallTreeCloningLegacyPass();
   bool runOnModule(Module &M) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
+
   StringRef getPassName() const override {
     return "Call-Tree Cloning (with MultiVersioning)";
   }
@@ -2535,7 +2584,8 @@ bool CallTreeCloningImpl::run(Module &M, Analyses &Anls, TargetLibraryInfo *TLI,
   LLVM_DEBUG({ printSeeds("LeafSeeds: ", LeafSeeds); });
 
   CloneRegistry Clones; // records all clones, needed for post processing (PP)
-  if (!findAndCloneCallSubtrees(Cgraph.get(), AlgSeeds, Clones))
+  bool CTCResult = findAndCloneCallSubtrees(Cgraph.get(), AlgSeeds, Clones);
+  if (!CTCResult)
     return false;
 
   // Do Post Processing Cleanup:
@@ -2549,12 +2599,13 @@ bool CallTreeCloningImpl::run(Module &M, Analyses &Anls, TargetLibraryInfo *TLI,
   MultiVersionImpl MV(M, LeafSeeds, Clones, TLI, this);
   bool MVResult = MV.run();
 
-  // Return true if at least 1 of the PP or MV is triggered
-  return PPResult || MVResult;
+  // Return true if at least 1 of the CTC, PP or MV is triggered and modified
+  // the module
+  return CTCResult || PPResult || MVResult;
 }
 
 bool llvm::CallTreeCloningLegacyPass::runOnModule(Module &M) {
-  if (skipModule(M) || (CTCloningMaxDepth == 0))
+  if (skipModule(M) || (CTCloningMaxDepth == 0) || DisableCallTreeCloning)
     return false;
 
   auto *TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
@@ -2655,13 +2706,13 @@ void CallTreeCloningImpl::findParamDepsRec(
 
     DBGX(1, dbgs() << " " << CurLiveOut.toString() << "<-");
 
-    if (Res == params_foldable) {
+    if (Res == Params_foldable) {
       // current parameter set can be constant-folded from caller's
       // formals if they are known constants
       auto InsRes = Flow->liveIn().insert(CurLiveIn);
       NewLiveInMet = NewLiveInMet || InsRes.second;
       DBGX(1, dbgs() << CurLiveIn.toString());
-    } else if (Res == params_constant) {
+    } else if (Res == Params_constant) {
       // can clone current call tree starting from 'Top', as all the
       // parameters down to the bottom callsite are constant-foldable
 
@@ -2699,7 +2750,7 @@ void CallTreeCloningImpl::findParamDepsRec(
       }
     } else {
       // parameters in current set can't be folded from caller's ones
-      assert(Res == params_cannot_fold && "invalid result");
+      assert(Res == Params_cannot_fold && "invalid result");
       DBGX(1, dbgs() << "!");
       Flow->killedOut().insert(CurLiveOut);
     }
@@ -3158,8 +3209,7 @@ bool PostProcessor::collectPPCallInst(CallInst *CI) {
   return CFArgPos;
 }
 
-// CloneRegistery is a map of: <Function*, ConstParamVec> -> Function
-// *
+// CloneRegistery is a map of: <Function*, ConstParamVec> -> Function*
 bool PostProcessor::doCollection(void) {
   // Collect all Function(s) appears in CloneRegistry:
   //  . the source Function(s),
@@ -3344,32 +3394,10 @@ bool PostProcessor::run(void) {
 //
 bool MultiVersionImpl::doCollection(void) {
 
-  // 2VarMV function matcher:
-  FunctionSignatureMatcher Match2VarMV(
-      MV2VarCloneFMinExpectedArgs /* MinNumArg:8 */,
-      MV2VarCloneFMaxExpectedArgs /* MaxNumArg:9 */,
-      MV2VarCloneFMinPtrArgs /* NumPtrArg0:2 */,
-      MV2VarCloneFMaxPtrArgs /* NumPtrArg1:4 */,
-      MV2VarCloneFMinDblPtrArgs /* MinNumDoublePtrArgs:0 */,
-      MV2VarCloneFMaxDblPtrArgs /* MaxNumDoublePtrArgs:1 */,
-      true /* LeafFunc */);
-
-  // 1VarMV function matcher:
-  FunctionSignatureMatcher Match1VarMV(
-      MV1VarCloneFExpectedArgs /* MinNumArg:9 */,
-      MV1VarCloneFExpectedArgs /* MaxNumArg:9 */,
-      MV1VarCloneFPtrArgs /* NumPtrArg0:4 */,
-      MV1VarCloneFPtrArgs /* NumPtrArg1:4 */,
-      MV1VarCloneFDblPtrArgs /* MinNumDoublePtrArgs:1 */,
-      MV1VarCloneFDblPtrArgs /* MaxNumDoublePtrArgs:1 */, true /* LeafFunc */);
-
-  LLVM_DEBUG(dbgs() << "Match2VarMV: " << Match2VarMV.toString() << "\n");
-  LLVM_DEBUG(dbgs() << "Match1VarMV: " << Match1VarMV.toString() << "\n");
-
-  // Short-cut collection:
-  // - Allow Functions to be collected through bypassing collection
-  // testing.
   if (MVBypassCollectionForLITTestOnly) {
+    // Short-cut collection:
+    // - Allow Functions to be collected through bypassing collection
+    // testing.
     for (auto &LeafSeed : LeafSeeds) {
       Function *F = LeafSeed.first;
       MVSeeds[F] = LeafSeed.second;
@@ -3417,25 +3445,6 @@ bool MultiVersionImpl::doAnalysis(void) {
         }
         return false;
       };
-
-  // 2VarMV function matcher:
-  FunctionSignatureMatcher Match2VarMV(
-      MV2VarCloneFMinExpectedArgs /* MinNumArg:8 */,
-      MV2VarCloneFMaxExpectedArgs /* MaxNumArg:9 */,
-      MV2VarCloneFMinPtrArgs /* NumPtrArg0:2 */,
-      MV2VarCloneFMaxPtrArgs /* NumPtrArg1:4 */,
-      MV2VarCloneFMinDblPtrArgs /* MinNumDoublePtrArgs:0 */,
-      MV2VarCloneFMaxDblPtrArgs /* MaxNumDoublePtrArgs:1 */,
-      true /* LeafFunc */);
-
-  // 1VarMV function matcher:
-  FunctionSignatureMatcher Match1VarMV(
-      MV1VarCloneFExpectedArgs /* MinNumArg:9 */,
-      MV1VarCloneFExpectedArgs /* MaxNumArg:9 */,
-      MV1VarCloneFPtrArgs /* NumPtrArg0:4 */,
-      MV1VarCloneFPtrArgs /* NumPtrArg1:4 */,
-      MV1VarCloneFDblPtrArgs /* MinNumDoublePtrArgs:1 */,
-      MV1VarCloneFDblPtrArgs /* MaxNumDoublePtrArgs:1 */, true /* LeafFunc */);
 
   LLVM_DEBUG(dbgs() << "Match2VarMV: " << Match2VarMV.toString() << "\n");
 
@@ -3532,7 +3541,11 @@ bool MultiVersionImpl::doAnalysis(void) {
     }
   });
 
-  return true;
+  bool AnalysisResult = MVFIMap.size();
+  if (!AnalysisResult)
+    LLVM_DEBUG(dbgs() << "Nothing to MultiVersion (MV)\n");
+
+  return AnalysisResult;
 }
 
 bool MultiVersionImpl::createAdditionalClones(Function *F) {
@@ -4477,5 +4490,4 @@ extern "C" void dump_valuev(SmallVectorImpl<const Value *> &ValueV) {
   }
   dbgs() << "\n";
 }
-
 #endif // NDEBUG

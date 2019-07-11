@@ -22,14 +22,11 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANVALUE_H
 
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/IR/Value.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
 #if INTEL_CUSTOMIZATION
 #include "VPlanHIR/IntelVPlanInstructionDataHIR.h"
-#include "llvm/IR/Constant.h"
 #endif
 
 namespace llvm {
@@ -91,7 +88,7 @@ private:
 
   /// Replace all uses of *this with \p NewVal. If the \p Loop is not null then
   /// replacement is restricted by VPInstructions from the \p Loop.
-  void replaceAllUsesWithImpl(VPValue* NewVal, VPLoop* L);
+  void replaceAllUsesWithImpl(VPValue *NewVal, VPLoop *L, bool InvalidateIR);
 
 protected:
 
@@ -120,6 +117,12 @@ protected:
     assert(!UnderlyingVal && "Underlying Value is already set.");
     UnderlyingVal = Val;
   }
+
+  /// Return validity of underlying Value or HIR node.
+  bool isUnderlyingIRValid() const;
+
+  /// Invalidate the underlying Value or HIR node.
+  void invalidateUnderlyingIR();
 
 public:
   /// An enumeration for keeping track of the concrete subclass of VPValue
@@ -195,14 +198,20 @@ void printAsOperand(raw_ostream &OS) const {
            });
   }
 
-  /// Replace all uses of *this with \p NewVal.
-  void replaceAllUsesWith(VPValue *NewVal) {
-    replaceAllUsesWithImpl(NewVal, nullptr);
+  /// Replace all uses of *this with \p NewVal. Additionally invalidate the
+  /// underlying IR if \p InvalidateIR is set. Note that this is a divergence
+  /// from LLVM's RAUW where users are not "modified" after the operation,
+  /// however in VPlan we invalidate the underlying value of the VPUser if
+  /// applicable.
+  void replaceAllUsesWith(VPValue *NewVal, bool InvalidateIR = true) {
+    replaceAllUsesWithImpl(NewVal, nullptr, InvalidateIR);
   }
 
-  /// Replace all uses of *this with \p NewVal in the \p Loop.
-  void replaceAllUsesWithInLoop(VPValue *NewVal, VPLoop &Loop) {
-    replaceAllUsesWithImpl(NewVal, &Loop);
+  /// Replace all uses of *this with \p NewVal in the \p Loop. Additionally
+  /// invalidate the underlying IR if \p InvalidateIR is set.
+  void replaceAllUsesWithInLoop(VPValue *NewVal, VPLoop &Loop,
+                                bool InvalidateIR = true) {
+    replaceAllUsesWithImpl(NewVal, &Loop, InvalidateIR);
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -247,7 +256,7 @@ protected:
       addOperand(Operand);
   }
 
-  virtual void invalidateHIR() {
+  virtual void invalidateIR() {
     // Do nothing for VPUsers without underlying HIR. Unfortunately, this method
     // is also invoked when VPUser ctor is invoked for the construction of a
     // VPInstruction (sub-class), instead of the VPInstruction's counterpart
@@ -313,11 +322,15 @@ public:
   int getNumOperandsFrom(const VPValue *Op) const {
     return std::count(op_begin(), op_end(), Op);
   }
-  /// Replace all uses of operand \From by \To.
-  void replaceUsesOfWith(VPValue *From, VPValue *To) {
+  /// Replace all uses of operand \From by \To. Additionally invalidate the
+  /// underlying IR if \p InvalidateIR is set.
+  void replaceUsesOfWith(VPValue *From, VPValue *To, bool InvalidateIR = true) {
     for (int I = 0, E = getNumOperands(); I != E; ++I)
       if (getOperand(I) == From)
         setOperand(I, To);
+
+    if (InvalidateIR)
+      invalidateUnderlyingIR();
   }
 
   /// Return index of a given \p Operand.

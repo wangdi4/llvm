@@ -33,6 +33,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #include "llvm/Pass.h"
@@ -101,6 +102,11 @@ struct LoopResourceInfo::LoopResourceVisitor final : public HLNodeVisitorBase {
   // for the blob. For example, if we found (2*%t) where 5 is the blob index of
   // %t, we will add a mapping of (5 -> 2).
   DenseMap<unsigned, SmallVector<int64_t, 2>> VisitedNonLinearBlobs;
+
+  // Keeps track of non linear GEP refs like A[0].1 so we don't account for the
+  // address cost again when we encounter &A[0].1. This logic only works for
+  // exact ref matches except the addressof flag.
+  SmallVector<const RegDDRef *, 8> VisitedNonLinearGEPRefs;
 
   struct BlobCostEvaluator;
 
@@ -489,6 +495,15 @@ void LoopResourceInfo::LoopResourceVisitor::invalidateNonLinearBlobs(
   for (auto Idx : InvalidatedBlobs) {
     VisitedNonLinearBlobs.erase(Idx);
   }
+
+  auto RemovePred = [&](const RegDDRef *Ref) {
+    return Ref->usesTempBlob(TempIndex);
+  };
+
+  VisitedNonLinearGEPRefs.erase(std::remove_if(VisitedNonLinearGEPRefs.begin(),
+                                               VisitedNonLinearGEPRefs.end(),
+                                               RemovePred),
+                                VisitedNonLinearGEPRefs.end());
 }
 
 void LoopResourceInfo::LoopResourceVisitor::visit(const RegDDRef *Ref) {
@@ -506,12 +521,23 @@ void LoopResourceInfo::LoopResourceVisitor::visit(const RegDDRef *Ref) {
     return;
   }
 
+  unsigned CurLevel = Lp->getNestingLevel();
+  bool HasGEPInfo = Ref->hasGEPInfo();
+
+  if (HasGEPInfo && !Ref->isLinearAtLevel(CurLevel)) {
+    for (auto *VisitedRef : VisitedNonLinearGEPRefs) {
+      // Ignore address cost of redundant ref.
+      if (DDRefUtils::areEqualWithoutAddressOf(Ref, VisitedRef)) {
+        return;
+      }
+    }
+
+    VisitedNonLinearGEPRefs.push_back(Ref);
+  }
+
   unsigned Cost;
   unsigned DimNum = 1;
   const CanonExpr *CE = nullptr;
-  bool HasGEPInfo = Ref->hasGEPInfo();
-  unsigned CurLevel = Lp->getNestingLevel();
-
   bool BaseIsNonLinear = (HasGEPInfo && Ref->getBaseCE()->isNonLinear());
   bool AccountForBase = BaseIsNonLinear;
   bool HasNonZeroOffset = false;

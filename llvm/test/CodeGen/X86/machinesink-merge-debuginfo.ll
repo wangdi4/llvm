@@ -32,9 +32,9 @@ first:
   %e = fadd double %a, 1.000000e+00
   br label %final
 second:
-; CHECK-NOT:  debug-location !17
-; CHECK:  debug-location !18
-; CHECK-NOT:  debug-location !17
+; CHECK:      bb.2.second:                                               ;INTEL
+; CHECK-NEXT:   DIVSDrm {{.*}} debug-location !17                        ;INTEL
+; CHECK-NEXT:   ADDSDrm {{.*}} debug-location !18                        ;INTEL
   %f = fadd double %b, 1.000000e+00, !dbg !18
   br label %final
 final:
@@ -58,8 +58,9 @@ first:
   br label %final
 second:
   %f = fadd double %b, 1.000000e+00, !dbg !25
-; CHECK:  debug-location !25
-; CHECK-NEXT:  debug-location !25
+; CHECK:      bb.2.second:                                               ;INTEL
+; CHECK-NEXT:   DIVSDrm {{.*}} debug-location !25                        ;INTEL
+; CHECK-NEXT:   ADDSDrm {{.*}} debug-location !25                        ;INTEL
   br label %final
 final:
   %cond = phi double [%e, %first], [%f, %second]

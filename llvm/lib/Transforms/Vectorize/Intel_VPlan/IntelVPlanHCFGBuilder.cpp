@@ -16,18 +16,20 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "IntelVPlanHCFGBuilder.h"
-#include "IntelVPlan.h"
 #include "IntelLoopVectorizationLegality.h"
+#include "IntelVPLoopAnalysis.h"
+#include "IntelVPlan.h"
 #include "IntelVPlanBuilder.h"
 #include "IntelVPlanDivergenceAnalysis.h"
+#include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanLoopInfo.h"
 #include "IntelVPlanSyncDependenceAnalysis.h"
-#include "IntelVPLoopAnalysis.h"
+#include "IntelVPlanVerifier.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include <deque>
 
 #define DEBUG_TYPE "VPlanHCFGBuilder"
 
@@ -708,6 +710,102 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   LLVM_DEBUG(Plan->dump());
 }
 
+// The single-exit while tranformation creates a new loop latch where the
+// side-exit is redirected.
+// -------------------------------------------
+//  FROM                          TO
+// -------------------------------------------
+//
+// -->BB1                ----------->BB1
+// |   |\               |            |\
+// |   | \              |            | \
+// |  BB2 \       =>    |           BB2 \
+// |   |   \            |            |   \
+// |   |    \           |            |    \
+// |   |    BB4         |            |     |
+// ---BB3               |           BB3    |
+//                      |            |     |
+//                      |            |     |
+//                       --------NEW_LOOP_LATCH
+//                                   |
+//                                   |
+//                                  BB4
+//
+void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
+  for (auto VPSL : VPL->getSubLoops())
+    singleExitWhileLoopCanonicalization(VPSL);
+
+  VPBasicBlock *OrigLoopLatch = dyn_cast<VPBasicBlock>(VPL->getLoopLatch());
+  if (OrigLoopLatch->getNumSuccessors() > 1)
+    return;
+
+  VPLoop *ParentLoop = VPL->getParentLoop();
+  if (!VPL->getExitingBlock() || ParentLoop == nullptr)
+    return;
+
+  LLVM_DEBUG(dbgs() << "Before single exit while loop transformation.\n");
+  LLVM_DEBUG(Plan->dump());
+
+  // Create new loop latch
+  VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
+  VPBasicBlock *NewLoopLatch = VPBlockUtils::splitBlock(
+      OrigLoopLatch, VPLInfo, VPDomTree, VPPostDomTree, Plan);
+
+  // Update the control-flow for the ExitingBlock, the NewLoopLatch and the
+  // ExitBlock.
+  VPBlockBase *ExitingBlock = VPL->getExitingBlock();
+  VPBlockBase *ExitBlock = getBlocksExitBlock(ExitingBlock, VPL);
+  VPBlockUtils::movePredecessor(ExitingBlock, ExitBlock, NewLoopLatch);
+  VPBlockUtils::connectBlocks(NewLoopLatch, ExitBlock);
+  // Update the blocks of the phi node (if it exists) in the exit block.
+  updateBlocksPhiNode(cast<VPBasicBlock>(ExitBlock),
+                      cast<VPBasicBlock>(ExitingBlock), NewLoopLatch);
+
+  // Fill-in NewLoopLatch with new instructions.
+  VPBuilder VPBldr;
+  VPBldr.setInsertPoint(NewLoopLatch);
+  Type *Int1Ty = Type::getInt1Ty(*Plan->getLLVMContext());
+  VPConstant *FalseConst = Plan->getVPConstant(ConstantInt::get(Int1Ty, 0));
+  VPConstant *TrueConst = Plan->getVPConstant(ConstantInt::get(Int1Ty, 1));
+  VPPHINode *TakeBackedgeCond =
+      cast<VPPHINode>(VPBldr.createPhiInstruction(Int1Ty));
+  // TODO: The while-loop canonicalization does not preserve the SSA form. If a
+  // value from the OrigLoopLatch feeds the phi in the BB1, then this value
+  // stops dominating its use (not defined on the BB2->NEW_LOOP_LATCH edge).
+  // Currently, this is not a problem because the proper dominance will be
+  // restored after CFG linearization by predicator.
+  TakeBackedgeCond->addIncoming(TrueConst, cast<VPBasicBlock>(OrigLoopLatch));
+  TakeBackedgeCond->addIncoming(FalseConst, cast<VPBasicBlock>(ExitingBlock));
+  NewLoopLatch->setCondBit(TakeBackedgeCond);
+  // Update DA.
+  VPlanDivergenceAnalysis *VPlanDA = Plan->getVPlanDA();
+  VPInstruction *OldCondBit =
+      dyn_cast<VPInstruction>(ExitingBlock->getCondBit());
+  auto copyDivergence = [VPlanDA](VPInstruction *From, VPInstruction *To) {
+    // We should only mark divergent values. DA checks if a value is in
+    // DivergentValues set. If it is not there, then the value is considered
+    // uniform.
+    if (VPlanDA->isDivergent(*From))
+      VPlanDA->markDivergent(*To);
+  };
+  copyDivergence(OldCondBit, TakeBackedgeCond);
+
+  // TODO: CMPLRLLVM-9535 Update VPDomTree and VPPostDomTree instead of
+  // recalculating it.
+  VPRegionBlock *CurrentLoopRegion =
+      cast<VPRegionBlock>(VPL->getHeader()->getParent());
+  VPDomTree.recalculate(*CurrentLoopRegion);
+  VPPostDomTree.recalculate(*CurrentLoopRegion);
+
+  VPRegionBlock *ParentLoopRegion =
+      cast<VPRegionBlock>(ParentLoop->getHeader()->getParent());
+  VPDomTree.recalculate(*ParentLoopRegion);
+  VPPostDomTree.recalculate(*ParentLoopRegion);
+
+  LLVM_DEBUG(dbgs() << "After single exit while loop transformation.\n");
+  LLVM_DEBUG(Plan->dump());
+}
+
 #if INTEL_CUSTOMIZATION
 // Return the nearest common post dominator of all the VPBlockBases in \p
 // InputVPBlocks.
@@ -886,6 +984,7 @@ void VPlanHCFGBuilder::simplifyPlainCFG() {
   if (LoopMassagingEnabled) {
     // LLVM_DEBUG(dbgs() << "Dominator Tree Before mergeLoopExits\n";
     // VPDomTree.print(dbgs()));
+    singleExitWhileLoopCanonicalization(TopLoop);
     mergeLoopExits(TopLoop);
     LLVM_DEBUG(Verifier->verifyHierarchicalCFG(Plan, TopRegion));
     // LLVM_DEBUG(dbgs() << "Dominator Tree After mergeLoopExits\n";
@@ -1122,6 +1221,9 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
              VPLInfo->print(dbgs()));
 
   passEntitiesToVPlan(CvtVec);
+  // Remove any duplicate induction PHIs collected during importing
+  Plan->getOrCreateLoopEntities(*VPLInfo->begin())
+      ->replaceDuplicateInductionPHIs();
 
   // Compute postdom tree for the plain CFG.
   VPPostDomTree.recalculate(*TopRegion);
@@ -1231,7 +1333,7 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
 // returns region's exit for the detected region.
 bool VPlanHCFGBuilder::isNonLoopRegion(VPBlockBase *Entry,
                                        VPRegionBlock *ParentRegion,
-                                       VPBlockBase *&Exit) {
+                                       VPBlockBase *&Exit) const {
 
   // Region's entry must have multiple successors and must be a VPBasicBlock at
   // this point. Also skip ParentRegion's Entry to prevent infinite recursion
@@ -1266,9 +1368,9 @@ bool VPlanHCFGBuilder::isNonLoopRegion(VPBlockBase *Entry,
 // a VPLoopRegion). In order to detect such cases, we currently check whether
 // the loop header is reachable starting from region's entry block up to
 // region's exit block.
-bool VPlanHCFGBuilder::regionIsBackEdgeCompliant(const VPBlockBase *Entry,
-                                                 const VPBlockBase *Exit,
-                                                 VPRegionBlock *ParentRegion) {
+bool VPlanHCFGBuilder::regionIsBackEdgeCompliant(
+    const VPBlockBase *Entry, const VPBlockBase *Exit,
+    VPRegionBlock *ParentRegion) const {
 
   // If the immediate parent region is not a loop region, current region won't
   // have any problem with loop cycles, so it's back edge compliant
@@ -1311,7 +1413,7 @@ bool VPlanHCFGBuilder::regionIsBackEdgeCompliant(const VPBlockBase *Entry,
 // Return true if \p Block is a VPBasicBlock that contains a successor selector
 // (CondBit) that is not uniform. If Block is a VPRegionBlock,
 // it returns false since a region can only have a single successor (by now).
-bool VPlanHCFGBuilder::isDivergentBlock(VPBlockBase *Block) {
+bool VPlanHCFGBuilder::isDivergentBlock(VPBlockBase *Block) const {
   if (DisableUniformRegions)
     return true;
 
@@ -1415,6 +1517,7 @@ public:
   using ReductionList = VPOVectorizationLegality::ReductionList;
   using ExplicitReductionList = VPOVectorizationLegality::ExplicitReductionList;
   using InMemoryReductionList = VPOVectorizationLegality::InMemoryReductionList;
+  using PrivatesListTy = VPOVectorizationLegality::PrivatesListTy;
 
   VPEntityConverterBase(PlainCFGBuilder &Bld) : Builder(Bld) {}
 
@@ -1435,8 +1538,10 @@ public:
         dyn_cast<VPInstruction>(Builder.getOrCreateVPOperand(CurValue.first)));
     Descriptor.setStart(
         Builder.getOrCreateVPOperand(RD.getRecurrenceStartValue()));
-    Descriptor.setExit(dyn_cast<VPInstruction>(
+    Descriptor.addUpdateVPInst(dyn_cast<VPInstruction>(
         Builder.getOrCreateVPOperand(RD.getLoopExitInstr())));
+    // Exit is not set here, it is determined based on some analyses in Phase 2
+    Descriptor.setExit(nullptr);
     Descriptor.setKind(RD.getRecurrenceKind());
     Descriptor.setMinMaxKind(RD.getMinMaxRecurrenceKind());
     Descriptor.setRecType(RD.getRecurrenceType());
@@ -1572,6 +1677,30 @@ public:
   }
 };
 
+// Convert data from Privates list
+class PrivatesListCvt : public VPEntityConverterBase {
+public:
+  PrivatesListCvt(PlainCFGBuilder &Bld, bool IsCond = false,
+                  bool IsLast = false)
+      : VPEntityConverterBase(Bld), IsCondPriv(IsCond), IsLastPriv(IsLast) {}
+
+  void operator()(PrivateDescr &Descriptor,
+                  const PrivatesListTy::value_type &CurValue) {
+
+    Descriptor.clear();
+    auto *VPAllocaVal = Builder.getOrCreateVPOperand(CurValue);
+    Descriptor.setAllocaInst(VPAllocaVal);
+    Descriptor.setIsConditional(IsCondPriv);
+    Descriptor.setIsLast(IsLastPriv);
+    Descriptor.setIsExplicit(true);
+    Descriptor.setIsMemOnly(false);
+  }
+
+private:
+  bool IsCondPriv;
+  bool IsLastPriv;
+};
+
 class Loop2VPLoopMapper {
 public:
   Loop2VPLoopMapper() = delete;
@@ -1608,10 +1737,9 @@ protected:
 };
 
 // Specialization of reductions and inductions converters.
-typedef VPLoopEntitiesConverter<ReductionDescr, Loop, Loop2VPLoopMapper>
-    ReductionConverter;
-typedef VPLoopEntitiesConverter<InductionDescr, Loop, Loop2VPLoopMapper>
-    InductionConverter;
+using ReductionConverter = VPLoopEntitiesConverter<ReductionDescr, Loop, Loop2VPLoopMapper>;
+using InductionConverter = VPLoopEntitiesConverter<InductionDescr, Loop, Loop2VPLoopMapper>;
+using PrivatesConverter  = VPLoopEntitiesConverter<PrivateDescr, Loop, Loop2VPLoopMapper>;
 
 /// Convert incoming loop entities to the VPlan format.
 void PlainCFGBuilder::convertEntityDescriptors(
@@ -1623,9 +1751,11 @@ void PlainCFGBuilder::convertEntityDescriptors(
   using ReductionList = VPOVectorizationLegality::ReductionList;
   using ExplicitReductionList = VPOVectorizationLegality::ExplicitReductionList;
   using InMemoryReductionList = VPOVectorizationLegality::InMemoryReductionList;
+  using PrivatesListTy = VPOVectorizationLegality::PrivatesListTy;
 
   ReductionConverter *RedCvt = new ReductionConverter(Plan);
   InductionConverter *IndCvt = new InductionConverter(Plan);
+  PrivatesConverter *PrivCvt = new PrivatesConverter(Plan);
 
   // TODO: create legality and import descriptors for all inner loops too.
 
@@ -1654,14 +1784,59 @@ void PlainCFGBuilder::convertEntityDescriptors(
   auto ExplicitRedPair = std::make_pair(ExplicitReductionRange, ExpRLCvt);
   auto InMemoryRedPair = std::make_pair(InMemoryReductionRange, IMRLCvt);
 
+  // TODO: VPOLegality stores Privates, LastPrivates and CondPrivates in
+  // different lists. This is different from the way HIRLegality store this
+  // information. Till we have a unified way of storing the information and
+  // accessing it, we will have to do with the following hack where we we go
+  // through the Privates, which is a superset, and check membership of elements
+  // within ConPrivates and LastPrivates. This helps us separate out paivates
+  // based on types. This code will be simplified when we have the correct
+  // implementation for Privates in VPOLegality.
+  const PrivatesListTy &PrivatesList = Legal->getPrivates();
+  const PrivatesListTy &CondPrivatesList = Legal->getCondPrivates();
+  const PrivatesListTy &LastPrivatesList = Legal->getLastPrivates();
+
+  PrivatesListTy NewPrivatesList;
+  PrivatesListTy NewCondPrivatesList;
+  PrivatesListTy NewLastPrivatesList;
+
+  for (auto Val : PrivatesList) {
+    if (CondPrivatesList.count(Val))
+      NewCondPrivatesList.insert(Val);
+    else if (LastPrivatesList.count(Val))
+      NewLastPrivatesList.insert(Val);
+    else
+      NewPrivatesList.insert(Val);
+  }
+
+  iterator_range<PrivatesListTy::const_iterator> PrivatesRange(
+      NewPrivatesList.begin(), NewPrivatesList.end());
+  iterator_range<PrivatesListTy::const_iterator> CondPrivatesRange(
+      NewCondPrivatesList.begin(), NewCondPrivatesList.end());
+  iterator_range<PrivatesListTy::const_iterator> LastPrivatesRange(
+      NewLastPrivatesList.begin(), NewLastPrivatesList.end());
+
+  PrivatesListCvt PrivListCvt(*this);
+  PrivatesListCvt CondPrivListCvt(*this, true /*IsCond*/, false /*IsLast*/);
+  PrivatesListCvt LastPrivListCvt(*this, false /*IsCond*/, true /*IsLast*/);
+
   RedCvt->createDescrList(TheLoop, ReducPair, ExplicitRedPair, InMemoryRedPair);
 
   auto InducPair = std::make_pair(InducRange, InducListCvt);
   auto LinearPair = std::make_pair(LinearRange, LinListCvt);
+
+  auto PrivatesPair = std::make_pair(PrivatesRange, PrivListCvt);
+  auto CondPrivatesPair = std::make_pair(CondPrivatesRange, CondPrivListCvt);
+  auto LastPrivatesPair = std::make_pair(LastPrivatesRange, LastPrivListCvt);
+
   IndCvt->createDescrList(TheLoop, InducPair, LinearPair);
+
+  PrivCvt->createDescrList(TheLoop, PrivatesPair, CondPrivatesPair,
+                           LastPrivatesPair);
 
   Cvts.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(RedCvt));
   Cvts.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(IndCvt));
+  Cvts.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(PrivCvt));
 }
 
 // Set operands to VPInstructions representing phi nodes from the input IR.

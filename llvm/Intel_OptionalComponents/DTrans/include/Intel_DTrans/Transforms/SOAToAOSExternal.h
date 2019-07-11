@@ -215,15 +215,12 @@ public:
   // it should not be too big.
   constexpr static int MaxNumFieldMethodUses = 2;
 
-  void collectCallSites(SmallSet<CallBase *, 20> *CallSitesForDtrans) const {
+  void collectFuncs(SmallSet<Function *, 20> *FuncsForDtrans) const {
     for (auto *F : StructMethods)
-      for (auto &U : F->uses())
-        CallSitesForDtrans->insert(dyn_cast<CallBase>(U.getUser()));
-
+      FuncsForDtrans->insert(F);
     for (auto *S : methodsets())
       for (auto *F : *S)
-        for (auto &U : F->uses())
-          CallSitesForDtrans->insert(dyn_cast<CallBase>(U.getUser()));
+        FuncsForDtrans->insert(F);
   }
 
 protected:

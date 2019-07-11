@@ -465,7 +465,9 @@ void PassManagerBuilder::populateFunctionPassManager(
     legacy::FunctionPassManager &FPM) {
   addExtensionsToPM(EP_EarlyAsPossible, FPM);
 #if INTEL_CUSTOMIZATION
-  if (!isLoopOptEnabled())
+  if (isLoopOptEnabled())
+    FPM.add(createLoopOptMarkerLegacyPass());
+  else
     FPM.add(createLowerSubscriptIntrinsicLegacyPass());
 #endif // INTEL_CUSTOMIZATION
   FPM.add(createEntryExitInstrumenterPass());
@@ -586,8 +588,6 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     legacy::PassManagerBase &MPM) {
   // Start of function pass.
 #if INTEL_CUSTOMIZATION
-  if (isLoopOptEnabled())
-    MPM.add(createLoopOptMarkerLegacyPass());
   // Propagate TBAA information before SROA so that we can remove mid-function
   // fakeload intrinsics which would block SROA.
   if (EnableTbaaProp)
@@ -1291,7 +1291,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     if (EnableDTrans)
       PM.add(createIPSCCPPass());
 #endif // INTEL_INCLUDE_DTRANS
-    PM.add(createIPCloningLegacyPass());
+    PM.add(createIPCloningLegacyPass(false, true));
   }
 
   // Apply dynamic_casts optimization pass.
@@ -1449,7 +1449,12 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
 #if INTEL_CUSTOMIZATION
   if (RunLTOPartialInlining)
-    PM.add(createPartialInliningPass(true /*RunLTOPartialInlining*/));
+    PM.add(createPartialInliningPass(true /*RunLTOPartialInlining*/,
+#if INTEL_INCLUDE_DTRANS
+                                     EnableDTrans /*EnableSpecialCases*/));
+#else
+                                     false /*EnableSpecialCases*/));
+#endif // INTEL_INCLUDE_DTRANS
 
   if (EnableIPCloning || EnableCallTreeCloning) {
     if (EnableIPCloning)

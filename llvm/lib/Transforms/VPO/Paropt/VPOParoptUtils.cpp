@@ -842,6 +842,42 @@ CallInst *VPOParoptUtils::genCxaAtExit(Value *TgtDescUnregFn, Value *Desc,
   return Call;
 }
 
+// Generate a call to
+//   bool __tgt_is_device_available(int device_num, void *device_type)
+CallInst *VPOParoptUtils::genTgtIsDeviceAvailable(Value *DeviceNum,
+                                                  Value *DeviceType,
+                                                  Instruction *InsertPt) {
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  LLVMContext &C = F->getContext();
+  Type *Int32Ty = Type::getInt32Ty(C);
+  Type *Int8PtrTy = Type::getInt8PtrTy(C);
+
+  assert(DeviceNum && DeviceNum->getType()->isIntegerTy(32) &&
+         "DeviceNum expected to be Int32");
+  assert(DeviceType && DeviceType->getType()->isPointerTy() &&
+         "DeviceType expected to be pointer");
+  Value *Args[] = {DeviceNum, DeviceType};
+  Type *ArgTypes[] = {Int32Ty, Int8PtrTy};
+  CallInst *Call =
+      genCall("__tgt_is_device_available", Int32Ty, Args, ArgTypes, InsertPt);
+  return Call;
+}
+
+// Generate a call to
+//   int omp_get_num_devices()
+CallInst *VPOParoptUtils::genOmpGetNumDevices(Instruction *InsertPt) {
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+
+  Type *Int32Ty = Type::getInt32Ty(C); // return type
+
+  CallInst *Call = genEmptyCall(M, "omp_get_num_devices", Int32Ty, InsertPt);
+  return Call;
+}
+
 // This function generates a call as follows.
 //    void @__kmpc_omp_task_begin_if0(
 //          { i32, i32, i32, i32, i8* }* /* &loc */,
@@ -2673,6 +2709,21 @@ CallInst *VPOParoptUtils::genCall(StringRef FnName, Type *ReturnTy,
   return Call;
 }
 
+// Create a variant version of BaseCall using  the same arguments.
+// The base and variant functions must have identical signatures.
+CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
+                                         StringRef VariantName,
+                                         Instruction *InsertPt, bool IsTail,
+                                         bool IsVarArg) {
+  assert(BaseCall && "BaseCall is null");
+  Module *M = BaseCall->getModule();
+  Type *ReturnTy = BaseCall->getType();
+  SmallVector<Value *, 4> FnArgs(BaseCall->arg_operands());
+  CallInst *VariantCall = genCall(M, VariantName, ReturnTy, FnArgs, InsertPt,
+                                  IsTail, IsVarArg);
+  return VariantCall;
+}
+
 // Creates a call with no parameters
 CallInst *VPOParoptUtils::genEmptyCall(Module *M, StringRef FnName,
                                        Type *ReturnTy, Instruction *InsertPt,
@@ -3006,9 +3057,14 @@ Value *VPOParoptUtils::computeOmpUpperBound(
   assert(NormUB && RegionInfo.getNormUBSize() == 1 &&
          "NORMALIZED.UB clause must specify exactly one upper bound.");
 
-  auto *NormUBAlloca = cast<AllocaInst>(NormUB);
-  assert(NormUBAlloca && "NORMALIZED.UB clause must specify an AllocaInst.");
-  assert(NormUBAlloca->getAllocatedType()->isIntegerTy() &&
+  assert(GeneralUtils::isOMPItemLocalVAR(NormUB) &&
+         "NORMALIZED.UB clause must specify an AllocaInst or"
+         " AddrSpaceCastInst.");
+
+  auto *NormUBAlloca = cast<Instruction>(NormUB);
+  assert(isa<PointerType>(NormUBAlloca->getType()) &&
+         cast<PointerType>(
+             NormUBAlloca->getType())->getElementType()->isIntegerTy() &&
          "Normalized upper bound must have an integer type.");
 
   return Builder.CreateLoad(NormUBAlloca, ".norm.ub" + Name);
@@ -3220,11 +3276,16 @@ Value *VPOParoptUtils::cloneInstructions(Value *V, Instruction *InsertBefore) {
 }
 
 // Generate the pointer pointing to the head of the array.
-Value *VPOParoptUtils::genArrayLength(AllocaInst *AI, Value *BaseAddr,
+Value *VPOParoptUtils::genArrayLength(Value *AI, Value *BaseAddr,
                                       Instruction *InsertPt,
                                       IRBuilder<> &Builder, Type *&ElementTy,
                                       Value *&ArrayBegin) {
-  Type *AllocaTy = AI->getAllocatedType();
+  // FIXME: we can probably gather the type information from
+  //        BaseAddr, and do not pass AI at all.
+  assert(GeneralUtils::isOMPItemLocalVAR(AI) &&
+         "genArrayLength: Expect non-empty optionally casted "
+         "alloca instruction.");
+  Type *AllocaTy = cast<PointerType>(AI->getType())->getElementType();
   Type *ScalarTy = AllocaTy->getScalarType();
   ArrayType *ArrTy = dyn_cast<ArrayType>(ScalarTy);
   assert(ArrTy && "Expect array type. ");

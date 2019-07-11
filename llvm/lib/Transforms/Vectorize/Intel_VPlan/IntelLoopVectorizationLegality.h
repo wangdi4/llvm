@@ -18,19 +18,17 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZERLEGALITY_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZERLEGALITY_H
 
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
-#include "llvm/Analysis/Intel_VectorVariant.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/Transforms/Utils/LoopUtils.h"
+#include "llvm/Analysis/IVDescriptors.h"
 
 namespace llvm {
 
 class PredicatedScalarEvolution;
 class TargetTransformInfo;
 class TargetLibraryInfo;
+class Loop;
 class LoopInfo;
+class Function;
 
 namespace vpo {
 
@@ -38,6 +36,9 @@ class VPOVectorizationLegality {
 public:
   VPOVectorizationLegality(Loop *L, PredicatedScalarEvolution &PSE, Function *F)
       : TheLoop(L), PSE(PSE), Induction(nullptr), WidestIndTy(nullptr) {}
+
+  /// Container-class for storing the different types of Privates
+  using PrivatesListTy = DenseSet<Value *>;
 
   /// Returns true if it is legal to vectorize this loop.
   bool canVectorize();
@@ -173,9 +174,9 @@ private:
   SmallPtrSet<Value *, 4> AllowedExit;
 
   /// Vector of in memory loop private values(allocas)
-  SmallPtrSet<Value *, 8> Privates;
-  SmallPtrSet<Value *, 8> LastPrivates;
-  SmallPtrSet<Value *, 8> CondLastPrivates;
+  PrivatesListTy Privates;
+  PrivatesListTy LastPrivates;
+  PrivatesListTy CondLastPrivates;
 
   /// List of explicit linears.
   LinearListTy Linears;
@@ -267,6 +268,15 @@ public:
   LinearListTy *getLinears() {
     return &Linears;
   }
+
+  // Return Pointer to Privates map
+  const PrivatesListTy &getPrivates() const { return Privates; }
+
+  // Return Pointer to CondPrivates map
+  const PrivatesListTy &getCondPrivates() const { return CondLastPrivates; }
+
+  // Return Pointer to LastPrivates map
+  const PrivatesListTy &getLastPrivates() const { return LastPrivates; }
 
 private:
   // Find pattern inside the loop for matching the explicit

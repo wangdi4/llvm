@@ -92,7 +92,8 @@ private:
   class CostModelAnalyzer;
 
   /// Returns true if \p Inst contains a type not supported by HIR.
-  static bool containsUnsupportedTy(const Instruction *Inst);
+  static bool containsUnsupportedTy(const Instruction *Inst,
+                                    const Loop *Lp = nullptr);
 
   /// Implements isReachableFrom().
   bool
@@ -198,10 +199,11 @@ public:
   unsigned getNumRegions() const { return IRRegions.size(); }
 
   /// Returns true if this type is supported.
-  static bool isSupported(Type *Ty);
+  static bool isSupported(Type *Ty, const Loop *Lp = nullptr);
 
   /// Returns true if \p GEPOp contains a type not supported by HIR.
-  static bool containsUnsupportedTy(const GEPOrSubsOperator *GEPOp);
+  static bool containsUnsupportedTy(const GEPOrSubsOperator *GEPOp,
+                                    const Loop *Lp = nullptr);
 
   /// Returns the outermost parent loop of \p Lp.
   static const Loop *getOutermostParentLoop(const Loop *Lp);

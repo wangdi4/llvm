@@ -19,9 +19,9 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
-
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Pass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 #define OPT_SWITCH "hir-prefetching"
 #define OPT_DESC "HIR Prefetching"
@@ -66,16 +66,21 @@ static cl::opt<bool>
     SkipNumMemoryStreamsCheck("hir-prefetching-skip-num-memory-streams-check",
                               cl::init(false), cl::Hidden,
                               cl::desc("Skip number of memory streams check"));
+static cl::opt<bool>
+    SkipAVX2Check("hir-prefetching-skip-AVX2-check", cl::init(false),
+                  cl::Hidden, cl::desc("Skip AVX2 and above processor check"));
 
 namespace {
 
 class HIRPrefetching {
   HIRFramework &HIRF;
   HIRLoopLocality &LA;
+  const TargetTransformInfo &TTI;
 
 public:
-  HIRPrefetching(HIRFramework &HIRF, HIRLoopLocality &LA)
-      : HIRF(HIRF), LA(LA) {}
+  HIRPrefetching(HIRFramework &HIRF, HIRLoopLocality &LA,
+                 const TargetTransformInfo &TTI)
+      : HIRF(HIRF), LA(LA), TTI(TTI) {}
 
   bool run();
 
@@ -220,6 +225,12 @@ bool HIRPrefetching::run() {
   LLVM_DEBUG(dbgs() << "HIR Prefetching on Function : "
                     << HIRF.getFunction().getName() << "\n");
 
+  if (!SkipAVX2Check &&
+      !TTI.isAdvancedOptEnabled(
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2)) {
+    return false;
+  }
+
   // Gather all inner-most loops as Candidates
   SmallVector<HLLoop *, 64> CandidateLoops;
 
@@ -252,7 +263,8 @@ bool HIRPrefetching::run() {
 PreservedAnalyses HIRPrefetchingPass::run(llvm::Function &F,
                                           llvm::FunctionAnalysisManager &AM) {
   HIRPrefetching(AM.getResult<HIRFrameworkAnalysis>(F),
-                 AM.getResult<HIRLoopLocalityAnalysis>(F))
+                 AM.getResult<HIRLoopLocalityAnalysis>(F),
+                 AM.getResult<TargetIRAnalysis>(F))
       .run();
   return PreservedAnalyses::all();
 }
@@ -268,6 +280,7 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
+    AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
     AU.setPreservesAll();
   }
 
@@ -276,8 +289,10 @@ public:
       return false;
     }
 
-    return HIRPrefetching(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-                          getAnalysis<HIRLoopLocalityWrapperPass>().getHLL())
+    return HIRPrefetching(
+               getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+               getAnalysis<HIRLoopLocalityWrapperPass>().getHLL(),
+               getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F))
         .run();
   }
 };
@@ -285,6 +300,7 @@ public:
 char HIRPrefetchingLegacyPass::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRPrefetchingLegacyPass, OPT_SWITCH, OPT_DESC, false,
                       false)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
 INITIALIZE_PASS_END(HIRPrefetchingLegacyPass, OPT_SWITCH, OPT_DESC, false,

@@ -528,8 +528,7 @@ static bool isSpecializationCloningSpecialConst(Value* V, Value* Arg) {
   }
   else if (isa<BitCastInst>(V)) {
     PropVal = isStartAddressOfPackedArrayOnStack(V);
-  }
-  else {
+  } else {
     return false;
   }
   if (PropVal == nullptr) return false;
@@ -580,8 +579,7 @@ static void collectArgsSetsForSpecialization(Function &F, CallInst &CI,
       if (isa<Constant>(C) ||
           isSpecializationCloningSpecialConst(C, *CAI1)) {
          ConstantArgs.push_back(std::make_pair(Position, C));
-      }
-      else {
+      } else {
         Inexact = true;
         break;
       }
@@ -599,8 +597,7 @@ static void collectArgsSetsForSpecialization(Function &F, CallInst &CI,
       }
       if (!Duplicate)
         CallArgumentsSets.push_back(ConstantArgs);
-    }
-    else {
+    } else {
       if (!InexactArgsSetsCallList.count(&CI))
         InexactArgsSetsCallList.insert(&CI);
     }
@@ -965,8 +962,7 @@ static void createRecProgressionClones(Function &F,
 // 'ConstantArgsSet'
 //
 static void createConstantArgumentsSet(CallInst &CI,  Function &F,
-         std::vector<std::pair<unsigned, Constant *>>& ConstantArgsSet,
-         bool AfterInl) {
+         std::vector<std::pair<unsigned, Constant *>>& ConstantArgsSet) {
 
   unsigned position = 0;
   auto CAI = CI.arg_begin();
@@ -1060,7 +1056,6 @@ static void dumpFormalsConstants(Function &F) {
 }
 
 // It collects worthy formals for cloning by applying heuristics.
-// For now, no heuristics are applied if AfterInl is false.
 // It returns true if there are any worthy formals.
 //
 // If 'IFSwitchHeuristic' is true, the if-switch heuristic may be applied.
@@ -1101,7 +1096,7 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
       errs() << " Collecting potential constants for Formal_";
       errs() << (f_count - 1) << "\n";
     }
-    if (AfterInl) {
+    if (AfterInl || IsGenRec) {
       unsigned IFCount = 0;
       unsigned SwitchCount = 0;
       if (findPotentialConstsAndApplyHeuristics(F, V, &LI, true,
@@ -1134,9 +1129,8 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
           errs() << " due to heuristics\n";
         }
       }
-    }
-    else {
-      // No heuristics for IPCloning before Inlining
+    } else {
+      // No heuristics for IPCloning before Inlining, unless IsGenRec
       WorthyFormalsForCloning.insert(V);
     }
   }
@@ -1148,8 +1142,7 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
       errs() << "  Selecting all Pending FORMALs\n";
     for (Value *W : PossiblyWorthyFormalsForCloning)
       WorthyFormalsForCloning.insert(W);
-  }
-  else if (IsGenRec && PossiblyWorthyFormalsForCloning.size() >=
+  } else if (IsGenRec && PossiblyWorthyFormalsForCloning.size() >=
       IPGenCloningMinRecFormalCount) {
     if (IPCloningTrace)
       errs() << "  Possibly selecting all Pending FORMALs in "
@@ -1179,13 +1172,13 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
 // "FunctionAllArgumentsSets". It return false if number of constant
 // argument sets exceeds "IPFunctionCloningLimit".
 //
-static bool collectAllConstantArgumentsSets(Function &F, bool AfterInl) {
+static bool collectAllConstantArgumentsSets(Function &F) {
 
   std::vector<std::pair<unsigned, Constant *>> ConstantArgs;
   for (unsigned i = 0, e = CurrCallList.size(); i != e; ++i) {
     CallInst *CI = CurrCallList[i];
     ConstantArgs.clear();
-    createConstantArgumentsSet(*CI, F, ConstantArgs, AfterInl);
+    createConstantArgumentsSet(*CI, F, ConstantArgs);
     if (ConstantArgs.size() == 0)
       continue;
     unsigned index = getConstantArgumentsSetIndex(ConstantArgs);
@@ -1228,7 +1221,7 @@ static bool isArgumentConstantAtPosition(
 // 'ClonedFn'.
 //
 static bool okayEliminateRecursion(Function *ClonedFn, unsigned index,
-                                   CallInst &CI, bool AfterInl) {
+                                   CallInst &CI) {
   // Get constant argument set for ClonedFn.
   auto &CArgs = FunctionAllArgumentsSets[index];
 
@@ -1243,8 +1236,7 @@ static bool okayEliminateRecursion(Function *ClonedFn, unsigned index,
      if (isConstantArgForCloning(*CAI, FuncPtrsClone))
         return false;
 
-    }
-    else {
+    } else {
       // If argument is constant in CArgs, then actual argument of CI
       // should pass through formal.
       if ((&*AI) != (*CAI))
@@ -1278,7 +1270,7 @@ static bool okayEliminateRecursion(Function *ClonedFn, unsigned index,
 //     }
 //
 static void eliminateRecursionIfPossible(Function *ClonedFn,
-                      Function *OriginalFn, unsigned index, bool AfterInl) {
+                      Function *OriginalFn, unsigned index) {
   for (inst_iterator II = inst_begin(ClonedFn), E = inst_end(ClonedFn);
      II != E; ++II) {
     if (!isa<CallInst>(&*II))
@@ -1286,7 +1278,7 @@ static void eliminateRecursionIfPossible(Function *ClonedFn,
     auto CI = cast<CallInst>(&*II);
     Function *Callee = CI->getCalledFunction();
     if (Callee == OriginalFn &&
-        okayEliminateRecursion(ClonedFn, index, *CI, AfterInl)) {
+        okayEliminateRecursion(ClonedFn, index, *CI)) {
       CI->setCalledFunction(ClonedFn);
       NumIPCallsCloned++;
 
@@ -1298,7 +1290,7 @@ static void eliminateRecursionIfPossible(Function *ClonedFn,
 
 // It does actual cloning and fixes recursion calls if possible.
 //
-static void cloneFunction(bool AfterInl) {
+static void cloneFunction(void) {
   for (unsigned I = 0, E = CurrCallList.size(); I != E; ++I) {
     ValueToValueMapTy VMap;
     CallInst *CI = CurrCallList[I];
@@ -1324,7 +1316,7 @@ static void cloneFunction(bool AfterInl) {
 
     CI->setCalledFunction(NewFn);
     NumIPCallsCloned++;
-    eliminateRecursionIfPossible(NewFn, SrcFn, index, AfterInl);
+    eliminateRecursionIfPossible(NewFn, SrcFn, index);
 
     if (IPCloningTrace)
       errs() << " Cloned call:   " << *CI << "\n";
@@ -1695,8 +1687,7 @@ static void cloneSpecializationFunction(void) {
       // for conven00 benchmark due to downstream optimizations. Set
       // NoInline attribute for fallback CallSite for now.
       NewCI->setIsNoInline();
-    }
-    else {
+    } else {
       // Branch directly to the TailBB without calling the original function
       //NewCondStmtBBs.push_back(TailBB);
     }
@@ -1707,8 +1698,7 @@ static void cloneSpecializationFunction(void) {
     for (unsigned J = 0; J < NumConds; J++) {
       if (J + 1 < NumConds) {
         F_BB = NewCondStmtBBs[J+1];
-      }
-      else {
+      } else {
         F_BB = NewClonedCallBBs[J + 1];
       }
       BranchInst *BI = BranchInst::Create(NewClonedCallBBs[J],
@@ -1812,8 +1802,7 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
       CloneType = GenericClone;
       if (IPCloningTrace)
         errs() << "    Selected generic cloning  " << "\n";
-    }
-    else {
+    } else {
       int Start, Inc;
       unsigned ArgPos, Count;
       bool IsByRef, IsCyclic;
@@ -1834,8 +1823,11 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
         CloneType = FuncPtrsClone;
         if (IPCloningTrace)
           errs() << "    Selected FuncPtrs cloning  " << "\n";
-      }
-      else {
+      } else if (isDirectlyRecursive(&F)) {
+        CloneType = GenericClone;
+        if (IPCloningTrace)
+          errs() << "    Selected generic cloning (recursive) " << "\n";
+      } else {
         CloneType = SpecializationClone;
         if (IPCloningTrace)
           errs() << "    Selected Specialization cloning  " << "\n";
@@ -1896,7 +1888,7 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
       continue;
     }
 
-    if (!collectAllConstantArgumentsSets(F, AfterInl)) {
+    if (!collectAllConstantArgumentsSets(F)) {
       if (IPCloningTrace)
         errs() << " Skipping not profitable candidate " << F.getName() << "\n";
       continue;
@@ -1913,7 +1905,7 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
       continue;
     }
 
-    cloneFunction(AfterInl);
+    cloneFunction();
   }
 
   if (IPCloningTrace)

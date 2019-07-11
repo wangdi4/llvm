@@ -23,7 +23,6 @@ namespace llvm {
 class FunctionPass;
 class TargetTransformInfo;
 class TargetLibraryInfo;
-class WRegionInfo;
 class LoopAccessLegacyAnalysis;
 class DemandedBits;
 class OptimizationRemarkEmitter;
@@ -38,6 +37,8 @@ class HIRDDAnalysis;
 
 namespace llvm {
 namespace vpo {
+
+class WRegionInfo;
 
 class VPlanDriver : public FunctionPass {
 

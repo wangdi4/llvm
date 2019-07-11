@@ -19,6 +19,7 @@
 
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/Support/Debug.h"
 
 #include "llvm/CodeGen/Passes.h"
@@ -78,11 +79,6 @@ void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
   MapClause const &MpClause = W->getMap();
   if (MpClause.empty())
     return;
-
-  bool ForceMapping =
-      isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
-      isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W);
-
   IRBuilder<> Builder(W->getEntryBBlock()->getFirstNonPHI());
 
   for (auto *Item : MpClause.items()) {
@@ -93,11 +89,6 @@ void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
       MapAggrTy *Aggr = MapChain[I];
       Value *SectionPtr = Aggr->getSectionPtr();
       resetValueInOmpClauseGeneric(W, SectionPtr);
-
-      if (deviceTriplesHasSPIRV() && MapChain.size() > 1 &&
-          I != 0 && !ForceMapping)
-        Builder.CreateStore(SectionPtr, Aggr->getBasePtr());
-
       Value *Size = Aggr->getSize();
       if (!dyn_cast<ConstantInt>(Size))
         resetValueInOmpClauseGeneric(W, Size);
@@ -141,13 +132,14 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
         cast<PointerType>(ArgV->getType())->getAddressSpace();
     unsigned OldAddressSpace =
         cast<PointerType>(I->getType())->getAddressSpace();
+    // Assert the correct addrspacecast here instead of failing
+    // during SPIRV emission.
+    assert(OldAddressSpace == vpo::ADDRESS_SPACE_GENERIC &&
+           "finalizeKernelFunction: OpenCL global addrspaces can only be "
+           "casted to generic.");
     Value *NewArgV = ArgV;
-    if (NewAddressSpace != OldAddressSpace) {
-      // FIXME: we should cast everything to the generic address space,
-      //        and rewrite all the users recursively. Right now, we are
-      //        casting global to private, which is incorrect.
+    if (NewAddressSpace != OldAddressSpace)
       NewArgV = Builder.CreatePointerBitCastOrAddrSpaceCast(ArgV, I->getType());
-    }
     I->replaceAllUsesWith(NewArgV);
     NewArgI->takeName(&*I);
     ++NewArgI;
@@ -163,17 +155,287 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
     FunctionDIs[NFn] = SP;
   }
   if (isTargetSPIRV())
-    // FIXME: InferAddrSpaces() expects a flat address space number,
-    //        which is vpo:ADDRESS_SPACE_GENERIC, but we currently pass
-    //        vpo::ADDRESS_SPACE_PRIVATE. We hope that InferAddrSpaces()
-    //        will remove casts to the private address space, but this
-    //        may not happen always, since InferAddrSpaces() is an optimization.
-    //        See a FIXME note above - this is what we have to do
-    //        (i.e. follow the lines of GenericToNVVM pass).
-    InferAddrSpaces(*TTI, 0, *NFn);
+    InferAddrSpaces(*TTI, vpo::ADDRESS_SPACE_GENERIC, *NFn);
 
   return NFn;
 }
+
+/// This function checks if the instruction is an intrinsic instruction,
+/// and depending on the boolean flag, whether it is target, parallel
+/// parallel loop or simd loop.
+static bool isParOrTargetDirective(Instruction *Inst,
+                                   bool isTarget = false, bool isSIMD = false) {
+  auto IntrinInst = dyn_cast<IntrinsicInst>(Inst);
+
+  if (!IntrinInst || !IntrinInst->hasOperandBundles()) {
+    return false;
+  }
+
+  int ID = VPOAnalysisUtils::getDirectiveID(Inst);
+
+  if (isSIMD)
+    return ID==DIR_OMP_SIMD;
+
+  if (isTarget)
+    return ID==DIR_OMP_TARGET;
+
+  switch (ID) {
+    case DIR_OMP_PARALLEL:
+    case DIR_OMP_PARALLEL_LOOP:
+    case DIR_OMP_DISTRIBUTE_PARLOOP:
+    case DIR_OMP_TEAMS:
+    case DIR_OMP_SIMD:
+      return true;
+  }
+
+  return false;
+}
+
+/// Get the exit region directive intrinsic instruction, corresponding
+/// to the begin region directive. The user instruction of the
+/// begin region is the exit region directive.
+static Instruction *getExitInstruction(IntrinsicInst *DirectiveBegin) {
+  assert(DirectiveBegin != nullptr);
+  // Assumption: Every intrinsic instruction that begins a directive
+  // has a single exit directive corresponding to it.
+  // So, if we iterate through its users, then the
+  // intrinsic instruction that uses it must be the exit directive
+  for (auto U : DirectiveBegin->users()) {
+    if (auto DEnd = dyn_cast<IntrinsicInst>(U)) {
+      LLVM_DEBUG(dbgs() << "\n Direc End::" << *DEnd);
+      return DEnd;
+    }
+  }
+  return nullptr;
+}
+
+/// This function ignores special instructions with side effect.
+/// Returns true if the store address is one of the \p PrivateVariables.
+/// Returns true if the call instruction is a special call.
+/// Returns true if the store address is an alloca instruction,
+/// that is allocated locally in the thread.
+static bool ignoreSpecialOperands(const Instruction *I,
+                                  SmallPtrSetImpl<Value *> &PrivateVariables) {
+
+  //   Ignore calls to the following OpenCL functions
+  const std::set<std::string> IgnoreCalls = {
+      "_Z13get_global_idj",  "_Z12get_local_idj",   "_Z14get_local_sizej",
+      "_Z14get_num_groupsj", "_Z12get_group_idj",   "_Z18work_group_barrierj",
+      "_Z9mem_fencej",       "_Z14read_mem_fencej", "_Z15write_mem_fencej",
+      "__kmpc_critical",     "__kmpc_end_critical", "omp_get_thread_num" };
+
+  if (auto CallI = dyn_cast<CallInst>(I)) {
+    auto CalledF = CallI->getCalledFunction();
+    assert(CalledF != nullptr && "Called Function not found ");
+    if (CalledF->hasName() &&
+        IgnoreCalls.find(CalledF->getName()) != IgnoreCalls.end())
+      return true;
+  } else if (auto StoreI = dyn_cast<StoreInst>(I)) {
+    const Value *StorePointer = StoreI->getPointerOperand();
+    LLVM_DEBUG(dbgs() << "Store op:: " << *StorePointer);
+    if (isa<AllocaInst>(StorePointer)) {
+      return true;
+    }
+    if (PrivateVariables.find(StorePointer) != PrivateVariables.end())
+      return true;
+  }
+  return false;
+}
+
+/// Guard instructions that have side effects, so that only master thread
+/// (thread_id == 0) in each team executes it.
+void VPOParoptTransform::guardSideEffectStatements(
+    Function *KernelF, SmallPtrSetImpl<Value *> &PrivateVariables) {
+
+  SmallVector<Instruction *, 6> SideEffectInstructions;
+  SmallPtrSet<BasicBlock  *, 6> SideEffectBasicBlocks;
+  SmallPtrSet<BasicBlock  *, 6> InsertedBarrierBlocks;
+
+  LLVM_DEBUG(dbgs() << "\n Before inserting master thread guard" << *KernelF);
+
+  Instruction *ParDirectiveBegin    = nullptr;
+  Instruction *ParDirectiveExit     = nullptr;
+  Instruction *TargetDirectiveBegin = nullptr;
+  Instruction *TargetDirectiveExit  = nullptr;
+  BasicBlock *CriticalBegin  = nullptr;
+  BasicBlock *CriticalExit  = nullptr;
+
+  SmallPtrSet<Instruction *, 6> InsertBarrierAt;
+  SmallVector<BasicBlock *, 10> ParBBVector, TargetBBSet;
+  SmallVector<BasicBlock *, 10> ParDirectiveExitBlocks;
+  SmallVector<BasicBlock *, 10> CriticalSectionBlocks;
+
+  // Find the parallel region begin and end directives,
+  // and add barriers at the entry and exit of parallel region.
+  for (inst_iterator I = inst_begin(KernelF), E = inst_end(KernelF);
+       I != E; ++I) {
+
+    if (isParOrTargetDirective(&*I)) {
+
+      ParDirectiveBegin = &*I;
+      ParDirectiveExit =
+          getExitInstruction(dyn_cast<IntrinsicInst>(ParDirectiveBegin));
+      assert(ParDirectiveExit != nullptr);
+
+      SmallVector<BasicBlock *, 10> TempParBBVec;
+      GeneralUtils::collectBBSet(ParDirectiveBegin->getParent(),
+                                 ParDirectiveExit->getParent(), TempParBBVec);
+      ParBBVector.append(TempParBBVec.begin(), TempParBBVec.end());
+      InsertBarrierAt.insert(ParDirectiveBegin);
+
+      InsertBarrierAt.insert(ParDirectiveExit);
+
+      //Remove the directive only if it is not SIMD
+      if (!isParOrTargetDirective(&*I, false, true))
+        ParDirectiveExitBlocks.push_back(ParDirectiveExit->getParent());
+
+      LLVM_DEBUG(dbgs() << "\n Insert Barrier before :" << *ParDirectiveBegin
+                        << "\n and after ::" << *ParDirectiveExit);
+
+      ParDirectiveBegin = nullptr;
+      ParDirectiveExit = nullptr;
+
+    } else if (TargetDirectiveBegin == nullptr &&
+               isParOrTargetDirective(&*I, true)) {
+      TargetDirectiveBegin = &*I;
+      TargetDirectiveExit =
+          getExitInstruction(dyn_cast<IntrinsicInst>(TargetDirectiveBegin));
+      GeneralUtils::collectBBSet(TargetDirectiveBegin->getParent(),
+          TargetDirectiveExit->getParent(), TargetBBSet);
+    } else if (CriticalBegin == nullptr && isa<CallInst>(&*I)){
+      auto CallI = cast<CallInst>(&*I);
+      // Unprototyped function calls may result in a call of a bitcasted
+      // Function.
+      auto CalledF = CallI->getCalledOperand()->stripPointerCasts();
+      if (isa<Function>(CalledF) &&
+          CalledF->getName() == "__kmpc_critical") {
+        CriticalBegin = CallI->getParent();
+      }
+    } else if (CriticalExit == nullptr && isa<CallInst>(&*I)){
+      auto CallI = cast<CallInst>(&*I);
+      auto CalledF = CallI->getCalledOperand()->stripPointerCasts();
+      if (isa<Function>(CalledF) &&
+          CalledF->getName() == "__kmpc_end_critical") {
+        CriticalExit = CallI->getParent();
+        GeneralUtils::collectBBSet(CriticalBegin,
+            CriticalExit, CriticalSectionBlocks);
+      }
+    }
+  }
+
+  SmallPtrSet<BasicBlock *, 10> ParBBSet(ParBBVector.begin(),
+                                         ParBBVector.end());
+  SmallPtrSet<BasicBlock *, 10> CriticalBBSet(CriticalSectionBlocks.begin(),
+                                         CriticalSectionBlocks.end());
+  // Iterate over all instructions and add the side effect instructions
+  // to the set "SideEffectInstructions".
+
+  TargetDirectiveBegin = nullptr;
+  TargetDirectiveExit = nullptr;
+
+  for (auto BB : TargetBBSet) {
+    if (ParBBSet.find(BB) != ParBBSet.end())
+      continue;
+
+    for (auto &I : *BB) {
+      if (TargetDirectiveBegin == nullptr &&
+          isParOrTargetDirective(&I, true)) {
+        TargetDirectiveBegin = &I;
+        TargetDirectiveExit =
+            getExitInstruction(dyn_cast<IntrinsicInst>(TargetDirectiveBegin));
+      }
+
+      if (TargetDirectiveBegin == nullptr)
+        continue;
+      if (TargetDirectiveExit == &I)
+        break;
+      // they donot have side effect Ignore intrinsic calls
+      if (isa<IntrinsicInst>(&I))
+        continue;
+      if (I.mayHaveSideEffects()) {
+        if (ignoreSpecialOperands(&I, PrivateVariables))
+          continue;
+
+        LLVM_DEBUG(dbgs() << "\n Instruction Has Sideeffect::" << I
+                          << "\n BasicBlock:: " << I.getParent());
+        SideEffectInstructions.push_back(&I);
+      }
+    }
+  }
+
+  for (auto I : SideEffectInstructions) {
+
+    // Get the basic block of the side effect instruction,
+    // then guard the block, and
+    // Make sure to ignore other side effect instructions
+    // within the block, since they are already guarded.
+    Instruction *InsertPt = I;
+    BasicBlock *ThisBB = InsertPt->getParent();
+
+    // If BB already guarded continue
+    if (SideEffectBasicBlocks.find(ThisBB) != SideEffectBasicBlocks.end())
+      continue;
+
+    //   Split the Basic Block at InsertPt, into 2 blocks (1st and 2nd Block)
+    //   Insert a check, at the end of the 1st block
+    //   if the thread id is not equal to zero, then
+    //   jump to the successor block of 2nd block
+    //   else execute the 2nd block
+
+    LLVM_DEBUG(dbgs()<<"\n Guarding::"<<*I);
+    Instruction* Term = InsertPt->getNextNonDebugInstruction();
+    if (CriticalBBSet.find(ThisBB) != CriticalBBSet.end()){
+      // Add master thread guard the basic block in the critical section.
+      // That is, get the terminator instruction, and split that into another
+      // BB, and guard everything else under the condition.
+      Term = ThisBB->getTerminator();
+    }
+
+    BasicBlock *TailBlock = SplitBlock(ThisBB, Term, DT, LI);
+
+    // Create an empty bb before the Thenblock, that just jumps to it
+    auto ThenBlock = BasicBlock::Create(TailBlock->getContext(), "",
+                                        TailBlock->getParent(), TailBlock);
+
+    // The unconditional branch instruction, that jumps to the single successor
+    auto GotoTail = BranchInst::Create(TailBlock, ThenBlock);
+    GotoTail->setDebugLoc(InsertPt->getDebugLoc());
+    IRBuilder<> Builder(InsertPt);
+    SmallVector<Value *, 3> Arg;
+
+    // TODO: select dimension of thread_id,
+    initArgArray(&Arg, 0);
+    CallInst *LocalId = VPOParoptUtils::genOCLGenericCall(
+        "_Z12get_local_idj", GeneralUtils::getSizeTTy(F), Arg, InsertPt);
+    auto *ValueZero = ConstantInt::get(LocalId->getType(), 0);
+    auto IsThread0 = Builder.CreateICmpNE(LocalId, ValueZero);
+    SplitBlockAndInsertIfThen(IsThread0, InsertPt, false, nullptr, DT, LI,
+                              ThenBlock);
+    // Add the new split basic block, since it is already guarded
+    //SideEffectBasicBlocks.insert(InsertPt->getParent());
+
+    SideEffectBasicBlocks.insert(InsertPt->getParent());
+    LLVM_DEBUG(dbgs() << "\n Has Side Effect::" << *I);
+  }
+
+  if (!SideEffectInstructions.empty()){
+    for (auto InsertPt : InsertBarrierAt) {
+      LLVM_DEBUG(dbgs() << "\n Insert Barrier at :" << *InsertPt);
+      IRBuilder<> Builder(InsertPt);
+      SmallVector<Value *, 3> Arg;
+      // TODO: select dimension of thread_id,
+      initArgArray(&Arg, 0);
+      VPOParoptUtils::genOCLGenericCall("_Z18work_group_barrierj",
+                                        GeneralUtils::getSizeTTy(F), Arg,
+                                        InsertPt);
+    }
+  }
+
+  for (auto BB : ParDirectiveExitBlocks) {
+    VPOUtils::stripDirectives(*BB);
+  }
+}
+
 // Generate the code for the directive omp target
 bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
@@ -190,6 +452,10 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   // Set up Fn Attr for the new function
   Function *NewF = VPOParoptUtils::genOutlineFunction(*W, DT, AC);
 
+  LLVM_DEBUG(
+      dbgs()
+      << "\nEnter VPOParoptTransform::genTargetOffloadingCode: Dump Func::\n"
+      << *NewF);
   if (!VPOAnalysisUtils::isTargetSPIRV(F->getParent()))
     NewF->addFnAttr("target.declare", "true");
 
@@ -216,8 +482,33 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   // Please note that the name of NewF is updated in the
   // function registerTargetRegion.
   if (VPOAnalysisUtils::isTargetSPIRV(F->getParent()) &&
-      hasOffloadCompilation())
-    finalizeKernelFunction(W, NewF, NewCall);
+      hasOffloadCompilation()) {
+    LLVM_DEBUG(dbgs() << "\n Before finalizeKernel Dump the function ::"
+                      << *NewF);
+    NewF = finalizeKernelFunction(W, NewF, NewCall);
+    LLVM_DEBUG(dbgs() << "\n After finalizeKernel Dump the function ::"
+                      << *NewF);
+
+    SmallPtrSet<Value *, 10> PrivateVariables;
+    if (W->canHavePrivate()) {
+      PrivateClause const &PrivClause = W->getPriv();
+      for (PrivateItem *PrivI : PrivClause.items()) {
+        LLVM_DEBUG(dbgs() << "\n Private Clause Items:: "
+                          << PrivI->getOrig()->getName()
+                          << " New:: " << PrivI->getNew()->getName());
+        PrivateVariables.insert(PrivI->getNew());
+      }
+      for (auto *PrivI : W->getFpriv().items()) {
+        LLVM_DEBUG(dbgs() << "\n Private Clause Items:: "
+                          << PrivI->getOrig()->getName()
+                          << " New:: " << PrivI->getNew()->getName());
+        PrivateVariables.insert(PrivI->getNew());
+      }
+    }
+    guardSideEffectStatements(NewF, PrivateVariables);
+    LLVM_DEBUG(dbgs() << "\n After guardSideEffectStatemets the function ::"
+                      << *NewF);
+  }
 
   if (hasOffloadCompilation())
     // Everything below only makes sense on the host.
@@ -350,7 +641,7 @@ void VPOParoptTransform::resetValueInIsDevicePtrClause(WRegionNode *W) {
 }
 
 // Returns the corresponding flag for a given map clause modifier.
-uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI, bool AddrPtrFlag,
+uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI,
                                             bool AddrIsTargetParamFlag,
                                             bool IsFirstComponentFlag) {
   uint64_t Res = 0u;
@@ -383,7 +674,7 @@ uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI, bool AddrPtrFlag,
   // the entry of function getMapTypeFlag, it returns TGT_MAP_TARGET_PARAM.
   if (AddrIsTargetParamFlag)
     Res |= TGT_MAP_TARGET_PARAM;
-  else if (AddrPtrFlag)
+  else
     Res |= TGT_MAP_PTR_AND_OBJ | getMemberOfFlag();
 
   return Res;
@@ -405,8 +696,7 @@ uint64_t VPOParoptTransform::generateDefaultMap() {
 void VPOParoptTransform::genTgtInformationForPtrs(
     WRegionNode *W, Value *V, SmallVectorImpl<Constant *> &ConstSizes,
     SmallVectorImpl<uint64_t> &MapTypes,
-    bool &hasRuntimeEvaluationCaptureSize,
-    bool &IsFirstExprFlag) {
+    bool &hasRuntimeEvaluationCaptureSize) {
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTgtInformationForPtrs:"
                     << " ConstSizes.size()=" << ConstSizes.size()
@@ -421,12 +711,10 @@ void VPOParoptTransform::genTgtInformationForPtrs(
       isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W);
 
   MapClause const &MpClause = W->getMap();
-  bool Match = false;
   for (MapItem *MapI : MpClause.items()) {
     if (!ForceMapping &&
         (MapI->getOrig() != V || !MapI->getOrig()))
       continue;
-    Match = true;
     Type *T = MapI->getOrig()->getType()->getPointerElementType();
     if (MapI->getIsMapChain()) {
       MapChainTy const &MapChain = MapI->getMapChain();
@@ -444,64 +732,16 @@ void VPOParoptTransform::genTgtInformationForPtrs(
                                                 ConstValue->getSExtValue()));
         }
         MapTypes.push_back(
-            getMapTypeFlag(MapI, !IsFirstExprFlag,
+            getMapTypeFlag(MapI,
                 MapChain.size() > 1 ? false : true,
                 I == 0 ? true : false));
-        IsFirstExprFlag = false;
-        // FIXME: this has to be fixed. Code generation on the host must not
-        //        depend on the fact that user passed -fopenmp-targets=spirv64
-        //        or not. There are several calls to deviceTriplesHasSPIRV()
-        //        in this file, and they all relate to a single change-set.
-        //        I am not yet sure what is going on here, but basically
-        //        we need to configure map entries for all base and section
-        //        pointers. In case of WRNTargetNode, we may ignore those
-        //        map items that do not end up in the parameter list
-        //        of the outline function, unless they are mapped ALWAYS.
-        //        Right now we iterate through all parameters of the outline
-        //        function, but it looks like we should iterate through
-        //        the map clauses and match them to the parameters:
-        //        if a map item is ALWAYS and it does not match any parameter,
-        //        we must still create a map entry for it.
-        if (deviceTriplesHasSPIRV() && MapChain.size() > 1 &&
-            I == 0 && !ForceMapping)
-          break;
       }
     } else {
       assert(!MapI->getIsArraySection() &&
              "Map with an array section must have a map chain.");
       ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
                                             DL.getTypeAllocSize(T)));
-      MapTypes.push_back(getMapTypeFlag(MapI, !IsFirstExprFlag, true, true));
-    }
-    IsFirstExprFlag = false;
-  }
-  if (deviceTriplesHasSPIRV() && Match == false && !ForceMapping) {
-    for (MapItem *MapI : MpClause.items()) {
-      if (MapI->getIsMapChain()) {
-        MapChainTy const &MapChain = MapI->getMapChain();
-        for (unsigned I = 1; I < MapChain.size(); ++I) {
-          MapAggrTy *Aggr = MapChain[I];
-          if (Aggr->getSectionPtr() != V)
-            continue;
-          auto ConstValue = dyn_cast<ConstantInt>(Aggr->getSize());
-          if (!ConstValue) {
-            hasRuntimeEvaluationCaptureSize = true;
-            Type *T = MapI->getOrig()->getType()->getPointerElementType();
-            ConstSizes.push_back(ConstantInt::get(
-              Type::getInt64Ty(C), DL.getTypeAllocSize(T)));
-          } else {
-            // Sign extend the constant to signed 64-bit integer.
-            // This is the format of arg_sizes passed to __tgt_target.
-            ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
-                                                  ConstValue->getSExtValue()));
-          }
-          MapTypes.push_back(
-            getMapTypeFlag(MapI, !IsFirstExprFlag,
-            true,
-            I == 0 ? true : false));
-          IsFirstExprFlag = false;
-        }
-      }
+      MapTypes.push_back(getMapTypeFlag(MapI, true, true));
     }
   }
 
@@ -708,23 +948,19 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
 
     SmallVector<Constant *, 16> ConstSizes;
     SmallVector<uint64_t, 16> MapTypes;
-    bool IsFirstExprFlag = true;
 
     if (ForceMapping)
       genTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes,
-                               hasRuntimeEvaluationCaptureSize,
-                               IsFirstExprFlag);
+                               hasRuntimeEvaluationCaptureSize);
     else {
       for (unsigned II = 0; II < Call->getNumArgOperands(); ++II) {
         Value *BPVal = Call->getArgOperand(II);
         genTgtInformationForPtrs(W, BPVal, ConstSizes, MapTypes,
-                                 hasRuntimeEvaluationCaptureSize,
-                                 IsFirstExprFlag);
+                                 hasRuntimeEvaluationCaptureSize);
       }
       if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca())
         genTgtInformationForPtrs(W, W->getParLoopNdInfoAlloca(), ConstSizes,
-                                 MapTypes, hasRuntimeEvaluationCaptureSize,
-                                 IsFirstExprFlag);
+                                 MapTypes, hasRuntimeEvaluationCaptureSize);
     }
 
     Info.NumberOfPtrs = MapTypes.size();
@@ -921,9 +1157,6 @@ void VPOParoptTransform::genOffloadArraysInitForClause(
         genOffloadArraysInitUtil(
             Builder, Aggr->getBasePtr(), Aggr->getSectionPtr(), Aggr->getSize(),
             Info, ConstSizes, Cnt, hasRuntimeEvaluationCaptureSize);
-        if (deviceTriplesHasSPIRV() && MapChain.size() > 1 &&
-            I == 0 && !ForceMapping)
-          break;
       }
     } else {
       assert(!MapI->getIsArraySection() &&
@@ -931,27 +1164,6 @@ void VPOParoptTransform::genOffloadArraysInitForClause(
       genOffloadArraysInitUtil(Builder, BPVal, BPVal, nullptr,
                                Info, ConstSizes,
                                Cnt, hasRuntimeEvaluationCaptureSize);
-    }
-  }
-
-  if (deviceTriplesHasSPIRV() && Match == false &&
-      !ForceMapping) {
-    for (MapItem *MapI : MpClause.items()) {
-      if (MapI->getIsMapChain()) {
-        MapChainTy const &MapChain = MapI->getMapChain();
-        for (unsigned I = 1; I < MapChain.size(); ++I) {
-          MapAggrTy *Aggr = MapChain[I];
-          if (Aggr->getSectionPtr() != BPVal)
-            continue;
-          genOffloadArraysInitUtil(
-            Builder, Aggr->getSectionPtr(), Aggr->getSectionPtr(), Aggr->getSize(),
-            Info, ConstSizes, Cnt, hasRuntimeEvaluationCaptureSize);
-          Match = true;
-          break;
-        }
-      }
-      if (Match)
-        break;
     }
   }
 
@@ -989,6 +1201,15 @@ void VPOParoptTransform::genOffloadArraysInit(
     return;
   }
 
+  // FIXME: this code partly duplicates genTargetInitCode().
+  //        Code in genOffloadArraysInitForClause() partly duplicates
+  //        genTgtInformationForPtr(). We walk through the same list
+  //        of arguments and create offload data structures in one place,
+  //        while generating dynamic initialization in another place.
+  //        This is a potential source of issues, since the data
+  //        structures and the initializations must be properly ordered.
+  //        We'd better have all the information in some structure,
+  //        e.g. TgDataInfo, and just process it here.
   for (unsigned II = 0; II < Call->getNumArgOperands(); ++II) {
     BPVal = Call->getArgOperand(II);
 
@@ -997,9 +1218,7 @@ void VPOParoptTransform::genOffloadArraysInit(
                                   hasRuntimeEvaluationCaptureSize, BPVal, Match,
                                   Builder, Cnt);
 
-    // For target data don't add BPVals that don't match the map clauses.
-    // They should not be sent to the __tgt_target_data_* runtime.
-    if (!Match && !isa<WRNTargetDataNode>(W))
+    if (!Match)
       genOffloadArraysInitUtil(Builder, BPVal, BPVal, nullptr, Info, ConstSizes,
                                Cnt, hasRuntimeEvaluationCaptureSize);
   }
@@ -1268,7 +1487,7 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(WRegionNode *W) {
     if (VOrigAndNew != RenameMap.end())
       return VOrigAndNew->second;
 
-    if (!isa<GlobalVariable>(V) && !isa<ConstantExpr>(V)) {
+    if (!GeneralUtils::isOMPItemGlobalVAR(V) && !isa<ConstantExpr>(V)) {
       RenameMap.insert({V, V});
       return V;
     }
@@ -1289,7 +1508,7 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(WRegionNode *W) {
       if (V == NewV)
         continue;
 
-      if (Globals != isa<GlobalVariable>(V))
+      if (Globals != GeneralUtils::isOMPItemGlobalVAR(V))
         continue;
 
       genPrivatizationReplacement(W, V, NewV);
@@ -1477,5 +1696,266 @@ bool VPOParoptTransform::promoteClauseArgumentUses(WRegionNode *W) {
   }
 
   return Changed;
+}
+
+// Find and return the variant function name from the Declare Variant
+// information embedded in the "openmp-variant" string attribute of BaseCall.
+// The context to match is given by MatchConstruct and MatchArch.
+StringRef getVariantName(CallInst *BaseCall, StringRef &MatchConstruct,
+                         StringRef &MatchArch) {
+  assert(BaseCall && "BaseCall is null");
+  Function *BaseFunc = BaseCall->getCalledFunction();
+
+  StringRef VariantAttributeString =
+      BaseFunc->getFnAttribute("openmp-variant").getValueAsString();
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Base function " << BaseFunc->getName()
+                    << " has openmp-variant attribute: "
+                    << VariantAttributeString << "\n");
+
+  // VariantAttributeString is of the form
+  //   <variant>[;;<variant>...]
+  // where <variant> is a string of the form
+  //   <field>:<value>[;<field>:<value>...]
+  // Currently <field> can be "name", "construct", or "arch"
+  //
+  // An example of VariantAttributeString with only one <variant>:
+  //   "name:foo_gpu;construct:target_variant_dispatch;arch:gen"
+  //
+  // An example of VariantAttributeString with two <variant>s:
+  //   "name:foo_gpu;construct:target_variant_dispatch;arch:gen;;
+  //    name:foo_xxx;construct:parallel;arch:xxx"
+  //
+  // We want to find the <variant> whose "construt" field's <value> is
+  // MatchConstruct and "arch" field's <value> is MatchArch.
+  // If such a <variant> is found, return the string from its "name" field.
+
+  SmallVector<StringRef,1> Variants;   // holds <variant> substrings
+  SmallVector<StringRef,3> Fields;     // holds <field>:<value> substrings
+  SmallVector<StringRef,2> FV;         // FV[0]= <field>; FV[1]= <value>
+  StringRef VariantName;               // string to return
+  bool FoundConstruct = false;
+  bool FoundArch = false;
+  bool FoundName = false;
+
+  // Split VariantAttributeString so that each <variant> substring is
+  // separately stored in the Variants vector
+  VariantAttributeString.split(Variants, ";;");
+
+  // Inspect each <variant> to find the "construct" and "arch" of interest.
+  for (StringRef &Variant : Variants) {
+
+    // LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Variant: " << Variant << "\n");
+
+    // Split Variant so that each <field>:<value> substring is separately
+    // stored in the Fields vector
+    Fields.clear();
+    Variant.split(Fields, ";");
+
+    FoundConstruct = false;
+    FoundArch = false;
+    FoundName = false;
+    for (StringRef &Field : Fields) {
+
+      // LLVM_DEBUG(dbgs() << __FUNCTION__ << ":   Field: " << Field << "\n");
+
+      // Split Field so that FV[0] has <field> and FV[1] has <value>
+      FV.clear();
+      Field.split(FV, ":");
+      assert(FV.size() == 2 &&
+             "Malformed <field>:<value> in openmp-variant attribute");
+      if (FV[0] == "construct" && FV[1] == MatchConstruct)
+        FoundConstruct = true;
+      else if (FV[0] == "arch" && FV[1] == MatchArch)
+        FoundArch = true;
+      else if (FV[0] == "name") {
+        VariantName = FV[1];
+        FoundName = true;
+      }
+    } // for (StringRef &Field : Fields)
+
+    if (FoundConstruct && FoundArch) {
+      if (FoundName)
+        break;
+      // found <variant> with matching construct and arch, but without a
+      // "name" field. It must be corrupt.
+      llvm_unreachable("No variant function name in openmp-variant attribute");
+    }
+  } // for (StringRef &Variant : Variants)
+
+  if (FoundConstruct && FoundArch && FoundName) {
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Found variant function: "
+                      << VariantName << "\n");
+  } else {
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Variant function not found\n");
+  }
+  return VariantName;
+}
+
+/// Given
+/// \code
+///   #pragma omp target variant dispatch [device(dnum)]
+///      foo(<args>);
+/// \endcode
+///
+/// Emit variant dispatch code for foo():
+/// \code
+///   if (__tgt_is_device_available(dnum, nullptr))
+///      foo_variant(<args>);
+///   else
+///      foo(<args>);
+/// \endcode
+///
+/// The variant version of the base function "foo" is assumed to have been
+/// specified in a declare variant construct which Clang has processed and
+/// saved the information in the string attribute "openmp-variant" of foo.
+///
+/// If foo() has users, then we must create a Phi and replace its uses. E.g.,
+///
+/// ***IR BEFORE:
+///
+///   %call = call i32 @foo(i32 %2)   ; base func call
+///   store i32 %call, i32* %rrr      ; use of base call
+///
+/// ***IR AFTER:
+///
+///   %1 = load i32, i32* @dnum, align 4
+///   %available = call i32 @__tgt_is_device_available(i32 %1, i8* null)
+///   %dispatch = icmp ne i32 %available, 0
+///   br i1 %dispatch, label %if.then, label %if.else
+///
+/// if.then:
+///   %variant = call i32 @foo_gpu(i32 %1)
+///   br label %if.end
+///
+/// if.else:
+///   %call = call i32 @foo(i32 %1)
+///   br label %if.end
+///
+/// if.end:                               ; preds = %if.else, %if.then
+///   %callphi = phi i32 [ %variant, %if.then ], [ %call, %if.else ]
+///   store i32 %callphi, i32* %rrr, align 4
+///
+/// TODO: The second argument of __tgt_is_device_available() is a pointer
+/// that is currently unused. I the future when we support device types,
+/// it will point to a struct holding device-type information.
+///
+/// If the device(dnum) clause is absent, then the dispatch code is:
+/// \code
+///   if (omp_get_num_devices() > 0)
+///      foo_variant(<args>);
+///   else
+///      foo(<args>);
+/// \endcode
+bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
+  LLVM_DEBUG(
+      dbgs() << "\nEnter VPOParoptTransform::genTargetVariantDispatchCode\n");
+  W->populateBBSet();
+
+  if (W->getBBSetSize() != 3) {
+    LLVM_DEBUG(dbgs() << __FUNCTION__
+                      << ": Expected 3 BBs in Target Variant Dispatch\n");
+    return false;
+  }
+
+  // The first and last BasicBlocks contain the region.entry/exit calls.
+  // The middle one has the base function call we're interested in.
+  BasicBlock *BB = *(W->bbset_begin() + 1);
+
+  CallInst *BaseCall = nullptr;
+  for (Instruction &I : *BB)
+    if ((BaseCall = dyn_cast<CallInst>(&I)) != nullptr)
+      break;
+
+  assert(BaseCall && "Base call not found in Target Variant Dispatch");
+  if (!BaseCall)
+    return false;
+
+  // Find the variant name from BaseCall's attributes, which is expected to
+  // contain a string attribute of this form:
+  // "openmp-variant"="name:foo_gpu;construct:target_variant_dispatch;arch:gen"
+  // where the variant name is "foo_gpu" in this example.
+  StringRef MatchConstruct("target_variant_dispatch");
+  StringRef MatchArch("gen");
+  StringRef VariantName = getVariantName(BaseCall, MatchConstruct, MatchArch);
+
+  if (VariantName.empty()) {
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Variant function not found\n");
+    return false;
+  }
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Found variant function name: "
+                    << VariantName << "\n");
+
+  // Emit code to compute %dispatch, the IF-condition for dispatching:
+  // 1. If the device(dnum) clause is specified, emit this:
+  //
+  //     %available = call i32 @__tgt_is_device_available(i32 %dnum, i8* null)
+  //     %dispatch  = icmp ne i32 %available, 0
+  //
+  // 2. Otherwise (device clause is absent), emit this:
+  //
+  //     %numdevices = call i32 @omp_get_num_devices()
+  //     %dispatch   = icmp sgt i32 %numdevices, 0
+
+  Instruction *InsertPt = BaseCall;
+  IRBuilder<> Builder(InsertPt);
+  Value *Dispatch;
+  Value *DeviceNum = W->getDevice();
+  LLVMContext &C = F->getContext();
+  ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
+  if (DeviceNum) { // case 1
+    PointerType *Int8PtrTy = Type::getInt8PtrTy(C);
+    Value *DeviceType = ConstantPointerNull::get(Int8PtrTy);
+    CallInst *IsDeviceAvailable = VPOParoptUtils::genTgtIsDeviceAvailable(
+        DeviceNum, DeviceType, InsertPt);
+    IsDeviceAvailable->setName("available");
+    Dispatch = Builder.CreateICmpNE(IsDeviceAvailable, ValueZero, "dispatch");
+  } else { // case 2
+    CallInst *NumDevices = VPOParoptUtils::genOmpGetNumDevices(InsertPt);
+    NumDevices->setName("numdevices");
+    Dispatch = Builder.CreateICmpSGT(NumDevices, ValueZero, "dispatch");
+  }
+
+  // Emit dispatch code:
+  //   if (%dispatch != 0)
+  //     call variant function
+  //   else
+  //     call base function
+
+  Instruction *ThenTerm, *ElseTerm;
+  buildCFGForIfClause(Dispatch, ThenTerm, ElseTerm, InsertPt);
+
+  // Create and insert Variant call before ThenTerm
+  bool IsVoidType = (BaseCall->getType() == Type::getVoidTy(C));
+  CallInst *VariantCall =
+      VPOParoptUtils::genVariantCall(BaseCall, VariantName, ThenTerm);
+  if (!IsVoidType)
+    VariantCall->setName("variant");
+
+  // Move BaseCall to before ElseTerm
+  InsertPt = BaseCall->getNextNode(); // insert PHI before this point later
+  assert(InsertPt && "Corrupt IR: BaseCall cannot be last instruction in BB");
+  BaseCall->moveBefore(ElseTerm);
+
+  // If BaseCall has users, then insert a PHI before InsertPt
+  // and replace all uses of BaseCall with PHI
+  if (BaseCall->getNumUses() > 0) {
+    Builder.SetInsertPoint(InsertPt);
+    PHINode *Phi = Builder.CreatePHI(BaseCall->getType(), 2, "callphi");
+    Phi->addIncoming(VariantCall, ThenTerm->getParent());
+    Phi->addIncoming(BaseCall, ElseTerm->getParent());
+    for (User *U : BaseCall->users())
+      if (Instruction *UI = dyn_cast<Instruction>(U)) {
+        if (UI != Phi) { // don't replace in Phi
+          UI->replaceUsesOfWith(BaseCall, Phi);
+        }
+      }
+  }
+
+  LLVM_DEBUG(
+      dbgs() << "\nExit VPOParoptTransform::genTargetVariantDispatchCode\n");
+
+  W->resetBBSet(); // Invalidate BBSet after transformations
+  return true;
 }
 #endif // INTEL_COLLAB

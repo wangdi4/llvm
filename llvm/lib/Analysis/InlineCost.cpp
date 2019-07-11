@@ -45,6 +45,8 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"    // INTEL
+#include <algorithm>                                // INTEL
+#include <queue>                                    // INTEL
 
 using namespace llvm;
 using namespace InlineReportTypes;  // INTEL
@@ -262,7 +264,7 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   // Set of candidate call sites for loop fusion
   SmallSet<CallBase *, 20> *CallSitesForFusion;
   // Set of candidate call sites for dtrans.
-  SmallSet<CallBase *, 20> *CallSitesForDTrans;
+  SmallSet<Function *, 20> *FuncsForDTrans;
 #endif // INTEL_CUSTOMIZATION
 
   bool IsCallerRecursive = false;
@@ -401,6 +403,7 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   bool visitCmpInst(CmpInst &I);
   bool visitSub(BinaryOperator &I);
   bool visitBinaryOperator(BinaryOperator &I);
+  bool visitFNeg(UnaryOperator &I);
   bool visitLoad(LoadInst &I);
   bool visitStore(StoreInst &I);
   bool visitExtractValue(ExtractValueInst &I);
@@ -429,7 +432,7 @@ public:
                InliningLoopInfoCache *ILIC,        // INTEL
                InlineAggressiveInfo *AI,           // INTEL
                SmallSet<CallBase *, 20> *CSForFusion, // INTEL
-               SmallSet<CallBase *, 20> *CSForDTrans, // INTEL
+               SmallSet<Function *, 20> *FForDTrans, // INTEL
                const InlineParams &Params)
       : TTI(TTI), GetAssumptionCache(GetAssumptionCache), GetBFI(GetBFI),
         PSI(PSI), F(Callee), DL(F.getParent()->getDataLayout()), ORE(ORE),
@@ -439,7 +442,7 @@ public:
 #if INTEL_CUSTOMIZATION
         EarlyExitThreshold(INT_MAX), EarlyExitCost(INT_MAX), TLI(TLI),
         ILIC(ILIC), AI(AI), CallSitesForFusion(CSForFusion),
-        CallSitesForDTrans(CSForDTrans),
+        FuncsForDTrans(FForDTrans),
 #endif // INTEL_CUSTOMIZATION
         EnableLoadElimination(true) {}
 
@@ -1286,6 +1289,28 @@ bool CallAnalyzer::visitBinaryOperator(BinaryOperator &I) {
   return false;
 }
 
+bool CallAnalyzer::visitFNeg(UnaryOperator &I) {
+  Value *Op = I.getOperand(0);
+  Constant *COp = dyn_cast<Constant>(Op);
+  if (!COp)
+    COp = SimplifiedValues.lookup(Op);
+
+  Value *SimpleV = SimplifyFNegInst(COp ? COp : Op,
+                                    cast<FPMathOperator>(I).getFastMathFlags(),
+                                    DL);
+
+  if (Constant *C = dyn_cast_or_null<Constant>(SimpleV))
+    SimplifiedValues[&I] = C;
+
+  if (SimpleV)
+    return true;
+
+  // Disable any SROA on arguments to arbitrary, unsimplified fneg.
+  disableSROA(Op);
+
+  return false;
+}
+
 bool CallAnalyzer::visitLoad(LoadInst &I) {
   Value *SROAArg;
   DenseMap<Value *, int>::iterator CostIt;
@@ -1486,7 +1511,7 @@ bool CallAnalyzer::visitCallBase(CallBase &Call) {
   IndirectCallParams.DefaultThreshold = InlineConstants::IndirectCallThreshold;
   CallAnalyzer CA(TTI, GetAssumptionCache, GetBFI, PSI, ORE, *F, Call,
                   TLI, ILIC, AI, CallSitesForFusion,   // INTEL
-                  CallSitesForDTrans,                  //INTEL
+                  FuncsForDTrans,                  //INTEL
                   IndirectCallParams);
   if (CA.analyzeCall(Call, TTI, nullptr)) { // INTEL
     // We were able to inline the indirect call! Subtract the cost from the
@@ -2973,17 +2998,19 @@ bool CallAnalyzer::preferDTransToInlining(CallBase &CB,
   if (!DTransInlineHeuristics)
     return false;
 
-  if (!CallSitesForDTrans) {
-    LLVM_DEBUG(llvm::dbgs() << "IC: inlining for dtrans: no call site "
-                               "candidates to suppress inline.\n");
+  if (!FuncsForDTrans) {
+    LLVM_DEBUG(
+        llvm::dbgs()
+        << "IC: inlining for dtrans: no candidates to suppress inline.\n");
     return false;
   }
 
-  // The call site was stored as candidate to suppress inlining.
-  if (!CallSitesForDTrans->count(&CB))
-    return false;
+  // The callee was stored as candidate to suppress inlining.
+  if (Function *Callee = CB.getCalledFunction())
+    if (FuncsForDTrans->count(Callee))
+      return true;
 
-  return true;
+  return false;
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -4036,12 +4063,26 @@ static Optional<uint64_t> profInstrumentCount(ProfileSummaryInfo *PSI,
 
 //
 // Set the percentage within 100% for which any callsite is considered
-// hot via instrumented profile info. (For now, use "0" which provides for
-// inlining only the hottest callsite(s).)
+// hot via instrumented profile info. (For example, a value of 85 means
+// any callsite with an execution count of at least 15% (=100%-85%) of
+// the hottest callsite's execution count could be considered.
 //
 static cl::opt<unsigned> ProfInstrumentHotPercentage(
-    "inline-prof-instr-hot-percentage", cl::Hidden, cl::init(0),
+    "inline-prof-instr-hot-percentage", cl::Hidden, cl::init(85),
     cl::desc("Calls within this percentage of the hottest call are hot"));
+
+//
+// Sets a limit on the number of callsites that can be considered hot
+// due to instrumented profile execution count. For example, "5" means
+// that, on entry to the inliner, only the callsites with the 5 hottest
+// execution counts will be considered as having "hot" profiles. (Note
+// that there could be actually be more than this number in the inline
+// report if a callsite marked hot gets cloned (for example, during
+// inlining).
+//
+static cl::opt<unsigned> ProfInstrumentHotCount(
+    "inline-prof-instr-hot-count", cl::Hidden, cl::init(5),
+    cl::desc("Number of call sites to be considered hot"));
 
 //
 // Return the threshold over which a callsite is considered hot.
@@ -4052,8 +4093,10 @@ static uint64_t profInstrumentThreshold(ProfileSummaryInfo *PSI,
   static uint64_t Threshold = 0;
   if (ComputedThreshold)
     return Threshold;
-  // Find hottest callsite and its profile count.
   uint64_t MaxProfCount = 0;
+  // Find hottest callsite and its profile count.
+  std::priority_queue<uint64_t, std::vector<uint64_t>, std::greater<uint64_t>>
+      ProfQueue;
   for (auto &F :  M->functions()) {
     for (User *U : F.users()) {
       auto CB = dyn_cast<CallBase>(U);
@@ -4063,12 +4106,21 @@ static uint64_t profInstrumentThreshold(ProfileSummaryInfo *PSI,
       if (ProfCount == None)
         continue;
       uint64_t NewValue = ProfCount.getValue();
+      if (ProfQueue.size() < ProfInstrumentHotCount) {
+        ProfQueue.push(NewValue);
+      } else if (NewValue > ProfQueue.top()) {
+        ProfQueue.pop();
+        ProfQueue.push(NewValue);
+      }
       if (NewValue > MaxProfCount)
         MaxProfCount = NewValue;
     }
   }
   // Adjust the threshold by the ProfInstrumentHotPercentage.
-  Threshold = MaxProfCount - ProfInstrumentHotPercentage * MaxProfCount / 100;
+  uint64_t PercentThreshold = MaxProfCount -
+      ProfInstrumentHotPercentage * MaxProfCount / 100;
+  uint64_t CountThreshold = ProfQueue.size() > 0 ? ProfQueue.top() : 0;
+  Threshold = std::max(CountThreshold, PercentThreshold);
   ComputedThreshold = true;
   return Threshold;
 }
@@ -4669,12 +4721,12 @@ InlineCost llvm::getInlineCost(
     InliningLoopInfoCache *ILIC, // INTEL
     InlineAggressiveInfo *AI,    // INTEL
     SmallSet<CallBase *, 20> *CallSitesForFusion, // INTEL
-    SmallSet<CallBase *, 20> *CallSitesForDTrans, // INTEL
+    SmallSet<Function *, 20> *FuncsForDTrans, // INTEL
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE) {
   return getInlineCost(Call, Call.getCalledFunction(), Params, CalleeTTI,
                        GetAssumptionCache, GetBFI, TLI, ILIC, AI, // INTEL
                        CallSitesForFusion,                        // INTEL
-                       CallSitesForDTrans, PSI, ORE);             // INTEL
+                       FuncsForDTrans, PSI, ORE);             // INTEL
 }
 
 InlineCost llvm::getInlineCost(
@@ -4686,7 +4738,7 @@ InlineCost llvm::getInlineCost(
     InliningLoopInfoCache *ILIC,    // INTEL
     InlineAggressiveInfo *AI,       // INTEL
     SmallSet<CallBase *, 20> *CallSitesForFusion, // INTEL
-    SmallSet<CallBase *, 20> *CallSitesForDTrans, // INTEL
+    SmallSet<Function *, 20> *FuncsForDTrans, // INTEL
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE) {
 
   // Cannot inline indirect calls.
@@ -4776,7 +4828,7 @@ InlineCost llvm::getInlineCost(
 
   CallAnalyzer CA(CalleeTTI, GetAssumptionCache, GetBFI, PSI, ORE, *Callee,
                   Call, TLI, ILIC, AI, CallSitesForFusion,   // INTEL
-                  CallSitesForDTrans, Params);               // INTEL
+                  FuncsForDTrans, Params);               // INTEL
 #if INTEL_CUSTOMIZATION
   InlineReason Reason = InlrNoReason;
   InlineResult ShouldInline = CA.analyzeCall(Call, CalleeTTI, &Reason);

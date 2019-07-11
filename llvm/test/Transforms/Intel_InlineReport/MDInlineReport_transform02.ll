@@ -1,5 +1,5 @@
-; RUN: opt -inline -inline-report=128 < %s -S 2>&1 | FileCheck %s
-; RUN: opt -passes='cgscc(inline)' -inline-report=128 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -inlinereportsetup -inline-report=0x80 < %s -S | opt -inline -inline-report=0x80 -S 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup' -inline-report=0x80 < %s -S | opt -passes='cgscc(inline)' -inline-report=0x80 -S 2>&1 | FileCheck %s
 
 ; This test checks that metadata corresponding to the inlining report was
 ; updated in accordance with function inlining that happened. a() should
@@ -28,7 +28,7 @@
 ; CHECK-NEXT: {{.*}}inlineThreshold
 ; CHECK-NEXT: {{.*}}earlyExitCost
 ; CHECK-NEXT: {{.*}}earlyExitThreshold
-; CHECK-NEXT: [[MODULE_NAME]] = !{!"moduleName: test4.c"}
+; CHECK-NEXT: [[MODULE_NAME]] = !{!"moduleName:{{.*}}
 ; CHECK-NEXT: [[IS_DEAD_0]] = !{!"isDead: 0"}
 ; CHECK-NEXT: [[IS_DECL_0]] = !{!"isDeclaration: 0"}
 ; CHECK-NEXT: [[LINK_A]] = !{!"linkage: A"}
@@ -67,83 +67,48 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @a() local_unnamed_addr !intel.function.inlining.report !2 {
+define dso_local void @a() local_unnamed_addr {
 entry:
-  call void (...) @z(), !intel.callsite.inlining.report !5
+  call void (...) @z()
   ret void
 }
 
-declare !intel.function.inlining.report !18 dso_local void @z(...) local_unnamed_addr
+declare dso_local void @z(...) local_unnamed_addr
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @b(i32 %n) local_unnamed_addr !intel.function.inlining.report !20 {
+define dso_local void @b(i32 %n) local_unnamed_addr {
 entry:
   %cmp = icmp slt i32 %n, 3
   br i1 %cmp, label %if.then, label %if.else
 
 if.then:                                          ; preds = %entry
-  call void (...) @x(), !intel.callsite.inlining.report !23
+  call void (...) @x()
   br label %if.end
 
 if.else:                                          ; preds = %entry
-  call void (...) @y(), !intel.callsite.inlining.report !25
+  call void (...) @y()
   br label %if.end
 
 if.end:                                           ; preds = %if.else, %if.then
   ret void
 }
 
-declare !intel.function.inlining.report !27 dso_local void @x(...) local_unnamed_addr
+declare dso_local void @x(...) local_unnamed_addr
 
-declare !intel.function.inlining.report !28 dso_local void @y(...) local_unnamed_addr
+declare dso_local void @y(...) local_unnamed_addr
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @main() local_unnamed_addr  !intel.function.inlining.report !29 {
+define dso_local void @main() local_unnamed_addr {
 entry:
-  call void @a(), !intel.callsite.inlining.report !32
-  call void @b(i32 2), !intel.callsite.inlining.report !34
-  call void @a(), !intel.callsite.inlining.report !35
+  call void @a()
+  call void @b(i32 2)
+  call void @a()
   ret void
 }
 
 !llvm.module.flags = !{!0}
 !llvm.ident = !{!1}
-!intel.module.inlining.report = !{!2, !18, !20, !27, !28, !29}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{!"icx (ICX) dev.8.x.0"}
-!2 = distinct !{!"intel.function.inlining.report", !3, !4, !14, !15, !16, !17}
-!3 = !{!"name: a"}
-!4 = distinct !{!"intel.callsites.inlining.report", !5}
-!5 = distinct !{!"intel.callsite.inlining.report", !6, null, !7, !8, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
-!6 = !{!"name: z"}
-!7 = !{!"isInlined: 0"}
-!8 = !{!"reason: 34"} ;NinlrExtern
-!9 = !{!"inlineCost: -1"}
-!10 = !{!"outerInlineCost: -1"}
-!11 = !{!"inlineThreshold: -1"}
-!12 = !{!"earlyExitCost: 2147483647"}
-!13 = !{!"earlyExitThreshold: 2147483647"}
-!14 = !{!"moduleName: test4.c"}
-!15 = !{!"isDead: 0"}
-!16 = !{!"isDeclaration: 0"}
-!17 = !{!"linkage: A"}
-!18 = distinct !{!"intel.function.inlining.report", !6, null, !14, !15, !19, !17}
-!19 = !{!"isDeclaration: 1"}
-!20 = distinct !{!"intel.function.inlining.report", !21, !22, !14, !15, !16, !17}
-!21 = !{!"name: b"}
-!22 = distinct !{!"intel.callsites.inlining.report", !23, !25}
-!23 = distinct !{!"intel.callsite.inlining.report", !24, null, !7, !8, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
-!24 = !{!"name: x"}
-!25 = distinct !{!"intel.callsite.inlining.report", !26, null, !7, !8, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
-!26 = !{!"name: y"}
-!27 = distinct !{!"intel.function.inlining.report", !24, null, !14, !15, !19, !17}
-!28 = distinct !{!"intel.function.inlining.report", !26, null, !14, !15, !19, !17}
-!29 = distinct !{!"intel.function.inlining.report", !30, !31, !14, !15, !16, !17}
-!30 = !{!"name: main"}
-!31 = distinct !{!"intel.callsites.inlining.report", !32, !34, !35}
-!32 = distinct !{!"intel.callsite.inlining.report", !3, null, !7, !33, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
-!33 = !{!"reason: 27"} ;NinlrNoReason
-!34 = distinct !{!"intel.callsite.inlining.report", !21, null, !7, !33, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
-!35 = distinct !{!"intel.callsite.inlining.report", !3, null, !7, !33, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
 

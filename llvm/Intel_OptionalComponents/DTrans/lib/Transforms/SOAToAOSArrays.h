@@ -532,8 +532,13 @@ private:
     bool HasFieldUpdate = false;
     // Should be false if methods are not combined later.
     bool HasExternalSideEffect = false;
+    // For correct EH terminate block handling.
+    bool HasClangCallTerminate = false;
 
     MethodKind classifyMethod(const ArraySummaryForIdiom &S) const {
+      if (HasClangCallTerminate && !HasBasePtrFree)
+        return MK_Unknown;
+
       // MK_Append/MK_Set
       if (HasElementSetFromArg) {
 
@@ -896,6 +901,7 @@ private:
 
   // Information computed for transformation.
   TransformationData &TI;
+  const TargetLibraryInfo &TLI;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   mutable DenseMap<const Instruction *, std::string> InstDesc;
@@ -905,8 +911,9 @@ public:
   ComputeArrayMethodClassification(const DataLayout &DL, const DepMap &DM,
                                    const ArraySummaryForIdiom &S,
                                    // Results of analysis.
-                                   TransformationData &TI)
-      : DL(DL), DM(DM), S(S), TI(TI) {}
+                                   TransformationData &TI,
+                                   const TargetLibraryInfo &TLI)
+      : DL(DL), DM(DM), S(S), TI(TI), TLI(TLI) {}
 
   unsigned getTotal() const {
     return TI.ElementInstToTransform.size() + TI.ElementFromArg.size() +
@@ -919,6 +926,17 @@ public:
   //
   // Check for returned Function should be done separately,
   std::pair<MethodKind, const Function *> classify() const {
+
+    // Check if called function F is a library function LB.
+    auto IsLibFunction = [this](Function *F, LibFunc LB) {
+      LibFunc LibF;
+      if (!F || !TLI.getLibFunc(*F, LibF) || !TLI.has(LibF))
+        return false;
+      if (LibF != LB)
+        return false;
+      return true;
+    };
+
     MethodClassification MC;
     bool Invalid = false;
 
@@ -1062,6 +1080,10 @@ public:
         Handled = false;
         break;
       case Instruction::LandingPad:
+        if (ArrayIdioms::isBasePtrFree(D, S)) {
+          MC.HasBasePtrFree = true;
+          break;
+        }
         // Checking that external side effect is not related to updates of
         // fields. Loads of MemoryInterface is allowed.
         if (ArrayIdioms::isExternaSideEffect(D, S)) {
@@ -1090,6 +1112,11 @@ public:
             MC.CalledMethod = cast<Function>(Call->getCalledValue());
             break;
           }
+          if (Function *F = cast<Function>(Call->getCalledValue()))
+            if (IsLibFunction(F, LibFunc_clang_call_terminate)) {
+              MC.HasClangCallTerminate = true;
+              break;
+            }
         }
         // Allocation calls in combined methods are OK if nothing is stored
         // into new memory. Allocation related to stores are processed in

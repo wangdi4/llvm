@@ -506,6 +506,9 @@ class HIRParser {
   // Adds an lval or rval fake ref to \p HInst formed by cloning \p AddressRef.
   void addFakeRef(HLInst *HInst, const RegDDRef *AddressRef, bool IsRval);
 
+  // Clears all the per-region data structures.
+  void clearRegionData();
+
   // ---------------------------------------------------------------------
   // External interface follows. The following functions are called by the
   // framework utilities or other passes.

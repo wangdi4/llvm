@@ -422,7 +422,7 @@ InlineCost getInlineCost(
     TargetLibraryInfo *TLI, InliningLoopInfoCache *ILIC,   // INTEL
     InlineAggressiveInfo *AggI,                            // INTEL
     SmallSet<CallBase *, 20> *CallSitesForFusion,          // INTEL
-    SmallSet<CallBase *, 20> *CallSitesForDTrans,          // INTEL
+    SmallSet<Function *, 20> *FuncsForDTrans,          // INTEL
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE = nullptr);
 
 /// Get an InlineCost with the callee explicitly specified.
@@ -439,7 +439,7 @@ getInlineCost(CallBase &Call, Function *Callee, const InlineParams &Params,
               InliningLoopInfoCache *ILIC,           // INTEL
               InlineAggressiveInfo *AggI,            // INTEL
               SmallSet<CallBase *, 20> *CallSitesForFusion, // INTEL
-              SmallSet<CallBase *, 20> *CallSitesForDTrans, // INTEL
+              SmallSet<Function *, 20> *FuncsForDTrans, // INTEL
               ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE);
 
 /// Minimal filter to detect invalid constructs for inlining.

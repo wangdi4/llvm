@@ -363,6 +363,9 @@ public:
   virtual void setPriority(EXPR E)              {WRNERROR(QUAL_OMP_PRIORITY); }
   virtual EXPR getPriority()              const {WRNERROR(QUAL_OMP_PRIORITY); }
   virtual void setProcBind(WRNProcBindKind P)   {WRNERROR("PROC_BIND");       }
+  virtual void setLoopBind(WRNLoopBindKind L)   {WRNERROR("LOOP_BIND");       }
+  virtual void setLoopOrder(WRNLoopOrderKind L) {WRNERROR("LOOP_ORDER");      }
+
   virtual const SmallVectorImpl<Instruction *> &getCancellationPoints() const {
     WRNERROR("CANCELLATION_POINTS");
   }
@@ -384,6 +387,8 @@ public:
     WRNERROR("DIRECTLY_USED_NON_POINTER_VALUES");
   }
   virtual WRNProcBindKind getProcBind()   const {WRNERROR("PROC_BIND");       }
+  virtual WRNLoopBindKind getLoopBind()   const {WRNERROR("LOOP_BIND");       }
+  virtual WRNLoopOrderKind getLoopOrder() const {WRNERROR("LOOP_ORDER");      }
   virtual void setSafelen(int N)                {WRNERROR(QUAL_OMP_SAFELEN);  }
   virtual int getSafelen()                const {WRNERROR(QUAL_OMP_SAFELEN);  }
   virtual void setSchedCode(int N)              {WRNERROR("TAKSLOOP SCHED");  }
@@ -668,11 +673,13 @@ public:
     WRNTargetEnterData,               // IsTarget
     WRNTargetExitData,                // IsTarget
     WRNTargetUpdate,                  // IsTarget
+    WRNTargetVariant,
     WRNTask,                          // IsTask
     WRNTaskloop,                      // IsTask, IsOmpLoop
 
     // These don't require outlining:
 
+    WRNGenericLoop,                   // IsOmpLoop
     WRNVecLoop,                       // IsOmpLoop
     WRNWksLoop,                       // IsOmpLoop
     WRNSections,                      // IsOmpLoop, IsSections

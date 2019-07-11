@@ -3,36 +3,44 @@
 
 ; Verify that we are able to scalar replace load-only groups for unknown loops.
 
+; CHECK: Function: foo
+
 ; CHECK: + UNKNOWN LOOP i1  <MAX_TC_EST = 99>
 ; CHECK: |   <i1 = 0>
 ; CHECK: |   for.body:
+; CHECK: |   %i.013.out = %i.013;
 ; CHECK: |   %0 = (@A)[0][i1];
 ; CHECK: |   %1 = (@A)[0][i1 + 1];
-; CHECK: |   (@B)[0][%i.013] = %0 + %1;
-; CHECK: |   %i.013 = %i.013  <<  1;
-; CHECK: |   if (%i.013 < %n)
+; CHECK: |   (@B)[0][%i.013.out] = %0 + %1;
+; CHECK: |   %i.013 = 2 * %i.013.out;
+; CHECK: |   if (2 * %i.013.out < %n)
 ; CHECK: |   {
 ; CHECK: |      <i1 = i1 + 1>
 ; CHECK: |      goto for.body;
 ; CHECK: |   }
 ; CHECK: + END LOOP
 
-; CHECK:    %scalarepl = (@A)[0][0];
+
+; CHECK: Function: foo
+
+; CHECK: %scalarepl = (@A)[0][0];
 ; CHECK: + UNKNOWN LOOP i1  <MAX_TC_EST = 99>
 ; CHECK: |   <i1 = 0>
 ; CHECK: |   for.body:
+; CHECK: |   %i.013.out = %i.013;
 ; CHECK: |   %0 = %scalarepl;
 ; CHECK: |   %scalarepl1 = (@A)[0][i1 + 1];
 ; CHECK: |   %1 = %scalarepl1;
-; CHECK: |   (@B)[0][%i.013] = %0 + %1;
-; CHECK: |   %i.013 = %i.013  <<  1;
-; CHECK: |   if (%i.013 < %n)
+; CHECK: |   (@B)[0][%i.013.out] = %0 + %1;
+; CHECK: |   %i.013 = 2 * %i.013.out;
+; CHECK: |   if (2 * %i.013.out < %n)
 ; CHECK: |   {
 ; CHECK: |      <i1 = i1 + 1>
 ; CHECK: |      %scalarepl = %scalarepl1;
 ; CHECK: |      goto for.body;
 ; CHECK: |   }
 ; CHECK: + END LOOP
+
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

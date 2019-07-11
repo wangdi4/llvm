@@ -23,6 +23,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLRegion.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/IR/MDBuilder.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -37,7 +38,7 @@ static cl::opt<bool> PrintLineNum("hir-details-line-num", cl::init(true),
 
 HLNode::HLNode(HLNodeUtils &HNU, unsigned SCID)
     : HNU(HNU), SubClassID(SCID), Parent(nullptr), TopSortNum(0),
-      MaxTopSortNum(0) {
+      MaxTopSortNum(0), ProfileData(nullptr) {
 
   getHLNodeUtils().Objs.insert(this);
   Number = getHLNodeUtils().getUniqueHLNodeNumber();
@@ -45,7 +46,7 @@ HLNode::HLNode(HLNodeUtils &HNU, unsigned SCID)
 
 HLNode::HLNode(const HLNode &HLNodeObj)
     : HNU(HLNodeObj.HNU), SubClassID(HLNodeObj.SubClassID), Parent(nullptr),
-      TopSortNum(0), MaxTopSortNum(0) {
+      TopSortNum(0), MaxTopSortNum(0), ProfileData(HLNodeObj.ProfileData) {
 
   getHLNodeUtils().Objs.insert(this);
   Number = getHLNodeUtils().getUniqueHLNodeNumber();
@@ -368,3 +369,35 @@ HLNode *HLNode::getPrevNextNodeImpl(bool Prev) {
 HLNode *HLNode::getPrevNode() { return getPrevNextNodeImpl(true); }
 
 HLNode *HLNode::getNextNode() { return getPrevNextNodeImpl(false); }
+
+// Implementation is almost the same as Instruction::extractProfMetadata
+bool HLNode::extractProfileData(uint64_t &TrueVal, uint64_t &FalseVal) const {
+  assert((isa<HLLoop>(this) || isa<HLIf>(this) ||
+          (isa<HLInst>(this) &&
+           (cast<HLInst>(this)->getLLVMInstruction()->getOpcode() ==
+            Instruction::Select))) &&
+         "Looking for branch weights on something besides branch");
+
+  MDNode *ProfileData = getProfileData();
+  if (!ProfileData || ProfileData->getNumOperands() != 3)
+    return false;
+
+  auto *ProfDataName = dyn_cast<MDString>(ProfileData->getOperand(0));
+  if (!ProfDataName || !ProfDataName->getString().equals("branch_weights"))
+    return false;
+
+  auto *CITrue = mdconst::dyn_extract<ConstantInt>(ProfileData->getOperand(1));
+  auto *CIFalse = mdconst::dyn_extract<ConstantInt>(ProfileData->getOperand(2));
+  if (!CITrue || !CIFalse)
+    return false;
+
+  TrueVal = CITrue->getValue().getZExtValue();
+  FalseVal = CIFalse->getValue().getZExtValue();
+
+  return true;
+}
+
+void HLNode::setProfileData(uint64_t TrueVal, uint64_t FalseVal) {
+  MDBuilder MDB(HNU.getContext());
+  setProfileData(MDB.createBranchWeights(TrueVal, FalseVal));
+}

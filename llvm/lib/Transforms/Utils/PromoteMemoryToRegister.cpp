@@ -865,10 +865,13 @@ bool PromoteMem2Reg::QueuePhiNode(BasicBlock *BB, unsigned AllocaNo,
 /// create a merged location incorporating \p DL, or to set \p DL directly.
 static void updateForIncomingValueLocation(PHINode *PN, DebugLoc DL,
                                            bool ApplyMergedLoc) {
-  if (ApplyMergedLoc)
-    PN->applyMergedLocation(PN->getDebugLoc(), DL);
-  else
-    PN->setDebugLoc(DL);
+#if INTEL_CUSTOMIZATION
+  // INTEL - Do not apply source locations to PHI nodes.
+  // if (ApplyMergedLoc)
+  //   PN->applyMergedLocation(PN->getDebugLoc(), DL);
+  // else
+  //   PN->setDebugLoc(DL);
+#endif // INTEL_CUSTOMIZATION
 }
 
 /// Recursively traverse the CFG of the function, renaming loads and

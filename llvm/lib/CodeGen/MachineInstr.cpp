@@ -115,7 +115,7 @@ void MachineInstr::addImplicitDefUseOperands(MachineFunction &MF) {
 /// the MCInstrDesc.
 MachineInstr::MachineInstr(MachineFunction &MF, const MCInstrDesc &tid,
                            DebugLoc dl, bool NoImp)
-    : MCID(&tid), debugLoc(std::move(dl)) {
+    : MCID(&tid), Flags(0), debugLoc(std::move(dl)) { // INTEL
   assert(debugLoc.hasTrivialDestructor() && "Expected trivial destructor");
 
   // Reserve space for the expected number of operands.
@@ -132,7 +132,8 @@ MachineInstr::MachineInstr(MachineFunction &MF, const MCInstrDesc &tid,
 /// MachineInstr ctor - Copies MachineInstr arg exactly
 ///
 MachineInstr::MachineInstr(MachineFunction &MF, const MachineInstr &MI)
-    : MCID(&MI.getDesc()), Info(MI.Info), debugLoc(MI.getDebugLoc()) {
+    : MCID(&MI.getDesc()), Flags(0), Info(MI.Info), // INTEL
+      debugLoc(MI.getDebugLoc()) { // INTEL
   assert(debugLoc.hasTrivialDestructor() && "Expected trivial destructor");
 
   CapOperands = OperandCapacity::get(MI.getNumOperands());
@@ -1178,7 +1179,7 @@ bool MachineInstr::isSafeToMove(AliasAnalysis *AA, bool &SawStore) const {
   }
 
   if (isPosition() || isDebugInstr() || isTerminator() ||
-      hasUnmodeledSideEffects())
+      mayRaiseFPException() || hasUnmodeledSideEffects())
     return false;
 
   // See if this instruction does a load.  If so, we have to guarantee that the
@@ -1550,6 +1551,8 @@ void MachineInstr::print(raw_ostream &OS, ModuleSlotTracker &MST,
     OS << "nsw ";
   if (getFlag(MachineInstr::IsExact))
     OS << "exact ";
+  if (getFlag(MachineInstr::FPExcept))
+    OS << "fpexcept ";
 
   // Print the opcode name.
   if (TII)

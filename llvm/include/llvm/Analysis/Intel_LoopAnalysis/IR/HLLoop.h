@@ -1080,6 +1080,22 @@ public:
   /// loop.
   HLLoop *peelFirstIteration(bool UpdateMainLoop = true);
 
+  /// Peels the current loop to align memory accesses to the memref \p
+  /// PeelArrayRef. Alignment is determined based on \p VF being used for the
+  /// main vector loop, and this in-turn determines the number of iterations to
+  /// peel at runtime. For a given loop, this utility transforms it to -
+  // <instructions to compute alignment & peel iterations>
+  // if (%peel_iters ! = 0) {
+  //   + DO i1 = 0, %peel_iters + -1, 1
+  //   +    <scalar code>
+  //   + END LOOP
+  // }
+  //
+  // + DO i1 = 0, %UB - %peel_iters + -1, 1
+  // +    <normalized scalar code>
+  // + END LOOP
+  HLLoop *generatePeelLoop(const RegDDRef *PeelArrayRef, unsigned VF);
+
   // Collects all HLGotos which exit the loop.
   void populateEarlyExits(SmallVectorImpl<HLGoto *> &Gotos);
 

@@ -39,11 +39,13 @@ std::unordered_map<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNTargetEnterData, "target enter data"},
     {WRegionNode::WRNTargetExitData, "target exit data"},
     {WRegionNode::WRNTargetUpdate, "target update"},
+    {WRegionNode::WRNTargetVariant, "target variant dispatch"},
     {WRegionNode::WRNTask, "task"},
     {WRegionNode::WRNTaskloop, "taskloop"},
     {WRegionNode::WRNVecLoop, "simd"},
     {WRegionNode::WRNWksLoop, "loop"},
     {WRegionNode::WRNSections, "sections"},
+    {WRegionNode::WRNGenericLoop, "generic loop"},
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
     {WRegionNode::WRNSection, "section"},
@@ -286,13 +288,13 @@ void WRegionNode::print(formatted_raw_ostream &OS, unsigned Depth,
 
 void WRegionNode::printBegin(formatted_raw_ostream &OS, unsigned Depth) const {
   int Id = getDirID();
-  StringRef DirName = VPOAnalysisUtils::getDirectiveName(Id);
+  StringRef DirName = VPOAnalysisUtils::getOmpDirectiveName(Id);
   OS.indent(2*Depth) << "BEGIN " << DirName <<" ID=" << getNumber() << " {\n\n";
 }
 
 void WRegionNode::printEnd(formatted_raw_ostream &OS, unsigned Depth) const {
   int Id = getDirID();
-  StringRef DirName = VPOAnalysisUtils::getDirectiveName(Id);
+  StringRef DirName = VPOAnalysisUtils::getOmpDirectiveName(Id);
   OS.indent(2*Depth) << "} END " << DirName <<" ID=" << getNumber() << "\n\n";
 }
 
@@ -567,6 +569,18 @@ void WRegionNode::handleQual(int ClauseID) {
     break;
   case QUAL_OMP_CANCEL_TASKGROUP:
     setCancelKind(WRNCancelTaskgroup);
+    break;
+  case QUAL_OMP_BIND_TEAMS:
+    setLoopBind(WRNLoopBindTeams);
+    break;
+  case QUAL_OMP_BIND_PARALLEL:
+    setLoopBind(WRNLoopBindParallel);
+    break;
+  case QUAL_OMP_BIND_THREAD:
+    setLoopBind(WRNLoopBindThread);
+    break;
+  case QUAL_OMP_ORDER_CONCURRENT:
+    setLoopOrder(WRNLoopOrderConcurrent);
     break;
   default:
     llvm_unreachable("Unknown ClauseID in handleQual()");
@@ -1326,6 +1340,7 @@ bool WRegionNode::canHavePrivate() const {
   case WRNSections:
   case WRNDistribute:
   case WRNSingle:
+  case WRNGenericLoop:
     return true;
   }
   return false;
@@ -1336,7 +1351,7 @@ bool WRegionNode::canHaveFirstprivate() const {
 
   // similar to canHavePrivate except for SIMD,
   // which has Private but not Firstprivate
-  if (SubClassID == WRNVecLoop)
+  if (SubClassID == WRNVecLoop || SubClassID == WRNGenericLoop)
     return false;
   return canHavePrivate();
 }
@@ -1352,6 +1367,7 @@ bool WRegionNode::canHaveLastprivate() const {
   case WRNWksLoop:
   case WRNSections:
   case WRNDistribute:
+  case WRNGenericLoop:
     return true;
   }
   return false;
@@ -1381,6 +1397,7 @@ bool WRegionNode::canHaveReduction() const {
   case WRNVecLoop:
   case WRNWksLoop:
   case WRNSections:
+  case WRNGenericLoop:
     return true;
   }
   return false;
@@ -1525,7 +1542,7 @@ void WRegionNode::errorClause(StringRef ClauseName) const {
 }
 
 void WRegionNode::errorClause(int ClauseID) const {
-  StringRef ClauseName = VPOAnalysisUtils::getClauseName(ClauseID);
+  StringRef ClauseName = VPOAnalysisUtils::getOmpClauseName(ClauseID);
   errorClause(ClauseName);
 }
 

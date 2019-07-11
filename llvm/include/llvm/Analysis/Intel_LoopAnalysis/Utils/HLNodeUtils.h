@@ -1602,6 +1602,10 @@ public:
   /// TODO: Remove once HIRLoopReroll is cleaned up and common parts of
   ///       reroll and remat are consolidated.
   static void sortInTopOrderAndUniq(ConstVecNodesTy &Nodes);
+
+  /// Swap the two operands of ProfData MDNode.
+  /// ProfData is always branch_weights.
+  static MDNode *swapProfMetadata(LLVMContext &Context, MDNode *ProfData);
 };
 
 } // End namespace loopopt

@@ -168,13 +168,13 @@ void initializeEarlyTailDuplicatePass(PassRegistry&);
 void initializeEdgeBundlesPass(PassRegistry&);
 void initializeEliminateAvailableExternallyLegacyPassPass(PassRegistry&);
 void initializeEntryExitInstrumenterPass(PassRegistry&);
-void initializeExpandISelPseudosPass(PassRegistry&);
 void initializeExpandMemCmpPassPass(PassRegistry&);
 void initializeExpandPostRAPass(PassRegistry&);
 void initializeExpandReductionsPass(PassRegistry&);
 void initializeMakeGuardsExplicitLegacyPassPass(PassRegistry&);
 void initializeExternalAAWrapperPassPass(PassRegistry&);
 void initializeFEntryInserterPass(PassRegistry&);
+void initializeFinalizeISelPass(PassRegistry&);
 void initializeFinalizeMachineBundlesPass(PassRegistry&);
 void initializeFlattenCFGPassPass(PassRegistry&);
 void initializeFloat2IntLegacyPassPass(PassRegistry&);
@@ -195,6 +195,7 @@ void initializeGlobalOptLegacyPassPass(PassRegistry&);
 void initializeGlobalSplitPass(PassRegistry&);
 void initializeGlobalsAAWrapperPassPass(PassRegistry&);
 void initializeGuardWideningLegacyPassPass(PassRegistry&);
+void initializeHardwareLoopsPass(PassRegistry&);
 void initializeHotColdSplittingLegacyPassPass(PassRegistry&);
 void initializeHWAddressSanitizerLegacyPassPass(PassRegistry &);
 void initializeIPCPPass(PassRegistry&);
@@ -587,6 +588,7 @@ void initializeLoadCoalescingLegacyPassPass(PassRegistry &);
 void initializeMathLibraryFunctionsReplacementLegacyPassPass(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
 
+void initializeASFixerPass(PassRegistry&);
 } // end namespace llvm
 
 #endif // LLVM_INITIALIZEPASSES_H

@@ -46,6 +46,16 @@ enum OptimizationType { Unroll, UnrollAndJam, Vectorizer };
 /// Defines HIRLoopTransformationUtils class.
 /// It contains static member functions to analyze and transform a loop.
 class HIRTransformUtils {
+public:
+  typedef struct ProfInfo {
+    ProfInfo(uint64_t T, uint64_t F) : TrueWeight(T), FalseWeight(F) {}
+    uint64_t TrueWeight;
+    uint64_t FalseWeight;
+
+    uint64_t Quotient; // Quotient of TrueWeight/Denom. Denom is not maintained.
+    uint64_t Remainder; // Remainder of TrueWeight/Denom.
+  } ProfInfo;
+
 private:
   /// Do not allow instantiation
   HIRTransformUtils() = delete;
@@ -68,12 +78,11 @@ private:
   /// contains the new loop trip count if the original loop is a constant trip
   /// count. For a original non-constant trip count loop, the new loop trip
   /// count is specified in \p NewTCRef.
-  static HLLoop *createUnrollOrVecLoop(HLLoop *OrigLoop,
-                                       unsigned UnrollOrVecFactor,
-                                       uint64_t NewTripCount,
-                                       const RegDDRef *NewTCRef,
-                                       LoopOptReportBuilder &LORBuilder,
-                                       OptimizationType, HLIf *RTIf);
+  static HLLoop *
+  createUnrollOrVecLoop(HLLoop *OrigLoop, unsigned UnrollOrVecFactor,
+                        uint64_t NewTripCount, const RegDDRef *NewTCRef,
+                        LoopOptReportBuilder &LORBuilder, OptimizationType,
+                        HLIf *RTIf, ProfInfo *Prof);
 
   /// \brief Processes the remainder loop for general unrolling and
   /// vectorization. The loop passed in \p OrigLoop is set up to be
@@ -82,7 +91,8 @@ private:
   static void processRemainderLoop(HLLoop *OrigLoop, unsigned UnrollOrVecFactor,
                                    uint64_t NewTripCount,
                                    const RegDDRef *NewTCRef,
-                                   const bool HasRuntimeCheck);
+                                   const bool HasRuntimeCheck,
+                                   const ProfInfo *Prof);
 
   /// \brief Update CE for stripmined Loops
   static void updateStripminedLoopCE(HLLoop *Loop);
@@ -219,20 +229,22 @@ public:
   /// This function creates and returns a new loop that will be used as the
   /// main loop for unrolling or vectorization(current clients). The bounds
   /// for this newly created loop are set appropriately using the bounds of
-  /// \p OrigLoop and \p UnrollOrVecFactor. If \p PeelFirstIteration is true, a
-  /// peel loop executing a single iteration is created and inserted before the
-  /// the main loop. The peel loop is returned in \p PeelLoop. If a remainder
-  /// loop is needed, \p NeedRemainderLoop is set to true and the bounds of \p
-  /// OrigLoop are updated appropriately. Client is responsible for deleting
-  /// OrigLoop if a remainder loop is not needed. \p VecMode specifies whether
-  /// the client is vectorizer - which is used to set loop bounds and stride
-  /// appropriately as vectorizer uses \p UnrollOrVecFactor as stride whereas
-  /// unroller users a stride of 1. The default client is assumed to be the
-  /// unroller.
+  /// \p OrigLoop and \p UnrollOrVecFactor. If \p PeelFirstIteration is set, a
+  /// peel loop executing a single iteration is created and inserted before
+  /// the the main loop. If \p PeelArrayRef is set, then generic peeling is done
+  /// to align memory accesses to this array. The peel loop is returned in \p
+  /// PeelLoop. If a remainder loop is needed, \p NeedRemainderLoop is set to
+  /// true and the bounds of \p OrigLoop are updated appropriately. Client is
+  /// responsible for deleting OrigLoop if a remainder loop is not needed. \p
+  /// VecMode specifies whether the client is vectorizer - which is used to set
+  /// loop bounds and stride appropriately as vectorizer uses \p
+  /// UnrollOrVecFactor as stride whereas unroller users a stride of 1. The
+  /// default client is assumed to be the unroller.
   static HLLoop *setupPeelMainAndRemainderLoops(
       HLLoop *OrigLoop, unsigned UnrollOrVecFactor, bool &NeedRemainderLoop,
       LoopOptReportBuilder &LORBuilder, OptimizationType,
       HLLoop **PeelLoop = nullptr, bool PeelFirstIteration = false,
+      const RegDDRef *PeelArrayRef = nullptr,
       SmallVectorImpl<std::tuple<HLPredicate, RegDDRef *, RegDDRef *>>
           *RTChecks = nullptr);
 

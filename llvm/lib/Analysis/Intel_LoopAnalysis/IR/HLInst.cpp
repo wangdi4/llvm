@@ -761,12 +761,13 @@ int OMPRegionProxy::getOmpRegionExitDir(const HLInst *Exit,
   if (!DDRefUtils::areEqual(Entry->getLvalDDRef(),
                             *Exit->rval_op_ddref_begin()))
     return -1;
-  assert(RegExitDir == vpo::VPOAnalysisUtils::getMatchingEndDirective(
-    RegEntryDir) && "OMP region entry/exit mismatch");
+  assert(RegExitDir ==
+             vpo::VPOAnalysisUtils::getMatchingEndDirective(RegEntryDir) &&
+         "OMP region entry/exit mismatch");
   return RegExitDir;
 }
 
 int OMPRegionProxy::getOmpClauseID(unsigned I) const {
-  const OperandBundleUse &OBU = Impl->getOperandBundleAt(I+1);
+  const OperandBundleUse &OBU = Impl->getOperandBundleAt(I + 1);
   return vpo::VPOAnalysisUtils::getClauseID(OBU.getTagName());
 }

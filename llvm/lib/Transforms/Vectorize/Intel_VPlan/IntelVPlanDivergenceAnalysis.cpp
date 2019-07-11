@@ -539,21 +539,44 @@ bool VPlanDivergenceAnalysis::isUniformLoopEntity(const VPValue *V) const {
 #endif
 
 bool VPlanDivergenceAnalysis::isAlwaysUniform(const VPValue &V) const {
-  return (UniformOverrides.find(&V) != UniformOverrides.end() ||
-          isa<VPMetadataAsValue>(V) || isa<VPConstant>(V) ||
-          isa<VPExternalDef>(V));
-// TODO: We have a choice on how to handle functions such as get_global_id().
-// Currently, OCL VecClone is already treating such calls as linear and
-// hoisting them outside of the inserted loop. As such, it adds the appropriate
-// stride to any users. Thus, here we treat these calls as uniform because the
-// added instructions by OCL VecClone to calculate stride will cause DA to
-// propagate the correct stride as is. The call to isUniformLoopEntity has
-// been commented out because of this since support has now been added to
-// make these calls VPInduction objects. If this line is uncommented, the
-// incorrect stride will be propagated. Later, we can always allow DA to
-// use this call instead of VecClone treating the calls as linear. Either way
-// is correct.
-          //isUniformLoopEntity(&V));
+  if (UniformOverrides.find(&V) != UniformOverrides.end() ||
+      isa<VPMetadataAsValue>(V) || isa<VPConstant>(V) || isa<VPExternalDef>(V))
+    return true;
+
+  // TODO: We have a choice on how to handle functions such as get_global_id().
+  // Currently, OCL VecClone is already treating such calls as linear and
+  // hoisting them outside of the inserted loop. As such, it adds the
+  // appropriate stride to any users. Thus, here we treat these calls as uniform
+  // because the added instructions by OCL VecClone to calculate stride will
+  // cause DA to propagate the correct stride as is. The call to
+  // isUniformLoopEntity has been commented out because of this since support
+  // has now been added to make these calls VPInduction objects. If this line is
+  // uncommented, the incorrect stride will be propagated. Later, we can always
+  // allow DA to use this call instead of VecClone treating the calls as linear.
+  // Either way is correct.
+  //
+  // if (isUniformLoopEntity(&V))
+  //   return true;
+
+  auto *VPInst = dyn_cast<VPInstruction>(&V);
+
+  if (!VPInst || VPInst->getOpcode() != Instruction::Call)
+    return false;
+
+  auto *CalledFunc =
+      dyn_cast<VPConstant>(VPInst->getOperand(VPInst->getNumOperands() - 1));
+
+  if (!CalledFunc)
+    return false;
+
+  auto *Func = dyn_cast<Function>(CalledFunc->VPValue::getUnderlyingValue());
+  if (!Func)
+    return false;
+
+  if (Func->hasFnAttribute("opencl-vec-uniform-return"))
+    return true;
+
+  return false;
 }
 
 bool VPlanDivergenceAnalysis::isDivergent(const VPValue &V) const {

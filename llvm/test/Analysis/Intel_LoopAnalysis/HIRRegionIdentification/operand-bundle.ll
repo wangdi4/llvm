@@ -3,7 +3,7 @@
 
 ; Verify that we suppress call instruction containing operand bundle ["funclet"(token %4)] as there is no support for them in the framework.
 
-; CHECK: LOOPOPT_OPTREPORT: Unsupported operand bundle.
+; CHECK: LOOPOPT_OPTREPORT: Loop %arraydestroy.body.i: Unsupported operand bundle.
 
 ; This is a windows exception handling test case. Here's the source code-
 

@@ -7,7 +7,7 @@ define <16 x half> @test_int_x86_avx512fp16_mask_add_ph_256(<16 x half> %x1, <16
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vaddph %ymm1, %ymm0, %ymm3
-; CHECK-NEXT:    vmovdqa %ymm2, %ymm4
+; CHECK-NEXT:    vmovaps %ymm2, %ymm4
 ; CHECK-NEXT:    vaddph %ymm1, %ymm0, %ymm4 {%k1}
 ; CHECK-NEXT:    vaddph %ymm4, %ymm3, %ymm3
 ; CHECK-NEXT:    vaddph %ymm1, %ymm0, %ymm1 {%k1} {z}
@@ -33,7 +33,7 @@ define <8 x half> @test_int_x86_avx512fp16_mask_add_ph_128(<8 x half> %x1, <8 x 
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vaddph %xmm1, %xmm0, %xmm3
-; CHECK-NEXT:    vmovdqa %xmm2, %xmm4
+; CHECK-NEXT:    vmovaps %xmm2, %xmm4
 ; CHECK-NEXT:    vaddph %xmm1, %xmm0, %xmm4 {%k1}
 ; CHECK-NEXT:    vaddph %xmm4, %xmm3, %xmm3
 ; CHECK-NEXT:    vaddph %xmm1, %xmm0, %xmm1 {%k1} {z}
@@ -59,7 +59,7 @@ define <16 x half> @test_int_x86_avx512fp16_mask_sub_ph_256(<16 x half> %x1, <16
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vsubph %ymm1, %ymm0, %ymm3
-; CHECK-NEXT:    vmovdqa %ymm2, %ymm4
+; CHECK-NEXT:    vmovaps %ymm2, %ymm4
 ; CHECK-NEXT:    vsubph %ymm1, %ymm0, %ymm4 {%k1}
 ; CHECK-NEXT:    vsubph %ymm4, %ymm3, %ymm3
 ; CHECK-NEXT:    vsubph %ymm1, %ymm0, %ymm1 {%k1} {z}
@@ -85,7 +85,7 @@ define <8 x half> @test_int_x86_avx512fp16_mask_sub_ph_128(<8 x half> %x1, <8 x 
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vsubph %xmm1, %xmm0, %xmm3
-; CHECK-NEXT:    vmovdqa %xmm2, %xmm4
+; CHECK-NEXT:    vmovaps %xmm2, %xmm4
 ; CHECK-NEXT:    vsubph %xmm1, %xmm0, %xmm4 {%k1}
 ; CHECK-NEXT:    vsubph %xmm4, %xmm3, %xmm3
 ; CHECK-NEXT:    vsubph %xmm1, %xmm0, %xmm1 {%k1} {z}
@@ -111,7 +111,7 @@ define <16 x half> @test_int_x86_avx512fp16_mask_mul_ph_256(<16 x half> %x1, <16
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vmulph %ymm1, %ymm0, %ymm3
-; CHECK-NEXT:    vmovdqa %ymm2, %ymm4
+; CHECK-NEXT:    vmovaps %ymm2, %ymm4
 ; CHECK-NEXT:    vmulph %ymm1, %ymm0, %ymm4 {%k1}
 ; CHECK-NEXT:    vmulph %ymm4, %ymm3, %ymm3
 ; CHECK-NEXT:    vmulph %ymm1, %ymm0, %ymm1 {%k1} {z}
@@ -137,7 +137,7 @@ define <8 x half> @test_int_x86_avx512fp16_mask_mul_ph_128(<8 x half> %x1, <8 x 
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vmulph %xmm1, %xmm0, %xmm3
-; CHECK-NEXT:    vmovdqa %xmm2, %xmm4
+; CHECK-NEXT:    vmovaps %xmm2, %xmm4
 ; CHECK-NEXT:    vmulph %xmm1, %xmm0, %xmm4 {%k1}
 ; CHECK-NEXT:    vmulph %xmm4, %xmm3, %xmm3
 ; CHECK-NEXT:    vmulph %xmm1, %xmm0, %xmm1 {%k1} {z}
@@ -163,7 +163,7 @@ define <16 x half> @test_int_x86_avx512fp16_mask_div_ph_256(<16 x half> %x1, <16
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vdivph %ymm1, %ymm0, %ymm3
-; CHECK-NEXT:    vmovdqa %ymm2, %ymm4
+; CHECK-NEXT:    vmovaps %ymm2, %ymm4
 ; CHECK-NEXT:    vdivph %ymm1, %ymm0, %ymm4 {%k1}
 ; CHECK-NEXT:    vdivph %ymm4, %ymm3, %ymm3
 ; CHECK-NEXT:    vdivph %ymm1, %ymm0, %ymm1 {%k1} {z}
@@ -189,7 +189,7 @@ define <8 x half> @test_int_x86_avx512fp16_mask_div_ph_128(<8 x half> %x1, <8 x 
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vdivph %xmm1, %xmm0, %xmm3
-; CHECK-NEXT:    vmovdqa %xmm2, %xmm4
+; CHECK-NEXT:    vmovaps %xmm2, %xmm4
 ; CHECK-NEXT:    vdivph %xmm1, %xmm0, %xmm4 {%k1}
 ; CHECK-NEXT:    vdivph %xmm4, %xmm3, %xmm3
 ; CHECK-NEXT:    vdivph %xmm1, %xmm0, %xmm1 {%k1} {z}

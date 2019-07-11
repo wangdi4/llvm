@@ -992,8 +992,10 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
   // available externally globals. Eventually they will be suppressed during
   // codegen, but eliminating here enables more opportunity for GlobalDCE as it
   // may make globals referenced by available external functions dead and saves
-  // running remaining passes on the eliminated functions.
-  MPM.addPass(EliminateAvailableExternallyPass());
+  // running remaining passes on the eliminated functions. These should be
+  // preserved during prelinking for link-time inlining decisions.
+  if (!LTOPreLink)
+    MPM.addPass(EliminateAvailableExternallyPass());
 
   if (EnableOrderFileInstrumentation)
     MPM.addPass(InstrOrderFilePass());
@@ -1331,7 +1333,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
       MPM.addPass(IPSCCPPass());
 #endif // INTEL_INCLUDE_DTRANS
     MPM.addPass(IPCloningPass(/*AfterInl*/ false,
-                              /*IFSwitchHeuristic*/ false));
+                              /*IFSwitchHeuristic*/ true));
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1481,7 +1483,8 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
 
 #if INTEL_CUSTOMIZATION
   if (RunLTOPartialInlining)
-    MPM.addPass(PartialInlinerPass(true /*RunLTOPartialInline*/));
+    MPM.addPass(PartialInlinerPass(true /*RunLTOPartialInline*/,
+                                   false /*EnableSpecialCases*/));
 
   if (EnableIPCloning)
 #if INTEL_INCLUDE_DTRANS

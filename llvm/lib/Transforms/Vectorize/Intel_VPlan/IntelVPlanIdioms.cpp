@@ -37,7 +37,7 @@ using namespace loopopt;
 
 namespace vpo {
 
-static bool canSpeculate(const RegDDRef *Ref) {
+static bool canSpeculate(const RegDDRef *Ref, bool CheckPadding = true) {
   // FIXME: Unit-stride check is needed.
   if (Ref->isTerminalRef())
     return true;
@@ -56,6 +56,12 @@ static bool canSpeculate(const RegDDRef *Ref) {
     ConstStride /= RefSizeInBytes;
     if (ConstStride != 1)
       return false;
+
+    // If it is known that padding is not needed, then return early after unit
+    // stride tests. This is applicable for search loop idioms which require
+    // explicit peel loops for aligning the memory accesses.
+    if (!CheckPadding)
+      return true;
 
 #if INTEL_INCLUDE_DTRANS
     if (UsePaddingInformation)
@@ -123,7 +129,7 @@ VPlanIdioms::isStrEqSearchLoop(const VPBasicBlock *Block,
     const auto Inst = cast<const VPInstruction>(&Recipe);
 
     if (isa<const VPBranchInst>(Inst) ||
-        (Inst->HIR.isDecomposed() && Inst->HIR.isValid()))
+        (Inst->HIR.isDecomposed() && Inst->isUnderlyingIRValid()))
       continue;
 
     // FIXME: Without proper decomposition we have to parse predicates of
@@ -212,6 +218,204 @@ VPlanIdioms::isStrEqSearchLoop(const VPBasicBlock *Block,
   return HasIf ? VPlanIdioms::SearchLoopStrEq : VPlanIdioms::Unknown;
 }
 
+// Check if given \p Ref is a loop-invariant address ref.
+static bool isLoopInvariantAddressRef(const RegDDRef *Ref) {
+  if (!Ref->isAddressOf())
+    return false;
+
+  unsigned NestingLevel = Ref->getParentLoop()->getNestingLevel();
+  return Ref->isStructurallyInvariantAtLevel(NestingLevel);
+}
+
+/// Recognize following pattern in the Header:
+///   if (a[i1] == &b[x])   // a[i1] can be executed speculatively and b[x] is
+///                         // loop-invariant.
+///
+/// If the above predicate is found in the loop header, then ensure that loop
+/// contains only the predicate along with optional  live-out instructions to
+/// capture the found result. Effectively we try to recognize a need-in-haystack
+/// search loop where an array of struct pointers is searched.
+///
+///  + DO i1 = 0, UB, 1 <DO_MULTI_EXIT_LOOP>
+///  |   if ((%a)[i1] == &((%b)[0]))
+///  |   {
+///  |      %needle = &((%a)[i1]);
+///  |      goto needle_found;
+///  |   }
+///  + END LOOP
+///
+VPlanIdioms::Opcode
+VPlanIdioms::isStructPtrEqSearchLoop(const VPBasicBlock *Block,
+                                     const bool AllowMemorySpeculation,
+                                     RegDDRef *&PeelArrayRef) {
+  // Item that is found in the list being searched.
+  const RegDDRef *ListItemRef = nullptr;
+
+  for (const VPRecipeBase &Recipe : Block->getRecipes()) {
+    if (!isa<const VPInstruction>(&Recipe))
+      continue;
+    const auto Inst = cast<const VPInstruction>(&Recipe);
+
+    if (isa<const VPBranchInst>(Inst) ||
+        (Inst->HIR.isDecomposed() && Inst->isUnderlyingIRValid()))
+      continue;
+
+    // FIXME: Without proper decomposition we have to parse predicates of
+    // underlying IR
+    const HLDDNode *DDNode = cast<HLDDNode>(Inst->HIR.getUnderlyingNode());
+
+    // Only the if-block is expected in the search loop. Other allowed
+    // VPInstructions in the loop Header are loop IV related instructions which
+    // have HLLoop as underlying DDNode.
+    if (isa<HLLoop>(DDNode))
+      continue;
+
+    auto *If = dyn_cast<HLIf>(DDNode);
+    if (!If) {
+      LLVM_DEBUG(
+          dbgs() << "        Search loop expected to have only HLIf node.\n");
+      return VPlanIdioms::Unsafe;
+    }
+
+    unsigned NumPredicates = If->getNumPredicates();
+
+    if (If->getNextNode() || If->getPrevNode()) {
+      LLVM_DEBUG(
+          dbgs() << "        Search is expected to have HLIf node only\n.");
+      return VPlanIdioms::Unsafe;
+    }
+
+    if (NumPredicates != 1) {
+      LLVM_DEBUG(dbgs() << "        Only one predicate is expected\n.");
+      return VPlanIdioms::Unsafe;
+    }
+
+    if (If->hasElseChildren()) {
+      LLVM_DEBUG(dbgs() << "        Search loop is expected to have HLIf node "
+                           "without else children\n.");
+      return VPlanIdioms::Unsafe;
+    }
+
+    auto PredIt = If->pred_begin();
+
+    if (*PredIt != PredicateTy::ICMP_EQ) {
+      LLVM_DEBUG(dbgs() << "        PredicateTy " << *PredIt;
+                 dbgs() << " is unsafe.\n");
+      return VPlanIdioms::Unsafe;
+    }
+
+    const RegDDRef *PredLhs = If->getPredicateOperandDDRef(PredIt, true);
+    Type *PredLhsType = PredLhs->getDestType();
+    const RegDDRef *PredRhs = If->getPredicateOperandDDRef(PredIt, false);
+
+    LLVM_DEBUG(dbgs() << "StructPtrEq: Pred:" << *PredIt << "\nPredLhs:";
+               PredLhs->dump(true); dbgs() << "\nPredRhs:"; PredRhs->dump(true);
+               dbgs() << "\n");
+
+    if (!canSpeculate(PredLhs, false /*CheckPadding*/) ||
+        !PredLhsType->isPointerTy() ||
+        !PredLhsType->getPointerElementType()->isStructTy()) {
+      LLVM_DEBUG(dbgs() << "        RegDDRef "; PredLhs->dump();
+                 dbgs() << " is unsafe.\n");
+      return VPlanIdioms::Unsafe;
+    }
+    // LHS of predicate matched, save for later checks.
+    ListItemRef = PredLhs;
+
+    // Check that struct pointer size is same as loop bound's size.
+    HLNodeUtils &HNU = If->getParentLoop()->getHLNodeUtils();
+    CanonExprUtils &CEU = HNU.getCanonExprUtils();
+    unsigned PtrSize = CEU.getTypeSizeInBytes(PredLhsType);
+    const RegDDRef *LoopUB = If->getParentLoop()->getUpperDDRef();
+    assert(LoopUB && "Cannot find UB DDRef of loop.");
+    unsigned LoopUBTypeSize = CEU.getTypeSizeInBytes(LoopUB->getDestType());
+
+    if (PtrSize != LoopUBTypeSize) {
+      LLVM_DEBUG(dbgs() << "        Array ref to peel "; ListItemRef->dump();
+                 dbgs() << " is not same size as loop bounds.\n");
+      return VPlanIdioms::Unsafe;
+    }
+
+    if (!isLoopInvariantAddressRef(PredRhs)) {
+      // TODO: Should we check that the struct type match exactly?
+      LLVM_DEBUG(dbgs() << "        RegDDRef "; PredRhs->dump();
+                 dbgs() << " is unsafe.\n");
+      return VPlanIdioms::Unsafe;
+    }
+
+    // Predicate checks passed, now check for nodes in then branch of HLIf.
+    if (!checkStructPtrEqThenNodes(If, ListItemRef)) {
+      LLVM_DEBUG(
+          dbgs() << "        Unsafe instructions in then branch of HLIf.\n");
+      return VPlanIdioms::Unsafe;
+    }
+  }
+
+  // All checks passed, idiom is recognized.
+  assert(ListItemRef && "List item for search loop idiom not found.\n");
+  PeelArrayRef = const_cast<RegDDRef *>(ListItemRef);
+  return VPlanIdioms::SearchLoopStructPtrEq;
+}
+
+/// Checks if the nodes in the then-branch of \p If match the StructPtrEq idiom.
+bool VPlanIdioms::checkStructPtrEqThenNodes(const HLIf *If,
+                                            const RegDDRef *ListItemRef) {
+  bool ListItemCaptured = false;
+  for (const HLNode &ThenNode : make_range(If->then_begin(), If->then_end())) {
+    if (const auto HInst = dyn_cast<const HLInst>(&ThenNode)) {
+      if (ListItemCaptured) {
+        LLVM_DEBUG(dbgs() << "        List item was already captured. More "
+                             "instructions in then-branch are unsafe.\n");
+        return false;
+      }
+
+      // Restrict allowed HLInsts to copy instructions or GEPs.
+      auto UnderlyingInst = HInst->getLLVMInstruction();
+      if (!HInst->isCopyInst() && !isa<GetElementPtrInst>(UnderlyingInst)) {
+        LLVM_DEBUG(dbgs() << "        HLInst "; HInst->dump();
+                   dbgs() << " is unsafe.\n");
+        return false;
+      }
+
+      const RegDDRef *LvalRef = HInst->getLvalDDRef();
+      if (!LvalRef->isTerminalRef()) {
+        LLVM_DEBUG(dbgs() << "        RegDDRef "; LvalRef->dump();
+                   dbgs() << " is unsafe.\n");
+        return false;
+      }
+
+      const RegDDRef *RvalRef = HInst->getRvalDDRef();
+      if (!RvalRef->isAddressOf()) {
+        LLVM_DEBUG(dbgs() << "        RegDDRef "; RvalRef->dump();
+                   dbgs() << " is unsafe.\n");
+        return false;
+      }
+
+      if (!RvalRef->getDDRefUtils().areEqualWithoutAddressOf(RvalRef,
+                                                             ListItemRef)) {
+        LLVM_DEBUG(dbgs() << "        RegDDRef "; RvalRef->dump();
+                   dbgs() << " is unsafe.\n");
+        return false;
+      }
+
+      // The found list item is captured inside the if-block.
+      ListItemCaptured = true;
+
+    } else if (!isa<HLGoto>(&ThenNode)) {
+      LLVM_DEBUG(dbgs() << "        Node "; ThenNode.dump();
+                 dbgs() << " is unexpected.\n");
+      return false;
+    } else if (!ListItemCaptured) {
+      LLVM_DEBUG(
+          dbgs() << "        Found list item is not captured inside loop.\n");
+      return false;
+    }
+  }
+
+  // All saefty checks passed.
+  return true;
+}
+
 // In some cases vectorizer creates additional basic block with mask
 // mask computations, which are safe to vectorize.
 bool VPlanIdioms::isSafeBlockForSearchLoop(const VPBasicBlock *Block) {
@@ -237,7 +441,7 @@ bool VPlanIdioms::isSafeExitBlockForSearchLoop(const VPBasicBlock *Block) {
       continue;
 
     if (isa<const VPBranchInst>(Inst) ||
-        (Inst->HIR.isDecomposed() && Inst->HIR.isValid()))
+        (Inst->HIR.isDecomposed() && Inst->isUnderlyingIRValid()))
       continue;
 
     const HLDDNode *DDNode = cast<HLDDNode>(Inst->HIR.getUnderlyingNode());
@@ -260,7 +464,8 @@ bool VPlanIdioms::isSafeExitBlockForSearchLoop(const VPBasicBlock *Block) {
 
 VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlan *Plan,
                                               const unsigned VF,
-                                              const bool CheckSafety) {
+                                              const bool CheckSafety,
+                                              RegDDRef *&PeelArrayRef) {
   const VPRegionBlock *Entry = dyn_cast<const VPRegionBlock>(Plan->getEntry());
   assert(Entry && "RegionBlock is expected.");
   // TODO: With explicit representation of peel loop, next code is not valid
@@ -312,8 +517,21 @@ VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlan *Plan,
   // TODO: there're also few idiomatic search loops that have to be covered
   // here.
   if (Opcode != VPlanIdioms::SearchLoopStrEq) {
-    LLVM_DEBUG(dbgs() << "    StrEq loop was not recognized.\n");
-    return VPlanIdioms::Unsafe;
+    // Array being searched for if current search loop matches StructPtrEq
+    // idiom.
+    RegDDRef *ArrayRef = nullptr;
+    Opcode = isStructPtrEqSearchLoop(Header, false, ArrayRef);
+    if (Opcode != VPlanIdioms::SearchLoopStructPtrEq) {
+      LLVM_DEBUG(
+          dbgs() << "    StrEq and StructPtrEq loop was not recognized.\n");
+      return VPlanIdioms::Unsafe;
+    } else {
+      // StructPtrEq was recognized, ArrayRef cannot be null
+      assert(ArrayRef && "StructPtrEq loop does not have PeelArrayRef.\n");
+      LLVM_DEBUG(dbgs() << "    StructPtrEq loop has PeelArray:";
+                 ArrayRef->dump(); dbgs() << "\n");
+      PeelArrayRef = ArrayRef;
+    }
   }
   IgnoreBlocks.insert(Header);
 
@@ -349,8 +567,8 @@ VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlan *Plan,
 
 bool VPlanIdioms::isAnySearchLoop(const VPlan *Plan, const unsigned VF,
                                   const bool CheckSafety) {
-
-  return isAnySearchLoop(isSearchLoop(Plan, VF, CheckSafety));
+  RegDDRef *PeelArrayRef = nullptr;
+  return isAnySearchLoop(isSearchLoop(Plan, VF, CheckSafety, PeelArrayRef));
 }
 
 } // namespace vpo

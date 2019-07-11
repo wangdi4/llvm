@@ -5,7 +5,7 @@
 define signext i16 @test_mm_cvtsi128_si16(<2 x i64> %A) local_unnamed_addr #0 {
 ; CHECK-LABEL: test_mm_cvtsi128_si16:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vmovw %xmm0, %eax
+; CHECK-NEXT:    vmovd %xmm0, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -675,7 +675,7 @@ define <8 x half> @test_mask_sqrt_ph_128(<8 x half> %a0, <8 x half> %passthru, i
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vsqrtph %xmm0, %xmm1 {%k1}
-; CHECK-NEXT:    vmovdqa %xmm1, %xmm0
+; CHECK-NEXT:    vmovaps %xmm1, %xmm0
 ; CHECK-NEXT:    retq
   %1 = call <8 x half> @llvm.sqrt.v8f16(<8 x half> %a0)
   %2 = bitcast i8 %mask to <8 x i1>
@@ -709,7 +709,7 @@ define <16 x half> @test_mask_sqrt_ph_256(<16 x half> %a0, <16 x half> %passthru
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vsqrtph %ymm0, %ymm1 {%k1}
-; CHECK-NEXT:    vmovdqa %ymm1, %ymm0
+; CHECK-NEXT:    vmovaps %ymm1, %ymm0
 ; CHECK-NEXT:    retq
   %1 = call <16 x half> @llvm.sqrt.v16f16(<16 x half> %a0)
   %2 = bitcast i16 %mask to <16 x i1>
@@ -758,7 +758,7 @@ define <8 x half> @test_rcp_ph_128(<8 x half> %a0, <8 x half> %a1, i8 %mask) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vrcpph %xmm0, %xmm1 {%k1}
-; CHECK-NEXT:    vmovdqa %xmm1, %xmm0
+; CHECK-NEXT:    vmovaps %xmm1, %xmm0
 ; CHECK-NEXT:    retq
   %res = call <8 x half> @llvm.x86.avx512fp16.mask.rcp.ph.128(<8 x half> %a0, <8 x half> %a1, i8 %mask)
   ret <8 x half> %res
@@ -769,7 +769,7 @@ define <16 x half> @test_rcp_ph_256(<16 x half> %a0, <16 x half> %a1, i16 %mask)
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vrcpph %ymm0, %ymm1 {%k1}
-; CHECK-NEXT:    vmovdqa %ymm1, %ymm0
+; CHECK-NEXT:    vmovaps %ymm1, %ymm0
 ; CHECK-NEXT:    retq
   %res = call <16 x half> @llvm.x86.avx512fp16.mask.rcp.ph.256(<16 x half> %a0, <16 x half> %a1, i16 %mask)
   ret <16 x half> %res

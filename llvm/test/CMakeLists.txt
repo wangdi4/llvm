@@ -91,9 +91,6 @@ set(LLVM_TEST_DEPENDS
           llvm-readelf
           llvm-rtdyld
           llvm-size
-# INTEL_CUSTOMIZATION
-          llvm-spirv
-# end INTEL_CUSTOMIZATION
           llvm-split
           llvm-strings
           llvm-strip

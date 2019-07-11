@@ -104,6 +104,7 @@ enum FunctionKind {
   Constructor,       // Constructor
   CopyConstructor,   // Copy-constructor
   Destructor,        // Destructor
+  DestructorWrapper, // DestructorWrapper
   Resize,            // Reallocating element array
   GetSize,           // Get size of element array
   GetCapacity,       // Get capacity of element array
@@ -126,6 +127,9 @@ inline raw_ostream &operator<<(raw_ostream &OS, FunctionKind FKind) {
     break;
   case Destructor:
     OS << "Destructor";
+    break;
+  case DestructorWrapper:
+    OS << "DestructorWrapper";
     break;
   case Resize:
     OS << "Resize";
@@ -269,6 +273,9 @@ private:
 
   // Collection of capacity values that are passed to Ctor calls.
   CapacityValuesTy CapacityValues;
+
+  // Set of Ctor calls in member functions of candidate struct.
+  SmallPtrSet<CallBase *, 2> CtorCallsInStructMethods;
 
   void collectElementDataTypes();
   bool checkDominatorInfo(Instruction *, Instruction *);
@@ -1743,9 +1750,9 @@ Value *ClassInfo::isLoadOfArg(Value *Val) {
   return nullptr;
 }
 
-// Skip BitCastInst/ZExtInst/TruncInst instructions.
+// Skip BitCastInst/ZExtInst instructions.
 const Value *ClassInfo::skipCasts(const Value *V) {
-  while (isa<BitCastInst>(V) || isa<ZExtInst>(V) || isa<TruncInst>(V)) {
+  while (isa<BitCastInst>(V) || isa<ZExtInst>(V)) {
     auto *I = cast<Instruction>(V);
     Visited.insert(I);
     V = I->getOperand(0);
@@ -2325,15 +2332,89 @@ FunctionKind ClassInfo::recognizeDestructor(Function *Fn) {
     return true;
   };
 
+  // Wrapper for destructor to handle "delete" operator for objects of user
+  // defined classes with virtual destructors.
+  // Returns DestructorWrapper if it is just calling actual destructor and
+  // then freeing up memory.
+  //
+  // Ex:
+  //   DtorWrapper(Obj) {
+  //     ActualDtor(Obj);
+  //     free(Obj);
+  //     May_Have_some_EH_code
+  //   }
+  //
+  auto CheckDestructorWrapper =
+      [this, &CheckEHBlocks](Function *Fn,
+                             SmallPtrSet<BasicBlock *, 16> &EHBBSet) {
+        // Clear all processed instructions first.
+        Visited.clear();
+        Argument *ThisObj = &*Fn->arg_begin();
+        CallBase *FreeCall = nullptr;
+        CallBase *DtorCall = nullptr;
+        for (auto &BB : *Fn) {
+          if (EHBBSet.count(&BB))
+            continue;
+          for (auto &I : BB) {
+            if (isa<DbgInfoIntrinsic>(&I))
+              continue;
+            // We are interested in only Calls.
+            auto *Call = dyn_cast<CallBase>(&I);
+            if (!Call)
+              continue;
+            auto *Callee = Call->getCalledFunction();
+            // Check if Call is
+            //  1. Indirect call
+            //  2. Direct recursive call
+            //  3. Actual destructor call (Functionality will be proved
+            //                             separately)
+            //  4. Argument of the call is "ThisObj"
+            if (Callee && Callee != Fn &&
+                InitialFuncKind.find(Callee) != InitialFuncKind.end() &&
+                InitialFuncKind[Callee] == Destructor &&
+                Call->getArgOperand(0) == ThisObj) {
+              // Expects DtorCall is set only once.
+              if (DtorCall)
+                return UnKnown;
+              DtorCall = Call;
+            } else if (FreeCallInfo *FInfo = getFreeCall(&I)) {
+              // Check if it is free instruction.
+              BasicBlock *FreeBB;
+              const Value *PtrArg = checkFree(FInfo, ThisObj, &FreeBB);
+              // Check it is freeing complete object. Expects FreeCall
+              // is set only once.
+              if (!PtrArg || !checkCompleteObjPtr(PtrArg, ThisObj) || FreeCall)
+                return UnKnown;
+              FreeCall = Call;
+            } else {
+              return UnKnown;
+            }
+          }
+        }
+        if (!DtorCall || !FreeCall || !checkDominatorInfo(DtorCall, FreeCall))
+          return UnKnown;
+        if (!CheckEHBlocks(EHBBSet, ThisObj))
+          return UnKnown;
+        Visited.insert(DtorCall);
+        if (!checkAllInstsProcessed(Fn, Visited))
+          return UnKnown;
+        return DestructorWrapper;
+      };
+
   SmallPtrSet<BasicBlock *, 16> EHBasicBlocks;
   SmallPtrSet<StoreInst *, 1> SIList;
   SmallPtrSet<FreeCallInfo *, 4> FreeList;
-  // Clear all processed instructions first.
-  Visited.clear();
-  Argument *ThisObj = &*Fn->arg_begin();
 
   // Collect EH related BBs.
   CollectEHBasicBlocks(Fn, EHBasicBlocks);
+
+  // First, check if it is DestructorWrapper.
+  if (CheckDestructorWrapper(Fn, EHBasicBlocks) == DestructorWrapper)
+    return DestructorWrapper;
+
+  // Clear all processed instructions first.
+  Visited.clear();
+  Argument *ThisObj = &*Fn->arg_begin();
   // Collect All store and free calls stmts in all BBs of Fn except
   // BBs in EHBasicBlocks.
   collectStoreInstsFreeCalls(Fn, EHBasicBlocks, SIList, FreeList);
@@ -3061,10 +3142,73 @@ FunctionKind ClassInfo::recognizeResize(Function *Fn) {
     // exiting the loop.
     BranchInst *BI = cast<BranchInst>(L->getLoopLatch()->getTerminator());
     ICmpInst *Cond = cast<ICmpInst>(BI->getCondition());
-    const Value *IncInd = skipCasts(Phi->getIncomingValue(1));
+    Value *IncInd = Phi->getIncomingValue(1);
+    // Okay to ignore Trunc instruction as IncInd is induction variable
+    // of Loop which iterates from zero to size, which is i32.
+    if (isa<TruncInst>(IncInd)) {
+      auto *I = cast<Instruction>(IncInd);
+      Visited.insert(cast<Instruction>(I));
+      IncInd = I->getOperand(0);
+    }
     if (Cond->getOperand(0) != IncInd)
       return false;
     Visited.insert(Phi);
+    return true;
+  };
+
+  // Check the size of memset as "newMax - index + 1"
+  // XorI:          %48 = xor i32 %SVal, -1
+  // RemainSize:    %49 = add i32 %NewCap, %48
+  //                %50 = zext i32 %49 to i64
+  //                %51 = shl nuw nsw i64 %50, 3
+  // MemsetSize:    %52 = add nuw nsw i64 %51, 8
+  //
+  auto AllowedMemsetSizePatternOne = [this](Value *MemsetSize, Value *NewCap,
+                                            Value *SVal) -> bool {
+    ConstantInt *AddC;
+    Value *AddOp;
+    if (!match(MemsetSize, m_Add(m_Value(AddOp), m_ConstantInt(AddC))))
+      return false;
+    Type *ElemTy = MICInfo->getFieldElemTy(FieldIdx);
+    unsigned ElemSize = DL.getTypeAllocSize(ElemTy);
+    if (AddC->getLimitedValue() != ElemSize)
+      return false;
+    int64_t Multiplier = 1;
+    const Value *RemainSize = computeMultiplier(AddOp, &Multiplier);
+    if (!RemainSize || Multiplier != ElemSize)
+      return false;
+    Instruction *XorI;
+    if (!match(RemainSize, m_Add(m_Specific(NewCap), m_Instruction(XorI))))
+      return false;
+    if (!match(XorI, m_Xor(m_Specific(SVal), m_AllOnes())))
+      return false;
+    Visited.insert(cast<Instruction>(XorI));
+    Visited.insert(cast<Instruction>(RemainSize));
+    return true;
+  };
+
+  // Check the size of memset as "NewMax - OriginalSize":
+  //             %16 = shl i32 %NewCap, 2
+  //             %41 = shl i32 %SVal, 2
+  // MemsetSize: %43 = sub i32 %16, %41
+  auto AllowedMemsetSizePatternTwo = [this](Value *MemsetSize, Value *NewCap,
+                                            Value *SVal) -> bool {
+    Value *SubLeft, *SubRight;
+    if (!match(MemsetSize, m_Sub(m_Value(SubLeft), m_Value(SubRight))))
+      return false;
+
+    Type *ElemTy = MICInfo->getFieldElemTy(FieldIdx);
+    unsigned ElemSize = DL.getTypeAllocSize(ElemTy);
+    int64_t Multiplier = 1;
+    const Value *OriginalSize = computeMultiplier(SubRight, &Multiplier);
+    if (!OriginalSize || Multiplier != ElemSize || OriginalSize != SVal)
+      return false;
+    Multiplier = 1;
+    const Value *IncreasedSize = computeMultiplier(SubLeft, &Multiplier);
+    if (!IncreasedSize || Multiplier != ElemSize || IncreasedSize != NewCap)
+      return false;
+    Visited.insert(cast<Instruction>(SubLeft));
+    Visited.insert(cast<Instruction>(SubRight));
     return true;
   };
 
@@ -3249,48 +3393,28 @@ FunctionKind ClassInfo::recognizeResize(Function *Fn) {
       return UnKnown;
     if (NewSize != RValue)
       return UnKnown;
-    // Make sure LValue is index value of previous loop.
+    // Make sure LValue is either index value of previous loop or
+    // original size.
     auto *Phi = dyn_cast<PHINode>(LValue);
-    if (!IsValueOfIndexCountAfterLoopExit(Phi, CopyLoop))
+    if (!checkFieldOfArgClassLoad(LValue, ThisObj, SizeField) &&
+        !IsValueOfIndexCountAfterLoopExit(Phi, CopyLoop))
       return UnKnown;
 
     // Check index value multiplied with size of element.
-    //   %45 = zext i32 %Phi to i64
+    //   %45 = zext i32 %LValue to i64
     //   %46 = shl nuw nsw i64 %45, 3
     //   %47 = getelementptr i8, i8* %30, i64 %46
-    if (!checkAllocSizeOfArray(GEP->getOperand(1), ThisObj, Phi))
+    if (!checkAllocSizeOfArray(GEP->getOperand(1), ThisObj, LValue))
       return UnKnown;
 
-    // Check the size of memset as "newMax - index + 1"
-    // XorI:          %48 = xor i32 %Phi, -1
-    // RemainSize:    %49 = add i32 %NewSize, %48
-    //                %50 = zext i32 %49 to i64
-    //                %51 = shl nuw nsw i64 %50, 3
-    // MemsetSize:    %52 = add nuw nsw i64 %51, 8
-    //
-    ConstantInt *AddC;
-    Value *AddOp;
     Value *MemsetSize = Memset->getArgOperand(2);
-    if (!match(MemsetSize, m_Add(m_Value(AddOp), m_ConstantInt(AddC))))
+    if (!AllowedMemsetSizePatternOne(MemsetSize, NewSize, LValue) &&
+        !AllowedMemsetSizePatternTwo(MemsetSize, NewSize, LValue))
       return UnKnown;
-    Type *ElemTy = MICInfo->getFieldElemTy(FieldIdx);
-    unsigned ElemSize = DL.getTypeAllocSize(ElemTy);
-    if (AddC->getLimitedValue() != ElemSize)
-      return UnKnown;
-    int64_t Multiplier = 1;
-    const Value *RemainSize = computeMultiplier(AddOp, &Multiplier);
-    if (!RemainSize || Multiplier != ElemSize)
-      return UnKnown;
-    Instruction *XorI;
-    if (!match(RemainSize, m_Add(m_Specific(NewSize), m_Instruction(XorI))))
-      return UnKnown;
-    if (!match(XorI, m_Xor(m_Specific(Phi), m_AllOnes())))
-      return UnKnown;
-    Visited.insert(cast<Instruction>(XorI));
-    Visited.insert(cast<Instruction>(RemainSize));
+
     Visited.insert(cast<Instruction>(MemsetSize));
-    Visited.insert(GEP);
     Visited.insert(Memset);
+    Visited.insert(GEP);
   }
 
   // Array field assignment should be dominated by Free call.
@@ -3361,6 +3485,7 @@ bool ClassInfo::analyzeClassFunctions() {
     case GetCapacity:
     case GetSize:
     case Constructor:
+    case DestructorWrapper:
     case UnKnown:
       break;
     }
@@ -3571,8 +3696,7 @@ bool ClassInfo::checkMemberFunctionCalls() {
 
     // Collect capacity values using CapacityArgPos and CtorFunction.
     assert(CapacityArgPos != -1 && "Expected valid CapacityArgPos");
-    for (auto &U : CtorFunction->uses()) {
-      auto *CtorCall = cast<CallBase>(U.getUser());
+    for (auto *CtorCall : CtorCallsInStructMethods) {
       Value *CVal = CtorCall->getArgOperand(CapacityArgPos);
       if (!VerifyCapacityValueAndAppend(CVal))
         return false;
@@ -3584,6 +3708,7 @@ bool ClassInfo::checkMemberFunctionCalls() {
   int32_t NumAppendElem = 0;
   int32_t NumResize = 0;
   int32_t NumDestructors = 0;
+  int32_t NumDestructorWrappers = 0;
   int32_t NumGetCapacity = 0;
   int32_t NumGetSize = 0;
   // Verify that candidate vector has at least some minimum set
@@ -3614,6 +3739,9 @@ bool ClassInfo::checkMemberFunctionCalls() {
     case Destructor:
       NumDestructors++;
       break;
+    case DestructorWrapper:
+      NumDestructorWrappers++;
+      break;
     case GetCapacity:
       if (Fn->hasAddressTaken()) {
         DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
@@ -3636,22 +3764,35 @@ bool ClassInfo::checkMemberFunctionCalls() {
   // functionality except SetElem/GetElem.
   // CopyConstructor/GetCapacity/GetSize are not mandatory functionality.
   if (NumCopyConstructor > 1 || NumAppendElem != 1 || NumResize != 1 ||
-      NumDestructors != 1 || NumGetCapacity > 1 || NumGetSize > 1) {
+      NumDestructors != 1 || NumGetCapacity > 1 || NumGetSize > 1 ||
+      NumDestructorWrappers > 1) {
     DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
       dbgs() << "  Failed: Missing required member functions.\n";
     });
     return false;
   }
   assert(AppendElemFunction && "Expected AppendElem function");
-  // Make sure Ctor is called from methods of candidate struct only.
+  bool IsCapacityProp = isa<Constant>(CapacityInitInst->getValueOperand());
+  // Collect constructor calls in struct methods.
   for (auto &U : CtorFunction->uses()) {
     auto *Call = cast<CallBase>(U.getUser());
     Function *Caller = Call->getCaller();
     if (!MICInfo->isStructMethod(Caller)) {
-      DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
-                      { dbgs() << "  Failed: Ctor not in struct methods.\n"; });
-      return false;
+      // Make sure Ctor is called from methods of candidate struct only
+      // if capacity value is propagated to callee (i.e constructor).
+      if (IsCapacityProp) {
+        DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+          dbgs() << "  Failed: Ctor call not in struct methods.\n";
+        });
+        return false;
+      } else {
+        DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+          dbgs() << "  Ignored Ctor call: Not in struct methods.\n";
+        });
+        continue;
+      }
     }
+    CtorCallsInStructMethods.insert(Call);
   }
 
   if (!CheckCapacityValueEscaped()) {
@@ -3699,8 +3840,14 @@ bool ClassInfo::checkHeuristics(void) {
   int32_t NumCalled = 0;
   for (auto &U : AppendElemFunction->uses()) {
     Function *Caller = cast<CallBase>(U.getUser())->getCaller();
-    if (!MICInfo->isStructMethod(Caller))
-      return false;
+    if (!MICInfo->isStructMethod(Caller)) {
+      // Ignore AppendElem calls that are not in member functions of
+      // candidate struct.
+      DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+        dbgs() << "  Ignored AppendElem call for heuristics.\n";
+      });
+      continue;
+    }
     // If AppendElem is called from Copy-Constructor, probably it
     // is copying elements from one array to another (i.e not adding
     // new elements). Don't consider this as callsite of AppendElem.
@@ -3777,8 +3924,7 @@ void ClassInfo::trimDowmMemInit() {
   }
   assert(isa<Argument>(ValOp) && "Expected Argument");
 
-  for (auto &U : CtorFunction->uses()) {
-    auto *Call = cast<CallBase>(U.getUser());
+  for (auto *Call : CtorCallsInStructMethods) {
     Value *CVal = Call->getArgOperand(CapacityArgPos);
     // No Need to do anything if capacity value is passed as non-constant
     // since we already proved that it is return value of GetCapacity of

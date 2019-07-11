@@ -4,7 +4,8 @@
 
 ; CHECK: + DO i1 = 0, 8, 1   <DO_LOOP>
 ; CHECK: |   (%A)[%i.05] = %i.05;
-; CHECK: |   %i.05 = %i.05  /  2;
+; CHECK: |   %div = %i.05  /  2;
+; CHECK: |   %i.05 = %div;
 ; CHECK: + END LOOP
 
 

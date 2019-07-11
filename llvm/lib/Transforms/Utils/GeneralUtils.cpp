@@ -18,6 +18,7 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -174,6 +175,14 @@ void GeneralUtils::breakExpressionsHelper(
     ConstantExpr *Expr, unsigned OperandIndex, Instruction *User,
     SmallVectorImpl<Instruction *> *NewInstArr) {
   // Create a new instruction, and insert it at the appropriate point.
+  if (isOMPItemGlobalVAR(Expr))
+    // Avoid breaking AddrSpaceCast expression, which operand
+    // is a GlobalVariable. For targets that use non-default
+    // addrspaces we have to keep this representation unbreakable,
+    // otherwise we may not be able to match OpenMP clause references
+    // with references inside OpenMP target regions.
+    return;
+
   Instruction *NewInst = Expr->getAsInstruction();
   NewInst->setDebugLoc(User->getDebugLoc());
   if (NewInstArr != nullptr)
@@ -313,5 +322,79 @@ Type *GeneralUtils::getSizeTTy(Module *M) {
 
 Type *GeneralUtils::getSizeTTy(Function *F) {
   return getSizeTTy(F->getParent());
+}
+
+bool GeneralUtils::isOMPItemGlobalVAR(const Value *V) {
+  if (isa<GlobalVariable>(V))
+    return true;
+
+  auto *CE = dyn_cast<ConstantExpr>(V);
+
+  if (!CE)
+    return false;
+
+  if (CE->getOpcode() != Instruction::AddrSpaceCast)
+    return false;
+
+  if (!isa<GlobalVariable>(CE->getOperand(0)))
+    return false;
+
+  // If this is an AddrSpaceCast constant expression of a GlobalVariable,
+  // then assert that the AddrSpaceCast's type and the operand's
+  // type are only different by the addrspace. We expect that we can deduce
+  // the original type of the OpenMP clause's item VAR in both cases, i.e.
+  // when VAR is represented directly with a GlobalVariable or with
+  // GlobalVariable followed by AddrSpaceCast.
+  assert(isa<PointerType>(CE->getType()) &&
+         cast<PointerType>(CE->getType())->getElementType() ==
+         cast<GlobalVariable>(CE->getOperand(0))->getValueType() &&
+         "isOMPItemGlobalVAR: Type mismatch for a GlobalVariable and "
+         "its addrspacecast.");
+
+  return true;
+}
+
+bool GeneralUtils::isOMPItemLocalVAR(const Value *V) {
+  if (isa<AllocaInst>(V))
+    return true;
+
+  if (const auto *ASCI = dyn_cast<AddrSpaceCastInst>(V))
+    if (const auto *AI = dyn_cast<AllocaInst>(ASCI->getPointerOperand())) {
+      // If this is an AddrSpaceCastInst of an AllocaInst, then
+      // assert that the AddrSpaceCastInst's type and the operand's
+      // type are only different by the addrspace. We expect that
+      // we can deduce the original type of the OpenMP clause's
+      // item VAR in both cases, i.e. when VAR is represented directly
+      // with an AllocaInst or with AllocaInst followed by AddrSpaceCastInst.
+      (void)AI;
+      assert(cast<PointerType>(ASCI->getType())->getElementType() ==
+             AI->getType()->getElementType() &&
+             "isItemLocalVAR: Type mismatch for an alloca and "
+             "its addrspacecast.");
+
+      return true;
+    }
+
+  return false;
+}
+
+PointerType *GeneralUtils::getOMPItemLocalVARPointerType(const Value *V) {
+  if (!isOMPItemLocalVAR(V)) {
+    llvm_unreachable("getItemLocalVARPointerType: Expect AllocaInst or "
+                     "AddrSpaceCastInst as a definition of an OpenMP "
+                     "item local VAR.");
+    return nullptr;
+  }
+
+  if (const auto *AI = dyn_cast<AllocaInst>(V))
+    return AI->getType();
+
+  if (const auto *ASCI = dyn_cast<AddrSpaceCastInst>(V))
+    return cast<PointerType>(ASCI->getType());
+
+  llvm_unreachable("getItemLocalVARPointerType: Mismatch between "
+                   "isItemLocalVAR and getItemLocalVARPointerType.");
+
+  return nullptr;
 }
 #endif // INTEL_COLLAB

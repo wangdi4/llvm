@@ -16,6 +16,7 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_CANONEXPRUTILS_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_CANONEXPRUTILS_H
 
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/Support/Compiler.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
@@ -110,6 +111,12 @@ private:
   /// for making sure they can be added.
   static void subtractImpl(CanonExpr *CE1, const CanonExpr *CE2,
                            bool RelaxedMode);
+
+  /// Implements compare(Ty1, Ty2) by recursing on contained types, if
+  /// necessary.
+  int64_t
+  compareRecursive(Type *Ty1, Type *Ty2,
+                   DenseSet<std::pair<Type *, Type *>> &InProcessQueries) const;
 
 public:
   // Returns reference to BlobUtils object.

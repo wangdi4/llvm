@@ -290,6 +290,9 @@ def FeatureAMXTRANSPOSE     : SubtargetFeature<"amx-transpose", "HasAMXTRANSPOSE
 def FeatureAMXMEMORY     : SubtargetFeature<"amx-memory", "HasAMXMEMORY", "true",
                                       "Support AMX amx-memory instructions",
                                       [FeatureAMXTILE]>;
+def FeatureAMXFP16     : SubtargetFeature<"amx-bf16", "HasAMXFP16", "true",
+                                      "Support AMX amx-fp16 instructions",
+                                      [FeatureAMXTILE]>;
 #endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
 def FeatureLEAForSP : SubtargetFeature<"lea-sp", "UseLeaForSP", "true",
@@ -701,6 +704,15 @@ def ProcessorFeatures {
   list<SubtargetFeature> CLXFeatures =
     !listconcat(CLXInheritableFeatures, CLXSpecificFeatures);
 
+  // Cooperlake
+  list<SubtargetFeature> CPXAdditionalFeatures = [FeatureBF16];
+  list<SubtargetFeature> CPXSpecificFeatures = [FeatureHasFastGather,
+                                                FeaturePOPCNTFalseDeps];
+  list<SubtargetFeature> CPXInheritableFeatures =
+    !listconcat(CLXInheritableFeatures, CPXAdditionalFeatures);
+  list<SubtargetFeature> CPXFeatures =
+    !listconcat(CPXInheritableFeatures, CPXSpecificFeatures);
+
   // Cannonlake
   list<SubtargetFeature> CNLAdditionalFeatures = [FeatureAVX512,
 #if INTEL_CUSTOMIZATION
@@ -749,16 +761,14 @@ def ProcessorFeatures {
 #if INTEL_CUSTOMIZATION
   list<SubtargetFeature> IntelAnonymousFeatures1 = [
 #if INTEL_FEATURE_ISA_KEYLOCKER
-    FeatureKeyLocker,
+    FeatureKeyLocker
 #endif // INTEL_FEATURE_ISA_KEYLOCKER
-#if INTEL_FEATURE_ISA_VP2INTERSECT
-    FeatureVP2INTERSECT
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
   ];
   //Tigerlake
   list<SubtargetFeature> TGLAdditionalFeatures1 = [FeatureMOVDIRI,
                                                    FeatureMOVDIR64B,
-                                                   FeatureSHSTK];
+                                                   FeatureSHSTK,
+                                                   FeatureVP2INTERSECT];
 
   list<SubtargetFeature> TGLAdditionalFeatures2 =
     !listconcat(IntelAnonymousFeatures1, TGLAdditionalFeatures1);
@@ -1209,6 +1219,8 @@ def : ProcessorModel<"common-avx512", SkylakeServerModel,
 
 def : ProcessorModel<"cascadelake", SkylakeServerModel,
                      ProcessorFeatures.CLXFeatures>;
+def : ProcessorModel<"cooperlake", SkylakeServerModel,
+                     ProcessorFeatures.CPXFeatures>;
 def : ProcessorModel<"cannonlake", SkylakeServerModel,
                      ProcessorFeatures.CNLFeatures>;
 def : ProcessorModel<"icelake-client", SkylakeServerModel,

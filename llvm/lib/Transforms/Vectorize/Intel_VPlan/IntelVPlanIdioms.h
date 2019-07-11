@@ -18,6 +18,11 @@
 
 namespace llvm {
 
+namespace loopopt {
+class RegDDRef;
+class HLIf;
+}
+
 namespace vpo {
 
 class VPlanIdioms {
@@ -28,19 +33,24 @@ public:
     // Search loop idioms:
     SearchLoop,
     SearchLoopStrEq,
+    SearchLoopStructPtrEq,
     // End of search loop idioms
   };
 
   /// Return \p Opcode that describes specific search loop idiom, or return
   /// VPlanIdioms::Unsafe if unsafe instructions are found in the pattern, or
-  /// VPlanIdioms::Unknown if the loop doesn't fit into any known pattern.
+  /// VPlanIdioms::Unknown if the loop doesn't fit into any known pattern. If
+  /// the identified pattern requires peeling of an array for aligned accesses,
+  /// then return it in \p PeelArrayRef.
   static Opcode isSearchLoop(const VPlan *Plan, const unsigned VF,
-                             const bool CheckSafety);
+                             const bool CheckSafety,
+                             loopopt::RegDDRef *&PeelArrayRef);
   static bool isAnySearchLoop(const VPlan *Plan, const unsigned VF,
                               const bool CheckSafety);
 
   static bool isAnySearchLoop(const VPlanIdioms::Opcode Opcode) {
     return Opcode == VPlanIdioms::SearchLoopStrEq ||
+           Opcode == VPlanIdioms::SearchLoopStructPtrEq ||
            Opcode == VPlanIdioms::SearchLoop;
   }
 
@@ -48,6 +58,11 @@ private:
   static bool isSafeLatchBlockForSearchLoop(const VPBasicBlock *Block);
   static Opcode isStrEqSearchLoop(const VPBasicBlock *Block,
                                   const bool AllowMemorySpeculation);
+  static Opcode isStructPtrEqSearchLoop(const VPBasicBlock *Block,
+                                        const bool AllowMemorySpeculation,
+                                        loopopt::RegDDRef *&PeelArrayRef);
+  static bool checkStructPtrEqThenNodes(const loopopt::HLIf *If,
+                                        const loopopt::RegDDRef *ListItemRef);
   static bool isSafeBlockForSearchLoop(const VPBasicBlock *Block);
   static bool isSafeExitBlockForSearchLoop(const VPBasicBlock *Block);
 };

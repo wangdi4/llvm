@@ -1021,6 +1021,26 @@ static Value *foldSignedTruncationCheck(ICmpInst *ICmp0, ICmpInst *ICmp1,
                                CxtI.getName() + ".simplified");
 }
 
+/// Reduce a pair of compares that check if a value has exactly 1 bit set.
+static Value *foldIsPowerOf2(ICmpInst *Cmp0, ICmpInst *Cmp1,
+                             InstCombiner::BuilderTy &Builder) {
+  // Handle 'and' commutation: make the not-equal compare the first operand.
+  if (Cmp1->getPredicate() == ICmpInst::ICMP_NE)
+    std::swap(Cmp0, Cmp1);
+
+  // (X != 0) && (ctpop(X) u< 2) --> ctpop(X) == 1
+  CmpInst::Predicate Pred0, Pred1;
+  Value *X;
+  if (match(Cmp0, m_ICmp(Pred0, m_Value(X), m_ZeroInt())) &&
+      match(Cmp1, m_ICmp(Pred1, m_Intrinsic<Intrinsic::ctpop>(m_Specific(X)),
+                         m_SpecificInt(2))) &&
+      Pred0 == ICmpInst::ICMP_NE && Pred1 == ICmpInst::ICMP_ULT) {
+    Value *CtPop = Cmp1->getOperand(0);
+    return Builder.CreateICmpEQ(CtPop, ConstantInt::get(CtPop->getType(), 1));
+  }
+  return nullptr;
+}
+
 /// Fold (icmp)&(icmp) if possible.
 Value *InstCombiner::foldAndOfICmps(ICmpInst *LHS, ICmpInst *RHS,
                                     Instruction &CxtI) {
@@ -1061,6 +1081,9 @@ Value *InstCombiner::foldAndOfICmps(ICmpInst *LHS, ICmpInst *RHS,
     return V;
 
   if (Value *V = foldSignedTruncationCheck(LHS, RHS, CxtI, Builder))
+    return V;
+
+  if (Value *V = foldIsPowerOf2(LHS, RHS, Builder))
     return V;
 
   // This only handles icmp of constants: (icmp1 A, C1) & (icmp2 B, C2).
@@ -2486,6 +2509,24 @@ Instruction *InstCombiner::visitOr(BinaryOperator &I) {
   if (Instruction *CastedOr = foldCastedBitwiseLogic(I))
     return CastedOr;
 
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-9154: suppress the following transform when loopopt is enabled
+  // ("pre_loopopt" attribute) as vectorizer and other loop transformations
+  // work better without conditional expressions.
+  Function *F = I.getFunction();
+  bool SuppressSextOpt = false;
+  if (F->isPreLoopOpt()) {
+    for (const User *U : I.users()) {
+      auto *UI = cast<Instruction>(U);
+      if (DT.dominates(UI, &cast<Instruction>(I))) {
+        SuppressSextOpt = true;
+        break;
+      }
+    }
+  }
+#endif  //INTEL_CUSTOMIZATION
+
+  if (!SuppressSextOpt) {   // INTEL
   // or(sext(A), B) / or(B, sext(A)) --> A ? -1 : B, where A is i1 or <N x i1>.
   if (match(Op0, m_OneUse(m_SExt(m_Value(A)))) &&
       A->getType()->isIntOrIntVectorTy(1))
@@ -2493,6 +2534,8 @@ Instruction *InstCombiner::visitOr(BinaryOperator &I) {
   if (match(Op1, m_OneUse(m_SExt(m_Value(A)))) &&
       A->getType()->isIntOrIntVectorTy(1))
     return SelectInst::Create(A, ConstantInt::getSigned(I.getType(), -1), Op0);
+  } // INTEL
+
 
   // Note: If we've gotten to the point of visiting the outer OR, then the
   // inner one couldn't be simplified.  If it was a constant, then it won't

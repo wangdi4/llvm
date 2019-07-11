@@ -755,7 +755,7 @@ public:
           break;
         else if (StructIdioms::isKnownCall(D, S)) {
           // Check if calls to Struct's method is structured.
-          if (const auto *Call= dyn_cast<CallBase>(&I))
+          if (const auto *Call = dyn_cast<CallBase>(&I))
             if (checkMethodCall(Call))
               break;
           // Fall through to Handled = false.

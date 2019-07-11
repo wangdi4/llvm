@@ -857,8 +857,9 @@ bool CanonExprUtils::compare(const CanonExpr *CE1, const CanonExpr *CE2) {
   return false;
 }
 
-int64_t CanonExprUtils::compare(Type *Ty1, Type *Ty2) const {
-
+int64_t CanonExprUtils::compareRecursive(
+    Type *Ty1, Type *Ty2,
+    DenseSet<std::pair<Type *, Type *>> &InProcessQueries) const {
   // Perform trivial equality check first.
   if (Ty1 == Ty2) {
     return 0;
@@ -893,8 +894,17 @@ int64_t CanonExprUtils::compare(Type *Ty1, Type *Ty2) const {
     return NumSubTypes1 - NumSubTypes2;
   }
 
+  // Skip if the query is already in process.
+  if (InProcessQueries.count(std::make_pair(Ty1, Ty2))) {
+    return 0;
+  }
+
+  // Add entry so we don't cycle on the same types.
+  InProcessQueries.insert(std::make_pair(Ty1, Ty2));
+
   for (unsigned I = 0; I < NumSubTypes1; ++I) {
-    auto Res = compare(Ty1->getContainedType(I), Ty2->getContainedType(I));
+    auto Res = compareRecursive(Ty1->getContainedType(I),
+                                Ty2->getContainedType(I), InProcessQueries);
 
     if (Res != 0) {
       return Res;
@@ -908,4 +918,10 @@ int64_t CanonExprUtils::compare(Type *Ty1, Type *Ty2) const {
   // containing function pointer members. As function is not a sized type, we
   // need alternative checks to compare them. This is left as a TODO for now.
   return Ty1 - Ty2;
+}
+
+int64_t CanonExprUtils::compare(Type *Ty1, Type *Ty2) const {
+  DenseSet<std::pair<Type *, Type *>> InProcessQueries;
+
+  return compareRecursive(Ty1, Ty2, InProcessQueries);
 }

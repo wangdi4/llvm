@@ -24,10 +24,13 @@ class Module;
 class PartialInlinerPass : public PassInfoMixin<PartialInlinerPass> {
 private:                                               // INTEL
   bool RunLTOPartialInline;                            // INTEL
+  bool EnableSpecialCases;                             // INTEL
 public:
 #if INTEL_CUSTOMIZATION
-  PartialInlinerPass(bool RunLTOPartialInline = false) :
-      RunLTOPartialInline(RunLTOPartialInline) {}
+  PartialInlinerPass(bool RunLTOPartialInline = false,
+      bool EnableSpecialCases = false) :
+      RunLTOPartialInline(RunLTOPartialInline),
+      EnableSpecialCases(EnableSpecialCases) {}
 #endif // INTEL_CUSTOMIZATION
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &);
 };

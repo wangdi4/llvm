@@ -46,7 +46,7 @@
 ; Check contents of the lists from debug log
 
 ; CHECK-LABEL: HIRLegality Descriptor Lists
-; CHECK: HIRLegality PrivateList:
+; CHECK: HIRLegality PrivatesList:
 
 ; CHECK: HIRLegality LinearList:
 ; CHECK: Ref: &((%ptr.addr)[0])

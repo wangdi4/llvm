@@ -37,4 +37,5 @@ add_llvm_unittest(AnalysisTests
   UnrollAnalyzerTest.cpp
   ValueLatticeTest.cpp
   ValueTrackingTest.cpp
+  VectorUtilsTest.cpp
   )

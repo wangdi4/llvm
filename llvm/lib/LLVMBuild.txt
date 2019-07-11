@@ -38,9 +38,7 @@ subdirectories =
  Remarks
  Passes
  ProfileData
-#if INTEL_CUSTOMIZATION
- SPIRV
-#endif // INTEL_CUSTOMIZATION
+ SYCL
  Support
  TableGen
  TextAPI

@@ -1,7 +1,7 @@
 ;RUN: opt -VPlanDriver -S %s | FileCheck %s
 
 ; CHECK:   %Sum.vec = alloca <8 x i32>
-; CHECK: vector.ph: 
+; CHECK: vector.ph:
 ; CHECK:   %SumInitVal = load i32, i32* %Sum
 ; CHECK:   %[[StartV:.*]] = insertelement <8 x i32> zeroinitializer, i32 %SumInitVal, i32 0
 ; CHECK:   store <8 x i32> %[[StartV]], <8 x i32>* %Sum.vec
@@ -11,7 +11,7 @@
 ; CHECK: %[[CURRENT:.*]] = load <8 x i32>, <8 x i32>* %Sum.vec, align 4
 ; CHECK: %[[NEW_VAL:.*]] = add nsw <8 x i32> %[[CURRENT]], %[[NEXT_V]]
 ; CHECK: call void @llvm.masked.store.v8i32.p0v8i32(<8 x i32> %[[NEW_VAL]], <8 x i32>* %Sum.vec
-  
+
 ; CHECK: middle.block:
 ; CHECK:   %Red.vec = load <8 x i32>, <8 x i32>* %Sum.vec
 ; CHECK:   shufflevector <8 x i32> %Red.vec

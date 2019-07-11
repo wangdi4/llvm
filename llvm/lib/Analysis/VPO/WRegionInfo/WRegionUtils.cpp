@@ -39,14 +39,14 @@ void WRegionUtils::updateWRGraph(IntrinsicInst *Call, WRContainerImpl *WRGraph,
 
   WRegionNode *W = nullptr;
 
-  // Name of the directive or clause represented by this intrinsic
-  StringRef DirOrClause = VPOAnalysisUtils::getDirOrClauseString(Call);
+  // Name of the directive represented by this intrinsic
+  StringRef DirString = VPOAnalysisUtils::getDirectiveString(Call);
 
-  LLVM_DEBUG(dbgs() << "\n=== updateWRGraph found: " << DirOrClause << "\n");
+  LLVM_DEBUG(dbgs() << "\n=== updateWRGraph found: " << DirString << "\n");
 
-  if (VPOAnalysisUtils::isOpenMPDirective(DirOrClause)) {
+  if (VPOAnalysisUtils::isOpenMPDirective(DirString)) {
 
-    int DirID = VPOAnalysisUtils::getDirectiveID(DirOrClause);
+    int DirID = VPOAnalysisUtils::getDirectiveID(DirString);
 
     if (WRegionUtils::skipDirFromWrnConstruction(DirID))
       // Ignore DirID, which is likely a new Dir still under development
@@ -149,6 +149,9 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
     case DIR_OMP_TARGET_UPDATE:
       W = new WRNTargetUpdateNode(EntryBB);
       break;
+    case DIR_OMP_TARGET_VARIANT_DISPATCH:
+      W = new WRNTargetVariantNode(EntryBB);
+      break;
     case DIR_OMP_TASK:
       W = new WRNTaskNode(EntryBB);
       break;
@@ -167,6 +170,9 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
       break;
     case DIR_OMP_LOOP:
       W = new WRNWksLoopNode(EntryBB, LI);
+      break;
+    case DIR_OMP_GENERICLOOP:
+      W = new WRNGenericLoopNode(EntryBB, LI);
       break;
     case DIR_OMP_SECTIONS:
       W = new WRNSectionsNode(EntryBB, LI);

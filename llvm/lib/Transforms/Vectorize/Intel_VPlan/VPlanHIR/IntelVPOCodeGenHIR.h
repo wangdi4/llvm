@@ -50,12 +50,14 @@ public:
                 HIRSafeReductionAnalysis *SRA, VPlanVLSAnalysis *VLSA,
                 const VPlan *Plan, Function &Fn, HLLoop *Loop,
                 LoopOptReportBuilder &LORB, WRNVecLoopNode *WRLp,
-                const VPlanIdioms::Opcode SearchLoopType)
+                const VPlanIdioms::Opcode SearchLoopType,
+                const RegDDRef *SearchLoopPeelArrayRef)
       : TLI(TLI), TTI(TTI), SRA(SRA), Plan(Plan), VLSA(VLSA), Fn(Fn),
         Context(*Plan->getLLVMContext()), OrigLoop(Loop), PeelLoop(nullptr),
         MainLoop(nullptr), CurMaskValue(nullptr), NeedRemainderLoop(false),
         TripCount(0), VF(0), LORBuilder(LORB), WVecNode(WRLp),
-        SearchLoopType(SearchLoopType) {}
+        SearchLoopType(SearchLoopType),
+        SearchLoopPeelArrayRef(SearchLoopPeelArrayRef) {}
 
   ~VPOCodeGenHIR() {
     SCEVWideRefMap.clear();
@@ -72,7 +74,7 @@ public:
 
   // Setup vector loop to perform the actual loop widening (vectorization) using
   // VF as the vectorization factor.
-  void initializeVectorLoop(unsigned int VF);
+  bool initializeVectorLoop(unsigned int VF);
 
   // Perform and cleanup/final actions after vectorizing the loop
   void finalizeVectorLoop(void);
@@ -179,7 +181,8 @@ public:
   HLInst *createInterleavedStore(RegDDRef **StoreVals, const RegDDRef *StoreRef,
                                  int64_t InterleaveFactor, RegDDRef *Mask);
 
-  HLInst *handleLiveOutLinearInEarlyExit(HLInst *Inst, RegDDRef *Mask);
+  HLInst *handleLiveOutLinearInEarlyExit(HLInst *Inst, RegDDRef *Mask,
+                                         bool MaskIsNonZero);
 
   /// Collect live-out definitions reaching \p Goto's parent and insert a copy
   /// of them in the current insertion point of the main vector loop. Linear
@@ -202,7 +205,8 @@ public:
     return ZExtInst;
   }
 
-  HLInst *createCTTZCall(RegDDRef *Ref, const Twine &Name = "bsf");
+  HLInst *createCTTZCall(RegDDRef *Ref, bool MaskIsNonZero,
+                         const Twine &Name = "bsf");
 
   // Generates wide compares using VF as the vector length. Multiple
   // predicates are handled by conjoining the results of generated
@@ -369,8 +373,8 @@ private:
   // Mask value to add for instructions being added to MainLoop
   RegDDRef *CurMaskValue;
 
-  // Is first iteration peel loop needed?
-  bool NeedFirstItPeelLoop = false;
+  // Is a peel loop needed?
+  bool NeedPeelLoop = false;
 
   // Is a remainder loop needed?
   bool NeedRemainderLoop;
@@ -410,14 +414,16 @@ private:
   SmallPtrSet<const RegDDRef *, 4> UnitStrideRefSet;
   // The loop meets search loop idiom criteria.
   VPlanIdioms::Opcode SearchLoopType;
+  // Array memref that needs to be aligned (if necessary) in the peel loop
+  // generated for a vectorized search loop.
+  const RegDDRef *SearchLoopPeelArrayRef = nullptr;
+
   SmallVector<HLDDNode *, 8> InsertRegionsStack;
 
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
   void setPeelLoop(HLLoop *L) { PeelLoop = L; }
   void setMainLoop(HLLoop *L) { MainLoop = L; }
-  void setNeedFirstItPeelLoop(bool NeedFirstItPeel) {
-    NeedFirstItPeelLoop = NeedFirstItPeel;
-  }
+  void setNeedPeelLoop(bool NeedPeel) { NeedPeelLoop = NeedPeel; }
   void setNeedRemainderLoop(bool NeedRem) { NeedRemainderLoop = NeedRem; }
   void setTripCount(uint64_t TC) { TripCount = TC; }
   void setVF(unsigned V) { VF = V; }

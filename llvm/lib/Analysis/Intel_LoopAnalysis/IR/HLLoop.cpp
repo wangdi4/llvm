@@ -1588,6 +1588,133 @@ HLLoop *HLLoop::peelFirstIteration(bool UpdateMainLoop) {
   return PeelLoop;
 }
 
+HLLoop *HLLoop::generatePeelLoop(const RegDDRef *PeelArrayRef, unsigned VF) {
+  assert(!isUnknown() && isNormalized() && "Unsupported loop for peeling.");
+  assert(PeelArrayRef && PeelArrayRef->isMemRef() &&
+         PeelArrayRef->isLinearAtLevel(getNestingLevel()) &&
+         "Unsupported PeelArrayRef.");
+
+  auto &CEU = getCanonExprUtils();
+  auto &HNU = getHLNodeUtils();
+  auto &DDU = getDDRefUtils();
+  HLContainerTy PeelLoopInsts;
+
+  // Assuming that this is a full vector register, then alignment needed for
+  // accesses to PeelArrayRef is computed as-
+  // needed_alignment = VF * sizeof(PeelArrayRef)
+  // For example, if PeelArrayRef contains 8-byte pointers and VF=4 the needed
+  // alignment will be 32.
+  unsigned PeelArrayItemSize =
+      CEU.getTypeSizeInBytes(PeelArrayRef->getDestType());
+  unsigned NeededAlignment = VF * PeelArrayItemSize;
+  const CanonExpr *PeelArrayBase = PeelArrayRef->getBaseCE();
+  Type *IntTy = IntegerType::get(
+      CEU.getContext(), CEU.getTypeSizeInBits(PeelArrayBase->getSrcType()));
+
+  // Normalization check for main loop before peeling
+  RegDDRef *OrigLB = getLowerDDRef();
+  RegDDRef *DummyTemp = HNU.createTemp(IntTy);
+  setLowerDDRef(DummyTemp);
+  if (!canNormalize()) {
+    setLowerDDRef(OrigLB);
+    assert(false && "Loop cannot be normalized.");
+    // Bailout initiation for prod builds
+    return nullptr;
+  }
+  setLowerDDRef(OrigLB);
+
+  // Next we find the current alignment of PeelArrayRef's base pointer which is
+  // obtained by-
+  // %alignment = &(%arr)[0] & (needed_alignment - 1)
+  // Here %arr is array that we align access to via the peel loop.
+  RegDDRef *PeelArrayBaseRef = PeelArrayRef->clone();
+  PeelArrayBaseRef->replaceIVByConstant(getNestingLevel(), 0);
+  PeelArrayBaseRef->setAddressOf(true);
+  HLInst *PeelArrayBaseCast =
+      HNU.createPtrToInt(IntTy, PeelArrayBaseRef, "arr.base.cast");
+  PeelLoopInsts.push_back(*PeelArrayBaseCast);
+  HLInst *Alignment = HNU.createAnd(
+      PeelArrayBaseCast->getLvalDDRef()->clone(),
+      DDU.createConstDDRef(IntTy, NeededAlignment - 1), "alignment");
+  PeelLoopInsts.push_back(*Alignment);
+
+  // Finally the peeling factor or number of peel iterations is computed as-
+  // %peel_fctr = (needed_alignment - %alignment) >> log2(sizeof(PeelArrayRef))
+  HLInst *PeelFactorSub =
+      HNU.createSub(DDU.createConstDDRef(IntTy, NeededAlignment),
+                    Alignment->getLvalDDRef()->clone(), "peel.factor");
+  PeelLoopInsts.push_back(*PeelFactorSub);
+  HLInst *PeelFactorShr = HNU.createAShr(
+      PeelFactorSub->getLvalDDRef()->clone(),
+      DDU.createConstDDRef(IntTy, Log2_64(PeelArrayItemSize)), "peel.factor");
+  PeelLoopInsts.push_back(*PeelFactorShr);
+
+  // Clamp down peeling factor if it is greater than loop's TC.
+  // %peel_fctr = (TC <= %peel_fctr) ? TC : %peel_fctr
+  HLInst *PeelFactorMin = HNU.createMin(
+      getTripCountDDRef()->clone(), PeelFactorShr->getLvalDDRef()->clone(),
+      PeelFactorShr->getLvalDDRef()->clone(), isNSW());
+  PeelLoopInsts.push_back(*PeelFactorMin);
+  auto PeelFactorSym = PeelFactorMin->getLvalDDRef()->getSymbase();
+
+  // TODO: Consider truncating PeelFactor to upper DDRef type size in case of
+  // mismatch. It is known that PeelFactor is a small number (atmost 63) for
+  // char arrays. Currently the mismatch scenario is avoided by idiom
+  // recognition. if (PeelFactorShr->getLvalDDRef()->getDestType() !=
+  //    getUpperDDRef()->getDestType()) {
+  // }
+
+  // Extract Ztt, preheader and postexit from this loop before cloning it so
+  // that the peel loop doesn't include them.
+  extractZtt();
+  extractPreheaderAndPostexit();
+
+  HLLoop *PeelLoop = clone();
+  PeelLoop->setMaxTripCountEstimate(NeededAlignment - 1);
+  PeelLoop->addLiveInTemp(PeelFactorSym);
+
+  // Updates to cloned peel loop.
+  unsigned LoopLevel = getNestingLevel();
+
+  // Upper bound of peel loop will be PeelFactor-1
+  auto *PeelLpUB = PeelFactorMin->getLvalDDRef()->clone();
+  auto *PeelLpUBCanonExpr = PeelLpUB->getSingleCanonExpr();
+  PeelLpUB->addBlobDDRef(PeelLpUBCanonExpr->getSingleBlobIndex(),
+                         LoopLevel - 1);
+  PeelLpUBCanonExpr->setDefinedAtLevel(LoopLevel - 1);
+  PeelLpUBCanonExpr->addConstant(-1, true /*IsMath*/);
+  PeelLoop->setUpperDDRef(PeelLpUB);
+
+  // RT check for peel iterations
+  HLPredicate Pred(PredicateTy::ICMP_NE);
+  HLIf *If =
+      getHLNodeUtils().createHLIf(Pred, PeelFactorMin->getLvalDDRef()->clone(),
+                                  DDU.createConstDDRef(IntTy, 0));
+  HLNodeUtils::insertAsFirstThenChild(If, PeelLoop);
+
+  PeelLoopInsts.push_back(*If);
+  HLNodeUtils::insertBefore(this, &PeelLoopInsts);
+
+  // Changes to the current loop, which will become main loop.
+  // Lower bound of main loop will be PeelFactor
+  auto *MainLpLB = PeelFactorMin->getLvalDDRef()->clone();
+  MainLpLB->getSingleCanonExpr()->setDefinedAtLevel(LoopLevel - 1);
+  setLowerDDRef(MainLpLB);
+
+  addLiveInTemp(PeelFactorSym);
+
+  // Original loop requires a new ztt since all iterations might be executed in
+  // peel loop
+  createZtt(false /*Overwrite*/);
+
+  // Since LB of main loop was changed, normalize the loop so that it starts
+  // from 0. NOTE: this is needed, since downstream utility to create main &
+  // remainder loop assume normalized scalar loops.
+  normalize();
+
+  return PeelLoop;
+}
+
 void HLLoop::populateEarlyExits(SmallVectorImpl<HLGoto *> &Gotos) {
   if (getNumExits() == 1) {
     return;

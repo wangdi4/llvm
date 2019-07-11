@@ -500,7 +500,8 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
       LLVM_DEBUG(dbgs() << "VD: VPlan Generating code in function: "
                         << Fn.getName() << "\n");
 
-    VPOCodeGen VCodeGen(Lp, PSE, LI, DT, TLI, TTI, VF, 1, &LVL, &VLSA);
+    VPOCodeGen VCodeGen(Lp, Fn.getContext(), PSE, LI, DT, TLI, TTI, VF, 1, &LVL,
+                        &VLSA);
     VCodeGen.initOpenCLScalarSelectSet(volcanoScalarSelect);
     if (VF != 1) {
       LVP.executeBestPlan(VCodeGen);
@@ -800,8 +801,11 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   if (!DisableCodeGen) {
     HIRSafeReductionAnalysis *SRA;
     SRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
+    RegDDRef *PeelArrayRef = nullptr;
+    VPlanIdioms::Opcode SearchLoopOpcode =
+        VPlanIdioms::isSearchLoop(Plan, VF, true, PeelArrayRef);
     VPOCodeGenHIR VCodeGen(TLI, TTI, SRA, &VLSA, Plan, Fn, Lp, LORBuilder, WRLp,
-                           VPlanIdioms::isSearchLoop(Plan, VF, true));
+                           SearchLoopOpcode, PeelArrayRef);
     bool LoopIsHandled = (VF != 1 && VCodeGen.loopIsHandled(Lp, VF));
 
     // Erase intrinsics before and after the loop if we either vectorized the
@@ -812,10 +816,11 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
 
     if (LoopIsHandled) {
       CandLoopsVectorized++;
-      LVP.executeBestPlan(&VCodeGen);
-      ModifiedLoop = true;
-      VPlanDriver::addOptReportRemarks<VPOCodeGenHIR, loopopt::HLLoop>(
-          VPORBuilder, &VCodeGen);
+      if (LVP.executeBestPlan(&VCodeGen)) {
+        ModifiedLoop = true;
+        VPlanDriver::addOptReportRemarks<VPOCodeGenHIR, loopopt::HLLoop>(
+            VPORBuilder, &VCodeGen);
+      }
     }
   }
 
@@ -877,7 +882,7 @@ bool VPlanDriver::isVPlanCandidate(Function &Fn, Loop *Lp) {
   LoopVectorizeHints Hints(Lp, true, *ORE);
   std::function<const LoopAccessInfo &(Loop &)> GetLAA =
       [&](Loop &L) -> const LoopAccessInfo & { return LAA->getInfo(&L); };
-  LoopVectorizationLegality LVL(Lp, PSE, DT, TLI, AA, &Fn, &GetLAA, LI, ORE,
+  LoopVectorizationLegality LVL(Lp, PSE, DT, TTI, TLI, AA, &Fn, &GetLAA, LI, ORE,
                                 &Requirements, &Hints, DB, AC);
 
   if (!LVL.canVectorize(false /* EnableVPlanNativePath */))

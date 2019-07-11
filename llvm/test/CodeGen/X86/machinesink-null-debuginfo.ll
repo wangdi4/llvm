@@ -13,7 +13,7 @@ define double @_Z3fooddb(double %x, double %y, i1 zeroext %c) local_unnamed_addr
   %a = fdiv double %x, 3.000000e+00
   %b = fdiv double %y, 5.000000e+00, !dbg !19
   %cond = select i1 %c,  double %a, double %b
-; CHECK-NOT: debug-location !19
+; CHECK: DIVSDrm {{.*}} debug-location !19                               ;INTEL
   ret double %cond, !dbg !20
 }
 

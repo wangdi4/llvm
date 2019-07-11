@@ -81,6 +81,7 @@ SOAToAOSArrayMethodsCheckDebug::Ignore
 SOAToAOSArrayMethodsCheckDebug::run(Function &F, FunctionAnalysisManager &AM) {
 
   auto *Res = AM.getCachedResult<SOAToAOSApproximationDebug>(F);
+  auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
   if (!Res)
     report_fatal_error("SOAToAOSApproximationDebug was not run before "
                        "SOAToAOSArrayMethodsCheckDebug.");
@@ -97,7 +98,7 @@ SOAToAOSArrayMethodsCheckDebug::run(Function &F, FunctionAnalysisManager &AM) {
   std::unique_ptr<SOAToAOSArrayMethodsCheckDebugResult> Result(
       new SOAToAOSArrayMethodsCheckDebugResult());
   ComputeArrayMethodClassification MC(F.getParent()->getDataLayout(), *DM, S,
-                                      *Result);
+                                      *Result, TLI);
   Result->MK = MC.classify().first;
   LLVM_DEBUG(dbgs() << "; Classification: " << Result->MK << "\n");
 

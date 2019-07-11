@@ -1004,6 +1004,12 @@ public:
   /// - any CE is linear
   bool isLinear(void) const { return !isNonLinear(); }
 
+  /// Returns true if this is linear at some levels (greater than
+  /// DefinedAtLevel) in the current loopnest.
+  bool isLinearAtLevel(unsigned Level) const {
+    return getDefinedAtLevel() < Level;
+  }
+
   /// A RegDDRef is nonlinear if any of the following is true:
   /// - its baseCE (if available) is nonlinear
   /// - any CE is nonlinear

@@ -33,6 +33,8 @@ if (NOT PACKAGE_VERSION)
     "${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.${LLVM_VERSION_PATCH}${LLVM_VERSION_SUFFIX}")
 endif()
 
+set(INTEL_CUSTOMIZATION ON)
+
 if ((CMAKE_GENERATOR MATCHES "Visual Studio") AND (CMAKE_GENERATOR_TOOLSET STREQUAL ""))
   message(WARNING "Visual Studio generators use the x86 host compiler by "
                   "default, even for 64-bit targets. This can result in linker "
@@ -629,7 +631,6 @@ set(TARGET_TRIPLE "${LLVM_DEFAULT_TARGET_TRIPLE}")
 message(STATUS "LLVM host triple: ${LLVM_HOST_TRIPLE}")
 message(STATUS "LLVM default target triple: ${LLVM_DEFAULT_TARGET_TRIPLE}")
 
-set(INTEL_CUSTOMIZATION ON)
 # INTEL_CUSTOMIZATION
 if (UWD_BUILD)
   add_definitions( -DWINDOWS_ONECORE )
@@ -841,11 +842,6 @@ if(INTEL_CUSTOMIZATION)
       # and it must never be used to guard any code.
       list(REMOVE_ITEM features_enabled_by_default
            "${LLVM_INTELFEATURE_PREFIX}_XISA")
-
-# INTEL_FEATURE_ISA_ENQCMD
-      list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_ISA_ENQCMD)
-# end INTEL_FEATURE_ISA_ENQCMD
 
 # INTEL_FEATURE_ISA_ULI
       list(APPEND features_enabled_by_default
@@ -1092,6 +1088,13 @@ if(APPLE AND DARWIN_LTO_LIBRARY)
     "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-lto_library -Wl,${DARWIN_LTO_LIBRARY}")
   set(CMAKE_MODULE_LINKER_FLAGS
     "${CMAKE_MODULE_LINKER_FLAGS} -Wl,-lto_library -Wl,${DARWIN_LTO_LIBRARY}")
+endif()
+
+# Build with _XOPEN_SOURCE on AIX, as stray macros in _ALL_SOURCE mode tend to
+# break things. In this case we need to enable the large-file API as well.
+if (UNIX AND ${CMAKE_SYSTEM_NAME} MATCHES "AIX")
+          add_definitions("-D_XOPEN_SOURCE=700")
+          add_definitions("-D_LARGE_FILE_API")
 endif()
 
 # Work around a broken bfd ld behavior. When linking a binary with a
@@ -1342,36 +1345,8 @@ endif()
 
 # This must be at the end of the LLVM root CMakeLists file because it must run
 # after all targets are created.
-if(LLVM_DISTRIBUTION_COMPONENTS)
-  if(LLVM_ENABLE_IDE)
-    message(FATAL_ERROR "LLVM_DISTRIBUTION_COMPONENTS cannot be specified with multi-configuration generators (i.e. Xcode or Visual Studio)")
-  endif()
-
-  add_custom_target(distribution)
-  add_custom_target(install-distribution)
-  add_custom_target(install-distribution-stripped)
-  foreach(target ${LLVM_DISTRIBUTION_COMPONENTS} ${LLVM_RUNTIME_DISTRIBUTION_COMPONENTS})
-    if(TARGET ${target})
-      add_dependencies(distribution ${target})
-    else()
-      message(SEND_ERROR "Specified distribution component '${target}' doesn't have a target")
-    endif()
-
-    if(TARGET install-${target})
-      add_dependencies(install-distribution install-${target})
-    else()
-      message(SEND_ERROR "Specified distribution component '${target}' doesn't have an install target")
-    endif()
-
-    if(TARGET install-${target}-stripped)
-      add_dependencies(install-distribution-stripped install-${target}-stripped)
-    else()
-      message(SEND_ERROR "Specified distribution component '${target}' doesn't have an install-stripped target."
-                         " Its installation target creation should be changed to use add_llvm_install_targets,"
-                         " or you should manually create the 'install-${target}-stripped' target.")
-    endif()
-  endforeach()
-endif()
+include(LLVMDistributionSupport)
+llvm_distribution_add_targets()
 
 # This allows us to deploy the Universal CRT DLLs by passing -DCMAKE_INSTALL_UCRT_LIBRARIES=ON to CMake
 if (MSVC AND CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows" AND CMAKE_INSTALL_UCRT_LIBRARIES)

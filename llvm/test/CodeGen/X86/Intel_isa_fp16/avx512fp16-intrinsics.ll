@@ -30,7 +30,7 @@ define <32 x half> @test_mask_sqrt_ph_512(<32 x half> %a0, <32 x half> %passthru
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vsqrtph %zmm0, %zmm1 {%k1}
-; CHECK-NEXT:    vmovdqa64 %zmm1, %zmm0
+; CHECK-NEXT:    vmovaps %zmm1, %zmm0
 ; CHECK-NEXT:    retq
   %1 = call <32 x half> @llvm.sqrt.v32f16(<32 x half> %a0)
   %2 = bitcast i32 %mask to <32 x i1>
@@ -66,7 +66,7 @@ define <32 x half> @test_mask_sqrt_round_ph_512(<32 x half> %a0, <32 x half> %pa
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vsqrtph {rz-sae}, %zmm0, %zmm1 {%k1}
-; CHECK-NEXT:    vmovdqa64 %zmm1, %zmm0
+; CHECK-NEXT:    vmovaps %zmm1, %zmm0
 ; CHECK-NEXT:    retq
   %1 = call <32 x half> @llvm.x86.avx512fp16.sqrt.ph.512(<32 x half> %a0, i32 11)
   %2 = bitcast i32 %mask to <32 x i1>
@@ -93,7 +93,7 @@ define <8 x half> @test_sqrt_sh(<8 x half> %a0, <8 x half> %a1, <8 x half> %a2, 
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vsqrtsh %xmm1, %xmm0, %xmm2 {%k1}
-; CHECK-NEXT:    vmovdqa %xmm2, %xmm0
+; CHECK-NEXT:    vmovaps %xmm2, %xmm0
 ; CHECK-NEXT:    retq
   %res = call <8 x half> @llvm.x86.avx512fp16.mask.sqrt.sh(<8 x half> %a0, <8 x half> %a1, <8 x half> %a2, i8 %mask, i32 4)
   ret <8 x half> %res
@@ -104,7 +104,7 @@ define <8 x half> @test_sqrt_sh_r(<8 x half> %a0, <8 x half> %a1, <8 x half> %a2
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vsqrtsh {ru-sae}, %xmm1, %xmm0, %xmm2 {%k1}
-; CHECK-NEXT:    vmovdqa %xmm2, %xmm0
+; CHECK-NEXT:    vmovaps %xmm2, %xmm0
 ; CHECK-NEXT:    retq
   %res = call <8 x half> @llvm.x86.avx512fp16.mask.sqrt.sh(<8 x half> %a0, <8 x half> %a1, <8 x half> %a2, i8 %mask, i32 10)
   ret <8 x half> %res
@@ -175,7 +175,7 @@ define <8 x half> @test_rsqrt_sh_mask(<8 x half> %a0, <8 x half> %b0, <8 x half>
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vrsqrtsh %xmm1, %xmm0, %xmm2 {%k1}
-; CHECK-NEXT:    vmovdqa %xmm2, %xmm0
+; CHECK-NEXT:    vmovaps %xmm2, %xmm0
 ; CHECK-NEXT:    retq
   %res = call <8 x half> @llvm.x86.avx512fp16.mask.rsqrt.sh(<8 x half> %a0, <8 x half> %b0, <8 x half> %c0, i8 %mask)
   ret <8 x half> %res
@@ -232,7 +232,7 @@ define <32 x half> @test_rcp_ph_512(<32 x half> %a0, <32 x half> %a1, i32 %mask)
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vrcpph %zmm0, %zmm1 {%k1}
-; CHECK-NEXT:    vmovdqa64 %zmm1, %zmm0
+; CHECK-NEXT:    vmovaps %zmm1, %zmm0
 ; CHECK-NEXT:    retq
   %res = call <32 x half> @llvm.x86.avx512fp16.mask.rcp.ph.512(<32 x half> %a0, <32 x half> %a1, i32 %mask)
   ret <32 x half> %res
@@ -358,7 +358,7 @@ define <8 x half>@test_int_x86_avx512_mask_getexp_sh(<8 x half> %x0, <8 x half> 
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vgetexpsh %xmm1, %xmm0, %xmm2 {%k1}
-; CHECK-NEXT:    vmovdqa %xmm2, %xmm0
+; CHECK-NEXT:    vmovaps %xmm2, %xmm0
 ; CHECK-NEXT:    retq
     %res = call <8 x half> @llvm.x86.avx512fp16.mask.getexp.sh(<8 x half> %x0, <8 x half> %x1, <8 x half> %x3, i8 %x4, i32 4)
     ret <8 x half> %res
@@ -455,7 +455,7 @@ define <8 x half>@test_int_x86_avx512_mask_scalef_sh(<8 x half> %x0, <8 x half> 
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vscalefsh %xmm1, %xmm0, %xmm2 {%k1}
-; CHECK-NEXT:    vmovdqa %xmm2, %xmm0
+; CHECK-NEXT:    vmovaps %xmm2, %xmm0
 ; CHECK-NEXT:    retq
     %res = call <8 x half> @llvm.x86.avx512fp16.mask.scalef.sh(<8 x half> %x0, <8 x half> %x1, <8 x half> %x3, i8 %x4, i32 4)
     ret <8 x half> %res
@@ -487,11 +487,11 @@ define <8 x half> @test_int_x86_avx512fp16_mask_add_sh(<8 x half> %x1, <8 x half
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vaddsh %xmm1, %xmm0, %xmm0
-; CHECK-NEXT:    vmovdqa %xmm2, %xmm3
+; CHECK-NEXT:    vmovaps %xmm2, %xmm3
 ; CHECK-NEXT:    vaddsh %xmm1, %xmm0, %xmm3 {%k1}
 ; CHECK-NEXT:    vaddsh %xmm1, %xmm3, %xmm0 {%k1} {z}
 ; CHECK-NEXT:    vaddsh (%rsi), %xmm0, %xmm2 {%k1}
-; CHECK-NEXT:    vmovdqa %xmm2, %xmm0
+; CHECK-NEXT:    vmovaps %xmm2, %xmm0
 ; CHECK-NEXT:    retq
   %val.half = load half,half * %ptr
   %val = insertelement <8 x half> undef, half %val.half, i32 0
@@ -509,11 +509,11 @@ define <8 x half> @test_int_x86_avx512fp16_mask_sub_sh(<8 x half> %x1, <8 x half
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vsubsh %xmm1, %xmm0, %xmm0
-; CHECK-NEXT:    vmovdqa %xmm2, %xmm3
+; CHECK-NEXT:    vmovaps %xmm2, %xmm3
 ; CHECK-NEXT:    vsubsh %xmm1, %xmm0, %xmm3 {%k1}
 ; CHECK-NEXT:    vsubsh %xmm1, %xmm3, %xmm0 {%k1} {z}
 ; CHECK-NEXT:    vsubsh (%rsi), %xmm0, %xmm2 {%k1}
-; CHECK-NEXT:    vmovdqa %xmm2, %xmm0
+; CHECK-NEXT:    vmovaps %xmm2, %xmm0
 ; CHECK-NEXT:    retq
   %val.half = load half,half * %ptr
   %val = insertelement <8 x half> undef, half %val.half, i32 0
@@ -531,11 +531,11 @@ define <8 x half> @test_int_x86_avx512fp16_mask_mul_sh(<8 x half> %x1, <8 x half
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vmulsh %xmm1, %xmm0, %xmm0
-; CHECK-NEXT:    vmovdqa %xmm2, %xmm3
+; CHECK-NEXT:    vmovaps %xmm2, %xmm3
 ; CHECK-NEXT:    vmulsh %xmm1, %xmm0, %xmm3 {%k1}
 ; CHECK-NEXT:    vmulsh %xmm1, %xmm3, %xmm0 {%k1} {z}
 ; CHECK-NEXT:    vmulsh (%rsi), %xmm0, %xmm2 {%k1}
-; CHECK-NEXT:    vmovdqa %xmm2, %xmm0
+; CHECK-NEXT:    vmovaps %xmm2, %xmm0
 ; CHECK-NEXT:    retq
   %val.half = load half,half * %ptr
   %val = insertelement <8 x half> undef, half %val.half, i32 0
@@ -553,11 +553,11 @@ define <8 x half> @test_int_x86_avx512fp16_mask_div_sh(<8 x half> %x1, <8 x half
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vdivsh %xmm1, %xmm0, %xmm0
-; CHECK-NEXT:    vmovdqa %xmm2, %xmm3
+; CHECK-NEXT:    vmovaps %xmm2, %xmm3
 ; CHECK-NEXT:    vdivsh %xmm1, %xmm0, %xmm3 {%k1}
 ; CHECK-NEXT:    vdivsh %xmm1, %xmm3, %xmm0 {%k1} {z}
 ; CHECK-NEXT:    vdivsh (%rsi), %xmm0, %xmm2 {%k1}
-; CHECK-NEXT:    vmovdqa %xmm2, %xmm0
+; CHECK-NEXT:    vmovaps %xmm2, %xmm0
 ; CHECK-NEXT:    retq
   %val.half = load half,half * %ptr
   %val = insertelement <8 x half> undef, half %val.half, i32 0
@@ -575,11 +575,11 @@ define <8 x half> @test_int_x86_avx512fp16_mask_min_sh(<8 x half> %x1, <8 x half
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vminsh %xmm1, %xmm0, %xmm0
-; CHECK-NEXT:    vmovdqa %xmm2, %xmm3
+; CHECK-NEXT:    vmovaps %xmm2, %xmm3
 ; CHECK-NEXT:    vminsh %xmm1, %xmm0, %xmm3 {%k1}
 ; CHECK-NEXT:    vminsh %xmm1, %xmm3, %xmm0 {%k1} {z}
 ; CHECK-NEXT:    vminsh (%rsi), %xmm0, %xmm2 {%k1}
-; CHECK-NEXT:    vmovdqa %xmm2, %xmm0
+; CHECK-NEXT:    vmovaps %xmm2, %xmm0
 ; CHECK-NEXT:    retq
   %val.half = load half,half * %ptr
   %val = insertelement <8 x half> undef, half %val.half, i32 0
@@ -597,11 +597,11 @@ define <8 x half> @test_int_x86_avx512fp16_mask_max_sh(<8 x half> %x1, <8 x half
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
 ; CHECK-NEXT:    vmaxsh %xmm1, %xmm0, %xmm0
-; CHECK-NEXT:    vmovdqa %xmm2, %xmm3
+; CHECK-NEXT:    vmovaps %xmm2, %xmm3
 ; CHECK-NEXT:    vmaxsh %xmm1, %xmm0, %xmm3 {%k1}
 ; CHECK-NEXT:    vmaxsh %xmm1, %xmm3, %xmm0 {%k1} {z}
 ; CHECK-NEXT:    vmaxsh (%rsi), %xmm0, %xmm2 {%k1}
-; CHECK-NEXT:    vmovdqa %xmm2, %xmm0
+; CHECK-NEXT:    vmovaps %xmm2, %xmm0
 ; CHECK-NEXT:    retq
   %val.half = load half,half * %ptr
   %val = insertelement <8 x half> undef, half %val.half, i32 0

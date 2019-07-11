@@ -51,7 +51,8 @@ OVLSMemref *VPlanVLSAnalysisHIR::createVLSMemref(const VPInstruction *Inst,
 
   const HLNode *Node = Inst->HIR.getUnderlyingNode();
   const HLDDNode *DDNode = cast_or_null<HLDDNode>(Node);
-  assert(DDNode && "HLDDNode is expected.");
+  if (!DDNode)
+    return nullptr;
 
   int Level = 0;
   if (HLLoop *Lp = Node->getParentLoop())

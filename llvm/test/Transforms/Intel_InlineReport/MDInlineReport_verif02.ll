@@ -2,6 +2,9 @@
 ; RUN: opt -passes=inlinereportsetup -inline-report=0x180 < %s -S 2>&1 | FileCheck %s
 
 ; This test checks that verification correctly works with deleted call sites.
+; Note: the test depends on particular number for NinlrDeleted reason. In case
+; of adding new inline reasons please update the reasons numbers in metadata to
+; match the new state.
 
 ; CHECK:define dso_local void @main() local_unnamed_addr !intel.function.inlining.report [[MAIN_FIR:![0-9]+]] {
 ; CHECK:  tail call void (...) @k(), !intel.callsite.inlining.report [[K_A1_MAIN_CS:![0-9]+]]
@@ -119,7 +122,7 @@ entry:
 !5 = distinct !{!"intel.callsite.inlining.report", !6, null, !7, !8, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
 !6 = !{!"name: k"}
 !7 = !{!"isInlined: 0"}
-!8 = !{!"reason: 34"} ;NinlrExtern
+!8 = !{!"reason: 34"}                         ;NinlrExtern
 !9 = !{!"inlineCost: -1"}
 !10 = !{!"outerInlineCost: -1"}
 !11 = !{!"inlineThreshold: -1"}
@@ -150,9 +153,9 @@ entry:
 !36 = distinct !{!"intel.callsites.inlining.report", !37, !38}
 !37 = distinct !{!"intel.callsite.inlining.report", !6, null, !7, !8, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
 !38 = distinct !{!"intel.callsite.inlining.report", !16, null, !7, !39, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
-!39 = !{!"reason: 31"} ;NinlrDeleted
+!39 = !{!"reason: 31"}                          ;NinlrDeleted
 !40 = !{!"isInlined: 1"}
-!41 = !{!"reason: 9"} ;InlrSingleBasicBlock
+!41 = !{!"reason: 9"}                           ;InlrSingleBasicBlock
 !42 = !{!"inlineCost: -5"}
 !43 = !{!"inlineThreshold: 337"}
 !44 = distinct !{!"intel.callsite.inlining.report", !24, !45, !40, !41, !42, !10, !43, !12, !13, !"line: 0 col: 0", !14}

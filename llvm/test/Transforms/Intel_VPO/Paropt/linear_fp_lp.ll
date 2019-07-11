@@ -76,7 +76,7 @@ entry:
 
 ; Initialization of linear var per iteration
 ; CHECK: [[LOAD2:%[a-zA-Z._0-9]+]] = load i16, i16* [[LINEAR_INIT]]
-; CHECK: [[MUL:%[a-zA-Z._0-9]+]] = mul i32 %.omp.iv{{[.0-9]*}}, [[STEP_VAL_INREGION]]
+; CHECK: [[MUL:%[a-zA-Z._0-9]+]] = mul i32 %.omp.iv.local{{[.0-9]*}}, [[STEP_VAL_INREGION]]
 ; CHECK: [[CAST1:%[a-zA-Z._0-9]+]] = sext i16 [[LOAD2]] to i32
 ; CHECK: [[ADD:%[a-zA-Z._0-9]+]] = add i32 [[CAST1]], [[MUL]]
 ; CHECK: [[CAST2:%[a-zA-Z._0-9]+]] = trunc i32 [[ADD]] to i16

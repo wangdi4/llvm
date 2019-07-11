@@ -139,6 +139,7 @@ void initializeX86FeatureInitPassPass(PassRegistry&); // INTEL
 void initializeEvexToVexInstPassPass(PassRegistry &);
 void initializeFixupBWInstPassPass(PassRegistry &);
 void initializeFixupLEAPassPass(PassRegistry &);
+void initializeFPSPass(PassRegistry &);
 void initializeWinEHStatePassPass(PassRegistry &);
 void initializeX86AvoidSFBPassPass(PassRegistry &);
 void initializeX86CallFrameOptimizationPass(PassRegistry &);

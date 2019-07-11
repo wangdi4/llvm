@@ -82,6 +82,10 @@ static cl::opt<bool> EnableFirstIterPeelMEVec(
     cl::desc(
         "Enable first iteration peel loop for vectorized multi-exit loops."));
 
+static cl::opt<bool> EnablePeelMEVec(
+    "enable-peel-me-vec", cl::init(true), cl::Hidden,
+    cl::desc("Enable peel loop for vectorized multi-exit loops."));
+
 // Force full VPValue based code generation.
 static cl::opt<bool>
     EnableVPValueCodegen("enable-vp-value-codegen", cl::init(false), cl::Hidden,
@@ -753,7 +757,7 @@ HLLoop *VPOCodeGenHIR::findRednHoistInsertionPoint(HLLoop *Lp) {
   return Lp;
 }
 
-void VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
+bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
   assert(VF > 1);
   setVF(VF);
 
@@ -780,13 +784,21 @@ void VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
   // Setup peel, main and remainder loops
   // TODO: Peeling decisions should be properly made in VPlan's cost model and
   // not during code generation. The following logic is a temporary workaround
-  // to have 1-iteration peeling functionality working for vectorized search
-  // loops.
+  // to have peeling functionality working for vectorized search loops.
+
   bool SearchLoopNeedsPeeling =
       TTI->isAdvancedOptEnabled(
           TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2) &&
-      EnableFirstIterPeelMEVec && isSearchLoop() &&
-      getSearchLoopType() == VPlanIdioms::SearchLoopStrEq;
+      (EnableFirstIterPeelMEVec || EnablePeelMEVec) && isSearchLoop() &&
+      (getSearchLoopType() == VPlanIdioms::SearchLoopStrEq ||
+       getSearchLoopType() == VPlanIdioms::SearchLoopStructPtrEq);
+
+  if (isSearchLoop() &&
+      getSearchLoopType() == VPlanIdioms::SearchLoopStructPtrEq) {
+    assert(SearchLoopPeelArrayRef &&
+           "StructPtrEq search loop does not have peel array ref.\n");
+  }
+
   // We cannot peel any iteration of the loop when the trip count is constant
   // and lower or equal than VF since we have already made the decision of
   // vectorizing that loop with such a VF.
@@ -794,26 +806,40 @@ void VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
   bool IsTCValidForPeeling =
       OrigLoop->isConstTripLoop(&TripCount) && TripCount <= VF ? false : true;
   if (SearchLoopNeedsPeeling && !IsTCValidForPeeling)
-    LLVM_DEBUG(dbgs() << "Can't peel first loop iteration: VF(" << VF
-                      << ") >= TC(" << TripCount << ")!\n");
+    LLVM_DEBUG(dbgs() << "Can't peel loop : VF(" << VF << ") >= TC("
+                      << TripCount << ")!\n");
 
-  bool NeedFirstItPeelLoop = SearchLoopNeedsPeeling & IsTCValidForPeeling;
+  bool NeedPeelLoop = SearchLoopNeedsPeeling & IsTCValidForPeeling;
   bool NeedRemainderLoop = false;
   HLLoop *PeelLoop = nullptr;
   SmallVector<std::tuple<HLPredicate, RegDDRef *, RegDDRef *>, 2> RTChecks;
   // Generate padding runtime check if OrigLoops requires it. Otherwise, nothing
   // is added to RTChecks.
   addPaddingRuntimeCheck(RTChecks);
+
+  // Specialized first iteration peeling is needed only for the SearchLoopStrEq
+  // idiom.
+  bool NeedFirstIterationPeelLoop =
+      NeedPeelLoop && getSearchLoopType() == VPlanIdioms::SearchLoopStrEq;
+
   auto MainLoop = HIRTransformUtils::setupPeelMainAndRemainderLoops(
       OrigLoop, VF, NeedRemainderLoop, LORBuilder, OptimizationType::Vectorizer,
-      &PeelLoop, NeedFirstItPeelLoop, &RTChecks);
+      &PeelLoop, NeedFirstIterationPeelLoop, SearchLoopPeelArrayRef, &RTChecks);
+
+  if (!MainLoop) {
+    assert(false && "Main loop could not be setup.");
+    // Bailout for prod builds
+    return false;
+  }
 
   if (PeelLoop) {
-    setNeedFirstItPeelLoop(NeedFirstItPeelLoop);
+    setNeedPeelLoop(NeedPeelLoop);
     setPeelLoop(PeelLoop);
     if (TripCount > 0) {
       assert(TripCount > 1 && "Expected trip-count > 1!");
-      setTripCount(TripCount - 1);
+      if (NeedFirstIterationPeelLoop)
+        setTripCount(TripCount - 1);
+      // TODO : What about generic peel loop?
     }
   }
 
@@ -841,11 +867,13 @@ void VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
   if (NeedRemainderLoop) {
     OrigLoop->markDoNotVectorize();
   }
+
+  return true;
 }
 
 void VPOCodeGenHIR::finalizeVectorLoop(void) {
   LLVM_DEBUG(dbgs() << "\n\n\nHandled loop after: \n");
-  if (NeedFirstItPeelLoop)
+  if (NeedPeelLoop)
     LLVM_DEBUG(PeelLoop->dump());
   LLVM_DEBUG(MainLoop->dump());
   if (NeedRemainderLoop)
@@ -1847,7 +1875,8 @@ HLInst *VPOCodeGenHIR::widenInterleavedAccess(const HLInst *INode,
 // Generate cttz(bsf) call for a given Ref.
 //    %intmask = bitcast.i32(Ref);
 //    %bsf = call intrinsic.cttz.i32(Ref);
-HLInst *VPOCodeGenHIR::createCTTZCall(RegDDRef *Ref, const Twine &Name) {
+HLInst *VPOCodeGenHIR::createCTTZCall(RegDDRef *Ref, bool MaskIsNonZero,
+                                      const Twine &Name) {
   assert(Ref && "Ref is expected for this assignment.");
 
   HLNodeUtils &HNU = OrigLoop->getHLNodeUtils();
@@ -1861,12 +1890,13 @@ HLInst *VPOCodeGenHIR::createCTTZCall(RegDDRef *Ref, const Twine &Name) {
 
   RegDDRef *IntRef = BitCastInst->getLvalDDRef();
   // As soon as this code has to be under if condition, return value from cttz
-  // can be undefined if mask is zero.
+  // can be undefined if mask is zero. However if we know for a fact that mask
+  // is non-zero, then inform intrinsic that zero produces defined result.
   Type *BoolTy = IntegerType::get(Context, 1);
   Function *BsfFunc =
       Intrinsic::getDeclaration(&HNU.getModule(), Intrinsic::cttz, {IntTy});
-  SmallVector<RegDDRef *, 1> Args = {IntRef->clone(),
-                                     DDRU.createConstDDRef(BoolTy, 0)};
+  SmallVector<RegDDRef *, 1> Args = {
+      IntRef->clone(), DDRU.createConstDDRef(BoolTy, MaskIsNonZero)};
   HLInst *BsfCall = HNU.createCall(BsfFunc, Args, Name);
   addInstUnmasked(BsfCall);
   return BsfCall;
@@ -1879,8 +1909,9 @@ HLInst *VPOCodeGenHIR::createCTTZCall(RegDDRef *Ref, const Twine &Name) {
 //    %live-out-value = %i1 + %bsf * %linear-stride;
 //
 HLInst *VPOCodeGenHIR::handleLiveOutLinearInEarlyExit(HLInst *INode,
-                                                      RegDDRef *Mask) {
-  HLInst *BsfCall = createCTTZCall(Mask);
+                                                      RegDDRef *Mask,
+                                                      bool MaskIsNonZero) {
+  HLInst *BsfCall = createCTTZCall(Mask, MaskIsNonZero);
 
   // Finally update linear reference by number of executed iterations.
   RegDDRef *LinRef = INode->getRvalDDRef();
@@ -2008,7 +2039,12 @@ void VPOCodeGenHIR::handleNonLinearEarlyExitLiveOuts(const HLGoto *Goto) {
     assert(LvalRef->isNonLinear() &&
            "Unsupported live-out: expected non-linear LvalDDRef!");
     (void)LvalRef;
-    handleLiveOutLinearInEarlyExit(NewLOInst, CurMaskValue);
+    // All linear live-outs for the SearchLoopStructPtrEq idiom are known to be
+    // strictly inside the if-then block of mask check. Hence we know that mask
+    // is non-zero for such live-out instructions.
+    handleLiveOutLinearInEarlyExit(
+        NewLOInst, CurMaskValue,
+        SearchLoopType == VPlanIdioms::SearchLoopStructPtrEq /*NonZeroMask*/);
   }
 }
 
@@ -2198,7 +2234,9 @@ void VPOCodeGenHIR::widenNodeImpl(const HLInst *INode, RegDDRef *Mask,
       INode->getLvalDDRef()->isLiveOutOfParentLoop() && INode->hasRval() &&
       !INode->getRvalDDRef()->isNonLinear()) {
     assert(Mask && "HLInst with linear ref does not have mask.");
-    handleLiveOutLinearInEarlyExit(INode->clone(), Mask);
+    handleLiveOutLinearInEarlyExit(
+        INode->clone(), Mask,
+        SearchLoopType == VPlanIdioms::SearchLoopStructPtrEq /*NonZeroMask*/);
     return;
   }
 
@@ -2789,7 +2827,7 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
   if (!Mask)
     Mask = CurMaskValue;
 
-  if (HIR.isDecomposed() && HIR.isValid()) {
+  if (HIR.isDecomposed() && VPInst->isUnderlyingIRValid()) {
     // Skip decomposed VPInstruction with valid HIR. This will be codegen'ed by
     // its master VPInstruction.
     LLVM_DEBUG(dbgs() << "Skipping decomposed VPInstruction with valid HIR:"
@@ -2815,7 +2853,7 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
     return;
   }
 
-  if (HIR.isValid()) {
+  if (VPInst->isUnderlyingIRValid()) {
     // Master VPInstruction with valid HIR.
     assert(HIR.isMaster() && "VPInstruction with valid HIR must be a Master "
                              "VPInstruction at this point.");

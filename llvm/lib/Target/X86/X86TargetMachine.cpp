@@ -66,7 +66,7 @@ static cl::opt<unsigned>
 MaxLegalVectorWidth("x86-experimental-max-legal-vector-width",
                     cl::desc("Limit the maximum legal vector width"),
                     cl::init(0), cl::Hidden);
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 extern "C" void LLVMInitializeX86Target() {
   // Register the target.
@@ -79,6 +79,7 @@ extern "C" void LLVMInitializeX86Target() {
   initializeFixupBWInstPassPass(PR);
   initializeEvexToVexInstPassPass(PR);
   initializeFixupLEAPassPass(PR);
+  initializeFPSPass(PR);
   initializeX86CallFrameOptimizationPass(PR);
   initializeX86CmovConverterPassPass(PR);
   initializeX86ExpandPseudoPass(PR);

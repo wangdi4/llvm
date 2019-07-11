@@ -18,9 +18,8 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLAN_DIVERGENCE_ANALYSIS_H
 
 #include "IntelVPlanLoopInfo.h"
-#include "llvm/ADT/DenseSet.h"
-#include "llvm/IR/Function.h"
 #include "IntelVPlanVectorShape.h"
+#include "llvm/ADT/DenseSet.h"
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLDDNode.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"

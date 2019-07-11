@@ -387,7 +387,8 @@ protected:
   static bool needsInLoopAlloca(const Item *I) {
     Type *ElemType = nullptr;
     Value *NumElems = nullptr;
-    getItemInfoFromValue(I->getOrig(), ElemType, NumElems);
+    unsigned AddrSpace = 0u;
+    getItemInfoFromValue(I->getOrig(), ElemType, NumElems, AddrSpace);
     if (I->getIsByRef())
       ElemType = cast<PointerType>(ElemType)->getPointerElementType();
     return NumElems || ElemType->isAggregateType();

@@ -46,16 +46,62 @@ static cl::opt<bool> EnableDeleteFields("enable-dtrans-deletefield",
                                         cl::init(true), cl::Hidden,
                                         cl::desc("Enable DTrans delete field"));
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-// Valid values: early -> dump before early DTrans passes
-//               late -> dump before late DTrans passes
-enum DumpModuleDTransValues { early, late };
+// Valid values for the dump-module-after-dtrans and dump-module-before-dtrans
+// options:
+//   early -> dump before/after early DTrans passes
+//   late -> dump before/after late DTrans passes
+//   <passname> -> dump before/after specific pass
+enum DumpModuleDTransValues {
+  early,
+  resolvetypes,
+  transpose,
+  soatoaos,
+  weakalign,
+  deletefield,
+  meminittrimdown,
+  reorderfields,
+  aostosoa,
+  elimrofieldaccess,
+  dynclone,
+  annotatorcleaner,
+  late
+};
 
+static const char *DumpModuleDTransNames[] = {"Early",
+                                              "ResolveTypes",
+                                              "Transpose",
+                                              "SOAToAOS",
+                                              "WeakAlign",
+                                              "DeleteField",
+                                              "MemInitTrimDown",
+                                              "ReorderFields",
+                                              "AOSToSOA",
+                                              "EliminateROFieldAccess",
+                                              "DynClone",
+                                              "AnnotatorCleaner",
+                                              "Late"};
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::list<DumpModuleDTransValues> DumpModuleBeforeDTrans(
     "dump-module-before-dtrans", cl::ReallyHidden,
     cl::desc("Dumps LLVM module to dbgs() before DTRANS transformation"),
-    cl::values(clEnumVal(early, "Dump LLVM Module before early DTRANS passes"),
-               clEnumVal(late, "Dump LLVM Module before late DTRANS passes")));
+    cl::values(
+        clEnumVal(early, "Dump LLVM Module before early DTRANS passes"),
+        clEnumVal(resolvetypes, "Dump LLVM Module before ResolveTypes pass"),
+        clEnumVal(transpose, "Dump LLVM Module before Transpose pass"),
+        clEnumVal(soatoaos, "Dump LLVM Module before SOA-to-AOS pass"),
+        clEnumVal(weakalign, "Dump LLVM Module before WeakAlign pass"),
+        clEnumVal(deletefield, "Dump LLVM Module before DeleteField pass"),
+        clEnumVal(meminittrimdown,
+                  "Dump LLVM Module before MemInitTrimDown pass"),
+        clEnumVal(reorderfields, "Dump LLVM Module before ReorderFields pass"),
+        clEnumVal(aostosoa, "Dump LLVM Module before AOS-to-SOA pass"),
+        clEnumVal(elimrofieldaccess,
+                  "Dump LLVM Module before EliminateROFieldAccess pass"),
+        clEnumVal(dynclone, "Dump LLVM Module before DynClone pass"),
+        clEnumVal(annotatorcleaner,
+                  "Dump LLVM Module before AnnotatorCleaner pass"),
+        clEnumVal(late, "Dump LLVM Module before late DTRANS passes")));
 
 static bool hasDumpModuleBeforeDTransValue(DumpModuleDTransValues V) {
   return std::find(DumpModuleBeforeDTrans.begin(), DumpModuleBeforeDTrans.end(),
@@ -65,8 +111,23 @@ static bool hasDumpModuleBeforeDTransValue(DumpModuleDTransValues V) {
 static cl::list<DumpModuleDTransValues> DumpModuleAfterDTrans(
     "dump-module-after-dtrans", cl::ReallyHidden,
     cl::desc("Dumps LLVM module to dbgs() after DTRANS transformation"),
-    cl::values(clEnumVal(early, "Dump LLVM Module after early DTRANS passes"),
-               clEnumVal(late, "Dump LLVM Module after late DTRANS passes")));
+    cl::values(
+        clEnumVal(early, "Dump LLVM Module after early DTRANS passes"),
+        clEnumVal(resolvetypes, "Dump LLVM Module after ResolveTypes pass"),
+        clEnumVal(transpose, "Dump LLVM Module after Transpose pass"),
+        clEnumVal(soatoaos, "Dump LLVM Module after SOA-to-AOS pass"),
+        clEnumVal(weakalign, "Dump LLVM Module after WeakAlign pass"),
+        clEnumVal(deletefield, "Dump LLVM Module after DeleteField pass"),
+        clEnumVal(meminittrimdown,
+                  "Dump LLVM Module after MemInitTrimDown pass"),
+        clEnumVal(reorderfields, "Dump LLVM Module after ReorderFields pass"),
+        clEnumVal(aostosoa, "Dump LLVM Module after AOS-to-SOA pass"),
+        clEnumVal(elimrofieldaccess,
+                  "Dump LLVM Module after EliminateROFieldAccess pass"),
+        clEnumVal(dynclone, "Dump LLVM Module after DynClone pass"),
+        clEnumVal(annotatorcleaner,
+                  "Dump LLVM Module after AnnotatorCleaner pass"),
+        clEnumVal(late, "Dump LLVM Module after late DTRANS passes")));
 
 static bool hasDumpModuleAfterDTransValue(DumpModuleDTransValues V) {
   return std::find(DumpModuleAfterDTrans.begin(), DumpModuleAfterDTrans.end(),
@@ -114,31 +175,68 @@ void llvm::initializeDTransPasses(PassRegistry &PR) {
 #endif // !INTEL_PRODUCT_RELEASE
 }
 
+// Add a new pass manager type pass. Add module dumps before/after
+// the pass, if requested.
+template <typename PassT>
+static void addPass(ModulePassManager &MPM, DumpModuleDTransValues Phase,
+                    PassT P) {
+  assert(Phase <= late && "Phase value out of range");
+  if (hasDumpModuleBeforeDTransValue(Phase))
+    MPM.addPass(PrintModulePass(
+        dbgs(),
+        "; Module Before " + std::string(DumpModuleDTransNames[Phase]) + "\n"));
+
+  MPM.addPass(P);
+
+  if (hasDumpModuleAfterDTransValue(Phase))
+    MPM.addPass(PrintModulePass(
+        dbgs(),
+        "; Module After " + std::string(DumpModuleDTransNames[Phase]) + "\n"));
+}
+
 void llvm::addDTransPasses(ModulePassManager &MPM) {
   if (hasDumpModuleBeforeDTransValue(early))
     MPM.addPass(PrintModulePass(dbgs(), "; Module Before Early DTrans\n"));
 
   // This must run before any other pass that depends on DTransAnalysis.
   if (EnableResolveTypes)
-    MPM.addPass(dtrans::ResolveTypesPass());
+    addPass(MPM, resolvetypes, dtrans::ResolveTypesPass());
 
   if (EnableTranspose)
-    MPM.addPass(dtrans::TransposePass());
+    addPass(MPM, transpose, dtrans::TransposePass());
   if (EnableSOAToAOS)
-    MPM.addPass(dtrans::SOAToAOSPass());
-  MPM.addPass(dtrans::WeakAlignPass());
+    addPass(MPM, soatoaos, dtrans::SOAToAOSPass());
+  addPass(MPM, weakalign, dtrans::WeakAlignPass());
   if (EnableDeleteFields)
-    MPM.addPass(dtrans::DeleteFieldPass());
+    addPass(MPM, deletefield, dtrans::DeleteFieldPass());
   if (EnableMemInitTrimDown)
-    MPM.addPass(dtrans::MemInitTrimDownPass());
-  MPM.addPass(dtrans::ReorderFieldsPass());
-  MPM.addPass(dtrans::AOSToSOAPass());
-  MPM.addPass(dtrans::EliminateROFieldAccessPass());
-  MPM.addPass(dtrans::DynClonePass());
-  MPM.addPass(dtrans::AnnotatorCleanerPass());
+    addPass(MPM, meminittrimdown, dtrans::MemInitTrimDownPass());
+  addPass(MPM, reorderfields, dtrans::ReorderFieldsPass());
+  addPass(MPM, aostosoa, dtrans::AOSToSOAPass());
+  addPass(MPM, elimrofieldaccess, dtrans::EliminateROFieldAccessPass());
+  addPass(MPM, dynclone, dtrans::DynClonePass());
+  addPass(MPM, annotatorcleaner, dtrans::AnnotatorCleanerPass());
 
   if (hasDumpModuleAfterDTransValue(early))
     MPM.addPass(PrintModulePass(dbgs(), "; Module After Early DTrans\n"));
+}
+
+// Add a legacy pass manager type pass. Add module dumps before/after
+// the pass, if requested.
+static void addPass(legacy::PassManagerBase &PM, DumpModuleDTransValues Phase,
+                    Pass *P) {
+  assert(Phase <= late && "Phase value out of range");
+  if (hasDumpModuleBeforeDTransValue(Phase))
+    PM.add(createPrintModulePass(
+        dbgs(),
+        "; Module Before " + std::string(DumpModuleDTransNames[Phase]) + "\n"));
+
+  PM.add(P);
+
+  if (hasDumpModuleAfterDTransValue(Phase))
+    PM.add(createPrintModulePass(
+        dbgs(),
+        "; Module After " + std::string(DumpModuleDTransNames[Phase]) + "\n"));
 }
 
 void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
@@ -147,22 +245,23 @@ void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
 
   // This must run before any other pass that depends on DTransAnalysis.
   if (EnableResolveTypes)
-    PM.add(createDTransResolveTypesWrapperPass());
+    addPass(PM, resolvetypes, createDTransResolveTypesWrapperPass());
 
   if (EnableTranspose)
-    PM.add(createDTransTransposeWrapperPass());
+    addPass(PM, transpose, createDTransTransposeWrapperPass());
   if (EnableSOAToAOS)
-    PM.add(createDTransSOAToAOSWrapperPass());
-  PM.add(createDTransWeakAlignWrapperPass());
+    addPass(PM, soatoaos, createDTransSOAToAOSWrapperPass());
+  addPass(PM, weakalign, createDTransWeakAlignWrapperPass());
   if (EnableDeleteFields)
-    PM.add(createDTransDeleteFieldWrapperPass());
+    addPass(PM, deletefield, createDTransDeleteFieldWrapperPass());
   if (EnableMemInitTrimDown)
-    PM.add(createDTransMemInitTrimDownWrapperPass());
-  PM.add(createDTransReorderFieldsWrapperPass());
-  PM.add(createDTransAOSToSOAWrapperPass());
-  PM.add(createDTransEliminateROFieldAccessWrapperPass());
-  PM.add(createDTransDynCloneWrapperPass());
-  PM.add(createDTransAnnotatorCleanerWrapperPass());
+    addPass(PM, meminittrimdown, createDTransMemInitTrimDownWrapperPass());
+  addPass(PM, reorderfields, createDTransReorderFieldsWrapperPass());
+  addPass(PM, aostosoa, createDTransAOSToSOAWrapperPass());
+  addPass(PM, elimrofieldaccess,
+          createDTransEliminateROFieldAccessWrapperPass());
+  addPass(PM, dynclone, createDTransDynCloneWrapperPass());
+  addPass(PM, annotatorcleaner, createDTransAnnotatorCleanerWrapperPass());
 
   if (hasDumpModuleAfterDTransValue(early))
     PM.add(createPrintModulePass(dbgs(), "; Module After Early DTrans\n"));

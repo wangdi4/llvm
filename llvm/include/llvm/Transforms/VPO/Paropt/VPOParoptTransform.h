@@ -303,8 +303,9 @@ private:
   /// \param [out] ElementType Type of one element
   /// \param [out] NumElements Number of elements, in case \p OrigValue is
   /// an array, \b nullptr otherwise.
+  /// \param [out] AddrSpace Address space of the input value object.
   static void getItemInfoFromValue(Value *OrigValue, Type *&ElementType,
-                                   Value *&NumElements);
+                                   Value *&NumElements, unsigned &AddrSpace);
 
   /// Extract the type and size of local Alloca to be created to privatize
   /// \p I.
@@ -312,29 +313,50 @@ private:
   /// \param [out] ElementType Type of one element
   /// \param [out] NumElements Number of elements, in case \p OrigValue is
   /// an array, \b nullptr otherwise.
-  static void getItemInfo(Item *I, Type *&ElementType, Value *&NumElements);
+  /// \param [out] AddrSpace Address space of the input item object.
+  static void getItemInfo(Item *I, Type *&ElementType, Value *&NumElements,
+                          unsigned &AddrSpace);
 
-  /// Generate an AllocaInst for an array of Type \p ElementType, size \p
-  /// NumElements, and name \p VarName. \p NumElements can be null for one
-  /// element. The generated Instruction is inserted before \pInsertPt.
-  static AllocaInst *genPrivatizationAlloca(Type *ElementType,
-                                            Value *NumElements,
-                                            Instruction *InsertPt,
-                                            const Twine &VarName = "");
+  /// Generate an optionally addrspacecast'ed AllocaInst for an array
+  /// of Type \p ElementType, size \p NumElements, name \p VarName.
+  /// \p NumElements can be null for one element.
+  /// The generated Instruction is inserted before \p InsertPt
+  /// and returned as a result.
+  /// If \p AddrSpace does not match 0 (default llvm addrspace),
+  /// then the generated AllocaInst will be immediately addrspacecast'ed
+  /// and the generated AddrSpaceCastInst will be returned as a result.
+  static Instruction *genPrivatizationAlloca(Type *ElementType,
+                                             Value *NumElements,
+                                             Instruction *InsertPt,
+                                             const Twine &VarName = "",
+                                             unsigned AddrSpace = 0);
 
-  /// Generate an AllocaInst for the local copy of \p OrigValue, with \p
-  /// NameSuffix appended at the end of its name. The AllocaInst is inserted
-  /// before \p InsertPt.
-  static AllocaInst *genPrivatizationAlloca(Value *OrigValue,
-                                            Instruction *InsertPt,
-                                            const Twine &NameSuffix = "");
+  /// Generate an optionally addrspacecast'ed AllocaInst for the local copy
+  /// of \p OrigValue, with \p NameSuffix appended at the end of its name.
+  /// The AllocaInst is inserted before \p InsertPt.
+  /// If \p ForceDefaultAddressSpace is true, then the generated AllocaInst
+  /// will not be addrspacecast'ed to match the addrspace of the \p OrigValue.
+  //  FIXME: get rid of ForceDefaultAddressSpace, when PromoteMemToReg
+  //         supports AddrSpaceCastInst.
+  static Instruction *genPrivatizationAlloca(
+      Value *OrigValue,
+      Instruction *InsertPt,
+      const Twine &NameSuffix = "",
+      bool ForceDefaultAddressSpace = false);
 
-  /// Generate an AllocaInst for the local copy of ClauseItem \I for various
-  /// data-sharing clauses like private, firstprivate, lastprivate, reduction,
-  /// linear. \p NameSuffix is appended at the end of the generated
+  /// Generate an optionally addrspacecast'ed AllocaInst for the local copy
+  /// of ClauseItem \I for various data-sharing clauses like private,
+  /// firstprivate, lastprivate, reduction, linear.
+  /// \p NameSuffix is appended at the end of the generated
   /// Instruction's name. The AllocaInst is inserted before \p InsertPt.
-  static AllocaInst *genPrivatizationAlloca(Item *I, Instruction *InsertPt,
-                                            const Twine &NameSuffix = "");
+  /// If \p ForceDefaultAddressSpace is true, then the generated AllocaInst
+  /// will not be addrspacecast'ed to match the addrspace of the \p OrigValue.
+  //  FIXME: get rid of ForceDefaultAddressSpace, when PromoteMemToReg
+  //         supports AddrSpaceCastInst.
+  static Instruction *genPrivatizationAlloca(
+      Item *I, Instruction *InsertPt,
+      const Twine &NameSuffix = "",
+      bool ForceDefaultAddressSpace = false);
 
   /// Replace the variable with the privatized variable
   void genPrivatizationReplacement(WRegionNode *W, Value *PrivValue,
@@ -353,7 +375,7 @@ private:
   /// \param [out] NumElements Number of elements in the array [section].
   /// \param [out] DestArrayBegin Base address of the local reduction array.
   /// \param [out] DestElementTy Type of each element of the array [section].
-  void genAggrReductionInitDstInfo(const ReductionItem &RedI, AllocaInst *AI,
+  void genAggrReductionInitDstInfo(const ReductionItem &RedI, Value *AI,
                                    Instruction *InsertPt, IRBuilder<> &Builder,
                                    Value *&NumElements, Value *&DestArrayBegin,
                                    Type *&DestElementTy);
@@ -371,7 +393,7 @@ private:
   /// \param [out] DestArrayBegin Starting address of the original reduction
   /// array [section].
   /// \param [out] DestElementTy Type of each element of the array [section].
-  void genAggrReductionFiniSrcDstInfo(const ReductionItem &RedI, AllocaInst *AI,
+  void genAggrReductionFiniSrcDstInfo(const ReductionItem &RedI, Value *AI,
                                       Value *OldV, Instruction *InsertPt,
                                       IRBuilder<> &Builder, Value *&NumElements,
                                       Value *&SrcArrayBegin,
@@ -448,7 +470,7 @@ private:
   /// reduction update code. The method always returns false, when
   /// IsInit is true.
   bool genRedAggregateInitOrFini(WRegionNode *W, ReductionItem *RedI,
-                                 AllocaInst *AI, Value *OldV,
+                                 Value *AI, Value *OldV,
                                  Instruction *InsertPt, bool IsInit,
                                  DominatorTree *DT);
 
@@ -661,13 +683,10 @@ private:
   /// \param [out]    MapTypes        array of map types.
   /// \param [out]    hasRuntimeEvaluationCaptureSize
   ///                 size cannot be determined at compile time.
-  /// \param [in,out] IsFirstExprFlag flag to indicate whether it is the
-  ///                 first pointer.
   void genTgtInformationForPtrs(WRegionNode *W, Value *V,
                                 SmallVectorImpl<Constant *> &ConstSizes,
                                 SmallVectorImpl<uint64_t> &MapTypes,
-                                bool &hasRuntimeEvaluationCaptureSize,
-                                bool &IsFirstExprFlag);
+                                bool &hasRuntimeEvaluationCaptureSize);
 
   /// Return the map modifiers for the firstprivate.
   uint64_t getMapModifiersForFirstPrivate();
@@ -1032,7 +1051,7 @@ private:
   };
 
   /// Returns the corresponding flag for a given map clause modifier.
-  uint64_t getMapTypeFlag(MapItem *MpI, bool AddPtrFlag,
+  uint64_t getMapTypeFlag(MapItem *MpI,
                          bool AddrIsTargetParamFlag,
                          bool IsFirstComponentFlag);
 
@@ -1134,16 +1153,21 @@ private:
       SmallSetVector<Instruction *, 8> &LiveOutVals,
       EquivalenceClasses<Value *> &ECs);
 
-  /// Insert local copy of \p V variable inside the region.
+  /// Generate local version of \p V variable inside the region.
   ///
-  /// \p V is an AllocaInst for \p W region's normalized upper bound pointer.
-  /// Insert a new AllocaInst at the region's entry block, and copy
-  /// the original variable value to the allocated area.
+  /// \p V is an optionally addrspacecast'ed AllocaInst for \p W region's
+  /// normalized upper bound pointer or normalized induction variable
+  /// pointer.
+  /// Insert a new AllocaInst at the region's entry block.
+  /// Copy the original variable value to the allocated area, iff
+  /// \p IsFirstPrivate is true.
   /// Replace all uses of the original AllocaInst with the new one.
   ///
-  /// Since \p V is a normalized upper bound pointer, we do not expect
-  /// it to have non-POD type neither expect it to be By-Ref.
-  AllocaInst *genRegionLocalCopy(WRegionNode *W, Value *V);
+  /// Since \p V is a normalized upper bound or induction variable
+  /// pointer, we do not expect it to have non-POD type
+  /// neither expect it to be By-Ref.
+  Value *genRegionPrivateValue(
+      WRegionNode *W, Value *V, bool IsFirstPrivate = false);
 
   /// Move SIMD directives next to the loop associated
   /// with the given OpenMP loop region \p W.
@@ -1291,6 +1315,14 @@ private:
   /// results in the outlined function.
   void improveAliasForOutlinedFunc(WRegionNode *W);
 #endif  // INTEL_CUSTOMIZATION
+
+  /// Guard each instruction that has a side effect with master thread id
+  /// check, so that only the master thread (id == 0) in the team executes
+  /// the code, then put a barrier before the start and after the end of
+  /// every parallel region, so that all the threads in the team wait for
+  /// the master thread, and can see its update of team shared memory.
+  void guardSideEffectStatements(Function *KernelF,
+                                 SmallPtrSetImpl<Value*> &PrivateVariables);
 
   /// Set the kernel arguments' address space as ADDRESS_SPACE_GLOBAL.
   /// Propagate the address space from the arguments to the usage of the
@@ -1457,6 +1489,12 @@ private:
   /// Insert artificial uses for arguments of some clauses
   /// of the given region before the region.
   bool promoteClauseArgumentUses(WRegionNode *W);
+
+  /// Emit dispatch code for the "target variant dispatch" construct
+  bool genTargetVariantDispatchCode(WRegionNode *W);
+
+  /// Replace loop construct with the mapped directive in IR
+  bool replaceGenericLoop(WRegionNode *W);
 };
 } /// namespace vpo
 } /// namespace llvm

@@ -329,20 +329,27 @@ private:
 /// Private descriptor. Privates can be declared explicitly or detected
 /// by analysis.
 class VPPrivate : public VPLoopEntity {
+
   // The assignment is under condition.
   bool IsConditional;
+
+  // The last-value is used outside the loop.
+  bool IsLast;
+
   // Is defined explicitly.
   bool IsExplicit;
+
   // The assignment instruction.
-  VPInstruction *AssignInst;
+  VPInstruction *FinalInst;
 
 public:
-  VPPrivate(VPInstruction *Inst, bool Conditional, bool Explicit,
+  VPPrivate(VPInstruction *FinalI, bool Conditional, bool Last, bool Explicit,
             bool IsMemOnly = false)
       : VPLoopEntity(Private, IsMemOnly), IsConditional(Conditional),
-        IsExplicit(Explicit), AssignInst(Inst) {}
+        IsLast(Last), IsExplicit(Explicit), FinalInst(FinalI) {}
 
   bool isConditional() const { return IsConditional; }
+  bool isLast() const { return IsLast; }
   bool isExplicit() const { return IsExplicit; }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
@@ -433,9 +440,11 @@ public:
                             VPInstruction *InductionBinOp, unsigned int Opc,
                             VPValue *AI = nullptr, bool ValidMemOnly = false);
 
-  /// Add private for instruction \p Assign, which is \p Conditional and
-  /// \p Explicit, and alloca-instruction \p AI.
-  VPPrivate *addPrivate(VPInstruction *Assign, bool isConditional,
+  /// Add private corresponding to \p Alloca along with the final store
+  /// instruction which writes to the private memory witin the for-loop. Also
+  /// store other relavant attributes of the private like the conditional, last
+  /// and explicit.
+  VPPrivate *addPrivate(VPInstruction *FinalI, bool IsConditional, bool IsLast,
                         bool Explicit, VPValue *AI = nullptr,
                         bool ValidMemOnly = false);
 
@@ -490,7 +499,7 @@ public:
   /// the init/fini code is generated always the same for the same loops.
   typedef SmallVector<std::unique_ptr<VPReduction>, 4> VPReductionList;
   typedef SmallVector<std::unique_ptr<VPInduction>, 4> VPInductionList;
-  typedef SmallVector<std::unique_ptr<VPPrivate>, 4> VPPrivateList;
+  typedef SmallVector<std::unique_ptr<VPPrivate>, 4> VPPrivatesList;
 
   /// Mapping of VPValues to entities. Created after entities lists are formed
   /// to ensure correct masking.
@@ -505,8 +514,8 @@ public:
   VPReductionList::iterator reductionsBegin();
   VPReductionList::iterator reductionsEnd();
 
-  VPPrivateList::iterator privatesBegin();
-  VPPrivateList::iterator privatesEnd();
+  VPPrivatesList::iterator privatesBegin();
+  VPPrivatesList::iterator privatesEnd();
 
   VPIndexReduction *getMinMaxIndex(const VPReduction *Red) {
     MinMaxIndexTy::const_iterator It = MinMaxIndexes.find(Red);
@@ -532,13 +541,27 @@ public:
   /// penultimate iteration of the loop.
   bool isInductionLastValPreInc(const VPInduction *Ind) const;
 
+  VPPHINode *findInductionStartPhi(const VPInduction *Induction) const;
+
+  // Record that PHI node \p Duplicate is exactly identical to the original
+  // induction PHI node \p Orig.
+  void addDuplicateInductionPHIs(VPPHINode *Duplicate, VPPHINode *Orig) {
+    DuplicateInductionPHIs.push_back(std::make_pair(Duplicate, Orig));
+  }
+
+  // Replace all uses of duplicate induction PHI nodes with their corresponding
+  // original induction PHIs within the current loop. This method also clears
+  // DuplicateInductionPHIs after replacement. NOTE: The duplicate PHI is not
+  // removed from HCFG.
+  void replaceDuplicateInductionPHIs();
+
 private:
   VPlan &Plan;
   VPLoop &Loop;
 
   VPReductionList ReductionList;
   VPInductionList InductionList;
-  VPPrivateList PrivateList;
+  VPPrivatesList PrivatesList;
 
   VPReductionMap ReductionMap;
   VPInductionMap InductionMap;
@@ -557,6 +580,11 @@ private:
   // MinMax reduction to index reduction
   typedef DenseMap<const VPReduction *, VPIndexReduction *> MinMaxIndexTy;
   MinMaxIndexTy MinMaxIndexes;
+
+  // Collection of duplicate induction PHI nodes. First element of the pair
+  // represents the duplicate PHI node and the second element represents the
+  // original PHI.
+  SmallVector<std::pair<VPPHINode *, VPPHINode *>, 4> DuplicateInductionPHIs;
 
   // Find an item in the map defined as T<K,item>
   template <typename T, class K>
@@ -652,13 +680,19 @@ private:
                                 VPValue &InitStep, VPValue &PrivateMem);
 
   VPInstruction *getInductionLoopExitInstr(const VPInduction *Induction) const;
-  VPPHINode *findInductionStartPhi(const VPInduction *Induction) const;
 };
 
 class VPEntityImportDescr {
+  struct DescrAlias {
+    DescrAlias() = default;
+    VPValue *Start = nullptr;
+    SmallVector<VPInstruction *, 4> UpdateVPInsts;
+  };
+
 protected:
   VPEntityImportDescr()
-      : AllocaInst(nullptr), ValidMemOnly(false), Importing(true){};
+      : AllocaInst(nullptr), ValidMemOnly(false), Importing(true),
+        HasAlias(false){};
 
 public:
   virtual ~VPEntityImportDescr() {}
@@ -673,6 +707,14 @@ public:
   void setValidMemOnly(bool V) { ValidMemOnly = V; }
   void setImporting(bool V) { Importing = V; }
 
+  void setAlias(VPValue *Start, ArrayRef<VPInstruction *> UpdateVPInsts) {
+    DescrAlias NewAlias;
+    NewAlias.Start = Start;
+    NewAlias.UpdateVPInsts.assign(UpdateVPInsts.begin(), UpdateVPInsts.end());
+    Alias = Optional<DescrAlias>(NewAlias);
+    HasAlias = true;
+  }
+
 protected:
   VPValue *findMemoryUses(VPValue *Start, const VPLoop *Loop);
 
@@ -680,10 +722,15 @@ protected:
     AllocaInst = nullptr;
     ValidMemOnly = false;
     Importing = true;
+    Alias.reset();
+    HasAlias = false;
   }
   VPValue *AllocaInst;
   bool ValidMemOnly;
   bool Importing;
+  // NOTE: We assume that a descriptor can have only one valid alias
+  Optional<DescrAlias> Alias;
+  bool HasAlias;
 };
 
 /// Intermediate reduction descriptor. This is a temporary data to keep
@@ -706,6 +753,10 @@ public:
   Type *getRecType() const { return RT; }
   bool getSigned() const { return Signed; }
   VPInstruction *getLinkPhi() const { return LinkPhi; }
+  iterator_range<SmallVectorImpl<VPInstruction *>::iterator>
+  getUpdateVPInsts() {
+    return make_range(UpdateVPInsts.begin(), UpdateVPInsts.end());
+  }
 
   void setStartPhi(VPInstruction *V) { StartPhi = V; }
   void setStart(VPValue *V) { Start = V; }
@@ -715,18 +766,21 @@ public:
   void setRecType(Type *V) { RT = V; }
   void setSigned(bool V) { Signed = V; }
   void setLinkPhi(VPInstruction *V) { LinkPhi = V; }
+  void addUpdateVPInst(VPInstruction *V) { UpdateVPInsts.push_back(V); }
 
   /// Clear the content.
   void clear() override {
     BaseT::clear();
     StartPhi = nullptr;
     Start = nullptr;
+    UpdateVPInsts.clear();
     Exit = nullptr;
     K = RecurrenceKind::RK_NoRecurrence;
     MK = MinMaxRecurrenceKind::MRK_Invalid;
     RT = nullptr;
     Signed = false;
     LinkPhi = nullptr;
+    LinkedVPVals.clear();
   }
   /// Check for that all non-null VPInstructions in the descriptor are in the \p
   /// Loop.
@@ -734,20 +788,54 @@ public:
 
   /// Return true if not all data is completed.
   bool isIncomplete() const;
-  /// Attemp to fix incomplete data using VPlan and VPLoop.
+  /// Attempt to fix incomplete data using VPlan and VPLoop.
   void tryToCompleteByVPlan(const VPlan *Plan, const VPLoop *Loop);
   /// Pass the data to VPlan
   void passToVPlan(VPlan *Plan, const VPLoop *Loop);
+  /// Check if current reduction descriptor duplicates another that is already
+  /// imported.
+  bool isDuplicate(const VPlan *Plan, const VPLoop *Loop) const override;
 
 private:
+  // Some analysis methods used by tryToCompleteByVPlan
+  /// Utility that replaces current descriptor's properties with that from
+  /// alias, if needed. Returns false if analysis bailed which means descriptor
+  /// is not being imported, else returns true.
+  bool replaceOrigWithAlias();
+  /// Utility to get the loop exit VPInstruction for given reduction descriptor
+  /// by analyzing its UpdateVPInsts in light of loop LiveOut analysis. It
+  /// returns nullptr for InMemory reduction.
+  VPInstruction *getLoopExitVPInstr(const VPLoop *Loop);
+
   VPInstruction *StartPhi = nullptr; // TODO: Consider changing to VPPHINode.
   VPValue *Start = nullptr;
+  /// Instruction(s) in VPlan that update the reduction variable
+  SmallVector<VPInstruction *, 4> UpdateVPInsts;
   VPInstruction *Exit = nullptr;
   RecurrenceKind K = RecurrenceKind::RK_NoRecurrence;
   MinMaxRecurrenceKind MK = MinMaxRecurrenceKind::MRK_Invalid;
   Type *RT = nullptr;
   bool Signed = false;
   VPInstruction *LinkPhi = nullptr; // TODO: Consider changing to VPPHINode.
+  /// VPValues that are associated with reduction variable
+  /// NOTE: This list is accessed and populated internally within the descriptor
+  /// object, hence no getters or setters.
+  // Example for reduction with LinkedVPValues:
+  //
+  //  %init = load %red.var
+  //  loop.body:
+  //   %red.phi = phi [ %init, PHBB ], [ %update, loop.body ]
+  //   ...
+  //   %update = add %red.phi, %abc
+  //   store %update, %red.var
+  //   ...
+  //
+  // Here for the reduction descriptor %red.var we initially collect only the
+  // store as its updating instruction. However through alias analysis we find
+  // out the actual PHI and add upate instruction. Before overwriting update
+  // instructions for any analyses, the store is saved in linked VPValues for
+  // later stage analyses or corrections (example would be private memory).
+  SmallVector<VPValue *, 4> LinkedVPVals;
 };
 
 /// Intermediate induction descriptor. Same as ReductionDescr above but for
@@ -793,6 +881,9 @@ public:
   void tryToCompleteByVPlan(const VPlan *Plan, const VPLoop *Loop);
   /// Pass the data to VPlan
   void passToVPlan(VPlan *Plan, const VPLoop *Loop);
+  /// Check if current induction descriptor duplicates another that is already
+  /// imported.
+  bool isDuplicate(const VPlan *Plan, const VPLoop *Loop) const override;
 
 private:
   VPInstruction *StartPhi = nullptr;
@@ -801,6 +892,56 @@ private:
   VPValue *Step = nullptr;
   VPInstruction *InductionBinOp =nullptr;
   unsigned BinOpcode = Instruction::BinaryOpsEnd;
+};
+
+/// Intermediate private descriptor. Same as ReductionDescr above but for
+/// privates.
+class PrivateDescr : public VPEntityImportDescr {
+  using BaseT = VPEntityImportDescr;
+
+public:
+  PrivateDescr() { clear(); }
+
+  VPValue *getAllocaInst() const { return AllocaInst; }
+  bool isConditional() const { return IsConditional; }
+  bool isLast() const { return IsLast; }
+  bool isExplicit() const { return IsExplicit; }
+  bool isMemOnly() const { return getValidMemOnly(); }
+
+  /// Clear the content.
+  void clear() override {
+    BaseT::clear();
+    AllocaInst = nullptr;
+    FinalInst = nullptr;
+    IsConditional = false;
+    IsLast = false;
+    IsExplicit = false;
+  }
+  /// Check for all non-null VPInstructions in the descriptor are in the \p
+  /// Loop.
+  void checkParentVPLoop(const VPlan *Plan, const VPLoop *Loop) const;
+
+  /// Return true if not all data is completed.
+  bool isIncomplete() const { return FinalInst == nullptr; }
+
+  /// Attemp to fix incomplete data using VPlan and VPLoop.
+  void tryToCompleteByVPlan(const VPlan *Plan, const VPLoop *Loop);
+
+  /// Pass the data to VPlan
+  void passToVPlan(VPlan *Plan, const VPLoop *Loop);
+
+  void setAllocaInst(VPValue* AllocaI) { AllocaInst = AllocaI; }
+  void setIsConditional(bool IsCond) { IsConditional = IsCond; }
+  void setIsLast(bool IsLastPriv) { IsLast = IsLastPriv; }
+  void setIsExplicit(bool IsExplicitVal) { IsExplicit = IsExplicitVal; }
+  void setIsMemOnly(bool IsMem) { setValidMemOnly(IsMem); }
+
+private:
+  VPValue *AllocaInst = nullptr;
+  VPInstruction *FinalInst = nullptr;
+  bool IsConditional;
+  bool IsLast;
+  bool IsExplicit;
 };
 
 // Base class for loop entities converter. Used to create a list of converters
@@ -876,11 +1017,11 @@ public:
       const VPLoop *Loop = M[LLItem.first];
       assert(Loop != nullptr && "Can't find corresponding VPLoop");
       for (auto &Descr : LLItem.second) {
-        if (Descr.isDuplicate(Plan, Loop))
-          continue; // Skip duplication
         Descr.checkParentVPLoop(Plan, Loop);
         if (Descr.isIncomplete())
           Descr.tryToCompleteByVPlan(Plan, Loop);
+        if (Descr.isDuplicate(Plan, Loop))
+          continue; // Skip duplication
         Descr.passToVPlan(Plan, Loop);
       }
     }

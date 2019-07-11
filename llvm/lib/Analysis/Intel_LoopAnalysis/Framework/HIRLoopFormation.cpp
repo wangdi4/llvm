@@ -324,6 +324,13 @@ void HIRLoopFormation::setZtt(HLLoop *HLoop) {
 
   if (PredicateInversion) {
     InvertedZttLoops.insert(HLoop);
+
+    if (MDNode *OrigProfData = IfParent->getProfileData()) {
+      // Get the profile data inverted for IfParent.
+      MDNode *ProfData =
+          HLNodeUtils::swapProfMetadata(HNU.getContext(), OrigProfData);
+      IfParent->setProfileData(ProfData);
+    }
   }
 }
 
@@ -338,6 +345,34 @@ const Loop *HIRLoopFormation::getOutermostHIRParentLoop(const Loop *Lp) const {
   }
 
   return ParLp;
+}
+
+static void setProfileData(HLIf *BottomTest, HLLabel *LoopLabel,
+                           HLLoop *HLoop) {
+  MDNode *ProfData = BottomTest->getProfileData();
+
+  if (!ProfData) {
+    return;
+  }
+
+  assert(BottomTest->hasThenChildren() || BottomTest->hasElseChildren());
+  bool IsThenBackedge =
+      BottomTest->getFirstThenChild() &&
+      (cast<HLGoto>(BottomTest->getFirstThenChild())->getTargetLabel() ==
+       LoopLabel);
+
+  assert(
+      IsThenBackedge ||
+      (BottomTest->getFirstElseChild() &&
+       (cast<HLGoto>(BottomTest->getFirstElseChild())->getTargetLabel() ==
+        LoopLabel)));
+
+  if (IsThenBackedge) {
+    HLoop->setProfileData(BottomTest->getProfileData());
+  } else {
+    HLoop->setProfileData(HLNodeUtils::swapProfMetadata(
+        (HLoop->getHLNodeUtils()).getContext(), BottomTest->getProfileData()));
+  }
 }
 
 void HIRLoopFormation::processLoopExitGoto(HLIf *BottomTest, HLLabel *LoopLabel,
@@ -457,6 +492,7 @@ void HIRLoopFormation::formLoops() {
     HLoop->setBranchDebugLoc(BottomTest->getDebugLoc());
     HLoop->setCmpTestDebugLoc(BottomTest->pred_begin()->DbgLoc);
 
+    setProfileData(BottomTest, Label, HLoop);
     processLoopExitGoto(BottomTest, Label, HLoop);
 
     // Include Label and bottom test as explicit nodes inside the unknown loop.

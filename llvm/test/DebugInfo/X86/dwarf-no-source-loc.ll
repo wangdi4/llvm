@@ -1,6 +1,6 @@
 ; Verify "no source location" directives appear in appropriate places,
 ; but don't appear when we explicitly suppress them.
-; RUN: llc < %s -o - | FileCheck %s
+; RUN: llc < %s -o - -use-unknown-locations=Enable | FileCheck %s        ;INTEL
 ; RUN: llc < %s -o - -use-unknown-locations=Disable | FileCheck %s --check-prefix=DISABLE
 
 ; Generated from this .cpp targeting linux using -g

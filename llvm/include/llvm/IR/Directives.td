@@ -9,36 +9,26 @@
 // ===--------------------------------------------------------------------=== //
 ///
 /// \file
-/// This file defines the classes used to represent parallelization and
-/// vectorization directives and clauses. Each different type of directive and
-/// clause is then instantiated accordingly. TableGen parses these records and
-/// generates enums for both classes, as well as tables which provide an
-/// enum->string and string->enum mapping. The enums and tables are used to
-/// generate Metadata strings that are used as arguments to llvm.directive
-/// intrinsics. These intrinsics are used to mark parallel/vector constructs
-/// and behavior.
+/// This file defines the classes used to represent directives and clauses.
+/// TableGen uses these definitions to generate enums for the directives and
+/// clauses, as well as tables that provide enum-to-string and string-to-enum
+/// mappings for the directives and clauses.
+///
+/// The output from TableGen is included into:
+///        include/llvm/Analysis/"Directives.h
+///        lib/Analysis/Directives.cpp
 ///
 // ===--------------------------------------------------------------------=== //
 
-// The Directive class represents all parallel/vector constructs that can be
-// represented within LLVM IR. For example, the "#pragma omp parallel"
-// directive for OpenMP.
 class Directive;
 
-// The Clause class represents additional information provided to Directives
-// that can be used to control parallel/vector execution. For example,
-// "#pragma omp parallel" could be modified to include the "if (expr)" clause
-// to determine if the region should be executed in parallel or not.
 class Clause;
 
-// For additional information on the supported Directives and Clauses, please
-// refer to the following documentation. Currently, this file defines only
-// the directives and clauses associated with OpenMP, but will be extended in
-// the future for other parallel/vector programming models and APIs.
-//
-// http://openmp.org/wp/openmp-specifications
-
-// *** Begin OpenMP Directives ***
+// =====================================================================
+// * Begin OpenMP Directives
+// * This section defines directives used by OpenMP
+// * (https://www.openmp.org/specifications)
+// =====================================================================
 
 def "DIR.OMP.PARALLEL" : Directive;
 def "DIR.OMP.END.PARALLEL" : Directive;
@@ -129,25 +119,44 @@ def "DIR.OMP.END.TARGET.ENTER.DATA" : Directive;
 def "DIR.OMP.TARGET.EXIT.DATA" : Directive;
 def "DIR.OMP.END.TARGET.EXIT.DATA" : Directive;
 
+def "DIR.OMP.TARGET.VARIANT.DISPATCH" : Directive;
+def "DIR.OMP.END.TARGET.VARIANT.DISPATCH" : Directive;
+
 def "DIR.OMP.CANCEL" : Directive;
 def "DIR.OMP.END.CANCEL" : Directive;
 
 def "DIR.OMP.CANCELLATION.POINT" : Directive;
 def "DIR.OMP.END.CANCELLATION.POINT" : Directive;
 
-// INTEL_CUSTOMIZATION
-// *** Begin non-OpenMP Directives ***
+def "DIR.OMP.GENERICLOOP" : Directive;
+def "DIR.OMP.END.GENERICLOOP" : Directive;
 
+// INTEL_CUSTOMIZATION
 // Directives used to mark begin/end of a loop determined by VPO vectorizer
 // legality analysis to be legal to vectorize.
+// These are in the OpenMP section because they need to be processed by
+// WRN construction as if they were a SIMD directive.
 def "DIR.VPO.AUTO.VEC" : Directive;
 def "DIR.VPO.END.AUTO.VEC" : Directive;
+//end INTEL_CUSTOMIZATION
 
+
+// =====================================================================
+// * Begin Non-OpenMP Directives
+// * This section defines directives unrelated to OpenMP
+// =====================================================================
+
+// INTEL_CUSTOMIZATION
 def "DIR.PRAGMA.IVDEP" : Directive;
 def "DIR.PRAGMA.END.IVDEP" : Directive;
 //end INTEL_CUSTOMIZATION
 
-// *** Begin OpenMP Clauses ***
+
+// =====================================================================
+// * Begin OpenMP Clauses
+// * This section defines qualifiers used by OpenMP
+// * (https://www.openmp.org/specifications)
+// =====================================================================
 
 def "QUAL.OMP.DEFAULT.NONE" : Clause;
 def "QUAL.OMP.DEFAULT.SHARED" : Clause;
@@ -250,6 +259,10 @@ def "QUAL.OMP.CANCEL.SECTIONS" : Clause;
 def "QUAL.OMP.CANCEL.TASKGROUP" : Clause;
 def "QUAL.OMP.HINT" : Clause;
 def "QUAL.OMP.NAME" : Clause;
+def "QUAL.OMP.BIND.TEAMS" : Clause;
+def "QUAL.OMP.BIND.PARALLEL" : Clause;
+def "QUAL.OMP.BIND.THREAD" : Clause;
+def "QUAL.OMP.ORDER.CONCURRENT" : Clause;
 // INTEL_CUSTOMIZATION
 // Support Intel extension for CSA.
 def "QUAL.OMP.SA.NUM_WORKERS" : Clause;
@@ -257,9 +270,9 @@ def "QUAL.OMP.SA.SCHEDULE.STATIC" : Clause;
 def "QUAL.OMP.SA.PIPELINE" : Clause;
 // end INTEL_CUSTOMIZATION
 
-// *** Begin Auxiliary Clauses ***
-// These "clauses" don't correspond to actual OpenMP clauses, but are used
-// to carry additional information
+// *** Begin Auxiliary OpenMP Clauses ***
+// These quals don't correspond to actual clauses in the OpenMP spec,
+// but are used to carry additional information for OpenMP constructs
 
 def "QUAL.OMP.TARGET.TASK" : Clause;
 def "QUAL.OMP.NORMALIZED.IV" : Clause;
@@ -267,6 +280,12 @@ def "QUAL.OMP.NORMALIZED.UB" : Clause;
 def "QUAL.OMP.CANCELLATION.POINTS" : Clause;
 def "QUAL.OMP.OPERAND.ADDR" : Clause;
 def "QUAL.OMP.OFFLOAD.ENTRY.IDX" : Clause;
+
+
+// =====================================================================
+// * Begin Non-OpenMP Clauses
+// * This section defines qualifiers unrelated to OpenMP
+// =====================================================================
 // INTEL_CUSTOMIZATION
 def "QUAL.PRAGMA.ARRAY" : Clause;
 // end INTEL_CUSTOMIZATION

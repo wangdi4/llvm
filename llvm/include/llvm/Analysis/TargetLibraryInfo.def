@@ -193,6 +193,9 @@ TLI_DEFINE_STRING_INTERNAL("_ZNKSt7__cxx1115basic_stringbufIcSt11char_traitsIcES
 /// const char * std::bad_alloc::what()
 TLI_DEFINE_ENUM_INTERNAL(ZNKSt9bad_alloc4whatEv)
 TLI_DEFINE_STRING_INTERNAL("_ZNKSt9bad_alloc4whatEv")
+/// char std::basic_ios<char, std::char_traits<char> >::widen(char)
+TLI_DEFINE_ENUM_INTERNAL(ZNKSt9basic_iosIcSt11char_traitsIcEE5widenEc)
+TLI_DEFINE_STRING_INTERNAL("_ZNKSt9basic_iosIcSt11char_traitsIcEE5widenEc")
 /// const char *std::exception::what() const
 TLI_DEFINE_ENUM_INTERNAL(ZNKSt9exception4whatEv)
 TLI_DEFINE_STRING_INTERNAL("_ZNKSt9exception4whatEv")
@@ -361,6 +364,9 @@ TLI_DEFINE_STRING_INTERNAL("_ZNSt15basic_streambufIcSt11char_traitsIcEE6xsgetnEP
 /// std::streamsize std::basic_streambuf<char, std::char_traits<char> >::xsputn(char const*, long)
 TLI_DEFINE_ENUM_INTERNAL(ZNSt15basic_streambufIcSt11char_traitsIcEE6xsputnEPKcl)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt15basic_streambufIcSt11char_traitsIcEE6xsputnEPKcl")
+/// std::basic_streambuf<char, std::char_traits<char> >::~basic_streambuf()
+TLI_DEFINE_ENUM_INTERNAL(ZNSt15basic_streambufIcSt11char_traitsIcEED2Ev)
+TLI_DEFINE_STRING_INTERNAL("_ZNSt15basic_streambufIcSt11char_traitsIcEED2Ev")
 /// void std::basic_stringbuf<char, std::char_traits<char>, std::allocator<char> >::_M_sync(char*, unsigned long, unsigned long)
 TLI_DEFINE_ENUM_INTERNAL(ZNSt15basic_stringbufIcSt11char_traitsIcESaIcEE7_M_syncEPcmm)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt15basic_stringbufIcSt11char_traitsIcESaIcEE7_M_syncEPcmm")
@@ -980,6 +986,9 @@ TLI_DEFINE_STRING_INTERNAL("__powl_finite")
 /// int __pthread_key_create(pthread_key_t *key, void (*destructor)(void*));
 TLI_DEFINE_ENUM_INTERNAL(pthread_key_create)
 TLI_DEFINE_STRING_INTERNAL("__pthread_key_create")
+/// int __signbit(double arg);
+TLI_DEFINE_ENUM_INTERNAL(signbit)
+TLI_DEFINE_STRING_INTERNAL("__signbit")
 /// int __sigsetjmp(sigjmp_buf env, int savemask);
 TLI_DEFINE_ENUM_INTERNAL(sigsetjmp)
 TLI_DEFINE_STRING_INTERNAL("__sigsetjmp")
@@ -1042,6 +1051,9 @@ TLI_DEFINE_STRING_INTERNAL("__std_exception_destroy")
 /// int __stdio_common_vfprintf(uint64_t location,FILE *, const char *format, locale_t *locale, va_list ap);
 TLI_DEFINE_ENUM_INTERNAL(stdio_common_vfprintf)
 TLI_DEFINE_STRING_INTERNAL("__stdio_common_vfprintf")
+/// int __stdio_common_vfscanf(uint64_t options, FILE *file, const char *format, locale_t *locale, va_list *valist)
+TLI_DEFINE_ENUM_INTERNAL(stdio_common_vfscanf)
+TLI_DEFINE_STRING_INTERNAL("__stdio_common_vfscanf")
 /// int __stdio_common_vsprintf(uint64_t location, char *str, size_t size,const char *fmt, locale_t *locale, va_list ap);
 TLI_DEFINE_ENUM_INTERNAL(stdio_common_vsprintf)
 TLI_DEFINE_STRING_INTERNAL("__stdio_common_vsprintf")
@@ -1125,6 +1137,9 @@ TLI_DEFINE_STRING_INTERNAL("_obstack_newchunk")
 /// int _setjmp(jmp_buf env);
 TLI_DEFINE_ENUM_INTERNAL(setjmp)
 TLI_DEFINE_STRING_INTERNAL("_setjmp")
+/// int _stat64i32(const char *path, struct _stat64i32 *buf);
+TLI_DEFINE_ENUM_INTERNAL(under_stat64i32)
+TLI_DEFINE_STRING_INTERNAL("_stat64i32")
 /// void abort(void);
 TLI_DEFINE_ENUM_INTERNAL(abort)
 TLI_DEFINE_STRING_INTERNAL("abort")
@@ -1455,6 +1470,9 @@ TLI_DEFINE_STRING_INTERNAL("fclose")
 ///  int fcntl(int fd, int cmd, ...);
 TLI_DEFINE_ENUM_INTERNAL(fcntl)
 TLI_DEFINE_STRING_INTERNAL("fcntl")
+///  int fcntl64(int fd, int cmd, ...);
+TLI_DEFINE_ENUM_INTERNAL(fcntl64)
+TLI_DEFINE_STRING_INTERNAL("fcntl64")
 #endif // INTEL_CUSTOMIZATION
 
 /// FILE *fdopen(int fildes, const char *mode);
@@ -1808,6 +1826,9 @@ TLI_DEFINE_ENUM_INTERNAL(isdigit)
 TLI_DEFINE_STRING_INTERNAL("isdigit")
 
 #if INTEL_CUSTOMIZATION
+/// int islower(int c);
+TLI_DEFINE_ENUM_INTERNAL(islower)
+TLI_DEFINE_STRING_INTERNAL("islower")
 /// int isspace(int c);
 TLI_DEFINE_ENUM_INTERNAL(isspace)
 TLI_DEFINE_STRING_INTERNAL("isspace")
