@@ -274,6 +274,12 @@ static RTLIB::Libcall getRTLibDesc(unsigned Opcode, unsigned Size) {
     assert((Size == 32 || Size == 64 || Size == 128) && "Unsupported size");
     return Size == 128 ? RTLIB::LOG2_F128
                        : Size == 64 ? RTLIB::LOG2_F64 : RTLIB::LOG2_F32;
+  case TargetOpcode::G_FCEIL:
+    assert((Size == 32 || Size == 64) && "Unsupported size");
+    return Size == 64 ? RTLIB::CEIL_F64 : RTLIB::CEIL_F32;
+  case TargetOpcode::G_FFLOOR:
+    assert((Size == 32 || Size == 64) && "Unsupported size");
+    return Size == 64 ? RTLIB::FLOOR_F64 : RTLIB::FLOOR_F32;
   }
   llvm_unreachable("Unknown libcall function");
 }
@@ -372,7 +378,9 @@ LegalizerHelper::libcall(MachineInstr &MI) {
   case TargetOpcode::G_FLOG:
   case TargetOpcode::G_FLOG2:
   case TargetOpcode::G_FEXP:
-  case TargetOpcode::G_FEXP2: {
+  case TargetOpcode::G_FEXP2:
+  case TargetOpcode::G_FCEIL:
+  case TargetOpcode::G_FFLOOR: {
     if (Size > 64) {
       LLVM_DEBUG(dbgs() << "Size " << Size << " too large to legalize.\n");
       return UnableToLegalize;
@@ -412,10 +420,11 @@ LegalizerHelper::libcall(MachineInstr &MI) {
     // FIXME: Support other types
     unsigned FromSize = MRI.getType(MI.getOperand(1).getReg()).getSizeInBits();
     unsigned ToSize = MRI.getType(MI.getOperand(0).getReg()).getSizeInBits();
-    if (ToSize != 32 || (FromSize != 32 && FromSize != 64))
+    if ((ToSize != 32 && ToSize != 64) || (FromSize != 32 && FromSize != 64))
       return UnableToLegalize;
     LegalizeResult Status = conversionLibcall(
-        MI, MIRBuilder, Type::getInt32Ty(Ctx),
+        MI, MIRBuilder,
+        ToSize == 32 ? Type::getInt32Ty(Ctx) : Type::getInt64Ty(Ctx),
         FromSize == 64 ? Type::getDoubleTy(Ctx) : Type::getFloatTy(Ctx));
     if (Status != Legalized)
       return Status;
@@ -426,12 +435,12 @@ LegalizerHelper::libcall(MachineInstr &MI) {
     // FIXME: Support other types
     unsigned FromSize = MRI.getType(MI.getOperand(1).getReg()).getSizeInBits();
     unsigned ToSize = MRI.getType(MI.getOperand(0).getReg()).getSizeInBits();
-    if (FromSize != 32 || (ToSize != 32 && ToSize != 64))
+    if ((FromSize != 32 && FromSize != 64) || (ToSize != 32 && ToSize != 64))
       return UnableToLegalize;
     LegalizeResult Status = conversionLibcall(
         MI, MIRBuilder,
         ToSize == 64 ? Type::getDoubleTy(Ctx) : Type::getFloatTy(Ctx),
-        Type::getInt32Ty(Ctx));
+        FromSize == 32 ? Type::getInt32Ty(Ctx) : Type::getInt64Ty(Ctx));
     if (Status != Legalized)
       return Status;
     break;
@@ -1455,9 +1464,8 @@ LegalizerHelper::lower(MachineInstr &MI, unsigned TypeIdx, LLT Ty) {
     auto Zero = MIRBuilder.buildFConstant(Ty, ZeroForNegation);
     unsigned SubByReg = MI.getOperand(1).getReg();
     unsigned ZeroReg = Zero->getOperand(0).getReg();
-    MachineInstr *SrcMI = MRI.getVRegDef(SubByReg);
     MIRBuilder.buildInstr(TargetOpcode::G_FSUB, {Res}, {ZeroReg, SubByReg},
-                          SrcMI->getFlags());
+                          MI.getFlags());
     MI.eraseFromParent();
     return Legalized;
   }
