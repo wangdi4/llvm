@@ -82,6 +82,7 @@ void initializeSubGroupAdaptationPass(llvm::PassRegistry&);
 void initializeLinearIdResolverPass(llvm::PassRegistry&);
 void initializePrepareKernelArgsPass(llvm::PassRegistry&);
 void initializeResolveWICallPass(llvm::PassRegistry&);
+void initializeResolveSubGroupWICallPass(llvm::PassRegistry&);
 void initializeResolveBlockToStaticCallPass(llvm::PassRegistry&);
 void initializeDetectRecursionPass(llvm::PassRegistry&);
 void initializeDebugInfoPassPass(llvm::PassRegistry&);
@@ -102,6 +103,7 @@ void initializeStripIntelIPPass(llvm::PassRegistry&);
 void initializeOCLVecClonePass(llvm::PassRegistry&);
 void initializeOCLPostVectPass(llvm::PassRegistry&);
 void initializeChannelsUsageAnalysisPass(llvm::PassRegistry&);
+void initializeKernelSubGroupInfoPass(llvm::PassRegistry&);
 }
 
 #endif

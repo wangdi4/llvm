@@ -12,6 +12,7 @@
         clCreateProgramWithBinary;
         clCreateProgramWithSource;
         clCreateProgramWithIL;
+        clCreateProgramWithILKHR;
         clCreateSampler;
         clEnqueueBarrier;
         clEnqueueCopyBuffer;
@@ -120,6 +121,7 @@
         clSetDefaultDeviceCommandQueue;
         clEnqueueSVMMigrateMem;
 
+        clGetDeviceFunctionPointerINTEL;
     local:
         *;
 };

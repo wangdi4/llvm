@@ -75,9 +75,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_SUB_GROUP_RESERVE_WRITE_PIPE = "__sub_group_reserve_write_pipe";
   const std::string CompilationUtils::NAME_SUB_GROUP_COMMIT_WRITE_PIPE = "__sub_group_commit_write_pipe";
 
+  // atomic fence functions
+  const std::string CompilationUtils::NAME_ATOMIC_WORK_ITEM_FENCE = "atomic_work_item_fence";
+
+  // mem_fence functions
   const std::string CompilationUtils::NAME_MEM_FENCE = "mem_fence";
   const std::string CompilationUtils::NAME_READ_MEM_FENCE = "read_mem_fence";
   const std::string CompilationUtils::NAME_WRITE_MEM_FENCE = "write_mem_fence";
+
   // Extended execution var args OpenCL 2.x
   const std::string CompilationUtils::NAME_ENQUEUE_KERNEL = "enqueue_kernel";
 
@@ -285,6 +290,21 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
   }
 
+  void CompilationUtils::getAllSyncBuiltinsDclsForNoDuplicateRelax(
+      FunctionSet &functionSet, Module *pModule) {
+    getAllSyncBuiltinsDcls(functionSet, pModule);
+    // add sub_group_barrier separately. It does not require
+    // following Barrier compilation flow, but
+    // requires noduplicate relaxation.
+    for (auto &F : pModule->functions())
+      if (F.isDeclaration()) {
+      llvm::StringRef func_name = F.getName();
+      if (func_name == CompilationUtils::mangledSGBarrier(CompilationUtils::BARRIER_NO_SCOPE) ||
+          func_name == CompilationUtils::mangledSGBarrier(CompilationUtils::BARRIER_WITH_SCOPE))
+        functionSet.insert(&F);
+      }
+  }
+
   void CompilationUtils::getAllSyncBuiltinsDcls(FunctionSet &functionSet, Module *pModule) {
     //Clear old collected data!
     functionSet.clear();
@@ -294,8 +314,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       llvm::StringRef func_name = fi->getName();
       if ( /* barrier built-ins */
           func_name == CompilationUtils::mangledBarrier() ||
-          func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::WG_BARRIER_NO_SCOPE) ||
-          func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::WG_BARRIER_WITH_SCOPE) ||
+          func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::BARRIER_NO_SCOPE) ||
+          func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::BARRIER_WITH_SCOPE) ||
           /* work group built-ins */
           CompilationUtils::isWorkGroupBuiltin(func_name)  ||
           /* built-ins synced as if were called by a single work item */
@@ -633,6 +653,16 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     return false;
   }
 
+  bool CompilationUtils::generatedFromSPIRV(const Module &M) {
+    /*
+    Example of the metadata
+    !spirv.Source = !{!0}
+    */
+    auto spirvSource =
+        ModuleMetadataAPI(const_cast<llvm::Module *>(&M)).SPIRVSourceList;
+    return spirvSource.hasValue();
+  }
+
 Function *CompilationUtils::AddMoreArgsToFunc(
     Function *F, ArrayRef<Type *> NewTypes, ArrayRef<const char *> NewNames,
     ArrayRef<AttributeSet> NewAttrs, StringRef Prefix) {
@@ -727,6 +757,47 @@ CallInst *CompilationUtils::AddMoreArgsToCall(CallInst *OldC,
   return NewC;
 }
 
+CallInst *
+CompilationUtils::AddMoreArgsToIndirectCall(CallInst *OldC,
+                                            ArrayRef<Value *> NewArgs) {
+  assert(OldC && "CallInst is NULL");
+  assert(!OldC->getCalledFunction() && "Not an indirect call");
+
+  SmallVector<Value *, 16> Args;
+  // Copy existing arguments
+  for (unsigned I = 0, E = OldC->getNumArgOperands(); I != E; ++I)
+    Args.push_back(OldC->getArgOperand(I));
+  // And append new arguments
+  Args.append(NewArgs.begin(), NewArgs.end());
+
+  auto *FPtrType = cast<PointerType>(OldC->getCalledValue()->getType());
+  auto *FType = cast<FunctionType>(FPtrType->getElementType());
+  SmallVector<Type *, 16> ArgTys;
+  for (const auto &V : Args)
+    ArgTys.push_back(V->getType());
+
+  auto *NewFType =
+      FunctionType::get(FType->getReturnType(), ArgTys, /* vararg = */ false);
+  auto *Cast = CastInst::CreatePointerCast(
+      OldC->getCalledValue(),
+      PointerType::get(NewFType, FPtrType->getAddressSpace()), "", OldC);
+  assert(Cast && "Failed to create CastInst");
+
+  // Replace the original function with a call
+  auto *NewC = CallInst::Create(Cast, Args, "", OldC);
+  assert(NewC && "Failed to create CallInst");
+
+  // Copy debug metadata to new function if available
+  if (OldC->hasMetadata())
+    NewC->setDebugLoc(OldC->getDebugLoc());
+
+  OldC->replaceAllUsesWith(NewC);
+  // Erasing from parent is not really necessary, but let's cleanup a little bit
+  // here
+  OldC->eraseFromParent();
+  return NewC;
+}
+
 template <reflection::TypePrimitiveEnum Ty>
 static std::string optionalMangleWithParam(const char*const N){
   reflection::FunctionDescriptor FD;
@@ -762,6 +833,19 @@ static std::string mangleWithParam(const char*const N,
     FD.parameters.push_back(UI);
   }
   return mangle(FD);
+}
+
+std::string CompilationUtils::mangledMemFence() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_MEM_FENCE.c_str());
+}
+
+std::string CompilationUtils::mangledAtomicWorkItemFence() {
+  reflection::TypePrimitiveEnum Params[] = {
+    reflection::PRIMITIVE_UINT,
+    reflection::PRIMITIVE_MEMORY_ORDER,
+    reflection::PRIMITIVE_MEMORY_SCOPE };
+
+   return mangleWithParam(NAME_ATOMIC_WORK_ITEM_FENCE.c_str(), Params);
 }
 
 std::string CompilationUtils::mangledGetGID() {
@@ -800,26 +884,75 @@ std::string CompilationUtils::mangledBarrier() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(BARRIER_FUNC_NAME.c_str());
 }
 
-std::string CompilationUtils::mangledWGBarrier(WG_BARRIER_TYPE wgBarrierType) {
+std::string CompilationUtils::mangledWGBarrier(BARRIER_TYPE wgBarrierType) {
   switch(wgBarrierType) {
-  case WG_BARRIER_NO_SCOPE:
-    return mangleWithParam<reflection::PRIMITIVE_UINT>(WG_BARRIER_FUNC_NAME.c_str(), 1);
-  case WG_BARRIER_WITH_SCOPE: {
+  case BARRIER_NO_SCOPE:
+    return mangleWithParam<reflection::PRIMITIVE_UINT>(
+      WG_BARRIER_FUNC_NAME.c_str(), 1);
+  case BARRIER_WITH_SCOPE: {
     reflection::TypePrimitiveEnum Params[] = {
       reflection::PRIMITIVE_UINT,
-      reflection::PRIMITIVE_INT };
+      reflection::PRIMITIVE_MEMORY_SCOPE };
 
     return mangleWithParam(WG_BARRIER_FUNC_NAME.c_str(), Params);
   }
   default:
-    assert(false && "Unknown work_group_barrier version");
-    return "";
+    llvm_unreachable("Unknown work_group_barrier version");
   }
+  return "";
+}
+
+std::string CompilationUtils::mangledSGBarrier() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(
+    SG_BARRIER_FUNC_NAME.c_str());
+}
+
+std::string CompilationUtils::mangledSGBarrier(BARRIER_TYPE sgBarrierType) {
+  switch(sgBarrierType) {
+  case BARRIER_NO_SCOPE:
+    return mangleWithParam<reflection::PRIMITIVE_UINT>(
+      SG_BARRIER_FUNC_NAME.c_str(), 1);
+  case BARRIER_WITH_SCOPE : {
+    reflection::TypePrimitiveEnum Params[] = {
+      reflection::PRIMITIVE_UINT,
+      reflection::PRIMITIVE_MEMORY_SCOPE };
+
+    return mangleWithParam(SG_BARRIER_FUNC_NAME.c_str(), Params);
+  }
+  default:
+    llvm_unreachable("Unknown sub_group_barrier version");
+  }
+  return "";
 }
 
 std::string CompilationUtils::mangledGetSubGroupLID() {
   return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
       NAME_GET_SUB_GROUP_LOCAL_ID.c_str());
+}
+
+std::string CompilationUtils::mangledNumSubGroups() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+    NAME_GET_NUM_SUB_GROUPS.c_str());
+}
+
+std::string CompilationUtils::mangledGetSubGroupId() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+    NAME_GET_SUB_GROUP_ID.c_str());
+}
+
+std::string CompilationUtils::mangledEnqueuedNumSubGroups() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+    NAME_GET_ENQUEUED_NUM_SUB_GROUPS.c_str());
+}
+
+std::string CompilationUtils::mangledGetSubGroupSize() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+    NAME_GET_SUB_GROUP_SIZE.c_str());
+}
+
+std::string CompilationUtils::mangledGetSubGroupLocalId() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+    NAME_GET_SUB_GROUP_LOCAL_ID.c_str());
 }
 
 static bool isOptionalMangleOf(const std::string& LHS, const std::string& RHS) {
@@ -861,7 +994,7 @@ bool CompilationUtils::isGetLocalLinearId(const std::string& S){
   return isOptionalMangleOf(S, NAME_GET_LINEAR_LID);
 }
 
-bool CompilationUtils::isGetSubGroupLocalID(const std::string& S){
+bool CompilationUtils::isGetSubGroupLocalId(const std::string& S){
   return isOptionalMangleOf(S, NAME_GET_SUB_GROUP_LOCAL_ID);
 }
 
@@ -1177,7 +1310,7 @@ bool CompilationUtils::isAtomicWorkItemFenceBuiltin(const std::string& funcName)
   // - it's equal to "atomic_work_item_fence" string
   if (!isMangledName(funcName.c_str()))
     return false;
-  return stripName(funcName.c_str()) == "atomic_work_item_fence";
+  return stripName(funcName.c_str()) == NAME_ATOMIC_WORK_ITEM_FENCE;
 
 }
 

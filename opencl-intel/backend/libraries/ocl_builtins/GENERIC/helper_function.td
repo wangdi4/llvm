@@ -172,6 +172,11 @@ let Types = [v4i8, v4i16, v4i32, v4f32],
 
 let Attrs = [OVERLOADABLE],
   NeedForwardDecl = 1 in {
+    let Types = [v32i32, v32u32, v32f32] in {
+      def __ocl_shuffle_transpose_8x4 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_8x4", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+      def __ocl_shuffle_transpose_4x8 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_4x8", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+    }
+
     let Types = [v64i32, v64u32, v64f32] in {
       def __ocl_shuffle_transpose_4x16 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_4x16", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
       def __ocl_shuffle_transpose_16x4 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_16x4", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
@@ -185,6 +190,17 @@ let Attrs = [OVERLOADABLE],
 
     let Types = [v256i32, v256u32, v256f32] in {
       def __ocl_shuffle_transpose_16x16 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_16x16", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
+    }
+  }
+
+let Attrs = [OVERLOADABLE],
+  NeedForwardDecl = 1 in {
+    let Types = [v16i32, v32i32, v64i32, v128i32, v256i32] in {
+      def __ocl_extend_mask_v16 : OclBuiltin<"__ocl_extend_mask_to_$VecLength", (outs gentype:$ret), (ins v16i32:$mask), [], [], 0, 0>, PRIVATE;
+    }
+
+    let Types = [v8i32, v16i32, v32i32, v64i32, v128i32] in {
+      def __ocl_extend_mask_v8 : OclBuiltin<"__ocl_extend_mask_to_$VecLength", (outs gentype:$ret), (ins v8i32:$mask), [], [], 0, 0>, PRIVATE;
     }
   }
 

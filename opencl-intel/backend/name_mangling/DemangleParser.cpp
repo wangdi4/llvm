@@ -162,6 +162,8 @@ DemangleParser::DemangleParser(TypeVector &parameters, bool isSpir12Name)
   m_imageTypeNameTranslate["ocl_queue"] = PRIMITIVE_QUEUE_T;
   m_imageTypeNameTranslate["ocl_pipe_ro"] = PRIMITIVE_PIPE_RO_T;
   m_imageTypeNameTranslate["ocl_pipe_wo"] = PRIMITIVE_PIPE_WO_T;
+  m_imageTypeNameTranslate["memory_order"] = PRIMITIVE_MEMORY_ORDER;
+  m_imageTypeNameTranslate["memory_scope"] = PRIMITIVE_MEMORY_SCOPE;
   m_imageTypeNameTranslate["ocl_sampler"] = PRIMITIVE_SAMPLER_T;
 }
 

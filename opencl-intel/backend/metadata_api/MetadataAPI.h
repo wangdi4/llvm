@@ -95,6 +95,7 @@ struct KernelMetadataAPI {
         ReqdNumSubGroups(Func, "required_num_sub_groups"),
         VecTypeHint(Func, "vec_type_hint"),
         VecLenHint(Func, "intel_vec_len_hint"),
+        ReqdIntelSGSize(Func, "intel_reqd_sub_group_size"),
         MaxGlobalWorkDim(Func, "max_global_work_dim"),
         // Attribute tells if kernel can be enqueued
         // with GlobalWorkOffset parameter, hence the naming
@@ -116,6 +117,7 @@ struct KernelMetadataAPI {
        MDNames.push_back(ReqdNumSubGroups.getID());
        MDNames.push_back(VecTypeHint.getID());
        MDNames.push_back(VecLenHint.getID());
+       MDNames.push_back(ReqdIntelSGSize.getID());
        MDNames.push_back(MaxGlobalWorkDim.getID());
        MDNames.push_back(CanUseGlobalWorkOffset.getID());
        MDNames.push_back(Autorun.getID());
@@ -137,6 +139,7 @@ struct KernelMetadataAPI {
   NamedMDValueAccessor<ReqdNumSubGroupsTy> ReqdNumSubGroups;
   VecTypeHintTupleMDListAccessor<VecTypeHintTy> VecTypeHint;
   NamedMDValueAccessor<VecLenHintTy> VecLenHint;
+  NamedMDValueAccessor<VecLenHintTy> ReqdIntelSGSize; // Alias to VecLenHint
   NamedMDValueAccessor<MaxGlobalWorkDimTy> MaxGlobalWorkDim;
   NamedMDValueAccessor<CanUseGlobalWorkOffsetTy> CanUseGlobalWorkOffset;
   NamedMDValueAccessor<AutorunTy> Autorun;
@@ -145,6 +148,13 @@ struct KernelMetadataAPI {
 public:
   const llvm::SmallVectorImpl<llvm::StringRef>& getMDNames() const
     { return MDNames; }
+  bool hasVecLength()
+    { return VecLenHint.hasValue() || ReqdIntelSGSize.hasValue(); }
+  int getVecLength()
+    {
+      if (VecLenHint.hasValue()) return VecLenHint.get();
+      else return ReqdIntelSGSize.get();
+    }
 private:
   llvm::SmallVector<llvm::StringRef, 16> MDNames;
 };
@@ -159,6 +169,7 @@ struct KernelInternalMetadataAPI {
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> MaxWGDimensionsTy;
   typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> KernelHasBarrierTy;
   typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> KernelHasGlobalSyncTy;
+  typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> KernelHasSubgroupsTy;
   typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> NoBarrierPathTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> VectorizedWidthTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> BlockLiteralSizeTy;
@@ -182,6 +193,7 @@ struct KernelInternalMetadataAPI {
         MaxWGDimensions(Func, "max_wg_dimensions"),
         KernelHasBarrier(Func, "kernel_has_barrier"),
         KernelHasGlobalSync(Func, "kernel_has_global_sync"),
+        KernelHasSubgroups(Func, "kernel_has_sub_groups"),
         NoBarrierPath(Func, "no_barrier_path"),
         VectorizedWidth(Func, "vectorized_width"),
         OclRecommendedVectorLength(Func, "ocl_recommended_vector_length"),
@@ -200,6 +212,7 @@ struct KernelInternalMetadataAPI {
       MDNames.push_back(MaxWGDimensions.getID());
       MDNames.push_back(KernelHasBarrier.getID());
       MDNames.push_back(KernelHasGlobalSync.getID());
+      MDNames.push_back(KernelHasSubgroups.getID());
       MDNames.push_back(NoBarrierPath.getID());
       MDNames.push_back(VectorizedWidth.getID());
       MDNames.push_back(OclRecommendedVectorLength.getID());
@@ -220,6 +233,7 @@ struct KernelInternalMetadataAPI {
   NamedMDValueAccessor<MaxWGDimensionsTy> MaxWGDimensions;
   NamedMDValueAccessor<KernelHasBarrierTy> KernelHasBarrier;
   NamedMDValueAccessor<KernelHasGlobalSyncTy> KernelHasGlobalSync;
+  NamedMDValueAccessor<KernelHasSubgroupsTy> KernelHasSubgroups;
   NamedMDValueAccessor<NoBarrierPathTy> NoBarrierPath;
   NamedMDValueAccessor<VectorizedWidthTy> VectorizedWidth;
   NamedMDValueAccessor<VectorizedWidthTy> OclRecommendedVectorLength;

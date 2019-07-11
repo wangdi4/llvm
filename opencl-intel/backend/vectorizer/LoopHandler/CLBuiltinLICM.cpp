@@ -76,7 +76,10 @@ void CLBuiltinLICM::ScanLoop(DomTreeNode *N) {
 
 bool CLBuiltinLICM::hoistCLBuiltin(CallInst *CI) {
   assert(nullptr != CI && "Cannot operate with the nullptr!");
-  assert(CI->getCalledFunction() && "Unexpected indirect function invocation");
+  if (!CI->getCalledFunction()) {
+    return false; // ignore indirect calls
+  }
+
   std::string funcName = CI->getCalledFunction()->getName().str();
   // To hoist the call it should have no side effect.
   if (!m_rtServices->isSafeToSpeculativeExecute(funcName) ) return false;

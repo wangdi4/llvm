@@ -156,9 +156,14 @@ void OCLPrepareKernelForVecClone::addVectorVariantAttrsToKernel(Function *F) {
   // The vector length is calculated by WeightedInstCounter pass. Metadata are
   // used to communicate the vector length value between the two passes.
   auto MD = KernelInternalMetadataAPI(F);
+  auto KMD = KernelMetadataAPI(F);
   V_ASSERT(MD.OclRecommendedVectorLength.hasValue() &&
            "Vector Length was not set!");
-  unsigned VectorLength = MD.OclRecommendedVectorLength.get();
+  unsigned VectorLength;
+  if (KMD.hasVecLength()) // Check for forced vector length
+    VectorLength = KMD.getVecLength();
+  else
+    VectorLength = MD.OclRecommendedVectorLength.get();
 
   // Use "uniform" parameter for all arguments.
   SmallVector<ParamAttrTy, 3> ParamsVec;

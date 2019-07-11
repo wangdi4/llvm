@@ -42,6 +42,9 @@ namespace intel {
       if (Func.isDeclaration())
         continue;
 
+      if (Func.hasFnAttribute("referenced-indirectly"))
+        continue;
+
       // We shall not internalize kernels
       if (std::find(std::begin(Kernels), std::end(Kernels), &Func) != std::end(Kernels))
         continue;

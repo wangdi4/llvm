@@ -158,6 +158,9 @@ public:
     cl_ulong        clDevGetPerformanceCounter();
     cl_dev_err_code clDevSetLogger(IOCLDevLogDescriptor *);
 
+    cl_dev_err_code clDevGetFunctionPointerFor(cl_dev_program IN prog,
+        const char* IN func_name, cl_ulong* OUT func_pointer_ret) const;
+
     // NOTE: this function is not thread-safe by itself and caller is
     // responsible for performing synchronization
     void            clDevCloseDevice(void);

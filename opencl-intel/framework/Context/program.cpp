@@ -65,6 +65,13 @@ cl_err_code Program::GetBuildInfo(cl_device_id clDevice, cl_program_build_info c
     return pDeviceProgram->GetBuildInfo(clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 }
 
+cl_err_code Program::GetDeviceFunctionPointer(cl_device_id device,
+    const char* func_name, cl_ulong* func_pointer_ret)
+{
+    DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(device);
+    return pDeviceProgram->GetFunctionPointer(func_name, func_pointer_ret);
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Program::GetInfo
 ///////////////////////////////////////////////////////////////////////////////////////////////////

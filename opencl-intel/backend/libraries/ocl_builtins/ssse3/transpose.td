@@ -452,6 +452,21 @@ OclBuiltinImpl __ocl_transpose16x4_sse3 = OclBuiltinImpl<__ocl_transpose16x4, [v
   }]>;
 
 
+OclBuiltinImpl __ocl_shuffle_transpose4x8_sse3 = OclBuiltinImpl<__ocl_shuffle_transpose_4x8, [v32i32, v32u32, v32f32], 0, [{
+    return __builtin_shufflevector($Arg0VarName, $Arg0VarName,
+            0, 4, 8, 12, 16, 20, 24, 28,
+            1, 5, 9, 13, 17, 21, 25, 29,
+            2, 6, 10, 14, 18, 22, 26, 30,
+            3, 7, 11, 15, 19, 23, 27, 31);
+}]>;
+
+OclBuiltinImpl __ocl_shuffle_transpose8x4_sse3 = OclBuiltinImpl<__ocl_shuffle_transpose_8x4, [v32i32, v32u32, v32f32], 0, [{
+    return __builtin_shufflevector($Arg0VarName, $Arg0VarName,
+            0, 8, 16, 24, 1, 9, 17, 25,
+            2, 10, 18, 26, 3, 11, 19, 27,
+            4, 12, 20, 28, 5, 13, 21, 29,
+            6, 14, 22, 30, 7, 15, 23, 31);
+}]>;
 
 OclBuiltinImpl __ocl_shuffle_transpose4x16_sse3 = OclBuiltinImpl<__ocl_shuffle_transpose_4x16, [v64i32, v64u32, v64f32], 0, [{
     return __builtin_shufflevector($Arg0VarName, $Arg0VarName,

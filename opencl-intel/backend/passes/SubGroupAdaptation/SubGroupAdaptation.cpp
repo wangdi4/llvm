@@ -68,7 +68,7 @@ bool SubGroupAdaptation::runOnModule(Module &M) {
     llvm::StringRef func_name = pFunc->getName();
     if (CompilationUtils::isSubGroupBarrier(func_name)) {
       replaceFunction(pFunc, CompilationUtils::WG_BARRIER_FUNC_NAME);
-    } else if (CompilationUtils::isGetSubGroupLocalID(func_name)) {
+    } else if (CompilationUtils::isGetSubGroupLocalId(func_name)) {
 
       BasicBlock *entry = BasicBlock::Create(*m_pLLVMContext, "entry", pFunc);
       std::string fName = func_name.str();
@@ -235,7 +235,8 @@ void SubGroupAdaptation::defineSubGroupBroadcast(Function *pFunc) {
 
   assert((pFunc->arg_size() > 1) && "Expect at least 2 args!");
   auto firstArg = pFunc->arg_begin();
-  params.push_back(&*firstArg);
+  auto gentype = &*firstArg;
+  params.push_back(gentype);
   auto secondArg = ++firstArg;
 
   // For 1-dim workgroup - return get_local_id(0)
@@ -281,7 +282,7 @@ void SubGroupAdaptation::defineSubGroupBroadcast(Function *pFunc) {
   std::string newFuncName = mangle(fd);
 
   std::vector<Type *> types;
-  types.push_back(firstArg->getType());
+  types.push_back(gentype->getType());
   for (unsigned int i = 0; i < 3; ++i)
     types.push_back(m_pSizeT);
 

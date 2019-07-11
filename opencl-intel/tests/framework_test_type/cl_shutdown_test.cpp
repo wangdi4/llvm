@@ -317,37 +317,40 @@ void death_test_imp( TEST_CASE test_case, const char* name )
 //
 ////////////////////////////////////////////////////////////////////////////////////////////
 
-TEST(FrameworkTestTypeDeathTest, Test_NormalExit)
+// The tests are disabled because the functionality they  test is disabled as
+// well.
+
+TEST(FrameworkTestTypeDeathTest, DISABLED_Test_NormalExit)
 {
     death_test( NORMAL_EXIT );
 }
 
-TEST(FrameworkTestTypeDeathTest, Test_NO_BUFFER_RELEASES)
+TEST(FrameworkTestTypeDeathTest, DISABLED_Test_NO_BUFFER_RELEASES)
 {
     death_test( NO_BUFFER_RELEASES );
 }
 
-TEST(FrameworkTestTypeDeathTest, Test_NO_KERNEL_RELEASES)
+TEST(FrameworkTestTypeDeathTest, DISABLED_Test_NO_KERNEL_RELEASES)
 {
     death_test( NO_KERNEL_RELEASES );
 }
 
-TEST(FrameworkTestTypeDeathTest, Test_NO_PROGRAM_RELEASES)
+TEST(FrameworkTestTypeDeathTest, DISABLED_Test_NO_PROGRAM_RELEASES)
 {
     death_test( NO_PROGRAM_RELEASES );
 }
 
-TEST(FrameworkTestTypeDeathTest, Test_NO_QUEUE_RELEASES)
+TEST(FrameworkTestTypeDeathTest, DISABLED_Test_NO_QUEUE_RELEASES)
 {
     death_test( NO_QUEUE_RELEASES );
 }
 
-TEST(FrameworkTestTypeDeathTest, Test_NO_CONTEXT_RELEASES)
+TEST(FrameworkTestTypeDeathTest, DISABLED_Test_NO_CONTEXT_RELEASES)
 {
     death_test( NO_CONTEXT_RELEASES );
 }
 
-TEST(FrameworkTestTypeDeathTest, Test_NO_EVENTS_RELEASES)
+TEST(FrameworkTestTypeDeathTest, DISABLED_Test_NO_EVENTS_RELEASES)
 {
     death_test( NO_EVENTS_RELEASES );
 }

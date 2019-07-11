@@ -2953,6 +2953,39 @@ cl_int ContextModule::GetProfileDataDeviceIntelFPGA(cl_device_id device_id,
     }
     return CL_INVALID_DEVICE;
 }
+//////////////////////////////////////////////////////////////////////////////
+//
+// cl_intel_function_pointers functions
+//
+//////////////////////////////////////////////////////////////////////////////
+
+cl_int ContextModule::GetDeviceFunctionPointer(cl_device_id device,
+    cl_program program, const char* func_name, cl_ulong* func_pointer_ret)
+{
+    if (nullptr == func_name || nullptr == func_pointer_ret)
+    {
+        return CL_INVALID_VALUE;
+    }
+
+    // TODO: check for CL_INVALID_DEVICE
+
+    SharedPtr<Program> pProgram = m_mapPrograms.GetOCLObject(
+        (_cl_program_int*)program).DynamicCast<Program>();
+
+    if (NULL == pProgram)
+    {
+        return CL_INVALID_PROGRAM;
+    }
+
+    cl_int error = pProgram->GetDeviceFunctionPointer(device, func_name,
+        func_pointer_ret);
+    if (nullptr == func_pointer_ret)
+    {
+        return CL_INVALID_ARG_VALUE;
+    }
+
+    return error;
+}
 
 //////////////////////////////////////////////////////////////////////////////
 //

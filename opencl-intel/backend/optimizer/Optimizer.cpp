@@ -70,6 +70,13 @@ static cl::opt<bool>
                             cl::desc("Enable VPlan Kernel Vectorizer"));
 // INTEL VPO END
 
+// TODO: The switch is required until subgroup implementation passes
+// the conformance test fully (meaning that masked kernel is integrated).
+static cl::opt<bool>
+    EnableNativeOpenCLSubgroups("enable-native-opencl-subgroups", cl::init(false),
+                                cl::Hidden,
+                                cl::desc("Enable native subgroup functionality"));
+
 extern "C"{
 
 void *createInstToFuncCallPass(bool);
@@ -119,6 +126,7 @@ createBuiltinLibInfoPass(SmallVector<Module *, 2> pRtlModuleList,
 llvm::ModulePass *createUndifinedExternalFunctionsPass(
     std::vector<std::string> &undefinedExternalFunctions);
 llvm::ModulePass *createKernelInfoWrapperPass();
+llvm::ModulePass *createKernelSubGroupInfoPass();
 llvm::ModulePass *createDuplicateCalledKernelsPass();
 llvm::ModulePass *createPatchCallbackArgsPass();
 llvm::ModulePass *createDeduceMaxWGDimPass();
@@ -134,6 +142,7 @@ llvm::Pass *createSmartGVNPass(bool);
 
 llvm::ModulePass *createSinCosFoldPass();
 llvm::ModulePass *createResolveWICallPass(bool isUniformWGSize);
+llvm::Pass       *createResolveSubGroupWICallPass();
 llvm::ModulePass *createDetectRecursionPass();
 llvm::Pass *createResolveBlockToStaticCallPass();
 llvm::ImmutablePass *createOCLAliasAnalysisPass();
@@ -316,7 +325,8 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
                                        bool isOcl20,
                                        bool isFpgaEmulator,
                                        bool UnrollLoops,
-                                       bool EnableInferAS) {
+                                       bool EnableInferAS,
+                                       bool isSPIRV) {
   DebuggingServiceType debugType =
       getDebuggingServiceType(pConfig->GetDebugInfoFlag() ||
                               getDebugFlagFromMetadata(M));
@@ -352,7 +362,9 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
     PM.add(llvm::createInstSimplifyLegacyPass());
   }
 
-  PM.add(createSubGroupAdaptationPass());
+  // No adaptation layer is required for native subgroups
+  if (!EnableNativeOpenCLSubgroups)
+    PM.add(createSubGroupAdaptationPass());
 
   if (isOcl20) {
     // Flatten get_{local, global}_linear_id()
@@ -377,7 +389,9 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   }
 
   // OCL2.0 add Generic Address Resolution
-  if (isOcl20) {
+  // LLVM IR converted from any version of SPIRV may have Generic
+  // adress space pointers.
+  if (isOcl20 || isSPIRV) {
     // Static resolution of generic address space pointers
     if (OptLevel > 0) {
       PM.add(llvm::createPromoteMemoryToRegisterPass());
@@ -492,6 +506,10 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
     PM.add(llvm::createCFGSimplificationPass());
   }
 
+  // Mark the kernels using subgroups
+  if (EnableNativeOpenCLSubgroups)
+    PM.add(createKernelSubGroupInfoPass());
+
   // In Apple build TRANSPOSE_SIZE_1 is not declared
   if (pConfig->GetTransposeSize() != 1 /*TRANSPOSE_SIZE_1*/
       && debugType == intel::None && OptLevel != 0) {
@@ -563,6 +581,9 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
   PM.add(llvm::createVerifierPass());
 #endif
 
+  if (EnableNativeOpenCLSubgroups)
+    PM.add(createResolveSubGroupWICallPass());
+
   // Unroll small loops with unknown trip count.
   PM.add(llvm::createLoopUnrollPass(OptLevel, false, false, 16, 0, 0, 1));
   // The ShiftZeroUpperBits pass should be added after the vectorizer because
@@ -608,6 +629,12 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
   if (debugType == intel::None) {
     PM.add(createDeduceMaxWGDimPass());
     PM.add(createCLWGLoopCreatorPass());
+  }
+
+  // Clean up scalar kernel after WGLoop for native subgroups.
+  if (debugType == intel::None) {
+    PM.add(llvm::createDeadCodeEliminationPass()); // Delete dead instructions
+    PM.add(llvm::createCFGSimplificationPass());   // Simplify CFG
   }
 
   if (isFpgaEmulator) {
@@ -773,6 +800,9 @@ Optimizer::Optimizer(llvm::Module *pModule,
   // Detect OCL2.0 compilation mode
   const bool isOcl20 = (CompilationUtils::fetchCLVersionFromMetadata(
                             *pModule) >= OclVersion::CL_VER_2_0);
+
+  const bool isSPIRV = CompilationUtils::generatedFromSPIRV(*pModule);
+
   bool UnrollLoops = true;
 
   // Initialize TTI
@@ -792,7 +822,7 @@ Optimizer::Optimizer(llvm::Module *pModule,
   populatePassesPreFailCheck(m_PreFailCheckPM, pModule, m_pRtlModuleList,
                              OptLevel, pConfig, isOcl20,
                              isFpgaEmulator, UnrollLoops,
-                             EnableInferAS);
+                             EnableInferAS, isSPIRV);
 
   // Add passes which will be run only if hasFunctionPtrCalls() and
   // hasRecursion() will return false

@@ -128,6 +128,9 @@ public:
 
     ICLDevBackendImageService*   GetImageService(){ return m_pBackendImageService; }
 
+    cl_dev_err_code GetFunctionPointerFor(cl_dev_program IN prog,
+        const char* IN func_name, cl_ulong* OUT func_pointer_ret) const;
+
     struct KernelMapEntry
     {
         const ICLDevBackendKernel_*  pBEKernel;

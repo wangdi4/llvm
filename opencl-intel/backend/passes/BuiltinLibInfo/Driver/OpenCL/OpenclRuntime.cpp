@@ -126,8 +126,17 @@ bool OpenclRuntime::isTIDGenerator(const Instruction * inst, bool * err, unsigne
     funcName = Mangler::demangle(funcName); // Remove mangling (masking) prefix
     ++dimensionIndex; // There is a mask/predicate argument before the dimension
   }
-  if (!CompilationUtils::isGetGlobalId(funcName) && !CompilationUtils::isGetLocalId(funcName))
+  if (!CompilationUtils::isGetGlobalId(funcName) && !CompilationUtils::isGetLocalId(funcName) &&
+      !CompilationUtils::isGetSubGroupLocalId(funcName))
     return false; // not a get_***_id function
+
+  // Early exit for subgroup TIDs that do not take any operands.
+  if (CompilationUtils::isGetSubGroupLocalId(funcName)) {
+    *dim = 0; // dummy dim as sub group does not have a clear dimension.
+    return true;
+  }
+
+  // Go on checking arguments for other TIDS.
   Value * inputValue = CI->getArgOperand(dimensionIndex);
 
   // Check if the argument is constant - if not, we cannot determine if
@@ -231,8 +240,15 @@ bool OpenclRuntime::isWorkItemBuiltin(const std::string &name) const {
     CompilationUtils::isGlobalOffset(name) ||
     CompilationUtils::isGetNumGroups(name) ||
     (0 == name.compare("get_base_global_id.")) ||
+    // subgroup built-ins
+    CompilationUtils::isGetSubGroupId(name) ||
+    CompilationUtils::isGetSubGroupLocalId(name) ||
+    CompilationUtils::isGetSubGroupSize(name) ||
+    CompilationUtils::isGetMaxSubGroupSize(name) ||
+    CompilationUtils::isGetNumSubGroups(name) ||
     // The following is applicabble for OpenCL 2.0 or more recent versions.
-    CompilationUtils::isGetEnqueuedLocalSize(name);
+    CompilationUtils::isGetEnqueuedLocalSize(name) ||
+    CompilationUtils::isGetEnqueuedNumSubGroups(name);
 }
 
 bool OpenclRuntime::isSyncWithSideEffect(const std::string &func_name) const {
@@ -251,8 +267,10 @@ bool OpenclRuntime::isSyncWithSideEffect(const std::string &func_name) const {
 bool OpenclRuntime::isSyncWithNoSideEffect(const std::string &func_name) const {
   using namespace Intel::OpenCL::DeviceBackend;
   if (func_name == CompilationUtils::mangledBarrier() ||
-      func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::WG_BARRIER_NO_SCOPE) ||
-      func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::WG_BARRIER_WITH_SCOPE) )
+      func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::BARRIER_NO_SCOPE) ||
+      func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::BARRIER_WITH_SCOPE)||
+      func_name == CompilationUtils::mangledSGBarrier(CompilationUtils::BARRIER_NO_SCOPE) ||
+      func_name == CompilationUtils::mangledSGBarrier(CompilationUtils::BARRIER_WITH_SCOPE) )
     return true;
 
   if (CompilationUtils::isWaitGroupEvents(func_name))
@@ -261,7 +279,7 @@ bool OpenclRuntime::isSyncWithNoSideEffect(const std::string &func_name) const {
   const char* Fname = func_name.c_str();
   bool IsMangled = isMangledName(Fname);
 
-  //builtin functions are always mangeled
+  //builtin functions are always mangled
   if (!IsMangled)
     return false;
 

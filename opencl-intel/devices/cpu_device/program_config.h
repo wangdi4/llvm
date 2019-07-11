@@ -42,6 +42,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
             m_useVectorizer(false),
             m_vectorizerMode(TRANSPOSE_SIZE_NOT_SET),
             m_vectorizerType(VOLCANO_VECTORIZER),
+            m_enableNativeSubgroups(false),
             m_rtLoopUnrollFactor(0),
             m_useVTune(false),
             m_forcedPrivateMemorySize(0),
@@ -87,6 +88,10 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
                 {
                     return m_vectorizerType;
                 }
+                case CL_DEV_BACKEND_OPTION_NATIVE_SUBGROUPS:
+                {
+                    return m_enableNativeSubgroups;
+                }
                 default:
                     return defaultValue;
             }
@@ -106,6 +111,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         bool m_useVectorizer;
         int  m_vectorizerMode;
         VectorizerType m_vectorizerType;
+        bool m_enableNativeSubgroups;
         int  m_rtLoopUnrollFactor;
         bool m_useVTune;
         int  m_forcedPrivateMemorySize;

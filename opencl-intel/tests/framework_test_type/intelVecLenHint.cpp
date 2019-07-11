@@ -99,9 +99,6 @@ void intelVecTypeHintTest()
     // expected to be vectorized
     KERNEL(0);
     kernelVec.emplace_back(kernelCode, kernelName, vectorizationTo, true);
-    // expected to be vectorized
-    KERNEL(8);
-    kernelVec.emplace_back(kernelCode, kernelName, vectorizationTo, true);
     // expected not to be vectorized
     KERNEL(1);
     kernelVec.emplace_back(kernelCode, kernelName, vectorizationTo, false);
@@ -117,9 +114,6 @@ void intelVecTypeHintTest()
     // expected not to be vectorized
     KERNEL_TYPE_HINT(1, float4);
     kernelVec.emplace_back(kernelCode, kernelName, vectorizationTo, false);
-    // expected to be vectorized to 8 ignoring type_hint int3
-    KERNEL_TYPE_HINT(8, int3);
-    kernelVec.emplace_back(kernelCode, kernelName, vectorizationTo, true);
 
     for (size_t i = 0; i != kernelVec.size(); ++i)
     {

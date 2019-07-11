@@ -331,6 +331,7 @@ static void initializeOCLPasses(PassRegistry &Registry) {
     intel::initializeLinearIdResolverPass(Registry);
     intel::initializePrepareKernelArgsPass(Registry);
     intel::initializeResolveWICallPass(Registry);
+    intel::initializeResolveSubGroupWICallPass(Registry);
     intel::initializeResolveBlockToStaticCallPass(Registry);
     intel::initializeDetectRecursionPass(Registry);
     intel::initializeDebugInfoPassPass(Registry);
@@ -351,6 +352,7 @@ static void initializeOCLPasses(PassRegistry &Registry) {
     intel::initializeOCLVecClonePass(Registry);
     intel::initializeOCLPostVectPass(Registry);
     intel::initializeChannelsUsageAnalysisPass(Registry);
+    intel::initializeKernelSubGroupInfoPass(Registry);
 }
 
 static void addMustHaveOCLPasses(llvm::LLVMContext& context,

@@ -94,8 +94,23 @@ public:
     virtual size_t GetNumberOfSubGroups(size_t size, const size_t* WGSizes) const = 0;
 
     /** @returns the maximum number of sub-groups that may make up each work-group to execute kernel.
+     *  @param wgSizeUpperBound - maximum possible WG size
      */
-    virtual size_t GetMaxNumSubGroups() const = 0;
+    virtual size_t GetMaxNumSubGroups(size_t const wgSizeUpperBound) const = 0;
+
+    /**
+     * @returns locals size that would give the desired number of subgroups
+     * @param     desiredSGCount - requested number of subgroups
+     * @param     wgSizeUpperBound - maximum possible WG size
+     * @param     wgPrivateMemSizeUpperBound - maximum possible private memory size per WG
+     * @param OUT pValue - output local sizes
+     * @param     dim - number of dimensions we need to fill
+     */
+    virtual void GetLocalSizeForSubGroupCount(size_t const desiredSGCount,
+                                              size_t const wgSizeUpperBound,
+                                              size_t const wgPrivateMemSizeUpperBound,
+                                              size_t* pValue,
+                                              size_t const dim) const = 0;
 
     /**
      * @returns the required number of sub-groups that was declared during kernel compilation.
@@ -189,6 +204,14 @@ public:
      *  false otherwise
      */
     virtual bool IsNonUniformWGSizeSupported() const = 0;
+
+    /**
+     * @returns the subgroup size specified by the
+     * __attribute__(( intel_reqd_sub_group_size(<int>) )) qualifier.
+     * If the subgroup size is not specified using the above attribute
+     * qualifier then 0 is returned.
+     */
+    virtual size_t GetRequiredSubGroupSize() const = 0;
 };
 
 class ICLDevBackendKernel_;

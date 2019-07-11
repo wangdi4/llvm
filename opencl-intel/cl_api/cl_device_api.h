@@ -223,6 +223,7 @@ enum cl_dev_err_code
     CL_DEV_INVALID_BINARY,                      //!< The binary is not supported by the device or program container content is invalid
     CL_DEV_INVALID_BUILD_OPTIONS,               //!< One of more build options specified for the back-end compiler are invalid
     CL_DEV_INVALID_PROGRAM,                     //!< Invalid program object handle
+    CL_DEV_INVALID_PROGRAM_EXECUTABLE,          //!< There is no successfully built executable for program
     CL_DEV_BUILD_IN_PROGRESS,                   //!< Back-end compiler is still in operation
     CL_DEV_BUILD_ALREADY_COMPLETE,              //!< Back-end compiler previously compiled this program
     CL_DEV_BUILD_ERROR,                         //!< Error occurred during back-end build process
@@ -324,7 +325,16 @@ enum cl_dev_kernel_info
                                                     //!< requested number of sub - groups for the kernel.
     CL_DEV_KERNEL_IS_AUTORUN,
     CL_DEV_KERNEL_IS_TASK,
-    CL_DEV_KERNEL_CAN_USE_GLOBAL_WORK_OFFSET        //!< Specifies if a kernel can be enqueued with GlobalWorkOffset parameter
+    CL_DEV_KERNEL_CAN_USE_GLOBAL_WORK_OFFSET,       //!< Specifies if a kernel can be enqueued with GlobalWorkOffset parameter
+    CL_DEV_KERNEL_SPILL_MEM_SIZE_INTEL,             //!< Returns the amount of spill memory used by a kernel.
+                                                    //!< The meaning of this value will vary from implementation-to-implementation,
+                                                    //!< however a return value of 0 will always indicate that compiler was
+                                                    //!< able to compile the kernel to fit into the device’s register file
+                                                    //!< without spilling registers to memory.
+    CL_DEV_KERNEL_COMPILE_SUB_GROUP_SIZE_INTEL      //!< Returns the subgroup size specified by the
+                                                    //!< __attribute__(( intel_reqd_sub_group_size(<int>) )) qualifier.
+                                                    //!< If the subgroup size is not specified using the above attribute
+                                                    //!< qualifier then 0 is returned.
 };
 
 /*! \enum cl_dev_partition_prop
@@ -1502,6 +1512,10 @@ public:
         \return     Raw Memory Allocator interface if available, NULL otherwise
     */
     virtual IOCLDevRawMemoryAllocator* clDevGetRawMemoryAllocator() = 0;
+
+    //! Retrieves Function poitner to a function in a compiled program
+    virtual cl_dev_err_code clDevGetFunctionPointerFor(cl_dev_program IN prog,
+        const char* IN func_name, cl_ulong* OUT func_pointer_ret) const = 0;
 
 };
 

@@ -131,6 +131,8 @@ bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
     }
   }
 
+  bool SubGroupPath = KernelInternalMetadataAPI(&F).KernelHasSubgroups.get();
+
   // Update member fields with the current kernel.
   m_F = &F;
   m_M = F.getParent();
@@ -162,7 +164,11 @@ bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
   // If no work group loop are created (no calls to get***id) avoid
   // inlining the vector jit into the scalar since only one work item
   // need to be executed.
-  loopRegion WGLoopRegion = m_vectorFunc && m_numDim ?
+  loopRegion WGLoopRegion;
+  if (SubGroupPath && m_numDim)
+    WGLoopRegion = createVectorAndMaskedRemainderLoops();
+  else
+    WGLoopRegion = m_vectorFunc && m_numDim ?
       createVectorAndRemainderLoops() :
       AddWGLoops(m_scalarEntry, false, m_scalarRet, m_gidCallsSc, m_lidCallsSc,
                   m_initGIDs, m_loopSizes);
@@ -223,7 +229,8 @@ loopRegion CLWGLoopCreator::createVectorAndRemainderLoops() {
   BasicBlock *loopsEntry =
       BasicBlock::Create(*m_context, "vect_if", m_F, vectorBlocks.m_preHeader);
   BasicBlock *scalarIf =
-      BasicBlock::Create(*m_context, "scalarIf", m_F, scalarBlocks.m_preHeader);
+        BasicBlock::Create(*m_context, "scalarIf", m_F, scalarBlocks.m_preHeader);
+
   BasicBlock *retBlock = BasicBlock::Create(*m_context, "ret", m_F);
 
   // Execute the vector loops if(vectorLoopSize != 0).
@@ -237,6 +244,49 @@ loopRegion CLWGLoopCreator::createVectorAndRemainderLoops() {
       dim0Boundaries.m_scalarLoopSize, m_constZero, "");
   BranchInst::Create(scalarBlocks.m_preHeader, retBlock, scalarCmp, scalarIf);
   BranchInst::Create(retBlock, scalarBlocks.m_exit);
+  return loopRegion(loopsEntry, retBlock);
+}
+
+loopRegion CLWGLoopCreator::createVectorAndMaskedRemainderLoops() {
+  // Do not create scalar remainder for subgroup kernels
+  // as the semantics does not allow execution of WIs in a serial
+  // manner.
+  // TODO: What we need here is masked vector remainder.
+  // As soon as we have that we can add masked loop remainder.
+
+  // Intentionally forget about scalar kernel. Let DCE delete it.
+
+  // Collect get**id and return instructions in the vector kernel.
+  m_vectorRet = getFunctionData(m_vectorFunc, m_gidCallsVec, m_lidCallsVec);
+
+  // Inline the vector kernel into the scalar kernel.
+  BasicBlock *vecEntry = inlineVectorFunction(m_scalarEntry);
+
+  // Obtain boundaries for the vector loops and scalar loops.
+  loopBoundaries dim0Boundaries =
+     getVectorLoopBoundaries(m_initGIDs[m_vectorizedDim],
+                             m_loopSizes[m_vectorizedDim]);
+  VVec initGIDs = m_initGIDs; // hard copy.
+  VVec loopSizes = m_loopSizes; // hard copy.
+
+  // Create vector loops.
+  loopSizes[m_vectorizedDim] = dim0Boundaries.m_vectorLoopSize;
+  loopRegion vectorBlocks = AddWGLoops(vecEntry, true, m_vectorRet,
+     m_gidCallsVec, m_lidCallsVec, initGIDs, loopSizes);
+
+  // Create blocks to jump over the loops.
+  BasicBlock *loopsEntry =
+    BasicBlock::Create(*m_context, "vect_if",
+                        m_F, vectorBlocks.m_preHeader);
+
+  BasicBlock *retBlock = BasicBlock::Create(*m_context, "ret", m_F);
+
+  // Execute the vector loops if(vectorLoopSize != 0).
+  Instruction *vectcmp = new ICmpInst(*loopsEntry, CmpInst::ICMP_NE,
+    dim0Boundaries.m_vectorLoopSize, m_constZero, "");
+  BranchInst::Create(vectorBlocks.m_preHeader, retBlock, vectcmp, loopsEntry);
+
+  BranchInst::Create(retBlock, vectorBlocks.m_exit);
   return loopRegion(loopsEntry, retBlock);
 }
 

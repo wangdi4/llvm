@@ -1869,6 +1869,30 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 *(size_t*)paramVal = 64;
             }
             return CL_DEV_SUCCESS;
+        case CL_DEVICE_SUB_GROUP_SIZES_INTEL:
+        {
+            const bool avx1Support = CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX10);
+            const bool avx2Support = CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX20);
+            const bool avx512Support = CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX512F);
+
+            std::vector<size_t> sizes;
+            sizes.push_back(4);
+
+            if (avx2Support || avx1Support)
+                sizes.push_back(8);
+            if (avx512Support)
+                sizes.push_back(16);
+
+            *pinternalRetunedValueSize = sizeof(size_t) * sizes.size();
+
+            if (paramVal != nullptr)
+            {
+                MEMCPY_S(paramVal, valSize, sizes.data(),
+                        *pinternalRetunedValueSize);
+            }
+
+            break;
+        }
         default:
             return CL_DEV_INVALID_VALUE;
     };
@@ -2563,6 +2587,15 @@ cl_dev_err_code CPUDevice::clDevBuildProgram( cl_dev_program IN prog, const char
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevBuildProgram Function enter"));
     return (cl_dev_err_code)m_pProgramService->BuildProgram(prog, options, buildStatus);
+}
+
+cl_dev_err_code CPUDevice::clDevGetFunctionPointerFor(cl_dev_program IN prog,
+    const char* IN func_name, cl_ulong* OUT func_pointer_ret) const
+{
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"),
+        TEXT("clDevGetFunctionPointerFor Function enter"));
+    return m_pProgramService->GetFunctionPointerFor(prog, func_name,
+        func_pointer_ret);
 }
 
 /*******************************************************************************************************************

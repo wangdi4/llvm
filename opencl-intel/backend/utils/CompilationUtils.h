@@ -172,6 +172,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @brief Moves alloca instructions from FromBB to ToBB
     static void moveAlloca(BasicBlock *FromBB, BasicBlock *ToBB);
 
+    /// @brief collect built-ins declared in the module that require
+    //         relaxation of noduplicate attribute to convergent.
+    static void getAllSyncBuiltinsDclsForNoDuplicateRelax(
+      FunctionSet &functionSet, Module *pModule);
+
     /// @brief collect built-ins declared in the module and force synchronization.
     //         I.e. implemented using barrier built-in.
     /// @param functionSet container to insert all synchronized built-ins into
@@ -212,6 +217,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static CallInst *AddMoreArgsToCall(CallInst *OldC,
                                        ArrayRef<Value *> NewArgs,
                                        Function *NewF);
+
+    /// @brief Replaces an indirect CallInst with a new indirect CallInst which
+    ///        has the same arguments as orignal plus more args appeneded.
+    /// @param OldC the original CallInst to be replaced
+    /// @NewArgs New arguments to append to existing arguments
+    /// @returns the new CallInst
+    static CallInst *AddMoreArgsToIndirectCall(CallInst *OldC,
+                                              ArrayRef<Value *> NewArgs);
     static bool isGetWorkDim(const std::string&);
     static bool isGetGlobalId(const std::string&);
     static bool isGetGlobalSize(const std::string&);
@@ -222,7 +235,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isGetEnqueuedLocalSize(const std::string&);
     static bool isGetGlobalLinearId(const std::string&);
     static bool isGetLocalLinearId(const std::string&);
-    static bool isGetSubGroupLocalID(const std::string&);
+    static bool isGetSubGroupLocalId(const std::string&);
     static bool isGetSubGroupId(const std::string&);
     static bool isGetNumGroups(const std::string&);
     static bool isGetNumSubGroups(const std::string&);
@@ -327,6 +340,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static const std::string NAME_SUB_GROUP_RESERVE_WRITE_PIPE;
     static const std::string NAME_SUB_GROUP_COMMIT_WRITE_PIPE;
 
+    static const std::string NAME_ATOMIC_WORK_ITEM_FENCE;
+
     static const std::string NAME_MEM_FENCE;
     static const std::string NAME_READ_MEM_FENCE;
     static const std::string NAME_WRITE_MEM_FENCE;
@@ -390,6 +405,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static const std::string NAME_GET_SPECIAL_BUFFER;
 
     //////////////////////////////////////////////////////////////////
+    // @brief returns the mangled name of the function mem_fence
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledMemFence();
+    //////////////////////////////////////////////////////////////////
+    // @brief returns the mangled name of the function atomic_work_item_fence
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledAtomicWorkItemFence();
+    //////////////////////////////////////////////////////////////////
     // @brief returns the mangled name of the function get_global_id
     //////////////////////////////////////////////////////////////////
     static std::string mangledGetGID();
@@ -426,24 +449,59 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     //////////////////////////////////////////////////////////////////
     static std::string mangledBarrier();
     //////////////////////////////////////////////////////////////////
+    // @brief: returns the mangled name of the sub_group_barrier
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledSGBarrier();
+    //////////////////////////////////////////////////////////////////
     // @brief: returns the mangled name of the work_group_barrier function
     // @param wgBarrierType
-    //                      WG_BARRIER_NO_SCOPE - for
+    //                      BARRIER_NO_SCOPE - for
     // void work_group_barrier (cl_mem_fence_flags flags)
-    //                      WG_BARRIER_WITH_SCOPE - for
+    //                      BARRIER_WITH_SCOPE - for
     // void work_group_barrier (cl_mem_fence_flags flags, memory_scope scope)
     //////////////////////////////////////////////////////////////////
+    typedef enum {
+      BARRIER_NO_SCOPE,
+      BARRIER_WITH_SCOPE
+    } BARRIER_TYPE;
+    static std::string mangledWGBarrier(BARRIER_TYPE wgBarrierType);
+    //////////////////////////////////////////////////////////////////
+    // @brief: returns the mangled name of the sub_group_barrier function
+    // @param sgBarrierType
+    //                      BARRIER_NO_SCOPE - for
+    // void sub_group_barrier (cl_mem_fence_flags flags)
+    //                      BARRIER_WITH_SCOPE - for
+    // void sub_group_barrier (cl_mem_fence_flags flags, memory_scope scope)
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledSGBarrier(BARRIER_TYPE sgBarrierType);
 
     //////////////////////////////////////////////////////////////////
     // @brief: returns the mangled name of the function get_sub_group_local_id
     //////////////////////////////////////////////////////////////////
     static std::string mangledGetSubGroupLID();
-
-    typedef enum {
-      WG_BARRIER_NO_SCOPE,
-      WG_BARRIER_WITH_SCOPE
-    } WG_BARRIER_TYPE;
-    static std::string mangledWGBarrier(WG_BARRIER_TYPE wgBarrierType);
+    //////////////////////////////////////////////////////////////////
+    // @brief: returns the mangled name of the function get_num_sub_groups
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledNumSubGroups();
+    //////////////////////////////////////////////////////////////////
+    // @brief: returns the mangled name of the function get_sub_group_id
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledGetSubGroupId();
+    //////////////////////////////////////////////////////////////////
+    // @brief: returns the mangled name of the function get_enqueued_num_sub_groups
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledEnqueuedNumSubGroups();
+    //////////////////////////////////////////////////////////////////
+    // @brief: returns the mangled name of the function get_sub_group_size
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledGetSubGroupSize();
+    //////////////////////////////////////////////////////////////////
+    // @brief: returns the mangled name of the function get_max_sub_group_size
+    static std::string mangledGetMaxSubGroupSize();
+    //////////////////////////////////////////////////////////////////
+    // @brief: returns the mangled name of the function get_sub_group_local_id
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledGetSubGroupLocalId();
 
     static const std::string NAME_GET_DEFAULT_QUEUE;
 
@@ -505,6 +563,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// generatedFromOCLCPP - check that IR was generated from OCL C++
     /// from "!spirv.Source" named metadata
     static bool generatedFromOCLCPP(const Module &M);
+
+    /// generatedFromSPIRV - check that IR was generated from SPIRV
+    static bool generatedFromSPIRV(const Module &M);
 
     /// Import a declaration of \p Orig into module \p Dst
     ///

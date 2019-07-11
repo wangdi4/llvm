@@ -170,6 +170,10 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
   for (auto Ext : ExtVec)
     optionsEx << ",+" << Ext.str();
 
+#ifndef INTEL_PRODUCT_RELEASE
+  optionsEx << " -Dcl_intel_required_subgroup_size";
+#endif
+
   // If working as fpga emulator, pass special triple.
   if (m_pProgDesc->bFpgaEmulator) {
 #if defined(_WIN64) || defined(__x86_64__) || defined(_M_AMD64) ||             \
@@ -208,9 +212,6 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
     optionsEx << " -cl-ext=+cl_khr_fp64";
     optionsEx << " -cl-ext=+cl_khr_fp16";
     optionsEx << " -cl-ext=+cl_khr_3d_image_writes ";
-  }
-  else if (!m_pProgDesc->bEyeQEmulator) {
-    optionsEx << " -Dcl_intel_planar_yuv";
   }
 
   if (m_pProgDesc->bEyeQEmulator) {

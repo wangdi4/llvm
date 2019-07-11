@@ -23,9 +23,9 @@
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Verifier.h>
-#include <llvm/Support/SPIRV.h> // llvm::ReadSPIRV
+#include <LLVMSPIRVLib/LLVMSPIRVLib.h> // llvm::ReadSPIRV
 #include <llvm/Support/SwapByteOrder.h>
-#include <spirv/1.0/spirv.hpp> // spv::MagicNumber
+#include <spirv/1.1/spirv.hpp> // spv::MagicNumber, spv::Version
 
 #include <memory>
 #include <string>
@@ -86,9 +86,10 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     return false;
   }
 
-  // SPIR-V version is 1.0
+  // Require SPIR-V version 1.1.
+  // We do not fully support 1.1, yet want to use some of the features.
   std::uint32_t const version = getSPIRVWord(spirvBC + SPIRVVersionIdx);
-  if (version != spv::Version) {
+  if (version > spv::Version) {
     errStr << "Version required by the module (" << version
            << ") is higher than supported version (" << spv::Version << ')';
     error = errStr.str();
@@ -145,6 +146,9 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
       case spv::CapabilityInt16:
       case spv::CapabilityGenericPointer:
       case spv::CapabilityInt8:
+      case spv::CapabilitySubgroupShuffleINTEL:
+      case spv::CapabilitySubgroupBufferBlockIOINTEL:
+      case spv::CapabilitySubgroupImageBlockIOINTEL:
         break;
       }
     // According to logical layout defined by the SPIR-V spec. single
@@ -213,7 +217,7 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
                   m_pProgDesc->uiSPIRVContainerSize),
       std::ios_base::in);
 
-  bool success = llvm::ReadSPIRV(*context, inputStream, pModule, errorMsg);
+  bool success = llvm::readSpirv(*context, inputStream, pModule, errorMsg);
 
   assert(!verifyModule(*pModule) &&
          "SPIR-V consumer returned a broken module!");

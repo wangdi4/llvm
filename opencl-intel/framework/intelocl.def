@@ -34,6 +34,7 @@ EXPORTS
 	clGetSamplerInfo
 	clCreateProgramWithSource
 	clCreateProgramWithIL
+	clCreateProgramWithILKHR
 	clCreateProgramWithBinary
 	clCreateProgramWithBuiltInKernels
 	clRetainProgram
@@ -120,3 +121,4 @@ EXPORTS
 	clMapHostPipeIntelFPGA
 	clUnmapHostPipeIntelFPGA
 	clGetProfileDataDeviceIntelFPGA
+	clGetDeviceFunctionPointerINTEL

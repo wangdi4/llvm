@@ -2620,6 +2620,31 @@ cl_program CL_API_CALL clCreateProgramWithIL(cl_context context,
 }
 SET_ALIAS(clCreateProgramWithIL);
 
+cl_program CL_API_CALL clCreateProgramWithILKHR(cl_context context,
+                                                const void *il, size_t lengths,
+                                                cl_int *errcode_ret) {
+  if (g_pUserLogger->IsApiLoggingEnabled()) {
+    START_LOG_API(clCreateProgramWithILKHR);
+    apiLogger << "cl_context context" << context << "const void* il" << il
+              << "size_t lengths" << lengths << "cl_int * errcode_ret"
+              << errcode_ret;
+    OutputParamsValueProvider provider(apiLogger);
+    provider.AddParam("errcode_ret", errcode_ret, false, false);
+    CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_program,
+                                 CreateProgramWithIL(context,
+                                                     (const unsigned char *)il,
+                                                     lengths, errcode_ret));
+  } else {
+    CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_program,
+                          CreateProgramWithIL(context,
+                                              (const unsigned char *)il,
+                                              lengths, errcode_ret));
+  }
+}
+
+SET_ALIAS(clCreateProgramWithILKHR);
+REGISTER_EXTENSION_FUNCTION(clCreateProgramWithILKHR, clCreateProgramWithILKHR);
+
 cl_kernel CL_API_CALL clCloneKernel(cl_kernel source_kernel,
                                     cl_int* errcode_ret)
 {
@@ -2871,3 +2896,30 @@ cl_int CL_API_CALL clGetProfileDataDeviceIntelFPGA(
 SET_ALIAS(clGetProfileDataDeviceIntelFPGA);
 REGISTER_EXTENSION_FUNCTION(clGetProfileDataDeviceIntelFPGA,
                             clGetProfileDataDeviceIntelFPGA);
+
+cl_int CL_API_CALL clGetDeviceFunctionPointerINTEL(cl_device_id device,
+    cl_program program, const char* func_name, cl_ulong* func_pointer_ret)
+{
+  if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+      ApiLogger apiLogger("clGetDeviceFunctionPointerINTEL");
+      apiLogger << "cl_device_id device" << device
+                << "cl_program program" << program
+                << "const char* func_name" << func_name
+                << "cl_ulong* func_pointer_ret" << func_pointer_ret;
+      OutputParamsValueProvider provider(apiLogger);
+      provider.AddParam("func_pointer_ret", func_pointer_ret, false, true);
+      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int,
+          GetDeviceFunctionPointer(device, program, func_name,
+              func_pointer_ret));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int,
+            GetDeviceFunctionPointer(device, program, func_name,
+                func_pointer_ret));
+    }
+}
+SET_ALIAS(clGetDeviceFunctionPointerINTEL);
+REGISTER_EXTENSION_FUNCTION(clGetDeviceFunctionPointerINTEL,
+    clGetDeviceFunctionPointerINTEL);

@@ -7,6 +7,7 @@
 #include "CL.h"
 #include "CL20.h"
 #include "CL21.h"
+#include "IntelSubgroups.h"
 #include "FrameworkTest.h"
 #include "cl_env.h"
 #include "cl_types.h"
@@ -385,9 +386,14 @@ TEST(FrameworkTestType, Test_VecTypeHintTest)
     EXPECT_TRUE(VecTypeHintTest());
 }
 
-TEST(FrameworkTestType, Test_intelVecTypeHintTest)
+TEST(FrameworkTestType, DISABLED_Test_intelVecTypeHintTest)
 {
     intelVecTypeHintTest();
+}
+
+TEST(FrameworkTestType, Test_intelReqdSubGroupSizeTest)
+{
+    intelReqdSubGroupSizeTest();
 }
 
 TEST(FrameworkTestType, Test_EventCallbackTest)
@@ -720,12 +726,12 @@ TEST_F(CL21, Timers_GetDeviceAndHostTimer)
     GetDeviceAndHostTimer();
 }
 
-TEST_F(CL21, DISABLED_Test_CreateProgramWithIL)
+TEST_F(CL21, Test_CreateProgramWithIL)
 {
     CreateProgramWithIL();
 }
 
-TEST_F(CL21, DISABLED_Test_CreateProgramWithIL_Negative)
+TEST_F(CL21, Test_CreateProgramWithIL_Negative)
 {
     CreateProgramWithIL_Negative();
 }
@@ -735,7 +741,7 @@ TEST_F(CL21, Test_CreateProgramWithIL_IL_VERSION)
     CreateProgramWithIL_IL_VERSION();
 }
 
-TEST_F(CL21, DISABLED_Test_CreateProgramWithIL_PROGRAM_IL)
+TEST_F(CL21, Test_CreateProgramWithIL_PROGRAM_IL)
 {
     CreateProgramWithIL_PROGRAM_IL();
 }
@@ -786,6 +792,29 @@ TEST(FrameworkTestType, cl_CheckBuildNumber)
     EXPECT_TRUE(cl_CheckBuildNumber());
 }
 
+/////////////////////////////////////////////////////////////////////
+////////////////   NativeSubgroups tests. ///////////////////////////
+/////////////////////////////////////////////////////////////////////
+
+TEST_F(NativeSubgroups, NativeSubgroups_MAX_NUM_SUB_GROUPS)
+{
+    NativeSubgroups_MAX_SB_SIZE();
+}
+
+TEST_F(NativeSubgroups, NativeSubgroups_SG_COUNT)
+{
+    NativeSubgroups_SG_COUNT();
+}
+
+TEST_F(NativeSubgroups, NativeSubgroups_LOCAL_SIZE_FOR_SG_COUNT)
+{
+    NativeSubgroups_LOCAL_SIZE_FOR_SG_COUNT();
+}
+
+/////////////////////////////////////////////////////////////////////
+////////////////   End of NativeSubgroups tests. ////////////////////
+/////////////////////////////////////////////////////////////////////
+
 CommandLineOption<std::string> deviceOption("--device_type");
 
 // To run individual tests, use the --gtest_filter=<pattern> command-line
@@ -807,7 +836,7 @@ int main(int argc, char** argv)
 
     std::map<std::string, cl_device_type> clDeviceTypeMap;
     clDeviceTypeMap["cpu"] = CL_DEVICE_TYPE_CPU;
-    clDeviceTypeMap["fpga_fast_emu"] = CL_DEVICE_TYPE_ACCELERATOR;
+    clDeviceTypeMap["fpga-emu"] = CL_DEVICE_TYPE_ACCELERATOR;
     clDeviceTypeMap["gpu"] = CL_DEVICE_TYPE_GPU;
     clDeviceTypeMap["default"] = CL_DEVICE_TYPE_DEFAULT;
     clDeviceTypeMap["all"] = CL_DEVICE_TYPE_ALL;
@@ -834,13 +863,13 @@ int main(int argc, char** argv)
         }
     }
 
-    if (GetEnv(deviceTypeStr, "CL_DEVICE_TYPE"))
+    if (GetEnv(deviceTypeStr, "CL_CONFIG_DEVICES"))
     {
         std::map<std::string, cl_device_type>::iterator iter =
             clDeviceTypeMap.find(deviceTypeStr);
         if (iter == clDeviceTypeMap.end())
         {
-            printf("error: unkown value of CL_DEVICE_TYPE env variable: %s\n",
+            printf("error: unknown value of CL_CONFIG_DEVICES env variable: %s\n",
                 deviceTypeStr.c_str());
             return 1;
         }
