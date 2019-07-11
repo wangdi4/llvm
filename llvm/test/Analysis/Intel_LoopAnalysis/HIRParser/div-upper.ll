@@ -8,7 +8,7 @@
 ; CHECK: |   %ipntp.0.out = %ipntp.0;
 ; CHECK: |   %ii.0.out = %ii.0;
 ; CHECK: |   %ipntp.0 = %ipntp.0  +  %ii.0.out;
-; CHECK: |   %div = %ii.0.out  /  2;
+; CHECK: |   %ii.0 = %ii.0  /  2;
 ; CHECK: |   if (%ipntp.0.out + 1 < %ipntp.0)
 ; CHECK: |   {
 ; CHECK: |      + DO i2 = 0, %ipntp.0.out + -1 * %ipntp.0 + %ii.0.out + ((-2 + %ii.0.out) /u 2), 1   <DO_LOOP>
@@ -18,7 +18,6 @@
 ; CHECK: |      |   (%A)[i2 + %ipntp.0 + 1] = ((1 + (-1 * %5)) * %4) + -1 * (%6 * %6);
 ; CHECK: |      + END LOOP
 ; CHECK: |   }
-; CHECK: |   %ii.0 = %div;
 ; CHECK: + END LOOP
 
 
