@@ -731,6 +731,31 @@ MemoryBufferRef convertResToCOFF(ArrayRef<MemoryBufferRef> MBs) {
   return MBRef;
 }
 
+#if INTEL_CUSTOMIZATION
+// NOTE: This code was removed from the community version of LLD in D51039.
+// We will use it for special cases.
+
+// Run MSVC link.exe for given in-memory object files.
+// Command line options are copied from those given to LLD.
+// This is for the /msvclto option.
+void runMSVCLinker(std::string Rsp, ArrayRef<StringRef> Objects) {
+  // Write the in-memory object files to disk.
+  std::vector<TemporaryFile> Temps;
+  for (StringRef S : Objects) {
+    Temps.emplace_back("lto", "obj", S);
+    Rsp += quote(Temps.back().Path) + "\n";
+  }
+
+  log("link.exe " + Rsp);
+
+  // Run MSVC link.exe.
+  Temps.emplace_back("lto", "rsp", Rsp);
+  Executor E("link.exe");
+  E.add(Twine("@" + Temps.back().Path));
+  E.run();
+}
+#endif // INTEL_CUSTOMIZATION
+
 // Create OptTable
 
 // Create prefix string literals used in Options.td

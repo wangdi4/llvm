@@ -1,0 +1,41 @@
+# UNSUPPORTED: !windows
+
+# Test for checking that MS-LINK will be used for handling /GL files.
+# This test case handles the case when mixing Bitcode and GL files in the
+# linking command.
+
+# Copy the files into the temporary directory, this is to prevent multiple
+# processes accessing the same files when running the test system in parallel.
+# RUN: cp %S/Inputs/driver.cpp driver_test_3.cpp
+# RUN: cp %S/Inputs/foo.cpp foo_test_3.cpp
+# RUN: cp %S/Inputs/bar.cpp bar_test_3.cpp
+# RUN: cp %S/Inputs/baz.cpp baz_test_3.cpp
+
+# Compile with LTO
+# RUN: clang-cl -c -flto driver_test_3.cpp
+# RUN: clang-cl -c -flto foo_test_3.cpp
+
+# Compile with /GL
+# RUN: cl /c /GL bar_test_3.cpp
+# RUN: cl /c /GL baz_test_3.cpp
+
+# Link
+# RUN: lld-link /OUT:msgl_test_3 /subsystem:console driver_test_3.obj foo_test_3.obj bar_test_3.obj baz_test_3.obj > %t_out 2>&1
+# RUN: cat %t_out | FileCheck -check-prefix=CHECK %s
+
+# Check that MS-LINK is called
+CHECK: MS /GL object found in the command line
+CHECK: Finalizing linking process with MS-LINK
+
+# Check that MS-LINK linked succesfully
+CHECK: Generating code
+CHECK: Finished generating code
+
+# Check that the executable runs correctly
+# RUN: ./msgl_test_3 | FileCheck -check-prefix=CHECKRUN3 %s
+CHECKRUN3: FOO: 1
+CHECKRUN3: BAR: 2
+CHECKRUN3: BAZ: 3
+
+# RUN: rm driver_test_3.obj foo_test_3.obj bar_test_3.obj baz_test_3.obj
+# RUN: rm msgl_test_3
