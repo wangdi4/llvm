@@ -91,11 +91,6 @@ def NoImplicitFloat : EnumAttr<"noimplicitfloat">;
 /// inline=never.
 def NoInline : EnumAttr<"noinline">;
 
-// if INTEL_CUSTOMIZATION
-def InlineHintRecursive : EnumAttr<"inlinehint_recursive">;
-def AlwaysInlineRecursive : EnumAttr<"alwaysinline_recursive">;
-// endif INTEL_CUSTOMIZATION
-
 /// Function is called early and/or often, so lazy binding isn't worthwhile.
 def NonLazyBind : EnumAttr<"nonlazybind">;
 
@@ -200,6 +195,9 @@ def SwiftSelf : EnumAttr<"swiftself">;
 
 /// Function must be in a unwind table.
 def UWTable : EnumAttr<"uwtable">;
+
+/// Function always comes back to callsite.
+def WillReturn : EnumAttr<"willreturn">;
 
 /// Function only writes to memory.
 def WriteOnly : EnumAttr<"writeonly">;

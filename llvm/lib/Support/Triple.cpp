@@ -264,6 +264,7 @@ StringRef Triple::getEnvironmentTypeName(EnvironmentType Kind) {
   case IntelEyeQ: return "inteleyeq";
 #endif // INTEL_CUSTOMIZATION
   case Simulator: return "simulator";
+  case MacABI: return "macabi";
   case SYCLDevice: return "sycldevice";
   }
 
@@ -589,6 +590,7 @@ static Triple::EnvironmentType parseEnvironment(StringRef EnvironmentName) {
     .StartsWith("inteleyeq", Triple::IntelEyeQ)
 #endif // INTEL_CUSTOMIZATION
     .StartsWith("simulator", Triple::Simulator)
+    .StartsWith("macabi", Triple::MacABI)
     .StartsWith("sycldevice", Triple::SYCLDevice)
     .Default(Triple::UnknownEnvironment);
 }

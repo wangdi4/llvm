@@ -278,6 +278,11 @@ IntelAdvancedOptim("intel-advanced-optim",
                    cl::init(false));
 #endif // INTEL_CUSTOMIZATION
 
+static cl::opt<bool>
+    EnableDebugEntryValues("debug-entry-values",
+                           cl::desc("Emit debug info about parameter's entry values"),
+                           cl::init(false));
+
 // Common utility function tightly tied to the options listed here. Initializes
 // a TargetOptions object with CodeGen flags and returns it.
 static TargetOptions InitTargetOptionsFromCodeGenFlags() {
@@ -311,6 +316,7 @@ static TargetOptions InitTargetOptionsFromCodeGenFlags() {
   if (IntelAdvancedOptim)
     Options.IntelAdvancedOptim = IntelAdvancedOptim;
 #endif // INTEL_CUSTOMIZATION
+  Options.EnableDebugEntryValues = EnableDebugEntryValues;
 
   Options.MCOptions = InitMCTargetOptionsFromFlags();
 

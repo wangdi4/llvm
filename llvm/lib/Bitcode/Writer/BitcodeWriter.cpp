@@ -214,7 +214,8 @@ private:
                                            const Function &F);
   void writeModuleLevelReferences(const GlobalVariable &V,
                                   SmallVector<uint64_t, 64> &NameVals,
-                                  unsigned FSModRefsAbbrev);
+                                  unsigned FSModRefsAbbrev,
+                                  unsigned FSModVTableRefsAbbrev);
 
   void assignValueId(GlobalValue::GUID ValGUID) {
     GUIDToValueIdMap[ValGUID] = ++GlobalValueId;
@@ -602,12 +603,6 @@ static uint64_t getAttrKindEncoding(Attribute::AttrKind Kind) {
     return bitc::ATTR_KIND_ALLOC_SIZE;
   case Attribute::AlwaysInline:
     return bitc::ATTR_KIND_ALWAYS_INLINE;
-#if INTEL_CUSTOMIZATION
-  case Attribute::AlwaysInlineRecursive:
-    return bitc::ATTR_KIND_ALWAYS_INLINE_RECURSIVE;
-  case Attribute::InlineHintRecursive:
-    return bitc::ATTR_KIND_INLINE_HINT_RECURSIVE;
-#endif //INTEL_CUSTOMIZATION
   case Attribute::ArgMemOnly:
     return bitc::ATTR_KIND_ARGMEMONLY;
   case Attribute::Builtin:
@@ -716,6 +711,8 @@ static uint64_t getAttrKindEncoding(Attribute::AttrKind Kind) {
     return bitc::ATTR_KIND_SWIFT_SELF;
   case Attribute::UWTable:
     return bitc::ATTR_KIND_UW_TABLE;
+  case Attribute::WillReturn:
+    return bitc::ATTR_KIND_WILLRETURN;
   case Attribute::WriteOnly:
     return bitc::ATTR_KIND_WRITEONLY;
   case Attribute::ZExt:
@@ -944,13 +941,10 @@ void ModuleBitcodeWriter::writeTypeTable() {
     }
     case Type::VectorTyID: {
       VectorType *VT = cast<VectorType>(T);
-      // VECTOR [numelts, eltty] or
-      //        [numelts, eltty, scalable]
+      // VECTOR [numelts, eltty]
       Code = bitc::TYPE_CODE_VECTOR;
       TypeVals.push_back(VT->getNumElements());
       TypeVals.push_back(VE.getTypeID(VT->getElementType()));
-      if (VT->isScalable())
-        TypeVals.push_back(VT->isScalable());
       break;
     }
     }
@@ -1023,7 +1017,7 @@ static uint64_t getEncodedGVSummaryFlags(GlobalValueSummary::GVFlags Flags) {
 }
 
 static uint64_t getEncodedGVarFlags(GlobalVarSummary::GVarFlags Flags) {
-  uint64_t RawFlags = Flags.ReadOnly;
+  uint64_t RawFlags = Flags.MaybeReadOnly | (Flags.MaybeWriteOnly << 1);
   return RawFlags;
 }
 
@@ -3630,6 +3624,19 @@ static void writeTypeIdSummaryRecord(SmallVector<uint64_t, 64> &NameVals,
                                       W.second);
 }
 
+static void writeTypeIdCompatibleVtableSummaryRecord(
+    SmallVector<uint64_t, 64> &NameVals, StringTableBuilder &StrtabBuilder,
+    const std::string &Id, const TypeIdCompatibleVtableInfo &Summary,
+    ValueEnumerator &VE) {
+  NameVals.push_back(StrtabBuilder.add(Id));
+  NameVals.push_back(Id.size());
+
+  for (auto &P : Summary) {
+    NameVals.push_back(P.AddressPointOffset);
+    NameVals.push_back(VE.getValueID(P.VTableVI.getValue()));
+  }
+}
+
 // Helper to emit a single function summary record.
 void ModuleBitcodeWriterBase::writePerModuleFunctionSummaryRecord(
     SmallVector<uint64_t, 64> &NameVals, GlobalValueSummary *Summary,
@@ -3640,11 +3647,13 @@ void ModuleBitcodeWriterBase::writePerModuleFunctionSummaryRecord(
   FunctionSummary *FS = cast<FunctionSummary>(Summary);
   writeFunctionTypeMetadataRecords(Stream, FS);
 
+  auto SpecialRefCnts = FS->specialRefCounts();
   NameVals.push_back(getEncodedGVSummaryFlags(FS->flags()));
   NameVals.push_back(FS->instCount());
   NameVals.push_back(getEncodedFFlags(FS->fflags()));
   NameVals.push_back(FS->refs().size());
-  NameVals.push_back(FS->immutableRefCount());
+  NameVals.push_back(SpecialRefCnts.first);  // rorefcnt
+  NameVals.push_back(SpecialRefCnts.second); // worefcnt
 
   for (auto &RI : FS->refs())
     NameVals.push_back(VE.getValueID(RI.getValue()));
@@ -3674,7 +3683,7 @@ void ModuleBitcodeWriterBase::writePerModuleFunctionSummaryRecord(
 // and emit them in a summary record.
 void ModuleBitcodeWriterBase::writeModuleLevelReferences(
     const GlobalVariable &V, SmallVector<uint64_t, 64> &NameVals,
-    unsigned FSModRefsAbbrev) {
+    unsigned FSModRefsAbbrev, unsigned FSModVTableRefsAbbrev) {
   auto VI = Index->getValueInfo(V.getGUID());
   if (!VI || VI.getSummaryList().empty()) {
     // Only declarations should not have a summary (a declaration might however
@@ -3688,6 +3697,10 @@ void ModuleBitcodeWriterBase::writeModuleLevelReferences(
   NameVals.push_back(getEncodedGVSummaryFlags(VS->flags()));
   NameVals.push_back(getEncodedGVarFlags(VS->varflags()));
 
+  auto VTableFuncs = VS->vTableFuncs();
+  if (!VTableFuncs.empty())
+    NameVals.push_back(VS->refs().size());
+
   unsigned SizeBeforeRefs = NameVals.size();
   for (auto &RI : VS->refs())
     NameVals.push_back(VE.getValueID(RI.getValue()));
@@ -3695,15 +3708,26 @@ void ModuleBitcodeWriterBase::writeModuleLevelReferences(
   // been initialized from a DenseSet.
   llvm::sort(NameVals.begin() + SizeBeforeRefs, NameVals.end());
 
-  Stream.EmitRecord(bitc::FS_PERMODULE_GLOBALVAR_INIT_REFS, NameVals,
-                    FSModRefsAbbrev);
+  if (VTableFuncs.empty())
+    Stream.EmitRecord(bitc::FS_PERMODULE_GLOBALVAR_INIT_REFS, NameVals,
+                      FSModRefsAbbrev);
+  else {
+    // VTableFuncs pairs should already be sorted by offset.
+    for (auto &P : VTableFuncs) {
+      NameVals.push_back(VE.getValueID(P.FuncVI.getValue()));
+      NameVals.push_back(P.VTableOffset);
+    }
+
+    Stream.EmitRecord(bitc::FS_PERMODULE_VTABLE_GLOBALVAR_INIT_REFS, NameVals,
+                      FSModVTableRefsAbbrev);
+  }
   NameVals.clear();
 }
 
 // Current version for the summary.
 // This is bumped whenever we introduce changes in the way some record are
 // interpreted, like flags for instance.
-static const uint64_t INDEX_VERSION = 6;
+static const uint64_t INDEX_VERSION = 7;
 
 /// Emit the per-module summary section alongside the rest of
 /// the module's bitcode.
@@ -3745,7 +3769,8 @@ void ModuleBitcodeWriterBase::writePerModuleGlobalValueSummary() {
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 8));   // instcount
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 4));   // fflags
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 4));   // numrefs
-  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 4));   // immutablerefcnt
+  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 4));   // rorefcnt
+  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 4));   // worefcnt
   // numrefs x valueid, n x (valueid, hotness)
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Array));
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 8));
@@ -3762,7 +3787,8 @@ void ModuleBitcodeWriterBase::writePerModuleGlobalValueSummary() {
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 8));   // instcount
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 4));   // fflags
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 4));   // numrefs
-  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 4));   // immutablerefcnt
+  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 4));   // rorefcnt
+  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 4));   // worefcnt
   // numrefs x valueid, n x (valueid [, rel_block_freq])
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Array));
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 8));
@@ -3777,6 +3803,17 @@ void ModuleBitcodeWriterBase::writePerModuleGlobalValueSummary() {
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 8));
   unsigned FSModRefsAbbrev = Stream.EmitAbbrev(std::move(Abbv));
 
+  // Abbrev for FS_PERMODULE_VTABLE_GLOBALVAR_INIT_REFS.
+  Abbv = std::make_shared<BitCodeAbbrev>();
+  Abbv->Add(BitCodeAbbrevOp(bitc::FS_PERMODULE_VTABLE_GLOBALVAR_INIT_REFS));
+  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 8)); // valueid
+  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6)); // flags
+  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 4)); // numrefs
+  // numrefs x valueid, n x (valueid , offset)
+  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Array));
+  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 8));
+  unsigned FSModVTableRefsAbbrev = Stream.EmitAbbrev(std::move(Abbv));
+
   // Abbrev for FS_ALIAS.
   Abbv = std::make_shared<BitCodeAbbrev>();
   Abbv->Add(BitCodeAbbrevOp(bitc::FS_ALIAS));
@@ -3784,6 +3821,16 @@ void ModuleBitcodeWriterBase::writePerModuleGlobalValueSummary() {
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6));   // flags
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 8));   // valueid
   unsigned FSAliasAbbrev = Stream.EmitAbbrev(std::move(Abbv));
+
+  // Abbrev for FS_TYPE_ID_METADATA
+  Abbv = std::make_shared<BitCodeAbbrev>();
+  Abbv->Add(BitCodeAbbrevOp(bitc::FS_TYPE_ID_METADATA));
+  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 8)); // typeid strtab index
+  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 8)); // typeid length
+  // n x (valueid , offset)
+  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Array));
+  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 8));
+  unsigned TypeIdCompatibleVtableAbbrev = Stream.EmitAbbrev(std::move(Abbv));
 
   SmallVector<uint64_t, 64> NameVals;
   // Iterate over the list of functions instead of the Index to
@@ -3809,7 +3856,8 @@ void ModuleBitcodeWriterBase::writePerModuleGlobalValueSummary() {
   // Capture references from GlobalVariable initializers, which are outside
   // of a function scope.
   for (const GlobalVariable &G : M.globals())
-    writeModuleLevelReferences(G, NameVals, FSModRefsAbbrev);
+    writeModuleLevelReferences(G, NameVals, FSModRefsAbbrev,
+                               FSModVTableRefsAbbrev);
 
   for (const GlobalAlias &A : M.aliases()) {
     auto *Aliasee = A.getBaseObject();
@@ -3824,6 +3872,14 @@ void ModuleBitcodeWriterBase::writePerModuleGlobalValueSummary() {
     NameVals.push_back(getEncodedGVSummaryFlags(AS->flags()));
     NameVals.push_back(AliaseeId);
     Stream.EmitRecord(bitc::FS_ALIAS, NameVals, FSAliasAbbrev);
+    NameVals.clear();
+  }
+
+  for (auto &S : Index->typeIdCompatibleVtableMap()) {
+    writeTypeIdCompatibleVtableSummaryRecord(NameVals, StrtabBuilder, S.first,
+                                             S.second, VE);
+    Stream.EmitRecord(bitc::FS_TYPE_ID_METADATA, NameVals,
+                      TypeIdCompatibleVtableAbbrev);
     NameVals.clear();
   }
 
@@ -3864,7 +3920,8 @@ void IndexBitcodeWriter::writeCombinedGlobalValueSummary() {
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 4));   // fflags
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 8));   // entrycount
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 4));   // numrefs
-  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 4));   // immutablerefcnt
+  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 4));   // rorefcnt
+  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 4));   // worefcnt
   // numrefs x valueid, n x (valueid)
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Array));
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 8));
@@ -3880,7 +3937,8 @@ void IndexBitcodeWriter::writeCombinedGlobalValueSummary() {
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 4));   // fflags
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 8));   // entrycount
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 4));   // numrefs
-  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 4));   // immutablerefcnt
+  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 4));   // rorefcnt
+  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 4));   // worefcnt
   // numrefs x valueid, n x (valueid, hotness)
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Array));
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 8));
@@ -3982,20 +4040,24 @@ void IndexBitcodeWriter::writeCombinedGlobalValueSummary() {
 
     // Fill in below
     NameVals.push_back(0); // numrefs
-    NameVals.push_back(0); // immutablerefcnt
+    NameVals.push_back(0); // rorefcnt
+    NameVals.push_back(0); // worefcnt
 
-    unsigned Count = 0, ImmutableRefCnt = 0;
+    unsigned Count = 0, RORefCnt = 0, WORefCnt = 0;
     for (auto &RI : FS->refs()) {
       auto RefValueId = getValueId(RI.getGUID());
       if (!RefValueId)
         continue;
       NameVals.push_back(*RefValueId);
       if (RI.isReadOnly())
-        ImmutableRefCnt++;
+        RORefCnt++;
+      else if (RI.isWriteOnly())
+        WORefCnt++;
       Count++;
     }
     NameVals[6] = Count;
-    NameVals[7] = ImmutableRefCnt;
+    NameVals[7] = RORefCnt;
+    NameVals[8] = WORefCnt;
 
     bool HasProfileData = false;
     for (auto &EI : FS->calls()) {

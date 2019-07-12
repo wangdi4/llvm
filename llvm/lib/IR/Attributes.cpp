@@ -325,12 +325,6 @@ std::string Attribute::getAsString(bool InAttrGrp) const {
     return "noimplicitfloat";
   if (hasAttribute(Attribute::NoInline))
     return "noinline";
-#if INTEL_CUSTOMIZATION
-  if (hasAttribute(Attribute::AlwaysInlineRecursive))
-    return "alwaysinline_recursive";
-  if (hasAttribute(Attribute::InlineHintRecursive))
-    return "inlinehint_recursive";
-#endif  // INTEL_CUSTOMIZATION
   if (hasAttribute(Attribute::NonLazyBind))
     return "nonlazybind";
   if (hasAttribute(Attribute::NonNull))
@@ -339,6 +333,8 @@ std::string Attribute::getAsString(bool InAttrGrp) const {
     return "noredzone";
   if (hasAttribute(Attribute::NoReturn))
     return "noreturn";
+  if (hasAttribute(Attribute::WillReturn))
+    return "willreturn";
   if (hasAttribute(Attribute::NoCfCheck))
     return "nocf_check";
   if (hasAttribute(Attribute::NoRecurse))

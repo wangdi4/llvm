@@ -1398,6 +1398,14 @@ public:
     setAttributes(PAL);
   }
 
+#if INTEL_CUSTOMIZATION
+  /// adds the attribute to the list of attributes.
+  void addAttribute(unsigned i, StringRef Kind) {
+    AttributeList PAL = getAttributes();
+    PAL = PAL.addAttribute(getContext(), i, Kind);
+    setAttributes(PAL);
+  }
+#endif // INTEL_CUSTOMIZATION
   /// Adds the attribute to the indicated argument
   void addParamAttr(unsigned ArgNo, Attribute::AttrKind Kind) {
     assert(ArgNo < getNumArgOperands() && "Out of bounds");

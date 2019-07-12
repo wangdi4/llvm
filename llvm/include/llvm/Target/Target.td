@@ -1078,7 +1078,7 @@ def BUNDLE : StandardPseudoInstruction {
   let OutOperandList = (outs);
   let InOperandList = (ins variable_ops);
   let AsmString = "BUNDLE";
-  let hasSideEffects = 1;
+  let hasSideEffects = 0;
 }
 def LIFETIME_START : StandardPseudoInstruction {
   let OutOperandList = (outs);
@@ -1215,7 +1215,7 @@ def FENTRY_CALL : StandardPseudoInstruction {
   let hasSideEffects = 1;
 }
 def ICALL_BRANCH_FUNNEL : StandardPseudoInstruction {
-  let OutOperandList = (outs unknown:$dst);
+  let OutOperandList = (outs);
   let InOperandList = (ins variable_ops);
   let AsmString = "";
   let hasSideEffects = 1;

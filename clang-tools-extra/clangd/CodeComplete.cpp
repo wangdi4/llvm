@@ -328,7 +328,7 @@ struct CodeCompletionBuilder {
       if (!ResolvedInserted)
         return ResolvedInserted.takeError();
       return std::make_pair(
-          Includes.calculateIncludePath(*ResolvedInserted),
+          Includes.calculateIncludePath(*ResolvedInserted, FileName),
           Includes.shouldInsertInclude(*ResolvedDeclaring, *ResolvedInserted));
     };
     bool ShouldInsert = C.headerToInsertIfAllowed(Opts).hasValue();
@@ -1105,8 +1105,9 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
   if (Includes)
     Clang->getPreprocessor().addPPCallbacks(
         collectIncludeStructureCallback(Clang->getSourceManager(), Includes));
-  if (!Action.Execute()) {
-    log("Execute() failed when running codeComplete for {0}", Input.FileName);
+  if (llvm::Error Err = Action.Execute()) {
+    log("Execute() failed when running codeComplete for {0}: {1}",
+        Input.FileName, toString(std::move(Err)));
     return false;
   }
   Action.EndSourceFile();

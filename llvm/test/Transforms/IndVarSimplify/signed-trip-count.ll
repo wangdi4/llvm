@@ -6,7 +6,9 @@ target datalayout = "n8:16:32:64"
 
 define void @foo(i64* nocapture %x, i32 %n) nounwind {
 ; CHECK-LABEL: @foo(
-; CHECK-NOT: sext
+; INTEL_CUSTOMIZATION
+; CHECK: sext
+; end INTEL_CUSTOMIZATION
 ; CHECK: phi
 ; CHECK-NOT: phi
 entry:

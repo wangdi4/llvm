@@ -1098,7 +1098,7 @@ void CallAnalyzer::updateThreshold(CallBase &Call, Function &Callee, // INTEL
   if (!Caller->hasMinSize()) {
     if (Callee.hasFnAttribute(Attribute::InlineHint) ||    // INTEL
         Call.hasFnAttr(Attribute::InlineHint) ||             // INTEL
-        Call.hasFnAttr(Attribute::InlineHintRecursive))      // INTEL
+        Call.hasFnAttr("inline-hint-recursive"))             // INTEL
       Threshold = MaxIfValid(Threshold, Params.HintThreshold);
 
     // FIXME: After switching to the new passmanager, simplify the logic below
@@ -4773,7 +4773,7 @@ InlineCost llvm::getInlineCost(
     return llvm::InlineCost::getNever(IsViable.message,
                                       Reason);
   }
-  if (Call.hasFnAttr(Attribute::AlwaysInlineRecursive)) {
+  if (Call.hasFnAttr("always-inline-recursive")) {
     InlineReason Reason = InlrNoReason;
     if (isInlineViable(*Callee, Reason))
       return llvm::InlineCost::getAlways("always inline recursive attribute",
