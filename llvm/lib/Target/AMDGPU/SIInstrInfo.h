@@ -496,6 +496,11 @@ public:
     return (Flags & SIInstrFlags::FLAT) && !(Flags & SIInstrFlags::LGKM_CNT);
   }
 
+  // FIXME: Make this more precise
+  static bool isFLATScratch(const MachineInstr &MI) {
+    return isSegmentSpecificFLAT(MI);
+  }
+
   // Any FLAT encoded instruction, including global_* and scratch_*.
   bool isFLAT(uint16_t Opcode) const {
     return get(Opcode).TSFlags & SIInstrFlags::FLAT;
@@ -629,6 +634,14 @@ public:
 
   bool usesFPDPRounding(uint16_t Opcode) const {
     return get(Opcode).TSFlags & SIInstrFlags::FPDPRounding;
+  }
+
+  static bool isFPAtomic(const MachineInstr &MI) {
+    return MI.getDesc().TSFlags & SIInstrFlags::FPAtomic;
+  }
+
+  bool isFPAtomic(uint16_t Opcode) const {
+    return get(Opcode).TSFlags & SIInstrFlags::FPAtomic;
   }
 
   bool isVGPRCopy(const MachineInstr &MI) const {
@@ -945,6 +958,15 @@ public:
   /// Return -1 if the target-specific opcode for the pseudo instruction does
   /// not exist. If Opcode is not a pseudo instruction, this is identity.
   int pseudoToMCOpcode(int Opcode) const;
+
+  const TargetRegisterClass *getRegClass(const MCInstrDesc &TID, unsigned OpNum,
+                                         const TargetRegisterInfo *TRI,
+                                         const MachineFunction &MF)
+    const override {
+    if (OpNum >= TID.getNumOperands())
+      return nullptr;
+    return RI.getRegClass(TID.OpInfo[OpNum].RegClass);
+  }
 
   void fixImplicitOperands(MachineInstr &MI) const;
 };

@@ -43,7 +43,8 @@ class AMDGPUPseudoSourceValue : public PseudoSourceValue {
 public:
   enum AMDGPUPSVKind : unsigned {
     PSVBuffer = PseudoSourceValue::TargetCustom,
-    PSVImage
+    PSVImage,
+    GWSResource
   };
 
 protected:
@@ -84,6 +85,30 @@ public:
 
   static bool classof(const PseudoSourceValue *V) {
     return V->kind() == PSVImage;
+  }
+};
+
+class AMDGPUGWSResourcePseudoSourceValue final : public AMDGPUPseudoSourceValue {
+public:
+  explicit AMDGPUGWSResourcePseudoSourceValue(const TargetInstrInfo &TII)
+      : AMDGPUPseudoSourceValue(GWSResource, TII) {}
+
+  static bool classof(const PseudoSourceValue *V) {
+    return V->kind() == GWSResource;
+  }
+
+  // These are inaccessible memory from IR.
+  bool isAliased(const MachineFrameInfo *) const override {
+    return false;
+  }
+
+  // These are inaccessible memory from IR.
+  bool mayAlias(const MachineFrameInfo *) const override {
+    return false;
+  }
+
+  void printCustom(raw_ostream &OS) const override {
+    OS << "GWSResource";
   }
 };
 
@@ -188,6 +213,7 @@ class SIMachineFunctionInfo final : public AMDGPUMachineFunction {
            std::unique_ptr<const AMDGPUBufferPseudoSourceValue>> BufferPSVs;
   DenseMap<const Value *,
            std::unique_ptr<const AMDGPUImagePseudoSourceValue>> ImagePSVs;
+  std::unique_ptr<const AMDGPUGWSResourcePseudoSourceValue> GWSResourcePSV;
 
 private:
   unsigned LDSWaveSpillSize = 0;
@@ -236,6 +262,7 @@ private:
   unsigned GITPtrHigh;
 
   unsigned HighBitsOf32BitAddress;
+  unsigned GDSSize;
 
   // Current recorded maximum possible occupancy.
   unsigned Occupancy;
@@ -450,9 +477,9 @@ public:
     return ArgInfo.getPreloadedValue(Value);
   }
 
-  unsigned getPreloadedReg(AMDGPUFunctionArgInfo::PreloadedValue Value) const {
+  Register getPreloadedReg(AMDGPUFunctionArgInfo::PreloadedValue Value) const {
     auto Arg = ArgInfo.getPreloadedValue(Value).first;
-    return Arg ? Arg->getRegister() : 0;
+    return Arg ? Arg->getRegister() : Register();
   }
 
   unsigned getGITPtrHigh() const {
@@ -461,6 +488,10 @@ public:
 
   unsigned get32BitAddressHighBits() const {
     return HighBitsOf32BitAddress;
+  }
+
+  unsigned getGDSSize() const {
+    return GDSSize;
   }
 
   unsigned getNumUserSGPRs() const {
@@ -649,9 +680,6 @@ public:
     llvm_unreachable("unexpected dimension");
   }
 
-  /// \returns VGPR used for \p Dim' work item ID.
-  unsigned getWorkItemIDVGPR(unsigned Dim) const;
-
   unsigned getLDSWaveSpillSize() const {
     return LDSWaveSpillSize;
   }
@@ -672,6 +700,15 @@ public:
       ImgRsrc,
       llvm::make_unique<AMDGPUImagePseudoSourceValue>(TII));
     return PSV.first->second.get();
+  }
+
+  const AMDGPUGWSResourcePseudoSourceValue *getGWSPSV(const SIInstrInfo &TII) {
+    if (!GWSResourcePSV) {
+      GWSResourcePSV =
+          llvm::make_unique<AMDGPUGWSResourcePseudoSourceValue>(TII);
+    }
+
+    return GWSResourcePSV.get();
   }
 
   unsigned getOccupancy() const {

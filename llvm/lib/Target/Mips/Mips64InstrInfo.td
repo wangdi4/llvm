@@ -274,7 +274,7 @@ let AdditionalPredicates = [NotInMicroMips],
   def JR_HB64 : JR_HB_DESC<GPR64Opnd>, JR_HB_ENC, ISA_MIPS64_NOT_64R6;
   def JALR_HB64 : JALR_HB_DESC<GPR64Opnd>, JALR_HB_ENC, ISA_MIPS64R2;
 }
-def PseudoReturn64 : PseudoReturnBase<GPR64Opnd>;
+def PseudoReturn64 : PseudoReturnBase<GPR64Opnd>, GPR_64;
 
 let AdditionalPredicates = [NotInMips16Mode, NotInMicroMips,
                             NoIndirectJumpGuards] in {
@@ -290,7 +290,7 @@ let AdditionalPredicates = [NotInMips16Mode, NotInMicroMips,
                         ISA_MIPS32R2_NOT_32R6_64R6, PTR_64;
   def PseudoIndirectHazardBranch64 : PseudoIndirectBranchBase<JR_HB64,
                                                               GPR64Opnd>,
-                                     ISA_MIPS32R2_NOT_32R6_64R6;
+                                     ISA_MIPS32R2_NOT_32R6_64R6, PTR_64;
 }
 
 /// Multiply and Divide Instructions.
@@ -417,17 +417,25 @@ let isCodeGenOnly = 1, rs = 0, shamt = 0 in {
 // explanation.
 
 // Expands to: lui $dst, %highest/%higher/%hi/%lo($tgt)
-def LONG_BRANCH_LUi2Op_64 : PseudoSE<(outs GPR64Opnd:$dst),
-  (ins brtarget:$tgt), []>, GPR_64;
+def LONG_BRANCH_LUi2Op_64 :
+    PseudoSE<(outs GPR64Opnd:$dst), (ins brtarget:$tgt), []>, GPR_64 {
+  bit hasNoSchedulingInfo = 1;
+}
 // Expands to: addiu $dst, %highest/%higher/%hi/%lo($tgt)
-def LONG_BRANCH_DADDiu2Op : PseudoSE<(outs GPR64Opnd:$dst),
-  (ins GPR64Opnd:$src, brtarget:$tgt), []>, GPR_64;
-
+def LONG_BRANCH_DADDiu2Op :
+    PseudoSE<(outs GPR64Opnd:$dst), (ins GPR64Opnd:$src, brtarget:$tgt), []>,
+    GPR_64 {
+  bit hasNoSchedulingInfo = 1;
+}
 // Expands to: daddiu $dst, $src, %PART($tgt - $baltgt)
 // where %PART may be %hi or %lo, depending on the relocation kind
 // that $tgt is annotated with.
-def LONG_BRANCH_DADDiu : PseudoSE<(outs GPR64Opnd:$dst),
-  (ins GPR64Opnd:$src, brtarget:$tgt, brtarget:$baltgt), []>, GPR_64;
+def LONG_BRANCH_DADDiu :
+    PseudoSE<(outs GPR64Opnd:$dst),
+             (ins GPR64Opnd:$src, brtarget:$tgt, brtarget:$baltgt), []>,
+    GPR_64 {
+  bit hasNoSchedulingInfo = 1;
+}
 
 // Cavium Octeon cnMIPS instructions
 let DecoderNamespace = "CnMips",
