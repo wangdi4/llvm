@@ -10642,15 +10642,10 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
     T = Context.getCanonicalType(FD->getType());
   }
 
-#if INTEL_CUSTOMIZATION
-  if ((getLangOpts().GNUMode && !getLangOpts().CPlusPlus) ||
-      getLangOpts().IntelCompat) {
+  if (getLangOpts().GNUMode && !getLangOpts().CPlusPlus) {
     // In C with GNU extensions we allow main() to have non-integer return
     // type, but we should warn about the extension, and we disable the
     // implicit-return-zero rule.
-    // The same should be done in IntelCompat mode as well.
-    // See CQ#364427 for details.
-#endif  // INTEL_CUSTOMIZATION
 
     // GCC in C mode accepts qualified 'int'.
     if (Context.hasSameUnqualifiedType(FT->getReturnType(), Context.IntTy))
