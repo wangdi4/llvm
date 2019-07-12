@@ -275,13 +275,13 @@ bool Symbol::includeInDynsym() const {
     return false;
   if (computeBinding() == STB_LOCAL)
     return false;
+
   // If a PIE binary was not linked against any shared libraries, then we can
   // safely drop weak undef symbols from .dynsym.
   if (isUndefWeak() && Config->Pie && SharedFiles.empty())
     return false;
-  if (!isDefined())
-    return true;
-  return ExportDynamic;
+
+  return isUndefined() || isShared() || ExportDynamic;
 }
 
 // Print out a log message for --trace-symbol.
@@ -317,18 +317,18 @@ void elf::maybeWarnUnorderableSymbol(const Symbol *Sym) {
   const InputFile *File = Sym->File;
   auto *D = dyn_cast<Defined>(Sym);
 
-  auto Warn = [&](StringRef S) { warn(toString(File) + S + Sym->getName()); };
+  auto Report = [&](StringRef S) { warn(toString(File) + S + Sym->getName()); };
 
   if (Sym->isUndefined())
-    Warn(": unable to order undefined symbol: ");
+    Report(": unable to order undefined symbol: ");
   else if (Sym->isShared())
-    Warn(": unable to order shared symbol: ");
+    Report(": unable to order shared symbol: ");
   else if (D && !D->Section)
-    Warn(": unable to order absolute symbol: ");
+    Report(": unable to order absolute symbol: ");
   else if (D && isa<OutputSection>(D->Section))
-    Warn(": unable to order synthetic symbol: ");
+    Report(": unable to order synthetic symbol: ");
   else if (D && !D->Section->Repl->isLive())
-    Warn(": unable to order discarded symbol: ");
+    Report(": unable to order discarded symbol: ");
 }
 
 // Returns a symbol for an error message.
@@ -410,13 +410,22 @@ void Symbol::resolveUndefined(const Undefined &Other) {
   if (Traced)
     printTraceSymbol(&Other);
 
-  if (isShared() || isLazy() || (isUndefined() && Other.Binding != STB_WEAK))
-    Binding = Other.Binding;
-
-  if (isLazy()) {
+  if (isUndefined()) {
+    // The binding may "upgrade" from weak to non-weak.
+    if (Other.Binding != STB_WEAK)
+      Binding = Other.Binding;
+  } else if (auto *S = dyn_cast<SharedSymbol>(this)) {
+    // The binding of a SharedSymbol will be weak if there is at least one
+    // reference and all are weak. The binding has one opportunity to change to
+    // weak: if the first reference is weak.
+    if (Other.Binding != STB_WEAK || !S->Referenced)
+      Binding = Other.Binding;
+    S->Referenced = true;
+  } else if (isLazy()) {
     // An undefined weak will not fetch archive members. See comment on Lazy in
     // Symbols.h for the details.
     if (Other.Binding == STB_WEAK) {
+      Binding = STB_WEAK;
       Type = Other.Type;
       return;
     }
@@ -635,5 +644,6 @@ void Symbol::resolveShared(const SharedSymbol &Other) {
     uint8_t Bind = Binding;
     replace(Other);
     Binding = Bind;
+    cast<SharedSymbol>(this)->Referenced = true;
   }
 }

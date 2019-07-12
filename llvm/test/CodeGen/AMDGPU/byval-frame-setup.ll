@@ -27,6 +27,47 @@ entry:
   ret void
 }
 
+; Make sure the offset is folded and function's frame register is used
+; rather than the global scratch wave offset.
+; GCN-LABEL: {{^}}void_func_byval_struct_use_outside_entry_block:
+; GCN-NOT: v_lshrrev_b32
+; GCN-NOT: s_sub_u32
+
+; GCN: s_and_saveexec_b64
+; GCN: s_cbranch_execz [[BB1:BB[0-9]+_[0-9]+]]
+
+; GCN: buffer_load_dword [[LOAD0:v[0-9]+]], off, s[0:3], s32{{$}}
+; GCN-NOT: s32
+; GCN: buffer_store_dword [[LOAD0]], off, s[0:3], s32{{$}}
+; GCN-NOT: s32
+
+; GCN: buffer_load_dword [[LOAD1:v[0-9]+]], off, s[0:3], s32 offset:16{{$}}
+; GCN-NOT: s32
+; GCN: buffer_store_dword [[LOAD1]], off, s[0:3], s32 offset:16{{$}}
+; GCN-NOT: s32
+
+; GCN: [[BB1]]
+; GCN: s_or_b64 exec, exec
+define hidden void @void_func_byval_struct_use_outside_entry_block(%struct.ByValStruct addrspace(5)* byval noalias nocapture align 4 %arg0, %struct.ByValStruct addrspace(5)* byval noalias nocapture align 4 %arg1, i1 %cond) #1 {
+entry:
+  br i1 %cond, label %bb0, label %bb1
+
+bb0:
+  %arrayidx = getelementptr inbounds %struct.ByValStruct, %struct.ByValStruct addrspace(5)* %arg0, i32 0, i32 0, i32 0
+  %tmp = load volatile i32, i32 addrspace(5)* %arrayidx, align 4
+  %add = add nsw i32 %tmp, 1
+  store volatile i32 %add, i32 addrspace(5)* %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds %struct.ByValStruct, %struct.ByValStruct addrspace(5)* %arg1, i32 0, i32 0, i32 0
+  %tmp1 = load volatile i32, i32 addrspace(5)* %arrayidx2, align 4
+  %add3 = add nsw i32 %tmp1, 2
+  store volatile i32 %add3, i32 addrspace(5)* %arrayidx2, align 4
+  store volatile i32 9, i32 addrspace(1)* null, align 4
+  br label %bb1
+
+bb1:
+  ret void
+}
+
 ; GCN-LABEL: {{^}}void_func_byval_struct_non_leaf:
 ; GCN: s_mov_b32 s5, s32
 ; GCN: s_add_u32 s32, s32, 0xc00{{$}}
@@ -130,19 +171,21 @@ entry:
 
 ; GCN-LABEL: {{^}}call_void_func_byval_struct_kernel:
 ; GCN: s_mov_b32 s33, s7
-; GCN: s_add_u32 s32, s33, 0xc00{{$}}
+; GCN-NOT: s_add_u32 s32, s32, 0x800
 
-; GCN-DAG: v_mov_b32_e32 [[NINE:v[0-9]+]], 9
-; GCN-DAG: v_mov_b32_e32 [[THIRTEEN:v[0-9]+]], 13
-; GCN-DAG: buffer_store_dword [[NINE]], off, s[0:3], s33 offset:8
+; GCN: v_mov_b32_e32 [[NINE:v[0-9]+]], 9
+; GCN: buffer_store_dword [[NINE]], off, s[0:3], s33 offset:8
+; GCN: v_mov_b32_e32 [[THIRTEEN:v[0-9]+]], 13
 ; GCN: buffer_store_dword [[THIRTEEN]], off, s[0:3], s33 offset:24
 
 ; GCN-NOT: s_add_u32 s32, s32, 0x800
-
 ; GCN-DAG: buffer_load_dword [[LOAD0:v[0-9]+]], off, s[0:3], s33 offset:8
 ; GCN-DAG: buffer_load_dword [[LOAD1:v[0-9]+]], off, s[0:3], s33 offset:12
+; GCN-DAG: s_add_u32 s32, s33, 0xc00{{$}}
 ; GCN-DAG: buffer_load_dword [[LOAD2:v[0-9]+]], off, s[0:3], s33 offset:16
 ; GCN-DAG: buffer_load_dword [[LOAD3:v[0-9]+]], off, s[0:3], s33 offset:20
+
+; GCN: s_getpc_b64
 
 ; GCN-DAG: buffer_store_dword [[LOAD0]], off, s[0:3], s32{{$}}
 ; GCN-DAG: buffer_store_dword [[LOAD1]], off, s[0:3], s32 offset:4
@@ -208,24 +251,27 @@ entry:
 ; Make sure the byval alignment is respected in the call frame setup
 ; GCN-LABEL: {{^}}call_void_func_byval_struct_align8_kernel:
 ; GCN: s_mov_b32 s33, s7
-; GCN: s_add_u32 s32, s33, 0xc00{{$}}
+; GCN-NOT: s_add_u32 s32, s32, 0x800
 
-; GCN-DAG: v_mov_b32_e32 [[NINE:v[0-9]+]], 9
-; GCN-DAG: v_mov_b32_e32 [[THIRTEEN:v[0-9]+]], 13
-; GCN-DAG: buffer_store_dword [[NINE]], off, s[0:3], s33 offset:8
+; GCN: v_mov_b32_e32 [[NINE:v[0-9]+]], 9
+; GCN: buffer_store_dword [[NINE]], off, s[0:3], s33 offset:8
+; GCN: v_mov_b32_e32 [[THIRTEEN:v[0-9]+]], 13
 ; GCN: buffer_store_dword [[THIRTEEN]], off, s[0:3], s33 offset:24
+
 
 ; GCN-NOT: s_add_u32 s32, s32, 0x800
 
-; GCN-DAG: buffer_load_dword [[LOAD0:v[0-9]+]], off, s[0:3], s33 offset:8
-; GCN-DAG: buffer_load_dword [[LOAD1:v[0-9]+]], off, s[0:3], s33 offset:12
-; GCN-DAG: buffer_load_dword [[LOAD2:v[0-9]+]], off, s[0:3], s33 offset:16
-; GCN-DAG: buffer_load_dword [[LOAD3:v[0-9]+]], off, s[0:3], s33 offset:20
+; GCN: buffer_load_dword [[LOAD0:v[0-9]+]], off, s[0:3], s33 offset:8
+; GCN: buffer_load_dword [[LOAD1:v[0-9]+]], off, s[0:3], s33 offset:12
+; GCN-DAG: s_add_u32 s32, s33, 0xc00{{$}}
+; GCN: buffer_load_dword [[LOAD2:v[0-9]+]], off, s[0:3], s33 offset:16
+; GCN: buffer_load_dword [[LOAD3:v[0-9]+]], off, s[0:3], s33 offset:20
 
-; GCN-DAG: buffer_store_dword [[LOAD0]], off, s[0:3], s32{{$}}
-; GCN-DAG: buffer_store_dword [[LOAD1]], off, s[0:3], s32 offset:4
-; GCN-DAG: buffer_store_dword [[LOAD2]], off, s[0:3], s32 offset:8
-; GCN-DAG: buffer_store_dword [[LOAD3]], off, s[0:3], s32 offset:12
+; GCN: buffer_store_dword [[LOAD3]], off, s[0:3], s32 offset:12
+; GCN: buffer_store_dword [[LOAD2]], off, s[0:3], s32 offset:8
+; GCN: buffer_store_dword [[LOAD1]], off, s[0:3], s32 offset:4
+; GCN: buffer_store_dword [[LOAD0]], off, s[0:3], s32{{$}}
+
 
 ; GCN-DAG: buffer_load_dword [[LOAD4:v[0-9]+]], off, s[0:3], s33 offset:24
 ; GCN-DAG: buffer_load_dword [[LOAD5:v[0-9]+]], off, s[0:3], s33 offset:28

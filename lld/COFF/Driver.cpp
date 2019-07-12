@@ -366,7 +366,7 @@ void LinkerDriver::parseDirectives(InputFile *File) {
       parseMerge(Arg->getValue());
       break;
     case OPT_nodefaultlib:
-      Config->NoDefaultLibs.insert(doFindLib(Arg->getValue()));
+      Config->NoDefaultLibs.insert(doFindLib(Arg->getValue()).lower());
       break;
     case OPT_section:
       parseSection(Arg->getValue());
@@ -467,7 +467,7 @@ Optional<StringRef> LinkerDriver::findLib(StringRef Filename) {
     return None;
 
   StringRef Path = doFindLib(Filename);
-  if (Config->NoDefaultLibs.count(Path))
+  if (Config->NoDefaultLibs.count(Path.lower()))
     return None;
 
   if (Optional<sys::fs::UniqueID> ID = getUniqueID(Path))
@@ -1290,7 +1290,7 @@ void LinkerDriver::link(ArrayRef<const char *> ArgsArr) {
 
   // Handle /nodefaultlib:<filename>
   for (auto *Arg : Args.filtered(OPT_nodefaultlib))
-    Config->NoDefaultLibs.insert(doFindLib(Arg->getValue()));
+    Config->NoDefaultLibs.insert(doFindLib(Arg->getValue()).lower());
 
   // Handle /nodefaultlib
   if (Args.hasArg(OPT_nodefaultlib_all))
