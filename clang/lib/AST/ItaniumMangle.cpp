@@ -3665,6 +3665,7 @@ recurse:
   case Expr::AtomicExprClass:
   case Expr::SourceLocExprClass:
   case Expr::FixedPointLiteralClass:
+  case Expr::BuiltinBitCastExprClass:
   {
     if (!NullOut) {
       // As bad as this diagnostic is, it's better than crashing.

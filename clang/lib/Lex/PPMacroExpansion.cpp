@@ -1651,6 +1651,7 @@ void Preprocessor::ExpandBuiltinMacro(Token &Tok) {
                       .Case("__builtin_FILE", true)
                       .Case("__builtin_FUNCTION", true)
                       .Case("__builtin_COLUMN", true)
+                      .Case("__builtin_bit_cast", true)
                       .Default(false);
         }
       });

@@ -620,10 +620,7 @@ void TypePrinting::print(Type *Ty, raw_ostream &OS) {
   }
   case Type::VectorTyID: {
     VectorType *PTy = cast<VectorType>(Ty);
-    OS << "<";
-    if (PTy->isScalable())
-      OS << "vscale x ";
-    OS << PTy->getNumElements() << " x ";
+    OS << "<" << PTy->getNumElements() << " x ";
     print(PTy->getElementType(), OS);
     OS << '>';
     return;
@@ -1039,6 +1036,9 @@ void SlotTracker::processIndex() {
   for (auto TidIter = TheIndex->typeIds().begin();
        TidIter != TheIndex->typeIds().end(); TidIter++)
     CreateTypeIdSlot(TidIter->second.first);
+
+  for (auto &TId : TheIndex->typeIdCompatibleVtableMap())
+    CreateGUIDSlot(GlobalValue::getGUID(TId.first));
 
   ST_DEBUG("end processIndex!\n");
 }
@@ -2413,6 +2413,7 @@ public:
   void printGlobalVarSummary(const GlobalVarSummary *GS);
   void printFunctionSummary(const FunctionSummary *FS);
   void printTypeIdSummary(const TypeIdSummary &TIS);
+  void printTypeIdCompatibleVtableSummary(const TypeIdCompatibleVtableInfo &TI);
   void printTypeTestResolution(const TypeTestResolution &TTRes);
   void printArgs(const std::vector<uint64_t> &Args);
   void printWPDRes(const WholeProgramDevirtResolution &WPDRes);
@@ -2715,6 +2716,15 @@ void AssemblyWriter::printModuleSummaryIndex() {
     printTypeIdSummary(TidIter->second.second);
     Out << ") ; guid = " << TidIter->first << "\n";
   }
+
+  // Print the TypeIdCompatibleVtableMap entries.
+  for (auto &TId : TheIndex->typeIdCompatibleVtableMap()) {
+    auto GUID = GlobalValue::getGUID(TId.first);
+    Out << "^" << Machine.getGUIDSlot(GUID)
+        << " = typeidCompatibleVTable: (name: \"" << TId.first << "\"";
+    printTypeIdCompatibleVtableSummary(TId.second);
+    Out << ") ; guid = " << GUID << "\n";
+  }
 }
 
 static const char *
@@ -2797,6 +2807,19 @@ void AssemblyWriter::printTypeIdSummary(const TypeIdSummary &TIS) {
   Out << ")";
 }
 
+void AssemblyWriter::printTypeIdCompatibleVtableSummary(
+    const TypeIdCompatibleVtableInfo &TI) {
+  Out << ", summary: (";
+  FieldSeparator FS;
+  for (auto &P : TI) {
+    Out << FS;
+    Out << "(offset: " << P.AddressPointOffset << ", ";
+    Out << "^" << Machine.getGUIDSlot(P.VTableVI.getGUID());
+    Out << ")";
+  }
+  Out << ")";
+}
+
 void AssemblyWriter::printArgs(const std::vector<uint64_t> &Args) {
   Out << "args: (";
   FieldSeparator FS;
@@ -2865,7 +2888,21 @@ void AssemblyWriter::printAliasSummary(const AliasSummary *AS) {
 }
 
 void AssemblyWriter::printGlobalVarSummary(const GlobalVarSummary *GS) {
-  Out << ", varFlags: (readonly: " << GS->VarFlags.ReadOnly << ")";
+  Out << ", varFlags: (readonly: " << GS->VarFlags.MaybeReadOnly << ", "
+      << "writeonly: " << GS->VarFlags.MaybeWriteOnly << ")";
+
+  auto VTableFuncs = GS->vTableFuncs();
+  if (!VTableFuncs.empty()) {
+    Out << ", vTableFuncs: (";
+    FieldSeparator FS;
+    for (auto &P : VTableFuncs) {
+      Out << FS;
+      Out << "(virtFunc: ^" << Machine.getGUIDSlot(P.FuncVI.getGUID())
+          << ", offset: " << P.VTableOffset;
+      Out << ")";
+    }
+    Out << ")";
+  }
 }
 
 static std::string getLinkageName(GlobalValue::LinkageTypes LT) {
@@ -3062,6 +3099,8 @@ void AssemblyWriter::printSummary(const GlobalValueSummary &Summary) {
       Out << FS;
       if (Ref.isReadOnly())
         Out << "readonly ";
+      else if (Ref.isWriteOnly())
+        Out << "writeonly ";
       Out << "^" << Machine.getGUIDSlot(Ref.getGUID());
     }
     Out << ")";

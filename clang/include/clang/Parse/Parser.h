@@ -1816,6 +1816,9 @@ private:  //***INTEL
   // C++ 5.2p1: C++ Casts
   ExprResult ParseCXXCasts();
 
+  /// Parse a __builtin_bit_cast(T, E), used to implement C++2a std::bit_cast.
+  ExprResult ParseBuiltinBitCast();
+
   //===--------------------------------------------------------------------===//
   // C++ 5.2p1: C++ Type Identification
   ExprResult ParseCXXTypeid();
