@@ -50,6 +50,8 @@
 ; CHECK: Replacement:  i32 8
 ; CHECK: Extra RecProClone Candidate: good.8
 
+; Check for sequence of eight clones:
+
 ; CHECK: define dso_local void @MAIN__()
 ; CHECK: call void @good.1
 ; CHECK: define internal void @good.1
@@ -67,6 +69,32 @@
 ; CHECK: define internal void @good.7
 ; CHECK: call void @good.8
 ; CHECK: define internal void @good.8
+; CHECK-NOT: call void @good
+
+; Check for special inserted test, call to extra clone, and constant loop
+; bound assignments
+
+; CHECK: %8 = alloca [9 x i32], align 16
+; CHECK: %9 = alloca [9 x i32], align 16
+; CHECK: %32 = getelementptr inbounds [9 x i32], [9 x i32]* %8, i64 0, i64 0
+; CHECK: %44 = getelementptr inbounds [9 x i32], [9 x i32]* %9, i64 0, i64 0
+; CHECK: CondBlock:
+; CHECK: [[V1:%[0-9]+]] = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %32, i64 8)
+; CHECK: %LILB8 = load i32, i32* [[V1]]
+; CHECK: [[V2:%[0-9]+]] = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %44, i64 8)
+; CHECK: %LIUB8 = load i32, i32* [[V2]]
+; CHECK: %CMP8S = icmp eq i32 %LILB8, %LIUB8
+; CHECK: br i1 %CMP8S, label %CallCloneBlock, label %ConstStore
+; CHECK: CallCloneBlock:
+; CHECK: call void @good.8.9(i32* %0)
+; CHECK: ret void
+; CHECK: ConstStore:
+; CHECK: store i32 1, i32* [[V1]]
+; CHECK: store i32 9, i32* [[V2]]
+
+; Check for extra clone
+; CHECK: define internal void @good.8.9
+; CHECK-NOT: call void @good
 
 declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8, i64, i64, i32*, i64)
 declare i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8, i64, i32, i64*, i32)

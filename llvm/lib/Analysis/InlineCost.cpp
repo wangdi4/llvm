@@ -4209,7 +4209,7 @@ static int worthInliningUnderSpecialCondition(CallBase &CB,
   }
   if (worthInliningForRecProgressionClone(F)) {
     YesReasonVector.push_back(InlrRecProClone);
-    return -InlineConstants::DeepInliningHeuristicBonus;
+    return -InlineConstants::VeryDeepInliningHeuristicBonus;
   }
   if (preferPartialInlineHasExtractedRecursiveCall(*F, PrepareForLTO)) {
     YesReasonVector.push_back(InlrHasExtractedRecursiveCall);

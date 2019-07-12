@@ -18,6 +18,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
@@ -824,7 +825,7 @@ static bool IsFunctionPtrCloneCandidate(Function &F) {
 // with 1, 9 in mysub() and l(8), u(8) in mysubclone().
 //
 
-// BEGIN: Special recognition code for extra clone transformation
+// BEGIN: Special code for extra clone transformation
 
 //
 // Return 'true' if 'V' represents an AllocaInst similar to:
@@ -1273,12 +1274,14 @@ static bool isRecProFalseBranchComplexLoop(BasicBlock *BBPreHeader,
 //     end if
 //   end do
 // If we return 'true', set '*BBLastExitOut' to the block after the sequence,
-// set '*LowerValueOut' and '*UpperValueOut' to the AllocaInsts representing
+// set '*BBLastLatchOut' to the last latch block in the sequence, set
+// '*LowerValueOut' and '*UpperValueOut' to the AllocaInsts representing
 // 'l(9)' and 'u(9)' and '*LowerConstantValueOut' and '*UpperConstantValueOut'
 // to the constant values "constant_l" and "constant_u".
 //
 static bool isRecProSpecialLoopSequence(Function *F,
                                         BasicBlock **BBLastExitOut,
+                                        BasicBlock **BBLastLatchOut,
                                         AllocaInst **LowerValueOut,
                                         AllocaInst **UpperValueOut,
                                         int *LowerConstantValueOut,
@@ -1312,6 +1315,7 @@ static bool isRecProSpecialLoopSequence(Function *F,
     return false;
   if (VStoreUpper != VStoreUpperTemp)
     return false;
+  *BBLastLatchOut = BBLatch;
   *BBLastExitOut = BBExit;
   *LowerValueOut = VStoreLower;
   *UpperValueOut = VStoreUpper;
@@ -1320,7 +1324,101 @@ static bool isRecProSpecialLoopSequence(Function *F,
   return true;
 }
 
-// END: Special recognition code for extra clone transformation
+//
+// Return a GetElementPtrInst which represents the address of 'AI'. If there
+// is one in the IR already, return that, otherwise, create one. (Note that
+// 'AI' should represent a single dimension integer array.)
+//
+static GetElementPtrInst *findOrCreateRecProGEP(AllocaInst* AI,
+                                                BasicBlock *BB) {
+  for (User *U : AI->users()) {
+    auto GEPI = dyn_cast<GetElementPtrInst>(U);
+    if (GEPI && GEPI->getPointerOperand() == AI && GEPI->hasAllZeroIndices() &&
+        GEPI->getNumIndices() == 2)
+      return GEPI;
+  }
+  SmallVector<Value *, 2> Indices;
+  auto Int64Ty = Type::getInt64Ty(BB->getContext());
+  auto CI1 = ConstantInt::get(Int64Ty, 0, true);
+  Indices.push_back(CI1);
+  auto CI2 = ConstantInt::get(Int64Ty, 0, true);
+  Indices.push_back(CI2);
+  return GetElementPtrInst::Create(AI->getType(), AI, Indices, "", BB);
+}
+
+//
+// Insert special code of the form:
+//   if (l(8) == u(8)) then
+//     call FClone(row)
+//     return
+//   endif
+//   l(8) = CVLower
+//   u(8) = CVUpper
+// into 'F' after 'BBI'. Here 'AILower' is "l()", 'AIUpper' is "u()".
+// 'FClone' is the extra clone of the extra clone transformation.
+//
+static void addSpecialRecProCloneCode(Function *F,
+                                      Function *FClone,
+                                      BasicBlock *BBLastExit,
+                                      BasicBlock *BBLastLatch,
+                                      AllocaInst *AILower,
+                                      AllocaInst *AIUpper,
+                                      int CVLower,
+                                      int CVUpper) {
+  assert(F && FClone && BBLastExit && BBLastLatch && AILower && AIUpper &&
+      "Expect values to be defined in caller.");
+  BasicBlock *BBCond = BasicBlock::Create(F->getContext(), "CondBlock", F);
+  BBCond->moveAfter(BBLastExit);
+  BranchInst *BBBIT = cast<BranchInst>(BBLastLatch->getTerminator());
+  for (unsigned I = 0; I < BBBIT->getNumSuccessors(); ++I)
+    if (BBBIT->getSuccessor(I) == BBLastExit)
+      BBBIT->setSuccessor(I, BBCond);
+  BasicBlock *BBCallClone = BasicBlock::Create(F->getContext(),
+      "CallCloneBlock", F);
+  BasicBlock *BBConstStore = BasicBlock::Create(F->getContext(),
+      "ConstStore", F);
+  BBConstStore->moveBefore(BBLastExit);
+  BBCallClone->moveBefore(BBConstStore);
+  BBCond->moveBefore(BBCallClone);
+  IRBuilder<> Builder(BBCond);
+  GetElementPtrInst *GEPL = findOrCreateRecProGEP(AILower, BBCond);
+  auto Int64Ty = Type::getInt64Ty(F->getContext());
+  Instruction *SILB = Builder.CreateSubscript(0, ConstantInt::get(Int64Ty, 1),
+    ConstantInt::get(Int64Ty, 4), GEPL, ConstantInt::get(Int64Ty, 8));
+  auto LILBType = SILB->getType()->getPointerElementType();
+  LoadInst *LILB8 = Builder.CreateLoad(LILBType, SILB, "LILB8");
+  GetElementPtrInst *GEPU = findOrCreateRecProGEP(AIUpper, BBCond);
+  Instruction *SIUB = Builder.CreateSubscript(0, ConstantInt::get(Int64Ty, 1),
+    ConstantInt::get(Int64Ty, 4), GEPU, ConstantInt::get(Int64Ty, 8));
+  auto SIUBType = SIUB->getType()->getPointerElementType();
+  LoadInst *LIUB8 = Builder.CreateLoad(SIUBType, SIUB, "LIUB8");
+  Value *CmpI = Builder.CreateICmpEQ(LILB8, LIUB8, "CMP8S");
+  Builder.CreateCondBr(CmpI, BBCallClone, BBConstStore);
+  Builder.SetInsertPoint(BBCallClone);
+  SmallVector<Value *, 4> Args;
+  for (Argument &Arg : F->args())
+    Args.push_back(&Arg);
+  Builder.CreateCall(FClone, Args);
+  Builder.CreateRetVoid();
+  Builder.SetInsertPoint(BBConstStore);
+  Constant *C1 = ConstantInt::get(SILB->getType()->getPointerElementType(),
+      CVLower);
+  Builder.CreateStore(C1, SILB);
+  Constant *C9 = ConstantInt::get(SIUB->getType()->getPointerElementType(),
+      CVUpper);
+  Builder.CreateStore(C9, SIUB);
+  Builder.CreateBr(BBLastExit);
+  if (IPCloningTrace) {
+    errs() << "Inserting special extra clone test:\n";
+#ifndef NDEBUG
+    BBCond->dump();
+    BBCallClone->dump();
+    BBConstStore->dump();
+#endif // NDEBUG
+  }
+}
+
+// END: Special code for extra clone transformation
 
 //
 // Fix the basis call of the recursive progression clone candidate 'OrigF' by
@@ -1481,7 +1579,8 @@ static void deleteRecProgressionRecCalls(Function &OrigF, Function &PrevF) {
 //     foo.0();
 //     ..
 //   }
-//
+// Also, in the non-cyclic case, under certain special circumstances,
+// create an extra clone.
 static void createRecProgressionClones(Function &F,
                                        unsigned ArgPos, unsigned Count,
                                        int Start, int Inc, bool IsByRef,
@@ -1528,27 +1627,38 @@ static void createRecProgressionClones(Function &F,
       LI->replaceAllUsesWith(Rep);
     } else
       NewFormal->replaceAllUsesWith(Rep);
-    if (!IsCyclic && I == Count - 1) {
-      BasicBlock *BBLast = nullptr;
-      AllocaInst *AILower = nullptr;
-      AllocaInst *AIUpper = nullptr;
-      int CVLower = 0;
-      int CVUpper = 0;
-      if (isRecProSpecialLoopSequence(NewF, &BBLast, &AILower, &AIUpper,
-          &CVLower, &CVUpper)) {
-        // Add transformation code here.
-        if (IPCloningTrace)
-          errs() << "Extra RecProClone Candidate: " << NewF->getName() << "\n";
-      }
-    }
     if (!FirstCloneF)
       FirstCloneF = NewF;
     LastCloneF = NewF;
   }
   if (IsCyclic)
     fixRecProgressionRecCalls(F, *LastCloneF, *FirstCloneF);
-  else
+  else {
+    BasicBlock *BBLastExit = nullptr;
+    BasicBlock *BBLastLatch = nullptr;
+    AllocaInst *AILower = nullptr;
+    AllocaInst *AIUpper = nullptr;
+    int CVLower = 0;
+    int CVUpper = 0;
+    // Test if we should create the extra clone
+    Function *ExtraCloneF = nullptr;
+    if (isRecProSpecialLoopSequence(LastCloneF, &BBLastExit, &BBLastLatch,
+        &AILower, &AIUpper, &CVLower, &CVUpper)) {
+      // Create the extra clone
+      ValueToValueMapTy VMapNew;
+      ExtraCloneF = CloneFunction(LastCloneF, VMapNew);
+      ExtraCloneF->addFnAttr("prefer-inline-rec-pro-clone");
+      ExtraCloneF->addFnAttr("contains-rec-pro-clone");
+      if (IPCloningTrace)
+        errs() << "Extra RecProClone Candidate: " << LastCloneF->getName()
+               << "\n";
+      addSpecialRecProCloneCode(LastCloneF, ExtraCloneF, BBLastExit,
+        BBLastLatch, AILower, AIUpper, CVLower, CVUpper);
+    }
     deleteRecProgressionRecCalls(F, *LastCloneF);
+    if (ExtraCloneF)
+      deleteRecProgressionRecCalls(F, *ExtraCloneF);
+  }
 }
 
 // Create argument set for CallInst 'CI' of  'F' and save it in
