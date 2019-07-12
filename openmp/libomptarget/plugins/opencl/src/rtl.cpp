@@ -660,11 +660,8 @@ int32_t __tgt_rtl_manifest_data_for_region(
   DP("Stashing %" PRIu64 " implicit arguments for kernel " DPxMOD "\n",
      static_cast<uint64_t>(num_ptrs), DPxPTR(kernel));
   DeviceInfo.Mutexes[device_id].lock();
-  if (DeviceInfo.ImplicitArgs[device_id].count(*kernel) == 0) {
-    // This happens only once for a kernel
-    DeviceInfo.ImplicitArgs[device_id][*kernel] =
-        std::set<void *>(tgt_ptrs, tgt_ptrs + num_ptrs);
-  }
+  DeviceInfo.ImplicitArgs[device_id][*kernel] =
+      std::set<void *>(tgt_ptrs, tgt_ptrs + num_ptrs);
   DeviceInfo.Mutexes[device_id].unlock();
 
   return OFFLOAD_SUCCESS;
