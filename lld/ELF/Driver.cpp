@@ -53,6 +53,7 @@
 #include "llvm/Support/GlobPattern.h"
 #include "llvm/Support/LEB128.h"
 #include "llvm/Support/Path.h"
+#include "llvm/Support/Program.h"  // INTEL
 #include "llvm/Support/TarWriter.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
@@ -90,6 +91,7 @@ bool elf::link(ArrayRef<const char *> Args, bool CanExitEarly,
   BitcodeFiles.clear();
   ObjectFiles.clear();
   SharedFiles.clear();
+  GNULTOFiles.clear();  // INTEL
 
   Config = make<Configuration>();
   Driver = make<LinkerDriver>();
@@ -1253,6 +1255,110 @@ void LinkerDriver::inferMachineType() {
   error("target emulation unknown: -m or at least one .o file required");
 }
 
+#if INTEL_CUSTOMIZATION
+// If there is at least one GNU LTO file in the linking command
+// then pass it to G++ in order to do LTO and build a temporary
+// object. Then collect the ELF object generated and add it to
+// the linking process.
+template <class ELFT>
+void LinkerDriver::doGnuLTOLinking() {
+
+  // Given an ObjFile and a SmallString, write the file in the temporary
+  // directory
+  auto WriteTempObjFile = [](ObjFile<ELFT> *GNUObj, SmallString<128> &S) {
+    int Fd;
+
+    // Generate a temporary unique name
+    if (auto EC = sys::fs::createTemporaryFile("lld-temp-" +
+        sys::path::filename(GNUObj->getName()), ".o", Fd, S))
+      fatal("cannot create a temporary file: " + EC.message());
+
+    raw_fd_ostream OS(Fd, true);
+    OS << GNUObj->MB.getBuffer();
+
+    if (auto EC = OS.error())
+      fatal("issue writing temporary file: " + EC.message());
+
+    OS.close();
+  };
+
+  warn("GNU LTO files found in the command line.");
+
+  // Find G++
+  ErrorOr<std::string> ExeOrErr = sys::findProgramByName("g++");
+  if (auto EC = ExeOrErr.getError())
+    fatal("unable to find g++ in PATH: " + EC.message());
+
+  std::string GNULTOFilesCmd = "";
+  std::vector<StringRef> TempsVector;
+
+  // Traverse through the GNU LTO objects and write them
+  for (auto File : GNULTOFiles) {
+    SmallString<128> S;
+    WriteTempObjFile(cast<ObjFile<ELFT>>(File), S);
+    std::string TempFile = S.str().str();
+    TempsVector.push_back(S.str());
+
+    GNULTOFilesCmd += TempFile;
+    GNULTOFilesCmd += " ";
+  }
+
+  if (GNULTOFilesCmd.empty())
+    fatal("unable to generate the temporary files for GNU LTO");
+
+  StringRef Exec = Saver.save(*ExeOrErr);
+  std::string NewCMD = Exec.str() + " ";
+
+  // Build the command g++ -r GNU-LTO-FILES -nostdlib
+  //                    -nostartfiles -o /tmp/gnulto.o
+  NewCMD += "-r ";
+
+  NewCMD += GNULTOFilesCmd;
+
+  NewCMD += "-nostdlib ";
+  NewCMD += "-nostartfiles ";
+  NewCMD += "-o ";
+
+  // Create an unique temporary file to write the output
+  SmallString<128> GNUOutputObj;
+  int Fd;
+  if (auto EC = sys::fs::createTemporaryFile("lld-gnu-lto-temp",
+                                             ".o", Fd, GNUOutputObj))
+      fatal("cannot create a temporary file: " + EC.message());
+
+  TempsVector.push_back(GNUOutputObj.str());
+
+  NewCMD += GNUOutputObj.str().str();
+
+  SmallVector<StringRef, 0> NewArgs;
+  StringRef(NewCMD).split(NewArgs," ");
+
+  // Execute the G++ command
+  if (sys::ExecuteAndWait(NewArgs[0], NewArgs) != 0)
+    fatal("ExecuteAndWait failed: " + NewCMD);
+
+  // Load the generated object
+  Optional<MemoryBufferRef> Buffer = readFile(GNUOutputObj.str().str());
+  if (!Buffer.hasValue())
+    fatal("Output from GNU LTO not created: " + GNUOutputObj.str());
+  MemoryBufferRef MBRef = *Buffer;
+
+  if (MBRef.getBufferSize() == 0)
+    fatal("Output from GNU LTO created incorrectly: " + GNUOutputObj.str());
+
+  // Create the object related to InputFile
+  InputFile *GNULTOFile = make<ObjFile<ELFT>>(MBRef, GNUOutputObj.str());
+  Files.push_back(GNULTOFile);
+
+  // Update the symbol table.
+  parseFile(GNULTOFile);
+
+  // Remove temporary files
+  for (auto TempFile : TempsVector)
+    sys::fs::remove(TempFile);
+}
+#endif // INTEL_CUSTOMIZATION
+
 // Parse -z max-page-size=<value>. The default value is defined by
 // each target.
 static uint64_t getMaxPageSize(opt::InputArgList &Args) {
@@ -1731,6 +1837,11 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &Args) {
   // appended to the Files vector.
   for (size_t I = 0; I < Files.size(); ++I)
     parseFile(Files[I]);
+#if INTEL_CUSTOMIZATION
+  // Process the GNU LTO files
+  if (!GNULTOFiles.empty())
+    doGnuLTOLinking<ELFT>();
+#endif // INTEL_CUSTOMIZATION
 
   // Now that we have every file, we can decide if we will need a
   // dynamic symbol table.
