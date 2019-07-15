@@ -193,7 +193,7 @@ private:
   bool hasLoopLiveoutUseInSCC(const Instruction *Inst, const SCC &CurSCC) const;
 
   /// Returns true if \p Root can act as a valid SCC root node.
-  bool isValidSCCRootNode(const NodeTy *Root) const;
+  bool isValidSCCRootNode(const NodeTy *Root, const SCC &CurSCC) const;
 
   /// Checks the validity of an SCC w.r.t assigning the same symbase to all its
   /// nodes.
