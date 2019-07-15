@@ -43,7 +43,7 @@ public:
   /// More concretely:
   /// - replaces SPIR artifacts with Intel-implementation specific stuff.
   /// - updates LLVM IR to version supported by back-end compiler
-  static int MaterializeSPIR(llvm::Module &M);
+  static int MaterializeSPIR(llvm::Module &M, bool isSpir12 = false);
 
 private:
   Intel::OpenCL::FECompilerAPI::FESPIRProgramDescriptor *m_pProgDesc;
