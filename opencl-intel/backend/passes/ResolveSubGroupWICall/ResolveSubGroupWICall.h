@@ -26,7 +26,7 @@ namespace intel {
 
   using namespace llvm;
 
-  class ResolveSubGroupWICall : public FunctionPass {
+  class ResolveSubGroupWICall : public ModulePass {
 
   public:
 
@@ -42,9 +42,11 @@ namespace intel {
       AU.addRequired<BuiltinLibInfo>();
     }
 
-    bool runOnFunction(Function &F) override;
+    bool runOnModule(Module &M) override;
 
   private:
+
+    bool runOnFunction(Function &F, size_t VF);
 
     Value* replaceGetSubGroupSize(Module *M, Value *insertBefore, size_t VF);
     Value* replaceGetMaxSubGroupSize(Module *M, Value *insertBefore, size_t VF);

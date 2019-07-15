@@ -35,6 +35,23 @@ namespace Intel {
 namespace OpenCL {
 namespace ClangFE {
 
+
+static bool checkSPIR12Version(llvm::Module &M) {
+  auto NamedMD = M.getNamedMetadata("opencl.spir.version");
+  if (!NamedMD || NamedMD->getNumOperands() == 0)
+    return false;
+  auto VerMD = dyn_cast<MDTuple>(NamedMD->getOperand(0));
+  assert(VerMD->getNumOperands() == 2 &&
+    "Invalid operand number for opencl.spir.version");
+  auto CMajor = mdconst::extract<ConstantInt>(VerMD->getOperand(0));
+  auto VerMajor = CMajor->getZExtValue();
+  auto CMinor = mdconst::extract<ConstantInt>(VerMD->getOperand(1));
+  auto VerMinor = CMinor->getZExtValue();
+  if (VerMajor == 1 && VerMinor == 2)
+    return true;
+  return false;
+}
+
 static void updateMetadata(llvm::Module &M) {
   llvm::NamedMDNode *Kernels = M.getNamedMetadata("opencl.kernels");
   if (!Kernels)
@@ -274,7 +291,7 @@ static void MaterializeFunction(llvm::Function &F) {
 
 // Function functor, to be applied for every function in the module.
 // Translates SPIR 1.2 built-in names to OpenCL CPU RT built-in names if needed
-static void RemangleBuiltins(llvm::Function &F) {
+static void RemangleBuiltins(llvm::Function &F, bool isSpir12) {
   if (!F.isDeclaration())
     return;
 
@@ -301,7 +318,7 @@ static void RemangleBuiltins(llvm::Function &F) {
 
   // Mangler is able to demangle from SPIR1.2 mangling but always
   // mangles to OpenCL CPU RT style
-  auto FD = demangle(FName.data(), /*isSpir12Name=*/true);
+  auto FD = demangle(FName.data(), isSpir12);
   assert(!FD.isNull() && "Cannot demangle function name using SPIR12 rules.");
   auto NewName = mangle(FD);
   assert(NewName != reflection::FunctionDescriptor::nullString() &&
@@ -309,10 +326,13 @@ static void RemangleBuiltins(llvm::Function &F) {
   F.setName(NewName);
 }
 
-int ClangFECompilerMaterializeSPIRTask::MaterializeSPIR(llvm::Module &M) {
+int ClangFECompilerMaterializeSPIRTask::MaterializeSPIR(llvm::Module &M, bool isSpir12) {
   updateMetadata(M);
 
-  std::for_each(M.begin(), M.end(), RemangleBuiltins);
+  for ( llvm::Module::iterator I = M.begin(), E = M.end(); I != E;) {
+    llvm::Function *F = &*I++;
+    RemangleBuiltins(*F, isSpir12);
+  }
   std::for_each(M.begin(), M.end(), MaterializeFunction);
 
   return 0;
@@ -336,7 +356,8 @@ int ClangFECompilerMaterializeSPIRTask::MaterializeSPIR(
     return CL_INVALID_PROGRAM;
   }
   llvm::Module *pModule = ModuleOrErr.get().get();
-  int res = MaterializeSPIR(*pModule);
+  bool isSpir12 = checkSPIR12Version(*pModule);
+  int res = MaterializeSPIR(*pModule, isSpir12);
 
   llvm::raw_svector_ostream ir_ostream(pResult->getIRBufferRef());
   llvm::WriteBitcodeToFile(*pModule, ir_ostream);

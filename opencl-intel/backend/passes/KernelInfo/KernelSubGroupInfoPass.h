@@ -47,9 +47,9 @@ namespace intel {
 
     /// @brief checks if a kernel has sub groups
     /// @param F ptr to function
-    bool containsSubGroups(Function*);
+    bool containsSubGroups(Function*) const;
 
-    bool runOnFunction(Function&);
+    bool runOnFunction(Function&) const;
   };
 
 } // namespace intel

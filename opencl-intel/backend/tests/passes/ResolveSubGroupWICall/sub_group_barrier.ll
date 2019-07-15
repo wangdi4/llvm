@@ -10,6 +10,12 @@ declare void @_Z17sub_group_barrierj(i32) local_unnamed_addr #1
 
 declare i64 @_Z14get_local_sizej(i32)
 
+; Function Attrs: convergent nounwind
+define void @testKernel() local_unnamed_addr #0 !kernel_arg_addr_space !2 !kernel_arg_access_qual !2 !kernel_arg_type !2 !kernel_arg_base_type !2 !kernel_arg_type_qual !2 !kernel_arg_host_accessible !2 !kernel_arg_pipe_depth !2 !kernel_arg_pipe_io !2 !kernel_arg_buffer_location !2 !kernel_arg_name !2 !vectorized_kernel !6 !no_barrier_path !7 !kernel_has_sub_groups !7 !vectorization_dimension !11 !can_unite_workgroups !12 {
+entry:
+  ret void
+}
+
 ; CHECK-LABEL: @__Vectorized_.testKernel
 ; Function Attrs: convergent nounwind
 define void @__Vectorized_.testKernel() local_unnamed_addr #0 !kernel_arg_addr_space !2 !kernel_arg_access_qual !2 !kernel_arg_type !2 !kernel_arg_base_type !2 !kernel_arg_type_qual !2 !kernel_arg_host_accessible !2 !kernel_arg_pipe_depth !2 !kernel_arg_pipe_io !2 !kernel_arg_buffer_location !2 !kernel_arg_name !2 !vectorized_kernel !8 !no_barrier_path !7 !kernel_has_sub_groups !7 !vectorized_width !10 !vectorization_dimension !11 !can_unite_workgroups !12 {
@@ -29,6 +35,7 @@ attributes #3 = { nounwind }
 !llvm.module.flags = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.ocl.version = !{!1}
+!opencl.kernels = !{!4}
 !opencl.spir.version = !{!1}
 !opencl.used.extensions = !{!2}
 !opencl.used.optional.core.features = !{!2}
@@ -38,6 +45,7 @@ attributes #3 = { nounwind }
 !1 = !{i32 2, i32 0}
 !2 = !{}
 !3 = !{!"-cl-std=CL2.0"}
+!4 = !{void ()* @testKernel}
 !6 = !{void ()* @__Vectorized_.testKernel}
 !7 = !{i1 true}
 !8 = !{null}

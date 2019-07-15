@@ -348,6 +348,15 @@ TEST(DemangleTest, OclTypesSubst) {
   ASSERT_EQ(std::string("image2d_array_t"), getParameterString(fd, 2));
 }
 
+TEST(DemangleTest, OclTypesSubst2) {
+  const char *name = "_Z12write_imagei20ocl_image2d_array_woDv4_iS0_";
+  FunctionDescriptor fd = demangle(name);
+  ASSERT_FALSE(fd.isNull());
+  ASSERT_EQ(std::string("image2d_array_wo_t"), getParameterString(fd, 0));
+  ASSERT_EQ(std::string("int4"), getParameterString(fd, 1));
+  ASSERT_EQ(std::string("int4"), getParameterString(fd, 2));
+}
+
 TEST(DemangleTest, pointerAttributes) {
   const char *name = "_Z10mask_vloadtmPU3AS2Kc";
   ASSERT_TRUE(testDemangle(name));

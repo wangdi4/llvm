@@ -404,6 +404,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static const std::string NAME_GET_BASE_GID;
     static const std::string NAME_GET_SPECIAL_BUFFER;
 
+    static const std::string WG_BOUND_PREFIX;
+
     //////////////////////////////////////////////////////////////////
     // @brief returns the mangled name of the function mem_fence
     //////////////////////////////////////////////////////////////////

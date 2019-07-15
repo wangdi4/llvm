@@ -30,7 +30,7 @@ namespace intel {
   OCL_INITIALIZE_PASS(KernelSubGroupInfo, "kernel-sub-group-info",
                       "mark kernels with subgroups", false, false)
 
-  bool KernelSubGroupInfo::runOnFunction(Function &F) {
+  bool KernelSubGroupInfo::runOnFunction(Function &F) const {
     auto kimd = KernelInternalMetadataAPI(&F);
     bool HasSubGroups = containsSubGroups(&F);
     if (HasSubGroups) {
@@ -39,7 +39,7 @@ namespace intel {
     return HasSubGroups;
   }
 
-  bool KernelSubGroupInfo::containsSubGroups(Function *pFunc) {
+  bool KernelSubGroupInfo::containsSubGroups(Function *pFunc) const {
     for (const auto& I : instructions(pFunc)) {
       if (const auto* Call = dyn_cast<CallInst>(&I)) {
         if (auto *Func = Call->getCalledFunction()) {

@@ -12,19 +12,20 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "CompilationUtils.h"
 #include "CLWGBoundDecoder.h"
 
 namespace intel {
 
-const std::string CLWGBoundDecoder::WGBoundPrefix  = "WG.boundaries.";
-
 std::string CLWGBoundDecoder::encodeWGBound(std::string &funcName) {
-  return WGBoundPrefix + funcName;
+  using namespace Intel::OpenCL::DeviceBackend;
+  return CompilationUtils::WG_BOUND_PREFIX + funcName;
 }
 
 
 bool CLWGBoundDecoder::isWGBoundFunction(std::string& name) {
-    return name.find(WGBoundPrefix) != std::string::npos;
+  using namespace Intel::OpenCL::DeviceBackend;
+  return name.find(CompilationUtils::WG_BOUND_PREFIX) != std::string::npos;
 }
 
 unsigned CLWGBoundDecoder::getUniformIndex() {
