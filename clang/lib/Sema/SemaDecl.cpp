@@ -10642,15 +10642,10 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
     T = Context.getCanonicalType(FD->getType());
   }
 
-#if INTEL_CUSTOMIZATION
-  if ((getLangOpts().GNUMode && !getLangOpts().CPlusPlus) ||
-      getLangOpts().IntelCompat) {
+  if (getLangOpts().GNUMode && !getLangOpts().CPlusPlus) {
     // In C with GNU extensions we allow main() to have non-integer return
     // type, but we should warn about the extension, and we disable the
     // implicit-return-zero rule.
-    // The same should be done in IntelCompat mode as well.
-    // See CQ#364427 for details.
-#endif  // INTEL_CUSTOMIZATION
 
     // GCC in C mode accepts qualified 'int'.
     if (Context.hasSameUnqualifiedType(FT->getReturnType(), Context.IntTy))
@@ -10702,17 +10697,9 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
     HasExtraParameters = false;
 
   if (HasExtraParameters) {
-#if INTEL_CUSTOMIZATION
-    //CQ#373972 - emit a warning if too many parameters.
-    if (getLangOpts().IntelCompat) {
-      Diag(FD->getLocation(), diag::warn_main_surplus_args) << nparams;
-      nparams = 3;
-    } else {
-#endif //INTEL_CUSTOMIZATION
     Diag(FD->getLocation(), diag::err_main_surplus_args) << nparams;
     FD->setInvalidDecl(true);
     nparams = 3;
-    } // INTEL
   }
 
   // FIXME: a lot of the following diagnostics would be improved

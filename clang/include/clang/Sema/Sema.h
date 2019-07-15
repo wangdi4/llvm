@@ -1105,12 +1105,6 @@ public:
   /// \<coroutine_traits>
   ClassTemplateDecl *StdCoroutineTraitsCache;
 
-#if INTEL_CUSTOMIZATION
-  /// CQ#374762: The C++ "__cxxabiv1" namespace, where the standard library
-  /// resides.
-  LazyDeclPtr CXXAbiV1Namespace;
-#endif // INTEL_CUSTOMIZATION
-
   /// The C++ "type_info" declaration, which is defined in \<typeinfo>.
   RecordDecl *CXXTypeInfoDecl;
 
@@ -5040,8 +5034,6 @@ public:
 
   NamespaceDecl *getStdNamespace() const;
   NamespaceDecl *getOrCreateStdNamespace();
-  NamespaceDecl *getCXXAbiV1Namespace() const;   // INTEL 
-  NamespaceDecl *getOrCreateCXXAbiV1Namespace(); // INTEL
 
   NamespaceDecl *lookupStdExperimentalNamespace();
 

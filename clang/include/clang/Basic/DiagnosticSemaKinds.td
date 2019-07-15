@@ -722,11 +722,6 @@ def ext_main_returns_nonint : ExtWarn<"return type of 'main' is not 'int'">,
 def note_main_change_return_type : Note<"change return type to 'int'">;
 def err_main_surplus_args : Error<"too many parameters (%0) for 'main': "
     "must be 0, 2, or 3">;
-// if INTEL_CUSTOMIZATION
-// CQ#373972
-def warn_main_surplus_args : Warning<err_main_surplus_args.Text>,
-    InGroup<Main>;
-// endif INTEL_CUSTOMIZATION
 def warn_main_one_arg : Warning<"only one parameter on 'main' declaration">,
     InGroup<Main>;
 def err_main_arg_wrong : Error<"%select{first|second|third|fourth}0 "
@@ -1436,14 +1431,6 @@ def warn_weak_template_vtable : Warning<
 
 def ext_using_undefined_std : ExtWarn<
   "using directive refers to implicitly-defined namespace 'std'">;
-
-// if INTEL_CUSTOMIZATION
-// Fix for CQ374762: Retrieve a namespace, which may require us to
-// implicitly define.
-def warn_using_undefined_namespace : Warning<
-    "namespace '%0' is not defined">,
-    InGroup<IntelCompat>;
-// endif INTEL_CUSTOMIZATION
 
 // C++ exception specifications
 def err_exception_spec_in_typedef : Error<

@@ -2668,6 +2668,10 @@ def fno_rtlib_add_rpath: Flag<["-"], "fno-rtlib-add-rpath">, Flags<[NoArgumentUn
   HelpText<"Do not add -rpath with architecture-specific resource directory to the linker flags">;
 def r : Flag<["-"], "r">, Flags<[LinkerInput,NoArgumentUnused]>,
         Group<Link_Group>;
+#if INTEL_CUSTOMIZATION
+def regcall : Flag<["-"], "regcall">,
+  HelpText<"Set __regcall as a default calling convention">;
+#endif // INTEL_CUSTOMIZATION
 def save_temps_EQ : Joined<["-", "--"], "save-temps=">, Flags<[CC1Option, DriverOption]>,
   HelpText<"Save intermediate compilation results.">;
 def save_temps : Flag<["-", "--"], "save-temps">, Flags<[DriverOption]>,

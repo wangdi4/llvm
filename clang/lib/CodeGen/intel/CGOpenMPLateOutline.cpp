@@ -572,11 +572,6 @@ void OpenMPLateOutliner::addImplicitClauses() {
       emitImplicit(VD, ImplicitMap[VD]);
       continue;
     }
-    // NORMALIZED.IV is not treated like a normal variable and should
-    // only produce a clause on its specific loop. No clauses should be
-    // added to outer regions.
-    if (VD->getName() == ".omp.iv")
-      continue;
     if (VarDefs.find(VD) != VarDefs.end()) {
       // Defined in the region
       if (!VD->getType()->isConstantSizeType()) {
