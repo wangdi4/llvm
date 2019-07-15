@@ -2516,16 +2516,9 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
       Diag(Tok.getLocation(), diag::warn_attributes_ignored_after_init);
     }
 #endif // INTEL_CUSTOMIZATION
-  } else if ((getLangOpts().CPlusPlus11 ||                          // INTEL
-              getLangOpts().IntelCompat) && Tok.is(tok::l_brace) && // INTEL
+  } else if (getLangOpts().CPlusPlus11 && Tok.is(tok::l_brace) &&
              (!CurParsedObjCImpl || !D.isFunctionDeclarator())) {
     // Parse C++0x braced-init-list.
-#if INTEL_CUSTOMIZATION
-    // CQ374879
-    if (!getLangOpts().CPlusPlus11 && getLangOpts().IntelCompat)
-      Diag(Tok, diag::ext_generalized_initializer_lists);
-    else
-#endif // INTEL_CUSTOMIZATION
     Diag(Tok, diag::warn_cxx98_compat_generalized_initializer_lists);
 
     InitializerScopeRAII InitScope(*this, D, ThisDecl);
