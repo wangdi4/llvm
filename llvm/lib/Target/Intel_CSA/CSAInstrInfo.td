@@ -2307,6 +2307,12 @@ def SHUFI32X2: FMTGEN<?, Tf32x2,
     "shufi32x2\t$res, $op1, $op2, $sellow, $selhigh",
     []>;
 
+def : Pat<(v2f32 (insertelt RCLf32x2:$vec, f32:$val, 0)),
+    (SHUFI32X2 $vec, (COPY_TO_REGCLASS $val, I64), 2, 1)>;
+
+def : Pat<(v2f32 (insertelt RCLf32x2:$vec, f32:$val, 1)),
+    (SHUFI32X2 $vec, (COPY_TO_REGCLASS $val, I64), 0, 3)>;
+
 def CSA_LIC_INIT : PseudoInstCSA<
     (outs),
     (ins i32imm:$lic, i8imm:$size, i64imm:$depth, i64imm:$desired_depth),
