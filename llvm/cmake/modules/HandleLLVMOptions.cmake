@@ -614,6 +614,13 @@ if (LLVM_ENABLE_WARNINGS AND (LLVM_COMPILER_IS_GCC_COMPATIBLE OR CLANG_CL))
   append_if(USE_NO_UNINITIALIZED "-Wno-uninitialized" CMAKE_CXX_FLAGS)
   append_if(USE_NO_MAYBE_UNINITIALIZED "-Wno-maybe-uninitialized" CMAKE_CXX_FLAGS)
 
+#if INTEL_CUSTOMIZATION
+  add_flag_if_supported("-Wno-cast-function-type" NO_CAST_FUNCTION_TYPE)
+  add_flag_if_supported("-Wno-parentheses" NO_PARENTHESES)
+  add_flag_if_supported("-Wno-uninitialized" NO_UNINITIALIZED)
+  add_flag_if_supported("-Wno-unused-function" NO_UNUSED_FUNCTION)
+#endif // INTEL_CUSTOMIZATION
+
   # Disable -Wclass-memaccess, a C++-only warning from GCC 8 that fires on
   # LLVM's ADT classes.
   check_cxx_compiler_flag("-Wclass-memaccess" CXX_SUPPORTS_CLASS_MEMACCESS_FLAG)

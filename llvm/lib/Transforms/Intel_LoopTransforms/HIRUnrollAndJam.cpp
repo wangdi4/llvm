@@ -1517,6 +1517,59 @@ static void unrollMainLoop(HLLoop *OrigLoop, HLLoop *MainLoop,
   HLNodeUtils::replace(MarkerNode, MainLoop);
 }
 
+// This function should be called only after
+// ProfileData of Loops itself has updated through
+// setupPeelMainAndRemainderLoops.
+static void updateProfDataInLoopBody(HLLoop *UnrolledLoop,
+                                     HLLoop *RemainderLoop,
+                                     unsigned UnrollFactor,
+                                     uint64_t LoopBackedgeWeightBeforeUnroll) {
+
+  // Its children do not have ProfData either.
+  if (!UnrolledLoop->getProfileData())
+    return;
+
+  HIRTransformUtils::divideProfileDataBy(
+      UnrolledLoop->child_begin(), UnrolledLoop->child_end(), UnrollFactor);
+  if (!RemainderLoop)
+    return;
+
+  // Now update remainder loop's body
+  // We need to derived a denominator D, where
+  // (T_new, F_new) of a HLNode in remainder loop body
+  //    := (T_orig / D, F_orig / D).
+  // Suppose L is the original loop, where UnrolledLoop and RemainderLoop are
+  // derived.
+  // We use following D for RemainderLoop:
+  //  D := (T_orig of L) / { (T_orig of L) % (UnrollFacotr of L) }
+  //
+  // Rationale:
+  // For the main unrolled loop,
+  // (T_new, F_new) = (T_orig / U, F_orig / U)
+  // where T/F_orig and U are branch_weights and Unroll factor of "L".
+  //  Denominator for main loop = U = T_orig / T_new
+  //
+  // Similarly,
+  //  Denominator for rem loop = T_orig /
+  //    (new portion of branch_weights asssigned to rem loop).
+  //  (new portion of branch_weights asssigned to rem loop) = T_orig % U
+  //  Thus, Denominator for rem loop = T_orig / (T_orig % U).
+
+  uint64_t RemainderLoopTrueWeight, FalseWeight;
+  RemainderLoop->extractProfileData(RemainderLoopTrueWeight, FalseWeight);
+  if (RemainderLoopTrueWeight == 0) {
+    RemainderLoopTrueWeight = 1;
+  }
+  uint64_t Denominator =
+      LoopBackedgeWeightBeforeUnroll / RemainderLoopTrueWeight;
+
+  if (Denominator == 0)
+    return;
+
+  HIRTransformUtils::divideProfileDataBy(
+      RemainderLoop->child_begin(), RemainderLoop->child_end(), Denominator);
+}
+
 void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
                     HLLoop **UnrolledLoop, HLLoop **RemainderLoop) {
   assert(Loop && "Loop is null!");
@@ -1529,6 +1582,9 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
   LoopOptReportBuilder &LORBuilder =
       Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
 
+  uint64_t LoopBackedgeWeightBeforeUnroll = 0;
+  uint64_t FalseWeight = 0;
+  Loop->extractProfileData(LoopBackedgeWeightBeforeUnroll, FalseWeight);
   if (IsUnknownLoop) {
     MainLoop = Loop;
     MainLoop->getParentRegion()->setGenCode();
@@ -1552,12 +1608,13 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
     // since we reuse the instructions inside them.
     HIRInvalidationUtils::invalidateLoopNestBody(Loop);
   }
-
   unrollMainLoop(Loop, MainLoop, UnrollFactor, NeedRemainderLoop, LoopMap);
+
+  updateProfDataInLoopBody(MainLoop, NeedRemainderLoop ? Loop : nullptr,
+                           UnrollFactor, LoopBackedgeWeightBeforeUnroll);
 
   // If a remainder loop is not needed get rid of the OrigLoop at this point.
   if (!NeedRemainderLoop && !IsUnknownLoop) {
-
     HLNodeUtils::remove(Loop);
   }
 

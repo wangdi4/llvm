@@ -779,8 +779,8 @@ void Instruction::copyMetadata(const Instruction &SrcInst,
   auto MDIR = SrcInst.getMetadata("intel.callsite.inlining.report");
 #endif // INTEL_CUSTOMIZATION
   for (const auto &MD : TheMDs) {
-    if (WL.empty() || WLS.count(MD.first))
 #if INTEL_CUSTOMIZATION
+    if (WL.empty() || WLS.count(MD.first)) {
       // Erase loop opt report before copying loop metadata.
       if (MD.first == LLVMContext::MD_loop) {
         auto *NewMD = eraseLoopOptReport(MD.second, getContext());
@@ -789,6 +789,7 @@ void Instruction::copyMetadata(const Instruction &SrcInst,
       }
       if (MD.second != MDIR)
         setMetadata(MD.first, MD.second);
+    }
 #endif // INTEL_CUSTOMIZATION
   }
   if (WL.empty() || WLS.count(LLVMContext::MD_dbg))

@@ -276,6 +276,8 @@ public:
   bool extractProfileData(uint64_t &TrueVal, uint64_t &FalseVal) const;
   /// Set weights of True and False sides of a condition.
   void setProfileData(uint64_t TrueVal, uint64_t FalseVal);
+  /// Divide weights of True and False sides by Denominator.
+  bool divideProfileData(uint64_t Denominator);
 
   /// \brief An enumeration to keep track of the concrete subclasses of HLNode.
   enum HLNodeVal {

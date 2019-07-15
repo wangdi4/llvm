@@ -318,6 +318,13 @@ public:
   /// This utility was created to be shared between do loop rerolling and
   /// do multi-exit loop rerolling pass.
   static bool multiplyTripCount(HLLoop *Loop, unsigned Multiplier);
+
+  /// Update profile data attached to [\p Being, \p End), if any, by dividing
+  /// the branch weights by \p Denominator.
+  /// This function is used by unroll-related transformations.
+  static void divideProfileDataBy(HLContainerTy::iterator Begin,
+                                  HLContainerTy::iterator End,
+                                  uint64_t Denominator);
 };
 
 } // End namespace loopopt

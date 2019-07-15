@@ -18,6 +18,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
@@ -743,6 +744,683 @@ static bool IsFunctionPtrCloneCandidate(Function &F) {
 }
 
 //
+// Special recognition for IR arising from:
+//   integer, parameter :: r=9
+//   integer :: l(r), u(r), S(r,r), row
+//   ...
+//   subroutine mysub
+//   where(S(row, :) /= 0)
+//     l = S(row, :)
+//     u = l
+//   elsewhere
+//     l = 1
+//     u = r
+//   end where
+//
+// This will be lowered from the Fortran front end into a series of 5 loops,
+// equivalent to:
+//   do i = 1, 9
+//     t(i) = S(row,i) /= 0
+//   end do
+//   do i = 1, 9
+//     if (.not. t(i)) then
+//       l(i) = S(row, i)
+//     end if
+//   end do
+//   do i = 1, 9
+//     if (.not. t(i)) then
+//       u(i) = l(i)
+//     end if
+//   end do
+//   do i = 1, 9
+//     if (t(i)) then
+//       l(i) = 1
+//     end if
+//   end do
+//   do i = 1, 9
+//     if (t(i)) then
+//       u(i) = 9
+//     end if
+//   end do
+//
+// The code below will recognize the form of these 5 loops in the IR, allowing
+// us to conclude that at the end of this loop sequence, for each i, i = 1, 9,
+// either:
+//   (1) u(i) .eq. l(i)
+// OR
+//   (2) l(i) .eq. 1 .and. u(i) .eq. 9
+//
+// so that we can insert code equivalent to the following after the fifth loop:
+//   if (l(8) .eq. u(8)) then
+//     call mysubclone(row)
+//     return
+//   end if
+// yielding:
+//
+//   subroutine mysub(row)
+//   integer :: row
+//   where(S(row, :) /= 0)
+//     l = S(row, :)
+//     u = l
+//   elsewhere
+//     l = 1
+//     u = r
+//   end where
+//   if (l(8) .eq. u(8)) then
+//     call mysubclone(row)
+//     return
+//   end if
+//   ! After this point we know l(8) .eq. 1 .and. u(8) .eq. 9
+//   ...
+//   end subroutine
+//
+//   subroutine mysubclone(row)
+//   integer :: row
+//   ...
+//   ! After this point we know l(8) .eq. u(8)
+//   end subroutine
+//
+// In the case where l(8) and u(8) are the bounds for the innermost loop
+// inside mysub() and mysubclone(), we can replace the bounds for that loop
+// with 1, 9 in mysub() and l(8), u(8) in mysubclone().
+//
+
+// BEGIN: Special code for extra clone transformation
+
+//
+// Return 'true' if 'V' represents an AllocaInst similar to:
+//   %x = alloca [9 x i32], align 16
+// Here the size of the array, the number of bits in the integer, and the
+// alignment do not effect whether we return 'true'.  When we return 'true',
+// we set '*ArrayLengthOut' to the number of elements in the array. (In the
+// above example, that will be 9.)
+//
+static bool isRecProAllocaIntArray(Value *V,
+                                   int *ArrayLengthOut) {
+  auto AI = dyn_cast<AllocaInst>(V);
+  if (!AI)
+    return false;
+  Type *PT = AI->getType();
+  if (!PT->isPointerTy())
+    return false;
+  Type *T = PT->getPointerElementType();
+  if (!T->isArrayTy() || !T->getArrayElementType()->isIntegerTy())
+    return false;
+  *ArrayLengthOut = T->getArrayNumElements();
+  return true;
+}
+
+//
+// Return 'true' if 'BBLatch' is the latch block for a loop with loop header
+// 'BBLoopHeader'. If 'TestSimpleOnly', we test only for simple loops like:
+//   do i = 1, 9
+//     t(i) = S(row,i) /= 0
+//   end do
+// which have a single store to a single-dimensioned array. Otherwise, we
+// also recognize "complex" loops of the form:
+//   do i = 1, 9
+//     if (.not. t(i)) then
+//       l(i) = S(row, i)
+//     end if
+//   end do
+// where the loop has 3 basic blocks: a test block, a "true" block, and a
+// "false" block, where the latch block is either the "true" block or the
+// "false" block, and the other block has a single store to a single-dimen-
+// sioned array. If we return 'true', we set '*IsSimple' to indicate whether
+// the loop is simple or complex.
+//
+static bool isRecProLatchBlock(bool TestSimpleOnly,
+                               BasicBlock *BBLoopHeader,
+                               BasicBlock *BBLatch,
+                               bool *IsSimple) {
+  if (!BBLoopHeader || !BBLoopHeader)
+    return false;
+  if (BBLoopHeader == BBLatch) {
+    *IsSimple = true;
+    return true;
+  }
+  if (TestSimpleOnly)
+    return false;
+  auto BI = dyn_cast<BranchInst>(BBLoopHeader->getTerminator());
+  if (!BI || BI->isUnconditional() || BI->getNumSuccessors() != 2)
+    return false;
+  BasicBlock *BBOther = nullptr;
+  if (BI->getSuccessor(0) == BBLatch)
+    BBOther = BI->getSuccessor(1);
+  else if (BI->getSuccessor(1) == BBLatch)
+    BBOther = BI->getSuccessor(0);
+  else
+    return false;
+  if (BBOther->getSingleSuccessor() != BBLatch)
+    return false;
+  *IsSimple = false;
+  return true;
+}
+
+//
+// Return 'true' if the 'BBPreHeader' is the preheader and 'BBLoopHeader'
+// is the loop header for a "simple" or "complex" loop as described in the
+// comment immediately above. If 'TestSimpleOnly', we test only for the
+// "simple" type of loop. If we return 'true', we expect the loop to have
+// constant lower and upper bounds and we set '*LowerBoundOut' and
+// '*UpperBoundOut' to those bounds. We set '*PHIOut' to the induction
+// variable, '*IsSimpleOut' to whether it is "simple" or not, "*BBLatchOut"
+// to the latch block and '*BBExitOut' to the exit block of the loop. (By
+// that, we mean the first block encountered after the loop is exited.)
+//
+static bool isRecProIndexedLoop(BasicBlock *BBPreHeader,
+                                BasicBlock *BBLoopHeader,
+                                bool TestSimpleOnly,
+                                int *LowerBoundOut,
+                                int *UpperBoundOut,
+                                PHINode **PHIOut,
+                                bool *IsSimpleOut,
+                                BasicBlock **BBLatchOut,
+                                BasicBlock **BBExitOut) {
+  if (!BBPreHeader || !BBLoopHeader)
+    return false;
+  auto PN = dyn_cast<PHINode>(&BBLoopHeader->front());
+  if (!PN || PN->getNumIncomingValues() != 2)
+    return false;
+  unsigned ConstIndex = 0;
+  unsigned IncIndex = 1;
+  auto CILB = dyn_cast<ConstantInt>(PN->getIncomingValue(0));
+  if (!CILB) {
+    CILB = dyn_cast<ConstantInt>(PN->getIncomingValue(1));
+    if (!CILB)
+      return false;
+    ConstIndex = 1;
+    IncIndex = 0;
+  }
+  int LowerBound = CILB->getSExtValue();
+  if (PN->getIncomingBlock(ConstIndex) != BBPreHeader)
+    return false;
+  auto BOInc = dyn_cast<BinaryOperator>(PN->getIncomingValue(IncIndex));
+  if (!BOInc || BOInc->getOpcode() != Instruction::Add)
+    return false;
+  if (BOInc->getOperand(0) != PN)
+    return false;
+  auto CInc = dyn_cast<ConstantInt>(BOInc->getOperand(1));
+  if (!CInc || CInc->getSExtValue() != 1)
+    return false;
+  ICmpInst *CmpI = nullptr;
+  for (User *U : BOInc->users()) {
+    CmpI = dyn_cast<ICmpInst>(U);
+    if (CmpI)
+      break;
+  }
+  if (!CmpI || CmpI->getOperand(0) != BOInc)
+    return false;
+  if (CmpI->getPredicate() != ICmpInst::ICMP_EQ)
+    return false;
+  auto CIUB = dyn_cast<ConstantInt>(CmpI->getOperand(1));
+  if (!CIUB)
+    return false;
+  int UpperBound = CIUB->getSExtValue() - 1;
+  BasicBlock *BBLatch = PN->getIncomingBlock(IncIndex);
+  bool IsSimple = false;
+  if (!isRecProLatchBlock(TestSimpleOnly, BBLoopHeader, BBLatch, &IsSimple))
+    return false;
+  BasicBlock *BBExit = nullptr;
+  auto BI = dyn_cast<BranchInst>(BBLatch->getTerminator());
+  if (!BI || BI->isUnconditional() || BI->getNumSuccessors() != 2)
+    return false;
+  if (BI->getSuccessor(0) == BBLoopHeader)
+    BBExit = BI->getSuccessor(1);
+  else if (BI->getSuccessor(1) == BBLoopHeader)
+    BBExit = BI->getSuccessor(0);
+  else
+    return false;
+  *LowerBoundOut = LowerBound;
+  *UpperBoundOut = UpperBound;
+  *IsSimpleOut = IsSimple;
+  *PHIOut = PN;
+  *BBLatchOut = BBLatch;
+  *BBExitOut = BBExit;
+  return true;
+}
+
+//
+// Return 'true' if the block 'BBStore' has either no StoreInst or a single
+// StoreInst. If it has no StoreInst, set '*SIOut' to nullptr, otherwise set
+// it to the single StoreInst.
+//
+static bool isRecProNoOrSingleStoreBlock(BasicBlock *BBStore,
+                                         StoreInst **SIOut) {
+  StoreInst *SI = nullptr;
+  if (!BBStore)
+    return false;
+  for (Instruction &I : *BBStore) {
+    auto CB = dyn_cast<CallBase>(&I);
+    if (CB && !dyn_cast<SubscriptInst>(&I))
+      return false;
+    auto LSI = dyn_cast<StoreInst>(&I);
+    if (LSI) {
+       if (SI)
+         return false;
+       SI = LSI;
+    }
+  }
+  *SIOut = SI;
+  return true;
+}
+
+//
+// Return 'true' if 'SI' is a SubscriptInst which indexes a local single-
+// dimension 9 element integer array with the induction variable 'PHI'.
+// If we return 'true', set '*AIOut' to the AllocaInst that allocates the
+// memory for that array.
+//
+static bool isRecProTempVector(SubscriptInst *SI,
+                               PHINode *PHI,
+                               AllocaInst **AIOut) {
+  auto CI0 = dyn_cast<ConstantInt>(SI->getOperand(0));
+  if (!CI0 || CI0->getSExtValue() != 0)
+    return false;
+  auto CI1 = dyn_cast<ConstantInt>(SI->getOperand(1));
+  if (!CI1 || CI1->getSExtValue() != 1)
+    return false;
+  auto CI2 = dyn_cast<ConstantInt>(SI->getOperand(2));
+  if (!CI2 || CI2->getSExtValue() != 4)
+    return false;
+  auto GEP = dyn_cast<GetElementPtrInst>(SI->getOperand(3));
+  if (!GEP || !GEP->hasAllZeroIndices())
+    return false;
+  int ArraySize = 0;
+  if (!isRecProAllocaIntArray(GEP->getPointerOperand(), &ArraySize))
+    return false;
+  if (ArraySize != 9)
+    return false;
+  if (SI->getOperand(4) != PHI)
+    return false;
+  *AIOut = cast<AllocaInst>(GEP->getPointerOperand());
+  return true;
+}
+
+//
+// Return 'true' if 'BBPreHeader' is the preheader and 'BBLoopHeader' is
+// the loop header for a "simple" loop, as defined above. If we return
+// 'true', set 'AIOut' to the local single-dimension array being written,
+// set '*BBLatchOut' to the latch block, and '*BBExitOut' to the exit
+// block of the "simple" loop.
+//
+static bool isRecProSimpleLoop(BasicBlock *BBPreHeader,
+                               BasicBlock *BBLoopHeader,
+                               AllocaInst **AIOut,
+                               BasicBlock **BBLatchOut,
+                               BasicBlock **BBExitOut) {
+  bool IsSimple = false;
+  int LowerBound = 0;
+  int UpperBound = 0;
+  PHINode *PHI = nullptr;
+  if (!BBPreHeader || !BBLoopHeader)
+    return false;
+  if (!isRecProIndexedLoop(BBPreHeader, BBLoopHeader, true, &LowerBound,
+      &UpperBound, &PHI, &IsSimple, BBLatchOut, BBExitOut))
+    return false;
+  if (!IsSimple || LowerBound != 1 || UpperBound != 9)
+    return false;
+  StoreInst *SI = nullptr;
+  if (!isRecProNoOrSingleStoreBlock(BBLoopHeader, &SI) || !SI)
+    return false;
+  AllocaInst *AI = nullptr;
+  auto SubI = dyn_cast<SubscriptInst>(SI->getPointerOperand());
+  if (!SubI || !isRecProTempVector(SubI, PHI, &AI))
+    return false;
+  *AIOut = AI;
+  return true;
+}
+
+//
+// Return 'true' if 'BBLoopHeader' is the loop header of a "complex" loop
+// whose test block tests the value of an element of a single-dimensioned
+// array 'AICond' indexed by the induction variable 'PHI'.
+//
+static bool isRecProComplexCond(BasicBlock *BBLoopHeader,
+                                AllocaInst *AICond,
+                                PHINode *PHI) {
+  if (!BBLoopHeader)
+    return false;
+  auto BI = dyn_cast<BranchInst>(BBLoopHeader->getTerminator());
+  if (!BI || BI->isUnconditional() || BI->getNumSuccessors() != 2)
+    return false;
+  auto CmpI = dyn_cast<ICmpInst>(BI->getCondition());
+  if (!CmpI)
+    return false;
+  if (CmpI->getPredicate() != ICmpInst::ICMP_EQ)
+    return false;
+  auto CI0 = dyn_cast<ConstantInt>(CmpI->getOperand(1));
+  if (!CI0 || CI0->getSExtValue() != 0)
+    return false;
+  auto AndI = dyn_cast<BinaryOperator>(CmpI->getOperand(0));
+  if (!AndI || AndI->getOpcode() != Instruction::And)
+    return false;
+  auto CI1 = dyn_cast<ConstantInt>(AndI->getOperand(1));
+  if (!CI1 || CI1->getSExtValue() != 1)
+    return false;
+  auto LI = dyn_cast<LoadInst>(AndI->getOperand(0));
+  if (!LI)
+    return false;
+   AllocaInst *AI = nullptr;
+  auto SubI = dyn_cast<SubscriptInst>(LI->getPointerOperand());
+  if (!SubI || !isRecProTempVector(SubI, PHI, &AI) || AI != AICond)
+    return false;
+  return true;
+}
+
+//
+// Return 'true' if 'BBLoopHeader' is the loop header of a "complex" loop
+// which uses the induction varible 'PHI' to index into 'AICond' and assign
+// '*AIOut' with the StoreInst '*SIOut'.  If 'IsTrue', the StoreInst is in
+// the "true" block of the "complex" loop, otherwise it is in the "false"
+// block. Note that '*SIOut' and '*AIOut' are set if we return 'true'.
+//
+static bool hasRecProComplexTest(BasicBlock *BBLoopHeader,
+                                 AllocaInst *AICond,
+                                 PHINode *PHI,
+                                 bool IsTrue,
+                                 StoreInst **SIOut,
+                                 AllocaInst **AIOut) {
+  if (!BBLoopHeader)
+    return false;
+  if (!isRecProComplexCond(BBLoopHeader, AICond, PHI))
+    return false;
+  StoreInst *SI = nullptr;
+  if (!isRecProNoOrSingleStoreBlock(BBLoopHeader, &SI))
+    return false;
+  if (SI)
+    return false;
+  auto BI = cast<BranchInst>(BBLoopHeader->getTerminator());
+  assert(BI->isConditional() && BI->getNumSuccessors() == 2 &&
+      "Expected two-way terminator");
+  BasicBlock *BBHasnt = IsTrue ? BI->getSuccessor(1) : BI->getSuccessor(0);
+  if (!isRecProNoOrSingleStoreBlock(BBHasnt, &SI))
+    return false;
+  if (SI)
+    return false;
+  BasicBlock *BBHas = IsTrue ? BI->getSuccessor(0) : BI->getSuccessor(1);
+  if (!isRecProNoOrSingleStoreBlock(BBHas, &SI))
+    return false;
+  if (!SI)
+    return false;
+  AllocaInst *AI = nullptr;
+  auto SubI = dyn_cast<SubscriptInst>(SI->getPointerOperand());
+  if (!SubI || !isRecProTempVector(SubI, PHI, &AI))
+    return false;
+  *SIOut = SI;
+  *AIOut = AI;
+  return true;
+}
+
+//
+// Return 'true' if 'BBPreHeader' is the preheader and 'BBLoopHeader'
+// is a "complex" loop which tests the value of 'AICond' and assigns
+// a constant value '*ConstantValueOut' to '*AIOut'. So, for example, in
+//   do i = 1, 9
+//     if (t(i)) then
+//       l(i) = 1
+//     end if
+//   end do
+// 'AICond' is "t", '*AIOut' is "l" and "*ConstantValueOut" is 1.
+// When we return 'true', we set '*AIOut' and '*ConstantValueOut' as well as
+// the latch block '*BBLatchOut' and '*BBExitOut'.
+//
+static bool isRecProTrueBranchComplexLoop(BasicBlock *BBPreHeader,
+                                          BasicBlock *BBLoopHeader,
+                                          AllocaInst *AICond,
+                                          AllocaInst **AIOut,
+                                          int *ConstantValueOut,
+                                          BasicBlock **BBLatchOut,
+                                          BasicBlock **BBExitOut) {
+  bool IsSimple = false;
+  int LowerBound = 0;
+  int UpperBound = 0;
+  PHINode *PHI = nullptr;
+  if (!BBPreHeader || !BBLoopHeader)
+    return false;
+  if (!isRecProIndexedLoop(BBPreHeader, BBLoopHeader, false, &LowerBound,
+      &UpperBound, &PHI, &IsSimple, BBLatchOut, BBExitOut))
+    return false;
+  if (IsSimple || LowerBound != 1 || UpperBound != 9)
+    return false;
+  StoreInst *SI = nullptr;
+  AllocaInst *AI = nullptr;
+  if (!hasRecProComplexTest(BBLoopHeader, AICond, PHI, true, &SI, &AI))
+    return false;
+  auto CI = dyn_cast<ConstantInt>(SI->getValueOperand());
+  if (!CI)
+    return false;
+  *AIOut = AI;
+  *ConstantValueOut = CI->getSExtValue();
+  return true;
+}
+
+//
+// Return 'true' if 'BBPreHeader' is the preheader and 'BBLoopHeader'
+// is a "complex" loop which tests the value of 'AICond' and assigns
+// a non-constant value to '*AIOut'. So, for example, in
+//   do i = 1, 9
+//     if (.not. t(i)) then
+//       u(i) = l(i)
+//     end if
+//   end do
+// 'AICond' is "t", '*AIOut' is "u". If 'VLoad' is not nullptr, ensure
+// that the value assigned to '*AIOut' is 'VLoad'. When we return 'true',
+// we set '*AIOut' as well as the latch block '*BBLatchOut' and '*BBExitOut'.
+//
+static bool isRecProFalseBranchComplexLoop(BasicBlock *BBPreHeader,
+                                           BasicBlock *BBLoopHeader,
+                                           AllocaInst *AICond,
+                                           AllocaInst *VLoad,
+                                           AllocaInst **AIOut,
+                                           BasicBlock **BBLatchOut,
+                                           BasicBlock **BBExitOut) {
+  bool IsSimple = false;
+  int LowerBound = 0;
+  int UpperBound = 0;
+  PHINode *PHI = nullptr;
+  if (!BBPreHeader || !BBLoopHeader)
+    return false;
+  if (!isRecProIndexedLoop(BBPreHeader, BBLoopHeader, false, &LowerBound,
+      &UpperBound, &PHI, &IsSimple, BBLatchOut, BBExitOut))
+    return false;
+  if (IsSimple || LowerBound != 1 || UpperBound != 9)
+    return false;
+  StoreInst *SI = nullptr;
+  AllocaInst *AI = nullptr;
+  if (!hasRecProComplexTest(BBLoopHeader, AICond, PHI, false, &SI, &AI))
+    return false;
+  if (!VLoad) {
+    *AIOut = AI;
+    return true;
+  }
+  auto LI = dyn_cast<LoadInst>(SI->getValueOperand());
+  if (!LI)
+    return false;
+  auto SubI = dyn_cast<SubscriptInst>(LI->getPointerOperand());
+  if (!SubI)
+    return false;
+  AllocaInst *AITemp = nullptr;
+  if (!isRecProTempVector(SubI, PHI, &AITemp) || AITemp != VLoad)
+    return false;
+  *AIOut = AI;
+  return true;
+}
+
+//
+// Return 'true' if 'F' starts with a five loop sequence equivalent to:
+//   int t(9), l(9), u(9)
+//   do i = 1, 9
+//     t(i) = ...
+//   end do
+//   do i = 1, 9
+//     if (.not. t(i)) then
+//       l(i) = ...
+//     end if
+//   end do
+//   do i = 1, 9
+//     if (.not. t(i)) then
+//       u(i) = l(i)
+//     end if
+//   end do
+//   do i = 1, 9
+//     if (t(i)) then
+//       l(i) = constant_l
+//     end if
+//   end do
+//   do i = 1, 9
+//     if (t(i)) then
+//       u(i) = constant_u
+//     end if
+//   end do
+// If we return 'true', set '*BBLastExitOut' to the block after the sequence,
+// set '*BBLastLatchOut' to the last latch block in the sequence, set
+// '*LowerValueOut' and '*UpperValueOut' to the AllocaInsts representing
+// 'l(9)' and 'u(9)' and '*LowerConstantValueOut' and '*UpperConstantValueOut'
+// to the constant values "constant_l" and "constant_u".
+//
+static bool isRecProSpecialLoopSequence(Function *F,
+                                        BasicBlock **BBLastExitOut,
+                                        BasicBlock **BBLastLatchOut,
+                                        AllocaInst **LowerValueOut,
+                                        AllocaInst **UpperValueOut,
+                                        int *LowerConstantValueOut,
+                                        int *UpperConstantValueOut) {
+  AllocaInst *AICond = nullptr;
+  BasicBlock *BBLatch = nullptr;
+  BasicBlock *BBExit = nullptr;
+  AllocaInst *VStoreLower = nullptr;
+  AllocaInst *VStoreLowerTemp = nullptr;
+  AllocaInst *VStoreUpper = nullptr;
+  AllocaInst *VStoreUpperTemp = nullptr;
+  int LowerBound = 0;
+  int UpperBound = 0;
+  BasicBlock *PH = &F->getEntryBlock();
+  BasicBlock *LH = PH->getSingleSuccessor();
+  if (!isRecProSimpleLoop(PH, LH, &AICond, &BBLatch, &BBExit))
+    return false;
+  if (!isRecProFalseBranchComplexLoop(BBExit, BBExit->getSingleSuccessor(),
+      AICond, nullptr, &VStoreLower, &BBLatch, &BBExit))
+    return false;
+  if (!isRecProFalseBranchComplexLoop(BBExit, BBExit->getSingleSuccessor(),
+      AICond, VStoreLower, &VStoreUpper, &BBLatch, &BBExit))
+    return false;
+  if (!isRecProTrueBranchComplexLoop(BBLatch, BBExit, AICond, &VStoreLowerTemp,
+    &LowerBound, &BBLatch, &BBExit))
+    return false;
+  if (VStoreLower != VStoreLowerTemp)
+    return false;
+  if (!isRecProTrueBranchComplexLoop(BBLatch, BBExit, AICond, &VStoreUpperTemp,
+    &UpperBound, &BBLatch, &BBExit))
+    return false;
+  if (VStoreUpper != VStoreUpperTemp)
+    return false;
+  *BBLastLatchOut = BBLatch;
+  *BBLastExitOut = BBExit;
+  *LowerValueOut = VStoreLower;
+  *UpperValueOut = VStoreUpper;
+  *LowerConstantValueOut = LowerBound;
+  *UpperConstantValueOut = UpperBound;
+  return true;
+}
+
+//
+// Return a GetElementPtrInst which represents the address of 'AI'. If there
+// is one in the IR already, return that, otherwise, create one. (Note that
+// 'AI' should represent a single dimension integer array.)
+//
+static GetElementPtrInst *findOrCreateRecProGEP(AllocaInst* AI,
+                                                BasicBlock *BB) {
+  for (User *U : AI->users()) {
+    auto GEPI = dyn_cast<GetElementPtrInst>(U);
+    if (GEPI && GEPI->getPointerOperand() == AI && GEPI->hasAllZeroIndices() &&
+        GEPI->getNumIndices() == 2)
+      return GEPI;
+  }
+  SmallVector<Value *, 2> Indices;
+  auto Int64Ty = Type::getInt64Ty(BB->getContext());
+  auto CI1 = ConstantInt::get(Int64Ty, 0, true);
+  Indices.push_back(CI1);
+  auto CI2 = ConstantInt::get(Int64Ty, 0, true);
+  Indices.push_back(CI2);
+  return GetElementPtrInst::Create(AI->getType(), AI, Indices, "", BB);
+}
+
+//
+// Insert special code of the form:
+//   if (l(8) == u(8)) then
+//     call FClone(row)
+//     return
+//   endif
+//   l(8) = CVLower
+//   u(8) = CVUpper
+// into 'F' after 'BBI'. Here 'AILower' is "l()", 'AIUpper' is "u()".
+// 'FClone' is the extra clone of the extra clone transformation.
+//
+static void addSpecialRecProCloneCode(Function *F,
+                                      Function *FClone,
+                                      BasicBlock *BBLastExit,
+                                      BasicBlock *BBLastLatch,
+                                      AllocaInst *AILower,
+                                      AllocaInst *AIUpper,
+                                      int CVLower,
+                                      int CVUpper) {
+  assert(F && FClone && BBLastExit && BBLastLatch && AILower && AIUpper &&
+      "Expect values to be defined in caller.");
+  BasicBlock *BBCond = BasicBlock::Create(F->getContext(), "CondBlock", F);
+  BBCond->moveAfter(BBLastExit);
+  BranchInst *BBBIT = cast<BranchInst>(BBLastLatch->getTerminator());
+  for (unsigned I = 0; I < BBBIT->getNumSuccessors(); ++I)
+    if (BBBIT->getSuccessor(I) == BBLastExit)
+      BBBIT->setSuccessor(I, BBCond);
+  BasicBlock *BBCallClone = BasicBlock::Create(F->getContext(),
+      "CallCloneBlock", F);
+  BasicBlock *BBConstStore = BasicBlock::Create(F->getContext(),
+      "ConstStore", F);
+  BBConstStore->moveBefore(BBLastExit);
+  BBCallClone->moveBefore(BBConstStore);
+  BBCond->moveBefore(BBCallClone);
+  IRBuilder<> Builder(BBCond);
+  GetElementPtrInst *GEPL = findOrCreateRecProGEP(AILower, BBCond);
+  auto Int64Ty = Type::getInt64Ty(F->getContext());
+  Instruction *SILB = Builder.CreateSubscript(0, ConstantInt::get(Int64Ty, 1),
+    ConstantInt::get(Int64Ty, 4), GEPL, ConstantInt::get(Int64Ty, 8));
+  auto LILBType = SILB->getType()->getPointerElementType();
+  LoadInst *LILB8 = Builder.CreateLoad(LILBType, SILB, "LILB8");
+  GetElementPtrInst *GEPU = findOrCreateRecProGEP(AIUpper, BBCond);
+  Instruction *SIUB = Builder.CreateSubscript(0, ConstantInt::get(Int64Ty, 1),
+    ConstantInt::get(Int64Ty, 4), GEPU, ConstantInt::get(Int64Ty, 8));
+  auto SIUBType = SIUB->getType()->getPointerElementType();
+  LoadInst *LIUB8 = Builder.CreateLoad(SIUBType, SIUB, "LIUB8");
+  Value *CmpI = Builder.CreateICmpEQ(LILB8, LIUB8, "CMP8S");
+  Builder.CreateCondBr(CmpI, BBCallClone, BBConstStore);
+  Builder.SetInsertPoint(BBCallClone);
+  SmallVector<Value *, 4> Args;
+  for (Argument &Arg : F->args())
+    Args.push_back(&Arg);
+  Builder.CreateCall(FClone, Args);
+  Builder.CreateRetVoid();
+  Builder.SetInsertPoint(BBConstStore);
+  Constant *C1 = ConstantInt::get(SILB->getType()->getPointerElementType(),
+      CVLower);
+  Builder.CreateStore(C1, SILB);
+  Constant *C9 = ConstantInt::get(SIUB->getType()->getPointerElementType(),
+      CVUpper);
+  Builder.CreateStore(C9, SIUB);
+  Builder.CreateBr(BBLastExit);
+  if (IPCloningTrace) {
+    errs() << "Inserting special extra clone test:\n";
+#ifndef NDEBUG
+    BBCond->dump();
+    BBCallClone->dump();
+    BBConstStore->dump();
+#endif // NDEBUG
+  }
+}
+
+// END: Special code for extra clone transformation
+
+//
 // Fix the basis call of the recursive progression clone candidate 'OrigF' by
 // redirecting it to call the first in the series of recursive progression
 // clones, 'NewF'.
@@ -901,7 +1579,8 @@ static void deleteRecProgressionRecCalls(Function &OrigF, Function &PrevF) {
 //     foo.0();
 //     ..
 //   }
-//
+// Also, in the non-cyclic case, under certain special circumstances,
+// create an extra clone.
 static void createRecProgressionClones(Function &F,
                                        unsigned ArgPos, unsigned Count,
                                        int Start, int Inc, bool IsByRef,
@@ -954,8 +1633,32 @@ static void createRecProgressionClones(Function &F,
   }
   if (IsCyclic)
     fixRecProgressionRecCalls(F, *LastCloneF, *FirstCloneF);
-  else
+  else {
+    BasicBlock *BBLastExit = nullptr;
+    BasicBlock *BBLastLatch = nullptr;
+    AllocaInst *AILower = nullptr;
+    AllocaInst *AIUpper = nullptr;
+    int CVLower = 0;
+    int CVUpper = 0;
+    // Test if we should create the extra clone
+    Function *ExtraCloneF = nullptr;
+    if (isRecProSpecialLoopSequence(LastCloneF, &BBLastExit, &BBLastLatch,
+        &AILower, &AIUpper, &CVLower, &CVUpper)) {
+      // Create the extra clone
+      ValueToValueMapTy VMapNew;
+      ExtraCloneF = CloneFunction(LastCloneF, VMapNew);
+      ExtraCloneF->addFnAttr("prefer-inline-rec-pro-clone");
+      ExtraCloneF->addFnAttr("contains-rec-pro-clone");
+      if (IPCloningTrace)
+        errs() << "Extra RecProClone Candidate: " << LastCloneF->getName()
+               << "\n";
+      addSpecialRecProCloneCode(LastCloneF, ExtraCloneF, BBLastExit,
+        BBLastLatch, AILower, AIUpper, CVLower, CVUpper);
+    }
     deleteRecProgressionRecCalls(F, *LastCloneF);
+    if (ExtraCloneF)
+      deleteRecProgressionRecCalls(F, *ExtraCloneF);
+  }
 }
 
 // Create argument set for CallInst 'CI' of  'F' and save it in

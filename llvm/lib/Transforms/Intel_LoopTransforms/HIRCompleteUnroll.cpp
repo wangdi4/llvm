@@ -2114,8 +2114,10 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processGEPRef(
         HasNonZeroDimOrOffsets || Ref->hasNonZeroTrailingStructOffsets(I);
 
     bool CanSimplifyDim = processCanonExpr(IndexCE, Ref);
-    CanSimplifyDim = (processCanonExpr(Ref->getDimensionLower(I), Ref) && CanSimplifyDim);
-    CanSimplifyDim = (processCanonExpr(Ref->getDimensionStride(I), Ref) && CanSimplifyDim);
+    CanSimplifyDim =
+        (processCanonExpr(Ref->getDimensionLower(I), Ref) && CanSimplifyDim);
+    CanSimplifyDim =
+        (processCanonExpr(Ref->getDimensionStride(I), Ref) && CanSimplifyDim);
 
     if (!CanSimplifyDim) {
       CanSimplify = false;
@@ -3080,6 +3082,7 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
       CEUpdater.processRegDDRef(*RefIt);
     }
 
+    // There is a recursive call of this function through CEUpdater
     HLNodeUtils::visitRange<true, false>(CEUpdater, Loop->child_begin(),
                                          Loop->child_end());
     IVValues.pop_back();
@@ -3161,6 +3164,7 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
     IVValues.back() = IVVal;
 
     // Update the CanonExpr
+    // There is a recursive call of this function through CEUpdater
     HLNodeUtils::visitRange<true, false>(CEUpdater, CurFirstChild,
                                          CurLastChild);
   }
@@ -3169,6 +3173,20 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
   IVValues.back() = LastIVVal;
   HLNodeUtils::visitRange<true, false>(CEUpdater, OrigFirstChild,
                                        OrigLastChild);
+
+  if (Loop->getProfileData()) {
+    // TripCount is derived from the range of IVs, [LB, LastIVVal, Step],
+    // where Step is a loop iv increase step
+    // and LastIVVal := LB + (((UB - LB) / Step) * Step);
+    // Namely, { LB, LB + Step, LB + 2 * Step, ..., LB + (UB - LB) / Step * Step
+    // }
+    int64_t TripCount = (UB - LB) / Step + 1;
+    assert(TripCount > 0);
+    // Enclosing loop is not removed yet.
+    HIRTransformUtils::divideProfileDataBy(Loop->child_begin(),
+                                           Loop->child_end(),
+                                           static_cast<uint64_t>(TripCount));
+  }
 
   IVValues.pop_back();
 

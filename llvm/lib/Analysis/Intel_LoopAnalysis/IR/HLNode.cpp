@@ -401,3 +401,27 @@ void HLNode::setProfileData(uint64_t TrueVal, uint64_t FalseVal) {
   MDBuilder MDB(HNU.getContext());
   setProfileData(MDB.createBranchWeights(TrueVal, FalseVal));
 }
+
+bool HLNode::divideProfileData(uint64_t Denominator) {
+  MDNode *ProfileData = getProfileData();
+  if (!ProfileData || ProfileData->getNumOperands() < 2)
+    return false;
+
+  auto *ProfDataName = dyn_cast<MDString>(ProfileData->getOperand(0));
+  if (!ProfDataName || !ProfDataName->getString().equals("branch_weights"))
+    return false;
+
+  SmallVector<Metadata *, 4> NewVals;
+  MDBuilder MDB(HNU.getContext());
+  NewVals.push_back(MDB.createString("branch_weights"));
+  for (int I = 1, E = ProfileData->getNumOperands(); I < E; I++) {
+    auto *Val = mdconst::dyn_extract<ConstantInt>(ProfileData->getOperand(I));
+    // Int32Ty was used to be comparable to createBrancWeights
+    NewVals.push_back(MDB.createConstant(
+        ConstantInt::get(Type::getInt32Ty(HNU.getContext()),
+                         Val->getValue().getZExtValue() / Denominator)));
+  }
+  setProfileData(MDNode::get(HNU.getContext(), NewVals));
+
+  return true;
+}

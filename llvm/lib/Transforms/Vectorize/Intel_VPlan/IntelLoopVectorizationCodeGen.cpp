@@ -2882,55 +2882,47 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
       break;
     }
 
-    // Create the vector GEP, keeping all constant arguments scalar.
-    if (all_of(GEP->operands(), [&](Value *Op) -> bool {
-          return Legal->isLoopInvariant(Op) && !Legal->isLoopPrivate(Op);
-      })) {
-      auto *Clone = Builder.Insert(GEP->clone());
-      WidenMap[cast<Value>(Inst)] = Builder.CreateVectorSplat(VF, Clone);
-    } else {
-      Value *GepPtrOp = GEP->getPointerOperand();
-      SmallVector<Value *, 3> OpsV;
-      if (isSerializedPrivateArray(GepPtrOp)) {
-        // Treat memory access to private array-types differently. Instead
-        // of widening [NumElts x Ty] to [VF x [NumElts x Ty]], we serialize
-        // the allocation as alloca [NumElts x Ty], ... alloca [NumElts x Ty]
-        if (!ScalarMap.count(GepPtrOp))
-          createSerialPrivateArrayBase(GepPtrOp);
+    Value *GepPtrOp = GEP->getPointerOperand();
+    SmallVector<Value *, 3> OpsV;
+    if (isSerializedPrivateArray(GepPtrOp)) {
+      // Treat memory access to private array-types differently. Instead
+      // of widening [NumElts x Ty] to [VF x [NumElts x Ty]], we serialize
+      // the allocation as alloca [NumElts x Ty], ... alloca [NumElts x Ty]
+      if (!ScalarMap.count(GepPtrOp))
+        createSerialPrivateArrayBase(GepPtrOp);
 
-        // Get appropriate values for the operands of the GEP.
-        for (Value *Op : GEP->indices()) {
-          if (Legal->isLoopInvariant(Op) || Legal->isLoopPrivate(Op))
-            OpsV.push_back(Op);
-          else
-            OpsV.push_back(getVectorValue(Op));
-        }
-
-        for (unsigned I = 0; I < VF; ++I) {
-          SmallVector<Value *, 2> AcOpsV;
-          for (Value *Op : OpsV) {
-            if (!Op->getType()->isVectorTy())
-              AcOpsV.push_back(Op);
-            else
-              AcOpsV.push_back(
-                  Builder.CreateExtractElement(Op, Builder.getInt64(I)));
-          }
-          ScalarMap[GEP][I] =
-              Builder.CreateGEP(ScalarMap[GepPtrOp][I], AcOpsV, "privBase.");
-        }
-        return;
+      // Get appropriate values for the operands of the GEP.
+      for (Value *Op : GEP->indices()) {
+        if (Legal->isLoopInvariant(Op) || Legal->isLoopPrivate(Op))
+          OpsV.push_back(Op);
+        else
+          OpsV.push_back(getVectorValue(Op));
       }
 
-      for (Value *Op : GEP->operands())
-        OpsV.push_back(getVectorValue(Op));
-
-      Value *GepBasePtr = OpsV[0];
-      OpsV.erase(OpsV.begin());
-      GetElementPtrInst *VectorGEP = cast<GetElementPtrInst>(
-          Builder.CreateGEP(GepBasePtr, OpsV, "mm_vectorGEP"));
-      VectorGEP->setIsInBounds(GEP->isInBounds());
-      WidenMap[cast<Value>(Inst)] = VectorGEP;
+      for (unsigned I = 0; I < VF; ++I) {
+        SmallVector<Value *, 2> AcOpsV;
+        for (Value *Op : OpsV) {
+          if (!Op->getType()->isVectorTy())
+            AcOpsV.push_back(Op);
+          else
+            AcOpsV.push_back(
+                Builder.CreateExtractElement(Op, Builder.getInt64(I)));
+        }
+        ScalarMap[GEP][I] =
+            Builder.CreateGEP(ScalarMap[GepPtrOp][I], AcOpsV, "privBase.");
+      }
+      return;
     }
+
+    for (Value *Op : GEP->operands())
+    OpsV.push_back(getVectorValue(Op));
+
+    Value *GepBasePtr = OpsV[0];
+    OpsV.erase(OpsV.begin());
+    GetElementPtrInst *VectorGEP = cast<GetElementPtrInst>(
+        Builder.CreateGEP(GepBasePtr, OpsV, "mm_vectorGEP"));
+    VectorGEP->setIsInBounds(GEP->isInBounds());
+    WidenMap[cast<Value>(Inst)] = VectorGEP;
     break;
   }
 

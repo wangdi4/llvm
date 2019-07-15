@@ -17,8 +17,8 @@
 // Thus, it iterates a subtree(graph) starting from the given root node.
 // Notice parameters to begin() and end() functions should be pointers to
 // HLNode. HLPreOrderIterator::end(Parameter)'s Parameter does not have any
-// effect because internally, Paremeter is never used. For readability,
-// Paremeter to HLPreOrderIterator::end() can be set to the same
+// effect because internally, Parameter is never used. For readability,
+// parameter to HLPreOrderIterator::end() can be set to the same
 // parameter to that of begin() function or nullptr.
 //
 // Example usages:
@@ -69,7 +69,7 @@ private:
   /// Denotes a status when a loop is visited as a child.
   /// Normal : the loop is visted first, thus before its preheader.
   /// Pre : loop's preheader will be visited and if the loop is visted (again)
-  ///       after its preheader is visited
+  ///       it is after its preheader is visited
   /// Post: loop is already visited and it is a turn for its postexit.
   enum StateTy { Pre, Normal, Post };
   StateTy State;
@@ -173,7 +173,7 @@ public:
   // affected by ChildNodeIterator at all.
   // Thus, currently,
   // if HLLoop loop is given as the root of df_iterator(), that loop's
-  // that loop's pre-header/post-exit are not visited.
+  // pre-header/post-exit are not visited.
   HLNode *operator*() const {
     // df_iterator<> does post-inc.
     //
@@ -206,7 +206,7 @@ template <> struct GraphTraits<loopopt::HLNode *> {
 
   static ChildIteratorType child_begin(NodeRef N) {
     if (HLLoop *Lp = dyn_cast<HLLoop>(N)) {
-      // Note that preheader are visited before loopbody
+      // Note that preheader is visited before loopbody
       // but after loop itself.
       return ChildIteratorType(Lp->child_begin());
     } else if (HLRegion *Reg = dyn_cast<HLRegion>(N)) {
