@@ -566,6 +566,16 @@ public:
     return false;
   }
 
+  /// These two forms are equivalent:
+  ///   sub %y, (xor %x, -1)
+  ///   add (add %x, 1), %y
+  /// The variant with two add's is IR-canonical.
+  /// Some targets may prefer one to the other.
+  virtual bool preferIncOfAddToSubOfNot(EVT VT) const {
+    // By default, let's assume that everyone prefers the form with two add's.
+    return true;
+  }
+
   /// Return true if the target wants to use the optimization that
   /// turns ext(promotableInst1(...(promotableInstN(load)))) into
   /// promotedInst1(...(promotedInstN(ext(load)))).
@@ -1383,18 +1393,6 @@ public:
   /// return the limit for functions that have OptSize attribute.
   unsigned getMaxExpandSizeMemcmp(bool OptSize) const {
     return OptSize ? MaxLoadsPerMemcmpOptSize : MaxLoadsPerMemcmp;
-  }
-
-  /// For memcmp expansion when the memcmp result is only compared equal or
-  /// not-equal to 0, allow up to this number of load pairs per block. As an
-  /// example, this may allow 'memcmp(a, b, 3) == 0' in a single block:
-  ///   a0 = load2bytes &a[0]
-  ///   b0 = load2bytes &b[0]
-  ///   a2 = load1byte  &a[2]
-  ///   b2 = load1byte  &b[2]
-  ///   r  = cmp eq (a0 ^ b0 | a2 ^ b2), 0
-  virtual unsigned getMemcmpEqZeroLoadsPerBlock() const {
-    return 1;
   }
 
   /// Get maximum # of store operations permitted for llvm.memmove
@@ -4066,6 +4064,14 @@ private:
                                                SDValue N1, ISD::CondCode Cond,
                                                DAGCombinerInfo &DCI,
                                                const SDLoc &DL) const;
+
+  SDValue prepareUREMEqFold(EVT SETCCVT, SDValue REMNode,
+                            SDValue CompTargetNode, ISD::CondCode Cond,
+                            DAGCombinerInfo &DCI, const SDLoc &DL,
+                            SmallVectorImpl<SDNode *> &Created) const;
+  SDValue buildUREMEqFold(EVT SETCCVT, SDValue REMNode, SDValue CompTargetNode,
+                          ISD::CondCode Cond, DAGCombinerInfo &DCI,
+                          const SDLoc &DL) const;
 };
 
 /// Given an LLVM IR type and return type attributes, compute the return value

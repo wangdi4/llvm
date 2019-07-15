@@ -153,6 +153,14 @@ static cl::opt<int> LookAheadMaxDepth(
     "slp-max-look-ahead-depth", cl::init(2), cl::Hidden,
     cl::desc("The maximum look-ahead depth for operand reordering scores"));
 
+// The Look-ahead heuristic goes through the users of the bundle to calculate
+// the users cost in getExternalUsesCost(). To avoid compilation time increase
+// we limit the number of users visited to this value.
+static cl::opt<unsigned> LookAheadUsersBudget(
+    "slp-look-ahead-users-budget", cl::init(2), cl::Hidden,
+    cl::desc("The maximum number of users to visit while visiting the "
+             "predecessors. This prevents compilation time increase."));
+
 static cl::opt<bool>
     ViewSLPTree("view-slp-tree", cl::Hidden,
                 cl::desc("Display the SLP trees with Graphviz"));
@@ -762,7 +770,7 @@ public:
     static const int ScoreUndef = 1;
     /// Score for failing to find a decent match.
     static const int ScoreFail = 0;
-    /// User external to the vectorized code.
+    /// User exteranl to the vectorized code.
     static const int ExternalUseCost = 1;
     /// The user is internal but in a different lane.
     static const int UserInDiffLaneCost = ExternalUseCost;
@@ -817,6 +825,7 @@ public:
         // and RHS as base and Idx as the offset.
         int Ln = std::min(LHS.second, RHS.second) + Idx;
         assert(Ln >= 0 && "Bad lane calculation");
+        unsigned UsersBudget = LookAheadUsersBudget;
         for (User *U : V->users()) {
           if (const TreeEntry *UserTE = R.getTreeEntry(U)) {
             // The user is in the VectorizableTree. Check if we need to insert.
@@ -838,6 +847,9 @@ public:
               Cost += ExternalUseCost;
             }
           }
+          // Limit the number of visited uses to cap compilation time.
+          if (--UsersBudget == 0)
+            break;
         }
       }
       return Cost;
@@ -894,20 +906,23 @@ public:
       InLookAheadValues[V2] = Lane2;
 
       // Contains the I2 operand indexes that got matched with I1 operands.
-      SmallSet<int, 4> Op2Used;
+      SmallSet<unsigned, 4> Op2Used;
 
       // Recursion towards the operands of I1 and I2. We are trying all possbile
       // operand pairs, and keeping track of the best score.
-      for (int OpIdx1 = 0, NumOperands1 = I1->getNumOperands();
+      for (unsigned OpIdx1 = 0, NumOperands1 = I1->getNumOperands();
            OpIdx1 != NumOperands1; ++OpIdx1) {
         // Try to pair op1I with the best operand of I2.
         int MaxTmpScore = 0;
-        int MaxOpIdx2 = -1;
+        unsigned MaxOpIdx2 = 0;
+        bool FoundBest = false;
         // If I2 is commutative try all combinations.
-        int FromIdx = isCommutative(I2) ? 0 : OpIdx1;
-        int ToIdx = isCommutative(I2) ? I2->getNumOperands() : OpIdx1 + 1;
-        assert(FromIdx < ToIdx && "Bad index");
-        for (int OpIdx2 = FromIdx; OpIdx2 != ToIdx; ++OpIdx2) {
+        unsigned FromIdx = isCommutative(I2) ? 0 : OpIdx1;
+        unsigned ToIdx = isCommutative(I2)
+                             ? I2->getNumOperands()
+                             : std::min(I2->getNumOperands(), OpIdx1 + 1);
+        assert(FromIdx <= ToIdx && "Bad index");
+        for (unsigned OpIdx2 = FromIdx; OpIdx2 != ToIdx; ++OpIdx2) {
           // Skip operands already paired with OpIdx1.
           if (Op2Used.count(OpIdx2))
             continue;
@@ -919,9 +934,10 @@ public:
           if (TmpScore > VLOperands::ScoreFail && TmpScore > MaxTmpScore) {
             MaxTmpScore = TmpScore;
             MaxOpIdx2 = OpIdx2;
+            FoundBest = true;
           }
         }
-        if (MaxOpIdx2 >= 0) {
+        if (FoundBest) {
           // Pair {OpIdx1, MaxOpIdx2} was found to be best. Never revisit it.
           Op2Used.insert(MaxOpIdx2);
           ShallowScoreAtThisLevel += MaxTmpScore;
@@ -1436,7 +1452,7 @@ private:
     /// \return the single \p OpIdx operand.
     Value *getSingleOperand(unsigned OpIdx) const {
       assert(OpIdx < Operands.size() && "Off bounds");
-      assert(!Operands[OpIdx].empty() && "No operand availabe");
+      assert(!Operands[OpIdx].empty() && "No operand available");
       return Operands[OpIdx][0];
     }
 
@@ -2574,6 +2590,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
       return;
     }
     case Instruction::Select:
+    case Instruction::FNeg:
     case Instruction::Add:
     case Instruction::FAdd:
     case Instruction::Sub:
@@ -2593,7 +2610,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
     case Instruction::Or:
     case Instruction::Xor: {
       auto *TE = newTreeEntry(VL, true, UserTreeIdx, ReuseShuffleIndicies);
-      LLVM_DEBUG(dbgs() << "SLP: added a vector of bin op.\n");
+      LLVM_DEBUG(dbgs() << "SLP: added a vector of un/bin op.\n");
 
       // Sort operands of the instructions so that each side is more likely to
       // have the same opcode.
@@ -3065,6 +3082,7 @@ int BoUpSLP::getEntryCost(TreeEntry *E) {
       int VecCost = TTI->getCmpSelInstrCost(S.getOpcode(), VecTy, MaskTy, VL0);
       return ReuseShuffleCost + VecCost - ScalarCost;
     }
+    case Instruction::FNeg:
     case Instruction::Add:
     case Instruction::FAdd:
     case Instruction::Sub:
@@ -3102,7 +3120,8 @@ int BoUpSLP::getEntryCost(TreeEntry *E) {
       ConstantInt *CInt0 = nullptr;
       for (unsigned i = 0, e = VL.size(); i < e; ++i) {
         const Instruction *I = cast<Instruction>(VL[i]);
-        ConstantInt *CInt = dyn_cast<ConstantInt>(I->getOperand(1));
+        unsigned OpIdx = isa<BinaryOperator>(I) ? 1 : 0;
+        ConstantInt *CInt = dyn_cast<ConstantInt>(I->getOperand(OpIdx));
         if (!CInt) {
           Op2VK = TargetTransformInfo::OK_AnyValue;
           Op2VP = TargetTransformInfo::OP_None;
@@ -3882,6 +3901,31 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
       }
       E->VectorizedValue = V;
       ++NumVectorInstructions;
+      return V;
+    }
+    case Instruction::FNeg: {
+      setInsertPointAfterBundle(E->Scalars, S);
+
+      Value *Op = vectorizeTree(E->getOperand(0));
+
+      if (E->VectorizedValue) {
+        LLVM_DEBUG(dbgs() << "SLP: Diamond merged for " << *VL0 << ".\n");
+        return E->VectorizedValue;
+      }
+
+      Value *V = Builder.CreateUnOp(
+          static_cast<Instruction::UnaryOps>(S.getOpcode()), Op);
+      propagateIRFlags(V, E->Scalars, VL0);
+      if (auto *I = dyn_cast<Instruction>(V))
+        V = propagateMetadata(I, E->Scalars);
+
+      if (NeedToShuffleReuses) {
+        V = Builder.CreateShuffleVector(V, UndefValue::get(VecTy),
+                                        E->ReuseShuffleIndices, "shuffle");
+      }
+      E->VectorizedValue = V;
+      ++NumVectorInstructions;
+
       return V;
     }
     case Instruction::Add:

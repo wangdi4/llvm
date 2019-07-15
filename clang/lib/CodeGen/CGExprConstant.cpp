@@ -187,7 +187,8 @@ bool ConstantAggregateBuilder::addBits(llvm::APInt Bits, uint64_t OffsetInBits,
 
   // We split bit-fields up into individual bytes. Walk over the bytes and
   // update them.
-  for (CharUnits OffsetInChars = Context.toCharUnitsFromBits(OffsetInBits);
+  for (CharUnits OffsetInChars =
+           Context.toCharUnitsFromBits(OffsetInBits - OffsetWithinChar);
        /**/; ++OffsetInChars) {
     // Number of bits we want to fill in this char.
     unsigned WantedBits =
@@ -287,7 +288,7 @@ Optional<size_t> ConstantAggregateBuilder::splitAt(CharUnits Pos) {
     return Offsets.size();
 
   while (true) {
-    auto FirstAfterPos = std::upper_bound(Offsets.begin(), Offsets.end(), Pos);
+    auto FirstAfterPos = llvm::upper_bound(Offsets, Pos);
     if (FirstAfterPos == Offsets.begin())
       return 0;
 
@@ -1114,6 +1115,7 @@ public:
     case CK_ToVoid:
     case CK_Dynamic:
     case CK_LValueBitCast:
+    case CK_LValueToRValueBitCast:
     case CK_NullToMemberPointer:
     case CK_UserDefinedConversion:
     case CK_CPointerToObjCPointerCast:
