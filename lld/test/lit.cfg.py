@@ -42,6 +42,9 @@ tool_patterns = [
     'llc', 'llvm-as', 'llvm-mc', 'llvm-nm', 'llvm-objdump', 'llvm-pdbutil',
     'llvm-dwarfdump', 'llvm-readelf', 'llvm-readobj', 'obj2yaml', 'yaml2obj',
     'opt', 'llvm-dis']
+# INTEL_CUSTOMIZATION
+tool_patterns.append('clang-cl')
+# end INTEL_CUSTOMIZATION
 
 llvm_config.add_tool_substitutions(tool_patterns)
 
