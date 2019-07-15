@@ -18,6 +18,7 @@ if(INTEL_CUSTOMIZATION)
 endif()
 #END INTEL_CUSTOMIZATION
 
-if(INTEL_COLLAB)
-  add_subdirectory(opencl)
-endif(INTEL_COLLAB)
+#Disable until llvm-spirv is added to csa-xmain
+#if(INTEL_COLLAB)
+#  add_subdirectory(opencl)
+#endif(INTEL_COLLAB)
