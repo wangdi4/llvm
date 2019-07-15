@@ -18,6 +18,12 @@ declare i32 @_Z18get_sub_group_sizev() local_unnamed_addr #2
 
 declare i64 @_Z14get_local_sizej(i32)
 
+; Function Attrs: convergent nounwind
+define void @testKernel(i32 addrspace(1)* %sub_group_local_ids, i32 addrspace(1)* %sub_groups_ids, i32 addrspace(1)* %sub_groups_sizes) local_unnamed_addr #0 !kernel_arg_addr_space !11 !kernel_arg_access_qual !12 !kernel_arg_type !13 !kernel_arg_base_type !13 !kernel_arg_type_qual !14 !kernel_arg_host_accessible !15 !kernel_arg_pipe_depth !16 !kernel_arg_pipe_io !14 !kernel_arg_buffer_location !14 !kernel_arg_name !17 !vectorized_kernel !4 !no_barrier_path !19 !kernel_has_sub_groups !19 !vectorized_width !30 !vectorization_dimension !26 !can_unite_workgroups !29 {
+entry:
+  ret void
+}
+
 ; CHECK-LABEL: @__Vectorized_.testKernel
 ; Function Attrs: convergent nounwind
 define void @__Vectorized_.testKernel(i32 addrspace(1)* %sub_group_local_ids, i32 addrspace(1)* %sub_groups_ids, i32 addrspace(1)* %sub_groups_sizes) local_unnamed_addr #0 !kernel_arg_addr_space !11 !kernel_arg_access_qual !12 !kernel_arg_type !13 !kernel_arg_base_type !13 !kernel_arg_type_qual !14 !kernel_arg_host_accessible !15 !kernel_arg_pipe_depth !16 !kernel_arg_pipe_io !14 !kernel_arg_buffer_location !14 !kernel_arg_name !17 !vectorized_kernel !20 !no_barrier_path !19 !kernel_has_sub_groups !19 !vectorized_width !28 !vectorization_dimension !26 !can_unite_workgroups !29 {
@@ -78,6 +84,7 @@ attributes #4 = { convergent nounwind }
 !llvm.module.flags = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.ocl.version = !{!1}
+!opencl.kernels = !{!3}
 !opencl.spir.version = !{!1}
 !opencl.used.extensions = !{!2}
 !opencl.used.optional.core.features = !{!2}
@@ -86,6 +93,8 @@ attributes #4 = { convergent nounwind }
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{i32 1, i32 2}
 !2 = !{}
+!3 = !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*)* @testKernel}
+!4 = !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*)* @__Vectorized_.testKernel}
 !11 = !{i32 1, i32 1, i32 1}
 !12 = !{!"none", !"none", !"none"}
 !13 = !{!"uint*", !"uint*", !"uint*"}
@@ -104,4 +113,4 @@ attributes #4 = { convergent nounwind }
 !27 = !{i32 3}
 !28 = !{i32 16}
 !29 = !{i1 false}
-
+!30 = !{i32 1}

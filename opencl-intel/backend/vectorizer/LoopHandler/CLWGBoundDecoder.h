@@ -59,12 +59,6 @@ public:
   ///@parma name - name to query.
   ///@retruns as above.
   static bool isWGBoundFunction(std::string& name);
-
-private:
-
-  ///@brief prefix of early exit functions.
-  static const std::string WGBoundPrefix;
-  
 };
 } // namespace
 

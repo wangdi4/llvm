@@ -16,6 +16,12 @@ declare i32 @_Z27get_enqueued_num_sub_groupsv() local_unnamed_addr #2
 declare i64 @_Z14get_local_sizej(i32)
 
 ; Function Attrs: convergent nounwind
+define void @testKernel(i32 addrspace(1)* noalias %results) local_unnamed_addr #0 !kernel_arg_addr_space !12 !kernel_arg_access_qual !13 !kernel_arg_type !14 !kernel_arg_base_type !14 !kernel_arg_type_qual !15 !kernel_arg_host_accessible !16 !kernel_arg_pipe_depth !17 !kernel_arg_pipe_io !15 !kernel_arg_buffer_location !15 !kernel_arg_name !18 !vectorized_kernel !19 !no_barrier_path !20 !kernel_has_sub_groups !20 !vectorized_width !27 !vectorization_dimension !17 !can_unite_workgroups !16 {
+entry:
+  ret void
+}
+
+; Function Attrs: convergent nounwind
 ; CHECK-LABEL: @__Vectorized_.testKernel
 define void @__Vectorized_.testKernel(i32 addrspace(1)* noalias %results) local_unnamed_addr #0 !kernel_arg_addr_space !12 !kernel_arg_access_qual !13 !kernel_arg_type !14 !kernel_arg_base_type !14 !kernel_arg_type_qual !15 !kernel_arg_host_accessible !16 !kernel_arg_pipe_depth !17 !kernel_arg_pipe_io !15 !kernel_arg_buffer_location !15 !kernel_arg_name !18 !vectorized_kernel !21 !no_barrier_path !20 !kernel_has_sub_groups !20 !vectorized_width !26 !vectorization_dimension !17 !can_unite_workgroups !16 {
 entry:
@@ -64,6 +70,7 @@ attributes #4 = { convergent nounwind }
 !llvm.module.flags = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.ocl.version = !{!1}
+!opencl.kernels = !{!4}
 !opencl.spir.version = !{!1}
 !opencl.used.extensions = !{!2}
 !opencl.used.optional.core.features = !{!2}
@@ -73,6 +80,7 @@ attributes #4 = { convergent nounwind }
 !1 = !{i32 2, i32 0}
 !2 = !{}
 !3 = !{!"-cl-std=CL2.0"}
+!4 = !{void (i32 addrspace(1)*)* @testKernel}
 !12 = !{i32 1}
 !13 = !{!"none"}
 !14 = !{!"uint*"}
@@ -88,4 +96,5 @@ attributes #4 = { convergent nounwind }
 !24 = !{!"omnipotent char", !25, i64 0}
 !25 = !{!"Simple C/C++ TBAA"}
 !26 = !{i32 16}
+!27 = !{i32 1}
 
