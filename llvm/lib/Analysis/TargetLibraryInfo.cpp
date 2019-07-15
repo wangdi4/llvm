@@ -387,7 +387,6 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_asprintf);
     TLI.setUnavailable(LibFunc_backtrace);
     TLI.setUnavailable(LibFunc_backtrace_symbols);
-    TLI.setUnavailable(LibFunc_close);
     TLI.setUnavailable(LibFunc_dup);
     TLI.setUnavailable(LibFunc_dup2);
     TLI.setUnavailable(LibFunc_error);
@@ -2122,7 +2121,7 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
 
   case LibFunc_under_errno:
     return (NumParams == 0 && FTy.getReturnType()->isPointerTy());
-    
+
   case LibFunc_under_difftime64:
     return (NumParams == 2 && FTy.getReturnType()->isDoubleTy() &&
             FTy.getParamType(0)->isIntegerTy() &&
