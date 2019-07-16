@@ -112,7 +112,7 @@
 ;CHECK-DAG: ![[PROF_LOOP_UNROLLED]] = !{!"branch_weights", i32 5, i32 1} 
 ;CHECK-DAG: ![[PROF_SWITCH_UNROLLED]] = !{!"branch_weights", i32 0, i32 2, i32 3} 
 ;CHECK-DAG: ![[PROF_LOOP_REMAINDER]] = !{!"branch_weights", i32 1, i32 1} 
-;CHECK-DAG: ![[PROF_SWITCH_REMAINDER]] = !{!"branch_weights", i32 0, i32 0, i32 0} 
+;CHECK-DAG: ![[PROF_SWITCH_REMAINDER]] = !{!"branch_weights", i32 0, i32 1, i32 1} 
 
 
 ; ModuleID = 'switch-pragma-unroll.c'

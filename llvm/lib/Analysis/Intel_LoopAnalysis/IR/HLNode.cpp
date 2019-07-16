@@ -419,7 +419,15 @@ bool HLNode::divideProfileData(uint64_t Denominator) {
     // Int32Ty was used to be comparable to createBrancWeights
     NewVals.push_back(MDB.createConstant(
         ConstantInt::get(Type::getInt32Ty(HNU.getContext()),
-                         Val->getValue().getZExtValue() / Denominator)));
+                         // Quotient zero become 1.
+                         // We avoid having 0 branch_weights.
+                         // Guarding 0 branch_weighted if statemt, for example,
+                         // results in hiding hight branch_weights in the
+                         // guarded stmts.
+             Val->getValue() == 0 ?
+             0 :
+             std::max(Val->getValue().getZExtValue() / Denominator,
+                      static_cast<uint64_t>(1)))));
   }
   setProfileData(MDNode::get(HNU.getContext(), NewVals));
 
