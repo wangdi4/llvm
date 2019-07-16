@@ -250,6 +250,105 @@ __m512h test_mm512_zextph256_ph512(__m256h __a)
 // CHECK: shufflevector <16 x half> %{{.*}}, <16 x half> {{.*}}, <32 x i32>
   return _mm512_zextph256_ph512(__a);
 }
+
+int test_mm_comi_round_sh(__m128h __A, __m128h __B)
+{
+  // CHECK-LABEL: test_mm_comi_round_sh
+  // CHECK: %{{.}} = call i32 @llvm.x86.avx512fp16.vcomi.sh(<8 x half> %{{.}}, <8 x half> %{{.}}, i32 0, i32 8)
+  return _mm_comi_round_sh(__A, __B, 0, _MM_FROUND_NO_EXC);
+}
+
+int test_mm_comi_sh(__m128h __A, __m128h __B)
+{
+  // CHECK-LABEL: test_mm_comi_sh
+  // CHECK: %{{.}} = call i32 @llvm.x86.avx512fp16.vcomi.sh(<8 x half> %{{.}}, <8 x half> %{{.}}, i32 0, i32 4)
+  return _mm_comi_sh(__A, __B, 0);
+}
+
+int test_mm_comieq_sh(__m128h __A, __m128h __B)
+{
+  // CHECK-LABEL: test_mm_comieq_sh
+  // CHECK: %{{.}} = call i32 @llvm.x86.avx512fp16.vcomi.sh(<8 x half> %{{.}}, <8 x half> %{{.}}, i32 16, i32 4)
+  return _mm_comieq_sh(__A, __B);
+}
+
+int test_mm_comilt_sh(__m128h __A, __m128h __B)
+{
+  // CHECK-LABEL: test_mm_comilt_sh
+  // CHECK: %{{.}} = call i32 @llvm.x86.avx512fp16.vcomi.sh(<8 x half> %{{.}}, <8 x half> %{{.}}, i32 1, i32 4)
+  return _mm_comilt_sh(__A, __B);
+}
+
+int test_mm_comile_sh(__m128h __A, __m128h __B)
+{
+  // CHECK-LABEL: test_mm_comile_sh
+  // CHECK: %{{.}} = call i32 @llvm.x86.avx512fp16.vcomi.sh(<8 x half> %{{.}}, <8 x half> %{{.}}, i32 2, i32 4)
+  return _mm_comile_sh(__A, __B);
+}
+
+int test_mm_comigt_sh(__m128h __A, __m128h __B)
+{
+  // CHECK-LABEL: test_mm_comigt_sh
+  // CHECK: %{{.}} = call i32 @llvm.x86.avx512fp16.vcomi.sh(<8 x half> %{{.}}, <8 x half> %{{.}}, i32 14, i32 4)
+  return _mm_comigt_sh(__A, __B);
+}
+
+int test_mm_comige_sh(__m128h __A, __m128h __B)
+{
+  // CHECK-LABEL: test_mm_comige_sh
+  // CHECK: %{{.}} = call i32 @llvm.x86.avx512fp16.vcomi.sh(<8 x half> %{{.}}, <8 x half> %{{.}}, i32 13, i32 4)
+  return _mm_comige_sh(__A, __B);
+}
+
+int test_mm_comineq_sh(__m128h __A, __m128h __B)
+{
+  // CHECK-LABEL: test_mm_comineq_sh
+  // CHECK: %{{.}} = call i32 @llvm.x86.avx512fp16.vcomi.sh(<8 x half> %{{.}}, <8 x half> %{{.}}, i32 20, i32 4)
+  return _mm_comineq_sh(__A, __B);
+}
+
+int test_mm_ucomieq_sh(__m128h __A, __m128h __B)
+{
+  // CHECK-LABEL: test_mm_ucomieq_sh
+  // CHECK: %{{.}} = call i32 @llvm.x86.avx512fp16.vcomi.sh(<8 x half> %{{.}}, <8 x half> %{{.}}, i32 0, i32 4)
+  return _mm_ucomieq_sh(__A, __B);
+}
+
+int test_mm_ucomilt_sh(__m128h __A, __m128h __B)
+{
+  // CHECK-LABEL: test_mm_ucomilt_sh
+  // CHECK: %{{.}} = call i32 @llvm.x86.avx512fp16.vcomi.sh(<8 x half> %{{.}}, <8 x half> %{{.}}, i32 17, i32 4)
+  return _mm_ucomilt_sh(__A, __B);
+}
+
+int test_mm_ucomile_sh(__m128h __A, __m128h __B)
+{
+  // CHECK-LABEL: test_mm_ucomile_sh
+  // CHECK: %{{.}} = call i32 @llvm.x86.avx512fp16.vcomi.sh(<8 x half> %{{.}}, <8 x half> %{{.}}, i32 18, i32 4)
+  return _mm_ucomile_sh(__A, __B);
+}
+
+int test_mm_ucomigt_sh(__m128h __A, __m128h __B)
+{
+  // CHECK-LABEL: test_mm_ucomigt_sh
+  // CHECK: %{{.}} = call i32 @llvm.x86.avx512fp16.vcomi.sh(<8 x half> %{{.}}, <8 x half> %{{.}}, i32 30, i32 4)
+  return _mm_ucomigt_sh(__A, __B);
+}
+
+int test_mm_ucomige_sh(__m128h __A, __m128h __B)
+{
+  // CHECK-LABEL: test_mm_ucomige_sh
+  // CHECK: %{{.}} = call i32 @llvm.x86.avx512fp16.vcomi.sh(<8 x half> %{{.}}, <8 x half> %{{.}}, i32 29, i32 4)
+  return _mm_ucomige_sh(__A, __B);
+}
+
+int test_mm_ucomineq_sh(__m128h __A, __m128h __B)
+{
+  // CHECK-LABEL: test_mm_ucomineq_sh
+  // CHECK: %{{.}} = call i32 @llvm.x86.avx512fp16.vcomi.sh(<8 x half> %{{.}}, <8 x half> %{{.}}, i32 4, i32 4)
+  return _mm_ucomineq_sh(__A, __B);
+}
+
 __m512h test_mm512_add_ph(__m512h __A, __m512h __B) {
   // CHECK-LABEL: @test_mm512_add_ph
   // CHECK: %{{.*}} = fadd <32 x half> %{{.*}}, %{{.*}}
