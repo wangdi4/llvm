@@ -468,10 +468,16 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   // If the loop is a while loop (case 5), then it might not have a fall-through
   // edge. Therefore, in this case, the LatchExitBlock will be null.
   VPBlockBase *LatchExitBlock = nullptr;
-  if (OrigLoopLatch->getNumSuccessors() > 1)
-    LatchExitBlock = (OrigLoopLatch->getSuccessors()[0] == LoopHeader)
-                         ? OrigLoopLatch->getSuccessors()[1]
-                         : OrigLoopLatch->getSuccessors()[0];
+  // BackedgeCond checks whether the backedge is taken when the CondBit is
+  // true or false.
+  bool BackedgeCond = (OrigLoopLatch->getSuccessors()[0] == LoopHeader);
+  if (OrigLoopLatch->getNumSuccessors() > 1) {
+    // For for-loops, we get the exit block of the latch.
+    assert(OrigLoopLatch->getNumSuccessors() == 2 &&
+           "The loop latch should have two successors!");
+    LatchExitBlock = BackedgeCond ? OrigLoopLatch->getSuccessors()[1]
+                                  : OrigLoopLatch->getSuccessors()[0];
+  }
 
   // Step 1 : Creates a new loop latch and fills it with all the necessary
   // instructions.
@@ -489,6 +495,7 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   Type *Ty32 = Type::getInt32Ty(*Plan->getLLVMContext());
   Type *Ty1 = Type::getInt1Ty(*Plan->getLLVMContext());
   VPConstant *FalseConst = Plan->getVPConstant(ConstantInt::get(Ty1, 0));
+  VPConstant *TrueConst = Plan->getVPConstant(ConstantInt::get(Ty1, 1));
   VPBuilder VPBldr;
   VPBldr.setInsertPoint(NewLoopLatch);
   VPPHINode *VPPhi = cast<VPPHINode>(VPBldr.createPhiInstruction(Ty32));
@@ -500,8 +507,9 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
         dyn_cast<VPInstruction>(NewLoopLatch->getCondBit());
     NewCondBit->addIncoming(OldCondBit, cast<VPBasicBlock>(OrigLoopLatch));
   } else {
-    VPConstant *OneConstTy1 = Plan->getVPConstant(ConstantInt::get(Ty1, 1));
-    NewCondBit->addIncoming(OneConstTy1, cast<VPBasicBlock>(OrigLoopLatch));
+    assert(BackedgeCond == true &&
+           "In while loops, BackedgeCond should be true");
+    NewCondBit->addIncoming(TrueConst, cast<VPBasicBlock>(OrigLoopLatch));
   }
   // Update the condbit.
   NewLoopLatch->setCondBit(NewCondBit);
@@ -514,7 +522,8 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
 
   // This is needed for the generation of cascaded if blocks.
   if (LatchExitBlock) {
-    VPConstant *ExitIDConst = Plan->getVPConstant(ConstantInt::get(Ty32, ExitID));
+    VPConstant *ExitIDConst =
+        Plan->getVPConstant(ConstantInt::get(Ty32, ExitID));
     ExitBlockIDPairs.push_back(std::make_pair(LatchExitBlock, ExitIDConst));
   }
 
@@ -565,7 +574,10 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
       VPConstant *ExitIDConst =
           Plan->getVPConstant(ConstantInt::get(Ty32, ExitID));
       VPPhi->addIncoming(ExitIDConst, NewExitingBB);
-      NewCondBit->addIncoming(FalseConst, NewExitingBB);
+      // If the backedge is taken under the true condition, then the edge from
+      // the exiting block is taken under the false condition.
+      NewCondBit->addIncoming(BackedgeCond ? FalseConst : TrueConst,
+                              NewExitingBB);
 
       // The VPPHINode of the exit block should be moved in the new loop latch
       // if all the predecessors are in the loop. If not, then we remove the
@@ -623,7 +635,8 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
       VPConstant *ExitIDConst =
           Plan->getVPConstant(ConstantInt::get(Ty32, ExitID));
       VPPhi->addIncoming(ExitIDConst, cast<VPBasicBlock>(NewBlock));
-      NewCondBit->addIncoming(FalseConst, cast<VPBasicBlock>(NewBlock));
+      NewCondBit->addIncoming(BackedgeCond ? FalseConst : TrueConst,
+                              cast<VPBasicBlock>(NewBlock));
       ExitBlockIDPairs.push_back(std::make_pair(ExitBlock, ExitIDConst));
       ExitExitingBlocksMap[ExitBlock] = ExitingBlock;
       ExitBlockNewBlockMap[ExitBlock] = NewBlock;
