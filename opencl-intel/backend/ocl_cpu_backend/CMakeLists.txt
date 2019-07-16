@@ -205,6 +205,7 @@ set (INCLUDE_DIRS
     ${BACKEND_ROOT_DIR}/plugin_manager
     ${BACKEND_ROOT_DIR}/dynamic_lib
     ${BACKEND_ROOT_DIR}/metadata_api
+    ${BACKEND_ROOT_DIR}/passes/ChannelPipeTransformation
     ${CMAKE_BINARY_DIR}/include/
     ${OCL_BINARY_DIR}
 )
