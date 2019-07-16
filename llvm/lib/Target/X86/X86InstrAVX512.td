@@ -13729,6 +13729,16 @@ let Predicates = [HasFP16] in {
             (VCVTSI2SHZrr (f16 (IMPLICIT_DEF)), GR32:$src)>;
   def : Pat<(f16 (sint_to_fp GR64:$src)),
             (VCVTSI642SHZrr (f16 (IMPLICIT_DEF)), GR64:$src)>;
+
+  def : Pat<(f16 (uint_to_fp (loadi32 addr:$src))),
+            (VCVTUSI2SHZrm (f16 (IMPLICIT_DEF)), addr:$src)>;
+  def : Pat<(f16 (uint_to_fp (loadi64 addr:$src))),
+            (VCVTUSI642SHZrm (f16 (IMPLICIT_DEF)), addr:$src)>;
+
+  def : Pat<(f16 (uint_to_fp GR32:$src)),
+            (VCVTUSI2SHZrr (f16 (IMPLICIT_DEF)), GR32:$src)>;
+  def : Pat<(f16 (uint_to_fp GR64:$src)),
+            (VCVTUSI642SHZrr (f16 (IMPLICIT_DEF)), GR64:$src)>;
 }
 
 let Predicates = [HasFP16, HasVLX] in {

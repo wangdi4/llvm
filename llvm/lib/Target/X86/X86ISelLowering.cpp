@@ -18197,6 +18197,35 @@ static SDValue LowerI64IntToFP_AVX512DQ(SDValue Op, SelectionDAG &DAG,
                      DAG.getIntPtrConstant(0, dl));
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+// Try to use a packed vector operation to handle i64 on 32-bit targets.
+static SDValue LowerI64IntToFP16(SDValue Op, SelectionDAG &DAG,
+                                 const X86Subtarget &Subtarget) {
+  assert((Op.getOpcode() == ISD::SINT_TO_FP ||
+          Op.getOpcode() == ISD::UINT_TO_FP) && "Unexpected opcode!");
+  SDValue Src = Op.getOperand(0);
+  MVT SrcVT = Src.getSimpleValueType();
+  MVT VT = Op.getSimpleValueType();
+
+  if (SrcVT != MVT::i64 || Subtarget.is64Bit() || VT != MVT::f16)
+    return SDValue();
+
+  assert(Subtarget.hasFP16() && "Expected FP16");
+
+  // Pack the i64 into a vector, do the operation and extract.
+
+  SDLoc dl(Op);
+  SDValue InVec = DAG.getNode(ISD::SCALAR_TO_VECTOR, dl, MVT::v2i64, Src);
+  unsigned Opc = Op.getOpcode() == ISD::SINT_TO_FP ? X86ISD::CVTSI2P
+                                                   : X86ISD::CVTUI2P;
+  SDValue CvtVec = DAG.getNode(Opc, dl, MVT::v8f16, InVec);
+  return DAG.getNode(ISD::EXTRACT_VECTOR_ELT, dl, VT, CvtVec,
+                     DAG.getIntPtrConstant(0, dl));
+}
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+
 static bool useVectorCast(unsigned Opcode, MVT FromVT, MVT ToVT,
                           const X86Subtarget &Subtarget) {
   switch (Opcode) {
@@ -18292,6 +18321,13 @@ SDValue X86TargetLowering::LowerSINT_TO_FP(SDValue Op,
 
   if (SDValue V = LowerI64IntToFP_AVX512DQ(Op, DAG, Subtarget))
     return V;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  if (SDValue V = LowerI64IntToFP16(Op, DAG, Subtarget))
+    return V;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
   SDValue ValueToStore = Op.getOperand(0);
   if (SrcVT == MVT::i64 && isScalarFPTypeInSSEReg(VT) &&
@@ -18646,6 +18682,13 @@ SDValue X86TargetLowering::LowerUINT_TO_FP(SDValue Op,
 
   if (SDValue V = LowerI64IntToFP_AVX512DQ(Op, DAG, Subtarget))
     return V;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  if (SDValue V = LowerI64IntToFP16(Op, DAG, Subtarget))
+    return V;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
   if (SrcVT == MVT::i64 && DstVT == MVT::f64 && X86ScalarSSEf64)
     return LowerUINT_TO_FP_i64(Op, DAG, Subtarget);
@@ -28423,6 +28466,24 @@ void X86TargetLowering::ReplaceNodeResults(SDNode *N,
       Results.push_back(Res);
       return;
     }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    if (Subtarget.hasFP16() && VT == MVT::i64 && SrcVT == MVT::f16) {
+      assert(!Subtarget.is64Bit() && "i64 should be legal");
+      SDValue ZeroIdx = DAG.getIntPtrConstant(0, dl);
+      SDValue Res = DAG.getNode(ISD::INSERT_VECTOR_ELT, dl, MVT::v8f16,
+                                DAG.getConstantFP(0.0, dl, MVT::v8f16), Src,
+                                ZeroIdx);
+      unsigned Opc = N->getOpcode() == ISD::FP_TO_SINT ? X86ISD::CVTTP2SI
+                                                       : X86ISD::CVTTP2UI;
+      Res = DAG.getNode(Opc, SDLoc(N), MVT::v2i64, Res);
+      Res = DAG.getNode(ISD::EXTRACT_VECTOR_ELT, dl, VT, Res, ZeroIdx);
+      Results.push_back(Res);
+      return;
+    }
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
     if (SDValue V = FP_TO_INTHelper(SDValue(N, 0), DAG, IsSigned))
       Results.push_back(V);
