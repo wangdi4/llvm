@@ -1,6 +1,6 @@
 
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-general-unroll -hir-cg -S 2>&1 < %s | FileCheck %s
-; opt -passes="hir-ssa-deconstruction,hir-general-unroll,hir-cg" -aa-pipeline="basic-aa" -S  2>&1 < %s| FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-general-unroll,hir-cg" -aa-pipeline="basic-aa" -S  2>&1 < %s| FileCheck %s
 
 ; Before General Unroll
 ; 

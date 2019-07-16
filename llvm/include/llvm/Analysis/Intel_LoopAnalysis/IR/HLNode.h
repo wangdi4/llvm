@@ -278,6 +278,9 @@ public:
   void setProfileData(uint64_t TrueVal, uint64_t FalseVal);
   /// Divide weights of True and False sides by Denominator.
   bool divideProfileData(uint64_t Denominator);
+  /// Swap true and false branch_weights. Node should have exactly
+  /// two weights operands.
+  void swapProfileData();
 
   /// \brief An enumeration to keep track of the concrete subclasses of HLNode.
   enum HLNodeVal {
