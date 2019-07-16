@@ -91,6 +91,7 @@ static void printCalleeNameModuleLineCol(MDTuple *MD, Module &M,
 ///
 static void printSimpleMessage(const char *Message, bool IsInline,
                                unsigned IndentCount, unsigned Level) {
+#if !INTEL_PRODUCT_RELEASE
   if (Level & InlineReportOptions::Reasons) {
     if (Level & InlineReportOptions::SameLine) {
       llvm::errs() << " ";
@@ -102,9 +103,10 @@ static void printSimpleMessage(const char *Message, bool IsInline,
     llvm::errs() << Message;
     llvm::errs() << (IsInline ? ">>" : "]]");
     llvm::errs() << "\n";
-  } else {
-    llvm::errs() << "\n";
+    return;
   }
+#endif // !INTEL_PRODUCT_RELEASE
+  llvm::errs() << "\n";
 }
 
 ///

@@ -40,7 +40,7 @@ using namespace llvm;
 cl::list<std::string>
     IntelInlineLists("inline-inline-list",
                      cl::desc("Force inlining of functions/callsites"),
-                     cl::Hidden);
+                     cl::ReallyHidden);
 
 // The option is used to force not inlining of functions in the list
 // Syntax: the list should be a sequence of <[caller,]callee[,linenum]>
@@ -48,7 +48,7 @@ cl::list<std::string>
 cl::list<std::string>
     IntelNoinlineLists("inline-noinline-list",
                        cl::desc("Force not inlining of functions/callsites"),
-                       cl::Hidden);
+                       cl::ReallyHidden);
 
 typedef llvm::StringSet<> CalleeSetTy;
 typedef llvm::StringMap<std::set<uint32_t>> CalleeMapTy;
