@@ -3964,23 +3964,24 @@ const SCEV *ScalarEvolution::getExistingSCEV(Value *V) {
   return nullptr;
 }
 
-#if INTEL_CUSTOMIZATION // HIR parsing 
+#if INTEL_CUSTOMIZATION // HIR parsing
 
-ScalarEvolution::HIRInfoS::HIRInfoS(HIRInfoS& InitObj) 
-  : IsValid(InitObj.IsValid), OutermostLoop(InitObj.OutermostLoop)
-  , Initializer(&InitObj) {
-  Initializer->reset(); 
+ScalarEvolution::HIRInfoStruct::HIRInfoStruct(HIRInfoStruct &InitObj)
+    : IsValid(InitObj.IsValid), OutermostLoop(InitObj.OutermostLoop),
+      BTCLoop(InitObj.BTCLoop), Initializer(&InitObj) {
+  Initializer->reset();
 }
-  
-ScalarEvolution::HIRInfoS::~HIRInfoS() {
+
+ScalarEvolution::HIRInfoStruct::~HIRInfoStruct() {
   // Restore initailizer object.
   if (Initializer) {
     Initializer->IsValid = IsValid;
     Initializer->OutermostLoop = OutermostLoop;
+    Initializer->BTCLoop = BTCLoop;
   }
 }
 
-/// Validates SCEV by checking whether it contains AddRecs for a loop whch is 
+/// Validates SCEV by checking whether it contains AddRecs for a loop whch is
 /// not contained in OutermostHIRLoop. If OutermostHIRLoop is null, presence
 /// of any AddRec invalidates the SCEV.
 ///
@@ -3989,7 +3990,7 @@ class HIRSCEVValidator {
   const Loop *OutermostHIRLoop;
 
 public:
-  HIRSCEVValidator(bool &ValidSCEV, const Loop *OutermostHIRLoop) 
+  HIRSCEVValidator(bool &ValidSCEV, const Loop *OutermostHIRLoop)
   : ValidSCEV(ValidSCEV), OutermostHIRLoop(OutermostHIRLoop) {
     ValidSCEV = true;
   }
@@ -4018,12 +4019,12 @@ public:
 bool ScalarEvolution::isValidSCEVForHIR(const SCEV *SC) const {
   bool ValidSCEV;
   HIRSCEVValidator Validator(ValidSCEV, HIRInfo.getOutermostLoop());
-  visitAll(SC, Validator); 
+  visitAll(SC, Validator);
   return ValidSCEV;
 }
 
-const SCEV *ScalarEvolution::getSCEVForHIR(Value *Val, 
-                                           const Loop *OutermostLoop) { 
+const SCEV *ScalarEvolution::getSCEVForHIR(Value *Val,
+                                           const Loop *OutermostLoop) {
   assert(isSCEVable(Val->getType()) && "Value is not SCEVable!");
 
   HIRInfo.set(OutermostLoop);
@@ -4035,7 +4036,7 @@ const SCEV *ScalarEvolution::getSCEVForHIR(Value *Val,
   return SC;
 }
 
-const SCEV *ScalarEvolution::getSCEVAtScopeForHIR(const SCEV *SC, 
+const SCEV *ScalarEvolution::getSCEVAtScopeForHIR(const SCEV *SC,
                                                   const Loop *Lp,
                                                   const Loop *OutermostLoop) {
   HIRInfo.set(OutermostLoop);
@@ -4139,7 +4140,7 @@ const SCEV *ScalarEvolution::getOriginalSCEV(const SCEV *SC) {
     // initializer object and copies its fields. Initializer is then 'reset'.
     // When the destructor of the copy constructed object is invoked, it looks
     // for the initializer and restores its state. This is akin to RAII idiom.
-    HIRInfoS SavedHIRInfo(HIRInfo);
+    HIRInfoStruct SavedHIRInfo(HIRInfo);
 
     return OriginalSCEVCreator::create(SC, *this);
   }
@@ -5816,7 +5817,7 @@ ScalarEvolution::getRangeRef(const SCEV *S,
   // Disable HIR mode to make analysis more precise.
   // Copy-construction is a hack to temporarily disable HIR mode and restore it
   // at the end of the function.
-  HIRInfoS SavedHIRInfo(HIRInfo);
+  HIRInfoStruct SavedHIRInfo(HIRInfo);
 #endif // INTEL_CUSTOMIZATION
   // See if we've computed this range already.
   DenseMap<const SCEV *, ConstantRange>::iterator I = Cache.find(S);
@@ -6957,10 +6958,10 @@ const SCEV *ScalarEvolution::getMaxBackedgeTakenCount(const Loop *L) {
   return getBackedgeTakenInfo(L).getMax(this);
 }
 
-#if INTEL_CUSTOMIZATION // HIR parsing 
+#if INTEL_CUSTOMIZATION // HIR parsing
 const SCEV *ScalarEvolution::getBackedgeTakenCountForHIR(const Loop *Lp,
                              const Loop *OutermostLoop) {
-  HIRInfo.set(OutermostLoop);
+  HIRInfo.set(OutermostLoop, Lp);
 
   auto SC = getBackedgeTakenInfo(Lp).getExact(Lp, this);
 
@@ -7018,19 +7019,29 @@ ScalarEvolution::getBackedgeTakenInfo(const Loop *L) {
     auto & BTI = Pair.first->second;
 
     // Return original entry in non-HIR mode.
-    if (!HIRInfo.isValid()) 
+    if (!HIRInfo.isValid())
       return BTI;
 
     auto SC = BTI.getExact(L, this);
 
-    // Ignore the original cache entry for multi-exit loops as it is always
-    // SCEVCouldNotCompute.
-    if (L->getExitingBlock() &&
+    // Ignore the original cache entry for this multi-exit loop as we want to
+    // compute the trip count using latch exit.
+    // The HIR backedge taken count of other multi-exit loops computed in HIR
+    // mode cannot be used in this loop's context but returning original cache
+    // entry computed in non-HIR mode is okay.
+    if ((L->getExitingBlock() || (HIRInfo.getBackedgeTakenCountLoop() != L)) &&
         // If original cache entry is valid for HIR, return it.
         ((SC == getCouldNotCompute()) || isValidSCEVForHIR(SC))) {
       return BTI;
 
     } else {
+
+      // We are querying backedge taken count of some other multi-exit loop.
+      // Since the HIR backedge taken count of multi-exit loops cannot be used
+      // in other loops' context, we return a dummy entry.
+      if (!L->getExitingBlock() && (HIRInfo.getBackedgeTakenCountLoop() != L))
+        return HIRDummyBackedgeTakenCounts[L] = BackedgeTakenInfo();
+
       // Original entry is invalid, create an empty entry in HIR cache and
       // reevaluate the trip count in HIR mode.
       auto Pair = HIRBackedgeTakenCounts.insert(
@@ -7474,7 +7485,8 @@ ScalarEvolution::computeBackedgeTakenCount(const Loop *L,
   // Multi-exit loops in HIR are treated as single-exit loops with early exits.
   // This means that the trip count information is computed only off of loop
   // backedge(latch). We can ignore all the other exits.
-  if ((ExitingBlocks.size() > 1) && HIRInfo.isValid()) {
+  if ((ExitingBlocks.size() > 1) && HIRInfo.isValid() &&
+      (HIRInfo.getBackedgeTakenCountLoop() == L)) {
     // Check whether latch is an exiting block. If it is, remove all the other
     // exiting blocks. Latch may not be an exit if it is an unconditional
     // branch.

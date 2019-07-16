@@ -548,6 +548,7 @@ public:
   void clearHIRCache() {
     HIRValueExprMap.clear();
     HIRBackedgeTakenCounts.clear();
+    HIRDummyBackedgeTakenCounts.clear();
   }
 
 #endif  // INTEL_CUSTOMIZATION
@@ -1219,7 +1220,7 @@ private:
   /// This is a cache of the values we have analyzed so far.
   ValueExprMapType ValueExprMap;
 
-#if INTEL_CUSTOMIZATION // HIR parsing 
+#if INTEL_CUSTOMIZATION // HIR parsing
   /// The typedef for HIRValueExprMap.
   ///
   typedef DenseMap<Value *, const SCEV *> HIRValueExprMapType;
@@ -1229,40 +1230,47 @@ private:
   HIRValueExprMapType HIRValueExprMap;
 
   /// Structure to contain all HIR related info.
-  struct HIRInfoS {
+  struct HIRInfoStruct {
   private:
     // Indicates whether we are parsing for HIR.
     bool IsValid;
-    // Sets the outermost loop in HIR's context. Used to suppress AddRecs 
+    // Sets the outermost loop in HIR's context. Used to suppress AddRecs
     // belonging to parents of this loop.
     const Loop *OutermostLoop;
+    // Set by getBackedgeTakenCountForHIR() function to the loop for which we
+    // are trying to compute the trip count.
+    const Loop *BTCLoop;
 
     // Used to differentiate between constructed and copy constructed objects.
-    HIRInfoS *Initializer;
+    HIRInfoStruct *Initializer;
 
   public:
-    HIRInfoS() : Initializer(nullptr) { reset(); } 
+    HIRInfoStruct() : Initializer(nullptr) { reset(); }
 
     // Copy construction is a hack to disable HIR mode temporarily.
-    HIRInfoS(HIRInfoS&);
+    HIRInfoStruct(HIRInfoStruct &);
     // Destructor restores the initializer, if it exists.
-    ~HIRInfoS(); 
+    ~HIRInfoStruct();
 
     bool isValid() const { return IsValid; }
     const Loop *getOutermostLoop() const { return OutermostLoop; }
+    const Loop *getBackedgeTakenCountLoop() const { return BTCLoop; }
 
-    void set(const Loop *OutermostLoop) {
+    void set(const Loop *OutermostLoop,
+             const Loop *BackedgeTakenCountLoop = nullptr) {
       IsValid = true;
       this->OutermostLoop = OutermostLoop;
+      this->BTCLoop = BackedgeTakenCountLoop;
     }
 
     void reset() {
       IsValid = false;
       OutermostLoop = nullptr;
+      BTCLoop = nullptr;
     }
   };
 
-  HIRInfoS HIRInfo;
+  HIRInfoStruct HIRInfo;
 
   // MDKind ID for HIR metadata.
   unsigned HIRLiveInID = 0;
@@ -1461,10 +1469,14 @@ private: // INTEL
   /// are computed.
   DenseMap<const Loop *, BackedgeTakenInfo> BackedgeTakenCounts;
 
-#if INTEL_CUSTOMIZATION // HIR parsing 
+#if INTEL_CUSTOMIZATION // HIR parsing
   /// This is a cache of HIR backedge taken counts. It is built on top of
   /// BackedgeTakenCounts and needs to stay in sync with it.
   DenseMap<const Loop*, BackedgeTakenInfo> HIRBackedgeTakenCounts;
+  /// This is used to hold dummy backedge taken counts for multi-exit loops. It
+  /// is used to answer queries when the backedge count being requested is for
+  /// some other loop.
+  DenseMap<const Loop *, BackedgeTakenInfo> HIRDummyBackedgeTakenCounts;
 #endif  // INTEL_CUSTOMIZATION
 
   /// Cache the predicated backedge-taken count of the loops for this
