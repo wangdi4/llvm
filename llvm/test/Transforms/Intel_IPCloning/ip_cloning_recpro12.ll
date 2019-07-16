@@ -3,7 +3,8 @@
 
 ; Test that the function @good is recognized as a recursive progression clone
 ; and eight clones of it are created. Also that it is a candidate for creating
-; an extra clone, and that inner loop trip counts can be simplified.
+; an extra clone. However, not all simplifications for inner loop trip counts
+; can be performed due to definition of %bogus.
 
 ; CHECK: Enter IP cloning: (Before inlining)
 ; CHECK: Cloning Analysis for:  good
@@ -49,10 +50,9 @@
 ; CHECK: IsByRef : T
 ; CHECK: Replacement:  i32 8
 ; CHECK: Extra RecProClone Candidate: good.8
-; CHECK: Replacing Load in Function good.8 with 1
+; CHECK-NOT: Replacing Load in Function good.8 with 1
 ; CHECK: Replacing Load in Function good.8 with 9
-; CHECK: Replacing Load in Function good.8.9 with alternate bound
-; CHECK: All desired subscript bounds substituted
+; CHECK-NOT: Replacing Load in Function good.8.9 with alternate bound
 
 ; Check for sequence of eight clones:
 
@@ -76,7 +76,8 @@
 ; CHECK-NOT: call void @good
 
 ; Check for special inserted test, call to extra clone, and constant loop
-; bound assignments, and simplified tests
+; bound assignments, and only one simplified test, due to assignment to
+; %bogus
 
 ; CHECK: %8 = alloca [9 x i32], align 16
 ; CHECK: %9 = alloca [9 x i32], align 16
@@ -95,16 +96,15 @@
 ; CHECK: ConstStore:
 ; CHECK: store i32 1, i32* [[V1]]
 ; CHECK: store i32 9, i32* [[V2]]
-; CHECK: %675 = icmp slt i32 9, 1
-; CHECK: %678 = sext i32 1 to i64
+; CHECK-NOT: %675 = icmp slt i32 9, 1
+; CHECK-NOT: %678 = sext i32 1 to i64
 ; CHECK: %679 = sext i32 9 to i64
 
-; Check for extra clone and simplified tests
+; Check for extra clone but lack of simplified tests
 ; CHECK: define internal void @good.8.9
 ; CHECK: %671 = load i32, i32* %137, align 4
-; CHECK: %673 = icmp slt i32 %671, %671
-; CHECK: %676 = sext i32 %671 to i64
-; CHECK: %677 = sext i32 %671 to i64
+; CHECK-NOT: %673 = icmp slt i32 %671, %671
+; CHECK-NOT: %677 = sext i32 %671 to i64
 ; CHECK-NOT: call void @good
 
 declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8, i64, i64, i32*, i64)
@@ -159,6 +159,7 @@ define internal void @good(i32* noalias nocapture readonly) {
   %30 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %17, i64 0, i32 0
   %31 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %17, i64 0, i32 2
   %32 = getelementptr inbounds [9 x i32], [9 x i32]* %8, i64 0, i64 0
+  %bogus =  getelementptr inbounds [9 x i32], [9 x i32]* %8, i64 0, i64 1
   br label %45
 
 33:                                               ; preds = %33, %1
