@@ -92,3 +92,179 @@
 // CHECK: bcast_seg_state
 // CHECK: encoding: [0xf3,0x0f,0x01,0xef]
           bcast_seg_state
+
+// CHECK: creg_xchgl %eax, %ebx
+// CHECK: encoding: [0xf3,0x01,0xc3]
+          creg_xchg %eax, %ebx
+
+// CHECK: creg_xchgq %eax, %rbx
+// CHECK: encoding: [0xf3,0x48,0x01,0xc3]
+          creg_xchg %eax, %rbx
+
+// CHECK: creg_readl %eax, %ebx
+// CHECK: encoding: [0xf3,0x29,0xc3]
+          creg_read %eax, %ebx
+
+// CHECK: creg_readq %eax, %rbx
+// CHECK: encoding: [0xf3,0x48,0x29,0xc3]
+          creg_read %eax, %rbx
+
+// CHECK: fscp_xchgl %eax, %ebx
+// CHECK: encoding: [0xf3,0x21,0xc3]
+          fscp_xchg %eax, %ebx
+
+// CHECK: fscp_xchgq %eax, %rbx
+// CHECK: encoding: [0xf3,0x48,0x21,0xc3]
+          fscp_xchg %eax, %rbx
+
+// CHECK: fscp_readl %eax, %ebx
+// CHECK: encoding: [0xf3,0x09,0xc3]
+          fscp_read %eax, %ebx
+
+// CHECK: fscp_readq %eax, %rbx
+// CHECK: encoding: [0xf3,0x48,0x09,0xc3]
+          fscp_read %eax, %rbx
+
+// CHECK: portinb (%ebx), %al
+// CHECK: encoding: [0xf3,0x8a,0x03]
+          portin (%ebx), %al
+
+// CHECK: portinw (%ebx), %ax
+// CHECK: encoding: [0x66,0xf3,0x8b,0x03]
+          portin (%ebx), %ax
+
+// CHECK: portinl (%ebx), %eax
+// CHECK: encoding: [0xf3,0x8b,0x03]
+          portin (%ebx), %eax
+
+// CHECK: portinq (%ebx), %rax
+// CHECK: encoding: [0xf3,0x48,0x8b,0x03]
+          portin (%ebx), %rax
+
+// CHECK: portoutb %al, (%ebx)
+// CHECK: encoding: [0xf3,0x88,0x03]
+          portout %al, (%ebx)
+
+// CHECK: portoutw %ax, (%ebx)
+// CHECK: encoding: [0x66,0xf3,0x89,0x03]
+          portout %ax, (%ebx)
+
+// CHECK: portoutl %eax, (%ebx)
+// CHECK: encoding: [0xf3,0x89,0x03]
+          portout %eax, (%ebx)
+
+// CHECK: portoutq %rax, (%ebx)
+// CHECK: encoding: [0xf3,0x48,0x89,0x03]
+          portout %rax, (%ebx)
+
+// CHECK: sta_special (%eax)
+// CHECK: encoding: [0xf3,0x8f,0x00]
+          sta_special (%eax)
+
+// CHECK: nr_read $6, %eax
+// CHECK: encoding: [0xf3,0x83,0xf0,0x06]
+          nr_read $6, %eax
+
+// CHECK: sigeventjump $33, %ebx
+// CHECK: encoding: [0xf3,0x81,0xd3,0x21,0x00,0x00,0x00]
+          sigeventjump $0x21, %ebx
+
+// CHECK: sserialize
+// CHECK: encoding: [0x0f,0x01,0xd4]
+          sserialize
+
+// CHECK: ucodecall %eax
+// CHECK: encoding: [0x0f,0x22,0xc0]
+          ucodecall %eax
+
+// CHECK: nop_set_sb
+// CHECK: encoding: [0x27]
+          nop_set_sb
+
+// CHECK: nop_read_sb
+// CHECK: encoding: [0x2f]
+          nop_read_sb
+
+// CHECK: get_excl_acc
+// CHECK: encoding: [0xfc]
+          get_excl_acc
+
+// CHECK: release_excl_acc
+// CHECK: encoding: [0xfd]
+          release_excl_acc
+
+// CHECK: virt_nuke_point
+// CHECK: encoding: [0x0f,0x01,0xd5]
+          virt_nuke_point
+
+// CHECK: int_trap_point
+// CHECK: encoding: [0x0f,0x01,0xd0]
+          int_trap_point
+
+// CHECK: iceret
+// CHECK: encoding: [0x0f,0xaa]
+          iceret
+
+// CHECK: iceret_indirect
+// CHECK: encoding: [0xf3,0x0f,0xaa]
+          iceret_indirect
+
+// CHECK: cmodemov $0, %rax, %rbx
+// CHECK: encoding: [0xf3,0x0f,0x40,0xd8]
+          cmodemov $0, %rax, %rbx
+
+// CHECK: cmodemov $1, %rax, %rbx
+// CHECK: encoding: [0xf3,0x0f,0x41,0xd8]
+          cmodemov $1, %rax, %rbx
+
+// CHECK: cmodemov $3, %rax, %rbx
+// CHECK: encoding: [0xf3,0x0f,0x43,0xd8]
+          cmodemov $3, %rax, %rbx
+
+// CHECK: cmodemov $4, %rax, %rbx
+// CHECK: encoding: [0xf3,0x0f,0x44,0xd8]
+          cmodemov $4, %rax, %rbx
+
+// CHECK: cmodemov $5, %rax, %rbx
+// CHECK: encoding: [0xf3,0x0f,0x45,0xd8]
+          cmodemov $5, %rax, %rbx
+
+// CHECK: cmodemov $6, %rax, %rbx
+// CHECK: encoding: [0xf3,0x0f,0x46,0xd8]
+          cmodemov $6, %rax, %rbx
+
+// CHECK: cmodemov $7, %rax, %rbx
+// CHECK: encoding: [0xf3,0x0f,0x47,0xd8]
+          cmodemov $7, %rax, %rbx
+
+// CHECK: cmodemov $8, %rax, %rbx
+// CHECK: encoding: [0xf3,0x0f,0x48,0xd8]
+          cmodemov $8, %rax, %rbx
+
+// CHECK: cmodemov $9, %rax, %rbx
+// CHECK: encoding: [0xf3,0x0f,0x49,0xd8]
+          cmodemov $9, %rax, %rbx
+
+// CHECK: cmodemov $10, %rax, %rbx
+// CHECK: encoding: [0xf3,0x0f,0x4a,0xd8]
+          cmodemov $0xa, %rax, %rbx
+
+// CHECK: cmodemov $11, %rax, %rbx
+// CHECK: encoding: [0xf3,0x0f,0x4b,0xd8]
+          cmodemov $0xb, %rax, %rbx
+
+// CHECK: cmodemov $12, %rax, %rbx
+// CHECK: encoding: [0xf3,0x0f,0x4c,0xd8]
+          cmodemov $0xc, %rax, %rbx
+
+// CHECK: cmodemov $13, %rax, %rbx
+// CHECK: encoding: [0xf3,0x0f,0x4d,0xd8]
+          cmodemov $0xd, %rax, %rbx
+
+// CHECK: cmodemov $14, %rax, %rbx
+// CHECK: encoding: [0xf3,0x0f,0x4e,0xd8]
+          cmodemov $0xe, %rax, %rbx
+
+// CHECK: cmodemov $15, %rax, %rbx
+// CHECK: encoding: [0xf3,0x0f,0x4f,0xd8]
+          cmodemov $0xf, %rax, %rbx

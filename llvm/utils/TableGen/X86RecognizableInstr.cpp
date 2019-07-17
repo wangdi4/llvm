@@ -1339,6 +1339,11 @@ RecognizableInstr::opcodeModifierEncodingFromString(const std::string &s,
   ENCODING("GR16",            ENCODING_Rv)
   ENCODING("GR8",             ENCODING_RB)
   ENCODING("ccode",           ENCODING_CC)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  ENCODING("i8imm",           ENCODING_CC)
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled opcode modifier encoding " << s << "\n";
   llvm_unreachable("Unhandled opcode modifier encoding");
 }

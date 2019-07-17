@@ -48,6 +48,14 @@ public:
   X86MCCodeEmitter &operator=(const X86MCCodeEmitter &) = delete;
   ~X86MCCodeEmitter() override = default;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  bool isIceCodeMode(const MCSubtargetInfo &STI) const {
+    return STI.getFeatureBits()[X86::ModeIceCode];
+  }
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
+
   bool is64BitMode(const MCSubtargetInfo &STI) const {
     return STI.getFeatureBits()[X86::Mode64Bit];
   }
@@ -1286,6 +1294,13 @@ encodeInstruction(const MCInst &MI, raw_ostream &OS,
   // Emit the address size opcode prefix as needed.
   bool need_address_override;
   uint64_t AdSize = TSFlags & X86II::AdSizeMask;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  if (isIceCodeMode(STI) && AdSize == X86II::AdSize32) {
+    need_address_override = false;
+  } else
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
   if ((is16BitMode(STI) && AdSize == X86II::AdSize32) ||
       (is32BitMode(STI) && AdSize == X86II::AdSize16) ||
       (is64BitMode(STI) && AdSize == X86II::AdSize32)) {
