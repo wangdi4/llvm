@@ -1161,22 +1161,25 @@ void storeMaskValue(Value *MaskValue, Value *Ptr, unsigned VF,
   Builder.CreateStore(MaskToStore, Ptr);
 }
 
-// This function returns the widened GEP instruction that is used
-// as a pointer-operand in a load-store instruction. In the generated code, the
-// returned GEP is itself used as an operand of a Scatter/Gather function.
-
+// This function returns computed addresses of memory locations which should be
+// accessed in the vectorized code. These addresses, take the form of a GEP
+// instruction, and this GEP is used as pointer operand of the resulting
+// scatter/gather intrinsic.
 Value *VPOCodeGen::createWidenedGEPForScatterGather(Instruction *I) {
   assert((isa<LoadInst>(I) || isa<StoreInst>(I)) &&
          "Expect 'I' to be either a LoadInst or a StoreInst");
   Type *LSIType = getLoadStoreType(I);
-  unsigned OriginalVL = LSIType->getVectorNumElements();
-  Value *Ptr = getPointerOperand(I);
-  auto GEP = getGEPInstruction(Ptr);
-  // Get the already widened GEP
-  Value *VectorGEP = getVectorValue(GEP);
-  unsigned AddrSpace =
-      cast<PointerType>(VectorGEP->getType()->getVectorElementType())
-          ->getAddressSpace();
+
+  assert(
+      isa<VectorType>(LSIType) &&
+      "Expect the original type of Load/Store instruction to be a vector-type");
+
+  Value *BasePtr = getPointerOperand(I);
+
+  unsigned AddrSpace = cast<PointerType>(BasePtr->getType())->getAddressSpace();
+
+  // Vectorize BasePtr.
+  BasePtr = getVectorValue(BasePtr);
 
   // Cast the inner vector-type to it's elemental scalar type
   // e.g. - <VF x <OriginalVL x Ty> addrspace(x)*>
@@ -1184,8 +1187,8 @@ Value *VPOCodeGen::createWidenedGEPForScatterGather(Instruction *I) {
   //                          |
   //                          V
   //                <VF x Ty addrspace(x)*>
-  VectorGEP = Builder.CreateBitCast(
-      VectorGEP,
+  Value *TypeCastBasePtr = Builder.CreateBitCast(
+      BasePtr,
       VectorType::get(LSIType->getVectorElementType()->getPointerTo(AddrSpace),
                       VF));
   // Replicate the base-address OriginalVL times
@@ -1193,65 +1196,27 @@ Value *VPOCodeGen::createWidenedGEPForScatterGather(Instruction *I) {
   //                          |
   //                          |
   //                          V
-  //      < 0, 1, .., OriginalVL-1, ..., 0, 1, ..., OriginalVL>
-  VectorGEP =
-      replicateVectorElts(VectorGEP, OriginalVL, Builder, "vecBasePtr.");
-  SmallVector<Constant *, 8> Indices;
-  // Create a vector of consecutive numbers from zero to VF.
+  //      < 0, 1, .., OriginalVL-1, ..., 0, 1, ..., OriginalVL-1>
+
+  unsigned OriginalVL = LSIType->getVectorNumElements();
+  Value *VecBasePtr =
+      replicateVectorElts(TypeCastBasePtr, OriginalVL, Builder, "vecBasePtr.");
+
+  // Create a vector of consecutive numbers from zero to OriginalVL-1 repeated
+  // VF-times.
+  SmallVector<Constant *, 32> Indices;
   for (unsigned J = 0; J < VF; ++J)
-    for (unsigned I = 0; I < OriginalVL; ++I) {
+    for (unsigned I = 0; I < OriginalVL; ++I)
       Indices.push_back(
           ConstantInt::get(Type::getInt64Ty(LSIType->getContext()), I));
-    }
 
   // Add the consecutive indices to the vector value.
   Constant *Cv = ConstantVector::get(Indices);
 
   // Create a GEP that would return the address of each elements that is to be
-  // accessed
-  VectorGEP = Builder.CreateGEP(nullptr, VectorGEP, Cv, "elemBasePtr.");
-  return VectorGEP;
-}
-
-// This function returns the widened GEP instruction that is used
-// as a pointer-operand in a load-store Operation. This particular overload
-// handles the case where the original load/store instruction does not use a
-// pointer operand which is a result of a GEP-instruction, but rather a global
-// variable or something. In the generated code, the returned GEP is itself used
-// as an operand of a Scatter/Gather function.
-Value *VPOCodeGen::createWidenedGEPForScatterGather(Instruction *I, Value *Ptr) {
-  assert((isa<LoadInst>(I) || isa<StoreInst>(I)) &&
-         "Expect 'I' to be either a LoadInst or a StoreInst");
-  Value *BasePtr = getVectorValue(Ptr);
-  // Transform vector-of-pointers-to-vectors into vector-of-pointers-to-scalars
-  // For example <4 x <2 x i32>*> should be transformed to <4 x i32*> because
-  // the element type we are going to gather is i32.
-
-  Type *LSIType = getLoadStoreType(I);
-  assert(
-      isa<VectorType>(LSIType) &&
-      "Expect the original type of Load/Store instruction to be a vector-type");
-
-  unsigned OriginalVL = LSIType->getVectorNumElements();
-  Type *ScalarTy = LSIType->getVectorElementType();
-  unsigned AddrSpace = getLoadStoreAddressSpace(I);
-  Type *NewTypeOfBasePtr =
-      VectorType::get(PointerType::get(ScalarTy, AddrSpace), VF);
-  BasePtr = Builder.CreateBitCast(BasePtr, NewTypeOfBasePtr);
-
-  // Vectorized BasePtr looks like <ptr0, ptr1, ptr2, ptr3>.
-  // Replicate the vector OriginalVL times.
-  // If the OriginalVL is 2 it will look like:
-  // <ptr0, ptr1, ptr2, ptr3, ptr0, ptr1, ptr2, ptr3>
-  BasePtr = replicateVector(BasePtr, OriginalVL, Builder);
-  // Build constant indices, Example for VF=4, OriginalVL=2:
-  // <0, 0, 0, 0, 1, 1, 1, 1>
-  SmallVector<Constant *, 4> Indices;
-  for (unsigned j = 0; j < OriginalVL; ++j)
-    for (unsigned i = 0; i < VF; ++i)
-      Indices.push_back(Builder.getInt32(j));
-  Value *VecInd = ConstantVector::get(Indices);
-  return Builder.CreateGEP(BasePtr, VecInd, "mm_vectorGEP");
+  // accessed.
+  Value *WidenedVectorGEP = Builder.CreateGEP(VecBasePtr, Cv, "elemBasePtr.");
+  return WidenedVectorGEP;
 }
 
 // This function return an appropriate BasePtr for cases where we are dealing
@@ -1330,14 +1295,7 @@ void VPOCodeGen::widenVectorStore(StoreInst *SI) {
                            ? replicateVectorElts(MaskValue, OriginalVL, Builder,
                                                  "replicatedMaskVecElts.")
                            : nullptr;
-    Value *VectorGEP = nullptr;
-    auto GEP = getGEPInstruction(Ptr);
-    // SCATTER
-    if (GEP) {
-      VectorGEP = createWidenedGEPForScatterGather(SI);
-    } else {
-      VectorGEP = createWidenedGEPForScatterGather(SI, Ptr);
-    }
+    Value *VectorGEP = createWidenedGEPForScatterGather(SI);
     Builder.CreateMaskedScatter(VecDataOp, VectorGEP, Alignment, WidenMask);
   }
 }
@@ -1380,14 +1338,7 @@ void VPOCodeGen::widenVectorLoad(LoadInst *LI) {
                            ? replicateVectorElts(MaskValue, OriginalVL, Builder,
                                                  "replicatedMaskVecElts.")
                            : nullptr;
-    Value *VectorGEP = nullptr;
-    auto GEP = getGEPInstruction(Ptr);
-    if (GEP)
-      VectorGEP = createWidenedGEPForScatterGather(LI);
-    else
-      // No GEP
-      VectorGEP = createWidenedGEPForScatterGather(LI, Ptr);
-
+    Value *VectorGEP = createWidenedGEPForScatterGather(LI);
     NewLI = Builder.CreateMaskedGather(VectorGEP, Alignment, WidenMask, nullptr,
                                        "wide.masked.gather");
   }
