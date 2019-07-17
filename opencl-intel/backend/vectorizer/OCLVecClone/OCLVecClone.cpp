@@ -313,11 +313,89 @@ static void addEntries(ContainerTy &Info, std::string ScalarBaseName,
   addEntries(Info, ScalarBaseName, Types, std::move(Params), Masked);
 }
 
+static void addBlockReadWriteBuiltins(ContainerTy &Info) {
+  // Scalar -> [VF4, VF8, VF16]
+  using BuiltinInfo = std::pair<std::string, std::array<std::string, 3>>;
+
+  BuiltinInfo ReadBuiltins[] = {
+      {"_Z26intel_sub_group_block_readPU3AS1Kj",
+       {"_Z29intel_sub_group_block_read1_4PU3AS1Kj",
+        "_Z29intel_sub_group_block_read1_8PU3AS1Kj",
+        "_Z30intel_sub_group_block_read1_16PU3AS1Kj"}},
+      {"_Z27intel_sub_group_block_read2PU3AS1Kj",
+       {"_Z29intel_sub_group_block_read2_4PU3AS1Kj",
+        "_Z29intel_sub_group_block_read2_8PU3AS1Kj",
+        "_Z30intel_sub_group_block_read2_16PU3AS1Kj"}},
+      {"_Z27intel_sub_group_block_read4PU3AS1Kj",
+       {"_Z29intel_sub_group_block_read4_4PU3AS1Kj",
+        "_Z29intel_sub_group_block_read4_8PU3AS1Kj",
+        "_Z30intel_sub_group_block_read4_16PU3AS1Kj"}},
+      {"_Z27intel_sub_group_block_read8PU3AS1Kj",
+       {"_Z29intel_sub_group_block_read8_4PU3AS1Kj",
+        "_Z29intel_sub_group_block_read8_8PU3AS1Kj",
+        "_Z30intel_sub_group_block_read8_16PU3AS1Kj"}},
+  };
+  BuiltinInfo WriteBuiltins[] = {
+      {"_Z27intel_sub_group_block_writePU3AS1jj",
+       {"_Z30intel_sub_group_block_write1_4PU3AS1jDv4_j",
+        "_Z30intel_sub_group_block_write1_8PU3AS1jDv8_j",
+        "_Z31intel_sub_group_block_write1_16PU3AS1jDv16_j"}},
+      {"_Z28intel_sub_group_block_write2PU3AS1jDv2_j",
+       {"_Z30intel_sub_group_block_write2_4PU3AS1jDv8_j",
+        "_Z30intel_sub_group_block_write2_8PU3AS1jDv16_j",
+        "_Z31intel_sub_group_block_write2_16PU3AS1jDv32_j"}},
+      {"_Z28intel_sub_group_block_write4PU3AS1jDv4_j",
+       {"_Z30intel_sub_group_block_write4_4PU3AS1jDv16_j",
+        "_Z30intel_sub_group_block_write4_8PU3AS1jDv32_j",
+        "_Z31intel_sub_group_block_write4_16PU3AS1jDv64_j"}},
+      {"_Z28intel_sub_group_block_write8PU3AS1jDv8_j",
+       {"_Z30intel_sub_group_block_write8_4PU3AS1jDv32_j",
+        "_Z30intel_sub_group_block_write8_8PU3AS1jDv64_j",
+        "_Z31intel_sub_group_block_write8_16PU3AS1jDv128_j"}},
+  };
+
+
+  auto AddBuiltin = [&Info](BuiltinInfo &Builtin, std::vector<VectorKind> Params, unsigned VF,
+                                unsigned Idx) -> void {
+    Info.emplace_back(Builtin.first,
+                      VectorVariant{VectorVariant::ISAClass::XMM,
+                                    false /*Masked*/,
+                                    VF,
+                                    Params,
+                                    "", // Empty BaseName - does not matter
+                                    Builtin.second[Idx]});
+  };
+
+  auto AddReadBuiltin = [&AddBuiltin](BuiltinInfo &Builtin, unsigned VF,
+                                unsigned Idx) -> void {
+    AddBuiltin(Builtin, {VectorKind::uniform()}, VF, Idx);
+  };
+
+  for (auto &ReadBuiltin : ReadBuiltins) {
+    AddReadBuiltin(ReadBuiltin, 4, 0);
+    AddReadBuiltin(ReadBuiltin, 8, 1);
+    AddReadBuiltin(ReadBuiltin, 16, 2);
+  }
+
+  auto AddWriteBuiltin = [&AddBuiltin](BuiltinInfo &Builtin, unsigned VF,
+                                unsigned Idx) -> void {
+    AddBuiltin(Builtin, {VectorKind::uniform(), VectorKind::vector()}, VF, Idx);
+  };
+
+  for (auto &WriteBuiltin : WriteBuiltins) {
+    AddWriteBuiltin(WriteBuiltin, 4, 0);
+    AddWriteBuiltin(WriteBuiltin, 8, 1);
+    AddWriteBuiltin(WriteBuiltin, 16, 2);
+  }
+}
+
 static ContainerTy OCLBuiltinVecInfo() {
   ContainerTy Info;
 
   addEntries(Info, "_Z13sub_group_all", TypeInfo{'i'}, {VectorKind::vector()});
   addEntries(Info, "_Z13sub_group_any", TypeInfo{'i'}, {VectorKind::vector()});
+
+  addBlockReadWriteBuiltins(Info);
 
   TypeInfo Types[] = {{'i'}, {'j'}, {'l'}, {'m'}, {'f'}, {'d'}};
   for (TypeInfo &Type : Types) {
