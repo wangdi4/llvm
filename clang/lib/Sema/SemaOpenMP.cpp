@@ -5032,7 +5032,10 @@ public:
   bool VisitMemberExpr(const MemberExpr *E) {
     if (isa<CXXThisExpr>(E->getBase()->IgnoreParens())) {
       const ValueDecl *VD = E->getMemberDecl();
-      return checkDecl(E, VD);
+#if INTEL_CUSTOMIZATION
+      if (isa<VarDecl>(VD) || isa<FieldDecl>(VD))
+        return checkDecl(E, VD);
+#endif // INTEL_CUSTOMIZATION
     }
     return false;
   }
