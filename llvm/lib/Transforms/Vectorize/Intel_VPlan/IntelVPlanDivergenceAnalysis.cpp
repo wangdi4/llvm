@@ -1193,7 +1193,7 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
 
 #if INTEL_CUSTOMIZATION
   // Propagate linearity - start at vector loop candidate header phi nodes.
-  UndefShape = make_unique<VPVectorShape>(VPVectorShape::Undef);
+  UndefShape = llvm::make_unique<VPVectorShape>(VPVectorShape::Undef);
   initializeShapes(PhiNodes);
 #endif
 
