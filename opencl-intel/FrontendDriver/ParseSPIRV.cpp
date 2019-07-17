@@ -149,6 +149,7 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
       case spv::CapabilitySubgroupShuffleINTEL:
       case spv::CapabilitySubgroupBufferBlockIOINTEL:
       case spv::CapabilitySubgroupImageBlockIOINTEL:
+      case spv::CapabilityInt64Atomics:
         break;
       }
     // According to logical layout defined by the SPIR-V spec. single

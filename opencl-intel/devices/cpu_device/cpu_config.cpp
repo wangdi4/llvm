@@ -186,6 +186,8 @@ const char* CPUDeviceConfig::GetExtensions() const
         m_extensions += OCL_EXT_KHR_GLOBAL_EXTENDED_ATOMICS " ";
         m_extensions += OCL_EXT_KHR_LOCAL_BASE_ATOMICS " ";
         m_extensions += OCL_EXT_KHR_LOCAL_EXTENDED_ATOMICS " ";
+        m_extensions += OCL_EXT_KHR_INT64_BASE_ATOMICS " ";
+        m_extensions += OCL_EXT_KHR_INT64_EXTENDED_ATOMICS " ";
         m_extensions += OCL_EXT_KHR_BYTE_ADDRESSABLE_STORE " ";
 
         // KHR CPU execlusive extensions

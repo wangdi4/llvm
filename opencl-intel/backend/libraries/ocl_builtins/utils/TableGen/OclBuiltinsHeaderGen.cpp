@@ -85,8 +85,9 @@ typedef TypedBiList::const_iterator TypedBiIter;
         typedbiList.push_back( typedBi );
       }
     }
-    //enable double extentions in clang
-    std::string code;
+    //enable 64-bit atomic extentions in clang
+    std::string code = "#pragma OPENCL EXTENSION cl_khr_int64_base_atomics: enable\n"
+        "#pragma OPENCL EXTENSION cl_khr_int64_extended_atomics: enable\n";
     typedbiList.sort(isLess);
     TypedBiIter typeit, typee = typedbiList.end();
     OclBuiltinAttr IA = OclBuiltinAttr::CreateInilineAttribute();
