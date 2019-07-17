@@ -1023,7 +1023,7 @@ void VPlan::execute(VPTransformState *State) {
   State->CFG.PrevBB = VectorPreHeaderBB;
   State->CFG.LastBB = VectorLatchBB;
 
-  for (VPBlockBase *CurrentBlock = Entry; CurrentBlock != nullptr;
+  for (VPBlockBase *CurrentBlock = Entry.get(); CurrentBlock != nullptr;
        CurrentBlock = CurrentBlock->getSingleSuccessor()) {
     assert(CurrentBlock->getSuccessors().size() <= 1 &&
            "Multiple successors at top level.");
@@ -1132,7 +1132,7 @@ void VPlan::execute(VPTransformState *State) {
 
 #if INTEL_CUSTOMIZATION
 void VPlan::executeHIR(VPOCodeGenHIR *CG) {
-  assert(isa<VPRegionBlock>(Entry) && Entry->getNumPredecessors() == 0 &&
+  assert(isa<VPRegionBlock>(Entry.get()) && Entry->getNumPredecessors() == 0 &&
          Entry->getNumSuccessors() == 0 && "Invalid VPlan entry");
   CG->createAndMapLoopEntityRefs();
   Entry->executeHIR(CG);

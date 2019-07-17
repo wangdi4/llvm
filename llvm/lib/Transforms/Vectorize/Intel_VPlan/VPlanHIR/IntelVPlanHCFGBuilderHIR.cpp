@@ -255,8 +255,9 @@ private:
   /// VPLoopRegionHIR's later in the H-CFG construction process.
   SmallDenseMap<VPBasicBlock *, HLLoop *> &Header2HLLoop;
 
-  /// Output TopRegion.
-  VPRegionBlock *TopRegion = nullptr;
+  /// Output TopRegion. Owned during the PlainCFG build process, moved
+  // afterwards.
+  std::unique_ptr<VPRegionBlock> TopRegion;
   /// Number of VPBasicBlocks in TopRegion.
   unsigned TopRegionSize = 0;
 
@@ -308,7 +309,7 @@ public:
 
   /// Build a plain CFG for an HLLoop loop nest. Return the TopRegion containing
   /// the plain CFG.
-  VPRegionBlock *buildPlainCFG();
+  std::unique_ptr<VPRegionBlock> buildPlainCFG();
 
   /// Convert incoming loop entities to the VPlan format.
   void
@@ -326,7 +327,7 @@ VPBasicBlock *PlainCFGBuilderHIR::getOrCreateVPBB(HLNode *HNode) {
   auto createVPBB = [&]() -> VPBasicBlock * {
     VPBasicBlock *NewVPBB =
         new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
-    NewVPBB->setParent(TopRegion);
+    NewVPBB->setParent(TopRegion.get());
     ++TopRegionSize;
 
     return NewVPBB;
@@ -603,10 +604,10 @@ void PlainCFGBuilderHIR::visit(HLLabel *HLabel) {
   updateActiveVPBB(HLabel);
 }
 
-VPRegionBlock *PlainCFGBuilderHIR::buildPlainCFG() {
+std::unique_ptr<VPRegionBlock> PlainCFGBuilderHIR::buildPlainCFG() {
   // Create new TopRegion.
-  TopRegion = new VPRegionBlock(VPBlockBase::VPRegionBlockSC,
-                                VPlanUtils::createUniqueName("region"));
+  TopRegion = llvm::make_unique<VPRegionBlock>(
+      VPBlockBase::VPRegionBlockSC, VPlanUtils::createUniqueName("region"));
 
   // Create a dummy VPBB as TopRegion's Entry.
   assert(!ActiveVPBB && "ActiveVPBB must be null.");
@@ -628,7 +629,7 @@ VPRegionBlock *PlainCFGBuilderHIR::buildPlainCFG() {
   TopRegion->setExit(ActiveVPBB);
   TopRegion->setSize(TopRegionSize);
 
-  return TopRegion;
+  return std::move(TopRegion);
 }
 
 VPlanHCFGBuilderHIR::VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp,
@@ -1150,11 +1151,11 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
   CvtVec.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(IndCvt));
 }
 
-VPRegionBlock *
+std::unique_ptr<VPRegionBlock>
 VPlanHCFGBuilderHIR::buildPlainCFG(VPLoopEntityConverterList &CvtVec) {
   PlainCFGBuilderHIR PCFGBuilder(TheLoop, DDG, Plan, Header2HLLoop,
                                  HIRLegality);
-  VPRegionBlock *TopRegion = PCFGBuilder.buildPlainCFG();
+  std::unique_ptr<VPRegionBlock> TopRegion = PCFGBuilder.buildPlainCFG();
   if (LoopEntityImportEnabled)
     PCFGBuilder.convertEntityDescriptors(HIRLegality, CvtVec);
   return TopRegion;

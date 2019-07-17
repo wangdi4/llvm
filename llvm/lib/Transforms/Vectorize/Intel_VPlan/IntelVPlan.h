@@ -2688,7 +2688,7 @@ private:
 protected:
 #endif
   /// Hold the single entry to the Hierarchical CFG of the VPlan.
-  VPBlockBase *Entry;
+  std::unique_ptr<VPRegionBlock> Entry;
 
 #if INTEL_CUSTOMIZATION
   /// The IR instructions which are to be transformed to fill the vectorized
@@ -2748,14 +2748,13 @@ public:
   UniformsTy UniformCBVs;
 
   VPlan(std::shared_ptr<VPLoopAnalysisBase> VPLA, LLVMContext *Context,
-        const DataLayout *DL, VPBlockBase *Entry = nullptr)
-      : Context(Context), DL(DL), Entry(Entry), VPLA(VPLA) {}
-#endif
+        const DataLayout *DL)
+      : Context(Context), DL(DL), VPLA(VPLA) {}
+#else
   VPlan(VPBlockBase *Entry = nullptr) : Entry(Entry) {}
+#endif
 
   ~VPlan() {
-    if (Entry)
-      VPBlockBase::deleteCFG(Entry);
 #if !INTEL_CUSTOMIZATION
     for (auto &MapEntry : Value2VPValue)
       delete MapEntry.second;
@@ -2812,10 +2811,12 @@ public:
   }
 #endif // INTEL_CUSTOMIZATION
 
-  VPBlockBase *getEntry() { return Entry; }
-  const VPBlockBase *getEntry() const { return Entry; }
+  VPRegionBlock *getEntry() { return Entry.get(); }
+  const VPRegionBlock *getEntry() const { return Entry.get(); }
 
-  void setEntry(VPBlockBase *Block) { Entry = Block; }
+  void setEntry(std::unique_ptr<VPRegionBlock> Block) {
+    Entry = std::move(Block);
+  }
 
 #if INTEL_CUSTOMIZATION // Old interfaces. To be removed.
   void setInst2Recipe(Instruction *I, VPRecipeBase *R) { Inst2Recipe[I] = R; }

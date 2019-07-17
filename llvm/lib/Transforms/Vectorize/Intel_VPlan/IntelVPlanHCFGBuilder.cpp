@@ -1197,20 +1197,14 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
   VPLoopEntityConverterList CvtVec;
 
   // Build Top Region enclosing the plain CFG
-  VPRegionBlock *TopRegion = buildPlainCFG(CvtVec);
+  Plan->setEntry(buildPlainCFG(CvtVec));
+  VPRegionBlock *TopRegion = Plan->getEntry();
 
   // Collect divergence information
   collectUniforms(TopRegion);
 
-  // Set Top Region as VPlan Entry
-  Plan->setEntry(TopRegion);
   LLVM_DEBUG(Plan->setName("HCFGBuilder: Plain CFG\n"); dbgs() << *Plan);
-
-#if INTEL_CUSTOMIZATION
   LLVM_DEBUG(Verifier->verifyHierarchicalCFG(Plan, TopRegion));
-#else
-  LLVM_DEBUG(Verifier->verifyHierarchicalCFG(TopRegion));
-#endif
 
   // Compute dom tree for the plain CFG for VPLInfo. We don't need post-dom tree
   // at this point.
@@ -1458,8 +1452,9 @@ private:
   // TODO: This should be removed together with the UniformCBVs set.
   LoopVectorizationLegality *Legal;
 
-  // Output TopRegion.
-  VPRegionBlock *TopRegion = nullptr;
+  // Output TopRegion. Owned during the PlainCFG build process, moved
+  // afterwards.
+  std::unique_ptr<VPRegionBlock> TopRegion;
 
   // Number of VPBasicBlocks in TopRegion.
   unsigned TopRegionSize = 0;
@@ -1499,7 +1494,7 @@ public:
                   VPlan *Plan)
       : TheLoop(Lp), LI(LI), Legal(Legal), Plan(Plan) {}
 
-  VPRegionBlock *buildPlainCFG();
+  std::unique_ptr<VPRegionBlock> buildPlainCFG();
   void
   convertEntityDescriptors(LoopVectorizationLegality *Legal,
                            VPlanHCFGBuilder::VPLoopEntityConverterList &Cvts);
@@ -1903,7 +1898,7 @@ VPBasicBlock *PlainCFGBuilder::getOrCreateVPBB(BasicBlock *BB) {
     VPBB = new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
     BB2VPBB[BB] = VPBB;
     VPBB->setOriginalBB(BB);
-    VPBB->setParent(TopRegion);
+    VPBB->setParent(TopRegion.get());
     ++TopRegionSize;
   } else {
     // Retrieve existing VPBB
@@ -2063,10 +2058,10 @@ void PlainCFGBuilder::createVPInstructionsForVPBB(VPBasicBlock *VPBB,
   }
 }
 
-VPRegionBlock *PlainCFGBuilder::buildPlainCFG() {
+std::unique_ptr<VPRegionBlock> PlainCFGBuilder::buildPlainCFG() {
   // 1. Create the Top Region. It will be the parent of all VPBBs.
-  TopRegion = new VPRegionBlock(VPBlockBase::VPRegionBlockSC,
-                                VPlanUtils::createUniqueName("region"));
+  TopRegion = llvm::make_unique<VPRegionBlock>(
+      VPBlockBase::VPRegionBlockSC, VPlanUtils::createUniqueName("region"));
   TopRegionSize = 0;
 
   // 2. Scan the body of the loop in a topological order to visit each basic
@@ -2180,14 +2175,14 @@ VPRegionBlock *PlainCFGBuilder::buildPlainCFG() {
   VPBlockBase *RegionEntry =
       new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
   ++TopRegionSize;
-  RegionEntry->setParent(TopRegion);
+  RegionEntry->setParent(TopRegion.get());
   VPBlockUtils::connectBlocks(RegionEntry, PreheaderVPBB);
 
   // Create a dummy block as Top Region's exit
   VPBlockBase *RegionExit =
       new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
   ++TopRegionSize;
-  RegionExit->setParent(TopRegion);
+  RegionExit->setParent(TopRegion.get());
 
   // Connect dummy Top Region's exit.
   if (LoopExits.size() == 1) {
@@ -2201,7 +2196,7 @@ VPRegionBlock *PlainCFGBuilder::buildPlainCFG() {
     VPBlockBase *LandingPad =
         new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
     ++TopRegionSize;
-    LandingPad->setParent(TopRegion);
+    LandingPad->setParent(TopRegion.get());
 
     // Connect multiple exits to landing pad
     for (auto ExitBB : make_range(LoopExits.begin(), LoopExits.end())) {
@@ -2217,13 +2212,13 @@ VPRegionBlock *PlainCFGBuilder::buildPlainCFG() {
   TopRegion->setExit(RegionExit);
   TopRegion->setSize(TopRegionSize);
 
-  return TopRegion;
+  return std::move(TopRegion);
 }
 
-VPRegionBlock *
+std::unique_ptr<VPRegionBlock>
 VPlanHCFGBuilder::buildPlainCFG(VPLoopEntityConverterList &Cvts) {
   PlainCFGBuilder PCFGBuilder(TheLoop, LI, Legal, Plan);
-  VPRegionBlock *TopRegion = PCFGBuilder.buildPlainCFG();
+  std::unique_ptr<VPRegionBlock> TopRegion = PCFGBuilder.buildPlainCFG();
   // Converting loop enities.
   if (LoopEntityImportEnabled)
     PCFGBuilder.convertEntityDescriptors(Legal, Cvts);

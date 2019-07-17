@@ -85,7 +85,8 @@ protected:
   // of the new loop, so the old one can become dead.
   // SmallPtrSet<Instruction *, 4> DeadInstructions;
 
-  virtual VPRegionBlock *buildPlainCFG(VPLoopEntityConverterList &Cvts);
+  virtual std::unique_ptr<VPRegionBlock>
+  buildPlainCFG(VPLoopEntityConverterList &Cvts);
 
   virtual VPLoopRegion *createLoopRegion(VPLoop *VPLp) {
     assert(VPLp && "Expected a valid VPLoop.");
