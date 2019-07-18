@@ -29,3 +29,10 @@
 // RUN: %clang_cl -### -c /Qregcall %s 2>&1 | FileCheck -check-prefix CHECK-REGCALL %s
 // CHECK-REGCALL: "-fdefault-calling-conv=regcall"
 
+// Behavior with qopenmp/Qopenmp option
+// RUN: %clang -### -c -target x86_64-linux-gnu -qopenmp %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP %s
+// RUN: %clang_cl -### -c -target x86_64-windows-gnu /Qopenmp %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP %s
+// RUN: %clang -### -target x86_64-linux-gnu --intel -qopenmp %s -o %t 2>&1 | FileCheck %s -check-prefix CHECK-LD-IOMP5
+// CHECK-QOPENMP: "-fopenmp"
+// CHECK-LD-IOMP5: "-liomp5"
+

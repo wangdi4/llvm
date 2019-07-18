@@ -163,6 +163,8 @@ def _SLASH_Qipo : CLFlag<"Qipo">, Alias<flto>,
   HelpText<"Enable LTO in 'full' mode">;
 def _SLASH_Qipo_ : CLFlag<"Qipo-">, Alias<fno_lto>,
   HelpText<"Disable LTO mode (default)">;
+def _SLASH_Qopenmp : CLFlag<"Qopenmp">, Alias<fopenmp>,
+  HelpText<"Parse OpenMP pragmas and generate parallel code.">;
 #endif // INTEL_CUSTOMIZATION
 def _SLASH_QUESTION : CLFlag<"?">, Alias<help>,
   HelpText<"Display available options">;

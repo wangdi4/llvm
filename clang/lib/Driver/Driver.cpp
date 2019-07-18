@@ -592,7 +592,9 @@ Driver::OpenMPRuntimeKind Driver::getOpenMPRuntime(const ArgList &Args) const {
 
   const Arg *A = Args.getLastArg(options::OPT_fopenmp_EQ);
   if (A)
-    RuntimeName = A->getValue();
+      RuntimeName = A->getValue();
+  else if (Args.hasArg(options::OPT__intel))
+      RuntimeName = "libiomp5";
 
   auto RT = llvm::StringSwitch<OpenMPRuntimeKind>(RuntimeName)
                 .Case("libomp", OMPRT_OMP)

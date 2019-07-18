@@ -1598,6 +1598,10 @@ def foffload_static_lib_EQ : CommaJoined<["-"], "foffload-static-lib=">, Flags<[
 def fomit_frame_pointer : Flag<["-"], "fomit-frame-pointer">, Group<f_Group>;
 def fopenmp : Flag<["-"], "fopenmp">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>,
   HelpText<"Parse OpenMP pragmas and generate parallel code.">;
+#if INTEL_CUSTOMIZATION
+def qopenmp: Flag<["-"], "qopenmp">, Alias<fopenmp>,
+  HelpText<"Parse OpenMP pragmas and generate parallel code.">;
+#endif // INTEL_CUSTOMIZATION
 def fno_openmp : Flag<["-"], "fno-openmp">, Group<f_Group>, Flags<[NoArgumentUnused]>;
 def fopenmp_version_EQ : Joined<["-"], "fopenmp-version=">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>;
 def fopenmp_EQ : Joined<["-"], "fopenmp=">, Group<f_Group>;
