@@ -165,7 +165,7 @@ WholeProgramInfo::analyzeModule(Module &M, const TargetLibraryInfo &TLI,
 
   if (AssumeWholeProgram) {
     if (WholeProgramTrace)
-      errs() << "whole-program-assume is enabled ... \n";
+      dbgs() << "whole-program-assume is enabled ... \n";
 
     Result.WholeProgramSeen = true;
   }
@@ -286,49 +286,49 @@ bool WholeProgramInfo::resolveAllLibFunctions(Module &M,
     if (GA.hasLocalLinkage())
       continue;
     if (WholeProgramTrace)
-      errs() << GA.getName() << "  alias is not local\n";
+      dbgs() << GA.getName() << "  alias is not local\n";
     all_resolved &= false;
     unresolved_aliases_count++;
   }
 
   if (WholeProgramTrace) {
     if (main_def_seen_in_ir)
-      errs() << "  Main definition seen \n";
+      dbgs() << "  Main definition seen \n";
     else
-      errs() << "  Main definition not seen \n";
-    errs() << "  UNRESOLVED CALLSITES: " << UnresolvedCallsCount << "\n";
-    errs() << "  GLOBALS UNRESOLVED: " << unresolved_globals_count << "\n";
-    errs() << "  ALIASES UNRESOLVED: " << unresolved_aliases_count << "\n";
+      dbgs() << "  Main definition not seen \n";
+    dbgs() << "  UNRESOLVED CALLSITES: " << UnresolvedCallsCount << "\n";
+    dbgs() << "  GLOBALS UNRESOLVED: " << unresolved_globals_count << "\n";
+    dbgs() << "  ALIASES UNRESOLVED: " << unresolved_aliases_count << "\n";
 
     if (WholeProgramTraceLibFuncs) {
-      errs() << "  TOTAL LIBFUNCS: "
+      dbgs() << "  TOTAL LIBFUNCS: "
              << LibFuncsFound.size() + LibFuncsNotFound.size() << "\n";
-      errs() << "  LIBFUNCS FOUND: " << LibFuncsFound.size() << "\n";
+      dbgs() << "  LIBFUNCS FOUND: " << LibFuncsFound.size() << "\n";
       for (const Function *F : LibFuncsFound)
-        errs() << "      " << F->getName() << "\n";
+        dbgs() << "      " << F->getName() << "\n";
     }
 
-    errs() << "  LIBFUNCS NOT FOUND: " << LibFuncsNotFound.size() << "\n";
+    dbgs() << "  LIBFUNCS NOT FOUND: " << LibFuncsNotFound.size() << "\n";
     for (const Function *F : LibFuncsNotFound)
-      errs() << "      " << F->getName() << "\n";
+      dbgs() << "      " << F->getName() << "\n";
 
     // Print those symbols that are visible outside the LTO unit
-    errs() << "  VISIBLE OUTSIDE LTO: " << VisibleFunctions.size() << "\n";
+    dbgs() << "  VISIBLE OUTSIDE LTO: " << VisibleFunctions.size() << "\n";
     for (const Function *F : VisibleFunctions)
-      errs() << "      " << F->getName() << "\n";
+      dbgs() << "      " << F->getName() << "\n";
   }
 
   // Print only the libfuncs
   else if (WholeProgramTraceLibFuncs) {
-    errs() << "WHOLE-PROGRAM-ANALYSIS: LIBFUNCS TRACE\n\n";
-    errs() << "  TOTAL LIBFUNCS: "
+    dbgs() << "WHOLE-PROGRAM-ANALYSIS: LIBFUNCS TRACE\n\n";
+    dbgs() << "  TOTAL LIBFUNCS: "
            << LibFuncsFound.size() + LibFuncsNotFound.size() << "\n";
-    errs() << "  LIBFUNCS FOUND: " << LibFuncsFound.size() << "\n";
+    dbgs() << "  LIBFUNCS FOUND: " << LibFuncsFound.size() << "\n";
     for (const Function *F : LibFuncsFound)
-      errs() << "      " << F->getName() << "\n";
-    errs() << "  LIBFUNCS NOT FOUND: " << LibFuncsNotFound.size() << "\n";
+      dbgs() << "      " << F->getName() << "\n";
+    dbgs() << "  LIBFUNCS NOT FOUND: " << LibFuncsNotFound.size() << "\n";
     for (const Function *F : LibFuncsNotFound)
-      errs() << "      " << F->getName() << "\n";
+      dbgs() << "      " << F->getName() << "\n";
   }
 
   // Check for all_resolved if WholeProgramAssert is true.
@@ -448,7 +448,7 @@ void WholeProgramInfo::computeFunctionsVisibility(Module &M,
 void WholeProgramInfo::wholeProgramAllExternsAreIntrins(Module &M,
                                             const TargetLibraryInfo &TLI) {
     if (WholeProgramTrace)
-      errs() << "\nWHOLE-PROGRAM-ANALYSIS: SIMPLE ANALYSIS\n\n";
+      dbgs() << "\nWHOLE-PROGRAM-ANALYSIS: SIMPLE ANALYSIS\n\n";
 
     // Compute if all functions are internal
     computeFunctionsVisibility(M, TLI);
@@ -457,35 +457,35 @@ void WholeProgramInfo::wholeProgramAllExternsAreIntrins(Module &M,
     if (resolved) {
       WholeProgramSeen = true;
       if (WholeProgramTrace)
-        errs() <<  "  WHOLE PROGRAM DETECTED \n";
+        dbgs() <<  "  WHOLE PROGRAM DETECTED \n";
     }
     else {
       if (WholeProgramTrace)
-        errs() <<  "  WHOLE PROGRAM NOT DETECTED \n";
+        dbgs() <<  "  WHOLE PROGRAM NOT DETECTED \n";
     }
 
     WholeProgramSafe = isWholeProgramSeen() && isWholeProgramRead()
                        && isLinkedAsExecutable();
     if (WholeProgramTrace) {
       if (WholeProgramSafe) {
-        errs() <<  "  WHOLE PROGRAM SAFE is determined\n";
+        dbgs() <<  "  WHOLE PROGRAM SAFE is determined\n";
       } else {
-        errs() <<  "  WHOLE PROGRAM SAFE is *NOT* determined:\n";
+        dbgs() <<  "  WHOLE PROGRAM SAFE is *NOT* determined:\n";
         if (!isWholeProgramSeen())
-          errs() <<  "    whole program not seen;\n";
+          dbgs() <<  "    whole program not seen;\n";
         if (!isWholeProgramRead())
-          errs() <<  "    whole program not read;\n";
+          dbgs() <<  "    whole program not read;\n";
         if (!isLinkedAsExecutable())
-          errs() <<  "    not linking an executable;\n";
+          dbgs() <<  "    not linking an executable;\n";
       }
     }
 
     if (WholeProgramTraceSymbols && !WholeProgramTrace) {
-      errs() <<"WHOLE-PROGRAM-ANALYSIS: EXTERNAL FUNCTIONS TRACE\n";
-      errs() << "  VISIBLE OUTSIDE LTO: " << VisibleFunctions.size() << "\n";
+      dbgs() <<"WHOLE-PROGRAM-ANALYSIS: EXTERNAL FUNCTIONS TRACE\n";
+      dbgs() << "  VISIBLE OUTSIDE LTO: " << VisibleFunctions.size() << "\n";
       if (WholeProgramTraceSymbols)
         for (const Function *F : VisibleFunctions)
-          errs() << "      " << F->getName() << "\n";
+          dbgs() << "      " << F->getName() << "\n";
     }
 }
 
@@ -508,13 +508,13 @@ void WholeProgramInfo::computeIsAdvancedOptEnabled(Module &M,
   if (WholeProgramAdvanceOptTrace) {
     auto &Enabled = IsAdvancedOptEnabled;
     if (Enabled[TargetTransformInfo::AdvancedOptLevel::AO_TargetHasSSE42])
-      errs() << "Target has SSE42\n";
+      dbgs() << "Target has SSE42\n";
     if (Enabled[TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX])
-      errs() << "Target has AVX\n";
+      dbgs() << "Target has AVX\n";
     if (Enabled[TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2])
-      errs() << "Target has AVX2\n";
+      dbgs() << "Target has AVX2\n";
     if (Enabled[TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX512])
-      errs() << "Target has AVX512\n";
+      dbgs() << "Target has AVX512\n";
   }
 }
 
