@@ -5,9 +5,6 @@
 // REQUIRES: clang-driver
 // REQUIRES: x86-registered-target
 
-// Mark this test as expected fail in initial merge of SYCL to xmain
-// XFAIL: *
-
 /// ###########################################################################
 
 /// Check whether an invalid SYCL target is specified:
@@ -101,7 +98,7 @@
 // CHK-PHASES: 12: assembler, {11}, object, (device-sycl)
 // CHK-PHASES: 13: linker, {12}, image, (device-sycl)
 // CHK-PHASES: 14: clang-offload-wrapper, {13}, object, (device-sycl)
-// CHK-PHASES: 15: offload, "host-sycl (x86_64-unknown-linux-gnu)" {9}, "device-sycl (spir64-unknown-linux-sycldevice)" {14}, image
+// CHK-PHASES: 15: offload, "host-sycl (x86_64-unknown-linux-gnu)" {9}, "device-sycl (spir64-unknown-{{linux|windows}}-sycldevice)" {14}, image
 
 /// ###########################################################################
 
@@ -293,7 +290,7 @@
 // CHK-LINK-UB: 1: clang-offload-unbundler, {0}, object
 // CHK-LINK-UB: 2: linker, {1}, image, (device-sycl)
 // CHK-LINK-UB: 3: clang-offload-wrapper, {2}, object, (device-sycl)
-// CHK-LINK-UB: 4: offload, "device-sycl (spir64-unknown-linux-sycldevice)" {3}, object
+// CHK-LINK-UB: 4: offload, "device-sycl (spir64-unknown-{{linux|windows}}-sycldevice)" {3}, object
 
 /// ###########################################################################
 
@@ -307,7 +304,7 @@
 // CHK-LINK: 4: assembler, {3}, object, (device-sycl)
 // CHK-LINK: 5: linker, {4}, image, (device-sycl)
 // CHK-LINK: 6: clang-offload-wrapper, {5}, object, (device-sycl)
-// CHK-LINK: 7: offload, "device-sycl (spir64-unknown-linux-sycldevice)" {6}, object
+// CHK-LINK: 7: offload, "device-sycl (spir64-unknown-{{linux|windows}}-sycldevice)" {6}, object
 
 /// ###########################################################################
 
@@ -320,7 +317,7 @@
 // CHK-ADD-TARGETS-UB: 2: linker, {1}, image, (host-sycl)
 // CHK-ADD-TARGETS-UB: 3: input, "dummy.spv", sycl-fatbin, (device-sycl)
 // CHK-ADD-TARGETS-UB: 4: clang-offload-wrapper, {3}, object, (device-sycl)
-// CHK-ADD-TARGETS-UB: 5: offload, "host-sycl (x86_64-unknown-linux-gnu)" {2}, "device-sycl (spir64-unknown-linux-sycldevice)" {4}, image
+// CHK-ADD-TARGETS-UB: 5: offload, "host-sycl (x86_64-unknown-linux-gnu)" {2}, "device-sycl (spir64-unknown-{{linux|windows}}-sycldevice)" {4}, image
 
 /// ###########################################################################
 
@@ -364,7 +361,7 @@
 // FOFFLOAD_STATIC_LIB_SRC: 2: input, "[[INPUT]]", c, (device-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 3: preprocessor, {2}, cpp-output, (device-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 4: compiler, {3}, sycl-header, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 5: offload, "host-sycl (x86_64-unknown-linux-gnu)" {1}, "device-sycl (spir64-unknown-linux-sycldevice)" {4}, cpp-output
+// FOFFLOAD_STATIC_LIB_SRC: 5: offload, "host-sycl (x86_64-{{unknown-linux-gnu|pc-windows-msvc}})" {1}, "device-sycl (spir64-unknown-{{linux|windows}}-sycldevice)" {4}, cpp-output
 // FOFFLOAD_STATIC_LIB_SRC: 6: compiler, {5}, ir, (host-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 7: backend, {6}, assembler, (host-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 8: assembler, {7}, object, (host-sycl)
@@ -375,7 +372,7 @@
 // FOFFLOAD_STATIC_LIB_SRC: 13: assembler, {12}, object, (device-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 14: linker, {13, 9}, image, (device-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 15: clang-offload-wrapper, {14}, object, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 16: offload, "host-sycl (x86_64-unknown-linux-gnu)" {10}, "device-sycl (spir64-unknown-linux-sycldevice)" {15}, image
+// FOFFLOAD_STATIC_LIB_SRC: 16: offload, "host-sycl (x86_64-{{unknown-linux-gnu|pc-windows-msvc}})" {10}, "device-sycl (spir64-unknown-{{linux|windows}}-sycldevice)" {15}, image
 
 /// ###########################################################################
 
@@ -394,4 +391,4 @@
 // FOFFLOAD_STATIC_LIB_SRC3: ld{{(.exe)?}}" "-r" "-o" {{.*}} "[[INPUT:.+\.a]]"
 // FOFFLOAD_STATIC_LIB_SRC3: clang-offload-bundler{{.*}} "-type=oo"
 // FOFFLOAD_STATIC_LIB_SRC3: llvm-link{{.*}} "@{{.*}}"
-// FOFFLOAD_STATIC_LIB_SRC3: ld{{(.exe)?}}" {{.*}} "-o" "output_name" {{.*}} "-lOpenCL"
+// FOFFLOAD_STATIC_LIB_SRC3: {{ld|link}}{{(.exe)?}}" {{.*}}{{"-o" "output_name"|"-out:output_name"}} {{.*}}{{"-lOpenCL"|"OpenCL.lib"}}
