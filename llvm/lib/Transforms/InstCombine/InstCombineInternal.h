@@ -61,6 +61,7 @@ class LoopInfo;
 class OptimizationRemarkEmitter;
 class ProfileSummaryInfo;
 class TargetLibraryInfo;
+class TargetTransformInfo; // INTEL
 class User;
 
 /// Assign a complexity or rank value to LLVM Values. This is used to reduce
@@ -274,6 +275,7 @@ private:
   // Required analyses.
   AssumptionCache &AC;
   TargetLibraryInfo &TLI;
+  TargetTransformInfo &TTI; // INTEL
   DominatorTree &DT;
   const DataLayout &DL;
   const SimplifyQuery SQ;
@@ -292,14 +294,15 @@ public:
                bool MinimizeSize, bool ExpensiveCombines,  // INTEL
                bool TypeLoweringOpts,                      // INTEL
                AliasAnalysis *AA,                          // INTEL
-               AssumptionCache &AC, TargetLibraryInfo &TLI, DominatorTree &DT,
+               AssumptionCache &AC, TargetLibraryInfo &TLI,// INTEL
+               TargetTransformInfo &TTI, DominatorTree &DT,// INTEL
                OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
                ProfileSummaryInfo *PSI, const DataLayout &DL, LoopInfo *LI)
       : Worklist(Worklist), Builder(Builder), MinimizeSize(MinimizeSize),
         ExpensiveCombines(ExpensiveCombines),          // INTEL
         TypeLoweringOpts(TypeLoweringOpts),            // INTEL
         AA(AA), AC(AC), TLI(TLI),                      // INTEL
-        DT(DT), DL(DL), SQ(DL, &TLI, &DT, &AC),        // INTEL
+        TTI(TTI), DT(DT), DL(DL), SQ(DL, &TLI, &DT, &AC), // INTEL
         ORE(ORE), BFI(BFI), PSI(PSI), LI(LI) {}        // INTEL
 
   /// Run the combiner over the entire worklist until it is empty.
@@ -316,6 +319,8 @@ public:
   LoopInfo *getLoopInfo() const { return LI; }
 
   TargetLibraryInfo &getTargetLibraryInfo() const { return TLI; }
+
+  TargetTransformInfo &getTargetTransformInfo() const { return TTI; } // INTEL
 
   // Visitation implementation - Implement instruction combining for different
   // instruction types.  The semantics are as follows:

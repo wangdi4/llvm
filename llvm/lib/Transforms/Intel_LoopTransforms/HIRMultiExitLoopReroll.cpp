@@ -291,8 +291,15 @@ static PHINode *getMergePhi(const HLGoto *Goto, unsigned Symbase) {
     SinglePhi = &Phi;
   }
 
-  if (!SinglePhi || (SinglePhi->getNumOperands() != 1) ||
-      !SinglePhi->hasOneUse()) {
+  if (!SinglePhi) {
+    return nullptr;
+  }
+
+  if (SinglePhi->getNumOperands() != 1) {
+    return SinglePhi;
+  }
+
+  if (!SinglePhi->hasOneUse()) {
     return nullptr;
   }
 

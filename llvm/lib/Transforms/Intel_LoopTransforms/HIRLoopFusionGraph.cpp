@@ -237,54 +237,54 @@ static unsigned areLoopsFusibleWithCommonTC(const HLLoop *Loop1,
   return CommonTC;
 }
 
-static bool hasUnknownMemoryAccess(HIRLoopStatistics &HLS, const HLLoop *Loop) {
-  return HLS.getTotalLoopStatistics(Loop).hasCallsWithUnknownMemoryAccess();
+static bool hasUnsafeSideEffects(HIRLoopStatistics &HLS, const HLLoop *Loop) {
+  return HLS.getTotalLoopStatistics(Loop).hasCallsWithUnsafeSideEffects();
 }
 
-struct UnknownMemoryAccessDetector : HLNodeVisitorBase {
+struct UnsafeSideEffectsDetector : HLNodeVisitorBase {
   HIRLoopStatistics &HLS;
-  bool HasUnknownMemoryAccess;
+  bool HasUnsafeSideEffects;
   const HLNode *SkipNode;
 
-  UnknownMemoryAccessDetector(HIRLoopStatistics &HLS)
-      : HLS(HLS), HasUnknownMemoryAccess(false), SkipNode(nullptr) {}
+  UnsafeSideEffectsDetector(HIRLoopStatistics &HLS)
+      : HLS(HLS), HasUnsafeSideEffects(false), SkipNode(nullptr) {}
 
   void visit(const HLNode *) {}
   void postVisit(const HLNode *) {}
 
   void visit(const HLInst *Inst) {
-    assert(!HasUnknownMemoryAccess && "Unknown memory access is already found");
-    HasUnknownMemoryAccess = Inst->isUnknownMemoryAccessCallInst();
+    assert(!HasUnsafeSideEffects && "Unsafe side effects already found");
+    HasUnsafeSideEffects = Inst->isUnsafeSideEffectsCallInst();
   }
 
   void visit(const HLLoop *Loop) {
-    assert(!HasUnknownMemoryAccess && "Unknown memory access is already found");
-    HasUnknownMemoryAccess = hasUnknownMemoryAccess(HLS, Loop);
+    assert(!HasUnsafeSideEffects && "Unsafe side effects already found");
+    HasUnsafeSideEffects = hasUnsafeSideEffects(HLS, Loop);
     SkipNode = Loop;
   }
 
   bool skipRecursion(const HLNode *Node) const { return SkipNode == Node; }
 
-  bool isDone() const { return HasUnknownMemoryAccess; }
+  bool isDone() const { return HasUnsafeSideEffects; }
 };
 
-static bool hasUnknownMemoryAccess(HIRLoopStatistics &HLS, HLNode *Node) {
+static bool hasUnsafeSideEffects(HIRLoopStatistics &HLS, HLNode *Node) {
   assert(!isa<HLLoop>(Node) && "Use call with an explicit HLLoop node type");
 
-  UnknownMemoryAccessDetector V(HLS);
+  UnsafeSideEffectsDetector V(HLS);
   HLNodeUtils::visit(V, Node);
 
-  return V.HasUnknownMemoryAccess;
+  return V.HasUnsafeSideEffects;
 }
 
-FuseNode::FuseNode(HLLoop *Loop, bool HasUnknownMemoryAccess)
-    : HasUnknownMemoryAccess(HasUnknownMemoryAccess) {
+FuseNode::FuseNode(HLLoop *Loop, bool HasUnsafeSideEffects)
+    : HasUnsafeSideEffects(HasUnsafeSideEffects) {
   assert(isGoodLoop(Loop) && "Can not create a good node from a bad loop.");
   LoopsVector.push_back(Loop);
 }
 
-FuseNode::FuseNode(HLNode *BadNode, bool HasUnknownMemoryAccess)
-    : BadNode(BadNode), HasUnknownMemoryAccess(HasUnknownMemoryAccess) {}
+FuseNode::FuseNode(HLNode *BadNode, bool HasUnsafeSideEffects)
+    : BadNode(BadNode), HasUnsafeSideEffects(HasUnsafeSideEffects) {}
 
 void FuseNode::print(raw_ostream &OS) const {
   OS << "{ ";
@@ -315,8 +315,7 @@ unsigned FuseNode::getTopSortNumber() const {
 
 void FuseNode::merge(const FuseNode &Node) {
   loops().append(Node.loops().begin(), Node.loops().end());
-  HasUnknownMemoryAccess =
-      HasUnknownMemoryAccess || Node.HasUnknownMemoryAccess;
+  HasUnsafeSideEffects = HasUnsafeSideEffects || Node.HasUnsafeSideEffects;
 }
 
 HLNode *FuseNode::getHLNode() const {
@@ -363,13 +362,13 @@ unsigned FuseGraph::createFuseNode(GraphNodeMapTy &Map, HLNode *Node) {
 
   HLLoop *Loop = dyn_cast<HLLoop>(Node);
 
-  bool HasUnknownMemoryAccess = Loop ? hasUnknownMemoryAccess(HLS, Loop)
-                                     : hasUnknownMemoryAccess(HLS, Node);
+  bool HasUnsafeSideEffects =
+      Loop ? hasUnsafeSideEffects(HLS, Loop) : hasUnsafeSideEffects(HLS, Node);
 
   if (Loop && isGoodLoop(Loop)) {
-    Vertex.emplace_back(Loop, HasUnknownMemoryAccess);
+    Vertex.emplace_back(Loop, HasUnsafeSideEffects);
   } else {
-    Vertex.emplace_back(Node, HasUnknownMemoryAccess);
+    Vertex.emplace_back(Node, HasUnsafeSideEffects);
   }
 
   FuseNumber = Vertex.size();
@@ -392,7 +391,7 @@ unsigned FuseGraph::areFusibleWithCommonTC(FusibleCacheTy &Cache,
 
     bool MayBeFused =
         Node1.isGoodNode() && Node2.isGoodNode() &&
-        (!Node1.hasUnknownMemoryAccess() || !Node2.hasUnknownMemoryAccess());
+        (!Node1.hasUnsafeSideEffects() || !Node2.hasUnsafeSideEffects());
 
     if (MayBeFused) {
       CommonTC =
@@ -920,16 +919,16 @@ void FuseGraph::constructFuseNodes(GraphNodeMapTy &GraphNodeMap,
   }
 }
 
-void FuseGraph::constructUnknownMemoryAccessChains() {
-  constructUnknownMemoryAccessChainsOneWay(Vertex.begin(), Vertex.end());
-  constructUnknownMemoryAccessChainsOneWay(Vertex.rbegin(), Vertex.rend());
+void FuseGraph::constructUnsafeSideEffectsChains() {
+  constructUnsafeSideEffectsChainsOneWay(Vertex.begin(), Vertex.end());
+  constructUnsafeSideEffectsChainsOneWay(Vertex.rbegin(), Vertex.rend());
 }
 
 template <typename Iter>
-void FuseGraph::constructUnknownMemoryAccessChainsOneWay(Iter Begin, Iter End) {
+void FuseGraph::constructUnsafeSideEffectsChainsOneWay(Iter Begin, Iter End) {
   // Set to one past end element.
   auto FirstUMANode = std::find_if(Begin, End, [](const FuseNode &Node) {
-    return Node.hasUnknownMemoryAccess();
+    return Node.hasUnsafeSideEffects();
   });
 
   // Connect UMANode to every node after it but before next UMA node.
@@ -947,7 +946,7 @@ void FuseGraph::constructUnknownMemoryAccessChainsOneWay(Iter Begin, Iter End) {
       // This will create fake dependency to prevent reordering.
       getOrCreateFuseEdge(Src, Dst).IsBadEdge = true;
 
-      if (NodeJ->hasUnknownMemoryAccess()) {
+      if (NodeJ->hasUnsafeSideEffects()) {
         break;
       }
     }
@@ -1212,7 +1211,7 @@ FuseGraph::FuseGraph(HIRDDAnalysis &DDA, HIRLoopStatistics &HLS, DDGraph DDG,
 
   constructFuseNodes(GraphNodeMap, Children);
 
-  constructUnknownMemoryAccessChains();
+  constructUnsafeSideEffectsChains();
 
   constructDirectedEdges(DDG, GraphNodeMap, FusibleCache, ParentNode, Children,
                          RValNodePairs);

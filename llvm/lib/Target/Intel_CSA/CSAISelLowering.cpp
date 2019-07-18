@@ -1779,7 +1779,8 @@ void CSATargetLowering::AdjustInstrPostInstrSelection(MachineInstr &MI,
     unsigned last_reg = 0;
     for (unsigned op_ind = 0; op_ind < II.getNumOperands(); ++op_ind) {
       MachineOperand &mi_op        = MI.getOperand(op_ind);
-      const unsigned next_last_reg = mi_op.isReg() ? mi_op.getReg() : 0;
+      const unsigned next_last_reg =
+          mi_op.isReg() ? mi_op.getReg() : Register();
       overwrite_operand(mi_op, Node->getOperand(op_ind), last_reg,
                         op_ind < II.getNumDefs());
       last_reg = next_last_reg;

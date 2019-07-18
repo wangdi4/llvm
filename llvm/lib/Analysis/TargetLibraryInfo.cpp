@@ -346,7 +346,10 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_mkdir);
     TLI.setUnavailable(LibFunc_ntohl);
     TLI.setUnavailable(LibFunc_ntohs);
-    TLI.setUnavailable(LibFunc_open);
+#if INTEL_CUSTOMIZATION
+    // This function should be available on Windows.
+    //TLI.setUnavailable(LibFunc_open);
+#endif // INTEL_CUSTOMIZATION
     TLI.setUnavailable(LibFunc_opendir);
     TLI.setUnavailable(LibFunc_pclose);
     TLI.setUnavailable(LibFunc_popen);
@@ -365,7 +368,10 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_strncasecmp);
     TLI.setUnavailable(LibFunc_times);
     TLI.setUnavailable(LibFunc_uname);
-    TLI.setUnavailable(LibFunc_unlink);
+#if INTEL_CUSTOMIZATION
+    // Commented unlink since it is going to be used in Windows
+    // TLI.setUnavailable(LibFunc_unlink);
+#endif // INTEL_CUSTOMIZATION
     TLI.setUnavailable(LibFunc_unsetenv);
     TLI.setUnavailable(LibFunc_utime);
     TLI.setUnavailable(LibFunc_utimes);
@@ -381,8 +387,6 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_asprintf);
     TLI.setUnavailable(LibFunc_backtrace);
     TLI.setUnavailable(LibFunc_backtrace_symbols);
-    TLI.setUnavailable(LibFunc_chdir);
-    TLI.setUnavailable(LibFunc_close);
     TLI.setUnavailable(LibFunc_dup);
     TLI.setUnavailable(LibFunc_dup2);
     TLI.setUnavailable(LibFunc_error);
@@ -780,6 +784,8 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
   if (!T.isOSWindows()) {
     TLI.setUnavailable(LibFunc_acrt_iob_func);
     TLI.setUnavailable(LibFunc_atexit);
+    TLI.setUnavailable(LibFunc_dunder_CxxFrameHandler3);
+    TLI.setUnavailable(LibFunc_dunder_std_terminate);
     TLI.setUnavailable(LibFunc_islower);
     TLI.setUnavailable(LibFunc_local_stdio_printf_options);
     TLI.setUnavailable(LibFunc_local_stdio_scanf_options);
@@ -800,8 +806,13 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_stdio_common_vsscanf);
     TLI.setUnavailable(LibFunc_std_exception_copy);
     TLI.setUnavailable(LibFunc_std_exception_destroy);
+    TLI.setUnavailable(LibFunc_under_errno);
     TLI.setUnavailable(LibFunc_under_invalid_parameter_noinfo_noreturn);
+    TLI.setUnavailable(LibFunc_under_difftime64);
+    TLI.setUnavailable(LibFunc_under_getcwd);
+    TLI.setUnavailable(LibFunc_under_purecall);
     TLI.setUnavailable(LibFunc_under_stat64i32);
+    TLI.setUnavailable(LibFunc_under_time64);
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -2097,10 +2108,29 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
     return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy());
 
+  case LibFunc_dunder_CxxFrameHandler3:
+    return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
+
+  case LibFunc_dunder_std_terminate:
+    return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
+
   case LibFunc_sysv_signal:
     return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isIntegerTy() &&
             FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_under_errno:
+    return (NumParams == 0 && FTy.getReturnType()->isPointerTy());
+
+  case LibFunc_under_difftime64:
+    return (NumParams == 2 && FTy.getReturnType()->isDoubleTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_under_getcwd:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
 
   case LibFunc_under_exit:
     return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
@@ -2109,10 +2139,17 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_under_invalid_parameter_noinfo_noreturn:
     return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
 
+  case LibFunc_under_purecall:
+    return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
+
   case LibFunc_under_stat64i32:
     return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_under_time64:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy());
 
   case LibFunc_obstack_begin:
     return (NumParams == 5 && FTy.getReturnType()->isIntegerTy() &&

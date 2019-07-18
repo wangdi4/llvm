@@ -736,7 +736,8 @@ bool HIRSCCFormation::hasLoopLiveoutUseInSCC(const Instruction *Inst,
   return false;
 }
 
-bool HIRSCCFormation::isValidSCCRootNode(const NodeTy *Root) const {
+bool HIRSCCFormation::isValidSCCRootNode(const NodeTy *Root,
+                                         const SCC &CurSCC) const {
 
   if (!Root->getType()->isIntegerTy()) {
     return true;
@@ -761,16 +762,38 @@ bool HIRSCCFormation::isValidSCCRootNode(const NodeTy *Root) const {
     return false;
   }
 
-  // Do not form SCCs where root nodes have range info. This allows
-  // ScalarEvolution to optimize closed form expressions. For example if a 32
-  // bit value is within i8 range [0,256), zext.i8.i32(trunc.i32.i8(t)) can be
-  // simplified to t. This is problematic for parser which wants to substitute
-  // all occurences of temps in the SCC with the base/root temp. If such
-  // simplification occurs during substitution, we will form incorrect HIR.
-  // TODO: refine this logic?
-  if (!SE.getUnsignedRange(SC).isFullSet() ||
-      !SE.getSignedRange(SC).isFullSet()) {
-    return false;
+  // Do not form SCCs where root nodes have range info which doesn't match other
+  // nodes' range info. This allows ScalarEvolution to optimize closed form
+  // expressions. For example if a 32 bit value is within i8 range [0,256),
+  // zext.i8.i32(trunc.i32.i8(t)) can be simplified to t. This is problematic
+  // for parser which wants to substitute all occurences of temps in the SCC
+  // with the base/root temp. If such simplification occurs during substitution,
+  // we will form incorrect HIR.
+  //
+  // TODO: This seems like an artificial limitation. Can we get rid of it by
+  // creating new temps like we do in HLNodeUtils::createTemp() during SSA
+  // deconstruction?
+
+  auto UnsignedRange = SE.getUnsignedRange(SC);
+
+  if (!UnsignedRange.isFullSet()) {
+    for (auto *Node : CurSCC) {
+      if (Node != Root &&
+          (SE.getUnsignedRange(SE.getSCEV(Node)) != UnsignedRange)) {
+        return false;
+      }
+    }
+  }
+
+  auto SignedRange = SE.getSignedRange(SC);
+
+  if (!SignedRange.isFullSet()) {
+    for (auto *Node : CurSCC) {
+      if (Node != Root &&
+          (SE.getSignedRange(SE.getSCEV(Node)) != SignedRange)) {
+        return false;
+      }
+    }
   }
 
   return true;
@@ -780,7 +803,7 @@ bool HIRSCCFormation::isValidSCC(const SCC &CurSCC) const {
   SmallPtrSet<BasicBlock *, 12> BBlocks;
   auto Root = CurSCC.getRoot();
 
-  if (!isValidSCCRootNode(Root)) {
+  if (!isValidSCCRootNode(Root, CurSCC)) {
     return false;
   }
 

@@ -196,6 +196,8 @@ public:
       LinkedVPValues.push_back(Val);
   }
 
+  virtual void getAliases(SmallVectorImpl<VPValue *> &Aliases) {}
+
 protected:
   // No need for public constructor.
   explicit VPLoopEntity(unsigned char Id, bool IsMem)
@@ -342,15 +344,26 @@ class VPPrivate : public VPLoopEntity {
   // The assignment instruction.
   VPInstruction *FinalInst;
 
+  // Aliases associated with a pointer
+  DenseSet<VPValue *> Aliases;
+
 public:
-  VPPrivate(VPInstruction *FinalI, bool Conditional, bool Last, bool Explicit,
-            bool IsMemOnly = false)
+  VPPrivate(VPInstruction *FinalI, DenseSet<VPValue *> &&InAliases,
+            bool Conditional, bool Last, bool Explicit, bool IsMemOnly = false)
       : VPLoopEntity(Private, IsMemOnly), IsConditional(Conditional),
-        IsLast(Last), IsExplicit(Explicit), FinalInst(FinalI) {}
+        IsLast(Last), IsExplicit(Explicit), FinalInst(FinalI),
+        Aliases(std::move(InAliases)) {}
 
   bool isConditional() const { return IsConditional; }
   bool isLast() const { return IsLast; }
   bool isExplicit() const { return IsExplicit; }
+  // TODO: Replace the deep-copying of Aliases with code that returns a
+  // reference to Aliases. This would be done when we have identified the need
+  // of 'aliases' for all other VP*
+  void getAliases(SmallVectorImpl<VPValue *> &AliasesVec) override {
+    for (auto *Val : Aliases)
+      AliasesVec.push_back(Val);
+  }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPLoopEntity *V) {
@@ -366,7 +379,11 @@ public:
 /// field.
 class VPLoopEntityMemoryDescriptor {
 public:
-  VPLoopEntityMemoryDescriptor(VPValue *AllocaInst) : MemoryPtr(AllocaInst) {}
+  VPLoopEntityMemoryDescriptor(VPLoopEntity *LoopEn, VPValue *AllocaInst)
+      : LE(LoopEn), MemoryPtr(AllocaInst) {}
+
+  /// Return pointer to the linked VPLoopEntity
+  VPLoopEntity *getVPLoopEntity() const { return LE; }
 
   /// Return memory address of this var.
   VPValue *getMemoryPtr() const { return MemoryPtr; }
@@ -390,6 +407,12 @@ public:
 #endif
 private:
   friend class VPLoopEntityList;
+
+  // Pointer to the VPLoopEntity. A VPLoopEntity need not have a corresponding
+  // VPLoopEntityMemoryDescriptor, but a VPLoopEntityMemoryDescriptor must
+  // always have a corresponding VPLoopEntity.
+  VPLoopEntity *LE;
+
   // Interface for analyzer to set the bits.
   void setCanRegisterize(bool Val) { CanRegisterize = Val; }
   void setSafeSOA(bool Val) { SafeSOA = Val; }
@@ -444,9 +467,9 @@ public:
   /// instruction which writes to the private memory witin the for-loop. Also
   /// store other relavant attributes of the private like the conditional, last
   /// and explicit.
-  VPPrivate *addPrivate(VPInstruction *FinalI, bool IsConditional, bool IsLast,
-                        bool Explicit, VPValue *AI = nullptr,
-                        bool ValidMemOnly = false);
+  VPPrivate *addPrivate(VPInstruction *FinalI, DenseSet<VPValue *> &Aliases,
+                        bool IsConditional, bool IsLast, bool Explicit,
+                        VPValue *AI = nullptr, bool ValidMemOnly = false);
 
   /// Final stage of importing data from IR. Go through all imported descriptors
   /// and check/create links to VPInstructions.
@@ -495,6 +518,12 @@ public:
     return nullptr;
   }
 
+  /// Get mutable descriptor for a memory descriptor by its alloca instruction.
+  VPLoopEntityMemoryDescriptor *getMemoryDescriptor(const VPValue *AI) {
+    return const_cast<VPLoopEntityMemoryDescriptor *>(
+        static_cast<const VPLoopEntityList *>(this)->getMemoryDescriptor(AI));
+  }
+
   /// Entities lists. We need a predictable way of iterating through lists so
   /// the init/fini code is generated always the same for the same loops.
   typedef SmallVector<std::unique_ptr<VPReduction>, 4> VPReductionList;
@@ -511,8 +540,12 @@ public:
   VPInductionList::iterator inductionsBegin();
   VPInductionList::iterator inductionsEnd();
 
-  VPReductionList::iterator reductionsBegin();
-  VPReductionList::iterator reductionsEnd();
+  VPReductionList::const_iterator reductionsBegin() const {
+    return ReductionList.begin();
+  }
+  VPReductionList::const_iterator reductionsEnd() const {
+    return ReductionList.end();
+  }
 
   VPPrivatesList::iterator privatesBegin();
   VPPrivatesList::iterator privatesEnd();
@@ -554,6 +587,7 @@ public:
   // DuplicateInductionPHIs after replacement. NOTE: The duplicate PHI is not
   // removed from HCFG.
   void replaceDuplicateInductionPHIs();
+  void doEscapeAnalysis();
 
 private:
   VPlan &Plan;
@@ -911,6 +945,7 @@ public:
   /// Clear the content.
   void clear() override {
     BaseT::clear();
+    PtrAliases.clear();
     AllocaInst = nullptr;
     FinalInst = nullptr;
     IsConditional = false;
@@ -930,15 +965,21 @@ public:
   /// Pass the data to VPlan
   void passToVPlan(VPlan *Plan, const VPLoop *Loop);
 
-  void setAllocaInst(VPValue* AllocaI) { AllocaInst = AllocaI; }
+  void setAllocaInst(VPValue *AllocaI) { AllocaInst = AllocaI; }
   void setIsConditional(bool IsCond) { IsConditional = IsCond; }
   void setIsLast(bool IsLastPriv) { IsLast = IsLastPriv; }
   void setIsExplicit(bool IsExplicitVal) { IsExplicit = IsExplicitVal; }
   void setIsMemOnly(bool IsMem) { setValidMemOnly(IsMem); }
+  void addAlias(VPValue *Val) { PtrAliases.insert(Val); }
 
 private:
   VPValue *AllocaInst = nullptr;
   VPInstruction *FinalInst = nullptr;
+  // These are Pointer-aliases. Each Loop-private memory descriptor can have
+  // multiple aliases as opposed to memory descriptors for inductions or
+  // reductions. Hence, we have a separate field. TODO: consider using a
+  // single/same field for every memory descriptor.
+  DenseSet<VPValue *> PtrAliases;
   bool IsConditional;
   bool IsLast;
   bool IsExplicit;

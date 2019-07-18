@@ -5,30 +5,12 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-/// \file
-/// Compute iterated dominance frontiers using a linear time algorithm.
-///
-/// The algorithm used here is based on:
-///
-///   Sreedhar and Gao. A linear time algorithm for placing phi-nodes.
-///   In Proceedings of the 22nd ACM SIGPLAN-SIGACT Symposium on Principles of
-///   Programming Languages
-///   POPL '95. ACM, New York, NY, 62-73.
-///
-/// It has been modified to not explicitly use the DJ graph data structure and
-/// to directly compute pruned SSA using per-variable liveness information.
-//
-//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_IDF_H
 #define LLVM_ANALYSIS_IDF_H
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFGDiff.h"
-#include "llvm/IR/Dominators.h"
+#include "llvm/Support/GenericIteratedDominanceFrontier.h"
 #if INTEL_CUSTOMIZATION
 #include "../../../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlan.h"
 #include "../../../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanDominatorTree.h"
@@ -36,76 +18,99 @@
 
 namespace llvm {
 
-/// Determine the iterated dominance frontier, given a set of defining
-/// blocks, and optionally, a set of live-in blocks.
-///
-/// In turn, the results can be used to place phi nodes.
-///
-/// This algorithm is a linear time computation of Iterated Dominance Frontiers,
-/// pruned using the live-in set.
-/// By default, liveness is not used to prune the IDF computation.
-/// The template parameters should be either BasicBlock* or Inverse<BasicBlock
-/// *>, depending on if you want the forward or reverse IDF.
-#if INTEL_CUSTOMIZATION
-template <class NodeTy, bool IsPostDom, class BlockTy = BasicBlock>
-#endif // INTEL_CUSTOMIZATION
-class IDFCalculator {
-public:
-  using DomTreeTy = DomTreeNodeBase<BlockTy>;
-  IDFCalculator(DominatorTreeBase<BlockTy, IsPostDom> &DT) // INTEL
-      : DT(DT), GD(nullptr), useLiveIn(false) {}
+class BasicBlock;
 
-  IDFCalculator(DominatorTreeBase<BlockTy, IsPostDom> &DT, // INTEL
-                const GraphDiff<BlockTy *, IsPostDom> *GD) // INTEL
-      : DT(DT), GD(GD), useLiveIn(false) {}
+namespace IDFCalculatorDetail {
 
-  /// Give the IDF calculator the set of blocks in which the value is
-  /// defined.  This is equivalent to the set of starting blocks it should be
-  /// calculating the IDF for (though later gets pruned based on liveness).
-  ///
-  /// Note: This set *must* live for the entire lifetime of the IDF calculator.
-  void setDefiningBlocks(const SmallPtrSetImpl<BlockTy *> &Blocks) { // INTEL
-    DefBlocks = &Blocks;
+/// Specialization for BasicBlock and VPBlockBase for the optional   // INTEL
+/// use of GraphDiff.                                                // INTEL
+template <typename BlockTy, bool IsPostDom>                          // INTEL
+struct BBChildrenGetterTy {                                          // INTEL
+  using NodeRef = BlockTy *;                                         // INTEL
+  using ChildrenTy = SmallVector<BlockTy *, 8>;                      // INTEL
+
+  BBChildrenGetterTy() = default;                                    // INTEL
+  BBChildrenGetterTy(const GraphDiff<BlockTy *, IsPostDom> *GD)      // INTEL
+      : GD(GD) {                                                     // INTEL
+    assert(GD);
   }
 
-  /// Give the IDF calculator the set of blocks in which the value is
-  /// live on entry to the block.   This is used to prune the IDF calculation to
-  /// not include blocks where any phi insertion would be dead.
-  ///
-  /// Note: This set *must* live for the entire lifetime of the IDF calculator.
+  ChildrenTy get(const NodeRef &N);
 
-  void setLiveInBlocks(const SmallPtrSetImpl<BlockTy *> &Blocks) { // INTEL
-    LiveInBlocks = &Blocks;
-    useLiveIn = true;
-  }
-
-  /// Reset the live-in block set to be empty, and tell the IDF
-  /// calculator to not use liveness anymore.
-  void resetLiveInBlocks() {
-    LiveInBlocks = nullptr;
-    useLiveIn = false;
-  }
-
-  /// Calculate iterated dominance frontiers
-  ///
-  /// This uses the linear-time phi algorithm based on DJ-graphs mentioned in
-  /// the file-level comment.  It performs DF->IDF pruning using the live-in
-  /// set, to avoid computing the IDF for blocks where an inserted PHI node
-  /// would be dead.
-  void calculate(SmallVectorImpl<BlockTy *> &IDFBlocks); // INTEL
-
-private:
-  DominatorTreeBase<BlockTy, IsPostDom> &DT; // INTEL
-  const GraphDiff<BlockTy *, IsPostDom> *GD; // INTEL
-  bool useLiveIn;
-  const SmallPtrSetImpl<BlockTy *> *LiveInBlocks; // INTEL
-  const SmallPtrSetImpl<BlockTy *> *DefBlocks;    // INTEL
+  const GraphDiff<BlockTy *, IsPostDom> *GD = nullptr;               // INTEL
 };
-typedef IDFCalculator<BasicBlock *, false> ForwardIDFCalculator;
-typedef IDFCalculator<Inverse<BasicBlock *>, true> ReverseIDFCalculator;
 #if INTEL_CUSTOMIZATION
-typedef IDFCalculator<vpo::VPBlockBase *, false, vpo::VPBlockBase>
-    VPlanForwardIDFCalculator;
+
+template <bool IsPostDom>
+struct ChildrenGetterTy<BasicBlock, IsPostDom>
+    : BBChildrenGetterTy<BasicBlock, IsPostDom> {
+  using BBChildrenGetterTy<BasicBlock, IsPostDom>::BBChildrenGetterTy;
+};
+
+template <bool IsPostDom>
+struct ChildrenGetterTy<vpo::VPBlockBase, IsPostDom>
+    : BBChildrenGetterTy<vpo::VPBlockBase, IsPostDom> {
+  using BBChildrenGetterTy<vpo::VPBlockBase, IsPostDom>::BBChildrenGetterTy;
+};
 #endif // INTEL_CUSTOMIZATION
+
+} // end of namespace IDFCalculatorDetail
+
+template <typename BlockTy, bool IsPostDom>                          // INTEL
+class IDFCalculator final                                            // INTEL
+    : public IDFCalculatorBase<BlockTy, IsPostDom> {                 // INTEL
+public:
+  using IDFCalculatorBase =
+      typename llvm::IDFCalculatorBase<BlockTy, IsPostDom>;          // INTEL
+  using ChildrenGetterTy = typename IDFCalculatorBase::ChildrenGetterTy;
+
+  IDFCalculator(DominatorTreeBase<BlockTy, IsPostDom> &DT)           // INTEL
+      : IDFCalculatorBase(DT) {}
+
+  IDFCalculator(DominatorTreeBase<BlockTy, IsPostDom> &DT,           // INTEL
+                const GraphDiff<BlockTy *, IsPostDom> *GD)           // INTEL
+      : IDFCalculatorBase(DT, ChildrenGetterTy(GD)) {
+    assert(GD);
+  }
+};
+
+using ForwardIDFCalculator = IDFCalculator<BasicBlock, false>;       // INTEL
+using ReverseIDFCalculator = IDFCalculator<BasicBlock, true>;        // INTEL
+#if INTEL_CUSTOMIZATION
+using VPlanForwardIDFCalculator = IDFCalculator<vpo::VPBlockBase, false>;
+#endif // INTEL_CUSTOMIZATION
+
+//===----------------------------------------------------------------------===//
+// Implementation.
+//===----------------------------------------------------------------------===//
+
+namespace IDFCalculatorDetail {
+
+template <typename BlockTy, bool IsPostDom>                          // INTEL
+typename BBChildrenGetterTy<BlockTy, IsPostDom>::ChildrenTy          // INTEL
+BBChildrenGetterTy<BlockTy, IsPostDom>::get(                         // INTEL
+    const BBChildrenGetterTy<BlockTy, IsPostDom>::NodeRef &N) {      // INTEL
+
+  using OrderedNodeTy =
+      typename IDFCalculatorBase<BlockTy, IsPostDom>::OrderedNodeTy; // INTEL
+
+  if (!GD) {
+    auto Children = children<OrderedNodeTy>(N);
+    return {Children.begin(), Children.end()};
+  }
+
+  using SnapShotBBPairTy =                                           // INTEL
+      std::pair<const GraphDiff<BlockTy *, IsPostDom> *,             // INTEL
+                OrderedNodeTy>;                                      // INTEL
+
+  ChildrenTy Ret;
+  for (const auto &SnapShotBBPair : children<SnapShotBBPairTy>({GD, N}))
+    Ret.emplace_back(SnapShotBBPair.second);
+  return Ret;
 }
+
+} // end of namespace IDFCalculatorDetail
+
+} // end of namespace llvm
+
 #endif

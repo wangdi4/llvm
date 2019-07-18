@@ -34,6 +34,7 @@ using namespace llvm::vpo;
 static cl::opt<bool>
     UseSimdChannels("use-simd-channels", cl::init(true), cl::Hidden,
                     cl::desc("use simd versions of read/write pipe functions"));
+extern cl::opt<bool> EnableVPValueCodegen;
 
 #define DEBUG_TYPE "vpo-ir-loop-vectorize-legality"
 
@@ -395,11 +396,24 @@ bool VPOVectorizationLegality::canVectorize() {
           return false;
         }
 
-        if (isExplicitReductionPhi(Phi))
+        if (isExplicitReductionPhi(Phi)) {
+          if (EnableVPValueCodegen) {
+            LLVM_DEBUG(dbgs() << "VPVALCG: Not handling reductions, will be "
+                                 "done with VPLoopEntities.\n");
+            return false;
+          }
+
           continue;
+        }
 
         RecurrenceDescriptor RedDes;
         if (RecurrenceDescriptor::isReductionPHI(Phi, TheLoop, RedDes)) {
+          if (EnableVPValueCodegen) {
+            LLVM_DEBUG(dbgs() << "VPVALCG: Not handling reductions, will be "
+                                 "done with VPLoopEntities.\n");
+            return false;
+          }
+
           AllowedExit.insert(RedDes.getLoopExitInstr());
           Reductions[Phi] = RedDes;
           continue;

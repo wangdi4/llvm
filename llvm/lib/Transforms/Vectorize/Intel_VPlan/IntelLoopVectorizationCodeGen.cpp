@@ -35,6 +35,11 @@ static cl::opt<bool>
     VPlanSerializeAlloca("vplan-serialize-alloca", cl::init(false), cl::Hidden,
                          cl::desc("Serialize alloca for private array-types"));
 
+// Force VPValue based code generation path.
+cl::opt<bool> EnableVPValueCodegen("enable-vp-value-codegen", cl::init(false),
+                                   cl::Hidden,
+                                   cl::desc("Enable VPValue based codegen"));
+
 /// A helper function that returns GEP instruction and knows to skip a
 /// 'bitcast'. The 'bitcast' may be skipped if the source and the destination
 /// pointee types of the 'bitcast' have the same size.
@@ -91,69 +96,6 @@ static Value *reduceVector(Value *Vec,
   return Builder.CreateExtractElement(Vec, Builder.getInt32(0));
 }
 
-static Value *joinVectors(ArrayRef<Value *> VectorsToJoin, IRBuilder<> &Builder,
-                          Twine Name = "") {
-  SmallVector<Value *, 8> VParts(VectorsToJoin.begin(), VectorsToJoin.end());
-  unsigned VL = VParts.size();
-  while (VL >= 2) {
-    for (unsigned i = 0, j = 0; i < VL; i += 2, ++j) {
-      unsigned NumElts = VParts[i]->getType()->getVectorNumElements();
-      SmallVector<unsigned, 8> ShuffleMask(NumElts * 2);
-      for (unsigned MaskInd = 0; MaskInd < NumElts * 2; ++MaskInd)
-        ShuffleMask[MaskInd] = MaskInd;
-      VParts[j] =
-          Builder.CreateShuffleVector(VParts[i], VParts[i + 1], ShuffleMask);
-    }
-    VL /= 2;
-  }
-  VParts[0]->setName(Name);
-  return VParts[0];
-}
-
-// {0, 1, 2, 3} -> TargetLength = 8 -> { 0, 1, 2, 3, undef, undef, undef, undef}
-static Value *extendVector(Value *OrigVal, unsigned TargetLength,
-                           IRBuilder<> &Builder, const Twine &Name = "") {
-  Type *OrigTy = OrigVal->getType();
-  assert(isa<VectorType>(OrigTy) && "OriginalVal should be of a vector type");
-  unsigned VectorElts = OrigTy->getVectorNumElements();
-  assert(TargetLength >= VectorElts &&
-         "TargetLength should be greater than or equal to VectorElts");
-  if (VectorElts == TargetLength)
-    return OrigVal;
-  Constant *ShufMask = createSequentialMask(
-      Builder, 0, VectorElts, TargetLength - VectorElts /*No. of undef's*/);
-  return Builder.CreateShuffleVector(OrigVal, UndefValue::get(OrigTy), ShufMask,
-                                     "extended." + Name);
-}
-
-// {0, 1, 2, 3} -> { 0, 0, 1, 1, 2, 2, 3, 3}
-static Value *replicateVectorElts(Value *OrigVal, unsigned OriginalVL,
-                                  IRBuilder<> &Builder,
-                                  const Twine &Name = "") {
-  if (OriginalVL == 1)
-    return OrigVal;
-  Value *ShuffleMask = createReplicatedMask(
-      Builder, OriginalVL, OrigVal->getType()->getVectorNumElements());
-  return Builder.CreateShuffleVector(OrigVal,
-                                     UndefValue::get(OrigVal->getType()),
-                                     ShuffleMask, Name + OrigVal->getName());
-}
-
-// {0, 1, 2, 3} -> { 0, 1, 2, 3, 0, 1, 2, 3}
-static Value *replicateVector(Value *OrigVal, unsigned OriginalVL,
-                              IRBuilder<> &Builder, const Twine &Name = "") {
-  if (OriginalVL == 1)
-    return OrigVal;
-  unsigned NumElts = OrigVal->getType()->getVectorNumElements();
-  SmallVector<unsigned, 8> ShuffleMask;
-  for (unsigned j = 0; j < OriginalVL; j++)
-    for (unsigned i = 0; i < NumElts; ++i)
-      ShuffleMask.push_back((signed)i);
-  return Builder.CreateShuffleVector(OrigVal,
-                                     UndefValue::get(OrigVal->getType()),
-                                     ShuffleMask, Name + OrigVal->getName());
-}
-
 /// Create splat vector from a short vector or from a scalar value -
 /// enabling broadcast functionality for vectors.
 static Value *createVectorSplat(Value *V, unsigned VF, IRBuilder<>& Builder,
@@ -166,16 +108,6 @@ static Value *createVectorSplat(Value *V, unsigned VF, IRBuilder<>& Builder,
 static void addBlockToParentLoop(Loop *L, BasicBlock *BB, LoopInfo& LI) {
   if (auto *ParentLoop = L->getParentLoop())
     ParentLoop->addBasicBlockToLoop(BB, LI);
-}
-
-/// We need to preserve call-site attributes, except the ones "consumed" by the
-/// vectorizer itself (like vector-variants). Copy ones that should be preserved
-/// from \p OrigCall to \p VecCall.
-static void copyRequiredAttributes(const CallInst *OrigCall,
-                                   CallInst *VecCall) {
-  AttributeList Attrs = OrigCall->getAttributes();
-  VecCall->setAttributes(Attrs.removeAttribute(
-      OrigCall->getContext(), AttributeList::FunctionIndex, "vector-variants"));
 }
 
 bool VPOCodeGen::isSerializedPrivateArray(Value *Priv) const {
@@ -1006,6 +938,9 @@ void VPOCodeGen::vectorizeCast(Instruction *Inst) {
 }
 
 Value *VPOCodeGen::getVectorValue(VPValue *V) {
+  if (EnableVPValueCodegen)
+    return getVectorValueUplifted(V);
+
   Value *UV = V->getUnderlyingValue();
   if (UV)
     return getVectorValue(UV);
@@ -1016,6 +951,11 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
 }
 
 Value *VPOCodeGen::getVectorValue(Value *V) {
+  if (EnableVPValueCodegen) {
+    LLVM_DEBUG(dbgs() << "LV: Value: "; V->dump(); dbgs() << "LV: Parent: ";
+               cast<Instruction>(V)->getParent()->dump());
+    llvm_unreachable("Implementing VPValue codegen uplift.");
+  }
 
   // If we have this scalar in the map, return it.
   if (WidenMap.count(V))
@@ -1085,6 +1025,9 @@ Value *VPOCodeGen::getVectorValue(Value *V) {
 }
 
 Value *VPOCodeGen::getScalarValue(VPValue *V, unsigned Lane) {
+  if (EnableVPValueCodegen)
+    return getScalarValueUplifted(V, Lane);
+
   Value *UV = V->getUnderlyingValue();
 
   if (UV)
@@ -1107,6 +1050,12 @@ Value *VPOCodeGen::getScalarValue(VPValue *V, unsigned Lane) {
 // TODO: Consider renaming this function to 'getScalarOrSubvectorValue' as this
 // function can now return a sub-vector in addition to a scalar value
 Value *VPOCodeGen::getScalarValue(Value *V, unsigned Lane) {
+  if (EnableVPValueCodegen) {
+    LLVM_DEBUG(dbgs() << "LV: Value: "; V->dump(); dbgs() << "LV: Parent: ";
+               cast<Instruction>(V)->getParent()->dump());
+    llvm_unreachable("Implementing VPValue codegen uplift.");
+  }
+
   // If the value is not an instruction contained in the loop, it should
   // already be scalar.
   if (OrigLoop->isLoopInvariant(V) && !Legal->isLoopPrivate(V))
@@ -1493,10 +1442,6 @@ void VPOCodeGen::vectorizeLoadInstruction(Instruction *Inst,
   }
 
   int ConsecutiveStride = Legal->isConsecutivePtr(Ptr);
-  if (!MaskValue && ConsecutiveStride == 0 && !EmitIntrinsic) {
-    serializeInstruction(Inst);
-    return;
-  }
 
   if (LI->getType()->isVectorTy())
     return widenVectorLoad(LI);
@@ -1608,10 +1553,6 @@ void VPOCodeGen::vectorizeStoreInstruction(Instruction *Inst,
   }
 
   int ConsecutiveStride = Legal->isConsecutivePtr(Ptr);
-  if (!MaskValue && ConsecutiveStride == 0 && !EmitIntrinsic) {
-    serializeInstruction(Inst);
-    return;
-  }
 
   const DataLayout &DL = Inst->getModule()->getDataLayout();
   if (SI->getValueOperand()->getType()->isVectorTy())
@@ -1868,6 +1809,11 @@ void VPOCodeGen::serializeWithPredication(Instruction *Inst) {
 }
 
 void VPOCodeGen::serializeInstruction(Instruction *Instr, bool HasLoopPrivateOperand) {
+  if (EnableVPValueCodegen) {
+    LLVM_DEBUG(dbgs() << "LV: Value: "; Instr->dump(); dbgs() << "LV: Parent: ";
+               Instr->getParent()->dump());
+    llvm_unreachable("Implementing VPValue codegen uplift.");
+  }
 
   assert(!Instr->getType()->isAggregateType() && "Can't handle vectors");
 
@@ -2123,7 +2069,7 @@ Value *VPOCodeGen::buildScalarIVForLane(PHINode *OrigIV, unsigned Lane) {
   return Add;
 }
 
-void VPOCodeGen::widenIntOrFpInduction(PHINode *IV) {
+void VPOCodeGen::widenIntOrFpInduction(PHINode *IV, VPPHINode *VPIV) {
 
   auto II = Legal->getInductionVars()->find(IV);
   assert(II != Legal->getInductionVars()->end() && "IV is not an induction");
@@ -2138,6 +2084,7 @@ void VPOCodeGen::widenIntOrFpInduction(PHINode *IV) {
   Instruction *VectorInd = nullptr;
   createVectorIntOrFpInductionPHI(ID, Step, VectorInd);
   WidenMap[cast<Value>(IV)] = VectorInd;
+  VPWidenMap[VPIV] = VectorInd;
 
   Value *ScalarIV = Induction;
   if (IV != Legal->getInduction()) {
@@ -2152,6 +2099,7 @@ void VPOCodeGen::widenIntOrFpInduction(PHINode *IV) {
 
   // Use ScalarIV as the scalar value for Lane 0 when needed
   ScalarMap[IV][0] = ScalarIV;
+  VPScalarMap[VPIV][0] = ScalarIV;
 }
 
 void VPOCodeGen::fixNonInductionPhis() {
@@ -2274,7 +2222,7 @@ void VPOCodeGen::vectorizePHIInstruction(VPPHINode *VPPhi) {
     llvm_unreachable("Unknown induction");
   case InductionDescriptor::IK_IntInduction:
   case InductionDescriptor::IK_FpInduction:
-    return widenIntOrFpInduction(P);
+    return widenIntOrFpInduction(P, VPPhi);
   case InductionDescriptor::IK_PtrInduction: {
     // Handle the pointer induction variable case.
     assert(P->getType()->isPointerTy() && "Unexpected type.");
@@ -2294,6 +2242,7 @@ void VPOCodeGen::vectorizePHIInstruction(VPPHINode *VPPhi) {
           emitTransformedIndex(Builder, GlobalIdx, PSE.getSE(), DL, II);
       SclrGep->setName("next.gep");
       ScalarMap[P][Lane] = SclrGep;
+      VPScalarMap[VPPhi][Lane] = SclrGep;
     }
     return;
   }
@@ -2441,8 +2390,9 @@ void VPOCodeGen::vectorizeOpenCLSinCos(CallInst *Call, bool isMasked) {
   VecArgTys.push_back(Arg1->getType());
   VecArgTys.push_back(WideCosPtr->getType());
   VecArgTys.push_back(WideSinPtr->getType());
-  Function *VectorF = getOrInsertVectorFunction(
-      Call, VF, VecArgTys, TLI, Intrinsic::not_intrinsic, nullptr, isMasked);
+  Function *VectorF =
+      getOrInsertVectorFunction(Call->getCalledFunction(), VF, VecArgTys, TLI,
+                                Intrinsic::not_intrinsic, nullptr, isMasked);
   assert(VectorF && "Vector function not created.");
   CallInst *VecCall = Builder.CreateCall(VectorF, VecArgs);
   if (isa<FPMathOperator>(VecCall))
@@ -2779,10 +2729,11 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
 
   vectorizeCallArgs(Call, MatchedVariant.get(), VecArgs, VecArgTys);
 
-  Function *VectorF = getOrInsertVectorFunction(Call, VF, VecArgTys, TLI,
+  // Call is passed here to handle OpenCL read/write channel vectorization.
+  Function *VectorF = getOrInsertVectorFunction(CalledFunc, VF, VecArgTys, TLI,
                                                 Intrinsic::not_intrinsic,
                                                 MatchedVariant.get(),
-                                                IsMasked);
+                                                IsMasked, Call);
   assert(VectorF && "Can't create vector function.");
   CallInst *VecCall = Builder.CreateCall(VectorF, VecArgs);
 
@@ -2827,6 +2778,13 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     return;
   }
 
+  if (EnableVPValueCodegen) {
+    // Use uplifted VPValue-based codegen path.
+    vectorizeVPInstruction(VPInst);
+    return;
+  }
+
+  // Generate code by peeking at underlying IR.
   if (auto *Inst = VPInst->getInstruction()) {
     vectorizeInstruction(Inst);
 
@@ -2842,6 +2800,91 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
   case VPInstruction::AllZeroCheck: {
     Value *A = getVectorValue(VPInst->getOperand(0));
     Type *Ty = A->getType();
+
+    if (MaskValue) {
+      // Consider the inner loop that is executed under the mask, after loop CFU
+      // transformation and predication it looks something like this:
+      //
+      //   REGION: loop19 (BP: NULL)
+      //   BB16 (BP: NULL) :
+      //    i1 %vp24064 = block-predicate i1 %loop_incoming_mask
+      //   SUCCESSORS(1):BB11
+      //   no PREDECESSORS
+
+      //   BB11 (BP: NULL) :
+      //    i1 %vp24384 = block-predicate i1 %loop_incoming_mask
+      //    i64 %vp54864 = phi  [ i64 %vp20544, BB23 ],  [ i64 1, BB16 ]
+      //    i32 %vp55072 = phi  [ i32 %vp20704, BB23 ],  [ i32 %vp49616, BB16 ]
+      //    i1 %inner_loop_specific_mask =
+      //         phi  [ i1 true, BB16 ],
+      //              [ i1 %inner_loop_specific_mask.next, BB23 ]
+      //   SUCCESSORS(1):mask_region24
+      //   PREDECESSORS(2): BB16 BB23
+
+      //   REGION: mask_region24 (BP: NULL)
+      //   BB21 (BP: NULL) :
+      //    i1 %vp24544 = block-predicate i1 %loop_incoming_mask
+      //   SUCCESSORS(1):BB22
+      //   no PREDECESSORS
+
+      //   BB22 (BP: NULL) :
+      //    i1 %real_mask = and i1 %loop_incoming_mask i1,  %inner_loop_specific_mask
+      //    i1 %real_mask_predicate = block-predicate i1 %real_mask
+      //    i32 addrspace(1)* %vp38496 =
+      //        getelementptr inbounds i32 addrspace(1)* %input i64 %vp54864
+      //    i32 %ld = load i32 addrspace(1)* %vp38496
+      //    i1 %vp55440 = icmp i32 %vp55072 i32 %ld
+      //    i32 %vp55616 =  select i1 %vp55440 i32 %ld i32 %vp55072
+      //    i64 %vp55888 = add i64 %vp54864 i64 1
+      //   SUCCESSORS(1):BB17
+      //   PREDECESSORS(1): BB21
+
+      //   BB17 (BP: NULL) :
+      //    i1 %vp25472 = not i1 %inner_loop_specific_mask
+      //    i1 %vp25632 = and i1 %loop_incoming_mask i1 %vp25472
+      //    i1 %vp25920 = block-predicate i1 %loop_incoming_mask
+      //    i1 %vp56048 = icmp i64 %vp55888 i64 %vp1824
+      //
+      //    ;; This "not" is because original latch was at false successor
+      //    i1 %continue_cond = not i1 %vp56048
+      //    i1 %inner_loop_specific_mask.next =
+      //       and i1 %continue_cond i1  %inner_loop_specific_mask
+      //
+      //    ;; Live-outs updates
+      //
+      //   i1 %vp20864 = all-zero-check i1 %inner_loop_specific_mask.next
+      //   no SUCCESSORS
+      //   PREDECESSORS(1): BB22
+      //
+      // After vectorizing the loop above we create something like
+      //
+      //    %wide.ld = gather %vector_gep, %real_mask, undef_vector
+      //
+      // All-zero-check is dependent on the result of this gather, including the
+      // lanes that were masked out by %real_mask (which includes
+      // %loop_incoming_mask). That means that for lanes masked out by
+      // %loop_incoming_mask we can only have undef values and naive
+      //
+      //   %vp1 bitcast <VF x i1> %innerl_loop_specific_mask.next to iVF
+      //   %should_exit %cmp %vp1, 0
+      //   br i1 %should_exit, %exit_bb, %header_bb
+      //
+      // would result in branching based on that undef, which is UB. To avoid
+      // this, use only the active lanes when calculating the all-zero-check.
+      // Note, that technically we can use either %loop_incoming_mask or
+      // %real_mask. The former is easily available, so use it. Also,
+      //
+      //   and undef, %vpval
+      //
+      // semantics isn't immediately obvious for the reader.
+      //
+      // Another approach to this issue is to modify Predicator/LoopCFU to have
+      // a single phi/value for the mask, but it looks like much more work.
+      // Changing the semantics of the all-zero-check VPInstruction to reflect
+      // the mask (similar to loads/stores/calls) doesn't seem to have any
+      // drawbacks and is much easier to do.
+      A = Builder.CreateAnd(A, MaskValue);
+    }
 
     // Bitcast <VF x i1> to an integer value VF bits long.
     Type *IntTy =
@@ -2924,55 +2967,47 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
       break;
     }
 
-    // Create the vector GEP, keeping all constant arguments scalar.
-    if (all_of(GEP->operands(), [&](Value *Op) -> bool {
-          return Legal->isLoopInvariant(Op) && !Legal->isLoopPrivate(Op);
-      })) {
-      auto *Clone = Builder.Insert(GEP->clone());
-      WidenMap[cast<Value>(Inst)] = Builder.CreateVectorSplat(VF, Clone);
-    } else {
-      Value *GepPtrOp = GEP->getPointerOperand();
-      SmallVector<Value *, 3> OpsV;
-      if (isSerializedPrivateArray(GepPtrOp)) {
-        // Treat memory access to private array-types differently. Instead
-        // of widening [NumElts x Ty] to [VF x [NumElts x Ty]], we serialize
-        // the allocation as alloca [NumElts x Ty], ... alloca [NumElts x Ty]
-        if (!ScalarMap.count(GepPtrOp))
-          createSerialPrivateArrayBase(GepPtrOp);
+    Value *GepPtrOp = GEP->getPointerOperand();
+    SmallVector<Value *, 3> OpsV;
+    if (isSerializedPrivateArray(GepPtrOp)) {
+      // Treat memory access to private array-types differently. Instead
+      // of widening [NumElts x Ty] to [VF x [NumElts x Ty]], we serialize
+      // the allocation as alloca [NumElts x Ty], ... alloca [NumElts x Ty]
+      if (!ScalarMap.count(GepPtrOp))
+        createSerialPrivateArrayBase(GepPtrOp);
 
-        // Get appropriate values for the operands of the GEP.
-        for (Value *Op : GEP->indices()) {
-          if (Legal->isLoopInvariant(Op) || Legal->isLoopPrivate(Op))
-            OpsV.push_back(Op);
-          else
-            OpsV.push_back(getVectorValue(Op));
-        }
-
-        for (unsigned I = 0; I < VF; ++I) {
-          SmallVector<Value *, 2> AcOpsV;
-          for (Value *Op : OpsV) {
-            if (!Op->getType()->isVectorTy())
-              AcOpsV.push_back(Op);
-            else
-              AcOpsV.push_back(
-                  Builder.CreateExtractElement(Op, Builder.getInt64(I)));
-          }
-          ScalarMap[GEP][I] =
-              Builder.CreateGEP(ScalarMap[GepPtrOp][I], AcOpsV, "privBase.");
-        }
-        return;
+      // Get appropriate values for the operands of the GEP.
+      for (Value *Op : GEP->indices()) {
+        if (Legal->isLoopInvariant(Op) || Legal->isLoopPrivate(Op))
+          OpsV.push_back(Op);
+        else
+          OpsV.push_back(getVectorValue(Op));
       }
 
-      for (Value *Op : GEP->operands())
-        OpsV.push_back(getVectorValue(Op));
-
-      Value *GepBasePtr = OpsV[0];
-      OpsV.erase(OpsV.begin());
-      GetElementPtrInst *VectorGEP = cast<GetElementPtrInst>(
-          Builder.CreateGEP(GepBasePtr, OpsV, "mm_vectorGEP"));
-      VectorGEP->setIsInBounds(GEP->isInBounds());
-      WidenMap[cast<Value>(Inst)] = VectorGEP;
+      for (unsigned I = 0; I < VF; ++I) {
+        SmallVector<Value *, 2> AcOpsV;
+        for (Value *Op : OpsV) {
+          if (!Op->getType()->isVectorTy())
+            AcOpsV.push_back(Op);
+          else
+            AcOpsV.push_back(
+                Builder.CreateExtractElement(Op, Builder.getInt64(I)));
+        }
+        ScalarMap[GEP][I] =
+            Builder.CreateGEP(ScalarMap[GepPtrOp][I], AcOpsV, "privBase.");
+      }
+      return;
     }
+
+    for (Value *Op : GEP->operands())
+    OpsV.push_back(getVectorValue(Op));
+
+    Value *GepBasePtr = OpsV[0];
+    OpsV.erase(OpsV.begin());
+    GetElementPtrInst *VectorGEP = cast<GetElementPtrInst>(
+        Builder.CreateGEP(GepBasePtr, OpsV, "mm_vectorGEP"));
+    VectorGEP->setIsInBounds(GEP->isInBounds());
+    WidenMap[cast<Value>(Inst)] = VectorGEP;
     break;
   }
 

@@ -346,11 +346,12 @@ VPInduction *VPLoopEntityList::addInduction(VPInstruction *Start,
 }
 
 VPPrivate *VPLoopEntityList::addPrivate(VPInstruction *FinalI,
+                                        DenseSet<VPValue *> &Aliases,
                                         bool IsConditional, bool IsLast,
                                         bool Explicit, VPValue *AI,
                                         bool ValidMemOnly) {
-  VPPrivate *Priv =
-      new VPPrivate(FinalI, IsConditional, IsLast, Explicit, ValidMemOnly);
+  VPPrivate *Priv = new VPPrivate(FinalI, std::move(Aliases), IsConditional,
+                                  IsLast, Explicit, ValidMemOnly);
   PrivatesList.emplace_back(Priv);
   linkValue(PrivateMap, Priv, AI);
   createMemDescFor(Priv, AI);
@@ -361,9 +362,10 @@ void VPLoopEntityList::createMemDescFor(VPLoopEntity *E, VPValue *AI) {
   if (!AI)
     return;
   std::unique_ptr<VPLoopEntityMemoryDescriptor> &Ptr = MemoryDescriptors[E];
-  if (!Ptr)
-    Ptr.reset(new VPLoopEntityMemoryDescriptor(AI));
-  else
+  if (!Ptr) {
+    assert(E && "Expect non-null VPLoopEntity 'E'");
+    Ptr.reset(new VPLoopEntityMemoryDescriptor(E, AI));
+  } else
     assert(Ptr.get()->getMemoryPtr() == AI &&
            "Secondary memory location for a VPLoopEntity");
   MemInstructions[AI] = Ptr.get();
@@ -548,6 +550,9 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
     }
 
     processFinalValue(*Reduction, AI, Builder, *Final, Ty, Exit);
+    // Loop exit VPInstruction needs to be added to linkedVPValues for later
+    // uses
+    Reduction->addLinkedVPValue(Exit);
   }
   for (auto &IndPtr : InductionList) {
     VPInduction *Induction = IndPtr.get();
@@ -917,8 +922,8 @@ VPInstruction *ReductionDescr::getLoopExitVPInstr(const VPLoop *Loop) {
 
 void PrivateDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
-  LE->addPrivate(FinalInst, IsConditional, IsLast, IsExplicit, AllocaInst,
-                 isMemOnly());
+  LE->addPrivate(FinalInst, PtrAliases, IsConditional, IsLast, IsExplicit,
+                 AllocaInst, isMemOnly());
 }
 
 void PrivateDescr::checkParentVPLoop(const VPlan *Plan,
@@ -928,6 +933,11 @@ void PrivateDescr::checkParentVPLoop(const VPlan *Plan,
 }
 
 void PrivateDescr::tryToCompleteByVPlan(const VPlan *Plan, const VPLoop *Loop) {
+  // Check that the aliases that we are concerned with are used within the loop
+  for (auto *Use : PtrAliases)
+    if (!checkInstructionInLoop(Use, Plan, Loop))
+      PtrAliases.erase(Use);
+
   for (auto User : AllocaInst->users()) {
     if (auto Inst = dyn_cast<VPInstruction>(User)) {
       // TODO: Need to revisit the logic. This is not quite correct. We have to
@@ -1214,5 +1224,182 @@ void VPLoopAnalysis::computeTripCountImpl(const VPLoopRegion *Lp) {
   }
   setTripCountsFromPragma(Lp, MinTripCount, MaxTripCount, AvgTripCount);
 }
+
+void VPLoopEntityList::doEscapeAnalysis() {
+  if (!VPlanUseVPEntityInstructions)
+    return;
+
+  SmallPtrSet<VPLoopEntityMemoryDescriptor *, 4> AnalyzedMemDescr;
+  for (auto &MemDescrIter : MemoryDescriptors) {
+    // We build a set of 'seed' instructions. We create a vector of aliases.
+    // Initialize that vector with the original AI. In case of privates, we
+    // extend the vector with all the aliases.
+    VPLoopEntityMemoryDescriptor *MemDescr = MemDescrIter.second.get();
+
+    LLVM_DEBUG(errs() << "MemDescr Val = " << *(MemDescr->getMemoryPtr())
+                      << "\n";);
+
+    if (AnalyzedMemDescr.count(MemDescr))
+      continue;
+
+    struct WorkList {
+
+      WorkList(ArrayRef<VPValue *> Seed) {
+        for (auto *Val : Seed)
+          Queue.insert(Val);
+      }
+
+      void insert(const VPValue *Inst) {
+        if (Queue.count(Inst) == 0)
+          Queue.insert(Inst);
+      }
+
+      const VPValue *pop() {
+        const VPValue *I = Queue.back();
+        Queue.pop_back();
+        return I;
+      }
+
+      bool empty() { return Queue.empty(); }
+
+    private:
+      // We use the 'set' part to avoid multiple additions of aliases in case of
+      // 'Phis' which have multiple arguments and we might add the LHS multiple
+      // times when processing each one of the input argument.
+      // Using SetVector because we want to maintain relative order in which
+      // Values are inserted in the worklist.
+      SetVector<const VPValue *> Queue;
+    };
+
+    auto isKnownSafeCall = [](Instruction *I) -> bool {
+      // These intrinsic instructions are known to be safe. This list can be
+      // further extended to include other safe instructions as well.
+      if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
+        if (II->getIntrinsicID() == Intrinsic::lifetime_start ||
+            II->getIntrinsicID() == Intrinsic::lifetime_end)
+          return true;
+      }
+      return false;
+    };
+
+    auto isOpaqueCall = [=](const VPInstruction *I) -> bool {
+      if (!I)
+        return false;
+      bool IsCallInst = I->getOpcode() == Instruction::Call;
+      return IsCallInst && I->getInstruction() &&
+             !isKnownSafeCall(I->getInstruction());
+    };
+
+    auto isStoreWritingPrivatePtrToExternalMemory =
+        [](const VPInstruction *VPInst, const VPValue *CurrentI) -> bool {
+      return VPInst->getOperand(0) == CurrentI;
+    };
+
+    // This helper function returns a LE if there is write to an address
+    // corresponding to the memoryptr of that LoopEntity
+    auto getTargetLoopEntityForStore =
+        [this](const VPInstruction *VPInst,
+               const VPValue *CurrentI) -> VPLoopEntityMemoryDescriptor * {
+      VPValue *Dest = VPInst->getOperand(1);
+      if (VPLoopEntityMemoryDescriptor *LE = getMemoryDescriptor(Dest))
+        return LE;
+      return nullptr;
+    };
+
+    // Algorithm: Use an iterative algorithm to find all reaching definitions of
+    // the alloca-inst.
+    // Description: Initialize the WorkList with the alloca from the
+    // LoopEntityList. Get all the 'Uses' of that instruction . If that 'use' is
+    // within a Call, i.e., 'escaping' into an opaque-call, mark the flag as
+    // unsafe, break from the loop and mark the memory-descriptor as unsafe. If
+    // the 'use' is any of 'Cast', 'GEP', 'Load', or Phi, add the instruction ot
+    // the WorkList to be analyzed further. For 'Store' instructions, do an
+    // analysis of the nature of store. If it is to an external memory, mark the
+    // pointer as 'escaping'. Also perform analysis of linked LE if the store
+    // destination orresponds to a different descriptor.
+
+    bool FoundUnsafe = false;
+    SmallVector<VPValue *, 4> Aliases;
+    Aliases.push_back(MemDescr->getMemoryPtr());
+
+    MemDescr->getVPLoopEntity()->getAliases(Aliases);
+
+    WorkList WL(Aliases);
+
+    while (!WL.empty()) {
+      const VPValue *CurrentI = WL.pop();
+
+      // Skip analysis if this is a scalar value.
+      Type *PointeeTy = cast<PointerType>(MemDescr->getMemoryPtr()->getType())
+                            ->getPointerElementType();
+
+      LLVM_DEBUG(dbgs() << "CurrentI Type = " << *PointeeTy << " IsScalar = "
+                        << !(PointeeTy->isAggregateType() ||
+                             PointeeTy->isVectorTy() ||
+                             PointeeTy->isPointerTy())
+                        << "\n";);
+
+      if (!(PointeeTy->isAggregateType() || PointeeTy->isVectorTy() ||
+            PointeeTy->isPointerTy()))
+        break;
+
+      // Get all the users of the current Instruction
+      for (VPValue *User : CurrentI->users()) {
+        const VPInstruction *VPInst = dyn_cast<VPInstruction>(User);
+
+        LLVM_DEBUG(dbgs() << "CurrentI = " << *CurrentI
+                          << "\n\t\t Use = " << *VPInst << "\n";);
+        if (!VPInst || !checkInstructionInLoop(VPInst, &Plan, &Loop))
+          continue;
+        else if (isOpaqueCall(VPInst)) {
+          FoundUnsafe = true;
+          break;
+        } else if (VPInst->getOpcode() == Instruction::BitCast ||
+                   VPInst->getOpcode() == Instruction::AddrSpaceCast ||
+                   VPInst->getOpcode() == Instruction::GetElementPtr ||
+                   VPInst->getOpcode() == Instruction::PHI)
+          WL.insert(VPInst);
+        else if (VPInst->getOpcode() == Instruction::Load) {
+          // A Load from a private variable can return a pointer. We should also
+          // analyze if that pointer, which is a result of the load 'escapes'
+          if (VPInst->getType()->isPointerTy())
+            WL.insert(VPInst);
+        } else if (VPInst->getOpcode() == Instruction::Store) {
+          // TODO: Checking if the private ptr is written to a memory and then
+          // finding it 'unsafe' is very conservative. We need further
+          // analysis to check if that write results in an actual escape or it
+          // is just an temporary alias. This would require more information
+          // from VPValue's.
+          if (isStoreWritingPrivatePtrToExternalMemory(VPInst, CurrentI))
+            FoundUnsafe = true;
+          // If the write to VPValue corresponds to another LoopEntity, add it
+          // to the alias list and further analyze the memoryptr corresponding
+          // to the LoopEntity. Also mark the LoopEntity as analyzed so that
+          // duplication is avoided.
+          if (auto *LE = getTargetLoopEntityForStore(VPInst, CurrentI)) {
+            if (LE->getMemoryPtr() == CurrentI)
+              continue;
+            WL.insert(LE->getMemoryPtr());
+            AnalyzedMemDescr.insert(LE);
+          }
+        }
+      }
+    }
+
+    if (!FoundUnsafe)
+      MemDescr->setSafeSOA(true);
+
+    AnalyzedMemDescr.insert(MemDescr);
+  }
+  LLVM_DEBUG(for (auto &MemDescrIter
+                  : MemoryDescriptors) {
+    const auto *MemDescr = MemDescrIter.second.get();
+    if (MemDescr->isSafeSOA())
+      dbgs() << "SOASafe = " << *(MemDescr->getMemoryPtr()) << "\n";
+    else
+      dbgs() << "SOAUnsafe = " << *(MemDescr->getMemoryPtr()) << "\n";
+  });
+}
+
 } // namespace vpo
 } // namespace llvm

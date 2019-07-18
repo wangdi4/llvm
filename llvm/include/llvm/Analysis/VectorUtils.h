@@ -150,19 +150,28 @@ std::vector<Attribute> getVectorVariantAttributes(Function& F);
 /// specified according to the vector function ABI.
 Type* calcCharacteristicType(Function& F, VectorVariant& Variant);
 
+/// Helper function that returns widened type of given type \p Ty.
+inline Type *getWidenedType(Type *Ty, unsigned VF) {
+  unsigned NumElts =
+      Ty->isVectorTy() ? Ty->getVectorNumElements() * VF : VF;
+  return VectorType::get(Ty->getScalarType(), NumElts);
+}
+
 /// \brief Get all functions marked for vectorization in module and their
 /// list of variants.
 void getFunctionsToVectorize(
   Module &M, std::map<Function*, std::vector<StringRef> > &FuncVars);
 
-/// \brief Widens the function call \p Call using a vector length of \p VL and
-/// inserts the appropriate function declaration if not already created. This
-/// function will insert functions for library calls, intrinsics, and simd
-/// functions.
-Function *getOrInsertVectorFunction(const CallInst *Call, unsigned VL,
+/// \brief Widens the call to function \p OrigF  using a vector length of \p VL
+/// and inserts the appropriate function declaration if not already created.
+/// This function will insert functions for library calls, intrinsics, and simd
+/// functions. The call site instruction is not strictly required here. It is
+/// used only for OpenCL read/write channel functions.
+Function *getOrInsertVectorFunction(Function *OrigF, unsigned VL,
                                     ArrayRef<Type *> ArgTys,
                                     TargetLibraryInfo *TLI, Intrinsic::ID ID,
-                                    VectorVariant *VecVariant, bool Masked);
+                                    VectorVariant *VecVariant, bool Masked,
+                                    const CallInst *Call = nullptr);
 
 /// \brief Return true if \p FnName is an OpenCL SinCos function
 bool isOpenCLSinCos(StringRef FcnName);
@@ -195,6 +204,34 @@ bool isSVMLFunction(TargetLibraryInfo *TLI, StringRef FnName,
 /// \brief A helper function that returns value after skipping 'bitcast' and
 /// 'addrspacecast' on pointers.
 template <typename CastInstTy> Value *getPtrThruCast(Value *Ptr);
+
+/// We need to preserve call-site attributes, except the ones "consumed" by the
+/// vectorizer itself (like vector-variants). Copy ones that should be preserved
+/// from \p OrigCall to \p VecCall.
+void copyRequiredAttributes(const CallInst *OrigCall, CallInst *VecCall);
+
+// Common utilities to manipulate vectors
+
+/// \brief Join a set of vectors into a single vector.
+Value *joinVectors(ArrayRef<Value *> VectorsToJoin, IRBuilder<> &Builder,
+                   Twine Name = "");
+
+/// \brief Extend the length of incoming vector \p OrigVal to \p TargetLength
+/// using undefs. Example -
+/// {0, 1, 2, 3} -> TargetLen = 8 -> { 0, 1, 2, 3, undef, undef, undef, undef}
+Value *extendVector(Value *OrigVal, unsigned TargetLength, IRBuilder<> &Builder,
+                    const Twine &Name = "");
+
+/// \brief Replicate elements of vector by \p OriginalVL times in consecutive
+/// locations. Example - {0, 1, 2, 3} -> { 0, 0, 1, 1, 2, 2, 3, 3}
+Value *replicateVectorElts(Value *OrigVal, unsigned OriginalVL,
+                           IRBuilder<> &Builder, const Twine &Name = "");
+
+/// \brief Replicate the entire vector \p OrigVal by \p OriginalVL times.
+/// Example - {0, 1, 2, 3} -> { 0, 1, 2, 3, 0, 1, 2, 3}
+Value *replicateVector(Value *OrigVal, unsigned OriginalVL,
+                       IRBuilder<> &Builder, const Twine &Name = "");
+
 #endif // INTEL_CUSTOMIZATION
 
 /// Compute the union of two access-group lists.

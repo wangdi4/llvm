@@ -256,30 +256,49 @@ public:
            Call->onlyAccessesInaccessibleMemOrArgMem();
   }
 
-  /// Returns true if \p Call instruction has unsafe side effects.
-  static bool hasUnsafeSideEffect(const CallInst *Call) {
+  /// Returns true if \p Call instruction has side effects.
+  /// This is for transformations like redundant node removal. It prevents
+  /// elimination of instruction.
+  static bool hasSideEffects(const CallInst *Call) {
     assert(Call && "Inst is nullptr");
-    return !Call->onlyReadsMemory() &&
-           !onlyAccessesInaccessibleOrArgMemory(Call);
+    return Call->mayHaveSideEffects();
+  }
+
+  /// Returns true if this is a call instruction with side effects.
+  bool isSideEffectsCallInst() const {
+    auto Call = getCallInst();
+    return Call && hasSideEffects(Call);
+  }
+
+  /// Returns true if \p Call instruction has unsafe side effects.
+  /// This is for transformations like interchange/fusion. It prevents aliasing
+  /// as well as reordering issues. It is a stronger check than
+  /// hasUnknownAliasing() below.
+  static bool hasUnsafeSideEffects(const CallInst *Call) {
+    assert(Call && "Inst is nullptr");
+    return Call->mayThrow() ||
+           (!Call->doesNotAccessMemory() && !Call->onlyAccessesArgMemory());
   }
 
   /// Returns true if this is a call instruction with unsafe side effects.
-  bool isUnsafeSideEffectCallInst() const {
+  bool isUnsafeSideEffectsCallInst() const {
     auto Call = getCallInst();
-    return Call && hasUnsafeSideEffect(Call);
+    return Call && hasUnsafeSideEffects(Call);
   }
 
-  /// Returns true if \p Call instruction has unknown memory access.
-  static bool hasUnknownMemoryAccess(const CallInst *Call) {
+  /// Returns true if \p Call instruction can alias arbitrary memory.
+  /// This is for transformations like loop memory motion and scalar
+  /// replacement.
+  static bool hasUnknownAliasing(const CallInst *Call) {
     assert(Call && "Inst is nullptr");
     return !Call->doesNotAccessMemory() &&
            !onlyAccessesInaccessibleOrArgMemory(Call);
   }
 
   /// Returns true if this is a call instruction with unknown memory access.
-  bool isUnknownMemoryAccessCallInst() const {
+  bool isUnknownAliasingCallInst() const {
     auto Call = getCallInst();
-    return Call && hasUnknownMemoryAccess(Call);
+    return Call && hasUnknownAliasing(Call);
   }
 
   /// Returns true if this is an indirect call instruction.

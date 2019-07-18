@@ -654,7 +654,8 @@ void CSACvtCFDFPass::switchRegister(unsigned Reg, bool StrictLive) {
 
   // Get the value that's live on the edge. If the parent has two children, it
   // needs to insert a switch; otherwise, it copies the parent's value.
-  auto getRegOnEdge = [&](MachineBasicBlock *Parent, MachineBasicBlock *Child) {
+  auto getRegOnEdge = [&](MachineBasicBlock *Parent,
+                          MachineBasicBlock *Child) -> unsigned {
     if (Parent->succ_size() == 1)
       return RegValues[getBlockNumber(Parent)];
 
@@ -1018,7 +1019,7 @@ void CSACvtCFDFPass::pipelineLoop(MachineBasicBlock *lphdr, CSALoopInfo &DFLoop,
     // corresponding data. The data in/out for the completion op will both be
     // IGN. TODO: don't waste a "completion1" on this.
     // Otherwise (if g is a real operand) it needs to be reordered.
-    unsigned orderedOut = g ? g->getReg() : static_cast<unsigned>(CSA::IGN);
+    unsigned orderedOut = g ? g->getReg() : Register(CSA::IGN);
     const TargetRegisterClass *RC = g ? MRI->getRegClass(g->getReg()) : &CSA::CI1RegClass;
     unsigned unorderedOut = g ? LMFI->allocateLIC(RC, "unorderedOut") :
                                                            static_cast<unsigned>(CSA::IGN);
@@ -2605,7 +2606,7 @@ unsigned PickTreeNode::convertToPick(MachineInstr *Phi,
 
   const TargetRegisterClass *RC = MRI.getRegClass(Phi->getOperand(0).getReg());
   unsigned OutputReg = UseOutput ? Phi->getOperand(0).getReg() :
-    LMFI.allocateLIC(RC);
+    Register(LMFI.allocateLIC(RC));
 
   BuildMI(*Phi->getParent(), InsertPoint, Phi->getDebugLoc(),
       TII.get(TII.makeOpcode(CSA::Generic::PICK, RC)), OutputReg)

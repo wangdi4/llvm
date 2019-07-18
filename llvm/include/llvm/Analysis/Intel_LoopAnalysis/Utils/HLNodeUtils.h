@@ -843,6 +843,12 @@ public:
   /// Creates a new Memset intrinsic call.
   HLInst *createMemset(RegDDRef *StoreRef, RegDDRef *Value, RegDDRef *Size);
 
+  /// Creates a new vector reduce intrinsic call for FP min/max reduction.
+  HLInst *createFPMinMaxVectorReduce(RegDDRef *VecRef,
+                                     Intrinsic::ID VecReduceIntrin,
+                                     bool NoNaN = false,
+                                     RegDDRef *LvalRef = nullptr);
+
   /// Creates a new ShuffleVector instruction
   HLInst *createShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
                                   RegDDRef *Mask, const Twine &Name = "shuffle",

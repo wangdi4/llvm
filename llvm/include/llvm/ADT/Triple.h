@@ -82,6 +82,11 @@ public:
     thumbeb,        // Thumb (big endian): thumbeb
     x86,            // X86: i[3-9]86
     x86_64,         // X86-64: amd64, x86_64
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+    x86_icecode,    // X86-IceCode: IceCode
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
     xcore,          // XCore: xcore
     nvptx,          // NVPTX: 32-bit
     nvptx64,        // NVPTX: 64-bit
@@ -223,9 +228,10 @@ public:
     Itanium,
     Cygnus,
     CoreCLR,
-    Simulator,  // Simulator variants of other systems, e.g., Apple's iOS
+    Simulator, // Simulator variants of other systems, e.g., Apple's iOS
+    MacABI, // Mac Catalyst variant of Apple's iOS deployment target.
     SYCLDevice,
-    LastEnvironmentType = Simulator
+    LastEnvironmentType = MacABI
   };
   enum ObjectFormatType {
     UnknownObjectFormat,
@@ -493,6 +499,10 @@ public:
 
   bool isSimulatorEnvironment() const {
     return getEnvironment() == Triple::Simulator;
+  }
+
+  bool isMacCatalystEnvironment() const {
+    return getEnvironment() == Triple::MacABI;
   }
 
   bool isSYCLDeviceEnvironment() const {

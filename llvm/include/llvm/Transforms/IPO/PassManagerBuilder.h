@@ -113,6 +113,16 @@ public:
     /// passes at the end of the main CallGraphSCC passes and before any
     /// function simplification passes run by CGPassManager.
     EP_CGSCCOptimizerLate,
+
+    /// EP_FullLinkTimeOptimizationEarly - This extensions point allow adding
+    /// passes that
+    /// run at Link Time, before Full Link Time Optimization.
+    EP_FullLinkTimeOptimizationEarly,
+
+    /// EP_FullLinkTimeOptimizationLast - This extensions point allow adding
+    /// passes that
+    /// run at Link Time, after Full Link Time Optimization.
+    EP_FullLinkTimeOptimizationLast,
   };
 
   /// The Optimization Level - Specify the basic optimization level.
@@ -210,9 +220,11 @@ private:
   // loops using VPlanDriver
   void addVPOPassesPreLoopOpt(legacy::PassManagerBase &PM) const;
   bool isLoopOptEnabled() const;
-  void addLoopOptPasses(legacy::PassManagerBase &PM) const;
+  void addLoopOptPasses(legacy::PassManagerBase &PM, bool IsLTO) const;
   void addLoopOptCleanupPasses(legacy::PassManagerBase &PM) const;
-  void addLoopOptAndAssociatedVPOPasses(legacy::PassManagerBase &PM) const;
+  void addLoopOptAndAssociatedVPOPasses(legacy::PassManagerBase &PM,
+                                        bool IsLTO) const;
+
 public:
   llvm::InlineReportBuilder *getMDInlineReport() const;
 #endif // INTEL_CUSTOMIZATION

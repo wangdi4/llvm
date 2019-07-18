@@ -301,8 +301,8 @@ static bool checkFunctionProperties(Function &F) {
     if (AttrList.hasFnAttribute(Attribute::AlwaysInline) ||
       AttrList.hasFnAttribute(Attribute::NoInline) ||
       AttrList.hasFnAttribute(Attribute::InlineHint) ||
-      AttrList.hasFnAttribute(Attribute::AlwaysInlineRecursive) ||
-      AttrList.hasFnAttribute(Attribute::InlineHintRecursive) ||
+      AttrList.hasFnAttribute("always-inline-recursive") ||
+      AttrList.hasFnAttribute("inline-hint-recursive") ||
       AttrList.hasFnAttribute("prefer-partial-inline-inlined-clone") ||
       AttrList.hasFnAttribute("prefer-partial-inline-outlined-func"))
       return true;

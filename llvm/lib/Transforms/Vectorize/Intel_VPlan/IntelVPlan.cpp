@@ -823,19 +823,6 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
 #endif
 
 void VPInstruction::execute(VPTransformState &State) {
-#if INTEL_CUSTOMIZATION
-  // TODO: Remove this block of code. Its purpose is to emulate the execute()
-  //       of the conditionbit recipies that have now been removed.
-  if (State.UniformCBVs->count(this)) {
-    Value *ScConditionBit = getUnderlyingValue();
-    State.ILV->serializeInstruction(cast<Instruction>(ScConditionBit));
-    Value *ConditionBit = State.ILV->getScalarValue(ScConditionBit, 0);
-    assert(!ConditionBit->getType()->isVectorTy() && "Bit should be scalar");
-    State.CBVToConditionBitMap[this] = ConditionBit;
-    return;
-  }
-#endif
-
   assert(!State.Instance && "VPInstruction executing an Instance");
   for (unsigned Part = 0; Part < State.UF; ++Part)
     generateInstruction(State, Part);
@@ -1151,6 +1138,7 @@ void VPlan::execute(VPTransformState *State) {
 void VPlan::executeHIR(VPOCodeGenHIR *CG) {
   assert(isa<VPRegionBlock>(Entry) && Entry->getNumPredecessors() == 0 &&
          Entry->getNumSuccessors() == 0 && "Invalid VPlan entry");
+  CG->createAndMapLoopEntityRefs();
   Entry->executeHIR(CG);
 }
 
@@ -1847,6 +1835,12 @@ void VPValue::invalidateUnderlyingIR() {
   // VPInstructions only.
   if (auto *VPI = dyn_cast<VPInstruction>(this)) {
     UnderlyingVal = nullptr;
+    // Temporary hook-up to ignore loop induction related instructions during CG
+    // by not invalidating them.
+    // TODO: Remove this code after VPInduction support is added to HIR CG.
+    const HLNode *HNode = VPI->HIR.getUnderlyingNode();
+    if (HNode && isa<HLLoop>(HNode))
+      return;
     VPI->HIR.invalidate();
 
     // At this point, we don't have a use-case where invalidation of users of

@@ -67,6 +67,7 @@ class VPValue {
   friend class VPlanDivergenceAnalysis;
   friend class VPVectorShape;
   friend class VPInstruction;
+  friend class VPVLSClientMemref;
 #endif
 
 private:
@@ -378,6 +379,7 @@ class VPConstant : public VPValue {
   friend class VPlan;
   friend class VPlanDivergenceAnalysis;
   friend class VPOCodeGenHIR;
+  friend class VPOCodeGen;
 
 protected:
   VPConstant(Constant *Const)
@@ -390,6 +392,17 @@ protected:
     assert(isa<Constant>(getUnderlyingValue()) &&
            "Expected Constant as underlying Value.");
     return cast<Constant>(getUnderlyingValue());
+  }
+
+  /// Return true if underlying Constant is a constant integer.
+  bool isConstantInt() const { return isa<ConstantInt>(getUnderlyingValue()); }
+
+  /// Return the zero-extended value of underlying Constant. ZExt value exists
+  /// only for constant integers.
+  unsigned getZExtValue() const {
+    assert(isConstantInt() &&
+           "ZExt value cannot be obtained for non-constant integers.");
+    return cast<ConstantInt>(getUnderlyingValue())->getZExtValue();
   }
 
 public:

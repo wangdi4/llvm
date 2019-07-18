@@ -43,7 +43,8 @@ public:
                                 const VPInstruction *Inst,
                                 const unsigned LoopLevel, HIRDDAnalysis *DDA,
                                 const RegDDRef *Ref)
-      : VPVLSClientMemref(VLSK_VPlanHIRVLSClientMemref, AccTy, Ty, Inst),
+      : VPVLSClientMemref(VLSK_VPlanHIRVLSClientMemref, AccTy, Ty, Inst,
+                          /*VLSA=*/nullptr),
         LoopLevel(LoopLevel), DDA(DDA), Ref(Ref) {}
 
   virtual ~VPVLSClientMemrefHIR() {}
@@ -54,10 +55,6 @@ public:
     assert(FromMem && "Invalid OVLSMemref");
     return DDRefUtils::getConstByteDistance(getRegDDRef(),
                                             FromMem->getRegDDRef(), Dist);
-  }
-
-  virtual bool haveSameNumElements(const OVLSMemref &Memref) final {
-    return getNumElements() == Memref.getNumElements();
   }
 
   virtual bool canMoveTo(const OVLSMemref &To) final {

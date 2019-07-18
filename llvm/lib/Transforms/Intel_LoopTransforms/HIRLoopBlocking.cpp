@@ -77,7 +77,7 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
 // If this check is disabled, blocking is applied to non-constant TC or to
 // constant trip count not large enough above the threshold.
 static cl::opt<bool>
-    DisableTCCheck("disable-" OPT_SWITCH "-trip-count-check", cl::init(false),
+    DisableTCCheck("disable-" OPT_SWITCH "-trip-count-check", cl::init(true),
                    cl::Hidden,
                    cl::desc("Disable trip count check in " OPT_DESC " pass"));
 
@@ -329,20 +329,13 @@ typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
 
 // Returns the largest number of dimensions in all refs
 // in the given Refs.
-// SeenNonLinear is set true if any ref is non-linear.
 // It does not count invariant subscript at OutermostLoopLevel.
-// For e.g. with A[i1][i2], B[i2], and C[5][i2][i1],
-// 2 will be returned.
+// For e.g. with {A[i1][i2], B[i2], C[5][i2][i1]},
+// 2 will be returned because 2 is maximun of {2, 1, 2}.
 unsigned calcMaxVariantDimension(const MemRefGatherer::VectorTy &Refs,
-                                 unsigned OutermostLoopLevel,
-                                 bool &SeenNonLinear) {
-  SeenNonLinear = false;
+                                 unsigned OutermostLoopLevel) {
   unsigned Max = 0;
   for (RegDDRef *Ref : Refs) {
-    if (Ref->isNonLinear()) {
-      SeenNonLinear = true;
-      return 0;
-    }
     unsigned NumVariantDimensions = 0;
     for (int I = 1, E = Ref->getNumDimensions(); I <= E; I++) {
       const CanonExpr *CE = Ref->getDimensionIndex(I);
@@ -388,7 +381,6 @@ unsigned calcConsecutiveDepthOverTCThreshold(
        Lp != ELp; Lp = Lp->getParentLoop()) {
     if (!DisableTCCheck &&
         LoopToTC.find(Lp)->second < (uint64_t)LoopBlockingTCThreshold) {
-      // LoopToTC[Lp] < (uint64_t)LoopBlockingTCThreshold) {
       break;
     }
     ConsecutiveDepth++;
@@ -398,11 +390,11 @@ unsigned calcConsecutiveDepthOverTCThreshold(
   return ConsecutiveDepth;
 }
 
-// Return true if at least one stripmining is needed
+// Return true if at least one stripmining is needed.
 // This function does not check legality.
 // Legality is checked later with another function.
 // Just mark loops to stripmine and actual stripmine and interchange
-// happen later if the resulting permutation is valid.
+// happens later if the resulting permutation is valid.
 //
 // The algorithm is based on Allen and Kennedy's simple blocking algorithm.
 //   Do J = 1..N
@@ -410,7 +402,7 @@ unsigned calcConsecutiveDepthOverTCThreshold(
 //         Do I = 1..N
 //            C(I,J) = C(I,J) + A(I,K) * B(K,J)
 // For example,
-//    For K-loop there is reuse of C(I, J), which is manifested by
+//    For K-loop, there is reuse of C(I, J), which is manifested by
 //    missing "K" in subscripts. In this case, K-loop's inner loop is
 //    blocked.
 // Direct application of the algorithm is done by
@@ -454,7 +446,13 @@ bool determineProfitableStripmineLoop(
       // Might become more important for handling non-perfect loop nest
       bool LevelSeen = Ref->hasIV(Level);
 
-      if (!LevelSeen) {
+      if (!LevelSeen &&
+          (std::any_of(Ref->canon_begin(), Ref->canon_end(),
+                       [](const CanonExpr *CE) { return CE->hasIV(); }))) {
+        // Ref should have at least one IV.
+        // If Ref has no IV (e.g. A[0]),
+        // the ref should be ignored.
+
         NumRefsMissingAtLevel[Level]++;
       }
     } // all level
@@ -474,12 +472,12 @@ bool determineProfitableStripmineLoop(
     // See if any refs deepest dimension has this Level IV with a small stride
     LLVM_DEBUG(dbgs() << "NumRefsMissingAtLevel " << Level << ": "
                       << NumRefsMissingAtLevel[Level] << "\n";);
-    LLVM_DEBUG(dbgs() << "NumRefsWithSmallStrides" << Level << ": "
+    LLVM_DEBUG(dbgs() << "NumRefsWithSmallStrides " << Level << ": "
                       << NumRefsWithSmallStrides[Level] << "\n");
-    bool NotRequired = false;
     if (NumTotalLoops >= MaxLoopNestLevel) {
       break;
     }
+    bool NotRequired = false;
     if ((NumRefsMissingAtLevel[Level] > 0 ||
          NumRefsWithSmallStrides[Level] > 0) &&
         Lp->canStripmine(LoopToBS.find(Lp)->second, NotRequired) &&
@@ -491,7 +489,6 @@ bool determineProfitableStripmineLoop(
       HLLoop *ToStripmine = LoopBlockingAlgorithm == KAndR
                                 ? const_cast<HLLoop *>(InnerLp)
                                 : const_cast<HLLoop *>(Lp);
-
       LLVM_DEBUG(dbgs() << "Loop at Level " << ToStripmine->getNestingLevel()
                         << " will be stripmined\n");
       LoopsToStripmine.insert(ToStripmine);
@@ -502,14 +499,18 @@ bool determineProfitableStripmineLoop(
   // Look into the innermost loop again for blocking when algo is MatMul.
   // Experiments in skx showed blocking all three levels of matrix
   // multiplication gives best performance.
-  if (LoopBlockingAlgorithm == MatMul) {
+  if (LoopBlockingAlgorithm == MatMul &&
+      (std::any_of(NumRefsMissingAtLevel.begin(), NumRefsMissingAtLevel.end(),
+                   [](int Num) { return Num > 0; }))) {
+
     bool NotRequired = false;
     if (InnermostLoop->canStripmine(LoopToBS.find(InnermostLoop)->second,
                                     NotRequired) &&
         !NotRequired) {
       // calcConsecutiveDepthOverTCThreshold already checked TC
       // of the innermost Loop.
-      LLVM_DEBUG(dbgs() << "Loop at Level " << InnermostLoop->getNestingLevel()
+      LLVM_DEBUG(dbgs() << "* Loop at Level "
+                        << InnermostLoop->getNestingLevel()
                         << " will be stripmined\n");
       LoopsToStripmine.insert(const_cast<HLLoop *>(InnermostLoop));
       ToStripLevels.push_back(InnermostLoop->getNestingLevel());
@@ -625,7 +626,7 @@ public:
     }
 
     if (HLS.getTotalLoopStatistics(InnermostLoop)
-            .hasCallsWithUnknownMemoryAccess()) {
+            .hasCallsWithUnsafeSideEffects()) {
       SkipNode = Loop;
       return;
     }
@@ -638,26 +639,28 @@ public:
     LLVM_DEBUG(MemRefGatherer::dump(Refs));
 
     // Now Loop is a perfect loop nest
-    // Examine the innermost
-    bool SeenNonLinear = false;
-    unsigned MaxDimension =
-        calcMaxVariantDimension(Refs, Loop->getNestingLevel(), SeenNonLinear);
-    if (SeenNonLinear) {
+    if (std::any_of(Refs.begin(), Refs.end(),
+                    [](const RegDDRef *Ref) { return Ref->isNonLinear(); })) {
       LLVM_DEBUG(dbgs() << "Failed: nonlinear ref in the innermost loop\n");
-      // A heuristic choice: Choose not to block. Stop here.
-      // This check is useful for blocking typical matrix multiplication.
+      // If any Ref is a non-linear, give up here.
       SkipNode = Loop;
       return;
     }
-    unsigned LoopDepth =
-        InnermostLoop->getNestingLevel() - Loop->getNestingLevel() + 1;
-    if (!DisableLoopDepthCheck && LoopDepth <= MaxDimension) {
-      LLVM_DEBUG(dbgs() << "Failed Maxdimension >= LoopDepth " << MaxDimension
-                        << "," << LoopDepth << "\n");
+
+    unsigned MaxDimension =
+        calcMaxVariantDimension(Refs, Loop->getNestingLevel());
+    if (!DisableLoopDepthCheck) {
       // A heuristic choice: Choose not to block. Stop here.
       // This check is useful for blocking typical matrix multiplication.
-      SkipNode = Loop;
-      return;
+
+      unsigned LoopDepth =
+          InnermostLoop->getNestingLevel() - Loop->getNestingLevel() + 1;
+      if (LoopDepth <= MaxDimension) {
+        LLVM_DEBUG(dbgs() << "Failed MaxDimension < LoopDepth " << MaxDimension
+                          << "," << LoopDepth << "\n");
+        SkipNode = Loop;
+        return;
+      }
     }
 
     // Now scan through loop nest's TC
@@ -674,7 +677,7 @@ public:
     // The loop depth is refined so that TC of a participating loop
     // is at least a TCThreshold.
     if (ConsecutiveDepth <= MaxDimension) {
-      LLVM_DEBUG(dbgs() << "Failed MaxDimension >= ConsecutiveDepth "
+      LLVM_DEBUG(dbgs() << "Failed MaxDimension < ConsecutiveDepth "
                         << MaxDimension << "," << ConsecutiveDepth << "\n");
       // Choose not to block. Stop here.
       SkipNode = Loop;
@@ -689,8 +692,7 @@ public:
 
     // SmallSet does not allow iteration, auxiliary data structure
     SmallVector<unsigned, MaxLoopNestLevel> ToStripLevels;
-    bool IsToStripmine = false;
-    IsToStripmine =
+    bool IsToStripmine =
         determineProfitableStripmineLoop(InnermostLoop, NewOutermost, Refs,
                                          ToStripmines, LoopToBS, ToStripLevels);
     if (!IsToStripmine) {
@@ -749,7 +751,8 @@ void hoistMinDefs(const LoopSetTy &ByStripLoops,
   unsigned OutermostLevel = CurLoopNests.front()->getNestingLevel();
 
   // Find the level where min blob is used as Loop UB
-  auto FindUseMinLevel = [&LoopPermutation, OutermostLevel](unsigned OrigDefLevel) {
+  auto FindUseMinLevel = [&LoopPermutation,
+                          OutermostLevel](unsigned OrigDefLevel) {
     unsigned OrigUseLevel = OrigDefLevel + 1;
     unsigned DestLevel = OutermostLevel - 1;
     for (auto OrigLp : LoopPermutation) {
@@ -835,6 +838,7 @@ void doTransformation(BlockingLoopNestInfoTy &CandidateRangeToStrips) {
     HLLoop *InnermostLoop;
     LoopSetTy ToStripmines;
     std::tie(OutermostLoop, InnermostLoop, ToStripmines) = Triple;
+
     HLLoop *NewOutermostLoop = stripmineSelectedLoops(
         InnermostLoop, OutermostLoop, ToStripmines, ByStripLoops);
 

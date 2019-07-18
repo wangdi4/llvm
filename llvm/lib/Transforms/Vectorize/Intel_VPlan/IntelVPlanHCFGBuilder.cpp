@@ -488,27 +488,22 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   // one of the intermediate blocks or one of the exiting blocks.
   Type *Ty32 = Type::getInt32Ty(*Plan->getLLVMContext());
   Type *Ty1 = Type::getInt1Ty(*Plan->getLLVMContext());
-  VPConstant *ZeroConst = Plan->getVPConstant(ConstantInt::get(Ty32, 0));
-  VPConstant *ZeroConstTy1 = Plan->getVPConstant(ConstantInt::get(Ty1, 0));
+  VPConstant *FalseConst = Plan->getVPConstant(ConstantInt::get(Ty1, 0));
   VPBuilder VPBldr;
   VPBldr.setInsertPoint(NewLoopLatch);
   VPPHINode *VPPhi = cast<VPPHINode>(VPBldr.createPhiInstruction(Ty32));
   // This phi node is a marker of the backedge. It shows if the backedge is
   // taken.
-  VPPHINode *VPPhiMarker = cast<VPPHINode>(VPBldr.createPhiInstruction(Ty1));
+  VPPHINode *NewCondBit = cast<VPPHINode>(VPBldr.createPhiInstruction(Ty1));
   if (LatchExitBlock) {
     VPInstruction *OldCondBit =
         dyn_cast<VPInstruction>(NewLoopLatch->getCondBit());
-    VPPhiMarker->addIncoming(OldCondBit, cast<VPBasicBlock>(OrigLoopLatch));
+    NewCondBit->addIncoming(OldCondBit, cast<VPBasicBlock>(OrigLoopLatch));
   } else {
     VPConstant *OneConstTy1 = Plan->getVPConstant(ConstantInt::get(Ty1, 1));
-    VPPhiMarker->addIncoming(OneConstTy1, cast<VPBasicBlock>(OrigLoopLatch));
+    NewCondBit->addIncoming(OneConstTy1, cast<VPBasicBlock>(OrigLoopLatch));
   }
   // Update the condbit.
-  VPInstruction *Cond = new VPCmpInst(VPPhi, ZeroConst, CmpInst::ICMP_EQ);
-  NewLoopLatch->addRecipeAfter(Cond, VPPhiMarker);
-  VPInstruction *NewCondBit =
-      cast<VPInstruction>(VPBldr.createAnd(Cond, VPPhiMarker));
   NewLoopLatch->setCondBit(NewCondBit);
   VPlanDivergenceAnalysis *VPlanDA = Plan->getVPlanDA();
   VPlanDA->markDivergent(*NewCondBit);
@@ -570,7 +565,7 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
       VPConstant *ExitIDConst =
           Plan->getVPConstant(ConstantInt::get(Ty32, ExitID));
       VPPhi->addIncoming(ExitIDConst, NewExitingBB);
-      VPPhiMarker->addIncoming(ZeroConstTy1, NewExitingBB);
+      NewCondBit->addIncoming(FalseConst, NewExitingBB);
 
       // The VPPHINode of the exit block should be moved in the new loop latch
       // if all the predecessors are in the loop. If not, then we remove the
@@ -628,7 +623,7 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
       VPConstant *ExitIDConst =
           Plan->getVPConstant(ConstantInt::get(Ty32, ExitID));
       VPPhi->addIncoming(ExitIDConst, cast<VPBasicBlock>(NewBlock));
-      VPPhiMarker->addIncoming(ZeroConstTy1, cast<VPBasicBlock>(NewBlock));
+      NewCondBit->addIncoming(FalseConst, cast<VPBasicBlock>(NewBlock));
       ExitBlockIDPairs.push_back(std::make_pair(ExitBlock, ExitIDConst));
       ExitExitingBlocksMap[ExitBlock] = ExitingBlock;
       ExitBlockNewBlockMap[ExitBlock] = NewBlock;
@@ -1689,6 +1684,21 @@ public:
 
     Descriptor.clear();
     auto *VPAllocaVal = Builder.getOrCreateVPOperand(CurValue);
+    // TODO: This is a temporary solution. Aliases to the private descriptor
+    // should be collected earlier with new descriptor representation in
+    // VPOLegality.
+    for (auto *Use : make_range(CurValue->user_begin(), CurValue->user_end())) {
+      // Skip uses like the one from being an operand for the region-entry/exit
+      // directive
+      if (isa<IntrinsicInst>(Use) &&
+          VPOAnalysisUtils::isOpenMPDirective(cast<IntrinsicInst>(Use)))
+        continue;
+      if (isa<BitCastInst>(Use) || isa<AddrSpaceCastInst>(Use) ||
+          isa<GetElementPtrInst>(Use)) {
+        auto *NewVPOperand = Builder.getOrCreateVPOperand(Use);
+        Descriptor.addAlias(NewVPOperand);
+      }
+    }
     Descriptor.setAllocaInst(VPAllocaVal);
     Descriptor.setIsConditional(IsCondPriv);
     Descriptor.setIsLast(IsLastPriv);
@@ -1963,7 +1973,6 @@ VPValue *PlainCFGBuilder::getOrCreateVPOperand(Value *IRVal) {
   // definitions. We may introduce specific VPValue subclasses for them in the
   // future.
   assert(isExternalDef(IRVal) && "Expected external definition as operand.");
-
   // A and B: Create VPValue and add it to the pool of external definitions and
   // to the Value->VPValue map.
   VPExternalDef *ExtDef = Plan->getVPExternalDef(IRVal);

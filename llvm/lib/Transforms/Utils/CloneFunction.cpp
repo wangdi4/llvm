@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/ADT/DenseMap.h"  // INTEL
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/ConstantFolding.h"
@@ -730,30 +729,6 @@ void llvm::remapInstructionsInBlocks(
                        RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
 }
 
-#if INTEL_CUSTOMIZATION
-/// \brief Clones the original loop \p OrigLoop structure
-/// and keeps it ready to add the basic blocks.
-///
-/// \p NewLoop is an shallow copy of \p OrigLoop.  The routine recursively
-/// copies the structure of Loops enclosed in \p OrigLoop by creating
-/// copies for the descendant Loops and update \p LI LoopInfo.
-/// \p ClonedLoopMap is updated to keep the mapping between the original
-/// descendant Loops and the newly created ones.
-static void createNewLoops(Loop *OrigLoop, LoopInfo *LI, Loop *NewLoop,
-                           DenseMap<const Loop *, Loop *>  &ClonedLoopMap) {
-  if (OrigLoop->empty()) return;
-
-  for (auto CurrLoop :  OrigLoop->getSubLoops()) {
-    Loop *NewChildLoop = LI->AllocateLoop();
-    NewLoop->addChildLoop(NewChildLoop);
-    ClonedLoopMap[CurrLoop] = NewChildLoop;
-
-    // Recursively add the new loops.
-    createNewLoops(CurrLoop, LI, NewChildLoop, ClonedLoopMap);
-  }
-}
-#endif  // INTEL_CUSTOMIZATION
-
 /// Clones a loop \p OrigLoop.  Returns the loop and the blocks in \p
 /// Blocks.
 ///
@@ -764,29 +739,16 @@ Loop *llvm::cloneLoopWithPreheader(BasicBlock *Before, BasicBlock *LoopDomBB,
                                    const Twine &NameSuffix, LoopInfo *LI,
                                    DominatorTree *DT,
                                    SmallVectorImpl<BasicBlock *> &Blocks) {
-#if !INTEL_CUSTOMIZATION
-  // INTEL_CUSTOMIZATION code below enables cloning of loops with child loops.
-  assert(OrigLoop->getSubLoops().empty() &&
-         "Loop to be cloned cannot have inner loop");
-#endif // !INTEL_CUSTOMIZATION
   Function *F = OrigLoop->getHeader()->getParent();
   Loop *ParentLoop = OrigLoop->getParentLoop();
+  DenseMap<Loop *, Loop *> LMap;
 
   Loop *NewLoop = LI->AllocateLoop();
+  LMap[OrigLoop] = NewLoop;
   if (ParentLoop)
     ParentLoop->addChildLoop(NewLoop);
   else
     LI->addTopLevelLoop(NewLoop);
-
-#if INTEL_CUSTOMIZATION
-  // Map each old Loop with new one.
-  DenseMap<const Loop *, Loop *> ClonedLoopMap;
-  // Add the top level loop provided for cloning.
-  ClonedLoopMap[OrigLoop] = NewLoop;
-
-  // Recursively clone the loop structure.
-  createNewLoops(OrigLoop, LI, NewLoop, ClonedLoopMap);
-#endif // INTEL_CUSTOMIZATION
 
   BasicBlock *OrigPH = OrigLoop->getLoopPreheader();
   assert(OrigPH && "No preheader");
@@ -802,24 +764,38 @@ Loop *llvm::cloneLoopWithPreheader(BasicBlock *Before, BasicBlock *LoopDomBB,
   // Update DominatorTree.
   DT->addNewBlock(NewPH, LoopDomBB);
 
-  for (BasicBlock *BB : OrigLoop->getBlocks()) {
-    BasicBlock *NewBB = CloneBasicBlock(BB, VMap, NameSuffix, F);
-    VMap[BB] = NewBB;
+  for (Loop *CurLoop : OrigLoop->getLoopsInPreorder()) {
+    for (BasicBlock *BB : CurLoop->getBlocks()) {
+      if (CurLoop != LI->getLoopFor(BB))
+        continue;
 
-#if INTEL_CUSTOMIZATION
-    // Get the innermost loop for the BB.
-    Loop *L = LI->getLoopFor(BB);
-    // Get the corresponding cloned loop.
-    Loop *NewClonedLoop = ClonedLoopMap[L];
-    assert(NewClonedLoop && "Could not find the corresponding cloned loop.");
-    // Update LoopInfo.
-    NewClonedLoop->addBasicBlockToLoop(NewBB, *LI);
-#endif // INTEL_CUSTOMIZATION
+      Loop *&NewLoop = LMap[CurLoop];
+      if (!NewLoop) {
+        NewLoop = LI->AllocateLoop();
 
-    // Add DominatorTree node. After seeing all blocks, update to correct IDom.
-    DT->addNewBlock(NewBB, NewPH);
+        // Establish the parent/child relationship.
+        Loop *OrigParent = CurLoop->getParentLoop();
+        assert(OrigParent && "Could not find the original parent loop");
+        Loop *NewParentLoop = LMap[OrigParent];
+        assert(NewParentLoop && "Could not find the new parent loop");
 
-    Blocks.push_back(NewBB);
+        NewParentLoop->addChildLoop(NewLoop);
+      }
+
+      BasicBlock *NewBB = CloneBasicBlock(BB, VMap, NameSuffix, F);
+      VMap[BB] = NewBB;
+
+      // Update LoopInfo.
+      NewLoop->addBasicBlockToLoop(NewBB, *LI);
+      if (BB == CurLoop->getHeader())
+        NewLoop->moveToHeader(NewBB);
+
+      // Add DominatorTree node. After seeing all blocks, update to correct
+      // IDom.
+      DT->addNewBlock(NewBB, NewPH);
+
+      Blocks.push_back(NewBB);
+    }
   }
 
   for (BasicBlock *BB : OrigLoop->getBlocks()) {

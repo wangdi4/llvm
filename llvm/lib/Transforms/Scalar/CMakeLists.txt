@@ -31,6 +31,7 @@ add_llvm_library(LLVMScalarOpts
   Intel_RemoveRegionDirectives.cpp
   Intel_StdContainerOpt.cpp
   Intel_TbaaMDPropagation.cpp
+  Intel_TransformFPGAReg.cpp
   Intel_MultiVersioning.cpp
   Intel_AddSubReassociate.cpp
   Intel_LoopCarriedCSE.cpp

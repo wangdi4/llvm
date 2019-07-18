@@ -219,6 +219,53 @@ function(add_flag_or_print_warning flag name)
   endif()
 endfunction()
 
+# INTEL_CUSTOMIZATION
+macro(intel_add_sdl_flag flag name)
+  cmake_parse_arguments(ARG "FUTURE" "" "" ${ARGN})
+  if(ARG_FUTURE)
+    check_c_compiler_flag("-Werror ${flag}" "C_SUPPORTS_${name}")
+    check_cxx_compiler_flag("-Werror ${flag}" "CXX_SUPPORTS_${name}")
+    if(C_SUPPORTS_${name} AND CXX_SUPPORTS_${name})
+      # Remove FUTURE option from intel_add_sdl_flag() call
+      # to enable this flag. Make sure you do comprehensive
+      # testing (e.g. zperf_checkin_xmain_bt).
+      message(WARNING
+        "INTEL: ignoring supported SDL option ${flag}")
+    else()
+      message(WARNING
+        "INTEL: ignoring unsupported SDL option ${flag}")
+    endif()
+  else()
+    add_flag_or_print_warning("${flag}" ${name})
+  endif()
+endmacro()
+
+macro(intel_add_sdl_linker_flag flag name)
+  include(CheckLinkerFlag)
+  cmake_parse_arguments(ARG "FUTURE" "" "" ${ARGN})
+  check_linker_flag("${flag}" "LINKER_SUPPORTS_${name}")
+  if(ARG_FUTURE)
+    if(LINKER_SUPPORTS_${name})
+      # Remove FUTURE option from intel_add_sdl_linker_flag() call
+      # to enable this flag. Make sure you do comprehensive
+      # testing (e.g. zperf_checkin_xmain_bt).
+      message(WARNING
+        "INTEL: ignoring supported SDL linker option ${flag}")
+    else()
+      message(WARNING
+        "INTEL: ignoring unsupported SDL linker option ${flag}")
+    endif()
+  else()
+    if(LINKER_SUPPORTS_${name})
+      message(STATUS "Building with ${flag}")
+      append("${flag}" ${ARG_UNPARSED_ARGUMENTS})
+    else()
+      message(WARNING "${flag} is not supported.")
+    endif()
+  endif()
+endmacro()
+# end INTEL_CUSTOMIZATION
+
 if( LLVM_ENABLE_LLD )
   if ( LLVM_USE_LINKER )
     message(FATAL_ERROR "LLVM_ENABLE_LLD and LLVM_USE_LINKER can't be set at the same time")
@@ -360,10 +407,6 @@ if( MSVC )
   endif()
 
   include(ChooseMSVCCRT)
-
-  if( MSVC11 )
-    add_definitions(-D_VARIADIC_MAX=10)
-  endif()
 
   # Add definitions that make MSVC much less annoying.
   add_definitions(
@@ -617,6 +660,13 @@ if (LLVM_ENABLE_WARNINGS AND (LLVM_COMPILER_IS_GCC_COMPATIBLE OR CLANG_CL))
   add_flag_if_supported("-Wcovered-switch-default" COVERED_SWITCH_DEFAULT_FLAG)
   append_if(USE_NO_UNINITIALIZED "-Wno-uninitialized" CMAKE_CXX_FLAGS)
   append_if(USE_NO_MAYBE_UNINITIALIZED "-Wno-maybe-uninitialized" CMAKE_CXX_FLAGS)
+
+#if INTEL_CUSTOMIZATION
+  add_flag_if_supported("-Wno-cast-function-type" NO_CAST_FUNCTION_TYPE)
+  add_flag_if_supported("-Wno-parentheses" NO_PARENTHESES)
+  add_flag_if_supported("-Wno-uninitialized" NO_UNINITIALIZED)
+  add_flag_if_supported("-Wno-unused-function" NO_UNUSED_FUNCTION)
+#endif // INTEL_CUSTOMIZATION
 
   # Disable -Wclass-memaccess, a C++-only warning from GCC 8 that fires on
   # LLVM's ADT classes.
@@ -988,3 +1038,146 @@ if(LLVM_USE_RELATIVE_PATHS_IN_DEBUG_INFO)
   append_if(SUPPORTS_FDEBUG_PREFIX_MAP "-fdebug-prefix-map=${source_root}/=${LLVM_SOURCE_PREFIX}" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
   add_flag_if_supported("-no-canonical-prefixes" NO_CANONICAL_PREFIXES)
 endif()
+
+if(INTEL_CUSTOMIZATION)
+  option(INTEL_SDL_BUILD
+    "Use SDL compilation flags for the compiler/project build" OFF)
+
+  if(INTEL_SDL_BUILD)
+    message(STATUS "INTEL: setting SDL options - begin.")
+
+    if(NOT LLVM_ENABLE_PIC)
+      # Shared Library Code Relocation (strongly recommended by SDL):
+      message(FATAL_ERROR "INTEL: SDL build must set LLVM_ENABLE_PIC to ON.")
+    endif()
+
+    if (NOT LLVM_ENABLE_WARNINGS)
+      # Compiler Warnings and Error Detection (recommended):
+      message(FATAL_ERROR
+        "INTEL: SDK build must set LLVM_ENABLE_WARNINGS to ON.")
+    endif()
+
+    if(LLVM_ON_UNIX)
+      # Fortify Source (strongly recommended):
+      if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+        message(WARNING
+          "-D_FORTIFY_SOURCE=2 can only be used with optimization.")
+        message(WARNING "-D_FORTIFY_SOURCE=2 is not supported.")
+      else()
+        message(STATUS "Building with -D_FORTIFY_SOURCE=2")
+        add_definitions(-D_FORTIFY_SOURCE=2)
+      endif()
+
+      # Format String Defense (all strongly recommended by SDL):
+      intel_add_sdl_flag(
+        "-Wformat" WFORMAT) # Actually, enabled by -Wall
+      intel_add_sdl_flag("-Wformat-security" WFORMATSECURITY)
+      intel_add_sdl_flag(
+        "-Werror=format-security" WERRORFORMATSECURITY)
+
+      # Stack Protection (strongly recommended):
+      intel_add_sdl_flag(
+        "-fstack-protector-strong" FSTACKPROTECTORSTRONG)
+
+      # Stack and Heap Overlap Prevention (recommended):
+      intel_add_sdl_flag(
+        "-fstack-clash-protection" FSTACKCLASHPROTECTION FUTURE)
+
+      if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        # Spectre mitigation options may harm performance,
+        # but it should be OK to use them in non-release build,
+        # which falls under this condition.
+
+        # Spectre 1 (recommended):
+        intel_add_sdl_flag(
+          "-mconditional-branch=keep" MCONDITIONALBRANCHKEEP FUTURE)
+        intel_add_sdl_flag(
+          "-mconditional-branch=pattern-report"
+          MCONDITIONALBRANCHPATTERNREPORT FUTURE)
+        intel_add_sdl_flag(
+          "-mconditional-branch=pattern-fix"
+          MCONDITIONALBRANCHPATTERNFIX FUTURE)
+
+        # Spectre 2 (recommended):
+        intel_add_sdl_flag(
+          "-mindirect-branch=choice" MINDIRECTBRANCHCHOICE FUTURE)
+        intel_add_sdl_flag(
+          "-mfunction-return=choice" MFUNCTIONRETURNCHOICE FUTURE)
+        intel_add_sdl_flag(
+          "-mindirect-branch-register" MINDIRECTBRANCHREGISTER FUTURE)
+
+        # Control Flow Integrity:
+        # These options require HW support.
+        intel_add_sdl_flag("-fcf-protection=full" FCFPROTECTIONFULL FUTURE)
+        intel_add_sdl_flag("-mcet" MCET FUTURE)
+      elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        # Spectre mitigation options may harm performance, so they are disabled
+        # by default (marked as FUTURE).
+
+        # Spectre 1 (recommended):
+        # This flag fails the self-build, so mark it FUTURE for the time being.
+        # This option is not implemented properly for IA32, so use it with care.
+        intel_add_sdl_flag(
+          "-mllvm -x86-speculative-load-hardening" X86SPECULATIVELOADHARDENING
+          FUTURE)
+
+        # Spectre 2 (recommended):
+        # -mretpoline is not supported by ICX now:
+        intel_add_sdl_flag("-mretpoline" MRETPOLINE FUTURE)
+        # I am not sure why -mretpoline-external-thunk is a recommended
+        # SDL flag, since it requires user-defined thunk.
+        intel_add_sdl_flag(
+          "-mretpoline-external-thunk" MRETPOLINEEXTERNALTHUNK FUTURE)
+
+        # Control Flow Integrity (recommended):
+        # -fsanitize=cfi is not supported by ICX now.
+        intel_add_sdl_flag("-fsanitize=cfi" FSANITIZECFI FUTURE)
+      else()
+        message(WARNING
+          "INTEL: unsupported toolchain, some SDL options will not be used.")
+      endif()
+
+      # Inexecutable Stack (strongly recommended):
+      intel_add_sdl_linker_flag("-Wl,-z,noexecstack" ZNOEXECSTACK
+        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+        CMAKE_SHARED_LINKER_FLAGS)
+
+      # Full Relocation Read Only (RELRO) (strongly recommended):
+      intel_add_sdl_linker_flag("-Wl,-z,relro" ZRELRO
+        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+        CMAKE_SHARED_LINKER_FLAGS)
+
+      # Immediate Binding (Bindnow) (strongly recommended):
+      intel_add_sdl_linker_flag("-Wl,-z,now" ZNOW
+        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+        CMAKE_SHARED_LINKER_FLAGS)
+
+      # Position Independent Executable (PIE) (strongly recommended):
+      if(CMAKE_VERSION VERSION_GREATER 3.13)
+        # If CMake is at least 3.14, then setting target property
+        # POSITION_INDEPENDENT_CODE to TRUE will automatically add PIE
+        # linker flag(s). We have to consider switching to this mechanism
+        # instead of setting linker flag(s) explicitly.
+        # Look for add_executable() in AddLLVM.cmake and set
+        # POSITION_INDEPENDENT_CODE to TRUE for INTEL_SDL_BUILD.
+        cmake_policy(SET CMP0083 NEW)
+        include(CheckPIESupported)
+        check_pie_supported(LANGUAGES CXX)
+        if(CMAKE_CXX_LINK_PIE_SUPPORTED)
+          message(WARNING "INTEL: PIE is supported at link time. "
+            "Please consider using POSITION_INDEPENDENT_CODE target property.")
+        endif()
+      endif()
+
+      # We only add the linker flag(s) here, since -fPIC objects can be used
+      # to build Position Independent Executables.
+      intel_add_sdl_linker_flag("-pie" PIE CMAKE_EXE_LINKER_FLAGS)
+    elseif(MSVC)
+      message(FATAL_ERROR "### INTEL: SDL build is currently unsupported. ###")
+    else()
+      message(FATAL_ERROR "### INTEL: SDL build is currently unsupported. ###")
+    endif()
+
+    message(STATUS "INTEL: setting SDL options - end.")
+  endif()
+endif(INTEL_CUSTOMIZATION)

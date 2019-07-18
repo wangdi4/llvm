@@ -19,6 +19,9 @@ target triple = "x86_64-unknown-linux-gnu"
 ;
 ;   return ret;
 ; }
+; CHECK: fdiv {{.*}} !dbg [[NO:![0-9]+]]
+; CHECK: fadd {{.*}} !dbg [[YES:![0-9]+]]
+; CHECK: fdiv {{.*}} !dbg [[TAG:![0-9]+]]
 
 ; Function Attrs: nounwind readnone uwtable
 define double @_Z3fooddb(double %x, double %y, i1 zeroext %c) local_unnamed_addr !dbg !7 {
@@ -33,8 +36,8 @@ first:
   br label %final
 second:
 ; CHECK:      bb.2.second:                                               ;INTEL
-; CHECK-NEXT:   DIVSDrm {{.*}} debug-location !17                        ;INTEL
-; CHECK-NEXT:   ADDSDrm {{.*}} debug-location !18                        ;INTEL
+; CHECK-NEXT:   DIVSDrm {{.*}} debug-location [[NO]]                     ;INTEL
+; CHECK-NEXT:   ADDSDrm {{.*}} debug-location [[YES]]                    ;INTEL
   %f = fadd double %b, 1.000000e+00, !dbg !18
   br label %final
 final:
@@ -59,8 +62,8 @@ first:
 second:
   %f = fadd double %b, 1.000000e+00, !dbg !25
 ; CHECK:      bb.2.second:                                               ;INTEL
-; CHECK-NEXT:   DIVSDrm {{.*}} debug-location !25                        ;INTEL
-; CHECK-NEXT:   ADDSDrm {{.*}} debug-location !25                        ;INTEL
+; CHECK-NEXT:   DIVSDrm {{.*}} debug-location [[TAG]]                    ;INTEL
+; CHECK-NEXT:   ADDSDrm {{.*}} debug-location [[TAG]]                    ;INTEL
   br label %final
 final:
   %cond = phi double [%e, %first], [%f, %second]

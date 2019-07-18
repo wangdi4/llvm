@@ -73,9 +73,7 @@
 ; CHECK-NEXT: {{NewLoopLatch[0-9]+}} (BP: NULL) :
 ; CHECK-NEXT: i32 [[PHI_OUT3:%vp[0-9]+]] = phi  [ i32 [[PHI_OUT1]], [[OrigLoopLatch]] ],  [ i32 1, {{IntermediateBB[0-9]+}} ]
 ; CHECK-NEXT: i1 [[PHI_OUT4:%vp[0-9]+]] = phi  [ i1 true, [[OrigLoopLatch]] ],  [ i1 false, {{IntermediateBB[0-9]+}} ]
-; CHECK-NEXT: i1 [[CMP_OUT4:%vp[0-9]+]] = icmp i32 [[PHI_OUT3]] i32 0
-; CHECK-NEXT: i1 [[AND_OUT4:%vp[0-9]+]] = and i1 [[CMP_OUT4]] i1 [[PHI_OUT4]]
-; CHECK-NEXT: SUCCESSORS(2):[[LoopHeader]](i1 [[AND_OUT4]]), {{BB[0-9]+}}(!i1 [[AND_OUT4]])
+; CHECK-NEXT: SUCCESSORS(2):[[LoopHeader]](i1 [[PHI_OUT4]]), {{BB[0-9]+}}(!i1 [[PHI_OUT4]])
 ; CHECK-NEXT: PREDECESSORS(2): [[OrigLoopLatch]] {{IntermediateBB[0-9]+}}
 ; CHECK-EMPTY:
 

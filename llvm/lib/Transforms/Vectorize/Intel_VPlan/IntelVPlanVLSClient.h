@@ -22,46 +22,33 @@
 namespace llvm {
 namespace vpo {
 
+class VPlanVLSAnalysis;
+
 class VPVLSClientMemref : public OVLSMemref {
   const VPInstruction *Inst;
+  const VPlanVLSAnalysis *VLSA;
 
 public:
   VPVLSClientMemref(const OVLSMemrefKind &Kind, const OVLSAccessType &AccTy,
-                    const OVLSType &Ty, const VPInstruction *Inst)
-      : OVLSMemref(Kind, Ty, AccTy), Inst(Inst) {}
+                    const OVLSType &Ty, const VPInstruction *Inst,
+                    const VPlanVLSAnalysis *VLSA)
+      : OVLSMemref(Kind, Ty, AccTy), Inst(Inst), VLSA(VLSA) {}
 
   virtual ~VPVLSClientMemref() {}
 
   /// Return true if constant distance between current memref and \p From
   /// can be computed and assign this distance in \p Dist.
   /// If distance cannot be computed or it's non-constant, return false.
-  virtual bool isAConstDistanceFrom(const OVLSMemref &From,
-                                    int64_t *Dist) override {
-    // FIXME: Implement this function.
-    return false;
-  }
-
-  /// Return true if number of elements in \p Memref is identical to number of
-  /// elements in current memref.
-  virtual bool haveSameNumElements(const OVLSMemref &Memref) override {
-    // FIXME: Implement this function.
-    return false;
-  }
+  bool isAConstDistanceFrom(const OVLSMemref &From, int64_t *Dist) override;
 
   /// Return true if current memref can be moved to memref \p To.
-  virtual bool canMoveTo(const OVLSMemref &To) override {
-    // FIXME: Implement this function.
-    return false;
-  }
+  bool canMoveTo(const OVLSMemref &To) override;
 
   /// Return true if current memref has constant stride and return this stride
   /// in \p Stride.
-  virtual bool hasAConstStride(int64_t *Stride) const override {
-    // FIXME: Implement this function.
-    return false;
-  }
+  bool hasAConstStride(int64_t *Stride) const override;
 
-  virtual unsigned getLocation() const override {
+  unsigned getLocation() const override {
     llvm_unreachable("Unimplemented");
   }
 
@@ -80,6 +67,9 @@ public:
     return Memref->getKind() == VLSK_VPlanVLSClientMemref ||
            Memref->getKind() == VLSK_VPlanHIRVLSClientMemref;
   }
+
+private:
+  const SCEV *getSCEVForVPValue(const VPValue *Val) const;
 };
 
 } // namespace vpo

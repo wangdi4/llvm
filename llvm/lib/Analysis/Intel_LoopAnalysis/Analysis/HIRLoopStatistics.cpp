@@ -125,12 +125,12 @@ struct LoopStatistics::LoopStatisticsVisitor final : public HLNodeVisitorBase {
       }
 
       SelfStats->HasCallsWithUnsafeSideEffects |=
-          HLInst::hasUnsafeSideEffect(Call);
+          HLInst::hasUnsafeSideEffects(Call);
 
       SelfStats->HasCallsWithNoDuplicate |= Call->cannotDuplicate();
 
-      SelfStats->HasCallsWithUnknownMemoryAccess |=
-          HLInst::hasUnknownMemoryAccess(Call);
+      SelfStats->HasCallsWithUnknownAliasing |=
+          HLInst::hasUnknownAliasing(Call);
     }
   }
 

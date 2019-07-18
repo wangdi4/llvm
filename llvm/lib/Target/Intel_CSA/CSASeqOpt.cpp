@@ -1128,7 +1128,7 @@ void CSASeqOpt::optimizeDFLoop(const CSALoopInfo &Loop) {
     // Filter out the cmp if it doesn't use the result of the pick or add.
     if (CmpInst) {
       unsigned PickReg = PickInst->getOperand(0).getReg();
-      unsigned AddReg = AddInst ? AddInst->getOperand(0).getReg() : 0;
+      unsigned AddReg = AddInst ? AddInst->getOperand(0).getReg() : Register();
       bool UsesPick = false;
       for (auto &DefOp : CmpInst->uses())
         if (DefOp.isReg() &&

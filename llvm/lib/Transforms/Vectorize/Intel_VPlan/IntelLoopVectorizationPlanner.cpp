@@ -182,6 +182,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
       // Loop entities may be not created in some cases.
       VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
       VPBuilder VPIRBuilder;
+      LE->doEscapeAnalysis();
       LE->insertVPInstructions(VPIRBuilder);
       LLVM_DEBUG(Plan->setName("After insertion VPEntities instructions\n");
                  dbgs() << *Plan;);
@@ -564,7 +565,6 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   State.UniformCBVs = &Plan->UniformCBVs;
 
   ILV->collectUniformsAndScalars(BestVF);
-  ILV->getVLS()->getOVLSMemrefs(Plan, BestVF);
 
   Plan->execute(&State);
 

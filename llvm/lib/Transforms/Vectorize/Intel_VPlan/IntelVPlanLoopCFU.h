@@ -97,9 +97,15 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
     // Remove the loop backedge condition from its original parent and place
     // in the region exit. Not needed for correctness, but easier to see
     // when debugging because the successor of the region exit block is
-    // the loop latch containing this condition as the condition bit.
-    SubLoopLatch->removeRecipe(cast<VPInstruction>(BottomTest));
-    RegionExitBlock->addRecipe(cast<VPInstruction>(BottomTest));
+    // the loop latch containing this condition as the condition bit.This will
+    // not work if the condition is a phi node. For this reason, only conditions
+    // that are compare instructions are moved to the RegionExitBlock.
+    if (dyn_cast<VPCmpInst>(BottomTest)) {
+      VPBasicBlock *BottomTestBlock =
+          cast<VPInstruction>(BottomTest)->getParent();
+      BottomTestBlock->removeRecipe(cast<VPInstruction>(BottomTest));
+      RegionExitBlock->addRecipe(cast<VPInstruction>(BottomTest));
+    }
 
     // Move all instructions that are not phi nodes to the new loop body
     // header block. These were the instructions that were part of the

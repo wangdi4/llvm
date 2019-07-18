@@ -268,10 +268,31 @@ enum GlobalValueSummarySymtabCodes {
   // Index-wide flags
   FS_FLAGS = 20,
   // Maps type identifier to summary information for that type identifier.
+  // Produced by the thin link (only lives in combined index).
   // TYPE_ID: [typeid, kind, bitwidth, align, size, bitmask, inlinebits,
   //           n x (typeid, kind, name, numrba,
   //                numrba x (numarg, numarg x arg, kind, info, byte, bit))]
   FS_TYPE_ID = 21,
+  // For background see overview at https://llvm.org/docs/TypeMetadata.html.
+  // The type metadata includes both the type identifier and the offset of
+  // the address point of the type (the address held by objects of that type
+  // which may not be the beginning of the virtual table). Vtable definitions
+  // are decorated with type metadata for the types they are compatible with.
+  //
+  // Maps type identifier to summary information for that type identifier
+  // computed from type metadata: the valueid of each vtable definition
+  // decorated with a type metadata for that identifier, and the offset from
+  // the corresponding type metadata.
+  // Exists in the per-module summary to provide information to thin link
+  // for index-based whole program devirtualization.
+  // TYPE_ID_METADATA: [typeid, n x (valueid, offset)]
+  FS_TYPE_ID_METADATA = 22,
+  // Summarizes vtable definition for use in index-based whole program
+  // devirtualization during the thin link.
+  // PERMODULE_VTABLE_GLOBALVAR_INIT_REFS: [valueid, flags, varflags,
+  //                                        numrefs, numrefs x valueid,
+  //                                        n x (valueid, offset)]
+  FS_PERMODULE_VTABLE_GLOBALVAR_INIT_REFS = 23,
 };
 
 enum MetadataCodes {
@@ -611,14 +632,8 @@ enum AttributeKindCodes {
   ATTR_KIND_OPT_FOR_FUZZING = 57,
   ATTR_KIND_SHADOWCALLSTACK = 58,
   ATTR_KIND_SPECULATIVE_LOAD_HARDENING = 59,
-  ATTR_KIND_IMMARG = 60, // Intel
-#if INTEL_CUSTOMIZATION
-  // Note: Anything 63/over causes an issue with shifting later on.  The
-  // underlying type of this will have to be changed to a larger type if we get
-  // above 61 in community.
-  ATTR_KIND_ALWAYS_INLINE_RECURSIVE = 61,
-  ATTR_KIND_INLINE_HINT_RECURSIVE = 62,
-#endif //INTEL_CUSTOMIZATION
+  ATTR_KIND_IMMARG = 60,
+  ATTR_KIND_WILLRETURN = 61,
 };
 
 enum ComdatSelectionKindCodes {

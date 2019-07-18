@@ -409,9 +409,9 @@ bool HIRRegionIdentification::collectIntermediateBBs(
     }
 
     for (const Instruction &Inst : *BB) {
-      // Check that there is no unknown memory access calls
+      // Check that there are no unknown aliasing calls
       if (isa<CallInst>(Inst) &&
-          HLInst::hasUnknownMemoryAccess(cast<CallInst>(&Inst))) {
+          HLInst::hasUnknownAliasing(cast<CallInst>(&Inst))) {
         return false;
       }
 

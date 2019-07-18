@@ -60,7 +60,6 @@ add_llvm_library(LLVMAnalysis
 # end INTEL_COLLAB
   Interval.cpp
   IntervalPartition.cpp
-  IteratedDominanceFrontier.cpp
   LazyBranchProbabilityInfo.cpp
   LazyBlockFrequencyInfo.cpp
   LazyCallGraph.cpp

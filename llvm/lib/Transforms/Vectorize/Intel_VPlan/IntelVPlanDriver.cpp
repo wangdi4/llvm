@@ -445,7 +445,7 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
   VPlanOptReportBuilder VPORBuilder(LORBuilder, LI);
 
   BasicBlock *Header = Lp->getHeader();
-  VPlanVLSAnalysis VLSA(Header->getContext(), *DL);
+  VPlanVLSAnalysis VLSA(Lp, Header->getContext(), *DL, SE);
   LoopVectorizationPlanner LVP(WRLp, Lp, LI, SE, TLI, TTI, DL, DT, &LVL, &VLSA);
 
 #if INTEL_CUSTOMIZATION
@@ -500,10 +500,14 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
       LLVM_DEBUG(dbgs() << "VD: VPlan Generating code in function: "
                         << Fn.getName() << "\n");
 
+    VPlan *Plan = LVP.getVPlanForVF(VF);
     VPOCodeGen VCodeGen(Lp, Fn.getContext(), PSE, LI, DT, TLI, TTI, VF, 1, &LVL,
-                        &VLSA);
+                        &VLSA, Plan);
     VCodeGen.initOpenCLScalarSelectSet(volcanoScalarSelect);
     if (VF != 1) {
+      // Run VLS analysis before IR for the current loop is modified.
+      VCodeGen.getVLS()->getOVLSMemrefs(LVP.getVPlanForVF(VF), VF);
+
       LVP.executeBestPlan(VCodeGen);
 
       // Strip the directives once the loop is vectorized. In stress testing,
@@ -801,11 +805,14 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   if (!DisableCodeGen) {
     HIRSafeReductionAnalysis *SRA;
     SRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
+    const VPLoopEntityList *Entities =
+        Plan->getLoopEntities(VPlanUtils::findFirstLoopDFS(Plan)->getVPLoop());
     RegDDRef *PeelArrayRef = nullptr;
     VPlanIdioms::Opcode SearchLoopOpcode =
         VPlanIdioms::isSearchLoop(Plan, VF, true, PeelArrayRef);
     VPOCodeGenHIR VCodeGen(TLI, TTI, SRA, &VLSA, Plan, Fn, Lp, LORBuilder, WRLp,
-                           SearchLoopOpcode, PeelArrayRef);
+                           Entities, &HIRVecLegal, SearchLoopOpcode,
+                           PeelArrayRef);
     bool LoopIsHandled = (VF != 1 && VCodeGen.loopIsHandled(Lp, VF));
 
     // Erase intrinsics before and after the loop if we either vectorized the

@@ -1084,7 +1084,7 @@ bool HIRScalarReplArray::doPreliminaryChecks(const HLLoop *Lp) {
 
   const LoopStatistics &LS = HLS.getSelfLoopStatistics(Lp);
   // LLVM_DEBUG(LS.dump(););
-  if (LS.hasCallsWithUnsafeSideEffects()) {
+  if (LS.hasCallsWithUnknownAliasing()) {
     return false;
   }
 

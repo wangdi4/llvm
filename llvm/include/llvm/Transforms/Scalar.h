@@ -283,6 +283,11 @@ FunctionPass *createStdContainerOptPass();
 // for the return pointer dereferences after functions have been inlined.
 FunctionPass *createTbaaMDPropagationLegacyPass();
 
+// TransformFPGARegPass is a pass which transforms __fpga_reg builtin
+// from llvm.annotation.*/llvm.ptr.annotation.* intrinsic representation
+// to fpga.reg.* intrinsic representation
+ModulePass *createTransformFPGARegPass();
+
 // CleanupFakeLoadsPass is a pass which removes intel.fakeload intrinsics
 // (which are needed by TbaaMDPropagationPass) after all inlining is finished.
 FunctionPass *createCleanupFakeLoadsPass();

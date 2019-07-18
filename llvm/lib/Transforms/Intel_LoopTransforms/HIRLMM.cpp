@@ -329,7 +329,7 @@ bool HIRLMM::doLoopPreliminaryChecks(const HLLoop *Lp) {
   }
   const LoopStatistics &LS = HLS.getSelfLoopStatistics(Lp);
   // LLVM_DEBUG(LS.dump(););
-  if (LS.hasCallsWithUnsafeSideEffects()) {
+  if (LS.hasCallsWithUnknownAliasing()) {
     return false;
   }
 
@@ -745,7 +745,7 @@ HLLoop *HIRLMM::getOuterLoopCandidateForSingleLoad(HLLoop *Lp, RegDDRef *Ref,
 
     const LoopStatistics &LS = HLS.getSelfLoopStatistics(ParentLp);
 
-    if (LS.hasCallsWithUnsafeSideEffects()) {
+    if (LS.hasCallsWithUnknownAliasing()) {
       break;
     }
 

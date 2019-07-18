@@ -1313,7 +1313,7 @@ static void splitMrfs(const OVLSMemrefVector &Memrefs,
       if ( // same access type
           Memref->getAccessType() == SetFirstSeenMrf->getAccessType() &&
           // same number of vector elements
-          Memref->haveSameNumElements(*SetFirstSeenMrf) &&
+          Memref->getNumElements() == SetFirstSeenMrf->getNumElements() &&
           // Check the size of the dataelements.
           // Currently we support grouping Memrefs with same elementsize.
           // Note that this check redundantly also checks the number of vector

@@ -40,12 +40,16 @@ protected:
     Indexed,
   };
 
+  /// The loop that we are vectorizing.
+  const Loop *MainLoop;
+
   // FIXME: With Type information this context is not needed. Moreover,
   // it's here because it's easier to pass context downstream using
   // this class, rather then obtain the context from deep inside of
   // vectorizer.
   LLVMContext &Context;
   const DataLayout &DL;
+  ScalarEvolution *SE;
 
   /// Finds a group for a given VPInstruction.
   OVLSGroup *getGroupForInstruction(const VPlan *Plan,
@@ -101,8 +105,9 @@ private:
   SmallDenseMap<const VPlan *, VLSInfo> Plan2VLSInfo;
 
 public:
-  VPlanVLSAnalysis(LLVMContext &Context, const DataLayout &DL)
-      : Context(Context), DL(DL) {}
+  VPlanVLSAnalysis(const Loop *MainLoop, LLVMContext &Context,
+                   const DataLayout &DL, ScalarEvolution *SE)
+      : MainLoop(MainLoop), Context(Context), DL(DL), SE(SE) {}
   virtual ~VPlanVLSAnalysis() {}
   /// Collect all memrefs within given VPlan and reflect given VF in
   /// each collected memref.
@@ -122,7 +127,10 @@ public:
   void dump() const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
+  const Loop *getMainLoop() const { return MainLoop; }
   LLVMContext &getContext() const { return Context; }
+  ScalarEvolution *getSE() const { return SE; }
+  const DataLayout &getDL() const { return DL; }
 };
 
 } // namespace vpo

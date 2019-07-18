@@ -868,6 +868,7 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
       case Attribute::StructRet:
       case Attribute::SwiftError:
       case Attribute::SwiftSelf:
+      case Attribute::WillReturn:
       case Attribute::WriteOnly:
       case Attribute::ZExt:
       case Attribute::ImmArg:
@@ -875,11 +876,9 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
         continue;
       // Those attributes should be safe to propagate to the extracted function.
       case Attribute::AlwaysInline:
-      case Attribute::AlwaysInlineRecursive: // INTEL
       case Attribute::Cold:
       case Attribute::NoRecurse:
       case Attribute::InlineHint:
-      case Attribute::InlineHintRecursive:   // INTEL
       case Attribute::MinSize:
       case Attribute::NoDuplicate:
       case Attribute::NoImplicitFloat:
