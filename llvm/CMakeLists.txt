@@ -940,8 +940,8 @@ if(INTEL_CUSTOMIZATION)
 
     # Define feature specific macros.
     foreach(f ${LLVM_INTEL_FEATURES})
-      SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D${f}=1")
       list(APPEND LLVM_INTEL_TABLEGEN_FLAGS "-D${f}")
+      add_definitions(-D${f}=1)
     endforeach(f)
   endif()
 endif(INTEL_CUSTOMIZATION)
