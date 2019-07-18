@@ -144,9 +144,9 @@ cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents, const cl_event* ev
 
     // Wait on all events. Order doesn't matter since you always bonded to the longest event.
     // On the first stage, try to wait for events (commands) that we can join the arena.
-    // For RuntimeCommand or for such command that we can't join execution, call Wait()
-    // method of the event and wait for it's completion.
-    // OclEvent wait on event that is done do nothing    
+    // For RuntimeCommand (except for MarkerCommand) or for such command that we can't join
+    // execution, call Wait() method of the event and wait for it's completion.
+    // OclEvent wait on event that is done do nothing
     cl_err_code err = CL_SUCCESS;
     bool bWaitForEventSuccess = false;
     std::vector<SharedPtr<OclEvent> >::iterator evtIt = vOclEvents.begin();
@@ -168,11 +168,18 @@ cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents, const cl_event* ev
         // Execute queue until associated command is completed
 
         // Don't try join master thread for user events,
-        // Don't try join master thread for Runtime Commands,
+        // Don't try join master thread for Runtime Commands except for marker command,
         // Or if WaitForCompletion() fails,
         // Move event to the Explicit Wait list and skip to next event
+        //
+        // For marker command, it is safe to join master thread because
+        // clEnqueueMarker already sets marker event dependencies properly in
+        // case of out of order queue and submits marker command which is ready
+        // to execute in case of in order queue.
         SharedPtr<QueueEvent> pQueueEvent = evtIt->DynamicCast<QueueEvent>();
-        if ( (NULL != pQueueEvent) && (pQueueEvent->GetCommand()->GetExecutionType() == DEVICE_EXECUTION_TYPE))
+        if ((NULL != pQueueEvent) &&
+            (pQueueEvent->GetCommand()->GetExecutionType() == DEVICE_EXECUTION_TYPE ||
+             NULL != dynamic_cast<MarkerCommand*>(pQueueEvent->GetCommand())))
         {
             const SharedPtr<IOclCommandQueueBase> pQueueEventQueue = pQueueEvent->GetEventQueue();
             if ((NULL != pQueueEventQueue) && !CL_FAILED(pQueueEventQueue->WaitForCompletion(pQueueEvent)) ) // CL_SUCCEDDED() != (!CL_FAILED())

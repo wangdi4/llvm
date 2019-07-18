@@ -37,6 +37,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   //TODO-MERGE: update value of CompilationUtils::NUMBER_IMPLICIT_ARGS wherever it is now
   const unsigned int CompilationUtils::LOCL_VALUE_ADDRESS_SPACE = 3;
 
+  const std::string CompilationUtils::WG_BOUND_PREFIX = "WG.boundaries.";
+
   const std::string CompilationUtils::NAME_GET_GID = "get_global_id";
   const std::string CompilationUtils::NAME_GET_BASE_GID = "get_base_global_id.";
   const std::string CompilationUtils::NAME_GET_LID = "get_local_id";
