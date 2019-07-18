@@ -39,19 +39,25 @@ const bool DEBUG = false;
 
 const char* KERNEL_CODE_STR = ""
     "__kernel void hello(__global uchar* buf_in, __global uchar* buf_out)"
-    "{ buf_out[get_global_id(0)] = buf_in[get_global_id(0)]; "
+    "{__constant char* value1 = \"Hello1\";"
+    " __constant char* format = \"%s,%s\\n\";"
+    " __constant char* value2 = \"Hello2\";"
+    " printf(format,value1,value2);"
+    " value1 = (__constant char*)0;"
+    " printf(format,value1,value2);"
+    " buf_out[get_global_id(0)] = buf_in[get_global_id(0)]; "
     " float4 fl4 = (float4)(1.1f, 2.2f, 3.3f, 4.4f);"
     " fl4.w += (float)get_global_id(0);"
-	" int2 ii2 = (int2)(get_global_id(0), 9);"
+    " int2 ii2 = (int2)(get_global_id(0), 9);"
     " printf(\"%d %6.2v4f - %v2d - a char %c and an int %d\\n\", ii2.x, fl4, ii2, 'k', 112233); "
     "}";
 
 
 const char* EXPECTED_OUTPUT = ""
-	"0   1.10,  2.20,  3.30,  4.40 - 0,9 - a char k and an int 112233\n"
-	"1   1.10,  2.20,  3.30,  5.40 - 1,9 - a char k and an int 112233\n"
-	"2   1.10,  2.20,  3.30,  6.40 - 2,9 - a char k and an int 112233\n"
-	"3   1.10,  2.20,  3.30,  7.40 - 3,9 - a char k and an int 112233\n";
+	"Hello1,Hello2\n(null),Hello2\n0   1.10,  2.20,  3.30,  4.40 - 0,9 - a char k and an int 112233\n"
+	"Hello1,Hello2\n(null),Hello2\n1   1.10,  2.20,  3.30,  5.40 - 1,9 - a char k and an int 112233\n"
+	"Hello1,Hello2\n(null),Hello2\n2   1.10,  2.20,  3.30,  6.40 - 2,9 - a char k and an int 112233\n"
+	"Hello1,Hello2\n(null),Hello2\n3   1.10,  2.20,  3.30,  7.40 - 3,9 - a char k and an int 112233\n";
 
 
 bool opencl_printf_test()

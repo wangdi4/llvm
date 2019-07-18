@@ -591,15 +591,15 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
                 }
                 break;
             case 's':
-                if ('\0' != ((unsigned long)*args & 0xffff)){
+                if ('\0' != *((char **)args)){
                   args = CopyAndAdvance(args, str_val);
                 }
                 else{
                   //a 'fatalic' case, in which the string pointer is NULL.
                   //We print the null string, and advancing the buffer pointer
-                  //by 4 bytes.
+                  //by sizeof(addr) bytes.
                   str_val = "(null)";
-                  args += sizeof(int);
+                  args += sizeof(char*);
                 }
                 if (size_t(c99_snprintf(cbuf, cbuflen, format_buf, str_val)) >= cbuflen)
                     return -1;
