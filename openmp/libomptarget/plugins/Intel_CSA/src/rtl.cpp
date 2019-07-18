@@ -1,6 +1,6 @@
 //===--- plugins/Intel_CSA/src/rtl.cpp - CSA RTLs Implementation - C++ -*--===//
 //
-// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -16,44 +16,47 @@
 #include <algorithm>
 #include <atomic>
 #include <cassert>
+#include <cctype>
 #include <cstdio>
 #include <dlfcn.h>
 #include <forward_list>
 #include <fstream>
 #include <iomanip>
+#include <link.h>
 #include <list>
+#include <math.h>
 #include <memory>
 #include <mutex>
 #include <sstream>
-#include <link.h>
 #include <thread>
 #include <unistd.h>
 #include <unordered_map>
 #include <unordered_set>
 
-#include "omptargetplugin.h"
-#include "umr.h"
 #include "elf.h"
+#include "omptargetplugin.h"
+#include "csa/umr.h"
 
 #ifdef OMPTARGET_DEBUG
 static int DebugLevel = 0;
 
-#define DP(Level, ...)                                                     \
-  do {                                                                     \
-    if (DebugLevel >= Level) {                                             \
-      fprintf(stderr, "CSA  (HOST)  --> ");                                \
-      fprintf(stderr, __VA_ARGS__);                                        \
-      fflush(nullptr);                                                     \
-    }                                                                      \
+#define DP(Level, ...)                                                         \
+  do {                                                                         \
+    if (DebugLevel >= Level) {                                                 \
+      fprintf(stderr, "CSA  (HOST)  --> ");                                    \
+      fprintf(stderr, __VA_ARGS__);                                            \
+      fflush(nullptr);                                                         \
+    }                                                                          \
   } while (false)
 #else
-#define DP(Level, ...)                                                     \
+#define DP(Level, ...)                                                         \
   {}
 #endif
 
 #define NUMBER_OF_DEVICES 1
 #define OFFLOADSECTIONNAME ".omp_offloading.entries"
-#define CSA_CODE_SECTION ".csa.code"
+#define CSA_ASM_SECTION ".csa.code"
+#define CSA_CODE_SECTION ".csa"
 
 // ENVIRONMENT VARIABLES
 
@@ -86,9 +89,9 @@ static bool Verbosity;
 #define ENV_DUMP_STATS "CSA_DUMP_STATS"
 // Enum for indicating when to dump the stats
 enum DumpStatLocation {
-   DumpStatDisabled     = 0,
-   DumpStatEndOfProgram = 1,
-   DumpStatAfterEachOffload = 2
+  DumpStatDisabled = 0,
+  DumpStatEndOfProgram = 1,
+  DumpStatAfterEachOffload = 2
 };
 static DumpStatLocation DumpStats = DumpStatDisabled;
 
@@ -123,10 +126,10 @@ namespace {
 // Represents a dynamic library which is loaded for this target.
 class DynLibTy {
   std::string FileName;
-  void *Handle;
+  void *Handle = nullptr;
 
 public:
-  explicit DynLibTy(const char *Data, size_t Size) : Handle(nullptr) {
+  explicit DynLibTy(const char *Data, size_t Size) {
     // Create temporary file for the dynamic library
     FileName = makeTempFile();
     if (FileName.empty())
@@ -160,7 +163,7 @@ public:
     }
   }
 
-  DynLibTy& operator=(DynLibTy &&That) {
+  DynLibTy &operator=(DynLibTy &&That) {
     if (FileName == That.FileName)
       FileName.clear();
     if (Handle == That.Handle)
@@ -170,122 +173,129 @@ public:
     return *this;
   }
 
-  operator bool() const {
-    return Handle != nullptr;
-  }
+  operator bool() const { return Handle != nullptr; }
 
-  const char* getError() const {
-    return dlerror();
-  }
+  const char *getError() const { return dlerror(); }
 
-  const std::string& getName() const {
-    return FileName;
-  }
+  const std::string &getName() const { return FileName; }
 
   Elf64_Addr getBase() const {
     assert(Handle && "invalid handle");
-    return reinterpret_cast<struct link_map*>(Handle)->l_addr;
+    return reinterpret_cast<struct link_map *>(Handle)->l_addr;
   }
 
   DynLibTy(const DynLibTy &) = delete;
-  DynLibTy& operator=(const DynLibTy &) = delete;
+  DynLibTy &operator=(const DynLibTy &) = delete;
 };
 
 // Elf template specialization for CSA (so far it fully matches x86_64).
 using CSAElf =
-  Elf<EM_X86_64, Elf64_Ehdr, Elf64_Phdr, Elf64_Shdr, Elf64_Rela, Elf64_Sym>;
+    Elf<EM_X86_64, Elf64_Ehdr, Elf64_Phdr, Elf64_Shdr, Elf64_Rela, Elf64_Sym>;
 
 } // anonymous namespace
 
 #ifdef _MSC_BUILD
-static
-std::string get_process_name() {
+static std::string get_process_name() {
   char buf[MAX_PATH];
   char name[_MAX_FNAME];
   GetModuleFileName(NULL, buf, MAX_PATH);
   _splitpath_s(buf, NULL, 0, NULL, 0, name, _MAX_FNAME, NULL, 0);
   return name;
+}
 #else
-static
-std::string get_process_name() {
+static std::string get_process_name() {
   char buf[2048];
 
-  int ret = readlink("/proc/self/exe", buf, sizeof(buf)-1);
+  int ret = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
   if (-1 == ret) {
     fprintf(stderr, "Failed to get image name");
     return "unknown-process";
   }
 
   buf[ret] = '\0';
-  char* name = strrchr(buf, '/');
+  char *name = strrchr(buf, '/');
   if (NULL == name) {
     return buf;
   } else {
-    return name+1;
+    return name + 1;
   }
 }
 #endif
 
-static
-std::string get_process_name_with_rank() {
-   auto name = get_process_name();
-   // Append MPI rank to the name if the process is running under MPI.
-   if (const auto *Rank = getenv("PMI_RANK"))
-        name = name + "-mpi" + Rank;
-   return name;
+static std::string get_process_name_with_rank() {
+  auto name = get_process_name();
+  // Append MPI rank to the name if the process is running under MPI.
+  if (const auto *Rank = getenv("PMI_RANK"))
+    name = name + "-mpi" + Rank;
+  return name;
 }
 
-static
-const char *get_offload_name(const char *name) {
-
-   // offload name is embedded as follows
-   // __omp_offloading_xxx_xxx_offloadname
-   auto *fname = name;
-   auto count = 0;
-   auto slength = strlen(name);
-   while (slength) {
-     if (*fname == '_')
-        count++;
-     if (count == 6)
-        break;
-     slength--;
-     fname++;
-   }
-   return strlen(fname) ? fname : name;
+static const char *get_offload_name(const char *name) {
+  // offload name is embedded as follows
+  // __omp_offloading_xxx_xxx_offloadname
+  auto *fname = name;
+  auto count = 0;
+  auto slength = strlen(name);
+  while (slength) {
+    if (*fname == '_')
+      count++;
+    if (count == 6)
+      break;
+    slength--;
+    fname++;
+  }
+  return strlen(fname) ? fname : name;
 }
 
 #ifdef OMPTARGET_DEBUG
 // Return string describing UMR error.
-static const char* getUmrErrorStr(CsaUmrErrors E) {
+static const char *getUmrErrorStr(CsaUmrErrors E) {
   switch (E) {
-    case kCsaUmrOK:
-      return "no error";
-    case kCsaUmrErrorContextBusy:
-      return "UMR context is being used by another thread";
-    case kCsaUmrErrorContextGroupLimit:
-      return "too many UMR contexts in a group";
-    case kCsaUmrErrorNotContextGroup:
-      return "call to UMR contexts from different groups";
-    default:
-      break;
+  case kCsaUmrOK:
+    return "no error";
+  case kCsaUmrErrorContextBusy:
+    return "UMR context is being used by another thread";
+  case kCsaUmrErrorContextGroupLimit:
+    return "too many UMR contexts in a group";
+  case kCsaUmrErrorNotContextGroup:
+    return "call to UMR contexts from different groups";
+  default:
+    break;
   }
   return "unknown UMR error";
 }
 #endif // OMPTARGET_DEBUG
 
+// Check if given address that represents an offload entry points to a vISA
+// graph entry. We can determine this by checking the first byte's value. In
+// case of vISA graph entry it is guaranteed to be <9 according to the vISA
+// binary encoding specification. Otherwise it is expected be an printable
+// character.
+static bool isVisaGraphEntry(const char *Entry) {
+  if (*Entry < 9)
+    return true;
+  assert((std::isprint(*Entry) || std::isspace(*Entry)) &&
+         "must be a printable character");
+  return false;
+}
+
 namespace {
 
 /// Class containing all the device information.
 class RTLDeviceInfoTy {
-  // For function entries target address in the offload entry table for CSA
-  // will point to this object. It is a pair of two null-termminated strings
-  // where the first string is the offload entry name, and the second is the
-  // name of file which contains entry's assembly.
-  using EntryAddr = std::pair<const char*, const char*>;
+  // For function entries target address in the offload entry table points to
+  // this object. It is a pair of pointers where the first field is an address
+  // of a string containing the offload entry name, and the second field can be
+  // either a vISA graph entry if we are dealing with the binary vISA graph, or
+  // an ascii string with the name of the file containing entry's assembly if
+  // entry is encoded as assembly string.
+  // TODO: We can get rid of the EntryAddr objects once we completely switch to
+  // the binary encoding of CSA graphs.
+  using EntryAddr = std::pair<const char *, const char *>;
 
   // Structure which represents an offload entry table for CSA binary.
   struct EntryTable : public __tgt_target_table {
-    static EntryTable* create(const __tgt_offload_entry *Entries, size_t Size) {
+    static EntryTable *create(const __tgt_offload_entry *Entries, size_t Size) {
       std::unique_ptr<EntryTable> Table(new EntryTable());
       if (!Table->construct(Entries, Size))
         return nullptr;
@@ -308,14 +318,19 @@ class RTLDeviceInfoTy {
           // its address the the entry address.
           DP(2, "Entry[%lu]: name %s\n", I, Entries[I].name);
 
-          const auto *FileName = getEntryFile(Entries[I]);
-          if (!FileName)
-            return false;
+          // Check if we are dealing with assembly string or vISA graph entry.
+          // If it is an assembly, then save it to a temporary file and use
+          // file's name as the entry address.
+          auto *Addr = static_cast<const char *>(Entries[I].addr);
+          if (!isVisaGraphEntry(Addr)) {
+            Addr = getEntryFile(Entries[I]);
+            if (!Addr)
+              return false;
+          }
 
-          Addresses.emplace_front(Entries[I].name, FileName);
+          Addresses.emplace_front(Entries[I].name, Addr);
           Entries[I].addr = &Addresses.front();
-        }
-        else
+        } else
           // It is a data entry. Keep entry address as is. It is supposed to be
           // the same as host's address, but if not, we can always propagate it
           // from the host table.
@@ -357,8 +372,7 @@ class RTLDeviceInfoTy {
 
         if (Verbosity)
           fprintf(stderr, "Saving CSA assembly to \"%s\"\n", FileName.c_str());
-      }
-      else {
+      } else {
         FileName = makeTempFile();
         if (FileName.empty())
           return nullptr;
@@ -367,7 +381,7 @@ class RTLDeviceInfoTy {
       // Save assembly.
       DP(3, "Saving CSA assembly to \"%s\"\n", FileName.c_str());
       std::ofstream OFS(FileName, std::ofstream::trunc);
-      if (!OFS || !(OFS << static_cast<const char*>(Entry.addr))) {
+      if (!OFS || !(OFS << static_cast<const char *>(Entry.addr))) {
         DP(1, "Error while saving assembly to a file %s\n", FileName.c_str());
         return nullptr;
       }
@@ -382,7 +396,7 @@ class RTLDeviceInfoTy {
   private:
     std::vector<__tgt_offload_entry> Entries;
     std::forward_list<EntryAddr> Addresses;
-    std::unordered_map<void*, std::string> Addr2AsmFile;
+    std::unordered_map<void *, std::string> Addr2AsmFile;
   };
 
   // An object which contains all data for a single CSA binary - dynamic library
@@ -396,13 +410,13 @@ class RTLDeviceInfoTy {
 
 public:
   // Loads given CSA image and returns the image's entry table.
-  __tgt_target_table* loadImage(const __tgt_device_image *Image) {
+  __tgt_target_table *loadImage(const __tgt_device_image *Image) {
     if (!Image)
       return nullptr;
 
     // Image start and size.
-    const char *Start = static_cast<const char*>(Image->ImageStart);
-    size_t Size = static_cast<const char*>(Image->ImageEnd) - Start;
+    const char *Start = static_cast<const char *>(Image->ImageStart);
+    size_t Size = static_cast<const char *>(Image->ImageEnd) - Start;
 
     DP(1, "Reading target ELF %p...\n", Start);
     CSAElf Elf;
@@ -436,8 +450,8 @@ public:
     DP(1, "Saved device binary to %s\n", DL.getName().c_str());
 
     // Entry table address in the loaded library.
-    auto *Tab = reinterpret_cast<__tgt_offload_entry*>(DL.getBase() +
-                                                       EntriesAddr);
+    auto *Tab =
+        reinterpret_cast<__tgt_offload_entry *>(DL.getBase() + EntriesAddr);
 
     // Construct entry table.
     auto *Table = EntryTable::create(Tab, TabSize);
@@ -455,18 +469,18 @@ public:
   // An object which represents a single OpenMP offload device.
   class Device {
     // Set which keeps addresses for allocated memory.
-    class : private std::unordered_set<void*> {
+    class : private std::unordered_set<void *> {
       std::mutex Mutex;
 
     public:
-      void* alloc(size_t Size) {
+      void *alloc(size_t Size) {
         void *Ptr = malloc(Size);
         if (!Ptr)
           return nullptr;
         std::lock_guard<std::mutex> Lock(Mutex);
         auto Res = insert(Ptr);
         assert(Res.second && "allocated memory is in the set");
-        (void) Res;
+        (void)Res;
         return Ptr;
       }
 
@@ -485,13 +499,9 @@ public:
     } MemoryMap;
 
   public:
-    void* alloc(size_t Size) {
-      return MemoryMap.alloc(Size);
-    }
+    void *alloc(size_t Size) { return MemoryMap.alloc(Size); }
 
-    void free(void *Ptr) {
-      MemoryMap.free(Ptr);
-    }
+    void free(void *Ptr) { MemoryMap.free(Ptr); }
 
   private:
     // Object that contains data associated with each host thread which performs
@@ -504,14 +514,12 @@ public:
       CsaUmrContext *Context = nullptr;
 
       // Graphs that have already been bound.
-      std::unordered_map<const EntryAddr*, CsaUmrBoundGraph*> Graphs;
+      std::unordered_map<const EntryAddr *, CsaUmrBoundGraph *> Graphs;
 
     public:
       ThreadContext() {}
-      ThreadContext(const ThreadContext&) = delete;
-      ThreadContext(ThreadContext &&Other) {
-        swap(Other);
-      }
+      ThreadContext(const ThreadContext &) = delete;
+      ThreadContext(ThreadContext &&Other) { swap(Other); }
 
       ~ThreadContext() {
         if (Context) {
@@ -520,8 +528,8 @@ public:
         }
       }
 
-      ThreadContext& operator=(const ThreadContext&) = delete;
-      ThreadContext& operator=(ThreadContext &&Other) {
+      ThreadContext &operator=(const ThreadContext &) = delete;
+      ThreadContext &operator=(ThreadContext &&Other) {
         swap(Other);
         return *this;
       }
@@ -531,11 +539,10 @@ public:
         std::swap(Graphs, Other.Graphs);
       }
 
-      CsaUmrContext* getContext() const {
-        return Context;
-      }
+      CsaUmrContext *getContext() const { return Context; }
 
-      bool offloadEntry(const EntryAddr *Addr, const std::vector<void*> &Args) {
+      bool offloadEntry(const EntryAddr *Addr,
+                        const std::vector<void *> &Args) {
         auto *Graph = bindGraph(Addr);
         if (!Graph)
           return false;
@@ -552,24 +559,23 @@ public:
           RunNumber = RunCount++;
           StartCycles = CsaUmrSimulatorGetCycles(Context);
 
-          fprintf(stderr, "\nRun %u: Running %s on the CSA ..\n",
-                  RunNumber, Name);
+          fprintf(stderr, "\nRun %u: Running %s on the CSA ..\n", RunNumber,
+                  Name);
         }
 
-        if (DumpStats == DumpStatAfterEachOffload) {
-           auto ProcessName = get_process_name_with_rank();
-           auto FuncName = get_offload_name(Name);
-           std::stringstream SS;
-           SS << ProcessName << "-run" << RunNumber << FuncName;
-           CsaUmrSimulatorDumpStatistics(Context, SS.str().c_str());
-        }
-
-        CsaUmrCallInfo CI = { 0 };
-        CI.flags = kCsaUmrCallEntryByName;
+        CsaUmrCallInfo CI = {0};
         CI.graph = Graph;
-        CI.entry_name = Name;
         CI.num_inputs = Args.size();
-        CI.inputs = reinterpret_cast<const CsaArchValue64*>(Args.data());
+        CI.inputs = reinterpret_cast<const CsaArchValue64 *>(Args.data());
+        if (isVisaGraphEntry(Addr->second)) {
+          // TODO: remove const_cast<>() once CsaUmrCallInfo::entry is changed
+          // to a 'const' pointer.
+          CI.entry = const_cast<CsaArchVisaEntry *>(
+              reinterpret_cast<const CsaArchVisaEntry *>(Addr->second));
+        } else {
+          CI.flags = kCsaUmrCallEntryByName;
+          CI.entry_name = Name;
+        }
 
         auto E = CsaUmrCall(&CI, 0);
         if (E) {
@@ -577,17 +583,24 @@ public:
           return false;
         }
 
+        if (DumpStats == DumpStatAfterEachOffload) {
+          auto ProcessName = get_process_name_with_rank();
+          auto FuncName = get_offload_name(Name);
+          std::stringstream SS;
+          SS << ProcessName << "-run" << RunNumber << FuncName;
+          CsaUmrSimulatorDumpStatistics(Context, SS.str().c_str());
+        }
+
         if (Verbosity) {
           auto Cycles = CsaUmrSimulatorGetCycles(Context) - StartCycles;
-          fprintf(stderr,
-                  "\nRun %u: %s ran on the CSA in %ld cycles\n\n",
+          fprintf(stderr, "\nRun %u: %s ran on the CSA in %ld cycles\n\n",
                   RunNumber, Name, Cycles);
         }
         return true;
       }
 
     private:
-      CsaUmrBoundGraph* bindGraph(const EntryAddr *Addr) {
+      CsaUmrBoundGraph *bindGraph(const EntryAddr *Addr) {
         auto It = Graphs.find(Addr);
         if (It != Graphs.end())
           return It->second;
@@ -600,29 +613,43 @@ public:
           }
         }
 
-        DP(5, "Using assembly from \"%s\" for entry \"%s\"\n",
-           Addr->second, Addr->first);
-
-        CsaUmrBoundGraph *Graph = nullptr;
-        auto E = CsaUmrBindGraphFromFile(Context, Addr->second, &Graph);
-        if (E) {
-          DP(1, "Failed to bind CSA graph - %s\n", getUmrErrorStr(E));
-          return nullptr;
+        CsaUmrBoundGraph *BoundGraph = nullptr;
+        if (isVisaGraphEntry(Addr->second)) {
+          auto *VisaGraph = CsaArchVisaGraphFromEntry(
+              reinterpret_cast<const CsaArchVisaEntry *>(Addr->second));
+          DP(1, "Binding vISA graph %p to context %p for entry \"%s\"\n",
+             reinterpret_cast<void *>(VisaGraph),
+             reinterpret_cast<void *>(Context), Addr->first);
+          auto E = CsaUmrBindGraph(Context, VisaGraph, &BoundGraph);
+          if (E) {
+            DP(1, "Failed to bind CSA graph - %s\n", getUmrErrorStr(E));
+            return nullptr;
+          }
+        } else {
+          auto *AsmFile = reinterpret_cast<const char *>(Addr->second);
+          DP(5, "Using assembly from \"%s\" for entry \"%s\"\n", AsmFile,
+             Addr->first);
+          auto E = CsaUmrBindGraphFromFile(Context, AsmFile, &BoundGraph);
+          if (E) {
+            DP(1, "Failed to bind CSA graph from file - %s\n",
+               getUmrErrorStr(E));
+            return nullptr;
+          }
         }
 
-        Graphs[Addr] = Graph;
-        return Graph;
+        Graphs[Addr] = BoundGraph;
+        return BoundGraph;
       }
     };
 
     // Container for thread contexts that attempted to do an offload at least
     // once. Each host thread gets its own context.
-    class ThreadContextsMap :
-        public std::unordered_map<std::thread::id, ThreadContext> {
+    class ThreadContextsMap
+        : public std::unordered_map<std::thread::id, ThreadContext> {
       std::mutex Mutex;
 
     public:
-      ThreadContext& getThreadContext() {
+      ThreadContext &getThreadContext() {
         std::lock_guard<std::mutex> Lock(Mutex);
         return (*this)[std::this_thread::get_id()];
       }
@@ -636,8 +663,8 @@ public:
     friend RTLDeviceInfoTy;
 
   public:
-    bool runFunction(void *Ptr, const std::vector<void*> &Args) {
-      auto *Addr = static_cast<EntryAddr*>(Ptr);
+    bool runFunction(void *Ptr, const std::vector<void *> &Args) {
+      auto *Addr = static_cast<EntryAddr *>(Ptr);
 
       // Do offload in the context of the calling thread.
       return ThreadContexts.getThreadContext().offloadEntry(Addr, Args);
@@ -649,16 +676,14 @@ private:
   int NumDevices = 0;
 
 public:
-  int getNumDevices() const {
-    return NumDevices;
-  }
+  int getNumDevices() const { return NumDevices; }
 
-  Device& getDevice(int ID) {
+  Device &getDevice(int ID) {
     assert(ID >= 0 && ID < getNumDevices() && "bad device ID");
     return Devices[ID];
   }
 
-  const Device& getDevice(int ID) const {
+  const Device &getDevice(int ID) const {
     assert(ID >= 0 && ID < getNumDevices() && "bad device ID");
     return Devices[ID];
   }
@@ -689,8 +714,8 @@ public:
             // Compose a file name using the following template
             // <exe name>-dev<device num>-thr<thread num>
             std::stringstream SS;
-            SS << ProcessName << "-dev" << I << "-thd"
-               << std::setfill('0') << std::setw(Width) << TID2Num[Thr.first];
+            SS << ProcessName << "-dev" << I << "-thd" << std::setfill('0')
+               << std::setw(Width) << TID2Num[Thr.first];
             CsaUmrSimulatorDumpStatistics(C, SS.str().c_str());
           }
     }
@@ -700,7 +725,7 @@ public:
 
 } // anonymous namespace
 
-static RTLDeviceInfoTy& getDeviceInfo() {
+static RTLDeviceInfoTy &getDeviceInfo() {
   static RTLDeviceInfoTy DeviceInfo;
   static std::once_flag InitFlag;
 
@@ -720,7 +745,7 @@ static RTLDeviceInfoTy& getDeviceInfo() {
         TempPrefix = get_process_name();
     }
     if (const char *Str = getenv(ENV_DUMP_STATS))
-       DumpStats = (DumpStatLocation) std::stoi(Str);
+      DumpStats = (DumpStatLocation)std::stoi(Str);
     if (const auto *Str = getenv(ENV_ASSEMBLY_FILE)) {
       // Parse string which is expected to have the following format
       //   CSA_ASSEMBLY_FILE=<file>[:<entry list>][;<file>[:<entry list>]]
@@ -741,7 +766,7 @@ static RTLDeviceInfoTy& getDeviceInfo() {
           while (std::getline(SSE, Entry, ',')) {
             if (!Entry2AsmFile)
               Entry2AsmFile.reset(new String2StringMap());
-            Entry2AsmFile->insert({ Entry, File });
+            Entry2AsmFile->insert({Entry, File});
           }
         }
       }
@@ -760,8 +785,8 @@ static RTLDeviceInfoTy& getDeviceInfo() {
 // Plugin API implementation.
 
 int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *Image) {
-  const char *Start = static_cast<char*>(Image->ImageStart);
-  size_t Size = static_cast<char*>(Image->ImageEnd) - Start;
+  const char *Start = static_cast<char *>(Image->ImageStart);
+  size_t Size = static_cast<char *>(Image->ImageEnd) - Start;
 
   CSAElf Elf;
   if (!Elf.readFromMemory(Start, Size)) {
@@ -769,24 +794,19 @@ int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *Image) {
     return false;
   }
 
-  // So far CSA binary is indistinguishable from x86_64 by looking at ELF
-  // machine only. We can slightly enhance this test by checking if given
-  // binary contains CSA code section.
-  if (!Elf.findSection(CSA_CODE_SECTION)) {
-    DP(1, "No CSA code section in the binary\n");
-    return false;
-  }
-
-  return true;
+  // Check if device binary contains CSA assembly/code section.
+  for (const auto *Sec : Elf.getSections())
+    if (Sec->getName() == CSA_ASM_SECTION || Sec->getName() == CSA_CODE_SECTION)
+      return true;
+  DP(1, "No CSA sections in the binary\n");
+  return false;
 }
 
 int32_t __tgt_rtl_number_of_devices() {
   return getDeviceInfo().getNumDevices();
 }
 
-int32_t __tgt_rtl_init_device(int32_t ID) {
-  return OFFLOAD_SUCCESS;
-}
+int32_t __tgt_rtl_init_device(int32_t ID) { return OFFLOAD_SUCCESS; }
 
 __tgt_target_table *__tgt_rtl_load_binary(int32_t ID, __tgt_device_image *Ptr) {
   return getDeviceInfo().loadImage(Ptr);
@@ -817,12 +837,13 @@ int32_t __tgt_rtl_data_delete(int32_t ID, void *TPtr) {
   return OFFLOAD_SUCCESS;
 }
 
-int32_t __tgt_rtl_run_target_team_region(int32_t ID, void *Entry,
-    void **Bases, ptrdiff_t *Offsets, int32_t NumArgs, int32_t TeamNum,
-    int32_t ThreadLimit, uint64_t LoopTripCount) {
-  std::vector<void*> Args(NumArgs);
+int32_t __tgt_rtl_run_target_team_region(int32_t ID, void *Entry, void **Bases,
+                                         ptrdiff_t *Offsets, int32_t NumArgs,
+                                         int32_t TeamNum, int32_t ThreadLimit,
+                                         uint64_t LoopTripCount) {
+  std::vector<void *> Args(NumArgs);
   for (int32_t I = 0; I < NumArgs; ++I)
-    Args[I] = static_cast<char*>(Bases[I]) + Offsets[I];
+    Args[I] = static_cast<char *>(Bases[I]) + Offsets[I];
 
   if (!getDeviceInfo().getDevice(ID).runFunction(Entry, Args))
     return OFFLOAD_FAIL;

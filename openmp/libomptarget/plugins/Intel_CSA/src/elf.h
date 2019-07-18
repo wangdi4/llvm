@@ -651,7 +651,8 @@ private:
         // We assume that only one relocation entry kind is supported on a
         // particular platform. Thus make sure we get an expected relocation
         // section type based on the relocation's kind.
-        auto Type = Reloc::Kind == Reloc::KindTy::Rel ? SHT_REL : SHT_RELA;
+        decltype(SecHeader.sh_type) Type =
+            Reloc::Kind == Reloc::KindTy::Rel ? SHT_REL : SHT_RELA;
         if (SecHeader.sh_type == Type)
           return new Reltab(*this, SecHeader, Image);
         assert(false && "Unexpected relocation section type");
