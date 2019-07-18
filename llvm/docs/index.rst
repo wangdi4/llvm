@@ -1,13 +1,3 @@
-.. INTEL_CUSTOMIZATION
-
-.. toctree::
-   :hidden:
-
-   Intel/index
-   SPIRVRepresentationInLLVM
-
-.. // INTEL_CUSTOMIZATION
-
 Overview
 ========
 
