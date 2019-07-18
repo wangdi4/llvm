@@ -1851,10 +1851,8 @@ def err_lvalue_reference_bind_to_unrelated : Error<
   "%diff{to type $ cannot bind to a value of unrelated type $|"
   "cannot bind to a value of unrelated type}1,2">;
 def err_reference_bind_drops_quals : Error<
-  "binding value %diff{of type $ to reference to type $|to reference}0,1 "
-  "drops %select{<<ERROR>>|'const'|'restrict'|'const' and 'restrict'|"
-  "'volatile'|'const' and 'volatile'|'restrict' and 'volatile'|"
-  "'const', 'restrict', and 'volatile'}2 qualifier%plural{1:|2:|4:|:s}2">;
+  "binding reference %diff{of type $ to value of type $|to value}0,1 "
+  "%select{drops %3 qualifier%plural{1:|2:|4:|:s}4|changes address space}2">;
 def err_reference_bind_failed : Error<
   "reference %diff{to %select{type|incomplete type}1 $ could not bind to an "
   "%select{rvalue|lvalue}2 of type $|could not bind to %select{rvalue|lvalue}2 of "
@@ -3683,6 +3681,9 @@ def note_ovl_candidate_inherited_constructor_slice : Note<
 def note_ovl_candidate_illegal_constructor : Note<
     "candidate %select{constructor|template}0 ignored: "
     "instantiation %select{takes|would take}0 its own class type by value">;
+def note_ovl_candidate_illegal_constructor_adrspace_mismatch : Note<
+    "candidate constructor ignored: cannot be used to construct an object "
+    "in address space %0">;
 def note_ovl_candidate_bad_deduction : Note<
     "candidate template ignored: failed template argument deduction">;
 def note_ovl_candidate_incomplete_deduction : Note<"candidate template ignored: "
@@ -8807,6 +8808,9 @@ def err_opencl_builtin_expected_type : Error<
 def ext_opencl_ext_vector_type_rgba_selector: ExtWarn<
   "vector component name '%0' is an OpenCL version 2.2 feature">,
   InGroup<OpenCLUnsupportedRGBA>;
+
+def err_openclcxx_placement_new : Error<
+  "use of placement new requires explicit declaration">;
 
 // MIG routine annotations.
 def warn_mig_server_routine_does_not_return_kern_return_t : Warning<

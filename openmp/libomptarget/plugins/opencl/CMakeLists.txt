@@ -21,6 +21,7 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
 
         if(LIBOMPTARGET_CMAKE_BUILD_TYPE MATCHES debug)
             add_definitions(-DSPIR_ERROR_REPORT)
+            add_definitions(-DOMPTARGET_OPENCL_DEBUG)
         endif()
 
         include_directories(${LIBOMPTARGET_DEP_LIBELF_INCLUDE_DIRS})

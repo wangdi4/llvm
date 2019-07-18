@@ -20,14 +20,17 @@
 #include <cstring>
 #include <dlfcn.h>
 #include <fstream>
-#include <sstream>
 #include <gelf.h>
 #include <list>
-#include <string>
-#include <vector>
 #include <map>
-#include <set>
+#include <memory>
 #include <mutex>
+#include <set>
+#include <stdlib.h>
+#include <sstream>
+#include <string>
+#include <unistd.h>
+#include <vector>
 
 #include "omptargetplugin.h"
 
@@ -43,7 +46,7 @@
 #define USE_SVM_MEMCPY 0
 #endif
 
-#ifdef OMPTARGET_DEBUG
+#ifdef OMPTARGET_OPENCL_DEBUG
 static int DebugLevel = 0;
 #define DP(...)                                                                \
   do {                                                                         \
@@ -54,7 +57,19 @@ static int DebugLevel = 0;
 #else
 #define DP(...)                                                                \
   {}
-#endif // OMPTARGET_DEBUG
+#endif // OMPTARGET_OPENCL_DEBUG
+
+#if INTEL_CUSTOMIZATION
+// DPI() is for printing sensitive information in the debug output.
+// It will only print anything in non-release builds.
+#if INTEL_INTERNAL_BUILD
+#define DPI(...) DP(__VA_ARGS__)
+#else  // !INTEL_INTERNAL_BUILD
+#define DPI(...)
+#endif // !INTEL_INTERNAL_BUILD
+#else  // INTEL_CUSTOMIZATION
+#define DPI(...)
+#endif // INTEL_CUSTOMIZATION
 
 #define FOREACH_CL_ERROR_CODE(FN)                                              \
   FN(CL_SUCCESS)                                                               \
@@ -121,7 +136,7 @@ static int DebugLevel = 0;
 
 #define TO_STR(s) case s: return #s;
 
-#ifdef OMPTARGET_DEBUG
+#ifdef OMPTARGET_OPENCL_DEBUG
 static const char *getCLErrorName(int error) {
   switch (error) {
     FOREACH_CL_ERROR_CODE(TO_STR)
@@ -129,7 +144,7 @@ static const char *getCLErrorName(int error) {
     return "Unknown Error";
   }
 }
-#endif // OMPTARGET_DEBUG
+#endif // OMPTARGET_OPENCL_DEBUG
 
 #define INVOKE_CL_RET(ret, fn, ...)                                            \
   do {                                                                         \
@@ -219,6 +234,31 @@ struct RTLProfileTy {
   }
 };
 
+// OpenCL extensions status.
+enum ExtensionStatusTy : uint8_t {
+  // Default value.  It is unknown if the extension is supported.
+  ExtensionStatusUnknown = 0,
+
+  // Extension is disabled (either because it is unsupported or
+  // due to user environment control).
+  ExtensionStatusDisabled,
+
+  // Extenstion is enabled.  An extension can only be used,
+  // if it has this status after __tgt_rtl_load_binary.
+  ExtensionStatusEnabled,
+};
+
+// A descriptor of OpenCL extensions with their statuses.
+struct ExtensionsTy {
+#if INTEL_CUSTOMIZATION
+  // clGetDeviceGlobalVariablePointerINTEL API:
+  ExtensionStatusTy GetDeviceGlobalVariablePointer = ExtensionStatusUnknown;
+#endif  // INTEL_CUSTOMIZATION
+
+  // Initialize extensions' statuses for the given device.
+  int32_t getExtensionsInfoForDevice(int32_t DeviceId);
+};
+
 /// Data for handling asynchronous calls.
 struct AsyncEventTy {
   void (*handler)(void *); // Handler for the event
@@ -235,6 +275,9 @@ public:
   std::vector<cl_device_id> deviceIDs;
   std::vector<int32_t> maxWorkGroups;
   std::vector<int32_t> maxWorkGroupSize;
+
+  // A vector of descriptors of OpenCL extensions for each device.
+  std::vector<ExtensionsTy> Extensions;
   std::vector<cl_context> CTX;
   std::vector<cl_command_queue> Queues;
   std::vector<FuncOrGblEntryTy> FuncGblEntries;
@@ -248,11 +291,11 @@ public:
   const int64_t DATA_TRANSFER_LATENCY = 0x2;
 
   RTLDeviceInfoTy() : numDevices(0), flag(0), DataTransferLatency(0) {
-#ifdef OMPTARGET_DEBUG
+#ifdef OMPTARGET_OPENCL_DEBUG
     if (char *envStr = getenv("LIBOMPTARGET_DEBUG")) {
       DebugLevel = std::stoi(envStr);
     }
-#endif // OMPTARGET_DEBUG
+#endif // OMPTARGET_OPENCL_DEBUG
     // set misc. flags
     const char *env = std::getenv("SIMT");
     if (!env || std::string(env) != "on") {
@@ -267,6 +310,17 @@ public:
         DataTransferLatency = (usec > 0) ? usec : 0;
       }
     }
+#if INTEL_CUSTOMIZATION
+    bool CheckExtensionGlobalRelocation = false;
+    // Check environment variable that enables
+    // clGetDeviceGlobalVariablePointerINTEL extension in OpenCL graphics
+    // compiler rather than using a separate environment variable.
+    // FIXME: remove this, when it is enabled by default in
+    //        OpenCL graphics compiler.
+    if (const auto *Val = std::getenv("IGC_EnableGlobalRelocation"))
+      if (std::stoi(Val) != 0)
+        CheckExtensionGlobalRelocation = true;
+#endif  // INTEL_CUSTOMIZATION
 
     DP("Start initializing OpenCL\n");
     // get available platforms
@@ -328,6 +382,7 @@ public:
 
     maxWorkGroups.resize(numDevices);
     maxWorkGroupSize.resize(numDevices);
+    Extensions.resize(numDevices);
     CTX.resize(numDevices);
     Queues.resize(numDevices);
     FuncGblEntries.resize(numDevices);
@@ -348,12 +403,22 @@ public:
       clGetDeviceInfo(deviceId, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t),
                       &maxWorkGroupSize[i], nullptr);
       DP("Maximum work group size is %d\n", maxWorkGroupSize[i]);
-#ifdef OMPTARGET_DEBUG
+#ifdef OMPTARGET_OPENCL_DEBUG
       cl_uint addressmode;
       clGetDeviceInfo(deviceId, CL_DEVICE_ADDRESS_BITS, 4, &addressmode,
                       nullptr);
       DP("Addressing mode is %d bit\n", addressmode);
 #endif
+#if INTEL_CUSTOMIZATION
+      // Disable GetDeviceGlobalVariablePointer extension, if
+      // IGC_EnableGlobalRelocation environment variable is not set.
+      // If the extension status is left ExtensionStatusUnknown,
+      // then we will query OpenCL in __tgt_rtl_init_device().
+      // FIXME: this is a temporary solution until clGetDeviceInfo
+      //        supports querying this extension.
+      if (!CheckExtensionGlobalRelocation)
+        Extensions[i].GetDeviceGlobalVariablePointer = ExtensionStatusDisabled;
+#endif  // INTEL_CUSTOMIZATION
     }
     if (numDevices == 0)
       DP("WARNING: No OpenCL devices found.\n");
@@ -382,6 +447,39 @@ static inline void addDataTransferLatency() {
     ;
 }
 
+int32_t ExtensionsTy::getExtensionsInfoForDevice(int32_t DeviceNum) {
+  // Identify the size of OpenCL extensions string.
+  size_t RetSize = 0;
+  // If the below call fails, some extensions's status may be
+  // left ExtensionStatusUnknown, so only ExtensionStatusEnabled
+  // actually means that the extension is enabled.
+  DP("Getting extensions for device %d\n", DeviceNum);
+
+  cl_device_id DeviceId = DeviceInfo.deviceIDs[DeviceNum];
+  INVOKE_CL_RET_FAIL(clGetDeviceInfo, DeviceId, CL_DEVICE_EXTENSIONS,
+                     0, nullptr, &RetSize);
+
+  std::unique_ptr<char []> Data(new char[RetSize]);
+  INVOKE_CL_RET_FAIL(clGetDeviceInfo, DeviceId, CL_DEVICE_EXTENSIONS,
+                     RetSize, Data.get(), &RetSize);
+
+  std::string Extensions(Data.get());
+  DP("Device extensions: %s\n", Extensions.c_str());
+
+#if INTEL_CUSTOMIZATION
+  // Check if the extension was not explicitly disabled, i.e.
+  // that its current status is unknown.
+  if (GetDeviceGlobalVariablePointer == ExtensionStatusUnknown)
+    // FIXME: use the right extension name.
+    if (Extensions.find("") != std::string::npos) {
+      GetDeviceGlobalVariablePointer = ExtensionStatusEnabled;
+      DPI("Extension clGetDeviceGlobalVariablePointerINTEL enabled.\n");
+    }
+#endif  // INTEL_CUSTOMIZATION
+
+  return CL_SUCCESS;
+}
+
 int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *image) {
   uint32_t magicWord = *(uint32_t *)image->ImageStart;
   // compare magic word in little endian and big endian:
@@ -400,9 +498,10 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
          "bad device id");
 
   // create context
+  auto PlatformID = DeviceInfo.platformIDs[device_id];
   cl_context_properties props[] = {
       CL_CONTEXT_PLATFORM,
-      (cl_context_properties)DeviceInfo.platformIDs[device_id], 0};
+      (cl_context_properties)PlatformID, 0};
   DeviceInfo.CTX[device_id] = clCreateContext(
       props, 1, &DeviceInfo.deviceIDs[device_id], nullptr, nullptr, &status);
   if (status != CL_SUCCESS) {
@@ -424,7 +523,40 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
     return OFFLOAD_FAIL;
   }
 
+  DeviceInfo.Extensions[device_id].getExtensionsInfoForDevice(device_id);
+
   return OFFLOAD_SUCCESS;
+}
+
+static void dumpImageToFile(
+    const void *Image, size_t ImageSize, const char *Type) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_INTERNAL_BUILD
+#ifdef OMPTARGET_OPENCL_DEBUG
+  if (DebugLevel <= 0)
+    return;
+
+  if (!std::getenv("LIBOMPTARGET_SAVE_TEMPS"))
+    return;
+
+  char TmpFileName[] = "omptarget_opencl_image_XXXXXX";
+  int TmpFileFd = mkstemp(TmpFileName);
+  DPI("Dumping %s image of size %d from address " DPxMOD " to file %s\n",
+      Type, static_cast<int32_t>(ImageSize), DPxPTR(Image), TmpFileName);
+
+  if (TmpFileFd < 0) {
+    DPI("Error creating temporary file: %s\n", strerror(errno));
+    return;
+  }
+
+  if (write(TmpFileFd, Image, ImageSize) < 0)
+    DPI("Error writing temporary file %s: %s\n", TmpFileName, strerror(errno));
+
+  if (close(TmpFileFd) < 0)
+    DPI("Error closing temporary file %s: %s\n", TmpFileName, strerror(errno));
+#endif  // OMPTARGET_OPENCL_DEBUG
+#endif  // INTEL_INTERNAL_BUILD
+#endif  // INTEL_CUSTOMIZATION
 }
 
 __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
@@ -436,26 +568,6 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   size_t ImageSize = (size_t)image->ImageEnd - (size_t)image->ImageStart;
   size_t NumEntries = (size_t)(image->EntriesEnd - image->EntriesBegin);
   DP("Expecting to have %zd entries defined.\n", NumEntries);
-
-#if 0
-  // For debugging purposes, we can write out the spir binary
-  char tmp_name[] = "/tmp/tmpfile_XXXXXX";
-  int tmp_fd = mkstemp(tmp_name);
-
-  if (tmp_fd == -1) {
-    return NULL;
-  }
-
-  FILE *ftmp = fdopen(tmp_fd, "wb");
-
-  if (!ftmp) {
-    return NULL;
-  }
-
-  fwrite(image->ImageStart, ImageSize, 1, ftmp);
-  fclose(ftmp);
-  DP("written to tmp\n")
-#endif
 
   // create Program
   cl_int status;
@@ -483,6 +595,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
         return NULL;
       }
 
+      dumpImageToFile(device_rtl_bin.c_str(), device_rtl_len, "RTL");
+
       program[0] = clCreateProgramWithIL(DeviceInfo.CTX[device_id],
                                          device_rtl_bin.c_str(), device_rtl_len,
                                          &status);
@@ -498,6 +612,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   }
 
   // Create program for the target regions.
+  dumpImageToFile(image->ImageStart, ImageSize, "OpenMP");
   program[1] = clCreateProgramWithIL(DeviceInfo.CTX[device_id],
                                      image->ImageStart, ImageSize, &status);
   if (status != 0) {
@@ -532,32 +647,65 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
       DeviceInfo.FuncGblEntries[device_id].Kernels;
   for (unsigned i = 0; i < NumEntries; i++) {
     // Size is 0 means that it is kernel function.
-    if (image->EntriesBegin[i].size != 0) {
+    auto Size = image->EntriesBegin[i].size;
+
+    if (Size != 0) {
 #if INTEL_CUSTOMIZATION
-      // Allocate buffers for global data and copy data from host to device.
-      // FIXME: this is a temporary for global declare target data,
-      //        until we have support from OpenCL side.
-      //        This will not solve issues for the following case:
-      //          #pragma omp declare target
-      //          int a[100];
-      //          void foo() {
-      //            a[7] = 7;
-      //          }
-      //          #pragma omp end declare target
-      //
-      //          void bar() {
-      //          #pragma omp target
-      //            { foo(); }
-      //          }
-      //
-      //        foo() will have a reference to global 'a', and there
-      //        is currently no way to associate this access with the buffer
-      //        that we allocate here.
+      void *TgtAddr = nullptr;
       auto HostAddr = image->EntriesBegin[i].addr;
       auto Name = image->EntriesBegin[i].name;
-      auto Size = image->EntriesBegin[i].size;
-      void *TgtAddr = __tgt_rtl_data_alloc(device_id, Size, HostAddr);
-      __tgt_rtl_data_submit(device_id, TgtAddr, HostAddr, Size);
+
+      if (DeviceInfo.Extensions[device_id].GetDeviceGlobalVariablePointer ==
+          ExtensionStatusEnabled) {
+        // TODO: we should probably query the API pointer once
+        //       and keep it in some platform/device descriptor
+        //       (e.g. DeviceInfo.Extensions).
+        cl_int (CL_API_CALL *ExtCall)(cl_device_id, cl_program, const char *,
+                                      size_t *, void **);
+
+        ExtCall = reinterpret_cast<decltype(ExtCall)>(
+            clGetExtensionFunctionAddressForPlatform(
+                DeviceInfo.platformIDs[device_id],
+                "clGetDeviceGlobalVariablePointerINTEL"));
+        if (!ExtCall) {
+          DPI("Error: clGetDeviceGlobalVariablePointerINTEL API "
+              "is nullptr.\n");
+          return nullptr;
+        }
+
+        size_t DeviceSize = 0;
+        INVOKE_CL_RET_NULL(ExtCall,
+                           DeviceInfo.deviceIDs[device_id], program[2],
+                           Name, &DeviceSize, &TgtAddr);
+        if (Size != DeviceSize) {
+          DP("Error: size mismatch for host and device versions "
+             "of global variable: %s\n", Name);
+          return nullptr;
+        }
+      } else {
+        // Allocate buffers for global data and copy data from host to device.
+        // FIXME: this is a temporary solution for global declare target data,
+        //        until we have support from OpenCL side.
+        //        This will not solve issues for the following case:
+        //          #pragma omp declare target
+        //          int a[100];
+        //          void foo() {
+        //            a[7] = 7;
+        //          }
+        //          #pragma omp end declare target
+        //
+        //          void bar() {
+        //          #pragma omp target
+        //            { foo(); }
+        //          }
+        //
+        //        foo() will have a reference to global 'a', and there
+        //        is currently no way to associate this access with the buffer
+        //        that we allocate here.
+        TgtAddr = __tgt_rtl_data_alloc(device_id, Size, HostAddr);
+        __tgt_rtl_data_submit(device_id, TgtAddr, HostAddr, Size);
+      }
+
       DP("Global variable allocated: Name = %s, Size = %" PRIu64
          ", HostPtr = " DPxMOD ", TgtPtr = " DPxMOD "\n",
          Name, (uint64_t)Size, DPxPTR(HostAddr), DPxPTR(TgtAddr));
@@ -576,7 +724,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     }
     entries[i].addr = &kernels[i];
     entries[i].name = name;
-#ifdef OMPTARGET_DEBUG
+#ifdef OMPTARGET_OPENCL_DEBUG
     // Show kernel information
     char kernel_info[80];
     cl_uint kernel_num_args = 0;
@@ -597,7 +745,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
                          &kernel_info[40], nullptr);
       DP("  Arg %2d: %s %s\n", idx, kernel_info, &kernel_info[40]);
     }
-#endif // OMPTARGET_DEBUG
+#endif // OMPTARGET_OPENCL_DEBUG
   }
 
   __tgt_target_table &table = DeviceInfo.FuncGblEntries[device_id].Table;
@@ -660,11 +808,8 @@ int32_t __tgt_rtl_manifest_data_for_region(
   DP("Stashing %" PRIu64 " implicit arguments for kernel " DPxMOD "\n",
      static_cast<uint64_t>(num_ptrs), DPxPTR(kernel));
   DeviceInfo.Mutexes[device_id].lock();
-  if (DeviceInfo.ImplicitArgs[device_id].count(*kernel) == 0) {
-    // This happens only once for a kernel
-    DeviceInfo.ImplicitArgs[device_id][*kernel] =
-        std::set<void *>(tgt_ptrs, tgt_ptrs + num_ptrs);
-  }
+  DeviceInfo.ImplicitArgs[device_id][*kernel] =
+      std::set<void *>(tgt_ptrs, tgt_ptrs + num_ptrs);
   DeviceInfo.Mutexes[device_id].unlock();
 
   return OFFLOAD_SUCCESS;
