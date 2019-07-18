@@ -3067,6 +3067,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
         Opts.OpenMP && Args.hasArg(OPT_fintel_openmp_region);
   Opts.OpenMPLateOutlineTarget = !Args.hasArg(OPT_fno_intel_openmp_offload);
   Opts.OpenMPLateOutlineAtomic = Args.hasArg(OPT_fintel_openmp_region_atomic);
+#if INTEL_FEATURE_CSA
+  Opts.CSAvISA = Args.hasArg(OPT_fcsa_visa);
+#endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
   if (Opts.OpenMPLateOutline) {

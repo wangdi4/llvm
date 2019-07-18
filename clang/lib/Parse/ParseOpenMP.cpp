@@ -1489,21 +1489,6 @@ void Parser::skipUnsupportedTargetDirectives() {
     }
   }
 }
-
-#if INTEL_FEATURE_CSA
-static void checkDataflowClauseCompatibility(Parser &P,
-                                             OMPClause *DataflowClause,
-                                             OMPClause *NumThreadsClause) {
-  if (!DataflowClause || !NumThreadsClause)
-    return;
-  if (cast<OMPDataflowClause>(DataflowClause)->getNumWorkersNum()) {
-    P.Diag(DataflowClause->getBeginLoc(),
-           diag::err_omp_conflicting_dataflow_num_workers_modifier);
-    P.Diag(NumThreadsClause->getBeginLoc(),
-           diag::note_omp_conflicting_dataflow_num_workers_modifier);
-  }
-}
-#endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 
 /// Parsing of declarative or executable OpenMP directives.
@@ -1818,18 +1803,6 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
       OMPClause *Clause =
           ParseOpenMPClause(DKind, CKind, !FirstClauses[CKind].getInt());
       FirstClauses[CKind].setInt(true);
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-      if (CKind == OMPC_dataflow || CKind == OMPC_num_threads) {
-        OMPClause *DataflowClause = CKind == OMPC_dataflow ? Clause :
-             FirstClauses[OMPC_dataflow].getPointer();
-        OMPClause *NumThreadsClause = CKind == OMPC_num_threads ? Clause :
-             FirstClauses[OMPC_num_threads].getPointer();
-        checkDataflowClauseCompatibility(*this, DataflowClause,
-                                         NumThreadsClause);
-      }
-#endif // INTEL_FEATURE_CSA
-#endif // INTEL_CUSTOMIZATION
       if (Clause) {
         FirstClauses[CKind].setPointer(Clause);
         Clauses.push_back(Clause);

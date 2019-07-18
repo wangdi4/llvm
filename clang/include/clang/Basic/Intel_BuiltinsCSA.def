@@ -29,6 +29,7 @@ BUILTIN(__builtin_csa_parallel_section_exit,  "vi", "n")
 
 BUILTIN(__builtin_csa_spmdization, "vicC*", "n")
 BUILTIN(__builtin_csa_spmd, "vii", "n")
+BUILTIN(__builtin_csa_spmd_worker_num, "i", "n")
 
 BUILTIN(__builtin_csa_pipeline_loop, "vi", "n")
 
@@ -48,6 +49,10 @@ BUILTIN(__builtin_csa_fmsaf32x2,   "V2fV2fV2fV2fIcIcIc", "ncV:64:")
 BUILTIN(__builtin_csa_lic_init, "iIiILiILi", "n")
 BUILTIN(__builtin_csa_lic_write, "v.", "nt")
 BUILTIN(__builtin_csa_lic_read, "d.", "nt")
+
+// Data-gated prefetch
+
+BUILTIN(__builtin_csa_gated_prefetch, "v.", "ntc")
 
 #undef BUILTIN
 #endif // INTEL_FEATURE_CSA

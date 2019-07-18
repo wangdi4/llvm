@@ -853,6 +853,10 @@ def fintel_driver_tempfile_name_EQ : Joined<["-"], "fintel-driver-tempfile-name=
   HelpText<"Name of the file for communication between front-end and driver.">;
 def header_base_path : JoinedOrSeparate<["-"], "header-base-path">,
                        MetaVarName<"<directory>">;
+// INTEL_FEATURE_CSA
+def fcsa_visa : Flag<["-"], "fcsa-visa">,
+  HelpText<"[CSA] Customize target IR for binary vISA">;
+// end INTEL_FEATURE_CSA
 // endif INTEL_CUSTOMIZATION
 def fdefault_calling_conv_EQ : Joined<["-"], "fdefault-calling-conv=">,
   HelpText<"Set default calling convention">, Values<"cdecl,fastcall,stdcall,vectorcall,regcall">;

@@ -4378,6 +4378,11 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
       case OMPC_from:
       case OMPC_use_device_ptr:
       case OMPC_is_device_ptr:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+      case OMPC_dataflow:
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
         continue;
       case OMPC_allocator:
       case OMPC_flush:
@@ -9876,6 +9881,8 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_declare_simd:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
+    case OMPD_declare_variant:
+    case OMPD_target_variant_dispatch:
     case OMPD_simd:
     case OMPD_sections:
     case OMPD_section:

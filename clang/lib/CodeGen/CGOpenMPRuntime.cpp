@@ -6612,7 +6612,15 @@ void CGOpenMPRuntime::emitTargetOutlinedFunctionHelper(
 
   if (CGM.getLangOpts().OpenMPIsDevice) {
     OutlinedFnID = llvm::ConstantExpr::getBitCast(OutlinedFn, CGM.Int8PtrTy);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    OutlinedFn->setLinkage(CGM.getLangOpts().CSAvISA
+                               ? llvm::GlobalValue::ExternalLinkage
+                               : llvm::GlobalValue::WeakAnyLinkage);
+#else // INTEL_FEATURE_CSA
     OutlinedFn->setLinkage(llvm::GlobalValue::WeakAnyLinkage);
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
     OutlinedFn->setDSOLocal(false);
   } else {
     std::string Name = getName({EntryFnName, "region_id"});

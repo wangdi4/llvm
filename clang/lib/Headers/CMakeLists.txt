@@ -31,6 +31,7 @@ set(INTEL_HEADERS
 # INTEL_FEATURE_CSA
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_CSA
+  Intel_Headers/csa/csacomplexfloat.h
   Intel_Headers/csa/csaintrin.h
   Intel_Headers/csa/csastream.h
   Intel_Headers/csa/x86intrin.h

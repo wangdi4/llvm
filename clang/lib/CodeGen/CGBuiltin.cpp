@@ -13441,7 +13441,8 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_csa_parallel_section_exit:
   case X86::BI__builtin_csa_parallel_loop:
   case X86::BI__builtin_csa_spmdization:
-  case X86::BI__builtin_csa_spmd: {
+  case X86::BI__builtin_csa_spmd:
+  case X86::BI__builtin_csa_spmd_worker_num: {
     return UndefValue::get(ConvertType(E->getType())); // noop
   }
 #endif  // INTEL_FEATURE_CSA
@@ -13614,6 +13615,11 @@ Value *CodeGenFunction::EmitCSABuiltinExpr(unsigned BuiltinID,
                                      {X->getType(), Y->getType()});
     return Builder.CreateCall(Callee, {X, Y});
   }
+  case CSA::BI__builtin_csa_spmd_worker_num: {
+    //this will be replaced by omp_get_thread_num?
+    Value *Callee = CGM.getIntrinsic(Intrinsic::csa_spmd_worker_num, {});
+    return Builder.CreateCall(Callee, {});
+  }
   case CSA::BI__builtin_csa_pipeline_loop: {
     Value *X = EmitScalarExpr(E->getArg(0));
     Value *Callee = CGM.getIntrinsic(Intrinsic::csa_pipeline_loop,
@@ -13646,6 +13652,21 @@ Value *CodeGenFunction::EmitCSABuiltinExpr(unsigned BuiltinID,
                                           Int32Ty);
     Value *Callee = CGM.getIntrinsic(Intrinsic::csa_lic_read, T->getType());
     return Builder.CreateCall(Callee, {X});
+  }
+
+  case CSA::BI__builtin_csa_gated_prefetch: {
+    Value *const Gate    = EmitScalarExpr(E->getArg(0));
+    Value *const Address = Builder.CreatePointerCast(
+      EmitScalarExpr(E->getArg(1)), Builder.getInt8PtrTy());
+    Value *const RW = (E->getNumArgs() > 2)
+                        ? EmitScalarExpr(E->getArg(2))
+                        : llvm::ConstantInt::get(Int32Ty, 0);
+    Value *const Locality = (E->getNumArgs() > 3)
+                              ? EmitScalarExpr(E->getArg(3))
+                              : llvm::ConstantInt::get(Int32Ty, 3);
+    Value *const F =
+      CGM.getIntrinsic(Intrinsic::csa_gated_prefetch, Gate->getType());
+    return Builder.CreateCall(F, {Gate, Address, RW, Locality});
   }
 
   default:
