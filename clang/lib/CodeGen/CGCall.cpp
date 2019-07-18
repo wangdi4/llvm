@@ -4431,12 +4431,24 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   }
   if (callOrInvoke)
     *callOrInvoke = CI;
- 
 #if INTEL_CUSTOMIZATION
   if (CurrentPragmaInlineState) {
-    auto A = CurrentPragmaInlineState->getPragmaInlineAttribute();
-    Attrs = Attrs.addAttribute(getLLVMContext(),
-                               llvm::AttributeList::FunctionIndex, A);
+    std::pair<llvm::Attribute::AttrKind, bool> A =
+        CurrentPragmaInlineState->getPragmaInlineAttribute();
+    if (A.second) {
+      if (A.first == llvm::Attribute::AlwaysInline)
+        Attrs = Attrs.addAttribute(getLLVMContext(),
+                                   llvm::AttributeList::FunctionIndex,
+                                   "always-inline-recursive");
+      else if (A.first == llvm::Attribute::InlineHint)
+        Attrs = Attrs.addAttribute(getLLVMContext(),
+                                   llvm::AttributeList::FunctionIndex,
+                                   "inline-hint-recursive");
+      else
+        llvm_unreachable("AlwaysInline or InlineHint expected");
+    } else
+      Attrs = Attrs.addAttribute(getLLVMContext(),
+                                 llvm::AttributeList::FunctionIndex, A.first);
 }
 #endif // INTEL_CUSTOMIZATION
 

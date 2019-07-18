@@ -722,11 +722,6 @@ def ext_main_returns_nonint : ExtWarn<"return type of 'main' is not 'int'">,
 def note_main_change_return_type : Note<"change return type to 'int'">;
 def err_main_surplus_args : Error<"too many parameters (%0) for 'main': "
     "must be 0, 2, or 3">;
-// if INTEL_CUSTOMIZATION
-// CQ#373972
-def warn_main_surplus_args : Warning<err_main_surplus_args.Text>,
-    InGroup<Main>;
-// endif INTEL_CUSTOMIZATION
 def warn_main_one_arg : Warning<"only one parameter on 'main' declaration">,
     InGroup<Main>;
 def err_main_arg_wrong : Error<"%select{first|second|third|fourth}0 "
@@ -1436,14 +1431,6 @@ def warn_weak_template_vtable : Warning<
 
 def ext_using_undefined_std : ExtWarn<
   "using directive refers to implicitly-defined namespace 'std'">;
-
-// if INTEL_CUSTOMIZATION
-// Fix for CQ374762: Retrieve a namespace, which may require us to
-// implicitly define.
-def warn_using_undefined_namespace : Warning<
-    "namespace '%0' is not defined">,
-    InGroup<IntelCompat>;
-// endif INTEL_CUSTOMIZATION
 
 // C++ exception specifications
 def err_exception_spec_in_typedef : Error<
@@ -8906,6 +8893,9 @@ def ext_opencl_ext_vector_type_rgba_selector: ExtWarn<
   "vector component name '%0' is an OpenCL version 2.2 feature">,
   InGroup<OpenCLUnsupportedRGBA>;
 
+def err_openclcxx_placement_new : Error<
+  "use of placement new requires explicit declaration">;
+
 // MIG routine annotations.
 def warn_mig_server_routine_does_not_return_kern_return_t : Warning<
   "'mig_server_routine' attribute only applies to routines that return a kern_return_t">,
@@ -9831,6 +9821,11 @@ def warn_noderef_to_dereferenceable_pointer : Warning<
 def err_builtin_launder_invalid_arg : Error<
   "%select{non-pointer|function pointer|void pointer}0 argument to "
   "'__builtin_launder' is not allowed">;
+
+def err_bit_cast_non_trivially_copyable : Error<
+  "__builtin_bit_cast %select{source|destination}0 type must be trivially copyable">;
+def err_bit_cast_type_size_mismatch : Error<
+  "__builtin_bit_cast source size does not equal destination size (%0 vs %1)">;
 
 // SYCL-specific diagnostics
 def err_sycl_attribute_address_space_invalid : Error<

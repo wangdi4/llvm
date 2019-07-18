@@ -425,7 +425,7 @@ public:
   public:
     IntelPragmaInlineState(CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs);
     ~IntelPragmaInlineState();
-    llvm::Attribute::AttrKind getPragmaInlineAttribute();
+    std::pair<llvm::Attribute::AttrKind, bool> getPragmaInlineAttribute();
   private:
     CodeGenFunction &CGF;
     const IntelInlineAttr *CurrentAttr;

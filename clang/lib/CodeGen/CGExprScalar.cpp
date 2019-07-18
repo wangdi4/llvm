@@ -2043,6 +2043,15 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     return EmitLoadOfLValue(LV, CE->getExprLoc());
   }
 
+  case CK_LValueToRValueBitCast: {
+    LValue SourceLVal = CGF.EmitLValue(E);
+    Address Addr = Builder.CreateElementBitCast(SourceLVal.getAddress(),
+                                                CGF.ConvertTypeForMem(DestTy));
+    LValue DestLV = CGF.MakeAddrLValue(Addr, DestTy);
+    DestLV.setTBAAInfo(TBAAAccessInfo::getMayAliasInfo());
+    return EmitLoadOfLValue(DestLV, CE->getExprLoc());
+  }
+
   case CK_CPointerToObjCPointerCast:
   case CK_BlockPointerToObjCPointerCast:
   case CK_AnyPointerToBlockPointerCast:
@@ -3700,7 +3709,8 @@ Value *ScalarExprEmitter::EmitShl(const BinOpInfo &Ops) {
 
   bool SanitizeBase = CGF.SanOpts.has(SanitizerKind::ShiftBase) &&
                       Ops.Ty->hasSignedIntegerRepresentation() &&
-                      !CGF.getLangOpts().isSignedOverflowDefined();
+                      !CGF.getLangOpts().isSignedOverflowDefined() &&
+                      !CGF.getLangOpts().CPlusPlus2a;
   bool SanitizeExponent = CGF.SanOpts.has(SanitizerKind::ShiftExponent);
   // OpenCL 6.3j: shift values are effectively % word size of LHS.
   if (CGF.getLangOpts().OpenCL)

@@ -663,22 +663,25 @@ CodeGenFunction::IntelPragmaInlineState::~IntelPragmaInlineState() {
   CGF.CurrentPragmaInlineState = PreviousState;
 }
 
-llvm::Attribute::AttrKind
+// The return value is a pair where the first part indicates the kind of
+// pragma (inline, forceinline, noinline) and the second part indicates
+// whether the recursive qualifier was placed on the pragma.
+std::pair<llvm::Attribute::AttrKind, bool>
 CodeGenFunction::IntelPragmaInlineState::getPragmaInlineAttribute() {
   bool Recursive = (CurrentAttr->getOption() == IntelInlineAttr::Recursive);
   switch (CurrentAttr->getSemanticSpelling()) {
     case IntelInlineAttr::Pragma_inline:
       if (Recursive)
-        return llvm::Attribute::InlineHintRecursive;
+        return std::make_pair(llvm::Attribute::InlineHint, true);
       else
-        return llvm::Attribute::InlineHint;
+        return std::make_pair(llvm::Attribute::InlineHint, false);
     case IntelInlineAttr::Pragma_forceinline:
       if (Recursive)
-        return llvm::Attribute::AlwaysInlineRecursive;
+        return std::make_pair(llvm::Attribute::AlwaysInline, true);
       else
-        return llvm::Attribute::AlwaysInline;
+        return std::make_pair(llvm::Attribute::AlwaysInline, false);
     case IntelInlineAttr::Pragma_noinline:
-      return llvm::Attribute::NoInline;
+      return std::make_pair(llvm::Attribute::NoInline, false);
   }
   llvm_unreachable("unhandled attribute");
 }

@@ -656,6 +656,10 @@ def fno_PIE : Flag<["-"], "fno-PIE">, Group<f_Group>;
 def faccess_control : Flag<["-"], "faccess-control">, Group<f_Group>;
 def falign_functions : Flag<["-"], "falign-functions">, Group<f_Group>;
 def falign_functions_EQ : Joined<["-"], "falign-functions=">, Group<f_Group>;
+#if INTEL_CUSTOMIZATION
+def fno_alias : Flag<["-"], "fno-alias">,
+  HelpText<"Enables 'noalias' attribute for all pointer-type arguments">;
+#endif // INTEL_CUSTOMIZATION
 def fno_align_functions: Flag<["-"], "fno-align-functions">, Group<f_Group>;
 def fallow_unsupported : Flag<["-"], "fallow-unsupported">, Group<f_Group>;
 def fapple_kext : Flag<["-"], "fapple-kext">, Group<f_Group>, Flags<[CC1Option]>,
@@ -2648,6 +2652,13 @@ def resource_dir : Separate<["-"], "resource-dir">,
   HelpText<"The directory which holds the compiler resource files">;
 def resource_dir_EQ : Joined<["-"], "resource-dir=">, Flags<[DriverOption, CoreOption]>,
   Alias<resource_dir>;
+#if INTEL_CUSTOMIZATION
+def restrict : Flag<["-"], "restrict">, Flags<[DriverOption,CC1Option]>,
+  HelpText<"enable the 'restrict' keyword for disambiguating pointers">;
+def no_restrict : Flag<["-"], "no-restrict">, Flags<[DriverOption,CC1Option]>,
+  HelpText<"disable the 'restrict' keyword for disambiguating pointers">;
+#endif //INTEL_CUSTOMIZATION
+
 def rpath : Separate<["-"], "rpath">, Flags<[LinkerInput]>, Group<Link_Group>;
 def rtlib_EQ : Joined<["-", "--"], "rtlib=">,
   HelpText<"Compiler runtime library to use">;
@@ -2657,6 +2668,10 @@ def fno_rtlib_add_rpath: Flag<["-"], "fno-rtlib-add-rpath">, Flags<[NoArgumentUn
   HelpText<"Do not add -rpath with architecture-specific resource directory to the linker flags">;
 def r : Flag<["-"], "r">, Flags<[LinkerInput,NoArgumentUnused]>,
         Group<Link_Group>;
+#if INTEL_CUSTOMIZATION
+def regcall : Flag<["-"], "regcall">,
+  HelpText<"Set __regcall as a default calling convention">;
+#endif // INTEL_CUSTOMIZATION
 def save_temps_EQ : Joined<["-", "--"], "save-temps=">, Flags<[CC1Option, DriverOption]>,
   HelpText<"Save intermediate compilation results.">;
 def save_temps : Flag<["-", "--"], "save-temps">, Flags<[DriverOption]>,
@@ -2720,10 +2735,12 @@ def : Separate<["--"], "no-system-header-prefix">, Alias<no_system_header_prefix
 def s : Flag<["-"], "s">, Group<Link_Group>;
 def target : Joined<["--"], "target=">, Flags<[DriverOption, CoreOption]>,
   HelpText<"Generate code for the given target">;
-def _print_supported_cpus : Flag<["-", "--"], "print-supported-cpus">,
+def print_supported_cpus : Flag<["-", "--"], "print-supported-cpus">,
   Group<CompileOnly_Group>, Flags<[CC1Option, CoreOption]>,
   HelpText<"Print supported cpu models for the given target (if target is not specified,"
            " it will print the supported cpus for the default target)">;
+def mcpu_EQ_QUESTION : Flag<["-"], "mcpu=?">, Alias<print_supported_cpus>;
+def mtune_EQ_QUESTION : Flag<["-"], "mtune=?">, Alias<print_supported_cpus>;
 def gcc_toolchain : Joined<["--"], "gcc-toolchain=">, Flags<[DriverOption]>,
   HelpText<"Use the gcc toolchain at the given directory">;
 def time : Flag<["-"], "time">,

@@ -2546,8 +2546,12 @@ enum CXCursorKind {
    */
   CXCursor_OMPTargetTeamsDistributeSimdDirective = 279,
 
+  /** C++2a std::bit_cast expression.
+   */
+  CXCursor_BuiltinBitCastExpr = 280,
+
 #if INTEL_CUSTOMIZATION
-  CXCursor_OMPTargetVariantDispatchDirective = 280,
+  CXCursor_OMPTargetVariantDispatchDirective = 281,
 
   CXCursor_LastStmt = CXCursor_OMPTargetVariantDispatchDirective,
 #endif /* INTEL_CUSTOMIZATION */

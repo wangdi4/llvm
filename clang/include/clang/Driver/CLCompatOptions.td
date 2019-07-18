@@ -63,7 +63,8 @@ def _SLASH_c : CLFlag<"c">, HelpText<"Compile only">, Alias<c>;
 def _SLASH_d1PP : CLFlag<"d1PP">,
   HelpText<"Retain macro definitions in /E mode">, Alias<dD>;
 def _SLASH_d1reportAllClassLayout : CLFlag<"d1reportAllClassLayout">,
-  HelpText<"Dump record layout information">, Alias<fdump_record_layouts>;
+  HelpText<"Dump record layout information">,
+Alias<Xclang>, AliasArgs<["-fdump-record-layouts"]>;
 def _SLASH_diagnostics_caret : CLFlag<"diagnostics:caret">,
   HelpText<"Enable caret and column diagnostics (on by default)">;
 def _SLASH_diagnostics_column : CLFlag<"diagnostics:column">,
@@ -123,6 +124,10 @@ def : CLFlag<"O1">, Alias<_SLASH_O>, AliasArgs<["1"]>,
   HelpText<"Optimize for size  (same as /Og     /Os /Oy /Ob2 /GF /Gy)">;
 def : CLFlag<"O2">, Alias<_SLASH_O>, AliasArgs<["2"]>,
   HelpText<"Optimize for speed (same as /Og /Oi /Ot /Oy /Ob2 /GF /Gy)">;
+#if INTEL_CUSTOMIZATION
+def _SLASH_Oa :CLFlag<"Oa">, Alias<fno_alias>,
+  HelpText<"Enables 'noalias' attribute for all pointer-type arguments">;
+#endif // INTEL_CUSTOMIZATION
 def : CLFlag<"Ob0">, Alias<_SLASH_O>, AliasArgs<["b0"]>,
   HelpText<"Disable function inlining">;
 def : CLFlag<"Ob1">, Alias<_SLASH_O>, AliasArgs<["b1"]>,
@@ -165,6 +170,12 @@ def _SLASH_Qvec : CLFlag<"Qvec">,
   HelpText<"Enable the loop vectorization passes">, Alias<fvectorize>;
 def _SLASH_Qvec_ : CLFlag<"Qvec-">,
   HelpText<"Disable the loop vectorization passes">, Alias<fno_vectorize>;
+#if INTEL_CUSTOMIZATION
+def _SLASH_Qrestrict : CLFlag<"Qrestrict">, Alias<restrict>,
+  HelpText<"enable the 'restrict' keyword for disambiguating pointers">;
+def _SLASH_Qrestrict_ : CLFlag<"Qrestrict-">, Alias<no_restrict>,
+  HelpText<"disable the 'restrict' keyword for disambiguating pointers">;
+#endif //INTEL_CUSTOMIZATION
 def _SLASH_showIncludes : CLFlag<"showIncludes">,
   HelpText<"Print info about included files to stderr">,
   Alias<show_includes>;
@@ -374,6 +385,10 @@ def _SLASH_Gv : CLFlag<"Gv">,
   HelpText<"Set __vectorcall as a default calling convention">;
 def _SLASH_Gregcall : CLFlag<"Gregcall">,
   HelpText<"Set __regcall as a default calling convention">;
+#if INTEL_CUSTOMIZATION
+def _SLASH_Qregcall : CLFlag<"Qregcall">, Alias<_SLASH_Gregcall>,
+  HelpText<"Set __regcall as a default calling convention">;
+#endif // INTEL_CUSTOMIZATION
 
 // Ignored:
 

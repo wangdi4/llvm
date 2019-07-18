@@ -1074,29 +1074,6 @@ QualType Sema::getCurrentThisType() {
   DeclContext *DC = getFunctionLevelDeclContext();
   QualType ThisTy = CXXThisTypeOverride;
 
-#if INTEL_CUSTOMIZATION
-  // CQ#374503 (invalid use of this) - if a class is defined inside the method
-  // of the other class, we should be able to use 'this' keyword. For example:
-  // class Base {
-  //   void foo() {
-  //     struct Local {
-  //       char d[sizeof(*this)];
-  //     };
-  //   }
-  // };
-  // Formally we can use the keyword 'this', and it must
-  // refer to the object, which method is called.
-  if (getLangOpts().IntelCompat) {
-    if (CXXRecordDecl *RecordDecl = dyn_cast<CXXRecordDecl>(DC)) {
-      if (FunctionDecl *FD = RecordDecl->isLocalClass()) {
-        if (CXXMethodDecl *method = dyn_cast<CXXMethodDecl>(FD)) {
-          if (method->isInstance() && !method->getParent()->isLambda())
-            ThisTy = method->getThisType();
-        }
-      }
-    }
-  }
-#endif // INTEL_CUSTOMIZATION
   if (CXXMethodDecl *method = dyn_cast<CXXMethodDecl>(DC)) {
     if (method && method->isInstance())
       ThisTy = method->getThisType();
@@ -2436,7 +2413,11 @@ bool Sema::FindAllocationFunctions(SourceLocation StartLoc, SourceRange Range,
     }
 
     if (getLangOpts().OpenCLCPlusPlus && R.empty()) {
-      Diag(StartLoc, diag::err_openclcxx_not_supported) << "default new";
+      if (PlaceArgs.empty()) {
+        Diag(StartLoc, diag::err_openclcxx_not_supported) << "default new";
+      } else {
+        Diag(StartLoc, diag::err_openclcxx_placement_new);
+      }
       return true;
     }
 

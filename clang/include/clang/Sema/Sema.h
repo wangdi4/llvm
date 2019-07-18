@@ -1105,12 +1105,6 @@ public:
   /// \<coroutine_traits>
   ClassTemplateDecl *StdCoroutineTraitsCache;
 
-#if INTEL_CUSTOMIZATION
-  /// CQ#374762: The C++ "__cxxabiv1" namespace, where the standard library
-  /// resides.
-  LazyDeclPtr CXXAbiV1Namespace;
-#endif // INTEL_CUSTOMIZATION
-
   /// The C++ "type_info" declaration, which is defined in \<typeinfo>.
   RecordDecl *CXXTypeInfoDecl;
 
@@ -5040,8 +5034,6 @@ public:
 
   NamespaceDecl *getStdNamespace() const;
   NamespaceDecl *getOrCreateStdNamespace();
-  NamespaceDecl *getCXXAbiV1Namespace() const;   // INTEL 
-  NamespaceDecl *getOrCreateCXXAbiV1Namespace(); // INTEL
 
   NamespaceDecl *lookupStdExperimentalNamespace();
 
@@ -5508,6 +5500,13 @@ public:
                                Expr *E,
                                SourceRange AngleBrackets,
                                SourceRange Parens);
+
+  ExprResult ActOnBuiltinBitCastExpr(SourceLocation KWLoc, Declarator &Dcl,
+                                     ExprResult Operand,
+                                     SourceLocation RParenLoc);
+
+  ExprResult BuildBuiltinBitCastExpr(SourceLocation KWLoc, TypeSourceInfo *TSI,
+                                     Expr *Operand, SourceLocation RParenLoc);
 
   ExprResult BuildCXXTypeId(QualType TypeInfoType,
                             SourceLocation TypeidLoc,
@@ -9268,6 +9267,10 @@ private:
                                      SourceRange SrcRange = SourceRange());
 
 public:
+  /// Function tries to capture lambda's captured variables in the OpenMP region
+  /// before the original lambda is captured.
+  void tryCaptureOpenMPLambdas(ValueDecl *V);
+
   /// Return true if the provided declaration \a VD should be captured by
   /// reference.
   /// \param Level Relative level of nested OpenMP construct for that the check

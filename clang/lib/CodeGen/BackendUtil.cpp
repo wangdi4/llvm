@@ -62,7 +62,6 @@
 #include "llvm/Transforms/Instrumentation/HWAddressSanitizer.h"
 #include "llvm/Transforms/Instrumentation/InstrProfiling.h"
 #include "llvm/Transforms/Instrumentation/MemorySanitizer.h"
-#include "llvm/Transforms/Instrumentation/PGOInstrumentation.h"
 #include "llvm/Transforms/Instrumentation/ThreadSanitizer.h"
 #include "llvm/Transforms/ObjCARC.h"
 #include "llvm/Transforms/Scalar.h"
@@ -485,9 +484,9 @@ static void initTargetOptions(llvm::TargetOptions &Options,
   Options.DebuggerTuning = CodeGenOpts.getDebuggerTuning();
   Options.EmitStackSizeSection = CodeGenOpts.StackSizeSection;
   Options.EmitAddrsig = CodeGenOpts.Addrsig;
+  Options.EnableDebugEntryValues = CodeGenOpts.EnableDebugEntryValues;
 
-  if (CodeGenOpts.getSplitDwarfMode() != CodeGenOptions::NoFission)
-    Options.MCOptions.SplitDwarfFile = CodeGenOpts.SplitDwarfFile;
+  Options.MCOptions.SplitDwarfFile = CodeGenOpts.SplitDwarfFile;
   Options.MCOptions.MCRelaxAll = CodeGenOpts.RelaxAll;
   Options.MCOptions.MCSaveTempLabels = CodeGenOpts.SaveTempLabels;
   Options.MCOptions.MCUseDwarfDirectory = !CodeGenOpts.NoDwarfDirectoryAsm;
@@ -887,8 +886,7 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
     break;
 
   default:
-    if (!CodeGenOpts.SplitDwarfOutput.empty() &&
-        (CodeGenOpts.getSplitDwarfMode() == CodeGenOptions::SplitFileFission)) {
+    if (!CodeGenOpts.SplitDwarfOutput.empty()) {
       DwoOS = openOutputFile(CodeGenOpts.SplitDwarfOutput);
       if (!DwoOS)
         return;
@@ -1248,11 +1246,6 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
 
     if (CodeGenOpts.OptimizationLevel == 0)
       addSanitizersAtO0(MPM, TargetTriple, LangOpts, CodeGenOpts);
-
-    if (CodeGenOpts.hasProfileIRInstr()) {
-      // This file is stored as the ProfileFile.
-      MPM.addPass(PGOInstrumentationGenCreateVar(PGOOpt->ProfileFile));
-    }
   }
 
   // FIXME: We still use the legacy pass manager to do code generation. We
@@ -1311,8 +1304,7 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
     NeedCodeGen = true;
     CodeGenPasses.add(
         createTargetTransformInfoWrapperPass(getTargetIRAnalysis()));
-    if (!CodeGenOpts.SplitDwarfOutput.empty() &&
-        CodeGenOpts.getSplitDwarfMode() == CodeGenOptions::SplitFileFission) {
+    if (!CodeGenOpts.SplitDwarfOutput.empty()) {
       DwoOS = openOutputFile(CodeGenOpts.SplitDwarfOutput);
       if (!DwoOS)
         return;
