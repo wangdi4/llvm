@@ -36,7 +36,7 @@ foreach i = 0-129 in { def P64_#i : CSAReg<"p64_"#i>; }
 // register classes all share the same register set: if they don't, then
 // synthetic register classes will be created from the common intersections,
 // and registers might be assigned to those classes.
-let isVirtual = 1, CopyCost = -1 in {
+let CopyCost = -1 in {
   def ANYC : RegisterClass<"CSA", [i1], 64, (add (sequence "CV0_%u", 0, 10), (sequence "P64_%u", 0, 129), NA, IGN)>;
   def CI0  : RegisterClass<"CSA", [i1],      64, (add ANYC)> { let Size=8;  }
   def CI1  : RegisterClass<"CSA", [i1],      8, (add ANYC)> { let Size=8;  }

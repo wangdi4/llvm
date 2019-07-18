@@ -70,7 +70,7 @@ INITIALIZE_PASS_DEPENDENCY(MachineLoopInfo)
 INITIALIZE_PASS_DEPENDENCY(ControlDependenceGraph)
 INITIALIZE_PASS_DEPENDENCY(MachineDominatorTree)
 INITIALIZE_PASS_DEPENDENCY(MachinePostDominatorTree)
-INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(CSALoopInfoPass)
 INITIALIZE_PASS_END(CSACvtCFDFPass, "csa-cvt-cfdf",
                     "CSA Convert Control Flow to Data Flow", true, false)
 
@@ -188,9 +188,9 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
 
   LLVM_DEBUG(dbgs() << "Function after switch generation:\n"; MF.print(dbgs()));
 
-  // We are now exiting SSA mode. At the moment, we can't actually tell MRI that
-  // we are doing so, since we need to remain in SSA mode for register
-  // allocation.
+  // We are now exiting SSA mode.
+  MRI->leaveSSA();
+  MF.getProperties().set(MachineFunctionProperties::Property::NoPHIs);
 
   if (needDynamicPreds() || UseDynamicPred) {
     computeBlockPredicates();
@@ -654,7 +654,8 @@ void CSACvtCFDFPass::switchRegister(unsigned Reg, bool StrictLive) {
 
   // Get the value that's live on the edge. If the parent has two children, it
   // needs to insert a switch; otherwise, it copies the parent's value.
-  auto getRegOnEdge = [&](MachineBasicBlock *Parent, MachineBasicBlock *Child) {
+  auto getRegOnEdge = [&](MachineBasicBlock *Parent,
+                          MachineBasicBlock *Child) -> unsigned {
     if (Parent->succ_size() == 1)
       return RegValues[getBlockNumber(Parent)];
 
@@ -738,6 +739,7 @@ void CSACvtCFDFPass::processLoop(MachineLoop *L) {
 
     assert(DFLoop.getNumExits() == 1 &&
       "Can only pipeline loops with single exit blocks");
+    bufferPipelinedLoopBypass(L, numTokens);
     pipelineLoop(L->getHeader(), DFLoop, numTokens);
   }
 
@@ -746,6 +748,86 @@ void CSACvtCFDFPass::processLoop(MachineLoop *L) {
   for (MachineInstr *Pick : DFLoop.getHeaderPicks()) {
     unsigned PickReg = Pick->getOperand(2 + PickBackedge).getReg();
     LMFI->addLICAttribute(PickReg, "csasim_backedge");
+  }
+
+  // If pipeline depth has been specified, add token control
+  limitPipelineDepth(L);
+
+  // Move the loop into the LoopInfo for use after dataflow conversion.
+  // Skip pipelined loops for now--we generally can't do later optimizations on
+  // them anyways because the iterations are out of order.
+  if (pipeliningDegree <= 1)
+    getAnalysis<CSALoopInfoPass>().addLoop(std::move(DFLoop));
+}
+
+void CSACvtCFDFPass::limitPipelineDepth(MachineLoop *L)
+{
+  // If pipeline depth has been specified, add token control
+  MachineInstr *tokenTake = 0;
+  MachineInstr *tokenReturn = 0;
+  if (checkIfDepthLimitedLoop(L, tokenTake, tokenReturn)) {
+    auto frameSize = tokenTake->getOperand(3).getImm();
+    auto pipelineDepth = tokenTake->getOperand(4).getImm();
+    LLVM_DEBUG(dbgs() <<
+      "Retrieved pipeline depth-limited loop with pool address " <<
+      printReg(tokenTake->getOperand(1).getReg()) <<
+      ", frameSize " << frameSize <<
+      ", depth " << pipelineDepth <<
+      " setting " << printReg(tokenTake->getOperand(0).getReg()) << "\n");
+
+    unsigned frameOffset =
+      LMFI->allocateLIC(&CSA::CI64RegClass, "pd.ls.offsets");
+    LMFI->setLICDepth(frameOffset, pipelineDepth);
+
+
+    // Initialize slot-offsets lic with frame offsets
+    // The initial values are:
+    //    slot-offsets = offset_of(slot0), ..., offset_of(slot'n-1)
+    MachineBasicBlock &LH = *tokenTake->getParent();
+    auto DebugLoc = L->getStartLoc();
+    for (int i = 0; i < pipelineDepth; ++i) {
+      BuildMI(LH, tokenTake, DebugLoc, TII->get(CSA::INIT64))
+        .addDef(frameOffset).addImm(i*frameSize);
+    }
+
+    // TOKEN_TAKE looks like this:
+    // slot, take_outord = CSA_PIPELINE_DEPTH_TOKEN_TAKE pool, slot-size, depth, take_inord
+
+    // Convert token_take to an ADD to generate frame address
+    // pool_gated = GATE64 take_inord, pool
+    // slot-addr = ADD64 pool_gated, slot-offsets
+    // take_outord = MOV0 slot-addr
+    unsigned take_inord = tokenTake->getOperand(5).getReg();
+    unsigned take_outord = tokenTake->getOperand(1).getReg();
+    unsigned pool = tokenTake->getOperand(2).getReg();
+    unsigned slot = tokenTake->getOperand(0).getReg();
+    unsigned pool_gated =
+      LMFI->allocateLIC(&CSA::CI64RegClass, "pd.ls.pool.take");
+    BuildMI(LH, tokenTake, DebugLoc, TII->get(CSA::GATE64), pool_gated)
+      .addReg(take_inord)
+      .addReg(pool);
+    BuildMI(LH, tokenTake, DebugLoc, TII->get(CSA::ADD64), slot)
+      .addReg(pool_gated)
+      .addReg(frameOffset);
+    BuildMI(LH, tokenTake, DebugLoc, TII->get(CSA::MOV0), take_outord)
+      .addReg(slot);
+
+    // TOKEN_RETURN looks like this:
+    // ret_outord = CSA_PIPELINE_DEPTH_TOKEN_RETURN pool, slot-addr, ret_inord
+    // Return a frame slot to the pool
+    // slot-offsets = GATE64 ret_inord, slot-offsets
+    // ret_outord = MOV0 ret_inord
+    MachineBasicBlock &LL = *tokenReturn->getParent();
+    unsigned ret_inord = tokenReturn->getOperand(3).getReg();
+    unsigned ret_outord = tokenReturn->getOperand(0).getReg();
+    BuildMI(LL, tokenReturn, DebugLoc, TII->get(CSA::GATE64), frameOffset)
+      .addReg(ret_inord).addReg(frameOffset);
+    BuildMI(LL, tokenReturn, DebugLoc, TII->get(CSA::MOV0), ret_outord)
+      .addReg(ret_inord);
+
+    // Delete pseudoinstrs
+    tokenTake->eraseFromParent();
+    tokenReturn->eraseFromParent();
   }
 }
 
@@ -937,7 +1019,7 @@ void CSACvtCFDFPass::pipelineLoop(MachineBasicBlock *lphdr, CSALoopInfo &DFLoop,
     // corresponding data. The data in/out for the completion op will both be
     // IGN. TODO: don't waste a "completion1" on this.
     // Otherwise (if g is a real operand) it needs to be reordered.
-    unsigned orderedOut = g ? g->getReg() : static_cast<unsigned>(CSA::IGN);
+    unsigned orderedOut = g ? g->getReg() : Register(CSA::IGN);
     const TargetRegisterClass *RC = g ? MRI->getRegClass(g->getReg()) : &CSA::CI1RegClass;
     unsigned unorderedOut = g ? LMFI->allocateLIC(RC, "unorderedOut") :
                                                            static_cast<unsigned>(CSA::IGN);
@@ -1045,6 +1127,47 @@ void CSACvtCFDFPass::pipelineLoop(MachineBasicBlock *lphdr, CSALoopInfo &DFLoop,
       .addReg(any->getOperand(0).getReg())
       .setMIFlag(MachineInstr::NonSequential);
   }
+}
+
+void CSACvtCFDFPass::bufferPipelinedLoopBypass(MachineLoop *L, unsigned Depth) {
+  // Find the parent of this block in the control dependence graph.
+  MachineBasicBlock *Header = L->getHeader();
+  ControlDependenceNode *HeaderNode = CDG->getNode(Header);
+  ControlDependenceNode *CDParent = nullptr;
+  for (auto Parent = HeaderNode->parent_begin(), E = HeaderNode->parent_end();
+      Parent != E; ++Parent) {
+    MachineBasicBlock *MBB = (*Parent)->getBlock();
+    if (L->contains(MBB))
+      continue;
+    if (CDParent) {
+      LLVM_DEBUG(dbgs()<< "Too many control dependences for loop header, "
+          "skipping buffering\n");
+      return;
+    }
+    CDParent = *Parent;
+  }
+  assert(CDParent &&
+      "How do we have an inner loop pipeline with nothing outside?");
+  ControlDependenceNode *CDChild = HeaderNode;
+  do {
+    // Get the index of the switch results that corresponds to the bypass of the
+    // loop--the direction *other* than that indicated by the control
+    // dependence.
+    unsigned OpNum = CDParent->isTrueChild(CDChild) ? 0 : 1;
+    for (auto SwitchPair : *GenSwitches[CDParent->getBlock()]) {
+      MachineInstr *Switch = SwitchPair.second;
+      unsigned Reg = Switch->getOperand(OpNum).getReg();
+      if (Reg == CSA::IGN)
+        continue;
+      LMFI->setLICDepth(Reg, Depth);
+      LLVM_DEBUG(dbgs() << "Adding buffering to " << printReg(Reg) <<
+          " since it is bypassing a pipelined loop.\n");
+    }
+
+    // Crawl up the parent chain.
+    CDChild = CDParent;
+    CDParent = *CDParent->parent_begin();
+  } while (CDChild->getNumParents() == 1 && CDParent->getNumParents() != 0);
 }
 
 // Utility function to create a tree of uses. For example, it can create
@@ -1263,7 +1386,9 @@ void CSACvtCFDFPass::assignLicForDF() {
           continue;
         // In the case of registers without uses, replace them without ignore
         // instead of switching them to an unused LIC.
-        if (Op.isDef() && MRI->use_empty(Reg))
+        if (Op.isDef() && MRI->use_empty(Reg)
+            && (MI.getOpcode() != CSA::CSA_ENTRY)
+            && (MI.getOpcode() != CSA::CSA_CONTINUE))
           MI.substituteRegister(Reg, CSA::IGN, 0, *TRI);
         else {
           const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
@@ -2255,6 +2380,30 @@ bool CSACvtCFDFPass::needDynamicPreds(MachineLoop *L) {
   return false;
 }
 
+bool CSACvtCFDFPass::checkIfDepthLimitedLoop(MachineLoop *L,
+  MachineInstr* &tokenTake,
+  MachineInstr* &tokenReturn)
+{
+  for (MachineBasicBlock *MBB : L->blocks()) {
+    // Skip blocks in nested loops
+    if (MLI->getLoopFor(MBB) != L)
+      continue;
+    for (MachineInstr &MI : *MBB) {
+      if (MI.getOpcode() == CSA::CSA_PIPELINE_DEPTH_TOKEN_TAKE) {
+        tokenTake = &MI;
+        if (tokenReturn)
+          return true;
+      }
+      else if (MI.getOpcode() == CSA::CSA_PIPELINE_DEPTH_TOKEN_RETURN) {
+        tokenReturn = &MI;
+        if (tokenTake)
+          return true;
+      }
+    }
+  }
+  return false;
+}
+
 unsigned CSACvtCFDFPass::getInnerLoopPipeliningDegree(MachineLoop *L) {
   // No pipelining if we can't identify a loop header.
 	MachineBasicBlock *header = L->getHeader();
@@ -2457,7 +2606,7 @@ unsigned PickTreeNode::convertToPick(MachineInstr *Phi,
 
   const TargetRegisterClass *RC = MRI.getRegClass(Phi->getOperand(0).getReg());
   unsigned OutputReg = UseOutput ? Phi->getOperand(0).getReg() :
-    LMFI.allocateLIC(RC);
+    Register(LMFI.allocateLIC(RC));
 
   BuildMI(*Phi->getParent(), InsertPoint, Phi->getDebugLoc(),
       TII.get(TII.makeOpcode(CSA::Generic::PICK, RC)), OutputReg)

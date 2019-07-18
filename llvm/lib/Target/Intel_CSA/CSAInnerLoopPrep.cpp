@@ -70,7 +70,7 @@ static cl::opt<ILPLSelectionMode> SelectionMode(
   cl::desc("CSA specific: choose how pipelineable inner loops are discovered"),
   cl::values(
     clEnumVal(automatic, "automatically choose inner loops to pipeline"),
-    clEnumVal(manual, "pipeline according to __builtin_csa_pipellineable_loop"),
+    clEnumVal(manual, "pipeline according to __builtin_csa_pipeline_loop"),
     clEnumVal(both,
               "use both specified and auto-discovered pipelining candidates"),
     clEnumVal(disabled, "disable inner loop pipelining")),
@@ -175,6 +175,10 @@ bool CSAInnerLoopPrep::runOnLoop(Loop *L) {
 
   uint64_t pipeliningDepth = 1;
 
+  // TODO: Because these loops are pre-order traversed, it seems like this check
+  // is dead. Keeping it in does not hinder manual selection according to our
+  // testing, but we aren't sure about automatic selection so we're leaving it
+  // here for now.
   if (containsPipelinedLoop(L)) {
     LLVM_DEBUG(errs() << "Won't try to pipeline loop " <<
                L->getHeader()->getName() <<
@@ -328,25 +332,6 @@ uint64_t CSAInnerLoopPrep::programmerSpecifiedPipelineable(Loop *L) {
         if (not DT->dominates(pipeline_loop_entry->getParent(), L->getHeader()) or
             not PDT->dominates(pipeline_loop_exit->getParent(), L->getHeader()))
           continue;
-
-        // Also verify that the parent loop is marked as a parallel loop.
-        Loop *parent = L->getParentLoop();
-        if (not isLoopMarkedParallel(parent)) {
-
-          // Sometimes StructurizeCFG has murdered our block terminator DebugLocs. Ask
-          // Loop for its idea of a start location, but fall back to just anything in
-          // the header otherwise.
-          DebugLoc loopLoc = L->getStartLoc() ? L->getStartLoc() :
-            getAnyBlockLoc(L->getHeader());
-
-          // Report the missed optimization.
-          ORE->emit(OptimizationRemarkMissed(REMARK_NAME,
-                                             "ILPLDirectiveIgnored",
-                                             loopLoc, L->getHeader())
-                    << " ignoring pipelining directive; not in parallel loop");
-
-          continue;
-        }
 
         if (pipeliningDepth->isZero())
           return getMaxDegreeOfParallelism(L);

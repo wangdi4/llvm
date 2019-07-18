@@ -997,6 +997,222 @@ Loops that are enclosed by the pipeline.loop.{entry,exit} intrinsics will be
 adjusted by the CSAInnerLoopPrep pass and then fully ILPL'd during dataflow
 conversion.
 
+pipeline.limited.{entry,exit}
+--------------------------
+
+Syntax:
+~~~~~~~
+
+::
+
+  declare i32
+      @llvm.csa.pipeline.limited.entry(i32 <region_id>, i32 <depth>)
+  declare void @llvm.csa.pipeline.limited.exit(i32 <entry>)
+
+Overview:
+~~~~~~~~~
+
+The pipeline.limited.{entry,exit} intrinsics mark sets of loops
+that use local storage, to be handled by the CSALoopPrep pass.
+
+Arguments:
+~~~~~~~~~~
+
+The arguments to pipeline.limited.entry are a region id and a maximum
+number of concurrent iterations to allow in the loops
+(or 0 for the compiler default).
+The argument to pipeline.limited.exit is the "value" returned by
+the paired pipeline.limited.entry.
+
+Semantics:
+~~~~~~~~~~
+
+The pipeline.limited.exit intrinsic is added to the preheader of a loop
+containing local storage and the pipeline.limited.exit intrinsic is added
+to a loop exit block. This pair of intrinsics may be placed around a
+single loop or around a set of sibling loops (generated as worker loops
+from spmdization). Loops enclosed by the pipeline.limited.{entry,exit}
+intrinsics will be processed by the CSALoopPrep pass to use separate local
+storage slots for each dynamic iteration. The region.entry/exit points mark
+the locations where memory for local storage will be allocated/deallocated using
+CSAMemAlloc/Free. Inside the loops, pipeline.depth.token.take/return intrinsics
+are used to manage the preallocated local storage slots. At the start of the
+loop a pipeline.depth.token.take intrinsic returns the offset into an available
+storage slot. After all memory operations using local storage have completed
+a pipeline.depth.token.return intrinsic returns a storage slot for a future
+loop iteraation to use.
+Later, during dataflow conversion, the pipeline.depth.token.take/return
+intrinsics are converted into dataflow operations.
+
+Example:
+
+.. code-block:: llvm
+
+   DIR.OMP.PARALLEL.LOOP.1:                          ; preds = %entry
+  %depth.region = call i32 @llvm.csa.pipeline.limited.entry(i32 9002, i32 2)
+  %region13 = call i32 @llvm.csa.parallel.region.entry(i32 2002)
+  br label %omp.priv.init
+
+omp.priv.init:                                    ; preds = %DIR.OMP.PARALLEL.LOOP.1
+  %3 = load i32, i32* %.omp.lb
+  %4 = load i32, i32* %.omp.lb
+  br label %omp.clone.head
+
+omp.clone.head:                                   ; preds = %omp.priv.init
+  %section14 = call i32 @llvm.csa.parallel.section.entry(i32 %region13)
+  %region = call i32 @llvm.csa.parallel.region.entry(i32 67538)
+  br label %DIR.OMP.PARALLEL.LOOP.1.split
+
+DIR.OMP.PARALLEL.LOOP.1.split:                    ; preds = %omp.clone.head
+  %5 = load i32, i32* %.omp.ub, !alias.scope !6, !noalias !8
+  br label %DIR.OMP.PARALLEL.LOOP.18
+
+DIR.OMP.PARALLEL.LOOP.18:
+  ...
+  br i1 %cmp9, label %omp.loop.exit, label %omp.inner.for.body.lr.ph
+
+omp.inner.for.body.lr.ph:                         ; preds = %DIR.OMP.PARALLEL.LOOP.18
+  br label %omp.inner.for.body
+
+omp.inner.for.body:                               ; preds = %omp.inner.for.body, %omp.inner.for.body.lr.ph
+  %.omp.iv.0 = phi i32 [ 0, %omp.inner.for.body.lr.ph ], [ %add5, %omp.inner.for.body ]
+  %section = call i32 @llvm.csa.parallel.section.entry(i32 %region)
+  %idxprom = sext i32 %.omp.iv.0 to i64
+  %arrayidx = getelementptr inbounds [10000 x i32], [10000 x i32]* %a, i64 0, i64 %idxprom, !intel-tbaa !11
+  store i32 %.omp.iv.0, i32* %arrayidx, align 4, !tbaa !11, !alias.scope !10, !noalias !13
+  %add5 = add nsw i32 %.omp.iv.0, 1
+  %cmp = icmp sle i32 %add5, %ub
+  call void @llvm.csa.parallel.section.exit(i32 %section)
+  br i1 %cmp, label %omp.inner.for.body, label %omp.inner.for.cond.omp.loop.exit_crit_edge, !llvm.loop !15
+
+omp.inner.for.cond.omp.loop.exit_crit_edge:       ; preds = %omp.inner.for.body
+  br label %omp.loop.exit
+
+omp.loop.exit:                                    ; preds = %omp.inner.for.cond.omp.loop.exit_crit_edge, %DIR.OMP.PARALLEL.LOOP.18
+  br label %omp.clone.tail
+
+omp.clone.tail:                                   ; preds = %omp.loop.exit
+  call void @llvm.csa.parallel.region.exit(i32 %region)
+  call void @llvm.csa.parallel.section.exit(i32 %section14)
+  br label %omp.clone.head.W1
+
+omp.clone.head.W1:                                ; preds = %omp.clone.tail
+  %section15 = call i32 @llvm.csa.parallel.section.entry(i32 %region13)
+  %region.W1 = call i32 @llvm.csa.parallel.region.entry(i32 133074)
+  br label %DIR.OMP.PARALLEL.LOOP.1.split.W1
+
+DIR.OMP.PARALLEL.LOOP.1.split.W1:                 ; preds = %omp.clone.head.W1
+  %11 = load i32, i32* %.omp.ub, !alias.scope !6, !noalias !8
+  br label %DIR.OMP.PARALLEL.LOOP.18.W1
+
+DIR.OMP.PARALLEL.LOOP.18.W1:
+  ...
+  br i1 %cmp9.W1, label %omp.loop.exit.W1, label %omp.inner.for.body.lr.ph.W1
+
+omp.inner.for.body.lr.ph.W1:                      ; preds = %DIR.OMP.PARALLEL.LOOP.18.W1
+  br label %omp.inner.for.body.W1
+
+omp.inner.for.body.W1:                            ; preds = %omp.inner.for.body.W1, %omp.inner.for.body.lr.ph.W1
+  %.omp.iv.0.W1 = phi i32 [ %13, %omp.inner.for.body.lr.ph.W1 ], [ %add5.W1, %omp.inner.for.body.W1 ]
+  %section.W1 = call i32 @llvm.csa.parallel.section.entry(i32 %region.W1)
+  %idxprom.W1 = sext i32 %.omp.iv.0.W1 to i64
+  %arrayidx.W1 = getelementptr inbounds [10000 x i32], [10000 x i32]* %a.W1, i64 0, i64 %idxprom.W1, !intel-tbaa !11
+  store i32 %.omp.iv.0.W1, i32* %arrayidx.W1, align 4, !tbaa !11, !alias.scope !10, !noalias !13
+  %add5.W1 = add nsw i32 %.omp.iv.0.W1, 1
+  %cmp.W1 = icmp sle i32 %add5.W1, %ub.W1
+  call void @llvm.csa.parallel.section.exit(i32 %section.W1)
+  br i1 %cmp.W1, label %omp.inner.for.body.W1, label %omp.inner.for.cond.omp.loop.exit_crit_edge.W1, !llvm.loop !15
+
+omp.inner.for.cond.omp.loop.exit_crit_edge.W1:    ; preds = %omp.inner.for.body.W1
+  br label %omp.loop.exit.W1
+  
+omp.loop.exit.W1:                                 ; preds = %omp.inner.for.cond.omp.loop.exit_crit_edge.W1, %DIR.OMP.PARALLEL.LOOP.18.W1
+  br label %omp.clone.tail.W1
+
+omp.clone.tail.W1:                                ; preds = %omp.loop.exit.W1
+  call void @llvm.csa.parallel.region.exit(i32 %region.W1)
+  call void @llvm.csa.parallel.section.exit(i32 %section15)
+  br label %omp.loop.exit.split
+
+omp.loop.exit.split:                              ; preds = %omp.clone.tail.W1
+  call void @llvm.csa.parallel.region.exit(i32 %region13)
+  call void @llvm.csa.pipeline.limited.exit(i32 %depth.region)
+
+pipeline.depth.token.{take,return}
+----------------------------------
+
+Syntax:
+~~~~~~~
+
+::
+
+  declare i8* @llvm.csa.pipeline.depth.token.take(
+      i8* <pool>, i32 <frame_size>, i32 <pipeline_depth>)
+  declare void @llvm.csa.pipeline.depth.token.return(i8* <pool>, i8* <token>)
+
+Overview:
+~~~~~~~~~
+
+The pipeline.depth.token.{take,return} intrinsics manage local storage
+slots within a pipelined loop.
+
+Arguments:
+~~~~~~~~~~
+
+The arguments to pipeline.depth.token.take are a storage pool address,
+the total size of the local storage needed in each iteration of the loop,
+and the number of loop iterations that will be allowed to execute in
+parallel. The returned value is a token that points to the local storage slot
+to be used by that loop iteration.
+The arguments to pipeline.depth.token.return are the storage pool address
+and the token that was in use for that loop iteration.
+
+Semantics:
+~~~~~~~~~~
+
+The pipeline.depth.token.take and pipeline.depth.token.return manage
+a fixed number (pipeline depth) of local storage slots.
+The pipeline.depth.token.take intrinsic issues a token by returning an address
+that points to the local storage slot to be used by that loop iteration.
+The pipeline.depth.token.return returns the slot of local storage used by the
+current loop iteration to the pool to be used by a future loop iteration.
+
+Example:
+
+.. code-block:: llvm
+
+omp.inner.for.body.us:                            ; preds = %omp.inner.for.body.us.preheader, %for.cond.for.end_crit_edge.us
+  %indvars.iv35 = phi i64 [ %indvars.iv.next36, %for.cond.for.end_crit_edge.us ], [ 0, %omp.inner.for.body.us.preheader ], !dbg !39
+  %ls.token = call i8* @llvm.csa.pipeline.depth.token.take(i8* %0, i32 800, i32 3), !dbg !43
+  %ls.W0F.all = bitcast i8* %ls.token to { [100 x i64] }*, !dbg !43
+  %1 = bitcast [100 x i64]* %ls.W0.F0.M0 to i8*, !dbg !41
+  %section.us = tail call i32 @llvm.csa.parallel.section.entry(i32 %region), !dbg !39
+  call void @llvm.lifetime.start.p0i8(i64 800, i8* nonnull %1) #9, !dbg !44
+  br label %for.body.us, !dbg !45
+
+for.body.us:                                      ; preds = %omp.inner.for.body.us, %for.body.us
+  %indvars.iv = phi i64 [ %conv629, %omp.inner.for.body.us ], [ %indvars.iv.next, %for.body.us ]
+  %arrayidx.us = getelementptr inbounds [100 x i64], [100 x i64]* %ls.W0.F0.M0, i64 0, i64 %indvars.iv, !dbg !48, !intel-tbaa !51
+  store i64 %indvars.iv35, i64* %arrayidx.us, align 8, !dbg !56, !tbaa !51, !alias.scope !57, !noalias !61
+  %indvars.iv.next = add i64 %indvars.iv, 1, !dbg !75
+  %cmp7.us = icmp ult i64 %indvars.iv.next, %y, !dbg !76
+  br i1 %cmp7.us, label %for.body.us, label %for.cond.for.end_crit_edge.us, !dbg !45, !llvm.loop !77
+
+for.cond.for.end_crit_edge.us:                    ; preds = %for.body.us
+  %2 = bitcast [100 x i64]* %ls.W0.F0.M0 to i8*, !dbg !41
+  %arrayidx10.us = getelementptr inbounds i64, i64* %a, i64 %indvars.iv35, !dbg !79
+  %3 = load i64, i64* %arrayidx10.us, align 8, !dbg !79, !tbaa !80, !alias.scope !81
+  %4 = load i64, i64* %arrayidx1128, align 16, !dbg !82, !tbaa !51, !alias.scope !58, !noalias !83
+  %add12.us = add i64 %4, %3, !dbg !84
+  store i64 %add12.us, i64* %arrayidx10.us, align 8, !dbg !85, !tbaa !80, !alias.scope !86, !noalias !62
+  call void @llvm.lifetime.end.p0i8(i64 800, i8* nonnull %2) #9, !dbg !87
+  %indvars.iv.next36 = add nuw nsw i64 %indvars.iv35, 1, !dbg !40
+  tail call void @llvm.csa.parallel.section.exit(i32 %section.us), !dbg !42
+  %exitcond = icmp eq i64 %indvars.iv.next36, %wide.trip.count, !dbg !40
+  call void @llvm.csa.pipeline.depth.token.return(i8* %0, i8* %ls.token), !dbg !42
+  br i1 %exitcond, label %omp.clone.tail, label %omp.inner.for.body.us, !dbg !42, !llvm.loop !88
+
+
 Passes
 ======
 
@@ -1219,11 +1435,10 @@ inserted by other transformations.
 Iteration-Local Storage Check
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-We currently do not have any functionality for dealing with storage allocated
-in an iteration-local scope in parallel loops that is not optimized out of
-memory into lics, so what currently happens for those cases is that the same
-allocation at the function level is used for every loop iteration and the loop
-iterations step on each other and produce incorrect results. This is obviously
+Until recently not all cases of local storage were guaranteed to be handled.
+For the unhandled cases the same allocation at the function level is used for
+every loop iteration and the loop iterations step on each other and
+produce incorrect results. This is obviously
 not an ideal failure mode and when this happens it isn't always obvious what is
 going on either, so CSAIntrinsicCleaner mitigates this problem by checking for
 loops that contain a lifetime_start intrinsic and also a parallel_section_entry
@@ -1255,3 +1470,9 @@ dialing back the amount of iteration-local storage and loop unroll factors.
 There are still other cases where lics can't be used and where allocating
 outside of the loop is infeasible, and being able to parallelize these cases is
 not possible yet but is an active area of work.
+
+We currently handle local storage that arises from scalars and arrays
+in an iteration-local scope in parallel loops in the CSALoopPrep pass.
+However, this pass has not been enabled yet. When it is enabled, the local
+storage check will be removed from CSAIntrinsicCleaner and moved into that
+pass.

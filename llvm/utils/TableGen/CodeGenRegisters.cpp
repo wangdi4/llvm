@@ -795,11 +795,6 @@ CodeGenRegisterClass::CodeGenRegisterClass(CodeGenRegBank &RegBank, Record *R)
 
   CopyCost = R->getValueAsInt("CopyCost");
   Allocatable = R->getValueAsBit("isAllocatable");
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-  PureVirtual = R->getValueAsBit("isVirtual");
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
   AltOrderSelect = R->getValueAsString("AltOrderSelect");
   int AllocationPriority = R->getValueAsInt("AllocationPriority");
   if (AllocationPriority < 0 || AllocationPriority > 63)
@@ -820,11 +815,6 @@ CodeGenRegisterClass::CodeGenRegisterClass(CodeGenRegBank &RegBank,
     RSI(Props.RSI),
     CopyCost(0),
     Allocatable(true),
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-    PureVirtual(Props.PureVirtual),
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
     AllocationPriority(0) {
   Artificial = true;
   for (const auto R : Members) {

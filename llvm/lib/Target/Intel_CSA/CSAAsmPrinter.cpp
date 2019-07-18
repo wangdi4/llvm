@@ -120,6 +120,7 @@ class CSAAsmPrinter : public AsmPrinter {
   LineReader *reader;
   // To record filename to ID mapping
   bool doInitialization(Module &M) override;
+  bool doFinalization(Module &M) override;
   void emitLineNumberAsDotLoc(const MachineInstr &);
   void emitSrcInText(StringRef filename, unsigned line);
   LineReader *getReader(std::string);
@@ -131,13 +132,10 @@ class CSAAsmPrinter : public AsmPrinter {
   void EmitCallInstruction(const MachineInstr *);
   void EmitContinueInstruction(const MachineInstr *);
   void EmitAll0(const MachineInstr *);
-  void EmitEntryInstruction();
-  void EmitSimpleEntryInstruction();
-  void EmitParamsResultsDecl();
-  void EmitReturnInstruction();
+  void EmitSimpleEntryInstruction(MachineFunction *MF);
+  void EmitParamsResultsDecl(MachineInstr *, MachineInstr *);
   void EmitTrampolineMarkers(const MachineInstr *);
   void EmitCSAOperands(const MachineInstr *, raw_ostream &, int, int);
-
   unsigned resultReg;
   void writeSmallFountain(const MachineInstr *MI);
 
@@ -151,12 +149,12 @@ public:
 
   void printOperand(const MachineInstr *MI, int OpNum, raw_ostream &O);
   bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
-                       unsigned AsmVariant, const char *ExtraCode,
-                       raw_ostream &O) override;
+                       const char *ExtraCode, raw_ostream &O) override;
 
   void EmitStartOfAsmFile(Module &) override;
   void EmitEndOfAsmFile(Module &) override;
 
+  bool runOnMachineFunction(MachineFunction &F) override;
   void EmitFunctionEntryLabel() override;
   void EmitFunctionBodyStart() override;
   void EmitFunctionBodyEnd() override;
@@ -165,8 +163,46 @@ public:
   void EmitGlobalVariable(const GlobalVariable *GV) override;
 
   void EmitCsaCodeSection();
+  void EmitScratchpad(MCSymbol *Symbol, bool isConstant, const Constant *Init);
 };
 } // end of anonymous namespace
+
+bool CSAAsmPrinter::runOnMachineFunction(MachineFunction &MF) {
+  CSAMachineFunctionInfo *LMFI = MF.getInfo<CSAMachineFunctionInfo>();
+  if (LMFI && LMFI->getDoNotEmitAsm() && csa_utils::isAlwaysDataFlowLinkageSet())
+    return false;
+  SmallString<128> Str;
+  raw_svector_ostream O(Str);
+  if (csa_utils::createSCG()) {
+    O << ".module __mod_" << MF.getName() << "\n";
+    O << "\t.version 0,6,0\n";
+    // This should probably be replaced by code to handle externs
+    O << "\t.set implicitextern\n";
+    if (not StrictTermination)
+      O << "\t.set relaxed\n";
+    if (ImplicitLicDefs)
+      O << "\t.set implicit\n";
+    if (csa_utils::isAlwaysDataFlowLinkageSet())
+      O << "\t.unit\n";
+    else
+      O << "\t.unit sxu\n";
+    OutStreamer->EmitRawText(O.str());
+
+    // If we have any scratchpads, emit them before the machine function.
+    const Module &M = *MF.getFunction().getParent();
+    for (const auto &GV: M.globals()) {
+      if (isScratchpadAddressSpace(GV.getAddressSpace())) {
+        EmitScratchpad(getSymbol(&GV), GV.isConstant(), GV.getInitializer());
+      }
+    }
+  }
+  AsmPrinter::runOnMachineFunction(MF);
+
+  if (csa_utils::createSCG()) {
+    OutStreamer->EmitRawText(".endmodule");
+  }
+  return false;
+}
 
 void CSAAsmPrinter::printOperand(const MachineInstr *MI, int OpNum,
                                  raw_ostream &O) {
@@ -216,7 +252,6 @@ void CSAAsmPrinter::printOperand(const MachineInstr *MI, int OpNum,
 
 // PrintAsmOperand - Print out an operand for an inline asm expression.
 bool CSAAsmPrinter::PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
-                                    unsigned /*AsmVariant*/,
                                     const char *ExtraCode, raw_ostream &O) {
   // Does this asm operand have a single letter operand modifier?
   if (ExtraCode && ExtraCode[0]) {
@@ -253,6 +288,75 @@ bool CSAAsmPrinter::doInitialization(Module &M) {
     OutStreamer->AddBlankLine();
   }
 
+  return result;
+}
+
+static bool isMathFunc(Function *F, const Module &M) {
+  if (F == M.getFunction("cos")) return true;
+  if (F == M.getFunction("exp")) return true;
+  if (F == M.getFunction("exp2")) return true;
+  if (F == M.getFunction("floor")) return true;
+  if (F == M.getFunction("log")) return true;
+  if (F == M.getFunction("log2")) return true;
+  if (F == M.getFunction("log10")) return true;
+  if (F == M.getFunction("pow")) return true;
+  if (F == M.getFunction("round")) return true;
+  if (F == M.getFunction("sin")) return true;
+  if (F == M.getFunction("sincos")) return true;
+  if (F == M.getFunction("trunc")) return true;
+  if (F == M.getFunction("cosf")) return true;
+  if (F == M.getFunction("expf")) return true;
+  if (F == M.getFunction("exp2f")) return true;
+  if (F == M.getFunction("floorf")) return true;
+  if (F == M.getFunction("logf")) return true;
+  if (F == M.getFunction("log2f")) return true;
+  if (F == M.getFunction("log10f")) return true;
+  if (F == M.getFunction("powf")) return true;
+  if (F == M.getFunction("roundf")) return true;
+  if (F == M.getFunction("sinf")) return true;
+  if (F == M.getFunction("sincosf")) return true;
+  if (F == M.getFunction("truncf")) return true;
+  return false;
+}
+
+// Mark all globals from surviving math lib functions as external
+void markMathLibGlobalsAsExtern(Module &M) {
+  for (auto GVI = M.global_begin(), E = M.global_end(); GVI != E; GVI++) {
+    GlobalVariable *GV = &*GVI;
+    StringRef Name = GV->getName();
+    if (Name.startswith("llvm."))
+      continue;
+    for(Value::use_iterator UI = GVI->use_begin(), UE = GVI->use_end(); UI!=UE; ++UI) {
+      Use &U = *UI;
+      if (Instruction *I = dyn_cast<Instruction>(U.getUser())) {
+        Function *TmpF = I->getParent()->getParent();
+        if (isMathFunc(TmpF,M))
+          GV->setLinkage(llvm::Function::ExternalLinkage);
+      }
+    }
+  }
+}
+
+bool CSAAsmPrinter::doFinalization(Module &M) {
+  markMathLibGlobalsAsExtern(M);
+
+  // If we have scratchpads, emit them now.
+  if (!csa_utils::createSCG()) {
+    for (const auto &GV: M.globals()) {
+      if (isScratchpadAddressSpace(GV.getAddressSpace())) {
+        EmitScratchpad(getSymbol(&GV), GV.isConstant(), GV.getInitializer());
+      }
+    }
+  }
+  if (CSAInstPrinter::WrapCsaAsm()) {
+    OutStreamer->AddBlankLine();
+    if (!csa_utils::createSCG())
+      OutStreamer->EmitRawText(".endmodule\n");
+  } else {
+    if (!csa_utils::createSCG())
+      OutStreamer->EmitRawText(".endmodule\n");
+  }
+  bool result = AsmPrinter::doFinalization(M);
   return result;
 }
 
@@ -456,23 +560,34 @@ void CSAAsmPrinter::EmitStartOfAsmFile(Module &M) {
     OutStreamer->EmitRawText("\t.ascii ");
     startCSAAsmString(*OutStreamer);
     O << "\t.text\n";
+  } 
+  if (!csa_utils::createSCG()) {
+    O << ".module __mod_top\n";
+    O << "\t.version 0,6,0\n";
+    // This should probably be replaced by code to handle externs
+    O << "\t.set implicitextern\n";
+    if (not StrictTermination)
+      O << "\t.set relaxed\n";
+    if (ImplicitLicDefs)
+      O << "\t.set implicit\n";
+    if (csa_utils::isAlwaysDataFlowLinkageSet())
+      O << "\t.unit\n";
+    else
+      O << "\t.unit sxu\n";
   }
-  O << "\t.version 0,6,0\n";
-  // This should probably be replaced by code to handle externs
-  O << "\t.set implicitextern\n";
-  if (not StrictTermination)
-    O << "\t.set relaxed\n";
-  if (ImplicitLicDefs)
-    O << "\t.set implicit\n";
-  if (csa_utils::isAlwaysDataFlowLinkageSet())
-    O << "\t.unit\n";
-  else
-    O << "\t.unit sxu\n";
   OutStreamer->EmitRawText(O.str());
+
+  // If we have any scratchpads, emit them before the machine function.
+  if (!csa_utils::createSCG()) {
+    for (const auto &GV: M.globals()) {
+      if (isScratchpadAddressSpace(GV.getAddressSpace())) {
+        EmitScratchpad(getSymbol(&GV), GV.isConstant(), GV.getInitializer());
+      }
+    }
+  }
 }
 
 void CSAAsmPrinter::EmitEndOfAsmFile(Module &M) {
-
   if (CSAInstPrinter::WrapCsaAsm()) {
     OutStreamer->AddBlankLine();
     endCSAAsmString(*OutStreamer);
@@ -547,7 +662,8 @@ void CSAAsmPrinter::setLICNames(void) {
       unsigned vreg = TargetRegisterInfo::index2VirtReg(index);
       if (!MRI->reg_empty(vreg)) {
         StringRef name = LMFI->getLICName(vreg);
-        if ((!EmitRegNames && !(csa_utils::isAlwaysDataFlowLinkageSet())) || name.empty()) {
+        if ((!EmitRegNames && !(csa_utils::isAlwaysDataFlowLinkageSet()))
+            || name.empty()) {
           LMFI->setLICName(vreg, Twine("cv") + Twine(LMFI->getLICSize(vreg)) +
                                    "_" + Twine(index));
         }
@@ -576,18 +692,11 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
   MRI  = &MF->getRegInfo();
   LMFI = MF->getInfo<CSAMachineFunctionInfo>();
   if (csa_utils::isAlwaysDataFlowLinkageSet()) {
-    // In one of the earlier discussions, it was decided that any function f1
-    // in a CSA graph that is called internally by another function f2 in the
-    // same CSA graph will be considered 'internal' and any function f1 that
-    // is not called from anywhere inside the CSA graph is 'external'.
-    // This is irrespective of whether the function is found to be internal or external.
-    // This argument may change when we start supporting external/proxy calls
-    // and also when we start having linker support in some sense.
-    // Hence getNumCallSites() == 0 is used as a check to see if the function
-    // is internal or external
-    if (LMFI->getNumCallSites() == 0) {
-      EmitSimpleEntryInstruction();
-      EmitParamsResultsDecl();
+    // Emit code for all entry points
+    for (unsigned i = 0; i < LMFI->getNumCSAEntryPoints(); ++i) {
+      const CSAEntryPoint &CSAEP = LMFI->getCSAEntryPoint(i);
+      EmitSimpleEntryInstruction(CSAEP.MF);
+      EmitParamsResultsDecl(CSAEP.EntryMI,CSAEP.ReturnMI);
     }
   }
   if (not ImplicitLicDefs) {
@@ -632,14 +741,15 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
       bool isParam = false;
       Function::const_arg_iterator I, E;
       unsigned Arg;
-      for (I = F->arg_begin(), E = F->arg_end(), Arg= CSA::P64_2; I != E; ++I, ++Arg) {
+      for (I = F->arg_begin(), E = F->arg_end(), Arg= CSA::P64_2;
+            I != E; ++I, ++Arg) {
         if (Arg == reg) {
           isParam = true;
           break;
         }
       }
       if (isParam || (resultReg == reg)) continue;
-      // A decl is needed if we allocated this LIC and it is has a using/defining
+      // A decl is needed if we allocated this LIC and it has using/defining
       // instruction. (Sometimes all such instructions are cleaned up by DIE.)
       if (reg != CSA::IGN && reg != CSA::NA && !MRI->reg_empty(reg)) {
         StringRef name = "";
@@ -655,45 +765,42 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
       if (!MRI->reg_empty(vreg) && LMFI->getIsDeclared(vreg)) {
         if (csa_utils::isAlwaysDataFlowLinkageSet()) {
           if (LMFI->getNumCallSites() == 0) {
-            const MachineInstr *entryMI = LMFI->getEntryMI();
-            const MachineInstr *returnMI = LMFI->getReturnMI();
-            bool isParam = false;
-            for (unsigned i = 0; i < entryMI->getNumOperands(); ++i) {
-              unsigned reg = entryMI->getOperand(i).getReg();
-              if (reg == vreg) { isParam = true; break; }
+            bool isParamOrResult = false;
+            for (auto UI = MRI->use_begin(vreg); UI != MRI->use_end(); ++UI) {
+              MachineInstr *MI = UI->getParent();
+              if (MI->getOpcode() == CSA::CSA_RETURN) {
+                isParamOrResult = true;
+                break;
+              }
             }
-            bool isResult = false;
-            for (unsigned i = 0; i < returnMI->getNumOperands(); ++i) {
-              unsigned reg = returnMI->getOperand(i).getReg();
-              if (reg == vreg) { isResult = true; break; }
-            }
-            if (isParam || isResult) continue;
+            MachineInstr *DefMI = MRI->getUniqueVRegDef(vreg);
+            if (DefMI && DefMI->getOpcode() == CSA::CSA_ENTRY)
+                isParamOrResult = true;
+            if (isParamOrResult) continue;
           }
         }
         if (!csa_utils::isAlwaysDataFlowLinkageSet())
           assert(!MRI->use_nodbg_empty(vreg) && "LIC without consumers");
         StringRef name = LMFI->getLICName(vreg);
-        if ((!EmitRegNames && !(csa_utils::isAlwaysDataFlowLinkageSet())) || name.empty()) {
+        if ((!EmitRegNames &&
+              !(csa_utils::isAlwaysDataFlowLinkageSet())) || name.empty()) {
           LMFI->setLICName(vreg, Twine("cv") + Twine(LMFI->getLICSize(vreg)) +
                                    "_" + Twine(index));
         }
         printRegister(vreg, LMFI->getLICName(vreg));
       }
     }
-    if (csa_utils::isAlwaysDataFlowLinkageSet() && LMFI->getNumCallSites() != 0) 
-      EmitEntryInstruction();
   }
   if (csa_utils::isAlwaysDataFlowLinkageSet())
     OutStreamer->EmitRawText("{");
 }
 
-void CSAAsmPrinter::EmitFunctionBodyEnd() { 
-  if (csa_utils::isAlwaysDataFlowLinkageSet())
-    EmitReturnInstruction();
+void CSAAsmPrinter::EmitFunctionBodyEnd() {
   OutStreamer->EmitRawText("}");
 }
 
-void CSAAsmPrinter::EmitCSAOperands(const MachineInstr *MI, raw_ostream &O, int startindex, int numopds) { 
+void CSAAsmPrinter::EmitCSAOperands(const MachineInstr *MI, raw_ostream &O,
+  int startindex, int numopds) {
   const CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
   for (int i=startindex; i<numopds; ++i) {
     unsigned reg = MI->getOperand(i).getReg();
@@ -710,21 +817,19 @@ void CSAAsmPrinter::EmitCSAOperands(const MachineInstr *MI, raw_ostream &O, int 
   }
 }
 
-void CSAAsmPrinter::EmitSimpleEntryInstruction(void) {
+void CSAAsmPrinter::EmitSimpleEntryInstruction(MachineFunction *CalleeMF) {
   StringRef Linkage("dataflow");
-  const Function &F = MF->getFunction();
+  const Function &F = CalleeMF->getFunction();
   if (F.hasFnAttribute("__csa_attr_initializer"))
     Linkage = "initializer";
-  OutStreamer->EmitRawText("\t.entry\t" + MF->getFunction().getName() +
+  OutStreamer->EmitRawText("\t.entry\t" + CalleeMF->getFunction().getName() +
                            ", " + Linkage);
 }
 
-void CSAAsmPrinter::EmitParamsResultsDecl(void) {
+void CSAAsmPrinter::EmitParamsResultsDecl(
+  MachineInstr *entryMI, MachineInstr *returnMI) {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
-  const CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
-  const MachineInstr *entryMI = LMFI->getEntryMI();
-  const MachineInstr *returnMI = LMFI->getReturnMI();
   // Emit CSA parameters
   if (returnMI)
     for (unsigned i = 0; i < returnMI->getNumOperands(); ++i) {
@@ -743,29 +848,6 @@ void CSAAsmPrinter::EmitParamsResultsDecl(void) {
           << LMFI->getLICName(reg) << "\n";
     }
   }
-  OutStreamer->EmitRawText(O.str());
-}
-
-void CSAAsmPrinter::EmitEntryInstruction(void) {
-  SmallString<128> Str;
-  raw_svector_ostream O(Str);
-  const CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
-  const MachineInstr *entryMI = LMFI->getEntryMI();
-  O << "\t#.entry\t";
-  O << MF->getFunction().getName();
-  O << ", dataflow, ";
-  EmitCSAOperands(entryMI,O,0,entryMI->getNumOperands());
-  O << "\n";
-  OutStreamer->EmitRawText(O.str());
-}
-void CSAAsmPrinter::EmitReturnInstruction() { 
-  SmallString<128> Str;
-  raw_svector_ostream O(Str);
-  O << "\t#.return\t";
-  const CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
-  const MachineInstr *returnMI = LMFI->getReturnMI();
-  EmitCSAOperands(returnMI,O,0,returnMI->getNumOperands());
-  O << "\n";
   OutStreamer->EmitRawText(O.str());
 }
 
@@ -839,9 +921,16 @@ void CSAAsmPrinter::EmitInstruction(const MachineInstr *MI) {
   if (MI->getOpcode() == CSA::CSA_ENTRY) { return; }
   if (MI->getOpcode() == CSA::CSA_RETURN) return;
   if (MI->getOpcode() == CSA::CSA_CALL) { EmitCallInstruction(MI); return; }
-  if (MI->getOpcode() == CSA::CSA_CONTINUE) { EmitContinueInstruction(MI); return; }
+  if (MI->getOpcode() == CSA::CSA_CONTINUE) {
+    EmitContinueInstruction(MI);
+    return;
+  }
   if (MI->getOpcode() == CSA::ALL0) { EmitAll0(MI); return; }
-  if (MI->getOpcode() == CSA::TRAMPOLINE_START || MI->getOpcode() == CSA::TRAMPOLINE_END) { EmitTrampolineMarkers(MI); return; }
+  if (MI->getOpcode() == CSA::TRAMPOLINE_START ||
+      MI->getOpcode() == CSA::TRAMPOLINE_END) {
+    EmitTrampolineMarkers(MI);
+    return;
+  }
   if (MI->getFlag(MachineInstr::RasReplayable)) {
       OutStreamer->EmitRawText("\t.attrib ras_replayable=true\n");
   }
@@ -861,41 +950,26 @@ void CSAAsmPrinter::EmitConstantPool() {
   // Just emit each constant pool entry in its own scratchpad.
   for (unsigned i = 0, e = CP.size(); i != e; ++i) {
     const MachineConstantPoolEntry &CPE = CP[i];
-    unsigned Align                      = CPE.getAlignment();
-
-    SectionKind Kind = CPE.getSectionKind(&getDataLayout());
 
     const Constant *C = nullptr;
     if (!CPE.isMachineConstantPoolEntry())
       C = CPE.Val.ConstVal;
-
-    MCSectionELF *S_base =
-      dyn_cast<MCSectionELF>(getObjFileLowering().getSectionForConstant(
-        getDataLayout(), Kind, C, Align));
-    assert(S_base);
+    assert(C && "Should have a constant for CSA machine constant pools");
 
     MCSymbol *Sym = GetCPISymbol(i);
     if (!Sym->isUndefined())
       continue;
 
-    assert(not Sym->getName().empty());
-    const char *sp_name_prefix =
-      (Sym->getName().front() == '.') ? ".csa.sp" : ".csa.sp.";
-    MCSection *S = OutContext.getELFSection(
-      sp_name_prefix + Sym->getName(), S_base->getType(), S_base->getFlags());
-
-    OutStreamer->SwitchSection(S);
-    EmitAlignment(Log2_32(Align));
-
-    OutStreamer->EmitLabel(Sym);
-    if (CPE.isMachineConstantPoolEntry())
-      EmitMachineConstantPoolValue(CPE.Val.MachineCPVal);
-    else
-      EmitGlobalConstant(getDataLayout(), CPE.Val.ConstVal);
+    EmitScratchpad(Sym, true, C);
   }
 }
 
 void CSAAsmPrinter::EmitGlobalVariable(const GlobalVariable *GV) {
+  // Handle scratchpads differently from regular global variables.
+  if (isScratchpadAddressSpace(GV->getAddressSpace())) {
+    // These were emitted elsewhere.
+    return;
+  }
 
   // If the global's section name starts with .csa. or if its linkage type is
   // private, it belongs on the CSA and needs to go in the target code.
@@ -918,6 +992,86 @@ void CSAAsmPrinter::EmitGlobalVariable(const GlobalVariable *GV) {
     EmitCsaCodeSection();
     OutStreamer->EmitRawText("\t.ascii ");
     startCSAAsmString(*OutStreamer);
+  }
+}
+
+template <typename Func>
+static void printValues(MCStreamer &Streamer, uint64_t Count, Func GetElement) {
+  for (uint64_t i = 0; i < Count; i++) {
+    SmallString<128> Str;
+    raw_svector_ostream O(Str);
+    O << "\t.value " << format_hex(GetElement(i).getLimitedValue(), 10) << "\n";
+    Streamer.EmitRawText(O.str());
+  }
+}
+
+void CSAAsmPrinter::EmitScratchpad(MCSymbol *Sym, bool IsConstant,
+    const Constant *CV) {
+  Sym->redefineIfPossible();
+  const DataLayout &DL = getDataLayout();
+  uint64_t Size = DL.getTypeAllocSize(CV->getType());
+
+  // Compute the type of the scratchpad.
+  Type *ValueTy = CV->getType();
+  if (isa<ConstantAggregateZero>(CV)) {
+    // All 0's -- use i64 if possible, else i8.
+    if (Size % 8 == 0)
+      ValueTy = Type::getInt64Ty(ValueTy->getContext());
+    else
+      ValueTy = Type::getInt8Ty(ValueTy->getContext());
+  } else if (auto SeqTy = dyn_cast<SequentialType>(ValueTy)) {
+    // Arrays and vectors: look through the array type.
+    ValueTy = SeqTy->getElementType();
+  }
+
+  if (ValueTy->isPointerTy()) {
+    // Convert pointers to integers.
+    ValueTy = DL.getIntPtrType(ValueTy);
+  } else if (!ValueTy->isIntegerTy() && !ValueTy->isPointerTy() &&
+      !ValueTy->isFloatingPointTy()) {
+    // Any other type? It's an i8 type (for byte emission).
+    ValueTy = Type::getInt8Ty(ValueTy->getContext());
+  } else if (ValueTy->getPrimitiveSizeInBits() > 64) {
+    // Oversize integers are emitted with byte emission.
+    ValueTy = Type::getInt8Ty(ValueTy->getContext());
+  }
+
+  // Compute the number of entries.
+  uint64_t ValueSize = DL.getTypeAllocSize(ValueTy);
+  if (Size % ValueSize != 0) {
+    ValueTy = Type::getInt8Ty(ValueTy->getContext());
+    ValueSize = 1;
+  }
+  uint64_t EntryCount = Size / ValueSize;
+
+  // Emit the .spad directive.
+  SmallString<128> Str;
+  raw_svector_ostream O(Str);
+  O << ".text\n"; // The simulator requires this...
+  O << (IsConstant ? ".rom " : ".spad ");
+  if (ValueTy->isFloatTy())
+    O << ".f32";
+  else if (ValueTy->isDoubleTy())
+    O << ".f64";
+  else {
+    assert(ValueTy->isIntegerTy() && "Scratchpad isn't int or float?");
+    O << ".i" << (ValueSize * 8);
+  }
+  O << " " << Sym->getName() << "[" << EntryCount << "]\n";
+  OutStreamer->EmitRawText(O.str());
+
+  // If there are values to emit, emit them now.
+  if (isa<ConstantAggregateZero>(CV)) {
+    // Do nothing--initialized to 0 by default.
+  } else if (auto CDS = dyn_cast<ConstantDataSequential>(CV)) {
+    if (ValueTy->isFloatingPointTy())
+      printValues(*OutStreamer, EntryCount,
+          [&](int i) { return CDS->getElementAsAPFloat(i).bitcastToAPInt(); });
+    else
+      printValues(*OutStreamer, EntryCount,
+          [&](int i) { return CDS->getElementAsAPInt(i); });
+  } else {
+    report_fatal_error("Scratchpad constant format unhandled");
   }
 }
 

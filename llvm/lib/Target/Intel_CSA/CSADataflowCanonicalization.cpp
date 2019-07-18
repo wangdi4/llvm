@@ -426,17 +426,7 @@ bool CSADataflowCanonicalizationPass::stopPipingLiterals(MachineInstr *MI) {
       // These values depend on LIC availability for consistency. Replacing with
       // a literal changes semantic meaning.
       return false;
-    case CSA::Generic::LAND:
-    case CSA::Generic::LOR:
-      // This helps to suppress warnings.
-      return false;
     case CSA::Generic::PICK:
-      // Return true if control value is an immediate
-      if (use.getOperand(1).isImm())
-        return true;
-      // Don't drop into picks if the control value has an init value.
-      return use.getOperand(1).isReg() &&
-             getDefinition(use.getOperand(1)) != nullptr;
     case CSA::Generic::SWITCH:
     case CSA::Generic::FILTER:
       // Making everything be literal here enables further optimization. Don't
@@ -509,14 +499,20 @@ bool CSADataflowCanonicalizationPass::eliminateMovInsts(MachineInstr *MI) {
   // mcast operations. Sometimes, we want to apply attributes to some, but not
   // all, outputs of the mcast. Retaining a MOV to a destination with different
   // attributes will cause this functionality to occur.
+  auto &DestInfo = LMFI->getLICInfo(destReg);
   if (!MRI->hasOneNonDBGUse(srcReg)) {
-    auto &DestInfo = LMFI->getLICInfo(destReg);
     if (DestInfo.licDepth)
       return Changed;
 
     if (DestInfo.attribs.find("csasim_backedge") != DestInfo.attribs.end())
       return Changed;
   }
+
+  // If there is lic group information on the destination but not the source,
+  // propagate the group back to the source.
+  auto &SrcInfo = LMFI->getLICInfo(srcReg);
+  if (DestInfo.licGroup && !SrcInfo.licGroup)
+    SrcInfo.licGroup = DestInfo.licGroup;
 
   MRI->replaceRegWith(destReg, srcReg);
   // Clear the definition of srcReg in this operation. If srcReg is itself the

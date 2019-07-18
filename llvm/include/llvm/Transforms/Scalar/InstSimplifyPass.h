@@ -39,6 +39,7 @@ public:
 /// Create a legacy pass that does instruction simplification on each
 /// instruction in a function.
 FunctionPass *createInstSimplifyLegacyPass();
+FunctionPass *createUnskippableInstSimplifyLegacyPass(); // INTEL
 
 } // end namespace llvm
 

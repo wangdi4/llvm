@@ -904,6 +904,11 @@ void MAPatternsEmitter::run(raw_ostream &OS) {
   // So, it is ok to use '==' operation below.
   if (Target.getName() == "X86")
     emitX86Patterns(OS, AllMAOperations);
+#if INTEL_FEATURE_CSA
+  else if (Target.getName() == "CSA")
+    // So far just reuse X86 patterns.
+    emitX86Patterns(OS, AllMAOperations);
+#endif // INTEL_FEATURE_CSA
 }
 
 namespace llvm {

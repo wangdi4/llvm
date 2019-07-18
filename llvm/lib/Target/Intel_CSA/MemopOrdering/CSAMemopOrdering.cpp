@@ -27,7 +27,9 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/GraphWriter.h"
 
+#include <algorithm>
 #include <functional>
+#include <iterator>
 #include <map>
 #include <queue>
 
@@ -135,6 +137,10 @@ constexpr unsigned IMP_DEPS_PER_MEMOP = 4;
 // A guess at the number of phibits per MemopCFG node.
 constexpr unsigned PHIBITS_PER_NODE = 8;
 
+// A guess at the number of loop-local storage allocation pools per
+// function.
+constexpr unsigned POOLS_PER_FUNCTION = 2;
+
 #define DEBUG_TYPE "csa-memop-ordering"
 constexpr auto PASS_DESC = "CSA: Memory operation ordering";
 
@@ -219,10 +225,6 @@ struct MemopCFG {
     // by construction a dependency can cross at most one backedge given the
     // model used for calculating them.
     const Loop *loop;
-
-    // Determines the original dependency that this phibit refers to that isn't
-    // a phibit.
-    Dep orig_dep() const;
   };
 
   // A phi node for memory ordering tokens.
@@ -278,11 +280,11 @@ struct MemopCFG {
   // A holder for all of the relevant information pertaining to a single memop.
   struct Memop {
 
-    // The node containing this memop.
-    Node *parent = nullptr;
+    // The node containing this memop; will not be nullptr.
+    Node *parent;
 
-    // The original instruction.
-    Instruction *I = nullptr;
+    // The original instruction; also will not be nullptr.
+    Instruction *I;
 
     // The token for the ready signal for this memory operation, or <none> if
     // the ordering chain for it hasn't been built yet.
@@ -299,8 +301,28 @@ struct MemopCFG {
     AtomicOrdering AOrdering;
     bool Volatile;
 
+    // This memop's loop-local allocation pool numbers. If this memop is a
+    // csa.pipeline.depth.token.* call, this will have exactly one entry which
+    // is the allocation pool number. Otherwise, it could have any number of
+    // entries each corresponding to a different allocation pool that the memop
+    // might alias with. These are generally sorted and unique'd.
+    SmallVector<int, POOLS_PER_FUNCTION> Pools;
+
+    // If this memop is a prefetch, PrefLoop will be set to its deepest
+    // containing loop which also contains a relevent memop. If this memop is
+    // not a prefetch or there is no such loop, pref_loop will be nullptr.
+    const Loop *PrefLoop = nullptr;
+
     // Construction from an original IR instruction.
     Memop(Node *parent, Instruction *);
+
+    // Determines the <rw> parameter for a prefetch: 0 for read prefetches, 1
+    // for write prefetches.
+    int prefetch_rw() const;
+
+    // Whether this memop would be eligible for ordering with a read (rw = 0) or
+    // write (rw = 1) prefetch.
+    bool orders_with_prefetch(int RW) const;
   };
 
   // A functor type for computing the non-parallel region/section component of
@@ -377,7 +399,7 @@ struct MemopCFG {
     // If this node is in a loop, the deepest loop that it is in. Otherwise,
     // nullptr. Note that if this node is a loop header this will be the loop
     // it is a header for.
-    const Loop *deepest_loop{nullptr};
+    Loop *deepest_loop{nullptr};
 
     // The index of this node according to the topological sort.
     int topo_num;
@@ -490,9 +512,11 @@ struct MemopCFG {
     // of the iteration (ordering a memop in memop_node in the loop loop
     // traversed backwards into back_loop). If this predecessor should not be
     // ignored, pred_back_loop will be set to the correct back_loop value for
-    // this predecessor.
+    // this predecessor. If pref_loop is set, all predecessors outside of
+    // pref_loop will be ignored.
     bool ignore_pred(const Node *pred, const Node *memop_node, const Loop *loop,
-                     const Loop *back_loop, const Loop *&pred_back_loop) const;
+                     const Loop *back_loop, const Loop *pref_loop,
+                     const Loop *&pred_back_loop) const;
 
     // Whether a given dependency is a phibit that can be ignored in this node
     // because it goes across a loop backedge for a loop that this node is not
@@ -517,7 +541,7 @@ struct MemopCFG {
     // Filters predecessor values and adds them to to_connect in this node's
     // current DepSetEntry.
     void step_forwards(const Node *memop_node, const Loop *loop,
-                       const Loop *back_loop);
+                       const Loop *back_loop, const Loop *pref_loop);
 
     // Constructs merges and phi nodes to order each memop according to the
     // dependencies calculated for it.
@@ -537,6 +561,9 @@ struct MemopCFG {
     // The original IR Loop.
     const llvm::Loop *IRL;
 
+    // The parent loop of this loop.
+    const Loop *parent = nullptr;
+
     // The set of nodes in this loop, in topological order.
     SmallVector<Node *, NODES_PER_LOOP> nodes;
 
@@ -546,18 +573,23 @@ struct MemopCFG {
     // The loop is marked Parallel by CSALowerParallelIntrinsics.
     bool IsParallel{false};
 
+    // Whether the loop contains operations that a read or write prefetch could
+    // be ordered with.
+    bool RPrefEligible{false}, WPrefEligible{false};
+
     // Whether this loop contains a given node.
     bool contains(const Node *) const;
 
-    // Collects self dependencies of a memop around this loop's backedge(s).
-    void collect_self_deps(const Dep &memop) const;
+    // Collects loop-carried loop-carried dependencies of memop B on memop A
+    // around this loop's backedge(s).
+    void collect_loop_imp_deps(const Dep &A, const Dep &B) const;
 
   private:
-    // Determines the set of PHIBits leading to memop at a node in this loop
-    // without traversing backedges. reach_cache keeps track of deps that were
-    // already computed to avoid extra work.
-    DepVec reachable_self_deps(Node *, const Dep &memop,
-                               std::map<Node *, DepVec> &reach_cache) const;
+    // Collects deps on the given memop at a node in the loop that do not cross
+    // backedges. reach_cache keeps track of deps that were already computed to
+    // avoid extra work.
+    DepVec reachable_deps(Node *, const Dep &memop,
+                          std::map<Node *, DepVec> &reach_cache) const;
   };
 
   // The collection of nodes in this MemopCFG. These will be topologically
@@ -577,7 +609,11 @@ struct MemopCFG {
 
   // A mapping from BasicBlock pointers to Node pointers to make it easier to
   // find nodes given original basic blocks.
-  std::map<const BasicBlock *, Node *> nodes_for_bbs;
+  DenseMap<const BasicBlock *, Node *> nodes_for_bbs;
+
+  // A mapping from Instruction pointers to Deps to make it easier to find
+  // memops given original instructions.
+  DenseMap<const Instruction *, Dep> memops_for_insts;
 
   // Loads the MemopCFG with memops from a given machine function using the
   // given analysis results. The graph should be empty when this is called, so
@@ -605,11 +641,29 @@ private:
   // called inside of load.
   void collect_loops(const llvm::Loop *);
 
+  // Marks loops that are eligible for prefetch ordering and marks prefetches
+  // with their corresponding loops.
+  void mark_prefetch_loops();
+
+  // Calculates allocation pool numbers. Also called inside of load.
+  void calculate_pool_numbers();
+
+  // Recursively marks memop users of I as corresponding to a loop-local
+  // allocation pool PN. VisitedPHIs keeps track of seen phi notes to avoid
+  // infinite recursion. If IgnoreTTR is true, token_takes and token_returns
+  // will be ignored.
+  void markLoopLocalMemops(const Instruction *I, int PN, bool IgnoreTTR,
+                           SmallPtrSetImpl<const PHINode *> &VisitedPHIs);
+
   // Determines implicit dependencies. Also called inside of load.
   void calculate_imp_deps(bool can_speculate);
 
+  // Marks implied dependencies from token returns to token takes around
+  // loops. Called as part of calculate_imp_deps.
+  void markReturnTakeDeps();
+
   // Calculates self dependencies, appending any that it finds to memops'
-  // imp_deps field. Called as part of calculate_imp_deps.
+  // imp_deps field. Also called as part of calculate_imp_deps.
   void calculate_self_deps();
 
   // Calculates data dependencies, appending any that it finds to memops'
@@ -786,6 +840,12 @@ raw_ostream &operator<<(raw_ostream &out, const MemopCFG::Memop &memop) {
     }
     out << ")";
   }
+  if (not memop.Pools.empty()) {
+    out << " (pools";
+    for (int Pool : memop.Pools)
+      out << " " << Pool;
+    out << ")";
+  }
   return out;
 }
 
@@ -894,12 +954,14 @@ raw_ostream &operator<<(raw_ostream &out, const MemopCFG::Node &node) {
   return out << "\n";
 }
 
+#ifndef NDEBUG
 raw_ostream &operator<<(raw_ostream &out, const MemopCFG::Loop &loop) {
   if (loop.nodes.empty())
     return out << "-";
   return out << loop.nodes.front()->topo_num << "-"
              << loop.nodes.back()->topo_num;
 }
+#endif
 
 raw_ostream &operator<<(raw_ostream &out, const MemopCFG &cfg) {
   if (not cfg.nodes.empty()) {
@@ -1039,55 +1101,46 @@ template <> struct DOTGraphTraits<MemopCFG> : DOTGraphTraits<const MemopCFG> {
 
 bool MemopCFG::Dep::implies(const Dep &that) const {
 
+  // There are three rules for determining whether a Dep A implies a Dep B:
+  //
+  // 1. A and B are both the same memop.
+  // 2. A and B are both phibits in the same node from the same predecessor and
+  //    A->dep implies B->dep.
+  // 3. B is a phibit and A implies something along B's path. For non-cyclic
+  //    code, this means that B indicates a dependence on the same token as A
+  //    but on a subset of A's paths. Around loops, this means that B indicates
+  //    a dependence on a previous iteration's version of the A token, which
+  //    implies B through a lic ordering implicit dependency.
+
   // Do a fast check to see if this and that are the same. If they are, this
-  // does imply that.
+  // implies that by rules (1) and (2).
   if (*this == that)
     return true;
 
-  // If this is not a phibit, it can only imply that if they are the same or if
-  // that refers to this. The equality check has already been tried; just check
-  // the phibit reference condition here.
-  if (type != phibit) {
-    return that.type == phibit and
-           that.node->phibits[that.idx].orig_dep() == *this;
-  }
-
-  // If this is a phibit, it cannot imply a non-phibit.
+  // If that isn't a phibit, it can't be implied by this if they aren't equal.
   if (that.type != phibit)
     return false;
 
-  // Now both Deps have been confirmed to be phibits.
-  const PHIBit &this_phibit = node->phibits[idx];
+  // Now that has been confirmed to be a phibit.
   const PHIBit &that_phibit = that.node->phibits[that.idx];
 
-  // If they are in the same node...
-  if (node == that.node) {
-
-    // This cannot imply that if that's predecessor is not dominated by this'
-    // predecessor.
-    if (not that_phibit.pred->nonstrictly_dominated_by(this_phibit.pred)) {
-      return false;
-    }
-
-    // If it is, though, it is safe to recurse into both phibits.
-    return this_phibit.dep.implies(that_phibit.dep);
+  // If this is also a phibit in the same node, check rule (2). In any case
+  // where the deps are both phibits in the same node from the same predecessor
+  // and rule (3) holds, rule (2) will also hold because this_phibit.dep must
+  // also imply something along that_phibit.dep's path. Therefore if rule (2)
+  // fails in these cases we skip the check for rule (3).
+  if (type == phibit and node == that.node) {
+    const PHIBit &this_phibit = node->phibits[idx];
+    if (this_phibit.pred == that_phibit.pred)
+      return this_phibit.dep.implies(that_phibit.dep);
   }
 
-  // If they are not in the same node, this cannot imply that if this does not
-  // dominate that.
-  if (not that.node->dominated_by(node))
-    return false;
-
-  // If this does dominate that, recurse into that only.
+  // Otherwise, check rule (3).
   return implies(that_phibit.dep);
 }
 
 bool MemopCFG::Dep::strictly_implies(const Dep &that) const {
   return *this != that and implies(that);
-}
-
-MemopCFG::Dep MemopCFG::PHIBit::orig_dep() const {
-  return dep.type == Dep::phibit ? dep.node->phibits[dep.idx].orig_dep() : dep;
 }
 
 // Recursively searches for an intrinsic def for V through phi nodes. PHI nodes
@@ -1227,7 +1280,68 @@ MemopCFG::Memop::Memop(Node *parent_in, Instruction *I_in)
   assert(I);
 }
 
+int MemopCFG::Memop::prefetch_rw() const {
+  const auto II = dyn_cast<IntrinsicInst>(I);
+  assert(II and II->getIntrinsicID() == Intrinsic::prefetch);
+  const auto RwOpnd = dyn_cast<ConstantInt>(II->getArgOperand(1));
+  assert(RwOpnd && "Non-constant <rw> input to prefetch?");
+  return RwOpnd->getLimitedValue();
+}
+
+bool MemopCFG::Memop::orders_with_prefetch(int RW) const {
+
+  // Mementries aren't ordered with prefetches, because prefetch ordering is
+  // always function-local. Prefetches also aren't ordered with other
+  // prefetches.
+  if (const auto II = dyn_cast<IntrinsicInst>(I))
+    if (II->getIntrinsicID() == Intrinsic::csa_mementry or
+        II->getIntrinsicID() == Intrinsic::prefetch)
+      return false;
+
+  // Otherwise, this operation is eligible for ordering with write prefetches if
+  // it may read or write and with read prefetches if it only reads. Load
+  // prefetches are also ordered with function calls that may read from memory
+  // because they might contain relevant loads in some cases.
+  if (RW == 1) {
+    return I->mayReadOrWriteMemory();
+  } else {
+    return I->mayReadFromMemory() and
+           (isa<CallInst>(I) or not I->mayWriteToMemory());
+  }
+}
+
 MemopCFG::RequireOrdering::RequireOrdering(AAResults *AA_in) : AA{AA_in} {}
+
+// Determines whether an instruction is a csa.pipeline.depth.token.* call.
+static bool isDepthTokenCall(const IntrinsicInst *II) {
+  if (not II)
+    return false;
+  switch (II->getIntrinsicID()) {
+  case Intrinsic::csa_pipeline_depth_token_take:
+  case Intrinsic::csa_pipeline_depth_token_return:
+    return true;
+  default:
+    return false;
+  }
+}
+
+// Determines whether a memop belongs to the same pool as a
+// csa.pipeline.depth.token.* call.
+static bool inSamePool(const MemopCFG::Memop &PM, const MemopCFG::Memop &M) {
+  using std::end;
+  assert(PM.Pools.size() == 1);
+  return is_contained(M.Pools, PM.Pools.front());
+}
+
+// Determines MemoryLocations for prefetches, as the normal query doesn't
+// return one for them.
+static MemoryLocation getPrefetchMemoryLocation(const IntrinsicInst *II) {
+  assert(II->getIntrinsicID() == Intrinsic::prefetch);
+  AAMDNodes AATags;
+  II->getAAMetadata(AATags);
+  return MemoryLocation{II->getArgOperand(0), MemoryLocation::UnknownSize,
+                        AATags};
+}
 
 bool MemopCFG::RequireOrdering::operator()(const Memop &A, const Memop &B,
                                            bool Looped) const {
@@ -1241,17 +1355,53 @@ bool MemopCFG::RequireOrdering::operator()(const Memop &A, const Memop &B,
          "Invalid query on mementry");
   assert(not isa<ReturnInst>(A.I) && "Invalid query on return");
 
+  // Prefetches have very special ordering rules: nothing gets ordered after
+  // prefetches...
+  if (AII and AII->getIntrinsicID() == Intrinsic::prefetch)
+    return false;
+
+  // ...and the set of operations that prefetches are ordered after is different
+  // from normal memops.
+  if (BII and BII->getIntrinsicID() == Intrinsic::prefetch) {
+
+    // Check whether the other op is eligible for ordering with this prefetch.
+    if (not A.orders_with_prefetch(B.prefetch_rw()))
+      return false;
+
+    // Prefetching local storage is sort of silly, but if someone does it the
+    // prefetch should be ordered normally with those intrinsics.
+    if (isDepthTokenCall(AII))
+      return inSamePool(A, B);
+
+    // Get a memory location for both ops, assuming aliasing if the other op
+    // doesn't have one and blanking out its size field to perform an
+    // arbitrary-size query.
+    Optional<MemoryLocation> AOML = MemoryLocation::getOrNone(A.I);
+    if (not AOML)
+      return true;
+    MemoryLocation &AML      = AOML.getValue();
+    AML.Size                 = MemoryLocation::UnknownSize;
+    const MemoryLocation BML = getPrefetchMemoryLocation(BII);
+
+    // The prefetch should be ordered if the query returns NoAlias.
+    ++AliasQueryCount;
+    return not AA->isNoAlias(AML, BML);
+  }
+
   // Every operation has to be ordered after the function's mementry.
   if (AII and AII->getIntrinsicID() == Intrinsic::csa_mementry)
     return true;
 
-  // Nothing should wait for prefetches.
-  if (AII and AII->getIntrinsicID() == Intrinsic::prefetch)
-    return false;
-
-  // Return instructions must be ordered after everything (except prefetches).
+  // Return instructions must be ordered after everything.
   if (isa<ReturnInst>(B.I))
     return true;
+
+  // csa.pipeline.deth.token.* calls are only ordered with other memops in the
+  // same pool.
+  if (isDepthTokenCall(AII))
+    return inSamePool(A, B);
+  if (isDepthTokenCall(BII))
+    return inSamePool(B, A);
 
   // Order calls strictly with respect to everything else.
   // TODO: This is a stopgap to avoid triggering CMPLRLLVM-7634. Remove this
@@ -1283,8 +1433,7 @@ bool MemopCFG::RequireOrdering::operator()(const Memop &A, const Memop &B,
 
   // If neither operation can write, they don't need ordering. However,
   // prefetches should be ordered with loads and so are treated like stores.
-  if (not A.I->mayWriteToMemory() and not B.I->mayWriteToMemory() and
-      not(BII and BII->getIntrinsicID() == Intrinsic::prefetch))
+  if (not A.I->mayWriteToMemory() and not B.I->mayWriteToMemory())
     return false;
 
   // Figure out the memory locations for both instructions.
@@ -1657,13 +1806,16 @@ MemopCFG::OrdToken MemopCFG::Node::get_merge(Merge &&merge) {
 
 bool MemopCFG::Node::ignore_pred(const Node *pred, const Node *memop_node,
                                  const Loop *loop, const Loop *back_loop,
+                                 const Loop *pref_loop,
                                  const Loop *&pred_loop) const {
 
-  // If this predecessor is outside of either loop or back_loop, it should be
-  // ignored.
+  // If this predecessor is outside of loop or back_loop or pref_loop, it should
+  // be ignored.
   if (back_loop and not back_loop->contains(pred))
     return true;
   if (loop and not loop->contains(pred))
+    return true;
+  if (pref_loop and not pref_loop->contains(pred))
     return true;
 
   // If this predecessor is a backedge...
@@ -1735,7 +1887,7 @@ bool MemopCFG::Node::calculate_deps(const Loop *loop) {
   DepVec tips;
   for (Node *const pred : preds) {
     const Loop *pred_loop;
-    if (ignore_pred(pred, this, loop, nullptr, pred_loop))
+    if (ignore_pred(pred, this, loop, nullptr, nullptr, pred_loop))
       continue;
     for (const Dep &dep : pred->chaintips) {
       if (not irrelevant_loop_phibit(dep)) {
@@ -1792,7 +1944,8 @@ bool MemopCFG::Node::calculate_deps(const Loop *loop) {
       for (Node *const pred : cur_nodeloop.node->preds) {
         const Loop *pred_loop;
         if (cur_nodeloop.node->ignore_pred(pred, this, loop,
-                                           cur_nodeloop.back_loop, pred_loop))
+                                           cur_nodeloop.back_loop,
+                                           memop.PrefLoop, pred_loop))
           continue;
         node_queue.push({pred, pred_loop});
       }
@@ -1801,7 +1954,8 @@ bool MemopCFG::Node::calculate_deps(const Loop *loop) {
 
     // Use nodes_traversed to do the forwards traversal.
     for (const NodeLoop cur_nodeloop : nodes_traversed) {
-      cur_nodeloop.node->step_forwards(this, loop, cur_nodeloop.back_loop);
+      cur_nodeloop.node->step_forwards(this, loop, cur_nodeloop.back_loop,
+                                       memop.PrefLoop);
     }
 
     // Pull all of the new dependencies for this memop out of to_connect.
@@ -1915,19 +2069,19 @@ bool MemopCFG::Node::step_backwards(const Memop &cur_memop, const Loop *loop,
       (not loop or loop->depth < cur_dis.node->deepest_loop->depth) and
       cur_dis.node->deepest_loop->contains(cur_memop.parent);
     bool IgnoreParallelDep = back_loop and (RacyLoops or back_loop->IsParallel);
+    const bool ignore_ordering =
+      not cur_memop.PrefLoop and
+      (IgnoreParallelDep or sec_states.should_ignore_memops());
     if (
 
       // The two memops were already ordered in a previous pass through this
       // loop.
       not previously_ordered
 
-      // We reached the earlier memop from the later memop via a back edge
-      // of a loop marked Parallel by CSALowerParallelIntrinsics or any loop
-      // if -csa-memop-ordering-racy-loops is used.
-      and not IgnoreParallelDep
-
-      // The section states indicate that no ordering is needed.
-      and not sec_states.should_ignore_memops()
+      // This memop was reached through a backedge of a loop with parallel
+      // markings or along a path with a parallel section crossing. Both of
+      // these conditions are ignored if the memop is a prefetch.
+      and not ignore_ordering
 
       // require_ordering indicates that no ordering is needed.
       and require_ordering(dis_memop, cur_memop, back_loop)
@@ -1996,7 +2150,8 @@ bool MemopCFG::Node::step_backwards(const Memop &cur_memop, const Loop *loop,
   for (int pred_idx = 0; pred_idx != int(preds.size()); ++pred_idx) {
     Node *const pred = preds[pred_idx];
     const Loop *pred_loop;
-    if (ignore_pred(pred, cur_memop.parent, loop, back_loop, pred_loop))
+    if (ignore_pred(pred, cur_memop.parent, loop, back_loop, cur_memop.PrefLoop,
+                    pred_loop))
       continue;
     DepSetEntry &pred_depset = pred->get_depset(pred_loop);
     DepVec &pc               = pred_connected[pred_idx];
@@ -2021,7 +2176,8 @@ bool MemopCFG::Node::step_backwards(const Memop &cur_memop, const Loop *loop,
 }
 
 void MemopCFG::Node::step_forwards(const Node *memop_node, const Loop *ord_loop,
-                                   const Loop *back_loop) {
+                                   const Loop *back_loop,
+                                   const Loop *pref_loop) {
   using namespace std;
 
   DepSetEntry &depset  = get_depset(back_loop);
@@ -2035,7 +2191,8 @@ void MemopCFG::Node::step_forwards(const Node *memop_node, const Loop *ord_loop,
   bool first_pred = true;
   for (Node *const pred : preds) {
     const Loop *pred_loop;
-    if (ignore_pred(pred, memop_node, ord_loop, back_loop, pred_loop))
+    if (ignore_pred(pred, memop_node, ord_loop, back_loop, pref_loop,
+                    pred_loop))
       continue;
     const DepVec &pred_to_connect = pred->get_depset(pred_loop).to_connect;
     if (first_pred) {
@@ -2061,7 +2218,8 @@ void MemopCFG::Node::step_forwards(const Node *memop_node, const Loop *ord_loop,
   for (int pred_idx = 0; pred_idx != int(preds.size()); ++pred_idx) {
     Node *const pred = preds[pred_idx];
     const Loop *pred_loop;
-    if (ignore_pred(pred, memop_node, ord_loop, back_loop, pred_loop))
+    if (ignore_pred(pred, memop_node, ord_loop, back_loop, pref_loop,
+                    pred_loop))
       continue;
     const DepVec &pred_to_connect = pred->get_depset(pred_loop).to_connect;
     for (const Dep &dep : pred_to_connect) {
@@ -2197,11 +2355,11 @@ bool MemopCFG::Loop::contains(const Node *node) const {
   return binary_search(begin(nodes), end(nodes), node, Node::topo_order{});
 }
 
-void MemopCFG::Loop::collect_self_deps(const Dep &memop) const {
+void MemopCFG::Loop::collect_loop_imp_deps(const Dep &A, const Dep &B) const {
   using namespace std;
   using namespace std::placeholders;
-  assert(memop.type == Dep::memop);
-  DepVec &imp_deps = memop.node->memops[memop.idx].imp_deps;
+  assert(B.type == Dep::memop);
+  DepVec &imp_deps = B.node->memops[B.idx].imp_deps;
   map<Node *, DepVec> reach_cache;
 
   // Collect self deps from each latch.
@@ -2209,14 +2367,15 @@ void MemopCFG::Loop::collect_self_deps(const Dep &memop) const {
   for (Node *const latch : header->preds) {
     if (latch->topo_num < header->topo_num)
       continue;
-    const DepVec latch_deps = reachable_self_deps(latch, memop, reach_cache);
+    const DepVec latch_deps = reachable_deps(latch, A, reach_cache);
     transform(begin(latch_deps), end(latch_deps), back_inserter(imp_deps),
               bind(&Node::get_phibit, header, latch, _1));
   }
 }
 
-MemopCFG::DepVec MemopCFG::Loop::reachable_self_deps(
-  Node *node, const Dep &memop, std::map<Node *, DepVec> &reach_cache) const {
+MemopCFG::DepVec
+MemopCFG::Loop::reachable_deps(Node *node, const Dep &memop,
+                               std::map<Node *, DepVec> &reach_cache) const {
   using namespace std;
   using namespace std::placeholders;
 
@@ -2234,7 +2393,7 @@ MemopCFG::DepVec MemopCFG::Loop::reachable_self_deps(
     return found->second;
 
   // Try the node's dominator first.
-  DepVec self_deps = reachable_self_deps(node->dominator, memop, reach_cache);
+  DepVec self_deps = reachable_deps(node->dominator, memop, reach_cache);
   if (not self_deps.empty())
     return self_deps;
 
@@ -2242,7 +2401,7 @@ MemopCFG::DepVec MemopCFG::Loop::reachable_self_deps(
   // loop backedges.
   for (Node *const pred : node->preds)
     if (pred->topo_num < node->topo_num) {
-      const DepVec pred_deps = reachable_self_deps(pred, memop, reach_cache);
+      const DepVec pred_deps = reachable_deps(pred, memop, reach_cache);
       transform(begin(pred_deps), end(pred_deps), back_inserter(self_deps),
                 bind(&Node::get_phibit, node, pred, _1));
     }
@@ -2268,7 +2427,7 @@ void MemopCFG::load(
       nodes.push_back(unique_ptr<Node>{
         new Node{BB, int(nodes.size()), require_ordering, needs_ordering_edges,
                  use_parallel_sections, normalized_regions}});
-      nodes_for_bbs.emplace(BB, nodes.back().get());
+      nodes_for_bbs.insert({BB, nodes.back().get()});
     }
 
     // The number of regions can now be determined from normalized_regions.
@@ -2292,10 +2451,13 @@ void MemopCFG::load(
   // appropriately.
   for (const llvm::Loop *const L : LI)
     collect_loops(L);
-  for (const Loop &loop : loops)
+  for (Loop &loop : loops)
     for (Node *const node : loop.nodes) {
-      if (not node->deepest_loop)
+      if (not node->deepest_loop) {
         node->deepest_loop = &loop;
+      } else if (not node->deepest_loop->parent) {
+        node->deepest_loop->parent = &loop;
+      }
     }
 
   // Also preallocate all of the DepSetEntries
@@ -2307,6 +2469,20 @@ void MemopCFG::load(
       depset.section_states.states.resize(region_count);
     }
   }
+
+  // Set up memops_for_insts.
+  for (const unique_ptr<Node> &node : nodes) {
+    for (int idx = 0; idx != int(node->memops.size()); ++idx) {
+      if (node->memops[idx].I) {
+        memops_for_insts.insert(
+          {node->memops[idx].I, {node.get(), Dep::memop, idx}});
+      }
+    }
+  }
+
+  mark_prefetch_loops();
+
+  calculate_pool_numbers();
 
   calculate_imp_deps(can_speculate);
 }
@@ -2349,12 +2525,158 @@ void MemopCFG::collect_loops(const llvm::Loop *L) {
   loops.push_back(move(new_loop));
 }
 
+void MemopCFG::mark_prefetch_loops() {
+  using std::unique_ptr;
+
+  // Visit all loops, in post-order.
+  for (Loop &L : loops) {
+
+    // Examine the nodes of this loop to see if any contain prefetch-orderable
+    // ops.
+    for (const Node *const N : L.nodes) {
+
+      // This node may have already been examined as part of a subloop; if so,
+      // mark this loop too.
+      assert(N->deepest_loop);
+      if (N->deepest_loop != &L) {
+        L.RPrefEligible |= N->deepest_loop->RPrefEligible;
+        L.WPrefEligible |= N->deepest_loop->WPrefEligible;
+        if (L.RPrefEligible and L.WPrefEligible)
+          break;
+      }
+
+      // Otherwise, check each of the memops in this node. If at any point both
+      // flags are set, there's no point to continuing the search and both
+      // levels of loop can exit.
+      for (const Memop &M : N->memops) {
+        L.RPrefEligible |= M.orders_with_prefetch(0);
+        L.WPrefEligible |= M.orders_with_prefetch(1);
+        if (L.RPrefEligible and L.WPrefEligible)
+          break;
+      }
+      if (L.RPrefEligible and L.WPrefEligible)
+        break;
+    }
+  }
+
+  // Visit all prefetches.
+  for (const unique_ptr<Node> &N : nodes) {
+    for (Memop &M : N->memops) {
+      const auto II = dyn_cast<IntrinsicInst>(M.I);
+      if (not II or II->getIntrinsicID() != Intrinsic::prefetch)
+        continue;
+
+      // Find the deepest containing loop compatible with this prefetch type.
+      const int RW = M.prefetch_rw();
+      for (const Loop *L = M.parent->deepest_loop; L; L = L->parent) {
+        if (RW == 1 ? L->WPrefEligible : L->RPrefEligible) {
+          M.PrefLoop = L;
+          break;
+        }
+      }
+    }
+  }
+}
+
+void MemopCFG::calculate_pool_numbers() {
+  using std::begin;
+  using std::end;
+  using std::unique;
+  using std::unique_ptr;
+
+  // The next pool number to use.
+  int PN = 0;
+
+  // Iterate the function to identify pipeline.depth.token.takes.
+  for (const unique_ptr<Node> &N : nodes) {
+    for (Memop &M : N->memops) {
+      const auto TT = dyn_cast<IntrinsicInst>(M.I);
+      if (not TT)
+        continue;
+      if (TT->getIntrinsicID() != Intrinsic::csa_pipeline_depth_token_take)
+        continue;
+
+      // Grab the token take's first parameter. This should be its corresponding
+      // CsaMemAlloc or a GEP based on the CsaMemAlloc.
+      const auto PoolStart = dyn_cast<Instruction>(TT->getArgOperand(0));
+      auto CMA             = dyn_cast_or_null<CallInst>(PoolStart);
+      if (not CMA) {
+        auto GEP = dyn_cast_or_null<GetElementPtrInst>(PoolStart);
+        if (GEP) {
+          CMA = dyn_cast<CallInst>(GEP->getPointerOperand());
+        }
+      }
+      if (not CMA or CMA->getCalledValue()->getName() != "CsaMemAlloc")
+        report_fatal_error("Token takes should be direct users of CsaMemAlloc "
+                           "calls or indirect users through a GEP");
+
+      // Mark the CsaMemAlloc call and its non-token_take/return users with the
+      // pool number.
+      const auto CMAMI = memops_for_insts.find(CMA);
+      assert(CMAMI != end(memops_for_insts));
+      assert(CMAMI->second.type == Dep::memop);
+      Memop &CMAM = CMAMI->second.node->memops[CMAMI->second.idx];
+      CMAM.Pools.push_back(PN);
+      SmallPtrSet<const PHINode *, 4> VisitedPHIs;
+      markLoopLocalMemops(CMA, PN, true, VisitedPHIs);
+
+      // Also mark the token_take and its users.
+      const auto TTMI = memops_for_insts.find(TT);
+      assert(TTMI != end(memops_for_insts));
+      assert(TTMI->second.type == Dep::memop);
+      Memop &TTM = TTMI->second.node->memops[TTMI->second.idx];
+      assert(TTM.Pools.empty());
+      TTM.Pools.push_back(PN);
+      markLoopLocalMemops(TT, PN, false, VisitedPHIs);
+
+      // Move to the next pool number.
+      ++PN;
+    }
+  }
+
+  // Sort+unique all of the pool numbers.
+  for (const unique_ptr<Node> &N : nodes) {
+    for (Memop &M : N->memops) {
+      sort(M.Pools);
+      M.Pools.erase(unique(begin(M.Pools), end(M.Pools)), end(M.Pools));
+    }
+  }
+}
+
+void MemopCFG::markLoopLocalMemops(
+  const Instruction *I, int PN, bool IgnoreTTR,
+  SmallPtrSetImpl<const PHINode *> &VisitedPHIs) {
+  if (const auto PI = dyn_cast<PHINode>(I)) {
+    if (VisitedPHIs.count(PI))
+      return;
+    VisitedPHIs.insert(PI);
+  }
+  for (const User *U : I->users()) {
+    const auto UI = dyn_cast<Instruction>(U);
+    if (not UI)
+      continue;
+    if (IgnoreTTR and isDepthTokenCall(dyn_cast<IntrinsicInst>(UI)))
+      continue;
+    const auto MII = memops_for_insts.find(UI);
+    if (MII != end(memops_for_insts)) {
+      const Dep UMD = MII->second;
+      assert(UMD.type == Dep::memop);
+      UMD.node->memops[UMD.idx].Pools.push_back(PN);
+    } else {
+      markLoopLocalMemops(UI, PN, IgnoreTTR, VisitedPHIs);
+    }
+  }
+}
+
 void MemopCFG::calculate_imp_deps(bool can_speculate) {
   using llvm::sort;
   using std::begin;
   using std::end;
   using std::unique;
   using std::unique_ptr;
+
+  // Mark token return-take dependencies.
+  markReturnTakeDeps();
 
   // If we're using self dependencies, mark all of them.
   if (not IgnoreSelfDeps)
@@ -2384,20 +2706,95 @@ void MemopCFG::calculate_imp_deps(bool can_speculate) {
   }
 }
 
+void MemopCFG::markReturnTakeDeps() {
+  using std::unique_ptr;
+
+  for (const unique_ptr<Node> &N : nodes) {
+    for (int MI = 0; MI < int(N->memops.size()); ++MI) {
+      const auto TTI = dyn_cast<IntrinsicInst>(N->memops[MI].I);
+      if (not TTI)
+        continue;
+      if (TTI->getIntrinsicID() != Intrinsic::csa_pipeline_depth_token_take)
+        continue;
+
+      Dep TR;
+      for (const User *U : TTI->getArgOperand(0)->users()) {
+        const auto TRI = dyn_cast<IntrinsicInst>(U);
+        if (not TRI)
+          continue;
+        if (TRI->getIntrinsicID() != Intrinsic::csa_pipeline_depth_token_return)
+          continue;
+        TR = memops_for_insts[TRI];
+        break;
+      }
+      assert(TR.node);
+
+      Dep TT{N.get(), Dep::memop, MI};
+      for (const Loop &L : loops) {
+        if (L.contains(N.get()))
+          L.collect_loop_imp_deps(TR, TT);
+      }
+    }
+  }
+}
+
+// Determines whether invocations of I are executed strictly in order. This is
+// a general property of memory ops on CSA, but does not hold for dataflow
+// function calls.
+static bool isSelfOrdered(const Instruction *I) {
+
+  // Calls are not self-ordered.
+  if (const auto CI = dyn_cast<CallInst>(I)) {
+
+    // But intrinsics (currently prefetches and csa.pipeline.depth.token.*)
+    // _are_ self-ordered.
+    return isa<IntrinsicInst>(CI);
+  }
+
+  // Other instructions are self-ordered.
+  return true;
+}
+
 void MemopCFG::calculate_self_deps() {
   for (const Loop &loop : loops) {
     for (Node *const node : loop.nodes) {
       for (int memop_idx = 0; memop_idx != int(node->memops.size());
            ++memop_idx) {
 
-        // Calls aren't self-ordered.
-        if (isa<CallInst>(node->memops[memop_idx].I))
-          continue;
-
-        loop.collect_self_deps({node, Dep::memop, memop_idx});
+        const Dep memop{node, Dep::memop, memop_idx};
+        if (isSelfOrdered(node->memops[memop_idx].I))
+          loop.collect_loop_imp_deps(memop, memop);
       }
     }
   }
+}
+
+// Determines whether an instruction will be adequately ordered through any of
+// its data inputs or outputs and if each of its outputs can be used to order
+// with the inputs. This is true in general of the CSA operations that are
+// representable as instructions in IR, but not of dataflow calls or returns.
+static bool isDataOrderable(const Instruction *I) {
+
+  // Calls are not data-orderable.
+  if (const auto CI = dyn_cast<CallInst>(I)) {
+
+    // But some intrinsics (prefetches and csa.pipeline.depth.token.* for now)
+    // _are_ data-orderable.
+    // TODO: We can expand this list [CMPLRLLVM-9168]
+    if (const auto II = dyn_cast<IntrinsicInst>(CI)) {
+      return II->getIntrinsicID() == Intrinsic::prefetch or
+             isDepthTokenCall(II);
+    }
+
+    return false;
+  }
+
+  // Returns aren't either.
+  if (isa<ReturnInst>(I))
+    return false;
+
+  // Other instructions are data-orderable.
+  return true;
 }
 
 void MemopCFG::calculate_data_deps() {
@@ -2409,24 +2806,13 @@ void MemopCFG::calculate_data_deps() {
   using std::unique_ptr;
   using std::upper_bound;
 
-  // Keep track of which instructions have corresponding memops.
-  DenseMap<const Instruction *, Dep> memops_for_insts;
-  for (const unique_ptr<Node> &node : nodes) {
-    for (int idx = 0; idx != int(node->memops.size()); ++idx) {
-      if (node->memops[idx].I) {
-        memops_for_insts.insert(
-          {node->memops[idx].I, {node.get(), Dep::memop, idx}});
-      }
-    }
-  }
-
   // And keep track of which memops each instruction depends on. The DepVec
   // values here are maintained in sorted order.
   DenseMap<const Instruction *, DepVec> memop_deps;
 
   // Adds dependencies to memop_deps for machine instructions in a given
   // node's basic block.
-  const auto collect_deps = [this, &memops_for_insts, &memop_deps](Node *node) {
+  const auto collect_deps = [this, &memop_deps](Node *node) {
     const BasicBlock *const BB = node->BB;
     for (const Instruction &I : *BB) {
 
@@ -2436,8 +2822,8 @@ void MemopCFG::calculate_data_deps() {
           const Instruction *const PVI =
             dyn_cast<Instruction>(PI->getIncomingValueForBlock(PVB));
 
-          // Ignore incoming values that aren't instructions or that are calls.
-          if (not PVI or isa<CallInst>(PVI))
+          // Ignore incoming values that aren't data-orderable.
+          if (not PVI or not isDataOrderable(PVI))
             continue;
 
           // If the incoming value is a memop, add it directly. If not, add its
@@ -2474,10 +2860,10 @@ void MemopCFG::calculate_data_deps() {
 
       // For other non-call/return instructions, look for normal dominating
       // dependencies.
-      else if (not isa<CallInst>(I) and not isa<ReturnInst>(I)) {
+      else if (isDataOrderable(&I)) {
         for (const Value *const V : I.operand_values()) {
           const Instruction *const VI = dyn_cast<Instruction>(V);
-          if (not VI or isa<CallInst>(VI))
+          if (not VI or not isDataOrderable(VI))
             continue;
 
           const auto found_memop = memops_for_insts.find(VI);
@@ -2526,6 +2912,7 @@ void MemopCFG::clear() {
   nodes.clear();
   loops.clear();
   nodes_for_bbs.clear();
+  memops_for_insts.clear();
 }
 
 bool MemopCFG::construct_chains() {

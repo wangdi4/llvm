@@ -43,6 +43,17 @@ static cl::opt<bool> DoLoopSplitting(
   "csa-omp-paropt-loop-splitting", cl::init(false), cl::ReallyHidden,
   cl::desc("Do OpenMP loop splitting in VPO Paropt."));
 
+// Temporary: until hookup to dataflow(pipeline(p)) clause is completed.
+static cl::opt<unsigned>
+    LoopPipelineDepth("csa-omp-ls-pipeline-depth", cl::init(0),
+                      cl::ReallyHidden,
+                      cl::desc("Set pipeline depth for OpenMP loops."));
+
+static Value *genParDepthRegionEntryCall(unsigned ID, Instruction *EntryPt,
+                                         const Twine &Name = "depth.region");
+
+static void genParDepthRegionExitCall(Value *Region, Instruction *ExitPt);
+
 namespace {
 
 class CSADiagInfo : public DiagnosticInfoWithLocationBase {
@@ -113,7 +124,7 @@ protected:
     auto *Rep = getClauseItemReplacementValue(I, getInitInsPt());
     if (Rep != New)
       addAlloca(Rep);
-    PT.genPrivatizationReplacement(W, I->getOrig(), Rep, I);
+    PT.genPrivatizationReplacement(W, I->getOrig(), Rep);
   }
 
   virtual Instruction* getInitInsPt() {
@@ -187,9 +198,10 @@ protected:
 
   // Creates reduction code for the given var.
   void genRedVar(ReductionItem *I, WRegionNode *W) {
+    PT.computeArraySectionTypeOffsetSize(*I, getInitInsPt());
     genPrivItem(I, W, ".red");
-    PT.genReductionInit(I, getInitInsPt(), DT);
-    PT.genReductionFini(I, I->getOrig(), getFiniInsPt(), DT);
+    PT.genReductionInit(W, I, getInitInsPt(), DT);
+    PT.genReductionFini(W, I, I->getOrig(), getFiniInsPt(), DT);
   }
 
   // Adds value to the list of candidates for registerization if it is an alloca
@@ -236,43 +248,45 @@ public:
   virtual bool run() {
     bool Changed = false;
 
-    assert(W->isBBSetEmpty() &&
-           "CSAPrivatizer: BBSET should start empty");
-
     W->populateBBSet();
 
     // Generate privatization code for all flavors of private variables.
-    if (W->canHavePrivate() && !W->getPriv().empty()) {
+    if (W->canHavePrivate() && !W->getPriv().empty())
       for (auto *I : W->getPriv().items())
-        genPrivVar(I, W);
-      Changed = true;
-    }
-    if (W->canHaveFirstprivate() && !W->getFpriv().empty()) {
+        if (!isa<Constant>(I->getOrig())) {
+          genPrivVar(I, W);
+          Changed = true;
+        }
+    if (W->canHaveFirstprivate() && !W->getFpriv().empty())
       for (auto *I : W->getFpriv().items())
-        genFPrivVar(I, W);
-      Changed = true;
-    }
-    if (W->canHaveLastprivate() && !W->getLpriv().empty()) {
-      for (auto *I : W->getLpriv().items()) {
-        genLPrivVar(I, W);
-        genLPrivVarCopyout(I);
-      }
-      Changed = true;
-    }
-    if (DoReds && W->canHaveReduction() && !W->getRed().empty()) {
+        if (!isa<Constant>(I->getOrig())) {
+          genFPrivVar(I, W);
+          Changed = true;
+        }
+    if (W->canHaveLastprivate() && !W->getLpriv().empty())
+      for (auto *I : W->getLpriv().items())
+        if (!isa<Constant>(I->getOrig())) {
+          genLPrivVar(I, W);
+          genLPrivVarCopyout(I);
+          Changed = true;
+        }
+    if (DoReds && W->canHaveReduction() && !W->getRed().empty())
       for (auto *I : W->getRed().items())
-        genRedVar(I, W);
-      Changed = true;
+        if (!isa<Constant>(I->getOrig())) {
+          genRedVar(I, W);
+          Changed = true;
+        }
+
+    if (Changed) {
+      // Remove references to private items from the WRN's bundle.
+      removePrivateRefsFromBundle();
+
+      // Promote private variables to registers.
+      registerizeAllocas();
     }
-
-    // Remove references to private items from the WRN's bundle.
-    removePrivateRefsFromBundle();
-
-    // Promote private variables to registers.
-    registerizeAllocas();
 
     // Invalidate BBSet after transformation
-    W->resetBBSet();
+    W->resetBBSetIfChanged(Changed);
 
     // SCEV should be regenerated after privatization.
     if (Changed && W->getIsOmpLoop() && SE)
@@ -373,7 +387,8 @@ protected:
   static bool needsInLoopAlloca(const Item *I) {
     Type *ElemType = nullptr;
     Value *NumElems = nullptr;
-    getItemInfoFromValue(I->getOrig(), ElemType, NumElems);
+    unsigned AddrSpace = 0u;
+    getItemInfoFromValue(I->getOrig(), ElemType, NumElems, AddrSpace);
     if (I->getIsByRef())
       ElemType = cast<PointerType>(ElemType)->getPointerElementType();
     return NumElems || ElemType->isAggregateType();
@@ -428,7 +443,7 @@ protected:
       auto *Rep = getClauseItemReplacementValue(I, getInitInsPt());
       assert(Rep != New && isa<AllocaInst>(Rep) && "unexpected replacement");
       addAlloca(Rep);
-      PT.genPrivatizationReplacement(W, I->getOrig(), Rep, I);
+      PT.genPrivatizationReplacement(W, I->getOrig(), Rep);
 
       auto *NewNF = genPrivatizationAlloca(I, AllocaInsPt,
                                            Suffix + ".not.first");
@@ -437,7 +452,7 @@ protected:
     }
 
     // Replace original value with a private instance.
-    PT.genPrivatizationReplacement(W, I->getOrig(), New, I);
+    PT.genPrivatizationReplacement(W, I->getOrig(), New);
 
     // Find all instructions depending on the private variable which need to be
     // replicated.
@@ -571,65 +586,114 @@ public:
   bool run() override {
     bool Changed = false;
 
-    assert(W->isBBSetEmpty() &&
-           "CSASectionsPrivatizer: BBSET should start empty");
-
     W->populateBBSet();
 
     // For sections construct we need to privatizations for each section.
     for (auto SecW : reverse(W->getChildren())) {
-      assert(SecW->isBBSetEmpty() &&
-             "CSASectionsPrivatizer: BBSET should start empty");
+      bool SecChanged = false;
+
       SecW->populateBBSet();
       cleanupPrivateItems(W);
-      if (!W->getPriv().empty()) {
-        for (auto *I : W->getPriv().items())
+      for (auto *I : W->getPriv().items())
+        if (!isa<Constant>(I->getOrig())) {
           genPrivVar(I, SecW);
-        Changed = true;
-      }
-      if (!W->getFpriv().empty()) {
-        for (auto *I : W->getFpriv().items())
+          SecChanged = true;
+        }
+      for (auto *I : W->getFpriv().items())
+        if (!isa<Constant>(I->getOrig())) {
           genFPrivVar(I, SecW);
-        Changed = true;
-      }
-      if (!W->getLpriv().empty()) {
-        for (auto *I : W->getLpriv().items())
+          SecChanged = true;
+        }
+      for (auto *I : W->getLpriv().items())
+        if (!isa<Constant>(I->getOrig())) {
           genLPrivVar(I, SecW);
-        Changed = true;
-      }
-      if (!W->getRed().empty()) {
-        for (auto *I : W->getRed().items())
+          SecChanged = true;
+        }
+      for (auto *I : W->getRed().items())
+        if (!isa<Constant>(I->getOrig())) {
           genRedVar(I, SecW);
-        Changed = true;
-      }
-      SecW->resetBBSet();
+          SecChanged = true;
+        }
+      SecW->resetBBSetIfChanged(SecChanged);
+
+      Changed |= SecChanged;
     }
 
-    // Gen copyout code for lastprivate variables.
-    for (auto *I : W->getLpriv().items())
-      genLPrivVarCopyout(I);
+    if (Changed) {
+      // Gen copyout code for lastprivate variables.
+      for (auto *I : W->getLpriv().items())
+        if (!isa<Constant>(I->getOrig()))
+          genLPrivVarCopyout(I);
 
-    // Remove references to private items from the WRN's bundle.
-    removePrivateRefsFromBundle();
+      // Remove references to private items from the WRN's bundle.
+      removePrivateRefsFromBundle();
 
-    // Promote private variables to registers.
-    registerizeAllocas();
+      // Promote private variables to registers.
+      registerizeAllocas();
+    }
 
     // Invalidate BBSet after transformations
-    W->resetBBSet();
+    W->resetBBSetIfChanged(Changed);
 
     return Changed;
   }
 };
 
+// Insert a CSA parallel depth-limited region entry call
+// at specified insertion point.
+static Value *genParDepthRegionEntryCall(unsigned ID, Instruction *EntryPt,
+                                         const Twine &Name) {
+
+  if (LoopPipelineDepth > 0) {
+    auto *M = EntryPt->getModule();
+    auto *DepthLimitedRegionEntry =
+        Intrinsic::getDeclaration(M, Intrinsic::csa_pipeline_limited_entry);
+    IRBuilder<> Builder(EntryPt);
+    auto *UniqueID = Builder.getInt32(2000u + ID);
+    auto *F = EntryPt->getParent()->getParent();
+    Value *pipelineDepth = ConstantInt::get(
+        IntegerType::get(F->getContext(), 32), LoopPipelineDepth);
+    auto *Region = Builder.CreateCall(DepthLimitedRegionEntry,
+                                      {UniqueID, pipelineDepth}, Name);
+    return Region;
+  }
+  return 0;
+}
+
+// Insert a CSA parallel depth-limited region exit call
+// at specified insertion point.
+static void genParDepthRegionExitCall(Value *Region, Instruction *ExitPt) {
+
+  if (Region and LoopPipelineDepth > 0) {
+    auto *M = ExitPt->getModule();
+    auto *DepthLimitedRegionExit =
+        Intrinsic::getDeclaration(M, Intrinsic::csa_pipeline_limited_exit);
+    IRBuilder<> Builder(ExitPt);
+    Builder.SetInsertPoint(ExitPt);
+    Builder.CreateCall(DepthLimitedRegionExit, {Region}, {""});
+  }
+}
+
+static void genParDepthRegionCalls(unsigned ID, Instruction *EntryPt,
+                                   Instruction *ExitPt, const Twine &Name) {
+
+  Value *DepthRegion =
+      genParDepthRegionEntryCall(5000 + ID, EntryPt, "depth." + Name);
+  genParDepthRegionExitCall(DepthRegion, ExitPt);
+}
+
 // Insert a pair of CSA parallel region entry/exit calls at specified insertion
 // points.
-static Value* genParRegionCalls(unsigned ID,
-                                Instruction *EntryPt,
-                                Instruction *ExitPt,
+static Value *genParRegionCalls(unsigned ID, Instruction *EntryPt,
+                                Instruction *ExitPt, bool depth = false,
                                 const Twine &Name = "region") {
   auto *M = EntryPt->getModule();
   assert(M == ExitPt->getModule());
+
+  Value *DepthRegion;
+  if (depth)
+    DepthRegion =
+        genParDepthRegionEntryCall(5000 + ID, EntryPt, "depth." + Name);
 
   // CSA parallel region entry/exit intrinsics
   auto *RegionEntry = Intrinsic::getDeclaration(M,
@@ -644,6 +708,9 @@ static Value* genParRegionCalls(unsigned ID,
 
   Builder.SetInsertPoint(ExitPt);
   Builder.CreateCall(RegionExit, { Region }, {}, "");
+
+  if (depth)
+    genParDepthRegionExitCall(DepthRegion, ExitPt);
 
   return Region;
 }
@@ -680,6 +747,13 @@ static unsigned getNumWorkers(const WRegionNode *W) {
       NumWorkers = cast<ConstantInt>(NumThreads)->getZExtValue();
   if (!NumWorkers)
     NumWorkers = LoopWorkersDefault;
+
+  // Temporary hack until hookup to dataflow(...) clause is completed
+  if (NumWorkers >= 1000) {
+    LoopPipelineDepth = NumWorkers / 1000;
+    NumWorkers = NumWorkers % 1000;
+  }
+
   return NumWorkers;
 }
 
@@ -1005,10 +1079,9 @@ class VPOParoptTransform::CSALoopSplitter {
       fixupLoopBounds(BLB, BUB, CLoop);
 
       // Mark inner loop as parallel.
-      auto *Region = genParRegionCalls(getParRegionID(W, ID + 1u, true),
-                                       CLoop->getTerminator(),
-                                       CLatch->getFirstNonPHI(),
-                                       "inner.region" + Suffix);
+      auto *Region = genParRegionCalls(
+          getParRegionID(W, ID + 1u, true), CLoop->getTerminator(),
+          CLatch->getFirstNonPHI(), false, "inner.region" + Suffix);
       genParSectionCalls(Region,
                          WL->getHeader()->getFirstNonPHI(),
                          WL->getLoopLatch()->getTerminator(),
@@ -1029,10 +1102,9 @@ class VPOParoptTransform::CSALoopSplitter {
 
     void addParallelIntrinsicCalls() {
       // Add region entry/exit calls.
-      auto *Region = genParRegionCalls(getParRegionID(W, ID + 1u),
-                                       Head->getTerminator(),
-                                       Tail->getFirstNonPHI(),
-                                       "region" + Suffix);
+      auto *Region =
+          genParRegionCalls(getParRegionID(W, ID + 1u), Head->getTerminator(),
+                            Tail->getFirstNonPHI(), false, "region" + Suffix);
 
       // And section entry/exit calls.
       auto *L = HL ? HL : WL;
@@ -1156,7 +1228,7 @@ class VPOParoptTransform::CSALoopSplitter {
         auto *Rep = getClauseItemReplacementValue(I, getInitInsPt());
         assert(Rep != New && isa<AllocaInst>(Rep) && "unexpected replacement");
         addAlloca(Rep);
-        PT.genPrivatizationReplacement(W, Old, Rep, I);
+        PT.genPrivatizationReplacement(W, Old, Rep);
 
         auto *NewNF = genPrivatizationAlloca(I, AllocaInsPt,
                                              Suffix + WI.Suffix + ".not.first");
@@ -1350,8 +1422,7 @@ private:
       Tail = SplitBlock(Tail, Tail->getTerminator(), PT.DT, PT.LI);
     Tail->setName("omp.clone.tail");
 
-    assert(W->isBBSetEmpty() && "CSALoopSplitter: BBSET should start empty");
-    W->populateBBSet();
+    W->populateBBSet(true);
 
     // Reserve enough space to avoid any reallocation during cloning.
     Workers.reserve(NumWorkers);
@@ -1470,13 +1541,17 @@ public:
 
     // Make workers independent.
     if (Workers.size() > 1u) {
-      auto *Region = genParRegionCalls(getParRegionID(W),
-                                       W->getEntryBBlock()->getTerminator(),
-                                       W->getExitBBlock()->getFirstNonPHI());
+      auto *Region = genParRegionCalls(
+          getParRegionID(W), W->getEntryBBlock()->getTerminator(),
+          W->getExitBBlock()->getFirstNonPHI(), LoopPipelineDepth > 0);
       for (auto &WI : Workers)
         genParSectionCalls(Region,
                            WI.Head->getFirstNonPHI(),
                            WI.Tail->getTerminator());
+    } else {
+      genParDepthRegionCalls(
+          getParRegionID(W), W->getEntryBBlock()->getTerminator(),
+          W->getExitBBlock()->getFirstNonPHI(), "depth.region");
     }
     return true;
   }
@@ -1809,17 +1884,4 @@ bool VPOParoptTransform::translateCSAOmpRtlCalls() {
     }
   }
   return Changed;
-}
-
-template <typename Range>
-static bool removeFirstFence(Range &&R, AtomicOrdering AO) {
-  for (auto &I : R)
-    if (auto *Fence = dyn_cast<FenceInst>(&I)) {
-      if (Fence->getOrdering() == AO) {
-        Fence->eraseFromParent();
-        return true;
-      }
-      break;
-    }
-  return false;
 }

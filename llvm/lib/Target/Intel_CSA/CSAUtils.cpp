@@ -60,9 +60,19 @@ static cl::opt<int>
                                    "passing parameters and results."),
                           cl::init(1));
 
+static cl::opt<bool>
+    CSACreateSCG("csa-create-scg", cl::Hidden, cl::ZeroOrMore,
+                          cl::desc("CSA: Create Self Contained graphs."),
+                          cl::init(false));
+
 bool csa_utils::isAlwaysDataFlowLinkageSet(void) {
   return AlwaysDataFlowLinkage;
 }
+
+bool csa_utils::createSCG(void) {
+  return CSACreateSCG;
+}
+
 
 static MachineInstr *getPriorFormedInst(MachineInstr *currMI,
                                         MachineBasicBlock *mbb) {
@@ -113,6 +123,7 @@ unsigned csa_utils::createUseTree(MachineBasicBlock *mbb,
   const TargetRegisterInfo *TRI =
       mbb->getParent()->getSubtarget<CSASubtarget>().getRegisterInfo();
   unsigned n = vals.size();
+  auto dl = (before == mbb->end()) ? DebugLoc() : before->getDebugLoc();
   assert(n && "Can't combine 0 values");
   MCInstrDesc id = TII->get(opcode);
   assert(id.getNumDefs() == 1 &&
@@ -125,9 +136,8 @@ unsigned csa_utils::createUseTree(MachineBasicBlock *mbb,
   if (id.isVariadic()) {
     unsigned Out = LMFI->allocateLIC(outTRC);
     MachineInstrBuilder MIB = BuildMI(
-        *mbb, before, before == mbb->end() ? DebugLoc() : before->getDebugLoc(),
-        TII->get(opcode), Out);
-    MIB.setMIFlag(MachineInstr::NonSequential);
+      *mbb, before, dl, TII->get(opcode), Out)
+      .setMIFlag(MachineInstr::NonSequential);
     for (unsigned j = 0; j < n; ++j)
       MIB.addUse(vals[j]);
     return Out;
@@ -150,9 +160,8 @@ unsigned csa_utils::createUseTree(MachineBasicBlock *mbb,
 
   // Create a new element to combine some of the others.
   MachineInstrBuilder next = BuildMI(
-      *mbb, before, before == mbb->end() ? DebugLoc() : before->getDebugLoc(),
-      TII->get(opcode), LMFI->allocateLIC(outTRC));
-  next.setMIFlag(MachineInstr::NonSequential);
+      *mbb, before, dl, TII->get(opcode), LMFI->allocateLIC(outTRC))
+      .setMIFlag(MachineInstr::NonSequential);
 
   // vals will be partitioned into those items being combined and those items
   // which remain.
@@ -186,7 +195,7 @@ unsigned csa_utils::createUseTree(MachineBasicBlock *mbb,
   fewerVals.push_back(newNextMI->getOperand(0).getReg());
 
   // Run again on the smaller vector.
-  return csa_utils::createUseTree(mbb, before, opcode, fewerVals, unusedReg);
+  return csa_utils::createUseTree(mbb,mbb->end(),opcode,fewerVals,unusedReg);
 }
 
 unsigned csa_utils::createPickTree(
@@ -212,8 +221,9 @@ unsigned csa_utils::createPickTree(
   if (n == 2) {
     unsigned pickedVal = LMFI->allocateLIC(TRC, "", "", true, true);
     unsigned index = LMFI->allocateLIC(&CSA::CI1RegClass, "", "", true, false);
+    auto dl = (before == mbb->end()) ? DebugLoc() : before->getDebugLoc();
     MachineInstr *anyInst =
-        BuildMI(*mbb, before, DebugLoc(), TII->get(anyOpcode), index)
+        BuildMI(*mbb, before, dl, TII->get(anyOpcode), index)
             .addReg(select_signals[0])
             .addReg(select_signals[1])
             .addReg(unusedReg)
@@ -238,10 +248,10 @@ unsigned csa_utils::createPickTree(
     if (anyInst != newAnyInst)
       anyInst->eraseFromParent();
     MachineInstr *pickInst =
-        BuildMI(*mbb, before, DebugLoc(), TII->get(pickOpcode), pickedVal)
-            .addReg(newAnyInst->getOperand(0).getReg())
-            .addReg(val0)
-            .addReg(val1);
+        BuildMI(*mbb, before, dl, TII->get(pickOpcode), pickedVal)
+          .addReg(newAnyInst->getOperand(0).getReg())
+          .addReg(val0)
+          .addReg(val1);
     pickInst->setFlag(MachineInstr::NonSequential);
     LLVM_DEBUG(errs() << "pickInst = " << *pickInst << "\n");
     return pickedVal;
@@ -289,7 +299,7 @@ void csa_utils::createSwitchTree(MachineBasicBlock *mbb,
       mbb->getParent()->getSubtarget<CSASubtarget>().getInstrInfo());
   CSAMachineFunctionInfo *LMFI =
       mbb->getParent()->getInfo<CSAMachineFunctionInfo>();
-
+  auto dl = (before == mbb->end()) ? DebugLoc() : before->getDebugLoc();
   const unsigned switchOpcode = TII->makeOpcode(CSA::Generic::SWITCH, TRC);
   const unsigned anyOpcode = CSA::ANY0;
 
@@ -297,12 +307,11 @@ void csa_utils::createSwitchTree(MachineBasicBlock *mbb,
   assert(n && "Can't combine 0 values");
   LLVM_DEBUG(errs() << "outvals_input_index = " << outvals_input_index << "\n");
   if (n == 1) {
-    MachineInstr *MI =
-        BuildMI(*mbb, before, before->getDebugLoc(),
-                TII->get(TII->getMoveOpcode(TRC)))
-            .addReg(outvals[outvals_input_index], RegState::Define)
-            .addReg(inval)
-            .setMIFlag(MachineInstr::NonSequential);
+    MachineInstr *MI = BuildMI(*mbb, before, dl,
+                               TII->get(TII->getMoveOpcode(TRC)))
+          .addReg(outvals[outvals_input_index], RegState::Define)
+          .addReg(inval)
+          .setMIFlag(MachineInstr::NonSequential);
     LLVM_DEBUG(errs() << "final switch mov MI = " << *MI << "\n");
     (void)MI;
     return;
@@ -330,12 +339,12 @@ void csa_utils::createSwitchTree(MachineBasicBlock *mbb,
   unsigned index = LMFI->allocateLIC(&CSA::CI1RegClass, "", "", true, true);
 
   MachineInstr *anyInst =
-      BuildMI(*mbb, before, DebugLoc(), TII->get(anyOpcode), index)
-          .addReg(select_signal_0)
-          .addReg(select_signal_1)
-          .addReg(unusedReg)
-          .addReg(unusedReg)
-          .addImm(0);
+    BuildMI(*mbb, before, dl, TII->get(anyOpcode), index)
+        .addReg(select_signal_0)
+        .addReg(select_signal_1)
+        .addReg(unusedReg)
+        .addReg(unusedReg)
+        .addImm(0);
   anyInst->setFlag(MachineInstr::NonSequential);
   LLVM_DEBUG(errs() << "anyInst = " << *anyInst << "\n");
   MachineInstr *newAnyInst = getPriorFormedInst(anyInst, mbb);
@@ -354,12 +363,11 @@ void csa_utils::createSwitchTree(MachineBasicBlock *mbb,
   if (anyInst != newAnyInst)
     anyInst->eraseFromParent();
   MachineInstr *switchInst =
-      BuildMI(*mbb, before, DebugLoc(), TII->get(switchOpcode))
+      BuildMI(*mbb, before, dl, TII->get(switchOpcode))
           .addReg(outval0, RegState::Define)
           .addReg(outval1, RegState::Define)
           .addReg(newAnyInst->getOperand(0).getReg())
           .addReg(inval);
-
   switchInst->setFlag(MachineInstr::NonSequential);
   LLVM_DEBUG(errs() << "switchInst = " << *switchInst << "\n");
   if (swapped) {

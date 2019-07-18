@@ -80,11 +80,12 @@ class Section {
   /// will be a parent for section %5.
   Section *Parent;
 
-  /// \brief A set of subsections included into this section.
+  /// \brief A set of subregions included into this section.
   ///
+  /// It is a map which maps region token to the region's sections.
   /// Keep the enclosed sections in order, so that we assign
   /// the alias scopes deterministically.
-  SmallSetVector<Section *, 32> EnclosedSections;
+  SmallDenseMap<Value *, SmallSetVector<Section *, 32>> EnclosedRegions;
 
   /// \brief Unique integer section identifier.
   unsigned ID;
@@ -170,9 +171,11 @@ public:
   /// of this section, and this section becomes a Parent for the given
   /// \p S section.
   void addSubsection(Section *S) {
-    assert(EnclosedSections.count(S) == 0 &&
-           "Trying to add a subsection multiple times.");
-    EnclosedSections.insert(S);
+    auto &EnclosedSections =
+        EnclosedRegions[S->getEntryCall()->getArgOperand(0)];
+    bool Res = EnclosedSections.insert(S);
+    assert(Res && "Trying to add a subsection multiple times.");
+    (void)Res;
     assert(!S->Parent && "A subsection already has a parent.");
     S->Parent = this;
   }
@@ -489,11 +492,11 @@ void Section::collectSectionRecursively(
   bool MatchFound = false;
 
   BlocksToVisit.push(StartBlock);
+  VisitedBlocks.insert(StartBlock);
 
   while (!BlocksToVisit.empty()) {
     auto *BB = BlocksToVisit.front();
     BlocksToVisit.pop();
-    VisitedBlocks.insert(BB);
 
     Instruction *NextInst =
       (EntryCall->getParent() != BB) ?
@@ -549,8 +552,10 @@ void Section::collectSectionRecursively(
     }
     else {
       for (auto *SB : successors(BB)) {
-        if (VisitedBlocks.find(SB) == VisitedBlocks.end())
+        if (VisitedBlocks.find(SB) == VisitedBlocks.end()) {
           BlocksToVisit.push(SB);
+          VisitedBlocks.insert(SB);
+        }
       }
     }
   }
@@ -570,208 +575,213 @@ void Section::processSectionRecursively(
 
   LLVM_DEBUG(dbgs() << "Processing section " << ID << ".\n");
 
-  // Process the enclosed sections first.
-  for (auto *SS : EnclosedSections) {
-    if (!SS->EnclosedSections.empty())
-      SS->processSectionRecursively(Context);
+  // Process the enclosed regions first.
+  for (auto &R : EnclosedRegions) {
+    auto &EnclosedSections = R.second;
+    for (auto *SS : EnclosedSections)
+      if (!SS->EnclosedRegions.empty())
+        SS->processSectionRecursively(Context);
   }
 
-  if (EnclosedSections.size() > 1) {
-    // Create alias scope for each enclosed section,
-    // and assign the alias.scope/noalias metadata
-    // to the memory accessing operations inside
-    // the enclosing sections.
+  for (auto &R : EnclosedRegions) {
+    auto &EnclosedSections = R.second;
+    if (EnclosedSections.size() > 1) {
+      // Create alias scope for each enclosed section,
+      // and assign the alias.scope/noalias metadata
+      // to the memory accessing operations inside
+      // the enclosing sections.
 
-    // Create a new domain using the current section's name.
-    MDBuilder MDB(Context.F.getContext());
+      // Create a new domain using the current section's name.
+      MDBuilder MDB(Context.F.getContext());
 
-    // If this is a fake top-level section, then get the domain
-    // name from the Function name.
-    StringRef DomainName =
-      ExitCall ?
-      ExitCall->getOperand(0)->getName() :
-      Context.F.getName();
+      // If this is a fake top-level section, then get the domain
+      // name from the Function name.
+      StringRef DomainName =
+        ExitCall ?
+        ExitCall->getOperand(0)->getName() :
+        Context.F.getName();
 
-    MDNode *NewDomain = MDB.createAnonymousAliasScopeDomain(DomainName);
+      MDNode *NewDomain = MDB.createAnonymousAliasScopeDomain(DomainName);
 
-    // Create a new alias.scope for each subsection.
-    for (auto *SS : EnclosedSections) {
-      StringRef ScopeName = SS->ExitCall->getOperand(0)->getName();
-      SS->Scope = MDB.createAnonymousAliasScope(NewDomain, ScopeName);
-    }
+      // Create a new alias.scope for each subsection.
+      for (auto *SS : EnclosedSections) {
+        StringRef ScopeName = SS->ExitCall->getOperand(0)->getName();
+        SS->Scope = MDB.createAnonymousAliasScope(NewDomain, ScopeName);
+      }
 
-    // For each subsection create a list of scopes created for all the other
-    // subsections.
-    for (auto *SS : EnclosedSections) {
-      for (auto *SSS: EnclosedSections) {
-        if (SS != SSS) {
-          if (!SS->NoaliasScopes)
-            SS->NoaliasScopes =
-              MDNode::get(Context.F.getContext(), SSS->Scope);
-          else
-            SS->NoaliasScopes =
-              MDNode::concatenate(SS->NoaliasScopes,
-                                  MDNode::get(Context.F.getContext(),
-                                              SSS->Scope));
+      // For each subsection create a list of scopes created for all the other
+      // subsections.
+      for (auto *SS : EnclosedSections) {
+        for (auto *SSS : EnclosedSections) {
+          if (SS != SSS) {
+            if (!SS->NoaliasScopes)
+              SS->NoaliasScopes =
+                  MDNode::get(Context.F.getContext(), SSS->Scope);
+            else
+              SS->NoaliasScopes = MDNode::concatenate(
+                  SS->NoaliasScopes,
+                  MDNode::get(Context.F.getContext(), SSS->Scope));
+          }
         }
       }
+
+      // Assign alias.scope/noalias metadata to the memory accessing
+      // instructions inside the subsections recursively (i.e. the memory
+      // accessing instructions in the subsections' subsections must be
+      // also marked).
+      for (auto *SS : EnclosedSections) {
+        MDNode *AliasScope = SS->Scope;
+        MDNode *Noalias = SS->NoaliasScopes;
+
+        std::function<void(Section *)> markSectionRecursively =
+          [&markSectionRecursively, &Context, AliasScope, Noalias](Section *S) {
+          for (auto *I : S->MemoryInstructions) {
+            I->setMetadata(LLVMContext::MD_alias_scope,
+                           MDNode::concatenate(
+                               I->getMetadata(LLVMContext::MD_alias_scope),
+                               MDNode::get(Context.F.getContext(),
+                                           AliasScope)));
+            I->setMetadata(LLVMContext::MD_noalias,
+                           MDNode::concatenate(
+                               I->getMetadata(LLVMContext::MD_noalias),
+                               Noalias));
+          }
+
+          for (auto &R : S->EnclosedRegions)
+            for (auto *SS : R.second)
+              markSectionRecursively(SS);
+        };
+
+        markSectionRecursively(SS);
+      }
+
+      LLVM_DEBUG(dbgs() <<
+                 "Memory accesses annotated for subsections of section "
+                 << ID << ".\n");
+    }
+    else {
+      LLVM_DEBUG(dbgs() << "No memory accesses in section " << ID << ".\n");
     }
 
-    // Assign alias.scope/noalias metadata to the memory accessing
-    // instructions inside the subsections recursively (i.e. the memory
-    // accessing instructions in the subsections' subsections must be
-    // also marked).
-    for (auto *SS : EnclosedSections) {
-      MDNode *AliasScope = SS->Scope;
-      MDNode *Noalias = SS->NoaliasScopes;
+    // Setup loop metadata for loops containing the subsections
+    // of the current section.  We have to be careful to mark the right loops.
+    //
+    // Let's consider a parallel loop:
+    //     region.entry
+    //     loop:
+    //         section.entry
+    //         section.exit
+    //     br loop
+    //     region.exit
+    //
+    // If we completely unroll a loop, then we will get:
+    //     region.entry
+    //         section.entry
+    //         section.exit
+    //         section.entry
+    //         section.exit
+    //     region.exit
+    //
+    // When we process these sections as subsections of some enclosing section
+    // (probably the fake top level section), we may figure out to which Loop
+    // they belong to.  But we cannot mark this Loop as parallel,
+    // if the corresponding region entry/exit calls are located inside the same
+    // loop - this would mean that the original loop was completely unrolled.
+    //
+    // Another interesting example is loop unswitching transformation:
+    //     region.entry
+    //     loop:
+    //         section.entry
+    //         if () THEN_CODE else ELSE_CODE
+    //         section.exit
+    //     br loop
+    //     region.exit
+    //
+    // After transformation:
+    //     region.entry
+    //     if () {
+    //         loop1:
+    //             section.entry
+    //             THEN_CODE
+    //             section.exit
+    //         br loop1
+    //     } else {
+    //         loop2:
+    //             section.entry
+    //             ELSE_CODE
+    //             section.exit
+    //         br loop2
+    //     }
+    //     region.exit
+    //
+    // The two sections above will be subsections of some enclosing section,
+    // but they belong to two different loops, both of which must be marked
+    // as parallel.
+    //
+    // It is a question whether we may have a Loop like this:
+    //
+    //     %1 = region.entry
+    //     %2 = region.entry
+    //     loop:
+    //         %3 = section.entry(%1)
+    //             section.entry(%2)
+    //             section.exit
+    //         section.exit(%3)
+    //         %4 = section.entry(%1)
+    //             section.entry(%2)
+    //             section.exit
+    //         section.exit(%4)
+    //     br loop
+    //
+    // In this case, the loop may be marked as parallel twice, first, when
+    // we process section %3, and then, when we process section %4.
+    // I am not trying to verify that, and just avoid marking loops twice
+    // during processing multiple subsections.
+    //
 
-      std::function<void(Section *)> markSectionRecursively =
-        [&markSectionRecursively, &Context, AliasScope, Noalias](Section *S) {
-        for (auto *I : S->MemoryInstructions) {
-          I->setMetadata(LLVMContext::MD_alias_scope,
-                         MDNode::concatenate(
-                             I->getMetadata(LLVMContext::MD_alias_scope),
-                             MDNode::get(Context.F.getContext(), AliasScope)));
-          I->setMetadata(LLVMContext::MD_noalias,
-                         MDNode::concatenate(
-                             I->getMetadata(LLVMContext::MD_noalias),
-                             Noalias));
-        }
+    DenseSet<Loop *> MarkedLoops;
 
-        for (auto *SS : S->EnclosedSections)
-          markSectionRecursively(SS);
-      };
+    for_each(EnclosedSections, [&MarkedLoops, &Context](Section *SS) {
+      auto *SectionBB = SS->EntryCall->getParent();
+      auto *RegionEntryCall =
+          dyn_cast<IntrinsicInst>(SS->EntryCall->getOperand(0));
 
-      markSectionRecursively(SS);
-    }
+      assert(RegionEntryCall &&
+             RegionEntryCall->getIntrinsicID() ==
+                 Intrinsic::csa_parallel_region_entry &&
+             "Invalid operand of llvm.csa.parallel_section_entry.");
 
-    LLVM_DEBUG(dbgs() <<
-               "Memory accesses annotated for subsections of section "
-               << ID << ".\n");
+      auto *L = Context.LI.getLoopFor(SectionBB);
+      if (!L)
+        return;
+
+      if (L == Context.LI.getLoopFor(RegionEntryCall->getParent()))
+        return;
+
+      if (MarkedLoops.find(L) != MarkedLoops.end())
+        return;
+
+      // Mark the Loop as parallel.
+      auto *LoopID = L->getLoopID();
+      MDString *MDKey =
+          MDString::get(Context.F.getContext(), CSALoopTag::Parallel);
+      MDTuple *KeyValue = MDTuple::get(Context.F.getContext(), {MDKey});
+      SmallVector<Metadata *, 4> Ops;
+      Ops.push_back(nullptr);
+      if (LoopID)
+        std::copy(std::next(LoopID->op_begin()), LoopID->op_end(),
+                  std::back_inserter(Ops));
+      Ops.push_back(KeyValue);
+      MDTuple *NewLoopID = MDTuple::get(Context.F.getContext(), Ops);
+      NewLoopID->replaceOperandWith(0, NewLoopID);
+      L->setLoopID(NewLoopID);
+
+      LLVM_DEBUG(dbgs() << "Loop " << L->getName()
+                        << " marked parallel by section " << SS->ID << ".\n");
+
+      MarkedLoops.insert(L);
+    });
   }
-  else {
-    LLVM_DEBUG(dbgs() << "No memory accesses in section " << ID << ".\n");
-  }
-
-  // Setup loop metadata for loops containing the subsections
-  // of the current section.  We have to be careful to mark the right loops.
-  //
-  // Let's consider a parallel loop:
-  //     region.entry
-  //     loop:
-  //         section.entry
-  //         section.exit
-  //     br loop
-  //     region.exit
-  //
-  // If we completely unroll a loop, then we will get:
-  //     region.entry
-  //         section.entry
-  //         section.exit
-  //         section.entry
-  //         section.exit
-  //     region.exit
-  //
-  // When we process these sections as subsections of some enclosing section
-  // (probably the fake top level section), we may figure out to which Loop
-  // they belong to.  But we cannot mark this Loop as parallel,
-  // if the corresponding region entry/exit calls are located inside the same
-  // loop - this would mean that the original loop was completely unrolled.
-  //
-  // Another interesting example is loop unswitching transformation:
-  //     region.entry
-  //     loop:
-  //         section.entry
-  //         if () THEN_CODE else ELSE_CODE
-  //         section.exit
-  //     br loop
-  //     region.exit
-  //
-  // After transformation:
-  //     region.entry
-  //     if () {
-  //         loop1:
-  //             section.entry
-  //             THEN_CODE
-  //             section.exit
-  //         br loop1
-  //     } else {
-  //         loop2:
-  //             section.entry
-  //             ELSE_CODE
-  //             section.exit
-  //         br loop2
-  //     }
-  //     region.exit
-  //
-  // The two sections above will be subsections of some enclosing section,
-  // but they belong to two different loops, both of which must be marked
-  // as parallel.
-  //
-  // It is a question whether we may have a Loop like this:
-  //
-  //     %1 = region.entry
-  //     %2 = region.entry
-  //     loop:
-  //         %3 = section.entry(%1)
-  //             section.entry(%2)
-  //             section.exit
-  //         section.exit(%3)
-  //         %4 = section.entry(%1)
-  //             section.entry(%2)
-  //             section.exit
-  //         section.exit(%4)
-  //     br loop
-  //
-  // In this case, the loop may be marked as parallel twice, first, when
-  // we process section %3, and then, when we process section %4.
-  // I am not trying to verify that, and just avoid marking loops twice
-  // during processing multiple subsections.
-  //
-
-  DenseSet<Loop *> MarkedLoops;
-
-  for_each(EnclosedSections,
-           [&MarkedLoops,&Context] (Section *SS) {
-             auto *SectionBB = SS->EntryCall->getParent();
-             auto *RegionEntryCall =
-               dyn_cast<IntrinsicInst>(SS->EntryCall->getOperand(0));
-
-             assert(RegionEntryCall &&
-                    RegionEntryCall->getIntrinsicID() ==
-                    Intrinsic::csa_parallel_region_entry &&
-                    "Invalid operand of llvm.csa.parallel_section_entry.");
-
-             auto *L = Context.LI.getLoopFor(SectionBB);
-             if (!L)
-               return;
-
-             if (L == Context.LI.getLoopFor(RegionEntryCall->getParent()))
-               return;
-
-             if (MarkedLoops.find(L) != MarkedLoops.end())
-               return;
-
-             // Mark the Loop as parallel.
-             auto *LoopID = L->getLoopID();
-             MDString *MDKey =
-               MDString::get(Context.F.getContext(), CSALoopTag::Parallel);
-             MDTuple *KeyValue = MDTuple::get(Context.F.getContext(), {MDKey});
-             SmallVector<Metadata *, 4> Ops;
-             Ops.push_back(nullptr);
-             if (LoopID)
-               std::copy(std::next(LoopID->op_begin()), LoopID->op_end(),
-                         std::back_inserter(Ops));
-             Ops.push_back(KeyValue);
-             MDTuple *NewLoopID = MDTuple::get(Context.F.getContext(), Ops);
-             NewLoopID->replaceOperandWith(0, NewLoopID);
-             L->setLoopID(NewLoopID);
-
-             LLVM_DEBUG(dbgs() << "Loop " << L->getName() <<
-                        " marked parallel by section " << SS->ID << ".\n");
-
-             MarkedLoops.insert(L);
-           });
 }
 
 void CSALowerParallelIntrinsicsImpl::deleteIntrinsicCalls(

@@ -77,6 +77,17 @@ class RegImmOperand<ValueType vt> : Operand<vt>, ComplexPattern<vt,1,"SelectRegI
     let ParserMatchClass = RegImmAsmOperand;
   }
 
+// This version is meant to be used for operations that are agnostic to the
+// actual integer/floating/vector form. It relies on a hack in the typechecking:
+// if you merge {iPTR} and {i32}, you get {i32}... and you get {f32} if you try
+// to merge {f32} with {iPTR}.
+class RegImmOperandUntyped<ValueType vt> : Operand<iPTR>, ComplexPattern<vt,1,"SelectRegImm", [imm, fpimm]> {
+    let OperandType = "OPERAND_REG_IMM";
+    // We need to give TableGen some clues (along with some custom function in
+    // CSAAsmParser) to deal with these particularly flexible operands.
+    let ParserMatchClass = RegImmAsmOperand;
+  }
+
 // Rounding mode operands. These are literal integers underneath, but are
 // printed and parsed as their symbolic names. The default numerically matches
 // the simulator's default value in csa.h. (This is CSA::ROUND_NEAREST.)
@@ -140,6 +151,8 @@ def RCLf32 : RegImmOperand<f32>;
 def RCLi64 : RegImmOperand<i64>;
 def RCLf64 : RegImmOperand<f64>;
 def RCLf32x2 : RegImmOperand<v2f32>;
+def RCL32  : RegImmOperandUntyped<i32>;
+def RCL64  : RegImmOperandUntyped<i64>;
 
 // Memory operands
 class Addr<int numArgs, string funcName, dag opInfo> :
@@ -227,6 +240,8 @@ def Ts64 : CSAOpInfo<i64, 64, "s64", I64, RI64, CI64, RCLi64, i64imm, [HasI64]>;
 def Tu64 : CSAOpInfo<i64, 64, "u64", I64, RI64, CI64, RCLi64, i64imm, [HasI64]>;
 def Tf64 : CSAOpInfo<f64, 64, "f64", I64, RI64, CI64, RCLf64, f64imm, [HasF64]>;
 def Tf32x2 : CSAOpInfo<v2f32, 64, "f32x2", I64, RI64, CI64, RCLf32x2, i64imm, []>;
+def T32  : CSAOpInfo<i32, 32,  "32", I32, RI32, CI32, RCL32, i32imm, [HasI32]>;
+def T64  : CSAOpInfo<i64, 64,  "64", I64, RI64, CI64, RCL64, i64imm, [HasI64]>;
 
 
 def flog : SDNode<"ISD::FLOG", SDTFPUnaryOp>;
@@ -239,15 +254,6 @@ def fexp : SDNode<"ISD::FEXP", SDTFPUnaryOp>;
 //===----------------------------------------------------------------------===//
 // CSA Instructions.
 //===----------------------------------------------------------------------===//
-
-def XPHI : Instruction {
-  let Namespace = "CSA";
-  let OutOperandList = (outs);
-  let InOperandList = (ins variable_ops);
-  let AsmString = "XPHI";
-  let isCodeGenOnly = 1;
-  let isPseudo = 1;
-}
 
 // These are target-independent nodes, but have target-specific formats.
 def SDT_CSACall         : SDTypeProfile<0, -1, [SDTCisVT<0, iPTR>]>;
@@ -331,7 +337,7 @@ def TRAMPOLINE_START : PseudoInstCSA<
     (ins),
     ".trampoline_start",
     []>;
-    
+
 def TRAMPOLINE_END : PseudoInstCSA<
     (outs),
     (ins),
@@ -356,13 +362,12 @@ def CSA_ENTRYPSEUDO : PseudoInstCSA<
 
 class CSAGetValOp<GenericOp gen, CSAOpInfo oi,
             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
-  FMTGEN<gen, oi,
-    (outs oi.RC:$val),
+  PseudoInstCSA<(outs oi.RC:$val),
     (ins CI0:$link),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$val, $link"),
     [(set oi.VT:$val, (CSAGetVal CI0:$link))],
     !listconcat(preds,oi.Preds), itin> {
-      let OpInfo = oi; let hasSideEffects = 1;
+      let GenOp = gen; let OpInfo = oi; let hasSideEffects = 1;
     }
 
 def CSA_GETVAL         : GenericOp<"get_val">;
@@ -552,9 +557,9 @@ class ShAdd<GenericOp gen, SDNode inner, SDNode outer, CSAOpInfo oi,
             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
   FMTGEN<gen, oi,
     (outs oi.RC:$dst),
-    (ins oi.RCL:$op1, RCLi8:$op2, oi.RCL:$op3),
+    (ins oi.RCL:$op1, oi.RCL:$op2, oi.RCL:$op3),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op1, $op2, $op3"),
-    [(set oi.RC:$dst, (outer (inner oi.RCL:$op1, RCLi8:$op2), oi.RCL:$op3))],
+    [(set oi.RC:$dst, (outer (inner oi.RCL:$op1, oi.RCL:$op2), oi.RCL:$op3))],
     !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
 // 'fma' is a pattern already defined by LLVM.
@@ -744,6 +749,7 @@ class FountainOp<GenericOp gen, CSAOpInfo oi,
 def LDX : GenericOp<"ldx">;
 def LDD : GenericOp<"ldd">;
 def LD  : GenericOp<"ld">;
+def LDSP: GenericOp<"ldsp">;
 multiclass LdOp<string opStr, CSAOpInfo t,
            InstrItinClass itin = IILD> {
 
@@ -769,6 +775,13 @@ multiclass LdOp<string opStr, CSAOpInfo t,
       (ins ADDR_R:$addr, MEMLVL:$memlvl, MemOrdDef:$inord),
       !strconcat(opStr, "\t$res, $addr, $outord, $inord, $memlvl"),
       []>;
+
+    def SP : FMTGEN<LDSP, t,
+      (outs t.RC:$res, MemOrdDef:$outord),
+      (ins i64imm:$base, RCLi64:$index, MemOrdUse:$inord),
+      !strconcat("ldsp", !cast<string>(t.OpBitSize),
+        "\t$res, $base, $index, $outord, $inord"),
+      []>;
   }
 }
 
@@ -776,6 +789,7 @@ multiclass LdOp<string opStr, CSAOpInfo t,
 def STX : GenericOp<"stx">;
 def STD : GenericOp<"std">;
 def ST  : GenericOp<"st">;
+def STSP: GenericOp<"stsp">;
 multiclass StOp<string opStr, CSAOpInfo t,
            InstrItinClass itin = IIST> {
 
@@ -800,6 +814,13 @@ multiclass StOp<string opStr, CSAOpInfo t,
       (outs MemOrdDef:$outord),
       (ins ADDR_R:$addr, t.RCL:$val, MEMLVL:$memlvl, MemOrdDef:$inord),
       !strconcat(opStr, "\t$addr, $val, $outord, $inord, $memlvl"),
+      []>;
+
+    def SP : FMTGEN<STSP, t,
+      (outs MemOrdDef:$outord),
+      (ins i64imm:$base, RCLi64:$index, t.RCL:$val, MemOrdUse:$inord),
+      !strconcat("stsp", !cast<string>(t.OpBitSize),
+        "\t$base, $index, $val, $outord, $inord"),
       []>;
   }
 }
@@ -1165,25 +1186,31 @@ def CVTF32F64 : CvtOpR<   CVT, fpround,    Tf32, Tf64, IICvtFF>;
 def CVTF64F32 : CvtOpR<   CVT, fpextend,   Tf64, Tf32, IICvtFF>;
 
 def AND       : GenericOp<"and">;
+let isCommutable = 1 in {
 def AND1      : BinOp<   AND,    and,    Ti1,  IIALU>;
 def AND8      : BinOp<   AND,    and,    Ti8,  IIALU>;
 def AND16     : BinOp<   AND,    and,    Ti16, IIALU>;
 def AND32     : BinOp<   AND,    and,    Ti32, IIALU>;
 def AND64     : BinOp<   AND,    and,    Ti64, IIALU>;
+}
 
 def OR        : GenericOp<"or">;
+let isCommutable = 1 in {
 def OR1       : BinOp<   OR,     or,     Ti1,  IIALU>;
 def OR8       : BinOp<   OR,     or,     Ti8,  IIALU>;
 def OR16      : BinOp<   OR,     or,     Ti16, IIALU>;
 def OR32      : BinOp<   OR,     or,     Ti32, IIALU>;
 def OR64      : BinOp<   OR,     or,     Ti64, IIALU>;
+}
 
 def XOR       : GenericOp<"xor">;
+let isCommutable = 1 in {
 def XOR1      : BinOp<   XOR,    xor,    Ti1,  IIALU>;
 def XOR8      : BinOp<   XOR,    xor,    Ti8,  IIALU>;
 def XOR16     : BinOp<   XOR,    xor,    Ti16, IIALU>;
 def XOR32     : BinOp<   XOR,    xor,    Ti32, IIALU>;
 def XOR64     : BinOp<   XOR,    xor,    Ti64, IIALU>;
+}
 
 def SLL       : GenericOp<"sll">;
 def SLL8      : ShiftOp< SLL,    shl,    Ti8,  IIShft>;
@@ -1207,10 +1234,12 @@ def : Pat<(i1 (add i1:$op1, i1:$op2)),       (XOR1 $op1,$op2)>;
 def : Pat<(i1 (add i1:$op1, (i1 imm:$imm))), (XOR1 $op1,$imm)>;
 
 def ADD       : GenericOp<"add">;
+let isCommutable = 1 in {
 def ADD8      : BinOp<   ADD,    add,    Ti8,  IIALU>;
 def ADD16     : BinOp<   ADD,    add,    Ti16, IIALU>;
 def ADD32     : BinOp<   ADD,    add,    Ti32, IIALU>;
 def ADD64     : BinOp<   ADD,    add,    Ti64, IIALU>;
+}
 
 def ADC       : GenericOp<"adc">;
 def ADC8      : BinOpC<  ADC,            Ti8,  IIALU>;
@@ -1239,10 +1268,12 @@ def SUBF32    : BinOpR<  SUB,    fsub,   Tf32, IIAddF32>;
 def SUBF64    : BinOpR<  SUB,    fsub,   Tf64, IIAddF64>;
 
 def MUL       : GenericOp<"mul">;
+let isCommutable = 1 in {
 def MUL8      : BinOp<   MUL,    mul,    Ti8,  IIMulI8>;
 def MUL16     : BinOp<   MUL,    mul,    Ti16, IIMulI16>;
 def MUL32     : BinOp<   MUL,    mul,    Ti32, IIMulI32>;
 def MUL64     : BinOp<   MUL,    mul,    Ti64, IIMulI64>;
+}
 
 def MULF32    : BinOpR<  MUL,    fmul,   Tf32, IIMulF32>;
 def MULF64    : BinOpR<  MUL,    fmul,   Tf64, IIMulF64>;
@@ -1416,10 +1447,14 @@ def MERGE0    : MergeOp< "merge0",  Ti0,  [HasI0],  IIVir>;
 def MERGE1    : MergeOp< "merge1",  Ti1,  [HasI1],  IIVir>;
 def MERGE8    : MergeOp< "merge8",  Ti8,  [HasI8],  IIVir>;
 def MERGE16   : MergeOp< "merge16", Ti16, [HasI16], IIVir>;
-def MERGE32   : MergeOp< "merge32", Ti32, [HasI32], IIVir>;
-def MERGE32f  : MergeOp< "merge32", Tf32, [HasI32], IIVir>;
-def MERGE64   : MergeOp< "merge64", Ti64, [HasI64], IIVir>;
-def MERGE64f  : MergeOp< "merge64", Tf64, [HasI64], IIVir>;
+def MERGE32   : MergeOp< "merge32", T32, [HasI32], IIVir>;
+def MERGE64   : MergeOp< "merge64", T64, [HasI64], IIVir>;
+def : Pat<(f32 (select RCLi1:$sel, RCLf32:$v1, RCLf32:$v0)),
+          (MERGE32 $sel, $v0, $v1)>;
+def : Pat<(f64 (select RCLi1:$sel, RCLf64:$v1, RCLf64:$v0)),
+          (MERGE64 $sel, $v0, $v1)>;
+def : Pat<(v2f32 (select RCLi1:$sel, RCLf32x2:$v1, RCLf32x2:$v0)),
+          (MERGE64 $sel, $v0, $v1)>;
 
 def SWITCH    : GenericOp<"switch">;
 def SWITCH0   : SwitchOp<SWITCH, Ti0,  IIVir>;
@@ -1739,6 +1774,14 @@ def REPLICATE1 : FMTGEN<REPLICATE, Ti1,
   "replicate1\t$outchan, $inchan, $match, $count, $initpos",
   [], [], IIALU>;
 
+def REPLACE    : GenericOp<"replace">;
+def REPLACE1   : FMTGEN<REPLACE, Ti1,
+  (outs I1:$out),
+  (ins RCLi1:$in, i64imm:$patlen, i64imm:$patbits, i64imm:$repllen, i64imm:$replbits),
+  "replace1 $out, $in, $patlen, $patbits, $repllen, $replbits", []> {
+    let isMultiTriggered = 1;
+}
+
 // TBD(jsukha): This info probably needs predicates
 // Also, the input can probably be an I0 channel.
 def ONEND_G : GenericOp<"onend">;
@@ -2043,6 +2086,24 @@ def CSA_PIPELINEABLE_LOOP : PseudoInstCSA<
     "# .csa_pipelineable_loop_marker\t$md",
     [ (int_csa_pipelineable_loop_marker (i64 imm:$md)) ]>;
 
+// This pseudo-op appears at the start of a loop that has
+// parallel directive (__builtin_csa_parallel_depth_limited_loop() or
+// #pragma omp parallel for dataflow(pipeline(depth))).
+def CSA_PIPELINE_DEPTH_TOKEN_TAKE : PseudoInstCSA<
+    (outs I64:$token, MemOrdDef:$outord),
+    (ins ADDR_R:$token_pool, I32:$framesize, I32:$depth, MemOrdUse:$inord),
+    "# .csa_pipeline_depth_token_take",
+    []>;
+
+// This pseudo-op appears at the end of a loop that has
+// parallel directive (__builtin_csa_parallel_depth_limited_loop() or
+// #pragma omp parallel for dataflow(pipeline(depth))).
+def CSA_PIPELINE_DEPTH_TOKEN_RETURN : PseudoInstCSA<
+    (outs MemOrdDef:$outord),
+    (ins ADDR_R:$token_pool, I64:$token, MemOrdUse:$inord),
+    "# .csa_pipeline_depth_token_return",
+    []>;
+
 // Arbitrary immediate support
 def : Pat<(i1 imm:$imm),    (MOV1 imm:$imm)>;
 def : Pat<(i8 imm:$imm),    (MOV8 imm:$imm)>;
@@ -2246,6 +2307,12 @@ def SHUFI32X2: FMTGEN<?, Tf32x2,
     "shufi32x2\t$res, $op1, $op2, $sellow, $selhigh",
     []>;
 
+def : Pat<(v2f32 (insertelt RCLf32x2:$vec, f32:$val, 0)),
+    (SHUFI32X2 $vec, (COPY_TO_REGCLASS $val, I64), 2, 1)>;
+
+def : Pat<(v2f32 (insertelt RCLf32x2:$vec, f32:$val, 1)),
+    (SHUFI32X2 $vec, (COPY_TO_REGCLASS $val, I64), 0, 3)>;
+
 def CSA_LIC_INIT : PseudoInstCSA<
     (outs),
     (ins i32imm:$lic, i8imm:$size, i64imm:$depth, i64imm:$desired_depth),
@@ -2271,6 +2338,7 @@ multiclass PushPop<ValueType VT, RegisterClass RC> {
             (COPY_TO_REGCLASS (CSA_LIC_READ (i32 imm:$lic)), RC)>;
 }
 
+defm : PushPop<   i1, CI1>;
 defm : PushPop<   i8, CI8>;
 defm : PushPop<  i16, CI16>;
 defm : PushPop<  i32, CI32>;

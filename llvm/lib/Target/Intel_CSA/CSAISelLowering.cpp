@@ -554,6 +554,11 @@ SDValue CSATargetLowering::LowerGlobalAddress(SDValue Op,
   const GlobalValue *GV = cast<GlobalAddressSDNode>(Op)->getGlobal();
   int64_t Offset        = cast<GlobalAddressSDNode>(Op)->getOffset();
 
+  // Scratchpad? The result is just the offset.
+  if (isScratchpadAddressSpace(GV->getAddressSpace()))
+    return DAG.getConstant(Offset, SDLoc(Op),
+        getPointerTy(DAG.getDataLayout()));
+
   // Create the TargetGlobalAddress node
   // DO NOT fold in the constant offset for now
   SDValue Result = DAG.getTargetGlobalAddress(
@@ -594,6 +599,18 @@ SDValue CSATargetLowering::LowerJumpTable(SDValue Op, SelectionDAG &DAG) const {
                      getPointerTy(DAG.getDataLayout()), Result);
 }
 
+// Memory ordering already takes into account the ordering requirements, so we
+// can lower atomic loads/stores to regular loads/stores. However, the
+// MachineMemOperand retains the ordering information, which we need to drop to
+// be able to use regular load/store nodes.
+static MachineMemOperand *dropAtomicInfo(SelectionDAG &DAG,
+    MachineMemOperand *Src) {
+  MachineFunction &MF = DAG.getMachineFunction();
+  return MF.getMachineMemOperand(Src->getPointerInfo(), Src->getFlags(),
+      Src->getSize(), Src->getBaseAlignment(), Src->getAAInfo(),
+      Src->getRanges());
+}
+
 SDValue CSATargetLowering::LowerAtomicLoad(SDValue Op,
                                            SelectionDAG &DAG) const {
   AtomicSDNode *AL = cast<AtomicSDNode>(Op);
@@ -606,7 +623,7 @@ SDValue CSATargetLowering::LowerAtomicLoad(SDValue Op,
 
   SDLoc DL(Op);
   return DAG.getLoad(AL->getMemoryVT(), DL, AL->getChain(), AL->getBasePtr(),
-                     AL->getMemOperand());
+                     dropAtomicInfo(DAG, AL->getMemOperand()));
 }
 
 SDValue CSATargetLowering::LowerAtomicStore(SDValue Op,
@@ -619,7 +636,7 @@ SDValue CSATargetLowering::LowerAtomicStore(SDValue Op,
 
   SDLoc DL(Op);
   return DAG.getStore(AS->getChain(), DL, AS->getVal(), AS->getBasePtr(),
-                      AS->getMemOperand());
+                      dropAtomicInfo(DAG, AS->getMemOperand()));
 }
 
 SDValue CSATargetLowering::LowerMUL_LOHI(SDValue Op, SelectionDAG &DAG) const {
@@ -770,7 +787,8 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
   // * OPND: copy from/to operand/output at index idx of the input SDNode
   // * ORD: copy from/to the input/output ordering edge
   // * LEVEL: choose a memlvl value based on the MachineMemOperand
-  enum OpndSourceType { OPND, ORD, LEVEL };
+  // * SPAD: the scratchpad base and index values.
+  enum OpndSourceType { OPND, ORD, LEVEL, SPAD };
 
   // A record denoting how to translate a particular use/def operand for the
   // MachineInstr representation of a memop. See OpndSourceType above for
@@ -869,6 +887,18 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
       {{OPND, 1}, {OPND, 2}, LEVEL, ORD}
     },
   };
+  static const MemopRec ScratchpadMemopISDTable[] = {
+    {
+      ISD::LOAD, CSA::Generic::LDSP, 0,
+      {{OPND, 0}, ORD},
+      {{SPAD, 1}, ORD}
+    },
+    {
+      ISD::STORE, CSA::Generic::STSP, 3,
+      {ORD},
+      {{SPAD, 2}, {OPND, 1}, ORD}
+    },
+  };
   static const MemopRec MemopIntrinsicTable[] = {
     {
       Intrinsic::csa_stream_load, CSA::Generic::SLD, 0,
@@ -885,6 +915,16 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
       {ORD},
       {{OPND, 3}, {OPND, 4}, {OPND, 5}, {OPND, 2}, LEVEL, ORD}
     },
+    {
+      Intrinsic::csa_pipeline_depth_token_take, CSA::Generic::LD, -1,
+      {{OPND, 0}, ORD},
+      {{OPND, 2}, {OPND, 3}, {OPND, 4}, ORD}
+    },
+    {
+      Intrinsic::csa_pipeline_depth_token_return, CSA::Generic::LD, -1,
+      {ORD},
+      {{OPND, 2}, {OPND, 3}, ORD}
+    },
   };
 
   SDNode *const MemopNode       = Op.getNode();
@@ -892,6 +932,8 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
   if (const MemSDNode *const MemNode = dyn_cast<MemSDNode>(MemopNode)) {
     MemOperand = MemNode->getMemOperand();
   }
+  bool isScratchpad = MemOperand ?
+    isScratchpadAddressSpace(MemOperand->getAddrSpace()): false;
   const SDLoc DL{Op};
 
   // There should be an input ordering node for all memops except loads of
@@ -912,12 +954,19 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
   const unsigned SDOpcode = MemopNode->getOpcode();
   decltype(begin(MemopISDTable)) FoundMemop;
 
-  if (SDOpcode == ISD::INTRINSIC_W_CHAIN) {
+  const bool IsIntrinsic =
+    (SDOpcode == ISD::INTRINSIC_W_CHAIN || SDOpcode == ISD::INTRINSIC_VOID);
+  if (IsIntrinsic) {
     unsigned ID = cast<ConstantSDNode>(Op->getOperand(1))->getLimitedValue();
     FoundMemop = find_if(MemopIntrinsicTable, [ID](const MemopRec &R) {
       return R.SDOpcode == ID;
     });
     assert(FoundMemop != end(MemopIntrinsicTable));
+  } else if (isScratchpad) {
+    FoundMemop = find_if(ScratchpadMemopISDTable, [SDOpcode](const MemopRec &R) {
+      return R.SDOpcode == SDOpcode;
+    });
+    assert(FoundMemop != end(ScratchpadMemopISDTable));
   } else {
     FoundMemop = find_if(MemopISDTable, [SDOpcode](const MemopRec &R) {
       return R.SDOpcode == SDOpcode;
@@ -931,9 +980,18 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
   SmallVector<SDValue, 4> Opnds;
   for (const OpndSource &S : CurRec.uses) {
     switch (S.type) {
-    case OPND:
-      Opnds.push_back(MemopNode->getOperand(S.idx));
-      break;
+    case OPND: {
+      SDValue InOp = MemopNode->getOperand(S.idx);
+
+      // If any inputs are constants, they should be lowered to target
+      // constants.
+      if (const auto CInOp = dyn_cast<ConstantSDNode>(InOp.getNode())) {
+        InOp = DAG.getTargetConstant(CInOp->getAPIntValue(), SDLoc{InOp},
+                                     InOp.getValueType());
+      }
+
+      Opnds.push_back(InOp);
+    } break;
     case ORD:
       Opnds.push_back(Inord);
       break;
@@ -943,6 +1001,28 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
         MemOperand->isNonTemporal() ? CSA::MEMLEVEL_NTA : CSA::MEMLEVEL_T0, DL,
         MVT::i64));
       break;
+    case SPAD: {
+      // Find the base from the appropriate GV.
+      unsigned AS = MemOperand->getAddrSpace();
+      SDValue Base;
+      const Module &M = *DAG.getMachineFunction().getFunction().getParent();
+      for (const GlobalVariable &GV : M.globals()) {
+        if (GV.getAddressSpace() == AS) {
+          Base = DAG.getTargetGlobalAddress(&GV, DL, MVT::i64);
+          break;
+        }
+      }
+
+      SDValue PtrValue = MemopNode->getOperand(S.idx);
+      EVT IdxTy = PtrValue.getValueType();
+      SDValue Index = DAG.getNode(ISD::SRA, DL, IdxTy, PtrValue,
+        DAG.getConstant(countTrailingZeros(MemOperand->getSize()), DL, IdxTy));
+
+      // Add both the parameters to the array.
+      Opnds.push_back(Base);
+      Opnds.push_back(Index);
+      break;
+    }
     default:
       llvm_unreachable("bad OpndSourceType for a use");
     }
@@ -950,12 +1030,32 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
 
   // Figure out what the opcode is going to be.
   unsigned Opcode;
-  if (SDOpcode == ISD::PREFETCH) {
-    const bool Write =
-      cast<ConstantSDNode>(MemopNode->getOperand(2))->getLimitedValue();
-    Opcode = Write ? CSA::PREFETCHW : CSA::PREFETCH;
-  } else if (SDOpcode == ISD::ATOMIC_FENCE) {
-    Opcode = CSA::FENCE;
+  if (CurRec.sizeIdx < 0) {
+    if (IsIntrinsic) {
+      switch (CurRec.SDOpcode) {
+      case Intrinsic::csa_pipeline_depth_token_take:
+        Opcode = CSA::CSA_PIPELINE_DEPTH_TOKEN_TAKE;
+        break;
+      case Intrinsic::csa_pipeline_depth_token_return:
+        Opcode = CSA::CSA_PIPELINE_DEPTH_TOKEN_RETURN;
+        break;
+      default:
+        llvm_unreachable("Add cases here for non-generic intrinsic memops");
+      }
+    } else {
+      switch (SDOpcode) {
+      case ISD::PREFETCH: {
+        const bool Write =
+          cast<ConstantSDNode>(MemopNode->getOperand(2))->getLimitedValue();
+        Opcode = Write ? CSA::PREFETCHW : CSA::PREFETCH;
+      } break;
+      case ISD::ATOMIC_FENCE:
+        Opcode = CSA::FENCE;
+        break;
+      default:
+        llvm_unreachable("Add cases here for non-generic memops");
+      }
+    }
   } else {
     const CSAInstrInfo *const TII = Subtarget.getInstrInfo();
     const EVT VT =
@@ -1189,6 +1289,8 @@ SDValue CSATargetLowering::LowerIntrinsic(SDValue Op, SelectionDAG &DAG) const {
   case Intrinsic::csa_stream_load:
   case Intrinsic::csa_stream_load_x2:
   case Intrinsic::csa_stream_store:
+  case Intrinsic::csa_pipeline_depth_token_take:
+  case Intrinsic::csa_pipeline_depth_token_return:
     return LowerMemop(Op, DAG);
   default:
     break;
@@ -1677,7 +1779,8 @@ void CSATargetLowering::AdjustInstrPostInstrSelection(MachineInstr &MI,
     unsigned last_reg = 0;
     for (unsigned op_ind = 0; op_ind < II.getNumOperands(); ++op_ind) {
       MachineOperand &mi_op        = MI.getOperand(op_ind);
-      const unsigned next_last_reg = mi_op.isReg() ? mi_op.getReg() : 0;
+      const unsigned next_last_reg =
+          mi_op.isReg() ? mi_op.getReg() : Register();
       overwrite_operand(mi_op, Node->getOperand(op_ind), last_reg,
                         op_ind < II.getNumDefs());
       last_reg = next_last_reg;

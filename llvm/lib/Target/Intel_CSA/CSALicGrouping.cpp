@@ -71,7 +71,16 @@ void CSACvtCFDFPass::findLICGroups(bool preDFConversion) {
       if (!preDFConversion)
         joinGroupVreg = UNMAPPED_REG;
 
-      if (!TII->isMultiTriggered(&MI) ||
+      if (TII->isMOV(&MI) || MI.getOpcode() == CSA::COPY) {
+        // While these are regular ops, these could be inserted in between
+        // operations that push into or out of high-level LICs. We should tie
+        // the operands together, but we shouldn't tie the frequencies directly
+        // to the group of the current block. Before dataflow conversion, we
+        // can't guarantee that the source value has been switched yet, so we
+        // can't do anything at all.
+        if (!preDFConversion)
+          joinVregs(MI, {0, 1});
+      } else if (!TII->isMultiTriggered(&MI) ||
           TII->getGenericOpcode(MI.getOpcode()) == CSA::Generic::COMPLETION) {
         // Non-multi-triggered operations are easy: all LIC operands must
         // execute the same number of times.

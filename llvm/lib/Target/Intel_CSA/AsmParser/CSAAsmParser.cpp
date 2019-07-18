@@ -512,12 +512,23 @@ unsigned CSAAsmParser::validateTargetOperandClass(MCParsedAsmOperand &GOp,
     break;
   case MCK_I1:
     // This is what the matcher generates as the type for register+channel
-    // operands. ("I0" because technically all of the R* register classes
+    // operands. ("I1" because technically all of the R* register classes
     // contain all of the regular registers. There is no such thing as
     // MCK_RI32, for example, since it would always be included in
-    // MCK_I0.) We need to allow CI* here, since CI* is technically
-    // disjoint with I* (which is currently equivalent to I0).
+    // MCK_I1.) We need to allow CI* here, since CI* is technically
+    // disjoint with I* (which is currently equivalent to I1).
     if (Op.isReg())
+      return MCTargetAsmParser::Match_Success;
+    break;
+  case MCK_ANYC:
+    // ANYC is what the matcher generates as the type for channel-only operands.
+    // We've been having some problems (CMPLRLLVM-9224) because our inline asms'
+    // dollar operands are represented using out-of-bounds registers that aren't
+    // seen as part of ANYC, which means that the matcher will reject attempts
+    // to connect to channel-only operands in inline asms. This case works
+    // around this by declaring these out-of-range registers to be compatible
+    // with ANYC.
+    if (Op.isReg() && Op.getReg() >= CSA::NUM_TARGET_REGS)
       return MCTargetAsmParser::Match_Success;
     break;
   case MCK__PCT_ra:

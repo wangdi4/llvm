@@ -104,23 +104,28 @@ void GeneralUtils::collectBBSet(BasicBlock *EntryBB, BasicBlock *ExitBB,
   assert(EntryBB && "no EntryBB");
   assert(ExitBB && "no ExitBB");
 
+  assert(EntryBB != ExitBB && "Entry and Exit BBs should be different");
+
   std::queue<BasicBlock *> BBlockQueue;
   BBlockQueue.push(EntryBB);
+  BBSet.push_back(EntryBB);
 
   while (!BBlockQueue.empty()) {
     BasicBlock *Front = BBlockQueue.front();
     BBlockQueue.pop();
 
     if (Front != ExitBB) {
-      // If 'Front' is not in the BBSet, insert it to the end of BBSet.
-      if (std::find(BBSet.begin(), BBSet.end(), Front) == BBSet.end())
-        BBSet.push_back(Front);
-
       for (succ_iterator I = succ_begin(Front), E = succ_end(Front); I != E;
            ++I)
         // Push the successor to the queue only if it is not in the BBSet.
-        if (std::find(BBSet.begin(), BBSet.end(), *I) == BBSet.end())
+        // Also add it to the BBSet here if it isn't ExitBB so that it won't be
+        // added to the queue twice: otherwise, the queue size grows
+        // exponentially for certain CFG patterns.
+        if (std::find(BBSet.begin(), BBSet.end(), *I) == BBSet.end()) {
           BBlockQueue.push(*I);
+          if (*I != ExitBB)
+            BBSet.push_back(*I);
+        }
     }
   }
 

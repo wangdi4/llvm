@@ -274,6 +274,10 @@ void ControlDependenceGraphBase::computeCDRegions(MachineFunction &F,
   for (auto DTN : post_order(&PDT)) {
     if (!DTN->getBlock())
       continue;
+    // Don't add any node that is unreachable from the entry block.
+    MachineBasicBlock *BB = DTN->getBlock();
+    if (BB->pred_empty() && BB->getNumber() != 0)
+      continue;
     Regions[0]->nodes.push_back(DTN->getBlock());
   }
 

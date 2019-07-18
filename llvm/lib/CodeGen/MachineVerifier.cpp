@@ -1872,13 +1872,7 @@ void MachineVerifier::checkLiveness(const MachineOperand *MO, unsigned MONum) {
         }
       }
 
-      if (TargetRegisterInfo::isVirtualRegister(Reg) && // INTEL
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-          !MRI->getRegClass(Reg)->isVirtual() &&
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
-          true) {                                       // INTEL
+      if (TargetRegisterInfo::isVirtualRegister(Reg)) {
         if (LiveInts->hasInterval(Reg)) {
           // This is a virtual register interval.
           const LiveInterval &LI = LiveInts->getInterval(Reg);
@@ -1982,13 +1976,7 @@ void MachineVerifier::checkLiveness(const MachineOperand *MO, unsigned MONum) {
       SlotIndex DefIdx = LiveInts->getInstructionIndex(*MI);
       DefIdx = DefIdx.getRegSlot(MO->isEarlyClobber());
 
-      if (TargetRegisterInfo::isVirtualRegister(Reg) && // INTEL
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-          !MRI->getRegClass(Reg)->isVirtual() &&
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
-          true) {                                       // INTEL
+      if (TargetRegisterInfo::isVirtualRegister(Reg)) {
         if (LiveInts->hasInterval(Reg)) {
           const LiveInterval &LI = LiveInts->getInterval(Reg);
           checkLivenessAtDef(MO, MONum, DefIdx, LI, Reg);
@@ -2262,14 +2250,6 @@ void MachineVerifier::verifyLiveIntervals() {
     // Spilling and splitting may leave unused registers around. Skip them.
     if (MRI->reg_nodbg_empty(Reg))
       continue;
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-    // Ignore virtual register classes.
-    if (MRI->getRegClass(Reg)->isVirtual())
-      continue;
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
 
     if (!LiveInts->hasInterval(Reg)) {
       report("Missing live interval for virtual register", MF);

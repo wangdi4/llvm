@@ -16,10 +16,12 @@
 
 #include "CSA.h"
 #include "llvm/ADT/Optional.h"
+#include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
@@ -46,9 +48,20 @@ static cl::opt<bool> EnableLargerStrides(
   "csa-enable-all-strides", cl::Hidden,
   cl::desc("CSA Specific: enable streaming memory even if stride is not 1"));
 
+static cl::opt<bool> EnableWideLoads(
+  "csa-enable-wide-loads", cl::Hidden,
+  cl::desc("CSA Specific: enable wide loads using sld64x2"),
+  cl::init(false));
+
 static cl::opt<bool> EnableAllLoops(
   "csa-streammem-expensive", cl::Hidden,
   cl::desc("CSA Specific: enable streaming memory even if trip counts are expensive"));
+
+static cl::opt<unsigned> NumVCPRUnits("csa-max-vcpr", cl::Hidden, cl::init(256),
+  cl::desc("Maximum number of VCPR units to generate for"));
+
+static cl::opt<unsigned> NumVCPFUnits("csa-max-vcpf", cl::Hidden, cl::init(256),
+  cl::desc("Maximum number of VCPF units to generate for"));
 
 namespace llvm {
 void initializeCSAStreamingMemoryPass(PassRegistry &);
@@ -66,17 +79,30 @@ struct StreamingMemoryDetails {
   Instruction *MemInst;
 };
 
+struct WideLoadDetails {
+  const SCEV *Address;
+
+  CallInst *InOrd;
+  CallInst *OutOrd;
+
+  Type *MemTy;
+  Instruction *MemInst;
+};
+
 class CSAStreamingMemoryImpl {
   DominatorTree &DT;
   LoopInfo &LI;
   OptimizationRemarkEmitter &ORE;
   ScalarEvolution &SE;
+  BlockFrequencyInfo &BFI;
   SCEVExpander Expander;
   DenseMap<BasicBlock *, const SCEV *> ExecCounts;
 
   bool isPipelinedLoop(Loop *L);
 
   Optional<StreamingMemoryDetails> getLegalStream(Value *Pointer,
+      Instruction *MemInst);
+  Optional<WideLoadDetails> getLegalWideLoad(Value *Pointer,
       Instruction *MemInst);
   CallInst *getInordEdge(Instruction *MemInst);
   CallInst *getOutordEdge(Instruction *MemInst);
@@ -86,6 +112,7 @@ class CSAStreamingMemoryImpl {
 
   void makeStreaming(StreamingMemoryDetails &Details);
   bool attemptWide(StreamingMemoryDetails &A, StreamingMemoryDetails &B);
+  bool attemptWideLoad(WideLoadDetails &A, WideLoadDetails &B);
 
   void reportSuccess(Instruction *MemInst) {
     OptimizationRemark R(DEBUG_TYPE, "StreamingMemory", MemInst);
@@ -98,10 +125,15 @@ class CSAStreamingMemoryImpl {
 
   unsigned NextLicId = 0;
 
+  void calculateResourceUsage(Function &F);
+  // These are the counts of the resource units we're consuming to go to and
+  // from the RAFs.
+  unsigned NumToMem, NumFromMem;
+
 public:
   CSAStreamingMemoryImpl(DominatorTree &DT, LoopInfo &LI, ScalarEvolution &SE,
-      OptimizationRemarkEmitter &ORE)
-    : DT(DT), LI(LI), ORE(ORE), SE(SE),
+      OptimizationRemarkEmitter &ORE, BlockFrequencyInfo &BFI)
+    : DT(DT), LI(LI), ORE(ORE), SE(SE), BFI(BFI),
       Expander(SE, SE.getDataLayout(), "streammem") {
         // Cause AddRecExprs to be expanded as phi loops rather than mul/adds.
         Expander.disableCanonicalMode();
@@ -124,6 +156,7 @@ struct CSAStreamingMemory : public FunctionPass {
     AU.addRequired<LoopInfoWrapperPass>();
     AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
     AU.addRequired<ScalarEvolutionWrapperPass>();
+    AU.addRequired<BlockFrequencyInfoWrapperPass>();
     AU.setPreservesAll();
   }
 
@@ -168,6 +201,7 @@ INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(OptimizationRemarkEmitterWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(BlockFrequencyInfoWrapperPass)
 INITIALIZE_PASS_END(CSAStreamingMemory, DEBUG_TYPE, PASS_DESC,
                     false, false)
 
@@ -185,8 +219,9 @@ bool CSAStreamingMemory::runOnFunction(Function &F) {
   auto &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   auto &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   auto &ORE = getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
+  auto &BFI = getAnalysis<BlockFrequencyInfoWrapperPass>().getBFI();
 
-  return CSAStreamingMemoryImpl(DT, LI, SE, ORE).run(F);
+  return CSAStreamingMemoryImpl(DT, LI, SE, ORE, BFI).run(F);
 }
 
 bool CSAStreamingMemoryImpl::run(Function &F) {
@@ -205,9 +240,53 @@ bool CSAStreamingMemoryImpl::run(Function &F) {
   }
 
   bool Changed = false;
-  for (auto &L : LI.getLoopsInPreorder()) {
+  calculateResourceUsage(F);
+
+  // Try to construct wide loads first if possible: a wide load actually
+  // decreases the resource consumption compared to two regular loads.
+  if (EnableWideLoads) {
+    for (auto &BB : F) {
+      SmallVector<WideLoadDetails, 8> PossibleWideLoads;
+      for (auto &I : BB) {
+        if (auto LI = dyn_cast<LoadInst>(&I)) {
+          auto DetailsWide = getLegalWideLoad(LI->getPointerOperand(), LI);
+          if (!DetailsWide)
+            continue;
+          PossibleWideLoads.push_back(*DetailsWide);
+        }
+      }
+
+      // Check for wide load possibilities.
+      int NumWideLoads = PossibleWideLoads.size();
+      for (int i = NumWideLoads - 1; i > 0; i--) {
+        for (int j = i - 1; j >= 0; j--) {
+          bool Successful = attemptWideLoad(PossibleWideLoads[j],
+            PossibleWideLoads[i]);
+          if (Successful) {
+            Changed = true;
+            PossibleWideLoads.erase(PossibleWideLoads.begin() + i);
+            PossibleWideLoads.erase(PossibleWideLoads.begin() + j);
+            i--;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  // Go through loops in order from highest frequency to lowest frequency. This
+  // lets us know when to stop running streaming memory conversion.
+  SmallVector<Loop *, 4> Loops = LI.getLoopsInPreorder();
+  std::sort(Loops.begin(), Loops.end(), [=](Loop *A, Loop *B) {
+    return BFI.getBlockFreq(A->getHeader()) > BFI.getBlockFreq(B->getHeader());
+  });
+
+  for (auto &L : Loops) {
     Changed |= runOnLoop(L);
   }
+
+  LLVM_DEBUG(dbgs() << "Estimated usage after conversion of resources to be: "
+      << "\n  VCPF: " << NumToMem << "\n  VCPR: " << NumFromMem << "\n");
   return Changed;
 }
 
@@ -217,7 +296,7 @@ bool CSAStreamingMemoryImpl::runOnLoop(Loop *L) {
   // Get the loop preheader, creating it if it doesn't exist.
   auto *Preheader = L->getLoopPreheader();
   if (!Preheader) {
-    Preheader = InsertPreheaderForLoop(L, &DT, &LI, false);
+    Preheader = InsertPreheaderForLoop(L, &DT, &LI, nullptr, false);
     Changed = true;
   }
   assert(Preheader && "How did we not create a preheader?");
@@ -268,7 +347,7 @@ bool CSAStreamingMemoryImpl::runOnLoop(Loop *L) {
     return Changed;
 
   // Get the exit block of the loop. Make sure it is dedicated to the loop.
-  Changed |= formDedicatedExitBlocks(L, &DT, &LI, false);
+  Changed |= formDedicatedExitBlocks(L, &DT, &LI, nullptr, false);
   auto *ExitBlock = L->getExitBlock();
   if (!ExitBlock)
     return Changed;
@@ -330,7 +409,9 @@ bool CSAStreamingMemoryImpl::runOnLoop(Loop *L) {
     }
   }
 
-  // Check for wide streaming load possibilities.
+  // Check for wide streaming load possibilities. Since wide loads use the same
+  // (or fewer, in a few cases) number of units as two regular loads, this
+  // should never increase demanded resources.
   int NumStreams = PossibleStreams.size();
   for (int i = NumStreams - 1; i > 0; i--) {
     for (int j = 0; j < i; j++) {
@@ -351,6 +432,11 @@ bool CSAStreamingMemoryImpl::runOnLoop(Loop *L) {
       reportFailure(Details.MemInst, "stride is not constant 1");
       continue;
     }
+    if (NumToMem >= NumVCPFUnits || NumFromMem >= NumVCPRUnits) {
+      reportFailure(Details.MemInst,
+        "not converting due to memory resource exhaustion");
+      continue;
+    }
     makeStreaming(Details);
     Changed = true;
   }
@@ -364,7 +450,6 @@ bool CSAStreamingMemoryImpl::runOnLoop(Loop *L) {
       RecursivelyDeleteDeadPHINode(cast<PHINode>(I));
     }
   }
-
   return Changed;
 }
 
@@ -415,13 +500,11 @@ Optional<StreamingMemoryDetails> CSAStreamingMemoryImpl::getLegalStream(
     Value *Pointer, Instruction *MemInst) {
   const SCEV *S = SE.getSCEV(Pointer);
   Loop *L = LI.getLoopFor(MemInst->getParent());
-
+  LLVM_DEBUG(dbgs() << "Candidate for streaming memory at " << *MemInst << "\n");
   // The SCEV must be an affine add-rec expr within the loop in question.
   const SCEVAddRecExpr *SAddRec = dyn_cast<SCEVAddRecExpr>(S);
   if (!SAddRec || !SAddRec->isAffine() || SAddRec->getLoop() != L)
     return None;
-
-  LLVM_DEBUG(dbgs() << "Candidate for streaming memory at " << *MemInst << "\n");
   LLVM_DEBUG(dbgs() << "Recurrence is " << *S << "\n");
 
   // Get the stride of the streaming memory reference.
@@ -459,6 +542,23 @@ Optional<StreamingMemoryDetails> CSAStreamingMemoryImpl::getLegalStream(
 
   StreamingMemoryDetails Details = { SAddRec->getStart(), StrideVal, InOrd,
     OutOrd, MemTy, MemInst };
+  LLVM_DEBUG(errs() << "Adding to streaming memory list\n");
+  return Details;
+}
+
+Optional<WideLoadDetails> CSAStreamingMemoryImpl::getLegalWideLoad(
+    Value *Pointer, Instruction *MemInst) {
+  const SCEV *S = SE.getSCEV(Pointer);
+  LLVM_DEBUG(dbgs() << "Candidate for wide load at " << *MemInst << "\n");
+  if (!S)
+    return None;
+  LLVM_DEBUG(dbgs() << "Address is " << *S << "\n");
+  Type *MemTy = Pointer->getType()->getPointerElementType();
+  // Get the input and output ordering edges.
+  CallInst *InOrd = getInordEdge(MemInst);
+  CallInst *OutOrd = getOutordEdge(MemInst);
+  WideLoadDetails Details = { S, InOrd, OutOrd, MemTy, MemInst };
+  LLVM_DEBUG(errs() << "Adding to wide load list\n");
   return Details;
 }
 
@@ -473,10 +573,22 @@ CallInst *CSAStreamingMemoryImpl::getInordEdge(Instruction *MemInst) {
 }
 
 CallInst *CSAStreamingMemoryImpl::getOutordEdge(Instruction *MemInst) {
-  if (auto II = dyn_cast<IntrinsicInst>(MemInst->getNextNode())) {
-    if (II->getIntrinsicID() == Intrinsic::csa_outord) {
-      return II;
+  // Check for an outord instruction existing after the memory instruction. It's
+  // possible that some code (*cough*SCEVExpander*cough*) might insert some
+  // extra instruction, such as a bitcast, immediately after the load,
+  // preventing the outord from being immediately adjacent. However, we do want
+  // to ensure that the chain operand goes from the memory instruction to the
+  // outord instruction, so if another instruction creates a chain, stop
+  // searching.
+  for (auto NextInst = MemInst->getNextNode(); NextInst;
+      NextInst = NextInst->getNextNode()) {
+    if (auto II = dyn_cast<IntrinsicInst>(NextInst)) {
+      if (II->getIntrinsicID() == Intrinsic::csa_outord) {
+        return II;
+      }
     }
+    if (NextInst->mayReadOrWriteMemory())
+      break;
   }
 
   return nullptr;
@@ -614,6 +726,7 @@ void CSAStreamingMemoryImpl::makeStreaming(StreamingMemoryDetails &Details) {
   // Generate the base and length values for the stream
   Instruction *DeloopedIP = L->getLoopPreheader()->getTerminator();
   IRBuilder<> Builder(DeloopedIP);
+  Builder.SetCurrentDebugLocation(Details.MemInst->getDebugLoc());
   Value *Base = Expander.expandCodeFor(Details.Base,
       Details.MemTy->getPointerTo(), DeloopedIP);
   Value *Length = Expander.expandCodeFor(ExecCount, Builder.getInt64Ty(),
@@ -673,6 +786,132 @@ void CSAStreamingMemoryImpl::makeStreaming(StreamingMemoryDetails &Details) {
 
   // Clear out any dead stuff from the pointer.
   RecursivelyDeleteTriviallyDeadInstructions(OldPointer);
+
+  // A new streaming load or streaming store increases the number of units used
+  // by one if its size is not a small constant.
+  NumToMem++;
+}
+
+bool CSAStreamingMemoryImpl::attemptWideLoad(WideLoadDetails &A,
+    WideLoadDetails &B) {
+  // Check that stride, length, and size are all equivalent.
+  if (A.MemTy != B.MemTy)
+    return false;
+  // Are they both loads? (Only sldx2 is supported for now).
+  if (!isa<LoadInst>(A.MemInst) || !isa<LoadInst>(B.MemInst))
+    return false;
+
+  // Find out if one is the base of the other.
+  const SCEV *BaseDiff = SE.getMinusSCEV(A.Address, B.Address);
+  const SCEVConstant *Constant = dyn_cast<SCEVConstant>(BaseDiff);
+  int64_t PtrSize = SE.getDataLayout().getTypeStoreSize(A.MemTy);
+  if (!Constant || abs(Constant->getValue()->getSExtValue()) != PtrSize)
+    return false;
+
+  bool IsALess = Constant->getValue()->isNegative();
+  WideLoadDetails &Lo = IsALess ? A : B;
+  WideLoadDetails &Hi = IsALess ? B : A;
+
+  {
+    OptimizationRemarkAnalysis RLo(DEBUG_TYPE, "StreamingMemory", Lo.MemInst);
+    ORE.emit(RLo << "found candidate for wide load");
+    OptimizationRemarkAnalysis RHi(DEBUG_TYPE, "StreamingMemory", Hi.MemInst);
+    ORE.emit(RHi << "will be paired with this load");
+  }
+
+  // Compute if the input ordering edges are compatible. For compatible, we're
+  // saying that they must both be %ign or both be the same value. Since these
+  // values should end up in the same in alias set anyways, memory ordering is
+  // not likely to create cases where there is a mismatch. Merging the values
+  // if they don't match could well kill any performance gains of streaming
+  // anyways.
+  if (A.InOrd && B.InOrd) {
+    if (A.InOrd->getArgOperand(0) != B.InOrd->getArgOperand(0)) {
+      reportFailure(Lo.MemInst, "memory ordering tokens are not compatible");
+      return false;
+    }
+  } else if (A.InOrd || B.InOrd) {
+    reportFailure(Lo.MemInst, "memory ordering tokens are not compatible");
+    return false;
+  }
+
+  // Compare output ordering edges for compatibility. Essentially the same rules
+  // as above apply, although comparing uses for equivalency is more complex.
+  if (A.OutOrd && B.OutOrd) {
+    if (A.OutOrd->getNumUses() != B.OutOrd->getNumUses()) {
+      reportFailure(Lo.MemInst, "memory ordering tokens are not compatible");
+      return false;
+    }
+    auto UserCmp = [](const Use &U1, const Use &U2) {
+      return (std::less<const User*>{})(U1.getUser(), U2.getUser());
+    };
+    A.OutOrd->sortUseList(UserCmp);
+    B.OutOrd->sortUseList(UserCmp);
+    if (!std::equal(A.OutOrd->user_begin(), A.OutOrd->user_end(),
+                    B.OutOrd->user_begin())) {
+      reportFailure(Lo.MemInst, "memory ordering tokens are not compatible");
+      return false;
+    }
+  } else if (A.OutOrd || B.OutOrd) {
+    reportFailure(Lo.MemInst, "memory ordering tokens are not compatible");
+    return false;
+  }
+
+  // We have cleared all the checks. We can now create the operation.
+  LLVM_DEBUG(dbgs() << "Found wide load\n");
+  LLVM_DEBUG(dbgs() << "Lo: " << *Lo.MemInst << "\n");
+  LLVM_DEBUG(dbgs() << "Hi: " << *Hi.MemInst << "\n");
+
+  // Generate the base and length values for the stream
+  IRBuilder<> Builder(Lo.MemInst);
+  // Set the length to 2
+  Value *Base = Expander.expandCodeFor(Lo.Address,
+      Lo.MemTy->getPointerTo(), Lo.MemInst);
+  Value *Length = Builder.getInt64(2);
+
+  // Construct the wide streaming load.
+  auto LI = dyn_cast<LoadInst>(Lo.MemInst);
+  Value *OldLoPointer = LI->getPointerOperand();
+  Value *OldHiPointer = dyn_cast<LoadInst>(Hi.MemInst)->getPointerOperand();
+  Instruction *NewInst = Builder.CreateIntrinsic(Intrinsic::csa_stream_load_x2,
+      { Lo.MemTy },
+      { Base, Length, Builder.getInt64(1) },
+      nullptr, LI->getName() + ".wideload");
+
+  // Hook up lics for lo and hi.
+  Value *LoResult = Builder.CreateExtractValue(NewInst, 0, Lo.MemInst->getName());
+  Value *HiResult = Builder.CreateExtractValue(NewInst, 1, Hi.MemInst->getName());
+  Lo.MemInst->replaceAllUsesWith(LoResult);
+  Hi.MemInst->replaceAllUsesWith(HiResult);
+
+  LLVM_DEBUG(dbgs() << "Replaced loads with " << *NewInst << "\n");
+  reportSuccess(Lo.MemInst);
+
+  // Adjust the ordering edges to the new instruction.
+  if (Lo.InOrd) {
+    Lo.InOrd->moveBefore(NewInst);
+    Hi.InOrd->eraseFromParent();
+  }
+  if (Lo.OutOrd) {
+    Lo.OutOrd->moveAfter(NewInst);
+    Hi.OutOrd->replaceAllUsesWith(Lo.OutOrd);
+    Hi.OutOrd->eraseFromParent();
+  }
+
+  // Delete the old instructions.
+  Lo.MemInst->eraseFromParent();
+  Lo.MemInst = NewInst;
+  Hi.MemInst->eraseFromParent();
+  Hi.MemInst = nullptr;
+
+  // Clear out any dead stuff from the pointer.
+  RecursivelyDeleteTriviallyDeadInstructions(OldLoPointer);
+  RecursivelyDeleteTriviallyDeadInstructions(OldHiPointer);
+
+  // A conversion to wide load scavenges one resource
+  NumToMem--;
+
+  return true;
 }
 
 bool CSAStreamingMemoryImpl::attemptWide(StreamingMemoryDetails &A,
@@ -763,6 +1002,9 @@ bool CSAStreamingMemoryImpl::attemptWide(StreamingMemoryDetails &A,
   // Generate the base and length values for the stream
   Instruction *DeloopedIP = L->getLoopPreheader()->getTerminator();
   IRBuilder<> Builder(DeloopedIP);
+  Builder.SetCurrentDebugLocation(DILocation::getMergedLocation(
+    Lo.MemInst->getDebugLoc().get(),
+    Hi.MemInst->getDebugLoc().get()));
   Value *Base = Expander.expandCodeFor(Lo.Base,
       Lo.MemTy->getPointerTo(), DeloopedIP);
   Value *Length = Expander.expandCodeFor(ExecCount, Builder.getInt64Ty(),
@@ -824,4 +1066,61 @@ bool CSAStreamingMemoryImpl::isPipelinedLoop(Loop *L) {
   }
 
   return false;
+}
+
+void CSAStreamingMemoryImpl::calculateResourceUsage(Function &F) {
+  NumToMem = NumFromMem = 0;
+  // Each parameter and return result counts for resource usage as well.
+  FunctionType *Ty = F.getFunctionType();
+  if (!Ty->getReturnType()->isVoidTy()) {
+    // XXX: struct return ty ABI
+    NumToMem += 1;
+  }
+  // XXX: account for abi issues here.
+  NumFromMem += Ty->getNumParams();
+
+  for (auto &BB : F) {
+    for (auto &I : BB) {
+      if (auto *LI = dyn_cast<LoadInst>(&I)) {
+        // XXX: estimate number of loads better (i.e., i128 -> 2 loads)
+        (void)LI;
+        unsigned NumLoads = 1;
+        NumToMem += NumLoads;
+        NumFromMem += NumLoads;
+      } else if (auto *SI = dyn_cast<StoreInst>(&I)) {
+        (void)SI;
+        unsigned NumStores = 1;
+        NumToMem += 2 * NumStores;
+      } else if (isa<AtomicCmpXchgInst>(&I) || isa<AtomicRMWInst>(&I)) {
+        // No need to estimate actual number of atomics--all of the atomics
+        // should be legalized by the time we run, so every instruction will
+        // map to a single atomic in the backend.
+        NumToMem += 2;
+        NumFromMem += 1;
+      } else if (auto *II = dyn_cast<IntrinsicInst>(&I)) {
+        // XXX: small length for streaming loads/stores.
+        switch (II->getIntrinsicID()) {
+          case Intrinsic::csa_stream_load:
+            NumToMem += 2;
+            NumFromMem += 1;
+            break;
+          case Intrinsic::csa_stream_store:
+            NumToMem += 3;
+            break;
+          case Intrinsic::csa_stream_load_x2:
+            NumToMem += 2;
+            NumFromMem += 2;
+            break;
+          case Intrinsic::prefetch:
+            NumToMem += 1;
+            break;
+          default:
+            break;
+        }
+      }
+    }
+  }
+
+  LLVM_DEBUG(dbgs() << "Estimated usage before conversion of resources to be: "
+      << "\n  VCPF: " << NumToMem << "\n  VCPR: " << NumFromMem << "\n");
 }

@@ -203,8 +203,6 @@ bool CSAExpandInlineAsm::expandInlineAsm(MachineInstr *MI) {
   assert(TAP && "An MCTargetAsmParser is required for parsing MachineInstrs!");
   Parser->setAssemblerDialect(MI->getInlineAsmDialect());
   Parser->setTargetParser(*TAP.get());
-  TAP->SetFrameRegister(
-    MF->getSubtarget().getRegisterInfo()->getFrameRegister(*MF));
 
   LLVM_DEBUG(errs() << "Attempting to parse INLINEASM MI:\n" << *MI);
 

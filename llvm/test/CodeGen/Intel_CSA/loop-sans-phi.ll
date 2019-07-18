@@ -7,7 +7,7 @@ target triple = "csa"
 
 ; The check here is that we need to repeat the memory ordering operand for the
 ; loop, as this is a non-constant value.
-; CHECK: repeato0
+; CHECK: repeat0
 define void @do_lock() local_unnamed_addr {
 entry:
   br label %while.cond

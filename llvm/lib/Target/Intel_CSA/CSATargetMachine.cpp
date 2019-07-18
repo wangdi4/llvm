@@ -60,6 +60,7 @@
 #include "llvm/Transforms/Utils/LoopSimplify.h"
 #include "llvm/Transforms/Utils/Mem2Reg.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
+#include "llvm/Transforms/Scalar/InstSimplifyPass.h"
 
 using namespace llvm;
 
@@ -82,12 +83,14 @@ extern "C" void LLVMInitializeCSATarget() {
   // is placed here because it is too target-specific.
   PassRegistry &PR = *PassRegistry::getPassRegistry();
   initializeCSAAllocUnitPassPass(PR);
+  initializeCSACreateSelfContainedGraphPass(PR);
   initializeCSACvtCFDFPassPass(PR);
   initializeCSADataflowCanonicalizationPassPass(PR);
   initializeCSADataflowVerifierPass(PR);
   initializeCSADeadInstructionElimPass(PR);
   initializeCSAExpandInlineAsmPass(PR);
   initializeCSAFortranIntrinsicsPass(PR);
+  initializeCSALoopPrepPass(PR);
   initializeCSAInnerLoopPrepPass(PR);
   initializeCSALowerLoopIdiomsPass(PR);
   initializeCSAMemopOrderingPasses(PR);
@@ -184,6 +187,8 @@ public:
     disablePass(&StackMapLivenessID);
     disablePass(&LiveDebugValuesID);
     disablePass(&PatchableFunctionID);
+    disablePass(&PostRAMachineSinkingID);
+    disablePass(&PrologEpilogCodeInserterID);
 
     // Register coalescing causes issues with our def-after-use nature of
     // dataflow.
@@ -218,6 +223,7 @@ public:
     // only happens at O1+ so as to avoid requiring excessive additional
     // analyses at O0.
     if (getOptLevel() != CodeGenOpt::None) {
+      addPass(createCSALoopPrepPass());
       addPass(createCSAInnerLoopPrepPass());
     }
 
@@ -237,16 +243,21 @@ public:
     addPass(createCSAParseAnnotateAttributesPass());
 
     // Add pass to replace alloca instructions
+    addPass(createPromoteMemoryToRegisterPass(true, true));
     addPass(createCSAReplaceAllocaWithMallocPass(getCSATargetMachine()));
     addPass(createUnskippableAggressiveDCEPass());
+    addPass(createUnskippableInstSimplifyLegacyPass());
     addPass(createGlobalDCEPass());
-    
+
     // simplify loop has to be run last, data flow converter assume natural loop
     // format, with prehdr etc...
     addPass(createLoopSimplifyPass());
 
     // Add ordering edges to memops.
     addPass(createCSAMemopOrderingPass(getCSATargetMachine()));
+
+    // Lower scratchpads.
+    addPass(createCSALowerScratchpadsPass());
 
     // Convert loads/stores to sld/sst where possible.
     if (getOptLevel() != CodeGenOpt::None)
@@ -260,10 +271,7 @@ public:
 
     addPass(createCSARASReplayableLoadsDetectionPass(), false);
     addPass(createCSANameLICsPass(), false);
-
-    if (getOptLevel() != CodeGenOpt::None) {
-      addPass(createCSACvtCFDFPass(), false);
-    }
+    addPass(createCSACvtCFDFPass(), false);
 
     if (RunCSAStatistics) {
       addPass(createCSAStatisticsPass(), false);
@@ -286,6 +294,16 @@ public:
     addPass(createCSANormalizeDebugPass(), false);
   }
 
+  void addOptimizedRegAlloc() override {
+    // If we go back to suppoting SXU code, we should add code here to enable
+    // register allocation passes only on functions that have the SXU subtarget
+    // feature. But for the moment, we have none of that.
+  }
+
+  void addFastRegAlloc() override {
+    // See note above in addOptimizedRegAlloc.
+  }
+
 // Last call in TargetPassConfig.cpp to disable passes.
 // If we don't disable here some other passes may add after disable
   void addPostRegAlloc() override {
@@ -302,7 +320,10 @@ public:
     }
 
     if (csa_utils::isAlwaysDataFlowLinkageSet()) {
-      addPass(createCSAProcCallsPass(), false);
+      if (csa_utils::createSCG())
+        addPass(createCSACreateSelfContainedGraphPass(), false);
+      else
+        addPass(createCSAProcCallsPass(), false);
     }
   }
 
@@ -312,6 +333,14 @@ public:
 
     // Pass call onto parent
     TargetPassConfig::addIRPasses();
+  }
+
+  void addAdvancedPatternMatchingOpts() override {
+    // Do Fused-Multiply-Add transformations.
+    addPass(createCSAGlobalFMAPass());
+
+    // Pass call onto parent
+    TargetPassConfig::addAdvancedPatternMatchingOpts();
   }
 
 }; // class CSAPassConfig

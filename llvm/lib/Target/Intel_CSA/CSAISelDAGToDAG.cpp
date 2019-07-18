@@ -122,6 +122,25 @@ bool CSADAGToDAGISel::SelectRegImm(SDValue Opnd, SDValue &Result) {
     }
   }
 
+  // Vector types: match constant vectors
+  if (ISD::isBuildVectorOfConstantSDNodes(Opnd.getNode()) ||
+      ISD::isBuildVectorOfConstantFPSDNodes(Opnd.getNode())) {
+    APInt ImmValue(Opnd.getValueSizeInBits(), 0, false);
+    unsigned BitSize = Opnd.getScalarValueSizeInBits();
+    for (unsigned i = 0; i < Opnd->getNumOperands(); i++) {
+      SDValue Op = Opnd->getOperand(i);
+      if (auto ConstNode = dyn_cast<ConstantSDNode>(Op)) {
+        ImmValue.insertBits(ConstNode->getAPIntValue(), BitSize * i);
+      } else if (auto ConstNode = dyn_cast<ConstantFPSDNode>(Op)) {
+        ImmValue.insertBits(ConstNode->getValueAPF().bitcastToAPInt(),
+            BitSize * i);
+      }
+    }
+    Result = CurDAG->getTargetConstant(ImmValue, SDLoc(Opnd),
+        EVT::getIntegerVT(*CurDAG->getContext(), Opnd.getValueSizeInBits()));
+    return true;
+  }
+
   // Fall back to register match
   Result = Opnd;
   return true;

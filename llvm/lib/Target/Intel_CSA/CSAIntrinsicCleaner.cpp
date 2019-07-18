@@ -43,6 +43,10 @@ STATISTIC(NumSPMDizationsCleaned,
 STATISTIC(NumPipelineCleaned,
           "Number of unused pipeline_loop intrinsic pairs removed");
 
+STATISTIC(NumPipelineDepthCleaned,
+  "Number of unused pipeline_limited_loop intrinsic pairs removed");
+
+
 namespace {
 
 struct CSAIntrinsicCleaner : FunctionPass {
@@ -71,6 +75,8 @@ private:
   bool clean_spmdization(Function &);
   // Removes any unused pipeline_loop intrinsic pairs from a function
   bool clean_pipeline(Function &);
+  // Removes any unused pipeline_limited_loop intrinsic pairs from a function
+  bool clean_pipeline_depth(Function &);
     // Create a LIC ID rather than the class used in the builtins
   bool expandLicQueueIntrinsics(Function &F);
 
@@ -85,7 +91,8 @@ bool CSAIntrinsicCleaner::runOnFunction(Function &F) {
         break;
     }
   }
-  return expandLicQueueIntrinsics(F) | clean_spmdization(F) | clean_pipeline(F);
+  return expandLicQueueIntrinsics(F) | clean_spmdization(F) |
+         clean_pipeline(F) | clean_pipeline_depth(F);
 }
 
 // convert init/write/read intrinsics to lower_init/lower_write/lower_read intrinsic
@@ -93,9 +100,37 @@ bool CSAIntrinsicCleaner::expandLicQueueIntrinsics(Function &F) {
 
   LLVMContext &CTX = F.getContext();
   Module *M = F.getParent();
-
   unsigned licNum = 0;
   SmallVector<Instruction *, 4> toDelete;
+  const auto errorMessage = [](StringRef msg1, StringRef msg2,
+                               Instruction *inst, Instruction *use,
+                               StringRef msg3, Instruction *first) {
+                        errs() << "\n";
+                        errs().changeColor(raw_ostream::RED, true);
+                        errs() << msg1;
+                        errs().resetColor();
+                        const DebugLoc &loc1 = inst->getDebugLoc();
+                        if (loc1) {
+                          errs() << msg2;
+                          loc1.print(errs());
+                        }
+                        if(use) {
+                          const DebugLoc &loc2 = use->getDebugLoc();
+                          if (loc2) {
+                            errs() << "\nwas detected at \n";
+                            loc2.print(errs());
+                          }
+                        }
+                        if(first) {
+                          const DebugLoc &loc3 = first->getDebugLoc();
+                          if (loc3) {
+                            errs() << msg3;
+                            loc3.print(errs());
+                          }
+                        }
+                        errs() << "\n";
+                        report_fatal_error(""); //to exit the compilation
+                 };
   for (auto &BB : F) {
     for (auto &I : BB) {
       auto intrinsic = dyn_cast<IntrinsicInst>(&I);
@@ -108,22 +143,48 @@ bool CSAIntrinsicCleaner::expandLicQueueIntrinsics(Function &F) {
       for (auto user : intrinsic->users()) {
         if (auto useIntrinsic = dyn_cast<IntrinsicInst>(user)) {
           if (useIntrinsic->getIntrinsicID() == Intrinsic::csa_lic_write) {
-            if (write)
-              report_fatal_error("Can only have one write for a LIC queue");
+            if (write) {
+              errorMessage("!! ERROR: Can only have one write for a LIC queue !!\n",
+                           "\n The extra write for stream:\n",
+                           intrinsic, useIntrinsic,
+                           "\n The first write is at: \n", write);
+            }
             write = useIntrinsic;
             continue;
           }
           if (useIntrinsic->getIntrinsicID() == Intrinsic::csa_lic_read) {
-            if (read)
-              report_fatal_error("Can only have one read for a LIC queue");
+            if (read) {
+              errorMessage("!! ERROR: Can only have one read for a LIC queue !!\n",
+                           "\n The extra read for stream:\n",
+                           intrinsic, useIntrinsic,
+                           "\n The first read is at: \n", read);
+            }
             read = useIntrinsic;
             continue;
           }
         }
-        report_fatal_error("LIC streams can only have writes/reads");
+        errs() << "\n";
+        errs().changeColor(raw_ostream::RED, true);
+        if(dyn_cast<CallInst>(user)) {
+          errs() << "!! ERROR: LIC streams are used by a call.";
+          errs() << " Add __attribute__((always_inline)) to the function definition\n";
+        }
+        else if(dyn_cast<SelectInst>(user)) {
+          errs() << "!! ERROR: LIC streams are used by a select instruction\n";
+          errs() << " Add the option -mllvm -disable-hir-opt-var-predicate \n";
+        }
+        else if(dyn_cast<StoreInst>(user)) {
+          errs() << "!! ERROR: LIC streams are used by a store instruction\n";
+          errs() << " Add the option -mllvm -hir-complete-unroll-loop-trip-threshold=256 \n";
+        }
+        errorMessage("LIC streams can only have writes/reads !!\n",
+                     "\n The illegal use for stream:\n",
+                     intrinsic, dyn_cast<Instruction>(user), "", nullptr);
       }
-      if(!write || !read)
-        report_fatal_error("LIC streams must have one write and one read");
+      if(!write || !read) {
+        errorMessage("!! ERROR: LIC streams must have one write and one read !!\n",
+                     "", intrinsic, nullptr, "", nullptr);
+      }
       auto licID = ConstantInt::get(IntegerType::getInt32Ty(CTX), licNum++);
       CallInst::Create(
           Intrinsic::getDeclaration(M, Intrinsic::csa_lower_lic_init),
@@ -286,6 +347,26 @@ bool CSAIntrinsicCleaner::clean_pipeline(Function &F) {
     }
   }
   return cleaned_pipeline_loop;
+}
+
+bool CSAIntrinsicCleaner::clean_pipeline_depth(Function &F) {
+  using namespace std;
+  bool cleaned_pipeline_depth = false;
+  for (BasicBlock &BB : F) {
+    for (auto inst_it = begin(BB); inst_it != end(BB);) {
+      IntrinsicInst *const intr_inst = dyn_cast<IntrinsicInst>(&*inst_it);
+      if (intr_inst and
+        intr_inst->getIntrinsicID() ==
+        Intrinsic::csa_pipeline_limited_entry) {
+        cleaned_pipeline_depth = true;
+        ++NumPipelineDepthCleaned;
+        inst_it = erase_with_all_uses(intr_inst);
+      }
+      else
+        ++inst_it;
+    }
+  }
+  return cleaned_pipeline_depth;
 }
 
 } // namespace

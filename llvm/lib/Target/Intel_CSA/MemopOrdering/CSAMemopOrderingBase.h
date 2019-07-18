@@ -97,10 +97,21 @@ private:
   Function *OutordIntr;
   Function *All0Intr;
   Type *MemordType;
+
+  Function *PrefetchIntr;
   /// @}
 
   /// Deletes parallel region/section intrinsics from a function.
   void deleteParallelIntrinsics(Function &);
+
+  /// Converts a value to the memory ordering token type by adding bitcast/trunc
+  /// instructions ahead of Where in order to satisfy LLVM's type system. This
+  /// is used in expandDataGatedPrefetches.
+  Value *toMemOrdValue(Value *, Instruction *Where);
+
+  /// Expands data-gated prefetch intrinsics into prefetches ordered off of data
+  /// values.
+  void expandDataGatedPrefetches(Function &);
 };
 
 } // namespace llvm

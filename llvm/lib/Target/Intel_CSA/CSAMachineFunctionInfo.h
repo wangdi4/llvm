@@ -34,6 +34,18 @@ struct CSALicGroup {
   CSALicGroup() = default;
 };
 
+struct CSAEntryPoint {
+  MachineFunction *MF;
+  MachineInstr *EntryMI;
+  MachineInstr *ReturnMI;
+  CSAEntryPoint (
+    MachineFunction *MF_t,
+    MachineInstr *EntryMI_t,
+    MachineInstr *ReturnMI_t
+  ) : MF(MF_t), EntryMI(EntryMI_t), ReturnMI(ReturnMI_t) { }
+  CSAEntryPoint() : MF(nullptr), EntryMI(nullptr), ReturnMI(nullptr) { }
+};
+
 /// CSAMachineFunctionInfo - This class is derived from MachineFunction and
 /// contains private CSA target-specific information for each MachineFunction.
 ///
@@ -63,6 +75,8 @@ class CSAMachineFunctionInfo : public MachineFunctionInfo {
   mutable StringSet<> namedLICs;
   mutable unsigned nameCounter;
   unsigned InMemoryLicSXU;
+  SmallVector<CSAEntryPoint, 4> CSAEntryPoints;
+  bool DoNotEmitAsm;
   virtual void anchor();
 
   /// Holds for each function where on the stack the Frame Pointer must be
@@ -146,13 +160,15 @@ public:
 
   MachineInstr *getEntryMI() const { return entryMI; }
   MachineInstr *getReturnMI() const { return returnMI; }
-  
+
   void setEntryMI(MachineInstr *MI) { entryMI = MI; }
   void setReturnMI(MachineInstr *MI) { returnMI = MI; }
-  
+
   void setNumCallSites(int n) { num_call_sites = n; }
   int getNumCallSites() const { return num_call_sites; }
 
+  void setDoNotEmitAsm(bool t) { DoNotEmitAsm = t; }
+  bool getDoNotEmitAsm(void) const { return DoNotEmitAsm; }
   /// Add key+value attribute to this LIC. The value is optional, the absence
   /// of which will generally be interpreted as a "1"/true.
   void addLICAttribute(unsigned reg, const StringRef key, const StringRef value = "") const;
@@ -183,6 +199,20 @@ public:
 
   /// Return the register that has the output memory edge.
   unsigned getOutMemoryLic() const;
+
+  void addCSAEntryPoint(
+    MachineFunction *MF, MachineInstr *EntryMI, MachineInstr *ReturnMI) {
+    CSAEntryPoints.emplace_back(MF,EntryMI,ReturnMI);
+  }
+
+  unsigned getNumCSAEntryPoints(void) const {
+    return CSAEntryPoints.size();
+  }
+
+  const CSAEntryPoint &getCSAEntryPoint(unsigned i) const {
+    assert(i < getNumCSAEntryPoints());
+    return CSAEntryPoints[i];
+  }
 };
 
 } // namespace llvm

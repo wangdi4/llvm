@@ -213,7 +213,7 @@ void CSARegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   }
 }
 
-unsigned CSARegisterInfo::getFrameRegister(const MachineFunction &MF) const {
+Register CSARegisterInfo::getFrameRegister(const MachineFunction &MF) const {
   const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
   return TFI->hasFP(MF) ? CSA::FP : CSA::SP;
 }

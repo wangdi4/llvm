@@ -50,6 +50,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<MachineOptimizationRemarkEmitterPass>();
+    AU.addRequired<CSALoopInfoPass>();
     MachineFunctionPass::getAnalysisUsage(AU);
   }
 };
@@ -61,6 +62,7 @@ char CSAOptDFPass::ID = 0;
 
 INITIALIZE_PASS_BEGIN(CSAOptDFPass, DEBUG_TYPE, PASS_NAME, false, false)
 INITIALIZE_PASS_DEPENDENCY(MachineOptimizationRemarkEmitterPass)
+INITIALIZE_PASS_DEPENDENCY(CSALoopInfoPass)
 INITIALIZE_PASS_END(CSAOptDFPass, DEBUG_TYPE, PASS_NAME, false, false)
 
 
@@ -72,7 +74,8 @@ bool CSAOptDFPass::runOnMachineFunction(MachineFunction &MF) {
     return false;
 
   auto &ORE = getAnalysis<MachineOptimizationRemarkEmitterPass>().getORE();
-  CSASeqOpt seqOpt(&MF, ORE, DEBUG_TYPE);
+  auto &LI = getAnalysis<CSALoopInfoPass>();
+  CSASeqOpt seqOpt(&MF, ORE, LI, DEBUG_TYPE);
   seqOpt.SequenceOPT(false);
   return true;
 }

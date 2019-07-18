@@ -22,6 +22,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
+#include "llvm/CodeGen/MachineOptimizationRemarkEmitter.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 
 #include <iterator>
@@ -59,6 +60,12 @@ static cl::opt<MultiplexType> Multiplex{
     clEnumVal(nondeterministic, "multiplex one FMA unit nondeterministically")),
   cl::init(deterministic)};
 
+static cl::opt<bool> EmulateFountains{
+    "csa-no-fountains", cl::Hidden,
+    cl::desc("CSA Specific: Emulate fountain ops as a temporary workaround "
+             "until real scratchpad support is restored."),
+    cl::init(true)};
+
 #define DEBUG_TYPE "csa-reassoc-reduc"
 #define PASS_NAME "CSA: Pipelined Reassociating Reduction Expansion"
 
@@ -73,6 +80,10 @@ public:
   StringRef getPassName() const override {
     return "CSA Pipelined Reassociating Reduction Expansion";
   }
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<MachineOptimizationRemarkEmitterPass>();
+    MachineFunctionPass::getAnalysisUsage(AU);
+  }
 
   bool runOnMachineFunction(MachineFunction &MF) override;
 
@@ -81,6 +92,7 @@ private:
   CSAMachineFunctionInfo *LMFI;
   MachineRegisterInfo *MRI;
   MachineConstantPool *MCP;
+  MachineOptimizationRemarkEmitter *ORE;
 
   // Determines whether a MachineInstr is eligible for conversion. This is the
   // case if it is a floating-point reduction (integer reductions are already
@@ -130,6 +142,7 @@ bool llvm::willRunCSAReassocReduc(const MachineFunction &MF) {
 char CSAReassocReduc::ID = 0;
 
 INITIALIZE_PASS_BEGIN(CSAReassocReduc, DEBUG_TYPE, PASS_NAME, false, false)
+INITIALIZE_PASS_DEPENDENCY(MachineOptimizationRemarkEmitterPass)
 INITIALIZE_PASS_END(CSAReassocReduc, DEBUG_TYPE, PASS_NAME, false, false)
 
 MachineFunctionPass *llvm::createCSAReassocReducPass() {
@@ -144,6 +157,7 @@ bool CSAReassocReduc::runOnMachineFunction(MachineFunction &MF) {
   LMFI = MF.getInfo<CSAMachineFunctionInfo>();
   MRI  = &MF.getRegInfo();
   MCP  = MF.getConstantPool();
+  ORE  = &getAnalysis<MachineOptimizationRemarkEmitterPass>().getORE();
 
   // Skip if willRunCSAReassocReduc determines that the pass shouldn't be run.
   if (not willRunCSAReassocReduc(MF))
@@ -304,15 +318,32 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
   LLVMContext &ctx = MI.getParent()->getParent()->getFunction().getContext();
   const auto smallfountain = [&](uint64_t bits, uint64_t len,
                                  const Twine &name) {
-    const unsigned scratch = MCP->getConstantPoolIndex(
-      ConstantInt::get(Type::getInt64Ty(ctx), bits), 1);
-    const unsigned res = add_lic(i1_class, name, true);
-    add_instr(CSA::FOUNTAIN1)
-      .addDef(res)
-      .addConstantPoolIndex(scratch)
-      .addImm(len)
-      .addImm(1);
-    return res;
+    if (EmulateFountains) {
+      // To keep the fountain-replacement loops saturated and avoid late tools
+      // problems, repeat small sequences ceil(9/len) times so that there are at
+      // least 9 values circulating around the loop.
+      const unsigned reps = 8 / len + 1;
+      const unsigned res = add_lic(i1_class, name, true);
+      const unsigned lthack = add_lic(i1_class, name + ".lthack", true);
+      LMFI->setLICDepth(lthack, reps * len);
+      add_instr(CSA::MOV1).addDef(lthack).addUse(res);
+      for (unsigned r = 0; r < reps; ++r) {
+        for (uint64_t i = 0; i < len; ++i) {
+          const uint64_t bit = bits >> i & 1;
+          add_instr(CSA::INIT1).addDef(lthack).addImm(bit);
+        }
+      }
+      add_instr(CSA::MOV1).addDef(res).addUse(lthack);
+      return res;
+    } else {
+      const unsigned res = add_lic(i1_class, name, true);
+      add_instr(CSA::FOUNTAIN1)
+          .addDef(res)
+          .addImm(bits)
+          .addImm(len)
+          .addImm(1);
+      return res;
+    }
   };
 
   // Look up common opcodes ahead of time.
@@ -375,22 +406,45 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
 
   // If it's some other immediate, use a fountain to reinitialize parts.
   else if (init_is_imm) {
-    SmallVector<Constant *, 10> consts(partred_count, identity);
-    consts.back()          = const_cast<ConstantFP *>(init.getFPImm());
-    const unsigned scratch = MCP->getConstantPoolIndex(
-      ConstantArray::get(ArrayType::get(fp_type, partred_count), consts),
-      lic_size / 8);
-    const unsigned parts_init = add_lic(lic_class, "parts_init", true);
-    add_instr(TII->makeOpcode(CSA::Generic::FOUNTAIN, lic_size))
-      .addDef(parts_init)
-      .addConstantPoolIndex(scratch)
-      .addImm(partred_count)
-      .addImm(1);
-    add_instr(opcode_pick)
-      .addDef(parts)
-      .addUse(parts_pred_ctl)
-      .addUse(parts_init)
-      .addUse(op_to_parts);
+    if (EmulateFountains) {
+      const unsigned parts_init = add_lic(lic_class, "parts_init", true);
+      const unsigned lthack = add_lic(lic_class, "parts_init.lthack", true);
+      LMFI->setLICDepth(lthack, partred_count);
+      add_instr(TII->makeOpcode(CSA::Generic::MOV, lic_size))
+          .addDef(lthack)
+          .addUse(parts_init);
+      const unsigned init_opcode =
+          TII->makeOpcode(CSA::Generic::INIT, lic_size);
+      for (int i = 0; i < partred_count - 1; ++i) {
+        add_instr(init_opcode).addDef(lthack).addFPImm(identity);
+      }
+      add_instr(init_opcode).addDef(lthack).add(init);
+      add_instr(TII->makeOpcode(CSA::Generic::MOV, lic_size))
+          .addDef(parts_init)
+          .addUse(lthack);
+      add_instr(opcode_pick)
+          .addDef(parts)
+          .addUse(parts_pred_ctl)
+          .addUse(parts_init)
+          .addUse(op_to_parts);
+    } else {
+      SmallVector<Constant *, 10> consts(partred_count, identity);
+      consts.back() = const_cast<ConstantFP *>(init.getFPImm());
+      const unsigned scratch = MCP->getConstantPoolIndex(
+          ConstantArray::get(ArrayType::get(fp_type, partred_count), consts),
+          lic_size / 8);
+      const unsigned parts_init = add_lic(lic_class, "parts_init", true);
+      add_instr(TII->makeOpcode(CSA::Generic::FOUNTAIN, lic_size))
+          .addDef(parts_init)
+          .addConstantPoolIndex(scratch)
+          .addImm(partred_count)
+          .addImm(1);
+      add_instr(opcode_pick)
+          .addDef(parts)
+          .addUse(parts_pred_ctl)
+          .addUse(parts_init)
+          .addUse(op_to_parts);
+    }
   }
 
   // Otherwise, use a pick to pull in the value from init and inject a 0 to make
@@ -592,6 +646,9 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
 
   // The expanded reduction is now complete. Delete the original reduction
   // instruction.
+  MachineOptimizationRemark Remark{
+    DEBUG_TYPE, "CSAReassocReduc: ", MI.getDebugLoc(), MI.getParent()};
+  ORE->emit(Remark << " reduction optimized using pipelined expansion");
   MI.eraseFromParent();
   ++ReducsExpanded;
   return ins_pos;

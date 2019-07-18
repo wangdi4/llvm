@@ -22,6 +22,7 @@ using namespace llvm;
 
 namespace csa_utils {
 bool isAlwaysDataFlowLinkageSet(void);
+bool createSCG(void);
 unsigned createUseTree(MachineBasicBlock *, MachineBasicBlock::iterator,
                        unsigned, const SmallVector<unsigned, 4>,
                        unsigned unusedReg = CSA::IGN);

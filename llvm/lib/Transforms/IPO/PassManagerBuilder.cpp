@@ -279,8 +279,13 @@ static cl::opt<bool> EnableMultiVersioning("enable-multiversioning",
 #if INTEL_FEATURE_CSA
 // CSA graph splitter.
 static cl::opt<bool> RunCSAGraphSplitter("enable-csa-graph-splitter",
-  cl::init(false), cl::Hidden,
+  cl::init(false), cl::Hidden, cl::ZeroOrMore,
   cl::desc("Run CSA graph splitter after late outlining."));
+
+// Add extra passes for CSA target.
+static cl::opt<bool> EnableCSAPasses("enable-csa-passes",
+  cl::init(false), cl::ReallyHidden, cl::ZeroOrMore,
+  cl::desc("Enable extra passes for CSA target."));
 #endif  // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 
@@ -1173,8 +1178,10 @@ void PassManagerBuilder::populateModulePassManager(
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
-  MPM.add(createPromoteMemoryToRegisterPass(true, true));
-  MPM.add(createSROAPass());
+  if (EnableCSAPasses) {
+    MPM.add(createPromoteMemoryToRegisterPass(true, true));
+    MPM.add(createSROAPass());
+  }
 #endif // INTEL_FEATURE_CSA
   MPM.add(createInlineReportEmitterPass(OptLevel, SizeLevel,
                                         PrepareForLTO || PrepareForThinLTO));

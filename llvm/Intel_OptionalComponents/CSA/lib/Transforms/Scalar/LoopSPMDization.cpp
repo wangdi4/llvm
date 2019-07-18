@@ -112,9 +112,11 @@ private:
                               std::vector<Value *> &ReduceVarExitOrig,
                               std::vector<Instruction *> &ReduceVarOrig,
                               std::vector<Instruction *> &OldInst);
+  void lowerSPMDWorkerNum(Loop *L, int PE);
   void setLoopAlreadySPMDized(Loop *L);
   void AddUnrollDisableMetadata(Loop *L);
-  bool FindReductionVariables(Loop *L, std::vector<Value *> &ReduceVarExitOrig,
+  bool FindReductionVariables(Loop *L, ScalarEvolution *SE,
+                              std::vector<Value *> &ReduceVarExitOrig,
                               std::vector<Instruction *> &ReduceVarOrig);
   unsigned FindReductionVectorsSize(Loop *L);
   PHINode *getInductionVariable(Loop *L, ScalarEvolution *SE);
@@ -222,7 +224,8 @@ Branches to or from an OpenMP structured block are illegal
     std::vector<Instruction *> ReduceVarOrig(r);
     // there is OldInst foreach reduction variable
     std::vector<Instruction *> OldInsts(r);
-    FindReductionVariables(L, ReduceVarExitOrig, ReduceVarOrig);
+    if(!FindReductionVariables(L, SE, ReduceVarExitOrig, ReduceVarOrig))
+      return false;
     // retrieve the minimum number of iterations of the loop in order to assess
     // whether to insert the zero trip count check or not
     int min_iterations = GetMinLoopIterations(L, SE);
@@ -335,6 +338,10 @@ try a different SPMDization strategy instead.
       else
         DT->addNewBlock(NewE, NewLoop->getHeader());
 
+      //If __builtin_csa_spmd_worker_num is used in the loop
+      //lower this to a constant to scalarize the array of streams
+      lowerSPMDWorkerNum(NewLoop, PE);
+
       Instruction *ExitTerm = Exit->getTerminator();
       BranchInst::Create(NewLoop->getLoopPreheader(), Exit);
       ExitTerm->eraseFromParent();
@@ -402,6 +409,7 @@ try a different SPMDization strategy instead.
       // for the original loop and it will be copied to each new loop
       // automatically, by cloneLoopWithPreheader().
     }
+    lowerSPMDWorkerNum(OrigL, 0);
 
     if (ZTCType == ZTCMode::Nested) {
       // Fix missed Phi operands in AfterLoop
@@ -461,6 +469,24 @@ INITIALIZE_PASS_END(LoopSPMDization, DEBUG_TYPE, "Loop SPMDization", false,
 
 Pass *llvm::createLoopSPMDizationPass() { return new LoopSPMDization(); }
 
+void LoopSPMDization::lowerSPMDWorkerNum(Loop *L, int PE) {
+  LLVMContext &Context = L->getHeader()->getContext();
+  SmallVector<Instruction *, 4> toDelete;
+  for (BasicBlock *const BB : L->getBlocks()) {
+    for (Instruction &inst : *BB)
+      if (IntrinsicInst *intr_inst = dyn_cast<IntrinsicInst>(&inst))
+        if (intr_inst->getIntrinsicID() == Intrinsic::csa_spmd_worker_num) {
+          Value *pe =
+            llvm::ConstantInt::get(llvm::Type::getInt32Ty(Context), PE);
+          inst.replaceAllUsesWith(pe);
+          toDelete.push_back(&inst);
+        }
+  }
+  for (auto I : toDelete)
+    I->eraseFromParent();
+  return;
+}
+
 void LoopSPMDization::setLoopAlreadySPMDized(Loop *L) {
   // Add SPMDization(disable) metadata to disable future SPMDization.
   SmallVector<Metadata *, 4> MDs;
@@ -516,24 +542,31 @@ unsigned LoopSPMDization::FindReductionVectorsSize(Loop *L) {
 }
 
 bool LoopSPMDization::FindReductionVariables(
-    Loop *L, std::vector<Value *> &ReduceVarExitOrig,
+    Loop *L, ScalarEvolution *SE,
+    std::vector<Value *> &ReduceVarExitOrig,
     std::vector<Instruction *> &ReduceVarOrig) {
+  Function *F = L->getHeader()->getParent();
+  OptimizationRemarkEmitter ORE(F);
   unsigned r = 0;
   for (Instruction &I : *L->getHeader()) {
     PHINode *Phi = dyn_cast<PHINode>(&I);
     if (!Phi)
       continue;
     RecurrenceDescriptor RedDes;
-    if (RecurrenceDescriptor::isReductionPHI(Phi, L, RedDes) || RecurrenceDescriptor::AddReductionVar(Phi, RecurrenceDescriptor::RecurrenceKind::RK_FloatMinMax, L, true, RedDes)){
+    if (RecurrenceDescriptor::isReductionPHI(Phi, L, RedDes) ||
+        RecurrenceDescriptor::AddReductionVar(Phi,
+                                              RecurrenceDescriptor::
+                                              RecurrenceKind::RK_FloatMinMax,
+                                              L, true, RedDes)) {
       Value *ReduceVar;
       PHINode *Phiop = Phi;
       PHINode *redoperation;
       if (Phi->getIncomingBlock(0) == L->getLoopPreheader()) {
-        ReduceVar = dyn_cast<Value>(Phi->getIncomingValue(1));
+        ReduceVar = Phi->getIncomingValue(1);
         redoperation = dyn_cast<PHINode>(Phiop->getIncomingValue(1));
         ReduceVarOrig[r] = dyn_cast<Instruction>(Phiop->getIncomingValue(1));
       } else {
-        ReduceVar = dyn_cast<Value>(Phi->getIncomingValue(0));
+        ReduceVar = Phi->getIncomingValue(0);
         redoperation = dyn_cast<PHINode>(Phiop->getIncomingValue(0));
         ReduceVarOrig[r] = dyn_cast<Instruction>(Phiop->getIncomingValue(0));
       }
@@ -560,7 +593,32 @@ bool LoopSPMDization::FindReductionVariables(
         if (ReduceVarExit == ReduceVar)
           ReduceVarExitOrig[r] = dyn_cast<Value>(PhiExit);
       }
-      // r++;
+    }
+    else {
+      //OptimizationRemark is not able to detect phi location
+      // si we have to print the instruction that uses a phi
+      // this might be a reduction that is not suported
+      // or an operation that involves a loop carry dependency
+      InductionDescriptor ID;
+      if (!InductionDescriptor::isInductionPHI(Phi, L, SE, ID)) {
+        errs() << "\n";
+        errs().changeColor(raw_ostream::BLUE, true);
+        errs() << "!! ERROR: COULD NOT PERFORM SPMDization !!\n";
+        errs().resetColor();
+        errs() << " Detected unsupported loop carried value in a loop marked for SPMDization;"
+               <<" please remove the SPMDization marking"
+               <<" or, if this is a reduction, add –mllvm –csa-omp-paropt-loop-splitting"
+               <<" along with the OpenMP reduction clause to detect more reduction patterns \n\n";
+        Instruction *op = cast<Instruction>(Phi);
+        for (auto UA = Phi->user_begin(), EA = Phi->user_end(); UA != EA;) {
+          op = cast<Instruction>(*UA++);
+        }
+        ORE.emit(
+                 OptimizationRemark(DEBUG_TYPE, "SPMD Reductions:", op)
+                 << "The unsupported loop carried value in a loop marked"
+                 <<" for SPMDization is");
+        return false;
+      }
     }
     r++; // count also the non reduction phis
   }
@@ -1883,7 +1941,7 @@ void LoopSPMDization::AddZeroTripCountCheck(Loop *L, ScalarEvolution *SE,
 
   PreHeaderBR->eraseFromParent();
 
-  BasicBlock *NewPH = InsertPreheaderForLoop(L, DT, LI, true);
+  BasicBlock *NewPH = InsertPreheaderForLoop(L, DT, LI, nullptr, true);
   if (ZTCType == ZTCMode::Nested) {
     // Move section entry from .e block to the  new preheader to avoid bad
     // section placement

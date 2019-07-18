@@ -381,3 +381,196 @@ CSAMemopOrdering
 ================
 
 [ A section on the real memory ordering pass, to be written later ]
+
+Ordering Rules
+--------------
+
+[ This is a section detailing ordering rules for each type of instruction, to be
+filled out later ]
+
+Prefetches
+~~~~~~~~~~
+
+Prefetches are not normal memory operations, and so they don't follow the normal
+ordering rules that other operations use. While other operations are ordered to
+ensure correct behavior, prefetches are mainly ordered to keep them from
+outpacing their corresponding memory operations and kicking current data out of
+the cache. Therefore, prefetch ordering follows five main rules:
+
+1. Prefetches are not ordered ahead of any operation, and the output ordering
+   edge is always unused as a result. This ensures that the prefetches won't
+   explicitly throttle the performance of a loop; we still don't want the actual
+   memory ops to get ahead of the prefetches, but that shouldn't happen in most
+   cases since the prefetches are issued at a lower frequency than the memory
+   ops.
+2. Read prefetches (with <rw>=0) are only ordered with memory ops that may load
+   and write prefetches (with <rw>=1) only with memory ops that may load or
+   may store. This helps to better associate prefetches with their corresponding
+   ops: it's generally not useful to use read prefetches with operations that
+   perform stores since the store will end up going through the memory system
+   anyway to get ownership of the line, but write prefetches may be used in
+   loops with both loads and stores and so it makes sense to order them with
+   loads as well. Read prefetches are also ordered with function calls even if
+   they may store, because the store could be unrelated to the prefetch and
+   there could be relevant loads. Neither type of prefetch is ordered with other
+   prefetches, as a result of rule (1).
+3. Alias analysis queries involving prefetch ops always use an arbitrarily large
+   access size, even in straight-line code. This ensures that prefetches are
+   ordered with the corresponding memory ops in the common case that the
+   prefetch address has some offset from the memory op one so that they don't
+   actually alias.
+4. Prefetch ops are only ordered within the context of their deepest containing
+   loop that also contains ops corresponding to their prefetch type
+   (see rule (2)). If there is no such loop, prefetches are ordered within the
+   context of the function (which does not include the mementry and return).
+   Prefetches are generally used in such a way that the only relevant ops are
+   ones in the same loop, and this rule helps capture this specificity. However,
+   it is also sometimes useful to use a loop containing only prefetches to
+   prefetch an entire block of memory, and that use case is also supported by
+   this rule. Note that this rule will produce entirely unordered prefetches in
+   cases where the relevant loop contains ops of the corresponding type that do
+   not alias the prefetches according to rule (3); this is a trade-off for not
+   having to define the relevant loop depending on what the results of alias
+   analysis are and is expected to be a very rare case.
+5. Parallel region/section intrinsics and loop metadata are ignored when
+   ordering prefetch intrinsics. This enables prefetches to be throttled using
+   ordering edges from ops in previous loop iterations even in loops that are
+   marked as parallel where such loop-carried edges would normally be dropped,
+   though it generally can't un-parallelize the loop since rule (1) ensures that
+   prefetch ops can't appear in a dataflow cycle.
+
+These rules produce the expected ordering edges for several common code
+patterns. For instance:
+
+.. code-block:: c
+
+   #pragma omp parallel for num_threads(4)
+   for (int i = 0; i < N; ++i) {
+     if (!(i & 0x7)) __builtin_prefetch(A + i + 1024);
+     const double x = A[i];
+     // ...
+   }
+
+Rule (5) ensures that there is still an ordering edge throttling the prefetch
+from the previous iteration's load, which would otherwise be removed because of
+the parallel for directive. However, the prefetches are still not connected to
+loads from the other SPMD workers thanks to rule (4). Note that the ordering
+edge here from individual loads from A blocks streaming load generation; for a
+strategy which is compatible with streaming loads, `Data-Gated Prefetches`_
+should be used instead.
+
+It's also possible to put the load ahead of the prefetch:
+
+.. code-block:: c
+
+   #pragma omp parallel for num_threads(4)
+   for (int i = 0; i < N; ++i) {
+     const double x = A[i];
+     if (!(i & 0x7)) __builtin_prefetch(A + i + 1024);
+     // ...
+   }
+
+This is possibly more unusual, but rule (3) ensures that the prefetch is
+throttled by the load in the same loop iteration as people would expect rather
+than the previous iteration.
+
+These rules also support patterns where prefetch loops are used to prefetch an
+entire block of memory:
+
+.. code-block:: c
+
+   #pragma omp parallel for
+   for (int i = 0; i < N; i += M) {
+     for (int j = i; j < i + M; j += 8) __builtin_prefetch(B + j, 1);
+     // ...
+     for (int k = i; k < i + M; ++k) B[k] = f(x);
+   }
+
+The important feature that enables this is the definition of the relevant loop
+in rule (4) as the deepest loop containing both the prefetch and a relevant
+memory op, not just the deepest loop containing the prefetch.
+
+Data-Gated Prefetches
+=====================
+
+Along with normal prefetch operations, the compiler provides data-gated
+prefetches that are triggered on the availability of particular data values
+rather than ordering tokens in order to support element-wise prefetching for
+streaming memory operations. This section describes the intrinsic used to
+represent these.
+
+``llvm.csa.gated.prefetch``
+---------------------------
+
+Syntax:
+~~~~~~~
+
+.. code-block:: llvm
+
+   declare void @llvm.csa.gated.prefetch.<type>(<type> <gate>, i8* <address>, i32 <rw>, i32 <locality>)
+
+Overview:
+~~~~~~~~~
+
+The data gated prefetch intrinsic is used to specify a prefetch operation
+triggered by the availability of particular data values.
+
+Arguments:
+~~~~~~~~~~
+
+The arguments of ``llvm.csa.gated.prefetch`` are identical to those of
+``llvm.prefetch`` except that:
+
+- The ``gate`` parameter has been added to the front of the list to specify the
+  values used to control when the prefetch triggers.
+- The ``cache type`` parameter has been removed since CSA lacks traditional
+  instruction prefetching. This operation will always perform a data prefetch.
+
+Semantics:
+~~~~~~~~~~
+
+This intrinsic issues a prefetch when the value of ``gate`` is available. It's
+implemented via a semi-trivial expansion at the end of the memory ordering pass
+that replaces this intrinsic with ``llvm.prefetch`` and attaches ``gate`` to its
+input ordering edge by adapting it to ``i1``. For most types this is just done
+with a combination of truncs, bitcasts, and ptrtoints:
+
+.. code-block:: llvm
+
+   call void @llvm.csa.gated.prefetch.v2f32(<2 x float> %gate, i8* %addr, i32 0, i32 3)
+
+   ; v expands to v
+
+   %cast = bitcast <2 x float> %gate to i64
+   %trunc = trunc i64 %cast to i1
+   call void @llvm.csa.inord(i1 %trunc)
+   call void @llvm.prefetch(i8* %addr, i32 0, i32 3, i32 1)
+   %outord = call i1 @llvm.csa.outord()
+
+   ; v generates as v
+
+   ; prefetch addr, %ign, gate, MEMLEVEL_T0
+
+For aggregate types (arrays and structs), the elements are converted to ``i1``
+individually and combined together with ``all0`` so that the prefetch is issued
+when all of the elements are available:
+
+.. code-block:: llvm
+
+   call void @llvm.csa.gated.prefetch.sl_i1i32s({i1, i32} %gate, i8* %addr, i32 0, i32 3)
+
+   ; v expands to v
+
+   %v0 = extractvalue {i1, i32} %gate, 0
+   %v1 = extractvalue {i1, i32} %gate, 1
+   %trunc = trunc i32 %v1 to i1
+   %all = call i1 (...) @llvm.csa.all0(i1 %v0, i1 %trunc)
+   call void @llvm.csa.inord(i1 %all)
+   call void @llvm.prefetch(i8* %addr, i32 0, i32 3, i32 1)
+   %outord = call i1 @llvm.csa.outord()
+
+   ; v generates as v
+
+   ; .lic .i0 gate
+   ; all0 gate, gate.0, gate.1
+   ; prefetch addr, %ign, gate, MEMLEVEL_T0

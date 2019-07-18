@@ -3805,7 +3805,21 @@ void VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
     LoopEssentialValues.push_back(std::make_pair(OrigAlloca, false));
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  Value *NormUB = nullptr;
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
+
   if (Index < W->getWRNLoopInfo().getNormUBSize()) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    if (isTargetCSA()) {
+      NormUB = W->getWRNLoopInfo().getNormUB(Index);
+      LoopEssentialValues.push_back(std::make_pair(NormUB, true));
+    } else {
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
     // Create a local copy of the normalized upper bound.
     //
     // Promoting the normalized upper bound to a register may cause
@@ -3886,6 +3900,11 @@ void VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
     LoopEssentialValues.push_back(std::make_pair(NewAlloca, true));
     // Do not promote the original alloca to register.
     LoopEssentialValues.push_back(std::make_pair(OrigAlloca, false));
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    }
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
   }
 
   for (auto &P : LoopEssentialValues) {
@@ -3907,6 +3926,12 @@ void VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
       // Only AllocaInst can be here.
       auto *AI = dyn_cast<AllocaInst>(V);
       assert(AI && "Trying mem-to-reg for not an AllocaInst.");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+      if (AI == NormUB && !isAllocaPromotable(AI))
+        continue;
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
       Allocas.push_back(AI);
     }
   }

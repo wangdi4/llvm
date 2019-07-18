@@ -21,7 +21,6 @@
 #include "MachineCDG.h"
 #include "llvm/ADT/IntEqClasses.h"
 #include "llvm/ADT/PostOrderIterator.h"
-#include "llvm/Analysis/AliasSetTracker.h"
 #include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
 #include "llvm/CodeGen/MachineBranchProbabilityInfo.h"
 #include "llvm/CodeGen/MachineDominators.h"
@@ -88,7 +87,7 @@ public:
     AU.addRequired<MachineBranchProbabilityInfo>();
     AU.addRequired<MachineDominatorTree>();
     AU.addRequired<MachinePostDominatorTree>();
-    AU.addRequired<AAResultsWrapperPass>();
+    AU.addRequired<CSALoopInfoPass>();
     AU.setPreservesAll();
     MachineFunctionPass::getAnalysisUsage(AU);
   }
@@ -106,6 +105,10 @@ public:
   bool parentsLinearInCDG(MachineBasicBlock *mbb);
   bool needDynamicPreds();
   bool needDynamicPreds(MachineLoop *L);
+  bool checkIfDepthLimitedLoop(MachineLoop *L,
+                               MachineInstr* &tokenTake,
+                               MachineInstr* &tokenReturn);
+  void limitPipelineDepth(MachineLoop *L);
   unsigned getInnerLoopPipeliningDegree(MachineLoop *L);
   void assignLicForDF();
   void createFIEntryDefs();
@@ -280,6 +283,10 @@ private:
   /// that supports at most the given number of concurrent iterations.
   void pipelineLoop(MachineBasicBlock *header, CSALoopInfo &DFLoop,
                     unsigned numTokens);
+
+  /// Add buffering to dataflow arcs that bypass a pipelined inner loop, to deal
+  /// with deficiencies in automatic buffer insertion.
+  void bufferPipelinedLoopBypass(MachineLoop *L, unsigned bufferDepth);
 
   /// Map all loops to CSALoopInfo. This does not enter any of the pick or
   /// switch information.

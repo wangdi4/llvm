@@ -99,15 +99,15 @@ class GraphSplitter {
         // which happens to be private. It is better for this functionality to
         // be exposed by the CallGraph.
         for (auto &I : instructions(NewFunc))
-          if (auto CS = CallSite(&I)) {
-            const auto *Callee = CS.getCalledFunction();
+          if (auto *CB = dyn_cast<CallBase>(&I)) {
+            const auto *Callee = CB->getCalledFunction();
             if (!Callee || !Intrinsic::isLeaf(Callee->getIntrinsicID()))
               // Indirect calls of intrinsics are not allowed so no need to
               // check. We can be more precise here by using TargetArg returned
               // by Intrinsic::isLeaf.
-              NewNode->addCalledFunction(CS, GS.CG.getCallsExternalNode());
+              NewNode->addCalledFunction(CB, GS.CG.getCallsExternalNode());
             else if (!Callee->isIntrinsic())
-              NewNode->addCalledFunction(CS, GS.CG.getOrInsertFunction(Callee));
+              NewNode->addCalledFunction(CB, GS.CG.getOrInsertFunction(Callee));
           }
 
         Node2Clone[Node] = NewNode;
@@ -119,9 +119,9 @@ class GraphSplitter {
       for (auto *Clone : CGClones)
         for (auto &CR : *Clone)
           if (auto *NewNode = Node2Clone.lookup(CR.second)) {
-            CallSite CS(CR.first);
-            CS.setCalledFunction(NewNode->getFunction());
-            Clone->replaceCallEdge(CS, CS, NewNode);
+            auto *CB = cast<CallBase>(CR.first);
+            CB->setCalledFunction(NewNode->getFunction());
+            Clone->replaceCallEdge(*CB, *CB, NewNode);
           }
 
       // And finally create new SCC node.
@@ -139,9 +139,9 @@ class GraphSplitter {
       for (auto *Node : CGNodes)
         for (auto &CR : *Node)
           if (auto *NewNode = Node2Clone.lookup(CR.second)) {
-            CallSite CS(CR.first);
-            CS.setCalledFunction(NewNode->getFunction());
-            Node->replaceCallEdge(CS, CS, NewNode);
+            auto *CB = cast<CallBase>(CR.first);
+            CB->setCalledFunction(NewNode->getFunction());
+            Node->replaceCallEdge(*CB, *CB, NewNode);
           }
       Callees[Idx] = Clone;
       return Clone;

@@ -104,13 +104,6 @@ public:
   /// registers.
   bool isAllocatable() const { return MC->isAllocatable(); }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-  /// Return true if this register class should skip register allocation.
-  bool isVirtual() const { return MC->isVirtual(); }
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
-
   /// Return true if the specified TargetRegisterClass
   /// is a proper sub-class of this TargetRegisterClass.
   bool hasSubClass(const TargetRegisterClass *RC) const {
