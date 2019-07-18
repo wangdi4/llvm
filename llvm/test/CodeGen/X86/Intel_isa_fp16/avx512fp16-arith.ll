@@ -431,3 +431,17 @@ define <32 x half> @fcopysignv32f16(<32 x half> %x, <32 x half> %y) {
   ret <32 x half> %a
 }
 declare <32 x half> @llvm.copysign.v32f16(<32 x half>, <32 x half>)
+
+define <8 x half>  @regression_test1(<8 x half> %x, <8 x half> %y) #0 {
+entry:
+; CHECK-LABEL: regression_test1:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:  vsubph  %xmm1, %xmm0, %xmm2
+; CHECK-NEXT:  vaddph  %xmm1, %xmm0, %xmm0
+; CHECK-NEXT:  vpblendw        $170, %xmm0, %xmm2, %xmm0
+; CHECK-NEXT:  retq
+  %a = fsub <8 x half> %x, %y
+  %b = fadd <8 x half> %x, %y
+  %c = shufflevector <8 x half> %a, <8 x half> %b, <8 x i32> <i32 0, i32 9, i32 2, i32 11, i32 4, i32 13, i32 6, i32 15>
+  ret <8 x half> %c
+}
