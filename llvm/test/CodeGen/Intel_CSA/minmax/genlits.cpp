@@ -88,7 +88,7 @@ void gen_cmp_minmax_cmp_test(
     << " %[[RES:[a-z0-9_.]+]]" << "\n";
   test.file << "; CHECK: " << test.op << test.opclass << test.bits
     << " %[[RES]], [[CMP:[^,]+]]" << "\n";
-  if (cmp2[1] == 't') {
+  if (cmp2[1] == 'e') {
     test.file << "; CHECK: not1 [[NOT:[^,]+]], [[CMP]]\n";
   }
   if (test.opclass == 'f') {
@@ -167,7 +167,7 @@ void gen_fminmax_cmp_test(TestFile& test, const char* cmp) {
     << " %[[RES:[a-z0-9_.]+]]" << "\n";
   test.file << "; CHECK: " << test.op << test.opclass << test.bits
     << " %[[RES]], [[CMP:[^,]+]]" << "\n";
-  if (cmp[1] == 't') {
+  if (cmp[1] == 'e') {
     test.file << "; CHECK: not1 [[NOT:[^,]+]], [[CMP]]\n";
   }
   test.file << "  %res = tail call " << test.llvm_type

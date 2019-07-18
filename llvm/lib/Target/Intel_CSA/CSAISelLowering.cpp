@@ -1463,7 +1463,7 @@ void CSATargetLowering::FoldComparesIntoMinMax(SDValue Sel, SelectionDAG &DAG,
   const SDValue LHS  = Sel->getOperand(0);
   const SDValue RHS  = Sel->getOperand(1);
 
-  // Min effectively implements a >= and max a <=, but we can get equivalent
+  // Min effectively implements a > and max a <, but we can get equivalent
   // values to other comparisons by a combination of swapping operands and
   // adding nots to the output. However, if we want to fold in multiple
   // comparisons all of them have to have the same operand order. The
@@ -1512,15 +1512,18 @@ void CSATargetLowering::FoldComparesIntoMinMax(SDValue Sel, SelectionDAG &DAG,
     // but when we have a clearer picture of what the architecture will do with
     // them there will probably need to be extra checks here.
 
+    // TODO: Now we have a proposed specification for NaNs; there's going to
+    // have to be some more logic to match up the order parameters
+
     // This comparison looks like a candidate for folding; put it in the right
-    // set. A >= with the same operand order can be folded into a min but
-    // switching to a <=, >, max, or swapping inputs each reverse the set
+    // set. A > with the same operand order can be folded into a min but
+    // switching to a <, >=, max, or swapping inputs each reverse the set
     // assignment. This gives the string of XORs below. A not is also needed for
-    // </>.
+    // <=/>=.
     const bool NeedsRev =
-      (bool(CC & ISD::SETOLT) != not(CC & ISD::SETOEQ)) != (IsMax != Reversed);
+      (bool(CC & ISD::SETOLT) != bool(CC & ISD::SETOEQ)) != (IsMax != Reversed);
     (NeedsRev ? RevCmps : SameCmps).emplace_back(Cmp, 0);
-    (NeedsRev ? RevNotCount : SameNotCount) += not(CC & ISD::SETOEQ);
+    (NeedsRev ? RevNotCount : SameNotCount) += bool(CC & ISD::SETOEQ);
 
     LLVM_DEBUG(dbgs() << " Found " << (NeedsRev ? "reversed" : "non-reversed")
                       << " comparison:\n");
@@ -1550,7 +1553,7 @@ void CSATargetLowering::FoldComparesIntoMinMax(SDValue Sel, SelectionDAG &DAG,
     const ISD::CondCode CC = cast<CondCodeSDNode>(Cmp->getOperand(2))->get();
     DAG.ReplaceAllUsesOfValueWith(
       Cmp,
-      (CC & ISD::SETOEQ) ? Sel : DAG.getLogicalNOT(SDLoc{Cmp}, Sel, MVT::i1));
+      (CC & ISD::SETOEQ) ? DAG.getLogicalNOT(SDLoc{Cmp}, Sel, MVT::i1) : Sel);
   }
 }
 
