@@ -199,10 +199,12 @@ def nologo : F<"nologo">;
 def throwingnew : F<"throwingnew">;
 def editandcontinue : F<"editandcontinue">;
 def fastfail : F<"fastfail">;
+def ltcg : F<"ltcg">;  // INTEL
 
 def delay : QF<"delay">;
 def errorreport : QF<"errorreport">;
 def idlout : QF<"idlout">;
+def ltcg_opt : QF<"ltcg">;  // INTEL
 def maxilksize : QF<"maxilksize">;
 def tlbid : QF<"tlbid">;
 def tlbout : QF<"tlbout">;

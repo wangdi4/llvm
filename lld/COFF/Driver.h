@@ -127,6 +127,15 @@ private:
   void enqueueTask(std::function<void()> Task);
   bool run();
 
+#if INTEL_CUSTOMIZATION
+  // Call MS-Link to finalize linking
+  // NOTE: This code was removed from the community in D50139.
+  void invokeMSVC(llvm::opt::InputArgList &Args);
+
+  // True if at least one input file was compiled with MSVC /GL (MS LTO)
+  bool MSGLFilesFound = false;
+#endif // INTEL_CUSTOMIZATION
+
   std::list<std::function<void()>> TaskQueue;
   std::vector<StringRef> FilePaths;
   std::vector<MemoryBufferRef> Resources;

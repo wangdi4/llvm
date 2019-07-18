@@ -42,6 +42,13 @@ tool_patterns = [
     'llc', 'llvm-as', 'llvm-mc', 'llvm-nm', 'llvm-objdump', 'llvm-pdbutil',
     'llvm-dwarfdump', 'llvm-readelf', 'llvm-readobj', 'obj2yaml', 'yaml2obj',
     'opt', 'llvm-dis']
+# INTEL_CUSTOMIZATION
+tool_patterns.append('clang-cl')
+# Note: 'clang' was added in the tools instead of 'clang++' because there is
+# an issue parsing special symbols. The parsing process converts 'clang++'
+# as 'clang+++++++'. This issue produces a missing command failure.
+tool_patterns.append('clang')
+# end INTEL_CUSTOMIZATION
 
 llvm_config.add_tool_substitutions(tool_patterns)
 

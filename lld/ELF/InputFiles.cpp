@@ -47,6 +47,7 @@ std::vector<BitcodeFile *> elf::BitcodeFiles;
 std::vector<LazyObjFile *> elf::LazyObjFiles;
 std::vector<InputFile *> elf::ObjectFiles;
 std::vector<SharedFile *> elf::SharedFiles;
+std::vector<InputFile *> elf::GNULTOFiles;    // INTEL
 
 std::unique_ptr<TarWriter> elf::Tar;
 
@@ -55,7 +56,7 @@ static ELFKind getELFKind(MemoryBufferRef MB, StringRef ArchiveName) {
   unsigned char Endian;
   std::tie(Size, Endian) = getElfArchType(MB.getBuffer());
 
-  auto Fatal = [&](StringRef Msg) {
+  auto Report = [&](StringRef Msg) {
     StringRef Filename = MB.getBufferIdentifier();
     if (ArchiveName.empty())
       fatal(Filename + ": " + Msg);
@@ -64,16 +65,16 @@ static ELFKind getELFKind(MemoryBufferRef MB, StringRef ArchiveName) {
   };
 
   if (!MB.getBuffer().startswith(ElfMagic))
-    Fatal("not an ELF file");
+    Report("not an ELF file");
   if (Endian != ELFDATA2LSB && Endian != ELFDATA2MSB)
-    Fatal("corrupted ELF file: invalid data encoding");
+    Report("corrupted ELF file: invalid data encoding");
   if (Size != ELFCLASS32 && Size != ELFCLASS64)
-    Fatal("corrupted ELF file: invalid file class");
+    Report("corrupted ELF file: invalid file class");
 
   size_t BufSize = MB.getBuffer().size();
   if ((Size == ELFCLASS32 && BufSize < sizeof(Elf32_Ehdr)) ||
       (Size == ELFCLASS64 && BufSize < sizeof(Elf64_Ehdr)))
-    Fatal("corrupted ELF file: file is too short");
+    Report("corrupted ELF file: file is too short");
 
   if (Size == ELFCLASS32)
     return (Endian == ELFDATA2LSB) ? ELF32LEKind : ELF32BEKind;
@@ -185,6 +186,14 @@ template <class ELFT> static void doParseFile(InputFile *File) {
   // Regular object file
   ObjectFiles.push_back(File);
   cast<ObjFile<ELFT>>(File)->parse();
+#if INTEL_CUSTOMIZATION
+  // If the input file is a GNU LTO file then add it
+  // into the GNULTOFiles vector.
+  if (File->IsGNULTOFile) {
+    ObjectFiles.pop_back();
+    GNULTOFiles.push_back(File);
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 // Add symbols in File to the symbol table.
@@ -575,6 +584,14 @@ void ObjFile<ELFT>::initializeSections(bool IgnoreComdats) {
     if (this->Sections[I] == &InputSection::Discarded)
       continue;
     const Elf_Shdr &Sec = ObjSections[I];
+
+#if INTEL_CUSTOMIZATION
+    // If the section name starts with .gnu.lto then a GNU
+    // LTO file was found.
+    StringRef SectionName = getSectionName(Sec);
+    if (SectionName.startswith(".gnu.lto"))
+      this->IsGNULTOFile = true;
+#endif
 
     if (Sec.sh_type == ELF::SHT_LLVM_CALL_GRAPH_PROFILE)
       CGProfile =
@@ -1153,6 +1170,30 @@ void ArchiveFile::fetch(const Archive::Symbol &Sym) {
                 ": could not get the buffer for the member defining symbol " +
                 Sym.getName());
 
+#if INTEL_CUSTOMIZATION
+  // If the parent is a thin archive and the child is an archive that
+  // isn't ELF then there is a possibility that is an archive with a
+  // GNU LTO member. In this case we just pull that archive and parse
+  // it.
+  //
+  // Note: Archives within archives are not permitted, only thin archives
+  // with archives.
+  if (C.getParent()->isThin() && !MB.getBuffer().startswith(ElfMagic)) {
+    auto BinaryOrErr = CHECK(createBinary(MB), ": could not get the buffer "
+                             "for the archive");
+    Binary *Bin = BinaryOrErr.get();
+
+    if (Bin && Bin->isArchive()) {
+      std::unique_ptr<Archive> ArchFile =
+          CHECK(Archive::create(MB), Bin->getFileName() +
+            ": failed to parse archive");
+      ArchiveFile *NewArchFile = make<ArchiveFile>(std::move(ArchFile));
+      parseFile(NewArchFile);
+      return;
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (Tar && C.getParent()->isThin())
     Tar->append(relativeToRoot(CHECK(C.getFullName(), this)), MB.getBuffer());
 
@@ -1402,6 +1443,9 @@ static uint8_t getBitcodeMachineKind(StringRef Path, const Triple &T) {
   case Triple::ppc64:
   case Triple::ppc64le:
     return EM_PPC64;
+  case Triple::riscv32:
+  case Triple::riscv64:
+    return EM_RISCV;
   case Triple::x86:
     return T.isOSIAMCU() ? EM_IAMCU : EM_386;
   case Triple::x86_64:
