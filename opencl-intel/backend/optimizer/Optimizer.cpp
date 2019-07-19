@@ -85,7 +85,8 @@ extern "C"{
 
 void *createInstToFuncCallPass(bool);
 FunctionPass *createWeightedInstCounter(bool, Intel::CPUId);
-FunctionPass *createScalarizerPass(const Intel::CPUId &CpuId);
+FunctionPass *createScalarizerPass(const Intel::CPUId &CpuId,
+                                   bool InVPlanPipeline);
 llvm::Pass *createVectorizerPass(SmallVector<Module *, 2> builtinModules,
                                  const intel::OptimizerConfig *pConfig);
 llvm::Pass *createOCLVecClonePass(const intel::OptimizerConfig *pConfig,
@@ -552,7 +553,7 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
             /* SinkCommon */ true));
         PM.add(createInstructionCombiningPass());
         PM.add(createGVNHoistPass());
-        PM.add(createScalarizerPass(pConfig->GetCpuId()));
+        PM.add(createScalarizerPass(pConfig->GetCpuId(), true));
         PM.add(createDeadCodeEliminationPass());
 
         // Calculate VL.
