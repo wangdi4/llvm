@@ -5084,6 +5084,20 @@ public:
   void visitCallArgument(CallBase *Call, Function *F, bool HasICMatch,
                          Value *Arg, unsigned ArgNo) {
 
+    if (F && F->hasName()) {
+      LibFunc TheLibFunc;
+      if (TLI.getLibFunc(F->getName(), TheLibFunc) && TLI.has(TheLibFunc)) {
+
+        LLVM_DEBUG(dbgs() << "dtrans-safety: System object: "
+                          << "argument used in a library function:\n  "
+                          << *Call << "\n");
+
+       Type *ArgType = Arg->getType();
+       setBaseTypeInfoSafetyDataWithCascading(ArgType,
+                                              dtrans::SystemObject);
+      }
+    }
+
     bool IsFnLocal = F ? !F->isDeclaration() : false;
 
     LocalPointerInfo &LPI = LPA.getLocalPointerInfo(Arg);
@@ -5251,19 +5265,34 @@ public:
 
     // Mark structures returned by non-local functions as system types.
     auto *RetTy = Call.getType();
-    if (DTInfo.isTypeOfInterest(RetTy) && AllocKind == dtrans::AK_NotAlloc) {
-      if (!IsFnLocal) {
-        LLVM_DEBUG(dbgs() << "dtrans-safety: System object: "
-                          << "type returned by extern function\n  " << *RetTy
-                          << "\n");
-        setBaseTypeInfoSafetyData(RetTy, dtrans::SystemObject);
+    if (DTInfo.isTypeOfInterest(RetTy)) {
+      if (AllocKind == dtrans::AK_NotAlloc) {
+        if (!IsFnLocal) {
+          LLVM_DEBUG(dbgs() << "dtrans-safety: System object: "
+                            << "type returned by extern function\n  " << *RetTy
+                            << "\n");
+          setBaseTypeInfoSafetyData(RetTy, dtrans::SystemObject);
+        }
+        if (isa<InvokeInst>(&Call)) {
+          LLVM_DEBUG(dbgs() << "dtrans-safety: C++ handling -- "
+                            << "struct (or pointer to struct) returned from "
+                               "function invoke:\n "
+                            << Call << "\n");
+          setBaseTypeInfoSafetyData(RetTy, dtrans::HasCppHandling);
+        }
       }
-      if (isa<InvokeInst>(&Call)) {
-        LLVM_DEBUG(dbgs() << "dtrans-safety: C++ handling -- "
-                          << "struct (or pointer to struct) returned from "
-                             "function invoke:\n "
-                          << Call << "\n");
-        setBaseTypeInfoSafetyData(RetTy, dtrans::HasCppHandling);
+
+      if (F && F->hasName()) {
+        // We shouldn't apply any optimization on types that are used
+        // by LibFuncs
+        LibFunc TheLibFunc;
+        if (TLI.getLibFunc(F->getName(), TheLibFunc) && TLI.has(TheLibFunc)) {
+          LLVM_DEBUG(dbgs() << "dtrans-safety: System object: "
+                          << "type returned by a library function\n  " << *RetTy
+                          << "\n");
+          setBaseTypeInfoSafetyDataWithCascading(RetTy,
+                                               dtrans::SystemObject);
+        }
       }
     }
 
