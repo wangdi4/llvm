@@ -53,6 +53,50 @@ code max_l = [{
     *tmp = (($Arg1VarName > oldValue) ? $Arg1VarName : oldValue);
     return oldValue;
   }];
+// floating point min/max.
+// OpenCL C spec says:
+//
+// "fmin and fmax behave as defined by C99 and may not match the IEEE
+// 754-2008 definition for minNum and maxNum with regard to signaling NaNs.
+// Specifically, signaling NaNs may behave as quiet NaNs,"
+// referrint to C for signed zero behavior.
+//
+// According to C standard:
+//
+// fmin(NaN,-1) = -1.000000
+// fmin(-Inf,0) = -inf
+// fmin(+/-Inf, NaN) = +/-Inf
+//
+// However,
+// fmin(-0, +0) = ??
+//
+// C standard says:
+//
+// "Ideally, fmax would be sensitive to the sign of zero, for example
+// fmax(-0.0, +0.0) would return +0; however, implementation in software
+// might be impractical", so the implementation can choose either sign."
+//
+// SVML fmin/fmax functions comply with this behavior, so I reused them.
+// In turn that means that desired behaviour of comparing -0 and +0
+// is not supported.
+code max_g_fp32 = [{
+    while (true)
+    {
+      $ReturnType oldValue = *$Arg0VarName;
+      int oldValueInt = *((int*)&oldValue);
+      $ReturnType max = fmax(oldValue, $Arg1VarName);
+      int maxInt = *((int*)&max);
+      if (oldValueInt == maxInt) return oldValue;
+      int retValInt = __sync_val_compare_and_swap((int*)$Arg0VarName, oldValueInt, maxInt);
+      if (retValInt == oldValueInt) return oldValue;
+    }
+  }];
+code max_l_fp = [{
+    local $ReturnType* tmp = (local $ReturnType*)$Arg0VarName;
+    $ReturnType oldValue = *tmp;
+    *tmp = fmax($Arg1VarName, oldValue);
+    return oldValue;
+  }];
 code min_g = [{
     while (true)
     {
@@ -68,7 +112,24 @@ code min_l = [{
     *tmp = (($Arg1VarName < oldValue) ? $Arg1VarName : oldValue);
     return oldValue;
   }];
-
+code min_g_fp32 = [{
+    while (true)
+    {
+      $ReturnType oldValue = *$Arg0VarName;
+      int oldValueInt = *((int*) &oldValue);
+      $ReturnType min = fmin(oldValue, $Arg1VarName);
+      int minInt = *((int*)&min);
+      if (oldValueInt == minInt)  return oldValue;
+      int retValInt = __sync_val_compare_and_swap((int *)$Arg0VarName, oldValueInt, minInt);
+      if (retValInt == oldValueInt) return oldValue;
+    }
+  }];
+code min_l_fp = [{
+    local $ReturnType* tmp = (local $ReturnType*)$Arg0VarName;
+    $ReturnType oldValue = *tmp;
+    *tmp = fmin($Arg1VarName, oldValue);
+    return oldValue;
+  }];
 code inc_g = [{
     return __sync_fetch_and_add($Arg0VarName, 1);
   }];
@@ -91,6 +152,9 @@ code dec_l = [{
   }];
 code cmpxchg_g = [{
     return __sync_val_compare_and_swap($Arg0VarName, $Arg1VarName, $Arg2VarName);
+  }];
+code cmpxchg_g_fp32 = [{
+    return as_float(__sync_val_compare_and_swap((int*)$Arg0VarName, as_int($Arg1VarName), as_int($Arg2VarName)));
   }];
 code cmpxchg_l = [{
     // this implementation relies on that a workgroup is executed by single phy. thread
@@ -177,11 +241,13 @@ OclBuiltinImpl atom_xchg_vgf    = OclBuiltinImpl<atom_xchg_vol_global, [v1f32], 
 OclBuiltinImpl atom_xchg_gf     = OclBuiltinImpl<atom_xchg_global, [v1f32], 0, xchg_g_fp>;
 // cmpxchg
 OclBuiltinImpl atomic_cmpxchg_g   = OclBuiltinImpl<atomic_cmpxchg_global, [v1i32, v1u32], 0, cmpxchg_g>;
-OclBuiltinImpl atomic_cmpxchg_l   = OclBuiltinImpl<atomic_cmpxchg_local, [v1i32, v1u32], 0, cmpxchg_l>;
+OclBuiltinImpl atomic_cmpxchg_l   = OclBuiltinImpl<atomic_cmpxchg_local, [v1i32, v1u32, v1f32], 0, cmpxchg_l>;
 OclBuiltinImpl atom_cmpxchg_vg    = OclBuiltinImpl<atom_cmpxchg_vol_global, [v1i32, v1u32, v1i64, v1u64], 0, cmpxchg_g>;
 OclBuiltinImpl atom_cmpxchg_g     = OclBuiltinImpl<atom_cmpxchg_global, [v1i32, v1u32, v1i64, v1u64], 0, cmpxchg_g>;
 OclBuiltinImpl atom_cmpxchg_vl    = OclBuiltinImpl<atom_cmpxchg_vol_local, [v1i32, v1u32, v1i64, v1u64], 0, cmpxchg_l>;
 OclBuiltinImpl atom_cmpxchg_l     = OclBuiltinImpl<atom_cmpxchg_local, [v1i32, v1u32, v1i64, v1u64], 0, cmpxchg_l>;
+
+OclBuiltinImpl atomic_cmpxchg_gf  = OclBuiltinImpl<atomic_cmpxchg_global, [v1f32], 0, cmpxchg_g_fp32>;
 // max
 OclBuiltinImpl atomic_max_g   = OclBuiltinImpl<atomic_max_global, [v1i32, v1u32], 0, max_g>;
 OclBuiltinImpl atomic_max_l   = OclBuiltinImpl<atomic_max_local, [v1i32, v1u32], 0, max_l>;
@@ -189,6 +255,9 @@ OclBuiltinImpl atom_max_vg    = OclBuiltinImpl<atom_max_vol_global, [v1i32, v1u3
 OclBuiltinImpl atom_max_g     = OclBuiltinImpl<atom_max_global, [v1i32, v1u32, v1i64, v1u64], 0, max_g>;
 OclBuiltinImpl atom_max_vl    = OclBuiltinImpl<atom_max_vol_local, [v1i32, v1u32, v1i64, v1u64], 0, max_l>;
 OclBuiltinImpl atom_max_l     = OclBuiltinImpl<atom_max_local, [v1i32, v1u32, v1i64, v1u64], 0, max_l>;
+
+OclBuiltinImpl atomic_max_gf  = OclBuiltinImpl<atomic_max_global, [v1f32], 0, max_g_fp32>;
+OclBuiltinImpl atomic_max_lf  = OclBuiltinImpl<atomic_max_local, [v1f32], 0, max_l_fp>;
 // min
 OclBuiltinImpl atomic_min_g   = OclBuiltinImpl<atomic_min_global, [v1i32, v1u32], 0, min_g>;
 OclBuiltinImpl atomic_min_l   = OclBuiltinImpl<atomic_min_local, [v1i32, v1u32], 0, min_l>;
@@ -196,6 +265,9 @@ OclBuiltinImpl atom_min_vg    = OclBuiltinImpl<atom_min_vol_global, [v1i32, v1u3
 OclBuiltinImpl atom_min_g     = OclBuiltinImpl<atom_min_global, [v1i32, v1u32, v1i64, v1u64], 0, min_g>;
 OclBuiltinImpl atom_min_vl    = OclBuiltinImpl<atom_min_vol_local, [v1i32, v1u32, v1i64, v1u64], 0, min_l>;
 OclBuiltinImpl atom_min_l     = OclBuiltinImpl<atom_min_local, [v1i32, v1u32, v1i64, v1u64], 0, min_l>;
+
+OclBuiltinImpl atomic_min_gf  = OclBuiltinImpl<atomic_min_global, [v1f32], 0, min_g_fp32>;
+OclBuiltinImpl atomic_min_lf  = OclBuiltinImpl<atomic_min_local, [v1f32], 0, min_l_fp>;
 // and
 OclBuiltinImpl atomic_and_g   = OclBuiltinImpl<atomic_and_global, [v1i32, v1u32], 0, and_g>;
 OclBuiltinImpl atomic_and_l   = OclBuiltinImpl<atomic_and_local, [v1i32, v1u32], 0, and_l>;
