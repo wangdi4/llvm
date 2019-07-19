@@ -74,11 +74,8 @@ static bool isAConstDistanceFromImpl(const SCEV *LHS, const SCEV *RHS,
 
 const SCEV *VPVLSClientMemref::getSCEVForVPValue(const VPValue *Val) const {
   ScalarEvolution *SE = VLSA->getSE();
-  Value *Underlying = Val->getUnderlyingValue();
-  if (!Underlying)
-    return SE->getCouldNotCompute();
-
-  return SE->getSCEV(Underlying);
+  return Val->isUnderlyingIRValid() ? SE->getSCEV(Val->getUnderlyingValue())
+                                    : SE->getCouldNotCompute();
 }
 
 bool VPVLSClientMemref::isAConstDistanceFrom(const OVLSMemref &From,
