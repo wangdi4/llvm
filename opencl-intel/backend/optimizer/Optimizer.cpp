@@ -19,7 +19,7 @@
 #include "OclTune.h"
 #include "VecConfig.h"
 #include "debuggingservicetype.h"
-
+#include "InitializePasses.h"
 #include "PrintIRPass.h"
 #include "mic_dev_limits.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
@@ -34,6 +34,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Pass.h"
+#include "llvm/PassRegistry.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
@@ -57,6 +58,8 @@ llvm::FunctionPass* createFMASplitterPass();
 #include "llvm/Transforms/VPO/VPOPasses.h"
 #include "llvm/Transforms/Vectorize.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
+
+#include "InitializeOCLPasses.hpp"
 
 // This flag enables VPlan for loop vectorization.
 static cl::opt<bool> DisableVPlanVec("disable-vplan-loop-vectorizer",
@@ -783,7 +786,8 @@ Optimizer::Optimizer(llvm::Module *pModule,
                      llvm::SmallVector<llvm::Module *, 2> pRtlModuleList,
                      const intel::OptimizerConfig *pConfig)
     : m_pModule(pModule), m_pRtlModuleList(pRtlModuleList) {
-
+  PassRegistry &Registry = *PassRegistry::getPassRegistry();
+  initializeOCLPasses(Registry);
   DebuggingServiceType debugType =
       getDebuggingServiceType(pConfig->GetDebugInfoFlag() ||
                               getDebugFlagFromMetadata(pModule));
