@@ -477,13 +477,6 @@ static CompoundStmt *CreateOpenCLKernelBody(Sema &S,
       KernelFuncDecl->param_begin(); // Iterator to ParamVarDecl (VarDecl)
   if (KernelFuncParam) {
     for (auto Field : LC->fields()) {
-      auto getExprForKernelParameter = [](Sema &S, const QualType &paramTy,
-                                          DeclRefExpr *DRE) {
-        Expr *Res = ImplicitCastExpr::Create(
-            S.Context, paramTy, CK_LValueToRValue, DRE, nullptr, VK_RValue);
-        return Res;
-      };
-
       // Creates Expression for special SYCL object: accessor or sampler.
       // All special SYCL objects must have __init method, here we use it to
       // initialize them. We create call of __init method and pass built kernel
@@ -497,7 +490,7 @@ static CompoundStmt *CreateOpenCLKernelBody(Sema &S,
         assert(InitMethod &&
                "The accessor/sampler must have the __init method");
         unsigned NumParams = InitMethod->getNumParams();
-        llvm::SmallVector<DeclRefExpr *, 4> ParamDREs(NumParams);
+        llvm::SmallVector<Expr *, 4> ParamDREs(NumParams);
         auto KFP = KernelFuncParam;
         for (size_t I = 0; I < NumParams; ++KFP, ++I) {
           QualType ParamType = (*KFP)->getOriginalType();
@@ -530,15 +523,12 @@ static CompoundStmt *CreateOpenCLKernelBody(Sema &S,
         ExprValueKind VK = Expr::getValueKindForType(ResultTy);
         ResultTy = ResultTy.getNonLValueExprType(S.Context);
 
-        // __init needs four parameter
-        auto ParamItr = InitMethod->param_begin();
-
         // kernel_parameters
         llvm::SmallVector<Expr *, 4> ParamStmts;
-        for (size_t I = 0; I < NumParams; ++I) {
-          ParamStmts.push_back(getExprForKernelParameter(
-              S, (*(ParamItr++))->getOriginalType(), ParamDREs[I]));
-        }
+        const auto *Proto = cast<FunctionProtoType>(InitMethod->getType());
+        S.GatherArgumentsForCall(SourceLocation(), InitMethod, Proto, 0,
+                                 ParamDREs, ParamStmts);
+
         // [kernel_obj or wrapper object].accessor.__init(_ValueType*,
         // range<int>, range<int>, id<int>)
         CXXMemberCallExpr *Call = CXXMemberCallExpr::Create(
@@ -613,13 +603,9 @@ static CompoundStmt *CreateOpenCLKernelBody(Sema &S,
             NestedNameSpecifierLoc(), SourceLocation(), Field, FieldDAP,
             DeclarationNameInfo(Field->getDeclName(), SourceLocation()),
             nullptr, Field->getType(), VK_LValue, OK_Ordinary, NOUR_None);
-        auto Rhs = ImplicitCastExpr::Create(
-            S.Context, ParamType, CK_LValueToRValue, DRE, nullptr, VK_RValue);
-        // lambda.field = kernel_parameter
-        Expr *Res = new (S.Context)
-            BinaryOperator(Lhs, Rhs, BO_Assign, FieldType, VK_LValue,
-                           OK_Ordinary, SourceLocation(), FPOptions());
-        BodyStmts.push_back(Res);
+        ExprResult R = S.BuildBinOp(S.getScopeForContext(S.CurContext),
+                                    SourceLocation(), BO_Assign, Lhs, DRE);
+        BodyStmts.push_back(R.get());
 
         // If a structure/class type has accessor fields then we need to
         // initialize these accessors in proper way by calling __init method of

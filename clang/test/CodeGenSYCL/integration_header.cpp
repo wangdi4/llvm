@@ -1,9 +1,6 @@
 // RUN: %clang -I %S/Inputs --sycl -Xclang -fsycl-int-header=%t.h %s -c -o %T/kernel.spv
 // RUN: FileCheck -input-file=%t.h %s
 
-// Mark this test as expected fail in initial merge of SYCL to xmain
-// XFAIL: *
-
 //
 // CHECK: #include <CL/sycl/detail/kernel_desc.hpp>
 //

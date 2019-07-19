@@ -1,8 +1,5 @@
 // RUN: %clang_cc1 -fsycl-is-device -verify -fsyntax-only -std=c++11 %s
 
-// Mark this test as expected fail in initial merge of SYCL to xmain
-// XFAIL: *
-
 // This test checks if compiler reports compilation error on an attempt to pass
 // non-standard layout struct object as SYCL kernel parameter.
 

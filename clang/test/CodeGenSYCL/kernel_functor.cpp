@@ -1,9 +1,6 @@
 // RUN: %clang -I %S/Inputs -std=c++11 --sycl -Xclang -fsycl-int-header=%t.h %s -c -o %t.spv
 // RUN: FileCheck %s --input-file=%t.h
 
-// Mark this test as expected fail in initial merge of SYCL to xmain
-// XFAIL: *
-
 // Checks that functors are supported as SYCL kernels.
 
 #include "sycl.hpp"

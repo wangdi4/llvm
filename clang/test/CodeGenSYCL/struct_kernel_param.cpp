@@ -1,9 +1,6 @@
 // RUN: %clang -I %S/Inputs --sycl -Xclang -fsycl-int-header=%t.h %s -c -o %T/kernel.spv
 // RUN: FileCheck -input-file=%t.h %s
 
-// Mark this test as expected fail in initial merge of SYCL to xmain
-// XFAIL: *
-
 // CHECK:     const kernel_param_desc_t kernel_signatures[] = {
 // CHECK-NEXT:  //--- _ZTSZZ5test0vENK3$_0clERN2cl4sycl7handlerEE8MyKernel
 // CHECK-NEXT:  { kernel_param_kind_t::kind_accessor, 4062, 0 },

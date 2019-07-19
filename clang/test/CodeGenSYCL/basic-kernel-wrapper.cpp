@@ -1,8 +1,5 @@
 // RUN: %clang_cc1 -I %S/Inputs -triple spir64-unknown-linux-sycldevice -std=c++11 -fsycl-is-device -disable-llvm-passes -S -emit-llvm %s -o - | FileCheck %s
 
-// Mark this test as expected fail in initial merge of SYCL to xmain
-// XFAIL: *
-
 // This test checks that compiler generates correct kernel wrapper for basic
 // case.
 
@@ -22,13 +19,20 @@ int main() {
   return 0;
 }
 
-// CHECK: define spir_kernel void @{{.*}}kernel_function(i32 addrspace(1)* [[MEM_ARG:%[a-zA-Z0-9_]+]], %"struct.{{.*}}.cl::sycl::range"* byval align 4 [[ACC_RANGE:%[a-zA-Z0-9_]+]], %"struct.{{.*}}.cl::sycl::range"* byval align 4 [[MEM_RANGE:%[a-zA-Z0-9_]+]], %"struct.{{.*}}.cl::sycl::id"* byval align 4 [[OFFSET:%[a-zA-Z0-9_]+]])
+// CHECK: define spir_kernel void @{{.*}}kernel_function
+//CHECK-SAME: i32 addrspace(1)* [[MEM_ARG:%[a-zA-Z0-9_]+]],
+//CHECK-SAME: %"struct.{{.*}}.cl::sycl::range"* byval{{.*}}align 4 [[ACC_RANGE:%[a-zA-Z0-9_]+_1]],
+//CHECK-SAME: %"struct.{{.*}}.cl::sycl::range"* byval{{.*}}align 4 [[MEM_RANGE:%[a-zA-Z0-9_]+_2]],
+//CHECK-SAME: %"struct.{{.*}}.cl::sycl::id"* byval{{.*}}align 4 [[OFFSET:%[a-zA-Z0-9_]+]])
 //
 // Check alloca for pointer argument
 // CHECK: [[MEM_ARG]].addr = alloca i32 addrspace(1)*
 // Check lambda object alloca
 // CHECK: [[ANON:%[0-9]+]] = alloca %"class.{{.*}}.anon"
 // Check allocas for ranges
+// CHECK: [[ARANGE:%agg.tmp.*]] = alloca %"struct.{{.*}}.cl::sycl::range"
+// CHECK: [[MRANGE:%agg.tmp.*]] = alloca %"struct.{{.*}}.cl::sycl::range"
+// CHECK: [[OID:%agg.tmp.*]] = alloca %"struct.{{.*}}.cl::sycl::id"
 //
 // Check store of kernel pointer argument to alloca
 // CHECK: store i32 addrspace(1)* [[MEM_ARG]], i32 addrspace(1)** [[MEM_ARG]].addr, align 8
@@ -40,7 +44,7 @@ int main() {
 // CHECK: [[MEM_LOAD:%[a-zA-Z0-9_]+]] = load i32 addrspace(1)*, i32 addrspace(1)** [[MEM_ARG]].addr
 
 // Check accessor __init method call
-// CHECK: call spir_func void @{{.*}}__init{{.*}}(%"class.{{.*}}.cl::sycl::accessor"* [[ACCESSOR]], i32 addrspace(1)* [[MEM_LOAD]], %"struct.{{.*}}.cl::sycl::range"* byval align 4 [[ACC_RANGE]], %"struct.{{.*}}.cl::sycl::range"* byval align 4 [[MEM_RANGE]], %"struct.{{.*}}.cl::sycl::id"* byval align 4 [[OFFSET]])
+// CHECK: call spir_func void @{{.*}}__init{{.*}}(%"class.{{.*}}.cl::sycl::accessor"* [[ACCESSOR]], i32 addrspace(1)* [[MEM_LOAD]], %"struct.{{.*}}.cl::sycl::range"* byval{{.*}} [[ARANGE]], %"struct.{{.*}}.cl::sycl::range"* byval{{.*}} [[MRANGE]], %"struct.{{.*}}.cl::sycl::id"* byval{{.*}}[[OID]])
 
 // Check lambda "()" operator call
 // CHECK: call spir_func void @{{.*}}(%"class.{{.*}}.anon"* [[ANON]])
