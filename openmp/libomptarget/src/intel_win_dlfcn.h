@@ -1,4 +1,4 @@
-//===-------- dlfcn_stub.h - Dynamic linking API stub for Windows ---------===//
+//===-------- intel_win_dlfcn.h - Dynamic linking API stub for Windows ----===//
 //
 // Copyright (C) 2019-2019 Intel Corporation. All rights reserved.
 //
@@ -27,11 +27,11 @@ extern "C" {
 
 #define RTLD_NOW 0
 
-__declspec(dllexport) void *dlopen(const char *file, int mode) {
+void *dlopen(const char *file, int mode) {
   return (void *)0;
 }
 
-__declspec(dllexport) void *dlsym(void *handle, const char *name) {
+void *dlsym(void *handle, const char *name) {
   return (void *)0;
 }
 

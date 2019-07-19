@@ -578,7 +578,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   Dl_info rtl_info;
 
   if (dladdr(&DeviceInfo, &rtl_info)) {
-    std::string device_rtl_base = "libomptarget-opencl.a";
+    std::string device_rtl_base = "libomptarget-opencl.spv";
     std::string device_rtl_path = rtl_info.dli_fname;
     size_t split = device_rtl_path.find_last_of("/\\");
     device_rtl_path.replace(split + 1, std::string::npos, device_rtl_base);
