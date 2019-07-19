@@ -5711,8 +5711,16 @@ void Parser::ParseDeclaratorInternal(Declarator &D,
   // Not a pointer, C++ reference, or block.
   if (!isPtrOperatorToken(Kind, getLangOpts(), getTargetInfo(),
                           D.getContext())) {
-    if (DirectDeclParser)
+    if (DirectDeclParser) {
+      if (Kind == tok::kw_channel &&
+          (!getLangOpts().OpenCL || !getTargetInfo().getSupportedOpenCLOpts()
+           .isSupported("cl_intel_channels", getLangOpts()))) {
+        // 'channel' is a keyword only for OpenCL with cl_intel_channels
+        // extension.
+        Tok.setKind(tok::identifier);
+      }
       (this->*DirectDeclParser)(D);
+    }
 
     if (D.getDeclSpec().isTypeSpecChannel() && !isChannelDeclarator(D)) {
       // Unlike Pipes, Channels handled here, because arrays of channels are

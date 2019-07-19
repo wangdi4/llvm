@@ -373,6 +373,16 @@ Retry:
   case tok::annot_pragma_blockloop:
     ProhibitAttributes(Attrs);
     return ParsePragmaBlockLoop(Stmts, StmtCtx, TrailingElseLoc, Attrs);
+
+  case tok::kw_channel:
+    if (!getLangOpts().OpenCL ||
+        !getTargetInfo().getSupportedOpenCLOpts()
+        .isSupported("cl_intel_channels", getLangOpts())) {
+      // 'channel' is a keyword only for OpenCL with cl_intel_channels
+      // extension.
+      Tok.setKind(tok::identifier);
+      goto Retry;
+    }
 #endif // INTEL_CUSTOMIZATION
 
   case tok::annot_pragma_openmp:
