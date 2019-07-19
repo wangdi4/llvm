@@ -201,6 +201,9 @@ defm f64 : _OCLTYPE2_<"f64", 64, "double">;
 def size_t : OclType<"size_t", "size_t", 1, 0, 0>;
 def uint  : OclType<"uint", "uint", 1, 0, 0>;
 def int32   : OclType<"int", "int", 1, 0, 0>;
+defm intptr_t : _OCLTYPE1_<"intptr_t", 1, 0, "intptr_t">;
+defm uintptr_t : _OCLTYPE1_<"uintptr_t", 1, 0, "uintptr_t">;
+def ptrdiff_t : OclType<"ptrdiff_t", "ptrdiff_t", 1, 0, 0>;
 def cl_mem_fence_flags : OclType<"cl_mem_fence_flags", "cl_mem_fence_flags", 1, 0, 0>;
 def image1d_ro: OclType<"image1d_ro", "__read_only image1d_t", 1, 0, 0>;
 def image1d_wo: OclType<"image1d_wo", "__write_only image1d_t", 1, 0, 0>;
@@ -228,6 +231,11 @@ defm atom_v1i32 : _OCLTYPE1_<"atom_v1i32", 1, 32, "atomic_int">;
 defm atom_v1u32 : _OCLTYPE1_<"atom_v1u32", 1, 32, "atomic_uint">;
 defm atom_v1f32 : _OCLTYPE1_<"atom_v1f32", 1, 32, "atomic_float">;
 defm atom_flag  : _OCLTYPE1_<"atom_flag", 1, 32, "atomic_flag">;
+defm atom_v1i64 : _OCLTYPE1_<"atom_v1i64", 1, 64, "atomic_long">;
+defm atom_v1u64 : _OCLTYPE1_<"atom_v1u64", 1, 64, "atomic_ulong">;
+defm atom_v1f64 : _OCLTYPE1_<"atom_v1f64", 1, 64, "atomic_double">;
+defm atom_intptr_t : _OCLTYPE1_<"atom_intptr_t", 1, 0, "atomic_intptr_t">;
+defm atom_uintptr_t : _OCLTYPE1_<"atom_uintptr_t", 1, 0, "atomic_uintptr_t">;
 def memory_order : OclType<"memory_order", "memory_order", 1, 32, 0>;
 def memory_scope : OclType<"memory_scope", "memory_scope", 1, 32, 0>;
 def bool : OclType<"bool", "bool", 1, 32, 0>;
@@ -253,7 +261,12 @@ def ocl_types : TypeNameList<[
   v1f16.TypeName, v2f16.TypeName, v3f16.TypeName, v4f16.TypeName, v8f16.TypeName, v16f16.TypeName,
   v1f32.TypeName, v2f32.TypeName, v3f32.TypeName, v4f32.TypeName, v8f32.TypeName, v16f32.TypeName,
   v1f64.TypeName, v2f64.TypeName, v3f64.TypeName, v4f64.TypeName, v8f64.TypeName, v16f64.TypeName,
+
+  intptr_t.TypeName, uintptr_t.TypeName,
+
   atom_v1i32.TypeName, atom_v1u32.TypeName, atom_v1f32.TypeName, atom_flag.TypeName,
+  atom_v1i64.TypeName, atom_v1u64.TypeName, atom_v1f64.TypeName,
+  atom_intptr_t.TypeName, atom_uintptr_t.TypeName,
 
   // Wide vectors for shuffles
   v32i32.TypeName, v64i32.TypeName, v128i32.TypeName, v256i32.TypeName,
@@ -283,7 +296,9 @@ def ocl_types : TypeNameList<[
   pv1f64.TypeName, pv2f64.TypeName, pv3f64.TypeName, pv4f64.TypeName, pv8f64.TypeName, pv16f64.TypeName,
 
   //The following are needed for atom2gentype
-  patom_v1i32.TypeName, patom_v1u32.TypeName, patom_v1f32.TypeName
+  patom_v1i32.TypeName, patom_v1u32.TypeName, patom_v1f32.TypeName,
+  patom_v1i64.TypeName, patom_v1u64.TypeName, patom_v1f64.TypeName,
+  patom_intptr_t.TypeName, patom_uintptr_t.TypeName
 ]>;
 
 class OclGenType<string name>

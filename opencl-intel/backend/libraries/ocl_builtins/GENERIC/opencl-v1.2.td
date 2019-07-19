@@ -798,7 +798,7 @@ def atomic_xchg_global : OclBuiltin<"atomic_xchg", (outs gentype:$ret), (ins pge
 def atomic_xchg_local  : OclBuiltin<"atomic_xchg", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 1, 0>, VOLATILE_LOCAL;
 }
 
-let Types = [v1i32, v1u32],
+let Types = [v1i32, v1u32, v1i64, v1u64],
     Attrs = [OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def atom_add_vol_global     : OclBuiltin<"atom_add", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 0, 0>, VOLATILE_GLOBAL;
@@ -844,7 +844,7 @@ def atom_xor_vol_local     : OclBuiltin<"atom_xor", (outs gentype:$ret), (ins pg
 def atom_xor_local         : OclBuiltin<"atom_xor", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 0, 0>, LOCAL;
 }
 
-let Types = [v1i32, v1u32, v1f32],
+let Types = [v1i32, v1u32, v1f32, v1i64, v1u64],
     Attrs = [OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def atom_xchg_vol_global    : OclBuiltin<"atom_xchg", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 0, 0>, VOLATILE_GLOBAL;
