@@ -2693,6 +2693,110 @@ static bool isDirectlyRecursive(Function *F) {
   return false;
 }
 
+// BEGIN: AVX512->AVX2 conversion code
+
+//
+// Return 'true' if 'T' is a VectorType or contains a vector type.
+//
+static bool containsVectorType(Type *T) {
+  if (T->isVectorTy())
+    return true;
+  for (unsigned I = 0; I < T->getNumContainedTypes(); ++I)
+    if (containsVectorType(T->getContainedType(I)))
+      return true;
+  return false;
+}
+
+//
+// Return 'true' if we can change the target-cpu and target-features
+// attributes from AVX512 to AVX2.
+//
+static bool canChangeCPUAttributes(Module &M) {
+
+  // Attribute string for AVX512. This is encapsulated in the Front Ends
+  // and not directly available to the backend, so we must give it here
+  // explicitly.
+
+  auto SKLAttributes = StringRef("+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,"
+      "+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,"
+      "+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+mpx,+pclmul,"
+      "+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,"
+      "+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves");
+  if (IPCloningTrace)
+    errs() << "Begin test for AVX512->AVX2 conversion\n";
+  unsigned FI = llvm::AttributeList::FunctionIndex;
+  for (auto &F: M.getFunctionList()) {
+    if (!F.hasFnAttribute("target-cpu"))
+      continue;
+    StringRef TCA = F.getAttribute(FI, "target-cpu").getValueAsString();
+    if (TCA != "skylake-avx512") {
+      if (IPCloningTrace)
+        errs() << "No AVX512->AVX2 conversion: Not skylake-avx512\n";
+      return false;
+    }
+    StringRef TFA = F.getAttribute(FI, "target-features").getValueAsString();
+    if (TFA != SKLAttributes) {
+      if (IPCloningTrace)
+        errs() << "No AVX512->AVX2 conversion: Not skylake-avx512 attributes\n";
+      return false;
+    }
+    for (auto &I : instructions(&F)) {
+      if (containsVectorType(I.getType())) {
+        if (IPCloningTrace)
+          errs() << "No AVX512->AVX2 conversion: Vector return type\n";
+        return false;
+      }
+      for (Value *Op : I.operands())
+        if (containsVectorType(Op->getType())) {
+          if (IPCloningTrace)
+            errs() << "No AVX512->AVX2 conversion: Vector operand type\n";
+          return false;
+        }
+      auto II = dyn_cast<IntrinsicInst>(&I);
+      if (II) {
+        Function *Callee = II->getCalledFunction();
+        if (Callee->getName().startswith("llvm.x86")) {
+          if (IPCloningTrace)
+            errs() << "No AVX512->AVX2 conversion: Vector intrinsic\n";
+          return false;
+        }
+      }
+    }
+  }
+  if (IPCloningTrace)
+    errs() << "AVX512->AVX2 conversion: All tests pass\n";
+  return true;
+}
+
+static void changeCPUAttributes(Module &M) {
+
+  // Attribute string for AVX2. This is encapsulated in the Front Ends
+  // and not directly available to the backend, so we must give it here
+  // explicitly.
+  auto AVX2Attributes = StringRef("+avx,+avx2,+bmi,+bmi2,+cx16,+cx8,+f16c,"
+      "+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,"
+      "+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,"
+      "+xsaveopt");
+
+  unsigned FI = llvm::AttributeList::FunctionIndex;
+  for (auto &F: M.getFunctionList()) {
+    if (!F.hasFnAttribute("target-cpu"))
+      continue;
+    assert(F.getAttribute(FI, "target-cpu").getValueAsString() ==
+        "skylake-avx512" && "Expecting skylake-avx512");
+    llvm::AttrBuilder Attrs;
+    F.removeFnAttr("target-cpu");
+    F.removeFnAttr("target-features");
+    Attrs.addAttribute("target-cpu", "core-avx2");
+    Attrs.addAttribute("target-features", AVX2Attributes);
+    F.addAttributes(FI, Attrs);
+  }
+  if (IPCloningTrace)
+    errs() << "AVX512->AVX2 conversion: Conversion complete\n";
+}
+
+// END: AVX512->AVX2 conversion code
+
 // Main routine to analyze all calls and clone functions if profitable.
 //
 static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
@@ -2738,6 +2842,8 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
           errs() << "    Selected RecProgression cloning  " << "\n";
         createRecProgressionClones(F, ArgPos, Count, Start, Inc, IsByRef,
                                    IsCyclic);
+        if (!IsCyclic && canChangeCPUAttributes(M))
+          changeCPUAttributes(M);
         continue;
       }
       // For now, run either FuncPtrsClone or SpecializationClone for any

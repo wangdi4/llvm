@@ -3,8 +3,8 @@
 
 ; Test that the function @good is recognized as a recursive progression clone
 ; and eight clones of it are created. Also that it is a candidate for creating
-; an extra clone, and that inner loop trip counts can be simplified. Finally,
-; check that  AVX512 has been transformed to AVX2.
+; an extra clone, and that AVX512 has NOT been transformed to AVX2, because
+; a function has a non skylake-avx512 target-cpu.
 
 ; CHECK: Enter IP cloning: (Before inlining)
 ; CHECK: Cloning Analysis for:  good
@@ -50,15 +50,10 @@
 ; CHECK: IsByRef : T
 ; CHECK: Replacement:  i32 8
 ; CHECK: Extra RecProClone Candidate: good.8
-; CHECK: Replacing Load in Function good.8 with 1
-; CHECK: Replacing Load in Function good.8 with 9
-; CHECK: Replacing Load in Function good.8.9 with alternate bound
-; CHECK: All desired subscript bounds substituted
 ; CHECK: Begin test for AVX512->AVX2 conversion
-; CHECK: AVX512->AVX2 conversion: All tests pass
-; CHECK: AVX512->AVX2 conversion: Conversion complete
+; CHECK: No AVX512->AVX2 conversion: Not skylake-avx512
 
-; Check for sequence of eight clones:
+; Check for sequence of eight clones with transformed attributes:
 
 ; CHECK: define dso_local void @MAIN__()
 ; CHECK: call void @good.1
@@ -82,7 +77,7 @@
 ; CHECK-NOT: call void @good
 
 ; Check for special inserted test, call to extra clone, and constant loop
-; bound assignments, and simplified tests
+; bound assignments
 
 ; CHECK: %8 = alloca [9 x i32], align 16
 ; CHECK: %9 = alloca [9 x i32], align 16
@@ -101,22 +96,15 @@
 ; CHECK: ConstStore:
 ; CHECK: store i32 1, i32* [[V1]]
 ; CHECK: store i32 9, i32* [[V2]]
-; CHECK: %675 = icmp slt i32 9, 1
-; CHECK: %678 = sext i32 1 to i64
-; CHECK: %679 = sext i32 9 to i64
 
-; Check for extra clone and simplified tests
+; Check for extra clone
 ; CHECK: define internal void @good.8.9
-; CHECK: %671 = load i32, i32* %137, align 4
-; CHECK: %673 = icmp slt i32 %671, %671
-; CHECK: %676 = sext i32 %671 to i64
-; CHECK: %677 = sext i32 %671 to i64
 ; CHECK-NOT: call void @good
 
-; Check the generated attributes
+; Check the attributes
 ; CHECK: attributes #0 = { nounwind readnone speculatable }
-; CHECK: attributes #1 = { nounwind "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="true" }
-; CHECK: attributes #2 = { nounwind "contains-rec-pro-clone" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "prefer-inline-rec-pro-clone" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="true" }
+; CHECK: attributes #1 = { nounwind "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="cannonlake" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+mpx,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
+; CHECK: attributes #2 = { nounwind "contains-rec-pro-clone" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "prefer-inline-rec-pro-clone" "target-cpu"="cannonlake" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+mpx,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
 
 declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8, i64, i64, i32*, i64)
 declare i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8, i64, i32, i64*, i32)
@@ -2053,4 +2041,4 @@ define internal void @good(i32* noalias nocapture readonly) #0 {
   ret void
 }
 
-attributes #0 = { nounwind "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+mpx,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
+attributes #0 = { nounwind "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="cannonlake" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+mpx,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
