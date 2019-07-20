@@ -1578,6 +1578,10 @@ VPConstant *VPDecomposerHIR::VPBlobDecompVisitor::decomposeNonIntConstBlob(
   if (BlUtils.isConstantFPBlob(Blob, &FPConst))
     return Decomposer.Plan->getVPConstant(FPConst);
 
+  Constant *VecConst;
+  if (BlUtils.isConstantVectorBlob(Blob, &VecConst))
+    return Decomposer.Plan->getVPConstant(VecConst);
+
   if (BlUtils.isUndefBlob(Blob))
     return Decomposer.Plan->getVPConstant(UndefValue::get(Blob->getType()));
 
