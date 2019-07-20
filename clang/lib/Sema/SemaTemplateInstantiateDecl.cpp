@@ -629,16 +629,18 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
           *this, TemplateArgs, SARA, New);
       continue;
     }
-    const BankWidthAttr *BWA = dyn_cast<BankWidthAttr>(TmplAttr);
+    const IntelFPGABankWidthAttr *BWA =
+        dyn_cast<IntelFPGABankWidthAttr>(TmplAttr);
     if (BWA) {
-      instantiateDependentHLSOneConstantPowerTwoValueAttr<BankWidthAttr>(
-          *this, TemplateArgs, BWA, New);
+      instantiateDependentHLSOneConstantPowerTwoValueAttr<
+          IntelFPGABankWidthAttr>(*this, TemplateArgs, BWA, New);
       continue;
     }
-    const NumBanksAttr *NBA = dyn_cast<NumBanksAttr>(TmplAttr);
+    const IntelFPGANumBanksAttr *NBA =
+        dyn_cast<IntelFPGANumBanksAttr>(TmplAttr);
     if (NBA) {
-      instantiateDependentHLSOneConstantPowerTwoValueAttr<NumBanksAttr>(
-          *this, TemplateArgs, NBA, New);
+      instantiateDependentHLSOneConstantPowerTwoValueAttr<
+          IntelFPGANumBanksAttr>(*this, TemplateArgs, NBA, New);
       continue;
     }
     const BankBitsAttr *BBA = dyn_cast<BankBitsAttr>(TmplAttr);

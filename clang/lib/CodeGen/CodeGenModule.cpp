@@ -4055,60 +4055,13 @@ static void maybeEmitGlobalChannelMetadata(const VarDecl *D,
 
 void CodeGenModule::generateHLSAnnotation(const Decl *D,
                                           llvm::SmallString<256> &AnnotStr) {
+  // Generate common parts from IntelFPGA attributes
+  generateIntelFPGAAnnotation(D, AnnotStr);
+
   llvm::raw_svector_ostream Out(AnnotStr);
-  if (D->hasAttr<HLSRegisterAttr>())
-    Out << "{register:1}";
-  if (auto const *MA = D->getAttr<MemoryAttr>()) {
-    MemoryAttr::MemoryKind Kind = MA->getKind();
-    Out << "{memory:";
-    switch (Kind) {
-    case MemoryAttr::MLAB:
-    case MemoryAttr::BlockRAM:
-      Out << MemoryAttr::ConvertMemoryKindToStr(Kind);
-      break;
-    case MemoryAttr::Default:
-      Out << "DEFAULT";
-      break;
-    }
-    Out << '}';
-    if (const DeclaratorDecl *DD = dyn_cast<DeclaratorDecl>(D)) {
-      QualType ElementTy = DD->getType();
-      Out << "{sizeinfo:";
-      // D can't be of type FunctionDecl (no attribute memory for a
-      // function declaration).
-      if (ElementTy->isConstantArrayType())
-        Out << getContext()
-                   .getTypeSizeInChars(
-                       getContext().getBaseElementType(ElementTy))
-                   .getQuantity();
-      else
-        Out << getContext().getTypeSizeInChars(ElementTy).getQuantity();
-      // Add to Out the dimenstion of the array.
-      while (const auto *AT = getContext().getAsArrayType(ElementTy)) {
-        // Expecting only constant array types, assert otherwise.
-        const auto *CAT = cast<ConstantArrayType>(AT);
-        Out << ",";
-        Out << CAT->getSize();
-        ElementTy = CAT->getElementType();
-      }
-      Out << '}';
-    }
-  }
-  if (D->hasAttr<SinglePumpAttr>())
-    Out << "{pump:1}";
-  if (D->hasAttr<DoublePumpAttr>())
-    Out << "{pump:2}";
-  if (const auto *BWA = D->getAttr<BankWidthAttr>()) {
-    llvm::APSInt BWAInt = BWA->getValue()->EvaluateKnownConstInt(getContext());
-    Out << '{' << BWA->getSpelling() << ':' << BWAInt << '}';
-  }
   if (const auto *MCA = D->getAttr<MaxConcurrencyAttr>()) {
     llvm::APSInt MCAInt = MCA->getValue()->EvaluateKnownConstInt(getContext());
     Out << '{' << MCA->getSpelling() << ':' << MCAInt << '}';
-  }
-  if (const auto *NBA = D->getAttr<NumBanksAttr>()) {
-    llvm::APSInt BWAInt = NBA->getValue()->EvaluateKnownConstInt(getContext());
-    Out << '{' << NBA->getSpelling() << ':' << BWAInt << '}';
   }
   if (const auto *NRPA = D->getAttr<NumReadPortsAttr>()) {
     llvm::APSInt NRPAInt =
@@ -4214,6 +4167,34 @@ void CodeGenModule::generateIntelFPGAAnnotation(
       break;
     }
     Out << '}';
+#if INTEL_CUSTOMIZATION
+    if (getLangOpts().HLS ||
+        (getLangOpts().OpenCL &&
+         getContext().getTargetInfo().getTriple().isINTELFPGAEnvironment())) {
+      if (const DeclaratorDecl *DD = dyn_cast<DeclaratorDecl>(D)) {
+        QualType ElementTy = DD->getType();
+        Out << "{sizeinfo:";
+        // D can't be of type FunctionDecl (no attribute memory for a
+        // function declaration).
+        if (ElementTy->isConstantArrayType())
+          Out << getContext()
+                     .getTypeSizeInChars(
+                         getContext().getBaseElementType(ElementTy))
+                     .getQuantity();
+        else
+          Out << getContext().getTypeSizeInChars(ElementTy).getQuantity();
+        // Add to Out the dimenstion of the array.
+        while (const auto *AT = getContext().getAsArrayType(ElementTy)) {
+          // Expecting only constant array types, assert otherwise.
+          const auto *CAT = cast<ConstantArrayType>(AT);
+          Out << ",";
+          Out << CAT->getSize();
+          ElementTy = CAT->getElementType();
+        }
+        Out << '}';
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
   }
   if (D->hasAttr<IntelFPGASinglePumpAttr>())
     Out << "{pump:1}";
