@@ -106,6 +106,11 @@ RecognizableInstr::RecognizableInstr(DisassemblerTables &tables,
   // Check for 64-bit inst which does not require REX
   Is32Bit = false;
   Is64Bit = false;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  IsIceCode = false;
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
   // FIXME: Is there some better way to check for In64BitMode?
   std::vector<Record*> Predicates = Rec->getValueAsListOfDefs("Predicates");
   for (unsigned i = 0, e = Predicates.size(); i != e; ++i) {
@@ -118,22 +123,21 @@ RecognizableInstr::RecognizableInstr(DisassemblerTables &tables,
       Is64Bit = true;
       break;
     }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+    if (Predicates[i]->getName().find("InIceCodeMode") != StringRef::npos) {
+      Is64Bit = true;
+      IsIceCode = true;
+      break;
+    }
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
   }
 
   if (Form == X86Local::Pseudo || (IsCodeGenOnly && !ForceDisassemble)) {
     ShouldBeEmitted = false;
     return;
   }
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  for (unsigned i = 0, e = Predicates.size(); i != e; ++i)
-    if (Predicates[i]->getName().find("NotIceCodeMode") != StringRef::npos) {
-      ShouldBeEmitted = false;
-      return;
-    }
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 
   // Special case since there is no attribute class for 64-bit and VEX
   if (Name == "VMASKMOVDQU64") {
@@ -301,6 +305,27 @@ InstructionContext RecognizableInstr::insnContext() const {
       errs() << "Instruction does not use a prefix: " << Name << "\n";
       llvm_unreachable("Invalid prefix");
     }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  } else if (IsIceCode) {
+    if (OpSize == X86Local::OpSize16 && OpPrefix == X86Local::XD)
+      insnContext = IC_64BIT_XD_OPSIZE_CE;
+    else if (OpSize == X86Local::OpSize16 && OpPrefix == X86Local::XS)
+      insnContext = IC_64BIT_XS_OPSIZE_CE;
+    else if (HasREX_WPrefix && OpPrefix == X86Local::XD)
+      insnContext = IC_64BIT_REXW_XD_CE;
+    else if (HasREX_WPrefix && OpPrefix == X86Local::XS)
+      insnContext = IC_64BIT_REXW_XS_CE;
+    else if (OpPrefix == X86Local::XD)
+      insnContext = IC_64BIT_XD_CE;
+    else if (OpPrefix == X86Local::XS)
+      insnContext = IC_64BIT_XS_CE;
+    else if (HasREX_WPrefix)
+      insnContext = IC_64BIT_REXW_CE;
+    else
+      insnContext = IC_64BIT_CE;
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
   } else if (Is64Bit || HasREX_WPrefix || AdSize == X86Local::AdSize64) {
     if (HasREX_WPrefix && (OpSize == X86Local::OpSize16 || OpPrefix == X86Local::PD))
       insnContext = IC_64BIT_REXW_OPSIZE;
@@ -399,6 +424,13 @@ void RecognizableInstr::handleOperand(bool optional, unsigned &operandIndex,
   Spec->operands[operandIndex].encoding = encoding;
   Spec->operands[operandIndex].type = typeFromString(typeName,
                                                      HasREX_WPrefix, OpSize);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  // Hack to force decoder using 32bits registers for memory operand
+  if (Spec->operands[operandIndex].type == TYPE_M && AdSize != 0 && IsIceCode)
+    Spec->operands[operandIndex].type = TYPE_M32;
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 
   ++operandIndex;
   ++physicalOperandIndex;

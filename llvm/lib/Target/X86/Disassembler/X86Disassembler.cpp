@@ -145,6 +145,11 @@ public:
 
 private:
   DisassemblerMode              fMode;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  bool                          isIceCode;
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 };
 
 }
@@ -155,6 +160,11 @@ X86GenericDisassembler::X86GenericDisassembler(
                                          std::unique_ptr<const MCInstrInfo> MII)
   : MCDisassembler(STI, Ctx), MII(std::move(MII)) {
   const FeatureBitset &FB = STI.getFeatureBits();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  isIceCode = FB[X86::ModeIceCode];
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
   if (FB[X86::Mode16Bit]) {
     fMode = MODE_16BIT;
     return;
@@ -226,7 +236,14 @@ MCDisassembler::DecodeStatus X86GenericDisassembler::getInstruction(
 
   int Ret = decodeInstruction(&InternalInstr, regionReader, (const void *)&R,
                               LoggerFn, (void *)&VStream,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+                              (const void *)MII.get(), Address, fMode,
+                              isIceCode);
+#else // INTEL_FEATURE_ICECODE
                               (const void *)MII.get(), Address, fMode);
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 
   if (Ret) {
     Size = InternalInstr.readerCursor - Address;
@@ -709,6 +726,11 @@ static bool translateRM(MCInst &mcInst, const OperandSpecifier &operand,
   case TYPE_BNDR:
     return translateRMRegister(mcInst, insn);
   case TYPE_M:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  case TYPE_M32:
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
   case TYPE_MVSIBX:
   case TYPE_MVSIBY:
   case TYPE_MVSIBZ:
