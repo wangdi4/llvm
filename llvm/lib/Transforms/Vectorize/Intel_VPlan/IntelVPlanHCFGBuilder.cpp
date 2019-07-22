@@ -763,6 +763,7 @@ void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
   // ExitBlock.
   VPBlockBase *ExitingBlock = VPL->getExitingBlock();
   VPBlockBase *ExitBlock = getBlocksExitBlock(ExitingBlock, VPL);
+  assert(ExitBlock && "Exiting block should have an exit block!");
   VPBlockUtils::movePredecessor(ExitingBlock, ExitBlock, NewLoopLatch);
   VPBlockUtils::connectBlocks(NewLoopLatch, ExitBlock);
   // Update the blocks of the phi node (if it exists) in the exit block.
@@ -788,7 +789,8 @@ void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
   // Update DA.
   VPlanDivergenceAnalysis *VPlanDA = Plan->getVPlanDA();
   VPInstruction *OldCondBit =
-      dyn_cast<VPInstruction>(ExitingBlock->getCondBit());
+      dyn_cast_or_null<VPInstruction>(ExitingBlock->getCondBit());
+  assert(OldCondBit && "ExitingBlock does not have a CondBit\n");
   auto copyDivergence = [VPlanDA](VPInstruction *From, VPInstruction *To) {
     // We should only mark divergent values. DA checks if a value is in
     // DivergentValues set. If it is not there, then the value is considered
@@ -1345,6 +1347,10 @@ bool VPlanHCFGBuilder::isNonLoopRegion(VPBlockBase *Entry,
 
   VPBlockBase *PotentialExit =
       VPPostDomTree.getNode(Entry)->getIDom()->getBlock();
+  // For now, assert when the exit cannot be found for the entry block. Later,
+  // we may want to return false here so that a new region is not constructed
+  // for these cases. But, this will require a little further study.
+  assert(PotentialExit && "Could not find the Exit block for the region Entry");
   // Region's exit must have a single successor
   if (PotentialExit->getNumSuccessors() != 1 ||
       !isa<VPBasicBlock>(PotentialExit) ||
