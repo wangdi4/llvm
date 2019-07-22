@@ -41,6 +41,7 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_AggInline.h"                  // INTEL
 #include "llvm/Analysis/Intel_Andersens.h"                  // INTEL
+#include "llvm/Analysis/Intel_WP.h"                         // INTEL
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/PtrUseVisitor.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -4785,6 +4786,7 @@ PreservedAnalyses SROA::runImpl(Function &F, DominatorTree &RunDT,
   PA.preserve<GlobalsAA>();
   PA.preserve<InlineAggAnalysis>();    // INTEL
   PA.preserve<AndersensAA>();          // INTEL
+  PA.preserve<WholeProgramAnalysis>(); // INTEL
   return PA;
 }
 
@@ -4825,6 +4827,7 @@ public:
     AU.addPreserved<GlobalsAAWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();    // INTEL
     AU.addPreserved<InlineAggressiveWrapperPass>(); // INTEL
+    AU.addPreserved<WholeProgramWrapperPass>();     // INTEL
     AU.setPreservesCFG();
   }
 

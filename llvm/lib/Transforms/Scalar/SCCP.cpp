@@ -29,6 +29,7 @@
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
+#include "llvm/Analysis/Intel_WP.h"         // INTEL
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -1862,6 +1863,7 @@ PreservedAnalyses SCCPPass::run(Function &F, FunctionAnalysisManager &AM) {
   PA.preserve<GlobalsAA>();
   PA.preserveSet<CFGAnalyses>();
   PA.preserve<AndersensAA>();     // INTEL
+  PA.preserve<WholeProgramAnalysis>();  // INTEL
   return PA;
 }
 
@@ -1886,6 +1888,7 @@ public:
     AU.addPreserved<GlobalsAAWrapperPass>();
     AU.setPreservesCFG();
     AU.addPreserved<AndersensAAWrapperPass>();  // INTEL
+    AU.addPreserved<WholeProgramWrapperPass>(); // INTEL
   }
 
   // runOnFunction - Run the Sparse Conditional Constant Propagation

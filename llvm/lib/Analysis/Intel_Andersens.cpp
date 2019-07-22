@@ -791,8 +791,10 @@ void AndersensAAResult::PrintNonEscapes() const {
 }
 
 AndersensAAResult::AndersensAAResult(const DataLayout &DL,
-                                 const TargetLibraryInfo &TLI)
-    : AAResultBase(), DL(DL), TLI(TLI) {}
+         const TargetLibraryInfo &TLI, WholeProgramInfo *WPInfo)
+    : AAResultBase(), DL(DL), TLI(TLI) {
+  WholeProgramSafeDetected = (WPInfo && WPInfo->isWholeProgramSafe());
+}
 
 // Partial data of AndersensAAResult is copied here. Once Andersens
 // points-to analysis is done, only GraphNodes, ValueNodes, ObjectNodes,
@@ -813,14 +815,15 @@ AndersensAAResult::AndersensAAResult(AndersensAAResult &&Arg)
       NonEscapeStaticVars(std::move(Arg.NonEscapeStaticVars)),
       NonPointerAssignments(std::move(Arg.NonPointerAssignments)),
       IMR(std::move(Arg.IMR)) {
+  WholeProgramSafeDetected = Arg.WholeProgramSafeDetected;
   if (IMR)
     IMR->resetAndersenAAResult(this);
 }
 
 /*static*/ AndersensAAResult
 AndersensAAResult::analyzeModule(Module &M, const TargetLibraryInfo &TLI,
-                               CallGraph &CG) {
-  AndersensAAResult Result(M.getDataLayout(), TLI);
+                                 CallGraph &CG, WholeProgramInfo *WPInfo) {
+  AndersensAAResult Result(M.getDataLayout(), TLI, WPInfo);
 
   // Run Andersens'ss points-to analysis.
   Result.RunAndersensAnalysis(M);
@@ -831,9 +834,10 @@ AndersensAAResult::analyzeModule(Module &M, const TargetLibraryInfo &TLI,
 AnalysisKey AndersensAA::Key;
 
 AndersensAAResult AndersensAA::run(Module &M, ModuleAnalysisManager &AM) {
-  return AndersensAAResult::analyzeModule(M,
-                                      AM.getResult<TargetLibraryAnalysis>(M),
-                                      AM.getResult<CallGraphAnalysis>(M));
+  return AndersensAAResult::analyzeModule(
+      M, AM.getResult<TargetLibraryAnalysis>(M),
+      AM.getResult<CallGraphAnalysis>(M),
+      AM.getCachedResult<WholeProgramAnalysis>(M));
 }
 
 char AndersensAAWrapperPass::ID = 0;
@@ -868,9 +872,11 @@ AndersensAAWrapperPass::AndersensAAWrapperPass() : ModulePass(ID) {
 }
 
 bool AndersensAAWrapperPass::runOnModule(Module &M) {
+  auto *WPA = getAnalysisIfAvailable<WholeProgramWrapperPass>();
   Result.reset(new AndersensAAResult(AndersensAAResult::analyzeModule(
       M, getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(),
-      getAnalysis<CallGraphWrapperPass>().getCallGraph())));
+      getAnalysis<CallGraphWrapperPass>().getCallGraph(),
+      WPA ? &WPA->getResult() : nullptr)));
   return false;
 }
 
@@ -883,6 +889,7 @@ void AndersensAAWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<CallGraphWrapperPass>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
+  AU.addUsedIfAvailable<WholeProgramWrapperPass>();
 }
 
 // Returns true if ‘rname’ is found in ‘name_table’.
@@ -978,6 +985,39 @@ unsigned AndersensAAResult::getNodeValue(Value &V) {
 AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
                                      const MemoryLocation &LocB,
                                      AAQueryInfo &AAQI)  {
+
+  // Returns true if V is global variable that represents "stdout".
+  auto IsStdoutFilePtr = [] (Value *V) {
+    auto *LI = dyn_cast<LoadInst>(V);
+    if (!LI)
+      return false;
+    GlobalVariable *GV = dyn_cast<GlobalVariable>(LI->getPointerOperand());
+    if (!GV || !GV->isDeclaration())
+      return false;
+    if (GV->getName() == "stdout")
+      return true;
+    return false;
+  };
+
+  // Returns true if N is pointing to calls that return NoAlias pointers.
+  auto IsAllocPtr = [this] (Node *N) {
+    if (N == &GraphNodes[UniversalSet])
+      return false;
+    bool AllocFound = false;
+    for (auto Bi : *N->PointsTo) {
+      Node *N1 = &GraphNodes[Bi];
+      if (N1 == &GraphNodes[UniversalSet])
+        return false;
+      if (N1 == &GraphNodes[NullPtr] || N1 == &GraphNodes[NullObject])
+        continue;
+      Value *V = N1->getValue();
+      if (!V || !isNoAliasCall(V))
+        return false;
+      AllocFound = true;
+    }
+    return AllocFound;
+  };
+
   if (ValueNodes.size() == 0) {
       return AAResultBase::alias(LocA, LocB, AAQI);
   }
@@ -1005,6 +1045,18 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
       dbgs() << " Node 2: ";
       PrintNode(N2);
       dbgs() << " \n";
+  }
+
+  // Return NoAlias if one pointer is "stdout" and other pointer is
+  // a return value of NoAliasCall when WholeProgram is safe.
+  if (WholeProgramSafeDetected &&
+      ((IsStdoutFilePtr(V1) && IsAllocPtr(N2)) ||
+      (IsStdoutFilePtr(V2) && IsAllocPtr(N1)))) {
+    if (PrintAndersAliasQueries) {
+      dbgs() << " Result: NoAlias -- Local Alloc Ptr and stdout\n";
+      dbgs() << " Alias_End \n";
+    }
+    return NoAlias;
   }
 
   if (N1->PointsTo->test(UniversalSet) && N2->PointsTo->test(UniversalSet)) {

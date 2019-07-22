@@ -1997,12 +1997,119 @@ static bool isStoredOnceValueUsedByAllUsesInFunction(
   StoreI->eraseFromParent();
   return true;
 }
+
+// Replace global variable 'GV' with another global variable whose
+// value 'StoredOnceVal' is stored to 'GV' if it is safe.
+//
+// Ex:
+//  Uses of Glob2 will be replaced with Glob1 in the below example.
+//
+//  Glob1;
+//  internal Glob2;
+//  ...
+//  main() {
+//    Glob2 = Glob1; // Glob1 is not modified.
+//                   // Glob2 is changed only at the beginning of main.
+//                   // All other uses of Glob2 are just loads.
+//                   // Whole program is seen.
+//    ...
+//    fflush(Glob2); // Replace Glob2 with Glob1.
+//    ...
+//  }
+static bool TryToReplaceGlobalWithStoredOnceValue(
+    GlobalValue *GV, Value *StoredOnceVal, WholeProgramInfo *WPInfo) {
+
+  if (!WPInfo || !WPInfo->isWholeProgramSafe())
+    return false;
+
+  // Make sure 'StoredOnceVal' is a value of another global variable.
+  auto *LoadStoredGV = dyn_cast<LoadInst>(StoredOnceVal);
+  if (!LoadStoredGV)
+    return false;
+  Value *LoadPtr = LoadStoredGV->getPointerOperand();
+  if (!LoadPtr->hasNUses(1))
+    return false;
+  auto *BC = dyn_cast<BitCastOperator>(LoadPtr);
+  if (!BC)
+    return false;
+  auto *StoredGV = dyn_cast<GlobalVariable>(BC->getOperand(0));
+  if (!StoredGV)
+    return false;
+
+  // Types of GV and other global variable should be same.
+  if (StoredGV->getType() != GV->getType())
+    return false;
+  // Make sure other global variable is not modified.
+  for (auto *U : StoredGV->users()) {
+    if (U == LoadPtr)
+      continue;
+    if (!isa<LoadInst>(U))
+      return false;
+  }
+
+  // Check all uses of GV:
+  //  1. All uses of it are just loads
+  //  2. Except one store instruction that stores StoredOnceVal.
+  SmallPtrSet<LoadInst *, 16> Loads;
+  StoreInst *SingleSI = nullptr;
+  for (auto *U : GV->users()) {
+    if (auto *LI = dyn_cast<LoadInst>(U)) {
+      Loads.insert(LI);
+      if (!LI->getType()->isPointerTy())
+        return false;
+    } else if (Operator::getOpcode(U) == Instruction::BitCast) {
+      for (auto *UU : U->users()) {
+        auto *SI = dyn_cast<StoreInst>(UU);
+        if (!SI || SI->getValueOperand() != StoredOnceVal)
+          return false;
+        if (SingleSI != nullptr)
+          return false;
+        SingleSI = SI;
+      }
+    } else {
+      return false;
+    }
+  }
+  if (!SingleSI)
+    return false;
+
+  // We need to prove that store instruction of GV dominates all
+  // loads of GV but it is expensive to prove since uses of GV
+  // are not in single function. So, we will prove that there are
+  // no uses of GV starting from first instruction of "main" to
+  // the store instruction of GV.
+  Function *SingleSIFunction = SingleSI->getParent()->getParent();
+  BasicBlock *EntryBB = &SingleSIFunction->getEntryBlock();
+  // Check if store instruction of GV is in first BB of "main".
+  if (SingleSIFunction->getName() != "main" ||
+      SingleSI->getParent() != EntryBB)
+    return false;
+  // Prove that there are no uses of GV before the store instruction
+  // of GV.
+  BasicBlock::iterator EndIt = SingleSI->getIterator();
+  BasicBlock::iterator It = EntryBB->begin();
+  for (; It != EndIt; It++) {
+    Instruction &I = *It;
+    if (LoadStoredGV == &I)
+      continue;
+    // Allow only limited instruction that don't use GV.
+    if (!isa<IntrinsicInst>(I) && !isa<StoreInst>(I) &&
+        !isa<AllocaInst>(I) && !isa<BitCastInst>(I))
+      return false;
+  }
+
+  for (auto *LI : Loads)
+    LI->replaceUsesOfWith(GV, StoredGV);
+  return true;
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 /// Analyze the specified global variable and optimize
 /// it if possible.  If we make a change, return true.
 static bool processInternalGlobal(
     GlobalVariable *GV, const GlobalStatus &GS, TargetLibraryInfo *TLI,
+    WholeProgramInfo *WPInfo,  // INTEL
     function_ref<DominatorTree &(Function &)> LookupDomTree) {
 #if INTEL_COLLAB
 
@@ -2145,7 +2252,19 @@ static bool processInternalGlobal(
                                      GS.StoredOnceValue, LookupDomTree)) {
     LLVM_DEBUG(dbgs() << "GLOBAL REPLACED WITH CONSTANT: " << *GV << "\n");
     return true;
-    }
+  }
+  // Replace uses of global variable with another global variable if
+  // possible.
+  if (GS.StoredType == GlobalStatus::StoredOnce &&
+      GS.StoredOnceValue &&
+      GV->getValueType()->isSingleValueType() &&
+      GV->getType()->getAddressSpace() == 0 &&
+      !GV->isExternallyInitialized() &&
+      TryToReplaceGlobalWithStoredOnceValue(GV, GS.StoredOnceValue, WPInfo)) {
+    LLVM_DEBUG(dbgs() << "GLOBAL REPLACED WITH ANOTHER GLOBAL: "
+                      << *GV << "\n");
+    return true;
+  }
 #endif // INTEL_CUSTOMIZATION
 
     // Otherwise, if the global was not a boolean, we can shrink it to be a
@@ -2167,6 +2286,7 @@ static bool processInternalGlobal(
 /// make a change, return true.
 static bool
 processGlobal(GlobalValue &GV, TargetLibraryInfo *TLI,
+              WholeProgramInfo *WPInfo,  // INTEL
               function_ref<DominatorTree &(Function &)> LookupDomTree) {
   if (GV.getName().startswith("llvm."))
     return false;
@@ -2198,7 +2318,8 @@ processGlobal(GlobalValue &GV, TargetLibraryInfo *TLI,
   if (GVar->isConstant() || !GVar->hasInitializer())
     return Changed;
 
-  return processInternalGlobal(GVar, GS, TLI, LookupDomTree) || Changed;
+  return processInternalGlobal(GVar, GS, TLI, WPInfo,      // INTEL
+                               LookupDomTree) || Changed;  // INTEL
 }
 
 /// Walk all of the direct calls of the specified function, changing them to
@@ -2397,7 +2518,7 @@ OptimizeFunctions(Module &M, TargetLibraryInfo *TLI,
       }
     }
 
-    Changed |= processGlobal(*F, TLI, LookupDomTree);
+    Changed |= processGlobal(*F, TLI, nullptr, LookupDomTree);  // INTEL
 
     if (!F->hasLocalLinkage())
       continue;
@@ -2456,6 +2577,7 @@ OptimizeFunctions(Module &M, TargetLibraryInfo *TLI,
 static bool
 OptimizeGlobalVars(Module &M, TargetLibraryInfo *TLI,
                    function_ref<DominatorTree &(Function &)> LookupDomTree,
+                   WholeProgramInfo *WPInfo,    // INTEL
                    SmallPtrSetImpl<const Comdat *> &NotDiscardableComdats) {
   bool Changed = false;
 
@@ -2479,7 +2601,7 @@ OptimizeGlobalVars(Module &M, TargetLibraryInfo *TLI,
       continue;
     }
 
-    Changed |= processGlobal(*GV, TLI, LookupDomTree);
+    Changed |= processGlobal(*GV, TLI, WPInfo, LookupDomTree);  // INTEL
   }
   return Changed;
 }
@@ -3004,6 +3126,7 @@ static bool optimizeGlobalsInModule(
     Module &M, const DataLayout &DL, TargetLibraryInfo *TLI,
     function_ref<TargetTransformInfo &(Function &)> GetTTI,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
+    WholeProgramInfo *WPInfo,                                  // INTEL
     function_ref<DominatorTree &(Function &)> LookupDomTree) {
   SmallPtrSet<const Comdat *, 8> NotDiscardableComdats;
   bool Changed = false;
@@ -3035,7 +3158,7 @@ static bool optimizeGlobalsInModule(
     });
 
     // Optimize non-address-taken globals.
-    LocalChange |= OptimizeGlobalVars(M, TLI, LookupDomTree,
+    LocalChange |= OptimizeGlobalVars(M, TLI, LookupDomTree, WPInfo, // INTEL
                                       NotDiscardableComdats);
 
     // Resolve aliases, when possible.
@@ -3072,7 +3195,9 @@ PreservedAnalyses GlobalOptPass::run(Module &M, ModuleAnalysisManager &AM) {
       return FAM.getResult<BlockFrequencyAnalysis>(F);
     };
 
-    if (!optimizeGlobalsInModule(M, DL, &TLI, GetTTI, GetBFI, LookupDomTree))
+    auto *WPInfo = AM.getCachedResult<WholeProgramAnalysis>(M);       // INTEL
+    if (!optimizeGlobalsInModule(M, DL, &TLI, GetTTI, GetBFI, WPInfo, // INTEL
+                                 LookupDomTree))                      // INTEL
       return PreservedAnalyses::all();
 
     auto PA = PreservedAnalyses();        // INTEL
@@ -3109,7 +3234,10 @@ struct GlobalOptLegacyPass : public ModulePass {
       return this->getAnalysis<BlockFrequencyInfoWrapperPass>(F).getBFI();
     };
 
-    return optimizeGlobalsInModule(M, DL, TLI, GetTTI, GetBFI, LookupDomTree);
+    auto *WPA = getAnalysisIfAvailable<WholeProgramWrapperPass>();     // INTEL
+    WholeProgramInfo *WPInfo = WPA ? &WPA->getResult() : nullptr;      // INTEL
+    return optimizeGlobalsInModule(M, DL, TLI, GetTTI, GetBFI, WPInfo, // INTEL
+                                   LookupDomTree);                     // INTEL
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -3117,6 +3245,7 @@ struct GlobalOptLegacyPass : public ModulePass {
     AU.addRequired<TargetTransformInfoWrapperPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<BlockFrequencyInfoWrapperPass>();
+    AU.addUsedIfAvailable<WholeProgramWrapperPass>();      // INTEL
     AU.addPreserved<WholeProgramWrapperPass>();            // INTEL
     AU.addPreserved<AndersensAAWrapperPass>();             // INTEL
     AU.addPreserved<InlineAggressiveWrapperPass>();        // INTEL
@@ -3133,6 +3262,7 @@ INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(BlockFrequencyInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)  // INTEL
 INITIALIZE_PASS_END(GlobalOptLegacyPass, "globalopt",
                     "Global Variable Optimizer", false, false)
 
