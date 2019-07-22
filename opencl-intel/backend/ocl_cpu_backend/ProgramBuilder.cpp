@@ -35,6 +35,7 @@
 #include "ObjectCodeContainer.h"
 #include "ObjectCodeCache.h"
 #include "OclTune.h"
+#include "ChannelPipeTransformation.h"
 
 #define DEBUG_TYPE "ProgramBuilder"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
@@ -73,6 +74,7 @@
 
 using std::string;
 using namespace Intel::MetadataAPI;
+using namespace intel;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -82,6 +84,14 @@ static void BEFatalErrorHandler(void *user_data, const std::string& reason,
     errs() << "**Internal compiler error** " << reason << "\n" <<
               "Please report the issue on Intel OpenCL forum \n" <<
               "https://software.intel.com/en-us/forums/opencl for assistance. \n ";
+    // If the error is allocation memory failure, the info of big channel
+    // will be shown as a hint for user.
+    if (reason.find("Unable to allocate section memory") != std::string::npos &&
+            !ChannelPipeTransformation::getBuildLog().empty()) {
+      errs() << "**The potential reason is the following big channel declaration:\n";
+      errs() << ChannelPipeTransformation::getBuildLog().data();
+    }
+
     abort();
 }
 

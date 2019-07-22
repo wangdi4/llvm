@@ -62,6 +62,8 @@ OCL_INITIALIZE_PASS_END(ChannelPipeTransformation,
 }
 
 #define DEBUG_TYPE "channel-pipe-transformation"
+#define CHANNEL_SIZE_LIMIT 256 * 1024
+#define CHANNEL_ARRAY_SIZE_LIMIT 256 * 1024 * 1024
 
 namespace {
 
@@ -79,6 +81,8 @@ typedef std::stack<ValueValuePair, std::vector<ValueValuePair>> WorkListType;
 } // anonymous namespace
 
 namespace intel {
+// Initialize this static field
+std::string ChannelPipeTransformation::build_log = "";
 
 static Function *getPipeBuiltin(OCLBuiltins &Builtins, const PipeKind &Kind) {
   if (Kind.Blocking) {
@@ -150,9 +154,29 @@ static GlobalVariable *createPipeBackingStore(GlobalVariable *GV,
 
   size_t BSSize = __pipe_get_total_size_fpga(MD.PacketSize, MD.Depth,
       ChannelDepthEmulationMode);
+  size_t chanArrayNum = 0;
+  size_t singleChanSize = BSSize;
   if (auto *PipePtrArrayTy =
           dyn_cast<ArrayType>(GV->getType()->getElementType())) {
-    BSSize *= CompilationUtils::getArrayNumElements(PipePtrArrayTy);
+    chanArrayNum = CompilationUtils::getArrayNumElements(PipePtrArrayTy);
+    BSSize *= chanArrayNum;
+  }
+  // If channel size exceeds the threshold, it may leads to potential
+  // memory allocation failure later. This channel info will be recorded
+  // and be shown when memory allocation fails.
+  if (singleChanSize > CHANNEL_SIZE_LIMIT || BSSize > CHANNEL_ARRAY_SIZE_LIMIT) {
+    ChannelPipeTransformation::build_log.append("Channel name: " +
+        GV->getName().drop_back(5).str() + "\n");
+    ChannelPipeTransformation::build_log.append("PacketSize: " +
+        std::to_string(MD.PacketSize) + "\n");
+
+    if (chanArrayNum > 0) {
+      ChannelPipeTransformation::build_log.append("Channel array Nums: " +
+          std::to_string(chanArrayNum) +  "\n");
+    }
+
+    ChannelPipeTransformation::build_log.append("Total Channel size: " +
+        std::to_string(BSSize) + "\n");
   }
 
   auto *ArrayTy = ArrayType::get(Int8Ty, BSSize);
@@ -836,6 +860,9 @@ ChannelPipeTransformation::ChannelPipeTransformation() : ModulePass(ID) {
 }
 
 bool ChannelPipeTransformation::runOnModule(Module &M) {
+  // Clear previous build_log.
+  ChannelPipeTransformation::build_log.clear();
+
   BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
   OCLBuiltins Builtins(M, BLI.getBuiltinModules());
 

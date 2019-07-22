@@ -31,6 +31,16 @@ public:
   bool runOnModule(llvm::Module &M);
 
   virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
+
+  /*
+   * Get the build log which store the big channel info.
+   */
+  //TODO: Using static string can only handle non-parallel compilaton.
+  // Need to use better solution for it.
+  static std::string getBuildLog() {
+    return build_log;
+  }
+  static std::string build_log;
 };
 
 } // namespace intel
