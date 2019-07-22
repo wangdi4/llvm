@@ -31,7 +31,7 @@ VPlanVLSAnalysisHIR::getAccessType(const RegDDRef *Ref, const unsigned Level,
 
   // Compute stride in terms of number of elements
   auto DL = Ref->getDDRefUtils().getDataLayout();
-  auto RefSizeInBytes = DL.getTypeSizeInBits(Ref->getDestType()) >> 3;
+  auto RefSizeInBytes = DL.getTypeAllocSize(Ref->getDestType());
   *Stride /= RefSizeInBytes;
   return MemAccessTy::Strided;
 }
