@@ -22,7 +22,7 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
     src/omptarget-opencl.cl
   )
   set(opencl_device_rtl_bc ${LIBOMPTARGET_LIBRARY_DIR}/libomptarget-opencl.bc)
-  set(opencl_device_rtl ${LIBOMPTARGET_LIBRARY_DIR}/libomptarget-opencl.a)
+  set(opencl_device_rtl ${LIBOMPTARGET_LIBRARY_DIR}/libomptarget-opencl.spv)
   set(opencl_flags_spirv
     -cc1 -emit-llvm-bc -triple spir64-unknown-unknown -cl-std=CL2.0
     -disable-llvm-passes -include opencl-c.h -DINTEL_COLLAB=1
