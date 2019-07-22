@@ -17,7 +17,16 @@
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
+#if INTEL_CUSTOMIZATION
+// FIXME: temporary solution for LIBDL on Windows.
+#ifdef _WIN32
+#include <intel_win_dlfcn.h>
+#else  // !_WIN32
 #include <dlfcn.h>
+#endif // !_WIN32
+#else  // INTEL_CUSTOMIZATION
+#include <dlfcn.h>
+#endif  // INTEL_CUSTOMIZATION
 #include <mutex>
 #include <string>
 
