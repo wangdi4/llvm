@@ -65,6 +65,7 @@ public:
   InlineReportTreeNode *insertNewChild(Instruction *CallI, unsigned InsertAt,
                                        InlineReportBuilder &MDIR);
 
+#ifndef NDEBUG
   void dump() {
     errs() << "\n\tNode(" << this << ", name:" << Name << ", line:" << Line;
     errs() << ", col:" << Col << ", idx:" << Idx << ", depth:" << Depth;
@@ -77,6 +78,7 @@ public:
     for (auto *Node : Children)
       Node->dumpRecursive();
   }
+#endif // NDEBUG
 };
 
 // Function to insert new inlining report into the current inline report tree.
@@ -585,9 +587,9 @@ bool setupInlineReport(Module &M, InlineReportBuilder &MDIR) {
   LLVM_DEBUG(dbgs() << "\nMDIR setup: start\n");
   NamedMDNode *ModuleInlineReport = M.getOrInsertNamedMetadata(ModuleTag);
   removeDuplicatedFunctionMDNodes(ModuleInlineReport, M);
-  for (Function &F : M) {
+  for (Function &F : M)
     findOrCreateFunctionInliningReport(&F, ModuleInlineReport, MDIR);
-  }
+
   LLVM_DEBUG(dbgs() << "\nMDIR setup: finish\n");
   return false;
 }

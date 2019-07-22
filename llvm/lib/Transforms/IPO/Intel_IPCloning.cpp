@@ -828,18 +828,15 @@ static bool IsFunctionPtrCloneCandidate(Function &F) {
 // BEGIN: Special code for extra clone transformation
 
 //
-// Return 'true' if 'V' represents an AllocaInst similar to:
+// Return 'true' if 'AI' represents an AllocaInst similar to:
 //   %x = alloca [9 x i32], align 16
 // Here the size of the array, the number of bits in the integer, and the
 // alignment do not effect whether we return 'true'.  When we return 'true',
 // we set '*ArrayLengthOut' to the number of elements in the array. (In the
 // above example, that will be 9.)
 //
-static bool isRecProAllocaIntArray(Value *V,
+static bool isRecProAllocaIntArray(AllocaInst *AI,
                                    int *ArrayLengthOut) {
-  auto AI = dyn_cast<AllocaInst>(V);
-  if (!AI)
-    return false;
   Type *PT = AI->getType();
   if (!PT->isPointerTy())
     return false;
@@ -1006,6 +1003,36 @@ static bool isRecProNoOrSingleStoreBlock(BasicBlock *BBStore,
 }
 
 //
+// Return 'true' if 'GEPI' is a GEP with 2 zero indices that indexes 'AI'.
+//
+static bool isRecProGEP(GetElementPtrInst *GEPI,
+                        AllocaInst *AI) {
+  return GEPI && GEPI->getPointerOperand() == AI &&
+      GEPI->hasAllZeroIndices() && GEPI->getNumIndices() == 2;
+}
+
+//
+// Return 'true' if 'SubI' is a SubscriptInst which indexes 'GEPI' and
+// whose Rank is 0, LowerBound is 1, Stride is 4, as is required in the
+// RecProVectors.
+//
+static bool isRecProSub(SubscriptInst *SubI,
+                        GetElementPtrInst *GEPI) {
+  if (SubI->getRank() != 0)
+    return false;
+  auto CI1 = dyn_cast<ConstantInt>(SubI->getLowerBound());
+  if (!CI1 || CI1->getSExtValue() != 1)
+    return false;
+  auto CI2 = dyn_cast<ConstantInt>(SubI->getStride());
+  if (!CI2 || CI2->getSExtValue() != 4)
+    return false;
+  auto GEPII = dyn_cast<GetElementPtrInst>(SubI->getPointerOperand());
+  if (!GEPII || GEPII != GEPI)
+    return false;
+  return true;
+}
+
+//
 // Return 'true' if 'SI' is a SubscriptInst which indexes a local single-
 // dimension 9 element integer array with the induction variable 'PHI'.
 // If we return 'true', set '*AIOut' to the AllocaInst that allocates the
@@ -1014,26 +1041,20 @@ static bool isRecProNoOrSingleStoreBlock(BasicBlock *BBStore,
 static bool isRecProTempVector(SubscriptInst *SI,
                                PHINode *PHI,
                                AllocaInst **AIOut) {
-  auto CI0 = dyn_cast<ConstantInt>(SI->getOperand(0));
-  if (!CI0 || CI0->getSExtValue() != 0)
+  auto GEPI = dyn_cast<GetElementPtrInst>(SI->getPointerOperand());
+  if (!GEPI || !isRecProSub(SI, GEPI))
     return false;
-  auto CI1 = dyn_cast<ConstantInt>(SI->getOperand(1));
-  if (!CI1 || CI1->getSExtValue() != 1)
-    return false;
-  auto CI2 = dyn_cast<ConstantInt>(SI->getOperand(2));
-  if (!CI2 || CI2->getSExtValue() != 4)
-    return false;
-  auto GEP = dyn_cast<GetElementPtrInst>(SI->getOperand(3));
-  if (!GEP || !GEP->hasAllZeroIndices())
+  auto AI = dyn_cast<AllocaInst>(GEPI->getPointerOperand());
+  if (!AI || !isRecProGEP(GEPI, AI))
     return false;
   int ArraySize = 0;
-  if (!isRecProAllocaIntArray(GEP->getPointerOperand(), &ArraySize))
+  if (!isRecProAllocaIntArray(AI, &ArraySize))
     return false;
   if (ArraySize != 9)
     return false;
-  if (SI->getOperand(4) != PHI)
+  if (SI->getIndex() != PHI)
     return false;
-  *AIOut = cast<AllocaInst>(GEP->getPointerOperand());
+  *AIOut = AI;
   return true;
 }
 
@@ -1169,6 +1190,7 @@ static bool isRecProTrueBranchComplexLoop(BasicBlock *BBPreHeader,
                                           BasicBlock *BBLoopHeader,
                                           AllocaInst *AICond,
                                           AllocaInst **AIOut,
+                                          StoreInst **SIOut,
                                           int *ConstantValueOut,
                                           BasicBlock **BBLatchOut,
                                           BasicBlock **BBExitOut) {
@@ -1191,6 +1213,7 @@ static bool isRecProTrueBranchComplexLoop(BasicBlock *BBPreHeader,
   if (!CI)
     return false;
   *AIOut = AI;
+  *SIOut = SI;
   *ConstantValueOut = CI->getSExtValue();
   return true;
 }
@@ -1204,15 +1227,17 @@ static bool isRecProTrueBranchComplexLoop(BasicBlock *BBPreHeader,
 //       u(i) = l(i)
 //     end if
 //   end do
-// 'AICond' is "t", '*AIOut' is "u". If 'VLoad' is not nullptr, ensure
-// that the value assigned to '*AIOut' is 'VLoad'. When we return 'true',
-// we set '*AIOut' as well as the latch block '*BBLatchOut' and '*BBExitOut'.
+// 'AICond' is "t", '*AIOut' is "u", and '*SIOut' is the store of "u(i)".
+//  If 'VLoad' is not nullptr, ensure that the value assigned to '*AIOut' is
+// 'VLoad'. When we return 'true', we set '*AIOut' as well as the latch block
+// '*BBLatchOut' and '*BBExitOut'.
 //
 static bool isRecProFalseBranchComplexLoop(BasicBlock *BBPreHeader,
                                            BasicBlock *BBLoopHeader,
                                            AllocaInst *AICond,
                                            AllocaInst *VLoad,
                                            AllocaInst **AIOut,
+                                           StoreInst **SIOut,
                                            BasicBlock **BBLatchOut,
                                            BasicBlock **BBExitOut) {
   bool IsSimple = false;
@@ -1232,6 +1257,7 @@ static bool isRecProFalseBranchComplexLoop(BasicBlock *BBPreHeader,
     return false;
   if (!VLoad) {
     *AIOut = AI;
+    *SIOut = SI;
     return true;
   }
   auto LI = dyn_cast<LoadInst>(SI->getValueOperand());
@@ -1244,6 +1270,7 @@ static bool isRecProFalseBranchComplexLoop(BasicBlock *BBPreHeader,
   if (!isRecProTempVector(SubI, PHI, &AITemp) || AITemp != VLoad)
     return false;
   *AIOut = AI;
+  *SIOut = SI;
   return true;
 }
 
@@ -1277,13 +1304,21 @@ static bool isRecProFalseBranchComplexLoop(BasicBlock *BBPreHeader,
 // set '*BBLastLatchOut' to the last latch block in the sequence, set
 // '*LowerValueOut' and '*UpperValueOut' to the AllocaInsts representing
 // 'l(9)' and 'u(9)' and '*LowerConstantValueOut' and '*UpperConstantValueOut'
-// to the constant values "constant_l" and "constant_u".
+// to the constant values "constant_l" and "constant_u". Also, '*SILower1' and
+// '*SILower2' are set to the stores to "l(i)" and '*SIUpper1' and '*SIUpper2'
+// are set to the stores to "u(i)".  In both cases, the "lower" store is the
+// one that appears first in the five loop sequence, while the "upper" store
+// is the one that appears second.
 //
 static bool isRecProSpecialLoopSequence(Function *F,
                                         BasicBlock **BBLastExitOut,
                                         BasicBlock **BBLastLatchOut,
                                         AllocaInst **LowerValueOut,
                                         AllocaInst **UpperValueOut,
+                                        StoreInst **SILower1,
+                                        StoreInst **SILower2,
+                                        StoreInst **SIUpper1,
+                                        StoreInst **SIUpper2,
                                         int *LowerConstantValueOut,
                                         int *UpperConstantValueOut) {
   AllocaInst *AICond = nullptr;
@@ -1300,18 +1335,18 @@ static bool isRecProSpecialLoopSequence(Function *F,
   if (!isRecProSimpleLoop(PH, LH, &AICond, &BBLatch, &BBExit))
     return false;
   if (!isRecProFalseBranchComplexLoop(BBExit, BBExit->getSingleSuccessor(),
-      AICond, nullptr, &VStoreLower, &BBLatch, &BBExit))
+      AICond, nullptr, &VStoreLower, SILower1, &BBLatch, &BBExit))
     return false;
   if (!isRecProFalseBranchComplexLoop(BBExit, BBExit->getSingleSuccessor(),
-      AICond, VStoreLower, &VStoreUpper, &BBLatch, &BBExit))
+      AICond, VStoreLower, &VStoreUpper, SIUpper1, &BBLatch, &BBExit))
     return false;
   if (!isRecProTrueBranchComplexLoop(BBLatch, BBExit, AICond, &VStoreLowerTemp,
-    &LowerBound, &BBLatch, &BBExit))
+    SILower2, &LowerBound, &BBLatch, &BBExit))
     return false;
   if (VStoreLower != VStoreLowerTemp)
     return false;
   if (!isRecProTrueBranchComplexLoop(BBLatch, BBExit, AICond, &VStoreUpperTemp,
-    &UpperBound, &BBLatch, &BBExit))
+    SIUpper2, &UpperBound, &BBLatch, &BBExit))
     return false;
   if (VStoreUpper != VStoreUpperTemp)
     return false;
@@ -1333,8 +1368,7 @@ static GetElementPtrInst *findOrCreateRecProGEP(AllocaInst* AI,
                                                 BasicBlock *BB) {
   for (User *U : AI->users()) {
     auto GEPI = dyn_cast<GetElementPtrInst>(U);
-    if (GEPI && GEPI->getPointerOperand() == AI && GEPI->hasAllZeroIndices() &&
-        GEPI->getNumIndices() == 2)
+    if (GEPI && isRecProGEP(GEPI, AI))
       return GEPI;
   }
   SmallVector<Value *, 2> Indices;
@@ -1343,7 +1377,8 @@ static GetElementPtrInst *findOrCreateRecProGEP(AllocaInst* AI,
   Indices.push_back(CI1);
   auto CI2 = ConstantInt::get(Int64Ty, 0, true);
   Indices.push_back(CI2);
-  return GetElementPtrInst::Create(AI->getType(), AI, Indices, "", BB);
+  Type *GEPT = AI->getType()->getElementType();
+  return GetElementPtrInst::Create(GEPT, AI, Indices, "", BB);
 }
 
 //
@@ -1416,6 +1451,157 @@ static void addSpecialRecProCloneCode(Function *F,
     BBConstStore->dump();
 #endif // NDEBUG
   }
+}
+
+//
+// Return 'true' if 'AI' is only used in SubscriptInsts, which are then
+// fed to LoadInsts and StoreInsts. Futhermore, the StoreInsts must be
+// exactly those on 'SV'. If we return 'true', we fill 'LV' with the
+// LoadInsts which refer to 'AI'.
+//
+// We use this routine to check that there are no unusual aliases generated
+// for 'AI'. If the StoreInsts in 'SV' dominate all LoadInsts for 'AI', we
+// can perform forward substitution on the LoadInsts in 'LV'.
+//
+static bool validateRecProVectorMemOps(AllocaInst *AI,
+                                       SmallVectorImpl<StoreInst *>& SV,
+                                       SmallVectorImpl<LoadInst *>& LV) {
+  for (User *U1 : AI->users()) {
+    auto GEPI = dyn_cast<GetElementPtrInst>(U1);
+    if (!GEPI || !isRecProGEP(GEPI, AI)) {
+      LV.clear();
+      return false;
+    }
+    for (User *U2 : GEPI->users()) {
+      auto SubI = dyn_cast<SubscriptInst>(U2);
+      if (!SubI || !isRecProSub(SubI, GEPI)) {
+        LV.clear();
+        return false;
+      }
+      for (User *U3 : SubI->users()) {
+        auto LI = dyn_cast<LoadInst>(U3);
+        if (LI)
+          LV.push_back(LI);
+        else {
+          auto SI = dyn_cast<StoreInst>(U3);
+          if (SI) {
+            unsigned I = 0;
+            for (; I < SV.size(); ++I)
+              if (SV[I] == SI)
+                break;
+            if (I == SV.size()) {
+              LV.clear();
+              return false;
+            }
+          }
+          else {
+            LV.clear();
+            return false;
+          }
+        }
+      }
+    }
+  }
+  return true;
+}
+
+//
+// Return 'true' if 'LI' is a subscripted load of the 'Index'th element
+// of some value.
+//
+static bool hasThisRecProSubscript(LoadInst *LI,
+                                   unsigned Index) {
+  auto SubI = dyn_cast<SubscriptInst>(LI->getPointerOperand());
+  if (!SubI)
+    return false;
+  auto CI = dyn_cast<ConstantInt>(SubI->getIndex());
+  return CI && CI->getZExtValue() == Index;
+}
+
+//
+// Return 'true' if, given that 'S1' and S2' dominate all loads of 'AI'
+// in 'F', we can forward substitute 'Bound' for the 8th element of 'AI'.
+// If we return 'true', do the forward substitution.
+//
+static bool tryToMakeRecProSubscriptsConstant(Function *F,
+                                              AllocaInst *AI,
+                                              StoreInst *S1,
+                                              StoreInst *S2,
+                                              int Bound) {
+  SmallVector<StoreInst *, 2> SV;
+  SmallVector<LoadInst *, 10> LV;
+  SV.push_back(S1);
+  SV.push_back(S2);
+  if (!validateRecProVectorMemOps(AI, SV, LV))
+    return false;
+  for (unsigned I = 0; I < LV.size(); ++I) {
+    auto LI = LV[I];
+    if (hasThisRecProSubscript(LI, 8)) {
+      auto CCI = ConstantInt::get(LI->getType(), Bound);
+      if (IPCloningTrace) {
+        errs() << "Replacing Load in Function " << F->getName() << " with "
+               << Bound << "\n";
+#ifndef NDEBUG
+        LI->dump();
+        CCI->dump();
+#endif // NDEBUG
+      }
+      LI->replaceAllUsesWith(CCI);
+    }
+  }
+  return true;
+}
+
+//
+// Return 'true' if, given that 'SILower1' and 'SILower2'' dominate all loads
+// of 'AILower', and 'SIUpper1' and 'SIUpper2' dominate all loads of 'AIUpper',
+// in 'F', we can forward substitute the 8th element of 'AILower' for the 8th
+// element of 'AIUpper'. If we return 'true', do the forward substitution.
+//
+static bool tryToMakeRecProSubscriptsSame(Function *F,
+                                          AllocaInst *AILower,
+                                          AllocaInst *AIUpper,
+                                          StoreInst *SILower1,
+                                          StoreInst *SILower2,
+                                          StoreInst *SIUpper1,
+                                          StoreInst *SIUpper2) {
+  SmallVector <StoreInst *, 2> SV;
+  SmallVector <LoadInst *, 10> LV;
+  SV.push_back(SILower1);
+  SV.push_back(SILower2);
+  if (!validateRecProVectorMemOps(AILower, SV, LV))
+    return false;
+  LoadInst *LILower = nullptr;
+  for (unsigned I = 0; I < LV.size(); ++I) {
+    auto LI = LV[I];
+    if (hasThisRecProSubscript(LI, 8))
+      LILower = LI;
+  }
+  if (!LILower)
+    return false;
+  SV.clear();
+  LV.clear();
+  SV.push_back(SIUpper1);
+  SV.push_back(SIUpper2);
+  if (!validateRecProVectorMemOps(AIUpper, SV, LV))
+    return false;
+  for (unsigned I = 0; I < LV.size(); ++I) {
+    auto LI = LV[I];
+    if (hasThisRecProSubscript(LI, 8)) {
+      if (IPCloningTrace) {
+        errs() << "Replacing Load in Function " << F->getName()
+               << " with alternate bound\n";
+#ifndef NDEBUG
+        LI->dump();
+        LI->getPointerOperand()->dump();
+        LILower->dump();
+        LILower->getPointerOperand()->dump();
+#endif // NDEBUG
+      }
+      LI->replaceAllUsesWith(LILower);
+    }
+  }
+  return true;
 }
 
 // END: Special code for extra clone transformation
@@ -1638,12 +1824,17 @@ static void createRecProgressionClones(Function &F,
     BasicBlock *BBLastLatch = nullptr;
     AllocaInst *AILower = nullptr;
     AllocaInst *AIUpper = nullptr;
+    StoreInst *SILower1 = nullptr;
+    StoreInst *SILower2 = nullptr;
+    StoreInst *SIUpper1 = nullptr;
+    StoreInst *SIUpper2 = nullptr;
     int CVLower = 0;
     int CVUpper = 0;
     // Test if we should create the extra clone
     Function *ExtraCloneF = nullptr;
     if (isRecProSpecialLoopSequence(LastCloneF, &BBLastExit, &BBLastLatch,
-        &AILower, &AIUpper, &CVLower, &CVUpper)) {
+        &AILower, &AIUpper, &SILower1, &SILower2, &SIUpper1, &SIUpper2,
+        &CVLower, &CVUpper)) {
       // Create the extra clone
       ValueToValueMapTy VMapNew;
       ExtraCloneF = CloneFunction(LastCloneF, VMapNew);
@@ -1652,12 +1843,43 @@ static void createRecProgressionClones(Function &F,
       if (IPCloningTrace)
         errs() << "Extra RecProClone Candidate: " << LastCloneF->getName()
                << "\n";
-      addSpecialRecProCloneCode(LastCloneF, ExtraCloneF, BBLastExit,
-        BBLastLatch, AILower, AIUpper, CVLower, CVUpper);
     }
     deleteRecProgressionRecCalls(F, *LastCloneF);
-    if (ExtraCloneF)
+    if (ExtraCloneF) {
+      int SubCount = 0;
+      // Make the inner loop bounds constant for the last normal clone
+      if (tryToMakeRecProSubscriptsConstant(LastCloneF, AILower, SILower1,
+          SILower2, 1))
+        ++SubCount;
+      if (tryToMakeRecProSubscriptsConstant(LastCloneF, AIUpper, SIUpper1,
+          SIUpper2, 9))
+        ++SubCount;
+      // Make the inner loop "trip 1" for the extra clone
+      BasicBlock *BBLastExitC = nullptr;
+      BasicBlock *BBLastLatchC = nullptr;
+      AllocaInst *AILowerC = nullptr;
+      AllocaInst *AIUpperC = nullptr;
+      StoreInst *SILower1C = nullptr;
+      StoreInst *SILower2C = nullptr;
+      StoreInst *SIUpper1C = nullptr;
+      StoreInst *SIUpper2C= nullptr;
+      int CVLowerC = 0;
+      int CVUpperC = 0;
+      if (isRecProSpecialLoopSequence(ExtraCloneF, &BBLastExitC, &BBLastLatchC,
+          &AILowerC, &AIUpperC, &SILower1C, &SILower2C, &SIUpper1C, &SIUpper2C,
+          &CVLowerC, &CVUpperC)) {
+        if (tryToMakeRecProSubscriptsSame(ExtraCloneF, AILowerC, AIUpperC,
+            SILower1C, SILower2C, SIUpper1C, SIUpper2C))
+          ++SubCount;
+      }
+      // Add the special test in the last normal clone to switch to the
+      // extra clone if appropriate
+      addSpecialRecProCloneCode(LastCloneF, ExtraCloneF, BBLastExit,
+        BBLastLatch, AILower, AIUpper, CVLower, CVUpper);
       deleteRecProgressionRecCalls(F, *ExtraCloneF);
+      if (IPCloningTrace && SubCount == 3)
+        errs() << "All desired subscript bounds substituted\n";
+    }
   }
 }
 

@@ -789,6 +789,22 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *NewEntryBB = SplitBlock(EntryBB, &*(EntryBB->begin()), DT, LI);
   W->setEntryBBlock(NewEntryBB);
+
+  for (int I = 0, IE = WL->getWRNLoopInfo().getNormIVSize(); I < IE; ++I) {
+    auto *L = WL->getWRNLoopInfo().getLoop(I);
+    auto *UpperBoundAI =
+        cast<Instruction>(WRegionUtils::getOmpLoopUpperBound(L));
+    assert(UpperBoundAI->getParent() != NewEntryBB &&
+           "genTgtLoopParameter: how come UB alloca "
+           "is in target region's begin block?");
+    if (!DT->dominates(UpperBoundAI, NewEntryBB)) {
+      LLVM_DEBUG(dbgs() << __FUNCTION__ <<
+                 ": upper bound AllocaInst for loop #" << I <<
+                 " does not dominate the enclosing target region.\n");
+      return nullptr;
+    }
+  }
+
   LLVMContext &C = F->getContext();
   IntegerType *Int64Ty = Type::getInt64Ty(C);
   Instruction *InsertPt = EntryBB->getTerminator();

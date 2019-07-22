@@ -455,7 +455,6 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
       Decomposer.createLoopIVNextAndBottomTest(HLp, Preheader, Latch);
   VPBlockUtils::connectBlocks(Latch, Header);
   Latch->setCondBit(LatchCondBit);
-  Plan->setCondBitUser(LatchCondBit, Latch);
 
   // - Loop Exits -
   // Force creation of a new VPBB for Exit.
@@ -501,7 +500,6 @@ void PlainCFGBuilderHIR::visit(HLIf *HIf) {
   VPInstruction *CondBit =
       Decomposer.createVPInstructionsForNode(HIf, ActiveVPBB);
   ConditionVPBB->setCondBit(CondBit);
-  Plan->setCondBitUser(CondBit, ConditionVPBB);
 
   // - Then branch -
   // Force creation of a new VPBB for Then branch even if the Then branch has no
@@ -641,7 +639,7 @@ VPlanHCFGBuilderHIR::VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp,
                        Lp->getHLNodeUtils().getDataLayout(), WRL, Plan,
                        nullptr),
       TheLoop(Lp), DDG(DDG), HIRLegality(Legal) {
-  Verifier = make_unique<VPlanVerifierHIR>(Lp);
+  Verifier = llvm::make_unique<VPlanVerifierHIR>(Lp);
   assert((!WRLp || WRLp->getTheLoop<HLLoop>() == TheLoop) &&
          "Inconsistent Loop information");
 }

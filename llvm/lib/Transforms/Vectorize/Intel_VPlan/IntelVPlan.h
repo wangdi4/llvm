@@ -2127,7 +2127,7 @@ public:
   /// predecessor of \p IfTrue or \p IfFalse. This VPBlockBase must have no
   /// successors. \p ConditionV is set as successor selector.
   void setTwoSuccessors(VPValue *ConditionV, VPBlockBase *IfTrue,
-                        VPBlockBase *IfFalse, VPlan *Plan);
+                        VPBlockBase *IfFalse);
 
   /// Set each VPBasicBlock in \p NewPreds as predecessor of this VPBlockBase.
   /// This VPBlockBase must have no predecessors. This VPBlockBase is not added
@@ -2416,7 +2416,7 @@ public:
     }
   }
 
-  void moveConditionalEOBTo(VPBasicBlock *ToBB, VPlan *Plan);
+  void moveConditionalEOBTo(VPBasicBlock *ToBB);
 #endif
 
   /// Remove the recipe from VPBasicBlock's recipes.
@@ -2696,9 +2696,6 @@ protected:
   /// reverse mapping to locate the VPRecipe an IR instruction belongs to. This
   /// serves optimizations that operate on the VPlan.
   DenseMap<Instruction *, VPRecipeBase *> Inst2Recipe;
-
-  /// Keep track of the VPBasicBlock users of a CondBit.
-  DenseMap<VPValue *, std::set<const VPBlockBase *>> CondBitUsers;
 #endif // INTEL_CUSTOMIZATION
 
   /// Holds the VFs applicable to this VPlan.
@@ -2828,26 +2825,6 @@ public:
   void resetInst2RecipeRange(BasicBlock::iterator B, BasicBlock::iterator E) {
     for (auto It = B; It != E; ++It) {
       resetInst2Recipe(&*It);
-    }
-  }
-
-  std::set<const VPBlockBase *> &getCondBitUsers(VPValue *ConditionV) {
-    return CondBitUsers[ConditionV];
-  }
-
-  void removeCondBitUsers(VPValue *ConditionV) {
-    CondBitUsers[ConditionV].clear();
-  }
-
-  void setCondBitUser(VPValue *ConditionV, const VPBlockBase *Block) {
-    if (ConditionV) {
-      CondBitUsers[ConditionV].insert(Block);
-    }
-  }
-
-  void removeCondBitUser(VPValue *ConditionV, const VPBlockBase *Block) {
-    if (ConditionV) {
-      CondBitUsers[ConditionV].erase(Block);
     }
   }
 
@@ -3247,9 +3224,8 @@ public:
   /// and \p IfFalse are set as successors of \p From. \p From is set as
   /// predecessor of \p IfTrue and \p IfFalse. \p From must have no successors.
   static void connectBlocks(VPBlockBase *From, VPValue *ConditionV,
-                            VPBlockBase *IfTrue, VPBlockBase *IfFalse,
-                            VPlan *Plan) {
-    From->setTwoSuccessors(ConditionV, IfTrue, IfFalse, Plan);
+                            VPBlockBase *IfTrue, VPBlockBase *IfFalse) {
+    From->setTwoSuccessors(ConditionV, IfTrue, IfFalse);
     IfTrue->appendPredecessor(From);
     IfFalse->appendPredecessor(From);
   }
@@ -3372,8 +3348,7 @@ public:
 
   static VPBasicBlock *splitBlock(VPBlockBase *Block, VPLoopInfo *VPLInfo,
                                   VPDominatorTree &DomTree,
-                                  VPPostDominatorTree &PostDomTree,
-                                  VPlan *Plan);
+                                  VPPostDominatorTree &PostDomTree);
 
   //===----------------------------------------------------------------------===//
   // VPRegionBlock specific Utilities

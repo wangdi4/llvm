@@ -425,3 +425,8 @@ bool HLNode::divideProfileData(uint64_t Denominator) {
 
   return true;
 }
+
+void HLNode::swapProfileData() {
+  setProfileData(
+      HLNodeUtils::swapProfMetadata(HNU.getContext(), getProfileData()));
+}

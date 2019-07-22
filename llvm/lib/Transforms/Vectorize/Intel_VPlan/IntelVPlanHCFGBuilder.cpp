@@ -75,7 +75,7 @@ VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, ScalarEvolution *SE,
     : TheLoop(Lp), LI(LI), SE(SE), WRLp(WRL), Plan(Plan), Legal(Legal) {
   // TODO: Turn Verifier pointer into an object when Patch #3 of Patch Series
   // #1 lands into VPO and VPlanHCFGBuilderBase is removed.
-  Verifier = make_unique<VPlanVerifier>(Lp, LI, DL);
+  Verifier = llvm::make_unique<VPlanVerifier>(Lp, LI, DL);
   assert((!WRLp || WRLp->getTheLoop<Loop>() == TheLoop) &&
          "Inconsistent Loop information");
 }
@@ -152,7 +152,7 @@ void VPlanHCFGBuilder::splitLoopsPreheader(VPLoop *VPL) {
   //    - has multiple predecessors (it's a potential exit of another region).
   //    - is loop H of another loop.
   if (!WRLp || !PH->getSinglePredecessor() || VPLInfo->isLoopHeader(PH)) {
-    VPBlockUtils::splitBlock(PH, VPLInfo, VPDomTree, VPPostDomTree, Plan);
+    VPBlockUtils::splitBlock(PH, VPLInfo, VPDomTree, VPPostDomTree);
   }
 
   // Apply simplification to subloops
@@ -468,16 +468,22 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   // If the loop is a while loop (case 5), then it might not have a fall-through
   // edge. Therefore, in this case, the LatchExitBlock will be null.
   VPBlockBase *LatchExitBlock = nullptr;
-  if (OrigLoopLatch->getNumSuccessors() > 1)
-    LatchExitBlock = (OrigLoopLatch->getSuccessors()[0] == LoopHeader)
-                         ? OrigLoopLatch->getSuccessors()[1]
-                         : OrigLoopLatch->getSuccessors()[0];
+  // BackedgeCond checks whether the backedge is taken when the CondBit is
+  // true or false.
+  bool BackedgeCond = (OrigLoopLatch->getSuccessors()[0] == LoopHeader);
+  if (OrigLoopLatch->getNumSuccessors() > 1) {
+    // For for-loops, we get the exit block of the latch.
+    assert(OrigLoopLatch->getNumSuccessors() == 2 &&
+           "The loop latch should have two successors!");
+    LatchExitBlock = BackedgeCond ? OrigLoopLatch->getSuccessors()[1]
+                                  : OrigLoopLatch->getSuccessors()[0];
+  }
 
   // Step 1 : Creates a new loop latch and fills it with all the necessary
   // instructions.
   VPBasicBlock *NewLoopLatch =
       new VPBasicBlock(VPlanUtils::createUniqueName("NewLoopLatch"));
-  OrigLoopLatch->moveConditionalEOBTo(NewLoopLatch, Plan);
+  OrigLoopLatch->moveConditionalEOBTo(NewLoopLatch);
   VPBlockUtils::insertBlockAfter(NewLoopLatch, OrigLoopLatch);
   VPL->addBasicBlockToLoop(NewLoopLatch, *VPLInfo);
   // Remove the original loop latch from the blocks of the phi node of the loop
@@ -489,6 +495,7 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   Type *Ty32 = Type::getInt32Ty(*Plan->getLLVMContext());
   Type *Ty1 = Type::getInt1Ty(*Plan->getLLVMContext());
   VPConstant *FalseConst = Plan->getVPConstant(ConstantInt::get(Ty1, 0));
+  VPConstant *TrueConst = Plan->getVPConstant(ConstantInt::get(Ty1, 1));
   VPBuilder VPBldr;
   VPBldr.setInsertPoint(NewLoopLatch);
   VPPHINode *VPPhi = cast<VPPHINode>(VPBldr.createPhiInstruction(Ty32));
@@ -500,8 +507,9 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
         dyn_cast<VPInstruction>(NewLoopLatch->getCondBit());
     NewCondBit->addIncoming(OldCondBit, cast<VPBasicBlock>(OrigLoopLatch));
   } else {
-    VPConstant *OneConstTy1 = Plan->getVPConstant(ConstantInt::get(Ty1, 1));
-    NewCondBit->addIncoming(OneConstTy1, cast<VPBasicBlock>(OrigLoopLatch));
+    assert(BackedgeCond == true &&
+           "In while loops, BackedgeCond should be true");
+    NewCondBit->addIncoming(TrueConst, cast<VPBasicBlock>(OrigLoopLatch));
   }
   // Update the condbit.
   NewLoopLatch->setCondBit(NewCondBit);
@@ -514,7 +522,8 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
 
   // This is needed for the generation of cascaded if blocks.
   if (LatchExitBlock) {
-    VPConstant *ExitIDConst = Plan->getVPConstant(ConstantInt::get(Ty32, ExitID));
+    VPConstant *ExitIDConst =
+        Plan->getVPConstant(ConstantInt::get(Ty32, ExitID));
     ExitBlockIDPairs.push_back(std::make_pair(LatchExitBlock, ExitIDConst));
   }
 
@@ -565,7 +574,10 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
       VPConstant *ExitIDConst =
           Plan->getVPConstant(ConstantInt::get(Ty32, ExitID));
       VPPhi->addIncoming(ExitIDConst, NewExitingBB);
-      NewCondBit->addIncoming(FalseConst, NewExitingBB);
+      // If the backedge is taken under the true condition, then the edge from
+      // the exiting block is taken under the false condition.
+      NewCondBit->addIncoming(BackedgeCond ? FalseConst : TrueConst,
+                              NewExitingBB);
 
       // The VPPHINode of the exit block should be moved in the new loop latch
       // if all the predecessors are in the loop. If not, then we remove the
@@ -623,7 +635,8 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
       VPConstant *ExitIDConst =
           Plan->getVPConstant(ConstantInt::get(Ty32, ExitID));
       VPPhi->addIncoming(ExitIDConst, cast<VPBasicBlock>(NewBlock));
-      NewCondBit->addIncoming(FalseConst, cast<VPBasicBlock>(NewBlock));
+      NewCondBit->addIncoming(BackedgeCond ? FalseConst : TrueConst,
+                              cast<VPBasicBlock>(NewBlock));
       ExitBlockIDPairs.push_back(std::make_pair(ExitBlock, ExitIDConst));
       ExitExitingBlocksMap[ExitBlock] = ExitingBlock;
       ExitBlockNewBlockMap[ExitBlock] = NewBlock;
@@ -670,7 +683,7 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
                               cast<VPBasicBlock>(OrigLoopLatch), IfBlock);
       }
       // Update the successors of the IfBlock.
-      IfBlock->setTwoSuccessors(CondBr, ExitBlock, NextIfBlock, Plan);
+      IfBlock->setTwoSuccessors(CondBr, ExitBlock, NextIfBlock);
       // Update the predecessor of the NextIfBlock.
       NextIfBlock->appendPredecessor(IfBlock);
       // Add IfBlock in ExitBlock's predecessors.
@@ -744,7 +757,7 @@ void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
   // Create new loop latch
   VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
   VPBasicBlock *NewLoopLatch = VPBlockUtils::splitBlock(
-      OrigLoopLatch, VPLInfo, VPDomTree, VPPostDomTree, Plan);
+      OrigLoopLatch, VPLInfo, VPDomTree, VPPostDomTree);
 
   // Update the control-flow for the ExitingBlock, the NewLoopLatch and the
   // ExitBlock.
@@ -847,7 +860,7 @@ void VPlanHCFGBuilder::splitLoopsExit(VPLoop *VPL) {
   if (!PotentialH ||
       (VPLInfo->isLoopHeader(PotentialH) &&
        VPLInfo->getLoopFor(PotentialH)->getLoopPreheader() == Exit))
-    VPBlockUtils::splitBlock(Exit, VPLInfo, VPDomTree, VPPostDomTree, Plan);
+    VPBlockUtils::splitBlock(Exit, VPLInfo, VPDomTree, VPPostDomTree);
 
   // Apply simplification to subloops
   for (auto VPSL : VPL->getSubLoops()) {
@@ -890,7 +903,7 @@ void VPlanHCFGBuilder::simplifyNonLoopRegions() {
       // TODO: skip single basic block loops?
       if (CurrentBlock->getNumPredecessors() > 1) {
         VPBlockUtils::splitBlock(CurrentBlock, Plan->getVPLoopInfo(), VPDomTree,
-                                 VPPostDomTree, Plan);
+                                 VPPostDomTree);
       }
 
       // TODO: WIP. The code below has to be revisited. It will enable the
@@ -1207,7 +1220,7 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
 
   // TODO: If more efficient, we may want to "translate" LoopInfo to VPLoopInfo.
   // Compute VPLInfo and keep it in VPlan
-  Plan->setVPLoopInfo(make_unique<VPLoopInfo>());
+  Plan->setVPLoopInfo(llvm::make_unique<VPLoopInfo>());
   auto *VPLInfo = Plan->getVPLoopInfo();
   VPLInfo->analyze(VPDomTree);
 
@@ -1251,7 +1264,7 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
     // Currently, there is only one instance and no distinction between VFs.
     // i.e., values are either uniform or divergent for all VFs.
     VPLoop *CandidateLoop = *VPLInfo->begin();
-    auto VPDA = make_unique<VPlanDivergenceAnalysis>();
+    auto VPDA = llvm::make_unique<VPlanDivergenceAnalysis>();
     VPDA->compute(Plan, CandidateLoop, VPLInfo, VPDomTree, VPPostDomTree, true);
     Plan->setVPlanDA(std::move(VPDA));
   }
@@ -2130,7 +2143,7 @@ VPRegionBlock *PlainCFGBuilder::buildPlainCFG() {
              "Missing condition bit in IRDef2VPValue!");
       VPValue *VPCondBit = IRDef2VPValue[BrCond];
 #endif
-      VPBB->setTwoSuccessors(VPCondBit, SuccVPBB0, SuccVPBB1, Plan);
+      VPBB->setTwoSuccessors(VPCondBit, SuccVPBB0, SuccVPBB1);
 
       VPBB->setCBlock(BB);
       VPBB->setTBlock(TI->getSuccessor(0));

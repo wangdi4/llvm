@@ -1271,7 +1271,11 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
 
     for (auto VT : { MVT::v4i32, MVT::v8i32, MVT::v2i64, MVT::v4i64,
                      MVT::v4f32, MVT::v8f32, MVT::v2f64, MVT::v4f64 }) {
-      setOperationAction(ISD::MLOAD,  VT, Custom);
+#if INTEL_CUSTOMIZATION
+      // This is being pushed to community separately. We should remove
+      // the customization when that pulls down.
+      setOperationAction(ISD::MLOAD,  VT, Subtarget.hasVLX() ? Legal : Custom);
+#endif // INTEL_CUSTOMIZATION
       setOperationAction(ISD::MSTORE, VT, Legal);
     }
 
