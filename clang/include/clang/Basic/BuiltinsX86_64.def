@@ -146,6 +146,19 @@ TARGET_BUILTIN(__builtin_ia32_tdpbf16ps, "vIUcIUcIUc", "n", "amx-bf16")
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+TARGET_BUILTIN(__builtin_ia32_icecode_loadseg, "vvC*Ii", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_storeseg, "vvC*Ii", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_loadpphys_16, "svC*", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_loadpphys_32, "ivC*", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_loadpphys_64, "LLivC*", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_storepphys_16, "vsvC*", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_storepphys_32, "vivC*", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_storepphys_64, "vLLivC*", "n", "icecode-mode")
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
 LANGBUILTIN(get_compute_id, "zi", "i", OCLC1X_LANG)
 LANGBUILTIN(read_pipe, "i.", "tn", OCLC1X_LANG)
 LANGBUILTIN(write_pipe, "i.", "tn", OCLC1X_LANG)
