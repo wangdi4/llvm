@@ -648,11 +648,13 @@ bool AffinitizeThreads::ExecuteIteration(size_t x, size_t y, size_t z, void* pWg
     ITaskExecutor* pTaskExecutor = reinterpret_cast<ITaskExecutor*>(pWgContext);
 
     unsigned int   uiPositionInDevice = pTaskExecutor->GetPosition();
-    if ( !pTaskExecutor->IsMaster() )
+    // If the target cpuid (uiPositionInDevice) is same as master thread's
+    // cpuid, will not set affinity.
+    if ( !pTaskExecutor->IsMaster() && (uiPositionInDevice != m_uiMasterHWId) )
     {
-        m_pObserver->NotifyAffinity(clMyThreadId() , (uiPositionInDevice == m_uiMasterHWId) ? 0 : uiPositionInDevice);
-        // Set NUMA node
-        clNUMASetLocalNodeAlloc();
+      m_pObserver->NotifyAffinity(clMyThreadId() , uiPositionInDevice);
+      // Set NUMA node
+      clNUMASetLocalNodeAlloc();
     }
 
     m_barrier--;

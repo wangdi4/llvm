@@ -297,6 +297,8 @@ void Compiler::Terminate()
 }
 
 Compiler::Compiler(const ICompilerConfig& config):
+    m_bIsFPGAEmulator(FPGA_EMU_DEVICE == config.TargetDevice()),
+    m_bIsEyeQEmulator(EYEQ_EMU_DEVICE == config.TargetDevice()),
     m_pLLVMContext( new llvm::LLVMContext ),
     m_transposeSize(config.GetTransposeSize()),
     m_rtLoopUnrollFactor(config.GetRTLoopUnrollFactor()),
@@ -391,12 +393,8 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
           "Program is not valid for this target", CL_DEV_INVALID_BINARY);
     }
 
-    llvm::Triple triple(pModule->getTargetTriple());
-    bool isFpgaEmulator = triple.isINTELFPGAEnvironment();
-    bool isEyeQEmulator = triple.isINTELEyeQEnvironment();
-
     CompilerBuildOptions buildOptions(pBuildOptions);
-    if (isEyeQEmulator)
+    if (m_bIsEyeQEmulator)
     {
         buildOptions.SetRelaxedMath(false);
         buildOptions.SetDenormalsZero(true);
@@ -423,8 +421,8 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
                                             buildOptions.GetDisableOpt(),
                                             buildOptions.GetRelaxedMath(),
                                             buildOptions.GetUniformWGSize(),
-                                            isFpgaEmulator,
-                                            isEyeQEmulator,
+                                            m_bIsFPGAEmulator,
+                                            m_bIsEyeQEmulator,
                                             m_dumpHeuristicIR,
                                             buildOptions.GetAPFLevel(),
                                             m_rtLoopUnrollFactor);

@@ -21,6 +21,8 @@
 #define OCL_EXT_KHR_GLOBAL_EXTENDED_ATOMICS     "cl_khr_global_int32_extended_atomics"
 #define OCL_EXT_KHR_LOCAL_BASE_ATOMICS          "cl_khr_local_int32_base_atomics"
 #define OCL_EXT_KHR_LOCAL_EXTENDED_ATOMICS      "cl_khr_local_int32_extended_atomics"
+#define OCL_EXT_KHR_INT64_BASE_ATOMICS          "cl_khr_int64_base_atomics"
+#define OCL_EXT_KHR_INT64_EXTENDED_ATOMICS      "cl_khr_int64_extended_atomics"
 #define OCL_EXT_KHR_BYTE_ADDRESSABLE_STORE      "cl_khr_byte_addressable_store"
 
 #define OCL_EXT_KHR_FP64                        "cl_khr_fp64"
