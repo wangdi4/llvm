@@ -28,6 +28,8 @@ static std::string getZeroLiteral(const std::string& type){
     return "0";
   else if ("long" == type || "ulong" == type)
     return "0L";
+  else if ("intptr_t" == type || "uintptr_t" == type)
+    return (sizeof(intptr_t) == 4) ? "0" : "0L";
   else if ("float" == type)
     return "0.0f";
   else if ("double" == type)

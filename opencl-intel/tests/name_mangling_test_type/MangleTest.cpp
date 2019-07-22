@@ -106,12 +106,14 @@ std::ostream &operator<<(std::ostream &o, const std::vector<std::string> &v) {
 }
 
 // string decoration function
-template <int size> struct SizeT {
-  static const char *nativeStr() { return "ulong"; }
-};
-
-template <> struct SizeT<4> {
-  static const char *nativeStr() { return "uint"; }
+template <typename T> struct IntTypedef {
+  static std::string nativeStr() {
+    static_assert(sizeof(T) == 4 || sizeof(T) == 8, "Unsupported type!");
+    if (sizeof(T) == 4)
+      return std::is_signed<T>() ? "int" : "uint";
+    else
+      return std::is_signed<T>() ? "long" : "ulong";
+  }
 };
 
 static void replaceAll(std::string &src, const std::string &from,
@@ -124,9 +126,11 @@ static void replaceAll(std::string &src, const std::string &from,
   }
 }
 
-static void replaceSizeT(std::string &s) {
-  const std::string strSizeT(SizeT<sizeof(size_t)>::nativeStr());
-  replaceAll(s, "size_t", strSizeT);
+static void replaceIntTypedef(std::string &s) {
+  replaceAll(s, "size_t", IntTypedef<size_t>::nativeStr());
+  replaceAll(s, "uintptr_t", IntTypedef<uintptr_t>::nativeStr());
+  replaceAll(s, "intptr_t", IntTypedef<intptr_t>::nativeStr());
+  replaceAll(s, "ptrdiff_t", IntTypedef<ptrdiff_t>::nativeStr());
 }
 
 static void replaceClMemFenceFlags(std::string &s) {
@@ -170,10 +174,10 @@ static bool isSematicallyEqual(const std::string &l, const std::string &r) {
   // cl_mem_fence_flags are typedef's for int under SPIR SPEC.
   replaceClMemFenceFlags(left);
   replaceClMemFenceFlags(right);
-  // replacing the size_t argument, since its a typedef, not a real type, and
-  // clang treats it that way.
-  replaceSizeT(left);
-  replaceSizeT(right);
+  // replacing the size_t/uintptr_t/intptr_t/ptrdiff_t argument, since its a
+  // typedef, not a real type, and clang treats it that way.
+  replaceIntTypedef(left);
+  replaceIntTypedef(right);
   // replacing CL2.0 types with the expected types as clang mangle them
   // e.g. "memory_scope" -> "int", "memory_order" -> "int", "atomic_flag" ->
   // "atomic_int"

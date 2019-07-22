@@ -47,7 +47,7 @@ TEST(FrameworkTestType, Test_clGetDeviceFunctionPointerINTEL) {
   ASSERT_EQ(CL_SUCCESS, error) << "clCreateProgramWithSource failed";
 
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-pedantic"
+#pragma GCC diagnostic ignored "-Wpedantic"
   typedef cl_int(CL_API_CALL * fp_t)(cl_device_id, cl_program, const char *,
                                      cl_ulong *);
 
