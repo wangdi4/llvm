@@ -140,6 +140,7 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
       case spv::CapabilityFloat16Buffer:
       case spv::CapabilityInt64:
       case spv::CapabilityPipes:
+      case spv::CapabilityPipeStorage:
       case spv::CapabilityGroups:
       case spv::CapabilityDeviceEnqueue:
       case spv::CapabilityLiteralSampler:

@@ -35,7 +35,7 @@
 #include "ObjectCodeContainer.h"
 #include "ObjectCodeCache.h"
 #include "OclTune.h"
-#include "ChannelPipeTransformation.h"
+#include "ChannelPipeUtils.h"
 
 #define DEBUG_TYPE "ProgramBuilder"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
@@ -87,9 +87,9 @@ static void BEFatalErrorHandler(void *user_data, const std::string& reason,
     // If the error is allocation memory failure, the info of big channel
     // will be shown as a hint for user.
     if (reason.find("Unable to allocate section memory") != std::string::npos &&
-            !ChannelPipeTransformation::getBuildLog().empty()) {
+        !Intel::OpenCL::DeviceBackend::ChannelPipesErrorLog.empty()) {
       errs() << "**The potential reason is the following big channel declaration:\n";
-      errs() << ChannelPipeTransformation::getBuildLog().data();
+      errs() << Intel::OpenCL::DeviceBackend::ChannelPipesErrorLog;
     }
 
     abort();
