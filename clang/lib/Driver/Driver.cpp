@@ -3733,12 +3733,13 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
   HeaderModulePrecompileJobAction *HeaderModuleAction = nullptr;
   ActionList LinkerInputs;
 
+  llvm::SmallVector<phases::ID, phases::MaxNumberOfPhases> PL;
   unsigned LastPLSize = 0;
   for (auto &I : Inputs) {
     types::ID InputType = I.first;
     const Arg *InputArg = I.second;
 
-    llvm::SmallVector<phases::ID, phases::MaxNumberOfPhases> PL;
+    PL.clear();
     types::getCompilationPhases(InputType, PL);
     LastPLSize = PL.size();
 
