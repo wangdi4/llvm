@@ -1,5 +1,6 @@
 include_directories(${LLVM_INCLUDE_DIRS}
                     ${BACKEND_ROOT_DIR}/passes
+                    ${BACKEND_ROOT_DIR}/optimizer
                     ${BACKEND_ROOT_DIR}/arch_headers)
 
 # Backend passes
