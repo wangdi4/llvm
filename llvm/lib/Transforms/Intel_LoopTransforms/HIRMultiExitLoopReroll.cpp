@@ -524,7 +524,9 @@ bool HIRMultiExitLoopReroll::corresponds(const HLInst *HInst1,
   }
 
   if (auto *FPInst1 = dyn_cast<FPMathOperator>(Inst1)) {
-    if (FPInst1->isFast() != cast<FPMathOperator>(Inst2)->isFast()) {
+    auto *FPInst2 = dyn_cast<FPMathOperator>(Inst2);
+
+    if (!FPInst2 || (FPInst1->isFast() != FPInst2->isFast())) {
       return false;
     }
   }
