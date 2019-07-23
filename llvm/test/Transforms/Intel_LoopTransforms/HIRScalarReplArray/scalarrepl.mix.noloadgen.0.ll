@@ -5,9 +5,9 @@
 ; Check: not to generate a load inside the loop (MemRef[HI] exists, but not ReadFirst)
 ;
 ; [REASONS]
-; - Applicalbe:  
-; - Profitable: 
-; - Legal:      
+; - Applicalbe:
+; - Profitable:
+; - Legal:
 ;
 ; *** Source Code ***
 ; int A[1000];
@@ -32,7 +32,7 @@
 ; CHECK:         |   (@A)[0][i1] = %2 + 1;
 ; CHECK:         + END LOOP
 ; CHECK:   END REGION
-;  
+;
 ;
 ; CHECK: Function
 ;

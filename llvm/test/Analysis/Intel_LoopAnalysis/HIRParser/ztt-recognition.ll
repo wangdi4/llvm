@@ -1,7 +1,7 @@
 ; RUN: opt < %s -instcombine -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -debug-only=hir-framework | FileCheck %s
 
 ; Check that we are able to recognize ztt of i2 loop by suppressing instcombine's cmp optimization.
-; XFAIL: * 
+; XFAIL: *
 ; CHECK: DO i1
 ; CHECK-NOT: if (
 ; CHECK: DO i2

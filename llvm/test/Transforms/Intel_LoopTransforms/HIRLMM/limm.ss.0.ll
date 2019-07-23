@@ -16,7 +16,7 @@
 ;
 ; INPUT HIR:
 ;
-;<48>      
+;<48>
 ;<48>      + DO i2 = 0, 39, 1   <DO_LOOP>
 ;<9>       |   %2 = (%A)[i2];
 ;<50>      |   (%A)[0] = i1;
@@ -41,24 +41,24 @@
 ;
 ; [LIMM Analysis]
 ;MemRefCollection, entries: 12
-;  (%A)[0] {  W  W  W  } 3W : 0R  illegal 
-;  (%A)[1] {  W  } 1W : 0R  illegal 
-;  (%A)[2] {  W  W  } 2W : 0R  illegal 
-;  (%A)[3] {  W  W  } 2W : 0R  illegal 
-;  (%A)[4] {  W  W  } 2W : 0R  illegal 
-;  (%A)[6] {  W  W  } 2W : 0R  illegal 
-;  (%A)[9] {  W  } 1W : 0R  illegal 
-;  (%A)[8] {  W  } 1W : 0R  illegal 
-;  (%A)[12] {  W  } 1W : 0R  illegal 
-;  (%A)[5] {  W  } 1W : 0R  illegal 
-;  (%A)[10] {  W  } 1W : 0R  illegal 
-;  (%A)[15] {  W  } 1W : 0R  illegal 
+;  (%A)[0] {  W  W  W  } 3W : 0R  illegal
+;  (%A)[1] {  W  } 1W : 0R  illegal
+;  (%A)[2] {  W  W  } 2W : 0R  illegal
+;  (%A)[3] {  W  W  } 2W : 0R  illegal
+;  (%A)[4] {  W  W  } 2W : 0R  illegal
+;  (%A)[6] {  W  W  } 2W : 0R  illegal
+;  (%A)[9] {  W  } 1W : 0R  illegal
+;  (%A)[8] {  W  } 1W : 0R  illegal
+;  (%A)[12] {  W  } 1W : 0R  illegal
+;  (%A)[5] {  W  } 1W : 0R  illegal
+;  (%A)[10] {  W  } 1W : 0R  illegal
+;  (%A)[15] {  W  } 1W : 0R  illegal
 ;
 ; LIMM's Opportunities:
 ; - LILH: (0)
 ; - LISS: (0)
 ; - LILHSS:(0)
-;  
+;
 ; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { modified }
@@ -89,15 +89,15 @@
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION
 ;
-; *** 
-;          
+; ***
+;
 ;
 ; CHECK: Function
-;  
+;
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:        + DO i1 = 0, 59, 1   <DO_LOOP>
 ; CHECK:        |   %0 = (%A)[i1];
-; CHECK:        |   
+; CHECK:        |
 ; CHECK:        |   + DO i2 = 0, 39, 1   <DO_LOOP>
 ; CHECK:        |   |   %2 = (%A)[i2];
 ; CHECK:        |   |   (%A)[0] = i1;

@@ -1,73 +1,73 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-reroll  -print-before=hir-loop-reroll -print-after=hir-loop-reroll  < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
-; The following source code is not currently rerolled, because of typecasts. 
+; The following source code is not currently rerolled, because of typecasts.
 
 ; #define SIZE 10
 ; int A[SIZE];
 ; int B[SIZE];
 ; int C[SIZE];
-; 
+;
 ; void foo(int n) {
-;   int D = n*n;  
+;   int D = n*n;
 ;   int q = 0;
 ;   for (int i=0;  i<n; i=i+4) {
-; 
+;
 ;     B[i] = n + i*i;
-; 
+;
 ;     B[i+1] = n + (i+1)*(i+1);
-; 
+;
 ;     B[i+2] = n + (i+2)*(i+2);
-; 
+;
 ;     B[i+3] = n + (i+3)*(i+3);
 ;   }
-; 
+;
 ; }
 
 ; <31>            + DO i64 i1 = 0, (sext.i32.i64(%n) + -1)/u4, 1   <DO_LOOP>  <MAX_TC_EST = 2>
 ; <31>            | <RVAL-REG> LINEAR i64 (sext.i32.i64(%n) + -1)/u4 {sb:2}
 ; <31>            |    <BLOB> LINEAR i32 %n {sb:4}
-; <31>            | 
+; <31>            |
 ; <3>             |   %mul1 = 4 * i1  *  4 * i1;
 ; <3>             |   <LVAL-REG> NON-LINEAR i32 %mul1 {sb:6}
 ; <3>             |   <RVAL-REG> LINEAR trunc.i64.i32(4 * i1) {sb:2}
 ; <3>             |   <RVAL-REG> LINEAR trunc.i64.i32(4 * i1) {sb:2}
-; <3>             |   
+; <3>             |
 ; <4>             |   %add = %mul1  +  %n;
 ; <4>             |   <LVAL-REG> NON-LINEAR i32 %add {sb:7}
 ; <4>             |   <RVAL-REG> NON-LINEAR i32 %mul1 {sb:6} // %mul is a SelfBlob
 ; <4>             |   <RVAL-REG> LINEAR i32 %n {sb:4}
-; <4>             |   
+; <4>             |
 ; <6>             |   (@B)[0][4 * i1] = %add;
 ; <6>             |   <LVAL-REG> {al:16}(LINEAR [10 x i32]* @B)[i64 0][LINEAR i64 4 * i1] inbounds  !tbaa !3 {sb:27}
 ; <6>             |      <BLOB> LINEAR [10 x i32]* @B {sb:9}
 ; <6>             |   <RVAL-REG> NON-LINEAR i32 %add {sb:7}
-; <6>             |   
+; <6>             |
 ; <8>             |   %3 = 4 * i1 + 1  *  4 * i1 + 1;
 ; <8>             |   <LVAL-REG> NON-LINEAR i64 %3 {sb:11}
 ; <8>             |   <RVAL-REG> LINEAR i64 4 * i1 + 1 {sb:2}
 ; <8>             |   <RVAL-REG> LINEAR i64 4 * i1 + 1 {sb:2}
-; <8>             |   
+; <8>             |
 ; <11>            |   %5 = %3  +  %n;
 ; <11>            |   <LVAL-REG> NON-LINEAR i32 %5 {sb:14}
 ; <11>            |   <RVAL-REG> NON-LINEAR trunc.i64.i32(%3) {sb:2} // %3 is not a SelfBlob
 ; <11>            |      <BLOB> NON-LINEAR i64 %3 {sb:11}
 ; <11>            |   <RVAL-REG> LINEAR i32 %n {sb:4}
-; <11>            |   
+; <11>            |
 ; <12>            |   (@B)[0][4 * i1 + 1] = %5;
 ; <12>            |   <LVAL-REG> {al:4}(LINEAR [10 x i32]* @B)[i64 0][LINEAR i64 4 * i1 + 1] inbounds  !tbaa !3 {sb:27}
 ; <12>            |      <BLOB> LINEAR [10 x i32]* @B {sb:9}
 ; <12>            |   <RVAL-REG> NON-LINEAR i32 %5 {sb:14}
 
 ; List of Refs collected from store <6>:
-; (@B)[0][4 * i1],     %n,     4 * i1,     4 * i1      (total 4) 
+; (@B)[0][4 * i1],     %n,     4 * i1,     4 * i1      (total 4)
 ;
 ; List of Refs collected from store <12>:
 ; (@B)[0][4 * i1 + 1], %n, 4 * i1 + 1, 4 * i1 + 1, %3  (total 5)
 
-; This example might be rerolled if typecast on %3 can be conveyed backward 
+; This example might be rerolled if typecast on %3 can be conveyed backward
 ; to (4 * i1 + 1)s in <8>. (Can it be done only changing src/dst types of CEs?
-; src/dst types of a DDRef cannot be changed by a client.) 
+; src/dst types of a DDRef cannot be changed by a client.)
 
 ;CHECK:  Function: foo
 ;

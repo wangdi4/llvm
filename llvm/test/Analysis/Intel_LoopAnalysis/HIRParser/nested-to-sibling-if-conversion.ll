@@ -106,6 +106,6 @@ t63:                                     ; preds = %t26
   br label %t65
 
 t65:                                    ; preds = %loopexit, %t57, %t59, %t61, %t63
-  ret void 
+  ret void
 }
 

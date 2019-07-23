@@ -5,11 +5,11 @@
 ;		}
 ;		xk[jx-1] = (xk[jx]) + 1;        S2
 ;}
-;  Between xk[jx -1 ] and xk[j-1]  
+;  Between xk[jx -1 ] and xk[j-1]
 ;  Both forward & backward edges are expected
-;  S1 -> S2 anti (=) 
-;  S2 -> S1 flow (<)  
-; RUN:  opt < %s    -hir-ssa-deconstruction | opt  -hir-dd-analysis  -hir-dd-analysis-verify=Region  -analyze  | FileCheck %s 
+;  S1 -> S2 anti (=)
+;  S2 -> S1 flow (<)
+; RUN:  opt < %s    -hir-ssa-deconstruction | opt  -hir-dd-analysis  -hir-dd-analysis-verify=Region  -analyze  | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: DD graph for function

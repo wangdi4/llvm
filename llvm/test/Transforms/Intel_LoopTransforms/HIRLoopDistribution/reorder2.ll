@@ -1,19 +1,19 @@
 ;    for (i=0; i<51; i++) {
 ;			a[100 -2 *i ] += 1;
 ;			a[50  -i  ] +=  i+2; }
-;   dist should not happen.  the DV is (<=) 
-;   
+;   dist should not happen.  the DV is (<=)
+;
 ;RUN: opt -hir-ssa-deconstruction -hir-loop-distribute-memrec -S -print-after=hir-loop-distribute-memrec  < %s 2>&1 | FileCheck %s
 ;RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -S  < %s 2>&1 | FileCheck %s
 ;
 ;Explicitly check contents of first loop
-; CHECK: DO i1 = 0, 50, 1   
+; CHECK: DO i1 = 0, 50, 1
 ; CHECK-NEXT:  %2 = (@a)[0][-2 * i1 + 100];
 ; CHECK-NEXT:  %add = %2  +  1.000000e+00;
 ; CHECK-NEXT: (@a)[0][-2 * i1 + 100] = %add;
 ; CHECK-NEXT: %conv = sitofp.i32.float(i1 + 2);
 ; CHECK-NEXT:  %6 = (@a)[0][-1 * i1 + 50];
-;  no need to compare all 
+;  no need to compare all
 ; ModuleID = 'reorder2.c'
 source_filename = "reorder2.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

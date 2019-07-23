@@ -1,6 +1,6 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
-; Check that %add23 outside i2 loop is successfully parsed as a blob after 'at scope' parsing fails. 
+; Check that %add23 outside i2 loop is successfully parsed as a blob after 'at scope' parsing fails.
 
 ; CHECK:      + DO i1 = 0, 47, 1   <DO_LOOP>
 ; CHECK-NEXT: |   %add23.lcssa94 = 1;

@@ -23,7 +23,7 @@
 ;
 ;[LIMM Analysis]
 ;MemRefCollection, entries: 1
-;  (@B)[0][i1] {  R  } 0W : 1R  legal 
+;  (@B)[0][i1] {  R  } 0W : 1R  legal
 ;
 ;
 ; [LIMM's Opportunities]
@@ -31,7 +31,7 @@
 ; - LISS:  (0)
 ; - LILHSS:(0)
 ;
-;  
+;
 ; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { modified }

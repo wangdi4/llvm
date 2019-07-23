@@ -4,7 +4,7 @@
 ; Rerolls with IVs and Blobs in the right pattern
 
 ; CHECK: Function: foo
- 
+
 ; CHECK:     BEGIN REGION { }
 ; CHECK:           + DO i1 = 0, (sext.i32.i64(%n) + -1)/u4, 1   <DO_LOOP>  <MAX_TC_EST = 2>
 ; CHECK:           |   (@B)[0][4 * i1] = 4 * i1 + ((1 + %n) * %n);
@@ -13,9 +13,9 @@
 ; CHECK:           |   (@B)[0][4 * i1 + 3] = 4 * i1 + ((2 + %n) * %n) + 3;
 ; CHECK:           + END LOOP
 ; CHECK:     END REGION
- 
+
 ; CHECK: Function: foo
- 
+
 ; CHECK:     BEGIN REGION { }
 ; CHECK:           + DO i1 = 0, 2 * ((3 + sext.i32.i64(%n)) /u 4) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4>
 ; CHECK:           |   (@B)[0][2 * i1] = 2 * i1 + ((1 + %n) * %n);

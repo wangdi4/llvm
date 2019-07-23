@@ -1,13 +1,13 @@
 ; Sanity Test(s) on HIR Loop Reversal: simple reversable level-1 (l1) loop test
-; 
+;
 ; l1reversal3-v.ll
 ; (1-level loop, sanity testcase3, valid reversal case)
 ;
 ; [REASONS]
-; - Applicalbe: YES, HAS (2) valid negative memory-access address; 
+; - Applicalbe: YES, HAS (2) valid negative memory-access address;
 ; - Profitable: YES (both 2 memory accesses are no negative strides)
 ; - Legal:      YES (no dependence)
-; 
+;
 ; *** Source Code ***
 ;
 ; [BEFORE LOOP REVERSAL]
@@ -27,26 +27,26 @@
 ;  }
 ;  return A[0] + B[0];
 ;}
-; 
+;
 ; ===-----------------------------------===
 ; *** Run0: WITHOUT HIR Loop Reversal ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=BEFORE 
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE 
+; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=BEFORE
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE
 ;
-; 
+;
 ; ===-----------------------------------===
 ; *** Run1: WITH HIR Loop Reversal ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-after=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=AFTER 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=AFTER 
+; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-after=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=AFTER
+; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=AFTER
 ;
-; 
+;
 ; === -------------------------------------- ===
 ; *** Tests0: W/O HIR Loop Reversal Output ***
 ; === -------------------------------------- ===
 ; Expected output BEFORE Loop Reversal
-; 
+;
 ;          BEGIN REGION { }
 ;<16>         + DO i1 = 0, 4, 1   <DO_LOOP>
 ;<5>          |   %2 = (%A)[-2 * i1 + 8];
@@ -66,7 +66,7 @@
 ; *** Tests1: With HIR Loop Reversal Output ***
 ; === -------------------------------------- ===
 ; Expected output AFTER Loop Reversal: NO Reversal happened!
-; 
+;
 ;          BEGIN REGION { modified }
 ;<16>         + DO i1 = 0, 4, 1   <DO_LOOP>
 ;<5>          |   %2 = (%A)[2 * i1];

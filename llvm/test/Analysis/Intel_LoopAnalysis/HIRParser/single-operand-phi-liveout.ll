@@ -48,7 +48,7 @@ entry:
   %h5 = alloca [100 x i32], align 16
   %s = alloca [100 x [100 x i32]], align 16
   br label %for.cond43.preheader
- 
+
 for.cond43.preheader:                             ; preds = %for.inc100, %entry
   %indvars.iv = phi i64 [ 2, %entry ], [ %indvars.iv.next, %for.inc100 ]
   br label %for.body48.preheader

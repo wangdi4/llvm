@@ -41,7 +41,7 @@
 ;                              MinST
 ; GapTracker:  { R     R       W      }
 ;
-;  
+;
 ; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { modified }

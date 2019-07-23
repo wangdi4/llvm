@@ -1,7 +1,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-rematerialize -print-before=hir-loop-rematerialize -print-after=hir-loop-rematerialize < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-rematerialize,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
- 
- 
+
+
 ; CHECK:Function: set
 ; CHECK:         BEGIN REGION { }
 ; CHECK:               (%knobs)[0] = 1.000000e+01;
@@ -12,7 +12,7 @@
 
 ; CHECK:Function: set
 ; CHECK-NOT: END LOOP
- 
+
 ;Module Before HIR
 ; ModuleID = 'int-to-dobule.c'
 source_filename = "int-to-dobule.c"

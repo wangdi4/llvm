@@ -7,7 +7,7 @@
 
 ; DEFAULT-NOT: { modified }
 
-;void matmul (int N) { 
+;void matmul (int N) {
 ;  double  c[N*N];
 ;  double  a[N*N];
 ;  double  b[N*N];
@@ -21,7 +21,7 @@
 
 ; *** IR Dump After HIR Loop Blocking ***
 ; Function: matmul
-; 
+;
 ;         BEGIN REGION { }
 ;               + DO i1 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>
 ;               |   + DO i2 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>
@@ -32,8 +32,8 @@
 ;               + END LOOP
 ;         END REGION
 
-; Notice if it were the code as follows, 
-; blocking did not happed because of "Failed MaxDimension < LoopDepth 2,2" 
+; Notice if it were the code as follows,
+; blocking did not happed because of "Failed MaxDimension < LoopDepth 2,2"
 ;
 ;       BEGIN REGION { }
 ;             + DO i1 = 0, 511, 1   <DO_LOOP>
@@ -45,7 +45,7 @@
 ;             + END LOOP
 ;       END REGION
 
- 
+
 ;Module Before HIR
 ; ModuleID = 'matmul2.c'
 source_filename = "matmul2.c"

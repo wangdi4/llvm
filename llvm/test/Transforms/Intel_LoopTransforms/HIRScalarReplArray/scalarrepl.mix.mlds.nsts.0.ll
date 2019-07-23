@@ -4,7 +4,7 @@
 ; Scalar Replacement Sanity Test: mix of multiple loads and stores for group (A[]), full group (A[])
 ;
 ; [REASONS]
-; - Applicable: YES  
+; - Applicable: YES
 ; - Profitable: YES
 ; - Legal:      YES
 ;
@@ -53,7 +53,7 @@
 ; CHECK:            %scalarepl = (@A)[0][0];
 ; CHECK:            %scalarepl1 = (@A)[0][1];
 ; CHECK:            %scalarepl2 = (@A)[0][2];
-;            
+;
 ;[in-loop proc]
 ; CHECK:            + DO i1 = 0, 99, 1   <DO_LOOP>
 ; CHECK:           |   %2 = %scalarepl1;
@@ -76,7 +76,7 @@
 ; CHECK:           |   %scalarepl1 = %scalarepl2;
 ; CHECK:           |   %scalarepl2 = %scalarepl3;
 ; CHECK:            + END LOOP
-;            
+;
 ;[stores in loop's postexit]:
 ; CHECK:           (@A)[0][101] = %scalarepl1;
 ; CHECK:           (@A)[0][102] = %scalarepl2;

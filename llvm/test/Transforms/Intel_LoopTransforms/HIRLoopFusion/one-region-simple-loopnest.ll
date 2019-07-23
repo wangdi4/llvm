@@ -11,8 +11,8 @@
 ; |   |   (%a)[i2] = i1;
 ; |   + END LOOP
 ; + END LOOP
-; 
-; 
+;
+;
 ; + DO i1 = 0, %n + -1, 1   <DO_LOOP>
 ; |   + DO i2 = 0, 99, 1   <DO_LOOP>
 ; |   |   %0 = (%a)[i2];

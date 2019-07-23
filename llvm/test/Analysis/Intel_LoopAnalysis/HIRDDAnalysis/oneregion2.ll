@@ -1,20 +1,20 @@
 ; float B[1000];
 ; int C[1000];
 ;   n =1000;
-;   for (j=0; j <  n; j++) 
+;   for (j=0; j <  n; j++)
 ;       B[j] =  1;
 ;   B[2] = 3;
-;   C[2] = B[m]; 
-;    for (j=0; j <  n; j++) 
+;   C[2] = B[m];
+;    for (j=0; j <  n; j++)
 ;        B[j] +=  1;
 ;
-; RUN: opt < %s -hir-ssa-deconstruction -hir-create-function-level-region | opt -hir-create-function-level-region  -hir-dd-analysis  -hir-dd-analysis-verify=Region -analyze  | FileCheck %s 
+; RUN: opt < %s -hir-ssa-deconstruction -hir-create-function-level-region | opt -hir-create-function-level-region  -hir-dd-analysis  -hir-dd-analysis-verify=Region -analyze  | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-create-function-level-region -hir-dd-analysis-verify=Region -disable-output 2>&1 < %s | FileCheck %s
 ;
 ; CHECK-DAG:  (@B)[0][2] --> (@B)[0][%m] FLOW (=)
-; CHECK-DAG:  (@B)[0][2] --> (@B)[0][i1] FLOW (=) 
-; CHECK-DAG:  (@B)[0][2] --> (@B)[0][i1] OUTPUT (=) 
-;  
+; CHECK-DAG:  (@B)[0][2] --> (@B)[0][i1] FLOW (=)
+; CHECK-DAG:  (@B)[0][2] --> (@B)[0][i1] OUTPUT (=)
+;
 
 ;Module Before HIR; ModuleID = 'oneregion2.c'
 source_filename = "oneregion2.c"

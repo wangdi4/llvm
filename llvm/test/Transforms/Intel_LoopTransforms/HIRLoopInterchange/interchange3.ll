@@ -11,8 +11,8 @@
 ; RUN: opt -debug-only=hir-loop-interchange -hir-ssa-deconstruction -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-interchange" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:
-; CHECK-SAME:  ( 5 4 3 2 1 )  
-; 
+; CHECK-SAME:  ( 5 4 3 2 1 )
+;
 
 ; ModuleID = 'interchange3.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

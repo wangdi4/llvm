@@ -10,7 +10,7 @@
 ; CHECK:   %3 = (%A)[1];
 ; CHECK:  (%3)[0] = 1;
 
-; Iteration: {2, 0} 
+; Iteration: {2, 0}
 ; CHECK:   %3 = (%A)[2];
 ; CHECK:  (%3)[0] = 2;
 

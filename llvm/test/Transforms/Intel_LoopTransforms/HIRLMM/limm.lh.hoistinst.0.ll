@@ -41,7 +41,7 @@
 ; - LISS:  (0)
 ; - LILHSS:(0)
 ;
-;  
+;
 ; CHECK: Function
 ;
 ; CHECK:   BEGIN REGION { modified }
@@ -57,10 +57,10 @@
 ; CHECK:         + END LOOP
 ; CHECK:   END REGION
 ;
-; *** *** 
-;          
+; *** ***
+;
 ; CHECK: Function
-; *** Note: need to revise the IR below, once the logic is implemented *** 
+; *** Note: need to revise the IR below, once the logic is implemented ***
 ;
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:           %limm = (@A)[0][0];

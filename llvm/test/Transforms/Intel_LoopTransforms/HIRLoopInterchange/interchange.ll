@@ -1,10 +1,10 @@
-; Test for Loop Interchange 
-;    for (i=1; i <= 1001; i++) 
-;        for (j=1; j <= 96; j++) 
-;           A[j][i] = A[j][i+1] + 1; 
+; Test for Loop Interchange
+;    for (i=1; i <= 1001; i++)
+;        for (j=1; j <= 96; j++)
+;           A[j][i] = A[j][i+1] + 1;
 ;
 
-; REQUIRES: asserts 
+; REQUIRES: asserts
 ; RUN: opt -O2  -debug-only=hir-loop-interchange -hir-loop-interchange   < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-loop-interchange" -aa-pipeline="basic-aa" -O2  -debug-only=hir-loop-interchange   < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:

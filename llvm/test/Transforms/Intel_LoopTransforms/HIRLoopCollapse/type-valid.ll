@@ -5,11 +5,11 @@
 ; int A[10][20][3];
 ; void foo() {
 ;   int i, j, k;
-; 
+;
 ;   for (i = 0; i < 10; i++) {
 ;     for (j = 0; j < 20; j++) {
 ;      for (k = 0; k < 3; k++) {
-;       A[i & 7][j][k] += 1;  // & 7 makes i casted into "i3" type, 
+;       A[i & 7][j][k] += 1;  // & 7 makes i casted into "i3" type,
 ;                              // only i2-i2 are collapsable
 ;      }
 ;     }
@@ -18,27 +18,27 @@
 ;
 ; CHECK: Function
 ;
-; CHECK:       BEGIN REGION { }                                       
-; CHECK:             + DO i1 = 0, 9, 1   <DO_LOOP>                    
-; CHECK:             |   + DO i2 = 0, 19, 1   <DO_LOOP>               
-; CHECK:             |   |   + DO i3 = 0, 2, 1   <DO_LOOP>            
-; CHECK:             |   |   |   %1 = (@A)[0][i1][i2][i3];            
-; CHECK:             |   |   |   (@A)[0][i1][i2][i3] = %1 + 1;        
-; CHECK:             |   |   + END LOOP                               
-; CHECK:             |   + END LOOP                                   
-; CHECK:             + END LOOP                                       
-; CHECK:       END REGION                                             
+; CHECK:       BEGIN REGION { }
+; CHECK:             + DO i1 = 0, 9, 1   <DO_LOOP>
+; CHECK:             |   + DO i2 = 0, 19, 1   <DO_LOOP>
+; CHECK:             |   |   + DO i3 = 0, 2, 1   <DO_LOOP>
+; CHECK:             |   |   |   %1 = (@A)[0][i1][i2][i3];
+; CHECK:             |   |   |   (@A)[0][i1][i2][i3] = %1 + 1;
+; CHECK:             |   |   + END LOOP
+; CHECK:             |   + END LOOP
+; CHECK:             + END LOOP
+; CHECK:       END REGION
 ;
 ; CHECK: Function
 ;
-; CHECK:      BEGIN REGION { modified }                              
-; CHECK:            + DO i1 = 0, 9, 1   <DO_LOOP>                    
-; CHECK:            |   + DO i2 = 0, 59, 1   <DO_LOOP>               
-; CHECK:            |   |   %1 = (@A)[0][i1][0][i2];                 
-; CHECK:            |   |   (@A)[0][i1][0][i2] = %1 + 1;             
-; CHECK:            |   + END LOOP                                   
-; CHECK:            + END LOOP                                       
-; CHECK:      END REGION                                             
+; CHECK:      BEGIN REGION { modified }
+; CHECK:            + DO i1 = 0, 9, 1   <DO_LOOP>
+; CHECK:            |   + DO i2 = 0, 59, 1   <DO_LOOP>
+; CHECK:            |   |   %1 = (@A)[0][i1][0][i2];
+; CHECK:            |   |   (@A)[0][i1][0][i2] = %1 + 1;
+; CHECK:            |   + END LOOP
+; CHECK:            + END LOOP
+; CHECK:      END REGION
 ;
 source_filename = "type-valid.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

@@ -24,7 +24,7 @@
 ; - LISS:  ()
 ; - LILHSS:()
 ;
-;  
+;
 ; CHECK: Function
 ;
 ; CHECK:   BEGIN REGION { }

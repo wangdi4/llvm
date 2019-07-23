@@ -1,8 +1,8 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-idiom -hir-scalarrepl-array -hir-cg -print-before=hir-idiom -print-after=hir-idiom < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-idiom,print<hir>,hir-scalarrepl-array,hir-cg" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
-; Verify that we successfully pass through scalar replacement for this test case. 
-; It was failing because locality analysis formed a locality group out of fake refs (%A)[i1 + 1][undef] and (%A)[i1][undef] attached to memcpy instruction. 
+; Verify that we successfully pass through scalar replacement for this test case.
+; It was failing because locality analysis formed a locality group out of fake refs (%A)[i1 + 1][undef] and (%A)[i1][undef] attached to memcpy instruction.
 ; Scalar replacement then tried to replace them as if they were real memrefs leading to assertion.
 
 
@@ -22,7 +22,7 @@
 ; CHECK: + END LOOP
 
 
-;Module Before HIR; 
+;Module Before HIR;
 source_filename = "t.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

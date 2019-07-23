@@ -1,17 +1,17 @@
-; 
-;  Subscript ref:   A[ (1+N)*i1 + N*i2 + i3 + N + 1 ]   
-;  In BanerjeeMIV test, when inputDV is (= = *)     
+;
+;  Subscript ref:   A[ (1+N)*i1 + N*i2 + i3 + N + 1 ]
+;  In BanerjeeMIV test, when inputDV is (= = *)
 ;  For each level, when DV is = and coeffs are the same, we can ignore the coeffs
 ;   DO i3 = 0, N
-;      = (%0)[(1 + sext.i32.i64(%1)) * i1 + sext.i32.i64(%1) * i2 + i3 + sext.i32.i64(%1) + 1] 
+;      = (%0)[(1 + sext.i32.i64(%1)) * i1 + sext.i32.i64(%1) * i2 + i3 + sext.i32.i64(%1) + 1]
 ;      (%0)[(1 + sext.i32.i64(%1)) * i1 + sext.i32.i64(%1) * i2 + i3 + sext.i32.i64(%1) + 1] =
 ;    END LOOP
 ;
 ; REQUIRES: asserts
 ; RUN: opt -tbaa -scoped-noalias -hir-ssa-deconstruction  -analyze  -hir-temp-cleanup -hir-vec-dir-insert  -S -debug-only=parvec-analysis < %s 2>&1 | FileCheck %s
 ;
-; CHECK-DAG: (%0)[(1 + sext.i32.i64(%1)) * i1 + sext.i32.i64(%1) * i2 + i3 + sext.i32.i64(%1) + 1] --> (%0)[(1 + sext.i32.i64(%1)) * i1 + sext.i32.i64(%1) * i2 + i3 + sext.i32.i64(%1) + 1] FLOW (* * *) 
-; CHECK:    (= = =) 
+; CHECK-DAG: (%0)[(1 + sext.i32.i64(%1)) * i1 + sext.i32.i64(%1) * i2 + i3 + sext.i32.i64(%1) + 1] --> (%0)[(1 + sext.i32.i64(%1)) * i1 + sext.i32.i64(%1) * i2 + i3 + sext.i32.i64(%1) + 1] FLOW (* * *)
+; CHECK:    (= = =)
 ; CHECK-SAME:    DV improved by RefineDD
 ;
 ;Module Before HIR; ModuleID = 'banerjeeMIV.c'

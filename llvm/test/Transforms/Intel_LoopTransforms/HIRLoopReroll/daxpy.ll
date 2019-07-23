@@ -6,7 +6,7 @@
 ; #define SIZE 10
 ; double x[SIZE];
 ; double y[SIZE];
-; 
+;
 ; void foo(double a, int n) {
 ;   for (int i=0;  i<n; i=i+4) {
 ;     y[i]   += a * x[i];
@@ -17,7 +17,7 @@
 ; }
 
 ; CHECK: Function: foo
-;  
+;
 ; CHECK:       BEGIN REGION { }
 ; CHECK:             + DO i1 = 0, (sext.i32.i64(%n) + -1)/u4, 1   <DO_LOOP>  <MAX_TC_EST = 2>
 ; CHECK:             |   %mul = (@x)[0][4 * i1]  *  %a;
@@ -34,9 +34,9 @@
 ; CHECK:             |   (@y)[0][4 * i1 + 3] = %add26;
 ; CHECK:             + END LOOP
 ; CHECK:       END REGION
-;  
+;
 ; CHECK: Function: foo
-;  
+;
 ; CHECK:       BEGIN REGION { }
 ; CHECK:             + DO i1 = 0, 4 * ((3 + sext.i32.i64(%n)) /u 4) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 8>
 ; CHECK:             |   %mul = (@x)[0][i1]  *  %a;

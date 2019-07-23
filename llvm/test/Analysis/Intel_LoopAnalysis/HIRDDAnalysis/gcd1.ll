@@ -1,5 +1,5 @@
-;    for  (i=0; i< 1000; i++) {	
-;        a[2 *n * i] =   a[2 *n * i+ 1] ; 
+;    for  (i=0; i< 1000; i++) {
+;        a[2 *n * i] =   a[2 *n * i+ 1] ;
 ;    }
 
 ; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze | FileCheck %s
@@ -7,7 +7,7 @@
 
 ; CHECK: DD graph for function sub8
 ; CHECK-DAG:  (@a)[0][2 * %n * i1] OUTPUT (*)
- 
+
 ; ModuleID = 'gcd1.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

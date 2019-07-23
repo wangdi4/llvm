@@ -1,12 +1,12 @@
 ;
-;  There was a compfail in bzip/blocksort in DD for nullptr 
-;  
-;  compillation is okay if it starts to dump DDG for last function mainGtU 
- 
-; RUN: opt < %s -loop-simplify -lcssa -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze | FileCheck %s 
+;  There was a compfail in bzip/blocksort in DD for nullptr
+;
+;  compillation is okay if it starts to dump DDG for last function mainGtU
+
+; RUN: opt < %s -loop-simplify -lcssa -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze | FileCheck %s
 ; RUN: opt -passes="loop-simplify,lcssa,hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 < %s | FileCheck %s
 
-; CHECK: DD graph for function mainGtU 
+; CHECK: DD graph for function mainGtU
 
 
 ; ModuleID = 'blocksort.c'

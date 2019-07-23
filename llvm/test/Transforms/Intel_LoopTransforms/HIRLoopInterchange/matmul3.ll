@@ -8,7 +8,7 @@
 ; REQUIRES: asserts
 ;
 ; A perfect loop nest is forced even when all references in innermost loop are all unit strided.
-; Then interchanged. ( 2 1 3 ) might be a better permutation. 
+; Then interchanged. ( 2 1 3 ) might be a better permutation.
 
 ; <37>      + DO i1 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
 ; <38>      |   + DO i2 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
@@ -26,8 +26,8 @@
 ; CHECK: Interchanged:
 ; CHECK-SAME: ( 2 1 3 )
 ;
-; ModuleID = 'matmul3.c' 
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128" 
+; ModuleID = 'matmul3.c'
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 @c = common global[1024 x[1024 x double]] zeroinitializer, align 16

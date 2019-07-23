@@ -7,7 +7,7 @@
 ; CHECK-SAME: a.addr.014(%a)
 ; CHECK-NEXT: LiveOuts:
 ; CHECK-SAME: output.1
-; CHECK-NOT: Region 
+; CHECK-NOT: Region
 
 ; ModuleID = 'de_ssa.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

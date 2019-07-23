@@ -2,27 +2,27 @@
 
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -hir-generate-mkl-call -print-after=hir-generate-mkl-call -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,hir-generate-mkl-call,print<hir>" -aa-pipeline="basic-aa" -S < %s 2>&1 | FileCheck %s
-; 
+;
 
 ; Fortran complex matmul source code-
-; program main 
-; complex*8 a3(50,50),b3(50,50), c3(50,50) 
+; program main
+; complex*8 a3(50,50),b3(50,50), c3(50,50)
 ; n = 50
 ; do j=1,n
 ;    do k = 1,n
-;       do i = 1,n 
+;       do i = 1,n
 ;          c3(i,j) = c3(i,j) + a3(i,k) * b3(k,j)
 ;       enddo
 ;    enddo
 ; enddo
 ; end
 
-; Before HIR Generate MKL Call- 
+; Before HIR Generate MKL Call-
 ; + DO i1 = 0, 49, 1   <DO_LOOP>
 ; |   + DO i2 = 0, 49, 1   <DO_LOOP>
 ; |   |   %.unpack277 = (@"main_$B3")[0][i1 + 1][i2 + 1].0;
 ; |   |   %.unpack279 = (@"main_$B3")[0][i1 + 1][i2 + 1].1;
-; |   |   
+; |   |
 ; |   |   + DO i3 = 0, 49, 1   <DO_LOOP>
 ; |   |   |   %.unpack273 = (@"main_$A3")[0][i2 + 1][i3 + 1].0;
 ; |   |   |   %.unpack275 = (@"main_$A3")[0][i2 + 1][i3 + 1].1;

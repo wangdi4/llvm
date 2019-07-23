@@ -8,25 +8,25 @@
 ; int A[SIZE];
 ; int B[SIZE];
 ; int C[SIZE];
-; 
+;
 ; void foo(int n) {
-;   int D = n*n;  
+;   int D = n*n;
 ;   for (int i=0;  i<n; i=i+4) {
 ;     B[i] = C[i];
 ;     A[i] = D * B[i];
-; 
+;
 ;     B[i+1] = C[i+1];
 ;     A[i+1] = D * B[i+1];
-; 
+;
 ;     B[i+2] = C[i+2];
 ;     A[i+2] = D * B[i+2];
-; 
+;
 ;     B[i+3] = C[i+3];
 ;     A[i+3] = D * B[i+3];
 ;   }
 ; }
- 
- 
+
+
 ;CHECK: Function: foo
 
 ;CHECK:  BEGIN REGION { }

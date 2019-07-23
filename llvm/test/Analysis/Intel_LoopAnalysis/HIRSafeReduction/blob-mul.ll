@@ -3,17 +3,17 @@
 
 ; CHECK: No Safe Reduction
 
-; Check no safe reduction should be identified. 
-; 
+; Check no safe reduction should be identified.
+;
 ; Source code looks like:
-; 
+;
 ; int foo (int *A, int k) {
 ;   int i, t = 1;
-; 
+;
 ;   for (i=0; i<40; i++) {
 ;     t = (t+k) * A[i];
 ;   }
-; 
+;
 ;   return t;
 ; }
 ;

@@ -7,18 +7,18 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -print-after=hir-general-unroll -S < %s 2>&1 | FileCheck %s -check-prefix=UNROLL
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-general-unroll,print<hir>" -S < %s 2>&1 | FileCheck %s -check-prefix=UNROLL
 ;
-;  
+;
 ; ===-----------------------------------===
 ; *** Run1: Disabled Normal General Unrolling ***
 ; ===-----------------------------------===
 ; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -disable-hir-general-unroll -print-after=hir-general-unroll -S < %s 2>&1 | FileCheck %s -check-prefix=NOUNROLL
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-general-unroll,print<hir>" -disable-hir-general-unroll -S < %s 2>&1 | FileCheck %s -check-prefix=NOUNROLL
-; 
-; 
+;
+;
 ; ===----------------------------------------------===
 ; --- HIR Tests for Run0: Normal General Unrolling ---
 ; ===----------------------------------------------===
-; 
+;
 ; UNROLL: BEGIN REGION { modified }
 ; UNROLL: DO i1 = 0, 34, 1
 ; UNROLL: (@a)[0][8 * {{.*}}(%n) * i1 + 7 * {{.*}}(%n)]
@@ -72,6 +72,6 @@ for.end:                                          ; preds = %for.body
 declare void @llvm.lifetime.start(i64, i8* nocapture)
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) 
+declare void @llvm.lifetime.end(i64, i8* nocapture)
 
 

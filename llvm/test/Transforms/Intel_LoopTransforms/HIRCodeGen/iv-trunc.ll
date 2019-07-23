@@ -1,7 +1,7 @@
 ;RUN: opt -hir-ssa-deconstruction -S -hir-cg -force-hir-cg %s | FileCheck %s
 ;RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -S -force-hir-cg %s | FileCheck %s
 
-; In subscript expr on <5> and <11>, we have a 64 bit iv in a 32 bit src 
+; In subscript expr on <5> and <11>, we have a 64 bit iv in a 32 bit src
 ;CE(but 64 bit dest type). Verify that the iv is generated as a truncated
 ;val and then operated on
 ;          BEGIN REGION { }
@@ -10,16 +10,16 @@
 ;<18>         + DO i64 i1 = 0, zext.i32.i64((-1 + %N)), 1   <DO_LOOP>
 ;<18>         | <REG> LINEAR i64 zext.i32.i64((-1 + %N)) {sb:2}
 ;<18>         | <BLOB> LINEAR i32 %N {sb:4}
-;<18>         | 
+;<18>         |
 ;<5>          |   (%A)[i1 + 16] = 77;
 ;<5>          |   <REG> (LINEAR i32* %A)[LINEAR zext.i32.i64(i1 + 16)] {sb:0}
 ;<5>          |   <BLOB> LINEAR i32* %A {sb:8}
-;<5>          |   
+;<5>          |
 ;<11>         |   (%A)[3 * i1 + %N] = 22;
 ;<11>         |   <REG> (LINEAR i32* %A)[LINEAR zext.i32.i64(3 * i1 + %N)] {sb:0}
 ;<11>         |   <BLOB> LINEAR i32 %N {sb:4}
 ;<11>         |   <BLOB> LINEAR i32* %A {sb:8}
-;<11>         |   
+;<11>         |
 ;<18>         + END LOOP
 
 ;CHECK: region.0:

@@ -1,13 +1,13 @@
 ; l1reversal1-v.ll
 ; (1-level loop, sanity test, valid reversal case1)
-; 
+;
 ; Sanity Test(s) on HIR Loop Reversal: simple 1-level (l1) loop that can be reversed
-; 
+;
 ; Reasons:
-; - Applicalbe: with valid negative memory-access address; 
+; - Applicalbe: with valid negative memory-access address;
 ; - Profitable: Cost Model returns good on negative IVs
 ; - Legal: no dependence
-; 
+;
 ; *** Source Code ***
 ;
 ;[BEFORE LOOP REVERSAL]
@@ -29,12 +29,12 @@
 ;  }
 ;  return A[1];
 ;}
-; 
+;
 ; ===-----------------------------------===
 ; *** Run0: BEFORE HIR Loop Reversal ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=BEFORE 
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE 
+; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=BEFORE
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE
 ;
 ;; ===-----------------------------------===
 ; *** Run1: AFTER HIR Loop Reversal ***
@@ -47,7 +47,7 @@
 ; *** Tests0: W/O HIR Loop Reversal Output ***
 ; === -------------------------------------- ===
 ; Expected output before Loop Reversal
-; 
+;
 ;          BEGIN REGION { }
 ;<12>         + DO i1 = 0, 4, 1   <DO_LOOP>
 ;<5>          |   (%A)[-1 * i1 + 100] = i1;
@@ -66,20 +66,20 @@
 ; === -------------------------------------- ===
 ;
 ; Expected HIR output after Loop-Reversal is enabled:
-; 
+;
 ;          BEGIN REGION { modified }
 ;<12>         + DO i1 = 0, 4, 1   <DO_LOOP>
 ;<5>          | (%A)[i1 + 96] = -1 * i1 + 4;
 ;<12>         + END LOOP
 ;          END REGION
 ;
-; 
+;
 ; AFTER:   BEGIN REGION { modified }
 ; AFTER:      + DO i1 = 0, 4, 1   <DO_LOOP>
 ; AFTER:      | (%A)[i1 + 96] = -1 * i1 + 4;
 ; AFTER:      + END LOOP
 ; AFTER:   END REGION
-; 
+;
 ;
 ; === ---------------------------------------------------------------- ===
 ; Following is the LLVM's input code!

@@ -1,14 +1,14 @@
 ;
 ;
 ;  Loop has 1 single DDREF for a symbase
-;  Still need to call DDTest and let it decide if Edge is needed  
-;  
-;  e.g. 
+;  Still need to call DDTest and let it decide if Edge is needed
+;
+;  e.g.
 ;   Loop i
-;     VAR = i; 
+;     VAR = i;
 ; Obviously we need to build an edge for VAR with output dep
 ;
-; RUN: opt < %s -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze | FileCheck %s 
+; RUN: opt < %s -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 < %s | FileCheck %s
 
 ; CHECK-DAG: (%gd)[0] OUTPUT (*)
@@ -19,7 +19,7 @@ entry:
   %m = alloca [64 x i32], align 16
 
   br label %for.cond12.preheader
- 
+
 for.cond12.preheader:                             ; preds = %entry, %for.inc16
   %indvars.iv546 = phi i64 [ 62, %entry ], [ %indvars.iv.next547, %for.inc16 ]
   %0 = phi i32 [ 61, %entry ], [ %dec17, %for.inc16 ]

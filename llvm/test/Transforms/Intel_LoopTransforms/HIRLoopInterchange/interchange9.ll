@@ -1,8 +1,8 @@
 ;  Test for Interchange
-;  No Interchange expected when permutation is not met due to dependence 
-;  and Nearby permutation is the same as original order   
-;  
-; REQUIRES: asserts 
+;  No Interchange expected when permutation is not met due to dependence
+;  and Nearby permutation is the same as original order
+;
+; REQUIRES: asserts
 ; RUN: opt -hir-ssa-deconstruction -debug-only=hir-loop-interchange -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-interchange" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK-NOT: Interchanged:

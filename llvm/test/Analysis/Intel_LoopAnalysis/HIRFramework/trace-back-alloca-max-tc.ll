@@ -65,4 +65,4 @@ prti.exit:                                        ; preds = %while.body.i
   %.lcssa88 = phi i8* [ %4, %while.body.i ]
   ret i8* %incdec.ptr3.i
 }
-  
+

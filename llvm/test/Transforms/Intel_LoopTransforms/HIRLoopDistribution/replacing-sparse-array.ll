@@ -48,7 +48,7 @@
 ;<0>          BEGIN REGION { modified }
 ;<113>              + DO i1 = 0, (sext.i32.i64(%N) + -1)/u64, 1   <DO_LOOP>  <MAX_TC_EST = 1000>
 ;<114>              |   %min = (-64 * i1 + sext.i32.i64(%N) + -1 <= 63) ? -64 * i1 + sext.i32.i64(%N) + -1 : 63;
-;<99>               |   
+;<99>               |
 ;<99>               |   + DO i2 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>
 ;<3>                |   |   %0 = (@a1)[0][64 * i1 + i2];
 ;<5>                |   |   %div = 4 * %0  /  3;
@@ -75,8 +75,8 @@
 ;<81>               |   |   %mul70 = %sub27  *  %mul39;
 ;<111>              |   |   (%.TempArray9)[0][i2] = %mul70;
 ;<99>               |   + END LOOP
-;<99>               |   
-;<100>              |   
+;<99>               |
+;<100>              |
 ;<100>              |   + DO i2 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>
 ;<102>              |   |   %div = (%.TempArray)[0][i2];
 ;<106>              |   |   %mul40 = (%.TempArray3)[0][i2];

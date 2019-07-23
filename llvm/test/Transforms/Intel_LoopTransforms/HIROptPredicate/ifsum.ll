@@ -1,5 +1,5 @@
-;  Checking for a clean compile.  Need to invoke VPlan which will call     
-;  Reduction analysis. 
+;  Checking for a clean compile.  Need to invoke VPlan which will call
+;  Reduction analysis.
 ;
 ;   for (int i=0; i < N; i++) {
 ;    tsum = 0.0;
@@ -8,11 +8,11 @@
 ; 	tsum += B[j];
 ;      }
 ;    }
-;    B[i] = tsum;   
+;    B[i] = tsum;
 ;  }
 ;
 ; REQUIRES: asserts
-; RUN: opt < %s  -hir-ssa-deconstruction   -hir-temp-cleanup  -analyze -hir-safe-reduction-analysis -hir-opt-var-predicate  -print-after=hir-opt-var-predicate | FileCheck %s  
+; RUN: opt < %s  -hir-ssa-deconstruction   -hir-temp-cleanup  -analyze -hir-safe-reduction-analysis -hir-opt-var-predicate  -print-after=hir-opt-var-predicate | FileCheck %s
 ;
 ; CHECK: <Safe Reduction>
 ;

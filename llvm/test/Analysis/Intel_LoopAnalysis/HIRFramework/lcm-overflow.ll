@@ -1,6 +1,6 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-runtime-dd -print-before=hir-runtime-dd -print-after=hir-runtime-dd 2>&1 | FileCheck %s
 
-; Verify that the test is successfully compiled. Originally, there was an 
+; Verify that the test is successfully compiled. Originally, there was an
 ; overflow during lcm computation when runtime dd invoked addition of
 ; CanonExprs. The overflow led to an assertion when the resulting lcm of 0 was
 ; being set as the denominator.

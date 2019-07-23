@@ -2,7 +2,7 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; Currently reroller bails out with CmpInst
- 
+
 ;int A[50], B[50];
 ;
 ;void foo() {
@@ -13,7 +13,7 @@
 ;    B[2*i+1] = A[2*i+1] < 5;
 ;  }
 ;}
- 
+
 ; CHECK:Function: foo
 
 ; CHECK:         BEGIN REGION { }
@@ -35,7 +35,7 @@
 ; CHECK:              |   (@B)[0][2 * i1 + 1] = %cmp8;
 ; CHECK:              + END LOOP
 ; CHECK:        END REGION
- 
+
 ;Module Before HIR
 ; ModuleID = 'cmp.c'
 source_filename = "cmp.c"

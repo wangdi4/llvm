@@ -1,6 +1,6 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
-; Verify that we construct the HIR properly by suppressing creation of SCC when the header phi is live outside the loop in another SCC instruction. 
+; Verify that we construct the HIR properly by suppressing creation of SCC when the header phi is live outside the loop in another SCC instruction.
 
 ; CHECK: SCC1
 ; CHECK-SAME: %x0.055
@@ -96,11 +96,11 @@ cleanup:                                          ; preds = %if.else, %if.then
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.memset.p0i8.i64(i8* nocapture, i8, i64, i32, i1) 
+declare void @llvm.memset.p0i8.i64(i8* nocapture, i8, i64, i32, i1)
 
 ; Function Attrs: nounwind
-declare i32 @printf(i8* nocapture readonly, ...) 
+declare i32 @printf(i8* nocapture readonly, ...)
 
 ; Function Attrs: nounwind
-declare i32 @puts(i8* nocapture readonly) 
+declare i32 @puts(i8* nocapture readonly)
 

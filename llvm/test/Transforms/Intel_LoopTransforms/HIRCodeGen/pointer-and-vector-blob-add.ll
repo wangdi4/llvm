@@ -2,7 +2,7 @@
 ; XFAIL: *
 ; TO-DO : The test case fails upon removal of AVR Code. Analyze and fix it so that it works for VPlanDriverHIR
 
-; Verify that we successfully generate code for this case. An assert was 
+; Verify that we successfully generate code for this case. An assert was
 ; triggered during codgen because we were trying to convert the pointer blob in
 ; the subscript (src) to a vector type (<4 * i32>) instead of vector's scalar
 ; type (i32).

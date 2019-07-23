@@ -1,7 +1,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-blocking -print-after=hir-loop-blocking -print-before=hir-loop-blocking -disable-hir-loop-blocking-trip-count-check=false < %s 2>&1 | FileCheck %s --check-prefix=DEFAULT
 
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -disable-hir-loop-blocking-trip-count-check=false 2>&1 < %s | FileCheck %s --check-prefix=DEFAULT
- 
+
 ;typedef long long a[1];
 ;typedef a b[9];
 ;unsigned c, e;
@@ -18,7 +18,7 @@
 ; This test makes sure, the outermost loop of blocking can be a loop at level larger than 1.
 ; Compile option "-disable-hir-loop-blocking-trip-count-check=false" is given, so that
 ; the original i1 loop is not involved in loop blocking.
- 
+
 ; DEFAULT:Function: h
 
 ; DEFAULT:        BEGIN REGION { }
@@ -37,10 +37,10 @@
 ; DEFAULT:              + DO i1 = 0, -1 * %.pr + -1, 1   <DO_LOOP>
 ; DEFAULT:              |   + DO i2 = 0, 33554431, 1   <DO_LOOP>
 ; DEFAULT:              |   |   %min = (-64 * i2 + 2147483646 <= 63) ? -64 * i2 + 2147483646 : 63;
-; DEFAULT:              |   |   
+; DEFAULT:              |   |
 ; DEFAULT:              |   |   + DO i3 = 0, 33554431, 1   <DO_LOOP>
 ; DEFAULT:              |   |   |   %min3 = (-64 * i3 + 2147483646 <= 63) ? -64 * i3 + 2147483646 : 63;
-; DEFAULT:              |   |   |   
+; DEFAULT:              |   |   |
 ; DEFAULT:              |   |   |   + DO i4 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>
 ; DEFAULT:              |   |   |   |   + DO i5 = 0, %min3, 1   <DO_LOOP>  <MAX_TC_EST = 64>
 ; DEFAULT:              |   |   |   |   |   (@g)[0][1][128 * i3 + 2 * i5 + 2] = %0;
@@ -50,7 +50,7 @@
 ; DEFAULT:              |   + END LOOP
 ; DEFAULT:              + END LOOP
 ; DEFAULT:        END REGION
- 
+
 ;Module Before HIR
 ; ModuleID = 'non-level1-outermost.c'
 source_filename = "non-level1-outermost.c"

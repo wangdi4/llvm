@@ -1,5 +1,5 @@
 ; Sanity Test(s) on HIR Loop Reversal: testcase reported by CQ DPD200413783
-; 
+;
 ; [REASONS]
 ; - Applicable: YES
 ; - Profitable: YES
@@ -9,7 +9,7 @@
 ; Issue with the CQ DPD200413783:
 ; - there is a non-memory iv op that is not collected from the original reverser.
 ; - fixed to collect this iv;
-; 
+;
 ; *** Source Code ***
 ;int a1_lpa[192];
 ;unsigned a1_diwssz[192];
@@ -39,7 +39,7 @@
 ; CHECK:        |   (@a1_diwssz)[0][3 * i1] = %and;
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION
-;  
+;
 ;
 ; CHECK: Function
 ;

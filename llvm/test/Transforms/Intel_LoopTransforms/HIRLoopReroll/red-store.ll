@@ -18,7 +18,7 @@
 ;  }
 ;  return S;
 ;}
- 
+
 ; CHECK:Function: foo
 
 ; CHECK:        BEGIN REGION { }
@@ -41,7 +41,7 @@
 ; CHECK:              |   %S.035 = %S.035  +  %mul;
 ; CHECK:              + END LOOP
 ; CHECK:        END REGION
- 
+
 ;Module Before HIR
 ; ModuleID = 'store-red-3.c'
 source_filename = "store-red-3.c"

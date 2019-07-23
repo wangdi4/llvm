@@ -7,7 +7,7 @@
 
 @.str.49 = private unnamed_addr constant [2 x i8] c" \00", align 1
 
-declare i64 @strspn(i8* nocapture, i8* nocapture) 
+declare i64 @strspn(i8* nocapture, i8* nocapture)
 
 declare i64 @strlen(i8* nocapture)
 

@@ -54,27 +54,27 @@
 ; CHECK-DAG: [[N7]]:[[N7]] (%b)[i1] --> (%b)[i1]
 ; CHECK-DAG: [[N19]]:[[N7]] (%a)[0] --> (%b)[i1]
 ; CHECK-DAG: [[N20]]:[[N7]] (%c)[i1] --> (%b)[i1]
-; CHECK-DAG: [[N7]]:[[N19]] (%b)[i1] --> (%a)[0]  
-; CHECK-DAG: [[N7]]:[[N20]] (%b)[i1] --> (%c)[i1]  
-; CHECK-DAG: [[N20]]:[[N19]] (%c)[i1] --> (%a)[0]  
-; CHECK-DAG: [[N19]]:[[N20]] (%a)[0] --> (%c)[i1]  
-; CHECK-DAG: [[N20]]:[[N20]] (%c)[i1] --> (%c)[i1]  
+; CHECK-DAG: [[N7]]:[[N19]] (%b)[i1] --> (%a)[0]
+; CHECK-DAG: [[N7]]:[[N20]] (%b)[i1] --> (%c)[i1]
+; CHECK-DAG: [[N20]]:[[N19]] (%c)[i1] --> (%a)[0]
+; CHECK-DAG: [[N19]]:[[N20]] (%a)[0] --> (%c)[i1]
+; CHECK-DAG: [[N20]]:[[N20]] (%c)[i1] --> (%c)[i1]
 ; CHECK-NOT: -->
 
 ; And the graphs for the Inner Loops. Note that there should be no edges outside of the loop.
 
 ; CHECK: Graph
-; CHECK-DAG: [[N6]]:[[N7]] %0 --> %0  
-; CHECK-DAG: [[N7]]:[[N6]] (%b)[i1] --> (%a)[0]  
-; CHECK-DAG: [[N6]]:[[N7]] (%a)[0] --> (%b)[i1]  
-; CHECK-DAG: [[N7]]:[[N7]] (%b)[i1] --> (%b)[i1] 
+; CHECK-DAG: [[N6]]:[[N7]] %0 --> %0
+; CHECK-DAG: [[N7]]:[[N6]] (%b)[i1] --> (%a)[0]
+; CHECK-DAG: [[N6]]:[[N7]] (%a)[0] --> (%b)[i1]
+; CHECK-DAG: [[N7]]:[[N7]] (%b)[i1] --> (%b)[i1]
 ; CHECK-NOT: -->
 
 ; CHECK: Graph
-; CHECK-DAG: [[N19]]:[[N20]] %1 --> %1  
-; CHECK-DAG: [[N20]]:[[N19]] (%c)[i1] --> (%a)[0]  
-; CHECK-DAG: [[N19]]:[[N20]] (%a)[0] --> (%c)[i1]  
-; CHECK-DAG: [[N20]]:[[N20]] (%c)[i1] --> (%c)[i1]  
+; CHECK-DAG: [[N19]]:[[N20]] %1 --> %1
+; CHECK-DAG: [[N20]]:[[N19]] (%c)[i1] --> (%a)[0]
+; CHECK-DAG: [[N19]]:[[N20]] (%a)[0] --> (%c)[i1]
+; CHECK-DAG: [[N20]]:[[N20]] (%c)[i1] --> (%c)[i1]
 ; CHECK-NOT: -->
 
 ;Module Before HIR; ModuleID = 'lmm.c'

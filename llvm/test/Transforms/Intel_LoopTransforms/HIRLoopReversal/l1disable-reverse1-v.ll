@@ -1,7 +1,7 @@
 ; l1disable-reversal.ll
-; 
+;
 ; Sanity Test on HIR Loop Reversal: check the DisableHIRLoopReversal flag
-; 
+;
 ; *** Source Code ***
 ;
 ;[BEFORE LOOP REVERSAL]
@@ -23,12 +23,12 @@
 ;  }
 ;  return A[1];
 ;}
-; 
+;
 ; ===-----------------------------------===
 ; *** Run0: BEFORE HIR Loop Reversal ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal	-S 2>&1 < %s  |	FileCheck %s -check-prefix=BEFORE 
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE 
+; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal	-S 2>&1 < %s  |	FileCheck %s -check-prefix=BEFORE
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE
 ;
 ;
 ; ===-----------------------------------===
@@ -42,7 +42,7 @@
 ; *** Tests0: W/O HIR Loop Reversal Output ***
 ; === -------------------------------------- ===
 ; Expected output before Loop Reversal
-; 
+;
 ;          BEGIN REGION { }
 ;<12>         + DO i1 = 0, 4, 1   <DO_LOOP>
 ;<5>          |   (%A)[-1 * i1 + 100] = i1;
@@ -61,7 +61,7 @@
 ; === -------------------------------------- ===
 ;
 ; Expected output after HIR Loop Reversal, with Disable flag ON
-; 
+;
 ;          BEGIN REGION { }
 ;<12>         + DO i1 = 0, 4, 1   <DO_LOOP>
 ;<5>          |   (%A)[-1 * i1 + 100] = i1;
@@ -74,7 +74,7 @@
 ; AFTER:  + END LOOP
 ; AFTER: END REGION
 ;
-; 
+;
 ;
 ;
 ; === ---------------------------------------------------------------- ===

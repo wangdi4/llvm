@@ -1,6 +1,6 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-rematerialize -print-before=hir-loop-rematerialize -print-after=hir-loop-rematerialize < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-rematerialize,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
- 
+
 ;#if 0
 ;void project_v3_plane(float v[3], const float n[3], const float p[3])
 ;{
@@ -15,7 +15,7 @@
 ;  sub_v3_v3(v, vector);
 ;}
 ;#endif
-; 
+;
 ; Inlined into:
 ;
 ;void project_v3_plane(float v[3], const float n[3], const float p[3])
@@ -27,12 +27,12 @@
 ;  vector[1] = v[1] - p[1];
 ;  vector[2] = v[2] - p[2];
 ;
-;  mul = (vector[0]*n[0] + 
-;        vector[1]*n[1] + 
-;        vector[2]*n[2]) / 
-;        (n[0] * n[0] +  
-;        n[1] * n[1] +  
-;        n[2] * n[2]);   
+;  mul = (vector[0]*n[0] +
+;        vector[1]*n[1] +
+;        vector[2]*n[2]) /
+;        (n[0] * n[0] +
+;        n[1] * n[1] +
+;        n[2] * n[2]);
 ;
 ;  vector[0] = n[0] - mul;
 ;  vector[1] = n[1] - mul;
@@ -80,13 +80,13 @@
 ; The whole region should not be materialized into one loop. It may be materialized in TWO loops.
 ; One before %div = %add20 / %add31 and after. Or only one loop after %div =.
 ; But these needs quite a sophistication of rematerialization algorithm.
-; Currently, we bail out. 
+; Currently, we bail out.
 
 ;CHECK:Function: project_v3_plane
 ;CHECK-NOT: DO_LOOP
 ;CHECK-NOT: END LOOP
- 
- 
+
+
 ;Module Before HIR
 ; ModuleID = 'math_vecs.c'
 source_filename = "math_vecs.c"

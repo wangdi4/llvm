@@ -31,7 +31,7 @@
 ; CHECK: }
 ; CHECK: END REGION
 
- 
+
 ; Function Attrs: norecurse nounwind uwtable
 define void @foo(i32* nocapture %A, i32 %n, i32 %a, i32 %b, i32 %c) local_unnamed_addr #0 {
 entry:
@@ -87,4 +87,4 @@ for.end.loopexit:                                 ; preds = %for.inc
 for.end:                                          ; preds = %for.end.loopexit, %entry
   ret void
 }
- 
+

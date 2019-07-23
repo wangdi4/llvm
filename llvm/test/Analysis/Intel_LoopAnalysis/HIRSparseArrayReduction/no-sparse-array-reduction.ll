@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-distribute-memrec | opt -analyze -force-hir-sparse-array-reduction-analysis -hir-sparse-array-reduction-analysis 
+; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-distribute-memrec | opt -analyze -force-hir-sparse-array-reduction-analysis -hir-sparse-array-reduction-analysis
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,print<hir-sparse-array-reduction-analysis>" -hir-cost-model-throttling=0 -force-hir-sparse-array-reduction-analysis -disable-output 2>&1 | FileCheck %s
 
 ; The loop does not have sparse array reduction of our interest and should pass sparse array reduction silently.
@@ -28,7 +28,7 @@ entry:
   %t0 = load i64, i64* %I01541, align 8
   br label %for.body;
 
-for.body:                                         
+for.body:
   %I235886.111 = phi i64 [ %add25, %for.body ], [ %I235886.0, %entry ]
   %I100604.110 = phi i64 [ %add24, %for.body ], [ %I100604.0, %entry ]
   %I235885.09 = phi i64 [ %inc, %for.body ], [ 1, %entry ]
@@ -48,6 +48,6 @@ for.body:
   %exitcond13 = icmp eq i64 %I235885.09, %t0
   br i1 %exitcond13, label %cleanup.loopexit15, label %for.body
 
-cleanup.loopexit15:                                          
+cleanup.loopexit15:
   ret void
 }

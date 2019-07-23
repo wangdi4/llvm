@@ -1,11 +1,11 @@
 ; l1reversal-cq1.ll
 ; (1-level loop, real testcase1, original CQ 377964)
 ; CQLink: https://jf.clearquest.intel.com/cqweb/#/CQMS.DPD.JF/DPD2/RECORD/33932428&recordType=Defect&format=HTML&noframes=false&version=cqwj
-; 
+;
 ; Sanity Test(s) on HIR Loop Reversal: simple 1-level (l1) loop that can be reversed
-; 
+;
 ; [REASONS]
-; - Applicalbe: YES, HAS valid (1) negative memory-access addresses, and 0 positive memory-access address; 
+; - Applicalbe: YES, HAS valid (1) negative memory-access addresses, and 0 positive memory-access address;
 ; - Profitable: YES
 ;   Accumulated negative weight is higher than accumulated positive weight;
 ; - Legal:      YES (according to the revised isLegal() model)
@@ -37,12 +37,12 @@
 ;    *p = (unsigned short)(m >= wsize ? m - wsize : 0);
 ;  }
 ;}
-; 
+;
 ; ===-----------------------------------===
 ; *** Run0: BEFORE HIR Loop Reversal ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1	< %s  |	FileCheck %s -check-prefix=BEFORE 
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE 
+; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1	< %s  |	FileCheck %s -check-prefix=BEFORE
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE
 ;
 ;
 ; ===-----------------------------------===
@@ -56,7 +56,7 @@
 ; *** Tests0: W/O HIR Loop Reversal Output ***
 ; === -------------------------------------- ===
 ; Expected output before Loop Reversal
-; 
+;
 ;          BEGIN REGION { }
 ;<17>            + DO i1 = 0, %n + -1, 1   <DO_LOOP>
 ;<3>             |   %0 = (%p)[-1 * i1 + -1];

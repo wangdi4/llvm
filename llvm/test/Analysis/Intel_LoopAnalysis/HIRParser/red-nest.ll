@@ -45,7 +45,7 @@
 
 ; Collect i2 loop liveouts.
 ; DETAIL-NEXT: LiveOut symbases: [[I1LIVEIN2]], [[I2LIVEOUT1:[0-9]+]]
- 
+
 ; Check that %t.034 is correctly set as livein and non-linear in the i2 loop.
 ; DETAIL: DO i64 i2
 ; DETAIL: %t.034.out = %t.034

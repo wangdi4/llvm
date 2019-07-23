@@ -6,7 +6,7 @@
 ; Source:
 ; int a[1000];
 ; int b[1000];
-; 
+;
 ; int foo(char *p, char *q, int x, int y) {
 ;   int i,j;
 ;   for (i=0;i<1000;++i) {
@@ -61,7 +61,7 @@
 ; CHECK: BEGIN REGION
 ; CHECK: goto for.inc;
 ; CHECK-NOT: DO
-; CHECK-NOT: END LOOP 
+; CHECK-NOT: END LOOP
 ; CHECK: for.inc:
 
 ; Verify that the region is modified

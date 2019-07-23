@@ -9,28 +9,28 @@
 ; 1 extern float bar();
 ; 2 extern int c1();
 ; 3 extern int c2();
-; 4 
+; 4
 ; 5 void foo(float *a, float *c) {
-; 6 
+; 6
 ; 7 float x = 0;
-; 8 
+; 8
 ; 9 for (int i=0;i<100;i++) {
-;10 
+;10
 ;11 x += i * bar();
-;12 
+;12
 ;13 if (x > 10 || i < 10) {
 ;14   a[i] += x;
-;15 
+;15
 ;16   if (c1() && i > 0) {
 ;17     a[i] += x;
 ;18   }
 ;19 }
-;20 
+;20
 ;21 float b = a[i+1] + 2.0;
 ;22 float g = a[i+1] ? 10.0 : -10.0;
-;23 
+;23
 ;24 c[i] = b + g;
-;25 
+;25
 ;26 switch (c1()) {
 ;27 case 1:
 ;28   c[i] += c2();
@@ -41,9 +41,9 @@
 ;33 default:
 ;34   break;
 ;35 }
-;36 
+;36
 ;37 }
-;38 
+;38
 ;39 }
 
 ; CHECK: <0>          BEGIN REGION { }
@@ -116,7 +116,7 @@
 ; CHECK-CG-DAG: call void @llvm.dbg.declare(metadata float* {{.*}}, metadata !22, metadata {{.*}}), !dbg ![[m24:.*]]
 ; CHECK-CG-DAG: call void @llvm.dbg.declare(metadata float* {{.*}}, metadata !19, metadata {{.*}}), !dbg ![[m26:.*]]
 ; CHECK-CG-DAG: call void @llvm.dbg.declare(metadata float* {{.*}}, metadata !15, metadata {{.*}}), !dbg ![[m27:.*]]
-; CHECK-CG: region.0: 
+; CHECK-CG: region.0:
 
 ; Call + float instructions
 ; CHECK-CG:  {{.*}} = sitofp i32 {{.*}} to float, !dbg ![[m33:.*]]
@@ -124,7 +124,7 @@
 ; CHECK-CG:  {{.*}} = fmul float {{.*}}, {{.*}}, !dbg ![[m33]]
 ; CHECK-CG:  {{.*}} = fadd float {{.*}}, {{.*}}, !dbg ![[m33]]
 ; CHECK-CG:  store float {{.*}}, float* {{.*}}, !dbg ![[m33]]
-  
+
 ; IF + complex predicate
 ; CHECK-CG:  %hir.cmp.7 = fcmp ogt float {{.*}}, 1.000000e+01, !dbg ![[m35:.*]]
 ; CHECK-CG:  %hir.cmp.8 = icmp slt i32 {{.*}}, 10, !dbg ![[m37:.*]]
@@ -159,7 +159,7 @@
 ; Switch
 ; CHECK-CG:  switch i32 {{.*}}, label %hir.sw.43.default [
 ; CHECK-CG:  ], !dbg ![[m53:.*]]
- 
+
 
 ;Module Before HIR; ModuleID = 'debug-nodes.c'
 source_filename = "debug-nodes.c"

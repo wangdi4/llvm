@@ -4,12 +4,12 @@
 
 
 ; DEFAULT: Function: matmul
-;  
+;
 ; DEFAULT:        BEGIN REGION { }
 ; DEFAULT:              + DO i1 = 0, 4095, 1   <DO_LOOP>
 ; DEFAULT:              |   + DO i2 = 0, 4095, 1   <DO_LOOP>
 ; DEFAULT:              |   |   %0 = (@b)[0][i1][i2];
-; DEFAULT:              |   |   
+; DEFAULT:              |   |
 ; DEFAULT:              |   |   + DO i3 = 0, 4095, 1   <DO_LOOP>
 ; DEFAULT:              |   |   |   %mul = (@a)[0][i2][i3]  *  %0;
 ; DEFAULT:              |   |   |   %add = (@c)[0][i1][i3]  +  %mul;
@@ -18,9 +18,9 @@
 ; DEFAULT:              |   + END LOOP
 ; DEFAULT:              + END LOOP
 ; DEFAULT:        END REGION
-;  
+;
 ; DEFAULT: Function: matmul
-;  
+;
 ; DEFAULT:       BEGIN REGION { modified }
 ; DEFAULT:             + DO i1 = 0, 255, 1   <DO_LOOP>
 ; DEFAULT:             |   + DO i2 = 0, 255, 1   <DO_LOOP>

@@ -1,6 +1,6 @@
 ; RUN: opt < %s -analyze -hir-scc-formation | FileCheck %s
 
-; Verify that we do not construct the SCC (%v_fnaob.1254 -> %v_fnaob.0261 -> %xor105.lcssa -> %xor105 -> %xor97) which has multiple cycles. There are two other legitimate SCCs which are formed. 
+; Verify that we do not construct the SCC (%v_fnaob.1254 -> %v_fnaob.0261 -> %xor105.lcssa -> %xor105 -> %xor97) which has multiple cycles. There are two other legitimate SCCs which are formed.
 ; CHECK: SCC1
 ; CHECK-SAME: %.lcssa318320
 

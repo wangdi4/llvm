@@ -20,10 +20,10 @@
 ;
 
 ; MemRefGroup: { A[i], A[i+1] }
-;                      MaxLD                
-; GapTracker:  {R_    R_      }      
+;                      MaxLD
+; GapTracker:  {R_    R_      }
 
-; 
+;
 ; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { }
@@ -34,7 +34,7 @@
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION
 ;
-;  
+;
 ; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { modified }
@@ -49,7 +49,7 @@
 ; CHECK:        |   (@B)[0][i1] = %2 + %3;
 ; CHECK:        |   %scalarepl = %scalarepl1;
 ; CHECK:        + END LOOP
-;                               
+;
 ; CHECK:  END REGION
 ;
 ;

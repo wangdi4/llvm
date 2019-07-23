@@ -41,7 +41,7 @@
 ; RUN: opt < %s -passes=hir-ssa-deconstruction | opt -passes="print<hir-loop-resource>" -hir-print-total-resource -disable-output 2>&1 | FileCheck -check-prefix=TOTAL %s
 
 ; TOTAL: + DO i1 = 0, %n + -1, 1   <DO_LOOP>
-; TOTAL:    Integer Operations: 8 
+; TOTAL:    Integer Operations: 8
 ; TOTAL:    Integer Operations Cost: 8
 ; TOTAL:    Integer Memory Reads: 2
 ; TOTAL:    Memory Operations Cost: 8

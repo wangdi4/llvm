@@ -1,10 +1,10 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-scalarrepl-array -print-before=hir-scalarrepl-array -print-after=hir-scalarrepl-array -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-scalarrepl-array,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 ;
-; Scalar Replacement Sanity Test: mix need cleanup 
+; Scalar Replacement Sanity Test: mix need cleanup
 ;
 ; [REASONS]
-; - Applicable: YES  
+; - Applicable: YES
 ; - Legal:      NO (Unknown dependence distance for A[J] accesss)
 ; - Profitable: N/A
 ;
@@ -23,7 +23,7 @@
 ;  return A[0] + B[1] + 1;
 ;}
 ;
-; 
+;
 ; CHECK: Function
 ;
 ; CHECK:   BEGIN REGION { }
@@ -37,10 +37,10 @@
 ; CHECK:         |   + END LOOP
 ; CHECK:         + END LOOP
 ; CHECK:   END REGION
-;  
+;
 ;
 ; MemRefGroup: { A[i], A[i+1], }
-;                MinST    
+;                MinST
 ; GapTracker:  { RW     W      }
 
 ;

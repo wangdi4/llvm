@@ -21,10 +21,10 @@
 ; RUN: opt < %s -passes=hir-ssa-deconstruction | opt -passes="print<hir-locality-analysis>" -hir-spatial-locality -disable-output 2>&1 | FileCheck %s
 
 ;
-; Verify loops in sorted order i(L3)-k(L1)-j(L2) 
+; Verify loops in sorted order i(L3)-k(L1)-j(L2)
 ; CHECK: Loop level: 3
 ; CHECK: Loop level: 1
-; CHECK: Loop level: 2 
+; CHECK: Loop level: 2
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

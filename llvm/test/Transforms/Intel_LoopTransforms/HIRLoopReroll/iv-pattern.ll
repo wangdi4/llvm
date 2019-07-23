@@ -3,7 +3,7 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; CHECK: Function: foo
- 
+
 ; CHECK:      BEGIN REGION { }
 ; CHECK:            + DO i1 = 0, (sext.i32.i64(%n) + -1)/u4, 1   <DO_LOOP>  <MAX_TC_EST = 2>
 ; CHECK:            |   (@B)[0][4 * i1] = 4 * i1 + %n;
@@ -12,7 +12,7 @@
 ; CHECK:            |   (@B)[0][4 * i1 + 3] = 4 * i1 + %n + 3;
 ; CHECK:            + END LOOP
 ; CHECK:      END REGION
- 
+
 ; CHECK: Function: foo
 
 ; CHECK:      BEGIN REGION { }

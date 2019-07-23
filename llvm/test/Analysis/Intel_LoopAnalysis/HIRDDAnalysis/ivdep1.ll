@@ -1,19 +1,19 @@
 ;  #pragma ivdep
 ;  for (i=0; i< N; i++) {
 ;    A[i] = A[i+3] + 2;
-;    B[i] = A[i+m] + 1; 
+;    B[i] = A[i+m] + 1;
 ; }
 ; Test case for ivdep:
-; expecting dv (=) for all of them, except for small constant distance 
+; expecting dv (=) for all of them, except for small constant distance
 ; except the the one with constant distance
 ;
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 < %s | FileCheck %s
 ;
 ; CHECK: DD graph for function sub:
-; CHECK-DAG:  %A)[i1] --> (%B)[i1] OUTPUT (=)  
-; CHECK-DAG:  (%A)[i1 + 3] --> (%A)[i1] ANTI (<)  
-; CHECK-DAG:  (%A)[i1 + 3] --> (%B)[i1] ANTI (=)   
+; CHECK-DAG:  %A)[i1] --> (%B)[i1] OUTPUT (=)
+; CHECK-DAG:  (%A)[i1 + 3] --> (%A)[i1] ANTI (<)
+; CHECK-DAG:  (%A)[i1 + 3] --> (%B)[i1] ANTI (=)
 ;
 ;Module Before HIR; ModuleID = 'ivdep1.c'
 source_filename = "ivdep1.c"

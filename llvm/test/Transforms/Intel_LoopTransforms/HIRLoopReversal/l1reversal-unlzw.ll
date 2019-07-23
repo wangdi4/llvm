@@ -1,6 +1,6 @@
 ; Sanity Test(s) on HIR Loop Reversal: reversal case extracted from spec2000/164.gzip/unlzw.c
 ; l1reversal-unlzw.ll
-; 
+;
 ; [REASONS]
 ; - Applicable: YES
 ; - Profitable: YES
@@ -14,9 +14,9 @@
 ; for (i = 0; i<=255; ++i){
 ;   A[255-i] = 255-i;
 ;
-; 
+;
 ; [AFTER LOOP REVERSAL]
-; 
+;
 ; for(i = 0; i<=255; ++i) {
 ;  A[i] = i;
 ; }
@@ -27,32 +27,32 @@
 ;244     tab_suffixof(code) = (char_type)code;
 ;245   }
 ;
-; Demo code shown on #15 and #21 are normalized version from HIR level. 
-;  
+; Demo code shown on #15 and #21 are normalized version from HIR level.
+;
 ; ===-----------------------------------===
 ; *** Run0: BEFORE HIR Loop Reversal ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=BEFORE 
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE 
+; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=BEFORE
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE
 ;
 ; ===-----------------------------------===
 ; *** Run1: AFTER HIR Loop Reversal, DOESN'T REVERSE anything ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-after=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=AFTER 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=AFTER 
+; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-after=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=AFTER
+; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=AFTER
 ;
 ;
 ; === -------------------------------------- ===
 ; *** Tests0:  Output                        ***
 ; === -------------------------------------- ===
 ; Expected output before Loop Reversal
-; 
+;
 ;          BEGIN REGION { }
 ;<11>            + DO i1 = 0, 255, 1   <DO_LOOP>
 ;<4>             |   (@window)[0][-1 * i1 + 255] = -1 * i1 + 255;
 ;<11>            + END LOOP
 ;          END REGION
-; 
+;
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:        + DO i1 = 0, 255, 1   <DO_LOOP>
 ; BEFORE:        |   (@window)[0][-1 * i1 + 255] = -1 * i1 + 255;
@@ -64,7 +64,7 @@
 ; *** Tests1:  Output                        ***
 ; === -------------------------------------- ===
 ; Expected output AFTER	 Loop Reversal
-; 
+;
 ;          BEGIN REGION { modified }
 ;<11>            + DO i1 = 0, 255, 1   <DO_LOOP>
 ;<4>             |   (@window)[0][i1] = i1;

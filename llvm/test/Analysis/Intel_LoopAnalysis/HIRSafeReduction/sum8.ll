@@ -1,4 +1,4 @@
-;  2 separate reductions in a loop 
+;  2 separate reductions in a loop
 ;   for (long int i=0; i< n; i++) {
 ;			s2  += b[i];
 ;			s1  += a[i];

@@ -1,8 +1,8 @@
-;  for (long int i = 0; i < 20; i++) 
-;    for (long int j = 0; j < 20; j++) 
+;  for (long int i = 0; i < 20; i++)
+;    for (long int j = 0; j < 20; j++)
 ;      A[30*i + 500*j] =  A[i - 500*j + 11];
 
-; RUN:  opt < %s  -loop-simplify  -hir-ssa-deconstruction | opt  -hir-dd-analysis  -hir-dd-analysis-verify=Region  -analyze  | FileCheck %s 
+; RUN:  opt < %s  -loop-simplify  -hir-ssa-deconstruction | opt  -hir-dd-analysis  -hir-dd-analysis-verify=Region  -analyze  | FileCheck %s
 ; RUN: opt < %s -passes="loop-simplify,hir-ssa-deconstruction" | opt -passes="print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: DD graph for function sub8

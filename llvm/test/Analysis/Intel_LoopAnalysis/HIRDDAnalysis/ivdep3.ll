@@ -5,7 +5,7 @@
 ;    for (j=0; j< 6; j++) {
 ;        s = s + C[i][j];
 ;   }
-;  A[i] += B[i]+ s + 1000; 
+;  A[i] += B[i]+ s + 1000;
 ;  }
 ;
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze | FileCheck %s
@@ -13,7 +13,7 @@
 ;
 ; CHECK: DD graph for function sub:
 ; CHECK-DAG:  (%B)[i1] --> (%A)[i1] ANTI (=)
-; CHECK-DAG:  (@C)[0][i1][i2] --> (%A)[i1] ANTI (=) 
+; CHECK-DAG:  (@C)[0][i1][i2] --> (%A)[i1] ANTI (=)
 ;
 ;Module Before HIR; ModuleID = 'ivdep3.c'
 source_filename = "ivdep3.c"

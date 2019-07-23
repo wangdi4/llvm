@@ -1,20 +1,20 @@
-; Generated from following source using 
+; Generated from following source using
 ; icx -O1 -S -emit-llvm exp1.c -mllvm -disable-vpo-directive-cleanup -fopenmp -Qoption,c,-fintel-openmp
 ; float arr[1024];
-; 
+;
 ; float foo()
 ; {
 ;   float sum = 0.0;
 ;   int index;
-; 
+;
 ;   sum = 0.0;
 ; #pragma omp simd reduction(+:sum)
 ;   for (index = 0; index < 1024; index++)
 ;     sum += arr[index];
-; 
+;
 ;   return sum;
 ; }
-; 
+;
 ; ModuleID = 'exp1.c'
 ; Test seg faults - check that it compiles cleanly
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -print-after=hir-temp-cleanup 2>&1 | FileCheck %s

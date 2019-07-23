@@ -3,8 +3,8 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework | FileCheck %s
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll -hir-framework-details 2>&1 -S | FileCheck %s
 
-; CHECK: BEGIN REGION 
-; CHECK: EntryBB 
+; CHECK: BEGIN REGION
+; CHECK: EntryBB
 ; CHECK: DO i1 = 0
 
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 -S | FileCheck --check-prefix=REG-CHECK %s

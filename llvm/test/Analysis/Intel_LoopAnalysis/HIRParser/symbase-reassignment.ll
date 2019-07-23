@@ -11,7 +11,7 @@
 ; CHECK-NEXT: |   <RVAL-REG> LINEAR zext.i3.i32(i1) {sb:[[GEN_RVAL_SYM]]}
 
 ; CHECK: |   %conv2 = sitofp.i32.double(%and + 1);
-; CHECK-NEXT: |   <LVAL-REG> NON-LINEAR double %conv2 
+; CHECK-NEXT: |   <LVAL-REG> NON-LINEAR double %conv2
 ; CHECK-NEXT: |   <RVAL-REG> NON-LINEAR i32 %and + 1 {sb:[[GEN_RVAL_SYM]]}
 ; CHECK-NEXT: |      <BLOB> NON-LINEAR i32 %and {sb:[[AND_LVAL_SYM]]}
 

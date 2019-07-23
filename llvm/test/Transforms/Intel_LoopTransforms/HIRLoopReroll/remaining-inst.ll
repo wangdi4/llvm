@@ -4,7 +4,7 @@
 ; The loop body contains HLInsts not fitting into rerolling patterns.
 
 ;  CHECK: Function: foo
-;   
+;
 ;  CHECK:      BEGIN REGION { }
 ;  CHECK:            + DO i1 = 0, (sext.i32.i64(%n) + -1)/u4, 1   <DO_LOOP>  <MAX_TC_EST = 2>
 ;  CHECK:            |   %add = 4 * %n * i1  +  %q.080;
@@ -25,7 +25,7 @@
 ;  CHECK:      END REGION
 
 ;  CHECK: Function: foo
-;   
+;
 ;  CHECK:      BEGIN REGION { }
 ;  CHECK:            + DO i1 = 0, (sext.i32.i64(%n) + -1)/u4, 1   <DO_LOOP>  <MAX_TC_EST = 2>
 ;  CHECK:            |   %add = 4 * %n * i1  +  %q.080;

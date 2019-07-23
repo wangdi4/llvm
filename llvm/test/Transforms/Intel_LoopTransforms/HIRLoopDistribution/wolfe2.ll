@@ -2,10 +2,10 @@
 ; RUN: opt -O2   < %s 2>&1 | FileCheck %s
 ;
 ; This is just a remainder that we need to defer the PreLoad in GVN until
-; loopopt cleanup.  Loop Carried temps will prevent loop transformations and  
+; loopopt cleanup.  Loop Carried temps will prevent loop transformations and
 ; vectorization
 ;
-;  XFAIL: *  
+;  XFAIL: *
 ;;Split at 8-10 and again 21-22
 ;          BEGIN REGION { }
 ;<30>         + DO i1 = 0, 98, 1   <DO_LOOP>
@@ -30,7 +30,7 @@
 ;
 ; CHECK: BEGIN REGION
 ; CHECK-NEXT: DO i1 = 0, 98, 1
-; CHECK: (@A)[0][i1 + 1] = 
+; CHECK: (@A)[0][i1 + 1] =
 ; CHECK: END LOOP
 
 ; Ideally we should split into 3 loops. However the dependence
@@ -39,13 +39,13 @@
 ; that pi block 1 forms a vectorizable loop and 2 does not
 ; Enable the following 4 checks when this analysis is available
 ; ACHECK-NEXT: DO i1 = 0, 98, 1
-; ACHECK-NEXT: (@E)[0][i1 + 1] 
-; ACHECK: (@E)[0][i1 + 2] 
+; ACHECK-NEXT: (@E)[0][i1 + 1]
+; ACHECK: (@E)[0][i1 + 2]
 ; ACHECK-NEXT: END LOOP
 
 ; CHECK: DO i1 = 0, 98, 1
-; CHECK: (@E)[0][i1 + 1] 
-; CHECK: (@F)[0][i1 + 1] 
+; CHECK: (@E)[0][i1 + 1]
+; CHECK: (@F)[0][i1 + 1]
 ; CHECK-NEXT: END LOOP
 ; CHECK-NEXT: END REGION
 
@@ -100,8 +100,8 @@ for.end:                                          ; preds = %for.body
 }
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) 
+declare void @llvm.lifetime.start(i64, i8* nocapture)
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) 
+declare void @llvm.lifetime.end(i64, i8* nocapture)
 

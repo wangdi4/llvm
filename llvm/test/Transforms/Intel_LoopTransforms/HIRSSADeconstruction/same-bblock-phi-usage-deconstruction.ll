@@ -1,8 +1,8 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -S | FileCheck %s
 
 ; Check that we insert a liveout copy for the phi %0 which is indirectly used in the same bblock phi %1 ( %add21's SCEV form is: %3 - %4 + %0 ).
-; CHECK: %hir.de.ssa.copy0.out = bitcast i32 %0 
-; CHECK: %add21 = add i32 %sub18, %hir.de.ssa.copy0.out 
+; CHECK: %hir.de.ssa.copy0.out = bitcast i32 %0
+; CHECK: %add21 = add i32 %sub18, %hir.de.ssa.copy0.out
 
 
 ; ModuleID = 'before_ssa.ll'

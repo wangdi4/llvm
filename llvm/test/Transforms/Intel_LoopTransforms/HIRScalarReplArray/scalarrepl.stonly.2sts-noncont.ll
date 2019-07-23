@@ -4,7 +4,7 @@
 ; Scalar Replacement Sanity Test: loads only (2 non-continue stores)
 ;
 ; [REASONS]
-; - Applicable: YES  
+; - Applicable: YES
 ; - Profitable: YES
 ; - Legal:      YES
 ;
@@ -30,7 +30,7 @@
 ; CHECK:         + END LOOP
 ; CHECK:   END REGION
 ;
-;  
+;
 ; =====================================================
 ;
 ; CHECK: Function
@@ -41,7 +41,7 @@
 ; CHECK:            %scalarepl = (@B)[0][0];
 ; CHECK:            %scalarepl1 = (@B)[0][1];
 ; CHECK:            %scalarepl2 = (@B)[0][2];
-; 
+;
 ; CHECK:        + DO i1 = 0, 100, 1   <DO_LOOP>
 ; CHECK:        |   %2 = (@A)[0][i1];
 ; CHECK:        |   %scalarepl = %2 + 1;

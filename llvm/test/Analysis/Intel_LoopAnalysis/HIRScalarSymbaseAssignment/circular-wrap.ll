@@ -24,7 +24,7 @@ for.body:                                         ; preds = %entry, %for.body
   %c.addr.08 = phi i32 [ %a.addr.010, %for.body ], [ %c, %entry ]
   %b.addr.07 = phi i32 [ %c.addr.08, %for.body ], [ %b, %entry ]
   %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  store i32 %a.addr.010, i32* %arrayidx, align 4 
+  store i32 %a.addr.010, i32* %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, %n

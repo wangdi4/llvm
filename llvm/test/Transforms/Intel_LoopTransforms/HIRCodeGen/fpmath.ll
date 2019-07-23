@@ -39,7 +39,7 @@
 
 ; CHECK: fadd fast double
 ; CHECK-SAME: 1.000000e+00
- 
+
 ; CHECK: fcmp fast ogt double
 ; CHECK-SAME: 1.000000e+01
 ; CHECK: fcmp fast olt double

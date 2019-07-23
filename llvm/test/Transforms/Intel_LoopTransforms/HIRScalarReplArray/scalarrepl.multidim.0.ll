@@ -34,8 +34,8 @@
 ; CHECK:         + END LOOP
 ; CHECK:   END REGION
 ;
-;  
-; MemRefGroup: {  C[i1][0]      } 
+;
+; MemRefGroup: {  C[i1][0]      }
 ;                 MaxLD, MinST
 ; GapTracker:  {  RW            }
 ;

@@ -1,6 +1,6 @@
 ;RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup   -hir-loop-distribute-memrec -print-after=hir-loop-distribute-memrec  < %s 2>&1 | FileCheck %s
 ;RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa"   < %s 2>&1 | FileCheck %s
-;  Loop Distribution is expected to happen when there are too many 
+;  Loop Distribution is expected to happen when there are too many
 ;   memory references in the loop
 ;  for (i = 0; i < 99; i++) {
 ;      A1[i] += i;
@@ -15,8 +15,8 @@
 ;      B2[i] -= i;
 ;      B3[i] -= i;
 ;      B4[i] -= i;
-;      ...  etc  
-;   ==> 
+;      ...  etc
+;   ==>
 ;    + DO i1 = 0, 1, 1   <DO_LOOP>
 ;    |   %min = (-64 * i1 + 98 <= 63) ? -64 * i1 + 98 : 63;
 ;    |   + DO i2 = 0, %min, 1   <DO_LOOP>
@@ -49,7 +49,7 @@
 ; CHECK:         (%.TempArray)[0][i2] = %conv9;
 ; CHECK:         (@C1)[0][64 * i1 + i2] = 1.000000e+00;
 ; CHECK:       END LOOP
-; CHECK:       DO i2 = 0, %min, 1   
+; CHECK:       DO i2 = 0, %min, 1
 ; CHECK:         %sub59 = (%.TempArray1)[0][i2];
 ;
 ;Module Before HIR; ModuleID = 'scexpansion1.c'

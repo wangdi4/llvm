@@ -2,20 +2,20 @@
 ;        B[j] =  1;
 ;    }
 ;    B[1] = 3;
-;    C[1] = B[m]; 
+;    C[1] = B[m];
 ;   for (j=0; j <  2*n; j++) {
 ;        B[j] =  2;
 ;   }
 ;
-; RUN: opt < %s -hir-ssa-deconstruction -hir-create-function-level-region | opt -hir-create-function-level-region -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze | FileCheck %s 
+; RUN: opt < %s -hir-ssa-deconstruction -hir-create-function-level-region | opt -hir-create-function-level-region -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-create-function-level-region -hir-dd-analysis-verify=Region -disable-output 2>&1 < %s | FileCheck %s
 ;
 ; (*) built for refs with no common loop nests and both of them are inside loops
-; CHECK-DAG:   (%B)[i1] --> (%B)[i1] OUTPUT (*) 
+; CHECK-DAG:   (%B)[i1] --> (%B)[i1] OUTPUT (*)
 ; (=) built for refs with no common loop nests and one of them is outside loop
-; CHECK-DAG:   (%B)[1] --> (%B)[i1] OUTPUT (=) 
-; CHECK-DAG:   (%B)[1] --> (%B)[%m] FLOW (=) 
-; CHECK-DAG:   (%B)[%m] --> (%B)[i1] ANTI (=) 
+; CHECK-DAG:   (%B)[1] --> (%B)[i1] OUTPUT (=)
+; CHECK-DAG:   (%B)[1] --> (%B)[%m] FLOW (=)
+; CHECK-DAG:   (%B)[%m] --> (%B)[i1] ANTI (=)
 
 
 ; ModuleID = 'oneregion.c'

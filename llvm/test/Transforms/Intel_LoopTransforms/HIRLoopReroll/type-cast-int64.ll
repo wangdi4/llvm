@@ -6,25 +6,25 @@
 ; int64_t A[SIZE];
 ; int64_t B[SIZE];
 ; int64_t C[SIZE];
- 
+
 ; void foo(int n) {
-;   int D = n*n;  
+;   int D = n*n;
 ;   int q = 0;
 ;   for (int i=0;  i<n; i=i+4) {
-; 
+;
 ;     B[i]   = n + i*i;
-; 
+;
 ;     B[i+1] = n + (i+1)*(i+1);
-; 
+;
 ;     B[i+2] = n + (i+2)*(i+2);
-; 
+;
 ;     B[i+3] = n + (i+3)*(i+3);
 ;   }
-; 
+;
 ; }
 
 ; CHECK: Function: foo
-;  
+;
 ; CHECK:      BEGIN REGION { }
 ; CHECK:            + DO i1 = 0, (sext.i32.i64(%n) + -1)/u4, 1   <DO_LOOP>  <MAX_TC_EST = 2>
 ; CHECK:            |   %1 = 4 * i1  *  4 * i1;
@@ -44,7 +44,7 @@
 
 ; Reroll happens using CE compare with relaxed mode.
 ; CHECK: Function: foo
-;  
+;
 ; CHECK:      BEGIN REGION { }
 ; CHECK:            + DO i1 = 0, 4 * ((3 + sext.i32.i64(%n)) /u 4) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 8>
 ; CHECK:            |   %1 = i1  *  i1;
@@ -56,37 +56,37 @@
 ; <27>            + DO i64 i1 = 0, (sext.i32.i64(%n) + -1)/u4, 1   <DO_LOOP>  <MAX_TC_EST = 2>
 ; <27>            | <RVAL-REG> LINEAR i64 (sext.i32.i64(%n) + -1)/u4 {sb:2}
 ; <27>            |    <BLOB> LINEAR i32 %n {sb:4}
-; <27>            | 
+; <27>            |
 ; <2>             |   %1 = 4 * i1  *  4 * i1;
 ; <2>             |   <LVAL-REG> NON-LINEAR i64 %1 {sb:5}
 ; <2>             |   <RVAL-REG> LINEAR i64 4 * i1 {sb:2}
 ; <2>             |   <RVAL-REG> LINEAR i64 4 * i1 {sb:2}
-; <2>             |   
+; <2>             |
 ; <3>             |   %2 = %1  +  %n;
 ; <3>             |   <LVAL-REG> NON-LINEAR i64 %2 {sb:6}
 ; <3>             |   <RVAL-REG> NON-LINEAR i64 %1 {sb:5}
-; <3>             |   <RVAL-REG> LINEAR sext.i32.i64(%n) {sb:2} 
+; <3>             |   <RVAL-REG> LINEAR sext.i32.i64(%n) {sb:2}
 ; <3>             |      <BLOB> LINEAR i32 %n {sb:4}
-; <3>             |   
+; <3>             |
 ; <5>             |   (@B)[0][4 * i1] = %2;
 ; <5>             |   <LVAL-REG> {al:16}(LINEAR [10 x i64]* @B)[i64 0][LINEAR i64 4 * i1] inbounds  !tbaa !3 {sb:24}
 ; <5>             |      <BLOB> LINEAR [10 x i64]* @B {sb:8}
 ; <5>             |   <RVAL-REG> NON-LINEAR i64 %2 {sb:6}
-; <5>             |   
+; <5>             |
 ; <7>             |   %4 = 4 * i1 + 1  *  4 * i1 + 1;
 ; <7>             |   <LVAL-REG> NON-LINEAR i64 %4 {sb:10}
 ; <7>             |   <RVAL-REG> LINEAR i64 4 * i1 + 1 {sb:2}
 ; <7>             |   <RVAL-REG> LINEAR i64 4 * i1 + 1 {sb:2}
-; <7>             |   
+; <7>             |
 ; <8>             |   %5 = %4  +  %n;
 ; <8>             |   <LVAL-REG> NON-LINEAR i64 %5 {sb:11}
 ; <8>             |   <RVAL-REG> NON-LINEAR i64 %4 {sb:10}
-; <8>             |   <RVAL-REG> LINEAR sext.i32.i64(%n) {sb:2} 
+; <8>             |   <RVAL-REG> LINEAR sext.i32.i64(%n) {sb:2}
 ; <8>             |      <BLOB> LINEAR i32 %n {sb:4}
-; <8>             |   
+; <8>             |
 ; <10>            |   (@B)[0][4 * i1 + 1] = %5;
 ; <10>            |   <LVAL-REG> {al:8}(LINEAR [10 x i64]* @B)[i64 0][LINEAR i64 4 * i1 + 1] inbounds  !tbaa !3 {sb:24}
-; 
+;
 ; <10>            |      <BLOB> LINEAR [10 x i64]* @B {sb:8}
 ; <10>            |   <RVAL-REG> NON-LINEAR i64 %5 {sb:11}
 

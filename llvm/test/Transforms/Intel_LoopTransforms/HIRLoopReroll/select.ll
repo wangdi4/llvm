@@ -2,7 +2,7 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; Currently reroller bails out with SelectInst
- 
+
 ;int A[50], B[50];
 ;
 ;void foo() {
@@ -13,17 +13,6 @@
 ;    B[2*i+1] = A[2*i+1] < 5 ? 3 : 5;
 ;  }
 ;}
- 
-; CHECK:Function: foo
-
-; CHECK:        BEGIN REGION { }
-; CHECK:              + DO i1 = 0, 9, 1   <DO_LOOP>
-; CHECK:              |   %cond = ((@A)[0][2 * i1] > 5) ? 3 : 5;
-; CHECK:              |   (@B)[0][2 * i1] = %cond;
-; CHECK:              |   %cond9 = ((@A)[0][2 * i1 + 1] < 5) ? 3 : 5;
-; CHECK:              |   (@B)[0][2 * i1 + 1] = %cond9;
-; CHECK:              + END LOOP
-; CHECK:        END REGION
 
 ; CHECK:Function: foo
 
@@ -36,7 +25,18 @@
 ; CHECK:              + END LOOP
 ; CHECK:        END REGION
 
- 
+; CHECK:Function: foo
+
+; CHECK:        BEGIN REGION { }
+; CHECK:              + DO i1 = 0, 9, 1   <DO_LOOP>
+; CHECK:              |   %cond = ((@A)[0][2 * i1] > 5) ? 3 : 5;
+; CHECK:              |   (@B)[0][2 * i1] = %cond;
+; CHECK:              |   %cond9 = ((@A)[0][2 * i1 + 1] < 5) ? 3 : 5;
+; CHECK:              |   (@B)[0][2 * i1 + 1] = %cond9;
+; CHECK:              + END LOOP
+; CHECK:        END REGION
+
+
 ;Module Before HIR
 ; ModuleID = 'select-1.c'
 source_filename = "select-1.c"

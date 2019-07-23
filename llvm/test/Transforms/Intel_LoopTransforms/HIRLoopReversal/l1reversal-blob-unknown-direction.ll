@@ -2,11 +2,11 @@
 ; (1-level loop, memory access on a blob with unknown direction (don't know if the BlobIndex is positive or negative)
 ; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -print-after=hir-loop-reversal < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,print<hir>,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
-;  
+;
 ; Loop is reverisble
 ;
 ; Reasons:
-; - Applicalbe: YES (IVBlobIndex's sign is known at compile time)  
+; - Applicalbe: YES (IVBlobIndex's sign is known at compile time)
 ; - Profitable: YES
 ; - Legal:      YES
 ; Decision:     Reverse the loop!
@@ -32,7 +32,7 @@
 ; CHECK-NEXT:      |   (%A)[-2 * %n * i1 + 100] = i1;
 ; CHECK-NEXT:      + END LOOP
 ; CHECK-NEXT: END REGION
-; 
+;
 ; CHECK: Function
 ;
 ; CHECK:      BEGIN REGION { modified }
@@ -48,7 +48,7 @@
 ;OPTREPORT: LOOP BEGIN
 ;OPTREPORT:     Remark: Loop was reversed
 ;OPTREPORT: LOOP END
- 
+
 ; === ---------------------------------------------------------------- ===
 ; Following is the LLVM's input code!
 ; === ---------------------------------------------------------------- ===

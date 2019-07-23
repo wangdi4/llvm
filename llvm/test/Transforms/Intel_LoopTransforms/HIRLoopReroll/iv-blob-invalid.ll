@@ -1,10 +1,10 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-reroll  -print-before=hir-loop-reroll -print-after=hir-loop-reroll  < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
-; Out of the capability of current reroller. Without changing 1 and 2 into expressions with IV, 
+; Out of the capability of current reroller. Without changing 1 and 2 into expressions with IV,
 ; reroll without % operation is not possible.
 ; ICC does not.
- 
+
 ;#define SIZE 10
 ;#include <stdint.h>
 ;int64_t A[SIZE];
@@ -12,7 +12,7 @@
 ;int64_t C[SIZE];
 ;
 ;void foo(int n) {
-;  int D = n*n;  
+;  int D = n*n;
 ;  int q = 0;
 ;  for (int i=0;  i<n; i=i+2) {
 ;    B[i]   =(i + 1)*(2*i + 3) + 1;
@@ -22,19 +22,6 @@
 ;    // B[i+1] =(i + 2)*(2*i + 5) + i+1;
 ;  }
 ;}
- 
-; CHECK:Function: foo
-
-; CHECK:        BEGIN REGION { }
-; CHECK:              + DO i1 = 0, (sext.i32.i64(%n) + -1)/u2, 1   <DO_LOOP>  <MAX_TC_EST = 5>
-; CHECK:              |   %mul3 = 4 * i1 + 3  *  2 * i1 + 1;
-; CHECK:              |   %add4 = %mul3  +  1;
-; CHECK:              |   (@B)[0][2 * i1] = %add4;
-; CHECK:              |   %mul8 = 4 * i1 + 5  *  2 * i1 + 2;
-; CHECK:              |   %add9 = %mul8  +  2;
-; CHECK:              |   (@B)[0][2 * i1 + 1] = %add9;
-; CHECK:              + END LOOP
-; CHECK:        END REGION
 
 ; CHECK:Function: foo
 
@@ -48,7 +35,20 @@
 ; CHECK:              |   (@B)[0][2 * i1 + 1] = %add9;
 ; CHECK:              + END LOOP
 ; CHECK:        END REGION
- 
+
+; CHECK:Function: foo
+
+; CHECK:        BEGIN REGION { }
+; CHECK:              + DO i1 = 0, (sext.i32.i64(%n) + -1)/u2, 1   <DO_LOOP>  <MAX_TC_EST = 5>
+; CHECK:              |   %mul3 = 4 * i1 + 3  *  2 * i1 + 1;
+; CHECK:              |   %add4 = %mul3  +  1;
+; CHECK:              |   (@B)[0][2 * i1] = %add4;
+; CHECK:              |   %mul8 = 4 * i1 + 5  *  2 * i1 + 2;
+; CHECK:              |   %add9 = %mul8  +  2;
+; CHECK:              |   (@B)[0][2 * i1 + 1] = %add9;
+; CHECK:              + END LOOP
+; CHECK:        END REGION
+
 ;Module Before HIR; ModuleID = 'new-2.c'
 source_filename = "new-2.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

@@ -1,4 +1,4 @@
-; REQUIRES: asserts                                                                         
+; REQUIRES: asserts
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -debug-only=hir-loop-interchange -hir-loop-interchange-near-perfect-profitability-tc-threshold=4 < %s 2>&1 | FileCheck %s
 ; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange" -debug-only=hir-loop-interchange -hir-loop-interchange-near-perfect-profitability-tc-threshold=4 < %s 2>&1 | FileCheck %s
 
@@ -9,12 +9,12 @@
 ; #define M 16
 ; int A[16];
 ; int B[16][16];
-; 
+;
 ; It is valid to sink load/store in i-loop to j-loop.
 ;
 ; int foo_2() {
 ;   int c = 0;
-; 
+;
 ;   for (int i = 0; i < N-1; i++) {
 ;     int k = A[i];
 ;     for (int j = 0; j < M; j++) {
@@ -22,34 +22,34 @@
 ;     }
 ;     A[i+1] = k;
 ;   }
-; 
+;
 ;   return c;
 ; }
 
 ; *** IR Dump Before HIR Loop Interchange ***
 ; Function: _Z5foo_2v
-; 
+;
 ; <0>       BEGIN REGION { }
 ; <28>            + DO i1 = 0, 14, 1   <DO_LOOP>
 ; <3>             |   %0 = (@A)[0][i1];
-; <29>            |   
+; <29>            |
 ; <29>            |   + DO i2 = 0, 15, 1   <DO_LOOP>
 ; <11>            |   |   %c.031 = %0 + %c.031  +  (@B)[0][i2][i1];
 ; <29>            |   + END LOOP
-; <29>            |   
+; <29>            |
 ; <22>            |   (@A)[0][i1 + 1] = %0;
 ; <28>            + END LOOP
 ; <0>       END REGION
-; 
+;
 ; DDG's==
-; 11:11 %c.031 --> %c.031 FLOW (<= *) (? ?)  
-; 11:11 %c.031 --> %c.031 ANTI (= =) (0 0)  
-; 3:11 %0 --> %0 FLOW (=) (0)  
-; 3:22 %0 --> %0 FLOW (=) (0)  
-; 22:3 (@A)[0][i1 + 1] --> (@A)[0][i1] FLOW (<) (1)  
+; 11:11 %c.031 --> %c.031 FLOW (<= *) (? ?)
+; 11:11 %c.031 --> %c.031 ANTI (= =) (0 0)
+; 3:11 %0 --> %0 FLOW (=) (0)
+; 3:22 %0 --> %0 FLOW (=) (0)
+; 22:3 (@A)[0][i1 + 1] --> (@A)[0][i1] FLOW (<) (1)
 ; *** IR Dump After HIR Loop Interchange ***
 ; Function: _Z5foo_2v
-; 
+;
 ; <0>       BEGIN REGION { modified }
 ; <28>            + DO i1 = 0, 15, 1   <DO_LOOP>
 ; <29>            |   + DO i2 = 0, 14, 1   <DO_LOOP>

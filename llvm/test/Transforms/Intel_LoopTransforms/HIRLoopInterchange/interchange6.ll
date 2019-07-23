@@ -1,5 +1,5 @@
 ; Test for Loop Interchange - no interchange expected
-; 		
+;
 ;    for (i1=1; i1 <= 99; i1++) {
 ;        for (i2=1; i2 <=98 ; i2++) {
 ;            for (i3=1 ; i3 <= 97; i3++) {

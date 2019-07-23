@@ -1,6 +1,6 @@
 ; l1reversal-ddtest-1d.ll
 ; (1-level loop, sanity testcase, for 1D array dependence tests)
-; 
+;
 ; *** Source Code ***
 ;
 ;[BEFORE LOOP REVERSAL]
@@ -100,12 +100,12 @@
 ;
 ;  return A[1] + B[1] + 1;
 ;}
-; 
+;
 ; ===-----------------------------------===
 ; *** Run0: BEFORE HIR Loop Reversal ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1	< %s  |	FileCheck %s -check-prefix=BEFORE 
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE 
+; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1	< %s  |	FileCheck %s -check-prefix=BEFORE
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE
 ;
 ;; ===-----------------------------------===
 ; *** Run1: AFTER HIR Loop Reversal ***
@@ -118,7 +118,7 @@
 ; *** Tests0: W/O HIR Loop Reversal Output ***
 ; === -------------------------------------- ===
 ; Expected output before Loop Reversal
-; 
+;
 ;          BEGIN REGION { }
 ;<73>         + DO i1 = 0, 10, 1   <DO_LOOP>
 ;<3>          |   %0 = (%A)[i1];
@@ -163,7 +163,7 @@
 ;          END REGION
 ;
 ; ...-...-...
-; 
+;
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:     + DO i1 = 0, 10, 1   <DO_LOOP>
 ; BEFORE:     |   %0 = (%A)[i1];
@@ -251,7 +251,7 @@
 ;          END REGION
 ;
 ; ...-^^^vvv^^^-...
-; 
+;
 ; AFTER:  BEGIN REGION { }
 ; AFTER:     + DO i1 = 0, 10, 1   <DO_LOOP>
 ; AFTER:     |   %0 = (%A)[i1];

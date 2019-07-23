@@ -1,7 +1,7 @@
 ; Test for General Unrolling with call statement.
 
-; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -print-before=hir-general-unroll -print-after=hir-general-unroll -hir-cost-model-throttling=0 < %s 2>&1 | FileCheck %s 
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-general-unroll,print<hir>" -hir-cost-model-throttling=0 < %s 2>&1 | FileCheck %s 
+; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -print-before=hir-general-unroll -print-after=hir-general-unroll -hir-cost-model-throttling=0 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-general-unroll,print<hir>" -hir-cost-model-throttling=0 < %s 2>&1 | FileCheck %s
 
 ; CHECK: Function
 
@@ -72,7 +72,7 @@ for.body3:                                        ; preds = %for.body3, %for.con
   %arrayidx5 = getelementptr inbounds [1000 x [1000 x i32]], [1000 x [1000 x i32]]* @A, i64 0, i64 %indvars.iv, i64 %indvars.iv20
   %1 = load i32, i32* %arrayidx5, align 4
   %add = add nsw i32 %1, %0
-  %call = tail call i32 @foo1(i32 %add) 
+  %call = tail call i32 @foo1(i32 %add)
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 500
   br i1 %exitcond, label %for.inc6, label %for.body3
@@ -89,10 +89,10 @@ for.end8:                                         ; preds = %for.inc6
 }
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) 
+declare void @llvm.lifetime.start(i64, i8* nocapture)
 
-declare i32 @foo1(i32) 
+declare i32 @foo1(i32)
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) 
+declare void @llvm.lifetime.end(i64, i8* nocapture)
 

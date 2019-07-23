@@ -38,7 +38,7 @@
 ; END REGION
 
 ; CHECK-LABEL: BEGIN REGION {  }
-; CHECK:       <BLOB> NON-LINEAR i64 %add23.lcssa46 {sb:[[SB:[0-9]+]]} 
+; CHECK:       <BLOB> NON-LINEAR i64 %add23.lcssa46 {sb:[[SB:[0-9]+]]}
 ; CHECK:       END REGION
 
 ; CHECK-LABEL: BEGIN REGION { modified }

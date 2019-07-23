@@ -2,7 +2,7 @@
 ; for (int i=0; i< n1; i++) {
 ;   s  +=  a[i];
 ;   s  +=  b[i] + i; }
-;  
+;
 ; REQUIRES: asserts
 ; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze  -hir-safe-reduction-analysis | FileCheck %s
 ; RUN: opt < %s -passes="loop-simplify,hir-ssa-deconstruction,print<hir-safe-reduction-analysis>" -disable-output 2>&1 | FileCheck %s

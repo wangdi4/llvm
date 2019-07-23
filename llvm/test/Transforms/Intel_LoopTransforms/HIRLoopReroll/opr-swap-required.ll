@@ -3,16 +3,16 @@
 
 ; Considering swaping of two addends in the RHS is required to get the following code unrolled.
 ; Even after sorting in the order of increasing Blob indices,
-; blob indices B(%0) < B(%n) < B(%3) requires swaping of operands in comparing (%0 + %n) and (%n + %3) 
+; blob indices B(%0) < B(%n) < B(%3) requires swaping of operands in comparing (%0 + %n) and (%n + %3)
 
 ; #define SIZE 1000
 ; long long A[SIZE];
 ; long long B[SIZE];
 ; long long C[SIZE];
 ; long long D[SIZE];
-; 
+;
 ; void foo(long long n) {
-; 
+;
 ;   for (int i=0;  i<SIZE; i = i + 2) {
 ;     A[i] = B[i] + n;
 ;     C[i] = D[i] + n;
@@ -22,7 +22,7 @@
 ; }
 
 ; CHECK: Function: foo
-;  
+;
 ; CHECK:       BEGIN REGION { }
 ; CHECK:             + DO i1 = 0, 499, 1   <DO_LOOP>
 ; CHECK:             |   %0 = (@B)[0][2 * i1];
@@ -36,10 +36,10 @@
 ; CHECK:             + END LOOP
 ; CHECK:       END REGION
 
-; Rerolled 
+; Rerolled
 
 ; CHECK: Function: foo
-; 
+;
 ; CHECK:       BEGIN REGION { }
 ; CHECK:             + DO i1 = 0, 999, 1   <DO_LOOP>
 ; CHECK:             |   %0 = (@B)[0][i1];

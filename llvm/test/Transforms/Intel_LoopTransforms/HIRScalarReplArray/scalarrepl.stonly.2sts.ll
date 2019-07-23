@@ -4,7 +4,7 @@
 ; Scalar Replacement Sanity Test: stores only (2 continue stores)
 ;
 ; [REASONS]
-; - Applicable: YES  
+; - Applicable: YES
 ; - Profitable: YES
 ; - Legal:      YES
 ;
@@ -20,11 +20,11 @@
 ;}
 ;
 ;
-; MemRefGroup: {B[i1], B[i1+1]  }   
+; MemRefGroup: {B[i1], B[i1+1]  }
 ;              MinST
 ; GapTracker:  {W      W        }
 ;
-; 
+;
 ; CHECK: Function
 ;
 ; CHECK:   BEGIN REGION { }
@@ -35,7 +35,7 @@
 ; CHECK:         + END LOOP
 ; CHECK:   END REGION
 ;
-;  
+;
 ; =====================================================
 ; testcase not ready yet!
 ; Note: ScalarRepl transformation result missing!!

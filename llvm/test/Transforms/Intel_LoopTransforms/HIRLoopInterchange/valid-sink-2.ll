@@ -1,4 +1,4 @@
-; REQUIRES: asserts                                                                         
+; REQUIRES: asserts
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -debug-only=hir-loop-interchange < %s 2>&1 | FileCheck %s
 ; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange" -debug-only=hir-loop-interchange < %s 2>&1 | FileCheck %s
 
@@ -9,13 +9,13 @@
 ; int a[T];
 ; int b[T][T];
 ; int c[T][T];
-; 
+;
 ; void foo(int N) {
 ;   int i, j ;
 ;   for (i = 0; i < N - 1; i++) {
 ;     int zero = a[0];             // This is OK. Not preventing a perfect loop nest.
 ;     int sum = a[i + 1];
-;     for (j = 0; j < N; j++) { 
+;     for (j = 0; j < N; j++) {
 ;       sum = sum + zero + b[j][i];
 ;     }
 ;     a[i + 1] = sum;
@@ -24,32 +24,32 @@
 
 ; *** IR Dump Before HIR Loop Interchange ***
 ; Function: _Z3fooi
-; 
+;
 ; <0>       BEGIN REGION { }
 ; <27>            + DO i1 = 0, sext.i32.i64((-1 + %N)) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 999>
 ; <4>             |   %sum.029 = (@a)[0][i1 + 1];
-; <28>            |   
+; <28>            |
 ; <28>            |   + DO i2 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1000>
 ; <13>            |   |   %sum.029 = %sum.029 + %0  +  (@b)[0][i2][i1];
 ; <28>            |   + END LOOP
-; <28>            |   
+; <28>            |
 ; <21>            |   (@a)[0][i1 + 1] = %sum.029;
 ; <27>            + END LOOP
 ; <0>       END REGION
-; 
+;
 ; DDG's==
-; 4:13 %sum.029 --> %sum.029 OUTPUT (*) (?)  
-; 4:13 %sum.029 --> %sum.029 FLOW (=) (0)  
-; 4:21 %sum.029 --> %sum.029 FLOW (=) (0)  
-; 13:13 %sum.029 --> %sum.029 FLOW (<= *) (? ?)  
-; 13:21 %sum.029 --> %sum.029 FLOW (*) (?)  
-; 13:13 %sum.029 --> %sum.029 ANTI (= =) (0 0)  
-; 21:13 %sum.029 --> %sum.029 ANTI (*) (?)  
-; 4:21 (@a)[0][i1 + 1] --> (@a)[0][i1 + 1] ANTI (=) (0)  
-; 
+; 4:13 %sum.029 --> %sum.029 OUTPUT (*) (?)
+; 4:13 %sum.029 --> %sum.029 FLOW (=) (0)
+; 4:21 %sum.029 --> %sum.029 FLOW (=) (0)
+; 13:13 %sum.029 --> %sum.029 FLOW (<= *) (? ?)
+; 13:21 %sum.029 --> %sum.029 FLOW (*) (?)
+; 13:13 %sum.029 --> %sum.029 ANTI (= =) (0 0)
+; 21:13 %sum.029 --> %sum.029 ANTI (*) (?)
+; 4:21 (@a)[0][i1 + 1] --> (@a)[0][i1 + 1] ANTI (=) (0)
+;
 ; *** IR Dump After HIR Loop Interchange ***
 ; Function: _Z3fooi
-; 
+;
 ; <0>       BEGIN REGION { modified }
 ; <27>            + DO i1 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1000>
 ; <28>            |   + DO i2 = 0, sext.i32.i64((-1 + %N)) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 999>

@@ -3,7 +3,7 @@
 ;RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -S  < %s 2>&1 | FileCheck %s
 ; Some stmt reordering can be handled. There are two pi blocks
 ;here {12,16} and {...}. There is a < edge between the former
-; and latter, so we should distribute, but ensure {12,16} 
+; and latter, so we should distribute, but ensure {12,16}
 ;executes first
 ;          BEGIN REGION { }
 ;<28>         + DO i1 = 0, zext.i32.i64(%UB), 1   <DO_LOOP>
@@ -21,19 +21,19 @@
 ;          END REGION
 ;
 ;Explicitly check contents of first loop
-; CHECK: DO i1 = 0, 
-; CHECK-NEXT: [[LOAD:%.*]] = (i32*)(@DC)[0][i1]; 
+; CHECK: DO i1 = 0,
+; CHECK-NEXT: [[LOAD:%.*]] = (i32*)(@DC)[0][i1];
 ; CHECK-NEXT: (i32*)(@B)[0][i1 + 1] = [[LOAD]]
 ; CHECK-NEXT: END LOOP
 
 ;Second loop contains rest, but most importantly the other
 ; @B[][] reference
-; CHECK: DO i1 = 0, 
+; CHECK: DO i1 = 0,
 ; CHECK: (@B)[0][i1]
 ; CHECK: END LOOP
 
 ;Only two loops
-; CHECK-NOT: DO 
+; CHECK-NOT: DO
 ; ModuleID = 'reorder.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

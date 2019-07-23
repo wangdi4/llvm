@@ -22,7 +22,7 @@
 
 ; CHECK: (%A)[0] = 0
 ; Check for absence of any blob DDRefs for %k for the above statement.
-; CHECK-NOT: <BLOB> LINEAR i32 %k 
+; CHECK-NOT: <BLOB> LINEAR i32 %k
 
 ; CHECK: (%A)[1] = %k
 
@@ -30,7 +30,7 @@
 ; CHECK: <RVAL-REG> LINEAR i32 %k {sb:[[SYM]]}
 
 ; Check that the blob DDRef for %k has been removed for the self-blob regular DDRef.
-; CHECK-NOT: <BLOB> 
+; CHECK-NOT: <BLOB>
 
 ; CHECK: (%A)[2] = 2 * %k
 

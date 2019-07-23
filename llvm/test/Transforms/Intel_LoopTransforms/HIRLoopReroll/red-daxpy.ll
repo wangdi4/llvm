@@ -5,7 +5,7 @@
 ; #include <stdint.h>
 ; int64_t A[SIZE];
 ; int64_t B[SIZE];
- 
+
 ;#define SIZE 10
 ;double x[SIZE];
 ;double y[SIZE];
@@ -20,20 +20,20 @@
 ;  }
 ;}
 ;
- 
+
 ; CHECK:Function: foo
 
 ; CHECK:         BEGIN REGION { }
 ; CHECK:               + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 10>
 ; CHECK:               |   %add1833 = (@c)[0][i1];
-; CHECK:               |   
+; CHECK:               |
 ; CHECK:               |   + DO i2 = 0, 199, 1   <DO_LOOP>
 ; CHECK:               |   |   %mul = (@y)[0][2 * i2]  *  (@x)[0][2 * i2];
 ; CHECK:               |   |   %add = %add1833  +  %mul;
 ; CHECK:               |   |   %mul15 = (@y)[0][2 * i2 + 1]  *  (@x)[0][2 * i2 + 1];
 ; CHECK:               |   |   %add1833 = %add  +  %mul15;
 ; CHECK:               |   + END LOOP
-; CHECK:               |   
+; CHECK:               |
 ; CHECK:               |   (@c)[0][i1] = %add1833;
 ; CHECK:               + END LOOP
 ; CHECK:         END REGION
@@ -43,16 +43,16 @@
 ; CHECK:         BEGIN REGION { }
 ; CHECK:               + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 10>
 ; CHECK:               |   %add1833 = (@c)[0][i1];
-; CHECK:               |   
+; CHECK:               |
 ; CHECK:               |   + DO i2 = 0, 399, 1   <DO_LOOP>
 ; CHECK:               |   |   %mul = (@y)[0][i2]  *  (@x)[0][i2];
 ; CHECK:               |   |   %add1833 = %add1833  +  %mul;
 ; CHECK:               |   + END LOOP
-; CHECK:               |   
+; CHECK:               |
 ; CHECK:               |   (@c)[0][i1] = %add1833;
 ; CHECK:               + END LOOP
 ; CHECK:         END REGION
- 
+
 ;Module Before HIR
 ; ModuleID = 'daxpy-red.c'
 source_filename = "daxpy-red.c"

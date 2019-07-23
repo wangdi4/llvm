@@ -1,8 +1,8 @@
 ;RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup   -hir-loop-distribute-memrec    -print-after=hir-loop-distribute-memrec  < %s 2>&1 | FileCheck %s
 ;RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa"   < %s 2>&1 | FileCheck %s
-;  Loop Distribution is expected to happen when there are too many 
+;  Loop Distribution is expected to happen when there are too many
 ;   memory references in the loop
-; Testing for triangluar loop 
+; Testing for triangluar loop
 ;  for (j = 0; j < n; j++) {
 ;    for (i = j; i < n; i++) {
 ;      A1[i] += i+j;
@@ -14,12 +14,12 @@
 ;      A7[i] += i;
 ;      A8[i] += i;
 ;      B1[i] -= i;
-;      ...  etc  
-;   ==> 
+;      ...  etc
+;   ==>
 ;         + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
 ;         |  + DO i2 = 0, (-1 * i1 + sext.i32.i64(%n) + -1)/u64, 1   <DO_LOOP>  <MAX_TC_EST = 100>
 ;         |  |   %min = (-1 * i1 + -64 * i2 + sext.i32.i64(%n) + -1 <= 63) ? -1 * i1 + -64 * i2 + sext.i32.i64(%n)  + -1 : 63;
-;         |   |   
+;         |   |
 ;         |   |   + DO i3 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>
 ;         |   |   |   (@C1)[0][i1 + 64 * i2 + i3] = 1.000000e+00;
 ;         |   |   |   %conv13 = sitofp.i32.double(i1 + 64 * i2 + i3);
@@ -30,14 +30,14 @@
 ;         |   |   |   %sub60 = (@B7)[0][i1 + 64 * i2 + i3]  -  %conv13;
 ;  Note: just verify for key HIRs
 ; CHECK: BEGIN REGION
-; CHECK-NEXT:  DO i1 = 0, sext.i32.i64(%n) + -1, 1  
-; CHECK-NEXT:     DO i2 = 0, (-1 * i1 + sext.i32.i64(%n) + -1)/u64, 1  
+; CHECK-NEXT:  DO i1 = 0, sext.i32.i64(%n) + -1, 1
+; CHECK-NEXT:     DO i2 = 0, (-1 * i1 + sext.i32.i64(%n) + -1)/u64, 1
 ; CHECK:           %min = (-1 * i1 + -64 * i2 + sext.i32.i64(%n) + -1 <= 63) ? -1 * i1 + -64 * i2 + sext.i32.i64(%n) + -1 : 63;
 ; CHECK:           DO i3 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>
 ; CHECK:              (%.TempArray)[0][i3] = %conv13;
 ; CHECK:              (@C1)[0][i1 + 64 * i2 + i3] = 1.000000e+00;
 ; CHECK:           END LOOP
-; CHECK:           DO i3 = 0, %min, 1   
+; CHECK:           DO i3 = 0, %min, 1
 ; CHECK:              %conv13 = (%.TempArray)[0][i3];
 ; CHECK:           END LOOP
 ;

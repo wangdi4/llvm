@@ -3,7 +3,7 @@
 ;
 ;  for (i =0 ; i<n ; i++) {
 ;          a1[i] = b1[i] + c1[i];
-; #pragma distribute_point 
+; #pragma distribute_point
 ;          a2[i] = b2[i] * c2[i]; }
 ;
 ; CHECK: BEGIN REGION

@@ -2,36 +2,36 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-collapse,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 ;
 ; check if the given code collaped in presence of references to struct.
-; 
+;
 ; struct my_struct {
 ;   int b[10][20];
 ; };
-; 
+;
 ; struct my_struct A[5];
-; 
+;
 ; void foo() {
 ;   int i, j;
-; 
+;
 ;   for (i = 0; i < 10; i++) {
 ;     for (j = 0; j < 20; j++) {
 ;       A[1].b[i][j] += 1; // 1st and 2nd dimensions still collapsable.
 ;     }
 ;   }
 ; }
-; 
+;
 ; CHECK: Function
-;  
+;
 ; CHECK:      BEGIN REGION { }
 ; CHECK:            + DO i1 = 0, 9, 1   <DO_LOOP>
 ; CHECK:            |   + DO i2 = 0, 19, 1   <DO_LOOP>
-; CHECK:            |   |   %0 = (@A)[0][1].0[i1][i2]; 
+; CHECK:            |   |   %0 = (@A)[0][1].0[i1][i2];
 ; CHECK:            |   |   (@A)[0][1].0[i1][i2] = %0 + 1;
 ; CHECK:            |   + END LOOP
 ; CHECK:            + END LOOP
 ; CHECK:      END REGION
-;  
+;
 ; CHECK: Function
-;  
+;
 ; CHECK:      BEGIN REGION { modified }
 ; CHECK:            + DO i1 = 0, 199, 1   <DO_LOOP>
 ; CHECK:            |   %0 = (@A)[0][1].0[0][i1];

@@ -1,11 +1,11 @@
 ; XFAIL:*
-;	for ( l=1 ; l<=loop ; l++ ) 
-;		for ( k=0 ; k<25 ; k++ ) 
-;			for ( i=0 ; i<25 ; i++ ) 
-;				for ( j=0 ; j<n ; j++ ) 
+;	for ( l=1 ; l<=loop ; l++ )
+;		for ( k=0 ; k<25 ; k++ )
+;			for ( i=0 ; i<25 ; i++ )
+;				for ( j=0 ; j<n ; j++ )
 ;					px[j*25+i] = px[j*25+i] + vy[k*n+i+j] * cx[j*25+k+l];
 ;
-; REQUIRES: asserts 
+; REQUIRES: asserts
 ; RUN: opt -O2 -disable-hir-complete-unroll -debug-only=hir-loop-interchange -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-loop-interchange" -aa-pipeline="basic-aa" -O2 -disable-hir-complete-unroll -debug-only=hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:

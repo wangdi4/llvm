@@ -5,11 +5,11 @@
 ;<7> %.c = (%0 > %1) ? %0 : %c;
 ;CHECK: loop.{{.*}}:
 ; Rely on Verifier to filter illegal combinations
-;CHECK-DAG: [[A_ADDR:%.*]] = getelementptr inbounds i32, i32* %a, 
+;CHECK-DAG: [[A_ADDR:%.*]] = getelementptr inbounds i32, i32* %a,
 ;CHECK-DAG: [[A_LOAD:%.*]] = load i32, i32* [[A_ADDR]]
 ;CHECK-DAG: store i32 [[A_LOAD]], i32* %t[[A_SYM:[0-9]+]]
 
-;CHECK-DAG: [[B_ADDR:%.*]] = getelementptr inbounds i32, i32* %b, 
+;CHECK-DAG: [[B_ADDR:%.*]] = getelementptr inbounds i32, i32* %b,
 ;CHECK-DAG: [[B_LOAD:%.*]] = load i32, i32* [[B_ADDR]]
 ;CHECK-DAG: store i32 [[B_LOAD]], i32* %t[[B_SYM:[0-9]+]]
 

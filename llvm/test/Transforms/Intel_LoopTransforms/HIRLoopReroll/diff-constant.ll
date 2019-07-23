@@ -5,7 +5,7 @@
 ; Different RHSs.
 
 ; CHECK: Function: foo
- 
+
 ; CHECK: <0>       BEGIN REGION { }
 ; CHECK: <19>            + DO i1 = 0, (sext.i32.i64(%n) + -1)/u4, 1   <DO_LOOP>  <MAX_TC_EST = 2>
 ; CHECK: <3>             |   (@A)[0][4 * i1] = 3;
@@ -16,7 +16,7 @@
 ; CHECK: <0>       END REGION
 
 ; CHECK: Function: foo
- 
+
 ; CHECK: <0>       BEGIN REGION { }
 ; CHECK: <19>            + DO i1 = 0, (sext.i32.i64(%n) + -1)/u4, 1   <DO_LOOP>  <MAX_TC_EST = 2>
 ; CHECK: <3>             |   (@A)[0][4 * i1] = 3;

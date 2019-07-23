@@ -67,17 +67,17 @@
 
 ; Check the nested if.
 ; CHECK: if (%m > 10)
-; CHECK: DO i2 = 
-; CHECK: (@B)[0][i1 + 2][i2 + 2] = 
-; CHECK: (@C)[0][i1 + 1][i2 + 1] = 
+; CHECK: DO i2 =
+; CHECK: (@B)[0][i1 + 2][i2 + 2] =
+; CHECK: (@C)[0][i1 + 1][i2 + 1] =
 ; CHECK: END LOOP
 
 ; Check nested else.
 ; CHECK: else
-; CHECK: DO i2 = 
-; CHECK: (@B)[0][i1 + 2][i2 + 2] = 
-; CHECK-NOT: (@C)[0][i1 + 1][i2 + 1] = 
-; CHECK: (@B)[0][i1 + 1][i2 + 1] = 
+; CHECK: DO i2 =
+; CHECK: (@B)[0][i1 + 2][i2 + 2] =
+; CHECK-NOT: (@C)[0][i1 + 1][i2 + 1] =
+; CHECK: (@B)[0][i1 + 1][i2 + 1] =
 ; CHECK: END LOOP
 
 ; Check else block.

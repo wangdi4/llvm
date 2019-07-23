@@ -1,12 +1,12 @@
 ; Sanity Test(s) on HIR Loop Reversal: valid testcase for a safe reduction chain with 2+ instructions
-; 
+;
 ; [REASONS]
 ; - Applicable: YES
 ; - Profitable: YES
 ; - Legal:      YES
 ; - Decision:   YES, to reverse the loop
 ;
-; 
+;
 ; *** Source Code ***
 ;
 ;float foo(float * restrict A, int n) {

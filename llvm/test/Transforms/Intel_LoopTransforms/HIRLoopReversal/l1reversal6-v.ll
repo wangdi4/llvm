@@ -1,17 +1,17 @@
 ; Sanity Test(s) on HIR Loop Reversal: simple reversable level-1 (l1) loop test
-; 
+;
 ; l1reversal6-v.ll
 ; (1-level loop, sanity testcase6, valid reversal case)
 ;
 ; Multiple DDRefs, both on LHS and RHS, and mixing with IV without Symbase
 ;
 ; [REASONS]
-; - Applicalbe: YES, HAS valid (2) negative memory-access addresses, and 2 positive memory-access addresses; 
+; - Applicalbe: YES, HAS valid (2) negative memory-access addresses, and 2 positive memory-access addresses;
 ; - Profitable: YES
 ;   Accumulated negative weight is higher than accumulated positive weight;
 ; - Legal:      YES ()
 ;
-; 
+;
 ; *** Source Code ***
 ;
 ; [BEFORE LOOP REVERSAL]
@@ -35,22 +35,22 @@
 ; ===-----------------------------------===
 ; *** Run0: WITHOUT HIR Loop Reversal ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=BEFORE 
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE 
+; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=BEFORE
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE
 ;
-; 
+;
 ; ===-----------------------------------===
 ; *** Run1: WITH HIR Loop Reversal ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-after=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=AFTER 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=AFTER 
+; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-after=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=AFTER
+; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=AFTER
 ;
-; 
+;
 ; === -------------------------------------- ===
 ; *** Tests0: W/O HIR Loop Reversal Output ***
 ; === -------------------------------------- ===
 ; Expected output BEFORE Loop Reversal
-; 
+;
 ;          BEGIN REGION { }
 ;<20>         + DO i1 = 0, 19, 1   <DO_LOOP>
 ;<3>          |   %2 = (%B)[i1 + 1];
@@ -73,7 +73,7 @@
 ; *** Tests1: With HIR Loop Reversal Output ***
 ; === -------------------------------------- ===
 ; Expected output AFTER Loop Reversal
-; 
+;
 ;          BEGIN REGION { modified }
 ;<20>         + DO i1 = 0, 19, 1   <DO_LOOP>
 ;<3>          |   %2 = (%B)[-1 * i1 + 20];

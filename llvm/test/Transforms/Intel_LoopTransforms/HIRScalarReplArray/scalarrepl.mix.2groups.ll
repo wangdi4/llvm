@@ -4,7 +4,7 @@
 ; Scalar Replacement Sanity Test: mix of load(s) and store(s) (1 load, 1 store) in 2 groups. Work on Group (B[]) only
 ;
 ; [REASONS]
-; - Applicable: YES  
+; - Applicable: YES
 ; - Profitable: YES
 ; - Legal:      YES
 ;
@@ -22,7 +22,7 @@
 ;  return A[0] + B[1] + C[2] + 1;
 ;}
 ;
-; 
+;
 ; MemRefGroup: { B[i+1]        }
 ;                MaxLoad/MinST
 ; GapTracker:  { RW            }
@@ -37,7 +37,7 @@
 ; CHECK:         |   (@B)[0][i1 + 1] = %4 + %5;
 ; CHECK:         + END LOOP
 ; CHECK:   END REGION
-;  
+;
 ;
 ; CHECK: Function
 ;
@@ -54,7 +54,7 @@
 ; CHECK:        |   (@B)[0][i1 + 1] = %scalarepl1;
 ; CHECK:        |   %scalarepl = %scalarepl1;
 ; CHECK:        + END LOOP
-;        
+;
 ; CHECK:  END REGION
 ;
 ;

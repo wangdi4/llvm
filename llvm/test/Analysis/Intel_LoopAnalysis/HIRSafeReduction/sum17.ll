@@ -1,8 +1,8 @@
 ;    for ( i=0; i< n; i++) {
-;			s  = a[s] + n; 
+;			s  = a[s] + n;
 ;    }
 ;    for ( i=0; i< n; i++) {
-;			s  = b[s][i] + n; 
+;			s  = b[s][i] + n;
 ;    }
 ;    for ( i=0; i< n; i++) {
 ;			s  = s  +   a[i];

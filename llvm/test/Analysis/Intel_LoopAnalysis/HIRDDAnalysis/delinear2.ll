@@ -3,7 +3,7 @@
 ;                A[k + n1 *j ]  += 1;
 ; RUN: opt < %s -hir-ssa-deconstruction | opt  -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze  | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck %s
-; CHECK-DAG:  (%0)[%n1 * i1 + i2 + %n1 + 1] --> (%0)[%n1 * i1 + i2 + %n1 + 1] ANTI (= =) 
+; CHECK-DAG:  (%0)[%n1 * i1 + i2 + %n1 + 1] --> (%0)[%n1 * i1 + i2 + %n1 + 1] ANTI (= =)
 ;
 ;Module Before HIR; ModuleID = 'delinear2.c'
 source_filename = "delinear2.c"

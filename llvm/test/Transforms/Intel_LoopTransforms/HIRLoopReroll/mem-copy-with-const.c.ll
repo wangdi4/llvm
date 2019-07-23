@@ -2,7 +2,7 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; CHECK: Function: foo
- 
+
 ; CHECK:       BEGIN REGION { }
 ; CHECK:             + DO i1 = 0, (sext.i32.i64(%n) + -1)/u4, 1   <DO_LOOP>  <MAX_TC_EST = 2>
 ; CHECK:             |   %1 = (@B)[0][4 * i1];
@@ -15,16 +15,16 @@
 ; CHECK:               (@A)[0][4 * i1 + 3] = 10 * %7;
 ; CHECK:             + END LOOP
 ; CHECK:       END REGION
- 
+
 ; CHECK: Function: foo
- 
+
 ; CHECK:       BEGIN REGION { }
 ; CHECK:             + DO i1 = 0, 4 * ((3 + sext.i32.i64(%n)) /u 4) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 8>
 ; CHECK:             |   %1 = (@B)[0][i1];
 ; CHECK:             |   (@A)[0][i1] = 10 * %1;
 ; CHECK:             + END LOOP
 ; CHECK:       END REGION
- 
+
 ;Module Before HIR; ModuleID = 'mem-copy-with-const.c'
 source_filename = "mem-copy-with-const.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

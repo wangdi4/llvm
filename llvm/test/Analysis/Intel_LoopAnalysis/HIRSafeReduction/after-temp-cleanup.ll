@@ -6,7 +6,7 @@
 ;
 ; CHECK: %t.08 = %k + %t.08  +  (%A)[i1]; <Safe Reduction>
 ;
-; 
+;
 ; Source looks like:
 ;
 ; void myred(int a[], int k, int* out)
@@ -15,7 +15,7 @@
 ;   for(int i = 0; i < 40; i++) {
 ;     t = t + k + a[i];
 ;   }
-; 
+;
 ;   *out = t;
 ; }
 ;

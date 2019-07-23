@@ -5,7 +5,7 @@
 
 ; *** IR Dump After HIR General Unroll ***
 ; Function: foo
-; 
+;
 ;         BEGIN REGION { modified }
 ;               + UNKNOWN LOOP i1 <nounroll>
 ;               |   <i1 = 0>
@@ -19,7 +19,7 @@
 ;               |   %0 = %4;
 ;               |   %next_node.0261 = &((%3)[0]);
 ;               |   if (%hir.de.ssa.copy0.out <=u %4)
-;               |   { 
+;               |   {
 ;               |      goto loopexit.23;
 ;               |   } // intermediate bottom test in this form will appear 7 times.
 ;                   ....

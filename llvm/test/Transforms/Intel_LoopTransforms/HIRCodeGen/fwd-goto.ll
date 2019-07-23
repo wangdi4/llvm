@@ -36,7 +36,7 @@
 ;Look for <25>, comparision against 47
 ;CHECK: icmp eq i32 {{.*}} 47
 ;Goto is in true block
-;CHECK-NEXT: br i1 %hir.cmp{{.*}}, label %[[T_BLOCK:then.[0-9]+]], label 
+;CHECK-NEXT: br i1 %hir.cmp{{.*}}, label %[[T_BLOCK:then.[0-9]+]], label
 
 ;Block contains only a jump to hir version of alter bblock
 ;CHECK: [[T_BLOCK]]:

@@ -3,7 +3,7 @@
 ; REQUIRES: asserts
 ; RUN: opt < %s -hir-post-vec-complete-unroll -hir-cost-model-throttling=0 -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 | FileCheck %s
 
-; CHECK: Dump Before HIR PostVec Complete Unroll 
+; CHECK: Dump Before HIR PostVec Complete Unroll
 ; CHECK: goto [[LABEL0:L.*]];
 ; CHECK: goto [[LABEL1:L.*]];
 ; CHECK-DAG: [[LABEL0]]:

@@ -15,7 +15,7 @@
 ; CHECK-NEXT: (@A)[0][i1 + 2 * i2 + -1]
 ; CHECK: END LOOP
 
-; Codegen Check. 
+; Codegen Check.
 ; CHECK: entry
 
 ; terminator of entry bblock should point to new unrolled region.
@@ -83,7 +83,7 @@ for.body3:                                        ; preds = %for.body3, %for.con
   %add = add nuw nsw i64 %mul, %i.018
   %sub = add nsw i64 %add, -1
   %arrayidx = getelementptr inbounds [550 x i32], [550 x i32]* @A, i64 0, i64 %sub
-  %0 = load i32, i32* %arrayidx, align 4 
+  %0 = load i32, i32* %arrayidx, align 4
   %arrayidx6 = getelementptr inbounds [550 x i32], [550 x i32]* @A, i64 0, i64 %add
   store i32 %0, i32* %arrayidx6, align 4
   %inc = add nuw nsw i64 %j.017, 1

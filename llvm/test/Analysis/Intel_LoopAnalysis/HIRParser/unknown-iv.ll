@@ -21,7 +21,7 @@ for.body:                                         ; preds = %entry, %for.body
   %i.05 = phi i32 [ 1001, %entry ], [ %div, %for.body ]
   %idxprom = sext i32 %i.05 to i64
   %arrayidx = getelementptr inbounds i32, i32* %A, i64 %idxprom
-  store i32 %i.05, i32* %arrayidx, align 4 
+  store i32 %i.05, i32* %arrayidx, align 4
   %div = sdiv i32 %i.05, 2
   %cmp = icmp sgt i32 %i.05, 3
   br i1 %cmp, label %for.body, label %for.end

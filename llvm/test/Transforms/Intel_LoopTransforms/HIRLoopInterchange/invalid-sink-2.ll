@@ -1,10 +1,10 @@
-; REQUIRES: asserts  
+; REQUIRES: asserts
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -print-after=hir-loop-interchange -print-before=hir-loop-interchange -debug-only=hir-loop-interchange 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-interchange,print<hir>" -aa-pipeline="basic-aa" < %s -debug-only=hir-loop-interchange 2>&1 | FileCheck %s
 ;
 ; A perfect loopnest shouldn't be enabled. If a perfect loopnest is enabled the end result will be wrong.
 ;
-; An anti-edge from <2> to <22> identifies <22> as a store for <2>, however, temps %0 and %c.030 does not match. Two anti-edges from <2> and <5> to <22>. 
+; An anti-edge from <2> to <22> identifies <22> as a store for <2>, however, temps %0 and %c.030 does not match. Two anti-edges from <2> and <5> to <22>.
 ;
 ; *** IR Dump Before HIR Loop Interchange ***
 ; Function: foo

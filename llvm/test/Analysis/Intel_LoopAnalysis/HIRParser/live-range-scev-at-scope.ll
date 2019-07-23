@@ -73,7 +73,7 @@ entry:
 cond.end:                                         ; preds = %entry
   %arrayidx = getelementptr inbounds i8*, i8** %argv, i64 1
   %0 = load i8*, i8** %arrayidx, align 8
-  %call.i = tail call i64 @strtol(i8* nocapture nonnull %0, i8** null, i32 10) 
+  %call.i = tail call i64 @strtol(i8* nocapture nonnull %0, i8** null, i32 10)
   %conv.i = trunc i64 %call.i to i32
   %cmp173 = icmp sgt i32 %conv.i, 0
   br i1 %cmp173, label %for.cond2.preheader.lr.ph, label %for.end32
@@ -131,14 +131,14 @@ for.end32:                                        ; preds = %for.end32.loopexit,
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) 
+declare void @llvm.lifetime.start(i64, i8* nocapture)
 
 ; Function Attrs: nounwind
-declare i32 @printf(i8* nocapture readonly, ...) 
+declare i32 @printf(i8* nocapture readonly, ...)
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) 
+declare void @llvm.lifetime.end(i64, i8* nocapture)
 
 ; Function Attrs: nounwind
-declare i64 @strtol(i8* readonly, i8** nocapture, i32) 
+declare i64 @strtol(i8* readonly, i8** nocapture, i32)
 

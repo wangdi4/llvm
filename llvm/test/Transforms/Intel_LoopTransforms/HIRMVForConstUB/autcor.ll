@@ -81,7 +81,7 @@
 ; CHECK: Function
 ; CHECK: <0> BEGIN REGION
 ; CHECK: if (%tmp30 == 8)
-; CHECK-NEXT: LINEAR 
+; CHECK-NEXT: LINEAR
 ; CHECK-SAME: %tmp30
 ; CHECK: DO i32 i2 = 0, 7
 

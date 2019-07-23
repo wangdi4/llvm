@@ -26,9 +26,9 @@
 ;}
 ;
 ;
-; MemRefGroup:  
+; MemRefGroup:
 ;            { r   ,   w   ,  w      }
-;               0      1      2     
+;               0      1      2
 ;
 ; CHECK: Function
 ;
@@ -41,7 +41,7 @@
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION
 ;
-;  
+;
 ; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { modified }

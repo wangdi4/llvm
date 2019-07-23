@@ -2,7 +2,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=scalar-symbase-assignment -debug-only=hir-framework 2>&1 | FileCheck %s
 
 ; This test was failing because the base inst (%t0) of the liveout single operand phi %t1 is (unexpectedly) coming from outside the region represented by the loop %loop.
-; Note that we use base inst %t0 instead of %t1 in HIR. 
+; Note that we use base inst %t0 instead of %t1 in HIR.
 
 ; In this 'reduced' test case the loop is empty so it is optimized away.
 

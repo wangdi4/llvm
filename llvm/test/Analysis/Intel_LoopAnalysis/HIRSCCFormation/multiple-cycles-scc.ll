@@ -1,6 +1,6 @@
 ; RUN: opt < %s -analyze -hir-scc-formation | FileCheck %s
 
-; Verify that we do not construct the SCC (%4 -> %inc.us -> %inc5.us -> %10) which contains two different cycles in it (%4 -> %inc.us -> %10) and (%4 -> %inc5.us -> %10). 
+; Verify that we do not construct the SCC (%4 -> %inc.us -> %inc5.us -> %10) which contains two different cycles in it (%4 -> %inc.us -> %10) and (%4 -> %inc5.us -> %10).
 ; CHECK-NOT: SCC1
 
 
