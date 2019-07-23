@@ -445,3 +445,51 @@ entry:
   %c = shufflevector <8 x half> %a, <8 x half> %b, <8 x i32> <i32 0, i32 9, i32 2, i32 11, i32 4, i32 13, i32 6, i32 15>
   ret <8 x half> %c
 }
+
+define <8 x i16>  @regression_test2(<8 x float> %x) #0 {
+entry:
+; CHECK-LABEL: regression_test2:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:  vcvttps2udq     %ymm0, %ymm0
+; CHECK-NEXT:  vpmovdw %ymm0, %xmm0
+; CHECK-NEXT:  vzeroupper
+; CHECK-NEXT:  retq
+  %a = fptoui <8 x float> %x to  <8 x i16>
+  ret <8 x i16> %a
+}
+
+define <8 x i16>  @regression_test3(<8 x float> %x) #0 {
+entry:
+; CHECK-LABEL: regression_test3:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:  vcvttps2dq     %ymm0, %ymm0
+; CHECK-NEXT:  vpmovdw %ymm0, %xmm0
+; CHECK-NEXT:  vzeroupper
+; CHECK-NEXT:  retq
+  %a = fptosi <8 x float> %x to  <8 x i16>
+  ret <8 x i16> %a
+}
+
+define <8 x i16>  @regression_test4(<8 x double> %x) #0 {
+entry:
+; CHECK-LABEL: regression_test4:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:  vcvttpd2udq      %zmm0, %ymm0
+; CHECK-NEXT:  vpmovdw %ymm0, %xmm0
+; CHECK-NEXT:  vzeroupper
+; CHECK-NEXT:  retq
+  %a = fptoui <8 x double> %x to  <8 x i16>
+  ret <8 x i16> %a
+}
+
+define <8 x i16>  @regression_test5(<8 x double> %x) #0 {
+entry:
+; CHECK-LABEL: regression_test5:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:  vcvttpd2dq      %zmm0, %ymm0
+; CHECK-NEXT:  vpmovdw %ymm0, %xmm0
+; CHECK-NEXT:  vzeroupper
+; CHECK-NEXT:  retq
+  %a = fptosi <8 x double> %x to  <8 x i16>
+  ret <8 x i16> %a
+}
