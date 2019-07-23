@@ -344,6 +344,11 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
     uint64_t W;
     if (Call->extractProfTotalWeight(W))
       NewCS->setProfWeight(W);
+#if INTEL_CUSTOMIZATION
+    MDNode *MD = Call->getMetadata(LLVMContext::MD_intel_profx);
+    if (MD)
+      NewCS->setMetadata(LLVMContext::MD_intel_profx, MD);
+#endif // INTEL_CUSTOMIZATION
     Args.clear();
     ArgAttrVec.clear();
 
@@ -361,6 +366,14 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
     Call->eraseFromParent();
   }
 
+#if INTEL_CUSTOMIZATION
+  // All uses of the old function have been replaced with the new function,
+  // transfer the function entry count to the replacement function to maintain
+  // the ability to place the functions into hot/cold sections.
+  Function::ProfileCount OldCount = F->getEntryCount();
+  if (OldCount.hasValue())
+    NF->setEntryCount(OldCount.getCount());
+#endif // INTEL_CUSTOMIZATION
   const DataLayout &DL = F->getParent()->getDataLayout();
 
   // Since we have now created the new function, splice the body of the old
