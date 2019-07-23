@@ -273,10 +273,6 @@ inline unsigned getKnownAlignment(Value *V, const DataLayout &DL,
   return getOrEnforceKnownAlignment(V, 0, DL, CxtI, AC, DT);
 }
 
-<<<<<<< HEAD
-/// This function converts the specified invoek into a normall call.
-void changeToCall(InvokeInst *II, DomTreeUpdater *DTU = nullptr);
-
 #if INTEL_CUSTOMIZATION
 template <typename IRBuilderTy>
 Value *emitBaseOffset(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
@@ -363,8 +359,6 @@ Value *EmitSubsOffset(IRBuilderTy *Builder, const DataLayout &DL, User *Subs) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 77dc6d2479a36e805861e2bd3ef1e226d78f606f
 ///===---------------------------------------------------------------------===//
 ///  Dbg Intrinsic utilities
 ///
