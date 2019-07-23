@@ -687,8 +687,6 @@ void CodeGenModule::Release() {
     EmitDeclMetadata();
 #if INTEL_CUSTOMIZATION
   if (getCodeGenOpts().getDebugInfo() != codegenoptions::NoDebugInfo) {
-    if (getLangOpts().IntelCompat)
-      EmitIntelDebugInfoMetadata();
     if (getLangOpts().IntelMSCompat)
       EmitMSDebugInfoMetadata();
   }
@@ -6113,14 +6111,6 @@ static void AddLLVMDbgMetadata(llvm::Module &TheModule, StringRef Name,
   llvm::Metadata *Node[] = { llvm::MDString::get(Ctx, Value) };
   llvm::NamedMDNode *Metadata = TheModule.getOrInsertNamedMetadata(Name);
   Metadata->addOperand(llvm::MDNode::get(Ctx, Node));
-}
-
-void CodeGenModule::EmitIntelDebugInfoMetadata() {
-  // CQ#368123 - support '-f[no-]emit-class-debug-always' options.
-  StringRef EmitClassDebugAlways =
-      getCodeGenOpts().EmitClassDebugAlways ? "true" : "false";
-  AddLLVMDbgMetadata(TheModule, "llvm.dbg.intel.emit_class_debug_always",
-                     EmitClassDebugAlways);
 }
 
 void CodeGenModule::EmitMSDebugInfoMetadata() {

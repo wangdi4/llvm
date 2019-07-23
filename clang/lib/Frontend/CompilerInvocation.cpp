@@ -1228,9 +1228,6 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   // CQ#368125 - support for '/Fd' and '/Fo' options.
   Opts.MSOutputObjFile = Args.getLastArgValue(OPT_fms_debug_info_obj_file);
   Opts.MSOutputPdbFile = Args.getLastArgValue(OPT_fms_debug_info_pdb_file);
-  // CQ#368123 - support '-f[no-]emit-class-debug-always' options.
-  Opts.EmitClassDebugAlways = Args.hasFlag(
-      OPT_femit_class_debug_always, OPT_fno_emit_class_debug_always, true);
   // CQ#366796 - support for '--no_expr_source_pos' option.
   Opts.NoExprSourcePos = Args.hasArg(OPT_no_expr_source_pos);
   // Support for '-fargument-noalias' option.
