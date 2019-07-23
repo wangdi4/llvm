@@ -19,6 +19,10 @@ include_directories(
 include_directories(
     ${BACKEND_ROOT_DIR}/arch_headers
     ${BACKEND_ROOT_DIR}/passes/PrintIRPass
+    ${BACKEND_ROOT_DIR}/passes/
+)
+link_libraries(
+    BackendPassesWrappers
 )
 
 add_library(${TARGET_NAME}
