@@ -7367,7 +7367,7 @@ private:
     bool WasCastToMultipleTypes = LPI.pointsToMultipleAggregateTypes();
 
     if (DTransPrintAllocations && WasCastToMultipleTypes)
-      outs() << "dtrans: Detected allocation cast to multiple types.\n";
+      dbgs() << "dtrans: Detected allocation cast to multiple types.\n";
 
     // We expect to only see one type, but we loop to keep the code general.
     for (auto *Ty : AliasSet) {
@@ -7397,9 +7397,9 @@ private:
       (void)DTInfo.getOrCreateTypeInfo(Ty);
 
       if (DTransPrintAllocations) {
-        outs() << "dtrans: Detected allocation cast to pointer type\n";
-        outs() << "  " << *Call << "\n";
-        outs() << "    Detected type: " << *(Ty->getPointerElementType())
+        dbgs() << "dtrans: Detected allocation cast to pointer type\n";
+        dbgs() << "  " << *Call << "\n";
+        dbgs() << "    Detected type: " << *(Ty->getPointerElementType())
                << "\n";
       }
 
@@ -10021,9 +10021,9 @@ bool DTransAnalysisInfo::analyzeModule(
                 return RSO_A.str().compare(RSO_B.str()) < 0;
               });
 
-    outs() << "================================\n";
-    outs() << " DTRANS Analysis Types Created\n";
-    outs() << "================================\n\n";
+    dbgs() << "================================\n";
+    dbgs() << " DTRANS Analysis Types Created\n";
+    dbgs() << "================================\n\n";
     for (auto TI : TypeInfoEntries) {
       if (auto *AI = dyn_cast<dtrans::ArrayInfo>(TI)) {
         printArrayInfo(AI);
@@ -10031,14 +10031,14 @@ bool DTransAnalysisInfo::analyzeModule(
         printStructInfo(SI);
       }
     }
-    outs() << "\n MaxTotalFrequency: " << getMaxTotalFrequency() << "\n\n";
-    outs().flush();
+    dbgs() << "\n MaxTotalFrequency: " << getMaxTotalFrequency() << "\n\n";
+    dbgs().flush();
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (DTransPrintAnalyzedCalls) {
-    printCallInfo(outs());
-    outs().flush();
+    printCallInfo(dbgs());
+    dbgs().flush();
   }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
@@ -10046,78 +10046,78 @@ bool DTransAnalysisInfo::analyzeModule(
 }
 
 void DTransAnalysisInfo::printStructInfo(dtrans::StructInfo *SI) {
-  outs() << "DTRANS_StructInfo:\n";
-  outs() << "  LLVMType: " << *(SI->getLLVMType()) << "\n";
+  dbgs() << "DTRANS_StructInfo:\n";
+  dbgs() << "  LLVMType: " << *(SI->getLLVMType()) << "\n";
   llvm::StructType *S = cast<llvm::StructType>(SI->getLLVMType());
   if (S->hasName())
-    outs() << "  Name: " << S->getName() << "\n";
+    dbgs() << "  Name: " << S->getName() << "\n";
   if (SI->getCRuleTypeKind() != dtrans::CRT_Unknown) {
-    outs() << "  CRuleTypeKind: ";
-    outs() << dtrans::CRuleTypeKindName(SI->getCRuleTypeKind()) << "\n";
+    dbgs() << "  CRuleTypeKind: ";
+    dbgs() << dtrans::CRuleTypeKindName(SI->getCRuleTypeKind()) << "\n";
   }
   printIgnoreTransListForStructure(SI);
-  outs() << "  Number of fields: " << SI->getNumFields() << "\n";
+  dbgs() << "  Number of fields: " << SI->getNumFields() << "\n";
   unsigned Number = 0;
   for (auto &Field : SI->getFields()) {
-    outs() << format_decimal(Number++, 3) << ")";
+    dbgs() << format_decimal(Number++, 3) << ")";
     printFieldInfo(Field, SI->getIgnoredFor());
   }
-  outs() << "  Total Frequency: " << SI->getTotalFrequency() << "\n";
+  dbgs() << "  Total Frequency: " << SI->getTotalFrequency() << "\n";
   auto &CG = SI->getCallSubGraph();
-  outs() << "  Call graph: "
+  dbgs() << "  Call graph: "
          << (CG.isBottom() ? "bottom\n" : (CG.isTop() ? "top\n" : ""));
   if (!CG.isBottom() && !CG.isTop()) {
-    outs() << "enclosing type: " << CG.getEnclosingType()->getName() << "\n";
+    dbgs() << "enclosing type: " << CG.getEnclosingType()->getName() << "\n";
   }
   SI->printSafetyData();
-  outs() << "\n";
+  dbgs() << "\n";
 }
 
 void DTransAnalysisInfo::printArrayInfo(dtrans::ArrayInfo *AI) {
-  outs() << "DTRANS_ArrayInfo:\n";
-  outs() << "  LLVMType: " << *(AI->getLLVMType()) << "\n";
+  dbgs() << "DTRANS_ArrayInfo:\n";
+  dbgs() << "  LLVMType: " << *(AI->getLLVMType()) << "\n";
   if (AI->getCRuleTypeKind() != dtrans::CRT_Unknown) {
-    outs() << "  CRuleTypeKind: ";
-    outs() << dtrans::CRuleTypeKindName(AI->getCRuleTypeKind()) << "\n";
+    dbgs() << "  CRuleTypeKind: ";
+    dbgs() << dtrans::CRuleTypeKindName(AI->getCRuleTypeKind()) << "\n";
   }
-  outs() << "  Number of elements: " << AI->getNumElements() << "\n";
-  outs() << "  Element LLVM Type: " << *(AI->getElementLLVMType()) << "\n";
+  dbgs() << "  Number of elements: " << AI->getNumElements() << "\n";
+  dbgs() << "  Element LLVM Type: " << *(AI->getElementLLVMType()) << "\n";
   AI->printSafetyData();
-  outs() << "\n";
+  dbgs() << "\n";
 }
 
 void DTransAnalysisInfo::printFieldInfo(dtrans::FieldInfo &Field,
                                         dtrans::Transform IgnoredInTransform) {
-  outs() << "Field LLVM Type: " << *(Field.getLLVMType()) << "\n";
-  outs() << "    Field info:";
+  dbgs() << "Field LLVM Type: " << *(Field.getLLVMType()) << "\n";
+  dbgs() << "    Field info:";
 
   if (Field.isRead())
-    outs() << " Read";
+    dbgs() << " Read";
 
   if (Field.isWritten())
-    outs() << " Written";
+    dbgs() << " Written";
 
   if (Field.isValueUnused())
-    outs() << " UnusedValue";
+    dbgs() << " UnusedValue";
 
   if (Field.hasComplexUse())
-    outs() << " ComplexUse";
+    dbgs() << " ComplexUse";
 
   if (Field.isAddressTaken())
-    outs() << " AddressTaken";
+    dbgs() << " AddressTaken";
 
-  outs() << "\n";
-  outs() << "    Frequency: " << Field.getFrequency();
-  outs() << "\n";
+  dbgs() << "\n";
+  dbgs() << "    Frequency: " << Field.getFrequency();
+  dbgs() << "\n";
 
   if (Field.isNoValue())
-    outs() << "    No Value";
+    dbgs() << "    No Value";
   else if (Field.isSingleValue()) {
-    outs() << "    Single Value: ";
-    Field.getSingleValue()->printAsOperand(outs());
+    dbgs() << "    Single Value: ";
+    Field.getSingleValue()->printAsOperand(dbgs());
   } else if (Field.isMultipleValue()) {
-    outs() << "    Multiple Value: [ ";
-    dtrans::printCollectionSorted(outs(), Field.values().begin(),
+    dbgs() << "    Multiple Value: [ ";
+    dtrans::printCollectionSorted(dbgs(), Field.values().begin(),
                                   Field.values().end(), ", ",
                                   [](llvm::Constant *C) {
                                     std::string OutputVal;
@@ -10126,23 +10126,23 @@ void DTransAnalysisInfo::printFieldInfo(dtrans::FieldInfo &Field,
                                     OutputStream.flush();
                                     return OutputVal;
                                   });
-    outs() << " ] <" << (Field.isValueSetComplete() ? "complete" : "incomplete")
+    dbgs() << " ] <" << (Field.isValueSetComplete() ? "complete" : "incomplete")
            << ">";
   }
   if (IgnoredInTransform & dtrans::DT_FieldSingleValue)
-    outs() << " (ignored)";
-  outs() << "\n";
+    dbgs() << " (ignored)";
+  dbgs() << "\n";
 
   if (Field.isTopAllocFunction())
-    outs() << "    Top Alloc Function";
+    dbgs() << "    Top Alloc Function";
   else if (Field.isSingleAllocFunction()) {
-    outs() << "    Single Alloc Function: ";
-    Field.getSingleAllocFunction()->printAsOperand(outs());
+    dbgs() << "    Single Alloc Function: ";
+    Field.getSingleAllocFunction()->printAsOperand(dbgs());
   } else if (Field.isBottomAllocFunction())
-    outs() << "    Bottom Alloc Function";
+    dbgs() << "    Bottom Alloc Function";
   if (IgnoredInTransform & dtrans::DT_FieldSingleAllocFunction)
-    outs() << " (ignored)";
-  outs() << "\n";
+    dbgs() << " (ignored)";
+  dbgs() << "\n";
 }
 
 // Interface routine to check if the field that is supposed to be loaded in the
@@ -10284,7 +10284,7 @@ void DTransAnalysisInfo::printIgnoreTransListForStructure(
     }
   }
   if (!Output.empty()) {
-    outs() << "  (will be ignored in" << Output << ")\n";
+    dbgs() << "  (will be ignored in" << Output << ")\n";
   }
 }
 

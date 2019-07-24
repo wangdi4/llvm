@@ -651,8 +651,8 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
 }
 
 void dtrans::TypeInfo::printSafetyData() {
-  outs() << "  Safety data: ";
-  printSafetyInfo(SafetyInfo, outs());
+  dbgs() << "  Safety data: ";
+  printSafetyInfo(SafetyInfo, dbgs());
 }
 
 void dtrans::TypeInfo::setSafetyData(SafetyData Conditions) {

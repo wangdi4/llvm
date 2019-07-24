@@ -1,5 +1,5 @@
-; RUN: opt < %s -disable-output -whole-program-assume -dtransanalysis -dtrans-print-types | FileCheck %s
-; RUN: opt < %s -disable-output -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types | FileCheck %s
+; RUN: opt < %s -disable-output -whole-program-assume -dtransanalysis -dtrans-print-types 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types 2>&1 | FileCheck %s
 
 ; This test verifies that annotation intrinsics are handled by the
 ; DTrans analysis.
