@@ -1606,6 +1606,11 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
         break;
       case llvm::Triple::x86:
       case llvm::Triple::x86_64:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+      case llvm::Triple::x86_icecode:
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
         if (CheckX86BuiltinFunctionCall(BuiltinID, TheCall))
           return ExprError();
         break;
@@ -4036,6 +4041,20 @@ bool Sema::CheckX86BuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
   switch (BuiltinID) {
   default:
     return false;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  case X86::BI__builtin_ia32_icecode_nr_read:
+    i = 0; l = 0; u = 255;
+    break;
+  case X86::BI__builtin_ia32_icecode_loadseg:
+  case X86::BI__builtin_ia32_icecode_storeseg:
+    i = 1; l = 1; u = 6;
+    break;
+  case X86::BI__builtin_ia32_icecode_cmodemov:
+    i = 2; l = 0; u = 15;
+    break;
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vec_ext_v2si:
   case X86::BI__builtin_ia32_vec_ext_v2di:
   case X86::BI__builtin_ia32_vextractf128_pd256:

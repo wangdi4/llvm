@@ -162,6 +162,122 @@ _ce_gtranslatewr_noepc(void *mem, long long __info[4]) {
 
 #define _ce_bcast_seg_state() __asm__ __volatile__ ("bcast_seg_state")
 
+static __inline__ unsigned __DEFAULT_FN_ATTRS
+_ce_creg_xchg32(unsigned creg, unsigned value) {
+  return __builtin_ia32_icecode_creg_xchg_32(creg, value);
+}
+
+static __inline__ unsigned long long __DEFAULT_FN_ATTRS
+_ce_creg_xchg64(unsigned creg, unsigned long long value) {
+  return __builtin_ia32_icecode_creg_xchg_64(creg, value);
+}
+
+static __inline__ unsigned __DEFAULT_FN_ATTRS
+_ce_fscp_xchg32(unsigned fscp, unsigned value) {
+  return __builtin_ia32_icecode_fscp_xchg_32(fscp, value);
+}
+
+static __inline__ unsigned long long __DEFAULT_FN_ATTRS
+_ce_fscp_xchg64(unsigned fscp, unsigned long long value) {
+  return __builtin_ia32_icecode_fscp_xchg_64(fscp, value);
+}
+
+static __inline__ unsigned __DEFAULT_FN_ATTRS
+_ce_creg_read32(unsigned creg) {
+  return __builtin_ia32_icecode_creg_read_32(creg);
+}
+
+static __inline__ unsigned long long __DEFAULT_FN_ATTRS
+_ce_creg_read64(unsigned creg) {
+  return __builtin_ia32_icecode_creg_read_64(creg);
+}
+
+static __inline__ unsigned __DEFAULT_FN_ATTRS
+_ce_fscp_read32(unsigned fscp) {
+  return __builtin_ia32_icecode_fscp_read_32(fscp);
+}
+
+static __inline__ unsigned long long __DEFAULT_FN_ATTRS
+_ce_fscp_read64(unsigned fscp) {
+  return __builtin_ia32_icecode_fscp_read_64(fscp);
+}
+
+static __inline__ unsigned char __DEFAULT_FN_ATTRS
+_ce_portin8(void *port) {
+  return __builtin_ia32_icecode_portin_8(port);
+}
+
+static __inline__ unsigned short __DEFAULT_FN_ATTRS
+_ce_portin16(void *port) {
+  return __builtin_ia32_icecode_portin_16(port);
+}
+
+static __inline__ unsigned int __DEFAULT_FN_ATTRS
+_ce_portin32(void *port) {
+  return __builtin_ia32_icecode_portin_32(port);
+}
+
+static __inline__ unsigned long long __DEFAULT_FN_ATTRS
+_ce_portin64(void *port) {
+  return __builtin_ia32_icecode_portin_64(port);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_portout8(unsigned char value, void *port) {
+  __builtin_ia32_icecode_portout_8(value, port);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_portout16(unsigned short value, void *port) {
+  __builtin_ia32_icecode_portout_16(value, port);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_portout32(unsigned int value, void *port) {
+  __builtin_ia32_icecode_portout_32(value, port);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_portout64(unsigned long long value, void *port) {
+  __builtin_ia32_icecode_portout_64(value, port);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_sta_special(void *mem) {
+  __builtin_ia32_icecode_sta_special(mem);
+}
+
+#define _ce_nr_read(ireg) __builtin_ia32_icecode_nr_read(ireg)
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_ucodecall(unsigned target) {
+  __builtin_ia32_icecode_ucodecall(target);
+}
+
+#define _ce_cmodemov(_SRC1, _SRC2, _COND) \
+  __builtin_ia32_icecode_cmodemov((_SRC1), (_SRC2), (_COND))
+
+#define _ce_sigeventjump(_SRC1, _SRC2, _IMM) \
+  __asm__ __volatile__ ("sigeventjump $" #_IMM ", %0, %1" :: "q"(_SRC1), "a"(_SRC2))
+
+#define _ce_sserialize() __asm__ __volatile__ ("sserialize")
+#define _ce_nop_set_sb() __asm__ __volatile__ ("nop_set_sb")
+#define _ce_nop_read_sb() __asm__ __volatile__ ("nop_read_sb")
+#define _ce_get_excl_acc() __asm__ __volatile__ ("get_excl_acc")
+#define _ce_release_excl_acc() __asm__ __volatile__ ("release_excl_acc")
+#define _ce_virt_nuke_point() __asm__ __volatile__ ("virt_nuke_point")
+#define _ce_int_trap_point() __asm__ __volatile__ ("int_trap_point")
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_iceret(unsigned target) {
+  __asm__ __volatile__ ("iceret %0" :: "a"(target));
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_iceret_indirect(unsigned target, unsigned value) {
+  __asm__ __volatile__ ("iceret_indirect %0, %1" :: "b"(value), "a"(target));
+}
+
 #undef __DEFAULT_FN_ATTRS
 
 #endif /* __CEINTRIN_H */
