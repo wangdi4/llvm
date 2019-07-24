@@ -1508,8 +1508,15 @@ Function *CodeExtractor::extractCodeRegion() {
       return any_of(this->TgtClauseArgs->begin(), this->TgtClauseArgs->end(),
                     [V](const ArgWithAlways &P) { return P.first == V; });
     };
-    assert(all_of(inputs, InputInClause) &&
-           "CodeExtractor captured out-of-clause argument.");
+    bool validInputs = true;
+    for (auto *V : inputs)
+      if (!InputInClause(V)) {
+        LLVM_DEBUG(dbgs() << "Value is not specified in any clause:\n" <<
+                   *V << "\n");
+        validInputs = false;
+      }
+    if (!validInputs)
+      report_fatal_error("CodeExtractor captured out-of-clause argument.");
 #endif // NDEBUG
 
     ValueSet OrderedInputs;
