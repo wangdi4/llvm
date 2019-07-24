@@ -37,10 +37,10 @@ struct GlobalVariableMetadataAPI {
         PipeIO(Global, "io") {}
 
   NamedMDValueAccessor<DepthIsIgnoredTy> DepthIsIgnored;
-  PipePacketSizeTy PipePacketSize;
-  PipePacketAlignTy PipePacketAlign;
-  PipeDepthTy PipeDepth;
-  PipeIOTy PipeIO;
+  NamedMDValueAccessor<PipePacketSizeTy> PipePacketSize;
+  NamedMDValueAccessor<PipePacketAlignTy> PipePacketAlign;
+  NamedMDValueAccessor<PipeDepthTy> PipeDepth;
+  NamedMDValueAccessor<PipeIOTy> PipeIO;
 };
 
 struct FunctionMetadataAPI {

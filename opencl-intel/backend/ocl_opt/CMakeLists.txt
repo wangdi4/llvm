@@ -48,6 +48,7 @@ set(OCL_BE_PASSES
     StripIntelIP
     OCLAliasAnalysis
     PrintfArgumentsPromotion
+    SYCLPipesHack
 )
 
 # Dependencies of the passes

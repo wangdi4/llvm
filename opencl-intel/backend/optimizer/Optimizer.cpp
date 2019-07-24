@@ -14,6 +14,7 @@
 
 #include "Optimizer.h"
 #include "CPUDetect.h"
+#include "ChannelPipeUtils.h"
 #include "CompilationUtils.h"
 #include "MetadataAPI.h"
 #include "OclTune.h"
@@ -151,6 +152,7 @@ llvm::Pass *createResolveBlockToStaticCallPass();
 llvm::ImmutablePass *createOCLAliasAnalysisPass();
 llvm::ModulePass *createPrintfArgumentsPromotionPass();
 llvm::ModulePass *createChannelsUsageAnalysisPass();
+llvm::ModulePass *createSYCLPipesHackPass();
 }
 
 using namespace intel;
@@ -377,6 +379,10 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   PM.add(createBuiltinLibInfoPass(pRtlModuleList, ""));
 
   if (isFpgaEmulator) {
+      // ChannelPipeTransformation and SYCLPipesHack passes populate
+      // channel/pipes error log.
+      Intel::OpenCL::DeviceBackend::ChannelPipesErrorLog.clear();
+      PM.add(createSYCLPipesHackPass());
       PM.add(createChannelPipeTransformationPass());
       PM.add(createPipeIOTransformationPass());
       PM.add(createPipeOrderingPass());

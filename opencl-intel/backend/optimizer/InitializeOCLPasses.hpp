@@ -74,5 +74,6 @@ static void initializeOCLPasses(PassRegistry &Registry) {
     intel::initializeOCLPostVectPass(Registry);
     intel::initializeChannelsUsageAnalysisPass(Registry);
     intel::initializeKernelSubGroupInfoPass(Registry);
+    intel::initializeSYCLPipesHackPass(Registry);
 }
 #endif //INITIALIZE_OCL_PASSES_H

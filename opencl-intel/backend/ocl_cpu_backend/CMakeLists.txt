@@ -265,6 +265,7 @@ set( BACKEND_PASSES
     StripIntelIP
     OCLAliasAnalysis
     PrintfArgumentsPromotion
+    SYCLPipesHack
 )
 
 set(UTILS_LIBS
