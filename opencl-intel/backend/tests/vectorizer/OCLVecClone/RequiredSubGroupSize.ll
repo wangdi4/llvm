@@ -21,9 +21,12 @@ define void @"_ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test"(i32 addrspace(1)*,
 ; Generated vector version
 ; CHECK-LABEL: _ZGVeN8uuuuuuuuuuuuuuuu_TSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test
 
+; Checks that we do not hit a label from the WRN region.
+; CHECK-NOT: {{^[._a-zA-Z0-9]*}}:
 ; get_global_id call should be hoisted outside region!
-; CHECK-NEXT: %gid = call i64 @_Z13get_global_idj(i32 0) #1
+; CHECK: %gid = call i64 @_Z13get_global_idj(i32 0) #1
 ; CHECK-NEXT: %slid = call i32 @_Z22get_sub_group_local_idv() #1
+; CHECK-NEXT: label %simd.begin.region
 
 ; CHECK-LABEL: simd.begin.region:
 ; CHECK-NEXT:    %entry.region = call token @llvm.directive.region.entry()
