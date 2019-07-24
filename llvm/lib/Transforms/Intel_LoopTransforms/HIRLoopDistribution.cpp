@@ -168,8 +168,7 @@ void HIRLoopDistribution::processPiBlocksToHLNodes(
     ArrayRef<PiBlockList> GroupsOfPiBlocks,
     SmallVectorImpl<HLDDNodeList> &DistributedLoops) {
 
-  // Image of control statement in each PiBlock.
-  // Maps (Original control statement, PiBlock) -> Original or cloned HLIf.
+  // Maps (Original control statement, PiBlock list) -> Original or cloned HLIf.
   SmallDenseMap<std::pair<HLIf *, const PiBlockList *>, HLIf *> ControlGuards;
 
   unsigned LoopNum = 0;
@@ -194,7 +193,7 @@ void HIRLoopDistribution::processPiBlocksToHLNodes(
     for (auto *PPNode : MergedPiBlock) {
       HLNode *Node = PPNode->getNode();
 
-      // Set the existing control node to the PiBlock.
+      // Set the existing control node for the PList.
       if (PPNode->isControlNode()) {
         HLIf *ControlNode = cast<HLIf>(Node);
         ControlGuards[{ControlNode, &PList}] = ControlNode;
@@ -212,7 +211,8 @@ void HIRLoopDistribution::processPiBlocksToHLNodes(
       // Check if control node doesn't exist in the current PiBlock.
       if (!ControlNode) {
         ControlNode = OrigControlNode->cloneEmpty();
-        // HLNodeUtils::insertAfter(OrigControlNode, ControlNode);
+        // Use {LoopNum, true} to indicate insert or move HLIf to its final
+        // place in HIR.
         DistDirectiveNodeMap[ControlNode] = {LoopNum, true};
         CurLoopHLDDNodeList.push_back(ControlNode);
       }
@@ -527,7 +527,8 @@ bool HIRLoopDistribution::distributeLoop(
     HLLoop *Loop, SmallVectorImpl<HLDDNodeList> &DistributedLoops,
     bool ForDirective, LoopOptReportBuilder &LORBuilder) {
   assert(DistributedLoops.size() < MaxDistributedLoop &&
-         "Too many loops to distribute");
+         "Number of distributed chunks exceed threshold. Expected the caller "
+         "to check before calling this function.");
 
   LastLoopNum = DistributedLoops.size();
   assert(LastLoopNum > 1 && "Invalid loop distribution");

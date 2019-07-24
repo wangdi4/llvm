@@ -272,7 +272,9 @@ private:
 
   DenseMap<HLNode *, DistPPNode *> HLToDistPPNodeMap;
 
-  // Existing control dependencies between: Dst -> (Src, Branch)
+  // Control dependencies between: S1 -> (S2, True/False branch)
+  // Means that S1 statement is control dependent on S2 statement's true or
+  // false branch.
   DenseMap<DistPPNode *, std::pair<DistPPNode *, bool>> ControlDeps;
 
   std::string FailureString;
