@@ -591,7 +591,7 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
                 }
                 break;
             case 's':
-                if (nullptr != *((char **)args)){
+                if ('\0' != *((char **)args)){
                   args = CopyAndAdvance(args, str_val);
                 }
                 else{
