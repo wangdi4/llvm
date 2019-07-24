@@ -165,9 +165,9 @@
 // CHECK: encoding: [0xf3,0x83,0xf0,0x06]
           nr_read $6, %eax
 
-// CHECK: sigeventjump $33, %ebx
+// CHECK: sigeventjump $33, %ebx, %eax
 // CHECK: encoding: [0xf3,0x81,0xd3,0x21,0x00,0x00,0x00]
-          sigeventjump $0x21, %ebx
+          sigeventjump $0x21, %ebx, %eax
 
 // CHECK: sserialize
 // CHECK: encoding: [0x0f,0x01,0xd4]
@@ -201,13 +201,13 @@
 // CHECK: encoding: [0x0f,0x01,0xd0]
           int_trap_point
 
-// CHECK: iceret
+// CHECK: iceret %eax
 // CHECK: encoding: [0x0f,0xaa]
-          iceret
+          iceret %eax
 
-// CHECK: iceret_indirect
+// CHECK: iceret_indirect %ebx, %eax
 // CHECK: encoding: [0xf3,0x0f,0xaa]
-          iceret_indirect
+          iceret_indirect %ebx, %eax
 
 // CHECK: cmodemov $0, %rax, %rbx
 // CHECK: encoding: [0xf3,0x0f,0x40,0xd8]
