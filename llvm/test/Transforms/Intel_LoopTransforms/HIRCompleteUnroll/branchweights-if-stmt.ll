@@ -70,8 +70,8 @@
 ;CHECK: select i1
 ;CHECK-SAME: !prof ![[PROF_SELECT]]
 
-;CHECK-DAG: ![[PROF_FIRST_IF]] = !{!"branch_weights", i32 200, i32 300}
-;CHECK-DAG: ![[PROF_SECOND_IF]] = !{!"branch_weights", i32 25, i32 75}
+;CHECK-DAG: ![[PROF_FIRST_IF]] = !{!"branch_weights", i32 300, i32 200}
+;CHECK-DAG: ![[PROF_SECOND_IF]] = !{!"branch_weights", i32 75, i32 25}
 ;CHECK-DAG: ![[PROF_SELECT]] = !{!"branch_weights", i32 49, i32 30}
 
 @input_buf = internal unnamed_addr constant [20 x i16] [i16 -5120, i16 -5120, i16 -5120, i16 -5120, i16 -5120, i16 15360, i16 15360, i16 15360, i16 15360, i16 15360, i16 15360, i16 15360, i16 15360, i16 15360, i16 15360, i16 -5120, i16 -5120, i16 -5120, i16 -5120, i16 -5120], align 16
@@ -89,11 +89,11 @@ loop:                                     ; preds = %backedge, %entry
   %3 = load i16, i16* %2, align 2
   %4 = sext i16 %3 to i64
   %5 = sub nsw i64 %4, %add.ext
-  %6 = icmp slt i64 %5, 0
+  %6 = icmp slt i64 %5, 100
   br i1 %6, label %backedge, label %if.then, !prof !1
 
 if.then:                                     ; preds = %loop
-  %7 = icmp sgt i64 %5, 32767
+  %7 = icmp sgt i64 %5, 200
   br i1 %7, label %if.inner, label %if.else, !prof !2
 
 if.else:                                     ; preds = %if.then
