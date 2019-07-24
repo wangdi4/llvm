@@ -111,8 +111,7 @@ public:
 
   void replaceIVWithBounds(const HLLoop *Loop, const HLLoop *InnerLoop);
 
-  void makeConsistent(const SmallVectorImpl<const RegDDRef *> &AuxRefs,
-                      unsigned Level);
+  void makeConsistent(ArrayRef<const RegDDRef *> AuxRefs, unsigned Level);
 
   Segment genSegment() const;
 

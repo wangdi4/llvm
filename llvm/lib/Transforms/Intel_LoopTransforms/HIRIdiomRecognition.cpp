@@ -403,8 +403,7 @@ bool HIRIdiomRecognition::makeStartRef(RegDDRef *Ref, HLLoop *Loop,
 
   if (BlobUpdateNeeded) {
     // Make blobs consistent because of upper bound substitution.
-    const SmallVector<const RegDDRef *, 1> Aux = {Loop->getUpperDDRef()};
-    Ref->makeConsistent(&Aux, PreheaderLevel);
+    Ref->makeConsistent(Loop->getUpperDDRef(), PreheaderLevel);
   } else {
     // Update of blob definition level is still required as we move statements
     // to the pre-header.
@@ -460,8 +459,7 @@ RegDDRef *HIRIdiomRecognition::createSizeDDRef(HLLoop *Loop,
   }
 
   // Multiplication could convert self blob to a regular blob.
-  const SmallVector<const RegDDRef *, 1> Aux = {Loop->getUpperDDRef()};
-  Size->makeConsistent(&Aux, PreheaderLevel);
+  Size->makeConsistent(Loop->getUpperDDRef(), PreheaderLevel);
 
   return Size.release();
 }

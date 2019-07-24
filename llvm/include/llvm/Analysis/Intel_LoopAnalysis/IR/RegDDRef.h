@@ -968,9 +968,8 @@ public:
   /// These cases require customized handling. They can be partially handled
   /// using updateBlobDDRefs() and updateDefLevel() by manually updating blob
   /// levels.
-  void
-  makeConsistent(const SmallVectorImpl<const RegDDRef *> *AuxRefs = nullptr,
-                 unsigned NewLevel = NonLinearLevel);
+  void makeConsistent(ArrayRef<const RegDDRef *> AuxRefs = {},
+                      unsigned NewLevel = NonLinearLevel);
 
   /// Returns true if the blob is present in this DDRef and returns its
   /// defined at level via DefLevel. DefLevel is expected to be non-null. The

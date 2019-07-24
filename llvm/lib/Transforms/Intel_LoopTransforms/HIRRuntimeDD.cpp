@@ -424,10 +424,10 @@ IVSegment::isSegmentSupported(const HLLoop *OuterLoop,
   return OK;
 }
 
-void IVSegment::makeConsistent(const SmallVectorImpl<const RegDDRef *> &AuxRefs,
+void IVSegment::makeConsistent(ArrayRef<const RegDDRef *> AuxRefs,
                                unsigned Level) {
-  Lower->makeConsistent(&AuxRefs, Level);
-  Upper->makeConsistent(&AuxRefs, Level);
+  Lower->makeConsistent(AuxRefs, Level);
+  Upper->makeConsistent(AuxRefs, Level);
 }
 
 // The method will replace IV @ Level inside segment bounds, depending on

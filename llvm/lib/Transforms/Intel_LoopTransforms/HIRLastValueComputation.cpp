@@ -310,7 +310,7 @@ bool HIRLastValueComputation::doLastValueComputation(HLLoop *Lp) {
       RegDDRef *OpRef = *I;
 
       DDRefUtils::replaceIVByCanonExpr(OpRef, LoopLevel, UBCE, IsNSW);
-      OpRef->makeConsistent(&Aux, LoopLevel - 1);
+      OpRef->makeConsistent(Aux, LoopLevel - 1);
     }
 
     HLNodeUtils::moveAsFirstPostexitNode(Lp, HInst);

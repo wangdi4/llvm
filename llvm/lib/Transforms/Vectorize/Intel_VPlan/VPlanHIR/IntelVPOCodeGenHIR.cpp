@@ -1097,7 +1097,7 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
       CE->setDestType(VecDestTy);
       const SmallVector<const RegDDRef *, 1> AuxRefs = {
           LoadInst->getLvalDDRef()};
-      WideRef->makeConsistent(&AuxRefs, OrigLoop->getNestingLevel());
+      WideRef->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
 
       // Collect call arguments and types so that the function declaration
       // and call instruction can be generated.
@@ -1395,7 +1395,7 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
 
   // The blobs in the scalar ref have been replaced by widened refs, call
   // the utility to update the widened Ref consistent.
-  WideRef->makeConsistent(&AuxRefs, NestingLevel);
+  WideRef->makeConsistent(AuxRefs, NestingLevel);
   return WideRef;
 }
 
@@ -2014,7 +2014,7 @@ HLInst *VPOCodeGenHIR::handleLiveOutLinearInEarlyExit(HLInst *INode,
 
   addInstUnmasked(INode);
   SmallVector<const RegDDRef *, 1> AuxRefs = {ZExtRef};
-  INode->getRvalDDRef()->makeConsistent(&AuxRefs, Level);
+  INode->getRvalDDRef()->makeConsistent(AuxRefs, Level);
   return INode;
 }
 
@@ -2995,7 +2995,7 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
       NewRef->addDimension(Operand->getSingleCanonExpr(), StructOffsets);
     }
 
-    NewRef->makeConsistent(&AuxRefs, OrigLoop->getNestingLevel());
+    NewRef->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
     addVPValueWideRefMapping(VPInst, NewRef);
     return;
   }

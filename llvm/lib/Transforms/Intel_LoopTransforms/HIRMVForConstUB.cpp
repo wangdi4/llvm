@@ -180,7 +180,7 @@ void HIRMVForConstUB::transformLoop(HLLoop *Loop,
     HLIf *If =
         Loop->getHLNodeUtils().createHLIf(PredicateTy::ICMP_EQ, LHS, RHS);
 
-    LHS->makeConsistent(&Aux, Level - 1);
+    LHS->makeConsistent(Aux, Level - 1);
 
     if (!LastIf) {
       HLNodeUtils::insertAfter(Loop, If);
@@ -219,7 +219,7 @@ void HIRMVForConstUB::transformLoop(HLLoop *Loop, unsigned TempIndex,
   HLNodeUtils::moveAsFirstThenChild(If, Loop);
 
   SmallVector<const RegDDRef *, 1> Aux = {Loop->getUpperDDRef()};
-  LHS->makeConsistent(&Aux, Level - 1);
+  LHS->makeConsistent(Aux, Level - 1);
 
   propagateConstant(Loop, TempIndex, Constant);
 

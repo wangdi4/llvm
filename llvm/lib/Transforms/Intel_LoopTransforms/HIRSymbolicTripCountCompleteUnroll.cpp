@@ -1390,7 +1390,7 @@ void HIRSymbolicTripCountCompleteUnroll::fixLoopIvToConst(HLContainerTy &V,
     for (auto I = HInst->ddref_begin(), E = HInst->ddref_end(); I != E; ++I) {
       RegDDRef *Ref = (*I);
       Ref->replaceIVByConstant(LoopLevel, IVConst);
-      Ref->makeConsistent(nullptr, LoopLevel - 1);
+      Ref->makeConsistent({}, LoopLevel - 1);
     }
   }
 }

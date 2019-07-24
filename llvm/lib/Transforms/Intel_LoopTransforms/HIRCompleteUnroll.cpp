@@ -693,7 +693,7 @@ void HIRCompleteUnroll::CanonExprUpdater::processRegDDRef(RegDDRef *RegDD) {
   }
 
   if (!IsPragmaEnabledUnrolling) {
-    RegDD->makeConsistent(nullptr, TopLoopLevel - 1);
+    RegDD->makeConsistent({}, TopLoopLevel - 1);
   } else {
 
     // Need to account for non-unrollable loops which can be encountered when
@@ -739,7 +739,7 @@ void HIRCompleteUnroll::CanonExprUpdater::processRegDDRef(RegDDRef *RegDD) {
       }
     }
 
-    RegDD->makeConsistent(nullptr, TopLoopLevel - 1 + NonUnrollableLevels);
+    RegDD->makeConsistent({}, TopLoopLevel - 1 + NonUnrollableLevels);
   }
 }
 

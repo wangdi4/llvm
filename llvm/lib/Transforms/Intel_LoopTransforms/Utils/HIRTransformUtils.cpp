@@ -234,7 +234,7 @@ bool HIRTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
 
     Ref->setSymbase(Ref->getDDRefUtils().getNewSymbase());
 
-    Ref->makeConsistent(&AuxRefs, OrigLoop->getNestingLevel() - 1);
+    Ref->makeConsistent(AuxRefs, OrigLoop->getNestingLevel() - 1);
 
     if (*NewTCRef)
       TempInst = OrigLoop->getHLNodeUtils().createCopyInst(
