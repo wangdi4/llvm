@@ -265,14 +265,6 @@ RegDDRef *HIRLoopDistribution::createTempArrayStore(HLLoop *Lp,
         TempRef->getSymbase(), TempRef->getSingleCanonExpr());
   }
 
-  auto CE = TempRegRef->getSingleCanonExpr();
-
-  // Checking of isConstant needs to use TempRef
-  if (CE->isSelfBlob() || TempRegRef->isConstant()) {
-    TempRegRef = TempRegRef->clone();
-    TempRegRef->makeSelfBlob(true);
-  }
-
   auto ArrTy = ArrayType::get(TempRef->getDestType(), StripmineSize);
 
   AllocaBlobIdx = HNU.createAlloca(ArrTy, RegionNode, ".TempArray");
@@ -299,8 +291,11 @@ RegDDRef *HIRLoopDistribution::insertTempArrayStore(HLLoop *Lp,
                                                     RegDDRef *TmpArrayRef,
                                                     HLDDNode *TempRefDDNode) {
 
-  HLInst *StoreInst = HNU.createStore(TempRef->clone(), ".TempSt", TmpArrayRef);
+  RegDDRef *RVal = TempRef->clone();
+  HLInst *StoreInst = HNU.createStore(RVal, ".TempSt", TmpArrayRef);
   HLNodeUtils::insertAfter(TempRefDDNode, StoreInst);
+
+  RVal->makeConsistent(TempRef);
 
   updateLiveInAllocaTemp(Lp, TmpArrayRef->getBasePtrSymbase());
   TempArraySB.push_back(TmpArrayRef->getSymbase());
