@@ -662,7 +662,24 @@ if (LLVM_ENABLE_WARNINGS AND (LLVM_COMPILER_IS_GCC_COMPATIBLE OR CLANG_CL))
   append_if(USE_NO_MAYBE_UNINITIALIZED "-Wno-maybe-uninitialized" CMAKE_CXX_FLAGS)
 
 #if INTEL_CUSTOMIZATION
-  add_flag_if_supported("-Wno-cast-function-type" NO_CAST_FUNCTION_TYPE)
+  if ((NOT (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")) OR
+      (NOT (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8.0)))
+    # -Wno-cast-function-type detection is broken in GCC:
+    # add_flag_if_supported() will try to compile a valid C/C++ file
+    # with "-Wno-cast-function-type -Werror" to check if the former
+    # flag is supported. GCC will not complain about the flag for some
+    # reason. Next, if you compiler a source file with -Wno-cast-function-type
+    # and -Werror, and there are some warnings due to the file contents,
+    # GCC will also treat -Wno-cast-function-type as error. Now if you
+    # want to disable -Werror for the file's issue, it will still not
+    # compile, because GCC will report -Wno-cast-function-type as error.
+    # The only way to compile such a file with -Wno-cast-function-type
+    # is to disable the warning itself (i.e. you must use -Wno-..., and you
+    # cannot use -Wno-error=... and keep the warning).
+    #
+    # Here we avoid the broken flag checking for GCC unless it is at least 8.0.
+    add_flag_if_supported("-Wno-cast-function-type" NO_CAST_FUNCTION_TYPE)
+  endif()
   add_flag_if_supported("-Wno-parentheses" NO_PARENTHESES)
   add_flag_if_supported("-Wno-uninitialized" NO_UNINITIALIZED)
   add_flag_if_supported("-Wno-unused-function" NO_UNUSED_FUNCTION)
