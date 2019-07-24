@@ -13,6 +13,7 @@ include_directories(
     ${BACKEND_ROOT_DIR}/ocl_cpu_backend
     ${BACKEND_ROOT_DIR}/vectorizer/Utils
     ${BACKEND_ROOT_DIR}/metadata_api
+    ${BACKEND_ROOT_DIR}/passes/ChannelPipeTransformation
     ${CMAKE_BINARY_DIR}/include/
 )
 

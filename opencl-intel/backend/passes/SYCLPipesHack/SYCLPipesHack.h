@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2017-2018 Intel Corporation.
+// Copyright 2019 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -11,28 +11,25 @@
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
 // License.
-
-#ifndef __CHANNEL_PIPE_TRANSFORMATION_H__
-#define __CHANNEL_PIPE_TRANSFORMATION_H__
+#ifndef __SYCLPIPESHACK_H__
+#define __SYCLPIPESHACK_H__
 
 #include <llvm/IR/Module.h>
 
 namespace intel {
-
-class ChannelPipeTransformation : public llvm::ModulePass {
+class SYCLPipesHack : public llvm::ModulePass {
 public:
   static char ID;
-  ChannelPipeTransformation();
+  SYCLPipesHack();
 
-  virtual llvm::StringRef getPassName() const {
-    return "ChannelPipeTransformation";
+  llvm::StringRef getPassName() const override {
+    return "SYCLPipesHack";
   }
 
-  bool runOnModule(llvm::Module &M);
-
-  virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
+  bool runOnModule(llvm::Module &M) override;
+  void getAnalysisUsage(llvm::AnalysisUsage &AU) const override;
 };
-
 } // namespace intel
 
-#endif // __CHANNEL_PIPE_TRANSFORMATION_H__
+
+#endif
