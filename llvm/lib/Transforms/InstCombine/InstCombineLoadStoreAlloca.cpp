@@ -464,56 +464,7 @@ static LoadInst *combineLoadToNewType(InstCombiner &IC, LoadInst &LI, Type *NewT
   LoadInst *NewLoad = IC.Builder.CreateAlignedLoad(
       NewTy, NewPtr, LI.getAlignment(), LI.isVolatile(), LI.getName() + Suffix);
   NewLoad->setAtomic(LI.getOrdering(), LI.getSyncScopeID());
-<<<<<<< HEAD
-  MDBuilder MDB(NewLoad->getContext());
-  for (const auto &MDPair : MD) {
-    unsigned ID = MDPair.first;
-    MDNode *N = MDPair.second;
-    // Note, essentially every kind of metadata should be preserved here! This
-    // routine is supposed to clone a load instruction changing *only its type*.
-    // The only metadata it makes sense to drop is metadata which is invalidated
-    // when the pointer type changes. This should essentially never be the case
-    // in LLVM, but we explicitly switch over only known metadata to be
-    // conservatively correct. If you are adding metadata to LLVM which pertains
-    // to loads, you almost certainly want to add it here.
-    switch (ID) {
-    case LLVMContext::MD_dbg:
-    case LLVMContext::MD_tbaa:
-    case LLVMContext::MD_prof:
-    case LLVMContext::MD_fpmath:
-    case LLVMContext::MD_tbaa_struct:
-    case LLVMContext::MD_invariant_load:
-    case LLVMContext::MD_alias_scope:
-    case LLVMContext::MD_noalias:
-    case LLVMContext::MD_nontemporal:
-    case LLVMContext::MD_mem_parallel_loop_access:
-    case LLVMContext::MD_access_group:
-#if INTEL_CUSTOMIZATION
-    case LLVMContext::MD_std_container_ptr:
-    case LLVMContext::MD_std_container_ptr_iter:
-#endif // INTEL_CUSTOMIZATION
-      // All of these directly apply.
-      NewLoad->setMetadata(ID, N);
-      break;
-
-    case LLVMContext::MD_nonnull:
-      copyNonnullMetadata(LI, N, *NewLoad);
-      break;
-    case LLVMContext::MD_align:
-    case LLVMContext::MD_dereferenceable:
-    case LLVMContext::MD_dereferenceable_or_null:
-      // These only directly apply if the new type is also a pointer.
-      if (NewTy->isPointerTy())
-        NewLoad->setMetadata(ID, N);
-      break;
-    case LLVMContext::MD_range:
-      copyRangeMetadata(IC.getDataLayout(), LI, N, *NewLoad);
-      break;
-    }
-  }
-=======
   copyMetadataForLoad(*NewLoad, LI);
->>>>>>> 86e9f9dc26fde38d1dba10e90c2e6881cc31dbd5
   return NewLoad;
 }
 
