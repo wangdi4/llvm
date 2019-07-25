@@ -747,7 +747,6 @@ CheckForIncompatibleAttributes(Sema &S,
   struct {
     const LoopHintAttr *StateAttr;
     const LoopHintAttr *NumericAttr;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   } HintAttrs[] = {{nullptr, nullptr}, // Vectorize
                    {nullptr, nullptr}, // II
@@ -770,13 +769,9 @@ CheckForIncompatibleAttributes(Sema &S,
                    {nullptr, nullptr}, // Unroll
                    {nullptr, nullptr}, // UnrollAndJam
                    {nullptr, nullptr}, // Pipeline
-                   {nullptr, nullptr}};// Distribute
+                   {nullptr, nullptr}, // Distribute
+                   {nullptr, nullptr}};// Vectorize Predicate
 #endif // INTEL_CUSTOMIZATION
-=======
-  } HintAttrs[] = {{nullptr, nullptr}, {nullptr, nullptr}, {nullptr, nullptr},
-                   {nullptr, nullptr}, {nullptr, nullptr}, {nullptr, nullptr},
-                   {nullptr, nullptr}};
->>>>>>> a48f58c97feca138f772e2cf122f229d6e341d82
 
 #if INTEL_CUSTOMIZATION
   const LoopHintAttr *IVDepAttr = nullptr;

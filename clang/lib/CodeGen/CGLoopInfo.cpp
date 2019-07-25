@@ -635,17 +635,12 @@ LoopAttributes::LoopAttributes(bool IsParallel)
       LoopCountMin(0), LoopCountMax(0), LoopCountAvg(0),
 #endif // INTEL_CUSTOMIZATION
       UnrollEnable(LoopAttributes::Unspecified),
-<<<<<<< HEAD
-      UnrollAndJamEnable(LoopAttributes::Unspecified), VectorizeWidth(0),
+      UnrollAndJamEnable(LoopAttributes::Unspecified),
+      VectorizePredicateEnable(LoopAttributes::Unspecified), VectorizeWidth(0),
       InterleaveCount(0),
       SYCLIVDepEnable(false), SYCLIVDepSafelen(0), SYCLIInterval(0),
       SYCLMaxConcurrencyNThreads(0),
       UnrollCount(0), UnrollAndJamCount(0),
-=======
-      UnrollAndJamEnable(LoopAttributes::Unspecified),
-      VectorizePredicateEnable(LoopAttributes::Unspecified), VectorizeWidth(0),
-      InterleaveCount(0), UnrollCount(0), UnrollAndJamCount(0),
->>>>>>> a48f58c97feca138f772e2cf122f229d6e341d82
       DistributeEnable(LoopAttributes::Unspecified), PipelineDisabled(false),
       PipelineInitiationInterval(0) {}
 
@@ -1179,6 +1174,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
         // Handled with IntelIVDepArrayHandler.
         break;
       case LoopHintAttr::VectorizeWidth:
+      case LoopHintAttr::VectorizePredicate:
       case LoopHintAttr::InterleaveCount:
       case LoopHintAttr::UnrollCount:
       case LoopHintAttr::II:
