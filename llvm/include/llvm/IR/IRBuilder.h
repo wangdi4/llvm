@@ -810,6 +810,16 @@ public:
     return I;
   }
 
+#if INTEL_CUSTOMIZATION
+  /// Insert and return the specified instruction without changing its debug
+  /// location.
+  template <typename InstTy>
+  InstTy *InsertWithDbgLoc(InstTy *I, const Twine &Name = "") const {
+    this->InsertHelper(I, Name, BB, InsertPt);
+    return I;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   /// No-op overload to handle constants.
   Constant *Insert(Constant *C, const Twine& = "") const {
     return C;
