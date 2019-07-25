@@ -683,6 +683,12 @@ if (LLVM_ENABLE_WARNINGS AND (LLVM_COMPILER_IS_GCC_COMPATIBLE OR CLANG_CL))
   add_flag_if_supported("-Wno-parentheses" NO_PARENTHESES)
   add_flag_if_supported("-Wno-uninitialized" NO_UNINITIALIZED)
   add_flag_if_supported("-Wno-unused-function" NO_UNUSED_FUNCTION)
+  add_flag_if_supported("-Wno-redundant-move" NO_REDUNDANT_MOVE)
+  add_flag_if_supported("-Wno-init-list-lifetime" NO_INIT_LIST_LIFETIME)
+  add_flag_if_supported("-Wno-deprecated-copy" NO_DEPRECATED_COPY)
+  add_flag_if_supported("-Wno-write-strings" NO_WRITE_STRINGS)
+  add_flag_if_supported("-Wno-array-bounds" NO_ARRAY_BOUNDS)
+  add_flag_if_supported("-Wno-pessimizing-move" NO_PESSIMIZING_MOVE)
 #endif // INTEL_CUSTOMIZATION
 
   # Disable -Wclass-memaccess, a C++-only warning from GCC 8 that fires on
