@@ -52,7 +52,7 @@ namespace intel {
 
     /// @brief C'tor
     /// @param isNativeDebug true if we are debugging natively (gdb)
-    Barrier(bool isNativeDebug = false);
+    Barrier(bool isNativeDebug = false, bool useTLSGlobals = false);
 
     /// @brief D'tor
     ~Barrier() {}
@@ -225,17 +225,34 @@ namespace intel {
     }
     Value *createGetPtrToLocalId(unsigned Dim) {
       // For accesses to constant dimensions, cache the GEP instruction
-      Value **Ptr = m_currBarrierKeyValues->m_pPtrLocalId + Dim;
+      Value **Ptr;
+      if (m_useTLSGlobals) {
+        Ptr = m_PtrLocalId + Dim;
+      } else {
+        Ptr = m_currBarrierKeyValues->m_pPtrLocalId + Dim;
+      }
       if (!*Ptr) {
-        IRBuilder<> LB(m_currBarrierKeyValues->m_TheFunction->getEntryBlock()
-                           .getTerminator());
-        // If the LocalIDValues are generated externally to the function, make
-        // sure we place the GEP before the value is accessed
-        if (!isa<Instruction>(m_currBarrierKeyValues->m_pLocalIdValues))
-          LB.SetInsertPoint(&*m_currBarrierKeyValues->m_TheFunction->getEntryBlock().begin());
+        Function *F;
+        if (m_useTLSGlobals) {
+          F = m_currFunction;
+        } else {
+          F = m_currBarrierKeyValues->m_TheFunction;
+        }
+        IRBuilder<> LB(F->getEntryBlock().getTerminator());
+        Value *LocalIdValues;
+        if (m_useTLSGlobals) {
+          LocalIdValues = m_LocalIds;
+        } else {
+          // If the LocalIDValues are generated externally to the function, make
+          // sure we place the GEP before the value is accessed
+          if (!isa<Instruction>(m_currBarrierKeyValues->m_pLocalIdValues))
+            LB.SetInsertPoint(
+                &*m_currBarrierKeyValues->m_TheFunction->getEntryBlock()
+                      .begin());
+          LocalIdValues = m_currBarrierKeyValues->m_pLocalIdValues;
+        }
         *Ptr = createGetPtrToLocalId(
-            m_currBarrierKeyValues->m_pLocalIdValues,
-            ConstantInt::get(m_I32Type, APInt(32, Dim)), LB);
+            LocalIdValues, ConstantInt::get(m_I32Type, APInt(32, Dim)), LB);
       }
       return *Ptr;
     }
@@ -273,8 +290,18 @@ namespace intel {
     /// This holds type of size_t of processed module
     Type               *m_sizeTType;
     Type               *m_I32Type;
+
+    // Use TLS globals if true, implicit arguments otherwise
+    bool m_useTLSGlobals;
     // Type of allocation used for storing local ID values for all dimensions
     PointerType *m_LocalIdAllocTy;
+    // This holds TLS global containing local ids
+    GlobalVariable *m_LocalIds;
+    // This holds type of the TLS global containing local ids
+    ArrayType *m_LocalIdArrayTy;
+    // This holds cached GEP instructions for local ids
+    Value *m_PtrLocalId[MaxNumDims];
+
     Value* m_Zero;
     Value* m_One;
 
@@ -312,6 +339,7 @@ namespace intel {
       Value *m_pLocalIdValues;
       // This array of pointers is used to cache GEP instructions
       Value *m_pPtrLocalId[MaxNumDims];
+
       /// This holds the alloca value of processed barrier id
       Value *m_pCurrBarrierId;
       /// This holds the argument value of special buffer address
@@ -325,6 +353,8 @@ namespace intel {
     };
     typedef std::map<Function*, SBarrierKeyValues> TMapFunctionToKeyValues;
 
+    /// This holds the function currently being handled
+    Function *m_currFunction;
     /// This holds barrier key values for current handled function
     SBarrierKeyValues *m_currBarrierKeyValues;
     /// This holds a map between function and its barrier key values

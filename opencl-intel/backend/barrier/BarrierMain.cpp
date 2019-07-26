@@ -36,7 +36,7 @@ extern "C" {
   //void* createDataPerBarrierPass();
   //void* createWIRelatedValuePass();
   //void* createDataPerValuePass();
-  void* createBarrierPass(bool isNativeDebug);
+  void *createBarrierPass(bool isNativeDebug, bool useTLSGlobals);
   Pass* createBuiltinLibInfoPass(SmallVector<Module*, 2> builtinsList, std::string type);
 
   void getBarrierPassStrideSize(Pass *pPass, std::map<std::string, unsigned int>& bufferStrideMap);
@@ -47,8 +47,9 @@ namespace intel {
 
   char intel::BarrierMain::ID = 0;
 
-  BarrierMain::BarrierMain(DebuggingServiceType debugType) :
-    ModulePass(ID), m_debugType(debugType) {}
+  BarrierMain::BarrierMain(DebuggingServiceType debugType, bool useTLSGlobals)
+      : ModulePass(ID), m_debugType(debugType), m_useTLSGlobals(useTLSGlobals) {
+  }
 
   bool BarrierMain::runOnModule(Module &M) {
     legacy::PassManager barrierModulePM;
@@ -77,7 +78,8 @@ namespace intel {
     if (m_debugType == Native) {
       barrierModulePM.add((ModulePass*)createImplicitGIDPass());
     }
-    Pass *pBarrierPass = (ModulePass*)createBarrierPass(m_debugType == Native);
+    Pass *pBarrierPass =
+        (ModulePass *)createBarrierPass(m_debugType == Native, m_useTLSGlobals);
     barrierModulePM.add((ModulePass*)pBarrierPass);
 #ifdef _DEBUG
     barrierModulePM.add(createVerifierPass());
@@ -106,8 +108,9 @@ namespace intel {
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  Pass* createBarrierMainPass(intel::DebuggingServiceType debugType) {
-    return new intel::BarrierMain(debugType);
+Pass *createBarrierMainPass(intel::DebuggingServiceType debugType,
+                            bool useTLSGlobals) {
+  return new intel::BarrierMain(debugType, useTLSGlobals);
   }
 
   void getBarrierStrideSize(Pass *pPass, std::map<std::string, unsigned int>& bufferStrideMap) {

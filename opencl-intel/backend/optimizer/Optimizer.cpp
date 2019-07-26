@@ -92,7 +92,8 @@ llvm::Pass *createVectorizerPass(SmallVector<Module *, 2> builtinModules,
 llvm::Pass *createOCLVecClonePass(const intel::OptimizerConfig *pConfig,
                                   bool EnableVPlanVecForOpenCL);
 llvm::Pass *createOCLPostVectPass();
-llvm::Pass *createBarrierMainPass(intel::DebuggingServiceType debugType);
+llvm::Pass *createBarrierMainPass(intel::DebuggingServiceType debugType,
+                                  bool useTLSGlobals);
 
 llvm::ModulePass *createInfiniteLoopCreatorPass();
 llvm::ModulePass *createAutorunReplicatorPass();
@@ -452,15 +453,13 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   }
 }
 
-static void
-populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
-                            SmallVector<Module *, 2> &pRtlModuleList,
-                            unsigned OptLevel,
-                            const intel::OptimizerConfig *pConfig,
-                            std::vector<std::string> &UndefinedExternals,
-                            bool isOcl20, bool isFpgaEmulator,
-                            bool isEyeQEmulator, bool UnrollLoops,
-                            bool EnableInferAS) {
+static void populatePassesPostFailCheck(
+    llvm::legacy::PassManagerBase &PM, llvm::Module *M,
+    SmallVector<Module *, 2> &pRtlModuleList, unsigned OptLevel,
+    const intel::OptimizerConfig *pConfig,
+    std::vector<std::string> &UndefinedExternals, bool isOcl20,
+    bool isFpgaEmulator, bool isEyeQEmulator, bool UnrollLoops,
+    bool EnableInferAS) {
   bool isProfiling = pConfig->GetProfilingFlag();
   bool HasGatherScatter = pConfig->GetCpuId().HasGatherScatter();
   bool HasGatherScatterPrefetch = pConfig->GetCpuId().HasGatherScatterPrefetch();
@@ -469,6 +468,10 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
   DebuggingServiceType debugType =
       getDebuggingServiceType(pConfig->GetDebugInfoFlag() ||
                               getDebugFlagFromMetadata(M));
+  bool UseTLSGlobals = getenv("NO_IMPLICIT_ARGUMENTS") &&
+                       (debugType == intel::Native) && !isFpgaEmulator &&
+                       !isEyeQEmulator;
+
 
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(
@@ -655,7 +658,7 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
   // directives
   PM.add(llvm::createRemoveRegionDirectivesLegacyPass());
 
-  PM.add(createBarrierMainPass(debugType));
+  PM.add(createBarrierMainPass(debugType, UseTLSGlobals));
 
   // After adding loops run loop optimizations.
   if (debugType == intel::None) {
@@ -837,10 +840,10 @@ Optimizer::Optimizer(llvm::Module *pModule,
 
   // Add passes which will be run only if hasFunctionPtrCalls() and
   // hasRecursion() will return false
-  populatePassesPostFailCheck(
-      m_PostFailCheckPM, pModule, m_pRtlModuleList, OptLevel,
-      pConfig, m_undefinedExternalFunctions, isOcl20, isFpgaEmulator,
-      isEyeQEmulator, UnrollLoops, EnableInferAS);
+  populatePassesPostFailCheck(m_PostFailCheckPM, pModule, m_pRtlModuleList,
+                              OptLevel, pConfig, m_undefinedExternalFunctions,
+                              isOcl20, isFpgaEmulator, isEyeQEmulator,
+                              UnrollLoops, EnableInferAS);
 }
 
 void Optimizer::Optimize() {
