@@ -99,15 +99,10 @@ TYPE("treelang",                 Treelang,     INVALID,         nullptr, "u", ph
 TYPE("image",                    Image,        INVALID,         "out",   "",  phases::Compile, phases::Backend, phases::Assemble, phases::Link)
 TYPE("dSYM",                     dSYM,         INVALID,         "dSYM",  "",  phases::Compile, phases::Backend, phases::Assemble, phases::Link)
 TYPE("dependencies",             Dependencies, INVALID,         "d",     "",  phases::Compile, phases::Backend, phases::Assemble, phases::Link)
-<<<<<<< HEAD
-TYPE("cuda-fatbin",              CUDA_FATBIN,  INVALID,         "fatbin","A", phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+TYPE("cuda-fatbin",              CUDA_FATBIN,  INVALID,         "fatbin","", phases::Compile, phases::Backend, phases::Assemble, phases::Link)
 TYPE("spirv",                    SPIRV,        INVALID,         "spv",   "", phases::Compile, phases::Backend, phases::Assemble, phases::Link)
 TYPE("sycl-header",              SYCL_Header,  INVALID,         "h",     "", phases::Compile, phases::Backend, phases::Assemble, phases::Link)
 TYPE("sycl-fatbin",              SYCL_FATBIN,  INVALID,         nullptr, "", phases::Compile, phases::Backend, phases::Assemble, phases::Link)
-TYPE("hip-fatbin",               HIP_FATBIN,   INVALID,         "hipfb", "A", phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+TYPE("hip-fatbin",               HIP_FATBIN,   INVALID,         "hipfb", "", phases::Compile, phases::Backend, phases::Assemble, phases::Link)
 TYPE("tempfilelist",             Tempfilelist, INVALID,         nullptr, "", phases::Compile, phases::Backend, phases::Assemble, phases::Link)
-=======
-TYPE("cuda-fatbin",              CUDA_FATBIN,  INVALID,         "fatbin","",  phases::Compile, phases::Backend, phases::Assemble, phases::Link)
-TYPE("hip-fatbin",               HIP_FATBIN,   INVALID,         "hipfb", "",  phases::Compile, phases::Backend, phases::Assemble, phases::Link)
->>>>>>> c07c83b16206b256c145c799b871d29e11db1622
 TYPE("none",                     Nothing,      INVALID,         nullptr, "u", phases::Compile, phases::Backend, phases::Assemble, phases::Link)
