@@ -414,7 +414,7 @@ unsigned Parser::ParseAttributeArgsCommon(
   ConsumeParen();
 
   bool ChangeKWThisToIdent = attributeTreatsKeywordThisAsIdentifier(*AttrName);
-  bool AttributeIsTypeArgAttr = attributeIsTypeArgAttr(*AttrName);
+  bool AttributeIsTypeArgAttr = attributeIsTypeArgAttr(*AttrName, Syntax, ScopeName);
 
   // Interpret "kw_this" as an identifier if the attributed requests it.
   if (ChangeKWThisToIdent && Tok.is(tok::kw_this))
@@ -456,12 +456,6 @@ unsigned Parser::ParseAttributeArgsCommon(
         Tok.setKind(tok::identifier);
 
       ExprResult ArgExpr;
-<<<<<<< HEAD
-      if (Tok.is(tok::identifier) &&
-#if INTEL_CUSTOMIZATION
-          attributeHasVariadicIdentifierArg(*AttrName)) {
-#endif // INTEL_CUSTOMIZATION
-=======
       if (AttributeIsTypeArgAttr) {
         TypeResult T = ParseTypeName();
         if (T.isInvalid()) {
@@ -473,7 +467,6 @@ unsigned Parser::ParseAttributeArgsCommon(
         break; // FIXME: Multiple type arguments are not implemented.
       } else if (Tok.is(tok::identifier) &&
                  attributeHasVariadicIdentifierArg(*AttrName)) {
->>>>>>> d293cbd5fd44549bb48314499bc3b266d8967249
         ArgExprs.push_back(ParseIdentifierLoc());
       } else {
 #if INTEL_CUSTOMIZATION
