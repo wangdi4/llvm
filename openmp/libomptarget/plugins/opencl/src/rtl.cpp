@@ -18,9 +18,7 @@
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
-#include <dlfcn.h>
 #include <fstream>
-#include <gelf.h>
 #include <list>
 #include <map>
 #include <memory>
@@ -29,8 +27,13 @@
 #include <stdlib.h>
 #include <sstream>
 #include <string>
-#include <unistd.h>
 #include <vector>
+#ifdef _WIN32
+#include <Windows.h>
+#else
+#include <dlfcn.h>
+#include <unistd.h>
+#endif
 
 #include "omptargetplugin.h"
 
@@ -160,6 +163,11 @@ static const char *getCLErrorName(int error) {
 #define INVOKE_CL_RET_NULL(fn, ...) INVOKE_CL_RET(NULL, fn, __VA_ARGS__)
 
 #define OFFLOADSECTIONNAME ".omp_offloading.entries"
+#ifdef _WIN32
+#define DEVICE_RTL_NAME "..\\lib\\libomptarget-opencl.spv"
+#else
+#define DEVICE_RTL_NAME "libomptarget-opencl.spv"
+#endif
 
 //#pragma OPENCL EXTENSION cl_khr_spir : enable
 
@@ -533,6 +541,7 @@ static void dumpImageToFile(
 #if INTEL_CUSTOMIZATION
 #if INTEL_INTERNAL_BUILD
 #ifdef OMPTARGET_OPENCL_DEBUG
+#ifndef _WIN32
   if (DebugLevel <= 0)
     return;
 
@@ -554,9 +563,33 @@ static void dumpImageToFile(
 
   if (close(TmpFileFd) < 0)
     DPI("Error closing temporary file %s: %s\n", TmpFileName, strerror(errno));
+#endif  // !_WIN32
 #endif  // OMPTARGET_OPENCL_DEBUG
 #endif  // INTEL_INTERNAL_BUILD
 #endif  // INTEL_CUSTOMIZATION
+}
+
+static std::string getDeviceRTLPath() {
+  std::string rtl_path;
+#ifdef _WIN32
+  char path[_MAX_PATH];
+  HMODULE module = nullptr;
+  if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                          GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                          (LPCSTR) &DeviceInfo, &module))
+    return rtl_path;
+  if (!GetModuleFileNameA(module, path, sizeof(path)))
+    return rtl_path;
+  rtl_path = path;
+#else
+  Dl_info rtl_info;
+  if (!dladdr(&DeviceInfo, &rtl_info))
+    return rtl_path;
+  rtl_path = rtl_info.dli_fname;
+#endif
+  size_t split = rtl_path.find_last_of("/\\");
+  rtl_path.replace(split + 1, std::string::npos, DEVICE_RTL_NAME);
+  return rtl_path;
 }
 
 __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
@@ -574,41 +607,35 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   cl_program program[3];
   cl_uint num_programs = 0;
 
-  // Create program for the device RTL if it exits.
-  Dl_info rtl_info;
+  std::string device_rtl_path = getDeviceRTLPath();
+  std::ifstream device_rtl(device_rtl_path, std::ios::binary);
 
-  if (dladdr(&DeviceInfo, &rtl_info)) {
-    std::string device_rtl_base = "libomptarget-opencl.spv";
-    std::string device_rtl_path = rtl_info.dli_fname;
-    size_t split = device_rtl_path.find_last_of("/\\");
-    device_rtl_path.replace(split + 1, std::string::npos, device_rtl_base);
-    std::ifstream device_rtl(device_rtl_path, std::ios::binary);
-
-    if (device_rtl.is_open()) {
-      DP("Found device RTL: %s\n", device_rtl_path.c_str());
-      device_rtl.seekg(0, device_rtl.end);
-      int device_rtl_len = device_rtl.tellg();
-      std::string device_rtl_bin(device_rtl_len, '\0');
-      device_rtl.seekg(0);
-      if (!device_rtl.read(&device_rtl_bin[0], device_rtl_len)) {
-        DP("I/O Error: Failed to read device RTL.\n");
-        return NULL;
-      }
-
-      dumpImageToFile(device_rtl_bin.c_str(), device_rtl_len, "RTL");
-
-      program[0] = clCreateProgramWithIL(DeviceInfo.CTX[device_id],
-                                         device_rtl_bin.c_str(), device_rtl_len,
-                                         &status);
-      if (status != CL_SUCCESS) {
-        DP("Error: Failed to create device RTL from IL: %d\n", status);
-        return NULL;
-      }
-
-      INVOKE_CL_RET_NULL(clCompileProgram, program[0], 0, nullptr, nullptr, 0,
-                         nullptr, nullptr, nullptr, nullptr);
-      num_programs++;
+  if (device_rtl.is_open()) {
+    DP("Found device RTL: %s\n", device_rtl_path.c_str());
+    device_rtl.seekg(0, device_rtl.end);
+    int device_rtl_len = device_rtl.tellg();
+    std::string device_rtl_bin(device_rtl_len, '\0');
+    device_rtl.seekg(0);
+    if (!device_rtl.read(&device_rtl_bin[0], device_rtl_len)) {
+      DP("I/O Error: Failed to read device RTL.\n");
+      return NULL;
     }
+
+    dumpImageToFile(device_rtl_bin.c_str(), device_rtl_len, "RTL");
+
+    program[0] = clCreateProgramWithIL(DeviceInfo.CTX[device_id],
+                                       device_rtl_bin.c_str(), device_rtl_len,
+                                       &status);
+    if (status != CL_SUCCESS) {
+      DP("Error: Failed to create device RTL from IL: %d\n", status);
+      return NULL;
+    }
+
+    INVOKE_CL_RET_NULL(clCompileProgram, program[0], 0, nullptr, nullptr, 0,
+                       nullptr, nullptr, nullptr, nullptr);
+    num_programs++;
+  } else {
+    DP("Cannot find device RTL: %s\n", device_rtl_path.c_str());
   }
 
   // Create program for the target regions.
