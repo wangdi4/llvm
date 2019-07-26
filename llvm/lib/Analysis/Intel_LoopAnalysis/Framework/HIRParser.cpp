@@ -2595,7 +2595,8 @@ void HIRParser::parseCompare(const Value *Cond, unsigned Level,
                              SmallVectorImpl<RegDDRef *> &Refs,
                              bool AllowMultiplePreds) {
 
-  assert(Cond->getType()->isIntegerTy(1) && "Condition should be i1 type!");
+  assert(Cond->getType()->getScalarType()->isIntegerTy(1) &&
+         "Condition should be i1 or <n x i1> type!");
 
   if (auto *CInst = dyn_cast<CmpInst>(Cond)) {
 

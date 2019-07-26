@@ -518,13 +518,26 @@ bool HIRRegionIdentification::isSupported(Type *Ty, bool IsGEPRelated,
 }
 
 bool HIRRegionIdentification::containsUnsupportedTy(
-    const GEPOrSubsOperator *GEPOp, const Loop *Lp) {
-  // Subscript intrinsic indexes only a single type which is
-  // PointerOperandType.
-  if (isa<SubscriptInst>(GEPOp)) {
-    return !isSupported(GEPOp->getPointerOperandType(), true, Lp);
+    const GEPOrSubsOperator *GEPOrSubs, const Loop *Lp) {
+
+  if (auto *SubInst = dyn_cast<SubscriptInst>(GEPOrSubs)) {
+    // Subscript intrinsic can contain vector types.
+    return !isSupported(SubInst->getPointerOperandType(), true, Lp) ||
+           !isSupported(SubInst->getIndex()->getType(), true, Lp) ||
+           !isSupported(SubInst->getStride()->getType(), true, Lp);
   }
 
+  auto *GEPOp = cast<GEPOperator>(GEPOrSubs);
+
+  for (unsigned I = 0, NumOp = GEPOp->getNumOperands(); I < NumOp; ++I) {
+    if (!isSupported(GEPOp->getOperand(I)->getType(), true, Lp)) {
+      return true;
+    }
+  }
+
+  // We need to check 'indexed' types as well as they can contain vector types
+  // even if indices don't. This is possible when indexing structures which
+  // contain vector elements.
   for (auto I = gep_type_begin(GEPOp), E = gep_type_end(GEPOp); I != E; ++I) {
     if (!isSupported(I.getIndexedType(), true, Lp)) {
       return true;
