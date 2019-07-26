@@ -114,11 +114,8 @@
 #include "llvm/Transforms/Instrumentation/MemorySanitizer.h"
 #include "llvm/Transforms/Instrumentation/PGOInstrumentation.h"
 #include "llvm/Transforms/Instrumentation/PoisonChecking.h"
-<<<<<<< HEAD
-#include "llvm/Transforms/Intel_OpenCLTransforms/FMASplitter.h" // INTEL
-=======
 #include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
->>>>>>> 007f674c6a4e47cf3a290c0e2d5ba96483d0f8dc
+#include "llvm/Transforms/Intel_OpenCLTransforms/FMASplitter.h" // INTEL
 #include "llvm/Transforms/Instrumentation/ThreadSanitizer.h"
 #include "llvm/Transforms/Scalar/ADCE.h"
 #include "llvm/Transforms/Scalar/IVSplit.h" // INTEL
