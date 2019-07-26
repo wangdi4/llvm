@@ -27,7 +27,12 @@ namespace intel {
 class OCLPostVect : public llvm::ModulePass {
 
 private:
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+
   bool runOnModule(Module &M) override;
+
+  bool isKernelVectorizationProfitable(Module &M, Function *F,
+                                       Function *ClonedKernel);
 
   /// Checks if there are openmp directives in the kernel. If not, then the
   /// kernel was vectorized.

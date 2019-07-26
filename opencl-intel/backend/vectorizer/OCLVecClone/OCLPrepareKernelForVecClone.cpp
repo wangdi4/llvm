@@ -29,6 +29,7 @@
 /// NOTE: This version only vectorizes x dimension and there is not support for
 /// masks.
 // ===--------------------------------------------------------------------=== //
+#include "OCLVecClone.h"
 #include "OCLPrepareKernelForVecClone.h"
 #include "InitializePasses.h"
 #include "MetadataAPI.h"
@@ -42,19 +43,6 @@
 
 using namespace llvm;
 using namespace Intel::MetadataAPI;
-
-enum IsaEncodingValue {
-  AVX512Core = 'e',
-  AVX2 = 'd',
-  AVX1 = 'c',
-  SSE42 = 'b'
-};
-
-static cl::opt<IsaEncodingValue> CPUIsaEncodingOverride(
-    "ocl-vec-clone-isa-encoding-override", cl::Hidden,
-    cl::desc("Override target CPU ISA encoding for the OCL Vec Clone pass."),
-    cl::values(clEnumVal(AVX512Core, "AVX512Core"), clEnumVal(AVX2, "AVX2"),
-               clEnumVal(AVX1, "AVX1"), clEnumVal(SSE42, "SSE42")));
 
 namespace intel {
 
