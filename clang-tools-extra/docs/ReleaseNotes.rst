@@ -125,6 +125,12 @@ Improvements to clang-tidy
   repeated branches in ``switch`` statements and indentical true and false
   branches in conditional operators.
 
+- New :doc:`bugprone-posix-return
+  <clang-tidy/checks/bugprone-posix-return>` check.
+
+  Checks if any calls to POSIX functions (except ``posix_openpt``) expect negative
+  return values.
+
 - New :doc:`fuchsia-default-arguments-calls
   <clang-tidy/checks/fuchsia-default-arguments-calls>` check.
 
@@ -223,6 +229,11 @@ Improvements to clang-tidy
 
   If set to true, the check will provide fix-its with literal initializers
   (``int i = 0;``) instead of curly braces (``int i{};``).
+
+- New :doc:`readability-convert-member-functions-to-static
+  <clang-tidy/checks/readability-convert-member-functions-to-static>` check.
+
+  Finds non-static member functions that can be made ``static``.
 
 Improvements to include-fixer
 -----------------------------

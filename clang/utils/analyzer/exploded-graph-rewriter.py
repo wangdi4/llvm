@@ -13,9 +13,16 @@ from __future__ import print_function
 
 import argparse
 import collections
+import difflib
 import json
 import logging
+import os
 import re
+
+
+#===-----------------------------------------------------------------------===#
+# These data structures represent a deserialized ExplodedGraph.
+#===-----------------------------------------------------------------------===#
 
 
 # A helper function for finding the difference between two dictionaries.
@@ -42,10 +49,16 @@ class GenericMap(object):
 class SourceLocation(object):
     def __init__(self, json_loc):
         super(SourceLocation, self).__init__()
+        logging.debug('json: %s' % json_loc)
         self.line = json_loc['line']
         self.col = json_loc['column']
-        self.filename = json_loc['filename'] \
-            if 'filename' in json_loc else '(main file)'
+        self.filename = os.path.basename(json_loc['file']) \
+            if 'file' in json_loc else '(main file)'
+        self.spelling = SourceLocation(json_loc['spelling']) \
+            if 'spelling' in json_loc else None
+
+    def is_macro(self):
+        return self.spelling is not None
 
 
 # A deserialized program point.
@@ -58,8 +71,10 @@ class ProgramPoint(object):
             self.src_id = json_pp['src_id']
             self.dst_id = json_pp['dst_id']
         elif self.kind == 'Statement':
+            logging.debug(json_pp)
             self.stmt_kind = json_pp['stmt_kind']
             self.stmt_point_kind = json_pp['stmt_point_kind']
+            self.stmt_id = json_pp['stmt_id']
             self.pointer = json_pp['pointer']
             self.pretty = json_pp['pretty']
             self.loc = SourceLocation(json_pp['location']) \
@@ -95,7 +110,8 @@ class LocationContext(object):
         self.lctx_id = json_frame['lctx_id']
         self.caption = json_frame['location_context']
         self.decl = json_frame['calling']
-        self.line = json_frame['call_line']
+        self.loc = SourceLocation(json_frame['location']) \
+            if json_frame['location'] is not None else None
 
     def _key(self):
         return self.lctx_id
@@ -211,6 +227,41 @@ class Store(object):
         return len(removed) != 0 or len(added) != 0 or len(updated) != 0
 
 
+# Deserialized messages from a single checker in a single program state.
+# Basically a list of raw strings.
+class CheckerLines(object):
+    def __init__(self, json_lines):
+        super(CheckerLines, self).__init__()
+        self.lines = json_lines
+
+    def diff_lines(self, prev):
+        lines = difflib.ndiff(prev.lines, self.lines)
+        return [l.strip() for l in lines
+                if l.startswith('+') or l.startswith('-')]
+
+    def is_different(self, prev):
+        return len(self.diff_lines(prev)) > 0
+
+
+# Deserialized messages of all checkers, separated by checker.
+class CheckerMessages(object):
+    def __init__(self, json_m):
+        super(CheckerMessages, self).__init__()
+        self.items = collections.OrderedDict(
+            [(m['checker'], CheckerLines(m['messages'])) for m in json_m])
+
+    def diff_messages(self, prev):
+        removed = [k for k in prev.items if k not in self.items]
+        added = [k for k in self.items if k not in prev.items]
+        updated = [k for k in prev.items if k in self.items
+                   and prev.items[k].is_different(self.items[k])]
+        return (removed, added, updated)
+
+    def is_different(self, prev):
+        removed, added, updated = self.diff_messages(prev)
+        return len(removed) != 0 or len(added) != 0 or len(updated) != 0
+
+
 # A deserialized program state.
 class ProgramState(object):
     def __init__(self, state_id, json_ps):
@@ -241,7 +292,8 @@ class ProgramState(object):
             GenericEnvironment(json_ps['constructing_objects']) \
             if json_ps['constructing_objects'] is not None else None
 
-        # TODO: Checker messages.
+        self.checker_messages = CheckerMessages(json_ps['checker_messages']) \
+            if json_ps['checker_messages'] is not None else None
 
 
 # A deserialized exploded graph node. Has a default constructor because it
@@ -257,6 +309,8 @@ class ExplodedNode(object):
         logging.debug('Adding ' + node_id)
         self.node_id = json_node['node_id']
         self.ptr = json_node['pointer']
+        self.has_report = json_node['has_report']
+        self.is_sink = json_node['is_sink']
         self.points = [ProgramPoint(p) for p in json_node['program_points']]
         self.state = ProgramState(json_node['state_id'],
                                   json_node['program_state']) \
@@ -331,27 +385,38 @@ class ExplodedGraph(object):
         logging.debug('Skipping.')
 
 
+#===-----------------------------------------------------------------------===#
+# Visitors traverse a deserialized ExplodedGraph and do different things
+# with every node and edge.
+#===-----------------------------------------------------------------------===#
+
+
 # A visitor that dumps the ExplodedGraph into a DOT file with fancy HTML-based
 # syntax highlighing.
 class DotDumpVisitor(object):
-    def __init__(self, do_diffs, dark_mode):
+    def __init__(self, do_diffs, dark_mode, gray_mode, topo_mode):
         super(DotDumpVisitor, self).__init__()
         self._do_diffs = do_diffs
         self._dark_mode = dark_mode
+        self._gray_mode = gray_mode
+        self._topo_mode = topo_mode
 
     @staticmethod
     def _dump_raw(s):
         print(s, end='')
 
-    @staticmethod
-    def _dump(s):
-        print(s.replace('&', '&amp;')
-               .replace('{', '\\{')
-               .replace('}', '\\}')
-               .replace('\\<', '&lt;')
-               .replace('\\>', '&gt;')
-               .replace('\\l', '<br />')
-               .replace('|', '\\|'), end='')
+    def _dump(self, s):
+        s = s.replace('&', '&amp;') \
+             .replace('{', '\\{') \
+             .replace('}', '\\}') \
+             .replace('\\<', '&lt;') \
+             .replace('\\>', '&gt;') \
+             .replace('\\l', '<br />') \
+             .replace('|', '\\|')
+        if self._gray_mode:
+            s = re.sub(r'<font color="[a-z0-9]*">', '', s)
+            s = re.sub(r'</font>', '', s)
+        self._dump_raw(s)
 
     @staticmethod
     def _diff_plus_minus(is_added):
@@ -360,6 +425,37 @@ class DotDumpVisitor(object):
         if is_added:
             return '<font color="forestgreen">+</font>'
         return '<font color="red">-</font>'
+
+    @staticmethod
+    def _short_pretty(s):
+        if s is None:
+            return None
+        if len(s) < 20:
+            return s
+        left = s.find('{')
+        right = s.rfind('}')
+        if left == -1 or right == -1 or left >= right:
+            return s
+        candidate = s[0:left + 1] + ' ... ' + s[right:]
+        if len(candidate) >= len(s):
+            return s
+        return candidate
+
+    @staticmethod
+    def _make_sloc(loc):
+        if loc is None:
+            return '<i>Invalid Source Location</i>'
+
+        def make_plain_loc(loc):
+            return '%s:<b>%s</b>:<b>%s</b>' \
+                % (loc.filename, loc.line, loc.col)
+
+        if loc.is_macro():
+            return '%s <font color="royalblue1">' \
+                   '(<i>spelling at </i> %s)</font>' \
+                % (make_plain_loc(loc), make_plain_loc(loc.spelling))
+
+        return make_plain_loc(loc)
 
     def visit_begin_graph(self, graph):
         self._graph = graph
@@ -386,27 +482,16 @@ class DotDumpVisitor(object):
             # Such statements show up only at [Pre|Post]StmtPurgeDeadSymbols
             skip_pretty = 'PurgeDeadSymbols' in p.stmt_point_kind
             stmt_color = 'cyan3'
-            if p.loc is not None:
-                self._dump('<tr><td align="left" width="0">'
-                           '%s:<b>%s</b>:<b>%s</b>:</td>'
-                           '<td align="left" width="0"><font color="%s">'
-                           '%s</font></td>'
-                           '<td align="left"><font color="%s">%s</font></td>'
-                           '<td>%s</td></tr>'
-                           % (p.loc.filename, p.loc.line,
-                              p.loc.col, color, p.stmt_kind,
-                              stmt_color, p.stmt_point_kind,
-                              p.pretty if not skip_pretty else ''))
-            else:
-                self._dump('<tr><td align="left" width="0">'
-                           '<i>Invalid Source Location</i>:</td>'
-                           '<td align="left" width="0">'
-                           '<font color="%s">%s</font></td>'
-                           '<td align="left"><font color="%s">%s</font></td>'
-                           '<td>%s</td></tr>'
-                           % (color, p.stmt_kind,
-                              stmt_color, p.stmt_point_kind,
-                              p.pretty if not skip_pretty else ''))
+            self._dump('<tr><td align="left" width="0">%s:</td>'
+                       '<td align="left" width="0"><font color="%s">'
+                       '%s</font> </td>'
+                       '<td align="left"><i>S%s</i></td>'
+                       '<td align="left"><font color="%s">%s</font></td>'
+                       '<td align="left">%s</td></tr>'
+                       % (self._make_sloc(p.loc), color, p.stmt_kind,
+                          p.stmt_id, stmt_color, p.stmt_point_kind,
+                          self._short_pretty(p.pretty)
+                          if not skip_pretty else ''))
         elif p.kind == 'Edge':
             self._dump('<tr><td width="0"></td>'
                        '<td align="left" width="0">'
@@ -443,8 +528,8 @@ class DotDumpVisitor(object):
                        '%s</td></tr>'
                        % (self._diff_plus_minus(is_added),
                           lc.caption, lc.decl,
-                          ('(line %s)' % lc.line) if lc.line is not None
-                          else ''))
+                          ('(%s)' % self._make_sloc(lc.loc))
+                          if lc.loc is not None else ''))
 
         def dump_binding(f, b, is_added=None):
             self._dump('<tr><td>%s</td>'
@@ -459,7 +544,7 @@ class DotDumpVisitor(object):
                               'lavender' if self._dark_mode else 'darkgreen',
                               ('(%s)' % b.kind) if b.kind is not None else ' '
                           ),
-                          b.pretty, f.bindings[b]))
+                          self._short_pretty(b.pretty), f.bindings[b]))
 
         frames_updated = e.diff_frames(prev_e) if prev_e is not None else None
         if frames_updated:
@@ -595,16 +680,73 @@ class DotDumpVisitor(object):
         if m is None:
             self._dump('<i> Nothing!</i>')
         else:
-            if prev_s is not None:
-                if prev_m is not None:
-                    if m.is_different(prev_m):
-                        self._dump('</td></tr><tr><td align="left">')
-                        self.visit_generic_map(m, prev_m)
-                    else:
-                        self._dump('<i> No changes!</i>')
-            if prev_m is None:
+            if prev_m is not None:
+                if m.is_different(prev_m):
+                    self._dump('</td></tr><tr><td align="left">')
+                    self.visit_generic_map(m, prev_m)
+                else:
+                    self._dump('<i> No changes!</i>')
+            else:
                 self._dump('</td></tr><tr><td align="left">')
                 self.visit_generic_map(m)
+
+        self._dump('</td></tr>')
+
+    def visit_checker_messages(self, m, prev_m=None):
+        self._dump('<table border="0">')
+
+        def dump_line(l, is_added=None):
+            self._dump('<tr><td>%s</td>'
+                       '<td align="left">%s</td></tr>'
+                       % (self._diff_plus_minus(is_added), l))
+
+        def dump_chk(chk, is_added=None):
+            dump_line('<i>%s</i>:' % chk, is_added)
+
+        if prev_m is not None:
+            removed, added, updated = m.diff_messages(prev_m)
+            for chk in removed:
+                dump_chk(chk, False)
+                for l in prev_m.items[chk].lines:
+                    dump_line(l, False)
+            for chk in updated:
+                dump_chk(chk)
+                for l in m.items[chk].diff_lines(prev_m.items[chk]):
+                    dump_line(l[1:], l.startswith('+'))
+            for chk in added:
+                dump_chk(chk, True)
+                for l in m.items[chk].lines:
+                    dump_line(l, True)
+        else:
+            for chk in m.items:
+                dump_chk(chk)
+                for l in m.items[chk].lines:
+                    dump_line(l)
+
+        self._dump('</table>')
+
+    def visit_checker_messages_in_state(self, s, prev_s=None):
+        m = s.checker_messages
+        prev_m = prev_s.checker_messages if prev_s is not None else None
+        if m is None and prev_m is None:
+            return
+
+        self._dump('<hr />')
+        self._dump('<tr><td align="left">'
+                   '<b>Checker State: </b>')
+        if m is None:
+            self._dump('<i> Nothing!</i>')
+        else:
+            if prev_m is not None:
+                if m.is_different(prev_m):
+                    self._dump('</td></tr><tr><td align="left">')
+                    self.visit_checker_messages(m, prev_m)
+                else:
+                    self._dump('<i> No changes!</i>')
+            else:
+                self._dump('</td></tr><tr><td align="left">')
+                self.visit_checker_messages(m)
+
         self._dump('</td></tr>')
 
     def visit_state(self, s, prev_s):
@@ -618,6 +760,7 @@ class DotDumpVisitor(object):
         self.visit_environment_in_state('constructing_objects',
                                         'Objects Under Construction',
                                         s, prev_s)
+        self.visit_checker_messages_in_state(s, prev_s)
 
     def visit_node(self, node):
         self._dump('%s [shape=record,'
@@ -631,18 +774,25 @@ class DotDumpVisitor(object):
                    % ("gray20" if self._dark_mode else "gray",
                       node.node_id, node.ptr, node.state.state_id
                       if node.state is not None else 'Unspecified'))
-        self._dump('<tr><td align="left" width="0">')
-        if len(node.points) > 1:
-            self._dump('<b>Program points:</b></td></tr>')
-        else:
-            self._dump('<b>Program point:</b></td></tr>')
+        if node.has_report:
+            self._dump('<tr><td><font color="red"><b>Bug Report Attached'
+                       '</b></font></td></tr>')
+        if node.is_sink:
+            self._dump('<tr><td><font color="cornflowerblue"><b>Sink Node'
+                       '</b></font></td></tr>')
+        if not self._topo_mode:
+            self._dump('<tr><td align="left" width="0">')
+            if len(node.points) > 1:
+                self._dump('<b>Program points:</b></td></tr>')
+            else:
+                self._dump('<b>Program point:</b></td></tr>')
         self._dump('<tr><td align="left" width="0">'
                    '<table border="0" align="left" width="0">')
         for p in node.points:
             self.visit_program_point(p)
         self._dump('</table></td></tr>')
 
-        if node.state is not None:
+        if node.state is not None and not self._topo_mode:
             prev_s = None
             # Do diffs only when we have a unique predecessor.
             # Don't do diffs on the leaf nodes because they're
@@ -663,11 +813,16 @@ class DotDumpVisitor(object):
         self._dump_raw('}\n')
 
 
-# A class that encapsulates traversal of the ExplodedGraph. Different explorer
-# kinds could potentially traverse specific sub-graphs.
-class Explorer(object):
+#===-----------------------------------------------------------------------===#
+# Explorers know how to traverse the ExplodedGraph in a certain order.
+# They would invoke a Visitor on every node or edge they encounter.
+#===-----------------------------------------------------------------------===#
+
+
+# BasicExplorer explores the whole graph in no particular order.
+class BasicExplorer(object):
     def __init__(self):
-        super(Explorer, self).__init__()
+        super(BasicExplorer, self).__init__()
 
     def explore(self, graph, visitor):
         visitor.visit_begin_graph(graph)
@@ -680,6 +835,44 @@ class Explorer(object):
         visitor.visit_end_of_graph()
 
 
+# SinglePathExplorer traverses only a single path - the leftmost path
+# from the root. Useful when the trimmed graph is still too large
+# due to a large amount of equivalent reports.
+class SinglePathExplorer(object):
+    def __init__(self):
+        super(SinglePathExplorer, self).__init__()
+
+    def explore(self, graph, visitor):
+        visitor.visit_begin_graph(graph)
+
+        # Keep track of visited nodes in order to avoid loops.
+        visited = set()
+        node_id = graph.root_id
+        while True:
+            visited.add(node_id)
+            node = graph.nodes[node_id]
+            logging.debug('Visiting ' + node_id)
+            visitor.visit_node(node)
+            if len(node.successors) == 0:
+                break
+
+            succ_id = node.successors[0]
+            succ = graph.nodes[succ_id]
+            logging.debug('Visiting edge: %s -> %s ' % (node_id, succ_id))
+            visitor.visit_edge(node, succ)
+            if succ_id in visited:
+                break
+
+            node_id = succ_id
+
+        visitor.visit_end_of_graph()
+
+
+#===-----------------------------------------------------------------------===#
+# The entry point to the script.
+#===-----------------------------------------------------------------------===#
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('filename', type=str)
@@ -690,9 +883,20 @@ def main():
     parser.add_argument('-d', '--diff', action='store_const', dest='diff',
                         const=True, default=False,
                         help='display differences between states')
+    parser.add_argument('-t', '--topology', action='store_const',
+                        dest='topology', const=True, default=False,
+                        help='only display program points, omit states')
+    parser.add_argument('-s', '--single-path', action='store_const',
+                        dest='single_path', const=True, default=False,
+                        help='only display the leftmost path in the graph '
+                             '(useful for trimmed graphs that still '
+                             'branch too much)')
     parser.add_argument('--dark', action='store_const', dest='dark',
                         const=True, default=False,
                         help='dark mode')
+    parser.add_argument('--gray', action='store_const', dest='gray',
+                        const=True, default=False,
+                        help='black-and-white mode')
     args = parser.parse_args()
     logging.basicConfig(level=args.loglevel)
 
@@ -702,8 +906,9 @@ def main():
             raw_line = raw_line.strip()
             graph.add_raw_line(raw_line)
 
-    explorer = Explorer()
-    visitor = DotDumpVisitor(args.diff, args.dark)
+    explorer = SinglePathExplorer() if args.single_path else BasicExplorer()
+    visitor = DotDumpVisitor(args.diff, args.dark, args.gray, args.topology)
+
     explorer.explore(graph, visitor)
 
 

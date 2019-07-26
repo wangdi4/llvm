@@ -28,7 +28,7 @@
 // CHECK-SAME: </table>
 Node0x1 [shape=record,label=
  "{
-    { "node_id": 1, "pointer": "0x1",
+    { "node_id": 1, "pointer": "0x1", "has_report": false, "is_sink": false,
       "program_state": null, "program_points": [
       {
         "kind": "Edge",
@@ -52,15 +52,16 @@ Node0x1 [shape=record,label=
 // CHECK-SAME: <table border="0" align="left" width="0">
 // CHECK-SAME:   <tr>
 // CHECK-SAME:     <td align="left" width="0">
-// CHECK-SAME:       (main file):<b>4</b>:<b>5</b>:
+// CHECK-SAME:       main.cpp:<b>4</b>:<b>5</b>:
 // CHECK-SAME:     </td>
 // CHECK-SAME:     <td align="left" width="0">
 // CHECK-SAME:       <font color="cyan4">DeclRefExpr</font>
 // CHECK-SAME:     </td>
+// CHECK-SAME:     <td align="left"><i>S3</i></td>
 // CHECK-SAME:     <td align="left">
 // CHECK-SAME:       <font color="cyan3">PreStmt</font>
 // CHECK-SAME:     </td>
-// CHECK-SAME:     <td>x</td>
+// CHECK-SAME:     <td align="left">x</td>
 // CHECK-SAME:   </tr>
 // CHECK-SAME:   <tr>
 // CHECK-SAME:     <td width="0">
@@ -73,18 +74,43 @@ Node0x1 [shape=record,label=
 // CHECK-SAME: </table>
 Node0x2 [shape=record,label=
  "{
-    { "node_id": 2, "pointer": "0x2",
+    { "node_id": 2, "pointer": "0x2", "has_report": false, "is_sink": false,
       "program_state": null, "program_points": [
       {
         "kind": "Statement",
         "stmt_kind": "DeclRefExpr",
         "stmt_point_kind": "PreStmt",
-        "stmd_id": 3,
+        "stmt_id": 3,
         "pointer": "0x3",
         "pretty": "x",
         "location": {
+          "file": "main.cpp",
           "line": 4,
           "column": 5
+        },
+        "tag": "ExprEngine : Clean Node"
+      }
+    ]}
+\l}"];
+
+// Test collapsing large pretty prints with braces.
+
+// CHECK-NEXT: <b>Program point:</b>
+// CHECK-SAME: <td align="left">\{ ... \}</td>
+Node0x3 [shape=record,label=
+ "{
+    { "node_id": 3, "pointer": "0x3", "has_report": false, "is_sink": false,
+      "program_state": null, "program_points": [
+      {
+        "kind": "Statement",
+        "stmt_kind": "CompoundStmt",
+        "stmt_point_kind": "PostStmt",
+        "stmt_id": 6,
+        "pointer": "0x6",
+        "pretty": "{ very very very very very very long pretty print }",
+        "location": {
+          "line": 7,
+          "column": 8
         },
         "tag": "ExprEngine : Clean Node"
       }

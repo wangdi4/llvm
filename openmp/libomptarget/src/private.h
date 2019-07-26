@@ -68,6 +68,7 @@ extern "C" {
 // libomp has to be linked in to satisfy these dependencies.
 __declspec(dllimport) int omp_get_default_device(void);
 __declspec(dllimport) int32_t __kmpc_omp_taskwait(void *loc_ref, int32_t gtid);
+__declspec(dllimport) int32_t __kmpc_global_thread_num(void *);
 __declspec(dllimport) int __kmpc_get_target_offload(void);
 #else
 // We do not have to make these weak just to be able
@@ -76,11 +77,13 @@ __declspec(dllimport) int __kmpc_get_target_offload(void);
 // is not passed to the linker, so just keep it as-is.
 int omp_get_default_device(void) __attribute__((weak));
 int32_t __kmpc_omp_taskwait(void *loc_ref, int32_t gtid) __attribute__((weak));
+int32_t __kmpc_global_thread_num(void *) __attribute__((weak));
 int __kmpc_get_target_offload(void) __attribute__((weak));
 #endif
 #else  // INTEL_COLLAB
 int omp_get_default_device(void) __attribute__((weak));
 int32_t __kmpc_omp_taskwait(void *loc_ref, int32_t gtid) __attribute__((weak));
+int32_t __kmpc_global_thread_num(void *) __attribute__((weak));
 int __kmpc_get_target_offload(void) __attribute__((weak));
 #endif // INTEL_COLLAB
 #ifdef __cplusplus

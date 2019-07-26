@@ -770,16 +770,33 @@ int target(int64_t device_id, void *host_ptr, int32_t arg_num,
       "Size mismatch in arguments and offsets");
 
   // Pop loop trip count
+  uint64_t ltc = 0;
 #if INTEL_COLLAB
-  uint64_t ltc;
   if (LoopLevel == 1)
+    // FIXME: we'd better introduce a new interface,
+    //        e.g. __kmpc_push_target_ndrange, instead of passing
+    //        the NDrange via arguments to __tgt_target.
+    //        This will require accumulating trip-counts and NDranges
+    //        in loopTripCnt map, but it will better align with
+    //        the current trip-count management.
     ltc = LoopCount;
-  else
-    ltc = Device.loopTripCnt;
-#else
-  uint64_t ltc = Device.loopTripCnt;
+  else {
+    TblMapMtx.lock();
+    auto I = Device.LoopTripCnt.find(__kmpc_global_thread_num(NULL));
+    if (I != Device.LoopTripCnt.end())
+      std::swap(ltc, I->second);
+    TblMapMtx.unlock();
+  }
+#else  // INTEL_COLLAB
+  TblMapMtx.lock();
+  auto I = Device.LoopTripCnt.find(__kmpc_global_thread_num(NULL));
+  if (I != Device.LoopTripCnt.end()) {
+    ltc = I->second;
+    Device.LoopTripCnt.erase(I);
+    DP("loop trip count is %lu.\n", ltc);
+  }
+  TblMapMtx.unlock();
 #endif // INTEL_COLLAB
-  Device.loopTripCnt = 0;
 
   // Launch device execution.
   DP("Launching target execution %s with pointer " DPxMOD " (index=%d).\n",
