@@ -3131,7 +3131,7 @@ FunctionKind ClassInfo::recognizeResize(Function *Fn) {
     // exit block of the loop.
     if (Pred0 != L->getLoopPreheader()->getSinglePredecessor())
       return false;
-    if (!L->isLoopExiting(Pred1))
+    if (L->contains(Pred1) && !L->isLoopExiting(Pred1))
       return false;
 
     // Make sure one incoming value is zero.

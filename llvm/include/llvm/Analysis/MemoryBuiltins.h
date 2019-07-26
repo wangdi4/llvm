@@ -18,7 +18,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/TargetFolder.h"
-#include "llvm/Analysis/TargetLibraryInfo.h" // INTEL - Needed for LibFunc enum
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstVisitor.h"
@@ -75,11 +75,6 @@ bool isCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI,
                     bool LookThroughBitCast = false);
 
 #if INTEL_CUSTOMIZATION
-/// Tests if a value is a call or invoke to a library function that
-/// reallocates memory (such as realloc).
-bool isReallocLikeFn(const Value *V, const TargetLibraryInfo *TLI,
-                    bool LookThroughBitCast = false);
-
 /// Tests if a value is a call or invoke to a library function that returns
 /// non-null result
 bool isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI,
@@ -95,6 +90,15 @@ bool isMallocOrCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI,
 /// allocates memory (either malloc, calloc, or strdup like).
 bool isAllocLikeFn(const Value *V, const TargetLibraryInfo *TLI,
                    bool LookThroughBitCast = false);
+
+/// Tests if a value is a call or invoke to a library function that
+/// reallocates memory (e.g., realloc).
+bool isReallocLikeFn(const Value *V, const TargetLibraryInfo *TLI,
+                     bool LookThroughBitCast = false);
+
+/// Tests if a function is a call or invoke to a library function that
+/// reallocates memory (e.g., realloc).
+bool isReallocLikeFn(const Function *F, const TargetLibraryInfo *TLI);
 
 #if INTEL_CUSTOMIZATION
 /// Returns indices of size arguments of Malloc-like functions.
@@ -159,7 +163,13 @@ inline CallInst *extractCallocCall(Value *I, const TargetLibraryInfo *TLI) {
 //  free Call Utility Functions.
 //
 
+/// isLibFreeFunction - Returns true if the function is a builtin free()
+bool isLibFreeFunction(const Function *F, const LibFunc TLIFn);
+
 #if INTEL_CUSTOMIZATION
+/// isLibDeleteFunction - Returns true if the function is a builtin delete()
+bool isLibDeleteFunction(const Function *F, const LibFunc TLIFn);
+
 /// isFreeCall - Returns non-null if the value is a call to the free(). Skip
 /// IsNoBuiltinCall check if \pCheckNoBuiltin is false (dtrans).
 const CallInst *isFreeCall(const Value *I, const TargetLibraryInfo *TLI,

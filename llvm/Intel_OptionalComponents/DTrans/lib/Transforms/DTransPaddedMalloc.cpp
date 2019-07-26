@@ -411,7 +411,7 @@ bool dtrans::PaddedMallocPass::isExitLoop(Loop *LoopData, BasicBlock *BB) {
     return false;
 
   for (BasicBlock *SuccBB : successors(BB)) {
-    if (LoopData->isLoopExiting(SuccBB))
+    if (LoopData->contains(SuccBB) && LoopData->isLoopExiting(SuccBB))
       return true;
   }
 

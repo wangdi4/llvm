@@ -174,7 +174,9 @@ void Instruction::dropPoisonGeneratingFlags() {
     cast<GetElementPtrInst>(this)->setIsInBounds(false);
     break;
   }
+  // TODO: FastMathFlags!
 }
+
 
 bool Instruction::isExact() const {
   return cast<PossiblyExactOperator>(this)->isExact();

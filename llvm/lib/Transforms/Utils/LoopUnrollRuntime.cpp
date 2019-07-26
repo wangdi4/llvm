@@ -435,10 +435,9 @@ CloneLoopBlocks(Loop *L, Value *NewIter, const bool CreateRemainderLoop,
 
 /// Returns true if we can safely unroll a multi-exit/exiting loop. OtherExits
 /// is populated with all the loop exit blocks other than the LatchExit block.
-static bool
-canSafelyUnrollMultiExitLoop(Loop *L, SmallVectorImpl<BasicBlock *> &OtherExits,
-                             BasicBlock *LatchExit, bool PreserveLCSSA,
-                             bool UseEpilogRemainder) {
+static bool canSafelyUnrollMultiExitLoop(Loop *L, BasicBlock *LatchExit,
+                                         bool PreserveLCSSA,
+                                         bool UseEpilogRemainder) {
 
   // We currently have some correctness constrains in unrolling a multi-exit
   // loop. Check for these below.
@@ -446,11 +445,6 @@ canSafelyUnrollMultiExitLoop(Loop *L, SmallVectorImpl<BasicBlock *> &OtherExits,
   // We rely on LCSSA form being preserved when the exit blocks are transformed.
   if (!PreserveLCSSA)
     return false;
-  SmallVector<BasicBlock *, 4> Exits;
-  L->getUniqueExitBlocks(Exits);
-  for (auto *BB : Exits)
-    if (BB != LatchExit)
-      OtherExits.push_back(BB);
 
   // TODO: Support multiple exiting blocks jumping to the `LatchExit` when
   // UnrollRuntimeMultiExit is true. This will need updating the logic in
@@ -480,9 +474,8 @@ static bool canProfitablyUnrollMultiExitLoop(
     bool PreserveLCSSA, bool UseEpilogRemainder) {
 
 #if !defined(NDEBUG)
-  SmallVector<BasicBlock *, 8> OtherExitsDummyCheck;
-  assert(canSafelyUnrollMultiExitLoop(L, OtherExitsDummyCheck, LatchExit,
-                                      PreserveLCSSA, UseEpilogRemainder) &&
+  assert(canSafelyUnrollMultiExitLoop(L, LatchExit, PreserveLCSSA,
+                                      UseEpilogRemainder) &&
          "Should be safe to unroll before checking profitability!");
 #endif
 
@@ -608,8 +601,9 @@ bool llvm::UnrollRuntimeLoopRemainder(Loop *L, unsigned Count,
 
   // These are exit blocks other than the target of the latch exiting block.
   SmallVector<BasicBlock *, 4> OtherExits;
+  L->getUniqueNonLatchExitBlocks(OtherExits);
   bool isMultiExitUnrollingEnabled =
-      canSafelyUnrollMultiExitLoop(L, OtherExits, LatchExit, PreserveLCSSA,
+      canSafelyUnrollMultiExitLoop(L, LatchExit, PreserveLCSSA,
                                    UseEpilogRemainder) &&
       canProfitablyUnrollMultiExitLoop(L, OtherExits, LatchExit, PreserveLCSSA,
                                        UseEpilogRemainder);

@@ -24,8 +24,8 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Triple.h"
-#include "llvm/Bitcode/BitCodes.h"
-#include "llvm/Bitcode/BitstreamWriter.h"
+#include "llvm/Bitstream/BitCodes.h"
+#include "llvm/Bitstream/BitstreamWriter.h"
 #include "llvm/Bitcode/LLVMBitCodes.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/IR/Attributes.h"
@@ -639,6 +639,8 @@ static uint64_t getAttrKindEncoding(Attribute::AttrKind Kind) {
     return bitc::ATTR_KIND_NO_CAPTURE;
   case Attribute::NoDuplicate:
     return bitc::ATTR_KIND_NO_DUPLICATE;
+  case Attribute::NoFree:
+    return bitc::ATTR_KIND_NOFREE;
   case Attribute::NoImplicitFloat:
     return bitc::ATTR_KIND_NO_IMPLICIT_FLOAT;
   case Attribute::NoInline:
@@ -657,6 +659,8 @@ static uint64_t getAttrKindEncoding(Attribute::AttrKind Kind) {
     return bitc::ATTR_KIND_NO_RED_ZONE;
   case Attribute::NoReturn:
     return bitc::ATTR_KIND_NO_RETURN;
+  case Attribute::NoSync:
+    return bitc::ATTR_KIND_NOSYNC;
   case Attribute::NoCfCheck:
     return bitc::ATTR_KIND_NOCF_CHECK;
   case Attribute::NoUnwind:
@@ -719,6 +723,8 @@ static uint64_t getAttrKindEncoding(Attribute::AttrKind Kind) {
     return bitc::ATTR_KIND_Z_EXT;
   case Attribute::ImmArg:
     return bitc::ATTR_KIND_IMMARG;
+  case Attribute::SanitizeMemTag:
+    return bitc::ATTR_KIND_SANITIZE_MEMTAG;
   case Attribute::EndAttrKinds:
     llvm_unreachable("Can not encode end-attribute kinds marker.");
   case Attribute::None:
@@ -941,10 +947,13 @@ void ModuleBitcodeWriter::writeTypeTable() {
     }
     case Type::VectorTyID: {
       VectorType *VT = cast<VectorType>(T);
-      // VECTOR [numelts, eltty]
+      // VECTOR [numelts, eltty] or
+      //        [numelts, eltty, scalable]
       Code = bitc::TYPE_CODE_VECTOR;
       TypeVals.push_back(VT->getNumElements());
       TypeVals.push_back(VE.getTypeID(VT->getElementType()));
+      if (VT->isScalable())
+        TypeVals.push_back(VT->isScalable());
       break;
     }
     }
@@ -3986,9 +3995,13 @@ void IndexBitcodeWriter::writeCombinedGlobalValueSummary() {
     NameVals.clear();
   };
 
+  std::set<GlobalValue::GUID> DefOrUseGUIDs;
   forEachSummary([&](GVInfo I, bool IsAliasee) {
     GlobalValueSummary *S = I.second;
     assert(S);
+    DefOrUseGUIDs.insert(I.first);
+    for (const ValueInfo &VI : S->refs())
+      DefOrUseGUIDs.insert(VI.getGUID());
 
     auto ValueId = getValueId(I.first);
     assert(ValueId);
@@ -4133,20 +4146,30 @@ void IndexBitcodeWriter::writeCombinedGlobalValueSummary() {
 
   if (!Index.cfiFunctionDefs().empty()) {
     for (auto &S : Index.cfiFunctionDefs()) {
-      NameVals.push_back(StrtabBuilder.add(S));
-      NameVals.push_back(S.size());
+      if (DefOrUseGUIDs.count(
+              GlobalValue::getGUID(GlobalValue::dropLLVMManglingEscape(S)))) {
+        NameVals.push_back(StrtabBuilder.add(S));
+        NameVals.push_back(S.size());
+      }
     }
-    Stream.EmitRecord(bitc::FS_CFI_FUNCTION_DEFS, NameVals);
-    NameVals.clear();
+    if (!NameVals.empty()) {
+      Stream.EmitRecord(bitc::FS_CFI_FUNCTION_DEFS, NameVals);
+      NameVals.clear();
+    }
   }
 
   if (!Index.cfiFunctionDecls().empty()) {
     for (auto &S : Index.cfiFunctionDecls()) {
-      NameVals.push_back(StrtabBuilder.add(S));
-      NameVals.push_back(S.size());
+      if (DefOrUseGUIDs.count(
+              GlobalValue::getGUID(GlobalValue::dropLLVMManglingEscape(S)))) {
+        NameVals.push_back(StrtabBuilder.add(S));
+        NameVals.push_back(S.size());
+      }
     }
-    Stream.EmitRecord(bitc::FS_CFI_FUNCTION_DECLS, NameVals);
-    NameVals.clear();
+    if (!NameVals.empty()) {
+      Stream.EmitRecord(bitc::FS_CFI_FUNCTION_DECLS, NameVals);
+      NameVals.clear();
+    }
   }
 
   // Walk the GUIDs that were referenced, and write the

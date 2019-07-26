@@ -1186,7 +1186,7 @@ static Type *findCommonType(AllocaSlices::const_iterator B,
 ///  - And, there are no stores between PN and Inst.
 static bool isLiveAtPHI(const Instruction * Inst,
                         const PHINode &PN,
-                        unsigned &MaxAlign) {
+                        unsigned &MaxAlign, APInt &MaxSize) {
   if (!Inst || Inst->getParent() != PN.getParent())
     return false;
 
@@ -1206,7 +1206,12 @@ static bool isLiveAtPHI(const Instruction * Inst,
       if (BBI->mayWriteToMemory())
         return false;
 
+    const DataLayout &DL = PN.getModule()->getDataLayout();
+
+    uint64_t APWidth = DL.getIndexTypeSizeInBits(PN.getType());
+    uint64_t Size = DL.getTypeStoreSizeInBits(LI->getType());
     MaxAlign = std::max(MaxAlign, LI->getAlignment());
+    MaxSize = MaxSize.ult(Size) ? APInt(APWidth, Size) : MaxSize;
 
     return true;
   }
@@ -1219,7 +1224,7 @@ static bool isLiveAtPHI(const Instruction * Inst,
       return false;
 
     for (const auto *U : GEP->users()) {
-      if (!isLiveAtPHI(dyn_cast<Instruction>(U), PN, MaxAlign))
+      if (!isLiveAtPHI(dyn_cast<Instruction>(U), PN, MaxAlign, MaxSize))
         return false;
 
       HasUser = true;
@@ -1253,10 +1258,14 @@ static bool isLiveAtPHI(const Instruction * Inst,
 /// FIXME: This should be hoisted into a generic utility, likely in
 /// Transforms/Util/Local.h
 static bool isSafePHIToSpeculate(PHINode &PN) {
+  const DataLayout &DL = PN.getModule()->getDataLayout();
+
 #if INTEL_CUSTOMIZATION
   // For now, we can only do this promotion if the load is in the same block
   // as the PHI, and if there are no stores between the phi and load.
   unsigned MaxAlign = 0;
+  uint64_t APWidth = DL.getIndexTypeSizeInBits(PN.getType());
+  APInt MaxSize(APWidth, 0);
   bool HasLoad = false;
 
   for (const auto *U : PN.users()) {
@@ -1264,7 +1273,7 @@ static bool isSafePHIToSpeculate(PHINode &PN) {
     // cases (one such example can be found in intel-phi-gep.ll).
     // It also supports recursive traversal of phi users.
 
-    if (!isLiveAtPHI(dyn_cast<Instruction>(U), PN, MaxAlign))
+    if (!isLiveAtPHI(dyn_cast<Instruction>(U), PN, MaxAlign, MaxSize))
       return false;
 
     HasLoad = true;
@@ -1273,8 +1282,6 @@ static bool isSafePHIToSpeculate(PHINode &PN) {
   if (!HasLoad)
     return false;
 #endif // INTEL_CUSTOMIZATION
-
-  const DataLayout &DL = PN.getModule()->getDataLayout();
 
   // We can only transform this if it is safe to push the loads into the
   // predecessor blocks. The only thing to watch out for is that we can't put
@@ -1297,7 +1304,7 @@ static bool isSafePHIToSpeculate(PHINode &PN) {
     // If this pointer is always safe to load, or if we can prove that there
     // is already a load in the block, then we can move the load to the pred
     // block.
-    if (isSafeToLoadUnconditionally(InVal, MaxAlign, DL, TI))
+    if (isSafeToLoadUnconditionally(InVal, MaxAlign, MaxSize, DL, TI))
       continue;
 
     return false;
@@ -1490,9 +1497,11 @@ static bool isSafeSelectToSpeculate(SelectInst &SI) {
     // Both operands to the select need to be dereferenceable, either
     // absolutely (e.g. allocas) or at this point because we can see other
     // accesses to it.
-    if (!isSafeToLoadUnconditionally(TValue, LI->getAlignment(), DL, LI))
+    if (!isSafeToLoadUnconditionally(TValue, LI->getType(), LI->getAlignment(),
+                                     DL, LI))
       return false;
-    if (!isSafeToLoadUnconditionally(FValue, LI->getAlignment(), DL, LI))
+    if (!isSafeToLoadUnconditionally(FValue, LI->getType(), LI->getAlignment(),
+                                     DL, LI))
       return false;
   }
 

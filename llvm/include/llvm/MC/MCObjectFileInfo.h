@@ -408,6 +408,7 @@ private:
   void initELFMCObjectFileInfo(const Triple &T, bool Large);
   void initCOFFMCObjectFileInfo(const Triple &T);
   void initWasmMCObjectFileInfo(const Triple &T);
+  void initXCOFFMCObjectFileInfo(const Triple &T);
   MCSection *getDwarfComdatSection(const char *Name, uint64_t Hash) const;
 
 public:

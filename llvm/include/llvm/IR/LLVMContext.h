@@ -99,11 +99,12 @@ public:
     MD_irr_loop = 24,                 // "irr_loop"
     MD_access_group = 25,             // "llvm.access.group"
     MD_callback = 26,                 // "callback"
+    MD_preserve_access_index = 27,    // "llvm.preserve.*.access.index"
 #if INTEL_CUSTOMIZATION
-    MD_std_container_ptr = 27,        // "std.container.ptr"
-    MD_std_container_ptr_iter = 28,   // "std.container.ptr.iter"
-    MD_intel_tbaa = 29,               // "intel-tbaa"
-    MD_intel_profx = 30               // "intel-profx"
+    MD_std_container_ptr = 28,        // "std.container.ptr"
+    MD_std_container_ptr_iter = 29,   // "std.container.ptr.iter"
+    MD_intel_tbaa = 30,               // "intel-tbaa"
+    MD_intel_profx = 31               // "intel-profx"
 #endif                                // INTEL_CUSTOMIZATION
   };
 

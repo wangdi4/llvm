@@ -106,6 +106,11 @@ static cl::opt<bool> PrintLVIAfterJumpThreading(
     cl::desc("Print the LazyValueInfo cache after JumpThreading"), cl::init(false),
     cl::Hidden);
 
+static cl::opt<bool> ThreadAcrossLoopHeaders(
+    "jump-threading-across-loop-headers",
+    cl::desc("Allow JumpThreading to thread across loop headers, for testing"),
+    cl::init(false), cl::Hidden);
+
 #if INTEL_CUSTOMIZATION
 static cl::opt<bool>
 JumpThreadLoopHeader("jump-thread-loop-header",
@@ -405,7 +410,8 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
     if (!DT.isReachableFromEntry(&BB))
       Unreachable.insert(&BB);
 
-  FindLoopHeaders(F);
+  if (!ThreadAcrossLoopHeaders)
+    FindLoopHeaders(F);
 
   bool EverChanged = false;
   bool Changed;
