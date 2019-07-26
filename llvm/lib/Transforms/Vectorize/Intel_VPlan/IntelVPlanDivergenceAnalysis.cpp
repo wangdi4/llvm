@@ -131,12 +131,10 @@ void VPlanDivergenceAnalysis::addUniformOverride(const VPValue &UniVal) {
 static void getPhis(const VPBlockBase *Block,
                     SmallVectorImpl<const VPInstruction *> &Phis) {
   const VPBasicBlock *PhiBlock = cast<VPBasicBlock>(Block);
-  for (const VPRecipeBase &Recipe : PhiBlock->getRecipes()) {
-    if (const VPInstruction *VPInst = dyn_cast<VPInstruction>(&Recipe)) {
-      unsigned OpCode = VPInst->getOpcode();
-      if (OpCode == Instruction::PHI)
-        Phis.push_back(VPInst);
-    }
+  for (const VPInstruction &VPInst : PhiBlock->vpinstructions()) {
+    unsigned OpCode = VPInst.getOpcode();
+    if (OpCode == Instruction::PHI)
+      Phis.push_back(&VPInst);
   }
 }
 #endif
@@ -270,8 +268,7 @@ void VPlanDivergenceAnalysis::taintLoopLiveOuts(const VPBlockBase &LoopHeader) {
     // taint outside users of values carried by @DivLoop
     // community code divergence here is with how instructions are iterated over
     // due to recipes. Community code simply does 'for (auto &I : *UserBlock)'.
-    for (auto &Recipe : *cast<VPBasicBlock>(UserBlock)) {
-      VPInstruction &I = cast<VPInstruction>(Recipe);
+    for (auto &I : cast<VPBasicBlock>(UserBlock)->vpinstructions()) {
       if (isAlwaysUniform(I))
         continue;
       if (isDivergent(I))
@@ -632,14 +629,10 @@ void VPlanDivergenceAnalysis::setVectorShapesForUniforms(const VPLoop *VPLp) {
   ReversePostOrderTraversal<VPBlockBase *> RPOT(VPLp->getHeader());
   for (VPBlockBase *Block : make_range(RPOT.begin(), RPOT.end())) {
     if (auto VPBB = dyn_cast<VPBasicBlock>(Block)) {
-      for (auto &Recipe : VPBB->getRecipes()) {
-        if (const VPInstruction *VPInst = dyn_cast<VPInstruction>(&Recipe)) {
-          if (const VPValue *V = dyn_cast<VPValue>(VPInst)) {
-            if (!isDivergent(*V) && getVectorShape(VPInst)->isUndefined()) {
-              VPVectorShape *NewShape = getUniformVectorShape();
-              updateVectorShape(VPInst, NewShape);
-            }
-          }
+      for (auto &VPInst : VPBB->vpinstructions()) {
+        if (!isDivergent(VPInst) && getVectorShape(&VPInst)->isUndefined()) {
+          VPVectorShape *NewShape = getUniformVectorShape();
+          updateVectorShape(&VPInst, NewShape);
         }
       }
     }
@@ -650,15 +643,13 @@ void VPlanDivergenceAnalysis::verifyVectorShapes(const VPLoop *VPLp) {
   ReversePostOrderTraversal<VPBlockBase *> RPOT(VPLp->getHeader());
   for (VPBlockBase *Block : make_range(RPOT.begin(), RPOT.end())) {
     if (auto VPBB = dyn_cast<VPBasicBlock>(Block)) {
-      for (auto &Recipe : VPBB->getRecipes()) {
-        if (const VPInstruction *VPInst = dyn_cast<VPInstruction>(&Recipe)) {
-          VPVectorShape *Shape = getVectorShape(VPInst);
-          assert(!Shape->isUndefined() && "Shape has not been defined");
-          if (!isDivergent(*VPInst) && !Shape->isUniform())
-            llvm_unreachable("Uniform inst shape not defined as uniform");
-          if (isDivergent(*VPInst) && Shape->isUniform())
-            llvm_unreachable("Divergent inst shape defined as uniform");
-        }
+      for (auto &VPInst : VPBB->vpinstructions()) {
+        VPVectorShape *Shape = getVectorShape(&VPInst);
+        assert(!Shape->isUndefined() && "Shape has not been defined");
+        if (!isDivergent(VPInst) && !Shape->isUniform())
+          llvm_unreachable("Uniform inst shape not defined as uniform");
+        if (isDivergent(VPInst) && Shape->isUniform())
+          llvm_unreachable("Divergent inst shape defined as uniform");
       }
     }
   }
@@ -675,17 +666,13 @@ void VPlanDivergenceAnalysis::print(raw_ostream &OS, const VPLoop *VPLp) {
   for (VPBlockBase *Block : make_range(RPOT.begin(), RPOT.end())) {
     if (auto VPBB = dyn_cast<VPBasicBlock>(Block)) {
       LLVM_DEBUG(dbgs() << "Basic Block: " << VPBB->getName() << "\n");
-      for (auto &Recipe : VPBB->getRecipes()) {
-        if (const VPInstruction *VPInst = dyn_cast<VPInstruction>(&Recipe)) {
-          if (const VPValue *V = dyn_cast<VPValue>(VPInst)) {
-            if (isDivergent(*V))
-              LLVM_DEBUG(OS << "Divergent: ");
-            else
-              LLVM_DEBUG(OS << "Uniform: ");
-            LLVM_DEBUG(getVectorShape(V)->print(OS); OS << ' ');
-            LLVM_DEBUG(V->dump(OS));
-          }
-        }
+      for (auto &VPInst : VPBB->vpinstructions()) {
+        if (isDivergent(VPInst))
+          LLVM_DEBUG(OS << "Divergent: ");
+        else
+          LLVM_DEBUG(OS << "Uniform: ");
+        LLVM_DEBUG(getVectorShape(&VPInst)->print(OS); OS << ' ');
+        LLVM_DEBUG(VPInst.dump(OS));
       }
       LLVM_DEBUG(dbgs() << "\n");
     }
@@ -1109,8 +1096,7 @@ void VPlanDivergenceAnalysis::initializeShapes(
   // additional iteration over the instructions in the VPlan.
   for (const auto *Phi : PhiNodes) {
     VPVectorShape *NewShape = nullptr;
-    if (const VPInduction *Ind =
-        RegionLoopEntities->getInduction(cast<VPInstruction>(Phi))) {
+    if (const VPInduction *Ind = RegionLoopEntities->getInduction(Phi)) {
       const VPValue *Step = Ind->getStep();
       NewShape =
           new VPVectorShape(VPVectorShape::Seq, const_cast<VPValue*>(Step));
@@ -1127,24 +1113,22 @@ void VPlanDivergenceAnalysis::initializeShapes(
   ReversePostOrderTraversal<VPBlockBase *> RPOT(RegionLoop->getHeader());
   for (VPBlockBase *Block : make_range(RPOT.begin(), RPOT.end())) {
     if (auto VPBB = dyn_cast<VPBasicBlock>(Block)) {
-      for (auto &Recipe : VPBB->getRecipes()) {
-        if (const VPInstruction *VPInst = dyn_cast<VPInstruction>(&Recipe)) {
-          // If any operands of the instruction are always known to be
-          // uniform, set the shape as uniform. This will also cover cases
-          // where some instructions have all uniform operands that are
-          // external definitions and for which shapes will not be defined
-          // during divergence propagation. I.e., shape propagation happens
-          // through def/use chains and these instructions are not using
-          // other values defined within the region. Thus, these instructions
-          // will never be "seen" while propagating divergence and shape
-          // information and would result in shapes being undefined for them.
-          unsigned NumOps = VPInst->getNumOperands();
-          for (unsigned i = 0; i < NumOps; i++) {
-            const VPValue* Op = VPInst->getOperand(i);
-            if (isAlwaysUniform(*Op)) {
-              VPVectorShape *NewShape = getUniformVectorShape();
-              updateVectorShape(Op, NewShape);
-            }
+      for (auto &VPInst : VPBB->vpinstructions()) {
+        // If any operands of the instruction are always known to be
+        // uniform, set the shape as uniform. This will also cover cases
+        // where some instructions have all uniform operands that are
+        // external definitions and for which shapes will not be defined
+        // during divergence propagation. I.e., shape propagation happens
+        // through def/use chains and these instructions are not using
+        // other values defined within the region. Thus, these instructions
+        // will never be "seen" while propagating divergence and shape
+        // information and would result in shapes being undefined for them.
+        unsigned NumOps = VPInst.getNumOperands();
+        for (unsigned i = 0; i < NumOps; i++) {
+          const VPValue* Op = VPInst.getOperand(i);
+          if (isAlwaysUniform(*Op)) {
+            VPVectorShape *NewShape = getUniformVectorShape();
+            updateVectorShape(Op, NewShape);
           }
         }
       }

@@ -94,11 +94,9 @@ void VPValueMapper::remapHCFG(VPBlockBase *Block) {
         return;
       }
 
-      for (auto &Recipe : Block->getRecipes()) {
-        if (auto Inst = dyn_cast<VPInstruction>(&Recipe)) {
-          VM.remapInstruction(Inst);
-        }
-      }
+      for (auto &VPInst : Block->vpinstructions())
+        VM.remapInstruction(&VPInst);
+
       fixCondBit(Block);
     }
     void notifyLoop(VPLoopRegion *Loop) { fixCondBit(Loop); }

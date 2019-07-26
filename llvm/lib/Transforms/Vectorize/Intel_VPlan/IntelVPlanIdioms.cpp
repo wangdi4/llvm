@@ -97,15 +97,13 @@ static bool canSpeculate(const RegDDRef *Ref, bool CheckPadding = true) {
 //    cmp
 bool VPlanIdioms::isSafeLatchBlockForSearchLoop(const VPBasicBlock *Block) {
   unsigned NumAdds = 0;
-  for (const VPRecipeBase &Recipe : Block->getNonPredicateRecipes()) {
-    if (const auto Inst = dyn_cast<VPInstruction>(&Recipe)) {
-      if (Inst->getOpcode() == Instruction::Add) {
-        ++NumAdds;
-        continue;
-      }
-      if (Inst->getOpcode() == Instruction::ICmp)
-        continue;
+  for (const VPInstruction &VPInst : Block->getNonPredicateInstructions()) {
+    if (VPInst.getOpcode() == Instruction::Add) {
+      ++NumAdds;
+      continue;
     }
+    if (VPInst.getOpcode() == Instruction::ICmp)
+        continue;
 
     return false;
   }
@@ -431,20 +429,16 @@ bool VPlanIdioms::isSafeBlockForSearchLoop(const VPBasicBlock *Block) {
 // This function is more important for what CG can handle, rather then for
 // vectorization legality.
 bool VPlanIdioms::isSafeExitBlockForSearchLoop(const VPBasicBlock *Block) {
-  for (const VPRecipeBase &Recipe : Block->getNonPredicateRecipes()) {
-    if (!isa<const VPInstruction>(&Recipe))
-      continue;
-    const auto Inst = cast<const VPInstruction>(&Recipe);
-
+  for (const VPInstruction &VPInst : Block->getNonPredicateInstructions()) {
     // Ignore instruction used for setting up uniform inner loop control flow.
-    if (Inst->getOpcode() == VPInstruction::AllZeroCheck)
+    if (VPInst.getOpcode() == VPInstruction::AllZeroCheck)
       continue;
 
-    if (isa<const VPBranchInst>(Inst) ||
-        (Inst->HIR.isDecomposed() && Inst->isUnderlyingIRValid()))
+    if (isa<const VPBranchInst>(VPInst) ||
+        (VPInst.HIR.isDecomposed() && VPInst.isUnderlyingIRValid()))
       continue;
 
-    const HLDDNode *DDNode = cast<HLDDNode>(Inst->HIR.getUnderlyingNode());
+    const HLDDNode *DDNode = cast<HLDDNode>(VPInst.HIR.getUnderlyingNode());
     if (const auto HInst = dyn_cast<const HLInst>(DDNode)) {
       const RegDDRef *LvalRef = HInst->getLvalDDRef();
       const RegDDRef *RvalRef = HInst->getRvalDDRef();

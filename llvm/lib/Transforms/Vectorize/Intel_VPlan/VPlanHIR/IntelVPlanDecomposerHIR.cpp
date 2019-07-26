@@ -971,16 +971,15 @@ void VPDecomposerHIR::computeLiveInBlocks(
     // VPBB has both use and definition of symbase, iterate over it's VPIs to
     // find out which comes first
     assert(isa<VPBasicBlock>(VPBB) && "HCFG block is not a VPBasicBlock");
-    for (auto &Recipe : cast<VPBasicBlock>(VPBB)->getInstList()) {
-      VPInstruction *VPI = cast<VPInstruction>(&Recipe);
+    for (auto &VPI : cast<VPBasicBlock>(VPBB)->vpinstructions()) {
       // Underlying HIR is not attached to non-master VPInstructions
-      if (!VPI->HIR.isMaster())
+      if (!VPI.HIR.isMaster())
         continue;
       // We don't need to analyze non DDNode nodes like HLGoto
-      if (!isa<loopopt::HLDDNode>(VPI->HIR.getUnderlyingNode()))
+      if (!isa<loopopt::HLDDNode>(VPI.HIR.getUnderlyingNode()))
         continue;
 
-      HLDDNode *DDNode = cast<loopopt::HLDDNode>(VPI->HIR.getUnderlyingNode());
+      HLDDNode *DDNode = cast<loopopt::HLDDNode>(VPI.HIR.getUnderlyingNode());
       // We reverse iterate over the DDRefs of the node to handle reduction
       // scenarios. For example - %t1 = %5 + %t1 If current symbase is for
       // %t1, forward iterating over DDRefs would incorrectly recognize it
@@ -1092,15 +1091,14 @@ void VPDecomposerHIR::addIDFPhiNodes() {
        make_range(df_iterator<VPBlockBase *>::begin(HCFGEntry),
                   df_iterator<VPBlockBase *>::end(HCFGEntry))) {
     assert(isa<VPBasicBlock>(VPBB) && "HCFG block is not a VPBasicBlock");
-    for (auto &Recipe : cast<VPBasicBlock>(VPBB)->getInstList()) {
-      VPInstruction *VPI = cast<VPInstruction>(&Recipe);
-      if (!VPI->HIR.isMaster())
+    for (auto &VPI : cast<VPBasicBlock>(VPBB)->vpinstructions()) {
+      if (!VPI.HIR.isMaster())
         continue;
       // We don't need to analyze non DDNode nodes like HLGoto
-      if (!isa<loopopt::HLDDNode>(VPI->HIR.getUnderlyingNode()))
+      if (!isa<loopopt::HLDDNode>(VPI.HIR.getUnderlyingNode()))
         continue;
 
-      HLDDNode *DDNode = cast<loopopt::HLDDNode>(VPI->HIR.getUnderlyingNode());
+      HLDDNode *DDNode = cast<loopopt::HLDDNode>(VPI.HIR.getUnderlyingNode());
       if (DDNode->hasLval()) {
         unsigned Sym = DDNode->getLvalDDRef()->getSymbase();
         if (TrackedSymbases.count(Sym)) {
@@ -1306,16 +1304,15 @@ void VPDecomposerHIR::fixPhiNodes() {
     } else {
       // Solution for case 2
       HLDDNode *FirstDefNode = nullptr;
-      for (auto &Recipe : FixedPhi->getParent()->getInstList()) {
-        VPInstruction *VPI = cast<VPInstruction>(&Recipe);
-        if (!VPI->HIR.isMaster())
+      for (auto &VPI : FixedPhi->getParent()->vpinstructions()) {
+        if (!VPI.HIR.isMaster())
           continue;
 
-        if (!isa<loopopt::HLDDNode>(VPI->HIR.getUnderlyingNode()))
+        if (!isa<loopopt::HLDDNode>(VPI.HIR.getUnderlyingNode()))
           continue;
 
         HLDDNode *DDNode =
-            cast<loopopt::HLDDNode>(VPI->HIR.getUnderlyingNode());
+            cast<loopopt::HLDDNode>(VPI.HIR.getUnderlyingNode());
         if (DDNode->hasLval()) {
           unsigned Sym = DDNode->getLvalDDRef()->getSymbase();
           if (Sym == PhiToSymbaseMap[FixedPhi]) {
@@ -1486,29 +1483,26 @@ void VPDecomposerHIR::fixPhiNodePass(
 
   // Iterate over instructions of VPBB and update the incoming value of Symbases
   // being tracked if any instruction in the VPBB writes into it
-  for (auto &Recipe : VPBB->getInstList()) {
-    if (VPInstruction *VPI = dyn_cast<VPInstruction>(&Recipe)) {
-      LLVM_DEBUG(dbgs() << "fixPhiNodePass: VPI: "; VPI->dump());
+  for (auto &VPI : VPBB->vpinstructions()) {
+    LLVM_DEBUG(dbgs() << "fixPhiNodePass: VPI: "; VPI.dump());
 
-      if (VPI->HIR.isMaster()) {
-        if (auto *HInst =
-                dyn_cast<loopopt::HLInst>(VPI->HIR.getUnderlyingNode())) {
-          // If HLInst has no Lval then ignore the instruction and move to next
-          // master VPI
-          if (!HInst->hasLval())
-            continue;
-          unsigned Sym = HInst->getLvalDDRef()->getSymbase();
-          LLVM_DEBUG(dbgs() << "fixPhiNodePass: HIR: "; HInst->dump());
-          LLVM_DEBUG(dbgs() << "fixPhiNodePass: Sym: " << Sym << "\n");
+    if (VPI.HIR.isMaster()) {
+      if (auto *HInst =
+              dyn_cast<loopopt::HLInst>(VPI.HIR.getUnderlyingNode())) {
+        // If HLInst has no Lval then ignore the instruction and move to next
+        // master VPI
+        if (!HInst->hasLval())
+          continue;
+        unsigned Sym = HInst->getLvalDDRef()->getSymbase();
+        LLVM_DEBUG(dbgs() << "fixPhiNodePass: HIR: "; HInst->dump());
+        LLVM_DEBUG(dbgs() << "fixPhiNodePass: Sym: " << Sym << "\n");
 
-          // If the Lval DDRef's Symbase is being tracked, then update the
-          // IncomingVPVals map to use the corresponding VPI
-          if (TrackedSymbases.count(Sym))
-            IncomingVPVals[Sym] = VPI;
-        }
+        // If the Lval DDRef's Symbase is being tracked, then update the
+        // IncomingVPVals map to use the corresponding VPI
+        if (TrackedSymbases.count(Sym))
+          IncomingVPVals[Sym] = &VPI;
       }
-    } else
-      llvm_unreachable("Non VPInstruction recipe in the VPBB.");
+    }
   }
 
   // Recurse the traversal into successors of VPBB in reverse iterator order by

@@ -829,9 +829,7 @@ void VPlanVerifier::verifyInstruction(const VPInstruction *Inst,
 void VPlanVerifier::verifyBlock(const VPBlockBase *Block,
                                 const VPRegionBlock *Region) const {
   if (const auto *BB = dyn_cast<const VPBasicBlock>(Block)) {
-    for (const auto &Inst : BB->getInstList())
-      // FIXME: need to remove after removing of VPRecipe
-      if (const auto *I = dyn_cast<const VPInstruction>(&Inst))
-        verifyInstruction(I, BB);
+    for (const auto &Inst : BB->vpinstructions())
+      verifyInstruction(&Inst, BB);
   }
 }

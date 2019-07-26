@@ -113,7 +113,7 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
     // body that need to be under mask.
     SmallVector<VPRecipeBase *, 2> ToMove;
     SmallVector<VPRecipeBase *, 2> SubLoopHeaderPhis;
-    for (auto &Inst : SubLoopHeader->getInstList()) {
+    for (auto &Inst : SubLoopHeader->vpinstructions()) {
       if (!isa<VPPHINode>(Inst))
         ToMove.push_back(&Inst);
       else

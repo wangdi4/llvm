@@ -2339,6 +2339,36 @@ public:
   inline const VPRecipeBase &back() const { return Recipes.back(); }
   inline VPRecipeBase &back() { return Recipes.back(); }
 
+  // Few helpers to make use of in decltype below.
+  static bool isVPInstruction(const VPRecipeBase &Recipe) {
+    return isa<VPInstruction>(Recipe);
+  }
+  static VPInstruction &asVPInstruction(VPRecipeBase &Recipe) {
+    return cast<VPInstruction>(Recipe);
+  }
+  static const VPInstruction &asConstVPInstruction(const VPRecipeBase &Recipe) {
+    return cast<VPInstruction>(Recipe);
+  }
+
+  // FIXME: Temporary filtered ranges until we get rid of recipes. Once
+  // that's done, they should be removed.
+  inline auto vpinstructions()
+      -> decltype(map_range(make_filter_range(make_range(begin(), end()),
+                                              isVPInstruction),
+                            asVPInstruction)) {
+    return map_range(
+        make_filter_range(make_range(begin(), end()), isVPInstruction),
+        asVPInstruction);
+  }
+  inline auto vpinstructions() const
+      -> decltype(map_range(make_filter_range(make_range(begin(), end()),
+                                              isVPInstruction),
+                            asConstVPInstruction)) {
+    return map_range(
+        make_filter_range(make_range(begin(), end()), isVPInstruction),
+        asConstVPInstruction);
+  }
+
   /// \brief Return the underlying instruction list container.
   ///
   /// Currently you need to access the underlying instruction list container
@@ -2445,28 +2475,32 @@ public:
   const RecipeListTy &getRecipes() const { return Recipes; }
   RecipeListTy &getRecipes() { return Recipes; }
 #if INTEL_CUSTOMIZATION
-  /// Returns a range that iterates over non predicator related recipes
+  /// Returns a range that iterates over non predicator related instructions
   /// in the VPBasicBlock.
-  iterator_range<const_iterator> getNonPredicateRecipes() const {
+  auto getNonPredicateInstructions() const -> decltype(vpinstructions()) {
     // New predicator uses VPInstructions to generate the block predicate.
     // Skip instructions until block-predicate instruction is seen if the block
     // has a predicate.
-    bool SkipUntilPred = getPredicate() != nullptr;
-    const_iterator It = begin();
-    const_iterator ItEnd = end();
+    auto Range = vpinstructions();
 
-    for (; It != ItEnd; ++It) {
-      if (isa<const VPBlockPredicateRecipe>(It))
-        continue;
-      if (SkipUntilPred)
-        if (const auto *Inst = dyn_cast<VPInstruction>(It)) {
-          if (Inst->getOpcode() == VPInstruction::Pred)
-            SkipUntilPred = false;
-          continue;
-        }
+    // No predicate instruction, return immediately.
+    if(getPredicate() == nullptr)
+      return Range;
 
-      break;
+    auto It = Range.begin();
+    auto ItEnd = Range.end();
+
+    assert(It != ItEnd &&
+           "VPBasicBlock without VPInstructions can't have a predicate!");
+
+    // Skip until predicate.
+    while (It->getOpcode() != VPInstruction::Pred) {
+      assert(It != ItEnd && "Predicate VPInstruction not found!");
+      ++It;
     }
+
+    // Skip the predicate itself.
+    ++It;
 
     return make_range(It, ItEnd);
   }

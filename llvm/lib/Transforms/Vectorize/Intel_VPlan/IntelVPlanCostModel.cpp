@@ -428,13 +428,8 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) const {
 
 unsigned VPlanCostModel::getCost(const VPBasicBlock *VPBB) const {
   unsigned Cost = 0;
-  for (const VPRecipeBase &Recipe : *VPBB) {
-    const auto *VPInst = dyn_cast<VPInstruction>(&Recipe);
-    // FIXME: cost of other recipes?
-    if (!VPInst)
-      continue;
-
-    unsigned InstCost = getCost(VPInst);
+  for (const VPInstruction &VPInst : VPBB->vpinstructions()) {
+    unsigned InstCost = getCost(&VPInst);
     if (InstCost == UnknownCost)
       continue;
     Cost += InstCost;
@@ -483,18 +478,13 @@ void VPlanCostModel::printForVPBlockBase(raw_ostream &OS,
   else
     OS << VPBBCost << '\n';
 
-  for (const VPRecipeBase &Recipe : *VPBB) {
-    const auto *VPInst = dyn_cast<VPInstruction>(&Recipe);
-    // FIXME: cost of other recipes?
-    if (!VPInst)
-      continue;
-
-    unsigned Cost = getCost(VPInst);
+  for (const VPInstruction &VPInst : VPBB->vpinstructions()) {
+    unsigned Cost = getCost(&VPInst);
     if (Cost == UnknownCost)
       OS << "  Unknown cost for ";
     else
       OS << "  Cost " << Cost << " for ";
-    VPInst->print(OS);
+    VPInst.print(OS);
     OS << '\n';
   }
 }
