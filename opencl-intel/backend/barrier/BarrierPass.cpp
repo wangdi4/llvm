@@ -33,9 +33,7 @@
 
 using namespace Intel::MetadataAPI;
 
-static cl::opt<bool> OptUseTLSGlobals(
-    "use-tls-globals", cl::init(false), cl::Hidden,
-    cl::desc("Use TLS globals instead of implicit arguments"));
+extern cl::opt<bool> OptUseTLSGlobals;
 
 namespace intel {
 

@@ -90,9 +90,8 @@ protected:
     virtual void BuildProgramCachedExecutable(ObjectCodeCache* pCache, Program* pProgram) const;
 
 private:
-
-    Kernel* CreateKernel(llvm::Function* pFunc, const std::string& funcName, KernelProperties* pProps) const;
-
+  Kernel *CreateKernel(llvm::Function *pFunc, const std::string &funcName,
+                       KernelProperties *pProps, bool useTLSGlobals) const;
 
     void AddKernelJIT(CPUProgram* pProgram, Kernel* pKernel, llvm::Module* pModule,
                       llvm::Function* pFunc, KernelJITProperties* pProps) const;
@@ -108,6 +107,8 @@ private:
     #ifdef OCL_DEV_BACKEND_PLUGINS
     mutable Intel::OpenCL::PluginManager m_pluginManger;
     #endif
+    bool m_isFpgaEmulator;
+    bool m_isEyeQEmulator;
 };
 
 }}}

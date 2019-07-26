@@ -34,10 +34,11 @@ static llvm::cl::opt<bool> OptUniformWGSize(
     "uniform-wg-size", llvm::cl::init(false),
     llvm::cl::desc("The flag speficies work groups size as uniform"));
 
+extern cl::opt<bool> OptUseTLSGlobals;
 
 extern "C" {
-  ModulePass* createResolveWICallPass(bool isUniformWGSize) {
-    return new intel::ResolveWICall(isUniformWGSize);
+ModulePass *createResolveWICallPass(bool isUniformWGSize, bool useTLSGlobals) {
+  return new intel::ResolveWICall(isUniformWGSize, useTLSGlobals);
   }
 }
 
@@ -57,8 +58,9 @@ namespace intel {
     false
     )
 
-    ResolveWICall::ResolveWICall(bool isUniformWG) :
-        ModulePass(ID), m_uniformLocalSize(isUniformWG) {}
+  ResolveWICall::ResolveWICall(bool isUniformWG, bool useTLSGlobals)
+      : ModulePass(ID), m_uniformLocalSize(isUniformWG),
+        m_useTLSGlobals(useTLSGlobals || OptUseTLSGlobals) {}
 
     bool ResolveWICall::runOnModule(Module &M) {
       m_pModule = &M;
@@ -97,10 +99,23 @@ namespace intel {
   }
 
   Function* ResolveWICall::runOnFunction(Function *pFunc) {
-    // Getting the implicit arguments
-    CompilationUtils::getImplicitArgs(pFunc, nullptr, &m_pWorkInfo, &m_pWGId,
-                                      &m_pBaseGlbId, &m_pSpecialBuf,
-                                      &m_pRuntimeHandle);
+    if (m_useTLSGlobals) {
+      IRBuilder<> B(dyn_cast<Instruction>(pFunc->getEntryBlock().begin()));
+      m_pWorkInfo = B.CreateLoad(CompilationUtils::getTLSGlobal(
+          m_pModule, ImplicitArgsUtils::IA_WORK_GROUP_INFO));
+      m_pWGId = B.CreateLoad(CompilationUtils::getTLSGlobal(
+          m_pModule, ImplicitArgsUtils::IA_WORK_GROUP_ID));
+      m_pBaseGlbId = B.CreateLoad(CompilationUtils::getTLSGlobal(
+          m_pModule, ImplicitArgsUtils::IA_GLOBAL_BASE_ID));
+      m_pSpecialBuf = B.CreateLoad(CompilationUtils::getTLSGlobal(
+          m_pModule, ImplicitArgsUtils::IA_BARRIER_BUFFER));
+      m_pRuntimeHandle = B.CreateLoad(CompilationUtils::getTLSGlobal(
+          m_pModule, ImplicitArgsUtils::IA_RUNTIME_HANDLE));
+    } else {
+      CompilationUtils::getImplicitArgs(pFunc, nullptr, &m_pWorkInfo, &m_pWGId,
+                                        &m_pBaseGlbId, &m_pSpecialBuf,
+                                        &m_pRuntimeHandle);
+    }
 
     std::vector<Instruction*> toRemoveInstructions;
     std::vector<CallInst*> toHandleCalls;
@@ -651,6 +666,8 @@ void ResolveWICall::clearPerFunctionCache() {
 
 Value *ResolveWICall::getOrCreateBlock2KernelMapper() {
   IRBuilder<> Builder(&*m_F->getEntryBlock().begin());
+  if (m_useTLSGlobals)
+    Builder.SetInsertPoint(dyn_cast<Instruction>(m_pWorkInfo)->getNextNode());
   if (!m_Block2KernelMapper)
     m_Block2KernelMapper = m_IAA->GenerateGetFromWorkInfo(
         NDInfo::BLOCK2KERNEL_MAPPER, m_pWorkInfo, Builder);
@@ -659,6 +676,8 @@ Value *ResolveWICall::getOrCreateBlock2KernelMapper() {
 
 Value *ResolveWICall::getOrCreateRuntimeInterface() {
   IRBuilder<> Builder(&*m_F->getEntryBlock().begin());
+  if (m_useTLSGlobals)
+    Builder.SetInsertPoint(dyn_cast<Instruction>(m_pWorkInfo)->getNextNode());
   if (!m_RuntimeInterface)
     m_RuntimeInterface = m_IAA->GenerateGetFromWorkInfo(
         NDInfo::RUNTIME_INTERFACE, m_pWorkInfo, Builder);
@@ -734,4 +753,5 @@ Value *ResolveWICall::getOrCreateRuntimeInterface() {
            "Unsopported pointer size");
     return pointerSizeInBits;
   }
+
 } // namespace intel

@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "Compiler.h"
 #include "ICLDevBackendOptions.h"
 #include "IAbstractBackendFactory.h"
 #include "ICompilerConfig.h"
@@ -75,10 +76,10 @@ protected:
 
     KernelJITProperties* CreateKernelJITProperties(unsigned int vectorSize) const;
 
-    KernelProperties* CreateKernelProperties(const Program* pProgram,
-                                             llvm::Function *func,
-                                             const char* pBuildOpts,
-                                             const ProgramBuildResult& buildResult) const;
+    KernelProperties *
+    CreateKernelProperties(const Program *pProgram, llvm::Function *func,
+                           const CompilerBuildOptions &buildOptions,
+                           const ProgramBuildResult &buildResult) const;
 
     // reloads the program from his object binary
     virtual bool ReloadProgramFromCachedExecutable(Program* pProgram) = 0;

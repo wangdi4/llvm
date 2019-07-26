@@ -24,6 +24,8 @@
 
 using namespace llvm;
 
+extern cl::opt<bool> OptUseTLSGlobals;
+
 namespace intel {
 
 // PatchCallbackArgs - Patches calls to external callbacks with arguemnts that
@@ -34,9 +36,12 @@ class PatchCallbackArgs : public ModulePass {
   typedef std::pair<Value *, Value *> ValuePair;
   typedef DenseMap<Function *, ValuePair> Func2ValuePair;
   Func2ValuePair Func2ImplicitArgs;
+  bool UseTLSGlobals;
+
 public:
   static char ID;
-  PatchCallbackArgs() : ModulePass(ID) {}
+  PatchCallbackArgs(bool UseTLSGlobals = false)
+      : ModulePass(ID), UseTLSGlobals(UseTLSGlobals || OptUseTLSGlobals) {}
   virtual llvm::StringRef getPassName() const { return "PatchCallbackArgs"; }
   bool runOnModule(Module &M);
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {

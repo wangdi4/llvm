@@ -117,7 +117,8 @@ llvm::ModulePass *createPipeIOTransformationPass();
 llvm::ModulePass *createCleanupWrappedKernelsPass();
 llvm::ModulePass *createPipeOrderingPass();
 llvm::ModulePass *createPipeSupportPass();
-llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
+llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug,
+                                         bool useTLSGlobals);
 llvm::ModulePass *createAddImplicitArgsPass();
 llvm::ModulePass *createOclFunctionAttrsPass();
 llvm::ModulePass *createOclSyncFunctionAttrsPass();
@@ -125,7 +126,7 @@ llvm::ModulePass *createInternalizeNonKernelFuncPass();
 llvm::ModulePass *createInternalizeGlobalVariablesPass();
 llvm::ModulePass *createGenericAddressStaticResolutionPass();
 llvm::ModulePass *createGenericAddressDynamicResolutionPass();
-llvm::ModulePass *createPrepareKernelArgsPass();
+llvm::ModulePass *createPrepareKernelArgsPass(bool useTLSGlobals);
 llvm::Pass *
 createBuiltinLibInfoPass(SmallVector<Module *, 2> pRtlModuleList,
                          std::string type);
@@ -134,7 +135,7 @@ llvm::ModulePass *createUndifinedExternalFunctionsPass(
 llvm::ModulePass *createKernelInfoWrapperPass();
 llvm::ModulePass *createKernelSubGroupInfoPass();
 llvm::ModulePass *createDuplicateCalledKernelsPass();
-llvm::ModulePass *createPatchCallbackArgsPass();
+llvm::ModulePass *createPatchCallbackArgsPass(bool useTLSGlobals);
 llvm::ModulePass *createDeduceMaxWGDimPass();
 
 llvm::ModulePass *createLLVMEqualizerPass();
@@ -147,7 +148,8 @@ llvm::ModulePass *createProfilingInfoPass();
 llvm::Pass *createSmartGVNPass(bool);
 
 llvm::ModulePass *createSinCosFoldPass();
-llvm::ModulePass *createResolveWICallPass(bool isUniformWGSize);
+llvm::ModulePass *createResolveWICallPass(bool isUniformWGSize,
+                                          bool useTLSGlobals);
 llvm::Pass       *createResolveSubGroupWICallPass();
 llvm::ModulePass *createDetectRecursionPass();
 llvm::Pass *createResolveBlockToStaticCallPass();
@@ -155,6 +157,7 @@ llvm::ImmutablePass *createOCLAliasAnalysisPass();
 llvm::ModulePass *createPrintfArgumentsPromotionPass();
 llvm::ModulePass *createChannelsUsageAnalysisPass();
 llvm::ModulePass *createSYCLPipesHackPass();
+llvm::ModulePass *createAddTLSGlobalsPass();
 }
 
 using namespace intel;
@@ -472,7 +475,6 @@ static void populatePassesPostFailCheck(
                        (debugType == intel::Native) && !isFpgaEmulator &&
                        !isEyeQEmulator;
 
-
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(
       pConfig->GetIRDumpOptionsBefore());
@@ -672,11 +674,15 @@ static void populatePassesPostFailCheck(
     PM.add(createRelaxedPass());
   }
 
-  // The following three passes (AddImplicitArgs/ResolveWICall/LocalBuffer)
-  // must run before createBuiltInImportPass!
-  PM.add(createAddImplicitArgsPass());
-  PM.add(createResolveWICallPass(pConfig->GetUniformWGSize()));
-  PM.add(createLocalBuffersPass(debugType == Native));
+  // The following three passes (AddImplicitArgs/AddTLSGlobals, ResolveWICall,
+  // LocalBuffer) must run before createBuiltInImportPass!
+  if (UseTLSGlobals)
+    PM.add(createAddTLSGlobalsPass());
+  else
+    PM.add(createAddImplicitArgsPass());
+
+  PM.add(createResolveWICallPass(pConfig->GetUniformWGSize(), UseTLSGlobals));
+  PM.add(createLocalBuffersPass(debugType == Native, UseTLSGlobals));
   // clang converts OCL's local to global.
   // createLocalBuffersPass changes the local allocation from global to a
   // kernel argument.
@@ -731,7 +737,7 @@ static void populatePassesPostFailCheck(
   // arguments that are retrieved from the function's implicit arguments.
   // Currently only applies to OpenCL 2.x
   if (isOcl20)
-    PM.add(createPatchCallbackArgsPass());
+    PM.add(createPatchCallbackArgsPass(UseTLSGlobals));
 
   if (debugType == intel::None) {
     PM.add(llvm::createArgumentPromotionPass()); // Scalarize uninlined fn args
@@ -744,7 +750,7 @@ static void populatePassesPostFailCheck(
   }
 
   // PrepareKernelArgsPass must run in debugging mode as well
-  PM.add(createPrepareKernelArgsPass());
+  PM.add(createPrepareKernelArgsPass(UseTLSGlobals));
 
   if ( debugType == intel::None ) {
     // These passes come after PrepareKernelArgs pass to eliminate the
