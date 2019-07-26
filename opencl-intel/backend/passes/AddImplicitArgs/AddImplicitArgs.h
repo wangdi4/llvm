@@ -79,14 +79,6 @@ namespace intel {
     /// @param newArgs - arguments of new function with implicit arguments added
     void replaceIndirectCallInst(CallInst *CI, ArrayRef<Type *> newArgs);
 
-    /// @brief Updates metadata nodes with new Function signature
-    /// @param pMetadata The current metadata node
-    /// @param visited set with metadata we alreay visit.
-    void iterateMDTree(MDNode* pMDNode, std::set<MDNode*> &visited);
-
-    /// @brief Update Metadata after transformations were made.
-    void updateMetadata();
-
   private:
     /// @brief The llvm module this pass needs to update
     Module                     *m_pModule;

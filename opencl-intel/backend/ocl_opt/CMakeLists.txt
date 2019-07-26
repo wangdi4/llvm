@@ -15,6 +15,7 @@ set(OCL_BE_PASSES
     ChannelPipeTransformation
     ChannelsUsageAnalysis
     CleanupWrappedKernels
+    CoerceTypes
     DebugInfoPass
     DetectRecursion
     GenericAddressResolution

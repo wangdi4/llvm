@@ -84,7 +84,7 @@ namespace intel{
     }
 
     // update Metadata now
-    updateMetadata();
+    CompilationUtils::updateFunctionMetadata(m_pModule, m_fixupFunctionsRefs);
 
     // Indirect calls are not users of any functions - we need to collect them
     // and add stubs for implicit arguments here
@@ -315,69 +315,6 @@ namespace intel{
     }
 
     return pNewF;
-  }
-
-  void AddImplicitArgs::updateMetadata() {
-    // Now update the references in Function metadata.
-    // All the function metadata we are interested in is flat by design
-    // (see Metadata API).
-
-    // iterate over the functions we need update metadata for
-    // (in other words, all the functions pass have created)
-    for (const auto &FuncKV : m_fixupFunctionsRefs) {
-      auto F = FuncKV.second;
-      SmallVector<std::pair<unsigned, MDNode *>, 8> MDs;
-      F->getAllMetadata(MDs);
-
-      for (const auto &MD : MDs) {
-        auto MDNode = MD.second;
-        if (MDNode->getNumOperands() > 0) {
-          Metadata *MDOp = MDNode->getOperand(0);
-          if (auto *FuncAsMD = dyn_cast_or_null<ConstantAsMetadata>(MDOp))
-            if (auto *NodeFunc = mdconst::dyn_extract<Function>(FuncAsMD)) {
-              if (m_fixupFunctionsRefs.count(NodeFunc) > 0)
-                MDNode->replaceOperandWith(
-                    0, ConstantAsMetadata::get(m_fixupFunctionsRefs[NodeFunc]));
-            }
-        }
-      }
-    }
-
-    // Now respect the Module-level metadata.
-    for (const auto &NamedMDNode : m_pModule->named_metadata()) {
-      for (int ui = 0, ue = NamedMDNode.getNumOperands(); ui < ue; ui++) {
-        // Replace metadata with metadata containing information about the wrapper
-        MDNode *MDNodeOp = NamedMDNode.getOperand(ui);
-        std::set<MDNode *> Visited;
-        iterateMDTree(MDNodeOp, Visited);
-      }
-    }
-  }
-
-  void AddImplicitArgs::iterateMDTree(MDNode *MDTreeNode,
-                                      std::set<MDNode *> &Visited) {
-    // Avoid inifinite loops due to possible cycles in metadata
-    if (Visited.count(MDTreeNode))
-      return;
-    Visited.insert(MDTreeNode);
-
-    for (int i = 0, e = MDTreeNode->getNumOperands(); i < e; ++i) {
-      Metadata *MDOp = MDTreeNode->getOperand(i);
-      if (!MDOp)
-        continue;
-      if (MDNode *MDOpNode = dyn_cast<MDNode>(MDOp)) {
-        iterateMDTree(MDOpNode, Visited);
-      } else if (ConstantAsMetadata *FuncAsMD =
-                     dyn_cast<ConstantAsMetadata>(MDOp)) {
-        if (auto *MDNodeFunc = mdconst::dyn_extract<Function>(FuncAsMD)) {
-          if (m_fixupFunctionsRefs.count(MDNodeFunc) > 0)
-            MDTreeNode->replaceOperandWith(
-                i, ConstantAsMetadata::get(m_fixupFunctionsRefs[MDNodeFunc]));
-          // TODO: Check if the old metadata has to bee deleted manually to
-          // avoid memory leaks.
-        }
-      }
-    }
   }
 
   void AddImplicitArgs::replaceCallInst(CallInst *CI, ArrayRef<Type *> implicitArgsTypes, Function * pNewF) {
