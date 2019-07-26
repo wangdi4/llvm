@@ -37,10 +37,10 @@ entry:
 ; CHECK: = call <16 x i32> @_Z28intel_sub_group_shuffle_downDv16_iS_Dv4_jS0_(
 
   %blk_read = call <2 x i32> @_Z27intel_sub_group_block_read2PU3AS1Kj(i32 addrspace(1)* %a)
-; CHECK: = call <8 x i32> @_Z29intel_sub_group_block_read2_4PU3AS1Kj(i32 addrspace(1)* %a)
+; CHECK: = call <8 x i32> @_Z29intel_sub_group_block_read2_4PU3AS1Kj(i32 addrspace(1)* [[LOAD_a:%.*]])
   %blk_read.x2 = mul <2 x i32> %blk_read, <i32 2, i32 2>
   call void @_Z28intel_sub_group_block_write2PU3AS1jDv2_j(i32 addrspace(1)* %b, <2 x i32> %blk_read.x2)
-; CHECK: call void @_Z30intel_sub_group_block_write2_4PU3AS1jDv8_j(i32 addrspace(1)* %b, <8 x i32> {{%.*}})
+; CHECK: call void @_Z30intel_sub_group_block_write2_4PU3AS1jDv8_j(i32 addrspace(1)* [[LOAD_b:%.*]], <8 x i32> {{%.*}})
 
 
   %mul = mul i32 %call3, 1000
