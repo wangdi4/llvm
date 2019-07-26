@@ -559,7 +559,6 @@ static void populatePassesPostFailCheck(
             /* SinkCommon */ true));
         PM.add(createInstructionCombiningPass());
         PM.add(createGVNHoistPass());
-        PM.add(createScalarizerPass(pConfig->GetCpuId(), true));
         PM.add(createDeadCodeEliminationPass());
 
         // Calculate VL.
@@ -567,6 +566,7 @@ static void populatePassesPostFailCheck(
 
         // Prepare Function for VecClone and call VecClone
         PM.add(createOCLVecClonePass(pConfig, EnableVPlanVecForOpenCL));
+        PM.add(createScalarizerPass(pConfig->GetCpuId(), true));
 
         // Call VPlan
         PM.add(llvm::createPromoteMemoryToRegisterPass());

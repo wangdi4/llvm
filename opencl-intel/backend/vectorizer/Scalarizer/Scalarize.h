@@ -276,6 +276,7 @@ private:
   /// @brief This holds DataLayout of processed module
   const DataLayout *m_pDL;
 
+  /// @brief Indicates whether we in VPlan pipeline now or not
   bool InVPlanPipeline;
 
 };
