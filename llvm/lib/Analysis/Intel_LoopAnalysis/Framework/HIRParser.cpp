@@ -1860,6 +1860,12 @@ bool HIRParser::breakConstantMultiplierCommutativeBlob(BlobTy Blob,
   case scSMaxExpr:
     *NewBlob = SE.getSMaxExpr(Ops);
     break;
+  case scUMinExpr:
+    *NewBlob = SE.getUMinExpr(Ops);
+    break;
+  case scSMinExpr:
+    *NewBlob = SE.getSMinExpr(Ops);
+    break;
   default:
     llvm_unreachable("Unexpected scev type!");
   }
