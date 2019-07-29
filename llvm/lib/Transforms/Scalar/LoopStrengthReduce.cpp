@@ -3125,7 +3125,7 @@ static bool canFoldIVIncExpr(const SCEV *IncExpr, Instruction *UserInst,
   MemAccessTy AccessTy = getAccessType(TTI, UserInst, Operand);
   int64_t IncOffset = IncConst->getValue()->getSExtValue();
   if (!isAlwaysFoldable(TTI, LSRUse::Address, AccessTy, /*BaseGV=*/nullptr,
-                        IncOffset, /*HaseBaseReg=*/false))
+                        IncOffset, /*HasBaseReg=*/false))
     return false;
 
   return true;
@@ -3269,7 +3269,7 @@ void LSRInstance::CollectFixupsAndInitialFormulae() {
       if (CI->isEquality()) {
         // If CI can be saved in some target, like replaced inside hardware loop
         // in PowerPC, no need to generate initial formulae for it.
-        if (SaveCmp && CI == cast<ICmpInst>(ExitBranch->getCondition()))
+        if (SaveCmp && CI == dyn_cast<ICmpInst>(ExitBranch->getCondition()))
           continue;
         // Swap the operands if needed to put the OperandValToReplace on the
         // left, for consistency.
