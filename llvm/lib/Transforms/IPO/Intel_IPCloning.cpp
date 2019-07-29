@@ -558,7 +558,7 @@ static void collectArgsSetsForSpecialization(Function &F, CallInst &CI,
   // Skip CallSite if BasicBlock has too many preds.
   if (cast<PHINode>(PHI_I)->getNumIncomingValues() > IPSpeCloningCallLimit) {
     if (IPCloningTrace)
-      errs() << "     More Preds ... Skipped Spe cloning  " << "\n";
+      dbgs() << "     More Preds ... Skipped Spe cloning  " << "\n";
     return;
   }
 
@@ -610,7 +610,7 @@ static void collectArgsSetsForSpecialization(Function &F, CallInst &CI,
   // Check for minimum limit on size of Argument sets
   if (CallArgumentsSets.size() <= IPSpeCloningMinArgSetsLimit) {
     if (IPCloningTrace)
-      errs() << "     Not enough sets... Skipped Spe cloning  " << "\n";
+      dbgs() << "     Not enough sets... Skipped Spe cloning  " << "\n";
     return;
   }
 
@@ -623,15 +623,15 @@ static void collectArgsSetsForSpecialization(Function &F, CallInst &CI,
 
   // Dump arg sets
   if (IPCloningTrace) {
-    errs() << "    Args sets collected \n";
+    dbgs() << "    Args sets collected \n";
     if (InexactArgsSetsCallList.count(&CI)) {
-      errs() << "    Inexact args sets found \n";
+      dbgs() << "    Inexact args sets found \n";
     }
     for (unsigned index = 0; index < CallArgumentsSets.size(); index++) {
-      errs() << "   Set_" << index << "\n";
+      dbgs() << "   Set_" << index << "\n";
       auto CArgs = CallArgumentsSets[index];
       for (auto I = CArgs.begin(), E = CArgs.end(); I != E; I++) {
-        errs() <<  "      position: " << I->first << " Value " <<
+        dbgs() <<  "      position: " << I->first << " Value " <<
                   *(I->second) << "\n";
       }
     }
@@ -672,7 +672,7 @@ static bool analyzeCallForSpecialization(Function &F, CallInst &CI) {
 static void analyzeCallSitesForSpecializationCloning(Function &F) {
   if (!IPSpecializationCloning) {
     if (IPCloningTrace)
-      errs() << "   Specialization cloning disabled \n";
+      dbgs() << "   Specialization cloning disabled \n";
     return;
   }
   FunctionLoopInfoMap.clear();
@@ -701,7 +701,7 @@ static bool analyzeAllCallsOfFunction(Function &F, IPCloneKind CloneType) {
 
   if (CloneType == SpecializationClone) {
     if (IPCloningTrace)
-      errs() << " Processing for Spe cloning  " << F.getName() << "\n";
+      dbgs() << " Processing for Spe cloning  " << F.getName() << "\n";
     analyzeCallSitesForSpecializationCloning(F);
     return false;
   }
@@ -1444,7 +1444,7 @@ static void addSpecialRecProCloneCode(Function *F,
   Builder.CreateStore(C9, SIUB);
   Builder.CreateBr(BBLastExit);
   if (IPCloningTrace) {
-    errs() << "Inserting special extra clone test:\n";
+    dbgs() << "Inserting special extra clone test:\n";
 #ifndef NDEBUG
     BBCond->dump();
     BBCallClone->dump();
@@ -1539,7 +1539,7 @@ static bool tryToMakeRecProSubscriptsConstant(Function *F,
     if (hasThisRecProSubscript(LI, 8)) {
       auto CCI = ConstantInt::get(LI->getType(), Bound);
       if (IPCloningTrace) {
-        errs() << "Replacing Load in Function " << F->getName() << " with "
+        dbgs() << "Replacing Load in Function " << F->getName() << " with "
                << Bound << "\n";
 #ifndef NDEBUG
         LI->dump();
@@ -1589,7 +1589,7 @@ static bool tryToMakeRecProSubscriptsSame(Function *F,
     auto LI = LV[I];
     if (hasThisRecProSubscript(LI, 8)) {
       if (IPCloningTrace) {
-        errs() << "Replacing Load in Function " << F->getName()
+        dbgs() << "Replacing Load in Function " << F->getName()
                << " with alternate bound\n";
 #ifndef NDEBUG
         LI->dump();
@@ -1801,11 +1801,11 @@ static void createRecProgressionClones(Function &F,
     Value *Rep = ConstantInt::get(ConstantType, FormalValue);
     FormalValue += Inc;
     if (IPCloningTrace) {
-      errs() << "        Function: " << NewF->getName() << "\n";
-      errs() << "        ArgPos : " << ArgPos << "\n";
-      errs() << "        Argument : " << *NewFormal << "\n";
-      errs() << "        IsByRef : " << (IsByRef ? "T" : "F") << "\n";
-      errs() << "        Replacement:  " << *Rep << "\n";
+      dbgs() << "        Function: " << NewF->getName() << "\n";
+      dbgs() << "        ArgPos : " << ArgPos << "\n";
+      dbgs() << "        Argument : " << *NewFormal << "\n";
+      dbgs() << "        IsByRef : " << (IsByRef ? "T" : "F") << "\n";
+      dbgs() << "        Replacement:  " << *Rep << "\n";
     }
     if (IsByRef) {
       assert(NewFormal->hasOneUse() && "Expecting single use of ByRef Formal");
@@ -1841,7 +1841,7 @@ static void createRecProgressionClones(Function &F,
       ExtraCloneF->addFnAttr("prefer-inline-rec-pro-clone");
       ExtraCloneF->addFnAttr("contains-rec-pro-clone");
       if (IPCloningTrace)
-        errs() << "Extra RecProClone Candidate: " << LastCloneF->getName()
+        dbgs() << "Extra RecProClone Candidate: " << LastCloneF->getName()
                << "\n";
     }
     deleteRecProgressionRecCalls(F, *LastCloneF);
@@ -1878,7 +1878,7 @@ static void createRecProgressionClones(Function &F,
         BBLastLatch, AILower, AIUpper, CVLower, CVUpper);
       deleteRecProgressionRecCalls(F, *ExtraCloneF);
       if (IPCloningTrace && SubCount == 3)
-        errs() << "All desired subscript bounds substituted\n";
+        dbgs() << "All desired subscript bounds substituted\n";
     }
   }
 }
@@ -1966,18 +1966,18 @@ static void dumpFormalsConstants(Function &F) {
        AI != E; ++AI, position++) {
 
      auto CList = FormalConstantValues[&*AI];
-     errs() <<  "         Formal_" << position << ":";
+     dbgs() <<  "         Formal_" << position << ":";
      if (InexactFormals.count(&*AI))
-       errs() << "  (Inexact)  \n";
+       dbgs() << "  (Inexact)  \n";
      else
-       errs() << "  (Exact)  \n";
+       dbgs() << "  (Exact)  \n";
 
      // Dump list of constants
      for (auto I = CList.begin(), E = CList.end(); I != E; I++) {
-       errs() << "                  " << *(*(&*I)) << "\n";
+       dbgs() << "                  " << *(*(&*I)) << "\n";
      }
   }
-  errs() << "\n\n";
+  dbgs() << "\n\n";
 }
 
 // It collects worthy formals for cloning by applying heuristics.
@@ -2018,8 +2018,8 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
       continue;
 
     if (IPCloningTrace) {
-      errs() << " Collecting potential constants for Formal_";
-      errs() << (f_count - 1) << "\n";
+      dbgs() << " Collecting potential constants for Formal_";
+      dbgs() << (f_count - 1) << "\n";
     }
     if (AfterInl || IsGenRec) {
       unsigned IFCount = 0;
@@ -2031,7 +2031,7 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
           // Qualified unconditionally under the loop heuristic.
           WorthyFormalsForCloning.insert(V);
           if (IPCloningTrace)
-            errs() << "  Selecting FORMAL_" << (f_count - 1) << "\n";
+            dbgs() << "  Selecting FORMAL_" << (f_count - 1) << "\n";
         } else {
           // Qualified under the if-switch heuristic. Mark the formal as
           // pending for now, and qualify it later if the total number of
@@ -2041,17 +2041,17 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
           GlobalSwitchCount += SwitchCount;
           PossiblyWorthyFormalsForCloning.insert(V);
           if (IPCloningTrace) {
-            errs() << "  Pending FORMAL_" << (f_count - 1) << "\n";
-            errs() << "    IFCount " << GlobalIFCount << " <- "
+            dbgs() << "  Pending FORMAL_" << (f_count - 1) << "\n";
+            dbgs() << "    IFCount " << GlobalIFCount << " <- "
                    << IFCount << "\n";
-            errs() << "    SwitchCount " << GlobalSwitchCount << " <- "
+            dbgs() << "    SwitchCount " << GlobalSwitchCount << " <- "
                    << SwitchCount << "\n";
           }
         }
       } else {
         if (IPCloningTrace) {
-          errs() << "  Skipping FORMAL_" << (f_count - 1);
-          errs() << " due to heuristics\n";
+          dbgs() << "  Skipping FORMAL_" << (f_count - 1);
+          dbgs() << " due to heuristics\n";
         }
       }
     } else {
@@ -2064,13 +2064,13 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
     // There are enough "if" and "switch" values to qualify the clone under
     // the if-switch heuristic. Convert the pending formals to qualified.
     if (IPCloningTrace)
-      errs() << "  Selecting all Pending FORMALs\n";
+      dbgs() << "  Selecting all Pending FORMALs\n";
     for (Value *W : PossiblyWorthyFormalsForCloning)
       WorthyFormalsForCloning.insert(W);
   } else if (IsGenRec && PossiblyWorthyFormalsForCloning.size() >=
       IPGenCloningMinRecFormalCount) {
     if (IPCloningTrace)
-      errs() << "  Possibly selecting all Pending FORMALs in "
+      dbgs() << "  Possibly selecting all Pending FORMALs in "
              << "Recursive Function\n";
     for (Value *W : PossiblyWorthyFormalsForCloning)
       WorthyFormalsForCloning.insert(W);
@@ -2078,10 +2078,10 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
   } else if (SawPending) {
     if (IPCloningTrace) {
       if (GlobalIFCount < IPGenCloningMinIFCount)
-        errs() << "  IFCount (" << GlobalIFCount << ") < Limit ("
+        dbgs() << "  IFCount (" << GlobalIFCount << ") < Limit ("
                << IPGenCloningMinIFCount << ")\n";
       if (GlobalSwitchCount < IPGenCloningMinSwitchCount)
-        errs() << "  SwitchCount (" << GlobalSwitchCount << ") < Limit ("
+        dbgs() << "  SwitchCount (" << GlobalSwitchCount << ") < Limit ("
                << IPGenCloningMinSwitchCount << ")\n";
     }
   }
@@ -2111,18 +2111,18 @@ static bool collectAllConstantArgumentsSets(Function &F) {
 
     if (FunctionAllArgumentsSets.size() > IPFunctionCloningLimit) {
       if (IPCloningTrace)
-        errs() << "     Exceeding number of argument sets limit \n";
+        dbgs() << "     Exceeding number of argument sets limit \n";
       return false;
     }
   }
   if (FunctionAllArgumentsSets.size() == 0) {
     if (IPCloningTrace)
-      errs() << "     Zero argument sets found \n";
+      dbgs() << "     Zero argument sets found \n";
     return false;
   }
   if (IPCloningTrace) {
-    errs() << "    Number of argument sets found: ";
-    errs() << FunctionAllArgumentsSets.size() << "\n";
+    dbgs() << "    Number of argument sets found: ";
+    dbgs() << FunctionAllArgumentsSets.size() << "\n";
   }
 
   return true;
@@ -2208,7 +2208,7 @@ static void eliminateRecursionIfPossible(Function *ClonedFn,
       NumIPCallsCloned++;
 
       if (IPCloningTrace)
-        errs() << " Replaced Cloned call:   " << *CI << "\n";
+        dbgs() << " Replaced Cloned call:   " << *CI << "\n";
     }
   }
 }
@@ -2244,7 +2244,7 @@ static void cloneFunction(void) {
     eliminateRecursionIfPossible(NewFn, SrcFn, index);
 
     if (IPCloningTrace)
-      errs() << " Cloned call:   " << *CI << "\n";
+      dbgs() << " Cloned call:   " << *CI << "\n";
   }
 }
 
@@ -2283,7 +2283,7 @@ static Value* createGEPAtFrontInClonedFunction(Function* NewFn,
 
    Rep = GetElementPtrInst::CreateInBounds(BaseAddr, Indices, "", InsertPt);
    if (IPCloningTrace)
-     errs() << "     Created New GEP: " << *Rep << "\n";
+     dbgs() << "     Created New GEP: " << *Rep << "\n";
 
    return Rep;
 }
@@ -2336,7 +2336,7 @@ static GlobalVariable* createGlobalVariableWithInit(Function* NewFn,
    Counter++;
 
   if (IPCloningTrace)
-    errs() << "     Created New Array:  " << *NewGlobal << "\n";
+    dbgs() << "     Created New Array:  " << *NewGlobal << "\n";
   return NewGlobal;
 }
 
@@ -2442,9 +2442,9 @@ static void propagateArgumentsToClonedFunction(Function* NewFn,
      Rep = getReplacementValueForArg(NewFn, V, Formal, CallI, DL, Counter);
 
     if (IPCloningTrace) {
-      errs() << "        Formal : " << *AI << "\n";
-      errs() << "        Value : " << *V << "\n";
-      errs() << "        Replacement:  " << *Rep << "\n";
+      dbgs() << "        Formal : " << *AI << "\n";
+      dbgs() << "        Value : " << *V << "\n";
+      dbgs() << "        Replacement:  " << *Rep << "\n";
     }
 
     Formal->replaceAllUsesWith(Rep);
@@ -2531,7 +2531,7 @@ static void cloneSpecializationFunction(void) {
     NewCondStmts.clear();
     CallInst *CI = CurrCallList[I];
     if (IPCloningTrace)
-       errs() << "\n Call-Site (Spec): " << *CI << "\n\n";
+       dbgs() << "\n Call-Site (Spec): " << *CI << "\n\n";
     auto &CallArgsSets = AllCallsArgumentsSets[CI];
 
     if (CallArgsSets.size() == 0)
@@ -2540,7 +2540,7 @@ static void cloneSpecializationFunction(void) {
     // No point to specialize, if there is only one arg set for this CallSite
     if (CallArgsSets.size() <= 1) {
       if (IPCloningTrace)
-        errs() << "    Giving up: Not enough cases to specialize\n";
+        dbgs() << "    Giving up: Not enough cases to specialize\n";
       continue;
     }
     // Split the BasicBlock containing the CallSite, so that the newly
@@ -2645,17 +2645,17 @@ static void cloneSpecializationFunction(void) {
     if (IPCloningTrace) {
       for  (unsigned J = 0; J < CloneCount; J++) {
        if (J < NumConds) {
-        errs() << "    Cond[" << J << "] = ";
-        errs() << *NewCondStmtBBs[J] << "\n";
+        dbgs() << "    Cond[" << J << "] = ";
+        dbgs() << *NewCondStmtBBs[J] << "\n";
        }
-        errs() << "    ClonedCall[" << J << "] = "
+        dbgs() << "    ClonedCall[" << J << "] = "
           << *(NewClonedCallBBs[J]) << "\n\n";
       }
       if (IsInexact)
-        errs() << "    Fallback Call = "
+        dbgs() << "    Fallback Call = "
           << *(NewClonedCallBBs[CloneCount]) << "\n\n";
       else
-        errs() << "    No Fallback Call" << "\n\n";
+        dbgs() << "    No Fallback Call" << "\n\n";
     }
     CI->eraseFromParent();
   }
@@ -2723,7 +2723,7 @@ static bool canChangeCPUAttributes(Module &M) {
       "+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,"
       "+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves");
   if (IPCloningTrace)
-    errs() << "Begin test for AVX512->AVX2 conversion\n";
+    dbgs() << "Begin test for AVX512->AVX2 conversion\n";
   unsigned FI = llvm::AttributeList::FunctionIndex;
   for (auto &F: M.getFunctionList()) {
     if (!F.hasFnAttribute("target-cpu"))
@@ -2731,25 +2731,25 @@ static bool canChangeCPUAttributes(Module &M) {
     StringRef TCA = F.getAttribute(FI, "target-cpu").getValueAsString();
     if (TCA != "skylake-avx512") {
       if (IPCloningTrace)
-        errs() << "No AVX512->AVX2 conversion: Not skylake-avx512\n";
+        dbgs() << "No AVX512->AVX2 conversion: Not skylake-avx512\n";
       return false;
     }
     StringRef TFA = F.getAttribute(FI, "target-features").getValueAsString();
     if (TFA != SKLAttributes) {
       if (IPCloningTrace)
-        errs() << "No AVX512->AVX2 conversion: Not skylake-avx512 attributes\n";
+        dbgs() << "No AVX512->AVX2 conversion: Not skylake-avx512 attributes\n";
       return false;
     }
     for (auto &I : instructions(&F)) {
       if (containsVectorType(I.getType())) {
         if (IPCloningTrace)
-          errs() << "No AVX512->AVX2 conversion: Vector return type\n";
+          dbgs() << "No AVX512->AVX2 conversion: Vector return type\n";
         return false;
       }
       for (Value *Op : I.operands())
         if (containsVectorType(Op->getType())) {
           if (IPCloningTrace)
-            errs() << "No AVX512->AVX2 conversion: Vector operand type\n";
+            dbgs() << "No AVX512->AVX2 conversion: Vector operand type\n";
           return false;
         }
       auto II = dyn_cast<IntrinsicInst>(&I);
@@ -2757,14 +2757,14 @@ static bool canChangeCPUAttributes(Module &M) {
         Function *Callee = II->getCalledFunction();
         if (Callee->getName().startswith("llvm.x86")) {
           if (IPCloningTrace)
-            errs() << "No AVX512->AVX2 conversion: Vector intrinsic\n";
+            dbgs() << "No AVX512->AVX2 conversion: Vector intrinsic\n";
           return false;
         }
       }
     }
   }
   if (IPCloningTrace)
-    errs() << "AVX512->AVX2 conversion: All tests pass\n";
+    dbgs() << "AVX512->AVX2 conversion: All tests pass\n";
   return true;
 }
 
@@ -2792,7 +2792,7 @@ static void changeCPUAttributes(Module &M) {
     F.addAttributes(FI, Attrs);
   }
   if (IPCloningTrace)
-    errs() << "AVX512->AVX2 conversion: Conversion complete\n";
+    dbgs() << "AVX512->AVX2 conversion: Conversion complete\n";
 }
 
 // END: AVX512->AVX2 conversion code
@@ -2804,11 +2804,11 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
   bool FunctionAddressTaken;
 
   if (IPCloningTrace) {
-    errs() << " Enter IP cloning";
+    dbgs() << " Enter IP cloning";
     if (AfterInl)
-      errs() << ": (After inlining)\n";
+      dbgs() << ": (After inlining)\n";
     else
-      errs() << ": (Before inlining)\n";
+      dbgs() << ": (Before inlining)\n";
   }
 
   ClonedFunctionList.clear();
@@ -2817,20 +2817,20 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
 
     if (skipAnalyzeCallsOfFunction(F)) {
       if (IPCloningTrace)
-        errs() << " Skipping " << F.getName() << "\n";
+        dbgs() << " Skipping " << F.getName() << "\n";
       continue;
     }
 
     clearAllMaps();
 
     if (IPCloningTrace)
-      errs() << " Cloning Analysis for:  " <<  F.getName() << "\n";
+      dbgs() << " Cloning Analysis for:  " <<  F.getName() << "\n";
 
     IPCloneKind CloneType;
     if (AfterInl) {
       CloneType = GenericClone;
       if (IPCloningTrace)
-        errs() << "    Selected generic cloning  " << "\n";
+        dbgs() << "    Selected generic cloning  " << "\n";
     } else {
       int Start, Inc;
       unsigned ArgPos, Count;
@@ -2839,7 +2839,7 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
           &ArgPos, &Count, &Start, &Inc, &IsByRef, &IsCyclic)) {
         CloneType = RecProgressionClone;
         if (IPCloningTrace)
-          errs() << "    Selected RecProgression cloning  " << "\n";
+          dbgs() << "    Selected RecProgression cloning  " << "\n";
         createRecProgressionClones(F, ArgPos, Count, Start, Inc, IsByRef,
                                    IsCyclic);
         if (!IsCyclic && canChangeCPUAttributes(M))
@@ -2853,15 +2853,15 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
       if (IsFunctionPtrCloneCandidate(F)) {
         CloneType = FuncPtrsClone;
         if (IPCloningTrace)
-          errs() << "    Selected FuncPtrs cloning  " << "\n";
+          dbgs() << "    Selected FuncPtrs cloning  " << "\n";
       } else if (isDirectlyRecursive(&F)) {
         CloneType = GenericClone;
         if (IPCloningTrace)
-          errs() << "    Selected generic cloning (recursive) " << "\n";
+          dbgs() << "    Selected generic cloning (recursive) " << "\n";
       } else {
         CloneType = SpecializationClone;
         if (IPCloningTrace)
-          errs() << "    Selected Specialization cloning  " << "\n";
+          dbgs() << "    Selected Specialization cloning  " << "\n";
       }
     }
     FunctionAddressTaken = analyzeAllCallsOfFunction(F, CloneType);
@@ -2870,14 +2870,14 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
     // disable it for now.
     if (FunctionAddressTaken) {
       if (IPCloningTrace)
-        errs() << " Skipping address taken " << F.getName() << "\n";
+        dbgs() << " Skipping address taken " << F.getName() << "\n";
       continue;
     }
 
     if (CloneType == SpecializationClone && CurrCallList.size() != 0) {
       if (CurrCallList.size() > IPSpeCloningNumCallSitesLimit) {
         if (IPCloningTrace)
-          errs() << " Too many CallSites: Skipping Specialization cloning\n";
+          dbgs() << " Too many CallSites: Skipping Specialization cloning\n";
         continue;
       }
       // Transformation done here if Specialization cloning is kicked-in.
@@ -2887,7 +2887,7 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
 
     if (FormalConstantValues.size() == 0 || CurrCallList.size() == 0) {
       if (IPCloningTrace)
-        errs() << " Skipping non-candidate " << F.getName() << "\n";
+        dbgs() << " Skipping non-candidate " << F.getName() << "\n";
       continue;
     }
 
@@ -2898,13 +2898,13 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
     unsigned MinClones = getMinClones();
 
     if (IPCloningTrace) {
-      errs() << " Max clones:  " << MaxClones << "\n";
-      errs() << " Min clones:  " << MinClones << "\n";
+      dbgs() << " Max clones:  " << MaxClones << "\n";
+      dbgs() << " Min clones:  " << MinClones << "\n";
     }
 
     if (MaxClones <= 1 || MinClones > IPFunctionCloningLimit) {
       if (IPCloningTrace)
-        errs() << " Skipping not worthy candidate " << F.getName() << "\n";
+        dbgs() << " Skipping not worthy candidate " << F.getName() << "\n";
       continue;
     }
 
@@ -2915,13 +2915,13 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
     if (!findWorthyFormalsForCloning(F, AfterInl, IFSwitchHeuristic, IsGenRec,
       &IsGenRecQualified)) {
       if (IPCloningTrace)
-        errs() << " Skipping due to Heuristics " << F.getName() << "\n";
+        dbgs() << " Skipping due to Heuristics " << F.getName() << "\n";
       continue;
     }
 
     if (!collectAllConstantArgumentsSets(F)) {
       if (IPCloningTrace)
-        errs() << " Skipping not profitable candidate " << F.getName() << "\n";
+        dbgs() << " Skipping not profitable candidate " << F.getName() << "\n";
       continue;
     }
 
@@ -2931,7 +2931,7 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
     if (IsGenRecQualified && (FunctionAllArgumentsSets.size() != 1
       || CurrCallList.size() < IPGenCloningMinRecCallsites)) {
       if (IPCloningTrace)
-        errs() << " Skipping not profitable recursive candidate "
+        dbgs() << " Skipping not profitable recursive candidate "
                << F.getName() << "\n";
       continue;
     }
@@ -2940,7 +2940,7 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
   }
 
   if (IPCloningTrace)
-    errs() << " Total clones:  " << NumIPCloned << "\n";
+    dbgs() << " Total clones:  " << NumIPCloned << "\n";
 
   if (NumIPCloned != 0)
     return true;
