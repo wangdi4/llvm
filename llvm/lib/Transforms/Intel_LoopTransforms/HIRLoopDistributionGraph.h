@@ -97,7 +97,6 @@ private:
   void setPiBlockType(ArrayRef<DistPPNode *> SCCNodes);
   PiGraph *Graph;
   SmallVector<DistPPNode *, 16> DistPPNodes;
-  SmallSetVector<DistPPNode *, 16> DistPPNodesSet;
   PiBlockType BlockType;
 };
 

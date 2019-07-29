@@ -1188,11 +1188,6 @@ void UnrollHelper::patchIntermediateBottomTestForUnknownLoop(
 
   // Invert predicate and make it jump to ExitLabel.
   BottomTestIf->invertPredicate(PredIter);
-  if (BottomTest->getProfileData()) {
-    // Just swap only. Division by unrollFactor will be done
-    // later when the whole loop body is adjusted.
-    BottomTest->swapProfileData();
-  }
   Goto->setTargetLabel(UnknownLoopExitLabel);
 }
 

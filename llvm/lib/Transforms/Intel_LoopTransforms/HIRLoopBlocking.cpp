@@ -77,9 +77,10 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
 // If this check is disabled, blocking is applied to non-constant TC or to
 // constant trip count not large enough above the threshold.
 static cl::opt<bool>
-    DisableTCCheck("disable-" OPT_SWITCH "-trip-count-check", cl::init(true),
-                   cl::Hidden,
-                   cl::desc("Disable trip count check in " OPT_DESC " pass"));
+    EnableLoopBlockingNonConstTC("enable-" OPT_SWITCH "-nonconst-trip-count",
+                   cl::init(true), cl::Hidden,
+                   cl::desc("Enable " OPT_DESC
+                            " pass even when some trip counts are non-const"));
 
 // Following check will be disabled.
 //      Loop Depth > number of different IVs appearing
@@ -374,14 +375,19 @@ unsigned calcConsecutiveDepthOverTCThreshold(
     const HLLoop *InnermostLoop, const HLLoop *OutermostLoop,
     HLLoop *&NewOutermost, const DenseMap<const HLLoop *, uint64_t> &LoopToTC) {
 
+  auto IsConstTC = [](uint64_t TC) { return TC > 0; };
+
   // Scan from Innermost outerward
   // See if TC is constant and over a certain threshold
   unsigned ConsecutiveDepth = 0;
   for (const HLLoop *Lp = InnermostLoop, *ELp = OutermostLoop->getParentLoop();
        Lp != ELp; Lp = Lp->getParentLoop()) {
-    if (!DisableTCCheck &&
-        LoopToTC.find(Lp)->second < (uint64_t)LoopBlockingTCThreshold) {
-      break;
+    uint64_t TCAtLevel = LoopToTC.find(Lp)->second;
+    // non-const TC has TCAtLevel zero
+    if (TCAtLevel < (uint64_t)LoopBlockingTCThreshold) {
+      if (!EnableLoopBlockingNonConstTC || IsConstTC(TCAtLevel)) {
+        break;
+      }
     }
     ConsecutiveDepth++;
     NewOutermost = const_cast<HLLoop *>(Lp);

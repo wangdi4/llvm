@@ -323,6 +323,10 @@ void HLIf::invertPredicate(const_pred_iterator CPredI) {
   // Inversion is a no-op for undef predicate.
   if (PredKind != UNDEFINED_PREDICATE) {
     PredI->Kind = CmpInst::getInversePredicate(PredKind);
+
+    if (getProfileData()) {
+      swapProfileData();
+    }
   }
 }
 
