@@ -655,6 +655,9 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
       auto HostAddr = image->EntriesBegin[i].addr;
       auto Name = image->EntriesBegin[i].name;
 
+      DP("Looking up global variable '%s' of size %" PRIu64 " bytes\n",
+         Name, (uint64_t)Size);
+
       if (DeviceInfo.Extensions[device_id].GetDeviceGlobalVariablePointer ==
           ExtensionStatusEnabled) {
         // TODO: we should probably query the API pointer once
