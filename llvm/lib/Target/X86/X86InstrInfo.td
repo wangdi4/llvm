@@ -693,6 +693,17 @@ def ImmUnsignedi8AsmOperand : AsmOperandClass {
   let RenderMethod = "addImmOperands";
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+// Unsigned immediate used by IceCode instructions
+// [0, 0xF]
+def ImmUnsignedi4AsmOperand : AsmOperandClass {
+  let Name = "ImmUnsignedi4";
+  let RenderMethod = "addImmOperands";
+}
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
+
 // A couple of more descriptive operand definitions.
 // 16-bits but only 8 bits are significant.
 def i16i8imm  : Operand<i16> {
@@ -739,6 +750,18 @@ def i32u8imm : Operand<i32> {
   let ParserMatchClass = ImmUnsignedi8AsmOperand;
   let OperandType = "OPERAND_IMMEDIATE";
 }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+// 32-bit immediate but only 4-bits are significant and they are unsigned.
+// Used by some IceCode instructions that use intrinsics.
+def i32u4imm : Operand<i32> {
+  let PrintMethod = "printU8Imm";
+  let ParserMatchClass = ImmUnsignedi4AsmOperand;
+  let OperandType = "OPERAND_IMMEDIATE";
+}
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 
 // 64-bit immediate but only 8-bits are significant and they are unsigned.
 // Used by BT instructions.

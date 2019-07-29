@@ -1145,12 +1145,18 @@ TLI_DEFINE_STRING_INTERNAL("_errno")
 /// void _exit(int status);
 TLI_DEFINE_ENUM_INTERNAL(under_exit)
 TLI_DEFINE_STRING_INTERNAL("_exit")
+/// int _fstat64i32(int fd, struct _stat64i32 *buffer)
+TLI_DEFINE_ENUM_INTERNAL(under_fstat64i32)
+TLI_DEFINE_STRING_INTERNAL("_fstat64i32")
 /// char *_getcwd(char *buffer, int maxlen)
 TLI_DEFINE_ENUM_INTERNAL(under_getcwd)
 TLI_DEFINE_STRING_INTERNAL("_getcwd")
 /// void __cdecl _invalid_parameter_noinfo(void)
 TLI_DEFINE_ENUM_INTERNAL(under_invalid_parameter_noinfo_noreturn)
 TLI_DEFINE_STRING_INTERNAL("_invalid_parameter_noinfo_noreturn")
+/// struct tm * _localtime64(const time_t *sourceTime)
+TLI_DEFINE_ENUM_INTERNAL(under_localtime64)
+TLI_DEFINE_STRING_INTERNAL("_localtime64")
 /// int _obstack_begin (struct obstack *, size_t, size_t, void *(*) (size_t), void (*) (void *));
 TLI_DEFINE_ENUM_INTERNAL(obstack_begin)
 TLI_DEFINE_STRING_INTERNAL("_obstack_begin")
@@ -1163,12 +1169,21 @@ TLI_DEFINE_STRING_INTERNAL("_obstack_newchunk")
 /// void _purecall();
 TLI_DEFINE_ENUM_INTERNAL(under_purecall)
 TLI_DEFINE_STRING_INTERNAL("_purecall")
+/// errno_t _set_errno(int error_value)
+TLI_DEFINE_ENUM_INTERNAL(under_set_errno)
+TLI_DEFINE_STRING_INTERNAL("_set_errno")
 /// int _setjmp(jmp_buf env);
 TLI_DEFINE_ENUM_INTERNAL(setjmp)
 TLI_DEFINE_STRING_INTERNAL("_setjmp")
 /// int _stat64i32(const char *path, struct _stat64i32 *buf);
 TLI_DEFINE_ENUM_INTERNAL(under_stat64i32)
 TLI_DEFINE_STRING_INTERNAL("_stat64i32")
+/// int _stricmp(const char *string1, const char *string2)
+TLI_DEFINE_ENUM_INTERNAL(under_stricmp)
+TLI_DEFINE_STRING_INTERNAL("_stricmp")
+/// int _strnicmp(const char *string1, const char *string2, size_t count)
+TLI_DEFINE_ENUM_INTERNAL(under_strnicmp)
+TLI_DEFINE_STRING_INTERNAL("_strnicmp")
 /// __time64_t _time64(__time64_t *destTime)
 TLI_DEFINE_ENUM_INTERNAL(under_time64)
 TLI_DEFINE_STRING_INTERNAL("_time64")
@@ -2578,6 +2593,11 @@ TLI_DEFINE_STRING_INTERNAL("strncmp")
 /// char *strncpy(char *s1, const char *s2, size_t n);
 TLI_DEFINE_ENUM_INTERNAL(strncpy)
 TLI_DEFINE_STRING_INTERNAL("strncpy")
+#if INTEL_CUSTOMIZATION
+/// int strncpy_s(char *s1, size_t numberOfElements, const char *s2, size_t n);
+TLI_DEFINE_ENUM_INTERNAL(strncpy_s)
+TLI_DEFINE_STRING_INTERNAL("strncpy_s")
+#endif // INTEL_CUSTOMIZATION
 /// char *strndup(const char *s1, size_t n);
 TLI_DEFINE_ENUM_INTERNAL(strndup)
 TLI_DEFINE_STRING_INTERNAL("strndup")

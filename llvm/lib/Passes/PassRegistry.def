@@ -381,6 +381,7 @@ FUNCTION_PASS("loop-carried-cse", LoopCarriedCSEPass())
 FUNCTION_PASS("hir-multi-exit-loop-reroll", loopopt::HIRMultiExitLoopRerollPass())
 FUNCTION_PASS("hir-identity-matrix-idiom-recognition", loopopt::HIRIdentityMatrixIdiomRecognitionPass())
 FUNCTION_PASS("hir-prefetching", loopopt::HIRPrefetchingPass())
+FUNCTION_PASS("iv-split", IVSplitPass())
 
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB

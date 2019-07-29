@@ -927,6 +927,11 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
   TYPE("i8imm",               TYPE_IMM)
   TYPE("u8imm",               TYPE_UIMM8)
   TYPE("i16u8imm",            TYPE_UIMM8)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  TYPE("i32u4imm",            TYPE_UIMM8)
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
   TYPE("i32u8imm",            TYPE_UIMM8)
   TYPE("i64u8imm",            TYPE_UIMM8)
   TYPE("GR8",                 TYPE_R8)
@@ -1373,7 +1378,7 @@ RecognizableInstr::opcodeModifierEncodingFromString(const std::string &s,
   ENCODING("ccode",           ENCODING_CC)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
-  ENCODING("i8imm",           ENCODING_CC)
+  ENCODING("i32u4imm",        ENCODING_CC)
 #endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled opcode modifier encoding " << s << "\n";

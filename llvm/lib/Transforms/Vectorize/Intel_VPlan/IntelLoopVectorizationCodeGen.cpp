@@ -1239,7 +1239,7 @@ Value *VPOCodeGen::createWidenedBasePtrConsecutiveLoadStore(Instruction *I,
 
     for (unsigned i = 0; i < GEP->getNumOperands(); ++i)
       Gep2->setOperand(i, getScalarValue(GEP->getOperand(i), 0));
-    VecPtr = Builder.Insert(Gep2);
+    VecPtr = Builder.InsertWithDbgLoc(Gep2);
 
   } else // No GEP
     VecPtr = getScalarValue(Ptr, 0);
@@ -1752,7 +1752,7 @@ void VPOCodeGen::serializeWithPredication(Instruction *Inst) {
     }
 
     // Place the cloned scalar in the new loop.
-    Builder.Insert(Cloned);
+    Builder.InsertWithDbgLoc(Cloned);
     ScalarMap[Inst][Lane] = Cloned;
 
     PredicatedInstructions.push_back(std::make_pair(Cloned, Cmp));
@@ -1791,7 +1791,7 @@ void VPOCodeGen::serializeInstruction(Instruction *Instr, bool HasLoopPrivateOpe
       Cloned->setOperand(Op, NewOp);
     }
     // Place the cloned scalar in the new loop.
-    Builder.Insert(Cloned);
+    Builder.InsertWithDbgLoc(Cloned);
     ScalarMap[Instr][Lane] = Cloned;
   }
 }

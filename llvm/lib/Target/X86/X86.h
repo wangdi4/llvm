@@ -61,6 +61,7 @@ FunctionPass *createX86PadShortFunctions();
 /// This pass performs Fused-Multiply-Add transformations.
 FunctionPass *createX86GlobalFMAPass();
 FunctionPass *createFeatureInitPass();
+FunctionPass *createIVSplitLegacyPass();
 #endif // INTEL_CUSTOMIZATION
 
 /// Return a pass that selectively replaces certain instructions (like add,

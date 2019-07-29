@@ -1716,8 +1716,8 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setOperationAction(ISD::UINT_TO_FP,         MVT::v16i16, Legal);
       setOperationAction(ISD::UINT_TO_FP,         MVT::v8i16,  Legal);
 
-      setOperationAction(ISD::FP_TO_SINT,         MVT::v8i16, Legal);
-      setOperationAction(ISD::FP_TO_UINT,         MVT::v8i16, Legal);
+      setOperationAction(ISD::FP_TO_SINT,         MVT::v8i16, Custom);
+      setOperationAction(ISD::FP_TO_UINT,         MVT::v8i16, Custom);
 
       // INSERT_VECTOR_ELT v8f16 extended to VECTOR_SHUFFLE
       setOperationAction(ISD::INSERT_VECTOR_ELT,    MVT::v8f16,  Custom);
@@ -19411,6 +19411,15 @@ SDValue X86TargetLowering::LowerFP_TO_INT(SDValue Op, SelectionDAG &DAG) const {
       return DAG.getNode(ISD::EXTRACT_SUBVECTOR, dl, MVT::v2i1, Res,
                          DAG.getIntPtrConstant(0, dl));
     }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    if (VT == MVT::v8i16 && (SrcVT == MVT::v8f32 || SrcVT == MVT::v8f64)) {
+      SDValue Res = DAG.getNode(IsSigned ? ISD::FP_TO_SINT : ISD::FP_TO_UINT,
+                                dl, MVT::v8i32, Src);
+      return DAG.getNode(ISD::TRUNCATE, dl, MVT::v8i16, Res);
+    }
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
     assert(Subtarget.hasDQI() && Subtarget.hasVLX() && "Requires AVX512DQVL!");
     if (VT == MVT::v2i64 && SrcVT  == MVT::v2f32) {
@@ -34471,6 +34480,16 @@ static SDValue combineShuffleToAddSubOrFMAddSub(SDNode *N,
   // X86 targets with 512-bit ADDSUB instructions!
   if (VT.is512BitVector())
     return SDValue();
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  // Do not generate X86ISD::ADDSUB node for FP16's vector types even though
+  // the ADDSUB idiom has been successfully recognized. There are no known
+  // X86 targets with FP16 ADDSUB instructions!
+  if (VT.getVectorElementType() == MVT::f16)
+    return SDValue();
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
   return DAG.getNode(X86ISD::ADDSUB, DL, VT, Opnd0, Opnd1);
 }

@@ -19,6 +19,7 @@
 #include "llvm/ADT/SparseBitVector.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/CallGraph.h"
+#include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
@@ -266,6 +267,12 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
   const DataLayout &DL;
   const TargetLibraryInfo &TLI;
 
+  // This flag indicates whether wholeprogram safe is true or not.
+  // This is computed from WholeProgramAnalysis. This is currently
+  // used by alias queries that are invoked after Andersens analysis
+  // is done.
+  bool WholeProgramSafeDetected = false;
+
   std::set<unsigned> PossibleSourceOfPointsToInfo;
 
   std::vector<CallSite> IndirectCallList;
@@ -441,7 +448,8 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
   // List of callbacks for Values being tracked by this analysis.
   std::set<AndersensDeletionCallbackHandle> AndersensHandles;
 
-  explicit AndersensAAResult(const DataLayout &DL, const TargetLibraryInfo &TLI);
+  explicit AndersensAAResult(const DataLayout &DL, const TargetLibraryInfo &TLI,
+                             WholeProgramInfo *WPInfo);
 
 public:
   AndersensAAResult(AndersensAAResult &&Arg);
@@ -452,8 +460,9 @@ public:
     Incomplete,              // At least one target is unsafe or invalid
   };
 
-  static AndersensAAResult analyzeModule(Module &M, const TargetLibraryInfo &TLI,
-                                       CallGraph &CG);
+  static AndersensAAResult analyzeModule(Module &M,
+              const TargetLibraryInfo &TLI, CallGraph &CG,
+              WholeProgramInfo *WPInfo);
 
   // Interface routine to get possible targets of function pointers
   AndersenSetResult GetFuncPointerPossibleTargets(Value *FP, 

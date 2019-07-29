@@ -29,6 +29,7 @@
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Intel_AggInline.h"          // INTEL
 #include "llvm/Analysis/Intel_Andersens.h"          // INTEL
+#include "llvm/Analysis/Intel_WP.h"                 // INTEL
 #include "llvm/Analysis/LazyValueInfo.h"
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"   // INTEL
 #include "llvm/Analysis/Loads.h"
@@ -168,6 +169,7 @@ namespace {
       AU.addPreserved<GlobalsAAWrapperPass>();
       AU.addPreserved<AndersensAAWrapperPass>();                        // INTEL
       AU.addPreserved<InlineAggressiveWrapperPass>();                   // INTEL
+      AU.addPreserved<WholeProgramWrapperPass>();                       // INTEL
       AU.addRequired<TargetLibraryInfoWrapperPass>();
       AU.addRequired<TargetTransformInfoWrapperPass>();                 // INTEL
     }
@@ -374,6 +376,7 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
   PA.preserve<LazyValueAnalysis>();
   PA.preserve<InlineAggAnalysis>();   // INTEL
   PA.preserve<AndersensAA>();         // INTEL
+  PA.preserve<WholeProgramAnalysis>();// INTEL
   return PA;
 }
 

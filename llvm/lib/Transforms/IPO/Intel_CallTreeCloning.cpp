@@ -4189,6 +4189,7 @@ llvm::CallTreeCloningLegacyPass::CallTreeCloningLegacyPass() : ModulePass(ID) {
 }
 
 void CallTreeCloningLegacyPass::getAnalysisUsage(AnalysisUsage &AU) const {
+  AU.addPreserved<WholeProgramWrapperPass>();
   AU.addRequired<LoopInfoWrapperPass>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
 }
@@ -4226,6 +4227,7 @@ PreservedAnalyses CallTreeCloningPass::run(Module &M,
 #endif
   (void)ModuleChanged;
 
+  PA.preserve<WholeProgramAnalysis>();
   return PA;
 }
 
