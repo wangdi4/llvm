@@ -2459,7 +2459,7 @@ StmtResult Sema::BuildCXXForRangeStmt(SourceLocation ForLoc,
 
         ExprResult SizeOfVLAExprR = ActOnUnaryExprOrTypeTraitExpr(
             EndVar->getLocation(), UETT_SizeOf,
-            /*isType=*/true,
+            /*IsType=*/true,
             CreateParsedType(VAT->desugar(), Context.getTrivialTypeSourceInfo(
                                                  VAT->desugar(), RangeLoc))
                 .getAsOpaquePtr(),
@@ -2469,7 +2469,7 @@ StmtResult Sema::BuildCXXForRangeStmt(SourceLocation ForLoc,
 
         ExprResult SizeOfEachElementExprR = ActOnUnaryExprOrTypeTraitExpr(
             EndVar->getLocation(), UETT_SizeOf,
-            /*isType=*/true,
+            /*IsType=*/true,
             CreateParsedType(VAT->desugar(),
                              Context.getTrivialTypeSourceInfo(
                                  VAT->getElementType(), RangeLoc))

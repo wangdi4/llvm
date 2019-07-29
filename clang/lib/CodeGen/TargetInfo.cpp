@@ -492,7 +492,9 @@ llvm::Value *TargetCodeGenInfo::performAddrSpaceCast(
   // space, an address space conversion may end up as a bitcast.
   if (auto *C = dyn_cast<llvm::Constant>(Src))
     return performAddrSpaceCast(CGF.CGM, C, SrcAddr, DestAddr, DestTy);
-  return CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(Src, DestTy);
+  // Try to preserve the source's name to make IR more readable.
+  return CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(
+      Src, DestTy, Src->hasName() ? Src->getName() + ".ascast" : "");
 }
 
 llvm::Constant *
@@ -874,7 +876,7 @@ ABIArgInfo WebAssemblyABIInfo::classifyReturnType(QualType RetTy) const {
 
 Address WebAssemblyABIInfo::EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
                                       QualType Ty) const {
-  return emitVoidPtrVAArg(CGF, VAListAddr, Ty, /*Indirect=*/ false,
+  return emitVoidPtrVAArg(CGF, VAListAddr, Ty, /*IsIndirect=*/ false,
                           getContext().getTypeInfoInChars(Ty),
                           CharUnits::fromQuantity(4),
                           /*AllowHigherAlign=*/ true);
@@ -8067,7 +8069,7 @@ void AMDGPUTargetCodeGenInfo::setTargetAttributes(
   if (((M.getLangOpts().OpenCL && FD->hasAttr<OpenCLKernelAttr>()) ||
       (M.getLangOpts().HIP && FD->hasAttr<CUDAGlobalAttr>())) &&
       (M.getTriple().getOS() == llvm::Triple::AMDHSA))
-    F->addFnAttr("amdgpu-implicitarg-num-bytes", "48");
+    F->addFnAttr("amdgpu-implicitarg-num-bytes", "56");
 
   const auto *FlatWGS = FD->getAttr<AMDGPUFlatWorkGroupSizeAttr>();
   if (ReqdWGS || FlatWGS) {

@@ -471,6 +471,10 @@ static void parseAnalyzerConfigs(AnalyzerOptions &AnOpts,
   if (!Diags)
     return;
 
+  if (AnOpts.ShouldTrackConditionsDebug && !AnOpts.ShouldTrackConditions)
+    Diags->Report(diag::err_analyzer_config_invalid_input)
+        << "track-conditions-debug" << "'track-conditions' to also be enabled";
+
   if (!AnOpts.CTUDir.empty() && !llvm::sys::fs::is_directory(AnOpts.CTUDir))
     Diags->Report(diag::err_analyzer_config_invalid_input) << "ctu-dir"
                                                            << "a filename";
@@ -2563,19 +2567,6 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
 
   Opts.Float128 = Opts.IntelQuad || (Opts.IntelCompat && Opts.GNUMode);
 
-  if (const Arg *A = Args.getLastArg(OPT_fintel_long_double_size_EQ)) {
-    StringRef Value = A->getValue();
-    if (Value == "128")
-      Opts.LongDoubleSize = 128;
-    else if (Value == "80")
-      Opts.LongDoubleSize = 80;
-    else if (Value == "64")
-      Opts.LongDoubleSize = 64;
-    else {
-      Diags.Report(diag::err_drv_invalid_value) << A->getAsString(Args)
-                                                << A->getValue();
-    }
-  }
   // IntrinsicPromotion implementation.
   Opts.IntrinsicAutoPromote = Args.hasArg(OPT_intel_mintrinsic_promote);
 #endif  // INTEL_CUSTOMIZATION
@@ -2899,6 +2890,25 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.PackStruct = getLastArgIntValue(Args, OPT_fpack_struct_EQ, 0, Diags);
   Opts.MaxTypeAlign = getLastArgIntValue(Args, OPT_fmax_type_align_EQ, 0, Diags);
   Opts.AlignDouble = Args.hasArg(OPT_malign_double);
+  Opts.LongDoubleSize = Args.hasArg(OPT_mlong_double_128)
+                            ? 128
+                            : Args.hasArg(OPT_mlong_double_64) ? 64 : 0;
+#if INTEL_CUSTOMIZATION
+  if (const Arg *A = Args.getLastArg(OPT_fintel_long_double_size_EQ)) {
+    StringRef Value = A->getValue();
+    if (Value == "128")
+      Opts.LongDoubleSize = 128;
+    else if (Value == "80")
+      Opts.LongDoubleSize = 80;
+    else if (Value == "64")
+      Opts.LongDoubleSize = 64;
+    else {
+      Diags.Report(diag::err_drv_invalid_value) << A->getAsString(Args)
+                                                << A->getValue();
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+  Opts.PPCIEEELongDouble = Args.hasArg(OPT_mabi_EQ_ieeelongdouble);
   Opts.PICLevel = getLastArgIntValue(Args, OPT_pic_level, 0, Diags);
   Opts.ROPI = Args.hasArg(OPT_fropi);
   Opts.RWPI = Args.hasArg(OPT_frwpi);

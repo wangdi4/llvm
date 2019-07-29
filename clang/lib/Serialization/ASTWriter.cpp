@@ -83,8 +83,8 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Bitcode/BitCodes.h"
-#include "llvm/Bitcode/BitstreamWriter.h"
+#include "llvm/Bitstream/BitCodes.h"
+#include "llvm/Bitstream/BitstreamWriter.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Compression.h"
 #include "llvm/Support/DJB.h"
@@ -1329,6 +1329,7 @@ void ASTWriter::WriteBlockInfoBlock() {
   RECORD(DECL_TEMPLATE_TYPE_PARM);
   RECORD(DECL_NON_TYPE_TEMPLATE_PARM);
   RECORD(DECL_TEMPLATE_TEMPLATE_PARM);
+  RECORD(DECL_CONCEPT);
   RECORD(DECL_TYPE_ALIAS_TEMPLATE);
   RECORD(DECL_STATIC_ASSERT);
   RECORD(DECL_CXX_BASE_SPECIFIERS);
@@ -1482,7 +1483,7 @@ ASTFileSignature ASTWriter::writeUnhashedControlBlock(Preprocessor &PP,
   Stream.EmitRecord(DIAGNOSTIC_OPTIONS, Record);
 
   // Write out the diagnostic/pragma mappings.
-  WritePragmaDiagnosticMappings(Diags, /* IsModule = */ WritingModule);
+  WritePragmaDiagnosticMappings(Diags, /* isModule = */ WritingModule);
 
   // Leave the options block.
   Stream.ExitBlock();

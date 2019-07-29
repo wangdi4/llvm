@@ -1115,6 +1115,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     DefineStd(Builder, "i386", Opts);
   }
 
+  Builder.defineMacro("__SEG_GS");
+  Builder.defineMacro("__SEG_FS");
+  Builder.defineMacro("__seg_gs", "__attribute__((address_space(256)))");
+  Builder.defineMacro("__seg_fs", "__attribute__((address_space(257)))");
+
 #if INTEL_CUSTOMIZATION
   // IntrinsicPromotion implementation.
   if (Opts.IntrinsicAutoPromote)
