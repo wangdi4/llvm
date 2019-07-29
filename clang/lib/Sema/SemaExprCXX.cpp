@@ -1254,7 +1254,7 @@ ExprResult Sema::ActOnCXXThis(SourceLocation Loc) {
   QualType ThisTy = getCurrentThisType();
   if (ThisTy.isNull())
     return Diag(Loc, diag::err_invalid_this_use);
-  return BuildCXXThisExpr(Loc, ThisTy, /*isImplicit=*/false);
+  return BuildCXXThisExpr(Loc, ThisTy, /*IsImplicit=*/false);
 }
 
 Expr *Sema::BuildCXXThisExpr(SourceLocation Loc, QualType Type,
@@ -4216,7 +4216,15 @@ Sema::PerformImplicitConversion(Expr *From, QualType ToType,
     break;
 
   case ICK_Block_Pointer_Conversion: {
-    From = ImpCastExprToType(From, ToType.getUnqualifiedType(), CK_BitCast,
+    LangAS AddrSpaceL =
+        ToType->castAs<BlockPointerType>()->getPointeeType().getAddressSpace();
+    LangAS AddrSpaceR =
+        FromType->castAs<BlockPointerType>()->getPointeeType().getAddressSpace();
+    assert(Qualifiers::isAddressSpaceSupersetOf(AddrSpaceL, AddrSpaceR) &&
+           "Invalid cast");
+    CastKind Kind =
+        AddrSpaceL != AddrSpaceR ? CK_AddressSpaceConversion : CK_BitCast;
+    From = ImpCastExprToType(From, ToType.getUnqualifiedType(), Kind,
                              VK_RValue, /*BasePath=*/nullptr, CCK).get();
     break;
   }
