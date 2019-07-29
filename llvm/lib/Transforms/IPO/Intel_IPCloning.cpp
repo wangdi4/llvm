@@ -2755,7 +2755,7 @@ static bool canChangeCPUAttributes(Module &M) {
       auto II = dyn_cast<IntrinsicInst>(&I);
       if (II) {
         Function *Callee = II->getCalledFunction();
-        if (Callee->getName().startswith("llvm.x86")) {
+        if (Callee && Callee->getName().startswith("llvm.x86")) {
           if (IPCloningTrace)
             dbgs() << "No AVX512->AVX2 conversion: Vector intrinsic\n";
           return false;
