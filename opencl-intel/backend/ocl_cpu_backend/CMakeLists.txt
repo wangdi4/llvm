@@ -230,6 +230,7 @@ set( BACKEND_PASSES
     ChannelsUsageAnalysis
     PipeIOTransformation
     CleanupWrappedKernels
+    CoerceTypes
     PipeOrdering
     PipeSupport
     OclFunctionAttrs

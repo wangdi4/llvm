@@ -77,5 +77,6 @@ static void initializeOCLPasses(PassRegistry &Registry) {
     intel::initializeSYCLPipesHackPass(Registry);
     intel::initializePatchCallbackArgsPass(Registry);
     intel::initializeAddTLSGlobalsPass(Registry);
+    intel::initializeCoerceTypesPass(Registry);
 }
 #endif //INITIALIZE_OCL_PASSES_H

@@ -158,6 +158,7 @@ llvm::ModulePass *createPrintfArgumentsPromotionPass();
 llvm::ModulePass *createChannelsUsageAnalysisPass();
 llvm::ModulePass *createSYCLPipesHackPass();
 llvm::ModulePass *createAddTLSGlobalsPass();
+llvm::ModulePass *createCoerceTypesPass();
 }
 
 using namespace intel;
@@ -801,7 +802,9 @@ Optimizer::~Optimizer() { }
 Optimizer::Optimizer(llvm::Module *pModule,
                      llvm::SmallVector<llvm::Module *, 2> pRtlModuleList,
                      const intel::OptimizerConfig *pConfig)
-    : m_pModule(pModule), m_pRtlModuleList(pRtlModuleList) {
+    : m_pModule(pModule), m_pRtlModuleList(pRtlModuleList),
+      m_IsFpgaEmulator(pConfig->isFpgaEmulator()),
+      m_IsEyeQEmulator(pConfig->isEyeQEmulator()) {
   PassRegistry &Registry = *PassRegistry::getPassRegistry();
   initializeOCLPasses(Registry);
   DebuggingServiceType debugType =
@@ -814,8 +817,6 @@ Optimizer::Optimizer(llvm::Module *pModule,
   unsigned int OptLevel = 3;
   if (pConfig->GetDisableOpt() || debugType != intel::None)
     OptLevel = 0;
-  const bool isFpgaEmulator = pConfig->isFpgaEmulator();
-  const bool isEyeQEmulator = pConfig->isEyeQEmulator();
 
   // Detect OCL2.0 compilation mode
   const bool isOcl20 = (CompilationUtils::fetchCLVersionFromMetadata(
@@ -840,15 +841,14 @@ Optimizer::Optimizer(llvm::Module *pModule,
 
   // Add passes which will run unconditionally
   populatePassesPreFailCheck(m_PreFailCheckPM, pModule, m_pRtlModuleList,
-                             OptLevel, pConfig, isOcl20,
-                             isFpgaEmulator, UnrollLoops,
-                             EnableInferAS, isSPIRV);
+                             OptLevel, pConfig, isOcl20, m_IsFpgaEmulator,
+                             UnrollLoops, EnableInferAS, isSPIRV);
 
   // Add passes which will be run only if hasFunctionPtrCalls() and
   // hasRecursion() will return false
   populatePassesPostFailCheck(m_PostFailCheckPM, pModule, m_pRtlModuleList,
                               OptLevel, pConfig, m_undefinedExternalFunctions,
-                              isOcl20, isFpgaEmulator, isEyeQEmulator,
+                              isOcl20, m_IsFpgaEmulator, m_IsEyeQEmulator,
                               UnrollLoops, EnableInferAS);
 }
 
@@ -856,6 +856,11 @@ void Optimizer::Optimize() {
   legacy::PassManager materializerPM;
   materializerPM.add(createBuiltinLibInfoPass(m_pRtlModuleList, ""));
   materializerPM.add(createLLVMEqualizerPass());
+  Triple TargetTriple(m_pModule->getTargetTriple());
+  if (!m_IsFpgaEmulator && !m_IsEyeQEmulator && TargetTriple.isOSLinux() &&
+      TargetTriple.isArch64Bit())
+    materializerPM.add(createCoerceTypesPass());
+
   materializerPM.run(*m_pModule);
   m_PreFailCheckPM.run(*m_pModule);
 
