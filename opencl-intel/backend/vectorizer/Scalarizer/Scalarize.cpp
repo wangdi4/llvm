@@ -24,6 +24,7 @@
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/Analysis/Intel_VectorVariant.h"
 
 extern cl::opt<bool>
 EnableScatterGather;
@@ -69,6 +70,9 @@ bool ScalarizeFunction::runOnFunction(Function &F)
   if (!F.getReturnType()->isVoidTy())  {
     return false;
   }
+
+  if (InVPlanPipeline && !VectorVariant::isVectorVariant(F.getName()))
+    return false;
 
   m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
   V_ASSERT(m_rtServices && "Runtime services were not initialized!");
