@@ -35,7 +35,8 @@ namespace intel {
 
     /// @brief C'tor
     /// @param debugType the type of debugging support enabled
-    BarrierMain(DebuggingServiceType debugType);
+    /// @param useTLSGlobals use TLS globals instead of implicit arguments
+    BarrierMain(DebuggingServiceType debugType, bool useTLSGlobals);
 
     /// @brief D'tor
     ~BarrierMain() {}
@@ -64,6 +65,9 @@ namespace intel {
   private:
     /// The type of debugging service enabled
     DebuggingServiceType m_debugType;
+
+    /// Use TLS globals instead of implicit arguments
+    bool m_useTLSGlobals;
 
     /// This holds a map between kernel function name and buffer stride size
     std::map<std::string, unsigned int> m_bufferStrideMap;
