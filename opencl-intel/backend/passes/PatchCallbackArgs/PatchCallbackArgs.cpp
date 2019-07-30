@@ -28,8 +28,8 @@
 using namespace Intel::OpenCL::DeviceBackend;
 
 extern "C" {
-  ModulePass* createPatchCallbackArgsPass() {
-    return new intel::PatchCallbackArgs();
+ModulePass *createPatchCallbackArgsPass(bool UseTLSGlobals) {
+  return new intel::PatchCallbackArgs(UseTLSGlobals);
   }
 }
 
@@ -80,12 +80,25 @@ bool PatchCallbackArgs::runOnModule(Module &M) {
       if (!ImplicitArgs.first) {
         assert(!ImplicitArgs.second);
         // Need to create a cache entry for implicit arg values
-        Argument *WorkInfo; // Used to access CallbackContext
-        Argument *RuntimeHandle; // Needed by some callbacks
-        CompilationUtils::getImplicitArgs(CallingF, nullptr, &WorkInfo, nullptr, nullptr,
-                                          nullptr, &RuntimeHandle);
-        ImplicitArgs.first = WorkInfo;
-        ImplicitArgs.second = RuntimeHandle;
+        if (UseTLSGlobals) {
+          ValuePair &ImplicitArgs = Func2ImplicitArgs[CallingF];
+          Value *WorkInfo = CompilationUtils::getTLSGlobal(
+              &M, ImplicitArgsUtils::IA_WORK_GROUP_INFO);
+          Value *RuntimeHandle = CompilationUtils::getTLSGlobal(
+              &M, ImplicitArgsUtils::IA_RUNTIME_HANDLE);
+          IRBuilder<> B(
+              dyn_cast<Instruction>(CallingF->getEntryBlock().begin()));
+          ImplicitArgs.first = B.CreateLoad(WorkInfo);
+          ImplicitArgs.second = B.CreateLoad(RuntimeHandle);
+        } else {
+          Value *WorkInfo;      // Used to access CallbackContext
+          Value *RuntimeHandle; // Needed by some callbacks
+          CompilationUtils::getImplicitArgs(CallingF, nullptr, &WorkInfo,
+                                            nullptr, nullptr, nullptr,
+                                            &RuntimeHandle);
+          ImplicitArgs.first = WorkInfo;
+          ImplicitArgs.second = RuntimeHandle;
+        }
       }
       assert(ImplicitArgs.second);
       Value *Val = 0;
@@ -100,6 +113,11 @@ bool PatchCallbackArgs::runOnModule(Module &M) {
         assert(NDInfoId == NDInfo::BLOCK2KERNEL_MAPPER ||
                NDInfoId == NDInfo::RUNTIME_INTERFACE);
         IRBuilder<> Builder(&*CallingF->getEntryBlock().begin());
+        // When using tls insert after load instead
+        if (UseTLSGlobals) {
+          Builder.SetInsertPoint(
+              dyn_cast<Instruction>(ImplicitArgs.first)->getNextNode());
+        }
         Val =
             IAA.GenerateGetFromWorkInfo(NDInfoId, ImplicitArgs.first, Builder);
       } break;

@@ -42,7 +42,7 @@ namespace intel {
     static char ID;
 
     /// @brief Constructor
-    PrepareKernelArgs();
+    PrepareKernelArgs(bool useTLSGlobals = false);
 
     /// @brief Provides name of pass
     virtual llvm::StringRef getPassName() const {
@@ -115,6 +115,9 @@ namespace intel {
     IntegerType*          m_SizetTy;
     IntegerType*          m_I8Ty;
     IntegerType*          m_I32Ty;
+
+    /// @brief Use TLS globals instead of implicit arguments
+    bool m_useTLSGlobals;
   };
 
 } // namespace intel

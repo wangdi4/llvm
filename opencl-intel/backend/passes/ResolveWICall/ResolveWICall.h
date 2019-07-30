@@ -36,7 +36,7 @@ namespace intel {
     static char ID;
 
     /// @brief Constructor
-    ResolveWICall(bool isUniformWG = false);
+    ResolveWICall(bool isUniformWG = false, bool useTLSGlobals = false);
 
     /// @brief Provides name of pass
     virtual llvm::StringRef getPassName() const {
@@ -138,7 +138,6 @@ namespace intel {
     uint32_t MapIndexToIndexOfArray(const uint32_t Index, const uint32_t argsNum);
     /// @brief get the pointer size for the current target, in bits (32 or 64)
     unsigned getPointerSize() const;
-  protected:
     /// @brief The llvm current processed module
     Module      *m_pModule;
     /// @brief The llvm context
@@ -148,15 +147,15 @@ namespace intel {
 
     /// This holds the Runtime Handle implicit argument of current handled function
     /// This argument is initialized passed thru to MIC's printf
-    Argument *m_pRuntimeHandle;
+    Value *m_pRuntimeHandle;
     /// This holds the pWorkInfo implicit argument of current handled function
-    Argument *m_pWorkInfo;
+    Value *m_pWorkInfo;
     /// This holds the pWGId implicit argument of current handled function
-    Argument *m_pWGId;
+    Value *m_pWGId;
     /// This holds the pBaseGlbId implicit argumnet of current handled function
-    Argument *m_pBaseGlbId;
+    Value *m_pBaseGlbId;
     /// This holds the pSpecialBuf implicit argument of current handled function
-    Argument *m_pSpecialBuf;
+    Value *m_pSpecialBuf;
     /// This holds the pExtExecutionContext implicit argument of current handled function
     //TODO-NDRANGE: Extended execution context not supported in branch
     //Argument *m_pExtendedExecutionCtx;
@@ -186,6 +185,8 @@ namespace intel {
     // true if a module is compiled with the support of the
     // non-uniform work-group size.
     bool     m_uniformLocalSize;
+    // Use TLS globals instead of implicit arguments
+    bool m_useTLSGlobals;
   };
 
 
