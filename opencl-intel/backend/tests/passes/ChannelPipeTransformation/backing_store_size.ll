@@ -18,7 +18,6 @@
 ; ----------------------------------------------------
 ; Compile options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl
 ; ----------------------------------------------------
-; REQUIRES: fpga-emulator
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -channel-pipe-transformation -verify %s -S | FileCheck %s
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -channel-pipe-transformation --channel-depth-emulation-mode=2 -verify %s -S | FileCheck %s --check-prefixes=CHECK,IGNOREDEPTH
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -channel-pipe-transformation --channel-depth-emulation-mode=1 -verify %s -S | FileCheck %s --check-prefixes=CHECK,DEFAULT

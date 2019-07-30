@@ -11,7 +11,6 @@
 ; ----------------------------------------------------
 ; Compile options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -x cl -cl-std=CL1.2 -finclude-default-header
 ; ----------------------------------------------------
-; REQUIRES: fpga-emulator
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -channel-pipe-transformation -verify %s -S | FileCheck %s
 
 ; CHECK: @[[PIPE1:.*]] = addrspace(1) global %opencl.pipe_rw_t addrspace(1)*

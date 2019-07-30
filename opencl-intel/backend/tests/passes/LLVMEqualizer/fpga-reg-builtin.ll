@@ -37,7 +37,6 @@
 ;
 ; Compiled by the following command: clang -cc1 -triple spir-unknown-unknown-intelfpga %s -emit-llvm -o -
 
-; REQUIRES: fpga-emulator
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -remove-fpga-reg -llvm-equalizer -verify -S %s | FileCheck %s
 
 %struct.st = type { i32, float }

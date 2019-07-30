@@ -2,7 +2,6 @@
 ; by the follow command:
 ; %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -channel-pipe-transformation -verify -S
 ; ----------------------------------------------------
-; REQUIRES: fpga-emulator
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -pipe-support -verify %s -S | FileCheck %s
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
@@ -54,7 +53,7 @@ if.end:                                           ; preds = %if.end, %if.else, %
 ; CHECK:      %[[CALL:.+]] = call i32 @__read_pipe_2_fpga(%opencl.pipe_ro_t addrspace(1)* %[[PIPERO]]
 ; CHECK-NEXT: %[[ICMP:.+]] = icmp ne i32 %[[CALL]], 0
 ; CHECK-NEXT: br i1 %[[ICMP]], label %[[FLUSHBB:[0-9]+]]
-; CHECK:      ; <label>:[[FLUSHBB]]
+; CHECK:      [[FLUSHBB]]:
 ; CHECK-NEXT: call void @__flush_pipe_read_array
 ; CHECK-NEXT: call void @__flush_pipe_write_array
 
