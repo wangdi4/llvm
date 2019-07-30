@@ -444,9 +444,10 @@ void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
   auto EraseUnusedGlobalValue = [&](GlobalValue *GV) {
     // TODO  The check of use_empty will be removed after the frontend
     // generates target_declare attribute for the variable GV.
+    GV->removeDeadConstantUsers();
     if (!GV->use_empty())
       return;
-    GV->removeDeadConstantUsers();
+
     GV->eraseFromParent();
   };
 
