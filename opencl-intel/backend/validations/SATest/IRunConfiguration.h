@@ -58,7 +58,7 @@ namespace Validation
         virtual const IRunComponentConfiguration* GetReferenceRunnerConfiguration() const = 0;
 
         /// @brief Returns pointer to the object with back-end runner configuration
-        virtual const IRunComponentConfiguration* GetBackendRunnerConfiguration() const = 0;
+        virtual IRunComponentConfiguration* GetBackendRunnerConfiguration() = 0;
     };
 
 }

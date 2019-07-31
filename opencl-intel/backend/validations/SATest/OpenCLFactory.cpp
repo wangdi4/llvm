@@ -42,9 +42,9 @@ IProgram * OpenCLFactory::CreateProgram(IProgramConfiguration* programConfig,
                                         IRunConfiguration* runConfig)
 {
     OpenCLProgramConfiguration* pOCLProgramConfig = static_cast<OpenCLProgramConfiguration*>(programConfig);
-    const BERunOptions* pBERunConfig = static_cast<const BERunOptions*>(runConfig->GetBackendRunnerConfiguration());
+    BERunOptions* pBERunConfig = static_cast<BERunOptions*>(runConfig->GetBackendRunnerConfiguration());
     std::string arch = pBERunConfig->GetValue<std::string>(RC_BR_CPU_ARCHITECTURE,std::string(""));
-
+    pBERunConfig->SetValue<int>(RC_BR_DEVICE_MODE,pOCLProgramConfig->GetDeviceMode());
     return new OpenCLProgram(pOCLProgramConfig, arch);
 }
 

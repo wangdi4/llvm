@@ -94,10 +94,9 @@ public:
                                 (RC_BR_DUMP_IR_AFTER, 0);
         m_DumpIROptionBefore = runConfig.GetValue<const std::vector<IRDumpOptions> * >
                                 (RC_BR_DUMP_IR_BEFORE, 0);
-
+        m_deviceMode = static_cast<DeviceMode>(runConfig.GetValue<int>(RC_BR_DEVICE_MODE, CPU_DEVICE));
         m_DumpIRDir = runConfig.GetValue<std::string>(RC_BR_DUMP_IR_DIR, "");
         m_dumpHeuristcIR = runConfig.GetValue<bool>(RC_BR_DUMP_HEURISTIC_IR, false);
-
     }
 
     virtual void InitTargetDescriptionSession(ICLDevBackendExecutionService* pExecutionService)
@@ -122,7 +121,7 @@ public:
         switch(optionId)
         {
         case CL_DEV_BACKEND_OPTION_DEVICE :
-            return CPU_DEVICE;
+            return m_deviceMode;
         case CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE:
             return m_transposeSize;
         default:
@@ -169,6 +168,7 @@ protected:
     Intel::OpenCL::DeviceBackend::ETransposeSize m_transposeSize;
     std::string    m_cpu;
     std::string    m_cpuFeatures;
+    DeviceMode     m_deviceMode;
     bool           m_useVTune;
     const std::vector<IRDumpOptions>* m_DumpIROptionAfter;
     const std::vector<IRDumpOptions>* m_DumpIROptionBefore;
