@@ -26,7 +26,8 @@ define void @"_ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test"(i32 addrspace(1)*,
 ; CHECK-NEXT:    %entry.region = call token @llvm.directive.region.entry()
 ; CHECK-NEXT:    br label %simd.loop
 ; CHECK-EMPTY:
-; CHECK-NEXT:  simd.loop:
+
+; CHECK-LABEL:  simd.loop:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i32
 ; CHECK-NEXT:    [[SLID_LINEAR:%.*]] = add nuw i32 [[INDEX]], %slid
 ; CHECK-NEXT:    [[INDEX_I64:%.*]] = sext i32 [[INDEX]] to i64
