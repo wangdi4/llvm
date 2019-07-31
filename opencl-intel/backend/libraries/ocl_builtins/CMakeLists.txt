@@ -159,10 +159,11 @@ endforeach( LLVM_INCLUDE_DIR_ITEM)
 # FMAs even in 'standard' CodeGen setting.
 set (CLANG_CL_COMMON_COMPILER_FLAGS
   -cc1 -triple ${DEVICE_TRIPLE} -emit-llvm-bc -fwrapv -O3 -disable-intel-proprietary-opts
-  -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CCLANG_INCLUDE_DIRS} -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -include opencl-c.h -include long_vector_types.h
+  -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CCLANG_INCLUDE_DIRS} -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -include opencl-c.h -include long_vector_types.h -include opencl_cth_pre_release.h
   -cl-std=CL2.0 -D __OPENCL_C_VERSION__=200 -fopencl-force-vector-abi
   -fblocks -ffake-address-space-map -faddress-space-map-mangling=yes -mstackrealign -ffp-contract=fast
   -cl-ext=+cl_khr_fp16
+  -D float_atomics_enable
   )
 
 set (CLANG_C_COMPILER_PARAMS
