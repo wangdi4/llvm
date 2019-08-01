@@ -60,6 +60,9 @@ public:
   OCLVecClone(const Intel::CPUId *CPUId, bool EnableVPlanVecForOpenCL);
 
   OCLVecClone();
+
+  /// Returns the name of the pass
+  llvm::StringRef getPassName() const override { return "OCLVecClone pass"; }
 };
 } // namespace intel
 #endif // BACKEND_VECTORIZER_OCLVECCLONE_OCLVECCLONE_H
