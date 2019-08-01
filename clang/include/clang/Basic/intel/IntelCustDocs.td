@@ -71,8 +71,10 @@ def StringCharStarCatchableDocs : Documentation {
   let RegressionTest = "cfeCpp/tr38183";
   let Owner = "mprice1";
   let CompatVersions = "vs2015";
+  let Default = 0;
   let Content = [{
 Microsoft allows you to catch a string literal with catch(char \*).
+This behavior is off-by-default.
 
 .. code-block:: c++
 
