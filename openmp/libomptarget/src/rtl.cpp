@@ -141,6 +141,12 @@ void RTLsTy::LoadRTLs() {
     if ((*((void **)&R.data_alloc_user) =
               dlsym(dynlib_handle, "__tgt_rtl_data_alloc_user")))
       DP("Optional interface: __tgt_rtl_data_alloc_user\n");
+    if ((*((void **)&R.create_buffer) =
+              dlsym(dynlib_handle, "__tgt_rtl_create_buffer")))
+      DP("Optional interface: __tgt_rtl_create_buffer\n");
+    if ((*((void **)&R.release_buffer) =
+              dlsym(dynlib_handle, "__tgt_rtl_release_buffer")))
+      DP("Optional interface: __tgt_rtl_release_buffer\n");
     if ((*((void **)&R.run_team_nd_region) =
               dlsym(dynlib_handle, "__tgt_rtl_run_target_team_nd_region")))
       DP("Optional interface: __tgt_rtl_run_target_team_nd_region\n");

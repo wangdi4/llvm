@@ -902,6 +902,29 @@ void *__tgt_rtl_data_alloc_base(int32_t device_id, int64_t size, void *hst_ptr,
   return tgt_rtl_data_alloc_template(device_id, size, hst_ptr, hst_base, 0);
 }
 
+// Create a buffer from the given SVM pointer.
+EXTERN
+void *__tgt_rtl_create_buffer(int32_t device_id, void *tgt_ptr) {
+  cl_int rc;
+  cl_mem ret = clCreateBuffer(DeviceInfo.CTX[device_id], CL_MEM_USE_HOST_PTR,
+                              1, tgt_ptr, &rc);
+  if (rc != CL_SUCCESS) {
+    DP("Error: Failed to create a buffer from a SVM pointer " DPxMOD "\n",
+       DPxPTR(tgt_ptr));
+    return nullptr;
+  }
+  DP("Created a buffer " DPxMOD " from a SVM pointer " DPxMOD "\n",
+     DPxPTR(ret), DPxPTR(tgt_ptr));
+  return ret;
+}
+
+// Release the buffer
+EXTERN
+int32_t __tgt_rtl_release_buffer(void *tgt_buffer) {
+  INVOKE_CL_RET_FAIL(clReleaseMemObject, (cl_mem)tgt_buffer);
+  return OFFLOAD_SUCCESS;
+}
+
 // Allocation was initiated by user (omp_target_alloc)
 EXTERN
 void *__tgt_rtl_data_alloc_user(int32_t device_id, int64_t size,
