@@ -165,8 +165,8 @@ behavior is off-by-default.
 def IntelTBAABFDocs : Documentation {
   let Category = DocCatIntelOptimization;
   let Option = "IntelCompat";
-  let BugTracker= "CMPLRLLVM-2066";
-  let RegressionTest = "test/CodeGen/intel/bitfield-tbaa1.c";
+  let BugTracker= "CMPLRLLVM-2066,CMPLRLLVM-4118";
+  let RegressionTest = "test/CodeGen/intel/bitfield-tbaa1.c,test/CodeGen/intel/tbaa.cpp";
   let Content = [{
 Adds tbaa metadata to improve alias analysis for bitfields.
 Optimizer team identified a problem with leela benchmark due to missing
