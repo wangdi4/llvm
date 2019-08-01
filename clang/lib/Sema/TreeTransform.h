@@ -26,6 +26,9 @@
 #include "clang/AST/StmtCXX.h"
 #include "clang/AST/StmtObjC.h"
 #include "clang/AST/StmtOpenMP.h"
+#if INTEL_CUSTOMIZATION
+#include "clang/Basic/Builtins.h"
+#endif  // INTEL_CUSTOMIZATION
 #include "clang/Sema/Designator.h"
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/Ownership.h"
@@ -1164,6 +1167,16 @@ public:
   QualType RebuildPipeType(QualType ValueType, SourceLocation KWLoc,
                            bool isReadPipe);
 
+#if INTEL_CUSTOMIZATION
+  /// Build a new channel type given its value type.
+  QualType RebuildChannelType(QualType ValueType, SourceLocation KWLoc);
+  QualType RebuildArbPrecIntType(QualType ValueType, unsigned NumBits,
+                                 SourceLocation Loc);
+  QualType RebuildDependentSizedArbPrecIntType(QualType ValueType,
+                                               Expr *NumBitsExpr,
+                                               SourceLocation Loc);
+#endif // INTEL_CUSTOMIZATION
+
   /// Build a new template name given a nested name specifier, a flag
   /// indicating whether the "template" keyword was provided, and the template
   /// that the template name refers to.
@@ -1554,6 +1567,24 @@ public:
                                                  LParenLoc, EndLoc);
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  /// Build a new OpenMP 'dataflow' clause.
+  ///
+  /// By default, performs semantic analysis to build the new OpenMP clause.
+  /// Subclasses may override this routine to provide different behavior.
+  OMPClause *RebuildOMPDataflowClause(Expr *StaticChunkSize,
+                                      Expr *NumWorkersNum,
+                                      Expr *PipelineDepth,
+                                      SourceLocation StartLoc,
+                                      SourceLocation EndLoc) {
+    return getSema().ActOnOpenMPDataflowClause(StaticChunkSize, NumWorkersNum,
+                                               PipelineDepth, StartLoc,
+                                               EndLoc);
+  }
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+
   /// Build a new OpenMP 'safelen' clause.
   ///
   /// By default, performs semantic analysis to build the new OpenMP clause.
@@ -1674,11 +1705,16 @@ public:
   /// By default, performs semantic analysis to build the new OpenMP clause.
   /// Subclasses may override this routine to provide different behavior.
   OMPClause *RebuildOMPLastprivateClause(ArrayRef<Expr *> VarList,
+#if INTEL_CUSTOMIZATION
+                                         bool IsConditional,
+#endif // INTEL_CUSTOMIZATION
                                          SourceLocation StartLoc,
                                          SourceLocation LParenLoc,
                                          SourceLocation EndLoc) {
-    return getSema().ActOnOpenMPLastprivateClause(VarList, StartLoc, LParenLoc,
-                                                  EndLoc);
+#if INTEL_CUSTOMIZATION
+    return getSema().ActOnOpenMPLastprivateClause(VarList, IsConditional,
+#endif // INTEL_CUSTOMIZATION
+                                                  StartLoc, LParenLoc, EndLoc);
   }
 
   /// Build a new OpenMP 'shared' clause.
@@ -5931,6 +5967,89 @@ QualType TreeTransform<Derived>::TransformPipeType(TypeLocBuilder &TLB,
   return Result;
 }
 
+#if INTEL_CUSTOMIZATION
+template <typename Derived>
+QualType TreeTransform<Derived>::TransformChannelType(TypeLocBuilder &TLB,
+                                                      ChannelTypeLoc TL) {
+  QualType ValueType = getDerived().TransformType(TLB, TL.getValueLoc());
+  if (ValueType.isNull())
+    return QualType();
+
+  QualType Result = TL.getType();
+  if (getDerived().AlwaysRebuild() || ValueType != TL.getValueLoc().getType()) {
+    Result = getDerived().RebuildChannelType(ValueType, TL.getKWLoc());
+    if (Result.isNull())
+      return QualType();
+  }
+
+  ChannelTypeLoc NewTL = TLB.push<ChannelTypeLoc>(Result);
+  NewTL.setKWLoc(TL.getKWLoc());
+
+  return Result;
+}
+
+template <typename Derived>
+QualType TreeTransform<Derived>::TransformArbPrecIntType(TypeLocBuilder &TLB,
+                                                         ArbPrecIntTypeLoc TL) {
+  const ArbPrecIntType *T = TL.getTypePtr();
+  QualType UnderlyingType = getDerived().TransformType(T->getUnderlyingType());
+  if (UnderlyingType.isNull())
+    return QualType();
+
+  QualType Result = TL.getType();
+  if (getDerived().AlwaysRebuild() ||
+      UnderlyingType != T->getUnderlyingType()) {
+    Result = getDerived().RebuildArbPrecIntType(UnderlyingType, T->getNumBits(),
+                                                T->getAttributeLoc());
+    if (Result.isNull())
+      return QualType();
+  }
+
+  ArbPrecIntTypeLoc NewTL = TLB.push<ArbPrecIntTypeLoc>(Result);
+  NewTL.setNameLoc(TL.getNameLoc());
+
+  return Result;
+}
+
+template <typename Derived>
+QualType TreeTransform<Derived>::TransformDependentSizedArbPrecIntType(
+    TypeLocBuilder &TLB, DependentSizedArbPrecIntTypeLoc TL) {
+  const DependentSizedArbPrecIntType *T = TL.getTypePtr();
+  QualType UnderlyingType = getDerived().TransformType(T->getUnderlyingType());
+  if (UnderlyingType.isNull())
+    return QualType();
+
+  EnterExpressionEvaluationContext Unevaluated(
+      SemaRef, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+
+  ExprResult NumBits = getDerived().TransformExpr(T->getNumBitsExpr());
+  NumBits = SemaRef.ActOnConstantExpression(NumBits);
+  if (NumBits.isInvalid())
+    return QualType();
+
+  QualType Result = TL.getType();
+  if (getDerived().AlwaysRebuild() ||
+      UnderlyingType != T->getUnderlyingType() ||
+      NumBits.get() != T->getNumBitsExpr()) {
+    Result = getDerived().RebuildDependentSizedArbPrecIntType(
+        UnderlyingType, NumBits.get(), T->getAttributeLoc());
+    if (Result.isNull())
+      return QualType();
+  }
+
+  if (isa<DependentSizedArbPrecIntType>(Result)) {
+    DependentSizedArbPrecIntTypeLoc NewTL =
+        TLB.push<DependentSizedArbPrecIntTypeLoc>(Result);
+    NewTL.setNameLoc(TL.getNameLoc());
+  } else {
+    ArbPrecIntTypeLoc NewTL = TLB.push<ArbPrecIntTypeLoc>(Result);
+    NewTL.setNameLoc(TL.getNameLoc());
+  }
+
+  return Result;
+}
+#endif // INTEL_CUSTOMIZATION
+
   /// Simple iterator that traverses the template arguments in a
   /// container that provides a \c getArgLoc() member function.
   ///
@@ -7948,6 +8067,19 @@ TreeTransform<Derived>::TransformOMPSectionDirective(OMPSectionDirective *D) {
   return Res;
 }
 
+#if INTEL_CUSTOMIZATION
+template <typename Derived>
+StmtResult TreeTransform<Derived>::TransformOMPTargetVariantDispatchDirective(
+    OMPTargetVariantDispatchDirective *D) {
+  DeclarationNameInfo DirName;
+  getDerived().getSema().StartOpenMPDSABlock(
+      OMPD_target_variant_dispatch, DirName, nullptr, D->getBeginLoc());
+  StmtResult Res = getDerived().TransformOMPExecutableDirective(D);
+  getDerived().getSema().EndOpenMPDSABlock(Res.get());
+  return Res;
+}
+#endif // INTEL_CUSTOMIZATION
+
 template <typename Derived>
 StmtResult
 TreeTransform<Derived>::TransformOMPSingleDirective(OMPSingleDirective *D) {
@@ -8438,6 +8570,24 @@ TreeTransform<Derived>::TransformOMPNumThreadsClause(OMPNumThreadsClause *C) {
       NumThreads.get(), C->getBeginLoc(), C->getLParenLoc(), C->getEndLoc());
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+template <typename Derived>
+OMPClause *
+TreeTransform<Derived>::TransformOMPDataflowClause(OMPDataflowClause *C) {
+  ExprResult StaticChunkSize = getDerived().TransformExpr(C->getStaticChunkSize());
+  ExprResult NumWorkersNum = getDerived().TransformExpr(C->getNumWorkersNum());
+  ExprResult PipelineDepth = getDerived().TransformExpr(C->getPipelineDepth());
+  if (StaticChunkSize.isInvalid() && NumWorkersNum.isInvalid() &&
+      PipelineDepth.isInvalid())
+    return nullptr;
+  return getDerived().RebuildOMPDataflowClause(
+      StaticChunkSize.get(), NumWorkersNum.get(), PipelineDepth.get(),
+      C->getBeginLoc(), C->getEndLoc());
+}
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+
 template <typename Derived>
 OMPClause *
 TreeTransform<Derived>::TransformOMPSafelenClause(OMPSafelenClause *C) {
@@ -8669,7 +8819,10 @@ TreeTransform<Derived>::TransformOMPLastprivateClause(OMPLastprivateClause *C) {
     Vars.push_back(EVar.get());
   }
   return getDerived().RebuildOMPLastprivateClause(
-      Vars, C->getBeginLoc(), C->getLParenLoc(), C->getEndLoc());
+#if INTEL_CUSTOMIZATION
+      Vars, C->isConditional(), C->getBeginLoc(), C->getLParenLoc(),
+      C->getEndLoc());
+#endif // INTEL_CUSTOMIZATION
 }
 
 template <typename Derived>
@@ -12983,6 +13136,30 @@ QualType TreeTransform<Derived>::RebuildPipeType(QualType ValueType,
   return isReadPipe ? SemaRef.BuildReadPipeType(ValueType, KWLoc)
                     : SemaRef.BuildWritePipeType(ValueType, KWLoc);
 }
+
+#if INTEL_CUSTOMIZATION
+template <typename Derived>
+QualType TreeTransform<Derived>::RebuildChannelType(QualType ValueType,
+                                                    SourceLocation KWLoc) {
+  return SemaRef.BuildChannelType(ValueType, KWLoc);
+}
+
+template <typename Derived>
+QualType TreeTransform<Derived>::RebuildArbPrecIntType(
+    QualType UnderlyingType, unsigned NumBits, SourceLocation AttributeLoc) {
+  llvm::APInt NumBitsAP(SemaRef.Context.getIntWidth(SemaRef.Context.IntTy),
+                        NumBits, true);
+  IntegerLiteral *Bits = IntegerLiteral::Create(
+      SemaRef.Context, NumBitsAP, SemaRef.Context.IntTy, AttributeLoc);
+  return SemaRef.BuildArbPrecIntType(UnderlyingType, Bits, AttributeLoc);
+}
+
+template <typename Derived>
+QualType TreeTransform<Derived>::RebuildDependentSizedArbPrecIntType(
+    QualType ElementType, Expr *NumExpr, SourceLocation AttributeLoc) {
+  return SemaRef.BuildArbPrecIntType(ElementType, NumExpr, AttributeLoc);
+}
+#endif // INTEL_CUSTOMIZATION
 
 template<typename Derived>
 TemplateName

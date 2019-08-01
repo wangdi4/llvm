@@ -335,6 +335,9 @@ public:
   }
   void VisitAtomicType(const AtomicType *T) { Visit(T->getValueType()); }
   void VisitPipeType(const PipeType *T) { Visit(T->getElementType()); }
+#if INTEL_CUSTOMIZATION
+  void VisitChannelType(const ChannelType *T) { Visit(T->getElementType()); }
+#endif // INTEL_CUSTOMIZATION
   void VisitAdjustedType(const AdjustedType *T) { Visit(T->getOriginalType()); }
   void VisitPackExpansionType(const PackExpansionType *T) {
     if (!T->isSugared())

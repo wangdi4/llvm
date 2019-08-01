@@ -172,6 +172,14 @@ public:
   /// The set of user-provided virtual filesystem overlay files.
   std::vector<std::string> VFSOverlayFiles;
 
+#if INTEL_CUSTOMIZATION
+  /// The base directory of Intel compiler headers.
+  std::string HeaderBasePath;
+
+  /// The set of libraries with user-provided virtual filesystem.
+  std::vector<std::string> VFSOverlayLibs;
+#endif // INTEL_CUSTOMIZATION
+
   /// Include the compiler builtin includes.
   unsigned UseBuiltinIncludes : 1;
 
@@ -227,6 +235,12 @@ public:
   void AddVFSOverlayFile(StringRef Name) {
     VFSOverlayFiles.push_back(Name);
   }
+
+#if INTEL_CUSTOMIZATION
+  void AddVFSOverlayLib(StringRef Name) {
+    VFSOverlayLibs.emplace_back(Name);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   void AddPrebuiltModulePath(StringRef Name) {
     PrebuiltModulePaths.push_back(Name);

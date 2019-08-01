@@ -22,7 +22,14 @@ set(LLVM_LINK_COMPONENTS
   Support
   Target
   TransformUtils
+  ASFixer
   )
+
+# INTEL_CUSTOMIZATION
+if (MSVC)
+  set_source_files_properties(CodeGenModule.cpp PROPERTIES COMPILE_FLAGS /bigobj)
+endif()
+# end INTEL_CUSTOMIZATION
 
 # In a standard Clang+LLVM build, we need to generate intrinsics before
 # building codegen. In a standalone build, LLVM is already built and we don't
@@ -73,6 +80,9 @@ add_clang_library(clangCodeGen
   CGRecordLayoutBuilder.cpp
   CGStmt.cpp
   CGStmtOpenMP.cpp
+# INTEL_COLLAB
+  intel/CGOpenMPLateOutline.cpp
+# end INTEL_COLLAB
   CGVTT.cpp
   CGVTables.cpp
   CodeGenABITypes.cpp
@@ -94,6 +104,11 @@ add_clang_library(clangCodeGen
   SwiftCallingConv.cpp
   TargetInfo.cpp
   VarBypassDetector.cpp
+# INTEL_CUSTOMIZATION
+  intel/CGBuiltin_getBuiltinIntelLibFunction.cpp
+  intel/CGSPIRMetadataAdder.cpp
+  intel/CGIntelHLS.cpp
+# end INTEL_CUSTOMIZATION
 
   DEPENDS
   ${codegen_deps}

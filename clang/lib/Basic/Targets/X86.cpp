@@ -23,12 +23,29 @@ namespace clang {
 namespace targets {
 
 const Builtin::Info BuiltinInfoX86[] = {
+#if INTEL_CUSTOMIZATION
 #define BUILTIN(ID, TYPE, ATTRS)                                               \
   {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, nullptr},
 #define TARGET_BUILTIN(ID, TYPE, ATTRS, FEATURE)                               \
   {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, FEATURE},
 #define TARGET_HEADER_BUILTIN(ID, TYPE, ATTRS, HEADER, LANGS, FEATURE)         \
   {#ID, TYPE, ATTRS, HEADER, LANGS, FEATURE},
+
+#include "clang/Basic/Intel_BuiltinsSVML.def"
+#endif // INTEL_CUSTOMIZATION
+
+#define BUILTIN(ID, TYPE, ATTRS)                                               \
+  {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, nullptr},
+#define TARGET_BUILTIN(ID, TYPE, ATTRS, FEATURE)                               \
+  {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, FEATURE},
+#define TARGET_HEADER_BUILTIN(ID, TYPE, ATTRS, HEADER, LANGS, FEATURE)         \
+  {#ID, TYPE, ATTRS, HEADER, LANGS, FEATURE},
+
+#if INTEL_CUSTOMIZATION
+#define LANGBUILTIN(ID, TYPE, ATTRS, LANGS)                                    \
+  {#ID, TYPE, ATTRS, nullptr, LANGS, nullptr},
+#endif // INTEL_CUSTOMIZATION
+
 #include "clang/Basic/BuiltinsX86.def"
 
 #define BUILTIN(ID, TYPE, ATTRS)                                               \
@@ -37,6 +54,12 @@ const Builtin::Info BuiltinInfoX86[] = {
   {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, FEATURE},
 #define TARGET_HEADER_BUILTIN(ID, TYPE, ATTRS, HEADER, LANGS, FEATURE)         \
   {#ID, TYPE, ATTRS, HEADER, LANGS, FEATURE},
+
+#if INTEL_CUSTOMIZATION
+#define LANGBUILTIN(ID, TYPE, ATTRS, LANGS)                                    \
+  {#ID, TYPE, ATTRS, nullptr, LANGS, nullptr},
+#endif // INTEL_CUSTOMIZATION
+
 #include "clang/Basic/BuiltinsX86_64.def"
 };
 
@@ -62,6 +85,13 @@ static const char *const GCCRegNames[] = {
     "cr0",   "cr2",   "cr3",   "cr4",   "cr8",
     "dr0",   "dr1",   "dr2",   "dr3",   "dr6",     "dr7",
     "bnd0",  "bnd1",  "bnd2",  "bnd3",
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+    "tmm0",  "tmm1",  "tmm2",  "tmm3",  "tmm4",    "tmm5",  "tmm6",  "tmm7",
+    // Just align with ICC for tmm8-15
+    "tmm8",  "tmm9",  "tmm10", "tmm11", "tmm12",   "tmm13", "tmm14", "tmm15",
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
 };
 
 const TargetInfo::AddlRegName AddlRegNames[] = {
@@ -101,6 +131,14 @@ bool X86TargetInfo::setFPMath(StringRef Name) {
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_KEYLOCKER
+#define TGLXFEATURE1 setFeatureEnabledImpl(Features, "keylocker", true);
+#else // INTEL_FEATURE_ISA_KEYLOCKER
+#define TGLXFEATURE1
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
+#endif // INTEL_CUSTOMIZATION
+
 bool X86TargetInfo::initFeatureMap(
     llvm::StringMap<bool> &Features, DiagnosticsEngine &Diags, StringRef CPU,
     const std::vector<std::string> &FeaturesVec) const {
@@ -119,6 +157,19 @@ bool X86TargetInfo::initFeatureMap(
   // compatibility.
   if (Kind >= CK_i586 || Kind == CK_Generic)
     setFeatureEnabledImpl(Features, "cx8", true);
+
+#if INTEL_CUSTOMIZATION
+  SmallVector<StringRef, 16> AnonymousCPU1Features;
+#if INTEL_FEATURE_ISA_AMX
+  AnonymousCPU1Features.push_back("amx-tile");
+  AnonymousCPU1Features.push_back("amx-int8");
+  AnonymousCPU1Features.push_back("amx-bf16");
+#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_SERIALIZE
+  AnonymousCPU1Features.push_back("serialize");
+#endif // INTEL_FEATURE_ISA_SERIALIZE
+  AnonymousCPU1Features.push_back("sse2"); // To avoid unused variable error.
+#endif // INTEL_CUSTOMIZATION
 
   switch (Kind) {
   case CK_Generic:
@@ -157,9 +208,26 @@ bool X86TargetInfo::initFeatureMap(
     // SkylakeServer cores inherits all SKL features, except SGX
     goto SkylakeCommon;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_GLC
+  case CK_Goldencove:
+    for (auto Feature : AnonymousCPU1Features)
+      setFeatureEnabledImpl(Features, Feature, true);
+    LLVM_FALLTHROUGH;
+#endif // INTEL_FEATURE_CPU_GLC
+  case CK_Tigerlake:
+    TGLXFEATURE1
+    setFeatureEnabledImpl(Features, "avx512vp2intersect", true);
+    setFeatureEnabledImpl(Features, "movdiri", true);
+    setFeatureEnabledImpl(Features, "movdir64b", true);
+    setFeatureEnabledImpl(Features, "shstk", true);
+    LLVM_FALLTHROUGH;
   case CK_IcelakeServer:
-    setFeatureEnabledImpl(Features, "pconfig", true);
-    setFeatureEnabledImpl(Features, "wbnoinvd", true);
+    if (Kind != CK_Tigerlake) {
+      setFeatureEnabledImpl(Features, "pconfig", true);
+      setFeatureEnabledImpl(Features, "wbnoinvd", true);
+    }
+#endif // INTEL_CUSTOMIZATION
     LLVM_FALLTHROUGH;
   case CK_IcelakeClient:
     setFeatureEnabledImpl(Features, "vaes", true);
@@ -291,12 +359,16 @@ SkylakeCommon:
     setFeatureEnabledImpl(Features, "avx512vpopcntdq", true);
     LLVM_FALLTHROUGH;
   case CK_KNL:
-    setFeatureEnabledImpl(Features, "avx512f", true);
-    setFeatureEnabledImpl(Features, "avx512cd", true);
+#if INTEL_CUSTOMIZATION
     setFeatureEnabledImpl(Features, "avx512er", true);
     setFeatureEnabledImpl(Features, "avx512pf", true);
-    setFeatureEnabledImpl(Features, "prfchw", true);
     setFeatureEnabledImpl(Features, "prefetchwt1", true);
+    LLVM_FALLTHROUGH;
+  case CK_CommonAVX512:
+    setFeatureEnabledImpl(Features, "avx512cd", true);
+    setFeatureEnabledImpl(Features, "avx512f", true);
+    setFeatureEnabledImpl(Features, "prfchw", true);
+#endif // INTEL_CUSTOMIZATION
     setFeatureEnabledImpl(Features, "fxsr", true);
     setFeatureEnabledImpl(Features, "rdseed", true);
     setFeatureEnabledImpl(Features, "adx", true);
@@ -453,6 +525,22 @@ SkylakeCommon:
       llvm::find(FeaturesVec, "-mmx") == FeaturesVec.end())
     Features["mmx"] = true;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  // Enable a fake vnnivl feature if "avxvnni" is enabled or
+  // "avx512vl,avx512vnni" is enabled.
+  auto AVXVNNIIt = Features.find("avxvnni");
+  auto AVX512VLIt = Features.find("avx512vl");
+  auto AVX512VNNIIt = Features.find("avx512vnni");
+  if (((AVXVNNIIt != Features.end() && AVXVNNIIt->getValue()) ||
+       (AVX512VLIt != Features.end() && AVX512VLIt->getValue() &&
+        AVX512VNNIIt != Features.end() && AVX512VNNIIt->getValue())) &&
+      std::find(FeaturesVec.begin(), FeaturesVec.end(), "-vnnivl") ==
+          FeaturesVec.end())
+    Features["vnnivl"] = true;
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
+
   return true;
 }
 
@@ -502,6 +590,11 @@ void X86TargetInfo::setSSELevel(llvm::StringMap<bool> &Features,
     Features["sse"] = false;
     LLVM_FALLTHROUGH;
   case SSE2:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_KEYLOCKER
+    Features["keylocker"] = false;
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
+#endif // INTEL_CUSTOMIZATION
     Features["sse2"] = Features["pclmul"] = Features["aes"] = false;
     Features["sha"] = Features["gfni"] = false;
     LLVM_FALLTHROUGH;
@@ -526,6 +619,11 @@ void X86TargetInfo::setSSELevel(llvm::StringMap<bool> &Features,
     LLVM_FALLTHROUGH;
   case AVX2:
     Features["avx2"] = false;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_VNNI
+    Features["avxvnni"] = false;
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
     LLVM_FALLTHROUGH;
   case AVX512F:
     Features["avx512f"] = Features["avx512cd"] = Features["avx512er"] = false;
@@ -535,6 +633,11 @@ void X86TargetInfo::setSSELevel(llvm::StringMap<bool> &Features,
     Features["avx512bitalg"] = Features["avx512vnni"] = false;
     Features["avx512vbmi2"] = Features["avx512bf16"] = false;
     Features["avx512vp2intersect"] = false;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    Features["avx512fp16"] = false;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     break;
   }
 }
@@ -633,6 +736,13 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
     setMMXLevel(Features, AMD3DNow, Enabled);
   } else if (Name == "3dnowa") {
     setMMXLevel(Features, AMD3DNowAthlon, Enabled);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_KEYLOCKER
+  } else if (Name == "keylocker") {
+    if (Enabled)
+      setSSELevel(Features, SSE2, Enabled);
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
+#endif // INTEL_CUSTOMIZATION
   } else if (Name == "aes") {
     if (Enabled)
       setSSELevel(Features, SSE2, Enabled);
@@ -669,13 +779,31 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
     if ((Name == "avx512vbmi" || Name == "avx512vbmi2" ||
          Name == "avx512bitalg" || Name == "avx512bf16") && Enabled)
       Features["avx512bw"] = true;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    // Enable BW and VL if AVX512FP16 is being enabled.
+    if (Name == "avx512fp16" && Enabled)
+      Features["avx512bw"] = Features["avx512vl"] = true;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     // Also disable some features if BWI is being disabled.
     if (Name == "avx512bw" && !Enabled) {
       Features["avx512vbmi"] = false;
       Features["avx512vbmi2"] = false;
       Features["avx512bitalg"] = false;
       Features["avx512bf16"] = false;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+      Features["avx512fp16"] = false;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    if (Name == "avx512vl" && !Enabled)
+      Features["avx512fp16"] = false;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   } else if (Name == "fma") {
     if (Enabled)
       setSSELevel(Features, AVX, Enabled);
@@ -711,6 +839,20 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
     if (Enabled)
       Features["xsave"] = true;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+    else if (Name == "amx-tile" && !Enabled)
+      Features["amx-bf16"] = Features["amx-int8"] = false;
+    else if ((Name == "amx-bf16" || Name == "amx-int8") && Enabled)
+      Features["amx-tile"] = true;
+#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  else if (Name == "avxvnni") {
+    if (Enabled)
+      setSSELevel(Features, AVX2, Enabled);
+  }
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
 }
 
 /// handleTargetFeatures - Perform initialization based on the user
@@ -769,6 +911,13 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasAVX512BF16 = true;
     } else if (Feature == "+avx512er") {
       HasAVX512ER = true;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    } else if (Feature == "+avx512fp16") {
+      HasAVX512FP16 = true;
+      HasFloat16 = true;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     } else if (Feature == "+avx512pf") {
       HasAVX512PF = true;
     } else if (Feature == "+avx512dq") {
@@ -829,6 +978,12 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasCLDEMOTE = true;
     } else if (Feature == "+rdpid") {
       HasRDPID = true;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_KEYLOCKER
+    } else if (Feature == "+keylocker") {
+      HasKeyLocker = true;
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
+#endif // INTEL_CUSTOMIZATION
     } else if (Feature == "+retpoline-external-thunk") {
       HasRetpolineExternalThunk = true;
     } else if (Feature == "+sahf") {
@@ -847,8 +1002,33 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasINVPCID = true;
     } else if (Feature == "+enqcmd") {
       HasENQCMD = true;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ULI
+    } else if (Feature == "+uli") {
+      HasULI = true;
+#endif // INTEL_FEATURE_ISA_ULI
+#if INTEL_FEATURE_ISA_SERIALIZE
+    } else if (Feature == "+serialize") {
+      HasSERIALIZE = true;
+#endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_TSXLDTRK
+    } else if (Feature == "+tsxldtrk") {
+      HasTSXLDTRK = true;
+#endif // INTEL_FEATURE_ISA_TSXLDTRK
+#if INTEL_FEATURE_ISA_AMX
+    } else if (Feature == "+amx-bf16") {
+      HasAMXBF16 = true;
+    } else if (Feature == "+amx-int8") {
+      HasAMXINT8 = true;
+    } else if (Feature == "+amx-tile") {
+      HasAMXTILE = true;
+#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AVX_VNNI
+    } else if (Feature == "+avxvnni") {
+      HasAVXVNNI = true;
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
     }
-
     X86SSEEnum Level = llvm::StringSwitch<X86SSEEnum>(Feature)
                            .Case("+avx512f", AVX512F)
                            .Case("+avx2", AVX2)
@@ -916,6 +1096,13 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   } else {
     DefineStd(Builder, "i386", Opts);
   }
+
+#if INTEL_CUSTOMIZATION
+  // IntrinsicPromotion implementation.
+  if (Opts.IntrinsicAutoPromote)
+    // TODO: Does this have value?!
+    Builder.defineMacro("__M_INTRINSIC_PROMOTE__");
+#endif // INTEL_CUSTOMIZATION
 
   // Subtarget options.
   // FIXME: We are hard-coding the tune parameters based on the CPU, but they
@@ -995,11 +1182,21 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_Cannonlake:
   case CK_IcelakeClient:
   case CK_IcelakeServer:
+#if INTEL_CUSTOMIZATION
+  case CK_Tigerlake:
+#if INTEL_FEATURE_CPU_GLC
+  case CK_Goldencove:
+#endif // INTEL_FEATURE_CPU_GLC
+#endif // INTEL_CUSTOMIZATION
     // FIXME: Historically, we defined this legacy name, it would be nice to
     // remove it at some point. We've never exposed fine-grained names for
     // recent primary x86 CPUs, and we should keep it that way.
     defineCPUMacros(Builder, "corei7");
     break;
+#if INTEL_CUSTOMIZATION
+  case CK_CommonAVX512:
+    break;
+#endif // INTEL_CUSTOMIZATION
   case CK_KNL:
     defineCPUMacros(Builder, "knl");
     break;
@@ -1166,6 +1363,12 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AVX512BF16__");
   if (HasAVX512ER)
     Builder.defineMacro("__AVX512ER__");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  if (HasAVX512FP16)
+    Builder.defineMacro("__AVX512FP16__");
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   if (HasAVX512PF)
     Builder.defineMacro("__AVX512PF__");
   if (HasAVX512DQ)
@@ -1215,6 +1418,12 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__PREFETCHWT1__");
   if (HasCLZERO)
     Builder.defineMacro("__CLZERO__");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_KEYLOCKER
+  if (HasKeyLocker)
+    Builder.defineMacro("__KEYLOCKER__");
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
+#endif // INTEL_CUSTOMIZATION
   if (HasRDPID)
     Builder.defineMacro("__RDPID__");
   if (HasCLDEMOTE)
@@ -1233,6 +1442,48 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__INVPCID__");
   if (HasENQCMD)
     Builder.defineMacro("__ENQCMD__");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ULI
+  if (HasULI)
+    Builder.defineMacro("__ULI__");
+#endif // INTEL_FEATURE_ISA_ULI
+#if INTEL_FEATURE_ISA_SERIALIZE
+  if (HasSERIALIZE)
+    Builder.defineMacro("__SERIALIZE__");
+#endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_TSXLDTRK
+  if (HasTSXLDTRK)
+    Builder.defineMacro("__TSXLDTRK__");
+#endif // INTEL_FEATURE_ISA_TSXLDTRK
+#if INTEL_FEATURE_ISA_AMX
+  if (HasAMXTILE)
+    Builder.defineMacro("__AMXTILE__");
+  if (HasAMXINT8)
+    Builder.defineMacro("__AMXINT8__");
+  if (HasAMXBF16)
+    Builder.defineMacro("__AMXBF16__");
+#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX2
+// TODO: when AMX2 clang part is finished, fix here.
+    Builder.defineMacro("__AMX2TILE__");
+#endif // INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  if (HasAVXVNNI)
+    Builder.defineMacro("__AVXVNNI__");
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  // Disable setting of __SSE2_MATH__  as it enables guarded x86 inline asm in
+  // bits/mathinline.hfor CSA and compiler errors on encountering the inline asm
+  // Future we may was to disable only for CSA and disable other macro
+  // defines not needed for CSA
+  // TODO (vzakhari 11/14/2018): I do not understand why we call X86 target
+  //       configuration on CSA.  This needs to be debugged.
+  if (!Opts.OpenMPIsDevice) {
+#endif  // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
   // Each case falls through to the previous one here.
   switch (SSELevel) {
@@ -1268,6 +1519,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case NoSSE:
     break;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  }
+#endif  // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
   if (Opts.MicrosoftExt && getTriple().getArch() == llvm::Triple::x86) {
     switch (SSELevel) {
@@ -1317,6 +1573,12 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
 
   if (HasFloat128)
     Builder.defineMacro("__SIZEOF_FLOAT128__", "16");
+
+#if INTEL_CUSTOMIZATION
+  if (getTriple().getEnvironment() == llvm::Triple::IntelFPGA) {
+    Builder.defineMacro("__fpga_reg", "__builtin_fpga_reg");
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
@@ -1325,6 +1587,13 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("3dnowa", true)
       .Case("adx", true)
       .Case("aes", true)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+      .Case("amx-bf16", true)
+      .Case("amx-int8", true)
+      .Case("amx-tile", true)
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
       .Case("avx", true)
       .Case("avx2", true)
       .Case("avx512f", true)
@@ -1333,6 +1602,11 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("avx512vnni", true)
       .Case("avx512bf16", true)
       .Case("avx512er", true)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+      .Case("avx512fp16", true)
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
       .Case("avx512pf", true)
       .Case("avx512dq", true)
       .Case("avx512bitalg", true)
@@ -1342,6 +1616,11 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("avx512vbmi2", true)
       .Case("avx512ifma", true)
       .Case("avx512vp2intersect", true)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_VNNI
+      .Case("avxvnni", true)
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
       .Case("bmi", true)
       .Case("bmi2", true)
       .Case("cldemote", true)
@@ -1357,6 +1636,11 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("fxsr", true)
       .Case("gfni", true)
       .Case("invpcid", true)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_KEYLOCKER
+      .Case("keylocker", true)
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
+#endif // INTEL_CUSTOMIZATION
       .Case("lwp", true)
       .Case("lzcnt", true)
       .Case("mmx", true)
@@ -1377,6 +1661,14 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("rdseed", true)
       .Case("rtm", true)
       .Case("sahf", true)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_SERIALIZE
+      .Case("serialize", true)
+#endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_TSXLDTRK
+      .Case("tsxldtrk", true)
+#endif // INTEL_FEATURE_ISA_TSXLDTRK
+#endif // INTEL_CUSTOMIZATION
       .Case("sgx", true)
       .Case("sha", true)
       .Case("shstk", true)
@@ -1389,6 +1681,11 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("sse4.2", true)
       .Case("sse4a", true)
       .Case("tbm", true)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ULI
+      .Case("uli", true)
+#endif // INTEL_FEATURE_ISA_ULI
+#endif // INTEL_CUSTOMIZATION
       .Case("vaes", true)
       .Case("vpclmulqdq", true)
       .Case("wbnoinvd", true)
@@ -1406,6 +1703,16 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
   return llvm::StringSwitch<bool>(Feature)
       .Case("adx", HasADX)
       .Case("aes", HasAES)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+      .Case("amx-bf16", HasAMXBF16)
+      .Case("amx-int8", HasAMXINT8)
+      .Case("amx-tile", HasAMXTILE)
+#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AVX_VNNI
+      .Case("avxvnni", HasAVXVNNI)
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
       .Case("avx", SSELevel >= AVX)
       .Case("avx2", SSELevel >= AVX2)
       .Case("avx512f", SSELevel >= AVX512F)
@@ -1414,6 +1721,11 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("avx512vnni", HasAVX512VNNI)
       .Case("avx512bf16", HasAVX512BF16)
       .Case("avx512er", HasAVX512ER)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+      .Case("avx512fp16", HasAVX512FP16)
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
       .Case("avx512pf", HasAVX512PF)
       .Case("avx512dq", HasAVX512DQ)
       .Case("avx512bitalg", HasAVX512BITALG)
@@ -1439,6 +1751,11 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("fxsr", HasFXSR)
       .Case("gfni", HasGFNI)
       .Case("invpcid", HasINVPCID)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_KEYLOCKER
+      .Case("keylocker", HasKeyLocker)
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
+#endif // INTEL_CUSTOMIZATION
       .Case("lwp", HasLWP)
       .Case("lzcnt", HasLZCNT)
       .Case("mm3dnow", MMX3DNowLevel >= AMD3DNow)
@@ -1462,6 +1779,14 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("retpoline-external-thunk", HasRetpolineExternalThunk)
       .Case("rtm", HasRTM)
       .Case("sahf", HasLAHFSAHF)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_SERIALIZE
+      .Case("serialize", HasSERIALIZE)
+#endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_TSXLDTRK
+      .Case("tsxldtrk", HasTSXLDTRK)
+#endif // INTEL_FEATURE_ISA_TSXLDTRK
+#endif // INTEL_CUSTOMIZATION
       .Case("sgx", HasSGX)
       .Case("sha", HasSHA)
       .Case("shstk", HasSHSTK)
@@ -1473,6 +1798,11 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("sse4.2", SSELevel >= SSE42)
       .Case("sse4a", XOPLevel >= SSE4A)
       .Case("tbm", HasTBM)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ULI
+      .Case("uli", HasULI)
+#endif // INTEL_FEATURE_ISA_ULI
+#endif // INTEL_CUSTOMIZATION
       .Case("vaes", HasVAES)
       .Case("vpclmulqdq", HasVPCLMULQDQ)
       .Case("wbnoinvd", HasWBNOINVD)

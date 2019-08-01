@@ -117,6 +117,10 @@ inline void warn(const Twine &Msg) { errorHandler().warn(Msg); }
 inline uint64_t errorCount() { return errorHandler().ErrorCount; }
 
 LLVM_ATTRIBUTE_NORETURN void exitLld(int Val);
+#if INTEL_CUSTOMIZATION
+// Destroy the LTO temporary data and flush the stream buffers
+void cleanIntelLld();
+#endif // INTEL_CUSTOMIZATION
 
 void diagnosticHandler(const llvm::DiagnosticInfo &DI);
 void checkError(Error E);

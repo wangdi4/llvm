@@ -1034,6 +1034,15 @@ namespace serialization {
     /// constant describes a record for a specific type class in the
     /// AST. Note that DeclCode values share this code space.
     enum TypeCode {
+#if INTEL_CUSTOMIZATION
+      /// Intel specific type codes
+      /// A ChannelType record.
+      TYPE_CHANNEL               = 1024,
+      /// An ArbPrecIntType record.
+      TYPE_ARBPRECINT            = 1025,
+      /// A DependentSizedArbPrecIntType record.
+      TYPE_DEPENDENT_SIZED_ARBPRECINT = 1026,
+#endif // INTEL_CUSTOMIZATION
       /// An ExtQualType record.
       TYPE_EXT_QUAL = 1,
 
@@ -1971,6 +1980,7 @@ namespace serialization {
       STMT_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_FOR_DIRECTIVE,
       STMT_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_FOR_SIMD_DIRECTIVE,
       STMT_OMP_TARGET_TEAMS_DISTRIBUTE_SIMD_DIRECTIVE,
+      STMT_OMP_TARGET_VARIANT_DISPATCH_DIRECTIVE, // INTEL
       EXPR_OMP_ARRAY_SECTION,
 
       // ARC

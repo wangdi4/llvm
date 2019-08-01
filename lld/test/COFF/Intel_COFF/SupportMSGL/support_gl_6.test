@@ -1,0 +1,43 @@
+# UNSUPPORTED: !windows
+
+# Test for checking that MS-LINK will be used for handling /GL files.
+# This test case checks that the linking is done in LLD since the
+# library is not needed. The members of the library were compiled with /GL.
+
+# Copy the files into the temporary directory, this is to prevent multiple
+# processes accessing the same files when running the test system in parallel.
+# RUN: cp %S/Inputs/driver_2.cpp driver_test_6.cpp
+# RUN: cp %S/Inputs/foo.cpp foo_test_6.cpp
+# RUN: cp %S/Inputs/bar.cpp bar_test_6.cpp
+# RUN: cp %S/Inputs/baz.cpp baz_test_6.cpp
+
+# Compile with LTO
+# RUN: clang-cl -c -flto driver_test_6.cpp
+# RUN: clang-cl -c -flto foo_test_6.cpp
+
+# Compile with /GL
+# RUN: cl /c /GL bar_test_6.cpp
+# RUN: cl /c /GL baz_test_6.cpp
+
+# Build the library
+# RUN: lib /LTCG /OUT:test_lib_6.lib bar_test_6.obj baz_test_6.obj
+
+# Link
+# RUN: lld-link /OUT:msgl_test_6 /subsystem:console driver_test_6.obj foo_test_6.obj test_lib_6.lib > %t_out 2>&1
+# RUN: cat %t_out | FileCheck %s -allow-empty
+
+# Check that MS-LINK is not called
+CHECK-NOT: MS /GL object found in the command line
+CHECK-NOT: Finalizing linking process with MS-LINK
+CHECK-NOT: Generating code
+CHECK-NOT: Finished generating code
+
+# Check that the executable runs correctly
+# RUN: ./msgl_test_6 | FileCheck -check-prefix=CHECKRUN6 %s
+CHECKRUN6: FOO: 1
+CHECKRUN6-NOT: BAR: 2
+CHECKRUN6-NOT: BAZ: 3
+
+# RUN: rm driver_test_6.obj foo_test_6.obj
+# RUN: rm msgl_test_6
+# RUN: rm test_lib_6.lib

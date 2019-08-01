@@ -543,6 +543,9 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
   isLongLong = false;
   isHalf = false;
   isFloat = false;
+#if INTEL_CUSTOMIZATION
+  isFloat128 = false;
+#endif  // INTEL_CUSTOMIZATION
   isImaginary = false;
   isFloat16 = false;
   isFloat128 = false;
@@ -550,6 +553,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
   isFract = false;
   isAccum = false;
   hadError = false;
+  hadDSuffix = false; //INTEL
 
   if (*s == '0') { // parse radix
     ParseNumberStartingWithZero(TokLoc);
@@ -610,6 +614,19 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
       if (isHalf || isFloat || isLong) break; // HH, FH, LH invalid.
       isHalf = true;
       continue;  // Success.
+#if INTEL_CUSTOMIZATION
+    // CQ#412550: GNU extension: d-suffix of floating constant
+    case 'd':
+    case 'D':
+      if (!PP.getLangOpts().IntelCompat || s + 1 != ThisTokEnd)
+        break;
+      if (!isFPConstant)
+        break; // Error for integer constant.
+      if (isHalf || isFloat || isLong || isFloat128)
+        break;     // HD, FD, LD, QD invalid.
+      hadDSuffix = true;
+      continue;    // Success.
+#endif // INTEL_CUSTOMIZATION
     case 'f':      // FP Suffix for "float"
     case 'F':
       if (!isFPConstant) break;  // Error for integer constant.
@@ -643,7 +660,9 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
       continue;  // Success.
     case 'l':
     case 'L':
-      if (isLong || isLongLong) break;  // Cannot be repeated.
+#if INTEL_CUSTOMIZATION
+      if (isLong || isLongLong || isFloat128) break;  // Cannot be repeated.
+#endif  // INTEL_CUSTOMIZATION
       if (isHalf || isFloat || isFloat128) break;     // LH, LF, LQ invalid.
 
       // Check for long long.  The L's need to be adjacent and the same case.
@@ -658,7 +677,9 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
       continue;  // Success.
     case 'i':
     case 'I':
-      if (PP.getLangOpts().MicrosoftExt) {
+#if INTEL_CUSTOMIZATION
+      if (!isLong && !isLongLong && !isFloat && !isFloat128) {
+#endif  // INTEL_CUSTOMIZATION
         if (isLong || isLongLong || MicrosoftInteger)
           break;
 
@@ -723,6 +744,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
         isHalf = false;
         isImaginary = false;
         MicrosoftInteger = 0;
+        hadDSuffix = false; // INTEL
         saw_fixed_point_suffix = false;
         isFract = false;
         isAccum = false;
@@ -1314,7 +1336,20 @@ CharLiteralParser::CharLiteralParser(const char *begin, const char *end,
         }
       } else {
         for (; tmp_out_start < buffer_begin; ++tmp_out_start) {
-          if (*tmp_out_start > largest_character_for_kind) {
+#if INTEL_CUSTOMIZATION
+          // CMPLRS-3239: For GCC Compat sake, promote literals with unsupported
+          // characters to wide chars
+          if (*tmp_out_start > largest_character_for_kind &&
+              PP.getLangOpts().IntelCompat &&
+              !PP.getLangOpts().MSVCCompat &&
+              *tmp_out_start <= 0xFFFFFFFFu >>
+                  (32 - PP.getTargetInfo().getWCharWidth())) {
+            Kind = tok::wide_char_constant;
+            largest_character_for_kind =
+                0xFFFFFFFFu >> (32 - PP.getTargetInfo().getWCharWidth());
+          } else
+#endif // INTEL_CUSTOMIZATION
+              if (*tmp_out_start > largest_character_for_kind) {
             HadError = true;
             PP.Diag(Loc, diag::err_character_too_large);
           }
@@ -1330,6 +1365,19 @@ CharLiteralParser::CharLiteralParser(const char *begin, const char *end,
                             FullSourceLoc(Loc, PP.getSourceManager()),
                             &PP.getDiagnostics(), PP.getLangOpts(), true)) {
         HadError = true;
+
+#if INTEL_CUSTOMIZATION
+        // CMPLRS-3239: For GCC Compat sake, promote literals with unsupported
+        // characters to wide chars
+      } else if (*buffer_begin > largest_character_for_kind &&
+                 PP.getLangOpts().IntelCompat &&
+                 !PP.getLangOpts().MSVCCompat &&
+                 *buffer_begin <= 0xFFFFFFFFu >>
+                     (32 - PP.getTargetInfo().getWCharWidth())) {
+        Kind = tok::wide_char_constant;
+        largest_character_for_kind =
+            0xFFFFFFFFu >> (32 - PP.getTargetInfo().getWCharWidth());
+#endif // INTEL_CUSTOMIZATION
       } else if (*buffer_begin > largest_character_for_kind) {
         HadError = true;
         PP.Diag(Loc, diag::err_character_too_large);

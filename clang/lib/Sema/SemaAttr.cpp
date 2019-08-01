@@ -74,6 +74,12 @@ void Sema::AddAlignmentAttributesForRecord(RecordDecl *RD) {
 }
 
 void Sema::AddMsStructLayoutForRecord(RecordDecl *RD) {
+  if (!getLangOpts().MicrosoftExt && !MSStructPragmaOn
+#if INTEL_CUSTOMIZATION
+      && !Context.getLangOpts().MSBitfields
+#endif  // INTEL_CUSTOMIZATION
+     )
+    return;
   if (MSStructPragmaOn)
     RD->addAttr(MSStructAttr::CreateImplicit(Context));
 
@@ -805,6 +811,7 @@ void Sema::ActOnPragmaFPContract(LangOptions::FPContractModeKind FPC) {
     break;
   case LangOptions::FPC_Off:
     FPFeatures.setDisallowFPContract();
+    Context.disableFPContract(); // INTEL
     break;
   }
 }

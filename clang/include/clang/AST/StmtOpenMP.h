@@ -386,6 +386,43 @@ class OMPLoopDirective : public OMPExecutableDirective {
     CalcLastIterationOffset = 3,
     PreConditionOffset = 4,
     CondOffset = 5,
+#if INTEL_COLLAB
+    LateOutlineCondOffset = 6,
+    InitOffset = 7,
+    IncOffset = 8,
+    PreInitsOffset = 9,
+    UpperBoundVariableOffset = 10,
+    // The '...End' enumerators do not correspond to child expressions - they
+    // specify the offset to the end (and start of the following counters/
+    // updates/finals arrays).
+    DefaultEnd = 11,
+    // The following 7 exprs are used by worksharing and distribute loops only.
+    IsLastIterVariableOffset = 11,
+    LowerBoundVariableOffset = 12,
+    StrideVariableOffset = 13,
+    EnsureUpperBoundOffset = 14,
+    NextLowerBoundOffset = 15,
+    NextUpperBoundOffset = 16,
+    NumIterationsOffset = 17,
+    // Offset to the end for worksharing loop directives.
+    WorksharingEnd = 18,
+    PrevLowerBoundVariableOffset = 18,
+    PrevUpperBoundVariableOffset = 19,
+    DistIncOffset = 20,
+    PrevEnsureUpperBoundOffset = 21,
+    CombinedLowerBoundVariableOffset = 22,
+    CombinedUpperBoundVariableOffset = 23,
+    CombinedEnsureUpperBoundOffset = 24,
+    CombinedInitOffset = 25,
+    CombinedConditionOffset = 26,
+    CombinedNextLowerBoundOffset = 27,
+    CombinedNextUpperBoundOffset = 28,
+    CombinedDistConditionOffset = 29,
+    CombinedParForInDistConditionOffset = 30,
+    // Offset to the end (and start of the following counters/updates/finals
+    // arrays) for combined distribute loop directives.
+    CombinedDistributeEnd = 31,
+#else
     InitOffset = 6,
     IncOffset = 7,
     PreInitsOffset = 8,
@@ -420,6 +457,7 @@ class OMPLoopDirective : public OMPExecutableDirective {
     // Offset to the end (and start of the following counters/updates/finals
     // arrays) for combined distribute loop directives.
     CombinedDistributeEnd = 30,
+#endif // INTEL_COLLAB
   };
 
   /// Get the counters storage.
@@ -519,6 +557,11 @@ protected:
   void setPreInits(Stmt *PreInits) {
     *std::next(child_begin(), PreInitsOffset) = PreInits;
   }
+#if INTEL_COLLAB
+  void setLateOutlineCond(Stmt *LateOutlineCond) {
+    *std::next(child_begin(), LateOutlineCondOffset) = LateOutlineCond;
+  }
+#endif // INTEL_COLLAB
   void setIsLastIterVariable(Expr *IL) {
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
@@ -534,10 +577,15 @@ protected:
     *std::next(child_begin(), LowerBoundVariableOffset) = LB;
   }
   void setUpperBoundVariable(Expr *UB) {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     *std::next(child_begin(), UpperBoundVariableOffset) = UB;
   }
   void setStrideVariable(Expr *ST) {
@@ -697,6 +745,10 @@ public:
     Expr *PreCond;
     /// Loop condition.
     Expr *Cond;
+#if INTEL_COLLAB
+    /// Late-outlining loop condition.
+    Expr *LateOutlineCond;
+#endif // INTEL_COLLAB
     /// Loop iteration variable init.
     Expr *Init;
     /// Loop increment.
@@ -763,6 +815,9 @@ public:
       CalcLastIteration = nullptr;
       PreCond = nullptr;
       Cond = nullptr;
+#if INTEL_COLLAB
+      LateOutlineCond = nullptr;
+#endif // INTEL_COLLAB
       Init = nullptr;
       Inc = nullptr;
       IL = nullptr;
@@ -825,6 +880,12 @@ public:
     return const_cast<Expr *>(
         reinterpret_cast<const Expr *>(*std::next(child_begin(), CondOffset)));
   }
+#if INTEL_COLLAB
+  Expr *getLateOutlineCond() const {
+    return const_cast<Expr *>(reinterpret_cast<const Expr *>(
+        *std::next(child_begin(), LateOutlineCondOffset)));
+  }
+#endif // INTEL_COLLAB
   Expr *getInit() const {
     return const_cast<Expr *>(
         reinterpret_cast<const Expr *>(*std::next(child_begin(), InitOffset)));
@@ -854,10 +915,15 @@ public:
         *std::next(child_begin(), LowerBoundVariableOffset)));
   }
   Expr *getUpperBoundVariable() const {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     return const_cast<Expr *>(reinterpret_cast<const Expr *>(
         *std::next(child_begin(), UpperBoundVariableOffset)));
   }
@@ -1387,6 +1453,67 @@ public:
     return T->getStmtClass() == OMPSectionDirectiveClass;
   }
 };
+
+#ifdef INTEL_CUSTOMIZATION
+/// This represents '#pragma omp target variant dispatch' directive.
+///
+/// \code
+/// #pragma omp target variant dispatch device(dnum)
+/// \endcode
+/// This example shows a directive '#pragma omp target variant dispatch' with a
+/// device clause with variable 'dnum'.
+///
+class OMPTargetVariantDispatchDirective : public OMPExecutableDirective {
+  friend class ASTStmtReader;
+  /// Build directive with the given start and end location.
+  ///
+  /// \param StartLoc Starting location of the directive kind.
+  /// \param EndLoc Ending location of the directive.
+  /// \param NumClauses Number of clauses.
+  ///
+  OMPTargetVariantDispatchDirective(SourceLocation StartLoc,
+                                    SourceLocation EndLoc, unsigned NumClauses)
+      : OMPExecutableDirective(this, OMPTargetVariantDispatchDirectiveClass,
+                               OMPD_target_variant_dispatch, StartLoc, EndLoc,
+                               NumClauses, /*NumChildren=*/1) {}
+
+  /// Build an empty directive.
+  ///
+  /// \param NumClauses Number of clauses.
+  ///
+  explicit OMPTargetVariantDispatchDirective(unsigned NumClauses)
+      : OMPExecutableDirective(this, OMPTargetVariantDispatchDirectiveClass,
+                               OMPD_target_variant_dispatch, SourceLocation(),
+                               SourceLocation(), NumClauses,
+                               /*NumChildren=*/1) {}
+
+public:
+  /// Creates directive with a list of \a Clauses.
+  ///
+  /// \param C AST context.
+  /// \param StartLoc Starting location of the directive kind.
+  /// \param EndLoc Ending Location of the directive.
+  /// \param Clauses List of clauses.
+  /// \param AssociatedStmt Statement, associated with the directive.
+  ///
+  static OMPTargetVariantDispatchDirective *
+  Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
+         ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt);
+
+  /// Creates an empty directive with the place for \a NumClauses
+  /// clauses.
+  ///
+  /// \param C AST context.
+  /// \param NumClauses Number of clauses.
+  ///
+  static OMPTargetVariantDispatchDirective *
+  CreateEmpty(const ASTContext &C, unsigned NumClauses, EmptyShell);
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == OMPTargetVariantDispatchDirectiveClass;
+  }
+};
+#endif // INTEL_CUSTOMIZATION
 
 /// This represents '#pragma omp single' directive.
 ///

@@ -18,6 +18,9 @@
 #include "CGCleanup.h"
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
+#if INTEL_COLLAB
+#include "intel/CGOpenMPLateOutline.h"
+#endif // INTEL_COLLAB
 #include "TargetInfo.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
@@ -36,6 +39,12 @@
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
+#if INTEL_CUSTOMIZATION
+// CQ381541: IMF attributes support
+#include "clang/Basic/LangOptions.h"
+#include "llvm/ADT/StringSet.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace clang;
 using namespace CodeGen;
 
@@ -203,7 +212,6 @@ static CallingConv getCallingConventionForDecl(const Decl *D, bool IsWindows) {
 
   if (D->hasAttr<FastCallAttr>())
     return CC_X86FastCall;
-
   if (D->hasAttr<RegCallAttr>())
     return CC_X86RegCall;
 
@@ -1515,6 +1523,10 @@ bool CodeGenModule::ReturnTypeUsesFPRet(QualType ResultType) {
       return getTarget().useObjCFPRetForRealType(TargetInfo::Double);
     case BuiltinType::LongDouble:
       return getTarget().useObjCFPRetForRealType(TargetInfo::LongDouble);
+#if INTEL_CUSTOMIZATION
+    case BuiltinType::Float128:
+      return getTarget().useObjCFPRetForRealType(TargetInfo::Float128);
+#endif  // INTEL_CUSTOMIZATION
     }
   }
 
@@ -1690,6 +1702,29 @@ static void AddAttributesFromFunctionProtoType(ASTContext &Ctx,
 void CodeGenModule::ConstructDefaultFnAttrList(StringRef Name, bool HasOptnone,
                                                bool AttrOnCallSite,
                                                llvm::AttrBuilder &FuncAttrs) {
+#if INTEL_CUSTOMIZATION
+  if (getLangOpts().isIntelCompat(LangOptions::IMFAttributes)) {
+    llvm::StringSet<> FuncOwnAttrs;
+    auto FuncMapIt = getLangOpts().ImfAttrFuncMap.find(Name);
+    if (FuncMapIt != getLangOpts().ImfAttrFuncMap.end()) {
+      // The function has its own set of attributes.
+      for (const auto &AttrPair : FuncMapIt->second) {
+        FuncAttrs.addAttribute("imf-" + AttrPair.first().str(),
+                               AttrPair.second);
+        FuncOwnAttrs.insert(AttrPair.first());
+      }
+    }
+    // Add attributes not specific to any function, if that kind not explicitly
+    // specified for this function.
+    for (const auto &AttrPair : getLangOpts().ImfAttrMap) {
+      if (FuncOwnAttrs.find(AttrPair.first()) == FuncOwnAttrs.end()) {
+        FuncAttrs.addAttribute("imf-" + AttrPair.first().str(),
+                               AttrPair.second);
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // OptimizeNoneAttr takes precedence over -Os or -Oz. No warning needed.
   if (!HasOptnone) {
     if (CodeGenOpts.OptimizeSize)
@@ -2032,6 +2067,14 @@ void CodeGenModule::ConstructAttributeList(
                 llvm::AttrBuilder().addAttribute(llvm::Attribute::InReg));
       }
     }
+
+#if INTEL_CUSTOMIZATION
+    // Support for '-fargument-noalias' option.
+    if (ParamType->isPointerType() &&
+        getLangOpts().isIntelCompat(LangOptions::FArgumentNoalias) &&
+        CodeGenOpts.NoAliasForPtrArgs)
+      Attrs.addAttribute(llvm::Attribute::NoAlias);
+#endif // INTEL_CUSTOMIZATION
 
     // 'restrict' -> 'noalias' is done in EmitFunctionProlog when we
     // have the corresponding parameter variable.  It doesn't make
@@ -2866,11 +2909,28 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
         // Reuse the debug location from the store unless there is
         // cleanup code to be emitted between the store and return
         // instruction.
+#if INTEL_CUSTOMIZATION
+        // Fix for CQ379239: Emit debug location for return instruction, not
+        // eliminated store.
+        if (!getLangOpts().IntelCompat || !getLangOpts().IntelMSCompat ||
+            !CurCodeDecl || !isa<FunctionDecl>(CurCodeDecl) ||
+            !cast<FunctionDecl>(CurCodeDecl)->getBody() ||
+            !isa<CompoundStmt>(cast<FunctionDecl>(CurCodeDecl)->getBody()))
+#endif // INTEL_CUSTOMIZATION
         if (EmitRetDbgLoc && !AutoreleaseResult)
           RetDbgLoc = SI->getDebugLoc();
         // Get the stored value and nuke the now-dead store.
         RV = SI->getValueOperand();
         SI->eraseFromParent();
+#if INTEL_CUSTOMIZATION
+        // Generates the intrinsic to hold the tbaa metadata for
+        // the return pointer.
+        if (getLangOpts().isIntelCompat(LangOptions::FakeLoad)) {
+          auto RTI = RetPtrMap.find(RV);
+          if (RTI != RetPtrMap.end())
+            RV = Builder.CreateFakeLoad(RV, RTI->second);
+        }
+#endif // INTEL_CUSTOMIZATION
 
       // Otherwise, we have to do a simple load.
       } else {
@@ -3567,7 +3627,6 @@ void CodeGenFunction::EmitCallArg(CallArgList &args, const Expr *E,
     assert(E->getObjectKind() == OK_Ordinary);
     return args.add(EmitReferenceBindingToExpr(E), type);
   }
-
   bool HasAggregateEvalKind = hasAggregateEvaluationKind(type);
 
   // In the Microsoft C++ ABI, aggregate arguments are destructed by the callee.
@@ -4046,6 +4105,17 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
             V->getType()->isIntegerTy())
           V = Builder.CreateZExt(V, ArgInfo.getCoerceToType());
 
+        if (FirstIRArg < IRFuncTy->getNumParams()) {
+          const auto *LHSPtrTy =
+              dyn_cast_or_null<llvm::PointerType>(V->getType());
+          const auto *RHSPtrTy = dyn_cast_or_null<llvm::PointerType>(
+              IRFuncTy->getParamType(FirstIRArg));
+          if (LHSPtrTy && RHSPtrTy &&
+              LHSPtrTy->getAddressSpace() != RHSPtrTy->getAddressSpace())
+            V = Builder.CreateAddrSpaceCast(V,
+                                            IRFuncTy->getParamType(FirstIRArg));
+        }
+
         // If the argument doesn't match, perform a bitcast to coerce it.  This
         // can happen due to trivial type mismatches.
         if (FirstIRArg < IRFuncTy->getNumParams() &&
@@ -4254,6 +4324,22 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   if (!CallArgs.getCleanupsToDeactivate().empty())
     deactivateArgCleanupsBeforeCall(*this, CallArgs);
 
+  // Addrspace cast to generic if necessary
+  if (getenv("ENABLE_INFER_AS")) {
+    for (unsigned i = 0; i < IRFuncTy->getNumParams(); ++i) {
+      if (auto *PtrTy = dyn_cast<llvm::PointerType>(IRCallArgs[i]->getType())) {
+        auto *ExpectedPtrType =
+            cast<llvm::PointerType>(IRFuncTy->getParamType(i));
+        unsigned ValueAS = PtrTy->getAddressSpace();
+        unsigned ExpectedAS = ExpectedPtrType->getAddressSpace();
+        if (ValueAS != ExpectedAS) {
+          IRCallArgs[i] = Builder.CreatePointerBitCastOrAddrSpaceCast(
+              IRCallArgs[i], ExpectedPtrType);
+        }
+      }
+    }
+  }
+
   // Assert that the arguments we computed match up.  The IR verifier
   // will catch this, but this is a common enough source of problems
   // during IRGen changes that it's way better for debugging to catch
@@ -4345,6 +4431,26 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   }
   if (callOrInvoke)
     *callOrInvoke = CI;
+#if INTEL_CUSTOMIZATION
+  if (CurrentPragmaInlineState) {
+    std::pair<llvm::Attribute::AttrKind, bool> A =
+        CurrentPragmaInlineState->getPragmaInlineAttribute();
+    if (A.second) {
+      if (A.first == llvm::Attribute::AlwaysInline)
+        Attrs = Attrs.addAttribute(getLLVMContext(),
+                                   llvm::AttributeList::FunctionIndex,
+                                   "always-inline-recursive");
+      else if (A.first == llvm::Attribute::InlineHint)
+        Attrs = Attrs.addAttribute(getLLVMContext(),
+                                   llvm::AttributeList::FunctionIndex,
+                                   "inline-hint-recursive");
+      else
+        llvm_unreachable("AlwaysInline or InlineHint expected");
+    } else
+      Attrs = Attrs.addAttribute(getLLVMContext(),
+                                 llvm::AttributeList::FunctionIndex, A.first);
+}
+#endif // INTEL_CUSTOMIZATION
 
   // Apply the attributes and calling convention.
   CI->setAttributes(Attrs);
@@ -4388,7 +4494,13 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   // If the call doesn't return, finish the basic block and clear the
   // insertion point; this allows the rest of IRGen to discard
   // unreachable code.
+#if INTEL_COLLAB
+  if (CI->doesNotReturn() &&
+            (!CapturedStmtInfo ||
+             !dyn_cast<CGLateOutlineOpenMPRegionInfo>(CapturedStmtInfo))) {
+#else
   if (CI->doesNotReturn()) {
+#endif // INTEL_COLLAB
     if (UnusedReturnSizePtr)
       PopCleanupBlock();
 

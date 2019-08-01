@@ -194,6 +194,12 @@ public:
   void mangleSEHFinallyBlock(const NamedDecl *EnclosingDecl,
                              raw_ostream &Out) override;
   void mangleStringLiteral(const StringLiteral *SL, raw_ostream &Out) override;
+
+#if INTEL_CUSTOMIZATION
+  // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
+  void mangleLambdaName(const RecordDecl *RD, raw_ostream &Out) override;
+#endif // INTEL_CUSTOMIZATION
+
   bool getNextDiscriminator(const NamedDecl *ND, unsigned &disc) {
     const DeclContext *DC = getEffectiveDeclContext(ND);
     if (!DC->isFunctionOrMethod())
@@ -329,6 +335,11 @@ public:
                           bool ForceThisQuals = false,
                           bool MangleExceptionSpec = true);
   void mangleNestedName(const NamedDecl *ND);
+
+#if INTEL_CUSTOMIZATION
+  // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
+  void mangleUnscopedLambdaName(const RecordDecl *RD);
+#endif //INTEL_CUSTOMIZATION
 
 private:
   bool isStructorDecl(const NamedDecl *ND) const {
@@ -489,6 +500,14 @@ void MicrosoftCXXNameMangler::mangle(const NamedDecl *D, StringRef Prefix) {
 
   // <mangled-name> ::= ? <name> <type-encoding>
   Out << Prefix;
+#if INTEL_CUSTOMIZATION
+  if (getASTContext().getLangOpts().IntelCompat)
+    if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
+      const FunctionProtoType *FT = FD->getType()->castAs<FunctionProtoType>();
+      if (FT->getCallConv () == clang::CC_X86RegCall)
+        Out << "__regcall3__";
+    }
+#endif  // INTEL_CUSTOMIZATION
   mangleName(D);
   if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D))
     mangleFunctionEncoding(FD, Context.shouldMangleDeclName(FD));
@@ -1346,6 +1365,15 @@ MicrosoftCXXNameMangler::mangleUnscopedTemplateName(const TemplateDecl *TD) {
   mangleUnqualifiedName(TD);
 }
 
+#if INTEL_CUSTOMIZATION
+// Fix for CQ#371742: C++ Lambda debug info class is created with empty name
+void MicrosoftCXXNameMangler::mangleUnscopedLambdaName(const RecordDecl *RD) {
+  // <unscoped-lambda-name> ::= __10<unqualified-name>
+  Out << "__10";
+  mangleUnqualifiedName(RD);
+}
+#endif //INTEL_CUSTOMIZATION
+
 void MicrosoftCXXNameMangler::mangleIntegerLiteral(const llvm::APSInt &Value,
                                                    bool IsBoolean) {
   // <integer-literal> ::= $0 <number>
@@ -2044,6 +2072,11 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T, Qualifiers,
   case BuiltinType::Char32:
     Out << "_U";
     break;
+#if INTEL_CUSTOMIZATION
+  case BuiltinType::Float128:
+    mangleArtificialTagType(TTK_Struct, "__float128", {"__clang"});
+    break;
+#endif  // INTEL_CUSTOMIZATION
   case BuiltinType::WChar_S:
   case BuiltinType::WChar_U:
     Out << "_W";
@@ -2133,7 +2166,12 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T, Qualifiers,
   case BuiltinType::SatUShortFract:
   case BuiltinType::SatUFract:
   case BuiltinType::SatULongFract:
-  case BuiltinType::Float128: {
+#if INTEL_CUSTOMIZATION
+  // Float128 warning message is intentionally disabled, since we handle it
+  // above under an Intel Customization block.
+  // case BuiltinType::Float128:
+  {
+#endif // INTEL_CUSTOMIZATION
     DiagnosticsEngine &Diags = Context.getDiags();
     unsigned DiagID = Diags.getCustomDiagID(
         DiagnosticsEngine::Error, "cannot mangle this built-in %0 type yet");
@@ -2940,6 +2978,44 @@ void MicrosoftCXXNameMangler::mangleType(const PipeType *T, Qualifiers,
     << Range;
 }
 
+#if INTEL_CUSTOMIZATION
+void MicrosoftCXXNameMangler::mangleType(const ChannelType *T, Qualifiers,
+                                         SourceRange Range) {
+  QualType ElementType = T->getElementType();
+
+  llvm::SmallString<64> TemplateMangling;
+  llvm::raw_svector_ostream Stream(TemplateMangling);
+  MicrosoftCXXNameMangler Extra(Context, Stream);
+  Stream << "?$";
+  Extra.mangleSourceName("ocl_channel");
+  Extra.mangleType(ElementType, Range, QMM_Escape);
+
+  mangleArtificialTagType(TTK_Struct, TemplateMangling, {"__clang"});
+}
+
+void MicrosoftCXXNameMangler::mangleType(const ArbPrecIntType *T, Qualifiers,
+                                         SourceRange Range) {
+  QualType UnderlyingType = T->getUnderlyingType();
+  llvm::SmallString<64> TemplateMangling;
+  llvm::raw_svector_ostream Stream(TemplateMangling);
+  MicrosoftCXXNameMangler Extra(Context, Stream);
+  Stream << "?$";
+  Extra.mangleSourceName("__ap_int");
+  Extra.mangleNumber(T->getNumBits());
+  Extra.mangleType(UnderlyingType, Range, QMM_Escape);
+  mangleArtificialTagType(TTK_Struct, TemplateMangling, {"__clang"});
+}
+
+void MicrosoftCXXNameMangler::mangleType(const DependentSizedArbPrecIntType *T,
+                                         Qualifiers, SourceRange Range) {
+  DiagnosticsEngine &Diags = Context.getDiags();
+  unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+    "cannot mangle this Dependent ArbPrecInt type yet");
+  Diags.Report(Range.getBegin(), DiagID)
+    << Range;
+}
+#endif // INTEL_CUSTOMIZATION
+
 void MicrosoftMangleContextImpl::mangleCXXName(const NamedDecl *D,
                                                raw_ostream &Out) {
   assert((isa<FunctionDecl>(D) || isa<VarDecl>(D)) &&
@@ -3527,6 +3603,15 @@ void MicrosoftMangleContextImpl::mangleStringLiteral(const StringLiteral *SL,
 
   Mangler.getStream() << '@';
 }
+
+#if INTEL_CUSTOMIZATION
+// Fix for CQ#371742: C++ Lambda debug info class is created with empty name
+void MicrosoftMangleContextImpl::mangleLambdaName(const RecordDecl *RD,
+                                                  raw_ostream &Out) {
+  MicrosoftCXXNameMangler Mangler(*this, Out);
+  return Mangler.mangleUnscopedLambdaName(RD);
+}
+#endif // INTEL_CUSTOMIZATION
 
 MicrosoftMangleContext *
 MicrosoftMangleContext::create(ASTContext &Context, DiagnosticsEngine &Diags) {

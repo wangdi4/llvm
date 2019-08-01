@@ -29,6 +29,7 @@
 #include "llvm/Support/BuryPointer.h"
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Support/ErrorHandling.h"
+
 using namespace clang;
 using namespace llvm::opt;
 
@@ -203,6 +204,12 @@ bool ExecuteCompilerInvocation(CompilerInstance *Clang) {
     return true;
   }
 
+#if INTEL_CUSTOMIZATION
+  if (Clang->getLangOpts().ShowIntelCompatHelp) {
+    llvm::outs() << Clang->getLangOpts().helpIntelCompat();
+    return true;
+  }
+#endif // INTEL_CUSTOMIZATION
   // Load any requested plugins.
   for (unsigned i = 0,
          e = Clang->getFrontendOpts().Plugins.size(); i != e; ++i) {

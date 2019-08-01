@@ -45,6 +45,79 @@ struct LoopAttributes {
   /// Value for llvm.loop.vectorize.enable metadata.
   LVEnableState VectorizeEnable;
 
+#if INTEL_CUSTOMIZATION
+  /// Value for llvm.loop.coalesce.enable metadata.
+  bool LoopCoalesceEnable;
+
+  /// Value for llvm.loop.coalesce.count metadata.
+  unsigned LoopCoalesceCount;
+
+  /// Value for llvm.loop.ii.count metadata.
+  unsigned IICount;
+
+  /// Value for llvm.loop.max_concurrency.count metadata.
+  unsigned MaxConcurrencyCount;
+
+  /// Value for llvm.loop.max_interleaving.count metadata.
+  unsigned MaxInterleavingCount;
+
+  /// Value for llvm.loop.vectorize.ivdep_back metadata.
+  bool IVDepEnable;
+
+  /// Value for llvm.loop.ivdep.enable metadata.
+  bool IVDepHLSEnable;
+
+  /// Value for both  llvm.loop.vectorize.ivdep_back and
+  /// llvm.loop.ivdep.enable metadata.
+  bool IVDepHLSIntelEnable;
+
+  /// Value for llvm.loop.ivdep.safelen metadata.
+  unsigned IVDepCount;
+
+  /// Value for llvm.loop.intel.ii.at.most.count metadata.
+  unsigned IIAtMost;
+
+  /// Value for llvm.loop.intel.ii.at.least.count metadata.
+  unsigned IIAtLeast;
+
+  /// Value for llvm.loop.intel.speculated.iterations.count metadata.
+  int SpeculatedIterations;
+
+  /// Value for llvm.loop.intel.min.ii.at.target.fmax metadata.
+  bool MinIIAtTargetFmaxEnable;
+
+  /// Value for llvm.loop.intel.pipelining.disable metadata.
+  bool DisableLoopPipeliningEnable;
+
+  /// Value for llvm.loop.intel.[hyperopt|nohyperopt] metadata.
+  LVEnableState ForceHyperoptEnable;
+
+  /// Value for llvm.loop.fusion.* metadata.
+  LVEnableState FusionEnable;
+
+  /// Value for llvm.loop.vectorize.ivdep_loop metadata.
+  bool IVDepLoop;
+
+  /// Value for llvm.loop.vectorize.ivdep_back metadata.
+  bool IVDepBack;
+
+  /// Value for llvm.loop.vector_always.enable metadata.
+  bool VectorizeAlwaysEnable;
+
+  /// Value for llvm.loop.intel.loopcount
+  llvm::SmallVector<unsigned, 2> LoopCount;
+
+  /// Value for llvm.loop.intel.loopcount_minimum
+  unsigned LoopCountMin;
+
+  /// Value for llvm.loop.intel.loopcount_maximum
+  unsigned LoopCountMax;
+
+  /// Value for llvm.loop.intel.loopcount_averag
+  unsigned LoopCountAvg;
+
+#endif // INTEL_CUSTOMIZATION
+
   /// Value for llvm.loop.unroll.* metadata (enable, disable, or full).
   LVEnableState UnrollEnable;
 
@@ -56,6 +129,18 @@ struct LoopAttributes {
 
   /// Value for llvm.loop.interleave.count metadata.
   unsigned InterleaveCount;
+
+  /// Value for llvm.loop.ivdep.enable metadata.
+  bool SYCLIVDepEnable;
+
+  /// Value for llvm.loop.ivdep.safelen metadata.
+  unsigned SYCLIVDepSafelen;
+
+  /// Value for llvm.loop.ii.count metadata.
+  unsigned SYCLIInterval;
+
+  /// Value for llvm.loop.max_concurrency.count metadata.
+  unsigned SYCLMaxConcurrencyNThreads;
 
   /// llvm.unroll.
   unsigned UnrollCount;
@@ -206,7 +291,9 @@ public:
   void pop();
 
   /// Return the top loop id metadata.
-  llvm::MDNode *getCurLoopID() const { return getInfo().getLoopID(); }
+  llvm::MDNode *getCurLoopID() const {                     // INTEL
+    return hasInfo() ? getInfo().getLoopID() : nullptr;    // INTEL
+  }                                                        // INTEL
 
   /// Return true if the top loop is parallel.
   bool getCurLoopParallel() const {
@@ -219,6 +306,100 @@ public:
 
   /// Set the next pushed loop as parallel.
   void setParallel(bool Enable = true) { StagedAttrs.IsParallel = Enable; }
+
+#if INTEL_CUSTOMIZATION
+  /// Set the next pushed loop 'coalesce.enable'
+  void setLoopCoalesceEnable() {
+    StagedAttrs.LoopCoalesceEnable = true;
+  }
+
+  /// Set the coalesce count for the next loop pushed.
+  void setLoopCoalesceCount(unsigned C) { StagedAttrs.LoopCoalesceCount = C; }
+
+  /// Set the ii count for the next loop pushed.
+  void setIICount(unsigned C) { StagedAttrs.IICount = C; }
+
+  /// Set the max_concurrency count for the next loop pushed.
+  void setMaxConcurrencyCount(unsigned C) {
+    StagedAttrs.MaxConcurrencyCount = C;
+  }
+
+  /// Set the max_interleaving count for the next loop pushed.
+  void setMaxInterleavingCount(unsigned C) {
+    StagedAttrs.MaxInterleavingCount = C;
+  }
+
+  /// Set flag for three types of plain #pragma ivdep
+  void setIVDepEnable() { StagedAttrs.IVDepEnable = true; }
+  void setIVDepHLSEnable() { StagedAttrs.IVDepHLSEnable = true; }
+  void setIVDepHLSIntelEnable() { StagedAttrs.IVDepHLSIntelEnable = true; }
+
+  /// Set the safelen count for the next loop pushed.
+  void setIVDepCount(unsigned C) { StagedAttrs.IVDepCount = C; }
+
+
+  /// Set II_AT_MOST for the next loop pushed.
+  void setIIAtMost(unsigned C) { StagedAttrs.IIAtMost = C; }
+
+  /// Set II_AT_LEAST for the next loop pushed.
+  void setIIAtLeast(unsigned C) { StagedAttrs.IIAtLeast = C; }
+
+  /// Set SpeculatedIterations for the next loop pushed.
+  void setSpeculatedIterations(unsigned C) {
+    StagedAttrs.SpeculatedIterations = C;
+  }
+  /// Set the next pushed loop MinIIAtTargetFmaxEnable
+  void setMinIIAtTargetFmaxEnable() {
+    StagedAttrs.MinIIAtTargetFmaxEnable = true;
+  }
+
+  /// Set the next pushed loop DisableLoopPipeliningEnable
+  void setDisableLoopPipeliningEnable() {
+    StagedAttrs.DisableLoopPipeliningEnable = true;
+  }
+
+  /// Set the next pushed loop 'force_hyperopt/force_no_hyperopt'
+  void setForceHyperoptEnable(bool Enable = true) {
+    StagedAttrs.ForceHyperoptEnable =
+        Enable ? LoopAttributes::Enable : LoopAttributes::Disable;
+  }
+
+  /// Set the next pushed loop 'fusion.enable'
+  void setFusionEnable(bool Enable = true) {
+    StagedAttrs.FusionEnable =
+        Enable ? LoopAttributes::Enable : LoopAttributes::Disable;
+  }
+
+  /// Set the loop flag for ivdep.
+  void setIVDepLoop() { StagedAttrs.IVDepLoop = true; }
+
+  /// Set the back flag for ivdep.
+  void setIVDepBack() { StagedAttrs.IVDepBack = true; }
+  /// Set next pushed loop  'vector_always.enable'
+  void setVectorizeAlwaysEnable() {
+    StagedAttrs.VectorizeAlwaysEnable = true;
+  }
+
+  /// Set the LoopCount for the next loop pushed.
+  void setLoopCount(unsigned C) {
+    StagedAttrs.LoopCount.push_back(C);
+  }
+
+  /// Set the LoopCountMin for the next loop pushed.
+  void setLoopCountMin(unsigned C) {
+    StagedAttrs.LoopCountMin = C;
+  }
+
+  /// Set the LoopCountMax for the next loop pushed.
+  void setLoopCountMax(unsigned C) {
+    StagedAttrs.LoopCountMax = C;
+  }
+
+  /// Set the LoopCountAvg for the next loop pushed.
+  void setLoopCountAvg(unsigned C) {
+    StagedAttrs.LoopCountAvg = C;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   /// Set the next pushed loop 'vectorize.enable'
   void setVectorizeEnable(bool Enable = true) {
@@ -247,6 +428,20 @@ public:
 
   /// Set the interleave count for the next loop pushed.
   void setInterleaveCount(unsigned C) { StagedAttrs.InterleaveCount = C; }
+
+  /// Set flag of ivdep for the next loop pushed.
+  void setSYCLIVDepEnable() { StagedAttrs.SYCLIVDepEnable = true; }
+
+  /// Set value of safelen count for the next loop pushed.
+  void setSYCLIVDepSafelen(unsigned C) { StagedAttrs.SYCLIVDepSafelen = C; }
+
+  /// Set value of an initiation interval for the next loop pushed.
+  void setSYCLIInterval(unsigned C) { StagedAttrs.SYCLIInterval = C; }
+
+  /// Set value of threads for the next loop pushed.
+  void setSYCLMaxConcurrencyNThreads(unsigned C) {
+    StagedAttrs.SYCLMaxConcurrencyNThreads = C;
+  }
 
   /// Set the unroll count for the next loop pushed.
   void setUnrollCount(unsigned C) { StagedAttrs.UnrollCount = C; }

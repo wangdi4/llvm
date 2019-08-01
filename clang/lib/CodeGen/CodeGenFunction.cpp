@@ -100,7 +100,6 @@ CodeGenFunction::~CodeGenFunction() {
   // something.
   if (FirstBlockInfo)
     destroyBlockInfos(FirstBlockInfo);
-
   if (getLangOpts().OpenMP && CurFn)
     CGM.getOpenMPRuntime().functionFinished(*this);
 }
@@ -217,6 +216,10 @@ TypeEvaluationKind CodeGenFunction::getEvaluationKind(QualType type) {
     case Type::FunctionNoProto:
     case Type::Enum:
     case Type::ObjCObjectPointer:
+#if INTEL_CUSTOMIZATION
+    case Type::Channel:
+    case Type::ArbPrecInt:
+#endif // INTEL_CUSTOMIZATION
     case Type::Pipe:
       return TEK_Scalar;
 
@@ -269,6 +272,7 @@ llvm::DebugLoc CodeGenFunction::EmitReturnBlock() {
       dyn_cast<llvm::BranchInst>(*ReturnBlock.getBlock()->user_begin());
     if (BI && BI->isUnconditional() &&
         BI->getSuccessor(0) == ReturnBlock.getBlock()) {
+      Builder.SetCurrentDebugLocation(BI->getDebugLoc());
       // Record/return the DebugLoc of the simple 'return' expression to be used
       // later by the actual 'ret' instruction.
       llvm::DebugLoc Loc = BI->getDebugLoc();
@@ -560,6 +564,13 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
             llvm::APInt(32, (uint64_t)(IsSignedInteger ? 1 : 0))))};
     Fn->setMetadata("vec_type_hint", llvm::MDNode::get(Context, AttrMDArgs));
   }
+#if INTEL_CUSTOMIZATION
+  if (const VecLenHintAttr *A = FD->getAttr<VecLenHintAttr>()) {
+    llvm::Metadata *AttrMDArgs[] = {
+        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getVecLen()))};
+    Fn->setMetadata(A->getSpelling(), llvm::MDNode::get(Context, AttrMDArgs));
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (const WorkGroupSizeHintAttr *A = FD->getAttr<WorkGroupSizeHintAttr>()) {
     llvm::Metadata *AttrMDArgs[] = {
@@ -577,8 +588,54 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
     Fn->setMetadata("reqd_work_group_size", llvm::MDNode::get(Context, AttrMDArgs));
   }
 
-  if (const OpenCLIntelReqdSubGroupSizeAttr *A =
-          FD->getAttr<OpenCLIntelReqdSubGroupSizeAttr>()) {
+#if INTEL_CUSTOMIZATION
+  if (const MaxWorkGroupSizeAttr *A = FD->getAttr<MaxWorkGroupSizeAttr>()) {
+    llvm::Metadata *attrMDArgs[] = {
+        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getXDim())),
+        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getYDim())),
+        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getZDim()))};
+    Fn->setMetadata("max_work_group_size",
+                    llvm::MDNode::get(Context, attrMDArgs));
+  }
+
+  if (const MaxGlobalWorkDimAttr *A = FD->getAttr<MaxGlobalWorkDimAttr>()) {
+    llvm::Metadata *attrMDArgs[] = {llvm::ConstantAsMetadata::get(
+        Builder.getInt32(A->getMaxGlobalWorkDimValue()))};
+    Fn->setMetadata("max_global_work_dim",
+                    llvm::MDNode::get(Context, attrMDArgs));
+  }
+
+  if (FD->hasAttr<AutorunAttr>()) {
+    llvm::Metadata *attrMDArgs[] = {
+        llvm::ConstantAsMetadata::get(Builder.getTrue())};
+    Fn->setMetadata("autorun", llvm::MDNode::get(Context, attrMDArgs));
+  }
+
+  if (const UsesGlobalWorkOffsetAttr *A = FD->getAttr<UsesGlobalWorkOffsetAttr>()) {
+    llvm::Metadata *attrMDArgs[] = {llvm::ConstantAsMetadata::get(
+        Builder.getInt1(A->getEnabled()))};
+    Fn->setMetadata("uses_global_work_offset", llvm::MDNode::get(Context, attrMDArgs));
+  }
+
+  if (const NumComputeUnitsAttr *A = FD->getAttr<NumComputeUnitsAttr>()) {
+    llvm::Metadata *attrMDArgs[] = {
+        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getXDim())),
+        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getYDim())),
+        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getZDim()))};
+    Fn->setMetadata("num_compute_units",
+                    llvm::MDNode::get(Context, attrMDArgs));
+  }
+
+  if (const NumSimdWorkItemsAttr *A = FD->getAttr<NumSimdWorkItemsAttr>()) {
+    llvm::Metadata *attrMDArgs[] = {llvm::ConstantAsMetadata::get(
+        Builder.getInt32(A->getNumSimdWorkItems()))};
+    Fn->setMetadata("num_simd_work_items",
+                    llvm::MDNode::get(Context, attrMDArgs));
+  }
+#endif // INTEL_CUSTOMIZATION
+
+  if (const IntelReqdSubGroupSizeAttr *A =
+          FD->getAttr<IntelReqdSubGroupSizeAttr>()) {
     llvm::Metadata *AttrMDArgs[] = {
         llvm::ConstantAsMetadata::get(Builder.getInt32(A->getSubGroupSize()))};
     Fn->setMetadata("intel_reqd_sub_group_size",
@@ -760,7 +817,22 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
   if (CGM.getCodeGenOpts().ProfileSampleAccurate)
     Fn->addFnAttr("profile-sample-accurate");
 
-  if (getLangOpts().OpenCL) {
+#if INTEL_CUSTOMIZATION
+  if (getLangOpts().HLS) {
+    // Add metadata for HLS components
+    if (const auto *FD = dyn_cast_or_null<FunctionDecl>(D))
+      EmitHLSComponentMetadata(FD, Fn);
+  }
+  if (getLangOpts().HLS ||
+      (getLangOpts().OpenCL &&
+       CGM.getContext().getTargetInfo().getTriple().isINTELFPGAEnvironment())) {
+    // Add metadata for common OpenCL/HLS components
+    if (const auto *FD = dyn_cast_or_null<FunctionDecl>(D))
+      EmitOpenCLHLSComponentMetadata(FD, Fn);
+  }
+#endif // INTEL_CUSTOMIZATION
+
+  if (getLangOpts().OpenCL || getLangOpts().SYCLIsDevice) {
     // Add metadata for a kernel function.
     if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
       EmitOpenCLKernelMetadata(FD, Fn);
@@ -852,6 +924,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
     DI->EmitFunctionStart(GD, Loc, StartLoc, FnType, CurFn, CurFuncIsThunk,
                           Builder);
   }
+
+#if INTEL_CUSTOMIZATION
+  // Fix for CQ368405: Prologue source correlation is missing.
+  if (getLangOpts().IntelCompat && getLangOpts().IntelMSCompat)
+    if (auto *FD = dyn_cast_or_null<FunctionDecl>(D))
+      if (auto *Body = dyn_cast_or_null<CompoundStmt>(FD->getBody()))
+        // Emit a location at the start of the prologue.
+        if (CGDebugInfo *DI = getDebugInfo())
+          DI->EmitLocation(Builder, Body->getLBracLoc());
+#endif // INTEL_CUSTOMIZATION
 
   if (ShouldInstrumentFunction()) {
     if (CGM.getCodeGenOpts().InstrumentFunctions)
@@ -1114,6 +1196,96 @@ QualType CodeGenFunction::BuildFunctionArgList(GlobalDecl GD,
   return ResTy;
 }
 
+#if INTEL_CUSTOMIZATION
+// The FieldName has been encountered in a context that could require addition
+// of our Intel container intrinsics.  Determine and return the correct
+// intrinsic or llvm::Intrinsic::not_intrinsic if no intrinsic is desired for
+// this field.
+//
+// This works by looking for a particular field in a particular routine in a
+// particular context specified by OptKind.  The particulars are described in
+// StdContainerOptDescriptions.
+//
+// This routine should bail out as soon as possible since it will need to be
+// called at least once per function when one of the contexts occur.
+llvm::Intrinsic::ID CodeGenFunction::getContainerIntrinsic(
+    CodeGenModule::StdContainerOptKind OptKind, StringRef FieldName) {
+  // Check if we've already seen this routine and know it isn't interesting
+  if (StdContainerOptKindDetermined)
+    return llvm::Intrinsic::not_intrinsic;
+
+  const Decl *D = CurGD.getDecl();
+
+  // CodeGenFunction routines can be called when not generating a function
+  if (!D || !getLangOpts().CPlusPlus) {
+    StdContainerOptKindDetermined = true;
+    return llvm::Intrinsic::not_intrinsic;
+  }
+
+  // Gather info about the function
+  const FunctionDecl *FD = cast<FunctionDecl>(D);
+  const NamedDecl *ND = dyn_cast<NamedDecl>(FD);
+  if (!ND) {
+    StdContainerOptKindDetermined = true;
+    return llvm::Intrinsic::not_intrinsic;
+  }
+  const DeclContext *DC = D->getDeclContext();
+  if (!DC || !DC->getParent()) {
+    StdContainerOptKindDetermined = true;
+    return llvm::Intrinsic::not_intrinsic;
+  }
+
+  // Get the function name with getNameAsString() since getName() is not
+  // valid for constructors.
+  std::string FuncName = ND->getNameAsString();
+  StringRef ContainerName;
+  StringRef NamespaceName;
+  auto DeclKind = D->getKind();
+
+  // Currently there are only two kinds we care about (member functions and
+  // constructors).
+  if (DeclKind == Decl::CXXMethod) {
+    if (DC->getDeclKind() == Decl::ClassTemplateSpecialization) {
+      const NamedDecl *NDD = dyn_cast<NamedDecl>(DC);
+      if (NDD) {
+        ContainerName = NDD->getName();
+      }
+    }
+  } else if (DeclKind == Decl::CXXConstructor && FD->getNumParams() > 0) {
+    // We cannot get the container from the iterator so nothing to do here.
+  } else {
+    StdContainerOptKindDetermined = true;
+    return llvm::Intrinsic::not_intrinsic;
+  }
+
+  const DeclContext *PDC = DC->getParent();
+  if (PDC->isNamespace())
+    NamespaceName = cast<NamespaceDecl>(PDC)->getName();
+
+  if (NamespaceName.empty() ||
+      (DeclKind == Decl::CXXMethod && ContainerName.empty())) {
+    StdContainerOptKindDetermined = true;
+    return llvm::Intrinsic::not_intrinsic;
+  }
+
+  // Create a description for this instance
+  CodeGenModule::StdContainerOptDescription SCOD(
+      OptKind, ContainerName, NamespaceName, StringRef(FuncName), DeclKind,
+      FieldName);
+
+  // Check for a matching description.
+  for (auto &Desc : CGM.StdContainerOptDescriptions) {
+    if (SCOD == Desc) {
+      StdContainerOptKindDetermined = true;
+      if (OptKind == CodeGenModule::SCOK_ContainerPtrIterator)
+        return llvm::Intrinsic::intel_std_container_ptr_iter;
+      return llvm::Intrinsic::intel_std_container_ptr;
+    }
+  }
+  return llvm::Intrinsic::not_intrinsic;
+}
+#endif // INTEL_CUSTOMIZATION
+
 static bool
 shouldUseUndefinedBehaviorReturnOptimization(const FunctionDecl *FD,
                                              const ASTContext &Context) {
@@ -1171,6 +1343,18 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
   // Emit the standard function prologue.
   StartFunction(GD, ResTy, Fn, FnInfo, Args, Loc, BodyRange.getBegin());
 
+#if INTEL_COLLAB
+  // If we encountered this function within a target region, also treat any
+  // functions encountered during its codegen as if they are within a target
+  // region.
+  if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice &&
+      OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(FD))
+    Fn->addFnAttr("openmp-target-declare","true");
+
+  CodeGenModule::InTargetRegionRAII ITR(
+      CGM, Fn->hasFnAttribute("openmp-target-declare"));
+#endif // INTEL_COLLAB
+
   // Generate the body of the function.
   PGO.assignRegionCounters(GD, CurFn);
   if (isa<CXXDestructorDecl>(FD))
@@ -1197,6 +1381,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
   } else
     llvm_unreachable("no definition for emitted function");
 
+#if INTEL_CUSTOMIZATION
+  // This is disabled in IntelCompat mode to follow icc's example. CQ#371796.
+  if (!getLangOpts().IntelCompat)
+#endif // INTEL_CUSTOMIZATION
   // C++11 [stmt.return]p2:
   //   Flowing off the end of a function [...] results in undefined behavior in
   //   a value-returning function.
@@ -1979,6 +2167,15 @@ void CodeGenFunction::EmitVariablyModifiedType(QualType type) {
       type = cast<AtomicType>(ty)->getValueType();
       break;
 
+#if INTEL_CUSTOMIZATION
+    case Type::Channel:
+      type = cast<ChannelType>(ty)->getElementType();
+      break;
+    case Type::ArbPrecInt:
+      type = cast<ArbPrecIntType>(ty)->getUnderlyingType();
+      break;
+#endif // INTEL_CUSTOMIZATION
+
     case Type::Pipe:
       type = cast<PipeType>(ty)->getElementType();
       break;
@@ -2115,6 +2312,37 @@ Address CodeGenFunction::EmitFieldAnnotations(const FieldDecl *D,
     V = Builder.CreateBitCast(V, VTy);
   }
 
+  return Address(V, Addr.getAlignment());
+}
+
+#if INTEL_CUSTOMIZATION
+Address CodeGenFunction::EmitHLSFieldAnnotations(const FieldDecl *D,
+                                                 Address Addr,
+                                                 StringRef AnnotStr) {
+  llvm::Value *V = Addr.getPointer();
+  llvm::Type *VTy = V->getType();
+  llvm::Function *F =
+      CGM.getIntrinsic(llvm::Intrinsic::ptr_annotation, VTy);
+  V = EmitAnnotationCall(F, V, AnnotStr, D->getLocation());
+  V = Builder.CreateBitCast(V, VTy);
+  return Address(V, Addr.getAlignment());
+}
+#endif // INTEL_CUSTOMIZATION
+
+Address CodeGenFunction::EmitIntelFPGAFieldAnnotations(const FieldDecl *D,
+                                                       Address Addr,
+                                                       StringRef AnnotStr) {
+  llvm::Value *V = Addr.getPointer();
+  llvm::Type *VTy = V->getType();
+  llvm::Function *F =
+      CGM.getIntrinsic(llvm::Intrinsic::ptr_annotation, CGM.Int8PtrTy);
+  // FIXME Always emit the cast inst so we can differentiate between
+  // annotation on the first field of a struct and annotation on the struct
+  // itself.
+  if (VTy != CGM.Int8PtrTy)
+    V = Builder.CreateBitCast(V, CGM.Int8PtrTy);
+  V = EmitAnnotationCall(F, V, AnnotStr, D->getLocation());
+  V = Builder.CreateBitCast(V, VTy);
   return Address(V, Addr.getAlignment());
 }
 

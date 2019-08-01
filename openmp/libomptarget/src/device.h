@@ -155,7 +155,30 @@ struct DeviceTy {
   int32_t run_team_region(void *TgtEntryPtr, void **TgtVarsPtr,
       ptrdiff_t *TgtOffsets, int32_t TgtVarsSize, int32_t NumTeams,
       int32_t ThreadLimit, uint64_t LoopTripCount);
-
+#if INTEL_COLLAB
+  int32_t manifest_data_for_region(void *TgtEntryPtr);
+  void *data_alloc_base(int64_t Size, void *HstPtrBegin, void *HstPtrBase);
+  void *data_alloc_user(int64_t Size, void *HstPtrBegin);
+  int32_t data_submit_nowait(void *TgtPtrBegin, void *HstPtrBegin,
+                             int64_t Size, void *AsyncData);
+  int32_t data_retrieve_nowait(void *HstPtrBegin, void *TgtPtrBegin,
+                               int64_t Size, void *AsyncData);
+  int32_t run_team_nd_region(void *TgtEntryPtr, void **TgtVarsPtr,
+                             ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
+                             int32_t NumTeams, int32_t ThreadLimit,
+                             void *TgtNDLoopDesc);
+  int32_t run_team_nd_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
+                                    ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
+                                    int32_t NumTeams, int32_t ThreadLimit,
+                                    void *TgtNDLoopDesc, void *AsyncData);
+  int32_t run_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
+                            ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
+                            void *AsyncData);
+  int32_t run_team_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
+                                 ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
+                                 int32_t NumTeams, int32_t ThreadLimit,
+                                 uint64_t LoopTripCount, void *AsyncData);
+#endif // INTEL_COLLAB
 private:
   // Call to RTL
   void init(); // To be called only via DeviceTy::initOnce()

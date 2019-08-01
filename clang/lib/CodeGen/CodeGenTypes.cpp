@@ -54,6 +54,20 @@ void CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
   llvm::raw_svector_ostream OS(TypeName);
   OS << RD->getKindName() << '.';
 
+  // NOTE: The following block of code is copied from CLANG-3.6 with
+  // support of OpenCLCPlusPlus. It is rather the temporary solution
+  // that is going to be used until the general solution is ported/developed
+  // in the latest llvm trunk.
+  //
+  // For SYCL, the mangled type name is attached, so it can be
+  // reflown to proper name later.
+  if (getContext().getLangOpts().SYCLIsDevice) {
+    std::unique_ptr<MangleContext> MC(getContext().createMangleContext());
+    auto RDT = getContext().getRecordType(RD);
+    MC->mangleCXXRTTIName(RDT, OS);
+    OS << ".";
+  }
+
   // Name the codegen type after the typedef name
   // if there is no tag type name available
   if (RD->getIdentifier()) {
@@ -71,6 +85,13 @@ void CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
     else
       TDD->printName(OS);
   } else
+#if INTEL_CUSTOMIZATION
+    // Fix for CQ#371742: C++ Lambda debug info class is created with empty
+    // name
+    if (CGM.getLangOpts().IntelCompat && RD->isLambda()) {
+      CGM.getCXXABI().getMangleContext().mangleLambdaName(RD, OS);
+    } else
+#endif // INTEL_CUSTOMIZATION
     OS << "anon";
 
   if (!suffix.empty())
@@ -517,6 +538,12 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
 #define PLACEHOLDER_TYPE(Id, SingletonId) \
     case BuiltinType::Id:
 #include "clang/AST/BuiltinTypes.def"
+#if INTEL_CUSTOMIZATION
+      if (cast<BuiltinType>(Ty)->getKind() == BuiltinType::VAArgPack) {
+        ResultType = llvm::Type::getInt32Ty(getLLVMContext());
+        break;
+      }
+#endif // INTEL_CUSTOMIZATION
       llvm_unreachable("Unexpected placeholder builtin type!");
     }
     break;
@@ -672,6 +699,17 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
     }
     break;
   }
+#if INTEL_CUSTOMIZATION
+  case Type::Channel: {
+    ResultType = CGM.getOpenCLRuntime().getChannelType();
+    break;
+  }
+  case Type::ArbPrecInt: {
+    const auto *IntTy = cast<ArbPrecIntType>(Ty);
+    ResultType = llvm::Type::getIntNTy(getLLVMContext(), IntTy->getNumBits());
+    break;
+  }
+#endif // INTEL_CUSTOMIZATION
   case Type::Pipe: {
     ResultType = CGM.getOpenCLRuntime().getPipeType(cast<PipeType>(Ty));
     break;
@@ -718,6 +756,10 @@ llvm::StructType *CodeGenTypes::ConvertRecordDeclType(const RecordDecl *RD) {
     DeferredRecords.push_back(RD);
     return Ty;
   }
+
+  assert((!Context.getLangOpts().SYCLIsDevice || !isa<CXXRecordDecl>(RD) ||
+          !dyn_cast<CXXRecordDecl>(RD)->isPolymorphic()) &&
+         "Types with virtual functions not allowed in SYCL");
 
   // Okay, this is a definition of a type.  Compile the implementation now.
   bool InsertResult = RecordsBeingLaidOut.insert(Key).second;

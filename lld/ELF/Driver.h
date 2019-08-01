@@ -46,6 +46,13 @@ private:
   std::unique_ptr<BitcodeCompiler> LTO;
 
   std::vector<InputFile *> Files;
+#if INTEL_CUSTOMIZATION
+  // If there is at least one GNU LTO file in the linking command
+  // then pass it to G++ in order to do LTO and build a temporary
+  // object. Then collect the ELF object generated and add it to
+  // the linking process.
+  template <class ELFT> void doGnuLTOLinking();
+#endif // INTEL_CUSTOMIZATION
 };
 
 // Parses command line options.

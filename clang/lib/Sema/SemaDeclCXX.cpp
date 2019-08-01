@@ -503,7 +503,7 @@ bool Sema::MergeCXXFunctionDecl(FunctionDecl *New, FunctionDecl *Old,
     bool OldParamHasDfl = OldParam ? OldParam->hasDefaultArg() : false;
     bool NewParamHasDfl = NewParam->hasDefaultArg();
 
-    if (OldParamHasDfl && NewParamHasDfl) {
+        if (OldParamHasDfl && NewParamHasDfl) {
       unsigned DiagDefaultParamID =
         diag::err_param_default_argument_redefinition;
 
@@ -5281,6 +5281,23 @@ Sema::MarkBaseAndMemberDestructorsReferenced(SourceLocation Location,
 
     CXXDestructorDecl *Dtor = LookupDestructor(BaseClassDecl);
     assert(Dtor && "No dtor found for BaseClassDecl!");
+#if INTEL_CUSTOMIZATION
+    // CQ#376362: "Classic" icc allows private destructors in base classes and
+    // so should we.
+    if (getLangOpts().IntelCompat) {
+      if (CheckDestructorAccess(
+          ClassDecl->getLocation(), Dtor,
+          PDiag(diag::warn_access_dtor_vbase)
+          << Context.getTypeDeclType(ClassDecl) << VBase.getType(),
+          Context.getTypeDeclType(ClassDecl)) ==
+        AR_accessible) {
+        CheckDerivedToBaseConversion(
+          Context.getTypeDeclType(ClassDecl), VBase.getType(),
+          diag::warn_access_dtor_vbase, 0, ClassDecl->getLocation(),
+          SourceRange(), DeclarationName(), nullptr);
+      }
+    } else
+#endif // INTEL_CUSTOMIZATION
     if (CheckDestructorAccess(
             ClassDecl->getLocation(), Dtor,
             PDiag(diag::err_access_dtor_vbase)
@@ -8582,6 +8599,9 @@ void Sema::CheckConversionDeclarator(Declarator &D, QualType &R,
       case DeclaratorChunk::BlockPointer:
       case DeclaratorChunk::Reference:
       case DeclaratorChunk::MemberPointer:
+#if INTEL_CUSTOMIZATION
+      case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
       case DeclaratorChunk::Pipe:
         extendLeft(Before, Chunk.getSourceRange());
         break;
@@ -10089,6 +10109,11 @@ NamedDecl *Sema::BuildUsingDeclaration(
   if (RequireCompleteDeclContext(SS, LookupContext))
     return BuildInvalid();
 
+#if INTEL_CUSTOMIZATION
+  // Fix for CQ368409: Different behavior on accessing static private class
+  // members.
+  UsingDirectiveRAII UsingRAII(*this);
+#endif // INTEL_CUSTOMIZATION
   // Look up the target name.
   LookupResult R(*this, NameInfo, LookupOrdinaryName);
 
@@ -13619,6 +13644,9 @@ bool Sema::CheckLiteralOperatorDeclaration(FunctionDecl *FnDecl) {
     // char * are allowed as the only parameters.
     if (ParamType->isSpecificBuiltinType(BuiltinType::ULongLong) ||
         ParamType->isSpecificBuiltinType(BuiltinType::LongDouble) ||
+#if INTEL_CUSTOMIZATION
+        Context.hasSameType(ParamType, Context.Float128Ty) ||
+#endif  // INTEL_CUSTOMIZATION
         Context.hasSameType(ParamType, Context.CharTy) ||
         Context.hasSameType(ParamType, Context.WideCharTy) ||
         Context.hasSameType(ParamType, Context.Char8Ty) ||

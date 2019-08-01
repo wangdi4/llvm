@@ -145,6 +145,10 @@ public:
 
   std::vector<Symbol *> Symbols;
 
+#if INTEL_CUSTOMIZATION
+  // True if the file contains the GNU LTO section
+  bool IsGNULTOFile = false;
+#endif // INTEL_CUSTOMIZATION
 protected:
   InputFile(Kind K, MemoryBufferRef M);
   std::vector<InputSectionBase *> Sections;
@@ -398,6 +402,7 @@ extern std::vector<BitcodeFile *> BitcodeFiles;
 extern std::vector<LazyObjFile *> LazyObjFiles;
 extern std::vector<InputFile *> ObjectFiles;
 extern std::vector<SharedFile *> SharedFiles;
+extern std::vector<InputFile *> GNULTOFiles;  // INTEL
 
 } // namespace elf
 } // namespace lld

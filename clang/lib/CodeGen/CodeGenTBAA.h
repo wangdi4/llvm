@@ -25,11 +25,13 @@ namespace clang {
   class CodeGenOptions;
   class LangOptions;
   class MangleContext;
+  class PointerType; // INTEL
   class QualType;
   class Type;
 
 namespace CodeGen {
 class CGRecordLayout;
+class CodeGenModule; // INTEL
 
 // TBAAAccessKind - A kind of TBAA memory access descriptor.
 enum class TBAAAccessKind : unsigned {
@@ -120,6 +122,7 @@ class CodeGenTBAA {
   const CodeGenOptions &CodeGenOpts;
   const LangOptions &Features;
   MangleContext &MContext;
+  CodeGenModule *CGM = nullptr; // INTEL
 
   // MDHelper - Helper for creating metadata.
   llvm::MDBuilder MDHelper;
@@ -158,6 +161,18 @@ class CodeGenTBAA {
   /// describing a scalar type.
   llvm::MDNode *createScalarTypeNode(StringRef Name, llvm::MDNode *Parent,
                                      uint64_t Size);
+
+#if INTEL_CUSTOMIZATION
+  // CQ#379144 TBAA for pointers and arrays.
+
+  /// Return true if unique TBAA can be created for the type.
+  bool canCreateUniqueTBAA(const Type *PTy);
+
+  /// createTBAAPointerType - Create TBAA for a pointer type. Pointers to
+  /// different scalar type considered different from each other. For simplicity
+  /// pointers to struct considered to be equivalent.
+  llvm::MDNode *createTBAAPointerType(const PointerType *PTy);
+#endif // INTEL_CUSTOMIZATION
 
   /// getTypeInfoHelper - An internal helper function to generate metadata used
   /// to describe accesses to objects of the given type.
@@ -209,6 +224,11 @@ public:
   /// purpose of memory transfer calls.
   TBAAAccessInfo mergeTBAAInfoForMemoryTransfer(TBAAAccessInfo DestInfo,
                                                 TBAAAccessInfo SrcInfo);
+#if INTEL_CUSTOMIZATION
+  void set_CGM(CodeGenModule *cgm) {
+    CGM = cgm;
+  }
+#endif // INTEL_CUSTOMIZATION
 };
 
 }  // end namespace CodeGen

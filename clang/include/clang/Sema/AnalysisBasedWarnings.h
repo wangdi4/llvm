@@ -38,6 +38,9 @@ public:
     unsigned enableCheckUnreachable : 1;
     unsigned enableThreadSafetyAnalysis : 1;
     unsigned enableConsumedAnalysis : 1;
+#if INTEL_CUSTOMIZATION
+    unsigned enableFPGAChannelsAnalysis : 1;
+#endif // INTEL_CUSTOMIZATION
   public:
     Policy();
     void disableCheckFallThrough() { enableCheckFallThrough = 0; }

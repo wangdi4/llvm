@@ -1326,7 +1326,8 @@ ASTUnit::getMainBufferWithPrecompiledPreamble(
       // after parsing the preamble.
       getDiagnostics().Reset();
       ProcessWarningOptions(getDiagnostics(),
-                            PreambleInvocationIn.getDiagnosticOpts());
+                              PreambleInvocationIn.getDiagnosticOpts(), // INTEL
+                              LangOpts ? LangOpts->IntelCompat : true); // INTEL
       getDiagnostics().setNumWarnings(NumWarningsInPreamble);
 
       PreambleRebuildCountdown = 1;
@@ -2190,7 +2191,7 @@ void ASTUnit::CodeComplete(
                                     Clang->getDiagnostics(),
                                     &StoredDiagnostics, nullptr);
   ProcessWarningOptions(Diag, Inv.getDiagnosticOpts());
-
+  
   // Create the target instance.
   Clang->setTarget(TargetInfo::CreateTargetInfo(
       Clang->getDiagnostics(), Clang->getInvocation().TargetOpts));

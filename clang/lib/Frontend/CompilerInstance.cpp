@@ -63,7 +63,9 @@ CompilerInstance::CompilerInstance(
       Invocation(new CompilerInvocation()),
       ModuleCache(SharedModuleCache ? SharedModuleCache
                                     : new InMemoryModuleCache),
-      ThePCHContainerOperations(std::move(PCHContainerOps)) {}
+      ThePCHContainerOperations(std::move(PCHContainerOps)), // INTEL
+      OutputStream(nullptr) { // INTEL
+}
 
 CompilerInstance::~CompilerInstance() {
   assert(OutputFiles.empty() && "Still output files in flight?");
@@ -897,8 +899,9 @@ bool CompilerInstance::ExecuteAction(FrontendAction &Act) {
   if (!hasTarget())
     return false;
 
-  // Create TargetInfo for the other side of CUDA and OpenMP compilation.
-  if ((getLangOpts().CUDA || getLangOpts().OpenMPIsDevice) &&
+  // Create TargetInfo for the other side of CUDA, SYCL and OpenMP compilation.
+  if ((getLangOpts().CUDA || getLangOpts().OpenMPIsDevice ||
+       getLangOpts().SYCLIsDevice) &&
       !getFrontendOpts().AuxTriple.empty()) {
     auto TO = std::make_shared<TargetOptions>();
     TO->Triple = llvm::Triple::normalize(getFrontendOpts().AuxTriple);

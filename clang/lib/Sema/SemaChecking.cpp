@@ -755,6 +755,12 @@ static bool checkOpenCLPipeArg(Sema &S, CallExpr *Call) {
   // specified.
   switch (Call->getDirectCallee()->getBuiltinID()) {
   case Builtin::BIread_pipe:
+
+#if INTEL_CUSTOMIZATION
+  case X86::BIread_pipe:
+  case SPIRINTELFpga::BIread_pipe:
+#endif // INTEL_CUSTOMIZATION
+
   case Builtin::BIreserve_read_pipe:
   case Builtin::BIcommit_read_pipe:
   case Builtin::BIwork_group_reserve_read_pipe:
@@ -769,6 +775,12 @@ static bool checkOpenCLPipeArg(Sema &S, CallExpr *Call) {
     }
     break;
   case Builtin::BIwrite_pipe:
+
+#if INTEL_CUSTOMIZATION
+  case X86::BIwrite_pipe:
+  case SPIRINTELFpga::BIwrite_pipe:
+#endif // INTEL_CUSTOMIZATION
+
   case Builtin::BIreserve_write_pipe:
   case Builtin::BIcommit_write_pipe:
   case Builtin::BIwork_group_reserve_write_pipe:
@@ -827,6 +839,16 @@ static bool SemaBuiltinRWPipe(Sema &S, CallExpr *Call) {
     break;
 
   case 4: {
+#if INTEL_CUSTOMIZATION
+    // read/write_pipe(pipe T, reserve_id_t, uint, T*) pipe built-ins are
+    // not supported in Intel FPGA SDK for OpenCL
+    if (S.Context.getLangOpts().OpenCL &&
+        S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+      S.Diag(Call->getBeginLoc(), diag::err_opencl_builtin_pipe_arg_num)
+          << Call->getDirectCallee() << Call->getSourceRange();
+      return true;
+    }
+#endif // INTEL_CUSTOMIZATION
     if (checkOpenCLPipeArg(S, Call))
       return true;
     // The call with 4 arguments should be
@@ -1147,6 +1169,53 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     if (SemaBuiltinFPClassification(TheCall, 6))
       return ExprError();
     break;
+#if INTEL_CUSTOMIZATION
+  case Builtin::BI__builtin_va_arg_pack_len:
+  case Builtin::BI__builtin_va_arg_pack:
+    if (SemaBuiltinVAArgPackChecks(TheCall, BuiltinID))
+      return ExprError();
+    break;
+    // FIXME: The following likely will need to be added to a TSBuiltin once we
+    // have a target for this functionality.
+  case Builtin::BI__builtin_intel_hls_instream_tryRead:
+  case Builtin::BI__builtin_intel_hls_outstream_tryRead:
+  case Builtin::BI__builtin_intel_hls_instream_tryWrite:
+  case Builtin::BI__builtin_intel_hls_outstream_tryWrite:
+  case Builtin::BI__builtin_intel_hls_instream_read:
+  case Builtin::BI__builtin_intel_hls_outstream_read:
+  case Builtin::BI__builtin_intel_hls_instream_write:
+  case Builtin::BI__builtin_intel_hls_outstream_write:
+  case Builtin::BI__builtin_intel_hls_mm_master_init:
+  case Builtin::BI__builtin_intel_hls_mm_master_load:
+    if (!Context.getLangOpts().HLS) {
+      Diag(TheCall->getBeginLoc(), diag::err_hls_builtin_without_fhls) << 1;
+      return ExprError();
+    }
+    if (CheckHLSBuiltinFunctionCall(BuiltinID, TheCall))
+      return ExprError();
+    break;
+  case Builtin::BI__builtin_fpga_reg: {
+    bool IsOpenCLFPGA =
+        Context.getLangOpts().OpenCL &&
+        Context.getTargetInfo().getTriple().isINTELFPGAEnvironment();
+    if (!Context.getLangOpts().HLS && !IsOpenCLFPGA) {
+      Diag(TheCall->getBeginLoc(), diag::err_builtin_requires_language)
+          << "__builtin_fpga_reg"
+          << ((Context.getLangOpts().OpenCL) ? "OpenCL FPGA" : "HLS");
+      return ExprError();
+    }
+    if (CheckOpenCLBuiltinFunctionCall(BuiltinID, TheCall))
+      return ExprError();
+    break;
+  }
+  case Builtin::BI__builtin_isnanf:
+  case Builtin::BI__builtin_isnanl:
+  case Builtin::BI__builtin_isinff:
+  case Builtin::BI__builtin_isinfl:
+  case Builtin::BI__builtin_finite:
+  case Builtin::BI__builtin_finitef:
+  case Builtin::BI__builtin_finitel:
+#endif  // INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_isfinite:
   case Builtin::BI__builtin_isinf:
   case Builtin::BI__builtin_isinf_sign:
@@ -1546,6 +1615,28 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
         if (CheckPPCBuiltinFunctionCall(BuiltinID, TheCall))
           return ExprError();
         break;
+#if INTEL_CUSTOMIZATION
+  case llvm::Triple::spir:
+  case llvm::Triple::spir64:
+    // We use environment part of triple to indicate that the target for
+    // compilation is fpga-emulator, i.e. spir64-unknown-unknown-intelfpga.
+    //
+    // Additional fpga built-ins are declared as target builtins for
+    // SPIR64INTELFpga and SPIR32INTELFpga targets, so, usual user will see an
+    // error message if it would try to use this ones and we can omit check
+    // of environment part of the triple.
+    // check for the argument.
+    if (CheckFPGABuiltinFunctionCall(BuiltinID, TheCall))
+      return ExprError();
+    break;
+#if INTEL_FEATURE_CSA
+  case llvm::Triple::csa:
+    //CSA builtins custom typechecking
+    if (CheckCSABuiltinFunctionCall(BuiltinID, TheCall))
+      return ExprError();
+    break;
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
       default:
         break;
     }
@@ -3340,14 +3431,35 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_vcvttss2si64:
   case X86::BI__builtin_ia32_vcvttss2usi32:
   case X86::BI__builtin_ia32_vcvttss2usi64:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vcvttsh2si32:
+  case X86::BI__builtin_ia32_vcvttsh2si64:
+  case X86::BI__builtin_ia32_vcvttsh2usi32:
+  case X86::BI__builtin_ia32_vcvttsh2usi64:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+
     ArgNum = 1;
     break;
   case X86::BI__builtin_ia32_maxpd512:
   case X86::BI__builtin_ia32_maxps512:
   case X86::BI__builtin_ia32_minpd512:
   case X86::BI__builtin_ia32_minps512:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_maxph512:
+  case X86::BI__builtin_ia32_minph512:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     ArgNum = 2;
     break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vcvtph2pd512_mask:
+  case X86::BI__builtin_ia32_vcvtph2psx512_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_cvtps2pd512_mask:
   case X86::BI__builtin_ia32_cvttpd2dq512_mask:
   case X86::BI__builtin_ia32_cvttpd2qq512_mask:
@@ -3357,16 +3469,36 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_cvttps2qq512_mask:
   case X86::BI__builtin_ia32_cvttps2udq512_mask:
   case X86::BI__builtin_ia32_cvttps2uqq512_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vcvttph2w512_mask:
+  case X86::BI__builtin_ia32_vcvttph2uw512_mask:
+  case X86::BI__builtin_ia32_vcvttph2dq512_mask:
+  case X86::BI__builtin_ia32_vcvttph2udq512_mask:
+  case X86::BI__builtin_ia32_vcvttph2qq512_mask:
+  case X86::BI__builtin_ia32_vcvttph2uqq512_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_exp2pd_mask:
   case X86::BI__builtin_ia32_exp2ps_mask:
   case X86::BI__builtin_ia32_getexppd512_mask:
   case X86::BI__builtin_ia32_getexpps512_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_getexpph512_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_rcp28pd_mask:
   case X86::BI__builtin_ia32_rcp28ps_mask:
   case X86::BI__builtin_ia32_rsqrt28pd_mask:
   case X86::BI__builtin_ia32_rsqrt28ps_mask:
   case X86::BI__builtin_ia32_vcomisd:
   case X86::BI__builtin_ia32_vcomiss:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vcomish:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vcvtph2ps512_mask:
     ArgNum = 3;
     break;
@@ -3374,21 +3506,58 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_cmpps512_mask:
   case X86::BI__builtin_ia32_cmpsd_mask:
   case X86::BI__builtin_ia32_cmpss_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_cmpsh_mask:
+  case X86::BI__builtin_ia32_vcvtsh2sd_round_mask:
+  case X86::BI__builtin_ia32_vcvtsh2ss_round_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_cvtss2sd_round_mask:
   case X86::BI__builtin_ia32_getexpsd128_round_mask:
   case X86::BI__builtin_ia32_getexpss128_round_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_getexpsh128_round_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_getmantpd512_mask:
   case X86::BI__builtin_ia32_getmantps512_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_getmantph512_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_maxsd_round_mask:
   case X86::BI__builtin_ia32_maxss_round_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_maxsh_round_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_minsd_round_mask:
   case X86::BI__builtin_ia32_minss_round_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_minsh_round_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_rcp28sd_round_mask:
   case X86::BI__builtin_ia32_rcp28ss_round_mask:
   case X86::BI__builtin_ia32_reducepd512_mask:
   case X86::BI__builtin_ia32_reduceps512_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_reduceph512_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_rndscalepd_mask:
   case X86::BI__builtin_ia32_rndscaleps_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_rndscaleph_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_rsqrt28sd_round_mask:
   case X86::BI__builtin_ia32_rsqrt28ss_round_mask:
     ArgNum = 4;
@@ -3403,14 +3572,29 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_fixupimmss_maskz:
   case X86::BI__builtin_ia32_getmantsd_round_mask:
   case X86::BI__builtin_ia32_getmantss_round_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_getmantsh_round_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_rangepd512_mask:
   case X86::BI__builtin_ia32_rangeps512_mask:
   case X86::BI__builtin_ia32_rangesd128_round_mask:
   case X86::BI__builtin_ia32_rangess128_round_mask:
   case X86::BI__builtin_ia32_reducesd_mask:
   case X86::BI__builtin_ia32_reducess_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_reducesh_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_rndscalesd_round_mask:
   case X86::BI__builtin_ia32_rndscaless_round_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_rndscalesh_round_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     ArgNum = 5;
     break;
   case X86::BI__builtin_ia32_vcvtsd2si64:
@@ -3421,11 +3605,32 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_vcvtss2si64:
   case X86::BI__builtin_ia32_vcvtss2usi32:
   case X86::BI__builtin_ia32_vcvtss2usi64:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vcvtsh2si32:
+  case X86::BI__builtin_ia32_vcvtsh2si64:
+  case X86::BI__builtin_ia32_vcvtsh2usi32:
+  case X86::BI__builtin_ia32_vcvtsh2usi64:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_sqrtpd512:
   case X86::BI__builtin_ia32_sqrtps512:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_sqrtph512:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     ArgNum = 1;
     HasRC = true;
     break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_addph512:
+  case X86::BI__builtin_ia32_divph512:
+  case X86::BI__builtin_ia32_mulph512:
+  case X86::BI__builtin_ia32_subph512:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_addpd512:
   case X86::BI__builtin_ia32_addps512:
   case X86::BI__builtin_ia32_divpd512:
@@ -3440,11 +3645,25 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_cvtusi2sd64:
   case X86::BI__builtin_ia32_cvtusi2ss32:
   case X86::BI__builtin_ia32_cvtusi2ss64:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vcvtusi2sh:
+  case X86::BI__builtin_ia32_vcvtusi642sh:
+  case X86::BI__builtin_ia32_vcvtsi2sh:
+  case X86::BI__builtin_ia32_vcvtsi642sh:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     ArgNum = 2;
     HasRC = true;
     break;
   case X86::BI__builtin_ia32_cvtdq2ps512_mask:
   case X86::BI__builtin_ia32_cvtudq2ps512_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vcvtpd2ph512_mask:
+  case X86::BI__builtin_ia32_vcvtps2phx512_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_cvtpd2ps512_mask:
   case X86::BI__builtin_ia32_cvtpd2dq512_mask:
   case X86::BI__builtin_ia32_cvtpd2qq512_mask:
@@ -3458,30 +3677,94 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_cvtqq2ps512_mask:
   case X86::BI__builtin_ia32_cvtuqq2pd512_mask:
   case X86::BI__builtin_ia32_cvtuqq2ps512_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vcvtdq2ph512_mask:
+  case X86::BI__builtin_ia32_vcvtudq2ph512_mask:
+  case X86::BI__builtin_ia32_vcvtw2ph512_mask:
+  case X86::BI__builtin_ia32_vcvtuw2ph512_mask:
+  case X86::BI__builtin_ia32_vcvtph2w512_mask:
+  case X86::BI__builtin_ia32_vcvtph2uw512_mask:
+  case X86::BI__builtin_ia32_vcvtph2dq512_mask:
+  case X86::BI__builtin_ia32_vcvtph2udq512_mask:
+  case X86::BI__builtin_ia32_vcvtph2qq512_mask:
+  case X86::BI__builtin_ia32_vcvtph2uqq512_mask:
+  case X86::BI__builtin_ia32_vcvtqq2ph512_mask:
+  case X86::BI__builtin_ia32_vcvtuqq2ph512_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     ArgNum = 3;
     HasRC = true;
     break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_addsh_round_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_addss_round_mask:
   case X86::BI__builtin_ia32_addsd_round_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_divsh_round_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_divss_round_mask:
   case X86::BI__builtin_ia32_divsd_round_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_mulsh_round_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_mulss_round_mask:
   case X86::BI__builtin_ia32_mulsd_round_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_subsh_round_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_subss_round_mask:
   case X86::BI__builtin_ia32_subsd_round_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_scalefph512_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_scalefpd512_mask:
   case X86::BI__builtin_ia32_scalefps512_mask:
   case X86::BI__builtin_ia32_scalefsd_round_mask:
   case X86::BI__builtin_ia32_scalefss_round_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_scalefsh_round_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_cvtsd2ss_round_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vcvtss2sh_round_mask:
+  case X86::BI__builtin_ia32_vcvtsd2sh_round_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_sqrtsd_round_mask:
   case X86::BI__builtin_ia32_sqrtss_round_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_sqrtsh_round_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfmaddsd3_mask:
   case X86::BI__builtin_ia32_vfmaddsd3_maskz:
   case X86::BI__builtin_ia32_vfmaddsd3_mask3:
   case X86::BI__builtin_ia32_vfmaddss3_mask:
   case X86::BI__builtin_ia32_vfmaddss3_maskz:
   case X86::BI__builtin_ia32_vfmaddss3_mask3:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vfmaddsh3_mask:
+  case X86::BI__builtin_ia32_vfmaddsh3_maskz:
+  case X86::BI__builtin_ia32_vfmaddsh3_mask3:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfmaddpd512_mask:
   case X86::BI__builtin_ia32_vfmaddpd512_maskz:
   case X86::BI__builtin_ia32_vfmaddpd512_mask3:
@@ -3490,6 +3773,14 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_vfmaddps512_maskz:
   case X86::BI__builtin_ia32_vfmaddps512_mask3:
   case X86::BI__builtin_ia32_vfmsubps512_mask3:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vfmaddph512_mask:
+  case X86::BI__builtin_ia32_vfmaddph512_maskz:
+  case X86::BI__builtin_ia32_vfmaddph512_mask3:
+  case X86::BI__builtin_ia32_vfmsubph512_mask3:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfmaddsubpd512_mask:
   case X86::BI__builtin_ia32_vfmaddsubpd512_maskz:
   case X86::BI__builtin_ia32_vfmaddsubpd512_mask3:
@@ -3498,6 +3789,25 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_vfmaddsubps512_maskz:
   case X86::BI__builtin_ia32_vfmaddsubps512_mask3:
   case X86::BI__builtin_ia32_vfmsubaddps512_mask3:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vfmaddsubph512_mask:
+  case X86::BI__builtin_ia32_vfmaddsubph512_maskz:
+  case X86::BI__builtin_ia32_vfmaddsubph512_mask3:
+  case X86::BI__builtin_ia32_vfmsubaddph512_mask3:
+
+  case X86::BI__builtin_ia32_vfmaddcsh_mask:
+  case X86::BI__builtin_ia32_vfmaddcph512_mask:
+  case X86::BI__builtin_ia32_vfmaddcph512_maskz:
+  case X86::BI__builtin_ia32_vfcmaddcsh_mask:
+  case X86::BI__builtin_ia32_vfcmaddcph512_mask:
+  case X86::BI__builtin_ia32_vfcmaddcph512_maskz:
+  case X86::BI__builtin_ia32_vfmulcsh_mask:
+  case X86::BI__builtin_ia32_vfmulcph512_mask:
+  case X86::BI__builtin_ia32_vfcmulcsh_mask:
+  case X86::BI__builtin_ia32_vfcmulcph512_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     ArgNum = 4;
     HasRC = true;
     break;
@@ -3629,6 +3939,46 @@ bool Sema::CheckX86BuiltinGatherScatterScale(unsigned BuiltinID,
          << Arg->getSourceRange();
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+bool Sema::CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall) {
+  switch (BuiltinID) {
+  default:
+    return false;
+  case X86::BI__builtin_ia32_tileloadd64:
+  case X86::BI__builtin_ia32_tileloaddt164:
+  case X86::BI__builtin_ia32_tilestored64:
+  case X86::BI__builtin_ia32_tilezero:
+    return SemaBuiltinConstantArgRange(TheCall, 0, 0, 15);
+  case X86::BI__builtin_ia32_tdpbssd:
+  case X86::BI__builtin_ia32_tdpbsud:
+  case X86::BI__builtin_ia32_tdpbusd:
+  case X86::BI__builtin_ia32_tdpbuud:
+  case X86::BI__builtin_ia32_tdpbf16ps:
+    if (SemaBuiltinConstantArgRange(TheCall, 0, 0, 15) ||
+        SemaBuiltinConstantArgRange(TheCall, 1, 0, 15) ||
+        SemaBuiltinConstantArgRange(TheCall, 2, 0, 15))
+      return true;
+
+    llvm::APSInt Arg0, Arg1, Arg2;
+    SemaBuiltinConstantArg(TheCall, 0, Arg0);
+    SemaBuiltinConstantArg(TheCall, 1, Arg1);
+    SemaBuiltinConstantArg(TheCall, 2, Arg2);
+    Expr *Args = TheCall->getArg(0);
+
+    if ((Arg0.getSExtValue() == Arg1.getSExtValue()) ||
+        (Arg0.getSExtValue() == Arg2.getSExtValue()) ||
+        (Arg1.getSExtValue() == Arg2.getSExtValue()))
+      return Diag(TheCall->getBeginLoc(),
+                  diag::err_x86_builtin_tmul_arg_duplicate)
+             << Args->getSourceRange();
+
+    return false;
+  }
+}
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
+
 static bool isX86_32Builtin(unsigned BuiltinID) {
   // These builtins only work on x86-32 targets.
   switch (BuiltinID) {
@@ -3660,6 +4010,25 @@ bool Sema::CheckX86BuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
   // If the intrinsic has a gather/scatter scale immediate make sure its valid.
   if (CheckX86BuiltinGatherScatterScale(BuiltinID, TheCall))
     return true;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+  // If the intrinsic has a tile arguments, make sure they are valid.
+  if (CheckX86BuiltinTileArguments(BuiltinID, TheCall))
+    return true;
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+  if (BuiltinID == X86::BIget_compute_id)
+    return false;
+  if (BuiltinID == X86::BIread_pipe || BuiltinID == X86::BIwrite_pipe) {
+    if (SemaBuiltinRWPipe(*this, TheCall))
+      return true;
+    TheCall->setType(Context.IntTy);
+    return false;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // For intrinsics which take an immediate value as part of the instruction,
   // range check them here.
@@ -3783,6 +4152,13 @@ bool Sema::CheckX86BuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_getmantps256_mask:
   case X86::BI__builtin_ia32_getmantpd512_mask:
   case X86::BI__builtin_ia32_getmantps512_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_getmantph128_mask:
+  case X86::BI__builtin_ia32_getmantph256_mask:
+  case X86::BI__builtin_ia32_getmantph512_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vec_ext_v16qi:
   case X86::BI__builtin_ia32_vec_ext_v16hi:
     i = 1; l = 0; u = 15;
@@ -3801,6 +4177,11 @@ bool Sema::CheckX86BuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_rangeps512_mask:
   case X86::BI__builtin_ia32_getmantsd_round_mask:
   case X86::BI__builtin_ia32_getmantss_round_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_getmantsh_round_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vec_set_v16qi:
   case X86::BI__builtin_ia32_vec_set_v16hi:
     i = 2; l = 0; u = 15;
@@ -3853,12 +4234,24 @@ bool Sema::CheckX86BuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_rndscalepd_256_mask:
   case X86::BI__builtin_ia32_rndscaleps_mask:
   case X86::BI__builtin_ia32_rndscalepd_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_rndscaleph_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_reducepd128_mask:
   case X86::BI__builtin_ia32_reducepd256_mask:
   case X86::BI__builtin_ia32_reducepd512_mask:
   case X86::BI__builtin_ia32_reduceps128_mask:
   case X86::BI__builtin_ia32_reduceps256_mask:
   case X86::BI__builtin_ia32_reduceps512_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_reduceph128_mask:
+  case X86::BI__builtin_ia32_reduceph256_mask:
+  case X86::BI__builtin_ia32_reduceph512_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_prold512:
   case X86::BI__builtin_ia32_prolq512:
   case X86::BI__builtin_ia32_prold128:
@@ -3877,8 +4270,20 @@ bool Sema::CheckX86BuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_fpclassps256_mask:
   case X86::BI__builtin_ia32_fpclassps512_mask:
   case X86::BI__builtin_ia32_fpclasspd512_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_fpclassph128_mask:
+  case X86::BI__builtin_ia32_fpclassph256_mask:
+  case X86::BI__builtin_ia32_fpclassph512_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_fpclasssd_mask:
   case X86::BI__builtin_ia32_fpclassss_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_fpclasssh_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_pslldqi128_byteshift:
   case X86::BI__builtin_ia32_pslldqi256_byteshift:
   case X86::BI__builtin_ia32_pslldqi512_byteshift:
@@ -3989,6 +4394,12 @@ bool Sema::CheckX86BuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_reducess_mask:
   case X86::BI__builtin_ia32_rndscalesd_round_mask:
   case X86::BI__builtin_ia32_rndscaless_round_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_rndscalesh_round_mask:
+  case X86::BI__builtin_ia32_reducesh_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     i = 4; l = 0; u = 255;
     break;
   }
@@ -4000,6 +4411,21 @@ bool Sema::CheckX86BuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
   return SemaBuiltinConstantArgRange(TheCall, i, l, u, /*RangeIsError*/ false);
 }
 
+#if INTEL_CUSTOMIZATION
+bool Sema::CheckFPGABuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
+  if (BuiltinID == SPIRINTELFpga::BIget_compute_id)
+    return false;
+  if (BuiltinID == SPIRINTELFpga::BIread_pipe ||
+      BuiltinID == SPIRINTELFpga::BIwrite_pipe) {
+    if (SemaBuiltinRWPipe(*this, TheCall))
+      return true;
+    TheCall->setType(Context.IntTy);
+    return false;
+  }
+
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
 /// Given a FunctionDecl's FormatAttr, attempts to populate the FomatStringInfo
 /// parameter with the FormatAttr's correct format_idx and firstDataArg.
 /// Returns true when the format fits the function and the FormatStringInfo has
@@ -4409,6 +4835,14 @@ static bool isValidOrderingForOp(int64_t Ordering, AtomicExpr::AtomicOp Op) {
   case AtomicExpr::AO__opencl_atomic_init:
     llvm_unreachable("There is no ordering argument for an init");
 
+#if INTEL_CUSTOMIZATION
+  case AtomicExpr::AO__atomic_load_explicit:
+  case AtomicExpr::AO__atomic_load_explicit_1:
+  case AtomicExpr::AO__atomic_load_explicit_2:
+  case AtomicExpr::AO__atomic_load_explicit_4:
+  case AtomicExpr::AO__atomic_load_explicit_8:
+  case AtomicExpr::AO__atomic_load_explicit_16:
+#endif //INTEL_CUSTOMIZATION
   case AtomicExpr::AO__c11_atomic_load:
   case AtomicExpr::AO__opencl_atomic_load:
   case AtomicExpr::AO__atomic_load_n:
@@ -4416,6 +4850,14 @@ static bool isValidOrderingForOp(int64_t Ordering, AtomicExpr::AtomicOp Op) {
     return OrderingCABI != llvm::AtomicOrderingCABI::release &&
            OrderingCABI != llvm::AtomicOrderingCABI::acq_rel;
 
+#if INTEL_CUSTOMIZATION
+  case AtomicExpr::AO__atomic_store_explicit:
+  case AtomicExpr::AO__atomic_store_explicit_1:
+  case AtomicExpr::AO__atomic_store_explicit_2:
+  case AtomicExpr::AO__atomic_store_explicit_4:
+  case AtomicExpr::AO__atomic_store_explicit_8:
+  case AtomicExpr::AO__atomic_store_explicit_16:
+#endif //INTEL_CUSTOMIZATION
   case AtomicExpr::AO__c11_atomic_store:
   case AtomicExpr::AO__opencl_atomic_store:
   case AtomicExpr::AO__atomic_store:
@@ -4428,6 +4870,484 @@ static bool isValidOrderingForOp(int64_t Ordering, AtomicExpr::AtomicOp Op) {
     return true;
   }
 }
+
+#if INTEL_CUSTOMIZATION
+static unsigned IntelTypeCoerceSizeCalc(AtomicExpr::AtomicOp p) {
+  switch (p) {
+  case AtomicExpr::AO__atomic_store_explicit_1:
+  case AtomicExpr::AO__atomic_load_explicit_1:
+  case AtomicExpr::AO__atomic_exchange_explicit_1:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_1:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_add_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_1:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_and_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_1:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_1:
+    return 1;
+  case AtomicExpr::AO__atomic_store_explicit_2:
+  case AtomicExpr::AO__atomic_load_explicit_2:
+  case AtomicExpr::AO__atomic_exchange_explicit_2:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_2:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_add_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_2:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_and_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_2:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_2:
+    return 2;
+  case AtomicExpr::AO__atomic_store_explicit_4:
+  case AtomicExpr::AO__atomic_load_explicit_4:
+  case AtomicExpr::AO__atomic_exchange_explicit_4:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_4:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_add_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_4:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_and_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_4:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_4:
+    return 4;
+  case AtomicExpr::AO__atomic_store_explicit_8:
+  case AtomicExpr::AO__atomic_load_explicit_8:
+  case AtomicExpr::AO__atomic_exchange_explicit_8:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_8:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_add_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_8:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_and_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_8:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_8:
+    return 8;
+  case AtomicExpr::AO__atomic_store_explicit_16:
+  case AtomicExpr::AO__atomic_load_explicit_16:
+  case AtomicExpr::AO__atomic_exchange_explicit_16:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_16:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_16:
+  case AtomicExpr::AO__atomic_fetch_add_explicit_16:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_16:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_16:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_16:
+  case AtomicExpr::AO__atomic_fetch_and_explicit_16:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_16:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_16:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_16:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_16:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_16:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_16:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_16:
+    return 16;
+  default: 
+    return 0;
+  }
+}
+
+#if INTEL_FEATURE_CSA
+bool Sema::CheckCSABuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
+  switch (BuiltinID) {
+  default:
+    return false;
+  case CSA::BI__builtin_csa_lic_write: {
+    if (checkArgCount(*this, TheCall, 2))
+      return true;
+    // LIC parameter is a unique identifier for this stream.
+    Expr *LicId = TheCall->getArg(0);
+    if (!LicId->getType()->isIntegerType())
+      return Diag(LicId->getBeginLoc(), diag::err_csa_builtin_arg_mismatch)
+        << 1;
+    // Second parameter permits an arbitrary basic LLVM type
+    Expr *AnyTypeArg = TheCall->getArg(1);
+    if (!AnyTypeArg || (!AnyTypeArg->getType()->isScalarType() &&
+                        !AnyTypeArg->getType()->isVectorType()))
+      return Diag(AnyTypeArg->getBeginLoc(), diag::err_csa_builtin_arg_mismatch)
+             << 0;
+    break;
+  }
+  case CSA::BI__builtin_csa_lic_read: {
+    if (checkArgCount(*this, TheCall, 2))
+      return true;
+    // First parameter permits an arbitrary basic LLVM type
+    Expr *AnyTypeArg = TheCall->getArg(0);
+    if (!AnyTypeArg || (!AnyTypeArg->getType()->isScalarType() &&
+                        !AnyTypeArg->getType()->isVectorType()))
+      return Diag(AnyTypeArg->getBeginLoc(), diag::err_csa_builtin_arg_mismatch)
+        << 0;
+    // LIC parameter is a unique identifier for this stream.
+    Expr *LicId = TheCall->getArg(1);
+    if (!LicId->getType()->isIntegerType())
+      return Diag(LicId->getBeginLoc(), diag::err_csa_builtin_arg_mismatch)
+        << 1;
+    TheCall->setType(AnyTypeArg->getType());
+    break;
+  }
+  case CSA::BI__builtin_csa_gated_prefetch: {
+
+    // __builtin_csa_gated_prefetch should have at most 4 arguments.
+    if (TheCall->getNumArgs() > 4) {
+      return Diag(TheCall->getEndLoc(),
+                  diag::err_typecheck_call_too_many_args_at_most)
+             << 0 << 4 << TheCall->getNumArgs() << TheCall->getSourceRange();
+    }
+
+    // ...and at least 2.
+    if (TheCall->getNumArgs() < 2) {
+      return Diag(TheCall->getEndLoc(), diag::err_typecheck_call_too_few_args)
+             << 0 << 2 << TheCall->getNumArgs() << TheCall->getSourceRange();
+    }
+
+    // Argument 0 can be pretty much anything, but it is currently limited to a
+    // non-aggregate type.
+    // TODO: Is there a easy way of generating a value for this for aggregate
+    // types?
+    if (!TheCall->getArg(0)->getType()->isScalarType() &&
+        !TheCall->getArg(0)->getType()->isVectorType()) {
+      return Diag(TheCall->getBeginLoc(), diag::err_csa_builtin_arg_mismatch)
+             << 0 << TheCall->getArg(0)->getSourceRange();
+    }
+
+    // Argument 1 needs to be a pointer.
+    if (!TheCall->getArg(1)->getType()->isPointerType()) {
+      return Diag(TheCall->getBeginLoc(), diag::err_csa_builtin_arg_mismatch)
+             << 2 << TheCall->getArg(1)->getSourceRange();
+    }
+
+    // Arguments 2 and 3, if present, need to be constants in the right range.
+    for (unsigned I = 2; I < TheCall->getNumArgs(); ++I) {
+      if (SemaBuiltinConstantArgRange(TheCall, I, 0, I == 2 ? 1 : 3))
+        return true;
+    }
+    break;
+  }
+  }
+  return false;
+}
+#endif // INTEL_FEATURE_CSA
+
+bool Sema::CheckHLSBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
+  bool RequiresSuccess = false;
+  switch (BuiltinID) {
+  default:
+    return false;
+  case Builtin::BI__builtin_intel_hls_instream_tryRead:
+  case Builtin::BI__builtin_intel_hls_outstream_tryRead:
+    RequiresSuccess = true;
+    LLVM_FALLTHROUGH;
+  case Builtin::BI__builtin_intel_hls_instream_tryWrite:
+  case Builtin::BI__builtin_intel_hls_outstream_tryWrite:
+  case Builtin::BI__builtin_intel_hls_instream_read:
+  case Builtin::BI__builtin_intel_hls_outstream_read:
+  case Builtin::BI__builtin_intel_hls_instream_write:
+  case Builtin::BI__builtin_intel_hls_outstream_write: {
+    if (checkArgCount(*this, TheCall, RequiresSuccess ? 13 : 12))
+      return true;
+    // Signature is: T* Pointer, int64 bufferid, int buffer, int readyLatency,
+    // int bitsPerSymbol, bool firstSymbolInHighOrderBits, bool usesPackets,
+    // bool usesEmpty, bool usesValid/usesReady, bool/bool* SOP, bool/bool* EOP,
+    // int/int* empty, <bool *success>
+
+    // First parameter permits an arbitrary pointer type, which determines the
+    // return type of this builtin.
+    Expr *PointerArg = TheCall->getArg(0);
+    const auto *Pointer = dyn_cast<PointerType>(PointerArg->getType());
+    if (!Pointer || !Pointer->getPointeeType()->isObjectType() ||
+        Pointer->getPointeeType()->isIncompleteType())
+      return Diag(PointerArg->getBeginLoc(), diag::err_hls_builtin_arg_mismatch)
+             << 0;
+
+    // Second parameter is a unique identifier for this stream.
+    Expr *BufferId = TheCall->getArg(1);
+    if (!BufferId->getType()->isIntegerType())
+      return Diag(BufferId->getBeginLoc(), diag::err_hls_builtin_arg_mismatch)
+             << 1;
+
+    // Buffer, a positive constant integer.
+    llvm::APSInt Result;
+    if (SemaBuiltinConstantArg(TheCall, 2, Result))
+      return true;
+    if (Result.isNegative())
+      return Diag(TheCall->getArg(2)->getBeginLoc(),
+                  diag::err_hls_builtin_arg_mismatch)
+             << 2;
+
+    // ReadyLatency, positive constant integer, 0 or -1.
+    if (SemaBuiltinConstantArg(TheCall, 3, Result))
+      return true;
+    if (Result < -1)
+      return Diag(TheCall->getArg(3)->getBeginLoc(),
+                  diag::err_hls_builtin_arg_mismatch)
+             << 10;
+
+    // BitsPerSymbol, positive integer value that evenly divides Type size.
+    if (SemaBuiltinConstantArg(TheCall, 4, Result))
+      return true;
+    if (!Result.isNullValue() &&
+        (Result.isNegative() ||
+         Context.getTypeSize(Pointer->getPointeeType())
+             % Result.getZExtValue() != 0))
+      return Diag(TheCall->getArg(4)->getBeginLoc(),
+                  diag::err_hls_builtin_arg_mismatch)
+             << 3;
+
+    // FirstSymbolInHighOrderBits, UsesPackets, UsesEmpty, UsesValid/UsesReady,
+    // are all booleans.
+    for (int I = 5; I < 9; ++I) {
+      Expr *BoolArg = TheCall->getArg(I);
+      if (!BoolArg->getType()->isBooleanType())
+        return Diag(BoolArg->getBeginLoc(), diag::err_hls_builtin_arg_mismatch)
+               << 4;
+    }
+
+    // SOP, EOP, and Empty, for 'reads' these are pointers to bool/bool/int, for
+    // writes these are simply bool/bool/int.
+    bool ShouldBePointers =
+        BuiltinID == Builtin::BI__builtin_intel_hls_instream_read ||
+        BuiltinID == Builtin::BI__builtin_intel_hls_outstream_read ||
+        BuiltinID == Builtin::BI__builtin_intel_hls_instream_tryRead ||
+        BuiltinID == Builtin::BI__builtin_intel_hls_outstream_tryRead;
+    QualType SOP = TheCall->getArg(9)->getType();
+    QualType EOP = TheCall->getArg(10)->getType();
+    QualType Empty = TheCall->getArg(11)->getType();
+
+    if (ShouldBePointers) {
+      if (!SOP->isPointerType() && !SOP->isNullPtrType())
+        return Diag(TheCall->getArg(9)->getBeginLoc(),
+                    diag::err_hls_builtin_arg_mismatch)
+               << 5;
+      SOP = SOP->isNullPtrType() ? Context.BoolTy : SOP->getPointeeType();
+      if (!EOP->isPointerType() && !EOP->isNullPtrType())
+        return Diag(TheCall->getArg(10)->getBeginLoc(),
+                    diag::err_hls_builtin_arg_mismatch)
+               << 5;
+      EOP = EOP->isNullPtrType() ? Context.BoolTy : EOP->getPointeeType();
+      if (!Empty->isPointerType() && !Empty->isNullPtrType())
+        return Diag(TheCall->getArg(11)->getBeginLoc(),
+                    diag::err_hls_builtin_arg_mismatch)
+               << 9;
+      Empty = Empty->isNullPtrType() ? Context.IntTy : Empty->getPointeeType();
+    }
+
+    if (!SOP->isBooleanType())
+        return Diag(TheCall->getArg(9)->getBeginLoc(),
+                    diag::err_hls_builtin_arg_mismatch)
+               <<  (ShouldBePointers ? 5 : 4);
+
+    if (!EOP->isBooleanType())
+        return Diag(TheCall->getArg(10)->getBeginLoc(),
+                    diag::err_hls_builtin_arg_mismatch)
+               <<  (ShouldBePointers ? 5 : 4);
+
+    if (!Empty->isIntegerType())
+        return Diag(TheCall->getArg(11)->getBeginLoc(),
+                    diag::err_hls_builtin_arg_mismatch)
+               <<  (ShouldBePointers ? 9 : 1);
+
+
+    // Last arg is a pointer to a boolean in the 'try' cases.
+    if (RequiresSuccess) {
+      Expr *SuccessArg = TheCall->getArg(12);
+      const auto *SuccessPointer = dyn_cast<PointerType>(SuccessArg->getType());
+      if (!SuccessPointer || !SuccessPointer->getPointeeType()->isBooleanType())
+        return Diag(PointerArg->getBeginLoc(),
+                    diag::err_hls_builtin_arg_mismatch)
+               << 5;
+    }
+
+    if (BuiltinID == Builtin::BI__builtin_intel_hls_instream_tryWrite ||
+        BuiltinID == Builtin::BI__builtin_intel_hls_outstream_tryWrite)
+      TheCall->setType(Context.BoolTy);
+    else if (BuiltinID == Builtin::BI__builtin_intel_hls_instream_write ||
+             BuiltinID == Builtin::BI__builtin_intel_hls_outstream_write)
+      TheCall->setType(Context.VoidTy);
+    else
+      TheCall->setType(QualType{Pointer, 0});
+    return false;
+  }
+  case Builtin::BI__builtin_intel_hls_mm_master_init:
+  case Builtin::BI__builtin_intel_hls_mm_master_load: {
+    if (checkArgCount(*this, TheCall,
+                      BuiltinID == Builtin::BI__builtin_intel_hls_mm_master_init
+                          ? 11
+                          : 12))
+      return true;
+    // Signatures are: T*, int size, bool use_socket,
+    // int dwidth, int awidth, int aspace, int latency,
+    // int maxburst, int align, int readwrite_mode, bool waitrequest,
+    // int index(load only).
+    // All are compile-time constants except T, size, use_socket, and index.
+
+    // First is the pointer type, determines return value.
+    Expr *PointerArg = TheCall->getArg(0);
+    const auto *Pointer = dyn_cast<PointerType>(PointerArg->getType());
+    if (!Pointer || !Pointer->getPointeeType()->isObjectType() ||
+        Pointer->getPointeeType()->isIncompleteType())
+      return Diag(PointerArg->getBeginLoc(), diag::err_hls_builtin_arg_mismatch)
+             << 0;
+    //  Size is an integer.
+    Expr *Size = TheCall->getArg(1);
+    if (!Size->getType()->isIntegerType())
+      return Diag(Size->getBeginLoc(), diag::err_hls_builtin_arg_mismatch) << 1;
+
+    // use_socket, boolean.
+    Expr *UseSocket = TheCall->getArg(2);
+    if (!UseSocket->getType()->isBooleanType())
+      return Diag(UseSocket->getBeginLoc(), diag::err_hls_builtin_arg_mismatch)
+             << 4;
+
+    llvm::APSInt Result;
+    // dwidth, constant integer, power of 2 between 8 and 1024.
+    if (SemaBuiltinConstantArg(TheCall, 3, Result))
+      return true;
+    if (Result < 2 || Result > 1024 || !Result.isPowerOf2())
+      return Diag(TheCall->getArg(3)->getBeginLoc(),
+                  diag::err_hls_builtin_arg_mismatch)
+             << 6;
+
+    // awidth, constant integer, 1 <= awidth <= 64
+    if (SemaBuiltinConstantArg(TheCall, 4, Result))
+      return true;
+    if (Result < 1 || Result > 64)
+      return Diag(TheCall->getArg(4)->getBeginLoc(),
+                  diag::err_hls_builtin_arg_mismatch)
+             << 7;
+
+    // aspace, non-negative constant integer.
+    if (SemaBuiltinConstantArg(TheCall, 5, Result))
+      return true;
+    if (Result.isNegative())
+      return Diag(TheCall->getArg(5)->getBeginLoc(),
+                  diag::err_hls_builtin_arg_mismatch)
+             << 2;
+
+    // latency, non-negative constant integer.
+    if (SemaBuiltinConstantArg(TheCall, 6, Result))
+      return true;
+    if (Result.isNegative())
+      return Diag(TheCall->getArg(6)->getBeginLoc(),
+                  diag::err_hls_builtin_arg_mismatch)
+             << 2;
+
+    // maxburst, integer between 1 and 1024 inclusive.
+    if (SemaBuiltinConstantArg(TheCall, 7, Result))
+      return true;
+    if (Result < 1 || Result > 1024)
+      return Diag(TheCall->getArg(7)->getBeginLoc(),
+                  diag::err_hls_builtin_arg_mismatch)
+             << 8;
+
+    // align, integer based on byte alignment, for now, just positive int.
+    if (SemaBuiltinConstantArg(TheCall, 8, Result))
+      return true;
+    if (Result.isNegative())
+      return Diag(TheCall->getArg(8)->getBeginLoc(),
+                  diag::err_hls_builtin_arg_mismatch)
+             << 2;
+
+    // readwrite_mode: an enum, so we'll just make sure it is a constant int.
+    if (SemaBuiltinConstantArg(TheCall, 9, Result))
+      return true;
+
+    // waitrequest: A boolean.
+    Expr *WaitRequest = TheCall->getArg(10);
+    if (!WaitRequest->getType()->isBooleanType())
+      return Diag(WaitRequest->getBeginLoc(),
+                  diag::err_hls_builtin_arg_mismatch)
+             << 4;
+
+    // index (load only), a user provided integer.
+    if (BuiltinID == Builtin::BI__builtin_intel_hls_mm_master_load) {
+      Expr *Index = TheCall->getArg(11);
+      if (!Index->getType()->isIntegerType())
+        return Diag(Index->getBeginLoc(), diag::err_hls_builtin_arg_mismatch)
+               << 1;
+    }
+
+    TheCall->setType(Context.VoidTy);
+    if (BuiltinID == Builtin::BI__builtin_intel_hls_mm_master_load)
+      TheCall->setType(QualType{Pointer, 0});
+    return false;
+  }
+  }
+}
+
+static bool checkFPGARegArgument(Sema &S, QualType ArgType,
+                                 SourceLocation &Loc) {
+
+  // Non-POD classes  are allowed. Each field is checked for illegal type.
+  if (CXXRecordDecl *Record = ArgType->getAsCXXRecordDecl()) {
+    for (auto *FD : Record->fields()) {
+      QualType T = FD->getType();
+      Loc = FD->getLocation();
+      if (const ArrayType *AT = T->getAsArrayTypeUnsafe())
+        T = AT->getElementType();
+      if (checkFPGARegArgument(S, T, Loc))
+        return true;
+    }
+    return false;
+  }
+
+  QualType CanonicalType = ArgType.getCanonicalType();
+
+  if (CanonicalType->isFunctionPointerType() || CanonicalType->isImageType())
+    return true;
+
+  // Check to filter out unintended types. Records are handled above.
+  if (!CanonicalType.isCXX98PODType(S.Context))
+    return true;
+
+  return false;
+}
+
+bool Sema::CheckOpenCLBuiltinFunctionCall(unsigned BuiltinID,
+                                          CallExpr *TheCall) {
+  if (checkArgCount(*this, TheCall, 1))
+    return true;
+
+  Expr *Arg = TheCall->getArg(0);
+  QualType ArgType = Arg->getType();
+  SourceLocation Loc;
+
+  if (ArgType.getTypePtr()->isArrayType() ||
+      checkFPGARegArgument(*this, ArgType, Loc)) {
+    Diag(TheCall->getBeginLoc(), diag::err_fpga_reg_limitations)
+        << (ArgType.getTypePtr()->isRecordType() ? 1 : 0) << ArgType
+        << TheCall->getSourceRange();
+    if (ArgType.getTypePtr()->isRecordType())
+      Diag(Loc, diag::illegal_type_declared_here);
+    return true;
+  }
+
+  TheCall->setType(ArgType);
+
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
 
 ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
                                          AtomicExpr::AtomicOp Op) {
@@ -4462,13 +5382,16 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
     // bool __c11_atomic_compare_exchange_strong(A *, C *, CP, int, int)
     C11CmpXchg,
 
+    // bool __atomic_compare_exchange_weak_explicit(A*, C*, C, int, int) // INTEL
+    IntelCmpXchg,  // INTEL
+
     // bool __atomic_compare_exchange(A *, C *, CP, bool, int, int)
     GNUCmpXchg
   } Form = Init;
 
   const unsigned NumForm = GNUCmpXchg + 1;
-  const unsigned NumArgs[] = { 2, 2, 3, 3, 3, 3, 4, 5, 6 };
-  const unsigned NumVals[] = { 1, 0, 1, 1, 1, 1, 2, 2, 3 };
+  const unsigned NumArgs[] = { 2, 2, 3, 3, 3, 3, 4, 5, 5, 6 }; // INTEL
+  const unsigned NumVals[] = { 1, 0, 1, 1, 1, 1, 2, 2, 2, 3 }; // INTEL
   // where:
   //   C is an appropriate type,
   //   A is volatile _Atomic(C) for __c11 builtins and is C for GNU builtins,
@@ -4494,6 +5417,12 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
              Op == AtomicExpr::AO__atomic_compare_exchange_n;
   bool IsAddSub = false;
   bool IsMinMax = false;
+#if INTEL_CUSTOMIZATION
+  // Used for the Intel versions where we type-coerce the _N values to match
+  // the function, rather than erroring on mismatch, so these are used to store
+  // that we need to coerce, and what size to coerce to.
+  unsigned IntelTypeCoerceSize = IntelTypeCoerceSizeCalc(Op);
+#endif // INTEL_CUSTOMIZATION
 
   switch (Op) {
   case AtomicExpr::AO__c11_atomic_init:
@@ -4552,6 +5481,128 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
     IsMinMax = true;
     Form = Arithmetic;
     break;
+
+#if INTEL_CUSTOMIZATION
+  case AtomicExpr::AO__atomic_store_explicit_1:
+  case AtomicExpr::AO__atomic_store_explicit_2:
+  case AtomicExpr::AO__atomic_store_explicit_4:
+  case AtomicExpr::AO__atomic_store_explicit_8:
+  case AtomicExpr::AO__atomic_store_explicit_16:
+  case AtomicExpr::AO__atomic_store_explicit:
+    Form = Copy;
+    IsN = true;
+    break;
+  case AtomicExpr::AO__atomic_load_explicit_1:
+  case AtomicExpr::AO__atomic_load_explicit_2:
+  case AtomicExpr::AO__atomic_load_explicit_4:
+  case AtomicExpr::AO__atomic_load_explicit_8:
+  case AtomicExpr::AO__atomic_load_explicit_16:
+  case AtomicExpr::AO__atomic_load_explicit:
+    Form = Load;
+    IsN = true;
+    break;
+  case AtomicExpr::AO__atomic_exchange_explicit_1:
+  case AtomicExpr::AO__atomic_exchange_explicit_2:
+  case AtomicExpr::AO__atomic_exchange_explicit_4:
+  case AtomicExpr::AO__atomic_exchange_explicit_8:
+  case AtomicExpr::AO__atomic_exchange_explicit_16:
+  case AtomicExpr::AO__atomic_exchange_explicit:
+    Form = Xchg;
+    IsN = true;
+    break;
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_1:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_1:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_2:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_2:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_4:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_4:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_8:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_8:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_16:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_16:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit:
+    Form = IntelCmpXchg;
+    IsN = true;
+    break;
+  case AtomicExpr::AO__atomic_fetch_add_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_1:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_add_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_2:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_add_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_4:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_add_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_8:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_add_explicit_16:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_16:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_16:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_16:
+  case AtomicExpr::AO__atomic_fetch_add_explicit:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit:
+  case AtomicExpr::AO__atomic_add_fetch_explicit:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit:
+    IsAddSub = true;
+    Form = Arithmetic;
+    break;
+  case AtomicExpr::AO__atomic_fetch_and_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_1:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_and_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_2:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_and_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_4:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_and_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_8:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_and_explicit_16:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_16:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_16:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_16:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_16:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_16:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_16:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_16:
+  case AtomicExpr::AO__atomic_fetch_and_explicit:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit:
+  case AtomicExpr::AO__atomic_fetch_or_explicit:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit:
+  case AtomicExpr::AO__atomic_and_fetch_explicit:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit:
+  case AtomicExpr::AO__atomic_or_fetch_explicit:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit:
+    Form = Arithmetic;
+    break;
+#endif // INTEL_CUSTOMIZATION
 
   case AtomicExpr::AO__c11_atomic_exchange:
   case AtomicExpr::AO__opencl_atomic_exchange:
@@ -4624,6 +5675,15 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
       return ExprError();
     }
     ValType = AtomTy->getAs<AtomicType>()->getValueType();
+#if INTEL_CUSTOMIZATION
+  } else if (getLangOpts().IntelCompat && AtomTy->isAtomicType()) {
+    if (AtomTy.isConstQualified()) {
+      Diag(DRE->getBeginLoc(), diag::err_atomic_op_needs_non_const_atomic)
+        << 0 << Ptr->getType() << Ptr->getSourceRange();
+      return ExprError();
+    }
+    ValType = AtomTy->getAs<AtomicType>()->getValueType();
+#endif // INTEL_CUSTOMIZATION
   } else if (Form != Load && Form != LoadCopy) {
     if (ValType.isConstQualified()) {
       Diag(DRE->getBeginLoc(), diag::err_atomic_op_needs_non_const_pointer)
@@ -4635,12 +5695,14 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
   // For an arithmetic operation, the implied arithmetic must be well-formed.
   if (Form == Arithmetic) {
     // gcc does not enforce these rules for GNU atomics, but we do so for sanity.
+    if (IntelTypeCoerceSize == 0) // INTEL, intentionally bad indentation
     if (IsAddSub && !ValType->isIntegerType()
         && !ValType->isPointerType()) {
       Diag(DRE->getBeginLoc(), diag::err_atomic_op_needs_atomic_int_or_ptr)
           << IsC11 << Ptr->getType() << Ptr->getSourceRange();
       return ExprError();
     }
+    if (IntelTypeCoerceSize == 0) // INTEL, intentionally bad indentation
     if (IsMinMax) {
       const BuiltinType *BT = ValType->getAs<BuiltinType>();
       if (!BT || (BT->getKind() != BuiltinType::Int &&
@@ -4649,6 +5711,7 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
         return ExprError();
       }
     }
+    if (IntelTypeCoerceSize == 0) // INTEL, intentionally bad indentation
     if (!IsAddSub && !IsMinMax && !ValType->isIntegerType()) {
       Diag(DRE->getBeginLoc(), diag::err_atomic_op_bitwise_needs_atomic_int)
           << IsC11 << Ptr->getType() << Ptr->getSourceRange();
@@ -4659,7 +5722,9 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
                             diag::err_incomplete_type)) {
       return ExprError();
     }
-  } else if (IsN && !ValType->isIntegerType() && !ValType->isPointerType()) {
+  } else if (IntelTypeCoerceSize == 0 && // INTEL
+             IsN && !ValType->isIntegerType() &&
+             !ValType->isPointerType()) { // INTEL
     // For __atomic_*_n operations, the value type must be a scalar integral or
     // pointer type which is 1, 2, 4, 8 or 16 bytes in length.
     Diag(DRE->getBeginLoc(), diag::err_atomic_op_needs_atomic_int_or_ptr)
@@ -4667,7 +5732,8 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
     return ExprError();
   }
 
-  if (!IsC11 && !AtomTy.isTriviallyCopyableType(Context) &&
+  if (!IsC11 && !ValType.isTriviallyCopyableType(Context) && // INTEL
+      (IntelTypeCoerceSize == 0 || !ValType->isVoidType()) && // INTEL
       !AtomTy->isScalarType()) {
     // For GNU atomics, require a trivially-copyable type. This is not part of
     // the GNU atomics specification, but we enforce it for sanity.
@@ -4692,6 +5758,26 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
     return ExprError();
   }
 
+#if INTEL_CUSTOMIZATION
+  if (IntelTypeCoerceSize != 0) {
+    ValType = Context.getIntTypeForBitwidth(
+      Context.getCharWidth() * IntelTypeCoerceSize, true);
+    assert(Context.getTypeSizeInChars(ValType).getQuantity() ==
+           IntelTypeCoerceSize);
+
+    if (AtomTy->isVoidType() || !AtomTy->isScalarType()) {
+      // Allowing void pointer and struct-type pointers requires
+      // conversion.
+      auto CastType = Context.getPointerType(ValType);
+      auto Cast = CStyleCastExpr::Create(
+          Context, CastType, Ptr->getValueKind(), CK_BitCast, Ptr, nullptr,
+          Context.getTrivialTypeSourceInfo(CastType, SourceLocation()),
+          SourceLocation(), SourceLocation());
+      Ptr = Cast;
+    }
+  }
+#endif //INTEL_CUSTOMIZATION
+
   // All atomic operations have an overload which takes a pointer to a volatile
   // 'A'.  We shouldn't let the volatile-ness of the pointee-type inject itself
   // into the result or the other operands. Similarly atomic_load takes a
@@ -4702,7 +5788,8 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
   if (Form == Copy || Form == LoadCopy || Form == GNUXchg ||
       Form == Init)
     ResultType = Context.VoidTy;
-  else if (Form == C11CmpXchg || Form == GNUCmpXchg)
+  else if (Form == C11CmpXchg || Form == GNUCmpXchg ||
+           Form == IntelCmpXchg) // INTEL
     ResultType = Context.BoolTy;
 
   // The type of a parameter passed 'by value'. In the GNU atomics, such
@@ -4756,6 +5843,24 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
           }
           Ty = Context.getPointerType(
               Context.getAddrSpaceQualType(ValType.getUnqualifiedType(), AS));
+#if INTEL_CUSTOMIZATION
+          if (IntelTypeCoerceSize != 0) {
+            // Cast the 3rd param to silence the warning
+            auto tmp = TheCall->getArg(i);
+            // Only valid if tmp is a ptr!
+            if (!tmp->getType()->isPointerType()) {
+              Diag(DRE->getBeginLoc(), diag::err_atomic_builtin_must_be_pointer)
+                << tmp->getType() << tmp->getSourceRange();
+              return ExprError();
+            }
+
+            auto Cast = CStyleCastExpr::Create(
+                Context, Ty, tmp->getValueKind(), CK_BitCast, tmp, nullptr,
+                Context.getTrivialTypeSourceInfo(Ty, SourceLocation()),
+                SourceLocation(), SourceLocation());
+            TheCall->setArg(i, Cast);
+          }
+#endif // INTEL_CUSTOMIZATION
         }
         break;
       case 2:
@@ -4814,6 +5919,14 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
     SubExprs.push_back(TheCall->getArg(4)); // OrderFail
     SubExprs.push_back(TheCall->getArg(2)); // Val2
     break;
+#if INTEL_CUSTOMIZATION
+  case IntelCmpXchg:
+    SubExprs.push_back(TheCall->getArg(3)); // Order
+    SubExprs.push_back(TheCall->getArg(1)); // Val1
+    SubExprs.push_back(TheCall->getArg(4)); // OrderFail
+    SubExprs.push_back(TheCall->getArg(2)); // Val2
+    break;
+#endif // INTEL_CUSTOMIZATION
   case GNUCmpXchg:
     SubExprs.push_back(TheCall->getArg(4)); // Order
     SubExprs.push_back(TheCall->getArg(1)); // Val1
@@ -5208,7 +6321,6 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
     if (!NewBuiltinDecl)
       return ExprError();
   }
-
   // The first argument --- the pointer --- has a fixed type; we
   // deduce the types of the rest of the arguments accordingly.  Walk
   // the remaining arguments, converting them to the deduced value type.
@@ -5586,6 +6698,42 @@ bool Sema::SemaBuiltinVAStartARMMicrosoft(CallExpr *Call) {
 
   return false;
 }
+
+#if INTEL_CUSTOMIZATION
+bool Sema::SemaBuiltinVAArgPackChecks(CallExpr *TheCall, unsigned BuiltinID) {
+  Expr *Fn = TheCall->getCallee();
+  if (const FunctionDecl *FD = getCurFunctionDecl()) {
+    // Check we are in an inlined function and ensure this function is not
+    // emitted.
+    if (!FD->isInlined() || !FD->isInlineSpecified() ||
+        FD->doesDeclarationForceExternallyVisibleDefinition() ||
+        !(Context.getLangOpts().GNUInline || FD->hasAttr<GNUInlineAttr>() ||
+          FD->hasAttr<AlwaysInlineAttr>()))
+      return Diag(Fn->getBeginLoc(), diag::err_va_arg_pack_invalid_usage)
+             << (BuiltinID == Builtin::BI__builtin_va_arg_pack_len ? 1 : 0);
+  } else {
+    // Can only be used inside a function
+    return Diag(Fn->getBeginLoc(), diag::err_va_arg_pack_invalid_usage)
+           << (BuiltinID == Builtin::BI__builtin_va_arg_pack_len ? 1 : 0);
+  }
+
+  // Determine whether the current function is variadic or not.
+  bool IsVariadic = false;
+  if (BlockScopeInfo *CurBlock = getCurBlock())
+    IsVariadic = CurBlock->TheDecl->isVariadic();
+  else if (FunctionDecl *FD = getCurFunctionDecl())
+    IsVariadic = FD->isVariadic();
+  else
+    IsVariadic = getCurMethodDecl()->isVariadic();
+
+  if (!IsVariadic) {
+    // Using this  in a non-variadic function is illegal.
+    return Diag(Fn->getBeginLoc(),
+                diag::err_va_pack_used_in_non_variadic_function);
+  }
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// SemaBuiltinUnorderedCompare - Handle functions like __builtin_isgreater and
 /// friends.  This is declared to take (...), so we have to check everything.
@@ -9790,6 +10938,11 @@ struct IntRange {
       T = CT->getElementType().getTypePtr();
     if (const AtomicType *AT = dyn_cast<AtomicType>(T))
       T = AT->getValueType().getTypePtr();
+#if INTEL_CUSTOMIZATION
+    if (const ArbPrecIntType *AP = dyn_cast<ArbPrecIntType>(T))
+      return IntRange(AP->getNumBits(),
+                      AP->isUnsignedIntegerOrEnumerationType());
+#endif // INTEL_CUSTOMIZATION
 
     if (!C.getLangOpts().CPlusPlus) {
       // For enum types in C code, use the underlying datatype.
@@ -9837,6 +10990,11 @@ struct IntRange {
       T = AT->getValueType().getTypePtr();
     if (const EnumType *ET = dyn_cast<EnumType>(T))
       T = C.getCanonicalType(ET->getDecl()->getIntegerType()).getTypePtr();
+#if INTEL_CUSTOMIZATION
+    if (const ArbPrecIntType *AP = dyn_cast<ArbPrecIntType>(T))
+      return IntRange(AP->getNumBits(),
+                      AP->isUnsignedIntegerOrEnumerationType());
+#endif // INTEL_CUSTOMIZATION
 
     const BuiltinType *BT = cast<BuiltinType>(T);
     assert(BT->isInteger());
@@ -11239,6 +12397,12 @@ CheckImplicitConversion(Sema &S, Expr *E, QualType T, SourceLocation CC,
       if (S.SourceMgr.isInSystemMacro(CC))
         return;
 
+#if INTEL_CUSTOMIZATION
+      // CQ414781, suppress float-to-bool diagnostic in conditions.
+      if (TargetBT->isBooleanType() && E->isCondition())
+        return;
+#endif // INTEL_CUSTOMIZATION
+
       DiagnoseFloatingImpCast(S, E, T, CC);
     }
 
@@ -11336,7 +12500,8 @@ CheckImplicitConversion(Sema &S, Expr *E, QualType T, SourceLocation CC,
 
   S.DiscardMisalignedMemberAddress(Target, E);
 
-  if (!Source->isIntegerType() || !Target->isIntegerType())
+  if (!(Source->isIntegerType() || Source->isArbPrecIntType()) || // INTEL
+      !(Target->isIntegerType() || Target->isArbPrecIntType()))   // INTEL
     return;
 
   // TODO: remove this early return once the false positives for constant->bool
@@ -11525,7 +12690,12 @@ static void CheckBoolLikeConversion(Sema &S, Expr *E, SourceLocation CC) {
 static void AnalyzeImplicitConversions(Sema &S, Expr *OrigE,
                                        SourceLocation CC) {
   QualType T = OrigE->getType();
+  bool isCondition = OrigE->isCondition(); // INTEL
   Expr *E = OrigE->IgnoreParenImpCasts();
+#if INTEL_CUSTOMIZATION
+  if (isCondition)
+    E->setIsCondition(isCondition);
+#endif // INTEL_CUSTOMIZATION
 
   if (E->isTypeDependent() || E->isValueDependent())
     return;

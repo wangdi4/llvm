@@ -35,6 +35,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/MathExtras.h"
+#include "intel/SemaIntelImpl.h" // INTEL
 
 using namespace clang;
 using namespace sema;
@@ -2020,7 +2021,7 @@ static void handleNakedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (checkAttrMutualExclusion<DisableTailCallsAttr>(S, D, AL))
     return;
 
-  if (AL.isDeclspecAttribute()) {
+  if (AL.isDeclspecAttribute() && !S.getLangOpts().IntelCompat) { // INTEL
     const auto &Triple = S.getASTContext().getTargetInfo().getTriple();
     const auto &Arch = Triple.getArch();
     if (Arch != llvm::Triple::x86 &&
@@ -2875,9 +2876,1280 @@ static void handleWeakImportAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
                             AL.getAttributeSpellingListIndex()));
 }
 
-// Handles reqd_work_group_size and work_group_size_hint.
+/// Give a warning for duplicate attributes, return true if duplicate.
+template <typename AttrType>
+static bool checkForDuplicateAttribute(Sema &S, Decl *D,
+                                       const ParsedAttr &Attr) {
+  // Give a warning for duplicates but not if it's one we've implicitly added.
+  auto *A = D->getAttr<AttrType>();
+  if (A && !A->isImplicit()) {
+    S.Diag(Attr.getLoc(), diag::warn_duplicate_attribute_exact) << A;
+    return true;
+  }
+  return false;
+}
+
+#if INTEL_CUSTOMIZATION
+// Checks correctness of mutual usage of different work_group_size attributes:
+// reqd_work_group_size, work_group_size_hint, max_work_group_size,
+// max_global_work_dim
+static bool checkWorkGroupSizeValues(Sema &S, Decl *D,
+                                     const ParsedAttr &Attr,
+                                     uint32_t WGSize[3]) {
+  if (Attr.getKind() == ParsedAttr::AT_MaxGlobalWorkDim) {
+    // in case of 'max_global_work_dim' attribute equals to 1 we should be sure
+    // that if max_work_group_size and reqd_work_group_size attributes exist,
+    // then they are equal (1, 1, 1)
+    if (const MaxWorkGroupSizeAttr *A = D->getAttr<MaxWorkGroupSizeAttr>()) {
+      if (A->getXDim() != 1 || A->getYDim() != 1 || A->getZDim() != 1) {
+        S.Diag(A->getLocation(), diag::err_opencl_x_y_z_arguments_must_be_one)
+            << A << Attr;
+        D->setInvalidDecl();
+        return false;
+      }
+    }
+    if (const ReqdWorkGroupSizeAttr *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
+      if (A->getXDim() != 1 || A->getYDim() != 1 || A->getZDim() != 1) {
+        S.Diag(A->getLocation(), diag::err_opencl_x_y_z_arguments_must_be_one)
+            << A << Attr;
+        D->setInvalidDecl();
+        return false;
+      }
+    }
+  } else {
+    // in other cases we should check that attribute value
+    // >= reqd_work_group_size attribute value and
+    // <= max_work_group_size attribute value
+    if (const MaxGlobalWorkDimAttr *A = D->getAttr<MaxGlobalWorkDimAttr>()) {
+      if (!(WGSize[0] == 1 && WGSize[1] == 1 && WGSize[2] == 1)) {
+        S.Diag(Attr.getLoc(), diag::err_opencl_x_y_z_arguments_must_be_one)
+            << Attr << A;
+        D->setInvalidDecl();
+        return false;
+      }
+    } else if (const MaxWorkGroupSizeAttr *A =
+                   D->getAttr<MaxWorkGroupSizeAttr>()) {
+      if (!(WGSize[0] <= A->getXDim() && WGSize[1] <= A->getYDim() &&
+            WGSize[2] <= A->getZDim())) {
+        S.Diag(Attr.getLoc(), diag::err_opencl_attributes_conflict)
+            << Attr << A->getSpelling();
+        D->setInvalidDecl();
+        return false;
+      }
+    }
+
+    if (const ReqdWorkGroupSizeAttr *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
+      if (!(WGSize[0] >= A->getXDim() && WGSize[1] >= A->getYDim() &&
+            WGSize[2] >= A->getZDim())) {
+        S.Diag(Attr.getLoc(), diag::err_opencl_attributes_conflict)
+            << Attr << A->getSpelling();
+        D->setInvalidDecl();
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+static void handleNumComputeUnitsAttr(Sema &S, Decl *D,
+                                      const ParsedAttr &Attr) {
+  if (!S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
+        << Attr;
+    return;
+  }
+
+  int NumComputeUnits[3];
+  for (unsigned i = 0; i < Attr.getNumArgs(); ++i) {
+    const Expr *E = Attr.getArgAsExpr(i);
+    llvm::APSInt ArgVal(32);
+
+    if (!E->isIntegerConstantExpr(ArgVal, S.Context)) {
+      S.Diag(Attr.getLoc(), diag::err_attribute_argument_type)
+          << Attr << AANT_ArgumentIntegerConstant
+          << E->getSourceRange();
+      return;
+    }
+
+    int Val = ArgVal.getSExtValue();
+
+    if (Val < 1 || Val > 16384) {
+      S.Diag(E->getSourceRange().getBegin(),
+             diag::err_opencl_attribute_argument_out_of_bounds)
+          << Attr << i + 1 << 1 << 16384;
+      return;
+    }
+
+    NumComputeUnits[i] = Val;
+  }
+
+  // TODO: Check that num_compute_units attribute is specified with valid
+  // number of arguments: CORC-2359
+
+  if (Attr.getNumArgs() < 2)
+    NumComputeUnits[1] = NumComputeUnitsAttr::DefaultYDim;
+  if (Attr.getNumArgs() < 3)
+    NumComputeUnits[2] = NumComputeUnitsAttr::DefaultZDim;
+
+  D->addAttr(::new (S.Context) NumComputeUnitsAttr(
+      Attr.getRange(), S.Context, NumComputeUnits[0], NumComputeUnits[1],
+      NumComputeUnits[2], Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleNumSimdWorkItemsAttr(Sema &S, Decl *D,
+                                       const ParsedAttr &Attr) {
+  if (D->isInvalidDecl())
+    return;
+
+  if (!S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
+        << Attr;
+    return;
+  }
+
+  uint32_t NumSimdWorkItems;
+  const Expr *E = Attr.getArgAsExpr(0);
+  if (!checkUInt32Argument(S, Attr, E, NumSimdWorkItems, 0,
+                           /*StrictlyUnsigned=*/true))
+    return;
+  if (NumSimdWorkItems == 0) {
+    S.Diag(Attr.getLoc(), diag::err_attribute_argument_is_zero)
+        << Attr << E->getSourceRange();
+    return;
+  }
+
+  ReqdWorkGroupSizeAttr *ReqdWorkGroupSize =
+      D->getAttr<ReqdWorkGroupSizeAttr>();
+  if (ReqdWorkGroupSize &&
+      !(ReqdWorkGroupSize->getXDim() % NumSimdWorkItems == 0 ||
+        ReqdWorkGroupSize->getYDim() % NumSimdWorkItems == 0 ||
+        ReqdWorkGroupSize->getZDim() % NumSimdWorkItems == 0)) {
+    S.Diag(Attr.getLoc(), diag::err_opencl_attributes_conflict)
+        << Attr << ReqdWorkGroupSize->getSpelling();
+    return;
+  }
+
+  D->addAttr(::new (S.Context) NumSimdWorkItemsAttr(
+      Attr.getRange(), S.Context, NumSimdWorkItems,
+      Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleMaxGlobalWorkDimAttr(Sema &S, Decl *D,
+                                       const ParsedAttr &Attr) {
+  if (!S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
+      << Attr;
+    return;
+  }
+
+  uint32_t MaxGlobalWorkDim;
+  const Expr *E = Attr.getArgAsExpr(0);
+  if (!checkUInt32Argument(S, Attr, E, MaxGlobalWorkDim, 0,
+                           /*StrictlyUnsigned=*/true))
+    return;
+  if (MaxGlobalWorkDim > 3) {
+    S.Diag(Attr.getLoc(), diag::err_intel_attribute_argument_is_not_in_range)
+      << Attr;
+    return;
+  }
+
+  uint32_t WGSize[3] = {1, 1, 1};
+  if (!checkWorkGroupSizeValues(S, D, Attr, WGSize))
+    return;
+
+  D->addAttr(::new (S.Context) MaxGlobalWorkDimAttr(
+      Attr.getRange(), S.Context, MaxGlobalWorkDim,
+      Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleAutorunAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+  if (!S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
+        << Attr;
+    return;
+  }
+
+  FunctionDecl *FD = cast<FunctionDecl>(D);
+  if (!FD->param_empty()) {
+    S.Diag(Attr.getLoc(),
+        diag::err_opencl_autorun_kernel_cannot_have_arguments);
+    return;
+  }
+
+  if (auto *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
+    long long int N = 1ll << 32ll;
+    if (N % A->getXDim() != 0 || N % A->getYDim() != 0 ||
+        N % A->getZDim() != 0) {
+      S.Diag(A->getLocation(),
+          diag::err_opencl_autorun_kernel_wrong_reqd_wg_size);
+      return;
+    }
+  }
+
+  // TODO: Check that kernel does not use I/O channels: CORC-2359
+
+  D->addAttr(::new (S.Context) AutorunAttr(Attr.getRange(), S.Context,
+      Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleUsesGlobalWorkOffsetAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+  if (!S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
+        << Attr;
+    return;
+  }
+
+  uint32_t Enabled;
+  const Expr *E = Attr.getArgAsExpr(0);
+  if (!checkUInt32Argument(S, Attr, E, Enabled, 0,
+                           /*StrictlyUnsigned=*/true)) return;
+
+  D->addAttr(::new (S.Context) UsesGlobalWorkOffsetAttr(
+      Attr.getRange(), S.Context, Enabled,
+      Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleClusterAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+  if (!S.getLangOpts().HLS && !S.getLangOpts().OpenCL) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored) << Attr;
+    return;
+  }
+
+  StringRef Str;
+  // Cluster Attribute can have atmost 1 user-defined argument.
+  if (!checkAttributeAtMostNumArgs(S, Attr, 1) ||
+      (Attr.getNumArgs() == 1 &&
+       !S.checkStringLiteralArgumentAttr(Attr, 0, Str)))
+    return;
+
+  D->addAttr(::new (S.Context)
+                 ClusterAttr(Attr.getRange(), S.Context, Str, Attr.isArgExpr(0),
+                             Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleStallEnableAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+  if (!S.getLangOpts().HLS && !S.getLangOpts().OpenCL) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored) << Attr;
+    return;
+  }
+
+  if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/0))
+    return;
+
+  handleSimpleAttribute<StallEnableAttr>(S, D, Attr);
+}
+
+static void handleStallLatencyAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+  if (!S.getLangOpts().HLS &&
+      !S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    S.Diag(AL.getLoc(), diag::warn_unknown_attribute_ignored) << AL;
+    return;
+  }
+
+  if (!checkAttributeNumArgs(S, AL, /*NumArgsExpected=*/0))
+    return;
+
+  if (const auto *SLA = D->getAttr<StallLatencyAttr>()) {
+    if (AL.getSemanticSpelling() == SLA->getSemanticSpelling())
+      S.Diag(AL.getLoc(), diag::warn_duplicate_attribute_exact) << SLA;
+    else {
+      S.Diag(AL.getLoc(), diag::err_attributes_are_not_compatible) << AL << SLA;
+      S.Diag(SLA->getLocation(), diag::note_conflicting_attribute);
+    }
+    return;
+  }
+
+  handleSimpleAttribute<StallLatencyAttr>(S, D, AL);
+}
+
+static void handleStallFreeAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+  if (!S.getLangOpts().HLS &&
+      !S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
+        << Attr;
+    return;
+  }
+
+  if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/0))
+    return;
+
+  handleSimpleAttribute<StallFreeAttr>(S, D, Attr);
+}
+
+static void handleSchedulerTargetFmaxMHzAttr(Sema &S, Decl *D,
+                                                   const ParsedAttr &Attr) {
+  if (D->isInvalidDecl())
+    return;
+
+  if (!S.getLangOpts().HLS &&
+      !S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
+        << Attr;
+    return;
+  }
+
+  if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/1))
+    return;
+
+  S.AddSchedulerTargetFmaxMHzAttr(Attr.getRange(), D,
+                                        Attr.getArgAsExpr(0),
+                                        Attr.getAttributeSpellingListIndex());
+}
+
+void Sema::AddSchedulerTargetFmaxMHzAttr(SourceRange AttrRange, Decl *D,
+                                               Expr *E,
+                                               unsigned SpellingListIndex) {
+  SchedulerTargetFmaxMHzAttr TmpAttr(AttrRange, Context, E,
+                                           SpellingListIndex);
+  if (!E->isValueDependent()) {
+    ExprResult ICE;
+    if (checkRangedIntegralArgument<SchedulerTargetFmaxMHzAttr>(
+            E, &TmpAttr, ICE))
+      return;
+    E = ICE.get();
+  }
+  D->addAttr(::new (Context) SchedulerTargetFmaxMHzAttr(
+      AttrRange, Context, E, SpellingListIndex));
+}
+
+static void handleHLSInternalMaxBlockRamDepthAttr(Sema &S, Decl *D,
+                                               const ParsedAttr &Attr) {
+  checkForDuplicateAttribute<InternalMaxBlockRamDepthAttr>(S, D, Attr);
+  if (checkAttrMutualExclusion<OptimizeFMaxAttr>(S, D, Attr))
+    return;
+  if (checkAttrMutualExclusion<OptimizeRamUsageAttr>(S, D, Attr))
+    return;
+  if (checkAttrMutualExclusion<HLSRegisterAttr>(S, D, Attr))
+    return;
+
+  if (D->isInvalidDecl())
+    return;
+
+  if (!S.getLangOpts().HLS &&
+      !S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
+        << Attr;
+    return;
+  }
+
+  if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/1))
+    return;
+
+  if (const auto *AIA = D->getAttr<ArgumentInterfaceAttr>()) {
+    if (AIA->getType() == ArgumentInterfaceAttr::Slave) {
+      (void)checkAttrMutualExclusion<ArgumentInterfaceAttr>(
+          S, D, Attr);
+      return;
+    }
+  }
+
+  if (!D->hasAttr<MemoryAttr>())
+    D->addAttr(MemoryAttr::CreateImplicit(S.Context, MemoryAttr::Default));
+
+  S.AddInternalMaxBlockRamDepthAttr(Attr.getRange(), D, Attr.getArgAsExpr(0),
+                                    Attr.getAttributeSpellingListIndex());
+}
+
+void Sema::AddInternalMaxBlockRamDepthAttr(SourceRange AttrRange, Decl *D,
+                                           Expr *E,
+                                           unsigned SpellingListIndex) {
+  InternalMaxBlockRamDepthAttr TmpAttr(AttrRange, Context, E,
+                                       SpellingListIndex);
+
+  if (!E->isValueDependent()) {
+    ExprResult ICE;
+    if (checkRangedIntegralArgument<InternalMaxBlockRamDepthAttr>(E, &TmpAttr,
+                                                                  ICE))
+      return;
+    E = ICE.get();
+  }
+  D->addAttr(::new (Context) InternalMaxBlockRamDepthAttr(AttrRange, Context, E,
+                                                          SpellingListIndex));
+}
+
+static void handleOpenCLBlockingAttr(Sema &S, Decl *D,
+                                     const ParsedAttr &Attr) {
+  if (D->isInvalidDecl())
+    return;
+
+  VarDecl *VD = cast<VarDecl>(D);
+  QualType Ty = VD->getType();
+
+  const Type *TypePtr = Ty.getTypePtr();
+  if (!TypePtr->isPipeType()) {
+    S.Diag(Attr.getLoc(), diag::warn_intel_opencl_attribute_wrong_decl_type)
+        << Attr << 47;
+    return;
+  }
+
+  D->addAttr(::new (S.Context) OpenCLBlockingAttr(
+      Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleOpenCLDepthAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+  if (D->isInvalidDecl())
+    return;
+
+  VarDecl *VD = cast<VarDecl>(D);
+  QualType Ty = VD->getType();
+
+  // Handle array of channels case
+  QualType BaseTy = S.Context.getBaseElementType(Ty);
+  if (BaseTy->isChannelType())
+    Ty = BaseTy;
+
+  if (Ty->isChannelType() &&
+      !S.getOpenCLOptions().isEnabled("cl_intel_channels")) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
+        << Attr << "cl_intel_channels";
+    return;
+  }
+
+  if (!Ty->isChannelType() && !Ty->isPipeType()) {
+    S.Diag(Attr.getLoc(), diag::warn_intel_opencl_attribute_wrong_decl_type)
+        << Attr << 46;
+    return;
+  }
+
+  Expr *E = Attr.getArgAsExpr(0);
+  Expr::EvalResult Result;
+  if (!E->EvaluateAsInt(Result, S.Context)) {
+    S.Diag(Attr.getLoc(), diag::err_intel_opencl_attribute_argument_type)
+        << Attr << 4;
+    return;
+  }
+
+  llvm::APSInt Depth = Result.Val.getInt();
+  int DepthVal = Depth.getExtValue();
+  if (DepthVal < 0) {
+    S.Diag(Attr.getLoc(), diag::warn_attribute_argument_n_negative)
+        << Attr << "0";
+    return;
+  }
+
+  D->addAttr(::new (S.Context)
+                 OpenCLDepthAttr(Attr.getRange(), S.Context, DepthVal,
+                                 Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleOpenCLIOAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+  if (D->isInvalidDecl())
+    return;
+
+  VarDecl *VD = cast<VarDecl>(D);
+  QualType Ty = VD->getType();
+
+  // Handle array of channels case
+  QualType BaseTy = S.Context.getBaseElementType(Ty);
+  if (BaseTy->isChannelType())
+    Ty = BaseTy;
+
+  if (Ty->isChannelType() &&
+      !S.getOpenCLOptions().isEnabled("cl_intel_channels")) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
+        << Attr << "cl_intel_channels";
+    return;
+  }
+
+  if (!Ty->isChannelType() && !Ty->isPipeType()) {
+    S.Diag(Attr.getLoc(), diag::warn_intel_opencl_attribute_wrong_decl_type)
+        << Attr << 46;
+    return;
+  }
+
+  StringRef Str;
+  if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str))
+    return;
+
+  D->addAttr(::new (S.Context) OpenCLIOAttr(
+      Attr.getRange(), S.Context, Str, Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleOpenCLLocalMemSizeAttr(Sema & S, Decl * D,
+                                         const ParsedAttr &Attr) {
+  if (D->isInvalidDecl())
+    return;
+
+  if (!S.getLangOpts().HLS &&
+      !S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
+        << Attr;
+    return;
+  }
+
+  ParmVarDecl *PVD = cast<ParmVarDecl>(D);
+  const QualType QT = PVD->getOriginalType();
+  const Type *TypePtr = QT.getTypePtr();
+  if (!TypePtr->isPointerType()) {
+    S.Diag(Attr.getLoc(), diag::warn_type_attribute_wrong_type)
+        << Attr << 1 << TypePtr->getTypeClassName();
+    return;
+  }
+
+  QualType pointeeType = TypePtr->getPointeeType();
+  if (!S.getLangOpts().HLS &&
+      pointeeType.getAddressSpace() != LangAS::opencl_local) {
+    S.Diag(Attr.getLoc(),
+           diag::warn_opencl_attribute_only_for_local_address_space)
+        << Attr;
+    return;
+  }
+
+  Expr *E = Attr.getArgAsExpr(0);
+  Expr::EvalResult Result;
+  if (!E->EvaluateAsInt(Result, S.Context)) {
+    S.Diag(Attr.getLoc(), diag::err_intel_opencl_attribute_argument_type)
+        << Attr << 4;
+    D->setInvalidDecl();
+    return;
+  }
+
+  llvm::APSInt APLocalMemSize = Result.Val.getInt();
+  int LocalMemSize = APLocalMemSize.getExtValue();
+  if (LocalMemSize < OpenCLLocalMemSizeAttr::getMinValue() ||
+      LocalMemSize > OpenCLLocalMemSizeAttr::getMaxValue() ||
+      !APLocalMemSize.isPowerOf2()) {
+    S.Diag(Attr.getLoc(), diag::err_opencl_power_of_two_in_range)
+        << Attr
+        << OpenCLLocalMemSizeAttr::getMinValue()
+        << OpenCLLocalMemSizeAttr::getMaxValue();
+    D->setInvalidDecl();
+    return;
+  }
+
+  D->addAttr(::new (S.Context) OpenCLLocalMemSizeAttr(
+      Attr.getRange(), S.Context, LocalMemSize,
+      Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleHLSOptimizeFMaxAttr(Sema &S, Decl *D,
+                                      const ParsedAttr &Attr) {
+  checkForDuplicateAttribute<OptimizeFMaxAttr>(S, D, Attr);
+
+  if (checkAttrMutualExclusion<OptimizeRamUsageAttr>(S, D, Attr))
+    return;
+
+  if (checkAttrMutualExclusion<InternalMaxBlockRamDepthAttr>(S, D, Attr))
+    return;
+
+  if (checkAttrMutualExclusion<HLSRegisterAttr>(S, D, Attr))
+    return;
+
+  if (const auto *AIA = D->getAttr<ArgumentInterfaceAttr>()) {
+    if (AIA->getType() == ArgumentInterfaceAttr::Slave) {
+      (void)checkAttrMutualExclusion<ArgumentInterfaceAttr>(S, D, Attr);
+      return;
+    }
+  }
+
+  if (!D->hasAttr<MemoryAttr>())
+    D->addAttr(MemoryAttr::CreateImplicit(S.Context, MemoryAttr::Default));
+
+  handleSimpleAttribute<OptimizeFMaxAttr>(S, D, Attr);
+}
+
+static void handleOptimizeRamUsageAttr(Sema &S, Decl *D,
+                                       const ParsedAttr &Attr) {
+  checkForDuplicateAttribute<OptimizeRamUsageAttr>(S, D, Attr);
+
+  if (checkAttrMutualExclusion<OptimizeFMaxAttr>(S, D, Attr))
+    return;
+
+  if (checkAttrMutualExclusion<InternalMaxBlockRamDepthAttr>(S, D, Attr))
+    return;
+
+  if (checkAttrMutualExclusion<HLSRegisterAttr>(S, D, Attr))
+    return;
+
+  if (const auto *AIA = D->getAttr<ArgumentInterfaceAttr>()) {
+    if (AIA->getType() == ArgumentInterfaceAttr::Slave) {
+      (void)checkAttrMutualExclusion<ArgumentInterfaceAttr>(S, D, Attr);
+      return;
+    }
+  }
+
+  if (!D->hasAttr<MemoryAttr>())
+    D->addAttr(MemoryAttr::CreateImplicit(S.Context, MemoryAttr::Default));
+
+  handleSimpleAttribute<OptimizeRamUsageAttr>(S, D, Attr);
+}
+
+/// Handle the __doublepump__ and __singlepump__ attributes.
+/// One but not both can be specified, and __register__ is incompatible.
+template <typename AttrType, typename IncompatAttrType>
+static void handlePumpAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+
+  checkForDuplicateAttribute<AttrType>(S, D, Attr);
+  if (checkAttrMutualExclusion<IncompatAttrType>(S, D, Attr))
+    return;
+
+  if (checkAttrMutualExclusion<HLSRegisterAttr>(S, D, Attr))
+    return;
+
+  if (!D->hasAttr<MemoryAttr>())
+    D->addAttr(MemoryAttr::CreateImplicit(S.Context, MemoryAttr::Default));
+
+  handleSimpleAttribute<AttrType>(S, D, Attr);
+}
+
+/// Handle the __memory__ attribute.
+/// This is incompatible with the __register__ attribute.
+static void handleMemoryAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+
+  checkForDuplicateAttribute<MemoryAttr>(S, D, Attr);
+  if (checkAttrMutualExclusion<HLSRegisterAttr>(S, D, Attr))
+    return;
+
+  MemoryAttr::MemoryKind Kind;
+  if (Attr.getNumArgs() == 0)
+    Kind = MemoryAttr::Default;
+  else {
+    StringRef Str;
+    if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str))
+      return;
+    if (Str.empty() || !MemoryAttr::ConvertStrToMemoryKind(Str, Kind)) {
+      SmallString<256> ValidStrings;
+      MemoryAttr::generateValidStrings(ValidStrings);
+      S.Diag(Attr.getLoc(), diag::err_hls_memory_arg_invalid)
+          << Attr << ValidStrings;
+      return;
+    }
+  }
+
+  // We are adding a user memory attribute, drop any implicit default.
+  if (auto *MA = D->getAttr<MemoryAttr>())
+    if (MA->isImplicit())
+      D->dropAttr<MemoryAttr>();
+
+  D->addAttr(::new (S.Context) MemoryAttr(
+      Attr.getRange(), S.Context, Kind, Attr.getAttributeSpellingListIndex()));
+}
+
+/// Check for and diagnose attributes incompatible with register.
+/// return true if any incompatible attributes exist.
+static bool checkHLSRegisterAttrCompatibility(Sema &S, Decl *D,
+                                              const ParsedAttr &Attr) {
+  bool InCompat = false;
+  if (auto *MA = D->getAttr<MemoryAttr>())
+    if (!MA->isImplicit() && checkAttrMutualExclusion<MemoryAttr>(S, D, Attr))
+      InCompat = true;
+  if (checkAttrMutualExclusion<DoublePumpAttr>(S, D, Attr))
+    InCompat = true;
+  if (checkAttrMutualExclusion<SinglePumpAttr>(S, D, Attr))
+    InCompat = true;
+  if (checkAttrMutualExclusion<MergeAttr>(S, D, Attr))
+    InCompat = true;
+  if (checkAttrMutualExclusion<BankBitsAttr>(S, D, Attr))
+    InCompat = true;
+  if (checkAttrMutualExclusion<BankWidthAttr>(S, D, Attr))
+    InCompat = true;
+  if (checkAttrMutualExclusion<MaxConcurrencyAttr>(S, D, Attr))
+    InCompat = true;
+  if (auto *NBA = D->getAttr<NumBanksAttr>())
+    if (!NBA->isImplicit() &&
+        checkAttrMutualExclusion<NumBanksAttr>(S, D, Attr))
+      InCompat = true;
+  if (checkAttrMutualExclusion<NumReadPortsAttr>(S, D, Attr))
+    InCompat = true;
+  if (checkAttrMutualExclusion<NumWritePortsAttr>(S, D, Attr))
+    InCompat = true;
+  if (checkAttrMutualExclusion<StaticArrayResetAttr>(S, D, Attr))
+    InCompat = true;
+  if (checkAttrMutualExclusion<InternalMaxBlockRamDepthAttr>(S, D, Attr))
+    InCompat = true;
+  if (checkAttrMutualExclusion<MaxReplicatesAttr>(S, D, Attr))
+    InCompat = true;
+  if (checkAttrMutualExclusion<SimpleDualPortAttr>(S, D, Attr))
+    InCompat = true;
+
+  if (checkAttrMutualExclusion<OptimizeFMaxAttr>(S, D, Attr))
+    InCompat = true;
+
+  if (checkAttrMutualExclusion<OptimizeRamUsageAttr>(S, D, Attr))
+    InCompat = true;
+
+  return InCompat;
+}
+
+/// Handle the __register__ attribute.
+/// This is incompatible with most of the other memory attributes.
+static void handleHLSRegisterAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+
+  checkForDuplicateAttribute<HLSRegisterAttr>(S, D, Attr);
+  if (checkHLSRegisterAttrCompatibility(S, D, Attr))
+    return;
+
+  handleSimpleAttribute<HLSRegisterAttr>(S, D, Attr);
+}
+
+/// Handle the numreadports and numwriteports attributes.
+/// These require a single constant value that must be greater
+/// than zero. They are incompatible with the register and
+/// max_replicate(N) attributes.
+template <typename AttrType>
+static void handleHLSOneConstantValueAttr(Sema &S, Decl *D,
+                                       const ParsedAttr &Attr) {
+  // The attributes NumReadPorts/NumWritePorts will eventually be
+  // replaced by max_replicates attribute. Warn the user.
+  S.Diag(Attr.getLoc(), diag::warn_attribute_deprecated) << Attr;
+  checkForDuplicateAttribute<AttrType>(S, D, Attr);
+  if (checkAttrMutualExclusion<HLSRegisterAttr>(S, D, Attr))
+    return;
+
+  if (checkAttrMutualExclusion<MaxReplicatesAttr>(S, D, Attr))
+    return;
+
+  S.HLSAddOneConstantValueAttr<AttrType>(Attr.getRange(), D,
+                                         Attr.getArgAsExpr(0),
+                                         Attr.getAttributeSpellingListIndex());
+}
+
+/// Handle the bankwidth and numbanks attributes.
+/// These require a single constant power of two greater than zero.
+/// These are incompatible with the register attribute.
+/// The numbanks and bank_bits attributes are related.  If bank_bits exists
+/// when handling numbanks they are checked for consistency.
+template <typename AttrType>
+static void handleHLSOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
+                                                  const ParsedAttr &Attr) {
+  checkForDuplicateAttribute<AttrType>(S, D, Attr);
+  if (checkAttrMutualExclusion<HLSRegisterAttr>(S, D, Attr))
+    return;
+
+  S.HLSAddOneConstantPowerTwoValueAttr<AttrType>(
+      Attr.getRange(), D, Attr.getArgAsExpr(0),
+      Attr.getAttributeSpellingListIndex());
+}
+
+/// Handle the numports_readonly_writeonly attribute.
+/// This requires two constant values greater than zero.
+/// This is incompatible with the register and max_replicate attributes.
+/// This generates a NumReadPortsAttr and a NumWritePortsAttr instead of
+/// its own attribute.
+static void handleNumPortsReadOnlyWriteOnlyAttr(Sema &S, Decl *D,
+                                                const ParsedAttr &Attr) {
+  // This attribute will eventually be replaced by max_replicates attribute.
+  // Warn the user.
+  S.Diag(Attr.getLoc(), diag::warn_attribute_deprecated) << Attr;
+  checkForDuplicateAttribute<NumReadPortsAttr>(S, D, Attr);
+  checkForDuplicateAttribute<NumWritePortsAttr>(S, D, Attr);
+  if (checkAttrMutualExclusion<HLSRegisterAttr>(S, D, Attr))
+    return;
+  if (checkAttrMutualExclusion<MaxReplicatesAttr>(S, D, Attr))
+    return;
+
+  S.HLSAddOneConstantValueAttr<NumReadPortsAttr>(Attr.getRange(), D,
+                                                 Attr.getArgAsExpr(0), 0);
+  S.HLSAddOneConstantValueAttr<NumWritePortsAttr>(Attr.getRange(), D,
+                                                  Attr.getArgAsExpr(1), 0);
+}
+
+/// Handle the static_array_reset attribute.
+/// This attribute requires a single constant value that must be 0 or 1.
+/// It is incompatible with the register attribute.
+static void handleStaticArrayResetAttr(Sema &S, Decl *D,
+                                       const ParsedAttr &Attr) {
+  checkForDuplicateAttribute<StaticArrayResetAttr>(S, D, Attr);
+
+  if (checkAttrMutualExclusion<HLSRegisterAttr>(S, D, Attr))
+    return;
+
+  S.HLSAddOneConstantValueAttr<StaticArrayResetAttr>(
+      Attr.getRange(), D, Attr.getArgAsExpr(0),
+      Attr.getAttributeSpellingListIndex());
+}
+
+static void handleSimpleDualPortAttr(Sema &S, Decl *D,
+                                     const ParsedAttr &Attr) {
+  checkForDuplicateAttribute<SimpleDualPortAttr>(S, D, Attr);
+
+  if (checkAttrMutualExclusion<HLSRegisterAttr>(S, D, Attr))
+    return;
+
+  if (!D->hasAttr<MemoryAttr>())
+    D->addAttr(MemoryAttr::CreateImplicit(S.Context, MemoryAttr::Default));
+
+  D->addAttr(::new (S.Context)
+    SimpleDualPortAttr(Attr.getRange(), S.Context, 0));
+}
+
+static void handleMaxReplicatesAttr(Sema &S, Decl *D,
+                                    const ParsedAttr &Attr) {
+  checkForDuplicateAttribute<MaxReplicatesAttr>(S, D, Attr);
+
+  if (checkAttrMutualExclusion<HLSRegisterAttr>(S, D, Attr))
+    return;
+
+  if (checkAttrMutualExclusion<NumReadPortsAttr>(S, D, Attr))
+    return;
+  if (checkAttrMutualExclusion<NumWritePortsAttr>(S, D, Attr))
+    return;
+  if (checkAttrMutualExclusion<NumPortsReadOnlyWriteOnlyAttr>(S, D, Attr))
+    return;
+
+  S.HLSAddOneConstantValueAttr<MaxReplicatesAttr>(
+      Attr.getRange(), D, Attr.getArgAsExpr(0),
+      Attr.getAttributeSpellingListIndex());
+}
+
+/// Handle the merge attribute.
+/// This requires two string arguments.  The first argument is a name, the
+/// second is a direction.  The direction must be "depth" or "width".
+/// This is incompatible with the register attribute.
+static void handleMergeAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+
+  checkForDuplicateAttribute<MergeAttr>(S, D, Attr);
+
+  if (checkAttrMutualExclusion<HLSRegisterAttr>(S, D, Attr))
+    return;
+
+  SmallVector<StringRef, 2> Results;
+  for (int I = 0; I < 2; I++) {
+    StringRef Str;
+    if (!S.checkStringLiteralArgumentAttr(Attr, I, Str))
+      return;
+
+    if (I == 1 && Str != "depth" && Str != "width") {
+      S.Diag(Attr.getLoc(), diag::err_hls_merge_dir_invalid) << Attr;
+      return;
+    }
+    Results.push_back(Str);
+  }
+
+  if (!D->hasAttr<MemoryAttr>())
+    D->addAttr(MemoryAttr::CreateImplicit(S.Context, MemoryAttr::Default));
+
+  D->addAttr(::new (S.Context)
+                 MergeAttr(Attr.getRange(), S.Context, Results[0], Results[1],
+                           Attr.getAttributeSpellingListIndex()));
+}
+
+/// Handle the bank_bits attribute.
+/// This attribute accepts a list of values greater than zero.
+/// This is incompatible with the register attribute.
+/// The numbanks and bank_bits attributes are related.  If numbanks exists
+/// when handling bank_bits they are checked for consistency.  If numbanks
+/// hasn't been added yet an implicit one is added with the correct value.
+/// If the user later adds a numbanks attribute the implicit one is removed.
+/// The values must be consecutive values (i.e. 3,4,5 or 2,1).
+static void handleBankBitsAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+
+  checkForDuplicateAttribute<BankBitsAttr>(S, D, Attr);
+
+  if (!checkAttributeAtLeastNumArgs(S, Attr, 1))
+    return;
+
+  if (checkAttrMutualExclusion<HLSRegisterAttr>(S, D, Attr))
+    return;
+
+  SmallVector<Expr *, 8> Args;
+  for (unsigned I = 0; I < Attr.getNumArgs(); ++I) {
+    Args.push_back(Attr.getArgAsExpr(I));
+  }
+
+  S.AddBankBitsAttr(Attr.getRange(), D, Args.data(), Args.size(),
+                    Attr.getAttributeSpellingListIndex());
+}
+
+void Sema::AddBankBitsAttr(SourceRange AttrRange, Decl *D, Expr **Exprs,
+                           unsigned Size, unsigned SpellingListIndex) {
+  BankBitsAttr TmpAttr(AttrRange, Context, Exprs, Size, SpellingListIndex);
+  SmallVector<Expr *, 8> Args;
+  SmallVector<int64_t, 8> Values;
+  bool ListIsValueDep = false;
+  for (auto *E : TmpAttr.args()) {
+    llvm::APSInt Value(32, /*IsUnsigned=*/false);
+    Expr::EvalResult Result;
+    ListIsValueDep = ListIsValueDep || E->isValueDependent();
+    if (!E->isValueDependent()) {
+      ExprResult ICE;
+      if (checkRangedIntegralArgument<BankBitsAttr>(E, &TmpAttr, ICE))
+        return;
+      if (E->EvaluateAsInt(Result, Context))
+        Value = Result.Val.getInt();
+      E = ICE.get();
+    }
+    Args.push_back(E);
+    Values.push_back(Value.getExtValue());
+  }
+
+  // Check that the list is consecutive.
+  if (!ListIsValueDep && Values.size() > 1) {
+    bool ListIsAscending = Values[0] < Values[1];
+    for (int I = 0, E = Values.size() - 1; I < E; ++I) {
+      if (Values[I + 1] != Values[I] + (ListIsAscending ? 1 : -1)) {
+        Diag(AttrRange.getBegin(), diag::err_bankbits_non_consecutive)
+            << &TmpAttr;
+        return;
+      }
+    }
+  }
+
+  // Check or add the related numbanks attribute.
+  if (auto *NBA = D->getAttr<NumBanksAttr>()) {
+    Expr *E = NBA->getValue();
+    if (!E->isValueDependent()) {
+      Expr::EvalResult Result;
+      E->EvaluateAsInt(Result, Context);
+      llvm::APSInt Value = Result.Val.getInt();
+      if (Args.size() != Value.ceilLogBase2()) {
+        Diag(AttrRange.getBegin(), diag::err_bankbits_numbanks_conflicting);
+        return;
+      }
+    }
+  } else {
+    llvm::APInt Num(32, (unsigned)(1 << Args.size()));
+    Expr *NBE =
+        IntegerLiteral::Create(Context, Num, Context.IntTy, SourceLocation());
+    D->addAttr(NumBanksAttr::CreateImplicit(Context, NBE));
+  }
+
+  if (!D->hasAttr<MemoryAttr>())
+    D->addAttr(MemoryAttr::CreateImplicit(Context, MemoryAttr::Default));
+
+  D->addAttr(::new (Context) BankBitsAttr(AttrRange, Context, Args.data(),
+                                          Args.size(), SpellingListIndex));
+}
+
+static void setComponentDefaults(Sema &S, Decl *D) {
+  if (!D->hasAttr<ComponentAttr>())
+    D->addAttr(ComponentAttr::CreateImplicit(S.Context));
+  if (!D->hasAttr<ComponentInterfaceAttr>())
+    D->addAttr(ComponentInterfaceAttr::CreateImplicit(
+        S.Context, ComponentInterfaceAttr::Streaming));
+}
+
+static void handleComponentAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+
+  if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/0))
+    return;
+
+  // We are adding a user attribute, drop any implicit default.
+  if (auto *CA = D->getAttr<ComponentAttr>())
+    if (CA->isImplicit())
+      D->dropAttr<ComponentAttr>();
+
+  handleSimpleAttribute<ComponentAttr>(S, D, Attr);
+  setComponentDefaults(S, D);
+}
+
+static void handleStallFreeReturnAttr(Sema &S, Decl *D,
+                                      const ParsedAttr &Attr) {
+
+  if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/0))
+    return;
+
+  handleSimpleAttribute<StallFreeReturnAttr>(S, D, Attr);
+  setComponentDefaults(S, D);
+}
+
+static void handleUseSingleClockAttr(Sema &S, Decl *D,
+                                      const ParsedAttr &Attr) {
+
+  if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/0))
+    return;
+
+  handleSimpleAttribute<UseSingleClockAttr>(S, D, Attr);
+  setComponentDefaults(S, D);
+}
+
+static void handleComponentInterfaceAttr(Sema &S, Decl *D,
+                                         const ParsedAttr &Attr) {
+
+  if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/1))
+    return;
+
+  StringRef Str;
+  if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str))
+    return;
+
+  ComponentInterfaceAttr::ComponentInterfaceType Type;
+  if (!ComponentInterfaceAttr::ConvertStrToComponentInterfaceType(Str, Type)) {
+    SmallString<256> ValidStrings;
+    ComponentInterfaceAttr::generateValidStrings(ValidStrings);
+    S.Diag(D->getLocation(), diag::err_attribute_interface_invalid_type)
+        << Attr << ValidStrings;
+    return;
+  }
+
+  // We are adding a user attribute, drop any implicit default.
+  if (auto *CIA = D->getAttr<ComponentInterfaceAttr>())
+    if (CIA->isImplicit())
+      D->dropAttr<ComponentInterfaceAttr>();
+
+  D->addAttr(::new (S.Context) ComponentInterfaceAttr(
+      Attr.getRange(), S.Context, Type, Attr.getAttributeSpellingListIndex()));
+
+  setComponentDefaults(S, D);
+}
+
+static void handleMaxConcurrencyAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+  if (!S.getLangOpts().HLS &&
+      !S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored) << Attr;
+    return;
+  }
+
+  checkForDuplicateAttribute<MaxConcurrencyAttr>(S, D, Attr);
+  if (isa<VarDecl>(D) && checkAttrMutualExclusion<HLSRegisterAttr>(S, D, Attr))
+    return;
+
+  S.HLSAddOneConstantValueAttr<MaxConcurrencyAttr>(
+      Attr.getRange(), D, Attr.getArgAsExpr(0),
+      Attr.getAttributeSpellingListIndex());
+}
+
+static void handleArgumentInterfaceAttr(Sema & S, Decl * D,
+                                        const ParsedAttr &Attr) {
+  if (!checkAttributeNumArgs(S, Attr, /*Num=*/1))
+    return;
+
+  StringRef Str;
+  if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str))
+    return;
+
+  ArgumentInterfaceAttr::ArgumentInterfaceType Type;
+  if (!ArgumentInterfaceAttr::ConvertStrToArgumentInterfaceType(Str, Type)) {
+    SmallString<256> ValidStrings;
+    ArgumentInterfaceAttr::generateValidStrings(ValidStrings);
+    S.Diag(D->getLocation(), diag::err_attribute_interface_invalid_type)
+        << Attr << ValidStrings;
+    return;
+  }
+  if (Type == ArgumentInterfaceAttr::Slave) {
+    if (checkAttrMutualExclusion<InternalMaxBlockRamDepthAttr>(S, D, Attr))
+      return;
+    if (checkAttrMutualExclusion<OptimizeFMaxAttr>(S, D, Attr))
+      return;
+    if (checkAttrMutualExclusion<OptimizeRamUsageAttr>(S, D, Attr))
+      return;
+  }
+
+  D->addAttr(::new (S.Context) ArgumentInterfaceAttr(
+      Attr.getRange(), S.Context, Type, Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleStableArgumentAttr(Sema &S, Decl *D,
+                                     const ParsedAttr &Attr) {
+  if (!checkAttributeNumArgs(S, Attr, /*Num=*/0))
+    return;
+
+  handleSimpleAttribute<StableArgumentAttr>(S, D, Attr);
+}
+
+static void handleSlaveMemoryArgumentAttr(Sema &S, Decl *D,
+                                          const ParsedAttr &Attr) {
+  if (!checkAttributeNumArgs(S, Attr, /*Num=*/0))
+    return;
+
+  handleSimpleAttribute<SlaveMemoryArgumentAttr>(S, D, Attr);
+}
+
+template <typename AttrType, typename IncompatAttrType1,
+          typename IncompatAttrType2>
+static void handleHLSIIAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+  if (!S.getLangOpts().HLS) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored) << Attr;
+    return;
+  }
+
+  if (checkAttrMutualExclusion<IncompatAttrType1>(S, D, Attr))
+    return;
+  if (checkAttrMutualExclusion<IncompatAttrType2>(S, D, Attr))
+    return;
+
+  const auto *Existing = D->getAttr<HLSForceLoopPipeliningAttr>();
+
+  if (Existing && Existing->getForceLoopPipelining() == "off") {
+    S.Diag(Attr.getLoc(), diag::err_hls_force_loop_pipelining_conflict) << Attr;
+    S.Diag(Existing->getLocation(), diag::note_conflicting_attribute);
+    return;
+  }
+
+  S.HLSAddOneConstantValueAttr<AttrType>(Attr.getRange(), D,
+                                         Attr.getArgAsExpr(0),
+                                         Attr.getAttributeSpellingListIndex());
+}
+
+static void handleHLSMaxInvocationDelayAttr(Sema &S, Decl *D,
+                                            const ParsedAttr &Attr) {
+  if (!S.getLangOpts().HLS) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored) << Attr;
+    return;
+  }
+
+  const auto *Existing = D->getAttr<HLSForceLoopPipeliningAttr>();
+
+  if (Existing && Existing->getForceLoopPipelining() == "off") {
+    S.Diag(Attr.getLoc(), diag::err_hls_force_loop_pipelining_conflict) << Attr;
+    S.Diag(Existing->getLocation(), diag::note_conflicting_attribute);
+    return;
+  }
+
+  S.HLSAddOneConstantValueAttr<HLSMaxInvocationDelayAttr>(
+      Attr.getRange(), D, Attr.getArgAsExpr(0),
+      Attr.getAttributeSpellingListIndex());
+}
+
+static void handleHLSForceLoopPipeliningAttr(Sema &S, Decl *D,
+                                             const ParsedAttr &Attr) {
+  if (!S.getLangOpts().HLS) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored) << Attr;
+    return;
+  }
+
+  StringRef Str;
+  if (Attr.getNumArgs() == 1 &&
+      !S.checkStringLiteralArgumentAttr(Attr, 0, Str)) {
+    return;
+  }
+
+  if (Str == "off") {
+    if (checkAttrMutualExclusion<HLSIIAttr>(S, D, Attr))
+      return;
+    if (checkAttrMutualExclusion<HLSMaxIIAttr>(S, D, Attr))
+      return;
+    if (checkAttrMutualExclusion<HLSMinIIAttr>(S, D, Attr))
+      return;
+    if (checkAttrMutualExclusion<HLSMaxInvocationDelayAttr>(S, D, Attr))
+      return;
+  } else if (Str != "on") {
+    S.Diag(Attr.getLoc(), diag::err_hls_force_loop_pipelining_invalid) << Attr;
+    return;
+  }
+
+  D->addAttr(::new (S.Context) HLSForceLoopPipeliningAttr(
+      Attr.getRange(), S.Context, Str, Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleOpenCLBufferLocationAttr(Sema & S, Decl * D,
+                                           const ParsedAttr &Attr) {
+
+  if (D->isInvalidDecl())
+    return;
+
+  if (!S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
+        << Attr;
+    return;
+  }
+
+  ParmVarDecl *PVD = cast<ParmVarDecl>(D);
+  const QualType QT = PVD->getOriginalType();
+  const Type *TypePtr = QT.getTypePtr();
+  if (!TypePtr->isPointerType()) {
+    S.Diag(Attr.getLoc(), diag::warn_type_attribute_wrong_type)
+        << Attr << 1 << TypePtr->getTypeClassName();
+    return;
+  }
+
+  QualType pointeeType = TypePtr->getPointeeType();
+  if (pointeeType.getAddressSpace() != LangAS::opencl_global) {
+    S.Diag(Attr.getLoc(),
+           diag::warn_opencl_attribute_only_for_global_address_space)
+        << Attr;
+    return;
+  }
+
+  StringRef Str;
+  if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str))
+    return;
+
+  D->addAttr(::new (S.Context) OpenCLBufferLocationAttr(
+      Attr.getRange(), S.Context, Str, Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleOpenCLHostAccessible(Sema &S, Decl *D,
+                                       const ParsedAttr &Attr) {
+  if (D->isInvalidDecl())
+    return;
+
+  QualType Ty = cast<VarDecl>(D)->getType();
+
+  if (!S.getOpenCLOptions().isEnabled("cl_intel_fpga_host_pipe")) {
+    S.Diag(D->getLocation(),
+           diag::err_intel_opencl_attribute_requires_extension)
+        << Attr << "cl_intel_fpga_host_pipe";
+    return;
+  }
+
+  const Type *TypePtr = Ty.getTypePtr();
+  if (!TypePtr->isPipeType()) {
+    S.Diag(Attr.getLoc(), diag::warn_intel_opencl_attribute_wrong_decl_type)
+        << Attr << 47;
+    return;
+  }
+
+  D->addAttr(::new (S.Context) OpenCLHostAccessibleAttr(
+      Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleVecLenHint(Sema &S, Decl *D, const ParsedAttr &Attr) {
+  if (!S.getOpenCLOptions().isEnabled("cl_intel_vec_len_hint")) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
+        << Attr << "cl_intel_vec_len_hint";
+    return;
+  }
+
+  uint32_t VecLen = 0;
+  const Expr *E = Attr.getArgAsExpr(0);
+  if (!checkUInt32Argument(S, Attr, E, VecLen, 0))
+    return;
+
+#define defineRange(...)                                                       \
+  std::vector<uint32_t> SupportedLengths = {__VA_ARGS__};                      \
+  std::string SupportedLengthsStr(#__VA_ARGS__);
+
+  defineRange(0, 1, 4, 8, 16);
+  if (std::find(SupportedLengths.begin(), SupportedLengths.end(), VecLen) ==
+      SupportedLengths.end()) {
+    S.Diag(Attr.getLoc(), diag::err_attribute_argument_is_not_in_range)
+        << SupportedLengthsStr << E->getSourceRange();
+    return;
+  }
+
+  D->addAttr(::new (S.Context)
+                 VecLenHintAttr(Attr.getRange(), S.Context, VecLen,
+                                Attr.getAttributeSpellingListIndex()));
+}
+
+template <typename AttrTy>
+static bool diagnoseMemoryAttrs(Sema &S, Decl *D) {
+  if (const auto *A = D->getAttr<AttrTy>())
+    if (!A->isImplicit()) {
+      S.Diag(A->getLocation(), diag::err_memory_attribute_invalid)
+          << A << (S.getLangOpts().OpenCL ? 0 : 1);
+      return true;
+    }
+  return false;
+}
+
+template <typename AttrTy, typename AttrTy2, typename... AttrTys>
+static inline bool diagnoseMemoryAttrs(Sema &S, Decl *D) {
+  bool Diagnosed = diagnoseMemoryAttrs<AttrTy>(S, D);
+  return diagnoseMemoryAttrs<AttrTy2, AttrTys...>(S, D) || Diagnosed;
+}
+
+static bool IsSlaveMemory(Sema &S, Decl *D) {
+  return S.getLangOpts().HLS && D->hasAttr<OpenCLLocalMemSizeAttr>() &&
+         D->hasAttr<SlaveMemoryArgumentAttr>();
+}
+
+// Handles reqd_work_group_size, work_group_size_hint and max_work_group_size
+// attributes
+#endif // INTEL_CUSTOMIZATION
 template <typename WorkGroupAttr>
 static void handleWorkGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
+#if INTEL_CUSTOMIZATION
+  if (!S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment() &&
+      AL.getKind() == ParsedAttr::AT_MaxWorkGroupSize) {
+    S.Diag(AL.getLoc(), diag::warn_unknown_attribute_ignored)
+        << AL;
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   uint32_t WGSize[3];
   for (unsigned i = 0; i < 3; ++i) {
     const Expr *E = AL.getArgAsExpr(i);
@@ -2890,6 +4162,19 @@ static void handleWorkGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
       return;
     }
   }
+
+#if INTEL_CUSTOMIZATION
+  if (!checkWorkGroupSizeValues(S, D, AL, WGSize))
+    return;
+
+  if (D->hasAttr<AutorunAttr>()) {
+    long long int N = 1ll << 32ll;
+    if (N % WGSize[0] != 0 || N % WGSize[1] != 0 || N % WGSize[2] != 0) {
+      S.Diag(AL.getLoc(), diag::err_opencl_autorun_kernel_wrong_reqd_wg_size);
+      return;
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   WorkGroupAttr *Existing = D->getAttr<WorkGroupAttr>();
   if (Existing && !(Existing->getXDim() == WGSize[0] &&
@@ -2914,12 +4199,12 @@ static void handleSubGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
     return;
   }
 
-  OpenCLIntelReqdSubGroupSizeAttr *Existing =
-      D->getAttr<OpenCLIntelReqdSubGroupSizeAttr>();
+  IntelReqdSubGroupSizeAttr *Existing =
+      D->getAttr<IntelReqdSubGroupSizeAttr>();
   if (Existing && Existing->getSubGroupSize() != SGSize)
     S.Diag(AL.getLoc(), diag::warn_duplicate_attribute) << AL;
 
-  D->addAttr(::new (S.Context) OpenCLIntelReqdSubGroupSizeAttr(
+  D->addAttr(::new (S.Context) IntelReqdSubGroupSizeAttr(
       AL.getRange(), S.Context, SGSize,
       AL.getAttributeSpellingListIndex()));
 }
@@ -3762,6 +5047,64 @@ static void handleAlignedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 
   S.AddAlignedAttr(AL.getRange(), D, E, AL.getAttributeSpellingListIndex(),
                    AL.isPackExpansion());
+}
+
+template <typename AttrType>
+void Sema::IntelFPGAAddOneConstantValueAttr(SourceRange AttrRange, Decl *D,
+                                            Expr *E,
+                                            unsigned SpellingListIndex) {
+  AttrType TmpAttr(AttrRange, Context, E, SpellingListIndex);
+
+  if (!E->isValueDependent()) {
+    ExprResult ICE;
+    if (checkRangedIntegralArgument<AttrType>(E, &TmpAttr, ICE))
+      return;
+    E = ICE.get();
+  }
+
+  if (IntelFPGAMaxPrivateCopiesAttr::classof(&TmpAttr)) {
+    if (!D->hasAttr<IntelFPGAMemoryAttr>())
+      D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
+          Context, IntelFPGAMemoryAttr::Default));
+  }
+
+  D->addAttr(::new (Context)
+                 AttrType(AttrRange, Context, E, SpellingListIndex));
+}
+
+template <typename AttrType>
+void Sema::IntelFPGAAddOneConstantPowerTwoValueAttr(
+    SourceRange AttrRange, Decl *D, Expr *E, unsigned SpellingListIndex) {
+  AttrType TmpAttr(AttrRange, Context, E, SpellingListIndex);
+
+  if (!E->isValueDependent()) {
+    ExprResult ICE;
+    if (checkRangedIntegralArgument<AttrType>(E, &TmpAttr, ICE))
+      return;
+    Expr::EvalResult Result;
+    E->EvaluateAsInt(Result, Context);
+    llvm::APSInt Value = Result.Val.getInt();
+    if (!Value.isPowerOf2()) {
+      Diag(AttrRange.getBegin(), diag::err_attribute_argument_not_power_of_two)
+          << &TmpAttr;
+      return;
+    }
+    E = ICE.get();
+  }
+
+  if (!D->hasAttr<IntelFPGAMemoryAttr>())
+    D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
+        Context, IntelFPGAMemoryAttr::Default));
+
+  // We are adding a user NumBanks, drop any implicit default.
+  if (IntelFPGANumBanksAttr::classof(&TmpAttr)) {
+    if (auto *NBA = D->getAttr<IntelFPGANumBanksAttr>())
+      if (NBA->isImplicit())
+        D->dropAttr<IntelFPGANumBanksAttr>();
+  }
+
+  D->addAttr(::new (Context)
+                 AttrType(AttrRange, Context, E, SpellingListIndex));
 }
 
 void Sema::AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E,
@@ -4924,6 +6267,127 @@ static void handleTypeTagForDatatypeAttr(Sema &S, Decl *D,
                                     AL.getLayoutCompatible(),
                                     AL.getMustBeNull(),
                                     AL.getAttributeSpellingListIndex()));
+}
+
+/// Handle the [[intelfpga::doublepump]] and [[intelfpga::singlepump]] attributes.
+/// One but not both can be specified
+/// Both are incompatible with the __register__ attribute.
+template <typename AttrType, typename IncompatAttrType>
+static void handleIntelFPGAPumpAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+
+  checkForDuplicateAttribute<AttrType>(S, D, Attr);
+  if (checkAttrMutualExclusion<IncompatAttrType>(S, D, Attr))
+    return;
+
+  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
+    return;
+
+  if (!D->hasAttr<IntelFPGAMemoryAttr>())
+    D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
+        S.Context, IntelFPGAMemoryAttr::Default));
+
+  handleSimpleAttribute<AttrType>(S, D, Attr);
+}
+
+/// Handle the [[intelfpga::memory]] attribute.
+/// This is incompatible with the [[intelfpga::register]] attribute.
+static void handleIntelFPGAMemoryAttr(Sema &S, Decl *D,
+                                      const ParsedAttr &Attr) {
+
+  checkForDuplicateAttribute<IntelFPGAMemoryAttr>(S, D, Attr);
+  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
+    return;
+
+  IntelFPGAMemoryAttr::MemoryKind Kind;
+  if (Attr.getNumArgs() == 0)
+    Kind = IntelFPGAMemoryAttr::Default;
+  else {
+    StringRef Str;
+    if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str))
+      return;
+    if (Str.empty() ||
+        !IntelFPGAMemoryAttr::ConvertStrToMemoryKind(Str, Kind)) {
+      SmallString<256> ValidStrings;
+      IntelFPGAMemoryAttr::generateValidStrings(ValidStrings);
+      S.Diag(Attr.getLoc(), diag::err_intel_fpga_memory_arg_invalid)
+          << Attr << ValidStrings;
+      return;
+    }
+  }
+
+  // We are adding a user memory attribute, drop any implicit default.
+  if (auto *MA = D->getAttr<IntelFPGAMemoryAttr>())
+    if (MA->isImplicit())
+      D->dropAttr<IntelFPGAMemoryAttr>();
+
+  D->addAttr(::new (S.Context) IntelFPGAMemoryAttr(
+      Attr.getRange(), S.Context, Kind, Attr.getAttributeSpellingListIndex()));
+}
+
+/// Check for and diagnose attributes incompatible with register.
+/// return true if any incompatible attributes exist.
+static bool checkIntelFPGARegisterAttrCompatibility(Sema &S, Decl *D,
+                                                    const ParsedAttr &Attr) {
+  bool InCompat = false;
+  if (auto *MA = D->getAttr<IntelFPGAMemoryAttr>())
+    if (!MA->isImplicit() &&
+        checkAttrMutualExclusion<IntelFPGAMemoryAttr>(S, D, Attr))
+      InCompat = true;
+  if (checkAttrMutualExclusion<IntelFPGADoublePumpAttr>(S, D, Attr))
+    InCompat = true;
+  if (checkAttrMutualExclusion<IntelFPGASinglePumpAttr>(S, D, Attr))
+    InCompat = true;
+  if (checkAttrMutualExclusion<IntelFPGABankWidthAttr>(S, D, Attr))
+    InCompat = true;
+  if (checkAttrMutualExclusion<IntelFPGAMaxPrivateCopiesAttr>(S, D, Attr))
+    InCompat = true;
+  if (auto *NBA = D->getAttr<IntelFPGANumBanksAttr>())
+    if (!NBA->isImplicit() &&
+        checkAttrMutualExclusion<IntelFPGANumBanksAttr>(S, D, Attr))
+      InCompat = true;
+
+  return InCompat;
+}
+
+/// Handle the [[intelfpga::register]] attribute.
+/// This is incompatible with most of the other memory attributes.
+static void handleIntelFPGARegisterAttr(Sema &S, Decl *D,
+                                        const ParsedAttr &Attr) {
+
+  checkForDuplicateAttribute<IntelFPGARegisterAttr>(S, D, Attr);
+  if (checkIntelFPGARegisterAttrCompatibility(S, D, Attr))
+    return;
+
+  handleSimpleAttribute<IntelFPGARegisterAttr>(S, D, Attr);
+}
+
+/// Handle the [[intelfpga::bankwidth]] and [[intelfpga::numbanks]] attributes.
+/// These require a single constant power of two greater than zero.
+/// These are incompatible with the register attribute.
+/// The numbanks and bank_bits attributes are related.  If bank_bits exists
+/// when handling numbanks they are checked for consistency.
+template <typename AttrType>
+static void
+handleIntelFPGAOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
+                                            const ParsedAttr &Attr) {
+  checkForDuplicateAttribute<AttrType>(S, D, Attr);
+  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
+    return;
+
+  S.IntelFPGAAddOneConstantPowerTwoValueAttr<AttrType>(
+      Attr.getRange(), D, Attr.getArgAsExpr(0),
+      Attr.getAttributeSpellingListIndex());
+}
+
+static void handleIntelFPGAMaxPrivateCopiesAttr(Sema &S, Decl *D,
+                                                const ParsedAttr &Attr) {
+  checkForDuplicateAttribute<IntelFPGAMaxPrivateCopiesAttr>(S, D, Attr);
+  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
+    return;
+
+  S.IntelFPGAAddOneConstantValueAttr<IntelFPGAMaxPrivateCopiesAttr>(
+      Attr.getRange(), D, Attr.getArgAsExpr(0),
+      Attr.getAttributeSpellingListIndex());
 }
 
 static void handleXRayLogArgsAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
@@ -6577,7 +8041,6 @@ static void handleMSAllocatorAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 //===----------------------------------------------------------------------===//
 // Top Level Sema Entry Points
 //===----------------------------------------------------------------------===//
-
 /// ProcessDeclAttribute - Apply the specific attribute to the specified decl if
 /// the attribute applies to decls.  If the attribute is a type attribute, just
 /// silently ignore it if a GNU attribute.
@@ -6767,6 +8230,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_Flatten:
     handleSimpleAttribute<FlattenAttr>(S, D, AL);
     break;
+  case ParsedAttr::AT_SYCLKernel:
+    handleSimpleAttribute<SYCLKernelAttr>(S, D, AL);
+    break;
   case ParsedAttr::AT_Format:
     handleFormatAttr(S, D, AL);
     break;
@@ -6950,7 +8416,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_ReqdWorkGroupSize:
     handleWorkGroupSize<ReqdWorkGroupSizeAttr>(S, D, AL);
     break;
-  case ParsedAttr::AT_OpenCLIntelReqdSubGroupSize:
+  case ParsedAttr::AT_IntelReqdSubGroupSize:
     handleSubGroupSize(S, D, AL);
     break;
   case ParsedAttr::AT_VecTypeHint:
@@ -7283,6 +8749,179 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_TypeTagForDatatype:
     handleTypeTagForDatatypeAttr(S, D, AL);
     break;
+
+  // Intel FPGA specific attributes
+  case ParsedAttr::AT_IntelFPGADoublePump:
+    handleIntelFPGAPumpAttr<IntelFPGADoublePumpAttr, IntelFPGASinglePumpAttr>(
+        S, D, AL);
+    break;
+  case ParsedAttr::AT_IntelFPGASinglePump:
+    handleIntelFPGAPumpAttr<IntelFPGASinglePumpAttr, IntelFPGADoublePumpAttr>(
+        S, D, AL);
+    break;
+  case ParsedAttr::AT_IntelFPGAMemory:
+    handleIntelFPGAMemoryAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_IntelFPGARegister:
+    handleIntelFPGARegisterAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_IntelFPGABankWidth:
+    handleIntelFPGAOneConstantPowerTwoValueAttr<IntelFPGABankWidthAttr>(S, D, AL);
+    break;
+  case ParsedAttr::AT_IntelFPGANumBanks:
+    handleIntelFPGAOneConstantPowerTwoValueAttr<IntelFPGANumBanksAttr>(S, D, AL);
+    break;
+  case ParsedAttr::AT_IntelFPGAMaxPrivateCopies:
+    handleIntelFPGAMaxPrivateCopiesAttr(S, D, AL);
+    break;
+#if INTEL_CUSTOMIZATION
+  case ParsedAttr::AT_VecLenHint:
+    handleVecLenHint(S, D, AL);
+    break;
+  // Intel FPGA OpenCL specific attributes
+  case ParsedAttr::AT_MaxWorkGroupSize:
+    handleWorkGroupSize<MaxWorkGroupSizeAttr>(S, D, AL);
+    break;
+  case ParsedAttr::AT_NumComputeUnits:
+    handleNumComputeUnitsAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_NumSimdWorkItems:
+    handleNumSimdWorkItemsAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_OpenCLBlocking:
+    handleOpenCLBlockingAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_OpenCLDepth:
+    handleOpenCLDepthAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_OpenCLIO:
+    handleOpenCLIOAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_OpenCLLocalMemSize:
+    handleOpenCLLocalMemSizeAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_OpenCLBufferLocation:
+    handleOpenCLBufferLocationAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_MaxGlobalWorkDim:
+    handleMaxGlobalWorkDimAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_Autorun:
+    handleAutorunAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_UsesGlobalWorkOffset:
+    handleUsesGlobalWorkOffsetAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_OpenCLHostAccessible:
+    handleOpenCLHostAccessible(S, D, AL);
+    break;
+  case ParsedAttr::AT_StallFree:
+    handleStallFreeAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_SchedulerTargetFmaxMHz:
+    handleSchedulerTargetFmaxMHzAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_InternalMaxBlockRamDepth:
+    handleHLSInternalMaxBlockRamDepthAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_Cluster:
+    handleClusterAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_StallEnable:
+    handleStallEnableAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_StallLatency:
+    handleStallLatencyAttr(S, D, AL);
+    break;
+  // Intel HLS specific attributes
+  case ParsedAttr::AT_OptimizeFMax:
+    handleHLSOptimizeFMaxAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_OptimizeRamUsage:
+    handleOptimizeRamUsageAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_SinglePump:
+    handlePumpAttr<SinglePumpAttr, DoublePumpAttr>(S, D, AL);
+    break;
+  case ParsedAttr::AT_DoublePump:
+    handlePumpAttr<DoublePumpAttr, SinglePumpAttr>(S, D, AL);
+    break;
+  case ParsedAttr::AT_Memory:
+    handleMemoryAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_HLSRegister:
+    handleHLSRegisterAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_BankWidth:
+    handleHLSOneConstantPowerTwoValueAttr<BankWidthAttr>(S, D, AL);
+    break;
+  case ParsedAttr::AT_NumBanks:
+    handleHLSOneConstantPowerTwoValueAttr<NumBanksAttr>(S, D, AL);
+    break;
+  case ParsedAttr::AT_NumReadPorts:
+    handleHLSOneConstantValueAttr<NumReadPortsAttr>(S, D, AL);
+    break;
+  case ParsedAttr::AT_NumWritePorts:
+    handleHLSOneConstantValueAttr<NumWritePortsAttr>(S, D, AL);
+    break;
+  case ParsedAttr::AT_NumPortsReadOnlyWriteOnly:
+    handleNumPortsReadOnlyWriteOnlyAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_MaxReplicates:
+    handleMaxReplicatesAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_SimpleDualPort:
+    handleSimpleDualPortAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_Merge:
+    handleMergeAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_BankBits:
+    handleBankBitsAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_StaticArrayReset:
+    handleStaticArrayResetAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_Component:
+    handleComponentAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_StallFreeReturn:
+    handleStallFreeReturnAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_UseSingleClock:
+    handleUseSingleClockAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_ComponentInterface:
+    handleComponentInterfaceAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_MaxConcurrency:
+    handleMaxConcurrencyAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_ArgumentInterface:
+    handleArgumentInterfaceAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_StableArgument:
+    handleStableArgumentAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_SlaveMemoryArgument:
+    handleSlaveMemoryArgumentAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_HLSII:
+    handleHLSIIAttr<HLSIIAttr, HLSMinIIAttr, HLSMaxIIAttr>(S, D, AL);
+    break;
+  case ParsedAttr::AT_HLSMinII:
+    handleHLSIIAttr<HLSMinIIAttr, HLSIIAttr, HLSMaxIIAttr>(S, D, AL);
+    break;
+  case ParsedAttr::AT_HLSMaxII:
+    handleHLSIIAttr<HLSMaxIIAttr, HLSIIAttr, HLSMinIIAttr>(S, D, AL);
+    break;
+  case ParsedAttr::AT_HLSForceLoopPipelining:
+    handleHLSForceLoopPipeliningAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_HLSMaxInvocationDelay:
+    handleHLSMaxInvocationDelayAttr(S, D, AL);
+    break;
+#endif // INTEL_CUSTOMIZATION
   case ParsedAttr::AT_AnyX86NoCallerSavedRegisters:
     handleSimpleAttribute<AnyX86NoCallerSavedRegistersAttr>(S, D, AL);
     break;
@@ -7364,9 +9003,44 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
     } else if (const auto *A = D->getAttr<VecTypeHintAttr>()) {
       Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
       D->setInvalidDecl();
-    } else if (const auto *A = D->getAttr<OpenCLIntelReqdSubGroupSizeAttr>()) {
+#if INTEL_CUSTOMIZATION
+    } else if (const auto *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
       Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
       D->setInvalidDecl();
+    } else if (const auto *A = D->getAttr<NumSimdWorkItemsAttr>()) {
+      Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
+      D->setInvalidDecl();
+    } else if (const auto *A = D->getAttr<NumComputeUnitsAttr>()) {
+      Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
+      D->setInvalidDecl();
+    } else if (const auto *A = D->getAttr<MaxGlobalWorkDimAttr>()) {
+      Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
+      D->setInvalidDecl();
+    } else if (const auto *A = D->getAttr<MaxWorkGroupSizeAttr>()) {
+      Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
+      D->setInvalidDecl();
+    } else if (const auto *A = D->getAttr<AutorunAttr>()) {
+      Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
+      D->setInvalidDecl();
+    } else if (const auto *A = D->getAttr<UsesGlobalWorkOffsetAttr>()) {
+      Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
+      D->setInvalidDecl();
+    } else if (Attr *A = D->getAttr<StallFreeAttr>()) {
+      if (!getLangOpts().HLS) {
+        Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
+        D->setInvalidDecl();
+      }
+    } else if (Attr *A = D->getAttr<SchedulerTargetFmaxMHzAttr>()) {
+      if (!getLangOpts().HLS) {
+        Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
+        D->setInvalidDecl();
+      }
+#endif // INTEL_CUSTOMIZATION
+    } else if (const auto *A = D->getAttr<IntelReqdSubGroupSizeAttr>()) {
+      if (!getLangOpts().SYCLIsDevice) {
+        Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
+        D->setInvalidDecl();
+      }
     } else if (!D->hasAttr<CUDAGlobalAttr>()) {
       if (const auto *A = D->getAttr<AMDGPUFlatWorkGroupSizeAttr>()) {
         Diag(D->getLocation(), diag::err_attribute_wrong_decl_type)
@@ -7387,6 +9061,38 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
       }
     }
   }
+#if INTEL_CUSTOMIZATION
+  else {
+    if (D->hasAttr<AutorunAttr>() && !D->hasAttr<MaxGlobalWorkDimAttr>() &&
+        !D->hasAttr<ReqdWorkGroupSizeAttr>()) {
+      Attr *A = D->getAttr<AutorunAttr>();
+      Diag(A->getLocation(),
+          diag::err_opencl_attribute_requires_another_to_be_specified)
+          << A << "'reqd_work_group_size' or 'max_global_work_dim' attribute";
+      D->setInvalidDecl();
+    }
+  }
+  if (const auto *SLA = D->getAttr<StallLatencyAttr>()) {
+    if (getLangOpts().HLS && !D->hasAttr<ComponentAttr>()) {
+      Diag(D->getLocation(), diag::err_component_func_attr) << SLA;
+      D->setInvalidDecl();
+    } else if (Context.getTargetInfo().getTriple().isINTELFPGAEnvironment() &&
+               !D->hasAttr<OpenCLKernelAttr>()) {
+      Diag(D->getLocation(), diag::err_opencl_kernel_attr) << SLA;
+      D->setInvalidDecl();
+    }
+  }
+  if ((getLangOpts().HLS || getLangOpts().OpenCL) &&
+      D->getKind() == Decl::ParmVar && !IsSlaveMemory(*this, D)) {
+    // Check that memory attributes are only added to slave memory.
+    if (diagnoseMemoryAttrs<MemoryAttr, NumBanksAttr, BankWidthAttr,
+                            SinglePumpAttr, DoublePumpAttr, BankBitsAttr,
+                            NumReadPortsAttr, NumWritePortsAttr,
+                            InternalMaxBlockRamDepthAttr, OptimizeFMaxAttr,
+                            OptimizeRamUsageAttr>(*this, D))
+      D->setInvalidDecl();
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Do this check after processing D's attributes because the attribute
   // objc_method_family can change whether the given method is in the init
@@ -7562,7 +9268,7 @@ void Sema::ProcessDeclAttributes(Scope *S, Decl *D, const Declarator &PD) {
   //   int *__attr__(x)** D;
   // when X is a decl attribute.
   for (unsigned i = 0, e = PD.getNumTypeObjects(); i != e; ++i)
-    ProcessDeclAttributeList(S, D, PD.getTypeObject(i).getAttrs(),
+     ProcessDeclAttributeList(S, D, PD.getTypeObject(i).getAttrs(),
                              /*IncludeCXX11Attributes=*/false);
 
   // Finally, apply any attributes on the decl itself.

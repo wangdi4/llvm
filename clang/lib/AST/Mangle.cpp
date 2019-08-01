@@ -85,6 +85,10 @@ static CCMangling getCallingConvMangling(const ASTContext &Context,
     return CCM_Other;
   case CC_X86FastCall:
     return CCM_Fast;
+#if INTEL_CUSTOMIZATION
+  case CC_X86RegCall:
+    return Context.getLangOpts().IntelCompat ? CCM_RegCall : CCM_Other;
+#endif // INTEL_CUSTOMIZATION
   case CC_X86StdCall:
     return CCM_Std;
   case CC_X86VectorCall:

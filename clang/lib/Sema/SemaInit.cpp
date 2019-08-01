@@ -1095,7 +1095,12 @@ void InitListChecker::CheckExplicitInitList(const InitializedEntity &Entity,
   if (Index < IList->getNumInits()) {
     // We have leftover initializers
     if (VerifyOnly) {
-      if (SemaRef.getLangOpts().CPlusPlus ||
+#if INTEL_CUSTOMIZATION
+      // CQ#376357: Allow excess initializers in permissive mode.
+      if ((SemaRef.getLangOpts().CPlusPlus &&
+          !(SemaRef.getLangOpts().IntelCompat &&
+            SemaRef.getLangOpts().GnuPermissive)) ||
+#endif // INTEL_CUSTOMIZATION
           (SemaRef.getLangOpts().OpenCL &&
            IList->getType()->isVectorType())) {
         hadError = true;
@@ -1103,7 +1108,7 @@ void InitListChecker::CheckExplicitInitList(const InitializedEntity &Entity,
       return;
     }
 
-    if (StructuredIndex == 1 &&
+    if (StructuredIndex == 1 &&  StructuredList->getNumInits() > 0 && // INTEL cq371131
         IsStringInit(StructuredList->getInit(0), T, SemaRef.Context) ==
             SIF_None) {
       unsigned DK = diag::ext_excess_initializers_in_char_array_initializer;
@@ -1126,7 +1131,12 @@ void InitListChecker::CheckExplicitInitList(const InitializedEntity &Entity,
         4;
 
       unsigned DK = diag::ext_excess_initializers;
-      if (SemaRef.getLangOpts().CPlusPlus) {
+#if INTEL_CUSTOMIZATION
+      // CQ#376357: Allow excess initializers in permissive mode.
+      if (SemaRef.getLangOpts().CPlusPlus &&
+          !(SemaRef.getLangOpts().IntelCompat &&
+            SemaRef.getLangOpts().GnuPermissive)) {
+#endif // INTEL_CUSTOMIZATION
         DK = diag::err_excess_initializers;
         hadError = true;
       }
@@ -5325,9 +5335,9 @@ static bool TryOCLSamplerInitialization(Sema &S,
                                         InitializationSequence &Sequence,
                                         QualType DestType,
                                         Expr *Initializer) {
-  if (!S.getLangOpts().OpenCL || !DestType->isSamplerT() ||
+  if (!DestType->isSamplerT() ||
       (!Initializer->isIntegerConstantExpr(S.Context) &&
-      !Initializer->getType()->isSamplerT()))
+       !Initializer->getType()->isSamplerT()))
     return false;
 
   Sequence.AddOCLSamplerInitStep(DestType);
@@ -5386,10 +5396,11 @@ InitializationSequence::InitializationSequence(Sema &S,
                                                const InitializationKind &Kind,
                                                MultiExprArg Args,
                                                bool TopLevelOfInitList,
-                                               bool TreatUnavailableAsInvalid)
+                                               bool TreatUnavailableAsInvalid, // INTEL
+                                               bool AllowGnuPermissive) // INTEL
     : FailedCandidateSet(Kind.getLocation(), OverloadCandidateSet::CSK_Normal) {
   InitializeFrom(S, Entity, Kind, Args, TopLevelOfInitList,
-                 TreatUnavailableAsInvalid);
+                 TreatUnavailableAsInvalid, AllowGnuPermissive); // INTEL
 }
 
 /// Tries to get a FunctionDecl out of `E`. If it succeeds and we can take the
@@ -5444,7 +5455,8 @@ void InitializationSequence::InitializeFrom(Sema &S,
                                             const InitializationKind &Kind,
                                             MultiExprArg Args,
                                             bool TopLevelOfInitList,
-                                            bool TreatUnavailableAsInvalid) {
+                                            bool TreatUnavailableAsInvalid, // INTEL
+                                            bool AllowGnuPermissive) { // INTEL
   ASTContext &Context = S.Context;
 
   // Eliminate non-overload placeholder types in the arguments.  We
@@ -5640,6 +5652,9 @@ void InitializationSequence::InitializeFrom(Sema &S,
   bool allowObjCWritebackConversion = S.getLangOpts().ObjCAutoRefCount &&
          Entity.isParameterKind();
 
+  if (TryOCLSamplerInitialization(S, *this, DestType, Initializer))
+    return;
+
   // We're at the end of the line for C: it's either a write-back conversion
   // or it's a C assignment. There's no need to check anything else.
   if (!S.getLangOpts().CPlusPlus) {
@@ -5648,9 +5663,6 @@ void InitializationSequence::InitializeFrom(Sema &S,
         tryObjCWritebackConversion(S, *this, Entity, Initializer)) {
       return;
     }
-
-    if (TryOCLSamplerInitialization(S, *this, DestType, Initializer))
-      return;
 
     if (TryOCLZeroOpaqueTypeInitialization(S, *this, DestType, Initializer))
       return;
@@ -5733,7 +5745,7 @@ void InitializationSequence::InitializeFrom(Sema &S,
                               /*AllowExplicitConversions*/ false,
                               /*InOverloadResolution*/ false,
                               /*CStyle=*/Kind.isCStyleOrFunctionalCast(),
-                              allowObjCWritebackConversion);
+                              allowObjCWritebackConversion, AllowGnuPermissive); // INTEL
 
   if (ICS.isStandard() &&
       ICS.Standard.Second == ICK_Writeback_Conversion) {
@@ -8766,6 +8778,7 @@ bool InitializationSequence::Diagnose(Sema &S,
            diag::note_explicit_ctor_deduction_guide_here) << false;
     break;
   }
+
   }
 
   PrintInitLocationNote(S, Entity);
@@ -8928,6 +8941,7 @@ void InitializationSequence::dump(raw_ostream &OS) const {
     case FK_ExplicitConstructor:
       OS << "list copy initialization chose explicit constructor";
       break;
+
     }
     OS << '\n';
     return;
@@ -9108,6 +9122,12 @@ void InitializationSequence::dump() const {
 }
 
 static bool NarrowingErrs(const LangOptions &L) {
+#if INTEL_CUSTOMIZATION
+  // Intel compiler never issues any errors.
+  // Follow this in IntelCompat mode. CQ#366839.
+  if (L.IntelCompat)
+    return false;
+#endif // INTEL_CUSTOMIZATION
   return L.CPlusPlus11 &&
          (!L.MicrosoftExt || L.isCompatibleWithMSVC(LangOptions::MSVC2015));
 }
@@ -9127,6 +9147,7 @@ static void DiagnoseNarrowingInInitList(Sema &S,
     break;
   case ImplicitConversionSequence::AmbiguousConversion:
   case ImplicitConversionSequence::EllipsisConversion:
+  case ImplicitConversionSequence::PermissiveConversion: // INTEL
   case ImplicitConversionSequence::BadConversion:
     return;
   }

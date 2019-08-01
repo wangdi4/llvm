@@ -158,6 +158,9 @@ struct Configuration {
   bool HasDynSymTab;
   bool IgnoreDataAddressEquality;
   bool IgnoreFunctionAddressEquality;
+# if INTEL_CUSTOMIZATION
+  bool IntelAdvancedOptim = false;
+#endif // INTEL_CUSTOMIZATION
   bool LTOCSProfileGenerate;
   bool LTODebugPassManager;
   bool LTONewPassManager;

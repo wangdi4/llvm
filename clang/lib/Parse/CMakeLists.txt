@@ -20,6 +20,9 @@ add_clang_library(clangParse
   ParseTemplate.cpp
   ParseTentative.cpp
   Parser.cpp
+# INTEL_CUSTOMIZATION
+  intel/ParseIntelPragma.cpp
+# end INTEL_CUSTOMIZATION
 
   LINK_LIBS
   clangAST

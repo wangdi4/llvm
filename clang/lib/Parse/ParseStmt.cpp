@@ -20,6 +20,7 @@
 #include "clang/Sema/DeclSpec.h"
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/TypoCorrection.h"
+#include "clang/AST/StmtCXX.h" // INTEL
 using namespace clang;
 
 //===----------------------------------------------------------------------===//
@@ -41,6 +42,7 @@ StmtResult Parser::ParseStatement(SourceLocation *TrailingElseLoc,
 
   return Res;
 }
+
 
 /// ParseStatementOrDeclaration - Read 'statement' or 'declaration'.
 ///       StatementOrDeclaration:
@@ -100,7 +102,8 @@ Parser::ParseStatementOrDeclaration(StmtVector &Stmts,
 
   ParsedAttributesWithRange Attrs(AttrFactory);
   MaybeParseCXX11Attributes(Attrs, nullptr, /*MightBeObjCMessageSend*/ true);
-  if (!MaybeParseOpenCLUnrollHintAttribute(Attrs))
+  if (!MaybeParseOpenCLUnrollHintAttribute(Attrs) ||
+      !MaybeParseIntelFPGALoopAttributes(Attrs))
     return StmtError();
 
   StmtResult Res = ParseStatementOrDeclarationAfterAttributes(
@@ -182,7 +185,9 @@ Retry:
 
     // Look up the identifier, and typo-correct it to a keyword if it's not
     // found.
-    if (Next.isNot(tok::coloncolon)) {
+    if (Next.isNot(tok::coloncolon) &&                               // INTEL
+        (!(getLangOpts().MSVCCompat || getLangOpts().IntelCompat) || // INTEL
+         Next.isNot(tok::less))) {                                   // INTEL
       // Try to limit which sets of keywords should be included in typo
       // correction based on what the next token is.
       StatementFilterCCC CCC(Next);
@@ -294,7 +299,6 @@ Retry:
   case tok::kw___try:
     ProhibitAttributes(Attrs); // TODO: is it correct?
     return ParseSEHTryBlock();
-
   case tok::kw___leave:
     Res = ParseSEHLeaveStatement();
     SemiError = "__leave";
@@ -361,6 +365,16 @@ Retry:
     ProhibitAttributes(Attrs);
     return HandlePragmaCaptured();
 
+#if INTEL_CUSTOMIZATION
+  case tok::annot_pragma_inline:
+    ProhibitAttributes(Attrs);
+    return ParsePragmaInline(Stmts, StmtCtx, TrailingElseLoc, Attrs);
+
+  case tok::annot_pragma_blockloop:
+    ProhibitAttributes(Attrs);
+    return ParsePragmaBlockLoop(Stmts, StmtCtx, TrailingElseLoc, Attrs);
+#endif // INTEL_CUSTOMIZATION
+
   case tok::annot_pragma_openmp:
     ProhibitAttributes(Attrs);
     return ParseOpenMPDeclarativeOrExecutableDirective(StmtCtx);
@@ -412,7 +426,6 @@ StmtResult Parser::ParseExprStatement(ParsedStmtContext StmtCtx) {
   Token OldToken = Tok;
 
   ExprStatementTokLoc = Tok.getLocation();
-
   // expression[opt] ';'
   ExprResult Expr(ParseExpression());
   if (Expr.isInvalid()) {
@@ -624,6 +637,13 @@ StmtResult Parser::ParseLabeledStatement(ParsedAttributesWithRange &attrs,
       Diag(Tok, diag::err_expected_after) << "__attribute__" << tok::semi;
     }
   }
+#if INTEL_CUSTOMIZATION
+  // CQ#370084: allow label without statement just before '}'.
+  if (getLangOpts().IntelCompat && Tok.is(tok::r_brace)) {
+    Diag(ColonLoc, diag::warn_expected_statement);
+    SubStmt = Actions.ActOnNullStmt(ColonLoc);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // If we've not parsed a statement yet, parse one now.
   if (!SubStmt.isInvalid() && !SubStmt.isUsable())
@@ -767,6 +787,14 @@ StmtResult Parser::ParseCaseStatement(ParsedStmtContext StmtCtx,
 
   if (Tok.isNot(tok::r_brace)) {
     SubStmt = ParseStatement(/*TrailingElseLoc=*/nullptr, StmtCtx);
+#if INTEL_CUSTOMIZATION
+  } else if (getLangOpts().IntelCompat && ColonLoc.isValid()) {
+    // CQ#370084: allow label without statement just before '}'.
+    SourceLocation AfterColonLoc = PP.getLocForEndOfToken(ColonLoc);
+    Diag(AfterColonLoc, diag::warn_label_end_of_compound_statement)
+        << FixItHint::CreateInsertion(AfterColonLoc, " ;");
+    SubStmt = Actions.ActOnNullStmt(ColonLoc);
+#endif // INTEL_CUSTOMIZATION
   } else {
     // Nicely diagnose the common error "switch (X) { case 4: }", which is
     // not valid.  If ColonLoc doesn't point to a valid text location, there was
@@ -828,6 +856,13 @@ StmtResult Parser::ParseDefaultStatement(ParsedStmtContext StmtCtx) {
     // Diagnose the common error "switch (X) {... default: }", which is
     // not valid.
     SourceLocation AfterColonLoc = PP.getLocForEndOfToken(ColonLoc);
+#if INTEL_CUSTOMIZATION
+    // CQ#370084: allow label without statement just before '}'.
+    if (getLangOpts().IntelCompat)
+      Diag(AfterColonLoc, diag::warn_label_end_of_compound_statement)
+        << FixItHint::CreateInsertion(AfterColonLoc, " ;");
+    else
+#endif // INTEL_CUSTOMIZATION
     Diag(AfterColonLoc, diag::err_label_end_of_compound_statement)
       << FixItHint::CreateInsertion(AfterColonLoc, " ;");
     SubStmt = true;
@@ -1216,13 +1251,13 @@ StmtResult Parser::ParseIfStatement(SourceLocation *TrailingElseLoc) {
   Sema::ConditionResult Cond;
   if (ParseParenExprOrCondition(&InitStmt, Cond, IfLoc,
                                 IsConstexpr ? Sema::ConditionKind::ConstexprIf
-                                            : Sema::ConditionKind::Boolean))
+                                            : Sema::ConditionKind::Boolean)) {
     return StmtError();
+  }
 
   llvm::Optional<bool> ConstexprCondition;
   if (IsConstexpr)
     ConstexprCondition = Cond.getKnownValue();
-
   // C99 6.8.4p3 - In C99, the body of the if statement is a scope, even if
   // there is no compound stmt.  C90 does not have this clause.  We only do this
   // if the body isn't a compound statement to avoid push/pop in common cases.
@@ -1621,7 +1656,11 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
   // as those declared in the condition.
   //
   unsigned ScopeFlags = 0;
-  if (C99orCXXorObjC)
+  if (C99orCXXorObjC
+#if INTEL_CUSTOMIZATION
+      && getLangOpts().Zc_forScope
+#endif  // INTEL_CUSTOMIZATION
+      )
     ScopeFlags = Scope::DeclScope | Scope::ControlScope;
 
   ParseScope ForScope(this, ScopeFlags);
@@ -2035,9 +2074,10 @@ StmtResult Parser::ParsePragmaLoopHint(StmtVector &Stmts,
       continue;
 
     ArgsUnion ArgHints[] = {Hint.PragmaNameLoc, Hint.OptionLoc, Hint.StateLoc,
-                            ArgsUnion(Hint.ValueExpr)};
+                            ArgsUnion(Hint.ValueExpr),      // INTEL
+                            ArgsUnion(Hint.ArrayExpr)};     // INTEL
     TempAttrs.addNew(Hint.PragmaNameLoc->Ident, Hint.Range, nullptr,
-                     Hint.PragmaNameLoc->Loc, ArgHints, 4,
+                     Hint.PragmaNameLoc->Loc, ArgHints, 5,  // INTEL
                      ParsedAttr::AS_Pragma);
   }
 
@@ -2370,6 +2410,24 @@ bool Parser::ParseOpenCLUnrollHintAttribute(ParsedAttributes &Attrs) {
 
   if (!(Tok.is(tok::kw_for) || Tok.is(tok::kw_while) || Tok.is(tok::kw_do))) {
     Diag(Tok, diag::err_opencl_unroll_hint_on_non_loop);
+    return false;
+  }
+  return true;
+}
+
+bool Parser::ParseIntelFPGALoopAttributes(ParsedAttributes &Attrs) {
+  MaybeParseCXX11Attributes(Attrs);
+
+  if (Attrs.empty())
+    return true;
+
+  if (Attrs.begin()->getKind() != ParsedAttr::AT_SYCLIntelFPGAIVDep &&
+      Attrs.begin()->getKind() != ParsedAttr::AT_SYCLIntelFPGAII &&
+      Attrs.begin()->getKind() != ParsedAttr::AT_SYCLIntelFPGAMaxConcurrency)
+    return true;
+
+  if (!(Tok.is(tok::kw_for) || Tok.is(tok::kw_while) || Tok.is(tok::kw_do))) {
+    Diag(Tok, diag::err_intel_fpga_loop_attrs_on_non_loop);
     return false;
   }
   return true;

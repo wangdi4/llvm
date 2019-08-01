@@ -214,6 +214,16 @@ def fno_math_builtin : Flag<["-"], "fno-math-builtin">,
   HelpText<"Disable implicit builtin knowledge of math functions">;
 }
 
+// if INTEL_CUSTOMIZATION
+def disable_intel_proprietary_opts : Flag<["-"],
+  "disable-intel-proprietary-opts">,
+  HelpText<"Disable Intel proprietary optimizations">;
+// IntrinsicPromotion implementation.
+def intel_mintrinsic_promote : Flag<["-"], "mintrinsic-promote">, HelpText<"Force "
+  "certain functions using intrinsics to promote their architectures and make "
+  "the intrinsic headers included by default">;
+// endif INTEL_CUSTOMIZATION
+
 def disable_llvm_verifier : Flag<["-"], "disable-llvm-verifier">,
   HelpText<"Don't run the LLVM IR verifier pass">;
 def disable_llvm_passes : Flag<["-"], "disable-llvm-passes">,
@@ -410,6 +420,8 @@ def header_include_file : Separate<["-"], "header-include-file">,
   HelpText<"Filename (or -) to write header include output to">;
 def show_includes : Flag<["--"], "show-includes">,
   HelpText<"Print cl.exe style /showIncludes to stdout">;
+def dependency_filter : Separate<["-"], "dependency-filter">,
+  HelpText<"Filter dependencies with prefix from the dependency output.">;
 
 //===----------------------------------------------------------------------===//
 // Diagnostic Options
@@ -696,6 +708,12 @@ def split_dwarf_file : Separate<["-"], "split-dwarf-file">,
   HelpText<"Name of the split dwarf debug info file to encode in the object file">;
 def fno_wchar : Flag<["-"], "fno-wchar">,
   HelpText<"Disable C++ builtin type wchar_t">;
+// if INTEL_CUSTOMIZATION
+// CQ#374455. This option is created due to QA needs. It should turn off
+// wchar_t keyword and _WCHAR_T_DEFINED macro. That is what '-fno-wchar'
+// option exactly does.
+def no_wchar_t_keyword : Flag<["--"], "no_wchar_t_keyword">, Alias<fno_wchar>;
+// endif INTEL_CUSTOMIZATION
 def fconstant_string_class : Separate<["-"], "fconstant-string-class">,
   MetaVarName<"<class name>">,
   HelpText<"Specify the class to use for constant Objective-C string objects.">;
@@ -753,6 +771,10 @@ def fno_const_strings : Flag<["-"], "fno-const-strings">,
   HelpText<"Don't use a const qualified type for string literals in C and ObjC">;
 def fno_bitfield_type_align : Flag<["-"], "fno-bitfield-type-align">,
   HelpText<"Ignore bit-field types when aligning structures">;
+// if INTEL_CUSTOMIZATION
+def fopencl_force_vector_abi : Flag<["-"], "fopencl-force-vector-abi">,
+  HelpText<"Disable vector to scalar coercion for OpenCL">;
+// endif INTEL_CUSTOMIZATION
 def ffake_address_space_map : Flag<["-"], "ffake-address-space-map">,
   HelpText<"Use a fake address space map; OpenCL testing purposes only">;
 def faddress_space_map_mangling_EQ : Joined<["-"], "faddress-space-map-mangling=">, MetaVarName<"<yes|no|target>">,
@@ -779,6 +801,59 @@ def fnative_half_arguments_and_returns : Flag<["-"], "fnative-half-arguments-and
   HelpText<"Use the native __fp16 type for arguments and returns (and skip ABI-specific lowering)">;
 def fallow_half_arguments_and_returns : Flag<["-"], "fallow-half-arguments-and-returns">,
   HelpText<"Allow function arguments and returns of type half">;
+// if INTEL_CUSTOMIZATION
+def fintel_compatibility : Flag<["-"], "fintel-compatibility">,
+  HelpText<"Enable full Intel C/C++ compatibility">;
+def fintel_compatibility_enable
+    : Joined<[ "-" ], "fintel-compatibility-enable=">,
+      HelpText<"Enable a list of Intel C/C++ compatibility items">;
+def fintel_compatibility_disable
+    : Joined<[ "-" ], "fintel-compatibility-disable=">,
+      HelpText<"Disable a list of Intel C/C++ compatibility items">;
+def fintel_compatibility_help
+    : Flag<[ "-" ], "fintel-compatibility-help">,
+      HelpText<"Display the list of Intel C/C++ compatibility items">;
+def fintel_ms_compatibility : Flag<["-"], "fintel-ms-compatibility">,
+  HelpText<"Enable Microsoft compatibility features that are not planned for clang/llvm trunk">;
+def fintel_advanced_optim : Flag<["-"], "fintel-advanced-optim">,
+  HelpText<"Enable Intel specific advanced optimizations">;
+// CQ#368123 - support '-f[no-]emit-class-debug-always' options.
+def femit_class_debug_always : Flag<["-"], "femit-class-debug-always">,
+  HelpText<"Enable emitting debug info for all class methods">;
+def fno_emit_class_debug_always : Flag<["-"], "fno-emit-class-debug-always">,
+  HelpText<"Disable emitting debug info for all class methods">;
+// CQ#366796 - support '--no_expr_source_pos' option.
+def no_expr_source_pos : Flag<["--"], "no_expr_source_pos">,
+  HelpText<"Disable emitting debug source positions for expressions">;
+// Support for Intel customization LangOptions::FArgumentNoalias
+// support for '-fargument-noalias' option.
+def fargument_noalias : Flag<["-"], "fargument-noalias">,
+  HelpText<"Enables 'noalias' attribute for all pointer-type arguments">;
+// CQ#373517,CQ#376357 - GCC option -fpermissive.
+def gnu_permissive : Flag<["-"], "gnu-permissive">,
+  HelpText<"Turn on GNU -fpermissive mode">;
+// CQ380574: Ability to set various predefines based on gcc version needed.
+def gnu_version_EQ : Joined<["--"], "gnu_version=">,
+  HelpText<"Emulate GNU C++ version">;
+// IMF attributes support (CQ381541)
+def fintel_imf_attr_EQ : Joined<["-"], "mGLOB_imf_attr=">;
+def fintel_openmp_region : Flag<["-"], "fintel-openmp-region">,
+  HelpText<"Enable emitting of Intel specific OpenMP code with regions">;
+def fno_intel_openmp_offload : Flag<["-"], "fno-intel-openmp-offload">,
+  HelpText<"Enable emitting of Intel specific OpenMP offload code">;
+def fintel_openmp_region_atomic : Flag<["-"], "fintel-openmp-region-atomic">,
+  HelpText<"Enable emitting of OpenMP atomics with regions">;
+def fopenmp_threadprivate_legacy : Flag<["-"], "fopenmp-threadprivate-legacy">,
+  HelpText<"Generate legacy OpenMP threadprivates">;
+def fintel_openmp_tbb : Flag<["-"], "fopenmp-tbb">,
+  HelpText<"Enable OpenMP TBB directives">;
+def fnointel_openmp_tbb : Flag<["-"], "fnoopenmp-tbb">,
+  HelpText<"Disable OpenMP TBB directives">;
+def fintel_driver_tempfile_name_EQ : Joined<["-"], "fintel-driver-tempfile-name=">,
+  HelpText<"Name of the file for communication between front-end and driver.">;
+def header_base_path : JoinedOrSeparate<["-"], "header-base-path">,
+                       MetaVarName<"<directory>">;
+// endif INTEL_CUSTOMIZATION
 def fdefault_calling_conv_EQ : Joined<["-"], "fdefault-calling-conv=">,
   HelpText<"Set default calling convention">, Values<"cdecl,fastcall,stdcall,vectorcall,regcall">;
 def finclude_default_header : Flag<["-"], "finclude-default-header">,
@@ -877,6 +952,14 @@ def fopenmp_host_ir_file_path : Separate<["-"], "fopenmp-host-ir-file-path">,
 
 def fsycl_is_device : Flag<["-"], "fsycl-is-device">,
   HelpText<"Generate code for SYCL device.">;
+
+def fsycl_int_header : Separate<["-"], "fsycl-int-header">,
+  HelpText<"Generate SYCL integration header into this file.">;
+def fsycl_int_header_EQ : Joined<["-"], "fsycl-int-header=">,
+  Alias<fsycl_int_header>;
+def fsycl_allow_func_ptr : Flag<["-"], "fsycl-allow-func-ptr">,
+  HelpText<"Allow function pointers in SYCL device.">;
+def fno_sycl_allow_func_ptr : Flag<["-"], "fno-sycl-allow-func-ptr">;
 
 } // let Flags = [CC1Option]
 

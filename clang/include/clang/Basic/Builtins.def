@@ -370,6 +370,40 @@ BUILTIN(__builtin_ctanh, "XdXd", "Fne")
 BUILTIN(__builtin_ctanhf, "XfXf", "Fne")
 BUILTIN(__builtin_ctanhl, "XLdXLd", "Fne")
 
+#if INTEL_CUSTOMIZATION
+// CQ#366852. MCU high-priority (according to D. Kreitzer) builtins.
+BUILTIN(__builtin_calloc,     "v*zz",   "Fnc")
+BUILTIN(__builtin_malloc,     "v*z",    "Fn")
+// We use here 'void *' instead of 'FILE *' due to icc/gcc compatibility.
+BUILTIN(__builtin_fwrite,     "zvC*zzv*","Fn")
+BUILTIN(__builtin_fwrite_unlocked,     "zvC*zzv*","Fn")
+BUILTIN(__builtin_fputs,      "icC*v*", "Fn")
+BUILTIN(__builtin_fputs_unlocked,      "icC*v*", "Fn")
+BUILTIN(__builtin_fputc,      "iiv*",   "Fn")
+BUILTIN(__builtin_fputc_unlocked,      "iiv*",   "Fn")
+BUILTIN(__builtin_puts,       "icC*",   "Fn")
+BUILTIN(__builtin_puts_unlocked,       "icC*",   "Fn")
+BUILTIN(__builtin_exit,       "vi",     "Fnc")
+// '__builtin_constant_p' is defined further, in group titled 'Random GCC
+// builtins'
+
+// HLS FPGA Prototype
+// FIXME: Once we have an HLS Target type, these likely needs to end up in
+// the intel/BuiltinsHLS.def file.
+BUILTIN(__builtin_fpga_reg, "v.", "nt")
+
+BUILTIN(__builtin_intel_hls_instream_read, "v.", "nt")
+BUILTIN(__builtin_intel_hls_outstream_read, "v.", "nt")
+BUILTIN(__builtin_intel_hls_instream_tryRead, "v.", "nt")
+BUILTIN(__builtin_intel_hls_outstream_tryRead, "v.", "nt")
+BUILTIN(__builtin_intel_hls_instream_write, "v.", "nt")
+BUILTIN(__builtin_intel_hls_outstream_write, "v.", "nt")
+BUILTIN(__builtin_intel_hls_instream_tryWrite, "v.", "nt")
+BUILTIN(__builtin_intel_hls_outstream_tryWrite, "v.", "nt")
+BUILTIN(__builtin_intel_hls_mm_master_init, "v.", "nt")
+BUILTIN(__builtin_intel_hls_mm_master_load, "v.", "nt")
+#endif // INTEL_CUSTOMIZATION
+
 // FP Comparisons.
 BUILTIN(__builtin_isgreater     , "i.", "Fnc")
 BUILTIN(__builtin_isgreaterequal, "i.", "Fnc")
@@ -384,6 +418,15 @@ BUILTIN(__builtin_isfinite,   "i.", "Fnc")
 BUILTIN(__builtin_isinf,      "i.", "Fnc")
 BUILTIN(__builtin_isinf_sign, "i.", "Fnc")
 BUILTIN(__builtin_isnan,      "i.", "Fnc")
+#if INTEL_CUSTOMIZATION
+BUILTIN(__builtin_isnanf,      "i.", "Fnc")
+BUILTIN(__builtin_isnanl,      "i.", "Fnc")
+BUILTIN(__builtin_isinff,      "i.", "Fnc")
+BUILTIN(__builtin_isinfl,      "i.", "Fnc")
+BUILTIN(__builtin_finite,   "i.", "Fnc")
+BUILTIN(__builtin_finitef,   "i.", "Fnc")
+BUILTIN(__builtin_finitel,   "i.", "Fnc")
+#endif // INTEL_CUSTOMIZATION
 BUILTIN(__builtin_isnormal,   "i.", "Fnc")
 
 // FP signbit builtins
@@ -455,7 +498,10 @@ BUILTIN(__builtin_assume_aligned, "v*vC*z.", "nc")
 BUILTIN(__builtin_bcmp, "ivC*vC*z", "Fn")
 BUILTIN(__builtin_bcopy, "vv*v*z", "n")
 BUILTIN(__builtin_bzero, "vv*z", "nF")
-BUILTIN(__builtin_fprintf, "iP*cC*.", "Fp:1:")
+#if INTEL_CUSTOMIZATION
+// CQ#370451. Due to icc compatibility 'FILE *' -> 'void *'
+BUILTIN(__builtin_fprintf, "iv*cC*.", "Fp:1:")
+#endif // INTEL_CUSTOMIZATION
 BUILTIN(__builtin_memchr, "v*vC*iz", "nF")
 BUILTIN(__builtin_memcmp, "ivC*vC*z", "nF")
 BUILTIN(__builtin_memcpy, "v*v*vC*z", "nF")
@@ -463,6 +509,10 @@ BUILTIN(__builtin_memmove, "v*v*vC*z", "nF")
 BUILTIN(__builtin_mempcpy, "v*v*vC*z", "nF")
 BUILTIN(__builtin_memset, "v*v*iz", "nF")
 BUILTIN(__builtin_printf, "icC*.", "Fp:0:")
+#if INTEL_CUSTOMIZATION
+// Fix for CQ373625: __builtin_sprintf function is undeclared
+BUILTIN(__builtin_sprintf, "ic*cC*.", "Fp:1:")
+#endif // INTEL_CUSTOMIZATION
 BUILTIN(__builtin_stpcpy, "c*c*cC*", "nF")
 BUILTIN(__builtin_stpncpy, "c*c*cC*z", "nF")
 BUILTIN(__builtin_strcasecmp, "icC*cC*", "nF")
@@ -502,6 +552,17 @@ BUILTIN(__builtin_eh_return_data_regno, "iIi", "nc")
 BUILTIN(__builtin_snprintf, "ic*zcC*.", "nFp:2:")
 BUILTIN(__builtin_vsprintf, "ic*cC*a", "nFP:1:")
 BUILTIN(__builtin_vsnprintf, "ic*zcC*a", "nFP:2:")
+#if INTEL_CUSTOMIZATION
+// CQ#370451. Prinf/scanf builtin functions.
+BUILTIN(__builtin_vprintf,  "icC*a", "FP:0:")
+BUILTIN(__builtin_vfprintf, "iv*cC*a", "FP:1:")
+BUILTIN(__builtin_scanf,   "icC*.",       "Fs:0:")
+BUILTIN(__builtin_fscanf,  "iv*cC*.",   "Fs:1:")
+BUILTIN(__builtin_sscanf,  "icC*cC*.",  "Fs:1:")
+BUILTIN(__builtin_vscanf,  "icC*a",      "FS:0:")
+BUILTIN(__builtin_vfscanf, "iv*cC*a",  "FS:1:")
+BUILTIN(__builtin_vsscanf, "icC*cC*a", "FS:1:")
+#endif // INTEL_CUSTOMIZATION
 BUILTIN(__builtin_thread_pointer, "v*", "nc")
 BUILTIN(__builtin_launder, "v*v*", "nt")
 LANGBUILTIN(__builtin_is_constant_evaluated, "b", "n", CXX_LANG)
@@ -729,6 +790,183 @@ BUILTIN(__atomic_signal_fence, "vi", "n")
 BUILTIN(__atomic_always_lock_free, "izvCD*", "n")
 BUILTIN(__atomic_is_lock_free, "izvCD*", "n")
 
+#if INTEL_CUSTOMIZATION
+BUILTIN(__builtin_atand2l, "LdLdLd"  , "Fnc")
+BUILTIN(__builtin_atand2, "ddd"  , "Fnc")
+BUILTIN(__builtin_atand2f, "fff"  , "Fnc")
+BUILTIN(__builtin_atandl, "LdLd"  , "Fnc")
+BUILTIN(__builtin_atand, "dd"  , "Fnc")
+BUILTIN(__builtin_atandf, "ff"  , "Fnc")
+BUILTIN(__builtin_exp10l, "LdLd"  , "Fnc")
+BUILTIN(__builtin_exp10, "dd"  , "Fnc")
+BUILTIN(__builtin_exp10f, "ff"  , "Fnc")
+BUILTIN(__builtin_gammal, "LdLd"  , "Fnc")
+BUILTIN(__builtin_gamma, "dd"  , "Fnc")
+BUILTIN(__builtin_gammaf, "ff"  , "Fnc")
+BUILTIN(__builtin_j0l, "LdLd"  , "Fnc")
+BUILTIN(__builtin_j0, "dd"  , "Fnc")
+BUILTIN(__builtin_j0f, "ff"  , "Fnc")
+BUILTIN(__builtin_j1l, "LdLd"  , "Fnc")
+BUILTIN(__builtin_j1, "dd"  , "Fnc")
+BUILTIN(__builtin_j1f, "ff"  , "Fnc")
+BUILTIN(__builtin_jnl, "LdiLd"  , "Fnc")
+BUILTIN(__builtin_jn, "did"  , "Fnc")
+BUILTIN(__builtin_jnf, "fif"  , "Fnc")
+BUILTIN(__builtin_y0l, "LdLd"  , "Fnc")
+BUILTIN(__builtin_y0, "dd"  , "Fnc")
+BUILTIN(__builtin_y0f, "ff"  , "Fnc")
+BUILTIN(__builtin_y1l, "LdLd"  , "Fnc")
+BUILTIN(__builtin_y1, "dd"  , "Fnc")
+BUILTIN(__builtin_y1f, "ff"  , "Fnc")
+BUILTIN(__builtin_ynl, "LdiLd"  , "Fnc")
+BUILTIN(__builtin_yn, "did"  , "Fnc")
+BUILTIN(__builtin_ynf, "fif"  , "Fnc")
+BUILTIN(__builtin_cis, "XLdd"  , "Fnc")
+BUILTIN(__builtin_cisf, "Xdf"  , "Fnc")
+BUILTIN(__builtin_cisd, "XLdd"  , "Fnc")
+BUILTIN(__builtin_cisl, "LdcLd"  , "Fnc")
+BUILTIN(__builtin_cisdf, "Xdf"  , "Fnc")
+BUILTIN(__builtin_cexp2, "XLdXLd"  , "Fnc")
+BUILTIN(__builtin_cexp2f, "XdXd"  , "Fnc")
+BUILTIN(__builtin_cexp2l, "XLdXLd"  , "Fnc")
+
+BUILTIN(__builtin_return, "vv*"  , "nr")
+BUILTIN(__builtin_apply, "v*v*v*Li"  , "n")
+BUILTIN(__builtin_apply_args, "v*"  , "n")
+
+BUILTIN(__atomic_flag_test_and_set_explicit, "bvD*i", "n")
+BUILTIN(__atomic_flag_clear_explicit, "vvD*i", "n")
+
+ATOMIC_BUILTIN(__atomic_store_explicit, "v.", "t")
+ATOMIC_BUILTIN(__atomic_store_explicit_1, "vcD*ci", "tn")
+ATOMIC_BUILTIN(__atomic_store_explicit_2, "vsD*si", "tn")
+ATOMIC_BUILTIN(__atomic_store_explicit_4, "viD*ii", "tn")
+ATOMIC_BUILTIN(__atomic_store_explicit_8, "vLLiD*LLii", "tn")
+ATOMIC_BUILTIN(__atomic_store_explicit_16, "vLLLiD*LLLii", "tn")
+
+ATOMIC_BUILTIN(__atomic_load_explicit, "v.", "t")
+ATOMIC_BUILTIN(__atomic_load_explicit_1, "ccCD*i", "tn")
+ATOMIC_BUILTIN(__atomic_load_explicit_2, "ssCD*i", "tn")
+ATOMIC_BUILTIN(__atomic_load_explicit_4, "iiCD*i", "tn")
+ATOMIC_BUILTIN(__atomic_load_explicit_8, "LLiLLiCD*i", "tn")
+ATOMIC_BUILTIN(__atomic_load_explicit_16, "LLLiLLLiCD*i", "tn")
+
+ATOMIC_BUILTIN(__atomic_exchange_explicit, "v.", "t")
+ATOMIC_BUILTIN(__atomic_exchange_explicit_1, "ccD*ci", "tn")
+ATOMIC_BUILTIN(__atomic_exchange_explicit_2, "ssD*si", "tn")
+ATOMIC_BUILTIN(__atomic_exchange_explicit_4, "iiD*ii", "tn")
+ATOMIC_BUILTIN(__atomic_exchange_explicit_8, "LLiLLiD*LLii", "tn")
+ATOMIC_BUILTIN(__atomic_exchange_explicit_16, "LLLiLLLiD*LLLii", "tn")
+
+ATOMIC_BUILTIN(__atomic_compare_exchange_weak_explicit, "v.", "t")
+ATOMIC_BUILTIN(__atomic_compare_exchange_weak_explicit_1, "icD*cD*cii", "tn")
+ATOMIC_BUILTIN(__atomic_compare_exchange_weak_explicit_2, "isD*sD*sii", "tn")
+ATOMIC_BUILTIN(__atomic_compare_exchange_weak_explicit_4, "iiD*iD*iii", "tn")
+ATOMIC_BUILTIN(__atomic_compare_exchange_weak_explicit_8, "iLLiD*LLiD*LLiii", "tn")
+ATOMIC_BUILTIN(__atomic_compare_exchange_weak_explicit_16, "M", "tn")
+
+ATOMIC_BUILTIN(__atomic_compare_exchange_strong_explicit, "v.", "t")
+ATOMIC_BUILTIN(__atomic_compare_exchange_strong_explicit_1, "icD*cD*cii", "tn")
+ATOMIC_BUILTIN(__atomic_compare_exchange_strong_explicit_2, "isD*sD*sii", "tn")
+ATOMIC_BUILTIN(__atomic_compare_exchange_strong_explicit_4, "iiD*iD*iii", "tn")
+ATOMIC_BUILTIN(__atomic_compare_exchange_strong_explicit_8, "iLLiD*LLiD*LLiii", "tn")
+ATOMIC_BUILTIN(__atomic_compare_exchange_strong_explicit_16, "M", "tn")
+
+ATOMIC_BUILTIN(__atomic_fetch_add_explicit, "v.", "t")
+ATOMIC_BUILTIN(__atomic_fetch_add_explicit_1, "ccD*ci", "tn")
+ATOMIC_BUILTIN(__atomic_fetch_add_explicit_2, "ssD*si", "tn")
+ATOMIC_BUILTIN(__atomic_fetch_add_explicit_4, "iiD*ii", "tn")
+ATOMIC_BUILTIN(__atomic_fetch_add_explicit_8, "LLiLLiD*LLii", "tn")
+ATOMIC_BUILTIN(__atomic_fetch_add_explicit_16, "LLLiLLLiD*LLLii", "tn")
+
+ATOMIC_BUILTIN(__atomic_fetch_sub_explicit, "v.", "t")
+ATOMIC_BUILTIN(__atomic_fetch_sub_explicit_1, "ccD*ci", "tn")
+ATOMIC_BUILTIN(__atomic_fetch_sub_explicit_2, "ssD*si", "tn")
+ATOMIC_BUILTIN(__atomic_fetch_sub_explicit_4, "iiD*ii", "tn")
+ATOMIC_BUILTIN(__atomic_fetch_sub_explicit_8, "LLiLLiD*LLii", "tn")
+ATOMIC_BUILTIN(__atomic_fetch_sub_explicit_16, "LLLiLLLiD*LLLii", "tn")
+
+ATOMIC_BUILTIN(__atomic_fetch_and_explicit, "v.", "t")
+ATOMIC_BUILTIN(__atomic_fetch_and_explicit_1, "ccD*ci", "tn")
+ATOMIC_BUILTIN(__atomic_fetch_and_explicit_2, "ssD*si", "tn")
+ATOMIC_BUILTIN(__atomic_fetch_and_explicit_4, "iiD*ii", "tn")
+ATOMIC_BUILTIN(__atomic_fetch_and_explicit_8, "LLiLLiD*LLii", "tn")
+ATOMIC_BUILTIN(__atomic_fetch_and_explicit_16, "LLLiLLLiD*LLLii", "tn")
+
+ATOMIC_BUILTIN(__atomic_fetch_nand_explicit, "v.", "t")
+ATOMIC_BUILTIN(__atomic_fetch_nand_explicit_1, "ccD*ci", "tn")
+ATOMIC_BUILTIN(__atomic_fetch_nand_explicit_2, "ssD*si", "tn")
+ATOMIC_BUILTIN(__atomic_fetch_nand_explicit_4, "iiD*ii", "tn")
+ATOMIC_BUILTIN(__atomic_fetch_nand_explicit_8, "LLiLLiD*LLii", "tn")
+ATOMIC_BUILTIN(__atomic_fetch_nand_explicit_16, "LLLiLLLiD*LLLii", "tn")
+
+ATOMIC_BUILTIN(__atomic_fetch_or_explicit, "v.", "t")
+ATOMIC_BUILTIN(__atomic_fetch_or_explicit_1, "ccD*ci", "tn")
+ATOMIC_BUILTIN(__atomic_fetch_or_explicit_2, "ssD*si", "tn")
+ATOMIC_BUILTIN(__atomic_fetch_or_explicit_4, "iiD*ii", "tn")
+ATOMIC_BUILTIN(__atomic_fetch_or_explicit_8, "LLiLLiD*LLii", "tn")
+ATOMIC_BUILTIN(__atomic_fetch_or_explicit_16, "LLLiLLLiD*LLLii", "tn")
+
+ATOMIC_BUILTIN(__atomic_fetch_xor_explicit, "v.", "t")
+ATOMIC_BUILTIN(__atomic_fetch_xor_explicit_1, "ccD*ci", "tn")
+ATOMIC_BUILTIN(__atomic_fetch_xor_explicit_2, "ssD*si", "tn")
+ATOMIC_BUILTIN(__atomic_fetch_xor_explicit_4, "iiD*ii", "tn")
+ATOMIC_BUILTIN(__atomic_fetch_xor_explicit_8, "LLiLLiD*LLii", "tn")
+ATOMIC_BUILTIN(__atomic_fetch_xor_explicit_16, "LLLiLLLiD*LLLii", "tn")
+
+ATOMIC_BUILTIN(__atomic_add_fetch_explicit, "v.", "t")
+ATOMIC_BUILTIN(__atomic_add_fetch_explicit_1, "ccD*ci", "tn")
+ATOMIC_BUILTIN(__atomic_add_fetch_explicit_2, "ssD*si", "tn")
+ATOMIC_BUILTIN(__atomic_add_fetch_explicit_4, "iiD*ii", "tn")
+ATOMIC_BUILTIN(__atomic_add_fetch_explicit_8, "LLiLLiD*LLii", "tn")
+ATOMIC_BUILTIN(__atomic_add_fetch_explicit_16, "LLLiLLLiD*LLLii", "tn")
+
+ATOMIC_BUILTIN(__atomic_sub_fetch_explicit, "v.", "t")
+ATOMIC_BUILTIN(__atomic_sub_fetch_explicit_1, "ccD*ci", "tn")
+ATOMIC_BUILTIN(__atomic_sub_fetch_explicit_2, "ssD*si", "tn")
+ATOMIC_BUILTIN(__atomic_sub_fetch_explicit_4, "iiD*ii", "tn")
+ATOMIC_BUILTIN(__atomic_sub_fetch_explicit_8, "LLiLLiD*LLii", "tn")
+ATOMIC_BUILTIN(__atomic_sub_fetch_explicit_16, "LLLiLLLiD*LLLii", "tn")
+
+ATOMIC_BUILTIN(__atomic_and_fetch_explicit, "v.", "t")
+ATOMIC_BUILTIN(__atomic_and_fetch_explicit_1, "ccD*ci", "tn")
+ATOMIC_BUILTIN(__atomic_and_fetch_explicit_2, "ssD*si", "tn")
+ATOMIC_BUILTIN(__atomic_and_fetch_explicit_4, "iiD*ii", "tn")
+ATOMIC_BUILTIN(__atomic_and_fetch_explicit_8, "LLiLLiD*LLii", "tn")
+ATOMIC_BUILTIN(__atomic_and_fetch_explicit_16, "LLLiLLLiD*LLLii", "tn")
+
+ATOMIC_BUILTIN(__atomic_nand_fetch_explicit, "v.", "t")
+ATOMIC_BUILTIN(__atomic_nand_fetch_explicit_1, "ccD*ci", "tn")
+ATOMIC_BUILTIN(__atomic_nand_fetch_explicit_2, "ssD*si", "tn")
+ATOMIC_BUILTIN(__atomic_nand_fetch_explicit_4, "iiD*ii", "tn")
+ATOMIC_BUILTIN(__atomic_nand_fetch_explicit_8, "LLiLLiD*LLii", "tn")
+ATOMIC_BUILTIN(__atomic_nand_fetch_explicit_16, "LLLiLLLiD*LLLii", "tn")
+
+ATOMIC_BUILTIN(__atomic_or_fetch_explicit, "v.", "t")
+ATOMIC_BUILTIN(__atomic_or_fetch_explicit_1, "ccD*ci", "tn")
+ATOMIC_BUILTIN(__atomic_or_fetch_explicit_2, "ssD*si", "tn")
+ATOMIC_BUILTIN(__atomic_or_fetch_explicit_4, "iiD*ii", "tn")
+ATOMIC_BUILTIN(__atomic_or_fetch_explicit_8, "LLiLLiD*LLii", "tn")
+ATOMIC_BUILTIN(__atomic_or_fetch_explicit_16, "LLLiLLLiD*LLLii", "tn")
+
+ATOMIC_BUILTIN(__atomic_xor_fetch_explicit, "v.", "t")
+ATOMIC_BUILTIN(__atomic_xor_fetch_explicit_1, "ccD*ci", "tn")
+ATOMIC_BUILTIN(__atomic_xor_fetch_explicit_2, "ssD*si", "tn")
+ATOMIC_BUILTIN(__atomic_xor_fetch_explicit_4, "iiD*ii", "tn")
+ATOMIC_BUILTIN(__atomic_xor_fetch_explicit_8, "LLiLLiD*LLii", "tn")
+ATOMIC_BUILTIN(__atomic_xor_fetch_explicit_16, "LLLiLLLiD*LLLii", "tn")
+
+BUILTIN(__memory_barrier, "v", "n")
+
+// Notify intrinsics
+BUILTIN(__notify_intrinsic, "vcC*vCD*", "n")
+BUILTIN(__notify_zc_intrinsic, "vcC*vCD*", "n")
+#endif  // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+BUILTIN(__assume_aligned, "v.", "tn")
+#endif // INTEL_CUSTOMIZATION
+
 // OpenCL 2.0 atomic builtins.
 ATOMIC_BUILTIN(__opencl_atomic_init, "v.", "t")
 ATOMIC_BUILTIN(__opencl_atomic_load, "v.", "t")
@@ -764,9 +1002,15 @@ BUILTIN(__builtin_index, "c*cC*i", "Fn")
 BUILTIN(__builtin_rindex, "c*cC*i", "Fn")
 
 // Microsoft builtins.  These are only active with -fms-extensions.
-LANGBUILTIN(_alloca,          "v*z", "n", ALL_MS_LANGUAGES)
+#if INTEL_CUSTOMIZATION
+// CQ#370960: _alloca is always enabled in ICC mode.
+LANGBUILTIN(_alloca, "v*z", "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+// CQ#373187: __assume is always enabled in ICC mode.
+LANGBUILTIN(__assume, "vb",  "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+#endif // INTEL_CUSTOMIZATION
 LANGBUILTIN(__annotation,     "wC*.","n", ALL_MS_LANGUAGES)
-LANGBUILTIN(__assume,         "vb",  "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_bittest,                "UcNiC*Ni", "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_bittestandcomplement,   "UcNi*Ni", "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_bittestandreset,        "UcNi*Ni", "n", ALL_MS_LANGUAGES)
@@ -791,24 +1035,44 @@ LANGBUILTIN(_InterlockedAnd16,  "ssD*s",        "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedAnd,    "NiNiD*Ni",     "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedCompareExchange8,   "ccD*cc",         "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedCompareExchange16,  "ssD*ss",         "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_InterlockedCompareExchange,    "NiNiD*NiNi",     "n", ALL_MS_LANGUAGES)
+#if INTEL_CUSTOMIZATION
+// CQ#374782: In icc, these builtins are availble on Linux as well. Also,
+// pointer arguments are non-volatile. We do the same.
+LANGBUILTIN(_InterlockedCompareExchange,    "NiNiD*NiNi",     "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+#endif // INTEL_CUSTOMIZATION
 LANGBUILTIN(_InterlockedCompareExchange64,  "LLiLLiD*LLiLLi", "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_InterlockedCompareExchangePointer, "v*v*D*v*v*", "n", ALL_MS_LANGUAGES)
+#if INTEL_CUSTOMIZATION
+// CQ#374782: In icc, these builtins are availble on Linux as well. Also,
+// pointer arguments are non-volatile. We do the same.
+LANGBUILTIN(_InterlockedCompareExchangePointer, "v*v*D*v*v*", "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+#endif // INTEL_CUSTOMIZATION
 LANGBUILTIN(_InterlockedCompareExchangePointer_nf, "v*v*D*v*v*", "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedDecrement16,        "ssD*",     "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_InterlockedDecrement,          "NiNiD*",   "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_InterlockedExchange,           "NiNiD*Ni",     "n", ALL_MS_LANGUAGES)
+#if INTEL_CUSTOMIZATION
+// CQ#374782: In icc, these builtins are availble on Linux as well. Also,
+// pointer arguments are non-volatile. We do the same.
+LANGBUILTIN(_InterlockedDecrement,          "NiNiD*",   "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_InterlockedExchange,           "NiNiD*Ni",     "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+#endif // INTEL_CUSTOMIZATION
 LANGBUILTIN(_InterlockedExchange8,          "ccD*c",        "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedExchange16,         "ssD*s",        "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedExchangeAdd8,       "ccD*c",          "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedExchangeAdd16,      "ssD*s",          "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_InterlockedExchangeAdd,        "NiNiD*Ni",       "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_InterlockedExchangePointer,    "v*v*D*v*",   "n", ALL_MS_LANGUAGES)
+#if INTEL_CUSTOMIZATION
+// CQ#374782: In icc, these builtins are availble on Linux as well. Also,
+// pointer arguments are non-volatile. We do the same.
+LANGBUILTIN(_InterlockedExchangeAdd,        "NiNiD*Ni",       "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_InterlockedExchangePointer,    "v*v*D*v*",   "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+#endif // INTEL_CUSTOMIZATION
 LANGBUILTIN(_InterlockedExchangeSub8,   "ccD*c",        "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedExchangeSub16,  "ssD*s",        "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedExchangeSub,    "NiNiD*Ni",     "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedIncrement16,        "ssD*",     "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_InterlockedIncrement,          "NiNiD*",   "n", ALL_MS_LANGUAGES)
+#if INTEL_CUSTOMIZATION
+// CQ#374782: In icc, these builtins are availble on Linux as well. Also,
+// pointer arguments are non-volatile. We do the same.
+LANGBUILTIN(_InterlockedIncrement,          "NiNiD*",   "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+#endif // INTEL_CUSTOMIZATION
 LANGBUILTIN(_InterlockedOr8,  "ccD*c",        "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedOr16, "ssD*s",        "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_InterlockedOr,   "NiNiD*Ni",     "n", ALL_MS_LANGUAGES)
@@ -841,16 +1105,19 @@ LANGBUILTIN(__popcnt16, "UsUs",   "nc", ALL_MS_LANGUAGES)
 LANGBUILTIN(__popcnt,   "UiUi",   "nc", ALL_MS_LANGUAGES)
 LANGBUILTIN(__popcnt64, "UWiUWi", "nc", ALL_MS_LANGUAGES)
 LANGBUILTIN(_ReturnAddress, "v*", "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_rotl8,  "UcUcUc",    "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_rotl16, "UsUsUc",    "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_rotl,   "UiUii",     "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_lrotl,  "ULiULii",   "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_rotl64, "UWiUWii",   "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_rotr8,  "UcUcUc",    "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_rotr16, "UsUsUc",    "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_rotr,   "UiUii",     "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_lrotr,  "ULiULii",   "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(_rotr64, "UWiUWii",   "n", ALL_MS_LANGUAGES)
+#if INTEL_CUSTOMIZATION
+// CMPLRS-4684: In icc, these builtins are availble on Linux as well.
+LANGBUILTIN(_rotl8,  "UcUcUc",    "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_rotl16, "UsUsUc",    "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_rotl,   "UiUii",     "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_lrotl,  "ULiULii",   "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_rotl64, "UWiUWii",   "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_rotr8,  "UcUcUc",    "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_rotr16, "UsUsUc",    "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_rotr,   "UiUii",     "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_lrotr,  "ULiULii",   "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_rotr64, "UWiUWii",   "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+#endif // INTEL_CUSTOMIZATION
 LANGBUILTIN(__va_start,       "vc**.", "nt", ALL_MS_LANGUAGES)
 LANGBUILTIN(__fastfail, "vUi",    "nr", ALL_MS_LANGUAGES)
 
@@ -1450,6 +1717,13 @@ BUILTIN(__builtin_operator_delete, "vv*", "tn")
 BUILTIN(__builtin_char_memchr, "c*cC*iz", "n")
 BUILTIN(__builtin_dump_struct, "ivC*v*", "tn")
 
+#if INTEL_CUSTOMIZATION
+BUILTIN(__intel_castf32_u32, "Uif", "nc")
+BUILTIN(__intel_castu32_f32, "fUi", "nc")
+BUILTIN(__intel_castu64_f64, "dUWi", "nc")
+BUILTIN(__intel_castf64_u64, "UWid", "nc")
+#endif  // INTEL_CUSTOMIZATION
+
 // Safestack builtins
 BUILTIN(__builtin___get_unsafe_stack_start, "v*", "Fn")
 BUILTIN(__builtin___get_unsafe_stack_bottom, "v*", "Fn")
@@ -1528,10 +1802,48 @@ BUILTIN(__builtin_os_log_format, "v*v*cC*.", "p:0:nt")
 
 // OpenMP 4.0
 LANGBUILTIN(omp_is_initial_device, "i", "nc", OMP_LANG)
+#if INTEL_COLLAB
+// These OMP library-defined functions are callable in device target regions
+// and have the "nothrow" property. This list is a subset representing the
+// functions that use primitive types.
+LIBBUILTIN(omp_get_active_level, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_ancestor_thread_num, "ii", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_cancellation, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_default_device, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_dynamic, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_initial_device, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_level, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_max_active_levels, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_max_task_priority, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_max_threads, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_nested, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_num_devices, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_num_procs, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_num_teams, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_num_threads, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_team_num, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_team_size, "ii", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_thread_limit, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_thread_num, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_wtick, "d", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_get_wtime, "d", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_in_final, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_in_parallel, "i", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_set_default_device, "vi", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_set_dynamic, "vi", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_set_max_active_levels, "vi", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_set_num_threads, "vi", "nf", "omp.h", OMP_LANG)
+LIBBUILTIN(omp_set_nested, "vi", "nf", "omp.h", OMP_LANG)
+#endif // INTEL_COLLAB
 
 // Builtins for XRay
 BUILTIN(__xray_customevent, "vcC*z", "")
 BUILTIN(__xray_typedevent, "vzcC*z", "")
+
+#if INTEL_CUSTOMIZATION
+LANGBUILTIN(__builtin_va_arg_pack_len, "Si", "n", ICC_LANG)
+LANGBUILTIN(__builtin_va_arg_pack, ".", "n", ICC_LANG)
+#endif
 
 // Win64-compatible va_list functions
 BUILTIN(__builtin_ms_va_start, "vc*&.", "nt")

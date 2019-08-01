@@ -39,6 +39,7 @@
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/Support/BuryPointer.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/TargetRegistry.h"
@@ -49,6 +50,7 @@
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Transforms/Coroutines.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/Intel_InlineLists.h"       // INTEL
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/IPO/ThinLTOBitcodeWriter.h"
@@ -69,7 +71,13 @@
 #include "llvm/Transforms/Utils/EntryExitInstrumenter.h"
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
+#include "llvm/SYCL/ASFixer.h"
 #include <memory>
+
+namespace SPIRV {
+  extern llvm::cl::opt<bool> SPIRVNoDerefAttr;
+}
+
 using namespace clang;
 using namespace llvm;
 
@@ -347,6 +355,9 @@ static TargetLibraryInfoImpl *createTLII(llvm::Triple &TargetTriple,
   case CodeGenOptions::SVML:
     TLII->addVectorizableFunctionsFromVecLib(TargetLibraryInfoImpl::SVML);
     break;
+  case CodeGenOptions::Libmvec:
+    TLII->addVectorizableFunctionsFromVecLib(TargetLibraryInfoImpl::Libmvec);
+    break;
   default:
     break;
   }
@@ -461,6 +472,9 @@ static void initTargetOptions(llvm::TargetOptions &Options,
   Options.NoNaNsFPMath = CodeGenOpts.NoNaNsFPMath;
   Options.NoZerosInBSS = CodeGenOpts.NoZeroInitializedInBSS;
   Options.UnsafeFPMath = CodeGenOpts.UnsafeFPMath;
+#if INTEL_CUSTOMIZATION
+  Options.IntelAdvancedOptim = LangOpts.IntelAdvancedOptim;
+#endif // INTEL_CUSTOMIZATION
   Options.StackAlignmentOverride = CodeGenOpts.StackAlignment;
   Options.FunctionSections = CodeGenOpts.FunctionSections;
   Options.DataSections = CodeGenOpts.DataSections;
@@ -557,8 +571,13 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
     PMBuilder.Inliner = createFunctionInliningPass(
         CodeGenOpts.OptimizationLevel, CodeGenOpts.OptimizeSize,
         (!CodeGenOpts.SampleProfileFile.empty() &&
-         CodeGenOpts.PrepareForThinLTO));
+         CodeGenOpts.PrepareForThinLTO), CodeGenOpts.PrepareForLTO); // INTEL
   }
+
+#if INTEL_CUSTOMIZATION
+  PMBuilder.DisableIntelProprietaryOpts =
+    CodeGenOpts.DisableIntelProprietaryOpts;
+#endif // INTEL_CUSTOMIZATION
 
   PMBuilder.OptLevel = CodeGenOpts.OptimizationLevel;
   PMBuilder.SizeLevel = CodeGenOpts.OptimizeSize;
@@ -826,6 +845,11 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
     break;
 
   case Backend_EmitBC:
+    if (LangOpts.SYCLIsDevice) {
+      if (!getenv("ENABLE_INFER_AS"))
+        PerModulePasses.add(createASFixerPass());
+      PerModulePasses.add(createDeadCodeEliminationPass());
+    }
     if (CodeGenOpts.PrepareForThinLTO && !CodeGenOpts.DisableLLVMPasses) {
       if (!CodeGenOpts.ThinLinkBitcodeFile.empty()) {
         ThinLinkOS = openOutputFile(CodeGenOpts.ThinLinkBitcodeFile);
@@ -1111,6 +1135,7 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
         MPM.addPass(InstrProfiling(*Options, false));
 
       // Build a minimal pipeline based on the semantics required by Clang,
+      MPM.addPass(InlineListsPass()); // INTEL
       // which is just that always inlining occurs. Further, disable generating
       // lifetime intrinsics to avoid enabling further optimizations during
       // code generation.
@@ -1235,6 +1260,11 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
     break;
 
   case Backend_EmitBC:
+    if (LangOpts.SYCLIsDevice) {
+      if (!getenv("ENABLE_INFER_AS"))
+        CodeGenPasses.add(createASFixerPass());
+      CodeGenPasses.add(createDeadCodeEliminationPass());
+    }
     if (CodeGenOpts.PrepareForThinLTO && !CodeGenOpts.DisableLLVMPasses) {
       if (!CodeGenOpts.ThinLinkBitcodeFile.empty()) {
         ThinLinkOS = openOutputFile(CodeGenOpts.ThinLinkBitcodeFile);
@@ -1471,6 +1501,23 @@ void clang::EmitBackendOutput(DiagnosticsEngine &Diags,
 
   llvm::TimeTraceScope TimeScope("Backend", StringRef(""));
 
+#if INTEL_PRODUCT_RELEASE
+  if (Action == Backend_EmitLL) {
+    unsigned DiagID = Diags.getCustomDiagID(
+        DiagnosticsEngine::Error, "IR output is not supported.");
+    Diags.Report(DiagID);
+    return;
+  }
+  if (Action == Backend_EmitBC && !CGOpts.PrepareForLTO &&
+      !LOpts.OpenMPLateOutline &&
+      !CGOpts.DisableIntelProprietaryOpts) {
+    unsigned DiagID = Diags.getCustomDiagID(
+        DiagnosticsEngine::Error, "Bitcode output is only supported with LTO.");
+    Diags.Report(DiagID);
+    return;
+  }
+#endif // INTEL_PRODUCT_RELEASE
+
   std::unique_ptr<llvm::Module> EmptyModule;
   if (!CGOpts.ThinLTOIndexFile.empty()) {
     // If we are performing a ThinLTO importing compile, load the function index
@@ -1528,6 +1575,7 @@ void clang::EmitBackendOutput(DiagnosticsEngine &Diags,
   }
 }
 
+#if !INTEL_PRODUCT_RELEASE
 static const char* getSectionNameForBitcode(const Triple &T) {
   switch (T.getObjectFormat()) {
   case Triple::MachO:
@@ -1654,3 +1702,4 @@ void clang::EmbedBitcode(llvm::Module *M, const CodeGenOptions &CGOpts,
       llvm::ConstantArray::get(ATy, UsedArray), "llvm.compiler.used");
   NewUsed->setSection("llvm.metadata");
 }
+#endif // !INTEL_PRODUCT_RELEASE

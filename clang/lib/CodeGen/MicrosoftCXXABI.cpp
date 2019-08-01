@@ -4260,6 +4260,18 @@ llvm::GlobalVariable *MicrosoftCXXABI::getThrowInfo(QualType T) {
 void MicrosoftCXXABI::emitThrow(CodeGenFunction &CGF, const CXXThrowExpr *E) {
   const Expr *SubExpr = E->getSubExpr();
   QualType ThrowType = SubExpr->getType();
+#if INTEL_CUSTOMIZATION
+  // CQ#407554: make string literals catchable by "char *" handlers.
+  const ASTContext &C = getContext();
+  if (C.getLangOpts().isIntelCompat(LangOptions::StringCharStarCatchable) &&
+      !C.getDiagnostics().getDiagnosticOptions().Pedantic &&
+      isa<StringLiteral>(SubExpr->IgnoreParenImpCasts())) {
+    if (const auto *PtrType = ThrowType->getAs<PointerType>()) {
+      QualType Unqual = PtrType->getPointeeType().getUnqualifiedType();
+      ThrowType = C.getPointerType(Unqual);
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
   // The exception object lives on the stack and it's address is passed to the
   // runtime function.
   Address AI = CGF.CreateMemTemp(ThrowType);

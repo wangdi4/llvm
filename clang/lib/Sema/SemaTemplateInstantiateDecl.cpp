@@ -24,6 +24,7 @@
 #include "clang/Sema/Template.h"
 #include "clang/Sema/TemplateInstCallback.h"
 #include "llvm/Support/TimeProfiler.h"
+#include "intel/SemaIntelImpl.h" // INTEL
 
 using namespace clang;
 
@@ -171,6 +172,79 @@ static void instantiateDependentAlignValueAttr(
     S.AddAlignValueAttr(Aligned->getLocation(), New, Result.getAs<Expr>(),
                         Aligned->getSpellingListIndex());
 }
+#if INTEL_CUSTOMIZATION
+static void instantiateDependentInternalMaxBlockRamDepthAttr(
+    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
+    const InternalMaxBlockRamDepthAttr *Max, Decl *New) {
+  // The __internal_max_block_ram_depth__ expression is a constant expression.
+  EnterExpressionEvaluationContext Unevaluated(
+      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+  ExprResult Result =
+      S.SubstExpr(Max->getInternalMaxBlockRamDepth(), TemplateArgs);
+  if (!Result.isInvalid())
+    S.AddInternalMaxBlockRamDepthAttr(Max->getLocation(), New,
+                                      Result.getAs<Expr>(),
+                                      Max->getSpellingListIndex());
+}
+
+static void instantiateDependentSchedulerTargetFmaxMHzAttr(
+    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
+    const SchedulerTargetFmaxMHzAttr *STFM, Decl *New) {
+  // The scheduler_target_fmax_mhz expression is a constant expression.
+  EnterExpressionEvaluationContext Unevaluated(
+      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+  ExprResult Result =
+      S.SubstExpr(STFM->getSchedulerTargetFmaxMHz(), TemplateArgs);
+  if (!Result.isInvalid())
+    S.AddSchedulerTargetFmaxMHzAttr(STFM->getLocation(), New,
+                                          Result.getAs<Expr>(),
+                                          STFM->getSpellingListIndex());
+}
+
+template <typename AttrType>
+static void instantiateDependentHLSOneConstantValueAttr(
+    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
+    const AttrType *A, Decl *New) {
+  // The expression is a constant expression.
+  EnterExpressionEvaluationContext Unevaluated(
+      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+  ExprResult Result = S.SubstExpr(A->getValue(), TemplateArgs);
+  if (!Result.isInvalid())
+    S.HLSAddOneConstantValueAttr<AttrType>(
+        A->getLocation(), New, Result.getAs<Expr>(), A->getSpellingListIndex());
+}
+
+template <typename AttrType>
+static void instantiateDependentHLSOneConstantPowerTwoValueAttr(
+    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
+    const AttrType *A, Decl *New) {
+  // The expression is a constant expression.
+  EnterExpressionEvaluationContext Unevaluated(
+      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+  ExprResult Result = S.SubstExpr(A->getValue(), TemplateArgs);
+  if (!Result.isInvalid())
+    S.HLSAddOneConstantPowerTwoValueAttr<AttrType>(
+        A->getLocation(), New, Result.getAs<Expr>(), A->getSpellingListIndex());
+}
+
+static void instantiateDependentHLSBankBitsAttr(
+    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
+    const BankBitsAttr *BBA, Decl *New) {
+  // The bank_bits expressions are constant expressions.
+  EnterExpressionEvaluationContext Unevaluated(
+      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+
+  SmallVector<Expr *, 8> Args;
+  for (auto *E : BBA->args()) {
+    ExprResult Result = S.SubstExpr(E, TemplateArgs);
+    if (Result.isInvalid())
+      return;
+    Args.push_back(Result.getAs<Expr>());
+  }
+  S.AddBankBitsAttr(BBA->getLocation(), New, Args.data(), Args.size(),
+                    BBA->getSpellingListIndex());
+}
+#endif // INTEL_CUSTOMIZATION
 
 static void instantiateDependentAllocAlignAttr(
     Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
@@ -481,6 +555,98 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
       instantiateDependentAlignValueAttr(*this, TemplateArgs, AlignValue, New);
       continue;
     }
+#if INTEL_CUSTOMIZATION
+    const HLSIIAttr *II = dyn_cast<HLSIIAttr>(TmplAttr);
+    if (II) {
+      instantiateDependentHLSOneConstantValueAttr<HLSIIAttr>(
+          *this, TemplateArgs, II, New);
+      continue;
+    }
+
+    const HLSMinIIAttr *MinII = dyn_cast<HLSMinIIAttr>(TmplAttr);
+    if (MinII) {
+      instantiateDependentHLSOneConstantValueAttr<HLSMinIIAttr>(
+          *this, TemplateArgs, MinII, New);
+      continue;
+    }
+
+    const HLSMaxIIAttr *MaxII = dyn_cast<HLSMaxIIAttr>(TmplAttr);
+    if (MaxII) {
+      instantiateDependentHLSOneConstantValueAttr<HLSMaxIIAttr>(
+          *this, TemplateArgs, MaxII, New);
+      continue;
+    }
+
+    const HLSMaxInvocationDelayAttr *MID =
+        dyn_cast<HLSMaxInvocationDelayAttr>(TmplAttr);
+    if (MID) {
+      instantiateDependentHLSOneConstantValueAttr<HLSMaxInvocationDelayAttr>(
+          *this, TemplateArgs, MID, New);
+      continue;
+    }
+
+    const MaxConcurrencyAttr *MCA = dyn_cast<MaxConcurrencyAttr>(TmplAttr);
+    if (MCA) {
+      instantiateDependentHLSOneConstantValueAttr<MaxConcurrencyAttr>(
+          *this, TemplateArgs, MCA, New);
+      continue;
+    }
+    const SchedulerTargetFmaxMHzAttr *STFM =
+        dyn_cast<SchedulerTargetFmaxMHzAttr>(TmplAttr);
+    if (STFM) {
+      instantiateDependentSchedulerTargetFmaxMHzAttr(*this, TemplateArgs,
+                                                           STFM, New);
+      continue;
+    }
+    const InternalMaxBlockRamDepthAttr *IMBRDA =
+        dyn_cast<InternalMaxBlockRamDepthAttr>(TmplAttr);
+    if (IMBRDA) {
+      instantiateDependentInternalMaxBlockRamDepthAttr(*this, TemplateArgs,
+                                                       IMBRDA, New);
+      continue;
+    }
+    const NumReadPortsAttr *NRPA = dyn_cast<NumReadPortsAttr>(TmplAttr);
+    if (NRPA) {
+      instantiateDependentHLSOneConstantValueAttr<NumReadPortsAttr>(
+          *this, TemplateArgs, NRPA, New);
+      continue;
+    }
+    const NumWritePortsAttr *NWPA = dyn_cast<NumWritePortsAttr>(TmplAttr);
+    if (NWPA) {
+      instantiateDependentHLSOneConstantValueAttr<NumWritePortsAttr>(
+          *this, TemplateArgs, NWPA, New);
+      continue;
+    }
+    const MaxReplicatesAttr *MRA = dyn_cast<MaxReplicatesAttr>(TmplAttr);
+    if (MRA) {
+      instantiateDependentHLSOneConstantValueAttr<MaxReplicatesAttr>(
+        *this, TemplateArgs, MRA, New);
+      continue;
+    }
+    const StaticArrayResetAttr *SARA = dyn_cast<StaticArrayResetAttr>(TmplAttr);
+    if (SARA) {
+      instantiateDependentHLSOneConstantValueAttr<StaticArrayResetAttr>(
+          *this, TemplateArgs, SARA, New);
+      continue;
+    }
+    const BankWidthAttr *BWA = dyn_cast<BankWidthAttr>(TmplAttr);
+    if (BWA) {
+      instantiateDependentHLSOneConstantPowerTwoValueAttr<BankWidthAttr>(
+          *this, TemplateArgs, BWA, New);
+      continue;
+    }
+    const NumBanksAttr *NBA = dyn_cast<NumBanksAttr>(TmplAttr);
+    if (NBA) {
+      instantiateDependentHLSOneConstantPowerTwoValueAttr<NumBanksAttr>(
+          *this, TemplateArgs, NBA, New);
+      continue;
+    }
+    const BankBitsAttr *BBA = dyn_cast<BankBitsAttr>(TmplAttr);
+    if (BBA) {
+      instantiateDependentHLSBankBitsAttr(*this, TemplateArgs, BBA, New);
+      continue;
+    }
+#endif // INTEL_CUSTOMIZATION
 
     if (const auto *AllocAlign = dyn_cast<AllocAlignAttr>(TmplAttr)) {
       instantiateDependentAllocAlignAttr(*this, TemplateArgs, AllocAlign, New);
@@ -5532,14 +5698,30 @@ void Sema::PerformPendingInstantiations(bool LocalOnly) {
             Function, [this, Inst, DefinitionRequired](FunctionDecl *CurFD) {
               InstantiateFunctionDefinition(/*FIXME:*/ Inst.second, CurFD, true,
                                             DefinitionRequired, true);
-              if (CurFD->isDefined())
+              if (CurFD->isDefined()) {
+                // Because all SYCL kernel functions are template functions - they
+                // have deferred instantination. We need bodies of these functions
+                // so we are checking for SYCL kernel attribute after instantination.
+                if (getLangOpts().SYCLIsDevice &&
+                        CurFD->hasAttr<SYCLKernelAttr>()) {
+                  ConstructOpenCLKernel(CurFD);
+                }
                 CurFD->setInstantiationIsPending(false);
+              }
             });
       } else {
         InstantiateFunctionDefinition(/*FIXME:*/ Inst.second, Function, true,
                                       DefinitionRequired, true);
-        if (Function->isDefined())
+        if (Function->isDefined()) {
+          // Because all SYCL kernel functions are template functions - they
+          // have deferred instantination. We need bodies of these functions
+          // so we are checking for SYCL kernel attribute after instantination.
+          if (getLangOpts().SYCLIsDevice &&
+                  Function->hasAttr<SYCLKernelAttr>()) {
+              ConstructOpenCLKernel(Function);
+          }
           Function->setInstantiationIsPending(false);
+        }
       }
       continue;
     }

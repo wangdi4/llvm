@@ -37,6 +37,9 @@ protected:
   CodeGenModule &CGM;
   llvm::Type *PipeROTy;
   llvm::Type *PipeWOTy;
+#if INTEL_CUSTOMIZATION
+  llvm::Type *ChannelTy;
+#endif // INTEL_CUSTOMIZATION
   llvm::PointerType *SamplerTy;
 
   /// Structure for enqueued block information.
@@ -52,8 +55,12 @@ protected:
                                   llvm::Type *&PipeTy);
 
 public:
-  CGOpenCLRuntime(CodeGenModule &CGM) : CGM(CGM),
-    PipeROTy(nullptr), PipeWOTy(nullptr), SamplerTy(nullptr) {}
+#if INTEL_CUSTOMIZATION
+  CGOpenCLRuntime(CodeGenModule &CGM)
+      : CGM(CGM), PipeROTy(nullptr), PipeWOTy(nullptr),
+        ChannelTy(nullptr), SamplerTy(nullptr) {}
+#endif // INTEL_CUSTOMIZATION
+
   virtual ~CGOpenCLRuntime();
 
   /// Emit the IR required for a work-group-local variable declaration, and add
@@ -75,6 +82,18 @@ public:
   // Returns a value which indicates the alignment in bytes of the pipe
   // element.
   virtual llvm::Value *getPipeElemAlign(const Expr *PipeArg);
+
+#if INTEL_CUSTOMIZATION
+  virtual llvm::Type *getChannelType();
+
+  // \brief Returns a value which indicates the size in bytes of the channel
+  // element.
+  virtual llvm::Value *getChannelElemSize(const Expr *ChannelArg);
+
+  // \brief Returns a value which indicates the alignment in bytes of the
+  // channel element.
+  virtual llvm::Value *getChannelElemAlign(const Expr *ChannelArg);
+#endif // INTEL_CUSTOMIZATION
 
   /// \return __generic void* type.
   llvm::PointerType *getGenericVoidPointerType();

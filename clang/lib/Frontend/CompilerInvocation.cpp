@@ -66,6 +66,9 @@
 #include "llvm/ProfileData/InstrProfReader.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/Compiler.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Support/DynamicLibrary.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/ErrorOr.h"
@@ -122,7 +125,8 @@ CompilerInvocationBase::~CompilerInvocationBase() = default;
 static unsigned getOptimizationLevel(ArgList &Args, InputKind IK,
                                      DiagnosticsEngine &Diags) {
   unsigned DefaultOpt = llvm::CodeGenOpt::None;
-  if (IK.getLanguage() == InputKind::OpenCL && !Args.hasArg(OPT_cl_opt_disable))
+  if ((IK.getLanguage() == InputKind::OpenCL &&
+      !Args.hasArg(OPT_cl_opt_disable)) || Args.hasArg(OPT_fsycl_is_device))
     DefaultOpt = llvm::CodeGenOpt::Default;
 
   if (Arg *A = Args.getLastArg(options::OPT_O_Group)) {
@@ -650,6 +654,11 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   }
   Opts.OptimizationLevel = OptimizationLevel;
 
+#if INTEL_CUSTOMIZATION
+  Opts.DisableIntelProprietaryOpts = Args.hasArg(
+    OPT_disable_intel_proprietary_opts);
+#endif // INTEL_CUSTOMIZATION
+
   // At O0 we want to fully disable inlining outside of cases marked with
   // 'alwaysinline' that are required for correctness.
   Opts.setInlining((Opts.OptimizationLevel == 0)
@@ -687,6 +696,8 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
       Opts.setVecLib(CodeGenOptions::MASSV);
     else if (Name == "SVML")
       Opts.setVecLib(CodeGenOptions::SVML);
+    else if (Name == "Libmvec")
+      Opts.setVecLib(CodeGenOptions::Libmvec);
     else if (Name == "none")
       Opts.setVecLib(CodeGenOptions::NoLibrary);
     else
@@ -723,6 +734,9 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.DebugColumnInfo = Args.hasArg(OPT_dwarf_column_info);
   Opts.EmitCodeView = Args.hasArg(OPT_gcodeview);
   Opts.CodeViewGHash = Args.hasArg(OPT_gcodeview_ghash);
+#if INTEL_CUSTOMIZATION
+  Opts.EmitIntelSTI = Args.hasArg(OPT_gintel_sti);
+#endif // INTEL_CUSTOMIZATION
   Opts.MacroDebugInfo = Args.hasArg(OPT_debug_info_macro);
   Opts.WholeProgramVTables = Args.hasArg(OPT_fwhole_program_vtables);
   Opts.LTOVisibilityPublicStd = Args.hasArg(OPT_flto_visibility_public_std);
@@ -1193,6 +1207,37 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  Opts.SPIRCompileOptions = Args.getLastArgValue(OPT_cl_spir_compile_options);
+
+  // CQ#368119 - support for '/Z7' and '/Zi' options.
+  if (Arg *A = Args.getLastArg(OPT_fms_debug_info_file_type)) {
+    StringRef Val = A->getValue();
+    unsigned FileType = llvm::StringSwitch<unsigned>(Val)
+                            .Case("obj", CodeGenOptions::MSDebugInfoObjFile)
+                            .Case("pdb", CodeGenOptions::MSDebugInfoPdbFile)
+                            .Default(~0U);
+    if (FileType == ~0U) {
+      Diags.Report(diag::err_drv_invalid_value) << A->getAsString(Args) << Val;
+      Success = false;
+    } else {
+      Opts.setMSDebugInfoFile(
+          static_cast<CodeGenOptions::MSDebugInfoFileKind>(FileType));
+    }
+  }
+  // CQ#368125 - support for '/Fd' and '/Fo' options.
+  Opts.MSOutputObjFile = Args.getLastArgValue(OPT_fms_debug_info_obj_file);
+  Opts.MSOutputPdbFile = Args.getLastArgValue(OPT_fms_debug_info_pdb_file);
+  // CQ#368123 - support '-f[no-]emit-class-debug-always' options.
+  Opts.EmitClassDebugAlways = Args.hasFlag(
+      OPT_femit_class_debug_always, OPT_fno_emit_class_debug_always, true);
+  // CQ#366796 - support for '--no_expr_source_pos' option.
+  Opts.NoExprSourcePos = Args.hasArg(OPT_no_expr_source_pos);
+  // Support for '-fargument-noalias' option.
+  // isIntelCompat(LangOptions::FArgumentNoalias)
+  Opts.NoAliasForPtrArgs = Args.hasArg(OPT_fargument_noalias);
+#endif // INTEL_CUSTOMIZATION
+
   if (Arg *A = Args.getLastArg(OPT_fdenormal_fp_math_EQ)) {
     StringRef Val = A->getValue();
     if (Val == "ieee")
@@ -1350,6 +1395,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
 static void ParseDependencyOutputArgs(DependencyOutputOptions &Opts,
                                       ArgList &Args) {
   Opts.OutputFile = Args.getLastArgValue(OPT_dependency_file);
+  Opts.DependencyFilter = Args.getLastArgValue(OPT_dependency_filter);
   Opts.Targets = Args.getAllArgValues(OPT_MT);
   Opts.IncludeSystemHeaders = Args.hasArg(OPT_sys_header_deps);
   Opts.IncludeModuleFiles = Args.hasArg(OPT_module_file_deps);
@@ -2097,6 +2143,13 @@ static void ParseHeaderSearchArgs(HeaderSearchOptions &Opts, ArgList &Args,
 
   for (const auto *A : Args.filtered(OPT_ivfsoverlay))
     Opts.AddVFSOverlayFile(A->getValue());
+
+#if INTEL_CUSTOMIZATION
+  if (const Arg *A = Args.getLastArg(OPT_header_base_path))
+    Opts.HeaderBasePath = A->getValue();
+  for (const auto *A : Args.filtered(OPT_ivfsoverlay_lib))
+    Opts.AddVFSOverlayLib(A->getValue());
+#endif // INTEL_CUSTOMIZATION
 }
 
 void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
@@ -2203,15 +2256,9 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
     Opts.NativeHalfType = 1;
     Opts.NativeHalfArgsAndReturns = 1;
     Opts.OpenCLCPlusPlus = Opts.CPlusPlus;
-
     // Include default header file for OpenCL.
-    if (Opts.IncludeDefaultHeader) {
-      if (Opts.DeclareOpenCLBuiltins) {
-        // Only include base header file for builtin types and constants.
-        PPOpts.Includes.push_back("opencl-c-base.h");
-      } else {
-        PPOpts.Includes.push_back("opencl-c.h");
-      }
+    if (Opts.IncludeDefaultHeader && !Opts.DeclareOpenCLBuiltins) {
+      PPOpts.Includes.push_back("opencl-c.h");
     }
   }
 
@@ -2267,7 +2314,11 @@ static Visibility parseVisibility(Arg *arg, ArgList &args,
 
 /// Check if input file kind and language standard are compatible.
 static bool IsInputCompatibleWithStandard(InputKind IK,
-                                          const LangStandard &S) {
+                                          const Arg *A, // INTEL
+                                          ArgList& Args, // INTEL
+                                          const LangStandard &S, // INTEL
+                                          LangStandard::Kind &Std, // INTEL
+                                          DiagnosticsEngine &Diags) { // INTEL
   switch (IK.getLanguage()) {
   case InputKind::Unknown:
   case InputKind::LLVM_IR:
@@ -2276,6 +2327,15 @@ static bool IsInputCompatibleWithStandard(InputKind IK,
   case InputKind::C:
   case InputKind::ObjC:
   case InputKind::RenderScript:
+#if INTEL_CUSTOMIZATION
+    if (!(S.getLanguage() == InputKind::C) &&
+        Args.hasArg(OPT_fintel_compatibility)) {
+      Diags.Report(diag::warn_drv_argument_not_allowed_with)
+          << A->getAsString(Args) << "C/ObjC";
+      Std = LangStandard::lang_gnu99;
+      return true;
+    }
+#endif // INTEL_CUSTOMIZATION
     return S.getLanguage() == InputKind::C;
 
   case InputKind::OpenCL:
@@ -2283,6 +2343,15 @@ static bool IsInputCompatibleWithStandard(InputKind IK,
 
   case InputKind::CXX:
   case InputKind::ObjCXX:
+#if INTEL_CUSTOMIZATION
+      if (!(S.getLanguage() == InputKind::CXX) &&
+          Args.hasArg(OPT_fintel_compatibility)) {
+        Diags.Report(diag::warn_drv_argument_not_allowed_with)
+            << A->getAsString(Args) << "C++/ObjC++";
+        Std = LangStandard::lang_gnucxx14;
+        return true;
+      }
+#endif // INTEL_CUSTOMIZATION
     return S.getLanguage() == InputKind::CXX;
 
   case InputKind::CUDA:
@@ -2358,7 +2427,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
            ++KindValue) {
         const LangStandard &Std = LangStandard::getLangStandardForKind(
           static_cast<LangStandard::Kind>(KindValue));
-        if (IsInputCompatibleWithStandard(IK, Std)) {
+        if (IsInputCompatibleWithStandard(IK, A, Args, Std, LangStd,//INTEL
+                                          Diags)) { // INTEL
           auto Diag = Diags.Report(diag::note_drv_use_standard);
           Diag << Std.getName() << Std.getDescription();
           unsigned NumAliases = 0;
@@ -2379,7 +2449,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       // Valid standard, check to make sure language and standard are
       // compatible.
       const LangStandard &Std = LangStandard::getLangStandardForKind(LangStd);
-      if (!IsInputCompatibleWithStandard(IK, Std)) {
+      if (!IsInputCompatibleWithStandard(IK, A, Args, Std, LangStd, // INTEL
+                                         Diags)) { // INTEL
         Diags.Report(diag::err_drv_argument_not_allowed_with)
           << A->getAsString(Args) << GetInputKindName(IK);
       }
@@ -2420,6 +2491,97 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
 
   llvm::Triple T(TargetOpts.Triple);
   CompilerInvocation::setLangDefaults(Opts, IK, T, PPOpts, LangStd);
+#if INTEL_CUSTOMIZATION
+  Opts.IntelCompat = Args.hasArg(OPT_fintel_compatibility);
+  if (Opts.IntelCompat)
+    Opts.setAllIntelCompatItemsStateDefault();
+  for (const Arg *A : Args.filtered(OPT_fintel_compatibility_enable,
+                                    OPT_fintel_compatibility_disable)) {
+    A->claim();
+    bool Enable = (A->getOption().getID() == OPT_fintel_compatibility_enable);
+    // We can have a list of comma separated names.
+    StringRef ItemList = A->getValue();
+    SmallVector<StringRef, 32> Items;
+    ItemList.split(Items, ",");
+    for (StringRef Item : Items) {
+      if (!Opts.setIntelCompatItemsState(Item, Enable))
+        Diags.Report(diag::err_drv_invalid_value) << A->getSpelling() << Item;
+    }
+  }
+  Opts.ShowIntelCompatHelp = Args.hasArg(OPT_fintel_compatibility_help);
+  Opts.IntelMSCompat = Args.hasArg(OPT_fintel_ms_compatibility);
+  Opts.HLS = Args.hasArg(OPT_fhls);
+  Opts.IntelQuad = Args.hasArg(OPT_extended_float_types);
+  Opts.IntelAdvancedOptim = Args.hasArg(OPT_fintel_advanced_optim);
+
+  if (Opts.isIntelCompat(LangOptions::IMFAttributes)) {
+    for (StringRef IMFAttrs : Args.getAllArgValues(OPT_fintel_imf_attr_EQ)) {
+      SmallVector<StringRef, 8> IMFAttrArr;
+      IMFAttrs.split(IMFAttrArr, ' ');
+      for (const auto &IMFAttr : IMFAttrArr) {
+        SmallVector<StringRef, 3> IMFAttrElement;
+        IMFAttr.split(IMFAttrElement, ':');
+        if (IMFAttrElement.size() == 2) {
+          std::pair<LangOptions::IMFAttrMap::iterator, bool> Res =
+              Opts.ImfAttrMap.insert({IMFAttrElement[0], IMFAttrElement[1]});
+          if (!Res.second) {
+            // Update the existing attribute.
+            Res.first->second = IMFAttrElement[1];
+          }
+        } else if (IMFAttrElement.size() == 3) {
+          SmallVector<StringRef, 30> FuncList;
+          IMFAttrElement[2].split(FuncList, ',');
+          for (StringRef FuncName : FuncList) {
+            auto FuncMapIt = Opts.ImfAttrFuncMap.find(FuncName);
+            if (FuncMapIt != Opts.ImfAttrFuncMap.end()) {
+              // The function is already in the map, add options to it.
+              std::pair<LangOptions::IMFAttrMap::iterator, bool> Res =
+                  FuncMapIt->second.insert(
+                      {IMFAttrElement[0], IMFAttrElement[1]});
+              if (!Res.second) {
+                // Update the existing attribute.
+                Res.first->second = IMFAttrElement[1];
+              }
+            } else {
+              // The first appearence of the function in the imf attributes.
+              LangOptions::IMFAttrMap NewMap;
+              NewMap.insert({IMFAttrElement[0], IMFAttrElement[1]});
+              Opts.ImfAttrFuncMap.insert({FuncName, std::move(NewMap)});
+            }
+          }
+        }
+      }
+    }
+  }
+
+  Opts.OpenMPThreadPrivateLegacy =
+      Args.hasArg(OPT_fopenmp_threadprivate_legacy);
+  Opts.IntelDriverTempfileName =
+      Args.getLastArgValue(OPT_fintel_driver_tempfile_name_EQ);
+  Opts.Restrict =
+      Args.hasFlag(OPT_restrict, OPT_no_restrict, /*Default=*/Opts.C99);
+  // Fix for CQ#373517: compilation fails with 'redefinition of default
+  // argument'.
+  Opts.GnuPermissive = Args.hasArg(OPT_gnu_permissive);
+
+  Opts.Float128 = Opts.IntelQuad || (Opts.IntelCompat && Opts.GNUMode);
+
+  if (const Arg *A = Args.getLastArg(OPT_fintel_long_double_size_EQ)) {
+    StringRef Value = A->getValue();
+    if (Value == "128")
+      Opts.LongDoubleSize = 128;
+    else if (Value == "80")
+      Opts.LongDoubleSize = 80;
+    else if (Value == "64")
+      Opts.LongDoubleSize = 64;
+    else {
+      Diags.Report(diag::err_drv_invalid_value) << A->getAsString(Args)
+                                                << A->getValue();
+    }
+  }
+  // IntrinsicPromotion implementation.
+  Opts.IntrinsicAutoPromote = Args.hasArg(OPT_intel_mintrinsic_promote);
+#endif  // INTEL_CUSTOMIZATION
 
   // -cl-strict-aliasing needs to emit diagnostic in the case where CL > 1.0.
   // This option should be deprecated for CL > 1.0 because
@@ -2457,6 +2619,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
     Opts.CUDADeviceApproxTranscendentals = 1;
 
   Opts.GPURelocatableDeviceCode = Args.hasArg(OPT_fgpu_rdc);
+
+  Opts.SYCLIntHeader = Args.getLastArgValue(OPT_fsycl_int_header);
 
   if (Opts.ObjC) {
     if (Arg *arg = Args.getLastArg(OPT_fobjc_runtime_EQ)) {
@@ -2753,6 +2917,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.FastRelaxedMath = Args.hasArg(OPT_cl_fast_relaxed_math);
   Opts.HexagonQdsp6Compat = Args.hasArg(OPT_mqdsp6_compat);
   Opts.FakeAddressSpaceMap = Args.hasArg(OPT_ffake_address_space_map);
+#if INTEL_CUSTOMIZATION
+  Opts.OpenCLForceVectorABI = Args.hasArg(OPT_fopencl_force_vector_abi);
+#endif // INTEL_CUSTOMIZATION
   Opts.ParseUnknownAnytype = Args.hasArg(OPT_funknown_anytype);
   Opts.DebuggerSupport = Args.hasArg(OPT_fdebugger_support);
   Opts.DebuggerCastResultToId = Args.hasArg(OPT_fdebugger_cast_result_to_id);
@@ -2782,7 +2949,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   // term here.
   Opts.DeclSpecKeyword =
       Args.hasFlag(OPT_fdeclspec, OPT_fno_declspec,
-                   (Opts.MicrosoftExt || Opts.Borland || Opts.CUDA));
+                   (Opts.MicrosoftExt || Opts.Borland ||      // INTEL
+                    Opts.CUDA || Opts.IntelCompat));          // INTEL
 
   if (Arg *A = Args.getLastArg(OPT_faddress_space_map_mangling_EQ)) {
     switch (llvm::StringSwitch<unsigned>(A->getValue())
@@ -2870,12 +3038,54 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
 
   // Check if -fopenmp is specified.
   Opts.OpenMP = Args.hasArg(options::OPT_fopenmp) ? 1 : 0;
+#if INTEL_CUSTOMIZATION
+  Opts.OpenMPSimdOnly = false;
+  Opts.OpenMPSimdDisabled = false;
+  Opts.OpenMPTBBOnly = false;
+  Opts.OpenMPTBBDisabled = false;
+  if (Opts.IntelCompat) {
+    if (Opts.OpenMP) {
+      // OpenMP is enabled but we want to disable OpenMP subset
+      Opts.OpenMPSimdDisabled = Args.hasArg(OPT_fno_openmp_simd);
+      Opts.OpenMPTBBDisabled = Args.hasArg(OPT_fnointel_openmp_tbb);
+    } else {
+      Opts.OpenMPSimdOnly = Args.hasArg(OPT_fopenmp_simd);
+      Opts.OpenMPTBBOnly = Args.hasArg(OPT_fintel_openmp_tbb);
+      if (Opts.OpenMPSimdOnly || Opts.OpenMPTBBOnly)
+        Opts.OpenMP = true;
+    }
+  }
+#endif //INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+  Opts.OpenMPLateOutline =
+      Opts.OpenMP && Args.hasArg(options::OPT_fopenmp_late_outline);
+#endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+  // Allow this spelling until removed from icx driver.
+  if (!Opts.OpenMPLateOutline)
+    Opts.OpenMPLateOutline =
+        Opts.OpenMP && Args.hasArg(OPT_fintel_openmp_region);
+  Opts.OpenMPLateOutlineTarget = !Args.hasArg(OPT_fno_intel_openmp_offload);
+  Opts.OpenMPLateOutlineAtomic = Args.hasArg(OPT_fintel_openmp_region_atomic);
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+  if (Opts.OpenMPLateOutline) {
+    llvm::Triple T(TargetOpts.Triple);
+
+    if (T.isSPIR())
+      Opts.UseAutoOpenCLAddrSpaceForOpenMP = true;
+  }
+#endif  // INTEL_COLLAB
+
   // Check if -fopenmp-simd is specified.
   bool IsSimdSpecified =
       Args.hasFlag(options::OPT_fopenmp_simd, options::OPT_fno_openmp_simd,
                    /*Default=*/false);
   Opts.OpenMPSimd = !Opts.OpenMP && IsSimdSpecified;
   Opts.OpenMPUseTLS =
+#if INTEL_CUSTOMIZATION
+      !Args.hasArg(options::OPT_fopenmp_threadprivate_legacy) &&
+#endif  // INTEL_CUSTOMIZATION
       Opts.OpenMP && !Args.hasArg(options::OPT_fnoopenmp_use_tls);
   Opts.OpenMPIsDevice =
       Opts.OpenMP && Args.hasArg(options::OPT_fopenmp_is_device);
@@ -2940,8 +3150,19 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
             TT.getArch() == llvm::Triple::ppc64le ||
             TT.getArch() == llvm::Triple::nvptx ||
             TT.getArch() == llvm::Triple::nvptx64 ||
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+            TT.getArch() == llvm::Triple::csa ||
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
             TT.getArch() == llvm::Triple::x86 ||
+#if INTEL_COLLAB
+            TT.getArch() == llvm::Triple::x86_64 ||
+            TT.getArch() == llvm::Triple::spir ||
+            TT.getArch() == llvm::Triple::spir64))
+#else
             TT.getArch() == llvm::Triple::x86_64))
+#endif // INTEL_COLLAB
         Diags.Report(diag::err_drv_invalid_omp_target) << A->getValue(i);
       else
         Opts.OMPTargetTriples.push_back(TT);
@@ -2957,7 +3178,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
           << Opts.OMPHostIRFile;
   }
 
-  Opts.SYCLIsDevice = Args.hasArg(options::OPT_fsycl_is_device);
+  Opts.SYCLIsDevice   = Args.hasArg(options::OPT_fsycl_is_device);
+  Opts.SYCLAllowFuncPtr = Args.hasFlag(options::OPT_fsycl_allow_func_ptr,
+                                  options::OPT_fno_sycl_allow_func_ptr, false);
 
   // Set CUDA mode for OpenMP target NVPTX if specified in options
   Opts.OpenMPCUDAMode = Opts.OpenMPIsDevice && T.isNVPTX() &&
@@ -3158,6 +3381,12 @@ static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {
 static void ParsePreprocessorArgs(PreprocessorOptions &Opts, ArgList &Args,
                                   DiagnosticsEngine &Diags,
                                   frontend::ActionKind Action) {
+
+#if INTEL_CUSTOMIZATION
+  if (Args.hasArg(OPT_fintel_ms_compatibility))
+      Opts.OutputFile = Args.getLastArgValue(OPT_o);
+#endif // INTEL_CUSTOMIZATION
+
   Opts.ImplicitPCHInclude = Args.getLastArgValue(OPT_include_pch);
   Opts.PCHWithHdrStop = Args.hasArg(OPT_pch_through_hdrstop_create) ||
                         Args.hasArg(OPT_pch_through_hdrstop_use);
@@ -3547,10 +3776,17 @@ createVFSFromCompilerInvocation(const CompilerInvocation &CI,
                                          llvm::vfs::getRealFileSystem());
 }
 
+#if INTEL_CUSTOMIZATION
+using CreateLibraryFileSystem = llvm::vfs::FileSystem *(*)(void);
+#endif // INTEL_CUSTOMIZATION
+
 IntrusiveRefCntPtr<llvm::vfs::FileSystem> createVFSFromCompilerInvocation(
     const CompilerInvocation &CI, DiagnosticsEngine &Diags,
     IntrusiveRefCntPtr<llvm::vfs::FileSystem> BaseFS) {
-  if (CI.getHeaderSearchOpts().VFSOverlayFiles.empty())
+#if INTEL_CUSTOMIZATION
+  if (CI.getHeaderSearchOpts().VFSOverlayFiles.empty() &&
+      CI.getHeaderSearchOpts().VFSOverlayLibs.empty())
+#endif // INTEL_CUSTOMIZATION
     return BaseFS;
 
   IntrusiveRefCntPtr<llvm::vfs::FileSystem> Result = BaseFS;
@@ -3573,6 +3809,46 @@ IntrusiveRefCntPtr<llvm::vfs::FileSystem> createVFSFromCompilerInvocation(
 
     Result = FS;
   }
+
+#if INTEL_CUSTOMIZATION
+  if (!CI.getHeaderSearchOpts().VFSOverlayLibs.empty()) {
+    IntrusiveRefCntPtr<llvm::vfs::OverlayFileSystem> Overlay(
+        new llvm::vfs::OverlayFileSystem(Result));
+
+    Result = Overlay;
+
+    // Load shared libraries that provide a VFS.
+    for (const auto &LibFile : CI.getHeaderSearchOpts().VFSOverlayLibs) {
+      std::string Error;
+      auto Lib = llvm::sys::DynamicLibrary::getPermanentLibrary(
+          LibFile.c_str(), &Error);
+      if (!Lib.isValid()) {
+        Diags.Report(diag::err_unable_to_load_vfs_overlay) << LibFile << Error;
+        continue;
+      }
+
+      auto *CreateFS =
+          reinterpret_cast<CreateLibraryFileSystem>(
+              reinterpret_cast<intptr_t>(
+                  Lib.getAddressOfSymbol("__clang_create_vfs")));
+
+      if (!CreateFS) {
+        Diags.Report(diag::err_unable_to_load_vfs_overlay)
+            << LibFile << "'__clang_create_vfs' function was not found";
+        continue;
+      }
+
+      IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS = CreateFS();
+      if (!FS) {
+        Diags.Report(diag::err_invalid_vfs_overlay) << LibFile;
+        continue;
+      }
+
+      Overlay->pushOverlay(FS);
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   return Result;
 }
 

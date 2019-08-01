@@ -165,7 +165,6 @@ public:
   ComplexPairTy VisitPseudoObjectExpr(PseudoObjectExpr *E) {
     return CGF.EmitPseudoObjectRValue(E).getComplexVal();
   }
-
   // FIXME: CompoundLiteralExpr
 
   ComplexPairTy EmitCast(CastKind CK, Expr *Op, QualType DestTy);
@@ -972,7 +971,6 @@ LValue ComplexExprEmitter::EmitBinAssignLValue(const BinaryOperator *E,
          "Invalid assignment");
   TestAndClearIgnoreReal();
   TestAndClearIgnoreImag();
-
   // Emit the RHS.  __block variables need the RHS evaluated first.
   Val = Visit(E->getRHS());
 

@@ -10,10 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "CGDebugInfo.h" // INTEL
 #include "CodeGenFunction.h"
-#include "CGDebugInfo.h"
 #include "CodeGenModule.h"
 #include "TargetInfo.h"
+#include "clang/AST/Expr.h"  // INTEL
 #include "clang/AST/StmtVisitor.h"
 #include "clang/Basic/Builtins.h"
 #include "clang/Basic/PrettyStackTrace.h"
@@ -26,6 +27,21 @@
 
 using namespace clang;
 using namespace CodeGen;
+
+#if INTEL_CUSTOMIZATION
+static bool useFrontEndOutlining(CodeGenModule &CGM, const Stmt *S) {
+  if (S->getStmtClass() == Stmt::OMPTargetDirectiveClass)
+    return !CGM.getLangOpts().OpenMPLateOutlineTarget;
+
+  if (S->getStmtClass() == Stmt::OMPAtomicDirectiveClass) {
+    if (CGM.getLangOpts().OpenMPLateOutlineAtomic)
+      return false;
+    return true;
+  }
+
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 //                              Statement Emission
@@ -69,6 +85,49 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
 
   // Generate a stoppoint if we are emitting debug info.
   EmitStopPoint(S);
+
+#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+  if (CGM.getLangOpts().OpenMPLateOutline && !useFrontEndOutlining(CGM, S)) {
+#else
+  if (CGM.getLangOpts().OpenMPLateOutline) {
+#endif // INTEL_CUSTOMIZATION
+    // Combined target directives
+    if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
+      if (requiresImplicitTask(*Dir))
+        return EmitLateOutlineOMPDirective(*Dir, OMPD_task);
+
+    if (S->getStmtClass() == Stmt::OMPTargetParallelDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPTargetParallelForDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPTargetParallelForSimdDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPTargetSimdDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPTargetTeamsDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPTargetTeamsDistributeDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPTargetTeamsDistributeSimdDirectiveClass ||
+        S->getStmtClass() ==
+            Stmt::OMPTargetTeamsDistributeParallelForDirectiveClass ||
+        S->getStmtClass() ==
+            Stmt::OMPTargetTeamsDistributeParallelForSimdDirectiveClass) {
+      auto *Dir = dyn_cast<OMPExecutableDirective>(S);
+      return EmitLateOutlineOMPDirective(*Dir, OMPD_target);
+    }
+    // Combined teams directives
+    if (S->getStmtClass() == Stmt::OMPTeamsDistributeDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPTeamsDistributeSimdDirectiveClass ||
+        S->getStmtClass() ==
+            Stmt::OMPTeamsDistributeParallelForDirectiveClass ||
+        S->getStmtClass() ==
+            Stmt::OMPTeamsDistributeParallelForSimdDirectiveClass) {
+      auto *Dir = dyn_cast<OMPExecutableDirective>(S);
+      return EmitLateOutlineOMPDirective(*Dir, OMPD_teams);
+    }
+    if (auto *LoopDir = dyn_cast<OMPLoopDirective>(S))
+      return EmitLateOutlineOMPLoopDirective(*LoopDir,
+                                             LoopDir->getDirectiveKind());
+    if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
+      return EmitLateOutlineOMPDirective(*Dir);
+  }
+#endif // INTEL_COLLAB
 
   // Ignore all OpenMP directives except for simd if OpenMP with Simd is
   // enabled.
@@ -339,6 +398,10 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
     EmitOMPTargetTeamsDistributeSimdDirective(
         cast<OMPTargetTeamsDistributeSimdDirective>(*S));
     break;
+#if INTEL_CUSTOMIZATION
+  case Stmt::OMPTargetVariantDispatchDirectiveClass:
+    llvm_unreachable("target variant dispatch not supported with FE outlining");
+#endif // INTEL_CUSTOMIZATION
   }
 }
 
@@ -578,7 +641,194 @@ void CodeGenFunction::EmitLabelStmt(const LabelStmt &S) {
   EmitStmt(S.getSubStmt());
 }
 
+#if INTEL_CUSTOMIZATION
+CodeGenFunction::IntelPragmaInlineState::IntelPragmaInlineState(
+    CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs) : CGF(CGF) {
+  auto AttrItr = std::find_if(std::begin(Attrs),
+                              std::end(Attrs),
+                              [](const Attr * A)
+                              { return A->getKind() == attr::IntelInline; });
+  if (AttrItr != std::end(Attrs)) {
+    CurrentAttr = cast<IntelInlineAttr>(*AttrItr);
+    PreviousState = CGF.CurrentPragmaInlineState;
+    CGF.CurrentPragmaInlineState = this;
+  } else {
+    CurrentAttr = nullptr;
+    PreviousState = nullptr;
+    CGF.CurrentPragmaInlineState = nullptr;
+  }
+}
+
+CodeGenFunction::IntelPragmaInlineState::~IntelPragmaInlineState() {
+  CGF.CurrentPragmaInlineState = PreviousState;
+}
+
+// The return value is a pair where the first part indicates the kind of
+// pragma (inline, forceinline, noinline) and the second part indicates
+// whether the recursive qualifier was placed on the pragma.
+std::pair<llvm::Attribute::AttrKind, bool>
+CodeGenFunction::IntelPragmaInlineState::getPragmaInlineAttribute() {
+  bool Recursive = (CurrentAttr->getOption() == IntelInlineAttr::Recursive);
+  switch (CurrentAttr->getSemanticSpelling()) {
+    case IntelInlineAttr::Pragma_inline:
+      if (Recursive)
+        return std::make_pair(llvm::Attribute::InlineHint, true);
+      else
+        return std::make_pair(llvm::Attribute::InlineHint, false);
+    case IntelInlineAttr::Pragma_forceinline:
+      if (Recursive)
+        return std::make_pair(llvm::Attribute::AlwaysInline, true);
+      else
+        return std::make_pair(llvm::Attribute::AlwaysInline, false);
+    case IntelInlineAttr::Pragma_noinline:
+      return std::make_pair(llvm::Attribute::NoInline, false);
+  }
+  llvm_unreachable("unhandled attribute");
+}
+
+/// Handle #pragma ivdep when it contains an array clause.
+CodeGenFunction::IntelIVDepArrayHandler::IntelIVDepArrayHandler(
+    CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs)
+    : CGF(CGF) {
+
+  llvm::LLVMContext &Ctx = CGF.getLLVMContext();
+  llvm::IntegerType *Int32Ty = llvm::Type::getInt32Ty(Ctx);
+  SmallVector<llvm::Value *, 4> BundleValues;
+  for (const auto *A : Attrs) {
+    if (const auto *LHAttr = dyn_cast<LoopHintAttr>(A)) {
+      if (const Expr *LE = LHAttr->getLoopExprValue()) {
+        assert(LE->isGLValue());
+        BundleValues.push_back(CGF.EmitLValue(LE).getPointer());
+        if (const Expr *E = LHAttr->getValue())
+          BundleValues.push_back(CGF.EmitScalarExpr(E));
+        else
+          BundleValues.push_back(llvm::ConstantInt::get(Int32Ty, -1));
+      }
+    }
+  }
+  if (!BundleValues.empty()) {
+    SmallVector<llvm::OperandBundleDef, 8> OpBundles{
+        llvm::OperandBundleDef("DIR.PRAGMA.IVDEP", ArrayRef<llvm::Value *>{}),
+        llvm::OperandBundleDef("QUAL.PRAGMA.ARRAY", BundleValues)};
+    CallEntry = CGF.Builder.CreateCall(
+        CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_entry), {},
+        OpBundles);
+  }
+}
+
+CodeGenFunction::IntelIVDepArrayHandler::~IntelIVDepArrayHandler() {
+  if (CallEntry) {
+    SmallVector<llvm::OperandBundleDef, 1> OpBundles{
+      llvm::OperandBundleDef("DIR.PRAGMA.END.IVDEP",
+                             ArrayRef<llvm::Value *>{})};
+
+    CGF.Builder.CreateCall(
+        CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_exit),
+        SmallVector<llvm::Value *, 1>{CallEntry}, OpBundles);
+  }
+}
+
+CodeGenFunction::DistributePointHandler::DistributePointHandler(
+    CodeGenFunction &CGF, const Stmt *S, ArrayRef<const Attr *> Attrs)
+    : CGF(CGF), CallEntry(nullptr) {
+  // Pragma on loop statements get loop meta-data generated elsewhere
+  // We can't handle distribute_point on statements with OpenMP pragmas either
+  if (S->getStmtClass() == Stmt::WhileStmtClass ||
+      S->getStmtClass() == Stmt::DoStmtClass ||
+      S->getStmtClass() == Stmt::ForStmtClass ||
+      S->getStmtClass() == Stmt::CXXForRangeStmtClass ||
+      dyn_cast<OMPLoopDirective>(S))
+    return;
+
+  auto AttrItr =
+      std::find_if(std::begin(Attrs), std::end(Attrs), [](const Attr *A) {
+        return A->getKind() == attr::LoopHint &&
+               cast<LoopHintAttr>(A)->getOption() == LoopHintAttr::Distribute;
+      });
+  if (AttrItr == std::end(Attrs))
+    return;
+
+  SmallVector<llvm::OperandBundleDef, 1> OpBundles{llvm::OperandBundleDef{
+      "DIR.PRAGMA.DISTRIBUTE_POINT", ArrayRef<llvm::Value *>{}}};
+  CallEntry = CGF.Builder.CreateCall(
+      CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_entry),
+      ArrayRef<llvm::Value *>{}, OpBundles);
+}
+
+CodeGenFunction::DistributePointHandler::~DistributePointHandler() {
+  if (CallEntry) {
+    SmallVector<llvm::OperandBundleDef, 1> OpBundles{llvm::OperandBundleDef{
+        "DIR.PRAGMA.END.DISTRIBUTE_POINT", ArrayRef<llvm::Value *>{}}};
+    CGF.Builder.CreateCall(
+        CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_exit),
+        ArrayRef<llvm::Value *>{CallEntry}, OpBundles);
+  }
+}
+
+/// Handle #pragma block_loop when it contains an factor or private clause.
+CodeGenFunction::IntelBlockLoopExprHandler::IntelBlockLoopExprHandler(
+    CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs)
+    : CGF(CGF) {
+  decltype(Attrs)::iterator AttrItr =
+      std::find_if(std::begin(Attrs), std::end(Attrs), [](const Attr *A) {
+        return A->getKind() == attr::IntelBlockLoop;
+      });
+
+  if (AttrItr == std::end(Attrs))
+    return;
+
+  const IntelBlockLoopAttr *BL = cast<IntelBlockLoopAttr>(*AttrItr);
+  SmallVector<llvm::OperandBundleDef, 8> OpBundles;
+  OpBundles.push_back(llvm::OperandBundleDef("DIR.PRAGMA.BLOCK_LOOP",
+                                             ArrayRef<llvm::Value *>{}));
+
+  for (const auto *P : BL->privates()) {
+    SmallVector<llvm::Value *, 4> BundleValues;
+    BundleValues.push_back(CGF.EmitLValue(P).getPointer());
+    OpBundles.push_back(
+        llvm::OperandBundleDef("QUAL.PRAGMA.PRIVATE", BundleValues));
+  }
+
+  IntelBlockLoopAttr::factors_iterator FI = BL->factors_begin();
+  for (const auto L : BL->levels()) {
+    llvm::IntegerType *Int32Ty = CGF.CGM.Int32Ty;
+    OpBundles.push_back(llvm::OperandBundleDef(
+        "QUAL.PRAGMA.LEVEL", llvm::ConstantInt::get(Int32Ty, L)));
+    if (*FI)
+      OpBundles.push_back(llvm::OperandBundleDef("QUAL.PRAGMA.FACTOR",
+                                                 CGF.EmitScalarExpr(*FI)));
+    else
+      OpBundles.push_back(llvm::OperandBundleDef(
+          "QUAL.PRAGMA.FACTOR", llvm::ConstantInt::get(Int32Ty, -1)));
+    ++FI;
+  }
+  CallEntry = CGF.Builder.CreateCall(
+      CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_entry), {},
+      OpBundles);
+}
+
+CodeGenFunction::IntelBlockLoopExprHandler::~IntelBlockLoopExprHandler() {
+
+  if (CallEntry) {
+    SmallVector<llvm::OperandBundleDef, 1> OpBundles{
+      llvm::OperandBundleDef("DIR.PRAGMA.END.BLOCK_LOOP",
+                             ArrayRef<llvm::Value *>{})};
+
+    CGF.Builder.CreateCall(
+        CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_exit),
+        SmallVector<llvm::Value *, 1>{CallEntry}, OpBundles);
+  }
+}
+
+#endif // INTEL_CUSTOMIZATION
+
 void CodeGenFunction::EmitAttributedStmt(const AttributedStmt &S) {
+#if INTEL_CUSTOMIZATION
+  IntelPragmaInlineState PS(*this, S.getAttrs());
+  IntelIVDepArrayHandler IAH(*this, S.getAttrs());
+  DistributePointHandler DPH(*this, S.getSubStmt(), S.getAttrs());
+  IntelBlockLoopExprHandler IBLH(*this, S.getAttrs());
+#endif // INTEL_CUSTOMIZATION
   EmitStmt(S.getSubStmt(), S.getAttrs());
 }
 
@@ -1032,6 +1282,37 @@ void CodeGenFunction::EmitReturnOfRValue(RValue RV, QualType Ty) {
   EmitBranchThroughCleanup(ReturnBlock);
 }
 
+
+#if INTEL_CUSTOMIZATION
+// Checks the expression is the candidate of the fakeload intrinsic
+bool CodeGenFunction::IsFakeLoadCand(const Expr *RV) {
+  if (RV->getType()->isIncompleteType() || RV->getType()->isFunctionType())
+    return false;
+  if (RV->getStmtClass() == Expr::ArraySubscriptExprClass ||
+      RV->getStmtClass() == Expr::MemberExprClass)
+    return true;
+  return false;
+}
+
+// Generates the load for the return pointer and saves the tbaa
+// information for the return pointer dereference.
+bool CodeGenFunction::EmitFakeLoadForRetPtr(const Expr *RV) {
+  LValue Des = EmitLValue(RV);
+  llvm::Value *LV = EmitLoadOfLValue(Des, RV->getExprLoc()).getScalarVal();
+  llvm::LoadInst *LI = dyn_cast<llvm::LoadInst>(LV);
+  if (LI) {
+    llvm::MDNode *M = LI->getMetadata(llvm::LLVMContext::MD_tbaa);
+    Builder.CreateStore(LI->getPointerOperand(), ReturnValue);
+    if (M)
+      RetPtrMap[LI->getPointerOperand()] = M;
+    LI->eraseFromParent();
+    return true;
+  }
+  return false;
+}
+
+#endif // INTEL_CUSTOMIZATION
+
 /// EmitReturnStmt - Note that due to GCC extensions, this can have an operand
 /// if the function returns void, or may be missing one if the function returns
 /// non-void.  Fun stuff :).
@@ -1089,12 +1370,30 @@ void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
   } else if (FnRetTy->isReferenceType()) {
     // If this function returns a reference, take the address of the expression
     // rather than the value.
-    RValue Result = EmitReferenceBindingToExpr(RV);
-    Builder.CreateStore(Result.getScalarVal(), ReturnValue);
+#if INTEL_CUSTOMIZATION
+    // Handle the case of ret_type& function();
+    if (!getLangOpts().isIntelCompat(LangOptions::FakeLoad) ||
+        CGM.getCodeGenOpts().OptimizationLevel < 2 || !IsFakeLoadCand(RV) ||
+        !EmitFakeLoadForRetPtr(RV)) {
+      RValue Result = EmitReferenceBindingToExpr(RV);
+      Builder.CreateStore(Result.getScalarVal(), ReturnValue);
+    }
+#endif // INTEL_CUSTOMIZATION
   } else {
     switch (getEvaluationKind(RV->getType())) {
     case TEK_Scalar:
-      Builder.CreateStore(EmitScalarExpr(RV), ReturnValue);
+#if INTEL_CUSTOMIZATION
+    {
+      const UnaryOperator *Exp = dyn_cast<UnaryOperator>(RV);
+      // Handle the case of ret_type* function();
+      if (!getLangOpts().isIntelCompat(LangOptions::FakeLoad) ||
+          CGM.getCodeGenOpts().OptimizationLevel < 2 || !Exp ||
+          Exp->getOpcode() != UO_AddrOf || !IsFakeLoadCand(Exp->getSubExpr()) ||
+          !EmitFakeLoadForRetPtr(Exp->getSubExpr())) {
+        Builder.CreateStore(EmitScalarExpr(RV), ReturnValue);
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
       break;
     case TEK_Complex:
       EmitComplexExprIntoLValue(RV, MakeAddrLValue(ReturnValue, RV->getType()),
@@ -1971,6 +2270,19 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
     bool IsValid =
       getTarget().validateInputConstraint(OutputConstraintInfos, Info);
     assert(IsValid && "Failed to parse input constraint"); (void)IsValid;
+#if INTEL_CUSTOMIZATION
+    // CQ#371735 - allow use of registers for rvalues under 'm' constraint.
+    if (getLangOpts().IntelCompat &&
+        S.getInputConstraint(i).find('m') != StringRef::npos &&
+        Info.allowsMemory() && !Info.allowsRegister())
+      if (const Expr *E = S.getInputExpr(i)) {
+        const Expr *E2 = E->IgnoreParenNoopCasts(getContext());
+        Expr::Classification::Kinds Kind = E2->Classify(getContext()).getKind();
+        // Allow registers for anything except lvalues, xvalues and functions.
+        if (!E->isLValue() && Kind > Expr::Classification::CL_Function)
+          Info.setAllowsRegister();
+      }
+#endif // INTEL_CUSTOMIZATION
     InputConstraintInfos.push_back(Info);
   }
 

@@ -15,6 +15,16 @@ set( LLVM_LINK_COMPONENTS
   Support
   TransformUtils
   Vectorize
+# INTEL_CUSTOMIZATION
+  Intel_LoopAnalysis
+  Intel_LoopTransforms
+  Intel_MapIntrinToIml
+  Intel_OptReport
+# end INTEL_CUSTOMIZATION
+# INTEL_COLLAB
+  VPOAnalysis
+  VPOTransforms
+# end INTEL_COLLAB
   )
 
 option(CLANG_PLUGIN_SUPPORT "Build clang with plugin support" ON)
@@ -122,6 +132,20 @@ if(CLANG_ORDER_FILE AND
     set_target_properties(clang PROPERTIES LINK_DEPENDS ${CLANG_ORDER_FILE})
   endif()
 endif()
+
+# INTEL_CUSTOMIZATION
+if(INTEL_INCLUDE_DTRANS)
+  target_link_libraries(clang PRIVATE LLVMIntel_DTrans)
+endif(INTEL_INCLUDE_DTRANS)
+# INTEL_FEATURE_CSA
+is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_CSA)
+if (p)
+# Explicit dependency for LLVMIntel_CSAScalarOpt to satisfy
+# ForcePassLinking dependencies on CSA passes.
+  target_link_libraries(clang PRIVATE LLVMIntel_CSAScalarOpt)
+endif()
+# end INTEL_FEATURE_CSA
+# end INTEL_CUSTOMIZATION
 
 if(WITH_POLLY AND LINK_POLLY_INTO_TOOLS)
   target_link_libraries(clang PRIVATE Polly)

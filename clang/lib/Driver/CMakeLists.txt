@@ -1,3 +1,19 @@
+# INTEL_CUSTOMIZATION
+set(INTEL_SOURCE_FILES_TO_BUILD)
+intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
+  COMPLEMENT LLVM_OPTIONAL_SOURCES
+# Add custom Intel files below.  Files listed here will be included in
+# INTEL_CUSTOMIZATION build.
+  )
+
+# INTEL_FEATURE_CSA
+intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_CSA
+  ToolChains/Intel_CSA.cpp
+  )
+# end INTEL_FEATURE_CSA
+# end INTEL_CUSTOMIZATION
+
 set(LLVM_LINK_COMPONENTS
   BinaryFormat
   Option
@@ -39,6 +55,9 @@ add_clang_library(clangDriver
   ToolChains/CommonArgs.cpp
   ToolChains/Contiki.cpp
   ToolChains/CrossWindows.cpp
+# INTEL_CUSTOMIZATION
+  ${INTEL_SOURCE_FILES_TO_BUILD}
+# end INTEL_CUSTOMIZATION
   ToolChains/Cuda.cpp
   ToolChains/Darwin.cpp
   ToolChains/DragonFly.cpp
@@ -65,6 +84,7 @@ add_clang_library(clangDriver
   ToolChains/TCE.cpp
   ToolChains/WebAssembly.cpp
   ToolChains/XCore.cpp
+  ToolChains/SYCL.cpp
   ToolChains/PPCLinux.cpp
   Types.cpp
   XRayArgs.cpp

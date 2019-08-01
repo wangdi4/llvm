@@ -2043,7 +2043,6 @@ Sema::BuildCXXNew(SourceRange Range, bool UseGlobal,
           AllocType, ArraySize.hasValue(), PassAlignment, PlacementArgs,
           OperatorNew, OperatorDelete))
     return ExprError();
-
   // If this is an array allocation, compute whether the usual array
   // deallocation function for the type has a size_t parameter.
   bool UsualArrayDeleteWantsSize = false;
@@ -2052,6 +2051,7 @@ Sema::BuildCXXNew(SourceRange Range, bool UseGlobal,
         doesUsualArrayDeleteWantSize(*this, StartLoc, AllocType);
 
   SmallVector<Expr *, 8> AllPlaceArgs;
+
   if (OperatorNew) {
     const FunctionProtoType *Proto =
         OperatorNew->getType()->getAs<FunctionProtoType>();
@@ -3788,6 +3788,12 @@ Sema::PerformImplicitConversion(Expr *From, QualType ToType,
     return From;
 
   switch (ICS.getKind()) {
+#if INTEL_CUSTOMIZATION
+  case ImplicitConversionSequence::PermissiveConversion:
+    Diag(From->getBeginLoc(), diag::warn_impcast_permissive_conversion)
+        << From->getType() << ToType;
+    LLVM_FALLTHROUGH;
+#endif // INTEL_CUSTOMIZATION
   case ImplicitConversionSequence::StandardConversion: {
     ExprResult Res = PerformImplicitConversion(From, ToType, ICS.Standard,
                                                Action, CCK);
@@ -5978,7 +5984,9 @@ QualType Sema::CXXCheckConditionalOperands(ExprResult &Cond, ExprResult &LHS,
   //      performed to bring them to a common type, whose cv-qualification
   //      shall match the cv-qualification of either the second or the third
   //      operand. The result is of the common type.
-  QualType Composite = FindCompositePointerType(QuestionLoc, LHS, RHS);
+  QualType Composite = FindCompositePointerType(QuestionLoc, LHS, RHS, // INTEL
+                                 /*ConvertArgs=*/true, 
+                                 /*AllowGnuPermissive=*/false); // INTEL
   if (!Composite.isNull())
     return Composite;
 
@@ -6083,7 +6091,8 @@ mergeExceptionSpecs(Sema &S, FunctionProtoType::ExceptionSpecInfo ESI1,
 /// \param ConvertArgs If \c false, do not convert E1 and E2 to the target type.
 QualType Sema::FindCompositePointerType(SourceLocation Loc,
                                         Expr *&E1, Expr *&E2,
-                                        bool ConvertArgs) {
+                                        bool ConvertArgs, // INTEL
+                                        bool AllowGnuPermissive) { // INTEL
   assert(getLangOpts().CPlusPlus && "This function assumes C++");
 
   // C++1z [expr]p14:
@@ -6282,37 +6291,40 @@ QualType Sema::FindCompositePointerType(SourceLocation Loc,
     InitializationSequence E1ToC, E2ToC;
     bool Viable;
 
-    Conversion(Sema &S, SourceLocation Loc, Expr *&E1, Expr *&E2,
-               QualType Composite)
-        : S(S), E1(E1), E2(E2), Composite(Composite),
-          Entity(InitializedEntity::InitializeTemporary(Composite)),
-          Kind(InitializationKind::CreateCopy(Loc, SourceLocation())),
-          E1ToC(S, Entity, Kind, E1), E2ToC(S, Entity, Kind, E2),
-          Viable(E1ToC && E2ToC) {}
+  Conversion(Sema &S, SourceLocation Loc, Expr *&E1, Expr *&E2,
+             QualType Composite, bool AllowGnuPermissive)
+      : S(S), E1(E1), E2(E2), Composite(Composite),
+        Entity(InitializedEntity::InitializeTemporary(Composite)),
+        Kind(InitializationKind::CreateCopy(Loc, SourceLocation())),
+        E1ToC(S, Entity, Kind, E1, /*TopLevelOfInitList=*/false,      // INTEL
+              /*TreatUnavailableAsInvalid=*/true, AllowGnuPermissive),// INTEL
+        E2ToC(S, Entity, Kind, E2, /*TopLevelOfInitList=*/false,      // INTEL
+              /*TreatUnavailableAsInvalid=*/true, AllowGnuPermissive),// INTEL
+        Viable(E1ToC && E2ToC) {}
 
-    bool perform() {
-      ExprResult E1Result = E1ToC.Perform(S, Entity, Kind, E1);
-      if (E1Result.isInvalid())
-        return true;
-      E1 = E1Result.getAs<Expr>();
+  bool perform() {
+    ExprResult E1Result = E1ToC.Perform(S, Entity, Kind, E1);
+    if (E1Result.isInvalid())
+      return true;
+    E1 = E1Result.getAs<Expr>();
 
-      ExprResult E2Result = E2ToC.Perform(S, Entity, Kind, E2);
-      if (E2Result.isInvalid())
-        return true;
-      E2 = E2Result.getAs<Expr>();
+    ExprResult E2Result = E2ToC.Perform(S, Entity, Kind, E2);
+    if (E2Result.isInvalid())
+      return true;
+    E2 = E2Result.getAs<Expr>();
 
-      return false;
+    return false;
     }
   };
 
   // Try to convert to each composite pointer type.
-  Conversion C1(*this, Loc, E1, E2, Composite1);
+  Conversion C1(*this, Loc, E1, E2, Composite1, AllowGnuPermissive); // INTEL
   if (C1.Viable && Context.hasSameType(Composite1, Composite2)) {
     if (ConvertArgs && C1.perform())
       return QualType();
     return C1.Composite;
   }
-  Conversion C2(*this, Loc, E1, E2, Composite2);
+  Conversion C2(*this, Loc, E1, E2, Composite2, AllowGnuPermissive); // INTEL
 
   if (C1.Viable == C2.Viable) {
     // Either Composite1 and Composite2 are viable and are different, or
@@ -6501,7 +6513,6 @@ Expr *Sema::MaybeCreateExprWithCleanups(Expr *SubExpr) {
   assert(SubExpr && "subexpression can't be null!");
 
   CleanupVarDeclMarking();
-
   unsigned FirstCleanup = ExprEvalContexts.back().NumCleanupObjects;
   assert(ExprCleanupObjects.size() >= FirstCleanup);
   assert(Cleanup.exprNeedsCleanups() ||

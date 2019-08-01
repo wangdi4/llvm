@@ -408,6 +408,73 @@ void X86::relaxTlsLdToLe(uint8_t *Loc, RelType Type, uint64_t Val) const {
   memcpy(Loc - 2, Inst, sizeof(Inst));
 }
 
+#if INTEL_CUSTOMIZATION
+// If Intel CET (Control-Flow Enforcement Technology) is enabled,
+// we have to emit special PLT entries containing endbr32 instructions.
+namespace {
+class IntelCET : public X86 {
+public:
+  IntelCET();
+  void writeGotPlt(uint8_t *Buf, const Symbol &S) const override;
+  void writePlt(uint8_t *Buf, uint64_t GotPltEntryAddr, uint64_t PltEntryAddr,
+                int32_t Index, unsigned RelOff) const override;
+  void writeIBTPlt(uint8_t *Buf, size_t NumEntries) const override;
+
+  enum { IBTPltHeaderSize = 16 };
+};
+} // namespace
+
+IntelCET::IntelCET() { PltHeaderSize = 0; }
+
+void IntelCET::writeGotPlt(uint8_t *Buf, const Symbol &S) const {
+  uint64_t VA =
+      In.IBTPlt->getVA() + IBTPltHeaderSize + S.PltIndex * PltEntrySize;
+  write32le(Buf, VA);
+}
+
+void IntelCET::writePlt(uint8_t *Buf, uint64_t GotPltEntryAddr,
+                        uint64_t PltEntryAddr, int32_t Index,
+                        unsigned RelOff) const {
+  if (Config->Pic) {
+    const uint8_t Inst[] = {
+        0xf3, 0x0f, 0x1e, 0xfb,       // endbr32
+        0xff, 0xa3, 0,    0,    0, 0, // jmp *name@GOT(%ebx)
+        0x66, 0x0f, 0x1f, 0x44, 0, 0, // nop
+    };
+    memcpy(Buf, Inst, sizeof(Inst));
+    write32le(Buf + 6, GotPltEntryAddr - In.GotPlt->getVA());
+    return;
+  }
+
+  const uint8_t Inst[] = {
+      0xf3, 0x0f, 0x1e, 0xfb,       // endbr32
+      0xff, 0x25, 0,    0,    0, 0, // jmp *foo@GOT
+      0x66, 0x0f, 0x1f, 0x44, 0, 0, // nop
+  };
+  memcpy(Buf, Inst, sizeof(Inst));
+  write32le(Buf + 6, GotPltEntryAddr);
+}
+
+void IntelCET::writeIBTPlt(uint8_t *Buf, size_t NumEntries) const {
+  writePltHeader(Buf);
+  Buf += IBTPltHeaderSize;
+
+  const uint8_t Inst[] = {
+      0xf3, 0x0f, 0x1e, 0xfb,    // endbr32
+      0x68, 0,    0,    0,    0, // pushl $reloc_offset
+      0xe9, 0,    0,    0,    0, // jmpq .PLT0@PC
+      0x66, 0x90,                // nop
+  };
+
+  for (size_t I = 0; I != NumEntries; ++I) {
+    memcpy(Buf, Inst, sizeof(Inst));
+    write32le(Buf + 5, I * sizeof(object::ELF32LE::Rel));
+    write32le(Buf + 10, -PltHeaderSize - sizeof(Inst) * I - 30);
+    Buf += sizeof(Inst);
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 namespace {
 class RetpolinePic : public X86 {
 public:
@@ -548,6 +615,13 @@ TargetInfo *elf::getX86TargetInfo() {
     static RetpolineNoPic T;
     return &T;
   }
+
+#if INTEL_CUSTOMIZATION
+  if (Config->AndFeatures & GNU_PROPERTY_X86_FEATURE_1_IBT) {
+    static IntelCET T;
+    return &T;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   static X86 T;
   return &T;

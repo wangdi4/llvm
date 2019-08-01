@@ -593,6 +593,11 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
   case Stmt::OMPSectionDirectiveClass:
     K = CXCursor_OMPSectionDirective;
     break;
+#if INTEL_CUSTOMIZATION
+  case Stmt::OMPTargetVariantDispatchDirectiveClass:
+    K = CXCursor_OMPTargetVariantDispatchDirective;
+    break;
+#endif // INTEL_CUSTOMIZATION
   case Stmt::OMPSingleDirectiveClass:
     K = CXCursor_OMPSingleDirective;
     break;

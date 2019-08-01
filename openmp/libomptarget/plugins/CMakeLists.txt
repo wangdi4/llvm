@@ -36,6 +36,9 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
         
       # Install plugin under the lib destination folder.
       install(TARGETS "omptarget.rtl.${tmachine_libname}" 
+# INTEL_CUSTOMIZATION
+        COMPONENT llvm-${tmachine_libname}-ompplugin
+# end INTEL_CUSTOMIZATION
         LIBRARY DESTINATION "${OPENMP_INSTALL_LIBDIR}")
         
       target_link_libraries(
@@ -65,6 +68,21 @@ add_subdirectory(cuda)
 add_subdirectory(ppc64)
 add_subdirectory(ppc64le)
 add_subdirectory(x86_64)
+
+if(INTEL_CUSTOMIZATION)
+  add_subdirectory(nios2)
+  add_subdirectory(x86_64_mic)
+# INTEL_FEATURE_CSA
+  is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_CSA)
+  if (p)
+    add_subdirectory(Intel_CSA)
+  endif()
+# end INTEL_FEATURE_CSA
+endif()
+
+if (INTEL_COLLAB)
+  add_subdirectory(opencl)
+endif(INTEL_COLLAB)
 
 # Make sure the parent scope can see the plugins that will be created.
 set(LIBOMPTARGET_SYSTEM_TARGETS "${LIBOMPTARGET_SYSTEM_TARGETS}" PARENT_SCOPE)

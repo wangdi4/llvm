@@ -1,3 +1,8 @@
+# INTEL_CUSTOMIZATION
+# This test case is marked as fail since we support /GL files.
+# XFAIL: *
+# END INTEL_CUSTOMIZATION
+
 # RUN: not lld-link /out:%t.exe /entry:main %S/Inputs/cl-gl.obj >& %t.log
 # RUN: FileCheck %s < %t.log
 

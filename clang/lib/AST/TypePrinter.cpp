@@ -226,6 +226,11 @@ bool TypePrinter::canPrefixQualifiers(const Type *T,
     case Type::ObjCTypeParam:
     case Type::ObjCInterface:
     case Type::Atomic:
+#if INTEL_CUSTOMIZATION
+    case Type::Channel:
+    case Type::ArbPrecInt:
+    case Type::DependentSizedArbPrecInt:
+#endif // INTEL_CUSTOMIZATION
     case Type::Pipe:
       CanPrefixQualifiers = true;
       break;
@@ -1091,6 +1096,35 @@ void TypePrinter::printAtomicBefore(const AtomicType *T, raw_ostream &OS) {
 
 void TypePrinter::printAtomicAfter(const AtomicType *T, raw_ostream &OS) {}
 
+#if INTEL_CUSTOMIZATION
+void TypePrinter::printChannelBefore(const ChannelType *T, raw_ostream &OS) {
+  IncludeStrongLifetimeRAII Strong(Policy);
+
+  OS << "channel ";
+  print(T->getElementType(), OS, StringRef());
+  spaceBeforePlaceHolder(OS);
+}
+
+void TypePrinter::printChannelAfter(const ChannelType *T, raw_ostream &OS) {}
+
+void TypePrinter::printArbPrecIntBefore(const ArbPrecIntType *T,
+                                        raw_ostream &OS) {
+  OS << "__ap_int(" << T->getNumBits() << ") ";
+  printBefore(T->getUnderlyingType(), OS);
+}
+void TypePrinter::printArbPrecIntAfter(const ArbPrecIntType *T,
+                                       raw_ostream &OS) {}
+void TypePrinter::printDependentSizedArbPrecIntBefore(
+    const DependentSizedArbPrecIntType *T, raw_ostream &OS) {
+  OS << "__ap_int(";
+  T->getNumBitsExpr()->printPretty(OS, nullptr, Policy);
+  OS << ") ";
+  printBefore(T->getUnderlyingType(), OS);
+}
+void TypePrinter::printDependentSizedArbPrecIntAfter(
+    const DependentSizedArbPrecIntType *T, raw_ostream &OS) {}
+#endif // INTEL_CUSTOMIZATION
+
 void TypePrinter::printPipeBefore(const PipeType *T, raw_ostream &OS) {
   IncludeStrongLifetimeRAII Strong(Policy);
 
@@ -1797,14 +1831,20 @@ void Qualifiers::print(raw_ostream &OS, const PrintingPolicy& Policy,
       addSpace = true;
       switch (addrspace) {
       case LangAS::opencl_global:
+      case LangAS::sycl_global:
         OS << "__global";
         break;
       case LangAS::opencl_local:
+      case LangAS::sycl_local:
         OS << "__local";
         break;
       case LangAS::opencl_private:
         break;
+      case LangAS::sycl_private:
+        OS << "__private";
+        break;
       case LangAS::opencl_constant:
+      case LangAS::sycl_constant:
         OS << "__constant";
         break;
       case LangAS::opencl_generic:

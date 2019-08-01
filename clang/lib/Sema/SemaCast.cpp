@@ -1509,6 +1509,11 @@ TryStaticDowncast(Sema &Self, CanQualType SrcType, CanQualType DestType,
 
     case Sema::AR_inaccessible:
       msg = 0;
+#if INTEL_CUSTOMIZATION
+    // CQ#409860 report warning instead of error in compatibility mode.
+      if (Self.getLangOpts().IntelCompat && Self.getLangOpts().IntelMSCompat)
+        return TC_Extension;
+#endif // INTEL_CUSTOMIZATION
       return TC_Failed;
     }
   }
@@ -2128,6 +2133,7 @@ static TryCastResult TryReinterpretCast(Sema &Self, ExprResult &SrcExpr,
     //   type large enough to hold it. A value of std::nullptr_t can be
     //   converted to an integral type; the conversion has the same meaning
     //   and validity as a conversion of (void*)0 to the integral type.
+    if (!Self.getLangOpts().GnuPermissive) //***INTEL CQ#376357
     if (Self.Context.getTypeSize(SrcType) >
         Self.Context.getTypeSize(DestType)) {
       msg = diag::err_bad_reinterpret_cast_small_int;
@@ -2206,6 +2212,7 @@ static TryCastResult TryReinterpretCast(Sema &Self, ExprResult &SrcExpr,
                               !DestType->isBooleanType();
     if ((Self.Context.getTypeSize(SrcType) >
          Self.Context.getTypeSize(DestType)) &&
+         !Self.getLangOpts().GnuPermissive && //***INTEL CQ#376357
          !MicrosoftException) {
       msg = diag::err_bad_reinterpret_cast_small_int;
       return TC_Failed;
@@ -2627,7 +2634,10 @@ void CastOperation::CheckCStyleCast() {
     return;
   }
 
-  if (!DestType->isScalarType() && !DestType->isVectorType()) {
+#if INTEL_CUSTOMIZATION
+  if (!DestType->isScalarType() && !DestType->isVectorType() &&
+      !DestType->isArbPrecIntType()) {
+#endif // INTEL_CUSTOMIZATION
     const RecordType *DestRecordTy = DestType->getAs<RecordType>();
 
     if (DestRecordTy && Self.Context.hasSameUnqualifiedType(DestType, SrcType)){
@@ -2680,8 +2690,10 @@ void CastOperation::CheckCStyleCast() {
 
   // The type we're casting to is known to be a scalar or vector.
 
-  // Require the operand to be a scalar or vector.
-  if (!SrcType->isScalarType() && !SrcType->isVectorType()) {
+#if INTEL_CUSTOMIZATION
+  if (!SrcType->isScalarType() && !SrcType->isVectorType() &&
+      !SrcType->isArbPrecIntType()) {
+#endif // INTEL_CUSTOMIZATION
     Self.Diag(SrcExpr.get()->getExprLoc(),
               diag::err_typecheck_expect_scalar_operand)
       << SrcType << SrcExpr.get()->getSourceRange();

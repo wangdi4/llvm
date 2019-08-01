@@ -2615,6 +2615,13 @@ static bool HandleSizeof(EvalInfo &Info, SourceLocation Loc,
   }
 
   Size = Info.Ctx.getTypeSizeInChars(Type);
+
+#if INTEL_CUSTOMIZATION
+  if (Type->isArbPrecIntType()) {
+    auto SizeAndAlign = Info.Ctx.getTypeInfoInChars(Type);
+    Size = SizeAndAlign.first.alignTo(SizeAndAlign.second);
+  }
+#endif // INTEL_CUSTOMIZATION
   return true;
 }
 
@@ -8628,8 +8635,11 @@ public:
       : ExprEvaluatorBaseTy(info), Result(result) {}
 
   bool Success(const llvm::APSInt &SI, const Expr *E, APValue &Result) {
-    assert(E->getType()->isIntegralOrEnumerationType() &&
+#if INTEL_CUSTOMIZATION
+    assert((E->getType()->isIntegralOrEnumerationType() ||
+            E->getType()->isArbPrecIntType()) &&
            "Invalid evaluation result.");
+#endif // INTEL_CUSTOMIZATION
     assert(SI.isSigned() == E->getType()->isSignedIntegerOrEnumerationType() &&
            "Invalid evaluation result.");
     assert(SI.getBitWidth() == Info.Ctx.getIntWidth(E->getType()) &&
@@ -8642,8 +8652,11 @@ public:
   }
 
   bool Success(const llvm::APInt &I, const Expr *E, APValue &Result) {
-    assert(E->getType()->isIntegralOrEnumerationType() &&
+#if INTEL_CUSTOMIZATION
+    assert((E->getType()->isIntegralOrEnumerationType() ||
+            E->getType()->isArbPrecIntType()) &&
            "Invalid evaluation result.");
+#endif // INTEL_CUSTOMIZATION
     assert(I.getBitWidth() == Info.Ctx.getIntWidth(E->getType()) &&
            "Invalid evaluation result.");
     Result = APValue(APSInt(I));
@@ -8656,8 +8669,11 @@ public:
   }
 
   bool Success(uint64_t Value, const Expr *E, APValue &Result) {
-    assert(E->getType()->isIntegralOrEnumerationType() &&
+#if INTEL_CUSTOMIZATION
+    assert((E->getType()->isIntegralOrEnumerationType() ||
+            E->getType()->isArbPrecIntType()) &&
            "Invalid evaluation result.");
+#endif // INTEL_CUSTOMIZATION
     Result = APValue(Info.Ctx.MakeIntValue(Value, E->getType()));
     return true;
   }
@@ -9045,6 +9061,10 @@ EvaluateBuiltinClassifyType(QualType T, const LangOptions &LangOpts) {
   case Type::ObjCObject:
   case Type::ObjCInterface:
   case Type::ObjCObjectPointer:
+#if INTEL_CUSTOMIZATION
+  case Type::Channel:
+  case Type::ArbPrecInt:
+#endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
     // GCC classifies vectors as None. We follow its lead and classify all
     // other types that don't fit into the regular classification the same way.
@@ -9622,18 +9642,31 @@ bool IntExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
            Success(Val.isInfinity() ? (Val.isNegative() ? -1 : 1) : 0, E);
   }
 
+#if INTEL_CUSTOMIZATION
+  case Builtin::BI__builtin_isinfl:
+  case Builtin::BI__builtin_isinff:
+#endif  // INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_isinf: {
     APFloat Val(0.0);
     return EvaluateFloat(E->getArg(0), Val, Info) &&
            Success(Val.isInfinity() ? 1 : 0, E);
   }
 
+#if INTEL_CUSTOMIZATION
+  case Builtin::BI__builtin_finite:
+  case Builtin::BI__builtin_finitef:
+  case Builtin::BI__builtin_finitel:
+#endif  // INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_isfinite: {
     APFloat Val(0.0);
     return EvaluateFloat(E->getArg(0), Val, Info) &&
            Success(Val.isFinite() ? 1 : 0, E);
   }
 
+#if INTEL_CUSTOMIZATION
+  case Builtin::BI__builtin_isnanf:
+  case Builtin::BI__builtin_isnanl:
+#endif  // INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_isnan: {
     APFloat Val(0.0);
     return EvaluateFloat(E->getArg(0), Val, Info) &&
@@ -9669,11 +9702,12 @@ bool IntExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
   case Builtin::BIstrlen:
   case Builtin::BIwcslen:
     // A call to strlen is not a constant expression.
-    if (Info.getLangOpts().CPlusPlus11)
+    if (Info.getLangOpts().CPlusPlus11 && // INTEL
+        !Info.getLangOpts().IntelCompat) // INTEL
       Info.CCEDiag(E, diag::note_constexpr_invalid_function)
         << /*isConstexpr*/0 << /*isConstructor*/0
         << (std::string("'") + Info.Ctx.BuiltinInfo.getName(BuiltinOp) + "'");
-    else
+    else if (!Info.getLangOpts().CPlusPlus11) // INTEL
       Info.CCEDiag(E, diag::note_invalid_subexpr_in_const_expr);
     LLVM_FALLTHROUGH;
   case Builtin::BI__builtin_strlen:
@@ -12171,7 +12205,9 @@ static bool Evaluate(APValue &Result, EvalInfo &Info, const Expr *E) {
   } else if (T->isVectorType()) {
     if (!EvaluateVector(E, Result, Info))
       return false;
-  } else if (T->isIntegralOrEnumerationType()) {
+#if INTEL_CUSTOMIZATION
+  } else if (T->isIntegralOrEnumerationType() || T->isArbPrecIntType()) {
+#endif // INTEL_CUSTOMIZATION
     if (!IntExprEvaluator(Info, Result).Visit(E))
       return false;
   } else if (T->hasPointerRepresentation()) {

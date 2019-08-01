@@ -19,6 +19,7 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
+#include "llvm/Support/Intel_WP_utils.h" // INTEL
 #include "llvm/BinaryFormat/ELF.h"
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
@@ -75,6 +76,9 @@ static lto::Config createConfig() {
   // Always emit a section per function/datum with LTO.
   C.Options.FunctionSections = true;
   C.Options.DataSections = true;
+#if INTEL_CUSTOMIZATION
+  C.Options.IntelAdvancedOptim = Config->IntelAdvancedOptim;
+#endif // INTEL_CUSTOMIZATION
 
   if (Config->Relocatable)
     C.RelocModel = None;
@@ -196,6 +200,14 @@ void BitcodeCompiler::add(BitcodeFile &F) {
         // no File defined.
         !(DR->Section == nullptr && (!Sym->File || Sym->File->isElf()));
 
+#if INTEL_CUSTOMIZATION
+    // Mark that the symbol was resolved by the Linker if:
+    //   * Sym->isDefined = defined in the whole linking process of bitcode
+    //                      files and normal object files
+    //   * Sym->isLazy = defined in an archive but not used
+    //   * Sym->isShared = defined in a shared library and used
+    R.ResolvedByLinker = Sym->isDefined() || Sym->isLazy() || Sym->isShared();
+#endif // INTEL_CUSTOMIZATION
     if (R.Prevailing)
       Sym->replace(Undefined{nullptr, Sym->getName(), STB_GLOBAL, STV_DEFAULT,
                              Sym->Type});
@@ -204,6 +216,7 @@ void BitcodeCompiler::add(BitcodeFile &F) {
     // (with --wrap) symbols because otherwise LTO would inline them while
     // their values are still not final.
     R.LinkerRedefined = !Sym->CanInline;
+
   }
   checkError(LTOObj->add(std::move(F.Obj), Resols));
 }
@@ -245,6 +258,12 @@ std::vector<InputFile *> BitcodeCompiler::compile() {
                         [&](size_t Task, std::unique_ptr<MemoryBuffer> MB) {
                           Files[Task] = std::move(MB);
                         }));
+
+#if INTEL_CUSTOMIZATION
+  // Linking for an executable
+  if (!Config->Relocatable)
+    WPUtils.setLinkingExecutable(true);
+#endif // INTEL_CUSTOMIZATION
 
   if (!BitcodeFiles.empty())
     checkError(LTOObj->run(

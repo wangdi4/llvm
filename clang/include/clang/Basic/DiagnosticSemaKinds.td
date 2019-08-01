@@ -12,7 +12,6 @@
 
 let Component = "Sema" in {
 let CategoryName = "Semantic Issue" in {
-
 def note_previous_decl : Note<"%0 declared here">;
 def note_entity_declared_at : Note<"%0 declared here">;
 def note_callee_decl : Note<"%0 declared here">;
@@ -122,6 +121,14 @@ def warn_double_const_requires_fp64 : Warning<
   "double precision constant requires cl_khr_fp64, casting to single precision">;
 def err_half_const_requires_fp16 : Error<
   "half precision constant requires cl_khr_fp16">;
+
+// Intel FPGA extensions
+def err_attribute_argument_not_power_of_two : Error<
+  "%0 attribute argument must be a constant power of two greater than zero">;
+def err_intel_fpga_memory_arg_invalid : Error<
+  "%0 attribute requires either no argument or one of: %1">;
+def err_intel_fpga_loop_attr_duplication : Error<
+  "duplicate Intel FPGA loop attribute '%0'">;
 
 // C99 variable-length arrays
 def ext_vla : Extension<"variable length arrays are a C99 feature">,
@@ -820,7 +827,12 @@ def err_pragma_loop_compatibility : Error<
   "%select{incompatible|duplicate}0 directives '%1' and '%2'">;
 def err_pragma_loop_precedes_nonloop : Error<
   "expected a for, while, or do-while loop to follow '%0'">;
-
+//#if INTEL_CUSTOMIZATION
+//JR 45956
+def err_pragma_distpt_on_nonloop_stmt : Warning<
+  "statement following '%0' must be a loop or within a loop">,
+  InGroup<Pragmas>;
+//#endif // INTEL_CUSTOMIZATION
 def err_pragma_attribute_matcher_subrule_contradicts_rule : Error<
   "redundant attribute subject matcher sub-rule '%0'; '%1' already matches "
   "those declarations">;
@@ -1472,6 +1484,15 @@ def err_class_redeclared_with_different_access : Error<
   "%0 redeclared with '%1' access">;
 def err_access : Error<
   "%1 is a %select{private|protected}0 member of %3">, AccessControl;
+//if INTEL_CUSTOMIZATION
+// Fix for CQ368409: Different behavior on accessing static private class
+// members.
+def warn_access_type : Warning<
+  "type %1 is a %select{private|protected}0 member of %3 (allowed for cfront "
+  "compatibility)">, AccessControl, InGroup<IntelCompat>;
+def warn_access : Warning<
+  err_access.Text>, AccessControl, InGroup<IntelCompat>;
+// endif //INTEL_CUSTOMIZATION
 def ext_ms_using_declaration_inaccessible : ExtWarn<
   "using declaration referring to inaccessible member '%0' (which refers "
   "to accessible member '%1') is a Microsoft compatibility extension">,
@@ -1613,6 +1634,11 @@ def err_explicit_non_ctor_or_conv_function : Error<
 def err_static_not_bitfield : Error<"static member %0 cannot be a bit-field">;
 def err_static_out_of_line : Error<
   "'static' can only be specified inside the class definition">;
+//if INTEL_CUSTOMIZATION
+// CQ#376357: Allow static specifier for outline method definition.
+def warn_static_out_of_line : Warning<
+  err_static_out_of_line.Text>, InGroup<IntelCompat>;
+// endif // INTEL_CUSTOMIZATION
 def ext_static_out_of_line : ExtWarn<
   err_static_out_of_line.Text>,
   InGroup<MicrosoftTemplate>;
@@ -2983,6 +3009,16 @@ def warn_attribute_not_on_decl : Warning<
   "%0 attribute ignored when parsing type">, InGroup<IgnoredAttributes>;
 def err_base_specifier_attribute : Error<
   "%0 attribute cannot be applied to a base specifier">;
+// if INTEL_CUSTOMIZATION
+def err_interrupt_function_wrong_return_type : Error<
+  "interrupt service routine must have void return value">;
+def err_interrupt_function_wrong_args : Error<
+  "interrupt service routine can only have a pointer argument and an optional integer argument">;
+def err_interrupt_function_wrong_first_arg : Error<
+  "interrupt service routine should have a pointer as the first argument">;
+def err_interrupt_function_wrong_second_arg : Error<
+  "interrupt service routine should have one of unsigned integer types as the second argument">;
+// endif INTEL_CUSTOMIZATION
 def err_invalid_attribute_on_virtual_function : Error<
   "%0 attribute cannot be applied to virtual functions">;
 def warn_declspec_allocator_nonpointer : Warning<
@@ -3288,6 +3324,12 @@ def warn_impcast_null_pointer_to_integer : Warning<
 def warn_impcast_floating_point_to_bool : Warning<
     "implicit conversion turns floating-point number into bool: %0 to %1">,
     InGroup<ImplicitConversionFloatingPointToBool>;
+//if INTEL_CUSTOMIZATION
+// Fix for CQ376357: -fpermissive illegal conversion.
+def warn_impcast_permissive_conversion : Warning<
+  "illegal implicit type conversion from %0 to %1 allowed in -fpermissive mode">,
+  InGroup<IntelCompat>;
+// endif //INTEL_CUSTOMIZATION
 def ext_ms_impcast_fn_obj : ExtWarn<
   "implicit conversion between pointer-to-function and pointer-to-object is a "
   "Microsoft extension">, InGroup<MicrosoftCast>;
@@ -4793,10 +4835,17 @@ def err_inline_decl_follows_def : Error<
   "inline declaration of %0 follows non-inline definition">;
 def err_inline_declaration_block_scope : Error<
   "inline declaration of %0 not allowed in block scope">;
+// if INTEL_CUSTOMIZATION
+def warn_inline_declaration_block_scope : Warning<err_inline_declaration_block_scope.Text>,
+    InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_static_non_static : Error<
   "static declaration of %0 follows non-static declaration">;
 def err_different_language_linkage : Error<
   "declaration of %0 has a different language linkage">;
+def warn_different_language_linkage : Warning<
+  "declaration of %0 has a different language linkage">,
+  InGroup<IntelCompat>;
 def ext_retained_language_linkage : Extension<
   "friend function %0 retaining previous language linkage is an extension">,
   InGroup<DiagGroup<"retained-language-linkage">>;
@@ -4936,6 +4985,14 @@ def err_typecheck_invalid_restrict_not_pointer : Error<
   "restrict requires a pointer or reference (%0 is invalid)">;
 def err_typecheck_invalid_restrict_not_pointer_noarg : Error<
   "restrict requires a pointer or reference">;
+// if INTEL_CUSTOMIZATION
+def warn_typecheck_invalid_restrict_not_pointer : Warning<
+  err_typecheck_invalid_restrict_not_pointer.Text>,
+  InGroup<C99>;
+def warn_typecheck_invalid_restrict_not_pointer_noarg : Warning<
+  err_typecheck_invalid_restrict_not_pointer_noarg.Text>,
+  InGroup<C99>;
+// endif // INTEL_CUSTOMIZATION 
 def err_typecheck_invalid_restrict_invalid_pointee : Error<
   "pointer to function type %0 may not be 'restrict' qualified">;
 def ext_typecheck_zero_array_size : Extension<
@@ -5023,6 +5080,11 @@ def err_init_objc_class : Error<
   "cannot initialize Objective-C class type %0">;
 def err_implicit_empty_initializer : Error<
   "initializer for aggregate with no elements requires explicit braces">;
+// if INTEL_CUSTOMIZATION
+// cq371131
+def warn_implicit_empty_initializer : Warning<
+  err_implicit_empty_initializer.Text>, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_bitfield_has_negative_width : Error<
   "bit-field %0 has negative width (%1)">;
 def err_anon_bitfield_has_negative_width : Error<
@@ -5799,6 +5861,11 @@ def err_qualified_param_declarator : Error<
 def ext_out_of_line_declaration : ExtWarn<
   "out-of-line declaration of a member must be a definition">,
   InGroup<OutOfLineDeclaration>, DefaultError;
+// if INTEL_CUSTOMIZATION
+// CQ#376357
+def warn_out_of_line_declaration : Warning<
+  ext_out_of_line_declaration.Text>, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_member_extra_qualification : Error<
   "extra qualification on member %0">;
 def warn_member_extra_qualification : Warning<
@@ -5834,6 +5901,11 @@ def err_typecheck_pointer_arith_function_type : Error<
   "function type%select{|s}2 %1%select{| and %3}2">;
 def err_typecheck_pointer_arith_void_type : Error<
   "arithmetic on%select{ a|}0 pointer%select{|s}0 to void">;
+// if INTEL_CUSTOMIZATION
+// CQ#376357: void pointer arithmetics.
+def warn_typecheck_pointer_arith_void_type : Warning<
+  err_typecheck_pointer_arith_void_type.Text>, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_typecheck_decl_incomplete_type : Error<
   "variable has incomplete type %0">;
 def ext_typecheck_decl_incomplete_type : ExtWarn<
@@ -5907,6 +5979,10 @@ def ext_typecheck_addrof_void : Extension<
   "ISO C forbids taking the address of an expression of type 'void'">;
 def err_unqualified_pointer_member_function : Error<
   "must explicitly qualify name of member function when taking its address">;
+// if INTEL_CUSTOMIZATION
+def warn_unqualified_pointer_member_function : Warning<
+  err_unqualified_pointer_member_function.Text>, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_invalid_form_pointer_member_function : Error<
   "cannot create a non-constant pointer to member function">;
 def err_address_of_function_with_pass_object_size_params: Error<
@@ -8430,6 +8506,12 @@ def err_x86_builtin_invalid_rounding : Error<
   "invalid rounding argument">;
 def err_x86_builtin_invalid_scale : Error<
   "scale argument must be 1, 2, 4, or 8">;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+def err_x86_builtin_tmul_arg_duplicate : Error<
+  "tmul arguments must refer to different tiles">;
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
 def err_hexagon_builtin_unsupported_cpu : Error<
   "builtin is not supported on this CPU">;
 def err_hexagon_builtin_requires_hvx : Error<
@@ -8722,6 +8804,8 @@ def err_missing_actual_pipe_type : Error<
 def err_reference_pipe_type : Error <
   "pipes packet types cannot be of reference type">;
 def err_opencl_no_main : Error<"%select{function|kernel}0 cannot be called 'main'">;
+
+
 def err_opencl_kernel_attr :
   Error<"attribute %0 can only be applied to an OpenCL kernel function">;
 def err_opencl_return_value_with_address_space : Error<
@@ -8847,6 +8931,10 @@ def err_omp_reduction_incomplete_type : Error<
   "a reduction list item with incomplete type %0">;
 def err_omp_unexpected_clause_value : Error<
   "expected %0 in OpenMP clause '%1'">;
+// if INTEL_CUSTOMIZATION
+def err_omp_unexpected_lastprivate_conditional : Error<
+  "expected 'scalar'%select{| or 'vector'}0 in OpenMP clause 'lastprivate' with conditional modifier">;
+// endif INTEL_CUSTOMIZATION
 def err_omp_expected_var_name_member_expr : Error<
   "expected variable name%select{| or data member of current class}0">;
 def err_omp_expected_var_name_member_expr_or_array_item : Error<
@@ -9738,4 +9826,30 @@ def err_bit_cast_non_trivially_copyable : Error<
   "__builtin_bit_cast %select{source|destination}0 type must be trivially copyable">;
 def err_bit_cast_type_size_mismatch : Error<
   "__builtin_bit_cast source size does not equal destination size (%0 vs %1)">;
+
+// SYCL-specific diagnostics
+def err_sycl_attribute_address_space_invalid : Error<
+  "address space is outside the valid range of values">;
+def err_sycl_kernel_name_class_not_top_level : Error<
+ "kernel name class and its template argument classes' declarations can only "
+ "nest in a namespace: %0">;
+def err_sycl_restrict : Error<
+  "SYCL kernel cannot "
+"%select{use a global variable"
+  "|use rtti"
+  "|use a non-const static data variable"
+  "|call a virtual function"
+  "|call a recursive function"
+  "|call through a function pointer"
+  "|allocate storage"
+  "|use exceptions"
+  "|use inline assembly}0">;
+def err_sycl_virtual_types : Error<
+  "No class with a vtable can be used in a SYCL kernel or any code included in the kernel">;
+def note_sycl_used_here : Note<"used here">;
+def note_sycl_recursive_function_declared_here: Note<"function implemented using recursion declared here">;
+def err_sycl_non_std_layout_type : Error<
+  "kernel parameter has non-standard layout class/struct type">;
+def err_conflicting_sycl_kernel_attributes : Error<
+  "conflicting attributes applied to a SYCL kernel">;
 } // end of sema component.

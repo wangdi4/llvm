@@ -10,6 +10,19 @@
 
    ReleaseNotes
 
+.. INTEL_CUSTOMIZATION
+
+Intel-only Features and Customizations
+======================================
+
+.. toctree::
+   :maxdepth: 1
+
+   Intel/ArbitraryPrecisionIntegers
+   Intel/IntelCustomizations
+
+.. end INTEL_CUSTOMIZATION
+
 Using Clang as a Compiler
 =========================
 

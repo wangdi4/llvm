@@ -38,6 +38,9 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
+#if INTEL_CUSTOMIZATION
+#include "clang/Basic/PartialDiagnostic.h"
+#endif  // INTEL_CUSTOMIZATION
 
 using namespace clang;
 using namespace sema;
@@ -348,7 +351,8 @@ sema::CompoundScopeInfo &Sema::getCurCompoundScope() const {
 }
 
 StmtResult Sema::ActOnCompoundStmt(SourceLocation L, SourceLocation R,
-                                   ArrayRef<Stmt *> Elts, bool isStmtExpr) {
+                                   ArrayRef<Stmt *> Elts,
+                                   bool isStmtExpr) { //***INTEL
   const unsigned NumElts = Elts.size();
 
   // If we're in C89 mode, check that we don't have any decls after stmts.  If
@@ -380,6 +384,7 @@ StmtResult Sema::ActOnCompoundStmt(SourceLocation L, SourceLocation R,
   }
 
   return CompoundStmt::Create(Context, Elts, L, R);
+
 }
 
 ExprResult
@@ -1306,6 +1311,7 @@ Sema::ActOnDoStmt(SourceLocation DoLoc, Stmt *Body,
   if (CondResult.isInvalid())
     return StmtError();
   Cond = CondResult.get();
+  Cond->setIsCondition(); // INTEL
 
   CondResult = ActOnFinishFullExpr(Cond, DoLoc, /*DiscardedValue*/ false);
   if (CondResult.isInvalid())
@@ -1489,9 +1495,13 @@ namespace {
     bool FoundDeclInUse() { return FoundDecl; }
 
   };  // end class DeclMatcher
-
-  void CheckForLoopConditionalStatement(Sema &S, Expr *Second,
+#if INTEL_CUSTOMIZATION
+}
+void Sema::CheckForLoopConditionalStatement(Expr *Second,
                                         Expr *Third, Stmt *Body) {
+    Sema &S = *this;
+#endif // INTEL_CUSTOMIZATION
+
     // Condition is empty
     if (!Second) return;
 
@@ -1535,7 +1545,9 @@ namespace {
 
     S.Diag(Ranges.begin()->getBegin(), PDiag);
   }
-
+#if INTEL_CUSTOMIZATION
+namespace {
+#endif // INTEL_CUSTOMIZATION
   // If Statement is an incemement or decrement, return true and sets the
   // variables Increment and DRE.
   bool ProcessIterationStmt(Sema &S, Stmt* Statement, bool &Increment,
@@ -1749,10 +1761,10 @@ StmtResult Sema::ActOnForStmt(SourceLocation ForLoc, SourceLocation LParenLoc,
 
   CheckBreakContinueBinding(Second.get().second);
   CheckBreakContinueBinding(third.get());
-
   if (!Second.get().first)
-    CheckForLoopConditionalStatement(*this, Second.get().second, third.get(),
-                                     Body);
+#if INTEL_CUSTOMIZATION
+    CheckForLoopConditionalStatement(Second.get().second, third.get(), Body);
+#endif  // INTEL_CUSTOMIZATION
   CheckForRedundantIteration(*this, third.get(), Body);
 
   if (Second.get().second &&
@@ -3679,6 +3691,13 @@ StmtResult Sema::BuildReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp) {
     FunctionDecl *FD = getCurFunctionDecl();
 
     unsigned DiagID;
+#if INTEL_CUSTOMIZATION
+    // Issue a warning, not error in IntelMSCompat and IntelCompat modes
+    // (CQ#364256).
+    if (getLangOpts().IntelMSCompat || getLangOpts().IntelCompat) {
+      DiagID = diag::warn_return_missing_expr_no_err;
+    } else
+#endif // INTEL_CUSTOMIZATION
     if (getLangOpts().CPlusPlus11 && FD && FD->isConstexpr()) {
       // C++11 [stmt.return]p2
       DiagID = diag::err_constexpr_return_missing_expr;
@@ -4393,3 +4412,48 @@ StmtResult Sema::ActOnCapturedRegionEnd(Stmt *S) {
 
   return Res;
 }
+
+#if INTEL_CUSTOMIZATION
+ExprResult Sema::ActOnCustomIdExpression(Scope *CurScope,
+                                         CXXScopeSpec &ScopeSpec,
+                                         const DeclarationNameInfo &Id) {
+  LookupResult Lookup(*this, Id, LookupOrdinaryName);
+  LookupParsedName(Lookup, CurScope, &ScopeSpec, true);
+
+  if (Lookup.isAmbiguous())
+    return ExprError();
+
+  ValueDecl *D;
+  if (!Lookup.isSingleResult()) {
+    std::unique_ptr<clang::CorrectionCandidateCallback> FilterCCC;
+    DeclFilterCCC<ValueDecl> CCC{};
+    TypoCorrection Corrected = CorrectTypo(
+        Id, LookupOrdinaryName, CurScope, 0, CCC, CTK_ErrorRecovery);
+    std::string CorrectedStr = Corrected.getAsString(getLangOpts());
+    std::string CorrectedQuotedStr = Corrected.getQuoted(getLangOpts());
+    if (Lookup.empty()) {
+      if (Corrected.isResolved()) {
+        Diag(Id.getLoc(), diag::err_undeclared_var_use_suggest)
+            << Id.getName() << CorrectedQuotedStr
+            << FixItHint::CreateReplacement(Id.getLoc(), CorrectedStr);
+      } else {
+        Diag(Id.getLoc(), diag::err_undeclared_var_use) << Id.getName();
+      }
+    } else {
+      Diag(Id.getLoc(), diag::err_undeclared_var_use) << Id.getName();
+    }
+    if (!Corrected.isResolved())
+      return ExprError();
+    D = Corrected.getCorrectionDeclAs<ValueDecl>();
+  } else {
+    if (!(D = Lookup.getAsSingle<ValueDecl>())) {
+      Diag(Id.getLoc(), diag::err_undeclared_var_use) << Id.getName();
+      return ExprError();
+    }
+  }
+  Lookup.suppressDiagnostics();
+
+  QualType ExprType = D->getType().getNonReferenceType();
+  return BuildDeclRefExpr(D, ExprType, VK_LValue, Id.getLoc());
+}
+#endif // INTEL_CUSTOMIZATION

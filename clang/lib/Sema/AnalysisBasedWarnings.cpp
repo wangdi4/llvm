@@ -34,6 +34,9 @@
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Lex/Preprocessor.h"
+#if INTEL_CUSTOMIZATION
+#include "clang/Sema/intel/FPGAAnalyzeChannelsUsage.h"
+#endif // INTEL_CUSTOMIZATION
 #include "clang/Sema/ScopeInfo.h"
 #include "clang/Sema/SemaInternal.h"
 #include "llvm/ADT/BitVector.h"
@@ -1969,6 +1972,9 @@ clang::sema::AnalysisBasedWarnings::Policy::Policy() {
   enableCheckUnreachable = 0;
   enableThreadSafetyAnalysis = 0;
   enableConsumedAnalysis = 0;
+#if INTEL_CUSTOMIZATION
+  enableFPGAChannelsAnalysis = 0;
+#endif // INTEL_CUSTOMIZATION
 }
 
 static unsigned isEnabled(DiagnosticsEngine &D, unsigned diag) {
@@ -2001,6 +2007,11 @@ clang::sema::AnalysisBasedWarnings::AnalysisBasedWarnings(Sema &s)
 
   DefaultPolicy.enableConsumedAnalysis =
     isEnabled(D, warn_use_in_invalid_state);
+
+#if INTEL_CUSTOMIZATION
+  DefaultPolicy.enableFPGAChannelsAnalysis =
+    isEnabled(D, warn_channel_is_used_from_more_than_one_kernel);
+#endif // INTEL_CUSTOMIZATION
 }
 
 static void flushDiagnostics(Sema &S, const sema::FunctionScopeInfo *fscope) {
@@ -2039,6 +2050,13 @@ AnalysisBasedWarnings::IssueWarnings(sema::AnalysisBasedWarnings::Policy P,
 
   const Stmt *Body = D->getBody();
   assert(Body);
+
+#if INTEL_CUSTOMIZATION
+  if (S.Context.getLangOpts().OpenCL &&
+      S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    launchOCLFPGAFeaturesAnalysis(D, S);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Construct the analysis context with the specified CFG build options.
   AnalysisDeclContext AC(/* AnalysisDeclContextManager */ nullptr, D);

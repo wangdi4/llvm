@@ -1878,6 +1878,18 @@ bool Sema::LookupName(LookupResult &R, Scope *S, bool AllowBuiltinCreation) {
                  !isa<ImplicitParamDecl>(*I))
           continue;
 
+#if INTEL_CUSTOMIZATION
+        // CQ#366612 - consider New a function redeclaration in IntelCompat
+        // mode.
+        if (getLangOpts().IntelCompat && D->isInvalidDecl() &&
+            isa<FunctionDecl>(D)) {
+          NamedDecl *OrigD = D;
+          while (D && D->isInvalidDecl())
+            D = dyn_cast_or_null<NamedDecl>(D->getPreviousDecl());
+          if (!D)
+            D = OrigD;
+        }
+#endif // INTEL_CUSTOMIZATION
         R.addDecl(D);
 
         // Check whether there are any other declarations with the same name
@@ -2125,6 +2137,7 @@ bool Sema::LookupQualifiedName(LookupResult &R, DeclContext *LookupCtx,
           cast<TagDecl>(LookupCtx)->isBeingDefined()) &&
          "Declaration context must already be complete!");
 
+  // Perform qualified name lookup into the LookupCtx.
   struct QualifiedLookupInScope {
     bool oldVal;
     DeclContext *Context;
@@ -2876,6 +2889,17 @@ addAssociatedClassesAndNamespaces(AssociatedLookup &Result, QualType Ty) {
     case Type::Atomic:
       T = cast<AtomicType>(T)->getValueType().getTypePtr();
       continue;
+#if INTEL_CUSTOMIZATION
+    case Type::Channel:
+      T = cast<ChannelType>(T)->getElementType().getTypePtr();
+      continue;
+    case Type::ArbPrecInt:
+      // This likely doesn't do anything since we only permit
+      // integer types, so ADL isn't very handy here, but do this to
+      // silence this anyway.
+      T = cast<ArbPrecIntType>(T)->getUnderlyingType().getTypePtr();
+      continue;
+#endif // INTEL_CUSTOMIZATION
     case Type::Pipe:
       T = cast<PipeType>(T)->getElementType().getTypePtr();
       continue;

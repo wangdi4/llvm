@@ -321,6 +321,9 @@ bool Declarator::isDeclarationOfFunction() const {
     case DeclaratorChunk::Array:
     case DeclaratorChunk::BlockPointer:
     case DeclaratorChunk::MemberPointer:
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
     case DeclaratorChunk::Pipe:
       return false;
     }
@@ -603,6 +606,10 @@ bool DeclSpec::SetStorageClassSpec(Sema &S, SCS SC, SourceLocation Loc,
     case SCS_extern:
     case SCS_private_extern:
     case SCS_static:
+#if INTEL_CUSTOMIZATION
+      // CQ381345: OpenCL is not supported in Intel compatibility mode.
+      if (!S.getLangOpts().IntelCompat)
+#endif // INTEL_CUSTOMIZATION
       if (S.getLangOpts().OpenCLVersion < 120 &&
           !S.getLangOpts().OpenCLCPlusPlus) {
         DiagID = diag::err_opencl_unknown_type_specifier;
@@ -853,6 +860,23 @@ bool DeclSpec::SetTypePipe(bool isPipe, SourceLocation Loc,
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+bool DeclSpec::SetTypeChannel(bool isChannel, SourceLocation Loc,
+                              const char *&PrevSpec, unsigned &DiagID,
+                              const PrintingPolicy &Policy) {
+
+  if (TypeSpecType != TST_unspecified) {
+    PrevSpec = DeclSpec::getSpecifierName((TST)TypeSpecType, Policy);
+    DiagID = diag::err_invalid_decl_spec_combination;
+    return true;
+  }
+
+  TypeSpecChannel = isChannel;
+
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 bool DeclSpec::SetTypeAltiVecPixel(bool isAltiVecPixel, SourceLocation Loc,
                           const char *&PrevSpec, unsigned &DiagID,
                           const PrintingPolicy &Policy) {
@@ -907,6 +931,11 @@ bool DeclSpec::SetTypeQual(TQ T, SourceLocation Loc, const char *&PrevSpec,
       IsExtension = false;
     return BadSpecifier(T, T, PrevSpec, DiagID, IsExtension);
   }
+#if INTEL_CUSTOMIZATION
+  // On non-MS mode '_unaligned' must be recognized, but just ignored.
+  if (Lang.IntelCompat && !Lang.IntelMSCompat && T == TQ_unaligned)
+    return false;
+#endif // INTEL_CUSTOMIZATION
 
   return SetTypeQual(T, Loc);
 }
@@ -1231,9 +1260,16 @@ void DeclSpec::Finish(Sema &S, const PrintingPolicy &Policy) {
       // Note that this intentionally doesn't include _Complex _Bool.
       if (!S.getLangOpts().CPlusPlus)
         S.Diag(TSTLoc, diag::ext_integer_complex);
-    } else if (TypeSpecType != TST_float && TypeSpecType != TST_double) {
+    } else if (TypeSpecType != TST_float && // INTEL
+               TypeSpecType != TST_double && // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+               TypeSpecType != TST_float16 && // INTEL
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+               TypeSpecType != TST_float128) { // INTEL
       S.Diag(TSCLoc, diag::err_invalid_complex_spec)
-        << getSpecifierName((TST)TypeSpecType, Policy);
+          << getSpecifierName((TST)TypeSpecType, Policy);
       TypeSpecComplex = TSC_unspecified;
     }
   }
@@ -1364,6 +1400,9 @@ void DeclSpec::Finish(Sema &S, const PrintingPolicy &Policy) {
 bool DeclSpec::isMissingDeclaratorOk() {
   TST tst = getTypeSpecType();
   return isDeclRep(tst) && getRepAsDecl() != nullptr &&
+#if INTEL_CUSTOMIZATION
+    !isTypeSpecChannel() &&
+#endif // INTEL_CUSTOMIZATION
     StorageClassSpec != DeclSpec::SCS_typedef;
 }
 

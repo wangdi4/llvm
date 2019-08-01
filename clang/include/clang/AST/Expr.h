@@ -127,6 +127,7 @@ protected:
     ExprBits.ObjectKind = OK;
     assert(ExprBits.ObjectKind == OK && "truncated kind");
     ExprBits.ContainsUnexpandedParameterPack = ContainsUnexpandedParameterPack;
+    ExprBits.IsCondition = 0; // INTEL
     setType(T);
   }
 
@@ -229,6 +230,19 @@ public:
   void setContainsUnexpandedParameterPack(bool PP = true) {
     ExprBits.ContainsUnexpandedParameterPack = PP;
   }
+
+#if INTEL_CUSTOMIZATION
+  /// \brief Whether this expression appears in condition expression context.
+  bool isCondition() const {
+    return ExprBits.IsCondition;
+  }
+
+  /// \brief Set the bit that describes whether this expression
+  /// appears in condition context e.g.: if(expr) while(expr) ?: etc.
+  void setIsCondition(bool PP = true) {
+    ExprBits.IsCondition = PP;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   /// getExprLoc - Return the preferred location for the arrow when diagnosing
   /// a problem with a generic expression.
@@ -2522,7 +2536,6 @@ class CallExpr : public Expr {
   /// The location of the right parenthese. This has a different meaning for
   /// the derived classes of CallExpr.
   SourceLocation RParenLoc;
-
   void updateDependenciesFromArg(Expr *Arg);
 
   // CallExpr store some data in trailing objects. However since CallExpr
@@ -3546,7 +3559,6 @@ public:
     else
       return Opcode(unsigned(Opc) - BO_MulAssign + BO_Mul);
   }
-
   static bool isShiftAssignOp(Opcode Opc) {
     return Opc == BO_ShlAssign || Opc == BO_ShrAssign;
   }
@@ -5876,6 +5888,20 @@ public:
            getOp() == AO__opencl_atomic_compare_exchange_strong ||
            getOp() == AO__opencl_atomic_compare_exchange_weak ||
            getOp() == AO__atomic_compare_exchange ||
+#if INTEL_CUSTOMIZATION
+          getOp() == AO__atomic_compare_exchange_weak_explicit ||
+          getOp() == AO__atomic_compare_exchange_weak_explicit_1 ||
+          getOp() == AO__atomic_compare_exchange_weak_explicit_2 ||
+          getOp() == AO__atomic_compare_exchange_weak_explicit_4 ||
+          getOp() == AO__atomic_compare_exchange_weak_explicit_8 ||
+          getOp() == AO__atomic_compare_exchange_weak_explicit_16 ||
+          getOp() == AO__atomic_compare_exchange_strong_explicit ||
+          getOp() == AO__atomic_compare_exchange_strong_explicit_1 ||
+          getOp() == AO__atomic_compare_exchange_strong_explicit_2 ||
+          getOp() == AO__atomic_compare_exchange_strong_explicit_4 ||
+          getOp() == AO__atomic_compare_exchange_strong_explicit_8 ||
+          getOp() == AO__atomic_compare_exchange_strong_explicit_16||
+#endif // INTEL_CUSTOMIZATION
            getOp() == AO__atomic_compare_exchange_n;
   }
 
@@ -5947,7 +5973,6 @@ public:
   static bool classof(const Stmt *T) {
     return T->getStmtClass() == TypoExprClass;
   }
-
 };
 } // end namespace clang
 

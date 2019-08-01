@@ -1240,6 +1240,7 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::OMPForSimdDirectiveClass:
     case Stmt::OMPSectionsDirectiveClass:
     case Stmt::OMPSectionDirectiveClass:
+    case Stmt::OMPTargetVariantDispatchDirectiveClass: // INTEL
     case Stmt::OMPSingleDirectiveClass:
     case Stmt::OMPMasterDirectiveClass:
     case Stmt::OMPCriticalDirectiveClass:
@@ -1511,7 +1512,6 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
       VisitBlockExpr(cast<BlockExpr>(S), Pred, Dst);
       Bldr.addNodes(Dst);
       break;
-
     case Stmt::LambdaExprClass:
       if (AMgr.options.ShouldInlineLambdas) {
         Bldr.takeNodes(Pred);

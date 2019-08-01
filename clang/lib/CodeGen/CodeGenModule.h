@@ -327,6 +327,17 @@ private:
   InstrProfStats PGOStats;
   std::unique_ptr<llvm::SanitizerStatReport> SanStats;
 
+#if INTEL_CUSTOMIZATION
+  // CQ#411303 Intel driver requires front-end to produce special file if
+  // translation unit has any target code.
+  bool HasTargetCode = false;
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+  /// Non-zero if emitting code from a target region, including functions
+  /// called from other functions in the region.
+  unsigned int InTargetRegion = 0;
+#endif // INTEL_COLLAB
+
   // A set of references that have only been seen via a weakref so far. This is
   // used to remove the weak of the reference if we ever see a direct reference
   // or a definition.
@@ -495,7 +506,6 @@ private:
   void createOpenCLRuntime();
   void createOpenMPRuntime();
   void createCUDARuntime();
-
   bool isTriviallyRecursive(const FunctionDecl *F);
   bool shouldEmitFunction(GlobalDecl GD);
   bool shouldOpportunisticallyEmitVTables();
@@ -983,6 +993,82 @@ public:
       llvm::FunctionType *FnType = nullptr, bool DontDefer = false,
       ForDefinition_t IsForDefinition = NotForDefinition);
 
+#if INTEL_CUSTOMIZATION
+  // StdContainerOptKind describes the type of Intel intrinsic we want to
+  // insert into the code to help the back end with memory disambiguation for
+  // std containers.
+  //   SCOK_ContainerPtr corresponds to intel_std_container_ptr.  The parameter
+  //    and return value correspond to the base of the element storage.  So
+  //    for vector<int> this would be an int* for the first element.
+  //   SCOK_ContainerIteratorPtr corresponds to intel_std_container_ptr_iter.
+  //    The parameter and return value are the element pointer associated with
+  //    that iterator at the point it is constructed.
+  // which Intel pragma
+  enum StdContainerOptKind { SCOK_ContainerPtr, SCOK_ContainerPtrIterator };
+
+  class StdContainerOptDescription {
+    StdContainerOptKind Kind;
+    StringRef ContainerName;
+    StringRef NamespaceName;
+    StringRef FunctionName;
+    Decl::Kind FunctionKind;
+    StringRef FieldName;
+  public:
+    StdContainerOptDescription(StdContainerOptKind K, StringRef CName,
+                               StringRef NName, StringRef FName,
+                               Decl::Kind FKind, StringRef FldName)
+        : Kind(K), ContainerName(CName), NamespaceName(NName),
+          FunctionName(FName), FunctionKind(FKind), FieldName(FldName) {}
+
+    bool operator==(const StdContainerOptDescription &RHS) const {
+      return Kind == RHS.Kind && ContainerName == RHS.ContainerName &&
+             NamespaceName == RHS.NamespaceName &&
+             FunctionName == RHS.FunctionName &&
+             FunctionKind == RHS.FunctionKind && FieldName == RHS.FieldName;
+    }
+  };
+  SmallVector<StdContainerOptDescription, 8> StdContainerOptDescriptions;
+
+  /// getBuiltinIntelLibFunction - Given a builtin id for a function like
+  /// "__apply_args", return a Function* for "__apply_args".
+  llvm::Constant *getBuiltinIntelLibFunction(const FunctionDecl *FD,
+                                             unsigned BuiltinID);
+  // CQ#411303 Intel driver requires front-end to produce special file if
+  // translation unit has any target code.
+  void setHasTargetCode() { HasTargetCode = true; }
+  // Write communication file for Intel driver to notify that current module
+  // has target specific code and target compilation is required.
+  void EmitIntelDriverTempfile();
+  void generateHLSAnnotation(const Decl *D, llvm::SmallString<256> &AnnotStr);
+  void addGlobalHLSAnnotation(const VarDecl *VD, llvm::GlobalValue *GV);
+#endif  // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+  class InTargetRegionRAII {
+    CodeGenModule &CGM;
+    bool Entered;
+  public:
+    InTargetRegionRAII(CodeGenModule &CGM, bool ShouldEnter)
+        : CGM(CGM), Entered(ShouldEnter) {
+      if (Entered)
+        CGM.enterTargetRegion();
+    }
+    ~InTargetRegionRAII() {
+      if (Entered)
+        CGM.exitTargetRegion();
+    }
+  };
+  void enterTargetRegion() { ++InTargetRegion; }
+  void exitTargetRegion() {
+    assert(InTargetRegion != 0 && "mismatched target region enter/exit");
+    --InTargetRegion;
+  }
+  bool inTargetRegion() { return InTargetRegion > 0; }
+#endif // INTEL_COLLAB
+
+  void generateIntelFPGAAnnotation(const Decl *D,
+                                     llvm::SmallString<256> &AnnotStr);
+  void addGlobalIntelFPGAAnnotation(const VarDecl *VD, llvm::GlobalValue *GV);
+
   /// Given a builtin id for a function like "__builtin_fabsf", return a
   /// Function* for "fabsf".
   llvm::Constant *getBuiltinLibFunction(const FunctionDecl *FD,
@@ -1032,6 +1118,14 @@ public:
   CreateRuntimeFunction(llvm::FunctionType *Ty, StringRef Name,
                         llvm::AttributeList ExtraAttrs = llvm::AttributeList(),
                         bool Local = false);
+#if INTEL_CUSTOMIZATION
+  llvm::FunctionCallee
+  CreateSVMLFunction(llvm::FunctionType *Ty, StringRef Name,
+                     llvm::AttributeList ExtraAttrs = llvm::AttributeList(),
+                     bool Local = false);
+
+  void ConstructSVMLCallAttributes(StringRef Name, llvm::AttributeList &List);
+#endif // INTEL_CUSTOMIZATION
 
   /// Create a new runtime global variable with the specified type and name.
   llvm::Constant *CreateRuntimeVariable(llvm::Type *Ty,
@@ -1472,6 +1566,14 @@ private:
   /// Emit the llvm.gcov metadata used to tell LLVM where to emit the .gcno and
   /// .gcda files in a way that persists in .bc files.
   void EmitCoverageFile();
+
+#if INTEL_CUSTOMIZATION
+  /// \brief Emit Intel-specific debug info as llvm.dbg.intel.* metadata nodes.
+  void EmitIntelDebugInfoMetadata();
+
+  /// \brief Emit MS-specific debug info as llvm.dbg.ms.* metadata nodes.
+  void EmitMSDebugInfoMetadata();
+#endif // INTEL_CUSTOMIZATION
 
   /// Emits the initializer for a uuidof string.
   llvm::Constant *EmitUuidofInitializer(StringRef uuidstr);

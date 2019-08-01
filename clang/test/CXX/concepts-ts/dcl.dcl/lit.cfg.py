@@ -24,3 +24,7 @@ config.unsupported = True
 
 # test_source_root: The root path where tests are located.
 config.test_source_root = os.path.dirname(__file__)
+
+# INTEL_CUSTOMIZATION
+llvm_config.add_intel_features()
+# end INTEL_CUSTOMIZATION

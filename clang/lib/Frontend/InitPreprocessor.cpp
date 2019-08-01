@@ -567,9 +567,11 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   Builder.defineMacro("__clang_patchlevel__", TOSTR(CLANG_VERSION_PATCHLEVEL));
 #undef TOSTR
 #undef TOSTR2
+#if INTEL_CUSTOMIZATION
   Builder.defineMacro("__clang_version__",
-                      "\"" CLANG_VERSION_STRING " "
-                      + getClangFullRepositoryVersion() + "\"");
+                      "\"" CLANG_VERSION_STRING " (icx "
+                      + getICXVersionString() + ")\"");
+#endif // INTEL_CUSTOMIZATION
   if (!LangOpts.MSVCCompat) {
     // Currently claim to be compatible with GCC 4.2.1-5621, but only if we're
     // not compiling for MSVC compatibility
@@ -604,6 +606,13 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   // Support for #pragma redefine_extname (Sun compatibility)
   Builder.defineMacro("__PRAGMA_REDEFINE_EXTNAME", "1");
 
+#if INTEL_CUSTOMIZATION
+  // Version string for xmain: cq374831
+  if (LangOpts.IntelCompat)
+    Builder.defineMacro("__VERSION__", "\"" +
+                      Twine(getXMainFullCPPVersion()) + "\"");
+  else
+#endif // INTEL_CUSTOMIZATION
   // As sad as it is, enough software depends on the __VERSION__ for version
   // checks that it is necessary to report 4.2.1 (the base GCC version we claim
   // compatibility with) first.
@@ -724,6 +733,13 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  // In IntelCompat mode define _BOOL macro on all non-Windows platforms.
+  // CQ#373889.
+  if (LangOpts.Bool && !LangOpts.MicrosoftExt && LangOpts.IntelCompat)
+    Builder.defineMacro("_BOOL");
+#endif // INTEL_CUSTOMIZATION
+
   if (LangOpts.Optimize)
     Builder.defineMacro("__OPTIMIZE__");
   if (LangOpts.OptimizeSize)
@@ -765,6 +781,17 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   // Define type sizing macros based on the target properties.
   assert(TI.getCharWidth() == 8 && "Only support 8-bit char so far");
   Builder.defineMacro("__CHAR_BIT__", Twine(TI.getCharWidth()));
+
+#if INTEL_CUSTOMIZATION
+  // CQ#366613 - define macro __LONG_DOUBLE_SIZE__ in IntelCompat mode.
+  if (LangOpts.IntelCompat) {
+    llvm::APFloat Float = llvm::APFloat(TI.getLongDoubleFormat());
+    llvm::APInt Int = Float.bitcastToAPInt();
+    int LongDoubleSize = Int.getBitWidth();
+    Builder.defineMacro("__LONG_DOUBLE_SIZE__", Twine(LongDoubleSize));
+    Builder.defineMacro("__I__", "1j");
+  }
+#endif // INTEL_CUSTOMIZATION
 
   DefineTypeSize("__SCHAR_MAX__", TargetInfo::SignedChar, TI, Builder);
   DefineTypeSize("__SHRT_MAX__", TargetInfo::SignedShort, TI, Builder);
@@ -919,10 +946,17 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   char UserLabelPrefix[2] = {TI.getDataLayout().getGlobalPrefix(), 0};
   Builder.defineMacro("__USER_LABEL_PREFIX__", UserLabelPrefix);
 
-  if (LangOpts.FastMath || LangOpts.FiniteMathOnly)
+#if INTEL_CUSTOMIZATION
+  // CQ419573 - Always set __FINITE_MATH_ONLY__ to 0 for compatibility
+  // with 'icc' and Intel runtime libraries. If this definition is set
+  // to 1, then several math library function calls will be renamed to
+  // names that do not exist within the Intel math libraries. These
+  // functions would instead by resolved by slower routines within libm.a.
+  if ((LangOpts.FastMath || LangOpts.FiniteMathOnly) && !LangOpts.IntelCompat)
     Builder.defineMacro("__FINITE_MATH_ONLY__", "1");
   else
     Builder.defineMacro("__FINITE_MATH_ONLY__", "0");
+#endif // INTEL_CUSTOMIZATION
 
   if (!LangOpts.MSVCCompat) {
     if (LangOpts.GNUInline || LangOpts.CPlusPlus)
@@ -1045,7 +1079,6 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
       break;
     }
   }
-
   // CUDA device path compilaton
   if (LangOpts.CUDAIsDevice && !LangOpts.HIP) {
     // The CUDA_ARCH value is set for the GPU target specified in the NVPTX
@@ -1073,6 +1106,9 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
 #include "clang/Basic/OpenCLExtensions.def"
 
     if (TI.getTriple().isSPIR())
+#if INTEL_CUSTOMIZATION
+      if (TI.getTriple().getEnvironment() != llvm::Triple::IntelFPGA)
+#endif // INTEL_CUSTOMIZATION
       Builder.defineMacro("__IMAGE_SUPPORT__");
   }
 
@@ -1111,7 +1147,8 @@ void clang::InitializePreprocessor(
   if (InitOpts.UsePredefines) {
     // FIXME: This will create multiple definitions for most of the predefined
     // macros. This is not the right way to handle this.
-    if ((LangOpts.CUDA || LangOpts.OpenMPIsDevice) && PP.getAuxTargetInfo())
+    if ((LangOpts.CUDA || LangOpts.OpenMPIsDevice || LangOpts.SYCLIsDevice) &&
+        PP.getAuxTargetInfo())
       InitializePredefinedMacros(*PP.getAuxTargetInfo(), LangOpts, FEOpts,
                                  Builder);
 

@@ -496,15 +496,132 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
   llvm::Instruction::BinaryOps PostOp = (llvm::Instruction::BinaryOps)0;
 
   switch (E->getOp()) {
+#if INTEL_CUSTOMIZATION
+  case AtomicExpr::AO__atomic_add_fetch_explicit:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_16:
+    PostOp = llvm::Instruction::Add;
+    // Fall through.
+  case AtomicExpr::AO__atomic_fetch_add_explicit:
+  case AtomicExpr::AO__atomic_fetch_add_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_add_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_add_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_add_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_add_explicit_16:
+    Op = llvm::AtomicRMWInst::Add;
+  break;
+  case AtomicExpr::AO__atomic_sub_fetch_explicit:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_16:
+    PostOp = llvm::Instruction::Sub;
+    // Fall through.
+  case AtomicExpr::AO__atomic_fetch_sub_explicit:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_16:
+    Op = llvm::AtomicRMWInst::Sub;
+    break;
+  case AtomicExpr::AO__atomic_and_fetch_explicit:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_16:
+    PostOp = llvm::Instruction::And;
+    // Fall through.
+  case AtomicExpr::AO__atomic_fetch_and_explicit:
+  case AtomicExpr::AO__atomic_fetch_and_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_and_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_and_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_and_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_and_explicit_16:
+    Op = llvm::AtomicRMWInst::And;
+    break;
+  case AtomicExpr::AO__atomic_nand_fetch_explicit:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_16:
+    PostOp = llvm::Instruction::And; // The NOT is special cased below
+    // Fall through.
+  case AtomicExpr::AO__atomic_fetch_nand_explicit:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_16:
+    Op = llvm::AtomicRMWInst::Nand;
+    break;
+  case AtomicExpr::AO__atomic_or_fetch_explicit:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_16:
+    PostOp = llvm::Instruction::Or;
+    // Fall through.
+  case AtomicExpr::AO__atomic_fetch_or_explicit:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_16:
+    Op = llvm::AtomicRMWInst::Or;
+    break;
+  case AtomicExpr::AO__atomic_xor_fetch_explicit:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_16:
+    PostOp = llvm::Instruction::Xor;
+    // Fall through.
+  case AtomicExpr::AO__atomic_fetch_xor_explicit:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_16:
+    Op = llvm::AtomicRMWInst::Xor;
+    break;
+#endif // INTEL_CUSTOMIZATION
   case AtomicExpr::AO__c11_atomic_init:
   case AtomicExpr::AO__opencl_atomic_init:
     llvm_unreachable("Already handled!");
 
+#if INTEL_CUSTOMIZATION
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_1:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_2:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_4:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_8:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_16:
+#endif // INTEL_CUSTOMIZATION
   case AtomicExpr::AO__c11_atomic_compare_exchange_strong:
   case AtomicExpr::AO__opencl_atomic_compare_exchange_strong:
     emitAtomicCmpXchgFailureSet(CGF, E, false, Dest, Ptr, Val1, Val2,
                                 FailureOrder, Size, Order, Scope);
     return;
+#if INTEL_CUSTOMIZATION
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_1:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_2:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_4:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_8:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_16:
+      //emitAtomicCmpXchgFailureSet(CGF, E, true, Dest, Ptr,
+      //                            Val1, Val2, FailureOrder, Size, Order);
+      //break;
+#endif // INTEL_CUSTOMIZATION
   case AtomicExpr::AO__c11_atomic_compare_exchange_weak:
   case AtomicExpr::AO__opencl_atomic_compare_exchange_weak:
     emitAtomicCmpXchgFailureSet(CGF, E, true, Dest, Ptr, Val1, Val2,
@@ -540,6 +657,14 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
     }
     return;
   }
+#if INTEL_CUSTOMIZATION
+  case AtomicExpr::AO__atomic_load_explicit:
+  case AtomicExpr::AO__atomic_load_explicit_1:
+  case AtomicExpr::AO__atomic_load_explicit_2:
+  case AtomicExpr::AO__atomic_load_explicit_4:
+  case AtomicExpr::AO__atomic_load_explicit_8:
+  case AtomicExpr::AO__atomic_load_explicit_16:
+#endif // INTEL_CUSTOMIZATION
   case AtomicExpr::AO__c11_atomic_load:
   case AtomicExpr::AO__opencl_atomic_load:
   case AtomicExpr::AO__atomic_load_n:
@@ -551,6 +676,14 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
     return;
   }
 
+#if INTEL_CUSTOMIZATION
+  case AtomicExpr::AO__atomic_store_explicit:
+  case AtomicExpr::AO__atomic_store_explicit_1:
+  case AtomicExpr::AO__atomic_store_explicit_2:
+  case AtomicExpr::AO__atomic_store_explicit_4:
+  case AtomicExpr::AO__atomic_store_explicit_8:
+  case AtomicExpr::AO__atomic_store_explicit_16:
+#endif // INTEL_CUSTOMIZATION
   case AtomicExpr::AO__c11_atomic_store:
   case AtomicExpr::AO__opencl_atomic_store:
   case AtomicExpr::AO__atomic_store:
@@ -562,6 +695,14 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
     return;
   }
 
+#if INTEL_CUSTOMIZATION
+    case AtomicExpr::AO__atomic_exchange_explicit:
+    case AtomicExpr::AO__atomic_exchange_explicit_1:
+    case AtomicExpr::AO__atomic_exchange_explicit_2:
+    case AtomicExpr::AO__atomic_exchange_explicit_4:
+    case AtomicExpr::AO__atomic_exchange_explicit_8:
+    case AtomicExpr::AO__atomic_exchange_explicit_16:
+#endif // INTEL_CUSTOMIZATION
   case AtomicExpr::AO__c11_atomic_exchange:
   case AtomicExpr::AO__opencl_atomic_exchange:
   case AtomicExpr::AO__atomic_exchange_n:
@@ -644,7 +785,13 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
   llvm::Value *Result = RMWI;
   if (PostOp)
     Result = CGF.Builder.CreateBinOp(PostOp, RMWI, LoadVal1);
-  if (E->getOp() == AtomicExpr::AO__atomic_nand_fetch)
+  if (E->getOp() == AtomicExpr::AO__atomic_nand_fetch || // INTEL
+      E->getOp() == AtomicExpr::AO__atomic_fetch_nand_explicit    || // INTEL  
+      E->getOp() == AtomicExpr::AO__atomic_fetch_nand_explicit_1  || // INTEL
+      E->getOp() == AtomicExpr::AO__atomic_fetch_nand_explicit_2  || // INTEL
+      E->getOp() == AtomicExpr::AO__atomic_fetch_nand_explicit_4  || // INTEL
+      E->getOp() == AtomicExpr::AO__atomic_fetch_nand_explicit_8  || // INTEL
+      E->getOp() == AtomicExpr::AO__atomic_fetch_nand_explicit_16) // INTEL
     Result = CGF.Builder.CreateNot(Result);
   CGF.Builder.CreateStore(Result, Dest);
 }
@@ -780,6 +927,96 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
       E->getScopeModel() ? EmitScalarExpr(E->getScope()) : nullptr;
 
   switch (E->getOp()) {
+#if INTEL_CUSTOMIZATION
+  case AtomicExpr::AO__atomic_store_explicit:
+  case AtomicExpr::AO__atomic_store_explicit_1:
+  case AtomicExpr::AO__atomic_store_explicit_2:
+  case AtomicExpr::AO__atomic_store_explicit_4:
+  case AtomicExpr::AO__atomic_store_explicit_8:
+  case AtomicExpr::AO__atomic_store_explicit_16:
+    Val1 = EmitValToTemp(*this, E->getVal1());
+  case AtomicExpr::AO__atomic_load_explicit:
+  case AtomicExpr::AO__atomic_load_explicit_1:
+  case AtomicExpr::AO__atomic_load_explicit_2:
+  case AtomicExpr::AO__atomic_load_explicit_4:
+  case AtomicExpr::AO__atomic_load_explicit_8:
+  case AtomicExpr::AO__atomic_load_explicit_16:
+    break;
+  case AtomicExpr::AO__atomic_fetch_add_explicit:
+  case AtomicExpr::AO__atomic_fetch_add_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_add_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_add_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_add_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_add_explicit_16:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_sub_explicit_16:
+  case AtomicExpr::AO__atomic_fetch_and_explicit:
+  case AtomicExpr::AO__atomic_fetch_and_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_and_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_and_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_and_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_and_explicit_16:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_nand_explicit_16:
+  case AtomicExpr::AO__atomic_fetch_or_explicit:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_or_explicit_16:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_1:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_2:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_4:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_8:
+  case AtomicExpr::AO__atomic_fetch_xor_explicit_16:
+  case AtomicExpr::AO__atomic_add_fetch_explicit:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_add_fetch_explicit_16:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_sub_fetch_explicit_16:
+  case AtomicExpr::AO__atomic_and_fetch_explicit:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_and_fetch_explicit_16:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_nand_fetch_explicit_16:
+  case AtomicExpr::AO__atomic_or_fetch_explicit:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_or_fetch_explicit_16:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_1:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_2:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_4:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_8:
+  case AtomicExpr::AO__atomic_xor_fetch_explicit_16:
+    Val1 = EmitValToTemp(*this, E->getVal1());
+    break;
+#endif // INTEL_CUSTOMIZATION
   case AtomicExpr::AO__c11_atomic_init:
   case AtomicExpr::AO__opencl_atomic_init:
     llvm_unreachable("Already handled above with EmitAtomicInit!");
@@ -802,6 +1039,20 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     Dest = EmitPointerWithAlignment(E->getVal2());
     break;
 
+#if INTEL_CUSTOMIZATION
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_1:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_2:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_4:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_8:
+  case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_16:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_1:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_2:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_4:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_8:
+  case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_16:
+#endif // INTEL_CUSTOMIZATION
   case AtomicExpr::AO__c11_atomic_compare_exchange_strong:
   case AtomicExpr::AO__c11_atomic_compare_exchange_weak:
   case AtomicExpr::AO__opencl_atomic_compare_exchange_strong:
@@ -839,6 +1090,14 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
       break;
     }
       LLVM_FALLTHROUGH;
+#if INTEL_CUSTOMIZATION
+  case AtomicExpr::AO__atomic_exchange_explicit:
+  case AtomicExpr::AO__atomic_exchange_explicit_1:
+  case AtomicExpr::AO__atomic_exchange_explicit_2:
+  case AtomicExpr::AO__atomic_exchange_explicit_4:
+  case AtomicExpr::AO__atomic_exchange_explicit_8:
+  case AtomicExpr::AO__atomic_exchange_explicit_16:
+#endif // INTEL_CUSTOMIZATION
   case AtomicExpr::AO__atomic_fetch_add:
   case AtomicExpr::AO__atomic_fetch_sub:
   case AtomicExpr::AO__atomic_add_fetch:
@@ -897,6 +1156,80 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     case AtomicExpr::AO__opencl_atomic_init:
       llvm_unreachable("Already handled above with EmitAtomicInit!");
 
+#if INTEL_CUSTOMIZATION
+    case AtomicExpr::AO__atomic_fetch_add_explicit:
+    case AtomicExpr::AO__atomic_fetch_add_explicit_1:
+    case AtomicExpr::AO__atomic_fetch_add_explicit_2:
+    case AtomicExpr::AO__atomic_fetch_add_explicit_4:
+    case AtomicExpr::AO__atomic_fetch_add_explicit_8:
+    case AtomicExpr::AO__atomic_fetch_add_explicit_16:
+    case AtomicExpr::AO__atomic_fetch_sub_explicit:
+    case AtomicExpr::AO__atomic_fetch_sub_explicit_1:
+    case AtomicExpr::AO__atomic_fetch_sub_explicit_2:
+    case AtomicExpr::AO__atomic_fetch_sub_explicit_4:
+    case AtomicExpr::AO__atomic_fetch_sub_explicit_8:
+    case AtomicExpr::AO__atomic_fetch_sub_explicit_16:
+    case AtomicExpr::AO__atomic_fetch_and_explicit:
+    case AtomicExpr::AO__atomic_fetch_and_explicit_1:
+    case AtomicExpr::AO__atomic_fetch_and_explicit_2:
+    case AtomicExpr::AO__atomic_fetch_and_explicit_4:
+    case AtomicExpr::AO__atomic_fetch_and_explicit_8:
+    case AtomicExpr::AO__atomic_fetch_and_explicit_16:
+    case AtomicExpr::AO__atomic_fetch_nand_explicit:
+    case AtomicExpr::AO__atomic_fetch_nand_explicit_1:
+    case AtomicExpr::AO__atomic_fetch_nand_explicit_2:
+    case AtomicExpr::AO__atomic_fetch_nand_explicit_4:
+    case AtomicExpr::AO__atomic_fetch_nand_explicit_8:
+    case AtomicExpr::AO__atomic_fetch_nand_explicit_16:
+    case AtomicExpr::AO__atomic_fetch_or_explicit:
+    case AtomicExpr::AO__atomic_fetch_or_explicit_1:
+    case AtomicExpr::AO__atomic_fetch_or_explicit_2:
+    case AtomicExpr::AO__atomic_fetch_or_explicit_4:
+    case AtomicExpr::AO__atomic_fetch_or_explicit_8:
+    case AtomicExpr::AO__atomic_fetch_or_explicit_16:
+    case AtomicExpr::AO__atomic_fetch_xor_explicit:
+    case AtomicExpr::AO__atomic_fetch_xor_explicit_1:
+    case AtomicExpr::AO__atomic_fetch_xor_explicit_2:
+    case AtomicExpr::AO__atomic_fetch_xor_explicit_4:
+    case AtomicExpr::AO__atomic_fetch_xor_explicit_8:
+    case AtomicExpr::AO__atomic_fetch_xor_explicit_16:
+    case AtomicExpr::AO__atomic_add_fetch_explicit:
+    case AtomicExpr::AO__atomic_add_fetch_explicit_1:
+    case AtomicExpr::AO__atomic_add_fetch_explicit_2:
+    case AtomicExpr::AO__atomic_add_fetch_explicit_4:
+    case AtomicExpr::AO__atomic_add_fetch_explicit_8:
+    case AtomicExpr::AO__atomic_add_fetch_explicit_16:
+    case AtomicExpr::AO__atomic_sub_fetch_explicit:
+    case AtomicExpr::AO__atomic_sub_fetch_explicit_1:
+    case AtomicExpr::AO__atomic_sub_fetch_explicit_2:
+    case AtomicExpr::AO__atomic_sub_fetch_explicit_4:
+    case AtomicExpr::AO__atomic_sub_fetch_explicit_8:
+    case AtomicExpr::AO__atomic_sub_fetch_explicit_16:
+    case AtomicExpr::AO__atomic_and_fetch_explicit:
+    case AtomicExpr::AO__atomic_and_fetch_explicit_1:
+    case AtomicExpr::AO__atomic_and_fetch_explicit_2:
+    case AtomicExpr::AO__atomic_and_fetch_explicit_4:
+    case AtomicExpr::AO__atomic_and_fetch_explicit_8:
+    case AtomicExpr::AO__atomic_and_fetch_explicit_16:
+    case AtomicExpr::AO__atomic_nand_fetch_explicit:
+    case AtomicExpr::AO__atomic_nand_fetch_explicit_1:
+    case AtomicExpr::AO__atomic_nand_fetch_explicit_2:
+    case AtomicExpr::AO__atomic_nand_fetch_explicit_4:
+    case AtomicExpr::AO__atomic_nand_fetch_explicit_8:
+    case AtomicExpr::AO__atomic_nand_fetch_explicit_16:
+    case AtomicExpr::AO__atomic_or_fetch_explicit:
+    case AtomicExpr::AO__atomic_or_fetch_explicit_1:
+    case AtomicExpr::AO__atomic_or_fetch_explicit_2:
+    case AtomicExpr::AO__atomic_or_fetch_explicit_4:
+    case AtomicExpr::AO__atomic_or_fetch_explicit_8:
+    case AtomicExpr::AO__atomic_or_fetch_explicit_16:
+    case AtomicExpr::AO__atomic_xor_fetch_explicit:
+    case AtomicExpr::AO__atomic_xor_fetch_explicit_1:
+    case AtomicExpr::AO__atomic_xor_fetch_explicit_2:
+    case AtomicExpr::AO__atomic_xor_fetch_explicit_4:
+    case AtomicExpr::AO__atomic_xor_fetch_explicit_8:
+    case AtomicExpr::AO__atomic_xor_fetch_explicit_16:
+#endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__c11_atomic_fetch_add:
     case AtomicExpr::AO__opencl_atomic_fetch_add:
     case AtomicExpr::AO__atomic_fetch_add:
@@ -936,6 +1269,38 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
       if (Misaligned)
         break;
       LLVM_FALLTHROUGH;
+#if INTEL_CUSTOMIZATION
+    case AtomicExpr::AO__atomic_store_explicit:
+    case AtomicExpr::AO__atomic_store_explicit_1:
+    case AtomicExpr::AO__atomic_store_explicit_2:
+    case AtomicExpr::AO__atomic_store_explicit_4:
+    case AtomicExpr::AO__atomic_store_explicit_8:
+    case AtomicExpr::AO__atomic_store_explicit_16:
+    case AtomicExpr::AO__atomic_load_explicit:
+    case AtomicExpr::AO__atomic_load_explicit_1:
+    case AtomicExpr::AO__atomic_load_explicit_2:
+    case AtomicExpr::AO__atomic_load_explicit_4:
+    case AtomicExpr::AO__atomic_load_explicit_8:
+    case AtomicExpr::AO__atomic_load_explicit_16:
+    case AtomicExpr::AO__atomic_exchange_explicit:
+    case AtomicExpr::AO__atomic_exchange_explicit_1:
+    case AtomicExpr::AO__atomic_exchange_explicit_2:
+    case AtomicExpr::AO__atomic_exchange_explicit_4:
+    case AtomicExpr::AO__atomic_exchange_explicit_8:
+    case AtomicExpr::AO__atomic_exchange_explicit_16:
+    case AtomicExpr::AO__atomic_compare_exchange_weak_explicit:
+    case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_1:
+    case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_2:
+    case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_4:
+    case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_8:
+    case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_16:
+    case AtomicExpr::AO__atomic_compare_exchange_strong_explicit:
+    case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_1:
+    case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_2:
+    case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_4:
+    case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_8:
+    case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_16:
+#endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__c11_atomic_load:
     case AtomicExpr::AO__c11_atomic_store:
     case AtomicExpr::AO__c11_atomic_exchange:
@@ -1002,6 +1367,20 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     //                                void *desired, int success, int failure)
     // bool __atomic_compare_exchange_N(T *mem, T *expected, T desired,
     //                                  int success, int failure)
+#if INTEL_CUSTOMIZATION
+    case AtomicExpr::AO__atomic_compare_exchange_weak_explicit:
+    case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_1:
+    case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_2:
+    case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_4:
+    case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_8:
+    case AtomicExpr::AO__atomic_compare_exchange_weak_explicit_16:
+    case AtomicExpr::AO__atomic_compare_exchange_strong_explicit:
+    case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_1:
+    case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_2:
+    case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_4:
+    case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_8:
+    case AtomicExpr::AO__atomic_compare_exchange_strong_explicit_16:
+#endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__c11_atomic_compare_exchange_weak:
     case AtomicExpr::AO__c11_atomic_compare_exchange_strong:
     case AtomicExpr::AO__opencl_atomic_compare_exchange_weak:
@@ -1023,6 +1402,14 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     // void __atomic_exchange(size_t size, void *mem, void *val, void *return,
     //                        int order)
     // T __atomic_exchange_N(T *mem, T val, int order)
+#if INTEL_CUSTOMIZATION
+    case AtomicExpr::AO__atomic_exchange_explicit:
+    case AtomicExpr::AO__atomic_exchange_explicit_1:
+    case AtomicExpr::AO__atomic_exchange_explicit_2:
+    case AtomicExpr::AO__atomic_exchange_explicit_4:
+    case AtomicExpr::AO__atomic_exchange_explicit_8:
+    case AtomicExpr::AO__atomic_exchange_explicit_16:
+#endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__c11_atomic_exchange:
     case AtomicExpr::AO__opencl_atomic_exchange:
     case AtomicExpr::AO__atomic_exchange_n:
@@ -1033,6 +1420,14 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
       break;
     // void __atomic_store(size_t size, void *mem, void *val, int order)
     // void __atomic_store_N(T *mem, T val, int order)
+#if INTEL_CUSTOMIZATION
+    case AtomicExpr::AO__atomic_store_explicit:
+    case AtomicExpr::AO__atomic_store_explicit_1:
+    case AtomicExpr::AO__atomic_store_explicit_2:
+    case AtomicExpr::AO__atomic_store_explicit_4:
+    case AtomicExpr::AO__atomic_store_explicit_8:
+    case AtomicExpr::AO__atomic_store_explicit_16:
+#endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__c11_atomic_store:
     case AtomicExpr::AO__opencl_atomic_store:
     case AtomicExpr::AO__atomic_store:
@@ -1045,6 +1440,14 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
       break;
     // void __atomic_load(size_t size, void *mem, void *return, int order)
     // T __atomic_load_N(T *mem, int order)
+#if INTEL_CUSTOMIZATION
+    case AtomicExpr::AO__atomic_load_explicit:
+    case AtomicExpr::AO__atomic_load_explicit_1:
+    case AtomicExpr::AO__atomic_load_explicit_2:
+    case AtomicExpr::AO__atomic_load_explicit_4:
+    case AtomicExpr::AO__atomic_load_explicit_8:
+    case AtomicExpr::AO__atomic_load_explicit_16:
+#endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__c11_atomic_load:
     case AtomicExpr::AO__opencl_atomic_load:
     case AtomicExpr::AO__atomic_load:
@@ -1053,9 +1456,25 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
       break;
     // T __atomic_add_fetch_N(T *mem, T val, int order)
     // T __atomic_fetch_add_N(T *mem, T val, int order)
+#if INTEL_CUSTOMIZATION
+    case AtomicExpr::AO__atomic_add_fetch_explicit:
+    case AtomicExpr::AO__atomic_add_fetch_explicit_1:
+    case AtomicExpr::AO__atomic_add_fetch_explicit_2:
+    case AtomicExpr::AO__atomic_add_fetch_explicit_4:
+    case AtomicExpr::AO__atomic_add_fetch_explicit_8:
+    case AtomicExpr::AO__atomic_add_fetch_explicit_16:
+#endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_add_fetch:
       PostOp = llvm::Instruction::Add;
       LLVM_FALLTHROUGH;
+#if INTEL_CUSTOMIZATION
+    case AtomicExpr::AO__atomic_fetch_add_explicit:
+    case AtomicExpr::AO__atomic_fetch_add_explicit_1:
+    case AtomicExpr::AO__atomic_fetch_add_explicit_2:
+    case AtomicExpr::AO__atomic_fetch_add_explicit_4:
+    case AtomicExpr::AO__atomic_fetch_add_explicit_8:
+    case AtomicExpr::AO__atomic_fetch_add_explicit_16:
+#endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__c11_atomic_fetch_add:
     case AtomicExpr::AO__opencl_atomic_fetch_add:
     case AtomicExpr::AO__atomic_fetch_add:
@@ -1065,9 +1484,25 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
       break;
     // T __atomic_and_fetch_N(T *mem, T val, int order)
     // T __atomic_fetch_and_N(T *mem, T val, int order)
+#if INTEL_CUSTOMIZATION
+    case AtomicExpr::AO__atomic_and_fetch_explicit:
+    case AtomicExpr::AO__atomic_and_fetch_explicit_1:
+    case AtomicExpr::AO__atomic_and_fetch_explicit_2:
+    case AtomicExpr::AO__atomic_and_fetch_explicit_4:
+    case AtomicExpr::AO__atomic_and_fetch_explicit_8:
+    case AtomicExpr::AO__atomic_and_fetch_explicit_16:
+#endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_and_fetch:
       PostOp = llvm::Instruction::And;
       LLVM_FALLTHROUGH;
+#if INTEL_CUSTOMIZATION
+    case AtomicExpr::AO__atomic_fetch_and_explicit:
+    case AtomicExpr::AO__atomic_fetch_and_explicit_1:
+    case AtomicExpr::AO__atomic_fetch_and_explicit_2:
+    case AtomicExpr::AO__atomic_fetch_and_explicit_4:
+    case AtomicExpr::AO__atomic_fetch_and_explicit_8:
+    case AtomicExpr::AO__atomic_fetch_and_explicit_16:
+#endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__c11_atomic_fetch_and:
     case AtomicExpr::AO__opencl_atomic_fetch_and:
     case AtomicExpr::AO__atomic_fetch_and:
@@ -1077,9 +1512,25 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
       break;
     // T __atomic_or_fetch_N(T *mem, T val, int order)
     // T __atomic_fetch_or_N(T *mem, T val, int order)
+#if INTEL_CUSTOMIZATION
+    case AtomicExpr::AO__atomic_or_fetch_explicit:
+    case AtomicExpr::AO__atomic_or_fetch_explicit_1:
+    case AtomicExpr::AO__atomic_or_fetch_explicit_2:
+    case AtomicExpr::AO__atomic_or_fetch_explicit_4:
+    case AtomicExpr::AO__atomic_or_fetch_explicit_8:
+    case AtomicExpr::AO__atomic_or_fetch_explicit_16:
+#endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_or_fetch:
       PostOp = llvm::Instruction::Or;
       LLVM_FALLTHROUGH;
+#if INTEL_CUSTOMIZATION
+    case AtomicExpr::AO__atomic_fetch_or_explicit:
+    case AtomicExpr::AO__atomic_fetch_or_explicit_1:
+    case AtomicExpr::AO__atomic_fetch_or_explicit_2:
+    case AtomicExpr::AO__atomic_fetch_or_explicit_4:
+    case AtomicExpr::AO__atomic_fetch_or_explicit_8:
+    case AtomicExpr::AO__atomic_fetch_or_explicit_16:
+#endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__c11_atomic_fetch_or:
     case AtomicExpr::AO__opencl_atomic_fetch_or:
     case AtomicExpr::AO__atomic_fetch_or:
@@ -1089,9 +1540,25 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
       break;
     // T __atomic_sub_fetch_N(T *mem, T val, int order)
     // T __atomic_fetch_sub_N(T *mem, T val, int order)
+#if INTEL_CUSTOMIZATION
+    case AtomicExpr::AO__atomic_sub_fetch_explicit:
+    case AtomicExpr::AO__atomic_sub_fetch_explicit_1:
+    case AtomicExpr::AO__atomic_sub_fetch_explicit_2:
+    case AtomicExpr::AO__atomic_sub_fetch_explicit_4:
+    case AtomicExpr::AO__atomic_sub_fetch_explicit_8:
+    case AtomicExpr::AO__atomic_sub_fetch_explicit_16:
+#endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_sub_fetch:
       PostOp = llvm::Instruction::Sub;
       LLVM_FALLTHROUGH;
+#if INTEL_CUSTOMIZATION
+    case AtomicExpr::AO__atomic_fetch_sub_explicit:
+    case AtomicExpr::AO__atomic_fetch_sub_explicit_1:
+    case AtomicExpr::AO__atomic_fetch_sub_explicit_2:
+    case AtomicExpr::AO__atomic_fetch_sub_explicit_4:
+    case AtomicExpr::AO__atomic_fetch_sub_explicit_8:
+    case AtomicExpr::AO__atomic_fetch_sub_explicit_16:
+#endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__c11_atomic_fetch_sub:
     case AtomicExpr::AO__opencl_atomic_fetch_sub:
     case AtomicExpr::AO__atomic_fetch_sub:
@@ -1101,9 +1568,25 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
       break;
     // T __atomic_xor_fetch_N(T *mem, T val, int order)
     // T __atomic_fetch_xor_N(T *mem, T val, int order)
+#if INTEL_CUSTOMIZATION
+    case AtomicExpr::AO__atomic_xor_fetch_explicit:
+    case AtomicExpr::AO__atomic_xor_fetch_explicit_1:
+    case AtomicExpr::AO__atomic_xor_fetch_explicit_2:
+    case AtomicExpr::AO__atomic_xor_fetch_explicit_4:
+    case AtomicExpr::AO__atomic_xor_fetch_explicit_8:
+    case AtomicExpr::AO__atomic_xor_fetch_explicit_16:
+#endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_xor_fetch:
       PostOp = llvm::Instruction::Xor;
       LLVM_FALLTHROUGH;
+#if INTEL_CUSTOMIZATION
+    case AtomicExpr::AO__atomic_fetch_xor_explicit:
+    case AtomicExpr::AO__atomic_fetch_xor_explicit_1:
+    case AtomicExpr::AO__atomic_fetch_xor_explicit_2:
+    case AtomicExpr::AO__atomic_fetch_xor_explicit_4:
+    case AtomicExpr::AO__atomic_fetch_xor_explicit_8:
+    case AtomicExpr::AO__atomic_fetch_xor_explicit_16:
+#endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__c11_atomic_fetch_xor:
     case AtomicExpr::AO__opencl_atomic_fetch_xor:
     case AtomicExpr::AO__atomic_fetch_xor:
@@ -1129,9 +1612,25 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
       break;
     // T __atomic_nand_fetch_N(T *mem, T val, int order)
     // T __atomic_fetch_nand_N(T *mem, T val, int order)
+#if INTEL_CUSTOMIZATION
+    case AtomicExpr::AO__atomic_nand_fetch_explicit:
+    case AtomicExpr::AO__atomic_nand_fetch_explicit_1:
+    case AtomicExpr::AO__atomic_nand_fetch_explicit_2:
+    case AtomicExpr::AO__atomic_nand_fetch_explicit_4:
+    case AtomicExpr::AO__atomic_nand_fetch_explicit_8:
+    case AtomicExpr::AO__atomic_nand_fetch_explicit_16:
+#endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_nand_fetch:
       PostOp = llvm::Instruction::And; // the NOT is special cased below
       LLVM_FALLTHROUGH;
+#if INTEL_CUSTOMIZATION
+    case AtomicExpr::AO__atomic_fetch_nand_explicit:
+    case AtomicExpr::AO__atomic_fetch_nand_explicit_1:
+    case AtomicExpr::AO__atomic_fetch_nand_explicit_2:
+    case AtomicExpr::AO__atomic_fetch_nand_explicit_4:
+    case AtomicExpr::AO__atomic_fetch_nand_explicit_8:
+    case AtomicExpr::AO__atomic_fetch_nand_explicit_16:
+#endif // INTEL_CUSTOMIZATION
     case AtomicExpr::AO__atomic_fetch_nand:
       LibCallName = "__atomic_fetch_nand";
       AddDirectArgument(*this, Args, UseOptimizedLibcall, Val1.getPointer(),
@@ -1204,10 +1703,26 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
   bool IsStore = E->getOp() == AtomicExpr::AO__c11_atomic_store ||
                  E->getOp() == AtomicExpr::AO__opencl_atomic_store ||
                  E->getOp() == AtomicExpr::AO__atomic_store ||
+#if INTEL_CUSTOMIZATION
+                 E->getOp() ==  AtomicExpr::AO__atomic_store_explicit   || 
+                 E->getOp() ==  AtomicExpr::AO__atomic_store_explicit_1 ||
+                 E->getOp() ==  AtomicExpr::AO__atomic_store_explicit_2 ||
+                 E->getOp() ==  AtomicExpr::AO__atomic_store_explicit_4 ||
+                 E->getOp() ==  AtomicExpr::AO__atomic_store_explicit_8 ||
+                 E->getOp() ==  AtomicExpr::AO__atomic_store_explicit_16||
+#endif //INTEL_CUSTOMIZATION
                  E->getOp() == AtomicExpr::AO__atomic_store_n;
   bool IsLoad = E->getOp() == AtomicExpr::AO__c11_atomic_load ||
                 E->getOp() == AtomicExpr::AO__opencl_atomic_load ||
                 E->getOp() == AtomicExpr::AO__atomic_load ||
+#if INTEL_CUSTOMIZATION
+                E->getOp() ==  AtomicExpr::AO__atomic_load_explicit   || 
+                E->getOp() ==  AtomicExpr::AO__atomic_load_explicit_1 ||
+                E->getOp() ==  AtomicExpr::AO__atomic_load_explicit_2 ||
+                E->getOp() ==  AtomicExpr::AO__atomic_load_explicit_4 ||
+                E->getOp() ==  AtomicExpr::AO__atomic_load_explicit_8 ||
+                E->getOp() ==  AtomicExpr::AO__atomic_load_explicit_16||
+#endif //INTEL_CUSTOMIZATION
                 E->getOp() == AtomicExpr::AO__atomic_load_n;
 
   if (isa<llvm::ConstantInt>(Order)) {

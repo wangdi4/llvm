@@ -59,12 +59,64 @@
 #include <string>
 #include <vector>
 
+#if INTEL_CUSTOMIZATION
+namespace clang {
+enum class FPGAChannelAccessKind : unsigned {
+  // Must be listed in the same order as in corresponding channel
+  // diagnostics, see DiagnosticIntelSemaKinds
+  Read = 0,
+  Write = 1,
+  Undefined = 2
+};
+
+struct FPGAChannelDescriptor {
+  const ValueDecl *ChannelDecl = nullptr;
+  bool IsLocalChannel = false;
+  unsigned ArgNo = -1;
+  FPGAChannelAccessKind Kind = FPGAChannelAccessKind::Undefined;
+  std::string Name;
+
+  FPGAChannelDescriptor() = default;
+  FPGAChannelDescriptor(StringRef Name) : Name(Name) {}
+
+  inline bool operator==(const FPGAChannelDescriptor &RHS) const {
+    return Kind == RHS.Kind && IsLocalChannel == RHS.IsLocalChannel &&
+           Name == RHS.Name;
+  }
+
+  inline bool operator!=(const FPGAChannelDescriptor &RHS) const {
+    return !(*this == RHS);
+  }
+};
+}
+#endif // INTEL_CUSTOMIZATION
+
 namespace llvm {
   class APSInt;
   template <typename ValueT> struct DenseMapInfo;
   template <typename ValueT, typename ValueInfoT> class DenseSet;
   class SmallBitVector;
   struct InlineAsmIdentifierInfo;
+#if INTEL_CUSTOMIZATION
+  using clang::FPGAChannelDescriptor;
+  // Provide DenseMapInfo for ChannelDesciptor.
+  template <> struct DenseMapInfo<FPGAChannelDescriptor> {
+    static inline FPGAChannelDescriptor getEmptyKey() {
+      return FPGAChannelDescriptor();
+    }
+    static inline FPGAChannelDescriptor getTombstoneKey() {
+      return FPGAChannelDescriptor("~");
+    }
+    static inline unsigned
+    getHashValue(const FPGAChannelDescriptor &Val) {
+      return DenseMapInfo<StringRef>::getHashValue(Val.Name);
+    }
+    static inline bool isEqual(const FPGAChannelDescriptor &LHS,
+                               const FPGAChannelDescriptor &RHS) {
+      return LHS == RHS;
+    }
+  };
+#endif // INTEL_CUSTOMIZATION
 }
 
 namespace clang {
@@ -274,6 +326,120 @@ public:
   }
 };
 
+// TODO SYCL Integration header approach relies on an assumption that kernel
+// lambda objects created by the host compiler and any of the device compilers
+// will be identical wrt to field types, order and offsets. Some verification
+// mechanism should be developed to enforce that.
+
+// TODO FIXME SYCL Support for SYCL in FE should be refactored:
+// - kernel identification and generation should be made a separate pass over
+// AST. RecursiveASTVisitor + VisitFunctionTemplateDecl +
+// FunctionTemplateDecl::getSpecializations() mechanism could be used for that.
+// - All SYCL stuff on Sema level should be encapsulated into a single Sema
+// field
+// - Move SYCL stuff into a separate header
+
+// Represents contents of a SYCL integration header file produced by a SYCL
+// device compiler and used by SYCL host compiler (via forced inclusion into
+// compiled SYCL source):
+// - SYCL kernel names
+// - SYCL kernel parameters and offsets of corresponding actual arguments
+class SYCLIntegrationHeader {
+public:
+  // Kind of kernel's parameters as captured by the compiler in the
+  // kernel lambda or function object
+  enum kernel_param_kind_t {
+    kind_first,
+    kind_accessor = kind_first,
+    kind_std_layout,
+    kind_sampler,
+    kind_last = kind_sampler
+  };
+
+public:
+  SYCLIntegrationHeader(DiagnosticsEngine &Diag);
+
+  /// Emits contents of the header into given stream.
+  void emit(raw_ostream &Out);
+
+  /// Emits contents of the header into a file with given name.
+  /// Returns true/false on success/failure.
+  bool emit(const StringRef &MainSrc);
+
+  ///  Signals that subsequent parameter descriptor additions will go to
+  ///  the kernel with given name. Starts new kernel invocation descriptor.
+  void startKernel(StringRef KernelName, QualType KernelNameType);
+
+  /// Adds a kernel parameter descriptor to current kernel invocation
+  /// descriptor.
+  void addParamDesc(kernel_param_kind_t Kind, int Info, unsigned Offset);
+
+  /// Signals that addition of parameter descriptors to current kernel
+  /// invocation descriptor has finished.
+  void endKernel();
+
+private:
+  // Kernel actual parameter descriptor.
+  struct KernelParamDesc {
+    // Represents a parameter kind.
+    kernel_param_kind_t Kind = kind_last;
+    // If Kind is kind_scalar or kind_struct, then
+    //   denotes parameter size in bytes (includes padding for structs)
+    // If Kind is kind_accessor
+    //   denotes access target; possible access targets are defined in
+    //   access/access.hpp
+    int Info = 0;
+    // Offset of the captured parameter value in the lambda or function object.
+    unsigned Offset = 0;
+
+    KernelParamDesc() = default;
+  };
+
+  // Kernel invocation descriptor
+  struct KernelDesc {
+    /// Kernel name.
+    std::string Name;
+
+    /// Kernel name type.
+    QualType NameType;
+
+    /// Descriptor of kernel actual parameters.
+    SmallVector<KernelParamDesc, 8> Params;
+
+    KernelDesc() = default;
+  };
+
+  /// Returns the latest invocation descriptor started by
+  /// SYCLIntegrationHeader::startKernel
+  KernelDesc *getCurKernelDesc() {
+    return KernelDescs.size() > 0 ? &KernelDescs[KernelDescs.size() - 1]
+                                  : nullptr;
+  }
+
+  /// Emits a forward declaration for given declaration.
+  void emitFwdDecl(raw_ostream &O, const Decl *D);
+
+  /// Emits forward declarations of classes and template classes on which
+  /// declaration of given type depends. See example in the comments for the
+  /// implementation.
+  /// \param O
+  ///     stream to emit to
+  /// \param T
+  ///     type to emit forward declarations for
+  /// \param Emitted
+  ///     a set of declarations forward declrations has been emitted for already
+  void emitForwardClassDecls(raw_ostream &O, QualType T,
+                             llvm::SmallPtrSetImpl<const void*> &Emitted);
+
+private:
+  /// Keeps invocation descriptors for each kernel invocation started by
+  /// SYCLIntegrationHeader::startKernel
+  SmallVector<KernelDesc, 4> KernelDescs;
+
+  /// Used for emitting diagnostics.
+  DiagnosticsEngine &Diag;
+};
+
 /// Keeps track of expected type during expression parsing. The type is tied to
 /// a particular token, all functions that update or consume the type take a
 /// start location of the token they are looking at as a parameter. This allows
@@ -362,6 +528,46 @@ class Sema {
                                       ArrayRef<QualType> Args);
 
 public:
+#if INTEL_CUSTOMIZATION
+  friend void launchOCLFPGAFeaturesAnalysis(const Decl *D, Sema &S);
+
+  using FunctionDeclToCallSitesMap =
+      llvm::MapVector<const FunctionDecl *,
+                      llvm::SmallVector<const CallExpr *, 4>>;
+  using FunctionDeclAndCallSitesPair = FunctionDeclToCallSitesMap::value_type;
+
+  using OCLFPGACallGraphType = llvm::DenseMap<
+      /* Caller = */ const FunctionDecl *,
+      /* Callees = */ FunctionDeclToCallSitesMap>;
+
+  /// Call graph which is used to find indirect uses of channels
+  OCLFPGACallGraphType OCLFPGACallGraph;
+
+  /// Inverted call graph which is used to effectively walk up from callee to
+  /// callers
+  OCLFPGACallGraphType OCLFPGAReverseCallGraph;
+
+  using ChannelToFunctionMapType =
+      llvm::DenseMap<FPGAChannelDescriptor, const FunctionDecl *>;
+
+  using ChannelDescSet =
+      llvm::SetVector<FPGAChannelDescriptor,
+                      llvm::SmallVector<FPGAChannelDescriptor, 16>,
+                      llvm::SmallDenseSet<FPGAChannelDescriptor, 16>>;
+
+  using FunctionToChannelMapType =
+      llvm::DenseMap<const FunctionDecl *, ChannelDescSet>;
+
+  /// Mapping from channel to a kernel which uses this channel. Used to
+  /// determine should we or not emit diagnostic message about inappropriate
+  /// usage of channel.
+  ChannelToFunctionMapType ChannelToKernelMap;
+
+  /// Mapping from function to set of channels used in this function. Used to
+  /// collect all channels used directly or indirectly in each function.
+  FunctionToChannelMapType FunctionToChannelMap;
+#endif // INTEL_CUSTOMIZATION
+
   typedef OpaquePtr<DeclGroupRef> DeclGroupPtrTy;
   typedef OpaquePtr<TemplateName> TemplateTy;
   typedef OpaquePtr<QualType> TypeTy;
@@ -1542,6 +1748,13 @@ public:
   QualType BuildAtomicType(QualType T, SourceLocation Loc);
   QualType BuildReadPipeType(QualType T,
                          SourceLocation Loc);
+#if INTEL_CUSTOMIZATION
+  QualType BuildChannelType(QualType T,
+                            SourceLocation Loc);
+  QualType BuildArbPrecIntType(QualType T, Expr *Size,
+                              SourceLocation AttrLoc);
+#endif // INTEL_CUSTOMIZATION
+
   QualType BuildWritePipeType(QualType T,
                          SourceLocation Loc);
 
@@ -2696,7 +2909,8 @@ public:
                         bool AllowExplicit,
                         bool InOverloadResolution,
                         bool CStyle,
-                        bool AllowObjCWritebackConversion);
+                        bool AllowObjCWritebackConversion, // INTEL
+                        bool AllowGnuPermissive = true); // INTEL
 
   bool IsIntegralPromotion(Expr *From, QualType FromType, QualType ToType);
   bool IsFloatingPointPromotion(QualType FromType, QualType ToType);
@@ -3324,8 +3538,41 @@ private:
                              DeclContext *MemberContext, bool EnteringContext,
                              const ObjCObjectPointerType *OPT,
                              bool ErrorRecovery);
-
 public:
+#if INTEL_CUSTOMIZATION
+  // Fix for CQ368409: Different behavior on accessing static private class
+  // members.
+  bool BuildingUsingDirective;
+  class UsingDirectiveRAII {
+  private:
+    Sema &S;
+    bool PrevBuildingUsingDirective;
+  public:
+    UsingDirectiveRAII(Sema &S) : S(S) {
+      PrevBuildingUsingDirective = S.BuildingUsingDirective;
+      S.BuildingUsingDirective = true;
+    }
+    ~UsingDirectiveRAII() {
+      S.BuildingUsingDirective = PrevBuildingUsingDirective;
+    }
+  };
+  friend class UsingDirectiveRAII;
+  bool ParsingTemplateArg;
+  class ParsingTemplateArgRAII {
+  private:
+    Sema &S;
+    bool PrevParsingTemplateArg;
+  public:
+    ParsingTemplateArgRAII(Sema &S) : S(S) {
+      PrevParsingTemplateArg = S.ParsingTemplateArg;
+      S.ParsingTemplateArg = true;
+    }
+    ~ParsingTemplateArgRAII() {
+      S.ParsingTemplateArg = PrevParsingTemplateArg;
+    }
+  };
+  friend class ParsingTemplateArgRAII;
+#endif // INTEL_CUSTOMIZATION
   const TypoExprState &getTypoExprState(TypoExpr *TE) const;
 
   /// Clears the state of the given TypoExpr.
@@ -3491,6 +3738,11 @@ public:
                                  SourceLocation Loc);
   NamedDecl *ImplicitlyDefineFunction(SourceLocation Loc, IdentifierInfo &II,
                                       Scope *S);
+
+#if INTEL_CUSTOMIZATION
+  void DeclareOCLChannelBuiltins(QualType ChannelQTy, Scope *S);
+#endif // INTEL_CUSTOMIZATION
+
   void AddKnownFunctionAttributes(FunctionDecl *FD);
 
   // More parsing and symbol table subroutines.
@@ -3907,6 +4159,8 @@ public:
                          SourceLocation WhileLoc, SourceLocation CondLParen,
                          Expr *Cond, SourceLocation CondRParen);
 
+  void CheckForLoopConditionalStatement(Expr *Second, Expr *Third, Stmt *Body); //***INTEL
+
   StmtResult ActOnForStmt(SourceLocation ForLoc,
                           SourceLocation LParenLoc,
                           Stmt *First,
@@ -3991,6 +4245,11 @@ public:
                              Scope *CurScope);
   StmtResult BuildReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp);
   StmtResult ActOnCapScopeReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp);
+
+#if INTEL_CUSTOMIZATION
+  ExprResult ActOnCustomIdExpression(Scope *CurScope, CXXScopeSpec &ScopeSpec,
+                                     const DeclarationNameInfo &Id);
+#endif // INTEL_CUSTOMIZATION
 
   StmtResult ActOnGCCAsmStmt(SourceLocation AsmLoc, bool IsSimple,
                              bool IsVolatile, unsigned NumOutputs,
@@ -4394,7 +4653,13 @@ public:
   ExprResult ActOnPredefinedExpr(SourceLocation Loc, tok::TokenKind Kind);
   ExprResult ActOnIntegerConstant(SourceLocation Loc, uint64_t Val);
 
-  bool CheckLoopHintExpr(Expr *E, SourceLocation Loc);
+#if INTEL_CUSTOMIZATION
+  bool CheckIntelBlockLoopAttribute(const IntelBlockLoopAttr *BLA);
+  /// \param IsCheckRange Indicates whether \p E is a #pragma unroll expression
+  /// in IntelCompat mode.
+  bool CheckLoopHintExpr(Expr *E, SourceLocation Loc, bool IsCheckRange = true,
+                         bool AllowNonNegativeValue = false);
+#endif // INTEL_CUSTOMIZATION
 
   ExprResult ActOnNumericConstant(const Token &Tok, Scope *UDLScope = nullptr);
   ExprResult ActOnCharacterConstant(const Token &Tok,
@@ -7287,7 +7552,7 @@ public:
                           QualType ArgFunctionType,
                           FunctionDecl *&Specialization,
                           sema::TemplateDeductionInfo &Info,
-                          bool IsAddressOfFunction = false);
+                          bool InOverloadResolution = false);
 
   TemplateDeductionResult
   DeduceTemplateArguments(FunctionTemplateDecl *FunctionTemplate,
@@ -8788,6 +9053,32 @@ public:
   /// attribute to be added (usually because of a pragma).
   void AddOptnoneAttributeIfNoConflicts(FunctionDecl *FD, SourceLocation Loc);
 
+  template <typename AttrType>
+  bool checkRangedIntegralArgument(Expr *E, const AttrType *TmpAttr,
+                                   ExprResult &Result);
+  template <typename AttrType>
+  void IntelFPGAAddOneConstantValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
+                                        unsigned SpellingListIndex);
+  template <typename AttrType>
+  void IntelFPGAAddOneConstantPowerTwoValueAttr(SourceRange AttrRange, Decl *D,
+                                                Expr *E,
+                                                unsigned SpellingListIndex);
+
+#if INTEL_CUSTOMIZATION
+  void AddSchedulerTargetFmaxMHzAttr(SourceRange AttrRange, Decl *D, Expr *E,
+                                     unsigned SpellingListIndex);
+  void AddInternalMaxBlockRamDepthAttr(SourceRange AttrRange, Decl *D, Expr *E,
+                                       unsigned SpellingListIndex);
+  template <typename AttrType>
+  void HLSAddOneConstantValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
+                                  unsigned SpellingListIndex);
+  template <typename AttrType>
+  void HLSAddOneConstantPowerTwoValueAttr(SourceRange AttrRange, Decl *D,
+                                          Expr *E, unsigned SpellingListIndex);
+
+  void AddBankBitsAttr(SourceRange AttrRange, Decl *D, Expr **Exprs,
+                       unsigned Size, unsigned SpellingListIndex);
+#endif // INTEL_CUSTOMIZATION
   /// AddAlignedAttr - Adds an aligned attribute to a particular declaration.
   void AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E,
                       unsigned SpellingListIndex, bool IsPackExpansion);
@@ -9177,6 +9468,22 @@ public:
   /// associated statement.
   StmtResult ActOnOpenMPSectionDirective(Stmt *AStmt, SourceLocation StartLoc,
                                          SourceLocation EndLoc);
+#if INTEL_CUSTOMIZATION
+  /// Called on well-formed '\#pragma omp target variant dispatch' after
+  /// parsing of the associated statement.
+  StmtResult ActOnOpenMPTargetVariantDispatchDirective(
+      ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
+      SourceLocation EndLoc);
+
+  /// Called on well-formed '\#pragma omp declare variant' after parsing of
+  /// the associated method/function.
+  DeclGroupPtrTy ActOnOpenMPDeclareVariantDirective(
+      DeclGroupPtrTy DG, FunctionDecl *FD,
+      SmallVectorImpl<OMPDeclareVariantDeclAttr::ConstructTy> &Constructs,
+      SmallVectorImpl<OMPDeclareVariantDeclAttr::DeviceTy> &Devices,
+      SourceRange SR);
+#endif // INTEL_CUSTOMIZATION
+
   /// Called on well-formed '\#pragma omp single' after parsing of the
   /// associated statement.
   StmtResult ActOnOpenMPSingleDirective(ArrayRef<OMPClause *> Clauses,
@@ -9425,6 +9732,16 @@ public:
                                          SourceLocation StartLoc,
                                          SourceLocation LParenLoc,
                                          SourceLocation EndLoc);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  /// Called on well-formed 'dataflow' clause.
+  OMPClause *ActOnOpenMPDataflowClause(Expr *StaticSize,
+                                       Expr *NumWorkersNum,
+                                       Expr *PipelineDepth,
+                                       SourceLocation StartLoc,
+                                       SourceLocation EndLoc);
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
   /// Called on well-formed 'safelen' clause.
   OMPClause *ActOnOpenMPSafelenClause(Expr *Length,
                                       SourceLocation StartLoc,
@@ -9552,7 +9869,10 @@ public:
       OpenMPLinearClauseKind LinKind,
       ArrayRef<OpenMPMapModifierKind> MapTypeModifiers,
       ArrayRef<SourceLocation> MapTypeModifiersLoc, OpenMPMapClauseKind MapType,
-      bool IsMapTypeImplicit, SourceLocation DepLinMapLoc);
+#if INTEL_CUSTOMIZATION
+      bool IsMapTypeImplicit,
+      bool IsLastprivateConditional, SourceLocation DepLinMapLoc);
+#endif // INTEL_CUSTOMIZATION
   /// Called on well-formed 'allocate' clause.
   OMPClause *
   ActOnOpenMPAllocateClause(Expr *Allocator, ArrayRef<Expr *> VarList,
@@ -9570,6 +9890,9 @@ public:
                                            SourceLocation EndLoc);
   /// Called on well-formed 'lastprivate' clause.
   OMPClause *ActOnOpenMPLastprivateClause(ArrayRef<Expr *> VarList,
+#if INTEL_CUSTOMIZATION
+                                          bool IsConditional,
+#endif // INTEL_CUSTOMIZATION
                                           SourceLocation StartLoc,
                                           SourceLocation LParenLoc,
                                           SourceLocation EndLoc);
@@ -10032,13 +10355,16 @@ public:
     ExprResult &cond, ExprResult &lhs, ExprResult &rhs,
     ExprValueKind &VK, ExprObjectKind &OK, SourceLocation questionLoc);
   QualType FindCompositePointerType(SourceLocation Loc, Expr *&E1, Expr *&E2,
-                                    bool ConvertArgs = true);
+                                    bool ConvertArgs = true, // INTEL
+                                    bool AllowGnuPermissive = true); // INTEL
   QualType FindCompositePointerType(SourceLocation Loc,
                                     ExprResult &E1, ExprResult &E2,
-                                    bool ConvertArgs = true) {
+                                    bool ConvertArgs = true, // INTEL
+                                    bool AllowGnuPermissive = true) { // INTEL
     Expr *E1Tmp = E1.get(), *E2Tmp = E2.get();
     QualType Composite =
-        FindCompositePointerType(Loc, E1Tmp, E2Tmp, ConvertArgs);
+        FindCompositePointerType(Loc, E1Tmp, E2Tmp, ConvertArgs, // INTEL
+                                 AllowGnuPermissive); // INTEL
     E1 = E1Tmp;
     E2 = E2Tmp;
     return Composite;
@@ -10087,6 +10413,14 @@ public:
     /// Ref_Compatible - The two types are reference-compatible.
     Ref_Compatible
   };
+
+#if INTEL_CUSTOMIZATION
+  QualType CheckArbPrecIntOperands(ExprResult &LHS, ExprResult &RHS,
+                                   SourceLocation Loc, bool IsCompAssign,
+                                   bool IsShift = false);
+  QualType CheckArbPrecIntCompareOperands(ExprResult &LHS, ExprResult &RHS,
+                                      SourceLocation Loc);
+#endif // INTEL_CUSTOMIZATION
 
   ReferenceCompareResult CompareReferenceRelationship(SourceLocation Loc,
                                                       QualType T1, QualType T2,
@@ -10865,8 +11199,16 @@ private:
   bool CheckSystemZBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
   bool CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall);
   bool CheckX86BuiltinGatherScatterScale(unsigned BuiltinID, CallExpr *TheCall);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+  bool CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall);
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
   bool CheckX86BuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
   bool CheckPPCBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
+#if INTEL_CUSTOMIZATION
+  bool CheckFPGABuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
+#endif // INTEL_CUSTOMIZATION
 
   bool SemaBuiltinVAStart(unsigned BuiltinID, CallExpr *TheCall);
   bool SemaBuiltinVAStartARMMicrosoft(CallExpr *Call);
@@ -10874,6 +11216,15 @@ private:
   bool SemaBuiltinFPClassification(CallExpr *TheCall, unsigned NumArgs);
   bool SemaBuiltinVSX(CallExpr *TheCall);
   bool SemaBuiltinOSLogFormat(CallExpr *TheCall);
+
+#if INTEL_CUSTOMIZATION
+  bool CheckHLSBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
+  bool CheckOpenCLBuiltinFunctionCall(unsigned BuiltinID, CallExpr *Call);
+  bool SemaBuiltinVAArgPackChecks(CallExpr *TheCall, unsigned BuiltinID);
+#if INTEL_FEATURE_CSA
+  bool CheckCSABuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
 public:
   // Used by C++ template instantiation.
@@ -11113,9 +11464,28 @@ public:
     return NumArgs > NumParams;
   }
 
+#if INTEL_CUSTOMIZATION
+  enum IntelPragmaInlineOption {
+    IntelPragmaInlineOptionNone,
+    IntelPragmaInlineOptionRecursive
+  };
+  enum IntelPragmaInlineKind {
+    IntelPragmaSimpleInline,
+    IntelPragmaNoInline,
+    IntelPragmaForceInline
+  };
+  StmtResult ActOnPragmaOptionsInline(SourceLocation KindLoc,
+                                      IntelPragmaInlineKind PragmaKind,
+                                      IntelPragmaInlineOption Option);
+#endif // INTEL_CUSTOMIZATION
+
   // Emitting members of dllexported classes is delayed until the class
   // (including field initializers) is fully parsed.
   SmallVector<CXXRecordDecl*, 4> DelayedDllExportClasses;
+
+#if INTEL_CUSTOMIZATION
+  llvm::DenseMap<const Type *, SmallVector<FunctionDecl *, 4>> OCLChannelBIs;
+#endif // INTEL_CUSTOMIZATION
 
 private:
   class SavePendingParsedClassStateRAII {
@@ -11203,6 +11573,29 @@ public:
     ConstructorDestructor,
     BuiltinFunction
   };
+
+private:
+  // We store SYCL Kernels here and handle separately -- which is a hack.
+  // FIXME: It would be best to refactor this.
+  SmallVector<Decl*, 4> SyclKernel;
+  // SYCL integration header instance for current compilation unit this Sema
+  // is associated with.
+  std::unique_ptr<SYCLIntegrationHeader> SyclIntHeader;
+
+public:
+  void AddSyclKernel(Decl * d) { SyclKernel.push_back(d); }
+  SmallVector<Decl*, 4> &SyclKernels() { return SyclKernel; }
+
+  /// Lazily creates and returns SYCL integration header instance.
+  SYCLIntegrationHeader &getSyclIntegrationHeader() {
+    if (SyclIntHeader == nullptr)
+      SyclIntHeader = llvm::make_unique<SYCLIntegrationHeader>(
+        getDiagnostics());
+    return *SyclIntHeader.get();
+  }
+
+  void ConstructOpenCLKernel(FunctionDecl *KernelCallerFunc);
+  void MarkDevice(void);
 };
 
 /// RAII object that enters a new expression evaluation context.

@@ -3059,6 +3059,13 @@ void ItaniumRTTIBuilder::BuildVTablePointer(const Type *Ty) {
   case Type::Pipe:
     llvm_unreachable("Pipe types shouldn't get here");
 
+#if INTEL_CUSTOMIZATION
+  case Type::Channel:
+    llvm_unreachable("Channel types shouldn't get here");
+  case Type::ArbPrecInt:
+    // Fallthrough.
+#endif // INTEL_CUSTOMIZATION
+
   case Type::Builtin:
   // GCC treats vector and complex types as fundamental types.
   case Type::Vector:
@@ -3314,6 +3321,13 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
 
   case Type::Pipe:
     llvm_unreachable("Pipe type shouldn't get here");
+
+#if INTEL_CUSTOMIZATION
+  case Type::Channel:
+    llvm_unreachable("Channel type shouldn't get here");
+  case Type::ArbPrecInt:
+    break;
+#endif // INTEL_CUSTOMIZATION
 
   case Type::ConstantArray:
   case Type::IncompleteArray:

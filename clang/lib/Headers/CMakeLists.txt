@@ -1,3 +1,96 @@
+# INTEL_CUSTOMIZATION
+# INTEL_HEADERS is a list of Intel-added header files located
+# in llvm/tools/clang/lib/Headers/Intel_Headers.
+# We handle these files in a special way:
+#   - During the build, these files are copied to the headers destination
+#     directory in the build structure without creation of Intel_Headers
+#     directory in the build structure.
+#     For example, Intel_Headers/core/newcorefunc.h will be
+#     copied into <build-headers>/core/newcorefunc.h
+#   - They are installed for clang-resource-headers component without
+#     creation of Intel_Headers directory.
+# Such a handling allows having Intel-added header files in the repository
+# with "Intel_" name in their path, as required by Xmain development process,
+# and having the same files with their natural naming for compiler packages
+# in the build and deploy structures
+#
+# For example, we add Intel_Headers/newisaintrin.h into the repository
+# and add "#include <newisaintrin.h>" in immintrin.h - this will work
+# due to the copying hapenning during build/install.
+#
+# If you have <pwd>/Intel_Headers/newheader.h, you must add it into
+# INTEL_HEADERS as Intel_Headers/newheader.h
+# If you have <pwd>/Intel_newheader.h, you may put it into the 'files'
+# list below, or into INTEL_HEADERS as Intel_newheader.h, but in this case
+# it will be copied without special handling for Intel_Headers directory.
+#
+# For more examples, please, read Intel_Headers/README.txt.
+set(INTEL_HEADERS
+  Intel_Headers/svmlintrin.h
+  )
+# INTEL_FEATURE_CSA
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_CSA
+  Intel_Headers/csa/csacomplexfloat.h
+  Intel_Headers/csa/csaintrin.h
+  Intel_Headers/csa/csastream.h
+  Intel_Headers/csa/x86intrin.h
+  Intel_Headers/csa/bits/mathinline.h
+  )
+# end INTEL_FEATURE_CSA
+# INTEL_FEATURE_ISA_ULI
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_ULI
+  Intel_Headers/uliintrin.h
+  )
+# end INTEL_FEATURE_ISA_ULI
+# INTEL_FEATURE_ISA_SERIALIZE
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_SERIALIZE
+  Intel_Headers/serializeintrin.h
+  )
+# end INTEL_FEATURE_ISA_SERIALIZE
+# INTEL_FEATURE_ISA_TSXLDTRK
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_TSXLDTRK
+  Intel_Headers/tsxldtrkintrin.h)
+# end INTEL_FEATURE_ISA_TSXLDTRK
+# INTEL_FEATURE_ISA_AMX
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX
+  Intel_amxintrin.h
+  )
+# end INTEL_FEATURE_ISA_AMX
+# INTEL_FEATURE_ISA_AMX2
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX2
+  Intel_amx2intrin.h
+  )
+# end INTEL_FEATURE_ISA_AMX2
+# INTEL_FEATURE_ISA_KEYLOCKER
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_KEYLOCKER
+  Intel_Headers/keylockerintrin.h
+  )
+# end INTEL_FEATURE_ISA_KEYLOCKER
+# INTEL_FEATURE_ISA_FP16
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_FP16
+  Intel_Headers/avx512fp16intrin.h
+  )
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_FP16
+  Intel_Headers/avx512vlfp16intrin.h
+  )
+# end INTEL_FEATURE_ISA_FP16
+# INTEL_FEATURE_ISA_AVX_VNNI
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_VNNI
+  Intel_Headers/avxvnni/avxvnniintrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX_VNNI
+# end INTEL_CUSTOMIZATION
+
 set(files
   adxintrin.h
   altivec.h
@@ -76,8 +169,14 @@ set(files
   msa.h
   mwaitxintrin.h
   nmmintrin.h
+# INTEL_CUSTOMIZATION
+  opencl-c-20.h
+  opencl-c-common.h
+  opencl-c-platform-12.h
+  opencl-c-platform-20.h
+  opencl-c-platform.h
+# end INTEL_CUSTOMIZATION
   opencl-c.h
-  opencl-c-base.h
   pkuintrin.h
   pmmintrin.h
   pconfigintrin.h
@@ -173,6 +272,27 @@ endfunction(clang_generate_header)
 foreach( f ${files} ${cuda_wrapper_files} ${ppc_wrapper_files} ${openmp_wrapper_files})
   copy_header_to_output_dir(${CMAKE_CURRENT_SOURCE_DIR} ${f})
 endforeach( f )
+
+if(INTEL_CUSTOMIZATION)
+  # Create build commands for Intel-added header files.
+  # The commands implement copying by throwing away "Intel_Headers/" prefix.
+  foreach( f ${INTEL_HEADERS} )
+    string(REGEX REPLACE "^Intel_Headers/" "" fname "${f}")
+    set( src ${CMAKE_CURRENT_SOURCE_DIR}/${f} )
+    set( dst ${output_dir}/${fname} )
+    add_custom_command(OUTPUT ${dst}
+      DEPENDS ${src}
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different ${src} ${dst}
+      COMMENT "Copying clang's ${f}...")
+    install(
+      FILES ${f}
+      RENAME ${fname}
+      COMPONENT clang-resource-headers
+      PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
+      DESTINATION lib${LLVM_LIBDIR_SUFFIX}/clang/${CLANG_VERSION}/include)
+    list(APPEND out_files ${dst})
+  endforeach( f )
+endif(INTEL_CUSTOMIZATION)
 
 # Generate header files and copy them to the build directory
 # Generate arm_neon.h

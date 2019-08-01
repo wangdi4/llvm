@@ -333,11 +333,19 @@ bool Sema::CheckEquivalentExceptionSpec(FunctionDecl *Old, FunctionDecl *New) {
   // specifications.
   //
   // Likewise if the old function is a builtin.
-  if (MissingEmptyExceptionSpecification && NewProto &&
-      (Old->getLocation().isInvalid() ||
-       Context.getSourceManager().isInSystemHeader(Old->getLocation()) ||
-       Old->getBuiltinID()) &&
-      Old->isExternC()) {
+#if INTEL_CUSTOMIZATION
+  FunctionDecl *First = Old->getFirstDecl();
+  if ((MissingEmptyExceptionSpecification && NewProto) &&
+       (((Old->getLocation().isInvalid()) ||
+	  (Context.getSourceManager().isInSystemHeader(Old->getLocation())) ||
+	  ((Old->getBuiltinID()) &&
+	   (Old->isExternC()))) 
+	||
+	 ((First->isExternC() && 
+	   ((First->getLocation().isInvalid() ||
+	     Context.getSourceManager().isInSystemHeader(First->getLocation())))))
+#endif // INTEL_CUSTOMIZATION
+	)) {
     New->setType(Context.getFunctionType(
         NewProto->getReturnType(), NewProto->getParamTypes(),
         NewProto->getExtProtoInfo().withExceptionSpec(EST_DynamicNone)));
@@ -1316,7 +1324,6 @@ CanThrowResult Sema::canThrow(const Expr *E) {
   case Expr::SourceLocExprClass:
     // These expressions can never throw.
     return CT_Cannot;
-
   case Expr::MSPropertyRefExprClass:
   case Expr::MSPropertySubscriptExprClass:
     llvm_unreachable("Invalid class for expression");

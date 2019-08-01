@@ -127,11 +127,25 @@ private:
   void enqueueTask(std::function<void()> Task);
   bool run();
 
+#if INTEL_CUSTOMIZATION
+  // Call MS-Link to finalize linking
+  // NOTE: This code was removed from the community in D50139.
+  void invokeMSVC(llvm::opt::InputArgList &Args);
+
+  // True if at least one input file was compiled with MSVC /GL (MS LTO)
+  bool MSGLFilesFound = false;
+#endif // INTEL_CUSTOMIZATION
+
   std::list<std::function<void()>> TaskQueue;
   std::vector<StringRef> FilePaths;
   std::vector<MemoryBufferRef> Resources;
 
   llvm::StringSet<> DirectivesExports;
+#if INTEL_CUSTOMIZATION
+  // Return true if Argv contains an response file (@) and the file
+  // contains /lib, else return false.
+  bool processLibInResponseFile(llvm::ArrayRef<const char *> Argv);
+#endif // INTEL_CUSTOMIZATION
 };
 
 // Functions below this line are defined in DriverUtils.cpp.
@@ -187,6 +201,12 @@ void checkFailIfMismatch(StringRef Arg, InputFile *Source);
 MemoryBufferRef convertResToCOFF(ArrayRef<MemoryBufferRef> MBs);
 
 void runMSVCLinker(std::string Rsp, ArrayRef<StringRef> Objects);
+
+#if INTEL_CUSTOMIZATION
+// Return true if the quoting style is Windows style, else false
+// (GNU style).
+bool collectQuotingStyle(ArrayRef<const char *> Argv);
+#endif // INTEL_CUSTOMIZATION
 
 // Create enum with OPT_xxx values for each option in Options.td
 enum {

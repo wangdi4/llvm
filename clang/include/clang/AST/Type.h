@@ -478,7 +478,14 @@ public:
   /// Returns true if the address space in these qualifiers is equal to or
   /// a superset of the address space in the argument qualifiers.
   bool isAddressSpaceSupersetOf(Qualifiers other) const {
-    return isAddressSpaceSupersetOf(getAddressSpace(), other.getAddressSpace());
+    return
+      isAddressSpaceSupersetOf(getAddressSpace(), other.getAddressSpace()) ||
+        (!hasAddressSpace() &&
+         (other.getAddressSpace() == LangAS::sycl_private ||
+          other.getAddressSpace() == LangAS::sycl_local ||
+          other.getAddressSpace() == LangAS::sycl_global ||
+          other.getAddressSpace() == LangAS::sycl_constant ||
+          other.getAddressSpace() == LangAS::sycl_generic));
   }
 
   /// Determines if these qualifiers compatibly include another set.
@@ -1952,6 +1959,9 @@ public:
   bool isAggregateType() const;
   bool isFundamentalType() const;
   bool isCompoundType() const;
+#if INTEL_CUSTOMIZATION
+  bool isDoubleType() const;       // (double + long double)
+#endif // INTEL_CUSTOMIZATION
 
   // Type Predicates: Check to see if this type is structurally the specified
   // type, ignoring typedefs and qualifiers.
@@ -2061,6 +2071,10 @@ public:
   bool isOCLIntelSubgroupAVCType() const;
   bool isOCLExtOpaqueType() const;              // Any OpenCL extension type
 
+#if INTEL_CUSTOMIZATION
+  bool isChannelType() const;                   // OpenCL channel type
+  bool isArbPrecIntType() const;                // Arbitrary Precision Int type
+#endif // INTEL_CUSTOMIZATION
   bool isPipeType() const;                      // OpenCL pipe type
   bool isOpenCLSpecificType() const;            // Any OpenCL specific type
 
@@ -3175,7 +3189,6 @@ public:
   static void Profile(llvm::FoldingSetNodeID &ID, const ASTContext &Context,
                       QualType ElementType, Expr *SizeExpr);
 };
-
 
 /// Represents a GCC generic vector type. This type is created using
 /// __attribute__((vector_size(n)), where "n" specifies the vector size in
@@ -6090,6 +6103,112 @@ public:
   bool isReadOnly() const { return isRead; }
 };
 
+#if INTEL_CUSTOMIZATION
+/// ChannelType - Intel OpenCL FPGA extension.
+class ChannelType : public Type, public llvm::FoldingSetNode {
+  QualType ElementType;
+
+  ChannelType(QualType elemType, QualType CanonicalPtr) :
+    Type(Channel, CanonicalPtr, elemType->isDependentType(),
+         elemType->isInstantiationDependentType(),
+         elemType->isVariablyModifiedType(),
+         elemType->containsUnexpandedParameterPack()),
+    ElementType(elemType) {}
+  friend class ASTContext;  // ASTContext creates these.
+
+public:
+
+  QualType getElementType() const { return ElementType; }
+
+  bool isIncompleteType(NamedDecl **Def) const {
+    return ElementType->isIncompleteType(Def);
+  }
+
+  bool isSugared() const { return false; }
+
+  QualType desugar() const { return QualType(this, 0); }
+
+  void Profile(llvm::FoldingSetNodeID &ID) {
+    Profile(ID, getElementType());
+  }
+
+  static void Profile(llvm::FoldingSetNodeID &ID, QualType T) {
+    ID.AddPointer(T.getAsOpaquePtr());
+  }
+
+
+  static bool classof(const Type *T) {
+    return T->getTypeClass() == Channel;
+  }
+
+};
+
+/// ArbPrecIntType - Intel Arbitrary Precision Integer.
+class ArbPrecIntType : public Type, public llvm::FoldingSetNode {
+  friend class ASTContext;
+  QualType UnderlyingType;
+  unsigned NumBits;
+  SourceLocation Loc;
+
+protected:
+  ArbPrecIntType(QualType Type, unsigned NumBits, QualType CanonType,
+                 SourceLocation Loc);
+
+public:
+  QualType getUnderlyingType() const { return UnderlyingType; }
+  unsigned getNumBits() const { return NumBits; }
+  SourceLocation getAttributeLoc() const { return Loc; }
+
+  bool isSugared() const { return false; }
+  QualType desugar() const { return QualType(this, 0); }
+
+  void Profile(llvm::FoldingSetNodeID &ID) {
+    Profile(ID, getUnderlyingType(), getNumBits());
+  }
+
+  static void Profile(llvm::FoldingSetNodeID &ID, QualType UnderlyingType,
+                      unsigned NumBits) {
+    ID.AddPointer(UnderlyingType.getAsOpaquePtr());
+    ID.AddInteger(NumBits);
+  }
+
+  static bool classof(const Type *T) { return T->getTypeClass() == ArbPrecInt; }
+};
+
+/// DependentSizedArbPrecIntType - Intel Arbitrary Precision Integer with
+/// dependent size.
+class DependentSizedArbPrecIntType : public Type, public llvm::FoldingSetNode {
+  friend class ASTContext;
+  const ASTContext &Context;
+  QualType UnderlyingType;
+  Expr *NumBitsExpr;
+  SourceLocation Loc;
+
+  DependentSizedArbPrecIntType(const ASTContext &Context,
+                               QualType UnderlyingType, QualType CanonType,
+                               Expr *NumBitsExpr, SourceLocation Loc);
+
+public:
+  QualType getUnderlyingType() const { return UnderlyingType; }
+  Expr *getNumBitsExpr() const { return NumBitsExpr; }
+  SourceLocation getAttributeLoc() const { return Loc; }
+
+  bool isSugared() const { return false; }
+  QualType desugar() const { return QualType(this, 0); }
+
+  void Profile(llvm::FoldingSetNodeID &ID) {
+    Profile(ID, Context, getUnderlyingType(), getNumBitsExpr());
+  }
+
+  static void Profile(llvm::FoldingSetNodeID &ID, const ASTContext &Context,
+                      QualType UnderlyingType, Expr *NumBitsExpr);
+
+  static bool classof(const Type *T) {
+    return T->getTypeClass() == DependentSizedArbPrecInt;
+  }
+};
+#endif // INTEL_CUSTOMIZATION
+
 /// A qualifier set is used to build a set of qualifiers.
 class QualifierCollector : public Qualifiers {
 public:
@@ -6565,6 +6684,16 @@ inline bool Type::isOCLExtOpaqueType() const {
     false; // end of boolean or operation
 }
 
+#if INTEL_CUSTOMIZATION
+inline bool Type::isChannelType() const {
+  return isa<ChannelType>(CanonicalType);
+}
+
+inline bool Type::isArbPrecIntType() const {
+  return isa<ArbPrecIntType>(CanonicalType);
+}
+#endif // INTEL_CUSTOMIZATION
+
 inline bool Type::isOpenCLSpecificType() const {
   return isSamplerT() || isEventT() || isImageType() || isClkEventT() ||
          isQueueT() || isReserveIDT() || isPipeType() || isOCLExtOpaqueType();
@@ -6651,6 +6780,12 @@ inline bool Type::isIntegerType() const {
     return IsEnumDeclComplete(ET->getDecl()) &&
       !IsEnumDeclScoped(ET->getDecl());
   }
+
+#if INTEL_CUSTOMIZATION
+  if (isa<ArbPrecIntType>(CanonicalType))
+    return true;
+#endif // INTEL_CUSTOMIZATION
+
   return false;
 }
 
@@ -6708,6 +6843,7 @@ inline bool Type::isScalarType() const {
          isa<BlockPointerType>(CanonicalType) ||
          isa<MemberPointerType>(CanonicalType) ||
          isa<ComplexType>(CanonicalType) ||
+         isa<ArbPrecIntType>(CanonicalType) || // INTEL
          isa<ObjCObjectPointerType>(CanonicalType);
 }
 
@@ -6720,6 +6856,11 @@ inline bool Type::isIntegralOrEnumerationType() const {
   // enumeration type in the sense required here.
   if (const auto *ET = dyn_cast<EnumType>(CanonicalType))
     return IsEnumDeclComplete(ET->getDecl());
+
+#if INTEL_CUSTOMIZATION
+  if (isa<ArbPrecIntType>(CanonicalType))
+    return true;
+#endif // INTEL_CUSTOMIZATION
 
   return false;
 }

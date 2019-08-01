@@ -220,6 +220,35 @@ DependentSizedExtVectorType::Profile(llvm::FoldingSetNodeID &ID,
   SizeExpr->Profile(ID, Context, true);
 }
 
+#if INTEL_CUSTOMIZATION
+ArbPrecIntType::ArbPrecIntType(QualType UnderlyingType, unsigned NumBits,
+                               QualType CanonType, SourceLocation Loc)
+    : Type(ArbPrecInt, CanonType, UnderlyingType->isDependentType(),
+           UnderlyingType->isInstantiationDependentType(),
+           UnderlyingType->isVariablyModifiedType(),
+           UnderlyingType->containsUnexpandedParameterPack()),
+      UnderlyingType(UnderlyingType), NumBits(NumBits), Loc(Loc) {}
+
+DependentSizedArbPrecIntType::DependentSizedArbPrecIntType(
+    const ASTContext &Context, QualType UnderlyingType, QualType CanonType,
+    Expr *NumBitsExpr, SourceLocation Loc)
+    : Type(DependentSizedArbPrecInt, CanonType, /*Dependent=*/true,
+           /*InstantationDependent=*/true,
+           UnderlyingType->isVariablyModifiedType(),
+           (UnderlyingType->containsUnexpandedParameterPack() ||
+            (NumBitsExpr && NumBitsExpr->containsUnexpandedParameterPack()))),
+      Context(Context), UnderlyingType(UnderlyingType),
+      NumBitsExpr(NumBitsExpr), Loc(Loc) {}
+
+void DependentSizedArbPrecIntType::Profile(llvm::FoldingSetNodeID &ID,
+                                       const ASTContext &Context,
+                                       QualType UnderlyingType,
+                                       Expr *SizeExpr) {
+  ID.AddPointer(UnderlyingType.getAsOpaquePtr());
+  SizeExpr->Profile(ID, Context, true);
+}
+#endif // INTEL_CUSTOMIZATION
+
 DependentAddressSpaceType::DependentAddressSpaceType(
     const ASTContext &Context, QualType PointeeType, QualType can,
     Expr *AddrSpaceExpr, SourceLocation loc)
@@ -1797,6 +1826,10 @@ bool Type::isIntegralType(const ASTContext &Ctx) const {
     if (const auto *ET = dyn_cast<EnumType>(CanonicalType))
       return ET->getDecl()->isComplete();
 
+#if INTEL_CUSTOMIZATION
+  if (isa<ArbPrecIntType>(CanonicalType))
+    return true;
+#endif // INTEL_CUSTOMIZATION
   return false;
 }
 
@@ -1811,6 +1844,11 @@ bool Type::isIntegralOrUnscopedEnumerationType() const {
   // considered complete.
   if (const auto *ET = dyn_cast<EnumType>(CanonicalType))
     return ET->getDecl()->isComplete() && !ET->getDecl()->isScoped();
+
+#if INTEL_CUSTOMIZATION
+  if (isa<ArbPrecIntType>(CanonicalType))
+    return true;
+#endif // INTEL_CUSTOMIZATION
 
   return false;
 }
@@ -1885,6 +1923,11 @@ bool Type::isSignedIntegerType() const {
       return ET->getDecl()->getIntegerType()->isSignedIntegerType();
   }
 
+#if INTEL_CUSTOMIZATION
+  if (const auto *AP = dyn_cast<ArbPrecIntType>(CanonicalType))
+    return AP->getUnderlyingType()->isSignedIntegerType();
+#endif // INTEL_CUSTOMIZATION
+
   return false;
 }
 
@@ -1898,6 +1941,11 @@ bool Type::isSignedIntegerOrEnumerationType() const {
     if (ET->getDecl()->isComplete())
       return ET->getDecl()->getIntegerType()->isSignedIntegerType();
   }
+
+#if INTEL_CUSTOMIZATION
+  if (const auto *AP = dyn_cast<ArbPrecIntType>(CanonicalType))
+    return AP->getUnderlyingType()->isSignedIntegerOrEnumerationType();
+#endif // INTEL_CUSTOMIZATION
 
   return false;
 }
@@ -1925,6 +1973,11 @@ bool Type::isUnsignedIntegerType() const {
       return ET->getDecl()->getIntegerType()->isUnsignedIntegerType();
   }
 
+#if INTEL_CUSTOMIZATION
+  if (const auto *AP = dyn_cast<ArbPrecIntType>(CanonicalType))
+    return AP->getUnderlyingType()->isUnsignedIntegerType();
+#endif // INTEL_CUSTOMIZATION
+
   return false;
 }
 
@@ -1938,6 +1991,11 @@ bool Type::isUnsignedIntegerOrEnumerationType() const {
     if (ET->getDecl()->isComplete())
       return ET->getDecl()->getIntegerType()->isUnsignedIntegerType();
   }
+
+#if INTEL_CUSTOMIZATION
+  if (const auto *AP = dyn_cast<ArbPrecIntType>(CanonicalType))
+    return AP->getUnderlyingType()->isUnsignedIntegerOrEnumerationType();
+#endif // INTEL_CUSTOMIZATION
 
   return false;
 }
@@ -1957,6 +2015,15 @@ bool Type::isFloatingType() const {
     return CT->getElementType()->isFloatingType();
   return false;
 }
+
+#if INTEL_CUSTOMIZATION
+bool Type::isDoubleType() const {
+  if (const BuiltinType *BT = dyn_cast<BuiltinType>(CanonicalType))
+    return BT->getKind() >= BuiltinType::Double &&
+      BT->getKind() <= BuiltinType::LongDouble;
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
 
 bool Type::hasFloatingRepresentation() const {
   if (const auto *VT = dyn_cast<VectorType>(CanonicalType))
@@ -1984,6 +2051,10 @@ bool Type::isArithmeticType() const {
   if (const auto *BT = dyn_cast<BuiltinType>(CanonicalType))
     return BT->getKind() >= BuiltinType::Bool &&
            BT->getKind() <= BuiltinType::Float128;
+#if INTEL_CUSTOMIZATION
+  if (isa<ArbPrecIntType>(CanonicalType))
+    return true;
+#endif //INTEL_CUSTOMIZATION
   if (const auto *ET = dyn_cast<EnumType>(CanonicalType))
     // GCC allows forward declaration of enum types (forbid by C99 6.7.2.3p2).
     // If a body isn't seen by the time we get here, return false.
@@ -2006,6 +2077,10 @@ Type::ScalarTypeKind Type::getScalarTypeKind() const {
     if (BT->isFloatingPoint()) return STK_Floating;
     if (BT->isFixedPointType()) return STK_FixedPoint;
     llvm_unreachable("unknown scalar builtin type");
+#if INTEL_CUSTOMIZATION
+  } else if (isa<ArbPrecIntType>(T)) {
+    return STK_Integral;
+#endif //INTEL_CUSTOMIZATION
   } else if (isa<PointerType>(T)) {
     return STK_CPointer;
   } else if (isa<BlockPointerType>(T)) {
@@ -2126,6 +2201,10 @@ bool Type::isIncompleteType(NamedDecl **Def) const {
       *Def = Interface;
     return !Interface->hasDefinition();
   }
+#if INTEL_CUSTOMIZATION
+  case Channel:
+    return cast<ChannelType>(CanonicalType)->isIncompleteType(Def);
+#endif // INTEL_CUSTOMIZATION
   }
 }
 
@@ -2182,6 +2261,10 @@ bool QualType::isCXX98PODType(const ASTContext &Context) const {
 
     // C struct/union is POD.
     return true;
+#if INTEL_CUSTOMIZATION
+  case Type::ArbPrecInt:
+    return true;
+#endif // INTEL_CUSTOMIZATION
   }
 }
 
@@ -2885,6 +2968,10 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
   case Id: \
     return #ExtType;
 #include "clang/Basic/OpenCLExtensionTypes.def"
+#if INTEL_CUSTOMIZATION
+  case VAArgPack:
+    return "<Variadic Pack Expansion>";
+#endif // INTEL_CUSTOMIZATION
   }
 
   llvm_unreachable("Invalid builtin type.");
@@ -3681,6 +3768,12 @@ static CachedProperties computeCachedProperties(const Type *T) {
     return Cache::get(cast<ObjCObjectPointerType>(T)->getPointeeType());
   case Type::Atomic:
     return Cache::get(cast<AtomicType>(T)->getValueType());
+#if INTEL_CUSTOMIZATION
+  case Type::Channel:
+    return Cache::get(cast<ChannelType>(T)->getElementType());
+  case Type::ArbPrecInt:
+    return Cache::get(cast<ArbPrecIntType>(T)->getUnderlyingType());
+#endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
     return Cache::get(cast<PipeType>(T)->getElementType());
   }
@@ -3765,6 +3858,12 @@ LinkageInfo LinkageComputer::computeTypeLinkageInfo(const Type *T) {
         cast<ObjCObjectPointerType>(T)->getPointeeType());
   case Type::Atomic:
     return computeTypeLinkageInfo(cast<AtomicType>(T)->getValueType());
+#if INTEL_CUSTOMIZATION
+  case Type::Channel:
+    return computeTypeLinkageInfo(cast<ChannelType>(T)->getElementType());
+  case Type::ArbPrecInt:
+    return computeTypeLinkageInfo(cast<ArbPrecIntType>(T)->getUnderlyingType());
+#endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
     return computeTypeLinkageInfo(cast<PipeType>(T)->getElementType());
   }
@@ -3889,6 +3988,7 @@ bool Type::canHaveNullability(bool ResultIfUnknown) const {
     case BuiltinType::BuiltinFn:
     case BuiltinType::NullPtr:
     case BuiltinType::OMPArraySection:
+    case BuiltinType::VAArgPack: // INTEL
       return false;
     }
     llvm_unreachable("unknown builtin type");
@@ -3916,6 +4016,11 @@ bool Type::canHaveNullability(bool ResultIfUnknown) const {
   case Type::ObjCObject:
   case Type::ObjCInterface:
   case Type::Atomic:
+#if INTEL_CUSTOMIZATION
+  case Type::Channel:
+  case Type::ArbPrecInt:
+  case Type::DependentSizedArbPrecInt:
+#endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
     return false;
   }

@@ -180,7 +180,7 @@ private:
   unsigned NumArgs : 16;
 
   /// Corresponds to the Syntax enum.
-  unsigned SyntaxUsed : 3;
+  unsigned SyntaxUsed : 4; // INTEL
 
   /// True if already diagnosed as invalid.
   mutable unsigned Invalid : 1;
@@ -419,7 +419,6 @@ public:
   bool isKeywordAttribute() const {
     return SyntaxUsed == AS_Keyword || SyntaxUsed == AS_ContextSensitiveKeyword;
   }
-
   bool isContextSensitiveKeywordAttribute() const {
     return SyntaxUsed == AS_ContextSensitiveKeyword;
   }
@@ -614,6 +613,24 @@ public:
       return LangAS::opencl_private;
     case ParsedAttr::AT_OpenCLGenericAddressSpace:
       return LangAS::opencl_generic;
+    default:
+      return LangAS::Default;
+    }
+  }
+
+  /// If this is an OpenCL addr space attribute returns its SYCL representation
+  /// in LangAS, otherwise returns default addr space.
+  LangAS asSYCLLangAS() const {
+    switch (getKind()) {
+    case ParsedAttr::AT_OpenCLConstantAddressSpace:
+      return LangAS::sycl_constant;
+    case ParsedAttr::AT_OpenCLGlobalAddressSpace:
+      return LangAS::sycl_global;
+    case ParsedAttr::AT_OpenCLLocalAddressSpace:
+      return LangAS::sycl_local;
+    case ParsedAttr::AT_OpenCLPrivateAddressSpace:
+      return LangAS::sycl_private;
+    case ParsedAttr::AT_OpenCLGenericAddressSpace:
     default:
       return LangAS::Default;
     }

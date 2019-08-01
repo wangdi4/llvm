@@ -1484,6 +1484,12 @@ public:
       // We have a GCC style pragma message, and we just read the string.
       break;
     default:
+#if INTEL_CUSTOMIZATION
+      // CQ#367740 - emit a warning and ignore this pragma in IntelCompat mode.
+      if (PP.getLangOpts().IntelCompat)
+        PP.Diag(MessageLoc, diag::warn_pragma_message_malformed) << Kind;
+      else
+#endif // INTEL_CUSTOMIZATION
       PP.Diag(MessageLoc, diag::err_pragma_message_malformed) << Kind;
       return;
     }
@@ -1507,6 +1513,13 @@ public:
     }
 
     // Output the message.
+#if INTEL_CUSTOMIZATION
+    // CQ#366856: In icc compatibility mode, don't print diagnostic
+    // information, just output the message.
+    if (PP.getLangOpts().IntelCompat)
+      llvm::outs() << MessageString << "\n";
+    else
+#endif // INTEL_CUSTOMIZATION
     PP.Diag(MessageLoc, (Kind == PPCallbacks::PMK_Error)
                           ? diag::err_pragma_message
                           : diag::warn_pragma_message) << MessageString;
@@ -1873,7 +1886,7 @@ void Preprocessor::RegisterBuiltinPragmas() {
   AddPragmaHandler(new PragmaRegionHandler("endregion"));
 
   // MS extensions.
-  if (LangOpts.MicrosoftExt) {
+  if (LangOpts.MicrosoftExt || LangOpts.IntelCompat) { // INTEL
     AddPragmaHandler(new PragmaWarningHandler());
     AddPragmaHandler(new PragmaExecCharsetHandler());
     AddPragmaHandler(new PragmaIncludeAliasHandler());
