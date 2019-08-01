@@ -36,7 +36,6 @@ const unsigned MaxDistributedLoop = 25;
 const unsigned MaxArrayTempsAllowed = 50;
 const unsigned SmallTripCount = 16;
 const unsigned StripmineSize = 64;
-const unsigned MaxMemResourceToDistribute = 20;
 // For stress testing, use small max resource
 // const unsigned MaxMemResourceToDistribute = 2;
 

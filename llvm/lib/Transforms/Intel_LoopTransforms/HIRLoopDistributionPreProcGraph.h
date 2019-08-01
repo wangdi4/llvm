@@ -136,6 +136,7 @@ public:
     return isControlNode() && IsSimpleControlNode;
   }
 
+  bool hasMemRef() const;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   LLVM_DUMP_METHOD
   void dump() {
@@ -210,16 +211,18 @@ struct DistPPEdge {
 };
 
 class DistPPGraph : public HIRGraph<DistPPNode, DistPPEdge> {
-public:
-  void createNodes(HLLoop *Loop);
-  unsigned getNodeCount() { return DistPPNodeList.size(); }
+  void addCycle(DistPPNode *NodeA, DistPPNode *NodeB);
+  void constructUnknownSideEffectEdges(ArrayRef<DistPPNode *> UnsafeNodes);
 
+public:
   // Marks graph as invalid for given reason
   // Possible failures could be too many nodes, edges etc
   void setInvalid(StringRef FailureReason) {
     GraphValidity = false;
     FailureString = FailureReason;
   }
+
+  unsigned getNodeCount() { return DistPPNodeList.size(); }
 
   bool isGraphValid() { return GraphValidity; }
   std::string getFailureReason() { return FailureString; }

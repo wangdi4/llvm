@@ -185,14 +185,6 @@ public:
   // Condenses all DistPPGraph edges into a single PiGraphEdge
   void createEdges();
 
-  void processControlDependencies();
-
-  // Marks graph as invalid for given reason
-  // Possible failures could be too many nodes, edges etc
-  void setInvalid(StringRef FailureReason) {
-    PPGraph->setInvalid(FailureReason);
-  }
-
   bool isGraphValid() { return PPGraph->isGraphValid(); }
 
   std::string getFailureReason() { return PPGraph->getFailureReason(); }
