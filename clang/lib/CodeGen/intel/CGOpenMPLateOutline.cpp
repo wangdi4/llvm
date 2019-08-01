@@ -1527,6 +1527,12 @@ OpenMPLateOutliner::~OpenMPLateOutliner() {
   addFenceCalls(/*IsBegin=*/false);
 
   // Insert the end directives.
+  if (!CGF.HaveInsertPoint()) {
+    // This is to handle unconditional jump(backward goto), return and exit
+    llvm::BasicBlock *Dummy = CGF.createBasicBlock("dummy");
+    CGF.EmitBlock(Dummy);
+    CGF.Builder.SetInsertPoint(Dummy);
+  }
   for (auto I = Directives.rbegin(), E = Directives.rend(); I != E; ++I)
     CGF.Builder.CreateCall(RegionExitDirective, {I->CallEntry}, I->OpBundles);
   MarkerInstruction->eraseFromParent();
