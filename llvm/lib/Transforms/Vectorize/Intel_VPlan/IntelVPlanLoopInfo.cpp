@@ -46,3 +46,11 @@ bool VPLoop::isLiveOut(const VPValue* VPVal) const {
   }
   return false;
 }
+
+bool VPLoop::contains(const VPBasicBlock *BB) const {
+  return contains(static_cast<const VPBlockBase *>(BB));
+}
+
+bool VPLoop::contains(const VPInstruction *I) const {
+  return contains(I->getParent());
+}

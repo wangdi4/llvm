@@ -25,7 +25,9 @@
 namespace llvm {
 namespace vpo {
 class VPBlockBase;
+class VPBasicBlock;
 class VPValue;
+class VPInstruction;
 
 /// A VPLoop holds analysis information for every loop detected by VPLoopInfo.
 /// It is an instantiation of LoopBase.
@@ -38,6 +40,16 @@ private:
 public:
   bool isLiveIn(const VPValue* VPVal) const;
   bool isLiveOut(const VPValue* VPVal) const;
+
+  using LoopBase<VPBlockBase, VPLoop>::contains;
+
+  // LoopBase doesn't expect different types of VPBlockBase's and treats
+  // VPBasicBlock as a template type parameter for an Instruction version. Need
+  // to process these manually.
+  bool contains(const VPBasicBlock *BB) const;
+  // LoopBase's contains isn't virtual so its I->getParent can't call our
+  // overload, have to re-implement it too.
+  bool contains(const VPInstruction *I) const;
 };
 
 /// VPLoopInfo provides analysis of natural loop for VPBlockBase-based
