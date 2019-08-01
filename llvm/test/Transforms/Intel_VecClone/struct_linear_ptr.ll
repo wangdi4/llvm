@@ -3,6 +3,13 @@
 ; RUN: opt -vec-clone -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @_ZGVbN4l_foo
+; CHECK: simd.begin.region:
+; CHECK-NEXT: %entry.region = call token @llvm.directive.region.entry()
+; CHECK-SAME: DIR.OMP.SIMD
+; CHECK-SAME: QUAL.OMP.SIMDLEN
+; CHECK-SAME: i32 4
+; CHECK-SAME: QUAL.OMP.PRIVATE
+; CHECK-SAME: %struct.my_struct** %s.addr
 ; CHECK: simd.loop:
 ; CHECK: %0 = load %struct.my_struct*, %struct.my_struct** %s.addr, align 8
 ; CHECK: %stride.mul{{.*}} = mul i32 1, %index

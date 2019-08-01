@@ -1447,6 +1447,43 @@ int VecClone::getParmIndexInFunction(Function *F, Value *Parm)
   return -1;
 }
 
+// Allocates space for each linear/uniform parameter.
+static void emitAllocaForParameter(
+    BasicBlock *EntryBlock, SmallVectorImpl<Value *> &ParamVars,
+    Value *ArgValue,
+    SmallVectorImpl<std::pair<AllocaInst *, Value *>> &AllocaArgValueVector,
+    IRBuilder<> &IRB) {
+  AllocaInst *Alloca = IRB.CreateAlloca(ArgValue->getType(), nullptr,
+                                        "alloca." + ArgValue->getName());
+  ParamVars.push_back(Alloca);
+  AllocaArgValueVector.push_back(std::make_pair(Alloca, ArgValue));
+}
+
+// Stores the parameter in the stack and loads it.
+static void emitLoadStoreForParameter(AllocaInst *Alloca, Value *ArgValue,
+                                      BasicBlock *LoopPreHeader) {
+  // Emit the load in the simd.loop.preheader block.
+  IRBuilder<> Builder(&*LoopPreHeader->begin());
+  LoadInst *Load = Builder.CreateLoad(Alloca, "load." + ArgValue->getName());
+  ArgValue->replaceAllUsesWith(Load);
+  // After updating the uses of the function parameter with its stack variable,
+  // we emit the store.
+  Builder.SetInsertPoint(Alloca->getNextNode());
+  Builder.CreateStore(ArgValue, Alloca);
+}
+
+// Creates the simd.begion.region block which marks the beginning of the WRN
+// region. Given the function parameters, emits the correct directive in the
+// simd.begion.region block. If the parameters are linear or uniform, a new
+// basic block(simd.loop.preheader) is created between the simd.begin.region
+// block and the simd.loop block (header). VPLoopEntity needs the addresses of
+// the uniform/linear parameters. For this reason, we need to pass the address
+// of the parameters to the directives instead of their values. In VecClone, we
+// have the values, not the addresses. So, we create a stack variable for each
+// uniform and linear parameter and store them in the stack (the store is
+// emitted in the EntryBlock). Next, we load it and we update its uses (the load
+// is emitted in simd.loop.preheader). This is similar to the code emitted by
+// the front-end for simd loops.
 CallInst *VecClone::insertBeginRegion(Module &M, Function *Clone, Function &F,
                                       VectorVariant &V,
                                       BasicBlock *EntryBlock) {
@@ -1455,8 +1492,8 @@ CallInst *VecClone::insertBeginRegion(Module &M, Function *Clone, Function &F,
   // Insert vectorlength directive
   Constant *VL =
       ConstantInt::get(Type::getInt32Ty(Clone->getContext()), V.getVlen());
-  DirectiveStrMap[IntrinsicUtils::getClauseString(QUAL_OMP_SIMDLEN)]
-      .push_back(VL);
+  DirectiveStrMap[IntrinsicUtils::getClauseString(QUAL_OMP_SIMDLEN)].push_back(
+      VL);
 
   // Add directives for linear and vector parameters. Vector parameters can be
   // marked as private.
@@ -1466,20 +1503,57 @@ CallInst *VecClone::insertBeginRegion(Module &M, Function *Clone, Function &F,
   Function::arg_iterator ArgListIt = Clone->arg_begin();
   Function::arg_iterator ArgListEnd = Clone->arg_end();
   std::vector<VectorKind> ParmKinds = V.getParameters();
+  // Keep the generated alloca for each function parameter.
+  SmallVector<std::pair<AllocaInst *, Value *>, 4> AllocaArgValueVector;
+  IRBuilder<> Builder(&*EntryBlock->begin());
 
   for (; ArgListIt != ArgListEnd; ++ArgListIt) {
 
     unsigned ParmIdx = ArgListIt->getArgNo();
 
+    // In O0, the parameters are also stored in the stack. mem2reg which would
+    // have cleaned up the redundant memory operations does not run in O0. In
+    // O0, all the parameters are marked as privates even if they are linear or
+    // uniform. This does not have an impact on program's correctness. For
+    // linear parameters, VecClone will emit a stride. For all the other
+    // optimization levels, we do not have this problem.
+    // TODO: CMPLRLLVM-9851: The linear and uniform parameters which are
+    // currently marked as privates will be marked as linear and uniform
+    // respectively.
+    if (ArgListIt->hasOneUse()) {
+      auto *U = ArgListIt->user_back();
+      if (isa<StoreInst>(U) &&
+          isa<AllocaInst>(cast<StoreInst>(U)->getPointerOperand()))
+        continue;
+    }
+
     if (ParmKinds[ParmIdx].isLinear()) {
-      LinearVars.push_back(&*ArgListIt);
+      // Allocate space for storing the linear parameters in the stack.
+      emitAllocaForParameter(EntryBlock, LinearVars, cast<Value>(ArgListIt),
+                             AllocaArgValueVector, Builder);
       Constant *Stride = ConstantInt::get(Type::getInt32Ty(Clone->getContext()),
                                           ParmKinds[ParmIdx].getStride());
       LinearVars.push_back(Stride);
     }
 
     if (ParmKinds[ParmIdx].isUniform()) {
-      UniformVars.push_back(&*ArgListIt);
+      // Allocate space for storing the uniform parameters in the stack.
+      emitAllocaForParameter(EntryBlock, UniformVars, cast<Value>(ArgListIt),
+                             AllocaArgValueVector, Builder);
+    }
+  }
+
+  // Create a new basic block before the loop header where the parameters will
+  // be loaded from the stack.
+  if (!LinearVars.empty() || !UniformVars.empty()) {
+    // At this point, the EntryBlock is followed by the loop header (simd.loop
+    // block).
+    BasicBlock *LoopPreHeader = EntryBlock->splitBasicBlock(
+        EntryBlock->getTerminator(), "simd.loop.preheader");
+    for (const auto &Pair : AllocaArgValueVector) {
+      AllocaInst *Alloca = Pair.first;
+      Value *ArgValue = Pair.second;
+      emitLoadStoreForParameter(Alloca, ArgValue, LoopPreHeader);
     }
   }
 
@@ -1502,6 +1576,8 @@ CallInst *VecClone::insertBeginRegion(Module &M, Function *Clone, Function &F,
         UniformVars;
   }
 
+  // Create simd.begin.region block which indicates the begining of the WRN
+  // region.
   CallInst *SIMDBeginCall =
       IntrinsicUtils::createSimdDirectiveBegin(M, DirectiveStrMap);
   SIMDBeginCall->insertBefore(EntryBlock->getTerminator());

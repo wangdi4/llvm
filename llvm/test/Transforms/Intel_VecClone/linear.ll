@@ -7,16 +7,11 @@
 ; CHECK: simd.begin.region:
 ; CHECK-NEXT: %entry.region = call token @llvm.directive.region.entry()
 ; CHECK-SAME: DIR.OMP.SIMD
-; CHECK-SAME: QUAL.OMP.UNIFORM
-; CHECK-SAME: i32 %x
-; CHECK-SAME: QUAL.OMP.LINEAR
-; CHECK-SAME: i32 %i
-; CHECK-SAME: i32 1
+; CHECK-SAME: QUAL.OMP.SIMDLEN
+; CHECK-SAME: i32 4
 ; CHECK-SAME: QUAL.OMP.PRIVATE
 ; CHECK-SAME: i32* %i.addr
 ; CHECK-SAME: i32* %x.addr
-; CHECK-SAME: QUAL.OMP.SIMDLEN
-; CHECK-SAME: i32 4
 ; CHECK-NEXT: br label %simd.loop
 
 ; CHECK: simd.loop:

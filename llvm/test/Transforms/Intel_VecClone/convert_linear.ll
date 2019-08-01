@@ -5,6 +5,12 @@
 ; RUN: opt -vec-clone -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @_ZGVbN2vl_foo
+; CHECK: simd.begin.region:
+; CHECK: %entry.region = call token @llvm.directive.region.entry()
+; CHECK-SAME: DIR.OMP.SIMD
+; CHECK-SAME: QUAL.OMP.SIMDLEN
+; CHECK-SAME: i32 2
+; CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %i.addr)
 ; CHECK: simd.loop:
 ; CHECK: %0 = load i32, i32* %i.addr
 ; CHECK-NEXT: %stride.mul = mul i32 1, %index
