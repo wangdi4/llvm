@@ -60,6 +60,14 @@ void foo() {
    // expected-error@+1 {{value '1844674407370955148' is too large}}
    #pragma loop_count(1844674407370955148)
    for (int i = 0; i < 10; ++i){s = s + i;}
+
+   // expected-error@+1 {{duplicate directives 'loop_count min(1)' and 'loop_count min(1)'}}
+   #pragma loop_count(1,2) min=1 max=10 avg=5 min = 1
+   for (int i = 0; i < 10; ++i){s = s + i;}
+
+   // expected-error@+1 {{duplicate directives 'loop_count avg(5)' and 'loop_count avg(1)'}}
+   #pragma loop_count(1,2); min=1; max=10; avg=5; avg = 1
+   for (int i = 0; i < 10; ++i){s = s + i;}
 }
 
 template<int64_t L>

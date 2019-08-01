@@ -1759,6 +1759,12 @@ private:
   QualType getTypeOfControllingExpr();
 
   ExprResult ParseIntelGenericSelectionExpression();
+  bool ParseLoopHintValue(LoopHint &Hint, SourceLocation Loc,
+                          ParsedAttributesWithRange &Attrs);
+  bool ParseLoopHintValueList(LoopHint &Hint, ParsedAttributesWithRange &Attrs);
+  bool ParseLoopCountClause(LoopHint &Hint, ParsedAttributesWithRange &Attrs);
+  bool HandlePragmaLoopCount(LoopHint &Hint,
+                             ParsedAttributesWithRange &Attrs);
 #endif // INTEL_CUSTOMIZATION
 
   ExprResult ParseObjCBoolLiteral();
@@ -2044,6 +2050,10 @@ private:  //***INTEL
                                   SourceLocation *TrailingElseLoc,
                                   ParsedAttributesWithRange &Attrs);
   bool HandlePragmaBlockLoop(ArgsVector *ArgExprs);
+  StmtResult ParsePragmaLoopCount(StmtVector &Stmts,
+                                  ParsedStmtContext StmtCtx,
+                                  SourceLocation *TrailingElseLoc,
+                                  ParsedAttributesWithRange &Attrs);
 #endif // INTEL_CUSTOMIZATION
 
   /// Describes the behavior that should be taken for an __if_exists
