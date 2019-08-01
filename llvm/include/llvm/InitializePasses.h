@@ -224,6 +224,7 @@ void initializeInstrProfilingLegacyPassPass(PassRegistry&);
 void initializeInstrOrderFileLegacyPassPass(PassRegistry&);
 void initializeInstructionCombiningPassPass(PassRegistry&);
 void initializeInstructionSelectPass(PassRegistry&);
+void initializeIntelAdvancedFastCallWrapperPassPass(PassRegistry &); // INTEL
 void initializeIntelPartialInlineLegacyPassPass(PassRegistry &); // INTEL
 void initializeInterleavedAccessPass(PassRegistry&);
 void initializeInterleavedLoadCombinePass(PassRegistry &);

@@ -1444,8 +1444,22 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   addPGOInstrPasses(PM, /* IsCS */ true);
 
   // Optimize globals again if we ran the inliner.
-  if (RunInliner)
+  if (RunInliner) { // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+    // The global optimizer pass can convert function calls to use
+    // the 'fastcc' calling convention. The following pass enables more
+    // functions to be converted to this calling convention. This can improve
+    // performance by having arguments passed in registers, and enable more
+    // cases where pointer parameters are changed to pass-by-value parameters.
+    // We can remove the test for EnableDTrans if it is found to be useful
+    // on other cases.
+    if (EnableDTrans)
+      PM.add(createIntelAdvancedFastCallWrapperPass());
+#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_CUSTOMIZATION
     PM.add(createGlobalOptimizerPass());
+  } // INTEL
 
 #if INTEL_CUSTOMIZATION
   if (RunLTOPartialInlining)
