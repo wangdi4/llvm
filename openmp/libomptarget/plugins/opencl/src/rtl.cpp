@@ -440,11 +440,38 @@ public:
 static RTLDeviceInfoTy DeviceInfo;
 static RTLProfileTy profile;
 
+static std::string getDeviceRTLPath() {
+  std::string rtl_path;
+#ifdef _WIN32
+  char path[_MAX_PATH];
+  HMODULE module = nullptr;
+  if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                          GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                          (LPCSTR) &DeviceInfo, &module))
+    return rtl_path;
+  if (!GetModuleFileNameA(module, path, sizeof(path)))
+    return rtl_path;
+  rtl_path = path;
+#else
+  Dl_info rtl_info;
+  if (!dladdr(&DeviceInfo, &rtl_info))
+    return rtl_path;
+  rtl_path = rtl_info.dli_fname;
+#endif
+  size_t split = rtl_path.find_last_of("/\\");
+  rtl_path.replace(split + 1, std::string::npos, DEVICE_RTL_NAME);
+  return rtl_path;
+}
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-extern "C" double omp_get_wtime(void) __attribute__((weak));
+#if _WIN32
+__declspec(dllimport) double omp_get_wtime(void);
+#else   // !_WIN32
+double omp_get_wtime(void) __attribute__((weak));
+#endif  // !_WIN32
 
 static inline void addDataTransferLatency() {
   if (!(DeviceInfo.flag & DeviceInfo.DATA_TRANSFER_LATENCY))
@@ -488,6 +515,7 @@ int32_t ExtensionsTy::getExtensionsInfoForDevice(int32_t DeviceNum) {
   return CL_SUCCESS;
 }
 
+EXTERN
 int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *image) {
   uint32_t magicWord = *(uint32_t *)image->ImageStart;
   // compare magic word in little endian and big endian:
@@ -496,8 +524,10 @@ int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *image) {
   return ret;
 }
 
+EXTERN
 int32_t __tgt_rtl_number_of_devices() { return DeviceInfo.numDevices; } // fixme
 
+EXTERN
 int32_t __tgt_rtl_init_device(int32_t device_id) {
 
   cl_int status;
@@ -569,29 +599,7 @@ static void dumpImageToFile(
 #endif  // INTEL_CUSTOMIZATION
 }
 
-static std::string getDeviceRTLPath() {
-  std::string rtl_path;
-#ifdef _WIN32
-  char path[_MAX_PATH];
-  HMODULE module = nullptr;
-  if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
-                          GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                          (LPCSTR) &DeviceInfo, &module))
-    return rtl_path;
-  if (!GetModuleFileNameA(module, path, sizeof(path)))
-    return rtl_path;
-  rtl_path = path;
-#else
-  Dl_info rtl_info;
-  if (!dladdr(&DeviceInfo, &rtl_info))
-    return rtl_path;
-  rtl_path = rtl_info.dli_fname;
-#endif
-  size_t split = rtl_path.find_last_of("/\\");
-  rtl_path.replace(split + 1, std::string::npos, DEVICE_RTL_NAME);
-  return rtl_path;
-}
-
+EXTERN
 __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
                                           __tgt_device_image *image) {
 
@@ -828,6 +836,7 @@ void event_callback_completed(cl_event event, cl_int status, void *data) {
 // passed as arguments, but which are pointing to mapped objects
 // that may potentially be accessed in the kernel code (e.g. PTR_AND_OBJ
 // objects).
+EXTERN
 int32_t __tgt_rtl_manifest_data_for_region(
     int32_t device_id,
     void *tgt_entry_ptr,
@@ -881,22 +890,26 @@ void *tgt_rtl_data_alloc_template(int32_t device_id, int64_t size,
   return ret;
 }
 
+EXTERN
 void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *hst_ptr) {
   return tgt_rtl_data_alloc_template(device_id, size, hst_ptr, hst_ptr, 0);
 }
 
 // Allocate a base buffer with the given information.
+EXTERN
 void *__tgt_rtl_data_alloc_base(int32_t device_id, int64_t size, void *hst_ptr,
                                 void *hst_base) {
   return tgt_rtl_data_alloc_template(device_id, size, hst_ptr, hst_base, 0);
 }
 
 // Allocation was initiated by user (omp_target_alloc)
+EXTERN
 void *__tgt_rtl_data_alloc_user(int32_t device_id, int64_t size,
                                 void *hst_ptr) {
   return tgt_rtl_data_alloc_template(device_id, size, hst_ptr, hst_ptr, 1);
 }
 
+EXTERN
 int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
                                      void *hst_ptr, int64_t size,
                                      void *async_event) {
@@ -951,12 +964,14 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
   return OFFLOAD_SUCCESS;
 }
 
+EXTERN
 int32_t __tgt_rtl_data_submit(int32_t device_id, void *tgt_ptr, void *hst_ptr,
                               int64_t size) {
   return __tgt_rtl_data_submit_nowait(device_id, tgt_ptr, hst_ptr, size,
                                       nullptr);
 }
 
+EXTERN
 int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
                                        void *tgt_ptr, int64_t size,
                                        void *async_event) {
@@ -1011,12 +1026,14 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
   return OFFLOAD_SUCCESS;
 }
 
+EXTERN
 int32_t __tgt_rtl_data_retrieve(int32_t device_id, void *hst_ptr, void *tgt_ptr,
                                 int64_t size) {
   return __tgt_rtl_data_retrieve_nowait(device_id, hst_ptr, tgt_ptr, size,
                                         nullptr);
 }
 
+EXTERN
 int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
   std::map<void *, void *> &bases = DeviceInfo.BaseBuffers[device_id];
   void *base = tgt_ptr;
@@ -1172,7 +1189,7 @@ static inline int32_t run_target_team_nd_region(
   return OFFLOAD_SUCCESS;
 }
 
-int32_t
+EXTERN int32_t
 __tgt_rtl_run_target_team_nd_region(int32_t device_id, void *tgt_entry_ptr,
                                     void **tgt_args, ptrdiff_t *tgt_offsets,
                                     int32_t num_args, int32_t num_teams,
@@ -1182,6 +1199,7 @@ __tgt_rtl_run_target_team_nd_region(int32_t device_id, void *tgt_entry_ptr,
                                    thread_limit, loop_desc, nullptr);
 }
 
+EXTERN
 int32_t __tgt_rtl_run_target_team_nd_region_nowait(
     int32_t device_id, void *tgt_entry_ptr, void **tgt_args,
     ptrdiff_t *tgt_offsets, int32_t num_args, int32_t num_teams,
@@ -1191,6 +1209,7 @@ int32_t __tgt_rtl_run_target_team_nd_region_nowait(
                                    thread_limit, loop_desc, async_event);
 }
 
+EXTERN
 int32_t __tgt_rtl_run_target_team_region_nowait(
     int32_t device_id, void *tgt_entry_ptr, void **tgt_args,
     ptrdiff_t *tgt_offsets, int32_t arg_num, int32_t team_num,
@@ -1200,6 +1219,7 @@ int32_t __tgt_rtl_run_target_team_region_nowait(
                                    nullptr, async_event);
 }
 
+EXTERN
 int32_t __tgt_rtl_run_target_region_nowait(int32_t device_id,
                                            void *tgt_entry_ptr, void **tgt_args,
                                            ptrdiff_t *tgt_offsets,
@@ -1209,6 +1229,7 @@ int32_t __tgt_rtl_run_target_region_nowait(int32_t device_id,
                                    async_event);
 }
 
+EXTERN
 int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
                                          void **tgt_args,
                                          ptrdiff_t *tgt_offsets,
@@ -1221,6 +1242,7 @@ int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
                                    nullptr, nullptr);
 }
 
+EXTERN
 int32_t __tgt_rtl_run_target_region(int32_t device_id, void *tgt_entry_ptr,
                                     void **tgt_args, ptrdiff_t *tgt_offsets,
                                     int32_t arg_num) {
