@@ -918,6 +918,13 @@ Value *llvm::replicateVector(Value *OrigVal, unsigned OriginalVL,
                                      ShuffleMask, Name + OrigVal->getName());
 }
 
+Value *llvm::createVectorSplat(Value *V, unsigned VF, IRBuilder<> &Builder,
+                               const Twine &Name) {
+  if (V->getType()->isVectorTy())
+    return replicateVectorElts(V, VF, Builder, Name);
+  return Builder.CreateVectorSplat(VF, V, V->getName() + Name);
+}
+
 #endif // INTEL_CUSTOMIZATION
 /// Add all access groups in @p AccGroups to @p List.
 template <typename ListT>

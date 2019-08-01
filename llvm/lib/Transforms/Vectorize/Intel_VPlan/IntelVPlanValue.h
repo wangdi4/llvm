@@ -465,6 +465,7 @@ class VPExternalDef : public VPValue, public FoldingSetNode {
   // VPlan is currently the context where the pool of VPExternalDefs is held.
   friend class VPlan;
   friend class VPOCodeGenHIR;
+  friend class VPOCodeGen;
 
 private:
   // Hold the DDRef or IV information related to this external definition.
@@ -523,6 +524,7 @@ public:
 class VPExternalUse : public VPUser, public FoldingSetNode {
 private:
   friend class VPlan;
+  friend class VPOCodeGen;
 
   // Hold the DDRef or IV information related to this external use.
   std::unique_ptr<VPOperandHIR> HIROperand;
@@ -562,6 +564,45 @@ public:
 
   /// Method to support FoldingSet's hashing.
   void Profile(FoldingSetNodeID &ID) const { HIROperand->Profile(ID); }
+
+  /// Adds operand with an underlying value. The underlying value points to the
+  /// value which should be replaced by the new one generated from vector code.
+  /// The VPOperands can be replaced during vector transformations but the
+  /// underlying values shoud be kept as they point to the values outside of the
+  /// loop.
+  /// The VPUser::addOperand() should not be used with VPExternalUse. This
+  /// method is created to avoid virtual-ness on addOperand().
+  void addOperandWithUnderlyingValue(VPValue *Op, Value *Underlying) {
+    assert(isConsistent() && "Inconsistent VPExternalUse operands");
+    addOperand(Op);
+    UnderlyingOperands.push_back(Underlying);
+  }
+
+  // TODO: add this call to verification
+  bool isConsistent() const {
+    return getNumOperands() == UnderlyingOperands.size();
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump(raw_ostream &OS) const override {
+    if (getUnderlyingValue())
+      cast<Instruction>(getUnderlyingValue())->print(OS);
+    for (unsigned I = 0, E = getNumOperands(); I < E; ++I) {
+      getOperand(I)->printAsOperand(OS);
+      OS << " -> ";
+      getUnderlyingOperand(I)->printAsOperand(OS);
+      OS << ";\n";
+    }
+  }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+private:
+  const Value *getUnderlyingOperand(unsigned N) const {
+    assert(N < UnderlyingOperands.size() && "Operand index out of bounds");
+    return UnderlyingOperands[N];
+  }
+
+  SmallVector<Value *, 2> UnderlyingOperands;
 };
 
 /// This class augments VPValue with Metadata that is used as operand of another

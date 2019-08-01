@@ -1508,7 +1508,7 @@ bool VPOParoptTransform::paroptTransforms() {
             auto *LoopExitBB = getLoopExitBB(W);
             // Last value update must happen in the loop's exit block,
             // i.e. under a ZTT check, if one was created around the loop.
-            Changed |= genLinearCode(W, LoopExitBB);
+//            Changed |= genLinearCode(W, LoopExitBB);
             Changed |= genLastPrivatizationCode(W, LoopExitBB);
             Changed |= genReductionCode(W);
           }

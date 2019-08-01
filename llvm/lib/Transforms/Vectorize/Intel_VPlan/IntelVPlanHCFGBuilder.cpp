@@ -1675,6 +1675,17 @@ void PlainCFGBuilder::setVPBBPredsFromBB(VPBasicBlock *VPBB, BasicBlock *BB) {
   VPBB->setPredecessors(VPBBPreds);
 }
 
+static void assertIsSingleElementAlloca(Value *CurValue) {
+  if (!CurValue)
+    return;
+  if (auto AllocaI = dyn_cast<AllocaInst>(CurValue)) {
+    Value *ArrSize = AllocaI->getArraySize();
+    assert((isa<ConstantInt>(ArrSize) && cast<ConstantInt>(ArrSize)->isOne()) &&
+           "Alloca is unsupported for privatization");
+    (void)ArrSize;
+  }
+}
+
 // Base class for VPLoopEntity conversion functors.
 class VPEntityConverterBase {
 public:
@@ -1704,10 +1715,8 @@ public:
         dyn_cast<VPInstruction>(Builder.getOrCreateVPOperand(CurValue.first)));
     Descriptor.setStart(
         Builder.getOrCreateVPOperand(RD.getRecurrenceStartValue()));
-    Descriptor.addUpdateVPInst(dyn_cast<VPInstruction>(
+    Descriptor.setExit(dyn_cast<VPInstruction>(
         Builder.getOrCreateVPOperand(RD.getLoopExitInstr())));
-    // Exit is not set here, it is determined based on some analyses in Phase 2
-    Descriptor.setExit(nullptr);
     Descriptor.setKind(RD.getRecurrenceKind());
     Descriptor.setMinMaxKind(RD.getMinMaxRecurrenceKind());
     Descriptor.setRecType(RD.getRecurrenceType());
@@ -1729,12 +1738,15 @@ public:
         dyn_cast<VPInstruction>(Builder.getOrCreateVPOperand(CurValue.first)));
     Descriptor.setStart(
         Builder.getOrCreateVPOperand(RD.getRecurrenceStartValue()));
-    Descriptor.setExit(dyn_cast<VPInstruction>(
+    Descriptor.addUpdateVPInst(dyn_cast<VPInstruction>(
         Builder.getOrCreateVPOperand(RD.getLoopExitInstr())));
+    // Exit is not set here, it is determined based on some analyses in Phase 2
+    Descriptor.setExit(nullptr);
     Descriptor.setKind(RD.getRecurrenceKind());
     Descriptor.setMinMaxKind(RD.getMinMaxRecurrenceKind());
     Descriptor.setRecType(RD.getRecurrenceType());
     Descriptor.setSigned(RD.isSigned());
+    assertIsSingleElementAlloca(CurValue.second.second);
     Descriptor.setAllocaInst(
         Builder.getOrCreateVPOperand(CurValue.second.second));
     Descriptor.setLinkPhi(nullptr);
@@ -1748,6 +1760,7 @@ public:
   void operator()(ReductionDescr &Descriptor,
                   const InMemoryReductionList::value_type &CurValue) {
     Descriptor.clear();
+    assertIsSingleElementAlloca(CurValue.first);
     VPValue *AllocaInst = Builder.getOrCreateVPOperand(CurValue.first);
     Descriptor.setStartPhi(nullptr);
     Descriptor.setStart(AllocaInst);
@@ -1838,8 +1851,10 @@ public:
 
     Descriptor.setInductionBinOp(nullptr);
     Descriptor.setBinOpcode(Instruction::Add);
+    assertIsSingleElementAlloca(CurValue.first);
     Descriptor.setAllocaInst(
         isa<AllocaInst>(CurValue.first) ? Descriptor.getStart() : nullptr);
+    Descriptor.setIsExplicitInduction(true);
   }
 };
 
@@ -1854,6 +1869,7 @@ public:
                   const PrivatesListTy::value_type &CurValue) {
 
     Descriptor.clear();
+    assertIsSingleElementAlloca(CurValue);
     auto *VPAllocaVal = Builder.getOrCreateVPOperand(CurValue);
     // TODO: This is a temporary solution. Aliases to the private descriptor
     // should be collected earlier with new descriptor representation in
@@ -2107,7 +2123,7 @@ void PlainCFGBuilder::addExternalUses(Value *Val, VPValue *NewVPInst) {
     if (auto Inst = dyn_cast<Instruction>(U))
       if (!TheLoop->contains(Inst)) {
         VPExternalUse *User = Plan->getVPExternalUse(Inst);
-        User->addOperand(NewVPInst);
+        User->addOperandWithUnderlyingValue(NewVPInst, Val);
       }
 }
 

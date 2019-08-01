@@ -43,9 +43,7 @@ define void @foo(i32* nocapture %ary) {
 ; CHECK-NEXT:   #6 <4 x 32> SStore
 ;
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[VEC_IND:%.*]] = phi <4 x i64> [ <i64 0, i64 4, i64 8, i64 12>, [[VECTOR_PH]] ], [ [[VEC_IND_NEXT:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[TMP0:%.*]] = add nsw <4 x i64> [[VEC_IND]], <i64 3, i64 3, i64 3, i64 3>
+; CHECK:    [[TMP0:%.*]] = add nsw <4 x i64> [[VEC_IND:%.*]], <i64 3, i64 3, i64 3, i64 3>
 ; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT:%.*]], <4 x i64> [[TMP0]]
 ; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0i32(<4 x i32*> [[MM_VECTORGEP]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> undef)
 ; CHECK-NEXT:    [[TMP1:%.*]] = add nsw <4 x i32> [[WIDE_MASKED_GATHER]], <i32 11, i32 11, i32 11, i32 11>
@@ -64,13 +62,6 @@ define void @foo(i32* nocapture %ary) {
 ; CHECK-NEXT:    call void @llvm.masked.scatter.v4i32.v4p0i32(<4 x i32> [[TMP2]], <4 x i32*> [[MM_VECTORGEP]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
 ; CHECK-NEXT:    call void @llvm.masked.scatter.v4i32.v4p0i32(<4 x i32> [[TMP4]], <4 x i32*> [[MM_VECTORGEP1]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
 ; CHECK-NEXT:    call void @llvm.masked.scatter.v4i32.v4p0i32(<4 x i32> [[TMP6]], <4 x i32*> [[MM_VECTORGEP5]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
-; CHECK-NEXT:    [[TMP7:%.*]] = add nuw nsw <4 x i64> [[VEC_IND]], <i64 4, i64 4, i64 4, i64 4>
-; CHECK-NEXT:    [[TMP8:%.*]] = icmp ult <4 x i64> [[TMP7]], <i64 1024, i64 1024, i64 1024, i64 1024>
-; CHECK-NEXT:    [[TMP9:%.*]] = extractelement <4 x i1> [[TMP8]], i32 0
-; CHECK-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], 4
-; CHECK-NEXT:    [[TMP10:%.*]] = icmp eq i64 [[INDEX_NEXT]], 256
-; CHECK-NEXT:    [[VEC_IND_NEXT]] = add <4 x i64> [[VEC_IND]], <i64 16, i64 16, i64 16, i64 16>
-; CHECK-NEXT:    br i1 [[TMP10]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]]
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]

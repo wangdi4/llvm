@@ -524,6 +524,23 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
     return;
   }
 
+  if (isa<VPAllocatePrivate>(Ptr)) {
+    // TODO. Need to handshake with VLS. No sure if VLS currently operates
+    // on privates. At least it should account SOA property of private.
+    Value *VecPtr = getVectorValue(Ptr);
+    unsigned Alignment = 0;
+    if (auto PrivAlloca = dyn_cast<AllocaInst>(VecPtr))
+      Alignment = PrivAlloca->getAlignment();
+    if (MaskValue)
+      VPWidenMap[VPInst] =
+          Builder.CreateMaskedLoad(VecPtr, Alignment, MaskValue,
+                                   nullptr /*PassThru*/, "wide.masked.load");
+    else
+      VPWidenMap[VPInst] =
+          Builder.CreateAlignedLoad(VecPtr, Alignment, "wide.load");
+    return;
+  }
+
   unsigned OriginalVL =
       LoadType->isVectorTy() ? LoadType->getVectorNumElements() : 1;
   int ConsecutiveStride = isVPValueConsecutivePtr(Ptr);
@@ -684,6 +701,28 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
     vectorizeLinearStore(Inst);
     return;
 #endif
+  }
+
+  if (isa<VPAllocatePrivate>(Ptr)) {
+    // TODO. Need to handshake with VLS. No sure if VLS currently operates
+    // on privates. At least it should account SOA property of private.
+    Value *VecPtr = getVectorValue(Ptr);
+    unsigned Alignment = 0;
+    if (auto PrivAlloca = dyn_cast<AllocaInst>(VecPtr))
+      Alignment = PrivAlloca->getAlignment();
+    Value *VecDataOp = getVectorValue(VPInst->getOperand(0));
+    if (MaskValue)
+      Builder.CreateMaskedStore(VecDataOp, VecPtr, Alignment, MaskValue);
+    else
+      Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment);
+    return;
+  } else if (isa<VPExternalDef>(Ptr) ||
+             (isa<VPConstant>(Ptr) && Ptr->getType()->isPointerTy())) {
+    // Scalar store
+    Value *ScalarPtr = getScalarValue(Ptr, 0);
+    Value *ScalarVal = getScalarValue(VPInst->getOperand(0), 0);
+    Builder.CreateAlignedStore(ScalarVal, ScalarPtr, 0);
+    return;
   }
 
   unsigned OriginalVL =
@@ -1489,15 +1528,27 @@ void VPOCodeGen::vectorizeVPInstruction(VPInstruction *VPInst) {
     Value *V = Builder.CreateBinOp(BinOpCode, A, B);
 
     // TODO: IR flags are not stored in VPInstruction (example FMF, wrapping
-    // flags). Use underlying IR flags if any.
-    if (VPInst->getUnderlyingValue()) {
-      BinaryOperator *BinOp =
-          cast<BinaryOperator>(VPInst->getUnderlyingValue());
+    // flags). Use underlying IR flags if any
+    if (auto *IRValue = VPInst->getUnderlyingValue()) {
+      BinaryOperator *BinOp = cast<BinaryOperator>(IRValue);
       BinaryOperator *VecOp = cast<BinaryOperator>(V);
       VecOp->copyIRFlags(BinOp);
     }
-
     VPWidenMap[VPInst] = V;
+    // TODO: Need to check for scalar code generation for the most of
+    // VPInstructions.
+    if (needScalarCode(VPInst)) {
+      Value *AScal = getScalarValue(VPInst->getOperand(0), 0);
+      Value *BScal = getScalarValue(VPInst->getOperand(1), 0);
+      Value *VScal = Builder.CreateBinOp(
+          static_cast<Instruction::BinaryOps>(VPInst->getOpcode()), AScal,
+          BScal);
+      VPScalarMap[VPInst][0] = VScal;
+      if (auto Underlying = VPInst->getUnderlyingValue()) {
+        if (auto Inst = dyn_cast<Instruction>(VScal))
+          Inst->copyIRFlags(Underlying);
+      }
+    }
     return;
   }
 
@@ -1691,6 +1742,11 @@ void VPOCodeGen::vectorizeVPInstruction(VPInstruction *VPInst) {
     Value *A = getVectorValue(VPInst->getOperand(0));
     Value *V = Builder.CreateNot(A);
     VPWidenMap[VPInst] = V;
+    if (needScalarCode(VPInst)) {
+      Value *AScal = getScalarValue(VPInst->getOperand(0), 0);
+      Value *VScal = Builder.CreateNot(AScal);
+      VPScalarMap[VPInst][0] = VScal;
+    }
     return;
   }
   case VPInstruction::Pred: {
@@ -1699,9 +1755,462 @@ void VPOCodeGen::vectorizeVPInstruction(VPInstruction *VPInst) {
     setMaskValue(A);
     return;
   }
+  case VPInstruction::ReductionInit: {
+    // Generate a broadcast/splat of reduction's identity. If a start value is
+    // specified for reduction, then insert into lane 0 after broadcast.
+    // Example -
+    // i32 %vp0 = reduction-init i32 0 i32 %red.init
+    //
+    // Generated instructions-
+    // %0 = insertelement <4 x i32> zeroinitializer, i32 %red.init, i32 0
+
+    Value *Identity = getVectorValue(VPInst->getOperand(0));
+    if (VPInst->getNumOperands() > 1) {
+      auto *StartVPVal = VPInst->getOperand(1);
+      assert((isa<VPExternalDef>(StartVPVal) || isa<VPConstant>(StartVPVal)) &&
+             "Unsupported reduction StartValue");
+      auto *StartVal = getScalarValue(StartVPVal, 0);
+      Identity = Builder.CreateInsertElement(
+          Identity, StartVal, Builder.getInt32(0), "red.init.insert");
+    }
+    VPWidenMap[VPInst] = Identity;
+    return;
+  }
+  case VPInstruction::ReductionFinal: {
+    vectorizeReductionFinal(cast<VPReductionFinal>(VPInst));
+    return;
+  }
+  case VPInstruction::InductionInit: {
+    vectorizeInductionInit(cast<VPInductionInit>(VPInst));
+    return;
+  }
+  case VPInstruction::InductionInitStep: {
+    vectorizeInductionInitStep(cast<VPInductionInitStep>(VPInst));
+    return;
+  }
+  case VPInstruction::InductionFinal: {
+    vectorizeInductionFinal(cast<VPInductionFinal>(VPInst));
+    return;
+  }
+  case VPInstruction::AllocatePrivate: {
+    vectorizeAllocatePrivate(cast<VPAllocatePrivate>(VPInst));
+    return;
+  }
   default: {
     LLVM_DEBUG(dbgs() << "VPInst: "; VPInst->dump());
     llvm_unreachable("VPVALCG: Opcode not uplifted yet.");
   }
   }
 }
+
+void VPOCodeGen::vectorizeReductionPHI(VPPHINode *VPPhi,
+                                       PHINode *UnderlyingPhi) {
+  Type *ScalarTy = VPPhi->getType();
+  assert(!ScalarTy->isAggregateType() && "Unexpected reduction type");
+  assert(VPPhi->getParent()->getNumPredecessors() == 2 &&
+         "Unexpected reduction phi placement");
+  assert(!VPPhi->getBlend() && "Unexpected blend on reduction phi");
+  Type *VecTy = VectorType::get(ScalarTy, VF);
+  PHINode *VecPhi = PHINode::Create(VecTy, 2, "vec.phi",
+                                    &*LoopVectorBody->getFirstInsertionPt());
+  if (UnderlyingPhi)
+    // TODO. Remove after switching to VPValue-based code gen.
+    WidenMap[UnderlyingPhi] = VecPhi;
+  VPWidenMap[VPPhi] = VecPhi;
+  if (EnableVPValueCodegen)
+    // In this case we need an additional fixup.
+    PhisToFix[VPPhi] = VecPhi;
+}
+
+void VPOCodeGen::vectorizeVPPHINode(VPPHINode *VPPhi) {
+  assert(EnableVPValueCodegen && "This call is unexpected");
+
+  if (VPEntities && VPEntities->getReduction(VPPhi))
+    // Handle reductions.
+    vectorizeReductionPHI(VPPhi);
+  else
+    widenNonInductionPhi(VPPhi);
+}
+
+void VPOCodeGen::vectorizeReductionFinal(VPReductionFinal *RedFinal) {
+  Value *VecValue = getVectorValue(RedFinal->getOperand(0));
+  Intrinsic::ID Intrin = RedFinal->getVectorReduceIntrinsic();
+  Type *ElType = RedFinal->getOperand(0)->getType();
+  if (isa<VectorType>(ElType))
+    // TODO: can implement as shufle/OP sequence for vectors.
+    llvm_unreachable("Unsupported vector data type in reduction");
+
+  auto *StartVPVal =
+      RedFinal->getNumOperands() > 1 ? RedFinal->getOperand(1) : nullptr;
+  Value *Acc = nullptr;
+  if (StartVPVal) {
+    assert((isa<VPExternalDef>(StartVPVal) || isa<VPConstant>(StartVPVal)) &&
+           "Unsupported reduction StartValue");
+    Acc = getScalarValue(StartVPVal, 0);
+  }
+  Value *Ret = nullptr;
+  // TODO: Need meaningful processing for Acc for FP reductions, and NoNan
+  // parameter.
+  switch (Intrin) {
+  case Intrinsic::experimental_vector_reduce_v2_fadd:
+    assert(Acc && "Expected initial value");
+    Ret = Builder.CreateFAddReduce(Acc, VecValue);
+    Acc = nullptr;
+    break;
+  case Intrinsic::experimental_vector_reduce_v2_fmul:
+    assert(Acc && "Expected initial value");
+    Ret = Builder.CreateFMulReduce(Acc, VecValue);
+    Acc = nullptr;
+    break;
+  case Intrinsic::experimental_vector_reduce_add:
+    Ret = Builder.CreateAddReduce(VecValue);
+    break;
+  case Intrinsic::experimental_vector_reduce_mul:
+    Ret = Builder.CreateMulReduce(VecValue);
+    break;
+  case Intrinsic::experimental_vector_reduce_and:
+    Ret = Builder.CreateAndReduce(VecValue);
+    break;
+  case Intrinsic::experimental_vector_reduce_or:
+    Ret = Builder.CreateOrReduce(VecValue);
+    break;
+  case Intrinsic::experimental_vector_reduce_xor:
+    Ret = Builder.CreateXorReduce(VecValue);
+    break;
+  case Intrinsic::experimental_vector_reduce_umax:
+    assert(!Acc && "Unexpected initial value");
+    Ret = Builder.CreateIntMaxReduce(VecValue, false);
+    break;
+  case Intrinsic::experimental_vector_reduce_smax:
+    assert(!Acc && "Unexpected initial value");
+    Ret = Builder.CreateIntMaxReduce(VecValue, true);
+    break;
+  case Intrinsic::experimental_vector_reduce_umin:
+    assert(!Acc && "Unexpected initial value");
+    Ret = Builder.CreateIntMinReduce(VecValue, false);
+    break;
+  case Intrinsic::experimental_vector_reduce_smin:
+    assert(!Acc && "Unexpected initial value");
+    Ret = Builder.CreateIntMinReduce(VecValue, true);
+    break;
+  case Intrinsic::experimental_vector_reduce_fmax:
+    assert(!Acc && "Unexpected initial value");
+    Ret = Builder.CreateFPMaxReduce(VecValue, /*NoNan*/ false);
+    break;
+  case Intrinsic::experimental_vector_reduce_fmin:
+    assert(!Acc && "Unexpected initial value");
+    Ret = Builder.CreateFPMinReduce(VecValue, /*NoNaN*/ false);
+    break;
+  default:
+    llvm_unreachable("unsupported reduction");
+    break;
+  }
+  if (Acc)
+    Ret = Builder.CreateBinOp(
+        static_cast<Instruction::BinaryOps>(RedFinal->getBinOpcode()), Acc, Ret,
+        "final.red");
+  VPScalarMap[RedFinal][0] = Ret;
+
+  const VPLoopEntity *Entity = VPEntities->getReduction(RedFinal);
+  assert(Entity && "Unexpected: reduction last value is not for entity");
+  EntitiesLastValMap[Entity] = Ret;
+}
+
+void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
+  // Private memory is a pointer. We need to get element type
+  // and allocate VF elements.
+  Type *OrigTy = V->getType()->getPointerElementType();
+  assert((!OrigTy->isAggregateType() || !V->isSOALayout()) &&
+         "SOA is not supported for aggregate types yet");
+
+  Type *VecTyForAlloca;
+  // TODO. We should handle the case when original alloca has the size argument,
+  // e.g. it's like alloca i32, i32 4.
+  if (OrigTy->isAggregateType())
+    VecTyForAlloca = ArrayType::get(OrigTy, VF);
+  else {
+    // For non-aggregate types create a vector type.
+    Type *EltTy = OrigTy;
+    unsigned NumEls = VF;
+    if (OrigTy->isVectorTy()) {
+      EltTy = OrigTy->getVectorElementType();
+      NumEls *= OrigTy->getVectorNumElements();
+    }
+    VecTyForAlloca = VectorType::get(EltTy, NumEls);
+  }
+
+  // Create an alloca in the appropriate block
+  IRBuilder<>::InsertPointGuard Guard(Builder);
+  Function *F = OrigLoop->getHeader()->getParent();
+  BasicBlock &FirstBB = F->front();
+  Builder.SetInsertPoint(&*FirstBB.getFirstInsertionPt());
+
+  AllocaInst *WidenedPrivArr =
+      Builder.CreateAlloca(VecTyForAlloca, nullptr, "private.mem");
+  const DataLayout &DL = OrigLoop->getHeader()->getModule()->getDataLayout();
+  WidenedPrivArr->setAlignment(DL.getPrefTypeAlignment(VecTyForAlloca));
+
+  VPWidenMap[V] = WidenedPrivArr;
+}
+
+// InductionInit has two arguments {Start, Step} and keeps the operation
+// opcode. We generate
+// For +/-   : broadcast(start) +/GEP step*{0, 1,..,VL-1} (GEP for pointers)
+// For */div : broadcast(start) * pow(step,{0, 1,..,VL-1})
+// In the current version, pow() is replaced with a series of multiplications.
+void VPOCodeGen::vectorizeInductionInit(VPInductionInit *VPInst) {
+  auto *StartVPVal = VPInst->getOperand(0);
+  auto *StartVal = getScalarValue(StartVPVal, 0);
+  Value *BcastStart =
+      createVectorSplat(StartVal, VF, Builder, "ind.start.bcast");
+
+  auto *StepVPVal = VPInst->getOperand(1);
+  Value *StepVal = getScalarValue(StepVPVal, 0);
+  unsigned Opc = VPInst->getBinOpcode();
+  bool isMult = Opc == Instruction::Mul || Opc == Instruction::FMul ||
+                Opc == Instruction::SDiv || Opc == Instruction::UDiv ||
+                Opc == Instruction::FDiv;
+  bool IsFloat = VPInst->getType()->isFloatingPointTy();
+  int StartConst = isMult ? 1 : 0;
+  Constant *StartCoeff =
+      IsFloat ? ConstantFP::get(VPInst->getType(), StartConst)
+              : ConstantInt::getSigned(StepVal->getType(), StartConst);
+  Value *VectorStep;
+  if (isMult) {
+    // Generate series of mult and insert operations, to avoid calling pow(),
+    // forming the following vector
+    // {StartCoeff, StartCoeff*Step, StartCoeff*Step*Step, ...,
+    //  StartCoeff{*Step}{VF-1 times}}
+    unsigned StepOpc = IsFloat ? Instruction::FMul : Instruction::Mul;
+    Value *Val = StartCoeff;
+    VectorStep = createVectorSplat(UndefValue::get(Val->getType()), VF, Builder,
+                                   "ind.step.vec");
+    unsigned I = 0;
+    for (I = 0; I < VF - 1; I++) {
+      VectorStep = Builder.CreateInsertElement(VectorStep, Val, I);
+      Val = Builder.CreateBinOp(static_cast<Instruction::BinaryOps>(StepOpc),
+                                Val, StepVal);
+    }
+    // Here I = VF - 1.
+    VectorStep = Builder.CreateInsertElement(VectorStep, Val, I);
+  } else {
+    // Generate sequence of vector operations:
+    // %i_seq = {0, 1, 2, 3, ...VF-1}
+    // %bcst_step = broadcast step
+    // %vector_step = mul %i_seq, %bcst_step
+    SmallVector<Constant *, 32> IndStep;
+    IndStep.push_back(StartCoeff);
+    for (unsigned I = 1; I < VF; I++) {
+      Constant *ConstVal = IsFloat
+                               ? ConstantFP::get(VPInst->getType(), I)
+                               : ConstantInt::getSigned(StepVal->getType(), I);
+      IndStep.push_back(ConstVal);
+    }
+    Value *VecConst = ConstantVector::get(IndStep);
+    Value *BcstStep = createVectorSplat(StepVal, VF, Builder, "ind.step.vec");
+    VectorStep = Builder.CreateBinOp(
+        IsFloat ? Instruction::FMul : Instruction::Mul, BcstStep, VecConst);
+
+    if (auto BinOp = dyn_cast<BinaryOperator>(VectorStep))
+      // May be a constant.
+      if (BinOp->getOpcode() == Instruction::FMul) {
+        FastMathFlags Flags;
+        Flags.setFast();
+        BinOp->setFastMathFlags(Flags);
+      }
+
+  }
+  Value *Ret =
+      (VPInst->getType()->isPointerTy() || Opc == Instruction::GetElementPtr)
+          ? Builder.CreateInBoundsGEP(BcastStart, {VectorStep}, "vector_gep")
+          : Builder.CreateBinOp(static_cast<Instruction::BinaryOps>(Opc),
+                                BcastStart, VectorStep);
+  VPWidenMap[VPInst] = Ret;
+  if (needScalarCode(VPInst)) {
+    VPScalarMap[VPInst][0] = StartVal;
+  }
+}
+
+void VPOCodeGen::vectorizeInductionInitStep(VPInductionInitStep *VPInst) {
+  unsigned Opc = VPInst->getBinOpcode();
+  bool isMult = Opc == Instruction::Mul || Opc == Instruction::FMul ||
+                Opc == Instruction::SDiv || Opc == Instruction::UDiv ||
+                Opc == Instruction::FDiv;
+  bool IsFloat = VPInst->getType()->isFloatingPointTy();
+  auto *StartVPVal = VPInst->getOperand(0);
+  auto *StartVal = getScalarValue(StartVPVal, 0);
+
+  unsigned StepOpc = IsFloat ? Instruction::FMul : Instruction::Mul;
+  Value *MulVF = StartVal;
+  if (isMult) {
+    for (unsigned I = 1; I < VF; I *= 2)
+      MulVF = Builder.CreateBinOp(static_cast<Instruction::BinaryOps>(StepOpc),
+                                  MulVF, MulVF);
+  } else {
+    Constant *VFVal = IsFloat ? ConstantFP::get(VPInst->getType(), VF)
+                              : ConstantInt::getSigned(StartVal->getType(), VF);
+    MulVF = Builder.CreateBinOp(static_cast<Instruction::BinaryOps>(StepOpc),
+                                MulVF, VFVal);
+  }
+  Value *Ret = createVectorSplat(MulVF, VF, Builder, "ind.step.init");
+  VPWidenMap[VPInst] = Ret;
+
+  if (needScalarCode(VPInst)) {
+    VPScalarMap[VPInst][0] = MulVF;
+  }
+}
+
+void VPOCodeGen::vectorizeInductionFinal(VPInductionFinal *VPInst) {
+  Value *LastValue = nullptr;
+  const VPLoopEntity *Entity = VPEntities->getInduction(VPInst);
+  assert(Entity && "Induction last value is not for entity");
+  if (VPInst->getNumOperands() == 1) {
+    // One operand - extract from vector
+    Value *VecVal = getVectorValue(VPInst->getOperand(0));
+    LastValue = Builder.CreateExtractElement(VecVal, Builder.getInt32(VF - 1));
+  } else {
+    // Otherwise calculate by formulas
+    //  for post increment liveouts LV = start + step*rounded_tc,
+    //  for pre increment liveouts LV = start + step*(rounded_tc-1)
+    //
+    assert(VPInst->getNumOperands() == 2 && "Incorrect number of operands");
+    unsigned Opc = VPInst->getBinOpcode();
+    assert(!(Opc == Instruction::Mul || Opc == Instruction::FMul ||
+             Opc == Instruction::SDiv || Opc == Instruction::UDiv ||
+             Opc == Instruction::FDiv) &&
+           "Unsupported induction final form");
+
+    bool IsFloat = VPInst->getType()->isFloatingPointTy();
+    auto *VPStep = VPInst->getOperand(1);
+    auto *Step = getScalarValue(VPStep, 0);
+
+    unsigned StepOpc = IsFloat ? Instruction::FMul : Instruction::Mul;
+    Type *StepType = Step->getType();
+    Value *TripCnt = VectorTripCount;
+    if (VPEntities->isInductionLastValPreInc(cast<VPInduction>(Entity)))
+      TripCnt =
+          Builder.CreateSub(TripCnt, ConstantInt::get(TripCnt->getType(), 1));
+    Instruction::CastOps CastOp =
+        CastInst::getCastOpcode(TripCnt, true, StepType, true);
+    Value *CRD = Builder.CreateCast(CastOp, TripCnt, StepType, "cast.crd");
+    Value *MulV = Builder.CreateBinOp(
+        static_cast<Instruction::BinaryOps>(StepOpc), Step, CRD);
+    auto *VPStart = VPInst->getOperand(0);
+    auto *Start = getScalarValue(VPStart, 0);
+    LastValue =
+        (VPInst->getType()->isPointerTy() || Opc == Instruction::GetElementPtr)
+            ? Builder.CreateInBoundsGEP(Start, {MulV}, "final_gep")
+            : Builder.CreateBinOp(static_cast<Instruction::BinaryOps>(Opc),
+                                  Start, MulV);
+  }
+  // The value is scalar
+  VPScalarMap[VPInst][0] = LastValue;
+  EntitiesLastValMap[Entity] = LastValue;
+}
+
+void VPOCodeGen::fixOutgoingValues() {
+  for (auto &LastValPair : EntitiesLastValMap) {
+    if (auto *Reduction = dyn_cast<VPReduction>(LastValPair.first))
+      fixReductionLastVal(*Reduction, LastValPair.second);
+    if (auto *Induction = dyn_cast<VPInduction>(LastValPair.first))
+      fixInductionLastVal(*Induction, LastValPair.second);
+  }
+}
+
+void VPOCodeGen::fixLiveOutValues(const VPLoopEntity &Entity, Value *LastVal) {
+  for (auto *Linked : Entity.getLinkedVPValues())
+    for (auto *User : Linked->users())
+      if (isa<VPExternalUse>(User)) {
+        Value *ExtVal = User->getUnderlyingValue();
+        if (auto Phi = dyn_cast<PHINode>(ExtVal)) {
+          int Ndx = Phi->getBasicBlockIndex(LoopMiddleBlock);
+          if (Ndx == -1)
+            Phi->addIncoming(LastVal, LoopMiddleBlock);
+          else
+            Phi->setIncomingValue(Ndx, LastVal);
+        } else {
+          int Ndx = User->getOperandIndex(Linked);
+          assert(Ndx != -1 && "Operand not found in User");
+          Value *Operand = const_cast<Value *>(
+              cast<VPExternalUse>(User)->getUnderlyingOperand(Ndx));
+          cast<Instruction>(ExtVal)->replaceUsesOfWith(Operand, LastVal);
+        }
+      }
+}
+
+void VPOCodeGen::createLastValPhiAndUpdateOldStart(Value *OrigStartValue,
+                                                   PHINode *Phi,
+                                                   const Twine &NameStr,
+                                                   Value *LastVal) {
+  PHINode *BCBlockPhi = PHINode::Create(OrigStartValue->getType(), 2, NameStr,
+                                        LoopScalarPreHeader->getTerminator());
+  for (unsigned I = 0, E = LoopBypassBlocks.size(); I != E; ++I)
+    BCBlockPhi->addIncoming(OrigStartValue, LoopBypassBlocks[I]);
+  BCBlockPhi->addIncoming(LastVal, LoopMiddleBlock);
+
+  // Fix the scalar loop reduction variable.
+  int IncomingEdgeBlockIdx = Phi->getBasicBlockIndex(OrigLoop->getLoopLatch());
+  assert(IncomingEdgeBlockIdx >= 0 && "Invalid block index");
+  // Pick the other block.
+  int SelfEdgeBlockIdx = (IncomingEdgeBlockIdx ? 0 : 1);
+  Phi->setIncomingValue(SelfEdgeBlockIdx, BCBlockPhi);
+}
+
+void VPOCodeGen::fixReductionLastVal(const VPReduction &Red, Value *LastVal) {
+  if (Red.getIsMemOnly()) {
+#if 0
+    // TODO: Implement last value fixing for in-memory reductions.
+    auto OrigPtr = VPEntities->getOrigMemoryPtr(&Red);
+    assert(OrigPtr && "Unexpected nullptr original memory");
+    auto ScalarPtr = OrigPtr->getUnderlyingValue();
+    Builder.SetInsertPoint(LoopScalarPreHeader->getTerminator());
+    MergedVal = Builder.CreateLoad(ScalarPtr, ScalarPtr->getName() + ".reload");
+#endif
+  } else {
+    VPValue *VPStart = Red.getRecurrenceStartValue();
+    Value *OrigStartValue = VPStart->getUnderlyingValue();
+    VPPHINode *VPHi = VPEntities->getRecurrentVPHINode(Red);
+    PHINode *Phi = cast<PHINode>(VPHi->getUnderlyingValue());
+    createLastValPhiAndUpdateOldStart(OrigStartValue, Phi, "bc.merge.reduction",
+                                      LastVal);
+    fixLiveOutValues(Red, LastVal);
+  }
+}
+
+void VPOCodeGen::fixInductionLastVal(const VPInduction &Ind, Value *LastVal) {
+  if (Ind.getIsMemOnly()) {
+    // TODO: Implement last value fixing for in-memory inductions.
+  } else {
+    VPValue *VPStart = Ind.getStartValue();
+    Value *OrigStartValue = VPStart->getUnderlyingValue();
+    VPPHINode *VPHi = VPEntities->getRecurrentVPHINode(Ind);
+    PHINode *Phi = cast<PHINode>(VPHi->getUnderlyingValue());
+    createLastValPhiAndUpdateOldStart(OrigStartValue, Phi, "bc.resume.val",
+                                      LastVal);
+    fixLiveOutValues(Ind, LastVal);
+  }
+}
+
+void VPOCodeGen::fixNonInductionVPPhis() {
+  std::function<void(DenseMap<VPPHINode *, PHINode *> &)> fixInductions =
+      [&](DenseMap<VPPHINode *, PHINode *> &Table) -> void {
+    bool IsScalar = &Table == &ScalarPhisToFix;
+    for (auto PhiToFix : Table) {
+      auto *VPPhi = PhiToFix.first;
+      auto *Phi = PhiToFix.second;
+      const unsigned NumPhiValues = VPPhi->getNumIncomingValues();
+      for (unsigned I = 0; I < NumPhiValues; ++I) {
+        auto *VPVal = VPPhi->getIncomingValue(I);
+        auto *VPBB = VPPhi->getIncomingBlock(I);
+        Value *IncValue =
+            IsScalar ? getScalarValue(VPVal, 0) : getVectorValue(VPVal);
+        Phi->addIncoming(IncValue, State->CFG.VPBB2IRBB[VPBB]);
+      }
+    }
+    return;
+  };
+  fixInductions(ScalarPhisToFix);
+  fixInductions(PhisToFix);
+}
+
+

@@ -237,6 +237,13 @@ Value *replicateVectorElts(Value *OrigVal, unsigned OriginalVL,
 Value *replicateVector(Value *OrigVal, unsigned OriginalVL,
                        IRBuilder<> &Builder, const Twine &Name = "");
 
+/// Create vector which contains \p V broadcasted \p VF times. \p V can be
+/// either another vector or a scalar value. So the resulting vector is
+/// - in case \p V is a scalar: {V, V,..,V}, vector of VF elements
+/// - in case \p V is vector: {v1,v2,...vN, v1,v2,...vN,...,v1,v2,...vN},
+///   vector of NxVF elements
+Value *createVectorSplat(Value *V, unsigned VF, IRBuilder<> &Builder,
+                         const Twine &Name = "");
 #endif // INTEL_CUSTOMIZATION
 
 /// Compute the union of two access-group lists.

@@ -1,4 +1,4 @@
-; Test to check VPlan's VPValue-based HIR vector codegen for simple in-register float add reduction.
+; Test to check VPlan's VPValue-based vector codegen for simple in-register float add reduction.
 
 ; Incoming HIR into vectorizer
 ; <0>     BEGIN REGION { }
@@ -16,19 +16,32 @@
 ; <21>          @llvm.directive.region.exit(%0); [ DIR.OMP.END.SIMD() ]
 ; <0>     END REGION
 
-; Fully VPValue-based codegen
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -VPlanDriverHIR -vplan-force-vf=4 -vplan-use-entity-instr -enable-vp-value-codegen-hir -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s
-; Mixed codegen
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -VPlanDriverHIR -vplan-force-vf=4 -vplan-use-entity-instr -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s
+; Fully VPValue-based HIR codegen
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -VPlanDriverHIR -vplan-force-vf=4 -vplan-use-entity-instr -enable-vp-value-codegen-hir -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
+; Mixed HIR codegen
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -VPlanDriverHIR -vplan-force-vf=4 -vplan-use-entity-instr -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
 
-; CHECK-LABEL: Function: foo_float
-; CHECK: if (0 <u 4 * [[UB:%.*]])
-; CHECK: [[RED_VAR:%.*]] = 0.000000e+00;
-; CHECK: DO i1 = 0, 4 * [[UB]] + -1, 4   <DO_LOOP>
-; CHECK: [[VEC_LD:%.*]] = (<4 x float>*)(%ptr)
-; CHECK: [[RED_VAR]] = [[RED_VAR]] + [[VEC_LD]];
-; CHECK: END LOOP
-; CHECK: [[RED_INIT:%.*]] = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32([[RED_INIT]],  [[RED_VAR]]);
+; CHECK-HIR-LABEL: Function: foo_float
+; CHECK-HIR: if (0 <u 4 * [[UB:%.*]])
+; CHECK-HIR: [[RED_VAR:%.*]] = 0.000000e+00;
+; CHECK-HIR: DO i1 = 0, 4 * [[UB]] + -1, 4   <DO_LOOP>
+; CHECK-HIR: [[VEC_LD:%.*]] = (<4 x float>*)(%ptr)
+; CHECK-HIR: [[RED_VAR]] = [[RED_VAR]] + [[VEC_LD]];
+; CHECK-HIR: END LOOP
+; CHECK-HIR: [[RED_INIT:%.*]] = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32([[RED_INIT]],  [[RED_VAR]]);
+
+
+; Fully VPValue-based LLVM-IR codegen
+; RUN: opt -vpo-cfg-restructuring -VPlanDriver -vplan-force-vf=4 -vplan-use-entity-instr -enable-vp-value-codegen -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVMIR
+
+; CHECK-LLVMIR-LABEL: @foo_float
+; CHECK-LLVMIR-LABEL: vector.body:
+; CHECK-LLVMIR: [[RED_PHI:%.*]] = phi <4 x float> [ zeroinitializer, %vector.ph ], [ [[RED_ADD:%.*]], %vector.body ]
+; CHECK-LLVMIR: [[RED_ADD]] = fadd <4 x float> [[RED_PHI]], {{%.*}}
+; CHECK-LLVMIR-LABEL: VPlannedBB:
+; CHECK-LLVMIR: [[RED_LVC:%.*]] = call float @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32(float 0.000000e+00, <4 x float> [[RED_ADD]])
+; CHECK-LLVMIR-LABEL: scalar.ph:
+; CHECK-LLVMIR: [[MERGE_RED_PHI:%.*]] = phi float [ 0.000000e+00, %DIR.OMP.SIMD.2 ], [ 0.000000e+00, %min.iters.checked ], [ [[RED_LVC]], %middle.block ]
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

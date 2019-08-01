@@ -5,7 +5,7 @@
 ; RUN: opt < %s -S -VPlanDriver -vplan-force-vf=2  | FileCheck %s
 
 ; Check VPValue-codegen path.
-; RUN: opt < %s -S -VPlanDriver -vplan-force-vf=2 -enable-vp-value-codegen | FileCheck %s
+; RUN: opt < %s -S -VPlanDriver -vplan-force-vf=2 -vplan-use-entity-instr -enable-vp-value-codegen | FileCheck %s
 
 ; CHECK-LABEL:@foo
 ;CHECK: [[VEC_BASE_PTR1:%.*]] = shufflevector <2 x i32*> {{.*}}, <2 x i32*> undef, <6 x i32> <i32 0, i32 0, i32 0, i32 1, i32 1, i32 1>
