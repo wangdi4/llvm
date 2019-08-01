@@ -1583,6 +1583,7 @@ bool VPOParoptTransform::isSupportedOnCSA(WRegionNode *W) {
     case WRegionNode::WRNMaster:
     case WRegionNode::WRNSingle:
     case WRegionNode::WRNBarrier:
+    case WRegionNode::WRNCritical:
       break;
     case WRegionNode::WRNAtomic:
       // Atomics for variables <= 64-bits are lowered by FE.
@@ -1913,4 +1914,29 @@ bool VPOParoptTransform::translateCSAOmpRtlCalls() {
     }
   }
   return Changed;
+}
+
+bool VPOParoptTransform::genCSACritical(WRNCriticalNode *W) {
+  assert(isTargetCSA() && "unexpected target");
+
+  auto Suffix = W->getUserLockName();
+  if (Suffix.empty())
+    Suffix = "common";
+
+  SmallString<64u> LockName{"__omp.critical."};
+  LockName += Suffix;
+
+  auto *M = F->getParent();
+  auto PtrSize = M->getDataLayout().getPointerSizeInBits();
+  auto *LockTy = Type::getIntNTy(M->getContext(), PtrSize);
+
+  auto *Lock = M->getGlobalVariable(LockName);
+  if (!Lock)
+    Lock = new GlobalVariable(*M, LockTy, false, GlobalValue::CommonLinkage,
+                              ConstantInt::get(LockTy, 0), LockName);
+
+  genSetLock(Lock, W->getEntryBBlock()->getTerminator(), DT, LI);
+  genUnsetLock(Lock, W->getExitBBlock()->getFirstNonPHI());
+
+  return true;
 }

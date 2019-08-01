@@ -878,6 +878,9 @@ private:
   /// Transform "omp single" work region for CSA target.
   bool genCSASingle(WRegionNode *W);
 
+  /// Transform "omp critical" work region for CSA target.
+  bool genCSACritical(WRNCriticalNode *W);
+
   /// Check whether a given construct is supported in CSA.
   bool isSupportedOnCSA(WRegionNode *W);
 #endif  // INTEL_FEATURE_CSA
