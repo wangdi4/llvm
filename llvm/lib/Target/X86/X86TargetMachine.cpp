@@ -87,6 +87,7 @@ extern "C" void LLVMInitializeX86Target() {
   initializeFPSPass(PR);
   initializeX86CallFrameOptimizationPass(PR);
   initializeX86CmovConverterPassPass(PR);
+  initializeX86CiscizationHelperPassPass(PR); // INTEL
   initializeX86ExpandPseudoPass(PR);
   initializeX86ExecutionDomainFixPass(PR);
   initializeX86DomainReassignmentPass(PR);
@@ -490,6 +491,8 @@ bool X86PassConfig::addPreISel() {
   if (TT.isOSWindows() && TT.getArch() == Triple::x86)
     addPass(createX86WinEHStatePass());
 #if INTEL_CUSTOMIZATION
+  if (getOptLevel() == CodeGenOpt::Aggressive)
+    addPass(createX86CiscizationHelperPass());
   if (getOptLevel() != CodeGenOpt::None)
     addPass(createFeatureInitPass());
   if (getOptLevel() == CodeGenOpt::Aggressive)

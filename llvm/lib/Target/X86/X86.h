@@ -58,6 +58,8 @@ FunctionPass *createX86IndirectBranchTrackingPass();
 FunctionPass *createX86PadShortFunctions();
 
 #if INTEL_CUSTOMIZATION
+/// This pass performs Ciscization Helper transformations.
+FunctionPass *createX86CiscizationHelperPass();
 /// This pass performs Fused-Multiply-Add transformations.
 FunctionPass *createX86GlobalFMAPass();
 FunctionPass *createFeatureInitPass();
@@ -142,6 +144,7 @@ InstructionSelector *createX86InstructionSelector(const X86TargetMachine &TM,
 
 FunctionPass *createX86SpeculativeLoadHardeningPass();
 
+void initializeX86CiscizationHelperPassPass(PassRegistry &); // INTEL
 void initializeX86FeatureInitPassPass(PassRegistry&); // INTEL
 void initializeEvexToVexInstPassPass(PassRegistry &);
 void initializeFixupBWInstPassPass(PassRegistry &);
