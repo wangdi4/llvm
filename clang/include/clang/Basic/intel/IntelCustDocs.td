@@ -313,10 +313,11 @@ def AllowExtraArgumentDocs : Documentation {
   let RegressionTest = "c9xcC/c9x_7_24_4_5_8_10_a,...";
   let Owner = "";
   let CompatVersions = "";
+  let Default = 0;
   let Content = [{
 Microsoft allows the call with extra arguments with warning in C. Clang and gcc emit error.
 
-The Intel compiler allows this with warning in C.
+The Intel compiler allows this with warning in C. This behavior is off-by-default.
 
 .. code-block:: c
 
