@@ -1104,6 +1104,19 @@ DEF_TRAVERSE_TYPE(ObjCObjectPointerType,
 
 DEF_TRAVERSE_TYPE(AtomicType, { TRY_TO(TraverseType(T->getValueType())); })
 
+#if INTEL_CUSTOMIZATION
+DEF_TRAVERSE_TYPE(ChannelType, { TRY_TO(TraverseType(T->getElementType())); })
+
+DEF_TRAVERSE_TYPE(ArbPrecIntType,
+                  { TRY_TO(TraverseType(T->getUnderlyingType())); })
+
+DEF_TRAVERSE_TYPE(DependentSizedArbPrecIntType, {
+  if (T->getNumBitsExpr())
+    TRY_TO(TraverseStmt(T->getNumBitsExpr()));
+  TRY_TO(TraverseType(T->getUnderlyingType()));
+})
+#endif // INTEL_CUSTOMIZATION
+
 DEF_TRAVERSE_TYPE(PipeType, { TRY_TO(TraverseType(T->getElementType())); })
 
 #undef DEF_TRAVERSE_TYPE
@@ -1358,6 +1371,20 @@ DEF_TRAVERSE_TYPELOC(ObjCObjectPointerType,
                      { TRY_TO(TraverseTypeLoc(TL.getPointeeLoc())); })
 
 DEF_TRAVERSE_TYPELOC(AtomicType, { TRY_TO(TraverseTypeLoc(TL.getValueLoc())); })
+
+#if INTEL_CUSTOMIZATION
+DEF_TRAVERSE_TYPELOC(ChannelType, { TRY_TO(TraverseTypeLoc(TL.getValueLoc())); })
+
+DEF_TRAVERSE_TYPELOC(ArbPrecIntType, {
+  TRY_TO(TraverseType(TL.getTypePtr()->getUnderlyingType()));
+})
+
+DEF_TRAVERSE_TYPELOC(DependentSizedArbPrecIntType, {
+  TRY_TO(TraverseType(TL.getTypePtr()->getUnderlyingType()));
+  TRY_TO(TraverseStmt(TL.getTypePtr()->getNumBitsExpr()));
+})
+
+#endif // INTEL_CUSTOMIZATION
 
 DEF_TRAVERSE_TYPELOC(PipeType, { TRY_TO(TraverseTypeLoc(TL.getValueLoc())); })
 
@@ -2109,7 +2136,6 @@ DEF_TRAVERSE_DECL(ParmVarDecl, {
       !D->hasUnparsedDefaultArg())
     TRY_TO(TraverseStmt(D->getDefaultArg()));
 })
-
 #undef DEF_TRAVERSE_DECL
 
 // ----------------- Stmt traversal -----------------
@@ -2688,6 +2714,11 @@ DEF_TRAVERSE_STMT(OMPSectionsDirective,
 DEF_TRAVERSE_STMT(OMPSectionDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
+#if INTEL_CUSTOMIZATION
+DEF_TRAVERSE_STMT(OMPTargetVariantDispatchDirective,
+                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
+#endif // INTEL_CUSTOMIZATION
+
 DEF_TRAVERSE_STMT(OMPSingleDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
@@ -2881,6 +2912,20 @@ RecursiveASTVisitor<Derived>::VisitOMPNumThreadsClause(OMPNumThreadsClause *C) {
   TRY_TO(TraverseStmt(C->getNumThreads()));
   return true;
 }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+template <typename Derived>
+bool
+RecursiveASTVisitor<Derived>::VisitOMPDataflowClause(OMPDataflowClause *C) {
+  TRY_TO(VisitOMPClauseWithPreInit(C));
+  TRY_TO(TraverseStmt(C->getStaticChunkSize()));
+  TRY_TO(TraverseStmt(C->getNumWorkersNum()));
+  TRY_TO(TraverseStmt(C->getPipelineDepth()));
+  return true;
+}
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
 template <typename Derived>
 bool RecursiveASTVisitor<Derived>::VisitOMPSafelenClause(OMPSafelenClause *C) {
@@ -3320,7 +3365,6 @@ bool RecursiveASTVisitor<Derived>::VisitOMPIsDevicePtrClause(
 //    http://clang.llvm.org/doxygen/classclang_1_1UnaryExprOrTypeTraitExpr.html
 //    http://clang.llvm.org/doxygen/classclang_1_1TypesCompatibleExpr.html
 //    Every class that has getQualifier.
-
 #undef DEF_TRAVERSE_STMT
 #undef TRAVERSE_STMT
 #undef TRAVERSE_STMT_BASE

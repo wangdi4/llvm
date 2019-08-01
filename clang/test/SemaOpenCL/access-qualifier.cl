@@ -107,4 +107,3 @@ kernel void read_only_twice_default(read_only img1d_ro_default img){} // expecte
 kernel void image_wo_twice(write_only __write_only image1d_t i){} // expected-warning {{duplicate '__write_only' declaration specifier}}
 kernel void image_wo_twice_typedef(write_only img1d_wo i){} // expected-warning {{duplicate 'write_only' declaration specifier}}
 // expected-note@-103 {{previously declared 'write_only' here}}
-

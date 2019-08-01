@@ -20,6 +20,9 @@
 #include "clang/Basic/CapturedStmt.h"
 #include "clang/Basic/LLVM.h"
 #include "clang/Basic/PartialDiagnostic.h"
+#if INTEL_CUSTOMIZATION
+#include "clang/Basic/intel/PragmaSIMD.h"
+#endif  // INTEL_CUSTOMIZATION
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Sema/CleanupInfo.h"
 #include "llvm/ADT/DenseMap.h"
@@ -105,7 +108,7 @@ protected:
 
 public:
   /// What kind of scope we are describing.
-  ScopeKind Kind : 3;
+  ScopeKind Kind : 4;  // INTEL, extra bit to fix CQ 381208
 
   /// Whether this function contains a VLA, \@try, try, C++
   /// initializer, or anything else that can't be jumped past.
@@ -738,7 +741,7 @@ public:
 };
 
 /// Retains information about a captured region.
-class CapturedRegionScopeInfo final : public CapturingScopeInfo {
+class CapturedRegionScopeInfo : public CapturingScopeInfo { // INTEL - no final
 public:
   /// The CapturedDecl for this statement.
   CapturedDecl *TheCapturedDecl;

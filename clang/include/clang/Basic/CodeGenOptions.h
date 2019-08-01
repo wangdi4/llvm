@@ -54,7 +54,8 @@ public:
     NoLibrary,  // Don't use any vector library.
     Accelerate, // Use the Accelerate framework.
     MASSV,      // IBM MASS vector library.
-    SVML        // Intel short vector math library.
+    SVML,       // Intel short vector math library.
+    Libmvec     // Glibc vector math library.
   };
 
 
@@ -63,6 +64,15 @@ public:
     NonLegacy = 1,
     Mixed = 2
   };
+
+#if INTEL_CUSTOMIZATION
+  // CQ#368119 - support for '/Z7' and '/Zi' options.
+  enum MSDebugInfoFileKind {
+    MSDebugInfoNoFile,    /// Don't generate MS debug info.
+    MSDebugInfoPdbFile,   /// Generate MS debug info in a separate PDB file.
+    MSDebugInfoObjFile    /// Generate MS debug info in a COFF file.
+  };
+#endif //INTEL_CUSTOMIZATION
 
   enum TLSModel {
     GeneralDynamicTLSModel,
@@ -151,6 +161,14 @@ public:
   /// if non-empty.
   std::string RecordCommandLine;
 
+#if INTEL_CUSTOMIZATION
+  // CQ#368125 - support for '/Fd' and '/Fo' options.
+  /// The name of object file to emit MS debug info into.
+  std::string MSOutputObjFile;
+  /// The name of PDB file to emit MS debug info into.
+  std::string MSOutputPdbFile;
+#endif //INTEL_CUSTOMIZATION
+
   std::map<std::string, std::string> DebugPrefixMap;
 
   /// The ABI to use for passing floating point arguments.
@@ -199,6 +217,11 @@ public:
   /// If not an empty string, trap intrinsics are lowered to calls to this
   /// function instead of to trap instructions.
   std::string TrapFuncName;
+
+#if INTEL_CUSTOMIZATION
+  /// OpenCL compile options to embed in the SPIR metadata
+  std::string SPIRCompileOptions;
+#endif // INTEL_CUSTOMIZATION
 
   /// A list of dependent libraries.
   std::vector<std::string> DependentLibraries;

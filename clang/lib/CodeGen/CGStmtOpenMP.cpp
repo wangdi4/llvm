@@ -12,6 +12,9 @@
 
 #include "CGCleanup.h"
 #include "CGOpenMPRuntime.h"
+#if INTEL_COLLAB
+#include "intel/CGOpenMPLateOutline.h"
+#endif // INTEL_COLLAB
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
 #include "TargetInfo.h"
@@ -58,6 +61,20 @@ public:
       const bool EmitPreInitStmt = true)
       : CodeGenFunction::LexicalScope(CGF, S.getSourceRange()),
         InlinedShareds(CGF) {
+#if INTEL_COLLAB
+    if (CGF.getLangOpts().OpenMPLateOutline)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+        // TODO (vzakhari 10/2/2018): temporary change to proceed with
+        //       xmain->csa-xmain merge.  We have to figure out what
+        //       is the right assertion, and maybe do this under a target
+        //       triple check.
+#endif  // INTEL_FEATURE_CSA
+      if (S.getStmtClass() != Stmt::OMPAtomicDirectiveClass &&
+          S.getStmtClass() != Stmt::OMPTargetDirectiveClass)
+#endif // INTEL_CUSTOMIZATION
+      llvm_unreachable("Should be using OMPLateOutlineScope");
+#endif // INTEL_COLLAB
     if (EmitPreInitStmt)
       emitPreInitStmt(CGF, S);
     if (!CapturedRegion.hasValue())
@@ -126,6 +143,9 @@ class OMPLoopScope : public CodeGenFunction::RunCleanupsScope {
           CGF, VD, CGF.CreateMemTemp(VD->getType().getNonReferenceType()));
     }
     (void)PreCondVars.apply(CGF);
+#if INTEL_CUSTOMIZATION
+    if (!CGF.LoopBoundsHaveBeenHoisted(&S))
+#endif // INTEL_CUSTOMIZATION
     if (const auto *PreInits = cast_or_null<DeclStmt>(S.getPreInits())) {
       for (const auto *I : PreInits->decls())
         CGF.EmitVarDecl(cast<VarDecl>(*I));
@@ -1308,12 +1328,33 @@ void CodeGenFunction::EmitOMPParallelDirective(const OMPParallelDirective &S) {
 void CodeGenFunction::EmitOMPLoopBody(const OMPLoopDirective &D,
                                       JumpDest LoopExit) {
   RunCleanupsScope BodyScope(*this);
+#if INTEL_COLLAB
+  if (CGM.getLangOpts().OpenMPLateOutline) {
+    // Emit variables for orignal loop controls
+    for (auto *E : D.counters()) {
+      auto *VD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+      // Emit var without initialization.
+      if (VD->isLocalVarDecl() && !LocalDeclMap.count(VD)) {
+        auto VarEmission = EmitAutoVarAlloca(*VD);
+        if (CapturedStmtInfo) {
+          CapturedStmtInfo->recordVariableDefinition(VD);
+          CapturedStmtInfo->recordValueSuppression(
+              VarEmission.Addr.getPointer());
+        }
+        EmitAutoVarCleanups(VarEmission);
+      }
+    }
+  }
+#endif // INTEL_COLLAB
   // Update counters values on current iteration.
   for (const Expr *UE : D.updates())
     EmitIgnoredExpr(UE);
   // Update the linear variables.
   // In distribute directives only loop counters may be marked as linear, no
   // need to generate the code for them.
+#if INTEL_COLLAB
+  if (!CGM.getLangOpts().OpenMPLateOutline)
+#endif // INTEL_COLLAB
   if (!isOpenMPDistributeDirective(D.getDirectiveKind())) {
     for (const auto *C : D.getClausesOfKind<OMPLinearClause>()) {
       for (const Expr *UE : C->updates())
@@ -1342,6 +1383,22 @@ void CodeGenFunction::EmitOMPInnerLoop(
   auto CondBlock = createBasicBlock("omp.inner.for.cond");
   EmitBlock(CondBlock);
   const SourceRange R = S.getSourceRange();
+#if INTEL_CUSTOMIZATION
+  if (CGM.getLangOpts().IntelCompat) {
+    llvm::SmallVector<const clang::Attr *, 4> Attrs;
+    llvm::ArrayRef<const clang::Attr *> AttrRef = Attrs;
+    if (auto *LD = dyn_cast<OMPLoopDirective>(&S)) {
+      auto *CS = cast<CapturedStmt>(LD->getAssociatedStmt())->getCapturedStmt();
+      if (CS->getStmtClass() == Stmt::AttributedStmtClass) {
+        auto *AS = cast<AttributedStmt>(CS);
+        AttrRef =  AS->getAttrs();
+      }
+    }
+    LoopStack.push(CondBlock, CGM.getContext(), AttrRef,
+                   SourceLocToDebugLoc(R.getBegin()),
+                   SourceLocToDebugLoc(R.getEnd()));
+  } else
+#endif // INTEL_CUSTOMIZATION
   LoopStack.push(CondBlock, SourceLocToDebugLoc(R.getBegin()),
                  SourceLocToDebugLoc(R.getEnd()));
 
@@ -1371,7 +1428,13 @@ void CodeGenFunction::EmitOMPInnerLoop(
 
   // Emit "IV = IV + 1" and a back-edge to the condition block.
   EmitBlock(Continue.getBlock());
-  EmitIgnoredExpr(IncExpr);
+
+#if INTEL_COLLAB
+  if (getLangOpts().OpenMPLateOutline)
+    GenerateOMPIncrement(IncExpr);
+  else
+    EmitIgnoredExpr(IncExpr);
+#endif // INTEL_COLLAB
   PostIncGen(*this);
   BreakContinueStack.pop_back();
   EmitBranch(CondBlock);
@@ -3991,6 +4054,11 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
   case OMPC_reverse_offload:
   case OMPC_dynamic_allocators:
   case OMPC_atomic_default_mem_order:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  case OMPC_dataflow:
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
     llvm_unreachable("Clause is not allowed in 'omp atomic'.");
   }
 }
@@ -4025,6 +4093,13 @@ void CodeGenFunction::EmitOMPAtomicDirective(const OMPAtomicDirective &S) {
                       S.isXLHSInRHSPart(), S.getBeginLoc());
   };
   OMPLexicalScope Scope(*this, S, OMPD_unknown);
+#if INTEL_CUSTOMIZATION
+  if (getLangOpts().OpenMPLateOutline) {
+    // Use the clang outlining logic, but don't create a new CapturedStmtInfo.
+    PrePostActionTy Action;
+    CodeGen(*this, Action);
+  } else
+#endif // INTEL_CUSTOMIZATION
   CGM.getOpenMPRuntime().emitInlinedDirective(*this, OMPD_atomic, CodeGen);
 }
 
@@ -5046,6 +5121,285 @@ void CodeGenFunction::EmitOMPTargetUpdateDirective(
   OMPLexicalScope Scope(*this, S, OMPD_task);
   CGM.getOpenMPRuntime().emitTargetDataStandAloneCall(*this, S, IfCond, Device);
 }
+
+#if INTEL_CUSTOMIZATION
+void CodeGenFunction::HoistLoopBoundsIfPossible(const OMPExecutableDirective &S,
+                                                OpenMPDirectiveKind Kind) {
+  // Only hoist when there are spir targets.
+  bool HasSpirTarget = false;
+  for (const llvm::Triple &T : getLangOpts().OMPTargetTriples) {
+    if (T.getArch() == llvm::Triple::spir64 ||
+        T.getArch() == llvm::Triple::spir) {
+      HasSpirTarget = true;
+      break;
+    }
+  }
+  if (!HasSpirTarget)
+    return;
+
+  if (const OMPLoopDirective *LD = GetLoopForHoisting(S, Kind)) {
+    EmitLateOutlineOMPLoopBounds(*LD, Kind, /*WithPreInits=*/true);
+    HoistedBoundsLoops.insert(LD);
+  }
+}
+
+const OMPLoopDirective *
+CodeGenFunction::GetLoopForHoisting(const OMPExecutableDirective &S,
+                                    OpenMPDirectiveKind Kind) {
+  OpenMPDirectiveKind DKind = S.getDirectiveKind();
+  if (DKind == OMPD_target_parallel_for ||
+      DKind == OMPD_target_parallel_for_simd ||
+      DKind == OMPD_target_teams_distribute ||
+      DKind == OMPD_target_teams_distribute_parallel_for ||
+      DKind == OMPD_target_teams_distribute_parallel_for_simd) {
+    return Kind == OMPD_target ? cast<OMPLoopDirective>(&S) : nullptr;
+  }
+  return nullptr;
+}
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_COLLAB
+/// Some clauses can be specified with a general rvalue expression but passing
+/// the value into an outlined region can require an address.  This stores the
+/// address or creates a temp with the value and stores that address.
+/// When processing the clause the address is used instead of normal rvalue
+/// expression processing.
+void CodeGenFunction::EnsureAddressableClauseExpr(const OMPClause *C) {
+
+  if (!C)
+    return;
+
+  const Expr *E;
+  if (const auto *NTC = dyn_cast<OMPNumTeamsClause>(C))
+    E = NTC->getNumTeams();
+  else if (const auto *TLC = dyn_cast<OMPThreadLimitClause>(C))
+    E = TLC->getThreadLimit();
+  else
+    return;
+
+  // Constants are okay to emit as rvalues.
+  llvm::APSInt ConstLength;
+  if (E->isIntegerConstantExpr(ConstLength, getContext()))
+    return;
+
+  // Use the lvalue directly.
+  if (E->IgnoreImplicit()->isLValue()) {
+    E = E->IgnoreImplicit();
+    addMappedClause(C, EmitLValue(E).getAddress());
+    return;
+  }
+
+  // Create and initialize a temp.
+  QualType T = E->getType();
+  Address A = CreateMemTemp(T, "omp.clause.tmp");
+  addMappedClause(C, A);
+  LValue LV = MakeAddrLValue(A, T);
+  RValue RV = RValue::get(EmitScalarExpr(E));
+  EmitStoreThroughLValue(RV, LV, /*isInit=*/true);
+}
+
+void CodeGenFunction::HoistTeamsClausesIfPossible(
+    const OMPExecutableDirective &S, OpenMPDirectiveKind Kind) {
+  if (Kind != OMPD_target)
+    return;
+
+  const OMPExecutableDirective *Dir = nullptr;
+  switch (S.getDirectiveKind()) {
+    case OMPD_target_teams:
+    case OMPD_target_teams_distribute:
+    case OMPD_target_teams_distribute_simd:
+    case OMPD_target_teams_distribute_parallel_for:
+    case OMPD_target_teams_distribute_parallel_for_simd:
+      Dir = &S;
+      break;
+    case OMPD_target:
+      if (const Stmt *CS = S.getInnermostCapturedStmt()->getCapturedStmt()) {
+        if (const auto *CompStmt = dyn_cast<CompoundStmt>(CS)) {
+          if (CompStmt->body_front() &&
+              CompStmt->body_front() == CompStmt->body_back())
+            CS = CompStmt->body_front();
+        }
+        Stmt::StmtClass C = CS->getStmtClass();
+        if (C == Stmt::OMPTeamsDirectiveClass ||
+            C == Stmt::OMPTeamsDistributeDirectiveClass ||
+            C == Stmt::OMPTeamsDistributeSimdDirectiveClass ||
+            C == Stmt::OMPTeamsDistributeParallelForDirectiveClass ||
+            C == Stmt::OMPTeamsDistributeParallelForSimdDirectiveClass)
+          Dir = cast<OMPExecutableDirective>(CS);
+      }
+      break;
+    default:
+      break;
+  }
+  if (Dir == nullptr)
+    return;
+
+  EnsureAddressableClauseExpr(Dir->getSingleClause<OMPNumTeamsClause>());
+  EnsureAddressableClauseExpr(Dir->getSingleClause<OMPThreadLimitClause>());
+}
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+static bool UseCSALoopPreCond(CodeGenFunction &CGF, const OMPLoopDirective &S,
+                              OpenMPDirectiveKind Kind) {
+  auto IVExpr = cast<DeclRefExpr>(S.getIterationVariable());
+  if (IVExpr->getType()->isUnsignedIntegerType())
+    return false;
+
+  return (Kind == OMPD_for || Kind == OMPD_parallel_for) &&
+         CGF.getContext().getTargetInfo().getTriple().getArch() ==
+             llvm::Triple::csa;
+}
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+
+void CodeGenFunction::EmitLateOutlineOMPLoopBounds(const OMPLoopDirective &S,
+                                                   OpenMPDirectiveKind Kind,
+                                                   bool WithPreInits = false) {
+#if INTEL_CUSTOMIZATION
+  if (LoopBoundsHaveBeenHoisted(&S))
+    return;
+#endif // INTEL_CUSTOMIZATION
+
+  if (WithPreInits) {
+    if (const auto *PreInits = cast_or_null<DeclStmt>(S.getPreInits())) {
+      for (const auto *I : PreInits->decls())
+        EmitVarDecl(cast<VarDecl>(*I));
+    }
+  }
+
+  if (Kind != OMPD_simd)
+    EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getLowerBoundVariable()));
+  EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getUpperBoundVariable()));
+}
+
+void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
+                                             OpenMPDirectiveKind Kind) {
+  // Emit the loop iteration variable.
+  auto IVExpr = cast<DeclRefExpr>(S.getIterationVariable());
+  auto IVDecl = cast<VarDecl>(IVExpr->getDecl());
+  EmitVarDecl(*IVDecl);
+
+  // Check pre-condition.
+  {
+    OMPLoopScope PreInitScope(*this, S);
+    // Skip the entire loop if we don't meet the precondition.
+    // If the condition constant folds and can be elided, avoid emitting the
+    // whole loop.
+    bool CondConstant;
+    llvm::BasicBlock *ContBlock = nullptr;
+    llvm::BasicBlock *ThenBlock = nullptr;
+    if (ConstantFoldsToSimpleInteger(S.getPreCond(), CondConstant)) {
+      if (!CondConstant)
+        return;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    } else if (UseCSALoopPreCond(*this, S, Kind)) {
+      // No 'if' block is created for signed types for CSA.
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+    } else {
+      ThenBlock = createBasicBlock("omp.precond.then");
+      ContBlock = createBasicBlock("omp.precond.end");
+      EmitBranchOnBoolExpr(S.getPreCond(), ThenBlock, ContBlock,
+                           getProfileCount(&S));
+      EmitBlock(ThenBlock);
+      incrementProfileCounter(&S);
+    }
+
+    EmitLateOutlineOMPLoopBounds(S, Kind);
+
+    // Emit 'then' code.
+    {
+      OpenMPLateOutliner Outliner(*this, S, Kind);
+      LateOutlineOpenMPRegionRAII Region(*this, Outliner, S);
+      OMPPrivateScope LoopScope(*this);
+
+      auto LoopExit =
+          getJumpDestInCurrentScope(createBasicBlock("omp.loop.exit"));
+
+      switch (Kind) {
+      case OMPD_distribute:
+        Outliner.emitOMPDistributeDirective();
+        break;
+      case OMPD_simd:
+        Outliner.emitOMPSIMDDirective();
+        break;
+      case OMPD_for:
+        Outliner.emitOMPForDirective();
+        break;
+      case OMPD_for_simd:
+        Outliner.emitOMPForSimdDirective();
+        break;
+      case OMPD_parallel_for:
+        Outliner.emitOMPParallelForDirective();
+        break;
+      case OMPD_parallel_for_simd:
+        Outliner.emitOMPParallelForSimdDirective();
+        break;
+      case OMPD_taskloop:
+        Outliner.emitOMPTaskLoopDirective();
+        break;
+      case OMPD_taskloop_simd:
+        Outliner.emitOMPTaskLoopSimdDirective();
+        break;
+      case OMPD_distribute_parallel_for:
+        Outliner.emitOMPDistributeParallelForDirective();
+        break;
+      case OMPD_distribute_parallel_for_simd:
+        Outliner.emitOMPDistributeParallelForSimdDirective();
+        break;
+      case OMPD_distribute_simd:
+        Outliner.emitOMPDistributeSimdDirective();
+        break;
+      default:
+        llvm_unreachable("unexpected loop kind");
+      }
+      Outliner << S.clauses();
+      Outliner.insertMarker();
+      Outliner.emitVLAExpressions();
+
+      EmitIgnoredExpr(S.getInit());
+      // while (idx <= UB) { BODY; ++idx; }
+      if (ThenBlock == nullptr)
+        ThenBlock = Builder.GetInsertBlock();
+      EmitOMPInnerLoop(
+          S, LoopScope.requiresCleanups(),
+          (Kind == OMPD_simd ? S.getLateOutlineCond() : S.getCond()),
+          S.getInc(),
+          [&S, LoopExit](CodeGenFunction &CGF) {
+            CGF.EmitOMPLoopBody(S, LoopExit);
+            CGF.EmitStopPoint(&S);
+          },
+          [&S](CodeGenFunction &CGF) {
+            // Emit final expressions for counters that are lastprivate.
+            llvm::DenseMap<const VarDecl *, const Expr *> Finals;
+            auto IC = S.counters().begin();
+            for (const auto *E : S.finals()) {
+              const auto *D = cast<VarDecl>(cast<DeclRefExpr>(*IC)->getDecl())
+                                  ->getCanonicalDecl();
+              Finals[D] = E;
+              ++IC;
+            }
+            for (const auto *C : S.getClausesOfKind<OMPLastprivateClause>()) {
+              for (const auto *E : C->varlists()) {
+                const auto *PVD =
+                    cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+                if (const auto *FinalExpr = Finals.lookup(PVD))
+                  CGF.EmitIgnoredExpr(FinalExpr);
+              }
+            }
+          });
+      EmitBlock(LoopExit.getBlock());
+    }
+
+    // We're now done with the loop, so jump to the continuation block.
+    if (ContBlock) {
+      EmitBranch(ContBlock);
+      EmitBlock(ContBlock, true);
+    }
+  }
+}
+#endif // INTEL_COLLAB
 
 void CodeGenFunction::EmitSimpleOMPExecutableDirective(
     const OMPExecutableDirective &D) {

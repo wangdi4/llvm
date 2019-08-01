@@ -387,6 +387,9 @@ void Preprocessor::RegisterBuiltinMacros() {
     Ident__MODULE__ = RegisterBuiltinMacro(*this, "__MODULE__");
   else
     Ident__MODULE__ = nullptr;
+#if INTEL_CUSTOMIZATION
+  Ident__pragma = RegisterBuiltinMacro(*this, "__pragma");
+#endif  // INTEL_CUSTOMIZATION
 }
 
 /// isTrivialSingleTokenExpansion - Return true if MI, which has a single token
@@ -982,6 +985,16 @@ MacroArgs *Preprocessor::ReadMacroCallArgumentList(Token &MacroName,
       //   #define C(...) blah(a, ## __VA_ARGS__)
       //  A(x) B(x) C()
       isVarargsElided = true;
+#if INTEL_CUSTOMIZATION
+    } else if (!ContainsCodeCompletionTok &&
+               getLangOpts().isIntelCompat(LangOptions::AllowFewerMacroArgs)) {
+      Diag(Tok, diag::warn_too_few_args_in_macro_invoc);
+      Diag(Tok, diag::warn_missing_fnmacro_args_replaced_by_empty)
+          << MinArgsExpected - NumActuals;
+      Diag(MI->getDefinitionLoc(), diag::note_macro_here)
+          << MacroName.getIdentifierInfo();
+      // Don't return nullptr in this case, because we didn't emit any error.
+#endif // INTEL_CUSTOMIZATION
     } else if (!ContainsCodeCompletionTok) {
       // Otherwise, emit the error.
       Diag(Tok, diag::err_too_few_args_in_macro_invoc);
@@ -998,6 +1011,14 @@ MacroArgs *Preprocessor::ReadMacroCallArgumentList(Token &MacroName,
     Tok.setLength(0);
     ArgTokens.push_back(Tok);
 
+#if INTEL_CUSTOMIZATION
+    // CQ#365448 - add empty tokens for all missing arguments.
+    // Note that one empty token was already added at the previous line.
+    if (getLangOpts().isIntelCompat(LangOptions::AllowFewerMacroArgs))
+      for (unsigned I = NumActuals + 1; I < MinArgsExpected; ++I)
+        ArgTokens.push_back(Tok);
+    else
+#endif // INTEL_CUSTOMIZATION
     // If we expect two arguments, add both as empty.
     if (NumActuals == 0 && MinArgsExpected == 2)
       ArgTokens.push_back(Tok);

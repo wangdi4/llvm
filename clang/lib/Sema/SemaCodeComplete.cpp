@@ -5224,7 +5224,8 @@ QualType Sema::ProduceConstructorSignatureHelp(Scope *S, QualType Type,
           FTD, DeclAccessPair::make(FTD, C->getAccess()),
           /*ExplicitTemplateArgs=*/nullptr, Args, CandidateSet,
           /*SuppressUserConversions=*/false,
-          /*PartialOverloading=*/true);
+          /*PartialOverloading=*/true,
+          /*AllowExplicit=*/true);
     }
   }
 

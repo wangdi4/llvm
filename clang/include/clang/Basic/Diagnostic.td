@@ -70,6 +70,7 @@ include "DiagnosticDocs.td"
 include "DiagnosticCategories.td"
 
 // This defines all of the named diagnostic groups.
+include "intel/DiagnosticIntelGroups.td" // INTEL
 include "DiagnosticGroups.td"
 
 
@@ -149,4 +150,4 @@ include "DiagnosticParseKinds.td"
 include "DiagnosticRefactoringKinds.td"
 include "DiagnosticSemaKinds.td"
 include "DiagnosticSerializationKinds.td"
-
+include "intel/DiagnosticIntel.td" // INTEL

@@ -719,8 +719,8 @@ ASTContext::getCanonicalTemplateTemplateParmDecl(
 }
 
 CXXABI *ASTContext::createCXXABI(const TargetInfo &T) {
-  if (!LangOpts.CPlusPlus) return nullptr;
-
+#if INTEL_CUSTOMIZATION
+  // CQ#379144 Intel TBAA.
   switch (T.getCXXABI().getKind()) {
   case TargetCXXABI::GenericARM: // Same as Itanium at this level
   case TargetCXXABI::iOS:
@@ -734,6 +734,9 @@ CXXABI *ASTContext::createCXXABI(const TargetInfo &T) {
   case TargetCXXABI::Microsoft:
     return CreateMicrosoftCXXABI(*this);
   }
+  // Initialize CXX ABI if any. It is used for mangling types in TBAA.
+  if (!LangOpts.CPlusPlus) return nullptr;
+#endif // INTEL_CUSTOMIZATION
   llvm_unreachable("Invalid CXXABI type!");
 }
 
@@ -751,7 +754,12 @@ static const LangASMap *getAddressSpaceMap(const TargetInfo &T,
       4, // opencl_generic
       5, // cuda_device
       6, // cuda_constant
-      7  // cuda_shared
+      7, // cuda_shared
+      1, // sycl_global
+      3, // sycl_local
+      2, // sycl_constant
+      0, // sycl_private
+      4, // sycl_generic
     };
     return &FakeAddrSpaceMap;
   } else {
@@ -778,6 +786,7 @@ ASTContext::ASTContext(LangOptions &LOpts, SourceManager &SM,
     : FunctionProtoTypes(this_()), TemplateSpecializationTypes(this_()),
       DependentTemplateSpecializationTypes(this_()),
       SubstTemplateTemplateParmPacks(this_()), SourceMgr(SM), LangOpts(LOpts),
+      DisabledFPContract(false), // INTEL
       SanitizerBL(new SanitizerBlacklist(LangOpts.SanitizerBlacklistFiles, SM)),
       XRayFilter(new XRayFunctionFilter(LangOpts.XRayAlwaysInstrumentFiles,
                                         LangOpts.XRayNeverInstrumentFiles,
@@ -1282,7 +1291,7 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target,
   InitBuiltinType(ObjCBuiltinClassTy, BuiltinType::ObjCClass);
   InitBuiltinType(ObjCBuiltinSelTy, BuiltinType::ObjCSel);
 
-  if (LangOpts.OpenCL) {
+  if (LangOpts.OpenCL || LangOpts.SYCLIsDevice) {
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
     InitBuiltinType(SingletonId, BuiltinType::Id);
 #include "clang/Basic/OpenCLImageTypes.def"
@@ -1324,6 +1333,11 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target,
 
   // Builtin type used to help define __builtin_va_list.
   VaListTagDecl = nullptr;
+
+#if INTEL_CUSTOMIZATION
+  // Type for __builtin_va_arg_pack
+  InitBuiltinType(VAArgPackTy, BuiltinType::VAArgPack);
+#endif // INTEL_CUSTOMIZATION
 }
 
 DiagnosticsEngine &ASTContext::getDiagnostics() const {
@@ -1664,6 +1678,13 @@ static getConstantArrayInfoInChars(const ASTContext &Context,
               (uint64_t)(-1)/Size) &&
          "Overflow in array type char size evaluation");
   uint64_t Width = EltInfo.first.getQuantity() * Size;
+#if INTEL_CUSTOMIZATION
+  if (CAT->getElementType()->isArbPrecIntType() &&
+      !llvm::isPowerOf2_64(Context.getTypeSize(CAT->getElementType())))
+    Width = llvm::alignTo(EltInfo.first.getQuantity(),
+                          EltInfo.second.getQuantity()) *
+            Size;
+#endif // INTEL_CUSTOMIZATION
   unsigned Align = EltInfo.second.getQuantity();
   if (!Context.getTargetInfo().getCXXABI().isMicrosoft() ||
       Context.getTargetInfo().getPointerWidth(0) == 64)
@@ -1677,7 +1698,14 @@ ASTContext::getTypeInfoInChars(const Type *T) const {
   if (const auto *CAT = dyn_cast<ConstantArrayType>(T))
     return getConstantArrayInfoInChars(*this, CAT);
   TypeInfo Info = getTypeInfo(T);
-  return std::make_pair(toCharUnitsFromBits(Info.Width),
+#if INTEL_CUSTOMIZATION
+  // toCharUnitsFromBits always rounds down and is depended on, but
+  // AP-Int size needs to be the next size up.
+  return std::make_pair(toCharUnitsFromBits(Info.Width) +
+                            (Info.Width % getCharWidth() == 0
+                                 ? CharUnits::Zero()
+                                 : CharUnits::One()),
+#endif // INTEL_CUSTOMIZATION
                         toCharUnitsFromBits(Info.Align));
 }
 
@@ -1773,6 +1801,13 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
     assert((Size == 0 || EltInfo.Width <= (uint64_t)(-1) / Size) &&
            "Overflow in array type bit size evaluation");
     Width = EltInfo.Width * Size;
+#if INTEL_CUSTOMIZATION
+    if (CAT->getElementType()->isArbPrecIntType() &&
+        !llvm::isPowerOf2_64(EltInfo.Width))
+      Width = llvm::alignTo(EltInfo.Width,
+                            EltInfo.Align) *
+              Size;
+#endif // INTEL_CUSTOMIZATION
     Align = EltInfo.Align;
     if (!getTargetInfo().getCXXABI().isMicrosoft() ||
         getTargetInfo().getPointerWidth(0) == 64)
@@ -1952,6 +1987,12 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
       Width = Target->getPointerWidth(0);
       Align = Target->getPointerAlign(0);
       break;
+#if INTEL_CUSTOMIZATION
+    case BuiltinType::VAArgPack:
+      Width = Target->getPointerWidth(0);
+      Align = Target->getPointerAlign(0);
+      break;
+#endif // INTEL_CUSTOMIZATION
     case BuiltinType::OCLSampler:
     case BuiltinType::OCLEvent:
     case BuiltinType::OCLClkEvent:
@@ -2120,6 +2161,22 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
     }
   }
   break;
+
+#if INTEL_CUSTOMIZATION
+  case Type::Channel: {
+    TypeInfo Info = getTypeInfo(cast<ChannelType>(T)->getElementType());
+    Width = Info.Width;
+    Align = Info.Align;
+    break;
+  }
+  case Type::ArbPrecInt: {
+    const ArbPrecIntType *AT = cast<ArbPrecIntType>(T);
+    Width = AT->getNumBits();
+    Align = std::min(std::max(getCharWidth(), llvm::PowerOf2Ceil(Width)),
+                     static_cast<uint64_t>(64));
+    break;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   case Type::Pipe:
     Width = Target->getPointerWidth(getTargetAddressSpace(LangAS::opencl_global));
@@ -3181,6 +3238,11 @@ QualType ASTContext::getVariableArrayDecayedType(QualType type) const {
   case Type::FunctionProto:
   case Type::BlockPointer:
   case Type::MemberPointer:
+#if INTEL_CUSTOMIZATION
+  case Type::Channel:
+  case Type::ArbPrecInt:
+  case Type::DependentSizedArbPrecInt:
+#endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
     return type;
 
@@ -3842,6 +3904,98 @@ QualType ASTContext::getReadPipeType(QualType T) const {
 QualType ASTContext::getWritePipeType(QualType T) const {
   return getPipeType(T, false);
 }
+
+#if INTEL_CUSTOMIZATION
+/// Return channel type for the specified type.
+QualType ASTContext::getChannelType(QualType T) const {
+  llvm::FoldingSetNodeID ID;
+  ChannelType::Profile(ID, T);
+
+  void *InsertPos = 0;
+  if (ChannelType *PT = ChannelTypes.FindNodeOrInsertPos(ID, InsertPos))
+    return QualType(PT, 0);
+
+  // If the channel element type isn't canonical, this won't be a canonical type
+  // either, so fill in the canonical type field.
+  QualType Canonical;
+  if (!T.isCanonical()) {
+    Canonical = getChannelType(getCanonicalType(T));
+
+    // Get the new insert position for the node we care about.
+    ChannelType *NewIP = ChannelTypes.FindNodeOrInsertPos(ID, InsertPos);
+    assert(!NewIP && "Shouldn't be in the map!");
+    (void)NewIP;
+  }
+  ChannelType *New = new (*this, TypeAlignment) ChannelType(T, Canonical);
+  Types.push_back(New);
+  ChannelTypes.InsertNode(New, InsertPos);
+  return QualType(New, 0);
+}
+
+QualType ASTContext::getArbPrecIntType(QualType Type, unsigned NumBits,
+                                       SourceLocation AttrLoc) const {
+  assert(Type->isIntegerType() || Type->isDependentType());
+
+  llvm::FoldingSetNodeID ID;
+  ArbPrecIntType::Profile(ID, Type, NumBits);
+
+  void *InsertPos = nullptr;
+  if (ArbPrecIntType *VTP = ArbPrecIntTypes.FindNodeOrInsertPos(ID, InsertPos))
+    return QualType(VTP, 0);
+
+  QualType Canonical;
+  if (!Type.isCanonical()) {
+    Canonical = getArbPrecIntType(getCanonicalType(Type), NumBits, AttrLoc);
+
+    ArbPrecIntType *NewIP = ArbPrecIntTypes.FindNodeOrInsertPos(ID, InsertPos);
+    assert(!NewIP && "Shouldn't be in the map!");
+    (void)NewIP;
+  }
+
+  ArbPrecIntType *New = new (*this, TypeAlignment)
+      ArbPrecIntType(Type, NumBits, Canonical, AttrLoc);
+  ArbPrecIntTypes.InsertNode(New, InsertPos);
+  Types.push_back(New);
+  return QualType(New, 0);
+}
+
+QualType
+ASTContext::getDependentSizedArbPrecIntType(QualType Type, Expr *NumBitsExpr,
+                                            SourceLocation AttrLoc) const {
+  llvm::FoldingSetNodeID ID;
+  DependentSizedArbPrecIntType::Profile(ID, *this, getCanonicalType(Type),
+                                        NumBitsExpr);
+
+  void *InsertPos = nullptr;
+  DependentSizedArbPrecIntType *Canon =
+      DependentSizedArbPrecIntTypes.FindNodeOrInsertPos(ID, InsertPos);
+  DependentSizedArbPrecIntType *New;
+
+  if (Canon) {
+    New = new (*this, TypeAlignment) DependentSizedArbPrecIntType(
+        *this, Type, QualType(Canon, 0), NumBitsExpr, AttrLoc);
+  } else {
+    QualType CanonTy = getCanonicalType(Type);
+    if (CanonTy == Type) {
+      New = new (*this, TypeAlignment) DependentSizedArbPrecIntType(
+          *this, Type, QualType(), NumBitsExpr, AttrLoc);
+      DependentSizedArbPrecIntType *CanonCheck =
+          DependentSizedArbPrecIntTypes.FindNodeOrInsertPos(ID, InsertPos);
+      assert(!CanonCheck && "Shouldn't be in the map!");
+      (void)CanonCheck;
+      DependentSizedArbPrecIntTypes.InsertNode(New, InsertPos);
+    } else {
+      QualType Canon =
+          getDependentSizedArbPrecIntType(CanonTy, NumBitsExpr, AttrLoc);
+      New = new (*this, TypeAlignment) DependentSizedArbPrecIntType(
+          *this, Type, Canon, NumBitsExpr, AttrLoc);
+    }
+  }
+
+  Types.push_back(New);
+  return QualType(New, 0);
+}
+#endif // INTEL_CUSTOMIZATION
 
 #ifndef NDEBUG
 static bool NeedsInjectedClassNameType(const RecordDecl *D) {
@@ -5667,6 +5821,11 @@ int ASTContext::getFloatingTypeSemanticOrder(QualType LHS, QualType RHS) const {
 /// or if it is not canonicalized.
 unsigned ASTContext::getIntegerRank(const Type *T) const {
   assert(T->isCanonicalUnqualified() && "T should be canonicalized");
+#if INTEL_CUSTOMIZATION
+  if (isa<ArbPrecIntType>(T)) {
+    return 7 + (getIntWidth(QualType(T, 0)) << 3);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   switch (cast<BuiltinType>(T)->getKind()) {
   default: llvm_unreachable("getIntegerRank(): not a built-in integer");
@@ -6586,9 +6745,11 @@ static char getObjCEncodingForPrimitiveKind(const ASTContext *C,
     case BuiltinType::Double:     return 'd';
     case BuiltinType::LongDouble: return 'D';
     case BuiltinType::NullPtr:    return '*'; // like char*
+#if INTEL_CUSTOMIZATION
+    case BuiltinType::Float128:   return 'Q';
+#endif  // INTEL_CUSTOMIZATION
 
     case BuiltinType::Float16:
-    case BuiltinType::Float128:
     case BuiltinType::Half:
     case BuiltinType::ShortAccum:
     case BuiltinType::Accum:
@@ -7024,6 +7185,10 @@ void ASTContext::getObjCEncodingForTypeImpl(QualType T, std::string &S,
   case Type::DeducedTemplateSpecialization:
     return;
 
+#if INTEL_CUSTOMIZATION
+  case Type::Channel:
+  case Type::ArbPrecInt:
+#endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
 #define ABSTRACT_TYPE(KIND, BASE)
 #define TYPE(KIND, BASE)
@@ -9042,6 +9207,55 @@ QualType ASTContext::mergeTypes(QualType LHS, QualType RHS,
       return LHS;
 
     return {};
+
+#if INTEL_CUSTOMIZATION
+  case Type::Channel:
+  {
+    // Merge two pointer types, while trying to preserve typedef info
+    QualType LHSValue = LHS->getAs<ChannelType>()->getElementType();
+    QualType RHSValue = RHS->getAs<ChannelType>()->getElementType();
+    if (Unqualified) {
+      LHSValue = LHSValue.getUnqualifiedType();
+      RHSValue = RHSValue.getUnqualifiedType();
+    }
+    QualType ResultType = mergeTypes(LHSValue, RHSValue, false,
+                                     Unqualified);
+    if (ResultType.isNull()) return {};
+    if (getCanonicalType(LHSValue) == getCanonicalType(ResultType))
+      return LHS;
+    if (getCanonicalType(RHSValue) == getCanonicalType(ResultType))
+      return RHS;
+    return getChannelType(ResultType);
+  }
+  case Type::ArbPrecInt:
+  {
+    // Merge two pointer types, while trying to preserve typedef info
+    QualType LHSValue = LHS->getAs<ArbPrecIntType>()->getUnderlyingType();
+    QualType RHSValue = RHS->getAs<ArbPrecIntType>()->getUnderlyingType();
+    unsigned LHSBits = LHS->getAs<ArbPrecIntType>()->getNumBits();
+    unsigned RHSBits = RHS->getAs<ArbPrecIntType>()->getNumBits();
+
+    if (Unqualified) {
+      LHSValue = LHSValue.getUnqualifiedType();
+      RHSValue = RHSValue.getUnqualifiedType();
+    }
+    QualType UnderlyingType = mergeTypes(LHSValue, RHSValue, false,
+                                     Unqualified);
+    if (UnderlyingType.isNull()) return QualType();
+
+    if (getCanonicalType(LHSValue) == getCanonicalType(UnderlyingType) &&
+        LHSBits == RHSBits)
+      return LHS;
+    if (getCanonicalType(RHSValue) == getCanonicalType(UnderlyingType) &&
+        LHSBits == RHSBits)
+      return RHS;
+
+    if (LHSBits >= RHSBits)
+      return LHS;
+    return RHS;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   case Type::Pipe:
     assert(LHS != RHS &&
            "Equivalent pipe types should have already been handled!");
@@ -9379,6 +9593,15 @@ static QualType DecodeTypeFromStr(const char *&Str, const ASTContext &Context,
            "Bad modifiers used with 'h'!");
     Type = Context.HalfTy;
     break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case 'g':
+    assert(HowLong == 0 && !Signed && !Unsigned &&
+           "Bad modifiers used with 'g'!");
+    Type = Context.Float16Ty;
+    break;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case 'f':
     assert(HowLong == 0 && !Signed && !Unsigned &&
            "Bad modifiers used with 'f'!");
@@ -9532,6 +9755,13 @@ static QualType DecodeTypeFromStr(const char *&Str, const ASTContext &Context,
   case 'p':
     Type = Context.getProcessIDType();
     break;
+#if INTEL_CUSTOMIZATION
+  case '.':
+    assert(HowLong == 0 && !Signed && !Unsigned &&
+               "Bad modifiers used with '.'!");
+    Type = Context.VAArgPackTy;
+    break;
+#endif // INTEL_CUSTOMIZATION
   }
 
   // If there are modifiers and if we're allowed to parse them, go for it.
@@ -10004,7 +10234,7 @@ CallingConv ASTContext::getDefaultCallingConvention(bool IsVariadic,
                                                     bool IsCXXMethod,
                                                     bool IsBuiltin) const {
   // Pass through to the C++ ABI object
-  if (IsCXXMethod)
+  if (IsCXXMethod && !LangOpts.SYCLIsDevice)
     return ABI->getDefaultMethodCallConv(IsVariadic);
 
   // Builtins ignore user-specified default calling convention and remain the

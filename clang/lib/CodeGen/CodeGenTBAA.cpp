@@ -15,6 +15,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "CodeGenTBAA.h"
+#if INTEL_CUSTOMIZATION
+#include "CGRecordLayout.h"
+#include "CodeGenModule.h"
+#endif // INTEL_CUSTOMIZATION
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/Mangle.h"
@@ -28,6 +32,46 @@
 #include "llvm/IR/Type.h"
 using namespace clang;
 using namespace CodeGen;
+
+#if INTEL_CUSTOMIZATION
+// CQ#379144 TBAA for pointers and arrays.
+bool CodeGenTBAA::canCreateUniqueTBAA(const Type *Ty) {
+  if (isa<BuiltinType>(Ty))
+    return true;
+  if (const PointerType *PTy = dyn_cast<PointerType>(Ty))
+    return canCreateUniqueTBAA(Context.getCanonicalType(
+        PTy->getPointeeType().getTypePtr()));
+  if (const ConstantArrayType *ArrayTy = dyn_cast<ConstantArrayType>(Ty))
+    return canCreateUniqueTBAA(Context.getCanonicalType(
+        ArrayTy->getElementType().getTypePtr()));
+  if (const FunctionProtoType *FnTy = dyn_cast<FunctionProtoType>(Ty)) {
+    if (!canCreateUniqueTBAA(Context.getCanonicalType(
+          FnTy->getReturnType().getTypePtr())))
+      return false;
+    for (unsigned i = 0, n = FnTy->getNumParams(); i < n; ++i)
+      if (!canCreateUniqueTBAA(Context.getCanonicalType(
+            FnTy->getParamType(i).getTypePtr())))
+        return false;
+    return true;
+  }
+  if (const EnumType *EnumTy = dyn_cast<EnumType>(Ty))
+    return Features.CPlusPlus && EnumTy->getDecl()->isExternallyVisible();
+  if (const RecordType *RecordTy = dyn_cast<RecordType>(Ty))
+    return RecordTy->getDecl()->isExternallyVisible();
+  return false;
+}
+
+llvm::MDNode *CodeGenTBAA::createTBAAPointerType(const PointerType *PTy) {
+  if (!canCreateUniqueTBAA(PTy))
+    return createScalarTypeNode("unspecified pointer", getChar(), /*Size=*/1);
+
+  SmallString<256> OutName;
+  llvm::raw_svector_ostream Out(OutName);
+  Out << "pointer@";
+  MContext.mangleTypeName(QualType(PTy, 0), Out);
+  return createScalarTypeNode(OutName, getChar(), /*Size=*/1);
+}
+#endif // INTEL_CUSTOMIZATION
 
 CodeGenTBAA::CodeGenTBAA(ASTContext &Ctx, llvm::Module &M,
                          const CodeGenOptions &CGO,
@@ -155,6 +199,13 @@ llvm::MDNode *CodeGenTBAA::getTypeInfoHelper(const Type *Ty) {
     return getChar();
 
   // Handle pointers and references.
+#if INTEL_CUSTOMIZATION
+  // CQ#379144 TBAA for pointers.
+  if (Features.IntelCompat) {
+    if (const PointerType *PTy = dyn_cast<PointerType>(Ty))
+      return MetadataCache[Ty] = createTBAAPointerType(PTy);
+  }
+#endif // INTEL_CUSTOMIZATION
   // TODO: Implement C++'s type "similarity" and consider dis-"similar"
   // pointers distinct.
   if (Ty->isPointerType() || Ty->isReferenceType())
@@ -179,6 +230,22 @@ llvm::MDNode *CodeGenTBAA::getTypeInfoHelper(const Type *Ty) {
     MContext.mangleTypeName(QualType(ETy, 0), Out);
     return createScalarTypeNode(OutName, getChar(), Size);
   }
+#if INTEL_CUSTOMIZATION
+  // CQ#379144 TBAA for arrays.
+  if (Features.IntelCompat) {
+    if (const ConstantArrayType* CATy = dyn_cast<ConstantArrayType>(Ty)) {
+      if (canCreateUniqueTBAA(Ty)) {
+        SmallString<256> OutName;
+        llvm::raw_svector_ostream Out(OutName);
+        Out << "array@";
+        MContext.mangleTypeName(QualType(Ty, 0), Out);
+        llvm::MDNode *Parent = getTypeInfo(CATy->getElementType());
+        uint64_t Size = Context.getTypeSizeInChars(Ty).getQuantity();
+        return MetadataCache[Ty] = createScalarTypeNode(OutName, Parent, Size);
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // For now, handle any other kind of type conservatively.
   return getChar();
@@ -217,8 +284,15 @@ llvm::MDNode *CodeGenTBAA::getTypeInfo(QualType QTy) {
 TBAAAccessInfo CodeGenTBAA::getAccessInfo(QualType AccessType) {
   // Pointee values may have incomplete types, but they shall never be
   // dereferenced.
-  if (AccessType->isIncompleteType())
+#if INTEL_CUSTOMIZATION
+  if (AccessType->isIncompleteType()) {
+    if (Features.IntelCompat && AccessType->isIncompleteArrayType()) {
+      if (!AccessType->getArrayElementTypeNoTypeQual()->isIncompleteType())
+        return TBAAAccessInfo(getTypeInfo(AccessType), 0);
+    }
     return TBAAAccessInfo::getIncompleteInfo();
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (TypeHasMayAlias(AccessType))
     return TBAAAccessInfo::getMayAliasInfo();
@@ -295,13 +369,34 @@ CodeGenTBAA::getTBAAStructInfo(QualType QTy) {
 
 llvm::MDNode *CodeGenTBAA::getBaseTypeInfoHelper(const Type *Ty) {
   if (auto *TTy = dyn_cast<RecordType>(Ty)) {
+    assert(CGM && "Module is null!"); // INTEL
     const RecordDecl *RD = TTy->getDecl()->getDefinition();
+    const CGRecordLayout &RL = CGM->getTypes().getCGRecordLayout(RD); // INTEL
     const ASTRecordLayout &Layout = Context.getASTRecordLayout(RD);
     SmallVector<llvm::MDBuilder::TBAAStructField, 4> Fields;
     for (FieldDecl *Field : RD->fields()) {
       if (Field->isZeroSize(Context) || Field->isUnnamedBitfield())
         continue;
       QualType FieldQTy = Field->getType();
+#if INTEL_CUSTOMIZATION
+      if (CGM->getLangOpts().isIntelCompat(LangOptions::IntelTBAABF) &&
+          Field->isBitField() && Field->getBitWidthValue(Context) > 0) {
+        const CGBitFieldInfo &Info = RL.getBitFieldInfo(Field);
+        FieldQTy = Context.getIntTypeForBitwidth(Info.StorageSize, 0);
+        if (FieldQTy.isNull())
+          /* If the Info.StorageSize is irregular, say 48, then there
+             is no corresponding int type: return nullptr */
+          /* Andrei suggested, "Depending on the guarantees language provides
+             we might want to *always* create special types for the bitfields,
+             something like:
+             !bit_field_type_of_N_bytes =
+                 !{!"bitfield_type_N", !"omnipotent char", i64 0}
+           */
+          return BaseTypeMetadataCache[Ty] = nullptr;
+      } else {
+        FieldQTy = Field->getType();
+      }
+#endif // INTEL_CUSTOMIZATION
       llvm::MDNode *TypeNode = isValidBaseType(FieldQTy) ?
           getBaseTypeInfo(FieldQTy) : getTypeInfo(FieldQTy);
       if (!TypeNode)
@@ -315,13 +410,18 @@ llvm::MDNode *CodeGenTBAA::getBaseTypeInfoHelper(const Type *Ty) {
     }
 
     SmallString<256> OutName;
+#if INTEL_CUSTOMIZATION
+    // CQ#379144 Intel TBAA.
+    llvm::raw_svector_ostream Out(OutName);
+    if (Features.IntelCompat)
+      Out << "struct@";
     if (Features.CPlusPlus) {
       // Don't use the mangler for C code.
-      llvm::raw_svector_ostream Out(OutName);
       MContext.mangleTypeName(QualType(Ty, 0), Out);
     } else {
-      OutName = RD->getName();
+      Out << RD->getName();
     }
+#endif // INTEL_CUSTOMIZATION
 
     if (CodeGenOpts.NewStructPathTBAA) {
       llvm::MDNode *Parent = getChar();

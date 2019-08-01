@@ -87,6 +87,10 @@ void EmitNeonSema2(llvm::RecordKeeper &Records, llvm::raw_ostream &OS);
 void EmitNeonTest2(llvm::RecordKeeper &Records, llvm::raw_ostream &OS);
 
 void EmitClangAttrDocs(llvm::RecordKeeper &Records, llvm::raw_ostream &OS);
+#if INTEL_CUSTOMIZATION
+void EmitClangIntelCustDocs(llvm::RecordKeeper &Records, llvm::raw_ostream &OS);
+void EmitClangIntelCustImpl(llvm::RecordKeeper &Records, llvm::raw_ostream &OS);
+#endif // INTEL_CUSTOMIZATION
 void EmitClangDiagDocs(llvm::RecordKeeper &Records, llvm::raw_ostream &OS);
 void EmitClangOptDocs(llvm::RecordKeeper &Records, llvm::raw_ostream &OS);
 

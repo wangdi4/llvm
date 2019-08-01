@@ -1778,6 +1778,12 @@ void ItaniumRecordLayoutBuilder::LayoutField(const FieldDecl *D,
       Context.getTypeInfoInChars(D->getType());
     EffectiveFieldSize = FieldSize = FieldInfo.first;
     FieldAlign = FieldInfo.second;
+#if INTEL_CUSTOMIZATION
+    // Arbitrary precision integer sizes require extra room to llvm::alloca due to
+    // their strange offset.  Thus, we need to include this in the layout size.
+    if (D->getType()->isArbPrecIntType())
+      EffectiveFieldSize = FieldSize = FieldSize.alignTo(FieldAlign);
+#endif // INTEL_CUSTOMIZATION
 
     // A potentially-overlapping field occupies its dsize or nvsize, whichever
     // is larger.
@@ -1787,7 +1793,7 @@ void ItaniumRecordLayoutBuilder::LayoutField(const FieldDecl *D,
           std::max(Layout.getNonVirtualSize(), Layout.getDataSize());
     }
 
-    if (IsMsStruct) {
+    if (IsMsStruct && !FieldPacked) { //***INTEL
       // If MS bitfield layout is required, figure out what type is being
       // laid out and align the field to the width of that type.
 
@@ -2440,6 +2446,12 @@ MicrosoftRecordLayoutBuilder::getAdjustedElementInfo(
   ElementInfo Info;
   std::tie(Info.Size, Info.Alignment) =
       Context.getTypeInfoInChars(FD->getType()->getUnqualifiedDesugaredType());
+#if INTEL_CUSTOMIZATION
+  // Arbitrary precision integer sizes require extra room to llvm::alloca due to
+  // their strange offset.  Thus, we need to include this in the layout size.
+  if (FD->getType()->isArbPrecIntType())
+    Info.Size = Info.Size.alignTo(Info.Alignment);
+#endif // INTEL_CUSTOMIZATION
   // Respect align attributes on the field.
   CharUnits FieldRequiredAlignment =
       Context.toCharUnitsFromBits(FD->getMaxAlignment());

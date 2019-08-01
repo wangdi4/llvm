@@ -149,6 +149,11 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
       ArrayWithObjectsMethod(nullptr), NSDictionaryDecl(nullptr),
       DictionaryWithObjectsMethod(nullptr), GlobalNewDeleteDeclared(false),
       TUKind(TUKind), NumSFINAEErrors(0),
+#if INTEL_CUSTOMIZATION
+      // Fix for CQ368409: Different behavior on accessing static private class
+      // members.
+      BuildingUsingDirective(false), ParsingTemplateArg(false),
+#endif  // INTEL_CUSTOMIZATION
       FullyCheckedComparisonCategories(
           static_cast<unsigned>(ComparisonCategoryType::Last) + 1),
       AccessCheckingSFINAE(false), InNonInstantiationSFINAEContext(false),
@@ -156,7 +161,8 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
       CurrentInstantiationScope(nullptr), DisableTypoCorrection(false),
       TyposCorrected(0), AnalysisWarnings(*this),
       ThreadSafetyDeclCache(nullptr), VarDataSharingAttributesStack(nullptr),
-      CurScope(nullptr), Ident_super(nullptr), Ident___float128(nullptr) {
+      CurScope(nullptr), Ident_super(nullptr), Ident___float128(nullptr),
+      SyclIntHeader(nullptr) {
   TUScope = nullptr;
   isConstantEvaluatedOverride = false;
 
@@ -262,6 +268,10 @@ void Sema::Initialize() {
 
     addImplicitTypedef("size_t", Context.getSizeType());
   }
+  if (getLangOpts().SYCLIsDevice) {
+    addImplicitTypedef("__ocl_event_t", Context.OCLEventTy);
+    addImplicitTypedef("__ocl_sampler_t", Context.OCLSamplerTy);
+  }
 
   // Initialize predefined OpenCL types and supported extensions and (optional)
   // core features.
@@ -346,6 +356,54 @@ void Sema::Initialize() {
   DeclarationName BuiltinVaList = &Context.Idents.get("__builtin_va_list");
   if (IdResolver.begin(BuiltinVaList) == IdResolver.end())
     PushOnScopeChains(Context.getBuiltinVaListDecl(), TUScope);
+
+#if INTEL_CUSTOMIZATION
+  bool PushedStdNamespace = false;
+  if (PP.getLangOpts().CPlusPlus && PP.getLangOpts().AlignedAllocation &&
+      PP.getLangOpts().isIntelCompat(LangOptions::PredeclareAlignValT)) {
+    NamespaceDecl *StdNamespace = getOrCreateStdNamespace();
+    if (StdNamespace->isImplicit()) {
+      PushOnScopeChains(StdNamespace, TUScope);
+      PushedStdNamespace = true;
+    }
+
+    // In C++17 this should be picked up in <new> but the Intel compiler
+    // supported it before this, so predeclare it here for compatibility.
+    // Since it is only used correctly when AlignedAllocation is enabled
+    // only predeclare it in that case.
+    IdentifierInfo *AlignValT = &Context.Idents.get("align_val_t");
+    if (IdResolver.begin(AlignValT) == IdResolver.end()) {
+      auto *AlignValTTy = EnumDecl::Create(
+          Context, StdNamespace, SourceLocation(), SourceLocation(), AlignValT,
+          /*PrevDecl=*/nullptr, /*IsScoped=*/true,
+          /*IsScopedUsingClassTag=*/true, /*IsFixed=*/true);
+      QualType BestType = Context.getSizeType();
+      AlignValTTy->setIntegerType(BestType);
+      StdNamespace->addDecl(AlignValTTy);
+    }
+  }
+
+  if (PP.getLangOpts().CPlusPlus &&
+      PP.getLangOpts().isIntelCompat(LangOptions::PredeclareTypeInfo)) {
+    NamespaceDecl *StdNamespace = getOrCreateStdNamespace();
+    if (!PushedStdNamespace && StdNamespace->isImplicit())
+      PushOnScopeChains(StdNamespace, TUScope);
+
+    // Fix for CQ#374800: For gcc compatibility sake, we should recognize
+    // "std::type_info" even without inclusion of <typeinfo> header. This should
+    // happen on Linux only, as in MS mode even open-source clang recognizes
+    // "type_info" (but not std::type_info!)
+    if (!PP.getLangOpts().MSVCCompat) {
+      IdentifierInfo *TypeInfo = &Context.Idents.get("type_info");
+      if (IdResolver.begin(TypeInfo) == IdResolver.end()) {
+        auto *TypeInfoTy =
+          CXXRecordDecl::Create(Context, TTK_Class, StdNamespace,
+                                SourceLocation(), SourceLocation(), TypeInfo);
+        StdNamespace->addDecl(TypeInfoTy);
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 Sema::~Sema() {
@@ -907,6 +965,13 @@ void Sema::ActOnEndOfTranslationUnitFragment(TUFragmentKind Kind) {
     PerformPendingInstantiations();
   }
 
+  // Emit SYCL integration header for current translation unit if needed
+  if (getLangOpts().SYCLIsDevice && SyclIntHeader != nullptr) {
+    SyclIntHeader->emit(getLangOpts().SYCLIntHeader);
+  }
+  if (getLangOpts().SYCLIsDevice)
+    MarkDevice();
+
   assert(LateParsedInstantiations.empty() &&
          "end of TU template instantiation should not create more "
          "late-parsed templates");
@@ -1089,7 +1154,8 @@ void Sema::ActOnEndOfTranslationUnit() {
       QualType T = Context.getConstantArrayType(ArrayT->getElementType(),
                                                 One, ArrayType::Normal, 0);
       VD->setType(T);
-    } else if (RequireCompleteType(VD->getLocation(), VD->getType(),
+    } // INTEL: CQ#370357 - Arrays with incomplete element type: struct foo s[];
+    if (RequireCompleteType(VD->getLocation(), VD->getType(),           // INTEL
                                    diag::err_tentative_def_incomplete_type))
       VD->setInvalidDecl();
 

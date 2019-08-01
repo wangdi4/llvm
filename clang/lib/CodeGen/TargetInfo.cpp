@@ -94,6 +94,43 @@ Address ABIInfo::EmitMSVAArg(CodeGenFunction &CGF, Address VAListAddr,
   return Address::invalid();
 }
 
+#if INTEL_CUSTOMIZATION
+static ABIArgInfo classifyOpenCL(QualType Ty, ASTContext &Context) {
+  if (Ty->isVoidType())
+    return ABIArgInfo::getIgnore();
+
+  if (const EnumType *EnumTy = Ty->getAs<EnumType>())
+    Ty = EnumTy->getDecl()->getIntegerType();
+
+  if (const RecordType *RT = Ty->getAs<RecordType>())
+    return ABIArgInfo::getIndirect(Context.getTypeAlignInChars(RT),
+                                   /*ByVal=*/false);
+
+  if (Ty->isPromotableIntegerType())
+    return ABIArgInfo::getExtend(Ty);
+
+  return ABIArgInfo::getDirect();
+}
+
+static bool doOpenCLClassification(CGFunctionInfo &FI, ASTContext &Context) {
+  if (!Context.getLangOpts().OpenCL)
+    return false;
+  if (!Context.getLangOpts().OpenCLForceVectorABI)
+    return false;
+
+  // Use OpenCL classify to prevent coercing
+  // Vector ABI must be enforced by enabling the corresponding option
+  // Otherwise, vector types will be coerced to a matching integer
+  // type to conform with ABI, e.g.: <8 x i8> will be coerced to i64
+  FI.getReturnInfo() = classifyOpenCL(FI.getReturnType(), Context);
+
+  for (auto &Arg : FI.arguments())
+    Arg.info = classifyOpenCL(Arg.type, Context);
+
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
+
 ABIInfo::~ABIInfo() {}
 
 /// Does the given lowering require more than the given number of
@@ -439,6 +476,12 @@ LangAS TargetCodeGenInfo::getGlobalVarAddressSpace(CodeGenModule &CGM,
   assert(!CGM.getLangOpts().OpenCL &&
          !(CGM.getLangOpts().CUDA && CGM.getLangOpts().CUDAIsDevice) &&
          "Address space agnostic languages only");
+#if INTEL_COLLAB
+  if (CGM.getLangOpts().UseAutoOpenCLAddrSpaceForOpenMP &&
+      CGM.getTarget().getTriple().isSPIR()) {
+    return LangAS::opencl_global;
+  }
+#endif  // INTEL_COLLAB
   return D ? D->getType().getAddressSpace() : LangAS::Default;
 }
 
@@ -1234,10 +1277,9 @@ void X86_32TargetCodeGenInfo::addReturnRegisterOutputs(
 bool X86_32ABIInfo::shouldReturnTypeInRegister(QualType Ty,
                                                ASTContext &Context) const {
   uint64_t Size = Context.getTypeSize(Ty);
-
-  // For i386, type must be register sized.
   // For the MCU ABI, it only needs to be <= 8-byte
-  if ((IsMCUABI && Size > 64) || (!IsMCUABI && !isRegisterSize(Size)))
+  if ((IsMCUABI && (Size == 0 || Size > 64)) ||
+      (!IsMCUABI && !isRegisterSize(Size)))
    return false;
 
   if (Ty->isVectorType()) {
@@ -1789,6 +1831,12 @@ void X86_32ABIInfo::computeVectorCallArgs(CGFunctionInfo &FI, CCState &State,
 }
 
 void X86_32ABIInfo::computeInfo(CGFunctionInfo &FI) const {
+#if INTEL_CUSTOMIZATION
+  ASTContext &Context = getContext();
+  if (doOpenCLClassification(FI, Context))
+    return;
+#endif // INTEL_CUSTOMIZATION
+
   CCState State(FI.getCallingConvention());
   if (IsMCUABI)
     State.FreeRegs = 3;
@@ -2565,6 +2613,12 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase,
       Current = Integer;
     } else if (k == BuiltinType::Float || k == BuiltinType::Double) {
       Current = SSE;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    } else if (k == BuiltinType::Float16) {
+      Current = SSE;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     } else if (k == BuiltinType::LongDouble) {
       const llvm::fltSemantics *LDF = &getTarget().getLongDoubleFormat();
       if (LDF == &llvm::APFloat::IEEEquad()) {
@@ -2577,6 +2631,11 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase,
         Current = SSE;
       } else
         llvm_unreachable("unexpected long double representation!");
+#if INTEL_CUSTOMIZATION
+    } else if (k == BuiltinType::Float128) {
+      Lo = SSE;
+      Hi = SSEUp;
+#endif  //INTEL_CUSTOMIZATION
     }
     // FIXME: _Decimal32 and _Decimal64 are SSE.
     // FIXME: _float128 and _Decimal128 are (SSE, SSEUp).
@@ -2686,6 +2745,12 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase,
         Current = Integer;
       else if (Size <= 128)
         Lo = Hi = Integer;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    } else if (ET->isFloat16Type()) {
+      Current = SSE;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     } else if (ET == getContext().FloatTy) {
       Current = SSE;
     } else if (ET == getContext().DoubleTy) {
@@ -2973,6 +3038,7 @@ llvm::Type *X86_64ABIInfo::GetByteVectorType(QualType Ty) const {
     Ty = QualType(InnerTy, 0);
 
   llvm::Type *IRType = CGT.ConvertType(Ty);
+
   if (isa<llvm::VectorType>(IRType) ||
       IRType->getTypeID() == llvm::Type::FP128TyID)
     return IRType;
@@ -3099,12 +3165,86 @@ static bool ContainsFloatAtOffset(llvm::Type *IRType, unsigned IROffset,
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+/// ContainsHalfAtOffset - Return true if the specified LLVM IR type has a
+/// half member at the specified offset.  For example, {int,{half}} has a
+/// float at offset 4.  It is conservatively correct for this routine to return
+/// false.
+/// FIXME: Merge with ContainsFloatAtOffset
+static bool ContainsHalfAtOffset(llvm::Type *IRType, unsigned IROffset,
+                                  const llvm::DataLayout &TD) {
+  // Base case if we find a float.
+  if (IROffset == 0 && IRType->isHalfTy())
+    return true;
+
+  // If this is a struct, recurse into the field at the specified offset.
+  if (llvm::StructType *STy = dyn_cast<llvm::StructType>(IRType)) {
+    const llvm::StructLayout *SL = TD.getStructLayout(STy);
+    unsigned Elt = SL->getElementContainingOffset(IROffset);
+    IROffset -= SL->getElementOffset(Elt);
+    return ContainsHalfAtOffset(STy->getElementType(Elt), IROffset, TD);
+  }
+
+  // If this is an array, recurse into the field at the specified offset.
+  if (llvm::ArrayType *ATy = dyn_cast<llvm::ArrayType>(IRType)) {
+    llvm::Type *EltTy = ATy->getElementType();
+    unsigned EltSize = TD.getTypeAllocSize(EltTy);
+    IROffset -= IROffset/EltSize*EltSize;
+    return ContainsHalfAtOffset(EltTy, IROffset, TD);
+  }
+
+  return false;
+}
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
 /// GetSSETypeAtOffset - Return a type that will be passed by the backend in the
 /// low 8 bytes of an XMM register, corresponding to the SSE class.
 llvm::Type *X86_64ABIInfo::
 GetSSETypeAtOffset(llvm::Type *IRType, unsigned IROffset,
                    QualType SourceTy, unsigned SourceOffset) const {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  // If only 16 bits are used, pass in half.
+  if (BitsContainNoUserData(SourceTy, SourceOffset*8+16,
+                            SourceOffset*8+64, getContext()))
+    return llvm::Type::getHalfTy(getVMContext());
+
+  // If only 32 bits are used, we have two choices. Single float or two halfs.
+  if (BitsContainNoUserData(SourceTy, SourceOffset*8+32,
+                            SourceOffset*8+64, getContext())) {
+    if (ContainsHalfAtOffset(IRType, IROffset, getDataLayout()) &&
+        ContainsHalfAtOffset(IRType, IROffset+2, getDataLayout()))
+      return llvm::VectorType::get(llvm::Type::getHalfTy(getVMContext()), 2);
+    return llvm::Type::getFloatTy(getVMContext());
+  }
+
+  // If 48 bits are used, we pass as <3 x half>.
+  if (BitsContainNoUserData(SourceTy, SourceOffset*8+48,
+                            SourceOffset*8+64, getContext())) {
+    return llvm::VectorType::get(llvm::Type::getHalfTy(getVMContext()), 3);
+  }
+
+  // We want to pass as <2 x float> if the LLVM IR type contains a float at
+  // offset+0 and offset+4.  Walk the LLVM IR type to find out if this is the
+  // case.
+  if (ContainsFloatAtOffset(IRType, IROffset, getDataLayout()) &&
+      ContainsFloatAtOffset(IRType, IROffset+4, getDataLayout()))
+    return llvm::VectorType::get(llvm::Type::getFloatTy(getVMContext()), 2);
+
+  // We want to pass as <4 x half> if the LLVM IR type contains a half at
+  // offset+0, +2, +4, +6.  Walk the LLVM IR type to find out if this is the
+  // case.
+  if (ContainsHalfAtOffset(IRType, IROffset, getDataLayout()) &&
+      ContainsHalfAtOffset(IRType, IROffset+2, getDataLayout()) &&
+      ContainsHalfAtOffset(IRType, IROffset+4, getDataLayout()) &&
+      ContainsHalfAtOffset(IRType, IROffset+6, getDataLayout()))
+    return llvm::VectorType::get(llvm::Type::getHalfTy(getVMContext()), 4);
+
+  // TODO: What about mixes of float and half?
+
+#else // INTEL_FEATURE_ISA_FP16
   // The only three choices we have are either double, <2 x float>, or float. We
   // pass as float if the last 4 bytes is just padding.  This happens for
   // structs that contain 3 floats.
@@ -3118,6 +3258,8 @@ GetSSETypeAtOffset(llvm::Type *IRType, unsigned IROffset,
   if (ContainsFloatAtOffset(IRType, IROffset, getDataLayout()) &&
       ContainsFloatAtOffset(IRType, IROffset+4, getDataLayout()))
     return llvm::VectorType::get(llvm::Type::getFloatTy(getVMContext()), 2);
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
   return llvm::Type::getDoubleTy(getVMContext());
 }
@@ -3560,6 +3702,11 @@ ABIArgInfo X86_64ABIInfo::classifyRegCallStructType(QualType Ty,
 }
 
 void X86_64ABIInfo::computeInfo(CGFunctionInfo &FI) const {
+#if INTEL_CUSTOMIZATION
+  ASTContext &Context = getContext();
+  if (doOpenCLClassification(FI, Context))
+    return;
+#endif // INTEL_CUSTOMIZATION
 
   const unsigned CallingConv = FI.getCallingConvention();
   // It is possible to force Win64 calling convention on any x86_64 target by
@@ -4020,6 +4167,12 @@ void WinX86_64ABIInfo::computeVectorCallArgs(CGFunctionInfo &FI,
 }
 
 void WinX86_64ABIInfo::computeInfo(CGFunctionInfo &FI) const {
+#if INTEL_CUSTOMIZATION
+  ASTContext &Context = getContext();
+  if (doOpenCLClassification(FI, Context))
+    return;
+#endif // INTEL_CUSTOMIZATION
+
   const unsigned CC = FI.getCallingConvention();
   bool IsVectorCall = CC == llvm::CallingConv::X86_VectorCall;
   bool IsRegCall = CC == llvm::CallingConv::X86_RegCall;
@@ -6216,7 +6369,11 @@ bool ARMABIInfo::isHomogeneousAggregateBaseType(QualType Ty) const {
   if (const BuiltinType *BT = Ty->getAs<BuiltinType>()) {
     if (BT->getKind() == BuiltinType::Float ||
         BT->getKind() == BuiltinType::Double ||
-        BT->getKind() == BuiltinType::LongDouble)
+        BT->getKind() == BuiltinType::LongDouble
+#if INTEL_CUSTOMIZATION
+        || BT->getKind() == BuiltinType::Float128
+#endif  // INTEL_CUSTOMIZATION
+       )
       return true;
   } else if (const VectorType *VT = Ty->getAs<VectorType>()) {
     unsigned VecSize = getContext().getTypeSize(VT);
@@ -8833,6 +8990,19 @@ public:
   SPIRTargetCodeGenInfo(CodeGen::CodeGenTypes &CGT)
     : TargetCodeGenInfo(new DefaultABIInfo(CGT)) {}
   unsigned getOpenCLKernelCallingConv() const override;
+
+#if INTEL_COLLAB
+  LangAS getASTAllocaAddressSpace() const override {
+    // The method is used to cast results of alloca instructions,
+    // generated by clang, to LangAS::Default address space,
+    // if the alloca address space does not match LangAS::Default.
+    if (getABIInfo().getContext().getLangOpts().UseAutoOpenCLAddrSpaceForOpenMP)
+      return getLangASFromTargetAS(
+          getABIInfo().getDataLayout().getAllocaAddrSpace());
+
+    return LangAS::Default;
+  }
+#endif  // INTEL_COLLAB
 };
 
 } // End anonymous namespace.

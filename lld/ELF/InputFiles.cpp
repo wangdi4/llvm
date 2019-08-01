@@ -47,6 +47,7 @@ std::vector<BitcodeFile *> elf::bitcodeFiles;
 std::vector<LazyObjFile *> elf::lazyObjFiles;
 std::vector<InputFile *> elf::objectFiles;
 std::vector<SharedFile *> elf::sharedFiles;
+std::vector<InputFile *> elf::gNULTOFiles;    // INTEL
 
 std::unique_ptr<TarWriter> elf::tar;
 
@@ -185,6 +186,14 @@ template <class ELFT> static void doParseFile(InputFile *file) {
   // Regular object file
   objectFiles.push_back(file);
   cast<ObjFile<ELFT>>(file)->parse();
+#if INTEL_CUSTOMIZATION
+  // If the input file is a GNU LTO file then add it
+  // into the GNULTOFiles vector.
+  if (file->isGNULTOFile) {
+    objectFiles.pop_back();
+    gNULTOFiles.push_back(file);
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 // Add symbols in File to the symbol table.
@@ -577,6 +586,14 @@ void ObjFile<ELFT>::initializeSections(bool ignoreComdats) {
     if (this->sections[i] == &InputSection::discarded)
       continue;
     const Elf_Shdr &sec = objSections[i];
+
+#if INTEL_CUSTOMIZATION
+    // If the section name starts with .gnu.lto then a GNU
+    // LTO file was found.
+    StringRef sectionName = getSectionName(sec);
+    if (sectionName.startswith(".gnu.lto"))
+      this->isGNULTOFile = true;
+#endif
 
     if (sec.sh_type == ELF::SHT_LLVM_CALL_GRAPH_PROFILE)
       cgProfile =
@@ -1154,6 +1171,30 @@ void ArchiveFile::fetch(const Archive::Symbol &sym) {
             toString(this) +
                 ": could not get the buffer for the member defining symbol " +
                 sym.getName());
+
+#if INTEL_CUSTOMIZATION
+  // If the parent is a thin archive and the child is an archive that
+  // isn't ELF then there is a possibility that is an archive with a
+  // GNU LTO member. In this case we just pull that archive and parse
+  // it.
+  //
+  // Note: Archives within archives are not permitted, only thin archives
+  // with archives.
+  if (c.getParent()->isThin() && !mb.getBuffer().startswith(ElfMagic)) {
+    auto binaryOrErr = CHECK(createBinary(mb), ": could not get the buffer "
+                             "for the archive");
+    Binary *bin = binaryOrErr.get();
+
+    if (bin && bin->isArchive()) {
+      std::unique_ptr<Archive> archFile =
+          CHECK(Archive::create(mb), bin->getFileName() +
+            ": failed to parse archive");
+      ArchiveFile *newArchFile = make<ArchiveFile>(std::move(archFile));
+      parseFile(newArchFile);
+      return;
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (tar && c.getParent()->isThin())
     tar->append(relativeToRoot(CHECK(c.getFullName(), this)), mb.getBuffer());

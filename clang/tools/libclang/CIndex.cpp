@@ -1773,6 +1773,14 @@ bool CursorVisitor::Visit##CLASS##TypeLoc(CLASS##TypeLoc TL) { \
   return Visit##PARENT##Loc(TL); \
 }
 
+#if INTEL_CUSTOMIZATION
+bool CursorVisitor::VisitChannelTypeLoc(ChannelTypeLoc TL) {
+  return Visit(TL.getValueLoc());
+}
+DEFAULT_TYPELOC_IMPL(ArbPrecInt, Type)
+DEFAULT_TYPELOC_IMPL(DependentSizedArbPrecInt, Type)
+#endif // INTEL_CUSTOMIZATION
+
 DEFAULT_TYPELOC_IMPL(Complex, Type)
 DEFAULT_TYPELOC_IMPL(ConstantArray, ArrayType)
 DEFAULT_TYPELOC_IMPL(IncompleteArray, ArrayType)
@@ -2166,6 +2174,17 @@ void OMPClauseEnqueue::VisitOMPNumThreadsClause(const OMPNumThreadsClause *C) {
   VisitOMPClauseWithPreInit(C);
   Visitor->AddStmt(C->getNumThreads());
 }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+void OMPClauseEnqueue::VisitOMPDataflowClause(const OMPDataflowClause *C) {
+  VisitOMPClauseWithPreInit(C);
+  Visitor->AddStmt(C->getStaticChunkSize());
+  Visitor->AddStmt(C->getNumWorkersNum());
+  Visitor->AddStmt(C->getPipelineDepth());
+}
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
 void OMPClauseEnqueue::VisitOMPSafelenClause(const OMPSafelenClause *C) {
   Visitor->AddStmt(C->getSafelen());
@@ -5410,6 +5429,10 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
     return cxstring::createRef("OMPSectionsDirective");
   case CXCursor_OMPSectionDirective:
     return cxstring::createRef("OMPSectionDirective");
+#if INTEL_CUSTOMIZATION
+  case CXCursor_OMPTargetVariantDispatchDirective:
+    return cxstring::createRef("OMPTargetVariantDispatchDirective");
+#endif // INTEL_CUSTOMIZATION
   case CXCursor_OMPSingleDirective:
     return cxstring::createRef("OMPSingleDirective");
   case CXCursor_OMPMasterDirective:

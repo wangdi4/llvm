@@ -181,6 +181,10 @@ class CGDebugInfo {
   llvm::DIType *CreateType(const RValueReferenceType *Ty, llvm::DIFile *Unit);
   llvm::DIType *CreateType(const MemberPointerType *Ty, llvm::DIFile *F);
   llvm::DIType *CreateType(const AtomicType *Ty, llvm::DIFile *F);
+#if INTEL_CUSTOMIZATION
+  llvm::DIType *CreateType(const ChannelType *Ty, llvm::DIFile *F);
+  llvm::DIType *CreateType(const ArbPrecIntType *Ty, llvm::DIFile *F);
+#endif // INTEL_CUSTOMIZATION
   llvm::DIType *CreateType(const PipeType *Ty, llvm::DIFile *F);
   /// Get enumeration type.
   llvm::DIType *CreateEnumType(const EnumType *Ty);
@@ -421,6 +425,11 @@ public:
 
   /// Constructs the debug code for exiting a function.
   void EmitFunctionEnd(CGBuilderTy &Builder, llvm::Function *Fn);
+
+#if INTEL_CUSTOMIZATION
+  // Marks a function as being a thunk routine.
+  void setIsThunk(llvm::Function *Fn);
+#endif // INTEL_CUSTOMIZATION
 
   /// Emit metadata to indicate the beginning of a new lexical block
   /// and push the block onto the stack.

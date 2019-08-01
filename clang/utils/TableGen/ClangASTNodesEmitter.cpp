@@ -87,6 +87,10 @@ std::pair<Record *, Record *> ClangASTNodesEmitter::EmitNode(
     bool Abstract = R->getValueAsBit("Abstract");
     std::string NodeName = macroName(R->getName());
 
+#if INTEL_CUSTOMIZATION
+    if (R->getValue("OpenGuard"))
+      OS << R->getValueAsString("OpenGuard") << "\n";
+#endif // INTEL_CUSTOMIZATION
     OS << "#ifndef " << NodeName << "\n";
     OS << "#  define " << NodeName << "(Type, Base) "
         << BaseName << "(Type, Base)\n";
@@ -115,7 +119,11 @@ std::pair<Record *, Record *> ClangASTNodesEmitter::EmitNode(
       }
     }
 
-    OS << "#undef " << NodeName << "\n\n";
+    OS << "#undef " << NodeName << "\n"; // INTEL
+#if INTEL_CUSTOMIZATION
+    if (R->getValue("CloseGuard"))
+      OS << R->getValueAsString("CloseGuard") << "\n\n";
+#endif // INTEL_CUSTOMIZATION
   }
 
   if (First) {

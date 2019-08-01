@@ -16,6 +16,9 @@
 #include "CGDebugInfo.h"
 #include "CGOpenCLRuntime.h"
 #include "CGOpenMPRuntime.h"
+#if INTEL_COLLAB
+#include "intel/CGOpenMPLateOutline.h"
+#endif // INTEL_COLLAB
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
 #include "ConstantEmitter.h"
@@ -163,6 +166,10 @@ void CodeGenFunction::EmitDecl(const Decl &D) {
 /// EmitVarDecl - This method handles emission of any variable declaration
 /// inside a function, including static vars etc.
 void CodeGenFunction::EmitVarDecl(const VarDecl &D) {
+#if INTEL_COLLAB
+  if (CapturedStmtInfo)
+    CapturedStmtInfo->recordVariableDefinition(&D);
+#endif  // INTEL_COLLAB
   if (D.hasExternalStorage())
     // Don't emit it now, allow it to be emitted lazily on its first use.
     return;
@@ -421,6 +428,18 @@ void CodeGenFunction::EmitStaticVarDecl(const VarDecl &D,
   if (D.hasAttr<AnnotateAttr>())
     CGM.AddGlobalAnnotations(&D, var);
 
+#if INTEL_CUSTOMIZATION
+  // Emit HLS attribute annotation for a local static variable.
+  if (getLangOpts().HLS ||
+      (getLangOpts().OpenCL &&
+       CGM.getContext().getTargetInfo().getTriple().isINTELFPGAEnvironment()))
+    CGM.addGlobalHLSAnnotation(&D, var);
+
+  if (getLangOpts().OpenMPThreadPrivateLegacy &&
+      D.hasAttr<OMPThreadPrivateDeclAttr>())
+    var->setThreadPrivate(true);
+#endif // INTEL_CUSTOMIZATION
+
   if (auto *SA = D.getAttr<PragmaClangBSSSectionAttr>())
     var->addAttribute("bss-section", SA->getName());
   if (auto *SA = D.getAttr<PragmaClangDataSectionAttr>())
@@ -480,12 +499,11 @@ namespace {
 
   template <class Derived>
   struct DestroyNRVOVariable : EHScopeStack::Cleanup {
-    DestroyNRVOVariable(Address addr, QualType type, llvm::Value *NRVOFlag)
-        : NRVOFlag(NRVOFlag), Loc(addr), Ty(type) {}
+    DestroyNRVOVariable(Address addr, llvm::Value *NRVOFlag)
+        : NRVOFlag(NRVOFlag), Loc(addr) {}
 
     llvm::Value *NRVOFlag;
     Address Loc;
-    QualType Ty;
 
     void Emit(CodeGenFunction &CGF, Flags flags) override {
       // Along the exceptions path we always execute the dtor.
@@ -512,24 +530,26 @@ namespace {
 
   struct DestroyNRVOVariableCXX final
       : DestroyNRVOVariable<DestroyNRVOVariableCXX> {
-    DestroyNRVOVariableCXX(Address addr, QualType type,
-                           const CXXDestructorDecl *Dtor, llvm::Value *NRVOFlag)
-        : DestroyNRVOVariable<DestroyNRVOVariableCXX>(addr, type, NRVOFlag),
-          Dtor(Dtor) {}
+    DestroyNRVOVariableCXX(Address addr, const CXXDestructorDecl *Dtor,
+                           llvm::Value *NRVOFlag)
+      : DestroyNRVOVariable<DestroyNRVOVariableCXX>(addr, NRVOFlag),
+        Dtor(Dtor) {}
 
     const CXXDestructorDecl *Dtor;
 
     void emitDestructorCall(CodeGenFunction &CGF) {
       CGF.EmitCXXDestructorCall(Dtor, Dtor_Complete,
                                 /*ForVirtualBase=*/false,
-                                /*Delegating=*/false, Loc, Ty);
+                                /*Delegating=*/false, Loc);
     }
   };
 
   struct DestroyNRVOVariableC final
       : DestroyNRVOVariable<DestroyNRVOVariableC> {
     DestroyNRVOVariableC(Address addr, llvm::Value *NRVOFlag, QualType Ty)
-        : DestroyNRVOVariable<DestroyNRVOVariableC>(addr, Ty, NRVOFlag) {}
+        : DestroyNRVOVariable<DestroyNRVOVariableC>(addr, NRVOFlag), Ty(Ty) {}
+
+    QualType Ty;
 
     void emitDestructorCall(CodeGenFunction &CGF) {
       CGF.destroyNonTrivialCStruct(CGF, Loc, Ty);
@@ -750,6 +770,19 @@ void CodeGenFunction::EmitScalarInit(const Expr *init, const ValueDecl *D,
     llvm::Value *value = EmitScalarExpr(init);
     if (capturedByInit)
       drillIntoBlockVariable(*this, lvalue, cast<VarDecl>(D));
+#if INTEL_CUSTOMIZATION
+    if (CGM.getCodeGenOpts().OptimizationLevel >= 2) {
+      llvm::Value *V = lvalue.getPointer();
+      if (V && V->hasName()) {
+        auto Intrin = getContainerIntrinsic(
+            CodeGenModule::SCOK_ContainerPtrIterator, V->getName());
+        if (Intrin != llvm::Intrinsic::not_intrinsic) {
+          auto IFunc = CGM.getIntrinsic(Intrin, value->getType());
+          value = Builder.CreateCall(IFunc, {value});
+        }
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
     EmitNullabilityCheck(lvalue, value, init->getExprLoc());
     EmitStoreThroughLValue(RValue::get(value), lvalue, true);
     return;
@@ -1574,6 +1607,34 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
                                         UsePointerValue);
   }
 
+#if INTEL_CUSTOMIZATION
+  // Emit HLS attribute annotation for a local variable.
+  if (getLangOpts().HLS ||
+      (getLangOpts().OpenCL &&
+       CGM.getContext().getTargetInfo().getTriple().isINTELFPGAEnvironment())) {
+    SmallString<256> AnnotStr;
+    CGM.generateHLSAnnotation(&D, AnnotStr);
+    if (!AnnotStr.empty()) {
+      llvm::Value *V = address.getPointer();
+      EmitAnnotationCall(CGM.getIntrinsic(llvm::Intrinsic::var_annotation),
+                         Builder.CreateBitCast(V, CGM.Int8PtrTy, V->getName()),
+                         AnnotStr, D.getLocation());
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
+  // Emit Intel FPGA attribute annotation for a local variable.
+  if (getLangOpts().SYCLIsDevice) {
+    SmallString<256> AnnotStr;
+    CGM.generateIntelFPGAAnnotation(&D, AnnotStr);
+    if (!AnnotStr.empty()) {
+      llvm::Value *V = address.getPointer();
+      EmitAnnotationCall(CGM.getIntrinsic(llvm::Intrinsic::var_annotation),
+                         Builder.CreateBitCast(V, CGM.Int8PtrTy, V->getName()),
+                         AnnotStr, D.getLocation());
+    }
+  }
+
   if (D.hasAttr<AnnotateAttr>() && HaveInsertPoint())
     EmitVarAnnotations(&D, address.getPointer());
 
@@ -1939,7 +2000,7 @@ void CodeGenFunction::emitAutoVarTypeCleanup(
     if (emission.NRVOFlag) {
       assert(!type->isArrayType());
       CXXDestructorDecl *dtor = type->getAsCXXRecordDecl()->getDestructor();
-      EHStack.pushCleanup<DestroyNRVOVariableCXX>(cleanupKind, addr, type, dtor,
+      EHStack.pushCleanup<DestroyNRVOVariableCXX>(cleanupKind, addr, dtor,
                                                   emission.NRVOFlag);
       return;
     }

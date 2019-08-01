@@ -243,6 +243,84 @@ void Parser::ParseGNUAttributes(ParsedAttributes &attrs,
   }
 }
 
+#if INTEL_CUSTOMIZATION
+/// Build full attribute name based in its Syntax, Scope and ID
+static void fillAttrFullName(const IdentifierInfo &II,
+                             ParsedAttr::Syntax Syntax,
+                             IdentifierInfo *ScopeName, std::string &Result) {
+  std::string Variety, Scope;
+  switch (Syntax) {
+  case ParsedAttr::Syntax::AS_GNU:
+    Variety = "GNU";
+    break;
+  case ParsedAttr::Syntax::AS_CXX11:
+    Variety = "CXX11";
+    if (ScopeName)
+      Scope = ScopeName->getName();
+    break;
+  case ParsedAttr::Syntax::AS_Declspec:
+    Variety = "Declspec";
+    break;
+  case ParsedAttr::Syntax::AS_Keyword:
+    // FIXME:  add AS_ContextSensitiveKeyword
+    Variety = "Keyword";
+    break;
+  default:
+    Variety = "GNU";
+  }
+  Result = Variety + "::" + (Scope.length() > 0 ? Scope + "::" : "") +
+           normalizeAttrName(II.getName()).str();
+}
+
+/// Determine whether the given attribute has an identifier argument.
+static bool attributeHasIdentifierArg(const IdentifierInfo &II,
+                                      ParsedAttr::Syntax Syntax,
+                                      IdentifierInfo *ScopeName) {
+  std::string FullName;
+  fillAttrFullName(II, Syntax, ScopeName, FullName);
+#define CLANG_ATTR_IDENTIFIER_ARG_LIST
+  return llvm::StringSwitch<bool>(FullName)
+#include "clang/Parse/AttrParserStringSwitches.inc"
+      .Default(false);
+#undef CLANG_ATTR_IDENTIFIER_ARG_LIST
+}
+
+/// Determine whether the given attribute has a variadic identifier argument.
+static bool attributeHasVariadicIdentifierArg(const IdentifierInfo &II) {
+#define CLANG_ATTR_VARIADIC_IDENTIFIER_ARG_LIST
+  return llvm::StringSwitch<bool>(normalizeAttrName(II.getName()))
+#include "clang/Parse/AttrParserStringSwitches.inc"
+           .Default(false);
+#undef CLANG_ATTR_VARIADIC_IDENTIFIER_ARG_LIST
+}
+
+/// Determine whether the given attribute parses a type argument.
+static bool attributeIsTypeArgAttr(const IdentifierInfo &II,
+                                      ParsedAttr::Syntax Syntax,
+                                      IdentifierInfo *ScopeName) {
+  std::string FullName;
+  fillAttrFullName(II, Syntax, ScopeName, FullName);
+#define CLANG_ATTR_TYPE_ARG_LIST
+  return llvm::StringSwitch<bool>(FullName)
+#include "clang/Parse/AttrParserStringSwitches.inc"
+           .Default(false);
+#undef CLANG_ATTR_TYPE_ARG_LIST
+}
+
+/// Determine whether the given attribute requires parsing its arguments
+/// in an unevaluated context or not.
+static bool attributeParsedArgsUnevaluated(const IdentifierInfo &II,
+                                      ParsedAttr::Syntax Syntax,
+                                      IdentifierInfo *ScopeName) {
+  std::string FullName;
+  fillAttrFullName(II, Syntax, ScopeName, FullName);
+#define CLANG_ATTR_ARG_CONTEXT_LIST
+  return llvm::StringSwitch<bool>(FullName)
+#include "clang/Parse/AttrParserStringSwitches.inc"
+           .Default(false);
+#undef CLANG_ATTR_ARG_CONTEXT_LIST
+}
+#else
 /// Determine whether the given attribute has an identifier argument.
 static bool attributeHasIdentifierArg(const IdentifierInfo &II) {
 #define CLANG_ATTR_IDENTIFIER_ARG_LIST
@@ -259,15 +337,6 @@ static bool attributeHasVariadicIdentifierArg(const IdentifierInfo &II) {
 #include "clang/Parse/AttrParserStringSwitches.inc"
            .Default(false);
 #undef CLANG_ATTR_VARIADIC_IDENTIFIER_ARG_LIST
-}
-
-/// Determine whether the given attribute treats kw_this as an identifier.
-static bool attributeTreatsKeywordThisAsIdentifier(const IdentifierInfo &II) {
-#define CLANG_ATTR_THIS_ISA_IDENTIFIER_ARG_LIST
-  return llvm::StringSwitch<bool>(normalizeAttrName(II.getName()))
-#include "clang/Parse/AttrParserStringSwitches.inc"
-           .Default(false);
-#undef CLANG_ATTR_THIS_ISA_IDENTIFIER_ARG_LIST
 }
 
 /// Determine whether the given attribute parses a type argument.
@@ -287,6 +356,16 @@ static bool attributeParsedArgsUnevaluated(const IdentifierInfo &II) {
 #include "clang/Parse/AttrParserStringSwitches.inc"
            .Default(false);
 #undef CLANG_ATTR_ARG_CONTEXT_LIST
+}
+#endif // INTEL_CUSTOMIZATION
+
+/// Determine whether the given attribute treats kw_this as an identifier.
+static bool attributeTreatsKeywordThisAsIdentifier(const IdentifierInfo &II) {
+#define CLANG_ATTR_THIS_ISA_IDENTIFIER_ARG_LIST
+  return llvm::StringSwitch<bool>(normalizeAttrName(II.getName()))
+#include "clang/Parse/AttrParserStringSwitches.inc"
+           .Default(false);
+#undef CLANG_ATTR_THIS_ISA_IDENTIFIER_ARG_LIST
 }
 
 IdentifierLoc *Parser::ParseIdentifierLoc() {
@@ -343,8 +422,11 @@ unsigned Parser::ParseAttributeArgsCommon(
   ArgsVector ArgExprs;
   if (Tok.is(tok::identifier)) {
     // If this attribute wants an 'identifier' argument, make it so.
-    bool IsIdentifierArg = attributeHasIdentifierArg(*AttrName) ||
+#if INTEL_CUSTOMIZATION
+    bool IsIdentifierArg =
+        attributeHasIdentifierArg(*AttrName, Syntax, ScopeName) ||
                            attributeHasVariadicIdentifierArg(*AttrName);
+#endif // INTEL_CUSTOMIZATION
     ParsedAttr::Kind AttrKind =
         ParsedAttr::getKind(AttrName, ScopeName, Syntax);
 
@@ -373,10 +455,15 @@ unsigned Parser::ParseAttributeArgsCommon(
 
       ExprResult ArgExpr;
       if (Tok.is(tok::identifier) &&
+#if INTEL_CUSTOMIZATION
           attributeHasVariadicIdentifierArg(*AttrName)) {
+#endif // INTEL_CUSTOMIZATION
         ArgExprs.push_back(ParseIdentifierLoc());
       } else {
-        bool Uneval = attributeParsedArgsUnevaluated(*AttrName);
+#if INTEL_CUSTOMIZATION
+        bool Uneval = attributeParsedArgsUnevaluated(*AttrName, Syntax,
+                                                   ScopeName);
+#endif // INTEL_CUSTOMIZATION
         EnterExpressionEvaluationContext Unevaluated(
             Actions,
             Uneval ? Sema::ExpressionEvaluationContext::Unevaluated
@@ -439,7 +526,9 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
     ParseTypeTagForDatatypeAttribute(*AttrName, AttrNameLoc, Attrs, EndLoc,
                                      ScopeName, ScopeLoc, Syntax);
     return;
-  } else if (attributeIsTypeArgAttr(*AttrName)) {
+#if INTEL_CUSTOMIZATION
+  } else if (attributeIsTypeArgAttr(*AttrName, Syntax, ScopeName)) {
+#endif // INTEL_CUSTOMIZATION
     ParseAttributeWithTypeArg(*AttrName, AttrNameLoc, Attrs, EndLoc, ScopeName,
                               ScopeLoc, Syntax);
     return;
@@ -716,6 +805,7 @@ void Parser::ParseMicrosoftTypeAttributes(ParsedAttributes &attrs) {
   while (true) {
     switch (Tok.getKind()) {
     case tok::kw___fastcall:
+    case tok::kw__regcall:  // INTEL
     case tok::kw___stdcall:
     case tok::kw___thiscall:
     case tok::kw___regcall:
@@ -1649,6 +1739,7 @@ void Parser::DiagnoseMisplacedCXX11Attribute(ParsedAttributesWithRange &Attrs,
   SourceLocation Loc = Tok.getLocation();
   ParseCXX11Attributes(Attrs);
   CharSourceRange AttrRange(SourceRange(Loc, Attrs.Range.getEnd()), true);
+
   // FIXME: use err_attributes_misplaced
   Diag(Loc, diag::err_attributes_not_allowed)
     << FixItHint::CreateInsertionFromRange(CorrectLocation, AttrRange)
@@ -2416,6 +2507,15 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
       Actions.AddInitializerToDecl(ThisDecl, Initializer.get(),
                                    /*DirectInit=*/true);
     }
+#if INTEL_CUSTOMIZATION
+// Fix for CQ376508: attributes must be ignored after parenthesized initializer.
+    if (getLangOpts().IntelCompat && !getLangOpts().IntelMSCompat &&
+        Tok.is(tok::kw___attribute)) {
+      ParsedAttributes Attrs(AttrFactory);
+      ParseGNUAttributes(Attrs);
+      Diag(Tok.getLocation(), diag::warn_attributes_ignored_after_init);
+    }
+#endif // INTEL_CUSTOMIZATION
   } else if (getLangOpts().CPlusPlus11 && Tok.is(tok::l_brace) &&
              (!CurParsedObjCImpl || !D.isFunctionDeclarator())) {
     // Parse C++0x braced-init-list.
@@ -2431,7 +2531,6 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
       Actions.ActOnInitializerError(ThisDecl);
     } else
       Actions.AddInitializerToDecl(ThisDecl, Init.get(), /*DirectInit=*/true);
-
   } else {
     Actions.ActOnUninitializedDecl(ThisDecl);
   }
@@ -3041,8 +3140,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
         // Reject C++11 attributes that appertain to decl specifiers as
         // we don't support any C++11 attributes that appertain to decl
         // specifiers. This also conforms to what g++ 4.8 is doing.
-        ProhibitCXX11Attributes(attrs, diag::err_attribute_not_type_attr);
-
+	ProhibitCXX11Attributes(attrs, diag::err_attribute_not_type_attr);
         DS.takeAttributesFrom(attrs);
       }
 
@@ -3254,7 +3352,13 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       //   static const bool __is_signed;
       //
       // then treat __is_signed as an identifier rather than as a keyword.
-      if (DS.getTypeSpecType() == TST_bool &&
+      if ((DS.getTypeSpecType() == TST_bool ||  // INTEL
+      // CQ414772: ensure __is_signed is still an identifier in libstdc++
+      // even if the return type is hidden by a typedef.
+           (DS.getTypeSpecType() == TST_typename && // INTEL
+            DS.isTypeRep() &&// INTEL
+            DS.getRepAsType().get().getTypePtr()->isBooleanType()) // INTEL
+          ) &&
           DS.getTypeQualifiers() == DeclSpec::TQ_const &&
           DS.getStorageClassSpec() == DeclSpec::SCS_static)
         TryKeywordIdentFallback(true);
@@ -3452,6 +3556,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
     case tok::kw___cdecl:
     case tok::kw___stdcall:
     case tok::kw___fastcall:
+    case tok::kw__regcall:  // INTEL
     case tok::kw___thiscall:
     case tok::kw___regcall:
     case tok::kw___vectorcall:
@@ -3750,6 +3855,12 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
           DS.getTypeSpecType() != DeclSpec::TST_unspecified &&
           DS.getStorageClassSpec() == DeclSpec::SCS_typedef) {
         PrevSpec = ""; // Not used by the diagnostic.
+#if INTEL_CUSTOMIZATION
+        // CQ#376357: Allow bool redeclaration.
+        if (getLangOpts().IntelCompat && getLangOpts().GnuPermissive)
+          DiagID = diag::warn_bool_redeclaration;
+        else
+#endif  // INTEL_CUSTOMIZATION
         DiagID = diag::err_bool_redeclaration;
         // For better error recovery.
         Tok.setKind(tok::identifier);
@@ -3781,8 +3892,11 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       isInvalid = DS.SetTypeAltiVecBool(true, Loc, PrevSpec, DiagID, Policy);
       break;
     case tok::kw_pipe:
+#if INTEL_CUSTOMIZATION
       if (!getLangOpts().OpenCL || (getLangOpts().OpenCLVersion < 200 &&
-                                    !getLangOpts().OpenCLCPlusPlus)) {
+                                    !getLangOpts().OpenCLCPlusPlus &&
+          !getTargetInfo().getTriple().isINTELFPGAEnvironment())) {
+#endif // INTEL_CUSTOMIZATION
         // OpenCL 2.0 defined this keyword. OpenCL 1.2 and earlier should
         // support the "pipe" word as identifier.
         Tok.getIdentifierInfo()->revertTokenIDToIdentifier();
@@ -3790,6 +3904,19 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       }
       isInvalid = DS.SetTypePipe(true, Loc, PrevSpec, DiagID, Policy);
       break;
+#if INTEL_CUSTOMIZATION
+    case tok::kw_channel:
+      if (!getLangOpts().OpenCL ||
+          !getTargetInfo().getSupportedOpenCLOpts()
+          .isSupported("cl_intel_channels", getLangOpts())) {
+        // 'channel' is a keyword only for OpenCL with cl_intel_channels
+        // extension
+        Tok.setKind(tok::identifier);
+        continue;
+      }
+      isInvalid = DS.SetTypeChannel(true, Loc, PrevSpec, DiagID, Policy);
+      break;
+#endif // INTEL_CUSTOMIZATION
 #define GENERIC_IMAGE_TYPE(ImgType, Id) \
   case tok::kw_##ImgType##_t: \
     isInvalid = DS.SetTypeSpecType(DeclSpec::TST_##ImgType##_t, Loc, PrevSpec, \
@@ -3899,6 +4026,10 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
 
     // OpenCL address space qualifiers:
     case tok::kw___generic:
+#if INTEL_CUSTOMIZATION
+      // CQ381345: OpenCL is not supported in Intel compatibility mode.
+      if (!Actions.getLangOpts().IntelCompat)
+#endif // INTEL_CUSTOMIZATION
       // generic address space is introduced only in OpenCL v2.0
       // see OpenCL C Spec v2.0 s6.5.5
       if (Actions.getLangOpts().OpenCLVersion < 200 &&
@@ -3968,7 +4099,11 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
         Diag(Loc, DiagID) << PrevSpec;
     }
 
-    if (DiagID != diag::err_bool_redeclaration && ConsumedEnd.isInvalid())
+#if INTEL_CUSTOMIZATION
+    // CQ#376357: Allow bool redeclaration.
+    if (DiagID != diag::err_bool_redeclaration &&
+        DiagID != diag::warn_bool_redeclaration && ConsumedEnd.isInvalid())
+#endif // INTEL_CUSTOMIZATION
       // After an error the next token can be an annotation token.
       ConsumeAnyToken();
 
@@ -4594,7 +4729,17 @@ void Parser::ParseEnumBody(SourceLocation StartLoc, Decl *EnumDecl) {
 
   // C does not allow an empty enumerator-list, C++ does [dcl.enum].
   if (Tok.is(tok::r_brace) && !getLangOpts().CPlusPlus)
-    Diag(Tok, diag::err_empty_enum);
+#if INTEL_CUSTOMIZATION
+  {
+    // CQ#364426 - emit a warning in IntelCompat mode
+    if (getLangOpts().IntelCompat)
+      Diag(Tok, diag::warn_empty_enum);
+    else
+#endif  // INTEL_CUSTOMIZATION
+      Diag(Tok, diag::err_empty_enum);
+#if INTEL_CUSTOMIZATION
+  }
+#endif // INTEL_CUSTOMIZATION
 
   SmallVector<Decl *, 32> EnumConstantDecls;
   SmallVector<SuppressAccessChecks, 32> EnumAvailabilityDiags;
@@ -4862,10 +5007,16 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::less:
     return getLangOpts().ObjC;
 
+#if INTEL_CUSTOMIZATION
+    // CQ381345: OpenCL is not supported in Intel compatibility mode.
+  case tok::kw___generic:
+    return !getLangOpts().IntelCompat;
+#endif // INTEL_CUSTOMIZATION
   case tok::kw___cdecl:
   case tok::kw___stdcall:
   case tok::kw___fastcall:
   case tok::kw___thiscall:
+  case tok::kw__regcall: // INTEL
   case tok::kw___regcall:
   case tok::kw___vectorcall:
   case tok::kw___w64:
@@ -4884,7 +5035,6 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::kw___local:
   case tok::kw___global:
   case tok::kw___constant:
-  case tok::kw___generic:
   case tok::kw___read_only:
   case tok::kw___read_write:
   case tok::kw___write_only:
@@ -4911,7 +5061,12 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw_pipe:
     return (getLangOpts().OpenCL && getLangOpts().OpenCLVersion >= 200) ||
            getLangOpts().OpenCLCPlusPlus;
-
+#if INTEL_CUSTOMIZATION
+  case tok::kw_channel:
+    return getLangOpts().OpenCL &&
+      getTargetInfo().getSupportedOpenCLOpts().
+         isEnabled("cl_intel_channels");
+#endif // INTEL_CUSTOMIZATION
   case tok::identifier:   // foo::bar
     // Unfortunate hack to support "Class.factoryMethod" notation.
     if (getLangOpts().ObjC && NextToken().is(tok::period))
@@ -5054,10 +5209,16 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
     return !DisambiguatingWithExpression ||
            !isStartOfObjCClassMessageMissingOpenBracket();
 
+#if INTEL_CUSTOMIZATION
+    // CQ381345: OpenCL is not supported in Intel compatibility mode.
+  case tok::kw___generic:
+    return !getLangOpts().IntelCompat;
+#endif // INTEL_CUSTOMIZATION
   case tok::kw___declspec:
   case tok::kw___cdecl:
   case tok::kw___stdcall:
   case tok::kw___fastcall:
+  case tok::kw__regcall:  // INTEL
   case tok::kw___thiscall:
   case tok::kw___regcall:
   case tok::kw___vectorcall:
@@ -5080,7 +5241,6 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw___local:
   case tok::kw___global:
   case tok::kw___constant:
-  case tok::kw___generic:
   case tok::kw___read_only:
   case tok::kw___read_write:
   case tok::kw___write_only:
@@ -5291,6 +5451,12 @@ void Parser::ParseTypeQualifierListOpt(
       break;
 
     // OpenCL qualifiers:
+#if INTEL_CUSTOMIZATION
+    case tok::kw___generic:
+      // CQ381345: OpenCL is not supported in Intel compatibility mode.
+      assert (!getLangOpts().IntelCompat &&
+              "OpenCL is not supported in Intel compatibility mode.");
+#endif // INTEL_CUSTOMIZATION
     case tok::kw_private:
       if (!getLangOpts().OpenCL)
         goto DoneWithTypeQuals;
@@ -5299,7 +5465,6 @@ void Parser::ParseTypeQualifierListOpt(
     case tok::kw___global:
     case tok::kw___local:
     case tok::kw___constant:
-    case tok::kw___generic:
     case tok::kw___read_only:
     case tok::kw___write_only:
     case tok::kw___read_write:
@@ -5326,6 +5491,7 @@ void Parser::ParseTypeQualifierListOpt(
     case tok::kw___cdecl:
     case tok::kw___stdcall:
     case tok::kw___fastcall:
+    case tok::kw__regcall:  // INTEL
     case tok::kw___thiscall:
     case tok::kw___regcall:
     case tok::kw___vectorcall:
@@ -5396,14 +5562,21 @@ void Parser::ParseDeclarator(Declarator &D) {
   ParseDeclaratorInternal(D, &Parser::ParseDirectDeclarator);
 }
 
+#if INTEL_CUSTOMIZATION
 static bool isPtrOperatorToken(tok::TokenKind Kind, const LangOptions &Lang,
-                               DeclaratorContext TheContext) {
+                               const TargetInfo &Target, DeclaratorContext TheContext) {
+#endif // INTEL_CUSTOMIZATION
   if (Kind == tok::star || Kind == tok::caret)
     return true;
 
   if (Kind == tok::kw_pipe &&
       ((Lang.OpenCL && Lang.OpenCLVersion >= 200) || Lang.OpenCLCPlusPlus))
     return true;
+#if INTEL_CUSTOMIZATION
+  if ((Kind == tok::kw_channel) && Lang.OpenCL &&
+      Target.getSupportedOpenCLOpts().isEnabled("cl_intel_channels"))
+    return true;
+#endif // INTEL_CUSTOMIZATION
 
   if (!Lang.CPlusPlus)
     return false;
@@ -5434,6 +5607,19 @@ static bool isPipeDeclerator(const Declarator &D) {
 
   return false;
 }
+
+#if INTEL_CUSTOMIZATION
+// Indicates whether the given declarator is a channel declarator.
+static bool isChannelDeclarator(const Declarator &D) {
+  const unsigned NumTypes = D.getNumTypeObjects();
+
+  for (unsigned Idx = 0; Idx != NumTypes; ++Idx)
+    if (DeclaratorChunk::Channel == D.getTypeObject(Idx).Kind)
+      return true;
+
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// ParseDeclaratorInternal - Parse a C or C++ declarator. The direct-declarator
 /// is parsed by the function passed to it. Pass null, and the direct-declarator
@@ -5522,12 +5708,29 @@ void Parser::ParseDeclaratorInternal(Declarator &D,
         std::move(DS.getAttributes()), SourceLocation());
   }
 
+#if INTEL_CUSTOMIZATION
   // Not a pointer, C++ reference, or block.
-  if (!isPtrOperatorToken(Kind, getLangOpts(), D.getContext())) {
+  if (!isPtrOperatorToken(Kind, getLangOpts(), getTargetInfo(),
+                          D.getContext())) {
     if (DirectDeclParser)
       (this->*DirectDeclParser)(D);
+
+    if (D.getDeclSpec().isTypeSpecChannel() && !isChannelDeclarator(D)) {
+      // Unlike Pipes, Channels handled here, because arrays of channels are
+      // allowed and we must parse further.
+      DeclSpec DS(AttrFactory);
+      ParseTypeQualifierListOpt(DS, AR_AllAttributesParsed,
+                                /*AtomicAllowed=*/true,
+                                /*IdentifierRequired=*/true);
+
+      D.AddTypeInfo(DeclaratorChunk::getChannel(DS.getTypeQualifiers(),
+                                                DS.getChannelLoc()),
+                    std::move(DS.getAttributes()), SourceLocation());
+    }
+
     return;
   }
+#endif // INTEL_CUSTOMIZATION
 
   // Otherwise, '*' -> pointer, '^' -> block, '&' -> lvalue reference,
   // '&&' -> rvalue reference
@@ -5736,7 +5939,10 @@ void Parser::ParseDirectDeclarator(Declarator &D) {
           !Actions.containsUnexpandedParameterPacks(D) &&
           D.getDeclSpec().getTypeSpecType() != TST_auto)) {
       SourceLocation EllipsisLoc = ConsumeToken();
-      if (isPtrOperatorToken(Tok.getKind(), getLangOpts(), D.getContext())) {
+#if INTEL_CUSTOMIZATION
+      if (isPtrOperatorToken(Tok.getKind(), getLangOpts(), getTargetInfo(),
+                             D.getContext())) {
+#endif // INTEL_CUSTOMIZATION
         // The ellipsis was put in the wrong place. Recover, and explain to
         // the user what they should have done.
         ParseDeclarator(D);
@@ -5921,6 +6127,16 @@ void Parser::ParseDirectDeclarator(Declarator &D) {
         if (Tok.isAtStartOfLine() && Loc.isValid())
           Diag(PP.getLocForEndOfToken(Loc), diag::err_expected_unqualified_id)
               << getLangOpts().CPlusPlus;
+#if INTEL_CUSTOMIZATION
+        // In IntelCompat mode issue a warning, not an error, on usage of
+        // "inline" keyword here. CQ#364737.
+        else if (getLangOpts().IntelCompat &&
+            Tok.getKind() == tok::kw_inline) {
+          Diag(Tok.getLocation(), diag::warn_inline_not_allowed);
+          D.SetIdentifier(nullptr, Tok.getLocation());
+          ConsumeToken();
+        }
+#endif // INTEL_CUSTOMIZATION
         else
           Diag(getMissingDeclaratorIdLoc(D, Tok.getLocation()),
                diag::err_expected_unqualified_id)
@@ -6834,6 +7050,9 @@ void Parser::ParseMisplacedBracketDeclarator(Declarator &D) {
       break;
     case DeclaratorChunk::Array:
     case DeclaratorChunk::Function:
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
     case DeclaratorChunk::Paren:
       break;
     }

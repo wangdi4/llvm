@@ -381,8 +381,25 @@ void TargetInfo::adjust(LangOptions &Opts) {
     } else if (Opts.LongDoubleSize == 128) {
       LongDoubleWidth = LongDoubleAlign = 128;
       LongDoubleFormat = &llvm::APFloat::IEEEquad();
+#if INTEL_CUSTOMIZATION
+    } else if (Opts.LongDoubleSize == 80) {
+      if (getTriple().getArch() == llvm::Triple::x86_64) {
+        LongDoubleWidth = 128;
+        LongDoubleAlign = 128;
+        LongDoubleFormat = &llvm::APFloat::x87DoubleExtended();
+      } else if (getTriple().getArch() == llvm::Triple::x86) {
+        LongDoubleWidth = 96;
+        LongDoubleAlign = 32;
+        LongDoubleFormat = &llvm::APFloat::x87DoubleExtended();
+      }
+#endif // INTEL_CUSTOMIZATION
     }
   }
+
+#if INTEL_CUSTOMIZATION
+  if ((Opts.IntelCompat || Opts.IntelMSCompat) && Opts.Float128)
+    HasFloat128 = true;
+#endif // INTEL_CUSTOMIZATION
 
   if (Opts.NewAlignOverride)
     NewAlign = Opts.NewAlignOverride * getCharWidth();

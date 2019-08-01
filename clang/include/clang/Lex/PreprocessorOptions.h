@@ -63,6 +63,11 @@ public:
   /// and creates an empty PCH object.
   bool PCHWithHdrStopCreate = false;
 
+#if INTEL_CUSTOMIZATION
+  // The output file specified so #import processing can find output directory
+  StringRef OutputFile;
+#endif // INTEL_CUSTOMIZATION
+
   /// If non-empty, the filename used in an #include directive in the primary
   /// source file (or command-line preinclude) that is used to implement
   /// MSVC-style precompiled headers. When creating a PCH, after the #include

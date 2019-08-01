@@ -2649,7 +2649,22 @@ Parser::ParseCXXClassMemberDeclaration(AccessSpecifier AS,
     SmallString<8> Buffer;
     if (Zero.isNot(tok::numeric_constant) || Zero.getLength() != 1 ||
         PP.getSpelling(Zero, Buffer) != "0")
-      return false;
+#if INTEL_CUSTOMIZATION
+    // CQ#373607 - allow using 0 with modificators as pure-specifier.
+    {
+      if (getLangOpts().IntelCompat && Zero.is(tok::numeric_constant)) {
+        auto *IL = dyn_cast_or_null<IntegerLiteral>(
+            Actions.ActOnNumericConstant(Zero).get());
+        if (!IL || IL->getValue() != 0)
+          return false;
+        else
+          Diag(Zero, diag::warn_member_function_initialization);
+      } else
+#endif // INTEL_CUSTOMIZATION
+        return false;
+#if INTEL_CUSTOMIZATION
+    }
+#endif // INTEL_CUSTOMIZATION
 
     auto &After = GetLookAheadToken(2);
     if (!After.isOneOf(tok::semi, tok::comma) &&
@@ -3052,12 +3067,10 @@ Parser::DeclGroupPtrTy Parser::ParseCXXClassMemberDeclarationWithPragmas(
   case tok::kw___if_not_exists:
     ParseMicrosoftIfExistsClassDeclaration(TagType, AccessAttrs, AS);
     return nullptr;
-
   case tok::semi:
     // Check for extraneous top-level semicolon.
     ConsumeExtraSemi(InsideStruct, TagType);
     return nullptr;
-
     // Handle pragmas that can appear as member declarations.
   case tok::annot_pragma_vis:
     HandlePragmaVisibility();
@@ -4106,9 +4119,10 @@ void Parser::ParseCXX11AttributeSpecifier(ParsedAttributes &attrs,
           << AttrName << SourceRange(SeenAttrs[AttrName]);
 
     // Parse attribute arguments
-    if (Tok.is(tok::l_paren))
-      AttrParsed = ParseCXX11AttributeArgs(AttrName, AttrLoc, attrs, endLoc,
-                                           ScopeName, ScopeLoc);
+    if (Tok.is(tok::l_paren)) {
+        AttrParsed = ParseCXX11AttributeArgs(AttrName, AttrLoc, attrs, endLoc,
+                                             ScopeName, ScopeLoc);
+    }
 
     if (!AttrParsed)
       attrs.addNew(

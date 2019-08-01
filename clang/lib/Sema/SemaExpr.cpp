@@ -3344,7 +3344,10 @@ static Expr *BuildFloatingLiteral(Sema &S, NumericLiteralParser &Literal,
   return FloatingLiteral::Create(S.Context, Val, isExact, Ty, Loc);
 }
 
-bool Sema::CheckLoopHintExpr(Expr *E, SourceLocation Loc) {
+#if INTEL_CUSTOMIZATION
+bool Sema::CheckLoopHintExpr(Expr *E, SourceLocation Loc, bool IsCheckRange,
+                             bool AllowNonNegativeValue) {
+#endif // INTEL_CUSTOMIZATION
   assert(E && "Invalid expression");
 
   if (E->isValueDependent())
@@ -3363,6 +3366,28 @@ bool Sema::CheckLoopHintExpr(Expr *E, SourceLocation Loc) {
     return true;
 
   bool ValueIsPositive = ValueAPS.isStrictlyPositive();
+
+#if INTEL_CUSTOMIZATION
+  // CQ415958/CQ366562: In non-dependent cases, warn if the value is going
+  // to be ignored.
+  if (!IsCheckRange) {
+    if ((!ValueIsPositive || ValueAPS.getActiveBits() > 31) &&
+        ValueAPS.getBoolValue()) {
+      Diag(E->getExprLoc(),
+             diag::warn_pragma_unroll_invalid_factor_ignored)
+          << ValueAPS.toString(10) << ValueIsPositive;
+    }
+  } else if (AllowNonNegativeValue) {
+    if (ValueAPS.isNegative())
+      return Diag(E->getExprLoc(),
+                  diag::err_pragma_loop_invalid_negative_value)
+             << ValueAPS.toString(10);
+    if (ValueAPS.getSExtValue() > INT_MAX)
+      return Diag(E->getExprLoc(), diag::err_pragma_loop_invalid_argument_value)
+             << ValueAPS.toString(10) << /* out of range */1;
+    return false;
+  } else
+#endif // INTEL_CUSTOMIZATION
   if (!ValueIsPositive || ValueAPS.getActiveBits() > 31) {
     Diag(E->getExprLoc(), diag::err_pragma_loop_invalid_argument_value)
         << ValueAPS.toString(10) << ValueIsPositive;
@@ -4042,6 +4067,10 @@ static void captureVariablyModifiedType(ASTContext &Context, QualType T,
     case Type::ObjCInterface:
     case Type::ObjCObjectPointer:
     case Type::ObjCTypeParam:
+#if INTEL_CUSTOMIZATION
+    case Type::Channel:
+    case Type::ArbPrecInt:
+#endif // INTEL_CUSTOMIZATION
     case Type::Pipe:
       llvm_unreachable("type class is never variably-modified!");
     case Type::Adjusted:
@@ -5074,7 +5103,15 @@ Sema::ConvertArgumentsForCall(CallExpr *Call, Expr *Fn,
       else
         Diag(Args[NumParams]->getBeginLoc(),
              MinArgs == NumParams
-                 ? diag::err_typecheck_call_too_many_args
+#if INTEL_CUSTOMIZATION
+                 // CQ#364630 - in case of too many arguments emit an extension
+                 // warning in IntelCompat mode instead of an error.
+                 ? (getLangOpts().isIntelCompat(
+                        LangOptions::AllowExtraArgument) &&
+                            !getLangOpts().CPlusPlus
+                        ? diag::ext_intel_typecheck_call_too_many_args
+                        : diag::err_typecheck_call_too_many_args)
+#endif // INTEL_CUSTOMIZATION
                  : diag::err_typecheck_call_too_many_args_at_most)
             << FnKind << NumParams << static_cast<unsigned>(Args.size())
             << Fn->getSourceRange()
@@ -5087,6 +5124,11 @@ Sema::ConvertArgumentsForCall(CallExpr *Call, Expr *Fn,
 
       // This deletes the extra arguments.
       Call->shrinkNumArgs(NumParams);
+#if INTEL_CUSTOMIZATION
+      // CQ#364630 - don't consider this an error in IntelCompat mode.
+      if (!(getLangOpts().isIntelCompat(LangOptions::AllowExtraArgument) &&
+          !getLangOpts().CPlusPlus))
+#endif // INTEL_CUSTOMIZATION
       return true;
     }
   }
@@ -5326,6 +5368,11 @@ static bool isPlaceholderToRemoveAsArg(QualType type) {
   case BuiltinType::OMPArraySection:
     return true;
 
+#if INTEL_CUSTOMIZATION
+  case BuiltinType::VAArgPack:
+    return false;
+#endif // INTEL_CUSTOMIZATION
+
   }
   llvm_unreachable("bad builtin type kind");
 }
@@ -5539,6 +5586,128 @@ tryImplicitlyCaptureThisIfImplicitMemberFunctionAccessWithDependentArgs(
   }
 }
 
+#if INTEL_CUSTOMIZATION
+// IntrinsicPromotion implementation.
+static void PromoteIntelIntrins(Sema &S, ExprResult Call) {
+  auto *CurFD = dyn_cast<FunctionDecl>(S.CurContext);
+  // Don't promote if we are not in a function, in a multiversion function, or
+  // in a function that would otherwise be always inlined.
+  if (!CurFD || CurFD->isMultiVersion() || CurFD->hasAttr<AlwaysInlineAttr>() ||
+      CurFD->hasAttr<TargetAttr>() || CurFD->hasAttr<CPUDispatchAttr>() ||
+      CurFD->hasAttr<CPUSpecificAttr>())
+    return;
+
+  const auto *CE = dyn_cast<CallExpr>(Call.get());
+
+  // No idea how to deal with something that isn't a call expression.
+  if (!CE)
+    return;
+
+  const auto *Callee = CE->getDirectCallee();
+  // If our callee isn't defined in the system header, we do not wish to do
+  // target promoting.
+  if (!Callee)
+    return;
+  if (Callee->getBuiltinID(true) == 0) {
+    Callee = Callee->getDefinition();
+    if (!Callee)
+      return;
+    if (Callee->getSourceRange().getBegin().isInvalid())
+      return;
+    if (!S.getSourceManager().isInSystemHeader(
+        Callee->getSourceRange().getBegin()))
+      return;
+    if (!Callee->hasAttr<TargetAttr>() || !Callee->hasAttr<AlwaysInlineAttr>())
+      return;
+  }
+
+  // Assemble the list of required features.
+  SmallVector<StringRef, 8> ReqFeatures;
+  if (auto BuiltinID = Callee->getBuiltinID(true)) {
+    const char* FeatureStr =
+      S.getASTContext().BuiltinInfo.getRequiredFeatures(BuiltinID);
+
+    if (FeatureStr && FeatureStr[0] != '\0') {
+      StringRef(FeatureStr).split(ReqFeatures, ',');
+    }
+  } else if (const auto *TA = Callee->getAttr<TargetAttr>()){
+    TargetAttr::ParsedTargetAttr ParsedInfo = TA->parse();
+
+    // Setting the CPU isn't supported for target promoting.
+    if (!ParsedInfo.Architecture.empty())
+      return;
+    TA->getAddedFeatures(ReqFeatures);
+  }
+
+  // Nothing to do!
+  if (ReqFeatures.empty())
+    return;
+
+  // Figure out which features we currently have.
+  const TargetInfo &TI = S.getASTContext().getTargetInfo();
+  std::vector<std::string> Features(TI.getTargetOpts().Features);
+
+  if (const auto *FeatAttr = CurFD->getAttr<TargetPromotionAttr>()) {
+    // Get already added features from attribute.
+    StringRef FeatList = FeatAttr->getFeatures();
+    while (!FeatList.empty()) {
+      std::pair<StringRef, StringRef> FPair = FeatList.split(',');
+      Features.push_back(FPair.first);
+      FeatList = FPair.second;
+    }
+  }
+
+  llvm::StringMap<bool> FeatureMap;
+  TI.initFeatureMap(FeatureMap, S.getDiagnostics(),
+                    TI.getTargetOpts().CPU, Features);
+
+
+  SmallVector<std::string, 8> FeaturesToAdd;
+
+  // Check Feature List
+  for (StringRef ReqFeature : ReqFeatures)
+    if (!FeatureMap.lookup(ReqFeature))
+      FeaturesToAdd.push_back(ReqFeature);
+
+  if (FeaturesToAdd.empty())
+    return;
+
+  std::transform(FeaturesToAdd.begin(),
+                 FeaturesToAdd.end(),
+                 FeaturesToAdd.begin(),
+                 [](std::string Item) {
+                   auto I = Item.find('|');
+                   if (I != std::string::npos)
+                     Item = Item.substr(0, I);
+                   return Item.insert(0, 1, '+');
+                 });
+
+  std::string FeaturesToAddList = llvm::join(FeaturesToAdd, ",");
+
+   S.Diag(CurFD->getLocation(), diag::warn_intrinsic_promote) << FeaturesToAddList;
+   S.Diag(Call.get()->getExprLoc(), diag::note_intrinsic_promote);
+
+
+  // Update Feature Attribute.
+  if (auto *FeatAttr = CurFD->getAttr<TargetPromotionAttr>()) {
+    std::string NewFeatureString = FeatAttr->getFeatures();
+    NewFeatureString += ',';
+    NewFeatureString += FeaturesToAddList;
+    FeatAttr->setFeatures(S.getASTContext(), NewFeatureString);
+    return;
+  }
+
+  CurFD->addAttr(new (S.getASTContext())
+                 TargetPromotionAttr(SourceRange{},
+                                     S.getASTContext(),
+                                     FeaturesToAddList,
+                                     0));
+
+  // Add new feature.
+  return;
+}
+#endif // INTEL_CUSTOMIZATION
+
 ExprResult Sema::ActOnCallExpr(Scope *Scope, Expr *Fn, SourceLocation LParenLoc,
                                MultiExprArg ArgExprs, SourceLocation RParenLoc,
                                Expr *ExecConfig) {
@@ -5559,6 +5728,12 @@ ExprResult Sema::ActOnCallExpr(Scope *Scope, Expr *Fn, SourceLocation LParenLoc,
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  // IntrinsicPromotion implementation.
+  if (LangOpts.isIntelCompat(LangOptions::IntrinsicPromotion) &&
+      LangOpts.IntrinsicAutoPromote)
+    PromoteIntelIntrins(*this, Call);
+#endif // INTEL_CUSTOMIZATION
   return Call;
 }
 
@@ -5689,6 +5864,25 @@ ExprResult Sema::BuildCallExpr(Scope *Scope, Expr *Fn, SourceLocation LParenLoc,
     NDecl = cast<MemberExpr>(NakedFn)->getMemberDecl();
 
   if (FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(NDecl)) {
+#if INTEL_CUSTOMIZATION
+    // error on invalid pack usage
+    for (size_t i = 0, e = ArgExprs.size(); i != e; i++) {
+      auto *Ph = dyn_cast<BuiltinType>(ArgExprs[i]->getType());
+      if (Ph && Ph->getKind() == BuiltinType::VAArgPack) {
+        // Ensure is last param
+        if (i != e - 1) {
+          Diag(ArgExprs[i]->getBeginLoc(), diag::err_va_pack_not_last);
+          return ExprError();
+        }
+        // Ensure is variadic function, and variadic arg
+        if (!FD->isVariadic() || i != FD->getMinRequiredArguments()) {
+          Diag(ArgExprs[i]->getBeginLoc(), diag::err_va_pack_not_variadic);
+          return ExprError();
+        }
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
+
     if (CallingNDeclIndirectly && !checkAddressOfFunctionIsAvailable(
                                       FD, /*Complain=*/true, Fn->getBeginLoc()))
       return ExprError();
@@ -8073,6 +8267,22 @@ Sema::CheckAssignmentConstraints(QualType LHSType, ExprResult &RHS,
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  // Allow integer->ArbPrecInt type conversion always.
+  if ((LHSType->isArbPrecIntType() && RHSType->isIntegerType()) ||
+      (LHSType->isIntegerType() && RHSType->isArbPrecIntType()) ||
+      (LHSType->isArbPrecIntType() && RHSType->isArbPrecIntType())) {
+    if (Context.getTypeSize(RHSType) ==
+        Context.getTypeSize(LHSType)) {
+      Kind = CK_BitCast;
+      return Compatible;
+    }
+
+    Kind = CK_IntegralCast;
+    return Compatible;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Conversions to or from vector type.
   if (LHSType->isVectorType() || RHSType->isVectorType()) {
     if (LHSType->isVectorType() && RHSType->isVectorType()) {
@@ -8856,6 +9066,112 @@ static bool tryGCCVectorConvertAndSplat(Sema &S, ExprResult *Scalar,
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+bool DoExprResultConversionConversions(Sema &S, ExprResult &Expr) {
+  Expr = S.DefaultFunctionArrayLvalueConversion(Expr.get());
+  if (Expr.isInvalid())
+    return false;
+
+  // Handle Bitfield to type conversion.  Note, bitfields are always
+  // Int.
+  QualType BFTy = S.getASTContext().isPromotableBitField(Expr.get());
+  if (!BFTy.isNull())
+    Expr = S.ImpCastExprToType(Expr.get(), BFTy, CK_IntegralCast);
+  if (Expr.isInvalid())
+    return false;
+  return true;
+}
+
+QualType Sema::CheckArbPrecIntOperands(ExprResult &LHS, ExprResult &RHS,
+                                       SourceLocation Loc, bool IsCompAssign,
+                                       bool IsShift) {
+  // First Do L->R Value Conversions.
+  if (!IsCompAssign)
+    if (!DoExprResultConversionConversions(*this, LHS))
+      return QualType();
+
+  // Handles L->R Value Conversions.
+  if (!DoExprResultConversionConversions(*this, RHS))
+    return QualType();
+
+  QualType LHSType = LHS.get()->getType().getUnqualifiedType();
+  QualType RHSType = RHS.get()->getType().getUnqualifiedType();
+  const bool LHSIsAPType = LHSType->isArbPrecIntType();
+  const bool RHSIsAPType = RHSType->isArbPrecIntType();
+  unsigned LHSBits = Context.getTypeSize(LHSType);
+  unsigned RHSBits = Context.getTypeSize(RHSType);
+  bool LHSSigned = LHSType->hasSignedIntegerRepresentation();
+
+  assert((LHSIsAPType || RHSIsAPType) &&
+         "Can't check ArbPrecInt Operands if they aren't ArbPrecInt");
+
+  // Same types require no conversions.
+  if (LHSType == RHSType)
+    return LHSType;
+
+  // Make sure that both sides are either an ArbPrecInt or Integer.
+  if ((LHSIsAPType && !RHSIsAPType && !RHSType->isIntegerType()) ||
+      (RHSIsAPType && !LHSIsAPType && !LHSType->isIntegerType())) {
+    return InvalidOperands(Loc, LHS, RHS);
+  }
+
+  if (LHSType->isBooleanType()) {
+    if (!IsCompAssign)
+      LHS = doIntegralCast(*this, LHS.get(), RHSType);
+    return RHSType;
+  } else if (RHSType->isBooleanType()) {
+    RHS = doIntegralCast(*this, RHS.get(), LHSType);
+    return LHSType;
+  }
+
+  // At this point, both sides are either ArbPrecInt or an integer type.  Since
+  // the result of an operation between ArbPrecInt and an integer should be an
+  // ArbPrecInt, convert BOTH LHSType and RHSType to an ArbPrecInt of the
+  // correct size.
+  if (!LHSIsAPType)
+    LHSType = Context.getArbPrecIntType(LHSType, LHSBits, {});
+  if (!RHSIsAPType)
+    RHSType = Context.getArbPrecIntType(RHSType, RHSBits, {});
+
+  // Shifts ALWAYS result in the type of the left-side.
+  if (IsShift) {
+    RHS = doIntegralCast(*this, RHS.get(), LHSType);
+    return LHSType;
+  }
+
+  if (LHSBits > RHSBits) {
+    RHS = doIntegralCast(*this, RHS.get(), LHSType);
+    return LHSType;
+  }
+
+  if (RHSBits > LHSBits) {
+    if (!IsCompAssign)
+      LHS = doIntegralCast(*this, LHS.get(), RHSType);
+    return RHSType;
+  }
+
+  // Last tie-breaker is unsigned-before-signed.
+  if (!LHSSigned) {
+    RHS = doIntegralCast(*this, RHS.get(), LHSType);
+    return LHSType;
+  }
+
+  if (!IsCompAssign)
+    LHS = doIntegralCast(*this, LHS.get(), RHSType);
+  return RHSType;
+}
+
+QualType Sema::CheckArbPrecIntCompareOperands(ExprResult &LHS, ExprResult &RHS,
+                                              SourceLocation Loc) {
+  QualType CmpType = CheckArbPrecIntOperands(LHS, RHS, Loc, false);
+
+  if (CmpType.isNull())
+    return CmpType;
+
+  return Context.getLogicalOperationType();
+}
+#endif // INTEL_CUSTOMIZATION
+
 QualType Sema::CheckVectorOperands(ExprResult &LHS, ExprResult &RHS,
                                    SourceLocation Loc, bool IsCompAssign,
                                    bool AllowBothBool,
@@ -9113,6 +9429,12 @@ QualType Sema::CheckMultiplyDivideOperands(ExprResult &LHS, ExprResult &RHS,
                                /*AllowBothBool*/getLangOpts().AltiVec,
                                /*AllowBoolConversions*/false);
 
+#if INTEL_CUSTOMIZATION
+  if (LHS.get()->getType()->isArbPrecIntType() ||
+      RHS.get()->getType()->isArbPrecIntType())
+    return CheckArbPrecIntOperands(LHS, RHS, Loc, IsCompAssign);
+#endif // INTEL_CUSTOMIZATION
+
   QualType compType = UsualArithmeticConversions(LHS, RHS, IsCompAssign);
   if (LHS.isInvalid() || RHS.isInvalid())
     return QualType();
@@ -9141,6 +9463,12 @@ QualType Sema::CheckRemainderOperands(
     return InvalidOperands(Loc, LHS, RHS);
   }
 
+#if INTEL_CUSTOMIZATION
+  if (LHS.get()->getType()->isArbPrecIntType() ||
+      RHS.get()->getType()->isArbPrecIntType())
+    return CheckArbPrecIntOperands(LHS, RHS, Loc, IsCompAssign);
+#endif // INTEL_CUSTOMIZATION
+
   QualType compType = UsualArithmeticConversions(LHS, RHS, IsCompAssign);
   if (LHS.isInvalid() || RHS.isInvalid())
     return QualType();
@@ -9154,9 +9482,14 @@ QualType Sema::CheckRemainderOperands(
 /// Diagnose invalid arithmetic on two void pointers.
 static void diagnoseArithmeticOnTwoVoidPointers(Sema &S, SourceLocation Loc,
                                                 Expr *LHSExpr, Expr *RHSExpr) {
-  S.Diag(Loc, S.getLangOpts().CPlusPlus
-                ? diag::err_typecheck_pointer_arith_void_type
-                : diag::ext_gnu_void_ptr)
+#if INTEL_CUSTOMIZATION
+  // CQ#376357: only warning in -fpermissive mode.
+  S.Diag(Loc, S.getLangOpts().IntelCompat && S.getLangOpts().GnuPermissive
+                  ? diag::warn_typecheck_pointer_arith_void_type
+                  : (S.getLangOpts().CPlusPlus
+                        ? diag::err_typecheck_pointer_arith_void_type
+                        : diag::ext_gnu_void_ptr))
+#endif // INTEL_CUSTOMIZATION
     << 1 /* two pointers */ << LHSExpr->getSourceRange()
                             << RHSExpr->getSourceRange();
 }
@@ -9164,9 +9497,14 @@ static void diagnoseArithmeticOnTwoVoidPointers(Sema &S, SourceLocation Loc,
 /// Diagnose invalid arithmetic on a void pointer.
 static void diagnoseArithmeticOnVoidPointer(Sema &S, SourceLocation Loc,
                                             Expr *Pointer) {
-  S.Diag(Loc, S.getLangOpts().CPlusPlus
-                ? diag::err_typecheck_pointer_arith_void_type
-                : diag::ext_gnu_void_ptr)
+#if INTEL_CUSTOMIZATION
+  // CQ#376357: only warning in -fpermissive mode.
+  S.Diag(Loc, S.getLangOpts().IntelCompat && S.getLangOpts().GnuPermissive
+                  ? diag::warn_typecheck_pointer_arith_void_type
+                  : S.getLangOpts().CPlusPlus
+                        ? diag::err_typecheck_pointer_arith_void_type
+                        : diag::ext_gnu_void_ptr)
+#endif // INTEL_CUSTOMIZATION
     << 0 /* one pointer */ << Pointer->getSourceRange();
 }
 
@@ -9248,7 +9586,11 @@ static bool checkArithmeticOpPointerOperand(Sema &S, SourceLocation Loc,
   QualType PointeeTy = ResType->getPointeeType();
   if (PointeeTy->isVoidType()) {
     diagnoseArithmeticOnVoidPointer(S, Loc, Operand);
-    return !S.getLangOpts().CPlusPlus;
+#if INTEL_CUSTOMIZATION
+  // CQ#376357: only warning in -fpermissive mode.
+    return !S.getLangOpts().CPlusPlus ||
+        (S.getLangOpts().IntelCompat && S.getLangOpts().GnuPermissive);
+#endif // INTEL_CUSTOMIZATION
   }
   if (PointeeTy->isFunctionType()) {
     diagnoseArithmeticOnFunctionPointer(S, Loc, Operand);
@@ -9300,7 +9642,11 @@ static bool checkArithmeticBinOpPointerOperands(Sema &S, SourceLocation Loc,
     else if (!isLHSVoidPtr) diagnoseArithmeticOnVoidPointer(S, Loc, RHSExpr);
     else diagnoseArithmeticOnTwoVoidPointers(S, Loc, LHSExpr, RHSExpr);
 
-    return !S.getLangOpts().CPlusPlus;
+#if INTEL_CUSTOMIZATION
+  // CQ#376357: only warning in -fpermissive mode.
+    return !S.getLangOpts().CPlusPlus ||
+        (S.getLangOpts().IntelCompat && S.getLangOpts().GnuPermissive);
+#endif // INTEL_CUSTOMIZATION
   }
 
   bool isLHSFuncPtr = isLHSPointer && LHSPointeeTy->isFunctionType();
@@ -9430,6 +9776,17 @@ QualType Sema::CheckAdditionOperands(ExprResult &LHS, ExprResult &RHS,
     return compType;
   }
 
+#if INTEL_CUSTOMIZATION
+  if (LHS.get()->getType()->isArbPrecIntType() ||
+      RHS.get()->getType()->isArbPrecIntType()) {
+    QualType compType = CheckArbPrecIntOperands(
+        LHS, RHS, Loc, /*IsCompAssign=*/static_cast<bool>(CompLHSTy));
+    if (CompLHSTy)
+      *CompLHSTy = compType;
+    return compType;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   QualType compType = UsualArithmeticConversions(LHS, RHS, CompLHSTy);
   if (LHS.isInvalid() || RHS.isInvalid())
     return QualType();
@@ -9523,6 +9880,17 @@ QualType Sema::CheckSubtractionOperands(ExprResult &LHS, ExprResult &RHS,
     if (CompLHSTy) *CompLHSTy = compType;
     return compType;
   }
+
+#if INTEL_CUSTOMIZATION
+  if (LHS.get()->getType()->isArbPrecIntType() ||
+      RHS.get()->getType()->isArbPrecIntType()) {
+    QualType compType = CheckArbPrecIntOperands(
+        LHS, RHS, Loc, /*IsCompAssign=*/static_cast<bool>(CompLHSTy));
+    if (CompLHSTy)
+      *CompLHSTy = compType;
+    return compType;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   QualType compType = UsualArithmeticConversions(LHS, RHS, CompLHSTy);
   if (LHS.isInvalid() || RHS.isInvalid())
@@ -9818,6 +10186,13 @@ QualType Sema::CheckShiftOperands(ExprResult &LHS, ExprResult &RHS,
     }
     return checkVectorShift(*this, LHS, RHS, Loc, IsCompAssign);
   }
+
+#if INTEL_CUSTOMIZATION
+  if (LHS.get()->getType()->isArbPrecIntType() ||
+      RHS.get()->getType()->isArbPrecIntType())
+    return CheckArbPrecIntOperands(LHS, RHS, Loc, IsCompAssign,
+                                   /*IsShift*/ true);
+#endif // INTEL_CUSTOMIZATION
 
   // Shifts don't perform usual arithmetic conversions, they just do integer
   // promotions on each operand. C99 6.5.7p3
@@ -10485,6 +10860,12 @@ QualType Sema::CheckCompareOperands(ExprResult &LHS, ExprResult &RHS,
       RHS.get()->getType()->isVectorType())
     return CheckVectorCompareOperands(LHS, RHS, Loc, Opc);
 
+#if INTEL_CUSTOMIZATION
+  if (LHS.get()->getType()->isArbPrecIntType() ||
+      RHS.get()->getType()->isArbPrecIntType())
+    return CheckArbPrecIntCompareOperands(LHS, RHS, Loc);
+#endif // INTEL_CUSTOMIZATION
+
   diagnoseLogicalNotOnLHSofCheck(*this, LHS, RHS, Loc, Opc);
   diagnoseTautologicalComparison(*this, Loc, LHS.get(), RHS.get(), Opc);
 
@@ -10819,6 +11200,7 @@ QualType Sema::CheckCompareOperands(ExprResult &LHS, ExprResult &RHS,
                (RHSIsNull && RHSType->isIntegerType())) {
       if (IsRelational) {
         isError = getLangOpts().CPlusPlus;
+        isError &= !getLangOpts().IntelCompat; // INTEL
         DiagID =
           isError ? diag::err_typecheck_ordered_comparison_of_pointer_and_zero
                   : diag::ext_typecheck_ordered_comparison_of_pointer_and_zero;
@@ -11002,6 +11384,12 @@ inline QualType Sema::CheckBitwiseOperands(ExprResult &LHS, ExprResult &RHS,
                         /*AllowBoolConversions*/getLangOpts().ZVector);
     return InvalidOperands(Loc, LHS, RHS);
   }
+
+#if INTEL_CUSTOMIZATION
+  if (LHS.get()->getType()->isArbPrecIntType() ||
+      RHS.get()->getType()->isArbPrecIntType())
+    return CheckArbPrecIntOperands(LHS, RHS, Loc, IsCompAssign);
+#endif // INTEL_CUSTOMIZATION
 
   if (Opc == BO_And)
     diagnoseLogicalNotOnLHSofCheck(*this, LHS, RHS, Loc, Opc);
@@ -11464,6 +11852,29 @@ static bool CheckForModifiableLvalue(Expr *E, SourceLocation Loc, Sema &S) {
     NeedType = true;
     break;
   case Expr::MLV_LValueCast:
+#if INTEL_CUSTOMIZATION
+    // CQ#366312 - enable an extension that allows casts of lvalues to be used
+    // as lvalues, as long as the size of the object is not lengthened through
+    // the cast.
+    if (S.getLangOpts().IntelCompat)
+      if (auto *CE = dyn_cast<ExplicitCastExpr>(E->IgnoreParens()))
+        if (auto *SubExpr = CE->getSubExpr()->IgnoreParenCasts()) {
+          QualType FromType = SubExpr->getType();
+          QualType ToType = CE->getTypeAsWritten();
+          uint64_t SizeBefore = S.Context.getTypeSize(FromType);
+          uint64_t SizeAfter = S.Context.getTypeSize(ToType);
+          // Emit an extension warning only if the size of the object is not
+          // lengthened through the cast. Emit a default error otherwise.
+          if (SizeAfter <= SizeBefore) {
+            SourceRange AssignSourceRange = SourceRange(OrigLoc, OrigLoc);
+            S.Diag(Loc, diag::ext_intel_lvalue_cast_not_lengthened)
+                << E->getSourceRange() << AssignSourceRange;
+            // Set ValueKind of this lvalue cast to its SubExpr's ValueKind.
+            E->setValueKind(SubExpr->getValueKind());
+            return false;
+          }
+        }
+#endif // INTEL_CUSTOMIZATION
     DiagID = diag::err_typecheck_lvalue_casts_not_supported;
     break;
   case Expr::MLV_Valid:
@@ -11802,6 +12213,10 @@ static QualType CheckIncrementDecrementOperand(Sema &S, Expr *Op,
     return QualType();
   } else if (ResType->isRealType()) {
     // OK!
+#if INTEL_CUSTOMIZATION
+  } else if (ResType->isArbPrecIntType()) {
+    // No problem, just an integer.
+#endif // INTEL_CUSTOMIZATION
   } else if (ResType->isPointerType()) {
     // C99 6.5.2.4p2, 6.5.6p2
     if (!checkArithmeticOpPointerOperand(S, OpLoc, Op))
@@ -12502,6 +12917,9 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
     if (LHSTy->isImageType() || RHSTy->isImageType() ||
         LHSTy->isSamplerT() || RHSTy->isSamplerT() ||
         LHSTy->isPipeType() || RHSTy->isPipeType() ||
+#if INTEL_CUSTOMIZATION
+        LHSTy->isChannelType() || RHSTy->isChannelType() ||
+#endif // INTEL_CUSTOMIZATION
         LHSTy->isBlockPointerType() || RHSTy->isBlockPointerType()) {
       ResultTy = InvalidOperands(OpLoc, LHS, RHS);
       return ExprError();
@@ -13102,14 +13520,15 @@ ExprResult Sema::CreateBuiltinUnaryOp(SourceLocation OpLoc,
   bool CanOverflow = false;
 
   bool ConvertHalfVec = false;
-  if (getLangOpts().OpenCL) {
+  if (getLangOpts().OpenCL || getLangOpts().SYCLIsDevice) {
     QualType Ty = InputExpr->getType();
     // The only legal unary operation for atomics is '&'.
     if ((Opc != UO_AddrOf && Ty->isAtomicType()) ||
-    // OpenCL special types - image, sampler, pipe, and blocks are to be used
-    // only with a builtin functions and therefore should be disallowed here.
-        (Ty->isImageType() || Ty->isSamplerT() || Ty->isPipeType()
-        || Ty->isBlockPointerType())) {
+        // OpenCL special types - image, sampler, pipe, and blocks are to be
+        // used only with a builtin functions and therefore should be disallowed
+        // here.
+        (Ty->isImageType() || Ty->isSamplerT() || Ty->isPipeType() ||
+         Ty->isBlockPointerType() || Ty->isChannelType())) { // INTEL
       return ExprError(Diag(OpLoc, diag::err_typecheck_unary_expr)
                        << InputExpr->getType()
                        << Input.get()->getSourceRange());
@@ -13167,6 +13586,10 @@ ExprResult Sema::CreateBuiltinUnaryOp(SourceLocation OpLoc,
       break;
     if (resultType->isArithmeticType()) // C99 6.5.3.3p1
       break;
+#if INTEL_CUSTOMIZATION
+    else if (resultType->isArbPrecIntType())
+      break;
+#endif // INTEL_CUSTOMIZATION
     else if (resultType->isVectorType() &&
              // The z vector extensions don't allow + or - with bool vectors.
              (!Context.getLangOpts().ZVector ||
@@ -13196,6 +13619,10 @@ ExprResult Sema::CreateBuiltinUnaryOp(SourceLocation OpLoc,
           << resultType << Input.get()->getSourceRange();
     else if (resultType->hasIntegerRepresentation())
       break;
+#if INTEL_CUSTOMIZATION
+    else if (resultType->isArbPrecIntType())
+      break;
+#endif // INTEL_CUSTOMIZATION
     else if (resultType->isExtVectorType() && Context.getLangOpts().OpenCL) {
       // OpenCL v1.1 s6.3.f: The bitwise operator not (~) does not operate
       // on vector float types.
@@ -13210,6 +13637,8 @@ ExprResult Sema::CreateBuiltinUnaryOp(SourceLocation OpLoc,
     break;
 
   case UO_LNot: // logical negation
+    { //INTEL
+    bool suppressDiag = false; // INTEL - refer to cq414785.
     // Unlike +/-/~, integer promotions aren't done here (C99 6.5.3.3p5).
     Input = DefaultFunctionArrayLvalueConversion(Input.get());
     if (Input.isInvalid()) return ExprError();
@@ -13223,8 +13652,17 @@ ExprResult Sema::CreateBuiltinUnaryOp(SourceLocation OpLoc,
 
     if (resultType->isDependentType())
       break;
+    if (resultType->isArbPrecIntType())
+      // No problem negating an AP-Int, should leave the type the same.
+      break;
     if (resultType->isScalarType() && !isScopedEnumerationType(resultType)) {
       // C99 6.5.3.3p1: ok, fallthrough;
+#if INTEL_CUSTOMIZATION
+    if (!isa<FloatingLiteral>(Input.get())) {
+      /* Don't suppress conversion warning for ! 2.3 */
+      suppressDiag = true;
+    }
+#endif  // INTEL_CUSTOMIZATION
       if (Context.getLangOpts().CPlusPlus) {
         // C++03 [expr.unary.op]p8, C++0x [expr.unary.op]p9:
         // operand contextually converted to bool.
@@ -13262,7 +13700,16 @@ ExprResult Sema::CreateBuiltinUnaryOp(SourceLocation OpLoc,
     // LNot always has type int. C99 6.5.3.3p5.
     // In C++, it's bool. C++ 5.3.1p8
     resultType = Context.getLogicalOperationType();
+
+#if INTEL_CUSTOMIZATION
+    if (suppressDiag) {
+      /* Suppress the float-to-bool conversion warnings. */
+      Input.get()->setIsCondition();
+    }
+#endif // INTEL_CUSTOMIZATION
+
     break;
+    } //INTEL
   case UO_Real:
   case UO_Imag:
     resultType = CheckRealImagOperand(*this, Input, OpLoc, Opc == UO_Real);
@@ -15512,10 +15959,19 @@ static bool captureInCapturedRegion(CapturedRegionScopeInfo *RSI,
   if (S.getLangOpts().OpenMP && RSI->CapRegionKind == CR_OpenMP) {
     if (S.isOpenMPCapturedDecl(Var)) {
       bool HasConst = DeclRefType.isConstQualified();
+      bool HasVolatile = DeclRefType.isVolatileQualified(); // INTEL
       DeclRefType = DeclRefType.getUnqualifiedType();
       // Don't lose diagnostics about assignments to const.
       if (HasConst)
         DeclRefType.addConst();
+#if INTEL_CUSTOMIZATION
+      // TODO: We'd like to open source this but the community owner is not
+      // open to it. If we can provide a convincing argument or better test
+      // case in the future we'll try again.
+      if (HasVolatile &&
+          S.getLangOpts().isIntelCompat(LangOptions::VolatileInOMPRegions))
+        DeclRefType.addVolatile();
+#endif // INTEL_CUSTOMIZATION
     }
     ByRef = S.isOpenMPCapturedByRef(Var, RSI->OpenMPLevel);
   }
@@ -16899,10 +17355,12 @@ Sema::ConditionResult Sema::ActOnCondition(Scope *S, SourceLocation Loc,
   ExprResult Cond;
   switch (CK) {
   case ConditionKind::Boolean:
+    SubExpr->setIsCondition(); // INTEL
     Cond = CheckBooleanCondition(Loc, SubExpr);
     break;
 
   case ConditionKind::ConstexprIf:
+    SubExpr->setIsCondition(); // INTEL
     Cond = CheckBooleanCondition(Loc, SubExpr, true);
     break;
 
@@ -17538,6 +17996,10 @@ ExprResult Sema::CheckPlaceholderExpr(Expr *E) {
   case BuiltinType::OMPArraySection:
     Diag(E->getBeginLoc(), diag::err_omp_array_section_use);
     return ExprError();
+#if INTEL_CUSTOMIZATION
+  case BuiltinType::VAArgPack:
+    return E;
+#endif // INTEL_CUSTOMIZATION
 
   // Everything else should be impossible.
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \

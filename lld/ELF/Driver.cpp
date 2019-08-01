@@ -53,6 +53,7 @@
 #include "llvm/Support/GlobPattern.h"
 #include "llvm/Support/LEB128.h"
 #include "llvm/Support/Path.h"
+#include "llvm/Support/Program.h"  // INTEL
 #include "llvm/Support/TarWriter.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
@@ -90,6 +91,7 @@ bool elf::link(ArrayRef<const char *> args, bool canExitEarly,
   bitcodeFiles.clear();
   objectFiles.clear();
   sharedFiles.clear();
+  gNULTOFiles.clear();  // INTEL
 
   config = make<Configuration>();
   driver = make<LinkerDriver>();
@@ -107,11 +109,21 @@ bool elf::link(ArrayRef<const char *> args, bool canExitEarly,
 
   driver->main(args);
 
+#if INTEL_CUSTOMIZATION
+  // The following code is commented out because is from the community and
+  // it will be replaced.
+
   // Exit immediately if we don't need to return to the caller.
   // This saves time because the overhead of calling destructors
   // for all globally-allocated objects is not negligible.
-  if (canExitEarly)
-    exitLld(errorCount() ? 1 : 0);
+  // if (canExitEarly)
+  //  exitLld(errorCount() ? 1 : 0);
+
+  // CMPLRLLVM-8800: We are going to replace exitLld with cleanIntelLld.
+  // This is because we want to prevent calling the early exit and use
+  // destructors.
+  cleanIntelLld();
+#endif // INTEL_CUSTOMIZATION
 
   freeArena();
   return !errorCount();
@@ -788,7 +800,17 @@ static void readConfigs(opt::InputArgList &args) {
       args.hasFlag(OPT_fatal_warnings, OPT_no_fatal_warnings, false);
   errorHandler().vsDiagnostics =
       args.hasArg(OPT_visual_studio_diagnostics_format, false);
-  threadsEnabled = args.hasFlag(OPT_threads, OPT_no_threads, true);
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-8800: Prevent running LLD in parallel during the testing
+  // process in Windows unless the user specifies it. This is to avoid
+  // exhausting the memory and flaky failures.
+#if defined(_WIN32)
+  if (StringRef(getenv("INTEL_LLD_IN_TEST")) == "1")
+    threadsEnabled = args.hasFlag(OPT_threads, OPT_no_threads, false);
+  else
+#endif // _WIN32
+    threadsEnabled = args.hasFlag(OPT_threads, OPT_no_threads, true);
+#endif // INTEL_CUSTOMIZATION
 
   config->allowMultipleDefinition =
       args.hasFlag(OPT_allow_multiple_definition,
@@ -938,6 +960,12 @@ static void readConfigs(opt::InputArgList &args) {
   config->zStackSize = args::getZOptionValue(args, OPT_z, "stack-size", 0);
   config->zText = getZFlag(args, "text", "notext", true);
   config->zWxneeded = hasZOption(args, "wxneeded");
+
+#if INTEL_CUSTOMIZATION
+  // Handle -plugin-opt=fintel-advanced-optim
+  if (args.hasArg(OPT_plugin_opt_intel_advanced_optim))
+    config->intelAdvancedOptim = true;
+#endif // INTEL_CUSTOMIZATION
 
   // Parse LTO options.
   if (auto *arg = args.getLastArg(OPT_plugin_opt_mcpu_eq))
@@ -1229,6 +1257,110 @@ void LinkerDriver::inferMachineType() {
   }
   error("target emulation unknown: -m or at least one .o file required");
 }
+
+#if INTEL_CUSTOMIZATION
+// If there is at least one GNU LTO file in the linking command
+// then pass it to G++ in order to do LTO and build a temporary
+// object. Then collect the ELF object generated and add it to
+// the linking process.
+template <class ELFT>
+void LinkerDriver::doGnuLTOLinking() {
+
+  // Given an ObjFile and a SmallString, write the file in the temporary
+  // directory
+  auto writeTempObjFile = [](ObjFile<ELFT> *gNUObj, SmallString<128> &s) {
+    int fd;
+
+    // Generate a temporary unique name
+    if (auto ec = sys::fs::createTemporaryFile("lld-temp-" +
+        sys::path::filename(gNUObj->getName()), ".o", fd, s))
+      fatal("cannot create a temporary file: " + ec.message());
+
+    raw_fd_ostream os(fd, true);
+    os << gNUObj->mb.getBuffer();
+
+    if (auto ec = os.error())
+      fatal("issue writing temporary file: " + ec.message());
+
+    os.close();
+  };
+
+  warn("GNU LTO files found in the command line.");
+
+  // Find G++
+  ErrorOr<std::string> exeOrErr = sys::findProgramByName("g++");
+  if (auto ec = exeOrErr.getError())
+    fatal("unable to find g++ in PATH: " + ec.message());
+
+  std::string gNULTOFilesCmd = "";
+  std::vector<StringRef> tempsVector;
+
+  // Traverse through the GNU LTO objects and write them
+  for (auto file : gNULTOFiles) {
+    SmallString<128> s;
+    writeTempObjFile(cast<ObjFile<ELFT>>(file), s);
+    std::string tempFile = s.str().str();
+    tempsVector.push_back(s.str());
+
+    gNULTOFilesCmd += tempFile;
+    gNULTOFilesCmd += " ";
+  }
+
+  if (gNULTOFilesCmd.empty())
+    fatal("unable to generate the temporary files for GNU LTO");
+
+  StringRef exec = saver.save(*exeOrErr);
+  std::string newCMD = exec.str() + " ";
+
+  // Build the command g++ -r GNU-LTO-FILES -nostdlib
+  //                    -nostartfiles -o /tmp/gnulto.o
+  newCMD += "-r ";
+
+  newCMD += gNULTOFilesCmd;
+
+  newCMD += "-nostdlib ";
+  newCMD += "-nostartfiles ";
+  newCMD += "-o ";
+
+  // Create an unique temporary file to write the output
+  SmallString<128> gNUOutputObj;
+  int fd;
+  if (auto ec = sys::fs::createTemporaryFile("lld-gnu-lto-temp",
+                                             ".o", fd, gNUOutputObj))
+      fatal("cannot create a temporary file: " + ec.message());
+
+  tempsVector.push_back(gNUOutputObj.str());
+
+  newCMD += gNUOutputObj.str().str();
+
+  SmallVector<StringRef, 0> newArgs;
+  StringRef(newCMD).split(newArgs," ");
+
+  // Execute the G++ command
+  if (sys::ExecuteAndWait(newArgs[0], newArgs) != 0)
+    fatal("ExecuteAndWait failed: " + newCMD);
+
+  // Load the generated object
+  Optional<MemoryBufferRef> buffer = readFile(gNUOutputObj.str().str());
+  if (!buffer.hasValue())
+    fatal("Output from GNU LTO not created: " + gNUOutputObj.str());
+  MemoryBufferRef mbref = *buffer;
+
+  if (mbref.getBufferSize() == 0)
+    fatal("Output from GNU LTO created incorrectly: " + gNUOutputObj.str());
+
+  // Create the object related to InputFile
+  InputFile *gNULTOFile = make<ObjFile<ELFT>>(mbref, gNUOutputObj.str());
+  files.push_back(gNULTOFile);
+
+  // Update the symbol table.
+  parseFile(gNULTOFile);
+
+  // Remove temporary files
+  for (auto tempFile : tempsVector)
+    sys::fs::remove(tempFile);
+}
+#endif // INTEL_CUSTOMIZATION
 
 // Parse -z max-page-size=<value>. The default value is defined by
 // each target.
@@ -1708,6 +1840,11 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &args) {
   // appended to the Files vector.
   for (size_t i = 0; i < files.size(); ++i)
     parseFile(files[i]);
+#if INTEL_CUSTOMIZATION
+  // Process the GNU LTO files
+  if (!gNULTOFiles.empty())
+    doGnuLTOLinking<ELFT>();
+#endif // INTEL_CUSTOMIZATION
 
   // Now that we have every file, we can decide if we will need a
   // dynamic symbol table.

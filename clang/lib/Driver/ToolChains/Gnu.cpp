@@ -301,6 +301,11 @@ static const char *getLDMOption(const llvm::Triple &T, const ArgList &Args) {
   case llvm::Triple::systemz:
     return "elf64_s390";
   case llvm::Triple::x86_64:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  case llvm::Triple::csa:
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
     if (T.getEnvironment() == llvm::Triple::GNUX32)
       return "elf32_x86_64";
     return "elf_x86_64";
@@ -321,6 +326,51 @@ static bool getPIE(const ArgList &Args, const toolchains::Linux &ToolChain) {
   return A->getOption().matches(options::OPT_pie);
 }
 
+#if INTEL_CUSTOMIZATION
+static void addIntelLibPaths(ArgStringList &CmdArgs,
+    const llvm::opt::ArgList &Args, const toolchains::Linux &ToolChain) {
+  // Add Intel specific library search locations
+  // TODO: This is a rudimentary way to add the library search locations
+  if (ToolChain.getEffectiveTriple().getArch() == llvm::Triple::x86_64) {
+    // deploy
+    CmdArgs.push_back(Args.MakeArgString("-L" +
+        ToolChain.getDriver().Dir + "/../compiler/lib/intel64_lin"));
+  } else {
+    // deploy
+    CmdArgs.push_back(Args.MakeArgString("-L" +
+        ToolChain.getDriver().Dir + "/../compiler/lib/ia32_lin"));
+  }
+  // IA32ROOT
+  const char * IA32Root = getenv("IA32ROOT");
+  if (IA32Root) {
+    SmallString<128> P("-L");
+    P.append(IA32Root);
+    llvm::sys::path::append(P, "lib_lin");
+    CmdArgs.push_back(Args.MakeArgString(P));
+  }
+}
+
+// Intel libraries are added in statically by default
+static void addIntelLib(const char* IntelLibName, ArgStringList &CmdArgs,
+    const llvm::opt::ArgList &Args) {
+  // without --intel, do not pull in Intel libs
+  if (!Args.hasArg(options::OPT__intel))
+    return;
+
+  // FIXME - Right now this is rather simplistic - just check to see if
+  // -static is passed on the command, if it is, we just pull in the Intel
+  // Library.  If not, we wrap the library with -Bstatic <lib> -Bdynamic
+  // assuming that the rest of the libs are linked in dynamically.  This will
+  // need to be expanded to dynamically evaluate the linker command line
+  // to catch user -Wl additions
+  bool isStatic = Args.hasArg(options::OPT_static);
+  if (!isStatic)
+    CmdArgs.push_back("-Bstatic");
+  CmdArgs.push_back(IntelLibName);
+  if (!isStatic)
+    CmdArgs.push_back("-Bdynamic");
+}
+#endif // INTEL_CUSTOMIZATION
 static bool getStaticPIE(const ArgList &Args,
                          const toolchains::Linux &ToolChain) {
   bool HasStaticPIE = Args.hasArg(options::OPT_static_pie);
@@ -509,6 +559,10 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddAllArgs(CmdArgs, options::OPT_u);
 
   ToolChain.AddFilePathLibArgs(Args, CmdArgs);
+#if INTEL_CUSTOMIZATION
+  if (Args.hasArg(options::OPT__intel))
+    addIntelLibPaths(CmdArgs, Args, ToolChain);
+#endif // INTEL_CUSTOMIZATION
 
   if (D.isUsingLTO()) {
     assert(!Inputs.empty() && "Must have at least one input.");
@@ -521,9 +575,41 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
   bool NeedsSanitizerDeps = addSanitizerRuntimes(ToolChain, Args, CmdArgs);
   bool NeedsXRayDeps = addXRayRuntime(ToolChain, Args, CmdArgs);
-  AddLinkerInputs(ToolChain, Inputs, Args, CmdArgs, JA);
+  // When offloading, the input file(s) could be from unbundled partially
+  // linked archives.  The unbundled information is a list of files and not
+  // an actual object/archive.  Take that list and pass those to the linker
+  // instead of the original object.
+  if (JA.isDeviceOffloading(Action::OFK_OpenMP) &&
+      Args.hasArg(options::OPT_foffload_static_lib_EQ)) {
+    InputInfoList UpdatedInputs;
+    // Go through the Inputs to the link.  When an object is encountered, we
+    // know it is an unbundled generated list.
+    // FIXME - properly add objects from list to be removed when compilation is
+    // complete.
+    for (const auto &II : Inputs) {
+      if (II.getType() == types::TY_Tempfilelist) {
+        // Take the unbundled list file and pass it in with '@'.
+        std::string FileName(II.getFilename());
+        const char * ArgFile = C.getArgs().MakeArgString("@" + FileName);
+        auto CurInput = InputInfo(types::TY_Object, ArgFile, ArgFile);
+        UpdatedInputs.push_back(CurInput);
+      } else
+        UpdatedInputs.push_back(II);
+    }
+    AddLinkerInputs(ToolChain, UpdatedInputs, Args, CmdArgs, JA);
+  } else
+    AddLinkerInputs(ToolChain, Inputs, Args, CmdArgs, JA);
+
   // The profile runtime also needs access to system libraries.
   getToolChain().addProfileRTLibs(Args, CmdArgs);
+
+#if INTEL_CUSTOMIZATION
+  if (Args.hasArg(options::OPT__intel) &&
+      !Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
+    addIntelLib("-lirc", CmdArgs, Args);
+    addIntelLib("-lsvml", CmdArgs, Args);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (D.CCCIsCXX() &&
       !Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
@@ -536,8 +622,23 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       if (OnlyLibstdcxxStatic)
         CmdArgs.push_back("-Bdynamic");
     }
+#if INTEL_CUSTOMIZATION
+    // Add -limf before -lm, it will be linked in the same manner as -lm so
+    // don't add with addIntelLib
+    if (Args.hasArg(options::OPT__intel))
+      CmdArgs.push_back("-limf");
+#endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-lm");
   }
+#if INTEL_CUSTOMIZATION
+  // Add -lm for both C and C++ compilation
+  else if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs) &&
+           Args.hasArg(options::OPT__intel)) {
+    CmdArgs.push_back("-limf");
+    CmdArgs.push_back("-lm");
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Silence warnings when linking C code with a C++ '-stdlib' argument.
   Args.ClaimAllArgs(options::OPT_stdlib_EQ);
 
@@ -565,6 +666,9 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         WantPthread = true;
 
       AddRunTimeLibs(ToolChain, D, CmdArgs, Args);
+
+      if (Args.hasArg(options::OPT_fsycl))
+        CmdArgs.push_back("-lsycl");
 
       if (WantPthread && !isAndroid)
         CmdArgs.push_back("-lpthread");
@@ -2172,6 +2276,11 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
     LibDirs.append(begin(AVRLibDirs), end(AVRLibDirs));
     TripleAliases.append(begin(AVRTriples), end(AVRTriples));
     break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  case llvm::Triple::csa:
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
   case llvm::Triple::x86_64:
     LibDirs.append(begin(X86_64LibDirs), end(X86_64LibDirs));
     TripleAliases.append(begin(X86_64Triples), end(X86_64Triples));
@@ -2563,6 +2672,11 @@ bool Generic_GCC::IsIntegratedAssemblerDefault() const {
   switch (getTriple().getArch()) {
   case llvm::Triple::x86:
   case llvm::Triple::x86_64:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  case llvm::Triple::x86_icecode:
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
   case llvm::Triple::aarch64:
   case llvm::Triple::aarch64_be:
   case llvm::Triple::arm:

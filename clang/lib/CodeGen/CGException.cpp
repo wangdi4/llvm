@@ -554,7 +554,22 @@ void CodeGenFunction::EmitEndEHSpec(const Decl *D) {
 
 void CodeGenFunction::EmitCXXTryStmt(const CXXTryStmt &S) {
   EnterCXXTryStmt(S);
-  EmitStmt(S.getTryBlock());
+#if INTEL_CUSTOMIZATION
+  if (getLangOpts().IntelCompat) {
+    // CQ#372058 - associate landing pad in debug info with the end of the try
+    // scope. The landing pad is associated with CurEHLocation.
+    SourceLocation OldEHLocation = CurEHLocation;
+    CurEHLocation = S.getTryBlock()->getEndLoc();
+
+    // Entering a new scope before we emit the try body.
+    RunCleanupsScope Scope(*this);
+    EmitStmt(S.getTryBlock());
+
+    // Restore EH location.
+    CurEHLocation = OldEHLocation;
+  } else
+    EmitStmt(S.getTryBlock());
+#endif // INTEL_CUSTOMIZATION
   ExitCXXTryStmt(S);
 }
 

@@ -65,6 +65,17 @@
 // RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-FINITE-MATH-ONLY
 // CHECK-FINITE-MATH-ONLY: #define __FINITE_MATH_ONLY__ 1
 //
+// INTEL_CUSTOMIZATION
+// RUN: %clang_cc1 %s -E -dM -ffast-math -fintel-compatibility -o - \
+// RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-INTEL-FAST-MATH
+// CHECK-INTEL-FAST-MATH: #define __FAST_MATH__ 1
+// CHECK-INTEL-FAST-MATH: #define __FINITE_MATH_ONLY__ 0
+//
+// RUN: %clang_cc1 %s -E -dM -ffinite-math-only -fintel-compatibility -o - \
+// RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-INTEL-FINITE-MATH-ONLY
+// CHECK-INTEL-FINITE-MATH-ONLY: #define __FINITE_MATH_ONLY__ 0
+// end INTEL_CUSTOMIZATION
+//
 // RUN: %clang %s -E -dM -fno-finite-math-only -o - \
 // RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-NO-FINITE-MATH-ONLY
 // CHECK-NO-FINITE-MATH-ONLY: #define __FINITE_MATH_ONLY__ 0
@@ -174,6 +185,12 @@
 // RUN: %clang_cc1 %s -E -dM -o - -x cl -triple spir-unknown-unknown \
 // RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-SPIR
 // CHECK-SPIR: #define __IMAGE_SUPPORT__ 1
+
+// INTEL_CUSTOMIZATION
+// RUN: %clang_cc1 %s -E -dM -o - -x cl -triple spir-unknown-unknown-intelfpga \
+// RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-INTEL-FPGA
+// CHECK-INTEL-FPGA-NOT: #define __IMAGE_SUPPORT__ 1
+// end INTEL_CUSTOMIZATION
 
 // RUN: %clang_cc1 %s -E -dM -o - -x hip -triple amdgcn-amd-amdhsa \
 // RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-HIP

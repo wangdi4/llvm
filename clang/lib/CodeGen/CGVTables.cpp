@@ -262,6 +262,11 @@ void CodeGenFunction::StartThunk(llvm::Function *Fn, GlobalDecl GD,
   // Create a scope with an artificial location for the body of this function.
   auto AL = ApplyDebugLocation::CreateArtificial(*this);
 
+#if INTEL_CUSTOMIZATION
+  if (CGDebugInfo *DI = CGM.getModuleDebugInfo())
+    DI->setIsThunk(Fn);
+#endif // INTEL_CUSTOMIZATION
+
   // Since we didn't pass a GlobalDecl to StartFunction, do this ourselves.
   CGM.getCXXABI().EmitInstanceFunctionProlog(*this);
   CXXThisValue = CXXABIThisValue;

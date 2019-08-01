@@ -625,8 +625,29 @@ int target(int64_t device_id, void *host_ptr, int32_t arg_num,
   std::vector<void *> fpArrays;
   std::vector<int> tgtArgsPositions(arg_num, -1);
 
+#if INTEL_COLLAB
+  uint64_t LoopLevel = 0;
+  uint64_t LoopCount = 0;
+  struct __tgt_loop_desc {
+    uint64_t lower, upper, stride;
+  };
+
+  void *TgtNDLoopDesc = nullptr;
+#endif // INTEL_COLLAB
+
   for (int32_t i = 0; i < arg_num; ++i) {
     if (!(arg_types[i] & OMP_TGT_MAPTYPE_TARGET_PARAM)) {
+#if INTEL_COLLAB
+      if (arg_types[i] & OMP_TGT_MAPTYPE_ND_DESC) {
+        TgtNDLoopDesc = (void *)args[i];
+        LoopLevel = *(uint64_t*)args[i];
+        if (LoopLevel == 1) {
+          struct __tgt_loop_desc *loop_desc =
+            (struct __tgt_loop_desc *)(((uint64_t*)args[i]) + 1);
+          LoopCount = loop_desc->upper;
+        }
+      }
+#endif // INTEL_COLLAB
       // This is not a target parameter, do not push it into tgt_args.
       // Check for lambda mapping.
       if (isLambdaMapping(arg_types[i])) {
@@ -676,8 +697,13 @@ int target(int64_t device_id, void *host_ptr, int32_t arg_num,
       TgtBaseOffset = 0;
     } else if (arg_types[i] & OMP_TGT_MAPTYPE_PRIVATE) {
       // Allocate memory for (first-)private array
+#if INTEL_COLLAB
+      TgtPtrBegin = Device.data_alloc_base(arg_sizes[i], HstPtrBegin,
+                                           HstPtrBase);
+#else
       TgtPtrBegin = Device.RTL->data_alloc(Device.RTLDeviceID,
           arg_sizes[i], HstPtrBegin);
+#endif // INTEL_COLLAB
       if (!TgtPtrBegin) {
         DP ("Data allocation for %sprivate array " DPxMOD " failed, "
             "abort target.\n",
@@ -688,12 +714,21 @@ int target(int64_t device_id, void *host_ptr, int32_t arg_num,
       fpArrays.push_back(TgtPtrBegin);
       TgtBaseOffset = (intptr_t)HstPtrBase - (intptr_t)HstPtrBegin;
 #ifdef OMPTARGET_DEBUG
+#if INTEL_COLLAB
+      DP("Allocated %" PRId64 " bytes of target memory at " DPxMOD " for "
+          "%sprivate array " DPxMOD " - pushing target argument (Begin: " DPxMOD
+          ", Offset: %" PRId64 ")\n",
+          arg_sizes[i], DPxPTR(TgtPtrBegin),
+          (arg_types[i] & OMP_TGT_MAPTYPE_TO ? "first-" : ""),
+          DPxPTR(HstPtrBegin), DPxPTR(TgtPtrBegin), TgtBaseOffset);
+#else
       void *TgtPtrBase = (void *)((intptr_t)TgtPtrBegin + TgtBaseOffset);
       DP("Allocated %" PRId64 " bytes of target memory at " DPxMOD " for "
           "%sprivate array " DPxMOD " - pushing target argument " DPxMOD "\n",
           arg_sizes[i], DPxPTR(TgtPtrBegin),
           (arg_types[i] & OMP_TGT_MAPTYPE_TO ? "first-" : ""),
           DPxPTR(HstPtrBegin), DPxPTR(TgtPtrBase));
+#endif // INTEL_COLLAB
 #endif
       // If first-private, copy data from host
       if (arg_types[i] & OMP_TGT_MAPTYPE_TO) {
@@ -715,9 +750,15 @@ int target(int64_t device_id, void *host_ptr, int32_t arg_num,
           false);
       TgtBaseOffset = (intptr_t)HstPtrBase - (intptr_t)HstPtrBegin;
 #ifdef OMPTARGET_DEBUG
+#if INTEL_COLLAB
+      DP("Obtained target argument (Begin: " DPxMOD ", Offset: %" PRId64
+         ") from host pointer " DPxMOD "\n", DPxPTR(TgtPtrBegin), TgtBaseOffset,
+         DPxPTR(HstPtrBegin));
+#else
       void *TgtPtrBase = (void *)((intptr_t)TgtPtrBegin + TgtBaseOffset);
       DP("Obtained target argument " DPxMOD " from host pointer " DPxMOD "\n",
           DPxPTR(TgtPtrBase), DPxPTR(HstPtrBegin));
+#endif // INTEL_COLLAB
 #endif
     }
     tgtArgsPositions[i] = tgt_args.size();
@@ -730,6 +771,23 @@ int target(int64_t device_id, void *host_ptr, int32_t arg_num,
 
   // Pop loop trip count
   uint64_t ltc = 0;
+#if INTEL_COLLAB
+  if (LoopLevel == 1)
+    // FIXME: we'd better introduce a new interface,
+    //        e.g. __kmpc_push_target_ndrange, instead of passing
+    //        the NDrange via arguments to __tgt_target.
+    //        This will require accumulating trip-counts and NDranges
+    //        in loopTripCnt map, but it will better align with
+    //        the current trip-count management.
+    ltc = LoopCount;
+  else {
+    TblMapMtx.lock();
+    auto I = Device.LoopTripCnt.find(__kmpc_global_thread_num(NULL));
+    if (I != Device.LoopTripCnt.end())
+      std::swap(ltc, I->second);
+    TblMapMtx.unlock();
+  }
+#else  // INTEL_COLLAB
   TblMapMtx.lock();
   auto I = Device.LoopTripCnt.find(__kmpc_global_thread_num(NULL));
   if (I != Device.LoopTripCnt.end()) {
@@ -738,11 +796,37 @@ int target(int64_t device_id, void *host_ptr, int32_t arg_num,
     DP("loop trip count is %lu.\n", ltc);
   }
   TblMapMtx.unlock();
+#endif // INTEL_COLLAB
 
   // Launch device execution.
   DP("Launching target execution %s with pointer " DPxMOD " (index=%d).\n",
       TargetTable->EntriesBegin[TM->Index].name,
       DPxPTR(TargetTable->EntriesBegin[TM->Index].addr), TM->Index);
+#if INTEL_COLLAB
+  rc = Device.manifest_data_for_region(
+      TargetTable->EntriesBegin[TM->Index].addr);
+
+  if (rc != OFFLOAD_SUCCESS) {
+    DP("Data manifestation failed.\n");
+    return OFFLOAD_FAIL;
+  }
+
+  if (LoopLevel <= 1) {
+    if (IsTeamConstruct) {
+      rc = Device.run_team_region(TargetTable->EntriesBegin[TM->Index].addr,
+           &tgt_args[0], &tgt_offsets[0], tgt_args.size(), team_num,
+           thread_limit, ltc);
+    } else {
+      rc = Device.run_team_region(TargetTable->EntriesBegin[TM->Index].addr,
+           &tgt_args[0], &tgt_offsets[0], tgt_args.size(), 1, 0, ltc);
+    }
+  }
+  else
+    rc = Device.run_team_nd_region(TargetTable->EntriesBegin[TM->Index].addr,
+         &tgt_args[0], &tgt_offsets[0], tgt_args.size(),
+         team_num <= 0 ? 1 : team_num,
+         thread_limit <= 0 ? 0 : thread_limit, TgtNDLoopDesc);
+#else
   if (IsTeamConstruct) {
     rc = Device.run_team_region(TargetTable->EntriesBegin[TM->Index].addr,
         &tgt_args[0], &tgt_offsets[0], tgt_args.size(), team_num,
@@ -751,6 +835,7 @@ int target(int64_t device_id, void *host_ptr, int32_t arg_num,
     rc = Device.run_region(TargetTable->EntriesBegin[TM->Index].addr,
         &tgt_args[0], &tgt_offsets[0], tgt_args.size());
   }
+#endif // INTEL_COLLAB
   if (rc != OFFLOAD_SUCCESS) {
     DP ("Executing target region abort target.\n");
     return OFFLOAD_FAIL;

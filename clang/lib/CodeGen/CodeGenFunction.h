@@ -394,6 +394,17 @@ public:
     /// Get the name of the capture helper.
     virtual StringRef getHelperName() const { return "__captured_stmt"; }
 
+#if INTEL_COLLAB
+    virtual void recordVariableDefinition(const VarDecl *VD) {}
+    virtual void recordVariableReference(const VarDecl *VD) {}
+    virtual void recordValueDefinition(llvm::Value *) {}
+    virtual void recordValueReference(llvm::Value *) {}
+    virtual void recordValueSuppression(llvm::Value *) {}
+#endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+    virtual bool isLateOutlinedRegion() { return false; }
+    virtual bool inTargetVariantDispatchRegion() { return false; }
+#endif // INTEL_CUSTOMIZATION
   private:
     /// The kind of captured statement being generated.
     CapturedRegionKind Kind;
@@ -409,6 +420,48 @@ public:
     FieldDecl *CXXThisFieldDecl;
   };
   CGCapturedStmtInfo *CapturedStmtInfo = nullptr;
+#if INTEL_CUSTOMIZATION
+  class IntelPragmaInlineState {
+  public:
+    IntelPragmaInlineState(CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs);
+    ~IntelPragmaInlineState();
+    std::pair<llvm::Attribute::AttrKind, bool> getPragmaInlineAttribute();
+  private:
+    CodeGenFunction &CGF;
+    const IntelInlineAttr *CurrentAttr;
+    IntelPragmaInlineState *PreviousState;
+  };
+  IntelPragmaInlineState *CurrentPragmaInlineState = nullptr;
+
+  class IntelIVDepArrayHandler {
+  public:
+    IntelIVDepArrayHandler(CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs);
+    ~IntelIVDepArrayHandler();
+  private:
+    CodeGenFunction &CGF;
+    llvm::CallInst *CallEntry = nullptr;
+  };
+
+  class DistributePointHandler {
+  public:
+    DistributePointHandler(CodeGenFunction &CGF, const Stmt *S,
+                           ArrayRef<const Attr *> Attrs);
+    ~DistributePointHandler();
+  private:
+    CodeGenFunction &CGF;
+    llvm::CallInst *CallEntry;
+  };
+
+  class IntelBlockLoopExprHandler {
+  public:
+    IntelBlockLoopExprHandler(CodeGenFunction &CGF,
+                              ArrayRef<const Attr *> Attrs);
+    ~IntelBlockLoopExprHandler();
+  private:
+    CodeGenFunction &CGF;
+    llvm::CallInst *CallEntry = nullptr;
+  };
+#endif // INTEL_CUSTOMIZATION
 
   /// RAII for correct setting/restoring of CapturedStmtInfo.
   class CGCapturedStmtRAII {
@@ -675,8 +728,7 @@ public:
   /// PushDestructorCleanup - Push a cleanup to call the
   /// complete-object variant of the given destructor on the object at
   /// the given address.
-  void PushDestructorCleanup(const CXXDestructorDecl *Dtor, QualType T,
-                             Address Addr);
+  void PushDestructorCleanup(const CXXDestructorDecl *Dtor, Address Addr);
 
   /// PopCleanupBlock - Will pop the cleanup entry on the stack and
   /// process all branch fixups.
@@ -835,8 +887,13 @@ public:
     /// Sets the address of the variable \p LocalVD to be \p TempAddr in
     /// function \p CGF.
     /// \return true if at least one variable was set already, false otherwise.
+#if INTEL_COLLAB
+    bool setVarAddr(CodeGenFunction &CGF, const VarDecl *LocalVD,
+                    Address TempAddr, bool NoTemps = false) {
+#else
     bool setVarAddr(CodeGenFunction &CGF, const VarDecl *LocalVD,
                     Address TempAddr) {
+#endif // INTEL_COLLAB
       LocalVD = LocalVD->getCanonicalDecl();
       // Only save it once.
       if (SavedLocals.count(LocalVD)) return false;
@@ -850,7 +907,11 @@ public:
 
       // Generate the private entry.
       QualType VarTy = LocalVD->getType();
+#if INTEL_COLLAB
+      if (!NoTemps && VarTy->isReferenceType()) {
+#else
       if (VarTy->isReferenceType()) {
+#endif // INTEL_COLLAB
         Address Temp = CGF.CreateMemTemp(VarTy);
         CGF.Builder.CreateStore(TempAddr.getPointer(), Temp);
         TempAddr = Temp;
@@ -919,6 +980,15 @@ public:
       return MappedVars.setVarAddr(CGF, LocalVD, PrivateGen());
     }
 
+#if INTEL_COLLAB
+    bool addPrivateNoTemps(const VarDecl *LocalVD,
+                           const llvm::function_ref<Address()> PrivateGen) {
+      assert(PerformCleanup && "adding private to dead scope");
+      return MappedVars.setVarAddr(CGF, LocalVD, PrivateGen(),
+                                   /*NoTemps=*/true);
+    }
+#endif // INTEL_COLLAB
+
     /// Privatizes local variables previously registered as private.
     /// Registration is separate from the actual privatization to allow
     /// initializers use values of the original variables, not the private one.
@@ -946,6 +1016,21 @@ public:
       return !VD->isLocalVarDeclOrParm() && CGF.LocalDeclMap.count(VD) > 0;
     }
   };
+#if INTEL_COLLAB
+  void addMappedClause(const OMPClause* C, Address Addr) {
+    auto It = ClauseMap.find(C);
+    if (It == ClauseMap.end())
+      ClauseMap.insert({C, Addr});
+  }
+  llvm::Value *getMappedClause(const OMPClause* C) {
+    auto It = ClauseMap.find(C);
+    if (It == ClauseMap.end())
+      return nullptr;
+    return It->second.getPointer();
+  }
+  typedef llvm::DenseMap<const OMPClause*, Address> ClauseMapTy;
+  ClauseMapTy ClauseMap;
+#endif // INTEL_COLLAB
 
   /// Takes the old cleanup stack size and emits the cleanup blocks
   /// that have been added.
@@ -1403,6 +1488,110 @@ private:
   SourceLocation LastStopPoint;
 
 public:
+#if INTEL_CUSTOMIZATION
+  /// This class is used for instantiation of local variables, but restores
+  /// LocalDeclMap state after instantiation. If Empty is true, the LocalDeclMap
+  /// is cleared completely and then restored to original state upon
+  /// destruction.
+  class LocalVarsDeclGuard {
+    CodeGenFunction &CGF;
+    DeclMapTy LocalDeclMap;
+
+  public:
+    LocalVarsDeclGuard(CodeGenFunction &CGF, bool Empty = false)
+        : CGF(CGF), LocalDeclMap() {
+      if (Empty) {
+        LocalDeclMap.swap(CGF.LocalDeclMap);
+      } else {
+        LocalDeclMap.copyFrom(CGF.LocalDeclMap);
+      }
+    }
+    ~LocalVarsDeclGuard() { CGF.LocalDeclMap.swap(LocalDeclMap); }
+  };
+#endif  // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+  // Expressions saved in the VLASizeMap cannot be reused inside regions
+  // that will be late-outlined. This saves and restores the map and
+  // provides the mechanism to re-emit the expressions in each region.
+  // Since codegen expects these to be emitted on declaration of a variable
+  // with variably modified type, we need to re-emit before processing the
+  // body of the region.  Currently we just re-emit all expressions seen
+  // so far, potentially emitting expressions we won't need in the region.
+  // If this turns out to be a problem we'll need to implement some
+  // mechanism to determine with are needed, or regenerate them on demand
+  // during codegen.
+  class VLASizeMapHandler {
+    CodeGenFunction &CGF;
+    llvm::DenseMap<const Expr*, llvm::Value*> SavedVLASizeMap;
+    llvm::DenseMap<const Expr*, std::pair<llvm::Value*, CharUnits>> AddressMap;
+  public:
+    VLASizeMapHandler(CodeGenFunction &CGF)
+     : CGF(CGF) {
+      SavedVLASizeMap = CGF.VLASizeMap;
+      // Outside the region save value in a temp.
+      for (auto &V : CGF.VLASizeMap) {
+        const Expr *E = V.first;
+        llvm::APSInt ConstLength;
+        if (E->isIntegerConstantExpr(ConstLength, CGF.getContext()))
+          continue;
+
+        Address A =
+            CGF.CreateMemTemp(CGF.getContext().getSizeType(), "omp.vla.tmp");
+        LValue LV = CGF.MakeAddrLValue(A, CGF.getContext().getSizeType());
+        RValue RV = RValue::get(V.second);
+        CGF.EmitStoreThroughLValue(RV, LV, /*isInit=*/true);
+        AddressMap[V.first] = {A.getPointer(), A.getAlignment()};
+      }
+    }
+    void EmitVLAExpressions() {
+      // Inside the region load the temp and record it so it appears in a
+      // clause.
+      for (auto &Z : AddressMap) {
+        const Expr *E = Z.first;
+        llvm::Value *V = Z.second.first;
+        CharUnits Align = Z.second.second;
+        Address A(V, Align);
+        CGF.VLASizeMap[E] = CGF.Builder.CreateLoad(A);
+        if (CGF.CapturedStmtInfo)
+          CGF.CapturedStmtInfo->recordValueReference(
+              cast<llvm::LoadInst>(CGF.VLASizeMap[E])->getPointerOperand());
+      }
+    }
+    ~VLASizeMapHandler() {
+      CGF.VLASizeMap = SavedVLASizeMap;
+    }
+  };
+  // Save and clear the TerminateLandingPad on entry to each OpenMP region.
+  // This will ensure we have one for each OpenMP region when it is outlined.
+  class OMPTerminateLandingPadHandler {
+    CodeGenFunction &CGF;
+    llvm::BasicBlock *TerminateLandingPad;
+
+  public:
+    OMPTerminateLandingPadHandler(CodeGenFunction &CGF)
+        : CGF(CGF), TerminateLandingPad(CGF.TerminateLandingPad) {
+      CGF.TerminateLandingPad = nullptr;
+    }
+    ~OMPTerminateLandingPadHandler() {
+      if (CGF.TerminateLandingPad) {
+        if (!CGF.TerminateLandingPad->use_empty())
+          CGF.CurFn->getBasicBlockList().push_back(CGF.TerminateLandingPad);
+        else
+          delete CGF.TerminateLandingPad;
+      }
+      CGF.TerminateLandingPad = TerminateLandingPad;
+    }
+  };
+private:
+  bool GenOMPIncrement = false;
+public:
+  bool generatingOMPIncrement() { return GenOMPIncrement; }
+  void GenerateOMPIncrement(const Expr *E) {
+    GenOMPIncrement = true;
+    EmitIgnoredExpr(E);
+    GenOMPIncrement = false;
+  }
+#endif  // INTEL_COLLAB
   /// Source location information about the default argument or member
   /// initializer expression we're evaluating, if any.
   CurrentSourceLocExprScope CurSourceLocExprScope;
@@ -1558,6 +1747,10 @@ private:
   /// temporary should be destroyed conditionally.
   ConditionalEvaluation *OutermostConditional = nullptr;
 
+#if INTEL_CUSTOMIZATION
+  bool StdContainerOptKindDetermined = false;
+#endif // INTEL_CUSTOMIZATION
+
   /// The current lexical scope.
   LexicalScope *CurLexicalScope = nullptr;
 
@@ -1609,6 +1802,20 @@ private:
   void EmitOpenCLKernelMetadata(const FunctionDecl *FD,
                                 llvm::Function *Fn);
 
+#if INTEL_CUSTOMIZATION
+  /// Add metadata for HLS component functions.
+  void EmitHLSComponentMetadata(const FunctionDecl *FD, llvm::Function *Fn);
+  void EmitOpenCLHLSComponentMetadata(const FunctionDecl *FD,
+                                      llvm::Function *Fn);
+
+  // Table recording the mapping between the return pointer and
+  // the correspoind tbaa for the pointer dereference.
+  llvm::DenseMap<llvm::Value *, llvm::MDNode *> RetPtrMap;
+  bool IsFakeLoadCand(const Expr *RV);
+  bool EmitFakeLoadForRetPtr(const Expr *RV);
+  llvm::Value *EmitX86MayIUseCpuFeature(const CallExpr *E);
+#endif // INTEL_CUSTOMIZATION
+
 public:
   CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext=false);
   ~CodeGenFunction();
@@ -1653,7 +1860,10 @@ public:
     if (!EHStack.requiresLandingPad()) return nullptr;
     return getInvokeDestImpl();
   }
-
+#if INTEL_CUSTOMIZATION
+  llvm::Intrinsic::ID getContainerIntrinsic(
+      CodeGenModule::StdContainerOptKind OptKind, StringRef FieldName);
+#endif // INTEL_CUSTOMIZATION
   bool currentFunctionUsesSEHTry() const { return CurSEHParent != nullptr; }
 
   const TargetInfo &getTarget() const { return Target; }
@@ -2444,6 +2654,10 @@ public:
   /// generating code for an C++ member function.
   llvm::Value *LoadCXXThis() {
     assert(CXXThisValue && "no 'this' value for this function");
+#if INTEL_COLLAB
+    if (CapturedStmtInfo)
+      CapturedStmtInfo->recordValueReference(CXXThisValue);
+#endif  // INTEL_COLLAB
     return CXXThisValue;
   }
   Address LoadCXXThisAddress();
@@ -2555,8 +2769,8 @@ public:
   static Destroyer destroyCXXObject;
 
   void EmitCXXDestructorCall(const CXXDestructorDecl *D, CXXDtorType Type,
-                             bool ForVirtualBase, bool Delegating, Address This,
-                             QualType ThisTy);
+                             bool ForVirtualBase, bool Delegating,
+                             Address This);
 
   void EmitNewArrayInitializer(const CXXNewExpr *E, QualType elementType,
                                llvm::Type *ElementTy, Address NewPtr,
@@ -2861,6 +3075,9 @@ public:
   /// \return True if the statement was handled.
   bool EmitSimpleStmt(const Stmt *S);
 
+#if INTEL_CUSTOMIZATION
+  void EmitInlineCallStmt(const Stmt *S, ArrayRef<const Attr *> Attrs = None);
+#endif // INTEL_CUSTOMIZATION
   Address EmitCompoundStmt(const CompoundStmt &S, bool GetLast = false,
                            AggValueSlot AVS = AggValueSlot::ignored());
   Address EmitCompoundStmtWithoutScope(const CompoundStmt &S,
@@ -3326,6 +3543,42 @@ private:
   /// Emit code for sections directive.
   void EmitSections(const OMPExecutableDirective &S);
 
+#if INTEL_COLLAB
+  void EmitLateOutlineOMPDirective(const OMPExecutableDirective &S,
+                                   OpenMPDirectiveKind Kind = OMPD_unknown);
+
+  void EmitLateOutlineOMPLoopDirective(const OMPLoopDirective &S,
+                                       OpenMPDirectiveKind Kind);
+
+public:
+  bool requiresImplicitTask(const OMPExecutableDirective &S);
+#if INTEL_CUSTOMIZATION
+  bool IsPrivateCounter(const VarDecl *VD) {
+    return VD->isLocalVarDecl() && !LocalDeclMap.count(VD);
+  }
+  bool LoopBoundsHaveBeenHoisted(const OMPLoopDirective *LD) {
+   return HoistedBoundsLoops.find(LD) != HoistedBoundsLoops.end();
+  }
+  void HoistLoopBoundsIfPossible(const OMPExecutableDirective &S,
+                                 OpenMPDirectiveKind Kind);
+  const OMPLoopDirective *GetLoopForHoisting(const OMPExecutableDirective &S,
+                                             OpenMPDirectiveKind Kind);
+private:
+  llvm::SmallPtrSet<const void *, 8> HoistedBoundsLoops;
+#endif // INTEL_CUSTOMIZATION
+  void EnsureAddressableClauseExpr(const OMPClause *C);
+  void HoistTeamsClausesIfPossible(const OMPExecutableDirective &S,
+                                   OpenMPDirectiveKind Kind);
+  void EmitLateOutlineOMPLoopBounds(const OMPLoopDirective &S,
+                                    OpenMPDirectiveKind Kind,
+                                    bool WithPreInits);
+  void EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
+                              OpenMPDirectiveKind Kind);
+
+public:
+  void RemapForLateOutlining(const OMPExecutableDirective &D,
+                             OMPPrivateScope &PrivScope);
+#endif // INTEL_COLLAB
 public:
 
   //===--------------------------------------------------------------------===//
@@ -3678,9 +3931,9 @@ public:
                               llvm::Value *ImplicitParam,
                               QualType ImplicitParamTy, const CallExpr *E,
                               CallArgList *RtlArgs);
-  RValue EmitCXXDestructorCall(GlobalDecl Dtor, const CGCallee &Callee,
-                               llvm::Value *This, QualType ThisTy,
-                               llvm::Value *ImplicitParam,
+  RValue EmitCXXDestructorCall(GlobalDecl Dtor,
+                               const CGCallee &Callee,
+                               llvm::Value *This, llvm::Value *ImplicitParam,
                                QualType ImplicitParamTy, const CallExpr *E);
   RValue EmitCXXMemberCallExpr(const CXXMemberCallExpr *E,
                                ReturnValueSlot ReturnValue);
@@ -3735,6 +3988,22 @@ public:
   llvm::Value *EmitARMBuiltinExpr(unsigned BuiltinID, const CallExpr *E,
                                   llvm::Triple::ArchType Arch);
 
+#if INTEL_CUSTOMIZATION
+  llvm::Value *EmitIntelFPGABuiltinExpr(unsigned BuiltinID, const CallExpr *E);
+  llvm::Value *EmitGetComputeIDExpr(const CallExpr *E);
+  llvm::Value *EmitRWPipeExpr(const CallExpr *E, bool IsSpir, bool IsReadPipe);
+  RValue EmitFPGARegBuiltin(unsigned BuiltinID, const CallExpr *E,
+                            ReturnValueSlot ReturnValue);
+  RValue EmitHLSStreamBuiltin(unsigned BuiltinID, const CallExpr *E);
+  RValue EmitHLSMemMasterBuiltin(unsigned BuiltinID, const CallExpr *E,
+                                 ReturnValueSlot ReturnValue);
+
+  llvm::Value *EmitSVMLBuiltinExpr(unsigned BuiltinID, const char *LibCallName,
+                                   unsigned Modifier, unsigned IntBitWidth,
+                                   const CallExpr *E,
+                                   SmallVectorImpl<llvm::Value *> &Ops);
+#endif // INTEL_CUSTOMIZATION
+
   llvm::Value *EmitCommonNeonBuiltinExpr(unsigned BuiltinID,
                                          unsigned LLVMIntrinsic,
                                          unsigned AltLLVMIntrinsic,
@@ -3763,6 +4032,11 @@ public:
 
   llvm::Value *BuildVector(ArrayRef<llvm::Value*> Ops);
   llvm::Value *EmitX86BuiltinExpr(unsigned BuiltinID, const CallExpr *E);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  llvm::Value *EmitCSABuiltinExpr(unsigned BuiltinID, const CallExpr *E);
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
   llvm::Value *EmitPPCBuiltinExpr(unsigned BuiltinID, const CallExpr *E);
   llvm::Value *EmitAMDGPUBuiltinExpr(unsigned BuiltinID, const CallExpr *E);
   llvm::Value *EmitSystemZBuiltinExpr(unsigned BuiltinID, const CallExpr *E);
@@ -3870,6 +4144,10 @@ public:
   /// Emits a reference binding to the passed in expression.
   RValue EmitReferenceBindingToExpr(const Expr *E);
 
+  /// Emit Intel FPGA field annotations for the given field and value. Returns
+  /// the annotation result.
+  Address EmitIntelFPGAFieldAnnotations(const FieldDecl *D, Address V,
+                                        StringRef AnnotStr);
   //===--------------------------------------------------------------------===//
   //                           Expression Emission
   //===--------------------------------------------------------------------===//
@@ -4018,6 +4296,12 @@ public:
   /// annotation result.
   Address EmitFieldAnnotations(const FieldDecl *D, Address V);
 
+#if INTEL_CUSTOMIZATION
+  /// Emit HLS field annotations for the given field and value. Returns the
+  /// annotation result.
+  Address EmitHLSFieldAnnotations(const FieldDecl *D, Address V,
+                                  StringRef AnnotStr);
+#endif // INTEL_CUSTOMIZATION
   //===--------------------------------------------------------------------===//
   //                             Internal Helpers
   //===--------------------------------------------------------------------===//
@@ -4354,6 +4638,7 @@ private:
   void AddObjCARCExceptionMetadata(llvm::Instruction *Inst);
 
   llvm::Value *GetValueForARMHint(unsigned BuiltinID);
+
   llvm::Value *EmitX86CpuIs(const CallExpr *E);
   llvm::Value *EmitX86CpuIs(StringRef CPUStr);
   llvm::Value *EmitX86CpuSupports(const CallExpr *E);

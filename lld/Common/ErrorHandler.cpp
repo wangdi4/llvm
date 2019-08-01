@@ -61,6 +61,27 @@ void lld::exitLld(int val) {
   _exit(val);
 }
 
+#if INTEL_CUSTOMIZATION
+// Destroy the LTO temporary data and flush the stream buffers.
+void lld::cleanIntelLld() {
+  // CMPLRLLVM-8800: The early exit in exitLld can prevent calling the proper
+  // destructors. This is an issue while testing because it can exhaust the
+  // memory if it isn't handled properly. We are going to substitute exitLld
+  // with cleanIntelLld (except in the error handling functions) to always call
+  // the flushes and the proper destructors.
+
+  // Delete temporary files.
+  if (errorHandler().outputBuffer)
+    errorHandler().outputBuffer->discard();
+
+  // Clean up the memory from the LTO process
+  llvm_shutdown();
+
+  outs().flush();
+  errs().flush();
+}
+#endif // INTEL_CUSTOMIZATION
+
 void lld::diagnosticHandler(const DiagnosticInfo &di) {
   SmallString<128> s;
   raw_svector_ostream os(s);

@@ -503,7 +503,7 @@ bool Sema::MergeCXXFunctionDecl(FunctionDecl *New, FunctionDecl *Old,
     bool OldParamHasDfl = OldParam ? OldParam->hasDefaultArg() : false;
     bool NewParamHasDfl = NewParam->hasDefaultArg();
 
-    if (OldParamHasDfl && NewParamHasDfl) {
+        if (OldParamHasDfl && NewParamHasDfl) {
       unsigned DiagDefaultParamID =
         diag::err_param_default_argument_redefinition;
 
@@ -5281,6 +5281,23 @@ Sema::MarkBaseAndMemberDestructorsReferenced(SourceLocation Location,
 
     CXXDestructorDecl *Dtor = LookupDestructor(BaseClassDecl);
     assert(Dtor && "No dtor found for BaseClassDecl!");
+#if INTEL_CUSTOMIZATION
+    // CQ#376362: "Classic" icc allows private destructors in base classes and
+    // so should we.
+    if (getLangOpts().IntelCompat) {
+      if (CheckDestructorAccess(
+          ClassDecl->getLocation(), Dtor,
+          PDiag(diag::warn_access_dtor_vbase)
+          << Context.getTypeDeclType(ClassDecl) << VBase.getType(),
+          Context.getTypeDeclType(ClassDecl)) ==
+        AR_accessible) {
+        CheckDerivedToBaseConversion(
+          Context.getTypeDeclType(ClassDecl), VBase.getType(),
+          diag::warn_access_dtor_vbase, 0, ClassDecl->getLocation(),
+          SourceRange(), DeclarationName(), nullptr);
+      }
+    } else
+#endif // INTEL_CUSTOMIZATION
     if (CheckDestructorAccess(
             ClassDecl->getLocation(), Dtor,
             PDiag(diag::err_access_dtor_vbase)
@@ -8190,27 +8207,6 @@ void Sema::ActOnFinishDelayedCXXMethodDeclaration(Scope *S, Decl *MethodD) {
     CheckCXXDefaultArguments(Method);
 }
 
-// Emit the given diagnostic for each non-address-space qualifier.
-// Common part of CheckConstructorDeclarator and CheckDestructorDeclarator.
-static void checkMethodTypeQualifiers(Sema &S, Declarator &D, unsigned DiagID) {
-  const DeclaratorChunk::FunctionTypeInfo &FTI = D.getFunctionTypeInfo();
-  if (FTI.hasMethodTypeQualifiers() && !D.isInvalidType()) {
-    bool DiagOccured = false;
-    FTI.MethodQualifiers->forEachQualifier(
-        [DiagID, &S, &DiagOccured](DeclSpec::TQ, StringRef QualName,
-                                   SourceLocation SL) {
-          // This diagnostic should be emitted on any qualifier except an addr
-          // space qualifier. However, forEachQualifier currently doesn't visit
-          // addr space qualifiers, so there's no way to write this condition
-          // right now; we just diagnose on everything.
-          S.Diag(SL, DiagID) << QualName << SourceRange(SL);
-          DiagOccured = true;
-        });
-    if (DiagOccured)
-      D.setInvalidType();
-  }
-}
-
 /// CheckConstructorDeclarator - Called by ActOnDeclarator to check
 /// the well-formedness of the constructor declarator @p D with type @p
 /// R. If there are any errors in the declarator, this routine will
@@ -8251,11 +8247,25 @@ QualType Sema::CheckConstructorDeclarator(Declarator &D, QualType R,
     D.setInvalidType();
   }
 
-  checkMethodTypeQualifiers(*this, D, diag::err_invalid_qualified_constructor);
+  DeclaratorChunk::FunctionTypeInfo &FTI = D.getFunctionTypeInfo();
+  if (FTI.hasMethodTypeQualifiers()) {
+    bool DiagOccured = false;
+    FTI.MethodQualifiers->forEachQualifier(
+        [&](DeclSpec::TQ TypeQual, StringRef QualName, SourceLocation SL) {
+          // This diagnostic should be emitted on any qualifier except an addr
+          // space qualifier. However, forEachQualifier currently doesn't visit
+          // addr space qualifiers, so there's no way to write this condition
+          // right now; we just diagnose on everything.
+          Diag(SL, diag::err_invalid_qualified_constructor)
+              << QualName << SourceRange(SL);
+          DiagOccured = true;
+        });
+    if (DiagOccured)
+      D.setInvalidType();
+  }
 
   // C++0x [class.ctor]p4:
   //   A constructor shall not be declared with a ref-qualifier.
-  DeclaratorChunk::FunctionTypeInfo &FTI = D.getFunctionTypeInfo();
   if (FTI.hasRefQualifier()) {
     Diag(FTI.getRefQualifierLoc(), diag::err_ref_qualifier_constructor)
       << FTI.RefQualifierIsLValueRef
@@ -8430,11 +8440,18 @@ QualType Sema::CheckDestructorDeclarator(Declarator &D, QualType R,
     }
   }
 
-  checkMethodTypeQualifiers(*this, D, diag::err_invalid_qualified_destructor);
+  DeclaratorChunk::FunctionTypeInfo &FTI = D.getFunctionTypeInfo();
+  if (FTI.hasMethodTypeQualifiers() && !D.isInvalidType()) {
+    FTI.MethodQualifiers->forEachQualifier(
+        [&](DeclSpec::TQ TypeQual, StringRef QualName, SourceLocation SL) {
+          Diag(SL, diag::err_invalid_qualified_destructor)
+              << QualName << SourceRange(SL);
+        });
+    D.setInvalidType();
+  }
 
   // C++0x [class.dtor]p2:
   //   A destructor shall not be declared with a ref-qualifier.
-  DeclaratorChunk::FunctionTypeInfo &FTI = D.getFunctionTypeInfo();
   if (FTI.hasRefQualifier()) {
     Diag(FTI.getRefQualifierLoc(), diag::err_ref_qualifier_destructor)
       << FTI.RefQualifierIsLValueRef
@@ -8582,6 +8599,9 @@ void Sema::CheckConversionDeclarator(Declarator &D, QualType &R,
       case DeclaratorChunk::BlockPointer:
       case DeclaratorChunk::Reference:
       case DeclaratorChunk::MemberPointer:
+#if INTEL_CUSTOMIZATION
+      case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
       case DeclaratorChunk::Pipe:
         extendLeft(Before, Chunk.getSourceRange());
         break;
@@ -10089,6 +10109,11 @@ NamedDecl *Sema::BuildUsingDeclaration(
   if (RequireCompleteDeclContext(SS, LookupContext))
     return BuildInvalid();
 
+#if INTEL_CUSTOMIZATION
+  // Fix for CQ368409: Different behavior on accessing static private class
+  // members.
+  UsingDirectiveRAII UsingRAII(*this);
+#endif // INTEL_CUSTOMIZATION
   // Look up the target name.
   LookupResult R(*this, NameInfo, LookupOrdinaryName);
 
@@ -13619,6 +13644,9 @@ bool Sema::CheckLiteralOperatorDeclaration(FunctionDecl *FnDecl) {
     // char * are allowed as the only parameters.
     if (ParamType->isSpecificBuiltinType(BuiltinType::ULongLong) ||
         ParamType->isSpecificBuiltinType(BuiltinType::LongDouble) ||
+#if INTEL_CUSTOMIZATION
+        Context.hasSameType(ParamType, Context.Float128Ty) ||
+#endif  // INTEL_CUSTOMIZATION
         Context.hasSameType(ParamType, Context.CharTy) ||
         Context.hasSameType(ParamType, Context.WideCharTy) ||
         Context.hasSameType(ParamType, Context.Char8Ty) ||

@@ -24,7 +24,11 @@
 #define HOST_DEVICE                -10
 
 /// Data attributes for each data reference used in an OpenMP target region.
+#if INTEL_COLLAB
+enum tgt_map_type : uint64_t {
+#else  // INTEL_COLLAB
 enum tgt_map_type {
+#endif // INTEL_COLLAB
   // No flags
   OMP_TGT_MAPTYPE_NONE            = 0x000,
   // copy data from host to device
@@ -47,6 +51,9 @@ enum tgt_map_type {
   OMP_TGT_MAPTYPE_LITERAL         = 0x100,
   // mapping is implicit
   OMP_TGT_MAPTYPE_IMPLICIT        = 0x200,
+#if INTEL_COLLAB
+  OMP_TGT_MAPTYPE_ND_DESC         = 0x400,
+#endif // INTEL_COLLAB
   // member of struct, member given by [16 MSBs] - 1
   OMP_TGT_MAPTYPE_MEMBER_OF       = 0xffff000000000000
 };
@@ -197,6 +204,9 @@ int __tgt_target_teams_nowait(int64_t device_id, void *host_ptr,
                               int32_t depNum, void *depList,
                               int32_t noAliasDepNum, void *noAliasDepList);
 void __kmpc_push_target_tripcount(int64_t device_id, uint64_t loop_tripcount);
+#if INTEL_COLLAB
+bool __tgt_is_device_available(int device_num, void *device_type);
+#endif // INTEL_COLLAB
 
 #ifdef __cplusplus
 }

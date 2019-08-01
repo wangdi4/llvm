@@ -44,6 +44,41 @@ const char *clang::getOpenMPDirectiveName(OpenMPDirectiveKind Kind) {
   llvm_unreachable("Invalid OpenMP directive kind");
 }
 
+#if INTEL_CUSTOMIZATION
+bool clang::isAllowedInSimdSubset(OpenMPDirectiveKind DKind) {
+  switch (DKind) {
+#define OPENMP_DIRECTIVE_SIMD_SUBSET(Name)                                     \
+  case OMPD_##Name:                                                            \
+    return true;
+#include "clang/Basic/OpenMPKinds.def"
+  default:
+    return false;
+  }
+}
+
+bool clang::isAllowedInTBBSubset(OpenMPDirectiveKind DKind) {
+  switch (DKind) {
+#define OPENMP_DIRECTIVE_TBB_SUBSET(Name)                                     \
+  case OMPD_##Name:                                                            \
+    return true;
+#include "clang/Basic/OpenMPKinds.def"
+  default:
+    return false;
+  }
+}
+
+bool clang::isAllowedInSPIRSubset(OpenMPDirectiveKind DKind) {
+  switch (DKind) {
+#define OPENMP_DIRECTIVE_SPIR_SUBSET(Name)                                     \
+  case OMPD_##Name:                                                            \
+    return true;
+#include "clang/Basic/OpenMPKinds.def"
+  default:
+    return false;
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 OpenMPClauseKind clang::getOpenMPClauseKind(StringRef Str) {
   // 'flush' clause cannot be specified explicitly, because this is an implicit
   // clause for 'flush' directive. If the 'flush' clause is explicitly specified
@@ -145,6 +180,16 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind,
   .Case(#Name, OMPC_ATOMIC_DEFAULT_MEM_ORDER_##Name)
 #include "clang/Basic/OpenMPKinds.def"
         .Default(OMPC_ATOMIC_DEFAULT_MEM_ORDER_unknown);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  case OMPC_dataflow:
+     return llvm::StringSwitch<unsigned>(Str)
+#define OPENMP_DATAFLOW_MODIFIER(Name)       \
+  .Case(#Name, OMPC_DATAFLOW_MODIFIER_##Name)
+#include "clang/Basic/OpenMPKinds.def"
+        .Default(OMPC_DATAFLOW_MODIFIER_unknown);
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
   case OMPC_unknown:
   case OMPC_threadprivate:
   case OMPC_if:
@@ -328,6 +373,20 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
 #include "clang/Basic/OpenMPKinds.def"
 }
     llvm_unreachable("Invalid OpenMP 'atomic_default_mem_order' clause type");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  case OMPC_dataflow:
+    switch (Type) {
+    case OMPC_DATAFLOW_MODIFIER_unknown:
+      return "unknown";
+#define OPENMP_DATAFLOW_MODIFIER(Name)                                \
+    case OMPC_DATAFLOW_MODIFIER_##Name:                               \
+      return #Name;
+#include "clang/Basic/OpenMPKinds.def"
+}
+    llvm_unreachable("Invalid OpenMP 'dataflow' clause type");
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
   case OMPC_unknown:
   case OMPC_threadprivate:
   case OMPC_if:
@@ -810,6 +869,18 @@ bool clang::isAllowedClauseForDirective(OpenMPDirectiveKind DKind,
       break;
     }
     break;
+#if INTEL_CUSTOMIZATION
+  case OMPD_target_variant_dispatch:
+    switch (CKind) {
+#define OPENMP_TARGET_VARIANT_DISPATCH_CLAUSE(Name)                            \
+  case OMPC_##Name:                                                            \
+    return true;
+#include "clang/Basic/OpenMPKinds.def"
+    default:
+      break;
+    }
+    break;
+#endif // INTEL_CUSTOMIZATION
   case OMPD_allocate:
     switch (CKind) {
 #define OPENMP_ALLOCATE_CLAUSE(Name)                                           \
@@ -822,6 +893,7 @@ bool clang::isAllowedClauseForDirective(OpenMPDirectiveKind DKind,
     break;
   case OMPD_declare_target:
   case OMPD_end_declare_target:
+  case OMPD_declare_variant: // INTEL
   case OMPD_unknown:
   case OMPD_threadprivate:
   case OMPD_section:
@@ -1044,6 +1116,7 @@ void clang::getOpenMPCaptureRegions(
   case OMPD_atomic:
   case OMPD_target_data:
   case OMPD_distribute_simd:
+  case OMPD_target_variant_dispatch: // INTEL
     CaptureRegions.push_back(OMPD_unknown);
     break;
   case OMPD_threadprivate:
@@ -1054,6 +1127,7 @@ void clang::getOpenMPCaptureRegions(
   case OMPD_cancellation_point:
   case OMPD_cancel:
   case OMPD_flush:
+  case OMPD_declare_variant: // INTEL
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
   case OMPD_declare_simd:

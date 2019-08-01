@@ -130,6 +130,20 @@ namespace {
       Ctx = &Context;
 
       M->setTargetTriple(Ctx->getTargetInfo().getTriple().getTriple());
+
+#if INTEL_COLLAB
+      // The target device information is represented as module level
+      // attribute.
+      SmallString<128> Res;
+      for (auto &Device : Ctx->getLangOpts().OMPTargetTriples) {
+        if (!Res.empty())
+          Res += ",";
+        Res += Device.getTriple();
+      }
+      if (!Res.empty())
+        M->setTargetDevices(Res);
+#endif // INTEL_COLLAB
+
       M->setDataLayout(Ctx->getTargetInfo().getDataLayout());
       const auto &SDKVersion = Ctx->getTargetInfo().getSDKVersion();
       if (!SDKVersion.empty())
@@ -226,6 +240,7 @@ namespace {
           }
         }
       }
+
       // For OpenMP emit declare reduction functions, if required.
       if (Ctx->getLangOpts().OpenMP) {
         for (Decl *Member : D->decls()) {
@@ -281,6 +296,10 @@ namespace {
 
     void HandleVTable(CXXRecordDecl *RD) override {
       if (Diags.hasErrorOccurred())
+        return;
+
+      // No VTable usage is legal in SYCL, so don't bother marking them used.
+      if (Ctx->getLangOpts().SYCLIsDevice)
         return;
 
       Builder->EmitVTable(RD);

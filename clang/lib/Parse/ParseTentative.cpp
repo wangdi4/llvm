@@ -1143,6 +1143,10 @@ Parser::isExpressionOrTypeSpecifierSimple(tok::TokenKind Kind) {
   case tok::kw__Thread_local:
   case tok::kw_typeof:
   case tok::kw___underlying_type:
+#if INTEL_CUSTOMIZATION
+  // CQ#367576: __regcall calling convention support
+  case tok::kw__regcall:
+#endif // INTEL_CUSTOMIZATION
   case tok::kw___cdecl:
   case tok::kw___stdcall:
   case tok::kw___fastcall:
@@ -1472,7 +1476,7 @@ Parser::isCXXDeclarationSpecifier(Parser::TPResult BracedCastResult,
   case tok::kw___attribute:
   case tok::kw___auto_type:
     return TPResult::True;
-
+  case tok::kw__regcall:  // INTEL
     // Microsoft
   case tok::kw___declspec:
   case tok::kw___cdecl:

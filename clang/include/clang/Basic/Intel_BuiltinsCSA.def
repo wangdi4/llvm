@@ -1,0 +1,58 @@
+#if INTEL_FEATURE_CSA//===---------------------------------------*- C++ -*-===//
+//===--- Intel_BuiltinsCSA.def - CSA Builtin function database --*- C++ -*-===//
+//
+// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
+//
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the CSA-specific builtin function database.  Users of
+// this file must define the BUILTIN macro to make use of this information.
+//
+//===----------------------------------------------------------------------===//
+
+// The format of this database matches clang/Basic/Builtins.def.
+
+// BUILTIN(__builtin_dummy, "UiUi", "n")
+
+BUILTIN(__builtin_csa_directive, "vi", "n")
+BUILTIN(__builtin_csa_parallel_loop, "v", "n")
+
+BUILTIN(__builtin_csa_parallel_region_entry,  "ii", "n")
+BUILTIN(__builtin_csa_parallel_region_exit,   "vi", "n")
+BUILTIN(__builtin_csa_parallel_section_entry, "ii", "n")
+BUILTIN(__builtin_csa_parallel_section_exit,  "vi", "n")
+
+BUILTIN(__builtin_csa_spmdization, "vicC*", "n")
+BUILTIN(__builtin_csa_spmd, "vii", "n")
+BUILTIN(__builtin_csa_spmd_worker_num, "i", "n")
+
+BUILTIN(__builtin_csa_pipeline_loop, "vi", "n")
+
+// SIMD ops.
+BUILTIN(__builtin_csa_addf32x2,    "V2fV2fV2fIcIcIc",    "ncV:64:")
+BUILTIN(__builtin_csa_subf32x2,    "V2fV2fV2fIcIcIc",    "ncV:64:")
+BUILTIN(__builtin_csa_mulf32x2,    "V2fV2fV2fIcIcIc",    "ncV:64:")
+BUILTIN(__builtin_csa_addsubf32x2, "V2fV2fV2fIcIcIc",    "ncV:64:")
+BUILTIN(__builtin_csa_subaddf32x2, "V2fV2fV2fIcIcIc",    "ncV:64:")
+BUILTIN(__builtin_csa_fmaf32x2,    "V2fV2fV2fV2fIcIcIc", "ncV:64:")
+BUILTIN(__builtin_csa_fmsf32x2,    "V2fV2fV2fV2fIcIcIc", "ncV:64:")
+BUILTIN(__builtin_csa_fmrsf32x2,   "V2fV2fV2fV2fIcIcIc", "ncV:64:")
+BUILTIN(__builtin_csa_fmasf32x2,   "V2fV2fV2fV2fIcIcIc", "ncV:64:")
+BUILTIN(__builtin_csa_fmsaf32x2,   "V2fV2fV2fV2fIcIcIc", "ncV:64:")
+
+// LIC Queues Builtins
+BUILTIN(__builtin_csa_lic_init, "iIiILiILi", "n")
+BUILTIN(__builtin_csa_lic_write, "v.", "nt")
+BUILTIN(__builtin_csa_lic_read, "d.", "nt")
+
+// Data-gated prefetch
+
+BUILTIN(__builtin_csa_gated_prefetch, "v.", "ntc")
+
+#undef BUILTIN
+#endif // INTEL_FEATURE_CSA

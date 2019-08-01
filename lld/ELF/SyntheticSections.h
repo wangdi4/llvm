@@ -672,13 +672,25 @@ public:
   bool isNeeded() const override { return !entries.empty(); }
   void addSymbols();
   template <class ELFT> void addEntry(Symbol &sym);
-
-  size_t headerSize;
+#if INTEL_CUSTOMIZATION
+  size_t getNumEntries() { return entries.size(); }
+  size_t headerSize = 0;
+#endif // INTEL_CUSTOMIZATION
 
 private:
   std::vector<const Symbol *> entries;
   bool isIplt;
 };
+
+#if INTEL_CUSTOMIZATION
+// This is x86-only.
+class IBTPltSection : public SyntheticSection {
+public:
+  IBTPltSection();
+  void writeTo(uint8_t *buf) override;
+  size_t getSize() const override;
+};
+#endif // INTEL_CUSTOMIZATION
 
 class GdbIndexSection final : public SyntheticSection {
 public:
@@ -1170,6 +1182,9 @@ struct InStruct {
   SyntheticSection *partIndex;
   PltSection *plt;
   PltSection *iplt;
+#if INTEL_CUSTOMIZATION
+  IBTPltSection *ibtPlt;
+#endif // INTEL_CUSTOMIZATION
   PPC32Got2Section *ppc32Got2;
   RISCVSdataSection *riscvSdata;
   RelocationBaseSection *relaPlt;

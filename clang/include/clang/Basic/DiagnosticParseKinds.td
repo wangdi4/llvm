@@ -126,6 +126,8 @@ def err_duplicate_default_assoc : Error<
 def note_previous_default_assoc : Note<
   "previous default generic association is here">;
 
+def err_no_arith_type : Error <"expression must have an arithmetic type">; // INTEL
+
 def ext_c11_alignment : Extension<
   "%0 is a C11-specific feature">, InGroup<C11>;
 
@@ -202,6 +204,15 @@ def err_invalid_token_after_toplevel_declarator : Error<
 def err_invalid_token_after_declarator_suggest_equal : Error<
   "invalid %0 at end of declaration; did you mean '='?">;
 def err_expected_statement : Error<"expected statement">;
+// if INTEL_CUSTOMIZATION
+// CQ#370084
+def warn_expected_statement :
+  Warning<err_expected_statement.Text>, InGroup<IntelCompat>;
+def warn_attributes_ignored_after_init
+    : Warning<"variable attributes appearing after a parenthesized initializer "
+              "are ignored">,
+      InGroup<IgnoredAttributes>;
+// endif INTEL_CUSTOMIZATION
 def err_expected_lparen_after : Error<"expected '(' after '%0'">;
 def err_expected_rparen_after : Error<"expected ')' after '%0'">;
 def err_expected_punc : Error<"expected ')' or ',' after '%0'">;
@@ -256,6 +267,11 @@ def note_force_empty_selector_name : Note<
   "and have an empty entry in the selector">;
 def err_label_end_of_compound_statement : Error<
   "label at end of compound statement: expected statement">;
+// if INTEL_CUSTOMIZATION
+// CQ#370084
+def warn_label_end_of_compound_statement :
+  Warning<err_label_end_of_compound_statement.Text>, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_address_of_label_outside_fn : Error<
   "use of address-of-label extension outside of a function body">;
 def err_asm_operand_wide_string_literal : Error<
@@ -374,6 +390,11 @@ def err_unexpected_token_in_nested_name_spec : Error<
   "'%0' cannot be a part of nested name specifier; did you mean ':'?">;
 def err_bool_redeclaration : Error<
   "redeclaration of C++ built-in type 'bool'">;
+// if INTEL_CUSTOMIZATION
+// CQ#376357: Allow bool redeclaration.
+def warn_bool_redeclaration : Warning<
+  err_bool_redeclaration.Text>, InGroup<IntelCompat>;
+// endif // INTEL_CUSTOMIZATION
 def ext_c11_static_assert : Extension<
   "_Static_assert is a C11-specific feature">, InGroup<C11>;
 def warn_cxx98_compat_static_assert : Warning<
@@ -469,6 +490,11 @@ def err_expected_field_designator : Error<
 
 def err_declaration_does_not_declare_param : Error<
   "declaration does not declare a parameter">;
+// if INTEL_CUSTOMIZATION
+// CQ#373127
+def warn_declaration_does_not_declare_param : Warning<
+  err_declaration_does_not_declare_param.Text>, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_no_matching_param : Error<"parameter named %0 is missing">;
 
 /// Objective-C++ parser diagnostics
@@ -1170,6 +1196,12 @@ def err_omp_unknown_directive : Error<
   "expected an OpenMP directive">;
 def err_omp_unexpected_directive : Error<
   "unexpected OpenMP directive %select{|'#pragma omp %1'}0">;
+// if INTEL_CUSTOMIZATION
+// CQ#410305 ignore declare target directive inside function.
+def warn_omp_ignore_unexpected_directive : Warning<
+  "ignoring unexpected OpenMP directive %select{|'#pragma omp %1'}0">,
+  InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_omp_expected_punc : Error<
   "expected ',' or ')' in '%0' %select{clause|directive}1">;
 def err_omp_unexpected_clause : Error<
@@ -1186,6 +1218,15 @@ def err_omp_unknown_map_type : Error<
   "incorrect map type, expected one of 'to', 'from', 'tofrom', 'alloc', 'release', or 'delete'">;
 def err_omp_unknown_map_type_modifier : Error<
   "incorrect map type modifier, expected 'always', 'close', or 'mapper'">;
+#if INTEL_CUSTOMIZATION
+def err_omp_unknown_lastprivate_modifier : Error<
+  "incorrect lastprivate modifier, expected 'conditional'">;
+#if INTEL_FEATURE_CSA
+def err_omp_unknown_dataflow_modifier : Error<"unexpected 'dataflow' modifier, expected 'static', 'num_workers' or 'pipeline'">;
+def err_omp_conflicting_dataflow_num_workers_modifier: Error<"'num_workers' modifier of 'dataflow' clause conflicts with 'num_threads' clause">;
+def note_omp_conflicting_dataflow_num_workers_modifier: Note<"conflicting entry is here">;
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 def err_omp_map_type_missing : Error<
   "missing map type">;
 def err_omp_map_type_modifier_missing : Error<
@@ -1241,6 +1282,11 @@ def err_pragma_cannot_end_force_cuda_host_device : Error<
   "force_cuda_host_device end pragma without matching "
   "force_cuda_host_device begin">;
 } // end of Parse Issue category.
+
+// Intel FPGA pragmas and attributes support
+// Attribute ivdep, ii, max_concurrency support
+def err_intel_fpga_loop_attrs_on_non_loop : Error<
+  "intelfpga loop attributes must be applied to for, while or do statements">;
 
 let CategoryName = "Modules Issue" in {
 def err_unexpected_module_decl : Error<

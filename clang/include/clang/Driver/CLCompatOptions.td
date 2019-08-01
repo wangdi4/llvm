@@ -124,6 +124,10 @@ def : CLFlag<"O1">, Alias<_SLASH_O>, AliasArgs<["1"]>,
   HelpText<"Optimize for size  (like /Og     /Os /Oy /Ob2 /GF /Gy)">;
 def : CLFlag<"O2">, Alias<_SLASH_O>, AliasArgs<["2"]>,
   HelpText<"Optimize for speed (like /Og /Oi /Ot /Oy /Ob2 /GF /Gy)">;
+#if INTEL_CUSTOMIZATION
+def _SLASH_Oa :CLFlag<"Oa">, Alias<fno_alias>,
+  HelpText<"Enables 'noalias' attribute for all pointer-type arguments">;
+#endif // INTEL_CUSTOMIZATION
 def : CLFlag<"Ob0">, Alias<_SLASH_O>, AliasArgs<["b0"]>,
   HelpText<"Disable function inlining">;
 def : CLFlag<"Ob1">, Alias<_SLASH_O>, AliasArgs<["b1"]>,
@@ -149,12 +153,31 @@ def : CLFlag<"Oy">, Alias<_SLASH_O>, AliasArgs<["y"]>,
 def : CLFlag<"Oy-">, Alias<_SLASH_O>, AliasArgs<["y-"]>,
   HelpText<"Disable frame pointer omission (x86 only, default)">;
 
+#if INTEL_CUSTOMIZATION
+def _SLASH_Qansi_alias : CLFlag<"Qansi-alias">, Alias<fstrict_aliasing>,
+  HelpText<"enable use of ANSI aliasing rules optimizations"
+          " user asserts that the program adheres to these rules">;
+def _SLASH_Qansi_alias_ : CLFlag<"Qansi-alias-">, Alias<fno_strict_aliasing>,
+  HelpText<"disable use of ANSI aliasing rules optimizations">;
+def _SLASH_Qipo : CLFlag<"Qipo">, Alias<flto>,
+  HelpText<"Enable LTO in 'full' mode">;
+def _SLASH_Qipo_ : CLFlag<"Qipo-">, Alias<fno_lto>,
+  HelpText<"Disable LTO mode (default)">;
+def _SLASH_Qopenmp : CLFlag<"Qopenmp">, Alias<fopenmp>,
+  HelpText<"Parse OpenMP pragmas and generate parallel code.">;
+#endif // INTEL_CUSTOMIZATION
 def _SLASH_QUESTION : CLFlag<"?">, Alias<help>,
   HelpText<"Display available options">;
 def _SLASH_Qvec : CLFlag<"Qvec">,
   HelpText<"Enable the loop vectorization passes">, Alias<fvectorize>;
 def _SLASH_Qvec_ : CLFlag<"Qvec-">,
   HelpText<"Disable the loop vectorization passes">, Alias<fno_vectorize>;
+#if INTEL_CUSTOMIZATION
+def _SLASH_Qrestrict : CLFlag<"Qrestrict">, Alias<restrict>,
+  HelpText<"enable the 'restrict' keyword for disambiguating pointers">;
+def _SLASH_Qrestrict_ : CLFlag<"Qrestrict-">, Alias<no_restrict>,
+  HelpText<"disable the 'restrict' keyword for disambiguating pointers">;
+#endif //INTEL_CUSTOMIZATION
 def _SLASH_showIncludes : CLFlag<"showIncludes">,
   HelpText<"Print info about included files to stderr">,
   Alias<show_includes>;
@@ -366,6 +389,10 @@ def _SLASH_Gv : CLFlag<"Gv">,
   HelpText<"Set __vectorcall as a default calling convention">;
 def _SLASH_Gregcall : CLFlag<"Gregcall">,
   HelpText<"Set __regcall as a default calling convention">;
+#if INTEL_CUSTOMIZATION
+def _SLASH_Qregcall : CLFlag<"Qregcall">, Alias<_SLASH_Gregcall>,
+  HelpText<"Set __regcall as a default calling convention">;
+#endif // INTEL_CUSTOMIZATION
 
 // Ignored:
 

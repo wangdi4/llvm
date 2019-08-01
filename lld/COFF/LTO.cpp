@@ -27,6 +27,7 @@
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Intel_WP_utils.h" // INTEL
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
@@ -134,6 +135,29 @@ void BitcodeCompiler::add(BitcodeFile &f) {
     // Once IRObjectFile is fixed to report only one symbol this hack can
     // be removed.
     r.Prevailing = !objSym.isUndefined() && sym->getFile() == &f;
+#if INTEL_CUSTOMIZATION
+    bool definitionFound = false;
+
+    // If a symbol is undefined then we need to check if it a weak symbol. A
+    // weak symbol might not have a definition but it will be replaced with
+    // the strong symbol that it is mapped to. This is important in Windows
+    // because lib CTR replaces ISO C++ functions with MS version (e.g.
+    // putenv - > _putenv).
+    if (Undefined *currSym = dyn_cast<Undefined>(sym)) {
+      Defined *aliasSym = currSym->getWeakAlias();
+      if (aliasSym)
+        definitionFound = true;
+    }
+    // Check if the symbol was defined or was marked as lazy symbol. A lazy
+    // symbol is a symbol whose definition was found in a library but it
+    // isn't used.
+    else {
+      definitionFound = isa<Defined>(sym) || isa<Lazy>(sym);
+    }
+
+    // Mark that the symbol was resolved by the Linker
+    r.ResolvedByLinker = definitionFound;
+#endif // INTEL_CUSTOMIZATION
     r.VisibleToRegularObj = sym->isUsedInRegularObj;
     if (r.Prevailing)
       undefine(sym);
@@ -158,6 +182,14 @@ std::vector<StringRef> BitcodeCompiler::compile() {
           files[task] = std::move(mb);
         }));
 
+#if INTEL_CUSTOMIZATION
+  // Linking for an executable
+  // NOTE: Whole program can't be achieved when linking a DLL, it is only
+  // for executables. On the other hand, whole program read can be achieved
+  // when linking an executable and a DLL is present.
+  if (!config->dll)
+    WPUtils.setLinkingExecutable(true);
+#endif // INTEL_CUSTOMIZATION
   checkError(ltoObj->run(
       [&](size_t task) {
         return llvm::make_unique<lto::NativeObjectStream>(

@@ -13,6 +13,9 @@
 #include "CGCXXABI.h"
 #include "CGCleanup.h"
 #include "CGOpenMPRuntime.h"
+#if INTEL_COLLAB
+#include "intel/CGOpenMPLateOutline.h"
+#endif // INTEL_COLLAB
 #include "CGRecordLayout.h"
 #include "CodeGenFunction.h"
 #include "clang/CodeGen/ConstantInitBuilder.h"
@@ -2836,6 +2839,9 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
           llvm::GlobalValue::PrivateLinkage,
           llvm::Constant::getNullValue(CGM.Int8Ty), Twine(Buffer, "_ctor"));
       ID = Ctor;
+#if INTEL_COLLAB
+      CGM.addUsedGlobal(cast<llvm::GlobalValue>(Ctor));
+#endif // INTEL_COLLAB
     }
 
     // Register the information for the entry associated with the constructor.
@@ -2875,6 +2881,9 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
           llvm::GlobalValue::PrivateLinkage,
           llvm::Constant::getNullValue(CGM.Int8Ty), Twine(Buffer, "_dtor"));
       ID = Dtor;
+#if INTEL_COLLAB
+      CGM.addUsedGlobal(cast<llvm::GlobalValue>(Dtor));
+#endif // INTEL_COLLAB
     }
     // Register the information for the entry associated with the destructor.
     Out.clear();
@@ -3781,7 +3790,11 @@ void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
   ++OffloadingEntriesNum;
 }
 
+#if INTEL_COLLAB
+int CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
+#else
 void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
+#endif // INTEL_COLLAB
     registerTargetRegionEntryInfo(unsigned DeviceID, unsigned FileID,
                                   StringRef ParentName, unsigned LineNum,
                                   llvm::Constant *Addr, llvm::Constant *ID,
@@ -3794,7 +3807,11 @@ void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
           DiagnosticsEngine::Error,
           "Unable to find target region on line '%0' in the device code.");
       CGM.getDiags().Report(DiagID) << LineNum;
+#if INTEL_COLLAB
+      return -1;
+#else
       return;
+#endif // INTEL_COLLAB
     }
     auto &Entry =
         OffloadEntriesTargetRegion[DeviceID][FileID][ParentName][LineNum];
@@ -3807,6 +3824,10 @@ void CGOpenMPRuntime::OffloadEntriesInfoManagerTy::
     OffloadEntriesTargetRegion[DeviceID][FileID][ParentName][LineNum] = Entry;
     ++OffloadingEntriesNum;
   }
+#if INTEL_COLLAB
+  auto &E = OffloadEntriesTargetRegion[DeviceID][FileID][ParentName][LineNum];
+  return E.getOrder();
+#endif // INTEL_COLLAB
 }
 
 bool CGOpenMPRuntime::OffloadEntriesInfoManagerTy::hasTargetRegionEntryInfo(
@@ -4115,7 +4136,12 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
 
   // Create function that emits metadata for each target region entry;
   auto &&TargetRegionMetadataEmitter =
+#if INTEL_COLLAB
+      [this, &C, MD, &OrderedEntries, &ParentFunctions, &GetMDInt,
+       &GetMDString](
+#else // INTEL_COLLAB
       [&C, MD, &OrderedEntries, &ParentFunctions, &GetMDInt, &GetMDString](
+#endif // INTEL_COLLAB
           unsigned DeviceID, unsigned FileID, StringRef ParentName,
           unsigned Line,
           const OffloadEntriesInfoManagerTy::OffloadEntryInfoTargetRegion &E) {
@@ -4128,10 +4154,23 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
         // identified.
         // - Entry 4 -> Line in the file where the entry was identified.
         // - Entry 5 -> Order the entry was created.
+#if INTEL_COLLAB
+        // - Entry 6 -> Entry kind.
+#endif // INTEL_COLLAB
         // The first element of the metadata node is the kind.
+#if INTEL_COLLAB
+        llvm::SmallVector<llvm::Metadata*, 7u> Ops =
+                                {GetMDInt(E.getKind()), GetMDInt(DeviceID),
+#else
         llvm::Metadata *Ops[] = {GetMDInt(E.getKind()), GetMDInt(DeviceID),
+#endif // INTEL_COLLAB
                                  GetMDInt(FileID),      GetMDString(ParentName),
                                  GetMDInt(Line),        GetMDInt(E.getOrder())};
+
+#if INTEL_COLLAB
+        if (CGM.getLangOpts().OpenMPLateOutline)
+          Ops.push_back(GetMDInt(E.getFlags()));
+#endif // INTEL_COLLAB
 
         // Save this entry in the right position of the ordered entries array.
         OrderedEntries[E.getOrder()] = &E;
@@ -4170,6 +4209,14 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
 
   OffloadEntriesInfoManager.actOnDeviceGlobalVarEntriesInfo(
       DeviceGlobalVarMetadataEmitter);
+
+#if INTEL_COLLAB
+  if (CGM.getLangOpts().OpenMPLateOutline)
+#if INTEL_CUSTOMIZATION
+    if (CGM.getLangOpts().OpenMPLateOutlineTarget)
+#endif // INTEL_CUSTOMIZATION
+    return;
+#endif // INTEL_COLLAB
 
   for (const auto *E : OrderedEntries) {
     assert(E && "All ordered entries must exist!");
@@ -6480,6 +6527,23 @@ void CGOpenMPRuntime::emitCancelCall(CodeGenFunction &CGF, SourceLocation Loc,
   }
 }
 
+#if INTEL_COLLAB
+int CGOpenMPRuntime::registerTargetRegion(const OMPExecutableDirective &D,
+                                          StringRef ParentName) {
+
+  unsigned DeviceID;
+  unsigned FileID;
+  unsigned Line;
+  getTargetEntryUniqueInfo(CGM.getContext(), D.getBeginLoc(), DeviceID, FileID,
+                           Line);
+
+  // Register the information for the entry associated with this target region.
+  return OffloadEntriesInfoManager.registerTargetRegionEntryInfo(
+      DeviceID, FileID, ParentName, Line, nullptr, nullptr,
+      OffloadEntriesInfoManagerTy::OMPTargetRegionEntryTargetRegion);
+}
+#endif // INTEL_COLLAB
+
 void CGOpenMPRuntime::emitTargetOutlinedFunction(
     const OMPExecutableDirective &D, StringRef ParentName,
     llvm::Function *&OutlinedFn, llvm::Constant *&OutlinedFnID,
@@ -6528,6 +6592,13 @@ void CGOpenMPRuntime::emitTargetOutlinedFunctionHelper(
   if (!IsOffloadEntry)
     return;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  // Add "target.entry" attribute to the outlined function.
+  OutlinedFn->addFnAttr("omp.target.entry");
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+
   // The target region ID is used by the runtime library to identify the current
   // target region, so it only has to be unique and not necessarily point to
   // anything. It could be the pointer to the outlined function that implements
@@ -6541,7 +6612,15 @@ void CGOpenMPRuntime::emitTargetOutlinedFunctionHelper(
 
   if (CGM.getLangOpts().OpenMPIsDevice) {
     OutlinedFnID = llvm::ConstantExpr::getBitCast(OutlinedFn, CGM.Int8PtrTy);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    OutlinedFn->setLinkage(CGM.getLangOpts().CSAvISA
+                               ? llvm::GlobalValue::ExternalLinkage
+                               : llvm::GlobalValue::WeakAnyLinkage);
+#else // INTEL_FEATURE_CSA
     OutlinedFn->setLinkage(llvm::GlobalValue::WeakAnyLinkage);
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
     OutlinedFn->setDSOLocal(false);
   } else {
     std::string Name = getName({EntryFnName, "region_id"});
@@ -6722,6 +6801,8 @@ emitNumTeamsForTargetDirective(CodeGenFunction &CGF,
   case OMPD_declare_simd:
   case OMPD_declare_target:
   case OMPD_end_declare_target:
+  case OMPD_declare_variant:         // INTEL
+  case OMPD_target_variant_dispatch: // INTEL
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
   case OMPD_taskloop:
@@ -7027,6 +7108,8 @@ emitNumThreadsForTargetDirective(CodeGenFunction &CGF,
   case OMPD_declare_simd:
   case OMPD_declare_target:
   case OMPD_end_declare_target:
+  case OMPD_declare_variant:         // INTEL
+  case OMPD_target_variant_dispatch: // INTEL
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
   case OMPD_taskloop:
@@ -7289,6 +7372,9 @@ private:
     return ConstLength.getSExtValue() != 1;
   }
 
+#if INTEL_COLLAB
+public:
+#endif // INTEL_COLLAB
   /// Generate the base pointers, section pointers, sizes and map type
   /// bits for the provided map type, map modifier, and expression components.
   /// \a IsFirstComponent should be set to true if the provided set of
@@ -7509,7 +7595,18 @@ private:
       // reference. References are ignored for mapping purposes.
       QualType Ty =
           I->getAssociatedDeclaration()->getType().getNonReferenceType();
+#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+      if ((!CGF.CGM.getLangOpts().OpenMPLateOutline ||
+           !CGF.CGM.getLangOpts().OpenMPLateOutlineTarget) &&
+          Ty->isAnyPointerType() && std::next(I) != CE) {
+#else
+      if (!CGF.CGM.getLangOpts().OpenMPLateOutline &&
+          Ty->isAnyPointerType() && std::next(I) != CE) {
+#endif  // INTEL_CUSTOMIZATION
+#else
       if (Ty->isAnyPointerType() && std::next(I) != CE) {
+#endif // INTEL_COLLAB
         BP = CGF.EmitLoadOfPointer(BP, Ty->castAs<PointerType>());
 
         // We do not need to generate individual map information for the
@@ -7726,6 +7823,9 @@ private:
     }
   }
 
+#if INTEL_COLLAB
+private:
+#endif // INTEL_COLLAB
   /// Return the adjusted map modifiers if the declaration a capture refers to
   /// appears in a first-private clause. This is expected to be used only with
   /// directives that start with 'target'.
@@ -8595,6 +8695,49 @@ static void emitOffloadingArraysArgument(
         llvm::ConstantPointerNull::get(CGM.Int64Ty->getPointerTo());
   }
 }
+#if INTEL_COLLAB
+void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
+                                   CodeGenFunction &CGF, const OMPMapClause *C,
+                                   const Expr *E,
+                                   SmallVector<MapInfo, 4> &Info) {
+  MappableExprsHandler MEHandler(Dir, CGF);
+
+  bool IsFirstComponentList = true;
+  MappableExprsHandler::MapBaseValuesArrayTy BasePointers;
+  MappableExprsHandler::MapValuesArrayTy Pointers;
+  MappableExprsHandler::MapValuesArrayTy Sizes;
+  MappableExprsHandler::MapFlagsArrayTy Types;
+  MappableExprsHandler::StructRangeInfoTy PartialStruct;
+
+  while (const auto *OASE = dyn_cast<OMPArraySectionExpr>(E))
+    E = OASE->getBase()->IgnoreParenImpCasts();
+  while (const auto *ASE = dyn_cast<ArraySubscriptExpr>(E))
+    E = ASE->getBase()->IgnoreParenImpCasts();
+  while (const auto *ME = dyn_cast<MemberExpr>(E))
+    E = ME->getBase()->IgnoreParenImpCasts();
+  auto *VD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+  for (auto L : C->decl_component_lists(VD)) {
+    assert(L.first == VD && "We got information for the wrong declaration??");
+    assert(!L.second.empty() &&
+           "Not expecting declaration with no component lists.");
+    MEHandler.generateInfoForComponentList(
+        C->getMapType(), C->getMapTypeModifiers(), L.second, BasePointers,
+        Pointers, Sizes, Types, PartialStruct, IsFirstComponentList,
+        C->isImplicit());
+    IsFirstComponentList = false;
+  }
+  if (BasePointers.size() == 1) {
+    // This is the simple non-aggregate case.
+    llvm::Value *VBP = *BasePointers[0];
+    if (VBP == Pointers[0]) {
+      Info.push_back({VBP, VBP, nullptr});
+      return;
+    }
+  }
+  for (int I = 0, E = BasePointers.size(); I < E; ++I)
+    Info.push_back({*BasePointers[I], Pointers[I], Sizes[I]});
+}
+#endif // INTEL_COLLAB
 
 /// Check for inner distribute directive.
 static const OMPExecutableDirective *
@@ -8680,6 +8823,8 @@ getNestedDistributeDirective(ASTContext &Ctx, const OMPExecutableDirective &D) {
     case OMPD_declare_target:
     case OMPD_end_declare_target:
     case OMPD_declare_reduction:
+    case OMPD_declare_variant:         // INTEL
+    case OMPD_target_variant_dispatch: // INTEL
     case OMPD_declare_mapper:
     case OMPD_taskloop:
     case OMPD_taskloop_simd:
@@ -8996,10 +9141,17 @@ void CGOpenMPRuntime::emitTargetCall(CodeGenFunction &CGF,
   }
 }
 
+#if INTEL_COLLAB
+bool CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S,
+                                                    StringRef ParentName) {
+  if (!S)
+    return false;
+#else
 void CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S,
                                                     StringRef ParentName) {
   if (!S)
     return;
+#endif // INTEL_COLLAB
 
   // Codegen OMP target directives that offload compute to the device.
   bool RequiresDeviceCodegen =
@@ -9019,7 +9171,16 @@ void CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S,
     // so just signal we are done with this target region.
     if (!OffloadEntriesInfoManager.hasTargetRegionEntryInfo(DeviceID, FileID,
                                                             ParentName, Line))
+#if INTEL_COLLAB
+      return false;
+    if (CGM.getLangOpts().OpenMPLateOutline)
+#if INTEL_CUSTOMIZATION
+      if (CGM.getLangOpts().OpenMPLateOutlineTarget)
+#endif // INTEL_CUSTOMIZATION
+      return true;
+#else
       return;
+#endif // INTEL_COLLAB
 
     switch (E.getDirectiveKind()) {
     case OMPD_target:
@@ -9105,6 +9266,8 @@ void CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S,
     case OMPD_declare_simd:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
+    case OMPD_declare_variant:         // INTEL
+    case OMPD_target_variant_dispatch: // INTEL
     case OMPD_declare_reduction:
     case OMPD_declare_mapper:
     case OMPD_taskloop:
@@ -9113,16 +9276,25 @@ void CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S,
     case OMPD_unknown:
       llvm_unreachable("Unknown target directive for OpenMP device codegen.");
     }
+#if INTEL_COLLAB
+    return true;
+#else
     return;
+#endif // INTEL_COLLAB
   }
 
   if (const auto *E = dyn_cast<OMPExecutableDirective>(S)) {
     if (!E->hasAssociatedStmt() || !E->getAssociatedStmt())
+#if INTEL_COLLAB
+      return false;
+    return scanForTargetRegionsFunctions(
+        E->getInnermostCapturedStmt()->getCapturedStmt(), ParentName);
+#else
       return;
-
     scanForTargetRegionsFunctions(
         E->getInnermostCapturedStmt()->getCapturedStmt(), ParentName);
     return;
+#endif // INTEL_COLLAB
   }
 
   // If this is a lambda function, look into its body.
@@ -9130,8 +9302,15 @@ void CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S,
     S = L->getBody();
 
   // Keep looking for target regions recursively.
+#if INTEL_COLLAB
+  bool HasTargetRegions = false;
+  for (const Stmt *II : S->children())
+    HasTargetRegions |= scanForTargetRegionsFunctions(II, ParentName);
+  return HasTargetRegions;
+#else
   for (const Stmt *II : S->children())
     scanForTargetRegionsFunctions(II, ParentName);
+#endif // INTEL_COLLAB
 }
 
 bool CGOpenMPRuntime::emitTargetFunctions(GlobalDecl GD) {
@@ -9143,8 +9322,25 @@ bool CGOpenMPRuntime::emitTargetFunctions(GlobalDecl GD) {
   const ValueDecl *VD = cast<ValueDecl>(GD.getDecl());
   StringRef Name = CGM.getMangledName(GD);
   // Try to detect target regions in the function.
+#if INTEL_COLLAB
+  if (const auto *FD = dyn_cast<FunctionDecl>(VD)) {
+    bool HasTargetRegions =
+        scanForTargetRegionsFunctions(FD->getBody(), Name);
+
+    // Emit functions with target regions if doing BE outlining.
+#if INTEL_CUSTOMIZATION
+    if (CGM.getLangOpts().OpenMPLateOutlineTarget)
+#endif // INTEL_CUSTOMIZATION
+    if (HasTargetRegions && CGM.getLangOpts().OpenMPLateOutline) {
+      // Force function to be emitted
+      (void) CGM.GetAddrOfFunction(FD);
+      return false;
+    }
+  }
+#else
   if (const auto *FD = dyn_cast<FunctionDecl>(VD))
     scanForTargetRegionsFunctions(FD->getBody(), Name);
+#endif // INTEL_COLLAB
 
   // Do not to emit function if it is not marked as declare target.
   return !OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD) &&
@@ -9438,6 +9634,15 @@ llvm::Function *CGOpenMPRuntime::emitRegistrationFunction() {
   // now and register the offloading descriptor.
   createOffloadEntriesAndInfoMetadata();
 
+#if INTEL_COLLAB
+  // Offload registration is created by BE with late outlining.
+  if (CGM.getLangOpts().OpenMPLateOutline)
+#if INTEL_CUSTOMIZATION
+    if (CGM.getLangOpts().OpenMPLateOutlineTarget)
+#endif // INTEL_CUSTOMIZATION
+    return nullptr;
+#endif // INTEL_COLLAB
+
   // Create and register the offloading binary descriptors. This is the main
   // entity that captures all the information about offloading in the current
   // compilation unit.
@@ -9713,6 +9918,8 @@ void CGOpenMPRuntime::emitTargetDataStandAloneCall(
     case OMPD_declare_simd:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
+    case OMPD_declare_variant:         // INTEL
+    case OMPD_target_variant_dispatch: // INTEL
     case OMPD_declare_reduction:
     case OMPD_declare_mapper:
     case OMPD_taskloop:
@@ -9875,10 +10082,20 @@ emitX86DeclareSimdFunction(const FunctionDecl *FD, llvm::Function *Fn,
     Masked.push_back('M');
     break;
   }
-  for (char Mask : Masked) {
-    for (const ISADataTy &Data : ISAData) {
-      SmallString<256> Buffer;
-      llvm::raw_svector_ostream Out(Buffer);
+
+#if INTEL_CUSTOMIZATION
+  std::string Buffer;
+  if (Fn->hasFnAttribute("vector-variants")) {
+    llvm::Attribute Attr = Fn->getFnAttribute("vector-variants");
+    Buffer = Attr.getValueAsString().str();
+  }
+  llvm::raw_string_ostream Out(Buffer);
+
+  for (auto Mask : Masked) {
+    for (auto &Data : ISAData) {
+      if (!Buffer.empty())
+        Out << ",";
+#endif // INTEL_CUSTOMIZATION
       Out << "_ZGV" << Data.ISA << Mask;
       if (!VLENVal) {
         unsigned NumElts = evaluateCDTSize(FD, ParamAttrs);
@@ -9908,9 +10125,11 @@ emitX86DeclareSimdFunction(const FunctionDecl *FD, llvm::Function *Fn,
           Out << 'a' << ParamAttr.Alignment;
       }
       Out << '_' << Fn->getName();
-      Fn->addFnAttr(Out.str());
+      Out.flush(); // INTEL
     }
   }
+
+  Fn->addFnAttr("vector-variants", Out.str()); // INTEL
 }
 
 // This are the Functions that are needed to mangle the name of the
@@ -10308,6 +10527,10 @@ void CGOpenMPRuntime::emitDeclareSimdFunction(const FunctionDecl *FD,
       }
       OMPDeclareSimdDeclAttr::BranchStateTy State = Attr->getBranchState();
       if (CGM.getTriple().getArch() == llvm::Triple::x86 ||
+#if INTEL_CUSTOMIZATION
+          CGM.getTriple().getArch() == llvm::Triple::spir ||
+          CGM.getTriple().getArch() == llvm::Triple::spir64 ||
+#endif // INTEL_CUSTOMIZATION
           CGM.getTriple().getArch() == llvm::Triple::x86_64) {
         emitX86DeclareSimdFunction(FD, Fn, VLENVal, ParamAttrs, State);
       } else if (CGM.getTriple().getArch() == llvm::Triple::aarch64) {

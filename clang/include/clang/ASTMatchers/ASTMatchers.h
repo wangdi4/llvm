@@ -5716,7 +5716,6 @@ extern const AstTypeMatcher<TemplateSpecializationType>
 ///   typedef __underlying_type(T) type;
 /// \endcode
 /// unaryTransformType()
-///   matches "__underlying_type(T)"
 extern const AstTypeMatcher<UnaryTransformType> unaryTransformType;
 
 /// Matches record types (e.g. structs, classes).

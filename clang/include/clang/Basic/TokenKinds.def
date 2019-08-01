@@ -253,6 +253,7 @@ PUNCTUATOR(caretcaret,            "^^")
 //               MSVC <= v18.
 //   KEYOPENCLC   - This is a keyword in OpenCL C
 //   KEYOPENCLCXX - This is a keyword in C++ for OpenCL
+//   KEYSYCL      - This is a keyword in SYCL C++
 //   KEYNOOPENCL  - This is a keyword that is not supported in OpenCL
 //   KEYALTIVEC - This is a keyword in AltiVec
 //   KEYZVECTOR - This is a keyword for the System z vector extensions,
@@ -284,7 +285,11 @@ KEYWORD(inline                      , KEYC99|KEYCXX|KEYGNU)
 KEYWORD(int                         , KEYALL)
 KEYWORD(long                        , KEYALL)
 KEYWORD(register                    , KEYALL)
+#if INTEL_CUSTOMIZATION
+KEYWORD(restrict                    , KEYC99|KEYRESTRICT)
+#else
 KEYWORD(restrict                    , KEYC99)
+#endif  // INTEL_CUSTOMIZATION
 KEYWORD(return                      , KEYALL)
 KEYWORD(short                       , KEYALL)
 KEYWORD(signed                      , KEYALL)
@@ -396,9 +401,12 @@ KEYWORD(_Fract                      , KEYNOCXX)
 KEYWORD(_Sat                        , KEYNOCXX)
 
 // GNU Extensions (in impl-reserved namespace)
-KEYWORD(_Decimal32                  , KEYALL)
-KEYWORD(_Decimal64                  , KEYALL)
-KEYWORD(_Decimal128                 , KEYALL)
+#if INTEL_CUSTOMIZATION
+// CQ#374317 - do not recognize _Decimal keywords in non-GNU mode.
+KEYWORD(_Decimal32                  , KEYNOINTELALL|KEYDECIMAL)
+KEYWORD(_Decimal64                  , KEYNOINTELALL|KEYDECIMAL)
+KEYWORD(_Decimal128                 , KEYNOINTELALL|KEYDECIMAL)
+#endif // INTEL_CUSTOMIZATION
 KEYWORD(__null                      , KEYCXX)
 KEYWORD(__alignof                   , KEYALL)
 KEYWORD(__attribute                 , KEYALL)
@@ -434,7 +442,10 @@ KEYWORD(L__FUNCTION__               , KEYMS)
 KEYWORD(L__FUNCSIG__                , KEYMS)
 TYPE_TRAIT_1(__is_interface_class, IsInterfaceClass, KEYMS)
 TYPE_TRAIT_1(__is_sealed, IsSealed, KEYMS)
-
+#if INTEL_CUSTOMIZATION
+// CQ#367834 - Make _Quad an alias for __float128
+ALIAS("_Quad"    , __float128       , 0)
+#endif  // INTEL_CUSTOMIZATION
 // MSVC12.0 / VS2013 Type Traits
 TYPE_TRAIT_1(__is_destructible, IsDestructible, KEYMS)
 TYPE_TRAIT_1(__is_trivially_destructible, IsTriviallyDestructible, KEYCXX)
@@ -528,22 +539,33 @@ KEYWORD(__module_private__          , KEYALL)
 KEYWORD(__declspec                  , 0)
 
 // Microsoft Extension.
+#if INTEL_CUSTOMIZATION
+KEYWORD(_regcall                    , KEYALL)
+#endif //INTEL_CUSTOMIZATION
 KEYWORD(__cdecl                     , KEYALL)
 KEYWORD(__stdcall                   , KEYALL)
 KEYWORD(__fastcall                  , KEYALL)
 KEYWORD(__thiscall                  , KEYALL)
 KEYWORD(__regcall                   , KEYALL)
 KEYWORD(__vectorcall                , KEYALL)
-KEYWORD(__forceinline               , KEYMS)
 KEYWORD(__unaligned                 , KEYMS)
+#if INTEL_CUSTOMIZATION
+// Fix for CQ375085: allow to use __forceinline modifier even in non-MS mode.
+KEYWORD(__forceinline               , KEYALL)
+#else
+KEYWORD(__forceinline               , KEYMS)
+#endif //INTEL_CUSTOMIZATION
 KEYWORD(__super                     , KEYMS)
 
 // OpenCL address space qualifiers
-KEYWORD(__global                    , KEYOPENCLC | KEYOPENCLCXX)
-KEYWORD(__local                     , KEYOPENCLC | KEYOPENCLCXX)
-KEYWORD(__constant                  , KEYOPENCLC | KEYOPENCLCXX)
-KEYWORD(__private                   , KEYOPENCLC | KEYOPENCLCXX)
-KEYWORD(__generic                   , KEYOPENCLC | KEYOPENCLCXX)
+KEYWORD(__global                    , KEYOPENCLC | KEYOPENCLCXX | KEYSYCL)
+KEYWORD(__local                     , KEYOPENCLC | KEYOPENCLCXX | KEYSYCL)
+KEYWORD(__constant                  , KEYOPENCLC | KEYOPENCLCXX | KEYSYCL)
+KEYWORD(__private                   , KEYOPENCLC | KEYOPENCLCXX | KEYSYCL)
+#if INTEL_CUSTOMIZATION
+// CQ381345: Support tgmath.h usage of generic in all versions of C.
+KEYWORD(__generic                   , KEYNOCXX | KEYOPENCLC | KEYOPENCLCXX)
+#endif //INTEL_CUSTOMIZATION
 ALIAS("global", __global            , KEYOPENCLC | KEYOPENCLCXX)
 ALIAS("local", __local              , KEYOPENCLC | KEYOPENCLCXX)
 ALIAS("constant", __constant        , KEYOPENCLC | KEYOPENCLCXX)
@@ -569,6 +591,9 @@ KEYWORD(vec_step                    , KEYOPENCLC | KEYALTIVEC | KEYZVECTOR)
 KEYWORD(__builtin_omp_required_simd_align, KEYALL)
 
 KEYWORD(pipe                        , KEYOPENCLC | KEYOPENCLCXX)
+#if INTEL_CUSTOMIZATION
+KEYWORD(channel                     , KEYOPENCLC)
+#endif // INTEL_CUSTOMIZATION
 
 // Borland Extensions.
 KEYWORD(__pascal                    , KEYALL)
@@ -617,6 +642,9 @@ ALIAS("__signed"     , signed     , KEYALL)
 ALIAS("__signed__"   , signed     , KEYALL)
 ALIAS("__typeof"     , typeof     , KEYALL)
 ALIAS("__typeof__"   , typeof     , KEYALL)
+#if INTEL_CUSTOMIZATION
+ALIAS("_Typeof"      , typeof     , KEYALL)
+#endif  // INTEL_CUSTOMIZATION
 ALIAS("__volatile"   , volatile   , KEYALL)
 ALIAS("__volatile__" , volatile   , KEYALL)
 
@@ -626,8 +654,14 @@ KEYWORD(_Nullable                , KEYALL)
 KEYWORD(_Null_unspecified        , KEYALL)
 
 // Microsoft extensions which should be disabled in strict conformance mode
+#if INTEL_CUSTOMIZATION
+// Fix for CQ#373504: __ptr64 and __ptr32 on Linux.
+KEYWORD(__ptr64                       , KEYALL)
+KEYWORD(__ptr32                       , KEYALL)
+#else
 KEYWORD(__ptr64                       , KEYMS)
 KEYWORD(__ptr32                       , KEYMS)
+#endif // INTEL_CUSTOMIZATION
 KEYWORD(__sptr                        , KEYMS)
 KEYWORD(__uptr                        , KEYMS)
 KEYWORD(__w64                         , KEYMS)
@@ -635,22 +669,27 @@ KEYWORD(__uuidof                      , KEYMS | KEYBORLAND)
 KEYWORD(__try                         , KEYMS | KEYBORLAND)
 KEYWORD(__finally                     , KEYMS | KEYBORLAND)
 KEYWORD(__leave                       , KEYMS | KEYBORLAND)
-KEYWORD(__int64                       , KEYMS)
+KEYWORD(__int64                       , KEYALL) //***INTEL: sized int support
 KEYWORD(__if_exists                   , KEYMS)
 KEYWORD(__if_not_exists               , KEYMS)
 KEYWORD(__single_inheritance          , KEYMS)
 KEYWORD(__multiple_inheritance        , KEYMS)
 KEYWORD(__virtual_inheritance         , KEYMS)
 KEYWORD(__interface                   , KEYMS)
-ALIAS("__int8"           , char       , KEYMS)
+ALIAS("__int8"           , char       , KEYALL) //***INTEL: sized int support
 ALIAS("_int8"            , char       , KEYMS)
-ALIAS("__int16"          , short      , KEYMS)
+ALIAS("__int16"          , short      , KEYALL) //***INTEL: sized int support
 ALIAS("_int16"           , short      , KEYMS)
-ALIAS("__int32"          , int        , KEYMS)
+ALIAS("__int32"          , int        , KEYALL) //***INTEL: sized int support
 ALIAS("_int32"           , int        , KEYMS)
 ALIAS("_int64"           , __int64    , KEYMS)
 ALIAS("__wchar_t"        , wchar_t    , KEYMS)
+#if INTEL_CUSTOMIZATION
+// CQ#369368 - allow '_asm' keyword if MS-style inline assembly is enabled.
+ALIAS("_asm"             , asm        , KEYMS|KEYMSASM)
+#else
 ALIAS("_asm"             , asm        , KEYMS)
+#endif // INTEL_CUSTOMIZATION
 ALIAS("_alignof"         , __alignof  , KEYMS)
 ALIAS("__builtin_alignof", __alignof  , KEYMS)
 ALIAS("_cdecl"           , __cdecl    , KEYMS | KEYBORLAND)
@@ -816,6 +855,21 @@ ANNOTATION(pragma_opencl_extension)
 // handles #pragma omp ... directives.
 ANNOTATION(pragma_openmp)
 ANNOTATION(pragma_openmp_end)
+
+#if INTEL_CUSTOMIZATION
+ANNOTATION(pragma_simd)
+ANNOTATION(pragma_simd_end)
+// Alternate spelling for alignof
+ALIAS("__ALIGNOF__" , __alignof , KEYALL)
+
+ANNOTATION(pragma_end)
+
+// Annotation for #pragma inline, forceinline and noinline
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_inline)
+ANNOTATION(pragma_blockloop)
+#endif // INTEL_CUSTOMIZATION
 
 // Annotations for loop pragma directives #pragma clang loop ...
 // The lexer produces these so that they only take effect when the parser

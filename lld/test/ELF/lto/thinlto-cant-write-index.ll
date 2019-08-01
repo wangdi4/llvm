@@ -1,3 +1,6 @@
+; INTEL_CUSTOMIZATION
+; XFAIL: windows-gnu,windows-msvc
+; end INTEL_CUSTOMIZATION
 ; REQUIRES: x86
 
 ; Basic ThinLTO tests.

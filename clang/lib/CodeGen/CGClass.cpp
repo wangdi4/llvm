@@ -317,7 +317,7 @@ Address CodeGenFunction::GetAddressOfBaseClass(
       EmitTypeCheck(TCK_Upcast, Loc, Value.getPointer(),
                     DerivedTy, DerivedAlign, SkippedChecks);
     }
-    return Builder.CreateBitCast(Value, BasePtrTy);
+    return Builder.CreatePointerBitCastOrAddrSpaceCast(Value, BasePtrTy);
   }
 
   llvm::BasicBlock *origBB = nullptr;
@@ -491,15 +491,12 @@ namespace {
         cast<CXXMethodDecl>(CGF.CurCodeDecl)->getParent();
 
       const CXXDestructorDecl *D = BaseClass->getDestructor();
-      // We are already inside a destructor, so presumably the object being
-      // destroyed should have the expected type.
-      QualType ThisTy = D->getThisObjectType();
       Address Addr =
         CGF.GetAddressOfDirectBaseInCompleteClass(CGF.LoadCXXThisAddress(),
                                                   DerivedClass, BaseClass,
                                                   BaseIsVirtual);
       CGF.EmitCXXDestructorCall(D, Dtor_Base, BaseIsVirtual,
-                                /*Delegating=*/false, Addr, ThisTy);
+                                /*Delegating=*/false, Addr);
     }
   };
 
@@ -1443,11 +1440,9 @@ void CodeGenFunction::EmitDestructorBody(FunctionArgList &Args) {
   if (DtorType == Dtor_Deleting) {
     RunCleanupsScope DtorEpilogue(*this);
     EnterDtorCleanups(Dtor, Dtor_Deleting);
-    if (HaveInsertPoint()) {
-      QualType ThisTy = Dtor->getThisObjectType();
+    if (HaveInsertPoint())
       EmitCXXDestructorCall(Dtor, Dtor_Complete, /*ForVirtualBase=*/false,
-                            /*Delegating=*/false, LoadCXXThisAddress(), ThisTy);
-    }
+                            /*Delegating=*/false, LoadCXXThisAddress());
     return;
   }
 
@@ -1478,9 +1473,8 @@ void CodeGenFunction::EmitDestructorBody(FunctionArgList &Args) {
     EnterDtorCleanups(Dtor, Dtor_Complete);
 
     if (!isTryBody) {
-      QualType ThisTy = Dtor->getThisObjectType();
       EmitCXXDestructorCall(Dtor, Dtor_Base, /*ForVirtualBase=*/false,
-                            /*Delegating=*/false, LoadCXXThisAddress(), ThisTy);
+                            /*Delegating=*/false, LoadCXXThisAddress());
       break;
     }
 
@@ -2019,7 +2013,7 @@ void CodeGenFunction::destroyCXXObject(CodeGenFunction &CGF,
   const CXXDestructorDecl *dtor = record->getDestructor();
   assert(!dtor->isTrivial());
   CGF.EmitCXXDestructorCall(dtor, Dtor_Complete, /*for vbase*/ false,
-                            /*Delegating=*/false, addr, type);
+                            /*Delegating=*/false, addr);
 }
 
 void CodeGenFunction::EmitCXXConstructorCall(const CXXConstructorDecl *D,
@@ -2369,11 +2363,8 @@ namespace {
       : Dtor(D), Addr(Addr), Type(Type) {}
 
     void Emit(CodeGenFunction &CGF, Flags flags) override {
-      // We are calling the destructor from within the constructor.
-      // Therefore, "this" should have the expected type.
-      QualType ThisTy = Dtor->getThisObjectType();
       CGF.EmitCXXDestructorCall(Dtor, Type, /*ForVirtualBase=*/false,
-                                /*Delegating=*/true, Addr, ThisTy);
+                                /*Delegating=*/true, Addr);
     }
   };
 } // end anonymous namespace
@@ -2411,32 +2402,31 @@ CodeGenFunction::EmitDelegatingCXXConstructorCall(const CXXConstructorDecl *Ctor
 void CodeGenFunction::EmitCXXDestructorCall(const CXXDestructorDecl *DD,
                                             CXXDtorType Type,
                                             bool ForVirtualBase,
-                                            bool Delegating, Address This,
-                                            QualType ThisTy) {
+                                            bool Delegating,
+                                            Address This) {
   CGM.getCXXABI().EmitDestructorCall(*this, DD, Type, ForVirtualBase,
-                                     Delegating, This, ThisTy);
+                                     Delegating, This);
 }
 
 namespace {
   struct CallLocalDtor final : EHScopeStack::Cleanup {
     const CXXDestructorDecl *Dtor;
     Address Addr;
-    QualType Ty;
 
-    CallLocalDtor(const CXXDestructorDecl *D, Address Addr, QualType Ty)
-        : Dtor(D), Addr(Addr), Ty(Ty) {}
+    CallLocalDtor(const CXXDestructorDecl *D, Address Addr)
+      : Dtor(D), Addr(Addr) {}
 
     void Emit(CodeGenFunction &CGF, Flags flags) override {
       CGF.EmitCXXDestructorCall(Dtor, Dtor_Complete,
                                 /*ForVirtualBase=*/false,
-                                /*Delegating=*/false, Addr, Ty);
+                                /*Delegating=*/false, Addr);
     }
   };
 } // end anonymous namespace
 
 void CodeGenFunction::PushDestructorCleanup(const CXXDestructorDecl *D,
-                                            QualType T, Address Addr) {
-  EHStack.pushCleanup<CallLocalDtor>(NormalAndEHCleanup, D, Addr, T);
+                                            Address Addr) {
+  EHStack.pushCleanup<CallLocalDtor>(NormalAndEHCleanup, D, Addr);
 }
 
 void CodeGenFunction::PushDestructorCleanup(QualType T, Address Addr) {
@@ -2446,7 +2436,7 @@ void CodeGenFunction::PushDestructorCleanup(QualType T, Address Addr) {
 
   const CXXDestructorDecl *D = ClassDecl->getDestructor();
   assert(D && D->isUsed() && "destructor not marked as used!");
-  PushDestructorCleanup(D, T, Addr);
+  PushDestructorCleanup(D, Addr);
 }
 
 void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
@@ -2635,10 +2625,31 @@ LeastDerivedClassWithSameLayout(const CXXRecordDecl *RD) {
 void CodeGenFunction::EmitTypeMetadataCodeForVCall(const CXXRecordDecl *RD,
                                                    llvm::Value *VTable,
                                                    SourceLocation Loc) {
+#if INTEL_CUSTOMIZATION
+  bool WrappingNeeded =
+      getLangOpts().isIntelCompat(LangOptions::WholeProgramVTableWrap) &&
+      CGM.getCodeGenOpts().WholeProgramVTables &&
+      CGM.getCodeGenOpts().PrepareForLTO &&
+      CGM.getCodeGenOpts().LTOUnit;
+#endif // INTEL_CUSTOMIZATION
+
   if (SanOpts.has(SanitizerKind::CFIVCall))
     EmitVTablePtrCheckForCall(RD, VTable, CodeGenFunction::CFITCK_VCall, Loc);
-  else if (CGM.getCodeGenOpts().WholeProgramVTables &&
-           CGM.HasHiddenLTOVisibility(RD)) {
+#if INTEL_CUSTOMIZATION
+  else if (WrappingNeeded || (CGM.getCodeGenOpts().WholeProgramVTables &&
+                              CGM.HasHiddenLTOVisibility(RD))) {
+
+    llvm::BasicBlock *ContinueBB;
+    if (WrappingNeeded) {
+      llvm::Value *Check = Builder.CreateCall(
+          CGM.getIntrinsic(llvm::Intrinsic::intel_wholeprogramsafe));
+
+      llvm::BasicBlock *WrapBB = createBasicBlock("whpr.wrap");
+      ContinueBB = createBasicBlock("whpr.continue");
+      Builder.CreateCondBr(Check, WrapBB, ContinueBB);
+      EmitBlock(WrapBB);
+    }
+#endif // INTEL_CUSTOMIZATION
     llvm::Metadata *MD =
         CGM.CreateMetadataIdentifierForType(QualType(RD->getTypeForDecl(), 0));
     llvm::Value *TypeId =
@@ -2649,6 +2660,10 @@ void CodeGenFunction::EmitTypeMetadataCodeForVCall(const CXXRecordDecl *RD,
         Builder.CreateCall(CGM.getIntrinsic(llvm::Intrinsic::type_test),
                            {CastedVTable, TypeId});
     Builder.CreateCall(CGM.getIntrinsic(llvm::Intrinsic::assume), TypeTest);
+#if INTEL_CUSTOMIZATION
+    if (WrappingNeeded)
+      EmitBlock(ContinueBB);
+#endif // INTEL_CUSTOMIZATION
   }
 }
 

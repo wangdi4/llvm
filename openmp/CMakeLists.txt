@@ -55,7 +55,11 @@ set(OPENMP_TEST_OPENMP_FLAGS ${OPENMP_TEST_COMPILER_OPENMP_FLAGS} CACHE STRING
 
 
 # Build host runtime library.
-add_subdirectory(runtime)
+# INTEL_CUSTOMIZATION
+# Do not add runtime if Intel specific runtime is being used, which we now do
+# unconditionally.
+#  add_subdirectory(runtime)
+# end INTEL_CUSTOMIZATION
 
 
 set(ENABLE_LIBOMPTARGET ON)
@@ -78,6 +82,13 @@ if (OPENMP_ENABLE_LIBOMPTARGET)
 
   add_subdirectory(libomptarget)
 endif()
+
+if (INTEL_COLLAB)
+  if (WIN32 AND NOT OPENMP_ENABLE_LIBOMPTARGET)
+    set_directory_properties(PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
+    add_subdirectory(libomptarget)
+  endif()
+endif(INTEL_COLLAB)
 
 # Now that we have seen all testuites, create the check-openmp target.
 construct_check_openmp_target()

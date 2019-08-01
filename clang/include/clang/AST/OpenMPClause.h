@@ -646,6 +646,89 @@ public:
   }
 };
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+/// This represents 'dataflow' clause in the '#pragma omp ...' directive.
+///
+/// \code
+/// #pragma omp for dataflow(static(4), num_workers(6), pipeline(2))
+/// \endcode
+/// In this example directive '#pragma omp for' has 'dataflow' clause with
+/// arguments 'static', 'num_workers' and 'pipeline'.
+class OMPDataflowClause : public OMPClause, public OMPClauseWithPreInit {
+  friend class OMPClauseReader;
+
+  /// enumeration of the modifiers
+  enum { STATIC, NUMWORKERS, PIPELINE, NUMMODIFIERS };
+
+  /// Modifier expressions.
+  Expr *DataflowModifiers[NUMMODIFIERS];
+
+  /// Set dataflow static chunk size.
+  ///
+  /// \param E Chunk size.
+  void setStaticChunkSize(Expr *E) { DataflowModifiers[STATIC] = E; }
+
+  /// Set dataflow num_workers number.
+  ///
+  /// \param E Number of num_workers.
+  void setNumWorkersNum(Expr *E) { DataflowModifiers[NUMWORKERS] = E; }
+
+  /// Set dataflow pipeline depth.
+  ///
+  /// \param E pipeline depth
+  void setPipelineDepth(Expr *E) { DataflowModifiers[PIPELINE] = E; }
+
+public:
+  /// Build 'dataflow' clause.
+  ///
+  /// \param StaticChunkSize Chunk size.
+  /// \param NumWorkersNum Number of num_workers.
+  /// \param PipelineDepth Depth of pipeline.
+  /// \param HelperS for combined directives.
+  /// \param CaptureRegion Innermost OpenMP region where expressions in this
+  /// clause must be captured.
+  /// \param StartLoc Starting location of the clause.
+  /// \param EndLoc Ending location of the clause.
+  OMPDataflowClause(Expr *StaticChunkSize, Expr *NumWorkersNum,
+                    Expr *PipelineDepth, Stmt *HelperS,
+                    OpenMPDirectiveKind CaptureRegion,
+                    SourceLocation StartLoc, SourceLocation EndLoc)
+      : OMPClause(OMPC_dataflow, StartLoc, EndLoc), OMPClauseWithPreInit(this) {
+    DataflowModifiers[STATIC] = StaticChunkSize;
+    DataflowModifiers[NUMWORKERS] = NumWorkersNum;
+    DataflowModifiers[PIPELINE] = PipelineDepth;
+    setPreInitStmt(HelperS, CaptureRegion);
+  }
+
+  /// Build an empty clause.
+  explicit OMPDataflowClause()
+      : OMPClause(OMPC_dataflow, SourceLocation(), SourceLocation()),
+        OMPClauseWithPreInit(this) {
+  }
+
+  /// Get static chunk size.
+  Expr *getStaticChunkSize() const { return DataflowModifiers[STATIC]; }
+
+  /// Get num_workers number.
+  Expr *getNumWorkersNum() const { return DataflowModifiers[NUMWORKERS]; }
+
+  /// Get pipeline depth.
+  Expr *getPipelineDepth() const { return DataflowModifiers[PIPELINE]; }
+
+  child_range children() {
+    return child_range(reinterpret_cast<Stmt **>(DataflowModifiers),
+                       reinterpret_cast<Stmt **>(&DataflowModifiers[
+                                                      NUMMODIFIERS]));
+  }
+
+  static bool classof(const OMPClause *T) {
+    return T->getClauseKind() == OMPC_dataflow;
+  }
+};
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+
 /// This represents 'safelen' clause in the '#pragma omp ...'
 /// directive.
 ///
@@ -2142,17 +2225,29 @@ class OMPLastprivateClause final
   friend OMPVarListClause;
   friend TrailingObjects;
 
+#if INTEL_CUSTOMIZATION
+  /// Is the conditional modifier present or not.
+  bool IsConditional;
+#endif // INTEL_CUSTOMIZATION
+
   /// Build clause with number of variables \a N.
   ///
   /// \param StartLoc Starting location of the clause.
   /// \param LParenLoc Location of '('.
   /// \param EndLoc Ending location of the clause.
+#if INTEL_CUSTOMIZATION
+  /// \param IsConditional Is the conditional modifier present.
+#endif // INTEL_CUSTOMIZATION
   /// \param N Number of the variables in the clause.
   OMPLastprivateClause(SourceLocation StartLoc, SourceLocation LParenLoc,
-                       SourceLocation EndLoc, unsigned N)
+#if INTEL_CUSTOMIZATION
+                       SourceLocation EndLoc, bool IsConditional, unsigned N)
+#endif // INTEL_CUSTOMIZATION
       : OMPVarListClause<OMPLastprivateClause>(OMPC_lastprivate, StartLoc,
                                                LParenLoc, EndLoc, N),
-        OMPClauseWithPostUpdate(this) {}
+#if INTEL_CUSTOMIZATION
+        OMPClauseWithPostUpdate(this), IsConditional(IsConditional) {}
+#endif // INTEL_CUSTOMIZATION
 
   /// Build an empty clause.
   ///
@@ -2161,7 +2256,9 @@ class OMPLastprivateClause final
       : OMPVarListClause<OMPLastprivateClause>(
             OMPC_lastprivate, SourceLocation(), SourceLocation(),
             SourceLocation(), N),
-        OMPClauseWithPostUpdate(this) {}
+#if INTEL_CUSTOMIZATION
+        OMPClauseWithPostUpdate(this), IsConditional(false) {}
+#endif // INTEL_CUSTOMIZATION
 
   /// Get the list of helper expressions for initialization of private
   /// copies for lastprivate variables.
@@ -2242,13 +2339,20 @@ public:
   Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation LParenLoc,
          SourceLocation EndLoc, ArrayRef<Expr *> VL, ArrayRef<Expr *> SrcExprs,
          ArrayRef<Expr *> DstExprs, ArrayRef<Expr *> AssignmentOps,
-         Stmt *PreInit, Expr *PostUpdate);
+#if INTEL_CUSTOMIZATION
+         Stmt *PreInit, Expr *PostUpdate, bool IsConditional);
+#endif // INTEL_CUSTOMIZATION
 
   /// Creates an empty clause with the place for \a N variables.
   ///
   /// \param C AST context.
   /// \param N The number of variables.
   static OMPLastprivateClause *CreateEmpty(const ASTContext &C, unsigned N);
+
+#if INTEL_CUSTOMIZATION
+  /// Is this a conditional firstprivate clause?
+  bool isConditional() const LLVM_READONLY { return IsConditional; }
+#endif // INTEL_CUSTOMIZATION
 
   using helper_expr_iterator = MutableArrayRef<Expr *>::iterator;
   using helper_expr_const_iterator = ArrayRef<const Expr *>::iterator;

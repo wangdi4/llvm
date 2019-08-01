@@ -272,11 +272,16 @@ class Accessor<string name, list<Spelling> spellings> {
   list<Spelling> Spellings = spellings;
 }
 
-class SubjectDiag<bit warn> {
+class SubjectDiag<bit warn, bit intel_warn = 0> { // INTEL
   bit Warn = warn;
+  bit IntelWarn = intel_warn; // INTEL
 }
 def WarnDiag : SubjectDiag<1>;
 def ErrorDiag : SubjectDiag<0>;
+// INTEL_CUSTOMIZATION
+// Intel specific, allows converting a clang error to a warning in Intel mode.
+def IntelWarnDiag : SubjectDiag<0, 1>;
+// end INTEL_CUSTOMIZATION
 
 class SubjectList<list<AttrSubject> subjects, SubjectDiag diag = WarnDiag,
                   string customDiag = ""> {
@@ -292,10 +297,12 @@ class LangOpt<string name, code customCode = [{}]> {
   // "LangOpts" bound.
   code CustomCode = customCode;
 }
+
 def MicrosoftExt : LangOpt<"MicrosoftExt">;
 def Borland : LangOpt<"Borland">;
 def CUDA : LangOpt<"CUDA">;
 def HIP : LangOpt<"HIP">;
+def SYCL : LangOpt<"SYCLIsDevice">;
 def COnly : LangOpt<"COnly", "!LangOpts.CPlusPlus">;
 def CPlusPlus : LangOpt<"CPlusPlus">;
 def OpenCL : LangOpt<"OpenCL">;
@@ -305,6 +312,8 @@ def BlocksSupported : LangOpt<"Blocks">;
 def ObjCAutoRefCount : LangOpt<"ObjCAutoRefCount">;
 def ObjCNonFragileRuntime : LangOpt<"ObjCNonFragileRuntime",
                                     "LangOpts.ObjCRuntime.allowsClassStubs()">;
+
+def HLS : LangOpt<"HLS">; // INTEL
 
 // Language option for CMSE extensions
 def Cmse : LangOpt<"Cmse">;
@@ -590,7 +599,7 @@ def AddressSpace : TypeAttr {
 def Alias : Attr {
   let Spellings = [GCC<"alias">];
   let Args = [StringArgument<"Aliasee">];
-  let Subjects = SubjectList<[Function, GlobalVar], ErrorDiag>;
+  let Subjects = SubjectList<[Function, GlobalVar], WarnDiag>;//***INTEL
   let Documentation = [Undocumented];
 }
 
@@ -671,7 +680,7 @@ def XRayLogArgs : InheritableAttr {
 
 def TLSModel : InheritableAttr {
   let Spellings = [GCC<"tls_model">];
-  let Subjects = SubjectList<[TLSVar], ErrorDiag>;
+  let Subjects = SubjectList<[TLSVar], IntelWarnDiag>; // INTEL
   let Args = [StringArgument<"Model">];
   let Documentation = [TLSModelDocs];
 }
@@ -1021,6 +1030,20 @@ def CUDAShared : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def SYCLDevice : InheritableAttr {
+  let Spellings = [GNU<"sycl_device">];
+  let Subjects = SubjectList<[Function, Var]>;
+  let LangOpts = [SYCL];
+  let Documentation = [Undocumented];
+}
+
+def SYCLKernel : InheritableAttr {
+  let Spellings = [GNU<"sycl_kernel">];
+  let Subjects = SubjectList<[Function]>;
+  let LangOpts = [SYCL];
+  let Documentation = [Undocumented];
+}
+
 def C11NoReturn : InheritableAttr {
   let Spellings = [Keyword<"_Noreturn">];
   let Subjects = SubjectList<[Function], ErrorDiag>;
@@ -1048,11 +1071,12 @@ def OpenCLUnrollHint : InheritableAttr {
   let Documentation = [OpenCLUnrollHintDocs];
 }
 
-def OpenCLIntelReqdSubGroupSize: InheritableAttr {
-  let Spellings = [GNU<"intel_reqd_sub_group_size">];
+def IntelReqdSubGroupSize: InheritableAttr {
+  let Spellings = [GNU<"intel_reqd_sub_group_size">, CXX11<"cl", "intel_reqd_sub_group_size">];
   let Args = [UnsignedArgument<"SubGroupSize">];
-  let Subjects = SubjectList<[Function], ErrorDiag>;
-  let Documentation = [OpenCLIntelReqdSubGroupSizeDocs];
+  let Subjects = SubjectList<[Function, CXXMethod], ErrorDiag>;
+  let Documentation = [IntelReqdSubGroupSizeDocs];
+  let LangOpts = [OpenCL, SYCL];
 }
 
 // This attribute is both a type attribute, and a declaration attribute (for
@@ -1183,7 +1207,8 @@ def FastCall : DeclOrTypeAttr {
 }
 
 def RegCall : DeclOrTypeAttr {
-  let Spellings = [GCC<"regcall">, Keyword<"__regcall">];
+  // INTEL_CUSTOMIZATION - "_regcall" alternate spelling
+  let Spellings = [GCC<"regcall">, Keyword<"__regcall">, Keyword<"_regcall">];
   let Documentation = [RegCallDocs];
 }
 
@@ -1398,6 +1423,173 @@ def Mode : Attr {
   // This is notionally a type attribute, which #pragma clang attribute
   // generally does not support.
   let PragmaAttributeSupport = 0;
+}
+
+def SYCLIntelFPGAIVDep : Attr {
+  let Spellings = [CXX11<"intelfpga","ivdep">];
+  let Args = [IntArgument<"Safelen">];
+  let LangOpts = [SYCL];
+  let AdditionalMembers = [{
+    static const char *getName() {
+      return "ivdep";
+    }
+  }];
+  let Documentation = [SYCLIntelFPGAIVDepAttrDocs];
+}
+
+def SYCLIntelFPGAII : Attr {
+  let Spellings = [CXX11<"intelfpga","ii">];
+  let Args = [IntArgument<"Interval">];
+  let LangOpts = [SYCL];
+  let AdditionalMembers = [{
+    static const char *getName() {
+      return "ii";
+    }
+  }];
+  let Documentation = [SYCLIntelFPGAIIAttrDocs];
+}
+
+def SYCLIntelFPGAMaxConcurrency : Attr {
+  let Spellings = [CXX11<"intelfpga","max_concurrency">];
+  let Args = [IntArgument<"NThreads">];
+  let LangOpts = [SYCL];
+  let AdditionalMembers = [{
+    static const char *getName() {
+      return "max_concurrency";
+    }
+  }];
+  let Documentation = [SYCLIntelFPGAMaxConcurrencyAttrDocs];
+}
+
+def IntelFPGALocalNonConstVar : SubsetSubject<Var,
+                              [{S->hasLocalStorage() &&
+                                S->getKind() != Decl::ImplicitParam &&
+                                S->getKind() != Decl::ParmVar &&
+                                S->getKind() != Decl::NonTypeTemplateParm &&
+                                !S->getType().isConstQualified()}],
+                              "local non-const variables">;
+
+def IntelFPGAConstVar : SubsetSubject<Var,
+                      [{S->getKind() != Decl::ImplicitParam &&
+                        S->getKind() != Decl::ParmVar &&
+                        S->getKind() != Decl::NonTypeTemplateParm &&
+                        (S->getType().isConstQualified() ||
+                         S->getType().getAddressSpace() ==
+                            LangAS::opencl_constant)}],
+                      "constant variables">;
+
+def IntelFPGALocalStaticSlaveMemVar : SubsetSubject<Var,
+      [{S->getKind() != Decl::ImplicitParam &&
+        S->getKind() != Decl::NonTypeTemplateParm &&
+        (S->getStorageClass() == SC_Static ||
+         S->hasLocalStorage())}],
+         "local variables, static variables, slave memory arguments">;
+
+def IntelFPGALocalOrStaticVar : SubsetSubject<Var,
+                              [{S->getKind() != Decl::ImplicitParam &&
+                                S->getKind() != Decl::ParmVar &&
+                                S->getKind() != Decl::NonTypeTemplateParm &&
+                                (S->getStorageClass() == SC_Static ||
+                                 S->hasLocalStorage())}],
+                              "local variables, static variables">;
+
+def IntelFPGADoublePump : Attr {
+  let Spellings = [CXX11<"intelfpga", "doublepump">,           // INTEL
+                   GNU<"doublepump">];                         // INTEL
+  let Subjects = SubjectList<[IntelFPGAConstVar,               // INTEL
+                              IntelFPGALocalStaticSlaveMemVar, // INTEL
+                              Field], ErrorDiag>;
+  let LangOpts = [SYCL, OpenCL, HLS];                          // INTEL
+  let Documentation = [IntelFPGADoublePumpAttrDocs];
+}
+
+def IntelFPGASinglePump : Attr {
+  let Spellings = [CXX11<"intelfpga", "singlepump">,           // INTEL
+                   GNU<"singlepump">];                         // INTEL
+  let Subjects = SubjectList<[IntelFPGAConstVar,               // INTEL
+                              IntelFPGALocalStaticSlaveMemVar, // INTEL
+                              Field], ErrorDiag>;
+  let LangOpts = [SYCL, OpenCL, HLS];                          // INTEL
+  let Documentation = [IntelFPGASinglePumpAttrDocs];
+}
+
+def IntelFPGAMemory : Attr {
+  let Spellings = [CXX11<"intelfpga", "memory">, GNU<"memory">]; // INTEL
+  let Args = [EnumArgument<"Kind", "MemoryKind",
+                           ["MLAB", "BLOCK_RAM", ""],
+                           ["MLAB", "BlockRAM", "Default"], 1>];
+  let AdditionalMembers = [{
+    static void generateValidStrings(SmallString<256> &Str) {
+      auto Last = BlockRAM;
+      for (int I = 0; I <= Last; ++I) {
+        Str += ConvertMemoryKindToStr(static_cast<MemoryKind>(I));
+        if (I != Last) Str += " ";
+      }
+    }
+  }];
+  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticSlaveMemVar,
+                              Field], ErrorDiag>;
+  let LangOpts = [SYCL, OpenCL, HLS];  // INTEL
+  let Documentation = [IntelFPGAMemoryAttrDocs];
+}
+
+def IntelFPGARegister : Attr {
+  let Spellings = [CXX11<"intelfpga", "register">, GNU<"register">]; // INTEL
+  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalOrStaticVar,
+                              Field], ErrorDiag>;
+  let LangOpts = [SYCL, OpenCL, HLS];  // INTEL
+  let Documentation = [IntelFPGARegisterAttrDocs];
+}
+
+// One integral argument.
+def IntelFPGABankWidth : Attr {
+  let Spellings = [CXX11<"intelfpga","bankwidth">, GNU<"bankwidth">]; // INTEL
+  let Args = [ExprArgument<"Value">];
+  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticSlaveMemVar,
+                              Field], ErrorDiag>;
+  let LangOpts = [SYCL, OpenCL, HLS]; // INTEL
+  let Documentation = [IntelFPGABankWidthAttrDocs];
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 1;
+    }
+    static unsigned getMaxValue() {
+      return 1024*1024;
+    }
+  }];
+}
+
+def IntelFPGANumBanks : Attr {
+  let Spellings = [CXX11<"intelfpga","numbanks">, GNU<"numbanks">]; // INTEL
+  let Args = [ExprArgument<"Value">];
+  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticSlaveMemVar,
+                              Field], ErrorDiag>;
+  let LangOpts = [SYCL, OpenCL, HLS]; // INTEL
+  let Documentation = [IntelFPGANumBanksAttrDocs];
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 1;
+    }
+    static unsigned getMaxValue() {
+      return 1024*1024;
+    }
+  }];
+}
+
+def IntelFPGAMaxPrivateCopies : InheritableAttr {
+  let Spellings = [CXX11<"intelfpga","max_private_copies">];
+  let Args = [ExprArgument<"Value">];
+  let LangOpts = [SYCL];
+  let Subjects = SubjectList<[IntelFPGALocalNonConstVar, Field], ErrorDiag>;
+  let Documentation = [IntelFPGAMaxPrivateCopiesAttrDocs];
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 0;
+    }
+    static unsigned getMaxValue() {
+      return 1024*1024;
+    }
+  }];
 }
 
 def Naked : InheritableAttr {
@@ -1965,7 +2157,8 @@ def Section : InheritableAttr {
   let Spellings = [GCC<"section">, Declspec<"allocate">];
   let Args = [StringArgument<"Name">];
   let Subjects =
-      SubjectList<[ Function, GlobalVar, ObjCMethod, ObjCProperty ], ErrorDiag>;
+      SubjectList<[ Function, GlobalVar, ObjCMethod, ObjCProperty ],
+      IntelWarnDiag>; // INTEL
   let Documentation = [SectionDocs];
 }
 
@@ -2279,7 +2472,6 @@ def Uuid : InheritableAttr {
   let Subjects = SubjectList<[Record, Enum]>;
   // FIXME: Allow expressing logical AND for LangOpts. Our condition should be:
   // CPlusPlus && (MicrosoftExt || Borland)
-  let LangOpts = [MicrosoftExt, Borland];
   let Documentation = [Undocumented];
 }
 
@@ -2357,7 +2549,7 @@ def WeakRef : InheritableAttr {
   let Spellings = [GCC<"weakref">];
   // A WeakRef that has an argument is treated as being an AliasAttr
   let Args = [StringArgument<"Aliasee", 1>];
-  let Subjects = SubjectList<[Var, Function], ErrorDiag>;
+  let Subjects = SubjectList<[Var, Function], WarnDiag>; //***INTEL
   let Documentation = [Undocumented];
 }
 
@@ -2975,21 +3167,64 @@ def LoopHint : Attr {
 
   let Spellings = [Pragma<"clang", "loop">, Pragma<"", "unroll">,
                    Pragma<"", "nounroll">, Pragma<"", "unroll_and_jam">,
-                   Pragma<"", "nounroll_and_jam">];
-
+// INTEL_CUSTOMIZATION
+                   Pragma<"", "nounroll_and_jam">,
+                   Pragma<"", "ii">, Pragma<"", "ivdep">,
+                   Pragma<"", "loop_coalesce">,
+                   Pragma<"", "max_concurrency">,
+                   Pragma<"", "max_interleaving">,
+                   Pragma<"", "ii_at_most">,Pragma<"", "ii_at_least">,
+                   Pragma<"", "min_ii_at_target_fmax">,
+                   Pragma<"", "speculated_iterations">,
+                   Pragma<"", "disable_loop_pipelining">,
+                   Pragma<"", "force_hyperopt">,
+                   Pragma<"", "force_no_hyperopt">,
+                   Pragma<"", "distribute_point">,
+                   Pragma<"", "nofusion">,
+                   Pragma<"", "fusion">,
+                   Pragma<"", "novector">,
+                   Pragma<"", "vector">,
+                   Pragma<"", "loop_count">];
+// end INTEL_CUSTOMIZATION
   /// State of the loop optimization specified by the spelling.
   let Args = [EnumArgument<"Option", "OptionType",
                           ["vectorize", "vectorize_width", "interleave", "interleave_count",
                            "unroll", "unroll_count", "unroll_and_jam", "unroll_and_jam_count",
-                           "pipeline", "pipeline_initiation_interval", "distribute"],
+// INTEL_CUSTOMIZATION
+                           "pipeline", "pipeline_initiation_interval",
+                           "distribute",
+                           "ii", "ivdep", "ivdep-loop", "ivdep-back",
+                           "ivdep-hls", "ivdep-hls-intel",
+                           "loop_coalesce", "max_concurrency", "max_interleaving",
+                           "ii_at_most", "ii_at_least",
+                           "min_ii_at_target_fmax", "speculated_iterations",
+                           "disable_loop_pipelining", "force_hyperopt",
+                           "distribute_point", "fusion",
+                           "novector", "always",
+                           "loop_count", "max", "min", "avg"],
+// end INTEL_CUSTOMIZATION
                           ["Vectorize", "VectorizeWidth", "Interleave", "InterleaveCount",
                            "Unroll", "UnrollCount", "UnrollAndJam", "UnrollAndJamCount",
-                           "PipelineDisabled", "PipelineInitiationInterval", "Distribute"]>,
+// INTEL_CUSTOMIZATION
+                           "PipelineDisabled", "PipelineInitiationInterval",
+                           "Distribute",
+                           "II", "IVDep", "IVDepLoop", "IVDepBack",
+                           "IVDepHLS", "IVDepHLSIntel",
+                           "LoopCoalesce", "MaxConcurrency", "MaxInterleaving",
+                           "IIAtMost", "IIAtLeast", "MinIIAtFmax",
+                           "SpeculatedIterations", "DisableLoopPipelining",
+                           "ForceHyperopt", "Distribute", "Fusion", "Vectorize",
+                           "VectorizeAlways", "LoopCount",
+                           "LoopCountMax", "LoopCountMin","LoopCountAvg"]>,
+// end INTEL_CUSTOMIZATION
               EnumArgument<"State", "LoopHintState",
-                           ["enable", "disable", "numeric", "assume_safety", "full"],
-                           ["Enable", "Disable", "Numeric", "AssumeSafety", "Full"]>,
-              ExprArgument<"Value">];
-
+// INTEL_CUSTOMIZATION
+                           ["enable", "disable", "numeric", "assume_safety",
+                            "full", "loopexpr"],
+                           ["Enable", "Disable", "Numeric", "AssumeSafety",
+                            "Full", "LoopExpr"]>,
+              ExprArgument<"Value">, ExprArgument<"LoopExprValue">];
+// end INTEL_CUSTOMIZATION
   let AdditionalMembers = [{
   static const char *getOptionName(int Option) {
     switch(Option) {
@@ -3004,6 +3239,13 @@ def LoopHint : Attr {
     case PipelineDisabled: return "pipeline";
     case PipelineInitiationInterval: return "pipeline_initiation_interval";
     case Distribute: return "distribute";
+// INTEL_CUSTOMIZATION
+    case VectorizeAlways: return "vectorize_always";
+    case LoopCount: return "loop_count";
+    case LoopCountMin: return "loop_count min";
+    case LoopCountMax: return "loop_count max";
+    case LoopCountAvg: return "loop_count avg";
+// end INTEL_CUSTOMIZATION
     }
     llvm_unreachable("Unhandled LoopHint option.");
   }
@@ -3017,7 +3259,22 @@ def LoopHint : Attr {
     else if (SpellingIndex == Pragma_unroll || SpellingIndex == Pragma_unroll_and_jam) {
       OS << ' ' << getValueString(Policy);
       return;
-    }
+// INTEL_CUSTOMIZATION
+    } else if (SpellingIndex == Pragma_distribute_point)
+      return;
+    else if (SpellingIndex == Pragma_nofusion)
+      return;
+    else if (SpellingIndex == Pragma_fusion)
+      return;
+    else if (SpellingIndex == Pragma_novector)
+      return;
+    else if (SpellingIndex == Pragma_vector)
+      return;
+    else if (SpellingIndex == Pragma_force_hyperopt)
+      return;
+    else if (SpellingIndex == Pragma_force_no_hyperopt)
+      return;
+// end INTEL_CUSTOMIZATION
 
     assert(SpellingIndex == Pragma_clang_loop && "Unexpected spelling");
     OS << ' ' << getOptionName(option) << getValueString(Policy);
@@ -3055,6 +3312,44 @@ def LoopHint : Attr {
     else if (SpellingIndex == Pragma_unroll_and_jam)
       return "#pragma unroll_and_jam" +
         (option == UnrollAndJamCount ? getValueString(Policy) : "");
+// INTEL_CUSTOMIZATION
+    else if (SpellingIndex == Pragma_ii)
+      return "#pragma ii";
+    else if (SpellingIndex == Pragma_ivdep)
+      return "#pragma ivdep";
+    else if (SpellingIndex == Pragma_loop_coalesce)
+      return "#pragma loop_coalesce";
+    else if (SpellingIndex == Pragma_max_concurrency)
+      return "#pragma max_concurrency";
+    else if (SpellingIndex == Pragma_max_interleaving)
+      return "#pragma max_interleaving";
+    else if (SpellingIndex == Pragma_ii_at_most)
+      return "#pragma ii_at_most";
+    else if (SpellingIndex == Pragma_ii_at_least)
+      return "#pragma ii_at_least";
+    else if (SpellingIndex == Pragma_min_ii_at_target_fmax)
+      return "#pragma min_ii_at_target_fmax";
+    else if (SpellingIndex == Pragma_speculated_iterations)
+      return "#pragma speculated_iterations";
+    else if (SpellingIndex == Pragma_disable_loop_pipelining)
+      return "#pragma disable_loop_pipelining";
+    else if (SpellingIndex == Pragma_force_hyperopt)
+      return "#pragma force_hyperopt";
+    else if (SpellingIndex == Pragma_force_no_hyperopt)
+      return "#pragma force_no_hyperopt";
+    else if (SpellingIndex == Pragma_distribute_point)
+      return "#pragma distribute_point";
+    else if (SpellingIndex == Pragma_nofusion)
+      return "#pragma nofusion";
+    else if (SpellingIndex == Pragma_fusion)
+      return "#pragma fusion";
+    else if (SpellingIndex == Pragma_novector)
+      return "#pragma novector";
+    else if (SpellingIndex == Pragma_vector)
+      return "#pragma vector";
+    else if (SpellingIndex == Pragma_loop_count)
+      return getOptionName(option) + getValueString(Policy);
+// end INTEL_CUSTOMIZATION
 
     assert(SpellingIndex == Pragma_clang_loop && "Unexpected spelling");
     return getOptionName(option) + getValueString(Policy);
@@ -3077,6 +3372,8 @@ def OMPThreadPrivateDecl : InheritableAttr {
   let SemaHandler = 0;
   let Documentation = [Undocumented];
 }
+
+include "clang/Basic/intel/IntelAttr.td"
 
 def OMPCaptureNoInit : InheritableAttr {
   // This attribute has no spellings as it is only ever created implicitly.

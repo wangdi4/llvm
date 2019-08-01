@@ -33,10 +33,12 @@ struct LoopHint {
   IdentifierLoc *StateLoc;
   // Expression for the hint argument if it exists, null otherwise.
   Expr *ValueExpr;
-
+#if INTEL_CUSTOMIZATION
+  Expr *ArrayExpr;
+#endif // INTEL_CUSTOMIZATION
   LoopHint()
       : PragmaNameLoc(nullptr), OptionLoc(nullptr), StateLoc(nullptr),
-        ValueExpr(nullptr) {}
+        ValueExpr(nullptr), ArrayExpr(nullptr) {} // INTEL
 };
 
 } // end namespace clang

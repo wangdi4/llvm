@@ -309,7 +309,8 @@ llvm::ErrorOr<PrecompiledPreamble> PrecompiledPreamble::Build(
 
   // Clear out old caches and data.
   Diagnostics.Reset();
-  ProcessWarningOptions(Diagnostics, Clang->getDiagnosticOpts());
+  ProcessWarningOptions(Diagnostics, Clang->getDiagnosticOpts(),      // INTEL
+                        Clang->getLangOpts().IntelCompat);            // INTEL
 
   VFS =
       createVFSFromCompilerInvocation(Clang->getInvocation(), Diagnostics, VFS);

@@ -37,6 +37,26 @@ struct RTLInfoTy {
   typedef int32_t(run_team_region_ty)(int32_t, void *, void **, ptrdiff_t *,
                                       int32_t, int32_t, int32_t, uint64_t);
   typedef int64_t(init_requires_ty)(int64_t);
+#if INTEL_COLLAB
+  typedef int32_t(data_submit_nowait_ty)(int32_t, void *, void *, int64_t,
+                                         void *);
+  typedef int32_t(data_retrieve_nowait_ty)(int32_t, void *, void *, int64_t,
+                                           void *);
+  typedef int32_t(manifest_data_for_region_ty)(int32_t, void *,
+                                               void **, size_t);
+  typedef void *(data_alloc_base_ty)(int32_t, int64_t, void *, void *);
+  typedef void *(data_alloc_user_ty)(int32_t, int64_t, void *);
+  typedef int32_t(run_team_nd_region_ty)(int32_t, void *, void **, ptrdiff_t *,
+                                         int32_t, int32_t, int32_t, void *);
+  typedef int32_t(run_team_nd_region_nowait_ty)(int32_t, void *, void **,
+                                                ptrdiff_t *, int32_t, int32_t,
+                                                int32_t, void *, void *);
+  typedef int32_t(run_region_nowait_ty)(int32_t, void *, void **, ptrdiff_t *,
+                                        int32_t, void *);
+  typedef int32_t(run_team_region_nowait_ty)(int32_t, void *, void **,
+                                             ptrdiff_t *, int32_t, int32_t,
+                                             int32_t, uint64_t, void *);
+#endif // INTEL_COLLAB
 
   int32_t Idx;                     // RTL index, index is the number of devices
                                    // of other RTLs that were registered before,
@@ -62,6 +82,17 @@ struct RTLInfoTy {
   run_region_ty *run_region;
   run_team_region_ty *run_team_region;
   init_requires_ty *init_requires;
+#if INTEL_COLLAB
+  data_submit_nowait_ty *data_submit_nowait;
+  data_retrieve_nowait_ty *data_retrieve_nowait;
+  manifest_data_for_region_ty *manifest_data_for_region;
+  data_alloc_base_ty *data_alloc_base;
+  data_alloc_user_ty *data_alloc_user;
+  run_team_nd_region_ty *run_team_nd_region;
+  run_team_nd_region_nowait_ty *run_team_nd_region_nowait;
+  run_region_nowait_ty *run_region_nowait;
+  run_team_region_nowait_ty *run_team_region_nowait;
+#endif // INTEL_COLLAB
 
   // Are there images associated with this RTL.
   bool isUsed;
@@ -81,7 +112,16 @@ struct RTLInfoTy {
         is_valid_binary(0), number_of_devices(0), init_device(0),
         load_binary(0), data_alloc(0), data_submit(0), data_retrieve(0),
         data_delete(0), run_region(0), run_team_region(0),
+#if INTEL_COLLAB
+        init_requires(0),
+        data_submit_nowait(0), data_retrieve_nowait(0),
+        manifest_data_for_region(0), data_alloc_base(0), data_alloc_user(0),
+        run_team_nd_region(0), run_team_nd_region_nowait(0),
+        run_region_nowait(0), run_team_region_nowait(0),
+        isUsed(false), Mtx() {}
+#else
         init_requires(0), isUsed(false), Mtx() {}
+#endif // INTEL_COLLAB
 
   RTLInfoTy(const RTLInfoTy &r) : Mtx() {
     Idx = r.Idx;
@@ -101,6 +141,17 @@ struct RTLInfoTy {
     run_region = r.run_region;
     run_team_region = r.run_team_region;
     init_requires = r.init_requires;
+#if INTEL_COLLAB
+    data_submit_nowait = r.data_submit_nowait;
+    data_retrieve_nowait = r.data_retrieve_nowait;
+    manifest_data_for_region = r.manifest_data_for_region;
+    data_alloc_base = r.data_alloc_base;
+    data_alloc_user = r.data_alloc_user;
+    run_team_nd_region = r.run_team_nd_region;
+    run_team_nd_region_nowait = r.run_team_nd_region_nowait;
+    run_region_nowait = r.run_region_nowait;
+    run_team_region_nowait = r.run_team_region_nowait;
+#endif // INTEL_COLLAB
     isUsed = r.isUsed;
   }
 };

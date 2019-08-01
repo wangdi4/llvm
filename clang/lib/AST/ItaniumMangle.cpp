@@ -170,6 +170,11 @@ public:
 
   void mangleStringLiteral(const StringLiteral *, raw_ostream &) override;
 
+#if INTEL_CUSTOMIZATION
+  // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
+  void mangleLambdaName(const RecordDecl *RD, raw_ostream &Out) override;
+#endif // INTEL_CUSTOMIZATION
+
   bool getNextDiscriminator(const NamedDecl *ND, unsigned &disc) {
     // Lambda closure types are already numbered.
     if (isLambda(ND))
@@ -517,6 +522,7 @@ private:
 
   void mangleType(const TagType*);
   void mangleType(TemplateName);
+  void mangleType(const VectorType *T, bool IsMType); // INTEL
   static StringRef getCallingConvQualifierName(CallingConv CC);
   void mangleExtParameterInfo(FunctionProtoType::ExtParameterInfo info);
   void mangleExtFunctionInfo(const FunctionType *T);
@@ -1964,6 +1970,11 @@ bool CXXNameMangler::mangleUnresolvedTypeOrSimpleId(QualType Ty,
   case Type::ObjCObjectPointer:
   case Type::ObjCTypeParam:
   case Type::Atomic:
+#if INTEL_CUSTOMIZATION
+  case Type::Channel:
+  case Type::ArbPrecInt:
+  case Type::DependentSizedArbPrecInt:
+#endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
   case Type::MacroQualified:
     llvm_unreachable("type is illegal as a nested name specifier");
@@ -2250,7 +2261,7 @@ void CXXNameMangler::mangleQualifiers(Qualifiers Quals, const DependentAddressSp
     if (Context.getASTContext().addressSpaceMapManglingFor(AS)) {
       //  <target-addrspace> ::= "AS" <address-space-number>
       unsigned TargetAS = Context.getASTContext().getTargetAddressSpace(AS);
-      if (TargetAS != 0)
+      if (TargetAS != 0 || (Context.getASTContext().getLangOpts().SYCLIsDevice))
         ASString = "AS" + llvm::utostr(TargetAS);
     } else {
       switch (AS) {
@@ -3404,6 +3415,26 @@ void CXXNameMangler::mangleType(const PipeType *T) {
   // <type> ::= 8ocl_pipe
   Out << "8ocl_pipe";
 }
+
+#if INTEL_CUSTOMIZATION
+void CXXNameMangler::mangleType(const ChannelType *T) {
+  // <type> ::= 11ocl_channel
+  Out << "11ocl_channel";
+  mangleType(T->getElementType());
+}
+void CXXNameMangler::mangleType(const ArbPrecIntType *T) {
+  Out << "11intel_apint_";
+  mangleNumber(T->getNumBits());
+  Out << '_';
+  mangleType(T->getUnderlyingType());
+}
+void CXXNameMangler::mangleType(const DependentSizedArbPrecIntType *T) {
+  Out << "11intel_apint_";
+  mangleExpression(T->getNumBitsExpr());
+  Out << '_';
+  mangleType(T->getUnderlyingType());
+}
+#endif // INTEL_CUSTOMIZATION
 
 void CXXNameMangler::mangleIntegerLiteral(QualType T,
                                           const llvm::APSInt &Value) {
@@ -5066,6 +5097,14 @@ void ItaniumMangleContextImpl::mangleCXXRTTIName(QualType Ty,
 void ItaniumMangleContextImpl::mangleTypeName(QualType Ty, raw_ostream &Out) {
   mangleCXXRTTIName(Ty, Out);
 }
+
+#if INTEL_CUSTOMIZATION
+// Fix for CQ#371742: C++ Lambda debug info class is created with empty name
+void ItaniumMangleContextImpl::mangleLambdaName(const RecordDecl *RD,
+                                                raw_ostream &Out) {
+  return mangleTypeName(QualType(RD->getTypeForDecl(), 0), Out);
+}
+#endif // INTEL_CUSTOMIZATION
 
 void ItaniumMangleContextImpl::mangleStringLiteral(const StringLiteral *, raw_ostream &) {
   llvm_unreachable("Can't mangle string literals");

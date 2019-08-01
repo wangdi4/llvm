@@ -94,11 +94,21 @@ bool lld::wasm::link(ArrayRef<const char *> args, bool canExitEarly,
   initLLVM();
   LinkerDriver().link(args);
 
+#if INTEL_CUSTOMIZATION
+  // The following code is commented out because is from the community and
+  // it will be replaced.
+
   // Exit immediately if we don't need to return to the caller.
   // This saves time because the overhead of calling destructors
   // for all globally-allocated objects is not negligible.
-  if (canExitEarly)
-    exitLld(errorCount() ? 1 : 0);
+  // if (CanExitEarly)
+  //  exitLld(errorCount() ? 1 : 0);
+
+  // CMPLRLLVM-8800: We are going to replace exitLld with cleanIntelLld.
+  // This is because we want to prevent calling the early exit and use
+  // the destructors.
+  cleanIntelLld();
+#endif // INTEL_CUSTOMIZATION
 
   freeArena();
   return !errorCount();
@@ -351,7 +361,17 @@ static void readConfigs(opt::InputArgList &args) {
   config->thinLTOJobs = args::getInteger(args, OPT_thinlto_jobs, -1u);
   errorHandler().verbose = args.hasArg(OPT_verbose);
   LLVM_DEBUG(errorHandler().verbose = true);
-  threadsEnabled = args.hasFlag(OPT_threads, OPT_no_threads, true);
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-8800: Prevent running LLD in parallel during the testing
+  // process in Windows unless the user specifies it. This is to avoid
+  // exhausting the memory and flaky failures.
+#if defined(_WIN32)
+  if (StringRef(getenv("INTEL_LLD_IN_TEST")) == "1")
+    threadsEnabled = args.hasFlag(OPT_threads, OPT_no_threads, false);
+  else
+#endif // _WIN32
+    threadsEnabled = args.hasFlag(OPT_threads, OPT_no_threads, true);
+#endif // INTEL_CUSTOMIZATION
 
   config->initialMemory = args::getInteger(args, OPT_initial_memory, 0);
   config->globalBase = args::getInteger(args, OPT_global_base, 1024);

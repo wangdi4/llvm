@@ -18,6 +18,26 @@
 #include "clang/Basic/Version.inc"
 #include "llvm/ADT/StringRef.h"
 
+#if INTEL_CUSTOMIZATION
+  // CQ374831: define GNU_VERSION_STRING
+
+#if defined __GNUC__ && defined __GNUC_MINOR__
+
+#define GNU_MAKE_VERSION_STRING2(X) #X
+
+#ifdef __GNUC_PATCHLEVEL__
+/// A string that describes the gnu version number, e.g., "1.0".
+#define GNU_MAKE_VERSION_STRING(X,Y,Z) GNU_MAKE_VERSION_STRING2(X.Y.Z)
+#define GNU_VERSION_STRING \
+  GNU_MAKE_VERSION_STRING(__GNUC__,__GNUC_MINOR__, __GNUC_PATCHLEVEL__)
+#else
+#define GNU_MAKE_VERSION_STRING(X,Y) GNU_MAKE_VERSION_STRING2(X.Y)
+#define GNU_VERSION_STRING \
+  GNU_MAKE_VERSION_STRING(__GNUC__,__GNUC_MINOR__)
+#endif // __GNUC_PATCHLEVEL__
+#endif // defined __GNUC__ && defined __GNUC_MINOR__
+#endif // INTEL_CUSTOMIZATION
+
 namespace clang {
   /// Retrieves the repository path (e.g., Subversion path) that
   /// identifies the particular Clang branch, tag, or trunk from which this
@@ -56,6 +76,13 @@ namespace clang {
   /// for use in the CPP __VERSION__ macro, which includes the clang version
   /// number, the repository version, and the vendor tag.
   std::string getClangFullCPPVersion();
+
+#if INTEL_CUSTOMIZATION
+  std::string getICXVersionString();
+
+  /// Version string for xmain: cq374831
+  std::string getXMainFullCPPVersion();
+#endif // INTEL_CUSTOMIZATION
 }
 
 #endif // LLVM_CLANG_BASIC_VERSION_H

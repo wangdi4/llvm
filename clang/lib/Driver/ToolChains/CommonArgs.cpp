@@ -332,6 +332,17 @@ std::string tools::getCPUName(const ArgList &Args, const llvm::Triple &T,
   case llvm::Triple::amdgcn:
     return getR600TargetGPU(Args);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  case llvm::Triple::csa:
+    // last of arch or cpu
+    if (const Arg *A = Args.getLastArg(options::OPT_march_EQ,
+                                       options::OPT_mcpu_EQ))
+      return A->getValue();
+    return "";
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
+
   case llvm::Triple::wasm32:
   case llvm::Triple::wasm64:
     return getWebAssemblyTargetCPU(Args);
@@ -504,7 +515,12 @@ bool tools::addOpenMPRuntime(ArgStringList &CmdArgs, const ToolChain &TC,
                              const ArgList &Args, bool IsOffloadingHost,
                              bool GompNeedsRT) {
   if (!Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
+#if INTEL_COLLAB
+                    options::OPT_fno_openmp, false) &&
+      !Args.hasArg(options::OPT_fiopenmp))
+#else
                     options::OPT_fno_openmp, false))
+#endif // INTEL_COLLAB
     return false;
 
   switch (TC.getDriver().getOpenMPRuntime(Args)) {

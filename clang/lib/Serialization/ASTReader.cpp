@@ -5641,6 +5641,11 @@ bool ASTReader::ParseLanguageOptions(const RecordData &Record,
   }
 
   LangOpts.OMPHostIRFile = ReadString(Record, Idx);
+#if INTEL_CUSTOMIZATION
+  // CQ#411303 Intel driver requires front-end to produce special file if
+  // translation unit has any target code.
+  LangOpts.IntelDriverTempfileName = ReadString(Record, Idx);
+#endif // INTEL_CUSTOMIZATION
 
   return Listener.ReadLanguageOptions(LangOpts, Complain,
                                       AllowCompatibleDifferences);
@@ -6779,6 +6784,45 @@ QualType ASTReader::readTypeRecord(unsigned Index) {
     unsigned ReadOnly = Record[1];
     return Context.getPipeType(ElementType, ReadOnly);
   }
+#if INTEL_CUSTOMIZATION
+  case TYPE_CHANNEL: {
+    if (Record.size() != 1) {
+      Error("Incorrect encoding of channel type");
+      return QualType();
+    }
+
+    // Reading the channel element type.
+    QualType ElementType = readType(*Loc.F, Record, Idx);
+    return Context.getChannelType(ElementType);
+  }
+  case TYPE_ARBPRECINT: {
+    if (Record.size() != 3) {
+      Error("Incorrect encoding of ArbPrecInt type");
+      return QualType();
+    }
+
+    unsigned Idx = 0;
+    QualType UnderlyingType = readType(*Loc.F, Record, Idx);
+    unsigned NumBits = Record[Idx++];
+    SourceLocation AttrLoc = ReadSourceLocation(*Loc.F, Record, Idx);
+
+    return Context.getArbPrecIntType(UnderlyingType, NumBits, AttrLoc);
+  }
+  case TYPE_DEPENDENT_SIZED_ARBPRECINT: {
+    if (Record.size() != 3) {
+      Error("Incorrect encoding of Dependent APInt type");
+      return QualType();
+    }
+
+    unsigned Idx = 0;
+    QualType UnderlyingType = readType(*Loc.F, Record, Idx);
+    Expr *NumBitsExpr = ReadExpr(*Loc.F);
+    SourceLocation AttrLoc = ReadSourceLocation(*Loc.F, Record, Idx);
+
+    return Context.getDependentSizedArbPrecIntType(UnderlyingType, NumBitsExpr,
+                                                   AttrLoc);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   case TYPE_DEPENDENT_SIZED_VECTOR: {
     unsigned Idx = 0;
@@ -7165,6 +7209,18 @@ void TypeLocReader::VisitAtomicTypeLoc(AtomicTypeLoc TL) {
 void TypeLocReader::VisitPipeTypeLoc(PipeTypeLoc TL) {
   TL.setKWLoc(ReadSourceLocation());
 }
+#if INTEL_CUSTOMIZATION
+void TypeLocReader::VisitChannelTypeLoc(ChannelTypeLoc TL) {
+  TL.setKWLoc(ReadSourceLocation());
+}
+void TypeLocReader::VisitArbPrecIntTypeLoc(ArbPrecIntTypeLoc TL) {
+  TL.setNameLoc(ReadSourceLocation());
+}
+void TypeLocReader::VisitDependentSizedArbPrecIntTypeLoc(
+    DependentSizedArbPrecIntTypeLoc TL) {
+  TL.setNameLoc(ReadSourceLocation());
+}
+#endif // INTEL_CUSTOMIZATION
 
 void ASTReader::ReadTypeLoc(ModuleFile &F, const ASTReader::RecordData &Record,
                             unsigned &Idx, TypeLoc TL) {
@@ -8227,6 +8283,21 @@ void ASTReader::InitializeSema(Sema &S) {
   SemaObj->OpenCLFeatures.copy(OpenCLExtensions);
   SemaObj->OpenCLTypeExtMap = OpenCLTypeExtMap;
   SemaObj->OpenCLDeclExtMap = OpenCLDeclExtMap;
+
+#if INTEL_CUSTOMIZATION
+  // OpenCL features imported from a module can be overwritten by -cl-ext option
+  for (const std::string &Ext:
+       ContextObj->getTargetInfo().getTargetOpts().OpenCLExtensionsAsWritten) {
+    OpenCLOptions& OCLFeatures = SemaObj->OpenCLFeatures;
+    OCLFeatures.support(Ext);
+    // If we specify via -cl-ext that an *extension* is supported, it doesn't
+    // mean that it is enabled. Corresponding pragma must be used to enable it.
+    // But if we specify via -cl-ext that a *core feature* is not supported we
+    // need to disable it, because pragma is ignored for core features.
+    const unsigned OCLVersion = SemaObj->getLangOpts().OpenCLVersion;
+    OCLFeatures.toggleCoreFeatureIsEnabled(Ext, OCLVersion);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   UpdateSema();
 }
@@ -12195,6 +12266,13 @@ OMPClause *OMPClauseReader::readClause() {
   case OMPC_num_threads:
     C = new (Context) OMPNumThreadsClause();
     break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  case OMPC_dataflow:
+    C = new (Context) OMPDataflowClause();
+    break;
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
   case OMPC_safelen:
     C = new (Context) OMPSafelenClause();
     break;
@@ -12421,6 +12499,17 @@ void OMPClauseReader::VisitOMPNumThreadsClause(OMPNumThreadsClause *C) {
   C->setNumThreads(Record.readSubExpr());
   C->setLParenLoc(Record.readSourceLocation());
 }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+void OMPClauseReader::VisitOMPDataflowClause(OMPDataflowClause *C) {
+  VisitOMPClauseWithPreInit(C);
+  C->setStaticChunkSize(Record.readSubExpr());
+  C->setNumWorkersNum(Record.readSubExpr());
+  C->setPipelineDepth(Record.readSubExpr());
+}
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
 void OMPClauseReader::VisitOMPSafelenClause(OMPSafelenClause *C) {
   C->setSafelen(Record.readSubExpr());

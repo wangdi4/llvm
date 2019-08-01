@@ -731,6 +731,31 @@ MemoryBufferRef convertResToCOFF(ArrayRef<MemoryBufferRef> mbs) {
   return mbref;
 }
 
+#if INTEL_CUSTOMIZATION
+// NOTE: This code was removed from the community version of LLD in D51039.
+// We will use it for special cases.
+
+// Run MSVC link.exe for given in-memory object files.
+// Command line options are copied from those given to LLD.
+// This is for the /msvclto option.
+void runMSVCLinker(std::string rsp, ArrayRef<StringRef> objects) {
+  // Write the in-memory object files to disk.
+  std::vector<TemporaryFile> temps;
+  for (StringRef s : objects) {
+    temps.emplace_back("lto", "obj", s);
+    rsp += quote(temps.back().path) + "\n";
+  }
+
+  log("link.exe " + rsp);
+
+  // Run MSVC link.exe.
+  temps.emplace_back("lto", "rsp", rsp);
+  Executor e("link.exe");
+  e.add(Twine("@" + temps.back().path));
+  e.run();
+}
+#endif // INTEL_CUSTOMIZATION
+
 // Create OptTable
 
 // Create prefix string literals used in Options.td
@@ -892,6 +917,19 @@ void printHelp(const char *argv0) {
                            (std::string(argv0) + " [options] file...").c_str(),
                            "LLVM Linker", false);
 }
+
+#if INTEL_CUSTOMIZATION
+// Return true if the quoting style is in Windows form, else return false
+// (GNU quoting style). This function is a wrapper of getQuotingStyle.
+bool collectQuotingStyle(ArrayRef<const char *> argv) {
+  unsigned missingIndex;
+  unsigned missingCount;
+  COFFOptTable table;
+
+  opt::InputArgList args = table.ParseArgs(argv, missingIndex, missingCount);
+  return getQuotingStyle(args) == cl::TokenizeWindowsCommandLine;
+}
+#endif // INTEL_CUSTOMIZATION
 
 } // namespace coff
 } // namespace lld

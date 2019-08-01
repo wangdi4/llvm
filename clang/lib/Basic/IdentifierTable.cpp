@@ -74,7 +74,6 @@ IdentifierTable::IdentifierTable(const LangOptions &LangOpts,
 
 // Constants for TokenKinds.def
 namespace {
-
   enum {
     KEYC99        = 0x1,
     KEYCXX        = 0x2,
@@ -100,9 +99,19 @@ namespace {
     KEYCXX2A      = 0x200000,
     KEYOPENCLCXX  = 0x400000,
     KEYMSCOMPAT   = 0x800000,
-    KEYALLCXX = KEYCXX | KEYCXX11 | KEYCXX2A,
-    KEYALL = (0xffffff & ~KEYNOMS18 &
-              ~KEYNOOPENCL) // KEYNOMS18 and KEYNOOPENCL are used to exclude.
+    KEYSYCL       = 0x1000000,
+    KEYALLCXX = KEYSYCL | KEYCXX | KEYCXX11 | KEYCXX2A,
+#if INTEL_CUSTOMIZATION
+    KEYALL = (0x7fffffff & ~KEYNOMS18 & // INTEL_CUSTOMIZATION 0x7fffffff
+              ~KEYNOOPENCL), // KEYNOMS18 and KEYNOOPENCL are used to exclude.
+    KEYFLOAT128 = 0x2000000,
+    KEYRESTRICT = 0x4000000,
+    KEYMSASM    = 0x8000000,
+    KEYBASES    = 0x10000000,
+    KEYDECIMAL  = 0x20000000,
+    KEYINTELALL = KEYFLOAT128 | KEYRESTRICT | KEYMSASM | KEYBASES | KEYDECIMAL,
+    KEYNOINTELALL = KEYALL & ~KEYINTELALL,
+#endif // INTEL_CUSTOMIZATION
   };
 
   /// How a keyword is treated in the selected standard.
@@ -120,6 +129,36 @@ namespace {
 static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
                                       unsigned Flags) {
   if (Flags == KEYALL) return KS_Enabled;
+#if INTEL_CUSTOMIZATION
+  if (LangOpts.IntelCompat) {
+    if ((Flags & KEYINTELALL) == KEYINTELALL)
+      return KS_Enabled;
+    if ((Flags & KEYNOINTELALL) == KEYNOINTELALL)
+      Flags = Flags & KEYINTELALL;
+    if (LangOpts.Float128 && (Flags & KEYFLOAT128))
+      return KS_Extension;
+    // CQ#366963 - enable/disable 'restrict' keyword in IntelCompat mode.
+    if (Flags & KEYRESTRICT) {
+      if (LangOpts.Restrict)
+        return LangOpts.C99 ? KS_Enabled : KS_Extension;
+      else
+        return KS_Disabled;
+    }
+    // CQ#369368 - allow '_asm' keyword if MS-style inline assembly is enabled.
+    if (LangOpts.AsmBlocks && (Flags & KEYMSASM))
+      return KS_Extension;
+    // CQ#374317 - don't recognize _Decimal keyword if not in GNU mode.
+    if (LangOpts.GNUMode && (Flags & KEYDECIMAL))
+      return KS_Enabled;
+    // Some keywords (like static_assert in C, CQ#377592) are enabled in MS
+    // compatibility mode only.
+    if (LangOpts.MSVCCompat && (Flags & KEYMSCOMPAT))
+      return KS_Enabled;
+  } else if ((Flags & KEYNOINTELALL) == KEYNOINTELALL) {
+    // CQ#374317 - don't recognize _Decimal keyword if not in GNU mode.
+    return KS_Enabled;
+  }
+#endif // INTEL_CUSTOMIZATION
   if (LangOpts.CPlusPlus && (Flags & KEYCXX)) return KS_Enabled;
   if (LangOpts.CPlusPlus11 && (Flags & KEYCXX11)) return KS_Enabled;
   if (LangOpts.CPlusPlus2a && (Flags & KEYCXX2A)) return KS_Enabled;
@@ -137,6 +176,7 @@ static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
   if (LangOpts.OpenCL && !LangOpts.OpenCLCPlusPlus && (Flags & KEYOPENCLC))
     return KS_Enabled;
   if (LangOpts.OpenCLCPlusPlus && (Flags & KEYOPENCLCXX)) return KS_Enabled;
+  if (LangOpts.SYCLIsDevice && (Flags & KEYSYCL)) return KS_Enabled;
   if (!LangOpts.CPlusPlus && (Flags & KEYNOCXX)) return KS_Enabled;
   if (LangOpts.C11 && (Flags & KEYC11)) return KS_Enabled;
   // We treat bridge casts as objective-C keywords so we can warn on them
@@ -217,6 +257,13 @@ void IdentifierTable::AddKeywords(const LangOptions &LangOpts) {
 
   if (LangOpts.DeclSpecKeyword)
     AddKeyword("__declspec", tok::kw___declspec, KEYALL, LangOpts, *this);
+#if INTEL_CUSTOMIZATION
+// CQ#380574: Ability to set various predefines based on gcc version needed.
+  if (LangOpts.IntelQuad)
+    AddKeyword("_Quad", tok::kw___float128, KEYFLOAT128, LangOpts, *this);
+  if (LangOpts.Float128)
+    AddKeyword("__float128", tok::kw___float128, KEYFLOAT128, LangOpts, *this);
+#endif // INTEL_CUSTOMIZATION
 
   // Add the 'import' contextual keyword.
   get("import").setModulesImport(true);

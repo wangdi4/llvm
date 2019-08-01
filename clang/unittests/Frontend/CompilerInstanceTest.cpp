@@ -8,9 +8,15 @@
 
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/CompilerInvocation.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Config/config.h"
+#endif // INTEL_CUSTOMIZATION
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Format.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Support/Path.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Support/ToolOutputFile.h"
 #include "gtest/gtest.h"
 
@@ -71,6 +77,42 @@ TEST(CompilerInstance, DefaultVFSOverlayFromInvocation) {
   ASSERT_TRUE(Instance.getFileManager().getFile("vfs-virtual.file"));
 }
 
+#if INTEL_CUSTOMIZATION
+#if !WINDOWS_ONECORE
+static std::string LibPath(const std::string Name = "VfsTestLib") {
+  const std::vector<testing::internal::string> &Argvs =
+      testing::internal::GetArgvs();
+  StringRef Argv0 = Argvs.size() > 0 ? Argvs[0] : "FrontendTests";
+  llvm::SmallString<256> Buf(llvm::sys::path::parent_path(Argv0));
+  llvm::sys::path::append(Buf, (Name + LTDL_SHLIB_EXT));
+  return Buf.str();
+}
+
+TEST(CompilerInstance, VFSOverlayLibrary) {
+  // Create a CompilerInvocation that uses this overlay library.
+  const std::string VFSArg = "-ivfsoverlay-lib" + LibPath();
+  const char *Args[] = {"clang", VFSArg.c_str(), "-xc", "-"};
+
+  IntrusiveRefCntPtr<DiagnosticsEngine> Diags =
+      CompilerInstance::createDiagnostics(new DiagnosticOptions());
+
+  std::shared_ptr<CompilerInvocation> CInvok =
+      createInvocationFromCommandLine(Args, Diags);
+
+  if (!CInvok)
+    FAIL() << "could not create compiler invocation";
+
+  CompilerInstance Instance;
+  Instance.setDiagnostics(Diags.get());
+  Instance.setInvocation(CInvok);
+  Instance.createFileManager();
+
+  // Check if the virtual file exists which means that our VFS is used by the
+  // CompilerInstance.
+  ASSERT_TRUE(Instance.getFileManager().getFile("virtual.file"));
+}
+#endif // !WINDOWS_ONECORE
+#endif // INTEL_CUSTOMIZATION
 TEST(CompilerInstance, AllowDiagnosticLogWithUnownedDiagnosticConsumer) {
   auto DiagOpts = new DiagnosticOptions();
   // Tell the diagnostics engine to emit the diagnostic log to STDERR. This

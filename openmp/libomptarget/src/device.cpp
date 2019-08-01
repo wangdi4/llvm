@@ -185,7 +185,11 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
   } else if (Size) {
     // If it is not contained and Size > 0 we should create a new entry for it.
     IsNew = true;
+#if INTEL_COLLAB
+    uintptr_t tp = (uintptr_t)data_alloc_base(Size, HstPtrBegin, HstPtrBase);
+#else
     uintptr_t tp = (uintptr_t)RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin);
+#endif // INTEL_COLLAB
     DP("Creating new map entry: HstBase=" DPxMOD ", HstBegin=" DPxMOD ", "
         "HstEnd=" DPxMOD ", TgtBegin=" DPxMOD "\n", DPxPTR(HstPtrBase),
         DPxPTR(HstPtrBegin), DPxPTR((uintptr_t)HstPtrBegin + Size), DPxPTR(tp));
@@ -335,6 +339,140 @@ int32_t DeviceTy::run_team_region(void *TgtEntryPtr, void **TgtVarsPtr,
       TgtVarsSize, NumTeams, ThreadLimit, LoopTripCount);
 }
 
+#if INTEL_COLLAB
+int32_t DeviceTy::manifest_data_for_region(void *TgtEntryPtr) {
+  if (!RTL->manifest_data_for_region)
+    return OFFLOAD_SUCCESS;
+
+  // Targets that require explicit manifestation for pointers
+  // that are not passed as arguments to the target entry
+  // provide an optional manifest_data_for_region interface.
+  //
+  // Pointers that may be dereferenced inside the target entry
+  // and are not necessarily passed as arguments are the following:
+  //   1. Pointers to global variables.
+  //   2. Shadow pointers mapped as PTR_AND_OBJ.
+  std::vector<void *> ObjectPtrs;
+
+  DataMapMtx.lock();
+
+  for (auto &HT : HostDataToTargetMap) {
+    if (!CONSIDERED_INF(HT.RefCount))
+      continue;
+
+    void *TgtPtrBegin = reinterpret_cast<void *>(HT.TgtPtrBegin);
+
+    if (ObjectPtrs.empty())
+      DP("Manifesting target pointers for globals:\n");
+
+    DP("\tHstPtrBase=" DPxMOD ", HstPtrBegin=" DPxMOD
+       ", HstPtrEnd=" DPxMOD ", TgtPtrBegin=" DPxMOD "\n",
+       DPxPTR(HT.HstPtrBase), DPxPTR(HT.HstPtrBegin),
+       DPxPTR(HT.HstPtrEnd), DPxPTR(TgtPtrBegin));
+
+    ObjectPtrs.push_back(TgtPtrBegin);
+  }
+
+  DataMapMtx.unlock();
+
+  ShadowMtx.lock();
+  if (!ShadowPtrMap.empty()) {
+    DP("Manifesting shadow target pointers:\n");
+    for (auto &SPE : ShadowPtrMap) {
+      DP("\tHstPtrAddr=" DPxMOD ", HstPtrVal=" DPxMOD
+         ", TgtPtrAddr=" DPxMOD ", TgtPtrVal=" DPxMOD "\n",
+         DPxPTR(SPE.first), DPxPTR(SPE.second.HstPtrVal),
+         DPxPTR(SPE.second.TgtPtrAddr), DPxPTR(SPE.second.TgtPtrVal));
+
+      ObjectPtrs.push_back(SPE.second.TgtPtrVal);
+    }
+  }
+  ShadowMtx.unlock();
+
+  if (ObjectPtrs.empty())
+    return OFFLOAD_SUCCESS;
+
+  int32_t RC =
+      RTL->manifest_data_for_region(RTLDeviceID, TgtEntryPtr,
+                                    ObjectPtrs.data(), ObjectPtrs.size());
+
+  return RC;
+}
+
+void *DeviceTy::data_alloc_base(int64_t Size, void *HstPtrBegin,
+                                void *HstPtrBase) {
+  if (!RTL->data_alloc_base)
+    return RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin);
+  return RTL->data_alloc_base(RTLDeviceID, Size, HstPtrBegin, HstPtrBase);
+}
+
+void *DeviceTy::data_alloc_user(int64_t Size, void *HstPtrBegin) {
+  if (!RTL->data_alloc_user)
+    return RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin);
+  return RTL->data_alloc_user(RTLDeviceID, Size, HstPtrBegin);
+}
+
+int32_t DeviceTy::data_submit_nowait(void *TgtPtrBegin, void *HstPtrBegin,
+                                     int64_t Size, void *AsyncData) {
+  if (!RTL->data_submit_nowait)
+    return OFFLOAD_FAIL;
+  return RTL->data_submit_nowait(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size,
+                                 AsyncData);
+}
+
+int32_t DeviceTy::data_retrieve_nowait(void *HstPtrBegin, void *TgtPtrBegin,
+                                       int64_t Size, void *AsyncData) {
+  if (!RTL->data_retrieve_nowait)
+    return OFFLOAD_FAIL;
+  return RTL->data_retrieve_nowait(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size,
+                                   AsyncData);
+}
+
+int32_t DeviceTy::run_team_nd_region(void *TgtEntryPtr, void **TgtVarsPtr,
+                                     ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
+                                     int32_t NumTeams, int32_t ThreadLimit,
+                                     void *TgtNDLoopDesc) {
+  if (!RTL->run_team_nd_region)
+    return OFFLOAD_FAIL;
+  return RTL->run_team_nd_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
+                                 TgtOffsets, TgtVarsSize, NumTeams, ThreadLimit,
+                                 TgtNDLoopDesc);
+}
+
+int32_t
+DeviceTy::run_team_nd_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
+                                    ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
+                                    int32_t NumTeams, int32_t ThreadLimit,
+                                    void *TgtNDLoopDesc, void *AsyncData) {
+  if (!RTL->run_team_nd_region_nowait)
+    return OFFLOAD_FAIL;
+  return RTL->run_team_nd_region_nowait(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
+                                        TgtOffsets, TgtVarsSize, NumTeams,
+                                        ThreadLimit, TgtNDLoopDesc, AsyncData);
+}
+
+int32_t DeviceTy::run_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
+                                    ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
+                                    void *AsyncData) {
+  if (!RTL->run_region_nowait)
+    return OFFLOAD_FAIL;
+  return RTL->run_region_nowait(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
+                                TgtOffsets, TgtVarsSize, AsyncData);
+}
+
+int32_t DeviceTy::run_team_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
+                                         ptrdiff_t *TgtOffsets,
+                                         int32_t TgtVarsSize, int32_t NumTeams,
+                                         int32_t ThreadLimit,
+                                         uint64_t LoopTripCount,
+                                         void *AsyncData) {
+  if (!RTL->run_team_region_nowait)
+    return OFFLOAD_FAIL;
+  return RTL->run_team_region_nowait(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
+                                     TgtOffsets, TgtVarsSize, NumTeams,
+                                     ThreadLimit, LoopTripCount, AsyncData);
+}
+#endif // INTEL_COLLAB
 /// Check whether a device has an associated RTL and initialize it if it's not
 /// already initialized.
 bool device_is_ready(int device_num) {

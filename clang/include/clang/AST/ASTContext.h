@@ -219,6 +219,12 @@ private:
   mutable llvm::FoldingSet<AtomicType> AtomicTypes;
   llvm::FoldingSet<AttributedType> AttributedTypes;
   mutable llvm::FoldingSet<PipeType> PipeTypes;
+#if INTEL_CUSTOMIZATION
+  mutable llvm::FoldingSet<ChannelType> ChannelTypes;
+  mutable llvm::FoldingSet<ArbPrecIntType> ArbPrecIntTypes;
+  mutable llvm::FoldingSet<DependentSizedArbPrecIntType>
+      DependentSizedArbPrecIntTypes;
+#endif // INTEL_CUSTOMIZATION
 
   mutable llvm::FoldingSet<QualifiedTemplateName> QualifiedTemplateNames;
   mutable llvm::FoldingSet<DependentTemplateName> DependentTemplateNames;
@@ -533,6 +539,11 @@ private:
   ///  this ASTContext object.
   LangOptions &LangOpts;
 
+#if INTEL_CUSTOMIZATION
+  /// The flag specifies status of "fp_contract" feature
+  bool DisabledFPContract;
+#endif // INTEL_CUSTOMIZATION
+
   /// Blacklist object that is used by sanitizers to decide which
   /// entities should not be instrumented.
   std::unique_ptr<SanitizerBlacklist> SanitizerBL;
@@ -716,6 +727,12 @@ public:
   const XRayFunctionFilter &getXRayFilter() const {
     return *XRayFilter;
   }
+
+#if INTEL_CUSTOMIZATION
+  void disableFPContract() { DisabledFPContract = true; }
+
+  bool isFPContractDisabled() const { return DisabledFPContract; }
+#endif // INTEL_CUSTOMIZATION
 
   DiagnosticsEngine &getDiagnostics() const;
 
@@ -1054,6 +1071,7 @@ public:
 #define EXT_OPAQUE_TYPE(ExtType, Id, Ext) \
   CanQualType Id##Ty;
 #include "clang/Basic/OpenCLExtensionTypes.def"
+  CanQualType VAArgPackTy; // INTEL
 
   // Types for deductions in C++0x [stmt.ranged]'s desugaring. Built on demand.
   mutable QualType AutoDeductTy;     // Deduction against 'auto'.
@@ -1259,6 +1277,15 @@ public:
 
   /// Return a write_only pipe type for the specified type.
   QualType getWritePipeType(QualType T) const;
+
+#if INTEL_CUSTOMIZATION
+  QualType getChannelType(QualType T) const;
+  QualType getArbPrecIntType(QualType Type, unsigned NumBits,
+                             SourceLocation AttrLoc) const;
+  QualType getDependentSizedArbPrecIntType(QualType Type,
+                                          Expr *BitsExpr,
+                                          SourceLocation AttrLoc) const;
+#endif // INTEL_CUSTOMIZATION
 
   /// Gets the struct used to keep track of the extended descriptor for
   /// pointer to blocks.

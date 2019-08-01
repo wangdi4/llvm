@@ -2623,6 +2623,16 @@ X86
 
 .. option:: -maes, -mno-aes
 
+.. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_AMX
+.. option:: -mamx-bf16, -mno-amx-bf16
+
+.. option:: -mamx-int8, -mno-amx-int8
+
+.. option:: -mamx-tile, -mno-amx-tile
+
+.. end INTEL_FEATURE_ISA_AMX
+.. end INTEL_CUSTOMIZATION
 .. option:: -mavx, -mno-avx
 
 .. option:: -mavx2, -mno-avx2
@@ -2640,6 +2650,12 @@ X86
 .. option:: -mavx512er, -mno-avx512er
 
 .. option:: -mavx512f, -mno-avx512f
+
+.. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_FP16
+.. option:: -mavx512fp16, -mno-avx512fp16
+.. end INTEL_FEATURE_ISA_FP16
+.. end INTEL_CUSTOMIZATION
 
 .. option:: -mavx512ifma, -mno-avx512ifma
 
@@ -2685,6 +2701,12 @@ X86
 
 .. option:: -mgfni, -mno-gfni
 
+.. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ICECODE
+.. option:: -micecode
+.. end INTEL_FEATURE_ICECODE
+.. end INTEL_CUSTOMIZATION
+
 .. option:: -minvpcid, -mno-invpcid
 
 .. option:: -mlwp, -mno-lwp
@@ -2729,6 +2751,12 @@ X86
 
 .. option:: -msahf, -mno-sahf
 
+.. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_SERIALIZE
+.. option:: -mserialize, -mno-serialize
+.. end INTEL_FEATURE_ISA_SERIALIZE
+.. end INTEL_CUSTOMIZATION
+
 .. option:: -msgx, -mno-sgx
 
 .. option:: -msha, -mno-sha
@@ -2752,6 +2780,12 @@ X86
 .. option:: -mssse3, -mno-ssse3
 
 .. option:: -mtbm, -mno-tbm
+
+.. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_ULI
+.. option:: -muli, -mno-uli
+.. end INTEL_FEATURE_ISA_ULI
+.. end INTEL_CUSTOMIZATION
 
 .. option:: -mvaes, -mno-vaes
 

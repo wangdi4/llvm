@@ -17,12 +17,31 @@
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
+#if INTEL_CUSTOMIZATION
+// FIXME: temporary solution for LIBDL on Windows.
+#ifdef _WIN32
+#include <intel_win_dlfcn.h>
+#else  // !_WIN32
 #include <dlfcn.h>
+#endif // !_WIN32
+#else  // INTEL_CUSTOMIZATION
+#include <dlfcn.h>
+#endif  // INTEL_CUSTOMIZATION
 #include <mutex>
 #include <string>
 
 // List of all plugins that can support offloading.
 static const char *RTLNames[] = {
+#if INTEL_CUSTOMIZATION
+    /* Nios II target */ "libomptarget.rtl.nios2.so",
+#if INTEL_FEATURE_CSA
+    /* CSA target     */ "libomptarget.rtl.csa.so",
+#endif  // INTEL_FEATURE_CSA
+    /* MIC target     */ "libomptarget.rtl.x86_64_mic.so",
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+    /* OpenCL target  */ "libomptarget.rtl.opencl.so",
+#endif // INTEL_COLLAB
     /* PowerPC target */ "libomptarget.rtl.ppc64.so",
     /* x86_64 target  */ "libomptarget.rtl.x86_64.so",
     /* CUDA target    */ "libomptarget.rtl.cuda.so",
@@ -106,6 +125,35 @@ void RTLsTy::LoadRTLs() {
     if (!(*((void**) &R.run_team_region) = dlsym(
               dynlib_handle, "__tgt_rtl_run_target_team_region")))
       continue;
+#if INTEL_COLLAB
+    if ((*((void **)&R.data_submit_nowait) =
+              dlsym(dynlib_handle, "__tgt_rtl_data_submit_nowait")))
+      DP("Optional interface: __tgt_rtl_data_submit_nowait\n");
+    if ((*((void **)&R.data_retrieve_nowait) =
+              dlsym(dynlib_handle, "__tgt_rtl_data_retrieve_nowait")))
+      DP("Optional interface: __tgt_rtl_data_retrieve_nowait\n");
+    if ((*((void **)&R.manifest_data_for_region) =
+              dlsym(dynlib_handle, "__tgt_rtl_manifest_data_for_region")))
+      DP("Optional interface: __tgt_rtl_manifest_data_for_region\n");
+    if ((*((void **)&R.data_alloc_base) =
+              dlsym(dynlib_handle, "__tgt_rtl_data_alloc_base")))
+      DP("Optional interface: __tgt_rtl_data_alloc_base\n");
+    if ((*((void **)&R.data_alloc_user) =
+              dlsym(dynlib_handle, "__tgt_rtl_data_alloc_user")))
+      DP("Optional interface: __tgt_rtl_data_alloc_user\n");
+    if ((*((void **)&R.run_team_nd_region) =
+              dlsym(dynlib_handle, "__tgt_rtl_run_target_team_nd_region")))
+      DP("Optional interface: __tgt_rtl_run_target_team_nd_region\n");
+    if ((*((void **)&R.run_region_nowait) =
+              dlsym(dynlib_handle, "__tgt_rtl_run_target_region_nowait")))
+      DP("Optional interface: __tgt_rtl_run_target_region_nowait\n");
+    if ((*((void **)&R.run_team_region_nowait) =
+              dlsym(dynlib_handle, "__tgt_rtl_run_target_team_region_nowait")))
+      DP("Optional interface: __tgt_rtl_run_target_team_region_nowait\n");
+    if ((*((void **)&R.run_team_nd_region_nowait) = dlsym(
+              dynlib_handle, "__tgt_rtl_run_target_team_nd_region_nowait")))
+      DP("Optional interface: __tgt_rtl_run_target_team_nd_region_nowait\n");
+#endif // INTEL_COLLAB
 
     // Optional functions
     *((void**) &R.init_requires) = dlsym(

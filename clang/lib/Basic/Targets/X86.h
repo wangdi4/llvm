@@ -68,6 +68,11 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   bool HasAVX512CD = false;
   bool HasAVX512VPOPCNTDQ = false;
   bool HasAVX512VNNI = false;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  bool HasAVX512FP16 = false;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   bool HasAVX512BF16 = false;
   bool HasAVX512ER = false;
   bool HasAVX512PF = false;
@@ -109,6 +114,28 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   bool HasPTWRITE = false;
   bool HasINVPCID = false;
   bool HasENQCMD = false;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ULI
+  bool HasULI = false;
+#endif // INTEL_FEATURE_ISA_ULI
+#if INTEL_FEATURE_ISA_KEYLOCKER
+  bool HasKeyLocker = false;
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
+#if INTEL_FEATURE_ISA_SERIALIZE
+  bool HasSERIALIZE = false;
+#endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_TSXLDTRK
+  bool HasTSXLDTRK = false;
+#endif // INTEL_FEATURE_ISA_TSXLDTRK
+#if INTEL_FEATURE_ISA_AMX
+  bool HasAMXTILE = false;
+  bool HasAMXINT8 = false;
+  bool HasAMXBF16 = false;
+#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  bool HasAVXVNNI = false;
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
 
 protected:
   /// Enumeration of all of the X86 CPUs supported by Clang.

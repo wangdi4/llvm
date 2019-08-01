@@ -74,9 +74,19 @@ bool link(ArrayRef<const char *> args, bool canExitEarly, raw_ostream &diag) {
   driver = make<LinkerDriver>();
   driver->link(args);
 
+#if INTEL_CUSTOMIZATION
+  // The following code is commented out because is from the community and
+  // it will be replaced.
+
   // Call exit() if we can to avoid calling destructors.
-  if (canExitEarly)
-    exitLld(errorCount() ? 1 : 0);
+  // if (CanExitEarly)
+  //  exitLld(errorCount() ? 1 : 0);
+
+  // CMPLRLLVM-8800: We are going to replace exitLld with cleanIntelLld.
+  // This is because we want to prevent calling the early exit and use
+  // the destructors.
+  cleanIntelLld();
+#endif // INTEL_CUSTOMIZATION
 
   freeArena();
   ObjFile::instances.clear();
@@ -202,7 +212,14 @@ void LinkerDriver::addBuffer(std::unique_ptr<MemoryBuffer> mb,
     loadTypeServerSource(mbref);
     break;
   case file_magic::coff_cl_gl_object:
-    error(filename + ": is not a native COFF file. Recompile without /GL");
+#if INTEL_CUSTOMIZATION
+    // If a MS GL file was found then ignore it but the linking
+    // process will be finished by MS-LINK
+    msGLFilesFound = true;
+    filePaths.pop_back();
+
+    //error(Filename + ": is not a native COFF file. Recompile without /GL");
+#endif // INTEL_CUSTOMIZATION
     break;
   case file_magic::pecoff_executable:
     if (filename.endswith_lower(".dll")) {
@@ -257,6 +274,11 @@ void LinkerDriver::addArchiveBuffer(MemoryBufferRef mb, StringRef symName,
     obj = make<ObjFile>(mb);
   } else if (magic == file_magic::bitcode) {
     obj = make<BitcodeFile>(mb, parentName, offsetInArchive);
+  #if INTEL_CUSTOMIZATION
+  } else if (magic == file_magic::coff_cl_gl_object) {
+    msGLFilesFound = true;
+    return;
+  #endif // INTEL_CUSTOMIZATION
   } else {
     error("unknown file type: " + mb.getBufferIdentifier());
     return;
@@ -840,6 +862,145 @@ static void parseModuleDefs(StringRef path) {
   }
 }
 
+#if INTEL_CUSTOMIZATION
+// This code was removed from the community in D51039. We will use
+// it to call MSVC in special cases.
+
+// A helper function for filterBitcodeFiles.
+static bool needsRebuilding(MemoryBufferRef mb) {
+  // The MSVC linker doesn't support thin archives, so if it's a thin
+  // archive, we always need to rebuild it.
+  std::unique_ptr<Archive> file =
+      CHECK(Archive::create(mb), "Failed to read " + mb.getBufferIdentifier());
+  if (file->isThin())
+    return true;
+
+  // Returns true if the archive contains at least one bitcode file.
+  for (MemoryBufferRef member : getArchiveMembers(file.get()))
+    if (identify_magic(member.getBuffer()) == file_magic::bitcode)
+      return true;
+  return false;
+}
+
+// Opens a given path as an archive file and removes bitcode files
+// from them if exists. This function is to appease the MSVC linker as
+// their linker doesn't like archive files containing non-native
+// object files.
+//
+// If a given archive doesn't contain bitcode files, the archive path
+// is returned as-is. Otherwise, a new temporary file is created and
+// its path is returned.
+static Optional<std::string>
+filterBitcodeFiles(StringRef path, std::vector<std::string> &temporaryFiles) {
+  std::unique_ptr<MemoryBuffer> mb = CHECK(
+      MemoryBuffer::getFile(path, -1, false, true), "could not open " + path);
+  MemoryBufferRef mbref = mb->getMemBufferRef();
+  file_magic magic = identify_magic(mbref.getBuffer());
+
+  if (magic == file_magic::bitcode)
+    return None;
+  if (magic != file_magic::archive)
+    return path.str();
+  if (!needsRebuilding(mbref))
+    return path.str();
+
+  std::unique_ptr<Archive> file =
+      CHECK(Archive::create(mbref),
+            mbref.getBufferIdentifier() + ": failed to parse archive");
+
+  std::vector<NewArchiveMember> New;
+  for (MemoryBufferRef member : getArchiveMembers(file.get()))
+    if (identify_magic(member.getBuffer()) != file_magic::bitcode)
+      New.emplace_back(member);
+
+  if (New.empty())
+    return None;
+
+  log("Creating a temporary archive for " + path + " to remove bitcode files");
+
+  SmallString<128> s;
+  if (std::error_code ec = sys::fs::createTemporaryFile(
+          "lld-" + sys::path::stem(path), ".lib", s))
+    fatal("cannot create a temporary file: " + ec.message());
+  std::string temp = s.str();
+  temporaryFiles.push_back(temp);
+
+  Error e =
+      llvm::writeArchive(temp, New, /*WriteSymtab=*/true, Archive::Kind::K_GNU,
+                         /*Deterministics=*/true,
+                         /*Thin=*/false);
+  handleAllErrors(std::move(e), [&](const ErrorInfoBase &ei) {
+    error("failed to create a new archive " + s.str() + ": " + ei.message());
+  });
+  return temp;
+}
+
+// Create response file contents and invoke the MSVC linker.
+void LinkerDriver::invokeMSVC(opt::InputArgList &args) {
+  std::string rsp = "/nologo";
+
+  if (msGLFilesFound) {
+    warn("MS /GL object found in the command line.");
+    rsp += " /LTCG";
+  }
+
+  warn("Finalizing linking process with MS-LINK");
+
+  rsp += "\n";
+  std::vector<std::string> temps;
+
+  // Write out archive members that we used in symbol resolution and pass these
+  // to MSVC before any archives, so that MSVC uses the same objects to satisfy
+  // references.
+  for (ObjFile *obj : ObjFile::instances) {
+    if (obj->parentName.empty())
+      continue;
+    SmallString<128> s;
+    int fd;
+    if (auto ec = sys::fs::createTemporaryFile(
+            "lld-" + sys::path::filename(obj->parentName), ".obj", fd, s))
+      fatal("cannot create a temporary file: " + ec.message());
+    raw_fd_ostream os(fd, /*shouldClose*/ true);
+    os << obj->mb.getBuffer();
+    temps.push_back(s.str());
+    rsp += quote(s) + "\n";
+  }
+
+  for (auto *arg : args) {
+    switch (arg->getOption().getID()) {
+    case OPT_linkrepro:
+    case OPT_lldmap:
+    case OPT_lldmap_file:
+    case OPT_lldsavetemps:
+    case OPT_opt:
+      if (!StringRef(arg->getValue()).startswith("lld"))
+        rsp += toString(*arg) + " ";
+      break;
+    case OPT_INPUT: {
+      if (Optional<StringRef> path = doFindFile(arg->getValue())) {
+        if (Optional<std::string> s = filterBitcodeFiles(*path, temps))
+          rsp += quote(*s) + "\n";
+        continue;
+      }
+      rsp += quote(arg->getValue()) + "\n";
+      break;
+    }
+    default:
+      rsp += toString(*arg) + "\n";
+    }
+  }
+
+  std::vector<StringRef> objFiles;
+  if (!BitcodeFile::instances.empty())
+    objFiles = symtab->compileBitcodeFiles();
+
+  runMSVCLinker(rsp, objFiles);
+
+  for (StringRef path : temps)
+    sys::fs::remove(path);
+}
+#endif // INTEL_CUSTOMIZATION
+
 void LinkerDriver::enqueueTask(std::function<void()> task) {
   taskQueue.push_back(std::move(task));
 }
@@ -1051,6 +1212,40 @@ void LinkerDriver::maybeExportMinGWSymbols(const opt::InputArgList &args) {
   });
 }
 
+#if INTEL_CUSTOMIZATION
+// Return true if argv contains a response file (@) and the file calls "/lib".
+// This function basically wraps the process of extracting a response file (@)
+// file that is done by the parser in order to read the stored command. If
+// "/lib" is found then process the lld version of LIB. If the first argument
+// of the command is not a response file or "/lib" is not found in the stored
+// command then return false.
+bool LinkerDriver::processLibInResponseFile(ArrayRef<const char *> argv) {
+
+  // Check that the first argument is "@"
+  if (argv.size() > 1 && StringRef(argv[1]).startswith("@")) {
+
+    SmallVector<const char *, 256> expandedArgv(argv.data(),
+                                                argv.data() + argv.size());
+
+    cl::TokenizerCallback quotingStyle = collectQuotingStyle(argv) ?
+          cl::TokenizeWindowsCommandLine : cl::TokenizeGNUCommandLine;
+
+    // Expand the command stored in the file
+    cl::ExpandResponseFiles(saver, quotingStyle, expandedArgv);
+
+    // Check that "/lib" is the first argument in the expanded command
+    if (expandedArgv.size() > 1 &&
+        StringRef(expandedArgv[1]).equals_lower("/lib")) {
+      if (llvm::libDriverMain(makeArrayRef(expandedArgv).slice(1)) != 0)
+        fatal("lib failed");
+      return true;
+    }
+  }
+
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 void LinkerDriver::link(ArrayRef<const char *> argsArr) {
   // Needed for LTO.
   InitializeAllTargetInfos();
@@ -1058,6 +1253,12 @@ void LinkerDriver::link(ArrayRef<const char *> argsArr) {
   InitializeAllTargetMCs();
   InitializeAllAsmParsers();
   InitializeAllAsmPrinters();
+
+#if INTEL_CUSTOMIZATION
+  // Check if the the first argument is a response file (@) with "/lib"
+  if (processLibInResponseFile(argsArr))
+    return;
+#endif // INTEL_CUSTOMIZATION
 
   // If the first command line argument is "/lib", link.exe acts like lib.exe.
   // We call our own implementation of lib.exe that understands bitcode files.
@@ -1753,6 +1954,13 @@ void LinkerDriver::link(ArrayRef<const char *> argsArr) {
 
   if (errorCount())
     return;
+
+#if INTEL_CUSTOMIZATION
+  if (msGLFilesFound) {
+    invokeMSVC(args);
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Do LTO by compiling bitcode input files to a set of native COFF files then
   // link those files (unless -thinlto-index-only was given, in which case we

@@ -10,8 +10,10 @@
 
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-obj -O2 -o %t2.o -x ir %t.o -fthinlto-index=%t.thinlto.bc -fno-experimental-new-pass-manager -mllvm -debug-pass=Structure 2>&1 | FileCheck %s --check-prefix=O2-OLDPM
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-obj -O0 -o %t2.o -x ir %t.o -fthinlto-index=%t.thinlto.bc -fno-experimental-new-pass-manager -mllvm -debug-pass=Structure 2>&1 | FileCheck %s --check-prefix=O0-OLDPM
-// O2-OLDPM: Loop Vectorization
-// O0-OLDPM-NOT: Loop Vectorization
+// INTEL_CUSTOMIZATION
+// O2-OLDPM: VPlan Vectorization
+// O0-OLDPM-NOT: VPlan Vectorization
+// end INTEL_CUSTOMIZATION
 
 void foo() {
 }

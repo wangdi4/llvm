@@ -25,6 +25,7 @@
 #include "clang/AST/NonTrivialTypeVisitor.h"
 #include "clang/AST/StmtCXX.h"
 #include "clang/Basic/Builtins.h"
+#include "clang/Basic/TargetBuiltins.h" // INTEL
 #include "clang/Basic/PartialDiagnostic.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/TargetInfo.h"
@@ -749,6 +750,12 @@ void Sema::DiagnoseUnknownTypeName(IdentifierInfo *&II,
         << II << DC << SS->getRange();
   else if (isDependentScopeSpecifier(*SS)) {
     unsigned DiagID = diag::err_typename_missing;
+#if INTEL_CUSTOMIZATION
+    // Fix for CQ368310: missing 'typename' prior to dependent type name.
+    if (getLangOpts().isIntelCompat(LangOptions::AllowMissingTypename)) {
+      DiagID = diag::ext_typename_missing;
+    } else
+#endif // INTEL_CUSTOMIZATION
     if (getLangOpts().MSVCCompat && isMicrosoftMissingTypename(SS, S))
       DiagID = diag::ext_typename_missing;
 
@@ -3607,6 +3614,52 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD,
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+static void MergeOCLFPGACallGraphsInformation(
+    FunctionDecl *New, FunctionDecl *Old,
+    Sema::OCLFPGACallGraphType &OCLFPGACallGraph,
+    Sema::OCLFPGACallGraphType &OCLFPGAReverseCallGraph) {
+  if (OCLFPGACallGraph.count(Old)) {
+    // Order of lookups is important here, because all iterators to DenseMap are
+    // invalidated whenever an insertion occurs.
+    Sema::FunctionDeclToCallSitesMap &DeclsCalledByNewDecl =
+        OCLFPGACallGraph[New];
+    // We already checked that Old is already exists in a map and
+    // DeclsCalledByNewDecl will not be invalidated here
+    Sema::FunctionDeclToCallSitesMap &DeclsCalledByOldDecl =
+        OCLFPGACallGraph[Old];
+    for (const Sema::FunctionDeclAndCallSitesPair &It : DeclsCalledByOldDecl)
+      DeclsCalledByNewDecl.insert(It);
+
+    OCLFPGACallGraph.erase(Old);
+  }
+
+  if (OCLFPGAReverseCallGraph.count(Old)) {
+    // Order of lookups is important here, because all iterators to DenseMap are
+    // invalidated whenever an insertion occurs.
+    Sema::FunctionDeclToCallSitesMap &DeclsThatCalledNewDecl =
+        OCLFPGAReverseCallGraph[New];
+    // We already checked that Old is already exists in a map and
+    // DeclsThatCalledNewDecl will not be invalidated here
+    Sema::FunctionDeclToCallSitesMap &DeclsThatCalledOldDecl =
+        OCLFPGAReverseCallGraph[Old];
+
+    for (const Sema::FunctionDeclAndCallSitesPair &It :
+         DeclsThatCalledOldDecl) {
+      // Copy existing reverse call graph
+      DeclsThatCalledNewDecl.insert(It);
+      // And fix the rest of call graph
+      Sema::FunctionDeclToCallSitesMap &DeclsThatCalledByCaller =
+          OCLFPGACallGraph[It.first];
+      DeclsThatCalledByCaller.erase(Old);
+      DeclsThatCalledByCaller.insert(std::make_pair(New, It.second));
+    }
+
+    OCLFPGAReverseCallGraph.erase(Old);
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Completes the merge of two function declarations that are
 /// known to be compatible.
 ///
@@ -3648,6 +3701,13 @@ bool Sema::MergeCompatibleFunctionDecls(FunctionDecl *New, FunctionDecl *Old,
   QualType Merged = Context.mergeTypes(Old->getType(), New->getType());
   if (!Merged.isNull() && MergeTypeWithOld)
     New->setType(Merged);
+
+#if INTEL_CUSTOMIZATION
+  if (Context.getLangOpts().OpenCL &&
+      Context.getTargetInfo().getTriple().isINTELFPGAEnvironment())
+    MergeOCLFPGACallGraphsInformation(New, Old, OCLFPGACallGraph,
+                                      OCLFPGAReverseCallGraph);
+#endif // INTEL_CUSTOMIZATION
 
   return false;
 }
@@ -4286,8 +4346,8 @@ Sema::ParsedFreeStandingDeclSpec(Scope *S, AccessSpecifier AS, DeclSpec &DS,
     // or incomplete types shall not be restrict-qualified."
     if (TypeQuals & DeclSpec::TQ_restrict)
       Diag(DS.getRestrictSpecLoc(),
-           diag::err_typecheck_invalid_restrict_not_pointer_noarg)
-           << DS.getSourceRange();
+          diag::err_typecheck_invalid_restrict_not_pointer_noarg)
+          << DS.getSourceRange();
   }
 
   if (DS.isInlineSpecified())
@@ -4496,6 +4556,9 @@ Sema::ParsedFreeStandingDeclSpec(Scope *S, AccessSpecifier AS, DeclSpec &DS,
         TypeSpecType == DeclSpec::TST_union ||
         TypeSpecType == DeclSpec::TST_enum) {
       for (const ParsedAttr &AL : DS.getAttributes())
+#if INTEL_CUSTOMIZATION
+        if (getLangOpts().MicrosoftExt || !AL.isDeclspecAttribute())
+#endif // INTEL_CUSTOMIZATION
         Diag(AL.getLoc(), diag::warn_declspec_attribute_ignored)
             << AL.getName() << GetDiagnosticTypeSpecifierID(TypeSpecType);
     }
@@ -5303,9 +5366,10 @@ bool Sema::diagnoseQualifiedDeclaration(CXXScopeSpec &SS, DeclContext *DC,
   // contexts, but that rule was removed by DR482.
   if (Cur->Equals(DC)) {
     if (Cur->isRecord()) {
-      Diag(Loc, LangOpts.MicrosoftExt ? diag::warn_member_extra_qualification
-                                      : diag::err_member_extra_qualification)
-        << Name << FixItHint::CreateRemoval(SS.getRange());
+      Diag(Loc, LangOpts.MicrosoftExt || LangOpts.IntelCompat // INTEL
+                    ? diag::warn_member_extra_qualification // INTEL
+                    : diag::err_member_extra_qualification)
+          << Name << FixItHint::CreateRemoval(SS.getRange());
       SS.clear();
     } else {
       Diag(Loc, diag::warn_namespace_member_extra_qualification) << Name;
@@ -6331,6 +6395,93 @@ static bool isDeclExternC(const Decl *D) {
   llvm_unreachable("Unknown type of decl!");
 }
 
+#if INTEL_CUSTOMIZATION
+static FunctionDecl *createOCLBuiltinDecl(ASTContext &Context, DeclContext *DC,
+                                          StringRef Name, QualType RetTy,
+                                          ArrayRef<QualType> ArgTys) {
+
+  QualType FTy =
+      Context.getFunctionType(RetTy, ArgTys, FunctionProtoType::ExtProtoInfo());
+
+  auto *FD = FunctionDecl::Create(Context, DC, SourceLocation(),
+                                  SourceLocation(), &Context.Idents.get(Name),
+                                  FTy, nullptr, SC_Extern, false, true, CSK_unspecified);
+
+  if (const FunctionProtoType *FT = dyn_cast<FunctionProtoType>(FTy)) {
+    SmallVector<ParmVarDecl *, 16> Params;
+    for (unsigned I = 0, E = FT->getNumParams(); I != E; ++I) {
+      ParmVarDecl *Param = ParmVarDecl::Create(
+          Context, FD, SourceLocation(), SourceLocation(), nullptr,
+          FT->getParamType(I), /*TInfo=*/nullptr, SC_None, nullptr);
+      Param->setScopeInfo(0, I);
+      Params.push_back(Param);
+    }
+    FD->setParams(Params);
+    FD->addAttr(OverloadableAttr::CreateImplicit(Context));
+  }
+
+  return FD;
+}
+
+void Sema::DeclareOCLChannelBuiltins(QualType ChannelTy, Scope *S) {
+  assert(ChannelTy->isChannelType() && "Argument should be a channel.");
+
+  StringRef ReadChannelName = "read_channel_intel";
+  StringRef WriteChannelName = "write_channel_intel";
+
+  StringRef NBReadChannelName = "read_channel_nb_intel";
+  StringRef NBWriteChannelName = "write_channel_nb_intel";
+
+  SmallVector<FunctionDecl *, 4> &FDs = OCLChannelBIs[ChannelTy.getTypePtr()];
+  if (!FDs.empty())
+    return;
+
+  DeclContext *Parent = Context.getTranslationUnitDecl();
+  QualType ElementTy =
+      cast<ChannelType>(ChannelTy.getTypePtr())->getElementType();
+
+  QualType ReadArgs[] = {ChannelTy};
+  FDs.push_back(createOCLBuiltinDecl(Context, Parent, ReadChannelName,
+                                     ElementTy, ReadArgs));
+
+  QualType ConstElementTy = ElementTy.withConst();
+  QualType WriteArgs[] = {ChannelTy, ConstElementTy};
+  FDs.push_back(createOCLBuiltinDecl(Context, Parent, WriteChannelName,
+                                     Context.VoidTy, WriteArgs));
+
+  auto createNBReadChannelBuiltinDecl = [&](LangAS addrSpace) {
+    QualType BoolTy = Context.getAddrSpaceQualType(Context.BoolTy, addrSpace);
+    QualType BoolPtrTy = Context.getPointerType(BoolTy);
+    QualType NBReadArgs[] = {ChannelTy, BoolPtrTy};
+
+    FDs.push_back(createOCLBuiltinDecl(
+        Context, Parent, NBReadChannelName, ElementTy, NBReadArgs));
+  };
+
+  if (getLangOpts().OpenCLVersion >= 200) {
+    createNBReadChannelBuiltinDecl(LangAS::opencl_generic);
+  } else {
+    createNBReadChannelBuiltinDecl(LangAS::opencl_private);
+    createNBReadChannelBuiltinDecl(LangAS::opencl_local);
+    createNBReadChannelBuiltinDecl(LangAS::opencl_global);
+  }
+
+  QualType NBWriteArgs[] = {ChannelTy, ConstElementTy};
+  FDs.push_back(createOCLBuiltinDecl(Context, Parent, NBWriteChannelName,
+                                     Context.BoolTy, NBWriteArgs));
+
+  for (auto *FD : FDs) {
+    AddKnownFunctionAttributes(FD);
+    DeclContext *SavedContext = CurContext;
+    CurContext = Parent;
+    PushOnScopeChains(FD, TUScope);
+    CurContext = SavedContext;
+  }
+
+  OCLChannelBIs[ChannelTy.getTypePtr()] = FDs;
+}
+#endif // INTEL_CUSTOMIZATION
+
 NamedDecl *Sema::ActOnVariableDeclarator(
     Scope *S, Declarator &D, DeclContext *DC, TypeSourceInfo *TInfo,
     LookupResult &Previous, MultiTemplateParamsArg TemplateParamLists,
@@ -6351,6 +6502,26 @@ NamedDecl *Sema::ActOnVariableDeclarator(
   } else if (!II) {
     Diag(D.getIdentifierLoc(), diag::err_bad_variable_name) << Name;
     return nullptr;
+  }
+
+  if (R->isSamplerT()) {
+    // OpenCL v1.2 s6.9.b p4:
+    // The sampler type cannot be used with the __local and __global address
+    // space qualifiers.
+    if (R.getAddressSpace() == LangAS::opencl_local ||
+        R.getAddressSpace() == LangAS::opencl_global) {
+      Diag(D.getIdentifierLoc(), diag::err_wrong_sampler_addressspace);
+    }
+
+    // OpenCL v1.2 s6.12.14.1:
+    // A global sampler must be declared with either the constant address
+    // space qualifier or with the const qualifier.
+    if (DC->isTranslationUnit() &&
+        !(R.getAddressSpace() == LangAS::opencl_constant ||
+          R.isConstQualified())) {
+      Diag(D.getIdentifierLoc(), diag::err_opencl_nonconst_global_sampler);
+      D.setInvalidType();
+    }
   }
 
   if (getLangOpts().OpenCL) {
@@ -6398,25 +6569,18 @@ NamedDecl *Sema::ActOnVariableDeclarator(
       }
     }
 
-    if (R->isSamplerT()) {
-      // OpenCL v1.2 s6.9.b p4:
-      // The sampler type cannot be used with the __local and __global address
-      // space qualifiers.
-      if (R.getAddressSpace() == LangAS::opencl_local ||
-          R.getAddressSpace() == LangAS::opencl_global) {
-        Diag(D.getIdentifierLoc(), diag::err_wrong_sampler_addressspace);
-      }
-
-      // OpenCL v1.2 s6.12.14.1:
-      // A global sampler must be declared with either the constant address
-      // space qualifier or with the const qualifier.
-      if (DC->isTranslationUnit() &&
-          !(R.getAddressSpace() == LangAS::opencl_constant ||
-          R.isConstQualified())) {
-        Diag(D.getIdentifierLoc(), diag::err_opencl_nonconst_global_sampler);
+#if INTEL_CUSTOMIZATION
+    // Intel OpenCL FPGA channels
+    if (Context.getBaseElementType(R)->isChannelType()) {
+      if (!getOpenCLOptions().isEnabled("cl_intel_channels")) {
+        Diag(D.getIdentifierLoc(), diag::err_opencl_requires_extension)
+            << 0 << R << "cl_intel_channels";
         D.setInvalidType();
+      } else {
+        DeclareOCLChannelBuiltins(Context.getBaseElementType(R), S);
       }
     }
+#endif // INTEL_CUSTOMIZATION
 
     // OpenCL v1.2 s6.9.r:
     // The event type cannot be used with the __local, __constant and __global
@@ -6519,6 +6683,15 @@ NamedDecl *Sema::ActOnVariableDeclarator(
       case SC_None:
         break;
       case SC_Static:
+#if INTEL_CUSTOMIZATION
+        // CQ#376357: Allow static specifier for outline method definition.
+        if (getLangOpts().IntelCompat && getLangOpts().GnuPermissive) {
+          Diag(D.getDeclSpec().getStorageClassSpecLoc(),
+               diag::warn_static_out_of_line)
+              << FixItHint::CreateRemoval(
+                     D.getDeclSpec().getStorageClassSpecLoc());
+        } else
+#endif // INTEL_CUSTOMIZATION
         Diag(D.getDeclSpec().getStorageClassSpecLoc(),
              diag::err_static_out_of_line)
           << FixItHint::CreateRemoval(D.getDeclSpec().getStorageClassSpecLoc());
@@ -6676,7 +6849,7 @@ NamedDecl *Sema::ActOnVariableDeclarator(
   if (D.getDeclSpec().isInlineSpecified()) {
     if (!getLangOpts().CPlusPlus) {
       Diag(D.getDeclSpec().getInlineSpecLoc(), diag::err_inline_non_function)
-          << 0;
+	  << 0;
     } else if (CurContext->isFunctionOrMethod()) {
       // 'inline' is not allowed on block scope variable declaration.
       Diag(D.getDeclSpec().getInlineSpecLoc(),
@@ -7439,7 +7612,10 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
     // FIXME: Adding local AS in C++ for OpenCL might make sense.
     if (NewVD->isFileVarDecl() || NewVD->isStaticLocal() ||
         NewVD->hasExternalStorage()) {
-      if (!T->isSamplerT() &&
+#if INTEL_CUSTOMIZATION
+      bool IsChannel = Context.getBaseElementType(T)->isChannelType();
+      if (!T->isSamplerT() && !IsChannel &&
+#endif // INTEL_CUSTOMIZATION
           !(T.getAddressSpace() == LangAS::opencl_constant ||
             (T.getAddressSpace() == LangAS::opencl_global &&
              (getLangOpts().OpenCLVersion == 200 ||
@@ -8709,6 +8885,15 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
 
       // Complain about the 'static' specifier if it's on an out-of-line
       // member function definition.
+#if INTEL_CUSTOMIZATION
+      // CQ#376357: Allow static specifier for outline method definition.
+      if (getLangOpts().IntelCompat && getLangOpts().GnuPermissive) {
+        Diag(D.getDeclSpec().getStorageClassSpecLoc(),
+             diag::warn_static_out_of_line)
+            << FixItHint::CreateRemoval(
+                   D.getDeclSpec().getStorageClassSpecLoc());
+      } else
+#endif // INTEL_CUSTOMIZATION
 
       // MSVC permits the use of a 'static' storage specifier on an out-of-line
       // member function template declaration and class member template
@@ -8841,6 +9026,14 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
   // Finally, we know we have the right number of parameters, install them.
   NewFD->setParams(Params);
 
+#if INTEL_CUSTOMIZATION
+  for (const ParmVarDecl *Param : Params) {
+    QualType QTy = Param->getOriginalType().getDesugaredType(Context);
+    if (QTy->isChannelType())
+      DeclareOCLChannelBuiltins(QTy, S);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (D.getDeclSpec().isNoreturnSpecified())
     NewFD->addAttr(
         ::new(Context) C11NoReturnAttr(D.getDeclSpec().getNoreturnSpecLoc(),
@@ -8926,8 +9119,14 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
       if (!supportsVariadicCall(CC)) {
         // Windows system headers sometimes accidentally use stdcall without
         // (void) parameters, so we relax this to a warning.
-        int DiagID =
-            CC == CC_X86StdCall ? diag::warn_cconv_knr : diag::err_cconv_knr;
+#if INTEL_CUSTOMIZATION
+        int DiagID = diag::err_cconv_knr;
+        if (CC == CC_X86StdCall)
+          DiagID = diag::warn_cconv_knr;
+        if (CC == CC_SpirFunction &&
+            getLangOpts().isIntelCompat(LangOptions::RelaxSpirCCNoProtoDiag))
+          DiagID = diag::warn_cconv_knr;
+#endif // INTEL_CUSTOMIZATION
         Diag(NewFD->getLocation(), DiagID)
             << FunctionType::getNameForCallConv(CC);
       }
@@ -9178,6 +9377,13 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
       // C++ [temp.expl.spec]p2. We also allow these declarations as an
       // extension for compatibility with old SWIG code which likes to
       // generate them.
+#if INTEL_CUSTOMIZATION
+      // CQ#376357: Allow out of class declaration.
+      if (getLangOpts().IntelCompat && getLangOpts().GnuPermissive) {
+        Diag(NewFD->getLocation(), diag::warn_out_of_line_declaration)
+          << D.getCXXScopeSpec().getRange();
+      } else
+#endif // INTEL_CUSTOMIZATION
       Diag(NewFD->getLocation(), diag::ext_out_of_line_declaration)
         << D.getCXXScopeSpec().getRange();
     }
@@ -9312,7 +9518,10 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
 
     // OpenCL 2.0 pipe restrictions forbids pipe packet types to be non-value
     // types.
-    if (getLangOpts().OpenCLVersion >= 200 || getLangOpts().OpenCLCPlusPlus) {
+#if INTEL_CUSTOMIZATION
+    if (getLangOpts().OpenCLVersion >= 200 || getLangOpts().OpenCLCPlusPlus ||
+        Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+#endif // INTEL_CUSTOMIZATION
       if(const PipeType *PipeTy = PT->getAs<PipeType>()) {
         QualType ElemTy = PipeTy->getElementType();
           if (ElemTy->isReferenceType() || ElemTy->isPointerType()) {
@@ -9350,6 +9559,22 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
       NewFD->dropAttr<AvailabilityAttr>();
     }
   }
+
+#if INTEL_CUSTOMIZATION
+  // Local memory size attribute can only be used for arguments of a kernel
+  // function.
+  if (getLangOpts().OpenCL &&
+      Context.getTargetInfo().getTriple().isINTELFPGAEnvironment() &&
+      !NewFD->hasAttr<OpenCLKernelAttr>()) {
+    for (const ParmVarDecl *Param : NewFD->parameters()) {
+      if (const auto *LocalMemAttr = Param->getAttr<OpenCLLocalMemSizeAttr>()) {
+        Diag(Param->getLocation(), diag::err_opencl_kernel_attr)
+            << LocalMemAttr;
+        NewFD->setInvalidDecl();
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   return NewFD;
 }
@@ -10524,9 +10749,18 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
     }
 
     if (mismatch) {
+#if INTEL_CUSTOMIZATION
+      // CQ#364268 - emit a warning in IntelCompat mode, continue compilation
+      if (getLangOpts().IntelCompat) {
+        Diag(FD->getLocation(), diag::warn_main_arg_wrong) << i << Expected[i];
+      } else {
+#endif  // INTEL_CUSTOMIZATION
       Diag(FD->getLocation(), diag::err_main_arg_wrong) << i << Expected[i];
       // TODO: suggest replacing given type with expected type
       FD->setInvalidDecl(true);
+#if INTEL_CUSTOMIZATION
+      }
+#endif  // INTEL_CUSTOMIZATION
     }
   }
 
@@ -11345,7 +11579,8 @@ void Sema::checkNonTrivialCUnion(QualType QT, SourceLocation Loc,
 /// AddInitializerToDecl - Adds the initializer Init to the
 /// declaration dcl. If DirectInit is true, this is C++ direct
 /// initialization rather than copy initialization.
-void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init, bool DirectInit) {
+void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
+                                bool DirectInit) {
   // If there is no declaration, there was an error parsing it.  Just ignore
   // the initializer.
   if (!RealDecl || RealDecl->isInvalidDecl()) {
@@ -11930,6 +12165,10 @@ void Sema::ActOnUninitializedDecl(Decl *RealDecl) {
       if (!Var->isInvalidDecl()) {
         if (const IncompleteArrayType *ArrayT
                                     = Context.getAsIncompleteArrayType(Type)) {
+#if INTEL_CUSTOMIZATION
+          // CQ#370357 - Arrays with incomplete element type
+          if (!getLangOpts().IntelCompat)
+#endif // INTEL_CUSTOMIZATION
           if (RequireCompleteType(Var->getLocation(),
                                   ArrayT->getElementType(),
                                   diag::err_illegal_decl_array_incomplete_type))
@@ -13344,6 +13583,10 @@ Decl *Sema::ActOnStartOfFunctionDef(Scope *FnBodyScope, Decl *D,
 
   // Builtin functions cannot be defined.
   if (unsigned BuiltinID = FD->getBuiltinID()) {
+#if INTEL_CUSTOMIZATION
+    // CQ#379698, CQ#374883: redefinition of builtin functions
+    if (!getLangOpts().IntelCompat)
+#endif // INTEL_CUSTOMIZATION
     if (!Context.BuiltinInfo.isPredefinedLibFunction(BuiltinID) &&
         !Context.BuiltinInfo.isPredefinedRuntimeFunction(BuiltinID)) {
       Diag(FD->getLocation(), diag::err_builtin_definition) << FD;
@@ -13839,9 +14082,21 @@ Decl *Sema::ActOnFinishFunctionBody(Decl *dcl, Stmt *Body,
         if (RegisterVariables)
           continue;
         if (!isa<AsmStmt>(S) && !isa<NullStmt>(S)) {
+#if INTEL_CUSTOMIZATION
+          // CQ#371340 - ignore 'naked' attribute on functions with non-ASM
+          // statements in IntelCompat mode.
+          if (getLangOpts().IntelCompat) {
+            Diag(FD->getAttr<NakedAttr>()->getLocation(),
+                 diag::warn_non_asm_stmt_in_naked_function);
+            FD->dropAttr<NakedAttr>();
+          } else {
+#endif // INTEL_CUSTOMIZATION
           Diag(S->getBeginLoc(), diag::err_non_asm_stmt_in_naked_function);
           Diag(FD->getAttr<NakedAttr>()->getLocation(), diag::note_attribute);
           FD->setInvalidDecl();
+#if INTEL_CUSTOMIZATION
+          }
+#endif // INTEL_CUSTOMIZATION
           break;
         }
       }
@@ -15227,7 +15482,15 @@ CreateNewDecl:
         if (getLangOpts().MSVCCompat)
           DiagID = diag::ext_ms_forward_ref_enum;
         else if (getLangOpts().CPlusPlus)
-          DiagID = diag::err_forward_ref_enum;
+#if INTEL_CUSTOMIZATION
+        {
+          // CQ#365886 - emit an extension warning in IntelCompat mode
+          if (getLangOpts().IntelCompat)
+            DiagID = diag::ext_intel_forward_ref_enum;
+          else
+            DiagID = diag::err_forward_ref_enum;
+        }
+#endif // INTEL_CUSTOMIZATION
         Diag(Loc, DiagID);
       }
     }

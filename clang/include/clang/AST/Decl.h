@@ -53,6 +53,7 @@ namespace clang {
 class ASTContext;
 struct ASTTemplateArgumentListInfo;
 class Attr;
+class CapturedStmt; //***INTEL
 class CompoundStmt;
 class DependentFunctionTemplateSpecializationInfo;
 class EnumDecl;
@@ -4401,7 +4402,6 @@ inline bool IsEnumDeclComplete(EnumDecl *ED) {
 inline bool IsEnumDeclScoped(EnumDecl *ED) {
   return ED->isScoped();
 }
-
 } // namespace clang
 
 #endif // LLVM_CLANG_AST_DECL_H

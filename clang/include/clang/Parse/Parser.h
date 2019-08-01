@@ -200,7 +200,6 @@ class Parser : public CodeCompletionHandler {
   std::unique_ptr<PragmaHandler> STDCCXLIMITHandler;
   std::unique_ptr<PragmaHandler> STDCUnknownHandler;
   std::unique_ptr<PragmaHandler> AttributePragmaHandler;
-
   std::unique_ptr<CommentHandler> CommentSemaHandler;
 
   /// Whether the '>' token acts as an operator or not. This will be
@@ -620,7 +619,7 @@ private:
     return PrevTokLocation;
   }
 
-  ///\ brief When we are consuming a code-completion token without having
+  /// When we are consuming a code-completion token without having
   /// matched specific position in the grammar, provide code-completion results
   /// based on context.
   ///
@@ -727,6 +726,32 @@ private:
   /// #pragma clang __debug captured
   StmtResult HandlePragmaCaptured();
 
+#if INTEL_CUSTOMIZATION
+  /// Skip OpenMP directives not supported on target.
+  void skipUnsupportedTargetDirectives();
+
+  /// Initialize all Intel-specifc pragma handlers.
+  void initializeIntelPragmaHandlers();
+
+  /// Destroy and reset all Intel-specific pragma handlers.
+  void resetIntelPragmaHandlers();
+
+  /// Handle the annotation token produced for
+  /// #pragma simd
+  void HandlePragmaSIMD();
+
+  /// Parse a pragma SIMD statement.
+  /// {code}
+  /// #pragma simd ...
+  /// for-statement
+  /// {code}
+  StmtResult ParseSIMDDirective();
+  /// Dispatch function to parse a SIMD clause.
+  bool ParseSIMDClauses(Sema &S, SourceLocation BeginLoc,
+                        SmallVectorImpl<Attr *> &AttrList);
+  /// helper function to cleanup for Pragma SIMD.
+  void FinishPragmaSIMD(SourceLocation BeginLoc);
+#endif // INTEL_CUSTOMIZATION
   /// Handle the annotation token produced for
   /// #pragma clang loop and #pragma unroll.
   bool HandlePragmaLoopHint(LoopHint &Hint);
@@ -1727,6 +1752,15 @@ private:
 
   ExprResult ParseGenericSelectionExpression();
 
+#if INTEL_CUSTOMIZATION
+  // CQ#381345: Parse Intel generic selection expressioon
+  bool  getTypeOfPossibleControllingExpr(QualType &T);
+
+  QualType getTypeOfControllingExpr();
+
+  ExprResult ParseIntelGenericSelectionExpression();
+#endif // INTEL_CUSTOMIZATION
+
   ExprResult ParseObjCBoolLiteral();
 
   ExprResult ParseFoldExpression(ExprResult LHS, BalancedDelimiterTracker &T);
@@ -1743,6 +1777,7 @@ private:
                                   bool EnteringContext, IdentifierInfo &II,
                                   CXXScopeSpec &SS);
 
+public:   //***INTEL
   bool ParseOptionalCXXScopeSpecifier(CXXScopeSpec &SS,
                                       ParsedType ObjectType,
                                       bool EnteringContext,
@@ -1750,6 +1785,7 @@ private:
                                       bool IsTypename = false,
                                       IdentifierInfo **LastII = nullptr,
                                       bool OnlyNamespace = false);
+private:  //***INTEL
 
   //===--------------------------------------------------------------------===//
   // C++11 5.1.2: Lambda expressions
@@ -1961,6 +1997,54 @@ private:
                                  ParsedStmtContext StmtCtx,
                                  SourceLocation *TrailingElseLoc,
                                  ParsedAttributesWithRange &Attrs);
+#if INTEL_CUSTOMIZATION
+  // HLS loop pragmas
+  std::unique_ptr<PragmaHandler> LoopCoalesceHandler;
+  std::unique_ptr<PragmaHandler> IIHandler;
+  std::unique_ptr<PragmaHandler> IVDepHandler;
+  std::unique_ptr<PragmaHandler> MaxConcurrencyHandler;
+  std::unique_ptr<PragmaHandler> MaxInterleavingHandler;
+  std::unique_ptr<PragmaHandler> IIAtMostHandler;
+  std::unique_ptr<PragmaHandler> IIAtLeastHandler;
+  std::unique_ptr<PragmaHandler> MinIIAtTargetFmaxHandler;
+  std::unique_ptr<PragmaHandler> SpeculatedIterationsHandler;
+  std::unique_ptr<PragmaHandler> DisableLoopPipeliningHandler;
+  std::unique_ptr<PragmaHandler> ForceHyperoptHandler;
+  std::unique_ptr<PragmaHandler> ForceNoHyperoptHandler;
+
+  // Pragma inline
+  std::unique_ptr<PragmaHandler> InlineHandler;
+  // Pragma forceinline
+  std::unique_ptr<PragmaHandler> ForceInlineHandler;
+  // Pragma noinline
+  std::unique_ptr<PragmaHandler> NoInlineHandler;
+  bool HandlePragmaIntelInline(SourceRange &Range,
+                               IdentifierLoc* &KindLoc,
+                               IdentifierLoc* &OptionsLoc);
+  StmtResult ParsePragmaInline(StmtVector &Stmts,
+                               ParsedStmtContext StmtCtx,
+                               SourceLocation *TrailingElseLoc,
+                               ParsedAttributesWithRange &Attrs);
+  // Pragma distribute_point
+  std::unique_ptr<PragmaHandler> DistributePointHandler;
+  // Pragma nofusion
+  std::unique_ptr<PragmaHandler> NoFusionHandler;
+  // Pragma fusion
+  std::unique_ptr<PragmaHandler> FusionHandler;
+  // Pragma nounroll_and_jam
+  std::unique_ptr<PragmaHandler> NoVectorHandler;
+  // Pragma vector
+  std::unique_ptr<PragmaHandler> VectorHandler;
+  // Pragma loop_count
+  std::unique_ptr<PragmaHandler> LoopCountHandler;
+  // Pragma block_loop
+  std::unique_ptr<PragmaHandler> BlockLoopHandler;
+  StmtResult ParsePragmaBlockLoop(StmtVector &Stmts,
+                                  ParsedStmtContext StmtCtx,
+                                  SourceLocation *TrailingElseLoc,
+                                  ParsedAttributesWithRange &Attrs);
+  bool HandlePragmaBlockLoop(ArgsVector *ArgExprs);
+#endif // INTEL_CUSTOMIZATION
 
   /// Describes the behavior that should be taken for an __if_exists
   /// block.
@@ -2197,11 +2281,11 @@ private:
   /// expression in the context of the C 'clause-1' or the C++
   // 'for-init-statement' part of a 'for' statement.
   /// Returns true for declaration, false for expression.
-  bool isForInitDeclaration() {
+  bool isForInitDeclaration(bool AllowForRangeDecl = true) {    //***INTEL
     if (getLangOpts().OpenMP)
       Actions.startOpenMPLoop();
     if (getLangOpts().CPlusPlus)
-      return isCXXSimpleDeclaration(/*AllowForRangeDecl=*/true);
+      return isCXXSimpleDeclaration(AllowForRangeDecl);         //***INTEL
     return isDeclarationSpecifier(true);
   }
 
@@ -2551,8 +2635,16 @@ private:
   /// Parses opencl_unroll_hint attribute.
   /// \return false if error happens.
   bool ParseOpenCLUnrollHintAttribute(ParsedAttributes &Attrs);
-  void ParseNullabilityTypeSpecifiers(ParsedAttributes &attrs);
 
+  /// Parses intelfpga:: loop attributes if the language is SYCL
+  bool MaybeParseIntelFPGALoopAttributes(ParsedAttributes &Attrs) {
+    if (getLangOpts().SYCLIsDevice)
+      return ParseIntelFPGALoopAttributes(Attrs);
+    return true;
+  }
+  bool ParseIntelFPGALoopAttributes(ParsedAttributes &Attrs);
+
+  void ParseNullabilityTypeSpecifiers(ParsedAttributes &attrs);
   VersionTuple ParseVersionTuple(SourceRange &Range);
   void ParseAvailabilityAttribute(IdentifierInfo &Availability,
                                   SourceLocation AvailabilityLoc,
@@ -2833,6 +2925,12 @@ private:
   DeclGroupPtrTy ParseOMPDeclareSimdClauses(DeclGroupPtrTy Ptr,
                                             CachedTokens &Toks,
                                             SourceLocation Loc);
+#if INTEL_CUSTOMIZATION
+  /// Parse clauses for '#pragma omp declare variant'.
+  DeclGroupPtrTy ParseOMPDeclareVariantClauses(DeclGroupPtrTy Ptr,
+                                               CachedTokens &Toks,
+                                               SourceLocation Loc);
+#endif // INTEL_CUSTOMIZATION
   /// Parse clauses for '#pragma omp declare target'.
   DeclGroupPtrTy ParseOMPDeclareTargetClauses();
   /// Parse '#pragma omp end declare target'.
@@ -2921,6 +3019,17 @@ private:
   ///
   OMPClause *ParseOpenMPVarListClause(OpenMPDirectiveKind DKind,
                                       OpenMPClauseKind Kind, bool ParseOnly);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  /// Parses clause with the list of variables of a kind \a Kind.
+  ///
+  /// \param Kind Kind of current clause.
+  /// \param ParseOnly true to skip the clause's semantic actions and return
+  /// nullptr.
+  ///
+  OMPClause *ParseOpenMPDataflowClause(OpenMPClauseKind Kind, bool ParseOnly);
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
 public:
   /// Parses simple expression in parens for single-expression clauses of OpenMP
@@ -2943,6 +3052,9 @@ public:
     MapTypeModifiersLoc;
     OpenMPMapClauseKind MapType = OMPC_MAP_unknown;
     bool IsMapTypeImplicit = false;
+#if INTEL_CUSTOMIZATION
+    bool IsLastprivateConditional = false;
+#endif // INTEL_CUSTOMIZATION
     SourceLocation DepLinMapLoc;
   };
 

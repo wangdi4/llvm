@@ -581,6 +581,29 @@ ASTTypeWriter::VisitPipeType(const PipeType *T) {
   Code = TYPE_PIPE;
 }
 
+#if INTEL_CUSTOMIZATION
+void
+ASTTypeWriter::VisitChannelType(const ChannelType *T) {
+  Record.AddTypeRef(T->getElementType());
+  Code = TYPE_CHANNEL;
+}
+
+void ASTTypeWriter::VisitArbPrecIntType(const ArbPrecIntType *T) {
+  Record.AddTypeRef(T->getUnderlyingType());
+  Record.push_back(T->getNumBits());
+  Record.AddSourceLocation(T->getAttributeLoc());
+  Code = TYPE_ARBPRECINT;
+}
+
+void ASTTypeWriter::VisitDependentSizedArbPrecIntType(
+    const DependentSizedArbPrecIntType *T) {
+  Record.AddTypeRef(T->getUnderlyingType());
+  Record.AddStmt(T->getNumBitsExpr());
+  Record.AddSourceLocation(T->getAttributeLoc());
+  Code = TYPE_DEPENDENT_SIZED_ARBPRECINT;
+}
+#endif // INTEL_CUSTOMIZATION
+
 namespace {
 
 class TypeLocWriter : public TypeLocVisitor<TypeLocWriter> {
@@ -874,6 +897,19 @@ void TypeLocWriter::VisitAtomicTypeLoc(AtomicTypeLoc TL) {
 void TypeLocWriter::VisitPipeTypeLoc(PipeTypeLoc TL) {
   Record.AddSourceLocation(TL.getKWLoc());
 }
+#if INTEL_CUSTOMIZATION
+void TypeLocWriter::VisitChannelTypeLoc(ChannelTypeLoc TL) {
+  Record.AddSourceLocation(TL.getKWLoc());
+}
+
+void TypeLocWriter::VisitArbPrecIntTypeLoc(ArbPrecIntTypeLoc TL) {
+  Record.AddSourceLocation(TL.getNameLoc());
+}
+void TypeLocWriter::VisitDependentSizedArbPrecIntTypeLoc(
+    DependentSizedArbPrecIntTypeLoc TL) {
+  Record.AddSourceLocation(TL.getNameLoc());
+}
+#endif // INTEL_CUSTOMIZATION
 
 void ASTWriter::WriteTypeAbbrevs() {
   using namespace llvm;
@@ -1618,6 +1654,11 @@ void ASTWriter::WriteControlBlock(Preprocessor &PP, ASTContext &Context,
     AddString(T.getTriple(), Record);
 
   AddString(LangOpts.OMPHostIRFile, Record);
+#if INTEL_CUSTOMIZATION
+  // CQ#411303 Intel driver requires front-end to produce special file if
+  // translation unit has any target code.
+  AddString(LangOpts.IntelDriverTempfileName, Record);
+#endif // INTEL_CUSTOMIZATION
 
   Stream.EmitRecord(LANGUAGE_OPTIONS, Record);
 
@@ -6636,6 +6677,17 @@ void OMPClauseWriter::VisitOMPNumThreadsClause(OMPNumThreadsClause *C) {
   Record.AddStmt(C->getNumThreads());
   Record.AddSourceLocation(C->getLParenLoc());
 }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+void OMPClauseWriter::VisitOMPDataflowClause(OMPDataflowClause *C) {
+  VisitOMPClauseWithPreInit(C);
+  Record.AddStmt(C->getStaticChunkSize());
+  Record.AddStmt(C->getNumWorkersNum());
+  Record.AddStmt(C->getPipelineDepth());
+}
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
 void OMPClauseWriter::VisitOMPSafelenClause(OMPSafelenClause *C) {
   Record.AddStmt(C->getSafelen());

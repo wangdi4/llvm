@@ -1,5 +1,5 @@
-// RUN: %clang -O1 -fvectorize -target x86_64-unknown-unknown -emit-llvm -Rpass-analysis -S %s -o - 2>&1 | FileCheck %s --check-prefix=RPASS
-// RUN: %clang -O1 -fvectorize -target x86_64-unknown-unknown -emit-llvm -S %s -o - 2>&1 | FileCheck %s
+// INTEL - added -mllvm -enable-lv RUN: %clang -O1 -mllvm -enable-lv -fvectorize -target x86_64-unknown-unknown -emit-llvm -Rpass-analysis -S %s -o - 2>&1 | FileCheck %s --check-prefix=RPASS
+// RUN: %clang -O1 -mllvm -enable-lv -fvectorize -target x86_64-unknown-unknown -emit-llvm -S %s -o - 2>&1 | FileCheck %s
 
 // RPASS: {{.*}}:7:8: remark: loop not vectorized: loop contains a switch statement
 // CHECK-NOT: {{.*}}:7:8: remark: loop not vectorized: loop contains a switch statement

@@ -120,6 +120,13 @@ void ApplyDebugLocation::init(SourceLocation TemporaryLocation,
 
 ApplyDebugLocation::ApplyDebugLocation(CodeGenFunction &CGF, const Expr *E)
     : CGF(&CGF) {
+#if INTEL_CUSTOMIZATION
+  // CQ#366796 - support for '--no_expr_source_pos' option.
+  if (CGF.CGM.getCodeGenOpts().NoExprSourcePos) {
+    this->CGF = nullptr;
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
   init(E->getExprLoc());
 }
 
@@ -574,6 +581,12 @@ void CGDebugInfo::CreateCompileUnit() {
   }
 
   std::string Producer = getClangFullVersion();
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-8597 - GDB makes prologue calculations based on whether the
+  // producer string starts with "clang ", so we add it here if needed.
+  if (Producer.find("clang ") != 0)
+    Producer.insert(0, "clang based ");
+#endif // INTEL_CUSTOMIZATION
 
   // Figure out which version of the ObjC runtime we have.
   unsigned RuntimeVers = 0;
@@ -1681,6 +1694,14 @@ void CGDebugInfo::CollectCXXBasesAux(
     if (!SeenTypes.insert(Base).second)
       continue;
     auto *BaseTy = getOrCreateType(BI.getType(), Unit);
+#if INTEL_CUSTOMIZATION
+    // CMPLRLLVM-8006 [xmain] gdbCpp/tr76176 at opt_none_debug fails ..."
+    // When emitting complete class data for this class, also emit complete class
+    // data for base classes. Note that this does not emit class data for dynamic
+    // classes which have vtables defined externally unless we are emitting
+    // full debug info.
+    completeClassData(Base);
+#endif // INTEL_CUSTOMIZATION
     llvm::DINode::DIFlags BFlags = StartingFlags;
     uint64_t BaseOffset;
     uint32_t VBPtrOffset = 0;
@@ -2098,8 +2119,15 @@ static bool isDefinedInClangModule(const RecordDecl *RD) {
 void CGDebugInfo::completeClassData(const RecordDecl *RD) {
   if (auto *CXXRD = dyn_cast<CXXRecordDecl>(RD))
     if (CXXRD->isDynamicClass() &&
-        CGM.getVTableLinkage(CXXRD) ==
-            llvm::GlobalValue::AvailableExternallyLinkage &&
+#if INTEL_CUSTOMIZATION
+        // CMPLRLLVM-8006 [xmain] gdbCpp/tr76176 at opt_none_debug fails ..."
+        // The vtable linkage type does not accurately reflect whether the class
+        // should have debug information emitted ... it even varies based on
+        // optimization level. Instead, use isVTableExternal().  Also, only
+        // omit the class data if we are not emitting full debug information.
+        DebugKind < codegenoptions::FullDebugInfo &&
+        CGM.getVTables().isVTableExternal(CXXRD) &&
+#endif // INTEL_CUSTOMIZATION
         !isClassOrMethodDLLImport(CXXRD))
       return;
 
@@ -2723,6 +2751,24 @@ llvm::DIType *CGDebugInfo::CreateType(const PipeType *Ty, llvm::DIFile *U) {
   return getOrCreateType(Ty->getElementType(), U);
 }
 
+#if INTEL_CUSTOMIZATION
+llvm::DIType *CGDebugInfo::CreateType(const ChannelType *Ty, llvm::DIFile *U) {
+  return getOrCreateType(Ty->getElementType(), U);
+}
+
+llvm::DIType *CGDebugInfo::CreateType(const ArbPrecIntType *Ty,
+                                      llvm::DIFile *U) {
+  StringRef Name = "ap_uint";
+  llvm::dwarf::TypeKind Encoding = llvm::dwarf::DW_ATE_unsigned;
+  if (Ty->isSignedIntegerOrEnumerationType()) {
+    Name = "ap_int";
+    Encoding = llvm::dwarf::DW_ATE_signed;
+  }
+  return DBuilder.createBasicType(Name, CGM.getContext().getTypeSize(Ty),
+                                  Encoding);
+}
+#endif // INTEL_CUSTOMIZATION
+
 llvm::DIType *CGDebugInfo::CreateEnumType(const EnumType *Ty) {
   const EnumDecl *ED = Ty->getDecl();
 
@@ -3025,6 +3071,13 @@ llvm::DIType *CGDebugInfo::CreateTypeNode(QualType Ty, llvm::DIFile *Unit) {
   case Type::Atomic:
     return CreateType(cast<AtomicType>(Ty), Unit);
 
+#if INTEL_CUSTOMIZATION
+  case Type::Channel:
+    return CreateType(cast<ChannelType>(Ty), Unit);
+  case Type::ArbPrecInt:
+    return CreateType(cast<ArbPrecIntType>(Ty), Unit);
+#endif // INTEL_CUSTOMIZATION
+
   case Type::Pipe:
     return CreateType(cast<PipeType>(Ty), Unit);
 
@@ -3084,6 +3137,16 @@ llvm::DICompositeType *CGDebugInfo::CreateLimitedType(const RecordType *Ty) {
   llvm::DIFile *DefUnit = getOrCreateFile(RD->getLocation());
   unsigned Line = getLineNumber(RD->getLocation());
   StringRef RDName = getClassName(RD);
+
+#if INTEL_CUSTOMIZATION
+  // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
+  SmallString<256> TypeInfoString;
+  if (CGM.getLangOpts().IntelCompat && RD->isLambda() && RDName.empty()) {
+    llvm::raw_svector_ostream Out(TypeInfoString);
+    CGM.getCXXABI().getMangleContext().mangleLambdaName(RD, Out);
+    RDName = StringRef(TypeInfoString);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   llvm::DIScope *RDContext = getDeclContextDescriptor(RD);
 
@@ -3796,6 +3859,13 @@ void CGDebugInfo::EmitFunctionEnd(CGBuilderTy &Builder, llvm::Function *Fn) {
   if (Fn && Fn->getSubprogram())
     DBuilder.finalizeSubprogram(Fn->getSubprogram());
 }
+
+#if INTEL_CUSTOMIZATION
+void CGDebugInfo::setIsThunk(llvm::Function *Fn) {
+  if (llvm::DISubprogram *subprogram = Fn->getSubprogram())
+    subprogram->setIsThunk();
+}
+#endif // INTEL_CUSTOMIZATION
 
 CGDebugInfo::BlockByRefType
 CGDebugInfo::EmitTypeForVarWithBlocksAttr(const VarDecl *VD,

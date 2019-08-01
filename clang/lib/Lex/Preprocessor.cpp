@@ -680,6 +680,10 @@ void Preprocessor::EndSourceFile() {
   // Notify the client that we reached the end of the source file.
   if (Callbacks)
     Callbacks->EndOfMainFile();
+#if INTEL_CUSTOMIZATION
+  if (!WrapperFilename.empty())
+    llvm::sys::fs::remove(WrapperFilename);
+#endif // INTEL_CUSTOMIZATION
 }
 
 //===----------------------------------------------------------------------===//
@@ -709,6 +713,15 @@ IdentifierInfo *Preprocessor::LookUpIdentifierInfo(Token &Identifier) const {
     } else {
       II = getIdentifierInfo(CleanedStr);
     }
+  }
+  if (getLangOpts().MSVCCompat && II->isCPlusPlusOperatorKeyword() &&
+    getSourceManager().isInSystemHeader(Identifier.getLocation())) {
+    // re-enter the identifier, use a different spelling e.g. prefix with 1.
+    SmallString<64> IdentifierBuffer;
+    StringRef Prefix = "1";
+    IdentifierBuffer.assign(Prefix.begin(), Prefix.end());
+    IdentifierBuffer.append(Identifier.getRawIdentifier().begin(),
+                            Identifier.getRawIdentifier().end());
   }
 
   // Update the token info (identifier info and appropriate token kind).
