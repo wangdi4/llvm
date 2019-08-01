@@ -17,7 +17,6 @@
 ;   -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -O2 -disable-llvm-passes -x cl
 ;   oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -channel-pipe-transformation -verify %s -S
 ; ----------------------------------------------------
-; REQUIRES: fpga-emulator
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -analyze -channels-usage-analysis %s -S | FileCheck %s
 
 ; CHECK: digraph G {

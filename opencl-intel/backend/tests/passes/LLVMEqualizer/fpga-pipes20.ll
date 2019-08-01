@@ -21,7 +21,6 @@
 ; Compile options:
 ;   -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -x cl -cl-std=CL2.0 -disable-llvm-passes -finclude-default-header
 ; ----------------------------------------------------
-; REQUIRES: fpga-emulator
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -demangle-fpga-pipes -llvm-equalizer -verify -S %s | FileCheck %s
 
 ; CHECK-LABEL: define void @test1

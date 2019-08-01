@@ -54,7 +54,6 @@
 ;   oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -demangle-fpga-pipes -llvm-equalizer -channel-pipe-transformation -verify %s -S
 ; ----------------------------------------------------
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -builtin-import -always-inline -pipe-support -verify %s -S | FileCheck %s
-; REQUIRES: fpga-emulator
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64-unknown-unknown-intelfpga"
@@ -109,7 +108,7 @@ entry:
 ; CHECK:      %[[RET0:.*]] = call i32 @__read_pipe_2_fpga(%opencl.pipe_ro_t addrspace(1)* %[[PIPE0RO]]
 ; CHECK-NEXT: %[[ICMP0:[0-9]+]] = icmp ne i32 %[[RET0]], 0
 ; CHECK-NEXT: br i1 %[[ICMP0]], label %[[THEN0:[0-9]+]]
-; CHECK:      <label>:[[THEN0]]
+; CHECK:      [[THEN0]]:
 ; CHECK-NEXT: call void @__flush_pipe_read_array(i8 addrspace(1)** %[[READ_ARR]]
 ; CHECK-NEXT: call void @__flush_pipe_write_array(i8 addrspace(1)** %[[WRITE_ARR]]
 
@@ -128,7 +127,7 @@ entry:
 ; CHECK:      %[[RET1:.*]] = call i32 @__read_pipe_2_fpga(%opencl.pipe_ro_t addrspace(1)* %[[PIPE1RO]]
 ; CHECK-NEXT: %[[ICMP1:[0-9]+]] = icmp ne i32 %[[RET1]], 0
 ; CHECK-NEXT: br i1 %[[ICMP1]], label %[[THEN1:[0-9]+]]
-; CHECK:      <label>:[[THEN1]]
+; CHECK:      [[THEN1]]:
 ; CHECK-NEXT: call void @__flush_pipe_read_array(i8 addrspace(1)** %[[READ_ARR]]
 ; CHECK-NEXT: call void @__flush_pipe_write_array(i8 addrspace(1)** %[[WRITE_ARR]]
 
@@ -147,7 +146,7 @@ entry:
 ; CHECK:      %[[RET2:.*]] = call i32 @__read_pipe_2_fpga(%opencl.pipe_ro_t addrspace(1)* %[[PIPE2RO]]
 ; CHECK-NEXT: %[[ICMP2:[0-9]+]] = icmp ne i32 %[[RET2]], 0
 ; CHECK-NEXT: br i1 %[[ICMP2]], label %[[THEN2:[0-9]+]]
-; CHECK:      <label>:[[THEN2]]
+; CHECK:      [[THEN2]]:
 ; CHECK-NEXT: call void @__flush_pipe_read_array(i8 addrspace(1)** %[[READ_ARR]]
 ; CHECK-NEXT: call void @__flush_pipe_write_array(i8 addrspace(1)** %[[WRITE_ARR]]
 
@@ -163,7 +162,7 @@ entry:
 ; CHECK:      %[[RET3:.*]] = call i32 @__write_pipe_2_fpga(%opencl.pipe_wo_t addrspace(1)* %[[PIPE3WO]]
 ; CHECK-NEXT: %[[ICMP3:[0-9]+]] = icmp ne i32 %[[RET3]], 0
 ; CHECK-NEXT: br i1 %[[ICMP3]], label %[[THEN3:[0-9]+]]
-; CHECK:      <label>:[[THEN3]]
+; CHECK:      [[THEN3]]:
 ; CHECK-NEXT: call void @__flush_pipe_read_array(i8 addrspace(1)** %[[READ_ARR]]
 ; CHECK-NEXT: call void @__flush_pipe_write_array(i8 addrspace(1)** %[[WRITE_ARR]]
 
@@ -180,7 +179,7 @@ entry:
 ; CHECK:      %[[RET4:.*]] = call i32 @__read_pipe_2_fpga(%opencl.pipe_ro_t addrspace(1)* %[[PIPE4RO]]
 ; CHECK-NEXT: %[[ICMP4:[0-9]+]] = icmp ne i32 %[[RET4]], 0
 ; CHECK-NEXT: br i1 %[[ICMP4]], label %[[THEN4:[0-9]+]]
-; CHECK:      <label>:[[THEN4]]
+; CHECK:      [[THEN4]]:
 ; CHECK-NEXT: call void @__flush_pipe_read_array(i8 addrspace(1)** %[[READ_ARR]]
 ; CHECK-NEXT: call void @__flush_pipe_write_array(i8 addrspace(1)** %[[WRITE_ARR]]
 
@@ -198,7 +197,7 @@ entry:
 ; CHECK:      %[[RET5:.*]] = call i32 @__write_pipe_2_fpga(%opencl.pipe_wo_t addrspace(1)* %[[PIPE5WO]]
 ; CHECK-NEXT: %[[ICMP5:[0-9]+]] = icmp ne i32 %[[RET5]], 0
 ; CHECK-NEXT: br i1 %[[ICMP5]], label %[[THEN5:[0-9]+]]
-; CHECK:      <label>:[[THEN5]]
+; CHECK:      [[THEN5]]:
 ; CHECK-NEXT: call void @__flush_pipe_read_array(i8 addrspace(1)** %[[READ_ARR]]
 ; CHECK-NEXT: call void @__flush_pipe_write_array(i8 addrspace(1)** %[[WRITE_ARR]]
 
@@ -214,7 +213,7 @@ entry:
 ; CHECK:      %[[RET6:.*]] = call i32 @__read_pipe_2_fpga(%opencl.pipe_ro_t addrspace(1)* %[[PIPE6RO]]
 ; CHECK-NEXT: %[[ICMP6:[0-9]+]] = icmp ne i32 %[[RET6]], 0
 ; CHECK-NEXT: br i1 %[[ICMP6]], label %[[THEN6:[0-9]+]]
-; CHECK:      <label>:[[THEN6]]
+; CHECK:      [[THEN6]]:
 ; CHECK-NEXT: call void @__flush_pipe_read_array(i8 addrspace(1)** %[[READ_ARR]]
 ; CHECK-NEXT: call void @__flush_pipe_write_array(i8 addrspace(1)** %[[WRITE_ARR]]
 
@@ -266,7 +265,7 @@ entry:
 ; CHECK:      %[[RET7:.*]] = call i32 @__write_pipe_2_fpga(%opencl.pipe_wo_t addrspace(1)* %[[PIPE7WO]]
 ; CHECK-NEXT: %[[ICMP7:[0-9]+]] = icmp ne i32 %[[RET7]], 0
 ; CHECK-NEXT: br i1 %[[ICMP7]], label %[[THEN7:[0-9]+]]
-; CHECK:      <label>:[[THEN7]]
+; CHECK:      [[THEN7]]:
 ; CHECK-NEXT: call void @__flush_pipe_read_array(i8 addrspace(1)** %[[READ_ARR1]]
 ; CHECK-NEXT: call void @__flush_pipe_write_array(i8 addrspace(1)** %[[WRITE_ARR1]]
 
@@ -282,7 +281,7 @@ entry:
 ; CHECK:      %[[RET8:.*]] = call i32 @__write_pipe_2_fpga(%opencl.pipe_wo_t addrspace(1)* %[[PIPE8WO]]
 ; CHECK-NEXT: %[[ICMP8:[0-9]+]] = icmp ne i32 %[[RET8]], 0
 ; CHECK-NEXT: br i1 %[[ICMP8]], label %[[THEN8:[0-9]+]]
-; CHECK:      <label>:[[THEN8]]
+; CHECK:      [[THEN8]]:
 ; CHECK-NEXT: call void @__flush_pipe_read_array(i8 addrspace(1)** %[[READ_ARR1]]
 ; CHECK-NEXT: call void @__flush_pipe_write_array(i8 addrspace(1)** %[[WRITE_ARR1]]
 
@@ -301,7 +300,7 @@ entry:
 ; CHECK:      %[[RET9:.*]] = call i32 @__write_pipe_2_fpga(%opencl.pipe_wo_t addrspace(1)* %[[PIPE9WO]]
 ; CHECK-NEXT: %[[ICMP9:[0-9]+]] = icmp ne i32 %[[RET9]], 0
 ; CHECK-NEXT: br i1 %[[ICMP9]], label %[[THEN9:[0-9]+]]
-; CHECK:      <label>:[[THEN9]]
+; CHECK:      [[THEN9]]:
 ; CHECK-NEXT: call void @__flush_pipe_read_array(i8 addrspace(1)** %[[READ_ARR1]]
 ; CHECK-NEXT: call void @__flush_pipe_write_array(i8 addrspace(1)** %[[WRITE_ARR1]]
 
@@ -318,7 +317,7 @@ entry:
 ; CHECK:      %[[RET10:.*]] = call i32 @__read_pipe_2_fpga(%opencl.pipe_ro_t addrspace(1)* %[[PIPE10RO]]
 ; CHECK-NEXT: %[[ICMP10:[0-9]+]] = icmp ne i32 %[[RET10]], 0
 ; CHECK-NEXT: br i1 %[[ICMP10]], label %[[THEN10:[0-9]+]]
-; CHECK:      <label>:[[THEN10]]
+; CHECK:      [[THEN10]]:
 ; CHECK-NEXT: call void @__flush_pipe_read_array(i8 addrspace(1)** %[[READ_ARR1]]
 ; CHECK-NEXT: call void @__flush_pipe_write_array(i8 addrspace(1)** %[[WRITE_ARR1]]
 
@@ -336,7 +335,7 @@ entry:
 ; CHECK:      %[[RET11:.*]] = call i32 @__write_pipe_2_fpga(%opencl.pipe_wo_t addrspace(1)* %[[PIPE11WO]]
 ; CHECK-NEXT: %[[ICMP11:[0-9]+]] = icmp ne i32 %[[RET11]], 0
 ; CHECK-NEXT: br i1 %[[ICMP11]], label %[[THEN11:[0-9]+]]
-; CHECK:      <label>:[[THEN11]]
+; CHECK:      [[THEN11]]:
 ; CHECK-NEXT: call void @__flush_pipe_read_array(i8 addrspace(1)** %[[READ_ARR1]]
 ; CHECK-NEXT: call void @__flush_pipe_write_array(i8 addrspace(1)** %[[WRITE_ARR1]]
 
@@ -353,7 +352,7 @@ entry:
 ; CHECK:      %[[RET12:.*]] = call i32 @__read_pipe_2_fpga(%opencl.pipe_ro_t addrspace(1)* %[[PIPE12RO]]
 ; CHECK-NEXT: %[[ICMP12:[0-9]+]] = icmp ne i32 %[[RET12]], 0
 ; CHECK-NEXT: br i1 %[[ICMP12]], label %[[THEN12:[0-9]+]]
-; CHECK:      <label>:[[THEN12]]
+; CHECK:      [[THEN12]]:
 ; CHECK-NEXT: call void @__flush_pipe_read_array(i8 addrspace(1)** %[[READ_ARR1]]
 ; CHECK-NEXT: call void @__flush_pipe_write_array(i8 addrspace(1)** %[[WRITE_ARR1]]
 
@@ -371,7 +370,7 @@ entry:
 ; CHECK:      %[[RET13:.*]] = call i32 @__write_pipe_2_fpga(%opencl.pipe_wo_t addrspace(1)* %[[PIPE13WO]]
 ; CHECK-NEXT: %[[ICMP13:[0-9]+]] = icmp ne i32 %[[RET13]], 0
 ; CHECK-NEXT: br i1 %[[ICMP13]], label %[[THEN13:[0-9]+]]
-; CHECK:      <label>:[[THEN13]]
+; CHECK:      [[THEN13]]:
 ; CHECK-NEXT: call void @__flush_pipe_read_array(i8 addrspace(1)** %[[READ_ARR1]]
 ; CHECK-NEXT: call void @__flush_pipe_write_array(i8 addrspace(1)** %[[WRITE_ARR1]]
 

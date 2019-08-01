@@ -25,7 +25,6 @@
 ;   opt -runtimelib=%p/../../vectorizer/Full/runtime.bc -demangle-fpga-pipes -llvm-equalizer -channel-pipe-transformation -verify %s -S
 ; ----------------------------------------------------
 ; RUN: %oclopt -pipe-ordering -verify %s -S | FileCheck %s
-; REQUIRES: fpga-emulator
 
 ; CHECK-LABEL: for.cond:
 ; CHECK: call void @_Z7barrierj(i32 1)

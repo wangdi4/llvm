@@ -12,7 +12,6 @@
 ; Compile options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -x cl -cl-std=CL1.2
 ; Opt options: oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -channel-pipe-transformation -S
 ; ----------------------------------------------------
-; REQUIRES: fpga-emulator
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -pipe-support -verify %s -S | FileCheck %s
 
 ; CHECK:      %[[SELECT:[0-9]+]] = select i1 %tobool, %opencl.pipe_rw_t
@@ -21,7 +20,7 @@
 ; CHECK:      %[[CALL:.+]] = call i32 @__read_pipe_2_fpga(%opencl.pipe_ro_t addrspace(1)* %[[PIPERO]]
 ; CHECK-NEXT: %[[ICMP:.+]] = icmp ne i32 %[[CALL]], 0
 ; CHECK-NEXT: br i1 %[[ICMP]], label %[[FLUSHBB:[0-9]+]]
-; CHECK: ; <label>:[[FLUSHBB]]
+; CHECK:      [[FLUSHBB]]:
 ; CHECK-NEXT: call void @__flush_pipe_read_array
 ; CHECK-NEXT: call void @__flush_pipe_write_array
 
