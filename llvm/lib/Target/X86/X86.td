@@ -526,7 +526,11 @@ def FeatureMergeToThreeWayBranch : SubtargetFeature<"merge-to-threeway-branch",
                                         "ThreewayBranchProfitable", "true",
                                         "Merge branches to a three-way "
                                         "conditional branch">;
-
+#if INTEL_CUSTOMIZATION
+// If the target has decoded stream buffer.
+def FeatureHasDSB : SubtargetFeature<"dsb", "HasDSB", "true",
+                                    "Target has decoded stream buffer">;
+#endif // INTEL_CUSTOMIZATION
 // Bonnell
 def ProcIntelAtom : SubtargetFeature<"", "X86ProcFamily", "IntelAtom", "">;
 // Silvermont
@@ -606,6 +610,9 @@ def ProcessorFeatures {
                                                   FeatureXSAVE,
                                                   FeatureXSAVEOPT,
                                                   FeatureSlow3OpsLEA,
+#if INTEL_CUSTOMIZATION
+                                                  FeatureHasDSB,
+#endif // INTEL_CUSTOMIZATION
                                                   FeatureFastScalarFSQRT,
                                                   FeatureFastSHLDRotate,
                                                   FeatureMergeToThreeWayBranch];

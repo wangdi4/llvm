@@ -130,6 +130,12 @@ FunctionPass *createX86DiscriminateMemOpsPass();
 /// This pass applies profiling information to insert cache prefetches.
 FunctionPass *createX86InsertPrefetchPass();
 
+#if INTEL_CUSTOMIZATION
+/// Return a pass that generate LEA instructions for removing redundant address
+/// recalculations by Optimize LEA optimization.
+FunctionPass *createX86GenerateLEAs();
+#endif // INTEL_CUSTOMIZATION
+
 InstructionSelector *createX86InstructionSelector(const X86TargetMachine &TM,
                                                   X86Subtarget &,
                                                   X86RegisterBankInfo &);
@@ -151,7 +157,10 @@ void initializeX86DomainReassignmentPass(PassRegistry &);
 void initializeX86ExecutionDomainFixPass(PassRegistry &);
 void initializeX86FlagsCopyLoweringPassPass(PassRegistry &);
 void initializeX86SpeculativeLoadHardeningPassPass(PassRegistry &);
-
+#if INTEL_CUSTOMIZATION
+void initializeOptimizeLEAPassPass(PassRegistry &);
+void initializeGenerateLEAPassPass(PassRegistry &);
+#endif // INTEL_CUSTOMIZATION
 } // End llvm namespace
 
 #endif

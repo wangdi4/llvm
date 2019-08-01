@@ -64,6 +64,9 @@ class X86TTIImpl : public BasicTTIImplBase<X86TTIImpl> {
       X86::FeatureBranchFusion,
       X86::FeatureMacroFusion,
       X86::FeatureMergeToThreeWayBranch,
+#if INTEL_CUSTOMIZATION
+      X86::FeatureHasDSB,
+#endif // INTEL_CUSTOMIZATION
       X86::FeaturePadShortFunctions,
       X86::FeaturePOPCNTFalseDeps,
       X86::FeatureSSEUnalignedMem,
