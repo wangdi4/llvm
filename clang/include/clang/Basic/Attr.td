@@ -3191,6 +3191,7 @@ def LoopHint : Attr {
   let Args = [EnumArgument<"Option", "OptionType",
                           ["vectorize", "vectorize_width", "interleave", "interleave_count",
                            "unroll", "unroll_count", "unroll_and_jam", "unroll_and_jam_count",
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
                            "pipeline", "pipeline_initiation_interval",
                            "distribute",
@@ -3218,6 +3219,14 @@ def LoopHint : Attr {
                            "VectorizeAlways", "LoopCount",
                            "LoopCountMax", "LoopCountMin","LoopCountAvg"]>,
 // end INTEL_CUSTOMIZATION
+=======
+                           "pipeline", "pipeline_initiation_interval", "distribute",
+                           "vectorize_predicate"],
+                          ["Vectorize", "VectorizeWidth", "Interleave", "InterleaveCount",
+                           "Unroll", "UnrollCount", "UnrollAndJam", "UnrollAndJamCount",
+                           "PipelineDisabled", "PipelineInitiationInterval", "Distribute",
+                           "VectorizePredicate"]>,
+>>>>>>> a48f58c97feca138f772e2cf122f229d6e341d82
               EnumArgument<"State", "LoopHintState",
 // INTEL_CUSTOMIZATION
                            ["enable", "disable", "numeric", "assume_safety",
@@ -3240,6 +3249,7 @@ def LoopHint : Attr {
     case PipelineDisabled: return "pipeline";
     case PipelineInitiationInterval: return "pipeline_initiation_interval";
     case Distribute: return "distribute";
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
     case VectorizeAlways: return "vectorize_always";
     case LoopCount: return "loop_count";
@@ -3247,6 +3257,9 @@ def LoopHint : Attr {
     case LoopCountMax: return "loop_count max";
     case LoopCountAvg: return "loop_count avg";
 // end INTEL_CUSTOMIZATION
+=======
+    case VectorizePredicate: return "vectorize_predicate";
+>>>>>>> a48f58c97feca138f772e2cf122f229d6e341d82
     }
     llvm_unreachable("Unhandled LoopHint option.");
   }

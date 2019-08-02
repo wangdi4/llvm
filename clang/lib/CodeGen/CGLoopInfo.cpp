@@ -218,6 +218,7 @@ LoopInfo::createLoopVectorizeMetadata(const LoopAttributes &Attrs,
   if (Attrs.VectorizeEnable == LoopAttributes::Disable)
     Enabled = false;
   else if (Attrs.VectorizeEnable != LoopAttributes::Unspecified ||
+           Attrs.VectorizePredicateEnable != LoopAttributes::Unspecified ||
            Attrs.InterleaveCount != 0 || Attrs.VectorizeWidth != 0)
     Enabled = true;
 
@@ -250,6 +251,16 @@ LoopInfo::createLoopVectorizeMetadata(const LoopAttributes &Attrs,
   TempMDTuple TempNode = MDNode::getTemporary(Ctx, None);
   Args.push_back(TempNode.get());
   Args.append(LoopProperties.begin(), LoopProperties.end());
+
+  // Setting vectorize.predicate
+  if (Attrs.VectorizePredicateEnable != LoopAttributes::Unspecified) {
+    Metadata *Vals[] = {
+        MDString::get(Ctx, "llvm.loop.vectorize.predicate.enable"),
+        ConstantAsMetadata::get(ConstantInt::get(
+            llvm::Type::getInt1Ty(Ctx),
+            (Attrs.VectorizePredicateEnable == LoopAttributes::Enable)))};
+    Args.push_back(MDNode::get(Ctx, Vals));
+  }
 
   // Setting vectorize.width
   if (Attrs.VectorizeWidth > 0) {
@@ -624,11 +635,17 @@ LoopAttributes::LoopAttributes(bool IsParallel)
       LoopCountMin(0), LoopCountMax(0), LoopCountAvg(0),
 #endif // INTEL_CUSTOMIZATION
       UnrollEnable(LoopAttributes::Unspecified),
+<<<<<<< HEAD
       UnrollAndJamEnable(LoopAttributes::Unspecified), VectorizeWidth(0),
       InterleaveCount(0),
       SYCLIVDepEnable(false), SYCLIVDepSafelen(0), SYCLIInterval(0),
       SYCLMaxConcurrencyNThreads(0),
       UnrollCount(0), UnrollAndJamCount(0),
+=======
+      UnrollAndJamEnable(LoopAttributes::Unspecified),
+      VectorizePredicateEnable(LoopAttributes::Unspecified), VectorizeWidth(0),
+      InterleaveCount(0), UnrollCount(0), UnrollAndJamCount(0),
+>>>>>>> a48f58c97feca138f772e2cf122f229d6e341d82
       DistributeEnable(LoopAttributes::Unspecified), PipelineDisabled(false),
       PipelineInitiationInterval(0) {}
 
@@ -670,6 +687,7 @@ void LoopAttributes::clear() {
   VectorizeEnable = LoopAttributes::Unspecified;
   UnrollEnable = LoopAttributes::Unspecified;
   UnrollAndJamEnable = LoopAttributes::Unspecified;
+  VectorizePredicateEnable = LoopAttributes::Unspecified;
   DistributeEnable = LoopAttributes::Unspecified;
   PipelineDisabled = false;
   PipelineInitiationInterval = 0;
@@ -708,6 +726,7 @@ LoopInfo::LoopInfo(BasicBlock *Header, const LoopAttributes &Attrs,
       Attrs.InterleaveCount == 0 && Attrs.UnrollCount == 0 &&
       Attrs.UnrollAndJamCount == 0 && !Attrs.PipelineDisabled &&
       Attrs.PipelineInitiationInterval == 0 &&
+      Attrs.VectorizePredicateEnable == LoopAttributes::Unspecified &&
       Attrs.VectorizeEnable == LoopAttributes::Unspecified &&
       Attrs.UnrollEnable == LoopAttributes::Unspecified &&
       Attrs.UnrollAndJamEnable == LoopAttributes::Unspecified &&
@@ -742,6 +761,7 @@ void LoopInfo::finish() {
     BeforeJam.InterleaveCount = Attrs.InterleaveCount;
     BeforeJam.VectorizeEnable = Attrs.VectorizeEnable;
     BeforeJam.DistributeEnable = Attrs.DistributeEnable;
+    BeforeJam.VectorizePredicateEnable = Attrs.VectorizePredicateEnable;
 
     switch (Attrs.UnrollEnable) {
     case LoopAttributes::Unspecified:
@@ -757,6 +777,7 @@ void LoopInfo::finish() {
       break;
     }
 
+    AfterJam.VectorizePredicateEnable = Attrs.VectorizePredicateEnable;
     AfterJam.UnrollCount = Attrs.UnrollCount;
     AfterJam.PipelineDisabled = Attrs.PipelineDisabled;
     AfterJam.PipelineInitiationInterval = Attrs.PipelineInitiationInterval;
@@ -778,6 +799,7 @@ void LoopInfo::finish() {
       // add it manually.
       SmallVector<Metadata *, 1> BeforeLoopProperties;
       if (BeforeJam.VectorizeEnable != LoopAttributes::Unspecified ||
+          BeforeJam.VectorizePredicateEnable != LoopAttributes::Unspecified ||
           BeforeJam.InterleaveCount != 0 || BeforeJam.VectorizeWidth != 0)
         BeforeLoopProperties.push_back(
             MDNode::get(Ctx, MDString::get(Ctx, "llvm.loop.isvectorized")));
@@ -865,6 +887,9 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::UnrollAndJam:
         setUnrollAndJamState(LoopAttributes::Disable);
         break;
+      case LoopHintAttr::VectorizePredicate:
+        setVectorizePredicateState(LoopAttributes::Disable);
+        break;
       case LoopHintAttr::Distribute:
         setDistributeState(false);
         break;
@@ -918,6 +943,9 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
         break;
       case LoopHintAttr::UnrollAndJam:
         setUnrollAndJamState(LoopAttributes::Enable);
+        break;
+      case LoopHintAttr::VectorizePredicate:
+        setVectorizePredicateState(LoopAttributes::Enable);
         break;
       case LoopHintAttr::Distribute:
         setDistributeState(true);
@@ -1010,6 +1038,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
 #endif // INTEL_CUSTOMIZATION
       case LoopHintAttr::Unroll:
       case LoopHintAttr::UnrollAndJam:
+      case LoopHintAttr::VectorizePredicate:
       case LoopHintAttr::UnrollCount:
       case LoopHintAttr::UnrollAndJamCount:
       case LoopHintAttr::VectorizeWidth:
@@ -1063,6 +1092,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::Distribute:
       case LoopHintAttr::PipelineDisabled:
       case LoopHintAttr::PipelineInitiationInterval:
+      case LoopHintAttr::VectorizePredicate:
         llvm_unreachable("Options cannot be used with 'full' hint.");
         break;
       }
@@ -1133,6 +1163,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
 #endif // INTEL_CUSTOMIZATION
       case LoopHintAttr::Unroll:
       case LoopHintAttr::UnrollAndJam:
+      case LoopHintAttr::VectorizePredicate:
       case LoopHintAttr::Vectorize:
       case LoopHintAttr::Interleave:
       case LoopHintAttr::Distribute:
