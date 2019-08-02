@@ -1953,34 +1953,6 @@ void LinkerDriver::link(ArrayRef<const char *> argsArr) {
       addUndefined(mangle("_load_config_used"));
   } while (run());
 
-<<<<<<< HEAD
-  if (errorCount())
-    return;
-
-#if INTEL_CUSTOMIZATION
-  if (msGLFilesFound) {
-    invokeMSVC(args);
-    return;
-  }
-#endif // INTEL_CUSTOMIZATION
-
-  // Do LTO by compiling bitcode input files to a set of native COFF files then
-  // link those files (unless -thinlto-index-only was given, in which case we
-  // resolve symbols and write indices, but don't generate native code or link).
-  symtab->addCombinedLTOObjects();
-
-  // If -thinlto-index-only is given, we should create only "index
-  // files" and not object files. Index file creation is already done
-  // in addCombinedLTOObject, so we are done if that's the case.
-  if (config->thinLTOIndexOnly)
-    return;
-
-  // If we generated native object files from bitcode files, this resolves
-  // references to the symbols we use from them.
-  run();
-
-=======
->>>>>>> 51dcb292cc002ad6ec88d7d929a96407c0685066
   if (args.hasArg(OPT_include_optional)) {
     // Handle /includeoptional
     for (auto *arg : args.filtered(OPT_include_optional))
@@ -2015,6 +1987,13 @@ void LinkerDriver::link(ArrayRef<const char *> argsArr) {
     symtab->reportUnresolvable();
   if (errorCount())
     return;
+
+#if INTEL_CUSTOMIZATION
+  if (msGLFilesFound) {
+    invokeMSVC(args);
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Do LTO by compiling bitcode input files to a set of native COFF files then
   // link those files (unless -thinlto-index-only was given, in which case we
