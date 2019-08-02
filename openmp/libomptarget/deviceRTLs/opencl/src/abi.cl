@@ -49,6 +49,39 @@ EXTERN void __kmpc_end_master() {
   // nothing to be done
 }
 
+
+///
+/// Support for reduction
+///
+
+#define KMPC_REDUCTION(OP, OPNAME, DATATYPE)                                   \
+  EXTERN void __kmpc_reduction_##OPNAME##_##DATATYPE(const uint Id,            \
+      const uint Size, void *LocalResult, void *Output) {                      \
+    KMP_ASSERT((Size & (Size - 1)) == 0,                                       \
+               "__kmpc_reduction*() operation requires power of 2 team size"); \
+    work_group_barrier(CLK_GLOBAL_MEM_FENCE | CLK_LOCAL_MEM_FENCE);            \
+    DATATYPE *lhs, rhs;                                                        \
+    for (uint stride = Size / 2; stride > 0; stride /= 2) {                    \
+      work_group_barrier(CLK_GLOBAL_MEM_FENCE | CLK_LOCAL_MEM_FENCE);          \
+      if (Id < stride) {                                                       \
+        lhs = &((DATATYPE *)LocalResult)[Id];                                  \
+        rhs = ((DATATYPE *)LocalResult)[Id + stride];                          \
+        *lhs = OP(*lhs, rhs, DATATYPE);                                        \
+      }                                                                        \
+    }                                                                          \
+    if (Id == 0) {                                                             \
+      lhs = (DATATYPE *)Output;                                                \
+      rhs = *(DATATYPE *)LocalResult;                                          \
+      *lhs = OP(*lhs, rhs, DATATYPE);                                          \
+    }                                                                          \
+  }
+
+KMPC_REDUCTION(OP_ADD, add, int)
+KMPC_REDUCTION(OP_ADD, add, long)
+KMPC_REDUCTION(OP_ADD, add, float)
+KMPC_REDUCTION(OP_ADD, add, double)
+
+
 #if INTEL_CUSTOMIZATION
 // Temporary define these builtins here.  Eventually, IGC must define
 // them, and we should remove it from here.
