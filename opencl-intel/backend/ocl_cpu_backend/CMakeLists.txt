@@ -220,7 +220,7 @@ set (INCLUDE_DIRS
     ${BACKEND_ROOT_DIR}/metadata_api
     ${BACKEND_ROOT_DIR}/passes/ChannelPipeTransformation
     ${CMAKE_BINARY_DIR}/include/
-    ${OCL_BINARY_DIR}
+    ${OCL_BINARY_DIR}/include
 )
 
 # Add additional link directories

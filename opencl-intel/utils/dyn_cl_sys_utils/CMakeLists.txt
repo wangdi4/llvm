@@ -31,7 +31,7 @@ add_opencl_library (${TARGET_NAME} STATIC
 
     INCLUDE_DIRS
     ../cl_hw_utils/export
-    ${CCLANG_INCLUDE_DIRS}
+    ${CCLANG_USER_INCLUDE_DIRS}
     ${CL_API_HEADERS}
     ${OCL_BINARY_DIR}
     ${OCL_SOURCE_DIR}/FrontendDriver

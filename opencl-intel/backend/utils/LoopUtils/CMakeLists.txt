@@ -24,5 +24,9 @@ add_library(
   ${TARGET_INCLUDE_FILES}
 )
 
+if (OPENCL_INTREE_BUILD)
+  add_dependencies(${TARGET_NAME} intrinsics_gen)
+endif()
+
 # For a tidy Visual Studio solution layout
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )

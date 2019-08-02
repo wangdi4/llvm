@@ -1,7 +1,9 @@
 add_subdirectory(type_conversion)
 add_subdirectory(debugger_test_type)
 
-include(${LLVM_PATH}/lib/cmake/llvm/AddLLVM.cmake)
+if (NOT OPENCL_INTREE_BUILD)
+  include(${LLVM_PATH}/lib/cmake/llvm/AddLLVM.cmake)
+endif()
 
 # We need to pass some cmake variables into lit .cfg scripts
 configure_lit_site_cfg(
@@ -52,15 +54,21 @@ if (ADD_NICE_BE_LIT_TARGETS)
   # so add_lit_testsuites does nothing.
   # To workaround this we need to reset CMAKE_CONFIGURATION_TYPES before call
   # to add_lit_testsuites and restore it after.
-  set(CONFIGURATION_TYPES ${CMAKE_CONFIGURATION_TYPES})
-  set(CMAKE_CONFIGURATION_TYPES "" CACHE STRING
-      "Available build configurations." FORCE)
+  if (NOT OPENCL_INTREE_BUILD)
+    set(CONFIGURATION_TYPES ${CMAKE_CONFIGURATION_TYPES})
+    set(CMAKE_CONFIGURATION_TYPES "" CACHE STRING
+        "Available build configurations." FORCE)
+  endif()
+
   add_lit_testsuites(ocl-backend
     ${CMAKE_CURRENT_SOURCE_DIR}
     PARAMS ${BE_TEST_PARAMS}
     DEPENDS ${BE_TEST_DEPS}
     ARGS ${BE_TEST_ARGS}
   )
-  set(CMAKE_CONFIGURATION_TYPES ${CONFIGURATION_TYPES} CACHE STRING
-      "Available build configurations." FORCE)
+
+  if (NOT OPENCL_INTREE_BUILD)
+    set(CMAKE_CONFIGURATION_TYPES ${CONFIGURATION_TYPES} CACHE STRING
+        "Available build configurations." FORCE)
+  endif()
 endif(ADD_NICE_BE_LIT_TARGETS)

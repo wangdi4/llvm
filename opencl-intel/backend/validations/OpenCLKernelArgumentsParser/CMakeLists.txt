@@ -12,4 +12,8 @@ add_library(OpenCLKernelArgumentsParser
   OpenCLKernelArgumentsParser.cpp
 )
 
+if (OPENCL_INTREE_BUILD)
+  add_dependencies(OpenCLKernelArgumentsParser intrinsics_gen)
+endif()
+
 set_target_properties( OpenCLKernelArgumentsParser PROPERTIES FOLDER "Backend" )

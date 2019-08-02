@@ -18,3 +18,7 @@ add_library(DataVersion
   ${DV_INCLUDE_FILES}
   DataVersion.cpp
 )
+
+if (OPENCL_INTREE_BUILD)
+  add_dependencies(DataVersion intrinsics_gen)
+endif()

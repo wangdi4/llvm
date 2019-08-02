@@ -3,7 +3,9 @@ if( NOT DEFINED LLVM_PATH_FE )
 endif()
 set (LLVM_FE_INCLUDE_DIRS ${LLVM_PATH_FE}/include)
 
-find_package(LLVM REQUIRED)
+if (NOT OPENCL_INTREE_BUILD)
+  find_package(LLVM REQUIRED)
+endif()
 if(NOT WIN32)
 add_definitions(-msse4.2)
 endif(NOT WIN32)
@@ -88,12 +90,20 @@ add_opencl_library (${TARGET_NAME} SHARED
     RC_TEMPLATE DEFAULT
 )
 
+if (OPENCL_INTREE_BUILD)
+  add_dependencies(${TARGET_NAME} intrinsics_gen)
+endif()
+
 # Create static library for unit tests
 add_opencl_library (OCLRecorderStat STATIC
     ${OCL_RECORDER_SOURCE_FILES}
 
     INCLUDE_DIRS ${INCLUDE_DIRS}
 )
+
+if (OPENCL_INTREE_BUILD)
+  add_dependencies(OCLRecorderStat intrinsics_gen)
+endif()
 
 if(WIN32)
     # Define the dependancy projects

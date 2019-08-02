@@ -92,12 +92,17 @@ set (SDE_NAME_PREFIX __sde_svml_)
 
 set(TOOL_BINARY_DIR "${BE_LLVM_BINARY_DIR}" )
 
-# LLVM tools are assumed to be pre-built within the global project
-if (NOT DEFINED OCL_HOST_CLANG)
-  set (CLANG "${LLVM_BINARY_DIR}/clang")
+if (NOT OPENCL_INTREE_BUILD)
+  # LLVM tools are assumed to be pre-built within the global project
+  if (NOT DEFINED OCL_HOST_CLANG)
+    set (CLANG "${LLVM_BINARY_DIR}/clang")
+  else()
+    set (CLANG ${OCL_HOST_CLANG})
+  endif()
 else()
-  set (CLANG ${OCL_HOST_CLANG})
+  set(CLANG clang)
 endif()
+
 if (NOT DEFINED OCL_HOST_OPT)
   set (OPT oclopt)
   set (OPT_DEP oclopt)
@@ -159,7 +164,7 @@ endforeach( LLVM_INCLUDE_DIR_ITEM)
 # FMAs even in 'standard' CodeGen setting.
 set (CLANG_CL_COMMON_COMPILER_FLAGS
   -cc1 -triple ${DEVICE_TRIPLE} -emit-llvm-bc -fwrapv -O3 -disable-intel-proprietary-opts
-  -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CCLANG_INCLUDE_DIRS} -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -include opencl-c.h -include long_vector_types.h -include opencl_cth_pre_release.h
+  -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CCLANG_USER_INCLUDE_DIRS} -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -include opencl-c.h -include long_vector_types.h -include opencl_cth_pre_release.h
   -cl-std=CL2.0 -D __OPENCL_C_VERSION__=200 -fopencl-force-vector-abi
   -fblocks -ffake-address-space-map -faddress-space-map-mangling=yes -mstackrealign -ffp-contract=fast
   -cl-ext=+cl_khr_fp16
@@ -168,7 +173,7 @@ set (CLANG_CL_COMMON_COMPILER_FLAGS
 
 set (CLANG_C_COMPILER_PARAMS
   -cc1 -triple ${DEVICE_TRIPLE} -emit-llvm-bc -fwrapv -O3 -disable-intel-proprietary-opts
-  -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CCLANG_INCLUDE_DIRS} -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -mstackrealign
+  -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CCLANG_USER_INCLUDE_DIRS} -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -mstackrealign
   # Pretend we use LTO as Intel's clang version doesn't allows emitting LLVM
   # bytecode for C/C++ files w/o LTO flag.
   -flto
@@ -544,6 +549,7 @@ add_custom_target(clbltpipe_target
 add_custom_command(OUTPUT clbltpipe.obj
   DEPENDS ${TARGET_NAME_MINIMAL} ${TARGET_NAME_SHARED}
   DEPENDS pipes.cl pipes-info.cl pipes-internal.h pipes-defines.h
+  DEPENDS ${CLANG}
 
   # Use host triple to let llc produce object file in a native format.
   COMMAND ${CLANG} ${CLANG_CL_COMMON_COMPILER_FLAGS} -triple ${HOST_TRIPLE}
@@ -582,8 +588,13 @@ set_target_properties(clbltpipe
 add_custom_target(clbltpipeinfo_target
   DEPENDS clbltpipeinfo.obj)
 
+if (OPENCL_INTREE_BUILD)
+  add_dependencies(clbltpipeinfo_target common_clang)
+endif()
+
 add_custom_command(OUTPUT clbltpipeinfo.obj
   DEPENDS pipes-info.cl pipes-internal.h pipes-defines.h
+  DEPENDS ${CLANG}
 
   # Use host triple to let llc produce object file in a native format.
   COMMAND ${CLANG} ${CLANG_CL_COMMON_COMPILER_FLAGS} -triple ${HOST_TRIPLE}
