@@ -927,10 +927,203 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
   return true;
 }
 
+static bool isStructFieldLoadCast(const Value *Val) {
+  // We are looking for this pattern-
+  //
+  // %ptr = GEP struct* p, index, <struct offset>
+  // %ld = load %ptr
+  // val = uitofp %ld
+  auto *CastInst = dyn_cast<UIToFPInst>(Val);
+
+  if (!CastInst) {
+    return false;
+  }
+
+  auto *LInst = dyn_cast<LoadInst>(CastInst->getOperand(0));
+
+  if (!LInst) {
+    return false;
+  }
+
+  auto *GEP = dyn_cast<GetElementPtrInst>(LInst->getPointerOperand());
+
+  if (!GEP || GEP->getNumOperands() != 3) {
+    return false;
+  }
+
+  auto *BasePtr = GEP->getPointerOperand();
+
+  if (!BasePtr->getType()->getPointerElementType()->isStructTy()) {
+    return false;
+  }
+
+  return true;
+}
+
+static bool isConvolutionReduction(const PHINode *HeaderPhi,
+                                   const Value **CommonFMulOperand) {
+  // We are looking for this pattern-
+  // loopheader:
+  //   %redn = phi double [ %init, %preheader ] [ %add, %latch ]
+  //   %ptr = GEP struct* p, index, <struct offset>
+  //   %ld = load %ptr
+  //   %cast = uitofp %ld
+  //   %mul = fmul %cast, %common-op
+  //   %add = fadd %redn, %mul
+
+  if (!HeaderPhi->getType()->isDoubleTy()) {
+    return false;
+  }
+
+  unsigned NumUses = HeaderPhi->getNumUses();
+
+  if (NumUses > 2 || NumUses == 0) {
+    return false;
+  }
+
+  const Instruction *FAddInst = nullptr;
+
+  if (NumUses == 1) {
+    FAddInst = cast<Instruction>(*HeaderPhi->user_begin());
+  } else {
+    auto *FirstUser = cast<Instruction>(*HeaderPhi->user_begin());
+    auto *SecondUser = cast<Instruction>(*(std::next(HeaderPhi->user_begin())));
+
+    if (isa<DbgInfoIntrinsic>(FirstUser)) {
+      FAddInst = SecondUser;
+    } else if (!isa<DbgInfoIntrinsic>(SecondUser)) {
+      return false;
+    } else {
+      FAddInst = FirstUser;
+    }
+  }
+
+  if (FAddInst->getOpcode() != Instruction::FAdd) {
+    return false;
+  }
+
+  if (FAddInst->getParent() != HeaderPhi->getParent()) {
+    return false;
+  }
+
+  if (HeaderPhi->getOperand(0) != FAddInst &&
+      HeaderPhi->getOperand(1) != FAddInst) {
+    return false;
+  }
+
+  auto *Op0 = FAddInst->getOperand(0);
+  auto *FMulInst =
+      dyn_cast<Instruction>((Op0 == HeaderPhi) ? FAddInst->getOperand(1) : Op0);
+
+  if (!FMulInst || FMulInst->getOpcode() != Instruction::FMul) {
+    return false;
+  }
+
+  auto *MulOp0 = FMulInst->getOperand(0);
+  auto *MulOp1 = FMulInst->getOperand(1);
+  const Value *CommonOperand = nullptr;
+
+  if (isStructFieldLoadCast(MulOp0)) {
+    CommonOperand = MulOp1;
+  } else if (isStructFieldLoadCast(MulOp1)) {
+    CommonOperand = MulOp0;
+  } else {
+    return false;
+  }
+
+  if (!*CommonFMulOperand) {
+    *CommonFMulOperand = CommonOperand;
+  } else if (CommonOperand != *CommonFMulOperand) {
+    return false;
+  }
+
+  return true;
+}
+
+bool isInnermostConvolutionLoop(const Loop &Lp) {
+  if (!Lp.empty() || !Lp.getExitingBlock()) {
+    return false;
+  }
+
+  unsigned ReductionCount = 0;
+  const Value *CommonFMulOperand = nullptr;
+
+  for (auto &Phi : Lp.getHeader()->phis()) {
+    if (isConvolutionReduction(&Phi, &CommonFMulOperand)) {
+      ++ReductionCount;
+    }
+  }
+
+  return ReductionCount >= 3;
+}
+
+static bool isMiddleConvolutionLoop(const Loop &Lp) {
+  // Allow one innermost loop.
+  if (std::distance(Lp.begin(), Lp.end()) != 1) {
+    return false;
+  }
+
+  if (!Lp.getExitingBlock()) {
+    return false;
+  }
+
+  if (!isInnermostConvolutionLoop(**Lp.begin())) {
+    return false;
+  }
+
+  return true;
+}
+
+static bool isOuterConvolutionLoop(const Loop &Lp, const SCEV *BECount) {
+
+  // We are looking for an outer single-exit countable loop.
+  if (Lp.empty() || !Lp.getExitingBlock() ||
+      (BECount && isa<SCEVCouldNotCompute>(BECount))) {
+    return false;
+  }
+
+  // Allow two inner loops.
+  if (std::distance(Lp.begin(), Lp.end()) != 2) {
+    return false;
+  }
+
+  if (!isMiddleConvolutionLoop(**Lp.begin())) {
+    return false;
+  }
+
+  if (!isMiddleConvolutionLoop(**(Lp.begin() + 1))) {
+    return false;
+  }
+
+  return true;
+}
+
+static bool isOutermostConvolutionLoop(const Loop &Lp) {
+
+  if (Lp.empty() || !Lp.getExitingBlock()) {
+    return false;
+  }
+
+  if (std::distance(Lp.begin(), Lp.end()) != 1) {
+    return false;
+  }
+
+  if (!isOuterConvolutionLoop(**Lp.begin(), nullptr)) {
+    return false;
+  }
+
+  return true;
+}
+
 bool HIRRegionIdentification::shouldThrottleLoop(
     const Loop &Lp, const SCEV *BECount, bool &ThrottleParentLoop) const {
 
   if (!CostModelThrottling) {
+    return false;
+  }
+
+  if ((OptLevel > 2) &&
+      (isOuterConvolutionLoop(Lp, BECount) || isOutermostConvolutionLoop(Lp))) {
     return false;
   }
 
