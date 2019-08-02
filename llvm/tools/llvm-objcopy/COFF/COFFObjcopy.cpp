@@ -65,13 +65,17 @@ static std::vector<uint8_t> createGnuDebugLinkSectionContents(StringRef File) {
   return Data;
 }
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
 // INTEL: cherry-pick of https://reviews.llvm.org/D65040
+=======
+>>>>>>> cdeaac5dce2688367bcf2517fe9394c8a1e91cc8
 // Adds named section with given contents to the object.
 static void addSection(Object &Obj, StringRef Name, ArrayRef<uint8_t> Contents,
                        uint32_t Characteristics) {
   bool NeedVA = Characteristics & (IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ |
                                    IMAGE_SCN_MEM_WRITE);
+<<<<<<< HEAD
 
   Section Sec;
   Sec.setOwnedContents(Contents);
@@ -102,24 +106,34 @@ static void addGnuDebugLink(Object &Obj, StringRef DebugLinkFile) {
 #else  // INTEL_COLLAB
 static void addGnuDebugLink(Object &Obj, StringRef DebugLinkFile) {
   uint32_t StartRVA = getNextRVA(Obj);
+=======
+>>>>>>> cdeaac5dce2688367bcf2517fe9394c8a1e91cc8
 
-  std::vector<Section> Sections;
   Section Sec;
-  Sec.setOwnedContents(createGnuDebugLinkSectionContents(DebugLinkFile));
-  Sec.Name = ".gnu_debuglink";
-  Sec.Header.VirtualSize = Sec.getContents().size();
-  Sec.Header.VirtualAddress = StartRVA;
-  Sec.Header.SizeOfRawData = alignTo(Sec.Header.VirtualSize,
-                                     Obj.IsPE ? Obj.PeHeader.FileAlignment : 1);
+  Sec.setOwnedContents(Contents);
+  Sec.Name = Name;
+  Sec.Header.VirtualSize = NeedVA ? Sec.getContents().size() : 0u;
+  Sec.Header.VirtualAddress = NeedVA ? getNextRVA(Obj) : 0u;
+  Sec.Header.SizeOfRawData =
+      NeedVA ? alignTo(Sec.Header.VirtualSize,
+                       Obj.IsPE ? Obj.PeHeader.FileAlignment : 1)
+             : Sec.getContents().size();
   // Sec.Header.PointerToRawData is filled in by the writer.
   Sec.Header.PointerToRelocations = 0;
   Sec.Header.PointerToLinenumbers = 0;
   // Sec.Header.NumberOfRelocations is filled in by the writer.
   Sec.Header.NumberOfLinenumbers = 0;
-  Sec.Header.Characteristics = IMAGE_SCN_CNT_INITIALIZED_DATA |
-                               IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_DISCARDABLE;
-  Sections.push_back(Sec);
-  Obj.addSections(Sections);
+  Sec.Header.Characteristics = Characteristics;
+
+  Obj.addSections(Sec);
+}
+
+static void addGnuDebugLink(Object &Obj, StringRef DebugLinkFile) {
+  std::vector<uint8_t> Contents =
+      createGnuDebugLinkSectionContents(DebugLinkFile);
+  addSection(Obj, ".gnu_debuglink", Contents,
+             IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ |
+                 IMAGE_SCN_MEM_DISCARDABLE);
 }
 #endif // INTEL_COLLAB
 
@@ -212,6 +226,13 @@ static Error handleArgs(const CopyConfig &Config, Object &Obj) {
     StringRef SecName, FileName;
     std::tie(SecName, FileName) = Flag.split("=");
 
+<<<<<<< HEAD
+=======
+  for (const auto &Flag : Config.AddSection) {
+    StringRef SecName, FileName;
+    std::tie(SecName, FileName) = Flag.split("=");
+
+>>>>>>> cdeaac5dce2688367bcf2517fe9394c8a1e91cc8
     if (FileName.empty())
       return createStringError(llvm::errc::invalid_argument,
                                "bad format for --add-section");
@@ -226,7 +247,11 @@ static Error handleArgs(const CopyConfig &Config, Object &Obj) {
                      Buf->getBufferSize()),
         IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_ALIGN_1BYTES);
   }
+<<<<<<< HEAD
 #endif  // INTEL_COLLAB
+=======
+
+>>>>>>> cdeaac5dce2688367bcf2517fe9394c8a1e91cc8
   if (!Config.AddGnuDebugLink.empty())
     addGnuDebugLink(Obj, Config.AddGnuDebugLink);
 #if INTEL_COLLAB
@@ -252,15 +277,15 @@ static Error handleArgs(const CopyConfig &Config, Object &Obj) {
   if (Config.AllowBrokenLinks || !Config.BuildIdLinkDir.empty() ||
       Config.BuildIdLinkInput || Config.BuildIdLinkOutput ||
       !Config.SplitDWO.empty() || !Config.SymbolsPrefix.empty() ||
-      !Config.AllocSectionsPrefix.empty() || !Config.AddSection.empty() ||
-      !Config.DumpSection.empty() || !Config.KeepSection.empty() ||
-      !Config.SymbolsToGlobalize.empty() || !Config.SymbolsToKeep.empty() ||
-      !Config.SymbolsToLocalize.empty() || !Config.SymbolsToWeaken.empty() ||
-      !Config.SymbolsToKeepGlobal.empty() || !Config.SectionsToRename.empty() ||
-      !Config.SetSectionFlags.empty() || !Config.SymbolsToRename.empty() ||
-      Config.ExtractDWO || Config.KeepFileSymbols || Config.LocalizeHidden ||
-      Config.PreserveDates || Config.StripDWO || Config.StripNonAlloc ||
-      Config.StripSections || Config.Weaken || Config.DecompressDebugSections ||
+      !Config.AllocSectionsPrefix.empty() || !Config.DumpSection.empty() ||
+      !Config.KeepSection.empty() || !Config.SymbolsToGlobalize.empty() ||
+      !Config.SymbolsToKeep.empty() || !Config.SymbolsToLocalize.empty() ||
+      !Config.SymbolsToWeaken.empty() || !Config.SymbolsToKeepGlobal.empty() ||
+      !Config.SectionsToRename.empty() || !Config.SetSectionFlags.empty() ||
+      !Config.SymbolsToRename.empty() || Config.ExtractDWO ||
+      Config.KeepFileSymbols || Config.LocalizeHidden || Config.PreserveDates ||
+      Config.StripDWO || Config.StripNonAlloc || Config.StripSections ||
+      Config.Weaken || Config.DecompressDebugSections ||
       Config.DiscardMode == DiscardType::Locals ||
       !Config.SymbolsToAdd.empty() || Config.EntryExpr) {
     return createStringError(llvm::errc::invalid_argument,

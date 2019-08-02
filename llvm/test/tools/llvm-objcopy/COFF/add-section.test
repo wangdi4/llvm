@@ -1,5 +1,8 @@
+<<<<<<< HEAD
 # INTEL_COLLAB
 # INTEL: cherry-pick of https://reviews.llvm.org/D65040
+=======
+>>>>>>> cdeaac5dce2688367bcf2517fe9394c8a1e91cc8
 # RUN: yaml2obj %s > %t
 
 ## Test that llvm-objcopy adds a section to the given object with expected
@@ -56,4 +59,7 @@ sections:
     SectionData:     488B0500000000C3
 symbols:
 ...
+<<<<<<< HEAD
 # end INTEL_COLLAB
+=======
+>>>>>>> cdeaac5dce2688367bcf2517fe9394c8a1e91cc8
