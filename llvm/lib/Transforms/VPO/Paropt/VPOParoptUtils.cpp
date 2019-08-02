@@ -3494,7 +3494,7 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
 // constants (e.g. I8, I16, etc.)
 using namespace llvm::vpo::intrinsics;
 
-CallInst *VPOParoptUtils::genSPIRVHorizontalReduction(
+Value *VPOParoptUtils::genSPIRVHorizontalReduction(
     ReductionItem *RedI, Type *ScalarTy, Instruction *RedDef,
     spirv::Scope Scope) {
 
@@ -3515,65 +3515,70 @@ CallInst *VPOParoptUtils::genSPIRVHorizontalReduction(
         //    OperationKind                   IsSigned      Type
         //Builtin name
         { { { ReductionItem::WRNReductionAdd, true       }, I16 },
-          "__builtin_spirv_OpGroupIAdd_i32_i32_i16" },
-        { { { ReductionItem::WRNReductionAdd, false      }, I16 },
-          "__builtin_spirv_OpGroupIAdd_i32_i32_i16" },
+          "_Z20sub_group_reduce_addi" },
         { { { ReductionItem::WRNReductionAdd, true       }, I32 },
-          "__builtin_spirv_OpGroupIAdd_i32_i32_i32" },
-        { { { ReductionItem::WRNReductionAdd, false      }, I32 },
-          "__builtin_spirv_OpGroupIAdd_i32_i32_i32" },
+          "_Z20sub_group_reduce_addi" },
         { { { ReductionItem::WRNReductionAdd, true       }, I64 },
-          "__builtin_spirv_OpGroupIAdd_i32_i32_i64" },
-        { { { ReductionItem::WRNReductionAdd, false      }, I64 },
-          "__builtin_spirv_OpGroupIAdd_i32_i32_i64" },
+          "_Z20sub_group_reduce_addl" },
         { { { ReductionItem::WRNReductionAdd, llvm::None }, F16 },
-          "__builtin_spirv_OpGroupFAdd_i32_i32_f16" },
+          "_Z20sub_group_reduce_addDh" },
         { { { ReductionItem::WRNReductionAdd, llvm::None }, F32 },
-          "__builtin_spirv_OpGroupFAdd_i32_i32_f32" },
+          "_Z20sub_group_reduce_addf" },
         { { { ReductionItem::WRNReductionAdd, llvm::None }, F64 },
-          "__builtin_spirv_OpGroupFAdd_i32_i32_f64" },
+          "_Z20sub_group_reduce_addd" },
         { { { ReductionItem::WRNReductionMin, true       }, I16 },
-          "__builtin_spirv_OpGroupSMin_i32_i32_i16" },
+          "_Z20sub_group_reduce_mini" },
         { { { ReductionItem::WRNReductionMin, false      }, I16 },
-          "__builtin_spirv_OpGroupUMin_i32_i32_i16" },
+          "_Z20sub_group_reduce_minj" },
         { { { ReductionItem::WRNReductionMin, true       }, I32 },
-          "__builtin_spirv_OpGroupSMin_i32_i32_i32" },
+          "_Z20sub_group_reduce_mini" },
         { { { ReductionItem::WRNReductionMin, false      }, I32 },
-          "__builtin_spirv_OpGroupUMin_i32_i32_i32" },
+          "_Z20sub_group_reduce_minj" },
         { { { ReductionItem::WRNReductionMin, true       }, I64 },
-          "__builtin_spirv_OpGroupSMin_i32_i32_i64" },
+          "_Z20sub_group_reduce_minl" },
         { { { ReductionItem::WRNReductionMin, false      }, I64 },
-          "__builtin_spirv_OpGroupUMin_i32_i32_i64" },
+          "_Z20sub_group_reduce_minm" },
         { { { ReductionItem::WRNReductionMin, llvm::None }, F16 },
-          "__builtin_spirv_OpGroupFMin_i32_i32_f16" },
+          "_Z20sub_group_reduce_minDh" },
         { { { ReductionItem::WRNReductionMin, llvm::None }, F32 },
-          "__builtin_spirv_OpGroupFMin_i32_i32_f32" },
+          "_Z20sub_group_reduce_minf" },
         { { { ReductionItem::WRNReductionMin, llvm::None }, F64 },
-          "__builtin_spirv_OpGroupFMin_i32_i32_f64" },
+          "_Z20sub_group_reduce_mind" },
         { { { ReductionItem::WRNReductionMax, true       }, I16 },
-          "__builtin_spirv_OpGroupSMax_i32_i32_i16" },
+          "_Z20sub_group_reduce_maxi" },
         { { { ReductionItem::WRNReductionMax, false      }, I16 },
-          "__builtin_spirv_OpGroupUMax_i32_i32_i16" },
+          "_Z20sub_group_reduce_maxj" },
         { { { ReductionItem::WRNReductionMax, true       }, I32 },
-          "__builtin_spirv_OpGroupSMax_i32_i32_i32" },
+          "_Z20sub_group_reduce_maxi" },
         { { { ReductionItem::WRNReductionMax, false      }, I32 },
-          "__builtin_spirv_OpGroupUMax_i32_i32_i32" },
+          "_Z20sub_group_reduce_maxj" },
         { { { ReductionItem::WRNReductionMax, true       }, I64 },
-          "__builtin_spirv_OpGroupSMax_i32_i32_i64" },
+          "_Z20sub_group_reduce_maxl" },
         { { { ReductionItem::WRNReductionMax, false      }, I64 },
-          "__builtin_spirv_OpGroupUMax_i32_i32_i64" },
+          "_Z20sub_group_reduce_maxm" },
         { { { ReductionItem::WRNReductionMax, llvm::None }, F16 },
-          "__builtin_spirv_OpGroupFMax_i32_i32_f16" },
+          "_Z20sub_group_reduce_maxDh" },
         { { { ReductionItem::WRNReductionMax, llvm::None }, F32 },
-          "__builtin_spirv_OpGroupFMax_i32_i32_f32" },
+          "_Z20sub_group_reduce_maxf" },
         { { { ReductionItem::WRNReductionMax, llvm::None }, F64 },
-          "__builtin_spirv_OpGroupFMax_i32_i32_f64" },
+          "_Z20sub_group_reduce_maxd" },
       };
+
+  // The table above only specialized for Subgroup reductions.
+  // It may be extended for other scopes, if needed.
+  if (Scope != spirv::Scope::Subgroup)
+    return nullptr;
 
   ReductionItem::WRNReductionKind Kind = RedI->getType();
   Optional<bool> IsSigned = llvm::None;
   if (ScalarTy->isIntegerTy())
     IsSigned = !RedI->getIsUnsigned();
+
+  assert((IsSigned != false ||
+          Kind == ReductionItem::WRNReductionMin ||
+          Kind == ReductionItem::WRNReductionMax) &&
+         "The UNSIGNED modifier is for MIN/MAX reduction only");
+
   auto TyID = ScalarTy->getTypeID();
   auto TySize = ScalarTy->getScalarSizeInBits();
 
@@ -3583,16 +3588,35 @@ CallInst *VPOParoptUtils::genSPIRVHorizontalReduction(
   if (MapEntry == SPIRVHorizontalReductionMap.end())
     return nullptr;
 
-  StringRef Name = MapEntry->second;
-  auto &C = RedDef->getContext();
-  Value *Args[] = { ConstantInt::get(Type::getInt32Ty(C), Scope),
-                    ConstantInt::get(
-                        Type::getInt32Ty(C),
-                        spirv::GroupOperations::GroupOperationReduce),
-                    RedDef };
+  IRBuilder<> Builder(RedDef->getNextNode());
+  Value *Result = RedDef;
+  auto CallArgRetTy = ScalarTy;
 
-  return genCall(RedDef->getModule(), Name, ScalarTy, Args,
-                 RedDef->getNextNode());
+  // Extend 16-bit integer reduction value to 32-bit one.
+  if (TySize == 16 && ScalarTy->isIntegerTy()) {
+    CallArgRetTy = Builder.getIntNTy(32);
+    if (IsSigned)
+      Result = Builder.CreateSExt(Result, CallArgRetTy);
+    else
+      Result = Builder.CreateZExt(Result, CallArgRetTy);
+  }
+
+  StringRef Name = MapEntry->second;
+
+  auto HRCall = genCall(RedDef->getModule(), Name, CallArgRetTy,  { Result },
+                        &*Builder.GetInsertPoint());
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__ <<
+             ": SPIRV horizontal reduction is used "
+             "for critical section reduction: " <<
+             HRCall->getCalledFunction()->getName() << "\n");
+
+  Result = HRCall;
+
+  if (TySize == 16 && ScalarTy->isIntegerTy())
+    Result = Builder.CreateTrunc(Result, Builder.getIntNTy(16));
+
+  return Result;
 }
 
 #endif // INTEL_COLLAB

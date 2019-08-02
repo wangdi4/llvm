@@ -1139,10 +1139,12 @@ public:
                                       AssumptionCache *AC);
 
   // If there is a SPIRV builtin performing horizontal reduction for the given
-  // reduction operation, this method will insert a call to this builtin
-  // with \p RedDef as the reduction argument. \p Scope defines the SPIRV
-  // reduction scope (e.g. Group, Subgroup, etc.)
-  static CallInst *genSPIRVHorizontalReduction(
+  // reduction operation, this method will insert code with a call
+  // of this builtin with \p RedDef as the reduction value.
+  // \p Scope defines the SPIRV reduction scope (e.g. Group, Subgroup, etc.)
+  // In some case sign/zero integer extension and truncation may be inserted
+  // before and after the call.
+  static Value *genSPIRVHorizontalReduction(
       ReductionItem *RedI, Type *ScalarTy, Instruction *RedDef,
       spirv::Scope Scope);
 
