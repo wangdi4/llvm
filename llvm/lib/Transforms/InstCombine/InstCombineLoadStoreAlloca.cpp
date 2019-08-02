@@ -455,9 +455,6 @@ static LoadInst *combineLoadToNewType(InstCombiner &IC, LoadInst &LI, Type *NewT
 
   Value *Ptr = LI.getPointerOperand();
   unsigned AS = LI.getPointerAddressSpace();
-  SmallVector<std::pair<unsigned, MDNode *>, 8> MD;
-  LI.getAllMetadata(MD);
-
   Value *NewPtr = nullptr;
   if (!(match(Ptr, m_BitCast(m_Value(NewPtr))) &&
         NewPtr->getType()->getPointerElementType() == NewTy &&
@@ -467,6 +464,7 @@ static LoadInst *combineLoadToNewType(InstCombiner &IC, LoadInst &LI, Type *NewT
   LoadInst *NewLoad = IC.Builder.CreateAlignedLoad(
       NewTy, NewPtr, LI.getAlignment(), LI.isVolatile(), LI.getName() + Suffix);
   NewLoad->setAtomic(LI.getOrdering(), LI.getSyncScopeID());
+<<<<<<< HEAD
   MDBuilder MDB(NewLoad->getContext());
   for (const auto &MDPair : MD) {
     unsigned ID = MDPair.first;
@@ -513,6 +511,9 @@ static LoadInst *combineLoadToNewType(InstCombiner &IC, LoadInst &LI, Type *NewT
       break;
     }
   }
+=======
+  copyMetadataForLoad(*NewLoad, LI);
+>>>>>>> 86e9f9dc26fde38d1dba10e90c2e6881cc31dbd5
   return NewLoad;
 }
 
