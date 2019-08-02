@@ -3,7 +3,7 @@
 ; RUN: opt < %s -analyze -scalar-evolution | FileCheck %s --check-prefix=SCEV
 
 ; Verify that %conv20.i has unsigned range info
-; SCEV: -->  %conv20.i U: [0,256) 
+; SCEV: -->  %conv20.i U: [0,256)
 
 
 ; Verify that we do not form an SCC if the base phi has range info.

@@ -590,6 +590,14 @@ Pass *createLoopSimplifyCFGPass();
 // transformations.
 //
 Pass *createWarnMissedTransformationsPass();
+
+#if INTEL_CUSTOMIZATION
+//===----------------------------------------------------------------------===//
+//
+// IVSplit - This pass performs IV live range split on nesting inner loops
+//
+FunctionPass *createIVSplitLegacyPass();
+#endif // INTEL_CUSTOMIZATION
 } // End llvm namespace
 
 #endif

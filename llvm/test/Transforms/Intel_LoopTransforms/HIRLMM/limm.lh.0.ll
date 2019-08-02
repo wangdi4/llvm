@@ -53,21 +53,21 @@
 ;
 ;[LIMM Analysis]
 ;MemRefCollection, entries: 8
-;  (@B)[0][0] {  R  W  } 1W : 1R  illegal 
-;  (@A)[0][0] {  R  } 0W : 1R  illegal 
-;  (@B)[0][1] {  R  W  } 1W : 1R  illegal 
-;  (@A)[0][1] {  R  } 0W : 1R  illegal 
-;  (@B)[0][2] {  R  W  } 1W : 1R  illegal 
-;  (@A)[0][2] {  R  } 0W : 1R  illegal 
-;  (@B)[0][3] {  R  W  } 1W : 1R  illegal 
-;  (@A)[0][3] {  R  } 0W : 1R  illegal 
+;  (@B)[0][0] {  R  W  } 1W : 1R  illegal
+;  (@A)[0][0] {  R  } 0W : 1R  illegal
+;  (@B)[0][1] {  R  W  } 1W : 1R  illegal
+;  (@A)[0][1] {  R  } 0W : 1R  illegal
+;  (@B)[0][2] {  R  W  } 1W : 1R  illegal
+;  (@A)[0][2] {  R  } 0W : 1R  illegal
+;  (@B)[0][3] {  R  W  } 1W : 1R  illegal
+;  (@A)[0][3] {  R  } 0W : 1R  illegal
 ;
 ; LIMM's Opportunities:
 ; - LILH:  (0)
 ; - LISS:  (0)
 ; - LILHSS:(0)
 ;
-;  
+;
 ; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { modified }
@@ -100,8 +100,8 @@
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION
 ;
-; *** *** 
-;          
+; *** ***
+;
 ; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { modified }

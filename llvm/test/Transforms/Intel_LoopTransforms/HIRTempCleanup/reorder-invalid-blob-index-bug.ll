@@ -1,7 +1,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -print-before=hir-temp-cleanup -print-after=hir-temp-cleanup -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>,hir-temp-cleanup,print<hir-framework>" -disable-output 2>&1 | FileCheck %s
 
-; Test was compfailing because we tried to check use of %conv2 in %conv124. 
+; Test was compfailing because we tried to check use of %conv2 in %conv124.
 ; %conv2 does not have a blob index because it is not used inside the region.
 ; It is only live out of it.
 

@@ -768,7 +768,7 @@ void MemRefGroup::generateLoadInPrehdr(HLLoop *Lp, RegDDRef *MemRef,
 
   // Make MemRef2 consistent
   const SmallVector<const RegDDRef *, 1> AuxRefs = {Lp->getLowerDDRef()};
-  MemRef2->makeConsistent(&AuxRefs, Lp->getNestingLevel() - 1);
+  MemRef2->makeConsistent(AuxRefs, Lp->getNestingLevel() - 1);
 }
 
 void MemRefGroup::generateStoreFromTmps(HLLoop *Lp) {
@@ -842,7 +842,7 @@ HLInst *MemRefGroup::generateStoreInPostexit(HLLoop *Lp, RegDDRef *MemRef,
 
   // Make MemRef consistent: remove any stale blob(s)
   const SmallVector<const RegDDRef *, 1> AuxRefs = {Lp->getUpperDDRef()};
-  MemRef->makeConsistent(&AuxRefs, Lp->getNestingLevel() - 1);
+  MemRef->makeConsistent(AuxRefs, Lp->getNestingLevel() - 1);
 
   return StoreInst;
 }

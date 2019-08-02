@@ -1,7 +1,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -print-before=hir-loop-interchange -print-after=hir-loop-interchange < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-interchange,print<hir>" -aa-pipeline="basic-aa"  < %s 2>&1 | FileCheck %s
 
-; Enabling a perfect loop nest is correct. But we choose not to do so. 
+; Enabling a perfect loop nest is correct. But we choose not to do so.
 ; Interchange afterwards is not valid, so perfect loop nest does not help the performance.
 
 ; CHECK:Function: main
@@ -12,7 +12,7 @@
 ; CHECK:               |   |   + DO i3 = 0, 9, 1   <DO_LOOP>
 ; CHECK:               |   |   |   %s.087 = (@a)[0][i3][i1]  +  %s.087;
 ; CHECK:               |   |   + END LOOP
-; CHECK:               |   |   
+; CHECK:               |   |
 ; CHECK:               |   |   (@b)[0][i2][i1] = %s.087;
 ; CHECK:               |   + END LOOP
 ; CHECK:               + END LOOP
@@ -28,7 +28,7 @@
 ; CHECK:               |   |   + DO i3 = 0, 9, 1   <DO_LOOP>
 ; CHECK:               |   |   |   %s.087 = (@a)[0][i3][i1]  +  %s.087;
 ; CHECK:               |   |   + END LOOP
-; CHECK:               |   |   
+; CHECK:               |   |
 ; CHECK:               |   |   (@b)[0][i2][i1] = %s.087;
 ; CHECK:               |   + END LOOP
 ; CHECK:               + END LOOP

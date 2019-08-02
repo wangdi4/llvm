@@ -278,9 +278,6 @@ CODEGENOPT(DebugFwdTemplateParams, 1, 0) ///< Whether to emit complete
                                          ///< including them in the name).
 
 #if INTEL_CUSTOMIZATION
-// CQ#368123
-CODEGENOPT(EmitClassDebugAlways, 1, 1) ///< Whether or not to emit debug info
-                                       ///< for all class members.
 CODEGENOPT(NoExprSourcePos, 1, 0) ///< Whether or not to emit debug source
                                   ///< positions for expressions.
 #endif // INTEL_CUSTOMIZATION

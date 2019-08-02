@@ -2,10 +2,10 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-scalarrepl-array,print<hir>" -aa-pipeline="basic-aa" -disable-output -hir-scalarrepl-array-depdist-threshold=5 < %s 2>&1 | FileCheck %s
 ;
 ; Scalar Replacement Sanity Test: skip doing scalar replacement because the dep-distance is too big.
-; Note: use -O1 to compile the test.c file, because clang will have done the scalar replacement under -O2. 
+; Note: use -O1 to compile the test.c file, because clang will have done the scalar replacement under -O2.
 ;
 ; [REASONS]
-; - Applicable: NO (dependence is too big: bigger than 5) 
+; - Applicable: NO (dependence is too big: bigger than 5)
 ; - Profitable: n/a
 ; - Legal:      n/a
 ;
@@ -20,7 +20,7 @@
 ;  return A[0] + A[1] + 1;
 ;}
 ;
-; 
+;
 ;
 ; CHECK: Function
 ;
@@ -32,7 +32,7 @@
 ; CHECK:         + END LOOP
 ; CHECK:   END REGION
 ;
-;  
+;
 ; =====================================================
 ;
 ; CHECK: Function

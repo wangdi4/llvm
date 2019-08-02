@@ -21,16 +21,16 @@
 ;
 ; [LIMM Analysis]
 ;MemRefCollection, entries: 1
-;  (@c)[0][i1][%j.043] {  R  W  } 1W : 1R  legal 
-; 
+;  (@c)[0][i1][%j.043] {  R  W  } 1W : 1R  legal
+;
 ;
 ; LIMM Opportunity
-; - LILH:  (0) 
+; - LILH:  (0)
 ; - LISS:  (0)
 ; - LILHSS:(1)
 ;
 ; Input HIR:
-; 
+;
 ;          BEGIN REGION { modified }
 ;<27>            + DO i1 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
 ;<28>            |   + DO i2 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
@@ -44,7 +44,7 @@
 ;
 ;
 ; CHECK: Function
-; 
+;
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:        + DO i1 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
 ; CHECK:        |   + DO i2 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
@@ -55,11 +55,11 @@
 ; CHECK:        |   + END LOOP
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION
-;          
+;
 ; ***
-;  
-; Check that after hir-lmm, the loop-inv load(s)/store(s) are promoted/sinked properly 
-;  
+;
+; Check that after hir-lmm, the loop-inv load(s)/store(s) are promoted/sinked properly
+;
 ; CHECK: Function
 ;
 ; CHECK: BEGIN REGION { modified }

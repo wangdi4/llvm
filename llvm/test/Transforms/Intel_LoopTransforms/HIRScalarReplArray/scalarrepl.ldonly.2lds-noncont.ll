@@ -4,7 +4,7 @@
 ; Scalar Replacement Sanity Test: loads only (2 non-continue loads)
 ;
 ; [REASONS]
-; - Applicable: YES  
+; - Applicable: YES
 ; - Profitable: YES
 ; - Legal:      YES
 ;
@@ -23,7 +23,7 @@
 ;                                      MaxLD
 ; GapTracker:  { R     G       G       R       }
 ;
-; 
+;
 ; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { }
@@ -34,7 +34,7 @@
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION
 ;
-;  
+;
 ; =====================================================
 ;
 ; CHECK: Function
@@ -55,7 +55,7 @@
 ; CHECK:        |   %scalarepl1 = %scalarepl2;
 ; CHECK:        |   %scalarepl2 = %scalarepl3;
 ; CHECK:        + END LOOP
-;        
+;
 ; CHECK:  END REGION
 ;
 ;

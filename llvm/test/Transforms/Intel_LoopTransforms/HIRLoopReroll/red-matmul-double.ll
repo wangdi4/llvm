@@ -3,36 +3,36 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" -hir-verify-cf-def-level < %s 2>&1 | FileCheck %s
 
 ; CHECK: Function: foo
-;  
+;
 ; CHECK:         BEGIN REGION { }
 ; CHECK:               + DO i1 = 0, 999, 1   <DO_LOOP>
 ; CHECK:               |   + DO i2 = 0, 999, 1   <DO_LOOP>
 ; CHECK:               |   |   %0 = (@C)[0][i1][i2];
-; CHECK:               |   |   
+; CHECK:               |   |
 ; CHECK:               |   |   + DO i3 = 0, 499, 1   <DO_LOOP>
 ; CHECK:               |   |   |   %mul = (@A)[0][i1][2 * i3]  *  (@B)[0][2 * i3][i2];
 ; CHECK:               |   |   |   %add = %0  +  %mul;
 ; CHECK:               |   |   |   %mul29 = (@A)[0][i1][2 * i3 + 1]  *  (@B)[0][2 * i3 + 1][i2];
 ; CHECK:               |   |   |   %0 = %add  +  %mul29;
 ; CHECK:               |   |   + END LOOP
-; CHECK:               |   |   
+; CHECK:               |   |
 ; CHECK:               |   |   (@C)[0][i1][i2] = %0;
 ; CHECK:               |   + END LOOP
 ; CHECK:               + END LOOP
 ; CHECK:         END REGION
-;  
+;
 ; CHECK: Function: foo
-;  
+;
 ; CHECK:         BEGIN REGION { }
 ; CHECK:               + DO i1 = 0, 999, 1   <DO_LOOP>
 ; CHECK:               |   + DO i2 = 0, 999, 1   <DO_LOOP>
 ; CHECK:               |   |   %0 = (@C)[0][i1][i2];
-; CHECK:               |   |   
+; CHECK:               |   |
 ; CHECK:               |   |   + DO i3 = 0, 999, 1   <DO_LOOP>
 ; CHECK:               |   |   |   %mul = (@A)[0][i1][i3]  *  (@B)[0][i3][i2];
 ; CHECK:               |   |   |   %0 = %0  +  %mul;
 ; CHECK:               |   |   + END LOOP
-; CHECK:               |   |   
+; CHECK:               |   |
 ; CHECK:               |   |   (@C)[0][i1][i2] = %0;
 ; CHECK:               |   + END LOOP
 ; CHECK:               + END LOOP

@@ -373,35 +373,32 @@ void TargetInfo::adjust(LangOptions &Opts) {
     LongDoubleFormat = &llvm::APFloat::IEEEquad();
   }
 
+  if (Opts.LongDoubleSize) {
+    if (Opts.LongDoubleSize == DoubleWidth) {
+      LongDoubleWidth = DoubleWidth;
+      LongDoubleAlign = DoubleAlign;
+      LongDoubleFormat = DoubleFormat;
+    } else if (Opts.LongDoubleSize == 128) {
+      LongDoubleWidth = LongDoubleAlign = 128;
+      LongDoubleFormat = &llvm::APFloat::IEEEquad();
+#if INTEL_CUSTOMIZATION
+    } else if (Opts.LongDoubleSize == 80) {
+      if (getTriple().getArch() == llvm::Triple::x86_64) {
+        LongDoubleWidth = 128;
+        LongDoubleAlign = 128;
+        LongDoubleFormat = &llvm::APFloat::x87DoubleExtended();
+      } else if (getTriple().getArch() == llvm::Triple::x86) {
+        LongDoubleWidth = 96;
+        LongDoubleAlign = 32;
+        LongDoubleFormat = &llvm::APFloat::x87DoubleExtended();
+      }
+#endif // INTEL_CUSTOMIZATION
+    }
+  }
+
 #if INTEL_CUSTOMIZATION
   if ((Opts.IntelCompat || Opts.IntelMSCompat) && Opts.Float128)
     HasFloat128 = true;
-
-  switch (Opts.LongDoubleSize) {
-  default:
-    break;
-  case 64:
-    LongDoubleWidth = 64;
-    LongDoubleAlign = 64;
-    LongDoubleFormat = &llvm::APFloat::IEEEdouble();
-    break;
-  case 80:
-    if (getTriple().getArch() == llvm::Triple::x86_64) {
-      LongDoubleWidth = 128;
-      LongDoubleAlign = 128;
-    } else {
-      LongDoubleWidth = 96;
-      LongDoubleAlign = 32;
-    }
-
-    LongDoubleFormat = &llvm::APFloat::x87DoubleExtended();
-    break;
-  case 128:
-    LongDoubleWidth = 128;
-    LongDoubleAlign = 128;
-    LongDoubleFormat = &llvm::APFloat::IEEEquad();
-    break;
-  }
 #endif // INTEL_CUSTOMIZATION
 
   if (Opts.NewAlignOverride)

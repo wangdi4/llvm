@@ -67,7 +67,7 @@
 ; CHECK:   }
 ; CHECK:   else
 ; CHECK:   {
-; CHECK:     + DO i1 = 0, 1, 
+; CHECK:     + DO i1 = 0, 1,
 ; CHECK:     |   + DO i2 = 0, -1 * i1 + 1, 1
 ; CHECK-NOT: if
 ; CHECK:     |   + END LOOP

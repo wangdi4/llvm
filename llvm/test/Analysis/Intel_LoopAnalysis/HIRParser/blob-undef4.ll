@@ -10,7 +10,7 @@
 ; CHECK: NSW: Yes
 
 ; CHECK: ={{.*}}undef * undef{{.*}};
-; CHECK: <RVAL-REG>{{.*}}undef * undef{{.*}} 
+; CHECK: <RVAL-REG>{{.*}}undef * undef{{.*}}
 ; undef is assumed as a constant so we do not create blob ddrefs for it.
 ; CHECK-NOT: <BLOB> {{.*}} undef
 

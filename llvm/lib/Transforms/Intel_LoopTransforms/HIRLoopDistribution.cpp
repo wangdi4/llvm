@@ -80,13 +80,11 @@ bool HIRLoopDistribution::run() {
   LoopOptReportBuilder &LORBuilder = HIRF.getLORBuilder();
 
   for (auto I = Loops.begin(), E = Loops.end(); I != E; ++I) {
-    DistributedLoops.clear();
     HLLoop *Lp = *I;
     if (!loopIsCandidate(Lp)) {
-      if (OptReportLevel >= 3) {
-        dbgs() << "LOOP DISTRIBUTION: Loop is not candidate with current "
-                  "heuristics \n";
-      }
+      LLVM_DEBUG(
+          dbgs() << "LOOP DISTRIBUTION: Loop is not candidate with current "
+                    "heuristics \n");
       continue;
     }
 
@@ -106,9 +104,15 @@ bool HIRLoopDistribution::run() {
     if (DistCostModel == DistHeuristics::BreakMemRec) {
       TotalMemOps = HLR.getSelfLoopResource(Lp).getNumIntMemOps() +
                     HLR.getSelfLoopResource(Lp).getNumFPMemOps();
+
       if (TotalMemOps >= MaxMemResourceToDistribute) {
         ForceCycleForLoopIndepDep = false;
       }
+
+      LLVM_DEBUG(dbgs() << "[Distribution] Loop has " << TotalMemOps
+                        << " memory operations which makes it "
+                        << (ForceCycleForLoopIndepDep ? "non-" : "")
+                        << "profitable for scalar expansion\n");
     }
 
     // Sparse array reduction info is needed to create the DistPPGraph
@@ -119,19 +123,23 @@ bool HIRLoopDistribution::run() {
         new PiGraph(Lp, DDA, SARA, ForceCycleForLoopIndepDep));
 
     if (!PG->isGraphValid()) {
-      if (OptReportLevel >= 3) {
-        dbgs() << "LOOP DISTRIBUTION: Distribution for loop failed due to "
-               << PG->getFailureReason() << "\n";
-      }
+      LLVM_DEBUG(
+          dbgs() << "LOOP DISTRIBUTION: Distribution for loop failed due to "
+                 << PG->getFailureReason() << "\n");
       continue;
     }
 
+    LLVM_DEBUG(dbgs() << "DDG dump:\n");
+    LLVM_DEBUG(DDA.getGraph(Lp).dump());
+
+    LLVM_DEBUG(dbgs() << "\nPiGraph dump:\n");
+    LLVM_DEBUG(PG->dump());
+    LLVM_DEBUG(dbgs() << "\n");
+
     // Single piblock graph isn't worth considering
     if (PG->size() < 2) {
-      if (OptReportLevel >= 3) {
-        // TODO might still be able to scalar expand though...
-        dbgs() << "LOOP DISTRIBUTION:  too many dependences\n";
-      }
+      // TODO might still be able to scalar expand though...
+      LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION:  too many dependences\n");
 
       if (DistCostModel != DistHeuristics::BreakMemRec) {
         continue;
@@ -141,29 +149,83 @@ bool HIRLoopDistribution::run() {
     SmallVector<PiBlockList, 8> NewOrdering;
     findDistPoints(Lp, PG, NewOrdering);
 
-    if (NewOrdering.size() > 1) {
-      // Refactor NewOrdering into a different vector, to make codegen
-      // routine shareable from Dist PiBlocks or user pragma
-      for (PiBlockList &PList : NewOrdering) {
-        HLDDNodeList CurLoopHLDDNodeList;
-        for (PiBlock *PiBlk : PList) {
-          for (auto NodeI = PiBlk->nodes_begin(), E = PiBlk->nodes_end();
-               NodeI != E; ++NodeI) {
-            HLDDNode *Node = cast<HLDDNode>(*NodeI);
-            CurLoopHLDDNodeList.push_back(Node);
-          }
-        }
-        DistributedLoops.push_back(CurLoopHLDDNodeList);
-      }
+    if (NewOrdering.size() > 1 && NewOrdering.size() < MaxDistributedLoop) {
+      SmallVector<HLDDNodeList, 8> DistributedLoops;
+      processPiBlocksToHLNodes(PG, NewOrdering, DistributedLoops);
       Modified = distributeLoop(Lp, DistributedLoops, false, LORBuilder);
-    } else if (OptReportLevel >= 3) {
-      dbgs() << "LOOP DISTRIBUTION: "
-             << "Found no valid distribution points"
-             << "\n";
+    } else {
+      LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION: "
+                        << "Found no valid distribution points"
+                        << "\n");
     }
   }
 
   return Modified;
+}
+
+void HIRLoopDistribution::processPiBlocksToHLNodes(
+    const std::unique_ptr<PiGraph> &PGraph,
+    ArrayRef<PiBlockList> GroupsOfPiBlocks,
+    SmallVectorImpl<HLDDNodeList> &DistributedLoops) {
+
+  // Maps (Original control statement, PiBlock list) -> Original or cloned HLIf.
+  SmallDenseMap<std::pair<HLIf *, const PiBlockList *>, HLIf *> ControlGuards;
+
+  unsigned LoopNum = 0;
+  for (auto &PList : GroupsOfPiBlocks) {
+    HLDDNodeList &CurLoopHLDDNodeList = DistributedLoops.emplace_back();
+
+    // Combine PiBlocks within single ordering group.
+    SmallVector<DistPPNode *, 32> MergedPiBlock;
+    for (auto *PiBlock : PList) {
+      for (auto *PPNode :
+           make_range(PiBlock->dist_node_begin(), PiBlock->dist_node_end())) {
+        MergedPiBlock.push_back(PPNode);
+      }
+    }
+
+    std::sort(MergedPiBlock.begin(), MergedPiBlock.end(),
+              [](DistPPNode *A, DistPPNode *B) {
+                return A->getNode()->getTopSortNum() <
+                       B->getNode()->getTopSortNum();
+              });
+
+    for (auto *PPNode : MergedPiBlock) {
+      HLNode *Node = PPNode->getNode();
+
+      // Set the existing control node for the PList.
+      if (PPNode->isControlNode()) {
+        HLIf *ControlNode = cast<HLIf>(Node);
+        ControlGuards[{ControlNode, &PList}] = ControlNode;
+      }
+
+      auto ControlDep = PGraph->getControlDependence(PPNode);
+      if (!ControlDep) {
+        CurLoopHLDDNodeList.push_back(cast<HLDDNode>(Node));
+        continue;
+      }
+
+      HLIf *OrigControlNode = cast<HLIf>(ControlDep->first->getNode());
+      HLIf *&ControlNode = ControlGuards[{OrigControlNode, &PList}];
+
+      // Check if control node doesn't exist in the current PiBlock.
+      if (!ControlNode) {
+        ControlNode = OrigControlNode->cloneEmpty();
+        // Use {LoopNum, true} to indicate insert or move HLIf to its final
+        // place in HIR.
+        DistDirectiveNodeMap[ControlNode] = {LoopNum, true};
+        CurLoopHLDDNodeList.push_back(ControlNode);
+      }
+
+      if (ControlDep->second) {
+        HLNodeUtils::moveAsLastThenChild(ControlNode, Node);
+      } else {
+        HLNodeUtils::moveAsLastElseChild(ControlNode, Node);
+      }
+    }
+
+    ++LoopNum;
+  }
 }
 
 bool HIRLoopDistribution::piEdgeIsRecurrence(const HLLoop *Lp,
@@ -203,14 +265,6 @@ RegDDRef *HIRLoopDistribution::createTempArrayStore(HLLoop *Lp,
         TempRef->getSymbase(), TempRef->getSingleCanonExpr());
   }
 
-  auto CE = TempRegRef->getSingleCanonExpr();
-
-  // Checking of isConstant needs to use TempRef
-  if (CE->isSelfBlob() || TempRegRef->isConstant()) {
-    TempRegRef = TempRegRef->clone();
-    TempRegRef->makeSelfBlob(true);
-  }
-
   auto ArrTy = ArrayType::get(TempRef->getDestType(), StripmineSize);
 
   AllocaBlobIdx = HNU.createAlloca(ArrTy, RegionNode, ".TempArray");
@@ -237,8 +291,11 @@ RegDDRef *HIRLoopDistribution::insertTempArrayStore(HLLoop *Lp,
                                                     RegDDRef *TmpArrayRef,
                                                     HLDDNode *TempRefDDNode) {
 
-  HLInst *StoreInst = HNU.createStore(TempRef->clone(), ".TempSt", TmpArrayRef);
+  RegDDRef *RVal = TempRef->clone();
+  HLInst *StoreInst = HNU.createStore(RVal, ".TempSt", TmpArrayRef);
   HLNodeUtils::insertAfter(TempRefDDNode, StoreInst);
+
+  RVal->makeConsistent(TempRef);
 
   updateLiveInAllocaTemp(Lp, TmpArrayRef->getBasePtrSymbase());
   TempArraySB.push_back(TmpArrayRef->getSymbase());
@@ -469,19 +526,18 @@ bool HIRLoopDistribution::arrayTempExceeded(unsigned LastLoopNum,
 bool HIRLoopDistribution::distributeLoop(
     HLLoop *Loop, SmallVectorImpl<HLDDNodeList> &DistributedLoops,
     bool ForDirective, LoopOptReportBuilder &LORBuilder) {
+  assert(DistributedLoops.size() < MaxDistributedLoop &&
+         "Number of distributed chunks exceed threshold. Expected the caller "
+         "to check before calling this function.");
 
   LastLoopNum = DistributedLoops.size();
   assert(LastLoopNum > 1 && "Invalid loop distribution");
-  if (OptReportLevel >= 3) {
-    dbgs() << "LOOP DISTRIBUTION : " << LastLoopNum << " way distributed\n";
-  }
+  LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION : " << LastLoopNum
+                    << " way distributed\n");
 
   TempArraySB.clear();
   bool CopyPreHeader = true;
   HLLoop *LoopNode;
-  if (LastLoopNum >= MaxDistributedLoop) {
-    return false;
-  }
 
   RegionNode = Loop->getParentRegion();
   LoopLevel = Loop->getNestingLevel();
@@ -504,8 +560,7 @@ bool HIRLoopDistribution::distributeLoop(
     return false;
   }
   bool NotRequired = true;
-  if (NumArrayTemps && !Loop->hasDistributePoint() &&
-      !(Loop->canStripmine(StripmineSize, NotRequired))) {
+  if (NumArrayTemps && !Loop->canStripmine(StripmineSize, NotRequired)) {
     return false;
   }
 
@@ -562,6 +617,7 @@ bool HIRLoopDistribution::distributeLoop(
       NewLoops[I]->setDistributedForMemRec();
     }
     HLNodeUtils::insertBefore(Loop, NewLoops[I]);
+    HLNodeUtils::removeEmptyNodes(NewLoops[I], false);
   }
   if (NumArrayTemps) {
     replaceWithArrayTemp(Refs);
@@ -632,7 +688,7 @@ void HIRLoopDistribution::formPerfectLoopNests(
         StmtRootBlocks.push_back(Blk);
       } else if (BlockType == PiBlock::PiBlockType::SingleLoop) {
         HLLoop *SingleLoop =
-            dyn_cast<HLLoop>((*(Blk->dist_node_begin()))->HNode);
+            dyn_cast<HLLoop>((*(Blk->dist_node_begin()))->getNode());
         assert(SingleLoop && "SingleLoop piblock did not contain a loop");
         // perfect subloops are distributed into their own loop
         if (SingleLoop->isInnermost() ||
@@ -649,7 +705,7 @@ void HIRLoopDistribution::formPerfectLoopNests(
     } else {
       if (BlockType == PiBlock::PiBlockType::SingleLoop) {
         HLLoop *SingleLoop =
-            dyn_cast<HLLoop>((*(Blk->dist_node_begin()))->HNode);
+            dyn_cast<HLLoop>((*(Blk->dist_node_begin()))->getNode());
         assert(SingleLoop && "SingleLoop piblock did not contain a loop");
         if (SingleLoop->isInnermost() ||
             HLNodeUtils::isPerfectLoopNest(SingleLoop, &InnermostLoop)) {
@@ -947,14 +1003,17 @@ unsigned HIRLoopDistribution::distributeLoopForDirective(HLLoop *Lp) {
   unsigned DistLoopNum = 1;
   PragmaReturnCode UnsupportedRC = Success;
 
-  ForEach<HLDDNode>::visitRange(
+  ForEach<HLNode>::visitRange(
       Lp->child_begin(), Lp->child_end(),
-      [this, Lp, &DistLoopNum, &TopIfNode, &TopIfNodeLoopNum,
-       &UnsupportedRC](HLDDNode *HNode) {
-        if (isa<HLLabel>(HNode) || isa<HLGoto>(HNode) || isa<HLSwitch>(HNode)) {
+      [this, &DistLoopNum, &TopIfNode, &TopIfNodeLoopNum,
+       &UnsupportedRC](HLNode *Node) {
+        HLDDNode *HNode = dyn_cast<HLDDNode>(Node);
+
+        if (!HNode || isa<HLSwitch>(HNode)) {
           UnsupportedRC = UnsupportedStmts;
           return;
         }
+
         if (HNode->isDistributePoint()) {
           HNode->setDistributePoint(false);
           DistLoopNum++;
@@ -987,6 +1046,7 @@ unsigned HIRLoopDistribution::distributeLoopForDirective(HLLoop *Lp) {
     IfNodeMap[TopIfNode] = std::make_pair(TopIfNodeLoopNum, DistLoopNum);
   }
 
+  SmallVector<HLDDNodeList, 8> DistributedLoops;
   collectHNodesForDirective(Lp, DistributedLoops, CurLoopHLDDNodeList);
   bool RC = distributeLoop(Lp, DistributedLoops, true, HIRF.getLORBuilder());
   return (RC ? Success : TooComplex);

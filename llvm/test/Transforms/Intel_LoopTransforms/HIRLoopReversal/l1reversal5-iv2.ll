@@ -1,23 +1,23 @@
 ; Sanity Test(s) on HIR Loop Reversal: simple l1 loop that MAYBE reversed
-; 
-; l1reversal5-c.ll: 
+;
+; l1reversal5-c.ll:
 ; 1-level loop, sanity testcase1, potentially confusing case for in HIR LOOP Reversal
-; 
-; 
+;
+;
 ; [REASON]
 ; - cost model indicates the Reversal transformation will NOT be profitable!
-; 
+;
 ; [REASONS]
-; - Applicalbe: YES, HAS valid (1) negative memory-access address; 
+; - Applicalbe: YES, HAS valid (1) negative memory-access address;
 ; - Profitable: NO
 ;   Analysis finds there is (1) constcoeff negative IV stride, and 1 constcoeff on positiv IV stride.
 ;   Since writes carries more weight than reads, the cost model returns negative.
 ; - Legal:      YES (NO loop-carried dependence)
-; 
-; 
+;
+;
 ; *** Source Code ***
 ;[BEFORE LOOP REVERSAL]
-; 
+;
 ;int foo(int A[100]) {
 ;  int i = 0;
 ;  for (i = 0; i <= 4; i++) {
@@ -35,26 +35,26 @@
 ;  }
 ;  return A[1] + B[1] + 1;
 ;}
-; 
+;
 ; ===-----------------------------------===
 ; *** Run0: BEFORE HIR Loop Reversal ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=BEFORE 
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE 
+; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=BEFORE
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE
 ;
 ;
 ; ===-----------------------------------===
 ; *** Run1: AFTER HIR Loop Reversal ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-after=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=AFTER 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=AFTER 
+; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-after=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=AFTER
+; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=AFTER
 ;
 ;
 ; === -------------------------------------- ===
 ; *** Tests0: W/O HIR Loop Reversal Output ***
 ; === -------------------------------------- ===
 ; Expected output before Loop Reversal
-; 
+;
 ;         BEGIN REGION { }
 ;<16>         + DO i1 = 0, 4, 1   <DO_LOOP>
 ;<4>          |   %1 = (%B)[-1 * i1 + 20];
@@ -68,13 +68,13 @@
 ; BEFORE:     |   (%A)[i1 + 1] = i1 + %1 + 2;
 ; BEFORE:     + END LOOP
 ; BEFORE: END REGION
-; 
+;
 ; === -------------------------------------- ===
 ; *** Tests1: With HIR Loop Reversal Output ***
 ; === -------------------------------------- ===
 ;
 ; Expected output after Loop Reversal
-; 
+;
 ;         BEGIN REGION { }
 ;<16>         + DO i1 = 0, 4, 1   <DO_LOOP>
 ;<4>          |   %1 = (%B)[-1 * i1 + 20];
@@ -88,7 +88,7 @@
 ; AFTER:     |   (%A)[i1 + 1] = i1 + %1 + 2;
 ; AFTER:     + END LOOP
 ; AFTER: END REGION
-; 
+;
 ;
 ; === ---------------------------------------------------------------- ===
 ; Following is the LLVM's input code!

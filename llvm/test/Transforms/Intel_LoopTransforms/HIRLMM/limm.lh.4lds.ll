@@ -21,10 +21,10 @@
 ;
 ; [LIMM Analysis]
 ;MemRefCollection, entries: 4
-;  (%B)[0] {  R  R  } 0W : 2R  legal 
-;  (%A)[1] {  R  } 0W : 1R  legal 
-;  (%A)[2] {  R  R  } 0W : 2R  legal 
-;  (%B)[1] {  R  } 0W : 1R  legal 
+;  (%B)[0] {  R  R  } 0W : 2R  legal
+;  (%A)[1] {  R  } 0W : 1R  legal
+;  (%A)[2] {  R  R  } 0W : 2R  legal
+;  (%B)[1] {  R  } 0W : 1R  legal
 ;
 ;
 ; LIMM's Opportunities:
@@ -32,7 +32,7 @@
 ; - LISS:  (0)
 ; - LILHSS:(0)
 ;
-;  
+;
 ; CHECK: Function
 ;
 ; CHECK: BEGIN REGION { modified }
@@ -52,8 +52,8 @@
 ; CHECK:        + END LOOP
 ; CHECK: END REGION
 
-; *** *** 
-;          
+; *** ***
+;
 ; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { modified }
@@ -82,7 +82,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-; noalias nocapture 
+; noalias nocapture
 define i32 @_Z3fooPPiS0_(i32** noalias %A, i32** noalias %B) #0 {
 entry:
   br label %for.body

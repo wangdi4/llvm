@@ -10,17 +10,17 @@
 ;<18>         + DO i32 i1 = 0, %N + -1, 1   <DO_LOOP>
 ;<18>         | <REG> LINEAR i32 %N + -1 {sb:2}
 ;<18>         | <BLOB> LINEAR i32 %N {sb:4}
-;<18>         | 
+;<18>         |
 ;<7>          |   (%A)[i1 + 16] = i1 + 8589934591;
 ;<7>          |   <REG> (LINEAR i64* %A)[LINEAR zext.i32.i64(i1 + 16)] {sb:0}
 ;<7>          |   <BLOB> LINEAR i64* %A {sb:10}
 ;<7>          |   <REG> LINEAR i64 i1 + 8589934591 {sb:6}
-;<7>          |   
+;<7>          |
 ;<12>         |   (%A)[3 * i1 + %N] = 22;
 ;<12>         |   <REG> (LINEAR i64* %A)[LINEAR zext.i32.i64(3 * i1 + %N)] {sb:0}
 ;<12>         |   <BLOB> LINEAR i64* %A {sb:10}
 ;<12>         |   <BLOB> LINEAR i32 %N {sb:4}
-;<12>         |   
+;<12>         |
 ;<18>         + END LOOP
 ;          END REGION
 ;

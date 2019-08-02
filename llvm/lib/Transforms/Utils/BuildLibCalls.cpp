@@ -22,6 +22,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
+#include "llvm/Analysis/MemoryBuiltins.h"
 
 using namespace llvm;
 
@@ -123,6 +124,13 @@ static bool setNonLazyBind(Function &F) {
   return true;
 }
 
+static bool setDoesNotFreeMemory(Function &F) {
+  if (F.hasFnAttribute(Attribute::NoFree))
+    return false;
+  F.addFnAttr(Attribute::NoFree);
+  return true;
+}
+
 #if INTEL_CUSTOMIZATION
 static bool setDoesNotReturn(Function &F) {
   if (F.doesNotReturn())
@@ -147,6 +155,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return false;
 
   bool Changed = false;
+
+  if(!isLibFreeFunction(&F, TheLibFunc) && !isReallocLikeFn(&F,  &TLI))
+    Changed |= setDoesNotFreeMemory(F);
 
   if (F.getParent() != nullptr && F.getParent()->getRtLibUseGOT())
     Changed |= setNonLazyBind(F);
@@ -200,6 +211,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_strcoll:     // 0,1
   case LibFunc_strcasecmp:  // 0,1
   case LibFunc_strncasecmp: //
+  case LibFunc_under_stricmp:  // INTEL
+  case LibFunc_under_strnicmp: // INTEL
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
@@ -920,6 +933,10 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_std_exception_destroy:
     return Changed;
+  case LibFunc_strncpy_s:
+    Changed |= setDoesNotCapture(F, 2);
+    Changed |= setOnlyReadsMemory(F, 2);
+    return Changed;
   case LibFunc_dunder_CxxFrameHandler3:
     return Changed;
   case LibFunc_dunder_std_terminate:
@@ -930,11 +947,19 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_under_errno:
     return Changed;
+  case LibFunc_under_fstat64i32:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_under_exit:
     Changed |= setDoesNotReturn(F);
     return Changed;
   case LibFunc_under_invalid_parameter_noinfo_noreturn:
     Changed |= setDoesNotReturn(F);
+    return Changed;
+  case LibFunc_under_localtime64:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_under_set_errno:
     return Changed;
   case LibFunc_under_purecall:
     Changed |= setDoesNotReturn(F);

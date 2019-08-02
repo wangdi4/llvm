@@ -16,7 +16,7 @@
 ;
 ; *** IR Dump Before HIR Var OptPredicate ***
 ; Function: foo
-; 
+;
 ;           BEGIN REGION { }
 ; <16>            + DO i1 = 0, %n + -1, 1   <DO_LOOP>
 ; <5>             |   if (i1 < %d)
@@ -29,22 +29,22 @@
 ; <5>             |   }
 ; <16>            + END LOOP
 ;           END REGION
-; 
+;
 ; *** IR Dump After HIR Var OptPredicate ***
 ; Function: foo
-; 
+;
 ; CHECK:    BEGIN REGION { modified }
 ; CHECK:          + DO i1 = 0, smin((-1 + %n), (-1 + %d)), 1   <DO_LOOP>
 ; CHECK:          |   (%p)[i1] = i1;
 ; CHECK:          + END LOOP
-; 
+;
 ; CHECK:          + DO i1 = 0, %n + -1 * smax(0, %d) + -1, 1 <DO_LOOP>
 ; CHECK:          |   (%q)[i1 + smax(0, %d)] = i1 + smax(0, %d);
 ; CHECK:          + END LOOP
 ; CHECK:    END REGION
 
-; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-opt-var-predicate -disable-output -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT 
-; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-opt-var-predicate,hir-cg,simplify-cfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -disable-output -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT 
+; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-opt-var-predicate -disable-output -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-opt-var-predicate,hir-cg,simplify-cfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -disable-output -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 
 ;OPTREPORT: Global loop optimization report for : foo
 ;

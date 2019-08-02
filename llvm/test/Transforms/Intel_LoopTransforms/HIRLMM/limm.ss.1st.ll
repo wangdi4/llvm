@@ -36,15 +36,15 @@
 ;
 ;[LIMM Anlaysis]
 ;MemRefCollection, entries: 1
-;  (@B)[0][i1] {  W  } 1W : 0R  legal 
+;  (@B)[0][i1] {  W  } 1W : 0R  legal
 ;
-; 
+;
 ; LIMM's Opportunities:
 ; - LILH:  (0)
 ; - LISS:  (1)
 ; - LILHSS:(0)
 ;
-;  
+;
 ; CHECK: Function
 ;
 ; CHECK:   BEGIN REGION { modified }
@@ -60,9 +60,9 @@
 ; CHECK:         + END LOOP
 ; CHECK:   END REGION
 ;
-; *** *** 
-;          
-;  
+; *** ***
+;
+;
 ; CHECK: Function
 ;
 ; CHECK:   BEGIN REGION { modified }

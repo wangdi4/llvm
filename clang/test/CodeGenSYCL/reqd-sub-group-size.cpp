@@ -1,8 +1,5 @@
 // RUN: %clang_cc1 -std=c++11 -disable-llvm-passes -fsycl-is-device -emit-llvm -o - %s | FileCheck %s
 
-// Mark this test as expected fail in initial merge of SYCL to xmain
-// XFAIL: windows-msvc
-
 class Functor16 {
 public:
   [[cl::intel_reqd_sub_group_size(16)]] void operator()() {}
@@ -30,8 +27,8 @@ void bar() {
   kernel<class kernel_name2>(f);
 }
 
-// CHECK: define spir_kernel void @{{.*}}kernel_name1() {{.*}} !intel_reqd_sub_group_size ![[SGSIZE16:[0-9]+]]
-// CHECK: define spir_kernel void @{{.*}}kernel_name2() {{.*}} !intel_reqd_sub_group_size ![[SGSIZE8:[0-9]+]]
+// CHECK: define{{( dso_local)?}} spir_kernel void @{{.*}}kernel_name1{{.*}}() {{.*}} !intel_reqd_sub_group_size ![[SGSIZE16:[0-9]+]]
+// CHECK: define{{( dso_local)?}} spir_kernel void @{{.*}}kernel_name2{{.*}}() {{.*}} !intel_reqd_sub_group_size ![[SGSIZE8:[0-9]+]]
 // CHECK: ![[SGSIZE16]] = !{i32 16}
 // CHECK: ![[SGSIZE8]] = !{i32 8}
 

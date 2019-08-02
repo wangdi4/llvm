@@ -4,9 +4,9 @@
 ; Scalar Replacement Sanity Test: mix, need to cleanup before proceed to ScalarRepl
 ;
 ; [REASONS]
-; - Legal: YES   
-; - Profitable: NO (ANTI-dep only) 
-;       
+; - Legal: YES
+; - Profitable: NO (ANTI-dep only)
+;
 ;
 ; Note:
 ; Since this is a case of anti-dependence with dep-dist 0, there is no savings after ScalarRepl.
@@ -28,7 +28,7 @@
 ;  return A[0] + B[1] + C[2][2] + D[3] + 1;
 ;}
 ;
-; 
+;
 ; CHECK: Function
 ;
 ; CHECK:   BEGIN REGION { }
@@ -39,12 +39,12 @@
 ; CHECK:         |   |   %6 = (@D)[0][i2 + 1];
 ; CHECK:         |   |   (@C)[0][i2 + 1][i1] = %4 + %5 + %6;
 ; CHECK:         |   + END LOOP
-; CHECK:         |   
+; CHECK:         |
 ; CHECK:         |   (@A)[0][i1] = %4 + %5;
 ; CHECK:         + END LOOP
 ; CHECK:   END REGION
 ;
-;  
+;
 ; MemRefGroup: { C[i2], C[i2+1]       }
 ;                MinST  MaxLD
 ; GapTracker:  { W      R             }
@@ -59,7 +59,7 @@
 ; CHECK:         |   |   %6 = (@D)[0][i2 + 1];
 ; CHECK:         |   |   (@C)[0][i2 + 1][i1] = %4 + %5 + %6;
 ; CHECK:         |   + END LOOP
-; CHECK:         |   
+; CHECK:         |
 ; CHECK:         |   (@A)[0][i1] = %4 + %5;
 ; CHECK:         + END LOOP
 ; CHECK:   END REGION

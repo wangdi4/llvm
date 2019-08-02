@@ -743,7 +743,7 @@ bool HIRLoopReversal::doHIRReversalTransform(HLLoop *Lp) {
     // Make the corresponding RegDDRef consistent with the new CE
     const SmallVector<const RegDDRef *, 3> AuxRefs = {Lp->getUpperDDRef()};
     RegDDRef *MemRef = MCE.getDDRef();
-    MemRef->makeConsistent(&AuxRefs, Lp->getNestingLevel());
+    MemRef->makeConsistent(AuxRefs, Lp->getNestingLevel());
   }
   // end_loop: MCE
 

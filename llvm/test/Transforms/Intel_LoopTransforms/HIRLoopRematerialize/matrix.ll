@@ -1,6 +1,6 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-rematerialize -print-before=hir-loop-rematerialize -print-after=hir-loop-rematerialize < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-rematerialize,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
- 
+
 ;#if 0
 ;void bone_matrix_translate_y(float mat[4][4], float y)
 ;{
@@ -17,7 +17,7 @@
 ;  trans[0] = mat[1][0];
 ;  trans[1] = mat[1][1];
 ;  trans[2] = mat[1][2];
-;  
+;
 ;  trans[0] *= y;
 ;  trans[1] *= y;
 ;  trans[2] *= y;
@@ -29,11 +29,11 @@
 
 ; Notice that this code requires partial reordering.
 ; First three %mul, %mul11 and %mul13 are above than any other insts.
-; Current implementation can handle this reordering. However, 
+; Current implementation can handle this reordering. However,
 ; ANTI dep from (%mat)[1][0] to (%mat)[3][0] hinders loop rematerialization.
-; Hoisting of the first three muls out of the potential new loop 
+; Hoisting of the first three muls out of the potential new loop
 ; solves the problem.
- 
+
 ; CHECK:Function: bone_matrix_translate_y
 ; CHECK:         BEGIN REGION { }
 ; CHECK:               %mul = (%mat)[1][0]  *  %y;
@@ -61,7 +61,7 @@
 ; CHECK:               (%mat)[3][2] = %add24;
 ; CHECK:               ret ;
 ; CHECK:         END REGION
- 
+
 ;Module Before HIR
 ; ModuleID = 'matrix.c'
 source_filename = "matrix.c"

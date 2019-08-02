@@ -2,17 +2,17 @@
 
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -hir-generate-mkl-call -print-after=hir-generate-mkl-call -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,hir-generate-mkl-call,print<hir>" -aa-pipeline="basic-aa" -S < %s 2>&1 | FileCheck %s
-; 
+;
 
-; Before HIR Generate MKL Call- 
+; Before HIR Generate MKL Call-
 ; + DO i1 = 0, 999, 1   <DO_LOOP>
 ; |   %add121 = (@c)[0][i1];
-; |   
+; |
 ; |   + DO i2 = 0, 999, 1   <DO_LOOP>
 ; |   |   %mul = (@a)[0][i1][i2]  *  (@b)[0][i2];
 ; |   |   %add121 = %add121  +  %mul;
 ; |   + END LOOP
-; |   
+; |
 ; |   (@c)[0][i1] = %add121;
 ; + END LOOP
 

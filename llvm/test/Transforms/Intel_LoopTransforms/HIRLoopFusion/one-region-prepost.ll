@@ -20,7 +20,7 @@
 ;   |   %limm3 = 0;
 ;   + END LOOP
 ;   (%q)[0] = %limm3;
-; 
+;
 ;   ret %x.0.lcssa;
 ;
 ; END REGION

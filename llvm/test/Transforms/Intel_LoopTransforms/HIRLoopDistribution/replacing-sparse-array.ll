@@ -45,77 +45,77 @@
 ;*** IR Dump After HIR Loop Distribution MemRec ***
 ;Function: nab
 ;
-;<0>       BEGIN REGION { modified }
-;<113>           + DO i1 = 0, (sext.i32.i64(%N) + -1)/u64, 1   <DO_LOOP>  <MAX_TC_EST = 1000>
-;<114>           |   %min = (-64 * i1 + sext.i32.i64(%N) + -1 <= 63) ? -64 * i1 + sext.i32.i64(%N) + -1 : 63;
-;<99>            |   
-;<99>            |   + DO i2 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 1000>
-;<11>            |   |   %2 = (@atype)[0][64 * i1 + i2];
-;<41>            |   |   %sub34 = 1.000000e+00  -  (@Req)[0][%2 + -1];
-;<44>            |   |   %mul36 = (@Rk)[0][%2 + -1]  *  %sub34;
-;<47>            |   |   %mul39 = %mul36  *  2.000000e+00;
-;<45>            |   |   %mul37 = %sub34  *  %mul36;
-;<46>            |   |   %add38145 = %add38145  +  %mul37;
-;<3>             |   |   %0 = (@a1)[0][64 * i1 + i2];
-;<5>             |   |   %div = 4 * %0  /  3;
-;<101>           |   |   (%.TempArray)[0][i2] = %div;
-;<7>             |   |   %1 = (@a2)[0][64 * i1 + i2];
-;<9>             |   |   %div4 = 4 * %1  /  3;
-;<103>           |   |   (%.TempArray1)[0][i2] = %div4;
-;<17>            |   |   %sub8 = (@x)[0][%div]  -  (@x)[0][%div4];
-;<24>            |   |   %sub12 = (@x)[0][%div + 1]  -  (@x)[0][%div4 + 1];
-;<31>            |   |   %sub17 = (@x)[0][%div + 2]  -  (@x)[0][%div4 + 2];
-;<38>            |   |   %sub27 = (@x)[0][%div + 3]  -  (@x)[0][%div4 + 3];
-;<48>            |   |   %mul40 = %sub8  *  %mul39;
-;<105>           |   |   (%.TempArray3)[0][i2] = %mul40;
-;<81>            |   |   %mul70 = %sub27  *  %mul39;
-;<107>           |   |   (%.TempArray5)[0][i2] = %mul70;
-;<60>            |   |   %mul50 = %sub17  *  %mul39;
-;<109>           |   |   (%.TempArray7)[0][i2] = %mul50;
-;<54>            |   |   %mul45 = %sub12  *  %mul39;
-;<111>           |   |   (%.TempArray9)[0][i2] = %mul45;
-;<99>            |   + END LOOP
-;<99>            |   
-;<100>           |   
-;<100>           |   + DO i2 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 1000>
-;<102>           |   |   %div = (%.TempArray)[0][i2];
-;<106>           |   |   %mul40 = (%.TempArray3)[0][i2];
-;<52>            |   |   %add44 = (@f)[0][%div + %foff]  +  %mul40;
-;<53>            |   |   (@f)[0][%div + %foff] = %add44;
-;<112>           |   |   %mul45 = (%.TempArray9)[0][i2];
-;<58>            |   |   %add49 = %mul45  +  (@f)[0][%div + %foff + 1];
-;<59>            |   |   (@f)[0][%div + %foff + 1] = %add49;
-;<110>           |   |   %mul50 = (%.TempArray7)[0][i2];
-;<64>            |   |   %add54 = %mul50  +  (@f)[0][%div + %foff + 2];
-;<65>            |   |   (@f)[0][%div + %foff + 2] = %add54;
-;<104>           |   |   %div4 = (%.TempArray1)[0][i2];
-;<69>            |   |   %sub59 = (@f)[0][%div4 + %foff]  -  %mul40;
-;<70>            |   |   (@f)[0][%div4 + %foff] = %sub59;
-;<74>            |   |   %sub64 = (@f)[0][%div4 + %foff + 1]  -  %mul45;
-;<75>            |   |   (@f)[0][%div4 + %foff + 1] = %sub64;
-;<79>            |   |   %sub69 = (@f)[0][%div4 + %foff + 2]  -  %mul50;
-;<80>            |   |   (@f)[0][%div4 + %foff + 2] = %sub69;
-;<108>           |   |   %mul70 = (%.TempArray5)[0][i2];
-;<85>            |   |   %add74 = %mul70  +  (@f)[0][%div + %foff + 3];
-;<86>            |   |   (@f)[0][%div + %foff + 3] = %add74;
-;<90>            |   |   %sub79 = (@f)[0][%div4 + %foff + 3]  -  %mul70;
-;<91>            |   |   (@f)[0][%div4 + %foff + 3] = %sub79;
-;<100>           |   + END LOOP
-;<113>           + END LOOP
-;<0>       END REGION
+;<0>          BEGIN REGION { modified }
+;<113>              + DO i1 = 0, (sext.i32.i64(%N) + -1)/u64, 1   <DO_LOOP>  <MAX_TC_EST = 1000>
+;<114>              |   %min = (-64 * i1 + sext.i32.i64(%N) + -1 <= 63) ? -64 * i1 + sext.i32.i64(%N) + -1 : 63;
+;<99>               |
+;<99>               |   + DO i2 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>
+;<3>                |   |   %0 = (@a1)[0][64 * i1 + i2];
+;<5>                |   |   %div = 4 * %0  /  3;
+;<101>              |   |   (%.TempArray)[0][i2] = %div;
+;<7>                |   |   %1 = (@a2)[0][64 * i1 + i2];
+;<9>                |   |   %div4 = 4 * %1  /  3;
+;<103>              |   |   (%.TempArray1)[0][i2] = %div4;
+;<11>               |   |   %2 = (@atype)[0][64 * i1 + i2];
+;<17>               |   |   %sub8 = (@x)[0][%div]  -  (@x)[0][%div4];
+;<24>               |   |   %sub12 = (@x)[0][%div + 1]  -  (@x)[0][%div4 + 1];
+;<31>               |   |   %sub17 = (@x)[0][%div + 2]  -  (@x)[0][%div4 + 2];
+;<38>               |   |   %sub27 = (@x)[0][%div + 3]  -  (@x)[0][%div4 + 3];
+;<41>               |   |   %sub34 = 1.000000e+00  -  (@Req)[0][%2 + -1];
+;<44>               |   |   %mul36 = (@Rk)[0][%2 + -1]  *  %sub34;
+;<45>               |   |   %mul37 = %sub34  *  %mul36;
+;<46>               |   |   %add38145 = %add38145  +  %mul37;
+;<47>               |   |   %mul39 = %mul36  *  2.000000e+00;
+;<48>               |   |   %mul40 = %sub8  *  %mul39;
+;<105>              |   |   (%.TempArray3)[0][i2] = %mul40;
+;<54>               |   |   %mul45 = %sub12  *  %mul39;
+;<107>              |   |   (%.TempArray5)[0][i2] = %mul45;
+;<60>               |   |   %mul50 = %sub17  *  %mul39;
+;<109>              |   |   (%.TempArray7)[0][i2] = %mul50;
+;<81>               |   |   %mul70 = %sub27  *  %mul39;
+;<111>              |   |   (%.TempArray9)[0][i2] = %mul70;
+;<99>               |   + END LOOP
+;<99>               |
+;<100>              |
+;<100>              |   + DO i2 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>
+;<102>              |   |   %div = (%.TempArray)[0][i2];
+;<106>              |   |   %mul40 = (%.TempArray3)[0][i2];
+;<52>               |   |   %add44 = (@f)[0][%div + %foff]  +  %mul40;
+;<53>               |   |   (@f)[0][%div + %foff] = %add44;
+;<108>              |   |   %mul45 = (%.TempArray5)[0][i2];
+;<58>               |   |   %add49 = %mul45  +  (@f)[0][%div + %foff + 1];
+;<59>               |   |   (@f)[0][%div + %foff + 1] = %add49;
+;<110>              |   |   %mul50 = (%.TempArray7)[0][i2];
+;<64>               |   |   %add54 = %mul50  +  (@f)[0][%div + %foff + 2];
+;<65>               |   |   (@f)[0][%div + %foff + 2] = %add54;
+;<104>              |   |   %div4 = (%.TempArray1)[0][i2];
+;<69>               |   |   %sub59 = (@f)[0][%div4 + %foff]  -  %mul40;
+;<70>               |   |   (@f)[0][%div4 + %foff] = %sub59;
+;<74>               |   |   %sub64 = (@f)[0][%div4 + %foff + 1]  -  %mul45;
+;<75>               |   |   (@f)[0][%div4 + %foff + 1] = %sub64;
+;<79>               |   |   %sub69 = (@f)[0][%div4 + %foff + 2]  -  %mul50;
+;<80>               |   |   (@f)[0][%div4 + %foff + 2] = %sub69;
+;<112>              |   |   %mul70 = (%.TempArray9)[0][i2];
+;<85>               |   |   %add74 = %mul70  +  (@f)[0][%div + %foff + 3];
+;<86>               |   |   (@f)[0][%div + %foff + 3] = %add74;
+;<90>               |   |   %sub79 = (@f)[0][%div4 + %foff + 3]  -  %mul70;
+;<91>               |   |   (@f)[0][%div4 + %foff + 3] = %sub79;
+;<100>              |   + END LOOP
+;<113>              + END LOOP
+;<0>          END REGION
 ;
 ;CHECK: (%.TempArray)[0][i2] = %div;
 ;CHECK: (%.TempArray1)[0][i2] = %div4;
 ;CHECK: (%.TempArray3)[0][i2] = %mul40;
-;CHECK: (%.TempArray5)[0][i2] = %mul70;
+;CHECK: (%.TempArray5)[0][i2] = %mul45;
 ;CHECK: (%.TempArray7)[0][i2] = %mul50;
-;CHECK: (%.TempArray9)[0][i2] = %mul45;
+;CHECK: (%.TempArray9)[0][i2] = %mul70;
 ;CHECK: %div = (%.TempArray)[0][i2];
 ;CHECK: %mul40 = (%.TempArray3)[0][i2];
-;CHECK: %mul45 = (%.TempArray9)[0][i2];
+;CHECK: %mul45 = (%.TempArray5)[0][i2];
 ;CHECK: %mul50 = (%.TempArray7)[0][i2];
 ;CHECK: %div4 = (%.TempArray1)[0][i2];
-;CHECK: %mul70 = (%.TempArray5)[0][i2];
+;CHECK: %mul70 = (%.TempArray9)[0][i2];
 
 ;Module Before HIR; ModuleID = 'eff.c'
 source_filename = "eff.c"

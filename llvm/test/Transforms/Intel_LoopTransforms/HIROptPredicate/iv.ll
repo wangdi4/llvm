@@ -21,7 +21,7 @@
 ; CHECK-NOT: REGION { modified }
 ; CHECK: DO i1 =
 ; CHECK: DO i2 =
-; CHECK-NOT: DO i1 = 
+; CHECK-NOT: DO i1 =
 ; CHECK-NOT: DO i2 =
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

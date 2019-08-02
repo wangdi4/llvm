@@ -1,8 +1,5 @@
 // RUN: %clang_cc1 -I %S/Inputs -fsycl-is-device -ast-dump %s | FileCheck %s
 
-// Mark this test as expected fail in initial merge of SYCL to xmain
-// XFAIL: *
-
 // This test checks that compiler generates correct initialization for arguments
 // that have struct or built-in type inside the kernel wrapper
 
@@ -33,7 +30,7 @@ int main() {
   return 0;
 }
 // Check kernel wrapper parameters
-// CHECK: {{.*}}kernel_int 'void (int)'
+// CHECK: {{.*}}kernel_int{{.*}} 'void (int)'
 // CHECK: ParmVarDecl {{.*}} used _arg_ 'int'
 
 // Check that lambda field of built-in type is initialized with binary '='
@@ -45,13 +42,15 @@ int main() {
 // CHECK-NEXT: DeclRefExpr {{.*}} 'int' lvalue ParmVar {{.*}} '_arg_' 'int'
 
 // Check kernel wrapper parameters
-// CHECK: {{.*}}kernel_struct 'void (test_struct)'
+// CHECK: {{.*}}kernel_struct{{.*}} 'void (test_struct)'
 // CHECK: ParmVarDecl {{.*}} used _arg_ 'test_struct'
 
-// Check that lambda field of struct type is initialized with binary '='
-// operator i.e lambda.field = _arg_
-// CHECK: BinaryOperator {{.*}} 'test_struct' lvalue '='
+// Check that lambda field of struct type is initialized with operator=
+// i.e lambda.field = _arg_
+// CHECK: CXXOperatorCallExpr {{.*}} 'test_struct' lvalue
+// CHECK-NEXT: ImplicitCastExpr {{.*}}<FunctionToPointerDecay>
+// CHECK-NEXT: DeclRefExpr {{.*}} 'operator='
 // CHECK-NEXT: MemberExpr {{.*}} 'test_struct' lvalue .
 // CHECK-NEXT: DeclRefExpr {{.*}} '(lambda at {{.*}}built-in-type-kernel-arg.cpp{{.*}})' lvalue Var
-// CHECK-NEXT: ImplicitCastExpr {{.*}} 'test_struct' <LValueToRValue>
+// CHECK-NEXT: ImplicitCastExpr {{.*}} 'const test_struct' lvalue <NoOp>
 // CHECK-NEXT: DeclRefExpr {{.*}} 'test_struct' lvalue ParmVar {{.*}} '_arg_' 'test_struct'

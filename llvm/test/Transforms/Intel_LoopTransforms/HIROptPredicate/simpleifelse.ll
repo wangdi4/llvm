@@ -69,7 +69,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @sub3(i64 %n) {
 entry:
   %cmp14 = icmp sgt i64 %n, 10
-  %.pre = load float, float* getelementptr inbounds ([1000 x [1000 x float]], [1000 x [1000 x float]]* @B, i64 0, i64 10, i64 1), align 4 
+  %.pre = load float, float* getelementptr inbounds ([1000 x [1000 x float]], [1000 x [1000 x float]]* @B, i64 0, i64 10, i64 1), align 4
   br label %for.body
 
 for.body:                                         ; preds = %for.cond.backedge, %entry
@@ -111,10 +111,10 @@ for.end:                                          ; preds = %for.cond.backedge
 }
 
 ; Function Attrs: nounwind argmemonly
-declare void @llvm.lifetime.start(i64, i8* nocapture) 
+declare void @llvm.lifetime.start(i64, i8* nocapture)
 
 ; Function Attrs: nounwind argmemonly
-declare void @llvm.lifetime.end(i64, i8* nocapture) 
+declare void @llvm.lifetime.end(i64, i8* nocapture)
 
 
 

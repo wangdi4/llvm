@@ -3,7 +3,7 @@
 
 ; Current reroller suppress rerolling. IVs and non-loop-invariant blobs are withing a CE.
 ; ICC does not reroll this example either.
- 
+
 ;#define SIZE 10
 ;#include <stdint.h>
 ;int64_t A[SIZE];
@@ -11,24 +11,13 @@
 ;int64_t C[SIZE];
 ;
 ;void foo(int n) {
-;  int D = n*n;  
+;  int D = n*n;
 ;  int q = 0;
 ;  for (int i=0;  i<n; i=i+2) {
 ;    B[i]   =A[i] + i ;
 ;    B[i+1] =A[i+1] + i + 1 ;
 ;  }
 ;}
- 
-; CHECK:Function: foo
-
-; CHECK:        BEGIN REGION { }
-; CHECK:              + DO i1 = 0, (sext.i32.i64(%n) + -1)/u2, 1   <DO_LOOP>  <MAX_TC_EST = 5>
-; CHECK:              |   %1 = (@A)[0][2 * i1];
-; CHECK:              |   (@B)[0][2 * i1] = 2 * i1 + %1;
-; CHECK:              |   %3 = (@A)[0][2 * i1 + 1];
-; CHECK:              |   (@B)[0][2 * i1 + 1] = 2 * i1 + %3 + 1;
-; CHECK:              + END LOOP
-; CHECK:        END REGION
 
 ; CHECK:Function: foo
 
@@ -40,7 +29,18 @@
 ; CHECK:              |   (@B)[0][2 * i1 + 1] = 2 * i1 + %3 + 1;
 ; CHECK:              + END LOOP
 ; CHECK:        END REGION
- 
+
+; CHECK:Function: foo
+
+; CHECK:        BEGIN REGION { }
+; CHECK:              + DO i1 = 0, (sext.i32.i64(%n) + -1)/u2, 1   <DO_LOOP>  <MAX_TC_EST = 5>
+; CHECK:              |   %1 = (@A)[0][2 * i1];
+; CHECK:              |   (@B)[0][2 * i1] = 2 * i1 + %1;
+; CHECK:              |   %3 = (@A)[0][2 * i1 + 1];
+; CHECK:              |   (@B)[0][2 * i1 + 1] = 2 * i1 + %3 + 1;
+; CHECK:              + END LOOP
+; CHECK:        END REGION
+
 ;Module Before HIR; ModuleID = 'new-3.c'
 source_filename = "new-3.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

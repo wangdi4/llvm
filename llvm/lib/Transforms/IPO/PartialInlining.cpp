@@ -22,6 +22,7 @@
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/InlineCost.h"
+#include "llvm/Analysis/Intel_WP.h"         // INTEL
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
@@ -441,6 +442,7 @@ struct PartialInlinerLegacyPass : public ModulePass {
 #endif // INTEL_CUSTOMIZATION
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addPreserved<WholeProgramWrapperPass>();     // INTEL
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<ProfileSummaryInfoWrapperPass>();
     AU.addRequired<TargetTransformInfoWrapperPass>();
@@ -1782,12 +1784,14 @@ PreservedAnalyses PartialInlinerPass::run(Module &M,
   ProfileSummaryInfo *PSI = &AM.getResult<ProfileSummaryAnalysis>(M);
 
 #if INTEL_CUSTOMIZATION
+  PreservedAnalyses PA;
+  PA.preserve<WholeProgramAnalysis>();
   auto ILIC = make_unique<InliningLoopInfoCache>();
   if (PartialInlinerImpl(&GetAssumptionCache, LookupAssumptionCache, &GetTTI,
                          {GetBFI}, ILIC.get(), PSI, RunLTOPartialInline,
                          EnableSpecialCases)
           .run(M))
+    return PA;
 #endif // INTEL_CUSTOMIZATION
-    return PreservedAnalyses::none();
   return PreservedAnalyses::all();
 }

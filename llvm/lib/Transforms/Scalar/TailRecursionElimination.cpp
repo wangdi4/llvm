@@ -60,6 +60,7 @@
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
+#include "llvm/Analysis/Intel_WP.h"         // INTEL
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/PostDominators.h"
@@ -350,7 +351,7 @@ static bool canMoveAboveCall(Instruction *I, CallInst *CI, AliasAnalysis *AA) {
       // being loaded from.
       const DataLayout &DL = L->getModule()->getDataLayout();
       if (isModSet(AA->getModRefInfo(CI, MemoryLocation::get(L))) ||
-          !isSafeToLoadUnconditionally(L->getPointerOperand(),
+          !isSafeToLoadUnconditionally(L->getPointerOperand(), L->getType(),
                                        L->getAlignment(), DL, L))
         return false;
     }
@@ -838,6 +839,7 @@ struct TailCallElim : public FunctionPass {
     AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();  // INTEL
+    AU.addPreserved<WholeProgramWrapperPass>(); // INTEL
     AU.addPreserved<DominatorTreeWrapperPass>();
     AU.addPreserved<PostDominatorTreeWrapperPass>();
   }
@@ -899,6 +901,7 @@ PreservedAnalyses TailCallElimPass::run(Function &F,
   PreservedAnalyses PA;
   PA.preserve<GlobalsAA>();
   PA.preserve<AndersensAA>();         // INTEL
+  PA.preserve<WholeProgramAnalysis>();// INTEL
   PA.preserve<DominatorTreeAnalysis>();
   PA.preserve<PostDominatorTreeAnalysis>();
   return PA;

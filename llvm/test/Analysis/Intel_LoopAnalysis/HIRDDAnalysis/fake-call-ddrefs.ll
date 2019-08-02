@@ -3,7 +3,7 @@
 
 ; Verify that DD forms edges for fake call refs.
 
-; We should form fake lval ref for &((%A)[0] in @bar1 and fake rval ref for &((%B)[0]) in @bar2. 
+; We should form fake lval ref for &((%A)[0] in @bar1 and fake rval ref for &((%B)[0]) in @bar2.
 
 ; CHECK: + DO i32 i1 = 0, %n + -1, 1   <DO_LOOP>
 ; CHECK: |   @bar1(&((%A)[0]),  &((@C)[0][0]));

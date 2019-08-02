@@ -51,7 +51,7 @@ void foo_base(float *A, int dnum) {
 void caller2(int n, float* x, int dnum)
 {
   //ALL: [[DNUM:%dnum.*]] = alloca i32, align 4
-  //TARG: [[DNUM_CAST:%[0-9]+]] = addrspacecast i32* [[DNUM]] to i32 addrspace(4)*
+  //TARG: [[DNUM_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[DNUM]] to i32 addrspace(4)*
 
   #pragma omp target data map(tofrom:x[0:n]) \
                           use_device_ptr(x) device(dnum)

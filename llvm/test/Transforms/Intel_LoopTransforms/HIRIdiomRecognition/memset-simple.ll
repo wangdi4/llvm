@@ -11,7 +11,7 @@
 ;           END REGION
 
 ; CHECK: BEGIN REGION { modified }
-; CHECK: memset 
+; CHECK: memset
 
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-idiom -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-idiom,hir-cg,simplify-cfg,intel-ir-optreport-emitter" -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT

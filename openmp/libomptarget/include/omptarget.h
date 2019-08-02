@@ -24,7 +24,11 @@
 #define HOST_DEVICE                -10
 
 /// Data attributes for each data reference used in an OpenMP target region.
+#if INTEL_COLLAB
+enum tgt_map_type : uint64_t {
+#else  // INTEL_COLLAB
 enum tgt_map_type {
+#endif // INTEL_COLLAB
   // No flags
   OMP_TGT_MAPTYPE_NONE            = 0x000,
   // copy data from host to device

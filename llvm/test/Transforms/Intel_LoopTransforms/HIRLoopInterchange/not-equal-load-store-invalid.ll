@@ -1,4 +1,4 @@
-; REQUIRES: asserts                                                                         
+; REQUIRES: asserts
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -debug-only=hir-loop-interchange < %s 2>&1 | FileCheck %s
 ; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange" -debug-only=hir-loop-interchange < %s 2>&1 | FileCheck %s
 
@@ -8,7 +8,7 @@
 ; #define M 16
 ; int A[16];
 ; int B[16][16];
-; 
+;
 ; Will lead to a wrong result if load/store in the i loop are sinked into j loop.
 ;
 ; int foo() {
@@ -21,49 +21,49 @@
 ;     }
 ;     A[i+1] = c;
 ;   }
-; 
+;
 ;   return c;
 ; }
 
 ; *** IR Dump Before HIR Loop Interchange ***
 ; Function: _Z3foov
-; 
+;
 ; <0>       BEGIN REGION { }
 ; <28>            + DO i1 = 0, 14, 1   <DO_LOOP>
 ; <3>             |   %c.128 = (@A)[0][i1];
-; <29>            |   
+; <29>            |
 ; <29>            |   + DO i2 = 0, 15, 1   <DO_LOOP>
 ; <12>            |   |   %c.128 = %c.128 + 10  +  (@B)[0][i2][i1];
 ; <29>            |   + END LOOP
-; <29>            |   
+; <29>            |
 ; <22>            |   (@A)[0][i1 + 1] = %c.128;
 ; <28>            + END LOOP
 ; <0>       END REGION
-; 
+;
 ; DDG's==
-; 3:12 %c.128 --> %c.128 OUTPUT (*) (?)  
-; 3:12 %c.128 --> %c.128 FLOW (=) (0)  
-; 3:22 %c.128 --> %c.128 FLOW (=) (0)  
-; 12:12 %c.128 --> %c.128 FLOW (<= *) (? ?)  
-; 12:22 %c.128 --> %c.128 FLOW (=) (0)  
-; 12:12 %c.128 --> %c.128 ANTI (= =) (0 0)  
-; 22:3 (@A)[0][i1 + 1] --> (@A)[0][i1] FLOW (<) (1)  
-; 
+; 3:12 %c.128 --> %c.128 OUTPUT (*) (?)
+; 3:12 %c.128 --> %c.128 FLOW (=) (0)
+; 3:22 %c.128 --> %c.128 FLOW (=) (0)
+; 12:12 %c.128 --> %c.128 FLOW (<= *) (? ?)
+; 12:22 %c.128 --> %c.128 FLOW (=) (0)
+; 12:12 %c.128 --> %c.128 ANTI (= =) (0 0)
+; 22:3 (@A)[0][i1 + 1] --> (@A)[0][i1] FLOW (<) (1)
+;
 ; *** IR Dump After HIR Loop Interchange ***
 ; Function: _Z3foov
-; 
+;
 ; <0>       BEGIN REGION { }
 ; <28>            + DO i1 = 0, 14, 1   <DO_LOOP>
 ; <3>             |   %c.128 = (@A)[0][i1];
-; <29>            |   
+; <29>            |
 ; <29>            |   + DO i2 = 0, 15, 1   <DO_LOOP>
 ; <12>            |   |   %c.128 = %c.128 + 10  +  (@B)[0][i2][i1];
 ; <29>            |   + END LOOP
-; <29>            |   
+; <29>            |
 ; <22>            |   (@A)[0][i1 + 1] = %c.128;
 ; <28>            + END LOOP
 ; <0>       END REGION
-; 
+;
 ;Module Before HIR; ModuleID = 'not-equal-load-store-invalid.cpp'
 source_filename = "not-equal-load-store-invalid.cpp"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

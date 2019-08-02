@@ -497,13 +497,12 @@ void HIRGenerateMKLCall::createDopeVectorAssignmentsForDim(
   Type *IntType =
       Type::getIntNTy(Context, CEU.getTypeSizeInBits(MatrixRef->getBaseType()));
   unsigned Level = Loop->getNestingLevel() - 1;
-  const SmallVector<const RegDDRef *, 1> AuxRefs = {MatrixRef};
 
   // Compute 'extent' field for current dimension and create the
   // assignment instruction like-
   // (%.DopeVector1)[0].6 = 500;
   RegDDRef *ExtentRef = TripCountDDRef->clone();
-  ExtentRef->makeConsistent(nullptr, Level);
+  ExtentRef->makeConsistent({}, Level);
   RegDDRef *DopeVectorRef = DDRU.createMemRef(AllocaBlobIdx);
   auto FirstCE = CEU.createCanonExpr(IntType);
   DopeVectorRef->addDimension(FirstCE, DopeVectorFieldIdx++);
@@ -517,7 +516,7 @@ void HIRGenerateMKLCall::createDopeVectorAssignmentsForDim(
   auto *StrideCanon = MatrixRef->getStrideAtLevel(IVLevel);
   RegDDRef *StrideCanonRef =
       DDRU.createScalarRegDDRef(GenericRvalSymbase, StrideCanon);
-  StrideCanonRef->makeConsistent(&AuxRefs, Level);
+  StrideCanonRef->makeConsistent(MatrixRef, Level);
   DopeVectorRef = DDRU.createMemRef(AllocaBlobIdx);
   FirstCE = CEU.createCanonExpr(IntType);
   DopeVectorRef->addDimension(FirstCE, DopeVectorFieldIdx++);
@@ -558,7 +557,6 @@ RegDDRef *HIRGenerateMKLCall::createDopeVectorAssignments(
 
   // Compute 'addr_a0' field and create the assignment instruction
   // (%.DopeVector1)[0].0 = &((i8*)(@c)[0][0][0]);
-  const SmallVector<const RegDDRef *, 1> AuxRefs = {MatrixRef};
   RegDDRef *DopeVectorRef = DDRU.createMemRef(AllocaBlobIdx);
   CanonExpr *FirstCE = CEU.createCanonExpr(IntType);
   DopeVectorRef->addDimension(FirstCE, DopeVectorFieldIdx++);
@@ -575,7 +573,7 @@ RegDDRef *HIRGenerateMKLCall::createDopeVectorAssignments(
     BasePtrRef->getDimensionIndex(2)->setConstant(
         MatrixRef->getDimensionIndex(2)->getConstant());
   }
-  BasePtrRef->makeConsistent(&AuxRefs, Level);
+  BasePtrRef->makeConsistent(MatrixRef, Level);
   HLInst *StoreInst = HNU.createStore(BasePtrRef, ".addr_a0", DopeVectorRef);
   HLNodeUtils::insertBefore(Loop, StoreInst);
   LLVM_DEBUG(StoreInst->dump());

@@ -5,7 +5,7 @@
 ; (In this case, we have B[i+1], B[i+3] as store gaps.)
 ;
 ; [REASONS]
-; - Applicable: YES  
+; - Applicable: YES
 ; - Profitable: YES
 ; - Legal:      YES
 ;
@@ -32,9 +32,9 @@
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION
 ;
-;  
+;
 ; MemRefGroup: { B[i1](W), B[i1+1](G), B[i1+2](W), B[i1+3](G), B[i1+4](W)}
-;                MinSt            
+;                MinSt
 ; GapTracker:  { W         G           W            G           W         }
 ;
 ; =====================================================

@@ -9,25 +9,25 @@
 ; int64_t A[SIZE];
 ; int64_t B[SIZE];
 ; int64_t C[SIZE];
-; 
+;
 ; void foo(int n) {
-;   int D = n*n;  
+;   int D = n*n;
 ;   int q = 0;
 ;   for (int i=0;  i<n; i=i+4) {
-; 
+;
 ;     B[i]   = n + i*i;
-; 
+;
 ;     B[i+1] = n - (i+1)*(i+1);  // '-'
-; 
+;
 ;     B[i+2] = n + (i+2)*(i+2);
-; 
+;
 ;     B[i+3] = n + (i+3)*(i+3);
 ;   }
 ; }
 
 
 ; CHECK: Function: foo
-;  
+;
 ; CHECK:  BEGIN REGION { }
 ; CHECK:        + DO i1 = 0, (sext.i32.i64(%n) + -1)/u4, 1   <DO_LOOP>  <MAX_TC_EST = 2>
 ; CHECK:        |   %1 = 4 * i1  *  4 * i1;
@@ -44,9 +44,9 @@
 ; CHECK:        |   (@B)[0][4 * i1 + 3] = %11;
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION
-;  
+;
 ; CHECK: Function: foo
-;  
+;
 ; CHECK:    BEGIN REGION { }
 ; CHECK:          + DO i1 = 0, (sext.i32.i64(%n) + -1)/u4, 1   <DO_LOOP>  <MAX_TC_EST = 2>
 ; CHECK:          |   %1 = 4 * i1  *  4 * i1;

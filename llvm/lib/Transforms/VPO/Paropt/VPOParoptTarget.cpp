@@ -184,13 +184,24 @@ static bool isParOrTargetDirective(Instruction *Inst,
 
 /// Get the exit region directive intrinsic instruction, corresponding
 /// to the begin region directive. The user instruction of the
-/// begin region is the exit region directive.
-static Instruction *getExitInstruction(IntrinsicInst *DirectiveBegin) {
-  assert(DirectiveBegin != nullptr);
+/// begin region is the exit region directive. If \p DirectiveBegin is same
+/// as \p KernelEntryDir, then returns \p KernelExitDir.
+static Instruction *getExitInstruction(Instruction *DirectiveBegin,
+                                       Instruction *KernelEntryDir,
+                                       Instruction *KernelExitDir) {
+  assert(DirectiveBegin && isa<IntrinsicInst>(DirectiveBegin) &&
+         "Unexpected begin directive.");
+
+  if (DirectiveBegin == KernelEntryDir)
+    return KernelExitDir;
+
   // Assumption: Every intrinsic instruction that begins a directive
   // has a single exit directive corresponding to it.
   // So, if we iterate through its users, then the
-  // intrinsic instruction that uses it must be the exit directive
+  // intrinsic instruction that uses it must be the exit directive.
+  // For KernelEntryDir, it's possible to not have any use, as the use is
+  // replaced with 'token none' before invoking CodeExtractor, but it has
+  // already been handled above.
   for (auto U : DirectiveBegin->users()) {
     if (auto DEnd = dyn_cast<IntrinsicInst>(U)) {
       LLVM_DEBUG(dbgs() << "\n Direc End::" << *DEnd);
@@ -236,7 +247,8 @@ static bool ignoreSpecialOperands(const Instruction *I,
 /// Guard instructions that have side effects, so that only master thread
 /// (thread_id == 0) in each team executes it.
 void VPOParoptTransform::guardSideEffectStatements(
-    Function *KernelF, SmallPtrSetImpl<Value *> &PrivateVariables) {
+    Function *KernelF, SmallPtrSetImpl<Value *> &PrivateVariables,
+    Instruction *KernelEntryDir, Instruction *KernelExitDir) {
 
   SmallVector<Instruction *, 6> SideEffectInstructions;
   SmallPtrSet<BasicBlock  *, 6> SideEffectBasicBlocks;
@@ -265,8 +277,8 @@ void VPOParoptTransform::guardSideEffectStatements(
 
       ParDirectiveBegin = &*I;
       ParDirectiveExit =
-          getExitInstruction(dyn_cast<IntrinsicInst>(ParDirectiveBegin));
-      assert(ParDirectiveExit != nullptr);
+          getExitInstruction(ParDirectiveBegin, KernelEntryDir, KernelExitDir);
+      assert(ParDirectiveExit && "Par region exit directive not found.");
 
       SmallVector<BasicBlock *, 10> TempParBBVec;
       GeneralUtils::collectBBSet(ParDirectiveBegin->getParent(),
@@ -289,8 +301,10 @@ void VPOParoptTransform::guardSideEffectStatements(
     } else if (TargetDirectiveBegin == nullptr &&
                isParOrTargetDirective(&*I, true)) {
       TargetDirectiveBegin = &*I;
-      TargetDirectiveExit =
-          getExitInstruction(dyn_cast<IntrinsicInst>(TargetDirectiveBegin));
+      TargetDirectiveExit = getExitInstruction(TargetDirectiveBegin,
+                                               KernelEntryDir, KernelExitDir);
+      assert(TargetDirectiveExit && "Target region exit directive not found.");
+
       GeneralUtils::collectBBSet(TargetDirectiveBegin->getParent(),
           TargetDirectiveExit->getParent(), TargetBBSet);
     } else if (CriticalBegin == nullptr && isa<CallInst>(&*I)){
@@ -332,8 +346,8 @@ void VPOParoptTransform::guardSideEffectStatements(
       if (TargetDirectiveBegin == nullptr &&
           isParOrTargetDirective(&I, true)) {
         TargetDirectiveBegin = &I;
-        TargetDirectiveExit =
-            getExitInstruction(dyn_cast<IntrinsicInst>(TargetDirectiveBegin));
+        TargetDirectiveExit = getExitInstruction(TargetDirectiveBegin,
+                                                 KernelEntryDir, KernelExitDir);
       }
 
       if (TargetDirectiveBegin == nullptr)
@@ -490,7 +504,8 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
         PrivateVariables.insert(PrivI->getNew());
       }
     }
-    guardSideEffectStatements(NewF, PrivateVariables);
+    guardSideEffectStatements(NewF, PrivateVariables, W->getEntryDirective(),
+                              W->getExitDirective());
     LLVM_DEBUG(dbgs() << "\n After guardSideEffectStatemets the function ::"
                       << *NewF);
   }
@@ -774,6 +789,22 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *NewEntryBB = SplitBlock(EntryBB, &*(EntryBB->begin()), DT, LI);
   W->setEntryBBlock(NewEntryBB);
+
+  for (int I = 0, IE = WL->getWRNLoopInfo().getNormIVSize(); I < IE; ++I) {
+    auto *L = WL->getWRNLoopInfo().getLoop(I);
+    auto *UpperBoundAI =
+        cast<Instruction>(WRegionUtils::getOmpLoopUpperBound(L));
+    assert(UpperBoundAI->getParent() != NewEntryBB &&
+           "genTgtLoopParameter: how come UB alloca "
+           "is in target region's begin block?");
+    if (!DT->dominates(UpperBoundAI, NewEntryBB)) {
+      LLVM_DEBUG(dbgs() << __FUNCTION__ <<
+                 ": upper bound AllocaInst for loop #" << I <<
+                 " does not dominate the enclosing target region.\n");
+      return nullptr;
+    }
+  }
+
   LLVMContext &C = F->getContext();
   IntegerType *Int64Ty = Type::getInt64Ty(C);
   Instruction *InsertPt = EntryBB->getTerminator();

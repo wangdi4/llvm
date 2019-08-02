@@ -1,7 +1,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details | FileCheck %s
 
-; Verify that NSW is not applied to this multi-exit loop as the range information for the IV is computed off of the early exit by scalar evolution. 
-; %i.024.i66183 has a range of [5, 8). 
+; Verify that NSW is not applied to this multi-exit loop as the range information for the IV is computed off of the early exit by scalar evolution.
+; %i.024.i66183 has a range of [5, 8).
 ; We cannot use a signed comparison for the bottom test as the upper bound may be signed negative number.
 
 ; HIR-

@@ -1,4 +1,4 @@
-; REQUIRES: asserts  
+; REQUIRES: asserts
 ;RUN: opt -O2 -debug-only=hir-loop-interchange  -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ;
 ;CHECK-NOT: Interchanged

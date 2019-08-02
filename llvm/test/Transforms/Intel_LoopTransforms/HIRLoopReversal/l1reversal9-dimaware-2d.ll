@@ -1,16 +1,16 @@
 ; Sanity Test(s) on HIR Loop Reversal: l1 that is dimension aware (2Dimensional case)
-; 
-; l1reversal9-dimaware-2d.ll: 
+;
+; l1reversal9-dimaware-2d.ll:
 ; 1-level loop, sanity testcase, that is dimension-aware on 2D array
-; 
+;
 ; Loop is NOT GOOD for reversal,
-; 
+;
 ; [REASONS]
 ; - Prelimary:   _
 ; - Applicable:  _
 ; - Profitable:  _
 ; - Legal:       _
-; 
+;
 ; *** Source Code ***
 ;
 ; [BEFORE LOOP REVERSAL]
@@ -32,7 +32,7 @@
 ;}
 ;
 ; [AFTER LOOP REVERSAL: NOT reversed]
-; 
+;
 ;// stride-aware 2D
 ;volatile int A[100][100];
 ;volatile int B[100][100];
@@ -49,26 +49,26 @@
 ;  return A[0][0] + B[1][1] + 1;
 ;}
 ;
-; 
+;
 ; ===-----------------------------------===
 ; *** Run0: BEFORE HIR Loop Reversal ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-cost-model-throttling=0 -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=BEFORE 
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -hir-cost-model-throttling=0 -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE 
+; RUN: opt -hir-ssa-deconstruction -hir-cost-model-throttling=0 -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=BEFORE
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -hir-cost-model-throttling=0 -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE
 ;
 ;
 ; ===-----------------------------------===
 ; *** Run1: AFTER HIR Loop Reversal, DOESN'T REVERSE anything ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-cost-model-throttling=0 -hir-loop-reversal -print-after=hir-loop-reversal -S 2>&1	< %s  |	FileCheck %s -check-prefix=AFTER 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" -hir-cost-model-throttling=0 -S 2>&1 < %s  | FileCheck %s -check-prefix=AFTER 
+; RUN: opt -hir-ssa-deconstruction -hir-cost-model-throttling=0 -hir-loop-reversal -print-after=hir-loop-reversal -S 2>&1	< %s  |	FileCheck %s -check-prefix=AFTER
+; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" -hir-cost-model-throttling=0 -S 2>&1 < %s  | FileCheck %s -check-prefix=AFTER
 ;
 ;
 ; === -------------------------------------- ===
 ; *** Tests0: W/O HIR Loop Reversal Output ***
 ; === -------------------------------------- ===
 ; Expected output before Loop Reversal
-; 
+;
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:        + DO i1 = 0, 4, 1   <DO_LOOP>
 ; BEFORE:        |   %1 = {vol}(@B)[0][-1 * i1 + 10][i1];
@@ -82,7 +82,7 @@
 ; *** Tests1: AFTER HIR Loop Reversal Output ***
 ; *** NEED TO TUNE THE COST MODEL !!!        ***
 ; === -------------------------------------- ===
-; Expected output AFTER	 Loop Reversal 
+; Expected output AFTER	 Loop Reversal
 ;
 ; AFTER:  BEGIN REGION { }
 ; AFTER:        + DO i1 = 0, 4, 1   <DO_LOOP>
@@ -92,7 +92,7 @@
 ; AFTER:        |   {vol}(@A)[0][1][-1 * i1 + 20] = 2 * i1 + %4;
 ; AFTER:         + END LOOP
 ; AFTER:  END REGION
-; 
+;
 ;
 ; === ---------------------------------------------------------------- ===
 ; Following is the LLVM's input code!

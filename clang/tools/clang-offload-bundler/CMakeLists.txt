@@ -1,4 +1,7 @@
-set(LLVM_LINK_COMPONENTS BitWriter Core Object Support)
+# INTEL_COLLAB
+# Cherry-pick from https://github.com/intel/llvm/pull/363/commits
+set(LLVM_LINK_COMPONENTS Object Support)
+# end INTEL_COLLAB
 
 if(NOT CLANG_BUILT_STANDALONE)
   set(tablegen_deps intrinsics_gen)
@@ -17,7 +20,7 @@ set(CLANG_OFFLOAD_BUNDLER_LIB_DEPS
   
 add_dependencies(clang clang-offload-bundler)
 
-target_link_libraries(clang-offload-bundler
+clang_target_link_libraries(clang-offload-bundler
   PRIVATE
   ${CLANG_OFFLOAD_BUNDLER_LIB_DEPS}
   )

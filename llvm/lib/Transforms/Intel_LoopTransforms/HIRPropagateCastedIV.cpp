@@ -247,7 +247,7 @@ bool HIRPropagateCastedIV::propagateCastedIV(HLLoop *Lp) {
 
     UseRef->getSingleCanonExpr()->removeBlob(CandidateBlobIndex);
     UseRef->removeTrailingStructOffsets(1);
-    UseRef->makeConsistent(nullptr, LoopLevel - 1);
+    UseRef->makeConsistent({}, LoopLevel - 1);
 
     // Insert the new inst as a last node into Loop's Prehdr
     HLInst *PrehdrInst = HNU.createCopyInst(UseRef, "ptr");
@@ -263,7 +263,7 @@ bool HIRPropagateCastedIV::propagateCastedIV(HLLoop *Lp) {
                                         LoopLevel - 1, UseRef->getSymbase());
 
     NewRef->addDimension(CandidateCE->clone(), Offsets);
-    NewRef->makeConsistent(&Aux, LoopLevel);
+    NewRef->makeConsistent(Aux, LoopLevel);
     UseNode->setOperandDDRef(NewRef, OpNum);
   }
 

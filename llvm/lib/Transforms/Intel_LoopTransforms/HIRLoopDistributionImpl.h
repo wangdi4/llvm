@@ -68,8 +68,6 @@ public:
 
   bool run();
 
-  int OptReportLevel = 1;
-
 private:
   HIRFramework &HIRF;
   HIRDDAnalysis &DDA;
@@ -89,7 +87,7 @@ private:
   SmallVector<unsigned, 12> TempArraySB;
   SmallDenseMap<const HLDDNode *, std::pair<LoopNum, InsertOrMove>, 16>
       DistDirectiveNodeMap;
-  SmallVector<HLDDNodeList, 8> DistributedLoops;
+
   SmallDenseMap<const HLDDNode *, std::pair<LoopNum, LoopNum>, 16> IfNodeMap;
 
 private:
@@ -175,6 +173,11 @@ private:
                       HLContainerTy::iterator End, HLIf *NewHLIf,
                       HLDDNode *TopIfHNode, HLDDNodeList &CurLoopHLDDNodeList,
                       unsigned TopIfLoopNum, bool IsThenChild);
+
+  void
+  processPiBlocksToHLNodes(const std::unique_ptr<PiGraph> &PGraph,
+                           ArrayRef<PiBlockList> GroupsOfPiBlocks,
+                           SmallVectorImpl<HLDDNodeList> &DistributedLoops);
 };
 
 class HIRLoopDistributionLegacyPass : public HIRTransformPass {

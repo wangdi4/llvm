@@ -1,20 +1,20 @@
 ; Sanity Test(s) on HIR Loop Reversal: simple l1 loop that CAN be reversed because of no liveout variables.
-; 
+;
 ; l1reversal8-v1.ll:
 ; 2-level loop2, sanity testcase, valid reversal case.
 ; There is NO liveout variable from the 2 level loop nests.
 ; Note:
 ; t is defined in loop j, and used in loop i. It is NOT considered a liveout w.r.t. loop j (outer loop)
-; 
+;
 ; [REASONS]
-; - Applicalbe: Yes. There are 2 cases where const coeff is negative;  
-; - Profitable: YES, both memory accesses accumulate values on negative IV const coeff 
+; - Applicalbe: Yes. There are 2 cases where const coeff is negative;
+; - Profitable: YES, both memory accesses accumulate values on negative IV const coeff
 ; - Legal:      YES
 ;               NO Liveout variable(s) make the loop LEGAL for reversal!
-; 
+;
 ; A valid liveout case:
-; 
-; DO j 
+;
+; DO j
 ;  t = A[.j.]+1;
 ;
 ;  DO i
@@ -46,20 +46,20 @@
 ;}
 ;
 ; [AFTER LOOP REVERSAL: NO REVERSAL WILL HAPPEN!]
-; 
+;
 ;{...}
-; 
+;
 ; ===-----------------------------------===
 ; *** Run0: BEFORE HIR Loop Reversal ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1	< %s  |	FileCheck %s -check-prefix=BEFORE 
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE 
+; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1	< %s  |	FileCheck %s -check-prefix=BEFORE
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE
 ;
 ; ===-----------------------------------===
 ; *** Run1: AFTER HIR Loop Reversal, DOESN'T REVERSE anything ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-after=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=AFTER 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=AFTER 
+; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-after=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=AFTER
+; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=AFTER
 ;
 ;
 ; === -------------------------------------- ===
@@ -67,7 +67,7 @@
 ; === -------------------------------------- ===
 ; Expected output before Loop Reversal
 ; Note: %add1 is actually the temp t
-; 
+;
 ;          BEGIN REGION { }
 ;<26>         + DO i1 = 0, 4, 1   <DO_LOOP>
 ;<4>          |   %1 = (%A)[-1 * i1 + 10];
@@ -76,7 +76,7 @@
 ;<27>         |   + END LOOP
 ;<26>         + END LOOP
 ;          END REGION
-; 
+;
 ;BEFORE:   BEGIN REGION { }
 ;BEFORE:      + DO i1 = 0, 4, 1   <DO_LOOP>
 ;BEFORE:      |   %1 = (%A)[-1 * i1 + 10];
@@ -93,7 +93,7 @@
 ; === -------------------------------------- ===
 ; Expected output AFTER	 Loop Reversal
 ; Note: %add1 is actually the temp t
-; 
+;
 ;          BEGIN REGION { modified }
 ;<26>         + DO i1 = 0, 4, 1   <DO_LOOP>
 ;<4>          |   %1 = (%A)[-1 * i1 + 10];

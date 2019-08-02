@@ -2,13 +2,13 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
-; The left-most dimension except leading [0], which is [%q * %q * i2], is ignored because of blobs. Right-most two dimensions, [i1][i2], is aligned with enclosing loopnests, i1-i2. A perfect loopnest is not enabled. 
+; The left-most dimension except leading [0], which is [%q * %q * i2], is ignored because of blobs. Right-most two dimensions, [i1][i2], is aligned with enclosing loopnests, i1-i2. A perfect loopnest is not enabled.
 
 ; <0>       BEGIN REGION { }
 ; <38>            + DO i1 = 0, 99, 1   <DO_LOOP>
 ; <39>            |   + DO i2 = 0, 99, 1   <DO_LOOP>
 ; <9>             |   |   %2 = (@B)[0][(%q * %q) * i2][i1][i2];
-; <40>            |   |   
+; <40>            |   |
 ; <40>            |   |   + DO i3 = 0, 99, 1   <DO_LOOP>
 ; <14>            |   |   |   %3 = (@B)[0][i1][i2][i3];
 ; <17>            |   |   |   (@A)[0][i2][i3][i3] = %2 + %3;

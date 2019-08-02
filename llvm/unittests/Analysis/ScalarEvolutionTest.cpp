@@ -1637,7 +1637,6 @@ TEST_F(ScalarEvolutionsTest, SCEVExpandInsertCanonicalIV) {
   TestMatchingCanonicalIV(GetAR2, ARBitWidth);
 }
 
-#if INTEL_CUSTOMIZATION
 TEST_F(ScalarEvolutionsTest, SCEVExpanderShlNSW) {
 
   auto checkOneCase = [this](std::string &&str) {
@@ -1678,7 +1677,6 @@ TEST_F(ScalarEvolutionsTest, SCEVExpanderShlNSW) {
                "  ret void "
                "} ");
 }
-#endif // INTEL_CUSTOMIZATION
 
 }  // end anonymous namespace
 }  // end namespace llvm

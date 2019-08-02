@@ -66,7 +66,7 @@ for.end9:                                         ; preds = %for.inc7
 }
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) 
+declare void @llvm.lifetime.start(i64, i8* nocapture)
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) 
+declare void @llvm.lifetime.end(i64, i8* nocapture)

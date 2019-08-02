@@ -1,16 +1,16 @@
 ; Sanity Test(s) on HIR Loop Reversal: l1 that is dimension aware (1D case)
-; 
-; l1reversal9-dimaware-1d.ll: 
+;
+; l1reversal9-dimaware-1d.ll:
 ; 1-level loop, sanity testcase, that is dimension-aware on 1D array
-; 
+;
 ; Loop is GOOD for reversal,
-; 
+;
 ; [REASONS]
 ; - Prelimary:   _
 ; - Applicable:  _
 ; - Profitable:  _
 ; - Legal:       _
-; 
+;
 ; *** Source Code ***
 ;
 ; [BEFORE LOOP REVERSAL]
@@ -28,7 +28,7 @@
 ;}
 ;
 ; [AFTER LOOP REVERSAL: reversed]
-; 
+;
 ;int foo(int *restrict A, char *restrict C) {
 ; int i;
 ;  //loop i
@@ -40,26 +40,26 @@
 ;  return A[1] + C[0] + 1;
 ;}
 ;
-; 
+;
 ; ===-----------------------------------===
 ; *** Run0: BEFORE HIR Loop Reversal ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1	< %s  |	FileCheck %s -check-prefix=BEFORE 
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE 
+; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1	< %s  |	FileCheck %s -check-prefix=BEFORE
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE
 ;
 ;
 ; ===-----------------------------------===
 ; *** Run1: AFTER HIR Loop Reversal, DOESN'T REVERSE anything ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-after=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=AFTER 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=AFTER 
+; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-after=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=AFTER
+; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=AFTER
 ;
 ;
 ; === -------------------------------------- ===
 ; *** Tests0: W/O HIR Loop Reversal Output ***
 ; === -------------------------------------- ===
 ; Expected output before Loop Reversal
-; 
+;
 ;          BEGIN REGION { }
 ;<21>            + DO i1 = 0, 4, 1   <DO_LOOP>
 ;<3>             |   %0 = (%C)[i1];
@@ -68,7 +68,7 @@
 ;<14>            |   (%C)[-1 * i1 + 50] = %3;
 ;<21>            + END LOOP
 ;          END REGION
-; 
+;
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:    + DO i1 = 0, 4, 1   <DO_LOOP>
 ; BEFORE:    |   %0 = (%C)[i1];
@@ -83,7 +83,7 @@
 ; *** Tests1: AFTER HIR Loop Reversal Output ***
 ; *** NEED TO TUNE THE COST MODEL !!!        ***
 ; === -------------------------------------- ===
-; Expected output AFTER	 Loop Reversal 
+; Expected output AFTER	 Loop Reversal
 ;
 ;          BEGIN REGION { modified }
 ;<21>            + DO i1 = 0, 4, 1   <DO_LOOP>
@@ -93,7 +93,7 @@
 ;<14>            |   (%C)[i1 + 46] = %3;
 ;<21>            + END LOOP
 ;          END REGION
-; 
+;
 ; AFTER:   BEGIN REGION { modified }
 ; AFTER:         + DO i1 = 0, 4, 1   <DO_LOOP>
 ; AFTER:         |   %0 = (%C)[-1 * i1 + 4];
@@ -103,7 +103,7 @@
 ; AFTER:         + END LOOP
 ; AFTER:   END REGION
 ;
-; 
+;
 ;
 ; === ---------------------------------------------------------------- ===
 ; Following is the LLVM's input code!

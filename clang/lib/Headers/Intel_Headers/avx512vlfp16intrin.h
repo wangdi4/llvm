@@ -1608,7 +1608,7 @@ _mm256_mask3_fnmadd_ph(__m256h __A, __m256h __B, __m256h __C, __mmask16 __U)
   return (__m256h) __builtin_ia32_selectph_256((__mmask16) __U,
                     __builtin_ia32_vfmaddph256 (-(__v16hf) __A,
                                                 (__v16hf) __B,
-                                                -(__v16hf) __C),
+                                                (__v16hf) __C),
                     (__v16hf) __C);
 }
 

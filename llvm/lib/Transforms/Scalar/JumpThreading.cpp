@@ -29,6 +29,7 @@
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Intel_AggInline.h"          // INTEL
 #include "llvm/Analysis/Intel_Andersens.h"          // INTEL
+#include "llvm/Analysis/Intel_WP.h"                 // INTEL
 #include "llvm/Analysis/LazyValueInfo.h"
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"   // INTEL
 #include "llvm/Analysis/Loads.h"
@@ -106,6 +107,11 @@ static cl::opt<bool> PrintLVIAfterJumpThreading(
     cl::desc("Print the LazyValueInfo cache after JumpThreading"), cl::init(false),
     cl::Hidden);
 
+static cl::opt<bool> ThreadAcrossLoopHeaders(
+    "jump-threading-across-loop-headers",
+    cl::desc("Allow JumpThreading to thread across loop headers, for testing"),
+    cl::init(false), cl::Hidden);
+
 #if INTEL_CUSTOMIZATION
 static cl::opt<bool>
 JumpThreadLoopHeader("jump-thread-loop-header",
@@ -163,6 +169,7 @@ namespace {
       AU.addPreserved<GlobalsAAWrapperPass>();
       AU.addPreserved<AndersensAAWrapperPass>();                        // INTEL
       AU.addPreserved<InlineAggressiveWrapperPass>();                   // INTEL
+      AU.addPreserved<WholeProgramWrapperPass>();                       // INTEL
       AU.addRequired<TargetLibraryInfoWrapperPass>();
       AU.addRequired<TargetTransformInfoWrapperPass>();                 // INTEL
     }
@@ -369,6 +376,7 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
   PA.preserve<LazyValueAnalysis>();
   PA.preserve<InlineAggAnalysis>();   // INTEL
   PA.preserve<AndersensAA>();         // INTEL
+  PA.preserve<WholeProgramAnalysis>();// INTEL
   return PA;
 }
 
@@ -405,7 +413,8 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
     if (!DT.isReachableFromEntry(&BB))
       Unreachable.insert(&BB);
 
-  FindLoopHeaders(F);
+  if (!ThreadAcrossLoopHeaders)
+    FindLoopHeaders(F);
 
   bool EverChanged = false;
   bool Changed;

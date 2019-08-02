@@ -119,6 +119,31 @@ public:
 #endif  // INTEL_CUSTOMIZATION
       }
 
+  /// Add a temporary branch from \p W's EntryBB to ExitBB. This is to prevent
+  /// optimizations from deleting the end region directive of a WRegion if it
+  /// is determined to be unreachable (for instance if there is a call to
+  /// `exit()` within the WRegion.
+  /// The generated code looks like:
+  ///
+  /// \code
+  ///   %temp = alloca i1
+  ///   %0 = llvm.region.entry()[... "QUAL.OMP.JUMP.TO.END.IF" (i1* %temp)
+  ///   %temp.load = load volatile i1, i1* %temp
+  ///   %cmp = icmp ne i1 %temp.load, false
+  ///   br i1 %cmp, label %REGION.END, label %REGION.BODY
+  ///
+  ///   REGION.BODY:
+  ///   ...
+  ///
+  ///   REGION.END:
+  ///   llvm.region.exit(%0)
+  ///
+  /// \endcode
+  ///
+  /// This branch is added at the end of paropt-prepare pass, and later removed
+  /// before the vpo-paropt transformation.
+  void addBranchToEndDirective(WRegionNode *W);
+
   /// Top level interface for parallel and prepare transformation
   bool paroptTransforms();
 
@@ -1321,8 +1346,12 @@ private:
   /// the code, then put a barrier before the start and after the end of
   /// every parallel region, so that all the threads in the team wait for
   /// the master thread, and can see its update of team shared memory.
+  /// \p KernelEntryDir and \p KernelExitDir are correspondingly the entry and
+  /// exit directives for the WRegion whose outlined region \p kernelF is.
   void guardSideEffectStatements(Function *KernelF,
-                                 SmallPtrSetImpl<Value*> &PrivateVariables);
+                                 SmallPtrSetImpl<Value *> &PrivateVariables,
+                                 Instruction *KernelEntryDir = nullptr,
+                                 Instruction *KernelExitDir = nullptr);
 
   /// Set the kernel arguments' address space as ADDRESS_SPACE_GLOBAL.
   /// Propagate the address space from the arguments to the usage of the

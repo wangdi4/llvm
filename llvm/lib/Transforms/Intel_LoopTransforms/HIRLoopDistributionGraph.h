@@ -46,14 +46,15 @@ public:
     StmtAndLoop,    // piblock contains multiple stmts and loops
   };
 
-  PiBlock(const std::vector<DistPPNode *> &SCCNodes, PiGraph *G)
+  PiBlock(ArrayRef<DistPPNode *> SCCNodes, PiGraph *G)
       : Graph(G), DistPPNodes(SCCNodes.begin(), SCCNodes.end()) {
     setPiBlockType(SCCNodes);
     // DistNodes within an scc are not guaranteed to be emitted in any
     // particular order. Ensure they are ordered lexically
     std::sort(DistPPNodes.begin(), DistPPNodes.end(),
               [](DistPPNode *A, DistPPNode *B) -> bool {
-                return A->HNode->getTopSortNum() < B->HNode->getTopSortNum();
+                return A->getNode()->getTopSortNum() <
+                       B->getNode()->getTopSortNum();
               });
   }
 
@@ -67,12 +68,10 @@ public:
     return DistPPNodes.end();
   }
 
-  void dump() {
-    for (auto NI = DistPPNodes.begin(), NE = DistPPNodes.end(); NI != NE;
-         ++NI) {
-      (*NI)->dump();
-    }
-  }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  LLVM_DUMP_METHOD
+  void dump() const;
+#endif
 
   unsigned size() { return DistPPNodes.size(); }
 
@@ -91,11 +90,11 @@ public:
     return map_iterator(DistPPNodes.end(), DistToHNodeFun(DistToHNode));
   }
 
-  static HLNode *DistToHNode(DistPPNode *DNode) { return DNode->HNode; }
+  static HLNode *DistToHNode(DistPPNode *DNode) { return DNode->getNode(); }
   PiBlockType getBlockType() { return BlockType; }
 
 private:
-  void setPiBlockType(const std::vector<DistPPNode *> &SCCNodes);
+  void setPiBlockType(ArrayRef<DistPPNode *> SCCNodes);
   PiGraph *Graph;
   SmallVector<DistPPNode *, 16> DistPPNodes;
   PiBlockType BlockType;
@@ -186,6 +185,8 @@ public:
   // Condenses all DistPPGraph edges into a single PiGraphEdge
   void createEdges();
 
+  void processControlDependencies();
+
   // Marks graph as invalid for given reason
   // Possible failures could be too many nodes, edges etc
   void setInvalid(StringRef FailureReason) {
@@ -200,6 +201,8 @@ public:
   SmallVectorImpl<PiBlock *>::iterator node_end() { return PiBlocks.end(); }
   unsigned size() { return PiBlocks.size(); }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  LLVM_DUMP_METHOD
   void dump() {
     dbgs() << "\nProposed order\n";
     for (auto NI = PiBlocks.begin(), NE = PiBlocks.end(); NI != NE; ++NI) {
@@ -207,6 +210,7 @@ public:
       (*NI)->dump();
     }
   }
+#endif
 
   virtual ~PiGraph() {
     for (PiBlock *PBlk : PiBlocks) {
@@ -215,8 +219,14 @@ public:
     delete PPGraph;
   }
 
+  Optional<std::pair<DistPPNode *, bool>>
+  getControlDependence(DistPPNode *Dst) {
+    assert(PPGraph && "PPGraph is not initialized");
+    return PPGraph->getControlDependence(Dst);
+  }
+
 private:
-  void addPiBlock(const std::vector<DistPPNode *> &Nodes) {
+  void addPiBlock(ArrayRef<DistPPNode *> Nodes) {
     PiBlock *CurPiBlock = new PiBlock(Nodes, this);
     for (DistPPNode *DistNode : Nodes) {
       DistPPNodeToPiBlock[DistNode] = CurPiBlock;

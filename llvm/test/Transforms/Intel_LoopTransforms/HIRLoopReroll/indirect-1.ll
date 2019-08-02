@@ -2,7 +2,7 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; Reroll happend. ICC does not reroll.
- 
+
 ;#define SIZE 10
 ;#include <stdint.h>
 ;int64_t A[SIZE];
@@ -10,14 +10,14 @@
 ;int64_t C[SIZE];
 ;
 ;void foo(int n) {
-;  int D = n*n;  
+;  int D = n*n;
 ;  int q = 0;
 ;  for (int i=0;  i<n; i=i+2) {
 ;    B[A[i]]   =1 ;
 ;    B[A[i+1]] =1 ;
 ;  }
 ;}
- 
+
 ; CHECK:Function: foo
 
 ; CHECK:        BEGIN REGION { }
@@ -37,7 +37,7 @@
 ; CHECK:              |   (@B)[0][%1] = 1;
 ; CHECK:              + END LOOP
 ; CHECK:        END REGION
- 
+
 ;Module Before HIR; ModuleID = 'indirect-1.c'
 source_filename = "indirect-1.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

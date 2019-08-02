@@ -25,11 +25,11 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-void PiBlock::setPiBlockType(const std::vector<DistPPNode *> &SCCNodes) {
+void PiBlock::setPiBlockType(ArrayRef<DistPPNode *> SCCNodes) {
   int StmtCount = 0;
   int LoopCount = 0;
   for (DistPPNode *Node : SCCNodes) {
-    if (isa<HLLoop>(Node->HNode)) {
+    if (isa<HLLoop>(Node->getNode())) {
       LoopCount++;
     } else {
       StmtCount++;
@@ -105,3 +105,17 @@ void PiGraph::createEdges() {
     }
   }
 }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+LLVM_DUMP_METHOD
+void PiBlock::dump() const {
+  for (auto *PPNode : DistPPNodes) {
+    auto ControlDep = Graph->getControlDependence(PPNode);
+    if (ControlDep) {
+      dbgs() << "<dep " << ControlDep->first->getNode()->getNumber() << "> ";
+    }
+
+    PPNode->dump();
+  }
+}
+#endif

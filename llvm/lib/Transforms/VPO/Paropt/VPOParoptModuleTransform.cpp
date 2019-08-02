@@ -144,6 +144,15 @@ bool VPOParoptModuleTransform::doParoptTransforms(
     LLVM_DEBUG(dbgs() << "\n=== VPOParoptPass Process func: " << F->getName()
                       << " {\n");
 
+    if ((Mode & OmpPar) && (Mode & ParTrans)) {
+      Changed |= VPOUtils::removeBranchesFromBeginToEndDirective(*F);
+      if (Changed)
+        LLVM_DEBUG(
+            dbgs()
+            << "=== After removing branches from Begin To End Directive:\n"
+            << *F);
+    }
+
     // Walk the W-Region Graph top-down, and create W-Region List
     WRegionInfo &WI = WRegionInfoGetter(*F);
     WI.buildWRGraph();
@@ -435,9 +444,10 @@ void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
   auto EraseUnusedGlobalValue = [&](GlobalValue *GV) {
     // TODO  The check of use_empty will be removed after the frontend
     // generates target_declare attribute for the variable GV.
+    GV->removeDeadConstantUsers();
     if (!GV->use_empty())
       return;
-    GV->removeDeadConstantUsers();
+
     GV->eraseFromParent();
   };
 

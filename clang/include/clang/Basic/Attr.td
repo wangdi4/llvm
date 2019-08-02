@@ -313,6 +313,8 @@ def ObjCAutoRefCount : LangOpt<"ObjCAutoRefCount">;
 def ObjCNonFragileRuntime : LangOpt<"ObjCNonFragileRuntime",
                                     "LangOpts.ObjCRuntime.allowsClassStubs()">;
 
+def HLS : LangOpt<"HLS">; // INTEL
+
 // Language option for CMSE extensions
 def Cmse : LangOpt<"Cmse">;
 
@@ -1492,23 +1494,27 @@ def IntelFPGALocalOrStaticVar : SubsetSubject<Var,
                               "local variables, static variables">;
 
 def IntelFPGADoublePump : Attr {
-  let Spellings = [CXX11<"intelfpga", "doublepump">];
-  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalOrStaticVar,
+  let Spellings = [CXX11<"intelfpga", "doublepump">,           // INTEL
+                   GNU<"doublepump">];                         // INTEL
+  let Subjects = SubjectList<[IntelFPGAConstVar,               // INTEL
+                              IntelFPGALocalStaticSlaveMemVar, // INTEL
                               Field], ErrorDiag>;
-  let LangOpts = [SYCL];
+  let LangOpts = [SYCL, OpenCL, HLS];                          // INTEL
   let Documentation = [IntelFPGADoublePumpAttrDocs];
 }
 
 def IntelFPGASinglePump : Attr {
-  let Spellings = [CXX11<"intelfpga", "singlepump">];
-  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalOrStaticVar,
+  let Spellings = [CXX11<"intelfpga", "singlepump">,           // INTEL
+                   GNU<"singlepump">];                         // INTEL
+  let Subjects = SubjectList<[IntelFPGAConstVar,               // INTEL
+                              IntelFPGALocalStaticSlaveMemVar, // INTEL
                               Field], ErrorDiag>;
-  let LangOpts = [SYCL];
+  let LangOpts = [SYCL, OpenCL, HLS];                          // INTEL
   let Documentation = [IntelFPGASinglePumpAttrDocs];
 }
 
 def IntelFPGAMemory : Attr {
-  let Spellings = [CXX11<"intelfpga", "memory">];
+  let Spellings = [CXX11<"intelfpga", "memory">, GNU<"memory">]; // INTEL
   let Args = [EnumArgument<"Kind", "MemoryKind",
                            ["MLAB", "BLOCK_RAM", ""],
                            ["MLAB", "BlockRAM", "Default"], 1>];
@@ -1523,25 +1529,25 @@ def IntelFPGAMemory : Attr {
   }];
   let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticSlaveMemVar,
                               Field], ErrorDiag>;
-  let LangOpts = [SYCL];
+  let LangOpts = [SYCL, OpenCL, HLS];  // INTEL
   let Documentation = [IntelFPGAMemoryAttrDocs];
 }
 
 def IntelFPGARegister : Attr {
-  let Spellings = [CXX11<"intelfpga", "register">];
+  let Spellings = [CXX11<"intelfpga", "register">, GNU<"register">]; // INTEL
   let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalOrStaticVar,
                               Field], ErrorDiag>;
-  let LangOpts = [SYCL];
+  let LangOpts = [SYCL, OpenCL, HLS];  // INTEL
   let Documentation = [IntelFPGARegisterAttrDocs];
 }
 
 // One integral argument.
 def IntelFPGABankWidth : Attr {
-  let Spellings = [CXX11<"intelfpga","bankwidth">];
+  let Spellings = [CXX11<"intelfpga","bankwidth">, GNU<"bankwidth">]; // INTEL
   let Args = [ExprArgument<"Value">];
   let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticSlaveMemVar,
                               Field], ErrorDiag>;
-  let LangOpts = [SYCL];
+  let LangOpts = [SYCL, OpenCL, HLS]; // INTEL
   let Documentation = [IntelFPGABankWidthAttrDocs];
   let AdditionalMembers = [{
     static unsigned getMinValue() {
@@ -1554,11 +1560,11 @@ def IntelFPGABankWidth : Attr {
 }
 
 def IntelFPGANumBanks : Attr {
-  let Spellings = [CXX11<"intelfpga","numbanks">];
+  let Spellings = [CXX11<"intelfpga","numbanks">, GNU<"numbanks">]; // INTEL
   let Args = [ExprArgument<"Value">];
   let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticSlaveMemVar,
                               Field], ErrorDiag>;
-  let LangOpts = [SYCL];
+  let LangOpts = [SYCL, OpenCL, HLS]; // INTEL
   let Documentation = [IntelFPGANumBanksAttrDocs];
   let AdditionalMembers = [{
     static unsigned getMinValue() {
@@ -2156,6 +2162,8 @@ def Section : InheritableAttr {
   let Documentation = [SectionDocs];
 }
 
+// This is used for `__declspec(code_seg("segname"))`, but not for
+// `#pragma code_seg("segname")`.
 def CodeSeg : InheritableAttr {
   let Spellings = [Declspec<"code_seg">];
   let Args = [StringArgument<"Name">];

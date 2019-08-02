@@ -7,15 +7,15 @@
 ; + DO i1 = 0, 99, 1   <DO_LOOP>
 ; |   (%a)[i1] = i1;
 ; + END LOOP
-; 
+;
 ; (%b)[0] = 0;
-; 
+;
 ; + DO i1 = 0, 99, 1   <DO_LOOP>
 ; |   %0 = (%a)[i1];
 ; |   %1 = (%b)[i1];
 ; |   (%b)[i1] = %0 + %1 + 1;
 ; + END LOOP
-; 
+;
 ; ret ;
 ; END REGION
 

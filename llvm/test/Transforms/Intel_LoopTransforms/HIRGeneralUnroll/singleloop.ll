@@ -7,7 +7,7 @@
 ; HIR Check
 ; CHECK: BEGIN REGION { modified }
 ; CHECK: DO i1 = 0, 34, 1
-; CHECK: (@a)[0][8 * {{.*}}(%n) * i1 + 7 * {{.*}}(%n)] 
+; CHECK: (@a)[0][8 * {{.*}}(%n) * i1 + 7 * {{.*}}(%n)]
 ; CHECK: END LOOP
 ; CHECK: DO i1 = 280, 283, 1
 ; CHECK: (@a)[0][i1]
@@ -91,6 +91,6 @@ for.end:                                          ; preds = %for.body
 declare void @llvm.lifetime.start(i64, i8* nocapture)
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) 
+declare void @llvm.lifetime.end(i64, i8* nocapture)
 
 

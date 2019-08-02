@@ -260,7 +260,7 @@ public:
   /// \brief Verifies HLIf integrity.
   virtual void verify() const override;
 
-#ifndef NDEBUG
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   LLVM_DUMP_METHOD
   void dumpHeader() const;
 #endif

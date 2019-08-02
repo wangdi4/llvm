@@ -1,16 +1,16 @@
 ; Sanity Test(s) on HIR Loop Reversal: simple l1 loop that CAN'T be reversed
-; 
+;
 ; l1reversal7-iv.ll:
 ; 1-level loop, sanity testcase7, invalid reversal case
-; 
+;
 ; [REASONS]
-; - Applicalbe: NO 
+; - Applicalbe: NO
 ;   non linear arithmatic on IV;
 ;   (E.g. i*i appears on CanonExpr on Array's sub index)
 ; - Profitable: N/A
 ; - Legal:      N/A
-; 
-; 
+;
+;
 ; *** Source Code ***
 ;
 ; [BEFORE LOOP REVERSAL]
@@ -24,7 +24,7 @@
 ;}
 ;
 ; [AFTER LOOP REVERSAL: NO REVERSAL WILL HAPPEN!]
-; 
+;
 ;int foo(int A[100], int B[100]) {
 ;  int i = 0;
 ;  for (i = 0; i <= 4; i++) {
@@ -32,26 +32,26 @@
 ;  }
 ;  return A[1] + B[1]+1;
 ;}
-; 
+;
 ; ===-----------------------------------===
 ; *** Run0: BEFORE HIR Loop Reversal ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=BEFORE 
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE 
+; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=BEFORE
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE
 ;
 ;
 ; ===-----------------------------------===
 ; *** Run1: AFTER HIR Loop Reversal, DOESN'T REVERSE anything ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-after=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=AFTER 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=AFTER 
+; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-after=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=AFTER
+; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=AFTER
 ;
 ;
 ; === -------------------------------------- ===
 ; *** Tests0: W/O HIR Loop Reversal Output ***
 ; === -------------------------------------- ===
 ; Expected output before Loop Reversal
-; 
+;
 ;          BEGIN REGION { }
 ;<16>         + DO i1 = 0, 4, 1   <DO_LOOP>
 ;<5>          |   %2 = (%B)[-2 * i1 + 80];
@@ -60,7 +60,7 @@
 ;<9>          |   (%A)[%4] = %2;
 ;<16>         + END LOOP
 ;          END REGION
-; 
+;
 ;          BEGIN REGION { }
 ; BEFORE:     + DO i1 = 0, 4, 1   <DO_LOOP>
 ; BEFORE:     |   %2 = (%B)[-2 * i1 + 80];
@@ -76,7 +76,7 @@
 ; *** THOUGHT NOTHING IS REVERSED !!!        ***
 ; === -------------------------------------- ===
 ; Expected output AFTER	 Loop Reversal
-; 
+;
 ;          BEGIN REGION { }
 ;<16>         + DO i1 = 0, 4, 1   <DO_LOOP>
 ;<5>          |   %2 = (%B)[-2 * i1 + 80];
@@ -85,7 +85,7 @@
 ;<9>          |   (%A)[%4] = %2;
 ;<16>         + END LOOP
 ;          END REGION
-; 
+;
 ;          BEGIN REGION { }
 ; AFTER:     + DO i1 = 0, 4, 1   <DO_LOOP>
 ; AFTER:     |   %2 = (%B)[-2 * i1 + 80];

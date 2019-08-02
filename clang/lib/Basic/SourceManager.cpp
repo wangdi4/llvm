@@ -330,7 +330,7 @@ void SourceManager::AddLineNote(SourceLocation Loc, unsigned LineNo,
 
 LineTableInfo &SourceManager::getLineTable() {
   if (!LineTable)
-    LineTable = new LineTableInfo();
+    LineTable.reset(new LineTableInfo());
   return *LineTable;
 }
 
@@ -346,8 +346,6 @@ SourceManager::SourceManager(DiagnosticsEngine &Diag, FileManager &FileMgr,
 }
 
 SourceManager::~SourceManager() {
-  delete LineTable;
-
   // Delete FileEntry objects corresponding to content caches.  Since the actual
   // content cache objects are bump pointer allocated, we just have to run the
   // dtors, but we call the deallocate method for completeness.

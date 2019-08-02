@@ -8,9 +8,9 @@
 ; REQUIRES: asserts
 ;
 ; No refs either in pre/post loop of the innermost or in the innermost loop itself
-; suggests interchange of loops may help. Subscripts in all dimesions are 
+; suggests interchange of loops may help. Subscripts in all dimesions are
 ; well aligned with loopnest. Compare against matmul3.ll.
-; 
+;
 ; <37>      + DO i1 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
 ; <38>      |   + DO i2 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
 ; <6>       |   |   %0 = (@a)[0][i1][i2];
@@ -26,8 +26,8 @@
 ; CHECK: MayInterchange: 0
 ; CHECK-NOT: Interchanged:
 ;
-; ModuleID = 'matmul3.c' 
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128" 
+; ModuleID = 'matmul3.c'
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 @c = common global[1024 x[1024 x double]] zeroinitializer, align 16

@@ -13,16 +13,16 @@
 ;   }
 ; }
 
-; Before HIR Generate MKL Call- 
+; Before HIR Generate MKL Call-
 ; + DO i1 = 0, 99, 1   <DO_LOOP>
 ; |   + DO i2 = 0, 999, 1   <DO_LOOP>
 ; |   |   %add130 = (@c)[0][i2];
-; |   |   
+; |   |
 ; |   |   + DO i3 = 0, 999, 1   <DO_LOOP>
 ; |   |   |   %mul = (@a)[0][i2][i3]  *  (@b)[0][i3];
 ; |   |   |   %add130 = %add130  +  %mul;
 ; |   |   + END LOOP
-; |   |   
+; |   |
 ; |   |   (@c)[0][i2] = %add130;
 ; |   + END LOOP
 ; + END LOOP

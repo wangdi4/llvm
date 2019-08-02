@@ -1,8 +1,8 @@
 ; l2reversal-ddtest-1d.ll
 ; (2-level loop, sanity testcase, for 2D array dependence tests)
-; 
+;
 ; [REASONS]
-; - Applicalbe: NO, HAS no valid (0) negative memory-access addresses, and 0 positive memory-access address; 
+; - Applicalbe: NO, HAS no valid (0) negative memory-access addresses, and 0 positive memory-access address;
 ; - Profitable: N/A
 ; - Legal:      N/A
 ;
@@ -16,7 +16,7 @@
 ;  int i = 0, j = 0;
 ;
 ;  //Loop0: (<,<): valid for reversal
-;  //Status: 
+;  //Status:
 ;  for (i = 1; i <= 10; i++) {
 ;    for (j = 1; j <= 10; j++) {
 ;      A[i][j] = A[i - 1][j - 1] + 1;
@@ -24,7 +24,7 @@
 ;  }
 ;
 ;  //Loop1: (<,=): valid for reversal
-;  //Status: 
+;  //Status:
 ;  for (i = 1; i <= 10; i++) {
 ;    for (j = 1; j <= 10; j++) {
 ;      A[i][j] = A[i - 1][j] + 1;
@@ -32,7 +32,7 @@
 ;  }
 ;
 ;  //Loop2: (<,>): valid for reversal
-;  //Status: 
+;  //Status:
 ;  for (i = 1; i <= 10; i++) {
 ;    for (j = 1; j <= 10; j++) {
 ;      A[i][j] = A[i - 1][j + 1] + 1;
@@ -40,7 +40,7 @@
 ;  }
 ;
 ;  //Loop3: (=,<): invalid for reversal
-;  //Status: 
+;  //Status:
 ;  for (i = 1; i <= 10; i++) {
 ;    for (j = 1; j <= 10; j++) {
 ;      A[i][j] = A[i][j - 1] + 1;
@@ -48,7 +48,7 @@
 ;  }
 ;
 ;  //Loop4: (=,=): valid for reversal
-;  //Status: 
+;  //Status:
 ;  for (i = 1; i <= 10; i++) {
 ;    for (j = 1; j <= 10; j++) {
 ;      A[i][j] = A[i][j] + 1;
@@ -56,7 +56,7 @@
 ;  }
 ;
 ;  //Loop5: (=,>): invalid for reversal
-;  //Status: 
+;  //Status:
 ;  for (i = 1; i <= 10; i++) {
 ;    for (j = 1; j <= 10; j++) {
 ;      A[i][j] = A[i][j + 1] + 1;
@@ -64,7 +64,7 @@
 ;  }
 ;
 ;  //Loop6: (>,<): valid for reversal
-;  //Status: 
+;  //Status:
 ;  for (i = 1; i <= 10; i++) {
 ;    for (j = 1; j <= 10; j++) {
 ;      A[i][j] = A[i + 1][j - 1] + 1;
@@ -72,7 +72,7 @@
 ;  }
 ;
 ;  //Loop7: (>,=): valid for reversal
-;  //Status: 
+;  //Status:
 ;  for (i = 1; i <= 10; i++) {
 ;    for (j = 1; j <= 10; j++) {
 ;      A[i][j] = A[i + 1][j] + 1;
@@ -80,7 +80,7 @@
 ;  }
 ;
 ;  //8. (>,>): valid for reversal
-;  //Status: 
+;  //Status:
 ;  for (i = 1; i <= 10; i++) {
 ;    for (j = 1; j <= 10; j++) {
 ;      A[i][j] = A[i + 1][j + 1] + 1;
@@ -162,12 +162,12 @@
 ;
 ;  return A[1][1] + B[1][1] + 1;
 ;}
-; 
+;
 ; ===-----------------------------------===
 ; *** Run0: BEFORE HIR Loop Reversal ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=BEFORE 
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE 
+; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=BEFORE
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE
 ;
 ;; ===-----------------------------------===
 ; *** Run1: AFTER HIR Loop Reversal ***
@@ -181,7 +181,7 @@
 ; === -------------------------------------- ===
 ; Expected output before Loop Reversal
 ;
-; Loop0: 
+; Loop0:
 ;          BEGIN REGION { }
 ;<117>        + DO i1 = 0, 9, 1   <DO_LOOP>
 ;<4>          |   %2 = (%A)[%indvars.iv359 + -1][i1];
@@ -255,7 +255,7 @@
 ;
 ;CHECK OUTPUT BeFORE DOING LOOP REVERSAL
 ;
-; Loop0: 
+; Loop0:
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:     + DO i1 = 0, 9, 1   <DO_LOOP>
 ; BEFORE:     |   %2 = (%A)[%indvars.iv359 + -1][i1];
@@ -331,8 +331,8 @@
 ; === -------------------------------------- ===
 ;
 ; Expected HIR output after Loop-Reversal is enabled: Not reversal ever happened in this given input!
-; 
-; Loop0: 
+;
+; Loop0:
 ;          BEGIN REGION { }
 ;<117>        + DO i1 = 0, 9, 1   <DO_LOOP>
 ;<4>          |   %2 = (%A)[%indvars.iv359 + -1][i1];
@@ -406,7 +406,7 @@
 ;
 ;CHECK OUTPUT After DOING LOOP REVERSAL
 ;
-; Loop0: 
+; Loop0:
 ; AFTER:  BEGIN REGION { }
 ; AFTER:     + DO i1 = 0, 9, 1   <DO_LOOP>
 ; AFTER:     |   %2 = (%A)[%indvars.iv359 + -1][i1];
@@ -476,7 +476,7 @@
 ; AFTER:     |   (%A)[%indvars.iv306][i1 + 1] = %13 + 1;
 ; AFTER:     + END LOOP
 ; AFTER:  END REGION
-; 
+;
 ;
 ; === ---------------------------------------------------------------- ===
 ; Following is the LLVM's input code!

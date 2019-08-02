@@ -1,22 +1,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-reroll  -print-before=hir-loop-reroll -print-after=hir-loop-reroll -hir-verify-cf-def-level  < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" -hir-verify-cf-def-level < %s 2>&1 | FileCheck %s
 
-; If it were rerolled by 8, the new TC overflows 64-bit range. 
- 
-; CHECK:Function: foo
-
-; CHECK:        BEGIN REGION { }
-; CHECK:              + DO i1 = 0, 2305843009213693951, 1   <DO_LOOP>
-; CHECK:              |   (%a)[8 * i1] = (%b)[8 * i1];
-; CHECK:              |   (%a)[8 * i1 + 1] = (%b)[8 * i1 + 1];
-; CHECK:              |   (%a)[8 * i1 + 2] = (%b)[8 * i1 + 2];
-; CHECK:              |   (%a)[8 * i1 + 3] = (%b)[8 * i1 + 3];
-; CHECK:              |   (%a)[8 * i1 + 4] = (%b)[8 * i1 + 4];
-; CHECK:              |   (%a)[8 * i1 + 5] = (%b)[8 * i1 + 5];
-; CHECK:              |   (%a)[8 * i1 + 6] = (%b)[8 * i1 + 6];
-; CHECK:              |   (%a)[8 * i1 + 7] = (%b)[8 * i1 + 7];
-; CHECK:              + END LOOP
-; CHECK:        END REGION
+; If it were rerolled by 8, the new TC overflows 64-bit range.
 
 ; CHECK:Function: foo
 
@@ -32,7 +17,22 @@
 ; CHECK:              |   (%a)[8 * i1 + 7] = (%b)[8 * i1 + 7];
 ; CHECK:              + END LOOP
 ; CHECK:        END REGION
- 
+
+; CHECK:Function: foo
+
+; CHECK:        BEGIN REGION { }
+; CHECK:              + DO i1 = 0, 2305843009213693951, 1   <DO_LOOP>
+; CHECK:              |   (%a)[8 * i1] = (%b)[8 * i1];
+; CHECK:              |   (%a)[8 * i1 + 1] = (%b)[8 * i1 + 1];
+; CHECK:              |   (%a)[8 * i1 + 2] = (%b)[8 * i1 + 2];
+; CHECK:              |   (%a)[8 * i1 + 3] = (%b)[8 * i1 + 3];
+; CHECK:              |   (%a)[8 * i1 + 4] = (%b)[8 * i1 + 4];
+; CHECK:              |   (%a)[8 * i1 + 5] = (%b)[8 * i1 + 5];
+; CHECK:              |   (%a)[8 * i1 + 6] = (%b)[8 * i1 + 6];
+; CHECK:              |   (%a)[8 * i1 + 7] = (%b)[8 * i1 + 7];
+; CHECK:              + END LOOP
+; CHECK:        END REGION
+
 ;Module Before HIR
 ; ModuleID = 'cmplr-8109.c'
 source_filename = "cmplr-8109.c"

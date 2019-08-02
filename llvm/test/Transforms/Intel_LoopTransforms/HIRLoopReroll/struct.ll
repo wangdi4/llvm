@@ -2,17 +2,6 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; Invalid to reroll due to different trailing offsets.
- 
-; CHECK: Function: Vsub
-
-; CHECK:        BEGIN REGION { }
-; CHECK:              + DO i1 = 0, (sext.i32.i64(%m) + -1)/u2, 1   <DO_LOOP>  <MAX_TC_EST = 1073741824>
-; CHECK:              |   %mul1 = %mul  *  (%a)[2 * i1];
-; CHECK:              |   (%b)[2 * i1].0 = %mul1;
-; CHECK:              |   %mul7 = %mul  *  (%a)[2 * i1 + 1];
-; CHECK:              |   (%b)[2 * i1 + 1].1 = %mul7;
-; CHECK:              + END LOOP
-; CHECK:        END REGION
 
 ; CHECK: Function: Vsub
 
@@ -24,7 +13,18 @@
 ; CHECK:              |   (%b)[2 * i1 + 1].1 = %mul7;
 ; CHECK:              + END LOOP
 ; CHECK:        END REGION
- 
+
+; CHECK: Function: Vsub
+
+; CHECK:        BEGIN REGION { }
+; CHECK:              + DO i1 = 0, (sext.i32.i64(%m) + -1)/u2, 1   <DO_LOOP>  <MAX_TC_EST = 1073741824>
+; CHECK:              |   %mul1 = %mul  *  (%a)[2 * i1];
+; CHECK:              |   (%b)[2 * i1].0 = %mul1;
+; CHECK:              |   %mul7 = %mul  *  (%a)[2 * i1 + 1];
+; CHECK:              |   (%b)[2 * i1 + 1].1 = %mul7;
+; CHECK:              + END LOOP
+; CHECK:        END REGION
+
 ;Module Before HIR
 ; ModuleID = 'struct.c'
 source_filename = "struct.c"

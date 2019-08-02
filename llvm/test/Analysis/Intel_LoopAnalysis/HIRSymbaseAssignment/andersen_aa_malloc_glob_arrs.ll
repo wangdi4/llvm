@@ -30,7 +30,7 @@ entry:
 }
 
 ; Function Attrs: nounwind
-declare noalias i8* @malloc(i64) 
+declare noalias i8* @malloc(i64)
 
 ; Function Attrs: noinline nounwind uwtable
 define void @foo1(i32** nocapture readonly %p) {

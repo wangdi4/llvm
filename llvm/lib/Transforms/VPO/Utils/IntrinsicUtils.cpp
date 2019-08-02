@@ -50,85 +50,31 @@ bool VPOUtils::unsetMayHaveOpenmpDirectiveAttribute(Function &F) {
   return true;
 }
 
-bool VPOUtils::stripDirectives(WRegionNode *WRN) {
-  BasicBlock *ExitBB = WRN->getExitBBlock();
+bool VPOUtils::stripDirectives(WRegionNode *W) {
+  bool Changed = VPOUtils::stripDirectives(*(W->getEntryBBlock()));
+  Changed |= VPOUtils::stripDirectives(*(W->getExitBBlock()));
 
-  // With the region.entry/exit representation:
-  //   %1 = call token @llvm.directive.region.entry() [...]
-  //     ...
-  //   call void @llvm.directive.region.exit(token %1) [...]
-  // We have to remove the END dir before the BEGIN dir. If not, when removing
-  // the BEGIN it will first remove the END (which is a use of the token
-  // defined by the BEGIN intrinsic) and then later stripDirectives(*ExitBB)
-  // would return false because there's nothing left in the ExitBB to remove.
-  return VPOUtils::stripDirectives(*ExitBB);
+  return Changed;
 }
 
 bool VPOUtils::stripDirectives(BasicBlock &BB) {
   SmallVector<Instruction *, 4> IntrinsicsToRemove;
+  LLVMContext &C = BB.getContext();
 
-  for (Instruction &I : BB) {
-    if (VPOAnalysisUtils::isOpenMPDirective(&I)) {
-      // Should not add I.Users() to IntrinsicsToRemove Vector,
-      // otherwise, I.users() will be deleted twice,
-      bool IsUser = false;
-      for (unsigned int Idx = 0; Idx < IntrinsicsToRemove.size(); ++Idx) {
-        Instruction *II = IntrinsicsToRemove[Idx];
-        for (User *U : II->users())
-          if (Instruction *UI = dyn_cast<Instruction>(U))
-            if (&I == UI) {
-              IsUser = true;
-              break;
-            }
-        if (IsUser) break;
-      }
+  for (Instruction &I : BB)
+    if (VPOAnalysisUtils::isOpenMPDirective(&I))
+      IntrinsicsToRemove.push_back(&I);
 
-      if (!IsUser)
-        IntrinsicsToRemove.push_back(&I);
-    }
-  }
+  if (IntrinsicsToRemove.empty())
+    return false;
 
-  // Remove the directive intrinsics.
-  // SimplifyCFG will remove any blocks that become empty.
-  unsigned Idx = 0;
-
-  unsigned Sz = IntrinsicsToRemove.size();
-
-  SmallVector<Instruction *, 4> IntrinsicsRegionBeginContainer;
-  for (Idx = 0; Idx < Sz; ++Idx) {
-    Instruction *I = IntrinsicsToRemove[Idx];
-    IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
-    if (Call) {
-      Intrinsic::ID IntrinId = Call->getIntrinsicID();
-      if (IntrinId == Intrinsic::directive_region_exit) {
-        Value *Arg = Call->getArgOperand(0);
-        if (Instruction *I = dyn_cast<Instruction>(Arg))
-          IntrinsicsRegionBeginContainer.push_back(I);
-      }
-    }
-  }
-
-  for (Idx = 0; Idx < IntrinsicsToRemove.size(); ++Idx) {
-    Instruction *I = IntrinsicsToRemove[Idx];
-    // Under the region representation, the BEGIN directive writes to a token
-    // that is used by the matching END directive. Therefore, before removing
-    // I, we must first remove all its uses, if any. Failing to do that
-    // will result in this assertion: "Uses remain when a value is destroyed!"
-    assert(I->getNumUses() <= 1 && "Expected not more than one use!");
-    if (I->hasOneUse())
-      if (auto *UI = dyn_cast<Instruction>(*I->user_begin()))
-        UI->eraseFromParent();
-
+  for (Instruction *I : IntrinsicsToRemove) {
+    if (I->getType()->isTokenTy())
+      I->replaceAllUsesWith(llvm::ConstantTokenNone::get(C));
     I->eraseFromParent();
   }
 
-  while (!IntrinsicsRegionBeginContainer.empty()) {
-    auto I = IntrinsicsRegionBeginContainer.pop_back_val();
-    I->eraseFromParent();
-  }
-
-  // Returns true if any elimination happens.
-  return Idx > 0;
+  return true;
 }
 
 bool VPOUtils::stripDirectives(Function &F) {

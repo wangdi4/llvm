@@ -121,8 +121,6 @@ def note_overriding_ivdep_pragma_is_specified_here : Note<
   "overriding ivdep pragma is specified here">;
 }
 
-def warn_d_suffix : ExtWarn<"d-suffix in FP literal is a GNU extension">,
-  InGroup<GNULiteralSuffix>;
 def warn_ovl_diff_return_type : Warning<
   "functions that differ only in their return type cannot be overloaded, new definition ignored">, InGroup<IntelCompat>;
 def err_va_pack_used_in_non_variadic_function

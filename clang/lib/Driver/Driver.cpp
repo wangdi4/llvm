@@ -432,6 +432,13 @@ static llvm::Triple computeTargetTriple(const Driver &D,
                                         StringRef TargetTriple,
                                         const ArgList &Args,
                                         StringRef DarwinArchName = "") {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  if (Args.getLastArg(options::OPT_micecode))
+    return llvm::Triple(llvm::Triple::normalize("x86_icecode-unknown-unknown"));
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
+
   // FIXME: Already done in Compilation *Driver::BuildCompilation
   if (const Arg *A = Args.getLastArg(options::OPT_target))
     TargetTriple = A->getValue();
@@ -585,7 +592,9 @@ Driver::OpenMPRuntimeKind Driver::getOpenMPRuntime(const ArgList &Args) const {
 
   const Arg *A = Args.getLastArg(options::OPT_fopenmp_EQ);
   if (A)
-    RuntimeName = A->getValue();
+      RuntimeName = A->getValue();
+  else if (Args.hasArg(options::OPT__intel))
+      RuntimeName = "libiomp5";
 
   auto RT = llvm::StringSwitch<OpenMPRuntimeKind>(RuntimeName)
                 .Case("libomp", OMPRT_OMP)
@@ -1086,6 +1095,9 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
   InputArgList Args = std::move(HasConfigFile ? std::move(*CfgOptions)
                                               : std::move(*CLOptions));
 
+  // The args for config files or /clang: flags belong to different InputArgList
+  // objects than Args. This copies an Arg from one of those other InputArgLists
+  // to the ownership of Args.
   auto appendOneArg = [&Args](const Arg *Opt, const Arg *BaseArg) {
       unsigned Index = Args.MakeIndex(Opt->getSpelling());
       Arg *Copy = new llvm::opt::Arg(Opt->getOption(), Opt->getSpelling(),
@@ -2247,6 +2259,12 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
               Diag(clang::diag::warn_drv_treating_input_as_cxx)
                   << getTypeName(OldTy) << getTypeName(Ty);
           }
+
+          // If running with -fthinlto-index=, extensions that normally identify
+          // native object files actually identify LLVM bitcode files.
+          if (Args.hasArgNoClaim(options::OPT_fthinlto_index_EQ) &&
+              Ty == types::TY_Object)
+            Ty = types::TY_LLVM_BC;
         }
 
         // -ObjC and -ObjC++ override the default language, but only for "source
@@ -2311,7 +2329,7 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
         Diag(clang::diag::err_drv_unknown_language) << A->getValue();
         InputType = types::TY_Object;
       }
-    } else if (A->getOption().getID() == options::OPT__SLASH_U) {
+    } else if (A->getOption().getID() == options::OPT_U) {
       assert(A->getNumValues() == 1 && "The /U option has one value.");
       StringRef Val = A->getValue(0);
       if (Val.find_first_of("/\\") != StringRef::npos) {
@@ -4554,9 +4572,9 @@ InputInfo Driver::BuildJobsForActionNoCache(
     Input.claim();
     if (Input.getOption().matches(options::OPT_INPUT)) {
       const char *Name = Input.getValue();
-      return InputInfo(A, Name, /* BaseInput = */ Name);
+      return InputInfo(A, Name, /* _BaseInput = */ Name);
     }
-    return InputInfo(A, &Input, /* BaseInput = */ "");
+    return InputInfo(A, &Input, /* _BaseInput = */ "");
   }
 
   if (const BindArchAction *BAA = dyn_cast<BindArchAction>(A)) {

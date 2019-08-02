@@ -1,15 +1,15 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-rematerialize -print-before=hir-loop-rematerialize -print-after=hir-loop-rematerialize < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-rematerialize,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
- 
-;void mul_transposed_m3_v3(float mat[3][3], float vec[3])      
-;{                                                             
-;  const float x = vec[0];                                     
-;  const float y = vec[1];                                     
-;                                                              
+
+;void mul_transposed_m3_v3(float mat[3][3], float vec[3])
+;{
+;  const float x = vec[0];
+;  const float y = vec[1];
+;
 ;  vec[0] = x * mat[0][0] + y * mat[0][1] + mat[0][2] * vec[2];
 ;  vec[1] = x * mat[1][0] + y * mat[1][1] + mat[1][2] * vec[2];
 ;  vec[2] = x * mat[2][0] + y * mat[2][1] + mat[2][2] * vec[2];
-;}                                                             
+;}
 
 ; Currently, loop is not materialized because of ANTI dependencies
 ; With a simple rematerialization
@@ -29,7 +29,7 @@
 ; could have hoisted outside of the loop, the loop's behavior would have been the same
 ; as the original code. However, currently, hoisting logic is not implemented and
 ; this loop should not be materialized for a correct result.
- 
+
 ; CHECK:Function: mul_transposed_m3_v3
 
 ; CHECK:        BEGIN REGION { }
@@ -83,46 +83,46 @@
 ; CHECK:               ret ;
 ; CHECK:         END REGION
 
-; 2:7 %0 --> %0 FLOW (=) (0)  
-; 2:21 %0 --> %0 FLOW (=) (0)  
-; 2:33 %0 --> %0 FLOW (=) (0)  
-; 4:10 %1 --> %1 FLOW (=) (0)  
-; 4:24 %1 --> %1 FLOW (=) (0)  
-; 4:36 %1 --> %1 FLOW (=) (0)  
-; 7:11 %mul --> %mul FLOW (=) (0)  
-; 10:11 %mul6 --> %mul6 FLOW (=) (0)  
-; 11:17 %add --> %add FLOW (=) (0)  
-; 15:16 %5 --> %5 FLOW (=) (0)  
-; 15:28 %5 --> %5 FLOW (=) (0)  
-; 15:40 %5 --> %5 FLOW (=) (0)  
-; 16:17 %mul10 --> %mul10 FLOW (=) (0)  
-; 17:18 %add11 --> %add11 FLOW (=) (0)  
-; 21:25 %mul15 --> %mul15 FLOW (=) (0)  
-; 24:25 %mul18 --> %mul18 FLOW (=) (0)  
-; 25:29 %add19 --> %add19 FLOW (=) (0)  
-; 28:29 %mul23 --> %mul23 FLOW (=) (0)  
-; 29:30 %add24 --> %add24 FLOW (=) (0)  
-; 33:37 %mul28 --> %mul28 FLOW (=) (0)  
-; 36:37 %mul31 --> %mul31 FLOW (=) (0)  
-; 37:41 %add32 --> %add32 FLOW (=) (0)  
-; 40:41 %mul36 --> %mul36 FLOW (=) (0)  
-; 41:42 %add37 --> %add37 FLOW (=) (0)  
-; 2:18 (%vec)[0] --> (%vec)[0] ANTI (=) (0)  
-; 2:30 (%vec)[0] --> (%vec)[1] ANTI (=) (0)  
-; 2:42 (%vec)[0] --> (%vec)[2] ANTI (=) (0)  
-; 4:18 (%vec)[1] --> (%vec)[0] ANTI (=) (0)  
-; 4:30 (%vec)[1] --> (%vec)[1] ANTI (=) (0)  
-; 4:42 (%vec)[1] --> (%vec)[2] ANTI (=) (0)  
-; 15:18 (%vec)[2] --> (%vec)[0] ANTI (=) (0)  
-; 15:30 (%vec)[2] --> (%vec)[1] ANTI (=) (0)  
-; 15:42 (%vec)[2] --> (%vec)[2] ANTI (=) (0)  
-; 18:30 (%vec)[0] --> (%vec)[1] OUTPUT (=) (0)  
-; 18:42 (%vec)[0] --> (%vec)[2] OUTPUT (=) (0)  
-; 30:42 (%vec)[1] --> (%vec)[2] OUTPUT (=) (0)  
+; 2:7 %0 --> %0 FLOW (=) (0)
+; 2:21 %0 --> %0 FLOW (=) (0)
+; 2:33 %0 --> %0 FLOW (=) (0)
+; 4:10 %1 --> %1 FLOW (=) (0)
+; 4:24 %1 --> %1 FLOW (=) (0)
+; 4:36 %1 --> %1 FLOW (=) (0)
+; 7:11 %mul --> %mul FLOW (=) (0)
+; 10:11 %mul6 --> %mul6 FLOW (=) (0)
+; 11:17 %add --> %add FLOW (=) (0)
+; 15:16 %5 --> %5 FLOW (=) (0)
+; 15:28 %5 --> %5 FLOW (=) (0)
+; 15:40 %5 --> %5 FLOW (=) (0)
+; 16:17 %mul10 --> %mul10 FLOW (=) (0)
+; 17:18 %add11 --> %add11 FLOW (=) (0)
+; 21:25 %mul15 --> %mul15 FLOW (=) (0)
+; 24:25 %mul18 --> %mul18 FLOW (=) (0)
+; 25:29 %add19 --> %add19 FLOW (=) (0)
+; 28:29 %mul23 --> %mul23 FLOW (=) (0)
+; 29:30 %add24 --> %add24 FLOW (=) (0)
+; 33:37 %mul28 --> %mul28 FLOW (=) (0)
+; 36:37 %mul31 --> %mul31 FLOW (=) (0)
+; 37:41 %add32 --> %add32 FLOW (=) (0)
+; 40:41 %mul36 --> %mul36 FLOW (=) (0)
+; 41:42 %add37 --> %add37 FLOW (=) (0)
+; 2:18 (%vec)[0] --> (%vec)[0] ANTI (=) (0)
+; 2:30 (%vec)[0] --> (%vec)[1] ANTI (=) (0)
+; 2:42 (%vec)[0] --> (%vec)[2] ANTI (=) (0)
+; 4:18 (%vec)[1] --> (%vec)[0] ANTI (=) (0)
+; 4:30 (%vec)[1] --> (%vec)[1] ANTI (=) (0)
+; 4:42 (%vec)[1] --> (%vec)[2] ANTI (=) (0)
+; 15:18 (%vec)[2] --> (%vec)[0] ANTI (=) (0)
+; 15:30 (%vec)[2] --> (%vec)[1] ANTI (=) (0)
+; 15:42 (%vec)[2] --> (%vec)[2] ANTI (=) (0)
+; 18:30 (%vec)[0] --> (%vec)[1] OUTPUT (=) (0)
+; 18:42 (%vec)[0] --> (%vec)[2] OUTPUT (=) (0)
+; 30:42 (%vec)[1] --> (%vec)[2] OUTPUT (=) (0)
 
 ; Rematerialization Inhibiting edge:
-; 15:30 (%vec)[2] --> (%vec)[1] ANTI (=) (0)  
- 
+; 15:30 (%vec)[2] --> (%vec)[1] ANTI (=) (0)
+
 ;Module Before HIR
 ; ModuleID = 'dependency.c'
 source_filename = "dependency.c"

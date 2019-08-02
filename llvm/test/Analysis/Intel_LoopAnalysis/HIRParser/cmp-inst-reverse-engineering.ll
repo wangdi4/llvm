@@ -4,8 +4,8 @@
 
 ; Removing upper bound from print to suppress cosmetic test failures due to SCEV operand reordering.
 
-; CHECK: + DO i1 =  
-; CHECK: |   + DO i2 = 
+; CHECK: + DO i1 =
+; CHECK: |   + DO i2 =
 ; CHECK: |   + END LOOP
 ; CHECK: |
 ; CHECK: |   %t.1143 = i1 + undef + 1;

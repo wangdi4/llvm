@@ -1,10 +1,10 @@
 ;   gcd test: walking all iv & blob coeffs
-; 			A[8 *n * i1 + 2 * i2 + 2 *m +3] = 
+; 			A[8 *n * i1 + 2 * i2 + 2 *m +3] =
 ;   		A[8 *n * i1 + 2 * i2 + 2 *m +2 + 2*n] + 2;
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 < %s | FileCheck %s
 
-; CHECK-NOT: ANTI  
+; CHECK-NOT: ANTI
 ; ModuleID = 'dd10.c'
 source_filename = "dd10.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

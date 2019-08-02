@@ -36,13 +36,13 @@
 ; CHECK:   END REGION
 ;
 
-  
-; MemRefGroup: {  C[2][i1]       } 
+
+; MemRefGroup: {  C[2][i1]       }
 ;                 MaxLD, MinST
 ; GapTracker:  {  RW             }
 
 
-;  
+;
 ; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { modified }

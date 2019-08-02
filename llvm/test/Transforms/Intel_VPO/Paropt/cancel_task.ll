@@ -78,7 +78,8 @@ entry:
 
   call void @llvm.directive.region.exit(token %5) [ "DIR.OMP.END.TASK"() ]
 ; Updated region entry intrinsic after vpo-paropt-prepare
-; PREPR-DAG:  %{{[a-zA-Z._0-9]+}} = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"(), "QUAL.OMP.CANCELLATION.POINTS"(i32* [[CP1ALLOCA]]) ]
+; PREPR-DAG:  %{{[a-zA-Z._0-9]+}} = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"()
+; PREPR-DAG-SAME: "QUAL.OMP.CANCELLATION.POINTS"(i32* [[CP1ALLOCA]]) ]
 
   %8 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"() ]
   %9 = call token @llvm.directive.region.entry() [ "DIR.OMP.CANCELLATION.POINT"(), "QUAL.OMP.CANCEL.TASKGROUP"() ]
@@ -94,7 +95,8 @@ entry:
   store i32 %inc3, i32* @x, align 4, !tbaa !2
   call void @llvm.directive.region.exit(token %8) [ "DIR.OMP.END.TASK"() ]
 ; Updated region entry intrinsic after vpo-paropt-prepare
-; PREPR-DAG:  %{{[a-zA-Z._0-9]+}} = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"(), "QUAL.OMP.CANCELLATION.POINTS"(i32* [[CP2ALLOCA]]) ]
+; PREPR-DAG:  %{{[a-zA-Z._0-9]+}} = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"()
+; PREPR-DAG-SAME: "QUAL.OMP.CANCELLATION.POINTS"(i32* [[CP2ALLOCA]]) ]
 
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TASKGROUP"() ]
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL"() ]

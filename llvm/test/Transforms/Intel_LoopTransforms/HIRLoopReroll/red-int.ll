@@ -5,16 +5,16 @@
 ; For this specific example, ICC does not reroll either.
 
 ; CHECK: Function: foo
- 
+
 ; CHECK:      BEGIN REGION { }
 ; CHECK:            + DO i1 = 0, 499, 1   <DO_LOOP>
 ; CHECK:            |   %0 = (@A)[0][2 * i1];
 ; CHECK:            |   %S.013 = %0 + %S.013  +  (@A)[0][2 * i1 + 1];
 ; CHECK:            + END LOOP
 ; CHECK:      END REGION
- 
+
 ; CHECK: Function: foo
- 
+
 ; CHECK:      BEGIN REGION { }
 ; CHECK:            + DO i1 = 0, 999, 1   <DO_LOOP>
 ; CHECK:            |   %0 = (@A)[0][i1];

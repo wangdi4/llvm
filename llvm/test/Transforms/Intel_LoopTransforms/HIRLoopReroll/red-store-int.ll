@@ -9,8 +9,8 @@
 ; #include <stdint.h>
 ; int64_t A[SIZE];
 ; int64_t B[SIZE];
- 
- 
+
+
 ; CHECK:Function: foo
 
 ; CHECK:        BEGIN REGION { }
@@ -35,7 +35,7 @@
 ; CHECK:              |   %S.036 = %0 + %1 + %S.036;
 ; CHECK:              + END LOOP
 ; CHECK:        END REGION
- 
+
 ;Module Before HIR
 ; ModuleID = 'store-red-2.c'
 source_filename = "store-red-2.c"

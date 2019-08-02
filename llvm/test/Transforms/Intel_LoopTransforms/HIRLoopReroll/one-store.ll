@@ -6,9 +6,9 @@
 ; #define SIZE 1000
 ; int A[SIZE];
 ; int B[SIZE];
-; 
+;
 ; void foo(int n) {
-;   int D = n*n;  
+;   int D = n*n;
 ;   for (int i=0;  i<n; i=i+4) {
 ;     A[i] = D * B[i];
 ;     A[i+1] = D * B[i+1];

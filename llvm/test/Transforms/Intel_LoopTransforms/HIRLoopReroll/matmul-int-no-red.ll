@@ -8,25 +8,25 @@
 ; int A[SIZE][SIZE];
 ; int B[SIZE][SIZE];
 ; int C[SIZE][SIZE];
-; 
+;
 ; void foo() {
-; 
-;   for (int i=0;  i<SIZE; i++) 
-;     for (int j=0;  j<SIZE; j++) 
+;
+;   for (int i=0;  i<SIZE; i++)
+;     for (int j=0;  j<SIZE; j++)
 ;       for (int k=0;  k<SIZE; k=k+2) {
 ;         C[i][j] += B[i][k] * C[k][j];
 ;         C[i][j] += B[i][k+1] * C[k+1][j];
 ;       }
-; 
+;
 ; }
 
 ; CHECK: Function: foo
-; CHECK: 
+; CHECK:
 ; CHECK:       BEGIN REGION { }
 ; CHECK:             + DO i1 = 0, 999, 1   <DO_LOOP>
 ; CHECK:             |   + DO i2 = 0, 999, 1   <DO_LOOP>
 ; CHECK:             |   |   %0 = (@C)[0][i1][i2];
-; CHECK:             |   |   
+; CHECK:             |   |
 ; CHECK:             |   |   + DO i3 = 0, 499, 1   <DO_LOOP>
 ; CHECK:             |   |   |   %1 = (@B)[0][i1][2 * i3];
 ; CHECK:             |   |   |   %2 = (@C)[0][2 * i3][i2];
@@ -42,12 +42,12 @@
 ; CHECK:       END REGION
 
 ; CHECK: Function: foo
- 
+
 ; CHECK:       BEGIN REGION { }
 ; CHECK:             + DO i1 = 0, 999, 1   <DO_LOOP>
 ; CHECK:             |   + DO i2 = 0, 999, 1   <DO_LOOP>
 ; CHECK:             |   |   %0 = (@C)[0][i1][i2];
-; CHECK:             |   |   
+; CHECK:             |   |
 ; CHECK:             |   |   + DO i3 = 0, 999, 1   <DO_LOOP>
 ; CHECK:             |   |   |   %1 = (@B)[0][i1][i3];
 ; CHECK:             |   |   |   %2 = (@C)[0][i3][i2];

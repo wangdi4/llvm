@@ -90,6 +90,8 @@ MODULE_PASS("globaldce", GlobalDCEPass())
 MODULE_PASS("globalopt", GlobalOptPass())
 MODULE_PASS("globalsplit", GlobalSplitPass())
 MODULE_PASS("hotcoldsplit", HotColdSplittingPass())
+MODULE_PASS("hwasan", HWAddressSanitizerPass(false, false))
+MODULE_PASS("khwasan", HWAddressSanitizerPass(true, true))
 MODULE_PASS("inferattrs", InferFunctionAttrsPass())
 MODULE_PASS("insert-gcov-profiling", GCOVProfilerPass())
 MODULE_PASS("instrorderfile", InstrOrderFilePass())
@@ -128,6 +130,7 @@ MODULE_PASS("wholeprogramdevirt", WholeProgramDevirtPass(nullptr, nullptr))
 MODULE_PASS("verify", VerifierPass())
 MODULE_PASS("asan-module", ModuleAddressSanitizerPass(/*CompileKernel=*/false, false, true, false))
 MODULE_PASS("kasan-module", ModuleAddressSanitizerPass(/*CompileKernel=*/true, false, true, false))
+MODULE_PASS("poison-checking", PoisonCheckingPass())
 MODULE_PASS("inlinelists", InlineListsPass()) // INTEL
 MODULE_PASS("inlinereportsetup", InlineReportSetupPass()) // INTEL
 MODULE_PASS("inlinereportemitter", InlineReportEmitterPass()) // INTEL
@@ -323,8 +326,6 @@ FUNCTION_PASS("view-cfg-only", CFGOnlyViewerPass())
 FUNCTION_PASS("transform-warning", WarnMissedTransformationsPass())
 FUNCTION_PASS("asan", AddressSanitizerPass(false, false, false))
 FUNCTION_PASS("kasan", AddressSanitizerPass(true, false, false))
-FUNCTION_PASS("hwasan", HWAddressSanitizerPass(false, false))
-FUNCTION_PASS("khwasan", HWAddressSanitizerPass(true, true))
 FUNCTION_PASS("msan", MemorySanitizerPass({}))
 
 #if INTEL_CUSTOMIZATION
@@ -380,6 +381,7 @@ FUNCTION_PASS("loop-carried-cse", LoopCarriedCSEPass())
 FUNCTION_PASS("hir-multi-exit-loop-reroll", loopopt::HIRMultiExitLoopRerollPass())
 FUNCTION_PASS("hir-identity-matrix-idiom-recognition", loopopt::HIRIdentityMatrixIdiomRecognitionPass())
 FUNCTION_PASS("hir-prefetching", loopopt::HIRPrefetchingPass())
+FUNCTION_PASS("iv-split", IVSplitPass())
 
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB

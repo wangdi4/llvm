@@ -618,7 +618,7 @@ void HIROptVarPredicate::splitLoop(
     ThirdLoop = Loop->clone();
 
     updateLoopUpperBound(SecondLoop, UpperBlob, SplitPointBlob, IsSigned);
-    SecondLoop->getUpperDDRef()->makeConsistent(&Aux, Level);
+    SecondLoop->getUpperDDRef()->makeConsistent(Aux, Level);
 
     // %b + 1
     BlobTy SplitPointPlusBlob = BU.createAddBlob(
@@ -629,7 +629,7 @@ void HIROptVarPredicate::splitLoop(
 
     if (!isLoopRedundant(ThirdLoop)) {
       HLNodeUtils::insertAfter(SecondLoop, ThirdLoop);
-      ThirdLoop->getLowerDDRef()->makeConsistent(&Aux, Level);
+      ThirdLoop->getLowerDDRef()->makeConsistent(Aux, Level);
 
       ThirdLoop->createZtt(false, true);
       ThirdLoop->normalize();
@@ -647,7 +647,7 @@ void HIROptVarPredicate::splitLoop(
   updateLoopLowerBound(SecondLoop, LowerBlob, SplitPointBlob, IsSigned);
 
   if (!isLoopRedundant(Loop)) {
-    Loop->getUpperDDRef()->makeConsistent(&Aux, Level);
+    Loop->getUpperDDRef()->makeConsistent(Aux, Level);
     Loop->createZtt(false, true);
 
     FirstLoopNeeded = true;
@@ -659,7 +659,7 @@ void HIROptVarPredicate::splitLoop(
   }
 
   if (!isLoopRedundant(SecondLoop)) {
-    SecondLoop->getLowerDDRef()->makeConsistent(&Aux, Level);
+    SecondLoop->getLowerDDRef()->makeConsistent(Aux, Level);
     SecondLoop->createZtt(false, true);
 
     if (IsEqualCase) {

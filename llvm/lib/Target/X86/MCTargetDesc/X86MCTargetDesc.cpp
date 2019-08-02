@@ -48,7 +48,13 @@ using namespace llvm;
 
 std::string X86_MC::ParseX86Triple(const Triple &TT) {
   std::string FS;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  if (TT.getArch() == Triple::x86_icecode || TT.getArch() == Triple::x86_64)
+#else // INTEL_FEATURE_ICECODE
   if (TT.getArch() == Triple::x86_64)
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
     FS = "+64bit-mode,-32bit-mode,-16bit-mode";
   else if (TT.getEnvironment() != Triple::CODE16)
     FS = "-64bit-mode,+32bit-mode,-16bit-mode";

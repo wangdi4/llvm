@@ -1,4 +1,4 @@
-;; This test verifies correct cg for an HLIf, representing ztt of an i2 loop 
+;; This test verifies correct cg for an HLIf, representing ztt of an i2 loop
 ;; Also verifies correct cg for a double subscript address calculation
 ;;
 ; RUN: opt -hir-cg -force-hir-cg -S < %s | FileCheck %s
@@ -19,7 +19,7 @@
 ; CHECK: then.[[CMP_NUM]]:
 ; lod of b[] should be before i2 loop
 ; CHECK: getelementptr{{.*}} @B
-; 
+;
 ; i2 loop
 ; CHECK: br label %[[L2Label:loop.[0-9]+]]
 ; CHECK: [[L2Label]]:
@@ -37,7 +37,7 @@
 ; CHECK: after[[L2Label]]:
 ; CHECK: br label %ifmerge.[[CMP_NUM]]
 
-;if merge should contain bt for i1 loop, just loop for label in br 
+;if merge should contain bt for i1 loop, just loop for label in br
 ; CHECK: ifmerge.[[CMP_NUM]]:
 ; CHECK: label %[[L1Label]]
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

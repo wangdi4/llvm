@@ -95,7 +95,7 @@ void WRegionUtils::updateWRGraph(IntrinsicInst *Call, WRContainerImpl *WRGraph,
         W->setExitHLNode(H);
       else
 #endif // INTEL_CUSTOMIZATION
-      W->finalize(BB, DT); // set the ExitBB and wrap up the WRN
+      W->finalize(Call, DT); // set ExitDir, ExitBB and wrap up the WRN
       S.pop();
       LLVM_DEBUG(dbgs() << "\n  === Closed WRegion. ");
       LLVM_DEBUG(dbgs() << "Stacksize after pop = " << S.size() << "\n");

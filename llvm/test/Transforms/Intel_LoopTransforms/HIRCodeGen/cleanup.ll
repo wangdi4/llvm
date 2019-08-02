@@ -11,10 +11,10 @@
 ; CHECK-NOT: br i1 true, {{.*}}label %region
 ; CHECK: br label %loop
 
-; 
+;
 ; CHECK-NOT: region.0:
 ; CHECK: loop.[[NUM:.*]]:
-; CHECK-NEXT: phi{{.*}}[ 0, %entry ] 
+; CHECK-NEXT: phi{{.*}}[ 0, %entry ]
 
 ; CHECK: br{{.*}} label %loop.[[NUM]], label %afterloop.[[NUM1:.*]]
 

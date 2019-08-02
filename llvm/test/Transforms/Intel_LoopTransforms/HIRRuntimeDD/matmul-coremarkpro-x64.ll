@@ -47,10 +47,10 @@
 ; CHECK: Function
 ; CHECK-DAG: &((%2)[24 * sext.i32.i64(%4) + 24]) >=u &((%1)[0]);
 ; CHECK-DAG: &((%1)[25 * sext.i32.i64((-1 + %4)) + 24]) >=u &((%2)[0]);
-; CHECK: %mv.and = 
+; CHECK: %mv.and =
 ; CHECK-DAG: &((%3)[%5 + 25 * (-1 + %4) + 24]) >=u &((%1)[0]);
 ; CHECK-DAG: &((%1)[25 * sext.i32.i64((-1 + %4)) + 24]) >=u &((%3)[1]);
-; CHECK: %mv.and7 = 
+; CHECK: %mv.and7 =
 ; CHECK: if (%mv.and == 0 && %mv.and7 == 0)
 
 ; ModuleID = 'matmul-coremarkpro-x64.ll'

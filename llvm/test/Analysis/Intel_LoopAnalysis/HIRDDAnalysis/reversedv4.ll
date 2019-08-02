@@ -1,9 +1,9 @@
-;  DV of form (<> *) will generate a forward and backward edge 
+;  DV of form (<> *) will generate a forward and backward edge
 ;  with DV  (< *)
-; RUN: opt < %s -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze | FileCheck %s 
+; RUN: opt < %s -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 < %s | FileCheck %s
 
-; CHECK: DD graph for function  
+; CHECK: DD graph for function
 ; CHECK-NOT: <>
 ;
 ;Module Before HIR; ModuleID = 'x.cpp'

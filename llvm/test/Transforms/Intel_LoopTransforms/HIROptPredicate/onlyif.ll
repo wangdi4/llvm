@@ -18,13 +18,13 @@
 ; CHECK: REGION { modified }
 ; CHECK: if (%n > 10)
 ; CHECK: DO i2 = 0, 998, 1
-; CHECK: (@B)[0][i1 + 2][i2 + 2] = 
+; CHECK: (@B)[0][i1 + 2][i2 + 2] =
 ; CHECK: END LOOP
 
 ; Check else block ex.
 ; CHECK: else
 ; CHECK: DO i2 = 0, 998, 1
-; CHECK-NOT: (@B)[0][i1 + 2][i2 + 2] = 
+; CHECK-NOT: (@B)[0][i1 + 2][i2 + 2] =
 ; CHECK: END LOOP
 
 ;RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-opt-predicate -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT

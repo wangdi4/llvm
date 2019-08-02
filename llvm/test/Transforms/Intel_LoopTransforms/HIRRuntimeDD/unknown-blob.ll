@@ -9,7 +9,7 @@
 ; }
 
 ; HIR:
-; BEGIN REGION 
+; BEGIN REGION
 ;   + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>
 ;   |   %1 = (%b)[i1];
 ;   |   (%a)[sext.i32.i64(%stride) * i1] = %1;

@@ -3440,7 +3440,14 @@ bool X86AsmParser::MatchAndEmitATTInstruction(SMLoc IDLoc, unsigned &Opcode,
   //
   // Otherwise, we assume that this may be an integer instruction, which comes
   // in 8/16/32/64-bit forms using the b,w,l,q suffixes respectively.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  const char *Suffixes = Base[0] != 'f' || Base.startswith("fscp_") ? "bwlq"
+                                                                    : "slt\0";
+#else // INTEL_FEATURE_ICECODE
   const char *Suffixes = Base[0] != 'f' ? "bwlq" : "slt\0";
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 
   // Check for the various suffix matches.
   uint64_t ErrorInfoIgnore;

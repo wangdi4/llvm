@@ -263,12 +263,14 @@ def "QUAL.OMP.BIND.TEAMS" : Clause;
 def "QUAL.OMP.BIND.PARALLEL" : Clause;
 def "QUAL.OMP.BIND.THREAD" : Clause;
 def "QUAL.OMP.ORDER.CONCURRENT" : Clause;
-// INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
 // Support Intel extension for CSA.
 def "QUAL.OMP.SA.NUM_WORKERS" : Clause;
 def "QUAL.OMP.SA.SCHEDULE.STATIC" : Clause;
 def "QUAL.OMP.SA.PIPELINE" : Clause;
-// end INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
 // *** Begin Auxiliary OpenMP Clauses ***
 // These quals don't correspond to actual clauses in the OpenMP spec,
@@ -279,6 +281,7 @@ def "QUAL.OMP.NORMALIZED.IV" : Clause;
 def "QUAL.OMP.NORMALIZED.UB" : Clause;
 def "QUAL.OMP.CANCELLATION.POINTS" : Clause;
 def "QUAL.OMP.OPERAND.ADDR" : Clause;
+def "QUAL.OMP.JUMP.TO.END.IF" : Clause;
 def "QUAL.OMP.OFFLOAD.ENTRY.IDX" : Clause;
 
 

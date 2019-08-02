@@ -285,6 +285,12 @@ void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
   OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv8_f\", 8, false},\n";
   OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv16_f\", 16, false},\n";
 
+  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv2_f\", 2, true},\n";
+  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv3_f\", 3, true},\n";
+  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv4_f\", 4, true},\n";
+  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv8_f\", 8, true},\n";
+  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv16_f\", 16, true},\n";
+
   OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv2_d\", 2, false},\n";
   OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv3_d\", 3, false},\n";
   OS << "{\"_Z4sqrtd\", \"_Z4sqrtDv4_d\", 4, false},\n";

@@ -304,7 +304,9 @@ private:
   /// regions.
   SmallDenseMap<VPBasicBlock *, HLLoop *, 4> Header2HLLoop;
 
-  VPRegionBlock *buildPlainCFG(VPLoopEntityConverterList &CvtVec) override;
+  std::unique_ptr<VPRegionBlock>
+  buildPlainCFG(VPLoopEntityConverterList &CvtVec) override;
+
   void passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) override;
 
   void collectUniforms(VPRegionBlock *Region) override {

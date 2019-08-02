@@ -1,19 +1,19 @@
-; Checks if instructions in preheader and postexit are sinked into their parent loop to enable perfect loopnests. 
+; Checks if instructions in preheader and postexit are sinked into their parent loop to enable perfect loopnests.
 ; Also, make sure loop interchange happens.
 
-; REQUIRES: asserts  
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -debug-only=hir-loop-interchange 2>&1 | FileCheck %s 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange" -aa-pipeline="basic-aa" < %s -debug-only=hir-loop-interchange 2>&1 | FileCheck %s 
-; 
+; REQUIRES: asserts
+; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -debug-only=hir-loop-interchange 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange" -aa-pipeline="basic-aa" < %s -debug-only=hir-loop-interchange 2>&1 | FileCheck %s
 ;
-; CHECK: Interchanged: ( 1 2 3 ) --> ( 2 3 1 ) 
+;
+; CHECK: Interchanged: ( 1 2 3 ) --> ( 2 3 1 )
 ;
 ;
 ; *** IR Dump After HIR Loop Interchange ***
-; 
+;
 ; IR Dump Before HIR Loop Interchange ***
 ; Function: _Z16gemm_blockedPdS_S_iii
-; 
+;
 ; <0>       BEGIN REGION { }
 ; <56>            + DO i1 = 0, sext.i32.i64(%M) + -1, 1   <DO_LOOP>
 ; <57>            |   + DO i2 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>
@@ -27,11 +27,11 @@
 ; <57>            |   + END LOOP
 ; <56>            + END LOOP
 ; <0>       END REGION
-; 
+;
 
 ; *** IR Dump After HIR Loop Interchange ***
 ; Function: _Z16gemm_blockedPdS_S_iii
-; 
+;
 ; <0>       BEGIN REGION { modified }
 ; <56>            + DO i1 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>
 ; <57>            |   + DO i2 = 0, sext.i32.i64(%K) + -1, 1   <DO_LOOP>

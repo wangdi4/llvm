@@ -1,7 +1,7 @@
 ; Test for basic CE adds during DD Testing
 ; example: i and i-1
 
-; Check for DD test output 
+; Check for DD test output
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-dd-analysis -hir-dd-analysis-verify=Region | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction" | opt -passes="print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck %s
 

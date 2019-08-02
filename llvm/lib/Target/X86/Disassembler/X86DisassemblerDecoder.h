@@ -632,6 +632,12 @@ struct InternalInstruction {
   bool hasOpSize;
   // Lock prefix
   bool hasLockPrefix;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  // IceCode only
+  bool isIceCode;
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
   // The repeat prefix if any
   uint8_t repeatPrefix;
 
@@ -740,7 +746,14 @@ int decodeInstruction(InternalInstruction *insn,
                       void *loggerArg,
                       const void *miiArg,
                       uint64_t startLoc,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+                      DisassemblerMode mode,
+                      bool isIceCode);
+#else // INTEL_FEATURE_ICECODE
                       DisassemblerMode mode);
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 
 /// Print a message to debugs()
 /// \param file The name of the file printing the debug message.

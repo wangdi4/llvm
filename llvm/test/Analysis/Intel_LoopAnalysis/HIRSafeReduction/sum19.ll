@@ -1,12 +1,12 @@
-; int  s = 0; 
+; int  s = 0;
 ; for (int i=0; i < n1; i++) {
 ;     s = a[i]  - s;
 ; }
-; float  s1 = 0; 
+; float  s1 = 0;
 ; for (int i=0; i< n2; i++) {
 ;     s1 = d[i]  - s1;
 ; }
-; float  s2 = 0; 
+; float  s2 = 0;
 ; for (int i=0; i< n3; i++) {
 ;     s2 = d[i]  - s2;
 ;     s2 = e[i]  - s2;

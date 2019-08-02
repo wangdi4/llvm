@@ -8,7 +8,7 @@
 ;  A[2i+1]
 ;  B[2i]
 ;  B[2i+1]
-; 
+;
 ; we can reroll if it were
 ;  A[2i]
 ;  B[2i]
@@ -16,7 +16,7 @@
 ;  B[2i+1]
 ;
 ; A TODO
- 
+
 ;#define T int
 ;#define N 100
 ;T A[N];
@@ -32,7 +32,7 @@
 ;  }
 ;  return S + Y;
 ;}
- 
+
 ; CHECK:Function: foo
 
 ; CHECK:        BEGIN REGION { }
@@ -49,13 +49,13 @@
 ; CHECK:        BEGIN REGION { }
 ; CHECK:              + DO i1 = 0, 99, 1   <DO_LOOP>
 ; CHECK:              |   %0 = (@A)[0][i1];
-; CHECK:              |   %S.024 = %0 + %S.024 
+; CHECK:              |   %S.024 = %0 + %S.024
 ; CHECK:              |   %3 = (@B)[0][i1];
 ; CHECK:              |   %Y.025 = %3 + %Y.025
 ; CHECK:              + END LOOP
 ; CHECK:        END REGION
 
- 
+
 ;Module Before HIR
 ; ModuleID = 'red-store.c'
 source_filename = "red-store.c"

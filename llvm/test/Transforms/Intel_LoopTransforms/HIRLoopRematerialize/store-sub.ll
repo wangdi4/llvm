@@ -25,11 +25,11 @@
 ; CHECK-NOT:               (%a)[1] = %sub5;
 ; CHECK-NOT:               %sub9 = (%b)[2]  -  (%c)[2];
 ; CHECK-NOT:               (%a)[2] = %sub9;
-               
+
 ; CHECK:               ret ;
 ; CHECK:         END REGION
 
- 
+
 ;Module Before HIR
 ; ModuleID = 'simple.c'
 source_filename = "simple.c"

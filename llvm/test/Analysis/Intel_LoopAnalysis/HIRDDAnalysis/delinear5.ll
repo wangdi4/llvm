@@ -1,4 +1,4 @@
-; This  fails had a compfail in  delineraize test called from Loop Fusion 
+; This  fails had a compfail in  delineraize test called from Loop Fusion
 ; void foo(float *yarrrr, int n) {
 ;    int i;
 ;    for (i = 0; i < n; i++)
@@ -14,7 +14,7 @@
 ; }
 ;  Check for IR after loop fusion is sufficent to indicate it passes
 ;
-; RUN:   opt -hir-ssa-deconstruction -hir-loop-fusion -print-after=hir-loop-fusion < %s 2>&1 | FileCheck %s 
+; RUN:   opt -hir-ssa-deconstruction -hir-loop-fusion -print-after=hir-loop-fusion < %s 2>&1 | FileCheck %s
 
 ; CHECK: After
 ; CHECK: DO i1

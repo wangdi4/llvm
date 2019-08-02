@@ -1,12 +1,12 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-pre-vec-complete-unroll -hir-cg -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll,hir-cg" -S < %s 2>&1 | FileCheck %s
 
-; Verify that after i1 and i3 are unrolled, branch_weights are adjusted accordingly. Backedge's weights of i2 are divided by 2, and those of i4 ared dividied by 3. 
+; Verify that after i1 and i3 are unrolled, branch_weights are adjusted accordingly. Backedge's weights of i2 are divided by 2, and those of i4 ared dividied by 3.
 ; Input code is adopted from outer-loop-pragma-unroll1.ll.
 
-; TODO: The level 4 loop(i.e. the innermost)  body's TC is dependent on the IV of its parent loop. Currenlty, branch weights of level 4 loop is adjust without considering new TC of after IV replacemet if iv 3. Updating TCs of unrolled version of the innermost loop proportional to the new TCs might be useful in certain cases. 
+; TODO: The level 4 loop(i.e. the innermost)  body's TC is dependent on the IV of its parent loop. Currenlty, branch weights of level 4 loop is adjust without considering new TC of after IV replacemet if iv 3. Updating TCs of unrolled version of the innermost loop proportional to the new TCs might be useful in certain cases.
 
-; Before Unroll 
+; Before Unroll
 ; + DO i1 = 0, 1, 1   <DO_LOOP>  // unroll by 2
 ; |   + DO i2 = 0, 3, 1   <DO_LOOP>  // Branch weights here divided by 2
 ; |   |   + DO i3 = 0, 2, 1   <DO_LOOP> // unroll by 3
@@ -60,17 +60,17 @@
 ;CHECK: br i1
 ;CHECK-SAME: !prof ![[PROF_INNER]]
 ;CHECK: br i1
-;CHECK-SAME: !prof ![[PROF_OUTER:[0-9]+]] 
+;CHECK-SAME: !prof ![[PROF_OUTER:[0-9]+]]
 
 ;CHECK: br i1
 ;CHECK-SAME: !prof ![[PROF_INNER]]
 ;CHECK: br i1
 ;CHECK-SAME: !prof ![[PROF_INNER]]
 ;CHECK: br i1
-;CHECK-SAME: !prof ![[PROF_OUTER]] 
+;CHECK-SAME: !prof ![[PROF_OUTER]]
 
-;CHECK-DAG: ![[PROF_INNER]] = !{!"branch_weights", i32 1200, i32 6} 
-;CHECK-DAG: ![[PROF_OUTER]] = !{!"branch_weights", i32 400, i32 2} 
+;CHECK-DAG: ![[PROF_INNER]] = !{!"branch_weights", i32 1200, i32 6}
+;CHECK-DAG: ![[PROF_OUTER]] = !{!"branch_weights", i32 400, i32 2}
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -91,7 +91,7 @@ for.cond4.preheader:                              ; preds = %for.inc17, %for.con
 for.cond7.preheader:                              ; preds = %for.inc14, %for.cond4.preheader
   %indvars.iv41 = phi i64 [ 0, %for.cond4.preheader ], [ %indvars.iv.next42, %for.inc14 ]
   %cmp835 = icmp sgt i64 %indvars.iv41, 0
-  br i1 %cmp835, label %for.body9.lr.ph, label %for.inc14, !prof !8 ;i4 
+  br i1 %cmp835, label %for.body9.lr.ph, label %for.inc14, !prof !8 ;i4
 
 for.body9.lr.ph:                                  ; preds = %for.cond7.preheader
   %0 = add nuw nsw i64 %indvars.iv41, %indvars.iv48
@@ -142,4 +142,4 @@ for.end22:                                        ; preds = %for.inc20
 !5 = !{!"branch_weights", i32 4, i32 800}   ;i2
 !6 = !{!"branch_weights", i32 12, i32 2400} ;i3
 !7 = !{!"branch_weights", i32 36, i32 7200} ;i4
-!8 = !{!"branch_weights", i32 7200, i32 36} ;i4'  
+!8 = !{!"branch_weights", i32 7200, i32 36} ;i4'

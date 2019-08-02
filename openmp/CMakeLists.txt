@@ -83,5 +83,12 @@ if (OPENMP_ENABLE_LIBOMPTARGET)
   add_subdirectory(libomptarget)
 endif()
 
+if (INTEL_COLLAB)
+  if (WIN32 AND NOT OPENMP_ENABLE_LIBOMPTARGET)
+    set_directory_properties(PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
+    add_subdirectory(libomptarget)
+  endif()
+endif(INTEL_COLLAB)
+
 # Now that we have seen all testuites, create the check-openmp target.
 construct_check_openmp_target()

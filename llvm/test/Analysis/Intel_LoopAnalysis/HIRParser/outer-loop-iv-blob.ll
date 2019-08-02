@@ -59,24 +59,24 @@ entry:
   %x = alloca [100 x i32], align 16
   %qu = alloca [100 x i32], align 16
   %0 = bitcast i32* %i5 to i8*
-  call void @llvm.lifetime.start(i64 4, i8* %0) 
+  call void @llvm.lifetime.start(i64 4, i8* %0)
   store i32 42, i32* %i5, align 4
   %1 = bitcast i32* %ka to i8*
-  call void @llvm.lifetime.start(i64 4, i8* %1) 
+  call void @llvm.lifetime.start(i64 4, i8* %1)
   store i32 78, i32* %ka, align 4
   %2 = bitcast i32* %j8 to i8*
-  call void @llvm.lifetime.start(i64 4, i8* %2) 
+  call void @llvm.lifetime.start(i64 4, i8* %2)
   store i32 92, i32* %j8, align 4
   %3 = bitcast [100 x i32]* %x to i8*
-  call void @llvm.lifetime.start(i64 400, i8* %3) 
+  call void @llvm.lifetime.start(i64 400, i8* %3)
   %4 = bitcast [100 x i32]* %qu to i8*
-  call void @llvm.lifetime.start(i64 400, i8* %4) 
-  %call.i = tail call i32 (i32, ...) bitcast (i32 (...)* @srand to i32 (i32, ...)*)(i32 33) 
+  call void @llvm.lifetime.start(i64 400, i8* %4)
+  %call.i = tail call i32 (i32, ...) bitcast (i32 (...)* @srand to i32 (i32, ...)*)(i32 33)
   br label %for.body.i
 
 for.body.i:                                       ; preds = %for.body.i, %entry
   %indvars.iv.i = phi i64 [ %indvars.iv.next.i, %for.body.i ], [ 0, %entry ]
-  %call1.i = tail call i32 (...) @rand() 
+  %call1.i = tail call i32 (...) @rand()
   %rem.i = srem i32 %call1.i, 101
   %arrayidx.i = getelementptr inbounds [100 x i32], [100 x i32]* %x, i64 0, i64 %indvars.iv.i
   store i32 %rem.i, i32* %arrayidx.i, align 4
@@ -86,12 +86,12 @@ for.body.i:                                       ; preds = %for.body.i, %entry
 
 init.exit:                                        ; preds = %for.body.i
   %arrayidx1 = getelementptr inbounds [100 x i32], [100 x i32]* %qu, i64 0, i64 74
-  %call.i46 = tail call i32 (i32, ...) bitcast (i32 (...)* @srand to i32 (i32, ...)*)(i32 91) 
+  %call.i46 = tail call i32 (i32, ...) bitcast (i32 (...)* @srand to i32 (i32, ...)*)(i32 91)
   br label %for.body.i54
 
 for.body.i54:                                     ; preds = %for.body.i54, %init.exit
   %indvars.iv.i47 = phi i64 [ %indvars.iv.next.i51, %for.body.i54 ], [ 0, %init.exit ]
-  %call1.i48 = tail call i32 (...) @rand() 
+  %call1.i48 = tail call i32 (...) @rand()
   %rem.i49 = srem i32 %call1.i48, 101
   %arrayidx.i50 = getelementptr inbounds [100 x i32], [100 x i32]* %qu, i64 0, i64 %indvars.iv.i47
   store i32 %rem.i49, i32* %arrayidx.i50, align 4
@@ -197,8 +197,8 @@ for.body.i62:                                     ; preds = %for.inc29
 }
 
 ; Function Attrs: nounwind
-declare i32 @__isoc99_scanf(i8* nocapture readonly, ...) 
+declare i32 @__isoc99_scanf(i8* nocapture readonly, ...)
 
 ; Function Attrs: nounwind
-declare i32 @printf(i8* nocapture readonly, ...) 
+declare i32 @printf(i8* nocapture readonly, ...)
 

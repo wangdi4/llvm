@@ -49,11 +49,19 @@ if(LIBOMPTARGET_CMAKE_BUILD_TYPE MATCHES debug)
 else()
   option(LIBOMPTARGET_ENABLE_DEBUG "Allow debug output with the environment variable LIBOMPTARGET_DEBUG=1" OFF)
 endif()
+# INTEL_COLLAB
+if (WIN32)
+  # FIXME: compilation issues in debug output code.
+  set(LIBOMPTARGET_ENABLE_DEBUG OFF)
+endif()
+# end INTEL_COLLAB
 if(LIBOMPTARGET_ENABLE_DEBUG)
   add_definitions(-DOMPTARGET_DEBUG)
 endif()
 # INTEL_CUSTOMIZATION
-add_definitions(-DOMPTARGET_DEBUG)
+if (NOT WIN32)
+  add_definitions(-DOMPTARGET_DEBUG)
+endif()
 # end INTEL_CUSTOMIZATION
 
 include_directories(include)

@@ -1045,7 +1045,7 @@ void RegDDRef::populateTempBlobImpl(SmallVectorImpl<unsigned> &Blobs,
   }
 }
 
-void RegDDRef::makeConsistent(const SmallVectorImpl<const RegDDRef *> *AuxRefs,
+void RegDDRef::makeConsistent(ArrayRef<const RegDDRef *> AuxRefs,
                               unsigned NewLevel) {
   SmallVector<BlobDDRef *, 8> NewBlobs;
 
@@ -1064,9 +1064,11 @@ void RegDDRef::makeConsistent(const SmallVectorImpl<const RegDDRef *> *AuxRefs,
     bool Found = false;
     unsigned Index = BRef->getBlobIndex();
 
-    assert(AuxRefs && "Missing auxiliary refs!");
+    assert(!AuxRefs.empty() && "Missing auxiliary refs!");
 
-    for (auto &AuxRef : (*AuxRefs)) {
+    for (auto *AuxRef : AuxRefs) {
+      assert(AuxRef && "Unexpected nullptr ref");
+
       if (AuxRef->findTempBlobLevel(Index, &DefLevel)) {
         if (getCanonExprUtils().hasNonLinearSemantics(DefLevel, NewLevel)) {
           BRef->setNonLinear();

@@ -5,7 +5,7 @@
 ;
 ; [REASONS]
 ; - Applicable: YES
-; - Legal:      YES (treat valid groups with neg-IVCoeff specially) 
+; - Legal:      YES (treat valid groups with neg-IVCoeff specially)
 ; - Profitable: YES
 ;
 ; *** Source Code ***
@@ -23,7 +23,7 @@
 ;                           MaxLD
 ; GapTracker:  { R          R        }
 
-; 
+;
 ; CHECK: Function
 ;
 ; CHECK:   BEGIN REGION { }
@@ -34,7 +34,7 @@
 ; CHECK:         + END LOOP
 ; CHECK:   END REGION
 ;
-;  
+;
 ; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { modified }

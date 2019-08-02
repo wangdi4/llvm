@@ -234,7 +234,7 @@ bool HIRTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
 
     Ref->setSymbase(Ref->getDDRefUtils().getNewSymbase());
 
-    Ref->makeConsistent(&AuxRefs, OrigLoop->getNestingLevel() - 1);
+    Ref->makeConsistent(AuxRefs, OrigLoop->getNestingLevel() - 1);
 
     if (*NewTCRef)
       TempInst = OrigLoop->getHLNodeUtils().createCopyInst(
@@ -271,9 +271,21 @@ static void getFactoredWeights(HIRTransformUtils::ProfInfo *Prof,
   assert(Denom); // avoid divide by zero
 
   APInt Weight(64, Prof->TrueWeight);
-  APInt AQ(64, 0);
-  APInt::udivrem(Weight, Denom, AQ, Prof->Remainder);
-  Prof->Quotient = AQ.getLimitedValue();
+  APInt AQuotient(64, 0);
+  APInt::udivrem(Weight, Denom, AQuotient, Prof->Remainder);
+  Prof->Quotient = Prof->TrueWeight == 0 ? 0 :
+                   std::max(AQuotient.getLimitedValue(),
+                            static_cast<uint64_t>(1));
+
+  if (Prof->Remainder == 0 && Prof->TrueWeight > 2) {
+    // Heuristic:
+    // We adjust 0 remainder to 1 to avoid the situation where
+    // remainder loop is completely missed because of modulo.
+    // Just leave a small branch_weights.
+    // If the original weight is already too small as 2 or less, 
+    // adjusting 0 to 1 for remainder loop might not help.
+    Prof->Remainder = 1;
+  }
 }
 
 HLLoop *HIRTransformUtils::createUnrollOrVecLoop(

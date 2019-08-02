@@ -1,6 +1,6 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
-; Verify that the loop is parsed correctly. 
+; Verify that the loop is parsed correctly.
 
 ; CHECK: + DO i1 = 0, %len + -1 * smin(1, %len), 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK: |   %res.0.out = %res.0;

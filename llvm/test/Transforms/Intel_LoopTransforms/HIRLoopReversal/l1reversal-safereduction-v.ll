@@ -2,13 +2,13 @@
 ; 1-level loop, testcase for safe reduction.
 ; The loop has a temp liveout, which is also a safe reduction.
 ; This loop is allowed for reversal.
-; 
+;
 ; [REASONS]
-; - PreliminaryTests: YES (Revised: allow any loop's temp liveout to pass, collect it/them);  
+; - PreliminaryTests: YES (Revised: allow any loop's temp liveout to pass, collect it/them);
 ; - Applicable: YES (Revised: allow test to return true if the liveOut is always a reduction)
 ; - Profitable: YES
-; - Legal:      YES 
-; 
+; - Legal:      YES
+;
 ; *** Source Code ***
 ;
 ;[BEFORE LOOP REVERSAL]
@@ -30,12 +30,12 @@
 ;  }
 ; return s;
 ;}
-; 
+;
 ; ===-----------------------------------===
 ; *** Run0: BEFORE HIR Loop Reversal ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1	< %s  |	FileCheck %s -check-prefix=BEFORE 
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE 
+; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1	< %s  |	FileCheck %s -check-prefix=BEFORE
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE
 ;
 ;
 ; ===-----------------------------------===
@@ -49,7 +49,7 @@
 ; *** Tests0: W/O HIR Loop Reversal Output ***
 ; === -------------------------------------- ===
 ; Expected output before Loop Reversal
-; 
+;
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:       + DO i1 = 0, 10, 1   <DO_LOOP>
 ; BEFORE        |   %2 = (%A)[-1 * i1 + sext.i32.i64(%n)];

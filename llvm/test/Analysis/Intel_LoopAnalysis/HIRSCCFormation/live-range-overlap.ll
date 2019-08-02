@@ -2,7 +2,7 @@
 
 ; Verify that we do not create SCC (%add80376 -> %add47 -> %add80375) which has live-range overlap because %add80376 is used in %add80375 after being killed by %add47 in the same bblock.
 
-; CHECK: SCC1 
+; CHECK: SCC1
 ; CHECK-SAME: %0
 ; CHECK-NOT: SCC
 

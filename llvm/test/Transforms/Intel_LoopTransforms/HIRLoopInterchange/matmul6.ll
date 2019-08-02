@@ -2,28 +2,28 @@
 ; REQUIRES: asserts
 ; RUN: opt -O2 -debug-only=hir-loop-interchange  -hir-loop-interchange -print-after=hir-loop-interchange < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-loop-interchange,print<hir>" -aa-pipeline="basic-aa" -O2 -debug-only=hir-loop-interchange  < %s 2>&1 | FileCheck %s
-; TODO: ( 3 2 1 ) is the most preferrable permutation.  
-;       Currently, interchanged into (2 3 1). 
+; TODO: ( 3 2 1 ) is the most preferrable permutation.
+;       Currently, interchanged into (2 3 1).
 ;       Locality computation should be fixed.
 ; CHECK: Loopnest Interchanged: ( 1 2 3 ) --> ( 3 2 1 )
 ;
 ;IR Dump Before HIR Loop Interchange ***
-; 
+;
 ;       BEGIN REGION { }
 ;             + DO i1 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
 ;             |   + DO i2 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
 ;             |   |   %0 = (@c)[0][i2][i1];
-;             |   |   
+;             |   |
 ;             |   |   + DO i3 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
 ;             |   |   |   %mul = (@a)[0][i2][i3]  *  (@b)[0][i3][i1];
 ;             |   |   |   %0 = %0  +  %mul;
 ;             |   |   + END LOOP
-;             |   |   
+;             |   |
 ;             |   |   (@c)[0][i2][i1] = %0;
 ;             |   + END LOOP
 ;             + END LOOP
 ;       END REGION
-; 
+;
 
 ; ModuleID = 'matmul6.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

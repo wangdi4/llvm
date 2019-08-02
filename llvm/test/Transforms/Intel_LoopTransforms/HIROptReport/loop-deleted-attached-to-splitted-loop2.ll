@@ -1,4 +1,4 @@
-; Check that proper optreport order (structure and metadata) for a deleted loop (Completely Unrolled) is attached to proper loop after splitting (Vectorized loop with remainder). 
+; Check that proper optreport order (structure and metadata) for a deleted loop (Completely Unrolled) is attached to proper loop after splitting (Vectorized loop with remainder).
 
 ;int foo(int *restrict A, int **restrict B, int N) {
 ;

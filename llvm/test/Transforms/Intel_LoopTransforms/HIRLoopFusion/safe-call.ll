@@ -1,9 +1,6 @@
 ; RUN: opt -hir-ssa-deconstruction -disable-output -hir-loop-fusion -print-after=hir-loop-fusion -hir-cost-model-throttling=0 < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-fusion,print<hir>" -aa-pipeline="basic-aa" -disable-output -hir-cost-model-throttling=0 < %s 2>&1 | FileCheck %s
 
-; Fusion needs to be changed to handle different kinds of unsafe calls. @bar() should probably have 'nounwind' as well to classify as safe call.
-; XFAIL: *
-
 ; Verify that two loops will be fused with a safe call in between.
 
 
@@ -84,6 +81,5 @@ for.body12:                                       ; preds = %for.body12, %for.co
 
 declare dso_local void @bar(...) local_unnamed_addr #0
 
-attributes #0 = { inaccessiblememonly }
-
+attributes #0 = { nounwind readnone }
 

@@ -1,6 +1,6 @@
 ; Check that filter-print-funcs option filters HIR output
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup --print-after-all -disable-output < %s 2>&1 | FileCheck %s 
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup --print-after-all -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup --print-after-all -filter-print-funcs=bar -disable-output < %s 2>&1 | FileCheck %s --check-prefix=FILTER-CHECK
 
 ; CHECK: *** IR Dump After

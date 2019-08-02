@@ -1,9 +1,9 @@
 
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-reroll  -print-before=hir-loop-reroll -print-after=hir-loop-reroll -hir-verify-cf-def-level  < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" -hir-verify-cf-def-level < %s 2>&1 | FileCheck %s
- 
+
 ;#define N 100
-;#define T double 
+;#define T double
 ;T A[N];
 ;T B[N];
 ;T C[N];
@@ -18,7 +18,7 @@
 ;  }
 ;  return S;
 ;}
- 
+
 ; CHECK:Function: foo
 
 ; CHECK:        BEGIN REGION { }
@@ -35,7 +35,7 @@
 ; CHECK:              |   %S.012 = %S.012  -  (@A)[0][i1];
 ; CHECK:              + END LOOP
 ; CHECK:        END REGION
- 
+
 ;Module Before HIR
 ; ModuleID = 'red-sub.c'
 source_filename = "red-sub.c"

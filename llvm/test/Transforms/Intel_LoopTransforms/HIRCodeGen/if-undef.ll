@@ -12,7 +12,7 @@
 ; as first operand
 ;CHECK: region.0:
 ;CHECK: loop.{{[0-9]+}}:
-;CHECK-NEXT: br i1 undef, 
+;CHECK-NEXT: br i1 undef,
 
 ; ModuleID = '2.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

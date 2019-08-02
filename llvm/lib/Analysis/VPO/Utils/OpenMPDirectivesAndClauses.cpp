@@ -475,6 +475,28 @@ int VPOAnalysisUtils::getMatchingEndDirective(int DirID) {
   return -1;
 }
 
+bool VPOAnalysisUtils::isBeginDirectiveOfRegionsNeedingOutlining(
+    StringRef DirString) {
+  return VPOAnalysisUtils::isBeginDirectiveOfRegionsNeedingOutlining(
+      VPOAnalysisUtils::getDirectiveID(DirString));
+}
+
+bool VPOAnalysisUtils::isBeginDirectiveOfRegionsNeedingOutlining(int DirID) {
+  switch (DirID) {
+  case DIR_OMP_PARALLEL:
+  case DIR_OMP_PARALLEL_LOOP:
+  case DIR_OMP_PARALLEL_SECTIONS:
+  case DIR_OMP_PARALLEL_WORKSHARE:
+  case DIR_OMP_DISTRIBUTE_PARLOOP:
+  case DIR_OMP_TASK:
+  case DIR_OMP_TASKLOOP:
+  case DIR_OMP_TEAMS:
+  case DIR_OMP_TARGET:
+    return true;
+  }
+  return false;
+}
+
 bool VPOAnalysisUtils::isDependClause(int ClauseID) {
   switch(ClauseID) {
     case QUAL_OMP_DEPEND_IN:

@@ -1,12 +1,12 @@
-; Test for Loop Interchange					
-;   for(j=0; j<N; j++) { 
-;      for(k=0; k<N; k++) {    
+; Test for Loop Interchange
+;   for(j=0; j<N; j++) {
+;      for(k=0; k<N; k++) {
 ;        for(i=0; i<N; i++) {
 ;         c[i][j] = c[i][j] + a[i][k] * b[k][j];
-; REQUIRES: asserts 
+; REQUIRES: asserts
 ; RUN: opt -O2 -loopopt -debug-only=hir-loop-interchange -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:
-; CHECK-SAME:  ( 3 2 1 )  
+; CHECK-SAME:  ( 3 2 1 )
 
 ; ModuleID = 'matmul2.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

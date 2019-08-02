@@ -1,18 +1,18 @@
 ; Sanity Test(s) on HIR Loop Reversal: from llvmtestCpp/ary2.cpp
-; 
+;
 ; l1reversal-ary2.ll:
 ; 1-level loop, sanity test, invalid reversal case1
-; 
+;
 ; [REASONS]
-; - PreliminaryCheck: fail 
-;   . UBCE's Denominator is 10, not 1;  
-; - Applicalbe: N/A  
+; - PreliminaryCheck: fail
+;   . UBCE's Denominator is 10, not 1;
+; - Applicalbe: N/A
 ; - Profitable: N/A
 ; - Legal:      N/A
 ;
 ; [SUGGESTION]
 ; - may allow UBCE's non-uniform denominator, so enable Reversal on the loop
-;   
+;
 ; *** Source Code ***
 ;
 ; [BEFORE LOOP REVERSAL]
@@ -20,24 +20,24 @@
 ;
 ; [AFTER LOOP REVERSAL]
 ;
-; 
+;
 ; ===-----------------------------------===
 ; *** Run0: BEFORE HIR Loop Reversal ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1	< %s  |	FileCheck %s -check-prefix=BEFORE 
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE 
+; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1	< %s  |	FileCheck %s -check-prefix=BEFORE
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE
 ;
 ; ===-----------------------------------===
 ; *** Run1: AFTER HIR Loop Reversal ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-after=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=AFTER 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=AFTER 
+; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-after=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=AFTER
+; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=AFTER
 ;
 ; === -------------------------------------- ===
 ; *** Tests0: W/O HIR Loop Reversal Output ***
 ; === -------------------------------------- ===
 ; Expected output before Loop Reversal
-; 
+;
 ; BEFORE:    BEGIN REGION { }
 ; BEFORE:       + DO i1 = 0, (%cond323330 + -1 * smin(10, %cond323330) + 9)/u10, 1   <DO_LOOP>
 ; BEFORE:       |   %12 = (%1)[-10 * i1 + %cond323330 + -1];

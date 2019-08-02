@@ -558,7 +558,7 @@ static void collectArgsSetsForSpecialization(Function &F, CallInst &CI,
   // Skip CallSite if BasicBlock has too many preds.
   if (cast<PHINode>(PHI_I)->getNumIncomingValues() > IPSpeCloningCallLimit) {
     if (IPCloningTrace)
-      errs() << "     More Preds ... Skipped Spe cloning  " << "\n";
+      dbgs() << "     More Preds ... Skipped Spe cloning  " << "\n";
     return;
   }
 
@@ -610,7 +610,7 @@ static void collectArgsSetsForSpecialization(Function &F, CallInst &CI,
   // Check for minimum limit on size of Argument sets
   if (CallArgumentsSets.size() <= IPSpeCloningMinArgSetsLimit) {
     if (IPCloningTrace)
-      errs() << "     Not enough sets... Skipped Spe cloning  " << "\n";
+      dbgs() << "     Not enough sets... Skipped Spe cloning  " << "\n";
     return;
   }
 
@@ -623,15 +623,15 @@ static void collectArgsSetsForSpecialization(Function &F, CallInst &CI,
 
   // Dump arg sets
   if (IPCloningTrace) {
-    errs() << "    Args sets collected \n";
+    dbgs() << "    Args sets collected \n";
     if (InexactArgsSetsCallList.count(&CI)) {
-      errs() << "    Inexact args sets found \n";
+      dbgs() << "    Inexact args sets found \n";
     }
     for (unsigned index = 0; index < CallArgumentsSets.size(); index++) {
-      errs() << "   Set_" << index << "\n";
+      dbgs() << "   Set_" << index << "\n";
       auto CArgs = CallArgumentsSets[index];
       for (auto I = CArgs.begin(), E = CArgs.end(); I != E; I++) {
-        errs() <<  "      position: " << I->first << " Value " <<
+        dbgs() <<  "      position: " << I->first << " Value " <<
                   *(I->second) << "\n";
       }
     }
@@ -672,7 +672,7 @@ static bool analyzeCallForSpecialization(Function &F, CallInst &CI) {
 static void analyzeCallSitesForSpecializationCloning(Function &F) {
   if (!IPSpecializationCloning) {
     if (IPCloningTrace)
-      errs() << "   Specialization cloning disabled \n";
+      dbgs() << "   Specialization cloning disabled \n";
     return;
   }
   FunctionLoopInfoMap.clear();
@@ -701,7 +701,7 @@ static bool analyzeAllCallsOfFunction(Function &F, IPCloneKind CloneType) {
 
   if (CloneType == SpecializationClone) {
     if (IPCloningTrace)
-      errs() << " Processing for Spe cloning  " << F.getName() << "\n";
+      dbgs() << " Processing for Spe cloning  " << F.getName() << "\n";
     analyzeCallSitesForSpecializationCloning(F);
     return false;
   }
@@ -828,18 +828,15 @@ static bool IsFunctionPtrCloneCandidate(Function &F) {
 // BEGIN: Special code for extra clone transformation
 
 //
-// Return 'true' if 'V' represents an AllocaInst similar to:
+// Return 'true' if 'AI' represents an AllocaInst similar to:
 //   %x = alloca [9 x i32], align 16
 // Here the size of the array, the number of bits in the integer, and the
 // alignment do not effect whether we return 'true'.  When we return 'true',
 // we set '*ArrayLengthOut' to the number of elements in the array. (In the
 // above example, that will be 9.)
 //
-static bool isRecProAllocaIntArray(Value *V,
+static bool isRecProAllocaIntArray(AllocaInst *AI,
                                    int *ArrayLengthOut) {
-  auto AI = dyn_cast<AllocaInst>(V);
-  if (!AI)
-    return false;
   Type *PT = AI->getType();
   if (!PT->isPointerTy())
     return false;
@@ -1006,6 +1003,36 @@ static bool isRecProNoOrSingleStoreBlock(BasicBlock *BBStore,
 }
 
 //
+// Return 'true' if 'GEPI' is a GEP with 2 zero indices that indexes 'AI'.
+//
+static bool isRecProGEP(GetElementPtrInst *GEPI,
+                        AllocaInst *AI) {
+  return GEPI && GEPI->getPointerOperand() == AI &&
+      GEPI->hasAllZeroIndices() && GEPI->getNumIndices() == 2;
+}
+
+//
+// Return 'true' if 'SubI' is a SubscriptInst which indexes 'GEPI' and
+// whose Rank is 0, LowerBound is 1, Stride is 4, as is required in the
+// RecProVectors.
+//
+static bool isRecProSub(SubscriptInst *SubI,
+                        GetElementPtrInst *GEPI) {
+  if (SubI->getRank() != 0)
+    return false;
+  auto CI1 = dyn_cast<ConstantInt>(SubI->getLowerBound());
+  if (!CI1 || CI1->getSExtValue() != 1)
+    return false;
+  auto CI2 = dyn_cast<ConstantInt>(SubI->getStride());
+  if (!CI2 || CI2->getSExtValue() != 4)
+    return false;
+  auto GEPII = dyn_cast<GetElementPtrInst>(SubI->getPointerOperand());
+  if (!GEPII || GEPII != GEPI)
+    return false;
+  return true;
+}
+
+//
 // Return 'true' if 'SI' is a SubscriptInst which indexes a local single-
 // dimension 9 element integer array with the induction variable 'PHI'.
 // If we return 'true', set '*AIOut' to the AllocaInst that allocates the
@@ -1014,26 +1041,20 @@ static bool isRecProNoOrSingleStoreBlock(BasicBlock *BBStore,
 static bool isRecProTempVector(SubscriptInst *SI,
                                PHINode *PHI,
                                AllocaInst **AIOut) {
-  auto CI0 = dyn_cast<ConstantInt>(SI->getOperand(0));
-  if (!CI0 || CI0->getSExtValue() != 0)
+  auto GEPI = dyn_cast<GetElementPtrInst>(SI->getPointerOperand());
+  if (!GEPI || !isRecProSub(SI, GEPI))
     return false;
-  auto CI1 = dyn_cast<ConstantInt>(SI->getOperand(1));
-  if (!CI1 || CI1->getSExtValue() != 1)
-    return false;
-  auto CI2 = dyn_cast<ConstantInt>(SI->getOperand(2));
-  if (!CI2 || CI2->getSExtValue() != 4)
-    return false;
-  auto GEP = dyn_cast<GetElementPtrInst>(SI->getOperand(3));
-  if (!GEP || !GEP->hasAllZeroIndices())
+  auto AI = dyn_cast<AllocaInst>(GEPI->getPointerOperand());
+  if (!AI || !isRecProGEP(GEPI, AI))
     return false;
   int ArraySize = 0;
-  if (!isRecProAllocaIntArray(GEP->getPointerOperand(), &ArraySize))
+  if (!isRecProAllocaIntArray(AI, &ArraySize))
     return false;
   if (ArraySize != 9)
     return false;
-  if (SI->getOperand(4) != PHI)
+  if (SI->getIndex() != PHI)
     return false;
-  *AIOut = cast<AllocaInst>(GEP->getPointerOperand());
+  *AIOut = AI;
   return true;
 }
 
@@ -1169,6 +1190,7 @@ static bool isRecProTrueBranchComplexLoop(BasicBlock *BBPreHeader,
                                           BasicBlock *BBLoopHeader,
                                           AllocaInst *AICond,
                                           AllocaInst **AIOut,
+                                          StoreInst **SIOut,
                                           int *ConstantValueOut,
                                           BasicBlock **BBLatchOut,
                                           BasicBlock **BBExitOut) {
@@ -1191,6 +1213,7 @@ static bool isRecProTrueBranchComplexLoop(BasicBlock *BBPreHeader,
   if (!CI)
     return false;
   *AIOut = AI;
+  *SIOut = SI;
   *ConstantValueOut = CI->getSExtValue();
   return true;
 }
@@ -1204,15 +1227,17 @@ static bool isRecProTrueBranchComplexLoop(BasicBlock *BBPreHeader,
 //       u(i) = l(i)
 //     end if
 //   end do
-// 'AICond' is "t", '*AIOut' is "u". If 'VLoad' is not nullptr, ensure
-// that the value assigned to '*AIOut' is 'VLoad'. When we return 'true',
-// we set '*AIOut' as well as the latch block '*BBLatchOut' and '*BBExitOut'.
+// 'AICond' is "t", '*AIOut' is "u", and '*SIOut' is the store of "u(i)".
+//  If 'VLoad' is not nullptr, ensure that the value assigned to '*AIOut' is
+// 'VLoad'. When we return 'true', we set '*AIOut' as well as the latch block
+// '*BBLatchOut' and '*BBExitOut'.
 //
 static bool isRecProFalseBranchComplexLoop(BasicBlock *BBPreHeader,
                                            BasicBlock *BBLoopHeader,
                                            AllocaInst *AICond,
                                            AllocaInst *VLoad,
                                            AllocaInst **AIOut,
+                                           StoreInst **SIOut,
                                            BasicBlock **BBLatchOut,
                                            BasicBlock **BBExitOut) {
   bool IsSimple = false;
@@ -1232,6 +1257,7 @@ static bool isRecProFalseBranchComplexLoop(BasicBlock *BBPreHeader,
     return false;
   if (!VLoad) {
     *AIOut = AI;
+    *SIOut = SI;
     return true;
   }
   auto LI = dyn_cast<LoadInst>(SI->getValueOperand());
@@ -1244,6 +1270,7 @@ static bool isRecProFalseBranchComplexLoop(BasicBlock *BBPreHeader,
   if (!isRecProTempVector(SubI, PHI, &AITemp) || AITemp != VLoad)
     return false;
   *AIOut = AI;
+  *SIOut = SI;
   return true;
 }
 
@@ -1277,13 +1304,21 @@ static bool isRecProFalseBranchComplexLoop(BasicBlock *BBPreHeader,
 // set '*BBLastLatchOut' to the last latch block in the sequence, set
 // '*LowerValueOut' and '*UpperValueOut' to the AllocaInsts representing
 // 'l(9)' and 'u(9)' and '*LowerConstantValueOut' and '*UpperConstantValueOut'
-// to the constant values "constant_l" and "constant_u".
+// to the constant values "constant_l" and "constant_u". Also, '*SILower1' and
+// '*SILower2' are set to the stores to "l(i)" and '*SIUpper1' and '*SIUpper2'
+// are set to the stores to "u(i)".  In both cases, the "lower" store is the
+// one that appears first in the five loop sequence, while the "upper" store
+// is the one that appears second.
 //
 static bool isRecProSpecialLoopSequence(Function *F,
                                         BasicBlock **BBLastExitOut,
                                         BasicBlock **BBLastLatchOut,
                                         AllocaInst **LowerValueOut,
                                         AllocaInst **UpperValueOut,
+                                        StoreInst **SILower1,
+                                        StoreInst **SILower2,
+                                        StoreInst **SIUpper1,
+                                        StoreInst **SIUpper2,
                                         int *LowerConstantValueOut,
                                         int *UpperConstantValueOut) {
   AllocaInst *AICond = nullptr;
@@ -1300,18 +1335,18 @@ static bool isRecProSpecialLoopSequence(Function *F,
   if (!isRecProSimpleLoop(PH, LH, &AICond, &BBLatch, &BBExit))
     return false;
   if (!isRecProFalseBranchComplexLoop(BBExit, BBExit->getSingleSuccessor(),
-      AICond, nullptr, &VStoreLower, &BBLatch, &BBExit))
+      AICond, nullptr, &VStoreLower, SILower1, &BBLatch, &BBExit))
     return false;
   if (!isRecProFalseBranchComplexLoop(BBExit, BBExit->getSingleSuccessor(),
-      AICond, VStoreLower, &VStoreUpper, &BBLatch, &BBExit))
+      AICond, VStoreLower, &VStoreUpper, SIUpper1, &BBLatch, &BBExit))
     return false;
   if (!isRecProTrueBranchComplexLoop(BBLatch, BBExit, AICond, &VStoreLowerTemp,
-    &LowerBound, &BBLatch, &BBExit))
+    SILower2, &LowerBound, &BBLatch, &BBExit))
     return false;
   if (VStoreLower != VStoreLowerTemp)
     return false;
   if (!isRecProTrueBranchComplexLoop(BBLatch, BBExit, AICond, &VStoreUpperTemp,
-    &UpperBound, &BBLatch, &BBExit))
+    SIUpper2, &UpperBound, &BBLatch, &BBExit))
     return false;
   if (VStoreUpper != VStoreUpperTemp)
     return false;
@@ -1333,8 +1368,7 @@ static GetElementPtrInst *findOrCreateRecProGEP(AllocaInst* AI,
                                                 BasicBlock *BB) {
   for (User *U : AI->users()) {
     auto GEPI = dyn_cast<GetElementPtrInst>(U);
-    if (GEPI && GEPI->getPointerOperand() == AI && GEPI->hasAllZeroIndices() &&
-        GEPI->getNumIndices() == 2)
+    if (GEPI && isRecProGEP(GEPI, AI))
       return GEPI;
   }
   SmallVector<Value *, 2> Indices;
@@ -1343,7 +1377,8 @@ static GetElementPtrInst *findOrCreateRecProGEP(AllocaInst* AI,
   Indices.push_back(CI1);
   auto CI2 = ConstantInt::get(Int64Ty, 0, true);
   Indices.push_back(CI2);
-  return GetElementPtrInst::Create(AI->getType(), AI, Indices, "", BB);
+  Type *GEPT = AI->getType()->getElementType();
+  return GetElementPtrInst::Create(GEPT, AI, Indices, "", BB);
 }
 
 //
@@ -1409,13 +1444,164 @@ static void addSpecialRecProCloneCode(Function *F,
   Builder.CreateStore(C9, SIUB);
   Builder.CreateBr(BBLastExit);
   if (IPCloningTrace) {
-    errs() << "Inserting special extra clone test:\n";
+    dbgs() << "Inserting special extra clone test:\n";
 #ifndef NDEBUG
     BBCond->dump();
     BBCallClone->dump();
     BBConstStore->dump();
 #endif // NDEBUG
   }
+}
+
+//
+// Return 'true' if 'AI' is only used in SubscriptInsts, which are then
+// fed to LoadInsts and StoreInsts. Futhermore, the StoreInsts must be
+// exactly those on 'SV'. If we return 'true', we fill 'LV' with the
+// LoadInsts which refer to 'AI'.
+//
+// We use this routine to check that there are no unusual aliases generated
+// for 'AI'. If the StoreInsts in 'SV' dominate all LoadInsts for 'AI', we
+// can perform forward substitution on the LoadInsts in 'LV'.
+//
+static bool validateRecProVectorMemOps(AllocaInst *AI,
+                                       SmallVectorImpl<StoreInst *>& SV,
+                                       SmallVectorImpl<LoadInst *>& LV) {
+  for (User *U1 : AI->users()) {
+    auto GEPI = dyn_cast<GetElementPtrInst>(U1);
+    if (!GEPI || !isRecProGEP(GEPI, AI)) {
+      LV.clear();
+      return false;
+    }
+    for (User *U2 : GEPI->users()) {
+      auto SubI = dyn_cast<SubscriptInst>(U2);
+      if (!SubI || !isRecProSub(SubI, GEPI)) {
+        LV.clear();
+        return false;
+      }
+      for (User *U3 : SubI->users()) {
+        auto LI = dyn_cast<LoadInst>(U3);
+        if (LI)
+          LV.push_back(LI);
+        else {
+          auto SI = dyn_cast<StoreInst>(U3);
+          if (SI) {
+            unsigned I = 0;
+            for (; I < SV.size(); ++I)
+              if (SV[I] == SI)
+                break;
+            if (I == SV.size()) {
+              LV.clear();
+              return false;
+            }
+          }
+          else {
+            LV.clear();
+            return false;
+          }
+        }
+      }
+    }
+  }
+  return true;
+}
+
+//
+// Return 'true' if 'LI' is a subscripted load of the 'Index'th element
+// of some value.
+//
+static bool hasThisRecProSubscript(LoadInst *LI,
+                                   unsigned Index) {
+  auto SubI = dyn_cast<SubscriptInst>(LI->getPointerOperand());
+  if (!SubI)
+    return false;
+  auto CI = dyn_cast<ConstantInt>(SubI->getIndex());
+  return CI && CI->getZExtValue() == Index;
+}
+
+//
+// Return 'true' if, given that 'S1' and S2' dominate all loads of 'AI'
+// in 'F', we can forward substitute 'Bound' for the 8th element of 'AI'.
+// If we return 'true', do the forward substitution.
+//
+static bool tryToMakeRecProSubscriptsConstant(Function *F,
+                                              AllocaInst *AI,
+                                              StoreInst *S1,
+                                              StoreInst *S2,
+                                              int Bound) {
+  SmallVector<StoreInst *, 2> SV;
+  SmallVector<LoadInst *, 10> LV;
+  SV.push_back(S1);
+  SV.push_back(S2);
+  if (!validateRecProVectorMemOps(AI, SV, LV))
+    return false;
+  for (unsigned I = 0; I < LV.size(); ++I) {
+    auto LI = LV[I];
+    if (hasThisRecProSubscript(LI, 8)) {
+      auto CCI = ConstantInt::get(LI->getType(), Bound);
+      if (IPCloningTrace) {
+        dbgs() << "Replacing Load in Function " << F->getName() << " with "
+               << Bound << "\n";
+#ifndef NDEBUG
+        LI->dump();
+        CCI->dump();
+#endif // NDEBUG
+      }
+      LI->replaceAllUsesWith(CCI);
+    }
+  }
+  return true;
+}
+
+//
+// Return 'true' if, given that 'SILower1' and 'SILower2'' dominate all loads
+// of 'AILower', and 'SIUpper1' and 'SIUpper2' dominate all loads of 'AIUpper',
+// in 'F', we can forward substitute the 8th element of 'AILower' for the 8th
+// element of 'AIUpper'. If we return 'true', do the forward substitution.
+//
+static bool tryToMakeRecProSubscriptsSame(Function *F,
+                                          AllocaInst *AILower,
+                                          AllocaInst *AIUpper,
+                                          StoreInst *SILower1,
+                                          StoreInst *SILower2,
+                                          StoreInst *SIUpper1,
+                                          StoreInst *SIUpper2) {
+  SmallVector <StoreInst *, 2> SV;
+  SmallVector <LoadInst *, 10> LV;
+  SV.push_back(SILower1);
+  SV.push_back(SILower2);
+  if (!validateRecProVectorMemOps(AILower, SV, LV))
+    return false;
+  LoadInst *LILower = nullptr;
+  for (unsigned I = 0; I < LV.size(); ++I) {
+    auto LI = LV[I];
+    if (hasThisRecProSubscript(LI, 8))
+      LILower = LI;
+  }
+  if (!LILower)
+    return false;
+  SV.clear();
+  LV.clear();
+  SV.push_back(SIUpper1);
+  SV.push_back(SIUpper2);
+  if (!validateRecProVectorMemOps(AIUpper, SV, LV))
+    return false;
+  for (unsigned I = 0; I < LV.size(); ++I) {
+    auto LI = LV[I];
+    if (hasThisRecProSubscript(LI, 8)) {
+      if (IPCloningTrace) {
+        dbgs() << "Replacing Load in Function " << F->getName()
+               << " with alternate bound\n";
+#ifndef NDEBUG
+        LI->dump();
+        LI->getPointerOperand()->dump();
+        LILower->dump();
+        LILower->getPointerOperand()->dump();
+#endif // NDEBUG
+      }
+      LI->replaceAllUsesWith(LILower);
+    }
+  }
+  return true;
 }
 
 // END: Special code for extra clone transformation
@@ -1615,11 +1801,11 @@ static void createRecProgressionClones(Function &F,
     Value *Rep = ConstantInt::get(ConstantType, FormalValue);
     FormalValue += Inc;
     if (IPCloningTrace) {
-      errs() << "        Function: " << NewF->getName() << "\n";
-      errs() << "        ArgPos : " << ArgPos << "\n";
-      errs() << "        Argument : " << *NewFormal << "\n";
-      errs() << "        IsByRef : " << (IsByRef ? "T" : "F") << "\n";
-      errs() << "        Replacement:  " << *Rep << "\n";
+      dbgs() << "        Function: " << NewF->getName() << "\n";
+      dbgs() << "        ArgPos : " << ArgPos << "\n";
+      dbgs() << "        Argument : " << *NewFormal << "\n";
+      dbgs() << "        IsByRef : " << (IsByRef ? "T" : "F") << "\n";
+      dbgs() << "        Replacement:  " << *Rep << "\n";
     }
     if (IsByRef) {
       assert(NewFormal->hasOneUse() && "Expecting single use of ByRef Formal");
@@ -1638,26 +1824,62 @@ static void createRecProgressionClones(Function &F,
     BasicBlock *BBLastLatch = nullptr;
     AllocaInst *AILower = nullptr;
     AllocaInst *AIUpper = nullptr;
+    StoreInst *SILower1 = nullptr;
+    StoreInst *SILower2 = nullptr;
+    StoreInst *SIUpper1 = nullptr;
+    StoreInst *SIUpper2 = nullptr;
     int CVLower = 0;
     int CVUpper = 0;
     // Test if we should create the extra clone
     Function *ExtraCloneF = nullptr;
     if (isRecProSpecialLoopSequence(LastCloneF, &BBLastExit, &BBLastLatch,
-        &AILower, &AIUpper, &CVLower, &CVUpper)) {
+        &AILower, &AIUpper, &SILower1, &SILower2, &SIUpper1, &SIUpper2,
+        &CVLower, &CVUpper)) {
       // Create the extra clone
       ValueToValueMapTy VMapNew;
       ExtraCloneF = CloneFunction(LastCloneF, VMapNew);
       ExtraCloneF->addFnAttr("prefer-inline-rec-pro-clone");
       ExtraCloneF->addFnAttr("contains-rec-pro-clone");
       if (IPCloningTrace)
-        errs() << "Extra RecProClone Candidate: " << LastCloneF->getName()
+        dbgs() << "Extra RecProClone Candidate: " << LastCloneF->getName()
                << "\n";
-      addSpecialRecProCloneCode(LastCloneF, ExtraCloneF, BBLastExit,
-        BBLastLatch, AILower, AIUpper, CVLower, CVUpper);
     }
     deleteRecProgressionRecCalls(F, *LastCloneF);
-    if (ExtraCloneF)
+    if (ExtraCloneF) {
+      int SubCount = 0;
+      // Make the inner loop bounds constant for the last normal clone
+      if (tryToMakeRecProSubscriptsConstant(LastCloneF, AILower, SILower1,
+          SILower2, 1))
+        ++SubCount;
+      if (tryToMakeRecProSubscriptsConstant(LastCloneF, AIUpper, SIUpper1,
+          SIUpper2, 9))
+        ++SubCount;
+      // Make the inner loop "trip 1" for the extra clone
+      BasicBlock *BBLastExitC = nullptr;
+      BasicBlock *BBLastLatchC = nullptr;
+      AllocaInst *AILowerC = nullptr;
+      AllocaInst *AIUpperC = nullptr;
+      StoreInst *SILower1C = nullptr;
+      StoreInst *SILower2C = nullptr;
+      StoreInst *SIUpper1C = nullptr;
+      StoreInst *SIUpper2C= nullptr;
+      int CVLowerC = 0;
+      int CVUpperC = 0;
+      if (isRecProSpecialLoopSequence(ExtraCloneF, &BBLastExitC, &BBLastLatchC,
+          &AILowerC, &AIUpperC, &SILower1C, &SILower2C, &SIUpper1C, &SIUpper2C,
+          &CVLowerC, &CVUpperC)) {
+        if (tryToMakeRecProSubscriptsSame(ExtraCloneF, AILowerC, AIUpperC,
+            SILower1C, SILower2C, SIUpper1C, SIUpper2C))
+          ++SubCount;
+      }
+      // Add the special test in the last normal clone to switch to the
+      // extra clone if appropriate
+      addSpecialRecProCloneCode(LastCloneF, ExtraCloneF, BBLastExit,
+        BBLastLatch, AILower, AIUpper, CVLower, CVUpper);
       deleteRecProgressionRecCalls(F, *ExtraCloneF);
+      if (IPCloningTrace && SubCount == 3)
+        dbgs() << "All desired subscript bounds substituted\n";
+    }
   }
 }
 
@@ -1744,18 +1966,18 @@ static void dumpFormalsConstants(Function &F) {
        AI != E; ++AI, position++) {
 
      auto CList = FormalConstantValues[&*AI];
-     errs() <<  "         Formal_" << position << ":";
+     dbgs() <<  "         Formal_" << position << ":";
      if (InexactFormals.count(&*AI))
-       errs() << "  (Inexact)  \n";
+       dbgs() << "  (Inexact)  \n";
      else
-       errs() << "  (Exact)  \n";
+       dbgs() << "  (Exact)  \n";
 
      // Dump list of constants
      for (auto I = CList.begin(), E = CList.end(); I != E; I++) {
-       errs() << "                  " << *(*(&*I)) << "\n";
+       dbgs() << "                  " << *(*(&*I)) << "\n";
      }
   }
-  errs() << "\n\n";
+  dbgs() << "\n\n";
 }
 
 // It collects worthy formals for cloning by applying heuristics.
@@ -1796,8 +2018,8 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
       continue;
 
     if (IPCloningTrace) {
-      errs() << " Collecting potential constants for Formal_";
-      errs() << (f_count - 1) << "\n";
+      dbgs() << " Collecting potential constants for Formal_";
+      dbgs() << (f_count - 1) << "\n";
     }
     if (AfterInl || IsGenRec) {
       unsigned IFCount = 0;
@@ -1809,7 +2031,7 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
           // Qualified unconditionally under the loop heuristic.
           WorthyFormalsForCloning.insert(V);
           if (IPCloningTrace)
-            errs() << "  Selecting FORMAL_" << (f_count - 1) << "\n";
+            dbgs() << "  Selecting FORMAL_" << (f_count - 1) << "\n";
         } else {
           // Qualified under the if-switch heuristic. Mark the formal as
           // pending for now, and qualify it later if the total number of
@@ -1819,17 +2041,17 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
           GlobalSwitchCount += SwitchCount;
           PossiblyWorthyFormalsForCloning.insert(V);
           if (IPCloningTrace) {
-            errs() << "  Pending FORMAL_" << (f_count - 1) << "\n";
-            errs() << "    IFCount " << GlobalIFCount << " <- "
+            dbgs() << "  Pending FORMAL_" << (f_count - 1) << "\n";
+            dbgs() << "    IFCount " << GlobalIFCount << " <- "
                    << IFCount << "\n";
-            errs() << "    SwitchCount " << GlobalSwitchCount << " <- "
+            dbgs() << "    SwitchCount " << GlobalSwitchCount << " <- "
                    << SwitchCount << "\n";
           }
         }
       } else {
         if (IPCloningTrace) {
-          errs() << "  Skipping FORMAL_" << (f_count - 1);
-          errs() << " due to heuristics\n";
+          dbgs() << "  Skipping FORMAL_" << (f_count - 1);
+          dbgs() << " due to heuristics\n";
         }
       }
     } else {
@@ -1842,13 +2064,13 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
     // There are enough "if" and "switch" values to qualify the clone under
     // the if-switch heuristic. Convert the pending formals to qualified.
     if (IPCloningTrace)
-      errs() << "  Selecting all Pending FORMALs\n";
+      dbgs() << "  Selecting all Pending FORMALs\n";
     for (Value *W : PossiblyWorthyFormalsForCloning)
       WorthyFormalsForCloning.insert(W);
   } else if (IsGenRec && PossiblyWorthyFormalsForCloning.size() >=
       IPGenCloningMinRecFormalCount) {
     if (IPCloningTrace)
-      errs() << "  Possibly selecting all Pending FORMALs in "
+      dbgs() << "  Possibly selecting all Pending FORMALs in "
              << "Recursive Function\n";
     for (Value *W : PossiblyWorthyFormalsForCloning)
       WorthyFormalsForCloning.insert(W);
@@ -1856,10 +2078,10 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
   } else if (SawPending) {
     if (IPCloningTrace) {
       if (GlobalIFCount < IPGenCloningMinIFCount)
-        errs() << "  IFCount (" << GlobalIFCount << ") < Limit ("
+        dbgs() << "  IFCount (" << GlobalIFCount << ") < Limit ("
                << IPGenCloningMinIFCount << ")\n";
       if (GlobalSwitchCount < IPGenCloningMinSwitchCount)
-        errs() << "  SwitchCount (" << GlobalSwitchCount << ") < Limit ("
+        dbgs() << "  SwitchCount (" << GlobalSwitchCount << ") < Limit ("
                << IPGenCloningMinSwitchCount << ")\n";
     }
   }
@@ -1889,18 +2111,18 @@ static bool collectAllConstantArgumentsSets(Function &F) {
 
     if (FunctionAllArgumentsSets.size() > IPFunctionCloningLimit) {
       if (IPCloningTrace)
-        errs() << "     Exceeding number of argument sets limit \n";
+        dbgs() << "     Exceeding number of argument sets limit \n";
       return false;
     }
   }
   if (FunctionAllArgumentsSets.size() == 0) {
     if (IPCloningTrace)
-      errs() << "     Zero argument sets found \n";
+      dbgs() << "     Zero argument sets found \n";
     return false;
   }
   if (IPCloningTrace) {
-    errs() << "    Number of argument sets found: ";
-    errs() << FunctionAllArgumentsSets.size() << "\n";
+    dbgs() << "    Number of argument sets found: ";
+    dbgs() << FunctionAllArgumentsSets.size() << "\n";
   }
 
   return true;
@@ -1986,7 +2208,7 @@ static void eliminateRecursionIfPossible(Function *ClonedFn,
       NumIPCallsCloned++;
 
       if (IPCloningTrace)
-        errs() << " Replaced Cloned call:   " << *CI << "\n";
+        dbgs() << " Replaced Cloned call:   " << *CI << "\n";
     }
   }
 }
@@ -2022,7 +2244,7 @@ static void cloneFunction(void) {
     eliminateRecursionIfPossible(NewFn, SrcFn, index);
 
     if (IPCloningTrace)
-      errs() << " Cloned call:   " << *CI << "\n";
+      dbgs() << " Cloned call:   " << *CI << "\n";
   }
 }
 
@@ -2061,7 +2283,7 @@ static Value* createGEPAtFrontInClonedFunction(Function* NewFn,
 
    Rep = GetElementPtrInst::CreateInBounds(BaseAddr, Indices, "", InsertPt);
    if (IPCloningTrace)
-     errs() << "     Created New GEP: " << *Rep << "\n";
+     dbgs() << "     Created New GEP: " << *Rep << "\n";
 
    return Rep;
 }
@@ -2114,7 +2336,7 @@ static GlobalVariable* createGlobalVariableWithInit(Function* NewFn,
    Counter++;
 
   if (IPCloningTrace)
-    errs() << "     Created New Array:  " << *NewGlobal << "\n";
+    dbgs() << "     Created New Array:  " << *NewGlobal << "\n";
   return NewGlobal;
 }
 
@@ -2220,9 +2442,9 @@ static void propagateArgumentsToClonedFunction(Function* NewFn,
      Rep = getReplacementValueForArg(NewFn, V, Formal, CallI, DL, Counter);
 
     if (IPCloningTrace) {
-      errs() << "        Formal : " << *AI << "\n";
-      errs() << "        Value : " << *V << "\n";
-      errs() << "        Replacement:  " << *Rep << "\n";
+      dbgs() << "        Formal : " << *AI << "\n";
+      dbgs() << "        Value : " << *V << "\n";
+      dbgs() << "        Replacement:  " << *Rep << "\n";
     }
 
     Formal->replaceAllUsesWith(Rep);
@@ -2309,7 +2531,7 @@ static void cloneSpecializationFunction(void) {
     NewCondStmts.clear();
     CallInst *CI = CurrCallList[I];
     if (IPCloningTrace)
-       errs() << "\n Call-Site (Spec): " << *CI << "\n\n";
+       dbgs() << "\n Call-Site (Spec): " << *CI << "\n\n";
     auto &CallArgsSets = AllCallsArgumentsSets[CI];
 
     if (CallArgsSets.size() == 0)
@@ -2318,7 +2540,7 @@ static void cloneSpecializationFunction(void) {
     // No point to specialize, if there is only one arg set for this CallSite
     if (CallArgsSets.size() <= 1) {
       if (IPCloningTrace)
-        errs() << "    Giving up: Not enough cases to specialize\n";
+        dbgs() << "    Giving up: Not enough cases to specialize\n";
       continue;
     }
     // Split the BasicBlock containing the CallSite, so that the newly
@@ -2423,17 +2645,17 @@ static void cloneSpecializationFunction(void) {
     if (IPCloningTrace) {
       for  (unsigned J = 0; J < CloneCount; J++) {
        if (J < NumConds) {
-        errs() << "    Cond[" << J << "] = ";
-        errs() << *NewCondStmtBBs[J] << "\n";
+        dbgs() << "    Cond[" << J << "] = ";
+        dbgs() << *NewCondStmtBBs[J] << "\n";
        }
-        errs() << "    ClonedCall[" << J << "] = "
+        dbgs() << "    ClonedCall[" << J << "] = "
           << *(NewClonedCallBBs[J]) << "\n\n";
       }
       if (IsInexact)
-        errs() << "    Fallback Call = "
+        dbgs() << "    Fallback Call = "
           << *(NewClonedCallBBs[CloneCount]) << "\n\n";
       else
-        errs() << "    No Fallback Call" << "\n\n";
+        dbgs() << "    No Fallback Call" << "\n\n";
     }
     CI->eraseFromParent();
   }
@@ -2471,6 +2693,110 @@ static bool isDirectlyRecursive(Function *F) {
   return false;
 }
 
+// BEGIN: AVX512->AVX2 conversion code
+
+//
+// Return 'true' if 'T' is a VectorType or contains a vector type.
+//
+static bool containsVectorType(Type *T) {
+  if (T->isVectorTy())
+    return true;
+  for (unsigned I = 0; I < T->getNumContainedTypes(); ++I)
+    if (containsVectorType(T->getContainedType(I)))
+      return true;
+  return false;
+}
+
+//
+// Return 'true' if we can change the target-cpu and target-features
+// attributes from AVX512 to AVX2.
+//
+static bool canChangeCPUAttributes(Module &M) {
+
+  // Attribute string for AVX512. This is encapsulated in the Front Ends
+  // and not directly available to the backend, so we must give it here
+  // explicitly.
+
+  auto SKLAttributes = StringRef("+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,"
+      "+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,"
+      "+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+mpx,+pclmul,"
+      "+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,"
+      "+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves");
+  if (IPCloningTrace)
+    dbgs() << "Begin test for AVX512->AVX2 conversion\n";
+  unsigned FI = llvm::AttributeList::FunctionIndex;
+  for (auto &F: M.getFunctionList()) {
+    if (!F.hasFnAttribute("target-cpu"))
+      continue;
+    StringRef TCA = F.getAttribute(FI, "target-cpu").getValueAsString();
+    if (TCA != "skylake-avx512") {
+      if (IPCloningTrace)
+        dbgs() << "No AVX512->AVX2 conversion: Not skylake-avx512\n";
+      return false;
+    }
+    StringRef TFA = F.getAttribute(FI, "target-features").getValueAsString();
+    if (TFA != SKLAttributes) {
+      if (IPCloningTrace)
+        dbgs() << "No AVX512->AVX2 conversion: Not skylake-avx512 attributes\n";
+      return false;
+    }
+    for (auto &I : instructions(&F)) {
+      if (containsVectorType(I.getType())) {
+        if (IPCloningTrace)
+          dbgs() << "No AVX512->AVX2 conversion: Vector return type\n";
+        return false;
+      }
+      for (Value *Op : I.operands())
+        if (containsVectorType(Op->getType())) {
+          if (IPCloningTrace)
+            dbgs() << "No AVX512->AVX2 conversion: Vector operand type\n";
+          return false;
+        }
+      auto II = dyn_cast<IntrinsicInst>(&I);
+      if (II) {
+        Function *Callee = II->getCalledFunction();
+        if (Callee && Callee->getName().startswith("llvm.x86")) {
+          if (IPCloningTrace)
+            dbgs() << "No AVX512->AVX2 conversion: Vector intrinsic\n";
+          return false;
+        }
+      }
+    }
+  }
+  if (IPCloningTrace)
+    dbgs() << "AVX512->AVX2 conversion: All tests pass\n";
+  return true;
+}
+
+static void changeCPUAttributes(Module &M) {
+
+  // Attribute string for AVX2. This is encapsulated in the Front Ends
+  // and not directly available to the backend, so we must give it here
+  // explicitly.
+  auto AVX2Attributes = StringRef("+avx,+avx2,+bmi,+bmi2,+cx16,+cx8,+f16c,"
+      "+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,"
+      "+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,"
+      "+xsaveopt");
+
+  unsigned FI = llvm::AttributeList::FunctionIndex;
+  for (auto &F: M.getFunctionList()) {
+    if (!F.hasFnAttribute("target-cpu"))
+      continue;
+    assert(F.getAttribute(FI, "target-cpu").getValueAsString() ==
+        "skylake-avx512" && "Expecting skylake-avx512");
+    llvm::AttrBuilder Attrs;
+    F.removeFnAttr("target-cpu");
+    F.removeFnAttr("target-features");
+    Attrs.addAttribute("target-cpu", "core-avx2");
+    Attrs.addAttribute("target-features", AVX2Attributes);
+    F.addAttributes(FI, Attrs);
+  }
+  if (IPCloningTrace)
+    dbgs() << "AVX512->AVX2 conversion: Conversion complete\n";
+}
+
+// END: AVX512->AVX2 conversion code
+
 // Main routine to analyze all calls and clone functions if profitable.
 //
 static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
@@ -2478,11 +2804,11 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
   bool FunctionAddressTaken;
 
   if (IPCloningTrace) {
-    errs() << " Enter IP cloning";
+    dbgs() << " Enter IP cloning";
     if (AfterInl)
-      errs() << ": (After inlining)\n";
+      dbgs() << ": (After inlining)\n";
     else
-      errs() << ": (Before inlining)\n";
+      dbgs() << ": (Before inlining)\n";
   }
 
   ClonedFunctionList.clear();
@@ -2491,20 +2817,20 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
 
     if (skipAnalyzeCallsOfFunction(F)) {
       if (IPCloningTrace)
-        errs() << " Skipping " << F.getName() << "\n";
+        dbgs() << " Skipping " << F.getName() << "\n";
       continue;
     }
 
     clearAllMaps();
 
     if (IPCloningTrace)
-      errs() << " Cloning Analysis for:  " <<  F.getName() << "\n";
+      dbgs() << " Cloning Analysis for:  " <<  F.getName() << "\n";
 
     IPCloneKind CloneType;
     if (AfterInl) {
       CloneType = GenericClone;
       if (IPCloningTrace)
-        errs() << "    Selected generic cloning  " << "\n";
+        dbgs() << "    Selected generic cloning  " << "\n";
     } else {
       int Start, Inc;
       unsigned ArgPos, Count;
@@ -2513,9 +2839,11 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
           &ArgPos, &Count, &Start, &Inc, &IsByRef, &IsCyclic)) {
         CloneType = RecProgressionClone;
         if (IPCloningTrace)
-          errs() << "    Selected RecProgression cloning  " << "\n";
+          dbgs() << "    Selected RecProgression cloning  " << "\n";
         createRecProgressionClones(F, ArgPos, Count, Start, Inc, IsByRef,
                                    IsCyclic);
+        if (!IsCyclic && canChangeCPUAttributes(M))
+          changeCPUAttributes(M);
         continue;
       }
       // For now, run either FuncPtrsClone or SpecializationClone for any
@@ -2525,15 +2853,15 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
       if (IsFunctionPtrCloneCandidate(F)) {
         CloneType = FuncPtrsClone;
         if (IPCloningTrace)
-          errs() << "    Selected FuncPtrs cloning  " << "\n";
+          dbgs() << "    Selected FuncPtrs cloning  " << "\n";
       } else if (isDirectlyRecursive(&F)) {
         CloneType = GenericClone;
         if (IPCloningTrace)
-          errs() << "    Selected generic cloning (recursive) " << "\n";
+          dbgs() << "    Selected generic cloning (recursive) " << "\n";
       } else {
         CloneType = SpecializationClone;
         if (IPCloningTrace)
-          errs() << "    Selected Specialization cloning  " << "\n";
+          dbgs() << "    Selected Specialization cloning  " << "\n";
       }
     }
     FunctionAddressTaken = analyzeAllCallsOfFunction(F, CloneType);
@@ -2542,14 +2870,14 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
     // disable it for now.
     if (FunctionAddressTaken) {
       if (IPCloningTrace)
-        errs() << " Skipping address taken " << F.getName() << "\n";
+        dbgs() << " Skipping address taken " << F.getName() << "\n";
       continue;
     }
 
     if (CloneType == SpecializationClone && CurrCallList.size() != 0) {
       if (CurrCallList.size() > IPSpeCloningNumCallSitesLimit) {
         if (IPCloningTrace)
-          errs() << " Too many CallSites: Skipping Specialization cloning\n";
+          dbgs() << " Too many CallSites: Skipping Specialization cloning\n";
         continue;
       }
       // Transformation done here if Specialization cloning is kicked-in.
@@ -2559,7 +2887,7 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
 
     if (FormalConstantValues.size() == 0 || CurrCallList.size() == 0) {
       if (IPCloningTrace)
-        errs() << " Skipping non-candidate " << F.getName() << "\n";
+        dbgs() << " Skipping non-candidate " << F.getName() << "\n";
       continue;
     }
 
@@ -2570,13 +2898,13 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
     unsigned MinClones = getMinClones();
 
     if (IPCloningTrace) {
-      errs() << " Max clones:  " << MaxClones << "\n";
-      errs() << " Min clones:  " << MinClones << "\n";
+      dbgs() << " Max clones:  " << MaxClones << "\n";
+      dbgs() << " Min clones:  " << MinClones << "\n";
     }
 
     if (MaxClones <= 1 || MinClones > IPFunctionCloningLimit) {
       if (IPCloningTrace)
-        errs() << " Skipping not worthy candidate " << F.getName() << "\n";
+        dbgs() << " Skipping not worthy candidate " << F.getName() << "\n";
       continue;
     }
 
@@ -2587,13 +2915,13 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
     if (!findWorthyFormalsForCloning(F, AfterInl, IFSwitchHeuristic, IsGenRec,
       &IsGenRecQualified)) {
       if (IPCloningTrace)
-        errs() << " Skipping due to Heuristics " << F.getName() << "\n";
+        dbgs() << " Skipping due to Heuristics " << F.getName() << "\n";
       continue;
     }
 
     if (!collectAllConstantArgumentsSets(F)) {
       if (IPCloningTrace)
-        errs() << " Skipping not profitable candidate " << F.getName() << "\n";
+        dbgs() << " Skipping not profitable candidate " << F.getName() << "\n";
       continue;
     }
 
@@ -2603,7 +2931,7 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
     if (IsGenRecQualified && (FunctionAllArgumentsSets.size() != 1
       || CurrCallList.size() < IPGenCloningMinRecCallsites)) {
       if (IPCloningTrace)
-        errs() << " Skipping not profitable recursive candidate "
+        dbgs() << " Skipping not profitable recursive candidate "
                << F.getName() << "\n";
       continue;
     }
@@ -2612,7 +2940,7 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
   }
 
   if (IPCloningTrace)
-    errs() << " Total clones:  " << NumIPCloned << "\n";
+    dbgs() << " Total clones:  " << NumIPCloned << "\n";
 
   if (NumIPCloned != 0)
     return true;

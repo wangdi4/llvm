@@ -68,7 +68,7 @@ for.inc6.loopexit:                                ; preds = %for.body3
 
 for.inc6:                                         ; preds = %for.inc6.loopexit, %for.cond1.preheader
   %indvars.iv.next19 = add nuw nsw i64 %indvars.iv18, 1
-  %exitcond20 = icmp eq i64 %indvars.iv.next19, 10 
+  %exitcond20 = icmp eq i64 %indvars.iv.next19, 10
   br i1 %exitcond20, label %for.end8, label %for.cond1.preheader, !llvm.loop !0
 
 for.end8:                                         ; preds = %for.inc6

@@ -346,6 +346,8 @@ Disable builtin #include directories
 
 .. option:: -noprebind
 
+.. option:: -noprofilelib
+
 .. option:: -noseglinkedit
 
 .. option:: -nostartfiles
@@ -2698,6 +2700,12 @@ X86
 .. option:: -mfxsr, -mno-fxsr
 
 .. option:: -mgfni, -mno-gfni
+
+.. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ICECODE
+.. option:: -micecode
+.. end INTEL_FEATURE_ICECODE
+.. end INTEL_CUSTOMIZATION
 
 .. option:: -minvpcid, -mno-invpcid
 

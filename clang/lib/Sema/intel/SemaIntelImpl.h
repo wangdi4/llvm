@@ -26,8 +26,9 @@ void Sema::HLSAddOneConstantValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
       NumWritePortsAttr::classof(&TmpAttr) ||
       MaxReplicatesAttr::classof(&TmpAttr) ||
       (MaxConcurrencyAttr::classof(&TmpAttr) && isa<VarDecl>(D))) {
-    if (!D->hasAttr<MemoryAttr>())
-      D->addAttr(MemoryAttr::CreateImplicit(Context, MemoryAttr::Default));
+    if (!D->hasAttr<IntelFPGAMemoryAttr>())
+      D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
+          Context, IntelFPGAMemoryAttr::Default));
   }
 
   D->addAttr(::new (Context)
@@ -52,7 +53,7 @@ void Sema::HLSAddOneConstantPowerTwoValueAttr(SourceRange AttrRange, Decl *D,
           << &TmpAttr;
       return;
     }
-    if (NumBanksAttr::classof(&TmpAttr)) {
+    if (IntelFPGANumBanksAttr::classof(&TmpAttr)) {
       if (auto *BBA = D->getAttr<BankBitsAttr>()) {
         unsigned NumBankBits = BBA->args_size();
         if (NumBankBits != Value.ceilLogBase2()) {
@@ -64,14 +65,15 @@ void Sema::HLSAddOneConstantPowerTwoValueAttr(SourceRange AttrRange, Decl *D,
     E = ICE.get();
   }
 
-  if (!D->hasAttr<MemoryAttr>())
-    D->addAttr(MemoryAttr::CreateImplicit(Context, MemoryAttr::Default));
+  if (!D->hasAttr<IntelFPGAMemoryAttr>())
+    D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
+        Context, IntelFPGAMemoryAttr::Default));
 
   // We are adding a user NumBanks, drop any implicit default.
-  if (NumBanksAttr::classof(&TmpAttr)) {
-    if (auto *NBA = D->getAttr<NumBanksAttr>())
+  if (IntelFPGANumBanksAttr::classof(&TmpAttr)) {
+    if (auto *NBA = D->getAttr<IntelFPGANumBanksAttr>())
       if (NBA->isImplicit())
-        D->dropAttr<NumBanksAttr>();
+        D->dropAttr<IntelFPGANumBanksAttr>();
   }
 
   D->addAttr(::new (Context)

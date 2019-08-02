@@ -3,8 +3,8 @@
 ;
 ; Scalar Replacement Sanity Test: mix, 2 groups, A[] and B[].
 ;
-; [REASONS]  
-; - Applicable: YES  
+; [REASONS]
+; - Applicable: YES
 ; - Profitable: YES
 ; - Legal:      YES
 ;
@@ -36,7 +36,7 @@
 ; CHECK:         |   (@A)[0][i1 + 1] = %6 + %7 + %8;
 ; CHECK:         + END LOOP
 ; CHECK:   END REGION
-;  
+;
 ;
 ; CHECK: Function
 ;

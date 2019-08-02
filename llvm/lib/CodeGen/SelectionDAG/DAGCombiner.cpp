@@ -2706,7 +2706,19 @@ static SDValue flipBoolean(SDValue V, const SDLoc &DL,
   return DAG.getNode(ISD::XOR, DL, VT, V, Cst);
 }
 
-static SDValue extractBooleanFlip(SDValue V, const TargetLowering &TLI) {
+/**
+ * Flips a boolean if it is cheaper to compute. If the Force parameters is set,
+ * then the flip also occurs if computing the inverse is the same cost.
+ * This function returns an empty SDValue in case it cannot flip the boolean
+ * without increasing the cost of the computation. If you want to flip a boolean
+ * no matter what, use flipBoolean.
+ */
+static SDValue extractBooleanFlip(SDValue V, SelectionDAG &DAG,
+                                  const TargetLowering &TLI,
+                                  bool Force) {
+  if (Force && isa<ConstantSDNode>(V))
+    return flipBoolean(V, SDLoc(V), DAG, TLI);
+
   if (V.getOpcode() != ISD::XOR)
     return SDValue();
 
@@ -2731,6 +2743,8 @@ static SDValue extractBooleanFlip(SDValue V, const TargetLowering &TLI) {
 
   if (IsFlip)
     return V.getOperand(0);
+  if (Force)
+    return flipBoolean(V, SDLoc(V), DAG, TLI);
   return SDValue();
 }
 
@@ -2843,27 +2857,15 @@ SDValue DAGCombiner::visitADDCARRY(SDNode *N) {
       return DAG.getNode(ISD::UADDO, DL, N->getVTList(), N0, N1);
   }
 
-  EVT CarryVT = CarryIn.getValueType();
-
   // fold (addcarry 0, 0, X) -> (and (ext/trunc X), 1) and no carry.
   if (isNullConstant(N0) && isNullConstant(N1)) {
     EVT VT = N0.getValueType();
+    EVT CarryVT = CarryIn.getValueType();
     SDValue CarryExt = DAG.getBoolExtOrTrunc(CarryIn, DL, VT, CarryVT);
     AddToWorklist(CarryExt.getNode());
     return CombineTo(N, DAG.getNode(ISD::AND, DL, VT, CarryExt,
                                     DAG.getConstant(1, DL, VT)),
                      DAG.getConstant(0, DL, CarryVT));
-  }
-
-  // fold (addcarry (xor a, -1), 0, !b) -> (subcarry 0, a, b) and flip carry.
-  if (isBitwiseNot(N0) && isNullConstant(N1)) {
-    if (SDValue B = extractBooleanFlip(CarryIn, TLI)) {
-      SDValue Sub = DAG.getNode(ISD::SUBCARRY, DL, N->getVTList(),
-                                DAG.getConstant(0, DL, N0.getValueType()),
-                                N0.getOperand(0), B);
-      return CombineTo(N, Sub,
-                       flipBoolean(Sub.getValue(1), DL, DAG, TLI));
-    }
   }
 
   if (SDValue Combined = visitADDCARRYLike(N0, N1, CarryIn, N))
@@ -2964,10 +2966,23 @@ static SDValue combineADDCARRYDiamond(DAGCombiner &Combiner, SelectionDAG &DAG,
 
 SDValue DAGCombiner::visitADDCARRYLike(SDValue N0, SDValue N1, SDValue CarryIn,
                                        SDNode *N) {
+  // fold (addcarry (xor a, -1), b, c) -> (subcarry b, a, !c) and flip carry.
+  if (isBitwiseNot(N0))
+    if (SDValue NotC = extractBooleanFlip(CarryIn, DAG, TLI, true)) {
+      SDLoc DL(N);
+      SDValue Sub = DAG.getNode(ISD::SUBCARRY, DL, N->getVTList(), N1,
+                                N0.getOperand(0), NotC);
+      return CombineTo(N, Sub,
+                       flipBoolean(Sub.getValue(1), DL, DAG, TLI));
+    }
+
   // Iff the flag result is dead:
   // (addcarry (add|uaddo X, Y), 0, Carry) -> (addcarry X, Y, Carry)
+  // Don't do this if the Carry comes from the uaddo. It won't remove the uaddo
+  // or the dependency between the instructions.
   if ((N0.getOpcode() == ISD::ADD ||
-       (N0.getOpcode() == ISD::UADDO && N0.getResNo() == 0)) &&
+       (N0.getOpcode() == ISD::UADDO && N0.getResNo() == 0 &&
+        N0.getValue(1) != CarryIn)) &&
       isNullConstant(N1) && !N->hasAnyUseOfValue(1))
     return DAG.getNode(ISD::ADDCARRY, SDLoc(N), N->getVTList(),
                        N0.getOperand(0), N0.getOperand(1), CarryIn);
@@ -8299,7 +8314,7 @@ SDValue DAGCombiner::visitSELECT(SDNode *N) {
   }
 
   // select (not Cond), N1, N2 -> select Cond, N2, N1
-  if (SDValue F = extractBooleanFlip(N0, TLI)) {
+  if (SDValue F = extractBooleanFlip(N0, DAG, TLI, false)) {
     SDValue SelectOp = DAG.getSelect(DL, VT, F, N2, N1);
     SelectOp->setFlags(Flags);
     return SelectOp;
@@ -8794,7 +8809,7 @@ SDValue DAGCombiner::visitVSELECT(SDNode *N) {
     return V;
 
   // vselect (not Cond), N1, N2 -> vselect Cond, N2, N1
-  if (SDValue F = extractBooleanFlip(N0, TLI))
+  if (SDValue F = extractBooleanFlip(N0, DAG, TLI, false))
     return DAG.getSelect(DL, VT, F, N2, N1);
 
   // Canonicalize integer abs.
@@ -11037,14 +11052,11 @@ SDValue DAGCombiner::visitBITCAST(SDNode *N) {
       // as we assume software couldn't rely on the number of accesses of an
       // illegal type.
       ((!LegalOperations && !cast<LoadSDNode>(N0)->isVolatile()) ||
-       TLI.isOperationLegal(ISD::LOAD, VT)) &&
-      TLI.isLoadBitCastBeneficial(N0.getValueType(), VT)) {
+       TLI.isOperationLegal(ISD::LOAD, VT))) {
     LoadSDNode *LN0 = cast<LoadSDNode>(N0);
 
-    bool Fast = false;
-    if (TLI.allowsMemoryAccess(*DAG.getContext(), DAG.getDataLayout(), VT,
-                               *LN0->getMemOperand(), &Fast) &&
-        Fast) {
+    if (TLI.isLoadBitCastBeneficial(N0.getValueType(), VT, DAG,
+                                    *LN0->getMemOperand())) {
       SDValue Load =
           DAG.getLoad(VT, SDLoc(N), LN0->getChain(), LN0->getBasePtr(),
                       LN0->getPointerInfo(), LN0->getAlignment(),
@@ -12030,8 +12042,8 @@ SDValue DAGCombiner::visitFADD(SDNode *N) {
   // Selection pass has a hard time dealing with FP constants.
   bool AllowNewConst = (Level < AfterLegalizeDAG);
 
-  // If 'unsafe math' or nnan is enabled, fold lots of things.
-  if ((Options.UnsafeFPMath || Flags.hasNoNaNs()) && AllowNewConst) {
+  // If nnan is enabled, fold lots of things.
+  if ((Options.NoNaNsFPMath || Flags.hasNoNaNs()) && AllowNewConst) {
     // If allowed, fold (fadd (fneg x), x) -> 0.0
     if (N0.getOpcode() == ISD::FNEG && N0.getOperand(0) == N1)
       return DAG.getConstantFP(0.0, DL, VT);
@@ -12171,7 +12183,7 @@ SDValue DAGCombiner::visitFSUB(SDNode *N) {
 
   if (N0 == N1) {
     // (fsub x, x) -> 0.0
-    if (Options.UnsafeFPMath || Flags.hasNoNaNs())
+    if (Options.NoNaNsFPMath || Flags.hasNoNaNs())
       return DAG.getConstantFP(0.0f, DL, VT);
   }
 
@@ -12249,7 +12261,7 @@ SDValue DAGCombiner::visitFMUL(SDNode *N) {
   if (SDValue NewSel = foldBinOpIntoSelect(N))
     return NewSel;
 
-  if (Options.UnsafeFPMath ||
+  if ((Options.NoNaNsFPMath && Options.NoSignedZerosFPMath) ||
       (Flags.hasNoNaNs() && Flags.hasNoSignedZeros())) {
     // fold (fmul A, 0) -> 0
     if (N1CFP && N1CFP->isZero())
@@ -14361,7 +14373,7 @@ struct LoadedSlice {
   /// Get the alignment of the load used for this slice.
   unsigned getAlignment() const {
     unsigned Alignment = Origin->getAlignment();
-    unsigned Offset = getOffsetFromBase();
+    uint64_t Offset = getOffsetFromBase();
     if (Offset != 0)
       Alignment = MinAlign(Alignment, Alignment + Offset);
     return Alignment;
@@ -16171,15 +16183,11 @@ SDValue DAGCombiner::visitSTORE(SDNode *N) {
     // illegal type.
     if (((!LegalOperations && !ST->isVolatile()) ||
          TLI.isOperationLegal(ISD::STORE, SVT)) &&
-        TLI.isStoreBitCastBeneficial(Value.getValueType(), SVT)) {
-      bool Fast = false;
-      if (TLI.allowsMemoryAccess(*DAG.getContext(), DAG.getDataLayout(), SVT,
-                                 *ST->getMemOperand(), &Fast) &&
-          Fast) {
-        return DAG.getStore(Chain, SDLoc(N), Value.getOperand(0), Ptr,
-                            ST->getPointerInfo(), ST->getAlignment(),
-                            ST->getMemOperand()->getFlags(), ST->getAAInfo());
-      }
+        TLI.isStoreBitCastBeneficial(Value.getValueType(), SVT,
+                                     DAG, *ST->getMemOperand())) {
+      return DAG.getStore(Chain, SDLoc(N), Value.getOperand(0), Ptr,
+                          ST->getPointerInfo(), ST->getAlignment(),
+                          ST->getMemOperand()->getFlags(), ST->getAAInfo());
     }
   }
 
@@ -17579,7 +17587,7 @@ SDValue DAGCombiner::convertBuildVecZextToZext(SDNode *N) {
   auto checkElem = [&](SDValue Op) -> int64_t {
     unsigned Opc = Op.getOpcode();
     FoundZeroExtend |= (Opc == ISD::ZERO_EXTEND);
-    if ((Op.getOpcode() == ISD::ZERO_EXTEND || Opc == ISD::ANY_EXTEND) &&
+    if ((Opc == ISD::ZERO_EXTEND || Opc == ISD::ANY_EXTEND) &&
         Op.getOperand(0).getOpcode() == ISD::EXTRACT_VECTOR_ELT &&
         Op0.getOperand(0).getOperand(0) == Op.getOperand(0).getOperand(0))
       if (auto *C = dyn_cast<ConstantSDNode>(Op.getOperand(0).getOperand(1)))
@@ -18006,11 +18014,21 @@ static SDValue narrowInsertExtractVectorBinOp(SDNode *Extract,
   SDValue Index = Extract->getOperand(1);
   EVT VT = Extract->getValueType(0);
 
-  auto GetSubVector = [VT, Index](SDValue V) {
-    if (V.getOpcode() != ISD::INSERT_SUBVECTOR ||
-        V.getOperand(1).getValueType() != VT || V.getOperand(2) != Index)
-      return SDValue();
-    return V.getOperand(1);
+  // Helper that peeks through INSERT_SUBVECTOR/CONCAT_VECTORS to find
+  // if the source subvector is the same type as the one being extracted.
+  auto GetSubVector = [VT, Index](SDValue V) -> SDValue {
+    if (V.getOpcode() == ISD::INSERT_SUBVECTOR &&
+        V.getOperand(1).getValueType() == VT && V.getOperand(2) == Index) {
+      return V.getOperand(1);
+    }
+    auto *IndexC = dyn_cast<ConstantSDNode>(Index);
+    if (IndexC && V.getOpcode() == ISD::CONCAT_VECTORS &&
+        V.getOperand(0).getValueType() == VT &&
+        (IndexC->getZExtValue() % VT.getVectorNumElements()) == 0) {
+      uint64_t SubIdx = IndexC->getZExtValue() / VT.getVectorNumElements();
+      return V.getOperand(SubIdx);
+    }
+    return SDValue();
   };
   SDValue Sub0 = GetSubVector(Bop0);
   SDValue Sub1 = GetSubVector(Bop1);
@@ -18115,13 +18133,15 @@ static SDValue narrowExtractedVectorBinOp(SDNode *Extract, SelectionDAG &DAG) {
 
   // We need at least one concatenation operation of a binop operand to make
   // this transform worthwhile. The concat must double the input vector sizes.
-  SDValue LHS = peekThroughBitcasts(BinOp.getOperand(0));
-  SDValue RHS = peekThroughBitcasts(BinOp.getOperand(1));
-  bool ConcatL =
-      LHS.getOpcode() == ISD::CONCAT_VECTORS && LHS.getNumOperands() == 2;
-  bool ConcatR =
-      RHS.getOpcode() == ISD::CONCAT_VECTORS && RHS.getNumOperands() == 2;
-  if (ConcatL || ConcatR) {
+  auto GetSubVector = [ConcatOpNum](SDValue V) -> SDValue {
+    if (V.getOpcode() == ISD::CONCAT_VECTORS && V.getNumOperands() == 2)
+      return V.getOperand(ConcatOpNum);
+    return SDValue();
+  };
+  SDValue SubVecL = GetSubVector(peekThroughBitcasts(BinOp.getOperand(0)));
+  SDValue SubVecR = GetSubVector(peekThroughBitcasts(BinOp.getOperand(1)));
+
+  if (SubVecL || SubVecR) {
     // If a binop operand was not the result of a concat, we must extract a
     // half-sized operand for our new narrow binop:
     // extract (binop (concat X1, X2), (concat Y1, Y2)), N --> binop XN, YN
@@ -18129,11 +18149,11 @@ static SDValue narrowExtractedVectorBinOp(SDNode *Extract, SelectionDAG &DAG) {
     // extract (binop X, (concat Y1, Y2)), N --> binop (extract X, IndexC), YN
     SDLoc DL(Extract);
     SDValue IndexC = DAG.getConstant(ExtBOIdx, DL, ExtBOIdxVT);
-    SDValue X = ConcatL ? DAG.getBitcast(NarrowBVT, LHS.getOperand(ConcatOpNum))
+    SDValue X = SubVecL ? DAG.getBitcast(NarrowBVT, SubVecL)
                         : DAG.getNode(ISD::EXTRACT_SUBVECTOR, DL, NarrowBVT,
                                       BinOp.getOperand(0), IndexC);
 
-    SDValue Y = ConcatR ? DAG.getBitcast(NarrowBVT, RHS.getOperand(ConcatOpNum))
+    SDValue Y = SubVecR ? DAG.getBitcast(NarrowBVT, SubVecR)
                         : DAG.getNode(ISD::EXTRACT_SUBVECTOR, DL, NarrowBVT,
                                       BinOp.getOperand(1), IndexC);
 
@@ -19276,7 +19296,7 @@ SDValue DAGCombiner::visitINSERT_SUBVECTOR(SDNode *N) {
   if (!isa<ConstantSDNode>(N2))
     return SDValue();
 
-  unsigned InsIdx = cast<ConstantSDNode>(N2)->getZExtValue();
+  uint64_t InsIdx = cast<ConstantSDNode>(N2)->getZExtValue();
 
   // Push subvector bitcasts to the output, adjusting the index as we go.
   // insert_subvector(bitcast(v), bitcast(s), c1)

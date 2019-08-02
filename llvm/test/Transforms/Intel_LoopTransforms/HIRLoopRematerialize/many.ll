@@ -1,7 +1,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-rematerialize -print-before=hir-loop-rematerialize -print-after=hir-loop-rematerialize -hir-loop-rematerialize-tc-lb=1 < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-rematerialize,print<hir>" -aa-pipeline="basic-aa" -hir-loop-rematerialize-tc-lb=1 < %s 2>&1 | FileCheck %s
- 
- 
+
+
 ; CHECK-LABEL:Function: copy_v4
 
 ; CHECK:        BEGIN REGION { }
@@ -18,7 +18,7 @@
 ; CHECK:               + DO i1 = 0, 3, 1   <DO_LOOP>
 ; CHECK:               |   (i64*)(%a)[i1] = (i64*)(%b)[i1];
 ; CHECK:               + END LOOP
-               
+
 ; CHECK:               ret ;
 ; CHECK:         END REGION
 
@@ -36,13 +36,13 @@
 
 ; CHECK-LABEL:Function: add_v3
 
-; TODO: This should have been recognized a loop. Currently, ANTI dep from 
+; TODO: This should have been recognized a loop. Currently, ANTI dep from
 ;       (%a)[0] to (%a)[1] inhibits loop rematerialization in a worry that
 ;       a wrong loop-carried dependency might occur by materializing a loop.
 ;       The dependency check had to be added because loop-invariant hoisting
 ;       is not implemented in current loop rematerialization logic.
 ;       If hoisting is implemented, and other necessary checks are
-;       added, the work-around dependency check can be removed. 
+;       added, the work-around dependency check can be removed.
 
 ; CHECK:         BEGIN REGION { }
 ; CHECK:               %add = (%b)[0]  +  (%a)[0];
@@ -93,16 +93,16 @@
 ; CHECK:          END REGION
 
 ; CHECK-LABEL: Function: mul_v3_v3fl
- 
+
 ; CHECK:         BEGIN REGION { }
 ; CHECK:               + DO i1 = 0, 2, 1   <DO_LOOP>
 ; CHECK:               |   %mul = (%b)[i1]  *  %f;
 ; CHECK:               |   (%a)[i1] = %mul;
 ; CHECK:               + END LOOP
-               
+
 ; CHECK:               ret ;
 ; CHECK:         END REGION
- 
+
 
 ; CHECK-LABEL:Function: madd_v3_v3fl
 
@@ -153,7 +153,7 @@
 ; CHECK:                |   %sub = -0.000000e+00  -  (%a)[i1];
 ; CHECK:                |   (%r)[i1] = %sub;
 ; CHECK:               + END LOOP
-               
+
 ; CHECK:               ret ;
 ; CHECK:          END REGION
 
@@ -180,7 +180,7 @@
 ; CHECK:                |   %mul = %conv1  *  0x3F00002000000000;
 ; CHECK:                |   (%out)[i1] = %mul;
 ; CHECK:               + END LOOP
-               
+
 ; CHECK:               ret ;
 ; CHECK:          END REGION
 
@@ -207,10 +207,10 @@
 ; CHECK:                |   %conv = fptosi.float.i16(%mul);
 ; CHECK:                |   (%out)[i1] = %conv;
 ; CHECK:               + END LOOP
-               
+
 ; CHECK:               ret ;
 ; CHECK:          END REGION
- 
+
 ;Module Before HIR
 ; ModuleID = 'many.c'
 source_filename = "many.c"

@@ -1593,8 +1593,9 @@ void Sema::checkOpenMPDeviceExpr(const Expr *E) {
        !Context.getTargetInfo().hasFloat128Type()) ||
       (Ty->isIntegerType() && Context.getTypeSize(Ty) == 128 &&
        !Context.getTargetInfo().hasInt128Type()))
-    targetDiag(E->getExprLoc(), diag::err_type_unsupported)
-        << Ty << E->getSourceRange();
+    targetDiag(E->getExprLoc(), diag::err_omp_unsupported_type)
+        << static_cast<unsigned>(Context.getTypeSize(Ty)) << Ty
+        << Context.getTargetInfo().getTriple().str() << E->getSourceRange();
 }
 
 bool Sema::isOpenMPCapturedByRef(const ValueDecl *D, unsigned Level) const {
@@ -5037,7 +5038,8 @@ public:
   bool VisitMemberExpr(const MemberExpr *E) {
     if (isa<CXXThisExpr>(E->getBase()->IgnoreParens())) {
       const ValueDecl *VD = E->getMemberDecl();
-      return checkDecl(E, VD);
+      if (isa<VarDecl>(VD) || isa<FieldDecl>(VD))
+        return checkDecl(E, VD);
     }
     return false;
   }
@@ -6045,7 +6047,7 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
         CollapseLoopCountExpr->EvaluateAsInt(Result, SemaRef.getASTContext())) {
       NestedLoopCount = Result.Val.getInt().getLimitedValue();
     } else {
-      Built.clear(/*size=*/1);
+      Built.clear(/*Size=*/1);
       return 1;
     }
   }
@@ -6067,7 +6069,7 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
       }
       OrderedLoopCount = Result.getLimitedValue();
     } else {
-      Built.clear(/*size=*/1);
+      Built.clear(/*Size=*/1);
       return 1;
     }
   }
@@ -12364,10 +12366,14 @@ static bool actOnOMPReductionKindClause(
     if ((OASE && !ConstantLengthOASE) ||
         (!OASE && !ASE &&
          D->getType().getNonReferenceType()->isVariablyModifiedType())) {
-      if (!Context.getTargetInfo().isVLASupported() &&
-          S.shouldDiagnoseTargetSupportFromOpenMP()) {
-        S.Diag(ELoc, diag::err_omp_reduction_vla_unsupported) << !!OASE;
-        S.Diag(ELoc, diag::note_vla_unsupported);
+      if (!Context.getTargetInfo().isVLASupported()) {
+        if (isOpenMPTargetExecutionDirective(Stack->getCurrentDirective())) {
+          S.Diag(ELoc, diag::err_omp_reduction_vla_unsupported) << !!OASE;
+          S.Diag(ELoc, diag::note_vla_unsupported);
+        } else {
+          S.targetDiag(ELoc, diag::err_omp_reduction_vla_unsupported) << !!OASE;
+          S.targetDiag(ELoc, diag::note_vla_unsupported);
+        }
         continue;
       }
       // For arrays/array sections only:

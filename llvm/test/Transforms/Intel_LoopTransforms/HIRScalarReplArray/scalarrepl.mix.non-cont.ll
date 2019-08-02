@@ -8,7 +8,7 @@
 ;
 ; [REASONS]
 ; - Applicable: YES
-; - Legal:      YES      
+; - Legal:      YES
 ; - Profitable: YES
 ;
 ; *** Source Code ***
@@ -25,7 +25,7 @@
 ;  return A[0] + B[1] + 1;
 ;}
 ;
-; 
+;
 ; CHECK: Function
 ;
 ; CHECK:   BEGIN REGION { }
@@ -47,7 +47,7 @@
 ; CHECK:        %scalarepl1 = (@A)[0][1];
 ; CHECK:        %scalarepl2 = (@A)[0][2];
 ; CHECK:        %scalarepl3 = (@A)[0][3];
-;        
+;
 ;[in-loop proc]
 ; CHECK:        + DO i1 = 0, 100, 1   <DO_LOOP>
 ; CHECK:        |   %2 = (@D)[0][i1];
@@ -61,7 +61,7 @@
 ; CHECK:        |   %scalarepl2 = %scalarepl3;
 ; CHECK:        |   %scalarepl3 = %scalarepl4;
 ; CHECK:        + END LOOP
-;            
+;
 ;[stores in loop's postexit]
 ; CHECK:           (@A)[0][101] = %scalarepl;
 ; CHECK:           (@A)[0][102] = %scalarepl1;

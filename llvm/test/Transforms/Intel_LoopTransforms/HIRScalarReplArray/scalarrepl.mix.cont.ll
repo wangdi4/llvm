@@ -4,7 +4,7 @@
 ; Scalar Replacement Sanity Test: mix of loads and stores, (continous addresses)
 ;
 ; [REASONS]
-; - Applicable: YES  
+; - Applicable: YES
 ; - Profitable: YES
 ; - Legal:      YES
 ;
@@ -22,7 +22,7 @@
 ;  return A[0] + B[1] + 1;
 ;}
 ;
-; 
+;
 ; CHECK: Function
 ;
 ; CHECK:   BEGIN REGION { }
@@ -36,7 +36,7 @@
 ; CHECK:   END REGION
 ;
 ;
-;  
+;
 ; =====================================================
 ; testcase not ready yet!
 ; Note: ScalarRepl transformation result missing!!
@@ -50,7 +50,7 @@
 ; CHECK:        %scalarepl = (@A)[0][0];
 ; CHECK:        %scalarepl1 = (@A)[0][1];
 ;
-;[in-loop proc]            
+;[in-loop proc]
 ; CHECK:        + DO i1 = 0, 100, 1   <DO_LOOP>
 ; CHECK:        |   %2 = (@D)[0][i1];
 ; CHECK:        |   %3 = %scalarepl1;

@@ -20,7 +20,7 @@
 ;CHECK: [[IV_BLOB_SUM:%.*]] = add i32 [[BLOB_MUL]], [[IV_MUL]]
 ;CHECK: add i32 [[IV_BLOB_SUM]], 1
 
-;Check wrap flags on IV 
+;Check wrap flags on IV
 ;CHECK: [[IV_LOAD1:%.*]] = load i32, i32* %i1.i32
 ;CHECK: [[IV_UPDATE:%.*]] = add nuw nsw i32 [[IV_LOAD1]], 1
 ;CHECK: icmp ne i32 [[IV_LOAD1]]

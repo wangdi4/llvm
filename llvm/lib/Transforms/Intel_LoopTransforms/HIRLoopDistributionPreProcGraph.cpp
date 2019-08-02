@@ -88,6 +88,7 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
 
   DistPPGraph *DGraph;
   DistPPNode *CurDistPPNode;
+  SmallVector<DistPPNode *, 8> CurControlDepNodes;
 
   bool isDone() const { return !DGraph->isGraphValid(); }
 
@@ -99,39 +100,85 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
 
   DistributionNodeCreator(DistPPGraph *G) : DGraph(G), CurDistPPNode(nullptr) {}
 
-  void visitDistPPNode(HLNode *HNode, HLNode *ParentNode = nullptr) {
+  // Creates new PPNode if current node is not defined. Adds \p HNode to the
+  // current PPNode.
+  void startDistPPNode(HLNode *HNode, HLNode *ParentNode = nullptr) {
 
     // if CurDistPPNode is set it means we are visiting
     // children of an hlnode. Our distPPNode should be
     // our parent hlnode's distPPNode, which is CurDistPPNode
     if (!CurDistPPNode) {
       CurDistPPNode = new DistPPNode(ParentNode ? ParentNode : HNode, DGraph);
+
       DGraph->addNode(CurDistPPNode);
+
+      if (!CurControlDepNodes.empty()) {
+        auto &SrcDepNode = CurControlDepNodes.back();
+        HLIf *If = cast<HLIf>(SrcDepNode->getNode());
+        DGraph->addControlDependence(SrcDepNode, CurDistPPNode,
+                                     If->isThenChild(HNode));
+      }
     }
 
     addToNodeMap(CurDistPPNode, HNode);
   }
 
-  void postVisitDistPPNode(HLNode *HNode) {
+  // Stops current PPNode, subsequent calls to startDistPPNode() will create new
+  // PPNode.
+  void stopDistPPNode(HLNode *HNode) {
     // We are done visiting an hlnode's children
     // Clear CurDistPPNode so that we create new DistPPNodes
-    if (CurDistPPNode->HNode == HNode) {
+    if (CurDistPPNode->getNode() == HNode) {
       CurDistPPNode = nullptr;
     }
   }
 
-  void visit(HLLoop *L) { visitDistPPNode(L); }
+  void visit(HLLoop *L) { startDistPPNode(L); }
   void postVisit(HLLoop *L) {
     if (!L->hasPostexit()) {
-      postVisitDistPPNode(L);
+      stopDistPPNode(L);
     }
   }
 
-  void visit(HLIf *If) { visitDistPPNode(If); }
-  void postVisit(HLIf *If) { postVisitDistPPNode(If); }
+  bool mayDistributeCondition(HLIf *If) {
+    // Allow distribution of top level HLIf only. This may be extended.
+    if (!CurControlDepNodes.empty()) {
+      return false;
+    }
 
-  void visit(HLSwitch *Switch) { visitDistPPNode(Switch); }
-  void postVisit(HLSwitch *Switch) { postVisitDistPPNode(Switch); }
+    for (auto &Ref : make_range(If->ddref_begin(), If->ddref_end())) {
+      if (Ref->isMemRef() || Ref->isNonLinear()) {
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  void visit(HLIf *If) {
+    // Check if CurDistPPNode is set, meaning we are processing children of a
+    // single PPNode.
+    bool MayDistributeParent = (CurDistPPNode == nullptr);
+    startDistPPNode(If);
+
+    if (MayDistributeParent && mayDistributeCondition(If)) {
+      CurDistPPNode->setSimpleControlNode();
+      CurControlDepNodes.push_back(CurDistPPNode);
+      stopDistPPNode(If);
+    }
+  }
+
+  void postVisit(HLIf *If) {
+    if (!CurControlDepNodes.empty() &&
+        CurControlDepNodes.back()->getNode() == If) {
+      CurControlDepNodes.pop_back();
+    } else {
+      stopDistPPNode(If);
+    }
+  }
+
+  void visit(HLSwitch *Switch) { startDistPPNode(Switch); }
+  void postVisit(HLSwitch *Switch) { stopDistPPNode(Switch); }
   void visit(HLInst *I) {
     if (I->isCallInst()) {
       DGraph->setInvalid("Cannot distribute loops with calls");
@@ -142,25 +189,27 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
     if (ParentLoop && ParentLoop->hasPreheader() &&
         (ParentLoop->getFirstPreheaderNode() == I)) {
       // Use loop for the DistPPNode starting from the first preheader node.
-      visitDistPPNode(I, ParentLoop);
+      startDistPPNode(I, ParentLoop);
     } else {
-      visitDistPPNode(I);
+      startDistPPNode(I);
     }
 
     if (ParentLoop && ParentLoop->hasPostexit() &&
         (ParentLoop->getLastPostexitNode() == I)) {
       // Reset DistPPNode at the last postexit node.
-      postVisitDistPPNode(ParentLoop);
+      stopDistPPNode(ParentLoop);
     } else {
-      postVisitDistPPNode(I);
+      stopDistPPNode(I);
     }
   }
 
   void visit(const HLLabel *L) {
-    DGraph->setInvalid("Cannot distribute graph with control flow");
+    DGraph->setInvalid(
+        "Cannot distribute graph with unstructured control flow");
   }
   void visit(const HLGoto *G) {
-    DGraph->setInvalid("Cannot distribute graph with control flow");
+    DGraph->setInvalid(
+        "Cannot distribute graph with unstructured control flow");
   }
 
   void visit(const HLNode *Node) {}
@@ -358,16 +407,23 @@ DistPPGraph::DistPPGraph(HLLoop *Loop, HIRDDAnalysis &DDA,
   DDGraph DDG = DDA.getGraph(Loop);
   DistributionEdgeCreator EdgeCreator(&DDG, &SARA, this, Loop,
                                       ForceCycleForLoopIndepDep);
+  HLNodeUtils::visitRange(EdgeCreator, Loop->getFirstChild(),
+                          Loop->getLastChild());
 
-  Loop->getHLNodeUtils().visitRange(EdgeCreator, Loop->getFirstChild(),
-                                    Loop->getLastChild());
+  unsigned TotalEdges = EdgeCreator.EdgeCount;
 
-  if (EdgeCreator.EdgeCount > MaxDDEdges) {
+  // Add Control Dependency edges
+  for (auto &ControlDepPair : ControlDeps) {
+    addEdge(DistPPEdge(ControlDepPair.second.first, ControlDepPair.first));
+    ++TotalEdges;
+  }
+
+  if (TotalEdges > MaxDDEdges) {
     setInvalid("Too many DD edges for proper analysis");
   }
 
-  auto PPSort = [](const DistPPNode *a, const DistPPNode *b) -> bool {
-    return a->HNode->getTopSortNum() < b->HNode->getTopSortNum();
+  auto PPSort = [](const DistPPNode *A, const DistPPNode *B) -> bool {
+    return A->getNode()->getTopSortNum() < B->getNode()->getTopSortNum();
   };
 
   std::sort(node_begin(), node_end(), PPSort);

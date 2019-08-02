@@ -885,6 +885,9 @@ public:
     return LLVMInst->getType();
   }
 
+  // Return true if this VPInstruction represents a cast operation.
+  bool isCast() const { return Instruction::isCast(getOpcode()); }
+
   // Return number of successors that this VPInstruction has. The instruction
   // must be a terminator.
   // TODO: Implement function when/if terminator instructions are added to
@@ -2127,7 +2130,7 @@ public:
   /// predecessor of \p IfTrue or \p IfFalse. This VPBlockBase must have no
   /// successors. \p ConditionV is set as successor selector.
   void setTwoSuccessors(VPValue *ConditionV, VPBlockBase *IfTrue,
-                        VPBlockBase *IfFalse, VPlan *Plan);
+                        VPBlockBase *IfFalse);
 
   /// Set each VPBasicBlock in \p NewPreds as predecessor of this VPBlockBase.
   /// This VPBlockBase must have no predecessors. This VPBlockBase is not added
@@ -2339,6 +2342,36 @@ public:
   inline const VPRecipeBase &back() const { return Recipes.back(); }
   inline VPRecipeBase &back() { return Recipes.back(); }
 
+  // Few helpers to make use of in decltype below.
+  static bool isVPInstruction(const VPRecipeBase &Recipe) {
+    return isa<VPInstruction>(Recipe);
+  }
+  static VPInstruction &asVPInstruction(VPRecipeBase &Recipe) {
+    return cast<VPInstruction>(Recipe);
+  }
+  static const VPInstruction &asConstVPInstruction(const VPRecipeBase &Recipe) {
+    return cast<VPInstruction>(Recipe);
+  }
+
+  // FIXME: Temporary filtered ranges until we get rid of recipes. Once
+  // that's done, they should be removed.
+  inline auto vpinstructions()
+      -> decltype(map_range(make_filter_range(make_range(begin(), end()),
+                                              isVPInstruction),
+                            asVPInstruction)) {
+    return map_range(
+        make_filter_range(make_range(begin(), end()), isVPInstruction),
+        asVPInstruction);
+  }
+  inline auto vpinstructions() const
+      -> decltype(map_range(make_filter_range(make_range(begin(), end()),
+                                              isVPInstruction),
+                            asConstVPInstruction)) {
+    return map_range(
+        make_filter_range(make_range(begin(), end()), isVPInstruction),
+        asConstVPInstruction);
+  }
+
   /// \brief Return the underlying instruction list container.
   ///
   /// Currently you need to access the underlying instruction list container
@@ -2416,7 +2449,7 @@ public:
     }
   }
 
-  void moveConditionalEOBTo(VPBasicBlock *ToBB, VPlan *Plan);
+  void moveConditionalEOBTo(VPBasicBlock *ToBB);
 #endif
 
   /// Remove the recipe from VPBasicBlock's recipes.
@@ -2445,28 +2478,32 @@ public:
   const RecipeListTy &getRecipes() const { return Recipes; }
   RecipeListTy &getRecipes() { return Recipes; }
 #if INTEL_CUSTOMIZATION
-  /// Returns a range that iterates over non predicator related recipes
+  /// Returns a range that iterates over non predicator related instructions
   /// in the VPBasicBlock.
-  iterator_range<const_iterator> getNonPredicateRecipes() const {
+  auto getNonPredicateInstructions() const -> decltype(vpinstructions()) {
     // New predicator uses VPInstructions to generate the block predicate.
     // Skip instructions until block-predicate instruction is seen if the block
     // has a predicate.
-    bool SkipUntilPred = getPredicate() != nullptr;
-    const_iterator It = begin();
-    const_iterator ItEnd = end();
+    auto Range = vpinstructions();
 
-    for (; It != ItEnd; ++It) {
-      if (isa<const VPBlockPredicateRecipe>(It))
-        continue;
-      if (SkipUntilPred)
-        if (const auto *Inst = dyn_cast<VPInstruction>(It)) {
-          if (Inst->getOpcode() == VPInstruction::Pred)
-            SkipUntilPred = false;
-          continue;
-        }
+    // No predicate instruction, return immediately.
+    if(getPredicate() == nullptr)
+      return Range;
 
-      break;
+    auto It = Range.begin();
+    auto ItEnd = Range.end();
+
+    assert(It != ItEnd &&
+           "VPBasicBlock without VPInstructions can't have a predicate!");
+
+    // Skip until predicate.
+    while (It->getOpcode() != VPInstruction::Pred) {
+      assert(It != ItEnd && "Predicate VPInstruction not found!");
+      ++It;
     }
+
+    // Skip the predicate itself.
+    ++It;
 
     return make_range(It, ItEnd);
   }
@@ -2688,7 +2725,7 @@ private:
 protected:
 #endif
   /// Hold the single entry to the Hierarchical CFG of the VPlan.
-  VPBlockBase *Entry;
+  std::unique_ptr<VPRegionBlock> Entry;
 
 #if INTEL_CUSTOMIZATION
   /// The IR instructions which are to be transformed to fill the vectorized
@@ -2696,9 +2733,6 @@ protected:
   /// reverse mapping to locate the VPRecipe an IR instruction belongs to. This
   /// serves optimizations that operate on the VPlan.
   DenseMap<Instruction *, VPRecipeBase *> Inst2Recipe;
-
-  /// Keep track of the VPBasicBlock users of a CondBit.
-  DenseMap<VPValue *, std::set<const VPBlockBase *>> CondBitUsers;
 #endif // INTEL_CUSTOMIZATION
 
   /// Holds the VFs applicable to this VPlan.
@@ -2751,14 +2785,13 @@ public:
   UniformsTy UniformCBVs;
 
   VPlan(std::shared_ptr<VPLoopAnalysisBase> VPLA, LLVMContext *Context,
-        const DataLayout *DL, VPBlockBase *Entry = nullptr)
-      : Context(Context), DL(DL), Entry(Entry), VPLA(VPLA) {}
-#endif
+        const DataLayout *DL)
+      : Context(Context), DL(DL), VPLA(VPLA) {}
+#else
   VPlan(VPBlockBase *Entry = nullptr) : Entry(Entry) {}
+#endif
 
   ~VPlan() {
-    if (Entry)
-      VPBlockBase::deleteCFG(Entry);
 #if !INTEL_CUSTOMIZATION
     for (auto &MapEntry : Value2VPValue)
       delete MapEntry.second;
@@ -2815,10 +2848,12 @@ public:
   }
 #endif // INTEL_CUSTOMIZATION
 
-  VPBlockBase *getEntry() { return Entry; }
-  const VPBlockBase *getEntry() const { return Entry; }
+  VPRegionBlock *getEntry() { return Entry.get(); }
+  const VPRegionBlock *getEntry() const { return Entry.get(); }
 
-  void setEntry(VPBlockBase *Block) { Entry = Block; }
+  void setEntry(std::unique_ptr<VPRegionBlock> Block) {
+    Entry = std::move(Block);
+  }
 
 #if INTEL_CUSTOMIZATION // Old interfaces. To be removed.
   void setInst2Recipe(Instruction *I, VPRecipeBase *R) { Inst2Recipe[I] = R; }
@@ -2828,26 +2863,6 @@ public:
   void resetInst2RecipeRange(BasicBlock::iterator B, BasicBlock::iterator E) {
     for (auto It = B; It != E; ++It) {
       resetInst2Recipe(&*It);
-    }
-  }
-
-  std::set<const VPBlockBase *> &getCondBitUsers(VPValue *ConditionV) {
-    return CondBitUsers[ConditionV];
-  }
-
-  void removeCondBitUsers(VPValue *ConditionV) {
-    CondBitUsers[ConditionV].clear();
-  }
-
-  void setCondBitUser(VPValue *ConditionV, const VPBlockBase *Block) {
-    if (ConditionV) {
-      CondBitUsers[ConditionV].insert(Block);
-    }
-  }
-
-  void removeCondBitUser(VPValue *ConditionV, const VPBlockBase *Block) {
-    if (ConditionV) {
-      CondBitUsers[ConditionV].erase(Block);
     }
   }
 
@@ -3247,9 +3262,8 @@ public:
   /// and \p IfFalse are set as successors of \p From. \p From is set as
   /// predecessor of \p IfTrue and \p IfFalse. \p From must have no successors.
   static void connectBlocks(VPBlockBase *From, VPValue *ConditionV,
-                            VPBlockBase *IfTrue, VPBlockBase *IfFalse,
-                            VPlan *Plan) {
-    From->setTwoSuccessors(ConditionV, IfTrue, IfFalse, Plan);
+                            VPBlockBase *IfTrue, VPBlockBase *IfFalse) {
+    From->setTwoSuccessors(ConditionV, IfTrue, IfFalse);
     IfTrue->appendPredecessor(From);
     IfFalse->appendPredecessor(From);
   }
@@ -3372,8 +3386,7 @@ public:
 
   static VPBasicBlock *splitBlock(VPBlockBase *Block, VPLoopInfo *VPLInfo,
                                   VPDominatorTree &DomTree,
-                                  VPPostDominatorTree &PostDomTree,
-                                  VPlan *Plan);
+                                  VPPostDominatorTree &PostDomTree);
 
   //===----------------------------------------------------------------------===//
   // VPRegionBlock specific Utilities

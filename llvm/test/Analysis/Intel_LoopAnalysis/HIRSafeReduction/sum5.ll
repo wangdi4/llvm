@@ -1,5 +1,5 @@
-;    for(i=0; i<n; i++) 
-;        if (A[i] > 1) 
+;    for(i=0; i<n; i++)
+;        if (A[i] > 1)
 ;            sum = sum + A[i];
 ;
 ; REQUIRES: asserts

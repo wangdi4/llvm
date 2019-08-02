@@ -596,7 +596,7 @@ static void adjustIVCoeffs(RegDDRef *Ref, unsigned StartDim, unsigned EndDim,
   // set Dimension1 to stand-alone iv:
   Ref->getDimensionIndex(1)->setIVCoeff(OrigOutermostLevel, InvalidBlobIndex,
                                         1);
-  Ref->makeConsistent(nullptr, OrigOutermostLevel);
+  Ref->makeConsistent({}, OrigOutermostLevel);
   if (SetCollapsed) {
     Ref->setCollapsed(true);
   }
@@ -662,7 +662,7 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
 
   auto *UBRef = ToCollapseLp->getUpperDDRef();
 
-  UBRef->makeConsistent(&UpperBoundRefs, ToCollapseLp->getNestingLevel());
+  UBRef->makeConsistent(UpperBoundRefs, ToCollapseLp->getNestingLevel());
 
   // Upper bound may have new temp blobs. Add them as livein to loop.
   for (auto BRefIt = UBRef->blob_begin(), E = UBRef->blob_end(); BRefIt != E;

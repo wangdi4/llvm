@@ -6,19 +6,19 @@
 ; + DO i1 = 0, 99, 1   <DO_LOOP>
 ; |   (%a)[i1] = i1;
 ; + END LOOP
-; 
-; 
+;
+;
 ; + DO i1 = 0, 99, 1   <DO_LOOP>
 ; |   %1 = (%a)[i1];
 ; |   (%b)[i1] = %1 + 1;
 ; + END LOOP
-; 
-; 
+;
+;
 ; + DO i1 = 0, 99, 1   <DO_LOOP>
 ; |   %2 = (%b)[i1];
 ; |   (%c)[i1] = i1 + %2;
 ; + END LOOP
-; 
+;
 ; ret ;
 ; END REGION
 

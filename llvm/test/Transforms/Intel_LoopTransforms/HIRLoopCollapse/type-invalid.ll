@@ -5,7 +5,7 @@
 ; int A[10][20];
 ; void foo() {
 ;   int i, j;
-; 
+;
 ;   for (i = 0; i < 10; i++) {
 ;     for (j = 0; j < 20; j++) {
 ;       A[i][j & 7] += 1;  // & 7 makes j casted into "i3" type
@@ -19,24 +19,24 @@
 ;
 ;
 ; CHECK: Function
-; CHECK:       BEGIN REGION { }     
-; CHECK:             + DO i1 = 0, 9, 1   <DO_LOOP>                
-; CHECK:             |   + DO i2 = 0, 19, 1   <DO_LOOP>           
-; CHECK:             |   |   %1 = (@A)[0][i1][i2];                
-; CHECK:             |   |   (@A)[0][i1][i2] = %1 + 1; 
-; CHECK:             |   + END LOOP     
-; CHECK:             + END LOOP                                   
-; CHECK:       END REGION                                         
-;                                                               
+; CHECK:       BEGIN REGION { }
+; CHECK:             + DO i1 = 0, 9, 1   <DO_LOOP>
+; CHECK:             |   + DO i2 = 0, 19, 1   <DO_LOOP>
+; CHECK:             |   |   %1 = (@A)[0][i1][i2];
+; CHECK:             |   |   (@A)[0][i1][i2] = %1 + 1;
+; CHECK:             |   + END LOOP
+; CHECK:             + END LOOP
+; CHECK:       END REGION
+;
 ; CHECK: Function
-; CHECK:        BEGIN REGION { }                                   
-; CHECK:             + DO i1 = 0, 9, 1   <DO_LOOP>                
-; CHECK:             |   + DO i2 = 0, 19, 1   <DO_LOOP>           
-; CHECK:             |   |   %1 = (@A)[0][i1][i2];                
-; CHECK:             |   |   (@A)[0][i1][i2] = %1 + 1;            
-; CHECK:             |   + END LOOP                               
-; CHECK:             + END LOOP                                   
-; CHECK:        END REGION                                         
+; CHECK:        BEGIN REGION { }
+; CHECK:             + DO i1 = 0, 9, 1   <DO_LOOP>
+; CHECK:             |   + DO i2 = 0, 19, 1   <DO_LOOP>
+; CHECK:             |   |   %1 = (@A)[0][i1][i2];
+; CHECK:             |   |   (@A)[0][i1][i2] = %1 + 1;
+; CHECK:             |   + END LOOP
+; CHECK:             + END LOOP
+; CHECK:        END REGION
 ;
 ; === ---------------------------------------------------------------- ===
 ; Following is the LLVM's input code!

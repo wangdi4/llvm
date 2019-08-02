@@ -9,7 +9,7 @@
 ;   Thus, the MaxIndexLoad doesn't exist in this group.
 ;
 ; [Fix]
-; - The fix addresses the above concern and make sure logic on MaxIndexLoad detection won't trigger. 
+; - The fix addresses the above concern and make sure logic on MaxIndexLoad detection won't trigger.
 ;
 ; CHECK: Function
 ;

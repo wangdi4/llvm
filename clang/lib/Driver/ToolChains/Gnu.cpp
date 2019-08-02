@@ -1037,10 +1037,6 @@ static bool isMicroMips(const ArgList &Args) {
   return A && A->getOption().matches(options::OPT_mmicromips);
 }
 
-static bool isRISCV(llvm::Triple::ArchType Arch) {
-  return Arch == llvm::Triple::riscv32 || Arch == llvm::Triple::riscv64;
-}
-
 static bool isMSP430(llvm::Triple::ArchType Arch) {
   return Arch == llvm::Triple::msp430;
 }
@@ -2421,7 +2417,7 @@ bool Generic_GCC::GCCInstallationDetector::ScanGCCForMultilibs(
   } else if (TargetTriple.isMIPS()) {
     if (!findMIPSMultilibs(D, TargetTriple, Path, Args, Detected))
       return false;
-  } else if (isRISCV(TargetArch)) {
+  } else if (TargetTriple.isRISCV()) {
     findRISCVMultilibs(D, TargetTriple, Path, Args, Detected);
   } else if (isMSP430(TargetArch)) {
     findMSP430Multilibs(D, TargetTriple, Path, Args, Detected);
@@ -2676,6 +2672,11 @@ bool Generic_GCC::IsIntegratedAssemblerDefault() const {
   switch (getTriple().getArch()) {
   case llvm::Triple::x86:
   case llvm::Triple::x86_64:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  case llvm::Triple::x86_icecode:
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
   case llvm::Triple::aarch64:
   case llvm::Triple::aarch64_be:
   case llvm::Triple::arm:

@@ -2,15 +2,15 @@
 ;RUN: opt -hir-ssa-deconstruction  -hir-loop-distribute-memrec -print-after=hir-loop-distribute-memrec  < %s 2>&1 | FileCheck %s
 ;RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa"    < %s 2>&1 | FileCheck %s
 ;
-;  Testing for no distribution 
+;  Testing for no distribution
 ;   for (i =0 ; i<n ; i++) {
-; #pragma distribute_point 
+; #pragma distribute_point
 ;    a1[i] = a4[i+1] - a4[i+3];
 ;    a2[i] = a4[i+2] - a4[i+7];
 ;    a3[i] = a4[i+3] + a4[i+8]; }
 ;
-; CHECK:  BEGIN REGION 
-; CHECK:    DO i1 = 0, sext.i32.i64(%n) + -1, 1 
+; CHECK:  BEGIN REGION
+; CHECK:    DO i1 = 0, sext.i32.i64(%n) + -1, 1
 ; CHECK:      %1 = (@a4)[0][i1 + 1];
 ; CHECK:      %3 = (@a4)[0][i1 + 3];
 ; CHECK:      %sub = %1  -  %3;

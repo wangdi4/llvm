@@ -1,35 +1,53 @@
-;RUN: opt -hir-loop-distribute-memrec -S -print-after=hir-loop-distribute-memrec   < %s 2>&1 | FileCheck %s
-;RUN: opt -passes="hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -S   < %s 2>&1 | FileCheck %s
-;There is a breakable recurrence from 15:32 but we cannot distribute
-;across if thenblocks
-;          BEGIN REGION { }
-;<37>         + DO i1 = 0, 99998, 1   <DO_LOOP>
-;<38>         |   + DO i2 = 0, 99998, 1   <DO_LOOP>
-;<5>          |   |   if (i2 + 1 < 27)
-;<5>          |   |   {
-;<10>         |   |      %0 = (@B)[0][i1 + 1][i2 + 1];
-;<12>         |   |      %1 = (@C)[0][i1 + 1][i2 + 1];
-;<13>         |   |      %add = %0  +  %1;
-;<15>         |   |      (@A)[0][i1 + 1][i2 + 1] = %add;
-;<5>          |   |   }
-;<5>          |   |   else
-;<5>          |   |   {
-;<32>         |   |      %3 = (@A)[0][i1 + 1][i2];
-;<33>         |   |      %conv19 = %3  *  2.000000e+00;
-;<35>         |   |      (@D)[0][i1 + 1][i2 + 1] = %conv19;
-;<5>          |   |   }
-;<38>         |   + END LOOP
-;<37>         + END LOOP
-;          END REGION
-;
-;CHECK-NOT : BEGIN REGION{{.*}}MODIFIED
-;Only original two loops exist, no others
-;CHECK: DO i1 = 
-;CHECK: DO i2 =
+; RUN: opt -hir-loop-distribute-memrec -S -print-after=hir-loop-distribute-memrec < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -S < %s 2>&1 | FileCheck %s
 
-;CHECK-NOT: DO i1 = 
-;CHECK-NOT: DO i2 =
-; ModuleID = 'if_test.cpp'
+; There is a breakable recurrence from 15:32 across if thenblocks
+
+; BEGIN REGION { }
+;        + DO i1 = 0, 99998, 1   <DO_LOOP>
+;        |   + DO i2 = 0, 99998, 1   <DO_LOOP>
+;        |   |   if (i2 + 1 < 27)
+;        |   |   {
+;        |   |      %0 = (@B)[0][i1 + 1][i2 + 1];
+;        |   |      %1 = (@C)[0][i1 + 1][i2 + 1];
+;        |   |      %add = %0  +  %1;
+;        |   |      (@A)[0][i1 + 1][i2 + 1] = %add;
+;        |   |   }
+;        |   |   else
+;        |   |   {
+;        |   |      %3 = (@A)[0][i1 + 1][i2];
+;        |   |      %conv19 = %3  *  2.000000e+00;
+;        |   |      (@D)[0][i1 + 1][i2 + 1] = %conv19;
+;        |   |   }
+;        |   + END LOOP
+;        + END LOOP
+; END REGION
+
+; CHECK: BEGIN REGION
+; CHECK: modified
+; CHECK: + DO i1 = 0, 99998, 1   <DO_LOOP>
+; CHECK: |   + DO i2 = 0, 99998, 1   <DO_LOOP>
+; CHECK: |   |   if (i2 + 1 < 27)
+;        |   |   {
+;        |   |      %0 = (@B)[0][i1 + 1][i2 + 1];
+;        |   |      %1 = (@C)[0][i1 + 1][i2 + 1];
+;        |   |      %add = %0  +  %1;
+;        |   |      (@A)[0][i1 + 1][i2 + 1] = %add;
+;        |   |   }
+; CHECK: |   + END LOOP
+;        |
+;        |
+; CHECK: |   + DO i2 = 0, 99998, 1   <DO_LOOP>
+; CHECK: |   |   if (i2 + 1 >= 27)
+;        |   |   {
+;        |   |      %3 = (@A)[0][i1 + 1][i2];
+;        |   |      %conv19 = %3  *  2.000000e+00;
+;        |   |      (@D)[0][i1 + 1][i2 + 1] = %conv19;
+;        |   |   }
+; CHECK: |   + END LOOP
+;        + END LOOP
+; END REGION
+
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 

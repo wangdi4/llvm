@@ -1,8 +1,5 @@
 // RUN: %clang_cc1 -x c++ -Wno-return-type -fsycl-is-device -std=c++11 -fcxx-exceptions -fsyntax-only -ast-dump -verify -pedantic %s | FileCheck %s
 
-// Mark this test as expected fail in initial merge of SYCL to xmain
-// XFAIL: *
-
 //CHECK: FunctionDecl{{.*}}foo1
 void foo1()
 {

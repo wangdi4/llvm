@@ -17,10 +17,10 @@
 ;   }
 ; }
 
-; CHECK: define internal void @_Z21parallel_for_schedulei.DIR.OMP.PARALLEL.LOOP.1.{{.*}}({{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}})
+; CHECK: define internal void @_Z21parallel_for_schedulei.DIR.OMP.PARALLEL.LOOP.{{[0-9]+}}.{{.*}}({{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}})
 ; FIXME: the third parameter must be pointer, when we fix handling
 ;        of dist_schedule's chunk size.
-; CHECK: define internal void @_Z32distribute_parallel_for_schedulei.DIR.OMP.DISTRIBUTE.PARLOOP.1.{{.*}}({{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}})
+; CHECK: define internal void @_Z32distribute_parallel_for_schedulei.DIR.OMP.DISTRIBUTE.PARLOOP.{{[0-9]+}}.{{.*}}({{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}})
 
 ; ModuleID = 'test.cpp'
 source_filename = "test.cpp"

@@ -1,10 +1,10 @@
 ; l2reversal-ddtest-1d.ll
 ; (2-level loop, sanity testcase, for 2D array dependence tests with DV refinements)
 ;
-; All loops fail to reverse; 
-; 
+; All loops fail to reverse;
+;
 ; [REASONS]
-; - Applicalbe: NO, HAS NO valid  negative memory-access addresses, and 0 positive memory-access address; 
+; - Applicalbe: NO, HAS NO valid  negative memory-access addresses, and 0 positive memory-access address;
 ; - Profitable: NO
 ;   has no valid negative memory-address strides;
 ; - Legal:      Confusing
@@ -54,12 +54,12 @@
 ;
 ;[AFTER LOOP REVERSAL]{Expected!}
 ;
-; 
+;
 ; ===-----------------------------------===
 ; *** Run0: BEFORE HIR Loop Reversal ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=BEFORE 
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE 
+; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=BEFORE
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE
 ;
 ; ===-----------------------------------===
 ; *** Run1: AFTER HIR Loop Reversal ***
@@ -166,7 +166,7 @@
 ; === -------------------------------------- ===
 ;
 ; Expected HIR output after Loop-Reversal is enabled: Not reversal ever happened in this given input!
-; 
+;
 ;
 ;          BEGIN REGION { }
 ;<88>         + DO i1 = 0, 9, 1   <DO_LOOP>
@@ -250,7 +250,7 @@
 ; AFTER:     |   %19 = &((%20)[0]);
 ; AFTER:     + END LOOP
 ; AFTER:  END REGION
-; 
+;
 ;
 ; === ---------------------------------------------------------------- ===
 ; Following is the LLVM's input code!

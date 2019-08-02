@@ -1,10 +1,10 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-reroll  -print-before=hir-loop-reroll -print-after=hir-loop-reroll  < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
-; Blob is different, in the second store out of fours. 
+; Blob is different, in the second store out of fours.
 
 ; CHECK: Function: foo
-;  
+;
 ; CHECK:      BEGIN REGION { }
 ; CHECK:            + DO i1 = 0, (sext.i32.i64(%n) + -1)/u4, 1   <DO_LOOP>  <MAX_TC_EST = 2>
 ; CHECK:            |   %1 = (@C)[0][4 * i1];
@@ -23,7 +23,7 @@
 ; CHECK:      END REGION
 
 ; CHECK: Function: foo
-;  
+;
 ; CHECK:      BEGIN REGION { }
 ; CHECK:            + DO i1 = 0, (sext.i32.i64(%n) + -1)/u4, 1   <DO_LOOP>  <MAX_TC_EST = 2>
 ; CHECK:            |   %1 = (@C)[0][4 * i1];

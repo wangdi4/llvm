@@ -20,7 +20,7 @@
 ; CHECK: DO i32 i1 = 0, %n + -1
 
 ; First i2 loop
-; Check that scc symbase is live into and live out from first i2 loop. 
+; Check that scc symbase is live into and live out from first i2 loop.
 ; CHECK: LiveIn symbases: [[SCCSYMBASE]]
 ; CHECK: LiveOut symbases: [[SCCSYMBASE]]
 
@@ -29,7 +29,7 @@
 ; CHECK: END LOOP
 
 ; Second i2 loop
-; Check that scc symbase is live into the second i2 loop. 
+; Check that scc symbase is live into the second i2 loop.
 ; CHECK: LiveIn symbases: [[SCCSYMBASE]]
 
 ; CHECK: DO i64 i2 = 0, sext.i32.i64((-1 + %n))

@@ -44,7 +44,7 @@ entry:
   br label %preheader
 
 preheader:
-  %call = tail call noalias i8* @malloc(i64 80) 
+  %call = tail call noalias i8* @malloc(i64 80)
   %add.ptr = getelementptr inbounds i8, i8* %call, i64 8
   %intptr = ptrtoint i8* %add.ptr to i64
   %base = inttoptr i64 %intptr to [10 x i64]*

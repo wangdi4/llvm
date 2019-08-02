@@ -12,7 +12,7 @@
 ;
 
 
-; Check that CG leaves HIR metadata in the old region as they become unreachable and will be removed later by simplifycfg. 
+; Check that CG leaves HIR metadata in the old region as they become unreachable and will be removed later by simplifycfg.
 ; CHECK: in.de.ssa
 
 

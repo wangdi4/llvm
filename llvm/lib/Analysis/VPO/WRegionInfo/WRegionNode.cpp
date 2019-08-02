@@ -69,6 +69,7 @@ std::unordered_map<int, StringRef> llvm::vpo::WRNName = {
 WRegionNode::WRegionNode(unsigned SCID, BasicBlock *BB)
     : SubClassID(SCID), Attributes(0), EntryBBlock(BB) {
   setEntryDirective(nullptr);
+  setExitDirective(nullptr);
   setNextNumber();
   setParent(nullptr);
   setExitBBlock(nullptr);
@@ -85,21 +86,24 @@ WRegionNode::WRegionNode(unsigned SCID) : SubClassID(SCID), Attributes(0) {
   setParent(nullptr);
   setEntryBBlock(nullptr);
   setEntryDirective(nullptr);
+  setExitDirective(nullptr);
   setExitBBlock(nullptr);
   resetBBSet();
   setIsFromHIR(true);
 }
 #endif // INTEL_CUSTOMIZATION
 
-/// Wrap up the WRN creation now that we have the ExitBB. Perform these
+/// Wrap up the WRN creation now that we have the ExitDir. Perform these
 /// tasks to finalize the WRN construction:
-/// 1. Update the WRN's ExitBB
+/// 1. Update the WRN's ExitDir and ExitBB
 /// 2. Some clause operands appear in multiple clauses (eg firstprivate and
 //     lastprivate). Mark the affected ClauseItems accordingly.
 /// 3. If the WRN is for a loop construct:
 ///    3a. Find the associated Loop from the LoopInfo.
 ///    3b. If the WRN is a taskloop, set its SchedCode for grainsize/numtasks.
-void WRegionNode::finalize(BasicBlock *ExitBB, DominatorTree *DT) {
+void WRegionNode::finalize(Instruction *ExitDir, DominatorTree *DT) {
+  setExitDirective(ExitDir);
+  BasicBlock *ExitBB = ExitDir->getParent();
   setExitBBlock(ExitBB);
 
   // Firstprivate and lastprivate clauses may have the same item X

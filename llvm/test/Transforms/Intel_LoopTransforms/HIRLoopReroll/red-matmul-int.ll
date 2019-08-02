@@ -4,10 +4,10 @@
 ; XFAIL:*
 
 ; ICC can reroll this basic matmul. ICX can't today.
-; Current reroll implementation does not maintain information of 
+; Current reroll implementation does not maintain information of
 ; definedAtLevel and DefAtLevel of
 ; possibly new SCEVs of (%4 * %5) or (%1 * %2).
-; Notice that HIRParser may not choose to have 
+; Notice that HIRParser may not choose to have
 ; (%4 * %5) or (%1 * %2) separate blobs (i.e blobIndex).
 ; Extension may require assignement of new symbase, blobIndex and so on.
 
@@ -15,25 +15,25 @@
 ; int A[SIZE][SIZE];
 ; int B[SIZE][SIZE];
 ; int C[SIZE][SIZE];
-; 
+;
 ; void foo() {
-; 
-;   for (int i=0;  i<SIZE; i++) 
-;     for (int j=0;  j<SIZE; j++) 
+;
+;   for (int i=0;  i<SIZE; i++)
+;     for (int j=0;  j<SIZE; j++)
 ;       for (int k=0;  k<SIZE; k=k+2) {
 ;         C[i][j] += A[i][k] * B[k][j];
 ;         C[i][j] += A[i][k+1] * B[k+1][j];
 ;       }
-; 
+;
 ; }
 
 ; CHECK: Function: foo
- 
+
 ; CHECK:      BEGIN REGION { }
 ; CHECK:            + DO i1 = 0, 999, 1   <DO_LOOP>
 ; CHECK:            |   + DO i2 = 0, 999, 1   <DO_LOOP>
 ; CHECK:            |   |   %0 = (@C)[0][i1][i2];
-; CHECK:            |   |   
+; CHECK:            |   |
 ; CHECK:            |   |   + DO i3 = 0, 499, 1   <DO_LOOP>
 ; CHECK:            |   |   |   %1 = (@A)[0][i1][2 * i3];
 ; CHECK:            |   |   |   %2 = (@B)[0][2 * i3][i2];
@@ -41,25 +41,25 @@
 ; CHECK:            |   |   |   %5 = (@B)[0][2 * i3 + 1][i2];
 ; CHECK:            |   |   |   %0 = (%4 * %5)  +  %0 + (%1 * %2);
 ; CHECK:            |   |   + END LOOP
-; CHECK:            |   |   
+; CHECK:            |   |
 ; CHECK:            |   |   (@C)[0][i1][i2] = %0;
 ; CHECK:            |   + END LOOP
 ; CHECK:            + END LOOP
 ; CHECK:      END REGION
- 
+
 ; CHECK: Function: foo
- 
+
 ; CHECK:      BEGIN REGION { }
 ; CHECK:            + DO i1 = 0, 999, 1   <DO_LOOP>
 ; CHECK:            |   + DO i2 = 0, 999, 1   <DO_LOOP>
 ; CHECK:            |   |   %0 = (@C)[0][i1][i2];
-; CHECK:            |   |   
+; CHECK:            |   |
 ; CHECK:            |   |   + DO i3 = 0, 999, 1   <DO_LOOP>
 ; CHECK:            |   |   |   %1 = (@A)[0][i1][i3];
 ; CHECK:            |   |   |   %2 = (@B)[0][i3][i2];
 ; CHECK:            |   |   |   %0 = %0 + (%1 * %2);
 ; CHECK:            |   |   + END LOOP
-; CHECK:            |   |   
+; CHECK:            |   |
 ; CHECK:            |   |   (@C)[0][i1][i2] = %0;
 ; CHECK:            |   + END LOOP
 ; CHECK:            + END LOOP

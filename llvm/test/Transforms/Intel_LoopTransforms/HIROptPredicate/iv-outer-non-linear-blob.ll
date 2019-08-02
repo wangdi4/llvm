@@ -19,7 +19,7 @@
 ;
 ; *** IR Dump Before HIR Var OptPredicate ***
 ; Function: foo
-; 
+;
 ;           BEGIN REGION { }
 ; <27>            + DO i1 = 0, zext.i32.i64((-1 + %d)), 1   <DO_LOOP>
 ; <8>             |      %0 = (%p)[i1];

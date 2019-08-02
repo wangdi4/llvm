@@ -4,7 +4,7 @@
 ; Verify that we remove the empty loop after the load is removed by temp cleanup.
 ; Note that the loop is not doing anything other than traversing the string @.str.94.
 
-; CHECK: Function 
+; CHECK: Function
 
 ; CHECK:          BEGIN REGION { }
 ; CHECK:             + DO i1 = 0, 1, 1   <DO_LOOP>
@@ -12,7 +12,7 @@
 ; CHECK:             + END LOOP
 ; CHECK:          END REGION
 
-; CHECK: Function 
+; CHECK: Function
 
 ; CHECK:          BEGIN REGION { }
 ; CHECK-NEXT:     END REGION

@@ -8,7 +8,7 @@
 ; CHECK: for.body:
 ; CHECK: br i1 true, {{.*}}label %region
 
-; 
+;
 ; CHECK: region.0:
 ; CHECK: store i64 0, i64* %i1
 ; CHECK-NEXT: br label %[[L1Label:loop.[0-9]+]]
@@ -26,7 +26,7 @@
 ; CHECK-SAME: tbaa
 ; CHECK-NEXT: store i32 [[GEPLOAD]], i32* [[TEMPSLOT:.*]]
 
-; get addr of A[], load memslot from earlier and stored loaded 
+; get addr of A[], load memslot from earlier and stored loaded
 ; value at that addr
 ; CHECK-DAG: [[GEP:%.*]] = getelementptr {{.*}} @A
 ; CHECK-DAG: [[TEMPLOAD:%t.*]] = load i32, i32* [[TEMPSLOT]]

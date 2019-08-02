@@ -11,7 +11,7 @@
 ; <0>       END REGION
 
 ; CHECK: DD graph for function
-; CHECK-NOT: --> 
+; CHECK-NOT: -->
 
 ;Module Before HIR; ModuleID = 'addressof.c'
 source_filename = "addressof.c"

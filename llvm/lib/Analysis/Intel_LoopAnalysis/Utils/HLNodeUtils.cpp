@@ -4051,13 +4051,20 @@ public:
   }
 
   void postVisit(HLIf *If) {
-    if (!If->hasThenChildren() && !If->hasElseChildren()) {
+    bool HasThenChildren = If->hasThenChildren();
+    bool HasElseChildren = If->hasElseChildren();
+
+    if (!HasThenChildren && !HasElseChildren) {
       notifyWillRemoveNode(If);
 
       HLNodeUtils::remove(If);
       Changed = true;
 
       IfsRemoved++;
+    } else if (!HasThenChildren && If->getNumPredicates() == 1) {
+      HLNodeUtils::moveAsFirstThenChildren(If, If->else_begin(),
+                                           If->else_end());
+      If->invertPredicate(If->pred_begin());
     }
   }
 

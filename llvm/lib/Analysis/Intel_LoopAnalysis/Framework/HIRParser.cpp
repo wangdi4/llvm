@@ -1860,6 +1860,12 @@ bool HIRParser::breakConstantMultiplierCommutativeBlob(BlobTy Blob,
   case scSMaxExpr:
     *NewBlob = SE.getSMaxExpr(Ops);
     break;
+  case scUMinExpr:
+    *NewBlob = SE.getUMinExpr(Ops);
+    break;
+  case scSMinExpr:
+    *NewBlob = SE.getSMinExpr(Ops);
+    break;
   default:
     llvm_unreachable("Unexpected scev type!");
   }
@@ -2595,13 +2601,14 @@ void HIRParser::parseCompare(const Value *Cond, unsigned Level,
                              SmallVectorImpl<RegDDRef *> &Refs,
                              bool AllowMultiplePreds) {
 
-  assert(Cond->getType()->isIntegerTy(1) && "Condition should be i1 type!");
+  assert(Cond->getType()->getScalarType()->isIntegerTy(1) &&
+         "Condition should be i1 or <n x i1> type!");
 
   if (auto *CInst = dyn_cast<CmpInst>(Cond)) {
 
     // Suppress traceback if CInst's operand's type is not supported.
-    if (RI.isSupported(CInst->getOperand(0)->getType()) &&
-        RI.isSupported(CInst->getOperand(1)->getType())) {
+    if (RI.isSupported(CInst->getOperand(0)->getType(), false) &&
+        RI.isSupported(CInst->getOperand(1)->getType(), false)) {
 
       Preds.push_back(
           {CInst->getPredicate(), parseFMF(CInst), CInst->getDebugLoc()});
@@ -2621,7 +2628,8 @@ void HIRParser::parseCompare(const Value *Cond, unsigned Level,
 
     // Do not bring in '&&' conditions from outside the region.
     if (CurRegion->containsBBlock(BOp->getParent()) &&
-        RI.isSupported(Op1->getType()) && RI.isSupported(Op2->getType())) {
+        RI.isSupported(Op1->getType(), false) &&
+        RI.isSupported(Op2->getType(), false)) {
       parseCompare(Op1, Level, Preds, Refs, true);
       parseCompare(Op2, Level, Preds, Refs, true);
       return;
@@ -3924,7 +3932,7 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
 
     auto Opnd = BCOp->getOperand(0);
     auto OpTy = Opnd->getType();
-    if (!RI.isSupported(OpTy)) {
+    if (!RI.isSupported(OpTy, true)) {
       break;
     }
 
@@ -4283,8 +4291,6 @@ bool HIRParser::processedRemovableIntrinsic(HLInst *HInst) {
 void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
   auto Inst = HInst->getLLVMInstruction();
   unsigned Level;
-
-  assert(!Inst->getType()->isVectorTy() && "Vector types not supported!");
 
   setCurNode(HInst);
 

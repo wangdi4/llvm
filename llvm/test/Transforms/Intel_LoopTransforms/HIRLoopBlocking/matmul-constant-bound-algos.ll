@@ -1,9 +1,9 @@
-; Check if 
+; Check if
 ; 1. Inner two levels of matmul are blocked using a K&R algorithm (prefix KANDR)
 ; 2. Outer two levels of matmul are blocked using Outer algorithm (prefix OUTER)
 ; 3. All three levels are blocked using default algorithm (prefix DEFAULT)
-; 4. Check if block size <val> specified by -hir-loop-blocking-blocksize=<val> 
-;    is used (prefix USERBS, meaning user block size). 
+; 4. Check if block size <val> specified by -hir-loop-blocking-blocksize=<val>
+;    is used (prefix USERBS, meaning user block size).
 ; Notice that LB and TCs are constant in this test case.
 ;
 ; REQUIRES: asserts
@@ -28,7 +28,7 @@
 ; KANDR: Function: sub
 
 ; KANDR:     BEGIN REGION { modified }
-; KANDR:           + DO i1 = 0, 1023, 1   
+; KANDR:           + DO i1 = 0, 1023, 1
 ; KANDR:           |   + DO i2 = 0, 1023, 1
 ; KANDR:           |   |   + DO i3 = 0, 1023, 1
 ; KANDR:           |   |   |   %0 = (@c)[0][i1][i3];
@@ -100,7 +100,7 @@
 ; OUTER:       END REGION
 
 ; DEFAULT: Function: sub
- 
+
 ; DEFAULT:    BEGIN REGION { modified }
 ; DEFAULT:          + DO i1 = 0, 1023, 1   <DO_LOOP>
 ; DEFAULT:          |   + DO i2 = 0, 1023, 1   <DO_LOOP>
@@ -113,11 +113,11 @@
 ; DEFAULT:          |   + END LOOP
 ; DEFAULT:          + END LOOP
 ; DEFAULT:    END REGION
- 
+
 ; DEFAULT: Blocked at Level 1
 ; DEFAULT: Blocked at Level 2
 ; DEFAULT: Blocked at Level 3
- 
+
 ; DEFAULT: BEGIN REGION { modified }
 ; DEFAULT:       + DO i1 = 0, 15, 1   <DO_LOOP>
 ; DEFAULT:       |   + DO i2 = 0, 15, 1   <DO_LOOP>
@@ -138,7 +138,7 @@
 ; DEFAULT: END REGION
 
 ; USERBS: Function: sub
- 
+
 ; USERBS:      BEGIN REGION { modified }
 ; USERBS:            + DO i1 = 0, 1023, 1   <DO_LOOP>
 ; USERBS:            |   + DO i2 = 0, 1023, 1   <DO_LOOP>
@@ -151,19 +151,19 @@
 ; USERBS:            |   + END LOOP
 ; USERBS:            + END LOOP
 ; USERBS:      END REGION
- 
+
 ; USERBS: Function: sub
 
 ; USERBS:    BEGIN REGION { modified }
 ; USERBS:          + DO i1 = 0, 42, 1   <DO_LOOP>
 ; USERBS:          |   %min = (-24 * i1 + 1023 <= 23) ? -24 * i1 + 1023 : 23;
-; USERBS:          |   
+; USERBS:          |
 ; USERBS:          |   + DO i2 = 0, 42, 1   <DO_LOOP>
 ; USERBS:          |   |   %min3 = (-24 * i2 + 1023 <= 23) ? -24 * i2 + 1023 : 23;
-; USERBS:          |   |   
+; USERBS:          |   |
 ; USERBS:          |   |   + DO i3 = 0, 42, 1   <DO_LOOP>
 ; USERBS:          |   |   |   %min4 = (-24 * i3 + 1023 <= 23) ? -24 * i3 + 1023 : 23;
-; USERBS:          |   |   |   
+; USERBS:          |   |   |
 ; USERBS:          |   |   |   + DO i4 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 24>
 ; USERBS:          |   |   |   |   + DO i5 = 0, %min3, 1   <DO_LOOP>  <MAX_TC_EST = 24>
 ; USERBS:          |   |   |   |   |   + DO i6 = 0, %min4, 1   <DO_LOOP>  <MAX_TC_EST = 24>
@@ -178,8 +178,8 @@
 ; USERBS:          |   + END LOOP
 ; USERBS:          + END LOOP
 ; USERBS:    END REGION
- 
-  
+
+
 ; ModuleID = 'matmul-constant-bound-algos.ll'
 source_filename = "matmul-constant-bound-algos.ll"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

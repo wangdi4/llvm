@@ -1,7 +1,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details | FileCheck %s
 
 ; Check that the DDRef representing %mul does not have any stale blobs.
- 
+
 ; CHECK: |   |   %5 = %5  +  ((-86 + (2 * (%init + %init1 + %0)) + (-2 * %add70) + (-1 * %8)) * %add70);
 ; CHECK: |   |   <RVAL-REG> NON-LINEAR i32 ((-86 + (2 * (%init + %init1 + %0)) + (-2 * %add70) + (-1 * %8)) * %add70)
 ; CHECK-NEXT: |   |      <BLOB> NON-LINEAR i32 %8

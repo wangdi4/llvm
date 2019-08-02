@@ -4,7 +4,7 @@
 ; Verify that post vec complete unroll does not assume simplfied savings exposed by pre vec complete unroll (in the form of instructions like %add = 10  +  3) as its own by unrolling the i1-i2 loopnest below.
 
 ; CHECK: Function
- 
+
 ; CHECK: BEGIN REGION { modified }
 ; CHECK: + DO i1 = 0, 21, 1   <DO_LOOP>
 ; CHECK: |   + DO i2 = 0, i1 + 17, 1   <DO_LOOP>  <MAX_TC_EST = 39>
@@ -47,7 +47,7 @@
 
 
 ; CHECK: Function
- 
+
 ; CHECK: BEGIN REGION { modified }
 ; CHECK: + DO i1 = 0, 21, 1   <DO_LOOP>
 ; CHECK: |   + DO i2 = 0, i1 + 17, 1   <DO_LOOP>  <MAX_TC_EST = 39>

@@ -1,8 +1,8 @@
-; Fix for a fuzzy-test bug on HIR Loop Reversal: original testcase provided by John. 
+; Fix for a fuzzy-test bug on HIR Loop Reversal: original testcase provided by John.
 ;
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-reversal -print-before=hir-loop-reversal -print-after=hir-loop-reversal < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
-; 
+;
 ; [REASONS]
 ; - Applicable: YES
 ; - Profitable: YES
@@ -11,12 +11,12 @@
 ;
 ; Issue with the Fuzzy-t8131
 ; - with -hir-temp-cleanup, a load can now appear on a HLIf's condition.
-;   Existing HIRLoopReversal's legal test will recursively inspect HLInst* type, 
+;   Existing HIRLoopReversal's legal test will recursively inspect HLInst* type,
 ;   which by default will inogre HLIf's condition and any load that may reside.
 ; - Fix:
-;   Change's HIRLoopReversal's legal test to inspect on HLDDNode*, so that it can 
+;   Change's HIRLoopReversal's legal test to inspect on HLDDNode*, so that it can
 ;   catch all cases in HLInst*, HLIf*, HLSwitch*.
-; 
+;
 ; *** Source Code ***
 ;int U[100];
 ;int V[100];
@@ -47,11 +47,11 @@
 ; CHECK:        |   }
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION
-;  
+;
 ;
 ; *** --- ***
-; 
-; 
+;
+;
 ; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { }

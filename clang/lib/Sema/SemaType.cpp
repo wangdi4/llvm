@@ -766,7 +766,7 @@ static void maybeSynthesizeBlockSignature(TypeProcessingState &state,
       /*IsAmbiguous=*/false,
       /*LParenLoc=*/NoLoc,
       /*ArgInfo=*/nullptr,
-      /*NumArgs=*/0,
+      /*NumParams=*/0,
       /*EllipsisLoc=*/NoLoc,
       /*RParenLoc=*/NoLoc,
       /*RefQualifierIsLvalueRef=*/true,
@@ -2563,6 +2563,11 @@ bool Sema::CheckFunctionReturnType(QualType T, SourceLocation Loc) {
         << 0 << T << FixItHint::CreateInsertion(Loc, "*");
     return true;
   }
+
+  if (T.hasNonTrivialToPrimitiveDestructCUnion() ||
+      T.hasNonTrivialToPrimitiveCopyCUnion())
+    checkNonTrivialCUnion(T, Loc, NTCUC_FunctionReturn,
+                          NTCUK_Destruct|NTCUK_Copy);
 
   return false;
 }
@@ -7215,7 +7220,7 @@ static bool handleFunctionTypeAttr(TypeProcessingState &state, ParsedAttr &attr,
       // compatibility.
       if (CC == CC_X86StdCall || CC == CC_X86FastCall ||            // INTEL
           (S.getLangOpts().IntelCompat && CC == CC_X86VectorCall))  // INTEL
-        return S.Diag(attr.getLoc(), diag::warn_cconv_ignored)
+        return S.Diag(attr.getLoc(), diag::warn_cconv_unsupported)
                << FunctionType::getNameForCallConv(CC)
                << (int)Sema::CallingConventionIgnoredReason::VariadicFunction;
 
@@ -7280,7 +7285,7 @@ void Sema::adjustMemberFunctionCC(QualType &T, bool IsStatic, bool IsCtorOrDtor,
     // Issue a warning on ignored calling convention -- except of __stdcall.
     // Again, this is what MS compiler does.
     if (CurCC != CC_X86StdCall)
-      Diag(Loc, diag::warn_cconv_ignored)
+      Diag(Loc, diag::warn_cconv_unsupported)
           << FunctionType::getNameForCallConv(CurCC)
           << (int)Sema::CallingConventionIgnoredReason::ConstructorDestructor;
   // Default adjustment.
@@ -7634,7 +7639,9 @@ static void deduceOpenCLImplicitAddrSpace(TypeProcessingState &State,
       (T->isVoidType() && !IsPointee) ||
       // Do not deduce addr spaces for dependent types because they might end
       // up instantiating to a type with an explicit address space qualifier.
-      T->isDependentType() ||
+      // Except for pointer or reference types because the addr space in
+      // template argument can only belong to a pointee.
+      (T->isDependentType() && !T->isPointerType() && !T->isReferenceType()) ||
       // Do not deduce addr space of decltype because it will be taken from
       // its argument.
       T->isDecltypeType() ||

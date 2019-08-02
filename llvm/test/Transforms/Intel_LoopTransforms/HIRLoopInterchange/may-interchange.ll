@@ -4,14 +4,14 @@
 ; REQUIRES: asserts
 ;
 ; A perfect loop nest is forced even when all references in innermost loop are all unit strided due to the instruction in line <6>.
-; First two left-most dimensions are in shape of [i2][i1]. 
+; First two left-most dimensions are in shape of [i2][i1].
 ; So interchange might be helpful. After that, it is up to interchange pass's locality calculation logic whther actual interchange will be done or not.
 
 ; <0>       BEGIN REGION { }
 ; <35>            + DO i1 = 0, 99, 1   <DO_LOOP>
 ; <36>            |   + DO i2 = 0, 99, 1   <DO_LOOP>
 ; <6>             |   |   %0 = (@B)[0][i2][i1][i2];
-; <37>            |   |   
+; <37>            |   |
 ; <37>            |   |   + DO i3 = 0, 99, 1   <DO_LOOP>
 ; <11>            |   |   |   %1 = (@B)[0][i1][i2][i3];
 ; <14>            |   |   |   (@A)[0][i2][i3][i3] = %0 + %1;

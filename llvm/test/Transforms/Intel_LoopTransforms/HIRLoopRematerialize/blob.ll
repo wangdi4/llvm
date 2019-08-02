@@ -1,7 +1,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-rematerialize -print-before=hir-loop-rematerialize -print-after=hir-loop-rematerialize -hir-loop-rematerialize-tc-lb=1 < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-rematerialize,print<hir>" -aa-pipeline="basic-aa" -hir-loop-rematerialize-tc-lb=1 < %s 2>&1 | FileCheck %s
- 
- 
+
+
 ; CHECK:Function: Vsub
 
 ; CHECK:         BEGIN REGION { }
@@ -29,7 +29,7 @@
 ; CHECK-NOT:               (%a)[2] = %mul9;
 ; CHECK:              ret ;
 ; CHECK:        END REGION
- 
+
 ; ModuleID = 'blob.c'
 source_filename = "blob.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

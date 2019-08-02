@@ -125,45 +125,33 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
   Expr *ValueExpr = A.getArgAsExpr(3);
 #if INTEL_CUSTOMIZATION
   Expr *ArrayExpr = A.getArgAsExpr(4);
+#endif // INTEL_CUSTOMIZATION
 
-  bool PragmaLoopCoalesce = PragmaNameLoc->Ident->getName() == "loop_coalesce";
-  bool PragmaII = PragmaNameLoc->Ident->getName() == "ii";
-  bool PragmaMaxConcurrency =
-      PragmaNameLoc->Ident->getName() == "max_concurrency";
-  bool PragmaMaxInterleaving =
-      PragmaNameLoc->Ident->getName() == "max_interleaving";
-  bool PragmaIVDep = PragmaNameLoc->Ident->getName() == "ivdep";
-  bool PragmaIIAtMost = PragmaNameLoc->Ident->getName() == "ii_at_most";
-  bool PragmaIIAtLeast = PragmaNameLoc->Ident->getName() == "ii_at_least";
-  bool PragmaMinIIAtTargetFmax =
-             PragmaNameLoc->Ident->getName() == "min_ii_at_target_fmax";
-  bool PragmaSpeculatedIterations =
-          PragmaNameLoc->Ident->getName() == "speculated_iterations";
-  bool PragmaDisableLoopPipelining =
-            PragmaNameLoc->Ident->getName() == "disable_loop_pipelining";
-  bool PragmaForceHyperopt =
-            PragmaNameLoc->Ident->getName() == "force_hyperopt";
-  bool PragmaForceNoHyperopt =
-            PragmaNameLoc->Ident->getName() == "force_no_hyperopt";
+  StringRef PragmaName =
+      llvm::StringSwitch<StringRef>(PragmaNameLoc->Ident->getName())
+          .Cases("unroll", "nounroll", "unroll_and_jam", "nounroll_and_jam",
+                 PragmaNameLoc->Ident->getName())
+#if INTEL_CUSTOMIZATION
+          .Cases("loop_coalesce", "ii", "max_concurrency", "max_interleaving",
+                 PragmaNameLoc->Ident->getName())
+          .Cases("ivdep", "ii_at_most", "ii_at_least", "min_ii_at_target_fmax",
+                 PragmaNameLoc->Ident->getName())
+          .Cases("speculated_iterations", "disable_loop_pipelining",
+                 PragmaNameLoc->Ident->getName())
+          .Cases("force_hyperopt", "force_no_hyperopt", "nofusion", "fusion",
+                 PragmaNameLoc->Ident->getName())
+          .Cases("vector", "novector", "loop_count","distribute_point",
+                 PragmaNameLoc->Ident->getName())
+#endif // INTEL_CUSTOMIZATION
+          .Default("clang loop");
+#if INTEL_CUSTOMIZATION
   bool PragmaDistributePoint =
       PragmaNameLoc->Ident->getName() == "distribute_point";
-  bool PragmaNoFusion = PragmaNameLoc->Ident->getName() == "nofusion";
-  bool PragmaFusion = PragmaNameLoc->Ident->getName() == "fusion";
-  bool PragmaNoVector = PragmaNameLoc->Ident->getName() == "novector";
-  bool PragmaVector = PragmaNameLoc->Ident->getName() == "vector";
   bool NonLoopPragmaDistributePoint =
       PragmaDistributePoint && St->getStmtClass() != Stmt::DoStmtClass &&
       St->getStmtClass() != Stmt::ForStmtClass &&
       St->getStmtClass() != Stmt::CXXForRangeStmtClass &&
       St->getStmtClass() != Stmt::WhileStmtClass;
-  bool PragmaLoopCount = PragmaNameLoc->Ident->getName() == "loop_count";
-#endif // INTEL_CUSTOMIZATION
-  bool PragmaUnroll = PragmaNameLoc->Ident->getName() == "unroll";
-  bool PragmaNoUnroll = PragmaNameLoc->Ident->getName() == "nounroll";
-  bool PragmaUnrollAndJam = PragmaNameLoc->Ident->getName() == "unroll_and_jam";
-  bool PragmaNoUnrollAndJam =
-      PragmaNameLoc->Ident->getName() == "nounroll_and_jam";
-#if INTEL_CUSTOMIZATION
   if (NonLoopPragmaDistributePoint) {
     bool withinLoop = false;
     for (Scope *CS = S.getCurScope(); CS; CS = CS->getParent())
@@ -182,32 +170,7 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
       St->getStmtClass() != Stmt::ForStmtClass &&
       St->getStmtClass() != Stmt::CXXForRangeStmtClass &&
       St->getStmtClass() != Stmt::WhileStmtClass) {
-    const char *Pragma =
-        llvm::StringSwitch<const char *>(PragmaNameLoc->Ident->getName())
-            .Case("unroll", "#pragma unroll")
-            .Case("nounroll", "#pragma nounroll")
-            .Case("unroll_and_jam", "#pragma unroll_and_jam")
-            .Case("nounroll_and_jam", "#pragma nounroll_and_jam")
-#if INTEL_CUSTOMIZATION
-            .Case("loop_coalesce", "#pragma loop_coalesce")
-            .Case("ii", "#pragma ii")
-            .Case("max_concurrency", "#pragma max_concurrency")
-            .Case("max_interleaving", "#pragma max_interleaving")
-            .Case("ivdep", "#pragma ivdep")
-            .Case("ii_at_most", "pragma il_at_most")
-            .Case("ii_at_least", "pragma il_at_least")
-            .Case("min_ii_at_target_fmax", "pragma min_ii_at_target_fmax")
-            .Case("speculated_iterations", "pragma speculated_iterations")
-            .Case("disable_loop_pipelining", "pragma disable_loop_pipelining")
-            .Case("force_hyperopt", "pragma force_hyperopt")
-            .Case("force_no_hyperopt", "pragma force_no_hyperopt")
-            .Case("nofusion", "#pragma nofusion")
-            .Case("fusion", "#pragma fusion")
-            .Case("vector", "#pragma vector")
-            .Case("novector", "#pragma novector")
-            .Case("loop_count", "#pragma loop_count")
-#endif // INTEL_CUSTOMIZATION
-            .Default("#pragma clang loop");
+    std::string Pragma = "#pragma " + std::string(PragmaName);
     S.Diag(St->getBeginLoc(), diag::err_pragma_loop_precedes_nonloop) << Pragma;
     return nullptr;
   }
@@ -216,15 +179,19 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
       LoopHintAttr::Spelling(A.getAttributeSpellingListIndex());
   LoopHintAttr::OptionType Option;
   LoopHintAttr::LoopHintState State;
-  if (PragmaNoUnroll) {
-    // #pragma nounroll
-    Option = LoopHintAttr::Unroll;
-    State = LoopHintAttr::Disable;
-  } else if (PragmaUnroll) {
+
+  auto SetHints = [&Option, &State](LoopHintAttr::OptionType O,
+                                    LoopHintAttr::LoopHintState S) {
+    Option = O;
+    State = S;
+  };
+  if (PragmaName == "nounroll") {
+    SetHints(LoopHintAttr::Unroll, LoopHintAttr::Disable);
+  } else if (PragmaName == "unroll") {
+    // #pragma unroll N
     if (ValueExpr) {
       // #pragma unroll N
-      Option = LoopHintAttr::UnrollCount;
-      State = LoopHintAttr::Numeric;
+      SetHints(LoopHintAttr::UnrollCount, LoopHintAttr::Numeric);
 #if INTEL_CUSTOMIZATION
       // CQ#366562 - let #pragma unroll value be out of striclty positive 32-bit
       // integer range: disable unrolling if value is 0, otherwise treat this
@@ -240,119 +207,91 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
         if (!ValueIsPositive || Val.getActiveBits() > 31) {
           // Non-zero (negative or too large) value: just ignore the argument.
           // #pragma unroll(0) disables unrolling.
-          State = Val.getBoolValue() ? LoopHintAttr::Enable : LoopHintAttr::Disable;
-          Option = LoopHintAttr::Unroll;
-          ValueExpr = nullptr;
+          State =
+              Val.getBoolValue() ? LoopHintAttr::Enable : LoopHintAttr::Disable;
+          SetHints(LoopHintAttr::Unroll, State);
         }
       }
 #endif // INTEL_CUSTOMIZATION
     } else {
       // #pragma unroll
-      Option = LoopHintAttr::Unroll;
-      State = LoopHintAttr::Enable;
+      SetHints(LoopHintAttr::Unroll, LoopHintAttr::Enable);
     }
-  } else if (PragmaNoUnrollAndJam) {
-    // #pragma nounroll_and_jam
-    Option = LoopHintAttr::UnrollAndJam;
-    State = LoopHintAttr::Disable;
-  } else if (PragmaUnrollAndJam) {
-    if (ValueExpr) {
-      // #pragma unroll_and_jam N
-      Option = LoopHintAttr::UnrollAndJamCount;
-      State = LoopHintAttr::Numeric;
-    } else {
-      // #pragma unroll_and_jam
-      Option = LoopHintAttr::UnrollAndJam;
-      State = LoopHintAttr::Enable;
-    }
-#if INTEL_CUSTOMIZATION
-  } else if (PragmaLoopCoalesce) {
-    Option = LoopHintAttr::LoopCoalesce;
-    if (ValueExpr != nullptr)
-      State = LoopHintAttr::Numeric;
+  } else if (PragmaName == "nounroll_and_jam") {
+    SetHints(LoopHintAttr::UnrollAndJam, LoopHintAttr::Disable);
+  } else if (PragmaName == "unroll_and_jam") {
+    // #pragma unroll_and_jam N
+    if (ValueExpr)
+      SetHints(LoopHintAttr::UnrollAndJamCount, LoopHintAttr::Numeric);
     else
-      State = LoopHintAttr::Enable;
-  } else if (PragmaII) {
-    Option = LoopHintAttr::II;
-    State = LoopHintAttr::Numeric;
-  } else if (PragmaMaxConcurrency) {
-    Option = LoopHintAttr::MaxConcurrency;
-    State = LoopHintAttr::Numeric;
-  } else if (PragmaMaxInterleaving) {
-    Option = LoopHintAttr::MaxInterleaving;
-    State = LoopHintAttr::Numeric;
-  } else if (PragmaIVDep) {
+      SetHints(LoopHintAttr::UnrollAndJam, LoopHintAttr::Enable);
+#if INTEL_CUSTOMIZATION
+  } else if (PragmaName == "loop_coalesce") {
+    if (ValueExpr != nullptr)
+      SetHints(LoopHintAttr::LoopCoalesce, LoopHintAttr::Numeric);
+    else
+      SetHints(LoopHintAttr::LoopCoalesce, LoopHintAttr::Enable);
+  } else if (PragmaName == "ii") {
+    SetHints(LoopHintAttr::II, LoopHintAttr::Numeric);
+  } else if (PragmaName == "max_concurrency") {
+    SetHints(LoopHintAttr::MaxConcurrency, LoopHintAttr::Numeric);
+  } else if (PragmaName == "max_interleaving") {
+    SetHints(LoopHintAttr::MaxInterleaving, LoopHintAttr::Numeric);
+  } else if (PragmaName == "ivdep") {
     if (ValueExpr && ArrayExpr) {
-      Option = LoopHintAttr::IVDepHLS;
-      State = LoopHintAttr::Full;
+      SetHints(LoopHintAttr::IVDepHLS, LoopHintAttr::Full);
     } else if (ValueExpr) {
-      Option = LoopHintAttr::IVDepHLS;
-      State = LoopHintAttr::Numeric;
+      SetHints(LoopHintAttr::IVDepHLS, LoopHintAttr::Numeric);
     } else if (ArrayExpr) {
-      Option = LoopHintAttr::IVDepHLS;
-      State = LoopHintAttr::LoopExpr;
+      SetHints(LoopHintAttr::IVDepHLS, LoopHintAttr::LoopExpr);
     } else if (OptionLoc->Ident && OptionLoc->Ident->getName() == "loop") {
-      Option = LoopHintAttr::IVDepLoop;
-      State = LoopHintAttr::Enable;
+      SetHints(LoopHintAttr::IVDepLoop, LoopHintAttr::Enable);
     } else if (OptionLoc->Ident && OptionLoc->Ident->getName() == "back") {
-      Option = LoopHintAttr::IVDepBack;
-      State = LoopHintAttr::Enable;
+      SetHints(LoopHintAttr::IVDepBack, LoopHintAttr::Enable);
     } else {
-      bool HLSCompat = S.getLangOpts().HLS ||
-                       (S.getLangOpts().OpenCL &&
-                        S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment());
+      bool HLSCompat =
+          S.getLangOpts().HLS ||
+          (S.getLangOpts().OpenCL &&
+           S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment());
       bool IntelCompat = S.getLangOpts().IntelCompat;
       if (HLSCompat && IntelCompat)
-        Option = LoopHintAttr::IVDepHLSIntel;
+        SetHints(LoopHintAttr::IVDepHLSIntel, LoopHintAttr::Enable);
       else if (HLSCompat)
-        Option = LoopHintAttr::IVDepHLS;
+        SetHints(LoopHintAttr::IVDepHLS, LoopHintAttr::Enable);
       else
-        Option = LoopHintAttr::IVDep;
-      State = LoopHintAttr::Enable;
+        SetHints(LoopHintAttr::IVDep, LoopHintAttr::Enable);
     }
-  } else if (PragmaIIAtMost) {
-    Option = LoopHintAttr::IIAtMost;
-    State = LoopHintAttr::Numeric;
-  } else if (PragmaIIAtLeast) {
-    Option = LoopHintAttr::IIAtLeast;
-    State = LoopHintAttr::Numeric;
-  } else if (PragmaMinIIAtTargetFmax) {
-    Option = LoopHintAttr::MinIIAtFmax;
-    State = LoopHintAttr::Enable;
-  } else if (PragmaSpeculatedIterations) {
-    Option = LoopHintAttr::SpeculatedIterations;
-    State = LoopHintAttr::Numeric;
-  } else if (PragmaDisableLoopPipelining) {
-    Option = LoopHintAttr::DisableLoopPipelining;
-    State = LoopHintAttr::Enable;
-  } else if (PragmaForceHyperopt) {
-    Option = LoopHintAttr::ForceHyperopt;
-    State = LoopHintAttr::Enable;
-  } else if (PragmaForceNoHyperopt) {
-    Option = LoopHintAttr::ForceHyperopt;
-    State = LoopHintAttr::Disable;
-  } else if (PragmaDistributePoint) {
-    Option = LoopHintAttr::Distribute;
-    State = LoopHintAttr::Enable;
-  } else if (PragmaNoFusion) {
-    Option = LoopHintAttr::Fusion;
-    State = LoopHintAttr::Disable;
-  } else if (PragmaFusion) {
-    Option = LoopHintAttr::Fusion;
-    State = LoopHintAttr::Enable;
-  } else if (PragmaNoVector) {
-    Option = LoopHintAttr::Vectorize;
-    State = LoopHintAttr::Disable;
-  } else if (PragmaVector) {
-    State = LoopHintAttr::Enable;
+  } else if (PragmaName == "ii_at_most") {
+    SetHints(LoopHintAttr::IIAtMost, LoopHintAttr::Numeric);
+  } else if (PragmaName == "ii_at_least") {
+    SetHints(LoopHintAttr::IIAtLeast, LoopHintAttr::Numeric);
+  } else if (PragmaName == "min_ii_at_target_fmax") {
+    SetHints(LoopHintAttr::MinIIAtFmax, LoopHintAttr::Enable);
+  } else if (PragmaName == "speculated_iterations") {
+    SetHints(LoopHintAttr::SpeculatedIterations, LoopHintAttr::Numeric);
+  } else if (PragmaName == "disable_loop_pipelining") {
+    SetHints(LoopHintAttr::DisableLoopPipelining, LoopHintAttr::Enable);
+  } else if (PragmaName == "force_hyperopt") {
+    SetHints(LoopHintAttr::ForceHyperopt, LoopHintAttr::Enable);
+  } else if (PragmaName == "force_no_hyperopt") {
+    SetHints(LoopHintAttr::ForceHyperopt, LoopHintAttr::Disable);
+  } else if (PragmaName == "distribute_point") {
+    SetHints(LoopHintAttr::Distribute, LoopHintAttr::Enable);
+  } else if (PragmaName == "nofusion") {
+    SetHints(LoopHintAttr::Fusion, LoopHintAttr::Disable);
+  } else if (PragmaName == "fusion") {
+    SetHints(LoopHintAttr::Fusion, LoopHintAttr::Enable);
+  } else if (PragmaName == "novector") {
+    SetHints(LoopHintAttr::Vectorize, LoopHintAttr::Disable);
+  } else if (PragmaName == "vector") {
     assert(OptionLoc && OptionLoc->Ident &&
            "Attribute must have valid option info.");
     Option = llvm::StringSwitch<LoopHintAttr::OptionType>(
                  OptionLoc->Ident->getName())
                  .Case("always", LoopHintAttr::VectorizeAlways)
                  .Default(LoopHintAttr::Vectorize);
-  } else if (PragmaLoopCount) {
-    State = LoopHintAttr::Numeric;
+    SetHints(Option, LoopHintAttr::Enable);
+  } else if (PragmaName == "loop_count") {
     assert(OptionLoc && OptionLoc->Ident &&
            "Attribute must have valid option info.");
     Option = llvm::StringSwitch<LoopHintAttr::OptionType>(
@@ -361,6 +300,7 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
                  .Case("min", LoopHintAttr::LoopCountMin)
                  .Case("max", LoopHintAttr::LoopCountMax)
                  .Case("avg", LoopHintAttr::LoopCountAvg);
+    SetHints(Option, LoopHintAttr::Numeric);
 #endif // INTEL_CUSTOMIZATION
   } else {
     // #pragma clang loop ...

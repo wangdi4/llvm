@@ -471,6 +471,10 @@ static void parseAnalyzerConfigs(AnalyzerOptions &AnOpts,
   if (!Diags)
     return;
 
+  if (AnOpts.ShouldTrackConditionsDebug && !AnOpts.ShouldTrackConditions)
+    Diags->Report(diag::err_analyzer_config_invalid_input)
+        << "track-conditions-debug" << "'track-conditions' to also be enabled";
+
   if (!AnOpts.CTUDir.empty() && !llvm::sys::fs::is_directory(AnOpts.CTUDir))
     Diags->Report(diag::err_analyzer_config_invalid_input) << "ctu-dir"
                                                            << "a filename";
@@ -1228,9 +1232,6 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   // CQ#368125 - support for '/Fd' and '/Fo' options.
   Opts.MSOutputObjFile = Args.getLastArgValue(OPT_fms_debug_info_obj_file);
   Opts.MSOutputPdbFile = Args.getLastArgValue(OPT_fms_debug_info_pdb_file);
-  // CQ#368123 - support '-f[no-]emit-class-debug-always' options.
-  Opts.EmitClassDebugAlways = Args.hasFlag(
-      OPT_femit_class_debug_always, OPT_fno_emit_class_debug_always, true);
   // CQ#366796 - support for '--no_expr_source_pos' option.
   Opts.NoExprSourcePos = Args.hasArg(OPT_no_expr_source_pos);
   // Support for '-fargument-noalias' option.
@@ -2566,19 +2567,6 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
 
   Opts.Float128 = Opts.IntelQuad || (Opts.IntelCompat && Opts.GNUMode);
 
-  if (const Arg *A = Args.getLastArg(OPT_fintel_long_double_size_EQ)) {
-    StringRef Value = A->getValue();
-    if (Value == "128")
-      Opts.LongDoubleSize = 128;
-    else if (Value == "80")
-      Opts.LongDoubleSize = 80;
-    else if (Value == "64")
-      Opts.LongDoubleSize = 64;
-    else {
-      Diags.Report(diag::err_drv_invalid_value) << A->getAsString(Args)
-                                                << A->getValue();
-    }
-  }
   // IntrinsicPromotion implementation.
   Opts.IntrinsicAutoPromote = Args.hasArg(OPT_intel_mintrinsic_promote);
 #endif  // INTEL_CUSTOMIZATION
@@ -2902,6 +2890,25 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.PackStruct = getLastArgIntValue(Args, OPT_fpack_struct_EQ, 0, Diags);
   Opts.MaxTypeAlign = getLastArgIntValue(Args, OPT_fmax_type_align_EQ, 0, Diags);
   Opts.AlignDouble = Args.hasArg(OPT_malign_double);
+  Opts.LongDoubleSize = Args.hasArg(OPT_mlong_double_128)
+                            ? 128
+                            : Args.hasArg(OPT_mlong_double_64) ? 64 : 0;
+#if INTEL_CUSTOMIZATION
+  if (const Arg *A = Args.getLastArg(OPT_fintel_long_double_size_EQ)) {
+    StringRef Value = A->getValue();
+    if (Value == "128")
+      Opts.LongDoubleSize = 128;
+    else if (Value == "80")
+      Opts.LongDoubleSize = 80;
+    else if (Value == "64")
+      Opts.LongDoubleSize = 64;
+    else {
+      Diags.Report(diag::err_drv_invalid_value) << A->getAsString(Args)
+                                                << A->getValue();
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+  Opts.PPCIEEELongDouble = Args.hasArg(OPT_mabi_EQ_ieeelongdouble);
   Opts.PICLevel = getLastArgIntValue(Args, OPT_pic_level, 0, Diags);
   Opts.ROPI = Args.hasArg(OPT_fropi);
   Opts.RWPI = Args.hasArg(OPT_frwpi);

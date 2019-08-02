@@ -5,7 +5,7 @@
 ; Notice llvm will recognize memset pattern before HIR Loopopt if RHSs were zero.
 
 ; CHECK: Function: foo
- 
+
 ; CHECK:    BEGIN REGION { }
 ; CHECK:          + DO i1 = 0, (sext.i32.i64(%n) + -1)/u4, 1   <DO_LOOP>  <MAX_TC_EST = 2>
 ; CHECK:          |   (@A)[0][4 * i1] = 3;
@@ -16,7 +16,7 @@
 ; CHECK:    END REGION
 
 ; CHECK: Function: foo
- 
+
 ; CHECK:     BEGIN REGION { }
 ; CHECK:           + DO i1 = 0, 4 * ((3 + sext.i32.i64(%n)) /u 4) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 8>
 ; CHECK:           |   (@A)[0][i1] = 3;

@@ -1,10 +1,10 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-unroll-and-jam -hir-cg -print-after=hir-cg -print-module-scope -S 2>&1 | FileCheck %s
-; opt -passes="hir-ssa-deconstruction,hir-unroll-and-jam,hir-cg" -aa-pipeline="basic-aa" -S  <%s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-unroll-and-jam,hir-cg" -aa-pipeline="basic-aa" -S  <%s 2>&1 | FileCheck %s
 
 ; Verify branch_weights after U & J.
 
 ; Before Unroll and Jam
-; 
+;
 ;   BEGIN REGION { }
 ;         + DO i1 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 10> <unroll and jam = 2>
 ;         |   + DO i2 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 10>
@@ -14,18 +14,18 @@
 ;   END REGION
 
 ; After Unroll and Jam
-; 
+;
 ;   BEGIN REGION { modified }
 ;         %tgu = (sext.i32.i64(%N))/u2;
-;         
+;
 ;         + DO i1 = 0, %tgu + -1, 1   <DO_LOOP>  <MAX_TC_EST = 5> <nounroll and jam>
 ;         |   + DO i2 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 10>
 ;         |   |   (@a)[0][2 * i1][i2] = i2 + 3;
 ;         |   |   (@a)[0][2 * i1 + 1][i2] = i2 + 3;
 ;         |   + END LOOP
 ;         + END LOOP
-;         
-;         
+;
+;
 ;         // Remainder loop of the outer loop
 ;         + DO i1 = 2 * %tgu, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1> <nounroll> <nounroll and jam> <max_trip_count = 1>
 ;         |   + DO i2 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 10>
@@ -58,10 +58,10 @@
 ;       { (Outer loop's original true weight) % (outer loop's unroll factor) }
 ;     = 9 / (9 % 2) = 9
 ; Please notice D is derived from the outer loop only, because the outer loop
-; is unrolled. 
-; 
+; is unrolled.
+;
 ;   Rem loop's (true, false) := Rem loop's (true / D, false / D)
-;                             = (81 / 9, 9 / 9) 
+;                             = (81 / 9, 9 / 9)
 ;                             = (9, 1)
 
 ; ModuleID = 'branchweights-uandj.c'

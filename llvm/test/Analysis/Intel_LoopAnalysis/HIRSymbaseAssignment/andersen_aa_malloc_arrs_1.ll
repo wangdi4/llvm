@@ -14,18 +14,18 @@
 ; Function Attrs: noinline nounwind uwtable
 define noalias i32* @foo()  {
 entry:
-  %call = tail call noalias i8* @malloc(i64 40) 
+  %call = tail call noalias i8* @malloc(i64 40)
   %0 = bitcast i8* %call to i32*
   ret i32* %0
 }
 
 ; Function Attrs: nounwind
-declare noalias i8* @malloc(i64) 
+declare noalias i8* @malloc(i64)
 
 ; Function Attrs: noinline nounwind uwtable
 define noalias i32* @bar()  {
 entry:
-  %call = tail call noalias i8* @malloc(i64 40) 
+  %call = tail call noalias i8* @malloc(i64 40)
   %0 = bitcast i8* %call to i32*
   ret i32* %0
 }

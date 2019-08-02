@@ -254,6 +254,7 @@ static cl::opt<unsigned> MinTreeSize(
     "slp-min-tree-size", cl::init(3), cl::Hidden,
     cl::desc("Only vectorize small trees if they are fully vectorizable"));
 
+#if INTEL_CUSTOMIZATION
 // The maximum depth that the look-ahead score heuristic will explore.
 // The higher this value, the higher the compilation time overhead.
 static cl::opt<int> LookAheadMaxDepth(
@@ -268,6 +269,7 @@ static cl::opt<unsigned> LookAheadUsersBudget(
     cl::desc("The maximum number of users to visit while visiting the "
              "predecessors. This prevents compilation time increase."));
 
+#endif // INTEL_CUSTOMIZATION
 static cl::opt<bool>
     ViewSLPTree("view-slp-tree", cl::Hidden,
                 cl::desc("Display the SLP trees with Graphviz"));
@@ -951,7 +953,7 @@ public:
 
     const DataLayout &DL;
     ScalarEvolution &SE;
-    const BoUpSLP &R;
+    const BoUpSLP &R; // INTEL
 
     /// \returns the operand data at \p OpIdx and \p Lane.
     OperandData &getData(unsigned OpIdx, unsigned Lane) {
@@ -977,6 +979,7 @@ public:
       std::swap(OpsVec[OpIdx1][Lane], OpsVec[OpIdx2][Lane]);
     }
 
+#if INTEL_CUSTOMIZATION
     // The hard-coded scores listed here are not very important. When computing
     // the scores of matching one sub-tree with another, we are basically
     // counting the number of values that are matching. So even if all scores
@@ -1186,6 +1189,7 @@ public:
       return getScoreAtLevelRec(LHS, RHS, 1, LookAheadMaxDepth);
     }
 
+#endif // INTEL_CUSTOMIZATION
     // Search all operands in Ops[*][Lane] for the one that matches best
     // Ops[OpIdx][LastLane] and return its opreand index.
     // If no good match can be found, return None.
@@ -1231,13 +1235,13 @@ public:
         // Look for an operand that matches the current mode.
         switch (RMode) {
         case ReorderingMode::Load:
-        case ReorderingMode::Constant:
-        case ReorderingMode::Opcode: {
+        case ReorderingMode::Constant:  // INTEL
+        case ReorderingMode::Opcode: {  // INTEL
           bool LeftToRight = Lane > LastLane;
           Value *OpLeft = (LeftToRight) ? OpLastLane : Op;
           Value *OpRight = (LeftToRight) ? Op : OpLastLane;
-          unsigned Score =
-              getLookAheadScore({OpLeft, LastLane}, {OpRight, Lane});
+          unsigned Score =                                            // INTEL
+              getLookAheadScore({OpLeft, LastLane}, {OpRight, Lane}); // INTEL
           if (Score > BestOp.Score) {
             BestOp.Idx = Idx;
             BestOp.Score = Score;
@@ -1374,8 +1378,8 @@ public:
   public:
     /// Initialize with all the operands of the instruction vector \p RootVL.
     VLOperands(ArrayRef<Value *> RootVL, const DataLayout &DL,
-               ScalarEvolution &SE, const BoUpSLP &R)
-        : DL(DL), SE(SE), R(R) {
+               ScalarEvolution &SE, const BoUpSLP &R)  // INTEL
+        : DL(DL), SE(SE), R(R) {                       // INTEL
       // Append all the operands of RootVL.
       appendOperandsOfVL(RootVL);
     }
@@ -1959,8 +1963,9 @@ private:
 #if INTEL_CUSTOMIZATION
                                              SmallVectorImpl<int> &OpDirLeft,
                                              SmallVectorImpl<int> &OpDirRight,
+                                             const BoUpSLP &R
 #endif // INTEL_CUSTOMIZATION
-                                             const BoUpSLP &R);
+                                             );
   struct TreeEntry {
     using VecTreeTy = SmallVector<std::unique_ptr<TreeEntry>, 8>;
     TreeEntry(VecTreeTy &Container) : Container(Container) {}
@@ -5205,7 +5210,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         // so that each side is more likely to have the same opcode.
         assert(P0 == SwapP0 && "Commutative Predicate mismatch");
         reorderInputsAccordingToOpcode(VL, Left, Right, *DL, *SE, OpDirLeft,
-                                       OpDirRight, *this);
+                                       OpDirRight, *this); // INTEL
       } else {
         for (Value *V : VL) {
           auto *Cmp = cast<CmpInst>(V);
@@ -6084,6 +6089,7 @@ int BoUpSLP::getSpillCost() const {
     });
 
     // Now find the sequence of instructions between PrevInst and Inst.
+    unsigned NumCalls = 0;
     BasicBlock::reverse_iterator InstIt = ++Inst->getIterator().getReverse(),
                                  PrevInstIt =
                                      PrevInst->getIterator().getReverse();
@@ -6096,14 +6102,17 @@ int BoUpSLP::getSpillCost() const {
       // Debug informations don't impact spill cost.
       if ((isa<CallInst>(&*PrevInstIt) &&
            !isa<DbgInfoIntrinsic>(&*PrevInstIt)) &&
-          &*PrevInstIt != PrevInst) {
-        SmallVector<Type*, 4> V;
-        for (auto *II : LiveValues)
-          V.push_back(VectorType::get(II->getType(), BundleWidth));
-        Cost += TTI->getCostOfKeepingLiveOverCall(V);
-      }
+          &*PrevInstIt != PrevInst)
+        NumCalls++;
 
       ++PrevInstIt;
+    }
+
+    if (NumCalls) {
+      SmallVector<Type*, 4> V;
+      for (auto *II : LiveValues)
+        V.push_back(VectorType::get(II->getType(), BundleWidth));
+      Cost += NumCalls * TTI->getCostOfKeepingLiveOverCall(V);
     }
 
     PrevInst = Inst;

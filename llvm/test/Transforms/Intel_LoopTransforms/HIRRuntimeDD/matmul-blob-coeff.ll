@@ -21,7 +21,7 @@
 ; CHECK: Function
 ; CHECK-DAG: &((%vy)[25 * %n + -1]) >=u &((%px)[0]);
 ; CHECK-DAG: &((%px)[%n + 599]) >=u &((%vy)[0]);
-; CHECK: %mv.and = 
+; CHECK: %mv.and =
 ; CHECK-DAG: &((%cx)[624]) >=u &((%px)[0]);
 ; CHECK-DAG: &((%px)[%n + 599]) >=u &((%cx)[0]);
 ; CHECK: %mv.and7 =

@@ -9,7 +9,7 @@
 ; CHECK: LiveOut symbases: 45
 
 ; CHECK: Function
-; CHECK: LiveOut symbases: 4 
+; CHECK: LiveOut symbases: 4
 ; CHECK: LiveOut symbases: 4
 ; CHECK: LiveOut symbases: 3
 

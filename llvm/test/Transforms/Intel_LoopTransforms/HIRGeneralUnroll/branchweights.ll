@@ -6,27 +6,27 @@
 ; Remainder loops branch_weight is kept low.
 
 ; *** IR Dump Before HIR General Unroll ***
-; 
+;
 ;         BEGIN REGION { }
 ;               + DO i1 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 20> <unroll = 2>
 ;                |   %conv = sitofp.i32.double(i1 + 2);
 ;                |   (@a)[0][i1] = %conv;
 ;                + END LOOP
 ;          END REGION
-; 
+;
 ;  *** IR Dump After HIR General Unroll ***
-; 
+;
 ;          BEGIN REGION { modified }
 ;                %tgu = (sext.i32.i64(%N))/u2;
-; 
+;
 ;                + DO i1 = 0, %tgu + -1, 1   <DO_LOOP>  <MAX_TC_EST = 10> <nounroll>
 ;                |   %conv = sitofp.i32.double(2 * i1 + 2);
 ;                |   (@a)[0][2 * i1] = %conv;
 ;                |   %conv = sitofp.i32.double(2 * i1 + 3);
 ;                |   (@a)[0][2 * i1 + 1] = %conv;
 ;                + END LOOP
-; 
-; 
+;
+;
 ;                + DO i1 = 2 * %tgu, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1> < nounroll> <max_trip_count = 1>
 ;                |   %conv = sitofp.i32.double(i1 + 2);
 ;                |   (@a)[0][i1] = %conv;
@@ -49,7 +49,7 @@
 ;CHECK-SAME: !prof ![[PROF_META_R]]
 
 ;CHECK-DAG: ![[PROF_META_B]] = !{!"branch_weights", i32 5, i32 1}
-;CHECK-DAG: ![[PROF_META_R]] = !{!"branch_weights", i32 0, i32 1}
+;CHECK-DAG: ![[PROF_META_R]] = !{!"branch_weights", i32 1, i32 1}
 
 ; ModuleID = 'mm3-pragma.c'
 source_filename = "mm3-pragma.c"

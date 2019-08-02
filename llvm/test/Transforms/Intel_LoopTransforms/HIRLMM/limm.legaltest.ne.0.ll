@@ -29,8 +29,8 @@
 ;
 ;[LIMM Analysis]
 ;MemRefCollection, entries: 2
-;  (@A)[0][i1] {  R  } 0W : 1R  profitable  legal  analyzed  :load-only: 
-;  (@A)[0][i1 + 2] {  W  } 1W : 0R  profitable  legal  analyzed  :store-only: 
+;  (@A)[0][i1] {  R  } 0W : 1R  profitable  legal  analyzed  :load-only:
+;  (@A)[0][i1 + 2] {  W  } 1W : 0R  profitable  legal  analyzed  :store-only:
 ;
 ;
 ; [LIMM's Opportunities]
@@ -38,7 +38,7 @@
 ; - LISS:  (1)
 ; - LILHSS:(0)
 ;
-;  
+;
 ; CHECK: Function
 ;
 ; CHECK:   BEGIN REGION { }

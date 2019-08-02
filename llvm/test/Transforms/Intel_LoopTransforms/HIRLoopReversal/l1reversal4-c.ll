@@ -1,16 +1,16 @@
 ; Sanity Test(s) on HIR Loop Reversal: simple l1 loop that MAYBE reversed
-; 
-; l1reversal4-c.ll: 
+;
+; l1reversal4-c.ll:
 ; 1-level loop, sanity testcase1, potentially confusing case4 for in HIR LOOP Reversal:
-; 
+;
 ; [REASONS]
-; - Applicalbe: YES, HAS valid (1) negative memory-access address; 
+; - Applicalbe: YES, HAS valid (1) negative memory-access address;
 ; - Profitable: YES
 ;   Analysis finds there is constcoeff (2) negative IV stride, and constcoeff (3) on positiv IV stride.
 ;   So the cost model returns positive.
 ; - Legal:      YES (no dependence: A and B are not aliased)
-; 
-; 
+;
+;
 ; *** Source Code ***
 ;
 ; [BEFORE LOOP REVERSAL]
@@ -25,7 +25,7 @@
 ;
 ;
 ; [AFTER LOOP REVERSAL: potential output 2 -- Reversed]
-; 
+;
 ;int foo(int * strict A, int * strict B){
 ;  int i;
 ;  for (i = 0; i <= 4; i++) {
@@ -33,26 +33,26 @@
 ;  }
 ;  return A[1] + B[1];
 ;}
-; 
+;
 ; ===-----------------------------------===
 ; *** Run0: BEFORE HIR Loop Reversal ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=BEFORE 
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE 
+; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=BEFORE
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE
 ;
 ;
 ; ===-----------------------------------===
 ; *** Run1: AFTER HIR Loop Reversal, DOESN'T REVERSE anything ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-after=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=AFTER 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=AFTER 
+; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-after=hir-loop-reversal -S 2>&1 < %s  |	FileCheck %s -check-prefix=AFTER
+; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=AFTER
 ;
 ;
 ; === -------------------------------------- ===
 ; *** Tests0: W/O HIR Loop Reversal Output ***
 ; === -------------------------------------- ===
 ; Expected output before Loop Reversal
-; 
+;
 ;          BEGIN REGION { }
 ;<15>         + DO i1 = 0, 4, 1   <DO_LOOP>
 ;<4>          | %1 = (%B)[3 * i1];
@@ -73,7 +73,7 @@
 ; *** THOUGHT NOTHING IS REVERSED !!!        ***
 ; === -------------------------------------- ===
 ; Expected output AFTER	 Loop Reversal
-; 
+;
 ;         BEGIN REGION { modified }
 ;<15>         + DO i1 = 0, 4, 1   <DO_LOOP>
 ;<4>          |   %1 = (%B)[-3 * i1 + 12];

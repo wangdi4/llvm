@@ -693,6 +693,17 @@ def ImmUnsignedi8AsmOperand : AsmOperandClass {
   let RenderMethod = "addImmOperands";
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+// Unsigned immediate used by IceCode instructions
+// [0, 0xF]
+def ImmUnsignedi4AsmOperand : AsmOperandClass {
+  let Name = "ImmUnsignedi4";
+  let RenderMethod = "addImmOperands";
+}
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
+
 // A couple of more descriptive operand definitions.
 // 16-bits but only 8 bits are significant.
 def i16i8imm  : Operand<i16> {
@@ -739,6 +750,18 @@ def i32u8imm : Operand<i32> {
   let ParserMatchClass = ImmUnsignedi8AsmOperand;
   let OperandType = "OPERAND_IMMEDIATE";
 }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+// 32-bit immediate but only 4-bits are significant and they are unsigned.
+// Used by some IceCode instructions that use intrinsics.
+def i32u4imm : Operand<i32> {
+  let PrintMethod = "printU8Imm";
+  let ParserMatchClass = ImmUnsignedi4AsmOperand;
+  let OperandType = "OPERAND_IMMEDIATE";
+}
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 
 // 64-bit immediate but only 8-bits are significant and they are unsigned.
 // Used by BT instructions.
@@ -1005,6 +1028,14 @@ def Not64BitMode : Predicate<"!Subtarget->is64Bit()">,
                              AssemblerPredicate<"!Mode64Bit", "Not 64-bit mode">;
 def In64BitMode  : Predicate<"Subtarget->is64Bit()">,
                              AssemblerPredicate<"Mode64Bit", "64-bit mode">;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+def NotIceCodeMode : Predicate<"!Subtarget->isIceCode()">,
+                               AssemblerPredicate<"!ModeIceCode", "Not IceCode mode">;
+def InIceCodeMode  : Predicate<"Subtarget->isIceCode()">,
+                               AssemblerPredicate<"ModeIceCode", "IceCode mode">;
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 def IsLP64  : Predicate<"Subtarget->isTarget64BitLP64()">;
 def NotLP64 : Predicate<"!Subtarget->isTarget64BitLP64()">;
 def In16BitMode  : Predicate<"Subtarget->is16Bit()">,
@@ -2531,15 +2562,20 @@ let Predicates = [HasBMI] in {
             (BLSI64rr GR64:$src)>;
 
   // Versions to match flag producing ops.
+  def : Pat<(and_flag_nocf GR32:$src, (add GR32:$src, -1)),
+            (BLSR32rr GR32:$src)>;
+  def : Pat<(and_flag_nocf GR64:$src, (add GR64:$src, -1)),
+            (BLSR64rr GR64:$src)>;
+
   def : Pat<(xor_flag_nocf GR32:$src, (add GR32:$src, -1)),
             (BLSMSK32rr GR32:$src)>;
   def : Pat<(xor_flag_nocf GR64:$src, (add GR64:$src, -1)),
             (BLSMSK64rr GR64:$src)>;
 
-  def : Pat<(and_flag_nocf GR32:$src, (add GR32:$src, -1)),
-            (BLSR32rr GR32:$src)>;
-  def : Pat<(and_flag_nocf GR64:$src, (add GR64:$src, -1)),
-            (BLSR64rr GR64:$src)>;
+  def : Pat<(and_flag_nocf GR32:$src, (ineg GR32:$src)),
+            (BLSI32rr GR32:$src)>;
+  def : Pat<(and_flag_nocf GR64:$src, (ineg GR64:$src)),
+            (BLSI64rr GR64:$src)>;
 }
 
 multiclass bmi_bextr<bits<8> opc, string mnemonic, RegisterClass RC,
@@ -3009,8 +3045,6 @@ let Predicates = [HasTBM] in {
             (TZMSK64rr GR64:$src)>;
 
   // Patterns to match flag producing ops.
-  // X86and_flag nodes are rarely created. Those should use CMP+AND. We do
-  // TESTrr matching in PostProcessISelDAG to allow BLSR/BLSI to be formed.
   def : Pat<(or_flag_nocf GR32:$src, (not (add GR32:$src, 1))),
             (BLCI32rr GR32:$src)>;
   def : Pat<(or_flag_nocf GR64:$src, (not (add GR64:$src, 1))),
@@ -3021,6 +3055,11 @@ let Predicates = [HasTBM] in {
             (BLCI32rr GR32:$src)>;
   def : Pat<(or_flag_nocf GR64:$src, (sub -2, GR64:$src)),
             (BLCI64rr GR64:$src)>;
+
+  def : Pat<(and_flag_nocf (not GR32:$src), (add GR32:$src, 1)),
+            (BLCIC32rr GR32:$src)>;
+  def : Pat<(and_flag_nocf (not GR64:$src), (add GR64:$src, 1)),
+            (BLCIC64rr GR64:$src)>;
 
   def : Pat<(xor_flag_nocf GR32:$src, (add GR32:$src, 1)),
             (BLCMSK32rr GR32:$src)>;
@@ -3046,6 +3085,11 @@ let Predicates = [HasTBM] in {
             (T1MSKC32rr GR32:$src)>;
   def : Pat<(or_flag_nocf (not GR64:$src), (add GR64:$src, 1)),
             (T1MSKC64rr GR64:$src)>;
+
+  def : Pat<(and_flag_nocf (not GR32:$src), (add GR32:$src, -1)),
+            (TZMSK32rr GR32:$src)>;
+  def : Pat<(and_flag_nocf (not GR64:$src), (add GR64:$src, -1)),
+            (TZMSK64rr GR64:$src)>;
 } // HasTBM
 
 //===----------------------------------------------------------------------===//
@@ -3108,6 +3152,12 @@ include "Intel_X86InstrKL.td"
 #if INTEL_FEATURE_ISA_AMX
 include "Intel_X86InstrAMX.td"
 #endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+include "Intel_X86InstrIceCode.td"
+#endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
 
 // System instructions.

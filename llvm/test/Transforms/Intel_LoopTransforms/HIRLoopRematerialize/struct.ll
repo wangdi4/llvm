@@ -1,6 +1,6 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-rematerialize -print-before=hir-loop-rematerialize -print-after=hir-loop-rematerialize < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-rematerialize,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
- 
+
 ;
 ;struct S {
 ;  double X;
@@ -11,23 +11,23 @@
 ;  a[1] = n * n * b[1].Y;
 ;  a[2] = n * n * b[2].X;
 ;}
- 
+
 ; CHECK: Function: Vsub
-; CHECK:         BEGIN REGION { }                  
-; CHECK:               %mul = %n  *  %n;           
-; CHECK:               %mul1 = %mul  *  (%b)[0].0; 
-; CHECK:               (%a)[0] = %mul1;            
-; CHECK:               %mul5 = %mul  *  (%b)[1].1; 
-; CHECK:               (%a)[1] = %mul5;            
+; CHECK:         BEGIN REGION { }
+; CHECK:               %mul = %n  *  %n;
+; CHECK:               %mul1 = %mul  *  (%b)[0].0;
+; CHECK:               (%a)[0] = %mul1;
+; CHECK:               %mul5 = %mul  *  (%b)[1].1;
+; CHECK:               (%a)[1] = %mul5;
 ; CHECK:               %mul10 = %mul  *  (%b)[2].0;
-; CHECK:               (%a)[2] = %mul10;           
-; CHECK:               ret ;                       
-; CHECK:         END REGION                        
+; CHECK:               (%a)[2] = %mul10;
+; CHECK:               ret ;
+; CHECK:         END REGION
 
 ; CHECK: Function: Vsub
 ; CHECK-NOT: DO_LOOP
 ; CHECK-NOT: END LOOP
- 
+
 ;Module Before HIR
 ; ModuleID = 'struct.c'
 source_filename = "struct.c"

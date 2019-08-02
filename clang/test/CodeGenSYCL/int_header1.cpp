@@ -1,9 +1,6 @@
 // RUN: %clang -I %S/Inputs --sycl -Xclang -fsycl-int-header=%t.h %s -c -o kernel.spv
 // RUN: FileCheck -input-file=%t.h %s
 
-// Mark this test as expected fail in initial merge of SYCL to xmain
-// XFAIL: *
-
 // CHECK:template <> struct KernelInfo<class KernelName> {
 // CHECK:template <> struct KernelInfo<::nm1::nm2::KernelName0> {
 // CHECK:template <> struct KernelInfo<::nm1::KernelName1> {

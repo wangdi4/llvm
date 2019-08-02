@@ -18,7 +18,7 @@
 ; CHECK: getelementptr
 ; CHECK: getelementptr
 ; CHECK: getelementptr inbounds ([10 x i32], [10 x i32]* @B, i64 0, i64 4)
-; CHECK: getelementptr inbounds ([10 x i32], [10 x i32]* @A, i64 0, i64 4) 
+; CHECK: getelementptr inbounds ([10 x i32], [10 x i32]* @A, i64 0, i64 4)
 ; CHECK: br label %for.end
 
 ; ModuleID = 'test.cpp'

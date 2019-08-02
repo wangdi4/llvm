@@ -199,7 +199,8 @@ public:
   unsigned getNumRegions() const { return IRRegions.size(); }
 
   /// Returns true if this type is supported.
-  static bool isSupported(Type *Ty, const Loop *Lp = nullptr);
+  static bool isSupported(Type *Ty, bool IsGEPRelated,
+                          const Loop *Lp = nullptr);
 
   /// Returns true if \p GEPOp contains a type not supported by HIR.
   static bool containsUnsupportedTy(const GEPOrSubsOperator *GEPOp,

@@ -42,6 +42,12 @@ if ((CMAKE_GENERATOR MATCHES "Visual Studio") AND (CMAKE_GENERATOR_TOOLSET STREQ
                   "host compiler, pass -Thost=x64 on the CMake command line.")
 endif()
 
+if (CMAKE_GENERATOR STREQUAL "Xcode" AND NOT CMAKE_OSX_ARCHITECTURES)
+  # Some CMake features like object libraries get confused if you don't
+  # explicitly specify an architecture setting with the Xcode generator.
+  set(CMAKE_OSX_ARCHITECTURES "x86_64")
+endif()
+
 project(LLVM
   VERSION ${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.${LLVM_VERSION_PATCH}
   LANGUAGES C CXX ASM)
@@ -290,6 +296,7 @@ set(LLVM_ALL_TARGETS
   MSP430
   NVPTX
   PowerPC
+  RISCV
   Sparc
   SystemZ
   WebAssembly
@@ -658,10 +665,8 @@ option(LLVM_ENABLE_PLUGINS "Enable plugin support" ${LLVM_ENABLE_PLUGINS_default
 
 include(HandleLLVMOptions)
 
-# Verify that we can find a Python 2 interpreter.  Python 3 is unsupported.
-# FIXME: We should support systems with only Python 3, but that requires work
-# on LLDB.
-set(Python_ADDITIONAL_VERSIONS 2.7)
+# We support both Python 2 and 3.
+set(Python_ADDITIONAL_VERSIONS 3.7 3.6 3.5 2.7)
 include(FindPythonInterp)
 if( NOT PYTHONINTERP_FOUND )
   message(FATAL_ERROR
@@ -940,8 +945,8 @@ if(INTEL_CUSTOMIZATION)
 
     # Define feature specific macros.
     foreach(f ${LLVM_INTEL_FEATURES})
-      SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D${f}=1")
       list(APPEND LLVM_INTEL_TABLEGEN_FLAGS "-D${f}")
+      add_definitions(-D${f}=1)
     endforeach(f)
   endif()
 endif(INTEL_CUSTOMIZATION)
@@ -1404,21 +1409,18 @@ if (INTEL_CUSTOMIZATION)
 
     foreach( comp ${INTEL_DEPLOY_COMPONENTS} )
 
-      # Filter out xdev components
-      if ( NOT "${comp}"  MATCHES "^xdev-.*")
-        message( STATUS "Adding component ${comp} to deploy")
+      message( STATUS "Adding component ${comp} to deploy")
 
-        set (manifest ${CMAKE_CURRENT_BINARY_DIR}/install_manifest_${comp}.txt)
-        add_custom_command(OUTPUT ${manifest}
-                           COMMAND "${CMAKE_COMMAND}"
-                                   "-DCMAKE_INSTALL_COMPONENT=${comp}"
-                                   -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
-                           DEPENDS  ${chain_dep}
-                           COMMENT "Deploying component ${comp}"
-                           USES_TERMINAL)
-        list(APPEND manifest_list ${manifest})
-        set(chain_dep ${manifest})
-      endif()
+      set (manifest ${CMAKE_CURRENT_BINARY_DIR}/install_manifest_${comp}.txt)
+      add_custom_command(OUTPUT ${manifest}
+                         COMMAND "${CMAKE_COMMAND}"
+                                 "-DCMAKE_INSTALL_COMPONENT=${comp}"
+                                 -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
+                         DEPENDS  ${chain_dep}
+                         COMMENT "Deploying component ${comp}"
+                         USES_TERMINAL)
+      list(APPEND manifest_list ${manifest})
+      set(chain_dep ${manifest})
     endforeach( comp )
 
     # cmake does not allow to specify dependencies on cmakes' built-in targets such as all, clean, install etc.

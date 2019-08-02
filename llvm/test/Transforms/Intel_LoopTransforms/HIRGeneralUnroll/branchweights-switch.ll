@@ -1,9 +1,9 @@
 
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-general-unroll -hir-cg -S 2>&1 < %s | FileCheck %s
-; opt -passes="hir-ssa-deconstruction,hir-general-unroll,hir-cg" -aa-pipeline="basic-aa" -S  2>&1 < %s| FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-general-unroll,hir-cg" -aa-pipeline="basic-aa" -S  2>&1 < %s| FileCheck %s
 
 ; Before General Unroll
-; 
+;
 ;        BEGIN REGION { }
 ;              + DO i1 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 20> <unroll = 2>
 ;              |   %conv = sitofp.i32.double(i1 + 2);
@@ -27,10 +27,10 @@
 ; After General Unroll
 ; *** IR Dump After HIR General Unroll ***
 ; Function: sub
-; 
+;
 ;          BEGIN REGION { modified }
 ;                %tgu = (sext.i32.i64(%N))/u2;
-;                
+;
 ;                + DO i1 = 0, %tgu + -1, 1   <DO_LOOP>  <MAX_TC_EST = 10> <nounroll>
 ;                |   %conv = sitofp.i32.double(2 * i1 + 2);
 ;                |   (@a)[0][2 * i1] = %conv;
@@ -63,8 +63,8 @@
 ;                |      break;
 ;                |   }
 ;                + END LOOP
-;                
-;                
+;
+;
 ;                + DO i1 = 2 * %tgu, sext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1> <nounroll> <max_trip_count = 1>
 ;                |   %conv = sitofp.i32.double(i1 + 2);
 ;                |   (@a)[0][i1] = %conv;
@@ -88,11 +88,11 @@
 ;CHECK: region.0:
 ;CHECK: br i1
 ;CHECK-SAME: !prof ![[PROF_LOOP_UNROLLED:[0-9]+]]
-;CHECK: switch i32 %{{[0-9]+}}, label %[[SWITCH_UNROLLED_1:hir.sw.[0-9]+]].default [ 
+;CHECK: switch i32 %{{[0-9]+}}, label %[[SWITCH_UNROLLED_1:hir.sw.[0-9]+]].default [
 ;CHECK-NEXT: i32 0, label %[[SWITCH_UNROLLED_1]].case.0
 ;CHECK-NEXT: i32 1, label %[[SWITCH_UNROLLED_1]].case.1
 ;CHECK-NEXT: ], !prof ![[PROF_SWITCH_UNROLLED:[0-9]+]]
-;CHECK: switch i32 %{{[0-9]+}}, label %[[SWITCH_UNROLLED_2:hir.sw.[0-9]+]].default [ 
+;CHECK: switch i32 %{{[0-9]+}}, label %[[SWITCH_UNROLLED_2:hir.sw.[0-9]+]].default [
 ;CHECK-NEXT: i32 0, label %[[SWITCH_UNROLLED_2]].case.0
 ;CHECK-NEXT: i32 1, label %[[SWITCH_UNROLLED_2]].case.1
 ;CHECK-NEXT: ], !prof ![[PROF_SWITCH_UNROLLED]]
@@ -102,17 +102,17 @@
 ; Remainder loop
 ;CHECK: br i1
 ;CHECK-SAME: !prof ![[PROF_LOOP_REMAINDER:[0-9]+]]
-;CHECK: switch i32 %{{[0-9]+}}, label %[[SWITCH_REMAINDER_LOOP:hir.sw.[0-9]+]].default [ 
+;CHECK: switch i32 %{{[0-9]+}}, label %[[SWITCH_REMAINDER_LOOP:hir.sw.[0-9]+]].default [
 ;CHECK-NEXT: i32 0, label %[[SWITCH_REMAINDER_LOOP]].case.0
 ;CHECK-NEXT: i32 1, label %[[SWITCH_REMAINDER_LOOP]].case.1
 ;CHECK-NEXT: ], !prof ![[PROF_SWITCH_REMAINDER:[0-9]+]]
 ;CHECK: br i1
 ;CHECK-SAME: !prof ![[PROF_LOOP_REMAINDER]]
 
-;CHECK-DAG: ![[PROF_LOOP_UNROLLED]] = !{!"branch_weights", i32 5, i32 1} 
-;CHECK-DAG: ![[PROF_SWITCH_UNROLLED]] = !{!"branch_weights", i32 0, i32 2, i32 3} 
-;CHECK-DAG: ![[PROF_LOOP_REMAINDER]] = !{!"branch_weights", i32 1, i32 1} 
-;CHECK-DAG: ![[PROF_SWITCH_REMAINDER]] = !{!"branch_weights", i32 0, i32 0, i32 0} 
+;CHECK-DAG: ![[PROF_LOOP_UNROLLED]] = !{!"branch_weights", i32 5, i32 1}
+;CHECK-DAG: ![[PROF_SWITCH_UNROLLED]] = !{!"branch_weights", i32 0, i32 2, i32 3}
+;CHECK-DAG: ![[PROF_LOOP_REMAINDER]] = !{!"branch_weights", i32 1, i32 1}
+;CHECK-DAG: ![[PROF_SWITCH_REMAINDER]] = !{!"branch_weights", i32 0, i32 1, i32 1}
 
 
 ; ModuleID = 'switch-pragma-unroll.c'

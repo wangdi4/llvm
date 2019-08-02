@@ -146,6 +146,44 @@ TARGET_BUILTIN(__builtin_ia32_tdpbf16ps, "vIUcIUcIUc", "n", "amx-bf16")
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+TARGET_BUILTIN(__builtin_ia32_icecode_loadseg, "vvC*Ii", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_storeseg, "vvC*Ii", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_loadpphys_16, "svC*", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_loadpphys_32, "ivC*", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_loadpphys_64, "LLivC*", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_storepphys_16, "vsvC*", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_storepphys_32, "vivC*", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_storepphys_64, "vLLivC*", "n", "icecode-mode")
+
+TARGET_BUILTIN(__builtin_ia32_icecode_creg_xchg_32, "UiUiUi", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_creg_xchg_64, "ULLiUiULLi", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_fscp_xchg_32, "UiUiUi", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_fscp_xchg_64, "ULLiUiULLi", "n", "icecode-mode")
+
+TARGET_BUILTIN(__builtin_ia32_icecode_creg_read_32, "UiUi", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_creg_read_64, "ULLiUi", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_fscp_read_32, "UiUi", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_fscp_read_64, "ULLiUi", "n", "icecode-mode")
+
+TARGET_BUILTIN(__builtin_ia32_icecode_portin_8, "UcvC*", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_portin_16, "UsvC*", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_portin_32, "UivC*", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_portin_64, "ULLivC*", "n", "icecode-mode")
+
+TARGET_BUILTIN(__builtin_ia32_icecode_portout_8, "vUcvC*", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_portout_16, "vUsvC*", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_portout_32, "vUivC*", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_portout_64, "vULLivC*", "n", "icecode-mode")
+
+TARGET_BUILTIN(__builtin_ia32_icecode_sta_special, "vvC*", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_nr_read, "UiIi", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_ucodecall, "vUi", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_cmodemov, "ULLiULLiULLiIi", "n", "icecode-mode")
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
 LANGBUILTIN(get_compute_id, "zi", "i", OCLC1X_LANG)
 LANGBUILTIN(read_pipe, "i.", "tn", OCLC1X_LANG)
 LANGBUILTIN(write_pipe, "i.", "tn", OCLC1X_LANG)

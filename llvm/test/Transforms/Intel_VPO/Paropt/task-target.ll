@@ -1,6 +1,7 @@
 ; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S | FileCheck %s
 
-; CHECK: define{{.*}}@main.DIR.OMP.TASK.4
+; CHECK: define{{.*}}@main.DIR.OMP.TASK.{{[0-9]+}}
 ; CHECK-DAG: %.offload_baseptrs = alloca
 ; CHECK-DAG: %.offload_ptrs = alloca [1 x i8*]
 ; CHECK-DAG: %.run_host_version = alloca i32

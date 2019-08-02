@@ -2,16 +2,16 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" -hir-verify-cf-def-level < %s 2>&1 | FileCheck %s
 
 ; CHECK: Function: foo
-;  
+;
 ; CHECK:         BEGIN REGION { }
 ; CHECK:                + DO i1 = 0, 499, 1   <DO_LOOP>
 ; CHECK:                |   %add = %S.013  +  (@A)[0][2 * i1];
 ; CHECK:                |   %S.013 = %add  +  (@A)[0][2 * i1 + 1];
 ; CHECK:                + END LOOP
 ; CHECK:          END REGION
-;  
+;
 ; CHECK: Function: foo
-;  
+;
 ; CHECK:         BEGIN REGION { }
 ; CHECK:               + DO i1 = 0, 999, 1   <DO_LOOP>
 ; CHECK:               |   %S.013 = %S.013  +  (@A)[0][i1];

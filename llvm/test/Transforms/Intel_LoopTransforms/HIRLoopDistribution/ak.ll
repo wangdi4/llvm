@@ -19,11 +19,11 @@
 ; CHECK: BEGIN REGION
 ; CHECK: DO i1 = 0, 99998, 1
 ; CHECK-NEXT: DO i2 = 0, 99998, 1
-; CHECK: (@A)[0][i1 + 1][i2 + 1] = 
+; CHECK: (@A)[0][i1 + 1][i2 + 1] =
 ; CHECK-NEXT: END LOOP
 
 ; CHECK: DO i2 = 0, 99998, 1
-; CHECK: (@A)[0][i1 + 1][i2] 
+; CHECK: (@A)[0][i1 + 1][i2]
 ; CHECK: END LOOP
 ; CHECK-NEXT: END LOOP
 ; CHECK-NEXT: END REGION
@@ -82,8 +82,8 @@ for.end.25:                                       ; preds = %for.inc.23
 
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) 
+declare void @llvm.lifetime.start(i64, i8* nocapture)
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) 
+declare void @llvm.lifetime.end(i64, i8* nocapture)
 

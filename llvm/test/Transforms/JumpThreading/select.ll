@@ -283,12 +283,12 @@ cond.false.15.i:                                  ; preds = %cond.false.10.i
 ; CHECK-LABEL: @unfold3
 ; INTEL - NUM changes are because the INTEL algorithm visits in different
 ; INTEL - orders and that leads to different "uniqing" of the thread BBs.
-; CHECK: br i1 %cmp.i, label %.exit.thread[[NUM:[1-9]]], label %cond.false.i
-; CHECK: br i1 %cmp4.i, label %.exit.thread, label %cond.false.6.i
-; CHECK: br i1 %cmp8.i, label %.exit.thread[[NUM]], label %cond.false.10.i
-; CHECK: br i1 %cmp13.i, label %.exit.thread, label %.exit
-; CHECK: br i1 %phitmp, label %.exit.thread, label %.exit.thread[[NUM]]
-; CHECK: br label %.exit.thread[[NUM]]
+; CHECK: br i1 %cmp.i, label %.exit.thread[[NUM:[1-9]]], label %cond.false.i ;INTEL
+; CHECK: br i1 %cmp4.i, label %.exit.thread, label %cond.false.6.i ;INTEL
+; CHECK: br i1 %cmp8.i, label %.exit.thread[[NUM]], label %cond.false.10.i ;INTEL
+; CHECK: br i1 %cmp13.i, label %.exit.thread, label %.exit ;INTEL
+; CHECK: br i1 %phitmp, label %.exit.thread, label %.exit.thread[[NUM]] ;INTEL
+; CHECK: br label %.exit.thread[[NUM]] ;INTEL
 }
 
 define i32 @unfold4(i32 %u, i32 %v, i32 %w, i32 %x, i32 %y, i32 %z, i32 %j) nounwind {
@@ -323,12 +323,12 @@ cond.false.15.i:                                  ; preds = %cond.false.10.i
 ; CHECK-LABEL: @unfold4
 ; INTEL - NUM changes are because the INTEL algorithm visits in different
 ; INTEL - orders and that leads to different "uniqing" of the thread BBs.
-; CHECK: br i1 %cmp.i, label %.exit.thread, label %cond.false.i
-; CHECK: br i1 %cmp4.i, label %.exit.thread[[NUM:[1-9]]], label %cond.false.6.i
-; CHECK: br i1 %cmp8.i, label %.exit.thread, label %cond.false.10.i
-; CHECK: br i1 %cmp13.i, label %.exit.thread[[NUM]], label %.exit
-; CHECK: br i1 %lnot.i18, label %.exit.thread, label %.exit.thread[[NUM]]
-; CHECK: br label %.exit.thread[[NUM]]
+; CHECK: br i1 %cmp.i, label %.exit.thread, label %cond.false.i ;INTEL
+; CHECK: br i1 %cmp4.i, label %.exit.thread[[NUM:[1-9]]], label %cond.false.6.i ;INTEL
+; CHECK: br i1 %cmp8.i, label %.exit.thread, label %cond.false.10.i ;INTEL
+; CHECK: br i1 %cmp13.i, label %.exit.thread[[NUM]], label %.exit ;INTEL
+; CHECK: br i1 %lnot.i18, label %.exit.thread, label %.exit.thread[[NUM]] ;INTEL
+; CHECK: br label %.exit.thread[[NUM]] ;INTEL
 }
 
 define i32 @unfold5(i32 %u, i32 %v, i32 %w, i32 %x, i32 %y, i32 %z, i32 %j) nounwind {

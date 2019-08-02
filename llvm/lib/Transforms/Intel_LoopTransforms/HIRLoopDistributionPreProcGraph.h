@@ -109,14 +109,45 @@ class HIRSparseArrayReductionAnalysis;
 // by cutting down the number of nodes and edges. We expect far fewer
 // DistPPNodes than HLDDNodes and fewer DistPPEdges than DDEdges
 
-struct DistPPNode {
+class DistPPNode {
   // The HLNode for this dist node. All children hlnodes of this node
   // are represented by this dist node
   HLNode *HNode;
   DistPPGraph *Graph;
-  DistPPNode(HLNode *N, DistPPGraph *G) : HNode(N), Graph(G) {}
-  DistPPGraph *getGraph() { return Graph; }
-  void dump() { HNode->dump(); }
+
+  // Indicates that PP node represents HLIf statement only, without its
+  // children.
+  bool IsSimpleControlNode;
+
+public:
+  DistPPNode(HLNode *N, DistPPGraph *G)
+      : HNode(N), Graph(G), IsSimpleControlNode(false) {}
+
+  DistPPGraph *getGraph() const { return Graph; }
+  HLNode *getNode() const { return HNode; }
+
+  void setSimpleControlNode() {
+    assert(isControlNode());
+    IsSimpleControlNode = true;
+  }
+
+  bool isControlNode() const { return isa<HLIf>(getNode()); }
+  bool isSimpleControlNode() const {
+    return isControlNode() && IsSimpleControlNode;
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  LLVM_DUMP_METHOD
+  void dump() {
+    if (isSimpleControlNode()) {
+      cast<HLIf>(HNode)->dumpHeader();
+      dbgs() << "\n";
+      return;
+    }
+
+    HNode->dump();
+  }
+#endif
 };
 
 // See specialization in ADT/DenseMapInfo.h for pointers.
@@ -139,8 +170,8 @@ template <typename PPNode> struct DenseDistPPNodeMapInfo {
 
   /// Specialized method.
   static unsigned getHashValue(const T *PtrVal) {
-    return (unsigned(PtrVal->HNode->getNumber() >> 0)) ^
-           (unsigned(PtrVal->HNode->getNumber() >> 5));
+    return (unsigned(PtrVal->getNode()->getNumber() >> 0)) ^
+           (unsigned(PtrVal->getNode()->getNumber() >> 5));
   }
 
   static bool isEqual(const T *LHS, const T *RHS) { return LHS == RHS; }
@@ -164,19 +195,21 @@ struct DistPPEdge {
   DistPPNode *Src;
   DistPPNode *Sink;
   SmallVector<const DDEdge *, 16> DDEdges;
+
   DistPPNode *getSrc() const { return Src; }
   DistPPNode *getSink() const { return Sink; }
+
   DistPPEdge(DistPPNode *DistSrc, DistPPNode *DistSink,
-             const SmallVectorImpl<const DDEdge *> &EdgeList)
+             ArrayRef<const DDEdge *> EdgeList = {})
       : Src(DistSrc), Sink(DistSink),
         DDEdges(EdgeList.begin(), EdgeList.end()) {}
+
   void print(raw_ostream &OS) const {
     // TODO
   }
 };
 
 class DistPPGraph : public HIRGraph<DistPPNode, DistPPEdge> {
-
 public:
   void createNodes(HLLoop *Loop);
   unsigned getNodeCount() { return DistPPNodeList.size(); }
@@ -215,6 +248,21 @@ public:
 
   void addNode(DistPPNode *NewNode) { DistPPNodeList.push_back(NewNode); }
 
+  void addControlDependence(DistPPNode *Src, DistPPNode *Dst, bool Branch) {
+    assert(ControlDeps.count(Dst) == 0 && "Duplicate control dependence found");
+    ControlDeps[Dst] = std::make_pair(Src, Branch);
+  }
+
+  Optional<std::pair<DistPPNode *, bool>>
+  getControlDependence(DistPPNode *Dst) {
+    auto Iter = ControlDeps.find(Dst);
+    if (Iter == ControlDeps.end()) {
+      return {};
+    }
+
+    return Iter->second;
+  }
+
 private:
   // unlike other hirgraphs, this one actually owns the memory for its nodes
   // Special note, the dist nodes(well more precisely DistPPNode->hnode) in this
@@ -223,6 +271,11 @@ private:
   SmallVector<DistPPNode *, 36> DistPPNodeList;
 
   DenseMap<HLNode *, DistPPNode *> HLToDistPPNodeMap;
+
+  // Control dependencies between: S1 -> (S2, True/False branch)
+  // Means that S1 statement is control dependent on S2 statement's true or
+  // false branch.
+  DenseMap<DistPPNode *, std::pair<DistPPNode *, bool>> ControlDeps;
 
   std::string FailureString;
   bool GraphValidity = true;

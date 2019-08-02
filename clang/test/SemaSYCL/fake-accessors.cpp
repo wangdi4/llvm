@@ -1,8 +1,5 @@
 // RUN: %clang_cc1 -I %S/Inputs -fsycl-is-device -ast-dump %s | FileCheck %s
 
-// Mark this test as expected fail in initial merge of SYCL to xmain
-// XFAIL: *
-
 #include <sycl.hpp>
 
 namespace foo {
@@ -54,6 +51,6 @@ int main() {
         });
   return 0;
 }
-// CHECK: fake_accessors 'void (__global int *, cl::sycl::range<1>, cl::sycl::range<1>, cl::sycl::id<1>, foo::cl::sycl::accessor, accessor)
-// CHECK: accessor_typedef 'void (__global int *, cl::sycl::range<1>, cl::sycl::range<1>, cl::sycl::id<1>, foo::cl::sycl::accessor, accessor)
-// CHECK: accessor_alias 'void (__global int *, cl::sycl::range<1>, cl::sycl::range<1>, cl::sycl::id<1>, foo::cl::sycl::accessor, accessor)
+// CHECK: fake_accessors{{.*}} 'void (__global int *, cl::sycl::range<1>, cl::sycl::range<1>, cl::sycl::id<1>, foo::cl::sycl::accessor, accessor)
+// CHECK: accessor_typedef{{.*}} 'void (__global int *, cl::sycl::range<1>, cl::sycl::range<1>, cl::sycl::id<1>, foo::cl::sycl::accessor, accessor)
+// CHECK: accessor_alias{{.*}} 'void (__global int *, cl::sycl::range<1>, cl::sycl::range<1>, cl::sycl::id<1>, foo::cl::sycl::accessor, accessor)

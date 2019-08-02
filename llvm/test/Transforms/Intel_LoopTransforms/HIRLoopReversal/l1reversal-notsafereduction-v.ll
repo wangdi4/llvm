@@ -1,15 +1,15 @@
 ; l1reversal-notsafereduction-v.ll
 ; 1-level loop, testcase for liveout without safe reduction.
-; This loop is NOT allowed for reversal! 
-; 
+; This loop is NOT allowed for reversal!
+;
 ; [REASONS]
-; - PreliminaryTests: YES  
+; - PreliminaryTests: YES
 ; - Applicable: NO
 ; - Profitable: YES
-; - Legal:      YES 
-; -  
+; - Legal:      YES
+; -
 ;
-; 
+;
 ; *** Source Code ***
 ;
 ;[BEFORE LOOP REVERSAL]
@@ -33,12 +33,12 @@
 ;  }
 ; return s;
 ;}
-; 
+;
 ; ===-----------------------------------===
 ; *** Run0: BEFORE HIR Loop Reversal ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1	< %s  |	FileCheck %s -check-prefix=BEFORE 
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE 
+; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1	< %s  |	FileCheck %s -check-prefix=BEFORE
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE
 ;
 ;
 ; ===-----------------------------------===
@@ -52,7 +52,7 @@
 ; *** Tests0: W/O HIR Loop Reversal Output ***
 ; === -------------------------------------- ===
 ; Expected output before Loop Reversal
-; 
+;
 ;          BEGIN REGION { }
 ;<16>            + DO i1 = 0, 10, 1   <DO_LOOP>
 ;<4>             |   %3 = (%A)[-1 * i1 + sext.i32.i64(%n)];
@@ -83,7 +83,7 @@
 ; AFTER:        |   (%A)[-1 * i1 + sext.i32.i64((2 * %n))] = 2 * %s.015;
 ; AFTER:        + END LOOP
 ; AFTER:  END REGION
-; 
+;
 ;
 ; === ---------------------------------------------------------------- ===
 ; Following is the LLVM's input code!

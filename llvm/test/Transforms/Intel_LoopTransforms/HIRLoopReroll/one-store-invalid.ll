@@ -4,7 +4,7 @@
 ; Not in a right pattern
 
 ; CHECK: Function: foo
- 
+
 ; CHECK:     BEGIN REGION { }
 ; CHECK:           + DO i1 = 0, (sext.i32.i64(%n) + -1)/u4, 1   <DO_LOOP>  <MAX_TC_EST = 2>
 ; CHECK:           |   %1 = (@B)[0][4 * i1];
@@ -17,9 +17,9 @@
 ; CHECK:           |   (@A)[0][4 * i1 + 3] = (%n * %n * %7);
 ; CHECK:           + END LOOP
 ; CHECK:     END REGION
- 
+
 ; CHECK: Function: foo
- 
+
 ; CHECK:     BEGIN REGION { }
 ; CHECK:           + DO i1 = 0, (sext.i32.i64(%n) + -1)/u4, 1   <DO_LOOP>  <MAX_TC_EST = 2>
 ; CHECK:           |   %1 = (@B)[0][4 * i1];
@@ -32,7 +32,7 @@
 ; CHECK:           |   (@A)[0][4 * i1 + 3] = (%n * %n * %7);
 ; CHECK:           + END LOOP
 ; CHECK:     END REGION
- 
+
 ;Module Before HIR; ModuleID = 'one-store-invalid.c'
 source_filename = "one-store-invalid.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

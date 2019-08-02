@@ -3,12 +3,12 @@
 ;	for (i=0; i<= 21; i++) {
 ;		A[63  -  3*i] = i+2;
 ;		A[126 - 6*i] = i +5;
-;  DV is expected to be (<=) and not < 
+;  DV is expected to be (<=) and not <
 ;
-; RUN: opt < %s -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze | FileCheck %s 
+; RUN: opt < %s -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck %s
 
-; CHECK: DD graph for function  
+; CHECK: DD graph for function
 ; CHECK-DAG: (%A)[-3 * i1 + 63] OUTPUT (<=)
 ;
 ; ModuleID = 'x.c'

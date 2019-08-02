@@ -3,7 +3,7 @@
 
 ; Rerolls since blob and ivs are combined in the top level llvm-instruction.
 ; ICC does not.
- 
+
 ;#define SIZE 10
 ;#include <stdint.h>
 ;int64_t A[SIZE];
@@ -11,7 +11,7 @@
 ;int64_t C[SIZE];
 ;
 ;void foo(int n) {
-;  int D = n*n;  
+;  int D = n*n;
 ;  int q = 0;
 ;  for (int i=0;  i<n; i=i+4) {
 ;    B[i]   =1 + i + i*i;
@@ -23,7 +23,7 @@
 ;    B[i+3] =1 + i+3 + (i+3)*(i+3);
 ;  }
 ;}
- 
+
 ; CHECK:Function: foo
 
 ; CHECK:       BEGIN REGION { }
@@ -52,7 +52,7 @@
 ; CHECK:              |   (@B)[0][i1] = trunc.i64.i32(%add2);
 ; CHECK:              + END LOOP
 ; CHECK:        END REGION
- 
+
 ;Module Before HIR; ModuleID = 'new-1.c'
 source_filename = "new-1.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

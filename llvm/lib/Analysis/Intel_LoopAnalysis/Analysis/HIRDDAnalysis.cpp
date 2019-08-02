@@ -78,6 +78,14 @@ static cl::opt<bool>
     ForceDDA("force-hir-dd-analysis", cl::init(false), cl::Hidden,
              cl::desc("forces graph construction for every request"));
 
+// A low number of queries should suffice in practice. If a
+// dominating/post-dominating temp definition which kills a redundant edge
+// exists, it should be 'close by'.
+static cl::opt<unsigned> DominationQueryThreshold(
+    "hir-dd-domination-query-threshold", cl::init(3), cl::Hidden,
+    cl::desc("Approximate threshold for number of queries allowed (per temp "
+             "pair) to refine edges based on control flow."));
+
 enum ConstructDDEdgeType { None, Forward, Backward, Both };
 
 FunctionPass *llvm::createHIRDDAnalysisPass() {
@@ -252,85 +260,113 @@ static ConstructDDEdgeType edgeNeeded(RefVectorTy<DDRef>::iterator Ref1It,
   auto Ref1Node = Ref1->getHLDDNode();
   auto Ref2Node = Ref2->getHLDDNode();
 
-  if (!isa<HLLoop>(Ref1Node->getParent()) ||
-      !isa<HLLoop>(Ref2Node->getParent())) {
-    return ConstructDDEdgeType::Both;
+  // Look refs in-between Ref1 and Ref2 to ignore the forward edge
+  bool NeedForwardEdge = true;
+  unsigned QueryCount = 0;
+  for (auto It = std::next(Ref1It), E = Ref2It; It != E; ++It) {
+    if (QueryCount == DominationQueryThreshold) {
+      break;
+    }
+
+    DDRef *InBetweenRef = *It;
+    bool IsLval = InBetweenRef->isLval();
+
+    if (IsLval) {
+      ++QueryCount;
+
+      if (HLNodeUtils::postDominates(InBetweenRef->getHLDDNode(), Ref1Node) ||
+          HLNodeUtils::dominates(InBetweenRef->getHLDDNode(), Ref2Node)) {
+        LLVM_DEBUG(dbgs() << "Skipping forward edge from "
+                          << Ref1->getHLDDNode()->getNumber() << "("
+                          << (Ref1->isLval() ? "lval" : "rval") << ")"
+                          << " to " << Ref2->getHLDDNode()->getNumber() << "("
+                          << (Ref2->isLval() ? "lval" : "rval") << ")"
+                          << " because of inbetween def at "
+                          << InBetweenRef->getHLDDNode()->getNumber() << "("
+                          << (InBetweenRef->isLval() ? "lval" : "rval") << ")"
+                          << "\n");
+        NeedForwardEdge = false;
+        break;
+      }
+    }
   }
 
   auto Parent1 = Ref1Node->getLexicalParentLoop();
   if (!IsGraphForInnermostLoop &&
       (!Parent1 || !Parent1->isInnermost() ||
        (Parent1 != Ref2Node->getLexicalParentLoop()))) {
-    return ConstructDDEdgeType::Both;
-  }
-
-  // Look refs in-between Ref1 and Ref2 to ignore the forward edge
-  bool NeedForwardEdge = true;
-  for (auto It = std::next(Ref1It), E = Ref2It; It != E; ++It) {
-    DDRef *InBetweenRef = *It;
-    if (InBetweenRef->isLval() &&
-        HLNodeUtils::postDominates(InBetweenRef->getHLDDNode(), Ref1Node)) {
-      LLVM_DEBUG(dbgs() << "Skipping forward edge from "
-                        << Ref1->getHLDDNode()->getNumber() << "("
-                        << (Ref1->isLval() ? "lval" : "rval") << ")"
-                        << " to " << Ref2->getHLDDNode()->getNumber() << "("
-                        << (Ref2->isLval() ? "lval" : "rval") << ")"
-                        << " because of inbetween def at "
-                        << InBetweenRef->getHLDDNode()->getNumber() << "("
-                        << (InBetweenRef->isLval() ? "lval" : "rval") << ")"
-                        << "\n");
-      NeedForwardEdge = false;
-      break;
-    }
+    return NeedForwardEdge ? ConstructDDEdgeType::Both
+                           : ConstructDDEdgeType::Backward;
   }
 
   // Look refs before Ref1 to ignore the backward edge
   bool NeedBackwardEdge = true;
   std::reverse_iterator<decltype(Ref1It)> RI(Ref1It);
   std::reverse_iterator<decltype(BeginIt)> RE(BeginIt);
+  QueryCount = 0;
+
   for (auto It = RI; It != RE; ++It) {
+    if (QueryCount == DominationQueryThreshold) {
+      break;
+    }
+
     DDRef *UpwardRef = *It;
     if (!IsGraphForInnermostLoop &&
         (UpwardRef->getLexicalParentLoop() != Parent1)) {
       break;
     }
-    if (UpwardRef->isLval() &&
-        HLNodeUtils::dominates(UpwardRef->getHLDDNode(), Ref1Node)) {
-      LLVM_DEBUG(dbgs() << "Skipping backward edge from "
-                        << Ref2->getHLDDNode()->getNumber() << "("
-                        << (Ref2->isLval() ? "lval" : "rval") << ")"
-                        << " to " << Ref1->getHLDDNode()->getNumber() << "("
-                        << (Ref1->isLval() ? "lval" : "rval") << ")"
-                        << " because of upward def at "
-                        << UpwardRef->getHLDDNode()->getNumber() << "("
-                        << (UpwardRef->isLval() ? "lval" : "rval") << ")"
-                        << "\n");
-      NeedBackwardEdge = false;
-      break;
-    }
-  }
 
-  // Look refs after Ref2 to see if we can still ignore the backward edge
-  if (NeedBackwardEdge) {
-    for (auto It = std::next(Ref2It), E = EndIt; It != E; ++It) {
-      DDRef *DownwardRef = *It;
-      if (!IsGraphForInnermostLoop &&
-          (DownwardRef->getLexicalParentLoop() != Parent1)) {
-        break;
-      }
-      if (DownwardRef->isLval() &&
-          HLNodeUtils::postDominates(DownwardRef->getHLDDNode(), Ref2Node)) {
+    bool IsLval = UpwardRef->isLval();
+    if (IsLval) {
+      ++QueryCount;
+
+      if (HLNodeUtils::dominates(UpwardRef->getHLDDNode(), Ref1Node)) {
         LLVM_DEBUG(dbgs() << "Skipping backward edge from "
                           << Ref2->getHLDDNode()->getNumber() << "("
                           << (Ref2->isLval() ? "lval" : "rval") << ")"
                           << " to " << Ref1->getHLDDNode()->getNumber() << "("
                           << (Ref1->isLval() ? "lval" : "rval") << ")"
-                          << " because of downward def at "
-                          << DownwardRef->getHLDDNode()->getNumber() << "("
-                          << (DownwardRef->isLval() ? "lval" : "rval") << ")"
+                          << " because of upward def at "
+                          << UpwardRef->getHLDDNode()->getNumber() << "("
+                          << (UpwardRef->isLval() ? "lval" : "rval") << ")"
                           << "\n");
         NeedBackwardEdge = false;
         break;
+      }
+    }
+  }
+
+  // Look refs after Ref2 to see if we can still ignore the backward edge
+  if (NeedBackwardEdge) {
+    QueryCount = 0;
+    for (auto It = std::next(Ref2It), E = EndIt; It != E; ++It) {
+      if (QueryCount == DominationQueryThreshold) {
+        break;
+      }
+
+      DDRef *DownwardRef = *It;
+      if (!IsGraphForInnermostLoop &&
+          (DownwardRef->getLexicalParentLoop() != Parent1)) {
+        break;
+      }
+
+      bool IsLval = DownwardRef->isLval();
+      if (IsLval) {
+        ++QueryCount;
+
+        if (HLNodeUtils::postDominates(DownwardRef->getHLDDNode(), Ref2Node)) {
+          LLVM_DEBUG(dbgs() << "Skipping backward edge from "
+                            << Ref2->getHLDDNode()->getNumber() << "("
+                            << (Ref2->isLval() ? "lval" : "rval") << ")"
+                            << " to " << Ref1->getHLDDNode()->getNumber() << "("
+                            << (Ref1->isLval() ? "lval" : "rval") << ")"
+                            << " because of downward def at "
+                            << DownwardRef->getHLDDNode()->getNumber() << "("
+                            << (DownwardRef->isLval() ? "lval" : "rval") << ")"
+                            << "\n");
+          NeedBackwardEdge = false;
+          break;
+        }
       }
     }
   }

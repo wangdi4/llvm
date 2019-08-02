@@ -63,6 +63,7 @@ LLVMContext::LLVMContext() : pImpl(new LLVMContextImpl(*this)) {
     {MD_irr_loop, "irr_loop"},
     {MD_access_group, "llvm.access.group"},
     {MD_callback, "callback"},
+    {MD_preserve_access_index, "llvm.preserve.access.index"},
 #if INTEL_CUSTOMIZATION
     {MD_std_container_ptr, "std.container.ptr"},
     {MD_std_container_ptr_iter, "std.container.ptr.iter"},

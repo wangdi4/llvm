@@ -699,7 +699,7 @@ RegDDRef *HLLoop::getTripCountDDRef(unsigned NestingLevel) const {
     NestingLevel = getNestingLevel() - 1;
   }
 
-  TripRef->makeConsistent(&LoopRefs, NestingLevel);
+  TripRef->makeConsistent(LoopRefs, NestingLevel);
 
   return TripRef;
 }
@@ -878,7 +878,7 @@ void HLLoop::createZtt(bool IsOverwrite, bool IsSigned) {
   // +1 operation could make non-self blob a self-blob and wise versa.
   // For example if UB is (%b - 1) or (%b).
   SmallVector<const RegDDRef *, 1> Aux = {getUpperDDRef()};
-  UBRef->makeConsistent(&Aux, getNestingLevel());
+  UBRef->makeConsistent(Aux, getNestingLevel());
 }
 
 HLIf *HLLoop::extractZtt(unsigned NewLevel) {
@@ -980,7 +980,7 @@ void HLLoop::replaceByFirstIteration() {
           Ref->demoteIVs(Level + 1);
         }
 
-        Ref->makeConsistent(&Aux, Level - 1);
+        Ref->makeConsistent(Aux, Level - 1);
       });
 
   // To minimize the possibility of topsort numbers re-computation, detach the
@@ -1318,16 +1318,16 @@ bool HLLoop::normalize() {
             UpdateCE(CE);
           }
 
-          Ref->makeConsistent(&Aux, IsInnermost ? Level : NonLinearLevel);
+          Ref->makeConsistent(Aux, IsInnermost ? Level : NonLinearLevel);
         }
       });
 
   StrideCE->setConstant(1);
 
-  UpperRef->makeConsistent(&Aux, Level);
+  UpperRef->makeConsistent(Aux, Level);
 
   LowerCE->clear();
-  LowerRef->makeConsistent(nullptr, Level);
+  LowerRef->makeConsistent({}, Level);
 
   DEBUG_NORMALIZE(dbgs() << "[HIR-NORMALIZE] After:\n");
   DEBUG_NORMALIZE(dump());

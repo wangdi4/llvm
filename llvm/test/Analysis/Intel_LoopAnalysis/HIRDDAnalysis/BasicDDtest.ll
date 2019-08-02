@@ -1,4 +1,4 @@
-; RUN:  opt < %s  -loop-simplify  -hir-ssa-deconstruction | opt  -hir-dd-analysis  -hir-dd-analysis-verify=Region  -analyze  | FileCheck %s 
+; RUN:  opt < %s  -loop-simplify  -hir-ssa-deconstruction | opt  -hir-dd-analysis  -hir-dd-analysis-verify=Region  -analyze  | FileCheck %s
 ; RUN: opt < %s -passes="loop-simplify,hir-ssa-deconstruction" | opt -passes="print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -16,7 +16,7 @@ for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %arrayidx = getelementptr inbounds float, float* %q, i64 %indvars.iv
   %0 = load float, float* %arrayidx, align 4, !tbaa !1
-  %add = fadd float %0, 1.000000e+00 
+  %add = fadd float %0, 1.000000e+00
   %arrayidx2 = getelementptr inbounds float, float* %p, i64 %indvars.iv
   store float %add, float* %arrayidx2, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -32,7 +32,7 @@ for.end:                                          ; preds = %for.body
 
 ; CHECK: DD graph for function sub1
 ; CHECK-DAG: (%q)[i1] --> (%p)[i1] ANTI (*)
-; CHECK-DAG: (%p)[i1] --> (%q)[i1] FLOW (*)				
+; CHECK-DAG: (%p)[i1] --> (%q)[i1] FLOW (*)
 
 ; Function Attrs: nounwind
 declare void @llvm.lifetime.start(i64, i8* nocapture) #1
@@ -43,7 +43,7 @@ declare void @llvm.lifetime.end(i64, i8* nocapture) #1
 ; Function Attrs: nounwind uwtable
 define void @sub2(float* nocapture %p, i64 %n) #0 {
 
- 
+
 ;;     for (i=0; i<n; i++) {
 ;;        p[i] = p[i+1] +1;
 ;;     }
@@ -111,14 +111,14 @@ for.end:                                          ; preds = %for.body
 
 ; Function Attrs: nounwind uwtable
 define void @sub4(float* nocapture %p, float* nocapture %q, i32 %n) #0 {
-		
+
 ;;    for (i=1; i <= N; i++) {
 ;;        for (j=1; j <= N; j++) {
 ;;            p[N*i + j] = i;
 ;;            q[i] =  p[N*i + j -1] ;
 ;;       }
 ;;    }
-  
+
 ; CHECK: DD graph for function sub4
 
 ; CHECK-DAG:  --> (i32*)(%p)[100 * i1 + i2 + 100] FLOW (<= <)
@@ -160,7 +160,7 @@ for.end.10:                                       ; preds = %for.inc.8
 
 ; Function Attrs: nounwind uwtable
 define void @sub5(float* nocapture %p, float* nocapture %q, i32 %n) #0 {
-		
+
 ;;    for (i=1; i <= N; i++) {
 ;;        for (j=1; j <= N; j++) {
 ;;            p[100*i + j] = i;
@@ -207,7 +207,7 @@ for.end.10:                                       ; preds = %for.inc.8
 
 ; Function Attrs: nounwind uwtable
 define void @sub6(float* nocapture %p, float* nocapture %q, i64 %n) #0 {
-		
+
 ;;    for (i=0; i <  N; i++) {
 ;;        for (j=0; j <  N; j++) {
 ;;            p[2*i - 4*j] = 1;
@@ -258,16 +258,16 @@ for.end.11:                                       ; preds = %for.inc.9
 ; Function Attrs: nounwind uwtable
 define void @sub7(i64 %n) #0 {
 
-		
+
 ;;    for (i=0; i < n; i++) {
 ;;        for (j=0; j < n; j++) {
 ;;            A[2*i][4*j] =  A[8*i][6*j+1] +1;
 ;;        }
 ;;    }
-  
+
 ; CHECK: DD graph for function sub7
 ; INDEP expected for A, implying no EDGE
-; CHECK-NOT:  @A 
+; CHECK-NOT:  @A
 
 
 entry:
@@ -306,13 +306,13 @@ for.end.13:                                       ; preds = %for.inc.11, %entry
 ; Function Attrs: nounwind uwtable
 define void @sub8(i64 %n) #0 {
 
-		
+
 ;;    for (i1=0; i1 < n; i1++) {
 ;;        for (i2=0; i2 < n; i2++) {
 ;;            for (i3=0; i3 < n; i3++) {
 ;;                for (i4=0; i4 < n; i4++) {
 ;;                    for (i5=0; i5 < n; i5++) {
-;;                        a[i1][i2][i3][i4][i5] = a[i1][i2-1][i3+1][i4-2][i5+3]; }}}}} 
+;;                        a[i1][i2][i3][i4][i5] = a[i1][i2-1][i3+1][i4-2][i5+3]; }}}}}
 
 ; CHECK: DD graph for function sub8
 ; CHECK-DAG: FLOW (= < > < >)

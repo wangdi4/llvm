@@ -308,6 +308,8 @@ def menable_unsafe_fp_math : Flag<["-"], "menable-unsafe-fp-math">,
            "precision">;
 def mreassociate : Flag<["-"], "mreassociate">,
   HelpText<"Allow reassociation transformations for floating-point instructions">;
+def mabi_EQ_ieeelongdouble : Flag<["-"], "mabi=ieeelongdouble">,
+  HelpText<"Use IEEE 754 quadruple-precision for long double">;
 def mfloat_abi : Separate<["-"], "mfloat-abi">,
   HelpText<"The float ABI to use">;
 def mtp : Separate<["-"], "mtp">,
@@ -817,11 +819,6 @@ def fintel_ms_compatibility : Flag<["-"], "fintel-ms-compatibility">,
   HelpText<"Enable Microsoft compatibility features that are not planned for clang/llvm trunk">;
 def fintel_advanced_optim : Flag<["-"], "fintel-advanced-optim">,
   HelpText<"Enable Intel specific advanced optimizations">;
-// CQ#368123 - support '-f[no-]emit-class-debug-always' options.
-def femit_class_debug_always : Flag<["-"], "femit-class-debug-always">,
-  HelpText<"Enable emitting debug info for all class methods">;
-def fno_emit_class_debug_always : Flag<["-"], "fno-emit-class-debug-always">,
-  HelpText<"Disable emitting debug info for all class methods">;
 // CQ#366796 - support '--no_expr_source_pos' option.
 def no_expr_source_pos : Flag<["--"], "no_expr_source_pos">,
   HelpText<"Disable emitting debug source positions for expressions">;

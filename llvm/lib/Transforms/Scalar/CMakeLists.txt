@@ -35,6 +35,7 @@ add_llvm_library(LLVMScalarOpts
   Intel_MultiVersioning.cpp
   Intel_AddSubReassociate.cpp
   Intel_LoopCarriedCSE.cpp
+  IVSplit.cpp
 # end INTEL_CUSTOMIZATION
   JumpThreading.cpp
   LICM.cpp

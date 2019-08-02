@@ -1,6 +1,6 @@
-;    for (i=0; i < n; i++) 
-;        for (j=0; j <= i ; j++) 
-;            A[j][i] = A[j][i] + 1; 
+;    for (i=0; i < n; i++)
+;        for (j=0; j <= i ; j++)
+;            A[j][i] = A[j][i] + 1;
 ;
 ; REQUIRES: asserts
 ; RUN: opt -hir-ssa-deconstruction -debug-only=hir-loop-interchange -hir-loop-interchange < %s 2>&1 | FileCheck %s

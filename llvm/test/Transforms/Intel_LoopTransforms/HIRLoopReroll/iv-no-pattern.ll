@@ -5,27 +5,27 @@
 ; int A[SIZE];
 ; int B[SIZE];
 ; int C[SIZE];
-; 
+;
 ; void foo(int n) {
-;   int D = n*n;  
+;   int D = n*n;
 ;   int K = n / 2;
 ;   int q = 0;
 ;   for (int i=0;  i<n; i=i+4) {
-; 
+;
 ;     B[i] = n + i + D;
-; 
+;
 ;     B[i+1] = n + i + D;
-; 
+;
 ;     B[i+2] = n + i + D;
-; 
+;
 ;     B[i+3] = n + i + D;
 ;   }
-; 
+;
 ; }
 
 ; Not a valid reroll pattern
 ; CHECK: Function: foo
-;  
+;
 ; CHECK:     BEGIN REGION { }
 ; CHECK:           + DO i1 = 0, (sext.i32.i64(%n) + -1)/u4, 1   <DO_LOOP>  <MAX_TC_EST = 2>
 ; CHECK:           |   (@B)[0][4 * i1] = 4 * i1 + ((1 + %n) * %n);
@@ -34,9 +34,9 @@
 ; CHECK:           |   (@B)[0][4 * i1 + 3] = 4 * i1 + ((1 + %n) * %n);
 ; CHECK:           + END LOOP
 ; CHECK:     END REGION
-;  
+;
 ; CHECK: Function: foo
-;  
+;
 ; CHECK:    BEGIN REGION { }
 ; CHECK:          + DO i1 = 0, (sext.i32.i64(%n) + -1)/u4, 1   <DO_LOOP>  <MAX_TC_EST = 2>
 ; CHECK:          |   (@B)[0][4 * i1] = 4 * i1 + ((1 + %n) * %n);

@@ -488,13 +488,15 @@ static void printOptReportRemark(const Loop *Lp, const Twine &Remark) {
   LLVM_DEBUG(dbgs() << ": " << Remark << "\n");
 }
 
-bool HIRRegionIdentification::isSupported(Type *Ty, const Loop *Lp) {
+bool HIRRegionIdentification::isSupported(Type *Ty, bool IsGEPRelated,
+                                          const Loop *Lp) {
   assert(Ty && "Type is null!");
 
   while (isa<SequentialType>(Ty) || isa<PointerType>(Ty)) {
     if (auto SeqTy = dyn_cast<SequentialType>(Ty)) {
-      if (SeqTy->isVectorTy()) {
-        printOptReportRemark(Lp, "Vector types currently not supported.");
+      if (IsGEPRelated && SeqTy->isVectorTy()) {
+        printOptReportRemark(
+            Lp, "GEP related vector types currently not supported.");
         return false;
       }
       Ty = SeqTy->getElementType();
@@ -504,7 +506,7 @@ bool HIRRegionIdentification::isSupported(Type *Ty, const Loop *Lp) {
   }
 
   auto IntType = dyn_cast<IntegerType>(Ty);
-  // Integer type greater than 64 bits not supported.This is mainly to throttle
+  // Integer type greater than 64 bits not supported. This is mainly to throttle
   // 128 bit integers.
   if (IntType && (IntType->getPrimitiveSizeInBits() > 64)) {
     printOptReportRemark(
@@ -516,15 +518,28 @@ bool HIRRegionIdentification::isSupported(Type *Ty, const Loop *Lp) {
 }
 
 bool HIRRegionIdentification::containsUnsupportedTy(
-    const GEPOrSubsOperator *GEPOp, const Loop *Lp) {
-  // Subscript intrinsic indexes only a single type which is
-  // PointerOperandType.
-  if (isa<SubscriptInst>(GEPOp)) {
-    return !isSupported(GEPOp->getPointerOperandType(), Lp);
+    const GEPOrSubsOperator *GEPOrSubs, const Loop *Lp) {
+
+  if (auto *SubInst = dyn_cast<SubscriptInst>(GEPOrSubs)) {
+    // Subscript intrinsic can contain vector types.
+    return !isSupported(SubInst->getPointerOperandType(), true, Lp) ||
+           !isSupported(SubInst->getIndex()->getType(), true, Lp) ||
+           !isSupported(SubInst->getStride()->getType(), true, Lp);
   }
 
+  auto *GEPOp = cast<GEPOperator>(GEPOrSubs);
+
+  for (unsigned I = 0, NumOp = GEPOp->getNumOperands(); I < NumOp; ++I) {
+    if (!isSupported(GEPOp->getOperand(I)->getType(), true, Lp)) {
+      return true;
+    }
+  }
+
+  // We need to check 'indexed' types as well as they can contain vector types
+  // even if indices don't. This is possible when indexing structures which
+  // contain vector elements.
   for (auto I = gep_type_begin(GEPOp), E = gep_type_end(GEPOp); I != E; ++I) {
-    if (!isSupported(I.getIndexedType(), Lp)) {
+    if (!isSupported(I.getIndexedType(), true, Lp)) {
       return true;
     }
   }
@@ -550,7 +565,7 @@ bool HIRRegionIdentification::containsUnsupportedTy(const Instruction *Inst,
 
   // Check instruction operands
   for (unsigned I = 0; I < NumOp; ++I) {
-    if (!isSupported(Inst->getOperand(I)->getType(), Lp)) {
+    if (!isSupported(Inst->getOperand(I)->getType(), false, Lp)) {
       return true;
     }
   }
@@ -1238,11 +1253,6 @@ bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
     if (isa<InsertValueInst>(Inst) || isa<ExtractValueInst>(Inst)) {
       printOptReportRemark(
           Lp, "InsertValueInst/ExtractValueInst currently not supported.");
-      return false;
-    }
-
-    if (Inst->getType()->isVectorTy()) {
-      printOptReportRemark(Lp, "Vector types currently not supported.");
       return false;
     }
 

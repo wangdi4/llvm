@@ -76,11 +76,11 @@ target triple = "x86_64-unknown-linux-gnu"
 @PL_tainted = external hidden global i8, align 1
 @PL_curcop = external hidden global %struct.cop.243*, align 8
 
-declare hidden %struct.op* @Perl_do_kv() 
+declare hidden %struct.op* @Perl_do_kv()
 
-declare hidden fastcc void @Perl_despatch_signals() unnamed_addr 
+declare hidden fastcc void @Perl_despatch_signals() unnamed_addr
 
-declare hidden %struct.op* @Perl_pp_sort() 
+declare hidden %struct.op* @Perl_pp_sort()
 
 define hidden i32 @Perl_runops_standard() {
   %1 = load %struct.op*, %struct.op** bitcast (%struct.__dirstream** @PL_op to %struct.op**), align 8
@@ -105,11 +105,11 @@ define hidden i32 @Perl_runops_standard() {
   br i1 %15, label %16, label %18
 
 ; <label>:16:                                     ; preds = %7
-  %17 = call %struct.op* @Perl_do_kv() 
+  %17 = call %struct.op* @Perl_do_kv()
   br label %20
 
 ; <label>:18:                                     ; preds = %7
-  %19 = call %struct.op* @Perl_pp_sort() 
+  %19 = call %struct.op* @Perl_pp_sort()
   br label %20
 
 ; <label>:20:                                     ; preds = %18, %16
@@ -118,7 +118,7 @@ define hidden i32 @Perl_runops_standard() {
   br label %24
 
 ; <label>:22:                                     ; preds = %2
-  %23 = call %struct.op* %5() 
+  %23 = call %struct.op* %5()
   br label %24
 
 ; <label>:24:                                     ; preds = %22, %20
@@ -133,7 +133,7 @@ define hidden i32 @Perl_runops_standard() {
   br i1 %29, label %31, label %30
 
 ; <label>:30:                                     ; preds = %27
-  tail call fastcc void @Perl_despatch_signals() 
+  tail call fastcc void @Perl_despatch_signals()
   br label %31
 
 ; <label>:31:                                     ; preds = %30, %27

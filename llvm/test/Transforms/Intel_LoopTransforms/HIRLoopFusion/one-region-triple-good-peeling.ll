@@ -5,19 +5,19 @@
 ; + DO i1 = 0, 511, 1   <DO_LOOP>
 ; |   (%a)[i1] = 1;
 ; + END LOOP
-; 
-; 
+;
+;
 ; + DO i1 = 0, 510, 1   <DO_LOOP>
 ; |   (%a)[i1] = 2;
 ; + END LOOP
-; 
-; 
+;
+;
 ; + DO i1 = 0, 511, 1   <DO_LOOP>
 ; |   %0 = (%a)[i1];
 ; |   %conv = sitofp.i32.float(%0);
 ; |   (%b)[i1] = %conv;
 ; + END LOOP
-; 
+;
 ; ret ;
 ; END REGION
 

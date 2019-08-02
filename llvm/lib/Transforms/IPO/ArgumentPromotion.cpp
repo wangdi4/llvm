@@ -344,6 +344,11 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
     uint64_t W;
     if (Call->extractProfTotalWeight(W))
       NewCS->setProfWeight(W);
+#if INTEL_CUSTOMIZATION
+    MDNode *MD = Call->getMetadata(LLVMContext::MD_intel_profx);
+    if (MD)
+      NewCS->setMetadata(LLVMContext::MD_intel_profx, MD);
+#endif // INTEL_CUSTOMIZATION
     Args.clear();
     ArgAttrVec.clear();
 
@@ -361,6 +366,14 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
     Call->eraseFromParent();
   }
 
+#if INTEL_CUSTOMIZATION
+  // All uses of the old function have been replaced with the new function,
+  // transfer the function entry count to the replacement function to maintain
+  // the ability to place the functions into hot/cold sections.
+  Function::ProfileCount OldCount = F->getEntryCount();
+  if (OldCount.hasValue())
+    NF->setEntryCount(OldCount.getCount());
+#endif // INTEL_CUSTOMIZATION
   const DataLayout &DL = F->getParent()->getDataLayout();
 
   // Since we have now created the new function, splice the body of the old
@@ -501,9 +514,9 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
   return NF;
 }
 
-/// AllCallersPassInValidPointerForArgument - Return true if we can prove that
-/// all callees pass in a valid pointer for the specified function argument.
-static bool allCallersPassInValidPointerForArgument(Argument *Arg) {
+/// Return true if we can prove that all callees pass in a valid pointer for the
+/// specified function argument.
+static bool allCallersPassValidPointerForArgument(Argument *Arg, Type *Ty) {
   Function *Callee = Arg->getParent();
   const DataLayout &DL = Callee->getParent()->getDataLayout();
 
@@ -515,7 +528,7 @@ static bool allCallersPassInValidPointerForArgument(Argument *Arg) {
     CallSite CS(U);
     assert(CS && "Should only have direct calls!");
 
-    if (!isDereferenceablePointer(CS.getArgument(ArgNo), DL))
+    if (!isDereferenceablePointer(CS.getArgument(ArgNo), Ty, DL))
       return false;
   }
   return true;
@@ -588,7 +601,7 @@ static void markIndicesSafe(const IndicesVector &ToMark,
 /// This method limits promotion of aggregates to only promote up to three
 /// elements of the aggregate in order to avoid exploding the number of
 /// arguments passed in.
-static bool isSafeToPromoteArgument(Argument *Arg, bool isByVal, AAResults &AAR,
+static bool isSafeToPromoteArgument(Argument *Arg, Type *ByValTy, AAResults &AAR,
                                     unsigned MaxElements) {
   using GEPIndicesSet = std::set<IndicesVector>;
 
@@ -618,8 +631,27 @@ static bool isSafeToPromoteArgument(Argument *Arg, bool isByVal, AAResults &AAR,
   GEPIndicesSet ToPromote;
 
   // If the pointer is always valid, any load with first index 0 is valid.
-  if (isByVal || allCallersPassInValidPointerForArgument(Arg))
+
+  if (ByValTy)
     SafeToUnconditionallyLoad.insert(IndicesVector(1, 0));
+
+  // Whenever a new underlying type for the operand is found, make sure it's
+  // consistent with the GEPs and loads we've already seen and, if necessary,
+  // use it to see if all incoming pointers are valid (which implies the 0-index
+  // is safe).
+  Type *BaseTy = ByValTy;
+  auto UpdateBaseTy = [&](Type *NewBaseTy) {
+    if (BaseTy)
+      return BaseTy == NewBaseTy;
+
+    BaseTy = NewBaseTy;
+    if (allCallersPassValidPointerForArgument(Arg, BaseTy)) {
+      assert(SafeToUnconditionallyLoad.empty());
+      SafeToUnconditionallyLoad.insert(IndicesVector(1, 0));
+    }
+
+    return true;
+  };
 
   // First, iterate the entry block and mark loads of (geps of) arguments as
   // safe.
@@ -643,6 +675,9 @@ static bool isSafeToPromoteArgument(Argument *Arg, bool isByVal, AAResults &AAR,
               // right away, can't promote this argument at all.
               return false;
 
+          if (!UpdateBaseTy(GEP->getSourceElementType()))
+            return false;
+
           // Indices checked out, mark them as safe
           markIndicesSafe(Indices, SafeToUnconditionallyLoad);
           Indices.clear();
@@ -650,6 +685,11 @@ static bool isSafeToPromoteArgument(Argument *Arg, bool isByVal, AAResults &AAR,
       } else if (V == Arg) {
         // Direct loads are equivalent to a GEP with a single 0 index.
         markIndicesSafe(IndicesVector(1, 0), SafeToUnconditionallyLoad);
+
+        if (BaseTy && LI->getType() != BaseTy)
+          return false;
+
+        BaseTy = LI->getType();
       }
     }
 
@@ -667,6 +707,9 @@ static bool isSafeToPromoteArgument(Argument *Arg, bool isByVal, AAResults &AAR,
       Loads.push_back(LI);
       // Direct loads are equivalent to a GEP with a zero index and then a load.
       Operands.push_back(0);
+
+      if (!UpdateBaseTy(LI->getType()))
+        return false;
     } else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(UR)) {
       if (GEP->use_empty()) {
         // Dead GEP's cause trouble later.  Just remove them if we run into
@@ -675,8 +718,11 @@ static bool isSafeToPromoteArgument(Argument *Arg, bool isByVal, AAResults &AAR,
         // TODO: This runs the above loop over and over again for dead GEPs
         // Couldn't we just do increment the UI iterator earlier and erase the
         // use?
-        return isSafeToPromoteArgument(Arg, isByVal, AAR, MaxElements);
+        return isSafeToPromoteArgument(Arg, ByValTy, AAR, MaxElements);
       }
+
+      if (!UpdateBaseTy(GEP->getSourceElementType()))
+        return false;
 
       // Ensure that all of the indices are constants.
       for (User::op_iterator i = GEP->idx_begin(), e = GEP->idx_end(); i != e;
@@ -988,8 +1034,9 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
     }
 
     // Otherwise, see if we can promote the pointer to its value.
-    if (isSafeToPromoteArgument(PtrArg, PtrArg->hasByValAttr(), AAR,
-                                MaxElements))
+    Type *ByValTy =
+        PtrArg->hasByValAttr() ? PtrArg->getParamByValType() : nullptr;
+    if (isSafeToPromoteArgument(PtrArg, ByValTy, AAR, MaxElements))
       ArgsToPromote.insert(PtrArg);
   }
 

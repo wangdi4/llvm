@@ -1,11 +1,11 @@
-;    for  (i=0; i < n; i++) {	
-;        a[2 *n * i] =   a[2 *n * i+ 1] ; 
+;    for  (i=0; i < n; i++) {
+;        a[2 *n * i] =   a[2 *n * i+ 1] ;
 ;    }
 
 ; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze | FileCheck %s
 ; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 < %s | FileCheck %s
 ; CHECK: DD graph for function sub8
-; CHECK-NOT:  @a 
+; CHECK-NOT:  @a
 
 ; ModuleID = 'gcd2.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

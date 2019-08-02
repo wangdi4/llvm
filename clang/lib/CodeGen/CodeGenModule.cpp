@@ -687,8 +687,6 @@ void CodeGenModule::Release() {
     EmitDeclMetadata();
 #if INTEL_CUSTOMIZATION
   if (getCodeGenOpts().getDebugInfo() != codegenoptions::NoDebugInfo) {
-    if (getLangOpts().IntelCompat)
-      EmitIntelDebugInfoMetadata();
     if (getLangOpts().IntelMSCompat)
       EmitMSDebugInfoMetadata();
   }
@@ -1305,7 +1303,7 @@ CodeGenModule::getFunctionLinkage(GlobalDecl GD) {
     return llvm::GlobalValue::InternalLinkage;
   }
 
-  return getLLVMLinkageForDeclarator(D, Linkage, /*isConstantVariable=*/false);
+  return getLLVMLinkageForDeclarator(D, Linkage, /*IsConstantVariable=*/false);
 }
 
 llvm::ConstantInt *CodeGenModule::CreateCrossDsoCfiTypeId(llvm::Metadata *MD) {
@@ -2454,9 +2452,11 @@ bool CodeGenModule::isInSanitizerBlacklist(llvm::GlobalVariable *GV,
                                            SourceLocation Loc, QualType Ty,
                                            StringRef Category) const {
   // For now globals can be blacklisted only in ASan and KASan.
-  const SanitizerMask EnabledAsanMask = LangOpts.Sanitize.Mask &
+  const SanitizerMask EnabledAsanMask =
+      LangOpts.Sanitize.Mask &
       (SanitizerKind::Address | SanitizerKind::KernelAddress |
-       SanitizerKind::HWAddress | SanitizerKind::KernelHWAddress);
+       SanitizerKind::HWAddress | SanitizerKind::KernelHWAddress |
+       SanitizerKind::MemTag);
   if (!EnabledAsanMask)
     return false;
   const auto &SanitizerBL = getContext().getSanitizerBlacklist();
@@ -3835,8 +3835,12 @@ llvm::Constant *CodeGenModule::GetAddrOfGlobalVar(const VarDecl *D,
 llvm::Constant *
 CodeGenModule::CreateRuntimeVariable(llvm::Type *Ty,
                                      StringRef Name) {
-  auto *Ret =
-      GetOrCreateLLVMGlobal(Name, llvm::PointerType::getUnqual(Ty), nullptr);
+  auto PtrTy =
+      getContext().getLangOpts().OpenCL
+          ? llvm::PointerType::get(
+                Ty, getContext().getTargetAddressSpace(LangAS::opencl_global))
+          : llvm::PointerType::getUnqual(Ty);
+  auto *Ret = GetOrCreateLLVMGlobal(Name, PtrTy, nullptr);
   setDSOLocal(cast<llvm::GlobalValue>(Ret->stripPointerCasts()));
   return Ret;
 }
@@ -4055,60 +4059,13 @@ static void maybeEmitGlobalChannelMetadata(const VarDecl *D,
 
 void CodeGenModule::generateHLSAnnotation(const Decl *D,
                                           llvm::SmallString<256> &AnnotStr) {
+  // Generate common parts from IntelFPGA attributes
+  generateIntelFPGAAnnotation(D, AnnotStr);
+
   llvm::raw_svector_ostream Out(AnnotStr);
-  if (D->hasAttr<HLSRegisterAttr>())
-    Out << "{register:1}";
-  if (auto const *MA = D->getAttr<MemoryAttr>()) {
-    MemoryAttr::MemoryKind Kind = MA->getKind();
-    Out << "{memory:";
-    switch (Kind) {
-    case MemoryAttr::MLAB:
-    case MemoryAttr::BlockRAM:
-      Out << MemoryAttr::ConvertMemoryKindToStr(Kind);
-      break;
-    case MemoryAttr::Default:
-      Out << "DEFAULT";
-      break;
-    }
-    Out << '}';
-    if (const DeclaratorDecl *DD = dyn_cast<DeclaratorDecl>(D)) {
-      QualType ElementTy = DD->getType();
-      Out << "{sizeinfo:";
-      // D can't be of type FunctionDecl (no attribute memory for a
-      // function declaration).
-      if (ElementTy->isConstantArrayType())
-        Out << getContext()
-                   .getTypeSizeInChars(
-                       getContext().getBaseElementType(ElementTy))
-                   .getQuantity();
-      else
-        Out << getContext().getTypeSizeInChars(ElementTy).getQuantity();
-      // Add to Out the dimenstion of the array.
-      while (const auto *AT = getContext().getAsArrayType(ElementTy)) {
-        // Expecting only constant array types, assert otherwise.
-        const auto *CAT = cast<ConstantArrayType>(AT);
-        Out << ",";
-        Out << CAT->getSize();
-        ElementTy = CAT->getElementType();
-      }
-      Out << '}';
-    }
-  }
-  if (D->hasAttr<SinglePumpAttr>())
-    Out << "{pump:1}";
-  if (D->hasAttr<DoublePumpAttr>())
-    Out << "{pump:2}";
-  if (const auto *BWA = D->getAttr<BankWidthAttr>()) {
-    llvm::APSInt BWAInt = BWA->getValue()->EvaluateKnownConstInt(getContext());
-    Out << '{' << BWA->getSpelling() << ':' << BWAInt << '}';
-  }
   if (const auto *MCA = D->getAttr<MaxConcurrencyAttr>()) {
     llvm::APSInt MCAInt = MCA->getValue()->EvaluateKnownConstInt(getContext());
     Out << '{' << MCA->getSpelling() << ':' << MCAInt << '}';
-  }
-  if (const auto *NBA = D->getAttr<NumBanksAttr>()) {
-    llvm::APSInt BWAInt = NBA->getValue()->EvaluateKnownConstInt(getContext());
-    Out << '{' << NBA->getSpelling() << ':' << BWAInt << '}';
   }
   if (const auto *NRPA = D->getAttr<NumReadPortsAttr>()) {
     llvm::APSInt NRPAInt =
@@ -4214,6 +4171,34 @@ void CodeGenModule::generateIntelFPGAAnnotation(
       break;
     }
     Out << '}';
+#if INTEL_CUSTOMIZATION
+    if (getLangOpts().HLS ||
+        (getLangOpts().OpenCL &&
+         getContext().getTargetInfo().getTriple().isINTELFPGAEnvironment())) {
+      if (const DeclaratorDecl *DD = dyn_cast<DeclaratorDecl>(D)) {
+        QualType ElementTy = DD->getType();
+        Out << "{sizeinfo:";
+        // D can't be of type FunctionDecl (no attribute memory for a
+        // function declaration).
+        if (ElementTy->isConstantArrayType())
+          Out << getContext()
+                     .getTypeSizeInChars(
+                         getContext().getBaseElementType(ElementTy))
+                     .getQuantity();
+        else
+          Out << getContext().getTypeSizeInChars(ElementTy).getQuantity();
+        // Add to Out the dimenstion of the array.
+        while (const auto *AT = getContext().getAsArrayType(ElementTy)) {
+          // Expecting only constant array types, assert otherwise.
+          const auto *CAT = cast<ConstantArrayType>(AT);
+          Out << ",";
+          Out << CAT->getSize();
+          ElementTy = CAT->getElementType();
+        }
+        Out << '}';
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
   }
   if (D->hasAttr<IntelFPGASinglePumpAttr>())
     Out << "{pump:1}";
@@ -5719,6 +5704,7 @@ void CodeGenModule::EmitTopLevelDecl(Decl *D) {
   case Decl::UsingShadow:
   case Decl::ClassTemplate:
   case Decl::VarTemplate:
+  case Decl::Concept:
   case Decl::VarTemplatePartialSpecialization:
   case Decl::FunctionTemplate:
   case Decl::TypeAliasTemplate:
@@ -6132,14 +6118,6 @@ static void AddLLVMDbgMetadata(llvm::Module &TheModule, StringRef Name,
   llvm::Metadata *Node[] = { llvm::MDString::get(Ctx, Value) };
   llvm::NamedMDNode *Metadata = TheModule.getOrInsertNamedMetadata(Name);
   Metadata->addOperand(llvm::MDNode::get(Ctx, Node));
-}
-
-void CodeGenModule::EmitIntelDebugInfoMetadata() {
-  // CQ#368123 - support '-f[no-]emit-class-debug-always' options.
-  StringRef EmitClassDebugAlways =
-      getCodeGenOpts().EmitClassDebugAlways ? "true" : "false";
-  AddLLVMDbgMetadata(TheModule, "llvm.dbg.intel.emit_class_debug_always",
-                     EmitClassDebugAlways);
 }
 
 void CodeGenModule::EmitMSDebugInfoMetadata() {

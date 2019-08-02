@@ -3,7 +3,7 @@
 ;
 ; Scalar Replacement Sanity Test: stores only (2 continue stores, with negative IVCoeff)
 ;
-; [REASONS]  
+; [REASONS]
 ; - Profitable: YES
 ; - Legal:      YES
 ;
@@ -32,7 +32,7 @@
 ; CHECK:         + END LOOP
 ; CHECK:   END REGION
 ;
-;  
+;
 ; =====================================================
 ; testcase not ready yet!
 ; Note: ScalarRepl transformation result missing!!

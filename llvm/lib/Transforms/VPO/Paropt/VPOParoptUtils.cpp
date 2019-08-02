@@ -3423,6 +3423,12 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
                    IsTarget ? &TgtClauseArgs : nullptr);
   assert(CE.isEligible() && "Region is not eligible for extraction.");
 
+  // Remove the use of the entry directive in the exit directive, so that it
+  // isn't considered a live-out, in case the end directive is unreachable,
+  // and won't be in the outlined function.
+  W.getEntryDirective()->replaceAllUsesWith(llvm::ConstantTokenNone::get(
+      W.getEntryDirective()->getModule()->getContext()));
+
   auto *NewFunction = CE.extractCodeRegion();
   assert(NewFunction && "Code extraction failed for the region.");
   assert(NewFunction->hasOneUse() && "New function should have one use.");

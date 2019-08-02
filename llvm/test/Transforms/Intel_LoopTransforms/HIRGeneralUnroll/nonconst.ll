@@ -5,7 +5,7 @@
 ; #define N 500
 ; int A[N], B[N];
 ; int foo(int64_t M) {
-;    for(int64_t i = 0; i < M; i++) 
+;    for(int64_t i = 0; i < M; i++)
 ;        A[i] = A[i-1] + B[i];
 ;    return A[2];
 ; }

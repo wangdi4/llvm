@@ -616,7 +616,7 @@ AndersensAAResult::AndersenSetResult
 
     if (N->getInvalidated()) {
         if (Trace) {
-            errs() << "    Node invalidated\n";
+            dbgs() << "    Node invalidated\n";
             PrintNode(N);
         }
 
@@ -630,10 +630,10 @@ AndersensAAResult::AndersenSetResult
     if (!safePossibleTarget(FP, V, CS)) {
       if (Trace) {
         if (Function *Fn = dyn_cast<Function>(V)) {
-          errs() << "    Unsafe target: Skipping  " << Fn->getName() << "\n";
+          dbgs() << "    Unsafe target: Skipping  " << Fn->getName() << "\n";
         }
         else {
-          errs() << "    Unsafe target: Skipping  " << *V << "\n";
+          dbgs() << "    Unsafe target: Skipping  " << *V << "\n";
         }
       }
       IsComplete = AndersenSetResult::Incomplete;
@@ -665,11 +665,11 @@ AndersensAAResult::AndersenSetResult
       if (Trace) {
         if (TypeComputed ||
             isSimilarType(FP->getType(), V->getType(), TypesUsed)) {
-          errs() << "    Types might be similar: Ignoring " <<
+          dbgs() << "    Types might be similar: Ignoring " <<
                         cast<Function>(V)->getName() << "\n";
         }
         else {
-          errs() << "    Args mismatch: Ignoring " <<
+          dbgs() << "    Args mismatch: Ignoring " <<
                         cast<Function>(V)->getName() << "\n";
         }
       }
@@ -689,7 +689,7 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
     // Clear ValueNodes so that AA queries go conservative. 
     ValueNodes.clear(); 
     if (PrintAndersConstraints) {
-      errs() << " Constraints Dump: Skipping Analysis " << "\n";
+      dbgs() << " Constraints Dump: Skipping Analysis " << "\n";
     }
     return;
   }
@@ -703,13 +703,13 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
     // Clear ValueNodes so that AA queries go conservative. 
     ValueNodes.clear(); 
     if (PrintAndersConstraints || PrintAndersPointsTo) {
-      errs() << "\nAnders disabled...exceeded NumConstraintsBeforeOptLimit\n";
+      dbgs() << "\nAnders disabled...exceeded NumConstraintsBeforeOptLimit\n";
     }
     return;
   }
 
   if (PrintAndersConstraints) {
-      errs() << " Constraints Dump " << "\n";
+      dbgs() << " Constraints Dump " << "\n";
       PrintConstraints();
   }
 
@@ -735,7 +735,7 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
     // Clear ValueNodes so that AA queries go conservative. 
     ValueNodes.clear(); 
     if (PrintAndersConstraints || PrintAndersPointsTo) {
-      errs() << "\nAnders disabled...exceeded NumConstraintsAfterOptLimit\n";
+      dbgs() << "\nAnders disabled...exceeded NumConstraintsAfterOptLimit\n";
     }
     return;
   }
@@ -743,11 +743,11 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
   SolveConstraints();
   LLVM_DEBUG(PrintPointsToGraph());
   if (PrintAndersPointsTo) {
-      errs() << " Points-to Graph Dump" << "\n";
+      dbgs() << " Points-to Graph Dump" << "\n";
       PrintPointsToGraph();
   }
   if (PrintAndersConstraints) {
-    errs() << " Final Constraints Dump "
+    dbgs() << " Final Constraints Dump "
            << "\n";
     PrintConstraints();
   }
@@ -781,18 +781,20 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
 }
 
 void AndersensAAResult::PrintNonEscapes() const {
-  errs() << "Non-Escape-Static-Vars_Begin \n";
+  dbgs() << "Non-Escape-Static-Vars_Begin \n";
   for (auto I = NonEscapeStaticVars.begin(), E = NonEscapeStaticVars.end();
        I != E; ++I) {
     PrintNode(&GraphNodes[getObject(const_cast<Value *>(*I))]);
-    errs() << "\n";
+    dbgs() << "\n";
   }
-  errs() << "Non-Escape-Static-Vars_End \n";
+  dbgs() << "Non-Escape-Static-Vars_End \n";
 }
 
 AndersensAAResult::AndersensAAResult(const DataLayout &DL,
-                                 const TargetLibraryInfo &TLI)
-    : AAResultBase(), DL(DL), TLI(TLI) {}
+         const TargetLibraryInfo &TLI, WholeProgramInfo *WPInfo)
+    : AAResultBase(), DL(DL), TLI(TLI) {
+  WholeProgramSafeDetected = (WPInfo && WPInfo->isWholeProgramSafe());
+}
 
 // Partial data of AndersensAAResult is copied here. Once Andersens
 // points-to analysis is done, only GraphNodes, ValueNodes, ObjectNodes,
@@ -813,14 +815,15 @@ AndersensAAResult::AndersensAAResult(AndersensAAResult &&Arg)
       NonEscapeStaticVars(std::move(Arg.NonEscapeStaticVars)),
       NonPointerAssignments(std::move(Arg.NonPointerAssignments)),
       IMR(std::move(Arg.IMR)) {
+  WholeProgramSafeDetected = Arg.WholeProgramSafeDetected;
   if (IMR)
     IMR->resetAndersenAAResult(this);
 }
 
 /*static*/ AndersensAAResult
 AndersensAAResult::analyzeModule(Module &M, const TargetLibraryInfo &TLI,
-                               CallGraph &CG) {
-  AndersensAAResult Result(M.getDataLayout(), TLI);
+                                 CallGraph &CG, WholeProgramInfo *WPInfo) {
+  AndersensAAResult Result(M.getDataLayout(), TLI, WPInfo);
 
   // Run Andersens'ss points-to analysis.
   Result.RunAndersensAnalysis(M);
@@ -831,9 +834,10 @@ AndersensAAResult::analyzeModule(Module &M, const TargetLibraryInfo &TLI,
 AnalysisKey AndersensAA::Key;
 
 AndersensAAResult AndersensAA::run(Module &M, ModuleAnalysisManager &AM) {
-  return AndersensAAResult::analyzeModule(M,
-                                      AM.getResult<TargetLibraryAnalysis>(M),
-                                      AM.getResult<CallGraphAnalysis>(M));
+  return AndersensAAResult::analyzeModule(
+      M, AM.getResult<TargetLibraryAnalysis>(M),
+      AM.getResult<CallGraphAnalysis>(M),
+      AM.getCachedResult<WholeProgramAnalysis>(M));
 }
 
 char AndersensAAWrapperPass::ID = 0;
@@ -868,9 +872,11 @@ AndersensAAWrapperPass::AndersensAAWrapperPass() : ModulePass(ID) {
 }
 
 bool AndersensAAWrapperPass::runOnModule(Module &M) {
+  auto *WPA = getAnalysisIfAvailable<WholeProgramWrapperPass>();
   Result.reset(new AndersensAAResult(AndersensAAResult::analyzeModule(
       M, getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(),
-      getAnalysis<CallGraphWrapperPass>().getCallGraph())));
+      getAnalysis<CallGraphWrapperPass>().getCallGraph(),
+      WPA ? &WPA->getResult() : nullptr)));
   return false;
 }
 
@@ -883,6 +889,7 @@ void AndersensAAWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<CallGraphWrapperPass>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
+  AU.addUsedIfAvailable<WholeProgramWrapperPass>();
 }
 
 // Returns true if ‘rname’ is found in ‘name_table’.
@@ -978,6 +985,39 @@ unsigned AndersensAAResult::getNodeValue(Value &V) {
 AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
                                      const MemoryLocation &LocB,
                                      AAQueryInfo &AAQI)  {
+
+  // Returns true if V is global variable that represents "stdout".
+  auto IsStdoutFilePtr = [] (Value *V) {
+    auto *LI = dyn_cast<LoadInst>(V);
+    if (!LI)
+      return false;
+    GlobalVariable *GV = dyn_cast<GlobalVariable>(LI->getPointerOperand());
+    if (!GV || !GV->isDeclaration())
+      return false;
+    if (GV->getName() == "stdout")
+      return true;
+    return false;
+  };
+
+  // Returns true if N is pointing to calls that return NoAlias pointers.
+  auto IsAllocPtr = [this] (Node *N) {
+    if (N == &GraphNodes[UniversalSet])
+      return false;
+    bool AllocFound = false;
+    for (auto Bi : *N->PointsTo) {
+      Node *N1 = &GraphNodes[Bi];
+      if (N1 == &GraphNodes[UniversalSet])
+        return false;
+      if (N1 == &GraphNodes[NullPtr] || N1 == &GraphNodes[NullObject])
+        continue;
+      Value *V = N1->getValue();
+      if (!V || !isNoAliasCall(V))
+        return false;
+      AllocFound = true;
+    }
+    return AllocFound;
+  };
+
   if (ValueNodes.size() == 0) {
       return AAResultBase::alias(LocA, LocB, AAQI);
   }
@@ -996,21 +1036,33 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
   Node *N2 = &GraphNodes[FindNode(getNode(const_cast<Value*>(V2)))];
 
   if (PrintAndersAliasQueries) {
-      errs() << " Alias_Begin \n";
-      errs() << "Loc 1: " << *V1 << "\n";
-      errs() << "Loc 2: " << *V2 << "\n";
-      errs() << " Node 1: ";
+      dbgs() << " Alias_Begin \n";
+      dbgs() << "Loc 1: " << *V1 << "\n";
+      dbgs() << "Loc 2: " << *V2 << "\n";
+      dbgs() << " Node 1: ";
       PrintNode(N1);
-      errs() << " \n";
-      errs() << " Node 2: ";
+      dbgs() << " \n";
+      dbgs() << " Node 2: ";
       PrintNode(N2);
-      errs() << " \n";
+      dbgs() << " \n";
+  }
+
+  // Return NoAlias if one pointer is "stdout" and other pointer is
+  // a return value of NoAliasCall when WholeProgram is safe.
+  if (WholeProgramSafeDetected &&
+      ((IsStdoutFilePtr(V1) && IsAllocPtr(N2)) ||
+      (IsStdoutFilePtr(V2) && IsAllocPtr(N1)))) {
+    if (PrintAndersAliasQueries) {
+      dbgs() << " Result: NoAlias -- Local Alloc Ptr and stdout\n";
+      dbgs() << " Alias_End \n";
+    }
+    return NoAlias;
   }
 
   if (N1->PointsTo->test(UniversalSet) && N2->PointsTo->test(UniversalSet)) {
       if (PrintAndersAliasQueries) {
-        errs() << " both of them are Universal \n";
-          errs() << " Alias_End \n";
+        dbgs() << " both of them are Universal \n";
+          dbgs() << " Alias_End \n";
       }
       return AAResultBase::alias(LocA, LocB, AAQI);
   }
@@ -1029,15 +1081,15 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
        ((N2->PointsTo->test(UniversalSet) || pointsToSetEscapes(N2)) &&
         !pointsToSetEscapes(N1)))) {
     if (PrintAndersAliasQueries) {
-      errs() << " Result: NoAlias -- from escape analysis \n";
-      errs() << " Alias_End \n";
+      dbgs() << " Result: NoAlias -- from escape analysis \n";
+      dbgs() << " Alias_End \n";
     }
     return NoAlias;
   } else if (N1->PointsTo->test(UniversalSet) ||
              N2->PointsTo->test(UniversalSet)) {
     if (PrintAndersAliasQueries) {
-      errs() << " one of them is Universal and the other one escapes \n";
-      errs() << " Alias_End \n";
+      dbgs() << " one of them is Universal and the other one escapes \n";
+      dbgs() << " Alias_End \n";
     }
     return AAResultBase::alias(LocA, LocB, AAQI);
   }
@@ -1045,15 +1097,15 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
   // if their points-to sets do not intersect.
   if (!N1->intersectsIgnoring(N2, NullObject)) {
     if (PrintAndersAliasQueries) {
-        errs() << " Result: NoAlias \n";
-        errs() << " Alias_End \n";
+        dbgs() << " Result: NoAlias \n";
+        dbgs() << " Alias_End \n";
     }
     return NoAlias;
   }
 
   if (PrintAndersAliasQueries) {
-      errs() << " Can't determine using points-to \n";
-      errs() << " Alias_End \n";
+      dbgs() << " Can't determine using points-to \n";
+      dbgs() << " Alias_End \n";
   }
   return AAResultBase::alias(LocA, LocB, AAQI);
 
@@ -1102,9 +1154,9 @@ AndersensAAResult::getModRefInfo(const CallBase *Call,
                                  const MemoryLocation &LocA,
                                  AAQueryInfo &AAQI) {
   if (PrintAndersModRefQueries) {
-      errs() << " getModRefInfo_begin\n";
-      errs() << "Call:  " << *Call << "\n";
-      errs() << "Loc: " << *(LocA.Ptr) << "\n";
+      dbgs() << " getModRefInfo_begin\n";
+      dbgs() << "Call:  " << *Call << "\n";
+      dbgs() << "Loc: " << *(LocA.Ptr) << "\n";
   }
 
   // Try to use the collected Mod/Ref sets, if available.
@@ -1119,8 +1171,8 @@ AndersensAAResult::getModRefInfo(const CallBase *Call,
    }
 
    if (PrintAndersModRefQueries) {
-      errs() << "Result: " << getModRefResultStr(R) << "\n";
-      errs() << " getModRefInfo_end\n";
+      dbgs() << "Result: " << getModRefResultStr(R) << "\n";
+      dbgs() << " getModRefInfo_end\n";
   }
 
   return R;
@@ -1130,9 +1182,9 @@ ModRefInfo AndersensAAResult::getModRefInfo(const CallBase *Call1,
                                             const CallBase *Call2,
                                             AAQueryInfo &AAQI) {
   if (PrintAndersModRefQueries) {
-      errs() << " getModRefInfo_begin\n";
-      errs() << "Call1: " << *Call1 << "\n";
-      errs() << "Call2: " << *Call2 << "\n";
+      dbgs() << " getModRefInfo_begin\n";
+      dbgs() << "Call1: " << *Call1 << "\n";
+      dbgs() << "Call2: " << *Call2 << "\n";
   }
 
   // Just forward the request along the chain. Note, a downstream analysis
@@ -1140,8 +1192,8 @@ ModRefInfo AndersensAAResult::getModRefInfo(const CallBase *Call1,
   // parameter.
   ModRefInfo R = AAResultBase::getModRefInfo(Call1, Call2, AAQI);
   if (PrintAndersModRefQueries) {
-      errs() << "Result: " << getModRefResultStr(R) << "\n";
-      errs() << " getModRefInfo_end\n";
+      dbgs() << "Result: " << getModRefResultStr(R) << "\n";
+      dbgs() << " getModRefInfo_end\n";
   }
 
   return R;
@@ -1169,11 +1221,11 @@ bool AndersensAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
   unsigned i;
 
   if (PrintAndersConstMemQueries) {
-      errs() << " ConstMem_Begin \n";
-      errs() << "Loc : " << *P << "\n";
-      errs() << " Node : ";
+      dbgs() << " ConstMem_Begin \n";
+      dbgs() << "Loc : " << *P << "\n";
+      dbgs() << " Node : ";
       PrintNode(N);
-      errs() << "\n";
+      dbgs() << "\n";
   }
 
   for (SparseBitVector<>::iterator bi = N->PointsTo->begin(), 
@@ -1183,32 +1235,32 @@ bool AndersensAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
 
     if (Pointee->getInvalidated()) {
         if (PrintAndersConstMemQueries) {
-            errs() << " Points-to can't decide (Invalidated node)\n";
-            errs() << " ConstMem_End \n";
+            dbgs() << " Points-to can't decide (Invalidated node)\n";
+            dbgs() << " ConstMem_End \n";
         }
         return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
     }
 
     if (PrintAndersConstMemQueries) {
-      errs() << " Pointee : ";
+      dbgs() << " Pointee : ";
       PrintNode(Pointee);
-      errs() << "\n";
+      dbgs() << "\n";
     }
 
     if (Value *V = Pointee->getValue()) {
       if (!isa<GlobalValue>(V) || (isa<GlobalVariable>(V) &&
                                    !cast<GlobalVariable>(V)->isConstant())) {
           if (PrintAndersConstMemQueries) {
-              errs() << " Points-to can't decide \n";
-              errs() << " ConstMem_End \n";
+              dbgs() << " Points-to can't decide \n";
+              dbgs() << " ConstMem_End \n";
           }
           return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
       }
     } else {
       if (i != NullObject) {
           if (PrintAndersConstMemQueries) {
-              errs() << " Points-to can't decide \n";
-              errs() << " ConstMem_End \n";
+              dbgs() << " Points-to can't decide \n";
+              dbgs() << " ConstMem_End \n";
           }
           return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
       }
@@ -1216,8 +1268,8 @@ bool AndersensAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
   }
 
   if (PrintAndersConstMemQueries) {
-      errs() << " Result: true \n";
-      errs() << " ConstMem_End \n";
+      dbgs() << " Result: true \n";
+      dbgs() << " ConstMem_End \n";
   }
   return true;
 }
@@ -2071,7 +2123,7 @@ void AndersensAAResult::visitGetElementPtrInst(GetElementPtrInst &GEP) {
     return;
   }
   // P1 = getelementptr P2, ... --> <Copy/P1/P2>
-  //errs() << "GetElementPtr: " << GEP << "\n";
+  //dbgs() << "GetElementPtr: " << GEP << "\n";
   CreateConstraint(Constraint::Copy, getNodeValue(GEP),
                    getNode(GEP.getOperand(0)));
 }
@@ -2359,7 +2411,7 @@ void AndersensAAResult::ClumpAddressTaken() {
     unsigned Pos = NewPos++;
     Translate[i] = Pos;
     NewGraphNodes.push_back(GraphNodes[i]);
-    //errs() << "Renumbering node " << i << " to node " << Pos << "\n";
+    //dbgs() << "Renumbering node " << i << " to node " << Pos << "\n";
   }
 
   // I believe this ends up being faster than making two vectors and splicing
@@ -2369,7 +2421,7 @@ void AndersensAAResult::ClumpAddressTaken() {
       unsigned Pos = NewPos++;
       Translate[i] = Pos;
       NewGraphNodes.push_back(GraphNodes[i]);
-      //errs() << "Renumbering node " << i << " to node " << Pos << "\n";
+      //dbgs() << "Renumbering node " << i << " to node " << Pos << "\n";
     }
   }
 
@@ -2378,7 +2430,7 @@ void AndersensAAResult::ClumpAddressTaken() {
       unsigned Pos = NewPos++;
       Translate[i] = Pos;
       NewGraphNodes.push_back(GraphNodes[i]);
-      //errs() << "Renumbering node " << i << " to node " << Pos << "\n";
+      //dbgs() << "Renumbering node " << i << " to node " << Pos << "\n";
     }
   }
 
@@ -2466,7 +2518,7 @@ void AndersensAAResult::CollectPossibleIndirectNodes(void) {
 /// receive &D from E anyway.
 
 void AndersensAAResult::HVN() {
-  //errs() << "Beginning HVN\n";
+  //dbgs() << "Beginning HVN\n";
   // Build a predecessor graph.  This is like our constraint graph with the
   // edges going in the opposite direction, and there are edges for all the
   // constraints, instead of just copy constraints.  We also build implicit
@@ -2543,7 +2595,7 @@ void AndersensAAResult::HVN() {
   Node2DFS.clear();
   Node2Deleted.clear();
   Node2Visited.clear();
-  //errs() << "Finished HVN\n";
+  //dbgs() << "Finished HVN\n";
 
 }
 
@@ -2669,7 +2721,7 @@ void AndersensAAResult::HVNValNum(unsigned NodeIndex) {
 /// and is equivalent to value numbering the collapsed constraint graph
 /// including evaluating unions.
 void AndersensAAResult::HU() {
-  //errs() << "Beginning HU\n";
+  //dbgs() << "Beginning HU\n";
   // Build a predecessor graph.  This is like our constraint graph with the
   // edges going in the opposite direction, and there are edges for all the
   // constraints, instead of just copy constraints.  We also build implicit
@@ -2755,7 +2807,7 @@ void AndersensAAResult::HU() {
   }
   // PEClass nodes will be deleted by the deleting of N->PointsTo in our caller.
   Set2PEClass.clear();
-  //errs() << "Finished HU\n";
+  //dbgs() << "Finished HU\n";
 }
 
 
@@ -2938,12 +2990,12 @@ void AndersensAAResult::RewriteConstraints() {
     // to anything.
     if (LHSLabel == 0) {
       LLVM_DEBUG(PrintNode(&GraphNodes[LHSNode]));
-      //errs() << " is a non-pointer, ignoring constraint.\n";
+      //dbgs() << " is a non-pointer, ignoring constraint.\n";
       continue;
     }
     if (RHSLabel == 0) {
       LLVM_DEBUG(PrintNode(&GraphNodes[RHSNode]));
-      //errs() << " is a non-pointer, ignoring constraint.\n";
+      //dbgs() << " is a non-pointer, ignoring constraint.\n";
       continue;
     }
     // This constraint may be useless, and it may become useless as we translate
@@ -2991,16 +3043,16 @@ void AndersensAAResult::PrintLabels() const {
     if (i < FirstRefNode) {
       PrintNode(&GraphNodes[i]);
     } else if (i < FirstAdrNode) {
-      errs() << "REF(";
+      dbgs() << "REF(";
       PrintNode(&GraphNodes[i-FirstRefNode]);
-      errs() <<")";
+      dbgs() <<")";
     } else {
-      errs() << "ADR(";
+      dbgs() << "ADR(";
       PrintNode(&GraphNodes[i-FirstAdrNode]);
-      errs() <<")";
+      dbgs() <<")";
     }
 
-    errs() << " has pointer label " << GraphNodes[i].PointerEquivLabel
+    dbgs() << " has pointer label " << GraphNodes[i].PointerEquivLabel
          << " and SCC rep " << VSSCCRep[i]
          << " and is " << (GraphNodes[i].Direct ? "Direct" : "Not direct")
          << "\n";
@@ -3017,7 +3069,7 @@ void AndersensAAResult::PrintLabels() const {
 /// operation are stored in SDT and are later used in SolveContraints()
 /// and UniteNodes().
 void AndersensAAResult::HCD() {
-  //errs() << "Starting HCD.\n";
+  //dbgs() << "Starting HCD.\n";
   HCDSCCRep.resize(GraphNodes.size());
 
   for (unsigned i = 0; i < GraphNodes.size(); ++i) {
@@ -3066,7 +3118,7 @@ void AndersensAAResult::HCD() {
   Node2Visited.clear();
   Node2Deleted.clear();
   HCDSCCRep.clear();
-  //errs() << "HCD complete.\n";
+  //dbgs() << "HCD complete.\n";
 }
 
 // Component of HCD: 
@@ -3138,7 +3190,7 @@ void AndersensAAResult::Search(unsigned Node) {
 /// Optimize the constraints by performing offline variable substitution and
 /// other optimizations.
 void AndersensAAResult::OptimizeConstraints() {
-  //errs() << "Beginning constraint optimization\n";
+  //dbgs() << "Beginning constraint optimization\n";
 
   SDTActive = false;
 
@@ -3223,7 +3275,7 @@ void AndersensAAResult::OptimizeConstraints() {
 
   // HCD complete.
 
-  //errs() << "Finished constraint optimization\n";
+  //dbgs() << "Finished constraint optimization\n";
   FirstRefNode = 0;
   FirstAdrNode = 0;
 }
@@ -3231,7 +3283,7 @@ void AndersensAAResult::OptimizeConstraints() {
 /// Unite pointer but not location equivalent variables, now that the constraint
 /// graph is built.
 void AndersensAAResult::UnitePointerEquivalences() {
-  //errs() << "Uniting remaining pointer equivalences\n";
+  //dbgs() << "Uniting remaining pointer equivalences\n";
   for (unsigned i = 0; i < GraphNodes.size(); ++i) {
     if (GraphNodes[i].AddressTaken && GraphNodes[i].isRep()) {
       unsigned Label = GraphNodes[i].PointerEquivLabel;
@@ -3240,7 +3292,7 @@ void AndersensAAResult::UnitePointerEquivalences() {
         UniteNodes(i, PENLEClass2Node[Label]);
     }
   }
-  //errs() << "Finished remaining pointer equivalences\n";
+  //dbgs() << "Finished remaining pointer equivalences\n";
   PENLEClass2Node.clear();
 }
 
@@ -3860,11 +3912,11 @@ unsigned AndersensAAResult::UniteNodes(unsigned First, unsigned Second,
   SecondNode->OldPointsTo = nullptr;
 
   NumUnified++;
-  // errs() << "Unified Node ";
+  // dbgs() << "Unified Node ";
   // LLVM_DEBUG(PrintNode(FirstNode));
-  // errs() << " and Node ";
+  // dbgs() << " and Node ";
   // LLVM_DEBUG(PrintNode(SecondNode));
-  // errs() << "\n";
+  // dbgs() << "\n";
 
   if (SDTActive)
     if (SDT[Second] >= 0) {
@@ -3972,17 +4024,17 @@ void AndersensAAResult::printValueNode(const Value *V)
 
 void AndersensAAResult::PrintNode(const Node *N) const {
   if (N == &GraphNodes[UniversalSet]) {
-    errs() << "<universal>";
+    dbgs() << "<universal>";
     return;
   } else if (N == &GraphNodes[NullPtr]) {
-    errs() << "<nullptr>";
+    dbgs() << "<nullptr>";
     return;
   } else if (N == &GraphNodes[NullObject]) {
-    errs() << "<null>";
+    dbgs() << "<null>";
     return;
   }
   if (!N->getValue()) {
-    errs() << "artificial" << (intptr_t) N;
+    dbgs() << "artificial" << (intptr_t) N;
     return;
   }
 
@@ -3991,110 +4043,110 @@ void AndersensAAResult::PrintNode(const Node *N) const {
   if (Function *F = dyn_cast<Function>(V)) {
     if (isTrackableType(F->getFunctionType()->getReturnType()) &&
         N == &GraphNodes[getReturnNode(F)]) {
-      errs() << F->getName() << ":retval";
+      dbgs() << F->getName() << ":retval";
       return;
     } else if (F->getFunctionType()->isVarArg() &&
                N == &GraphNodes[getVarargNode(F)]) {
-      errs() << F->getName() << ":vararg";
+      dbgs() << F->getName() << ":vararg";
       return;
     } else {
-      errs() << "Function:" << F->getName();
+      dbgs() << "Function:" << F->getName();
       return;
     }
   }
 
   if (Instruction *I = dyn_cast<Instruction>(V))
-    errs() << I->getParent()->getParent()->getName() << ":";
+    dbgs() << I->getParent()->getParent()->getName() << ":";
   else if (Argument *Arg = dyn_cast<Argument>(V))
-    errs() << Arg->getParent()->getName() << ":";
+    dbgs() << Arg->getParent()->getName() << ":";
 
   if (V->hasName())
-    errs() << V->getName();
+    dbgs() << V->getName();
   else {
-    //    errs() << "(unnamed:" << V <<") ";
-    V->printAsOperand(errs(), false);
+    //    dbgs() << "(unnamed:" << V <<") ";
+    V->printAsOperand(dbgs(), false);
   }
 
   if (isa<GlobalValue>(V) || isa<AllocaInst>(V))
     if (N == &GraphNodes[getObject(V)])
-      errs() << "<mem>";
+      dbgs() << "<mem>";
 }
 void AndersensAAResult::PrintConstraint(const Constraint &C) const {
   if (C.Type == Constraint::Store) {
-    errs() << "*";
+    dbgs() << "*";
     if (C.Offset != 0)
-      errs() << "(";
+      dbgs() << "(";
   }
   PrintNode(&GraphNodes[C.Dest]);
   if (C.Type == Constraint::Store && C.Offset != 0)
-    errs() << " + " << C.Offset << ")";
-  errs() << " = ";
+    dbgs() << " + " << C.Offset << ")";
+  dbgs() << " = ";
   if (C.Type == Constraint::Load) {
-    errs() << "*";
+    dbgs() << "*";
     if (C.Offset != 0)
-      errs() << "(";
+      dbgs() << "(";
   }
   else if (C.Type == Constraint::AddressOf)
-    errs() << "&";
+    dbgs() << "&";
   PrintNode(&GraphNodes[C.Src]);
   if (C.Offset != 0 && C.Type != Constraint::Store)
-    errs() << " + " << C.Offset;
+    dbgs() << " + " << C.Offset;
   if (C.Type == Constraint::Load && C.Offset != 0)
-    errs() << ")";
+    dbgs() << ")";
   switch (C.Type) {
   case Constraint::Store:
-    errs() << " (Store) ";
+    dbgs() << " (Store) ";
     break;
   case Constraint::Load:
-    errs() << " (Load) ";
+    dbgs() << " (Load) ";
     break;
   case Constraint::AddressOf:
-    errs() << " (Addressof) ";
+    dbgs() << " (Addressof) ";
     break;
   case Constraint::Copy:
-    errs() << " (Copy) ";
+    dbgs() << " (Copy) ";
     break;
   }
-  errs() << "\n";
+  dbgs() << "\n";
 }
 
 void AndersensAAResult::PrintConstraints() const {
-  errs() << "Constraints:\n";
+  dbgs() << "Constraints:\n";
 
   for (unsigned i = 0, e = Constraints.size(); i != e; ++i)
     PrintConstraint(Constraints[i]);
 }
 
 void AndersensAAResult::PrintPointsToGraph() const {
-  errs() << "Points-to graph:" << GraphNodes.size() << "\n";
+  dbgs() << "Points-to graph:" << GraphNodes.size() << "\n";
   for (unsigned i = 0, e = GraphNodes.size(); i != e; ++i) {
-    errs() << "(" << i << "): ";
+    dbgs() << "(" << i << "): ";
     const Node *N = &GraphNodes[i];
     if (FindNode(i) != i) {
       PrintNode(N);
-      errs() << "\t--> same as "
+      dbgs() << "\t--> same as "
              << "(" << FindNode(i) << ") ";
       PrintNode(&GraphNodes[FindNode(i)]);
-      errs() << "\n";
+      dbgs() << "\n";
     } else if (N->PointsTo) {
-      errs() << "[" << (N->PointsTo->count()) << "] ";
+      dbgs() << "[" << (N->PointsTo->count()) << "] ";
       PrintNode(N);
-      errs() << "\t--> ";
+      dbgs() << "\t--> ";
 
       bool first = true;
       for (SparseBitVector<>::iterator bi = N->PointsTo->begin();
            bi != N->PointsTo->end();
            ++bi) {
         if (!first)
-          errs() << ", ";
-        errs() << "(" << *bi << "): ";
+          dbgs() << ", ";
+        dbgs() << "(" << *bi << "): ";
         PrintNode(&GraphNodes[*bi]);
         first = false;
       }
-      errs() << "\n";
+      dbgs() << "\n";
     }
     else {
-      errs() << "error: \n";
+      dbgs() << "error: \n";
     }
   }
 }
@@ -4512,7 +4564,7 @@ private:
         AndersenModRefInfo.printMR(O, ModRefInfo::Ref);
     }
 
-    void dump() const { printFuncMR(llvm::errs(), F->getName(), false); }
+    void dump() const { printFuncMR(llvm::dbgs(), F->getName(), false); }
 
   public:
     // Global effect of the function with regard to reading/writing memory
@@ -4649,24 +4701,24 @@ private:
 bool IntelModRefImpl::runOnModule(Module &M) {
   DL = &M.getDataLayout();
 
-  DEBUG_WITH_TYPE("imr", errs() << "Beginning IntelModRefImpl\n");
-  DEBUG_WITH_TYPE("imr", errs() << "---------------------\n");
+  DEBUG_WITH_TYPE("imr", dbgs() << "Beginning IntelModRefImpl\n");
+  DEBUG_WITH_TYPE("imr", dbgs() << "---------------------\n");
 
   for (Function &F : M)
     collectFunction(&F);
 
-  DEBUG_WITH_TYPE("imr", errs() << "Before propagate\n");
-  DEBUG_WITH_TYPE("imr", errs() << "----------------\n");
+  DEBUG_WITH_TYPE("imr", dbgs() << "Before propagate\n");
+  DEBUG_WITH_TYPE("imr", dbgs() << "----------------\n");
   DEBUG_WITH_TYPE("imr", dump());
-  DEBUG_WITH_TYPE("imr", errs() << "----------------\n");
+  DEBUG_WITH_TYPE("imr", dbgs() << "----------------\n");
 
   propagate(M);
   registerHandlers();
 
-  DEBUG_WITH_TYPE("imr", errs() << "After propagate\n");
-  DEBUG_WITH_TYPE("imr", errs() << "----------------\n");
+  DEBUG_WITH_TYPE("imr", dbgs() << "After propagate\n");
+  DEBUG_WITH_TYPE("imr", dbgs() << "----------------\n");
   DEBUG_WITH_TYPE("imr", dump());
-  DEBUG_WITH_TYPE("imr", errs() << "----------------\n");
+  DEBUG_WITH_TYPE("imr", dbgs() << "----------------\n");
 
   return false;
 }
@@ -4683,11 +4735,11 @@ void IntelModRefImpl::collectFunction(Function *F) {
   DEBUG_WITH_TYPE("imr-ir", F->dump());
 
   DEBUG_WITH_TYPE("imr-collect",
-                  errs() << "Collecting for: " << F->getName() << "\n");
+                  dbgs() << "Collecting for: " << F->getName() << "\n");
 
   // Only run collection on the body of a function.
   if (F->isDeclaration()) {
-    DEBUG_WITH_TYPE("imr-collect", errs() << "BOTTOM: No function body.\n\n");
+    DEBUG_WITH_TYPE("imr-collect", dbgs() << "BOTTOM: No function body.\n\n");
     return;
   }
 
@@ -4695,14 +4747,14 @@ void IntelModRefImpl::collectFunction(Function *F) {
   // the function linked in.
   if (!F->hasExactDefinition()) {
     DEBUG_WITH_TYPE("imr-collect",
-                    errs() << "BOTTOM: Weak function may be overridden.\n\n");
+                    dbgs() << "BOTTOM: Weak function may be overridden.\n\n");
     return;
   }
 
   DEBUG_WITH_TYPE("imr-ir", F->dump());
 
   DEBUG_WITH_TYPE("imr-collect",
-                  errs() << "Collecting for: " << F->getName() << "\n");
+                  dbgs() << "Collecting for: " << F->getName() << "\n");
 
   FunctionRecord &FR = FunctionInfo[F];
   FR.F = F;
@@ -4713,7 +4765,7 @@ void IntelModRefImpl::collectFunction(Function *F) {
   FunctionRecord::BottomReasonsEnum Reason = isResolvable(F);
   if (Reason != FunctionRecord::NotBottom) {
     DEBUG_WITH_TYPE("imr-collect",
-                    errs() << "Unable to determine ModRef sets for function: "
+                    dbgs() << "Unable to determine ModRef sets for function: "
                            << F->getName() << "\n");
 
     FR.setToBottom(Reason);
@@ -4724,10 +4776,10 @@ void IntelModRefImpl::collectFunction(Function *F) {
   for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I)
     collectInstruction(&(*I), &DirectModRef);
 
-  DEBUG_WITH_TYPE("imr-collect", errs() << "DirectMod:\n");
-  DEBUG_WITH_TYPE("imr-collect", DirectModRef.printMR(errs(), ModRefInfo::Mod));
-  DEBUG_WITH_TYPE("imr-collect", errs() << "DirectRef:\n");
-  DEBUG_WITH_TYPE("imr-collect", DirectModRef.printMR(errs(), ModRefInfo::Ref));
+  DEBUG_WITH_TYPE("imr-collect", dbgs() << "DirectMod:\n");
+  DEBUG_WITH_TYPE("imr-collect", DirectModRef.printMR(dbgs(), ModRefInfo::Mod));
+  DEBUG_WITH_TYPE("imr-collect", dbgs() << "DirectRef:\n");
+  DEBUG_WITH_TYPE("imr-collect", DirectModRef.printMR(dbgs(), ModRefInfo::Ref));
 
   // Collect all the aliases of the directly modified Values.
   expandModRefSets(&FR, &DirectModRef);
@@ -4744,17 +4796,17 @@ void IntelModRefImpl::collectInstruction(Instruction *I,
     Value *ValOperand = LI->getPointerOperand();
     bool Changed = DirectModRef->addRef(ValOperand);
     if (Changed) {
-      DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
+      DEBUG_WITH_TYPE("imr-collect-trace", dbgs() << (*I) << "\n");
       DEBUG_WITH_TYPE("imr-collect-trace",
-                      errs() << "REF: " << *ValOperand << "\n\n");
+                      dbgs() << "REF: " << *ValOperand << "\n\n");
     }
   } else if (StoreInst *SI = dyn_cast<StoreInst>(I)) {
     Value *PtrOperand = SI->getPointerOperand();
     bool Changed = DirectModRef->addMod(PtrOperand);
     if (Changed) {
-      DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
+      DEBUG_WITH_TYPE("imr-collect-trace", dbgs() << (*I) << "\n");
       DEBUG_WITH_TYPE("imr-collect-trace",
-                      errs() << "MOD: " << *PtrOperand << "\n\n");
+                      dbgs() << "MOD: " << *PtrOperand << "\n\n");
     }
 
     // Consider the rest of the operands as Loads.
@@ -4767,33 +4819,33 @@ void IntelModRefImpl::collectInstruction(Instruction *I,
     if (isInterestingPointer(ValOperand)) {
       bool Changed = DirectModRef->addRef(ValOperand);
       if (Changed) {
-        DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
+        DEBUG_WITH_TYPE("imr-collect-trace", dbgs() << (*I) << "\n");
         DEBUG_WITH_TYPE("imr-collect-trace",
-                        errs() << "REF: " << *ValOperand << "\n\n");
+                        dbgs() << "REF: " << *ValOperand << "\n\n");
       }
     }
   } else if (AtomicCmpXchgInst *ACX = dyn_cast<AtomicCmpXchgInst>(I)) {
     Value *ValOperand = ACX->getPointerOperand();
     bool Changed = DirectModRef->addModRef(ValOperand);
     if (Changed) {
-      DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
+      DEBUG_WITH_TYPE("imr-collect-trace", dbgs() << (*I) << "\n");
       DEBUG_WITH_TYPE("imr-collect-trace",
-                      errs() << "MODREF: " << *ValOperand << "\n\n");
+                      dbgs() << "MODREF: " << *ValOperand << "\n\n");
     }
   } else if (AtomicRMWInst *AWMW = dyn_cast<AtomicRMWInst>(I)) {
     Value *ValOperand = AWMW->getPointerOperand();
     bool Changed = DirectModRef->addMod(ValOperand);
     if (Changed) {
-      DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
+      DEBUG_WITH_TYPE("imr-collect-trace", dbgs() << (*I) << "\n");
       DEBUG_WITH_TYPE("imr-collect-trace",
-                      errs() << "MOD: " << *ValOperand << "\n\n");
+                      dbgs() << "MOD: " << *ValOperand << "\n\n");
     }
   } else if (isInterestingPointer(I)) {
     Value *ValPtr = I;
     bool Changed = DirectModRef->addMod(ValPtr);
     if (Changed) {
-      DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
-      DEBUG_WITH_TYPE("imr-collect-trace", errs()
+      DEBUG_WITH_TYPE("imr-collect-trace", dbgs() << (*I) << "\n");
+      DEBUG_WITH_TYPE("imr-collect-trace", dbgs()
                                                << "MOD: " << *ValPtr << "\n\n");
     }
   } else if (CallBase *Call = dyn_cast<CallBase>(I)) {
@@ -4803,9 +4855,9 @@ void IntelModRefImpl::collectInstruction(Instruction *I,
       if (isInterestingPointer(*AI)) {
         bool Changed = DirectModRef->addRef(*AI);
         if (Changed) {
-          DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
+          DEBUG_WITH_TYPE("imr-collect-trace", dbgs() << (*I) << "\n");
           DEBUG_WITH_TYPE("imr-collect-trace",
-                          errs() << "REF: " << *(*AI) << "\n\n");
+                          dbgs() << "REF: " << *(*AI) << "\n\n");
         }
       }
   }
@@ -4837,8 +4889,8 @@ void IntelModRefImpl::collectValue(Value *V, ModRefMap *DirectModRef,
   } else if (isInterestingPointer(V)) {
     bool Changed = DirectModRef->addModRef(V, mask);
     if (Changed) {
-      DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*V) << "\n");
-      DEBUG_WITH_TYPE("imr-collect-trace", errs() << "MODREF("
+      DEBUG_WITH_TYPE("imr-collect-trace", dbgs() << (*V) << "\n");
+      DEBUG_WITH_TYPE("imr-collect-trace", dbgs() << "MODREF("
                                                   << getModRefResultStr(mask)
                                                   << "): " << *V << "\n\n");
     }
@@ -4855,14 +4907,14 @@ IntelModRefImpl::isResolvable(Function *F) const {
       const Value *V = Call->getCalledValue();
       if (isa<InlineAsm>(*V)) {
         DEBUG_WITH_TYPE("imr-collect",
-                        errs() << F->getName() << ": has inline-asm\n");
+                        dbgs() << F->getName() << ": has inline-asm\n");
         return FunctionRecord::Other;
       }
 
       if (const Function *Callee = Call->getCalledFunction()) {
         if (!isResolvableCallee(Callee)) {
           DEBUG_WITH_TYPE("imr-collect",
-                          errs() << F->getName() << ": has unknown call "
+                          dbgs() << F->getName() << ": has unknown call "
                                  << (Callee ? Callee->getName() : "<null>")
                                  << "\n");
           return FunctionRecord::ExternalCall;
@@ -4870,7 +4922,7 @@ IntelModRefImpl::isResolvable(Function *F) const {
       } else {
         // Indirect call. go conservative for now.
         // TODO: check if all callsites known.
-        DEBUG_WITH_TYPE("imr-collect", errs() << F->getName()
+        DEBUG_WITH_TYPE("imr-collect", dbgs() << F->getName()
                                               << ": has Indirect call: " << *V
                                               << "\n");
         return FunctionRecord::IndirectCall;
@@ -4923,15 +4975,15 @@ void IntelModRefImpl::expandModRefSets(FunctionRecord *FR,
   for (auto I = DirectModRef->Map.begin(), E = DirectModRef->Map.end(); I != E;
        ++I) {
     PtVec.clear();
-    DEBUG_WITH_TYPE("imr-collect-exp", errs() << "Processing aliases for: ");
+    DEBUG_WITH_TYPE("imr-collect-exp", dbgs() << "Processing aliases for: ");
     DEBUG_WITH_TYPE("imr-collect-exp", Ander->printValueNode(I->first));
-    DEBUG_WITH_TYPE("imr-collect-exp", errs() << "\n");
+    DEBUG_WITH_TYPE("imr-collect-exp", dbgs() << "\n");
 
     const Value *V = I->first;
     unsigned PtsToResult = Ander->getPointsToSet(V, PtVec);
     if (PtsToResult == AndersensAAResult::PointsToBottom) {
       DEBUG_WITH_TYPE("imr-collect-exp",
-                      errs() << FR->F->getName()
+                      dbgs() << FR->F->getName()
                              << ": No Pts to set for: " << *(I->first) << "\n");
       FR->setToBottom(FunctionRecord::UnknownPointsTo);
       return;
@@ -4939,7 +4991,7 @@ void IntelModRefImpl::expandModRefSets(FunctionRecord *FR,
 
     if (PtsToResult & AndersensAAResult::PointsToNonLocalLoc) {
       DEBUG_WITH_TYPE("imr-collect-exp",
-                      errs() << FR->F->getName()
+                      dbgs() << FR->F->getName()
                              << ": Getting Non-local-loc due to " << *(I->first)
                              << "\n");
       if (isModSet(I->second))
@@ -4952,17 +5004,17 @@ void IntelModRefImpl::expandModRefSets(FunctionRecord *FR,
     for (auto I2 = PtVec.begin(), E2 = PtVec.end(); I2 != E2; ++I2) {
       if (isModSet(I->second)) {
         if (!FR->mustModify(*I2)) {
-          DEBUG_WITH_TYPE("imr-collect-exp", errs() << "  : add mod ");
+          DEBUG_WITH_TYPE("imr-collect-exp", dbgs() << "  : add mod ");
           DEBUG_WITH_TYPE("imr-collect-exp", Ander->printValueNode(*I2));
-          DEBUG_WITH_TYPE("imr-collect-exp", errs() << "\n");
+          DEBUG_WITH_TYPE("imr-collect-exp", dbgs() << "\n");
         }
         FR->addMod(*I2);
       }
       if (isRefSet(I->second)) {
         if (!FR->mustReference(*I2)) {
-          DEBUG_WITH_TYPE("imr-collect-exp", errs() << "  : add ref ");
+          DEBUG_WITH_TYPE("imr-collect-exp", dbgs() << "  : add ref ");
           DEBUG_WITH_TYPE("imr-collect-exp", Ander->printValueNode(*I2));
-          DEBUG_WITH_TYPE("imr-collect-exp", errs() << "\n");
+          DEBUG_WITH_TYPE("imr-collect-exp", dbgs() << "\n");
         }
 
         FR->addRef(*I2);
@@ -5002,12 +5054,12 @@ void IntelModRefImpl::propagate(Module &M) {
       for (CallGraphNode::iterator CI = SCC[i]->begin(), E = SCC[i]->end();
            CI != E; ++CI) {
 
-        DEBUG_WITH_TYPE("imr-propagate", errs()
+        DEBUG_WITH_TYPE("imr-propagate", dbgs()
                                              << "\nSCC #" << ++sccNum << " : ");
 
         Function *F = SCC[i]->getFunction();
         DEBUG_WITH_TYPE("imr-propagate",
-                        errs() << "Propagate for "
+                        dbgs() << "Propagate for "
                                << (F ? F->getName() : "external node") << ", ");
 
         if (!F)
@@ -5140,14 +5192,14 @@ bool IntelModRefImpl::mergeModRefSets(FunctionRecord *Dest,
   ModRefInfo MergeMask = ModRefInfo::ModRef;
 
   DEBUG_WITH_TYPE("imr-propagate-all",
-                  errs() << "Merge-2: " << Src->F->getName() << " into "
+                  dbgs() << "Merge-2: " << Src->F->getName() << " into "
                          << Dest->F->getName() << "\n");
-  DEBUG_WITH_TYPE("imr-propagate-all", errs() << "Before  merge:\n");
+  DEBUG_WITH_TYPE("imr-propagate-all", dbgs() << "Before  merge:\n");
   DEBUG_WITH_TYPE("imr-propagate-all",
-                  Src->printFuncMR(errs(), Src->F->getName()));
+                  Src->printFuncMR(dbgs(), Src->F->getName()));
   DEBUG_WITH_TYPE("imr-propagate-all",
-                  Dest->printFuncMR(errs(), Dest->F->getName()));
-  DEBUG_WITH_TYPE("imr-propagate-all", errs() << "=====================\n");
+                  Dest->printFuncMR(dbgs(), Dest->F->getName()));
+  DEBUG_WITH_TYPE("imr-propagate-all", dbgs() << "=====================\n");
 
   if (Src->isModBottom()) {
     if (!Dest->isModBottom()) {
@@ -5171,10 +5223,10 @@ bool IntelModRefImpl::mergeModRefSets(FunctionRecord *Dest,
     // Both Mod and Ref have gone bottom, no need to merge individual
     // elements.
 
-    DEBUG_WITH_TYPE("imr-propagate-all", errs() << "After merge:\n");
+    DEBUG_WITH_TYPE("imr-propagate-all", dbgs() << "After merge:\n");
     DEBUG_WITH_TYPE("imr-propagate-all",
-                    Dest->printFuncMR(errs(), Dest->F->getName()));
-    DEBUG_WITH_TYPE("imr-propagate-all", errs() << "--------------------\n");
+                    Dest->printFuncMR(dbgs(), Dest->F->getName()));
+    DEBUG_WITH_TYPE("imr-propagate-all", dbgs() << "--------------------\n");
 
     return changed;
   }
@@ -5197,10 +5249,10 @@ bool IntelModRefImpl::mergeModRefSets(FunctionRecord *Dest,
       changed |= Dest->addModRef(I->first, Intersection);
   }
 
-  DEBUG_WITH_TYPE("imr-propagate-all", errs() << "After merge:\n");
+  DEBUG_WITH_TYPE("imr-propagate-all", dbgs() << "After merge:\n");
   DEBUG_WITH_TYPE("imr-propagate-all",
-                  Dest->printFuncMR(errs(), Dest->F->getName()));
-  DEBUG_WITH_TYPE("imr-propagate-all", errs() << "--------------------\n");
+                  Dest->printFuncMR(dbgs(), Dest->F->getName()));
+  DEBUG_WITH_TYPE("imr-propagate-all", dbgs() << "--------------------\n");
 
   return changed;
 }
@@ -5231,7 +5283,7 @@ void IntelModRefImpl::applyNonLocalLocClosure(FunctionRecord *FR) {
         ModContainsNLL = true;
 
         DEBUG_WITH_TYPE("imr-propagate",
-                        errs() << "Closure: Adding NonLocalLoc to MOD set of: "
+                        dbgs() << "Closure: Adding NonLocalLoc to MOD set of: "
                                << FR->F->getName() << "\n");
       }
       if (!RefContainsNLL && isRefSet(I->second)) {
@@ -5239,7 +5291,7 @@ void IntelModRefImpl::applyNonLocalLocClosure(FunctionRecord *FR) {
         RefContainsNLL = true;
 
         DEBUG_WITH_TYPE("imr-propagate",
-                        errs() << "Closure: Adding NonLocalLoc to REF set of: "
+                        dbgs() << "Closure: Adding NonLocalLoc to REF set of: "
                                << FR->F->getName() << "\n");
       }
     }
@@ -5257,7 +5309,7 @@ bool IntelModRefImpl::isGlobalEscape(const Value *V) const {
   return false;
 }
 
-void IntelModRefImpl::dump() const { print(errs()); }
+void IntelModRefImpl::dump() const { print(dbgs()); }
 
 void IntelModRefImpl::print(raw_ostream &O, bool Summary) const {
   for (FunctionRecordMap::const_iterator I = FunctionInfo.begin(),
@@ -5511,19 +5563,19 @@ ModRefInfo IntelModRefImpl::getLibFuncModRefInfo(LibFunc TheLibFunc,
   assert(F && "getLibFuncModRefInfo used without direct function call");
   unsigned LibFuncModel = getLibfuncModRefModel(TheLibFunc);
   DEBUG_WITH_TYPE("imr-query", {
-    errs() << "irm-query: LibFunc: " << F->getName();
+    dbgs() << "irm-query: LibFunc: " << F->getName();
     bool FunctionReadOnly = F->hasFnAttribute(Attribute::ReadOnly);
     bool FunctionReadNone = F->hasFnAttribute(Attribute::ReadNone);
-    errs() << ":: ReadNone:" << FunctionReadNone
+    dbgs() << ":: ReadNone:" << FunctionReadNone
            << " ReadOnly:" << FunctionReadOnly;
-    errs() << " - Model: {";
-    printLibFuncModel(errs(), LibFuncModel);
-    errs() << "}\n";
+    dbgs() << " - Model: {";
+    printLibFuncModel(dbgs(), LibFuncModel);
+    dbgs() << "}\n";
   });
 
   if (LibFuncModel == LFMR_UNKNOWN) {
     DEBUG_WITH_TYPE("imr-query",
-                    errs() << "No libfunc model: " << F->getName() << "\n");
+                    dbgs() << "No libfunc model: " << F->getName() << "\n");
     return ModRefInfo::ModRef;
   }
 
@@ -5538,7 +5590,7 @@ ModRefInfo IntelModRefImpl::getLibFuncModRefInfo(LibFunc TheLibFunc,
       Result = unionModRef(Result, ModRefInfo::Ref);
     if (Result == ModRefInfo::ModRef) {
       DEBUG_WITH_TYPE("imr-query",
-                      errs() << "  LibFunc Result=ModRef based on GMod/GRef\n");
+                      dbgs() << "  LibFunc Result=ModRef based on GMod/GRef\n");
       return Result;
     }
   }
@@ -5588,13 +5640,13 @@ ModRefInfo IntelModRefImpl::getLibFuncModRefInfo(LibFunc TheLibFunc,
       Result = unionModRef(Result, ModRefInfo::Mod);
       DEBUG_WITH_TYPE(
           "imr-query",
-          errs() << "  LibFunc Result=ModRef after checking argument number "
+          dbgs() << "  LibFunc Result=ModRef after checking argument number "
                  << ArgNo << "\n");
       return Result;
     }
   }
 
-  DEBUG_WITH_TYPE("imr-query", errs() << "  LibFunc Result="
+  DEBUG_WITH_TYPE("imr-query", dbgs() << "  LibFunc Result="
                                       << getModRefResultStr(Result) << "\n");
   return Result;
 }
@@ -5608,26 +5660,26 @@ ModRefInfo IntelModRefImpl::getModRefInfo(const CallBase *Call,
   const Value *Object = GetUnderlyingObject(Loc.Ptr, *DL);
 
   DEBUG_WITH_TYPE("imr-query",
-                  errs() << "IntelModRefImpl::getModRefInfo("
+                  dbgs() << "IntelModRefImpl::getModRefInfo("
                          << (Call->getCalledFunction()
                                  ? Call->getCalledFunction()->getName()
                                  : "<indirect>")
                          << ", ");
 
   if (Object == nullptr) {
-    DEBUG_WITH_TYPE("imr-query", errs()
+    DEBUG_WITH_TYPE("imr-query", dbgs()
                                      << "  Could not get underlying object\n");
     return ModRefInfo::ModRef;
   }
 
-  DEBUG_WITH_TYPE("imr-query", errs() << *Object);
+  DEBUG_WITH_TYPE("imr-query", dbgs() << *Object);
   DEBUG_WITH_TYPE("imr-query",
-                  errs() << (isa<GlobalValue>(Object) ? "[global]" : ""));
-  DEBUG_WITH_TYPE("imr-query", errs() << ")\n");
+                  dbgs() << (isa<GlobalValue>(Object) ? "[global]" : ""));
+  DEBUG_WITH_TYPE("imr-query", dbgs() << ")\n");
 
   const Function *F = Call->getCalledFunction();
   if (!F) {
-    DEBUG_WITH_TYPE("imr-query", errs() << "  Indirect destination\n");
+    DEBUG_WITH_TYPE("imr-query", dbgs() << "  Indirect destination\n");
     return ModRefInfo::ModRef;
   }
 
@@ -5637,12 +5689,12 @@ ModRefInfo IntelModRefImpl::getModRefInfo(const CallBase *Call,
 
   const FunctionRecord *FR = getFunctionInfo(F);
   if (!FR) {
-    DEBUG_WITH_TYPE("imr-query", errs() << "  Unknown function\n");
+    DEBUG_WITH_TYPE("imr-query", dbgs() << "  Unknown function\n");
     return ModRefInfo::ModRef;
   }
 
   if (FR->isModBottom() || FR->isRefBottom()) {
-    DEBUG_WITH_TYPE("imr-query", errs() << "  Function is BOTTOM\n");
+    DEBUG_WITH_TYPE("imr-query", dbgs() << "  Function is BOTTOM\n");
     return ModRefInfo::ModRef;
   }
 
@@ -5656,7 +5708,7 @@ ModRefInfo IntelModRefImpl::getModRefInfo(const CallBase *Call,
   if (!isa<GlobalValue>(Object)) {
     DEBUG_WITH_TYPE(
         "imr-query",
-        errs() << "  Only handling GlobalValue objects in this version\n");
+        dbgs() << "  Only handling GlobalValue objects in this version\n");
     return ModRefInfo::ModRef;
   }
 
@@ -5665,7 +5717,7 @@ ModRefInfo IntelModRefImpl::getModRefInfo(const CallBase *Call,
     // Return the computed value based on the points-to
     // propagation.
     ModRefInfo Result = FR->getInfo(Object);
-    DEBUG_WITH_TYPE("imr-query", errs() << "  Result="
+    DEBUG_WITH_TYPE("imr-query", dbgs() << "  Result="
                                         << getModRefResultStr(Result) << "\n");
     return Result;
   }
@@ -5675,7 +5727,7 @@ ModRefInfo IntelModRefImpl::getModRefInfo(const CallBase *Call,
   // accessed by the routine.
   if (!(FR->isModNonLocalLoc() || FR->isRefNonLocalLoc())) {
     DEBUG_WITH_TYPE("imr-query",
-                    errs() << "  Result="
+                    dbgs() << "  Result="
                            << getModRefResultStr(ModRefInfo::NoModRef) << "\n");
     return ModRefInfo::NoModRef;
   }
@@ -5691,7 +5743,7 @@ ModRefInfo IntelModRefImpl::getModRefInfo(const CallBase *Call,
     // as a non_local_loc, so we can so NoModRef.
     if (GV->isDiscardableIfUnused()) {
       DEBUG_WITH_TYPE("imr-query",
-                      errs()
+                      dbgs()
                           << "  Result="
                           << getModRefResultStr(ModRefInfo::NoModRef) << "\n");
       return ModRefInfo::NoModRef;
@@ -5699,7 +5751,7 @@ ModRefInfo IntelModRefImpl::getModRefInfo(const CallBase *Call,
   }
 
   DEBUG_WITH_TYPE("imr-query",
-                  errs() << "  Result=" << getModRefResultStr(Result) << "\n");
+                  dbgs() << "  Result=" << getModRefResultStr(Result) << "\n");
   return Result;
 }
 
@@ -5810,8 +5862,8 @@ void AndersensAAResult::ProcessIRValueDestructed(Value *V)
   Node *N = &GraphNodes[FindNode(getNode(V))];
 
   if (PrintAndersPointsToUpdates) {
-      errs() << "Marking node " << N << " as invalidated.";
-      errs() << "Was used to track Value object @" << V << "\n";
+      dbgs() << "Marking node " << N << " as invalidated.";
+      dbgs() << "Was used to track Value object @" << V << "\n";
   }
 
   // We need to set the node as invalidated, not as being eliminated from the
@@ -5827,7 +5879,7 @@ void AndersensAAResult::ProcessIRValueDestructed(Value *V)
     N = &GraphNodes[getObject(V)];
 
     if (PrintAndersPointsToUpdates) {
-        errs() << "Marking <mem> node " << N << " as invalidated\n";
+        dbgs() << "Marking <mem> node " << N << " as invalidated\n";
     }
 
     N->setInvalidated();

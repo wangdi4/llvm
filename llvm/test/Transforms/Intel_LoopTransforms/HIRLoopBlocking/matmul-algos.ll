@@ -1,4 +1,4 @@
-; Check if 
+; Check if
 ; 1. Inner two levels of matmul are blocked using a K&R algorithm (prefix KANDR)
 ; 2. Outer two levels of matmul are blocked using Outer algorithm (prefix OUTER)
 ; 3. All three levels are blocked using default algorithm (prefix DEFAULT)
@@ -20,7 +20,7 @@
 
 
 ; KANDR:     BEGIN REGION { modified }
-; KANDR:           + DO i1 = 0, %N + -1, 1   
+; KANDR:           + DO i1 = 0, %N + -1, 1
 ; KANDR:           |   + DO i2 = 0, %N + -1, 1
 ; KANDR:           |   |   + DO i3 = 0, %N + -1, 1
 ; KANDR:           |   |   |   %0 = (@c)[0][i1][i3];
@@ -39,13 +39,13 @@
 ; KANDR:     BEGIN REGION { modified }
 ; KANDR:    + DO i1 = 0, (%N + -1)/u64, 1
 ; KANDR:    |   %min = (-64 * i1 + %N + -1 <= 63) ? -64 * i1 + %N + -1 : 63;
-; KANDR:    |   
-; KANDR:    |   + DO i2 = 0, (%N + -1)/u64, 1  
+; KANDR:    |
+; KANDR:    |   + DO i2 = 0, (%N + -1)/u64, 1
 ; KANDR:    |   |   %min3 = (-64 * i2 + %N + -1 <= 63) ? -64 * i2 + %N + -1 : 63;
-; KANDR:    |   |   
-; KANDR:    |   |   + DO i3 = 0, %N + -1, 1 
-; KANDR:    |   |   |   + DO i4 = 0, %min, 1 
-; KANDR:    |   |   |   |   + DO i5 = 0, %min3, 1 
+; KANDR:    |   |
+; KANDR:    |   |   + DO i3 = 0, %N + -1, 1
+; KANDR:    |   |   |   + DO i4 = 0, %min, 1
+; KANDR:    |   |   |   |   + DO i5 = 0, %min3, 1
 ; KANDR:    |   |   |   |   |   %0 = (@c)[0][i3][64 * i2 + i5];
 ; KANDR:    |   |   |   |   |   %mul = (@a)[0][i3][64 * i1 + i4]  *  (@b)[0][64 * i1 + i4][64 * i2 + i5];
 ; KANDR:    |   |   |   |   |   %0 = %0  +  %mul;
@@ -76,15 +76,15 @@
 
 
 ; OUTER: BEGIN REGION { modified }
-; OUTER:   + DO i1 = 0, (%N + -1)/u64, 1  
+; OUTER:   + DO i1 = 0, (%N + -1)/u64, 1
 ; OUTER:   |   %min = (-64 * i1 + %N + -1 <= 63) ? -64 * i1 + %N + -1 : 63;
-; OUTER:   |   
-; OUTER:   |   + DO i2 = 0, (%N + -1)/u64, 1 
+; OUTER:   |
+; OUTER:   |   + DO i2 = 0, (%N + -1)/u64, 1
 ; OUTER:   |   |   %min3 = (-64 * i2 + %N + -1 <= 63) ? -64 * i2 + %N + -1 : 63;
-; OUTER:   |   |   
-; OUTER:   |   |   + DO i3 = 0, %min, 1  
+; OUTER:   |   |
+; OUTER:   |   |   + DO i3 = 0, %min, 1
 ; OUTER:   |   |   |   + DO i4 = 0, %min3, 1
-; OUTER:   |   |   |   |   + DO i5 = 0, %N + -1, 1 
+; OUTER:   |   |   |   |   + DO i5 = 0, %N + -1, 1
 ; OUTER:   |   |   |   |   |   %0 = (@c)[0][64 * i1 + i3][i5];
 ; OUTER:   |   |   |   |   |   %mul = (@a)[0][64 * i1 + i3][64 * i2 + i4]  *  (@b)[0][64 * i2 + i4][i5];
 ; OUTER:   |   |   |   |   |   %0 = %0  +  %mul;
@@ -122,18 +122,18 @@
 ; DEFAULT: Blocked at Level 3
 
 ; DEFAULT: BEGIN REGION { modified }
-; DEFAULT:      + DO i1 = 0, (%N + -1)/u64, 1   
+; DEFAULT:      + DO i1 = 0, (%N + -1)/u64, 1
 ; DEFAULT:      |   %min = (-64 * i1 + %N + -1 <= 63) ? -64 * i1 + %N + -1 : 63;
-; DEFAULT:      |   
-; DEFAULT:      |   + DO i2 = 0, (%N + -1)/u64, 1   
+; DEFAULT:      |
+; DEFAULT:      |   + DO i2 = 0, (%N + -1)/u64, 1
 ; DEFAULT:      |   |   %min3 = (-64 * i2 + %N + -1 <= 63) ? -64 * i2 + %N + -1 : 63;
-; DEFAULT:      |   |   
-; DEFAULT:      |   |   + DO i3 = 0, (%N + -1)/u64, 1   
+; DEFAULT:      |   |
+; DEFAULT:      |   |   + DO i3 = 0, (%N + -1)/u64, 1
 ; DEFAULT:      |   |   |   %min4 = (-64 * i3 + %N + -1 <= 63) ? -64 * i3 + %N + -1 : 63;
-; DEFAULT:      |   |   |   
-; DEFAULT:      |   |   |   + DO i4 = 0, %min, 1   
-; DEFAULT:      |   |   |   |   + DO i5 = 0, %min3, 1   
-; DEFAULT:      |   |   |   |   |   + DO i6 = 0, %min4, 1   
+; DEFAULT:      |   |   |
+; DEFAULT:      |   |   |   + DO i4 = 0, %min, 1
+; DEFAULT:      |   |   |   |   + DO i5 = 0, %min3, 1
+; DEFAULT:      |   |   |   |   |   + DO i6 = 0, %min4, 1
 ; DEFAULT:      |   |   |   |   |   |   %0 = (@c)[0][64 * i1 + i4][64 * i3 + i6];
 ; DEFAULT:      |   |   |   |   |   |   %mul = (@a)[0][64 * i1 + i4][64 * i2 + i5]  *  (@b)[0][64 * i2 + i5][64 * i3 + i6];
 ; DEFAULT:      |   |   |   |   |   |   %0 = %0  +  %mul;

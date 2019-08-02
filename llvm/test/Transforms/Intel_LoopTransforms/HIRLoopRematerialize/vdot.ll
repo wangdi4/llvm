@@ -1,7 +1,7 @@
 ; XFAIL: *
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-rematerialize -print-before=hir-loop-rematerialize -print-after=hir-loop-rematerialize < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-rematerialize,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
- 
+
 ; CHECK:Function: _Z4VdotRdPKdS1_
 
 ; CHECK:         BEGIN REGION { }
@@ -16,10 +16,10 @@
 
 ; CHECK:Function: _Z4VdotRdPKdS1_
 
-; CHECK:         DO i1 = 
+; CHECK:         DO i1 =
 ; CHECK:         END LOOP
 
- 
+
 ;Module Before HIR
 ; ModuleID = 'vdot.cpp'
 source_filename = "vdot.cpp"

@@ -123,8 +123,6 @@ def OpenCLIO : Attr {
   let LangOpts = [OpenCL];
 }
 
-def HLS : LangOpt<"HLS">;
-
 def OpenCLLocalMemSize : Attr {
   let Spellings = [GNU<"local_mem_size">];
   let Args = [UnsignedArgument<"LocalMemSize">];
@@ -524,50 +522,6 @@ def InternalMaxBlockRamDepth : InheritableAttr {
 }
 
 // No arguments.
-def SinglePump : Attr {
-  let Spellings = [GNU<"singlepump">];
-  let Subjects = SubjectList<[HLSConstVar, HLSLocalStaticSlaveMemVar,
-                              Field], ErrorDiag>;
-  let LangOpts = [OpenCL, HLS];
-  let Documentation = [Undocumented];
-}
-
-def DoublePump : Attr {
-  let Spellings = [GNU<"doublepump">];
-  let Subjects = SubjectList<[HLSConstVar, HLSLocalStaticSlaveMemVar,
-                              Field], ErrorDiag>;
-  let LangOpts = [OpenCL, HLS];
-  let Documentation = [Undocumented];
-}
-
-def Memory : Attr {
-  let Spellings = [GNU<"memory">];
-  let Args = [EnumArgument<"Kind", "MemoryKind",
-                           ["MLAB", "BLOCK_RAM", ""],
-                           ["MLAB", "BlockRAM", "Default"], 1>];
-  let AdditionalMembers = [{
-    static void generateValidStrings(SmallString<256> &Str) {
-      auto Last = BlockRAM;
-      for (int I = 0; I <= Last; ++I) {
-        Str += ConvertMemoryKindToStr(static_cast<MemoryKind>(I));
-        if (I != Last) Str += " ";
-      }
-    }
-  }];
-  let Subjects = SubjectList<[HLSConstVar, HLSLocalStaticSlaveMemVar,
-                              Field], ErrorDiag>;
-  let LangOpts = [OpenCL, HLS];
-  let Documentation = [Undocumented];
-}
-
-def HLSRegister : Attr {
-  let Spellings = [GNU<"register">];
-  let Subjects = SubjectList<[HLSConstVar, HLSLocalOrStaticVar,
-                              Field], ErrorDiag>;
-  let LangOpts = [OpenCL, HLS];
-  let Documentation = [Undocumented];
-}
-
 def OptimizeFMax : Attr {
   let Spellings = [GNU<"optimize_fmax">];
   let Subjects = SubjectList<[HLSConstVar, HLSLocalStaticSlaveMemVar,
@@ -585,40 +539,6 @@ def OptimizeRamUsage : Attr {
 }
 
 // One integral argument.
-def BankWidth : Attr {
-  let Spellings = [GNU<"bankwidth">];
-  let Args = [ExprArgument<"Value">];
-  let Subjects = SubjectList<[HLSConstVar, HLSLocalStaticSlaveMemVar,
-                              Field], ErrorDiag>;
-  let LangOpts = [OpenCL, HLS];
-  let Documentation = [Undocumented];
-  let AdditionalMembers = [{
-    static unsigned getMinValue() {
-      return 1;
-    }
-    static unsigned getMaxValue() {
-      return 1024*1024;
-    }
-  }];
-}
-
-def NumBanks : Attr {
-  let Spellings = [GNU<"numbanks">];
-  let Args = [ExprArgument<"Value">];
-  let Subjects = SubjectList<[HLSConstVar, HLSLocalStaticSlaveMemVar,
-                              Field], ErrorDiag>;
-  let LangOpts = [OpenCL, HLS];
-  let Documentation = [Undocumented];
-  let AdditionalMembers = [{
-    static unsigned getMinValue() {
-      return 1;
-    }
-    static unsigned getMaxValue() {
-      return 1024*1024;
-    }
-  }];
-}
-
 def NumReadPorts : Attr {
   let Spellings = [GNU<"numreadports">];
   let Args = [ExprArgument<"Value">];

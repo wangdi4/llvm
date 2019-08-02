@@ -682,7 +682,8 @@ ReprocessLoop:
       }
       DT->eraseNode(ExitingBlock);
       if (MSSAU) {
-        SmallPtrSet<BasicBlock *, 1> ExitBlockSet{ExitingBlock};
+        SmallSetVector<BasicBlock *, 8> ExitBlockSet;
+        ExitBlockSet.insert(ExitingBlock);
         MSSAU->removeBlocks(ExitBlockSet);
       }
 

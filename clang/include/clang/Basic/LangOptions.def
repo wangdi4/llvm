@@ -105,7 +105,6 @@ LANGOPT(Restrict         , 1, 0,
 LANGOPT(GnuPermissive   , 1, 0, "Turns on GNU -fpermissive mode")
 // Fix for CQ380574: Ability to set various predefines based on gcc version
 // needed.
-LANGOPT(LongDoubleSize, 8, 0, "Set the size for LongDouble")
 #endif // INTEL_CUSTOMIZATION
 LANGOPT(MSVCCompat        , 1, 0, "Microsoft Visual C++ full compatibility mode")
 LANGOPT(MicrosoftExt      , 1, 0, "Microsoft C++ extensions")
@@ -195,6 +194,8 @@ VALUE_LANGOPT(PackStruct  , 32, 0,
 VALUE_LANGOPT(MaxTypeAlign  , 32, 0,
               "default maximum alignment for types")
 VALUE_LANGOPT(AlignDouble            , 1, 0, "Controls if doubles should be aligned to 8 bytes (x86 only)")
+VALUE_LANGOPT(LongDoubleSize        , 32, 0, "width of long double")
+LANGOPT(PPCIEEELongDouble            , 1, 0, "use IEEE 754 quadruple-precision for long double")
 COMPATIBLE_VALUE_LANGOPT(PICLevel    , 2, 0, "__PIC__ level")
 COMPATIBLE_VALUE_LANGOPT(PIE         , 1, 0, "is pie")
 LANGOPT(ROPI                         , 1, 0, "Read-only position independence")
@@ -219,8 +220,8 @@ LANGOPT(ShortEnums        , 1, 0, "short enum types")
 
 LANGOPT(OpenCL            , 1, 0, "OpenCL")
 LANGOPT(OpenCLVersion     , 32, 0, "OpenCL C version")
-LANGOPT(OpenCLCPlusPlus   , 1, 0, "OpenCL C++")
-LANGOPT(OpenCLCPlusPlusVersion     , 32, 0, "OpenCL C++ version")
+LANGOPT(OpenCLCPlusPlus   , 1, 0, "C++ for OpenCL")
+LANGOPT(OpenCLCPlusPlusVersion     , 32, 0, "C++ for OpenCL version")
 LANGOPT(NativeHalfType    , 1, 0, "Native half type support")
 LANGOPT(NativeHalfArgsAndReturns, 1, 0, "Native half args and returns")
 LANGOPT(HalfArgsAndReturns, 1, 0, "half args and returns")

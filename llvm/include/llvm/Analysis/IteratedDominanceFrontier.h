@@ -88,8 +88,7 @@ namespace IDFCalculatorDetail {
 
 template <typename BlockTy, bool IsPostDom>                          // INTEL
 typename BBChildrenGetterTy<BlockTy, IsPostDom>::ChildrenTy          // INTEL
-BBChildrenGetterTy<BlockTy, IsPostDom>::get(                         // INTEL
-    const BBChildrenGetterTy<BlockTy, IsPostDom>::NodeRef &N) {      // INTEL
+BBChildrenGetterTy<BlockTy, IsPostDom>::get(const NodeRef &N) {      // INTEL
 
   using OrderedNodeTy =
       typename IDFCalculatorBase<BlockTy, IsPostDom>::OrderedNodeTy; // INTEL

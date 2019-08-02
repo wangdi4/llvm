@@ -15,6 +15,7 @@ add_llvm_library(LLVMInstrumentation
 # end INTEL_CUSTOMIZATION
   PGOInstrumentation.cpp
   PGOMemOPSizeOpt.cpp
+  PoisonChecking.cpp
   SanitizerCoverage.cpp
   ThreadSanitizer.cpp
   HWAddressSanitizer.cpp

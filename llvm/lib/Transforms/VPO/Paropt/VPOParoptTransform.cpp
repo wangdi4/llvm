@@ -909,6 +909,64 @@ bool VPOParoptTransform::renameAndReplaceLibatomicCallsForSPIRV(Function *F) {
   return Changed;
 }
 
+// Generate this code:
+//
+//   %temp = alloca i1                                                  (1)
+//   %0 = llvm.region.entry()[... "QUAL.OMP.JUMP.TO.END.IF" (i1* %temp) (2)
+//   %temp.load = load volatile i1, i1* %temp                           (3)
+//   %cmp = icmp ne i1 %temp.load, false                                (4)
+//   br i1 %cmp, label %REGION.END, label %REGION.BODY                  (5)
+//
+//   REGION.BODY:
+//   ...
+//
+//   REGION.END:
+//   llvm.region.exit(%0)
+void VPOParoptTransform::addBranchToEndDirective(WRegionNode *W) {
+  assert(W && "Null WRegionNode.");
+  Instruction *EntryDirective = W->getEntryDirective();
+
+  assert(EntryDirective->hasOneUse() &&
+         "More than one uses of region entry directive.");
+  assert(GeneralUtils::hasNextUniqueInstruction(EntryDirective) &&
+         "More than one successors of region entry directive.");
+
+  Instruction *InsertPt = GeneralUtils::nextUniqueInstruction(EntryDirective);
+
+  Instruction *ExitDirective =
+      cast<Instruction>(*(EntryDirective->user_begin()));
+  BasicBlock *ExitBB = ExitDirective->getParent();
+  BasicBlock *NewExitBB = SplitBlock(ExitBB, ExitDirective, DT, LI);
+
+  IRBuilder<> AllocaBuilder(EntryDirective);
+  AllocaInst *TempAddr = AllocaBuilder.CreateAlloca(
+      AllocaBuilder.getInt1Ty(), nullptr, "end.dir.temp"); //           (1)
+
+  IRBuilder<> Builder(InsertPt);
+  Value *GlobLoad = Builder.CreateLoad(TempAddr, true, "temp.load"); // (3)
+  Value *CmpInst =
+      Builder.CreateICmpNE(GlobLoad, Builder.getInt1(0), "cmp"); //     (4)
+
+  SplitBlockAndInsertIfThen(CmpInst, InsertPt, false, nullptr, nullptr, nullptr,
+                            NewExitBB); //                              (5)
+
+  StringRef ClauseString =
+      VPOAnalysisUtils::getClauseString(QUAL_OMP_JUMP_TO_END_IF);
+
+  CallInst *CI = cast<CallInst>(EntryDirective);
+  CI = VPOParoptUtils::addOperandBundlesInCall(
+      CI, {{ClauseString, {TempAddr}}}); //                             (2)
+  W->setEntryDirective(CI);
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__
+                    << ": Created a branch from region.entry to region.exit "
+                       "for WRegion '"
+                    << W->getNumber() << "', using '";
+             TempAddr->printAsOperand(dbgs()); dbgs() << "'.\n";);
+
+  return;
+}
+
 //
 // ParPrepare mode:
 //   Paropt prepare transformations for lowering and privatizing
@@ -1607,7 +1665,13 @@ bool VPOParoptTransform::paroptTransforms() {
       bool DirRemoved = VPOUtils::stripDirectives(W);
       assert(DirRemoved && "Directive intrinsics not removed for WRN.\n");
       (void) DirRemoved;
-    }
+    } else if (Mode & ParPrepare)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  if (!isTargetCSA())
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
+      addBranchToEndDirective(W);
 
     if (Changed) { // Code transformations happened for this WRN
       RoutineChanged = true;
@@ -6237,6 +6301,7 @@ bool VPOParoptTransform::propagateCancellationPointsToIR(WRegionNode *W) {
                     << CancellationPoints.size()
                     << " Cancellation Points to: " << *CI << ".\n");
 
+  W->setEntryDirective(CI);
   W->resetBBSet(); // CFG changed; clear BBSet
   return true;
 }
@@ -6272,20 +6337,30 @@ bool VPOParoptTransform::clearCancellationPointAllocasFromIR(WRegionNode *W) {
   for (AllocaInst *CPAlloca : CancellationPointAllocas) {            // (1)
 
     // The only uses of CPAlloca (1) should be in the intrinsic (2) and the
-    // store (2).
-    assert(CPAlloca->getNumUses() <= 2 &&
-           "Unexpected number of uses for cancellation point alloca.");
+    // store (3), and maybe some bitcasts used in lifetime begin/end markers
+    // for the variable that the inliner may insert.
 
     IntrinsicInst *RegionEntry = nullptr;                            // (2)
-    StoreInst *CPStore = nullptr;                                    // (3)
+    SmallVector<Instruction *, 4> CPAllocaUsersToDelete;
 
     for (auto It = CPAlloca->user_begin(), IE = CPAlloca->user_end(); It != IE;
          ++It) {
       if (IntrinsicInst *Intrinsic = dyn_cast<IntrinsicInst>(*It))
         RegionEntry = Intrinsic;
-      else if (StoreInst *Store = dyn_cast<StoreInst>(*It))
-        CPStore = Store;
-      else
+      else if (StoreInst *CPStore = dyn_cast<StoreInst>(*It)) { //      (3)
+        CPAllocaUsersToDelete.push_back(CPStore);
+      } else if (auto *CastI = dyn_cast<CastInst>(*It)) {
+        for (User *CastUser : CastI->users()) {
+          assert(isa<IntrinsicInst>(CastUser) &&
+                 (cast<IntrinsicInst>(CastUser)->getIntrinsicID() ==
+                      Intrinsic::lifetime_start ||
+                  cast<IntrinsicInst>(CastUser)->getIntrinsicID() ==
+                      Intrinsic::lifetime_end) &&
+                 "Unexpected cast on cancellation point alloca.");
+          CPAllocaUsersToDelete.push_back(cast<Instruction>(CastUser));
+        }
+        CPAllocaUsersToDelete.push_back(CastI);
+      } else
         llvm_unreachable("Unexpected user of cancellation point alloca.");
     }
 
@@ -6301,8 +6376,8 @@ bool VPOParoptTransform::clearCancellationPointAllocasFromIR(WRegionNode *W) {
     RegionEntry->replaceUsesOfWith(
         CPAlloca, ConstantPointerNull::get(Type::getInt8PtrTy(C)));
 
-    // Next, we delete (1) and (3). Now, CPStore may have been removed by some
-    // dead-code elimination optimization. e.g.
+    // Next, we delete (1), (3), and any other users of CPAlloca. Now, CPStore
+    // may have been removed by some dead-code elimination optimization. e.g.
     //
     //   if (expr) {
     //     %1 = __kmpc_cancel(...)
@@ -6310,8 +6385,8 @@ bool VPOParoptTransform::clearCancellationPointAllocasFromIR(WRegionNode *W) {
     //   }
     //
     // 'expr' may be always false, and %1 and the store can be optimized away.
-    if (CPStore)
-      CPStore->eraseFromParent();
+    for (auto *CPAU : CPAllocaUsersToDelete)
+      CPAU->eraseFromParent();
 
     CPAlloca->eraseFromParent();
     Changed = true;
@@ -6344,6 +6419,7 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
   Function *F = W->getEntryBBlock()->getParent();
   LLVMContext &C = F->getContext();
   ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
+  bool DTNeedsRecalculation = false;
 
   // For a loop construct with static [even] scheduling,
   // __kmpc_static_fini(...) call should be made even if the construt is
@@ -6511,10 +6587,26 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
       //                |    \ |
       //               ...   CancelExitBB
       //
-      auto *CancelExitBBDominator =
-          DT->findNearestCommonDominator(CurrentCancelExitBB, OrgBB);
 
-      DT->changeImmediateDominator(CurrentCancelExitBB, CancelExitBBDominator);
+      if (!DT->getNode(CurrentCancelExitBB))
+        // It is spossible for the user program to have code like:
+        //   #pragma omp parallel for
+        //   while (true) {
+        //     #pragma omp cancel if (...)
+        //   }
+        //
+        // In cases like this, ExitBB for the WRegion for the parallel-for is
+        // unreachable (as there is an infinite loop before it). So when we try
+        // to make it reachable by adding a branch from the cancellation check,
+        // DT won't be able to handle the update. So, we need to re-build it
+        // from scratch.
+        DTNeedsRecalculation = true;
+      else {
+        auto *CancelExitBBDominator =
+            DT->findNearestCommonDominator(CurrentCancelExitBB, OrgBB);
+        DT->changeImmediateDominator(CurrentCancelExitBB,
+                                     CancelExitBBDominator);
+      }
     }
 
     if (NeedStaticFiniCall && !CancelExitBBWithStaticFini) {
@@ -6593,6 +6685,10 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
       dbgs() << "\nExit VPOParoptTransform::genCancellationBranchingCode\n");
 
   W->resetBBSet(); // CFG changed; clear BBSet
+  if (DTNeedsRecalculation) {
+    DT->recalculate(*F);
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Recalculating DT.\n");
+  }
   return true;
 }
 

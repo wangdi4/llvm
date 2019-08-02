@@ -2516,16 +2516,9 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
       Diag(Tok.getLocation(), diag::warn_attributes_ignored_after_init);
     }
 #endif // INTEL_CUSTOMIZATION
-  } else if ((getLangOpts().CPlusPlus11 ||                          // INTEL
-              getLangOpts().IntelCompat) && Tok.is(tok::l_brace) && // INTEL
+  } else if (getLangOpts().CPlusPlus11 && Tok.is(tok::l_brace) &&
              (!CurParsedObjCImpl || !D.isFunctionDeclarator())) {
     // Parse C++0x braced-init-list.
-#if INTEL_CUSTOMIZATION
-    // CQ374879
-    if (!getLangOpts().CPlusPlus11 && getLangOpts().IntelCompat)
-      Diag(Tok, diag::ext_generalized_initializer_lists);
-    else
-#endif // INTEL_CUSTOMIZATION
     Diag(Tok, diag::warn_cxx98_compat_generalized_initializer_lists);
 
     InitializerScopeRAII InitScope(*this, D, ThisDecl);
@@ -3294,7 +3287,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
           Actions.getTypeName(*Next.getIdentifierInfo(), Next.getLocation(),
                               getCurScope(), &SS, false, false, nullptr,
                               /*IsCtorOrDtorName=*/false,
-                              /*WantNonTrivialSourceInfo=*/true,
+                              /*WantNontrivialTypeSourceInfo=*/true,
                               isClassTemplateDeductionContext(DSContext));
 
       // If the referenced identifier is not a type, then this declspec is
@@ -3671,7 +3664,8 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       isInvalid = DS.setFunctionSpecInline(Loc, PrevSpec, DiagID);
       break;
     case tok::kw_virtual:
-      // OpenCL C++ v1.0 s2.9: the virtual function qualifier is not supported.
+      // C++ for OpenCL does not allow virtual function qualifier, to avoid
+      // function pointers restricted in OpenCL v2.0 s6.9.a.
       if (getLangOpts().OpenCLCPlusPlus) {
         DiagID = diag::err_openclcxx_virtual_function;
         PrevSpec = Tok.getIdentifierInfo()->getNameStart();

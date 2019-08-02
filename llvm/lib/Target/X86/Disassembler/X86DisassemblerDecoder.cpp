@@ -333,7 +333,14 @@ static void setPrefixPresent(struct InternalInstruction *insn, uint8_t prefix) {
     //      it's not mandatory prefix
     //  3. if (nextByte >= 0x40 && nextByte <= 0x4f) it's REX and we need
     //     0x0f exactly after it to be mandatory prefix
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+    if (isREX(insn, nextByte) || nextByte == 0x0f || nextByte == 0x66 ||
+        insn->isIceCode)
+#else // INTEL_FEATURE_ICECODE
     if (isREX(insn, nextByte) || nextByte == 0x0f || nextByte == 0x66)
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
       // The last of 0xf2 /0xf3 is mandatory prefix
       insn->mandatoryPrefix = prefix;
     insn->repeatPrefix = prefix;
@@ -396,6 +403,11 @@ static int readPrefixes(struct InternalInstruction* insn) {
        *                       "mov mem, imm" (opcode 0xc6/0xc7) instructions.
        * then it should be disassembled as an xrelease not rep.
        */
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+      if (!insn->isIceCode)
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
       if (byte == 0xf3 && (nextByte == 0x88 || nextByte == 0x89 ||
                            nextByte == 0xc6 || nextByte == 0xc7)) {
         insn->xAcquireRelease = true;
@@ -800,7 +812,13 @@ static int readOpcode(struct InternalInstruction* insn) {
 
       insn->opcodeType = TWOBYTE;
     }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  } else if (insn->mandatoryPrefix && !insn->isIceCode)
+#else // INTEL_FEATURE_ICECODE
   } else if (insn->mandatoryPrefix)
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
     // The opcode with mandatory prefix must start with opcode escape.
     // If not it's legacy repeat prefix
     insn->mandatoryPrefix = 0;
@@ -837,6 +855,30 @@ static int getIDWithAttrMask(uint16_t* instructionID,
   hasModRMExtension = modRMRequired(insn->opcodeType,
                                     instructionClass,
                                     insn->opcode);
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  // For part of IceCode instructions that use AdSize32, we can't get such
+  // information from the binary due to lacking the prefix 0x67.
+  // Here we define a new operand type TYPE_M32 to indicate such information,
+  // and hack to modify the addressSize before emitting operand.
+  if (insn->isIceCode) {
+    *instructionID = decode(insn->opcodeType,
+                            instructionClass,
+                            insn->opcode,
+                            0);
+    if (*instructionID) {
+      auto spec = specifierForUID(*instructionID);
+      for (const auto &Op : x86OperandSets[spec->operands])
+        if (Op.encoding == ENCODING_RM) {
+          if ((OperandType)Op.type == TYPE_M32)
+            insn->addressSize = 4;
+          break;
+        }
+    }
+  }
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 
   if (hasModRMExtension) {
     if (readModRM(insn))
@@ -919,6 +961,13 @@ static int getID(struct InternalInstruction* insn, const void *miiArg) {
   if (insn->mode == MODE_64BIT)
     attrMask |= ATTR_64BIT;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  if (insn->isIceCode)
+    attrMask |= ATTR_CE;
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
+
   if (insn->vectorExtensionType != TYPE_NO_VEX_XOP) {
     attrMask |= (insn->vectorExtensionType == TYPE_EVEX) ? ATTR_EVEX : ATTR_VEX;
 
@@ -999,7 +1048,13 @@ static int getID(struct InternalInstruction* insn, const void *miiArg) {
       attrMask |= ATTR_OPSIZE;
     if (insn->hasAdSize)
       attrMask |= ATTR_ADSIZE;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+    if (insn->opcodeType == ONEBYTE && !insn->isIceCode) {
+#else // INTEL_FEATURE_ICECODE
     if (insn->opcodeType == ONEBYTE) {
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
       if (insn->repeatPrefix == 0xf3 && (insn->opcode == 0x90))
         // Special support for PAUSE
         attrMask |= ATTR_XS;
@@ -1984,7 +2039,13 @@ static int readOperands(struct InternalInstruction* insn) {
 int llvm::X86Disassembler::decodeInstruction(
     struct InternalInstruction *insn, byteReader_t reader,
     const void *readerArg, dlog_t logger, void *loggerArg, const void *miiArg,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+    uint64_t startLoc, DisassemblerMode mode, bool isIceCode) {
+#else // INTEL_FEATURE_ICECODE
     uint64_t startLoc, DisassemblerMode mode) {
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
   memset(insn, 0, sizeof(struct InternalInstruction));
 
   insn->reader = reader;
@@ -1994,6 +2055,11 @@ int llvm::X86Disassembler::decodeInstruction(
   insn->startLocation = startLoc;
   insn->readerCursor = startLoc;
   insn->mode = mode;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  insn->isIceCode = isIceCode;
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
   insn->numImmediatesConsumed = 0;
 
   if (readPrefixes(insn)       ||

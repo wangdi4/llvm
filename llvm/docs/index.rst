@@ -1,13 +1,3 @@
-.. INTEL_CUSTOMIZATION
-
-.. toctree::
-   :hidden:
-
-   Intel/index
-   SPIRVRepresentationInLLVM
-
-.. // INTEL_CUSTOMIZATION
-
 Overview
 ========
 
@@ -110,13 +100,14 @@ intermediate LLVM representation.
    GetElementPtr
    Frontend/PerformanceTips
    MCJITDesignAndImplementation
-   ORCv2DesignAndImplementation
+   ORCv2
    CodeOfConduct
    CompileCudaWithLLVM
    ReportingGuide
    Benchmarking
    Docker
    BuildingADistribution
+   Remarks
 
 :doc:`GettingStarted`
    Discusses how to get up and running quickly with the LLVM infrastructure.
@@ -203,6 +194,8 @@ intermediate LLVM representation.
   A best-practices guide for using LLVM's CMake build system to package and
   distribute LLVM-based tools.
 
+:doc:`Remarks`
+   A reference on the implementation of remarks in LLVM.
 
 Programming Documentation
 =========================
@@ -401,9 +394,9 @@ For API clients and LLVM developers.
 :doc:`MCJITDesignAndImplementation`
    Describes the inner workings of MCJIT execution engine.
 
-:doc:`ORCv2DesignAndImplementation`
+:doc:`ORCv2`
    Describes the design and implementation of the ORC APIs, including some
-   usage examples.
+   usage examples, and a guide for users transitioning from ORCv1 to ORCv2.
 
 :doc:`BranchWeightMetadata`
    Provides information about Branch Prediction Information.

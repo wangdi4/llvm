@@ -7,10 +7,10 @@
 ; }
 ;
 ; Note:
-; - There is no MaxIndexLoad in this group, since (@flags1)[0][i2 + 1](W) dominates all (@flags1)[0][i2 + 1](R).  
+; - There is no MaxIndexLoad in this group, since (@flags1)[0][i2 + 1](W) dominates all (@flags1)[0][i2 + 1](R).
 ; - This testcase is not generated directly from a C source code. Rather, it is produced by hacking LLVM IR.
 ;   Generating it directly from C source will need to disable various LLVM/HIR passes, which maybe
-;   more work than hacking LLVM IR. 
+;   more work than hacking LLVM IR.
 ; - Line #65 (the load instruction) is the hack inserted, replacing the original use of temp.
 ;
 ;

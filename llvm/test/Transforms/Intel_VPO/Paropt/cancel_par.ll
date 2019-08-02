@@ -52,7 +52,8 @@ entry:
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.REDUCTION.ADD"(i32* @x), "QUAL.OMP.SHARED"(i32* @i), "QUAL.OMP.SHARED"(i32* @j), "QUAL.OMP.PRIVATE"(i32* %.omp.lb), "QUAL.OMP.PRIVATE"(i32* %.omp.stride), "QUAL.OMP.PRIVATE"(i32* %.omp.is_last) ]
 ; #pragma omp parallel
 ; Updated region exit intrinsic after vpo-paropt-prepare
-; PREPR: %{{[a-zA-Z._0-9]+}} = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),{{.*}} "QUAL.OMP.CANCELLATION.POINTS"(i32* [[CP4ALLOCA:%[a-zA-Z._0-9]+]], i32* [[CP3ALLOCA:%[a-zA-Z._0-9]+]], i32* [[CP2ALLOCA:%[a-zA-Z._0-9]+]], i32* [[CP1ALLOCA:%[a-zA-Z._0-9]+]]) ]
+; PREPR: %{{[a-zA-Z._0-9]+}} = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"()
+; PREPR-SAME: "QUAL.OMP.CANCELLATION.POINTS"(i32* [[CP4ALLOCA:%[a-zA-Z._0-9]+]], i32* [[CP3ALLOCA:%[a-zA-Z._0-9]+]], i32* [[CP2ALLOCA:%[a-zA-Z._0-9]+]], i32* [[CP1ALLOCA:%[a-zA-Z._0-9]+]])
 ; TFORM: %{{[a-zA-Z._0-9]+}} = tail call i32 @__kmpc_ok_to_fork({{[^,]+}})
 
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SINGLE"() ]

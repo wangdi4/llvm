@@ -4,7 +4,7 @@
 ; CHECK: No Safe Reduction
 ;
 ; Check safe reduction is not identified because of non-1 denominator.
-; 
+;
 ; Source looks like:
 ;
 ; void myred(unsigned a[], unsigned k, unsigned* out, int N)
@@ -13,10 +13,10 @@
 ;   for(int i = 0; i < 40; i++) {
 ;     t = t/3 + k + a[i];
 ;   }
-; 
+;
 ;   *out = t;
 ; }
-; 
+;
 ; HIR looks like
 ; <14>      + DO i1 = 0, 39, 1   <DO_LOOP>
 ; <2>       |   %t.07.out = %t.07;

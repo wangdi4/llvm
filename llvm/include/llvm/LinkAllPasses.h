@@ -225,6 +225,7 @@ namespace {
       (void) llvm::createStripDeadPrototypesPass();
       (void) llvm::createTailCallEliminationPass();
       (void) llvm::createJumpThreadingPass();
+      (void) llvm::createIVSplitLegacyPass(); // INTEL
       (void) llvm::createUnifyFunctionExitNodesPass();
       (void) llvm::createInstCountPass();
       (void) llvm::createConstantHoistingPass();
