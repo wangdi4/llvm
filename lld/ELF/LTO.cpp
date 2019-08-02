@@ -80,7 +80,9 @@ static lto::Config createConfig() {
   c.Options.IntelAdvancedOptim = config->intelAdvancedOptim;
 #endif // INTEL_CUSTOMIZATION
 
-  if (config->relocatable)
+  if (auto relocModel = getRelocModelFromCMModel())
+    c.RelocModel = *relocModel;
+  else if (config->relocatable)
     c.RelocModel = None;
   else if (config->isPic)
     c.RelocModel = Reloc::PIC_;
