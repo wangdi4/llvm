@@ -16,6 +16,7 @@
 #include "IntelLoopVectorizationCodeGen.h"
 #include "IntelLoopVectorizationLegality.h"
 #include "IntelVPlan.h"
+#include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSAnalysis.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
@@ -39,6 +40,10 @@ static cl::opt<bool>
 cl::opt<bool> EnableVPValueCodegen("enable-vp-value-codegen", cl::init(false),
                                    cl::Hidden,
                                    cl::desc("Enable VPValue based codegen"));
+
+static cl::opt<bool> VPlanTeachLegalFromDA(
+    "vplan-teach-legal-from-da", cl::init(true), cl::Hidden,
+    cl::desc("Teach legal about uniforms recognized by DA"));
 
 /// A helper function that returns GEP instruction and knows to skip a
 /// 'bitcast'. The 'bitcast' may be skipped if the source and the destination
@@ -2791,6 +2796,30 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     auto *Inst = VPInst->getInstruction();
     assert(Inst &&
            "Underlying instruction cannot be null for valid VPInstruction.");
+
+    // Temporary workaround to detect and handle uniform loads in codegen by
+    // transferring knowledge from DA to VPOLegal about uniform loads.
+    // TODO: Is this too late to do a knowledge transfer. Other option is to
+    // write a full HCFG traversal in collectLoopUniforms.
+    if (VPlanTeachLegalFromDA) {
+      if (isa<LoadInst>(Inst) && !Plan->getVPlanDA()->isDivergent(*VPInst)) {
+        if (auto *PtrInst =
+                dyn_cast<Instruction>(getLoadStorePointerOperand(Inst))) {
+          Legal->UniformForAnyVF.insert(PtrInst);
+          Uniforms[VF].insert(Inst);
+        }
+      }
+      if (isa<GetElementPtrInst>(Inst) &&
+          !Plan->getVPlanDA()->isDivergent(*VPInst)) {
+        // A pointer identified by DA as uniform for outer-loop vectorization
+        // was marked as unit-strided by legality based on inner-loop
+        // vectorization. Fix legality by unsetting the stride.
+        if (Legal->isConsecutivePtr(Inst)) {
+          Legal->erasePtrStride(Inst);
+        }
+      }
+    }
+
     vectorizeInstruction(Inst);
 
     // Add the widened value to the VPValue widen map.
