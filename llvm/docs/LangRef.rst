@@ -5572,6 +5572,29 @@ optimizations related to compare and branch instructions. The metadata
 is treated as a boolean value; if it exists, it signals that the branch
 or switch that it is attached to is completely unpredictable.
 
+.. _md_dereferenceable:
+
+'``dereferenceable``' Metadata
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The existence of the ``!dereferenceable`` metadata on the instruction
+tells the optimizer that the value loaded is known to be dereferenceable.
+The number of bytes known to be dereferenceable is specified by the integer
+value in the metadata node. This is analogous to the ''dereferenceable''
+attribute on parameters and return values.
+
+.. _md_dereferenceable_or_null:
+
+'``dereferenceable_or_null``' Metadata
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The existence of the ``!dereferenceable_or_null`` metadata on the
+instruction tells the optimizer that the value loaded is known to be either
+dereferenceable or null.
+The number of bytes known to be dereferenceable is specified by the integer
+value in the metadata node. This is analogous to the ''dereferenceable_or_null''
+attribute on parameters and return values.
+
 .. _llvm.loop:
 
 '``llvm.loop``'
@@ -6150,6 +6173,8 @@ the irreducible loop) of 100:
     !0 = !{"loop_header_weight", i64 100}
 
 Irreducible loop header weights are typically based on profile data.
+
+.. _md_invariant.group:
 
 '``invariant.group``' Metadata
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -9040,7 +9065,7 @@ otherwise, the behavior is undefined.
 
 The optional ``!invariant.group`` metadata must reference a single metadata name
  ``<index>`` corresponding to a metadata node with no entries.
- See ``invariant.group`` metadata.
+ See ``invariant.group`` metadata :ref:`invariant.group <md_invariant.group>`
 
 The optional ``!nonnull`` metadata must reference a single
 metadata name ``<index>`` corresponding to a metadata node with no
@@ -9052,22 +9077,14 @@ values. This metadata can only be applied to loads of a pointer type.
 
 The optional ``!dereferenceable`` metadata must reference a single metadata
 name ``<deref_bytes_node>`` corresponding to a metadata node with one ``i64``
-entry. The existence of the ``!dereferenceable`` metadata on the instruction
-tells the optimizer that the value loaded is known to be dereferenceable.
-The number of bytes known to be dereferenceable is specified by the integer
-value in the metadata node. This is analogous to the ''dereferenceable''
-attribute on parameters and return values. This metadata can only be applied
-to loads of a pointer type.
+entry.
+See ``dereferenceable`` metadata :ref:`dereferenceable <md_dereferenceable>`
 
 The optional ``!dereferenceable_or_null`` metadata must reference a single
 metadata name ``<deref_bytes_node>`` corresponding to a metadata node with one
-``i64`` entry. The existence of the ``!dereferenceable_or_null`` metadata on the
-instruction tells the optimizer that the value loaded is known to be either
-dereferenceable or null.
-The number of bytes known to be dereferenceable is specified by the integer
-value in the metadata node. This is analogous to the ''dereferenceable_or_null''
-attribute on parameters and return values. This metadata can only be applied
-to loads of a pointer type.
+``i64`` entry.
+See ``dereferenceable_or_null`` metadata :ref:`dereferenceable_or_null
+<md_dereferenceable_or_null>`
 
 The optional ``!align`` metadata must reference a single metadata name
 ``<align_node>`` corresponding to a metadata node with one ``i64`` entry.
@@ -10064,7 +10081,7 @@ Syntax:
 
 ::
 
-      <result> = inttoptr <ty> <value> to <ty2>             ; yields ty2
+      <result> = inttoptr <ty> <value> to <ty2>[, !dereferenceable !<deref_bytes_node>][, !dereferenceable_or_null !<deref_bytes_node]             ; yields ty2
 
 Overview:
 """""""""
@@ -10078,6 +10095,16 @@ Arguments:
 The '``inttoptr``' instruction takes an :ref:`integer <t_integer>` value to
 cast, and a type to cast it to, which must be a :ref:`pointer <t_pointer>`
 type.
+
+The optional ``!dereferenceable`` metadata must reference a single metadata
+name ``<deref_bytes_node>`` corresponding to a metadata node with one ``i64``
+entry.
+See ``dereferenceable`` metadata.
+
+The optional ``!dereferenceable_or_null`` metadata must reference a single
+metadata name ``<deref_bytes_node>`` corresponding to a metadata node with one
+``i64`` entry.
+See ``dereferenceable_or_null`` metadata.
 
 Semantics:
 """"""""""

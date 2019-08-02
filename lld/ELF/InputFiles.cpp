@@ -1165,7 +1165,7 @@ void ArchiveFile::fetch(const Archive::Symbol &sym) {
   Archive::Child c =
       CHECK(sym.getMember(), toString(this) +
                                  ": could not get the member for symbol " +
-                                 sym.getName());
+                                 toELFString(sym));
 
   if (!seen.insert(c.getChildOffset()).second)
     return;
@@ -1174,7 +1174,7 @@ void ArchiveFile::fetch(const Archive::Symbol &sym) {
       CHECK(c.getMemoryBufferRef(),
             toString(this) +
                 ": could not get the buffer for the member defining symbol " +
-                sym.getName());
+                toELFString(sym));
 
 #if INTEL_CUSTOMIZATION
   // If the parent is a thin archive and the child is an archive that
