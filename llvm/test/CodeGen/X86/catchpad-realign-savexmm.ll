@@ -54,6 +54,7 @@ catch:
 ; CHECK: popq    %rbp
 ; CHECK: retq
 ; CHECK: .seh_handlerdata
+<<<<<<< HEAD
 
 ; CHECK: "?catch$2@?0?f@4HA":
 ; CHECK: .seh_proc "?catch$2@?0?f@4HA"
@@ -74,3 +75,20 @@ catch:
 ; CHECK: popq   %rbp
 ; CHECK: retq                            # CATCHRET
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK: # %catch
+; CHECK: movq    %rdx, 16(%rsp)
+; CHECK: pushq   %rbp
+; CHECK: .seh_pushreg 5
+; CHECK: subq    $48, %rsp
+; CHECK: .seh_stackalloc 48
+; CHECK: leaq    64(%rdx), %rbp
+; CHECK: movapd  %xmm6, 32(%rsp)
+; CHECK: .seh_savexmm 6, 32
+; CHECK: .seh_endprologue
+; CHECK: movapd  32(%rsp), %xmm6
+; CHECK: leaq    .LBB0_1(%rip), %rax
+; CHECK: addq    $48, %rsp
+; CHECK: popq    %rbp
+; CHECK: retq # CATCHRET
+>>>>>>> 9ad565f70ec5fd3531056d7c939302d4ea970c83
