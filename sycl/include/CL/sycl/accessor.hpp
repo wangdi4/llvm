@@ -316,8 +316,11 @@ class accessor :
   }
 
   PtrType getQualifiedPtr() const { return MData; }
-#else
 
+public:
+  // Default constructor for objects later initialized with __init member.
+  accessor() : impl({}) {}
+#else
   using AccessorBaseHost::getAccessRange;
   using AccessorBaseHost::getOffset;
   using AccessorBaseHost::getMemoryRange;
@@ -617,6 +620,11 @@ class accessor<DataT, Dimensions, AccessMode, access::target::local,
       getSize()[I] = AccessRange[I];
   }
 
+public:
+  // Default constructor for objects later initialized with __init member.
+  accessor() : impl({}) {}
+
+private:
   PtrType getQualifiedPtr() const { return MData; }
 
   PtrType MData;
