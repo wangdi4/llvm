@@ -1,3 +1,5 @@
 add_subdirectory(tbb)
-add_subdirectory(gtest)
+if (NOT OPENCL_INTREE_BUILD)
+  add_subdirectory(gtest)
+endif()
 add_subdirectory(omp)
