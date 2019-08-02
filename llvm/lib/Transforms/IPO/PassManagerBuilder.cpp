@@ -1486,6 +1486,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createSROAPass());
 
 #if INTEL_CUSTOMIZATION
+  PM.add(createCorrelatedValuePropagationPass());
+
   if (EnableInlineAggAnalysis) {
     PM.add(createAggInlAALegacyPass());
   }
