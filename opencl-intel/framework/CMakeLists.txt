@@ -94,6 +94,13 @@ add_opencl_library (${TARGET_NAME} SHARED
 copy_to (${CONFIG_FILES} DESTINATION lib)
 install_to (${CONFIG_FILES} DESTINATION lib/${OUTPUT_ARCH_SUFF} COMPONENT ocl-config)
 
+install (CODE
+    "
+    if (NOT WIN32)
+    execute_process (COMMAND dos2unix ${CMAKE_INSTALL_PREFIX}/lib/${OUTPUT_ARCH_SUFF}/cl.cfg)
+    endif(NOT WIN32)
+    " COMPONENT ocl-config)
+
 if (WIN32)
     set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "/DELAYLOAD:task_executor${BUILD_PLATFORM}.dll")
     get_target_property(LK_FLAGS_DEBUG ${TARGET_NAME} LINK_FLAGS_DEBUG)

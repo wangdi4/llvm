@@ -44,7 +44,7 @@ using namespace Intel::MetadataAPI;
 
 char intel::VectorizerCore::ID = 0;
 
-extern "C" FunctionPass* createScalarizerPass(const Intel::CPUId& CpuId);
+extern "C" FunctionPass* createScalarizerPass(const Intel::CPUId& CpuId, bool InVPlanPipeline = false);
 extern "C" FunctionPass* createPhiCanon();
 extern "C" FunctionPass* createPredicator();
 extern "C" FunctionPass* createSimplifyGEPPass();

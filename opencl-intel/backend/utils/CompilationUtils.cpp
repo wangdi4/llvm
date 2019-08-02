@@ -224,10 +224,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     return ++prev;
   }
 
-  void CompilationUtils::getImplicitArgs(
-      Function *pFunc, Argument **ppLocalMem, Argument **ppWorkDim,
-      Argument **ppWGId, Argument **ppBaseGlbId, Argument **ppSpecialBuf,
-      Argument **ppRunTimeHandle) {
+  void CompilationUtils::getImplicitArgs(Function *pFunc, Value **ppLocalMem,
+                                         Value **ppWorkDim, Value **ppWGId,
+                                         Value **ppBaseGlbId,
+                                         Value **ppSpecialBuf,
+                                         Value **ppRunTimeHandle) {
 
       assert( pFunc && "Function cannot be null" );
       assert( pFunc->arg_size() >= ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS && "implicit args was not added!" );
@@ -274,6 +275,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       ++DestI;
       assert(DestI == pFunc->arg_end());
 
+  }
+
+  GlobalVariable *CompilationUtils::getTLSGlobal(Module *pModule,
+                                                 unsigned Idx) {
+    assert(pModule && "Module cannot be null");
+    return pModule->getGlobalVariable(ImplicitArgsUtils::getArgName(Idx));
   }
 
   void CompilationUtils::moveAlloca(BasicBlock *FromBB, BasicBlock *ToBB) {
@@ -358,10 +365,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
   }
 
-  void CompilationUtils::parseKernelArguments(Module* pModule,
-                                              Function* pFunc,
-                                              std::vector<cl_kernel_argument>& /* OUT */ arguments,
-                                              std::vector<unsigned int>&       /* OUT */ memoryArguments) {
+  void CompilationUtils::parseKernelArguments(
+      Module *pModule, Function *pFunc, bool useTLSGlobals,
+      std::vector<cl_kernel_argument> & /* OUT */ arguments,
+      std::vector<unsigned int> & /* OUT */ memoryArguments) {
     // Check maximum number of arguments to kernel
 
     if (KernelList(pModule).empty()) {
@@ -385,7 +392,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
     auto kmd = KernelMetadataAPI(pOriginalFunc);
 
-    size_t argsCount = pFunc->arg_size() - ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS;
+    size_t argsCount = pFunc->arg_size();
+    if (!useTLSGlobals)
+      argsCount -= ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS;
 
     unsigned int localMemCount = 0;
     unsigned int current_offset = 0;
@@ -1664,5 +1673,70 @@ bool CompilationUtils::isBlockInvocationKernel(Function *F) {
     return true;
 
   return false;
+}
+
+void CompilationUtils::updateMetadataTreeWithNewFuncs(
+    Module *M, DenseMap<Function *, Function *> &FunctionMap,
+    MDNode *MDTreeNode, std::set<MDNode *> &Visited) {
+  // Avoid infinite loops due to possible cycles in metadata
+  if (Visited.count(MDTreeNode))
+    return;
+  Visited.insert(MDTreeNode);
+
+  for (int i = 0, e = MDTreeNode->getNumOperands(); i < e; ++i) {
+    Metadata *MDOp = MDTreeNode->getOperand(i);
+    if (!MDOp)
+      continue;
+    if (MDNode *MDOpNode = dyn_cast<MDNode>(MDOp)) {
+      updateMetadataTreeWithNewFuncs(M, FunctionMap, MDOpNode, Visited);
+    } else if (ConstantAsMetadata *FuncAsMD =
+                   dyn_cast<ConstantAsMetadata>(MDOp)) {
+      if (auto *MDNodeFunc = mdconst::dyn_extract<Function>(FuncAsMD)) {
+        if (FunctionMap.count(MDNodeFunc) > 0)
+          MDTreeNode->replaceOperandWith(
+              i, ConstantAsMetadata::get(FunctionMap[MDNodeFunc]));
+        // TODO: Check if the old metadata has to bee deleted manually to
+        // avoid memory leaks.
+      }
+    }
+  }
+}
+
+void CompilationUtils::updateFunctionMetadata(
+    Module *M, DenseMap<Function *, Function *> &FunctionMap) {
+  // Update the references in Function metadata.
+  // All the function metadata we are interested in is flat by design
+  // (see Metadata API).
+
+  // iterate over the functions we need update metadata for
+  // (in other words, all the functions pass have created)
+  for (const auto &FuncKV : FunctionMap) {
+    auto F = FuncKV.second;
+    SmallVector<std::pair<unsigned, MDNode *>, 8> MDs;
+    F->getAllMetadata(MDs);
+
+    for (const auto &MD : MDs) {
+      auto MDNode = MD.second;
+      if (MDNode->getNumOperands() > 0) {
+        Metadata *MDOp = MDNode->getOperand(0);
+        if (auto *FuncAsMD = dyn_cast_or_null<ConstantAsMetadata>(MDOp))
+          if (auto *NodeFunc = mdconst::dyn_extract<Function>(FuncAsMD)) {
+            if (FunctionMap.count(NodeFunc) > 0)
+              MDNode->replaceOperandWith(
+                  0, ConstantAsMetadata::get(FunctionMap[NodeFunc]));
+          }
+      }
+    }
+  }
+
+  // Now respect the Module-level metadata.
+  for (const auto &NamedMDNode : M->named_metadata()) {
+    for (int ui = 0, ue = NamedMDNode.getNumOperands(); ui < ue; ui++) {
+      // Replace metadata with metadata containing information about the wrapper
+      MDNode *MDNodeOp = NamedMDNode.getOperand(ui);
+      std::set<MDNode *> Visited;
+      updateMetadataTreeWithNewFuncs(M, FunctionMap, MDNodeOp, Visited);
+    }
+  }
 }
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

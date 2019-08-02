@@ -35,11 +35,13 @@
 extern "C"{
   /// @brief Creates new PrepareKernelArgs module pass
   /// @returns new PrepareKernelArgs module pass
-  ModulePass* createPrepareKernelArgsPass() {
-    return new intel::PrepareKernelArgs();
+ModulePass *createPrepareKernelArgsPass(bool useTLSGlobals) {
+  return new intel::PrepareKernelArgs(useTLSGlobals);
   }
-
 }
+
+extern cl::opt<bool> OptUseTLSGlobals;
+
 using namespace Intel::OpenCL::DeviceBackend;
 using namespace Intel::MetadataAPI;
 
@@ -50,11 +52,11 @@ namespace intel{
   /// Register pass to for opt
   OCL_INITIALIZE_PASS(PrepareKernelArgs, "prepare-kernel-args", "changes the way arguments are passed to kernels", false, false)
 
-    PrepareKernelArgs::PrepareKernelArgs() :
-      ModulePass(ID), m_pModule(nullptr), m_DL(nullptr), m_pLLVMContext(nullptr),
-      m_IAA(nullptr), m_PtrSizeInBytes(0), m_SizetTy(nullptr), m_I8Ty(nullptr),
-      m_I32Ty(nullptr)
-  {
+  PrepareKernelArgs::PrepareKernelArgs(bool useTLSGlobals)
+      : ModulePass(ID), m_pModule(nullptr), m_DL(nullptr),
+        m_pLLVMContext(nullptr), m_IAA(nullptr), m_PtrSizeInBytes(0),
+        m_SizetTy(nullptr), m_I8Ty(nullptr), m_I32Ty(nullptr),
+        m_useTLSGlobals(useTLSGlobals || OptUseTLSGlobals) {
     initializeImplicitArgsAnalysisPass(*llvm::PassRegistry::getPassRegistry());
   }
 
@@ -112,7 +114,8 @@ namespace intel{
     // Get old function's arguments list in the OpenCL level from its metadata
     std::vector<cl_kernel_argument> arguments;
     std::vector<unsigned int>       memoryArguments;
-    CompilationUtils::parseKernelArguments(m_pModule, WrappedKernel, arguments, memoryArguments);
+    CompilationUtils::parseKernelArguments(
+        m_pModule, WrappedKernel, m_useTLSGlobals, arguments, memoryArguments);
 
     auto kimd = KernelInternalMetadataAPI(WrappedKernel);
     std::vector<Value*> params;
@@ -220,8 +223,9 @@ namespace intel{
     ImplicitArgsUtils::initImplicitArgProps(m_PtrSizeInBytes);
     for(unsigned int i=0; i< ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS; ++i) {
       Value* pArg = nullptr;
-      assert(callIt->getType() == m_IAA->getArgType(i) &&
-             "Mismatch in arg found in function and expected arg type");
+      if (!m_useTLSGlobals)
+        assert(callIt->getType() == m_IAA->getArgType(i) &&
+               "Mismatch in arg found in function and expected arg type");
       switch(i) {
       case ImplicitArgsUtils::IA_SLM_BUFFER: {
           uint64_t slmSizeInBytes = kimd.LocalBufferSize.get();
@@ -250,12 +254,13 @@ namespace intel{
         break;
       case ImplicitArgsUtils::IA_WORK_GROUP_ID:
         // WGID is passed by value as an argument to the wrapper
-        assert(callIt->getType() == pArgGID->getType() && "Unmatching types");
+        assert(m_IAA->getArgType(i) == pArgGID->getType() &&
+               "Unmatching types");
         pArg = pArgGID;
         break;
       case ImplicitArgsUtils::IA_RUNTIME_HANDLE:
         // Runtime Context is passed by value as an argument to the wrapper
-        assert(callIt->getType() == RuntimeContext->getType() &&
+        assert(m_IAA->getArgType(i) == RuntimeContext->getType() &&
                "Unmatching types");
         pArg = RuntimeContext;
         break;
@@ -323,7 +328,7 @@ namespace intel{
         // %0 = getelementptr i8* %pBuffer, i32 currOffset
         Value *pGEP = builder.CreateGEP(pArgsBuffer,
                                         ConstantInt::get(m_I32Ty, currOffset));
-        pArg = builder.CreatePointerCast(pGEP, callIt->getType());
+        pArg = builder.CreatePointerCast(pGEP, m_IAA->getArgType(i));
         WGInfo = pArg;
         // Advance the pArgsBuffer offset based on the size
         currOffset += implicitArgProp.m_size;
@@ -332,10 +337,16 @@ namespace intel{
         assert(false && "Unknown implicit argument");
       }
 
-      assert(pArg && "No value was created for this implicit argument!");
-      pArg->setName(ImplicitArgsUtils::getArgName(i));
-      params.push_back(pArg);
-      ++callIt;
+      if (m_useTLSGlobals) {
+        assert(pArg && "No value was created for this TLS global!");
+        GlobalVariable *GV = CompilationUtils::getTLSGlobal(m_pModule, i);
+        builder.CreateStore(pArg, GV);
+      } else {
+        assert(pArg && "No value was created for this implicit argument!");
+        pArg->setName(ImplicitArgsUtils::getArgName(i));
+        params.push_back(pArg);
+        ++callIt;
+      }
     }
 
     return params;
@@ -347,7 +358,7 @@ namespace intel{
     DestI->setName("pUniformArgs");
     DestI->addAttr(Attribute::NoAlias);
     Argument *pArgsBuffer = &*(DestI++);
-    DestI->setName("pWGID");
+    DestI->setName("pWGId");
     DestI->addAttr(Attribute::NoAlias);
     Argument *pArgGID = &*(DestI++);
     DestI->setName("RuntimeHandle");

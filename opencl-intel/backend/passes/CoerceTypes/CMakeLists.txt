@@ -1,0 +1,19 @@
+set(TARGET_NAME CoerceTypes)
+
+set(TARGET_INCLUDE_FILES
+    CoerceTypes.h
+)
+
+set(TARGET_SOURCE_FILES
+    CoerceTypes.cpp
+)
+
+add_library(${TARGET_NAME}
+    ${TARGET_INCLUDE_FILES}
+    ${TARGET_SOURCE_FILES}
+)
+
+include_directories(
+  ${BACKEND_ROOT_DIR}/metadata_api
+)
+set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_PASSES_FOLDER_NAME})

@@ -4,7 +4,7 @@ include "GENERIC/GENERIC_CPU.td"
 
 
 // auxiliary functions used in atomic.td
-let Types = [v1i32, v1u32],
+let Types = [v1i32, v1u32, v1i64, v1u64],
     Attrs = [OVERLOADABLE, INLINE],
     NeedForwardDecl = 1  in {
     def ocl20_add : OclBuiltin<"__ocl20_add", (outs gentype:$res), (ins gentype:$lhs, gentype:$rhs), [], [], 1, 0>;
@@ -14,6 +14,38 @@ let Types = [v1i32, v1u32],
     def ocl20_and : OclBuiltin<"__ocl20_and", (outs gentype:$res), (ins gentype:$lhs, gentype:$rhs), [], [], 1, 0>;
     def ocl20_min : OclBuiltin<"__ocl20_min", (outs gentype:$res), (ins gentype:$lhs, gentype:$rhs), [], [], 1, 0>;
     def ocl20_max : OclBuiltin<"__ocl20_max", (outs gentype:$res), (ins gentype:$lhs, gentype:$rhs), [], [], 1, 0>;
+}
+let Types = [uintptr_t],
+    Attrs = [OVERLOADABLE, INLINE],
+    NeedForwardDecl = 1  in {
+    def ocl20_add_uintptr : OclBuiltin<"__ocl20_add", (outs gentype:$res), (ins gentype:$lhs, ptrdiff_t:$rhs), [], [], 1, 0>;
+    def ocl20_sub_uintptr : OclBuiltin<"__ocl20_sub", (outs gentype:$res), (ins gentype:$lhs, ptrdiff_t:$rhs), [], [], 1, 0>;
+    def ocl20_or_uintptr  : OclBuiltin<"__ocl20_or",  (outs gentype:$res), (ins gentype:$lhs, intptr_t:$rhs), [], [], 1, 0>;
+    def ocl20_xor_uintptr : OclBuiltin<"__ocl20_xor", (outs gentype:$res), (ins gentype:$lhs, intptr_t:$rhs), [], [], 1, 0>;
+    def ocl20_and_uintptr : OclBuiltin<"__ocl20_and", (outs gentype:$res), (ins gentype:$lhs, intptr_t:$rhs), [], [], 1, 0>;
+    def ocl20_min_uintptr : OclBuiltin<"__ocl20_min", (outs gentype:$res), (ins gentype:$lhs, intptr_t:$rhs), [], [], 1, 0>;
+    def ocl20_max_uintptr : OclBuiltin<"__ocl20_max", (outs gentype:$res), (ins gentype:$lhs, intptr_t:$rhs), [], [], 1, 0>;
+}
+let Types = [intptr_t],
+    Attrs = [OVERLOADABLE, INLINE],
+    NeedForwardDecl = 1  in {
+    def ocl20_or_intptr  : OclBuiltin<"__ocl20_or",  (outs gentype:$res), (ins gentype:$lhs, uintptr_t:$rhs), [], [], 1, 0>;
+    def ocl20_xor_intptr : OclBuiltin<"__ocl20_xor", (outs gentype:$res), (ins gentype:$lhs, uintptr_t:$rhs), [], [], 1, 0>;
+    def ocl20_and_intptr : OclBuiltin<"__ocl20_and", (outs gentype:$res), (ins gentype:$lhs, uintptr_t:$rhs), [], [], 1, 0>;
+    def ocl20_min_intptr : OclBuiltin<"__ocl20_min", (outs gentype:$res), (ins gentype:$lhs, uintptr_t:$rhs), [], [], 1, 0>;
+    def ocl20_max_intptr : OclBuiltin<"__ocl20_max", (outs gentype:$res), (ins gentype:$lhs, uintptr_t:$rhs), [], [], 1, 0>;
+}
+let Types = [uintptr_t],
+    Attrs = [OVERLOADABLE, INLINE],
+    NeedForwardDecl = 1  in {
+    def as_uintptr_t : OclBuiltin<"as_uintptr_t", (outs gentype:$res), (ins v1i32:$x), [], [], 1, 0>;
+    def as_uintptr_t_64 : OclBuiltin<"as_uintptr_t", (outs gentype:$res), (ins v1i64:$x), [], [], 1, 0>;
+}
+let Types = [intptr_t],
+    Attrs = [OVERLOADABLE, INLINE],
+    NeedForwardDecl = 1  in {
+    def as_intptr_t : OclBuiltin<"as_intptr_t", (outs gentype:$res), (ins v1u32:$x), [], [], 1, 0>;
+    def as_intptr_t_64 : OclBuiltin<"as_intptr_t", (outs gentype:$res), (ins v1u64:$x), [], [], 1, 0>;
 }
 
 class SSSE3 : Generic {

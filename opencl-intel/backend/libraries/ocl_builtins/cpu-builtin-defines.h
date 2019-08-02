@@ -16,6 +16,9 @@
 
 #pragma once
 
+#pragma OPENCL EXTENSION cl_khr_int64_base_atomics: enable
+#pragma OPENCL EXTENSION cl_khr_int64_extended_atomics: enable
+
 // integers masks
 extern const constant char char_MSB_mask;
 extern const constant int  int_MSB_mask;

@@ -177,6 +177,7 @@ OpenCLProgramConfiguration::OpenCLProgramConfiguration(const string& configFile,
         m_useVectorizer(false),
         m_programFileType(BC),
         m_includeDirs(NULL),
+        m_deviceMode(CPU_DEVICE),
         m_format(UNKNOWN)
 {
     llvm::SmallString<128> configPath(configFile);
@@ -224,6 +225,20 @@ OpenCLProgramConfiguration::~OpenCLProgramConfiguration()
     {
         delete *it;
     }
+}
+
+DeviceMode OpenCLProgramConfiguration::GetProgramDeviceMode(const string& strDeviceMode)
+{
+    if( strDeviceMode == "cpu" )
+        return CPU_DEVICE;
+
+    if( strDeviceMode == "fpga-emu" )
+        return FPGA_EMU_DEVICE;
+
+    if( strDeviceMode == "eyeq-emu" )
+        return EYEQ_EMU_DEVICE;
+
+    throw Exception::InvalidArgument("device modes other than cpu, fpga-emu or eyeq-emu are not supported");
 }
 
 ProgramFileType OpenCLProgramConfiguration::GetProgramFileType(const string& strFileType)
@@ -305,6 +320,10 @@ bool OpenCLProgramConfiguration::VisitEnter( const TiXmlElement& element, const 
     else if( element.ValueStr() == "InjectObject" )
     {
         m_injectedObjectPath = Utils::GetDataFilePath(element.GetText(), m_baseDirectory);
+    }
+    else if( element.ValueStr() == "DeviceMode" )
+    {
+        m_deviceMode = GetProgramDeviceMode(element.GetText());
     }
 
     return true;

@@ -1,5 +1,4 @@
 ; RUN: %oclopt -analyze -B-WIAnalysis -verify -S < %s | FileCheck %s
-; XFAIL: fpga-emulator
 
 ;;*****************************************************************************
 ;; This test checks the WIRelatedValue pass

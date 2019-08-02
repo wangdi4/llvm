@@ -18,6 +18,7 @@
 #include <cstddef>      // for std::size_t not included in ICLDevBackendOptions.h! TODO: Remove when the bug is fixed.
 #include "ICLDevBackendOptions.h"
 #include "IRunConfiguration.h"
+#include "common_dev_limits.h"
 
 #include "llvm/Support/DataTypes.h"
 
@@ -36,6 +37,7 @@ namespace Validation
         RC_BR_BUILD_ITERATIONS_COUNT,
         RC_BR_CPU_FEATURES,
         RC_BR_CPU_ARCHITECTURE,
+        RC_BR_DEVICE_MODE,
         RC_BR_DUMP_OPTIMIZED_LLVM_IR,
         RC_BR_EXECUTE_ITERATIONS_COUNT,
         RC_BR_MEASURE_PERFORMANCE,
@@ -77,6 +79,8 @@ namespace Validation
             // TODO: notify via the logger to the user that default option value was returned.
             return defaultValue;
         }
+        template <typename T>
+        void SetValue(RunConfigurationOption rc, T setValue);
     private:
         bool m_measurePerformance;
         bool m_useSDE;
@@ -87,6 +91,7 @@ namespace Validation
         bool m_buildOnly;
         bool m_stopBeforeJIT;
         bool m_verbose;
+        DeviceMode m_deviceMode;
         uint32_t m_defaultLocalWGSize;
         uint64_t m_RandomDataGeneratorSeed;
         uint32_t  m_buildIterationsCount;
@@ -106,6 +111,7 @@ namespace Validation
     };
 
     template<> bool BERunOptions::GetValue<bool>(RunConfigurationOption rc, bool defaultValue) const;
+    template<> int BERunOptions::GetValue<int>(RunConfigurationOption rc, int defaultValue) const;
     template<> uint32_t BERunOptions::GetValue<uint32_t>(RunConfigurationOption rc, uint32_t defaultValue) const;
     template<> uint64_t BERunOptions::GetValue<uint64_t>(RunConfigurationOption rc, uint64_t defaultValue) const;
     template<> std::string BERunOptions::GetValue<std::string>(RunConfigurationOption rc, std::string defaultValue) const;
@@ -115,6 +121,7 @@ namespace Validation
     template<> const std::vector<Intel::OpenCL::DeviceBackend::IRDumpOptions>*
         BERunOptions::GetValue<const std::vector<Intel::OpenCL::DeviceBackend::IRDumpOptions> * >
         (RunConfigurationOption rc, const std::vector<Intel::OpenCL::DeviceBackend::IRDumpOptions>* defaultValue) const;
+    template<> void BERunOptions::SetValue<int>(RunConfigurationOption rc, int setValue);
 
     class ComparatorRunOptions : public IRunComponentConfiguration
     {
@@ -187,7 +194,7 @@ namespace Validation
         virtual const IRunComponentConfiguration* GetReferenceRunnerConfiguration() const;
 
         /// @brief Returns pointer to the object with back-end runner configuration
-        virtual const IRunComponentConfiguration* GetBackendRunnerConfiguration() const;
+        virtual IRunComponentConfiguration* GetBackendRunnerConfiguration();
 
     private:
         // SATest options

@@ -46,7 +46,8 @@ namespace intel {
 class ScalarizeFunction : public FunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid
-  ScalarizeFunction(Intel::ECPU Cpu = Intel::DEVICE_INVALID);
+  ScalarizeFunction(Intel::ECPU Cpu = Intel::DEVICE_INVALID,
+                    bool InVPlanPipeline = false);
   ~ScalarizeFunction();
 
   /// @brief Provides name of pass
@@ -274,6 +275,9 @@ private:
 
   /// @brief This holds DataLayout of processed module
   const DataLayout *m_pDL;
+
+  /// @brief Indicates whether we in VPlan pipeline now or not
+  bool InVPlanPipeline;
 
 };
 

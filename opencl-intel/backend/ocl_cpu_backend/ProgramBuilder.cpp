@@ -35,6 +35,7 @@
 #include "ObjectCodeContainer.h"
 #include "ObjectCodeCache.h"
 #include "OclTune.h"
+#include "ChannelPipeUtils.h"
 
 #define DEBUG_TYPE "ProgramBuilder"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
@@ -73,6 +74,7 @@
 
 using std::string;
 using namespace Intel::MetadataAPI;
+using namespace intel;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -82,6 +84,14 @@ static void BEFatalErrorHandler(void *user_data, const std::string& reason,
     errs() << "**Internal compiler error** " << reason << "\n" <<
               "Please report the issue on Intel OpenCL forum \n" <<
               "https://software.intel.com/en-us/forums/opencl for assistance. \n ";
+    // If the error is allocation memory failure, the info of big channel
+    // will be shown as a hint for user.
+    if (reason.find("Unable to allocate section memory") != std::string::npos &&
+        !Intel::OpenCL::DeviceBackend::ChannelPipesErrorLog.empty()) {
+      errs() << "**The potential reason is the following big channel declaration:\n";
+      errs() << Intel::OpenCL::DeviceBackend::ChannelPipesErrorLog;
+    }
+
     abort();
 }
 
@@ -364,7 +374,8 @@ KernelJITProperties* ProgramBuilder::CreateKernelJITProperties( unsigned int vec
 }
 
 KernelProperties *ProgramBuilder::CreateKernelProperties(
-    const Program *pProgram, Function *func, const char* pBuildOpts,
+    const Program *pProgram, Function *func,
+    const CompilerBuildOptions &buildOptions,
     const ProgramBuildResult &buildResult) const {
   Module *pModule = func->getParent();
 
@@ -530,7 +541,6 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   barrierBufferSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(barrierBufferSize);
   privateMemorySize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(privateMemorySize);
 
-  CompilerBuildOptions buildOptions(pBuildOpts);
   KernelProperties *pProps = new KernelProperties();
 
   // Kernel should keep size of pointer specified inside module

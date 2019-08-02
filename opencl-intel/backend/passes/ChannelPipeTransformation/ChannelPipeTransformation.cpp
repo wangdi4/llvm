@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2017-2018 Intel Corporation.
+// Copyright 2017-2019 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,6 +13,7 @@
 // License.
 
 #include "ChannelPipeTransformation.h"
+#include "ChannelPipeUtils.h"
 
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/MapVector.h>
@@ -43,10 +44,6 @@ using namespace llvm;
 using namespace Intel::MetadataAPI;
 using namespace Intel::OpenCL::DeviceBackend;
 using namespace Intel::OpenCL::DeviceBackend::ChannelPipeMetadata;
-
-static cl::opt<int> ChannelDepthEmulationMode("channel-depth-emulation-mode",
-    cl::init(CHANNEL_DEPTH_MODE_STRICT), cl::Hidden,
-    cl::desc("Channel depth emulation mode"));
 
 namespace intel {
 char ChannelPipeTransformation::ID = 0;
@@ -141,57 +138,6 @@ static GlobalVariable *createGlobalPipeArray(Module &M, Type *PipeTy,
   PipeGV->setInitializer(ConstantAggregateZero::get(PipeArrayTy));
   PipeGV->setAlignment(M.getDataLayout().getPreferredAlignment(PipeGV));
   return PipeGV;
-}
-
-static GlobalVariable *createPipeBackingStore(GlobalVariable *GV,
-                                              const ChannelPipeMD &MD) {
-  Module *M = GV->getParent();
-  Type *Int8Ty = IntegerType::getInt8Ty(M->getContext());
-
-  size_t BSSize = __pipe_get_total_size_fpga(MD.PacketSize, MD.Depth,
-      ChannelDepthEmulationMode);
-  if (auto *PipePtrArrayTy =
-          dyn_cast<ArrayType>(GV->getType()->getElementType())) {
-    BSSize *= CompilationUtils::getArrayNumElements(PipePtrArrayTy);
-  }
-
-  auto *ArrayTy = ArrayType::get(Int8Ty, BSSize);
-
-  SmallString<16> NameStr;
-  auto Name = (GV->getName() + ".bs").toStringRef(NameStr);
-
-  auto *BS =
-      new GlobalVariable(*M, ArrayTy, /*isConstant=*/false, GV->getLinkage(),
-                         /*initializer=*/nullptr, Name,
-                         /*InsertBefore=*/nullptr, GlobalValue::NotThreadLocal,
-                         Utils::OCLAddressSpace::Global);
-
-  BS->setInitializer(ConstantAggregateZero::get(ArrayTy));
-  BS->setAlignment(MD.PacketAlign);
-
-  return BS;
-}
-
-static void initializeGlobalPipeScalar(GlobalVariable *PipeGV,
-                                       const ChannelPipeMD &MD,
-                                       Function *GlobalCtor,
-                                       Function *PipeInit) {
-  auto *BS = createPipeBackingStore(PipeGV, MD);
-
-  IRBuilder<> Builder(GlobalCtor->getEntryBlock().getTerminator());
-
-  Value *PacketSize = Builder.getInt32(MD.PacketSize);
-  Value *Depth = Builder.getInt32(MD.Depth);
-  Value *Mode = Builder.getInt32(ChannelDepthEmulationMode);
-
-  Value *CallArgs[] = {
-      Builder.CreateBitCast(BS, PipeInit->getFunctionType()->getParamType(0)),
-      PacketSize, Depth, Mode
-  };
-
-  Builder.CreateCall(PipeInit, CallArgs);
-  Builder.CreateStore(
-      Builder.CreateBitCast(BS, PipeGV->getType()->getElementType()), PipeGV);
 }
 
 /**
@@ -328,24 +274,6 @@ static void initializeGlobalPipeArray(GlobalVariable *PipeGV,
       Builder.getInt32(BSNumItems), PacketSize, Depth, Mode
   };
   Builder.CreateCall(PipeInitArray, CallArgs);
-}
-
-static Function *createGlobalPipeCtor(Module &M) {
-  auto *CtorTy = FunctionType::get(Type::getVoidTy(M.getContext()),
-                                   ArrayRef<Type *>(), false);
-
-  Function *Ctor =
-      cast<Function>(M.getOrInsertFunction("__pipe_global_ctor", CtorTy).getCallee());
-
-  // The function will be called from the RT
-  Ctor->setLinkage(GlobalValue::ExternalLinkage);
-
-  auto *EntryBB = BasicBlock::Create(M.getContext(), "entry", Ctor);
-  ReturnInst::Create(M.getContext(), EntryBB);
-
-  appendToGlobalCtors(M, Ctor, /*Priority=*/65535);
-
-  return Ctor;
 }
 
 static bool replaceGlobalChannels(Module &M, Type *ChannelTy, Type *PipeTy,

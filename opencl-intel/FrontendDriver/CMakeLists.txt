@@ -56,6 +56,8 @@ else (WIN32)
     set(COMMON_CLANG_SYMLINK ${LLVM_LIBRARY_DIR}/libcommon_clang${BUILD_PLATFORM}.so)
 endif (WIN32)
 
+add_subdirectory(header_linker)
+
 set(TARGET_SOURCES
     clang_device_info.h
     Compile.cpp
@@ -69,7 +71,6 @@ set(TARGET_SOURCES
     Link.h
     ParseSPIRV.cpp
     ParseSPIRV.h
-    resource.h
     SPIRMaterializer.cpp
     SPIRMaterializer.h
     SPIRVMaterializer.cpp
@@ -82,9 +83,11 @@ else (WIN32)
     list( APPEND TARGET_SOURCES fe_driver_main_linux.cpp )
 endif (WIN32)
 
+add_subdirectory(pre_release_header)
+
 add_opencl_library (${TARGET_NAME} SHARED
     ${TARGET_SOURCES}
-
+    $<TARGET_OBJECTS:pre_release_header>
     INCLUDE_DIRS
       ${INCLUDE_DIRS}
 

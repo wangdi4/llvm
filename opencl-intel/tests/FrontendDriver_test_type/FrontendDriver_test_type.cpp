@@ -39,6 +39,69 @@ using namespace Intel::OpenCL::ClangFE;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::FECompilerAPI;
 
+TEST_F(ClangCompilerTestType, Test_PassingHeaders)
+{
+    FECompileProgramDescriptor desc;
+
+    const char header1[] = "#define HEADER_1\n";
+    const char header2[] = "#define HEADER_2\n";
+
+    const char header1_name[] = "header1.h";
+    const char header2_name[] = "header2.h";
+
+    const char kernel[] = "#include \"header1.h\"\n\
+                           #include \"header2.h\"\n\
+                           void __kernel kern() {\n\
+                             #ifndef HEADER_1\n\
+                             #error\n\
+                             #endif\n\
+                             #ifndef HEADER_2\n\
+                             #error\n\
+                             #endif\n\
+                          }";
+
+    const char build_options[] = "";
+
+    std::vector<const char*> headers = {header1, header2};
+    std::vector<const char*> header_names = {header1_name, header2_name};
+
+    desc.pProgramSource = kernel;
+    desc.uiNumInputHeaders = headers.size();
+    desc.pInputHeaders = headers.data();
+    desc.pszInputHeadersNames = header_names.data();
+    desc.pszOptions = build_options;
+    desc.bFpgaEmulator = false;
+    desc.bEyeQEmulator = false;
+
+    int err = GetFECompiler()->CompileProgram(&desc, &m_binary_result);
+
+    ASSERT_EQ(CL_SUCCESS, err) << "Headers have not been passed correctly." << std::endl
+                               << "The log: " << std::endl
+                               << m_binary_result->GetErrorLog() << std::endl;
+}
+
+TEST_F(ClangCompilerTestType, Test_FPAtomics)
+{
+    const char kernel[] = "void __kernel kern(__global float* p, float v) {\
+                             atomic_max((__global volatile float*)p, v);\
+                           }";
+    const char build_options[] = "-D float_atomics_enable";
+
+    FECompileProgramDescriptor desc;
+    desc.pProgramSource = kernel;
+    desc.uiNumInputHeaders = 0;
+    desc.pInputHeaders = nullptr;
+    desc.pszInputHeadersNames = nullptr;
+    desc.pszOptions = build_options;
+    desc.bFpgaEmulator = false;
+    desc.bEyeQEmulator = false;
+
+    int err = GetFECompiler()->CompileProgram(&desc, &m_binary_result);
+    ASSERT_EQ(CL_SUCCESS, err) << "Pre-release header is not available." << std::endl
+                               << "The log: " << std::endl
+                               << m_binary_result->GetErrorLog() << std::endl;
+}
+
 TEST_F(ClangCompilerTestType, Test_PlainSpirvConversion)
 // take a simple spirv file and make FE Compiler convert it to llvm::Module
 {
@@ -94,6 +157,7 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesLittleEndian) {
         SPIRVOpCapability,  spv::CapabilityInt16,
         SPIRVOpCapability,  spv::CapabilityGenericPointer,
         SPIRVOpCapability,  spv::CapabilityInt8,
+        SPIRVOpCapability,  spv::CapabilityInt64Atomics,
         // Memory model
         SPIRVOpMemoryModel, spv::AddressingModelPhysical32, spv::MemoryModelOpenCL
     };
@@ -162,6 +226,7 @@ TEST_F(ClangCompilerTestType, DISABLED_Test_AcceptCommonSpirvCapabilitiesBigEndi
         SPIRVOpCapability,  spv::CapabilityInt16,
         SPIRVOpCapability,  spv::CapabilityGenericPointer,
         SPIRVOpCapability,  spv::CapabilityInt8,
+        SPIRVOpCapability,  spv::CapabilityInt64Atomics,
         // Memory model
         SPIRVOpMemoryModel, spv::AddressingModelPhysical32, spv::MemoryModelOpenCL
     };

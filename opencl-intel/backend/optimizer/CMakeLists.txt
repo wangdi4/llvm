@@ -13,12 +13,17 @@ include_directories(
     ${BACKEND_ROOT_DIR}/ocl_cpu_backend
     ${BACKEND_ROOT_DIR}/vectorizer/Utils
     ${BACKEND_ROOT_DIR}/metadata_api
+    ${BACKEND_ROOT_DIR}/passes/ChannelPipeTransformation
     ${CMAKE_BINARY_DIR}/include/
 )
 
 include_directories(
     ${BACKEND_ROOT_DIR}/arch_headers
     ${BACKEND_ROOT_DIR}/passes/PrintIRPass
+    ${BACKEND_ROOT_DIR}/passes/
+)
+link_libraries(
+    BackendPassesWrappers
 )
 
 add_library(${TARGET_NAME}

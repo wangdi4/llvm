@@ -363,9 +363,16 @@ namespace Validation
             return m_kernels.size();
         }
 
+        /// @brief Return device mode.
+        DeviceMode GetDeviceMode() const
+        {
+            return m_deviceMode;
+        }
+
     private:
         bool VisitEnter( const TiXmlElement& element, const TiXmlAttribute* firstAttribute);
         ProgramFileType GetProgramFileType(const std::string& strFileType);
+        DeviceMode GetProgramDeviceMode(const std::string& strDeviceMode);
 
     private:
         // Indicator whether to use vectorizer
@@ -391,12 +398,15 @@ namespace Validation
 
         // program name
         std::string m_programName;
-        
+
         //compilation options
         std::string m_compilationFlags;
 
         // Injected object file path
         std::string m_injectedObjectPath;
+
+        // device mode
+        DeviceMode  m_deviceMode;
 
         // program configuration file format
         enum PROGRAM_CONFIG_FILE_FORMAT {

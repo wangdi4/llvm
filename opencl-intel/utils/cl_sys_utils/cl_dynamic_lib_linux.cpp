@@ -1,16 +1,10 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2007-2018 Intel Corporation.
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
 //
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you (License). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
+// The information and source code contained herein is the exclusive property
+// of Intel Corporation and may not be disclosed, examined or reproduced in
+// whole or in part without explicit written authorization from the company.
 
 #include "cl_dynamic_lib.h"
 #include "cl_shutdown.h"
@@ -24,7 +18,8 @@ using namespace Intel::OpenCL::Utils;
 IAtExitCentralPoint* OclDynamicLib::m_atexit_fn = nullptr;
 
 // Get function pointer from library handle
-ptrdiff_t OclDynamicLib::GetFuntionPtrByNameFromHandle(void* hLibrary, const char* szFuncName)
+ptrdiff_t OclDynamicLib::GetFuntionPtrByNameFromHandle(void* hLibrary,
+                                                       const char* szFuncName)
 {
     //clear errors
     dlerror();
@@ -50,7 +45,7 @@ OclDynamicLib::~OclDynamicLib()
     }
 }
 
-// ------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // Checks for existance of a file with specified name
 bool OclDynamicLib::IsExists(const char* pLibName)
 {
@@ -62,7 +57,7 @@ bool OclDynamicLib::IsExists(const char* pLibName)
     return (0 == rc);
 }
 
-// ------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // Loads a dynamically link library into process address space
 bool OclDynamicLib::Load(const char* pLibName)
 {
@@ -72,7 +67,10 @@ bool OclDynamicLib::Load(const char* pLibName)
     }
 
     // Load library
-    m_hLibrary = dlopen(pLibName, RTLD_LAZY);
+    // To make library name canonical add a version string at its ending
+    std::string strLibName = std::string(pLibName) + std::string(".") +
+                             std::string(VERSIONSTRING);
+    m_hLibrary = dlopen(strLibName.c_str(), RTLD_LAZY);
 
     if ( nullptr == m_hLibrary )
     {
@@ -84,7 +82,8 @@ bool OclDynamicLib::Load(const char* pLibName)
     }
 
     RegisterAtExitNotification_Func AtExitFunc = 
-        (RegisterAtExitNotification_Func)GetFunctionPtrByName(OclDynamicLib_AT_EXIT_REGISTER_FUNC_NAME);
+        (RegisterAtExitNotification_Func)GetFunctionPtrByName(
+            OclDynamicLib_AT_EXIT_REGISTER_FUNC_NAME);
 
     if (nullptr != AtExitFunc)
     {

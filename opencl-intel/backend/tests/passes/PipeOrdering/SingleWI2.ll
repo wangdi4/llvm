@@ -20,7 +20,6 @@
 ;   opt -runtimelib=%p/../../vectorizer/Full/runtime.bc -demangle-fpga-pipes -llvm-equalizer -channel-pipe-transformation -verify %s -S
 ; ----------------------------------------------------
 ; RUN: %oclopt -pipe-ordering -verify %s -S | FileCheck %s
-; REQUIRES: fpga-emulator
 
 ; CHECK: define void @foo(i32 %iters)
 ; CHECK-LABEL: for.cond:

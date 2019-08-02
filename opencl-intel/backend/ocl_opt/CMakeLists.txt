@@ -1,10 +1,12 @@
 include_directories(${LLVM_INCLUDE_DIRS}
                     ${BACKEND_ROOT_DIR}/passes
+                    ${BACKEND_ROOT_DIR}/optimizer
                     ${BACKEND_ROOT_DIR}/arch_headers)
 
 # Backend passes
 set(OCL_BE_PASSES
     AddImplicitArgs
+    AddTLSGlobals
     AutorunReplicator
     BackendPassesWrappers
     BuiltInFuncImport
@@ -13,6 +15,7 @@ set(OCL_BE_PASSES
     ChannelPipeTransformation
     ChannelsUsageAnalysis
     CleanupWrappedKernels
+    CoerceTypes
     DebugInfoPass
     DetectRecursion
     GenericAddressResolution
@@ -47,6 +50,7 @@ set(OCL_BE_PASSES
     StripIntelIP
     OCLAliasAnalysis
     PrintfArgumentsPromotion
+    SYCLPipesHack
 )
 
 # Dependencies of the passes

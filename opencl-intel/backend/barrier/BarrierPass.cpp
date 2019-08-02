@@ -33,6 +33,8 @@
 
 using namespace Intel::MetadataAPI;
 
+extern cl::opt<bool> OptUseTLSGlobals;
+
 namespace intel {
 
   char Barrier::ID = 0;
@@ -42,15 +44,17 @@ namespace intel {
   OCL_INITIALIZE_PASS_DEPENDENCY(DataPerValue)
   OCL_INITIALIZE_PASS_END(Barrier, "B-Barrier", "Barrier Pass - Handle special values & replace barrier/fiber with internal loop over WIs", false, true)
 
-
-  Barrier::Barrier(bool isNativeDebug) :
-      ModulePass(ID), m_DL(nullptr), m_pContext(nullptr), m_uiSizeT(0),
-      m_sizeTType(nullptr), m_I32Type(nullptr), m_LocalIdAllocTy(nullptr),
-      m_Zero(nullptr), m_One(nullptr), m_pDataPerValue(nullptr),
-      m_pAllocaValues(nullptr), m_pSpecialValues(nullptr),
-      m_pCrossBarrierValues(nullptr), m_pDataPerBarrier(nullptr),
-      m_pSyncInstructions(nullptr), m_currBarrierKeyValues(nullptr),
-      m_isNativeDBG(isNativeDebug) {
+  Barrier::Barrier(bool isNativeDebug, bool useTLSGlobals)
+      : ModulePass(ID), m_DL(nullptr), m_pContext(nullptr), m_uiSizeT(0),
+        m_sizeTType(nullptr), m_I32Type(nullptr),
+        m_useTLSGlobals(useTLSGlobals || OptUseTLSGlobals),
+        m_LocalIdAllocTy(nullptr), m_LocalIdArrayTy(nullptr), m_Zero(nullptr),
+        m_One(nullptr), m_pDataPerValue(nullptr), m_pAllocaValues(nullptr),
+        m_pSpecialValues(nullptr), m_pCrossBarrierValues(nullptr),
+        m_pDataPerBarrier(nullptr), m_pSyncInstructions(nullptr),
+        m_currFunction(nullptr), m_currBarrierKeyValues(nullptr),
+        m_isNativeDBG(isNativeDebug) {
+    std::fill(m_PtrLocalId, m_PtrLocalId + MaxNumDims, nullptr);
     initializeBarrierPass(*llvm::PassRegistry::getPassRegistry());
   }
 
@@ -71,13 +75,24 @@ namespace intel {
     m_uiSizeT = M.getDataLayout().getPointerSizeInBits(0);
     m_sizeTType = IntegerType::get(*m_pContext, m_uiSizeT);
     m_I32Type = IntegerType::get(*m_pContext, 32);
-    m_LocalIdAllocTy = PointerType::get(ArrayType::get(m_sizeTType, MaxNumDims), 0);
+    m_LocalIdArrayTy = ArrayType::get(m_sizeTType, MaxNumDims);
+    m_LocalIdAllocTy = PointerType::get(m_LocalIdArrayTy, 0);
     m_Zero = ConstantInt::get(m_sizeTType, 0);
     m_One = ConstantInt::get(m_sizeTType, 1);
 
     bool ModuleHasAnyInternalCalls = false;
     //Update Map with structure stride size for each kernel
     updateStructureStride(M);
+
+    if (m_useTLSGlobals) {
+      // Add thread local variable for local ids
+      m_LocalIds = new GlobalVariable(
+          M, m_LocalIdArrayTy, false, GlobalValue::LinkOnceODRLinkage,
+          UndefValue::get(m_LocalIdArrayTy), "LocalIds", nullptr,
+          GlobalValue::GeneralDynamicTLSModel);
+      m_LocalIds->setAlignment(
+          M.getDataLayout().getPreferredAlignment(m_LocalIds));
+    }
 
     //Find all functions that call synchronize instructions
     TFunctionSet& functionsWithSync = m_util.getAllFunctionsWithSynchronization();
@@ -243,42 +258,49 @@ namespace intel {
 
     typedef std::map<Function *, Function *> F2FMap;
     F2FMap OldF2PatchedF;
-    // Setup stuff needed for adding another argument to patched functions
-    SmallVector<Attribute, 1> NoAlias(1, Attribute::get(M.getContext(), Attribute::NoAlias));
-    SmallVector<AttributeSet, 1> NewAttrs(
-        1, AttributeSet::get(*m_pContext, NoAlias));
-    // Patch the functions
-    for (std::set<Function *>::iterator I = FuncsToPatch.begin(),
-                                        E = FuncsToPatch.end();
-         I != E; ++I) {
-      Function *OldF = *I;
-      Function *PatchedF =
-          CompilationUtils::AddMoreArgsToFunc(OldF, m_LocalIdAllocTy, "pLocalIdValues", NewAttrs, "BarrierPass");
-      OldF2PatchedF[OldF] = PatchedF;
-      assert(!m_pBarrierKeyValuesPerFunction.count(OldF));
-      // So now the last arg of NewF is the base of the memory holding LocalId's
-      // Find the last arg
-      Function::arg_iterator AI = PatchedF->arg_begin();
-      for (unsigned I = 0; I < PatchedF->arg_size() - 1; ++I, ++AI) {
-        // Skip over the original args
+    if (!m_useTLSGlobals) {
+      // Setup stuff needed for adding another argument to patched functions
+      SmallVector<Attribute, 1> NoAlias(
+          1, Attribute::get(M.getContext(), Attribute::NoAlias));
+      SmallVector<AttributeSet, 1> NewAttrs(
+          1, AttributeSet::get(*m_pContext, NoAlias));
+      // Patch the functions
+      for (std::set<Function *>::iterator I = FuncsToPatch.begin(),
+                                          E = FuncsToPatch.end();
+           I != E; ++I) {
+        Function *OldF = *I;
+        Function *PatchedF = CompilationUtils::AddMoreArgsToFunc(
+            OldF, m_LocalIdAllocTy, "pLocalIdValues", NewAttrs, "BarrierPass");
+        OldF2PatchedF[OldF] = PatchedF;
+        assert(!m_pBarrierKeyValuesPerFunction.count(OldF));
+        // So now the last arg of NewF is the base of the memory holding
+        // LocalId's
+        // Find the last arg
+        Function::arg_iterator AI = PatchedF->arg_begin();
+        for (unsigned I = 0; I < PatchedF->arg_size() - 1; ++I, ++AI) {
+          // Skip over the original args
+        }
+        m_pBarrierKeyValuesPerFunction[PatchedF].m_TheFunction = PatchedF;
+        m_pBarrierKeyValuesPerFunction[PatchedF].m_pLocalIdValues = &*AI;
       }
-      m_pBarrierKeyValuesPerFunction[PatchedF].m_TheFunction = PatchedF;
-      m_pBarrierKeyValuesPerFunction[PatchedF].m_pLocalIdValues = &*AI;
-    }
-    // Patch the calls
-    for (std::set<CallInst *>::iterator I = CIsToPatch.begin(),
-                                        IE = CIsToPatch.end();
-         I != IE; ++I) {
-      CallInst *CI = *I;
-      Function *CallingF = CI->getParent()->getParent();
-      Function *CalledF = CI->getCalledFunction();
-      assert(OldF2PatchedF.find(CalledF) != OldF2PatchedF.end());
-      Function *PatchedF = OldF2PatchedF[CalledF];
-      // Use calling functions's LocalIdValues as additional argument to called function
-      assert(m_pBarrierKeyValuesPerFunction.find(CallingF) != m_pBarrierKeyValuesPerFunction.end());
-      Value* NewArg = m_pBarrierKeyValuesPerFunction.find(CallingF)->second.m_pLocalIdValues;
-      SmallVector<Value *, 1> NewArgs(1, NewArg);
-      CompilationUtils::AddMoreArgsToCall(CI, NewArgs, PatchedF);
+      // Patch the calls
+      for (std::set<CallInst *>::iterator I = CIsToPatch.begin(),
+                                          IE = CIsToPatch.end();
+           I != IE; ++I) {
+        CallInst *CI = *I;
+        Function *CallingF = CI->getParent()->getParent();
+        Function *CalledF = CI->getCalledFunction();
+        assert(OldF2PatchedF.find(CalledF) != OldF2PatchedF.end());
+        Function *PatchedF = OldF2PatchedF[CalledF];
+        // Use calling functions's LocalIdValues as additional argument to
+        // called function
+        assert(m_pBarrierKeyValuesPerFunction.find(CallingF) !=
+               m_pBarrierKeyValuesPerFunction.end());
+        Value *NewArg = m_pBarrierKeyValuesPerFunction.find(CallingF)
+                            ->second.m_pLocalIdValues;
+        SmallVector<Value *, 1> NewArgs(1, NewArg);
+        CompilationUtils::AddMoreArgsToCall(CI, NewArgs, PatchedF);
+      }
     }
 
     // Patch the constant function ptr addr bitcasts. Used in OCL20. Extended execution
@@ -286,12 +308,16 @@ namespace intel {
       E = ConstBitcastsToPatch.end();
       I != E; ++I) {
         ConstantExpr *CE = I->first;
-        Function* CalledF = I->second;
-        assert(OldF2PatchedF.find(CalledF) != OldF2PatchedF.end() &&
-          "expected to find patched function in map");
-        Function *PatchedF = OldF2PatchedF[CalledF];
+        Function *F = I->second;
+
+        if (!m_useTLSGlobals) {
+          assert(OldF2PatchedF.find(F) != OldF2PatchedF.end() &&
+                 "expected to find patched function in map");
+          F = OldF2PatchedF[F];
+        }
+
         // this case happens when global block variable is used
-        Constant *newCE = ConstantExpr::getPointerCast(PatchedF, CE->getType());
+        Constant *newCE = ConstantExpr::getPointerCast(F, CE->getType());
         CE->replaceAllUsesWith(newCE);
     }
 }
@@ -778,9 +804,13 @@ namespace intel {
     pBarrierKeyValues->m_pCurrSBIndex = new AllocaInst(
       m_sizeTType, AllocaAddrSpace, "pCurrSBIndex", pInsertBefore);
 
-    //get_local_id()
-    pBarrierKeyValues->m_pLocalIdValues = new AllocaInst(
-        m_LocalIdAllocTy->getElementType(), AllocaAddrSpace, "pLocalIds", pInsertBefore);
+    if (!m_useTLSGlobals) {
+      // get_local_id()
+      pBarrierKeyValues->m_pLocalIdValues =
+          new AllocaInst(m_LocalIdAllocTy->getElementType(), AllocaAddrSpace,
+                         "pLocalIds", pInsertBefore);
+    }
+
     //get_special_buffer()
     pBarrierKeyValues->m_pSpecialBufferValue = m_util.createGetSpecialBuffer(pInsertBefore);
 
@@ -796,6 +826,7 @@ namespace intel {
  }
 
   void Barrier::getBarrierKeyValues(Function* pFunc) {
+    m_currFunction = pFunc;
     assert(m_pBarrierKeyValuesPerFunction.count(pFunc) &&
       "initiation of argument values is broken");
     m_currBarrierKeyValues = &m_pBarrierKeyValuesPerFunction[pFunc];
@@ -879,8 +910,14 @@ namespace intel {
     BranchInst::Create(splitContinue, getWIProperties);
     IRBuilder<> B(getWIProperties->getTerminator());
     B.SetCurrentDebugLocation(pCall->getDebugLoc());
-    Instruction *pResult = createGetLocalId(
-        m_currBarrierKeyValues->m_pLocalIdValues, pCall->getArgOperand(0), B);
+    Value *LocalIds;
+    if (m_useTLSGlobals) {
+      LocalIds = m_LocalIds;
+    } else {
+      LocalIds = m_currBarrierKeyValues->m_pLocalIdValues;
+    }
+    Instruction *pResult =
+        createGetLocalId(LocalIds, pCall->getArgOperand(0), B);
 
     // C.Create Phi node at the first of the splitted BB
     PHINode *pAttrResult = PHINode::Create(IntegerType::get(*m_pContext, m_uiSizeT), 2, "", splitContinue->getFirstNonPHI());
@@ -918,7 +955,10 @@ namespace intel {
         CallInst *pOldCall = dyn_cast<CallInst>(*ii);
         assert( pOldCall && "Something other than CallInst is using get_local_id function!" );
         Function *pFunc = pOldCall->getParent()->getParent();
-        getBarrierKeyValues(pFunc);
+        if (!m_useTLSGlobals)
+          getBarrierKeyValues(pFunc);
+        else
+          m_currFunction = pFunc;
         Value *LID = resolveGetLocalIDCall(pOldCall);
         pOldCall->replaceAllUsesWith(LID);
         m_toRemoveInstructions.push_back(pOldCall);
@@ -934,7 +974,10 @@ namespace intel {
         CallInst *pOldCall = dyn_cast<CallInst>(*ii);
         assert( pOldCall && "Something other than CallInst is using get_global_id function!" );
         Function *pFunc = pOldCall->getParent()->getParent();
-        getBarrierKeyValues(pFunc);
+        if (!m_useTLSGlobals)
+          getBarrierKeyValues(pFunc);
+        else
+          m_currFunction = pFunc;
         Value *BaseGID = 0;
         Value *Dim = pOldCall->getOperand(0);
         // Computation of BaseGID: If the dimension is a constant, cache it and reuse in function
@@ -1220,8 +1263,8 @@ namespace intel {
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  void* createBarrierPass(bool isNativeDebug) {
-    return new intel::Barrier(isNativeDebug);
+void *createBarrierPass(bool isNativeDebug, bool useTLSGlobals) {
+  return new intel::Barrier(isNativeDebug, useTLSGlobals);
   }
 
   void getBarrierPassStrideSize(Pass *pPass, std::map<std::string, unsigned int>& bufferStrideMap) {

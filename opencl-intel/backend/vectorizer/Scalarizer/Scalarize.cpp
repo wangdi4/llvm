@@ -24,6 +24,7 @@
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/Analysis/Intel_VectorVariant.h"
 
 extern cl::opt<bool>
 EnableScatterGather;
@@ -37,8 +38,9 @@ OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysis)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(ScalarizeFunction, "scalarize", "Scalarize functions", false, false)
 
-ScalarizeFunction::ScalarizeFunction(Intel::ECPU Cpu)
-  : FunctionPass(ID), m_rtServices(NULL), m_Cpu(Cpu)
+ScalarizeFunction::ScalarizeFunction(Intel::ECPU Cpu, bool InVPlanPipeline)
+  : FunctionPass(ID), m_rtServices(NULL), m_Cpu(Cpu),
+    InVPlanPipeline(InVPlanPipeline)
 {
   initializeScalarizeFunctionPass(*llvm::PassRegistry::getPassRegistry());
 
@@ -68,6 +70,9 @@ bool ScalarizeFunction::runOnFunction(Function &F)
   if (!F.getReturnType()->isVoidTy())  {
     return false;
   }
+
+  if (InVPlanPipeline && !VectorVariant::isVectorVariant(F.getName()))
+    return false;
 
   m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
   V_ASSERT(m_rtServices && "Runtime services were not initialized!");
@@ -700,6 +705,22 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
 {
   V_PRINT(scalarizer, "\t\tCall instruction\n");
   V_ASSERT(CI && "instruction type dynamic cast failed");
+
+  if (InVPlanPipeline) {
+    // VPlan doesn't handle @fake.insertelement/@fake.extractelement and is able
+    // to properly re-vectorize calls with vector parameters/return values by
+    // itself. As such, don't even try to scalarize calls when in VPlan
+    // pipeline.
+    //
+    // Also note, that using ScalarizeFunction pass in the VPlan pipeline was
+    // only a mid-term solution to enable support of builtins with vector
+    // parameters before re-vectorization support is fully implemented in VPlan.
+    // We're still not there yet, so this pass can't be completely removed from
+    // the pipeline, but we can, at least, early bailout for entities already
+    // supported.
+    recoverNonScalarizableInst(CI);
+    return;
+  }
 
   // Find corresponding entry in functions hash (in runtimeServices)
   V_ASSERT(CI->getCalledFunction() &&
@@ -1569,8 +1590,9 @@ bool ScalarizeFunction::isScalarizableLoadStoreType(VectorType *type) {
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  FunctionPass* createScalarizerPass(const Intel::CPUId& CpuId) {
-    return new intel::ScalarizeFunction(CpuId.GetCPU());
+  FunctionPass* createScalarizerPass(const Intel::CPUId& CpuId,
+                                     bool InVPlanPipeline = false) {
+    return new intel::ScalarizeFunction(CpuId.GetCPU(), InVPlanPipeline);
   }
 }
 

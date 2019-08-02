@@ -30,6 +30,10 @@ using namespace Intel::OpenCL::Utils;
 typedef auto_ptr_ex<IOCLFEBinaryResult, ReleaseDP<IOCLFEBinaryResult>>
     IOCLFEBinaryResultPtr;
 
+extern const char OPENCL_CTH_PRE_RELEASE_H[];
+extern unsigned int OPENCL_CTH_PRE_RELEASE_H_size;
+extern const char OPENCL_CTH_PRE_RELEASE_H_name[];
+
 #if defined(_WIN32)
 #define GET_CURR_WORKING_DIR(len, buff) GetCurrentDirectoryA(len, buff)
 #define PASS_PCH
@@ -170,9 +174,7 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
   for (auto Ext : ExtVec)
     optionsEx << ",+" << Ext.str();
 
-#ifndef INTEL_PRODUCT_RELEASE
   optionsEx << " -Dcl_intel_required_subgroup_size";
-#endif
 
   // If working as fpga emulator, pass special triple.
   if (m_pProgDesc->bFpgaEmulator) {
@@ -247,11 +249,31 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
   }
 #endif // INTEL_PRODUCT_RELEASE
 
+  // Reallocate headers to include another one
+  std::vector<const char*> InputHeaders;
+  std::vector<const char*> InputHeadersNames;
+  InputHeaders.assign(m_pProgDesc->pInputHeaders,
+                      m_pProgDesc->pInputHeaders + m_pProgDesc->uiNumInputHeaders);
+  InputHeadersNames.assign(m_pProgDesc->pszInputHeadersNames,
+                           m_pProgDesc->pszInputHeadersNames + m_pProgDesc->uiNumInputHeaders);
+
+  // Input header with OpenCL pre-release extensions
+  // Skip Emulator devices
+  if (!m_pProgDesc->bFpgaEmulator && !m_pProgDesc->bEyeQEmulator) {
+    // Append the header to the program source
+    InputHeaders.push_back(OPENCL_CTH_PRE_RELEASE_H);
+    InputHeadersNames.push_back(OPENCL_CTH_PRE_RELEASE_H_name);
+
+    optionsEx << " -include " << OPENCL_CTH_PRE_RELEASE_H_name;
+  }
+
   IOCLFEBinaryResultPtr spBinaryResult;
 
-  int res = ::Compile(m_pProgDesc->pProgramSource, m_pProgDesc->pInputHeaders,
-                      m_pProgDesc->uiNumInputHeaders,
-                      m_pProgDesc->pszInputHeadersNames, 0, 0,
+  int res = ::Compile(m_pProgDesc->pProgramSource,
+                      InputHeaders.data(),
+                      InputHeaders.size(),
+                      InputHeadersNames.data(),
+                      0, 0,
                       options.str().c_str(),   // pszOptions
                       optionsEx.str().c_str(), // pszOptionsEx
                       GetOpenCLVersionStr(m_config.GetOpenCLVersion()),

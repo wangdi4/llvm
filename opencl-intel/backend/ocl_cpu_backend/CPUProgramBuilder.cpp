@@ -16,6 +16,7 @@
 #include "CPUJITContainer.h"
 #include "CPUProgramBuilder.h"
 #include "CompilationUtils.h"
+#include "debuggingservicetype.h"
 #include "Kernel.h"
 #include "KernelProperties.h"
 #include "MetadataAPI.h"
@@ -39,11 +40,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 using namespace Intel::OpenCL::ELFUtils;
 
-CPUProgramBuilder::CPUProgramBuilder(IAbstractBackendFactory* pBackendFactory, const ICompilerConfig& config):
-    ProgramBuilder(pBackendFactory, config),
-    m_compiler(config)
-{
-}
+CPUProgramBuilder::CPUProgramBuilder(IAbstractBackendFactory *pBackendFactory,
+                                     const ICompilerConfig &config)
+    : ProgramBuilder(pBackendFactory, config), m_compiler(config),
+      m_isFpgaEmulator(FPGA_EMU_DEVICE == config.TargetDevice()),
+      m_isEyeQEmulator(EYEQ_EMU_DEVICE == config.TargetDevice()) {}
 
 CPUProgramBuilder::~CPUProgramBuilder()
 {
@@ -196,13 +197,17 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
     return true;
 }
 
-Kernel* CPUProgramBuilder::CreateKernel(llvm::Function* pFunc, const std::string& funcName, KernelProperties* pProps) const
-{
+Kernel *CPUProgramBuilder::CreateKernel(llvm::Function *pFunc,
+                                        const std::string &funcName,
+                                        KernelProperties *pProps,
+                                        bool useTLSGlobals) const {
     std::vector<cl_kernel_argument> arguments;
     std::vector<unsigned int>       memoryArguments;
 
     // TODO : consider separating into a different analisys pass
-    CompilationUtils::parseKernelArguments(pFunc->getParent() /* = pModule */,  pFunc, arguments, memoryArguments);
+    CompilationUtils::parseKernelArguments(pFunc->getParent() /* = pModule */,
+                                           pFunc, useTLSGlobals, arguments,
+                                           memoryArguments);
 
     return m_pBackendFactory->CreateKernel( funcName, arguments, memoryArguments, pProps );
 }
@@ -225,10 +230,9 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
         llvm::Function *pWrapperFunc = kimd.KernelWrapper.get();
 
         // Create a kernel and kernel JIT properties
-        std::unique_ptr<KernelProperties> spKernelProps( CreateKernelProperties( pProgram,
-                                                                               pFunc,
-                                                                               pBuildOpts,
-                                                                               buildResult));
+        CompilerBuildOptions buildOptions(pBuildOpts);
+        std::unique_ptr<KernelProperties> spKernelProps(
+            CreateKernelProperties(pProgram, pFunc, buildOptions, buildResult));
 
         // get the vector size used to generate the function
         unsigned int vecSize = kimd.VectorizedWidth.hasValue() ? kimd.VectorizedWidth.get() : 1;
@@ -236,9 +240,14 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
 
         std::unique_ptr<KernelJITProperties> spKernelJITProps( CreateKernelJITProperties( vecSize ));
 
-        std::unique_ptr<Kernel> spKernel( CreateKernel( pFunc,
-                                                      pWrapperFunc->getName().str(),
-                                                      spKernelProps.get()));
+        intel::DebuggingServiceType debugType =
+            intel::getDebuggingServiceType(buildOptions.GetDebugInfoFlag());
+        bool useTLSGlobals = getenv("NO_IMPLICIT_ARGUMENTS") &&
+                             (debugType == intel::Native) &&
+                             !m_isFpgaEmulator && !m_isEyeQEmulator;
+        std::unique_ptr<Kernel> spKernel(
+            CreateKernel(pFunc, pWrapperFunc->getName().str(),
+                         spKernelProps.get(), useTLSGlobals));
 
         // We want the JIT of the wrapper function to be called
         AddKernelJIT(static_cast<CPUProgram*>(pProgram),

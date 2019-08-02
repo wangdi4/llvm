@@ -17,6 +17,7 @@
 
 #include "exceptions.h"
 
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Attributes.h"
@@ -27,6 +28,7 @@
 #include <PipeCommon.h>
 #include <OCLAddressSpace.h>
 
+#include <set>
 #include <string>
 #include <vector>
 #include <map>
@@ -164,10 +166,17 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @param  ppSpecialBuf The SpecialBuf argument, NULL if this argument shouldn't be retrieved
     /// @param  ppCtx        The pCtx argument, NULL if this argument shouldn't be retrieved
     /// @param  ppExtExecCtx The ExtendedExecutionContext argument, NULL if this argument shouldn't be retrieved
-    static void getImplicitArgs(Function *pFunc, Argument **ppLocalMem,
-                                Argument **ppWorkDim, Argument **ppWGId,
-                                Argument **ppBaseGlbId, Argument **ppSpecialBuf,
-                                Argument **ppRunTimeHandle);
+    static void getImplicitArgs(Function *pFunc, Value **ppLocalMem,
+                                Value **ppWorkDim, Value **ppWGId,
+                                Value **ppBaseGlbId, Value **ppSpecialBuf,
+                                Value **ppRunTimeHandle);
+
+    /// @brief  Retrieves requested TLS global variable in the given module
+    /// @param  pModule The module for which global variable needs to be
+    /// retrieved
+    /// @param  Idx     The ImplicitArgsUtils::ImplicitArg index of the
+    /// requested global
+    static GlobalVariable *getTLSGlobal(Module *pModule, unsigned Idx);
 
     /// @brief Moves alloca instructions from FromBB to ToBB
     static void moveAlloca(BasicBlock *FromBB, BasicBlock *ToBB);
@@ -199,10 +208,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @param pFunc      The kernel for which to create argument vector
     /// @param arguments  OUT param, the cl_kernel_argument which represent pFunc's
     ///                   OpenCL level argument
-    static void parseKernelArguments(  Module* pModule,
-                                              Function* pFunc,
-                                              std::vector<cl_kernel_argument>& /* OUT */ arguments,
-                                              std::vector<unsigned int>&       /* OUT */ memoryArguments);
+    static void
+    parseKernelArguments(Module *pModule, Function *pFunc, bool useTLSGlobals,
+                         std::vector<cl_kernel_argument> & /* OUT */ arguments,
+                         std::vector<unsigned int> & /* OUT */ memoryArguments);
 
     static Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
                                        ArrayRef<const char *> NewNames,
@@ -643,6 +652,16 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     /// @brief Returns true if the function is a block invoke kernel
     static bool isBlockInvocationKernel(Function *F);
+
+    /// @brief Recursively update metadata nodes with new functions
+    static void updateMetadataTreeWithNewFuncs(
+        Module *M, DenseMap<Function *, Function *> &FunctionMap,
+        MDNode *MDTreeNode, std::set<MDNode *> &Visited);
+
+    /// @brief Update references to old functions in metadata with new ones
+    static void
+    updateFunctionMetadata(Module *M,
+                           DenseMap<Function *, Function *> &FunctionMap);
   };
 
   class OCLBuiltins {

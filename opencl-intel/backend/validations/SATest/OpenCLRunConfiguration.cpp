@@ -161,6 +161,18 @@ namespace Validation
     }
 
     template<>
+    int BERunOptions::GetValue<int>(RunConfigurationOption rc, int defaultValue) const
+    {
+        switch(rc)
+        {
+        case RC_BR_DEVICE_MODE :
+            return m_deviceMode;
+        default:
+            return defaultValue;
+        }
+    }
+
+    template<>
     uint32_t BERunOptions::GetValue<uint32_t>(RunConfigurationOption rc, uint32_t defaultValue) const
     {
         switch(rc)
@@ -240,6 +252,19 @@ namespace Validation
             return defaultValue;
         }
         return defaultValue;
+    }
+
+    template<>
+    void BERunOptions::SetValue<int>(RunConfigurationOption rc, int setValue)
+    {
+        switch(rc)
+        {
+        case RC_BR_DEVICE_MODE :
+            m_deviceMode = static_cast<DeviceMode>(setValue);
+            break;
+        default:
+            break;
+        }
     }
 
     void BERunOptions::InitFromCommandLine()
@@ -400,7 +425,7 @@ namespace Validation
         return m_testMode;
     }
 
-    const IRunComponentConfiguration *OpenCLRunConfiguration::GetBackendRunnerConfiguration() const
+    IRunComponentConfiguration *OpenCLRunConfiguration::GetBackendRunnerConfiguration()
     {
         return &m_backendOptions;
     }

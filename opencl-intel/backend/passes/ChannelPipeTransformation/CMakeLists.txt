@@ -6,6 +6,7 @@ set(TARGET_INCLUDE_FILES
 
 set(TARGET_SOURCE_FILES
     ChannelPipeTransformation.cpp
+    ChannelPipeUtils.cpp
 )
 
 include_directories(

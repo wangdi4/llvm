@@ -39,7 +39,7 @@ namespace intel{
 
     /// @brief Constructor with debug parameter
     /// @param isNatveiDBG true if native debug set
-    LocalBuffers(bool isNativeDBG);
+    LocalBuffers(bool isNativeDBG, bool useTLSGlobals = false);
 
     /// @brief Provides name of pass
     virtual llvm::StringRef getPassName() const {
@@ -63,7 +63,7 @@ namespace intel{
 
     /// @brief Resolves the internal local variables and map them to local buffer
     /// @param pFunc The function which needs it handle its implicite local variables
-    void parseLocalBuffers(Function *pFunc, Argument *pLocalMem);
+    void parseLocalBuffers(Function *pFunc, Value *pLocalMem);
 
     /// @brief TODO: add comments
     bool ChangeConstant(Value *pTheValue, Value *pUser, Instruction *pBC, Instruction *Where);
@@ -95,6 +95,8 @@ namespace intel{
 
     /// @brief true if and only if we are running in native (gdb) dbg mode
     bool m_isNativeDBG;
+    /// @brief use TLS globals instead of implicit arguments
+    bool m_useTLSGlobals;
   };
 
 } // namespace intel

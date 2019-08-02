@@ -39,7 +39,6 @@
 ;   oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -demangle-fpga-pipes -llvm-equalizer -channel-pipe-transformation -verify %s -S
 ; ----------------------------------------------------
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -pipe-support -verify %s -S | FileCheck %s
-; REQUIRES: fpga-emulator
 
 ; CHECK: define void @for_channel
 ; CHECK-SAME: !use_fpga_pipes ![[TRUE:[0-9]+]]

@@ -140,6 +140,7 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
       case spv::CapabilityFloat16Buffer:
       case spv::CapabilityInt64:
       case spv::CapabilityPipes:
+      case spv::CapabilityPipeStorage:
       case spv::CapabilityGroups:
       case spv::CapabilityDeviceEnqueue:
       case spv::CapabilityLiteralSampler:
@@ -149,6 +150,7 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
       case spv::CapabilitySubgroupShuffleINTEL:
       case spv::CapabilitySubgroupBufferBlockIOINTEL:
       case spv::CapabilitySubgroupImageBlockIOINTEL:
+      case spv::CapabilityInt64Atomics:
         break;
       }
     // According to logical layout defined by the SPIR-V spec. single
@@ -221,14 +223,6 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
 
   assert(!verifyModule(*pModule) &&
          "SPIR-V consumer returned a broken module!");
-
-  if (success) {
-    // FIXME: Remove MaterializeSPIR
-    // Currently SPIR-V consumer returns SPIR-like LLVM IR, so we need to
-    // convert it to the current LLVM IR version style.
-    success = !ClangFECompilerMaterializeSPIRTask::MaterializeSPIR(*pModule);
-    assert(!verifyModule(*pModule) && "SPIRMaterializer broke the module!");
-  }
 
   if (success) {
     // Adapts the output of SPIR-V consumer to backend-friendly format.

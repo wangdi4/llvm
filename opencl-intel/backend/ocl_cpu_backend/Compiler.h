@@ -196,6 +196,8 @@ protected:
     llvm::TargetMachine* GetTargetMachine(llvm::Module* pModule) const;
 
 protected:
+    bool                     m_bIsFPGAEmulator;
+    bool                     m_bIsEyeQEmulator;
     llvm::LLVMContext*       m_pLLVMContext;
     Intel::CPUId             m_CpuId;
     llvm::SmallVector<std::string, 8>
