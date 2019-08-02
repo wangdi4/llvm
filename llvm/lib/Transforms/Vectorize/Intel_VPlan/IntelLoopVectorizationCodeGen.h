@@ -289,6 +289,14 @@ private:
   /// and update the analysis passes.
   void updateAnalysis();
 
+  /// Get the Function-entry block.
+  BasicBlock &getFunctionEntryBlock() const {
+    return OrigLoop->getHeader()->getParent()->front();
+  }
+
+  /// Return the alignment to be set on the 'alloca' inst.
+  unsigned getPrivateVarAlignment(Value *V);
+
   /// This function adds (StartIdx, StartIdx + Step, StartIdx + 2*Step, ...)
   /// to each vector element of Val. The sequence starts at StartIndex.
   Value *getStepVector(Value *Val, int StartIdx, Value *Step,
