@@ -217,7 +217,7 @@ static const char *(Andersens_Alloc_Intrinsics[]) = {
 // info.
 static const char *(Andersens_No_Side_Effects_Intrinsics[]) = {
   "atoi", "atof", "atol", "atoll",
-  "remove", "unlink", "rename", "memcmp",
+  "remove", "unlink", "rename", "memcmp", "free",
   "llvm.memset.p0i8.i32", "llvm.memset.p0i8.i64",
   "strcmp", "strncmp", "strlen", "strnlen", 
   "execl", "execlp", "execle", "execv", "execvp"
@@ -1665,6 +1665,9 @@ bool AndersensAAResult::AddConstraintsForExternalCall(CallSite CS,
                                                       Function *F) {
   assert((F->isDeclaration() || F->isIntrinsic() || !F->hasExactDefinition()) &&
          "Not an external function!");
+
+  if (isa<DbgInfoIntrinsic>(CS.getInstruction()))
+    return true;
 
   if (findNameInTable(F->getName(), Andersens_No_Side_Effects_Intrinsics)) {
     return true;
@@ -5932,6 +5935,12 @@ void AndersensAAResult::CallSitesAnalysis() {
     CallSite &CS = DirectCallList[i];
     const Value *V = CS.getCalledValue();
     if (isa<InlineAsm>(*V))
+      continue;
+
+    Instruction *II = CS.getInstruction();
+    if (isa<DbgInfoIntrinsic>(II))
+      continue;
+    if (isa<AnyMemSetInst>(II))
       continue;
 
     // TODO Side effect information for the library
