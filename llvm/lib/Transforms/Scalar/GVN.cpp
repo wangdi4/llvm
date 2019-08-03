@@ -71,6 +71,7 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
@@ -627,7 +628,12 @@ PreservedAnalyses GVN::run(Function &F, FunctionAnalysisManager &AM) {
   PA.preserve<DominatorTreeAnalysis>();
   PA.preserve<GlobalsAA>();
   PA.preserve<TargetLibraryAnalysis>();
+<<<<<<< HEAD
   PA.preserve<AndersensAA>();            // INTEL
+=======
+  if (LI)
+    PA.preserve<LoopAnalysis>();
+>>>>>>> 189efe295b6e843c53c172e9f26436f9e8434d21
   return PA;
 }
 
@@ -2101,6 +2107,7 @@ bool GVN::runImpl(Function &F, AssumptionCache &RunAC, DominatorTree &RunDT,
   MD = RunMD;
   ImplicitControlFlowTracking ImplicitCFT(DT);
   ICF = &ImplicitCFT;
+  this->LI = LI;
   VN.setMemDep(MD);
   ORE = RunORE;
   InvalidBlockRPONumbers = true;
@@ -2460,7 +2467,7 @@ bool GVN::performPRE(Function &F) {
 /// the block inserted to the critical edge.
 BasicBlock *GVN::splitCriticalEdges(BasicBlock *Pred, BasicBlock *Succ) {
   BasicBlock *BB =
-      SplitCriticalEdge(Pred, Succ, CriticalEdgeSplittingOptions(DT));
+      SplitCriticalEdge(Pred, Succ, CriticalEdgeSplittingOptions(DT, LI));
   if (MD)
     MD->invalidateCachedPredecessors();
   InvalidBlockRPONumbers = true;
@@ -2475,7 +2482,7 @@ bool GVN::splitCriticalEdges() {
   do {
     std::pair<Instruction *, unsigned> Edge = toSplit.pop_back_val();
     SplitCriticalEdge(Edge.first, Edge.second,
-                      CriticalEdgeSplittingOptions(DT));
+                      CriticalEdgeSplittingOptions(DT, LI));
   } while (!toSplit.empty());
   if (MD) MD->invalidateCachedPredecessors();
   InvalidBlockRPONumbers = true;
@@ -2581,18 +2588,26 @@ void GVN::addDeadBlock(BasicBlock *BB) {
     if (DeadBlocks.count(B))
       continue;
 
+    // First, split the critical edges. This might also create additional blocks
+    // to preserve LoopSimplify form and adjust edges accordingly.
     SmallVector<BasicBlock *, 4> Preds(pred_begin(B), pred_end(B));
     for (BasicBlock *P : Preds) {
       if (!DeadBlocks.count(P))
         continue;
 
-      if (isCriticalEdge(P->getTerminator(), GetSuccessorNumber(P, B))) {
+      if (llvm::any_of(successors(P),
+                       [B](BasicBlock *Succ) { return Succ == B; }) &&
+          isCriticalEdge(P->getTerminator(), B)) {
         if (BasicBlock *S = splitCriticalEdges(P, B))
           DeadBlocks.insert(P = S);
       }
+    }
 
-      for (BasicBlock::iterator II = B->begin(); isa<PHINode>(II); ++II) {
-        PHINode &Phi = cast<PHINode>(*II);
+    // Now undef the incoming values from the dead predecessors.
+    for (BasicBlock *P : predecessors(B)) {
+      if (!DeadBlocks.count(P))
+        continue;
+      for (PHINode &Phi : B->phis()) {
         Phi.setIncomingValueForBlock(P, UndefValue::get(Phi.getType()));
         if (MD)
           MD->invalidateCachedPointerInfo(&Phi);
@@ -2681,6 +2696,7 @@ public:
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
+    AU.addRequired<LoopInfoWrapperPass>();
     if (!NoMemDepAnalysis)
       AU.addRequired<MemoryDependenceWrapperPass>();
     AU.addRequired<AAResultsWrapperPass>();
@@ -2689,6 +2705,8 @@ public:
     AU.addPreserved<GlobalsAAWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>(); // INTEL
     AU.addPreserved<TargetLibraryInfoWrapperPass>();
+    AU.addPreserved<LoopInfoWrapperPass>();
+    AU.addPreservedID(LoopSimplifyID);
     AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
   }
 
