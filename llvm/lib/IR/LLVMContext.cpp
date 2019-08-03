@@ -36,6 +36,7 @@ LLVMContext::LLVMContext() : pImpl(new LLVMContextImpl(*this)) {
   // Create the fixed metadata kinds. This is done in the same order as the
   // MD_* enum values so that they correspond.
   std::pair<unsigned, StringRef> MDKinds[] = {
+<<<<<<< HEAD
     {MD_dbg, "dbg"},
     {MD_tbaa, "tbaa"},
     {MD_prof, "prof"},
@@ -70,6 +71,11 @@ LLVMContext::LLVMContext() : pImpl(new LLVMContextImpl(*this)) {
     {MD_intel_tbaa, "intel-tbaa"},
     {MD_intel_profx, "intel-profx"}
 #endif // INTEL_CUSTOMIZATION
+=======
+#define LLVM_FIXED_MD_KIND(EnumID, Name, Value) {EnumID, Name},
+#include "llvm/IR/FixedMetadataKinds.def"
+#undef LLVM_FIXED_MD_KIND
+>>>>>>> d01ae675af8eed545e910e6967cd49593a651a23
   };
 
   for (auto &MDKind : MDKinds) {

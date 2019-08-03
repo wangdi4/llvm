@@ -72,6 +72,7 @@ public:
   // Pinned metadata names, which always have the same value.  This is a
   // compile-time performance optimization, not a correctness optimization.
   enum : unsigned {
+<<<<<<< HEAD
     MD_dbg = 0,                       // "dbg"
     MD_tbaa = 1,                      // "tbaa"
     MD_prof = 2,                      // "prof"
@@ -106,6 +107,11 @@ public:
     MD_intel_tbaa = 30,               // "intel-tbaa"
     MD_intel_profx = 31               // "intel-profx"
 #endif                                // INTEL_CUSTOMIZATION
+=======
+#define LLVM_FIXED_MD_KIND(EnumID, Name, Value) EnumID = Value,
+#include "llvm/IR/FixedMetadataKinds.def"
+#undef LLVM_FIXED_MD_KIND
+>>>>>>> d01ae675af8eed545e910e6967cd49593a651a23
   };
 
   /// Known operand bundle tag IDs, which always have the same value.  All
