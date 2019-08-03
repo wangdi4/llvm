@@ -723,6 +723,9 @@ ChangeStatus AAReturnedValuesImpl::updateImpl(Attributor &A) {
   decltype(ReturnedValues) AddRVs;
   bool HasCallSite = false;
 
+  // Keep track of any change to trigger updates on dependent attributes.
+  ChangeStatus Changed = ChangeStatus::UNCHANGED;
+
   // Look at all returned call sites.
   for (auto &It : ReturnedValues) {
     SmallPtrSet<ReturnInst *, 2> &ReturnInsts = It.second;
@@ -743,6 +746,8 @@ ChangeStatus AAReturnedValuesImpl::updateImpl(Attributor &A) {
     // Try to find a assumed unique return value for the called function.
     auto *RetCSAA = A.getAAFor<AAReturnedValuesImpl>(*this, *RV);
     if (!RetCSAA) {
+      if (!HasOverdefinedReturnedCalls)
+        Changed = ChangeStatus::CHANGED;
       HasOverdefinedReturnedCalls = true;
       LLVM_DEBUG(dbgs() << "[AAReturnedValues] Returned call site (" << *RV
                         << ") with " << (RetCSAA ? "invalid" : "no")
@@ -764,6 +769,8 @@ ChangeStatus AAReturnedValuesImpl::updateImpl(Attributor &A) {
     // If multiple, non-refinable values were found, there cannot be a unique
     // return value for the called function. The returned call is overdefined!
     if (!AssumedUniqueRV.getValue()) {
+      if (!HasOverdefinedReturnedCalls)
+        Changed = ChangeStatus::CHANGED;
       HasOverdefinedReturnedCalls = true;
       LLVM_DEBUG(dbgs() << "[AAReturnedValues] Returned call site has multiple "
                            "potentially returned values\n");
@@ -791,9 +798,6 @@ ChangeStatus AAReturnedValuesImpl::updateImpl(Attributor &A) {
     else
       AddRVs[AssumedRetVal].insert(ReturnInsts.begin(), ReturnInsts.end());
   }
-
-  // Keep track of any change to trigger updates on dependent attributes.
-  ChangeStatus Changed = ChangeStatus::UNCHANGED;
 
   for (auto &It : AddRVs) {
     assert(!It.second.empty() && "Entry does not add anything.");

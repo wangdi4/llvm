@@ -11502,6 +11502,7 @@ public:
   // Emitting members of dllexported classes is delayed until the class
   // (including field initializers) is fully parsed.
   SmallVector<CXXRecordDecl*, 4> DelayedDllExportClasses;
+  SmallVector<CXXMethodDecl*, 4> DelayedDllExportMemberFunctions;
 
 #if INTEL_CUSTOMIZATION
   llvm::DenseMap<const Type *, SmallVector<FunctionDecl *, 4>> OCLChannelBIs;
