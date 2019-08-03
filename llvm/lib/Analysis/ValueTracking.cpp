@@ -4413,10 +4413,7 @@ bool llvm::isGuaranteedToTransferExecutionToSuccessor(const Instruction *I) {
 
     // FIXME: This isn't aggressive enough; a call which only writes to a global
     // is guaranteed to return.
-    return CS.onlyReadsMemory() || CS.onlyAccessesArgMemory() ||
-           match(I, m_Intrinsic<Intrinsic::assume>()) ||
-           match(I, m_Intrinsic<Intrinsic::sideeffect>()) ||
-           match(I, m_Intrinsic<Intrinsic::experimental_widenable_condition>());
+    return CS.onlyReadsMemory() || CS.onlyAccessesArgMemory();
   }
 
   // Other instructions return normally.
