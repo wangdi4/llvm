@@ -283,28 +283,29 @@ public:
     return NewVPInst;
   }
 
-  VPInstruction *createReductionFinal(unsigned BinOp, VPValue *ReducVec,
-                                      VPValue *StartValue, bool Sign) {
-    VPInstruction *NewVPInst =
+  VPReductionFinal *createReductionFinal(unsigned BinOp, VPValue *ReducVec,
+                                         VPValue *StartValue, bool Sign) {
+    VPReductionFinal *NewVPInst =
         new VPReductionFinal(BinOp, ReducVec, StartValue, Sign);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;
   }
 
-  VPInstruction *createReductionFinal(unsigned BinOp, VPValue *ReducVec) {
-    VPInstruction *NewVPInst = new VPReductionFinal(BinOp, ReducVec);
+  VPReductionFinal *createReductionFinal(unsigned BinOp, VPValue *ReducVec) {
+    VPReductionFinal *NewVPInst = new VPReductionFinal(BinOp, ReducVec);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;
   }
 
   // Final value of index part of min/max+index
-  VPInstruction *createReductionFinal(unsigned BinOp, VPValue *ReducVec,
-                                      VPValue *StartValue, bool Sign,
-                                      VPReductionFinal *MinMax) {
-    VPInstruction *NewVPInst =
-        new VPReductionFinal(BinOp, ReducVec, StartValue, Sign, MinMax);
+  VPReductionFinal *createReductionFinal(unsigned BinOp, VPValue *ReducVec,
+                                         VPValue *ParentExit,
+                                         VPReductionFinal *ParentFinal,
+                                         bool Sign) {
+    VPReductionFinal *NewVPInst =
+        new VPReductionFinal(BinOp, ReducVec, ParentExit, ParentFinal, Sign);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;
