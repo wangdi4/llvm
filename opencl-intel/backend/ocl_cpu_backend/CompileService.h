@@ -31,7 +31,7 @@ public:
     virtual ~CompileService() { }
 
     cl_dev_err_code CheckProgramBinary( const void* pBinary,
-                                        size_t uiBinarySize ) const = 0;
+                                        size_t uiBinarySize ) = 0;
 
     /**
      * Creates program from the specified bytecode, it should verify the byte code before
