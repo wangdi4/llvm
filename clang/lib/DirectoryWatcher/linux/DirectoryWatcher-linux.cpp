@@ -336,7 +336,13 @@ std::unique_ptr<DirectoryWatcher> clang::DirectoryWatcher::create(
       IN_CREATE | IN_DELETE | IN_DELETE_SELF | IN_MODIFY |
       IN_MOVED_FROM | IN_MOVE_SELF | IN_MOVED_TO | IN_ONLYDIR | IN_IGNORED
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+      // Currently not supported on Suse CSA build machine
+#else // INTEL_FEATURE_CSA
       | IN_EXCL_UNLINK
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 #endif
       );
   if (InotifyWD == -1)
