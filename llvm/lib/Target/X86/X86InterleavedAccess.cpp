@@ -62,13 +62,12 @@ class X86InterleavedClientMemref : public OVLSMemref {
 public:
   X86InterleavedClientMemref(char MemrefId, int Distance, Type *ElemType,
                              unsigned NumElements, OVLSAccessType AType,
-                             bool CVStride, int VStride)
+                             Optional<int64_t> VStride)
       : OVLSMemref(VLSK_X86InterleavedClientMemref,
                    OVLSType(ElemType->getPrimitiveSizeInBits(), NumElements),
                    AType) {
     MId = MemrefId;
     Dist = Distance;
-    ConstVStride = CVStride;
     DataType = VectorType::get(ElemType, NumElements);
     VecStride = VStride;
   }
@@ -77,26 +76,20 @@ public:
     return Memref->getKind() == VLSK_X86InterleavedClientMemref;
   }
 
-  bool isAConstDistanceFrom(const OVLSMemref &Memref, int64_t *Distance) {
+  Optional<int64_t> getConstDistanceFrom(const OVLSMemref &Memref) override {
     assert(isa<X86InterleavedClientMemref>(&Memref) &&
            "Expected X86InterleavedClientMemref!!!");
     const X86InterleavedClientMemref *CLMemref =
         cast<const X86InterleavedClientMemref>(&Memref);
 
     // Dist(this) = Dist(Memref) + *Distance;
-    *Distance = Dist - CLMemref->getDistance();
-    return true;
+    return Dist - CLMemref->getDistance();
   }
-  bool canMoveTo(const OVLSMemref &MemRef) { return true; }
+  bool canMoveTo(const OVLSMemref &MemRef) override { return true; }
 
-  bool hasAConstStride(int64_t *Stride) const {
-    if (ConstVStride) {
-      *Stride = VecStride;
-      return true;
-    }
-    return false;
-  }
-  unsigned getLocation() const {
+  Optional<int64_t> getConstStride() const override { return VecStride; }
+
+  unsigned getLocation() const override {
     return MId; // FIXME
   }
   int getDistance() const { return Dist; }
@@ -105,8 +98,7 @@ private:
   char MId;
   VectorType *DataType; // Data type for the memref.
   int64_t Dist;         // Distance between two memrefs in bytes.
-  bool ConstVStride;
-  int VecStride;
+  Optional<int64_t> VecStride;
 };
 #endif // INTEL_CUSTOMIZATION
 
@@ -252,7 +244,7 @@ class X86InterleavedAccessGroup {
                                  ? OVLSAccessType::getStridedStoreTy()
                                  : OVLSAccessType::getStridedLoadTy();
       OVLSMemref *Mrf = new X86InterleavedClientMemref(
-          i + 1, Dist, ShuffleEltTy, VecTy->getVectorNumElements(), AType, true,
+          i + 1, Dist, ShuffleEltTy, VecTy->getVectorNumElements(), AType,
           Factor * EltSizeInByte);
       Memrefs.push_back(Mrf);
       ShuffleToMemrefMap.insert(
