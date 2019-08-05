@@ -17,7 +17,7 @@ class TestIncorrectCommandFlow(DebuggerTestCase):
         try:
             self.client.debug_run([bp])
         except Exception as e:
-            if self.use_gdb:
+            if self.use_gdb or self.use_cdb:
                 # GDB error
                 self.assertEqual(self.ERROR_MSG_GDB, str(e))
             else:

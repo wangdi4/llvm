@@ -45,7 +45,7 @@ def parse_options():
                            "Not recommended with parallel test execution.")
     parser.add_option("-t", "--test_client",
                       dest="test_client", default="gdb",
-                      help="Run the specified test type {gdb|simulator}")
+                      help="Run the specified test type {gdb|cdb|simulator}")
     parser.add_option("-j", type="int",
                       dest="num_jobs",
                       default=cpu_count(),
@@ -61,13 +61,9 @@ def parse_options():
     if opts.num_jobs < 1:
         loge("Error: need more than 0 jobs (-j) to run tests")
         sys.exit(1)
-    if opts.test_client != "gdb" and opts.test_client != "simulator":
-        loge("Error: please specify --test_client=[gdb|simulator]")
+    if opts.test_client != "gdb" and opts.test_client != "simulator" and opts.test_client != "cdb":
+        loge("Error: please specify --test_client=[gdb|cdb|simulator]")
         sys.exit(1)
-
-    if os_is_windows():
-        # force simulator tests (pending working GDB solution)
-        opts.test_client= "simulator"
 
     return (opts, positionals)
 

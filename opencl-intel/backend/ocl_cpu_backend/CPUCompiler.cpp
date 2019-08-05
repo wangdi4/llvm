@@ -21,8 +21,9 @@
 #include "CompilationUtils.h"
 #include "cl_types.h"
 #include "cpu_dev_limits.h"
+#include "debuggingservicetype.h"
 #include "exceptions.h"
-
+#include "LLDJITBuilder.h"
 // Reference a symbol in JIT.cpp and MCJIT.cpp so that static or global constructors are called
 #include "llvm/ADT/Triple.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
@@ -384,21 +385,45 @@ void CPUCompiler::CreateExecutionEngine(llvm::Module* pModule)
     m_pExecEngine = CreateCPUExecutionEngine(pModule);
 }
 
+bool CPUCompiler::useLLDJITForExecution(llvm::Module* pModule) const {
+    bool hasCUs =
+        (pModule->debug_compile_units_begin() !=
+         pModule->debug_compile_units_end());
+  
+    bool useLLDJIT = intel::getDebuggingServiceType(m_debug && hasCUs,
+                                                    pModule,
+                                                    m_useNativeDebugger) ==
+        intel::Native;
+  
+    return useLLDJIT;
+}
+
 llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModule) const
 {
-    std::string strErr;
+    llvm::ExecutionEngine* pExecEngine;
+#ifdef _WIN32
+    if (useLLDJITForExecution(pModule))
+    {
+        LLDJITBuilder::prepareModuleForLLD(pModule);
+        auto TargetMachine = GetTargetMachine(pModule);
+        pExecEngine = LLDJITBuilder::CreateExecutionEngine(pModule, TargetMachine);
+    }
+    else
+#endif
+    {
+        std::string strErr;
 
-    std::unique_ptr<llvm::Module> pModuleUniquePtr(pModule);
+        std::unique_ptr<llvm::Module> pModuleUniquePtr(pModule);
 
-    llvm::EngineBuilder builder(std::move(pModuleUniquePtr));
-    builder.setEngineKind(llvm::EngineKind::JIT);
-    builder.setErrorStr(&strErr);
-    builder.setMCJITMemoryManager(std::unique_ptr<RTDyldMemoryManager>(
-      new SectionMemoryManager()));
+        llvm::EngineBuilder builder(std::move(pModuleUniquePtr));
+        builder.setEngineKind(llvm::EngineKind::JIT);
+        builder.setErrorStr(&strErr);
+        builder.setMCJITMemoryManager(std::unique_ptr<RTDyldMemoryManager>(
+            new SectionMemoryManager()));
 
-    auto TargetMachine = GetTargetMachine(pModule);
-    llvm::ExecutionEngine* pExecEngine = builder.create(TargetMachine);
-
+        auto TargetMachine = GetTargetMachine(pModule);
+        pExecEngine = builder.create(TargetMachine);
+    }
     if ( nullptr == pExecEngine )
     {
         throw Exceptions::CompilerException("Failed to create execution engine");
@@ -415,7 +440,8 @@ llvm::SmallVector<llvm::Module*, 2> CPUCompiler::GetBuiltinModuleList() const
     return m_pBuiltinModule->GetBuiltinModuleList();
 }
 
-void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) const
+void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename,
+                           TargetMachine::CodeGenFileType genType) const
 {
     assert(pModule && "pModule parameter should be valid");
 
@@ -436,7 +462,7 @@ void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) c
     // Build up all of the passes that we want to do to the module.
     llvm::legacy::PassManager pm;
     pTargetMachine->addPassesToEmitFile(pm, out,
-        /*raw_pwrite_stream*/ nullptr, TargetMachine::CGFT_AssemblyFile,
+        /*raw_pwrite_stream*/ nullptr, genType,
         /*DisableVerify*/ true);
     pm.run(*pModule);
 }

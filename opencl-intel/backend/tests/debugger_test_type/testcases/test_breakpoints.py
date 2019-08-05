@@ -1,4 +1,4 @@
-from testlib.debuggertestcase import DebuggerTestCase, expectedFailureGDB
+from testlib.debuggertestcase import DebuggerTestCase, expectedFailureGDB, expectedFailureCDB
 
 
 # Test a simple usage of breakpoints for TC-4-9
@@ -27,6 +27,7 @@ class TestBreakpoints(DebuggerTestCase):
 
         self.client.debug_run_finish()
 
+    @expectedFailureCDB
     def test_breakpoints_in_main_and_unreachable(self):
     #
     # Test a simple usage of breakpoints only set in main
@@ -51,7 +52,7 @@ class TestBreakpoints(DebuggerTestCase):
             bps2.append((self.CLNAME, self.UNREACHED_ROW+i))
         self.client.debug_run_finish(bps2)
 
-
+    @expectedFailureCDB
     def test_breakpoints_in_loop(self):
     #
     # Test a simple usage of breakpoints only set in a loop
@@ -72,6 +73,7 @@ class TestBreakpoints(DebuggerTestCase):
         self.assertEqual(self.client.var_query_value('m'), '100')
         self.client.debug_run_finish()
 
+    @expectedFailureCDB
     def test_breakpoints_in_second_call_level(self):
     #
     # Test a simple usage of breakpoints only set in a second function call level
@@ -94,6 +96,7 @@ class TestBreakpoints(DebuggerTestCase):
         self.assertEqual(self.client.var_query_value('m'), '100')
         self.client.debug_run_finish()
 
+    @expectedFailureCDB
     def test_breakpoints_in_diffrent_call_level(self):
     #
     # Test a simple usage of breakpoints set in diffrent function call level

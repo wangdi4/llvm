@@ -1,4 +1,4 @@
-from testlib.debuggertestcase import DebuggerTestCase
+from testlib.debuggertestcase import DebuggerTestCase, expectedFailureCDB
 
 
 class Barriers(DebuggerTestCase):

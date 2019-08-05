@@ -15,31 +15,49 @@
 #include <stdlib.h>
 #include <string>
 #include "debuggingservicetype.h"
+#include "CompilationUtils.h"
+#include "llvm/IR/Metadata.h"
+#include "llvm/IR/Module.h"
+
+using Intel::OpenCL::DeviceBackend::CompilationUtils;
 
 namespace intel {
 
-DebuggingServiceType getDebuggingServiceType(bool debuggingEnabled)
-{
-    if (!debuggingEnabled) {
+DebuggingServiceType getDebuggingServiceType(bool debuggingEnabled,
+                                             llvm::Module *M,
+                                             bool useNativeDebugger) {
+    if (!debuggingEnabled &&
+        !CompilationUtils::getDebugFlagFromMetadata(M)) {
         return None;
     }
 
-    // CL_CONFIG_DBG_ENABLE == 1 implies Simulator debugging, no env var
-    // implies choice based on OS. Once native debugging is supported on
-    // Windows, this environment variable can go away.
+    DebuggingServiceType serviceType;
 #if _WIN32
-    return Simulator;
-#else
+    if (useNativeDebugger)
+        serviceType = Native;
+    else
+        serviceType = Simulator;
 
-    const char* val = getenv("CL_CONFIG_DBG_ENABLE");
-
-    if (val && std::string(val) == "1") {
-        return Simulator;
+    // Allow the environment variable to override the flag choice.
+    const char *val = getenv("CL_CONFIG_USE_NATIVE_DEBUGGER");
+    if (val) {
+        if (std::string(val) == "1")
+            serviceType = Native;
+        else
+            serviceType = Simulator;
     }
+#else
+    // CL_CONFIG_DBG_ENABLE != 1 or unset implies native (GDB) debugging.
+    serviceType = Native;
 
-    // CL_CONFIG_DBG_ENABLE != 1 or unset implies native (GDB) debugging
-    return Native;
+    // CL_CONFIG_DBG_ENABLE == 1 implies Simulator debugging
+    const char* val = getenv("CL_CONFIG_DBG_ENABLE");
+    if (val && std::string(val) == "1") {
+        serviceType = Simulator;
+    }
 #endif
+
+    return serviceType;
 }
 
 }

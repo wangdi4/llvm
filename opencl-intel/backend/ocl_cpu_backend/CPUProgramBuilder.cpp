@@ -241,8 +241,7 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
         std::unique_ptr<KernelJITProperties> spKernelJITProps( CreateKernelJITProperties( vecSize ));
 
         intel::DebuggingServiceType debugType = intel::getDebuggingServiceType(
-            buildOptions.GetDebugInfoFlag() ||
-            CompilationUtils::getDebugFlagFromMetadata(pModule));
+            buildOptions.GetDebugInfoFlag(), pModule);
         bool useTLSGlobals = (debugType == intel::Native) &&
                              !m_isFpgaEmulator && !m_isEyeQEmulator;
         std::unique_ptr<Kernel> spKernel(
@@ -406,6 +405,6 @@ void CPUProgramBuilder::PostBuildProgramStep(Program* pProgram, llvm::Module* pM
   CPUProgram* pCPUProgram = static_cast<CPUProgram*>(pProgram);
   pCPUProgram->GetExecutionEngine()->finalizeObject();
   pCPUProgram->GetExecutionEngine()->runStaticConstructorsDestructors(
-      *pModule, /*isDtors=*/false);
+      /*isDtors=*/false);
 }
 }}} // namespace

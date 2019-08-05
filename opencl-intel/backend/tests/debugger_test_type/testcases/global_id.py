@@ -1,4 +1,4 @@
-from testlib.debuggertestcase import DebuggerTestCase
+from testlib.debuggertestcase import DebuggerTestCase, expectedFailureCDB
 
 #
 # TEST-CASE: GlobalId
@@ -35,6 +35,7 @@ class GlobalIdTest(DebuggerTestCase):
     # Based on global_id_x, we calculate the group_id (group_id_x) and the
     #   local_id (local_id_x)
     #
+    @expectedFailureCDB
     def test_1D_non_default_global_id(self):
         import random
         import itertools

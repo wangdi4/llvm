@@ -12,8 +12,6 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "debuggingservicetype.h"
-
 #include "BarrierMain.h"
 #include "BarrierUtils.h"
 
