@@ -2168,33 +2168,60 @@ void VPOCodeGen::widenNonInductionPhi(VPPHINode *VPPhi) {
     return;
   }
 
-  // Blend the PHIs using selects and incoming masks.
   unsigned NumIncomingValues = VPPhi->getNumIncomingValues();
-  VPBasicBlock *VPBB = VPPhi->getParent();
-  Value *BlendVal;
-  assert(NumIncomingValues && "Unexpected PHI with zero values");
-
-  // Generate a sequence of selects of the form:
-  // SELECT(Mask3, In3,
-  //      SELECT(Mask2, In2,
-  //                   ( ...)))
-  const SmallVectorImpl<VPBasicBlock::MaskBlockPair> &IncomingMasks =
-      VPBB->getIncomingMasks();
-
-  for (unsigned In = 0; In < NumIncomingValues; In++) {
-    // We might have single edge PHIs (blocks) - use an identity
-    // 'select' for the first PHI operand.
-    auto *PredVPBB = IncomingMasks[In].second;
-    Value *In0 = getVectorValue(VPPhi->getIncomingValue(PredVPBB));
-    if (In == 0)
-      BlendVal = In0; // Initialize with the first incoming value.
-    else {
-      // Select between the current value and the previous incoming edge
-      // based on the incoming mask.
-      Value *Cond = getVectorValue(IncomingMasks[In].first);
-      BlendVal = Builder.CreateSelect(Cond, In0, BlendVal, "predphi");
-    }
+  assert(NumIncomingValues > 0 && "Unexpected PHI with zero values");
+  if (NumIncomingValues == 1) {
+    // Blend phis should only be encountered in the linearized control flow.
+    // However, currently some preceding transformations mark some single-value
+    // phis as blends too (and codegen is probably relying on that as well).
+    // Bail out right now because general processing of phis with multiple
+    // incoming values relies on the control flow being linearized.
+    Value *Val = getVectorValue(VPPhi->getOperand(0));
+    WidenMap[UnderlyingPhi] = Val;
+    VPWidenMap[VPPhi] = Val;
+    return;
   }
+
+  // Blend the PHIs using selects and incoming masks.
+
+  // Sort incoming blocks according to their order in the linearized control flow.
+  // After linearization, the HCFG coming to the codegen might be something like
+  // this:
+  //
+  //   bb0:
+  //     %def0 =
+  //   bb1:
+  //     predicate %cond0
+  //     %def1 =
+  //   bb2:
+  //     predicate %cond1    ; %cond1 = %cond0 && %something
+  //     %def2 =
+  //   bb3:
+  //     %blend_phi = phi [ %def1, %bb1 ], [ %def0, %bb0 ], [ %def 2, %bb2 ]
+  //
+  // We need to generate
+  //
+  //  %sel = select %cond0, %def1, %def0
+  //  %blend = select %cond1 %def2, %sel
+  //
+  // Note, that the order of processing needs to be [ %def0, %def1, %def2 ] for
+  // such CFG.
+  SmallVector<VPBasicBlock *, 4> SortedBlocks;
+  sortBlendPhiIncomingBlocks(VPPhi, SortedBlocks);
+
+  // Generate a sequence of selects.
+  Value *BlendVal = nullptr;
+  for (auto *Block : SortedBlocks) {
+    Value *IncomingVecVal = getVectorValue(VPPhi->getIncomingValue(Block));
+    if (!BlendVal) {
+      BlendVal = IncomingVecVal;
+      continue;
+    }
+
+    Value *Cond = getVectorValue(Block->getPredicate());
+    BlendVal = Builder.CreateSelect(Cond, IncomingVecVal, BlendVal, "predphi");
+  }
+
   WidenMap[UnderlyingPhi] = BlendVal;
   VPWidenMap[VPPhi] = BlendVal;
 }

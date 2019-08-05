@@ -2524,24 +2524,11 @@ public:
   void setOriginalBB(BasicBlock *BB) { OriginalBB = BB; }
   BasicBlock *getOriginalBB() const { return OriginalBB; }
 
-  // Pair of incoming edge mask and predecessor basic block. This
-  // information is used to convert phis to select blends.
-  using MaskBlockPair = std::pair<VPValue *, VPBasicBlock *>;
-
-  void addMaskBlockPair(VPValue *Mask, VPBasicBlock *Block) {
-    IncomingMasks.push_back(std::make_pair(Mask, Block));
-  }
-
-  const SmallVectorImpl<MaskBlockPair> &getIncomingMasks() const {
-    return IncomingMasks;
-  }
-
 private:
   BasicBlock *CBlock;
   BasicBlock *TBlock;
   BasicBlock *FBlock;
   BasicBlock *OriginalBB;
-  SmallVector<MaskBlockPair, 4> IncomingMasks;
 #endif
   /// Create an IR BasicBlock to hold the instructions vectorized from this
   /// VPBasicBlock, and return it. Update the CFGState accordingly.

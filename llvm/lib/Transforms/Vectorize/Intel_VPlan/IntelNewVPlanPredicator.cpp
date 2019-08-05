@@ -228,11 +228,6 @@ void VPlanPredicator::createOrPropagatePredicates(VPBlockBase *CurrBlock,
 
     if (IncomingPredicate)
       IncomingPredicates.push_back(IncomingPredicate);
-#if INTEL_CUSTOMIZATION
-    // Push the incoming predicate into current basic block's incoming masks so
-    // that we can use it to blend phis to selects.
-    CurrBB->addMaskBlockPair(IncomingPredicate, PredBlock->getExitBasicBlock());
-#endif // INTEL_CUSTOMIZATION
   }
 
 #if INTEL_CUSTOMIZATION
