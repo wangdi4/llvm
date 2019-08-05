@@ -933,7 +933,7 @@ public:
       // Write the bitcode contents to the temporary file.
       {
         std::error_code EC;
-        raw_fd_ostream BitcodeFile(BitcodeFileName, EC, sys::fs::F_None);
+        raw_fd_ostream BitcodeFile(BitcodeFileName, EC, sys::fs::OF_None);
         if (EC) {
           errs() << "error: unable to open temporary file.\n";
           return true;
@@ -1160,7 +1160,7 @@ static bool BundleFiles() {
   std::error_code EC;
 
   // Create output file.
-  raw_fd_ostream OutputFile(OutputFileNames.front(), EC, sys::fs::F_None);
+  raw_fd_ostream OutputFile(OutputFileNames.front(), EC, sys::fs::OF_None);
 
   if (EC) {
     errs() << "error: Can't open file " << OutputFileNames.front() << ".\n";
@@ -1260,8 +1260,20 @@ static bool UnbundleFiles() {
     }
 
     // Check if the output file can be opened and copy the bundle to it.
+<<<<<<< HEAD
     FH->ReadBundle(Output->second, Input);
     FH->ReadBundleEnd(Input);
+=======
+    std::error_code EC;
+    raw_fd_ostream OutputFile(Output->second, EC, sys::fs::OF_None);
+    if (EC) {
+      errs() << "error: Can't open file " << Output->second << ": "
+             << EC.message() << "\n";
+      return true;
+    }
+    FH.get()->ReadBundle(OutputFile, Input);
+    FH.get()->ReadBundleEnd(Input);
+>>>>>>> d9b948b6eb7362f36264b71795dab179906e36be
     Worklist.erase(Output);
 
     // Record if we found the host bundle.
@@ -1274,7 +1286,7 @@ static bool UnbundleFiles() {
   if (Worklist.size() == TargetNames.size()) {
     for (auto &E : Worklist) {
       std::error_code EC;
-      raw_fd_ostream OutputFile(E.second, EC, sys::fs::F_None);
+      raw_fd_ostream OutputFile(E.second, EC, sys::fs::OF_None);
       if (EC) {
         errs() << "error: Can't open file " << E.second << ": " << EC.message()
                << "\n";
@@ -1297,7 +1309,7 @@ static bool UnbundleFiles() {
   // If we still have any elements in the worklist, create empty files for them.
   for (auto &E : Worklist) {
     std::error_code EC;
-    raw_fd_ostream OutputFile(E.second, EC, sys::fs::F_None);
+    raw_fd_ostream OutputFile(E.second, EC, sys::fs::OF_None);
     if (EC) {
       errs() << "error: Can't open file " << E.second << ": " << EC.message()
              << "\n";
