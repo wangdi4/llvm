@@ -129,7 +129,11 @@ static cl::opt<unsigned>
                 cl::desc("Maximum number of call targets per "
                          "call site to enable branch funnels"));
 
-<<<<<<< HEAD
+static cl::opt<bool>
+    PrintSummaryDevirt("wholeprogramdevirt-print-index-based", cl::Hidden,
+                       cl::init(false), cl::ZeroOrMore,
+                       cl::desc("Print index-based devirtualization messages"));
+
 #if INTEL_CUSTOMIZATION
 // Set the threshold for the maximum targets we can devirtualize using
 // the multiversioning
@@ -151,12 +155,6 @@ static cl::opt<bool> WPDevirtMultiversionVerify(
 static cl::opt<bool> WPDevirtAssumeSafe(
     "wholeprogramdevirt-assume-safe", cl::init(false), cl::ReallyHidden);
 #endif // INTEL_CUSTOMIZATION
-=======
-static cl::opt<bool>
-    PrintSummaryDevirt("wholeprogramdevirt-print-index-based", cl::Hidden,
-                       cl::init(false), cl::ZeroOrMore,
-                       cl::desc("Print index-based devirtualization messages"));
->>>>>>> d2df54e6a55af509b08afa109fe522cd88ad1c33
 
 // Find the minimum offset that we may store a value of size Size bits at. If
 // IsAfter is set, look for an offset before the object, otherwise look for an
