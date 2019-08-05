@@ -1765,6 +1765,8 @@ Expected<LoopUnrollOptions> parseLoopUnrollOptions(StringRef Params) {
       UnrollOpts.setPartial(Enable);
     } else if (ParamName == "peeling") {
       UnrollOpts.setPeeling(Enable);
+    } else if (ParamName == "profile-peeling") {
+      UnrollOpts.setProfileBasedPeeling(Enable);
     } else if (ParamName == "runtime") {
       UnrollOpts.setRuntime(Enable);
     } else if (ParamName == "upperbound") {
