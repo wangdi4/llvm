@@ -116,10 +116,9 @@ for.body3.preheader:
 ; CHECK-NEXT:     PREDECESSORS(1): mask_region26
 ; CHECK-EMPTY:
 ; CHECK-NEXT:     BB8 (BP: NULL) :
-; FIXME: Use blends instead!
-; CHECK-NEXT:      i64 [[USE_A_LCSSA:%vp[0-9]*]] = phi  [ i64 [[PHI_USE]], BB25 ]
-; CHECK-NEXT:      i64 [[USE_B_LCSSA:%vp[0-9]*]] = phi  [ i64 [[PHI_UPDATE_USE]], BB25 ]
-; CHECK-NEXT:      i1 [[USE_C_LCSSA:%vp[0-9]*]] = phi  [ i1 [[NO_PHI_INST_USE]], BB25 ]
+; CHECK-NEXT:      i64 [[USE_A_LCSSA:%vp[0-9]*]] = phi  [ i64 [[PHI_USE_BLEND]], BB25 ]
+; CHECK-NEXT:      i64 [[USE_B_LCSSA:%vp[0-9]*]] = phi  [ i64 [[PHI_UPDATE_USE_BLEND]], BB25 ]
+; CHECK-NEXT:      i1 [[USE_C_LCSSA:%vp[0-9]*]] = phi  [ i1 [[NO_PHI_INST_USE_BLEND]], BB25 ]
 ; CHECK-NEXT:      i64 [[USE_A:%vp[0-9]*]] = add i64 [[USE_A_LCSSA]] i64 1
 ; CHECK-NEXT:      i64 [[USE_B:%vp[0-9]*]] = add i64 [[USE_B_LCSSA]] i64 1
 ; CHECK-NEXT:      i1 [[USE_C:%vp[0-9]*]] = xor i1 [[USE_C_LCSSA]] i1 true
