@@ -86,11 +86,11 @@ private:
 
 public:
   explicit OVLSAccessType(ATypeE AccType) { this->AccType = AccType; }
-  bool operator==(ATypeE AccType) const { return this->AccType == AccType; }
   bool operator==(const OVLSAccessType &Rhs) const {
     return AccType == Rhs.AccType;
   }
-  bool operator!=(ATypeE AccType) const { return this->AccType != AccType; }
+  bool operator!=(const OVLSAccessType &Rhs) const { return !operator==(Rhs); }
+
   bool isUnknown() const {
     if (AccType > IStore || AccType < SLoad)
       return true;
