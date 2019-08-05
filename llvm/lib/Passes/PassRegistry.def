@@ -383,6 +383,7 @@ FUNCTION_PASS("hir-multi-exit-loop-reroll", loopopt::HIRMultiExitLoopRerollPass(
 FUNCTION_PASS("hir-identity-matrix-idiom-recognition", loopopt::HIRIdentityMatrixIdiomRecognitionPass())
 FUNCTION_PASS("hir-prefetching", loopopt::HIRPrefetchingPass())
 FUNCTION_PASS("iv-split", IVSplitPass())
+FUNCTION_PASS("hir-sinking-for-perfect-loopnest", loopopt::HIRSinkingForPerfectLoopnestPass())
 
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB

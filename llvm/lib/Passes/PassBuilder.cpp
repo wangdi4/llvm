@@ -255,6 +255,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRRecognizeParLoop.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRIdentityMatrixIdiomRecognition.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPrefetching.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRSinkingForPerfectLoopnest.h"
 
 #if INTEL_INCLUDE_DTRANS
 #include "Intel_DTrans/DTransCommon.h"

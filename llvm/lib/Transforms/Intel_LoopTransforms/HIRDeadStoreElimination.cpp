@@ -235,6 +235,8 @@ static bool doTransform(HLLoop *OutermostLp) {
           continue;
         }
 
+        HIRInvalidationUtils::invalidateBody(PrevLoop);
+
         auto ParentNode = PrevDDNode->getParent();
         HLNodeUtils::remove(const_cast<HLDDNode *>(PrevDDNode));
         HLNodeUtils::removeEmptyNodes(ParentNode, true);
@@ -248,7 +250,6 @@ static bool doTransform(HLLoop *OutermostLp) {
   // Mark the loop and its parent loop/region have been changed
   if (Result) {
     OutermostLp->getParentRegion()->setGenCode();
-    HIRInvalidationUtils::invalidateBody(OutermostLp);
   }
 
   return Result;

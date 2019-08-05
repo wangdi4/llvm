@@ -350,6 +350,7 @@ namespace {
       (void) llvm::createHIRMultiExitLoopRerollPass();
       (void) llvm::createHIRIdentityMatrixIdiomRecognitionPass();
       (void) llvm::createHIRPrefetchingPass();
+      (void) llvm::createHIRSinkingForPerfectLoopnestPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();
