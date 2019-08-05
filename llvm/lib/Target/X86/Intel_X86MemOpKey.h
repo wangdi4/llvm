@@ -29,7 +29,7 @@ static inline bool isIdenticalOp(const llvm::MachineOperand &MO1,
                                  const llvm::MachineOperand &MO2) {
   return MO1.isIdenticalTo(MO2) &&
          (!MO1.isReg() ||
-          !llvm::TargetRegisterInfo::isPhysicalRegister(MO1.getReg()));
+          !llvm::Register::isPhysicalRegister(MO1.getReg()));
 }
 
 #ifndef NDEBUG

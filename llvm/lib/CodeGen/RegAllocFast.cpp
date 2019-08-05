@@ -160,7 +160,7 @@ namespace {
     };
 
     bool isVirtualRegister(unsigned Reg) const {
-      return TargetRegisterInfo::isVirtualRegister(Reg);
+      return Register::isVirtualRegister(Reg);
     }
   public:
     StringRef getPassName() const override { return "Fast Register Allocator"; }
@@ -893,11 +893,7 @@ void RegAllocFast::handleThroughOperands(MachineInstr &MI,
   for (const MachineOperand &MO : MI.operands()) {
     if (!MO.isReg()) continue;
     unsigned Reg = MO.getReg();
-<<<<<<< HEAD
     if (!isVirtualRegister(Reg)) // INTEL
-=======
-    if (!Register::isVirtualRegister(Reg))
->>>>>>> 2bea69bf6503ffc9f3cde9a52b5dac1a25e94e1c
       continue;
     if (MO.isEarlyClobber() || (MO.isUse() && MO.isTied()) ||
         (MO.getSubReg() && MI.readsVirtualRegister(Reg))) {
@@ -927,12 +923,7 @@ void RegAllocFast::handleThroughOperands(MachineInstr &MI,
     MachineOperand &MO = MI.getOperand(I);
     if (!MO.isReg()) continue;
     unsigned Reg = MO.getReg();
-<<<<<<< HEAD
     if (!isVirtualRegister(Reg)) continue; // INTEL
-=======
-    if (!Register::isVirtualRegister(Reg))
-      continue;
->>>>>>> 2bea69bf6503ffc9f3cde9a52b5dac1a25e94e1c
     if (MO.isUse()) {
       if (!MO.isTied()) continue;
       LLVM_DEBUG(dbgs() << "Operand " << I << "(" << MO
@@ -957,12 +948,7 @@ void RegAllocFast::handleThroughOperands(MachineInstr &MI,
     const MachineOperand &MO = MI.getOperand(I);
     if (!MO.isReg()) continue;
     unsigned Reg = MO.getReg();
-<<<<<<< HEAD
     if (!isVirtualRegister(Reg)) continue; // INTEL
-=======
-    if (!Register::isVirtualRegister(Reg))
-      continue;
->>>>>>> 2bea69bf6503ffc9f3cde9a52b5dac1a25e94e1c
     if (!MO.isEarlyClobber())
       continue;
     // Note: defineVirtReg may invalidate MO.
@@ -1197,14 +1183,9 @@ bool RegAllocFast::allocateInstruction(MachineInstr &MI) { // INTEL
       continue;
     unsigned Reg = MO.getReg();
 
-<<<<<<< HEAD
-    if (TargetRegisterInfo::isPhysicalRegister(Reg)) {
+    if (Register::isPhysicalRegister(Reg)) {
       if (!MRI->isAllocatable(Reg)) continue;
       definePhysReg(MI, Reg, MO.isDead() ? regFree : regReserved);
-=======
-    // We have already dealt with phys regs in the previous scan.
-    if (Register::isPhysicalRegister(Reg))
->>>>>>> 2bea69bf6503ffc9f3cde9a52b5dac1a25e94e1c
       continue;
     }
     MCPhysReg PhysReg = defineVirtReg(MI, I, Reg, CopySrcReg);
