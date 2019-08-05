@@ -15,6 +15,7 @@
 #ifndef LLVM_DEMANGLE_COMPILER_H
 #define LLVM_DEMANGLE_COMPILER_H
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // This is a temporary change to avoid prod build failures.
 // This file is part of an ongoing refactoring in llorg which renames this
@@ -30,6 +31,8 @@
 #endif
 #endif
 
+=======
+>>>>>>> dc8af80c190e86a2562b2edf9ca91ca44912e6b6
 #ifndef __has_feature
 #define __has_feature(x) 0
 #endif
