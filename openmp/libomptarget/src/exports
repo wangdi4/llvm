@@ -13,14 +13,11 @@ VERS1.0 {
     __tgt_target_data_update_nowait;
     __tgt_target_nowait;
     __tgt_target_teams_nowait;
-<<<<<<< HEAD
+    __tgt_mapper_num_components;
+    __tgt_push_mapper_component;
 # INTEL_COLLAB
     __tgt_is_device_available;
 # end INTEL_COLLAB
-=======
-    __tgt_mapper_num_components;
-    __tgt_push_mapper_component;
->>>>>>> 2c7a8eaf3d3f50cebb0754e4eb56aeb6b7f21631
     omp_get_num_devices;
     omp_get_initial_device;
     omp_target_alloc;
