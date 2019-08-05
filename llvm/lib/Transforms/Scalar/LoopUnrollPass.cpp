@@ -981,15 +981,10 @@ bool llvm::computeUnrollCount(
 static LoopUnrollResult tryToUnrollLoop(
     Loop *L, DominatorTree &DT, LoopInfo *LI, ScalarEvolution &SE,
     const TargetTransformInfo &TTI, AssumptionCache &AC,
-<<<<<<< HEAD
     OptimizationRemarkEmitter &ORE,
     BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI,
     bool PreserveLCSSA, int OptLevel,
     const LoopOptReportBuilder &LORBuilder, // INTEL
-=======
-    OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
-    ProfileSummaryInfo *PSI, bool PreserveLCSSA, int OptLevel,
->>>>>>> de67affd005d2a4af3554ff48f874868f022a022
     bool OnlyWhenForced, bool ForgetAllSCEV, Optional<unsigned> ProvidedCount,
     Optional<unsigned> ProvidedThreshold, Optional<bool> ProvidedAllowPartial,
     Optional<bool> ProvidedRuntime, Optional<bool> ProvidedUpperBound,
@@ -1223,17 +1218,11 @@ public:
     bool PreserveLCSSA = mustPreserveAnalysisID(LCSSAID);
 
     LoopUnrollResult Result = tryToUnrollLoop(
-<<<<<<< HEAD
         L, DT, LI, SE, TTI, AC, ORE, nullptr, nullptr,
         PreserveLCSSA, OptLevel, LORBuilder, OnlyWhenForced, // INTEL
         ForgetAllSCEV, ProvidedCount, ProvidedThreshold, ProvidedAllowPartial,
-        ProvidedRuntime, ProvidedUpperBound, ProvidedAllowPeeling);
-=======
-        L, DT, LI, SE, TTI, AC, ORE, nullptr, nullptr, PreserveLCSSA, OptLevel,
-        OnlyWhenForced, ForgetAllSCEV, ProvidedCount, ProvidedThreshold,
-        ProvidedAllowPartial, ProvidedRuntime, ProvidedUpperBound,
-        ProvidedAllowPeeling, ProvidedAllowProfileBasedPeeling);
->>>>>>> de67affd005d2a4af3554ff48f874868f022a022
+        ProvidedRuntime, ProvidedUpperBound, ProvidedAllowPeeling,
+        ProvidedAllowProfileBasedPeeling);
 
     if (Result == LoopUnrollResult::FullyUnrolled)
       LPM.markLoopAsDeleted(*L);
@@ -1319,7 +1308,6 @@ PreservedAnalyses LoopFullUnrollPass::run(Loop &L, LoopAnalysisManager &AM,
 
   std::string LoopName = L.getName();
 
-<<<<<<< HEAD
   bool Changed =
       tryToUnrollLoop(&L, AR.DT, &AR.LI, AR.SE, AR.TTI, AR.AC, *ORE,
                       /*BFI*/ nullptr, /*PSI*/ nullptr,
@@ -1328,18 +1316,9 @@ PreservedAnalyses LoopFullUnrollPass::run(Loop &L, LoopAnalysisManager &AM,
                       ForgetSCEV, /*Count*/ None,
                       /*Threshold*/ None, /*AllowPartial*/ false,
                       /*Runtime*/ false, /*UpperBound*/ false,
-                      /*AllowPeeling*/ false) != LoopUnrollResult::Unmodified;
-=======
-  bool Changed = tryToUnrollLoop(&L, AR.DT, &AR.LI, AR.SE, AR.TTI, AR.AC, *ORE,
-                                 /*BFI*/ nullptr, /*PSI*/ nullptr,
-                                 /*PreserveLCSSA*/ true, OptLevel,
-                                 OnlyWhenForced, ForgetSCEV, /*Count*/ None,
-                                 /*Threshold*/ None, /*AllowPartial*/ false,
-                                 /*Runtime*/ false, /*UpperBound*/ false,
-                                 /*AllowPeeling*/ false,
-                                 /*AllowProfileBasedPeeling*/ false) !=
-                 LoopUnrollResult::Unmodified;
->>>>>>> de67affd005d2a4af3554ff48f874868f022a022
+                      /*AllowPeeling*/ false,
+                      /*AllowProfileBasedPeeling*/ false) !=
+      LoopUnrollResult::Unmodified;
   if (!Changed)
     return PreservedAnalyses::all();
 
