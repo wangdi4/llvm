@@ -35,4 +35,16 @@ __kernel void k1() {
   }
 }
 
+__kernel void k2() {
+  int *channel;
+}
+
+__kernel void k3(__global int *channel) {
+}
+
+__kernel void k4() {
+  typedef int channel;
+  channel bar;
+}
+
 #endif
