@@ -53,6 +53,10 @@ static cl::opt<bool> PrepareSwitchToOffload(
     "prepare-switch-to-offload", cl::Hidden, cl::init(false),
     cl::desc("switch to offload mode (default = false)"));
 
+static cl::opt<bool> PrepareDisableOffload(
+  "vpo-paropt-prepare-disable-offload", cl::Hidden, cl::init(false),
+  cl::desc("Ignore OpenMP TARGET construct in VPO Paropt Prepare."));
+
 INITIALIZE_PASS_BEGIN(VPOParoptPrepare, "vpo-paropt-prepare",
                      "VPO Paropt Prepare Function Pass", false, false)
 INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
@@ -174,7 +178,7 @@ bool VPOParoptPreparePass::runImpl(Function &F, WRegionInfo &WI,
 #if INTEL_CUSTOMIZATION
                         ORVerbosity,
 #endif  // INTEL_CUSTOMIZATION
-                        ORE, 2, PrepareSwitchToOffload);
+                        ORE, 2, PrepareSwitchToOffload, PrepareDisableOffload);
   Changed = Changed | VP.paroptTransforms();
 
   LLVM_DEBUG(

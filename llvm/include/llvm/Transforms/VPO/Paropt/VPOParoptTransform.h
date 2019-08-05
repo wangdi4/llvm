@@ -99,7 +99,8 @@ public:
                      OptReportVerbosity::Level ORVerbosity,
 #endif  // INTEL_CUSTOMIZATION
                      OptimizationRemarkEmitter &ORE,
-                     unsigned OptLevel = 2, bool SwitchToOffload = false)
+                     unsigned OptLevel = 2, bool SwitchToOffload = false,
+                     bool DisableOffload = false)
       : MT(MT), F(F), WI(WI), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC),
         TLI(TLI), AA(AA), Mode(Mode),
         TargetTriple(F->getParent()->getTargetTriple()),
@@ -107,6 +108,7 @@ public:
         ORVerbosity(ORVerbosity),
 #endif  // INTEL_CUSTOMIZATION
         ORE(ORE), OptLevel(OptLevel), SwitchToOffload(SwitchToOffload),
+        DisableOffload(DisableOffload),
         IdentTy(nullptr), TidPtrHolder(nullptr), BidPtrHolder(nullptr),
         KmpcMicroTaskTy(nullptr), KmpRoutineEntryPtrTy(nullptr),
         KmpTaskTTy(nullptr), KmpTaskTRedTy(nullptr),
@@ -203,6 +205,9 @@ private:
 
   /// Offload compilation mode.
   bool SwitchToOffload;
+
+  /// Ignore TARGET construct
+  bool DisableOffload;
 
   /// Contain all parallel/sync/offload constructs to be transformed
   WRegionListTy WRegionList;

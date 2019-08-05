@@ -54,16 +54,16 @@ class VPOParoptModuleTransform {
 public:
   /// ParoptModuleTransform object constructor
   VPOParoptModuleTransform(Module &M, int Mode, unsigned OptLevel = 2,
-                           bool SwitchToOffload = false)
-    : M(M), C(M.getContext()), Mode(Mode),
+                           bool SwitchToOffload = false,
+                           bool DisableOffload = false)
+      : M(M), C(M.getContext()), Mode(Mode),
 #if INTEL_CUSTOMIZATION
-      ORVerbosity(OptReportVerbosity::Low),
+        ORVerbosity(OptReportVerbosity::Low),
 #endif  // INTEL_CUSTOMIZATION
-      OptLevel(OptLevel),
-      SwitchToOffload(SwitchToOffload),
-      TgOffloadEntryTy(nullptr), TgDeviceImageTy(nullptr),
-      TgBinaryDescriptorTy(nullptr), DsoHandle(nullptr)
-  {}
+        OptLevel(OptLevel), SwitchToOffload(SwitchToOffload),
+        DisableOffload(DisableOffload), TgOffloadEntryTy(nullptr),
+        TgDeviceImageTy(nullptr), TgBinaryDescriptorTy(nullptr),
+        DsoHandle(nullptr) {}
 
   ~VPOParoptModuleTransform() {
     DeleteContainerPointers(OffloadEntries);
@@ -105,6 +105,9 @@ private:
 
   /// Offload compilation mode.
   bool SwitchToOffload;
+
+  /// Ignore TARGET constructs
+  bool DisableOffload;
 
   /// A list of device triples for offload compilation.
   SmallVector<Triple, 16> TgtDeviceTriples;
