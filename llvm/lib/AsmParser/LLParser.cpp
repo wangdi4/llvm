@@ -2652,6 +2652,7 @@ bool LLParser::ParseOptionalOperandBundles(
 ///
 bool LLParser::ParseArgumentList(SmallVectorImpl<ArgInfo> &ArgList,
                                  bool &isVarArg){
+  unsigned CurValID = 0;
   isVarArg = false;
   assert(Lex.getKind() == lltok::lparen);
   Lex.Lex(); // eat the (.
@@ -2675,6 +2676,12 @@ bool LLParser::ParseArgumentList(SmallVectorImpl<ArgInfo> &ArgList,
 
     if (Lex.getKind() == lltok::LocalVar) {
       Name = Lex.getStrVal();
+      Lex.Lex();
+    } else if (Lex.getKind() == lltok::LocalVarID) {
+      if (Lex.getUIntVal() != CurValID)
+        return Error(TypeLoc, "argument expected to be numbered '%" +
+                                  Twine(CurValID) + "'");
+      ++CurValID;
       Lex.Lex();
     }
 
@@ -2703,6 +2710,13 @@ bool LLParser::ParseArgumentList(SmallVectorImpl<ArgInfo> &ArgList,
         Name = Lex.getStrVal();
         Lex.Lex();
       } else {
+        if (Lex.getKind() == lltok::LocalVarID) {
+          if (Lex.getUIntVal() != CurValID)
+            return Error(TypeLoc, "argument expected to be numbered '%" +
+                                      Twine(CurValID) + "'");
+          Lex.Lex();
+        }
+        ++CurValID;
         Name = "";
       }
 
