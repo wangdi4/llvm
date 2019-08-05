@@ -15,6 +15,7 @@
 #ifndef LLVM_DEMANGLE_COMPILER_H
 #define LLVM_DEMANGLE_COMPILER_H
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // This is a temporary change to avoid prod build failures.
 // This file is part of an ongoing refactoring in llorg which renames this
@@ -22,6 +23,14 @@
 // When that change is merged, this customization can be discarded.
 #include "llvm/Config/llvm-config.h"
 #endif // INTEL_CUSTOMIZATION
+=======
+#ifdef _MSC_VER
+// snprintf is implemented in VS 2015
+#if _MSC_VER < 1900
+#define snprintf _snprintf_s
+#endif
+#endif
+>>>>>>> 21d01ea9b6f106371a131fd4676e798ff6382aab
 
 #ifndef __has_feature
 #define __has_feature(x) 0
