@@ -5590,6 +5590,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   else if (Args.hasArg(options::OPT_no_restrict)) {
     CmdArgs.push_back("-no-restrict");
   }
+  if (Args.hasFlag(options::OPT_intel_mintrinsic_promote,
+                   options::OPT_intel_mno_intrinsic_promote, false))
+    CmdArgs.push_back("-mintrinsic-promote");
+
 #endif // INTEL_CUSTOMIZATION
 
   // Add the "-o out -x type src.c" flags last. This is done primarily to make
