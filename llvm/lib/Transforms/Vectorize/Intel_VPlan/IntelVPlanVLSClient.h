@@ -27,14 +27,12 @@ class VPlanVLSAnalysis;
 class VPVLSClientMemref : public OVLSMemref {
   const VPInstruction *Inst;
   const VPlanVLSAnalysis *VLSA;
+  const SCEV *ScevExpr = nullptr;
 
 public:
   VPVLSClientMemref(const OVLSMemrefKind &Kind, const OVLSAccessType &AccTy,
                     const OVLSType &Ty, const VPInstruction *Inst,
-                    const VPlanVLSAnalysis *VLSA)
-      : OVLSMemref(Kind, Ty, AccTy), Inst(Inst), VLSA(VLSA) {}
-
-  ~VPVLSClientMemref() {}
+                    const VPlanVLSAnalysis *VLSA);
 
   Optional<int64_t> getConstDistanceFrom(const OVLSMemref &From) override;
 
