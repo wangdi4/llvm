@@ -552,8 +552,11 @@ private:
   /// Generate the call __kmpc_omp_taskwait.
   bool genTaskWaitCode(WRegionNode *W);
 
+  /// Generate the function that destructs firstprivate local vars.
+  Function *genTaskDestructorThunk(WRegionNode *W, StructType *TaskThunkType);
+
   /// Replace the shared variable reference with the thunk field
-  /// derefernce
+  /// dereference
   bool genSharedCodeForTaskGeneric(WRegionNode *W);
 
   /// Replace the reduction variable reference with the dereference of
@@ -586,7 +589,7 @@ private:
   void genSharedInitForTaskLoop(WRegionNode *W, AllocaInst *Src, Value *Dst,
                                 StructType *KmpSharedTy,
                                 StructType *KmpTaskTTWithPrivatesTy,
-                                Instruction *InsertPt);
+                                Function *DestrThunk, Instruction *InsertPt);
 
   /// Save the loop lower upper bound, upper bound and stride for the use
   /// by the call __kmpc_taskloop
@@ -599,10 +602,10 @@ private:
   /// Generate the outline function for the reduction update
   Function *genTaskLoopRedCombFunc(WRegionNode *W, ReductionItem *RedI);
 
-  /// Generate the outline function to set the last iteration
-  //  flag at runtime.
-  Function *genLastPrivateTaskDup(WRegionNode *W,
-                                  StructType *KmpTaskTTWithPrivatesTy);
+  /// Generate the runtime callback to set the last iteration
+  /// flag for lastprivates, and copy-construct firstprivates.
+  Function *genFLPrivateTaskDup(WRegionNode *W,
+                                StructType *KmpTaskTTWithPrivatesTy);
 
   /// Generate the function type void @routine_entry(i32 %tid, i8*)
   void genKmpRoutineEntryT();
