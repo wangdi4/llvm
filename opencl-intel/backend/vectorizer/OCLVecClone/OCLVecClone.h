@@ -23,17 +23,6 @@
 using namespace llvm;
 
 namespace intel {
-
-// For cl::opt CPUId overloading in lit testing.
-enum IsaEncodingValue {
-  AVX512Core = 'e',
-  AVX2 = 'd',
-  AVX1 = 'c',
-  SSE42 = 'b'
-};
-
-extern cl::opt<IsaEncodingValue> CPUIsaEncodingOverride;
-
 class OCLVecClone : public VecClone {
 private:
   // Configuration options
