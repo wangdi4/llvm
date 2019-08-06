@@ -592,7 +592,6 @@ void initializeLoadCoalescingLegacyPassPass(PassRegistry &);
 void initializeMathLibraryFunctionsReplacementLegacyPassPass(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
 
-void initializeASFixerPass(PassRegistry&);
 } // end namespace llvm
 
 #endif // LLVM_INITIALIZEPASSES_H

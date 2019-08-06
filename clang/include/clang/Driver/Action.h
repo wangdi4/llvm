@@ -71,11 +71,9 @@ public:
     VerifyPCHJobClass,
     OffloadBundlingJobClass,
     OffloadUnbundlingJobClass,
-    OffloadWrappingJobClass,
-    SPIRVTranslatorJobClass,
 
     JobClassFirst = PreprocessJobClass,
-    JobClassLast = SPIRVTranslatorJobClass
+    JobClassLast = OffloadUnbundlingJobClass
   };
 
   // The offloading kind determines if this action is binded to a particular
@@ -91,7 +89,6 @@ public:
     OFK_Cuda = 0x02,
     OFK_OpenMP = 0x04,
     OFK_HIP = 0x08,
-    OFK_SYCL = 0x10
   };
 
   static const char *getClassName(ActionClass AC);
@@ -598,7 +595,7 @@ private:
 
 public:
   // Offloading unbundling doesn't change the type of output.
-  OffloadUnbundlingJobAction(ActionList &Inputs);
+  OffloadUnbundlingJobAction(Action *Input);
 
   /// Register information about a dependent action.
   void registerDependentActionInfo(const ToolChain *TC, StringRef BoundArch,
@@ -613,28 +610,6 @@ public:
 
   static bool classof(const Action *A) {
     return A->getKind() == OffloadUnbundlingJobClass;
-  }
-};
-
-class OffloadWrappingJobAction : public JobAction {
-  void anchor() override;
-
-public:
-  OffloadWrappingJobAction(Action *Input, types::ID OutputType);
-
-  static bool classof(const Action *A) {
-    return A->getKind() == OffloadWrappingJobClass;
-  }
-};
-
-class SPIRVTranslatorJobAction : public JobAction {
-  void anchor() override;
-
-public:
-  SPIRVTranslatorJobAction(Action *Input, types::ID OutputType);
-
-  static bool classof(const Action *A) {
-    return A->getKind() == SPIRVTranslatorJobClass;
   }
 };
 

@@ -137,16 +137,12 @@ private:
   mutable std::unique_ptr<Tool> Assemble;
   mutable std::unique_ptr<Tool> Link;
   mutable std::unique_ptr<Tool> OffloadBundler;
-  mutable std::unique_ptr<Tool> OffloadWrapper;
-  mutable std::unique_ptr<Tool> SPIRVTranslator;
 
   Tool *getClang() const;
   Tool *getAssemble() const;
   Tool *getLink() const;
   Tool *getClangAs() const;
   Tool *getOffloadBundler() const;
-  Tool *getOffloadWrapper() const;
-  Tool *getSPIRVTranslator() const;
 
   mutable std::unique_ptr<SanitizerArgs> SanitizerArguments;
   mutable std::unique_ptr<XRayArgs> XRayArguments;
@@ -284,14 +280,12 @@ public:
     return nullptr;
   }
 
-  /// TranslateOffloadTargetArgs - Create a new derived argument list for
-  /// that contains the Offload target specific flags passed via
+  /// TranslateOpenMPTargetArgs - Create a new derived argument list for
+  /// that contains the OpenMP target specific flags passed via
   /// -Xopenmp-target -opt=val OR -Xopenmp-target=<triple> -opt=val
-  /// Also handles -Xsycl-target OR -Xsycl-target=<triple>
-  virtual llvm::opt::DerivedArgList *TranslateOffloadTargetArgs(
+  virtual llvm::opt::DerivedArgList *TranslateOpenMPTargetArgs(
       const llvm::opt::DerivedArgList &Args, bool SameTripleAsHost,
-      SmallVectorImpl<llvm::opt::Arg *> &AllocatedArgs,
-      Action::OffloadKind DeviceOffloadKind) const;
+      SmallVectorImpl<llvm::opt::Arg *> &AllocatedArgs) const;
 
   /// Choose a tool to use to handle the action \p JA.
   ///

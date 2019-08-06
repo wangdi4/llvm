@@ -230,7 +230,6 @@ public:
     CoreCLR,
     Simulator, // Simulator variants of other systems, e.g., Apple's iOS
     MacABI, // Mac Catalyst variant of Apple's iOS deployment target.
-    SYCLDevice,
     LastEnvironmentType = MacABI
   };
   enum ObjectFormatType {
@@ -503,10 +502,6 @@ public:
 
   bool isMacCatalystEnvironment() const {
     return getEnvironment() == Triple::MacABI;
-  }
-
-  bool isSYCLDeviceEnvironment() const {
-    return getEnvironment() == Triple::SYCLDevice;
   }
 
   bool isOSNetBSD() const {
