@@ -10,6 +10,14 @@ set(DD_SOURCES
   dd_interceptors.cc
 )
 
+if (INTEL_CUSTOMIZATION)
+  # Workaround for CMPLRLLVM-9960: dd_interceptors.cc redefines
+  # realpath(), which is defined in bits/stdlib.h under
+  # _FORTIFY_SOURCE=2.
+  set_source_files_properties(dd_interceptors.cc
+    PROPERTIES COMPILE_FLAGS " -U_FORTIFY_SOURCE ")
+endif(INTEL_CUSTOMIZATION)
+
 set(DD_LINKLIBS ${SANITIZER_CXX_ABI_LIBRARIES} ${SANITIZER_COMMON_LINK_LIBS})
 
 append_list_if(COMPILER_RT_HAS_LIBDL dl DD_LINKLIBS)
