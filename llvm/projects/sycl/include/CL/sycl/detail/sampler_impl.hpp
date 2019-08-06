@@ -26,7 +26,6 @@ public:
 #ifdef __SYCL_DEVICE_ONLY__
   __ocl_sampler_t m_Sampler;
   sampler_impl(__ocl_sampler_t Sampler) : m_Sampler(Sampler) {}
-  sampler_impl() = default;
 #else
   std::unordered_map<context, cl_sampler> m_contextToSampler;
 
