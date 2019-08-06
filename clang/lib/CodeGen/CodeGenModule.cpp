@@ -1131,16 +1131,6 @@ static std::string getMangledNameImpl(const CodeGenModule &CGM, GlobalDecl GD,
       }
     }
 
-#if INTEL_CUSTOMIZATION
-    // CQ#379698, CQ#374883: redefinition of builtin functions
-  if (CGM.getLangOpts().IntelCompat)
-    if (const auto *D = dyn_cast<FunctionDecl>(GD.getDecl())) {
-      StringRef Str = Out.str();
-      if (D->getBuiltinID() && D->hasBody() && Str.startswith("__builtin_"))
-        return Str.drop_front(10);
-    }
-#endif // INTEL_CUSTOMIZATION
-
   return Out.str();
 }
 
