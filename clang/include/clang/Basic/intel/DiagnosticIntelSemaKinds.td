@@ -48,10 +48,6 @@ def err_recursive_attribute_expected : Error<
 def warn_func_redecl_conflicting_types: Warning<
   "declaration of %0 is incompatible with previous "
   "%select{declaration|definition}1">, InGroup<IntelCompat>;
-// CQ#365886
-def ext_intel_forward_ref_enum : ExtWarn<
-  "forward references to 'enum' types are an Intel extension">,
-  InGroup<IntelCompat>;
 // CQ370802 - allows bypassing var init in switch statement if IntelCompat
 def warn_switch_into_protected_scope : Warning<
   "jump from switch statement to this case label bypasses variable initialization">,
