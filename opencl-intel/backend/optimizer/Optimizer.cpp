@@ -321,23 +321,6 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
 // INTEL VPO END
 }
 
-static bool getDebugFlagFromMetadata(llvm::Module *M) {
-  if (llvm::NamedMDNode *CompileOptsNamed =
-      M->getNamedMetadata("opencl.compiler.options")) {
-
-    llvm::MDTupleTypedArrayWrapper<llvm::MDString>
-        CompileOpts(cast<llvm::MDTuple>(CompileOptsNamed->getOperand(0)));
-
-    for (llvm::MDString *Opt : CompileOpts) {
-      if (Opt->getString() == "-g") {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
 static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
                                        llvm::Module *M,
                                        SmallVector<Module*, 2> & pRtlModuleList,
@@ -350,7 +333,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
                                        bool isSPIRV) {
   DebuggingServiceType debugType =
       getDebuggingServiceType(pConfig->GetDebugInfoFlag() ||
-                              getDebugFlagFromMetadata(M));
+                              CompilationUtils::getDebugFlagFromMetadata(M));
 
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(
@@ -481,10 +464,9 @@ static void populatePassesPostFailCheck(
   // utilized by GVN.
   DebuggingServiceType debugType =
       getDebuggingServiceType(pConfig->GetDebugInfoFlag() ||
-                              getDebugFlagFromMetadata(M));
-  bool UseTLSGlobals = getenv("NO_IMPLICIT_ARGUMENTS") &&
-                       (debugType == intel::Native) && !isFpgaEmulator &&
-                       !isEyeQEmulator;
+                              CompilationUtils::getDebugFlagFromMetadata(M));
+  bool UseTLSGlobals =
+      (debugType == intel::Native) && !isFpgaEmulator && !isEyeQEmulator;
 
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(
@@ -817,9 +799,9 @@ Optimizer::Optimizer(llvm::Module *pModule,
       m_IsEyeQEmulator(pConfig->isEyeQEmulator()) {
   PassRegistry &Registry = *PassRegistry::getPassRegistry();
   initializeOCLPasses(Registry);
-  DebuggingServiceType debugType =
-      getDebuggingServiceType(pConfig->GetDebugInfoFlag() ||
-                              getDebugFlagFromMetadata(pModule));
+  DebuggingServiceType debugType = getDebuggingServiceType(
+      pConfig->GetDebugInfoFlag() ||
+      CompilationUtils::getDebugFlagFromMetadata(pModule));
 
   TargetMachine* targetMachine = pConfig->GetTargetMachine();
   assert(targetMachine && "Uninitialized TargetMachine!");
