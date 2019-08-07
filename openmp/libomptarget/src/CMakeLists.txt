@@ -24,42 +24,16 @@ set(src_files
 add_library(omptarget SHARED ${src_files})
 
 # INTEL_COLLAB
+include_directories("${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER}")
+
+add_dependencies(omptarget libomptarget-libiomp-file)
+
 if (WIN32)
-  set(LIBOMP_LIB_FILE "")
-
-  if (INTEL_CUSTOMIZATION)
-    set(LIBOMP_LIB_NAME iomp5md libiomp5md)
-    if("${CMAKE_SIZEOF_VOID_P}" STREQUAL "4")
-      set(LIBOMP_LIB_LOC
-        "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/lib/ia32_win")
-    else()
-      set(LIBOMP_LIB_LOC
-        "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/lib/intel64_win")
-    endif()
-    message(STATUS "Looking for OMP library (${LIBOMP_LIB_NAME}) in ${LIBOMP_LIB_LOC}")
-    find_library(LIBOMP_LIB NAMES ${LIBOMP_LIB_NAME} PATHS "${LIBOMP_LIB_LOC}")
-
-    if (NOT LIBOMP_LIB)
-      message(FATAL_ERROR "OMP library required for libomptarget is not found.")
-    endif()
-
-    message(STATUS "OMP library found: ${LIBOMP_LIB}")
-
-    # We cannot use UNC paths with forward slashes with MS linker,
-    # so we have to copy the OMP library to the current binary directory.
-    get_filename_component(LIBOMP_LIB_BASENAME "${LIBOMP_LIB}" NAME)
-    add_custom_command(TARGET omptarget PRE_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${LIBOMP_LIB}" ${CMAKE_CURRENT_BINARY_DIR}
-      COMMENT "Copying ${LIBOMP_LIB} to ${CMAKE_CURRENT_BINARY_DIR}")
-    set(LIBOMP_LIB_FILE ${LIBOMP_LIB_BASENAME})
-  endif(INTEL_CUSTOMIZATION)
-
   target_link_libraries(omptarget
     ${CMAKE_DL_LIBS} ${LIBOMP_LIB_FILE})
 else()
   target_link_libraries(omptarget
-    ${CMAKE_DL_LIBS}
+    ${CMAKE_DL_LIBS} ${LIBOMP_LIB_FILE}
     "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports")
 endif()
 # end INTEL_COLLAB
@@ -68,7 +42,8 @@ endif()
 install(TARGETS omptarget LIBRARY COMPONENT omptarget
   DESTINATION "${OPENMP_INSTALL_LIBDIR}" # INTEL
 # INTEL_COLLAB
-  RUNTIME COMPONENT omptarget DESTINATION "${OPENMP_INSTALL_LIBDIR}"
+  RUNTIME COMPONENT omptarget DESTINATION bin
+  ARCHIVE COMPONENT omptarget DESTINATION "${OPENMP_INSTALL_LIBDIR}"
 # end INTEL_COLLAB
   ) # INTEL
 

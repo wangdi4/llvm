@@ -2048,34 +2048,11 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
   // Get the source value, truncated to the width of the bit-field.
   llvm::Value *SrcVal = Src.getScalarVal();
 
-#if INTEL_CUSTOMIZATION
-  // CQ#371662 - don't do bit manipulations in IntelCompat mode if both offset
-  // and size are of natural sizes. This improves code size.
-  unsigned ByteWidth = getTarget().getCharWidth();
-  bool ShouldSkipBitMasking = getLangOpts().IntelCompat &&
-                              Info.Offset % ByteWidth == 0 &&
-                              Info.Size % ByteWidth == 0;
-  if (ShouldSkipBitMasking) {
-    llvm::Value *PtrVal = Ptr.getPointer();
-    if (Info.Offset)
-      PtrVal = Builder.CreateConstGEP1_64(EmitCastToVoidPtr(PtrVal),
-                                          Info.Offset / ByteWidth);
-    PtrVal = Builder.CreatePointerBitCastOrAddrSpaceCast(
-        PtrVal, Builder.getIntNTy(Info.Size)->getPointerTo());
-    // Fixme - I don't think this code is quite right. In particular,
-    // I think the alignment is probably optimistic, and it should probably
-    // just be 1.
-    Ptr = Address(PtrVal, Ptr.getAlignment());
-  }
-#endif // INTEL_CUSTOMIZATION
   // Cast the source to the storage type and shift it into place.
   SrcVal = Builder.CreateIntCast(SrcVal, Ptr.getElementType(),
                                  /*isSigned=*/false);
   llvm::Value *MaskedVal = SrcVal;
 
-#if INTEL_CUSTOMIZATION
-  if (!ShouldSkipBitMasking) {
-#endif // INTEL_CUSTOMIZATION
   // See if there are other bits in the bitfield's storage we'll need to load
   // and mask together with source before storing.
   if (Info.StorageSize != Info.Size) {
@@ -2111,8 +2088,6 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
     assert(Info.Offset == 0);
   }
 #if INTEL_CUSTOMIZATION
-  }  // !ShouldSkipBitMasking
-
   // Write the new value back out.
   llvm::StoreInst *Store = Builder.CreateStore(SrcVal, Ptr,
                                                Dst.isVolatileQualified());

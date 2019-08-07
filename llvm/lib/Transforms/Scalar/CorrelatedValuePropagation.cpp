@@ -111,6 +111,32 @@ static bool processSelect(SelectInst *S, LazyValueInfo *LVI) {
   if (S->getType()->isVectorTy()) return false;
   if (isa<Constant>(S->getOperand(0))) return false;
 
+#if INTEL_CUSTOMIZATION
+  // Special case a local icmp with a phi input. LVI might be able to give an
+  // answer for this.
+  if (auto *Cmp = dyn_cast<CmpInst>(S->getCondition())) {
+    Value *Op0 = Cmp->getOperand(0);
+    auto *C = dyn_cast<Constant>(Cmp->getOperand(1));
+    if (C && Cmp->getParent() == S->getParent() && isa<PHINode>(Op0) &&
+        cast<PHINode>(Op0)->getParent() == S->getParent()) {
+      LazyValueInfo::Tristate Result =
+          LVI->getPredicateAt(Cmp->getPredicate(), Cmp->getOperand(0), C, Cmp);
+      if (Result != LazyValueInfo::Unknown) {
+        Value *ReplaceWith = S->getTrueValue();
+        Value *Other = S->getFalseValue();
+        if (!Result) std::swap(ReplaceWith, Other);
+        if (ReplaceWith == S) ReplaceWith = UndefValue::get(S->getType());
+
+        S->replaceAllUsesWith(ReplaceWith);
+        S->eraseFromParent();
+
+        ++NumSelects;
+        return true;
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   Constant *C = LVI->getConstant(S->getCondition(), S->getParent(), S);
   if (!C) return false;
 

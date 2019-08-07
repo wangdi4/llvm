@@ -133,6 +133,9 @@ static RTLDeviceInfoTy DeviceInfo(NUMBER_OF_DEVICES);
 extern "C" {
 #endif
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *image) {
 // If we don't have a valid ELF ID we can just fail.
 #if TARGET_ELF_ID < 1
@@ -142,10 +145,19 @@ int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *image) {
 #endif
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_number_of_devices() { return NUMBER_OF_DEVICES; }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_init_device(int32_t device_id) { return OFFLOAD_SUCCESS; }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
                                           __tgt_device_image *image) {
 
@@ -271,28 +283,43 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   return DeviceInfo.getOffloadEntriesTable(device_id);
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *hst_ptr) {
   void *ptr = malloc(size);
   return ptr;
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_data_submit(int32_t device_id, void *tgt_ptr, void *hst_ptr,
                               int64_t size) {
   memcpy(tgt_ptr, hst_ptr, size);
   return OFFLOAD_SUCCESS;
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_data_retrieve(int32_t device_id, void *hst_ptr, void *tgt_ptr,
                                 int64_t size) {
   memcpy(hst_ptr, tgt_ptr, size);
   return OFFLOAD_SUCCESS;
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
   free(tgt_ptr);
   return OFFLOAD_SUCCESS;
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
     void **tgt_args, ptrdiff_t *tgt_offsets, int32_t arg_num, int32_t team_num,
     int32_t thread_limit, uint64_t loop_tripcount /*not used*/) {
@@ -327,6 +354,9 @@ int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
   return OFFLOAD_SUCCESS;
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_run_target_region(int32_t device_id, void *tgt_entry_ptr,
     void **tgt_args, ptrdiff_t *tgt_offsets, int32_t arg_num) {
   // use one team and one thread.

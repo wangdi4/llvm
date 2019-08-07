@@ -36,3 +36,10 @@
 // CHECK-QOPENMP: "-fopenmp"
 // CHECK-LD-IOMP5: "-liomp5"
 
+// Behavior with Qopt-jump-tables-,qno-opt-jump-tables option
+// RUN: %clang -### -c -qno-opt-jump-tables %s 2>&1 | FileCheck -check-prefix CHECK-QOPT-JUMP-TABLES %s
+// RUN: %clang_cl -### -c /Qopt-jump-tables- %s 2>&1 | FileCheck -check-prefix CHECK-QOPT-JUMP-TABLES %s
+// RUN: %clang -### -c -qopt-jump-tables %s 2>&1 | FileCheck -check-prefix CHECK-QOPT-JUMP-TABLES2 %s
+// RUN: %clang_cl -### -c /Qopt-jump-tables %s 2>&1 | FileCheck -check-prefix CHECK-QOPT-JUMP-TABLES2 %s
+// CHECK-QOPT-JUMP-TABLES: "-fno-jump-tables"
+// CHECK-QOPT-JUMP-TABLES2-NOT: "-fno-jump-tables"

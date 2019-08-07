@@ -165,13 +165,17 @@ def _SLASH_Qipo_ : CLFlag<"Qipo-">, Alias<fno_lto>,
   HelpText<"Disable LTO mode (default)">;
 def _SLASH_Qopenmp : CLFlag<"Qopenmp">, Alias<fopenmp>,
   HelpText<"Parse OpenMP pragmas and generate parallel code.">;
-#endif // INTEL_CUSTOMIZATION
-def _SLASH_QUESTION : CLFlag<"?">, Alias<help>,
-  HelpText<"Display available options">;
+def _SLASH_Qopt_jump_tables : CLFlag<"Qopt-jump-tables">,
+  Alias<fjump_tables>, HelpText<"Control the generation of jump tables">;
+def _SLASH_Qopt_jump_tables_ : CLFlag<"Qopt-jump-tables-">,
+  Alias<fno_jump_tables>, HelpText<"Do not use jump tables for lowering switches">;
 def _SLASH_Qvec : CLFlag<"Qvec">,
   HelpText<"Enable the loop vectorization passes">, Alias<fvectorize>;
 def _SLASH_Qvec_ : CLFlag<"Qvec-">,
   HelpText<"Disable the loop vectorization passes">, Alias<fno_vectorize>;
+#endif // INTEL_CUSTOMIZATION
+def _SLASH_QUESTION : CLFlag<"?">, Alias<help>,
+  HelpText<"Display available options">;
 #if INTEL_CUSTOMIZATION
 def _SLASH_Qrestrict : CLFlag<"Qrestrict">, Alias<restrict>,
   HelpText<"enable the 'restrict' keyword for disambiguating pointers">;

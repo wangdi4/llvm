@@ -285,7 +285,7 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
               LCSSAPhi = new VPPHINode(Inst->getType());
               SubLoopExitBlock->addRecipeAfter(LCSSAPhi,
                                                nullptr /* be the first */);
-              LCSSAPhi->addIncoming(Inst, NewLoopLatch);
+              LCSSAPhi->addIncoming(Blend, NewLoopLatch);
             }
 
             U->replaceUsesOfWith(Inst, LCSSAPhi);

@@ -1992,22 +1992,16 @@ bool VPOParoptTransform::genReductionScalarFini(
     auto *TempRedLoad = Rhs2->clone();
     TempRedLoad->insertAfter(Rhs2);
     TempRedLoad->takeName(Rhs2);
-    auto HRCall = VPOParoptUtils::genSPIRVHorizontalReduction(
+    auto HRed = VPOParoptUtils::genSPIRVHorizontalReduction(
         RedI, ScalarTy, TempRedLoad, spirv::Scope::Subgroup);
 
-    if (!HRCall)
+    if (HRed)
+      Rhs2->replaceAllUsesWith(HRed);
+    else
       LLVM_DEBUG(dbgs() << __FUNCTION__ <<
                  ": SPIRV horizontal reduction is not available "
                  "for critical section reduction: " << RedI->getOpName() <<
                  " with type " << *ScalarTy << "\n");
-    else {
-      LLVM_DEBUG(dbgs() << __FUNCTION__ <<
-                 ": SPIRV horizontal reduction is used "
-                 "for critical section reduction: " <<
-                 HRCall->getCalledFunction()->getName() << "\n");
-
-      Rhs2->replaceAllUsesWith(HRCall);
-    }
 
     OptimizationRemarkMissed R(DEBUG_TYPE, "ReductionAtomic", Tmp0);
     R << ore::NV("Kind", RedI->getOpName()) << " reduction update of type " <<

@@ -4497,13 +4497,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   // If the call doesn't return, finish the basic block and clear the
   // insertion point; this allows the rest of IRGen to discard
   // unreachable code.
-#if INTEL_COLLAB
-  if (CI->doesNotReturn() &&
-            (!CapturedStmtInfo ||
-             !dyn_cast<CGLateOutlineOpenMPRegionInfo>(CapturedStmtInfo))) {
-#else
   if (CI->doesNotReturn()) {
-#endif // INTEL_COLLAB
     if (UnusedReturnSizePtr)
       PopCleanupBlock();
 

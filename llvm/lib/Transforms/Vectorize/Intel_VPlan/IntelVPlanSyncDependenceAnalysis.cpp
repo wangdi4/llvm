@@ -546,7 +546,9 @@ struct DivergencePropagator {
              "cannot determine def for missing loop header");
       const auto *HeaderDefBlock = DefMap[ParentLoopHeader];
       LLVM_DEBUG(printDefs(dbgs()));
+#if !INTEL_CUSTOMIZATION
       assert(HeaderDefBlock && "no definition in header of carrying loop");
+#endif
 
       for (const auto *ExitBlock : ReachedLoopExits) {
         auto ItExitDef = DefMap.find(ExitBlock);
@@ -554,7 +556,58 @@ struct DivergencePropagator {
                "no reaching def at reachable loop exit");
         // If the def at the loop header is not the same as the def at the loop
         // exit, then the loop exit block is divergent.
-        if (ItExitDef->second != HeaderDefBlock)
+#if INTEL_CUSTOMIZATION
+        // It's possible that propagation of defs stops at the post-dom block
+        // of the loop header without carrying a def to the loop header. E.g.,
+        //
+        //       --------------------
+        //       | BB165            |
+        //  ---> | ParentLoopHeader |---------------
+        //  |    |                  |              |
+        //  |    --------------------              |
+        //  |                                      |
+        //  |                                      v
+        //  |                               ---------------
+        //  |                               | BB167       |
+        //  |                               |  RootBlock  |
+        //  |                         ------|             |-------------
+        //  |                         |     |  div br     |            |
+        //  |                         |     ---------------            |
+        //  |                         |                                |
+        //  |                         |                                |
+        //  |                         v                                |
+        //  |                    ------------                          |
+        //  |                    |          |                          |
+        //  |            --------|  BB168   |                          |
+        //  |            |       |          |                          |
+        //  |            |       ------------                          |
+        //  |            |            |                                |
+        //  |            |            |                                v
+        //  |            |            |                         ----------------
+        //  |            |            |                         | BB169        |
+        //  |            |            ------------------------->| PdBoundBlock |
+        //  |            |                                      | (loop exit)  |
+        //  |            |                                      ----------------
+        //  |            |                                             |
+        //  |            |                                             |
+        //  |            |                                             |
+        //  |            v                                             v
+        //  |    ------------
+        //  |    |          |
+        //  -----|  BB166   |
+        //       |          |
+        //       ------------
+        //
+        // In this example, def propagation will terminate once PdBoundBlock
+        // (BB169) is reached via RPO. See while loop at the top of this
+        // function. This will lead to a def not being set for BB165
+        // (ParentLoopHeader). As such, the assert "no definition in header
+        // of carrying loop" would be triggered. Here, the def at BB166 should
+        // be propagated to BB165 and the def at BB165 would be different than
+        // the def at BB169 anyway. In any case, it is safe to assume the block
+        // is divergent and will be marked as such by insertion into JoinBlocks.
+#endif
+        if (!HeaderDefBlock || ItExitDef->second != HeaderDefBlock) // INTEL
           JoinBlocks->insert(ExitBlock);
       }
     }

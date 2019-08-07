@@ -37,8 +37,15 @@ class HLNode;
 
 namespace detail {
 
-template <typename T, typename Func> struct ForEachVisitorBaseTraits {
+template <typename T, typename Func>
+struct ForEachVisitorBaseTraits {
   typedef T NodeType;
+
+  static_assert(
+      std::is_base_of<HLNode, typename std::remove_const<T>::type>::value,
+      "Undefined node type, should be derived from HLNode");
+
+
   static void visit(NodeType *Node, Func F) { F(Node); }
   static bool skipRecursion(const HLNode *Node) { return false; }
 };
@@ -52,16 +59,23 @@ struct ForEachVisitorTraits<HLRegion, Func>
   static bool skipRecursion(const HLNode *Node) { return true; }
 };
 
-template <typename Func>
-struct ForEachVisitorTraits<RegDDRef, Func>
-    : ForEachVisitorBaseTraits<RegDDRef, Func> {
-  typedef HLDDNode NodeType;
-  static void visit(NodeType *Node, Func F) {
-    for (RegDDRef *Ref : make_range(Node->ddref_begin(), Node->ddref_end())) {
+template <typename NodeTy, typename Func>
+struct ForEachRegDDRefVisitorTraits
+    : public ForEachVisitorBaseTraits<NodeTy, Func> {
+  static void visit(NodeTy *Node, Func F) {
+    for (auto *Ref : make_range(Node->ddref_begin(), Node->ddref_end())) {
       F(Ref);
     }
   }
 };
+
+template <typename Func>
+struct ForEachVisitorTraits<RegDDRef, Func>
+    : ForEachRegDDRefVisitorTraits<HLDDNode, Func> {};
+
+template <typename Func>
+struct ForEachVisitorTraits<const RegDDRef, Func>
+    : ForEachRegDDRefVisitorTraits<const HLDDNode, Func> {};
 
 /// Internal visitor that is used by ForEach, ForPostEach classes.
 /// It will call \p Func() on each visit(T*)/postVisit(T*) depending on the
