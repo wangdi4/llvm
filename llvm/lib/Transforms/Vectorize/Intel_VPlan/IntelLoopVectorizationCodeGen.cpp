@@ -3262,10 +3262,10 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
     }
 
     StringRef CalledFunc = F->getName();
-    bool isMasked = (MaskValue != nullptr) ? true : false;
-    if (TLI->isFunctionVectorizable(CalledFunc, VF) ||
-        ((matchVectorVariant(Call, isMasked) ||
-          (!isMasked && matchVectorVariant(Call, true)))) ||
+    bool IsMasked = (MaskValue != nullptr) ? true : false;
+    if (TLI->isFunctionVectorizable(CalledFunc, VF, IsMasked) ||
+        ((matchVectorVariant(Call, IsMasked) ||
+          (!IsMasked && matchVectorVariant(Call, true)))) ||
         (isOpenCLReadChannel(CalledFunc) || isOpenCLWriteChannel(CalledFunc))) {
       vectorizeCallInstruction(Call);
     } else {

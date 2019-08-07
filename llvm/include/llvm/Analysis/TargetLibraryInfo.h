@@ -153,15 +153,19 @@ public:
   /// given vector library.
   void addVectorizableFunctionsFromVecLib(enum VectorLibrary VecLib);
 
+#if INTEL_CUSTOMIZATION
   /// Return true if the function F has a vector equivalent with vectorization
-  /// factor VF.
-  bool isFunctionVectorizable(StringRef F, unsigned VF) const {
-    return !getVectorizedFunction(F, VF).empty();
+  /// factor VF and 'IsMasked' property. For any function 'F' \p true is
+  /// returned if and only if a vector version for a particular VF
+  /// and appropriate 'IsMasked' property exists.
+  bool isFunctionVectorizable(StringRef F, unsigned VF, bool IsMasked) const {
+    return !getVectorizedFunction(F, VF, IsMasked).empty();
   }
+#endif
 
   /// Return true if the function F has a vector equivalent with any
   /// vectorization factor.
-  bool isFunctionVectorizable(StringRef F) const;
+  bool isFunctionVectorizable(StringRef F, bool IsMasked) const; //INTEL
 
   /// Return the name of the equivalent of F, vectorized with factor VF. If no
   /// such mapping exists, return the empty string.
@@ -254,12 +258,21 @@ public:
   bool has(LibFunc F) const {
     return Impl->getState(F) != TargetLibraryInfoImpl::Unavailable;
   }
-  bool isFunctionVectorizable(StringRef F, unsigned VF) const {
-    return Impl->isFunctionVectorizable(F, VF);
+#if INTEL_CUSTOMIZATION
+  bool isFunctionVectorizable(StringRef F, unsigned VF,
+                              bool IsMasked = false) const {
+    return Impl->isFunctionVectorizable(F, VF, IsMasked);
   }
-  bool isFunctionVectorizable(StringRef F) const {
-    return Impl->isFunctionVectorizable(F);
+#endif
+
+#if INTEL_CUSTOMIZATION
+  /// \p IsMasked defaults to 'false'. This is to leave many of the current
+  /// callsites which do not necessarily care about the availability of
+  /// masked or unmasked version of a function, unchanged.
+  bool isFunctionVectorizable(StringRef F, bool IsMasked = false) const {
+    return Impl->isFunctionVectorizable(F, IsMasked);
   }
+#endif
   StringRef getVectorizedFunction(StringRef F, unsigned VF,
                                   bool Masked=false) const { // INTEL
     return Impl->getVectorizedFunction(F, VF, Masked);
