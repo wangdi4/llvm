@@ -28,7 +28,10 @@
 
 #include <stdint.h>
 #include <csaintrin.h>
-
+#include <cmath>
+#ifndef __CSA__
+#include <iostream>
+#endif
 // Utility function to convert a float to a __m64f, leaving the top part undefined.
 // This is a temporary work-around for a compiler issue.
 static __m64f _mm64_castss_ps (float value)
@@ -53,6 +56,8 @@ public:
 
   constexpr ComplexFloat(float r, float i) : m_value((__m64f){r, i}) { }
 
+  constexpr ComplexFloat(float value) : m_value((__m64f){value, 0}) { }
+
   ComplexFloat(__m64f v) : m_value(v) { }
 
   /// Allow implicit conversion to the underlying data type, to make it easy to use
@@ -64,6 +69,9 @@ public:
 
   friend float real(ComplexFloat cf) { return cf.real(); }
   friend float imag(ComplexFloat cf) { return cf.imag(); }
+
+  friend float creal(ComplexFloat cf) { return cf.real(); }
+  friend float cimag(ComplexFloat cf) { return cf.imag(); }
 
   void real(float r) { m_value[0] = r; }
   void imag(float i) { m_value[1] = i; }
@@ -81,6 +89,7 @@ public:
 
   friend ComplexFloat conj(ComplexFloat value) { return value.getConj(); }
 
+#ifdef __CSA__
   friend ComplexFloat round(ComplexFloat value)
   {
     // Calling roundf or std::round is an expensive function call. Call the asm directly.
@@ -89,6 +98,15 @@ public:
     asm("roundf32 %0, %1" : "=d"(cf.m_value[1]) : "d"(value.m_value[1]));
     return cf;
   }
+#else
+friend ComplexFloat round(ComplexFloat value)
+  {
+    ComplexFloat cf;
+    cf.m_value[0] = std::round(value.m_value[0]);
+    cf.m_value[1] = std::round(value.m_value[1]);
+    return cf;
+  }
+#endif
 
   // Given a + bi compute a * a + b * b;
   friend float norm(ComplexFloat value) {
@@ -106,6 +124,7 @@ public:
   }
 
   // Given (a + bi) compute conj(a+bi)/(aa+bb)
+#ifdef __CSA__
   friend ComplexFloat rcp(ComplexFloat value) {
     // Compute r * r and i * i
     const auto sqr = _mm64_mul_ps(value.m_value, value.m_value,
@@ -128,6 +147,16 @@ public:
                         _MM_DISABLE_NONE, _MM_SWIZZLE_NONE,
                         _MM_SWIZZLE_BCAST_LOW);
   }
+#else
+  friend ComplexFloat rcp(ComplexFloat value) {
+    ComplexFloat cf;
+    auto a = value.m_value[0];
+    auto b = value.m_value[1];
+    cf.m_value[0] = a/(a*a + b*b);
+    cf.m_value[1] = -b/(a*a + b*b);
+    return cf;
+  }
+#endif
 
   /// Perform a fused-multiply-add, equivalent to a * b + c.
   // :TODO: Ideally the compiler would have a peephole enabling it to do this itself, but until that
@@ -135,9 +164,22 @@ public:
   friend ComplexFloat fma(ComplexFloat a, ComplexFloat b, ComplexFloat c)
   {
     // return a * b + c;
-    const auto t = _mm64_fmas_ps(a.m_value, b.m_value, c.m_value, _MM_DISABLE_NONE,
+    const auto t = _mm64_fma_ps(a.m_value, b.m_value, c.m_value, _MM_DISABLE_NONE,
                                  _MM_SWIZZLE_BCAST_HIGH, _MM_SWIZZLE_INTERCHANGE);
     return _mm64_fmas_ps(a.m_value, b.m_value, t, _MM_DISABLE_NONE,
+                         _MM_SWIZZLE_BCAST_LOW, _MM_SWIZZLE_NONE);
+  }
+
+  /// Perform a fused-multiply-, equivalent to c - a * b .
+  // :TODO: Ideally the compiler would have a peephole enabling it to do this itself, but until that
+  // is added use an explicit method instead.
+  inline friend ComplexFloat fmrs(ComplexFloat a, ComplexFloat b, ComplexFloat c)
+  {
+    // return c - a * b ;
+    // handles - a.imag * b.real(which is negative, hence fmsa) and  + a.imag * b.imag
+    const auto t = _mm64_fmsa_ps(a.m_value, b.m_value, c.m_value, _MM_DISABLE_NONE,
+                                 _MM_SWIZZLE_BCAST_HIGH, _MM_SWIZZLE_INTERCHANGE);
+    return _mm64_fms_ps(a.m_value, b.m_value, t, _MM_DISABLE_NONE,
                          _MM_SWIZZLE_BCAST_LOW, _MM_SWIZZLE_NONE);
   }
 
@@ -193,12 +235,23 @@ public:
   }
   ComplexFloat& operator -= (ComplexFloat rhs) { *this = *this - rhs; return *this; }
 
+  friend bool operator == (ComplexFloat lhs, ComplexFloat rhs) { return (lhs.real() == rhs.real()) && (lhs.imag() == rhs.imag()); }
+  friend bool operator != (ComplexFloat lhs, ComplexFloat rhs) { return !(lhs == rhs); }
+
   friend ComplexFloat operator-(ComplexFloat lhs, float rhs) {
     return _mm64_sub_ps(lhs.m_value, _mm64_pack_ps(rhs, 0.0f),
                         _MM_DISABLE_NONE, _MM_SWIZZLE_NONE,
                         _MM_SWIZZLE_BCAST_LOW);
   }
   ComplexFloat& operator -= (float rhs) { *this = *this - rhs; return *this; }
+#ifndef __CSA__
+  friend std::ostream& operator<<(std::ostream& os, const ComplexFloat& rhs) {
+
+    os << rhs.real() << " + " << rhs.imag() << "j";
+
+    return os;
+  }
+#endif
 
   friend ComplexFloat operator-(ComplexFloat value) {
     // Flip the sign bit.
@@ -210,6 +263,10 @@ public:
     i ^= 0x8000000080000000;
 
     return cmplx;
+  }
+
+  friend float cabsf(ComplexFloat rhs) {
+    return hypot(rhs.real(), rhs.imag());
   }
 
   __m64f m_value;
