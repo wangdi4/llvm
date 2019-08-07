@@ -461,7 +461,12 @@ bool FunctionSpecializer::calculateBypassInfoPerBranch(BasicBlock *root) {
   // if postDom has two successors
   if (++succItr != succEnd) {
     // if we plan to add a bypass then we need to add an auxiliary BB in this case
-    if (m_DT->dominates(info.m_postDom, info.m_foot) && m_DT->dominates(info.m_postDom, *succItr) &&
+    // If any of the two edges is not outgoing, don't add auxiliary BB.
+    Loop* loop = m_LI->getLoopFor(info.m_postDom);
+    bool outgoing = !loop || (loop != m_LI->getLoopFor(info.m_foot) &&
+                              loop != m_LI->getLoopFor(*succItr));
+    if (outgoing && m_DT->dominates(info.m_postDom, info.m_foot) &&
+        m_DT->dominates(info.m_postDom, *succItr) &&
         (info.m_root != info.m_postDom || addHeuristics(info.m_root))) {
       addAuxBBForSingleExitEdge(info);
     }
