@@ -4295,8 +4295,11 @@ InlineResult CallAnalyzer::analyzeCall(CallBase &Call,
   if (Callee && InlineForXmain) {
     Optional<uint64_t> ProfCount = profInstrumentCount(PSI, Call);
     if (ProfCount && ProfCount.getValue() == 0) {
-      *ReasonAddr = NinlrColdProfile;
-      return false;
+      if (!Callee->hasLinkOnceODRLinkage()) {
+        *ReasonAddr = NinlrColdProfile;
+        return false;
+      }
+      NoReasonVector.push_back(NinlrColdProfile);
     }
     if (preferCloningToInlining(Call, *ILIC, PrepareForLTO)) {
       *ReasonAddr = NinlrPreferCloning;
