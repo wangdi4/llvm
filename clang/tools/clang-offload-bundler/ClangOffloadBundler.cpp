@@ -1260,20 +1260,8 @@ static bool UnbundleFiles() {
     }
 
     // Check if the output file can be opened and copy the bundle to it.
-<<<<<<< HEAD
     FH->ReadBundle(Output->second, Input);
     FH->ReadBundleEnd(Input);
-=======
-    std::error_code EC;
-    raw_fd_ostream OutputFile(Output->second, EC, sys::fs::OF_None);
-    if (EC) {
-      errs() << "error: Can't open file " << Output->second << ": "
-             << EC.message() << "\n";
-      return true;
-    }
-    FH.get()->ReadBundle(OutputFile, Input);
-    FH.get()->ReadBundleEnd(Input);
->>>>>>> d9b948b6eb7362f36264b71795dab179906e36be
     Worklist.erase(Output);
 
     // Record if we found the host bundle.
