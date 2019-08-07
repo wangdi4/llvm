@@ -207,7 +207,8 @@ bool VPOParoptModuleTransform::doParoptTransforms(
     fixTidAndBidGlobals();
 
   if (!DisableOffload) {
-    if (!hasOffloadCompilation())
+    Triple TT(M.getTargetTriple());
+    if (!TT.isOSWindows() && !hasOffloadCompilation())
       // Generate offload initialization code.
       genOffloadingBinaryDescriptorRegistration();
 
@@ -914,7 +915,20 @@ bool VPOParoptModuleTransform::genOffloadEntries() {
                            EntryInit, ".omp_offloading.entry." + Name);
 
     Entry->setTargetDeclare(true);
-    Entry->setSection(".omp_offloading.entries");
+    Triple TT(M.getTargetTriple());
+    if (TT.isOSWindows()) {
+      // Align entries to their size, so that entries_end symbol
+      // points to the end of 32-byte aligned chunk always,
+      // otherwise libomptarget may read past the section.
+      cast<GlobalObject>(Entry)->setAlignment(32);
+      // By convention between Paropt and clang-offload-wrapper
+      // the entries contribute into sections with suffix $B,
+      // the entries_begin symbol is in the section with suffix $A,
+      // the entries_end symbol is in the section suffix $C.
+      Entry->setSection(".omp_offloading.entries$B");
+    } else {
+      Entry->setSection(".omp_offloading.entries");
+    }
 
     if (IsTargetSPIRV &&
         (E->getFlags() & (RegionEntry::Ctor | RegionEntry::Dtor)) != 0) {
