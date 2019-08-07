@@ -53,6 +53,12 @@ using namespace Intel::MetadataAPI;
 
 namespace intel {
 
+cl::opt<IsaEncodingValue> CPUIsaEncodingOverride(
+    "ocl-vec-clone-isa-encoding-override", cl::Hidden,
+    cl::desc("Override target CPU ISA encoding for the OCL Vec Clone pass."),
+    cl::values(clEnumVal(AVX512Core, "AVX512Core"), clEnumVal(AVX2, "AVX2"),
+               clEnumVal(AVX1, "AVX1"), clEnumVal(SSE42, "SSE42")));
+
 using ContainerTy = std::vector<std::pair<std::string, VectorVariant>>;
 static ContainerTy OCLBuiltinVecInfo();
 
