@@ -4911,7 +4911,7 @@ bool X86TargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
       ScalarVT = MVT::i32;
 
     Info.memVT = MVT::getVectorVT(ScalarVT, VT.getVectorNumElements());
-    Info.align = 1;
+    Info.align = Align(1);
     Info.flags |= MachineMemOperand::MOStore;
     break;
   }
@@ -4924,7 +4924,7 @@ bool X86TargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
     unsigned NumElts = std::min(DataVT.getVectorNumElements(),
                                 IndexVT.getVectorNumElements());
     Info.memVT = MVT::getVectorVT(DataVT.getVectorElementType(), NumElts);
-    Info.align = 1;
+    Info.align = Align(1);
     Info.flags |= MachineMemOperand::MOLoad;
     break;
   }
@@ -4936,7 +4936,7 @@ bool X86TargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
     unsigned NumElts = std::min(DataVT.getVectorNumElements(),
                                 IndexVT.getVectorNumElements());
     Info.memVT = MVT::getVectorVT(DataVT.getVectorElementType(), NumElts);
-    Info.align = 1;
+    Info.align = Align(1);
     Info.flags |= MachineMemOperand::MOStore;
     break;
   }
@@ -29674,8 +29674,6 @@ bool X86TargetLowering::isLegalStoreImmediate(int64_t Imm) const {
 
 bool X86TargetLowering::isTruncateFree(EVT VT1, EVT VT2) const {
   if (!VT1.isInteger() || !VT2.isInteger())
-    return false;
-  if (!VT1.isSimple() || !VT2.isSimple())
     return false;
   unsigned NumBits1 = VT1.getSizeInBits();
   unsigned NumBits2 = VT2.getSizeInBits();

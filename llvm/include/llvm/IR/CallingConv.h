@@ -226,6 +226,9 @@ namespace CallingConv {
     SVML = 98,
 #endif  // INTEL_CUSTOMIZATION
 
+    /// Calling convention between AArch64 SVE functions
+    AArch64_SVE_VectorCall = 98,
+
     /// The highest possible calling convention ID. Must be some 2^k - 1.
     MaxID = 1023
   };
