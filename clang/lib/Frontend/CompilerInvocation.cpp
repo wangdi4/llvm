@@ -125,12 +125,8 @@ CompilerInvocationBase::~CompilerInvocationBase() = default;
 static unsigned getOptimizationLevel(ArgList &Args, InputKind IK,
                                      DiagnosticsEngine &Diags) {
   unsigned DefaultOpt = llvm::CodeGenOpt::None;
-<<<<<<< HEAD
-  if ((IK.getLanguage() == InputKind::OpenCL &&
+  if ((IK.getLanguage() == Language::OpenCL &&
       !Args.hasArg(OPT_cl_opt_disable)) || Args.hasArg(OPT_fsycl_is_device))
-=======
-  if (IK.getLanguage() == Language::OpenCL && !Args.hasArg(OPT_cl_opt_disable))
->>>>>>> 09d890d728e6c51854b0452fe0e467381b3c51d4
     DefaultOpt = llvm::CodeGenOpt::Default;
 
   if (Arg *A = Args.getLastArg(options::OPT_O_Group)) {
@@ -2354,12 +2350,11 @@ static bool IsInputCompatibleWithStandard(InputKind IK,
   case Language::LLVM_IR:
     llvm_unreachable("should not parse language flags for this input");
 
-<<<<<<< HEAD
-  case InputKind::C:
-  case InputKind::ObjC:
-  case InputKind::RenderScript:
+  case Language::C:
+  case Language::ObjC:
+  case Language::RenderScript:
 #if INTEL_CUSTOMIZATION
-    if (!(S.getLanguage() == InputKind::C) &&
+    if (!(S.getLanguage() == Language::C) &&
         Args.hasArg(OPT_fintel_compatibility)) {
       Diags.Report(diag::warn_drv_argument_not_allowed_with)
           << A->getAsString(Args) << "C/ObjC";
@@ -2367,22 +2362,15 @@ static bool IsInputCompatibleWithStandard(InputKind IK,
       return true;
     }
 #endif // INTEL_CUSTOMIZATION
-    return S.getLanguage() == InputKind::C;
-=======
-  case Language::C:
-  case Language::ObjC:
-  case Language::RenderScript:
     return S.getLanguage() == Language::C;
->>>>>>> 09d890d728e6c51854b0452fe0e467381b3c51d4
 
   case Language::OpenCL:
     return S.getLanguage() == Language::OpenCL;
 
-<<<<<<< HEAD
-  case InputKind::CXX:
-  case InputKind::ObjCXX:
+  case Language::CXX:
+  case Language::ObjCXX:
 #if INTEL_CUSTOMIZATION
-      if (!(S.getLanguage() == InputKind::CXX) &&
+      if (!(S.getLanguage() == Language::CXX) &&
           Args.hasArg(OPT_fintel_compatibility)) {
         Diags.Report(diag::warn_drv_argument_not_allowed_with)
             << A->getAsString(Args) << "C++/ObjC++";
@@ -2390,12 +2378,7 @@ static bool IsInputCompatibleWithStandard(InputKind IK,
         return true;
       }
 #endif // INTEL_CUSTOMIZATION
-    return S.getLanguage() == InputKind::CXX;
-=======
-  case Language::CXX:
-  case Language::ObjCXX:
     return S.getLanguage() == Language::CXX;
->>>>>>> 09d890d728e6c51854b0452fe0e467381b3c51d4
 
   case Language::CUDA:
     // FIXME: What -std= values should be permitted for CUDA compilations?
