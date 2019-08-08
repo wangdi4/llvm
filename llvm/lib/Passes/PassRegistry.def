@@ -49,6 +49,9 @@ MODULE_ALIAS_ANALYSIS("anders-aa", AndersensAA())    // INTEL
 #ifndef MODULE_PASS
 #define MODULE_PASS(NAME, CREATE_PASS)
 #endif
+#if INTEL_CUSTOMIZATION
+MODULE_PASS("vec-clone",VecClonePass());
+#endif //INTEL_CUSTOMIZATION
 MODULE_PASS("always-inline", AlwaysInlinerPass())
 MODULE_PASS("attributor", AttributorPass())
 MODULE_PASS("called-value-propagation", CalledValuePropagationPass())

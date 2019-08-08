@@ -171,24 +171,24 @@
 
 using namespace llvm;
 
-VecClone::VecClone() : ModulePass(ID) { }
-
-void VecClone::getAnalysisUsage(AnalysisUsage &AU) const {
-  // Placeholder for any new pass dependencies. For now, none are needed.
+VecClone::VecClone() : ModulePass(ID) {
+  initializeVecClonePass(*PassRegistry::getPassRegistry());
 }
+
+bool VecClone::runOnModule(Module &M) { return Impl.runImpl(M); }
 
 #if INTEL_CUSTOMIZATION
 // The following two functions are virtual and they are overloaded when
 // VecClone is called by language-specific optimizations. Their default
 // implementation is empty.
-void VecClone::handleLanguageSpecifics(Function &F, PHINode *Phi,
+void VecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
                                        Function *Clone,
                                        BasicBlock *EntryBlock) {}
 
-void VecClone::languageSpecificInitializations(Module &M) {}
+void VecCloneImpl::languageSpecificInitializations(Module &M) {}
 #endif // INTEL_CUSTOMIZATION
 
-void VecClone::insertInstruction(Instruction *Inst, BasicBlock *BB)
+void VecCloneImpl::insertInstruction(Instruction *Inst, BasicBlock *BB)
 {
   // This function inserts instructions in a way that groups like instructions
   // together for debuggability/readability purposes. This was designed to make
@@ -219,7 +219,7 @@ void VecClone::insertInstruction(Instruction *Inst, BasicBlock *BB)
   }
 }
 
-bool VecClone::hasComplexType(Function *F)
+bool VecCloneImpl::hasComplexType(Function *F)
 {
   Function::arg_iterator ArgListIt = F->arg_begin();
   Function::arg_iterator ArgListEnd = F->arg_end();
@@ -234,7 +234,7 @@ bool VecClone::hasComplexType(Function *F)
   return false;
 }
 
-Function* VecClone::CloneFunction(Function &F, VectorVariant &V)
+Function* VecCloneImpl::CloneFunction(Function &F, VectorVariant &V)
 {
 
   LLVM_DEBUG(dbgs() << "Cloning Function: " << F.getName() << "\n");
@@ -331,7 +331,7 @@ Function* VecClone::CloneFunction(Function &F, VectorVariant &V)
   return Clone;
 }
 
-bool VecClone::isVectorOrLinearParamStore(
+bool VecCloneImpl::isVectorOrLinearParamStore(
     Function *Clone,
     std::vector<VectorKind> &ParmKinds,
     Instruction *Inst)
@@ -353,9 +353,8 @@ bool VecClone::isVectorOrLinearParamStore(
   return false;
 }
 
-BasicBlock* VecClone::splitEntryIntoLoop(Function *Clone, VectorVariant &V,
-                                         BasicBlock *EntryBlock)
-{
+BasicBlock *VecCloneImpl::splitEntryIntoLoop(Function *Clone, VectorVariant &V,
+                                             BasicBlock *EntryBlock) {
 
   // EntryInsts contains all instructions that need to stay in the entry basic
   // block. These instructions include allocas and stores involving vector and
@@ -420,9 +419,8 @@ BasicBlock* VecClone::splitEntryIntoLoop(Function *Clone, VectorVariant &V,
   return LoopBlock;
 }
 
-BasicBlock* VecClone::splitLoopIntoReturn(Function *Clone,
-                                          BasicBlock *LoopBlock)
-{
+BasicBlock *VecCloneImpl::splitLoopIntoReturn(Function *Clone,
+                                              BasicBlock *LoopBlock) {
 
   // Determine the basic block with the return. For simple cases, the 'ret'
   // instruction will be part of the entry block. In this case, separate the
@@ -471,10 +469,9 @@ BasicBlock* VecClone::splitLoopIntoReturn(Function *Clone,
   return ReturnBlock;
 }
 
-void VecClone::updateReturnPredecessors(Function *Clone,
-                                        BasicBlock *LoopExitBlock,
-                                        BasicBlock *ReturnBlock)
-{ 
+void VecCloneImpl::updateReturnPredecessors(Function *Clone,
+                                            BasicBlock *LoopExitBlock,
+                                            BasicBlock *ReturnBlock) {
   // Update the branches of the ReturnBlock predecessors to point back to
   // LoopBlock if the index is less than VL.
 
@@ -518,17 +515,16 @@ void VecClone::updateReturnPredecessors(Function *Clone,
   }
 }
 
-BasicBlock* VecClone::createLoopExit(Function *Clone, BasicBlock *ReturnBlock)
-{
-  BasicBlock *LoopExitBlock = BasicBlock::Create(Clone->getContext(),
-                                                 "simd.loop.exit",
-                                                 Clone, ReturnBlock);
+BasicBlock *VecCloneImpl::createLoopExit(Function *Clone,
+                                         BasicBlock *ReturnBlock) {
+  BasicBlock *LoopExitBlock = BasicBlock::Create(
+      Clone->getContext(), "simd.loop.exit", Clone, ReturnBlock);
 
   updateReturnPredecessors(Clone, LoopExitBlock, ReturnBlock);
   return LoopExitBlock;
 }
 
-PHINode* VecClone::createPhiAndBackedgeForLoop(
+PHINode* VecCloneImpl::createPhiAndBackedgeForLoop(
     Function *Clone,
     BasicBlock *EntryBlock,
     BasicBlock *LoopBlock,
@@ -536,7 +532,7 @@ PHINode* VecClone::createPhiAndBackedgeForLoop(
     BasicBlock *ReturnBlock,
     int VectorLength)
 {
-                                                        
+
   // Create the phi node for the top of the loop block and add the back
   // edge to the loop from the loop exit.
 
@@ -567,12 +563,10 @@ PHINode* VecClone::createPhiAndBackedgeForLoop(
   return Phi;
 }
 
-Instruction* VecClone::expandVectorParameters(
-    Function *Clone,
-    VectorVariant &V,
-    BasicBlock *EntryBlock,
-    std::vector<ParmRef*>& VectorParmMap)
-{
+Instruction *
+VecCloneImpl::expandVectorParameters(Function *Clone, VectorVariant &V,
+                                     BasicBlock *EntryBlock,
+                                     std::vector<ParmRef *> &VectorParmMap) {
   // For vector parameters, expand the existing alloca to a vector. Then,
   // bitcast the vector and store this instruction in a map. The map is later
   // used to insert the new instructions and to replace the old scalar memory
@@ -699,16 +693,15 @@ Instruction* VecClone::expandVectorParameters(
   return Mask;
 }
 
-Instruction* VecClone::createExpandedReturn(Function *Clone,
-                                            BasicBlock *EntryBlock,
-                                            VectorType *ReturnType)
-{
+Instruction *VecCloneImpl::createExpandedReturn(Function *Clone,
+                                                BasicBlock *EntryBlock,
+                                                VectorType *ReturnType) {
   // Expand the return temp to a vector.
 
   VectorType *AllocaType = cast<VectorType>(Clone->getReturnType());
 
   const DataLayout &DL = Clone->getParent()->getDataLayout();
-  AllocaInst *VecAlloca = new AllocaInst(AllocaType, DL.getAllocaAddrSpace(), 
+  AllocaInst *VecAlloca = new AllocaInst(AllocaType, DL.getAllocaAddrSpace(),
                                          "vec.retval");
   insertInstruction(VecAlloca, EntryBlock);
   PointerType *ElemTypePtr =
@@ -721,11 +714,10 @@ Instruction* VecClone::createExpandedReturn(Function *Clone,
   return VecCast;
 }
 
-Instruction* VecClone::expandReturn(Function *Clone, BasicBlock *EntryBlock,
-                                    BasicBlock *LoopBlock,
-                                    BasicBlock *ReturnBlock,
-                                    std::vector<ParmRef*>& VectorParmMap)
-{
+Instruction *VecCloneImpl::expandReturn(Function *Clone, BasicBlock *EntryBlock,
+                                        BasicBlock *LoopBlock,
+                                        BasicBlock *ReturnBlock,
+                                        std::vector<ParmRef *> &VectorParmMap) {
   // Determine how the return is currently handled, since this will determine
   // if a new vector alloca is required for it. For simple functions, an alloca
   // may not have been created for the return value. The function may just
@@ -865,15 +857,10 @@ Instruction* VecClone::expandReturn(Function *Clone, BasicBlock *EntryBlock,
   return VecReturn;
 }
 
-Instruction* VecClone::expandVectorParametersAndReturn(
-    Function *Clone,
-    VectorVariant &V,
-    Instruction **Mask,
-    BasicBlock *EntryBlock,
-    BasicBlock *LoopBlock,
-    BasicBlock *ReturnBlock,
-    std::vector<ParmRef*>& VectorParmMap)
-{
+Instruction *VecCloneImpl::expandVectorParametersAndReturn(
+    Function *Clone, VectorVariant &V, Instruction **Mask,
+    BasicBlock *EntryBlock, BasicBlock *LoopBlock, BasicBlock *ReturnBlock,
+    std::vector<ParmRef *> &VectorParmMap) {
   // If there are no parameters, then this function will do nothing and this
   // is the expected behavior.
   *Mask = expandVectorParameters(Clone, V, EntryBlock, VectorParmMap);
@@ -932,8 +919,7 @@ Instruction* VecClone::expandVectorParametersAndReturn(
   return ExpandedReturn;
 }
 
-bool VecClone::typesAreCompatibleForLoad(Type *GepType, Type *LoadType)
-{
+bool VecCloneImpl::typesAreCompatibleForLoad(Type *GepType, Type *LoadType) {
   // GepType will always be a pointer since this refers to an alloca for a
   // vector.
   PointerType *GepPtrTy = cast<PointerType>(GepType);
@@ -999,14 +985,10 @@ bool VecClone::typesAreCompatibleForLoad(Type *GepType, Type *LoadType)
   return false;
 }
 
-void VecClone::updateScalarMemRefsWithVector(
-    Function *Clone,
-    Function &F,
-    BasicBlock *EntryBlock,
-    BasicBlock *ReturnBlock,
-    PHINode *Phi,
-    std::vector<ParmRef*>& VectorParmMap)
-{
+void VecCloneImpl::updateScalarMemRefsWithVector(
+    Function *Clone, Function &F, BasicBlock *EntryBlock,
+    BasicBlock *ReturnBlock, PHINode *Phi,
+    std::vector<ParmRef *> &VectorParmMap) {
   // This function replaces the old scalar uses of a parameter with a reference
   // to the new vector one. A gep is inserted using the vector bitcast created
   // in the entry block and any uses of the parameter are replaced with this
@@ -1076,13 +1058,11 @@ void VecClone::updateScalarMemRefsWithVector(
   LLVM_DEBUG(Clone->dump());
 }
 
-Instruction* VecClone::generateStrideForParameter(
-    Function *Clone,
-    Argument *Arg,
-    Instruction *ParmUser,
-    int Stride,
-    PHINode *Phi)
-{
+Instruction *VecCloneImpl::generateStrideForParameter(Function *Clone,
+                                                      Argument *Arg,
+                                                      Instruction *ParmUser,
+                                                      int Stride,
+                                                      PHINode *Phi) {
   // Value returned as the last instruction needed to update the users of the
   // old parameter reference.
   Instruction *StrideInst = nullptr;
@@ -1184,9 +1164,8 @@ Instruction* VecClone::generateStrideForParameter(
   return StrideInst;
 }
 
-void VecClone::updateLinearReferences(Function *Clone, Function &F,
-                                      VectorVariant &V, PHINode *Phi)
-{
+void VecCloneImpl::updateLinearReferences(Function *Clone, Function &F,
+                                          VectorVariant &V, PHINode *Phi) {
   // Add stride to parameters marked as linear. This is done by finding all
   // users of the scalar alloca associated with the parameter. The user should
   // be a load from this alloca to a temp. The stride is then added to this temp
@@ -1383,11 +1362,9 @@ void VecClone::updateLinearReferences(Function *Clone, Function &F,
   LLVM_DEBUG(Clone->dump());
 }
 
-void VecClone::updateReturnBlockInstructions(
-    Function *Clone,
-    BasicBlock *ReturnBlock,
-    Instruction *ExpandedReturn)
-{
+void VecCloneImpl::updateReturnBlockInstructions(Function *Clone,
+                                                 BasicBlock *ReturnBlock,
+                                                 Instruction *ExpandedReturn) {
   // If the vector function returns void, then there is no need to do any
   // packing. The only instruction in the ReturnBlock is 'ret void', so
   // we can just leave this instruction and we're done.
@@ -1436,8 +1413,7 @@ void VecClone::updateReturnBlockInstructions(
   LLVM_DEBUG(Clone->dump());
 }
 
-int VecClone::getParmIndexInFunction(Function *F, Value *Parm)
-{
+int VecCloneImpl::getParmIndexInFunction(Function *F, Value *Parm) {
   Function::arg_iterator ArgIt = F->arg_begin();
   Function::arg_iterator ArgEnd = F->arg_end();
   for (unsigned Idx = 0; ArgIt != ArgEnd; ++ArgIt, ++Idx) {
@@ -1484,9 +1460,9 @@ static void emitLoadStoreForParameter(AllocaInst *Alloca, Value *ArgValue,
 // emitted in the EntryBlock). Next, we load it and we update its uses (the load
 // is emitted in simd.loop.preheader). This is similar to the code emitted by
 // the front-end for simd loops.
-CallInst *VecClone::insertBeginRegion(Module &M, Function *Clone, Function &F,
-                                      VectorVariant &V,
-                                      BasicBlock *EntryBlock) {
+CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
+                                          Function &F, VectorVariant &V,
+                                          BasicBlock *EntryBlock) {
   SmallDenseMap<StringRef, SmallVector<Value *, 4>> DirectiveStrMap;
 
   // Insert vectorlength directive
@@ -1585,10 +1561,10 @@ CallInst *VecClone::insertBeginRegion(Module &M, Function *Clone, Function &F,
   return SIMDBeginCall;
 }
 
-void VecClone::insertEndRegion(Module &M, Function *Clone,
-                               BasicBlock *LoopExitBlock,
-                               BasicBlock *ReturnBlock,
-                               CallInst *EntryDirCall) {
+void VecCloneImpl::insertEndRegion(Module &M, Function *Clone,
+                                   BasicBlock *LoopExitBlock,
+                                   BasicBlock *ReturnBlock,
+                                   CallInst *EntryDirCall) {
   BasicBlock *EndDirectiveBlock = BasicBlock::Create(
       Clone->getContext(), "simd.end.region", Clone, ReturnBlock);
 
@@ -1604,18 +1580,18 @@ void VecClone::insertEndRegion(Module &M, Function *Clone,
   SIMDEndCall->insertBefore(EndDirectiveBlock->getTerminator());
 }
 
-void VecClone::insertDirectiveIntrinsics(Module &M, Function *Clone,
-                                         Function &F, VectorVariant &V,
-                                         BasicBlock *EntryBlock,
-                                         BasicBlock *LoopExitBlock,
-                                         BasicBlock *ReturnBlock) {
+void VecCloneImpl::insertDirectiveIntrinsics(Module &M, Function *Clone,
+                                             Function &F, VectorVariant &V,
+                                             BasicBlock *EntryBlock,
+                                             BasicBlock *LoopExitBlock,
+                                             BasicBlock *ReturnBlock) {
   CallInst *EntryDirCall = insertBeginRegion(M, Clone, F, V, EntryBlock);
   insertEndRegion(M, Clone, LoopExitBlock, ReturnBlock, EntryDirCall);
   LLVM_DEBUG(dbgs() << "After Directives Insertion\n");
   LLVM_DEBUG(Clone->dump());
 }
 
-bool VecClone::isSimpleFunction(Function *Func) {
+bool VecCloneImpl::isSimpleFunction(Function *Func) {
   // For really simple functions, there is no need to go through the process
   // of inserting a loop.
 
@@ -1624,7 +1600,7 @@ bool VecClone::isSimpleFunction(Function *Func) {
   // void foo(void) {
   //   return;
   // }
-  // 
+  //
   // No need to insert a loop for this case since it's basically a no-op. Just
   // clone the function and return. It's possible that we could have some code
   // inside of a vector function that modifies global memory. Let that case go
@@ -1639,11 +1615,11 @@ bool VecClone::isSimpleFunction(Function *Func) {
   return false;
 }
 
-void VecClone::insertSplitForMaskedVariant(Function *Clone,
-                                           BasicBlock *LoopBlock,
-                                           BasicBlock *LoopExitBlock,
-                                           Instruction *Mask, PHINode *Phi)
-{
+void VecCloneImpl::insertSplitForMaskedVariant(Function *Clone,
+                                               BasicBlock *LoopBlock,
+                                               BasicBlock *LoopExitBlock,
+                                               Instruction *Mask,
+                                               PHINode *Phi) {
   BasicBlock *LoopThenBlock =
       LoopBlock->splitBasicBlock(LoopBlock->getFirstNonPHI(),
                                  "simd.loop.then");
@@ -1699,9 +1675,8 @@ void VecClone::insertSplitForMaskedVariant(Function *Clone,
   LLVM_DEBUG(Clone->dump());
 }
 
-void VecClone::removeScalarAllocasForVectorParams(
-    std::vector<ParmRef*> &VectorParmMap)
-{
+void VecCloneImpl::removeScalarAllocasForVectorParams(
+    std::vector<ParmRef *> &VectorParmMap) {
   for (auto VectorParmMapIt : VectorParmMap) {
     Value *Parm = VectorParmMapIt->VectorParm;
     if (AllocaInst *ScalarAlloca = dyn_cast<AllocaInst>(Parm)) {
@@ -1714,8 +1689,7 @@ void VecClone::removeScalarAllocasForVectorParams(
   }
 }
 
-void VecClone::disableLoopUnrolling(BasicBlock *Latch)
-{
+void VecCloneImpl::disableLoopUnrolling(BasicBlock *Latch) {
   // Set disable unroll metadata on the conditional branch of the loop latch
   // for the simd loop. The following is an example of what the loop latch
   // and Metadata will look like. The !llvm.loop marks the beginning of the
@@ -1755,7 +1729,14 @@ void VecClone::disableLoopUnrolling(BasicBlock *Latch)
   Latch->getTerminator()->setMetadata("llvm.loop", NewLoopID);
 }
 
-bool VecClone::runOnModule(Module &M) {
+PreservedAnalyses VecClonePass::run(Module &M, ModuleAnalysisManager &AM) {
+  // NOTE: Update here if new analyses are needed before VecClone (getAnalysisUsage from LegacyPM)
+  if (!Impl.runImpl(M))
+    return PreservedAnalyses::all();
+  return PreservedAnalyses::none();
+}
+
+bool VecCloneImpl::runImpl(Module &M) {
 
   LLVM_DEBUG(dbgs() << "\nExecuting SIMD Function Cloning ...\n\n");
 
@@ -1892,10 +1873,6 @@ bool VecClone::runOnModule(Module &M) {
   } // End of function cloning for all variants
 
   return true; // LLVM IR has been modified
-}
-
-void VecClone::print(raw_ostream &OS, const Module *M) const {
-  // TODO
 }
 
 ModulePass *llvm::createVecClonePass() {

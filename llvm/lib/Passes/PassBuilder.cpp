@@ -210,6 +210,7 @@
 #include "llvm/Transforms/Scalar/Intel_LoopCarriedCSE.h"
 #include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
 #include "llvm/Transforms/Vectorize/Intel_LoadCoalescing.h"
+#include "llvm/Transforms/Utils/Intel_VecClone.h"
 
 // Intel Loop Optimization framework
 // Framework passes
