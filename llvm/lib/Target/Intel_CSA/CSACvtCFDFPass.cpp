@@ -58,6 +58,12 @@ static cl::opt<bool> ILPLWaitForAllBack(
     "CSA Specific: ILPL codegen: pick based on all0 of backedge cohorts"),
   cl::init(false));
 
+static cl::opt<bool> AllowOversizedCompletionBuffers(
+  "csa-allow-oversized-completion", cl::Hidden,
+  cl::desc(
+    "CSA Specific: allow generation of oversized completionN buffers"),
+  cl::init(false));
+
 #define DEBUG_TYPE "csa-cvt-cf-df-pass"
 
 //  Because of the namespace-related syntax limitations of gcc, we need
@@ -733,9 +739,11 @@ void CSACvtCFDFPass::processLoop(MachineLoop *L) {
     // of 2**8-1==255 by the VISA.
     unsigned numTokens = std::min(255U, pipeliningDegree);
 
-    // ...and they're further limited to a maximum depth of 64 according to V1
-    // expectations. This limit will seemingly be exposed to the vISA.
-    numTokens = std::min(64U, numTokens);
+    if (!AllowOversizedCompletionBuffers) {
+      // ...and they're further limited to a maximum depth of 64 according to
+      // V1 expectations. This limit will seemingly be exposed to the vISA.
+      numTokens = std::min(64U, numTokens);
+    }
 
     assert(DFLoop.getNumExits() == 1 &&
       "Can only pipeline loops with single exit blocks");
