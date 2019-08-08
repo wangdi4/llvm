@@ -149,7 +149,7 @@ define void @init() {
 ;   { 300000, 2000000, 2000015, 4000000, 4000015}
 ;
 
-; CHECK-LABEL: define internal i16 @__DYN_encoder(i64) #1 {
+; CHECK-LABEL: define internal i16 @__DYN_encoder(i64 %0) #1 {
 ; CHECK:    switch i64 %0, label %default [
 ; CHECK:      i64 300000, label %case
 ; CHECK:      i64 2000000, label %case1
@@ -174,7 +174,7 @@ define void @init() {
 ; CHECK:  case4:
 ; CHECK:    br label %return
 
-; CHECK-LABEL: define internal i64 @__DYN_decoder(i16) #1 {
+; CHECK-LABEL: define internal i64 @__DYN_decoder(i16 %0) #1 {
 ; CHECK:  switch i16 [[ARG:%[0-9]+]], label %default [
 ; CHECK:  i16 16384, label %case
 ; CHECK:  i16 16385, label %case1

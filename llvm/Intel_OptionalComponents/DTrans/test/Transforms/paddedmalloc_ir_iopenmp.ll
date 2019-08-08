@@ -67,7 +67,7 @@ DIR.OMP.END.PARALLEL.EXIT:
 }
 
 ; Verify that the counter was set correctly
-; CHECK-LABEL: define internal noalias i8* @mallocFunc(i64) {
+; CHECK-LABEL: define internal noalias i8* @mallocFunc(i64 %0) {
 ; CHECK-NEXT: [[TMP2:%.*]] = icmp ult i64 [[TMP0:%.*]], 4294967295
 ; CHECK-NEXT: br i1 [[TMP2:%.*]], label [[TMP3:%.*]], label %MaxBB
 ;

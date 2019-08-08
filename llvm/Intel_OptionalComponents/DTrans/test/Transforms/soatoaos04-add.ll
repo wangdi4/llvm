@@ -33,7 +33,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ;  }
 ; CHECK: ; Classification: Append element method
 ; CHECK: ; Dump instructions needing update. Total = 4
-; CHECK-MOD: @"ValueVectorOf<IC_Field*>::addElement(IC_Field* const&){{.*}}"(%__SOA_class.ValueVectorOf* %this, %class.IC_Field** %toAdd, float**)
+; CHECK-MOD: @"ValueVectorOf<IC_Field*>::addElement(IC_Field* const&){{.*}}"(%__SOA_class.ValueVectorOf* %this, %class.IC_Field** %toAdd, float** %0)
 define void @"ValueVectorOf<IC_Field*>::addElement(IC_Field* const&)"(%"class.ValueVectorOf"* %this, %"class.IC_Field"** %toAdd) {
 entry:
   tail call void @"ValueVectorOf<IC_Field*>::ensureExtraCapacity(unsigned int)"(%"class.ValueVectorOf"* %this, i32 1)

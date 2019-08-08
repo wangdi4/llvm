@@ -66,7 +66,7 @@ define internal fastcc void @pixel_avg(i32, i32) unnamed_addr #0 {
 }
 
 ; Checks the multi-version (MV) function on pixel_avg() has proper code generation
-; CHECK-LABEL:  define internal fastcc void @pixel_avg(i32, i32) unnamed_addr #0 {
+; CHECK-LABEL:  define internal fastcc void @pixel_avg(i32 %0, i32 %1) unnamed_addr #0 {
 ;
 ; checks 4 2-variable clones
 ;
