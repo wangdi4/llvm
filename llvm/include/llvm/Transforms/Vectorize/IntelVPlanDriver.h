@@ -16,32 +16,17 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANDRIVER_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANDRIVER_H
 
-#include "IntelVPOLoopAdapters.h"
-#include "IntelVPlanHCFGBuilder.h"
-
-namespace llvm {
-class FunctionPass;
-class TargetTransformInfo;
-class TargetLibraryInfo;
-class LoopAccessLegacyAnalysis;
-class DemandedBits;
-class OptimizationRemarkEmitter;
-#if INTEL_CUSTOMIZATION
-namespace loopopt {
-class HIRFramework;
-class HIRLoopStatistics;
-class HIRDDAnalysis;
-} // namespace loopopt
-#endif //INTEL_CUSTOMIZATION
-} // namespace llvm
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Analysis/VectorUtils.h"
 
 namespace llvm {
 namespace vpo {
 
 class WRegionInfo;
+class VPlanOptReportBuilder;
+class WRNVecLoopNode;
 
-class VPlanDriver : public FunctionPass {
-
+class VPlanDriverImpl {
 private:
   LoopInfo *LI;
   ScalarEvolution *SE;
@@ -49,9 +34,10 @@ private:
   AssumptionCache *AC;
   AliasAnalysis *AA;
   DemandedBits *DB;
-  LoopAccessLegacyAnalysis *LAA;
+  std::function<const LoopAccessInfo &(Loop &)> *GetLAA;
   OptimizationRemarkEmitter *ORE;
   LoopOptReportBuilder LORBuilder;
+
 #if INTEL_CUSTOMIZATION
   template <class Loop>
 #endif // INTEL_CUSTOMIZATION
@@ -81,20 +67,15 @@ protected:
   // Hold information regarding explicit vectorization in LLVM-IR.
 #endif //INTEL_CUSTOMIZATION
   WRegionInfo *WR;
+  // true if runStandardMode was used for current processFunction and should
+  // emit  kernel remarks in this case
+  bool isEmitKernelOptRemarks;
 
   /// Handle to Target Information
   TargetTransformInfo *TTI;
   TargetLibraryInfo *TLI;
   const DataLayout *DL;
 
-#if INTEL_CUSTOMIZATION
-  // VPlanDriverHIR inherits from VPlanDriver.
-  // The VPlanDriver object is created by DirverHIR following empty
-  // contructor is invoked and doesn't initialize Driver's data members
-  VPlanDriver(char &ID) : FunctionPass(ID){};
-#endif //INTEL_CUSTOMIZATION
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
 #if INTEL_CUSTOMIZATION
   template <typename Loop = llvm::Loop>
   bool processFunction(Function &Fn);
@@ -125,27 +106,71 @@ protected:
 #endif //INTEL_CUSTOMIZATION
   void addOptReportRemarks(VPlanOptReportBuilder &VPORBuilder,
                            VPOCodeGenType *VCodeGen);
+
+public:
+  bool runImpl(Function &F, LoopInfo *LI, ScalarEvolution *SE,
+               DominatorTree *DT, AssumptionCache *AC, AliasAnalysis *AA,
+               DemandedBits *DB,
+               std::function<const LoopAccessInfo &(Loop &)> GetLAA,
+               OptimizationRemarkEmitter *ORE,
+               OptReportVerbosity::Level Verbosity, WRegionInfo *WR,
+               TargetTransformInfo *TTI, TargetLibraryInfo *TLI);
+};
+
+class VPlanDriverPass : public PassInfoMixin<VPlanDriverPass> {
+  VPlanDriverImpl Impl;
+
+public:
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+};
+
+class VPlanDriver : public FunctionPass {
+  VPlanDriverImpl Impl;
+
+protected:
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+
 public:
   static char ID; // Pass identification, replacement for typeid
-
   VPlanDriver(); // INTEL
 
   bool runOnFunction(Function &Fn) override;
 };
 
 #if INTEL_CUSTOMIZATION
-class VPlanDriverHIR : public VPlanDriver {
-  friend VPlanDriver;
+class VPlanDriverHIRImpl : public VPlanDriverImpl {
+  friend VPlanDriverImpl;
 
 private:
-  HIRFramework *HIRF;
-  HIRLoopStatistics *HIRLoopStats;
-  HIRDDAnalysis *DDA;
+  loopopt::HIRFramework *HIRF;
+  loopopt::HIRLoopStatistics *HIRLoopStats;
+  loopopt::HIRDDAnalysis *DDA;
+  loopopt::HIRSafeReductionAnalysis *SafeRedAnalysis;
   LoopOptReportBuilder LORBuilder;
-  bool processLoop(HLLoop *Lp, Function &Fn, WRNVecLoopNode *WRLp);
-  bool isSupported(HLLoop *Lp);
-  void collectAllLoops(SmallVectorImpl<HLLoop *> &Loops);
-  bool isVPlanCandidate(Function &Fn, HLLoop *Lp);
+
+  bool processLoop(loopopt::HLLoop *Lp, Function &Fn, WRNVecLoopNode *WRLp);
+  bool isSupported(loopopt::HLLoop *Lp);
+  void collectAllLoops(SmallVectorImpl<loopopt::HLLoop *> &Loops);
+  bool isVPlanCandidate(Function &Fn, loopopt::HLLoop *Lp);
+
+public:
+  bool runImpl(Function &F, loopopt::HIRFramework *HIRF,
+               loopopt::HIRLoopStatistics *HIRLoopStats,
+               loopopt::HIRDDAnalysis *DDA,
+               loopopt::HIRSafeReductionAnalysis *SafeRedAnalysis,
+               OptReportVerbosity::Level Verbosity, WRegionInfo *WR,
+               TargetTransformInfo *TTI, TargetLibraryInfo *TLI);
+};
+
+class VPlanDriverHIRPass : public PassInfoMixin<VPlanDriverHIRPass> {
+  VPlanDriverHIRImpl Impl;
+
+public:
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+};
+
+class VPlanDriverHIR : public FunctionPass {
+  VPlanDriverHIRImpl Impl;
 
 public:
   static char ID; // Pass identification, replacement for typeid

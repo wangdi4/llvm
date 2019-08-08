@@ -46,6 +46,7 @@
 ; }
 
 ;RUN: opt -vector-library=SVML -mem2reg -loop-simplify -lcssa -vpo-cfg-restructuring  -VPlanDriver -vplan-force-vf=8 -S %s | FileCheck %s
+;RUN: opt -vector-library=SVML -passes="mem2reg,loop-simplify,lcssa,vpo-cfg-restructuring,vplan-driver" -vplan-force-vf=8 -S %s | FileCheck %s
 
 ;CHECK: call <8 x float> @_Z3expDv8_f(<8 x float> {{.*}})
 ;CHECK: call <8 x float> @_Z4sqrtDv8_f(<8 x float> {{.*}})

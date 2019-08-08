@@ -1,4 +1,5 @@
 ; RUN: opt -S -VPlanDriver -vpo-vplan-build-stress-test -debug-only=vplan-divergence-analysis < %s --disable-output 2>&1 | FileCheck %s
+; RUN: opt -S -passes="vplan-driver" -vpo-vplan-build-stress-test -debug-only=vplan-divergence-analysis < %s --disable-output 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 define dso_local void @test1(i32 *%a) {

@@ -1,4 +1,5 @@
 ; RUN: opt -VPlanDriver -vplan-force-vf=4 -vector-library=SVML -S < %s | FileCheck %s
+; RUN: opt -passes="vplan-driver" -vplan-force-vf=4 -vector-library=SVML -S < %s | FileCheck %s
 
 ;CHECK-LABEL: vector.body
 ;CHECK: [[SQRT:%.*]] = call <4 x float> @_Z4sqrtDv4_f(<4 x float> {{.*}})

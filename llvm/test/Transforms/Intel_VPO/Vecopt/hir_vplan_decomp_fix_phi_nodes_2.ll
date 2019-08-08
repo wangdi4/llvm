@@ -2,6 +2,7 @@
 ; is not necessarily defined in the predecessor VPBB, but the value rather flows in from another predecessor in the control flow.
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-plain-cfg -S -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir"  -vplan-print-plain-cfg -S -disable-output < %s 2>&1 | FileCheck %s
 
 ; Input HIR
 ; <73>    + DO i1 = 0, 1023, 1   <DO_LOOP>

@@ -13,7 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "IntelVPlanDriver.h"
+#include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
+#include "IntelVPOLoopAdapters.h"
 #include "IntelLoopVectorizationLegality.h"
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelVPOCodeGen.h"
@@ -130,9 +131,7 @@ static bool isIrreducibleCFG(Loop *Lp, LoopInfo *LI) {
 // LLVM-IR-HIR common analyses and choose an execution mode.
 template <typename Loop>
 #endif // INTEL_CUSTOMIZATION
-bool VPlanDriver::processFunction(Function &Fn) {
-
-  TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(Fn);
+bool VPlanDriverImpl::processFunction(Function &Fn) {
 
   // We cannot rely on compiler driver not invoking vectorizer for
   // non-vector targets. Ensure vectorizer won't cause any issues for
@@ -140,9 +139,8 @@ bool VPlanDriver::processFunction(Function &Fn) {
   if (TTI->getRegisterBitWidth(true) == 0)
     return false;
 
-  TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(Fn);
   DL = &Fn.getParent()->getDataLayout();
-  WR = nullptr;
+  isEmitKernelOptRemarks = false;
 
   assert(!(VPlanVectCand && VPlanConstrStressTest) &&
          "Stress testing for VPlan "
@@ -183,11 +181,12 @@ bool VPlanDriver::processFunction(Function &Fn) {
 #if INTEL_CUSTOMIZATION
 template <typename Loop>
 #endif // INTEL_CUSTOMIZATION
-bool VPlanDriver::runStandardMode(Function &Fn) {
+bool VPlanDriverImpl::runStandardMode(Function &Fn) {
 
   LLVM_DEBUG(dbgs() << "VD: Stardard Vectorization mode\n");
 
-  WR = &getAnalysis<WRegionInfoWrapperPass>().getWRegionInfo();
+  isEmitKernelOptRemarks = true;
+
 #if INTEL_CUSTOMIZATION
   IRKind IR = IRKind::LLVMIR;
   if (std::is_same<Loop, HLLoop>::value)
@@ -234,7 +233,7 @@ bool VPlanDriver::runStandardMode(Function &Fn) {
 /// TODO: WIP for HIR.
 template <typename Loop>
 #endif //INTEL_CUSTOMIZATION
-bool VPlanDriver::runConstructStressTestMode(Function &Fn) {
+bool VPlanDriverImpl::runConstructStressTestMode(Function &Fn) {
 
   LLVM_DEBUG(dbgs() << "VD: VPlan Construction Stress Test mode\n");
 
@@ -263,7 +262,7 @@ bool VPlanDriver::runConstructStressTestMode(Function &Fn) {
 #if INTEL_CUSTOMIZATION
 template <typename Loop>
 #endif //INTEL_CUSTOMIZATION
-bool VPlanDriver::runCGStressTestMode(Function &Fn) {
+bool VPlanDriverImpl::runCGStressTestMode(Function &Fn) {
 
   LLVM_DEBUG(dbgs() << "VD: VPlan CG Stress Test mode\n");
 
@@ -288,8 +287,8 @@ template <class VPOCodeGenType, typename Loop>
 #else
 template <class VPOCodeGenType>
 #endif //INTEL_CUSTOMIZATION
-void VPlanDriver::addOptReportRemarks(VPlanOptReportBuilder &VPORBuilder,
-                                      VPOCodeGenType *VCodeGen) {
+void VPlanDriverImpl::addOptReportRemarks(VPlanOptReportBuilder &VPORBuilder,
+                                          VPOCodeGenType *VCodeGen) {
   // The new vectorized loop is stored in MainLoop
   Loop *MainLoop = VCodeGen->getMainLoop();
 
@@ -387,25 +386,91 @@ bool VPlanDriver::runOnFunction(Function &Fn) {
   if (skipFunction(Fn))
     return false;
 
+  auto SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+  auto DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  // TODO: LI shouldn't be necessary as we are building VPLoopInfo. Maybe only
+  // for debug/stress testing.
+  auto LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  auto AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(Fn);
+
+  auto AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
+  auto DB = &getAnalysis<DemandedBitsWrapperPass>().getDemandedBits();
+  auto ORE = &getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
+  auto *LAA = &getAnalysis<LoopAccessLegacyAnalysis>();
+  auto GetLAA = [&](Loop &L) -> const LoopAccessInfo & {
+    return LAA->getInfo(&L);
+  };
+  auto Verbosity = getAnalysis<OptReportOptionsPass>().getVerbosity();
+  auto TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(Fn);
+  auto TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(Fn);
+  auto WR = &getAnalysis<WRegionInfoWrapperPass>().getWRegionInfo();
+
+  return Impl.runImpl(Fn, LI, SE, DT, AC, AA, DB, GetLAA, ORE, Verbosity, WR,
+                      TTI, TLI);
+}
+
+PreservedAnalyses VPlanDriverPass::run(Function &F,
+                                       FunctionAnalysisManager &AM) {
+
+  auto SE = &AM.getResult<ScalarEvolutionAnalysis>(F);
+  auto DT = &AM.getResult<DominatorTreeAnalysis>(F);
+  // TODO: LI shouldn't be necessary as we are building VPLoopInfo. Maybe only
+  // for debug/stress testing.
+  auto LI = &AM.getResult<LoopAnalysis>(F);
+  auto AC = &AM.getResult<AssumptionAnalysis>(F);
+
+  auto AA = &AM.getResult<AAManager>(F);
+  auto DB = &AM.getResult<DemandedBitsAnalysis>(F);
+  auto ORE = &AM.getResult<OptimizationRemarkEmitterAnalysis>(F);
+  auto Verbosity = AM.getResult<OptReportOptionsAnalysis>(F).getVerbosity();
+  auto TTI = &AM.getResult<TargetIRAnalysis>(F);
+  auto TLI = &AM.getResult<TargetLibraryAnalysis>(F);
+  auto WR = &AM.getResult<WRegionInfoAnalysis>(F);
+  MemorySSA *MSSA = EnableMSSALoopDependency
+                        ? &AM.getResult<MemorySSAAnalysis>(F).getMSSA()
+                        : nullptr;
+  auto &LAM = AM.getResult<LoopAnalysisManagerFunctionProxy>(F).getManager();
+  auto GetLAA = [&](Loop &L) -> const LoopAccessInfo & {
+    LoopStandardAnalysisResults AR = {*AA, *AC,  *DT,  *LI,
+                                      *SE, *TLI, *TTI, MSSA};
+    return LAM.getResult<LoopAccessAnalysis>(L, AR);
+  };
+
+  if (!Impl.runImpl(F, LI, SE, DT, AC, AA, DB, GetLAA, ORE, Verbosity, WR, TTI,
+                    TLI))
+    return PreservedAnalyses::all();
+
+  auto PA = PreservedAnalyses::none();
+  PA.preserve<AndersensAA>();
+  PA.preserve<GlobalsAA>();
+  return PA;
+}
+
+bool VPlanDriverImpl::runImpl(
+    Function &Fn, LoopInfo *LI, ScalarEvolution *SE, DominatorTree *DT,
+    AssumptionCache *AC, AliasAnalysis *AA, DemandedBits *DB,
+    std::function<const LoopAccessInfo &(Loop &)> GetLAA,
+    OptimizationRemarkEmitter *ORE, OptReportVerbosity::Level Verbosity,
+    WRegionInfo *WR, TargetTransformInfo *TTI, TargetLibraryInfo *TLI) {
+
 #if INTEL_CUSTOMIZATION
   LLVM_DEBUG(dbgs() << "VPlan LLVM-IR Driver for Function: " << Fn.getName()
                     << "\n");
 #endif // INTEL_CUSTOMIZATION
 
-  SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-  DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  // TODO: LI shouldn't be necessary as we are building VPLoopInfo. Maybe only
-  // for debug/stress testing.
-  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(Fn);
+  this->SE = SE;
+  this->DT = DT;
+  this->LI = LI;
+  this->AC = AC;
+  this->AA = AA;
+  this->DB = DB;
+  this->GetLAA = &GetLAA;
+  this->ORE = ORE;
+  this->TTI = TTI;
+  this->TLI = TLI;
+  this->WR = WR;
 
-  AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
-  DB = &getAnalysis<DemandedBitsWrapperPass>().getDemandedBits();
-  ORE = &getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
-  LAA = &getAnalysis<LoopAccessLegacyAnalysis>();
-  LORBuilder.setup(Fn.getContext(),
-                   getAnalysis<OptReportOptionsPass>().getVerbosity());
-
+  LORBuilder.setup(Fn.getContext(), Verbosity);
   bool ModifiedFunc = processFunction(Fn);
 
   return ModifiedFunc;
@@ -416,10 +481,11 @@ namespace vpo {
 
 #if INTEL_CUSTOMIZATION
 template <>
-bool VPlanDriver::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
-                                          WRNVecLoopNode *WRLp) {
+bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
+                                              WRNVecLoopNode *WRLp) {
 #else
-bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
+bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
+                                  WRNVecLoopNode *WRLp) {
 #endif // INTEL_CUSTOMIZATION
   PredicatedScalarEvolution PSE(*SE, *Lp);
   VPOVectorizationLegality LVL(Lp, PSE, &Fn);
@@ -516,7 +582,7 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
       addOptReportRemarks<VPOCodeGen>(VPORBuilder, &VCodeGen);
 
       // Emit kernel optimization remarks.
-      if (WR) {
+      if (isEmitKernelOptRemarks) {
         // TODO: Collect remarks about Gather/Scatter counts
         // during CG itself using VPlanOptReportBuilder framework.
         unsigned GatherCount = 0;
@@ -560,9 +626,9 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
 
 #if INTEL_CUSTOMIZATION
 template <>
-bool VPlanDriver::processLoop<vpo::HLLoop>(vpo::HLLoop *Lp, Function &Fn,
-                                           WRNVecLoopNode *WRLp) {
-  auto *Self = static_cast<VPlanDriverHIR *>(this);
+bool VPlanDriverImpl::processLoop<vpo::HLLoop>(vpo::HLLoop *Lp, Function &Fn,
+                                               WRNVecLoopNode *WRLp) {
+  auto *Self = static_cast<VPlanDriverHIRImpl *>(this);
   return Self->processLoop(Lp, Fn, WRLp);
 }
 #endif // INTEL_CUSTOMIZATION
@@ -608,9 +674,9 @@ namespace llvm {
 namespace vpo {
 // Return true if this loop is supported in VPlan
 #if INTEL_CUSTOMIZATION
-template <> bool VPlanDriver::isSupported<llvm::Loop>(Loop *Lp) {
+template <> bool VPlanDriverImpl::isSupported<llvm::Loop>(Loop *Lp) {
 #else  // INTEL_CUSTOMIZATION
-  bool VPlanDriver::isSupported(Loop *Lp) {
+bool VPlanDriverImpl::isSupported(Loop *Lp) {
 #endif // INTEL_CUSTOMIZATION
 
   // When running directly from opt there is no guarantee that the loop is in
@@ -657,17 +723,18 @@ template <> bool VPlanDriver::isSupported<llvm::Loop>(Loop *Lp) {
 }
 
 #if INTEL_CUSTOMIZATION
-template <> bool VPlanDriver::isSupported<vpo::HLLoop>(vpo::HLLoop *Lp) {
-  auto *Self = static_cast<VPlanDriverHIR *>(this);
+template <> bool VPlanDriverImpl::isSupported<vpo::HLLoop>(vpo::HLLoop *Lp) {
+  auto *Self = static_cast<VPlanDriverHIRImpl *>(this);
   return Self->isSupported(Lp);
 }
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 template <>
-void VPlanDriver::collectAllLoops<llvm::Loop>(SmallVectorImpl<Loop *> &Loops) {
+void VPlanDriverImpl::collectAllLoops<llvm::Loop>(
+    SmallVectorImpl<Loop *> &Loops) {
 #else  // INTEL_CUSTOMIZATION
-void VPlanDriver::collectAllLoops(SmallVectorImpl<Loop *> &Loops) {
+void VPlanDriverImpl::collectAllLoops(SmallVectorImpl<Loop *> &Loops) {
 #endif // INTEL_CUSTOMIZATION
 
   std::function<void(Loop *)> collectSubLoops = [&](Loop *Lp) {
@@ -682,9 +749,9 @@ void VPlanDriver::collectAllLoops(SmallVectorImpl<Loop *> &Loops) {
 
 #if INTEL_CUSTOMIZATION
 template <>
-void VPlanDriver::collectAllLoops<vpo::HLLoop>(
+void VPlanDriverImpl::collectAllLoops<vpo::HLLoop>(
     SmallVectorImpl<vpo::HLLoop *> &Loops) {
-  auto *Self = static_cast<VPlanDriverHIR *>(this);
+  auto *Self = static_cast<VPlanDriverHIRImpl *>(this);
   return Self->collectAllLoops(Loops);
 }
 #endif // INTEL_CUSTOMIZATION
@@ -709,7 +776,7 @@ INITIALIZE_PASS_END(VPlanDriverHIR, "VPlanDriverHIR",
 
 char VPlanDriverHIR::ID = 0;
 
-VPlanDriverHIR::VPlanDriverHIR() : VPlanDriver(ID) {
+VPlanDriverHIR::VPlanDriverHIR() : FunctionPass(ID) {
   initializeVPlanDriverHIRPass(*PassRegistry::getPassRegistry());
 }
 
@@ -739,20 +806,58 @@ bool VPlanDriverHIR::runOnFunction(Function &Fn) {
   if (skipFunction(Fn))
     return false;
 
-  LLVM_DEBUG(dbgs() << "VPlan HIR Driver for Function: " << Fn.getName()
-                    << "\n");
+  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
+  auto HIRLoopStats = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
+  auto DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
+  auto Verbosity = getAnalysis<OptReportOptionsPass>().getVerbosity();
+  auto SafeRedAnalysis =
+      &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
+  auto TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(Fn);
+  auto TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(Fn);
+  auto WR = &getAnalysis<WRegionInfoWrapperPass>().getWRegionInfo();
 
-  HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  HIRLoopStats = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
-  DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
-  LORBuilder.setup(Fn.getContext(),
-                   getAnalysis<OptReportOptionsPass>().getVerbosity());
-
-  return VPlanDriver::processFunction<loopopt::HLLoop>(Fn);
+  return Impl.runImpl(Fn, HIRF, HIRLoopStats, DDA, SafeRedAnalysis, Verbosity,
+                      WR, TTI, TLI);
 }
 
-bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
-                                 WRNVecLoopNode *WRLp) {
+PreservedAnalyses VPlanDriverHIRPass::run(Function &F,
+                                          FunctionAnalysisManager &AM) {
+  auto HIRF = &AM.getResult<HIRFrameworkAnalysis>(F);
+  auto HIRLoopStats = &AM.getResult<HIRLoopStatisticsAnalysis>(F);
+  auto DDA = &AM.getResult<HIRDDAnalysisPass>(F);
+  auto Verbosity = AM.getResult<OptReportOptionsAnalysis>(F).getVerbosity();
+  auto SafeRedAnalysis = &AM.getResult<HIRSafeReductionAnalysisPass>(F);
+  auto TTI = &AM.getResult<TargetIRAnalysis>(F);
+  auto TLI = &AM.getResult<TargetLibraryAnalysis>(F);
+  auto WR = &AM.getResult<WRegionInfoAnalysis>(F);
+
+  Impl.runImpl(F, HIRF, HIRLoopStats, DDA, SafeRedAnalysis, Verbosity, WR, TTI,
+               TLI);
+  return PreservedAnalyses::all();
+}
+
+bool VPlanDriverHIRImpl::runImpl(
+    Function &Fn, loopopt::HIRFramework *HIRF,
+    loopopt::HIRLoopStatistics *HIRLoopStats, loopopt::HIRDDAnalysis *DDA,
+    loopopt::HIRSafeReductionAnalysis *SafeRedAnalysis,
+    OptReportVerbosity::Level Verbosity, WRegionInfo *WR,
+    TargetTransformInfo *TTI, TargetLibraryInfo *TLI) {
+  LLVM_DEBUG(dbgs() << "VPlan HIR Driver for Function: " << Fn.getName()
+                    << "\n");
+  this->HIRF = HIRF;
+  this->HIRLoopStats = HIRLoopStats;
+  this->DDA = DDA;
+  this->SafeRedAnalysis = SafeRedAnalysis;
+  this->TTI = TTI;
+  this->TLI = TLI;
+  this->WR = WR;
+
+  LORBuilder.setup(Fn.getContext(), Verbosity);
+  return VPlanDriverImpl::processFunction<loopopt::HLLoop>(Fn);
+}
+
+bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
+                                     WRNVecLoopNode *WRLp) {
   // TODO: How do we allow stress-testing for HIR path?
   assert(WRLp && "WRLp should be non-null!");
 
@@ -777,8 +882,6 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
 
   VPlanVLSAnalysisHIR VLSA(DDA, Fn.getContext(), *DL);
 
-  HIRSafeReductionAnalysis *SafeRedAnalysis =
-      &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
   HIRVectorizationLegality HIRVecLegal(SafeRedAnalysis, DDA);
   LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, DL, &HIRVecLegal, DDA,
                                   &VLSA);
@@ -828,8 +931,6 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
 
   bool ModifiedLoop = false;
   if (!DisableCodeGen) {
-    HIRSafeReductionAnalysis *SRA;
-    SRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
     auto *VPLI = Plan->getVPLoopInfo();
     assert(std::distance(VPLI->begin(), VPLI->end()) == 1 &&
            "Expected single outermost loop!");
@@ -839,9 +940,9 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
     RegDDRef *PeelArrayRef = nullptr;
     VPlanIdioms::Opcode SearchLoopOpcode =
         VPlanIdioms::isSearchLoop(Plan, VF, true, PeelArrayRef);
-    VPOCodeGenHIR VCodeGen(TLI, TTI, SRA, &VLSA, Plan, Fn, Lp, LORBuilder, WRLp,
-                           Entities, &HIRVecLegal, SearchLoopOpcode,
-                           PeelArrayRef);
+    VPOCodeGenHIR VCodeGen(TLI, TTI, SafeRedAnalysis, &VLSA, Plan, Fn, Lp,
+                           LORBuilder, WRLp, Entities, &HIRVecLegal,
+                           SearchLoopOpcode, PeelArrayRef);
     bool LoopIsHandled = (VF != 1 && VCodeGen.loopIsHandled(Lp, VF));
 
     // Erase intrinsics before and after the loop if we either vectorized the
@@ -854,7 +955,7 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
       CandLoopsVectorized++;
       if (LVP.executeBestPlan(&VCodeGen)) {
         ModifiedLoop = true;
-        VPlanDriver::addOptReportRemarks<VPOCodeGenHIR, loopopt::HLLoop>(
+        VPlanDriverImpl::addOptReportRemarks<VPOCodeGenHIR, loopopt::HLLoop>(
             VPORBuilder, &VCodeGen);
       }
     }
@@ -869,18 +970,18 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   return ModifiedLoop;
 }
 
-bool VPlanDriverHIR::isSupported(HLLoop *Lp) {
+bool VPlanDriverHIRImpl::isSupported(HLLoop *Lp) {
   if (HIRLoopStats->getSelfLoopStatistics(Lp).hasSwitches())
     return false;
 
   return true;
 }
 
-void VPlanDriverHIR::collectAllLoops(SmallVectorImpl<HLLoop *> &Loops) {
+void VPlanDriverHIRImpl::collectAllLoops(SmallVectorImpl<HLLoop *> &Loops) {
   HIRF->getHLNodeUtils().gatherAllLoops(Loops);
 }
 
-bool VPlanDriverHIR::isVPlanCandidate(Function &Fn, HLLoop *Lp) {
+bool VPlanDriverHIRImpl::isVPlanCandidate(Function &Fn, HLLoop *Lp) {
   // This function is only used in the LLVM-IR path to generate VPlan
   // candidates.
   return false;
@@ -905,9 +1006,9 @@ namespace llvm {
 namespace vpo {
 #if INTEL_CUSTOMIZATION
 template <>
-bool VPlanDriver::isVPlanCandidate<llvm::Loop>(Function &Fn, Loop *Lp) {
+bool VPlanDriverImpl::isVPlanCandidate<llvm::Loop>(Function &Fn, Loop *Lp) {
 #else // INTEL_CUSTOMIZATION
-bool VPlanDriver::isVPlanCandidate(Function &Fn, Loop *Lp) {
+bool VPlanDriverImpl::isVPlanCandidate(Function &Fn, Loop *Lp) {
 #endif
   // Only consider inner loops
   if (!Lp->empty())
@@ -916,9 +1017,7 @@ bool VPlanDriver::isVPlanCandidate(Function &Fn, Loop *Lp) {
   PredicatedScalarEvolution PSE(*SE, *Lp);
   LoopVectorizationRequirements Requirements(*ORE);
   LoopVectorizeHints Hints(Lp, true, *ORE);
-  std::function<const LoopAccessInfo &(Loop &)> GetLAA =
-      [&](Loop &L) -> const LoopAccessInfo & { return LAA->getInfo(&L); };
-  LoopVectorizationLegality LVL(Lp, PSE, DT, TTI, TLI, AA, &Fn, &GetLAA, LI, ORE,
+  LoopVectorizationLegality LVL(Lp, PSE, DT, TTI, TLI, AA, &Fn, GetLAA, LI, ORE,
                                 &Requirements, &Hints, DB, AC);
 
   if (!LVL.canVectorize(false /* EnableVPlanNativePath */))
@@ -929,7 +1028,7 @@ bool VPlanDriver::isVPlanCandidate(Function &Fn, Loop *Lp) {
     return false;
 
   // Bail out if any runtime checks are needed
-  auto LAI = &GetLAA(*Lp);
+  auto LAI = &(*GetLAA)(*Lp);
   if (LAI->getNumRuntimePointerChecks())
     return false;
 
@@ -938,8 +1037,9 @@ bool VPlanDriver::isVPlanCandidate(Function &Fn, Loop *Lp) {
 
 #if INTEL_CUSTOMIZATION
 template <>
-bool VPlanDriver::isVPlanCandidate<vpo::HLLoop>(Function &Fn, vpo::HLLoop *Lp) {
-  auto *Self = static_cast<VPlanDriverHIR *>(this);
+bool VPlanDriverImpl::isVPlanCandidate<vpo::HLLoop>(Function &Fn,
+                                                    vpo::HLLoop *Lp) {
+  auto *Self = static_cast<VPlanDriverHIRImpl *>(this);
   return Self->isVPlanCandidate(Fn, Lp);
 }
 #endif // INTEL_CUSTOMIZATION

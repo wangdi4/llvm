@@ -16,6 +16,7 @@
 ; increment instruction, closed-form is needed for their representation in VPlan.
 
 ; RUN: opt -VPlanDriver -vplan-entities-dump -vplan-use-entity-instr -disable-vplan-codegen -debug-only=VPlanPredicator -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="vplan-driver" -vplan-entities-dump -vplan-use-entity-instr -disable-vplan-codegen -debug-only=VPlanPredicator -disable-output < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; Check entities

@@ -1,4 +1,5 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR -vplan-print-after-simplify-cfg -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,vplan-driver-hir" -hir-framework -vplan-print-after-simplify-cfg -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that we are able to build a VPlan for an outer loop with a nested loop
 ; which has pre-header and post-exit in HIR.

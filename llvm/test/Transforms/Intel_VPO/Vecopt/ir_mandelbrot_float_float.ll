@@ -1,5 +1,6 @@
 ; Test that we can vectorize float, float version of mandelbrot kernel.
 ; RUN: opt -S %s -VPlanDriver -vector-library=SVML 2>&1 | FileCheck %s
+; RUN: opt -S %s -passes="vplan-driver" -vector-library=SVML 2>&1 | FileCheck %s
 ; CHECK: call svml_cc <16 x float> @__svml_sqrtf16(
 
 ; ModuleID = 'mod.cpp'
