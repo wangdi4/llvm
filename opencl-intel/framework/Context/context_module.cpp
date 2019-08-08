@@ -1873,6 +1873,25 @@ cl_mem ContextModule::CreateImage(cl_context context,
 
     cl_mem clMemObj = CL_INVALID_HANDLE;
 
+    SharedPtr<Context> pContext = m_mapContexts.GetOCLObject((_cl_context_int*)context).DynamicCast<Context>();
+    if (NULL == pContext)
+    {
+        if (errcode_ret)
+        {
+            *errcode_ret = CL_INVALID_CONTEXT;
+        }
+        return CL_INVALID_HANDLE;
+    }
+
+    if (pContext->IsFPGAEmulator())
+     {
+        if (errcode_ret)
+        {
+            *errcode_ret = CL_INVALID_OPERATION;
+        }
+        return CL_INVALID_HANDLE;
+    }
+
     if (!image_desc || 0 != image_desc->num_mip_levels || 0 != image_desc->num_samples ||
         (CL_MEM_OBJECT_IMAGE1D_BUFFER != image_desc->image_type && CL_MEM_OBJECT_IMAGE2D != image_desc->image_type && nullptr != image_desc->mem_object))
     {
@@ -2413,6 +2432,15 @@ cl_sampler ContextModule::CreateSampler(cl_context clContext,
         }
         return CL_INVALID_HANDLE;
     }
+
+    if (pContext->IsFPGAEmulator()) {
+        if (nullptr != pErrcodeRet)
+        {
+            *pErrcodeRet = CL_INVALID_OPERATION;
+        }
+        return CL_INVALID_HANDLE;
+    }
+
     SharedPtr<Sampler> pSampler;
     cl_err_code clErr = pContext->CreateSampler(bNormalizedCoords, clAddressingMode, clFilterMode, &pSampler);
     if (CL_FAILED(clErr))

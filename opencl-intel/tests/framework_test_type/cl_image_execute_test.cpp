@@ -137,6 +137,7 @@ bool clImageExecuteTest()
 				cl_uint* pDstBuffer = (cl_uint*)malloc(stBuffSize);
 				memset( pDstBuffer, 0xff, stBuffSize );
 
+				if (gDeviceType != CL_DEVICE_TYPE_ACCELERATOR)
 				{
 					//
 					// Write src data
