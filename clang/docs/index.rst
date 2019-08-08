@@ -74,6 +74,7 @@ Using Clang as a Library
    RAVFrontendAction
    LibASTMatchersTutorial
    LibASTMatchers
+   LibASTImporter
    HowToSetupToolingForLLVM
    JSONCompilationDatabase
    RefactoringEngine

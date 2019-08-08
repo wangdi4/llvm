@@ -1115,6 +1115,7 @@ template <class ELFT> void ObjFile<ELFT>::initializeSymbols() {
     // Handle global undefined symbols.
     if (eSym.st_shndx == SHN_UNDEF) {
       this->symbols[i]->resolve(Undefined{this, name, binding, stOther, type});
+      this->symbols[i]->referenced = true;
       continue;
     }
 

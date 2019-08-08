@@ -7038,14 +7038,15 @@ SDValue SelectionDAG::getMaskedStore(SDValue Chain, const SDLoc &dl,
 
 SDValue SelectionDAG::getMaskedGather(SDVTList VTs, EVT VT, const SDLoc &dl,
                                       ArrayRef<SDValue> Ops,
-                                      MachineMemOperand *MMO) {
+                                      MachineMemOperand *MMO,
+                                      ISD::MemIndexType IndexType) {
   assert(Ops.size() == 6 && "Incompatible number of operands");
 
   FoldingSetNodeID ID;
   AddNodeIDNode(ID, ISD::MGATHER, VTs, Ops);
   ID.AddInteger(VT.getRawBits());
   ID.AddInteger(getSyntheticNodeSubclassData<MaskedGatherSDNode>(
-      dl.getIROrder(), VTs, VT, MMO));
+      dl.getIROrder(), VTs, VT, MMO, IndexType));
   ID.AddInteger(MMO->getPointerInfo().getAddrSpace());
   void *IP = nullptr;
   if (SDNode *E = FindNodeOrInsertPos(ID, dl, IP)) {
@@ -7054,7 +7055,7 @@ SDValue SelectionDAG::getMaskedGather(SDVTList VTs, EVT VT, const SDLoc &dl,
   }
 
   auto *N = newSDNode<MaskedGatherSDNode>(dl.getIROrder(), dl.getDebugLoc(),
-                                          VTs, VT, MMO);
+                                          VTs, VT, MMO, IndexType);
   createOperands(N, Ops);
 
   assert(N->getPassThru().getValueType() == N->getValueType(0) &&
@@ -7078,14 +7079,15 @@ SDValue SelectionDAG::getMaskedGather(SDVTList VTs, EVT VT, const SDLoc &dl,
 
 SDValue SelectionDAG::getMaskedScatter(SDVTList VTs, EVT VT, const SDLoc &dl,
                                        ArrayRef<SDValue> Ops,
-                                       MachineMemOperand *MMO) {
+                                       MachineMemOperand *MMO,
+                                       ISD::MemIndexType IndexType) {
   assert(Ops.size() == 6 && "Incompatible number of operands");
 
   FoldingSetNodeID ID;
   AddNodeIDNode(ID, ISD::MSCATTER, VTs, Ops);
   ID.AddInteger(VT.getRawBits());
   ID.AddInteger(getSyntheticNodeSubclassData<MaskedScatterSDNode>(
-      dl.getIROrder(), VTs, VT, MMO));
+      dl.getIROrder(), VTs, VT, MMO, IndexType));
   ID.AddInteger(MMO->getPointerInfo().getAddrSpace());
   void *IP = nullptr;
   if (SDNode *E = FindNodeOrInsertPos(ID, dl, IP)) {
@@ -7093,7 +7095,7 @@ SDValue SelectionDAG::getMaskedScatter(SDVTList VTs, EVT VT, const SDLoc &dl,
     return SDValue(E, 0);
   }
   auto *N = newSDNode<MaskedScatterSDNode>(dl.getIROrder(), dl.getDebugLoc(),
-                                           VTs, VT, MMO);
+                                           VTs, VT, MMO, IndexType);
   createOperands(N, Ops);
 
   assert(N->getMask().getValueType().getVectorNumElements() ==
