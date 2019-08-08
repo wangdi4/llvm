@@ -42,6 +42,15 @@ private:
   // Prepare OpenCL kernel for VecClone (emits vector-variant attributes).
   void languageSpecificInitializations(Module &M) override;
 
+  /// The actions to take for the OpenCL builtin functions.
+  enum class FnAction {
+    MoveAndUpdateUses,       // Moves to entry block + update uses
+    MoveAndUpdateUsesForDim, // Moves to entry block + update uses for a
+    // specific dimension
+    MoveOnly,            // Moves to entry block only
+    AssertIfEncountered, // Assert false.
+  };
+
 public:
   static char ID;
   bool EnableVPlanVecForOpenCL = false;
