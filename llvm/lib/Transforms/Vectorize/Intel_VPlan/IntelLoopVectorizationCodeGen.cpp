@@ -2956,7 +2956,30 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     Builder.CreateMaskedScatter(VecDataOp, VecPtr, Alignment, MaskValue);
     return;
   }
+  case Instruction::Add:
+  case Instruction::FAdd:
+  case Instruction::Xor: {
+    assert(VPInst->getUnderlyingValue() &&
+           "Can't handle a newly generated add/xor VPInstruction.");
 
+    // Widen binary operands.
+    Value *A = getVectorValue(VPInst->getOperand(0));
+    Value *B = getVectorValue(VPInst->getOperand(1));
+
+    // Create wide instruction.
+    auto BinOpCode = static_cast<Instruction::BinaryOps>(VPInst->getOpcode());
+    Value *V = Builder.CreateBinOp(BinOpCode, A, B);
+
+    // TODO: Can't set any IR flags since they are not stored in VPInstruction
+    // (example FMF, wrapping flags).
+
+    VPWidenMap[VPInst] = V;
+    // Inserting into the WidenMap is dirty and illegal. This is a temporary
+    // hack and should be retired when we transition completely to VPValue-based
+    // CG approach.
+    WidenMap[VPInst->getUnderlyingValue()] = V;
+    return;
+  }
   default:
     llvm_unreachable("Unexpected VPInstruction");
   }
