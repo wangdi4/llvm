@@ -958,9 +958,8 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
   if (EnableVPValueCodegen)
     return getVectorValueUplifted(V);
 
-  Value *UV = V->getUnderlyingValue();
-  if (UV)
-    return getVectorValue(UV);
+  if (V->isUnderlyingIRValid())
+    return getVectorValue(V->getUnderlyingValue());
 
   Value *VecV = VPWidenMap[V];
   assert(VecV && "Value not in VPWidenMap");
@@ -1045,10 +1044,8 @@ Value *VPOCodeGen::getScalarValue(VPValue *V, unsigned Lane) {
   if (EnableVPValueCodegen)
     return getScalarValueUplifted(V, Lane);
 
-  Value *UV = V->getUnderlyingValue();
-
-  if (UV)
-    return getScalarValue(UV, Lane);
+  if (V->isUnderlyingIRValid())
+    return getScalarValue(V->getUnderlyingValue(), Lane);
   else {
     Value *VecV = getVectorValue(V);
     IRBuilder<>::InsertPointGuard Guard(Builder);
@@ -2789,8 +2786,11 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     return;
   }
 
-  // Generate code by peeking at underlying IR.
-  if (auto *Inst = VPInst->getInstruction()) {
+  // Generate code by peeking at underlying IR, if valid.
+  if (VPInst->isUnderlyingIRValid()) {
+    auto *Inst = VPInst->getInstruction();
+    assert(Inst &&
+           "Underlying instruction cannot be null for valid VPInstruction.");
     vectorizeInstruction(Inst);
 
     // Add the widened value to the VPValue widen map.

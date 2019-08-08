@@ -40,7 +40,7 @@
 ; CHECK-NEXT:    br i1 [[TMP21]], label [[VPLANNEDBB12:%.*]], label [[VPLANNEDBB]]
 ; CHECK:       VPlannedBB12:
 ; CHECK-NEXT:    [[MM_VECTORGEP13:%.*]] = getelementptr inbounds i64, <2 x i64*> [[BROADCAST_SPLAT5]], <2 x i64> zeroinitializer
-; CHECK-NEXT:    call void @llvm.masked.scatter.v2i64.v2p0i64(<2 x i64> [[TMP17]], <2 x i64*> [[MM_VECTORGEP13]], i32 1, <2 x i1> [[TMP5]])
+; CHECK-NEXT:    call void @llvm.masked.scatter.v2i64.v2p0i64(<2 x i64> [[TMP17]], <2 x i64*> [[MM_VECTORGEP13]], i32 8, <2 x i1> [[TMP5]])
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
