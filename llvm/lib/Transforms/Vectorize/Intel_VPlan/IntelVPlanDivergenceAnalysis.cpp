@@ -52,6 +52,12 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vplan-divergence-analysis"
 
+static cl::opt<bool>
+    VPlanDARecognizeOverflow("vplan-da-recognize-integer-overflow",
+                             cl::init(true), cl::Hidden,
+                             cl::desc("Allow VPlan's divergence analysis to "
+                                      "recognize integer overflow checks."));
+
 #define Uni VPVectorShape::Uni
 #define Seq VPVectorShape::Seq
 #define Ptr VPVectorShape::Ptr
@@ -785,6 +791,17 @@ VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForBinaryInst(
       }
       VPVectorShape::VPShapeDescriptor NewDesc = SubConversion[Desc0][Desc1];
       return new VPVectorShape(NewDesc, NewStride);
+    }
+    case Instruction::And: {
+      if (VPlanDARecognizeOverflow) {
+        // AND operation with UINT_MAX indicates an integer overflow check and
+        // clamping. Propagate the shape of the operand being checked for
+        // overflow.
+        if (auto *ConstOp1 = dyn_cast<VPConstant>(Op1)) {
+          if (ConstOp1->isConstantInt() && ConstOp1->getZExtValue() == UINT_MAX)
+            return new VPVectorShape(Desc0, Shape0->getStride());
+        }
+      }
     }
     default:
       return getRandomVectorShape();
