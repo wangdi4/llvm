@@ -2683,7 +2683,12 @@ void CodeViewDebug::emitLocalVariable(const FunctionInfo &FI,
                : (EncFP == FI.EncodedLocalFramePtrReg))) {
         DefRangeFramePointerRelSym::Header DRHdr;
         DRHdr.Offset = Offset;
+#if INTEL_CUSTOMIZATION
+        OS.EmitCVDefRangeDirectiveFramePointerRelSym(DefRange.Ranges,
+                                                     DRHdr.Offset);
+#else // INTEL_CUSTOMIZATION
         OS.EmitCVDefRangeDirective(DefRange.Ranges, DRHdr);
+#endif // INTEL_CUSTOMIZATION
       } else {
         uint16_t RegRelFlags = 0;
         if (DefRange.IsSubfield) {
@@ -2695,7 +2700,13 @@ void CodeViewDebug::emitLocalVariable(const FunctionInfo &FI,
         DRHdr.Register = Reg;
         DRHdr.Flags = RegRelFlags;
         DRHdr.BasePointerOffset = Offset;
+#if INTEL_CUSTOMIZATION
+        OS.EmitCVDefRangeDirectiveRegisterRelSym(
+          DefRange.Ranges, DRHdr.Register, DRHdr.Flags,
+          DRHdr.BasePointerOffset);
+#else // INTEL_CUSTOMIZATION
         OS.EmitCVDefRangeDirective(DefRange.Ranges, DRHdr);
+#endif // INTEL_CUSTOMIZATION
       }
     } else {
       assert(DefRange.DataOffset == 0 && "unexpected offset into register");
@@ -2704,12 +2715,23 @@ void CodeViewDebug::emitLocalVariable(const FunctionInfo &FI,
         DRHdr.Register = DefRange.CVRegister;
         DRHdr.MayHaveNoName = 0;
         DRHdr.OffsetInParent = DefRange.StructOffset;
+#if INTEL_CUSTOMIZATION
+        OS.EmitCVDefRangeDirectiveSubfieldRegisterSym(
+          DefRange.Ranges, DRHdr.Register, DRHdr.MayHaveNoName,
+          DRHdr.OffsetInParent);
+#else // INTEL_CUSTOMIZATION
         OS.EmitCVDefRangeDirective(DefRange.Ranges, DRHdr);
+#endif // INTEL_CUSTOMIZATION
       } else {
         DefRangeRegisterSym::Header DRHdr;
         DRHdr.Register = DefRange.CVRegister;
         DRHdr.MayHaveNoName = 0;
+#if INTEL_CUSTOMIZATION
+        OS.EmitCVDefRangeDirectiveRegisterSym(
+          DefRange.Ranges, DRHdr.Register, DRHdr.MayHaveNoName);
+#else // INTEL_CUSTOMIZATION
         OS.EmitCVDefRangeDirective(DefRange.Ranges, DRHdr);
+#endif // INTEL_CUSTOMIZATION
       }
     }
   }

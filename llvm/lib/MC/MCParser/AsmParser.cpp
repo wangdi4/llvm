@@ -22,6 +22,9 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/BinaryFormat/Dwarf.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/DebugInfo/CodeView/SymbolRecord.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCCodeView.h"
 #include "llvm/MC/MCContext.h"
@@ -3892,7 +3895,12 @@ bool AsmParser::parseDirectiveCVDefRange() {
     codeview::DefRangeRegisterSym::Header DRHdr;
     DRHdr.Register = DRRegister;
     DRHdr.MayHaveNoName = 0;
+#if INTEL_CUSTOMIZATION
+    getStreamer().EmitCVDefRangeDirectiveRegisterSym(Ranges, DRHdr.Register,
+                                                     DRHdr.MayHaveNoName);
+#else // INTEL_CUSTOMIZATION
     getStreamer().EmitCVDefRangeDirective(Ranges, DRHdr);
+#endif // INTEL_CUSTOMIZATION
     break;
   }
   case CVDR_DEFRANGE_FRAMEPOINTER_REL: {
@@ -3904,7 +3912,12 @@ bool AsmParser::parseDirectiveCVDefRange() {
 
     codeview::DefRangeFramePointerRelSym::Header DRHdr;
     DRHdr.Offset = DROffset;
+#if INTEL_CUSTOMIZATION
+    getStreamer().EmitCVDefRangeDirectiveFramePointerRelSym(Ranges,
+                                                            DRHdr.Offset);
+#else // INTEL_CUSTOMIZATION
     getStreamer().EmitCVDefRangeDirective(Ranges, DRHdr);
+#endif // INTEL_CUSTOMIZATION
     break;
   }
   case CVDR_DEFRANGE_SUBFIELD_REGISTER: {
@@ -3923,7 +3936,12 @@ bool AsmParser::parseDirectiveCVDefRange() {
     DRHdr.Register = DRRegister;
     DRHdr.MayHaveNoName = 0;
     DRHdr.OffsetInParent = DROffsetInParent;
+#if INTEL_CUSTOMIZATION
+    getStreamer().EmitCVDefRangeDirectiveSubfieldRegisterSym(
+        Ranges, DRHdr.Register, DRHdr.MayHaveNoName, DRHdr.OffsetInParent);
+#else // INTEL_CUSTOMIZATION
     getStreamer().EmitCVDefRangeDirective(Ranges, DRHdr);
+#endif // INTEL_CUSTOMIZATION
     break;
   }
   case CVDR_DEFRANGE_REGISTER_REL: {
@@ -3948,7 +3966,12 @@ bool AsmParser::parseDirectiveCVDefRange() {
     DRHdr.Register = DRRegister;
     DRHdr.Flags = DRFlags;
     DRHdr.BasePointerOffset = DRBasePointerOffset;
+#if INTEL_CUSTOMIZATION
+    getStreamer().EmitCVDefRangeDirectiveRegisterRelSym(
+        Ranges, DRHdr.Register, DRHdr.Flags, DRHdr.BasePointerOffset);
+#else // INTEL_CUSTOMIZATION
     getStreamer().EmitCVDefRangeDirective(Ranges, DRHdr);
+#endif // INTEL_CUSTOMIZATION
     break;
   }
   default:

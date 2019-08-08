@@ -258,6 +258,28 @@ public:
   void PrintCVDefRangePrefix(
       ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges);
 
+#if INTEL_CUSTOMIZATION
+
+  void EmitCVDefRangeDirectiveRegisterRelSym(
+      ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
+      support::ulittle16_t Register, support::ulittle16_t Flags,
+      support::little32_t BasePointerOffset) override;
+
+  void EmitCVDefRangeDirectiveSubfieldRegisterSym(
+      ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
+       support::ulittle16_t Register, support::ulittle16_t MayHaveNoName,
+       support::ulittle32_t OffsetInParent) override;
+
+  void EmitCVDefRangeDirectiveRegisterSym(
+      ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
+      support::ulittle16_t Register, support::ulittle16_t MayHaveNoName) override;
+
+  void EmitCVDefRangeDirectiveFramePointerRelSym(
+      ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
+      support::little32_t Offset) override;
+
+#else // INTEL_CUSTOMIZATION
+
   void EmitCVDefRangeDirective(
       ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
       codeview::DefRangeRegisterRelSym::Header DRHdr) override;
@@ -273,6 +295,8 @@ public:
   void EmitCVDefRangeDirective(
       ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
       codeview::DefRangeFramePointerRelSym::Header DRHdr) override;
+
+#endif // INTEL_CUSTOMIZATION
 
   void EmitCVStringTableDirective() override;
   void EmitCVFileChecksumsDirective() override;
@@ -1404,6 +1428,49 @@ void MCAsmStreamer::PrintCVDefRangePrefix(
   }
 }
 
+#if INTEL_CUSTOMIZATION
+
+void MCAsmStreamer::EmitCVDefRangeDirectiveRegisterRelSym(
+    ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
+    support::ulittle16_t Register, support::ulittle16_t Flags,
+    support::little32_t BasePointerOffset) {
+  PrintCVDefRangePrefix(Ranges);
+  OS << ", reg_rel, ";
+  OS << Register << ", " << Flags << ", "
+     << BasePointerOffset;
+  EmitEOL();
+}
+
+void MCAsmStreamer::EmitCVDefRangeDirectiveSubfieldRegisterSym(
+    ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
+      support::ulittle16_t Register, support::ulittle16_t MayHaveNoName,
+      support::ulittle32_t OffsetInParent) {
+  PrintCVDefRangePrefix(Ranges);
+  OS << ", subfield_reg, ";
+  OS << Register << ", " << OffsetInParent;
+  EmitEOL();
+}
+
+void MCAsmStreamer::EmitCVDefRangeDirectiveRegisterSym(
+    ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
+    support::ulittle16_t Register, support::ulittle16_t MayHaveNoName) {
+  PrintCVDefRangePrefix(Ranges);
+  OS << ", reg, ";
+  OS << Register;
+  EmitEOL();
+}
+
+void MCAsmStreamer::EmitCVDefRangeDirectiveFramePointerRelSym(
+    ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
+    support::little32_t Offset) {
+  PrintCVDefRangePrefix(Ranges);
+  OS << ", frame_ptr_rel, ";
+  OS << Offset;
+  EmitEOL();
+}
+
+#else // INTEL_CUSTOMIZATION
+
 void MCAsmStreamer::EmitCVDefRangeDirective(
     ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
     codeview::DefRangeRegisterRelSym::Header DRHdr) {
@@ -1440,6 +1507,8 @@ void MCAsmStreamer::EmitCVDefRangeDirective(
   OS << DRHdr.Offset;
   EmitEOL();
 }
+
+#endif // INTEL_CUSTOMIZATION
 
 void MCAsmStreamer::EmitCVStringTableDirective() {
   OS << "\t.cv_stringtable";
