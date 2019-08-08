@@ -97,27 +97,20 @@ public:
 
   bool haveSameVectorStride(const ClientMemref &Mrf);
 
-  bool isAConstDistanceFrom(const OVLSMemref &Mrf, int64_t *Distance);
+  Optional<int64_t> getConstDistanceFrom(const OVLSMemref &Mrf) override;
 
-  bool canMoveTo(const OVLSMemref &MemRef) { return true; }
-  bool hasAConstStride(int64_t *Stride) const {
-    if (ConstVStride) {
-      *Stride = VecStride;
-      return true;
-    }
-    return false;
-  }
+  bool canMoveTo(const OVLSMemref &MemRef) override { return true; }
 
-  // Checks whether Mrf and this have the same number of vector elements
-  bool haveSameNumElements(const OVLSMemref &Mrf) {
-    const ClientMemref *CLMrf = (const ClientMemref *)&Mrf;
-    return (DataType->getNumElements() == (CLMrf->DataType)->getNumElements());
+  Optional<int64_t> getConstStride() const override {
+    if (ConstVStride)
+      return VecStride;
+    return None;
   }
 
   // TODO: Return the location of this in the code. Should reflect the relative
   // ordering between all Memrefs sent to the VLS engine by this client.
   // FIXME: For now just returning the MemrefID.
-  unsigned getLocation() const {
+  unsigned getLocation() const override {
     return getMemrefId(); // FIXME
   }
 

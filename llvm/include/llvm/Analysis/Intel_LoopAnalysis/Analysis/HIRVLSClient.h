@@ -105,24 +105,6 @@ public:
   }
   /// @}
 
-  /// \name Functions to query/get the stride of the memory access, in the loop
-  /// level that is currently being considered, if it is constant. For example:
-  /// for (i=0; i<N; i++) {
-  ///    for (j=0; i<M; j++) {
-  ///       a[B*i+5*j] = x;
-  ///    }
-  /// }
-  /// If LoopLevel is the i-loop, Stride is the size of B elements in bytes;
-  /// B is not a constant and therefore 0/false will be returned by
-  /// getConstStride/hasConstStride, respectively.
-  /// If LoopLevel is the j-loop, Stride is the size of 5 elements in bytes;
-  /// This time it is a constant, and therefore 5*ElemSize and true
-  /// will be returned by getConstStride and hasConstStride, respectively.
-  /// @{
-  int64_t getConstStride() const { return ConstStride; }
-  bool hasConstStride() const { return (ConstStride != 0); }
-  /// @}
-
   /// \brief Tries to compute the distance between this memref and \p Mrf.
   /// If it is able to compute a constant distance between the two Memrefs
   /// it returns true, otherwise it returns false.
@@ -134,7 +116,7 @@ public:
   /// the same type (client type). Normally no usage scenario will mix \p Mrfs
   /// from two different clients. This is why this method has to accept the
   /// base type pointer, but always expects to get an HIRVLSClientMemref.
-  bool isAConstDistanceFrom(const OVLSMemref &Mrf, int64_t *Distance) {
+  Optional<int64_t> getConstDistanceFrom(const OVLSMemref &Mrf) override {
     assert(isa<HIRVLSClientMemref>(&Mrf) && "Expected HIRVLSClientMemref");
     const HIRVLSClientMemref *CLMrf = cast<const HIRVLSClientMemref>(&Mrf);
     const RegDDRef *Ref2 = CLMrf->getRef();
@@ -142,16 +124,20 @@ public:
     // access type they will never end up in the same group so don't bother
     // computing the distance.
     if (!(this->getAccessType() == CLMrf->getAccessType()))
-      return false;
+      return None;
     // Another shortcut: if these are strided accesses with different strides,
     // don't bother computing the distance (they will not end up in the same
     // group, and anyway the distance will not be constant in this case).
-    if ((this->getAccessType()).isStridedAccess() &&
-        (this->hasConstStride() && CLMrf->hasConstStride() &&
-         !(this->getConstStride() == CLMrf->getConstStride())))
-      return false;
+    Optional<int64_t> ThisStride = this->getConstStride();
+    Optional<int64_t> ThatStride = CLMrf->getConstStride();
+    if (this->getAccessType().isStridedAccess() && ThisStride && ThatStride &&
+        ThisStride != ThatStride)
+      return None;
 
-    return DDRefUtils::getConstByteDistance(Ref, Ref2, Distance);
+    int64_t Distance;
+    if (DDRefUtils::getConstByteDistance(Ref, Ref2, &Distance))
+      return Distance;
+    return None;
   }
 
   /// \brief Checks if this memref can be moved to the location of \p Mrf.
@@ -165,7 +151,7 @@ public:
   /// the same type (client type). Normally no usage scenario will mix \p Mrfs
   /// from two different clients. This is why this method has to accept the
   /// base type pointer, but always expects to get an HIRVLSClientMemref.
-  bool canMoveTo(const OVLSMemref &Mrf) {
+  bool canMoveTo(const OVLSMemref &Mrf) override {
     assert(isa<HIRVLSClientMemref>(&Mrf) && "Expected HIRVLSClientMemref");
     const HIRVLSClientMemref *CLMrf = cast<const HIRVLSClientMemref>(&Mrf);
     const RegDDRef *Ref2 = CLMrf->getRef();
@@ -174,12 +160,22 @@ public:
     return canAccessWith(Ref, Ref2, VectContext);
   }
 
-  bool hasAConstStride(int64_t *Stride) const {
-    if (!hasConstStride())
-      return false;
-
-    *Stride = getConstStride();
-    return true;
+  /// Function to query/get the stride of the memory access, in the loop level
+  /// that is currently being considered, if it is constant. For example:
+  /// for (i=0; i<N; i++) {
+  ///    for (j=0; i<M; j++) {
+  ///       a[B*i+5*j] = x;
+  ///    }
+  /// }
+  /// If LoopLevel is the i-loop, Stride is the size of B elements in bytes;
+  /// B is not a constant and therefore None will be returned by getConstStride.
+  /// If LoopLevel is the j-loop, Stride is the size of 5 elements in bytes;
+  /// This time it is a constant, and therefore 5*ElemSize will be returned by
+  /// getConstStride.
+  Optional<int64_t> getConstStride() const override {
+    if (ConstStride == 0)
+      return None;
+    return ConstStride;
   }
 
   /// \brief Return the location of this in the code. The location should be
@@ -190,7 +186,7 @@ public:
   /// This assumption may only hold within straight line code segments;
   /// indeed the vectorizer will only send the VLS engine Mrfs that all reside
   /// in the same straight line code segement.
-  unsigned getLocation() const {
+  unsigned getLocation() const override {
     const RegDDRef *Ref = getRef();
     assert(Ref);
     const HLDDNode *DDNode = Ref->getHLDDNode();

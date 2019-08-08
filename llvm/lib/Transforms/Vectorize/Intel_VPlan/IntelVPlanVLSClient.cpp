@@ -20,56 +20,43 @@
 
 using namespace llvm::vpo;
 
-/// The purpose of this function is to make sure no overflow happens when
-/// writing \p Value value to \p Dest. The signature asserts that the type of
-/// \p Dest matches getSExtValue() return type exactly. If they diverge in
-/// future, we will need to modify the check.
-static void
-writeSignedAPInt(decltype(std::declval<APInt>().getSExtValue()) *Dest,
-                 const APInt &Value) {
-  *Dest = Value.getSExtValue();
-}
-
-/// Implementation of OVLSMemref::hasAConstStride. The additional parameter
+/// Implementation of OVLSMemref::getConstStride. The additional parameter
 /// \p MainLoop specifies the loop being vectorized, so that we compute stride
 /// with respect to this loop.
-static bool hasAConstStrideImpl(const SCEV *Expr, int64_t *Stride,
-                                const Loop *MainLoop) {
+static Optional<int64_t> getConstStrideImpl(const SCEV *Expr,
+                                            const Loop *MainLoop) {
   if (!isa<SCEVAddRecExpr>(Expr))
-    return false;
+    return None;
 
   auto *AddRec = cast<SCEVAddRecExpr>(Expr);
 
   // FIXME: So far, computing stride for nested loop IVs is not supported. This
   // should be fixed in future patches.
   if (AddRec->getLoop() != MainLoop)
-    return false;
+    return None;
 
   if (!AddRec->isAffine())
-    return false;
+    return None;
 
   assert(AddRec->getNumOperands() == 2 &&
          "Affine SCEV is expected to have only two operands");
 
-  if (auto *ConstStep = dyn_cast<SCEVConstant>(AddRec->getOperand(1))) {
-    writeSignedAPInt(Stride, ConstStep->getAPInt());
-    return true;
-  }
+  if (auto *ConstStep = dyn_cast<SCEVConstant>(AddRec->getOperand(1)))
+    return ConstStep->getAPInt().getSExtValue();
 
-  return false;
+  return None;
 }
 
-static bool isAConstDistanceFromImpl(const SCEV *LHS, const SCEV *RHS,
-                                     ScalarEvolution *SE, int64_t *Dist) {
+static Optional<int64_t> getConstDistanceFromImpl(const SCEV *LHS,
+                                                  const SCEV *RHS,
+                                                  ScalarEvolution *SE) {
   // computeConstantDifference has a significant advantage over getMinusSCEV: it
   // doesn't crash if LHS and RHS contain AddRecs for unrelated loops (e.g.
   // sibling loops).
   Optional<APInt> Difference = SE->computeConstantDifference(LHS, RHS);
   if (!Difference)
-    return false;
-
-  writeSignedAPInt(Dist, *Difference);
-  return true;
+    return None;
+  return Difference->getSExtValue();
 }
 
 const SCEV *VPVLSClientMemref::getSCEVForVPValue(const VPValue *Val) const {
@@ -78,18 +65,18 @@ const SCEV *VPVLSClientMemref::getSCEVForVPValue(const VPValue *Val) const {
                                     : SE->getCouldNotCompute();
 }
 
-bool VPVLSClientMemref::isAConstDistanceFrom(const OVLSMemref &From,
-                                             int64_t *Dist) {
+Optional<int64_t>
+VPVLSClientMemref::getConstDistanceFrom(const OVLSMemref &From) {
   const VPInstruction *FromInst = cast<VPVLSClientMemref>(From).Inst;
 
   // Don't waste time if memrefs are in different basic blocks. This case is not
   // supported yet.
   if (Inst->getParent() != FromInst->getParent())
-    return false;
+    return None;
 
   auto *ThisSCEV = getSCEVForVPValue(getLoadStorePointerOperand(Inst));
   auto *FromSCEV = getSCEVForVPValue(getLoadStorePointerOperand(FromInst));
-  return isAConstDistanceFromImpl(ThisSCEV, FromSCEV, VLSA->getSE(), Dist);
+  return getConstDistanceFromImpl(ThisSCEV, FromSCEV, VLSA->getSE());
 }
 
 // FIXME: This is an extremely naive implementation just to enable the most
@@ -112,8 +99,9 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
   if (isa<SCEVCouldNotCompute>(FromSCEV))
     return false;
 
-  int64_t FromStride;
-  if (!hasAConstStrideImpl(FromSCEV, &FromStride, VLSA->getMainLoop()))
+  const Loop *MainLoop = VLSA->getMainLoop();
+  Optional<int64_t> FromStride = getConstStrideImpl(FromSCEV, MainLoop);
+  if (!FromStride)
     return false;
 
   // Check if it is safe to move FromInst past every instruction between it and
@@ -162,11 +150,12 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
     if (Iter->getOpcode() == Instruction::Load ||
         Iter->getOpcode() == Instruction::Store) {
       auto *IterSCEV = getSCEVForVPValue(getLoadStorePointerOperand(Iter));
-      int64_t Distance;
 
       // Constant distance between From and Iter implies that the strides of
       // Iter and From are the same.
-      if (!isAConstDistanceFromImpl(IterSCEV, FromSCEV, SE, &Distance))
+      Optional<int64_t> Distance =
+          getConstDistanceFromImpl(IterSCEV, FromSCEV, SE);
+      if (!Distance)
         return false;
 
       Type *IterType = getLoadStoreType(Iter);
@@ -174,8 +163,8 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
       if (IterAccessSize != AccessSize)
         return false;
 
-      if (std::abs(Distance) >= AccessSize &&
-          std::abs(Distance) <= std::abs(FromStride) - AccessSize) {
+      if (std::abs(*Distance) >= AccessSize &&
+          std::abs(*Distance) <= std::abs(*FromStride) - AccessSize) {
         // Pattern has been recoginized. It is safe to move From past Iter.
         continue;
       }
@@ -188,7 +177,7 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
   llvm_unreachable("Moved past the loop supposed to return from function");
 }
 
-bool VPVLSClientMemref::hasAConstStride(int64_t *Stride) const {
+Optional<int64_t> VPVLSClientMemref::getConstStride() const {
   auto *Expr = getSCEVForVPValue(getLoadStorePointerOperand(Inst));
-  return hasAConstStrideImpl(Expr, Stride, VLSA->getMainLoop());
+  return getConstStrideImpl(Expr, VLSA->getMainLoop());
 }

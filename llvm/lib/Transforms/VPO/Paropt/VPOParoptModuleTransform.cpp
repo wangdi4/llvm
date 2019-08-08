@@ -116,10 +116,13 @@ bool VPOParoptModuleTransform::doParoptTransforms(
     std::function<vpo::WRegionInfo &(Function &F)> WRegionInfoGetter) {
 
   bool Changed = false;
-  bool IsTargetSPIRV = VPOAnalysisUtils::isTargetSPIRV(&M);
+  bool IsTargetSPIRV = VPOAnalysisUtils::isTargetSPIRV(&M) && !DisableOffload;
 
   processDeviceTriples();
-  loadOffloadMetadata();
+
+  if (!DisableOffload) {
+    loadOffloadMetadata();
+  }
 
   /// As new functions to be added, so we need to prepare the
   /// list of functions we want to work on in advance.
@@ -175,14 +178,14 @@ bool VPOParoptModuleTransform::doParoptTransforms(
     LLVM_DEBUG(dbgs() << "\n=== VPOParoptPass before ParoptTransformer{\n");
 
     // AUTOPAR | OPENMP | SIMD | OFFLOAD
-    VPOParoptTransform VP(this, F, &WI, WI.getDomTree(), WI.getLoopInfo(),
-                          WI.getSE(), WI.getTargetTransformInfo(),
-                          WI.getAssumptionCache(), WI.getTargetLibraryInfo(),
-                          WI.getAliasAnalysis(), Mode,
+    VPOParoptTransform VP(
+        this, F, &WI, WI.getDomTree(), WI.getLoopInfo(), WI.getSE(),
+        WI.getTargetTransformInfo(), WI.getAssumptionCache(),
+        WI.getTargetLibraryInfo(), WI.getAliasAnalysis(), Mode,
 #if INTEL_CUSTOMIZATION
-                          ORVerbosity,
+        ORVerbosity,
 #endif // INTEL_CUSTOMIZATION
-                          WI.getORE(), OptLevel, SwitchToOffload);
+        WI.getORE(), OptLevel, SwitchToOffload, DisableOffload);
     Changed = Changed | VP.paroptTransforms();
 
     LLVM_DEBUG(dbgs() << "\n}=== VPOParoptPass after ParoptTransformer\n");
@@ -203,37 +206,39 @@ bool VPOParoptModuleTransform::doParoptTransforms(
   if ((Mode & OmpPar) && (Mode & ParTrans))
     fixTidAndBidGlobals();
 
-  if (!hasOffloadCompilation())
-    // Generate offload initialization code.
-    genOffloadingBinaryDescriptorRegistration();
+  if (!DisableOffload) {
+    if (!hasOffloadCompilation())
+      // Generate offload initialization code.
+      genOffloadingBinaryDescriptorRegistration();
 
-  // Emit offload entries table.
-  Changed |= genOffloadEntries();
+    // Emit offload entries table.
+    Changed |= genOffloadEntries();
 
-  if (hasOffloadCompilation() && (Mode & ParTrans)) {
-    removeTargetUndeclaredGlobals();
-    if (IsTargetSPIRV) {
-      // Add the metadata to indicate that the module is OpenCL C++ version.
-      // enum SourceLanguage {
-      //    SourceLanguageUnknown = 0,
-      //    SourceLanguageESSL = 1,
-      //    SourceLanguageGLSL = 2,
-      //    SourceLanguageOpenCL_C = 3,
-      //    SourceLanguageOpenCL_CPP = 4,
-      //    SourceLanguageHLSL = 5,
-      //    SourceLanguageMax = 0x7fffffff,
-      // };
-      // The compiler has to set the source type as SourceLanguageOpenCL_CPP.
-      // Otherwise the spirv code generation will convert mangled
-      // function name into OCL builtin function.
+    if (hasOffloadCompilation() && (Mode & ParTrans)) {
+      removeTargetUndeclaredGlobals();
+      if (IsTargetSPIRV) {
+        // Add the metadata to indicate that the module is OpenCL C++ version.
+        // enum SourceLanguage {
+        //    SourceLanguageUnknown = 0,
+        //    SourceLanguageESSL = 1,
+        //    SourceLanguageGLSL = 2,
+        //    SourceLanguageOpenCL_C = 3,
+        //    SourceLanguageOpenCL_CPP = 4,
+        //    SourceLanguageHLSL = 5,
+        //    SourceLanguageMax = 0x7fffffff,
+        // };
+        // The compiler has to set the source type as SourceLanguageOpenCL_CPP.
+        // Otherwise the spirv code generation will convert mangled
+        // function name into OCL builtin function.
 
-      if (!M.getNamedMetadata("spirv.Source")) {
-        SmallVector<Metadata *, 8> opSource = {
-            ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(C), 4)),
-            ConstantAsMetadata::get(
-                ConstantInt::get(Type::getInt32Ty(C), 200000))};
-        MDNode *srcMD = MDNode::get(C, opSource);
-        M.getOrInsertNamedMetadata("spirv.Source")->addOperand(srcMD);
+        if (!M.getNamedMetadata("spirv.Source")) {
+          SmallVector<Metadata *, 8> opSource = {
+              ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(C), 4)),
+              ConstantAsMetadata::get(
+                  ConstantInt::get(Type::getInt32Ty(C), 200000))};
+          MDNode *srcMD = MDNode::get(C, opSource);
+          M.getOrInsertNamedMetadata("spirv.Source")->addOperand(srcMD);
+        }
       }
     }
   }

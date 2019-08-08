@@ -1325,6 +1325,12 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         break;
       case WRegionNode::WRNTarget:
+        if (DisableOffload) {
+          // Ignore TARGET construct
+          LLVM_DEBUG(dbgs()<<"VPO: Ignored " << W->getName() << " construct\n");
+          RemoveDirectives = true;
+          break;
+        }
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
           // Override function linkage for the target compilation to prevent
@@ -1351,6 +1357,12 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNTargetEnterData:
       case WRegionNode::WRNTargetExitData:
       case WRegionNode::WRNTargetUpdate:
+        if (DisableOffload) {
+          // Ignore TARGET UPDATE and TARGET ENTER/EXIT DATA constructs
+          LLVM_DEBUG(dbgs()<<"VPO: Ignored " << W->getName() << " construct\n");
+          RemoveDirectives = true;
+          break;
+        }
         // These constructs do not have to be transformed during
         // the target compilation, hence, hasOffloadCompilation()
         // check below.
@@ -1375,6 +1387,12 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         break;
       case WRegionNode::WRNTargetData:
+        if (DisableOffload) {
+          // Ignore TARGET DATA construct
+          LLVM_DEBUG(dbgs()<<"VPO: Ignored " << W->getName() << " construct\n");
+          RemoveDirectives = true;
+          break;
+        }
         // This construct does not have to be transformed during
         // the target compilation, hence, hasOffloadCompilation()
         // check below.
@@ -1400,6 +1418,12 @@ bool VPOParoptTransform::paroptTransforms() {
       //    E.g., simd, taskgroup, atomic, for, sections, etc.
 
       case WRegionNode::WRNTargetVariant:
+        if (DisableOffload) {
+          // Ignore TARGET VARIANT DISPATCH construct
+          LLVM_DEBUG(dbgs()<<"VPO: Ignored " << W->getName() << " construct\n");
+          RemoveDirectives = true;
+          break;
+        }
         // The target variant dispatch construct does not need outlining so
         // it is codegen'ed during the Prepare phase of the HOST compilation
         if (Mode & ParPrepare) {
