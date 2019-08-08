@@ -286,6 +286,7 @@
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Intel_VPO/VPODirectiveCleanup.h"
+#include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #endif //INTEL_CUSTOMIZATION
 using namespace llvm;
 using namespace llvm::llvm_intel_wp_analysis;  // INTEL

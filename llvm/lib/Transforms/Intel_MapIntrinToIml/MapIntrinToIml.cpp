@@ -81,8 +81,8 @@ MapIntrinToIml::MapIntrinToIml() : FunctionPass(ID) {
 // "precision"
 // "valid-status-bits"
 
-void MapIntrinToIml::addAttributeToList(ImfAttr **List, ImfAttr **Tail,
-                                        ImfAttr *Attr) {
+void MapIntrinToImlImpl::addAttributeToList(ImfAttr **List, ImfAttr **Tail,
+                                            ImfAttr *Attr) {
   if (*Tail)
     (*Tail)->next = Attr;
   else
@@ -91,7 +91,7 @@ void MapIntrinToIml::addAttributeToList(ImfAttr **List, ImfAttr **Tail,
   *Tail = Attr;
 }
 
-void MapIntrinToIml::deleteAttributeList(ImfAttr **List) {
+void MapIntrinToImlImpl::deleteAttributeList(ImfAttr **List) {
   ImfAttr *Attr = *List;
 
   while (Attr) {
@@ -105,7 +105,7 @@ void MapIntrinToIml::deleteAttributeList(ImfAttr **List) {
 // iml_accuracy_interface.c is declared static. TODO: find out if this
 // can be changed so that we can reference it directly to avoid having
 // to maintain two pieces of code.
-bool MapIntrinToIml::isValidIMFAttribute(std::string AttrName) {
+bool MapIntrinToImlImpl::isValidIMFAttribute(std::string AttrName) {
   if (AttrName == "absolute-error" || AttrName == "accuracy-bits" ||
       AttrName == "accuracy-bits-128" || AttrName == "accuracy-bits-32" ||
       AttrName == "accuracy-bits-64" || AttrName == "accuracy-bits-80" ||
@@ -117,10 +117,10 @@ bool MapIntrinToIml::isValidIMFAttribute(std::string AttrName) {
   return false;
 }
 
-unsigned MapIntrinToIml::calculateNumReturns(TargetTransformInfo *TTI,
-                                             unsigned TypeBitWidth,
-                                             unsigned LogicalVL,
-                                             unsigned *TargetVL) {
+unsigned MapIntrinToImlImpl::calculateNumReturns(TargetTransformInfo *TTI,
+                                                 unsigned TypeBitWidth,
+                                                 unsigned LogicalVL,
+                                                 unsigned *TargetVL) {
   unsigned VectorBitWidth = TTI->getRegisterBitWidth(true);
   *TargetVL = VectorBitWidth / TypeBitWidth;
   unsigned NumRet = LogicalVL / *TargetVL;
@@ -138,7 +138,7 @@ unsigned MapIntrinToIml::calculateNumReturns(TargetTransformInfo *TTI,
   return NumRet;
 }
 
-void MapIntrinToIml::splitArgs(
+void MapIntrinToImlImpl::splitArgs(
     SmallVectorImpl<Value *> &Args,
     SmallVectorImpl<SmallVector<Value *, 8>> &NewArgs, unsigned NumRet,
     unsigned TargetVL) {
@@ -192,7 +192,7 @@ void MapIntrinToIml::splitArgs(
   }
 }
 
-void MapIntrinToIml::createImfAttributeList(CallInst *CI, ImfAttr **List) {
+void MapIntrinToImlImpl::createImfAttributeList(CallInst *CI, ImfAttr **List) {
 
   // Tail of the linked list of IMF attributes. The head of the list is
   // passed in from the caller via the List parameter.
@@ -273,10 +273,9 @@ void MapIntrinToIml::createImfAttributeList(CallInst *CI, ImfAttr **List) {
   // end debug
 }
 
-FunctionType *
-MapIntrinToIml::legalizeFunctionTypes(FunctionType *FT,
-                                      SmallVectorImpl<Value *> &Args,
-                                      unsigned TargetVL, StringRef FuncName) {
+FunctionType *MapIntrinToImlImpl::legalizeFunctionTypes(
+    FunctionType *FT, SmallVectorImpl<Value *> &Args, unsigned TargetVL,
+    StringRef FuncName) {
   // New type legalized argument types.
   SmallVector<Type *, 8> NewArgTypes;
 
@@ -332,7 +331,7 @@ MapIntrinToIml::legalizeFunctionTypes(FunctionType *FT,
   return LegalFT;
 }
 
-void MapIntrinToIml::generateMathLibCalls(
+void MapIntrinToImlImpl::generateMathLibCalls(
     unsigned NumRet, FunctionCallee Func,
     SmallVectorImpl<SmallVector<Value *, 8>> &Args,
     SmallVectorImpl<Instruction *> &Calls, Instruction **InsertPt) {
@@ -354,10 +353,10 @@ void MapIntrinToIml::generateMathLibCalls(
   }
 }
 
-Instruction*
-MapIntrinToIml::combineCallResults(unsigned NumRet,
-                                   SmallVectorImpl<Instruction *> &WorkList,
-                                   Instruction **InsertPt) {
+Instruction *
+MapIntrinToImlImpl::combineCallResults(unsigned NumRet,
+                                       SmallVectorImpl<Instruction *> &WorkList,
+                                       Instruction **InsertPt) {
 
   // The initial number of elements for the first shuffle is NumElems. As we
   // go, this number is adjusted up for the increasing size of vectors used in
@@ -452,9 +451,9 @@ MapIntrinToIml::combineCallResults(unsigned NumRet,
   return CombinedShuffle;
 }
 
-LoadStoreMode MapIntrinToIml::getLoadStoreModeForArg(AttributeList &AL,
-                                                     unsigned ArgNo,
-                                                     StringRef &AttrValStr) {
+LoadStoreMode
+MapIntrinToImlImpl::getLoadStoreModeForArg(AttributeList &AL, unsigned ArgNo,
+                                           StringRef &AttrValStr) {
 
   AttributeSet ParamAttrs = AL.getParamAttributes(ArgNo);
   if (ParamAttrs.hasAttribute("stride")) {
@@ -475,12 +474,9 @@ LoadStoreMode MapIntrinToIml::getLoadStoreModeForArg(AttributeList &AL,
   }
 }
 
-void MapIntrinToIml::generateSinCosStore(CallInst *VectorCall,
-                                         Instruction *ResultVector,
-                                         unsigned NumElemsToStore,
-                                         unsigned TargetVL,
-                                         unsigned StorePtrIdx,
-                                         Instruction **InsertPt) {
+void MapIntrinToImlImpl::generateSinCosStore(
+    CallInst *VectorCall, Instruction *ResultVector, unsigned NumElemsToStore,
+    unsigned TargetVL, unsigned StorePtrIdx, Instruction **InsertPt) {
 
   // For __svml_sincos calls, the result vector is always 2x that of the input
   // vector.
@@ -593,7 +589,7 @@ void MapIntrinToIml::generateSinCosStore(CallInst *VectorCall,
   }
 }
 
-bool MapIntrinToIml::isLessThanFullVector(Type *ValType, Type *LegalType) {
+bool MapIntrinToImlImpl::isLessThanFullVector(Type *ValType, Type *LegalType) {
 
   VectorType *ValVecType = dyn_cast<VectorType>(ValType);
   VectorType *LegalVecType = dyn_cast<VectorType>(LegalType);
@@ -606,7 +602,7 @@ bool MapIntrinToIml::isLessThanFullVector(Type *ValType, Type *LegalType) {
   return false;
 }
 
-void MapIntrinToIml::generateNewArgsFromPartialVectors(
+void MapIntrinToImlImpl::generateNewArgsFromPartialVectors(
     CallInst *CI, FunctionType *FT, unsigned TargetVL,
     SmallVectorImpl<Value *> &NewArgs, Instruction *InsertPt) {
 
@@ -663,9 +659,9 @@ void MapIntrinToIml::generateNewArgsFromPartialVectors(
   }
 }
 
-Instruction *MapIntrinToIml::extractElemsFromVector(Value *Reg,
-                                                    unsigned StartPos,
-                                                    unsigned NumElems) {
+Instruction *MapIntrinToImlImpl::extractElemsFromVector(Value *Reg,
+                                                        unsigned StartPos,
+                                                        unsigned NumElems) {
   Type *RegType = Reg->getType();
   assert(RegType->isVectorTy() && "Expected vector register type for extract");
 
@@ -719,14 +715,14 @@ Instruction *MapIntrinToIml::extractElemsFromVector(Value *Reg,
 // - this is ok because __svml_sincos expects two pointers for each sin/cos
 //   result.
 //
-// For cases 1 and 3, we unfortunately need special logic to determine the 
+// For cases 1 and 3, we unfortunately need special logic to determine the
 // correct call type information. sincos is void, but the incoming vector call
 // will be transformed to an svml call that returns a 2x wide vector based on
 // the type of the 1st argument of the call signature. For ilogb, the number
 // of elements returned is the number of elements indicated by the 1st argument
 // since it is 2x the size of the return. Case 2 will work as is.
 
-VectorType *MapIntrinToIml::getCallType(CallInst *CI) {
+VectorType *MapIntrinToImlImpl::getCallType(CallInst *CI) {
 
   Function *CalledFunc = CI->getCalledFunction();
   StringRef FuncName = CalledFunc->getName();
@@ -745,8 +741,10 @@ VectorType *MapIntrinToIml::getCallType(CallInst *CI) {
     return dyn_cast<VectorType>(CallRetType);
 }
 
-void MapIntrinToIml::scalarizeVectorCall(CallInst *CI, StringRef LibFuncName,
-                                         unsigned LogicalVL, Type *ElemType) {
+void MapIntrinToImlImpl::scalarizeVectorCall(CallInst *CI,
+                                             StringRef LibFuncName,
+                                             unsigned LogicalVL,
+                                             Type *ElemType) {
   SmallVector<Type *, 4> FTArgTypes;
 
   FunctionType *IntrinFT = CI->getFunctionType();
@@ -823,15 +821,15 @@ void MapIntrinToIml::scalarizeVectorCall(CallInst *CI, StringRef LibFuncName,
 // a void return type and reference args (number depending on mask, etc.):
 //  call void @__svml_sincosf4( <4 x float>, <4 x float*>, <4 x float*>)
 // This pass must convert to the actual SVML call with a wide-vector return.
-bool MapIntrinToIml::isSincosRefArg(StringRef FuncName, FunctionType *FT) {
+bool MapIntrinToImlImpl::isSincosRefArg(StringRef FuncName, FunctionType *FT) {
   if (!FuncName.startswith("__svml_sincos"))
     return false;
   return FT->getReturnType()->isVoidTy() && (FT->getNumParams() > 1);
 }
 
-const char *MapIntrinToIml::findX86Variant(CallInst *CI, StringRef FuncName,
-                                           unsigned LogicalVL,
-                                           unsigned TargetVL) {
+const char *MapIntrinToImlImpl::findX86Variant(CallInst *CI, StringRef FuncName,
+                                               unsigned LogicalVL,
+                                               unsigned TargetVL) {
 
   StringRef DataType;
   std::string TargetVLString = std::to_string(TargetVL);
@@ -872,8 +870,8 @@ const char *MapIntrinToIml::findX86Variant(CallInst *CI, StringRef FuncName,
   return VariantFuncName;
 }
 
-StringRef MapIntrinToIml::getScalarFunctionName(StringRef FuncName,
-                                                unsigned LogicalVL) {
+StringRef MapIntrinToImlImpl::getScalarFunctionName(StringRef FuncName,
+                                                    unsigned LogicalVL) {
 
   // Incoming FuncName is something like '__svml_sinf4'. Removing the '__svml_'
   // prefix and logical vl from the end yields the scalar lib name.
@@ -903,7 +901,21 @@ static Instruction *findExtract(Instruction *I, unsigned Idx) {
 }
 
 bool MapIntrinToIml::runOnFunction(Function &F) {
+  if (skipFunction(F))
+    return false;
+  auto *TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
+  return Impl.runImpl(F, TTI);
+}
 
+PreservedAnalyses MapIntrinToImlPass::run(Function &F,
+                                          FunctionAnalysisManager &AM) {
+  auto *TTI = &AM.getResult<TargetIRAnalysis>(F);
+  if (!Impl.runImpl(F, TTI))
+    return PreservedAnalyses::all();
+  return PreservedAnalyses::none();
+}
+
+bool MapIntrinToImlImpl::runImpl(Function &F, TargetTransformInfo *TTI) {
   LLVM_DEBUG(dbgs() << "\nExecuting MapIntrinToIml ...\n\n");
   if (RunSvmlStressMode) {
     LLVM_DEBUG(dbgs() << "Stress Testing Mode Invoked - svml calls will be "
@@ -912,11 +924,6 @@ bool MapIntrinToIml::runOnFunction(Function &F) {
 
   Func = &F;
   M = F.getParent();
-
-  // Use TTI to provide information on the legal vector register size for the
-  // target.
-  TargetTransformInfo *TTI =
-      &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
 
   const DataLayout DL = M->getDataLayout();
 
@@ -1305,5 +1312,7 @@ char MapIntrinToIml::ID = 0;
 static const char lv_name[] = "MapIntrinToIml";
 INITIALIZE_PASS_BEGIN(MapIntrinToIml, SV_NAME, lv_name,
                       false /* modifies CFG */, false /* transform pass */)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_END(MapIntrinToIml, SV_NAME, lv_name,
                     false /* modififies CFG */, false /* transform pass */)
