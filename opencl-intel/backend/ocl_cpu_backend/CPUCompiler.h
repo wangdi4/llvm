@@ -58,6 +58,7 @@ public:
 
     void SetObjectCache(ObjectCodeCache* pCache) override;
 
+    void SetBuiltinModules(const std::string& cpuName, const std::string& cpuFeatures) override;
 protected:
     // Returns a list of pointers to the RTL library modules
     llvm::SmallVector<llvm::Module*, 2> GetBuiltinModuleList() const override;
