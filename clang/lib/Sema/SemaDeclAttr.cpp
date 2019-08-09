@@ -4962,6 +4962,12 @@ void Sema::IntelFPGAAddOneConstantValueAttr(SourceRange AttrRange, Decl *D,
     E = ICE.get();
   }
 
+  if (IntelFPGAMaxPrivateCopiesAttr::classof(&TmpAttr)) {
+    if (!D->hasAttr<IntelFPGAMemoryAttr>())
+      D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
+          Context, IntelFPGAMemoryAttr::Default));
+  }
+
   D->addAttr(::new (Context)
                  AttrType(AttrRange, Context, E, SpellingListIndex));
 }
@@ -6194,6 +6200,11 @@ static void handleTypeTagForDatatypeAttr(Sema &S, Decl *D,
 template <typename AttrType, typename IncompatAttrType>
 static void handleIntelFPGAPumpAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
 
+#if INTEL_CUSTOMIZATION
+  if (checkValidSYCLSpelling(S, Attr))
+   return;
+#endif // INTEL_CUSTOMIZATION
+
   checkForDuplicateAttribute<AttrType>(S, D, Attr);
   if (checkAttrMutualExclusion<IncompatAttrType>(S, D, Attr))
     return;
@@ -6212,6 +6223,11 @@ static void handleIntelFPGAPumpAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
 /// This is incompatible with the [[intelfpga::register]] attribute.
 static void handleIntelFPGAMemoryAttr(Sema &S, Decl *D,
                                       const ParsedAttr &Attr) {
+
+#if INTEL_CUSTOMIZATION
+  if (checkValidSYCLSpelling(S, Attr))
+   return;
+#endif // INTEL_CUSTOMIZATION
 
   checkForDuplicateAttribute<IntelFPGAMemoryAttr>(S, D, Attr);
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
@@ -6258,6 +6274,8 @@ static bool checkIntelFPGARegisterAttrCompatibility(Sema &S, Decl *D,
     InCompat = true;
   if (checkAttrMutualExclusion<IntelFPGABankWidthAttr>(S, D, Attr))
     InCompat = true;
+  if (checkAttrMutualExclusion<IntelFPGAMaxPrivateCopiesAttr>(S, D, Attr))
+    InCompat = true;
   if (auto *NBA = D->getAttr<IntelFPGANumBanksAttr>())
     if (!NBA->isImplicit() &&
         checkAttrMutualExclusion<IntelFPGANumBanksAttr>(S, D, Attr))
@@ -6294,6 +6312,11 @@ static bool checkIntelFPGARegisterAttrCompatibility(Sema &S, Decl *D,
 static void handleIntelFPGARegisterAttr(Sema &S, Decl *D,
                                         const ParsedAttr &Attr) {
 
+#if INTEL_CUSTOMIZATION
+  if (checkValidSYCLSpelling(S, Attr))
+   return;
+#endif // INTEL_CUSTOMIZATION
+
   checkForDuplicateAttribute<IntelFPGARegisterAttr>(S, D, Attr);
   if (checkIntelFPGARegisterAttrCompatibility(S, D, Attr))
     return;
@@ -6310,11 +6333,27 @@ template <typename AttrType>
 static void
 handleIntelFPGAOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
                                             const ParsedAttr &Attr) {
+#if INTEL_CUSTOMIZATION
+  if (checkValidSYCLSpelling(S, Attr))
+   return;
+#endif // INTEL_CUSTOMIZATION
+
   checkForDuplicateAttribute<AttrType>(S, D, Attr);
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
     return;
 
   S.IntelFPGAAddOneConstantPowerTwoValueAttr<AttrType>(
+      Attr.getRange(), D, Attr.getArgAsExpr(0),
+      Attr.getAttributeSpellingListIndex());
+}
+
+static void handleIntelFPGAMaxPrivateCopiesAttr(Sema &S, Decl *D,
+                                                const ParsedAttr &Attr) {
+  checkForDuplicateAttribute<IntelFPGAMaxPrivateCopiesAttr>(S, D, Attr);
+  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
+    return;
+
+  S.IntelFPGAAddOneConstantValueAttr<IntelFPGAMaxPrivateCopiesAttr>(
       Attr.getRange(), D, Attr.getArgAsExpr(0),
       Attr.getAttributeSpellingListIndex());
 }
@@ -8159,6 +8198,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_Flatten:
     handleSimpleAttribute<FlattenAttr>(S, D, AL);
     break;
+  case ParsedAttr::AT_SYCLKernel:
+    handleSimpleAttribute<SYCLKernelAttr>(S, D, AL);
+    break;
   case ParsedAttr::AT_Format:
     handleFormatAttr(S, D, AL);
     break;
@@ -8697,6 +8739,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_IntelFPGANumBanks:
     handleIntelFPGAOneConstantPowerTwoValueAttr<IntelFPGANumBanksAttr>(S, D, AL);
     break;
+  case ParsedAttr::AT_IntelFPGAMaxPrivateCopies:
+    handleIntelFPGAMaxPrivateCopiesAttr(S, D, AL);
+    break;
 #if INTEL_CUSTOMIZATION
   case ParsedAttr::AT_VecLenHint:
     handleVecLenHint(S, D, AL);
@@ -8942,8 +8987,10 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
       }
 #endif // INTEL_CUSTOMIZATION
     } else if (const auto *A = D->getAttr<IntelReqdSubGroupSizeAttr>()) {
-      Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
-      D->setInvalidDecl();
+      if (!getLangOpts().SYCLIsDevice) {
+        Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
+        D->setInvalidDecl();
+      }
     } else if (!D->hasAttr<CUDAGlobalAttr>()) {
       if (const auto *A = D->getAttr<AMDGPUFlatWorkGroupSizeAttr>()) {
         Diag(D->getLocation(), diag::err_attribute_wrong_decl_type)
