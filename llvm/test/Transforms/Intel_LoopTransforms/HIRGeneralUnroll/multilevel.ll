@@ -47,7 +47,6 @@
 ; CHECK: br i1 %condloop{{.*}}, label %loop{{.*}}, label %afterloop{{.*}}
 ; No modification in Remainder loop
 ; CHECK: mul i64 2
-; CHECK: add i64 {{.*}}, -1
 
 ; Check the proper optreport is emitted for Partially Unrolled loop with remainder.
 ; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
