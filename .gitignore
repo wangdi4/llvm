@@ -46,6 +46,7 @@ autoconf/autom4te.cache
 # CLion project configuration
 /.idea
 # External projects
+/external
 /llvm-spirv
 /ocl-cclang
 /opencl
