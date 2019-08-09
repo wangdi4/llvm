@@ -43220,10 +43220,6 @@ static SDValue combineFMADDSUB(SDNode *N, SelectionDAG &DAG,
 // become a vperm2i128.
 static SDValue combineZExt8i32Concat8i8(SDNode *N, SelectionDAG &DAG,
                                          const X86Subtarget &Subtarget) {
-  // We don't need to do this if v8i8 is legalized via widening.
-  if (ExperimentalVectorWideningLegalization)
-    return SDValue();
-
   if (!Subtarget.hasAVX2())
     return SDValue();
 
