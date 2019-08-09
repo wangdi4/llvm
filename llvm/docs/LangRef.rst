@@ -5993,7 +5993,6 @@ The attributes in this metadata is added to all followup loops of the
 loop distribution pass. See
 :ref:`Transformation Metadata <transformation-metadata>` for details.
 
-<<<<<<< HEAD
 .. INTEL_CUSTOMIZATION
 
 '``llvm.loop.intel.loopcount*``'
@@ -6068,7 +6067,7 @@ The metadata is an optimization hint.
    !0 = !{!"llvm.loop.intel.loopcount_average", i32 7}
 
 .. END INTEL_CUSTOMIZATION
-=======
+
 '``llvm.licm.disable``' Metadata
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -6082,7 +6081,6 @@ performed on this loop. The metadata has a single operand which is the string
 
 Note that although it operates per loop it isn't given the llvm.loop prefix
 as it is not affected by the ``llvm.loop.disable_nonforced`` metadata.
->>>>>>> 4f64f1ba3c540cddbcf3f7f5e5b8a2fd9ebbb416
 
 '``llvm.access.group``' Metadata
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
