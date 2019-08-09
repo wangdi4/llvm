@@ -64,8 +64,8 @@ static void findPipeStorageGlobals(Module *M,
   for (auto &GV : M->globals()) {
     if (GV.getType() == StoragePtrTy) {
       LLVM_DEBUG(dbgs() << "Found SYCL pipe storage: " << GV << "\n");
+      StorageVars.push_back(&GV);
     }
-    StorageVars.push_back(&GV);
   }
 }
 
