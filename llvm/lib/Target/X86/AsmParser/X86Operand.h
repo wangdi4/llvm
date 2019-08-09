@@ -278,20 +278,6 @@ struct X86Operand final : public MCParsedAsmOperand {
     return isImmUnsignedi8Value(CE->getValue());
   }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  bool isImmUnsignedi4() const {
-    if (!isImm()) return false;
-    // If this isn't a constant expr, just assume it fits and let relaxation
-    // handle it.
-    const MCConstantExpr *CE = dyn_cast<MCConstantExpr>(getImm());
-    if (!CE) return true;
-    uint64_t x = CE->getValue();
-    return x == (x & 15);
-  }
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
-
   bool isOffsetOf() const override {
     return OffsetOfLoc.getPointer();
   }

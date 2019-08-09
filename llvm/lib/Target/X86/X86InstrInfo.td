@@ -700,17 +700,6 @@ def ImmUnsignedi8AsmOperand : AsmOperandClass {
   let RenderMethod = "addImmOperands";
 }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-// Unsigned immediate used by IceCode instructions
-// [0, 0xF]
-def ImmUnsignedi4AsmOperand : AsmOperandClass {
-  let Name = "ImmUnsignedi4";
-  let RenderMethod = "addImmOperands";
-}
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
-
 // A couple of more descriptive operand definitions.
 // 16-bits but only 8 bits are significant.
 def i16i8imm  : Operand<i16> {
