@@ -15213,15 +15213,7 @@ CreateNewDecl:
         if (getLangOpts().MSVCCompat)
           DiagID = diag::ext_ms_forward_ref_enum;
         else if (getLangOpts().CPlusPlus)
-#if INTEL_CUSTOMIZATION
-        {
-          // CQ#365886 - emit an extension warning in IntelCompat mode
-          if (getLangOpts().IntelCompat)
-            DiagID = diag::ext_intel_forward_ref_enum;
-          else
             DiagID = diag::err_forward_ref_enum;
-        }
-#endif // INTEL_CUSTOMIZATION
         Diag(Loc, DiagID);
       }
     }

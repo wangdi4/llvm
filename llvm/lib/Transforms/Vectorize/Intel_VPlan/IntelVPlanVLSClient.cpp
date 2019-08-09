@@ -59,24 +59,36 @@ static Optional<int64_t> getConstDistanceFromImpl(const SCEV *LHS,
   return Difference->getSExtValue();
 }
 
+// FIXME: It is not safe to call this method after we start modifying IR, as
+//        modifying IR invalidates ScalarEvolution. It'd be better to remove
+//        this method, but it is still used in canMoveTo.
 const SCEV *VPVLSClientMemref::getSCEVForVPValue(const VPValue *Val) const {
   ScalarEvolution *SE = VLSA->getSE();
   return Val->isUnderlyingIRValid() ? SE->getSCEV(Val->getUnderlyingValue())
                                     : SE->getCouldNotCompute();
 }
 
+VPVLSClientMemref::VPVLSClientMemref(const OVLSMemrefKind &Kind,
+                                     const OVLSAccessType &AccTy,
+                                     const OVLSType &Ty,
+                                     const VPInstruction *Inst,
+                                     const VPlanVLSAnalysis *VLSA)
+    : OVLSMemref(Kind, Ty, AccTy), Inst(Inst), VLSA(VLSA) {
+  if (Kind == OVLSMemref::VLSK_VPlanVLSClientMemref)
+    ScevExpr = getSCEVForVPValue(getLoadStorePointerOperand(Inst));
+}
+
 Optional<int64_t>
 VPVLSClientMemref::getConstDistanceFrom(const OVLSMemref &From) {
   const VPInstruction *FromInst = cast<VPVLSClientMemref>(From).Inst;
+  const SCEV *FromScev = cast<VPVLSClientMemref>(From).ScevExpr;
 
   // Don't waste time if memrefs are in different basic blocks. This case is not
   // supported yet.
   if (Inst->getParent() != FromInst->getParent())
     return None;
 
-  auto *ThisSCEV = getSCEVForVPValue(getLoadStorePointerOperand(Inst));
-  auto *FromSCEV = getSCEVForVPValue(getLoadStorePointerOperand(FromInst));
-  return getConstDistanceFromImpl(ThisSCEV, FromSCEV, VLSA->getSE());
+  return getConstDistanceFromImpl(ScevExpr, FromScev, VLSA->getSE());
 }
 
 // FIXME: This is an extremely naive implementation just to enable the most
@@ -85,6 +97,7 @@ VPVLSClientMemref::getConstDistanceFrom(const OVLSMemref &From) {
 bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
   const VPInstruction *ToInst = cast<VPVLSClientMemref>(ToMemRef).Inst;
   const VPInstruction *FromInst = Inst;
+  const SCEV *FromSCEV = ScevExpr;
 
   // At this point, only same block movement is supported.
   if (ToInst->getParent() != FromInst->getParent())
@@ -94,8 +107,6 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
   Type *AccessType = getLoadStoreType(FromInst);
   int64_t AccessSize = VLSA->getDL().getTypeStoreSize(AccessType);
 
-  const SCEV *FromSCEV =
-      getSCEVForVPValue(getLoadStorePointerOperand(FromInst));
   if (isa<SCEVCouldNotCompute>(FromSCEV))
     return false;
 
@@ -178,6 +189,5 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
 }
 
 Optional<int64_t> VPVLSClientMemref::getConstStride() const {
-  auto *Expr = getSCEVForVPValue(getLoadStorePointerOperand(Inst));
-  return getConstStrideImpl(Expr, VLSA->getMainLoop());
+  return getConstStrideImpl(ScevExpr, VLSA->getMainLoop());
 }

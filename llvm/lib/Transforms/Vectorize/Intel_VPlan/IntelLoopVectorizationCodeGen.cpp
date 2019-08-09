@@ -2906,6 +2906,20 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     VPWidenMap[VPInst] = V;
     return;
   }
+  case Instruction::Store: {
+    Value *VecPtr = getVectorValue(VPInst->getOperand(1));
+    Value *VecDataOp = getVectorValue(VPInst->getOperand(0));
+    Type *PtrToElemTy = VecPtr->getType()->getVectorElementType();
+    Type *ElemTy = PtrToElemTy->getPointerElementType();
+    VectorType *DesiredDataTy = getWidenedType(ElemTy, VF);
+    VecDataOp = Builder.CreateBitCast(VecDataOp, DesiredDataTy, "cast");
+
+    // TODO: Without underlying store, we will choose align=1.
+    unsigned Alignment = getOriginalLoadStoreAlignment(VPInst);
+    Builder.CreateMaskedScatter(VecDataOp, VecPtr, Alignment, MaskValue);
+    return;
+  }
+
   default:
     llvm_unreachable("Unexpected VPInstruction");
   }

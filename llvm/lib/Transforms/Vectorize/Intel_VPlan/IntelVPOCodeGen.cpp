@@ -623,6 +623,8 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
     Type *PtrToElemTy = VectorPtr->getType()->getVectorElementType();
     Type *ElemTy = PtrToElemTy->getPointerElementType();
     VectorType *DesiredDataTy = VectorType::get(ElemTy, VF);
+    // TODO: Verify if this bitcast should be done this late. Maybe an earlier
+    // transform can introduce it, if needed.
     VecDataOp = Builder.CreateBitCast(VecDataOp, DesiredDataTy, "cast");
 
     Builder.CreateMaskedScatter(VecDataOp, VectorPtr, Alignment, MaskValue);
