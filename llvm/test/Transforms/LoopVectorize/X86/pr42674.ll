@@ -6,7 +6,7 @@
 ; Make sure we end up with vector code for this loop. We used to try to create
 ; a VF=64,UF=4 loop, but the scalar trip count is only 128 so
 ; the vector loop was dead code leaving only a scalar remainder.
-define zeroext i8 @sum() {
+define zeroext i8 @sum() "prefer-vector-width"="512" { ;INTEL
 ; CHECK-LABEL: @sum(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
