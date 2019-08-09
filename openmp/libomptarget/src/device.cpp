@@ -188,21 +188,6 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
     // Explicit extension of mapped data - not allowed.
     DP("Explicit extension of mapping is not allowed.\n");
   } else if (Size) {
-<<<<<<< HEAD
-    // If it is not contained and Size > 0 we should create a new entry for it.
-    IsNew = true;
-#if INTEL_COLLAB
-    uintptr_t tp = (uintptr_t)data_alloc_base(Size, HstPtrBegin, HstPtrBase);
-#else
-    uintptr_t tp = (uintptr_t)RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin);
-#endif // INTEL_COLLAB
-    DP("Creating new map entry: HstBase=" DPxMOD ", HstBegin=" DPxMOD ", "
-        "HstEnd=" DPxMOD ", TgtBegin=" DPxMOD "\n", DPxPTR(HstPtrBase),
-        DPxPTR(HstPtrBegin), DPxPTR((uintptr_t)HstPtrBegin + Size), DPxPTR(tp));
-    HostDataToTargetMap.push_front(HostDataToTargetTy((uintptr_t)HstPtrBase,
-        (uintptr_t)HstPtrBegin, (uintptr_t)HstPtrBegin + Size, tp));
-    rc = (void *)tp;
-=======
     // If unified shared memory is active, implicitly mapped variables that are not
     // privatized use host address. Any explicitly mapped variables also use
     // host address where correctness is not impeded. In all other cases
@@ -217,7 +202,11 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
     } else {
       // If it is not contained and Size > 0 we should create a new entry for it.
       IsNew = true;
+#if INTEL_COLLAB
+      uintptr_t tp = (uintptr_t)data_alloc_base(Size, HstPtrBegin, HstPtrBase);
+#else
       uintptr_t tp = (uintptr_t)RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin);
+#endif // INTEL_COLLAB
       DP("Creating new map entry: HstBase=" DPxMOD ", HstBegin=" DPxMOD ", "
           "HstEnd=" DPxMOD ", TgtBegin=" DPxMOD "\n", DPxPTR(HstPtrBase),
           DPxPTR(HstPtrBegin), DPxPTR((uintptr_t)HstPtrBegin + Size), DPxPTR(tp));
@@ -225,7 +214,6 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
           (uintptr_t)HstPtrBegin, (uintptr_t)HstPtrBegin + Size, tp));
       rc = (void *)tp;
     }
->>>>>>> a1d20506e771a376e293a61e26842a906487d7ef
   }
 
   DataMapMtx.unlock();
