@@ -682,7 +682,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   }
 #if INTEL_CUSTOMIZATION
 #if INTEL_INCLUDE_DTRANS
-  // Skip MemCpyOpt when PrepareForLTO and EnableDTrans both flags are
+  // Skip MemCpyOpt when both PrepareForLTO and EnableDTrans flags are
   // true to simplify handling of memcpy/memset/memmov calls in DTrans
   // implementation.
   // TODO: Remove this customization once DTrans handled partial memcpy/
