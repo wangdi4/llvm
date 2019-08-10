@@ -196,9 +196,15 @@ public:
       NewCI->setTailCall();
     NewCI->setDebugLoc(CI->getDebugLoc());
 
-    // Replace old call instruction with updated one
-    CI->replaceAllUsesWith(NewCI);
+    // Replace old call instruction with updated one.
+    // SYCL blocking pipe built-ins unlike OpenCL has no return type, so instead
+    // of replacing usages of the old instruction - just create a new one.
     InstToRemove.push_back(CI);
+    if (CI->getType()->isVoidTy()) {
+      assert(Kind.Blocking && "Only blocking pipes can have void return type!");
+      return true;
+    }
+    CI->replaceAllUsesWith(NewCI);
 
     return true;
   }
