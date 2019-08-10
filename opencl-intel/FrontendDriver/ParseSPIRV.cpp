@@ -151,6 +151,9 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
       case spv::CapabilitySubgroupBufferBlockIOINTEL:
       case spv::CapabilitySubgroupImageBlockIOINTEL:
       case spv::CapabilityInt64Atomics:
+      // Function pointers support
+      case spv::CapabilityFunctionPointersINTEL:
+      case spv::CapabilityIndirectReferencesINTEL:
         break;
       }
     // According to logical layout defined by the SPIR-V spec. single
