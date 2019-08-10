@@ -22,7 +22,6 @@ set(LLVM_LINK_COMPONENTS
   Support
   Target
   TransformUtils
-  ASFixer
   )
 
 # INTEL_CUSTOMIZATION

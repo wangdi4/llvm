@@ -754,12 +754,7 @@ static const LangASMap *getAddressSpaceMap(const TargetInfo &T,
       4, // opencl_generic
       5, // cuda_device
       6, // cuda_constant
-      7, // cuda_shared
-      1, // sycl_global
-      3, // sycl_local
-      2, // sycl_constant
-      0, // sycl_private
-      4, // sycl_generic
+      7  // cuda_shared
     };
     return &FakeAddrSpaceMap;
   } else {
@@ -1291,7 +1286,7 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target,
   InitBuiltinType(ObjCBuiltinClassTy, BuiltinType::ObjCClass);
   InitBuiltinType(ObjCBuiltinSelTy, BuiltinType::ObjCSel);
 
-  if (LangOpts.OpenCL || LangOpts.SYCLIsDevice) {
+  if (LangOpts.OpenCL) {
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
     InitBuiltinType(SingletonId, BuiltinType::Id);
 #include "clang/Basic/OpenCLImageTypes.def"
@@ -10234,7 +10229,7 @@ CallingConv ASTContext::getDefaultCallingConvention(bool IsVariadic,
                                                     bool IsCXXMethod,
                                                     bool IsBuiltin) const {
   // Pass through to the C++ ABI object
-  if (IsCXXMethod && !LangOpts.SYCLIsDevice)
+  if (IsCXXMethod)
     return ABI->getDefaultMethodCallConv(IsVariadic);
 
   // Builtins ignore user-specified default calling convention and remain the

@@ -133,7 +133,7 @@ CodeGenModule::CodeGenModule(ASTContext &C, const HeaderSearchOptions &HSO,
 
   if (LangOpts.ObjC)
     createObjCRuntime();
-  if (LangOpts.OpenCL || LangOpts.SYCLIsDevice)
+  if (LangOpts.OpenCL)
     createOpenCLRuntime();
   if (LangOpts.OpenMP)
     createOpenMPRuntime();
@@ -636,25 +636,6 @@ void CodeGenModule::Release() {
       llvm::LLVMContext &Ctx = TheModule.getContext();
       SPIRVerMD->addOperand(llvm::MDNode::get(Ctx, SPIRVerElts));
     }
-  }
-
-  // Emit SYCL specific module metadata: OpenCL/SPIR version, OpenCL language.
-  if (LangOpts.SYCLIsDevice) {
-    llvm::LLVMContext &Ctx = TheModule.getContext();
-    llvm::Metadata *SPIRVerElts[] = {
-        llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(Int32Ty, 1)),
-        llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(Int32Ty, 2))};
-    llvm::NamedMDNode *SPIRVerMD =
-        TheModule.getOrInsertNamedMetadata("opencl.spir.version");
-    SPIRVerMD->addOperand(llvm::MDNode::get(Ctx, SPIRVerElts));
-    // We are trying to look like OpenCL C++ for SPIR-V translator.
-    // 4 - OpenCL_CPP, 100000 - OpenCL C++ version 1.0
-    llvm::Metadata *SPIRVSourceElts[] = {
-        llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(Int32Ty, 4)),
-        llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(Int32Ty, 100000))};
-    llvm::NamedMDNode *SPIRVSourceMD =
-        TheModule.getOrInsertNamedMetadata("spirv.Source");
-    SPIRVSourceMD->addOperand(llvm::MDNode::get(Ctx, SPIRVSourceElts));
   }
 
   if (uint32_t PLevel = Context.getLangOpts().PICLevel) {
@@ -2620,11 +2601,6 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
   if (Global->hasAttr<IFuncAttr>())
     return emitIFuncDefinition(GD);
 
-  if (LangOpts.SYCLIsDevice) {
-    if (!Global->hasAttr<SYCLDeviceAttr>())
-      return;
-  }
-
   // If this is a cpu_dispatch multiversion function, emit the resolver.
   if (Global->hasAttr<CPUDispatchAttr>())
     return emitCPUDispatchDefinition(GD);
@@ -4208,10 +4184,6 @@ void CodeGenModule::generateIntelFPGAAnnotation(
     llvm::APSInt BWAInt = BWA->getValue()->EvaluateKnownConstInt(getContext());
     Out << '{' << BWA->getSpelling() << ':' << BWAInt << '}';
   }
-  if (const auto *MCA = D->getAttr<IntelFPGAMaxPrivateCopiesAttr>()) {
-    llvm::APSInt MCAInt = MCA->getValue()->EvaluateKnownConstInt(getContext());
-    Out << '{' << MCA->getSpelling() << ':' << MCAInt << '}';
-  }
   if (const auto *NBA = D->getAttr<IntelFPGANumBanksAttr>()) {
     llvm::APSInt BWAInt = NBA->getValue()->EvaluateKnownConstInt(getContext());
     Out << '{' << NBA->getSpelling() << ':' << BWAInt << '}';
@@ -4392,21 +4364,6 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
   if (D->hasAttr<OMPDeclareTargetDeclAttr>())
     setHasTargetCode();
 #endif // INTEL_CUSTOMIZATION
-
-  // Emit Intel FPGA attribute annotation for a file-scope static variable.
-  if (getLangOpts().SYCLIsDevice)
-    addGlobalIntelFPGAAnnotation(D, GV);
-
-  if (D->getType().isRestrictQualified()) {
-    llvm::LLVMContext &Context = getLLVMContext();
-
-    // Common metadata nodes.
-    llvm::NamedMDNode *GlobalsRestrict =
-        getModule().getOrInsertNamedMetadata("globals.restrict");
-    llvm::Metadata *Args[] = {llvm::ValueAsMetadata::get(GV)};
-    llvm::MDNode *Node = llvm::MDNode::get(Context, Args);
-    GlobalsRestrict->addOperand(Node);
-  }
 
   // Set the llvm linkage type as appropriate.
   llvm::GlobalValue::LinkageTypes Linkage =

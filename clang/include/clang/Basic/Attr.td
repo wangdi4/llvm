@@ -302,7 +302,6 @@ def MicrosoftExt : LangOpt<"MicrosoftExt">;
 def Borland : LangOpt<"Borland">;
 def CUDA : LangOpt<"CUDA">;
 def HIP : LangOpt<"HIP">;
-def SYCL : LangOpt<"SYCLIsDevice">;
 def COnly : LangOpt<"COnly", "!LangOpts.CPlusPlus">;
 def CPlusPlus : LangOpt<"CPlusPlus">;
 def OpenCL : LangOpt<"OpenCL">;
@@ -1030,20 +1029,6 @@ def CUDAShared : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
-def SYCLDevice : InheritableAttr {
-  let Spellings = [GNU<"sycl_device">];
-  let Subjects = SubjectList<[Function, Var]>;
-  let LangOpts = [SYCL];
-  let Documentation = [Undocumented];
-}
-
-def SYCLKernel : InheritableAttr {
-  let Spellings = [GNU<"sycl_kernel">];
-  let Subjects = SubjectList<[Function]>;
-  let LangOpts = [SYCL];
-  let Documentation = [Undocumented];
-}
-
 def C11NoReturn : InheritableAttr {
   let Spellings = [Keyword<"_Noreturn">];
   let Subjects = SubjectList<[Function], ErrorDiag>;
@@ -1072,11 +1057,11 @@ def OpenCLUnrollHint : InheritableAttr {
 }
 
 def IntelReqdSubGroupSize: InheritableAttr {
-  let Spellings = [GNU<"intel_reqd_sub_group_size">, CXX11<"cl", "intel_reqd_sub_group_size">];
+  let Spellings = [GNU<"intel_reqd_sub_group_size">];
   let Args = [UnsignedArgument<"SubGroupSize">];
-  let Subjects = SubjectList<[Function, CXXMethod], ErrorDiag>;
+  let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [IntelReqdSubGroupSizeDocs];
-  let LangOpts = [OpenCL, SYCL];
+  let LangOpts = [OpenCL];
 }
 
 // This attribute is both a type attribute, and a declaration attribute (for
@@ -1425,50 +1410,6 @@ def Mode : Attr {
   let PragmaAttributeSupport = 0;
 }
 
-def SYCLIntelFPGAIVDep : Attr {
-  let Spellings = [CXX11<"intelfpga","ivdep">];
-  let Args = [IntArgument<"Safelen">];
-  let LangOpts = [SYCL];
-  let AdditionalMembers = [{
-    static const char *getName() {
-      return "ivdep";
-    }
-  }];
-  let Documentation = [SYCLIntelFPGAIVDepAttrDocs];
-}
-
-def SYCLIntelFPGAII : Attr {
-  let Spellings = [CXX11<"intelfpga","ii">];
-  let Args = [IntArgument<"Interval">];
-  let LangOpts = [SYCL];
-  let AdditionalMembers = [{
-    static const char *getName() {
-      return "ii";
-    }
-  }];
-  let Documentation = [SYCLIntelFPGAIIAttrDocs];
-}
-
-def SYCLIntelFPGAMaxConcurrency : Attr {
-  let Spellings = [CXX11<"intelfpga","max_concurrency">];
-  let Args = [IntArgument<"NThreads">];
-  let LangOpts = [SYCL];
-  let AdditionalMembers = [{
-    static const char *getName() {
-      return "max_concurrency";
-    }
-  }];
-  let Documentation = [SYCLIntelFPGAMaxConcurrencyAttrDocs];
-}
-
-def IntelFPGALocalNonConstVar : SubsetSubject<Var,
-                              [{S->hasLocalStorage() &&
-                                S->getKind() != Decl::ImplicitParam &&
-                                S->getKind() != Decl::ParmVar &&
-                                S->getKind() != Decl::NonTypeTemplateParm &&
-                                !S->getType().isConstQualified()}],
-                              "local non-const variables">;
-
 def IntelFPGAConstVar : SubsetSubject<Var,
                       [{S->getKind() != Decl::ImplicitParam &&
                         S->getKind() != Decl::ParmVar &&
@@ -1499,7 +1440,7 @@ def IntelFPGADoublePump : Attr {
   let Subjects = SubjectList<[IntelFPGAConstVar,               // INTEL
                               IntelFPGALocalStaticSlaveMemVar, // INTEL
                               Field], ErrorDiag>;
-  let LangOpts = [SYCL, OpenCL, HLS];                          // INTEL
+  let LangOpts = [OpenCL, HLS];                                // INTEL
   let Documentation = [IntelFPGADoublePumpAttrDocs];
 }
 
@@ -1509,7 +1450,7 @@ def IntelFPGASinglePump : Attr {
   let Subjects = SubjectList<[IntelFPGAConstVar,               // INTEL
                               IntelFPGALocalStaticSlaveMemVar, // INTEL
                               Field], ErrorDiag>;
-  let LangOpts = [SYCL, OpenCL, HLS];                          // INTEL
+  let LangOpts = [OpenCL, HLS];                                // INTEL
   let Documentation = [IntelFPGASinglePumpAttrDocs];
 }
 
@@ -1529,7 +1470,7 @@ def IntelFPGAMemory : Attr {
   }];
   let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticSlaveMemVar,
                               Field], ErrorDiag>;
-  let LangOpts = [SYCL, OpenCL, HLS];  // INTEL
+  let LangOpts = [OpenCL, HLS];  // INTEL
   let Documentation = [IntelFPGAMemoryAttrDocs];
 }
 
@@ -1537,7 +1478,7 @@ def IntelFPGARegister : Attr {
   let Spellings = [CXX11<"intelfpga", "register">, GNU<"register">]; // INTEL
   let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalOrStaticVar,
                               Field], ErrorDiag>;
-  let LangOpts = [SYCL, OpenCL, HLS];  // INTEL
+  let LangOpts = [OpenCL, HLS];  // INTEL
   let Documentation = [IntelFPGARegisterAttrDocs];
 }
 
@@ -1547,7 +1488,7 @@ def IntelFPGABankWidth : Attr {
   let Args = [ExprArgument<"Value">];
   let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticSlaveMemVar,
                               Field], ErrorDiag>;
-  let LangOpts = [SYCL, OpenCL, HLS]; // INTEL
+  let LangOpts = [OpenCL, HLS]; // INTEL
   let Documentation = [IntelFPGABankWidthAttrDocs];
   let AdditionalMembers = [{
     static unsigned getMinValue() {
@@ -1564,27 +1505,11 @@ def IntelFPGANumBanks : Attr {
   let Args = [ExprArgument<"Value">];
   let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticSlaveMemVar,
                               Field], ErrorDiag>;
-  let LangOpts = [SYCL, OpenCL, HLS]; // INTEL
+  let LangOpts = [OpenCL, HLS]; // INTEL
   let Documentation = [IntelFPGANumBanksAttrDocs];
   let AdditionalMembers = [{
     static unsigned getMinValue() {
       return 1;
-    }
-    static unsigned getMaxValue() {
-      return 1024*1024;
-    }
-  }];
-}
-
-def IntelFPGAMaxPrivateCopies : InheritableAttr {
-  let Spellings = [CXX11<"intelfpga","max_private_copies">];
-  let Args = [ExprArgument<"Value">];
-  let LangOpts = [SYCL];
-  let Subjects = SubjectList<[IntelFPGALocalNonConstVar, Field], ErrorDiag>;
-  let Documentation = [IntelFPGAMaxPrivateCopiesAttrDocs];
-  let AdditionalMembers = [{
-    static unsigned getMinValue() {
-      return 0;
     }
     static unsigned getMaxValue() {
       return 1024*1024;

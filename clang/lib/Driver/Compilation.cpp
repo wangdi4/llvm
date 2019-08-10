@@ -67,27 +67,25 @@ Compilation::getArgsForToolChain(const ToolChain *TC, StringRef BoundArch,
   DerivedArgList *&Entry = TCArgs[{TC, BoundArch, DeviceOffloadKind}];
   if (!Entry) {
     SmallVector<Arg *, 4> AllocatedArgs;
-    DerivedArgList *OffloadArgs = nullptr;
-    // Translate offload toolchain arguments provided via the -Xopenmp-target
-    // or -Xsycl-target flags.
-    if (DeviceOffloadKind == Action::OFK_OpenMP ||
-        DeviceOffloadKind == Action::OFK_SYCL) {
+    DerivedArgList *OpenMPArgs = nullptr;
+    // Translate OpenMP toolchain arguments provided via the -Xopenmp-target flags.
+    if (DeviceOffloadKind == Action::OFK_OpenMP) {
       const ToolChain *HostTC = getSingleOffloadToolChain<Action::OFK_Host>();
       bool SameTripleAsHost = (TC->getTriple() == HostTC->getTriple());
-      OffloadArgs = TC->TranslateOffloadTargetArgs(
-          *TranslatedArgs, SameTripleAsHost, AllocatedArgs, DeviceOffloadKind);
+      OpenMPArgs = TC->TranslateOpenMPTargetArgs(
+          *TranslatedArgs, SameTripleAsHost, AllocatedArgs);
     }
 
-    if (!OffloadArgs) {
+    if (!OpenMPArgs) {
       Entry = TC->TranslateArgs(*TranslatedArgs, BoundArch, DeviceOffloadKind);
       if (!Entry)
         Entry = TranslatedArgs;
     } else {
-      Entry = TC->TranslateArgs(*OffloadArgs, BoundArch, DeviceOffloadKind);
+      Entry = TC->TranslateArgs(*OpenMPArgs, BoundArch, DeviceOffloadKind);
       if (!Entry)
-        Entry = OffloadArgs;
+        Entry = OpenMPArgs;
       else
-        delete OffloadArgs;
+        delete OpenMPArgs;
     }
 
     // Add allocated arguments to the final DAL.

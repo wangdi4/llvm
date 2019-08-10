@@ -1,5 +1,11 @@
+<<<<<<< HEAD
 // RUN: %clang_cc1 %s -triple spir-unknown-unknown -cl-std=clc++ -O0 -emit-llvm -o - | FileCheck %s -check-prefixes=COMMON,PTR
 // RUN: %clang_cc1 %s -triple spir-unknown-unknown -cl-std=clc++ -O0 -emit-llvm -o - -DREF | FileCheck %s -check-prefixes=COMMON,REF
+=======
+// RUN: %clang_cc1 %s -triple spir-unknown-unknown -cl-std=c++ -O0 -emit-llvm -o - | FileCheck %s -check-prefixes=COMMON,PTR
+// RUN: %clang_cc1 %s -triple spir-unknown-unknown -cl-std=c++ -O0 -emit-llvm -o - -DREF | FileCheck %s -check-prefixes=COMMON,REF
+
+>>>>>>> 839d5920a447d8b35fe405e559a17595cdf95cdc
 #ifdef REF
 #define PTR &
 #define ADR(x) x

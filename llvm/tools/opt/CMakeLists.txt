@@ -33,7 +33,6 @@ set(LLVM_LINK_COMPONENTS
   VPOAnalysis
   VPOTransforms
 # end INTEL_COLLAB
-  ASFixer
   )
 
 # Support plugins.

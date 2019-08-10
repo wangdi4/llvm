@@ -13553,7 +13553,7 @@ ExprResult Sema::CreateBuiltinUnaryOp(SourceLocation OpLoc,
   bool CanOverflow = false;
 
   bool ConvertHalfVec = false;
-  if (getLangOpts().OpenCL || getLangOpts().SYCLIsDevice) {
+  if (getLangOpts().OpenCL) {
     QualType Ty = InputExpr->getType();
     // The only legal unary operation for atomics is '&'.
     if ((Opc != UO_AddrOf && Ty->isAtomicType()) ||

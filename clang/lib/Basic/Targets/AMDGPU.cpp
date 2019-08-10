@@ -46,12 +46,7 @@ const LangASMap AMDGPUTargetInfo::AMDGPUDefIsGenMap = {
     Generic,  // opencl_generic
     Global,   // cuda_device
     Constant, // cuda_constant
-    Local,    // cuda_shared
-    Global,   // sycl_global
-    Local,    // sycl_local
-    Constant, // sycl_constant
-    Private,  // sycl_private
-    Generic,  // sycl_generic
+    Local     // cuda_shared
 };
 
 const LangASMap AMDGPUTargetInfo::AMDGPUDefIsPrivMap = {
@@ -63,12 +58,7 @@ const LangASMap AMDGPUTargetInfo::AMDGPUDefIsPrivMap = {
     Generic,  // opencl_generic
     Global,   // cuda_device
     Constant, // cuda_constant
-    Local,    // cuda_shared
-    Global,   // sycl_global
-    Local,    // sycl_local
-    Constant, // sycl_constant
-    Private,  // sycl_private
-    Generic,  // sycl_generic
+    Local     // cuda_shared
 };
 } // namespace targets
 } // namespace clang

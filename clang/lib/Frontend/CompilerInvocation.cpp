@@ -125,8 +125,12 @@ CompilerInvocationBase::~CompilerInvocationBase() = default;
 static unsigned getOptimizationLevel(ArgList &Args, InputKind IK,
                                      DiagnosticsEngine &Diags) {
   unsigned DefaultOpt = llvm::CodeGenOpt::None;
+<<<<<<< HEAD
   if ((IK.getLanguage() == Language::OpenCL &&
       !Args.hasArg(OPT_cl_opt_disable)) || Args.hasArg(OPT_fsycl_is_device))
+=======
+  if (IK.getLanguage() == InputKind::OpenCL && !Args.hasArg(OPT_cl_opt_disable))
+>>>>>>> 839d5920a447d8b35fe405e559a17595cdf95cdc
     DefaultOpt = llvm::CodeGenOpt::Default;
 
   if (Arg *A = Args.getLastArg(options::OPT_O_Group)) {
@@ -1420,7 +1424,6 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
 static void ParseDependencyOutputArgs(DependencyOutputOptions &Opts,
                                       ArgList &Args) {
   Opts.OutputFile = Args.getLastArgValue(OPT_dependency_file);
-  Opts.DependencyFilter = Args.getLastArgValue(OPT_dependency_filter);
   Opts.Targets = Args.getAllArgValues(OPT_MT);
   Opts.IncludeSystemHeaders = Args.hasArg(OPT_sys_header_deps);
   Opts.IncludeModuleFiles = Args.hasArg(OPT_module_file_deps);
@@ -2627,8 +2630,6 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
 
   Opts.GPURelocatableDeviceCode = Args.hasArg(OPT_fgpu_rdc);
 
-  Opts.SYCLIntHeader = Args.getLastArgValue(OPT_fsycl_int_header);
-
   if (Opts.ObjC) {
     if (Arg *arg = Args.getLastArg(OPT_fobjc_runtime_EQ)) {
       StringRef value = arg->getValue();
@@ -3207,9 +3208,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
           << Opts.OMPHostIRFile;
   }
 
-  Opts.SYCLIsDevice   = Args.hasArg(options::OPT_fsycl_is_device);
-  Opts.SYCLAllowFuncPtr = Args.hasFlag(options::OPT_fsycl_allow_func_ptr,
-                                  options::OPT_fno_sycl_allow_func_ptr, false);
+  Opts.SYCLIsDevice = Args.hasArg(options::OPT_fsycl_is_device);
 
   // Set CUDA mode for OpenMP target NVPTX if specified in options
   Opts.OpenMPCUDAMode = Opts.OpenMPIsDevice && T.isNVPTX() &&

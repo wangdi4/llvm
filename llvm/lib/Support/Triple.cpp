@@ -265,7 +265,6 @@ StringRef Triple::getEnvironmentTypeName(EnvironmentType Kind) {
 #endif // INTEL_CUSTOMIZATION
   case Simulator: return "simulator";
   case MacABI: return "macabi";
-  case SYCLDevice: return "sycldevice";
   }
 
   llvm_unreachable("Invalid EnvironmentType!");
@@ -591,7 +590,6 @@ static Triple::EnvironmentType parseEnvironment(StringRef EnvironmentName) {
 #endif // INTEL_CUSTOMIZATION
     .StartsWith("simulator", Triple::Simulator)
     .StartsWith("macabi", Triple::MacABI)
-    .StartsWith("sycldevice", Triple::SYCLDevice)
     .Default(Triple::UnknownEnvironment);
 }
 
