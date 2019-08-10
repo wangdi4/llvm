@@ -9875,4 +9875,30 @@ def err_bit_cast_non_trivially_copyable : Error<
   "__builtin_bit_cast %select{source|destination}0 type must be trivially copyable">;
 def err_bit_cast_type_size_mismatch : Error<
   "__builtin_bit_cast source size does not equal destination size (%0 vs %1)">;
+
+// SYCL-specific diagnostics
+def err_sycl_attribute_address_space_invalid : Error<
+  "address space is outside the valid range of values">;
+def err_sycl_kernel_name_class_not_top_level : Error<
+ "kernel name class and its template argument classes' declarations can only "
+ "nest in a namespace: %0">;
+def err_sycl_restrict : Error<
+  "SYCL kernel cannot "
+"%select{use a global variable"
+  "|use rtti"
+  "|use a non-const static data variable"
+  "|call a virtual function"
+  "|call a recursive function"
+  "|call through a function pointer"
+  "|allocate storage"
+  "|use exceptions"
+  "|use inline assembly}0">;
+def err_sycl_virtual_types : Error<
+  "No class with a vtable can be used in a SYCL kernel or any code included in the kernel">;
+def note_sycl_used_here : Note<"used here">;
+def note_sycl_recursive_function_declared_here: Note<"function implemented using recursion declared here">;
+def err_sycl_non_std_layout_type : Error<
+  "kernel parameter has non-standard layout class/struct type">;
+def err_conflicting_sycl_kernel_attributes : Error<
+  "conflicting attributes applied to a SYCL kernel">;
 } // end of sema component.

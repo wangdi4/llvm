@@ -1,5 +1,9 @@
+<<<<<<< HEAD
 // RUN: %clang_cc1 %s -triple spir-unknown-unknown -cl-std=clc++ -O0 -emit-llvm -o - | FileCheck %s
 
+=======
+// RUN: %clang_cc1 %s -triple spir-unknown-unknown -cl-std=c++ -O0 -emit-llvm -o - | FileCheck %s
+>>>>>>> 08e95601ffdc9ac9dca138ea58a51a902f41ffb2
 class P {
 public:
   P(const P &Rhs) = default;
