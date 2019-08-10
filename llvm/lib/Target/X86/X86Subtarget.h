@@ -487,6 +487,10 @@ protected:
   /// Threeway branch is profitable in this subtarget.
   bool ThreewayBranchProfitable = false;
 
+#if INTEL_CUSTOMIZATION
+  /// Processor supports Decoded Stream Buffer.
+  bool HasDSB = false;
+#endif // INTEL_CUSTOMIZATION
   /// What processor and OS we're targeting.
   Triple TargetTriple;
 
@@ -761,6 +765,9 @@ public:
   bool hasPCONFIG() const { return HasPCONFIG; }
   bool hasSGX() const { return HasSGX; }
   bool threewayBranchProfitable() const { return ThreewayBranchProfitable; }
+#if INTEL_CUSTOMIZATION
+  bool hasDSB() const { return HasDSB; }
+#endif // INTEL_CUSTOMIZATION
   bool hasINVPCID() const { return HasINVPCID; }
   bool hasENQCMD() const { return HasENQCMD; }
 #if INTEL_CUSTOMIZATION

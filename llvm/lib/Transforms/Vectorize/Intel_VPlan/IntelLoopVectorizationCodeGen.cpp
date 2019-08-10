@@ -110,6 +110,25 @@ static void addBlockToParentLoop(Loop *L, BasicBlock *BB, LoopInfo& LI) {
     ParentLoop->addBasicBlockToLoop(BB, LI);
 }
 
+unsigned VPOCodeGen::getPrivateVarAlignment(Value *V) {
+  // Get the alignment value based on what the type of V is.
+  // We always set the alignment-value for the new, widened alloca as the
+  // alignment of the original alloca. This means that in some cases, when the
+  // original alloca has no alignment value, we end up setting up the alignment
+  // based on the value computed from DataLayout for a particular pointer-type.
+  // This might not be the most optimal value, but safe. One issue we might have
+  // to deal with is in cost-modeling, where we compute costs based on
+  // alignment.
+  if (isa<GlobalValue>(V))
+    return cast<GlobalValue>(V)->getAlignment();
+  else if (isa<AllocaInst>(V))
+    return cast<AllocaInst>(V)->getAlignment();
+  else {
+    const DataLayout &DL = OrigLoop->getHeader()->getModule()->getDataLayout();
+    return DL.getPrefTypeAlignment(V->getType());
+  }
+}
+
 bool VPOCodeGen::isSerializedPrivateArray(Value *Priv) const {
   if (VPlanSerializeAlloca && Legal->isLoopPrivate(Priv)) {
     Type *PrivTy = Priv->getType();
@@ -722,7 +741,8 @@ void VPOCodeGen::createSerialPrivateArrayBase(Value *ArrPriv) {
   for (unsigned I = 0; I < VF; ++I) {
     AllocaInst *SPrivArr = Builder.CreateAlloca(
         PointeeTy, nullptr, ArrPrivInst->getName() + ".vec");
-    SPrivArr->setAlignment(cast<AllocaInst>(ArrPrivInst)->getAlignment());
+    // Alignment of the alloca should match the original alignment.
+    SPrivArr->setAlignment(getPrivateVarAlignment(ArrPriv));
     ScalarMap[ArrPriv][I] = SPrivArr;
   }
   Builder.restoreIP(OldIP);
@@ -797,18 +817,17 @@ Value *VPOCodeGen::getVectorPrivateAggregateBase(Value *AggrPriv) {
 
   // Create an alloca in the appropriate block
   auto OldIP = Builder.saveIP();
-  Function *F = cast<Instruction>(AggrPriv)->getParent()->getParent();
-  BasicBlock &FirstBB = F->front();
-  Builder.SetInsertPoint(&*FirstBB.getFirstInsertionPt());
+  Builder.SetInsertPoint(&*(getFunctionEntryBlock().getFirstInsertionPt()));
   AllocaInst *WidenedPrivArr = Builder.CreateAlloca(
       VecTyForAlloca, nullptr, AggrPriv->getName() + ".vec");
-  WidenedPrivArr->setAlignment(cast<AllocaInst>(AggrPriv)->getAlignment());
+  // Alignment of the alloca should match the original alignment.
+  WidenedPrivArr->setAlignment(getPrivateVarAlignment(AggrPriv));
 
   // Save alloca's result
   LoopPrivateWidenMap[AggrPriv] = WidenedPrivArr;
 
   if (Legal->isCondLastPrivate(AggrPriv)) {
-    Builder.SetInsertPoint((cast<Instruction>(WidenedPrivArr))->getNextNode());
+    Builder.SetInsertPoint(WidenedPrivArr->getNextNode());
     // Create a memory location for last non-zero mask
     // We save mask as an integer value
     Type *MaskTy = IntegerType::get(AggrPriv->getContext(), VF);
@@ -855,14 +874,12 @@ Value *VPOCodeGen::getVectorPrivateBase(Value *V) {
 
   auto VecTyForAlloca = VectorType::get(OrigAllocaTy->getScalarType(),
                                         OriginalVL * VF);
-  Function *F = cast<Instruction>(V)->getParent()->getParent();
-  BasicBlock& FirstBB = F->front();
-  Builder.SetInsertPoint(&*FirstBB.getFirstInsertionPt());
-  Value *PtrToVec =
-      Builder.CreateAlloca(VecTyForAlloca, nullptr, V->getName() + ".vec");
+  Builder.SetInsertPoint(&*(getFunctionEntryBlock().getFirstInsertionPt()));
+  AllocaInst *PtrToVec = cast<AllocaInst>(
+      Builder.CreateAlloca(VecTyForAlloca, nullptr, V->getName() + ".vec"));
 
   // Alignment of vector alloca should match the original alignment
-  cast<AllocaInst>(PtrToVec)->setAlignment(cast<AllocaInst>(V)->getAlignment());
+  PtrToVec->setAlignment(getPrivateVarAlignment(V));
 
   // Save alloca's result
   LoopPrivateWidenMap[V] = PtrToVec;
@@ -906,10 +923,10 @@ Value *VPOCodeGen::getVectorPrivateBase(Value *V) {
     Builder.CreateStore(InitVec, PtrToVec);
   }
 
-  PtrToVec = Builder.CreateBitCast(PtrToVec, NewType);
+  Value *BitCastPtrToVec = Builder.CreateBitCast(PtrToVec, NewType);
 
   Builder.restoreIP(OldIP);
-  return PtrToVec;
+  return BitCastPtrToVec;
 }
 
 template<typename CastInstTy>
@@ -2889,6 +2906,20 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     VPWidenMap[VPInst] = V;
     return;
   }
+  case Instruction::Store: {
+    Value *VecPtr = getVectorValue(VPInst->getOperand(1));
+    Value *VecDataOp = getVectorValue(VPInst->getOperand(0));
+    Type *PtrToElemTy = VecPtr->getType()->getVectorElementType();
+    Type *ElemTy = PtrToElemTy->getPointerElementType();
+    VectorType *DesiredDataTy = getWidenedType(ElemTy, VF);
+    VecDataOp = Builder.CreateBitCast(VecDataOp, DesiredDataTy, "cast");
+
+    // TODO: Without underlying store, we will choose align=1.
+    unsigned Alignment = getOriginalLoadStoreAlignment(VPInst);
+    Builder.CreateMaskedScatter(VecDataOp, VecPtr, Alignment, MaskValue);
+    return;
+  }
+
   default:
     llvm_unreachable("Unexpected VPInstruction");
   }

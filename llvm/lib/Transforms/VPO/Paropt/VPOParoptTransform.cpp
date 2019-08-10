@@ -1069,6 +1069,7 @@ bool VPOParoptTransform::paroptTransforms() {
     bool Changed = false;
 
     bool RemoveDirectives = false;
+    bool HandledWithoutRemovingDirectives = false;
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -1147,6 +1148,7 @@ bool VPOParoptTransform::paroptTransforms() {
             // do not remove it here, since guardSideEffects needs the
             // parallel directive to insert barriers.
             RemoveDirectives = false;
+            HandledWithoutRemovingDirectives = true;
           }
         }
         break;
@@ -1254,6 +1256,7 @@ bool VPOParoptTransform::paroptTransforms() {
             // do not remove it here, since guardSideEffects needs the
             // parallel directive to insert barriers.
             RemoveDirectives = false;
+            HandledWithoutRemovingDirectives = true;
           }
         }
         break;
@@ -1325,6 +1328,12 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         break;
       case WRegionNode::WRNTarget:
+        if (DisableOffload) {
+          // Ignore TARGET construct
+          LLVM_DEBUG(dbgs()<<"VPO: Ignored " << W->getName() << " construct\n");
+          RemoveDirectives = true;
+          break;
+        }
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
           // Override function linkage for the target compilation to prevent
@@ -1351,6 +1360,12 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNTargetEnterData:
       case WRegionNode::WRNTargetExitData:
       case WRegionNode::WRNTargetUpdate:
+        if (DisableOffload) {
+          // Ignore TARGET UPDATE and TARGET ENTER/EXIT DATA constructs
+          LLVM_DEBUG(dbgs()<<"VPO: Ignored " << W->getName() << " construct\n");
+          RemoveDirectives = true;
+          break;
+        }
         // These constructs do not have to be transformed during
         // the target compilation, hence, hasOffloadCompilation()
         // check below.
@@ -1375,6 +1390,12 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         break;
       case WRegionNode::WRNTargetData:
+        if (DisableOffload) {
+          // Ignore TARGET DATA construct
+          LLVM_DEBUG(dbgs()<<"VPO: Ignored " << W->getName() << " construct\n");
+          RemoveDirectives = true;
+          break;
+        }
         // This construct does not have to be transformed during
         // the target compilation, hence, hasOffloadCompilation()
         // check below.
@@ -1400,6 +1421,12 @@ bool VPOParoptTransform::paroptTransforms() {
       //    E.g., simd, taskgroup, atomic, for, sections, etc.
 
       case WRegionNode::WRNTargetVariant:
+        if (DisableOffload) {
+          // Ignore TARGET VARIANT DISPATCH construct
+          LLVM_DEBUG(dbgs()<<"VPO: Ignored " << W->getName() << " construct\n");
+          RemoveDirectives = true;
+          break;
+        }
         // The target variant dispatch construct does not need outlining so
         // it is codegen'ed during the Prepare phase of the HOST compilation
         if (Mode & ParPrepare) {
@@ -1657,6 +1684,19 @@ bool VPOParoptTransform::paroptTransforms() {
       default:
         break;
       } // switch
+    }
+
+    // Emit opt-report remarks for handled/ignored constructs.
+    if (RemoveDirectives || HandledWithoutRemovingDirectives) {
+      if (Changed) {
+        OptimizationRemark R("openmp", "Region", W->getEntryDirective());
+        R << ore::NV("Construct", W->getName()) << " construct transformed";
+        ORE.emit(R);
+      } else {
+        OptimizationRemarkMissed R("openmp", "Region", W->getEntryDirective());
+        R << ore::NV("Construct", W->getName()) << " construct ignored";
+        ORE.emit(R);
+      }
     }
 
     // Remove calls to directive intrinsics since the LLVM back end does not
@@ -1992,22 +2032,16 @@ bool VPOParoptTransform::genReductionScalarFini(
     auto *TempRedLoad = Rhs2->clone();
     TempRedLoad->insertAfter(Rhs2);
     TempRedLoad->takeName(Rhs2);
-    auto HRCall = VPOParoptUtils::genSPIRVHorizontalReduction(
+    auto HRed = VPOParoptUtils::genSPIRVHorizontalReduction(
         RedI, ScalarTy, TempRedLoad, spirv::Scope::Subgroup);
 
-    if (!HRCall)
+    if (HRed)
+      Rhs2->replaceAllUsesWith(HRed);
+    else
       LLVM_DEBUG(dbgs() << __FUNCTION__ <<
                  ": SPIRV horizontal reduction is not available "
                  "for critical section reduction: " << RedI->getOpName() <<
                  " with type " << *ScalarTy << "\n");
-    else {
-      LLVM_DEBUG(dbgs() << __FUNCTION__ <<
-                 ": SPIRV horizontal reduction is used "
-                 "for critical section reduction: " <<
-                 HRCall->getCalledFunction()->getName() << "\n");
-
-      Rhs2->replaceAllUsesWith(HRCall);
-    }
 
     OptimizationRemarkMissed R(DEBUG_TYPE, "ReductionAtomic", Tmp0);
     R << ore::NV("Kind", RedI->getOpName()) << " reduction update of type " <<

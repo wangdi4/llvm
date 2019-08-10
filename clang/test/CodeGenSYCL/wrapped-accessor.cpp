@@ -1,6 +1,5 @@
 // RUN: %clang -I %S/Inputs --sycl -Xclang -fsycl-int-header=%t.h %s -c -o %T/kernel.spv
 // RUN: FileCheck -input-file=%t.h %s
-
 //
 // CHECK: #include <CL/sycl/detail/kernel_desc.hpp>
 

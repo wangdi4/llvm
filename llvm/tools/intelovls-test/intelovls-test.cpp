@@ -98,8 +98,7 @@ bool ClientMemref::haveSameVectorStride(const ClientMemref &Mrf) {
 //   - they have the same memref id, and same access type
 //   - for indexed accesses, they have to have the same index vectors or,
 //   - for strided accesses, they have to have the same vector strides
-bool ClientMemref::isAConstDistanceFrom(const OVLSMemref &Mrf,
-                                        int64_t *Distance) {
+Optional<int64_t> ClientMemref::getConstDistanceFrom(const OVLSMemref &Mrf) {
   assert(isa<ClientMemref>(&Mrf) && "Expected ClientMemref!!!");
   const ClientMemref *CLMrf = cast<const ClientMemref>(&Mrf);
   if ((MId == CLMrf->getMemrefId()) &&                // have same memref id
@@ -110,10 +109,9 @@ bool ClientMemref::isAConstDistanceFrom(const OVLSMemref &Mrf,
        // Strided accesses have matching vector strides.
        (this->getAccessType().isStridedAccess() &&
         haveSameVectorStride(*CLMrf)))) {
-    *Distance = Dist - (CLMrf->getDistance());
-    return true;
+    return Dist - (CLMrf->getDistance());
   }
-  return false;
+  return None;
 }
 
 namespace OVLSTest {

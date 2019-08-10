@@ -45,6 +45,11 @@ autoconf/autom4te.cache
 /CMakeSettings.json
 # CLion project configuration
 /.idea
+# External projects
+/external
+/llvm-spirv
+/ocl-cclang
+/opencl
 
 #==============================================================================#
 # Directories to ignore (do not add trailing '/'s, they skip symlinks).

@@ -38479,6 +38479,52 @@ static SDValue combineMulToPMULDQ(SDNode *N, SelectionDAG &DAG,
   return SDValue();
 }
 
+#if INTEL_CUSTOMIZATION
+// Look for (mul (and (lshr X, 15), 65537), 65535) and replace with
+// (pcmpgtw zero, X). The sequence just splats the sign bit of two separate
+// 16-bit values combined in a 32-bit element.
+static SDValue combineMulToPCMPGTW(SDNode *N, SelectionDAG &DAG,
+                                   const X86Subtarget &Subtarget) {
+  EVT VT = N->getValueType(0);
+
+  // Limit this transform to advanced optimizations on avx2 or better.
+  if (!Subtarget.hasAVX2() || !DAG.getTarget().Options.IntelAdvancedOptim)
+    return SDValue();
+
+  if (VT.getVectorElementType() != MVT::i32)
+    return SDValue();
+
+  ConstantSDNode *C = isConstOrConstSplat(N->getOperand(1));
+  if (!C || C->getAPIntValue() != 65535)
+    return SDValue();
+
+  SDValue N0 = N->getOperand(0);
+  if (N0.getOpcode() != ISD::AND)
+    return SDValue();
+
+  C = isConstOrConstSplat(N0.getOperand(1));
+  if (!C || C->getAPIntValue() != 65537)
+    return SDValue();
+
+  SDValue N00 = N0.getOperand(0);
+  if (N00.getOpcode() != ISD::SRL)
+    return SDValue();
+
+  C = isConstOrConstSplat(N00.getOperand(1));
+  if (!C || C->getAPIntValue() != 15)
+    return SDValue();
+
+  SDLoc dl(N);
+  EVT HalfVT = EVT::getVectorVT(*DAG.getContext(), MVT::i16,
+                                VT.getVectorNumElements() * 2);
+  EVT BoolVT = MVT::getVectorVT(MVT::i1, VT.getVectorNumElements() * 2);
+  SDValue Setcc = DAG.getSetCC(dl, BoolVT, DAG.getConstant(0, dl, HalfVT),
+                               DAG.getBitcast(HalfVT, N00.getOperand(0)),
+                               ISD::SETGT);
+  return DAG.getBitcast(VT, DAG.getNode(ISD::SIGN_EXTEND, dl, HalfVT, Setcc));
+}
+#endif
+
 /// Optimize a single multiply with constant into two operations in order to
 /// implement it with two cheaper instructions, e.g. LEA + SHL, LEA + LEA.
 static SDValue combineMul(SDNode *N, SelectionDAG &DAG,
@@ -38491,6 +38537,12 @@ static SDValue combineMul(SDNode *N, SelectionDAG &DAG,
 
   if (SDValue V = combineMulToPMULDQ(N, DAG, Subtarget))
     return V;
+
+#if INTEL_CUSTOMIZATION
+  if (DCI.isBeforeLegalize() && VT.isVector())
+    if (SDValue V = combineMulToPCMPGTW(N, DAG, Subtarget))
+      return V;
+#endif
 
   if (DCI.isBeforeLegalize() && VT.isVector())
     return reduceVMULWidth(N, DAG, Subtarget);

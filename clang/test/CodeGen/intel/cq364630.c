@@ -1,4 +1,3 @@
-// RUN: %clang_cc1 -fintel-compatibility %s -emit-llvm -o - | FileCheck %s
 // RUN: %clang_cc1 -fintel-compatibility-enable=AllowExtraArgument %s -emit-llvm -o - | FileCheck %s
 
 void foo1(int *arg1, const int *arg2);

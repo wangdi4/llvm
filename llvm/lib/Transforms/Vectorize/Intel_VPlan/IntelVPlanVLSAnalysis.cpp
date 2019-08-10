@@ -142,11 +142,7 @@ void VPlanVLSAnalysis::dump(const VPlan *Plan) const {
       dbgs() << "\t distance to ";
       const auto To = cast<VPVLSClientMemrefHIR>(*J);
       To->print(dbgs(), "\t");
-      int64_t Dist;
-      if (From->isAConstDistanceFrom(*To, &Dist))
-        dbgs() << "\t" << Dist;
-      else
-        dbgs() << "\t Unknown";
+      dbgs() << "\t" << From->getConstDistanceFrom(*To);
 
       dbgs() << " | "
              << (From->canMoveTo(*To) ? "can be moved" : "cannot be moved");
@@ -170,12 +166,7 @@ void VPVLSClientMemref::print(raw_ostream &Os, const Twine Indent) const {
   getAccessType().print(Os);
   Os << " | VLSType = ";
   getType().print(Os);
-  int64_t Stride;
-  Os << " | Stride = ";
-  if (hasAConstStride(&Stride))
-    Os << Stride;
-  else
-    Os << "unknown";
+  Os << " | Stride = " << getConstStride();
 }
 
 #endif // !NDEBUG || LLVM_ENABLE_DUMP

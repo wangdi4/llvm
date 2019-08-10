@@ -36,3 +36,21 @@
 // CHECK-QOPENMP: "-fopenmp"
 // CHECK-LD-IOMP5: "-liomp5"
 
+// Behavior with Qopt-jump-tables-,qno-opt-jump-tables option
+// RUN: %clang -### -c -qno-opt-jump-tables %s 2>&1 | FileCheck -check-prefix CHECK-QOPT-JUMP-TABLES %s
+// RUN: %clang_cl -### -c /Qopt-jump-tables- %s 2>&1 | FileCheck -check-prefix CHECK-QOPT-JUMP-TABLES %s
+// RUN: %clang -### -c -qopt-jump-tables %s 2>&1 | FileCheck -check-prefix CHECK-QOPT-JUMP-TABLES2 %s
+// RUN: %clang_cl -### -c /Qopt-jump-tables %s 2>&1 | FileCheck -check-prefix CHECK-QOPT-JUMP-TABLES2 %s
+// CHECK-QOPT-JUMP-TABLES: "-fno-jump-tables"
+// CHECK-QOPT-JUMP-TABLES2-NOT: "-fno-jump-tables"
+
+// -mintrinsic-promote and /Qintrinsic-promote
+// RUN: %clang -### -c -mintrinsic-promote %s 2>&1 | FileCheck -check-prefix CHECK-INTRINSIC-PROMOTE %s
+// RUN: %clang_cl -### -c /Qintrinsic-promote %s 2>&1 | FileCheck -check-prefix CHECK-INTRINSIC-PROMOTE %s
+// RUN: %clang -### -c -mno-intrinsic-promote %s 2>&1 | FileCheck -check-prefix CHECK-INTRINSIC-PROMOTE-OFF %s
+// RUN: %clang_cl -### -c /Qintrinsic-promote- %s 2>&1 | FileCheck -check-prefix CHECK-INTRINSIC-PROMOTE-OFF %s
+// off by default
+// RUN: %clang -### -c %s 2>&1 | FileCheck -check-prefix CHECK-INTRINSIC-PROMOTE-OFF %s
+// RUN: %clang_cl -### -c %s 2>&1 | FileCheck -check-prefix CHECK-INTRINSIC-PROMOTE-OFF %s
+// CHECK-INTRINSIC-PROMOTE: "-mintrinsic-promote"
+// CHECK-INTRINSIC-PROMOTE-OFF-NOT: "-mintrinsic-promote"

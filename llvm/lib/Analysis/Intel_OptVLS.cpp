@@ -1301,7 +1301,6 @@ static void splitMrfs(const OVLSMemrefVector &Memrefs,
   for (unsigned i = 0, Size = Memrefs.size(); i < Size; ++i) {
     OVLSMemref *Memref = Memrefs[i];
 
-    int64_t Dist = 0;
     bool AdjMrfSetFound = false;
 
     // TODO: Currently finding the appropriate group is done using a linear
@@ -1310,53 +1309,54 @@ static void splitMrfs(const OVLSMemrefVector &Memrefs,
 
       OVLSMemref *SetFirstSeenMrf = (*AdjMemrefSet).find(0)->second;
 
-      if ( // same access type
-          Memref->getAccessType() == SetFirstSeenMrf->getAccessType() &&
-          // same number of vector elements
-          Memref->getNumElements() == SetFirstSeenMrf->getNumElements() &&
-          // Check the size of the dataelements.
-          // Currently we support grouping Memrefs with same elementsize.
-          // Note that this check redundantly also checks the number of vector
-          // elements. We still keep it, so that when we extend to support
-          // different sized neighbors, we only remove this check below.
-          Memref->haveSameOVLSType(*SetFirstSeenMrf) &&
-          // are a const distance apart
-          // Dist is the distance to be added in Dist(SetFirstSeenMrf) to get
-          // Dist(Memref).
-          // Dist = Dist(Memref) - Dist(SetFirstSeenMrf)
-          // Eg-Mrfs :int32 a[2*i+1] , a[2*i]
-          //    FirstSeenMrf : a[2*i+1].
-          //    Memref : a[2*i], Dist = -4.
-          Memref->isAConstDistanceFrom(*SetFirstSeenMrf, &Dist)) {
-        // Found a possible set.
-        // Look for duplicates first.
-        auto SearchDuplicate = (*AdjMemrefSet).find(Dist);
-        if (SearchDuplicate != (*AdjMemrefSet).end()) {
-          // Found a possible redundant duplicate
-          // Duplicate is Redundant if Memref can be moved to
-          // SearchDuplicate's location.
-          // Drop Memref and do not group it with any memref, if found to be a
-          // redundant duplicate, else try to group it with other sets in
-          // AdjMemrefSetVec.
-          OVLSMemref *ExistingDuplicateMemref = SearchDuplicate->second;
-          bool RedundantDuplicate = Memref->canMoveTo(*ExistingDuplicateMemref);
-          if (RedundantDuplicate) {
-            // Message on Duplicates Found.
-            OVLSDebug(OVLSdbgs() << "\t\tFound Duplicates: \n");
-            OVLSDebug(Memref->print(OVLSdbgs(), 2));
-            OVLSDebug(OVLSdbgs() << " and ");
-            OVLSDebug(ExistingDuplicateMemref->print(OVLSdbgs(), 2));
-            OVLSDebug(OVLSdbgs() << "\n");
-            // Break out of the loop and proceed to next memref.
-            break;
-          }
-          // else try to group with other sets in AdjMemrefSetVec.
-        } else {
-          // Duplicate not found. Memref can be grouped.
-          AdjMrfSetFound = true;
-          (*AdjMemrefSet).insert(std::pair<int, OVLSMemref *>(Dist, Memref));
-          break;
-        }
+      if (Memref->getAccessType() != SetFirstSeenMrf->getAccessType())
+        continue;
+
+      if (Memref->getNumElements() != SetFirstSeenMrf->getNumElements())
+        continue;
+
+      // Currently we support grouping Memrefs with same elementsize. Note that
+      // this check redundantly also checks the number of vector elements. We
+      // still keep it, so that when we extend to support different sized
+      // neighbors, we only remove this check below.
+      if (!Memref->haveSameOVLSType(*SetFirstSeenMrf))
+        continue;
+
+      // Dist is the distance to be added in Dist(SetFirstSeenMrf) to get
+      // Dist(Memref).
+      // Dist = Dist(Memref) - Dist(SetFirstSeenMrf)
+      // Eg-Mrfs :int32 a[2*i+1] , a[2*i]
+      //    FirstSeenMrf : a[2*i+1].
+      //    Memref : a[2*i], Dist = -4.
+      Optional<int64_t> Dist = Memref->getConstDistanceFrom(*SetFirstSeenMrf);
+      if (!Dist)
+        continue;
+
+      // Found a possible set.
+      // Look for duplicates first.
+      auto SearchDuplicate = AdjMemrefSet->find(*Dist);
+      if (SearchDuplicate == AdjMemrefSet->end()) {
+        // Duplicate not found. Memref can be grouped.
+        AdjMrfSetFound = true;
+        (*AdjMemrefSet).insert(std::pair<int, OVLSMemref *>(*Dist, Memref));
+        break;
+      }
+
+      // Found a possible redundant duplicate. Duplicate is Redundant if Memref
+      // can be moved to SearchDuplicate's location. Drop Memref and do not
+      // group it with any memref, if found to be a redundant duplicate, else
+      // try to group it with other sets in AdjMemrefSetVec.
+      OVLSMemref *ExistingDuplicateMemref = SearchDuplicate->second;
+      bool RedundantDuplicate = Memref->canMoveTo(*ExistingDuplicateMemref);
+      if (RedundantDuplicate) {
+        // Message on Duplicates Found.
+        OVLSDebug(OVLSdbgs() << "\t\tFound Duplicates: \n");
+        OVLSDebug(Memref->print(OVLSdbgs(), 2));
+        OVLSDebug(OVLSdbgs() << " and ");
+        OVLSDebug(ExistingDuplicateMemref->print(OVLSdbgs(), 2));
+        OVLSDebug(OVLSdbgs() << "\n");
+        // Break out of the loop and proceed to next memref.
+        break;
       }
     }
     if (!AdjMrfSetFound) {
@@ -1394,14 +1394,14 @@ static bool hasContiguousAccesses(uint64_t ByteAccessMask,
 }
 
 static bool isSupported(const OVLSGroup &Group) {
-  int64_t Stride = 0;
   if (Group.size() < 2) {
     OVLSDebug(
         OVLSdbgs() << "Minimum Two neighbors required!!!\n");
     return false;
   }
 
-  if (!Group.hasAConstStride(Stride)) {
+  Optional<int64_t> Stride = Group.getConstStride();
+  if (!Stride) {
     OVLSDebug(
         OVLSdbgs() << "Optimized sequence is only supported for a group"
                       " of gathers/scatters that has a constant stride!!!\n");
@@ -1426,7 +1426,7 @@ static bool isSupported(const OVLSGroup &Group) {
   }
 
   // Group with overlapping accesses is not supported
-  if ((Stride + 1) < UsedBytes)
+  if (*Stride + 1 < UsedBytes)
     return false;
 
   return true;
@@ -1455,14 +1455,13 @@ OVLSInstruction *genShuffleForMemref(const OVLSMemref &Mrf, int64_t Index) {
   const uint32_t MaxNumElems = 256;
   assert(NumElems <= MaxNumElems && "Increase MaxNumElems");
 
-  int64_t Stride = 0;
-  assert(Mrf.hasAConstStride(&Stride) && "Constant stride expected!!!");
-  Stride = Stride / ElemSizeInByte;
+  Optional<int64_t> Stride = Mrf.getConstStride();
+  assert(Stride && "Constant stride is expected");
 
   int32_t IntShuffleMask[MaxNumElems];
   for (uint32_t MaskIndex = 0; MaskIndex < NumElems; MaskIndex++) {
     IntShuffleMask[MaskIndex] = Index;
-    Index += Stride;
+    Index += *Stride / ElemSizeInByte;
   }
 
   ShuffleMask =
@@ -1481,11 +1480,10 @@ OVLSInstruction *genShuffleForMemref(const OVLSMemref &Mrf, int64_t Index) {
 /// represents either a load or a gather and each edge shows which loaded
 /// elements contribute to which gather results.
 /// FIXME: Support masked gathers/scatters.
-  static void getLoadsOrStores(const OVLSGroup &Group, Graph &G,
-                               GraphNodeToOVLSMemrefMap &NodeToMemrefMap) {
-  int64_t Stride = 0;
-  if (!Group.hasAConstStride(Stride))
-    llvm_unreachable("Group with a variable stride is not supported!!!");
+static void getLoadsOrStores(const OVLSGroup &Group, Graph &G,
+                             GraphNodeToOVLSMemrefMap &NodeToMemrefMap) {
+  Optional<int64_t> Stride = Group.getConstStride();
+  assert(Stride && "Group with a variable stride is not supported");
 
   // If it's not a group of gathers that means it's a group of scatters.
   bool GroupOfGathers = false;
@@ -1508,11 +1506,10 @@ OVLSInstruction *genShuffleForMemref(const OVLSMemref &Mrf, int64_t Index) {
   for (OVLSGroup::const_iterator I = Group.begin(), E = Group.end(); I != E;
        ++I) {
     OVLSMemref *Curr = *I;
-    int64_t Dist = 0;
     // Don't create nodes for the duplicates. We will replace the duplicates
     // with
     // the final shuffle instruction at the end.
-    if (Prev && Curr->isAConstDistanceFrom(*Prev, &Dist) && Dist == 0)
+    if (Prev && Curr->getConstDistanceFrom(*Prev) == (int64_t)0)
       continue;
 
     // At this point, we don't know the desired instruction/opcode,
@@ -1684,7 +1681,7 @@ OVLSInstruction *genShuffleForMemref(const OVLSMemref &Mrf, int64_t Index) {
         // Compute any gap size between the accesses which will be used
         // during the load of the 1st element of next ith accesses.
         if (IthElem == 0)
-          Distance = std::abs(Stride) - LSSize;
+          Distance = std::abs(*Stride) - LSSize;
 
         GapSize = Distance;
       } else {
@@ -1889,9 +1886,8 @@ bool OptVLSInterface::getSequence(const OVLSGroup &Group,
   // Allowing execution of the graph algorithm only for this case.
   // Stride = 16 , represents factor =2.
   // Group.size = 2, has two neighbors.
-  int64_t stride = 0;
   if (!(Group.getElemSize() == 64 && Group.size() == 2 && Group.hasGathers() &&
-        Group.hasAConstStride(stride) == true && (stride == 16)))
+        Group.getConstStride() == (int64_t)16))
     return false;
 
   OptVLS::Graph G(Group.getVectorLength(), CM);
@@ -2467,14 +2463,16 @@ bool OptVLSInterface::getSequencePredefined(
   // Memaccess is Strided Load.
   // No target specific information is needed here. The sequence is target
   // independent for now.
-  int64_t stride = 0;
-  if ((Group.hasAConstStride(stride) == true) && (stride == 16) &&
-      (Group.getNumElems() == 8) && (Group.getElemSize() == 32) &&
-      // TODO: add utility function that checks for all ones using compare
-      // mask of size stride instead of hard-coded 65535. See other uses
-      // of getNByteAccessMask.
-      (Group.getNByteAccessMask() == 65535) &&
-      (Group.getAccessType().isStridedLoad())) {
+  Optional<int64_t> Stride = Group.getConstStride();
+  if (!Stride)
+    return false;
+
+  if (*Stride == 16 && Group.getNumElems() == 8 && Group.getElemSize() == 32 &&
+      // TODO: add utility function that checks for all ones using compare mask
+      // of size stride instead of hard-coded 65535. See other uses of
+      // getNByteAccessMask.
+      Group.getNByteAccessMask() == 65535 &&
+      Group.getAccessType().isStridedLoad()) {
     // Sequence can be safely generated.
     return genSeqLoadStride16Packed8xi32(Group, InstVector, MemrefToInstMap);
   }
@@ -2507,10 +2505,9 @@ bool OptVLSInterface::getSequencePredefined(
   // MemAccess is Strided Load.
   // No target specific information is needed here. The sequence is target
   // independent for now.
-  if ((Group.hasAConstStride(stride) == true) && (stride == 16) &&
-      (Group.getNumElems() == 8) && (Group.getElemSize() == 16) &&
-      (Group.getNByteAccessMask() == 65535) &&
-      (Group.getAccessType().isStridedLoad())) {
+  if (*Stride == 16 && Group.getNumElems() == 8 && Group.getElemSize() == 16 &&
+      Group.getNByteAccessMask() == 65535 &&
+      Group.getAccessType().isStridedLoad()) {
     // Sequence can be safely generated.
     return genSeqLoadStride16Packed8xi16(Group, InstVector, MemrefToInstMap);
   }
@@ -2538,12 +2535,9 @@ bool OptVLSInterface::getSequencePredefined(
   // Memaccess is Strided Store.
   // No target specific information is needed here. The sequence is target
   // independent for now.
-  if ((Group.hasAConstStride(stride) == true) && (stride == 16) &&
-      (Group.getNumElems() == 8) && (Group.getElemSize() == 32) &&
-      (Group.getNByteAccessMask() == 65535) &&
-      (Group.getAccessType().isStridedAccess()) &&
-      (Group.hasScatters() == true) // Recognition of strided store
-  ) {
+  if (*Stride == 16 && Group.getNumElems() == 8 && Group.getElemSize() == 32 &&
+      Group.getNByteAccessMask() == 65535 &&
+      Group.getAccessType().isStridedAccess() && Group.hasScatters() == true) {
     // Sequence can be safely generated.
     return genSeqStoreStride16Packed8xi32(Group, InstVector);
   }

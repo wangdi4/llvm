@@ -666,7 +666,12 @@ option(LLVM_ENABLE_PLUGINS "Enable plugin support" ${LLVM_ENABLE_PLUGINS_default
 include(HandleLLVMOptions)
 
 # We support both Python 2 and 3.
-set(Python_ADDITIONAL_VERSIONS 3.7 3.6 3.5 2.7)
+if (INTEL_CUSTOMIZATION)
+  # Workaround for CMPLRTOOLS-16511: force python 2.7.
+  set(Python_ADDITIONAL_VERSIONS 2.7)
+else()
+  set(Python_ADDITIONAL_VERSIONS 3.7 3.6 3.5 2.7)
+endif()
 include(FindPythonInterp)
 if( NOT PYTHONINTERP_FOUND )
   message(FATAL_ERROR

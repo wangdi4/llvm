@@ -28,10 +28,6 @@ def warn_missing_fnmacro_args_replaced_by_empty : Warning<
   "%0 missing macro argument%s0 treated as empty string%s0">,
   InGroup<IntelCompat>;
 
-def warn_pp_line_invalid_filename : Warning<
-  "expected a file name">,
-  InGroup<UnknownPragmas>;
-
 def err_bad_import_value : Error<
   "bad attribute value in #import directive">;
 

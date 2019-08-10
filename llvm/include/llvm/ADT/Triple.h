@@ -228,9 +228,9 @@ public:
     Itanium,
     Cygnus,
     CoreCLR,
+    SYCLDevice,
     Simulator, // Simulator variants of other systems, e.g., Apple's iOS
     MacABI, // Mac Catalyst variant of Apple's iOS deployment target.
-    SYCLDevice,
     LastEnvironmentType = MacABI
   };
   enum ObjectFormatType {

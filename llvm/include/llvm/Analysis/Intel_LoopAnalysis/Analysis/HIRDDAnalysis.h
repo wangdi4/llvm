@@ -248,7 +248,8 @@ public:
 
   RefinedDependence refineDV(const DDRef *SrcDDRef, const DDRef *DstDDRef,
                              unsigned StartNestingLevel,
-                             unsigned DeepestNestingLevel, bool ForFusion);
+                             unsigned DeepestNestingLevel,
+                             bool ForFusion) const;
 
   /// Return true if \p SrcRef and \p DstRef alias based on the metadata/base
   /// info.

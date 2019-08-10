@@ -86,6 +86,7 @@
 #include "llvm/Transforms/IPO/HotColdSplitting.h"
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
 #include "llvm/Transforms/IPO/Inliner.h"
+#include "llvm/Transforms/IPO/Intel_AdvancedFastCall.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_CallTreeCloning.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"       // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h"   // INTEL
@@ -1478,6 +1479,18 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
   // invoke or a call.
   // Run the inliner now.
   MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(std::move(InlPass)));
+
+#if INTEL_INCLUDE_DTRANS
+  // The global optimizer pass can convert function calls to use
+  // the 'fastcc' calling convention. The following pass enables more
+  // functions to be converted to this calling convention. This can improve
+  // performance by having arguments passed in registers, and enable more
+  // cases where pointer parameters are changed to pass-by-value parameters. We
+  // can remove the test for EnableDTrans if it is found to be useful on other
+  // cases.
+  if (EnableDTrans)
+    MPM.addPass(IntelAdvancedFastCallPass());
+#endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   // Optimize globals again after we ran the inliner.

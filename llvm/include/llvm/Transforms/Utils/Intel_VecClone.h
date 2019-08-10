@@ -141,9 +141,8 @@ class VecClone : public ModulePass {
     /// transfers the information from the SIMD function keywords and creates
     /// new loop pragmas so that parameter information can be transferred to
     /// the loop.
-    void insertDirectiveIntrinsics(Module& M, Function *Clone, Function &F,
-                                   VectorVariant &V,
-                                   BasicBlock *EntryBlock,
+    void insertDirectiveIntrinsics(Module &M, Function *Clone, Function &F,
+                                   VectorVariant &V, BasicBlock *EntryBlock,
                                    BasicBlock *LoopExitBlock,
                                    BasicBlock *ReturnBlock);
 

@@ -86,11 +86,11 @@ private:
 
 public:
   explicit OVLSAccessType(ATypeE AccType) { this->AccType = AccType; }
-  bool operator==(ATypeE AccType) const { return this->AccType == AccType; }
   bool operator==(const OVLSAccessType &Rhs) const {
     return AccType == Rhs.AccType;
   }
-  bool operator!=(ATypeE AccType) const { return this->AccType != AccType; }
+  bool operator!=(const OVLSAccessType &Rhs) const { return !operator==(Rhs); }
+
   bool isUnknown() const {
     if (AccType > IStore || AccType < SLoad)
       return true;
@@ -228,16 +228,15 @@ public:
   void dump() const;
 #endif
 
-  /// \brief If the references are scalar, returns true if this and the Memref
-  /// are a constant distance apart. If the memrefs are vectors returns true if
-  /// all ith elements of this and the ith elements of the \p Memref are a
-  /// constant distance apart. Otherwise, returns false. When true is returned
-  /// the constant distance is returned in \p Dist in terms of bytes, otherwise
-  /// \p Dist is undefined. \p Dist = Distance(this) - Distance(Memref). i.e.
-  /// Dist is to be added to Memref's Distance to get the Distance
-  /// of 'this'. Positive distance implies that 'this' is located
-  /// at a memory address more than that of Memref and negative distance implies
-  /// that it's memory address is lower than Memref.
+  /// If the references are scalar and this and the \p Memref are a constant
+  /// distance apart, returns that distance in bytes. If the memrefs are vectors
+  /// and all ith elements of this and the ith elements of the \p Memref are a
+  /// constant distance apart, returns this constant distance in bytes.
+  /// Otherwise, returns None. Returns Distance(this) - Distance(Memref). i.e.
+  /// the result is to be added to Memref's Distance to get the Distance of
+  /// 'this'. Positive distance implies that 'this' is located at a memory
+  /// address more than that of Memref and negative distance implies that it's
+  /// memory address is lower than Memref.
   ///
   /// Please note that, VLS requires the distance that LLVM-IR maintains between
   /// the memrefs. Therefore, this distance computation in the client should
@@ -260,8 +259,7 @@ public:
   ///      = a[3i+1] {stride: j(12)-bytes} accessing every jth byte
   ///      = a[3i+2] {stride: j(12)-bytes} accessing every jth byte
   ///
-  virtual bool isAConstDistanceFrom(const OVLSMemref &Memref,
-                                    int64_t *Dist) = 0;
+  virtual Optional<int64_t> getConstDistanceFrom(const OVLSMemref &Memref) = 0;
 
   /// \brief Returns true if this and Memref have the same OVLSType.
   virtual bool haveSameOVLSType(const OVLSMemref &Memref) {
@@ -313,12 +311,11 @@ public:
   ///                      move took place.
   virtual bool canMoveTo(const OVLSMemref &Memref) = 0;
 
-  /// \brief Returns true if this is a strided access and it has a constant
-  /// uniform distance between the elements, that constant integer distance (in
-  /// bytes) is provided in \p Stride. Otherwise, returns false.
-  /// Inverting the return value does not invert the functionality(false does
-  /// not mean that it has a variable stride)
-  virtual bool hasAConstStride(int64_t *Stride) const = 0;
+  /// Returns stride in bytes between consecutive memory accesses if this is a
+  /// strided access with a constant uniform distance between the elements.
+  /// Otherwise, returns None. Inverting the return value does not invert the
+  /// functionality (None does not mean that it has a variable stride).
+  virtual Optional<int64_t> getConstStride() const = 0;
 
   /// \brief Return the location of this in the code. The location should be
   /// relative to other Memrefs sent by the client to the VLS engine.
@@ -391,24 +388,17 @@ public:
     return MemrefVec[Id];
   }
 
-  /// \brief Return true and the constant stride in \p ConstStride if all of the
-  /// memrefs in the group have the same constant stride. Otherwise, returns
-  /// false and untouched GStride. Stride represents a uniform distance between
-  /// the vector elements of a OVLSMemref.
-  /// Inverting the function return does not invert the functionality
-  /// (e.g. false does not mean the group has a variable stride).
-  bool hasAConstStride(int64_t &ConstStride) const {
-    int64_t Stride = 0;
-    if (getFirstMemref() != nullptr) {
-      if (getFirstMemref()->hasAConstStride(&Stride)) {
-        // A group only comprises the memrefs that have the same matching strides.
-        // Therefore, checking whether the first memref in the group has a
-        // constant stride is sufficient.
-        ConstStride = Stride;
-        return true;
-      }
-    }
-    return false;
+  /// Return constant stride if all of the memrefs in the group have the same
+  /// constant stride. Otherwise, returns None. Stride represents a uniform
+  /// distance in bytes between the vector elements of a OVLSMemref. Inverting
+  /// the function return does not invert the functionality (e.g. None does not
+  /// mean the group has a variable stride).
+  Optional<int64_t> getConstStride() const {
+    // A group only comprises the memrefs that have the same matching strides.
+    // Therefore, checking whether the first memref in the group has a
+    // constant stride is sufficient.
+    OVLSMemref *Mrf = getFirstMemref();
+    return Mrf ? Mrf->getConstStride() : None;
   }
 
   // Currently, a group is formed only if the members have the same number

@@ -329,14 +329,18 @@ def ccc_ : Joined<["-"], "ccc-">, Group<internal_Group>, Flags<[Unsupported]>;
 // Standard Options
 
 // Intel-specific options
-// if INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 def _intel : Flag<["--"], "intel">, Flags<[DriverOption]>,
   HelpText<"Run in Intel Compiler mode">;
 def extended_float_types : Flag<["--"], "extended_float_types">, Flags<[CC1Option]>;
 def fintel_long_double_size_EQ : Joined<["-"], "fintel-long-double-size=">,
   HelpText<"Overrides the size of long double from the architecture/OS defaults.">,
   Flags<[CC1Option]>;
-// endif // INTEL_CUSTOMIZATION
+def intel_mintrinsic_promote : Flag<["-"], "mintrinsic-promote">,
+  Flags<[CC1Option]>, HelpText<"Force certain functions using intrinsics to "
+  "promote their architectures and make the intrinsic headers included by default">;
+def intel_mno_intrinsic_promote : Flag<["-"], "mno-intrinsic-promote">, Flags<[DriverOption]>;
+#endif // INTEL_CUSTOMIZATION
 
 def _HASH_HASH_HASH : Flag<["-"], "###">, Flags<[DriverOption, CoreOption]>,
     HelpText<"Print (but do not run) the commands to run for this compilation">;
@@ -947,6 +951,12 @@ def fno_signaling_math : Flag<["-"], "fno-signaling-math">, Group<f_Group>;
 def fjump_tables : Flag<["-"], "fjump-tables">, Group<f_Group>;
 def fno_jump_tables : Flag<["-"], "fno-jump-tables">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Do not use jump tables for lowering switches">;
+#if INTEL_CUSTOMIZATION
+def qopt_jump_tables : Flag<["-"], "qopt-jump-tables">,Alias<fjump_tables>,
+HelpText<"Control the generation of jump tables">;
+def qno_opt_jump_tables : Flag<["-"], "qno-opt-jump-tables">,Alias<fno_jump_tables>,
+HelpText<"Do not use jump tables for lowering switches">;
+#endif //INTEL_CUSTOMIZATION
 def fforce_enable_int128 : Flag<["-"], "fforce-enable-int128">,
   Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Enable support for int128_t type">;
