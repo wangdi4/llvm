@@ -599,17 +599,9 @@ LoopAttributes::LoopAttributes(bool IsParallel)
       LoopCountMin(0), LoopCountMax(0), LoopCountAvg(0),
 #endif // INTEL_CUSTOMIZATION
       UnrollEnable(LoopAttributes::Unspecified),
-<<<<<<< HEAD
       UnrollAndJamEnable(LoopAttributes::Unspecified),
       VectorizePredicateEnable(LoopAttributes::Unspecified), VectorizeWidth(0),
-      InterleaveCount(0),
-      SYCLIVDepEnable(false), SYCLIVDepSafelen(0), SYCLIInterval(0),
-      SYCLMaxConcurrencyNThreads(0),
-      UnrollCount(0), UnrollAndJamCount(0),
-=======
-      UnrollAndJamEnable(LoopAttributes::Unspecified), VectorizeWidth(0),
       InterleaveCount(0), UnrollCount(0), UnrollAndJamCount(0),
->>>>>>> 839d5920a447d8b35fe405e559a17595cdf95cdc
       DistributeEnable(LoopAttributes::Unspecified), PipelineDisabled(false),
       PipelineInitiationInterval(0) {}
 

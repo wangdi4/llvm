@@ -125,12 +125,7 @@ CompilerInvocationBase::~CompilerInvocationBase() = default;
 static unsigned getOptimizationLevel(ArgList &Args, InputKind IK,
                                      DiagnosticsEngine &Diags) {
   unsigned DefaultOpt = llvm::CodeGenOpt::None;
-<<<<<<< HEAD
-  if ((IK.getLanguage() == Language::OpenCL &&
-      !Args.hasArg(OPT_cl_opt_disable)) || Args.hasArg(OPT_fsycl_is_device))
-=======
-  if (IK.getLanguage() == InputKind::OpenCL && !Args.hasArg(OPT_cl_opt_disable))
->>>>>>> 839d5920a447d8b35fe405e559a17595cdf95cdc
+  if (IK.getLanguage() == Language::OpenCL && !Args.hasArg(OPT_cl_opt_disable))
     DefaultOpt = llvm::CodeGenOpt::Default;
 
   if (Arg *A = Args.getLastArg(options::OPT_O_Group)) {
