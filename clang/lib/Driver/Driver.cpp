@@ -3713,17 +3713,6 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
   HeaderModulePrecompileJobAction *HeaderModuleAction = nullptr;
   ActionList LinkerInputs;
 
-<<<<<<< HEAD
-  llvm::SmallVector<phases::ID, phases::MaxNumberOfPhases> PL;
-  unsigned LastPLSize = 0;
-  for (auto &I : Inputs) {
-    types::ID InputType = I.first;
-    const Arg *InputArg = I.second;
-
-    PL.clear();
-    types::getCompilationPhases(InputType, PL);
-    LastPLSize = PL.size();
-=======
   phases::ID FinalPhase;
   {
     Arg *FinalPhaseArg;
@@ -3747,7 +3736,6 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
       Args.eraseArg(options::OPT__SLASH_Yu);
       YcArg = YuArg = nullptr;
     }
->>>>>>> 82c51b18e48a2a7062c3340b66496c04bb5aecc0
 
     unsigned LastPLSize = 0;
     for (auto &I : Inputs) {
@@ -3826,11 +3814,12 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
     }
   }
 
+  llvm::SmallVector<phases::ID, phases::MaxNumberOfPhases> PL;
   for (auto &I : Inputs) {
     types::ID InputType = I.first;
     const Arg *InputArg = I.second;
 
-    llvm::SmallVector<phases::ID, phases::MaxNumberOfPhases> PL;
+    PL.clear();
     types::getCompilationPhases(InputType, PL);
     if (PL[0] > FinalPhase)
       continue;
