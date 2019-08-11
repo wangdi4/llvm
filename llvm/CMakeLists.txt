@@ -1381,7 +1381,6 @@ if (LLVM_INCLUDE_BENCHMARKS)
   add_subdirectory(utils/benchmark)
   add_subdirectory(benchmarks)
 endif()
-<<<<<<< HEAD
 
 if (INTEL_CUSTOMIZATION)
   # This command is used for creating a fake dependency in order to force
@@ -1462,5 +1461,3 @@ if (INTEL_CUSTOMIZATION)
   endif()
 endif (INTEL_CUSTOMIZATION)
 
-=======
->>>>>>> 6c99bb2d9a421d49473621501275bb8f01460b7b
