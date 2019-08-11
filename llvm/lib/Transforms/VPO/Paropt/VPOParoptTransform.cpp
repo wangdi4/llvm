@@ -1069,6 +1069,7 @@ bool VPOParoptTransform::paroptTransforms() {
     bool Changed = false;
 
     bool RemoveDirectives = false;
+    bool HandledWithoutRemovingDirectives = false;
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -1147,6 +1148,7 @@ bool VPOParoptTransform::paroptTransforms() {
             // do not remove it here, since guardSideEffects needs the
             // parallel directive to insert barriers.
             RemoveDirectives = false;
+            HandledWithoutRemovingDirectives = true;
           }
         }
         break;
@@ -1254,6 +1256,7 @@ bool VPOParoptTransform::paroptTransforms() {
             // do not remove it here, since guardSideEffects needs the
             // parallel directive to insert barriers.
             RemoveDirectives = false;
+            HandledWithoutRemovingDirectives = true;
           }
         }
         break;
@@ -1681,6 +1684,19 @@ bool VPOParoptTransform::paroptTransforms() {
       default:
         break;
       } // switch
+    }
+
+    // Emit opt-report remarks for handled/ignored constructs.
+    if (RemoveDirectives || HandledWithoutRemovingDirectives) {
+      if (Changed) {
+        OptimizationRemark R("openmp", "Region", W->getEntryDirective());
+        R << ore::NV("Construct", W->getName()) << " construct transformed";
+        ORE.emit(R);
+      } else {
+        OptimizationRemarkMissed R("openmp", "Region", W->getEntryDirective());
+        R << ore::NV("Construct", W->getName()) << " construct ignored";
+        ORE.emit(R);
+      }
     }
 
     // Remove calls to directive intrinsics since the LLVM back end does not

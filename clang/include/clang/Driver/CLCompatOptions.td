@@ -177,6 +177,12 @@ def _SLASH_Qvec_ : CLFlag<"Qvec-">,
 def _SLASH_QUESTION : CLFlag<"?">, Alias<help>,
   HelpText<"Display available options">;
 #if INTEL_CUSTOMIZATION
+def _SLASH_Qintrinsic_promote : CLFlag<"Qintrinsic-promote">,
+  Alias<intel_mintrinsic_promote>, HelpText<"For certain functions using "
+  "intrinsics to promote their architectures and make the intrinsic headers "
+  "included by default">;
+def _SLASH_Qintrinsic_promote_ : CLFlag<"Qintrinsic-promote-">,
+  Alias<intel_mno_intrinsic_promote>;
 def _SLASH_Qrestrict : CLFlag<"Qrestrict">, Alias<restrict>,
   HelpText<"enable the 'restrict' keyword for disambiguating pointers">;
 def _SLASH_Qrestrict_ : CLFlag<"Qrestrict-">, Alias<no_restrict>,
