@@ -51,14 +51,11 @@ enum tgt_map_type {
   OMP_TGT_MAPTYPE_LITERAL         = 0x100,
   // mapping is implicit
   OMP_TGT_MAPTYPE_IMPLICIT        = 0x200,
-<<<<<<< HEAD
-#if INTEL_COLLAB
-  OMP_TGT_MAPTYPE_ND_DESC         = 0x400,
-#endif // INTEL_COLLAB
-=======
   // copy data to device
   OMP_TGT_MAPTYPE_CLOSE           = 0x400,
->>>>>>> 6c7b882e525d8f1f2cd8eb6ed06a8abf12727a0b
+#if INTEL_COLLAB
+  OMP_TGT_MAPTYPE_ND_DESC         = 0x800,
+#endif // INTEL_COLLAB
   // member of struct, member given by [16 MSBs] - 1
   OMP_TGT_MAPTYPE_MEMBER_OF       = 0xffff000000000000
 };
