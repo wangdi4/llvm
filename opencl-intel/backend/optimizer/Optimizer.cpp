@@ -182,6 +182,7 @@ llvm::ModulePass *createChannelsUsageAnalysisPass();
 llvm::ModulePass *createSYCLPipesHackPass();
 llvm::ModulePass *createAddTLSGlobalsPass();
 llvm::ModulePass *createCoerceTypesPass();
+llvm::Pass *createOCLLoopIdiomRecognizePass();
 }
 
 using namespace intel;
@@ -785,6 +786,10 @@ static void populatePassesPostFailCheck(
     PM.add(llvm::createInstructionCombiningPass()); // Instruction combining
     PM.add(llvm::createDeadStoreEliminationPass()); // Eliminated dead stores
     PM.add(llvm::createEarlyCSEPass());
+
+    PM.add(createOCLLoopIdiomRecognizePass()); // Transform a loop to memcpy
+    PM.add(llvm::createLoopDeletionPass());    // Delete dead instructions
+
     PM.add(createSmartGVNPass(true)); // GVN with "no load" heuristic
 #ifdef _DEBUG
     PM.add(llvm::createVerifierPass());
