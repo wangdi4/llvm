@@ -2968,17 +2968,14 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
   case Id: \
     return #ExtType;
 #include "clang/Basic/OpenCLExtensionTypes.def"
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  case VAArgPack:
-    return "<Variadic Pack Expansion>";
-#endif // INTEL_CUSTOMIZATION
-=======
 #define SVE_TYPE(Name, Id, SingletonId) \
   case Id: \
     return Name;
 #include "clang/Basic/AArch64SVEACLETypes.def"
->>>>>>> eb485fbc712861e37813ff93d2711c631d162f68
+#if INTEL_CUSTOMIZATION
+  case VAArgPack:
+    return "<Variadic Pack Expansion>";
+#endif // INTEL_CUSTOMIZATION
   }
 
   llvm_unreachable("Invalid builtin type.");
