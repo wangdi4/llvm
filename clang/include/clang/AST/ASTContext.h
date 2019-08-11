@@ -1071,7 +1071,13 @@ public:
 #define EXT_OPAQUE_TYPE(ExtType, Id, Ext) \
   CanQualType Id##Ty;
 #include "clang/Basic/OpenCLExtensionTypes.def"
+<<<<<<< HEAD
   CanQualType VAArgPackTy; // INTEL
+=======
+#define SVE_TYPE(Name, Id, SingletonId) \
+  CanQualType SingletonId;
+#include "clang/Basic/AArch64SVEACLETypes.def"
+>>>>>>> eb485fbc712861e37813ff93d2711c631d162f68
 
   // Types for deductions in C++0x [stmt.ranged]'s desugaring. Built on demand.
   mutable QualType AutoDeductTy;     // Deduction against 'auto'.
