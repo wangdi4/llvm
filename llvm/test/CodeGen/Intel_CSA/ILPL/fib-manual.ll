@@ -8,7 +8,7 @@ define void @csa_fib(i64* noalias nocapture %results, i64* noalias nocapture rea
 ; at least one pick64 driven by the any0 result. Here, we also ensure that
 ; the number of token values matches exactly the depth specified by the
 ; programmer. (7.)
-; CHECK-DAG:  any0 [[CTRL:%.+]], [[OUTER:%.+]], [[INNER:%.+]], %na, %na, 0
+; CHECK-DAG:  any0 [[CTRL:%.+]], [[OUTER:%.+]], [[INNER:%.+]], 0
 ; CHECK-DAG:  pick64 [[INNERVAL:%.+]], [[CTRL]], [[V1:%.+]], [[V2:%.+]]
 ; CHECK-DAG:  completion64 [[TOKENS:%.+]], [[ORDERED:%.+]], [[IDXIN:%.+]], [[VALIN:%.+]], 7
 entry:

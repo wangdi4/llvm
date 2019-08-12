@@ -226,8 +226,6 @@ unsigned csa_utils::createPickTree(
         BuildMI(*mbb, before, dl, TII->get(anyOpcode), index)
             .addReg(select_signals[0])
             .addReg(select_signals[1])
-            .addReg(unusedReg)
-            .addReg(unusedReg)
             .addImm(0);
     anyInst->setFlag(MachineInstr::NonSequential);
     LLVM_DEBUG(errs() << "anyInst = " << *anyInst << "\n");
@@ -342,8 +340,6 @@ void csa_utils::createSwitchTree(MachineBasicBlock *mbb,
     BuildMI(*mbb, before, dl, TII->get(anyOpcode), index)
         .addReg(select_signal_0)
         .addReg(select_signal_1)
-        .addReg(unusedReg)
-        .addReg(unusedReg)
         .addImm(0);
   anyInst->setFlag(MachineInstr::NonSequential);
   LLVM_DEBUG(errs() << "anyInst = " << *anyInst << "\n");

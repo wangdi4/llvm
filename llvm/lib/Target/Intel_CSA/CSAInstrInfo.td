@@ -1521,8 +1521,8 @@ def LOR1 : FMTGEN<LOR, Ti1,
 def ANY : GenericOp<"any">;
 def ANY0 : FMTGEN<ANY, Ti0,
   (outs I64:$dst),
-  (ins RCLi0:$op1, RCLi0:$op2, RCLi0:$op3, RCLi0:$op4, PrioOrderOperand:$ord),
-  "any0\t$dst, $op1, $op2, $op3, $op4, $ord",
+  (ins RCLi0:$op1, RCLi0:$op2, PrioOrderOperand:$ord),
+  "any0\t$dst, $op1, $op2, $ord",
   [], [], IIVir> { let isMultiTriggered = 1; }
 
 // TODO: all0 is supposed to support an arbitrary number of inputs, but the late

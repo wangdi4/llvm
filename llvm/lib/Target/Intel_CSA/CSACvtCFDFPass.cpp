@@ -1122,8 +1122,6 @@ void CSACvtCFDFPass::pipelineLoop(MachineBasicBlock *lphdr, CSALoopInfo &DFLoop,
     .addDef(cpyReg)
     .addReg(firstPrio)
     .addReg(secondPrio)
-    .addReg(CSA::NA)
-    .addReg(CSA::NA)
     .setMIFlag(MachineInstr::NonSequential);
 
   // If the new iteration is selected when pick index is 1, we need to negate
