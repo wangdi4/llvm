@@ -155,15 +155,11 @@ bool X86CallFrameOptimization::isLegal(MachineFunction &MF) {
   // This is bad, and breaks SP adjustment.
   // So, check that all of the frames in the function are closed inside
   // the same block, and, for good measure, that there are no nested frames.
-<<<<<<< HEAD
-  
-=======
   //
   // If any call allocates more argument stack memory than the stack
   // probe size, don't do this optimization. Otherwise, this pass
   // would need to synthesize additional stack probe calls to allocate
   // memory for arguments.
->>>>>>> c6c86f4f81fb9130499f2b75764b8227cddc2375
   unsigned FrameSetupOpcode = TII->getCallFrameSetupOpcode();
   unsigned FrameDestroyOpcode = TII->getCallFrameDestroyOpcode();
   bool UseStackProbe =
