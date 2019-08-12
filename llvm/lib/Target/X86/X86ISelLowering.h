@@ -1256,6 +1256,8 @@ namespace llvm {
 
     StringRef getStackProbeSymbolName(MachineFunction &MF) const override;
 
+    unsigned getStackProbeSize(MachineFunction &MF) const;
+
     bool hasVectorBlend() const override { return true; }
 
 #if INTEL_CUSTOMIZATION
