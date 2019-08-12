@@ -42,12 +42,12 @@ for.body3.preheader:
 ; CHECK-NEXT:     no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:     BB7 (BP: NULL) :
-; CHECK-NEXT:      i64 [[PREV_PHI_USE_BLEND:%vp[0-9]*]] = phi  [ i64 [[PHI_USE_BLEND:%vp[0-9]*]], BB25 ],  [ i64 undef, [[PREHEADER]] ]
-; CHECK-NEXT:      i64 [[PREV_PHI_UPDATE_USE_BLEND:%vp[0-9]*]] = phi  [ i64 [[PHI_UPDATE_USE_BLEND:%vp[0-9]*]], BB25 ],  [ i64 undef, [[PREHEADER]] ]
-; CHECK-NEXT:      i1 [[PREV_NO_PHI_INST_USE_BLEND:%vp[0-9]*]] = phi  [ i1 [[NO_PHI_INST_USE_BLEND:%vp[0-9]*]], BB25 ],  [ i1 undef, [[PREHEADER]] ]
-; CHECK-NEXT:      i64 [[INNER_IV:%vp[0-9]*]] = phi  [ i64 [[INNER_IV_NEXT:%vp[0-9]*]], BB25 ],  [ i64 0, [[PREHEADER]] ]
-; CHECK-NEXT:      i32 [[MERGE_LOOP_EXIT_ARTIFACT:%vp[0-9]*]] = phi  [ i32 [[MERGE_LOOP_EXIT_ARTIFACT_NEXT:%vp[0-9]*]], BB25 ],  [ i32 0, [[PREHEADER]] ]
-; CHECK-NEXT:      i1 [[INNER_MASK:%vp[0-9]*]] = phi  [ i1 [[INNER_MASK_INPUT:%vp[0-9]*]], [[PREHEADER]] ],  [ i1 [[INNER_MASK_NEXT:%vp[0-9]*]], BB25 ]
+; CHECK-NEXT:      i64 [[PREV_PHI_USE_BLEND:%vp.*]] = phi  [ i64 [[PHI_USE_BLEND:%vp.*]], BB25 ],  [ i64 undef, [[PREHEADER]] ]
+; CHECK-NEXT:      i64 [[PREV_PHI_UPDATE_USE_BLEND:%vp.*]] = phi  [ i64 [[PHI_UPDATE_USE_BLEND:%vp.*]], BB25 ],  [ i64 undef, [[PREHEADER]] ]
+; CHECK-NEXT:      i1 [[PREV_NO_PHI_INST_USE_BLEND:%vp.*]] = phi  [ i1 [[NO_PHI_INST_USE_BLEND:%vp.*]], BB25 ],  [ i1 undef, [[PREHEADER]] ]
+; CHECK-NEXT:      i64 [[INNER_IV:%vp.*]] = phi  [ i64 [[INNER_IV_NEXT:%vp.*]], BB25 ],  [ i64 0, [[PREHEADER]] ]
+; CHECK-NEXT:      i32 [[MERGE_LOOP_EXIT_ARTIFACT:%vp.*]] = phi  [ i32 [[MERGE_LOOP_EXIT_ARTIFACT_NEXT:%vp.*]], BB25 ],  [ i32 0, [[PREHEADER]] ]
+; CHECK-NEXT:      i1 [[INNER_MASK:%vp.*]] = phi  [ i1 [[INNER_MASK_INPUT:%vp.*]], [[PREHEADER]] ],  [ i1 [[INNER_MASK_NEXT:%vp.*]], BB25 ]
 ; CHECK-NEXT:     SUCCESSORS(1):mask_region26
 ; CHECK-NEXT:     PREDECESSORS(2): BB25 [[PREHEADER]]
 ; CHECK-EMPTY:
@@ -59,9 +59,9 @@ for.body3.preheader:
 ; CHECK-NEXT:     no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:       BB24 (BP: NULL) :
-; CHECK-NEXT:        i64* [[GEP:%vp[0-9]*]] = getelementptr inbounds i64* %a i64 [[INNER_IV]]
-; CHECK-NEXT:        i64 [[LD:%vp[0-9]*]] = load i64* [[GEP]]
-; CHECK-NEXT:        i1 [[SOME_CMP:%vp[0-9]*]] = icmp i64 [[LD]] i64 42
+; CHECK-NEXT:        i64* [[GEP:%vp.*]] = getelementptr inbounds i64* %a i64 [[INNER_IV]]
+; CHECK-NEXT:        i64 [[LD:%vp.*]] = load i64* [[GEP]]
+; CHECK-NEXT:        i1 [[SOME_CMP:%vp.*]] = icmp i64 [[LD]] i64 42
 ; CHECK-NEXT:        i64 [[INNER_IV_NEXT]] = add i64 [[INNER_IV]] i64 1
 ; CHECK-NEXT:       SUCCESSORS(1):region22
 ; CHECK-NEXT:       PREDECESSORS(1): BB23
@@ -74,7 +74,7 @@ for.body3.preheader:
 ; CHECK-NEXT:       no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:         BB9 (BP: NULL) :
-; CHECK-NEXT:          i1 [[EXITCOND:%vp[0-9]*]] = icmp i64 [[INNER_IV_NEXT]] i64 [[OUTER_IV:%vp[0-9]*]]
+; CHECK-NEXT:          i1 [[EXITCOND:%vp.*]] = icmp i64 [[INNER_IV_NEXT]] i64 [[OUTER_IV:%vp.*]]
 ; CHECK-NEXT:         SUCCESSORS(1):NewLoopLatch13
 ; CHECK-NEXT:         PREDECESSORS(1): BB16
 ; CHECK-EMPTY:
@@ -85,10 +85,10 @@ for.body3.preheader:
 ; CHECK-EMPTY:
 ; CHECK-NEXT:       NewLoopLatch13 (BP: NULL) :
 ; CHECK-NEXT:        i32 [[MERGE_LOOP_EXIT_ARTIFACT_NEXT]] = phi  [ i32 [[MERGE_LOOP_EXIT_ARTIFACT]], BB9 ],  [ i32 1, IntermediateBB14 ]
-; CHECK-NEXT:        i1 [[NO_PHI_INST_USE:%vp[0-9]*]] = phi  [ i1 [[SOME_CMP]], IntermediateBB14 ],  [ i1 false, BB9 ]
-; CHECK-NEXT:        i64 [[PHI_UPDATE_USE:%vp[0-9]*]] = phi  [ i64 [[INNER_IV_NEXT]], IntermediateBB14 ],  [ i64 100, BB9 ]
-; CHECK-NEXT:        i64 [[PHI_USE:%vp[0-9]*]] = phi  [ i64 [[INNER_IV]], IntermediateBB14 ],  [ i64 100, BB9 ]
-; CHECK-NEXT:        i1 [[INNER_MERGED_EXIT_COND:%vp[0-9]*]] = phi  [ i1 [[EXITCOND]], BB9 ],  [ i1 true, IntermediateBB14 ]
+; CHECK-NEXT:        i1 [[NO_PHI_INST_USE:%vp.*]] = phi  [ i1 [[SOME_CMP]], IntermediateBB14 ],  [ i1 false, BB9 ]
+; CHECK-NEXT:        i64 [[PHI_UPDATE_USE:%vp.*]] = phi  [ i64 [[INNER_IV_NEXT]], IntermediateBB14 ],  [ i64 100, BB9 ]
+; CHECK-NEXT:        i64 [[PHI_USE:%vp.*]] = phi  [ i64 [[INNER_IV]], IntermediateBB14 ],  [ i64 100, BB9 ]
+; CHECK-NEXT:        i1 [[INNER_MERGED_EXIT_COND:%vp.*]] = phi  [ i1 [[EXITCOND]], BB9 ],  [ i1 true, IntermediateBB14 ]
 ; CHECK-NEXT:       no SUCCESSORS
 ; CHECK-NEXT:       PREDECESSORS(2): BB9 IntermediateBB14
 ; CHECK-EMPTY:
@@ -96,12 +96,12 @@ for.body3.preheader:
 ; CHECK-NEXT:       END Region(region22)
 ; CHECK-EMPTY:
 ; CHECK-NEXT:     BB17 (BP: NULL) :
-; CHECK-NEXT:      i1 [[INNER_MERGED_EXIT_COND_NEG:%vp[0-9]*]] = not i1 [[INNER_MERGED_EXIT_COND]]
+; CHECK-NEXT:      i1 [[INNER_MERGED_EXIT_COND_NEG:%vp.*]] = not i1 [[INNER_MERGED_EXIT_COND]]
 ; CHECK-NEXT:      i1 [[INNER_MASK_NEXT]] = and i1 [[INNER_MERGED_EXIT_COND_NEG]] i1 [[INNER_MASK]]
 ; CHECK-NEXT:      i1 [[NO_PHI_INST_USE_BLEND]] = select i1 [[INNER_MASK]] i1 [[NO_PHI_INST_USE]] i1 [[PREV_NO_PHI_INST_USE_BLEND]]
 ; CHECK-NEXT:      i64 [[PHI_UPDATE_USE_BLEND]] = select i1 [[INNER_MASK]] i64 [[PHI_UPDATE_USE]] i64 [[PREV_PHI_UPDATE_USE_BLEND]]
 ; CHECK-NEXT:      i64 [[PHI_USE_BLEND]] = select i1 [[INNER_MASK]] i64 [[PHI_USE]] i64 [[PREV_PHI_USE_BLEND]]
-; CHECK-NEXT:      i1 [[ALL_ZERO_CHECK:%vp[0-9]*]] = all-zero-check i1 [[INNER_MASK_NEXT]]
+; CHECK-NEXT:      i1 [[ALL_ZERO_CHECK:%vp.*]] = all-zero-check i1 [[INNER_MASK_NEXT]]
 ; CHECK-NEXT:     no SUCCESSORS
 ; CHECK-NEXT:     PREDECESSORS(2): region22 BB23
 ; CHECK-EMPTY:
@@ -115,12 +115,12 @@ for.body3.preheader:
 ; CHECK-NEXT:     PREDECESSORS(1): mask_region26
 ; CHECK-EMPTY:
 ; CHECK-NEXT:     BB8 (BP: NULL) :
-; CHECK-NEXT:      i64 [[USE_A_LCSSA:%vp[0-9]*]] = phi  [ i64 [[PHI_USE_BLEND]], BB25 ]
-; CHECK-NEXT:      i64 [[USE_B_LCSSA:%vp[0-9]*]] = phi  [ i64 [[PHI_UPDATE_USE_BLEND]], BB25 ]
-; CHECK-NEXT:      i1 [[USE_C_LCSSA:%vp[0-9]*]] = phi  [ i1 [[NO_PHI_INST_USE_BLEND]], BB25 ]
-; CHECK-NEXT:      i64 [[USE_A:%vp[0-9]*]] = add i64 [[USE_A_LCSSA]] i64 1
-; CHECK-NEXT:      i64 [[USE_B:%vp[0-9]*]] = add i64 [[USE_B_LCSSA]] i64 1
-; CHECK-NEXT:      i1 [[USE_C:%vp[0-9]*]] = xor i1 [[USE_C_LCSSA]] i1 true
+; CHECK-NEXT:      i64 [[USE_A_LCSSA:%vp.*]] = phi  [ i64 [[PHI_USE_BLEND]], BB25 ]
+; CHECK-NEXT:      i64 [[USE_B_LCSSA:%vp.*]] = phi  [ i64 [[PHI_UPDATE_USE_BLEND]], BB25 ]
+; CHECK-NEXT:      i1 [[USE_C_LCSSA:%vp.*]] = phi  [ i1 [[NO_PHI_INST_USE_BLEND]], BB25 ]
+; CHECK-NEXT:      i64 [[USE_A:%vp.*]] = add i64 [[USE_A_LCSSA]] i64 1
+; CHECK-NEXT:      i64 [[USE_B:%vp.*]] = add i64 [[USE_B_LCSSA]] i64 1
+; CHECK-NEXT:      i1 [[USE_C:%vp.*]] = xor i1 [[USE_C_LCSSA]] i1 true
 ; CHECK-NEXT:     no SUCCESSORS
 ; CHECK-NEXT:     PREDECESSORS(1): BB25
 ; CHECK-EMPTY:

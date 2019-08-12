@@ -18,12 +18,12 @@
 ; of loopCFU calls.
 
 ; CHECK-LABEL: VPlan IR for: Predicator: After predication
-; CHECK-DAG: i1 [[ALLZERO_1:%vp[0-9]+]] = all-zero-check
+; CHECK-DAG: i1 [[ALLZERO_1:%vp.*]] = all-zero-check
 ; CHECK-NEXT: no SUCCESSORS
 ; CHECK-DAG: Condition({{BB[0-9]+}}): i1  [[ALLZERO_1]] = all-zero-check
 ; CHECK-NEXT: SUCCESSORS(2):{{BB[0-9]+}}(i1 [[ALLZERO_1]]), {{BB[0-9]+}}(!i1 [[ALLZERO_1]])
-; CHECK-DAG: i1 [[ALLZERO_2:%vp[0-9]+]] = all-zero-check
-; CHECK-NEXT: i1 [[NOTCOND:%vp[0-9]+]] = not i1 [[ALLZERO_2]]
+; CHECK-DAG: i1 [[ALLZERO_2:%vp.*]] = all-zero-check
+; CHECK-NEXT: i1 [[NOTCOND:%vp.*]] = not i1 [[ALLZERO_2]]
 ; CHECK-NEXT: no SUCCESSORS
 ; CHECK-DAG: Condition({{BB[0-9]+}}): i1  [[NOTCOND]] = not i1 [[ALLZERO_2]]
 ; CHECK-NEXT: SUCCESSORS(2):{{BB[0-9]+}}(i1 [[NOTCOND]]), {{BB[0-9]+}}(!i1 [[NOTCOND]])

@@ -8,26 +8,26 @@
 ; CHECK: Printing Divergence info for Printing Divergence info for Loop at depth 1 containing: BB3<header>,BB4,BB6,BB5<latch><exiting>
 ; CHECK-NEXT: Loop at depth 2 containing: BB6<header><latch><exiting>
 ; CHECK-LABEL: Basic Block: BB3
-; CHECK-NEXT: Divergent: [[VAL1:%vp[0-9]+]] = phi i64 0 [[VAL2:%vp[0-9]+]]
+; CHECK-NEXT: Divergent: [[VAL1:%vp.*]] = phi i64 0 [[VAL2:%vp.*]]
 ; CHECK-LABEL: Basic Block: BB6
-; CHECK-NEXT: Uniform: [[VAL3:%vp[0-9]+]] = phi [[VAL4:%vp[0-9]+]] i64 0
-; CHECK-NEXT: Divergent: [[VAL5:%vp[0-9]+]] = phi [[VAL6:%vp[0-9]+]] double 0.000000e+00
-; CHECK-NEXT: Uniform: [[VAL7:%vp[0-9]+]] = getelementptr [[VAL8:%vp[0-9]+]] [[VAL3:%vp[0-9]+]]
-; CHECK-NEXT: Uniform: [[VAL9:%vp[0-9]+]] = load [[VAL7:%vp[0-9]+]]
-; CHECK-NEXT: Uniform: [[VAL10:%vp[0-9]+]] = sext [[VAL9:%vp[0-9]+]]
-; CHECK-NEXT: Uniform: [[VAL11:%vp[0-9]+]] = getelementptr [[VAL12:%vp[0-9]+]] [[VAL10:%vp[0-9]+]]
-; CHECK-NEXT: Uniform: [[VAL13:%vp[0-9]+]] = load [[VAL11:%vp[0-9]+]]
-; CHECK-NEXT: Divergent: [[VAL14:%vp[0-9]+]] = getelementptr [[VAL13:%vp[0-9]+]] [[VAL1:%vp[0-9]+]]
-; CHECK-NEXT: Divergent: [[VAL15:%vp[0-9]+]] = load [[VAL14:%vp[0-9]+]]
-; CHECK-NEXT: Divergent: [[VAL6:%vp[0-9]+]] = fadd [[VAL5:%vp[0-9]+]] [[VAL15:%vp[0-9]+]]
-; CHECK-NEXT: Uniform: [[VAL4:%vp[0-9]+]] = add %[[VAL3:vp[0-9]+]] i64 1
-; CHECK-NEXT: Uniform: [[VAL16:%vp[0-9]+]] = icmp [[VAL4:%vp[0-9]+]] [[VAL17:%vp[0-9]+]]
+; CHECK-NEXT: Uniform: [[VAL3:%vp.*]] = phi [[VAL4:%vp.*]] i64 0
+; CHECK-NEXT: Divergent: [[VAL5:%vp.*]] = phi [[VAL6:%vp.*]] double 0.000000e+00
+; CHECK-NEXT: Uniform: [[VAL7:%vp.*]] = getelementptr [[VAL8:%vp.*]] [[VAL3:%vp.*]]
+; CHECK-NEXT: Uniform: [[VAL9:%vp.*]] = load [[VAL7:%vp.*]]
+; CHECK-NEXT: Uniform: [[VAL10:%vp.*]] = sext [[VAL9:%vp.*]]
+; CHECK-NEXT: Uniform: [[VAL11:%vp.*]] = getelementptr [[VAL12:%vp.*]] [[VAL10:%vp.*]]
+; CHECK-NEXT: Uniform: [[VAL13:%vp.*]] = load [[VAL11:%vp.*]]
+; CHECK-NEXT: Divergent: [[VAL14:%vp.*]] = getelementptr [[VAL13:%vp.*]] [[VAL1:%vp.*]]
+; CHECK-NEXT: Divergent: [[VAL15:%vp.*]] = load [[VAL14:%vp.*]]
+; CHECK-NEXT: Divergent: [[VAL6:%vp.*]] = fadd [[VAL5:%vp.*]] [[VAL15:%vp.*]]
+; CHECK-NEXT: Uniform: [[VAL4:%vp.*]] = add %[[VAL3:vp[0-9]+]] i64 1
+; CHECK-NEXT: Uniform: [[VAL16:%vp.*]] = icmp [[VAL4:%vp.*]] [[VAL17:%vp.*]]
 ; CHECK-LABEL: Basic Block: BB5
-; CHECK-NEXT: Divergent: [[VAL18:%vp[0-9]+]] = phi double 0.000000e+00 [[VAL6:%vp[0-9]+]]
-; CHECK-NEXT: Divergent: [[VAL19:%vp[0-9]+]] = getelementptr [[VAL20:%vp[0-9]+]] [[VAL1:%vp[0-9]+]]
-; CHECK-NEXT: Divergent: store [[VAL18:%vp[0-9]+]] [[VAL19:%vp[0-9]+]]
-; CHECK-NEXT: Divergent: [[VAL2:%vp[0-9]+]] = add [[VAL1:%vp[0-9]+]] i64 1
-; CHECK-NEXT: Uniform: [[VAL21:%vp[0-9]+]] = icmp [[VAL2:%vp[0-9]+]] [[VAL22:%vp[0-9]+]]
+; CHECK-NEXT: Divergent: [[VAL18:%vp.*]] = phi double 0.000000e+00 [[VAL6:%vp.*]]
+; CHECK-NEXT: Divergent: [[VAL19:%vp.*]] = getelementptr [[VAL20:%vp.*]] [[VAL1:%vp.*]]
+; CHECK-NEXT: Divergent: store [[VAL18:%vp.*]] [[VAL19:%vp.*]]
+; CHECK-NEXT: Divergent: [[VAL2:%vp.*]] = add [[VAL1:%vp.*]] i64 1
+; CHECK-NEXT: Uniform: [[VAL21:%vp.*]] = icmp [[VAL2:%vp.*]] [[VAL22:%vp.*]]
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()

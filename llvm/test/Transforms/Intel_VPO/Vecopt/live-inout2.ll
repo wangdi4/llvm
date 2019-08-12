@@ -13,30 +13,30 @@
 ; CHECK-DAG: [101 x float]* %a
 ; CHECK-DAG: i8* %4
 ; CHECK-NEXT: Used externally:
-; CHECK-DAG: i64 {{%vp[0-9]+}}
-; CHECK-DAG: i64 {{%vp[0-9]+}}
-; CHECK-DAG: i64 {{%vp[0-9]+}}
+; CHECK-DAG: i64 {{%vp.*}}
+; CHECK-DAG: i64 {{%vp.*}}
+; CHECK-DAG: i64 {{%vp.*}}
 ; CHECK-DAG: i64 %ret.promoted livein in the loops:  BB2
-; CHECK-DAG: i64 {{%vp[0-9]+}} liveout in the loop: BB2
+; CHECK-DAG: i64 {{%vp.*}} liveout in the loop: BB2
 ; CHECK-DAG: i8* %4 livein in the loops:  BB2
 ; CHECK-DAG: i64* %k livein in the loops:  BB2
 ; CHECK-DAG: i64* %ub livein in the loops:  BB2
 ; CHECK-DAG: [101 x float]* %a livein in the loops:  BB4 BB2
-; CHECK-DAG: i64 {{%vp[0-9]+}} livein in the loops:  BB4
-; CHECK-DAG: i64 {{%vp[0-9]+}} liveout in the loop: BB4
-; CHECK-DAG: i64 {{%vp[0-9]+}} livein in the loops:  BB4
+; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB4
+; CHECK-DAG: i64 {{%vp.*}} liveout in the loop: BB4
+; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB4
 ; CHECK-DAG: i64* %k livein in the loops:  BB2
 ; CHECK-DAG: i64* %lb livein in the loops:  BB2
-; CHECK-DAG: i64 {{%vp[0-9]+}} livein in the loops:  BB9
+; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB9
 ; CHECK-DAG: [101 x float]* %B livein in the loops:  BB9 BB2
-; CHECK-DAG: i64 {{%vp[0-9]+}} livein in the loops:  BB9
-; CHECK-DAG: i64 {{%vp[0-9]+}} liveout in the loop: BB9
-; CHECK-DAG: i64 {{%vp[0-9]+}} livein in the loops:  BB9
+; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB9
+; CHECK-DAG: i64 {{%vp.*}} liveout in the loop: BB9
+; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB9
 ; CHECK-DAG: i64* %k livein in the loops:  BB2
 ; CHECK-DAG: [101 x float]* %B livein in the loops:  BB2
-; CHECK-DAG: i64 {{%vp[0-9]+}} liveout in the loop: BB2
+; CHECK-DAG: i64 {{%vp.*}} liveout in the loop: BB2
 ; CHECK-DAG: i8* %4 livein in the loops:  BB2
-; CHECK-DAG: i64 {{%vp[0-9]+}} liveout in the loop: BB2
+; CHECK-DAG: i64 {{%vp.*}} liveout in the loop: BB2
 ; CHECK-DAG: i64 %3 livein in the loops:  BB2
 ; CHECK-NEXT: Live-in and Live-out info end
 

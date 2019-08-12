@@ -38,11 +38,11 @@ for.body3.preheader:
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[HEADER]] (BP: NULL) :
-; CHECK-NEXT:     i64 [[PREV_IV_UPDATE_BLEND:%vp[0-9]*]] = phi  [ i64 [[IV_UPDATE_BLEND:%vp[0-9]*]], BB20 ],  [ i64 undef, [[PREHEADER]] ]
-; CHECK-NEXT:     i1 [[PREV_SOME_CMP_BLEND:%vp[0-9]*]] = phi  [ i1 [[SOME_CMP_BLEND:%vp[0-9]*]], BB20 ],  [ i1 undef, BB6 ]
-; CHECK-NEXT:     i64 [[PREV_INNER_IV_BLEND:%vp[0-9]*]] = phi [ i64 [[INNER_IV_BLEND:%vp[0-9]*]], BB20 ],  [ i64 undef, [[PREHEADER]] ]
-; CHECK-NEXT:     i64 [[INNER_IV:%vp[0-9]*]] = phi  [ i64 [[INNER_IV_NEXT:%vp[0-9]*]], BB20 ],  [ i64 0, [[PREHEADER]] ]
-; CHECK-NEXT:     i1 [[INNER_MASK:%vp[0-9]*]] = phi  [ i1 [[INNER_MASK_INPUT:%vp[0-9]*]], BB6 ],  [ i1 [[INNER_MASK_NEXT:%vp[0-9]*]], BB20 ]
+; CHECK-NEXT:     i64 [[PREV_IV_UPDATE_BLEND:%vp.*]] = phi  [ i64 [[IV_UPDATE_BLEND:%vp.*]], BB20 ],  [ i64 undef, [[PREHEADER]] ]
+; CHECK-NEXT:     i1 [[PREV_SOME_CMP_BLEND:%vp.*]] = phi  [ i1 [[SOME_CMP_BLEND:%vp.*]], BB20 ],  [ i1 undef, BB6 ]
+; CHECK-NEXT:     i64 [[PREV_INNER_IV_BLEND:%vp.*]] = phi [ i64 [[INNER_IV_BLEND:%vp.*]], BB20 ],  [ i64 undef, [[PREHEADER]] ]
+; CHECK-NEXT:     i64 [[INNER_IV:%vp.*]] = phi  [ i64 [[INNER_IV_NEXT:%vp.*]], BB20 ],  [ i64 0, [[PREHEADER]] ]
+; CHECK-NEXT:     i1 [[INNER_MASK:%vp.*]] = phi  [ i1 [[INNER_MASK_INPUT:%vp.*]], BB6 ],  [ i1 [[INNER_MASK_NEXT:%vp.*]], BB20 ]
 ; CHECK-NEXT:    SUCCESSORS(1):[[MASK_REGION:.*]]
 ; CHECK-NEXT:    PREDECESSORS(2): BB20 [[PREHEADER]]
 ; CHECK-EMPTY:
@@ -54,21 +54,21 @@ for.body3.preheader:
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      BB19 (BP: NULL) :
-; CHECK-NEXT:       i64* [[GEP:%vp[0-9]*]] = getelementptr inbounds i64* %a i64 [[INNER_IV]]
-; CHECK-NEXT:       i64 [[LD:%vp[0-9]*]] = load i64* [[GEP]]
-; CHECK-NEXT:       i1 [[SOME_CMP:%vp[0-9]*]] = icmp i64 [[LD]] i64 42
-; CHECK-NEXT:       i64 [[INNER_IV_NEXT:%vp[0-9]*]] = add i64 [[INNER_IV]] i64 1
+; CHECK-NEXT:       i64* [[GEP:%vp.*]] = getelementptr inbounds i64* %a i64 [[INNER_IV]]
+; CHECK-NEXT:       i64 [[LD:%vp.*]] = load i64* [[GEP]]
+; CHECK-NEXT:       i1 [[SOME_CMP:%vp.*]] = icmp i64 [[LD]] i64 42
+; CHECK-NEXT:       i64 [[INNER_IV_NEXT:%vp.*]] = add i64 [[INNER_IV]] i64 1
 ; CHECK-NEXT:      SUCCESSORS(1):BB13
 ; CHECK-NEXT:      PREDECESSORS(1): [[MASK_BB]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    BB13 (BP: NULL) :
-; CHECK-NEXT:     i1 [[INNER_EXIT_COND:%vp[0-9]*]] = icmp i64 [[INNER_IV_NEXT]] i64 [[OUTER_IV:%vp[0-9]*]]
-; CHECK-NEXT:     i1 [[INNER_EXIT_COND_NEG:%vp[0-9]*]] = not i1 [[INNER_EXIT_COND]]
+; CHECK-NEXT:     i1 [[INNER_EXIT_COND:%vp.*]] = icmp i64 [[INNER_IV_NEXT]] i64 [[OUTER_IV:%vp.*]]
+; CHECK-NEXT:     i1 [[INNER_EXIT_COND_NEG:%vp.*]] = not i1 [[INNER_EXIT_COND]]
 ; CHECK-NEXT:     i1 [[INNER_MASK_NEXT]] = and i1 [[INNER_EXIT_COND_NEG]] i1 [[INNER_MASK]]
 ; CHECK-NEXT:     i64 [[INNER_IV_BLEND]] = select i1 [[INNER_MASK]] i64 [[INNER_IV]] i64 [[PREV_INNER_IV_BLEND]]
 ; CHECK-NEXT:     i1 [[SOME_CMP_BLEND]] = select i1 [[INNER_MASK]] i1 [[SOME_CMP]] i1 [[PREV_SOME_CMP_BLEND]]
 ; CHECK-NEXT:     i64 [[IV_UPDATE_BLEND]] = select i1 [[INNER_MASK]] i64 [[INNER_IV_NEXT]] i64 [[PREV_IV_UPDATE_BLEND]]
-; CHECK-NEXT:     i1 [[ALL_ZERO_CHECK:%vp[0-9]*]] = all-zero-check i1 [[INNER_MASK_NEXT]]
+; CHECK-NEXT:     i1 [[ALL_ZERO_CHECK:%vp.*]] = all-zero-check i1 [[INNER_MASK_NEXT]]
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(2): BB19 [[MASK_BB]]
 ; CHECK-EMPTY:
@@ -82,9 +82,9 @@ for.body3.preheader:
 ; CHECK-NEXT:    PREDECESSORS(1): [[MASK_REGION]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[EXIT_BB]] (BP: NULL) :
-; CHECK-NEXT:     i64 {{%vp[0-9]*}} = phi  [ i64 [[INNER_IV_BLEND]], BB20 ]
-; CHECK-NEXT:     i64 {{%vp[0-9]*}}  = phi  [ i64 [[IV_UPDATE_BLEND]], BB20 ]
-; CHECK-NEXT:     i1 {{%vp[0-9]*}}  = phi  [ i1 [[SOME_CMP_BLEND]], BB20 ]
+; CHECK-NEXT:     i64 {{%vp.*}} = phi  [ i64 [[INNER_IV_BLEND]], BB20 ]
+; CHECK-NEXT:     i64 {{%vp.*}}  = phi  [ i64 [[IV_UPDATE_BLEND]], BB20 ]
+; CHECK-NEXT:     i1 {{%vp.*}}  = phi  [ i1 [[SOME_CMP_BLEND]], BB20 ]
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): BB20
 for.body3:

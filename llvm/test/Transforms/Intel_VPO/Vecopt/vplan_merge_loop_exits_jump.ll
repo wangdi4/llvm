@@ -21,7 +21,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-EMPTY:
 
 ; CHECK-NEXT: {{BB[0-9]+}} (BP: NULL) :
-; CHECK-NEXT: i32 [[PHI_OUT:%vp[0-9]+]] = phi
+; CHECK-NEXT: i32 [[PHI_OUT:%vp.*]] = phi
 ; CHECK-NEXT: SUCCESSORS(1):{{BB[0-9]+}}
 ; CHECK-NEXT: PREDECESSORS(2): {{BB[0-9]+}} {{BB[0-9]+}}
 ; CHECK-EMPTY:
@@ -33,16 +33,16 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-EMPTY:
 
 ; CHECK-NEXT: [[LoopHeader:BB[0-9]+]] (BP: NULL) :
-; CHECK-NEXT: i32 [[PHI_OUT0:%vp[0-9]+]] = phi  [ i32 0, [[LoopPreHeader]] ], [ i32 {{%vp[0-9]+}}, {{NewLoopLatch[0-9]+}} ]
-; CHECK-NEXT: i32 [[PHI_OUT1:%vp[0-9]+]] = phi  [ i32 {{%vp[0-9]+}}, {{NewLoopLatch[0-9]+}} ],  [ i32 0, [[LoopPreHeader]] ]
-; CHECK-NEXT: i32 [[ADD_OUT1:%vp[0-9]+]] = add
-; CHECK-NEXT: i1 [[CMP_OUT1:%vp[0-9]+]] = icmp
+; CHECK-NEXT: i32 [[PHI_OUT0:%vp.*]] = phi  [ i32 0, [[LoopPreHeader]] ], [ i32 {{%vp.*}}, {{NewLoopLatch[0-9]+}} ]
+; CHECK-NEXT: i32 [[PHI_OUT1:%vp.*]] = phi  [ i32 {{%vp.*}}, {{NewLoopLatch[0-9]+}} ],  [ i32 0, [[LoopPreHeader]] ]
+; CHECK-NEXT: i32 [[ADD_OUT1:%vp.*]] = add
+; CHECK-NEXT: i1 [[CMP_OUT1:%vp.*]] = icmp
 ; CHECK-NEXT: SUCCESSORS(2):{{IntermediateBB[0-9]+}}(i1 [[CMP_OUT1]]), {{BB[0-9]+}}(!i1 [[CMP_OUT1]])
 ; CHECK-NEXT: PREDECESSORS(2): {{NewLoopLatch[0-9]+}} [[LoopPreHeader]]
 ; CHECK-EMPTY:
 
 ; CHECK-NEXT: [[OrigLoopLatch:BB[0-9]+]] (BP: NULL) :
-; CHECK-NEXT: i1 [[CMP_OUT2:%vp[0-9]+]] = icmp
+; CHECK-NEXT: i1 [[CMP_OUT2:%vp.*]] = icmp
 ; CHECK-NEXT: SUCCESSORS(1):{{NewLoopLatch[0-9]+}}
 ; CHECK-NEXT: PREDECESSORS(1): [[LoopHeader]]
 ; CHECK-EMPTY:
@@ -54,14 +54,14 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-EMPTY:
 
 ; CHECK-NEXT: {{NewLoopLatch[0-9]+}} (BP: NULL) :
-; CHECK-NEXT: i32 [[PHI_OUT2:%vp[0-9]+]] = phi  [ i32 [[PHI_OUT1]], [[OrigLoopLatch]] ],  [ i32 1, {{IntermediateBB[0-9]+}} ]
-; CHECK-NEXT: i1 [[PHI_OUT3:%vp[0-9]+]] = phi  [ i1 [[CMP_OUT2]], [[OrigLoopLatch]] ],  [ i1 false, {{IntermediateBB[0-9]+}} ]
+; CHECK-NEXT: i32 [[PHI_OUT2:%vp.*]] = phi  [ i32 [[PHI_OUT1]], [[OrigLoopLatch]] ],  [ i32 1, {{IntermediateBB[0-9]+}} ]
+; CHECK-NEXT: i1 [[PHI_OUT3:%vp.*]] = phi  [ i1 [[CMP_OUT2]], [[OrigLoopLatch]] ],  [ i1 false, {{IntermediateBB[0-9]+}} ]
 ; CHECK-NEXT: SUCCESSORS(2):[[LoopHeader]](i1 [[PHI_OUT3]]), {{IfBlock[0-9]+}}(!i1 [[PHI_OUT3]])
 ; CHECK-NEXT: PREDECESSORS(2): [[OrigLoopLatch]] {{IntermediateBB[0-9]+}}
 ; CHECK-EMPTY:
 
 ; CHECK-NEXT: {{IfBlock[0-9]+}} (BP: NULL) :
-; CHECK-NEXT: i1 [[CMP_OUT5:%vp[0-9]+]] = icmp
+; CHECK-NEXT: i1 [[CMP_OUT5:%vp.*]] = icmp
 ; CHECK-NEXT: SUCCESSORS(2):{{BB[0-9]+}}(i1 [[CMP_OUT5]]), {{BB[0-9]+}}(!i1 [[CMP_OUT5]])
 ; CHECK-NEXT: PREDECESSORS(1): {{NewLoopLatch[0-9]+}}
 ; CHECK-EMPTY:
@@ -91,8 +91,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-EMPTY:
 
 ; CHECK-NEXT: {{BB[0-9]+}} (BP: NULL) :
-; CHECK-NEXT: i32 [[ADD_OUT11:%vp[0-9]+]] = add
-; CHECK-NEXT: i1 [[CMP_OUT11:%vp[0-9]+]] = icmp
+; CHECK-NEXT: i32 [[ADD_OUT11:%vp.*]] = add
+; CHECK-NEXT: i1 [[CMP_OUT11:%vp.*]] = icmp
 ; CHECK-NEXT: SUCCESSORS(2):{{BB[0-9]+}}(i1 [[CMP_OUT11]]), {{BB[0-9]+}}(!i1 [[CMP_OUT11]])
 ; CHECK-NEXT: PREDECESSORS(1): {{BB[0-9]+}}
 ; CHECK-EMPTY:

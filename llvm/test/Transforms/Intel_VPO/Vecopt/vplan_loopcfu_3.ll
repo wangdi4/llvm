@@ -27,14 +27,14 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT: phi
 ; CHECK-NEXT: getelementptr
 ; CHECK-NEXT: load
-; CHECK-NEXT: i1 [[TOPTEST:%vp[0-9]+]] = icmp
+; CHECK-NEXT: i1 [[TOPTEST:%vp.*]] = icmp
 ; CHECK-NEXT: SUCCESSORS(1):{{region[0-9]+}}
 ; CHECK-NEXT: PREDECESSORS(2): {{BB[0-9]+}} {{BB[0-9]+}}
 ; CHECK-EMPTY:
 
 ; CHECK: REGION: {{region[0-9]+}} (BP: NULL)
 ; CHECK-NEXT: {{BB[0-9]+}} (BP: NULL) :
-; CHECK-NEXT: i1 [[TOPTESTNOT:%vp[0-9]+]] = not i1 [[TOPTEST]]
+; CHECK-NEXT: i1 [[TOPTESTNOT:%vp.*]] = not i1 [[TOPTEST]]
 ; CHECK-NEXT: Condition({{BB[0-9]+}}): i1 [[TOPTEST]] = icmp
 ; CHECK-NEXT: SUCCESSORS(2):{{BB[0-9]+}}(i1 [[TOPTEST]]), [[INNERLOOPREGION:loop[0-9]+]](!i1 [[TOPTEST]])
 ; CHECK-NEXT: no PREDECESSORS
@@ -50,7 +50,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT: [[HEADER]] (BP: NULL) :
 ; CHECK-NEXT: phi
 ; CHECK-NEXT: phi
-; CHECK-NEXT: i1 [[MASKPHI:%vp[0-9]+]] = phi  [ i1 [[TOPTESTNOT]], [[PREHEADER]] ],  [ i1 [[BOTTOMTEST:%vp[0-9]+]], [[LATCH:BB[0-9]+]] ]
+; CHECK-NEXT: i1 [[MASKPHI:%vp.*]] = phi  [ i1 [[TOPTESTNOT]], [[PREHEADER]] ],  [ i1 [[BOTTOMTEST:%vp.*]], [[LATCH:BB[0-9]+]] ]
 ; CHECK-NEXT: SUCCESSORS(1):{{mask_region[0-9]+}}
 ; CHECK-NEXT: PREDECESSORS(2): [[LATCH]] [[PREHEADER]]
 ; CHECK-EMPTY:
@@ -77,10 +77,10 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-EMPTY:
 
 ; CHECK-NEXT: [[REGIONEXIT]] (BP: NULL) :
-; CHECK-NEXT: i1 [[BOTTOMTEST_1:%vp[0-9]+]] = icmp
+; CHECK-NEXT: i1 [[BOTTOMTEST_1:%vp.*]] = icmp
 ; CHECK-NEXT: i1 [[BOTTOMTEST]] = and i1 [[BOTTOMTEST_1]] i1 [[MASKPHI]]
-; CHECK-NEXT: i1 [[ALLZEROCHECK:%vp[0-9]+]] = all-zero-check i1 [[BOTTOMTEST]]
-; CHECK-NEXT: i1 [[NOTALLZEROCHECK:%vp[0-9]+]] = not i1 [[ALLZEROCHECK]]
+; CHECK-NEXT: i1 [[ALLZEROCHECK:%vp.*]] = all-zero-check i1 [[BOTTOMTEST]]
+; CHECK-NEXT: i1 [[NOTALLZEROCHECK:%vp.*]] = not i1 [[ALLZEROCHECK]]
 ; CHECK-NEXT: no SUCCESSORS
 ; CHECK-NEXT: PREDECESSORS(2): [[LOOPBODYHEADER]] [[MASKREGIONENTRY]]
 ; CHECK-EMPTY:
