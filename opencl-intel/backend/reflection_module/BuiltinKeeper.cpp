@@ -14,10 +14,11 @@
 
 #include "BuiltinKeeper.h"
 #include "NameMangleAPI.h"
-#include "llvm/Support/MutexGuard.h"
+#include "llvm/Support/Mutex.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/ArrayRef.h"
 #include <cctype>
+#include <mutex>
 #include <sstream>
 
 namespace reflection{
@@ -674,7 +675,7 @@ void BuiltinKeeper::populateReturnTyMap(){
 }
 
 const BuiltinKeeper* BuiltinKeeper::instance(){
-  llvm::MutexGuard gaurd(mutex);
+  std::lock_guard<llvm::sys::Mutex> gaurd(mutex);
   static BuiltinKeeper Instance;
   return &Instance;
 }

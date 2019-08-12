@@ -33,6 +33,7 @@
 #include "llvm/IR/LegacyPassNameParser.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/RemarkStreamer.h"
+#include "llvm/Remarks/YAMLRemarkSerializer.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/InitializePasses.h"
@@ -525,7 +526,8 @@ int main(int argc, char **argv) {
     }
     Context.setRemarkStreamer(llvm::make_unique<RemarkStreamer>(
         RemarksFilename,
-        llvm::make_unique<remarks::YAMLSerializer>(OptRemarkFile->os())));
+        llvm::make_unique<remarks::YAMLRemarkSerializer>(
+          OptRemarkFile->os(), remarks::SerializerMode::Separate)));
   }
 
   // Load the input module...
