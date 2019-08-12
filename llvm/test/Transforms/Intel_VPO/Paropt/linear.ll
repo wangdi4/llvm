@@ -56,6 +56,7 @@ entry:
 ; Initial copy of linear var
 ; CHECK: [[LOAD1:%[a-zA-Z._0-9]+]] = load i16, i16* @y
 ; CHECK: store i16 [[LOAD1]], i16* [[LINEAR_INIT:%[a-zA-Z._0-9]+]]
+; CHECK: call void @__kmpc_barrier{{.*}}
 ; CHECK: call void @__kmpc_for_static_init_8({{.*}}
 
 ; Initialization of linear var per iteration
@@ -67,9 +68,8 @@ entry:
 ; CHECK: store i16 [[CAST2]], i16* [[LINEAR_LOCAL:%[a-zA-Z._0-9]+]]
 
 ; Final copyout for linear var
-; CHECK: call void @__kmpc_barrier{{.*}}
-; CHECK: [[LOAD3:%[a-zA-Z._0-9]+]] = load i16, i16* [[LINEAR_LOCAL]]
-; CHECK: store i16 [[LOAD3]], i16* @y
+; CHECK-DAG: store i16 [[LOAD3:%[a-zA-Z._0-9]+]], i16* @y
+; CHECK-DAG: [[LOAD3]] = load i16, i16* [[LINEAR_LOCAL]]
 
   %1 = load i64, i64* %.omp.lb, align 8
   store i64 %1, i64* %.omp.iv, align 8
