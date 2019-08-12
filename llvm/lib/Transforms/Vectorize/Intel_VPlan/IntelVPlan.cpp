@@ -507,7 +507,8 @@ void VPRegionBlock::recomputeSize() {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPBasicBlock::dump(raw_ostream &OS, unsigned Indent) const {
+void VPBasicBlock::dump(raw_ostream &OS, unsigned Indent,
+                        const VPlanDivergenceAnalysis *DA) const {
   std::string StrIndent = std::string(2 * Indent, ' ');
   // Print name and predicate
   OS << StrIndent << getName() << " (BP: ";
@@ -522,6 +523,11 @@ void VPBasicBlock::dump(raw_ostream &OS, unsigned Indent) const {
     OS << StrIndent << " <Empty Block>\n";
   } else {
     for (const VPRecipeBase &Recipe : *this) {
+      if (auto *Inst = dyn_cast<VPInstruction>(&Recipe)) {
+        OS << StrIndent << " ";
+        Inst->dump(OS, DA);
+        continue;
+      }
       OS << StrIndent << " " << Recipe;
     }
   }
@@ -534,7 +540,8 @@ void VPBasicBlock::dump(raw_ostream &OS, unsigned Indent) const {
         if (CBI->getParent()) {
           OS << CBI->getParent()->getName();
         }
-        OS << "): " << *CBI;
+        OS << "): ";
+        CBI->dump(OS, DA);
       }
     } else {
       // We fall here if VPInstruction has no operands or Value is
@@ -601,19 +608,11 @@ void VPRegionBlock::computePDT(void) {
   RegionPDT->recalculate(*this);
 }
 
-/// Get a list of the basic blocks which make up this region.
-void VPRegionBlock::getOrderedBlocks(std::vector<const VPBlockBase *> &Blocks) const {
-  ReversePostOrderTraversal<VPBlockBase *> RPOT(Entry);
-  for (VPBlockBase *Block : RPOT)
-    Blocks.push_back(Block);
-}
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPRegionBlock::dump(raw_ostream &OS, unsigned Indent) const {
+void VPRegionBlock::dump(raw_ostream &OS, unsigned Indent,
+                         const VPlanDivergenceAnalysis *DA) const {
   SetVector<const VPBlockBase *> Printed;
   SetVector<const VPBlockBase *> SuccList;
-  std::vector<const VPBlockBase *> Blocks;
-  getOrderedBlocks(Blocks);
 
   std::string StrIndent = std::string(2 * Indent, ' ');
   // Print name and predicate
@@ -636,8 +635,9 @@ void VPRegionBlock::dump(raw_ostream &OS, unsigned Indent) const {
   //    BB5   /         +1
   //      \  /
   //       BB7          +0
-  for (const VPBlockBase *BB : Blocks) {
-    BB->dump(OS, Indent + SuccList.size() - 1);
+  ReversePostOrderTraversal<VPBlockBase *> RPOT(Entry);
+  for (const VPBlockBase *BB : RPOT) {
+    BB->dump(OS, Indent + SuccList.size() - 1, DA);
     Printed.insert(BB);
     SuccList.remove(BB);
     for (auto *Succ : BB->getSuccessors())
@@ -872,14 +872,23 @@ void VPInstruction::print(raw_ostream &O, const Twine &Indent) const {
 }
 
 #if INTEL_CUSTOMIZATION
-void VPInstruction::dump(raw_ostream &O) const {
-  print(O);
+void VPInstruction::dump(raw_ostream &O,
+                         const VPlanDivergenceAnalysis *DA) const {
+  print(O, DA);
   O << "\n";
 }
 #endif /* INTEL_CUSTOMIZATION */
 
-void VPInstruction::print(raw_ostream &O) const {
+void VPInstruction::print(raw_ostream &O,
+                          const VPlanDivergenceAnalysis *DA) const {
 #if INTEL_CUSTOMIZATION
+  if (DA) {
+    if (DA->isDivergent(*this))
+      O << "[DA: Divergent] ";
+    else
+      O << "[DA: Uniform]   ";
+  }
+
   if (getOpcode() != Instruction::Store && !isa<VPBranchInst>(this)) {
     printAsOperand(O);
     O << " = ";
@@ -1250,7 +1259,7 @@ const Twine VPlanPrinter::getOrCreateName(const VPBlockBase *Block) {
 }
 
 #if INTEL_CUSTOMIZATION
-void VPlan::dump(raw_ostream &OS) const {
+void VPlan::dump(raw_ostream &OS, bool DumpDA) const {
   if (!getName().empty())
     OS << "VPlan IR for: " << getName() << "\n";
   for (auto EIter = LoopEntities.begin(), End = LoopEntities.end();
@@ -1259,14 +1268,14 @@ void VPlan::dump(raw_ostream &OS) const {
     E->dump(OS, EIter->first->getHeader());
   }
   const VPBlockBase *Entry = getEntry();
-  Entry->dump(OS, 1);
+  Entry->dump(OS, 1, DumpDA ? getVPlanDA() : nullptr);
   for (auto &Succ : Entry->getSuccessors()) {
-    Succ->dump(OS, 1);
+    Succ->dump(OS, 1, DumpDA ? getVPlanDA() : nullptr);
   }
 }
 
 void VPlan::dump() const {
-  dump(dbgs());
+  dump(dbgs(), true);
 }
 
 void VPlan::dumpLivenessInfo(raw_ostream &OS) const {

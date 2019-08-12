@@ -404,7 +404,7 @@ void VPlanPredicator::predicate(void) {
     if (PrintAfterLoopCFU) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       outs() << "After inner loop control flow transformation\n";
-      Plan.dump(outs());
+      Plan.dump(outs(), true /* print DA info */);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
     }
   }

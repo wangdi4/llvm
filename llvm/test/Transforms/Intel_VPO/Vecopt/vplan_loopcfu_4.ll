@@ -35,7 +35,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT: REGION: {{region[0-9]+}} (BP: NULL)
 ; CHECK-NEXT: {{BB[0-9]+}} (BP: NULL) :
 ; CHECK-NEXT: <Empty Block>
-; CHECK-NEXT: Condition({{BB[0-9]+}}): i1 [[TOPTEST]] = icmp
+; CHECK-NEXT: Condition({{BB[0-9]+}}): [DA: Divergent] i1 [[TOPTEST]] = icmp
 ; CHECK-NEXT: SUCCESSORS(2):[[INNERLOOPREGION:loop[0-9]+]](i1 [[TOPTEST]]), {{BB[0-9]+}}(!i1 [[TOPTEST]])
 ; CHECK-NEXT: no PREDECESSORS
 ; CHECK-EMPTY:
@@ -58,7 +58,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT: REGION: [[MASKREGION:mask_region[0-9]+]] (BP: NULL)
 ; CHECK-NEXT: [[MASKREGIONENTRY:BB[0-9]+]] (BP: NULL) :
 ; CHECK-NEXT: <Empty Block>
-; CHECK-NEXT: Condition([[HEADER]]): i1 [[MASKPHI]]
+; CHECK-NEXT: Condition([[HEADER]]): [DA: Uniform]  i1 [[MASKPHI]]
 ; CHECK-NEXT: SUCCESSORS(2):[[LOOPBODYHEADER:BB[0-9]+]](i1 [[MASKPHI]]), [[REGIONEXIT:BB[0-9]+]](!i1 [[MASKPHI]])
 ; CHECK-NEXT: no PREDECESSORS
 ; CHECK-EMPTY:
@@ -85,7 +85,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK-NEXT: [[LATCH]] (BP: NULL) :
 ; CHECK-NEXT: <Empty Block>
-; CHECK-NEXT: Condition([[REGIONEXIT]]): i1 [[NOTALLZEROCHECK]] = not
+; CHECK-NEXT: Condition([[REGIONEXIT]]): [DA: Uniform]  i1 [[NOTALLZEROCHECK]] = not
 ; CHECK-NEXT: SUCCESSORS(2):[[HEADER]](i1 [[NOTALLZEROCHECK]]), [[EXIT:BB[0-9]+]](!i1 [[NOTALLZEROCHECK]])
 ; CHECK-NEXT: PREDECESSORS(1): [[MASKREGION]]
 ; CHECK-EMPTY:
