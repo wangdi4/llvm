@@ -819,7 +819,9 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
   if (CGM.getCodeGenOpts().ProfileSampleAccurate)
     Fn->addFnAttr("profile-sample-accurate");
 
-<<<<<<< HEAD
+  if (D && D->hasAttr<CFICanonicalJumpTableAttr>())
+    Fn->addFnAttr("cfi-canonical-jump-table");
+
 #if INTEL_CUSTOMIZATION
   if (getLangOpts().HLS) {
     // Add metadata for HLS components
@@ -836,12 +838,6 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
 #endif // INTEL_CUSTOMIZATION
 
   if (getLangOpts().OpenCL || getLangOpts().SYCLIsDevice) {
-=======
-  if (D && D->hasAttr<CFICanonicalJumpTableAttr>())
-    Fn->addFnAttr("cfi-canonical-jump-table");
-
-  if (getLangOpts().OpenCL) {
->>>>>>> 0e497d1554a915ace538dc08f03f1661aab8bdf7
     // Add metadata for a kernel function.
     if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
       EmitOpenCLKernelMetadata(FD, Fn);
