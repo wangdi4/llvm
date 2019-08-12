@@ -746,11 +746,20 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       break;
 
     default: // Unknown family 6 CPU, try to guess.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_GLC
       //TODO: detect glc host
 #endif // INTEL_FEATURE_CPU_GLC
 #endif // INTEL_CUSTOMIZATION
+=======
+      // TODO detect tigerlake host
+      if (Features3 & (1 << (X86::FEATURE_AVX512VP2INTERSECT - 64))) {
+        *Type = X86::INTEL_COREI7;
+        *Subtype = X86::INTEL_COREI7_TIGERLAKE;
+        break;
+      }
+>>>>>>> e28cbbd5d49f69385a859d1628d3661627af81e7
 
       if (Features & (1 << X86::FEATURE_AVX512VBMI2)) {
         *Type = X86::INTEL_COREI7;
@@ -1087,6 +1096,8 @@ static void getAvailableFeatures(unsigned ECX, unsigned EDX, unsigned MaxLeaf,
     setFeature(X86::FEATURE_AVX5124VNNIW);
   if (HasLeaf7 && ((EDX >> 3) & 1) && HasAVX512Save)
     setFeature(X86::FEATURE_AVX5124FMAPS);
+  if (HasLeaf7 && ((EDX >> 8) & 1) && HasAVX512Save)
+    setFeature(X86::FEATURE_AVX512VP2INTERSECT);
 
   unsigned MaxExtLevel;
   getX86CpuIDAndInfo(0x80000000, &MaxExtLevel, &EBX, &ECX, &EDX);

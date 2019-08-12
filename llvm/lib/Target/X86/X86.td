@@ -772,6 +772,7 @@ def ProcessorFeatures {
   list<SubtargetFeature> ICXFeatures =
     !listconcat(ICLInheritableFeatures, ICXSpecificFeatures);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   list<SubtargetFeature> IntelAnonymousFeatures1 = [
 #if INTEL_FEATURE_ISA_KEYLOCKER
@@ -807,6 +808,18 @@ def ProcessorFeatures {
   list<SubtargetFeature> IntelAnonymous1Features =
     !listconcat(ICLInheritableFeatures, IntelAnonymous1AdditionalFeatures);
 #endif // INTEL_CUSTOMIZATION
+=======
+  //Tigerlake
+  list<SubtargetFeature> TGLAdditionalFeatures = [FeatureVP2INTERSECT,
+                                                  FeatureMOVDIRI,
+                                                  FeatureMOVDIR64B,
+                                                  FeatureSHSTK];
+  list<SubtargetFeature> TGLSpecificFeatures = [FeatureHasFastGather];
+  list<SubtargetFeature> TGLInheritableFeatures =
+    !listconcat(TGLAdditionalFeatures ,TGLSpecificFeatures);
+  list<SubtargetFeature> TGLFeatures =
+    !listconcat(ICLFeatures, TGLInheritableFeatures );
+>>>>>>> e28cbbd5d49f69385a859d1628d3661627af81e7
 
   // Atom
   list<SubtargetFeature> AtomInheritableFeatures = [FeatureX87,
@@ -1257,6 +1270,8 @@ def : ProcessorModel<"icelake-client", SkylakeServerModel,
                      ProcessorFeatures.ICLFeatures>;
 def : ProcessorModel<"icelake-server", SkylakeServerModel,
                      ProcessorFeatures.ICXFeatures>;
+def : ProcessorModel<"tigerlake", SkylakeServerModel,
+                     ProcessorFeatures.TGLFeatures>;
 
 #if INTEL_CUSTOMIZATION
 def : ProcessorModel<"tigerlake", SkylakeServerModel,
