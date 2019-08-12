@@ -955,6 +955,8 @@ private:
 public:
   enum X86MatchResultTy {
     Match_Unsupported = FIRST_TARGET_MATCH_RESULT_TY,
+#define GET_OPERAND_DIAGNOSTIC_TYPES
+#include "X86GenAsmMatcher.inc"
   };
 
   X86AsmParser(const MCSubtargetInfo &sti, MCAsmParser &Parser,
@@ -3409,6 +3411,13 @@ bool X86AsmParser::MatchAndEmitATTInstruction(SMLoc IDLoc, unsigned &Opcode,
       EmitInstruction(Inst, Operands, Out);
     Opcode = Inst.getOpcode();
     return false;
+  case Match_InvalidImmUnsignedi4: {
+    SMLoc ErrorLoc = ((X86Operand &)*Operands[ErrorInfo]).getStartLoc();
+    if (ErrorLoc == SMLoc())
+      ErrorLoc = IDLoc;
+    return Error(ErrorLoc, "immediate must be an integer in range [0, 15]",
+                 EmptyRange, MatchingInlineAsm);
+  }
   case Match_MissingFeature:
     return ErrorMissingFeature(IDLoc, MissingFeatures, MatchingInlineAsm);
   case Match_InvalidOperand:
@@ -3761,6 +3770,15 @@ bool X86AsmParser::MatchAndEmitIntelInstruction(SMLoc IDLoc, unsigned &Opcode,
                  Match_InvalidOperand) == 1) {
     return Error(IDLoc, "invalid operand for instruction", EmptyRange,
                  MatchingInlineAsm);
+  }
+
+  if (std::count(std::begin(Match), std::end(Match),
+                 Match_InvalidImmUnsignedi4) == 1) {
+    SMLoc ErrorLoc = ((X86Operand &)*Operands[ErrorInfo]).getStartLoc();
+    if (ErrorLoc == SMLoc())
+      ErrorLoc = IDLoc;
+    return Error(ErrorLoc, "immediate must be an integer in range [0, 15]",
+                 EmptyRange, MatchingInlineAsm);
   }
 
   // If all of these were an outright failure, report it in a useless way.
