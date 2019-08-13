@@ -281,6 +281,7 @@ FUNCTION_PASS("mem2reg", PromotePass())
 FUNCTION_PASS("memcpyopt", MemCpyOptPass())
 FUNCTION_PASS("mergeicmps", MergeICmpsPass())
 FUNCTION_PASS("mldst-motion", MergedLoadStoreMotionPass())
+FUNCTION_PASS("multiversioning", MultiVersioningPass()) // INTEL
 FUNCTION_PASS("nary-reassociate", NaryReassociatePass())
 FUNCTION_PASS("newgvn", NewGVNPass())
 FUNCTION_PASS("nonltoglobalopt", NonLTOGlobalOptPass()) // INTEL

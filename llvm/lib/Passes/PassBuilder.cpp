@@ -258,6 +258,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRIdentityMatrixIdiomRecognition.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPrefetching.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRSinkingForPerfectLoopnest.h"
+#include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
 
 #if INTEL_INCLUDE_DTRANS
 #include "Intel_DTrans/DTransCommon.h"
@@ -332,6 +333,11 @@ static cl::opt<bool> EnableIPCloning(
 static cl::opt<bool> EnableIndirectCallConv("enable-npm-ind-call-conv",
     cl::init(true), cl::Hidden,
     cl::desc("Enable Indirect Call Conv for the new PM (default = on)"));
+
+// Function multi-versioning.
+static cl::opt<bool> EnableMultiVersioning("enable-npm-multiversioning",
+  cl::init(false), cl::ReallyHidden,
+  cl::desc("Enable Function Multi-versioning in the new PM"));
 #endif // INTEL_CUSTOMIZATION
 
 static Regex DefaultAliasRegex(
@@ -1635,9 +1641,11 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
   FPM.addPass(SROA());
 
 #if INTEL_CUSTOMIZATION
-  if (EnableInlineAggAnalysis) {
+  if (EnableInlineAggAnalysis)
     FPM.addPass(AggInlAAPass());
-  }
+
+  if (EnableMultiVersioning)
+    FPM.addPass(MultiVersioningPass());
 #endif // INTEL_CUSTOMIZATION
   // LTO provides additional opportunities for tailcall elimination due to
   // link-time inlining, and visibility of nocapture attribute.
