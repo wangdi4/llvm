@@ -165,14 +165,9 @@ define i32 @loop_shared_header(i8* %exe, i32 %exesz, i32 %headsize, i32 %min, i3
 ; CHECK-NEXT:  # %bb.15: # %merge_other
 ; CHECK-NEXT:    # in Loop: Header=BB1_9 Depth=1
 ; CHECK-NEXT:    xorl %esi, %esi
-<<<<<<< HEAD
-; CHECK-NEXT:    jmp .LBB1_16
-; CHECK-NEXT:  .LBB1_15: # %if.end287.i ;INTEL
-; CHECK-NEXT:    # in Loop: Header=BB1_8 Depth=1 ;INTEL
-=======
 ; CHECK-NEXT:    jmp .LBB1_17
-; CHECK-NEXT:  .LBB1_16: # in Loop: Header=BB1_9 Depth=1
->>>>>>> a45f301f7a5d0f62910d0ed93c96d221555697c9
+; CHECK-NEXT:  .LBB1_16: # %if.end287.i ;INTEL
+; CHECK-NEXT:    # in Loop: Header=BB1_9 Depth=1
 ; CHECK-NEXT:    movb %dl, %sil
 ; CHECK-NEXT:    addl $3, %esi
 ; CHECK-NEXT:  .LBB1_17: # %outer_loop_latch
