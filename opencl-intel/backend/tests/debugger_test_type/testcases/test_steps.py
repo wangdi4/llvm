@@ -340,10 +340,16 @@ class TestSteps(DebuggerTestCase):
         bp = (self.CLNAME1, 19)
         self.assertEqual(self.client.debug_run([bp]), bp)
         # in inner function
-        bp = (self.CLNAME1, 14)
-        self.assertEqual(self.client.debug_step_out(), bp)
-        bp = (self.CLNAME1, 6)
-        self.assertEqual(self.client.debug_step_out(), bp)
+        # The source location of the instruction after step out could be either the call line
+        # or the next one
+        bp = (self.CLNAME1, 13)
+        result = self.client.debug_step_out()
+        assertion = result[0] == bp[0] and (result[1] == bp[1] or result[1] == bp[1] + 1)
+        self.assertTrue(assertion)
+        bp = (self.CLNAME1, 5)
+        result = self.client.debug_step_out()
+        assertion = result[0] == bp[0] and (result[1] == bp[1] or result[1] == bp[1] + 1)
+        self.assertTrue(assertion)
         if self.use_gdb:
             # GDB steps out to the line that invoked the function
             bp = (self.CLNAME1, 29)
