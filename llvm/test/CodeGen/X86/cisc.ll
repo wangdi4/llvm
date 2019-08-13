@@ -11,12 +11,12 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local void @fun(i32 %l1, i32 %l2, i32 %l3, i32 %u1, i32 %u2, i32 %u3) local_unnamed_addr #0 {
 ; CHECK-LABEL: fun:
 ; CHECK:       # %bb.0: # %entry
-; Test for other blocks between BB1 and BB3
-; CHECK:    addl $11, {{.*}}({{.*}})
 ; Test for no block between BB1 and BB3 and between BB2 and BB3
 ; CHECK:    addl $-11, {{.*}}({{.*}})
 ; CHECK:    addl $-12, {{.*}}({{.*}})
 ; CHECK:    addl $12, {{.*}}({{.*}})
+; Test for other blocks between BB1 and BB3
+; CHECK:    addl $11, {{.*}}({{.*}})
 entry:
   %cmp114 = icmp slt i32 %l1, %u1
   br i1 %cmp114, label %for.body.lr.ph, label %for.end78
