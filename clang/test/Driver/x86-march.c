@@ -76,18 +76,10 @@
 // RUN:   | FileCheck %s -check-prefix=icelake-server
 // icelake-server: "-target-cpu" "icelake-server"
 //
-<<<<<<< HEAD
-// INTEL_CUSTOMIZATION
-=======
->>>>>>> e28cbbd5d49f69385a859d1628d3661627af81e7
 // RUN: %clang -target x86_64-unknown-unknown -c -### %s -march=tigerlake 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=tigerlake
 // tigerlake: "-target-cpu" "tigerlake"
 //
-<<<<<<< HEAD
-// end INTEL_CUSTOMIZATION
-=======
->>>>>>> e28cbbd5d49f69385a859d1628d3661627af81e7
 // RUN: %clang -target x86_64-unknown-unknown -c -### %s -march=lakemont 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=lakemont
 // lakemont: "-target-cpu" "lakemont"

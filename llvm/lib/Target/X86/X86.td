@@ -772,25 +772,23 @@ def ProcessorFeatures {
   list<SubtargetFeature> ICXFeatures =
     !listconcat(ICLInheritableFeatures, ICXSpecificFeatures);
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  list<SubtargetFeature> IntelAnonymousFeatures1 = [
-#if INTEL_FEATURE_ISA_KEYLOCKER
-    FeatureKeyLocker
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
-  ];
   //Tigerlake
-  list<SubtargetFeature> TGLAdditionalFeatures1 = [FeatureMOVDIRI,
-                                                   FeatureMOVDIR64B,
-                                                   FeatureSHSTK,
-                                                   FeatureVP2INTERSECT];
-
-  list<SubtargetFeature> TGLAdditionalFeatures2 =
-    !listconcat(IntelAnonymousFeatures1, TGLAdditionalFeatures1);
-
+  list<SubtargetFeature> TGLAdditionalFeatures = [FeatureVP2INTERSECT,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_KEYLOCKER
+                                                  FeatureKeyLocker,
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
+#endif // INTEL_CUSTOMIZATION
+                                                  FeatureMOVDIRI,
+                                                  FeatureMOVDIR64B,
+                                                  FeatureSHSTK];
+  list<SubtargetFeature> TGLSpecificFeatures = [FeatureHasFastGather];
+  list<SubtargetFeature> TGLInheritableFeatures =
+    !listconcat(TGLAdditionalFeatures ,TGLSpecificFeatures);
   list<SubtargetFeature> TGLFeatures =
-    !listconcat(ICLFeatures, TGLAdditionalFeatures2);
+    !listconcat(ICLFeatures, TGLInheritableFeatures );
 
+#if INTEL_CUSTOMIZATION
   list<SubtargetFeature> IntelAnonymous1AdditionalFeatures =[
 #if INTEL_FEATURE_ISA_AMX
     FeatureAMXTILE,
@@ -808,18 +806,6 @@ def ProcessorFeatures {
   list<SubtargetFeature> IntelAnonymous1Features =
     !listconcat(ICLInheritableFeatures, IntelAnonymous1AdditionalFeatures);
 #endif // INTEL_CUSTOMIZATION
-=======
-  //Tigerlake
-  list<SubtargetFeature> TGLAdditionalFeatures = [FeatureVP2INTERSECT,
-                                                  FeatureMOVDIRI,
-                                                  FeatureMOVDIR64B,
-                                                  FeatureSHSTK];
-  list<SubtargetFeature> TGLSpecificFeatures = [FeatureHasFastGather];
-  list<SubtargetFeature> TGLInheritableFeatures =
-    !listconcat(TGLAdditionalFeatures ,TGLSpecificFeatures);
-  list<SubtargetFeature> TGLFeatures =
-    !listconcat(ICLFeatures, TGLInheritableFeatures );
->>>>>>> e28cbbd5d49f69385a859d1628d3661627af81e7
 
   // Atom
   list<SubtargetFeature> AtomInheritableFeatures = [FeatureX87,
@@ -1274,9 +1260,6 @@ def : ProcessorModel<"tigerlake", SkylakeServerModel,
                      ProcessorFeatures.TGLFeatures>;
 
 #if INTEL_CUSTOMIZATION
-def : ProcessorModel<"tigerlake", SkylakeServerModel,
-                     ProcessorFeatures.TGLFeatures>;
-
 #if INTEL_FEATURE_CPU_GLC
 def : ProcessorModel<"goldencove", SkylakeServerModel,
                      ProcessorFeatures.IntelAnonymous1Features>;

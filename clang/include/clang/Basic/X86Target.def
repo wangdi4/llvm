@@ -179,15 +179,11 @@ PROC(IcelakeClient, "icelake-client", PROC_64_BIT)
 /// Icelake server microarchitecture based processors.
 PROC(IcelakeServer, "icelake-server", PROC_64_BIT)
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-=======
->>>>>>> e28cbbd5d49f69385a859d1628d3661627af81e7
 /// \name Tigerlake Server
 /// Tigerlake Server microarchitecture based processors.
 PROC(Tigerlake, "tigerlake", PROC_64_BIT)
 
-<<<<<<< HEAD
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_GLC
 /// \name Goldencove
 /// Goldencove microarchitecture based processors.
@@ -195,8 +191,6 @@ PROC(Goldencove, "goldencove", PROC_64_BIT)
 #endif // INTEL_FEATURE_CPU_GLC
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> e28cbbd5d49f69385a859d1628d3661627af81e7
 /// \name Knights Landing
 /// Knights Landing processor.
 PROC_WITH_FEAT(KNL, "knl", PROC_64_BIT, FEATURE_AVX512F)
