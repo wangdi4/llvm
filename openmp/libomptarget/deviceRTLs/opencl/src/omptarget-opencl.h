@@ -29,6 +29,14 @@
 
 #define KMP_PAUSE() // We don't have any candidates for this.
 
+/// Just print out something if check fails
+#define KMP_ASSERT(Check, Message)                                             \
+  do {                                                                         \
+    if (!(Check))                                                              \
+      printf("Assertion Failed: " #Check ", " Message "\n");                   \
+  } while (0)
+
+
 ///
 /// Device information
 ///
@@ -80,6 +88,22 @@
 #pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable
 #pragma OPENCL EXTENSION cl_khr_int64_extended_atomics : enable
 #endif
+
+/// OP definitions for atomic/reduction entries
+#define OP_MIN(X, Y, DT) ((X) < (Y) ? (X) : (Y))
+#define OP_MAX(X, Y, DT) ((X) > (Y) ? (X) : (Y))
+#define TO_LOGIC(X, DT) ((X) != (DT)0 ? 1 : 0)
+#define OP_OR(X, Y, DT) ((DT)(TO_LOGIC(X, DT) || TO_LOGIC(Y, DT)))
+#define OP_AND(X, Y, DT) ((DT)(TO_LOGIC(X, DT) && TO_LOGIC(Y, DT)))
+#define OP_ADD(X, Y, DT) ((X) + (Y))
+#define OP_SUB(X, Y, DT) ((X) - (Y))
+#define OP_MUL(X, Y, DT) ((X) * (Y))
+#define OP_DIV(X, Y, DT) ((X) / (Y))
+#define OP_ORB(X, Y, DT) ((X) | (Y))
+#define OP_ANDB(X, Y, DT) ((X) & (Y))
+#define OP_XOR(X, Y, DT) ((X) ^ (Y))
+#define OP_SHL(X, Y, DT) ((X) << (Y))
+#define OP_SHR(X, Y, DT) ((X) >> (Y))
 
 
 ///
@@ -411,6 +435,20 @@ EXTERN void __kmpc_end_critical(kmp_critical_name *);
 
 EXTERN int __kmpc_master();
 EXTERN void __kmpc_end_master();
+
+
+///
+/// Support for reduction
+///
+
+EXTERN void __kmpc_reduction_add_int(const uint id, const uint size,
+                                     void *local_result, void *output);
+EXTERN void __kmpc_reduction_add_long(const uint id, const uint size,
+                                      void *local_result, void *output);
+EXTERN void __kmpc_reduction_add_float(const uint id, const uint size,
+                                       void *local_result, void *output);
+EXTERN void __kmpc_reduction_add_double(const uint id, const uint size,
+                                        void *local_result, void *output);
 
 
 ///
