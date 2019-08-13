@@ -79,7 +79,7 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
       if (SubLoopRegnPredBlock->getSuccessors()[1] == SubLoopRegion) {
         VPBuilder::InsertPointGuard Guard(Builder);
         Builder.setInsertPoint(SubLoopRegnPredBlock);
-        TopTest = Builder.createNot(TopTest);
+        TopTest = Builder.createNot(TopTest, TopTest->getName() + ".not");
       }
 #endif // VPlanPredicator
       LLVM_DEBUG(dbgs() << "Top Test: "; TopTest->dump(); errs() << "\n");
@@ -134,6 +134,7 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
 
     // Construct loop body mask and insert into the loop header
     VPPHINode *LoopBodyMask = new VPPHINode(BottomTest->getType());
+    LoopBodyMask->setName("vp.loop.mask");
     if (TopTest)
       LoopBodyMask->addIncoming(TopTest, SubLoopPreHeader);
     else {
@@ -161,12 +162,14 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
           SubLoopHeader;
 
       if (BackEdgeIsFalseSucc)
-        BottomTest = Builder.createNot(cast<VPInstruction>(BottomTest));
+        BottomTest = Builder.createNot(cast<VPInstruction>(BottomTest),
+                                       BottomTest->getName() + ".not");
 
       // Combine the bottom test with the current loop body mask - inactive
       // lanes need to to remain inactive.
       BottomTest =
-          Builder.createAnd(BottomTest, cast<VPInstruction>(LoopBodyMask));
+          Builder.createAnd(BottomTest, cast<VPInstruction>(LoopBodyMask),
+                            LoopBodyMask->getName() + ".next");
 
       // Update live-outs of the subloop. We should take the value which was
       // computed during the last not-masked-out iteration. For that, we need to
@@ -242,6 +245,7 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
             if (!Blend) {
               // Create a new phi and use mask for the current iteration.
               auto *NewPhi = new VPPHINode(Inst->getType());
+              NewPhi->setName(Inst->getName() + ".live.out.prev");
               // It can be either SubLoopHeader or NewLoopLatch - doesn't really
               // matter.
               assert(SubLoopHeader->getNumPredecessors() == 2 &&
@@ -250,7 +254,8 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
 
               // Create the blend before population NewPhi's incoming values
               // that blend will be one of them.
-              Blend = Builder.createSelect(LoopBodyMask, Inst, NewPhi);
+              Blend = Builder.createSelect(LoopBodyMask, Inst, NewPhi,
+                                           Inst->getName() + ".live.out.blend");
               CreatedBlends.insert(Blend);
 
               // We need undef for all the predecessors except NewLoopLatch.
@@ -288,6 +293,7 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
             // Check if we have already found/created an LCSSA-like phi.
             if (!LCSSAPhi) {
               LCSSAPhi = new VPPHINode(Inst->getType());
+              LCSSAPhi->setName(Inst->getName() + ".live.out.lcssa");
               SubLoopExitBlock->addRecipeAfter(LCSSAPhi,
                                                nullptr /* be the first */);
               LCSSAPhi->addIncoming(Blend, NewLoopLatch);

@@ -196,6 +196,9 @@ public:
     else
       Name = ("vp." + NameRef).str();
   }
+  StringRef getName() const {
+    return Name;
+  }
 #endif
 
   /// \return an ID for the concrete type of this object.

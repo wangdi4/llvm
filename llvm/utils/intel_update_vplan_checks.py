@@ -56,14 +56,16 @@ OPT_FUNCTION_RE = re.compile(
     r'(\s+)?[^)]*[^{]*\{\n(?P<body>.*?)^\}$',
     flags=(re.M | re.S))
 CHECK_PREFIX_RE = re.compile('--?check-prefix(?:es)?=(\S+)')
-CHECK_RE = re.compile(r'^\s*;\s*([^:]+?)(?:-NEXT|-NOT|-DAG|-LABEL)?:')
+CHECK_RE = re.compile(r'^\s*;\s*([^:]+?)(?:-NEXT|-NOT|-DAG|-LABEL|-EMPTY)?:')
 CHECK_LABEL_RE = re.compile(r'Cost Model')
 # Match things that look at identifiers, but only if they are followed by
 # spaces, commas, paren, or end of the string
 IR_VALUE_RE = re.compile(r'(\s+|[\(\!])%([\w\.]+?)([,\s\(\)]|\Z)')
 VP_VALUE_RE = re.compile(r'vp[0-9]+')
+VP_NAMED_VALUE_RE = re.compile(r'vp\.[\w\.]+\.[0-9]+')
 VPBB_RE = re.compile(r'(BB[0-9]+)')
 REGION_RE = re.compile(r'(region[0-9]+)')
+VPLOOP_RE = re.compile(r'(loop[0-9]+)')
 PREDICATOR_IF_STMT_RE = re.compile(r'(If[FT][0-9]+)')
 PREDICATOR_BLOCK_PREDICATE_RE = re.compile(r'(BP[0-9]+)')
 ANALYSIS_PRINTING_RE = re.compile(r'Pass::print not implemented|Printing analysis')
@@ -103,13 +105,7 @@ def get_value_use(name):
 # Replace IR value defs and uses with FileCheck variables.
 def genericize_check_lines(lines):
   # "Static" variable accessible from the "get_value_name" closure
-  # TODO: create a map of these instead
-  genericize_check_lines.next_vp_value_number = 0
-  genericize_check_lines.next_vpbb_number = 0
-  genericize_check_lines.next_region_number = 0
-  genericize_check_lines.next_predicator_if_stmt_number = 0
-  genericize_check_lines.next_predicator_block_predicate_number = 0
-
+  genericize_check_lines = {}
 
   def get_predicator_if_stmt_name_prefix(var):
     # var either starts with IfT or with IfF, return that prefix.
@@ -117,23 +113,38 @@ def genericize_check_lines(lines):
 
   # Create a FileCheck variable name based on an IR name.
   def get_value_name(var):
+    orig_var = var
     if var.isdigit():
       var = 'TMP' + var
+
+    if VP_NAMED_VALUE_RE.match(var):
+      var = 'VP' + re.sub('\.[0-9]+$', '', var[2:])
     if VP_VALUE_RE.match(var):
-      var = 'VP' + str(genericize_check_lines.next_vp_value_number)
-      genericize_check_lines.next_vp_value_number += 1
+      var = 'VP'
     if VPBB_RE.match(var):
-      var = 'BB' + str(genericize_check_lines.next_vpbb_number)
-      genericize_check_lines.next_vpbb_number += 1
+      var = 'BB'
     if REGION_RE.match(var):
-      var = 'REGION' + str(genericize_check_lines.next_region_number)
-      genericize_check_lines.next_region_number += 1
+      var = 'REGION'
+    if VPLOOP_RE.match(var):
+      var = 'LOOP'
+
     if PREDICATOR_IF_STMT_RE.match(var):
-      var = get_predicator_if_stmt_name_prefix(var) + str(genericize_check_lines.next_predicator_if_stmt_number)
-      genericize_check_lines.next_predicator_if_stmt_number += 1
+      var = get_predicator_if_stmt_name_prefix(var)
     if PREDICATOR_BLOCK_PREDICATE_RE.match(var):
-      var = 'BP' + str(genericize_check_lines.next_predicator_block_predicate_number)
-      genericize_check_lines.next_predicator_block_predicate_number += 1
+      var = 'BP'
+
+    # var_before_genericizing = var
+    if not orig_var.isdigit():
+      num = genericize_check_lines.get(var, 0)
+      genericize_check_lines[var] = num + 1
+      if VP_NAMED_VALUE_RE.match(orig_var):
+        if num != 0:
+          var = var + "." + str(num)
+      else:
+        var = var + str(num)
+
+      # print "Var: {}, before_genericize: {}, num: {}, new name: {}".format(orig_var, var_before_genericizing, num, var)
+
 
     var = var.replace('.', '_')
     return var.upper()
@@ -172,6 +183,9 @@ def genericize_check_lines(lines):
   def transform_region(match):
     return transform_cfg_vars(match, 'region')
 
+  def transform_vploop(match):
+    return transform_cfg_vars(match, 'loop')
+
   def transform_predicator_if_stmt(match):
     prefix = get_predicator_if_stmt_name_prefix(match.group(0))
     return transform_cfg_vars(match, prefix)
@@ -198,6 +212,7 @@ def genericize_check_lines(lines):
     tmp =  IR_VALUE_RE.sub(transform_line_vars, tmp)
     tmp = VPBB_RE.sub(transform_vpbb, tmp)
     tmp = REGION_RE.sub(transform_region, tmp)
+    tmp = VPLOOP_RE.sub(transform_vploop, tmp)
     tmp = PREDICATOR_IF_STMT_RE.sub(transform_predicator_if_stmt, tmp)
     tmp = PREDICATOR_BLOCK_PREDICATE_RE.sub(transform_predicator_block_predicate, tmp)
     lines[i] = tmp
@@ -221,9 +236,8 @@ def add_checks(output_lines, prefix_list, func_dict, func_name, opt_basename):
           is_blank_line = True
           continue
         if is_blank_line:
-          output_lines.append('; %s:       %s' % (checkprefix, cost_line))
-        else:
-          output_lines.append('; %s-NEXT:  %s' % (checkprefix, cost_line))
+          output_lines.append('; %s-EMPTY:' % (checkprefix))
+        output_lines.append('; %s-NEXT:  %s' % (checkprefix, cost_line))
         is_blank_line = False
 
     # Add space between different check prefixes and also before the first
@@ -321,6 +335,7 @@ def main():
         funcs.add(m.group(1))
 
     for prefixes, opt_args in prefix_list:
+      opt_args += " --vplan-enable-names"
       if args.verbose:
         print >>sys.stderr, 'Extracted opt cmd: ' + opt_basename + ' ' + opt_args
         print >>sys.stderr, 'Extracted FileCheck prefixes: ' + str(prefixes)
