@@ -256,6 +256,10 @@ PUNCTUATOR(caretcaret,            "^^")
 //               MSVC <= v18.
 //   KEYOPENCLC   - This is a keyword in OpenCL C
 //   KEYOPENCLCXX - This is a keyword in C++ for OpenCL
+#if INTEL_CUSTOMIZATION
+//   KEYOPENCLCHANNEL - This is a keyword in Intel FPGA OpenCL C if
+//                      cl_intel_channels extension is supported
+#endif // INTEL_CUSTOMIZATION
 //   KEYSYCL      - This is a keyword in SYCL C++
 //   KEYNOOPENCL  - This is a keyword that is not supported in OpenCL
 //   KEYALTIVEC - This is a keyword in AltiVec
@@ -595,7 +599,7 @@ KEYWORD(__builtin_omp_required_simd_align, KEYALL)
 
 KEYWORD(pipe                        , KEYOPENCLC | KEYOPENCLCXX)
 #if INTEL_CUSTOMIZATION
-KEYWORD(channel                     , KEYOPENCLC)
+KEYWORD(channel                     , KEYOPENCLCHANNEL)
 #endif // INTEL_CUSTOMIZATION
 
 // Borland Extensions.

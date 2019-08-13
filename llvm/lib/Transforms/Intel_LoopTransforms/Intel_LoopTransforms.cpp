@@ -53,4 +53,5 @@ void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeHIRRecognizeParLoopPass(Registry);
   initializeHIRIdentityMatrixIdiomRecognitionLegacyPassPass(Registry);
   initializeHIRPrefetchingLegacyPassPass(Registry);
+  initializeHIRSinkingForPerfectLoopnestLegacyPassPass(Registry);
 }

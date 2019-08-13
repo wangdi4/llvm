@@ -958,9 +958,8 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
   if (EnableVPValueCodegen)
     return getVectorValueUplifted(V);
 
-  Value *UV = V->getUnderlyingValue();
-  if (UV)
-    return getVectorValue(UV);
+  if (V->isUnderlyingIRValid())
+    return getVectorValue(V->getUnderlyingValue());
 
   Value *VecV = VPWidenMap[V];
   assert(VecV && "Value not in VPWidenMap");
@@ -1045,10 +1044,8 @@ Value *VPOCodeGen::getScalarValue(VPValue *V, unsigned Lane) {
   if (EnableVPValueCodegen)
     return getScalarValueUplifted(V, Lane);
 
-  Value *UV = V->getUnderlyingValue();
-
-  if (UV)
-    return getScalarValue(UV, Lane);
+  if (V->isUnderlyingIRValid())
+    return getScalarValue(V->getUnderlyingValue(), Lane);
   else {
     Value *VecV = getVectorValue(V);
     IRBuilder<>::InsertPointGuard Guard(Builder);
@@ -1405,7 +1402,10 @@ void VPOCodeGen::vectorizeLoadInstruction(Instruction *Inst,
 
   if (!Legal->isLoopPrivateAggregate(GEP ? getPointerOperand(GEP) : Ptr) &&
       (Legal->isLoopInvariant(Ptr) || Legal->isUniformForTheLoop(Ptr))) {
-    serializeInstruction(Inst);
+    if (MaskValue)
+      serializePredicatedUniformLoad(Inst);
+    else
+      serializeInstruction(Inst);
     return;
   }
 
@@ -1744,6 +1744,40 @@ void VPOCodeGen::vectorizeInsertElement(Instruction *Inst) {
   Value *SecondShuf = Builder.CreateShuffleVector(InsertTo, ExtendSubVec,
                                                   ShufMask2, "wide.insert");
   WidenMap[Inst] = SecondShuf;
+}
+
+void VPOCodeGen::serializePredicatedUniformLoad(Instruction *Inst) {
+  assert(MaskValue->getType()->isVectorTy() &&
+         MaskValue->getType()->getVectorNumElements() == VF &&
+         "Unexpected Mask Type");
+  // Emit not of all-zero check for mask
+  Type *MaskTy = MaskValue->getType();
+  Type *IntTy =
+      IntegerType::get(MaskTy->getContext(), MaskTy->getPrimitiveSizeInBits());
+  auto *MaskBitCast = Builder.CreateBitCast(MaskValue, IntTy);
+
+  // Check if the bitcast value is not zero. The generated compare will be true
+  // if atleast one of the i1 masks in <VF x i1> is true.
+  auto *CmpInst =
+      Builder.CreateICmpNE(MaskBitCast, Constant::getNullValue(IntTy));
+
+  // Now create a clone of the load, populating correct values for its operands.
+  Instruction *Cloned = Inst->clone();
+  if (!Inst->getType()->isVoidTy())
+    Cloned->setName(Inst->getName() + ".cloned");
+
+  // Replace the operands of the cloned instructions with their scalar
+  // equivalents in the new loop.
+  for (unsigned Op = 0, e = Inst->getNumOperands(); Op != e; ++Op) {
+    auto *NewOp = getScalarValue(Inst->getOperand(Op), 0 /*Lane*/);
+    Cloned->setOperand(Op, NewOp);
+  }
+
+  // Place the cloned scalar load in the new loop.
+  Builder.InsertWithDbgLoc(Cloned);
+  ScalarMap[Inst][0] = Cloned;
+
+  PredicatedInstructions.push_back(std::make_pair(Cloned, CmpInst));
 }
 
 void VPOCodeGen::serializeWithPredication(Instruction *Inst) {
@@ -2752,8 +2786,11 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     return;
   }
 
-  // Generate code by peeking at underlying IR.
-  if (auto *Inst = VPInst->getInstruction()) {
+  // Generate code by peeking at underlying IR, if valid.
+  if (VPInst->isUnderlyingIRValid()) {
+    auto *Inst = VPInst->getInstruction();
+    assert(Inst &&
+           "Underlying instruction cannot be null for valid VPInstruction.");
     vectorizeInstruction(Inst);
 
     // Add the widened value to the VPValue widen map.

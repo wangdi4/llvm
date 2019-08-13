@@ -480,7 +480,10 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
 
   // TODO: Using DA for loop invariance.
   if (isVPValueUniform(Ptr, Plan)) {
-    serializeInstruction(VPInst);
+    if (MaskValue)
+      serializePredicatedUniformLoad(VPInst);
+    else
+      serializeInstruction(VPInst);
     return;
   }
 
@@ -1146,6 +1149,37 @@ void VPOCodeGen::vectorizeShuffle(VPInstruction *VPInst) {
   }
   // General case - whole mask should be recalculated.
   llvm_unreachable("Unsupported shuffle");
+}
+
+void VPOCodeGen::serializePredicatedUniformLoad(VPInstruction *VPInst) {
+  assert(MaskValue->getType()->isVectorTy() &&
+         MaskValue->getType()->getVectorNumElements() == VF &&
+         "Unexpected Mask Type");
+  // Emit not of all-zero check for mask
+  Type *MaskTy = MaskValue->getType();
+  Type *IntTy =
+      IntegerType::get(MaskTy->getContext(), MaskTy->getPrimitiveSizeInBits());
+  auto *MaskBitCast = Builder.CreateBitCast(MaskValue, IntTy);
+
+  // Check if the bitcast value is not zero. The generated compare will be true
+  // if atleast one of the i1 masks in <VF x i1> is true.
+  auto *CmpInst =
+      Builder.CreateICmpNE(MaskBitCast, Constant::getNullValue(IntTy));
+
+  // Now create a scalar load, populating correct values for its operands.
+  SmallVector<Value *, 4> ScalarOperands;
+  for (unsigned Op = 0, e = VPInst->getNumOperands(); Op != e; ++Op) {
+    auto *ScalarOp = getScalarValue(VPInst->getOperand(Op), 0 /*Lane*/);
+    assert(ScalarOp && "Operand for serialized uniform load not found.");
+    ScalarOperands.push_back(ScalarOp);
+  }
+
+  Value *SerialLoad =
+      generateSerialInstruction(Builder, VPInst, ScalarOperands);
+  VPScalarMap[VPInst][0] = SerialLoad;
+
+  PredicatedInstructions.push_back(
+      std::make_pair(cast<Instruction>(SerialLoad), CmpInst));
 }
 
 void VPOCodeGen::serializeWithPredication(VPInstruction *VPInst) {

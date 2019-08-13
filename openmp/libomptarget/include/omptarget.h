@@ -298,6 +298,10 @@ void __kmpc_push_target_tripcount(int64_t device_id, uint64_t loop_tripcount);
 #if INTEL_COLLAB
 EXTERN
 bool __tgt_is_device_available(int device_num, void *device_type);
+EXTERN
+void *__tgt_create_buffer(int device_num, void *host_ptr);
+EXTERN
+int __tgt_release_buffer(int device_num, void *tgt_buffer);
 #endif // INTEL_COLLAB
 
 #ifdef __cplusplus

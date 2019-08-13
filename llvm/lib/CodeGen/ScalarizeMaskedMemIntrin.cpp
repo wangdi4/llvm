@@ -15,6 +15,7 @@
 
 #include "llvm/ADT/Twine.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/VectorUtils.h" // INTEL
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
@@ -357,6 +358,68 @@ static void scalarizeMaskedStore(CallInst *CI, bool &ModifiedDT) {
   ModifiedDT = true;
 }
 
+#if INTEL_CUSTOMIZATION
+// Look for GEP where the base pointer and all indices are made of scalars,
+// splats of scalars, or constant ints. These GEPs are trivially scalarizable.
+// This creates opportunities for the arithmetic to be folded into the address
+// of the load/stores we're going to create. Otherwise we end up broadcasting
+// the scalars into vector registers, doing the address arithmetic there, and
+// then extracting the address for each element.
+static Value *tryScalarizeGEP(GetElementPtrInst *GEP, unsigned Element,
+                              IRBuilder<> &Builder) {
+  Value *Base = GEP->getPointerOperand();
+
+  // Base should be a scalar, or a splatted scalar.
+  if (Base->getType()->isVectorTy()) {
+    Base = getSplatValue(Base);
+    if (!Base)
+      return nullptr;
+  }
+
+  // Found a scalar to use for base. Now try to find scalars for the indices.
+  SmallVector<Value *, 8> Indices;
+
+  for (unsigned i = 1, e = GEP->getNumOperands(); i != e; ++i) {
+    Value *GEPIdx = GEP->getOperand(i);
+    if (!GEPIdx->getType()->isVectorTy()) {
+      // Just copy it.
+      Indices.push_back(GEPIdx);
+    } else if (Value *V = getSplatValue(GEPIdx)) {
+      // Splatted scalar, copy the original scalar value.
+      Indices.push_back(V);
+    } else {
+      // We have some kind of non-splat vector.
+      if (auto *C = dyn_cast<Constant>(GEPIdx)) {
+        // If all elements are ConstantInts, use the Constant for this element.
+        unsigned NumElts = C->getType()->getVectorNumElements();
+        for (unsigned j = 0; j != NumElts; ++j) {
+          Constant *Elt = C->getAggregateElement(j);
+          if (!Elt || !isa<ConstantInt>(Elt))
+            return nullptr;
+        }
+        Indices.push_back(C->getAggregateElement(Element));
+        continue;
+      }
+
+      // Don't know how to scalarize this yet.
+      return nullptr;
+    }
+  }
+
+  // Create a GEP from the scalar components.
+  return Builder.CreateGEP(Base, Indices, "Ptr" + Twine(Element));
+}
+
+static Value *getScalarAddress(Value *Ptrs, unsigned Element,
+                               IRBuilder<> &Builder) {
+  if (auto *GEP = dyn_cast<GetElementPtrInst>(Ptrs))
+    if (Value *V = tryScalarizeGEP(GEP, Element, Builder))
+      return V;
+
+  return Builder.CreateExtractElement(Ptrs, Element, "Ptr" + Twine(Element));
+}
+#endif // INTEL_CUSTOMIZATION
+
 // Translate a masked gather intrinsic like
 // <16 x i32 > @llvm.masked.gather.v16i32( <16 x i32*> %Ptrs, i32 4,
 //                               <16 x i1> %Mask, <16 x i32> %Src)
@@ -412,7 +475,7 @@ static void scalarizeMaskedGather(CallInst *CI, bool &ModifiedDT) {
     for (unsigned Idx = 0; Idx < VectorWidth; ++Idx) {
       if (cast<Constant>(Mask)->getAggregateElement(Idx)->isNullValue())
         continue;
-      Value *Ptr = Builder.CreateExtractElement(Ptrs, Idx, "Ptr" + Twine(Idx));
+      Value *Ptr = getScalarAddress(Ptrs, Idx, Builder); // INTEL
       LoadInst *Load =
           Builder.CreateAlignedLoad(EltTy, Ptr, AlignVal, "Load" + Twine(Idx));
       VResult =
@@ -538,7 +601,7 @@ static void scalarizeMaskedScatter(CallInst *CI, bool &ModifiedDT) {
         continue;
       Value *OneElt =
           Builder.CreateExtractElement(Src, Idx, "Elt" + Twine(Idx));
-      Value *Ptr = Builder.CreateExtractElement(Ptrs, Idx, "Ptr" + Twine(Idx));
+      Value *Ptr = getScalarAddress(Ptrs, Idx, Builder); // INTEL
       Builder.CreateAlignedStore(OneElt, Ptr, AlignVal);
     }
     CI->eraseFromParent();

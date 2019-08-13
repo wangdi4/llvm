@@ -351,6 +351,76 @@ EXTERN void __kmpc_push_target_tripcount(int64_t device_id,
 
 #if INTEL_COLLAB
 EXTERN bool __tgt_is_device_available(int device_num, void *device_type) {
+  if (IsOffloadDisabled())
+    return false;
+
+  if (device_num == OFFLOAD_DEVICE_DEFAULT) {
+    device_num = omp_get_default_device();
+  }
+
+  if (CheckDeviceAndCtors(device_num) != OFFLOAD_SUCCESS) {
+    DP("Failed to get device %" PRId32 " ready\n", device_num);
+    HandleTargetOutcome(false);
+    return false;
+  }
+
   return (device_num >= 0 && device_num < omp_get_num_devices());
+}
+
+// Find device pointer from the given host pointer and create a buffer object
+EXTERN void *__tgt_create_buffer(int device_num, void *host_ptr) {
+  DP("Call to __tgt_create_buffer with host_ptr " DPxMOD ", "
+      "device_num %d\n", DPxPTR(host_ptr), device_num);
+
+  if (IsOffloadDisabled())
+    return NULL;
+
+  if (device_num == OFFLOAD_DEVICE_DEFAULT) {
+    device_num = omp_get_default_device();
+  }
+
+  if (CheckDeviceAndCtors(device_num) != OFFLOAD_SUCCESS) {
+    DP("Failed to get device %" PRId32 " ready\n", device_num);
+    HandleTargetOutcome(false);
+    return NULL;
+  }
+
+  if (!host_ptr) {
+    DP("Call to __tgt_create_buffer with invalid host_ptr\n");
+    return NULL;
+  }
+
+  DeviceTy &Device = Devices[device_num];
+  void *ret = Device.create_buffer(host_ptr);
+  DP("__tgt_create_buffer returns " DPxMOD "\n", DPxPTR(ret));
+
+  return ret;
+}
+
+// Release the device buffer
+EXTERN int __tgt_release_buffer(int device_num, void *device_buffer) {
+  DP("Call to __tgt_release_buffer with device_buffer " DPxMOD ", "
+      "device_num %d\n", DPxPTR(device_buffer), device_num);
+
+  if (IsOffloadDisabled())
+    return OFFLOAD_FAIL;
+
+  if (device_num == OFFLOAD_DEVICE_DEFAULT) {
+    device_num = omp_get_default_device();
+  }
+
+  if (CheckDeviceAndCtors(device_num) != OFFLOAD_SUCCESS) {
+    DP("Failed to get device %" PRId32 " ready\n", device_num);
+    HandleTargetOutcome(false);
+    return OFFLOAD_FAIL;
+  }
+
+  if (!device_buffer) {
+    DP("Call to __tgt_release_buffer with invalid device_buffer\n");
+    return OFFLOAD_FAIL;
+  }
+
+  DeviceTy &Device = Devices[device_num];
+  return Device.release_buffer(device_buffer);
 }
 #endif // INTEL_COLLAB

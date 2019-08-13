@@ -75,6 +75,14 @@ inline void reportFail(const char *Banner) {
 ///   TempRef:     (b1) Multiple uses in innermost loop
 ///         or  (b2) 1 def and 1 use only
 ///                  Same store for A[x] is needed in PostLoop stmts
+///  Another case is
+///  A[i1] = 0.0
+///  tmp = 0.0
+///  Do
+///    tmp = ...
+///  Enddo
+///  A[i1] = tmp
+///  we can sink the load tmp = A[i] to enable a perfect loop nest
 ///  Note:  More restrictive conditions are put here just to
 ///         avoid unnessary sinking
 ///  For Post Loop Stmts, which are all stores, we can only move inside the
@@ -82,22 +90,22 @@ inline void reportFail(const char *Banner) {
 ///
 ///  StoreNode returns the store after the loop that needs to be moved in also
 ///  in the case of sum reduction:
-bool canMoveLoadIntoLoop(const DDRef *TempRef, const DDRef *LoadRef,
+bool canMoveLoadIntoLoop(const DDRef *TempRef, const DDRef *MemRef,
                          HLLoop *InnermostLoop, DDGraph DDG,
                          const SmallVectorImpl<HLInst *> &PostLoopInsts,
                          HLInst **StoreInstPtr) {
 
   HLNode *StoreNode1 = nullptr;
-  const DDEdge *AntiEdge = nullptr;
+  const DDEdge *AntiOrOutputEdge = nullptr;
 
-  if (DDUtils::anyEdgeToLoop(DDG, LoadRef, InnermostLoop)) {
+  if (DDUtils::anyEdgeToLoop(DDG, MemRef, InnermostLoop)) {
     // (a) no edge into innermost Loop
     reportFail("F1");
     return false;
   }
 
-  for (auto I1 = DDG.outgoing_edges_begin(LoadRef),
-            E1 = DDG.outgoing_edges_end(LoadRef);
+  for (auto I1 = DDG.outgoing_edges_begin(MemRef),
+            E1 = DDG.outgoing_edges_end(MemRef);
        I1 != E1; ++I1) {
     const DDEdge *Edge = *I1;
     DDRef *DDRefSink = Edge->getSink();
@@ -109,8 +117,9 @@ bool canMoveLoadIntoLoop(const DDRef *TempRef, const DDRef *LoadRef,
       reportFail("F2");
       return false;
     }
-    if (Edge->isANTIdep()) {
-      AntiEdge = Edge;
+
+    if (MemRef->isRval() ? Edge->isANTIdep() : Edge->isOUTPUTdep()) {
+      AntiOrOutputEdge = Edge;
       StoreNode1 = SinkNode;
     }
   }
@@ -154,13 +163,21 @@ bool canMoveLoadIntoLoop(const DDRef *TempRef, const DDRef *LoadRef,
   // Defs is either 0 or 1
   // Defs == 0 means no defs within the innermost loop of this load's Lval
   // Defs == 1 means 1 def within the innermost loop of this load's Lval
-  // FlowEdge and AntiEdges are all between inst in
+  // FlowEdge and AntiOrOutputEdges are all between inst in
   // right outside the innermostloop.
   if (Defs == 1) {
     // Definition of temp inside the loop killed flow edges to post-loop
     // instructions. We will have to look for it in collected PostLoopInsts.
     if (!StoreNode2) {
-      auto TempBlobIndex = TempRef->getSelfBlobIndex();
+      // Also handle non-self blob temps case
+      auto TempBlobIndex = TempRef->isSelfBlob()
+                               ? TempRef->getSelfBlobIndex()
+                               : TempRef->getBlobUtils().findTempBlobIndex(
+                                     TempRef->getSymbase());
+
+      if (TempBlobIndex == InvalidBlobIndex) {
+        return false;
+      }
 
       for (auto *PostInst : PostLoopInsts) {
         assert(isa<StoreInst>(PostInst->getLLVMInstruction()) &&
@@ -191,7 +208,7 @@ bool canMoveLoadIntoLoop(const DDRef *TempRef, const DDRef *LoadRef,
       // found.
       return false;
     }
-    if (!AntiEdge) {
+    if (!AntiOrOutputEdge) {
       // This is a case that the load goes through 2 copy stmts
       // Need some forwardSub cleanup. Bail out now.
       reportFail("F7");
@@ -203,7 +220,7 @@ bool canMoveLoadIntoLoop(const DDRef *TempRef, const DDRef *LoadRef,
       reportFail("F8");
       return false;
     }
-    if (AntiEdge->getDVAtLevel(Level) != DVKind::EQ) {
+    if (AntiOrOutputEdge->getDVAtLevel(Level) != DVKind::EQ) {
       // invalid-sink.ll is sifted here.
       reportFail("F9");
       return false;
@@ -242,7 +259,7 @@ bool canMoveLoadIntoLoop(const DDRef *TempRef, const DDRef *LoadRef,
     //
     // TODO: See if the existing logic above could be reused without
     //       this special-casing. Notice FLOW edge 22:2 with (<).
-    if (!DDRefUtils::areEqual((*StoreInstPtr)->getLvalDDRef(), LoadRef)) {
+    if (!DDRefUtils::areEqual((*StoreInstPtr)->getLvalDDRef(), MemRef)) {
       // invalid-sink-2.ll is sifted here.
 
       LLVM_DEBUG(dbgs() << "Load instruction being examined: ");
@@ -265,11 +282,15 @@ bool canMoveLoadIntoLoop(const DDRef *TempRef, const DDRef *LoadRef,
     // <1942> |
     // <975>  |   (%s)[0].32[-1 * i1 + 15] = -16 * i1 + 4080;
     // <1941> + END LOOP
-    if (!DDRefUtils::areEqual(TempRef, (*StoreInstPtr)->getRvalDDRef())) {
+    // Comparing symbases to get integer temp case work, like %t = 0, where the
+    // canon-expr of tmp is 0
+    if (TempRef->getSymbase() !=
+        (*StoreInstPtr)->getRvalDDRef()->getSymbase()) {
       reportFail("F11");
       return false;
     }
   }
+
   return true;
 }
 
@@ -278,7 +299,10 @@ bool canMoveLoadIntoLoop(const DDRef *TempRef, const DDRef *LoadRef,
 template <bool IsPreHeader = false>
 bool gatherPreloopInsts(HLInst *Inst, HLLoop *InnermostLoop, DDGraph DDG,
                         SmallVectorImpl<HLInst *> &PreLoopInsts,
-                        SmallVectorImpl<HLInst *> &ForwardSubInsts) {
+                        SmallVectorImpl<HLInst *> &ForwardSubInsts,
+                        HLInst *&PreLoopStoreInst,
+                        HLInst *&TmpInitializationInst,
+                        bool AllowNonPerfectSinking) {
 
   auto FindLoadInstForCopy = [&PreLoopInsts, &DDG](const DDRef *RRef) {
     //  Search for the corresponding load - in the case when Forward Sub
@@ -313,29 +337,56 @@ bool gatherPreloopInsts(HLInst *Inst, HLLoop *InnermostLoop, DDGraph DDG,
     // pre(post)loop HLNode might have not be HLInst (e.g HLIf)
     return false;
   }
+
   const Instruction *LLVMInst = Inst->getLLVMInstruction();
+  RegDDRef *LRef = Inst->getLvalDDRef();
+  RegDDRef *RRef = Inst->getRvalDDRef();
+
+  // Collect store insts into a vector if non-perfect sinking is allowed
+  if (AllowNonPerfectSinking && !PreLoopStoreInst && isa<StoreInst>(LLVMInst)) {
+
+    if (DDUtils::anyEdgeToLoop(DDG, LRef, InnermostLoop)) {
+      return false;
+    }
+
+    PreLoopStoreInst = Inst;
+
+    return true;
+  }
+
   bool IsCopyInst = Inst->isCopyInst();
+
   if (!isa<LoadInst>(LLVMInst) && !IsCopyInst) {
     return false;
   }
 
   bool CopyStmt = false;
+
   if (IsCopyInst) {
-    if (!FindLoadInstForCopy(Inst->getRvalDDRef())) {
+    // Once copy inst has been found, compare the rval with the store inst's
+    // rval. If there are equal, the copy inst will be the candidate
+    // TmpInitializationInst
+    if (PreLoopStoreInst &&
+        DDRefUtils::areEqual(PreLoopStoreInst->getRvalDDRef(), RRef)) {
+      TmpInitializationInst = Inst;
+      PreLoopInsts.push_back(Inst);
+      return true;
+    }
+
+    if (!FindLoadInstForCopy(RRef)) {
       return false;
     }
     CopyStmt = true;
   }
 
   if (!IsPreHeader && InnermostLoop->hasZtt()) {
-    unsigned LvalSymbase = Inst->getLvalDDRef()->getSymbase();
+    unsigned LvalSymbase = LRef->getSymbase();
     if (Inst->getParentLoop()->isLiveOut(LvalSymbase)) {
       return false;
     }
   }
 
-  if (!CopyStmt &&
-      DDUtils::anyEdgeToLoop(DDG, Inst->getRvalDDRef(), InnermostLoop)) {
+  if (!CopyStmt && DDUtils::anyEdgeToLoop(DDG, RRef, InnermostLoop)) {
     return false;
   }
 
@@ -377,7 +428,8 @@ bool gatherPostloopInsts(HLInst *Inst, const HLLoop *InnermostLoop,
 bool enablePerfectLPGatherPrePostInsts(
     HLLoop *InnermostLoop, DDGraph DDG, SmallVectorImpl<HLInst *> &PreLoopInsts,
     SmallVectorImpl<HLInst *> &PostLoopInsts,
-    SmallVectorImpl<HLInst *> &ForwardSubInsts) {
+    SmallVectorImpl<HLInst *> &ForwardSubInsts, HLInst *&PreLoopStoreInst,
+    HLInst *&TmpInitializationInst, bool AllowNonPerfectSinking) {
 
   HLLoop *ParentLoop = InnermostLoop->getParentLoop();
   unsigned NumLoops = 0;
@@ -394,7 +446,8 @@ bool enablePerfectLPGatherPrePostInsts(
 
     if (NumLoops == 0) {
       if (!gatherPreloopInsts(dyn_cast<HLInst>(I1), InnermostLoop, DDG,
-                              PreLoopInsts, ForwardSubInsts)) {
+                              PreLoopInsts, ForwardSubInsts, PreLoopStoreInst,
+                              TmpInitializationInst, AllowNonPerfectSinking)) {
         return false;
       }
     } else {
@@ -408,8 +461,9 @@ bool enablePerfectLPGatherPrePostInsts(
   // Scan preheader insts
   for (auto I = InnermostLoop->pre_begin(), E = InnermostLoop->pre_end();
        I != E; ++I) {
-    if (!gatherPreloopInsts<true>(cast<HLInst>(I), InnermostLoop, DDG,
-                                  PreLoopInsts, ForwardSubInsts)) {
+    if (!gatherPreloopInsts<true>(
+            cast<HLInst>(I), InnermostLoop, DDG, PreLoopInsts, ForwardSubInsts,
+            PreLoopStoreInst, TmpInitializationInst, AllowNonPerfectSinking)) {
       return false;
     }
   }
@@ -457,9 +511,10 @@ bool enablePerfectLPLegalityCheckPre(
     HLLoop *InnermostLoop, DDGraph DDG, SmallVectorImpl<HLInst *> &PreLoopInsts,
     const SmallVectorImpl<HLInst *> &PostLoopInsts,
     SmallVectorImpl<HLInst *> &ForwardSubInsts,
-    SmallVectorImpl<HLInst *> &ValidatedStores) {
+    SmallVectorImpl<HLInst *> &ValidatedStores, HLInst *PreLoopStoreInst,
+    HLInst *TmpInitializationInst) {
 
-  const DDRef *LRef, *RRef;
+  RegDDRef *LRef, *RRef;
 
   for (auto &Inst : PreLoopInsts) {
     const Instruction *LLVMInst;
@@ -468,12 +523,6 @@ bool enablePerfectLPLegalityCheckPre(
         ForwardSubInsts.end()) {
       // if copy skip.
       continue;
-    }
-
-    // Restrict to a small subset for compile time consideration
-    LLVMInst = Inst->getLLVMInstruction();
-    if (!isa<LoadInst>(LLVMInst)) {
-      return false;
     }
 
     // Two cases to consider:
@@ -489,9 +538,20 @@ bool enablePerfectLPLegalityCheckPre(
     //            the same store for A[x] is needed in PostLoop stmts
     LRef = Inst->getLvalDDRef();
     RRef = Inst->getRvalDDRef();
-    HLInst *ForwardSInst = findForwardSubInst(LRef, ForwardSubInsts);
-    LRef = ForwardSInst ? ForwardSInst->getLvalDDRef() : Inst->getLvalDDRef();
+
+    // Restrict to a small subset for compile time consideration
+    LLVMInst = Inst->getLLVMInstruction();
+    if (isa<LoadInst>(LLVMInst)) {
+      HLInst *ForwardSInst = findForwardSubInst(LRef, ForwardSubInsts);
+      LRef = ForwardSInst ? ForwardSInst->getLvalDDRef() : Inst->getLvalDDRef();
+    } else if (Inst == TmpInitializationInst) {
+      RRef = PreLoopStoreInst->getLvalDDRef();
+    } else {
+      return false;
+    }
+
     HLInst *StoreInst = nullptr;
+
     if (!canMoveLoadIntoLoop(LRef, RRef, InnermostLoop, DDG, PostLoopInsts,
                              &StoreInst)) {
       LLVM_DEBUG(dbgs() << "\n Fails at canMoveLoadIntoLoop \n");
@@ -758,14 +818,16 @@ static void gatherTempRegDDRefSymbases(
 ///
 bool DDUtils::enablePerfectLoopNest(
     HLLoop *InnermostLoop, DDGraph DDG,
-    InterchangeIgnorableSymbasesTy &SinkedTempDDRefSymbases) {
+    InterchangeIgnorableSymbasesTy &SinkedTempDDRefSymbases,
+    bool AllowNonPerfectSinking) {
   assert(InnermostLoop->getParentLoop() && "Parent Loop must not be nullptr");
 
   SmallVector<HLInst *, 8> PreLoopInsts;
   SmallVector<HLInst *, 8> PostLoopInsts;
   SmallVector<HLInst *, 8> ForwardSubInsts;
   SmallVector<HLInst *, 8> ValidatedStores;
-
+  HLInst *PreLoopStoreInst = nullptr;
+  HLInst *TmpInitializationInst = nullptr;
   //  Allow copy stmts before the innermostt loop, but not inside the innermost.
   //  The copy stmts need special handling for legality check
   //
@@ -775,16 +837,17 @@ bool DDUtils::enablePerfectLoopNest(
   //  No need to do forward sub.
   //  (1) Gather  PreLoop / PostLoop Nodes in Vector.
   //  ForwarSub nodes are  copy stmts of the for  t2 = t0
-  if (!enablePerfectLPGatherPrePostInsts(InnermostLoop, DDG, PreLoopInsts,
-                                         PostLoopInsts, ForwardSubInsts)) {
+  if (!enablePerfectLPGatherPrePostInsts(
+          InnermostLoop, DDG, PreLoopInsts, PostLoopInsts, ForwardSubInsts,
+          PreLoopStoreInst, TmpInitializationInst, AllowNonPerfectSinking)) {
     LLVM_DEBUG(dbgs() << "\n Fails in gatherprepost stmts \n");
     return false;
   }
 
   // (2) Perform legality  check of PreLoop nodes
-  if (!enablePerfectLPLegalityCheckPre(InnermostLoop, DDG, PreLoopInsts,
-                                       PostLoopInsts, ForwardSubInsts,
-                                       ValidatedStores)) {
+  if (!enablePerfectLPLegalityCheckPre(
+          InnermostLoop, DDG, PreLoopInsts, PostLoopInsts, ForwardSubInsts,
+          ValidatedStores, PreLoopStoreInst, TmpInitializationInst)) {
     LLVM_DEBUG(dbgs() << "\n Fails in legality pre stmt check \n");
     return false;
   }
@@ -798,8 +861,25 @@ bool DDUtils::enablePerfectLoopNest(
 
   // (4) Move Stmts into Innermost Loop
   for (auto I = PreLoopInsts.rbegin(), E = PreLoopInsts.rend(); I != E; ++I) {
-    HLNodeUtils::moveAsFirstChild(InnermostLoop, *I);
-    updateLiveinsLiveoutsForSinkedInst(InnermostLoop, *I, true);
+    if (TmpInitializationInst == *I) {
+      RegDDRef *TmpRef = TmpInitializationInst->getLvalDDRef();
+      RegDDRef *MemRef = PreLoopStoreInst->getLvalDDRef()->clone();
+
+      // make TmpRef a self blob to take care of the integer case %t = 0, where
+      // the cannon-expr of tmp is 0
+      TmpRef = TmpRef->clone();
+      TmpRef->makeSelfBlob(true);
+      HLInst *LoadInst =
+          InnermostLoop->getHLNodeUtils().createLoad(MemRef, "Load", TmpRef);
+      HLNodeUtils::insertAsFirstChild(InnermostLoop, LoadInst);
+      HLNodeUtils::remove(*I);
+      *I = LoadInst;
+
+      updateLiveinsLiveoutsForSinkedInst(InnermostLoop, LoadInst, true);
+    } else {
+      HLNodeUtils::moveAsFirstChild(InnermostLoop, *I);
+      updateLiveinsLiveoutsForSinkedInst(InnermostLoop, *I, true);
+    }
   }
 
   for (auto &I : PostLoopInsts) {

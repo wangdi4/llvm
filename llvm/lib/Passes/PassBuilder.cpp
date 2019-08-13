@@ -257,6 +257,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRRecognizeParLoop.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRIdentityMatrixIdiomRecognition.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPrefetching.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRSinkingForPerfectLoopnest.h"
 
 #if INTEL_INCLUDE_DTRANS
 #include "Intel_DTrans/DTransCommon.h"
@@ -662,7 +663,19 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   }
 
   // Specially optimize memory movement as it doesn't look like dataflow in SSA.
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+  // Skip MemCpyOpt when both PrepareForLTO and EnableDTrans flags are
+  // true to simplify handling of memcpy/memset/memmov calls in DTrans
+  // implementation.
+  // TODO: Remove this customization once DTrans handled partial memcpy/
+  // memset/memmov calls of struct types.
+  if (!PrepareForLTO || !EnableDTrans)
+    FPM.addPass(MemCpyOptPass());
+#else
   FPM.addPass(MemCpyOptPass());
+#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   // Sparse conditional constant propagation.
   // FIXME: It isn't clear why we do this *after* loop passes rather than

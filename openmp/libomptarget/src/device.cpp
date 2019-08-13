@@ -428,6 +428,24 @@ int32_t DeviceTy::manifest_data_for_region(void *TgtEntryPtr) {
   return RC;
 }
 
+void *DeviceTy::create_buffer(void *HstPtr) {
+  void *rc = NULL;
+  DataMapMtx.lock();
+  rc = getTgtPtrBegin(HstPtr, 1);
+  if (rc != NULL && RTL->create_buffer)
+    rc = RTL->create_buffer(RTLDeviceID, rc);
+  else
+    rc = NULL;
+  DataMapMtx.unlock();
+  return rc;
+}
+
+int32_t DeviceTy::release_buffer(void *TgtBuffer) {
+  if (RTL->release_buffer)
+    return RTL->release_buffer(TgtBuffer);
+  return OFFLOAD_SUCCESS;
+}
+
 void *DeviceTy::data_alloc_base(int64_t Size, void *HstPtrBegin,
                                 void *HstPtrBase) {
   if (!RTL->data_alloc_base)
