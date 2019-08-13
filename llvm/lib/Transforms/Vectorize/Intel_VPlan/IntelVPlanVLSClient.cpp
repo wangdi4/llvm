@@ -120,25 +120,26 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
   // FIXME: It is expected that VLS will be changed so that loads are moved
   // upward and stores are moved downward. We will need to support downward
   // movement when such change is implemented.
-  const VPInstruction *Iter = FromInst;
-  while ((Iter = dyn_cast_or_null<VPInstruction>(Iter->getPrevNode()))) {
-    // ToInst has not been found in the basic block. Probably, it is in the
-    // opposite direction.
-    if (!Iter)
+  for (const VPRecipeBase *I = FromInst->getPrevNode(); I != nullptr;
+       I = I->getPrevNode()) {
+    const VPInstruction *IterInst = dyn_cast<VPInstruction>(I);
+
+    // Bail out if we run into an unexpected recipe.
+    if (!IterInst)
       return false;
 
     // ToInst has been safely reached by the algorithm.
-    if (Iter == ToInst)
+    if (IterInst == ToInst)
       return true;
 
     // Cannot move a Store instruction past the definition of the stored value.
     if (FromInst->getOpcode() == Instruction::Store &&
-        Iter == FromInst->getOperand(0))
+        IterInst == FromInst->getOperand(0))
       return false;
 
     // It is safe to move past an instruction without side effects nor memory
     // access.
-    if (auto *I = dyn_cast_or_null<Instruction>(Iter->getUnderlyingValue()))
+    if (auto *I = dyn_cast_or_null<Instruction>(IterInst->getUnderlyingValue()))
       if (!I->mayHaveSideEffects() && !I->mayReadFromMemory())
         continue;
 
@@ -156,27 +157,27 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
     //   +------------+--------------+------------+--------------+------------+
     //   | A[4*(i-1)] |      SL      | A[4*(i+0)] |      SR      | A[4*(i+1)] |
     //   +------------+--------------+------------+--------------+------------+
-    // If FromInst is A[4*(i+0)] and Iter fits completely into area SL or area
-    // SR, then it is safe to swap Iter and FromInst.
-    if (Iter->getOpcode() == Instruction::Load ||
-        Iter->getOpcode() == Instruction::Store) {
-      auto *IterSCEV = getSCEVForVPValue(getLoadStorePointerOperand(Iter));
+    // If FromInst is A[4*(i+0)] and IterInst fits completely into area SL or
+    // area SR, then it is safe to swap IterInst and FromInst.
+    if (IterInst->getOpcode() == Instruction::Load ||
+        IterInst->getOpcode() == Instruction::Store) {
+      auto *IterSCEV = getSCEVForVPValue(getLoadStorePointerOperand(IterInst));
 
-      // Constant distance between From and Iter implies that the strides of
-      // Iter and From are the same.
+      // Constant distance between From and IterInst implies that the strides of
+      // IterInst and From are the same.
       Optional<int64_t> Distance =
           getConstDistanceFromImpl(IterSCEV, FromSCEV, SE);
       if (!Distance)
         return false;
 
-      Type *IterType = getLoadStoreType(Iter);
+      Type *IterType = getLoadStoreType(IterInst);
       int64_t IterAccessSize = VLSA->getDL().getTypeStoreSize(IterType);
       if (IterAccessSize != AccessSize)
         return false;
 
       if (std::abs(*Distance) >= AccessSize &&
           std::abs(*Distance) <= std::abs(*FromStride) - AccessSize) {
-        // Pattern has been recoginized. It is safe to move From past Iter.
+        // Pattern has been recoginized. It is safe to move From past IterInst.
         continue;
       }
     }
@@ -185,7 +186,9 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
     return false;
   }
 
-  llvm_unreachable("Moved past the loop supposed to return from function");
+  // ToInst has not been found in the basic block. Probably, it is in the
+  // opposite direction.
+  return false;
 }
 
 Optional<int64_t> VPVLSClientMemref::getConstStride() const {
