@@ -841,22 +841,31 @@ int target(int64_t device_id, void *host_ptr, int32_t arg_num,
     return OFFLOAD_FAIL;
   }
 
+  void **argsPtr = nullptr;
+  if (!tgt_args.empty())
+    argsPtr = (void **)&(tgt_args.data()[0]);
+  ptrdiff_t *offsetsPtr = nullptr;
+  if (!tgt_offsets.empty())
+    offsetsPtr = (ptrdiff_t *)&(tgt_offsets.data()[0]);
+
   if (LoopLevel <= 1) {
     if (IsTeamConstruct) {
       rc = Device.run_team_region(TargetTable->EntriesBegin[TM->Index].addr,
-           &tgt_args[0], &tgt_offsets[0], tgt_args.size(), team_num,
-           thread_limit, ltc);
+                                  argsPtr, offsetsPtr, tgt_args.size(),
+                                  team_num, thread_limit, ltc);
     } else {
       rc = Device.run_team_region(TargetTable->EntriesBegin[TM->Index].addr,
-           &tgt_args[0], &tgt_offsets[0], tgt_args.size(), 1, 0, ltc);
+                                  argsPtr, offsetsPtr, tgt_args.size(),
+                                  1, 0, ltc);
     }
   }
   else
     rc = Device.run_team_nd_region(TargetTable->EntriesBegin[TM->Index].addr,
-         &tgt_args[0], &tgt_offsets[0], tgt_args.size(),
-         team_num <= 0 ? 1 : team_num,
-         thread_limit <= 0 ? 0 : thread_limit, TgtNDLoopDesc);
-#else
+                                   argsPtr, offsetsPtr, tgt_args.size(),
+                                   team_num <= 0 ? 1 : team_num,
+                                   thread_limit <= 0 ? 0 : thread_limit,
+                                   TgtNDLoopDesc);
+#else  // INTEL_COLLAB
   if (IsTeamConstruct) {
     rc = Device.run_team_region(TargetTable->EntriesBegin[TM->Index].addr,
         &tgt_args[0], &tgt_offsets[0], tgt_args.size(), team_num,
