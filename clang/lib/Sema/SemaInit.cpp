@@ -7082,8 +7082,11 @@ static SourceRange nextPathEntryRange(const IndirectLocalPath &Path, unsigned I,
       // supporting lifetime extension.
       break;
 
-    case IndirectLocalPathEntry::DefaultInit:
     case IndirectLocalPathEntry::VarInit:
+      if (cast<VarDecl>(Path[I].D)->isImplicit())
+        return SourceRange();
+      LLVM_FALLTHROUGH;
+    case IndirectLocalPathEntry::DefaultInit:
       return Path[I].E->getSourceRange();
     }
   }
@@ -7150,7 +7153,7 @@ void Sema::checkInitializerLifetime(const InitializedEntity &Entity,
         return false;
       }
 
-      if (IsGslPtrInitWithGslTempOwner) {
+      if (IsGslPtrInitWithGslTempOwner && DiagLoc.isValid()) {
         Diag(DiagLoc, diag::warn_dangling_lifetime_pointer) << DiagRange;
         return false;
       }
