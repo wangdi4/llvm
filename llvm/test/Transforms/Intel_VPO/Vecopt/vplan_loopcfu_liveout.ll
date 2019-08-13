@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -S < %s -VPlanDriver -debug-only=VPlanPredicator -disable-output 2>&1 | FileCheck %s
+; RUN: opt -S < %s -VPlanDriver -disable-output -vplan-print-after-loop-cfu | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -10,28 +10,10 @@ declare void @llvm.directive.region.exit(token)
 @A = common local_unnamed_addr global [100 x [100 x i64]] zeroinitializer, align 16
 
 define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unnamed_addr #0 {
-entry:
-  %cmp18 = icmp sgt i64 %N, 0
-  br i1 %cmp18, label %for.cond1.preheader.preheader, label %for.end7
-
-for.cond1.preheader.preheader:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
-  br label %for.cond1.preheader
-
-for.cond1.preheader:
-  %outer.iv = phi i64 [ %outer.iv.next, %for.inc5 ], [ 0, %for.cond1.preheader.preheader ]
-  %skip_loop = icmp eq i64 %outer.iv, %mask_out_inner_loop
-  br i1 %skip_loop, label %for.inc5, label %top_test
-
-top_test:
-  %cmp216 = icmp eq i64 %outer.iv, 0
-  br i1 %cmp216, label %for.inc5, label %for.body3.preheader
-
-for.body3.preheader:
-  br label %for.body3
-
-; CHECK-LABEL: Subloop after inner loop control flow transformation
-; CHECK-NEXT:    REGION: [[INNER_LOOP:loop[0-9]+]] (BP: NULL)
+; CHECK:         REGION:
+; CHECK:         REGION:
+; CHECK:         REGION:
+; CHECK:         REGION: [[INNER_LOOP:loop[0-9]+]] (BP: NULL)
 ; CHECK-NEXT:    [[PREHEADER:BB[0-9]+]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[HEADER:BB[0-9]+]]
@@ -87,6 +69,26 @@ for.body3.preheader:
 ; CHECK-NEXT:     i1 {{%vp.*}}  = phi  [ i1 [[SOME_CMP_BLEND]], BB20 ]
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): BB20
+entry:
+  %cmp18 = icmp sgt i64 %N, 0
+  br i1 %cmp18, label %for.cond1.preheader.preheader, label %for.end7
+
+for.cond1.preheader.preheader:
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
+  br label %for.cond1.preheader
+
+for.cond1.preheader:
+  %outer.iv = phi i64 [ %outer.iv.next, %for.inc5 ], [ 0, %for.cond1.preheader.preheader ]
+  %skip_loop = icmp eq i64 %outer.iv, %mask_out_inner_loop
+  br i1 %skip_loop, label %for.inc5, label %top_test
+
+top_test:
+  %cmp216 = icmp eq i64 %outer.iv, 0
+  br i1 %cmp216, label %for.inc5, label %for.body3.preheader
+
+for.body3.preheader:
+  br label %for.body3
+
 for.body3:
   %inner.iv = phi i64 [ %inner.iv.next, %for.body3 ], [ 0, %for.body3.preheader ]
   %arrayidx = getelementptr inbounds i64, i64* %a, i64 %inner.iv

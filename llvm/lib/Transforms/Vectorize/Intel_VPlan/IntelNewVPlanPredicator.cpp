@@ -35,6 +35,10 @@ extern cl::opt<bool> VPlanLoopCFU;
 #define VPlanPredicator NewVPlanPredicator
 #endif // INTEL_CUSTOMIZATION
 
+static cl::opt<bool>
+    PrintAfterLoopCFU("vplan-print-after-loop-cfu", cl::init(false), cl::Hidden,
+                      cl::desc("Print VPlan after LoopCFU transformation."));
+
 // Generate VPInstructions at the beginning of CurrBB that calculate the
 // predicate being propagated from PredBB to CurrBB depending on the edge type
 // between them. For example if:
@@ -396,6 +400,13 @@ void VPlanPredicator::predicate(void) {
     handleInnerLoopBackedges(EntryLoopR);
     LLVM_DEBUG(dbgs() << "After inner loop control flow transformation\n");
     LLVM_DEBUG(Plan.dump());
+
+    if (PrintAfterLoopCFU) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      outs() << "After inner loop control flow transformation\n";
+      Plan.dump(outs());
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+    }
   }
 #endif // INTEL_CUSTOMIZATION
   // Predicate the blocks within Region.

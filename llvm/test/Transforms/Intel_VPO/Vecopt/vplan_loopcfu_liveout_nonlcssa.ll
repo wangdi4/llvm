@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -S < %s -VPlanDriver -debug-only=VPlanPredicator -disable-output -enable-vp-value-codegen 2>&1 | FileCheck %s
-; RUN: opt -S < %s -VPlanDriver -debug-only=VPlanPredicator -disable-output 2>&1 | FileCheck %s
+; RUN: opt -S < %s -VPlanDriver -vplan-print-after-loop-cfu -disable-output -enable-vp-value-codegen | FileCheck %s
+; RUN: opt -S < %s -VPlanDriver -vplan-print-after-loop-cfu -disable-output | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -14,28 +14,10 @@ declare void @llvm.directive.region.exit(token)
 ;; once this is fixed. In fact, we should fix this and add an assert in the
 ;; LoopCFU transformation for any non-LCSSA uses.
 define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unnamed_addr #0 {
-entry:
-  %cmp18 = icmp sgt i64 %N, 0
-  br i1 %cmp18, label %for.cond1.preheader.preheader, label %for.end7
-
-for.cond1.preheader.preheader:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
-  br label %for.cond1.preheader
-
-for.cond1.preheader:
-  %outer.iv = phi i64 [ %outer.iv.next, %for.inc5 ], [ 0, %for.cond1.preheader.preheader ]
-  %skip_loop = icmp eq i64 %outer.iv, %mask_out_inner_loop
-  br i1 %skip_loop, label %for.inc5, label %top_test
-
-top_test:
-  %cmp216 = icmp eq i64 %outer.iv, 0
-  br i1 %cmp216, label %for.inc5, label %for.body3.preheader
-
-for.body3.preheader:
-  br label %for.body3
-
-; CHECK-LABEL:  Subloop after inner loop control flow transformation
-; CHECK-NEXT:     REGION: loop20 (BP: NULL)
+; CHECK:         REGION:
+; CHECK:         REGION:
+; CHECK:         REGION:
+; CHECK:          REGION: loop20 (BP: NULL)
 ; CHECK-NEXT:     [[PREHEADER:BB[0-9]*]] (BP: NULL) :
 ; CHECK-NEXT:      <Empty Block>
 ; CHECK-NEXT:     SUCCESSORS(1):BB7
@@ -126,6 +108,26 @@ for.body3.preheader:
 ; CHECK-EMPTY:
 ; CHECK-NEXT:     SUCCESSORS(1):BB4
 ; CHECK-NEXT:     END Region(loop20)
+entry:
+  %cmp18 = icmp sgt i64 %N, 0
+  br i1 %cmp18, label %for.cond1.preheader.preheader, label %for.end7
+
+for.cond1.preheader.preheader:
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
+  br label %for.cond1.preheader
+
+for.cond1.preheader:
+  %outer.iv = phi i64 [ %outer.iv.next, %for.inc5 ], [ 0, %for.cond1.preheader.preheader ]
+  %skip_loop = icmp eq i64 %outer.iv, %mask_out_inner_loop
+  br i1 %skip_loop, label %for.inc5, label %top_test
+
+top_test:
+  %cmp216 = icmp eq i64 %outer.iv, 0
+  br i1 %cmp216, label %for.inc5, label %for.body3.preheader
+
+for.body3.preheader:
+  br label %for.body3
+
 for.body3:
   %inner.iv = phi i64 [ %inner.iv.next, %no_early_exit ], [ 0, %for.body3.preheader ]
   %arrayidx = getelementptr inbounds i64, i64* %a, i64 %inner.iv

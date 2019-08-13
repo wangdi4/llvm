@@ -339,9 +339,10 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
       if (RegionBlock->getParent() == SubLoopRegion)
         RegionBlock->setParent(MaskRegion);
     }
+
     LLVM_DEBUG(
         dbgs() << "Subloop after inner loop control flow transformation\n");
-    LLVM_DEBUG(SubLoopRegion->dump());
+    LLVM_DEBUG(SubLoopRegion->dump(dbgs(), 0));
   }
 }
 #endif // INTEL_CUSTOMIZATION
