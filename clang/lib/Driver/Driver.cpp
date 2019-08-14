@@ -3813,20 +3813,20 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
     }
   }
 
+#if INTEL_CUSTOMIZATION
   llvm::SmallVector<phases::ID, phases::MaxNumberOfPhases> PL;
+#endif // INTEL_CUSTOMIZATION
   for (auto &I : Inputs) {
     types::ID InputType = I.first;
     const Arg *InputArg = I.second;
 
-<<<<<<< HEAD
+#if INTEL_CUSTOMIZATION
     PL.clear();
-    types::getCompilationPhases(InputType, PL);
-    if (PL[0] > FinalPhase)
-=======
+#else // INTEL_CUSTOMIZATION
     llvm::SmallVector<phases::ID, phases::MaxNumberOfPhases> PL;
+#endif // INTEL_CUSTOMIZATION
     types::getCompilationPhases(*this, Args, InputType, PL);
     if (PL.empty())
->>>>>>> e5ade767e5d147a91eeab33c4ee7b0581b54ee34
       continue;
 
     llvm::SmallVector<phases::ID, phases::MaxNumberOfPhases> FullPL;
@@ -3845,12 +3845,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
 
       // Add any offload action the host action depends on.
       Current = OffloadBuilder.addDeviceDependencesToHostAction(
-<<<<<<< HEAD
-          Current, InputArg, Phase, FinalPhase, PL);
-
-=======
           Current, InputArg, Phase, PL.back(), FullPL);
->>>>>>> e5ade767e5d147a91eeab33c4ee7b0581b54ee34
       if (!Current)
         break;
 
