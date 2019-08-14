@@ -3932,7 +3932,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
       OffloadBuilder.addHostDependenceToUnbundlingAction(Current,
                                                     UnbundlerInputs, LastArg);
       Current = OffloadBuilder.addDeviceDependencesToHostAction(Current,
-                                       LastArg, phases::Link, FinalPhase, PL);
+                                       LastArg, phases::Link, PL.back(), PL);
       LinkerInputs.push_back(Current);
     }
     for (const auto &TLI : TempLinkerInputs)
