@@ -63,10 +63,7 @@ define <2 x i64> @scalarize_v2i64_const_mask(<2 x i64*> %p, <2 x i64> %passthru)
 ; INTEL_CUSTOMIZATION
 define <2 x i64> @scalarize_v2i64_ones_mask_gep(i64* %p, <2 x i64> %passthru) {
 ; CHECK-LABEL: @scalarize_v2i64_ones_mask_gep(
-; CHECK-NEXT:    [[VPTR0:%.*]] = insertelement <2 x i64*> undef, i64* [[P:%.*]], i32 0
-; CHECK-NEXT:    [[VPTR1:%.*]] = shufflevector <2 x i64*> [[VPTR0]], <2 x i64*> undef, <2 x i32> zeroinitializer
-; CHECK-NEXT:    [[VPTR2:%.*]] = getelementptr i64, <2 x i64*> [[VPTR1]], <2 x i64> <i64 0, i64 2>
-; CHECK-NEXT:    [[PTR0:%.*]] = getelementptr i64, i64* [[P]], i64 0
+; CHECK-NEXT:    [[PTR0:%.*]] = getelementptr i64, i64* [[P:%.*]], i64 0
 ; CHECK-NEXT:    [[LOAD0:%.*]] = load i64, i64* [[PTR0]], align 8
 ; CHECK-NEXT:    [[RES0:%.*]] = insertelement <2 x i64> [[PASSTHRU:%.*]], i64 [[LOAD0]], i64 0
 ; CHECK-NEXT:    [[PTR1:%.*]] = getelementptr i64, i64* [[P]], i64 2
