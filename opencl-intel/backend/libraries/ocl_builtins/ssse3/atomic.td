@@ -11,6 +11,18 @@ code add_l = [{
     *tmp = oldValue + $Arg1VarName;
     return oldValue;
   }];
+code add_g_fp32 = [{
+    while (true)
+    {
+      $ReturnType oldValue = *$Arg0VarName;
+      int oldValueInt = *((int*)&oldValue);
+      $ReturnType addValue = oldValue + $Arg1VarName;
+      int addInt = *((int*)&addValue);
+      if (oldValueInt == addInt) return oldValue;
+      int retValInt = __sync_val_compare_and_swap((int*)$Arg0VarName, oldValueInt, addInt);
+      if (oldValueInt == retValInt) return oldValue;
+    }
+  }];
 code sub_g = [{
     return __sync_fetch_and_sub($Arg0VarName, $Arg1VarName);
   }];
@@ -216,11 +228,15 @@ OclBuiltinImpl atom_dec_vl    = OclBuiltinImpl<atom_dec_vol_local, [v1i32, v1u32
 OclBuiltinImpl atom_dec_l     = OclBuiltinImpl<atom_dec_local, [v1i32, v1u32, v1i64, v1u64], 0, dec_l>;
 // add
 OclBuiltinImpl atomic_add_g   = OclBuiltinImpl<atomic_add_global, [v1i32, v1u32], 0, add_g>;
-OclBuiltinImpl atomic_add_l   = OclBuiltinImpl<atomic_add_local, [v1i32, v1u32], 0, add_l>;
+OclBuiltinImpl atomic_add_l   = OclBuiltinImpl<atomic_add_local, [v1i32, v1u32, v1f32], 0, add_l>;
 OclBuiltinImpl atom_add_vg    = OclBuiltinImpl<atom_add_vol_global, [v1i32, v1u32, v1i64, v1u64], 0, add_g>;
 OclBuiltinImpl atom_add_g     = OclBuiltinImpl<atom_add_global, [v1i32, v1u32, v1i64, v1u64], 0, add_g>;
-OclBuiltinImpl atom_add_vl    = OclBuiltinImpl<atom_add_vol_local, [v1i32, v1u32, v1i64, v1u64], 0, add_l>;
-OclBuiltinImpl atom_add_l     = OclBuiltinImpl<atom_add_local, [v1i32, v1u32, v1i64, v1u64], 0, add_l>;
+OclBuiltinImpl atom_add_vl    = OclBuiltinImpl<atom_add_vol_local, [v1i32, v1u32, v1f32, v1i64, v1u64], 0, add_l>;
+OclBuiltinImpl atom_add_l     = OclBuiltinImpl<atom_add_local, [v1i32, v1u32, v1f32, v1i64, v1u64], 0, add_l>;
+
+OclBuiltinImpl atomic_add_gf   = OclBuiltinImpl<atomic_add_global, [v1f32], 0, add_g_fp32>;
+OclBuiltinImpl atom_add_vgf    = OclBuiltinImpl<atom_add_vol_global, [v1f32], 0, add_g_fp32>;
+OclBuiltinImpl atom_add_gf     = OclBuiltinImpl<atom_add_global, [v1f32], 0, add_g_fp32>;
 // sub
 OclBuiltinImpl atomic_sub_g   = OclBuiltinImpl<atomic_sub_global, [v1i32, v1u32], 0, sub_g>;
 OclBuiltinImpl atomic_sub_l   = OclBuiltinImpl<atomic_sub_local, [v1i32, v1u32], 0, sub_l>;
