@@ -571,6 +571,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// from "!opencl.ocl.version" named metadata
     static unsigned fetchCLVersionFromMetadata(const Module &M);
 
+    /// getDebugFlagFromMetadata - check opencl.compiler.options
+    /// for -g flag
+    static bool getDebugFlagFromMetadata(Module *M);
+
     /// generatedFromOCLCPP - check that IR was generated from OCL C++
     /// from "!spirv.Source" named metadata
     static bool generatedFromOCLCPP(const Module &M);

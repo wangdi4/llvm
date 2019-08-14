@@ -648,6 +648,23 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     return OclVersion::CL_VER_DEFAULT;
   }
 
+  bool CompilationUtils::getDebugFlagFromMetadata(Module *M) {
+    if (llvm::NamedMDNode *CompileOptsNamed =
+            M->getNamedMetadata("opencl.compiler.options")) {
+
+      llvm::MDTupleTypedArrayWrapper<llvm::MDString> CompileOpts(
+          cast<llvm::MDTuple>(CompileOptsNamed->getOperand(0)));
+
+      for (llvm::MDString *Opt : CompileOpts) {
+        if (Opt->getString() == "-g") {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
   bool CompilationUtils::generatedFromOCLCPP(const Module &M) {
     /*
     Example of the metadata
