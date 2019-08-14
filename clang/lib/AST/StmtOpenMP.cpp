@@ -72,6 +72,25 @@ void OMPLoopDirective::setFinals(ArrayRef<Expr *> A) {
   std::copy(A.begin(), A.end(), getFinals().begin());
 }
 
+void OMPLoopDirective::setDependentCounters(ArrayRef<Expr *> A) {
+  assert(
+      A.size() == getCollapsedNumber() &&
+      "Number of dependent counters is not the same as the collapsed number");
+  llvm::copy(A, getDependentCounters().begin());
+}
+
+void OMPLoopDirective::setDependentInits(ArrayRef<Expr *> A) {
+  assert(A.size() == getCollapsedNumber() &&
+         "Number of dependent inits is not the same as the collapsed number");
+  llvm::copy(A, getDependentInits().begin());
+}
+
+void OMPLoopDirective::setFinalsConditions(ArrayRef<Expr *> A) {
+  assert(A.size() == getCollapsedNumber() &&
+         "Number of finals conditions is not the same as the collapsed number");
+  llvm::copy(A, getFinalsConditions().begin());
+}
+
 OMPParallelDirective *OMPParallelDirective::Create(
     const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
     ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt, bool HasCancel) {
@@ -125,6 +144,9 @@ OMPSimdDirective::Create(const ASTContext &C, SourceLocation StartLoc,
   Dir->setInits(Exprs.Inits);
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
   Dir->setPreInits(Exprs.PreInits);
 #if INTEL_COLLAB
   Dir->setUpperBoundVariable(Exprs.UB);
@@ -179,6 +201,9 @@ OMPForDirective::Create(const ASTContext &C, SourceLocation StartLoc,
   Dir->setInits(Exprs.Inits);
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
   Dir->setPreInits(Exprs.PreInits);
   Dir->setHasCancel(HasCancel);
   return Dir;
@@ -232,6 +257,9 @@ OMPForSimdDirective::Create(const ASTContext &C, SourceLocation StartLoc,
   Dir->setInits(Exprs.Inits);
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
   Dir->setPreInits(Exprs.PreInits);
   return Dir;
 }
@@ -425,6 +453,9 @@ OMPParallelForDirective *OMPParallelForDirective::Create(
   Dir->setInits(Exprs.Inits);
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
   Dir->setPreInits(Exprs.PreInits);
   Dir->setHasCancel(HasCancel);
   return Dir;
@@ -477,6 +508,9 @@ OMPParallelForSimdDirective *OMPParallelForSimdDirective::Create(
   Dir->setInits(Exprs.Inits);
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
   Dir->setPreInits(Exprs.PreInits);
   return Dir;
 }
@@ -820,6 +854,9 @@ OMPTargetParallelForDirective *OMPTargetParallelForDirective::Create(
   Dir->setInits(Exprs.Inits);
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
   Dir->setPreInits(Exprs.PreInits);
   Dir->setHasCancel(HasCancel);
   return Dir;
@@ -965,6 +1002,9 @@ OMPTaskLoopDirective *OMPTaskLoopDirective::Create(
   Dir->setInits(Exprs.Inits);
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
   Dir->setPreInits(Exprs.PreInits);
   return Dir;
 }
@@ -1017,6 +1057,9 @@ OMPTaskLoopSimdDirective *OMPTaskLoopSimdDirective::Create(
   Dir->setInits(Exprs.Inits);
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
   Dir->setPreInits(Exprs.PreInits);
   return Dir;
 }
@@ -1068,6 +1111,9 @@ OMPDistributeDirective *OMPDistributeDirective::Create(
   Dir->setInits(Exprs.Inits);
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
   Dir->setPreInits(Exprs.PreInits);
   return Dir;
 }
@@ -1149,6 +1195,9 @@ OMPDistributeParallelForDirective *OMPDistributeParallelForDirective::Create(
   Dir->setInits(Exprs.Inits);
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
   Dir->setPreInits(Exprs.PreInits);
   Dir->setCombinedLowerBoundVariable(Exprs.DistCombinedFields.LB);
   Dir->setCombinedUpperBoundVariable(Exprs.DistCombinedFields.UB);
@@ -1220,6 +1269,9 @@ OMPDistributeParallelForSimdDirective::Create(
   Dir->setInits(Exprs.Inits);
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
   Dir->setPreInits(Exprs.PreInits);
   Dir->setCombinedLowerBoundVariable(Exprs.DistCombinedFields.LB);
   Dir->setCombinedUpperBoundVariable(Exprs.DistCombinedFields.UB);
@@ -1285,6 +1337,9 @@ OMPDistributeSimdDirective *OMPDistributeSimdDirective::Create(
   Dir->setInits(Exprs.Inits);
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
   Dir->setPreInits(Exprs.PreInits);
   return Dir;
 }
@@ -1340,6 +1395,9 @@ OMPTargetParallelForSimdDirective *OMPTargetParallelForSimdDirective::Create(
   Dir->setInits(Exprs.Inits);
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
   Dir->setPreInits(Exprs.PreInits);
   return Dir;
 }
@@ -1387,6 +1445,9 @@ OMPTargetSimdDirective::Create(const ASTContext &C, SourceLocation StartLoc,
   Dir->setInits(Exprs.Inits);
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
   Dir->setPreInits(Exprs.PreInits);
 #if INTEL_COLLAB
   Dir->setUpperBoundVariable(Exprs.UB);
@@ -1441,6 +1502,9 @@ OMPTeamsDistributeDirective *OMPTeamsDistributeDirective::Create(
   Dir->setInits(Exprs.Inits);
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
   Dir->setPreInits(Exprs.PreInits);
   return Dir;
 }
@@ -1495,6 +1559,9 @@ OMPTeamsDistributeSimdDirective *OMPTeamsDistributeSimdDirective::Create(
   Dir->setInits(Exprs.Inits);
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
   Dir->setPreInits(Exprs.PreInits);
   return Dir;
 }
@@ -1555,6 +1622,9 @@ OMPTeamsDistributeParallelForSimdDirective::Create(
   Dir->setInits(Exprs.Inits);
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
   Dir->setPreInits(Exprs.PreInits);
   Dir->setCombinedLowerBoundVariable(Exprs.DistCombinedFields.LB);
   Dir->setCombinedUpperBoundVariable(Exprs.DistCombinedFields.UB);
@@ -1627,6 +1697,9 @@ OMPTeamsDistributeParallelForDirective::Create(
   Dir->setInits(Exprs.Inits);
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
   Dir->setPreInits(Exprs.PreInits);
   Dir->setCombinedLowerBoundVariable(Exprs.DistCombinedFields.LB);
   Dir->setCombinedUpperBoundVariable(Exprs.DistCombinedFields.UB);
@@ -1718,6 +1791,9 @@ OMPTargetTeamsDistributeDirective *OMPTargetTeamsDistributeDirective::Create(
   Dir->setInits(Exprs.Inits);
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
   Dir->setPreInits(Exprs.PreInits);
   return Dir;
 }
@@ -1781,6 +1857,9 @@ OMPTargetTeamsDistributeParallelForDirective::Create(
   Dir->setInits(Exprs.Inits);
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
   Dir->setPreInits(Exprs.PreInits);
   Dir->setCombinedLowerBoundVariable(Exprs.DistCombinedFields.LB);
   Dir->setCombinedUpperBoundVariable(Exprs.DistCombinedFields.UB);
@@ -1857,6 +1936,9 @@ OMPTargetTeamsDistributeParallelForSimdDirective::Create(
   Dir->setInits(Exprs.Inits);
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
   Dir->setPreInits(Exprs.PreInits);
   Dir->setCombinedLowerBoundVariable(Exprs.DistCombinedFields.LB);
   Dir->setCombinedUpperBoundVariable(Exprs.DistCombinedFields.UB);
@@ -1925,6 +2007,9 @@ OMPTargetTeamsDistributeSimdDirective::Create(
   Dir->setInits(Exprs.Inits);
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
   Dir->setPreInits(Exprs.PreInits);
   return Dir;
 }
