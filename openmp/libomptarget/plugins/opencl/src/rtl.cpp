@@ -446,10 +446,13 @@ int32_t __tgt_rtl_number_of_devices() {
   // 2. Device IDs from a platform having at least one GPU device appear
   //    before any device IDs from a platform having no GPU devices.
   for (cl_platform_id id : platformIds) {
-    char buffer[128];
-    clGetPlatformInfo(id, CL_PLATFORM_VERSION, 128, buffer, NULL);
+    std::vector<char> buf;
+    size_t buf_size;
+    clGetPlatformInfo(id, CL_PLATFORM_VERSION, 0, nullptr, &buf_size);
+    buf.resize(buf_size);
+    clGetPlatformInfo(id, CL_PLATFORM_VERSION, buf_size, buf.data(), nullptr);
     // clCreateProgramWithIL() requires OpenCL 2.1.
-    if (strncmp("OpenCL 2.1", buffer, 8)) {
+    if (strncmp("OpenCL 2.1", buf.data(), 8)) {
       continue;
     }
 
@@ -465,8 +468,8 @@ int32_t __tgt_rtl_number_of_devices() {
     if (numCurrDevices == 0)
       continue;
 
-    DP("Platform %s has %d GPUs, %d ACCELERATORS, %d CPUs\n", buffer, numGPU,
-       numACC, numCPU);
+    DP("Platform %s has %d GPUs, %d ACCELERATORS, %d CPUs\n", buf.data(),
+       numGPU, numACC, numCPU);
     std::vector<cl_device_id> currDeviceIDs(numCurrDevices);
     std::vector<cl_platform_id> currPlatformIDs(numCurrDevices, id);
     // There is at least one element in currDeviceIDs allocated
@@ -507,10 +510,12 @@ int32_t __tgt_rtl_number_of_devices() {
 
   // get device specific information
   for (unsigned i = 0; i < DeviceInfo.numDevices; i++) {
-    char buffer[128];
+    std::vector<char> buf;
+    size_t buf_size;
     cl_device_id deviceId = DeviceInfo.deviceIDs[i];
-    clGetDeviceInfo(deviceId, CL_DEVICE_NAME, 128, buffer, nullptr);
-    DP("Device %d: %s\n", i, buffer);
+    clGetDeviceInfo(deviceId, CL_DEVICE_NAME, 0, nullptr, &buf_size);
+    clGetDeviceInfo(deviceId, CL_DEVICE_NAME, buf_size, buf.data(), nullptr);
+    DP("Device %d: %s\n", i, buf.data());
     clGetDeviceInfo(deviceId, CL_DEVICE_MAX_COMPUTE_UNITS, 4,
                     &DeviceInfo.maxWorkGroups[i], nullptr);
     DP("Maximum number of work groups (compute units) is %d\n",
@@ -810,24 +815,31 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     entries[i].name = name;
 #ifdef OMPTARGET_OPENCL_DEBUG
     // Show kernel information
-    char kernel_info[80];
+    std::vector<char> buf;
+    size_t buf_size;
     cl_uint kernel_num_args = 0;
-    cl_int rc;
-    rc = clGetKernelInfo(kernels[i], CL_KERNEL_FUNCTION_NAME,
-                         sizeof(kernel_info), kernel_info, nullptr);
-    if (rc != CL_SUCCESS)
-      continue;
-    rc = clGetKernelInfo(kernels[i], CL_KERNEL_NUM_ARGS,
-                         sizeof(cl_uint), &kernel_num_args, nullptr);
-    if (rc != CL_SUCCESS)
-      continue;
-    DP("Kernel %d: Name = %s, NumArgs = %d\n", i, kernel_info, kernel_num_args);
+    INVOKE_CL_RET_NULL(clGetKernelInfo, kernels[i], CL_KERNEL_FUNCTION_NAME, 0,
+                       nullptr, &buf_size);
+    buf.resize(buf_size);
+    INVOKE_CL_RET_NULL(clGetKernelInfo, kernels[i], CL_KERNEL_FUNCTION_NAME,
+                       buf_size, buf.data(), nullptr);
+    INVOKE_CL_RET_NULL(clGetKernelInfo, kernels[i], CL_KERNEL_NUM_ARGS,
+                       sizeof(cl_uint), &kernel_num_args, nullptr);
+    DP("Kernel %d: Name = %s, NumArgs = %d\n", i, buf.data(), kernel_num_args);
     for (unsigned idx = 0; idx < kernel_num_args; idx++) {
-      clGetKernelArgInfo(kernels[i], idx, CL_KERNEL_ARG_TYPE_NAME, 40,
-                         kernel_info, nullptr);
-      clGetKernelArgInfo(kernels[i], idx, CL_KERNEL_ARG_NAME, 40,
-                         &kernel_info[40], nullptr);
-      DP("  Arg %2d: %s %s\n", idx, kernel_info, &kernel_info[40]);
+      INVOKE_CL_RET_NULL(clGetKernelArgInfo, kernels[i], idx,
+                         CL_KERNEL_ARG_TYPE_NAME, 0, nullptr, &buf_size);
+      buf.resize(buf_size);
+      INVOKE_CL_RET_NULL(clGetKernelArgInfo, kernels[i], idx,
+                         CL_KERNEL_ARG_TYPE_NAME, buf_size, buf.data(),
+                         nullptr);
+      std::string type_name = buf.data();
+      INVOKE_CL_RET_NULL(clGetKernelArgInfo, kernels[i], idx,
+                         CL_KERNEL_ARG_NAME, 0, nullptr, &buf_size);
+      buf.resize(buf_size);
+      INVOKE_CL_RET_NULL(clGetKernelArgInfo, kernels[i], idx,
+                         CL_KERNEL_ARG_NAME, buf_size, buf.data(), nullptr);
+      DP("  Arg %2d: %s %s\n", idx, type_name.c_str(), buf.data());
     }
 #endif // OMPTARGET_OPENCL_DEBUG
   }
@@ -1243,12 +1255,16 @@ static inline int32_t run_target_team_nd_region(
     }
   } else {
     if (profile.flags & PROFILE_ENABLED) {
-      char buf[80];
+      std::vector<char> buf;
+      size_t buf_size;
       INVOKE_CL_RET_FAIL(clWaitForEvents, 1, &event);
+      INVOKE_CL_RET_FAIL(clGetKernelInfo, *kernel, CL_KERNEL_FUNCTION_NAME, 0,
+                         nullptr, &buf_size);
+      buf.resize(buf_size);
       INVOKE_CL_RET_FAIL(clGetKernelInfo, *kernel, CL_KERNEL_FUNCTION_NAME,
-                         sizeof(buf), buf, nullptr);
+                         buf.size(), buf.data(), nullptr);
       std::string kernel_name("EXEC-");
-      kernel_name += buf;
+      kernel_name += buf.data();
       profile.update(kernel_name.c_str(), event);
     }
     INVOKE_CL_RET_FAIL(clFinish, DeviceInfo.Queues[device_id]);
