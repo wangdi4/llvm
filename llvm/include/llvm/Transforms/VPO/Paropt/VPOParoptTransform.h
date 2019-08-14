@@ -523,7 +523,11 @@ private:
   /// Generate loop schdudeling code.
   /// \p IsLastVal is an output from this routine and is used to emit
   /// lastprivate code.
-  bool genLoopSchedulingCode(WRegionNode *W, AllocaInst *&IsLastVal);
+  /// If \p W is a loop construct with scheduling involving __kmpc_dispatch
+  /// calls, \p InsertLastIterCheckBeforeOut is set to point to the instruction
+  /// before which the lastprivate/linear finalization code should be inserted.
+  bool genLoopSchedulingCode(WRegionNode *W, AllocaInst *&IsLastVal,
+                             Instruction *&InsertLastIterCheckBeforeOut);
 
   /// Generate the code to replace the variables in the task loop with
   /// the thunk field dereferences
@@ -774,17 +778,25 @@ private:
   ///
   /// Emitted pseudocode:
   ///
+  /// \code
   ///   %x.local = @x                         ; (1) firstprivate copyin
-  ///   __kmpc_static_init(...)
+  ///   __kmpc_static_init(...)               ; (i) init call
   ///   ...
   ///   __kmpc_static_fini(...)
   ///
   ///   __kmpc_barrier(...)                   ; (2)
   ///   @x = %x.local                         ; (3) lastprivate copyout
   ///
-  ///  The barrier (2) is needed to prevent a race between (1) and (3), which
-  ///  read/write to/from @x.
-  bool genBarrierForFpLpAndLinears(WRegionNode *W);
+  /// \endcode
+  ///
+  /// The barrier (2) is needed to prevent a race between (1) and (3), which
+  /// read from / write to @x.
+  ///
+  /// For supporting non-monotonic scheduling on loops, the barrier is to be
+  /// inserted before the 'init call (i)'. This is done by passing in '(i)'
+  /// as \p InsertBefore.
+  bool genBarrierForFpLpAndLinears(WRegionNode *W,
+                                   Instruction *InsertBefore = nullptr);
 
   /// Emits an if-then branch using \p IsLastVal and sets \p IfLastIterOut to
   /// the if-then BBlock. This is used for emitting the final copy-out code for
@@ -818,15 +830,20 @@ private:
   /// iteration is the last one.
   /// \param [out] IfLastIterOut The BasicBlock for when the last iteration
   /// check is true.
+  /// \param [in] InsertBefore If not null, the branch is inserted before it.
+  /// Otherwise, the branch is inserted before \p W's exit BB.
   ///
   /// \returns \b true if the branch is emitted, \b false otherwise.
   ///
   /// The branch is not emitted if \p W has no Linear or Lastprivate var.
   bool genLastIterationCheck(WRegionNode *W, Value *IsLastVal,
-                             BasicBlock *&IfLastIterOut);
+                             BasicBlock *&IfLastIterOut,
+                             Instruction *InsertBefore = nullptr);
 
-  /// Insert a barrier at the end of the construct
-  bool genBarrier(WRegionNode *W, bool IsExplicit, bool IsTargetSPIRV = false);
+  /// Insert a barrier at the end of the construct if \p InsertBefore is
+  /// null. Otherwise, insert the barrier before \p InsertBefore.
+  bool genBarrier(WRegionNode *W, bool IsExplicit, bool IsTargetSPIRV = false,
+                  Instruction *InsertBefore = nullptr);
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
