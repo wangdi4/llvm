@@ -285,6 +285,7 @@ For API clients and LLVM developers.
    BlockFrequencyTerminology
    BranchWeightMetadata
    Bugpoint
+   BugpointRedesign
    CodeGenerator
    ExceptionHandling
    AddingConstrainedIntrinsics
@@ -324,6 +325,7 @@ For API clients and LLVM developers.
    CFIVerify
    SpeculativeLoadHardening
    StackSafetyAnalysis
+   LoopTerminology
 
 :doc:`WritingAnLLVMPass`
    Information on how to write LLVM transformations and analyses.
@@ -373,6 +375,9 @@ For API clients and LLVM developers.
 :doc:`Bugpoint`
    Automatic bug finder and test-case reducer description and usage
    information.
+
+:doc:`BugpointRedesign`
+   Design doc for a redesign of the Bugpoint tool.
 
 :doc:`BitCodeFormat`
    This describes the file format and encoding used for LLVM "bc" files.
@@ -471,6 +476,9 @@ For API clients and LLVM developers.
 :doc:`StackSafetyAnalysis`
   This document describes the design of the stack safety analysis of local
   variables.
+
+:doc:`LoopTerminology`
+  A document describing Loops and associated terms as used in LLVM.
 
 Development Process Documentation
 =================================
