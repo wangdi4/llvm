@@ -211,10 +211,7 @@ namespace intel{
   bool LocalBuffers::ChangeConstant(Value *pTheValue, Value *pUser, Instruction *pBC, Instruction *Where) {
 
     // We need substitute constant expression with real instruction
-    Constant *pCE = dyn_cast<Constant>(pUser);
-    if ( nullptr == pCE ) {
-      return false;
-    }
+    Constant *pCE = cast<Constant>(pUser);
 
     std::vector<Instruction*> InstInsert;
     Instruction *pInst = CreateInstrFromConstant(pCE, pTheValue, pBC, &InstInsert);
@@ -311,8 +308,8 @@ namespace intel{
 
         SmallVector<User *, 8> users(pLclBuff->users());
         for (User * user : users)  {
-          if (ConstantExpr *pCE = dyn_cast<ConstantExpr>(user))  {
-            ChangeConstant(pLclBuff, pCE, pPointerCast, pPointerCast);
+          if (isa<Constant>(user))  {
+            ChangeConstant(pLclBuff, user, pPointerCast, pPointerCast);
           }
            // Check if user is an instruction that belongs to the same function
           else if (Instruction *Inst = dyn_cast<Instruction>(user)) {
