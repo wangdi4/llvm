@@ -578,7 +578,7 @@ class CastExpressionIdValidator final : public CorrectionCandidateCallback {
   }
 
   std::unique_ptr<CorrectionCandidateCallback> clone() override {
-    return llvm::make_unique<CastExpressionIdValidator>(*this);
+    return std::make_unique<CastExpressionIdValidator>(*this);
   }
 
  private:
