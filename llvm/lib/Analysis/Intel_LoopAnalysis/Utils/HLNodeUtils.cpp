@@ -2640,22 +2640,12 @@ const HLNode *HLNodeUtils::getOutermostSafeParent(const HLNode *Node1,
 
   *LastParent1 = Node1;
 
-  // Try to move up the parent chain by crossing constant trip count loops.
+  // Try to move up the parent chain by crossing loops without ztt.
   while (Parent) {
 
-    auto Loop = dyn_cast<HLLoop>(Parent);
+    auto *Loop = dyn_cast<HLLoop>(Parent);
 
-    if (!Loop) {
-      break;
-    }
-
-    if (!Loop->isDo()) {
-      break;
-    }
-
-    auto UpperRef = Loop->getUpperDDRef();
-
-    if (!UpperRef->isIntConstant()) {
+    if (!Loop || !Loop->isDo() || Loop->hasZtt()) {
       break;
     }
 

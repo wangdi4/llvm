@@ -530,7 +530,7 @@ void initializeHIRMVForConstUBLegacyPassPass(PassRegistry&);
 void initializeHIRLoopConcatenationLegacyPassPass(PassRegistry&);
 void initializeHIRArrayTransposeLegacyPassPass(PassRegistry&);
 void initializeHIRLoopFusionLegacyPassPass(PassRegistry&);
-void initializeHIRDeadStoreEliminationPass(PassRegistry&);
+void initializeHIRDeadStoreEliminationLegacyPassPass(PassRegistry&);
 void initializeHIRLastValueComputationLegacyPassPass(PassRegistry&);
 void initializeHIRPropagateCastedIVLegacyPassPass(PassRegistry&);
 void initializeHIRMultiExitLoopRerollLegacyPassPass(PassRegistry&);
