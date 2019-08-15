@@ -1035,7 +1035,7 @@ void PassManagerBuilder::populateModulePassManager(
   if (EnableLV)
     MPM.add(createLoopVectorizePass(!LoopsInterleaved, !LoopVectorize));
   }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   // Eliminate loads by forwarding stores from the previous iteration to loads
   // of the current iteration.
   MPM.add(createLoopLoadEliminationPass());
@@ -1671,7 +1671,15 @@ void PassManagerBuilder::addVPOPassesPreLoopOpt(
   // Add LCSSA pass before VPlan driver
   PM.add(createLCSSAPass());
   PM.add(createVPOCFGRestructuringPass());
+
+  // Create OCL sincos from sin/cos and sincos
+  PM.add(createMathLibraryFunctionsReplacementPass(false /*isOCL*/));
+
   PM.add(createVPlanDriverPass());
+
+  // Split/translate scalar OCL and vector sincos
+  PM.add(createMathLibraryFunctionsReplacementPass(false /*isOCL*/));
+
   // Clean up any SIMD directives left behind by VPlan vectorizer
   PM.add(createVPODirectiveCleanupPass());
 }

@@ -299,8 +299,33 @@ MapIntrinToIml::legalizeFunctionTypes(FunctionType *FT,
   // Adjust original vector return type to the legal vector width.
   // Insert the svml function declaration.
   if (VectorReturn) {
-    unsigned TypeVL = isSinCosCall(FuncName) ? TargetVL * 2 : TargetVL;
+    bool hasSinCosName = FuncName.startswith("__svml_sincos");
+    // sincos with a vector return type, created internally by this pass.
+    // Double the vector length.
+    unsigned TypeVL = hasSinCosName ? TargetVL * 2 : TargetVL;
     ReturnType = VectorType::get(VectorReturn->getElementType(), TypeVL);
+  } else if (auto *StructReturn = dyn_cast<StructType>(FT->getReturnType())) {
+    // Structure return, the preferred SVML sincos format.
+    // { 4xfloat, 4xfloat } = __svml_sincosf4( 4xfloat )
+    unsigned OrigVL = StructReturn->elements().front()->getVectorNumElements();
+
+    // We shouldn't need to widen the call, as we rejected this earlier.
+    assert(OrigVL >= TargetVL && "Widening SVML structure calls unsupported.");
+
+    if (OrigVL > TargetVL) {
+      // Narrow the return structure.
+      // Create a new struct type with narrowed vector fields.
+      SmallVector<Type *, 4> ReturnTyFields;
+      for (auto *FieldType : StructReturn->elements()) {
+        auto *FieldVType = cast<VectorType>(FieldType);
+        auto *NarrowType =
+            VectorType::get(FieldVType->getElementType(), TargetVL);
+        ReturnTyFields.push_back(NarrowType);
+      }
+      ReturnType = StructType::create(ReturnTyFields, "svml.ret.agg");
+    }
+    // If we didn't need to narrow, use the original type, already assigned to
+    // ReturnType.
   }
 
   FunctionType *LegalFT = FunctionType::get(ReturnType, NewArgTypes, false);
@@ -705,13 +730,19 @@ VectorType *MapIntrinToIml::getCallType(CallInst *CI) {
 
   Function *CalledFunc = CI->getCalledFunction();
   StringRef FuncName = CalledFunc->getName();
-  if (isSinCosCall(FuncName)) {
+  if (isSincosRefArg(FuncName, CI->getFunctionType())) {
     return dyn_cast<VectorType>(CI->getArgOperand(0)->getType());
   }
 
   FunctionType *CallFT = CI->getFunctionType();
   Type *CallRetType = CallFT->getReturnType();
-  return dyn_cast<VectorType>(CallRetType);
+  auto *RetStructTy = dyn_cast_or_null<StructType>(CallRetType);
+  // For structure return types, return the first structure element as
+  // a vector type.
+  if (RetStructTy && RetStructTy->getNumElements())
+    return dyn_cast<VectorType>(RetStructTy->getElementType(0));
+  else
+    return dyn_cast<VectorType>(CallRetType);
 }
 
 void MapIntrinToIml::scalarizeVectorCall(CallInst *CI, StringRef LibFuncName,
@@ -788,11 +819,17 @@ void MapIntrinToIml::scalarizeVectorCall(CallInst *CI, StringRef LibFuncName,
   }
 }
 
-bool MapIntrinToIml::isSinCosCall(StringRef FuncName) {
-  return FuncName.startswith("__svml_sincos");
+// The vectorizer may generate an intermediate-form SVML sincos with
+// a void return type and reference args (number depending on mask, etc.):
+//  call void @__svml_sincosf4( <4 x float>, <4 x float*>, <4 x float*>)
+// This pass must convert to the actual SVML call with a wide-vector return.
+bool MapIntrinToIml::isSincosRefArg(StringRef FuncName, FunctionType *FT) {
+  if (!FuncName.startswith("__svml_sincos"))
+    return false;
+  return FT->getReturnType()->isVoidTy() && (FT->getNumParams() > 1);
 }
 
-const char* MapIntrinToIml::findX86Variant(CallInst *CI, StringRef FuncName,
+const char *MapIntrinToIml::findX86Variant(CallInst *CI, StringRef FuncName,
                                            unsigned LogicalVL,
                                            unsigned TargetVL) {
 
@@ -847,6 +884,22 @@ StringRef MapIntrinToIml::getScalarFunctionName(StringRef FuncName,
   ScalarFuncName = ScalarFuncName.drop_back(LogicalVLStr.size());
 
   return ScalarFuncName;
+}
+
+// For a given Instruction with struct type, find an extractvalue
+// of that Instruction with the given index. It is an error if
+// there is no extractvalue found with that index.
+static Instruction *findExtract(Instruction *I, unsigned Idx) {
+#ifndef NDEBUG
+  auto *StrTy = dyn_cast<StructType>(I->getType());
+  assert(StrTy && StrTy->getNumElements() > Idx);
+#endif // NDEBUG
+  for (User *U : I->users())
+    if (auto *Extract = dyn_cast<ExtractValueInst>(U))
+      if (Extract->getIndices().front() == Idx)
+        return Extract;
+  llvm_unreachable("Can't find extract matching index");
+  return nullptr;
 }
 
 bool MapIntrinToIml::runOnFunction(Function &F) {
@@ -944,6 +997,17 @@ bool MapIntrinToIml::runOnFunction(Function &F) {
     unsigned NumRet =
         calculateNumReturns(TTI, ScalarBitWidth, LogicalVL, &TargetVL);
 
+    if (auto *StructRetTy = dyn_cast<StructType>(CI->getType())) {
+      // We don't support widening of struct-return SVML calls. Reduce the
+      // target VL to the original call VL.
+      if (StructRetTy->getNumElements()) {
+        unsigned OrigVL =
+            StructRetTy->elements().front()->getVectorNumElements();
+        if (TargetVL > OrigVL)
+          TargetVL = OrigVL;
+      }
+    }
+
     const char *VariantFuncName = nullptr;
 
     if (X86Target) {
@@ -966,7 +1030,7 @@ bool MapIntrinToIml::runOnFunction(Function &F) {
 
       FunctionType *FT;
 
-      if (X86Target && isSinCosCall(FuncName)) {
+      if (X86Target && isSincosRefArg(FuncName, CI->getFunctionType())) {
         // We have to do some special handling for sincos calls on X86
         // because 'void sincos(<vl x type>, <vl x type*>, <vl x type*>)'
         // must be transformed to:
@@ -1009,7 +1073,57 @@ bool MapIntrinToIml::runOnFunction(Function &F) {
 
         generateMathLibCalls(NumRet, FCache, NewArgs, WorkList, &InsertPt);
 
-        if (!isSinCosCall(FuncName)) {
+        if (auto *StrType = dyn_cast<StructType>(CI->getType())) {
+          // The original call was:
+          // %struct_2el = svml_big(); // 2-element struct
+          // %a = extractvalue %struct_2el , 0
+          // %b = extractvalue %struct_2el , 1
+          //
+          // After splitting, the worklist is:
+          // { a0, b0 } = svml0();
+          // { a1, b1 } = svml1();
+          // { a2, b2 } = svml2();
+          // { a3, b3 } = svml3();
+          // Generate extracts of each field. Then generate shufflevector
+          // combines, to combine the fields like this:
+          // [a0,a1,a2,a3]
+          //  => combine back to %a
+          // then
+          // [b0,b1,b2,b3]
+          //  => combine back to %b
+          // Replace the original %a and %b extractvalues with the
+          // combined results.
+          unsigned numFields = StrType->getNumElements();
+          // For each field position ("a", "b", etc.)
+          for (unsigned FieldIdx = 0; FieldIdx < numFields; ++FieldIdx) {
+            // Extract this field from each of the calls in the worklist, and
+            // combine these fields.
+            SmallVector<Instruction *, 8> WorkListStripe;
+            for (auto *NewCall : WorkList) {
+#ifndef NDEBUG
+              auto *NewCallTy = dyn_cast<StructType>(NewCall->getType());
+              assert(NewCallTy && NewCallTy->getNumElements() == numFields);
+#endif // NDEBUG
+              auto *Extract = ExtractValueInst::Create(NewCall, {FieldIdx});
+              Extract->insertAfter(NewCall);
+              WorkListStripe.push_back(Extract);
+            }
+            // WorkListStripe contains [a0,a1,a2,a3] (for example). Call
+            // combineCallResults to generate shufflevectors which combine
+            // these vectors into a single big vector.
+            Instruction *StripeInsertPt = WorkListStripe.back();
+            Instruction *CombineResult =
+                combineCallResults(NumRet, WorkListStripe, &StripeInsertPt);
+
+            // Replace the original extract with the combined result.
+            Instruction *OrigExtract = findExtract(CI, FieldIdx);
+            OrigExtract->replaceAllUsesWith(CombineResult);
+            OrigExtract->eraseFromParent();
+            WorkListStripe.clear();
+            // Process the next set of fields b0,b1,etc.
+          }
+          // Original CI gets removed later
+        } else if (!isSincosRefArg(FuncName, CI->getFunctionType())) {
           // There will be no users of sincos because it's a void function.
           // Because of this, we have to generate the store instructions
           // explicitly. See generateSinCosStore().
@@ -1072,7 +1186,7 @@ bool MapIntrinToIml::runOnFunction(Function &F) {
         Instruction *CallResult = NewCI;
         NewCI->insertBefore(InsertPt);
 
-        if (!isSinCosCall(FuncName)) {
+        if (!isSincosRefArg(FuncName, CI->getFunctionType())) {
           bool LessThanFullVector = isLessThanFullVector(
               CI->getFunctionType()->getReturnType(), FT->getReturnType());
 
@@ -1085,6 +1199,7 @@ bool MapIntrinToIml::runOnFunction(Function &F) {
             // return type of the call (indicated by LogicalVL). The NewCI
             // return type will indicate the size of the vector extracted from.
             // Start extracting from position 0.
+            assert(!NewCI->getType()->isStructTy());
             CallResult = extractElemsFromVector(NewCI, 0, LogicalVL);
             CallResult->insertBefore(InsertPt);
           }
@@ -1095,7 +1210,7 @@ bool MapIntrinToIml::runOnFunction(Function &F) {
         }
       }
 
-      if (X86Target && isSinCosCall(FuncName)) {
+      if (X86Target && isSincosRefArg(FuncName, CI->getFunctionType())) {
         unsigned StorePtrIdx = 0;
         // For partial register cases, we only want to extract the partial
         // number of elements from the results. Otherwise, extract the full

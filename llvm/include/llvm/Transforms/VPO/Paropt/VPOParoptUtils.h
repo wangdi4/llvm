@@ -1219,6 +1219,13 @@ public:
   /// to library function __kmpc_critical.
   static bool isOMPCritical(const Instruction *I, const TargetLibraryInfo &TLI);
 
+  /// Find the first directive that supports the private clause, that dominates
+  /// \p PosInst. Add a private clause for \p I into that directive.
+  /// Return false if no directive was found. Intended to be called outside
+  /// VPO, where no region information is available. It is an error if "I"
+  /// is already used in a llvm.directive.region.entry (checked by assertion).
+  static bool addPrivateToEnclosingRegion(Instruction *I, Instruction *PosInst,
+                                          DominatorTree &DT);
   /// @}
 
 private:
