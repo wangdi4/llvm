@@ -39,6 +39,14 @@ static cl::opt<bool>
     PrintAfterLoopCFU("vplan-print-after-loop-cfu", cl::init(false), cl::Hidden,
                       cl::desc("Print VPlan after LoopCFU transformation."));
 
+static cl::opt<bool> PrintAfterLinearization(
+    "vplan-print-after-linearization", cl::init(false), cl::Hidden,
+    cl::desc("Print VPlan after predication and linearization."));
+
+static cl::opt<bool> DotAfterLinearization(
+    "vplan-dot-after-linearization", cl::init(false), cl::Hidden,
+    cl::desc("Print VPlan digraph after predication and linearization."));
+
 // Generate VPInstructions at the beginning of CurrBB that calculate the
 // predicate being propagated from PredBB to CurrBB depending on the edge type
 // between them. For example if:
@@ -420,6 +428,18 @@ void VPlanPredicator::predicate(void) {
   LLVM_DEBUG(dbgs() << "VPlan after predication and linearization\n");
   LLVM_DEBUG(Plan.setName("Predicator: After predication\n"));
   LLVM_DEBUG(Plan.dump());
+
+  if (PrintAfterLinearization) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      outs() << "After predication and linearization\n";
+      Plan.dump(outs(), true /* print DA info */);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+  }
+  if (DotAfterLinearization) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    outs() << Plan;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+  }
 #endif // INTEL_CUSTOMIZATION
 }
 
