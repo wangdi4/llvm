@@ -1,7 +1,7 @@
 ; Test for codegen of uniform loads inside divergent inner loops.
 
 ; RUN: opt < %s -VPlanDriver -vplan-force-vf=2 -S | FileCheck %s
-; RUNX: opt < %s -VPlanDriver -vplan-force-vf=2 -enable-vp-value-codegen -S | FileCheck %s
+; RUN: opt < %s -VPlanDriver -vplan-force-vf=2 -enable-vp-value-codegen -S | FileCheck %s
 
 ; CHECK-LABEL: @test1
 ; CHECK:       vector.body:
@@ -74,15 +74,25 @@ exit:                                             ; preds = %for.end, %entry
   ret void
 }
 
-; Check for inner loop with live out uniform GEP. Currently legality marks the GEP as non-uniform,
-; but DA recognizes it as uniform.
-; FIXME: Update CHECKS after DA's knowledge is transferred to legality.
+; Check for inner loop with live out uniform GEP. CHECK for GEP instruction is explicitly omitted
+; because of bcast pattern differences between IR-based CG and VPValue-based CG.
 ; CHECK-LABEL: @test1_liveout
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    [[INNER_VEC_PHI:%.*]] = phi <2 x i64> [ [[INNER_IV_ADD:%.*]], [[VPLANNEDBB:%.*]] ], [ zeroinitializer, [[VECTOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[GEP:%.*]] = getelementptr inbounds i64, <2 x i64*> [[ARR1:%.*]], <2 x i64> <i64 42, i64 42>
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*> [[GEP]], i32 4, <2 x i1> [[MASK]], <2 x i64> undef)
-; CHECK-NEXT:    [[USER:%.*]] = add <2 x i64> [[WIDE_MASKED_GATHER]], [[VEC_IND:%.*]]
+; CHECK:         [[EXTRACT_GEP:%.*]] = extractelement <2 x i64*> [[GEP:%.*]], i32 0
+; CHECK-NEXT:    [[BC_MASK:%.*]] = bitcast <2 x i1> [[MASK:%.*]] to i2
+; CHECK-NEXT:    [[NOT_AZ:%.*]] = icmp ne i2 [[BC_MASK]], 0
+; CHECK-NEXT:    br i1 [[NOT_AZ]], label %[[PRED_LOAD_IF:.*]], label %[[MERGE:.*]]
+; CHECK:       [[PRED_LOAD_IF]]:
+; CHECK-NEXT:    [[LOAD:%.*]] = load i64, i64* [[EXTRACT_GEP]]
+; CHECK-NEXT:    [[BCAST_INSERT:%.*]] = insertelement <2 x i64> undef, i64 [[LOAD]], i32 0
+; CHECK-NEXT:    br label %[[MERGE]]
+; CHECK:       [[MERGE]]:
+; CHECK-NEXT:    [[MERGE_PHI:%.*]] = phi <2 x i64> [ undef, %VPlannedBB ], [ [[BCAST_INSERT]], %[[PRED_LOAD_IF]] ]
+; CHECK-NEXT:    br label %[[PRED_LOAD_CONTINUE:.*]]
+; CHECK:       [[PRED_LOAD_CONTINUE]]:
+; CHECK-NEXT:    [[BCAST_SHUF:%.*]] = shufflevector <2 x i64> [[MERGE_PHI]], <2 x i64> undef, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[USER:%.*]] = add <2 x i64> [[BCAST_SHUF]], [[VEC_IND:%.*]]
 
 define void @test1_liveout(float* nocapture %ptr, i64 %n, i64* %arr, i64* %arr1) {
 entry:

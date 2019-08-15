@@ -491,7 +491,8 @@ bool X86PassConfig::addPreISel() {
   if (TT.isOSWindows() && TT.getArch() == Triple::x86)
     addPass(createX86WinEHStatePass());
 #if INTEL_CUSTOMIZATION
-  if (getOptLevel() == CodeGenOpt::Aggressive)
+  if (getOptLevel() == CodeGenOpt::Aggressive &&
+      TM->Options.IntelAdvancedOptim)
     addPass(createX86CiscizationHelperPass());
   if (getOptLevel() != CodeGenOpt::None)
     addPass(createFeatureInitPass());
