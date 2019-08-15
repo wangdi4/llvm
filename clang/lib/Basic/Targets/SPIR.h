@@ -317,6 +317,12 @@ public:
     // TBD should we keep these lines?  Copied from X86.h.
     Builder.defineMacro("_M_IX86", "600");
   }
+
+#if INTEL_CUSTOMIZATION
+  virtual bool shouldDiagnoseVariadicCall(void) const {
+    return false;
+  }
+#endif // INTEL_CUSTOMIZATION
 };
 
 // x86-64 SPIR64 Windows target
@@ -370,6 +376,12 @@ public:
     Builder.defineMacro("_M_X64", "100");
     Builder.defineMacro("_M_AMD64", "100");
   }
+
+#if INTEL_CUSTOMIZATION
+  virtual bool shouldDiagnoseVariadicCall(void) const {
+    return false;
+  }
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // namespace targets
