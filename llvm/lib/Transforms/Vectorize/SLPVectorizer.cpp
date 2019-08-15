@@ -3715,11 +3715,9 @@ void BoUpSLP::scheduleMultiNodeInstrs() {
     if (Instruction *I0 = dyn_cast<Instruction>(TE->Scalars[0])) {
       for (unsigned i = 0, e = I0->getNumOperands(); i != e; ++i) {
         Value *OpV = I0->getOperand(i);
-        auto it = ScalarToTreeEntry.find(OpV);
-        if (it != ScalarToTreeEntry.end()) {
-          int OpTEIdx = it->second;
-          if (CurrentMultiNode->containsTrunk(OpTEIdx)) {
-            TreeEntry *OpTE = VectorizableTree[OpTEIdx].get();
+        TreeEntry *OpTE = getTreeEntry(OpV);
+        if (OpTE) {
+          if (CurrentMultiNode->containsTrunk(OpTE->Idx)) {
             TEWorklist.push_back(OpTE);
           }
         }
@@ -4066,9 +4064,9 @@ void BoUpSLP::updateFrontierOpcode(OperandData *Op) {
 
   // 2. ScalarToTreeEntry
   assert(ScalarToTreeEntry.count(OldFrontierI) && "Hmm frontier not in VTree?");
-  int TEIdx = ScalarToTreeEntry[OldFrontierI];
+  TreeEntry *TE = ScalarToTreeEntry[OldFrontierI];
   ScalarToTreeEntry.erase(OldFrontierI);
-  ScalarToTreeEntry[NewFrontierI] = TEIdx;
+  ScalarToTreeEntry[NewFrontierI] = TE;
 }
 
 /// Update the IR instructions to reflect the state in \p CurrentMultiNode .
@@ -4550,7 +4548,7 @@ bool BoUpSLP::hasExternalUsesToMultiNode(ArrayRef<Value *> VL) {
       // SLP-tree, so definitely not in the Multi-Node.
       if (!ScalarToTreeEntry.count(U) ||
           // If the user is not in the MultiNode, then it has an external use.
-          !CurrentMultiNode->containsTrunk(ScalarToTreeEntry[U]))
+          !CurrentMultiNode->containsTrunk(ScalarToTreeEntry[U]->Idx))
         return true;
     }
   }
