@@ -1732,7 +1732,7 @@ void MachineInstr::print(raw_ostream &OS, ModuleSlotTracker &MST,
       MFI = &MF->getFrameInfo();
       Context = &MF->getFunction().getContext();
     } else {
-      CtxPtr = llvm::make_unique<LLVMContext>();
+      CtxPtr = std::make_unique<LLVMContext>();
       Context = CtxPtr.get();
     }
 

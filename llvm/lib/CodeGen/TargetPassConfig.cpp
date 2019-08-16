@@ -1266,5 +1266,5 @@ bool TargetPassConfig::isGISelCSEEnabled() const {
 }
 
 std::unique_ptr<CSEConfigBase> TargetPassConfig::getCSEConfig() const {
-  return make_unique<CSEConfigBase>();
+  return std::make_unique<CSEConfigBase>();
 }

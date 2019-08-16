@@ -855,7 +855,7 @@ SlotTracker *ModuleSlotTracker::getMachine() {
 
   ShouldCreateStorage = false;
   MachineStorage =
-      llvm::make_unique<SlotTracker>(M, ShouldInitializeAllMetadata);
+      std::make_unique<SlotTracker>(M, ShouldInitializeAllMetadata);
   Machine = MachineStorage.get();
   return Machine;
 }
@@ -2332,7 +2332,7 @@ static void WriteAsOperandInternal(raw_ostream &Out, const Metadata *MD,
   if (const MDNode *N = dyn_cast<MDNode>(MD)) {
     std::unique_ptr<SlotTracker> MachineStorage;
     if (!Machine) {
-      MachineStorage = make_unique<SlotTracker>(Context);
+      MachineStorage = std::make_unique<SlotTracker>(Context);
       Machine = MachineStorage.get();
     }
     int Slot = Machine->getMetadataSlot(N);
