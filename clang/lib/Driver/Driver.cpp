@@ -644,46 +644,24 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
     DeviceTripleStr =
         HostTriple.isArch64Bit() ? "nvptx64-nvidia-cuda" : "nvptx-nvidia-cuda";
     llvm::Triple CudaTriple(DeviceTripleStr);
-<<<<<<< HEAD
     // Use the CUDA and host triples as the key into the
     // getOffloadingDeviceToolChain, because the device toolchain we
     // create depends on both.
     auto CudaTC = &getOffloadingDeviceToolChain(C.getInputArgs(), CudaTriple,
                                                 *HostTC, OFK);
     C.addOffloadDeviceToolChain(CudaTC, OFK);
-=======
-    // Use the CUDA and host triples as the key into the ToolChains map,
-    // because the device toolchain we create depends on both.
-    auto &CudaTC = ToolChains[CudaTriple.str() + "/" + HostTriple.str()];
-    if (!CudaTC) {
-      CudaTC = std::make_unique<toolchains::CudaToolChain>(
-          *this, CudaTriple, *HostTC, C.getInputArgs(), OFK);
-    }
-    C.addOffloadDeviceToolChain(CudaTC.get(), OFK);
->>>>>>> 2b3d49b610bd2a45884115edcb21110bfa325f51
   } else if (IsHIP) {
     const ToolChain *HostTC = C.getSingleOffloadToolChain<Action::OFK_Host>();
     StringRef DeviceTripleStr;
     auto OFK = Action::OFK_HIP;
     DeviceTripleStr = "amdgcn-amd-amdhsa";
     llvm::Triple HIPTriple(DeviceTripleStr);
-<<<<<<< HEAD
     // Use the HIP and host triples as the key into
     // getOffloadingDeviceToolChain, because the device toolchain we create
     // depends on both.
     auto HIPTC = &getOffloadingDeviceToolChain(C.getInputArgs(), HIPTriple,
                                                *HostTC, OFK);
     C.addOffloadDeviceToolChain(HIPTC, OFK);
-=======
-    // Use the HIP and host triples as the key into the ToolChains map,
-    // because the device toolchain we create depends on both.
-    auto &HIPTC = ToolChains[HIPTriple.str() + "/" + HostTriple.str()];
-    if (!HIPTC) {
-      HIPTC = std::make_unique<toolchains::HIPToolChain>(
-          *this, HIPTriple, *HostTC, C.getInputArgs());
-    }
-    C.addOffloadDeviceToolChain(HIPTC.get(), OFK);
->>>>>>> 2b3d49b610bd2a45884115edcb21110bfa325f51
   }
 
   //
@@ -740,17 +718,8 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
               const ToolChain *HostTC =
                   C.getSingleOffloadToolChain<Action::OFK_Host>();
               assert(HostTC && "Host toolchain should be always defined.");
-<<<<<<< HEAD
               TC = &getOffloadingDeviceToolChain(C.getInputArgs(), TT, *HostTC,
                                                  Action::OFK_OpenMP);
-=======
-              auto &CudaTC =
-                  ToolChains[TT.str() + "/" + HostTC->getTriple().normalize()];
-              if (!CudaTC)
-                CudaTC = std::make_unique<toolchains::CudaToolChain>(
-                    *this, TT, *HostTC, C.getInputArgs(), Action::OFK_OpenMP);
-              TC = CudaTC.get();
->>>>>>> 2b3d49b610bd2a45884115edcb21110bfa325f51
             } else
               TC = &getToolChain(C.getInputArgs(), TT);
             C.addOffloadDeviceToolChain(TC, Action::OFK_OpenMP);
@@ -5343,7 +5312,7 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
       case llvm::Triple::csa:
-        TC = llvm::make_unique<toolchains::CSAToolChain>(*this, Target, Args);
+        TC = std::make_unique<toolchains::CSAToolChain>(*this, Target, Args);
         break;
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
@@ -5398,23 +5367,23 @@ const ToolChain &Driver::getOffloadingDeviceToolChain(const ArgList &Args,
     // things.
     switch (TargetDeviceOffloadKind) {
       case Action::OFK_Cuda:
-        TC = llvm::make_unique<toolchains::CudaToolChain>(
+        TC = std::make_unique<toolchains::CudaToolChain>(
           *this, Target, HostTC, Args, TargetDeviceOffloadKind);
         break;
       case Action::OFK_HIP:
-        TC = llvm::make_unique<toolchains::HIPToolChain>(
+        TC = std::make_unique<toolchains::HIPToolChain>(
           *this, Target, HostTC, Args);
         break;
       case Action::OFK_OpenMP:
         // omp + nvptx
-        TC = llvm::make_unique<toolchains::CudaToolChain>(
+        TC = std::make_unique<toolchains::CudaToolChain>(
           *this, Target, HostTC, Args, TargetDeviceOffloadKind);
         break;
       case Action::OFK_SYCL:
         switch (Target.getArch()) {
           case llvm::Triple::spir:
           case llvm::Triple::spir64:
-            TC = llvm::make_unique<toolchains::SYCLToolChain>(
+            TC = std::make_unique<toolchains::SYCLToolChain>(
               *this, Target, HostTC, Args);
             break;
           default:

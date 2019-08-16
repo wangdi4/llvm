@@ -6549,7 +6549,7 @@ void OffloadBundler::ConstructJobMultipleOutputs(
             TCArgs.getAllArgValues(options::OPT_foffload_static_lib_EQ))
       LinkArgs.push_back(TCArgs.MakeArgString(A));
     const char *Exec = TCArgs.MakeArgString(getToolChain().GetLinkerPath());
-    C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, LinkArgs, Inputs));
+    C.addCommand(std::make_unique<Command>(JA, *this, Exec, LinkArgs, Inputs));
   }
 
   // Get the type.
@@ -6643,7 +6643,7 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
     WrapperArgs.push_back(I.getFilename());
   }
 
-  C.addCommand(llvm::make_unique<Command>(JA, *this,
+  C.addCommand(std::make_unique<Command>(JA, *this,
       TCArgs.MakeArgString(getToolChain().GetProgramPath(getShortName())),
       WrapperArgs, None));
 
@@ -6665,7 +6665,7 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
   SmallString<128> LlcPath(C.getDriver().Dir);
   llvm::sys::path::append(LlcPath, "llc");
   const char *Llc = C.getArgs().MakeArgString(LlcPath);
-  C.addCommand(llvm::make_unique<Command>(JA, *this, Llc, LlcArgs, None));
+  C.addCommand(std::make_unique<Command>(JA, *this, Llc, LlcArgs, None));
 }
 
 // Begin SPIRVTranslator
@@ -6690,7 +6690,7 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
     TranslatorArgs.push_back(I.getFilename());
   }
 
-  C.addCommand(llvm::make_unique<Command>(JA, *this,
+  C.addCommand(std::make_unique<Command>(JA, *this,
       TCArgs.MakeArgString(getToolChain().GetProgramPath(getShortName())),
       TranslatorArgs, None));
 }

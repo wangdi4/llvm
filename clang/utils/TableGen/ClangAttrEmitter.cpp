@@ -1347,19 +1347,15 @@ createArgument(const Record &Arg, StringRef Attr,
   else if (ArgName == "TypeArgument")
     Ptr = std::make_unique<TypeArgument>(Arg, Attr);
   else if (ArgName == "UnsignedArgument")
-<<<<<<< HEAD
-    Ptr = llvm::make_unique<SimpleArgument>(Arg, Attr, "unsigned");
+    Ptr = std::make_unique<SimpleArgument>(Arg, Attr, "unsigned");
 #if INTEL_CUSTOMIZATION
   else if (ArgName == "SourceLocArgument")
-    Ptr = llvm::make_unique<SimpleArgument>(Arg, Attr, "SourceLocation");
+    Ptr = std::make_unique<SimpleArgument>(Arg, Attr, "SourceLocation");
   else if (ArgName == "CheckedExprArgument")
-    Ptr = llvm::make_unique<CheckedExprArgument>(Arg, Attr);
+    Ptr = std::make_unique<CheckedExprArgument>(Arg, Attr);
   else if (ArgName == "VariadicIntArgument")
-    Ptr = llvm::make_unique<VariadicArgument>(Arg, Attr, "int");
+    Ptr = std::make_unique<VariadicArgument>(Arg, Attr, "int");
 #endif  // INTEL_CUSTOMIZATION
-=======
-    Ptr = std::make_unique<SimpleArgument>(Arg, Attr, "unsigned");
->>>>>>> 2b3d49b610bd2a45884115edcb21110bfa325f51
   else if (ArgName == "VariadicUnsignedArgument")
     Ptr = std::make_unique<VariadicArgument>(Arg, Attr, "unsigned");
   else if (ArgName == "VariadicStringArgument")

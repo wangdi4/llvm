@@ -11622,7 +11622,7 @@ public:
   /// Lazily creates and returns SYCL integration header instance.
   SYCLIntegrationHeader &getSyclIntegrationHeader() {
     if (SyclIntHeader == nullptr)
-      SyclIntHeader = llvm::make_unique<SYCLIntegrationHeader>(
+      SyclIntHeader = std::make_unique<SYCLIntegrationHeader>(
         getDiagnostics());
     return *SyclIntHeader.get();
   }
