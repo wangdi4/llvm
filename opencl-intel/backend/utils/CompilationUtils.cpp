@@ -983,7 +983,17 @@ std::string CompilationUtils::mangledGetSubGroupLocalId() {
     NAME_GET_SUB_GROUP_LOCAL_ID.c_str());
 }
 
-static bool isOptionalMangleOf(const std::string& LHS, const std::string& RHS) {
+std::string CompilationUtils::mangledGetGlobalLinearId() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+      NAME_GET_LINEAR_GID.c_str());
+}
+
+std::string CompilationUtils::mangledGetLocalLinearId() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+      NAME_GET_LINEAR_LID.c_str());
+}
+
+static bool isOptionalMangleOf(const std::string &LHS, const std::string &RHS) {
   //LHS should be mangled
   const char*const LC = LHS.c_str();
   if (!isMangledName(LC))
