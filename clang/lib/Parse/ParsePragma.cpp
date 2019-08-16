@@ -1225,48 +1225,29 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
 
   // Return a valid hint if pragma unroll or nounroll were specified
   // without an argument.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-  bool PragmaLoopCoalesce = PragmaNameInfo->getName() == "loop_coalesce";
-  bool PragmaIVDep = PragmaNameInfo->getName() == "ivdep";
-  bool PragmaMinIIAtTargetFmax =
-        PragmaNameInfo->getName() == "min_ii_at_target_fmax";
-  bool PragmaDisableLoopPipelining =
-          PragmaNameInfo->getName() == "disable_loop_pipelining";
   bool PragmaSpeculatedIterations=
           PragmaNameInfo->getName() == "speculated_iterations";
-  bool PragmaForceHyperopt =
-          PragmaNameInfo->getName() == "force_hyperopt";
-  bool PragmaForceNoHyperopt =
-          PragmaNameInfo->getName() == "force_no_hyperopt";
-  bool PragmaDistributePoint = PragmaNameInfo->getName() == "distribute_point";
-  bool PragmaNoFusion = PragmaNameInfo->getName() == "nofusion";
-  bool PragmaFusion = PragmaNameInfo->getName() == "fusion";
-  bool PragmaNoVector = PragmaNameInfo->getName() == "novector";
-  bool PragmaVector = PragmaNameInfo->getName() == "vector";
-#endif // INTEL_CUSTOMIZATION
   bool PragmaUnroll = PragmaNameInfo->getName() == "unroll";
-  bool PragmaNoUnroll = PragmaNameInfo->getName() == "nounroll";
   bool PragmaUnrollAndJam = PragmaNameInfo->getName() == "unroll_and_jam";
-  bool PragmaNoUnrollAndJam = PragmaNameInfo->getName() == "nounroll_and_jam";
-#if INTEL_CUSTOMIZATION
-  if (Toks.empty() && Info->ArrayToks.empty() &&
-                      (PragmaUnroll || PragmaNoUnroll || PragmaUnrollAndJam ||
-                       PragmaLoopCoalesce || PragmaIVDep ||
-                       PragmaDisableLoopPipelining || PragmaMinIIAtTargetFmax ||
-                       PragmaForceHyperopt || PragmaForceNoHyperopt ||
-                       PragmaDistributePoint || PragmaNoFusion ||
-                       PragmaFusion || PragmaNoVector || PragmaVector ||
 #endif // INTEL_CUSTOMIZATION
-                       PragmaNoUnrollAndJam)) {
-=======
   auto IsLoopHint = llvm::StringSwitch<bool>(PragmaNameInfo->getName())
-                        .Cases("unroll", "nounroll", "unroll_and_jam",
+#if INTEL_CUSTOMIZATION
+                        .Cases("loop_coalesce", "ivdep",
+                               "min_ii_at_target_fmax",
+                               "disable_loop_pipelining", true)
+                        .Cases("force_hyperopt", "force_no_hyperopt",
+                               "nofusion", "fusion", true)
+                        .Cases("vector", "novector","distribute_point", true)
+                        .Cases("nounroll",
+#endif // INTEL_CUSTOMIZATION
                                "nounroll_and_jam", true)
                         .Default(false);
 
-  if (Toks.empty() && IsLoopHint) {
->>>>>>> 90374f7557211992bbfb0ba51ad31ee49943f0d3
+#if INTEL_CUSTOMIZATION
+  if (Toks.empty() && Info->ArrayToks.empty() &&
+      (IsLoopHint || PragmaUnroll || PragmaUnrollAndJam)) {
+#endif // INTEL_CUSTOMIZATION
     ConsumeAnnotationToken();
     Hint.Range = Info->PragmaName.getLocation();
     return true;
