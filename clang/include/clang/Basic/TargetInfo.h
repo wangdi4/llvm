@@ -1374,6 +1374,14 @@ public:
 
   virtual void setAuxTarget(const TargetInfo *Aux) {}
 
+#if INTEL_CUSTOMIZATION
+  /// Should calls to variadic functions be diagnosed with error message?
+  /// These should not be diagnosed for Microsoft headers.
+  virtual bool shouldDiagnoseVariadicCall(void) const {
+    return true;
+  }
+#endif
+
 protected:
   /// Copy type and layout related info.
   void copyAuxTarget(const TargetInfo *Aux);
