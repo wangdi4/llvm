@@ -590,8 +590,6 @@ private:
   // extended to user-defined vector functions.
   void vectorizeCallInstruction(CallInst *Call);
   void vectorizeCallInstruction(VPInstruction *VPCall);
-  // Get the called Function for given VPInstruction representing a call.
-  Function *getVPCalledFunction(VPInstruction *Call);
 
   // Widen Select instruction.
   void vectorizeSelectInstruction(Instruction *Inst);

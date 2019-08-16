@@ -150,11 +150,22 @@ static Value *generateSerialInstruction(IRBuilder<> &Builder,
   } else if (VPInst->getOpcode() == Instruction::Call) {
     assert(ScalarOperands.size() > 0 &&
            "Call VPInstruction should have atleast one operand.");
-    assert(isa<Function>(Ops.back()) &&
-           "Last operand of call VPInstruction is not Function.");
-    Function *ScalarF = cast<Function>(Ops.back());
-    Ops.pop_back();
-    SerialInst = Builder.CreateCall(ScalarF, Ops);
+    if (auto *ScalarF = dyn_cast<Function>(Ops.back())) {
+      Ops.pop_back();
+      SerialInst = Builder.CreateCall(ScalarF, Ops);
+    } else {
+      // Indirect call (via function pointer).
+      Value *FuncPtr = Ops.back();
+      Ops.pop_back();
+
+      Type *FuncPtrTy = FuncPtr->getType();
+      assert(isa<PointerType>(FuncPtrTy) &&
+             "Function pointer operand is not pointer type.");
+      auto *FT = cast<FunctionType>(
+          cast<PointerType>(FuncPtrTy)->getPointerElementType());
+
+      SerialInst = Builder.CreateCall(FT, FuncPtr, Ops);
+    }
   } else if (VPGEPInstruction *VPGEP = dyn_cast<VPGEPInstruction>(VPInst)) {
     assert(ScalarOperands.size() > 1 &&
            "VPGEPInstruction should have atleast two operands.");
@@ -261,7 +272,7 @@ void VPOCodeGen::vectorizeCallArgs(VPInstruction *VPCall,
     Parms = VecVariant->getParameters();
   }
 
-  Function *F = getVPCalledFunction(VPCall);
+  Function *F = getCalledFunction(VPCall);
   assert(F && "Function not found for call instruction");
   StringRef FnName = F->getName();
 
@@ -796,24 +807,13 @@ Value *VPOCodeGen::getWidenedAddressForScatterGather(VPInstruction *VPI) {
   return WidenedVectorGEP;
 }
 
-Function *VPOCodeGen::getVPCalledFunction(VPInstruction *Call) {
-  assert(Call->getOpcode() == Instruction::Call &&
-         "getVPCalledFunction called on non-call VPInstruction,");
-  // The called function will always be the last operand.
-  VPValue *FuncOp = Call->getOperand(Call->getNumOperands() - 1);
-  assert(isa<VPConstant>(FuncOp) && "Function operand is not an external def.");
-  assert(isa<Function>(getScalarValue(FuncOp, 0 /*Lane*/)) &&
-         "Underlying value for function operand is not Function.");
-  return cast<Function>(getScalarValue(FuncOp, 0 /*Lane*/));
-}
-
 void VPOCodeGen::vectorizeCallInstruction(VPInstruction *VPCall) {
   SmallVector<Value *, 2> VecArgs;
   SmallVector<Type *, 2> VecArgTys;
   CallInst *UnderlyingCI = dyn_cast<CallInst>(VPCall->getUnderlyingValue());
   assert(UnderlyingCI &&
          "VPVALCG: Need underlying CallInst for call-site attributes.");
-  Function *CalledFunc = getVPCalledFunction(VPCall);
+  Function *CalledFunc = getCalledFunction(VPCall);
   assert(CalledFunc && "Unexpected null called function.");
   bool IsMasked = (MaskValue != nullptr) ? true : false;
 
@@ -1553,10 +1553,15 @@ void VPOCodeGen::vectorizeVPInstruction(VPInstruction *VPInst) {
     CallInst *UnderlyingCI = dyn_cast<CallInst>(VPInst->getUnderlyingValue());
     assert(UnderlyingCI &&
            "VPVALCG: Need underlying CallInst for call-site attributes.");
-    Function *F = getVPCalledFunction(VPInst);
+    Function *F = getCalledFunction(VPInst);
+
+    if (!F) {
+      // Indirect calls.
+      serializeWithPredication(VPInst);
+      return;
+    }
+
     assert(F && "Unexpected null called function");
-    // TODO: Handle indirect call in serializeWithPredication before enabling
-    // here.
     LLVM_DEBUG(dbgs() << "VPVALCG: Called Function: "; F->dump());
     StringRef CalledFunc = F->getName();
     bool isMasked = (MaskValue != nullptr) ? true : false;

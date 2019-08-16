@@ -412,12 +412,14 @@ class VPConstant : public VPValue {
   // VPlan is currently the context where we hold the pool of VPConstants.
   friend class VPlan;
   friend class VPlanDivergenceAnalysis;
-  friend class VPOCodeGenHIR;
-  friend class VPOCodeGen;
 
 protected:
   VPConstant(Constant *Const)
       : VPValue(VPValue::VPConstantSC, Const->getType(), Const) {}
+
+public:
+  VPConstant(const VPConstant &) = delete;
+  VPConstant &operator=(const VPConstant &) const = delete;
 
   /// Return the underlying Constant attached to this VPConstant. This interface
   /// is similar to getValue() but hides the cast when we are working with
@@ -438,10 +440,6 @@ protected:
            "ZExt value cannot be obtained for non-constant integers.");
     return cast<ConstantInt>(getUnderlyingValue())->getZExtValue();
   }
-
-public:
-  VPConstant(const VPConstant &) = delete;
-  VPConstant &operator=(const VPConstant &) const = delete;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAsOperand(raw_ostream &OS) const override {
