@@ -259,13 +259,9 @@ public:
 #if INTEL_CUSTOMIZATION
            MemoryDependenceResults *MD, MemorySSA *MSSA, bool HoistingGeps)
       : DT(DT), PDT(PDT), AA(AA), MD(MD), MSSA(MSSA),
-<<<<<<< HEAD
-        MSSAUpdater(std::make_unique<MemorySSAUpdater>(MSSA)) {}
-=======
-        MSSAUpdater(llvm::make_unique<MemorySSAUpdater>(MSSA)),
+        MSSAUpdater(std::make_unique<MemorySSAUpdater>(MSSA)),
         HoistingGeps(HoistingGeps) {}
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 1f84034f1444f01e2f7cf501045052b8f5a8d8ca
 
   bool run(Function &F) {
     NumFuncArgs = F.arg_size();
