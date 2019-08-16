@@ -106,7 +106,6 @@ define <4 x half> @sint_to_fp_4i32_to_4f16(<4 x i32> %x) {
 define <2 x half> @sint_to_fp_2i32_to_2f16(<2 x i32> %x) {
 ; CHECK-LABEL: sint_to_fp_2i32_to_2f16:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vpermilps {{.*#+}} xmm0 = xmm0[0,2,2,3]
 ; CHECK-NEXT:    vcvtdq2ph %xmm0, %xmm0
 ; CHECK-NEXT:    retq
   %res = sitofp <2 x i32> %x to <2 x half>
@@ -194,7 +193,6 @@ define <4 x half> @uint_to_fp_4i32_to_4f16(<4 x i32> %x) {
 define <2 x half> @uint_to_fp_2i32_to_2f16(<2 x i32> %x) {
 ; CHECK-LABEL: uint_to_fp_2i32_to_2f16:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vpermilps {{.*#+}} xmm0 = xmm0[0,2,2,3]
 ; CHECK-NEXT:    vcvtudq2ph %xmm0, %xmm0
 ; CHECK-NEXT:    retq
   %res = uitofp <2 x i32> %x to <2 x half>
