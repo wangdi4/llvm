@@ -166,4 +166,5 @@ bool cl_device_local_mem_size_unlimited_stack_test();
 bool TbbSetMaxThreads(int NumThreads);
 #endif
 bool cl_CheckBuildNumber();
+bool cl12_atomic_add_float_test();
 //#define CUDA_DEVICE
