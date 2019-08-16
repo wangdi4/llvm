@@ -1191,7 +1191,7 @@ static inline int32_t run_target_team_nd_region(
 
   DP("THREAD_LIMIT = %d, NUM_TEAMS = %d\n", thread_limit, num_teams);
   if (loop_levels) {
-    DP("Collapsed %ld loops.\n", *loop_levels);
+    DP("Collapsed %" PRId64 " loops.\n", *loop_levels);
   }
   DP("Global work size = (%zd, %zd, %zd)\n", global_work_size[0],
      global_work_size[1], global_work_size[2]);
