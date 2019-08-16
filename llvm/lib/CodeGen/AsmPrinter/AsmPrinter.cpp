@@ -352,25 +352,18 @@ bool AsmPrinter::doInitialization(Module &M) {
   if (MAI->doesSupportDebugInformation()) {
     bool EmitCodeView = MMI->getModule()->getCodeViewFlag();
     if (EmitCodeView && TM.getTargetTriple().isOSWindows()) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       if (MMI->getModule()->getModuleFlag("Intel STI") != nullptr) {
         Handlers.emplace_back(STIDebug::create(this), DbgTimerName,
                               DbgTimerDescription, STIDebugGroupName,
                               STIDebugGroupDescription);
       } else {
-        Handlers.emplace_back(llvm::make_unique<CodeViewDebug>(this),
+        Handlers.emplace_back(std::make_unique<CodeViewDebug>(this),
                               DbgTimerName, DbgTimerDescription,
                               CodeViewLineTablesGroupName,
                               CodeViewLineTablesGroupDescription);
       }
 #endif // INTEL_CUSTOMIZATION
-=======
-      Handlers.emplace_back(std::make_unique<CodeViewDebug>(this),
-                            DbgTimerName, DbgTimerDescription,
-                            CodeViewLineTablesGroupName,
-                            CodeViewLineTablesGroupDescription);
->>>>>>> 0eaee545eef49ff9498234d3a51a5cbde59bf976
     }
     if (!EmitCodeView || MMI->getModule()->getDwarfVersion()) {
       DD = new DwarfDebug(this, &M);

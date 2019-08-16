@@ -2184,7 +2184,6 @@ private:
 
   /// Create a new VectorizableTree entry.
   TreeEntry *newTreeEntry(ArrayRef<Value *> VL, bool Vectorized,
-<<<<<<< HEAD
                     const EdgeInfo &UserTreeIdx,
                     ArrayRef<unsigned> ReuseShuffleIndices = None,
                     ArrayRef<unsigned> ReorderIndices = None)
@@ -2205,13 +2204,7 @@ private:
       return nullptr;
     }
 #endif // INTEL_CUSTOMIZATION
-    VectorizableTree.push_back(llvm::make_unique<TreeEntry>(VectorizableTree));
-=======
-                          const EdgeInfo &UserTreeIdx,
-                          ArrayRef<unsigned> ReuseShuffleIndices = None,
-                          ArrayRef<unsigned> ReorderIndices = None) {
     VectorizableTree.push_back(std::make_unique<TreeEntry>(VectorizableTree));
->>>>>>> 0eaee545eef49ff9498234d3a51a5cbde59bf976
     TreeEntry *Last = VectorizableTree.back().get();
     Last->Idx = VectorizableTree.size() - 1;
 #if INTEL_CUSTOMIZATION
