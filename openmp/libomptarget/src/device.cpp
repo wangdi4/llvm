@@ -119,7 +119,7 @@ LookupResult DeviceTy::lookupMapping(void *HstPtrBegin, int64_t Size) {
   uintptr_t hp = (uintptr_t)HstPtrBegin;
   LookupResult lr;
 
-  DP("Looking up mapping(HstPtrBegin=" DPxMOD ", Size=%ld)...\n", DPxPTR(hp),
+  DP("Looking up mapping(HstPtrBegin=" DPxMOD ", Size=%" PRId64 ")...\n", DPxPTR(hp),
       Size);
   for (lr.Entry = HostDataToTargetMap.begin();
       lr.Entry != HostDataToTargetMap.end(); ++lr.Entry) {
@@ -178,7 +178,7 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
 
     uintptr_t tp = HT.TgtPtrBegin + ((uintptr_t)HstPtrBegin - HT.HstPtrBegin);
     DP("Mapping exists%s with HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", "
-        "Size=%ld,%s RefCount=%s\n", (IsImplicit ? " (implicit)" : ""),
+        "Size=%" PRId64 ",%s RefCount=%s\n", (IsImplicit ? " (implicit)" : ""),
         DPxPTR(HstPtrBegin), DPxPTR(tp), Size,
         (UpdateRefCount ? " updated" : ""),
         (CONSIDERED_INF(HT.RefCount)) ? "INF" :
@@ -240,7 +240,7 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
 
     uintptr_t tp = HT.TgtPtrBegin + ((uintptr_t)HstPtrBegin - HT.HstPtrBegin);
     DP("Mapping exists with HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", "
-        "Size=%ld,%s RefCount=%s\n", DPxPTR(HstPtrBegin), DPxPTR(tp), Size,
+        "Size=%" PRId64 ",%s RefCount=%s\n", DPxPTR(HstPtrBegin), DPxPTR(tp), Size,
         (UpdateRefCount ? " updated" : ""),
         (CONSIDERED_INF(HT.RefCount)) ? "INF" :
             std::to_string(HT.RefCount).c_str());
@@ -287,11 +287,11 @@ int DeviceTy::deallocTgtPtr(void *HstPtrBegin, int64_t Size, bool ForceDelete,
       HT.RefCount = 1;
     if (--HT.RefCount <= 0) {
       assert(HT.RefCount == 0 && "did not expect a negative ref count");
-      DP("Deleting tgt data " DPxMOD " of size %ld\n",
+      DP("Deleting tgt data " DPxMOD " of size %" PRId64 "\n",
           DPxPTR(HT.TgtPtrBegin), Size);
       RTL->data_delete(RTLDeviceID, (void *)HT.TgtPtrBegin);
       DP("Removing%s mapping with HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD
-          ", Size=%ld\n", (ForceDelete ? " (forced)" : ""),
+          ", Size=%" PRId64 "\n", (ForceDelete ? " (forced)" : ""),
           DPxPTR(HT.HstPtrBegin), DPxPTR(HT.TgtPtrBegin), Size);
       HostDataToTargetMap.erase(lr.Entry);
     }

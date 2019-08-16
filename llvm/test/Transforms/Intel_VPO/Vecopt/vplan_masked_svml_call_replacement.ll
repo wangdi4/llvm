@@ -3,6 +3,8 @@
 ;CHECK-LABEL: vector.body
 ;CHECK: [[SQRT:%.*]] = call <4 x float> @_Z4sqrtDv4_f(<4 x float> {{.*}})
 ;CHECK: [[PRED_SQRT:%.*]] = call <4 x float> @_Z4sqrtDv4_f(<4 x float> {{.*}})
+;CHECK: [[PRED_EXPF:%.*]] = call <4 x float> @_Z3expDv4_f(<4 x float> {{.*}})
+;CHECK: [[PRED_NATIVE_EXPF:%.*]] = call <4 x float> @_Z10native_expDv4_f(<4 x float> {{.*}})
 
 
 ; ModuleID = 'main'
@@ -15,6 +17,12 @@ target triple = "x86_64-pc-linux"
 
 ; Function Attrs: nounwind
 declare float @_Z4sqrtf(float) local_unnamed_addr
+
+; Function Attrs: nounwind
+declare float @_Z3expf(float) local_unnamed_addr
+
+; Function Attrs: nounwind
+declare float @_Z10native_expf(float) local_unnamed_addr
 
 ; Function Attrs: nounwind readnone
 declare i64 @_Z13get_global_idj(i32) local_unnamed_addr
@@ -52,7 +60,11 @@ simd.loop:                                        ; preds = %simd.loop.exit, %si
   %21 = fmul double %20, 1.040000e+01
   %22 = fptrunc double %21 to float
   %23 = call float @_Z4sqrtf(float %22)
-  store float %23, float addrspace(1)* %15, align 4
+  %expResult = call float @_Z3expf(float %22)
+  %native_expResult = call float @_Z10native_expf(float %22)
+  %fadd = fadd float %23, %expResult
+  %fadd_native = fadd float %fadd, %expResult
+  store float %fadd_native, float addrspace(1)* %15, align 4
   br label %"LP.exit"
 
 "LP.exit": ; preds = %18, %simd.loop

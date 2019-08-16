@@ -2,9 +2,9 @@
 
 ; CMPLRLLVM-1156: Uninitialized large array is passed as firstprivate to
 ; a task.
-; Make sure that memcpy is used to copy the array into the task
-; data block, and from the task block into the task's private variable.
-; 2 memcpys should be generated on the caller side.
+; Make sure that memcpy is used to copy the array into the task thunk.
+; In the outlined task, we should not copy the whole array, but use the
+; data directly from the thunk.
 
 ; Caller side
 ; CHECK: [[BREG0:%.+]] = bitcast {{.*}} %B to i8*
@@ -16,8 +16,8 @@
 
 ; Task side
 ; CHECK: define{{.*}}TASK
-; CHECK: [[BPRIVDST:%.+]] = bitcast {{.*}} %B.fpriv to i8*
-; CHECK: call void @llvm.memcpy{{.*}}(i8* [[BPRIVDST]], {{.*}} 4000000
+; CHECK-NOT: fpriv
+; CHECK-NOT: memcpy
 
 ; Function Attrs: nounwind uwtable
 define dso_local void @_Z3barv() local_unnamed_addr #0 {

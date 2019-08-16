@@ -573,7 +573,16 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
 
   case llvm::Triple::spir: {
     if (Triple.getEnvironment() == llvm::Triple::SYCLDevice) {
-      switch (os) {
+      llvm::Triple HT(Opts.HostTriple);
+      switch (HT.getOS()) {
+      case llvm::Triple::Win32:
+        switch (HT.getEnvironment()) {
+        default: // Assume MSVC for unknown environments
+        case llvm::Triple::MSVC:
+          assert(HT.getArch() == llvm::Triple::x86 &&
+                 "Unsupported host architecture");
+          return new MicrosoftX86_32SPIRTargetInfo(Triple, Opts);
+        }
       case llvm::Triple::Linux:
         return new LinuxTargetInfo<SPIR32SYCLDeviceTargetInfo>(Triple, Opts);
       default:
@@ -583,15 +592,27 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
     } else {
       if (os != llvm::Triple::UnknownOS)
         return nullptr;
-      switch (Triple.getEnvironment()) {
-      case llvm::Triple::IntelFPGA:
-        return new SPIR32INTELFpgaTargetInfo(Triple, Opts);
-      case llvm::Triple::IntelEyeQ:
-        return new SPIR32TargetInfo(Triple, Opts);
-      case llvm::Triple::UnknownEnvironment:
-        return new SPIR32TargetInfo(Triple, Opts);
+      llvm::Triple HT(Opts.HostTriple);
+      switch (HT.getOS()) {
+      case llvm::Triple::Win32:
+        switch (HT.getEnvironment()) {
+        default: // Assume MSVC for unknown environments
+        case llvm::Triple::MSVC:
+          assert(HT.getArch() == llvm::Triple::x86 &&
+                 "Unsupported host architecture");
+          return new MicrosoftX86_32SPIRTargetInfo(Triple, Opts);
+        }
       default:
-        return nullptr;
+        switch (Triple.getEnvironment()) {
+        case llvm::Triple::IntelFPGA:
+          return new SPIR32INTELFpgaTargetInfo(Triple, Opts);
+        case llvm::Triple::IntelEyeQ:
+          return new SPIR32TargetInfo(Triple, Opts);
+        case llvm::Triple::UnknownEnvironment:
+          return new SPIR32TargetInfo(Triple, Opts);
+        default:
+          return nullptr;
+        }
       }
 #endif // INTEL_CUSTOMIZATION
     }
@@ -599,7 +620,16 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
   }
   case llvm::Triple::spir64: {
     if (Triple.getEnvironment() == llvm::Triple::SYCLDevice) {
-      switch (os) {
+      llvm::Triple HT(Opts.HostTriple);
+      switch (HT.getOS()) {
+      case llvm::Triple::Win32:
+        switch (HT.getEnvironment()) {
+        default: // Assume MSVC for unknown environments
+        case llvm::Triple::MSVC:
+          assert(HT.getArch() == llvm::Triple::x86_64 &&
+                 "Unsupported host architecture");
+          return new MicrosoftX86_64_SPIR64TargetInfo(Triple, Opts);
+        }
       case llvm::Triple::Linux:
         return new LinuxTargetInfo<SPIR64SYCLDeviceTargetInfo>(Triple, Opts);
       default:
@@ -609,15 +639,27 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
     } else {
       if (os != llvm::Triple::UnknownOS)
         return nullptr;
-      switch (Triple.getEnvironment()) {
-      case llvm::Triple::IntelFPGA:
-        return new SPIR64INTELFpgaTargetInfo(Triple, Opts);
-      case llvm::Triple::IntelEyeQ:
-        return new SPIR64TargetInfo(Triple, Opts);
-      case llvm::Triple::UnknownEnvironment:
-        return new SPIR64TargetInfo(Triple, Opts);
+      llvm::Triple HT(Opts.HostTriple);
+      switch (HT.getOS()) {
+      case llvm::Triple::Win32:
+        switch (HT.getEnvironment()) {
+        default: // Assume MSVC for unknown environments
+        case llvm::Triple::MSVC:
+          assert(HT.getArch() == llvm::Triple::x86_64 &&
+                 "Unsupported host architecture");
+          return new MicrosoftX86_64_SPIR64TargetInfo(Triple, Opts);
+        }
       default:
-        return nullptr;
+        switch (Triple.getEnvironment()) {
+        case llvm::Triple::IntelFPGA:
+          return new SPIR64INTELFpgaTargetInfo(Triple, Opts);
+        case llvm::Triple::IntelEyeQ:
+          return new SPIR64TargetInfo(Triple, Opts);
+        case llvm::Triple::UnknownEnvironment:
+          return new SPIR64TargetInfo(Triple, Opts);
+        default:
+          return nullptr;
+        }
       }
 #endif // INTEL_CUSTOMIZATION
     }
