@@ -29,6 +29,11 @@
 extern cl::opt<bool>
 EnableScatterGather;
 
+cl::opt<bool> ForceInVPlanPipeline(
+    "force-scalarizer-in-vplan-pipeline", cl::init(false), cl::Hidden,
+    cl::desc("Initialize ScalarizeFunction pass as if it was created within "
+             "VPlan pipeline by Optimizer"));
+
 namespace intel {
 /// Support for dynamic loading of modules under Linux
 char intel::ScalarizeFunction::ID = 0;
@@ -40,7 +45,7 @@ OCL_INITIALIZE_PASS_END(ScalarizeFunction, "scalarize", "Scalarize functions", f
 
 ScalarizeFunction::ScalarizeFunction(Intel::ECPU Cpu, bool InVPlanPipeline)
   : FunctionPass(ID), m_rtServices(NULL), m_Cpu(Cpu),
-    InVPlanPipeline(InVPlanPipeline)
+    InVPlanPipeline(InVPlanPipeline || ForceInVPlanPipeline)
 {
   initializeScalarizeFunctionPass(*llvm::PassRegistry::getPassRegistry());
 
@@ -723,8 +728,10 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
   }
 
   // Find corresponding entry in functions hash (in runtimeServices)
-  V_ASSERT(CI->getCalledFunction() &&
-           "Unexpected indirect function invocation");
+  if (!CI->getCalledFunction()) {
+    V_ASSERT(InVPlanPipeline && "Unexpected indirect call in Volcano pipeline");
+    return; // skip indirect calls
+  }
   llvm::StringRef funcName = CI->getCalledFunction()->getName();
   const std::auto_ptr<VectorizerFunction> foundFunction =
     m_rtServices->findBuiltinFunction(funcName);
@@ -1592,6 +1599,8 @@ bool ScalarizeFunction::isScalarizableLoadStoreType(VectorType *type) {
 extern "C" {
   FunctionPass* createScalarizerPass(const Intel::CPUId& CpuId,
                                      bool InVPlanPipeline = false) {
+    if (ForceInVPlanPipeline)
+      InVPlanPipeline = true;
     return new intel::ScalarizeFunction(CpuId.GetCPU(), InVPlanPipeline);
   }
 }
