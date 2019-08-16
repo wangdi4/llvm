@@ -513,6 +513,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     // @brief: returns the mangled name of the function get_sub_group_local_id
     //////////////////////////////////////////////////////////////////
     static std::string mangledGetSubGroupLocalId();
+    //////////////////////////////////////////////////////////////////
+    // @brief: returns the mangled name of the function get_global_linear_id
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledGetGlobalLinearId();
+    //////////////////////////////////////////////////////////////////
+    // @brief: returns the mangled name of the function get_local_linear_id
+    //////////////////////////////////////////////////////////////////
+    static std::string mangledGetLocalLinearId();
 
     static const std::string NAME_GET_DEFAULT_QUEUE;
 
