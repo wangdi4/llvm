@@ -261,108 +261,102 @@ void VPOCodeGen::vectorizeCallArgs(VPInstruction *VPCall,
     Parms = VecVariant->getParameters();
   }
 
-  bool IsScalarArg = false;
+  Function *F = getVPCalledFunction(VPCall);
+  assert(F && "Function not found for call instruction");
+  StringRef FnName = F->getName();
+
+  auto ProcessCallArg = [&](unsigned OrigArgIdx) -> Value * {
+    if (isOpenCLWriteChannelSrc(FnName, OrigArgIdx)) {
+      llvm_unreachable(
+          "VPVALCG: OpenCL write channel vectorization not uplifted.");
+    }
+
+    if ((!VecVariant || Parms[OrigArgIdx].isVector()) &&
+        !isScalarArgument(FnName, OrigArgIdx)) {
+      // This is a vector call arg, so vectorize it.
+      VPValue *Arg = VPCall->getOperand(OrigArgIdx);
+
+      // Generate the right mask for OpenCL vector 'select' intrinsic
+      if (isOpenCLSelectMask(FnName, OrigArgIdx)) {
+        llvm_unreachable("VPVALCG: OpenCL select vector mask not uplifted.");
+      }
+
+      return getVectorValue(Arg);
+    }
+    // Linear and uniform parameters for simd functions must be passed as
+    // scalars according to the vector function abi. CodeGen currently
+    // vectorizes all instructions, so the scalar arguments for the vector
+    // function must be extracted from them. For both linear and uniform
+    // args, extract from lane 0. Linear args can use the value at lane 0
+    // because this will be the starting value for which the stride will be
+    // added. The same method applies to built-in functions for args that
+    // need to be treated as uniform.
+
+    assert(!isOpenCLSelectMask(FnName, OrigArgIdx) &&
+           "OpenCL select mask parameter is linear/uniform?");
+
+    VPValue *Arg = VPCall->getOperand(OrigArgIdx);
+    Value *ScalarArg = getScalarValue(Arg, 0);
+
+    return ScalarArg;
+  };
 
   // TODO: For a VPInstruction representing Call, all the Call argument operands
   // are stored first. The last operand represents the called Function. Is this
   // true in all cases? What about indirect calls?
   unsigned NumArgOperands = VPCall->getNumOperands() - 1;
 
-  for (unsigned I = 0; I < NumArgOperands; I++) {
-    Function *F = getVPCalledFunction(VPCall);
-    assert(F && "Function not found for call instruction");
-    StringRef FnName = F->getName();
-    IsScalarArg = isScalarArgument(FnName, I);
-    if (isOpenCLReadChannelDest(FnName, I))
+  for (unsigned OrigArgIdx = 0; OrigArgIdx < NumArgOperands; OrigArgIdx++) {
+    if (isOpenCLReadChannelDest(FnName, OrigArgIdx))
       continue;
 
-    if (isOpenCLWriteChannelSrc(FnName, I)) {
-      llvm_unreachable(
-          "VPVALCG: OpenCL write channel vectorization not uplifted.");
-#if 0
-      Value *VecWriteSrc =
-        vectorizeOpenCLWriteChannelSrc(Call, i);
-      assert(VecWriteSrc && "Vector value for channel write source not found");
-      VecArgs.push_back(VecWriteSrc);
-      VecArgTys.push_back(VecWriteSrc->getType());
-#endif
-    } else if ((!VecVariant || Parms[I].isVector()) && !IsScalarArg) {
-      // This is a vector call arg, so vectorize it.
-      VPValue *Arg = VPCall->getOperand(I);
-      Value *VecArg;
-
-      // Generate the right mask for OpenCL vector 'select' intrinsic
-      if (isOpenCLSelectMask(FnName, I)) {
-        llvm_unreachable("VPVALCG: OpenCL select vector mask not uplifted.");
-#if 0
-        VecArg = getOpenCLSelectVectorMask(Call->getArgOperand(i));
-#endif
-      } else
-        VecArg = getVectorValue(Arg);
-
-      VecArgs.push_back(VecArg);
-      VecArgTys.push_back(VecArg->getType());
-    } else {
-      // Linear and uniform parameters for simd functions must be passed as
-      // scalars according to the vector function abi. CodeGen currently
-      // vectorizes all instructions, so the scalar arguments for the vector
-      // function must be extracted from them. For both linear and uniform
-      // args, extract from lane 0. Linear args can use the value at lane 0
-      // because this will be the starting value for which the stride will be
-      // added. The same method applies to built-in functions for args that
-      // need to be treated as uniform.
-
-      assert(!isOpenCLSelectMask(FnName, I) &&
-             "OpenCL select mask parameter is linear/uniform?");
-
-      VPValue *Arg = VPCall->getOperand(I);
-      Value *ScalarArg = getScalarValue(Arg, 0);
-      VecArgs.push_back(ScalarArg);
-      VecArgTys.push_back(ScalarArg->getType());
-    }
+    Value *VecArg = ProcessCallArg(OrigArgIdx);
+    VecArgs.push_back(VecArg);
+    VecArgTys.push_back(VecArg->getType());
   }
 
+  // We're done, unless we have an additional mask parameter to process that
+  // wasn't part of the original (scalar) call.
+  if (!VecVariant || !VecVariant->isMasked())
+    return;
+
   // Add the mask parameter for masked simd functions.
-  if (VecVariant && VecVariant->isMasked()) {
-    // Mask should already be vectorized as i1 type.
-    VectorType *MaskTy = cast<VectorType>(MaskValue->getType());
-    assert(MaskTy->getVectorElementType()->isIntegerTy(1) &&
-           "Mask parameter is not vector of i1");
+  // Mask should already be vectorized as i1 type.
+  VectorType *MaskTy = cast<VectorType>(MaskValue->getType());
+  assert(MaskTy->getVectorElementType()->isIntegerTy(1) &&
+         "Mask parameter is not vector of i1");
 
-    // Incorrect code is generated by backend codegen when using i1 mask.
-    // Therefore, the mask is promoted to the characteristic type of the
-    // function.
-    if (Usei1MaskForSimdFunctions) {
-      VecArgs.push_back(MaskValue);
-      VecArgTys.push_back(MaskTy);
-    } else {
-      Function *CalledFunc = getVPCalledFunction(VPCall);
-      assert(CalledFunc && "Unexpected null called function");
-      Type *CharacteristicType =
-          calcCharacteristicType(*CalledFunc, *VecVariant);
-      unsigned CharacteristicTypeSize =
-          CharacteristicType->getPrimitiveSizeInBits();
+  // Incorrect code is generated by backend codegen when using i1 mask.
+  // Therefore, the mask is promoted to the characteristic type of the
+  // function, unless we're specifically told not to do so.
+  if (Usei1MaskForSimdFunctions) {
+    VecArgs.push_back(MaskValue);
+    VecArgTys.push_back(MaskTy);
+    return;
+  }
 
-      // Promote the i1 to an integer type that has the same size as the
-      // characteristic type.
-      Type *ScalarToType =
-          IntegerType::get(MaskTy->getContext(), CharacteristicTypeSize);
-      VectorType *VecToType = VectorType::get(ScalarToType, VF);
-      Value *MaskExt = Builder.CreateSExt(MaskValue, VecToType, "maskext");
+  // Promote to characteristic type.
+  Type *CharacteristicType = calcCharacteristicType(*F, *VecVariant);
+  unsigned CharacteristicTypeSize =
+      CharacteristicType->getPrimitiveSizeInBits();
 
-      // Bitcast if the promoted type is not the same as the characteristic
-      // type.
-      if (ScalarToType != CharacteristicType) {
-        Type *MaskCastTy = VectorType::get(CharacteristicType, VF);
-        Value *MaskCast =
-            Builder.CreateBitCast(MaskExt, MaskCastTy, "maskcast");
-        VecArgs.push_back(MaskCast);
-        VecArgTys.push_back(MaskCastTy);
-      } else {
-        VecArgs.push_back(MaskExt);
-        VecArgTys.push_back(VecToType);
-      }
-    }
+  // Promote the i1 to an integer type that has the same size as the
+  // characteristic type.
+  Type *ScalarToType =
+      IntegerType::get(MaskTy->getContext(), CharacteristicTypeSize);
+  VectorType *VecToType = VectorType::get(ScalarToType, VF);
+  Value *MaskExt = Builder.CreateSExt(MaskValue, VecToType, "maskext");
+
+  // Bitcast if the promoted type is not the same as the characteristic
+  // type.
+  if (ScalarToType != CharacteristicType) {
+    Type *MaskCastTy = VectorType::get(CharacteristicType, VF);
+    Value *MaskCast = Builder.CreateBitCast(MaskExt, MaskCastTy, "maskcast");
+    VecArgs.push_back(MaskCast);
+    VecArgTys.push_back(MaskCastTy);
+  } else {
+    VecArgs.push_back(MaskExt);
+    VecArgTys.push_back(VecToType);
   }
 }
 
