@@ -299,9 +299,8 @@ void VPOCodeGen::vectorizeCallArgs(VPInstruction *VPCall,
       VPValue *Arg = VPCall->getOperand(OrigArgIdx);
 
       // Generate the right mask for OpenCL vector 'select' intrinsic
-      if (isOpenCLSelectMask(FnName, OrigArgIdx)) {
-        llvm_unreachable("VPVALCG: OpenCL select vector mask not uplifted.");
-      }
+      if (isOpenCLSelectMask(FnName, OrigArgIdx))
+        return getOpenCLSelectVectorMask(Arg);
 
       return getVectorValue(Arg);
     }
@@ -915,6 +914,55 @@ Value *VPOCodeGen::createWidenedBasePtrConsecutiveLoadStore(VPValue *Ptr,
                : VecPtr;
   VecPtr = Builder.CreateBitCast(VecPtr, WideDataTy->getPointerTo(AddrSpace));
   return VecPtr;
+}
+
+// Return the right vector mask for a OpenCL vector select built-in.
+//
+// Definition of OpenCL select intrinsic:
+//   gentype select ( gentype a, gentype b, igentype c)
+//
+//   For each component of a vector type, result[i] = if MSB of c[i] is set ?
+//   b[i] : a[i] For scalar type, result = c ? b : a.
+//
+// Scalar select built-in uses integer mask (integer != 0 means true). However,
+// vector select built-in uses the MSB of each vector element.
+//
+// Returned vector mask depends on ScalarMask as follows:
+//   1) if ScalarMask == ZExt(i1), return widened SExt.
+//   2) if ScalarMask == SExt(i1), return widened SExt.
+//   3) Otherwise, return SExt(VectorMask != 0).
+//
+Value *VPOCodeGen::getOpenCLSelectVectorMask(VPValue *ScalarMask) {
+
+  Type *ScTy = ScalarMask->getType();
+  assert(!ScTy->isVectorTy() && ScTy->isIntegerTy() &&
+         "Scalar integer type expected.");
+  Type *VecTy = getWidenedType(ScTy, VF);
+
+  // Special cases for i1 type.
+  VPInstruction *VPInst = dyn_cast<VPInstruction>(ScalarMask);
+  if (VPInst && VPInst->isCast() &&
+      VPInst->getOperand(0)->getType()->isIntegerTy(1 /*i1*/)) {
+    if (VPInst->getOpcode() == Instruction::SExt) {
+      // SExt mask doesn't need to be fixed.
+      return getVectorValue(ScalarMask);
+    } else if (VPInst->getOpcode() == Instruction::ZExt) {
+      // ZExt is replaced by an SExt.
+      Value *Val = getVectorValue(VPInst->getOperand(0));
+      return Builder.CreateSExt(Val, VecTy);
+    }
+  }
+
+  // General case. We generate a SExt(VectorMask != 0).
+  // TODO: Look at Volcano vectorizer, file OCLBuiltinPreVectorizationPass.cpp.
+  // It is doing something different, creating a fake call to a built-in
+  // intrinsic. I don't know if that approach is applicable here at this point.
+  Value *VectorMask = getVectorValue(ScalarMask);
+  Constant *Zero = Constant::getNullValue(VecTy);
+
+  // Only integer mask is supported.
+  Value *Cmp = Builder.CreateICmpNE(VectorMask, Zero);
+  return Builder.CreateSExt(Cmp, VecTy);
 }
 
 void VPOCodeGen::vectorizeCallInstruction(VPInstruction *VPCall) {
