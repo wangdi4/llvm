@@ -3906,14 +3906,6 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       break;
 #if INTEL_CUSTOMIZATION
     case tok::kw_channel:
-      if (!getLangOpts().OpenCL ||
-          !getTargetInfo().getSupportedOpenCLOpts()
-          .isSupported("cl_intel_channels", getLangOpts())) {
-        // 'channel' is a keyword only for OpenCL with cl_intel_channels
-        // extension
-        Tok.setKind(tok::identifier);
-        continue;
-      }
       isInvalid = DS.SetTypeChannel(true, Loc, PrevSpec, DiagID, Policy);
       break;
 #endif // INTEL_CUSTOMIZATION

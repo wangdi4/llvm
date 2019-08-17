@@ -1,4 +1,4 @@
-; RUN: llc -x86-ciscization-helper-bb-inst-number-threshold=1 < %s -O3 | FileCheck %s --check-prefixes=CHECK
+; RUN: llc -x86-ciscization-helper-bb-inst-number-threshold=1 < %s -O3 -enable-intel-advanced-opts | FileCheck %s --check-prefixes=CHECK
 
 ; Tests for x86 ciscization helper
 

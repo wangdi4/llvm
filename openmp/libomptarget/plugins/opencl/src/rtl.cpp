@@ -29,6 +29,8 @@
 #include <string>
 #include <vector>
 #ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
 #include <Windows.h>
 #else
 #include <dlfcn.h>
@@ -282,7 +284,7 @@ public:
   std::vector<cl_platform_id> platformIDs;
   std::vector<cl_device_id> deviceIDs;
   std::vector<int32_t> maxWorkGroups;
-  std::vector<int32_t> maxWorkGroupSize;
+  std::vector<size_t> maxWorkGroupSize;
 
   // A vector of descriptors of OpenCL extensions for each device.
   std::vector<ExtensionsTy> Extensions;
@@ -297,6 +299,9 @@ public:
   int32_t DataTransferLatency;
   const int64_t DEVICE_LIMIT_NUM_WORK_GROUPS = 0x1;
   const int64_t DATA_TRANSFER_LATENCY = 0x2;
+#if INTEL_CUSTOMIZATION
+  bool CheckExtensionGlobalRelocation = false;
+#endif  // INTEL_CUSTOMIZATION
 
   RTLDeviceInfoTy() : numDevices(0), flag(0), DataTransferLatency(0) {
 #ifdef OMPTARGET_OPENCL_DEBUG
@@ -319,7 +324,6 @@ public:
       }
     }
 #if INTEL_CUSTOMIZATION
-    bool CheckExtensionGlobalRelocation = false;
     // Check environment variable that enables
     // clGetDeviceGlobalVariablePointerINTEL extension in OpenCL graphics
     // compiler rather than using a separate environment variable.
@@ -329,107 +333,6 @@ public:
       if (std::stoi(Val) != 0)
         CheckExtensionGlobalRelocation = true;
 #endif  // INTEL_CUSTOMIZATION
-
-    DP("Start initializing OpenCL\n");
-    // get available platforms
-    cl_uint platformIdCount = 0;
-    clGetPlatformIDs(0, nullptr, &platformIdCount);
-    std::vector<cl_platform_id> platformIds(platformIdCount);
-    clGetPlatformIDs(platformIdCount, platformIds.data(), nullptr);
-
-    std::vector<cl_device_id> deviceIDTail;
-    std::vector<cl_platform_id> platformIDTail;
-
-    // OpenCL device IDs are stored in a list so that
-    // 1. All device IDs from a single platfrom are stored consecutively.
-    // 2. Device IDs from a platform having at least one GPU device appears
-    //    before any device IDs from a platform having no GPU devices.
-    for (cl_platform_id id : platformIds) {
-      char buffer[128];
-      clGetPlatformInfo(id, CL_PLATFORM_VERSION, 128, buffer, NULL);
-      if (strncmp("OpenCL 2", buffer, 8)) {
-        continue;
-      }
-
-      cl_uint numGPU = 0, numACC = 0, numCPU = 0;
-      char *envStr = getenv("LIBOMPTARGET_DEVICETYPE");
-      if (!envStr || strncmp(envStr, "GPU", 3) == 0)
-        clGetDeviceIDs(id, CL_DEVICE_TYPE_GPU, 0, nullptr, &numGPU);
-      if (!envStr || strncmp(envStr, "ACCELERATOR", 11) == 0)
-        clGetDeviceIDs(id, CL_DEVICE_TYPE_ACCELERATOR, 0, nullptr, &numACC);
-      if (!envStr || strncmp(envStr, "CPU", 3) == 0)
-        clGetDeviceIDs(id, CL_DEVICE_TYPE_CPU, 0, nullptr, &numCPU);
-      cl_uint numCurrDevices = numGPU + numACC + numCPU;
-      if (numCurrDevices == 0)
-        continue;
-
-      DP("Platform %s has %d GPUs, %d ACCELERATORS, %d CPUs\n", buffer, numGPU,
-         numACC, numCPU);
-      std::vector<cl_device_id> currDeviceIDs(numCurrDevices);
-      std::vector<cl_platform_id> currPlatformIDs(numCurrDevices, id);
-      clGetDeviceIDs(id, CL_DEVICE_TYPE_GPU, numGPU, &currDeviceIDs[0],
-                     nullptr);
-      clGetDeviceIDs(id, CL_DEVICE_TYPE_ACCELERATOR, numACC,
-                     &currDeviceIDs[numGPU], nullptr);
-      clGetDeviceIDs(id, CL_DEVICE_TYPE_CPU, numCPU,
-                     &currDeviceIDs[numGPU + numACC], nullptr);
-
-      std::vector<cl_device_id> *dID = &deviceIDs;
-      std::vector<cl_platform_id> *pID = &platformIDs;
-      if (numGPU == 0) {
-        dID = &deviceIDTail;
-        pID = &platformIDTail;
-      }
-      dID->insert(dID->end(), currDeviceIDs.begin(), currDeviceIDs.end());
-      pID->insert(pID->end(), currPlatformIDs.begin(), currPlatformIDs.end());
-      numDevices += numCurrDevices;
-    }
-    deviceIDs.insert(deviceIDs.end(), deviceIDTail.begin(), deviceIDTail.end());
-    platformIDs.insert(platformIDs.end(), platformIDTail.begin(),
-                       platformIDTail.end());
-
-    maxWorkGroups.resize(numDevices);
-    maxWorkGroupSize.resize(numDevices);
-    Extensions.resize(numDevices);
-    CTX.resize(numDevices);
-    Queues.resize(numDevices);
-    FuncGblEntries.resize(numDevices);
-    BaseBuffers.resize(numDevices);
-    ImplicitArgs.resize(numDevices);
-    Mutexes = new std::mutex[numDevices];
-
-    // get device specific information
-    for (unsigned i = 0; i < numDevices; i++) {
-      char buffer[128];
-      cl_device_id deviceId = deviceIDs[i];
-      clGetDeviceInfo(deviceId, CL_DEVICE_NAME, 128, buffer, nullptr);
-      DP("Device %d: %s\n", i, buffer);
-      clGetDeviceInfo(deviceId, CL_DEVICE_MAX_COMPUTE_UNITS, 4,
-                      &maxWorkGroups[i], nullptr);
-      DP("Maximum number of work groups (compute units) is %d\n",
-         maxWorkGroups[i]);
-      clGetDeviceInfo(deviceId, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t),
-                      &maxWorkGroupSize[i], nullptr);
-      DP("Maximum work group size is %d\n", maxWorkGroupSize[i]);
-#ifdef OMPTARGET_OPENCL_DEBUG
-      cl_uint addressmode;
-      clGetDeviceInfo(deviceId, CL_DEVICE_ADDRESS_BITS, 4, &addressmode,
-                      nullptr);
-      DP("Addressing mode is %d bit\n", addressmode);
-#endif
-#if INTEL_CUSTOMIZATION
-      // Disable GetDeviceGlobalVariablePointer extension, if
-      // IGC_EnableGlobalRelocation environment variable is not set.
-      // If the extension status is left ExtensionStatusUnknown,
-      // then we will query OpenCL in __tgt_rtl_init_device().
-      // FIXME: this is a temporary solution until clGetDeviceInfo
-      //        supports querying this extension.
-      if (!CheckExtensionGlobalRelocation)
-        Extensions[i].GetDeviceGlobalVariablePointer = ExtensionStatusDisabled;
-#endif  // INTEL_CUSTOMIZATION
-    }
-    if (numDevices == 0)
-      DP("WARNING: No OpenCL devices found.\n");
   }
 
   ~RTLDeviceInfoTy() {
@@ -525,7 +428,125 @@ int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *image) {
 }
 
 EXTERN
-int32_t __tgt_rtl_number_of_devices() { return DeviceInfo.numDevices; } // fixme
+int32_t __tgt_rtl_number_of_devices() {
+  // Assume it is thread safe, since it is called once.
+
+  DP("Start initializing OpenCL\n");
+  // get available platforms
+  cl_uint platformIdCount = 0;
+  clGetPlatformIDs(0, nullptr, &platformIdCount);
+  std::vector<cl_platform_id> platformIds(platformIdCount);
+  clGetPlatformIDs(platformIdCount, platformIds.data(), nullptr);
+
+  std::vector<cl_device_id> deviceIDTail;
+  std::vector<cl_platform_id> platformIDTail;
+
+  // OpenCL device IDs are stored in a list so that
+  // 1. All device IDs from a single platform are stored consecutively.
+  // 2. Device IDs from a platform having at least one GPU device appear
+  //    before any device IDs from a platform having no GPU devices.
+  for (cl_platform_id id : platformIds) {
+    std::vector<char> buf;
+    size_t buf_size;
+    clGetPlatformInfo(id, CL_PLATFORM_VERSION, 0, nullptr, &buf_size);
+    buf.resize(buf_size);
+    clGetPlatformInfo(id, CL_PLATFORM_VERSION, buf_size, buf.data(), nullptr);
+    // clCreateProgramWithIL() requires OpenCL 2.1.
+    if (strncmp("OpenCL 2.1", buf.data(), 8)) {
+      continue;
+    }
+
+    cl_uint numGPU = 0, numACC = 0, numCPU = 0;
+    char *envStr = getenv("LIBOMPTARGET_DEVICETYPE");
+    if (!envStr || strncmp(envStr, "GPU", 3) == 0)
+      clGetDeviceIDs(id, CL_DEVICE_TYPE_GPU, 0, nullptr, &numGPU);
+    if (!envStr || strncmp(envStr, "ACCELERATOR", 11) == 0)
+      clGetDeviceIDs(id, CL_DEVICE_TYPE_ACCELERATOR, 0, nullptr, &numACC);
+    if (!envStr || strncmp(envStr, "CPU", 3) == 0)
+      clGetDeviceIDs(id, CL_DEVICE_TYPE_CPU, 0, nullptr, &numCPU);
+    cl_uint numCurrDevices = numGPU + numACC + numCPU;
+    if (numCurrDevices == 0)
+      continue;
+
+    DP("Platform %s has %d GPUs, %d ACCELERATORS, %d CPUs\n", buf.data(),
+       numGPU, numACC, numCPU);
+    std::vector<cl_device_id> currDeviceIDs(numCurrDevices);
+    std::vector<cl_platform_id> currPlatformIDs(numCurrDevices, id);
+    // There is at least one element in currDeviceIDs allocated
+    // at this point.
+    clGetDeviceIDs(id, CL_DEVICE_TYPE_GPU, numGPU, &currDeviceIDs[0],
+                   nullptr);
+    if (numACC > 0)
+      clGetDeviceIDs(id, CL_DEVICE_TYPE_ACCELERATOR, numACC,
+                     &currDeviceIDs[numGPU], nullptr);
+    if (numCPU > 0)
+      clGetDeviceIDs(id, CL_DEVICE_TYPE_CPU, numCPU,
+                     &currDeviceIDs[numGPU + numACC], nullptr);
+
+    std::vector<cl_device_id> *dID = &DeviceInfo.deviceIDs;
+    std::vector<cl_platform_id> *pID = &DeviceInfo.platformIDs;
+    if (numGPU == 0) {
+      dID = &deviceIDTail;
+      pID = &platformIDTail;
+    }
+    dID->insert(dID->end(), currDeviceIDs.begin(), currDeviceIDs.end());
+    pID->insert(pID->end(), currPlatformIDs.begin(), currPlatformIDs.end());
+    DeviceInfo.numDevices += numCurrDevices;
+  }
+  DeviceInfo.deviceIDs.insert(DeviceInfo.deviceIDs.end(),
+                              deviceIDTail.begin(), deviceIDTail.end());
+  DeviceInfo.platformIDs.insert(DeviceInfo.platformIDs.end(),
+                                platformIDTail.begin(), platformIDTail.end());
+
+  DeviceInfo.maxWorkGroups.resize(DeviceInfo.numDevices);
+  DeviceInfo.maxWorkGroupSize.resize(DeviceInfo.numDevices);
+  DeviceInfo.Extensions.resize(DeviceInfo.numDevices);
+  DeviceInfo.CTX.resize(DeviceInfo.numDevices);
+  DeviceInfo.Queues.resize(DeviceInfo.numDevices);
+  DeviceInfo.FuncGblEntries.resize(DeviceInfo.numDevices);
+  DeviceInfo.BaseBuffers.resize(DeviceInfo.numDevices);
+  DeviceInfo.ImplicitArgs.resize(DeviceInfo.numDevices);
+  DeviceInfo.Mutexes = new std::mutex[DeviceInfo.numDevices];
+
+  // get device specific information
+  for (unsigned i = 0; i < DeviceInfo.numDevices; i++) {
+    std::vector<char> buf;
+    size_t buf_size;
+    cl_device_id deviceId = DeviceInfo.deviceIDs[i];
+    clGetDeviceInfo(deviceId, CL_DEVICE_NAME, 0, nullptr, &buf_size);
+    clGetDeviceInfo(deviceId, CL_DEVICE_NAME, buf_size, buf.data(), nullptr);
+    DP("Device %d: %s\n", i, buf.data());
+    clGetDeviceInfo(deviceId, CL_DEVICE_MAX_COMPUTE_UNITS, 4,
+                    &DeviceInfo.maxWorkGroups[i], nullptr);
+    DP("Maximum number of work groups (compute units) is %d\n",
+       DeviceInfo.maxWorkGroups[i]);
+    clGetDeviceInfo(deviceId, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t),
+                    &DeviceInfo.maxWorkGroupSize[i], nullptr);
+    DP("Maximum work group size is %d\n",
+       static_cast<int32_t>(DeviceInfo.maxWorkGroupSize[i]));
+#ifdef OMPTARGET_OPENCL_DEBUG
+    cl_uint addressmode;
+    clGetDeviceInfo(deviceId, CL_DEVICE_ADDRESS_BITS, 4, &addressmode,
+                    nullptr);
+    DP("Addressing mode is %d bit\n", addressmode);
+#endif
+#if INTEL_CUSTOMIZATION
+    // Disable GetDeviceGlobalVariablePointer extension, if
+    // IGC_EnableGlobalRelocation environment variable is not set.
+    // If the extension status is left ExtensionStatusUnknown,
+    // then we will query OpenCL in __tgt_rtl_init_device().
+    // FIXME: this is a temporary solution until clGetDeviceInfo
+    //        supports querying this extension.
+    if (!DeviceInfo.CheckExtensionGlobalRelocation)
+      DeviceInfo.Extensions[i].GetDeviceGlobalVariablePointer =
+          ExtensionStatusDisabled;
+#endif  // INTEL_CUSTOMIZATION
+  }
+  if (DeviceInfo.numDevices == 0)
+    DP("WARNING: No OpenCL devices found.\n");
+
+  return DeviceInfo.numDevices;
+}
 
 EXTERN
 int32_t __tgt_rtl_init_device(int32_t device_id) {
@@ -571,7 +592,6 @@ static void dumpImageToFile(
 #if INTEL_CUSTOMIZATION
 #if INTEL_INTERNAL_BUILD
 #ifdef OMPTARGET_OPENCL_DEBUG
-#ifndef _WIN32
   if (DebugLevel <= 0)
     return;
 
@@ -579,7 +599,18 @@ static void dumpImageToFile(
     return;
 
   char TmpFileName[] = "omptarget_opencl_image_XXXXXX";
+#if _WIN32
+  errno_t CErr = _mktemp_s(TmpFileName, sizeof(TmpFileName));
+  if (CErr) {
+    DPI("Error creating temporary file template name.\n");
+    return;
+  }
+  int TmpFileFd;
+  _sopen_s(&TmpFileFd, TmpFileName, _O_RDWR | _O_CREAT | _O_BINARY,
+           _SH_DENYNO, _S_IREAD | _S_IWRITE);
+#else  // !_WIN32
   int TmpFileFd = mkstemp(TmpFileName);
+#endif  // !_WIN32
   DPI("Dumping %s image of size %d from address " DPxMOD " to file %s\n",
       Type, static_cast<int32_t>(ImageSize), DPxPTR(Image), TmpFileName);
 
@@ -588,12 +619,21 @@ static void dumpImageToFile(
     return;
   }
 
-  if (write(TmpFileFd, Image, ImageSize) < 0)
+#if _WIN32
+  int WErr = _write(TmpFileFd, Image, ImageSize);
+#else  // !_WIN32
+  int WErr = write(TmpFileFd, Image, ImageSize);
+#endif  // !_WIN32
+  if (WErr < 0)
     DPI("Error writing temporary file %s: %s\n", TmpFileName, strerror(errno));
 
-  if (close(TmpFileFd) < 0)
-    DPI("Error closing temporary file %s: %s\n", TmpFileName, strerror(errno));
+#if _WIN32
+  int CloseErr = _close(TmpFileFd);
+#else  // !_WIN32
+  int CloseErr = close(TmpFileFd);
 #endif  // !_WIN32
+  if (CloseErr < 0)
+    DPI("Error closing temporary file %s: %s\n", TmpFileName, strerror(errno));
 #endif  // OMPTARGET_OPENCL_DEBUG
 #endif  // INTEL_INTERNAL_BUILD
 #endif  // INTEL_CUSTOMIZATION
@@ -631,7 +671,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
 
     dumpImageToFile(device_rtl_bin.c_str(), device_rtl_len, "RTL");
 
-    program[0] = clCreateProgramWithIL(DeviceInfo.CTX[device_id],
+    program[1] = clCreateProgramWithIL(DeviceInfo.CTX[device_id],
                                        device_rtl_bin.c_str(), device_rtl_len,
                                        &status);
     if (status != CL_SUCCESS) {
@@ -639,7 +679,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
       return NULL;
     }
 
-    INVOKE_CL_RET_NULL(clCompileProgram, program[0], 0, nullptr, nullptr, 0,
+    INVOKE_CL_RET_NULL(clCompileProgram, program[1], 0, nullptr, nullptr, 0,
                        nullptr, nullptr, nullptr, nullptr);
     num_programs++;
   } else {
@@ -648,14 +688,14 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
 
   // Create program for the target regions.
   dumpImageToFile(image->ImageStart, ImageSize, "OpenMP");
-  program[1] = clCreateProgramWithIL(DeviceInfo.CTX[device_id],
+  program[0] = clCreateProgramWithIL(DeviceInfo.CTX[device_id],
                                      image->ImageStart, ImageSize, &status);
   if (status != 0) {
     DP("Error: Failed to create program: %d\n", status);
     return NULL;
   }
 
-  INVOKE_CL_RET_NULL(clCompileProgram, program[1], 0, nullptr, nullptr, 0,
+  INVOKE_CL_RET_NULL(clCompileProgram, program[0], 0, nullptr, nullptr, 0,
                      nullptr, nullptr, nullptr, nullptr);
 
   num_programs++;
@@ -755,6 +795,17 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     }
 
     char *name = image->EntriesBegin[i].name;
+#if _WIN32
+    // FIXME: temporary allow zero padding bytes in the entries table
+    //        added by MSVC linker (e.g. for incremental linking).
+    if (!name) {
+      // Initialize the members to be on the safe side.
+      DP("Warning: Entry with a nullptr name!!!\n");
+      entries[i].addr = nullptr;
+      entries[i].name = nullptr;
+      continue;
+    }
+#endif  // _WIN32
     kernels[i] = clCreateKernel(program[2], name, &status);
     if (status != 0) {
       DP("Error: Failed to create kernel %s, %d\n", name, status);
@@ -764,31 +815,38 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     entries[i].name = name;
 #ifdef OMPTARGET_OPENCL_DEBUG
     // Show kernel information
-    char kernel_info[80];
+    std::vector<char> buf;
+    size_t buf_size;
     cl_uint kernel_num_args = 0;
-    cl_int rc;
-    rc = clGetKernelInfo(kernels[i], CL_KERNEL_FUNCTION_NAME,
-                         sizeof(kernel_info), kernel_info, nullptr);
-    if (rc != CL_SUCCESS)
-      continue;
-    rc = clGetKernelInfo(kernels[i], CL_KERNEL_NUM_ARGS,
-                         sizeof(cl_uint), &kernel_num_args, nullptr);
-    if (rc != CL_SUCCESS)
-      continue;
-    DP("Kernel %d: Name = %s, NumArgs = %d\n", i, kernel_info, kernel_num_args);
+    INVOKE_CL_RET_NULL(clGetKernelInfo, kernels[i], CL_KERNEL_FUNCTION_NAME, 0,
+                       nullptr, &buf_size);
+    buf.resize(buf_size);
+    INVOKE_CL_RET_NULL(clGetKernelInfo, kernels[i], CL_KERNEL_FUNCTION_NAME,
+                       buf_size, buf.data(), nullptr);
+    INVOKE_CL_RET_NULL(clGetKernelInfo, kernels[i], CL_KERNEL_NUM_ARGS,
+                       sizeof(cl_uint), &kernel_num_args, nullptr);
+    DP("Kernel %d: Name = %s, NumArgs = %d\n", i, buf.data(), kernel_num_args);
     for (unsigned idx = 0; idx < kernel_num_args; idx++) {
-      clGetKernelArgInfo(kernels[i], idx, CL_KERNEL_ARG_TYPE_NAME, 40,
-                         kernel_info, nullptr);
-      clGetKernelArgInfo(kernels[i], idx, CL_KERNEL_ARG_NAME, 40,
-                         &kernel_info[40], nullptr);
-      DP("  Arg %2d: %s %s\n", idx, kernel_info, &kernel_info[40]);
+      INVOKE_CL_RET_NULL(clGetKernelArgInfo, kernels[i], idx,
+                         CL_KERNEL_ARG_TYPE_NAME, 0, nullptr, &buf_size);
+      buf.resize(buf_size);
+      INVOKE_CL_RET_NULL(clGetKernelArgInfo, kernels[i], idx,
+                         CL_KERNEL_ARG_TYPE_NAME, buf_size, buf.data(),
+                         nullptr);
+      std::string type_name = buf.data();
+      INVOKE_CL_RET_NULL(clGetKernelArgInfo, kernels[i], idx,
+                         CL_KERNEL_ARG_NAME, 0, nullptr, &buf_size);
+      buf.resize(buf_size);
+      INVOKE_CL_RET_NULL(clGetKernelArgInfo, kernels[i], idx,
+                         CL_KERNEL_ARG_NAME, buf_size, buf.data(), nullptr);
+      DP("  Arg %2d: %s %s\n", idx, type_name.c_str(), buf.data());
     }
 #endif // OMPTARGET_OPENCL_DEBUG
   }
 
   __tgt_target_table &table = DeviceInfo.FuncGblEntries[device_id].Table;
   table.EntriesBegin = &(entries[0]);
-  table.EntriesEnd = &(entries[entries.size()]);
+  table.EntriesEnd = &(entries.data()[entries.size()]);
   return &table;
 }
 
@@ -900,6 +958,29 @@ EXTERN
 void *__tgt_rtl_data_alloc_base(int32_t device_id, int64_t size, void *hst_ptr,
                                 void *hst_base) {
   return tgt_rtl_data_alloc_template(device_id, size, hst_ptr, hst_base, 0);
+}
+
+// Create a buffer from the given SVM pointer.
+EXTERN
+void *__tgt_rtl_create_buffer(int32_t device_id, void *tgt_ptr) {
+  cl_int rc;
+  cl_mem ret = clCreateBuffer(DeviceInfo.CTX[device_id], CL_MEM_USE_HOST_PTR,
+                              1, tgt_ptr, &rc);
+  if (rc != CL_SUCCESS) {
+    DP("Error: Failed to create a buffer from a SVM pointer " DPxMOD "\n",
+       DPxPTR(tgt_ptr));
+    return nullptr;
+  }
+  DP("Created a buffer " DPxMOD " from a SVM pointer " DPxMOD "\n",
+     DPxPTR(ret), DPxPTR(tgt_ptr));
+  return ret;
+}
+
+// Release the buffer
+EXTERN
+int32_t __tgt_rtl_release_buffer(void *tgt_buffer) {
+  INVOKE_CL_RET_FAIL(clReleaseMemObject, (cl_mem)tgt_buffer);
+  return OFFLOAD_SUCCESS;
 }
 
 // Allocation was initiated by user (omp_target_alloc)
@@ -1174,12 +1255,16 @@ static inline int32_t run_target_team_nd_region(
     }
   } else {
     if (profile.flags & PROFILE_ENABLED) {
-      char buf[80];
+      std::vector<char> buf;
+      size_t buf_size;
       INVOKE_CL_RET_FAIL(clWaitForEvents, 1, &event);
+      INVOKE_CL_RET_FAIL(clGetKernelInfo, *kernel, CL_KERNEL_FUNCTION_NAME, 0,
+                         nullptr, &buf_size);
+      buf.resize(buf_size);
       INVOKE_CL_RET_FAIL(clGetKernelInfo, *kernel, CL_KERNEL_FUNCTION_NAME,
-                         sizeof(buf), buf, nullptr);
+                         buf.size(), buf.data(), nullptr);
       std::string kernel_name("EXEC-");
-      kernel_name += buf;
+      kernel_name += buf.data();
       profile.update(kernel_name.c_str(), event);
     }
     INVOKE_CL_RET_FAIL(clFinish, DeviceInfo.Queues[device_id]);

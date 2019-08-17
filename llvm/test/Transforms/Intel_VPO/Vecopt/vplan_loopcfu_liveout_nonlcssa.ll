@@ -1,7 +1,6 @@
 ; REQUIRES: asserts
-; -enable-vp-value-codegen is because llvm::Value one doesn't support AddInst
-;  without valid underlying IR for now.
 ; RUN: opt -S < %s -VPlanDriver -debug-only=VPlanPredicator -disable-output -enable-vp-value-codegen 2>&1 | FileCheck %s
+; RUN: opt -S < %s -VPlanDriver -debug-only=VPlanPredicator -disable-output 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

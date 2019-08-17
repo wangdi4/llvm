@@ -682,7 +682,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   }
 #if INTEL_CUSTOMIZATION
 #if INTEL_INCLUDE_DTRANS
-  // Skip MemCpyOpt when PrepareForLTO and EnableDTrans both flags are
+  // Skip MemCpyOpt when both PrepareForLTO and EnableDTrans flags are
   // true to simplify handling of memcpy/memset/memmov calls in DTrans
   // implementation.
   // TODO: Remove this customization once DTrans handled partial memcpy/
@@ -1780,7 +1780,6 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
     }
 
     if (RunLoopOpts == LoopOptMode::Full) {
-      PM.add(createHIRDeadStoreEliminationPass());
 
       // TODO: refine cost model for individual transformations for code size.
       if (SizeLevel == 0) {
@@ -1793,8 +1792,10 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
         PM.add(createHIRMVForConstUBPass());
       }
 
+      PM.add(createHIRSinkingForPerfectLoopnestPass());
       PM.add(createHIRLoopDistributionForLoopNestPass());
       PM.add(createHIRLoopInterchangePass());
+      PM.add(createHIRDeadStoreEliminationPass());
       PM.add(createHIRGenerateMKLCallPass());
       PM.add(createHIRLoopBlockingPass());
       PM.add(createHIRLoopReversalPass());

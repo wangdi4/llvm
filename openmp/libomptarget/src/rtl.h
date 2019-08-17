@@ -46,6 +46,8 @@ struct RTLInfoTy {
                                                void **, size_t);
   typedef void *(data_alloc_base_ty)(int32_t, int64_t, void *, void *);
   typedef void *(data_alloc_user_ty)(int32_t, int64_t, void *);
+  typedef void *(create_buffer_ty)(int32_t, void *);
+  typedef int32_t(release_buffer_ty)(void *);
   typedef int32_t(run_team_nd_region_ty)(int32_t, void *, void **, ptrdiff_t *,
                                          int32_t, int32_t, int32_t, void *);
   typedef int32_t(run_team_nd_region_nowait_ty)(int32_t, void *, void **,
@@ -88,6 +90,8 @@ struct RTLInfoTy {
   manifest_data_for_region_ty *manifest_data_for_region;
   data_alloc_base_ty *data_alloc_base;
   data_alloc_user_ty *data_alloc_user;
+  create_buffer_ty *create_buffer;
+  release_buffer_ty *release_buffer;
   run_team_nd_region_ty *run_team_nd_region;
   run_team_nd_region_nowait_ty *run_team_nd_region_nowait;
   run_region_nowait_ty *run_region_nowait;
@@ -116,6 +120,7 @@ struct RTLInfoTy {
         init_requires(0),
         data_submit_nowait(0), data_retrieve_nowait(0),
         manifest_data_for_region(0), data_alloc_base(0), data_alloc_user(0),
+        create_buffer(0), release_buffer(0),
         run_team_nd_region(0), run_team_nd_region_nowait(0),
         run_region_nowait(0), run_team_region_nowait(0),
         isUsed(false), Mtx() {}
@@ -147,6 +152,8 @@ struct RTLInfoTy {
     manifest_data_for_region = r.manifest_data_for_region;
     data_alloc_base = r.data_alloc_base;
     data_alloc_user = r.data_alloc_user;
+    create_buffer = r.create_buffer;
+    release_buffer = r.release_buffer;
     run_team_nd_region = r.run_team_nd_region;
     run_team_nd_region_nowait = r.run_team_nd_region_nowait;
     run_region_nowait = r.run_region_nowait;

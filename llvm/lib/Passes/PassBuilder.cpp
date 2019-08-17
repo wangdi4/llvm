@@ -255,6 +255,8 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRRecognizeParLoop.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRIdentityMatrixIdiomRecognition.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPrefetching.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRSinkingForPerfectLoopnest.h"
+#include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
 
 #if INTEL_INCLUDE_DTRANS
 #include "Intel_DTrans/DTransCommon.h"
@@ -329,6 +331,11 @@ static cl::opt<bool> EnableIPCloning(
 static cl::opt<bool> EnableIndirectCallConv("enable-npm-ind-call-conv",
     cl::init(true), cl::Hidden,
     cl::desc("Enable Indirect Call Conv for the new PM (default = on)"));
+
+// Function multi-versioning.
+static cl::opt<bool> EnableMultiVersioning("enable-npm-multiversioning",
+  cl::init(false), cl::ReallyHidden,
+  cl::desc("Enable Function Multi-versioning in the new PM"));
 #endif // INTEL_CUSTOMIZATION
 
 static Regex DefaultAliasRegex(
@@ -557,7 +564,18 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   FPM.addPass(SimplifyCFGPass());
   if (Level == O3)
     FPM.addPass(AggressiveInstCombinePass());
-  FPM.addPass(InstCombinePass());
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+  // Configure the instruction combining pass to avoid some transformations
+  // that lose type information for DTrans.
+  bool GEPInstOptimizations = !(PrepareForLTO && EnableDTrans);
+#else
+  bool GEPInstOptimizations = true;
+#endif // INTEL_INCLUDE_DTRANS
+  FPM.addPass(
+      InstCombinePass(/*ExpensiveCombines=default value*/ true,
+                      GEPInstOptimizations)); // Combine silly sequences.
+#endif                                        // INTEL_CUSTOMIZATION
 
   if (!isOptimizingForSize(Level))
     FPM.addPass(LibCallsShrinkWrapPass());
@@ -631,7 +649,11 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   FPM.addPass(RequireAnalysisPass<OptimizationRemarkEmitterAnalysis, Function>());
   FPM.addPass(createFunctionToLoopPassAdaptor(std::move(LPM1), DebugLogging));
   FPM.addPass(SimplifyCFGPass());
-  FPM.addPass(InstCombinePass());
+#if INTEL_CUSTOMIZATION
+  FPM.addPass(
+      InstCombinePass(/*ExpensiveCombines=default value*/ true,
+                      GEPInstOptimizations)); // Combine silly sequences.
+#endif // INTEL_CUSTOMIZATION
   FPM.addPass(createFunctionToLoopPassAdaptor(std::move(LPM2), DebugLogging));
 
   // Eliminate redundancies.
@@ -645,7 +667,19 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   }
 
   // Specially optimize memory movement as it doesn't look like dataflow in SSA.
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+  // Skip MemCpyOpt when both PrepareForLTO and EnableDTrans flags are
+  // true to simplify handling of memcpy/memset/memmov calls in DTrans
+  // implementation.
+  // TODO: Remove this customization once DTrans handled partial memcpy/
+  // memset/memmov calls of struct types.
+  if (!PrepareForLTO || !EnableDTrans)
+    FPM.addPass(MemCpyOptPass());
+#else
   FPM.addPass(MemCpyOptPass());
+#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   // Sparse conditional constant propagation.
   // FIXME: It isn't clear why we do this *after* loop passes rather than
@@ -659,7 +693,11 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
 
   // Run instcombine after redundancy and dead bit elimination to exploit
   // opportunities opened up by them.
-  FPM.addPass(InstCombinePass());
+#if INTEL_CUSTOMIZATION
+  FPM.addPass(
+      InstCombinePass(/*ExpensiveCombines=default value*/ true,
+                      GEPInstOptimizations)); // Combine silly sequences.
+#endif // INTEL_CUSTOMIZATION
   invokePeepholeEPCallbacks(FPM, Level);
 
   // Re-consider control flow based optimizations after redundancy elimination,
@@ -678,7 +716,11 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // the simplifications and basic cleanup after all the simplifications.
   FPM.addPass(ADCEPass());
   FPM.addPass(SimplifyCFGPass());
-  FPM.addPass(InstCombinePass());
+#if INTEL_CUSTOMIZATION
+  FPM.addPass(
+      InstCombinePass(/*ExpensiveCombines=default value*/ true,
+                      GEPInstOptimizations)); // Combine silly sequences.
+#endif // INTEL_CUSTOMIZATION
   invokePeepholeEPCallbacks(FPM, Level);
 
   if (EnableCHR && Level == O3 && PGOOpt &&
@@ -890,7 +932,18 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   // Create a small function pass pipeline to cleanup after all the global
   // optimizations.
   FunctionPassManager GlobalCleanupPM(DebugLogging);
-  GlobalCleanupPM.addPass(InstCombinePass());
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+    // Configure the instruction combining pass to avoid some transformations
+    // that lose type information for DTrans.
+    bool GEPInstOptimizations = !(PrepareForLTO && EnableDTrans);
+#else
+    bool GEPInstOptimizations = true;
+#endif // INTEL_INCLUDE_DTRANS
+    GlobalCleanupPM.addPass(
+        InstCombinePass(/*ExpensiveCombines=default value*/ true,
+                        GEPInstOptimizations)); // Combine silly sequences.
+#endif                                          // INTEL_CUSTOMIZATION
   invokePeepholeEPCallbacks(GlobalCleanupPM, Level);
 
   GlobalCleanupPM.addPass(SimplifyCFGPass());
@@ -1069,8 +1122,18 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
   OptimizePM.addPass(LoopLoadEliminationPass());
 
   // Cleanup after the loop optimization passes.
-  OptimizePM.addPass(InstCombinePass());
-
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+  // Configure the instruction combining pass to avoid some transformations
+  // that lose type information for DTrans.
+  bool GEPInstOptimizations = !(LTOPreLink && EnableDTrans);
+#else
+  bool GEPInstOptimizations = true;
+#endif // INTEL_INCLUDE_DTRANS
+  OptimizePM.addPass(
+      InstCombinePass(/*ExpensiveCombines=default value*/ true,
+                      GEPInstOptimizations)); // Combine silly sequences.
+#endif                                        // INTEL_CUSTOMIZATION
   // Now that we've formed fast to execute loop structures, we do further
   // optimizations. These are run afterward as they might block doing complex
   // analyses and transforms such as what are needed for loop vectorization.
@@ -1090,7 +1153,11 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
   if (PTO.SLPVectorization)
     OptimizePM.addPass(SLPVectorizerPass());
 
-  OptimizePM.addPass(InstCombinePass());
+#if INTEL_CUSTOMIZATION
+  OptimizePM.addPass(
+      InstCombinePass(/*ExpensiveCombines=default value*/ true,
+                      GEPInstOptimizations)); // Combine silly sequences.
+#endif // INTEL_CUSTOMIZATION
 
   // Unroll small loops to hide loop backedge latency and saturate any parallel
   // execution resources of an out-of-order processor. We also then need to
@@ -1107,7 +1174,11 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
     OptimizePM.addPass(LoopUnrollPass(
         LoopUnrollOptions(Level, false, PTO.ForgetAllSCEVInLoopUnroll)));
   OptimizePM.addPass(WarnMissedTransformationsPass());
-  OptimizePM.addPass(InstCombinePass());
+#if INTEL_CUSTOMIZATION
+  OptimizePM.addPass(
+      InstCombinePass(/*ExpensiveCombines=default value*/ true,
+                      GEPInstOptimizations)); // Combine silly sequences.
+#endif // INTEL_CUSTOMIZATION
   OptimizePM.addPass(RequireAnalysisPass<OptimizationRemarkEmitterAnalysis, Function>());
   OptimizePM.addPass(createFunctionToLoopPassAdaptor(
       LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap),
@@ -1539,9 +1610,11 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
   FPM.addPass(SROA());
 
 #if INTEL_CUSTOMIZATION
-  if (EnableInlineAggAnalysis) {
+  if (EnableInlineAggAnalysis)
     FPM.addPass(AggInlAAPass());
-  }
+
+  if (EnableMultiVersioning)
+    FPM.addPass(MultiVersioningPass());
 #endif // INTEL_CUSTOMIZATION
   // LTO provides additional opportunities for tailcall elimination due to
   // link-time inlining, and visibility of nocapture attribute.

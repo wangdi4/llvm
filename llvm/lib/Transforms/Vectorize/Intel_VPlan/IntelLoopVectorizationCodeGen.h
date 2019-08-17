@@ -226,6 +226,61 @@ private:
   void serializeWithPredication(Instruction *Inst);
   void serializeWithPredication(VPInstruction *VPInst);
 
+  /// Specialized method to handle predication of uniform load instruction. This
+  /// function generates a single scalar load predicated by a not all-zero check
+  /// of the current MaskValue.
+  // Example :
+  //
+  // Incoming scalar pseudo IR -
+  // loop.body:
+  //   ...
+  //   %cond = icmp ...
+  //   br %cond, %if.then, %loop.latch
+  //
+  // if.then:
+  //   %uniform.gep = getelementptr ...
+  //   %uniform.load = load %uniform.gep
+  //   %user = add %uniform.load, %loop.iv
+  //   br %loop.latch
+  //
+  // ...
+  //
+  // Vector pseudo IR emitted by this method -
+  // vector.body:
+  //   ...
+  //   %wide.cond = icmp <VF x Ty>
+  //   %uniform.gep = getelementptr ...
+  //   %bitcast.cond = bitcast <VF x i1> %wide.cond to iVF
+  //   %not.all.zero = icmp ne %bitcast.cond, 0
+  //   %load = load %uniform.gep
+  //   %bcast = <insert + shuffle> bcast %load
+  //   %wide.user = add <VF x Ty> %bcast, %wide.loop.iv
+  //   ...
+  //
+  // This is finally modified by predicateInstructions as -
+  // vector.body:
+  //   ...
+  //   %wide.cond = icmp <VF x Ty>
+  //   %uniform.gep = getelementptr ...
+  //   %bitcast.cond = bitcast <VF x i1> %wide.cond to iVF
+  //   %not.all.zero = icmp ne %bitcast.cond, 0
+  //   br %not.all.zero, %pred.load.if, %merge
+  //
+  // pred.load.if:
+  //   %load = load %uniform.gep
+  //   %insert = insert load to undef vector
+  //
+  // merge:
+  //   %merge.phi = [undef, %vector.body], [%insert, %pred.load.if]
+  //   br %pred.load.continue
+  //
+  // pred.load.continue:
+  //   %bcast = shufflevector %merge.phi
+  //   %wide.user = add <VF x Ty> %bcast, %wide.loop.iv
+  //
+  void serializePredicatedUniformLoad(Instruction *Inst);
+  void serializePredicatedUniformLoad(VPInstruction *VPInst);
+
   /// Predicate conditional instructions that require predication on their
   /// respective conditions.
   void predicateInstructions();

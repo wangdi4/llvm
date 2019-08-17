@@ -164,6 +164,9 @@ FunctionPass *createHIRIdentityMatrixIdiomRecognitionPass();
 
 /// Create pass that prefetches memrefs.
 FunctionPass *createHIRPrefetchingPass();
+
+/// Create pass that enables sinking for perfect Loop nest.
+FunctionPass *createHIRSinkingForPerfectLoopnestPass();
 } // namespace llvm
 
 #endif

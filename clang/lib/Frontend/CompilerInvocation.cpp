@@ -2569,6 +2569,18 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
 
   // IntrinsicPromotion implementation.
   Opts.IntrinsicAutoPromote = Args.hasArg(OPT_intel_mintrinsic_promote);
+
+  // cl_intel_channels is an OpenCL extension for Intel FPGA. It is supported
+  // by default and can become unsupported according to -cl-ext option.
+  if (Opts.OpenCL) {
+    Opts.OpenCLChannel = 1;
+    for (const auto &Ext : Args.getAllArgValues(OPT_cl_ext_EQ)) {
+      if ((Ext == "+all") || (Ext == "+cl_intel_channels"))
+        Opts.OpenCLChannel = 1;
+      if ((Ext == "-all") || (Ext == "-cl_intel_channels"))
+        Opts.OpenCLChannel = 0;
+    }
+  }
 #endif  // INTEL_CUSTOMIZATION
 
   // -cl-strict-aliasing needs to emit diagnostic in the case where CL > 1.0.

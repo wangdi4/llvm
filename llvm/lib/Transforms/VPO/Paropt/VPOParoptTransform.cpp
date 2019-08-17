@@ -1231,11 +1231,13 @@ bool VPOParoptTransform::paroptTransforms() {
                }
 #endif  // INTEL_CUSTOMIZATION
 
-            Changed |= genLoopSchedulingCode(W, IsLastVal);
+            Instruction *InsertLastIterCheckBefore = nullptr;
+            Changed |=
+                genLoopSchedulingCode(W, IsLastVal, InsertLastIterCheckBefore);
             // Privatization is enabled for both Prepare and Transform passes
             Changed |= genPrivatizationCode(W);
-            Changed |= genBarrierForFpLpAndLinears(W);
-            Changed |= genLastIterationCheck(W, IsLastVal, IfLastIterBB);
+            Changed |= genLastIterationCheck(W, IsLastVal, IfLastIterBB,
+                                             InsertLastIterCheckBefore);
             Changed |= genLinearCode(W, IfLastIterBB);
             Changed |= genLastPrivatizationCode(W, IfLastIterBB);
             Changed |= genFirstPrivatizationCode(W);
@@ -1555,10 +1557,12 @@ bool VPOParoptTransform::paroptTransforms() {
 
             AllocaInst *IsLastVal = nullptr;
             BasicBlock *IfLastIterBB = nullptr;
-            Changed |= genLoopSchedulingCode(W, IsLastVal);
+            Instruction *InsertLastIterCheckBefore = nullptr;
+            Changed |=
+                genLoopSchedulingCode(W, IsLastVal, InsertLastIterCheckBefore);
             Changed |= genPrivatizationCode(W);
-            Changed |= genBarrierForFpLpAndLinears(W);
-            Changed |= genLastIterationCheck(W, IsLastVal, IfLastIterBB);
+            Changed |= genLastIterationCheck(W, IsLastVal, IfLastIterBB,
+                                             InsertLastIterCheckBefore);
             Changed |= genLinearCode(W, IfLastIterBB);
             Changed |= genLastPrivatizationCode(W, IfLastIterBB);
             Changed |= genFirstPrivatizationCode(W);
@@ -3076,6 +3080,8 @@ void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
 //  |  %2 = load i16, i16* @y           |                            ; (3)
 //  |  store i16 %2, i16* %linear.start |                            ; (4)
 //  +----------------+------------------+
+//                    |
+//           __kmpc_barrier(...)    ; inserted by genBarrierForFpLpAndLinears()
 //                   |
 //         __kmpc_static_init(...)
 //                   |
@@ -3092,8 +3098,6 @@ void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
 //  +-----------------+-----------------+
 //                    |
 //         __kmpc_static_fini(...)
-//                    |
-//           __kmpc_barrier(...)    ; inserted by genBarrierForFpLpAndLinears()
 //                    |
 //               if(%is_last)       ; inserted by genLastIterationCheck()
 //                    |   \
@@ -4690,8 +4694,9 @@ void VPOParoptTransform::replaceUseWithinRegion(WRegionNode *W, Value *OldV,
   }
 }
 
-bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
-                                               AllocaInst *&IsLastVal) {
+bool VPOParoptTransform::genLoopSchedulingCode(
+    WRegionNode *W, AllocaInst *&IsLastVal,
+    Instruction *&InsertLastIterCheckBeforeOut) {
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genLoopSchedulingCode\n");
 
   assert(W->getIsOmpLoop() && "genLoopSchedulingCode: not a loop-type WRN");
@@ -4985,6 +4990,9 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
                                             IsUnsigned, PHTerm);
   }
 
+  // Add implicit barrier for FP+LP/Linear variables before the init call.
+  genBarrierForFpLpAndLinears(W, KmpcInitCI);
+
   // Insert doacross_init call for ordered(n)
   if (IsDoacrossLoop)
     VPOParoptUtils::genKmpcDoacrossInit(W, IdentTy, LoadTid, KmpcInitCI,
@@ -5149,7 +5157,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     //        |  i = phi(lb,i')     |          |
     //        |    /  |  ...        |          |
     //        |   /   |  ...        |          |
-    //        |  |    |             |          |
+    //        |  |    |             |  <Lastpivate copyout>
     //        |   \   |             |          |
     //        |    i' = i + 1 ------+          |
     //        |     i' < ub                    |
@@ -5197,6 +5205,10 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
 
     TermInst = LoopRegionExitBB->getTerminator();
     TermInst->setSuccessor(0, DispatchHeaderBB);
+
+    // To support non-monotonic scheduling, lastprivate copyout should happen
+    // before the jump back to the dispatch_next call.
+    InsertLastIterCheckBeforeOut = TermInst;
 
     // Update Dispatch Header BB Branch instruction
     TermInst = DispatchHeaderBB->getTerminator();
@@ -6070,7 +6082,12 @@ bool VPOParoptTransform::genCriticalCode(WRNCriticalNode *CriticalNode) {
 //
 //  The barrier (2) is needed to prevent a race between (1) and (3), which
 //  read/write to/from @x.
-bool VPOParoptTransform::genBarrierForFpLpAndLinears(WRegionNode *W) {
+//
+//  For supporting non-monotonic scheduling of loops, the barrier needs to
+//  be inserted before the init call shown , which is done by passing in
+//  the insert point as InsertBefore.
+bool VPOParoptTransform::genBarrierForFpLpAndLinears(
+    WRegionNode *W, Instruction *InsertBefore) {
 
   // A barrier is needed for capturing the initial value of linear
   // variables.
@@ -6096,7 +6113,7 @@ bool VPOParoptTransform::genBarrierForFpLpAndLinears(WRegionNode *W) {
       << __FUNCTION__
       << ": Emitting implicit barrier for FP-LP/Linear clause operands.\n");
 
-  genBarrier(W, false); // Implicit Barrier
+  genBarrier(W, false /*IsExplicit*/, false /*IsTargetSPIRV*/, InsertBefore);
 
   W->resetBBSet(); // CFG changed; clear BBSet
   return true;
@@ -6126,8 +6143,9 @@ bool VPOParoptTransform::genBarrierForFpLpAndLinears(WRegionNode *W) {
 // exit.BB:                 |   exit.BB:
 // llvm.region.exit(...)    |   llvm.region.exit(...)
 //                          |
-bool VPOParoptTransform::genLastIterationCheck(WRegionNode *W, Value *IsLastVal,
-                                               BasicBlock *&IfLastIterOut) {
+bool VPOParoptTransform::genLastIterationCheck(
+    WRegionNode *W, Value *IsLastVal, BasicBlock *&IfLastIterOut,
+    Instruction *InsertBefore) {
 
   // No need to emit the branch if W doesn't have any linear or lastprivate var.
   if ((!W->canHaveLastprivate() || (W->getLpriv()).empty()) &&
@@ -6136,25 +6154,27 @@ bool VPOParoptTransform::genLastIterationCheck(WRegionNode *W, Value *IsLastVal,
 
   assert(IsLastVal && "genLastIterationCheck: IsLastVal is null.");
 
-  // First, create an empty predecessor BBlock for ExitBB of the WRegion.  (3)
-  BasicBlock *ExitBBPredecessor = nullptr;
-  createEmptyPrivFiniBB(W, ExitBBPredecessor);
-  assert(ExitBBPredecessor && "genLoopLastIterationCheck: Couldn't create "
-                              "empty BBlock before the exit BB.");
+  if (!InsertBefore) {
+    BasicBlock *ExitBBPredecessor = nullptr;
+    // First, create an empty predecessor BBlock for ExitBB of the WRegion.  (3)
+    createEmptyPrivFiniBB(W, ExitBBPredecessor);
+    assert(ExitBBPredecessor && "genLoopLastIterationCheck: Couldn't create "
+                                "empty BBlock before the exit BB.");
+    InsertBefore = ExitBBPredecessor->getTerminator();
+  }
 
-  // Next, we insert the branching code in the newly created BBlock.
-  Instruction *BranchInsertPt = ExitBBPredecessor->getTerminator();
-  IRBuilder<> Builder(BranchInsertPt);
+  // Next, we insert the branching code before InsertBefore.
+  IRBuilder<> Builder(InsertBefore);
 
   LoadInst *LastLoad = Builder.CreateLoad(IsLastVal);                   // (1)
   ConstantInt *ValueZero =
       ConstantInt::getSigned(Type::getInt32Ty(F->getContext()), 0);
   Value *LastCompare = Builder.CreateICmpNE(LastLoad, ValueZero);       // (2)
 
-  Instruction *Term = SplitBlockAndInsertIfThen(LastCompare, BranchInsertPt,
-                                                   false, nullptr, DT, LI);
+  Instruction *Term = SplitBlockAndInsertIfThen(LastCompare, InsertBefore,
+                                                false, nullptr, DT, LI);
   Term->getParent()->setName("last.then");
-  ExitBBPredecessor->getTerminator()->getSuccessor(1)->setName("last.done");
+  InsertBefore->getParent()->setName("last.done");
 
   IfLastIterOut = Term->getParent();
 
@@ -6166,25 +6186,32 @@ bool VPOParoptTransform::genLastIterationCheck(WRegionNode *W, Value *IsLastVal,
   return true;
 }
 
-// Insert a call to __kmpc_barrier() at the end of the construct
+// Insert a call to __kmpc_barrier() at the end of the construct (or before
+// InsertBefore).
 bool VPOParoptTransform::genBarrier(WRegionNode *W, bool IsExplicit,
-                                    bool IsTargetSPIRV) {
+                                    bool IsTargetSPIRV,
+                                    Instruction *InsertBefore) {
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genBarrier [explicit="
                     << IsExplicit << "]\n");
 
-  // Create a new BB split from W's ExitBB to be used as InsertPt.
-  // Reuse the util that does this for Reduction and Lastprivate fini code.
-  BasicBlock *NewBB = nullptr;
-  createEmptyPrivFiniBB(W, NewBB);
-  Instruction *InsertPt = NewBB->getTerminator();
+  bool InsertPtProvided = (InsertBefore != nullptr);
 
-  VPOParoptUtils::genKmpcBarrier(W, TidPtrHolder, InsertPt, IdentTy, IsExplicit,
-                                 IsTargetSPIRV);
+  if (!InsertPtProvided) {
+    // Create a new BB split from W's ExitBB to be used as InsertPt.
+    // Reuse the util that does this for Reduction and Lastprivate fini code.
+    BasicBlock *NewBB = nullptr;
+    createEmptyPrivFiniBB(W, NewBB);
+    InsertBefore = NewBB->getTerminator();
+  }
+
+  VPOParoptUtils::genKmpcBarrier(W, TidPtrHolder, InsertBefore, IdentTy,
+                                 IsExplicit, IsTargetSPIRV);
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genBarrier\n");
 
-  W->resetBBSet(); // CFG changed; clear BBSet
+  if (!InsertPtProvided)
+    W->resetBBSet(); // CFG changed because of NewBB; clear BBSet
   return true;
 }
 

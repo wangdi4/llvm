@@ -223,8 +223,14 @@ endfunction()
 macro(intel_add_sdl_flag flag name)
   cmake_parse_arguments(ARG "FUTURE" "" "" ${ARGN})
   if(ARG_FUTURE)
-    check_c_compiler_flag("-Werror ${flag}" "C_SUPPORTS_${name}")
-    check_cxx_compiler_flag("-Werror ${flag}" "CXX_SUPPORTS_${name}")
+    set(CHECK_STRING "${flag}")
+    if (MSVC)
+      set(CHECK_STRING "/WX ${CHECK_STRING}")
+    else()
+      set(CHECK_STRING "-Werror ${CHECK_STRING}")
+    endif()
+    check_c_compiler_flag("${CHECK_STRING}" "C_SUPPORTS_${name}")
+    check_cxx_compiler_flag("${CHECK_STRING}" "CXX_SUPPORTS_${name}")
     if(C_SUPPORTS_${name} AND CXX_SUPPORTS_${name})
       # Remove FUTURE option from intel_add_sdl_flag() call
       # to enable this flag. Make sure you do comprehensive
@@ -236,7 +242,24 @@ macro(intel_add_sdl_flag flag name)
         "INTEL: ignoring unsupported SDL option ${flag}")
     endif()
   else()
-    add_flag_or_print_warning("${flag}" ${name})
+    set(CHECK_STRING "${flag}")
+    if (MSVC)
+      set(CHECK_STRING "/WX ${CHECK_STRING}")
+    else()
+      set(CHECK_STRING "-Werror ${CHECK_STRING}")
+    endif()
+    # Copied from add_flag_if_supported(), because it does not work
+    # with MSVC CL (it complains about -Werror).
+    check_c_compiler_flag("${CHECK_STRING}" "C_SUPPORTS_${name}")
+    check_cxx_compiler_flag("${CHECK_STRING}" "CXX_SUPPORTS_${name}")
+    if (C_SUPPORTS_${name} AND CXX_SUPPORTS_${name})
+      message(STATUS "Building with ${flag}")
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${flag}")
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${flag}")
+      set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} ${flag}")
+    else()
+      message(WARNING "${flag} is not supported.")
+    endif()
   endif()
 endmacro()
 
@@ -1196,7 +1219,72 @@ if(INTEL_CUSTOMIZATION)
       # to build Position Independent Executables.
       intel_add_sdl_linker_flag("-pie" PIE CMAKE_EXE_LINKER_FLAGS)
     elseif(MSVC)
-      message(FATAL_ERROR "### INTEL: SDL build is currently unsupported. ###")
+      if (LLVM_ENABLE_WERROR)
+        # Force warnings as errors for link:
+        intel_add_sdl_linker_flag("/WX" LINKERWX CMAKE_EXE_LINKER_FLAGS)
+      endif()
+
+      # Dynamic Base (ASLR) (strongly recommended):
+      intel_add_sdl_linker_flag(
+        "/DYNAMICBASE" DYNAMICBASE CMAKE_EXE_LINKER_FLAGS)
+
+      # High Entropy VA (strongly recommended):
+      # This is not strictly required, since MSVC seems to enable
+      # it by default. Adding it here will result in an appropriate
+      # message in the build log, which is convenient:
+      intel_add_sdl_linker_flag(
+        "/HIGHENTROPYVA" HIGHENTROPYVA CMAKE_EXE_LINKER_FLAGS)
+      intel_add_sdl_linker_flag(
+        "/LARGEADDRESSAWARE" LARGEADDRESSAWARE CMAKE_EXE_LINKER_FLAGS)
+
+      # Force Integrity (recommended):
+      # Disabled now, because xmain parts (e.g. libraries) may be used
+      # with not signed user parts. Moreover, executables built with this
+      # option will not run from U4Win.
+      intel_add_sdl_linker_flag(
+        "/INTEGRITYCHECK" INTEGRITYCHECK CMAKE_EXE_LINKER_FLAGS FUTURE)
+
+      # Namespace Isolation (strongly recommended):
+      intel_add_sdl_linker_flag(
+        "/ALLOWISOLATION" ALLOWISOLATION CMAKE_EXE_LINKER_FLAGS)
+
+      # DEP (NX) (strongly recommended):
+      intel_add_sdl_linker_flag("/NXCOMPAT" NXCOMPAT CMAKE_EXE_LINKER_FLAGS)
+
+      # Control Flow Guard (recommended):
+      # Microsoft claims small performance impact, but this has to be
+      # measured on a CFG-aware OS.
+      if (CLANG_CL)
+        intel_add_sdl_flag("/Qcf-protection:full" QCFPROTECTIONFULL FUTURE)
+      else()
+        # CL option is lower-case.
+        intel_add_sdl_flag("/guard:cf" GUARDCF FUTURE)
+      endif()
+      intel_add_sdl_linker_flag(
+        "/GUARD:CF" LINKGUARDCF CMAKE_EXE_LINKER_FLAGS FUTURE)
+
+      # Safe SEH (recommended, 32-bit only):
+      if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+        intel_add_sdl_linker_flag("/SAFESEH" SAFESEH CMAKE_EXE_LINKER_FLAGS)
+      endif()
+
+      # Stack Canaries (strongly recommended):
+      intel_add_sdl_flag("/GS" GS)
+
+      # Spectre (recommended):
+      # Disabled due to potential performance impact.
+      if (CLANG_CL)
+        intel_add_sdl_flag(
+          "/Qconditional-branch:pattern-report" QCONDITIONALBRANCHPATTERNREPORT
+          FUTURE)
+        intel_add_sdl_flag(
+          "/Qconditional-branch:pattern-fix" QCONDITIONALBRANCHPATTERNFIX
+          FUTURE)
+        intel_add_sdl_flag(
+          "/Qconditional-branch:all-fix" QCONDITIONALBRANCHALLFIX FUTURE)
+      else()
+        intel_add_sdl_flag("/Qspectre" QSPECTRE FUTURE)
+      endif()
     else()
       message(FATAL_ERROR "### INTEL: SDL build is currently unsupported. ###")
     endif()

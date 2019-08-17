@@ -5537,9 +5537,8 @@ unsigned IntelModRefImpl::findFormatCheckReadOnlyStart(const CallBase *Call,
     const Value *Object =
         GetUnderlyingObject(Call->getArgOperand(StringPos), *DL);
     if (auto *GV = dyn_cast<GlobalVariable>(Object)) {
-      // Global variables are always pointer types, check if this is a
-      // constant char array
-      llvm::Type *GVElemType = GV->getType()->getPointerElementType();
+      // Check if the global variable is a constant char array.
+      llvm::Type *GVElemType = GV->getValueType();
       if (GV->isConstant() && GVElemType->isArrayTy() &&
           GVElemType->getArrayElementType()->isIntegerTy(8)) {
         auto Array = dyn_cast<ConstantDataArray>(GV->getInitializer());

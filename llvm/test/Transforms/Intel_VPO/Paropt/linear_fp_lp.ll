@@ -72,6 +72,7 @@ entry:
 ; CHECK: [[STEP_VAL_INREGION:%[a-zA-Z._0-9]+]] = load i32, i32* [[STEP_VAL_CAPTURED]]
 ; CHECK: [[LOAD1:%[a-zA-Z._0-9]+]] = load i16, i16* @y
 ; CHECK: store i16 [[LOAD1]], i16* [[LINEAR_INIT:%[a-zA-Z._0-9]+]]
+; CHECK: call void @__kmpc_barrier{{.*}}
 ; CHECK: call void @__kmpc_for_static_init_4u({{.*}}
 
 ; Initialization of linear var per iteration
@@ -84,12 +85,11 @@ entry:
 
 ; Make sure that only one barrier is emitted even though the test has
 ; fp+lp as well as linear vars.
-; CHECK: call void @__kmpc_barrier{{.*}}
 ; CHECK-NOT: call void @__kmpc_barrier{{.*}}
 
 ; Final copyout for linear var
-; CHECK: [[LOAD3:%[a-zA-Z._0-9]+]] = load i16, i16* [[LINEAR_LOCAL]]
-; CHECK: store i16 [[LOAD3]], i16* @y
+; CHECK-DAG: store i16 [[LOAD3:%[a-zA-Z._0-9]+]], i16* @y
+; CHECK-DAG: [[LOAD3]] = load i16, i16* [[LINEAR_LOCAL]]
 
   %2 = load i32, i32* %.omp.lb, align 4
   store i32 %2, i32* %.omp.iv, align 4

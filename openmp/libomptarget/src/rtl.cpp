@@ -40,10 +40,22 @@ static const char *RTLNames[] = {
     /* MIC target     */ "libomptarget.rtl.x86_64_mic.so",
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
+#if _WIN32
+    /* OpenCL target  */ "omptarget.rtl.opencl.dll",
+#else  // !_WIN32
     /* OpenCL target  */ "libomptarget.rtl.opencl.so",
+#endif // !_WIN32
 #endif // INTEL_COLLAB
     /* PowerPC target */ "libomptarget.rtl.ppc64.so",
+#if INTEL_COLLAB
+#if _WIN32
+    /* x86_64 target  */ "omptarget.rtl.x86_64.dll",
+#else  // !_WIN32
     /* x86_64 target  */ "libomptarget.rtl.x86_64.so",
+#endif // !_WIN32
+#else  // INTEL_COLLAB
+    /* x86_64 target  */ "libomptarget.rtl.x86_64.so",
+#endif  // INTEL_COLLAB
     /* CUDA target    */ "libomptarget.rtl.cuda.so",
     /* AArch64 target */ "libomptarget.rtl.aarch64.so"};
 
@@ -141,6 +153,12 @@ void RTLsTy::LoadRTLs() {
     if ((*((void **)&R.data_alloc_user) =
               dlsym(dynlib_handle, "__tgt_rtl_data_alloc_user")))
       DP("Optional interface: __tgt_rtl_data_alloc_user\n");
+    if ((*((void **)&R.create_buffer) =
+              dlsym(dynlib_handle, "__tgt_rtl_create_buffer")))
+      DP("Optional interface: __tgt_rtl_create_buffer\n");
+    if ((*((void **)&R.release_buffer) =
+              dlsym(dynlib_handle, "__tgt_rtl_release_buffer")))
+      DP("Optional interface: __tgt_rtl_release_buffer\n");
     if ((*((void **)&R.run_team_nd_region) =
               dlsym(dynlib_handle, "__tgt_rtl_run_target_team_nd_region")))
       DP("Optional interface: __tgt_rtl_run_target_team_nd_region\n");
@@ -217,7 +235,20 @@ static void RegisterGlobalCtorsDtorsForImage(__tgt_bin_desc *desc,
     Device.PendingGlobalsMtx.lock();
     Device.HasPendingGlobals = true;
     for (__tgt_offload_entry *entry = img->EntriesBegin;
+#if INTEL_COLLAB
+         // Due to paddings potentially inserted by a linker
+         // (e.g. due to MSVC incremental linking),
+         // the EntriesEnd may be unaligned to the multiple
+         // of the entry size. Potentially we may access memory
+         // beyond the entries section - we should probably
+         // setup the alignment for the entries begin/end
+         // symbols and the entries themselves.
+         // Another potential issue is that we rely on the gaps
+         // inserted by the linker being zeroes.
+         entry < img->EntriesEnd; ++entry) {
+#else  // INTEL_COLLAB
         entry != img->EntriesEnd; ++entry) {
+#endif  // INTEL_COLLAB
       if (entry->flags & OMP_DECLARE_TARGET_CTOR) {
         DP("Adding ctor " DPxMOD " to the pending list.\n",
             DPxPTR(entry->addr));

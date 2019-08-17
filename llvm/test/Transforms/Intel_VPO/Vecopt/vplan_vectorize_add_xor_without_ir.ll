@@ -1,0 +1,125 @@
+; Test to check that VPlan's LLVM-IR based vector code generator can explicitly handle (f)add/xor without underlying IR Value.
+; This test is based on Transforms/Intel_VPO/Vecopt/vplan_loopcfu_liveout_nonlcssa.ll
+
+; Explictly disable VPValue-CG, this test is specifically for IR-based CG.
+; RUN: opt -S < %s -VPlanDriver -vplan-force-vf=2 -enable-vp-value-codegen=false | FileCheck %s
+
+; Check generated vector IR for inner loop. The exit block should contain the wide add and xor for the scalar
+; add and xor whose operands were invalidated.
+; CHECK:       VPlannedBB:
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ [[TMP20:%.*]], [[VPLANNEDBB:%.*]] ], [ undef, [[VECTOR_BODY:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI1:%.*]] = phi <2 x i64> [ [[TMP19:%.*]], [[VPLANNEDBB]] ], [ undef, [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[VEC_PHI2:%.*]] = phi <2 x i1> [ [[TMP18:%.*]], [[VPLANNEDBB]] ], [ undef, [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[VEC_PHI3:%.*]] = phi <2 x i64> [ [[TMP9:%.*]], [[VPLANNEDBB]] ], [ zeroinitializer, [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[VEC_PHI4:%.*]] = phi <2 x i32> [ [[PREDPHI:%.*]], [[VPLANNEDBB]] ], [ zeroinitializer, [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[VEC_PHI5:%.*]] = phi <2 x i1> [ [[TMP3:%.*]], [[VECTOR_BODY]] ], [ [[TMP17:%.*]], [[VPLANNEDBB]] ]
+; CHECK-NEXT:    [[TMP6:%.*]] = and <2 x i1> [[TMP5:%.*]], [[VEC_PHI5]]
+; CHECK-NEXT:    [[TMP7:%.*]] = mul <2 x i64> [[VEC_PHI3]], [[VEC_IND:%.*]]
+; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds i64, <2 x i64*> [[BROADCAST_SPLAT7:%.*]], <2 x i64> [[TMP7]]
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*> [[MM_VECTORGEP]], i32 8, <2 x i1> [[TMP6]], <2 x i64> undef)
+; CHECK-NEXT:    [[TMP8:%.*]] = icmp eq <2 x i64> [[WIDE_MASKED_GATHER]], <i64 42, i64 42>
+; CHECK-NEXT:    [[TMP9]] = add nuw nsw <2 x i64> [[VEC_PHI3]], <i64 1, i64 1>
+; CHECK-NEXT:    [[TMP10:%.*]] = xor <2 x i1> [[TMP8]], <i1 true, i1 true>
+; CHECK-NEXT:    [[TMP11:%.*]] = and <2 x i1> [[TMP6]], [[TMP10]]
+; CHECK-NEXT:    [[TMP12:%.*]] = icmp eq <2 x i64> [[TMP9]], [[VEC_IND]]
+; CHECK-NEXT:    [[TMP13:%.*]] = and <2 x i1> [[TMP6]], [[TMP8]]
+; CHECK-NEXT:    [[PREDPHI]] = select <2 x i1> [[TMP13]], <2 x i32> <i32 1, i32 1>, <2 x i32> [[VEC_PHI4]]
+; CHECK-NEXT:    [[PREDPHI8:%.*]] = select <2 x i1> [[TMP13]], <2 x i1> [[TMP8]], <2 x i1> zeroinitializer
+; CHECK-NEXT:    [[PREDPHI9:%.*]] = select <2 x i1> [[TMP13]], <2 x i64> [[TMP9]], <2 x i64> <i64 100, i64 100>
+; CHECK-NEXT:    [[PREDPHI10:%.*]] = select <2 x i1> [[TMP13]], <2 x i64> [[VEC_PHI3]], <2 x i64> <i64 100, i64 100>
+; CHECK-NEXT:    [[PREDPHI11:%.*]] = select <2 x i1> [[TMP13]], <2 x i1> <i1 true, i1 true>, <2 x i1> [[TMP12]]
+; CHECK-NEXT:    [[TMP14:%.*]] = xor <2 x i1> [[VEC_PHI5]], <i1 true, i1 true>
+; CHECK-NEXT:    [[TMP15:%.*]] = and <2 x i1> [[TMP5]], [[TMP14]]
+; CHECK-NEXT:    [[TMP16:%.*]] = xor <2 x i1> [[PREDPHI11]], <i1 true, i1 true>
+; CHECK-NEXT:    [[TMP17]] = and <2 x i1> [[TMP16]], [[VEC_PHI5]]
+; CHECK-NEXT:    [[TMP18]] = select <2 x i1> [[VEC_PHI5]], <2 x i1> [[PREDPHI8]], <2 x i1> [[VEC_PHI2]]
+; CHECK-NEXT:    [[TMP19]] = select <2 x i1> [[VEC_PHI5]], <2 x i64> [[PREDPHI9]], <2 x i64> [[VEC_PHI1]]
+; CHECK-NEXT:    [[TMP20]] = select <2 x i1> [[VEC_PHI5]], <2 x i64> [[PREDPHI10]], <2 x i64> [[VEC_PHI]]
+; CHECK-NEXT:    [[TMP21:%.*]] = and <2 x i1> [[TMP17]], [[TMP5]]
+; CHECK-NEXT:    [[TMP22:%.*]] = bitcast <2 x i1> [[TMP21]] to i2
+; CHECK-NEXT:    [[TMP23:%.*]] = icmp eq i2 [[TMP22]], 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT12:%.*]] = insertelement <2 x i1> undef, i1 [[TMP23]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT13:%.*]] = shufflevector <2 x i1> [[BROADCAST_SPLATINSERT12]], <2 x i1> undef, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP24:%.*]] = extractelement <2 x i1> [[BROADCAST_SPLAT13]], i32 0
+; CHECK-NEXT:    br i1 [[TMP24]], label [[VPLANNEDBB14:%.*]], label [[VPLANNEDBB]]
+; CHECK:       VPlannedBB14:
+; CHECK-NEXT:    [[TMP25:%.*]] = add <2 x i64> [[TMP20]], <i64 1, i64 1>
+; CHECK-NEXT:    [[TMP26:%.*]] = add <2 x i64> [[TMP19]], <i64 1, i64 1>
+; CHECK-NEXT:    [[TMP27:%.*]] = xor <2 x i1> [[TMP18]], <i1 true, i1 true>
+; CHECK-NEXT:    [[TMP28:%.*]] = add <2 x i64> [[TMP25]], [[TMP26]]
+; CHECK-NEXT:    [[TMP29:%.*]] = and <2 x i1> [[TMP27]], <i1 true, i1 true>
+
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)
+
+define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unnamed_addr #0 {
+entry:
+  %cmp18 = icmp sgt i64 %N, 0
+  br i1 %cmp18, label %for.cond1.preheader.preheader, label %for.end7
+
+for.cond1.preheader.preheader:
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
+  br label %for.cond1.preheader
+
+for.cond1.preheader:
+  %outer.iv = phi i64 [ %outer.iv.next, %for.inc5 ], [ 0, %for.cond1.preheader.preheader ]
+  %skip_loop = icmp eq i64 %outer.iv, %mask_out_inner_loop
+  br i1 %skip_loop, label %for.inc5, label %top_test
+
+top_test:
+  %cmp216 = icmp eq i64 %outer.iv, 0
+  br i1 %cmp216, label %for.inc5, label %for.body3.preheader
+
+for.body3.preheader:
+  br label %for.body3
+
+for.body3:
+  %inner.iv = phi i64 [ %inner.iv.next, %no_early_exit ], [ 0, %for.body3.preheader ]
+  ; CG for linear loads in uniform inner loops is ugly, make index non-linear.
+  %iv.x2 = mul i64 %inner.iv, %outer.iv
+  %arrayidx = getelementptr inbounds i64, i64* %a, i64 %iv.x2
+  %ld = load i64, i64* %arrayidx
+  %some_cmp = icmp eq i64 %ld, 42
+  %inner.iv.next = add nuw nsw i64 %inner.iv, 1
+  br i1 %some_cmp, label %for.inc5.loopexit, label %no_early_exit
+
+no_early_exit:
+  %exitcond = icmp eq i64 %inner.iv.next, %outer.iv
+  br i1 %exitcond, label %for.inc5.loopexit, label %for.body3
+
+for.inc5.loopexit:
+  %phi_use = phi i64 [ %inner.iv, %for.body3 ], [ 100, %no_early_exit ]
+  %phi_update_use = phi i64 [ %inner.iv.next, %for.body3 ], [ 100, %no_early_exit ]
+  %no_phi_inst_use = phi i1 [%some_cmp, %for.body3 ], [ 100, %no_early_exit ]
+  %use_a = add i64 %phi_use, 1
+  %use_b = add i64 %phi_update_use, 1
+  %use_c = xor i1 %no_phi_inst_use, -1
+  %problem_use = add i64 %use_a, %use_b
+  %problem_use2 = and i1 %use_c, 1
+  br label %for.inc5
+
+for.inc5:
+  %outer.iv.next = add nuw nsw i64 %outer.iv, 1
+  %outer_exit_cond = icmp eq i64 %outer.iv.next, %N
+  br i1 %outer_exit_cond, label %for.end7.loopexit, label %for.cond1.preheader
+
+for.end7.loopexit:
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"()]
+  br label %for.end7
+
+for.end7:
+  ret void
+}
+
+attributes #0 = { norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+
+!llvm.ident = !{!0}
+
+!0 = !{!"clang version 4.0.0 (branches/vpo 20869)"}
+!1 = !{!2, !2, i64 0}
+!2 = !{!"long", !3, i64 0}
+!3 = !{!"omnipotent char", !4, i64 0}
+!4 = !{!"Simple C/C++ TBAA"}

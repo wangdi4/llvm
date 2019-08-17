@@ -1814,7 +1814,7 @@ void VPValue::replaceAllUsesWithImpl(VPValue *NewVal, VPLoop *Loop,
 
 bool VPValue::isUnderlyingIRValid() const {
   if (auto *VPI = dyn_cast<VPInstruction>(this))
-    return UnderlyingVal != nullptr || VPI->HIR.isValid();
+    return IsUnderlyingValueValid || VPI->HIR.isValid();
   else {
     // Non VPInstruction values can never be invalidated.
     return true;
@@ -1827,7 +1827,7 @@ void VPValue::invalidateUnderlyingIR() {
   // their underlying IR. Hence invalidation is strictly limited to
   // VPInstructions only.
   if (auto *VPI = dyn_cast<VPInstruction>(this)) {
-    UnderlyingVal = nullptr;
+    IsUnderlyingValueValid = false;
     // Temporary hook-up to ignore loop induction related instructions during CG
     // by not invalidating them.
     // TODO: Remove this code after VPInduction support is added to HIR CG.

@@ -16,6 +16,7 @@
 #include "IntelLoopVectorizationCodeGen.h"
 #include "IntelLoopVectorizationLegality.h"
 #include "IntelVPlan.h"
+#include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSAnalysis.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
@@ -39,6 +40,10 @@ static cl::opt<bool>
 cl::opt<bool> EnableVPValueCodegen("enable-vp-value-codegen", cl::init(false),
                                    cl::Hidden,
                                    cl::desc("Enable VPValue based codegen"));
+
+static cl::opt<bool> VPlanTeachLegalFromDA(
+    "vplan-teach-legal-from-da", cl::init(true), cl::Hidden,
+    cl::desc("Teach legal about uniforms recognized by DA"));
 
 /// A helper function that returns GEP instruction and knows to skip a
 /// 'bitcast'. The 'bitcast' may be skipped if the source and the destination
@@ -958,9 +963,8 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
   if (EnableVPValueCodegen)
     return getVectorValueUplifted(V);
 
-  Value *UV = V->getUnderlyingValue();
-  if (UV)
-    return getVectorValue(UV);
+  if (V->isUnderlyingIRValid())
+    return getVectorValue(V->getUnderlyingValue());
 
   Value *VecV = VPWidenMap[V];
   assert(VecV && "Value not in VPWidenMap");
@@ -1045,10 +1049,8 @@ Value *VPOCodeGen::getScalarValue(VPValue *V, unsigned Lane) {
   if (EnableVPValueCodegen)
     return getScalarValueUplifted(V, Lane);
 
-  Value *UV = V->getUnderlyingValue();
-
-  if (UV)
-    return getScalarValue(UV, Lane);
+  if (V->isUnderlyingIRValid())
+    return getScalarValue(V->getUnderlyingValue(), Lane);
   else {
     Value *VecV = getVectorValue(V);
     IRBuilder<>::InsertPointGuard Guard(Builder);
@@ -1405,7 +1407,10 @@ void VPOCodeGen::vectorizeLoadInstruction(Instruction *Inst,
 
   if (!Legal->isLoopPrivateAggregate(GEP ? getPointerOperand(GEP) : Ptr) &&
       (Legal->isLoopInvariant(Ptr) || Legal->isUniformForTheLoop(Ptr))) {
-    serializeInstruction(Inst);
+    if (MaskValue)
+      serializePredicatedUniformLoad(Inst);
+    else
+      serializeInstruction(Inst);
     return;
   }
 
@@ -1744,6 +1749,40 @@ void VPOCodeGen::vectorizeInsertElement(Instruction *Inst) {
   Value *SecondShuf = Builder.CreateShuffleVector(InsertTo, ExtendSubVec,
                                                   ShufMask2, "wide.insert");
   WidenMap[Inst] = SecondShuf;
+}
+
+void VPOCodeGen::serializePredicatedUniformLoad(Instruction *Inst) {
+  assert(MaskValue->getType()->isVectorTy() &&
+         MaskValue->getType()->getVectorNumElements() == VF &&
+         "Unexpected Mask Type");
+  // Emit not of all-zero check for mask
+  Type *MaskTy = MaskValue->getType();
+  Type *IntTy =
+      IntegerType::get(MaskTy->getContext(), MaskTy->getPrimitiveSizeInBits());
+  auto *MaskBitCast = Builder.CreateBitCast(MaskValue, IntTy);
+
+  // Check if the bitcast value is not zero. The generated compare will be true
+  // if atleast one of the i1 masks in <VF x i1> is true.
+  auto *CmpInst =
+      Builder.CreateICmpNE(MaskBitCast, Constant::getNullValue(IntTy));
+
+  // Now create a clone of the load, populating correct values for its operands.
+  Instruction *Cloned = Inst->clone();
+  if (!Inst->getType()->isVoidTy())
+    Cloned->setName(Inst->getName() + ".cloned");
+
+  // Replace the operands of the cloned instructions with their scalar
+  // equivalents in the new loop.
+  for (unsigned Op = 0, e = Inst->getNumOperands(); Op != e; ++Op) {
+    auto *NewOp = getScalarValue(Inst->getOperand(Op), 0 /*Lane*/);
+    Cloned->setOperand(Op, NewOp);
+  }
+
+  // Place the cloned scalar load in the new loop.
+  Builder.InsertWithDbgLoc(Cloned);
+  ScalarMap[Inst][0] = Cloned;
+
+  PredicatedInstructions.push_back(std::make_pair(Cloned, CmpInst));
 }
 
 void VPOCodeGen::serializeWithPredication(Instruction *Inst) {
@@ -2752,8 +2791,35 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     return;
   }
 
-  // Generate code by peeking at underlying IR.
-  if (auto *Inst = VPInst->getInstruction()) {
+  // Generate code by peeking at underlying IR, if valid.
+  if (VPInst->isUnderlyingIRValid()) {
+    auto *Inst = VPInst->getInstruction();
+    assert(Inst &&
+           "Underlying instruction cannot be null for valid VPInstruction.");
+
+    // Temporary workaround to detect and handle uniform loads in codegen by
+    // transferring knowledge from DA to VPOLegal about uniform loads.
+    // TODO: Is this too late to do a knowledge transfer. Other option is to
+    // write a full HCFG traversal in collectLoopUniforms.
+    if (VPlanTeachLegalFromDA) {
+      if (isa<LoadInst>(Inst) && !Plan->getVPlanDA()->isDivergent(*VPInst)) {
+        if (auto *PtrInst =
+                dyn_cast<Instruction>(getLoadStorePointerOperand(Inst))) {
+          Legal->UniformForAnyVF.insert(PtrInst);
+          Uniforms[VF].insert(Inst);
+        }
+      }
+      if (isa<GetElementPtrInst>(Inst) &&
+          !Plan->getVPlanDA()->isDivergent(*VPInst)) {
+        // A pointer identified by DA as uniform for outer-loop vectorization
+        // was marked as unit-strided by legality based on inner-loop
+        // vectorization. Fix legality by unsetting the stride.
+        if (Legal->isConsecutivePtr(Inst)) {
+          Legal->erasePtrStride(Inst);
+        }
+      }
+    }
+
     vectorizeInstruction(Inst);
 
     // Add the widened value to the VPValue widen map.
@@ -2919,7 +2985,30 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     Builder.CreateMaskedScatter(VecDataOp, VecPtr, Alignment, MaskValue);
     return;
   }
+  case Instruction::Add:
+  case Instruction::FAdd:
+  case Instruction::Xor: {
+    assert(VPInst->getUnderlyingValue() &&
+           "Can't handle a newly generated add/xor VPInstruction.");
 
+    // Widen binary operands.
+    Value *A = getVectorValue(VPInst->getOperand(0));
+    Value *B = getVectorValue(VPInst->getOperand(1));
+
+    // Create wide instruction.
+    auto BinOpCode = static_cast<Instruction::BinaryOps>(VPInst->getOpcode());
+    Value *V = Builder.CreateBinOp(BinOpCode, A, B);
+
+    // TODO: Can't set any IR flags since they are not stored in VPInstruction
+    // (example FMF, wrapping flags).
+
+    VPWidenMap[VPInst] = V;
+    // Inserting into the WidenMap is dirty and illegal. This is a temporary
+    // hack and should be retired when we transition completely to VPValue-based
+    // CG approach.
+    WidenMap[VPInst->getUnderlyingValue()] = V;
+    return;
+  }
   default:
     llvm_unreachable("Unexpected VPInstruction");
   }

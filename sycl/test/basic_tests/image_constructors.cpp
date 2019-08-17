@@ -1,3 +1,8 @@
+// INTEL_CUSTOMIZATION
+// This test fires assertion: CORC-5473.
+// TODO: remove the requirement once issue fixed.
+// REQUIRES: !asserts
+// end INTEL_CUSTOMIZATION
 // RUN: %clang -std=c++11 %s -o %t1.out -lstdc++ -lOpenCL -lsycl
 // RUN: env SYCL_DEVICE_TYPE=HOST %t1.out
 // RUN: %clang -std=c++11 -fsycl %s -o %t2.out -lstdc++ -lOpenCL -lsycl
