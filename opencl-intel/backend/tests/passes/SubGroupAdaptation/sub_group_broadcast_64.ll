@@ -56,7 +56,7 @@ entry:
 
 declare spir_func i32 @_Z22get_sub_group_local_idv() #1
 
-; CHECK: define spir_func i32 @_Z19sub_group_broadcastij(i32, i32)
+; CHECK: define spir_func i32 @_Z19sub_group_broadcastij(i32 %0, i32 %1)
 ; CHECK: entry
 ; CHECK: %lsz0 = call spir_func i64 @_Z14get_local_sizej(i32 0)
 ; CHECK: %lsz1 = call spir_func i64 @_Z14get_local_sizej(i32 1)

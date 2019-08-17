@@ -48,7 +48,7 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; CHECK: %[[PIPE3:.*]] = load {{.*}} getelementptr {{.*}} @ch.pipe, i64 0, i64 3
 ; CHECK: call void @sendData4({{.*}} %[[PIPE0]], {{.*}} %[[PIPE1]], {{.*}} %[[PIPE2]], {{.*}} %[[PIPE3]])
 ;
-; CHECK: define {{.*}} @sendData4(%opencl.pipe_rw_t {{.*}}*, %opencl.pipe_rw_t {{.*}}*, %opencl.pipe_rw_t {{.*}}*, %opencl.pipe_rw_t {{.*}}*)
+; CHECK: define {{.*}} @sendData4(%opencl.pipe_rw_t {{.*}}* %0, %opencl.pipe_rw_t {{.*}}* %1, %opencl.pipe_rw_t {{.*}}* %2, %opencl.pipe_rw_t {{.*}}* %3)
 ; CHECK: %[[SD4_PIPE_A_ADDR:.*]] = alloca %opencl.pipe_rw_t
 ; CHECK: %[[SD4_PIPE_B_ADDR:.*]] = alloca %opencl.pipe_rw_t
 ; CHECK: %[[SD4_PIPE_C_ADDR:.*]] = alloca %opencl.pipe_rw_t
@@ -65,7 +65,7 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; CHECK: %[[SD4_PIPE_D:.*]] = load {{.*}} %[[SD4_PIPE_D_ADDR]]
 ; CHECK: call void @sendData3({{.*}} %[[SD4_PIPE_B]], {{.*}} %[[SD4_PIPE_C]], {{.*}} %[[SD4_PIPE_D]])
 ;
-; CHECK: define {{.*}} @sendData3(%opencl.pipe_rw_t {{.*}}*, %opencl.pipe_rw_t {{.*}}*, %opencl.pipe_rw_t {{.*}}*)
+; CHECK: define {{.*}} @sendData3(%opencl.pipe_rw_t {{.*}}* %0, %opencl.pipe_rw_t {{.*}}* %1, %opencl.pipe_rw_t {{.*}}* %2)
 ; CHECK: %[[SD3_PIPE_A_ADDR:.*]] = alloca %opencl.pipe_rw_t
 ; CHECK: %[[SD3_PIPE_B_ADDR:.*]] = alloca %opencl.pipe_rw_t
 ; CHECK: %[[SD3_PIPE_C_ADDR:.*]] = alloca %opencl.pipe_rw_t
@@ -79,7 +79,7 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; CHECK: %[[SD3_PIPE_C:.*]] = load {{.*}} %[[SD3_PIPE_C_ADDR]]
 ; CHECK: call void @sendData2({{.*}} %[[SD3_PIPE_B]], {{.*}} %[[SD3_PIPE_C]])
 ;
-; CHECK: define {{.*}} @sendData2(%opencl.pipe_rw_t {{.*}}*, %opencl.pipe_rw_t {{.*}}*)
+; CHECK: define {{.*}} @sendData2(%opencl.pipe_rw_t {{.*}}* %0, %opencl.pipe_rw_t {{.*}}* %1)
 ; CHECK: %[[SD2_PIPE_A_ADDR:.*]] = alloca %opencl.pipe_rw_t
 ; CHECK: %[[SD2_PIPE_B_ADDR:.*]] = alloca %opencl.pipe_rw_t
 ; CHECK: store {{.*}} %0, {{.*}} %[[SD2_PIPE_A_ADDR]]
@@ -90,7 +90,7 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; CHECK: %[[SD2_PIPE_B:.*]] = load {{.*}} %[[SD2_PIPE_B_ADDR]]
 ; CHECK: call void @sendData1({{.*}} %[[SD2_PIPE_B]])
 ;
-; CHECK: define {{.*}} @sendData1(%opencl.pipe_rw_t {{.*}}*)
+; CHECK: define {{.*}} @sendData1(%opencl.pipe_rw_t {{.*}}* %0)
 ; CHECK: %[[SD1_PIPE_A_ADDR:.*]] = alloca %opencl.pipe_rw_t
 ; CHECK: store {{.*}} %0, {{.*}} %[[SD1_PIPE_A_ADDR]]
 ; CHECK: %[[SD1_PIPE:.*]] = load {{.*}} %[[SD1_PIPE_A_ADDR]]

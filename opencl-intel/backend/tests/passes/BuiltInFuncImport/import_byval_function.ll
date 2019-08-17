@@ -40,5 +40,5 @@ entry:
 
 declare <8 x i32> @_Z18convert_uchar8_satDv8_j(<8 x i32>)
 
-; CHECK: define linkonce_odr <8 x i32> @_Z18convert_uchar8_satDv8_j(<8 x i32>* nocapture readonly byval(<8 x i32>) align 32) {
+; CHECK: define linkonce_odr <8 x i32> @_Z18convert_uchar8_satDv8_j(<8 x i32>* nocapture readonly byval(<8 x i32>) align 32 %0) {
 ; CHECK-NOT: declare @_Z18convert_uchar8_satDv8_j
