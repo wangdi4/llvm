@@ -103,7 +103,7 @@ entry:
   ret void
 }
 
-; CHECK: void @__device_side_enqueue_block_invoke_kernel(i8 addrspace(4)*) #2 !block_literal_size [[KER0:![0-9]+]]
+; CHECK: void @__device_side_enqueue_block_invoke_kernel(i8 addrspace(4)* %0) #2 !block_literal_size [[KER0:![0-9]+]]
 
 ; Function Attrs: nounwind
 define internal spir_kernel void @__device_side_enqueue_block_invoke_kernel(i8 addrspace(4)*) #3 {
@@ -125,7 +125,7 @@ entry:
   ret void
 }
 
-; CHECK: void @__device_side_enqueue_block_invoke_2_kernel(i8 addrspace(4)*, i8 addrspace(3)*) #2 !block_literal_size [[KER1:![0-9]+]]
+; CHECK: void @__device_side_enqueue_block_invoke_2_kernel(i8 addrspace(4)* %0, i8 addrspace(3)* %1) #2 !block_literal_size [[KER1:![0-9]+]]
 
 ; Function Attrs: nounwind
 define internal spir_kernel void @__device_side_enqueue_block_invoke_2_kernel(i8 addrspace(4)*, i8 addrspace(3)*) #3 {
@@ -156,7 +156,7 @@ entry:
   ret void
 }
 
-; CHECK: void @__device_side_enqueue_block_invoke_3_kernel(i8 addrspace(4)*) #2 !block_literal_size [[KER1]]
+; CHECK: void @__device_side_enqueue_block_invoke_3_kernel(i8 addrspace(4)* %0) #2 !block_literal_size [[KER1]]
 
 ; Function Attrs: nounwind
 define internal spir_kernel void @__device_side_enqueue_block_invoke_3_kernel(i8 addrspace(4)*) #3 {
@@ -167,7 +167,7 @@ entry:
 
 declare i32 @__get_kernel_work_group_size_impl(i8 addrspace(4)*, i8 addrspace(4)*)
 
-; CHECK: void @__device_side_enqueue_block_invoke_4_kernel(i8 addrspace(4)*, i8 addrspace(3)*) #2 !block_literal_size [[KER1]]
+; CHECK: void @__device_side_enqueue_block_invoke_4_kernel(i8 addrspace(4)* %0, i8 addrspace(3)* %1) #2 !block_literal_size [[KER1]]
 
 ; Function Attrs: nounwind
 define internal spir_kernel void @__device_side_enqueue_block_invoke_4_kernel(i8 addrspace(4)*, i8 addrspace(3)*) #3 {
