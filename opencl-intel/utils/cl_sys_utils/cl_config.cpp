@@ -366,8 +366,8 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
 
     if (FPGA_EMU_DEVICE == GetDeviceMode())
     {
-        s_ver = OPENCL_VERSION_1_0;
-        return OPENCL_VERSION_1_0;
+        s_ver = OPENCL_VERSION_1_2;
+        return OPENCL_VERSION_1_2;
     }
 
     if (EYEQ_EMU_DEVICE == GetDeviceMode())
