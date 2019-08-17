@@ -28,6 +28,7 @@ class LoopInfo;
 class Function;
 class VectorVariant;
 class LLVMContext;
+class OVLSGroup;
 
 namespace vpo {
 
@@ -524,7 +525,7 @@ private:
 
   // Get alignment for load/store VPInstruction using underlying
   // llvm::Instruction.
-  unsigned getOriginalLoadStoreAlignment(VPInstruction *VPInst);
+  unsigned getOriginalLoadStoreAlignment(const VPInstruction *VPInst);
 
   // Widen the load of a linear value. We do a scalar load and generate a vector
   // value using the linear \p Step 
@@ -644,8 +645,16 @@ private:
   Value *createWidenedBasePtrConsecutiveLoadStore(Instruction *I, Value *Ptr,
                                                   bool Reverse);
 
+  /// Create a wide load for the \p Group (or get existing one).
+  Value *getOrCreateWideLoadForGroup(OVLSGroup *Group);
+
+  /// Vectorize \p VPLoad instruction that is part of a \p Group.
+  Value *vectorizeInterleavedLoad(VPInstruction *VPLoad, OVLSGroup *Group);
+
   DenseMap<AllocaInst *, Value *> ReductionEofLoopVal;
   DenseMap<AllocaInst *, Value *> ReductionVecInitVal;
+
+  SmallDenseMap<const OVLSGroup *, LoadInst *> VLSGroupLoadMap;
 };
 
 } // end vpo namespace
