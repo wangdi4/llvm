@@ -57,6 +57,9 @@
 // replaced by KMP_IDENT_BARRIER_EXPL below
 // #define KMP_IDENT_EXPLICIT_BARRIER 0x20
 
+// Pass OpenMP version to runtime to enable non-monotonic scheduling by default
+#define KMP_IDENT_OPENMP_SPEC_VERSION_5_0 0x32000000 //(major*10 + minor) << 24
+
 //
 // Implicit barriers are classified further
 //
