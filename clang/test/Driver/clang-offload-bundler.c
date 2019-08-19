@@ -6,18 +6,9 @@
 //
 // Generate all the types of files we can bundle.
 //
-<<<<<<< HEAD
 // generate the emulated fat object:
-// RUN: %clangxx -O0 -target powerpc64le-ibm-linux-gnu -DEMULATE_FAT_OBJ %s -c -o %t.2.o
+// RUN: %clangxx -O0 -target %itanium_abi_triple -DEMULATE_FAT_OBJ %s -c -o %t.2.o
 //
-// RUN: %clang -O0 -target powerpc64le-ibm-linux-gnu %s -E -o %t.i
-// RUN: %clangxx -O0 -target powerpc64le-ibm-linux-gnu -x c++ %s -E -o %t.ii
-// RUN: %clang -O0 -target powerpc64le-ibm-linux-gnu %s -S -emit-llvm -o %t.ll
-// RUN: %clang -O0 -target powerpc64le-ibm-linux-gnu %s -c -emit-llvm -o %t.bc
-// RUN: %clang -O0 -target powerpc64le-ibm-linux-gnu %s -S -o %t.s
-// RUN: %clang -O0 -target powerpc64le-ibm-linux-gnu %s -c -o %t.o
-// RUN: %clang -O0 -target powerpc64le-ibm-linux-gnu %s -emit-ast -o %t.ast
-=======
 // RUN: %clang -O0 -target %itanium_abi_triple %s -E -o %t.i
 // RUN: %clangxx -O0 -target %itanium_abi_triple -x c++ %s -E -o %t.ii
 // RUN: %clang -O0 -target %itanium_abi_triple %s -S -emit-llvm -o %t.ll
@@ -25,7 +16,6 @@
 // RUN: %clang -O0 -target %itanium_abi_triple %s -S -o %t.s
 // RUN: %clang -O0 -target %itanium_abi_triple %s -c -o %t.o
 // RUN: %clang -O0 -target %itanium_abi_triple %s -emit-ast -o %t.ast
->>>>>>> b2df99cd95013592900d330e90fa91bd99e372e3
 
 //
 // Generate an empty file to help with the checks of empty files.
@@ -241,37 +231,19 @@
 // bundling as it cannot be tested in all host platforms that will run these
 // tests.
 //
-<<<<<<< HEAD
 // INTEL_COLLAB
 // Cherry-pick from https://github.com/intel/llvm/pull/363/commits
-// RUN: clang-offload-bundler -type=o -targets=host-powerpc64le-ibm-linux-gnu,openmp-powerpc64le-ibm-linux-gnu,openmp-x86_64-pc-linux-gnu -inputs=%t.o,%t.tgt1,%t.tgt2 -outputs=%t.bundle3.o -### 2>&1 \
+// RUN: clang-offload-bundler -type=o -targets=host-%itanium_abi_triple,openmp-powerpc64le-ibm-linux-gnu,openmp-x86_64-pc-linux-gnu -inputs=%t.o,%t.tgt1,%t.tgt2 -outputs=%t.bundle3.o -### 2>&1 \
 // RUN: | FileCheck %s --check-prefix CK-OBJ-CMD
-// CK-OBJ-CMD: llvm-objcopy{{(.exe)?}}" "--add-section=__CLANG_OFFLOAD_BUNDLE__host-powerpc64le-ibm-linux-gnu={{.+}}.tmp" "--add-section=__CLANG_OFFLOAD_BUNDLE_SIZE__host-powerpc64le-ibm-linux-gnu={{.+}}.tmp" "--add-section=__CLANG_OFFLOAD_BUNDLE__openmp-powerpc64le-ibm-linux-gnu={{.+}}.tgt1" "--add-section=__CLANG_OFFLOAD_BUNDLE_SIZE__openmp-powerpc64le-ibm-linux-gnu={{.+}}.tmp" "--add-section=__CLANG_OFFLOAD_BUNDLE__openmp-x86_64-pc-linux-gnu={{.+}}.tgt2" "--add-section=__CLANG_OFFLOAD_BUNDLE_SIZE__openmp-x86_64-pc-linux-gnu={{.+}}.tmp" "{{.+}}.o" "{{.+}}.bundle3.o"
+// CK-OBJ-CMD: llvm-objcopy{{(.exe)?}}" "--add-section=__CLANG_OFFLOAD_BUNDLE__host-[[HOST:.+]]={{.+}}.tmp" "--add-section=__CLANG_OFFLOAD_BUNDLE_SIZE__host-[[HOST]]={{.+}}.tmp" "--add-section=__CLANG_OFFLOAD_BUNDLE__openmp-powerpc64le-ibm-linux-gnu={{.+}}.tgt1" "--add-section=__CLANG_OFFLOAD_BUNDLE_SIZE__openmp-powerpc64le-ibm-linux-gnu={{.+}}.tmp" "--add-section=__CLANG_OFFLOAD_BUNDLE__openmp-x86_64-pc-linux-gnu={{.+}}.tgt2" "--add-section=__CLANG_OFFLOAD_BUNDLE_SIZE__openmp-x86_64-pc-linux-gnu={{.+}}.tmp" "{{.+}}.o" "{{.+}}.bundle3.o"
 // end INTEL_COLLAB
 
-// RUN: clang-offload-bundler -type=o -targets=host-powerpc64le-ibm-linux-gnu,openmp-powerpc64le-ibm-linux-gnu,openmp-x86_64-pc-linux-gnu -outputs=%t.res.o,%t.res.tgt1,%t.res.tgt2 -inputs=%t.2.o -unbundle
+// RUN: clang-offload-bundler -type=o -targets=host-%itanium_abi_triple,openmp-powerpc64le-ibm-linux-gnu,openmp-x86_64-pc-linux-gnu -outputs=%t.res.o,%t.res.tgt1,%t.res.tgt2 -inputs=%t.2.o -unbundle
 // RUN: diff %t.2.o %t.res.o
 // RUN: diff %t.tgt1 %t.res.tgt1
 // RUN: diff %t.tgt2 %t.res.tgt2
-// RUN: clang-offload-bundler -type=o -targets=openmp-powerpc64le-ibm-linux-gnu,host-powerpc64le-ibm-linux-gnu,openmp-x86_64-pc-linux-gnu -outputs=%t.res.tgt1,%t.res.o,%t.res.tgt2 -inputs=%t.2.o -unbundle
+// RUN: clang-offload-bundler -type=o -targets=openmp-powerpc64le-ibm-linux-gnu,host-%itanium_abi_triple,openmp-x86_64-pc-linux-gnu -outputs=%t.res.tgt1,%t.res.o,%t.res.tgt2 -inputs=%t.2.o -unbundle
 // RUN: diff %t.2.o %t.res.o
-=======
-
-// RUN: clang-offload-bundler -type=o -targets=host-%itanium_abi_triple,openmp-powerpc64le-ibm-linux-gnu,openmp-x86_64-pc-linux-gnu -inputs=%t.o,%t.tgt1,%t.tgt2 -outputs=%t.bundle3.o -### -dump-temporary-files 2>&1 \
-// RUN: | FileCheck %s --check-prefix CK-OBJ-CMD
-// CK-OBJ-CMD: private constant [1 x i8] zeroinitializer, section "__CLANG_OFFLOAD_BUNDLE__host-[[HOST:.+]]"
-// CK-OBJ-CMD: private constant [{{[0-9]+}} x i8] c"Content of device file 1{{.+}}", section "__CLANG_OFFLOAD_BUNDLE__openmp-powerpc64le-ibm-linux-gnu"
-// CK-OBJ-CMD: private constant [{{[0-9]+}} x i8] c"Content of device file 2{{.+}}", section "__CLANG_OFFLOAD_BUNDLE__openmp-x86_64-pc-linux-gnu"
-// CK-OBJ-CMD: clang{{(.exe)?}}" "-r" "-target" "[[HOST]]" "-o" "{{.+}}.o" "{{.+}}.o" "{{.+}}.bc" "-nostdlib"
-
-// RUN: clang-offload-bundler -type=o -targets=host-%itanium_abi_triple,openmp-powerpc64le-ibm-linux-gnu,openmp-x86_64-pc-linux-gnu -inputs=%t.o,%t.tgt1,%t.tgt2 -outputs=%t.bundle3.o
-// RUN: clang-offload-bundler -type=o -targets=host-%itanium_abi_triple,openmp-powerpc64le-ibm-linux-gnu,openmp-x86_64-pc-linux-gnu -outputs=%t.res.o,%t.res.tgt1,%t.res.tgt2 -inputs=%t.bundle3.o -unbundle
-// RUN: diff %t.bundle3.o %t.res.o
-// RUN: diff %t.tgt1 %t.res.tgt1
-// RUN: diff %t.tgt2 %t.res.tgt2
-// RUN: clang-offload-bundler -type=o -targets=openmp-powerpc64le-ibm-linux-gnu,host-%itanium_abi_triple,openmp-x86_64-pc-linux-gnu -outputs=%t.res.tgt1,%t.res.o,%t.res.tgt2 -inputs=%t.bundle3.o -unbundle
-// RUN: diff %t.bundle3.o %t.res.o
->>>>>>> b2df99cd95013592900d330e90fa91bd99e372e3
 // RUN: diff %t.tgt1 %t.res.tgt1
 // RUN: diff %t.tgt2 %t.res.tgt2
 
