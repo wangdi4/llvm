@@ -1989,6 +1989,13 @@ void LinkerDriver::link(ArrayRef<const char *> argsArr) {
     run();
   }
 
+#if INTEL_CUSTOMIZATION
+  if (msGLFilesFound) {
+    invokeMSVC(args);
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // At this point, we should not have any symbols that cannot be resolved.
   // If we are going to do codegen for link-time optimization, check for
   // unresolvable symbols first, so we don't spend time generating code that
@@ -1997,13 +2004,6 @@ void LinkerDriver::link(ArrayRef<const char *> argsArr) {
     symtab->reportUnresolvable();
   if (errorCount())
     return;
-
-#if INTEL_CUSTOMIZATION
-  if (msGLFilesFound) {
-    invokeMSVC(args);
-    return;
-  }
-#endif // INTEL_CUSTOMIZATION
 
   // Do LTO by compiling bitcode input files to a set of native COFF files then
   // link those files (unless -thinlto-index-only was given, in which case we
