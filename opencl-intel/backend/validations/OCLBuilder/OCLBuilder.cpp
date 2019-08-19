@@ -38,7 +38,7 @@ OCLBuilder& OCLBuilder::withLibrary(const char* lib)
 		m_CommonBuilder.withLibrary(lib);
 		return *this;
 	}
-	catch (ocl_string_exception Error)
+	catch (ocl_string_exception& Error)
 	{
 		throw Validation::Exception::OperationFailed(Error.what());
 	}
@@ -50,7 +50,7 @@ OCLBuilder& OCLBuilder::withBuildOptions(const char* options) {
 		m_CommonBuilder.withBuildOptions(options);
 		return *this;
 	}
-	catch (ocl_string_exception Error)
+	catch (ocl_string_exception& Error)
 	{
 		throw Validation::Exception::OperationFailed(Error.what());
 	}
@@ -62,7 +62,7 @@ OCLBuilder& OCLBuilder::withSource(const char* src) {
 		m_CommonBuilder.withSource(src);
 		return *this;
 	}
-	catch (ocl_string_exception Error)
+	catch (ocl_string_exception& Error)
 	{
 		throw Validation::Exception::OperationFailed(Error.what());
 	}
@@ -73,7 +73,7 @@ OCLBuilder& OCLBuilder::withFP64Support(bool FP64) {
 		m_CommonBuilder.withFP64Support(FP64);
 		return *this;
 	}
-	catch (ocl_string_exception Error)
+	catch (ocl_string_exception& Error)
 	{
 		throw Validation::Exception::OperationFailed(Error.what());
 	}
@@ -84,7 +84,7 @@ OCLBuilder& OCLBuilder::withImageSupport(bool IS) {
 		m_CommonBuilder.withImageSupport(IS);
 		return *this;
 	}
-	catch (ocl_string_exception Error)
+	catch (ocl_string_exception& Error)
 	{
 		throw Validation::Exception::OperationFailed(Error.what());
 	}
@@ -95,7 +95,7 @@ void OCLBuilder::close() {
 	try {
 		m_CommonBuilder.close();
 	}
-	catch (ocl_string_exception Error)
+	catch (ocl_string_exception& Error)
 	{
 		throw Validation::Exception::OperationFailed(Error.what());
 	}
@@ -109,7 +109,7 @@ Intel::OpenCL::ClangFE::IOCLFEBinaryResult* OCLBuilder::build() {
 	try {
 		return m_CommonBuilder.build();
 	}
-	catch (ocl_string_exception Error) {
+	catch (ocl_string_exception& Error) {
 		throw Validation::Exception::OperationFailed(Error.what());
 	}
 }

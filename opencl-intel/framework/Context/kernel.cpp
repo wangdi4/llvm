@@ -1216,7 +1216,7 @@ const DeviceKernel* Kernel::GetDeviceKernel(const FissionableDevice* pDevice) co
 
     // If not found, need to look into the program, maybe was built on "parent" device
     cl_int relatedDeviceObjId = 0;
-    const cl_device_id devId = (const cl_device_id)pDevice->GetHandle();
+    const cl_device_id devId = (cl_device_id)pDevice->GetHandle();
     // Get the object id of the device that I'm inherit its binary
     bool isFound = m_pProgram->GetMyRelatedProgramDeviceIDInternal(devId, &relatedDeviceObjId);
     if (isFound)

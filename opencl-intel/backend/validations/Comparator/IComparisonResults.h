@@ -108,7 +108,7 @@ namespace Validation {
         {
             NEATValueContainer()
             {
-                memset(&val, 0, sizeof(NEATValue));
+                memset(static_cast<void*> (&val), 0, sizeof(NEATValue));
                 isValid = false;
             }
 

@@ -444,7 +444,7 @@ void NEATPlugIn::StoreValueToMemory(const NEATGenericValue &Val,
   case Type::PointerTyID:
     // Ensure 64 bit target pointers are fully initialized on 32 bit hosts.
     if (StoreBytes != sizeof(PointerTy))
-      memset(Ptr, 0, StoreBytes);
+      memset(static_cast<void*>(Ptr), 0, StoreBytes);
 
     *((PointerTy*)Ptr) = Val.PointerVal;
     break;

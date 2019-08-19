@@ -461,10 +461,10 @@ namespace Validation
 
     template<>
     NEATValue NEATALU::convert_double<float>(NEATType<float>::type* src) {
-        if (src->IsAcc()) return NEATValue((const double)*src->GetAcc<float>());
+        if (src->IsAcc()) return NEATValue((double)*src->GetAcc<float>());
         if (src->IsAny() || src->IsUnwritten() || src->IsUnknown()) return NEATValue(src->GetStatus());
         if (!src->IsInterval()) assert(0 && "unknown NEAT value status");
-        return NEATValue((const double)*src->GetMin<float>(), (const double)*src->GetMax<float>());
+        return NEATValue((double)*src->GetMin<float>(), (double)*src->GetMax<float>());
     }
 
 #define CONVERT_DOUBLE(n)                                           \
@@ -485,10 +485,10 @@ namespace Validation
 
     template<>
     NEATValue NEATALU::convert_float<double>(NEATType<double>::type* src) {
-        if (src->IsAcc()) return NEATValue((const float)*src->GetAcc<double>());
+        if (src->IsAcc()) return NEATValue((float)*src->GetAcc<double>());
         if (src->IsAny() || src->IsUnwritten() || src->IsUnknown()) return NEATValue(src->GetStatus());
         if (!src->IsInterval()) assert(0 && "unknown NEAT value status");
-        return NEATValue((const float)*src->GetMin<double>(), (const float)*src->GetMax<double>());
+        return NEATValue((float)*src->GetMin<double>(), (float)*src->GetMax<double>());
     }
 
 #define CONVERT_FLOAT(n)                                           \
