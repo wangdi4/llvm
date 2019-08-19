@@ -1834,13 +1834,19 @@ static void reassignCSARegionId(IntrinsicInst *Intr) {
              << NewIdName << ")\n");
 #undef DEBUG_TYPE
 
-  Intr->setArgOperand(
-    0, ConstantInt::get(IntegerType::get(Context, 32), NewId)
-  );
+  Intr->setArgOperand(0,
+                      ConstantInt::get(IntegerType::get(Context, 32), NewId));
 }
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
+#if INTEL_COLLAB
+bool isTargetSPIRV(Function *F) {
+  Triple TargetTriple(F->getParent()->getTargetTriple());
+  return TargetTriple.getArch() == Triple::ArchType::spir ||
+         TargetTriple.getArch() == Triple::ArchType::spir64;
+}
+#endif // INTEL_COLLAB
 /// This function inlines the called function into the basic block of the
 /// caller. This returns false if it is not possible to inline this call.
 /// The program is still in a well defined state if this occurs though.
@@ -2371,7 +2377,12 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
 
   // If the inlined code contained dynamic alloca instructions, wrap the inlined
   // code with llvm.stacksave/llvm.stackrestore intrinsics.
+#if INTEL_COLLAB
+  // SPIRV GPU targets might not have a stack (register allocation only)
+  if (InlinedFunctionInfo.ContainsDynamicAllocas && !isTargetSPIRV(Caller)) {
+#else
   if (InlinedFunctionInfo.ContainsDynamicAllocas) {
+#endif // INTEL_COLLAB
     Module *M = Caller->getParent();
     // Get the two intrinsics we care about.
     Function *StackSave = Intrinsic::getDeclaration(M, Intrinsic::stacksave);
