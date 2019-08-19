@@ -742,9 +742,25 @@ bool clCreateImageTest()
         // FPGA emulator doesn't support images
         if (gDeviceType == CL_DEVICE_TYPE_ACCELERATOR)
         {
+            // 1D image
             clImageDesc.image_type = CL_MEM_OBJECT_IMAGE1D;
             clImg1D = clCreateImage(context, 0, &clFormat, &clImageDesc, NULL, &iRet);
             CheckException("clCreateImage", CL_INVALID_OPERATION, iRet);
+
+            // 2D image, old API
+            clImageDesc.image_type = CL_MEM_OBJECT_IMAGE2D;
+            clImg2DOld = clCreateImage2D(context, 0, &clFormat, clImageDesc.image_width,
+                                         clImageDesc.image_height,
+                                         clImageDesc.image_row_pitch, NULL, &iRet);
+            CheckException("clCreateImage2D", CL_INVALID_OPERATION, iRet);
+
+            // 3D image, old API
+            clImageDesc.image_type = CL_MEM_OBJECT_IMAGE3D;
+            clImg3DOld = clCreateImage3D(context, 0, &clFormat, clImageDesc.image_width,
+                                         clImageDesc.image_height, clImageDesc.image_depth,
+                                         clImageDesc.image_row_pitch,
+                                         clImageDesc.image_slice_pitch, NULL, &iRet);
+            CheckException("clCreateImage3D", CL_INVALID_OPERATION, iRet);
         }
         else
         {
