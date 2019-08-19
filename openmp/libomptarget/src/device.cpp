@@ -417,6 +417,17 @@ int32_t DeviceTy::release_buffer(void *TgtBuffer) {
   return OFFLOAD_SUCCESS;
 }
 
+char *DeviceTy::get_device_name(char *Buffer, size_t BufferMaxSize) {
+  assert(Buffer && "Buffer cannot be nullptr.");
+  assert(BufferMaxSize > 0 && "BufferMaxSize cannot be zero.");
+  if (RTL->get_device_name)
+    return RTL->get_device_name(RTLDeviceID, Buffer, BufferMaxSize);
+  // Make Buffer an empty string, if RTL does not support
+  // name query.
+  Buffer[0] = '\0';
+  return Buffer;
+}
+
 void *DeviceTy::data_alloc_base(int64_t Size, void *HstPtrBegin,
                                 void *HstPtrBase) {
   if (!RTL->data_alloc_base)
