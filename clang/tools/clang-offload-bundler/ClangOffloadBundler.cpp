@@ -418,10 +418,7 @@ public:
 /// In order to bundle we create an IR file with the content of each section and
 /// use incremental linking to produce the resulting object.
 ///
-<<<<<<< HEAD
-/// To unbundle, we use just copy the contents of the designated section. If the
-/// requested bundle refer to the main object file, we just copy it with no
-/// changes.
+/// To unbundle, we just copy the contents of the designated section.
 ///
 /// The bundler produces object file in host target native format (e.g. ELF for
 /// Linux). The sections it creates are:
@@ -472,9 +469,6 @@ public:
 /// multiple files per target, and the output file in this case is a list of
 /// actual outputs.
 ///
-=======
-/// To unbundle, we just copy the contents of the designated section.
->>>>>>> 4fb80d56db626762dc37e4516d1a269ea974229a
 class ObjectFileHandler final : public FileHandler {
   /// Keeps infomation about a bundle for a particular target.
   struct BundleInfo final {
@@ -665,8 +659,6 @@ public:
     // Iterate through individual objects and extract them
     for (size_t I = 0; I < NumObjects; ++I) {
       uint64_t ObjSize = SizeVec[I];
-      // Flag for the special case used to "unbundle" host target object
-      bool HostTriple = ObjSize == 1;
 
       StringRef ObjFileName = OutName;
       SmallString<128> Path;
@@ -674,7 +666,7 @@ public:
       // If not in file list mode there is no need in a temporary file - output
       // goes directly to what was specified in -outputs. The same is true for
       // the host triple.
-      if (FileListMode && !HostTriple) {
+      if (FileListMode) {
         std::error_code EC =
             sys::fs::createTemporaryFile(TempFileNameBase, "devo", Path);
         ObjFileName = Path.data();
@@ -691,35 +683,8 @@ public:
         report_fatal_error(Twine("can't open file for writing") +
                                  Twine(ObjFileName) + Twine(": ") +
                                  Twine(EC.message()));
-      if (HostTriple) {
-        // Handling of the special case - just copy the input host object into
-        // what's specified in -outputs for host.
-        //
-        // TODO: Instead of copying the input file as is, deactivate the section
-        // that is no longer needed.
-
-        // In the partially linked fat object multiple dummy host bundles were
-        // concatenated - check all of them were of size 1
-        for (size_t II = I; II < NumObjects; ++II) {
-          if (SizeVec[II] != 1)
-            report_fatal_error("inconsistent host triple bundle");
-        }
-        if (!HostTriple && Content->size() != static_cast<size_t>(ObjSize))
-          report_fatal_error("real object size and the size found in the "
-                                   "size section mismatch: " +
-                                   Twine(Content->size()) + Twine(" != ") +
-                                   Twine(ObjSize));
-        ObjData = Input.getBufferStart();
-        ObjSize = static_cast<decltype(ObjSize)>(Input.getBufferSize());
-      }
       OS.write(ObjData, ObjSize);
 
-<<<<<<< HEAD
-      if (HostTriple) {
-        // nothing else to do in this special case - host object needs to be
-        // "unbundled" only once, its name must not appear in the list file
-        return;
-      }
       if (FileListMode) {
         // add the written file name to the output list of files
         FileList = (Twine(FileList) + Twine(ObjFileName) + Twine("\n")).str();
@@ -740,9 +705,6 @@ public:
                                  Twine(EC.message()));
       OS1.write(FileList.data(), FileList.size());
     }
-=======
-    OS.write(Content->data(), Content->size());
->>>>>>> 4fb80d56db626762dc37e4516d1a269ea974229a
   }
 
   void WriteHeader(raw_fd_ostream &OS,
@@ -755,8 +717,7 @@ public:
     // Cherry-pick from https://github.com/intel/llvm/pull/363/commits
     // And input sizes.
     for (unsigned I = 0; I < NumberOfInputs; ++I)
-      InputSizes.push_back(I == HostInputIndex ? 1u
-                                               : Inputs[I]->getBufferSize());
+      InputSizes.push_back(Inputs[I]->getBufferSize());
 #else  // INTEL_COLLAB
     // Create an LLVM module to have the content we need to bundle.
     auto *M = new Module("clang-offload-bundle", VMContext);
@@ -868,23 +829,13 @@ public:
       return TempFiles.back();
     };
 
-    // Create temp file with zero char for the host object section.
-    char Byte[] = {0};
-    auto DummyHostFile = CreateTempFile(Byte);
-    if (!DummyHostFile)
-      return true;
-
     // Compose command line for the objcopy tool.
     SmallVector<std::string, 16u> ObjcopyArgs = {"llvm-objcopy"};
     for (unsigned I = 0; I < NumberOfInputs; ++I) {
-      const auto &Triple = TargetNames[I];
-      const auto &InputFile =
-          I == HostInputIndex ? DummyHostFile.getValue() : InputFileNames[I];
-
       // Add section with target object.
       ObjcopyArgs.push_back(std::string("--add-section=") +
-                            OFFLOAD_BUNDLER_MAGIC_STR + Triple + "=" +
-                            InputFile);
+                            OFFLOAD_BUNDLER_MAGIC_STR + TargetNames[I] + "=" +
+                            InputFileNames[I]);
 
       // Create temporary file with the section size contents.
       auto SizeFile = CreateTempFile(makeArrayRef(
@@ -894,7 +845,7 @@ public:
 
       // And add one more section with target object size.
       ObjcopyArgs.push_back(std::string("--add-section=") +
-                            SIZE_SECTION_PREFIX + Triple + "=" +
+                            SIZE_SECTION_PREFIX + TargetNames[I] + "=" +
                             SizeFile.getValue());
     }
 
@@ -975,25 +926,6 @@ public:
     std::string SectionName = OFFLOAD_BUNDLER_MAGIC_STR;
     SectionName += CurrentTriple;
 
-<<<<<<< HEAD
-    // Create the constant with the content of the section. For the input we are
-    // bundling into (the host input), this is just a place-holder, so a single
-    // byte is sufficient.
-    assert(HostInputIndex != ~0u && "Host input index undefined??");
-    Constant *Content;
-
-    if (NumberOfProcessedInputs == HostInputIndex + 1) {
-      uint8_t Byte[] = {0};
-      Content = ConstantDataArray::get(VMContext, Byte);
-    } else
-      Content = ConstantDataArray::get(
-          VMContext, ArrayRef<uint8_t>(reinterpret_cast<const uint8_t *>(
-                                           Input.getBufferStart()),
-                                       Input.getBufferSize()));
-
-    // Create the global in the desired section. We don't want these globals in
-    // the symbol table, so we mark them private.
-=======
     // Create the constant with the content of the section.
     auto *Content = ConstantDataArray::get(
         VMContext, ArrayRef<uint8_t>(reinterpret_cast<const uint8_t *>(
@@ -1002,7 +934,6 @@ public:
 
     // Create the global in the desired section. We don't want these globals
     // in the symbol table, so we mark them private.
->>>>>>> 4fb80d56db626762dc37e4516d1a269ea974229a
     auto *GV = new GlobalVariable(*M, Content->getType(), /*IsConstant=*/true,
                                   GlobalVariable::PrivateLinkage, Content);
     GV->setSection(SectionName);
