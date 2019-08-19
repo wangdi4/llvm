@@ -40171,6 +40171,22 @@ static SDValue combineTruncateWithSat(SDValue In, EVT VT, const SDLoc &DL,
     if (auto USatVal = detectUSatPattern(In, VT, DAG, DL))
       return DAG.getNode(X86ISD::VTRUNCUS, DL, VT, USatVal);
   }
+#if INTEL_CUSTOMIZATION
+  // If we're clamping a signed 32-bit vector to 0-255 and the 32-bit vector is
+  // split across two registers. We can use a packusdw+perm to clamp to 0-65535
+  // and concatenate at the same time. Then we can use a final vpmovuswb to
+  // clip to 0-255.
+  if (Subtarget.hasBWI() && !Subtarget.useAVX512Regs() &&
+      InVT == MVT::v16i32 && VT == MVT::v16i8) {
+    if (auto USatVal = detectSSatPattern(In, VT, true)) {
+      // Emit a VPACKUSDW+VPERMQ followed by a VPMOVUSWB.
+      SDValue Mid = truncateVectorWithPACK(X86ISD::PACKUS, MVT::v16i16, USatVal,
+                                           DL, DAG, Subtarget);
+      return DAG.getNode(X86ISD::VTRUNCUS, DL, VT, Mid);
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (VT.isVector() && isPowerOf2_32(VT.getVectorNumElements()) &&
       !(Subtarget.hasAVX512() && InSVT == MVT::i32) &&
       !(Subtarget.hasBWI() && InSVT == MVT::i16) &&
@@ -40746,6 +40762,21 @@ static SDValue combineStore(SDNode *N, SelectionDAG &DAG,
     return DAG.getTruncStore(St->getChain(), dl, Ext, St->getBasePtr(),
                              MVT::v16i8, St->getMemOperand());
   }
+
+#if INTEL_CUSTOMIZATION
+  // Try to fold a vpmovuswb 256->128 into a truncating store.
+  // FIXME: Generalize this to other types.
+  // FIXME: Do the same for signed saturation.
+  if (!St->isTruncatingStore() && VT == MVT::v16i8 &&
+      St->getValue().getOpcode() == X86ISD::VTRUNCUS &&
+      St->getValue().getOperand(0).getValueType() == MVT::v16i16 &&
+      TLI.isTruncStoreLegal(MVT::v16i16, MVT::v16i8) &&
+      St->getValue().hasOneUse()) {
+    return EmitTruncSStore(false /* Unsigned saturation */, St->getChain(),
+                           dl, St->getValue().getOperand(0), St->getBasePtr(),
+                           MVT::v16i8, St->getMemOperand(), DAG);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Optimize trunc store (of multiple scalars) to shuffle and store.
   // First, pack all of the elements in one place. Next, store to memory
