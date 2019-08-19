@@ -416,10 +416,9 @@ public:
 /// designated name.
 ///
 /// In order to bundle we create an IR file with the content of each section and
-/// use incremental linking to produce the resulting object. We also add section
-/// with a single byte to state the name of the component the main object file
-/// (the one we are bundling into) refers to.
+/// use incremental linking to produce the resulting object.
 ///
+<<<<<<< HEAD
 /// To unbundle, we use just copy the contents of the designated section. If the
 /// requested bundle refer to the main object file, we just copy it with no
 /// changes.
@@ -473,6 +472,9 @@ public:
 /// multiple files per target, and the output file in this case is a list of
 /// actual outputs.
 ///
+=======
+/// To unbundle, we just copy the contents of the designated section.
+>>>>>>> 4fb80d56db626762dc37e4516d1a269ea974229a
 class ObjectFileHandler final : public FileHandler {
   /// Keeps infomation about a bundle for a particular target.
   struct BundleInfo final {
@@ -712,6 +714,7 @@ public:
       }
       OS.write(ObjData, ObjSize);
 
+<<<<<<< HEAD
       if (HostTriple) {
         // nothing else to do in this special case - host object needs to be
         // "unbundled" only once, its name must not appear in the list file
@@ -737,6 +740,9 @@ public:
                                  Twine(EC.message()));
       OS1.write(FileList.data(), FileList.size());
     }
+=======
+    OS.write(Content->data(), Content->size());
+>>>>>>> 4fb80d56db626762dc37e4516d1a269ea974229a
   }
 
   void WriteHeader(raw_fd_ostream &OS,
@@ -969,6 +975,7 @@ public:
     std::string SectionName = OFFLOAD_BUNDLER_MAGIC_STR;
     SectionName += CurrentTriple;
 
+<<<<<<< HEAD
     // Create the constant with the content of the section. For the input we are
     // bundling into (the host input), this is just a place-holder, so a single
     // byte is sufficient.
@@ -986,6 +993,16 @@ public:
 
     // Create the global in the desired section. We don't want these globals in
     // the symbol table, so we mark them private.
+=======
+    // Create the constant with the content of the section.
+    auto *Content = ConstantDataArray::get(
+        VMContext, ArrayRef<uint8_t>(reinterpret_cast<const uint8_t *>(
+                                         Input.getBufferStart()),
+                                     Input.getBufferSize()));
+
+    // Create the global in the desired section. We don't want these globals
+    // in the symbol table, so we mark them private.
+>>>>>>> 4fb80d56db626762dc37e4516d1a269ea974229a
     auto *GV = new GlobalVariable(*M, Content->getType(), /*IsConstant=*/true,
                                   GlobalVariable::PrivateLinkage, Content);
     GV->setSection(SectionName);
