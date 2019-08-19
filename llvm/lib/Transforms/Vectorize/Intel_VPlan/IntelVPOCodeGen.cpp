@@ -17,6 +17,7 @@
 #include "IntelLoopVectorizationLegality.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanUtils.h"
+#include "IntelVPlanVLSAnalysis.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -395,7 +396,8 @@ void VPOCodeGen::vectorizeSelectInstruction(VPInstruction *VPInst) {
   VPWidenMap[VPInst] = NewSelect;
 }
 
-unsigned VPOCodeGen::getOriginalLoadStoreAlignment(VPInstruction *VPInst) {
+unsigned
+VPOCodeGen::getOriginalLoadStoreAlignment(const VPInstruction *VPInst) {
   assert((VPInst->getOpcode() == Instruction::Load ||
           VPInst->getOpcode() == Instruction::Store) &&
          "Alignment helper called on non load/store instruction.");
@@ -463,6 +465,55 @@ void VPOCodeGen::widenVectorLoad(VPInstruction *VPLoad) {
   VPWidenMap[VPLoad] = NewLI;
 }
 
+Value *VPOCodeGen::getOrCreateWideLoadForGroup(OVLSGroup *Group) {
+  auto FoundIter = VLSGroupLoadMap.find(Group);
+  if (FoundIter != VLSGroupLoadMap.end())
+    return FoundIter->second;
+
+  // Check if the group is valid for this VF.
+  assert(Group->getNumElems() == VF &&
+         "Group number of elements must match VF");
+
+  const VPInstruction *Leader =
+      cast<VPVLSClientMemref>(Group->getFirstMemref())->getInstruction();
+
+  Type *GroupType =
+      getWidenedType(getLoadStoreType(Leader), VF * Group->size());
+
+  Value *GatherAddress = getVectorValue(Leader->getOperand(0));
+  assert(!MaskValue && "Scalar address may be invalid (masked out)");
+  Value *ScalarAddress = Builder.CreateExtractElement(
+      GatherAddress, (uint64_t)0, GatherAddress->getName() + "_0");
+  Value *GroupPtr = Builder.CreateBitCast(
+      ScalarAddress, GroupType->getPointerTo(), "groupPtr");
+  unsigned Align = getOriginalLoadStoreAlignment(Leader);
+  LoadInst *GroupLoad =
+      Builder.CreateAlignedLoad(GroupType, GroupPtr, Align, "groupLoad");
+
+  VLSGroupLoadMap.insert(std::make_pair(Group, GroupLoad));
+  return GroupLoad;
+}
+
+Value *VPOCodeGen::vectorizeInterleavedLoad(VPInstruction *VPLoad,
+                                            OVLSGroup *Group) {
+  auto MemrefIter = find_if(*Group, [VPLoad](OVLSMemref *Iter) {
+    return cast<VPVLSClientMemref>(Iter)->getInstruction() == VPLoad;
+  });
+  assert(MemrefIter != Group->end() &&
+         "Instruction does not belong to the group");
+  OVLSMemref *Memref = *MemrefIter;
+
+  auto InterleaveIndex = computeInterleaveIndex(Memref, Group);
+  auto InterleaveFactor = computeInterleaveFactor(Memref);
+
+  Value *GroupLoad = getOrCreateWideLoadForGroup(Group);
+  Constant *ShuffleMask =
+      createStrideMask(Builder, InterleaveIndex, InterleaveFactor, VF);
+  return Builder.CreateShuffleVector(GroupLoad,
+                                     UndefValue::get(GroupLoad->getType()),
+                                     ShuffleMask, "groupShuffle");
+}
+
 void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
                                           bool EmitIntrinsic) {
   // Pointer operand of Load is always the first operand.
@@ -517,10 +568,24 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
 #endif
   } else {
 
+    // Try to do GATHER-to-SHUFFLE optimization.
+    // TODO: VLS optimization is disabled in masked basic blocks so far. It
+    // should be enabled for uniform masks, though.
+    OVLSGroup *Group = MaskValue ? nullptr : VLSA->getGroupsFor(Plan, VPInst);
+    if (Group && Group->size() > 1) {
+      Optional<int64_t> GroupStride = Group->getConstStride();
+      assert(GroupStride && "Indexed loads are not supported");
+      // Groups with gaps are not supported either.
+      if (Group->getNByteAccessMask() == ~(UINT64_MAX << *GroupStride))
+        NewLI = vectorizeInterleavedLoad(VPInst, Group);
+    }
+
     // GATHER
-    Value *VectorPtr = getVectorValue(Ptr);
-    NewLI = Builder.CreateMaskedGather(VectorPtr, Alignment, MaskValue, nullptr,
-                                       "wide.masked.gather");
+    if (!NewLI) {
+      NewLI =
+          Builder.CreateMaskedGather(getVectorValue(Ptr), Alignment, MaskValue,
+                                     nullptr, "wide.masked.gather");
+    }
   }
 
   VPWidenMap[VPInst] = NewLI;
