@@ -449,14 +449,17 @@ int32_t __tgt_rtl_number_of_devices() {
   for (cl_platform_id id : platformIds) {
     std::vector<char> buf;
     size_t buf_size;
-    clGetPlatformInfo(id, CL_PLATFORM_VERSION, 0, nullptr, &buf_size);
+    cl_int rc;
+    rc = clGetPlatformInfo(id, CL_PLATFORM_VERSION, 0, nullptr, &buf_size);
+    if (rc != CL_SUCCESS || buf_size == 0)
+      continue;
     buf.resize(buf_size);
-    clGetPlatformInfo(id, CL_PLATFORM_VERSION, buf_size, buf.data(), nullptr);
+    rc = clGetPlatformInfo(id, CL_PLATFORM_VERSION, buf_size, buf.data(),
+                           nullptr);
     // clCreateProgramWithIL() requires OpenCL 2.1.
-    if (strncmp("OpenCL 2.1", buf.data(), 8)) {
+    if (rc != CL_SUCCESS || strncmp("OpenCL 2.1", buf.data(), 8)) {
       continue;
     }
-
     cl_uint numGPU = 0, numACC = 0, numCPU = 0;
     char *envStr = getenv("LIBOMPTARGET_DEVICETYPE");
     if (!envStr || strncmp(envStr, "GPU", 3) == 0)
@@ -514,9 +517,16 @@ int32_t __tgt_rtl_number_of_devices() {
   for (unsigned i = 0; i < DeviceInfo.numDevices; i++) {
     std::vector<char> buf;
     size_t buf_size;
+    cl_int rc;
     cl_device_id deviceId = DeviceInfo.deviceIDs[i];
-    clGetDeviceInfo(deviceId, CL_DEVICE_NAME, 0, nullptr, &buf_size);
-    clGetDeviceInfo(deviceId, CL_DEVICE_NAME, buf_size, buf.data(), nullptr);
+    rc = clGetDeviceInfo(deviceId, CL_DEVICE_NAME, 0, nullptr, &buf_size);
+    if (rc != CL_SUCCESS || buf_size == 0)
+      continue;
+    buf.resize(buf_size);
+    rc = clGetDeviceInfo(deviceId, CL_DEVICE_NAME, buf_size, buf.data(),
+                         nullptr);
+    if (rc != CL_SUCCESS)
+      continue;
     DP("Device %d: %s\n", i, buf.data());
     clGetDeviceInfo(deviceId, CL_DEVICE_MAX_COMPUTE_UNITS, 4,
                     &DeviceInfo.maxWorkGroups[i], nullptr);
@@ -1276,11 +1286,13 @@ static inline int32_t run_target_team_nd_region(
       INVOKE_CL_RET_FAIL(clWaitForEvents, 1, &event);
       INVOKE_CL_RET_FAIL(clGetKernelInfo, *kernel, CL_KERNEL_FUNCTION_NAME, 0,
                          nullptr, &buf_size);
-      buf.resize(buf_size);
-      INVOKE_CL_RET_FAIL(clGetKernelInfo, *kernel, CL_KERNEL_FUNCTION_NAME,
-                         buf.size(), buf.data(), nullptr);
       std::string kernel_name("EXEC-");
-      kernel_name += buf.data();
+      if (buf_size > 0) {
+        buf.resize(buf_size);
+        INVOKE_CL_RET_FAIL(clGetKernelInfo, *kernel, CL_KERNEL_FUNCTION_NAME,
+                           buf.size(), buf.data(), nullptr);
+        kernel_name += buf.data();
+      }
       profile.update(kernel_name.c_str(), event);
     }
     INVOKE_CL_RET_FAIL(clFinish, DeviceInfo.Queues[device_id]);
