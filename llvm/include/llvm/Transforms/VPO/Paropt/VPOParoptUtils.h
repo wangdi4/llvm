@@ -995,6 +995,20 @@ public:
 
   /// Generate a call to
   /// \code
+  ///    void *__tgt_create_buffer(int device_num, void *host_ptr)
+  /// \endcode
+  static CallInst *genTgtCreateBuffer(Value *DeviceNum, Value *HostPtr,
+                                      Instruction *InsertPt);
+
+  /// Generate a call to
+  /// \code
+  ///    int __tgt_release_buffer(int device_num, void *tgt_buffer)
+  /// \endcode
+  static CallInst *genTgtReleaseBuffer(Value *DeviceNum, Value *TgtBuffer,
+                                       Instruction *InsertPt);
+
+  /// Generate a call to
+  /// \code
   ///   int omp_get_num_devices()
   /// \endcode
   static CallInst *genOmpGetNumDevices(Instruction *InsertPt);
@@ -1126,9 +1140,13 @@ public:
   /// Given a call \p BaseCall, create another call with name \p VariantName
   /// using the same arguments from \p BaseCall. Both functions are expected
   /// to have identical signatures.
+  /// \p W is a TargetVariant WRN. If present, replace each call argument that
+  /// is a host pointer (listed in the use_device_ptr clause) with its
+  /// corresponding target buffer.
   static CallInst *genVariantCall(CallInst *BaseCall, StringRef VariantName,
-                                  Instruction *InsertPt = nullptr,
-                                  bool IsTail = false, bool IsVarArg = false);
+                                  Instruction *InsertPt,
+                                  WRegionNode *W = nullptr, bool IsTail = false,
+                                  bool IsVarArg = false);
 
   // Creates a call with no parameters.
   // If \p InsertPt is not null, insert the call before InsertPt

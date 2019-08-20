@@ -1462,8 +1462,12 @@ bool WRegionNode::canHaveIsDevicePtr() const {
 
 bool WRegionNode::canHaveUseDevicePtr() const {
   unsigned SubClassID = getWRegionKindID();
-  // only WRNTargetDataNode can have a UseDevicePtr clause
-  return SubClassID==WRNTargetData;
+  switch (SubClassID) {
+  case WRNTargetData:
+  case WRNTargetVariant:
+    return true;
+  }
+  return false;
 }
 
 bool WRegionNode::canHaveDepend() const {
