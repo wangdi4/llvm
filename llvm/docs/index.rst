@@ -623,6 +623,7 @@ can be better.
 
    CodeOfConduct
    Proposals/GitHubMove
+   Proposals/LLVMLibC
    Proposals/TestSuite
    Proposals/VariableNames
    Proposals/VectorizationPlan
@@ -633,6 +634,9 @@ can be better.
 
 :doc:`Proposals/GitHubMove`
    Proposal to move from SVN/Git to GitHub.
+
+:doc:`Proposals/LLVMLibC`
+   Proposal to add a libc implementation under the LLVM project.
 
 :doc:`Proposals/TestSuite`
    Proposals for additional benchmarks/programs for llvm's test-suite.
