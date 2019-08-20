@@ -654,23 +654,57 @@ bool isOMPOffloadCompile(Module &M) {
 }
 
 // cloned in CSAProcedureCalls.cpp
+/********************************************************************
+ * For initializer functions, memory ordering edges (param and result)
+ * are handled in a special way.
+ * If there are parameters other the memory ordering edge parameter,
+ * Then the memory ordering edge is removed from parameter list and
+ * its use inside the function is replaced by the narrow copy of the 
+ * first non memory ordering edge parameter.
+ * If there are results other the memory odering edge, then each result
+ * is gated through the output memory ordering edge and the output memory
+ *  ordering edge is removed from the list os results
+ ********************************************************************/
 void cleanupInitializerFunctions(Module &M, MachineModuleInfo *MMI) {
   LLVM_DEBUG(dbgs() << "cleanupInitializerFunctions\n");
   for (auto &F : M) {
     bool IsInitializer = F.hasFnAttribute("__csa_attr_initializer");
     if (!IsInitializer) continue;
     MachineFunction *MF = MMI->getMachineFunction(F);
+    if (MF == nullptr) continue;
     MachineRegisterInfo *MRI = &(MF->getRegInfo());
+    const CSAInstrInfo *TII =
+      static_cast<const CSAInstrInfo *>(MF->getSubtarget().getInstrInfo());
     const CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
     assert(LMFI);
     MachineInstr *EntryMI = LMFI->getEntryMI();
     MachineInstr *ReturnMI = LMFI->getReturnMI();
     unsigned InMemoryLic = LMFI->getInMemoryLic();
     unsigned OutMemoryLic = LMFI->getOutMemoryLic();
-    MRI->replaceRegWith(InMemoryLic, CSA::IGN);
-    MRI->replaceRegWith(OutMemoryLic, CSA::IGN);
+    if (EntryMI->getNumOperands() > 1) { // Are regular params available
+      auto Reg = InMemoryLic;
+      auto NewReg = MRI->createVirtualRegister(MRI->getRegClass(Reg));
+      MachineBasicBlock::iterator MII(EntryMI);
+      MII++;
+      BuildMI(*(EntryMI->getParent()), MII, EntryMI->getDebugLoc(), TII->get(CSA::MOV0))
+             .addReg(NewReg, RegState::Define)
+             .addReg(EntryMI->getOperand(1).getReg())
+             .setMIFlag(MachineInstr::NonSequential);
+      MRI->replaceRegWith(Reg, NewReg);
+    }
+    for (unsigned i = 1; i < ReturnMI->getNumOperands(); ++i) {
+      auto Reg = ReturnMI->getOperand(i).getReg();
+      auto NewReg = MRI->createVirtualRegister(MRI->getRegClass(Reg));
+      BuildMI(*(ReturnMI->getParent()), ReturnMI, ReturnMI->getDebugLoc(), TII->get(TII->makeOpcode(CSA::Generic::GATE, MRI->getRegClass(Reg))))
+             .addReg(NewReg, RegState::Define)
+             .addReg(OutMemoryLic)
+             .addReg(Reg)
+             .setMIFlag(MachineInstr::NonSequential);
+      ReturnMI->getOperand(i).setReg(NewReg);
+    } 
     EntryMI->RemoveOperand(0);
-    ReturnMI->RemoveOperand(0);
+    if (ReturnMI->getNumOperands() > 1)
+      ReturnMI->RemoveOperand(0);
   }
 }
 
@@ -688,4 +722,3 @@ bool CSACreateSelfContainedGraph::runOnModule(Module &M) {
     processForManualCompile(M);
   return true;
 }
-
