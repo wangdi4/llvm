@@ -352,30 +352,34 @@ void VPlanPredicator::fixupUniformInnerLoops(void) {
     auto *Loop = LoopRegion->getVPLoop();
     auto *LoopPH = cast<VPBasicBlock>(Loop->getLoopPreheader());
     auto *LoopPHBP = LoopPH->getPredicate();
-    if (Loop->getParentLoop() && LoopPHBP) {
-      auto *LoopLatch = cast<VPBasicBlock>(Loop->getLoopLatch());
-      auto *LoopHeader = cast<VPBasicBlock>(Loop->getHeader());
-      bool BackEdgeIsFalseSucc = LoopLatch->getSuccessors()[1] == LoopHeader;
-      VPValue *LatchCond = LoopLatch->getCondBit();
-      VPBuilder::InsertPointGuard Guard(Builder);
-      Builder.setInsertPoint(LoopLatch);
 
-      // Check if the loop should not be entered for all lanes
-      auto *NewAllZeroCheck = Builder.createAllZeroCheck(LoopPHBP);
+    // Nothing to do if this is not an inner loop or if the loop is not under
+    // a predicate.
+    if (!Loop->getParentLoop() || !LoopPHBP)
+      continue;
 
-      // If the loop back edge is the false successor of the loop latch,
-      // we exit the loop if either the all zero check is true or the
-      // latch condition bit is true. Otherwise, we take the back edge
-      // if the latch condition is true and the all zero check is false.
-      VPValue *NewCondBit;
-      if (!BackEdgeIsFalseSucc) {
-        NewAllZeroCheck = Builder.createNot(NewAllZeroCheck);
-        NewCondBit = Builder.createAnd(NewAllZeroCheck, LatchCond);
-      } else {
-        NewCondBit = Builder.createOr(NewAllZeroCheck, LatchCond);
-      }
-      LoopLatch->setCondBit(NewCondBit);
+    auto *LoopLatch = cast<VPBasicBlock>(Loop->getLoopLatch());
+    auto *LoopHeader = cast<VPBasicBlock>(Loop->getHeader());
+    bool BackEdgeIsFalseSucc = LoopLatch->getSuccessors()[1] == LoopHeader;
+    VPValue *LatchCond = LoopLatch->getCondBit();
+    VPBuilder::InsertPointGuard Guard(Builder);
+    Builder.setInsertPoint(LoopLatch);
+
+    // Check if the loop should not be entered for all lanes
+    auto *NewAllZeroCheck = Builder.createAllZeroCheck(LoopPHBP);
+
+    // If the loop back edge is the false successor of the loop latch,
+    // we exit the loop if either the all zero check is true or the
+    // latch condition bit is true. Otherwise, we take the back edge
+    // if the latch condition is true and the all zero check is false.
+    VPValue *NewCondBit;
+    if (!BackEdgeIsFalseSucc) {
+      NewAllZeroCheck = Builder.createNot(NewAllZeroCheck);
+      NewCondBit = Builder.createAnd(NewAllZeroCheck, LatchCond);
+    } else {
+      NewCondBit = Builder.createOr(NewAllZeroCheck, LatchCond);
     }
+    LoopLatch->setCondBit(NewCondBit);
   }
 }
 #endif // INTEL_CUSTOMIZATION
