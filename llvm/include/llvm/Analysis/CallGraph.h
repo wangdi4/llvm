@@ -175,7 +175,9 @@ public:
   /// \c F if one does not already exist.
   CallGraphNode *getOrInsertFunction(const Function *F);
 
-<<<<<<< HEAD
+  /// \brief Return the dummy node associated with the given metadata node.
+  CallGraphNode *getOrInsertNodeForCalleesMD(MDNode *Callees);
+
 #if INTEL_CUSTOMIZATION
 
   /// \brief Add 'Report' to the list of reports which describe how the
@@ -200,10 +202,6 @@ public:
     }
   }
 #endif // INTEL_CUSTOMIZATION
-=======
-  /// \brief Return the dummy node associated with the given metadata node.
-  CallGraphNode *getOrInsertNodeForCalleesMD(MDNode *Callees);
->>>>>>> 626ed22fbe2cfc2043cef2d855743f029c67f73a
 };
 
 /// A node in the call graph for a module.
