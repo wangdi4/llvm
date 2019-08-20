@@ -120,10 +120,10 @@ DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
   %cmp1 = icmp sgt i32 %n1, %n2
   br label %outer.for
 
-outer.for:                               ; preds = %omp.inner.for.inc, %DIR.OMP.SIMD.2
-  %indvars.iv = phi i64 [ %indvars.iv.next, %omp.inner.for.inc ], [ 0, %DIR.OMP.SIMD.2 ]
+outer.for:                               ; preds = %outer.for.inc, %DIR.OMP.SIMD.2
+  %indvars.iv = phi i64 [ %indvars.iv.next, %outer.for.inc ], [ 0, %DIR.OMP.SIMD.2 ]
   %1 = trunc i64 %indvars.iv to i32
-  br i1 %cmp1, label %for.body.preheader, label %omp.inner.for.inc
+  br i1 %cmp1, label %for.body.preheader, label %outer.for.inc
 
 for.body.preheader:                               ; preds = %outer.for
   br label %for.body
@@ -133,17 +133,17 @@ for.body:                                         ; preds = %for.body.preheader,
   %call = call i32 (...) @baz() #1
   %inc = add nuw nsw i32 %i1.014, 1
   %exitcond = icmp ult i32 %inc, 1024
-  br i1 %exitcond, label %for.body, label %omp.inner.for.inc.loopexit
+  br i1 %exitcond, label %for.body, label %outer.for.inc.loopexit
 
-omp.inner.for.inc.loopexit:                       ; preds = %for.body
-  br label %omp.inner.for.inc
+outer.for.inc.loopexit:                       ; preds = %for.body
+  br label %outer.for.inc
 
-omp.inner.for.inc:                                ; preds = %omp.inner.for.inc.loopexit, %outer.for
+outer.for.inc:                                ; preds = %outer.for.inc.loopexit, %outer.for
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond15 = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond15, label %DIR.OMP.END.SIMD.4, label %outer.for
 
-DIR.OMP.END.SIMD.4:                               ; preds = %omp.inner.for.inc
+DIR.OMP.END.SIMD.4:                               ; preds = %outer.for.inc
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.OMP.END.SIMD.3
 
