@@ -19,6 +19,7 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
+#include "llvm/Analysis/Intel_WP.h"         // INTEL
 #include "llvm/Analysis/LazyValueInfo.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
@@ -87,6 +88,7 @@ namespace {
       AU.addPreserved<GlobalsAAWrapperPass>();
       AU.addPreserved<DominatorTreeWrapperPass>();
       AU.addPreserved<AndersensAAWrapperPass>();  // INTEL
+      AU.addPreserved<WholeProgramWrapperPass>(); // INTEL
     }
   };
 
@@ -824,6 +826,7 @@ CorrelatedValuePropagationPass::run(Function &F, FunctionAnalysisManager &AM) {
   PreservedAnalyses PA;
   PA.preserve<GlobalsAA>();
   PA.preserve<DominatorTreeAnalysis>();
-  PA.preserve<AndersensAA>();       // INTEL
+  PA.preserve<AndersensAA>();          // INTEL
+  PA.preserve<WholeProgramAnalysis>(); // INTEL
   return PA;
 }

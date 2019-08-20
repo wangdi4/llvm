@@ -689,6 +689,7 @@ struct WholeProgramDevirt : public ModulePass {
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<WholeProgramWrapperPass>(); // INTEL
+    AU.addPreserved<WholeProgramWrapperPass>(); // INTEL
   }
 };
 
