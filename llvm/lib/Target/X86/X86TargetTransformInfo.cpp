@@ -958,8 +958,11 @@ int X86TTIImpl::getShuffleCost(TTI::ShuffleKind Kind, Type *Tp, int Index,
       int NumSubElts = SubLT.second.getVectorNumElements();
       if ((Index % NumSubElts) == 0 && (NumElts % NumSubElts) == 0)
         return SubLT.first;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // This has been cherry picked from community review D65892.
+=======
+>>>>>>> 6eebd2bcd7bf50a0362927adf7222f6076746307
       // Handle some cases for widening legalization. For now we only handle
       // cases where the original subvector was naturally aligned and evenly
       // fit in its legalized subvector type.
@@ -993,7 +996,10 @@ int X86TTIImpl::getShuffleCost(TTI::ShuffleKind Kind, Type *Tp, int Index,
 
         return ExtractCost + 2; // worst case pshufhw + pshufd
       }
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 6eebd2bcd7bf50a0362927adf7222f6076746307
     }
   }
 
