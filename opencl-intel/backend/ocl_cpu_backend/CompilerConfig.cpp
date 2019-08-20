@@ -130,8 +130,10 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
 
     VectorizerType VType =
         static_cast<VectorizerType>(pBackendOptions->GetIntValue(
-            (int)CL_DEV_BACKEND_OPTION_VECTORIZER_TYPE, VOLCANO_VECTORIZER));
-    if (VPO_VECTORIZER == VType &&
+            (int)CL_DEV_BACKEND_OPTION_VECTORIZER_TYPE, DEFAULT_VECTORIZER));
+    if (VType == DEFAULT_VECTORIZER) {
+        m_LLVMOptions += " -enable-default-kernel-vectorizer";
+    } else if (VPO_VECTORIZER == VType &&
         m_LLVMOptions.find("-enable-vplan-kernel-vectorizer")
         == std::string::npos) {
         m_LLVMOptions += " -enable-vplan-kernel-vectorizer";

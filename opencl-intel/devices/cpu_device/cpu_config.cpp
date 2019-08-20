@@ -90,14 +90,15 @@ cl_int CPUDeviceConfig::GetVectorizerMode() const
 VectorizerType CPUDeviceConfig::GetVectorizerType() const
 {
     std::string VType = m_pConfigFile->Read<string>(
-        CL_CONFIG_CPU_VECTORIZER_TYPE, "volcano");
+        CL_CONFIG_CPU_VECTORIZER_TYPE, "default");
     std::transform(VType.begin(), VType.end(), VType.begin(), ::tolower);
 
     if ("vpo" == VType) {
         return VPO_VECTORIZER;
-    } else {
+    } else if ("volcano" == VType) {
         return VOLCANO_VECTORIZER;
     }
+    return DEFAULT_VECTORIZER;
 }
 
 bool CPUDeviceConfig::GetUseNativeSubgroups() const {
