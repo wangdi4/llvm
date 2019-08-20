@@ -1603,44 +1603,6 @@ With -fintel-compatibility:
   }];
 }
 
-def PredeclareTypeInfoDocs : Documentation {
-  let Category = DocCatIntelCompat;
-  let Option = "IntelCompat";
-  let BugTracker= "CMPLRLLVM-4059,cq164324";
-  let RegressionTest = "cfeCpp/cq164324";
-  let Owner = "mprice1";
-  let Content = [{
-For gcc compatibility std::type_info is recognized even without inclusion of
-the <typeinfo> header.  This applies only to Linux, since open-source clang
-in MSVCCompat mode already recognizes type_info (but not std::type_info).
-
-Example:
-
-.. code-block:: c
-
-  namespace std {
-    const type_info* f();
-  }
-
-With unmodified clang:
-
-.. code-block:: console
-
-  $ clang -cc1 t.cpp
-  t.cpp:2:9: error: unknown type name 'type_info'
-  const type_info* f();
-        ^
-  1 error generated.
-
-With -fintel-compatibility:
-
-.. code-block:: console
-
-  $ clang -cc1 -fintel-compatibility t.cpp
-  $
-  }];
-}
-
 def VolatileInOMPRegionsDocs : Documentation {
   let Category = DocCatIntelOpenMP;
   let Option = "IntelCompat";

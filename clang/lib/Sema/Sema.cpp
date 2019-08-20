@@ -373,13 +373,11 @@ void Sema::Initialize() {
     PushOnScopeChains(Context.getBuiltinVaListDecl(), TUScope);
 
 #if INTEL_CUSTOMIZATION
-  bool PushedStdNamespace = false;
   if (PP.getLangOpts().CPlusPlus && PP.getLangOpts().AlignedAllocation &&
       PP.getLangOpts().isIntelCompat(LangOptions::PredeclareAlignValT)) {
     NamespaceDecl *StdNamespace = getOrCreateStdNamespace();
     if (StdNamespace->isImplicit()) {
       PushOnScopeChains(StdNamespace, TUScope);
-      PushedStdNamespace = true;
     }
 
     // In C++17 this should be picked up in <new> but the Intel compiler
@@ -395,27 +393,6 @@ void Sema::Initialize() {
       QualType BestType = Context.getSizeType();
       AlignValTTy->setIntegerType(BestType);
       StdNamespace->addDecl(AlignValTTy);
-    }
-  }
-
-  if (PP.getLangOpts().CPlusPlus &&
-      PP.getLangOpts().isIntelCompat(LangOptions::PredeclareTypeInfo)) {
-    NamespaceDecl *StdNamespace = getOrCreateStdNamespace();
-    if (!PushedStdNamespace && StdNamespace->isImplicit())
-      PushOnScopeChains(StdNamespace, TUScope);
-
-    // Fix for CQ#374800: For gcc compatibility sake, we should recognize
-    // "std::type_info" even without inclusion of <typeinfo> header. This should
-    // happen on Linux only, as in MS mode even open-source clang recognizes
-    // "type_info" (but not std::type_info!)
-    if (!PP.getLangOpts().MSVCCompat) {
-      IdentifierInfo *TypeInfo = &Context.Idents.get("type_info");
-      if (IdResolver.begin(TypeInfo) == IdResolver.end()) {
-        auto *TypeInfoTy =
-          CXXRecordDecl::Create(Context, TTK_Class, StdNamespace,
-                                SourceLocation(), SourceLocation(), TypeInfo);
-        StdNamespace->addDecl(TypeInfoTy);
-      }
     }
   }
 #endif // INTEL_CUSTOMIZATION
