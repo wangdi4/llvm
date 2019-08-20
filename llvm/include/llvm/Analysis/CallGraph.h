@@ -47,6 +47,7 @@
 
 #include "llvm/Analysis/Intel_CallGraphReport.h" // INTEL
 #include "llvm/ADT/GraphTraits.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstrTypes.h"
@@ -77,8 +78,21 @@ class CallGraph {
   using FunctionMapTy =
       std::map<const Function *, std::unique_ptr<CallGraphNode>>;
 
+  /// \brief A type for maintaining dummy nodes.
+  ///
+  /// Dummy nodes (i.e., nodes having a null function) include, for example,
+  /// those created to represent !callees metadata. We use a void pointer as
+  /// the key to allow for various kinds of dummy nodes. We use a MapVector to
+  /// ensure a deterministic iteration order (there's no good way to sort dummy
+  /// nodes). A deterministic iteration order is primarily useful for printing.
+  using DummyNodeMapTy =
+      MapVector<const MDNode *, std::unique_ptr<CallGraphNode>>;
+
   /// A map from \c Function* to \c CallGraphNode*.
   FunctionMapTy FunctionMap;
+
+  /// \brief A map for maintaining dummy nodes.
+  DummyNodeMapTy DummyNodeMap;
 
   /// This node has edges to all external functions and those internal
   /// functions that have their address taken.
@@ -161,6 +175,7 @@ public:
   /// \c F if one does not already exist.
   CallGraphNode *getOrInsertFunction(const Function *F);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 
   /// \brief Add 'Report' to the list of reports which describe how the
@@ -185,6 +200,10 @@ public:
     }
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  /// \brief Return the dummy node associated with the given metadata node.
+  CallGraphNode *getOrInsertNodeForCalleesMD(MDNode *Callees);
+>>>>>>> 626ed22fbe2cfc2043cef2d855743f029c67f73a
 };
 
 /// A node in the call graph for a module.
