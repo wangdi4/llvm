@@ -1947,6 +1947,8 @@ VPOParoptUtils::genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
     break;
   }
 
+  Flags |= KMP_IDENT_OPENMP_SPEC_VERSION_5_0; // Enable nonmonotonic scheduling
+
   // Constant Definitions
   ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
   ConstantInt *ValueFlags = ConstantInt::get(Type::getInt32Ty(C), Flags);
