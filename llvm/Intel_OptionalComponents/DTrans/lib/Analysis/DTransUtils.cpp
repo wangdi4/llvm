@@ -911,6 +911,8 @@ dtrans::SafetyData dtrans::getConditionsForTransform(dtrans::Transform Trans,
     return dtrans::SDDeleteField;
   case dtrans::DT_ReorderFields:
     return dtrans::SDReorderFields;
+  case dtrans::DT_ReorderFieldsDependent:
+    return dtrans::SDReorderFieldsDependent;
   case dtrans::DT_AOSToSOA:
     return dtrans::SDAOSToSOA;
   case dtrans::DT_AOSToSOADependent:

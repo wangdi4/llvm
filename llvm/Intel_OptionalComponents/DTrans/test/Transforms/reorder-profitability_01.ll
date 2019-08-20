@@ -1,10 +1,10 @@
-; REQUIRES: asserts
-; This test verifies that reordering transformation will not be
+; This test verifies that reordering transformation will NOT be
 ; enabled for struct.test based on profitability heuristic.
 
-;  RUN: opt  -whole-program-assume < %s -dtrans-reorderfields -debug-only=dtrans-reorderfields -disable-output 2>&1 | FileCheck %s
+;  RUN: opt  -whole-program-assume < %s -dtrans-reorderfields -S 2>&1 | FileCheck %s
+;  RUN: opt  -whole-program-assume < %s -passes=dtrans-reorderfields -S 2>&1 | FileCheck %s
 
-; CHECK: Not profitable to reorder: struct.test ( Size: 16 SpaceSaved: 0 )
+; CHECK: %struct.test = type { i8, i8, i64 }
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

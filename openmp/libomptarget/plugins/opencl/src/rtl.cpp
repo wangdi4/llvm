@@ -1336,6 +1336,15 @@ int32_t __tgt_rtl_run_target_region(int32_t device_id, void *tgt_entry_ptr,
                                           tgt_offsets, arg_num, 1, 0, 0);
 }
 
+EXTERN char *__tgt_rtl_get_device_name(
+    int32_t device_id, char *buffer, size_t buffer_max_size) {
+  assert(buffer && "buffer cannot be nullptr.");
+  assert(buffer_max_size > 0 && "buffer_max_size cannot be zero.");
+  INVOKE_CL_RET_NULL(clGetDeviceInfo, DeviceInfo.deviceIDs[device_id],
+                     CL_DEVICE_NAME, buffer_max_size, buffer, nullptr);
+  return buffer;
+}
+
 #ifdef __cplusplus
 }
 #endif

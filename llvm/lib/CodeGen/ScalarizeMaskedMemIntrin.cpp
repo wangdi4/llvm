@@ -32,6 +32,7 @@
 #include "llvm/IR/Value.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Transforms/Utils/Local.h" // INTEL
 #include <algorithm>
 #include <cassert>
 
@@ -483,6 +484,11 @@ static void scalarizeMaskedGather(CallInst *CI, bool &ModifiedDT) {
     }
     CI->replaceAllUsesWith(VResult);
     CI->eraseFromParent();
+#if INTEL_CUSTOMIZATION
+    // If we scalarized the address, remove it too.
+    if (Ptrs->use_empty())
+      RecursivelyDeleteTriviallyDeadInstructions(Ptrs);
+#endif
     return;
   }
 
@@ -605,6 +611,11 @@ static void scalarizeMaskedScatter(CallInst *CI, bool &ModifiedDT) {
       Builder.CreateAlignedStore(OneElt, Ptr, AlignVal);
     }
     CI->eraseFromParent();
+#if INTEL_CUSTOMIZATION
+    // If we scalarized the address, remove it too.
+    if (Ptrs->use_empty())
+      RecursivelyDeleteTriviallyDeadInstructions(Ptrs);
+#endif
     return;
   }
 

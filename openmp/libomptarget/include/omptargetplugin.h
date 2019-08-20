@@ -147,6 +147,13 @@ void *__tgt_rtl_create_buffer(int32_t ID, void *TgtPtr);
 EXTERN
 int32_t __tgt_rtl_release_buffer(void *TgtBuffer);
 
+// Returns implementation defined device name for the given device number,
+// using provided Buffer. Buffer must be able to hold at least BufferMaxSize
+// characters. Returns nullptr, if device name cannot be acquired, otherwise,
+// returns a '\0' terminated C string (pointer to Buffer).
+EXTERN char *__tgt_rtl_get_device_name(
+    int32_t ID, char *Buffer, size_t BufferMaxSize);
+
 // Unlike __tgt_rtl_run_target_team_region, a loop descriptor for
 // multi-dimensional loop is passed to this function.
 EXTERN
