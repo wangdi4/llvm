@@ -18,4 +18,4 @@ int foo()
 
 // CHECK: !llvm.ident = !{[[I:![0-9]+]]}
 // CHECK: !DICompileUnit{{.*}}producer: "clang based
-// CHECK: [[I]] = {{.*}}icx
+// CHECK: [[I]] = {{.*}}DPC++
