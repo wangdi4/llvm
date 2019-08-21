@@ -154,6 +154,12 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
       // Function pointers support
       case spv::CapabilityFunctionPointersINTEL:
       case spv::CapabilityIndirectReferencesINTEL:
+      // Intel FPGA capabilities
+      case spv::CapabilityFPGAMemoryAttributesINTEL:
+      case spv::CapabilityFPGALoopControlsINTEL:
+      case spv::CapabilityFPGARegINTEL:
+      case spv::CapabilityBlockingPipesINTEL:
+      case spv::CapabilityUnstructuredLoopControlsINTEL:
         break;
       }
     // According to logical layout defined by the SPIR-V spec. single
