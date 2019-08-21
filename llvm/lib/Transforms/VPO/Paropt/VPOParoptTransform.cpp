@@ -1239,6 +1239,7 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= genLastIterationCheck(W, IsLastVal, IfLastIterBB,
                                              InsertLastIterCheckBefore);
             Changed |= genLinearCode(W, IfLastIterBB);
+            // Must be in this order, if vars are both FP and LP
             Changed |= genLastPrivatizationCode(W, IfLastIterBB);
             Changed |= genFirstPrivatizationCode(W);
             Changed |= genReductionCode(W);
@@ -1310,10 +1311,9 @@ bool VPOParoptTransform::paroptTransforms() {
               genTaskLoopInitCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,
                                   LBPtr, UBPtr, STPtr, LastIterGep);
           Changed |= genPrivatizationCode(W);
-          Changed |= genFirstPrivatizationCode(W);
-          Changed |= genBarrierForFpLpAndLinears(W);
           Changed |= genLastIterationCheck(W, LastIterGep, IfLastIterBB);
           Changed |= genLastPrivatizationCode(W, IfLastIterBB);
+          Changed |= genFirstPrivatizationCode(W);
           Changed |= genSharedCodeForTaskGeneric(W);
           Changed |= genRedCodeForTaskGeneric(W);
           Changed |= genTaskGenericCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,
@@ -2306,9 +2306,10 @@ bool VPOParoptTransform::genRedAggregateInitOrFini(WRegionNode *W,
 void VPOParoptTransform::genFprivInit(FirstprivateItem *FprivI,
                                       Instruction *InsertPt) {
   auto *NewV = FprivI->getNew();
-  // NewV is either AllocaInst or an AddrSpaceCastInst of AllocaInst.
-  assert(GeneralUtils::isOMPItemLocalVAR(NewV) &&
-         "genFprivInit: Expect non-empty optionally casted alloca instruction");
+  // NewV is either AllocaInst, GEP, or an AddrSpaceCastInst of AllocaInst.
+  assert((GeneralUtils::isOMPItemLocalVAR(NewV) ||
+          isa<GetElementPtrInst>(FprivI->getNew())) &&
+         "genFprivInit: Expect valid memory pointer instruction");
   VPOParoptUtils::genCopyByAddr(NewV, FprivI->getOrig(), InsertPt,
                                 FprivI->getCopyConstructor(),
                                 FprivI->getIsByRef());
@@ -3253,7 +3254,6 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
     // Force BBSet rebuild due to the entry block change.
     W->populateBBSet(true);
     BasicBlock *EntryBB = W->getEntryBBlock();
-    BasicBlock *ExitBB = W->getExitBBlock();
     BasicBlock *PrivInitEntryBB = nullptr;
     bool ForTask = W->getIsTask();
 
@@ -3289,40 +3289,37 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
       LastprivateItem *LprivI = FprivI->getInLastprivate();
 
       if (!LprivI) {
+        // Only make new storage if !LprivI.
+        // If the item was lastprivate, we should use the lastprivate
+        // new version as the item's storage.
         Instruction *InsertPt = EntryBB->getFirstNonPHI();
-        NewPrivInst = genPrivatizationAlloca(FprivI, InsertPt, ".fpriv");
-        FprivI->setNewOnTaskStack(NewPrivInst);
-
+        if (!ForTask) {
+          NewPrivInst = genPrivatizationAlloca(FprivI, InsertPt, ".fpriv");
+          FprivI->setNewOnTaskStack(NewPrivInst);
+        } else
+          NewPrivInst = FprivI->getNew(); // Use the task thunk directly
         Value *ReplacementVal = getClauseItemReplacementValue(FprivI, InsertPt);
         genPrivatizationReplacement(W, Orig, ReplacementVal);
-
-        // For task firstprivate, copy the data from the task entry object
-        // to the task's local stack copy, and back again
-        // when the task region ends.
-
-        if (ForTask) {
-          Value *OutsideVal = ForTask ? FprivI->getNew() : Orig;
-          VPOParoptUtils::genCopyByAddr(
-              NewPrivInst, OutsideVal, EntryBB->getTerminator(),
-              FprivI->getCopyConstructor(), FprivI->getIsByRef());
-
-          // TODO: it is not clear why this write-out is needed.
-          //       This seems to copy data back to the task structure,
-          //       but there is no way to access this copy after the task
-          //       completes.
-          VPOParoptUtils::genCopyByAddr(
-              OutsideVal, NewPrivInst, ExitBB->getTerminator(),
-              FprivI->getCopyConstructor(), FprivI->getIsByRef());
-        }
-
         FprivI->setNew(NewPrivInst);
-      } else {
-        FprivI->setNew(LprivI->getNew());
+      } else if (!ForTask) { // && LprivI
+        // Lastprivate codegen has replaced the original var with the
+        // lastprivate new version.
+        // Parallel-for: Set up the firstprivate new version to point to the
+        // lastprivate new version. Then the copy codegen below, will
+        // copy the original var's value to that location.
+        // We don't do this for tasks because the firstprivate new version
+        // already has the correct data (it points to the incoming task thunk).
         LLVM_DEBUG(dbgs() << "\n  genFirstPrivatizationCode: (" << *Orig
                           << ") is also lastprivate\n");
+        FprivI->setNew(LprivI->getNew());
       }
 
       if (!ForTask) {
+        // Copy the original data to the firstprivate new version.
+        // Note: We must run lastprivate codegen before firstprivate codegen.
+        // Otherwise the lastprivate var replacement will mess up the
+        // copy instructions.
+
         createEmptyPrvInitBB(W, PrivInitEntryBB);
         if (!NewPrivInst ||
             // Note that NewPrivInst will be nullptr, if the variable
@@ -3330,6 +3327,10 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
             FprivI->getIsByRef() ||
             !NewPrivInst->getType()->isPointerTy() ||
             !NewPrivInst->getType()->getPointerElementType()->isPointerTy())
+          // Copy the firstprivate data from the original version to the
+          // private copy. In the case of lastprivate, this is the lastprivate
+          // copy. The lastprivate codegen will replace all original vars
+          // with the lastprivate copy.
           genFprivInit(FprivI, PrivInitEntryBB->getTerminator());
         else {
           // If the firstprivate() item is a pointer to pointer,
@@ -3359,6 +3360,18 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
           FprivI->setOrig(Load);
         }
       }
+      else if (LprivI) { // && ForTask
+        // For taskloop, the firstprivate new version already contains
+        // the correct data (it points to the task thunk). Copy the
+        // data to the lastprivate new version, which is the version used
+        // inside the taskloop.
+        createEmptyPrvInitBB(W, PrivInitEntryBB);
+        VPOParoptUtils::genCopyByAddr(LprivI->getNew(), FprivI->getNew(),
+                                      PrivInitEntryBB->getTerminator(),
+                                      nullptr,
+                                      FprivI->getIsByRef());
+      }
+
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": firstprivatized '";
                  Orig->printAsOperand(dbgs()); dbgs() << "'\n");
     } // for
@@ -6863,7 +6876,6 @@ bool VPOParoptTransform::genCopyPrivateCode(WRegionNode *W,
   W->resetBBSet(); // CFG changed; clear BBSet
   return true;
 }
-
 // Generate the helper function for copying the copyprivate data.
 // TODO: nonPOD support
 Function *VPOParoptTransform::genCopyPrivateFunc(WRegionNode *W,

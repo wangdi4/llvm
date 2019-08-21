@@ -106,6 +106,9 @@ void RTLsTy::LoadRTLs() {
 #ifdef OMPTARGET_DEBUG
     R.RTLName = Name;
 #endif
+#if INTEL_COLLAB
+    R.RTLConstName = Name;
+#endif  // INTEL_COLLAB
 
     if (!(*((void**) &R.is_valid_binary) = dlsym(
               dynlib_handle, "__tgt_rtl_is_valid_binary")))
@@ -156,6 +159,9 @@ void RTLsTy::LoadRTLs() {
     if ((*((void **)&R.create_buffer) =
               dlsym(dynlib_handle, "__tgt_rtl_create_buffer")))
       DP("Optional interface: __tgt_rtl_create_buffer\n");
+    if ((*((void **)&R.get_device_name) =
+              dlsym(dynlib_handle, "__tgt_rtl_get_device_name")))
+      DP("Optional interface: __tgt_rtl_get_device_name\n");
     if ((*((void **)&R.release_buffer) =
               dlsym(dynlib_handle, "__tgt_rtl_release_buffer")))
       DP("Optional interface: __tgt_rtl_release_buffer\n");
@@ -305,7 +311,7 @@ void RTLsTy::RegisterRequires(int64_t flags) {
 
   // TODO: insert any other missing checks
 
-  DP("New requires flags %ld compatible with existing %ld!\n",
+  DP("New requires flags %" PRId64 " compatible with existing %" PRId64 "!\n",
      flags, RequiresFlags);
 }
 

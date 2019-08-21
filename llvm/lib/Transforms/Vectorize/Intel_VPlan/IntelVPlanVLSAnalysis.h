@@ -133,6 +133,9 @@ public:
   const DataLayout &getDL() const { return DL; }
 };
 
+int computeInterleaveIndex(OVLSMemref *Memref, OVLSGroup *Group);
+int computeInterleaveFactor(OVLSMemref *Memref);
+
 } // namespace vpo
 } // namespace llvm
 

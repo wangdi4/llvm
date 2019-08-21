@@ -1115,8 +1115,19 @@ void VPlanDivergenceAnalysis::initializeShapes(
     VPVectorShape *NewShape = nullptr;
     if (const VPInduction *Ind = RegionLoopEntities->getInduction(Phi)) {
       const VPValue *Step = Ind->getStep();
-      NewShape =
-          new VPVectorShape(VPVectorShape::Seq, const_cast<VPValue*>(Step));
+      // Default StepInt is 0 to account for variable step IV cases.
+      int StepInt = 0;
+      if (auto *StepConst = dyn_cast<VPConstant>(Step))
+        if (StepConst->isConstantInt())
+          StepInt = StepConst->getZExtValue();
+
+      // IV's vector shape is determined based on its step value. For variable
+      // step IVs, we choose Strided (unknown stride value).
+      VPVectorShape::VPShapeDescriptor IVShape = (StepInt == 1 || StepInt == -1)
+                                                     ? VPVectorShape::Seq
+                                                     : VPVectorShape::Str;
+
+      NewShape = new VPVectorShape(IVShape, const_cast<VPValue *>(Step));
     } else
       // To be conservative, we mark phi nodes with random shape unless we
       // know the phi is an induction. This matches the divergent property

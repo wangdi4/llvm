@@ -1,14 +1,15 @@
-; REQUIRES: asserts
 ; This test verifies that struct.test is not selected as candidate
 ; due to reordering restrictions since struct.test has vector type.
 
-;  RUN: opt  -whole-program-assume < %s -dtrans-reorderfields -debug-only=dtrans-reorderfields -disable-output 2>&1 | FileCheck %s
+;  RUN: opt  -whole-program-assume < %s -dtrans-reorderfields   -S 2>&1 | FileCheck %s
+;  RUN: opt  -whole-program-assume < %s -passes=dtrans-reorderfields  -S 2>&1 | FileCheck %s
 
-; CHECK: Rejecting struct.test based on reordering restrictions
+; Note: Rejecting struct.test because reorder-field pass won't support any struct with vector type inside.
+
+; CHECK: %struct.test = type { i32, i64, i32, i32, <2 x i8>, i64, i64 }
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
-
 
 %struct.test = type { i32, i64, i32, i32, <2 x i8>, i64, i64 }
 

@@ -20,6 +20,9 @@
 #include <cassert>
 #include <cstdlib>
 #include <mutex>
+#if INTEL_COLLAB
+#include <string.h>
+#endif  // INTEL_COLLAB
 
 // Store target policy (disabled, mandatory, default)
 kmp_target_offload_kind_t TargetOffloadPolicy = tgt_default;
@@ -397,5 +400,56 @@ EXTERN int __tgt_release_buffer(int device_num, void *device_buffer) {
 
   DeviceTy &Device = Devices[device_num];
   return Device.release_buffer(device_buffer);
+}
+
+EXTERN char *__tgt_get_device_name(
+    int device_num, char *buffer, size_t buffer_max_size) {
+  DP("Call to __tgt_get_device_name with device_num %" PRId32 " and "
+     "buffer_max_size %" PRId32 ".\n",
+     device_num, (int32_t)buffer_max_size);
+
+  if (!buffer || buffer_max_size == 0 || IsOffloadDisabled())
+    return NULL;
+
+  if (device_num == OFFLOAD_DEVICE_DEFAULT) {
+    device_num = omp_get_default_device();
+  }
+
+  if (CheckDeviceAndCtors(device_num) != OFFLOAD_SUCCESS) {
+    DP("Failed to get device %" PRId32 " ready\n", device_num);
+    HandleTargetOutcome(false);
+    return NULL;
+  }
+
+  DP("Querying device for its name.\n");
+
+  DeviceTy &Device = Devices[device_num];
+  return Device.get_device_name(buffer, buffer_max_size);
+}
+
+EXTERN char *__tgt_get_device_rtl_name(
+    int device_num, char *buffer, size_t buffer_max_size) {
+  DP("Call to __tgt_get_device_rtl_name with device_num %" PRId32 " and "
+     "buffer_max_size %" PRId32 ".\n",
+     device_num, (int32_t)buffer_max_size);
+
+  if (!buffer || buffer_max_size == 0 || IsOffloadDisabled())
+    return NULL;
+
+  if (device_num == OFFLOAD_DEVICE_DEFAULT) {
+    device_num = omp_get_default_device();
+  }
+
+  if (CheckDeviceAndCtors(device_num) != OFFLOAD_SUCCESS) {
+    DP("Failed to get device %" PRId32 " ready\n", device_num);
+    HandleTargetOutcome(false);
+    return NULL;
+  }
+
+  const RTLInfoTy *RTL = Devices[device_num].RTL;
+  assert(RTL && "Device with uninitialized RTL.");
+  strncpy(buffer, RTL->RTLConstName, buffer_max_size - 1);
+  buffer[buffer_max_size - 1] = '\0';
+  return buffer;
 }
 #endif // INTEL_COLLAB

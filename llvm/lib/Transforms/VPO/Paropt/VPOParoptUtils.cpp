@@ -865,6 +865,49 @@ CallInst *VPOParoptUtils::genTgtIsDeviceAvailable(Value *DeviceNum,
 }
 
 // Generate a call to
+//   void *__tgt_create_buffer(int device_num, void *host_ptr)
+CallInst *VPOParoptUtils::genTgtCreateBuffer(Value *DeviceNum, Value *HostPtr,
+                                             Instruction *InsertPt) {
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  LLVMContext &C = F->getContext();
+  Type *Int32Ty = Type::getInt32Ty(C);
+  Type *Int8PtrTy = Type::getInt8PtrTy(C);
+
+  assert(DeviceNum && DeviceNum->getType()->isIntegerTy(32) &&
+         "DeviceNum expected to be Int32");
+  assert(HostPtr && HostPtr->getType() == Int8PtrTy &&
+         "HostPtr expected to be void*");
+  Value *Args[] = {DeviceNum, HostPtr};
+  Type *ArgTypes[] = {Int32Ty, Int8PtrTy};
+  CallInst *Call =
+      genCall("__tgt_create_buffer", Int8PtrTy, Args, ArgTypes, InsertPt);
+  return Call;
+}
+
+// Generate a call to
+//   int __tgt_release_buffer(int device_num, void *tgt_buffer)
+CallInst *VPOParoptUtils::genTgtReleaseBuffer(Value *DeviceNum,
+                                              Value *TgtBuffer,
+                                              Instruction *InsertPt) {
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  LLVMContext &C = F->getContext();
+  Type *Int32Ty = Type::getInt32Ty(C);
+  Type *Int8PtrTy = Type::getInt8PtrTy(C);
+
+  assert(DeviceNum && DeviceNum->getType()->isIntegerTy(32) &&
+         "DeviceNum expected to be Int32");
+  assert(TgtBuffer && TgtBuffer->getType() == Int8PtrTy &&
+         "TgtBuffer expected to be void*");
+  Value *Args[] = {DeviceNum, TgtBuffer};
+  Type *ArgTypes[] = {Int32Ty, Int8PtrTy};
+  CallInst *Call =
+      genCall("__tgt_release_buffer", Int32Ty, Args, ArgTypes, InsertPt);
+  return Call;
+}
+
+// Generate a call to
 //   int omp_get_num_devices()
 CallInst *VPOParoptUtils::genOmpGetNumDevices(Instruction *InsertPt) {
   BasicBlock *B = InsertPt->getParent();
@@ -1947,6 +1990,8 @@ VPOParoptUtils::genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
     break;
   }
 
+  Flags |= KMP_IDENT_OPENMP_SPEC_VERSION_5_0; // Enable nonmonotonic scheduling
+
   // Constant Definitions
   ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
   ConstantInt *ValueFlags = ConstantInt::get(Type::getInt32Ty(C), Flags);
@@ -2713,14 +2758,35 @@ CallInst *VPOParoptUtils::genCall(StringRef FnName, Type *ReturnTy,
 // The base and variant functions must have identical signatures.
 CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
                                          StringRef VariantName,
-                                         Instruction *InsertPt, bool IsTail,
-                                         bool IsVarArg) {
+                                         Instruction *InsertPt, WRegionNode *W,
+                                         bool IsTail, bool IsVarArg) {
   assert(BaseCall && "BaseCall is null");
   Module *M = BaseCall->getModule();
   Type *ReturnTy = BaseCall->getType();
   SmallVector<Value *, 4> FnArgs(BaseCall->arg_operands());
-  CallInst *VariantCall = genCall(M, VariantName, ReturnTy, FnArgs, InsertPt,
-                                  IsTail, IsVarArg);
+  CallInst *VariantCall =
+      genCall(M, VariantName, ReturnTy, FnArgs, InsertPt, IsTail, IsVarArg);
+
+  // Replace each VariantCall argument that is a load from a HostPtr listed
+  // on the use_device_ptr clause with a load from the corresponding TgtBuffer.
+  if (W) {
+    assert(isa<WRNTargetVariantNode>(W) && "Expected a Target Variant WRN");
+    UseDevicePtrClause &UDPtrClause = W->getUseDevicePtr();
+    if (!UDPtrClause.empty()) {
+      IRBuilder<> VCBuilder(VariantCall);
+      for (UseDevicePtrItem *Item : UDPtrClause.items()) {
+        Value *HostPtr = Item->getOrig();
+        Value *TgtBuffer = Item->getNew();
+        for (Value *Arg : FnArgs)
+          if (LoadInst *Load = dyn_cast<LoadInst>(Arg))
+            if (Load->getPointerOperand() == HostPtr) {
+              LoadInst *Buffer = VCBuilder.CreateLoad(TgtBuffer, "buffer");
+              VariantCall->replaceUsesOfWith(Arg, Buffer);
+              break;
+            }
+      }
+    }
+  }
   return VariantCall;
 }
 

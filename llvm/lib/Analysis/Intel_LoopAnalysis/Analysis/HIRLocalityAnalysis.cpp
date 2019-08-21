@@ -741,23 +741,25 @@ unsigned HIRLoopLocality::getTemporalLocalityImpl(const HLLoop *Lp,
 }
 
 void HIRLoopLocality::populateTemporalLocalityGroups(
-    const HLLoop *Lp, unsigned ReuseThreshold, RefGroupVecTy &TemporalGroups,
+    HLContainerTy::const_iterator Begin, HLContainerTy::const_iterator End,
+    unsigned Level, unsigned ReuseThreshold, RefGroupVecTy &TemporalGroups,
     SmallSet<unsigned, 8> *UniqueGroupSymbases) {
-  assert(Lp && " Loop parameter is null!");
+  assert(((Level == 0 && ReuseThreshold == 0) ||
+          CanonExprUtils::isValidLoopLevel(Level)) &&
+         " Invalid combination of loop level and reuse threhold!");
 
   typedef DDRefGatherer<const RegDDRef, MemRefs | FakeRefs> MemRefGatherer;
 
   MemRefGatherer::MapTy MemRefMap;
 
-  MemRefGatherer::gatherRange(Lp->child_begin(), Lp->child_end(),
-                                   MemRefMap);
+  MemRefGatherer::gatherRange(Begin, End, MemRefMap);
 
   MemRefGatherer::sort(MemRefMap);
 
   DDRefGrouping::groupMap(TemporalGroups, MemRefMap,
                           std::bind(isTemporalMatch, std::placeholders::_1,
-                                    std::placeholders::_2,
-                                    Lp->getNestingLevel(), ReuseThreshold));
+                                    std::placeholders::_2, Level ? Level : 1,
+                                    ReuseThreshold));
 
   if (UniqueGroupSymbases) {
     DenseMap<unsigned, unsigned> SymbaseCount;

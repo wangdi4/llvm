@@ -217,7 +217,8 @@ public:
   }
 
   /// Populates \p TemporalGroups with memref groups which have temporal
-  /// locality within \p ReuseThreshold.
+  /// locality at loop \p Level within \p ReuseThreshold.
+  /// \p Level can be set to zero when \p ReuseThreshold is zero.
   ///
   /// Examples-
   /// 1) A[2*i], A[2*i+1], A[2*i+2], A[2*i+3]
@@ -235,8 +236,30 @@ public:
   /// Function also accumulates fake refs otherwise the info in
   /// UniqueGroupSymbases might be wrong.
   static void populateTemporalLocalityGroups(
-      const HLLoop *Lp, unsigned ReuseThreshold, RefGroupVecTy &TemporalGroups,
+      HLContainerTy::const_iterator Begin, HLContainerTy::const_iterator End,
+      unsigned Level, unsigned ReuseThreshold, RefGroupVecTy &TemporalGroups,
       SmallSet<unsigned, 8> *UniqueGroupSymbases = nullptr);
+
+  /// Refer to the iterator range version of the function above for description.
+  static void populateTemporalLocalityGroups(
+      const HLLoop *Lp, unsigned ReuseThreshold, RefGroupVecTy &TemporalGroups,
+      SmallSet<unsigned, 8> *UniqueGroupSymbases = nullptr) {
+    populateTemporalLocalityGroups(Lp->child_begin(), Lp->child_end(),
+                                   Lp->getNestingLevel(), ReuseThreshold,
+                                   TemporalGroups, UniqueGroupSymbases);
+  }
+
+  /// Populates \p TemporalGroups with memref groups which represent equivalent
+  /// addresses like A[i] and (i32*)A[i]. Bitcast destination type may be
+  /// ignored.
+  static void
+  populateEqualityGroups(HLContainerTy::const_iterator Begin,
+                         HLContainerTy::const_iterator End,
+                         RefGroupVecTy &TemporalGroups,
+                         SmallSet<unsigned, 8> *UniqueGroupSymbases = nullptr) {
+    populateTemporalLocalityGroups(Begin, End, 0, 0, TemporalGroups,
+                                   UniqueGroupSymbases);
+  }
 
   /// Populates \p SpatialGroups with memref groups which have spatial locality.
   /// For example, if the loop contains these refs-

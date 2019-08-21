@@ -21,12 +21,16 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include <string>
+
 #define WIN32
 #define WIN32_LEAN_AND_MEAN
 #pragma warning( push )
 #pragma warning( disable: 271 310 )
 #include <windows.h>
 #pragma warning( pop )
+
+static std::string LastErrorMessage;
 
 static wchar_t * utf8_to_wchar(const char *in) {
   // Account for multi-byte chars (up to 4 bytes per char for UTF8)
@@ -85,6 +89,28 @@ int dlclose(void *handle) {
 void *dlsym(void *handle, const char *name) {
   void *addr = GetProcAddress(static_cast<HMODULE>(handle), name);
   return addr;
+}
+
+// Covert GetLastError() to string.
+char *dlerror(void) {
+  LastErrorMessage.clear();
+  DWORD error = GetLastError();
+  if (error) {
+    LPVOID lpMsgBuf;
+    DWORD bufLen = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
+                                 FORMAT_MESSAGE_ARGUMENT_ARRAY |
+                                 FORMAT_MESSAGE_FROM_SYSTEM |
+                                 FORMAT_MESSAGE_IGNORE_INSERTS, NULL, error,
+                                 MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                                 (LPTSTR) &lpMsgBuf, 0, NULL);
+    if (bufLen) {
+      LPCSTR lpMsgStr = (LPCSTR)lpMsgBuf;
+      LastErrorMessage.assign(lpMsgStr, lpMsgStr+bufLen);
+      LocalFree(lpMsgBuf);
+    }
+  }
+
+  return const_cast<char *>(LastErrorMessage.c_str());
 }
 
 #ifdef __cplusplus
