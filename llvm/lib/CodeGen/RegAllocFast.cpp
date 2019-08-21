@@ -892,13 +892,8 @@ void RegAllocFast::handleThroughOperands(MachineInstr &MI,
   SmallSet<unsigned, 8> ThroughRegs;
   for (const MachineOperand &MO : MI.operands()) {
     if (!MO.isReg()) continue;
-<<<<<<< HEAD
-    unsigned Reg = MO.getReg();
-    if (!isVirtualRegister(Reg)) // INTEL
-=======
     Register Reg = MO.getReg();
-    if (!Register::isVirtualRegister(Reg))
->>>>>>> 0c476111317cb7aaa9a3e9f75e1c35f83122ee26
+    if (!isVirtualRegister(Reg))
       continue;
     if (MO.isEarlyClobber() || (MO.isUse() && MO.isTied()) ||
         (MO.getSubReg() && MI.readsVirtualRegister(Reg))) {
@@ -927,14 +922,8 @@ void RegAllocFast::handleThroughOperands(MachineInstr &MI,
   for (unsigned I = 0, E = MI.getNumOperands(); I != E; ++I) {
     MachineOperand &MO = MI.getOperand(I);
     if (!MO.isReg()) continue;
-<<<<<<< HEAD
-    unsigned Reg = MO.getReg();
-    if (!isVirtualRegister(Reg)) continue; // INTEL
-=======
     Register Reg = MO.getReg();
-    if (!Register::isVirtualRegister(Reg))
-      continue;
->>>>>>> 0c476111317cb7aaa9a3e9f75e1c35f83122ee26
+    if (!isVirtualRegister(Reg)) continue; // INTEL
     if (MO.isUse()) {
       if (!MO.isTied()) continue;
       LLVM_DEBUG(dbgs() << "Operand " << I << "(" << MO
@@ -958,14 +947,8 @@ void RegAllocFast::handleThroughOperands(MachineInstr &MI,
   for (unsigned I = 0, E = MI.getNumOperands(); I != E; ++I) {
     const MachineOperand &MO = MI.getOperand(I);
     if (!MO.isReg()) continue;
-<<<<<<< HEAD
-    unsigned Reg = MO.getReg();
-    if (!isVirtualRegister(Reg)) continue; // INTEL
-=======
     Register Reg = MO.getReg();
-    if (!Register::isVirtualRegister(Reg))
-      continue;
->>>>>>> 0c476111317cb7aaa9a3e9f75e1c35f83122ee26
+    if (!isVirtualRegister(Reg)) continue; // INTEL
     if (!MO.isEarlyClobber())
       continue;
     // Note: defineVirtReg may invalidate MO.
