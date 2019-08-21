@@ -9288,12 +9288,6 @@ void InitializationSequence::dump() const {
 }
 
 static bool NarrowingErrs(const LangOptions &L) {
-#if INTEL_CUSTOMIZATION
-  // Intel compiler never issues any errors.
-  // Follow this in IntelCompat mode. CQ#366839.
-  if (L.IntelCompat)
-    return false;
-#endif // INTEL_CUSTOMIZATION
   return L.CPlusPlus11 &&
          (!L.MicrosoftExt || L.isCompatibleWithMSVC(LangOptions::MSVC2015));
 }
