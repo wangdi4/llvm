@@ -46,7 +46,7 @@ TEST_F(BackEndTests_Plugins, PluginLoadSuccess)
     ASSERT_TRUE(SetEnvironmentVariableA(PLUGIN_ENVIRONMENT_VAR, &(envString[0])));
 #else
     // envString = "environmentname=currentpath/PLUGIN_DLL_NAME"
-    pluginPath = get_exe_dir() + PLUGIN_DLL_NAME;
+    pluginPath = PLUGIN_DLL_NAME;
     envString = envString + PLUGIN_ENVIRONMENT_VAR + "=" + pluginPath;
     ASSERT_EQ(putenv(&(envString[0])), 0);
 #endif
