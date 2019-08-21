@@ -8,6 +8,7 @@
 
 #include "cl_dynamic_lib.h"
 #include "cl_shutdown.h"
+#include "cl_sys_info.h"
 
 #include <sys/stat.h>
 #include <dlfcn.h>
@@ -67,18 +68,33 @@ bool OclDynamicLib::Load(const char* pLibName)
     }
 
     // Load library
-    // To make library name canonical add a version string at its ending
-    std::string strLibName = std::string(pLibName) + std::string(".") +
-                             std::string(VERSIONSTRING);
+    std::string strLibName(MAX_PATH, '\0');
+    // Get a full path of a library from where the function was called. We
+    // expect, that a callee library is having the same path as the caller.
+    // Add this path to string to pass in dlopen function.
+    Intel::OpenCL::Utils::GetModuleDirectory(&strLibName[0], MAX_PATH);
+    strLibName.resize(strLibName.find_first_of('\0'));
+    // To make library name canonical add a version string at its ending.
+    strLibName += std::string(pLibName) + std::string(".") +
+                  std::string(VERSIONSTRING);
     m_hLibrary = dlopen(strLibName.c_str(), RTLD_LAZY);
 
     if ( nullptr == m_hLibrary )
     {
+        // We didn't find the called library by a full path. Step back and try
+        // to find it disregarding the calculated path.
+        strLibName = std::string(pLibName) + std::string(".") +
+                                 std::string(VERSIONSTRING);
+        m_hLibrary = dlopen(strLibName.c_str(), RTLD_LAZY);
+        if ( nullptr == m_hLibrary )
+        {
+
 #ifdef _DEBUG
-        const char* e = dlerror();
-        printf("Error loading %s: %s\n", pLibName, e);
+            const char* e = dlerror();
+            printf("Error loading %s: %s\n", pLibName, e);
 #endif
-        return false;
+            return false;
+        }
     }
 
     RegisterAtExitNotification_Func AtExitFunc = 
