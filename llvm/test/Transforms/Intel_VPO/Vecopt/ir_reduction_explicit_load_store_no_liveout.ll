@@ -2,13 +2,16 @@
 ; reduction variable inside the loop and a loop invariant load for starting value, while reduction
 ; is performed in register (using PHI node). In this specific test case, the instruction updating
 ; the reduction is not live-out of the loop.
+; TODO: LinkedValues are not itemized due to unpredictable order (they are kept in a set).
 
 ; RUN: opt -VPlanDriver -enable-vp-value-codegen -vplan-print-after-linearization -vplan-entities-dump -S < %s 2>&1 | FileCheck %s
 
 ; Check that reduction is imported as VPReduction.
 ; CHECK-LABEL:  Loop Entities of the loop with header
 ; CHECK:        Reduction list
-; CHECK-NEXT:   (+) Start: float [[X_PROMOTED:%.*]] Memory: float* [[X:%.*]]
+; CHECK-NEXT:   (+) Start: float [[X_PROMOTED:%.*]]
+; CHECK-NEXT: Linked values: {{.*}}
+; CHECK-NEXT: Memory: float* [[X:%.*]]
 
 ; Check VPlan after VPLoopEntities transformation.
 ; CHECK:         REGION: [[REGION0:region[0-9]+]] (BP: NULL)

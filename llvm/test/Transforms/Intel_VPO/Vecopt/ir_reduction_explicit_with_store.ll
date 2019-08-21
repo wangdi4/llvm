@@ -5,7 +5,9 @@
 
 ; Check reduction is imported as VPReduction.
 ; CHECK-LABEL: Reduction list
-; CHECK-NEXT:  (+) Start: float 0.000000e+00 Exit: float [[EXIT_VPINST:%vp.*]] Memory: float* [[X:%.*]]
+; CHECK-NEXT:  (+) Start: float 0.000000e+00 Exit: float [[EXIT_VPINST:%vp.*]]
+; CHECK-NEXT: Linked values: {{.*}}
+; CHECK-NEXT: Memory: float* [[X:%.*]]
 
 ; Check generated code.
 ; CHECK-LABEL: @store_reduction_add(

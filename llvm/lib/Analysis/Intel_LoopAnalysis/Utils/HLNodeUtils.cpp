@@ -736,12 +736,23 @@ HLInst *HLNodeUtils::createInsertElementInst(RegDDRef *OpRef1,
 HLInst *HLNodeUtils::createExtractElementInst(RegDDRef *OpRef, unsigned Idx,
                                               const Twine &Name,
                                               RegDDRef *LvalRef) {
+  RegDDRef *IdxDDref = getDDRefUtils().createConstDDRef(
+      Type::getInt64Ty(getDDRefUtils().getContext()), Idx);
+
+  return createExtractElementInst(OpRef, IdxDDref, Name, LvalRef);
+}
+
+HLInst *HLNodeUtils::createExtractElementInst(RegDDRef *OpRef, RegDDRef *IdxRef,
+                                              const Twine &Name,
+                                              RegDDRef *LvalRef) {
 
   assert(OpRef->getDestType()->isVectorTy() &&
          "Illegal operand types for extractelement");
 
   auto UndefVal = UndefValue::get(OpRef->getDestType());
-  Value *InstVal = DummyIRBuilder->CreateExtractElement(UndefVal, Idx, Name);
+  auto UndefIdx = UndefValue::get(IdxRef->getDestType());
+  Value *InstVal =
+      DummyIRBuilder->CreateExtractElement(UndefVal, UndefIdx, Name);
   Instruction *Inst = cast<Instruction>(InstVal);
   assert((!LvalRef || LvalRef->getDestType() == Inst->getType()) &&
          "Incompatible type of LvalRef");
@@ -749,10 +760,7 @@ HLInst *HLNodeUtils::createExtractElementInst(RegDDRef *OpRef, unsigned Idx,
   HLInst *HInst = createLvalHLInst(Inst, LvalRef);
 
   HInst->setOperandDDRef(OpRef, 1);
-
-  RegDDRef *IdxDDref =
-      getDDRefUtils().createConstDDRef(Inst->getOperand(1)->getType(), Idx);
-  HInst->setOperandDDRef(IdxDDref, 2);
+  HInst->setOperandDDRef(IdxRef, 2);
 
   return HInst;
 }

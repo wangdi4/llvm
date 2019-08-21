@@ -23,6 +23,7 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/Analysis/IVDescriptors.h"
 #include <map>
 
@@ -57,6 +58,8 @@ extern bool VPlanDisplaySOAAnalysisInformation;
 /// Base class for loop entities
 class VPLoopEntity {
 public:
+  using LinkedVPValuesTy = SmallSet<VPValue *, 4>;
+
   enum { Reduction, IndexReduction, Induction, Private };
   unsigned char getID() const { return SubclassID; }
 
@@ -70,12 +73,10 @@ public:
   void setIsMemOnly(bool V) { IsMemOnly = V; }
   bool getIsMemOnly() const { return IsMemOnly; }
 
-  const SmallVectorImpl<VPValue *> &getLinkedVPValues() const {
-    return LinkedVPValues;
-  }
+  const LinkedVPValuesTy &getLinkedVPValues() const { return LinkedVPValues; }
   void addLinkedVPValue(VPValue *Val) {
     if (Val != nullptr)
-      LinkedVPValues.push_back(Val);
+      LinkedVPValues.insert(Val);
   }
 
 protected:
@@ -85,9 +86,13 @@ protected:
 
   bool IsMemOnly;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void printLinkedValues(raw_ostream &OS) const;
+#endif // NDEBUG || LLVM_ENABLE_DUMP
+
 private:
   const unsigned char SubclassID;
-  SmallVector<VPValue *, 2> LinkedVPValues;
+  LinkedVPValuesTy LinkedVPValues;
 };
 
 /// Recurrence descriptor
@@ -445,7 +450,7 @@ public:
   VPLoopEntityList(VPlan &P, VPLoop &L) : Plan(P), Loop(L) {}
 
   VPValue *getReductionIdentity(const VPReduction *Red) const;
-  static bool isMinMaxInclusive(const VPReduction &Red);
+  bool isMinMaxLastItem(const VPReduction &Red) const;
 
   void insertVPInstructions(VPBuilder &Builder);
 

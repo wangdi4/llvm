@@ -1358,12 +1358,18 @@ public:
 
   /// Return operand that corrresponds to min/max parent vector value.
   VPValue *getParentExitValOperand() const {
-    return getNumOperands() == 3 ? getOperand(2) : nullptr;
+    return getNumOperands() == 3 ? getOperand(1) : nullptr;
   }
 
   /// Return operand that corrresponds to min/max parent final value.
   VPValue *getParentFinalValOperand() const {
-    return getNumOperands() == 3 ? getOperand(1) : nullptr;
+    return getNumOperands() == 3 ? getOperand(2) : nullptr;
+  }
+
+  /// Return true if this instruction is for last value calculation of an index
+  /// part of min/max+index idiom.
+  bool isMinMaxIndex() const {
+    return getParentExitValOperand() != nullptr;
   }
 
   /// Return ID of the corresponding reduce intrinsic.

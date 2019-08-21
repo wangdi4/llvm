@@ -120,6 +120,7 @@ template <typename DescrType>
 DescrType *HIRVectorizationLegality::findDescr(ArrayRef<DescrType> List,
                                                const DDRef *Ref) const {
   for (auto &Descr : List) {
+    // TODO: try to avoid returning the non-const ptr.
     DescrType *CurrentDescr = const_cast<DescrType *>(&Descr);
     assert(isa<RegDDRef>(CurrentDescr->Ref) &&
            "The original SIMD descriptor Ref is not a RegDDRef.");
@@ -265,10 +266,10 @@ HIRVectorizationLegality::getVectorIdioms(HLLoop *Loop) const {
 bool HIRVectorizationLegality::isMinMaxIdiomTemp(const DDRef *Ref,
                                                  HLLoop *Loop) const {
   auto *Idioms = getVectorIdioms(Loop);
-  for (auto &Inst : make_range(Idioms->begin(), Idioms->end()))
-    if ((Inst.second == HIRVectorIdioms::IdiomId::MinOrMax ||
-         Inst.second == HIRVectorIdioms::IdiomId::MMFirstLastLoc) &&
-        DDRefUtils::areEqual(Inst.first->getLvalDDRef(), Ref))
+  for (auto &IdiomDescr : make_range(Idioms->begin(), Idioms->end()))
+    if ((IdiomDescr.second == HIRVectorIdioms::IdiomId::MinOrMax ||
+         IdiomDescr.second == HIRVectorIdioms::IdiomId::MMFirstLastLoc) &&
+        DDRefUtils::areEqual(IdiomDescr.first->getLvalDDRef(), Ref))
       return true;
 
   return false;

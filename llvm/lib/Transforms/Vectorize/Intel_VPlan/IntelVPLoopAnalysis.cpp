@@ -18,6 +18,7 @@
 #include "IntelVPlan.h"
 #include "IntelVPlanBuilder.h"
 #include "IntelVPlanUtils.h"
+#include "IntelVPlanValue.h"
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/Support/CommandLine.h"
 
@@ -118,6 +119,7 @@ void VPReduction::dump(raw_ostream &OS) const {
     OS << " Exit: ";
     getLoopExitInstr()->printAsOperand(OS);
   }
+  printLinkedValues(OS);
 }
 
 void VPIndexReduction::dump(raw_ostream &OS) const {
@@ -173,15 +175,26 @@ void VPInduction::dump(raw_ostream &OS) const {
   if (NeedCloseForm) {
     OS << " need close form ";
   }
+  printLinkedValues(OS);
 }
 
-void VPPrivate::dump(raw_ostream &OS) const {
-}
+void VPPrivate::dump(raw_ostream &OS) const { printLinkedValues(OS); }
 
 void VPLoopEntityMemoryDescriptor::dump(raw_ostream &OS) const {
   MemoryPtr->dump(OS);
 }
-#endif // NDEBUG
+
+void VPLoopEntity::printLinkedValues(raw_ostream &OS) const {
+  if (LinkedVPValues.size() == 0)
+    return;
+  OS << "\n  Linked values: ";
+  for (auto *V : LinkedVPValues) {
+    V->printAsOperand(OS);
+    OS << ", ";
+  }
+  OS << "\n";
+}
+#endif // NDEBUG || LLVM_ENABLE_DUMP
 
 VPLoopEntity::~VPLoopEntity() {}
 
@@ -410,28 +423,100 @@ VPValue *VPLoopEntityList::getReductionIdentity(const VPReduction *Red) const {
     llvm_unreachable("Unknown recurrence kind");
   }
 }
-//TODO - not implemented yet
-bool VPLoopEntityList::isMinMaxInclusive(const VPReduction &Red) {
+
+// Basing on the MinMax kind and comparison predicate identify which
+// index should be returned as last value, the last or the first one.
+// The following rules apply for predicates (b stands for "found value", ai
+// stands for array we are looking through).
+// If we have MAX the following combinations can occur:
+//   b  <  ai ? ai : b   => first index
+//   ai <  b  ? b  : ai  => last index
+//   b  <= ai ? ai : b   => last
+//   ai <= b  ? b  : ai  => first
+//   ai >  b  ? ai : b   => first
+//   b  >  ai ? b  : ai  => last
+//   ai >= b  ? ai : b   => last
+//   b  >= ai ? b  : ai  => first
+// If we have MIN the following combinations can occur:
+//   b  <  ai ? b  : ai  => last  index
+//   ai <  b  ? ai : b   => first index
+//   b  <= ai ? b  : ai  => first
+//   ai <= b  ? ai : b   => last
+//   ai >  b  ? b  : ai  => last
+//   b  >  ai ? ai : b   => first
+//   ai >= b  ? b  : ai  => first
+//   b  >= ai ? ai : b   => last
+// So, we need to know at wich position in comparison is b,
+// comparison predicate and kind of reduction (MIN or MAX).
+//
+bool VPLoopEntityList::isMinMaxLastItem(const VPReduction &Red) const {
   if (Red.getRecurrenceKind() != RecurrenceKind::RK_IntegerMinMax &&
       Red.getRecurrenceKind() != RecurrenceKind::RK_FloatMinMax)
     return false;
 
+  bool IsMin;
+  switch (Red.getMinMaxRecurrenceKind()) {
+  case MinMaxRecurrenceKind::MRK_UIntMin:
+  case MinMaxRecurrenceKind::MRK_SIntMin:
+  case MinMaxRecurrenceKind::MRK_FloatMin:
+    IsMin = true;
+    break;
+  case MinMaxRecurrenceKind::MRK_UIntMax:
+  case MinMaxRecurrenceKind::MRK_SIntMax:
+  case MinMaxRecurrenceKind::MRK_FloatMax:
+    IsMin = false;
+    break;
+  default:
+    llvm_unreachable("Unknown minmax predicate");
+  }
   auto &LinkedVals = Red.getLinkedVPValues();
   for (auto *Val : LinkedVals)
     if (auto VPInst = dyn_cast<VPInstruction>(Val))
       if (VPInst->getOpcode() == Instruction::Select) {
+        VPPHINode *BestValInst = getRecurrentVPHINode(Red);
+        assert(BestValInst && "Phi node not found for min/max reduction");
+        // Get condition
         auto PredInst = cast<VPCmpInst>(VPInst->getOperand(0));
+        bool BestIsFirstCmpOperand = BestValInst == PredInst->getOperand(0);
         switch (PredInst->getPredicate()) {
         case CmpInst::FCMP_OGE:
-        case CmpInst::FCMP_OLE:
         case CmpInst::FCMP_UGE:
-        case CmpInst::FCMP_ULE:
         case CmpInst::ICMP_UGE:
-        case CmpInst::ICMP_ULE:
         case CmpInst::ICMP_SGE:
+          // max b  >= ai ? b  : ai  => first
+          // min b  >= ai ? ai : b   => last
+          // max ai >= b  ? ai : b   => last
+          // min ai >= b  ? b  : ai  => first
+          return BestIsFirstCmpOperand ? IsMin : !IsMin;
+        case CmpInst::FCMP_OLE:
+        case CmpInst::FCMP_ULE:
+        case CmpInst::ICMP_ULE:
         case CmpInst::ICMP_SLE:
-          return true;
+          // min b  <= ai ? b  : ai  => first
+          // max b  <= ai ? ai : b   => last
+          // min ai <= b  ? ai : b   => last
+          // max ai <= b  ? b  : ai  => first
+          return BestIsFirstCmpOperand ? !IsMin : IsMin;
+        case CmpInst::FCMP_OGT:
+        case CmpInst::FCMP_UGT:
+        case CmpInst::ICMP_UGT:
+        case CmpInst::ICMP_SGT:
+          // max b  >  ai ? b  : ai  => last
+          // min b  >  ai ? ai : b   => first
+          // max ai >  b  ? ai : b   => first
+          // min ai >  b  ? b  : ai  => last
+          return BestIsFirstCmpOperand ? !IsMin : IsMin;
+        case CmpInst::FCMP_OLT:
+        case CmpInst::FCMP_ULT:
+        case CmpInst::ICMP_ULT:
+        case CmpInst::ICMP_SLT:
+          // max b  <  ai ? ai : b   => first
+          // min b  <  ai ? b  : ai  => last
+          // max ai <  b  ? b  : ai  => last
+          // min ai <  b  ? ai : b   => first
+          return BestIsFirstCmpOperand ? IsMin : !IsMin;
         default:
+          llvm_unreachable("Unknown minmax predicate");
           break;
         }
       }
@@ -528,7 +613,7 @@ void VPLoopEntityList::processInitValue(VPLoopEntity &E, VPValue *AI,
   // constant or something else and can be used in instructions not related to
   // this entity calculation. We should replace it only where it's needed.
   if (!E.getIsMemOnly()) {
-    const SmallVectorImpl<VPValue *> &LinkedVals = E.getLinkedVPValues();
+    auto &LinkedVals = E.getLinkedVPValues();
     for (auto *Val : LinkedVals)
       if (auto *Instr = dyn_cast<VPInstruction>(Val))
         Instr->replaceUsesOfWith(&Start, &Init);
@@ -674,8 +759,7 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
     VPInstruction *InitStep =
         Builder.createInductionInitStep(Induction->getStep(), Opc);
     if (!Induction->needCloseForm()) {
-      const SmallVectorImpl<VPValue *> &LinkedVals =
-          Induction->getLinkedVPValues();
+      auto &LinkedVals = Induction->getLinkedVPValues();
       for (auto *Val : LinkedVals)
         if (auto *Instr = dyn_cast<VPInstruction>(Val))
           if (!isa<VPInductionInit>(Instr))
@@ -1057,7 +1141,7 @@ void ReductionDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
   else {
     const VPReduction *Parent = LE->getReduction(LinkPhi);
     assert(Parent && "nullptr is unexpected");
-    bool ForLast = LE->isMinMaxInclusive(*Parent);
+    bool ForLast = LE->isMinMaxLastItem(*Parent);
     VPRed = LE->addIndexReduction(StartPhi, Parent, Start, Exit, RT, Signed,
                                   ForLast, AllocaInst, ValidMemOnly);
   }

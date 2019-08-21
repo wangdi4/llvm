@@ -21,9 +21,9 @@
 ; Check entities
 ; CHECK-LABEL: Loop Entities of the loop with header
 ; CHECK: Induction list
-; CHECK-NEXT: IntInduction(+) Start: i32 0 Step: i32 1 BinOp: i32 [[LOOP_IV_BINOP:%vp.*]] = add i32 [[LOOP_IV_PHI:%vp.*]] i32 [[LOOP_IV_INIT_STEP:%vp.*]]
-; CHECK-NEXT: PtrInduction(+) Start: i32* %ptr Step: i64 1 BinOp: i32* [[IV1_BINOP:%vp.*]] = getelementptr inbounds i32* [[IV1_PHI:%vp.*]] i64 1 need close form
-; CHECK-NEXT: IntInduction(+) Start: i8 %conv Step: i8 1 BinOp: i8 [[IV2_BINOP:%vp.*]] = add i8 [[IV2_PHI:%vp.*]] i8 1 need close form
+; CHECK: IntInduction(+) Start: i32 0 Step: i32 1 BinOp: i32 [[LOOP_IV_BINOP:%vp.*]] = add i32 [[LOOP_IV_PHI:%vp.*]] i32 [[LOOP_IV_INIT_STEP:%vp.*]]
+; CHECK: PtrInduction(+) Start: i32* %ptr Step: i64 1 BinOp: i32* [[IV1_BINOP:%vp.*]] = getelementptr inbounds i32* [[IV1_PHI:%vp.*]] i64 1 need close form
+; CHECK: IntInduction(+) Start: i8 %conv Step: i8 1 BinOp: i8 [[IV2_BINOP:%vp.*]] = add i8 [[IV2_PHI:%vp.*]] i8 1 need close form
 
 ; Check entity VPInstructions
 ; CHECK-LABEL: REGION

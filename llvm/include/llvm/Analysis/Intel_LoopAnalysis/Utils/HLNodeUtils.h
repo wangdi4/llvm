@@ -885,8 +885,13 @@ public:
                                   unsigned Idx, const Twine &Name = "insert",
                                   RegDDRef *LvalRef = nullptr);
 
-  /// Creates a new ExtractElement instruction
+  /// Creates a new ExtractElement instruction, constant index
   HLInst *createExtractElementInst(RegDDRef *OpRef, unsigned Idx,
+                                   const Twine &Name = "extract",
+                                   RegDDRef *LvalRef = nullptr);
+
+  /// Creates a new ExtractElement instruction, variable index
+  HLInst *createExtractElementInst(RegDDRef *OpRef, RegDDRef *IdxRef,
                                    const Twine &Name = "extract",
                                    RegDDRef *LvalRef = nullptr);
 
