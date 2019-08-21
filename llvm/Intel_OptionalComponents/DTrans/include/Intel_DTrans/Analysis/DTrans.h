@@ -309,62 +309,70 @@ const SafetyData UnhandledUse = 0x8000000000000000;
 //
 const SafetyData SDDeleteField =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
-    VolatileData | MismatchedElementAccess | WholeStructureReference |
-    UnsafePointerStore | FieldAddressTaken | BadMemFuncSize |
-    BadMemFuncManipulation | AmbiguousPointerTarget | UnsafePtrMerge |
-    AddressTaken | NoFieldsInStruct | SystemObject | MismatchedArgUse |
-    HasVTable | HasFnPtr | HasZeroSizedArray | HasFnPtr |
-    BadCastingConditional | UnsafePointerStoreConditional;
+        VolatileData | MismatchedElementAccess | WholeStructureReference |
+        UnsafePointerStore | FieldAddressTaken | BadMemFuncSize |
+        BadMemFuncManipulation | AmbiguousPointerTarget | UnsafePtrMerge |
+        AddressTaken | NoFieldsInStruct | SystemObject | MismatchedArgUse |
+        HasVTable | HasFnPtr | HasZeroSizedArray | HasFnPtr |
+        BadCastingConditional | UnsafePointerStoreConditional;
 
 const SafetyData SDReorderFields =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
-    VolatileData | MismatchedElementAccess | WholeStructureReference |
-    UnsafePointerStore | FieldAddressTaken | GlobalInstance |
-    HasInitializerList | UnsafePtrMerge | BadMemFuncSize | MemFuncPartialWrite |
-    BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
-    NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
-    MismatchedArgUse | LocalInstance | HasCppHandling |
-    BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse;
+        VolatileData | MismatchedElementAccess | WholeStructureReference |
+        UnsafePointerStore | FieldAddressTaken | GlobalInstance |
+        HasInitializerList | UnsafePtrMerge | BadMemFuncSize | MemFuncPartialWrite |
+        BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
+        NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
+        MismatchedArgUse | LocalInstance | HasCppHandling |
+        BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse;
+
+const SafetyData SDReorderFieldsDependent =
+    BadPtrManipulation | GlobalInstance | HasInitializerList |
+        MemFuncPartialWrite | NoFieldsInStruct | LocalInstance |
+        BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse |
+        WholeStructureReference | VolatileData | BadMemFuncSize |
+        BadMemFuncManipulation | AmbiguousPointerTarget;
+
 //
 // Safety conditions for field single value analysis
 //
 const SafetyData SDFieldSingleValueNoFieldAddressTaken =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
-    MismatchedElementAccess | UnsafePointerStore | AmbiguousPointerTarget |
-    UnsafePtrMerge | AddressTaken | MismatchedArgUse | UnhandledUse;
+        MismatchedElementAccess | UnsafePointerStore | AmbiguousPointerTarget |
+        UnsafePtrMerge | AddressTaken | MismatchedArgUse | UnhandledUse;
 
 const SafetyData SDFieldSingleValue =
     SDFieldSingleValueNoFieldAddressTaken | FieldAddressTaken;
 
 const SafetyData SDSingleAllocFunctionNoFieldAddressTaken =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
-    MismatchedElementAccess | UnsafePointerStore | BadMemFuncSize |
-    BadMemFuncManipulation | AmbiguousPointerTarget | UnsafePtrMerge |
-    AddressTaken | MismatchedArgUse | UnhandledUse;
+        MismatchedElementAccess | UnsafePointerStore | BadMemFuncSize |
+        BadMemFuncManipulation | AmbiguousPointerTarget | UnsafePtrMerge |
+        AddressTaken | MismatchedArgUse | UnhandledUse;
 
 const SafetyData SDSingleAllocFunction =
     SDSingleAllocFunctionNoFieldAddressTaken | FieldAddressTaken;
 
 const SafetyData SDElimROFieldAccess =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
-    MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
-    BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
-    HasInitializerList | UnsafePtrMerge | AddressTaken | MismatchedArgUse |
-    BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse;
+        MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
+        BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
+        HasInitializerList | UnsafePtrMerge | AddressTaken | MismatchedArgUse |
+        BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse;
 
 //
 // Safety conditions for a structure to be considered for the AOS-to-SOA
 // transformation.
 const SafetyData SDAOSToSOA =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
-    VolatileData | MismatchedElementAccess | WholeStructureReference |
-    UnsafePointerStore | FieldAddressTaken | GlobalInstance |
-    HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
-    BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
-    NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
-    LocalInstance | MismatchedArgUse | GlobalArray | HasVTable | HasFnPtr |
-    HasCppHandling | HasZeroSizedArray |
-    BadCastingConditional | UnsafePointerStoreConditional;
+        VolatileData | MismatchedElementAccess | WholeStructureReference |
+        UnsafePointerStore | FieldAddressTaken | GlobalInstance |
+        HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
+        BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
+        NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
+        LocalInstance | MismatchedArgUse | GlobalArray | HasVTable | HasFnPtr |
+        HasCppHandling | HasZeroSizedArray |
+        BadCastingConditional | UnsafePointerStoreConditional;
 
 //
 // Safety conditions for a structure type that contains a pointer to a
@@ -372,11 +380,11 @@ const SafetyData SDAOSToSOA =
 //
 const SafetyData SDAOSToSOADependent =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
-    MismatchedElementAccess | WholeStructureReference | UnsafePointerStore |
-    UnsafePtrMerge | AmbiguousPointerTarget | AddressTaken | NoFieldsInStruct |
-    NestedStruct | ContainsNestedStruct | SystemObject | MismatchedArgUse |
-    GlobalArray | HasVTable | HasCppHandling |
-    BadCastingConditional | UnsafePointerStoreConditional;
+        MismatchedElementAccess | WholeStructureReference | UnsafePointerStore |
+        UnsafePtrMerge | AmbiguousPointerTarget | AddressTaken | NoFieldsInStruct |
+        NestedStruct | ContainsNestedStruct | SystemObject | MismatchedArgUse |
+        GlobalArray | HasVTable | HasCppHandling |
+        BadCastingConditional | UnsafePointerStoreConditional;
 
 //
 // Safety conditions for a structure type that contains a pointer to a
@@ -386,43 +394,43 @@ const SafetyData SDAOSToSOADependent =
 //
 const SafetyData SDAOSToSOADependentIndex32 =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
-    VolatileData | MismatchedElementAccess | WholeStructureReference |
-    UnsafePointerStore | UnsafePtrMerge | BadMemFuncSize |
-    BadMemFuncManipulation | MemFuncPartialWrite | AmbiguousPointerTarget |
-    AddressTaken | NoFieldsInStruct | NestedStruct | ContainsNestedStruct |
-    SystemObject | MismatchedArgUse | GlobalArray | HasVTable | HasCppHandling |
-    HasZeroSizedArray | BadCastingConditional | UnsafePointerStoreConditional;
+        VolatileData | MismatchedElementAccess | WholeStructureReference |
+        UnsafePointerStore | UnsafePtrMerge | BadMemFuncSize |
+        BadMemFuncManipulation | MemFuncPartialWrite | AmbiguousPointerTarget |
+        AddressTaken | NoFieldsInStruct | NestedStruct | ContainsNestedStruct |
+        SystemObject | MismatchedArgUse | GlobalArray | HasVTable | HasCppHandling |
+        HasZeroSizedArray | BadCastingConditional | UnsafePointerStoreConditional;
 
 const SafetyData SDDynClone =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
-    VolatileData | MismatchedElementAccess | WholeStructureReference |
-    UnsafePointerStore | FieldAddressTaken | GlobalInstance |
-    HasInitializerList | UnsafePtrMerge | BadMemFuncSize | MemFuncPartialWrite |
-    BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
-    NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
-    LocalInstance |  MismatchedArgUse | GlobalArray | HasVTable | HasFnPtr |
-    HasZeroSizedArray | BadCastingConditional | UnsafePointerStoreConditional |
-    UnhandledUse;
+        VolatileData | MismatchedElementAccess | WholeStructureReference |
+        UnsafePointerStore | FieldAddressTaken | GlobalInstance |
+        HasInitializerList | UnsafePtrMerge | BadMemFuncSize | MemFuncPartialWrite |
+        BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
+        NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
+        LocalInstance | MismatchedArgUse | GlobalArray | HasVTable | HasFnPtr |
+        HasZeroSizedArray | BadCastingConditional | UnsafePointerStoreConditional |
+        UnhandledUse;
 
 const SafetyData SDSOAToAOS =
     BadCasting | BadPtrManipulation |
-    VolatileData | MismatchedElementAccess | WholeStructureReference |
-    UnsafePointerStore | FieldAddressTaken | GlobalInstance |
-    HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
-    BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
-    NoFieldsInStruct | SystemObject | LocalInstance | MismatchedArgUse |
-    GlobalArray | HasFnPtr | HasZeroSizedArray |
-    BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse;
+        VolatileData | MismatchedElementAccess | WholeStructureReference |
+        UnsafePointerStore | FieldAddressTaken | GlobalInstance |
+        HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
+        BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
+        NoFieldsInStruct | SystemObject | LocalInstance | MismatchedArgUse |
+        GlobalArray | HasFnPtr | HasZeroSizedArray |
+        BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse;
 
 const SafetyData SDMemInitTrimDown =
     BadCasting | BadPtrManipulation |
-    VolatileData | MismatchedElementAccess | WholeStructureReference |
-    UnsafePointerStore | FieldAddressTaken | GlobalInstance |
-    HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
-    BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
-    NoFieldsInStruct | SystemObject | LocalInstance | MismatchedArgUse |
-    GlobalArray | HasFnPtr | HasZeroSizedArray |
-    BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse;
+        VolatileData | MismatchedElementAccess | WholeStructureReference |
+        UnsafePointerStore | FieldAddressTaken | GlobalInstance |
+        HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
+        BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
+        NoFieldsInStruct | SystemObject | LocalInstance | MismatchedArgUse |
+        GlobalArray | HasFnPtr | HasZeroSizedArray |
+        BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse;
 
 //
 // TODO: Update the list each time we add a new safety conditions check for a
@@ -434,16 +442,17 @@ const Transform DT_First = 0x0001;
 const Transform DT_FieldSingleValue = 0x0001;
 const Transform DT_FieldSingleAllocFunction = 0x0002;
 const Transform DT_ReorderFields = 0x0004;
-const Transform DT_DeleteField = 0x0008;
-const Transform DT_AOSToSOA = 0x0010;
-const Transform DT_AOSToSOADependent = 0x0020;
-const Transform DT_AOSToSOADependentIndex32 = 0x0040;
-const Transform DT_ElimROFieldAccess = 0x0080;
-const Transform DT_DynClone = 0x0100;
-const Transform DT_SOAToAOS = 0x0200;
-const Transform DT_MemInitTrimDown = 0x0400;
-const Transform DT_Last = 0x0800;
-const Transform DT_Legal = 0x07ff;
+const Transform DT_ReorderFieldsDependent = 0x0008;
+const Transform DT_DeleteField = 0x0010;
+const Transform DT_AOSToSOA = 0x0020;
+const Transform DT_AOSToSOADependent = 0x0040;
+const Transform DT_AOSToSOADependentIndex32 = 0x0080;
+const Transform DT_ElimROFieldAccess = 0x0100;
+const Transform DT_DynClone = 0x0200;
+const Transform DT_SOAToAOS = 0x0400;
+const Transform DT_MemInitTrimDown = 0x0800;
+const Transform DT_Last = 0x1000;
+const Transform DT_Legal = 0x0fff;
 
 /// A three value enum that indicates whether for a particular Type of
 /// interest if a there is another distinct Type with which it is compatible
@@ -531,7 +540,7 @@ public:
   }
 
   size_t getNumFields() const { return Fields.size(); }
-  SmallVectorImpl<FieldInfo> &getFields() { return Fields; }
+  SmallVectorImpl <FieldInfo> &getFields() { return Fields; }
   FieldInfo &getField(size_t N) { return Fields[N]; }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast:
@@ -688,7 +697,7 @@ public:
 
   void addType(llvm::Type *Ty) {
     assert(isa<llvm::PointerType>(Ty) &&
-           "PointerTypeInfo::addType: Expecting pointer type");
+        "PointerTypeInfo::addType: Expecting pointer type");
     Types.push_back(Ty);
   }
   PointerTypeAliasSetRef getTypes() { return Types; }
@@ -841,7 +850,7 @@ public:
       : CallInfo(I, CallInfoKind::CIK_Memfunc), MK(MK) {
 
     assert(MK == MK_Memset &&
-           "MemfuncCallInfo: Single range form expects memset");
+        "MemfuncCallInfo: Single range form expects memset");
     Regions.push_back(MR);
   }
 
@@ -853,7 +862,7 @@ public:
                   MemfuncRegion &MRSrc)
       : CallInfo(I, CallInfoKind::CIK_Memfunc), MK(MK) {
     assert(((MK == MK_Memcpy) || (MK == MK_Memmove)) &&
-           "MemfuncCallInfo: Dual range form expects memcpy or memmove");
+        "MemfuncCallInfo: Dual range form expects memcpy or memmove");
 
     Regions.push_back(MRDest);
     Regions.push_back(MRSrc);
@@ -863,12 +872,9 @@ public:
 
   static StringRef MemfuncKindName(MemfuncKind MK) {
     switch (MK) {
-    case MK_Memset:
-      return "memset";
-    case MK_Memcpy:
-      return "memcpy";
-    case MK_Memmove:
-      return "memmove";
+    case MK_Memset:return "memset";
+    case MK_Memcpy:return "memcpy";
+    case MK_Memmove:return "memmove";
     }
 
     llvm_unreachable("MemfuncKindName: Missing case in switch");
@@ -882,11 +888,9 @@ public:
   /// Returns the number of region objects for this call.
   unsigned int getNumRegions() const {
     switch (MK) {
-    case MK_Memset:
-      return 1;
+    case MK_Memset:return 1;
     case MK_Memcpy:
-    case MK_Memmove:
-      return 2;
+    case MK_Memmove:return 2;
     }
 
     llvm_unreachable("MemfuncCall::getNumRegions missing case");
@@ -900,14 +904,14 @@ public:
   unsigned int getFirstField(unsigned int RN) const {
     assert(RN <= getNumRegions() && "RegionNum for memfunc call out of range");
     assert(!getIsCompleteAggregate(RN) &&
-           "Field tracking only value when not a complete aggregate");
+        "Field tracking only value when not a complete aggregate");
     return Regions[RN].FirstField;
   }
 
   unsigned int getLastField(unsigned int RN) const {
     assert(RN <= getNumRegions() && "RegionNum for memfunc call out of range");
     assert(!getIsCompleteAggregate(RN) &&
-           "Field tracking only value when not a complete aggregate");
+        "Field tracking only value when not a complete aggregate");
     return Regions[RN].LastField;
   }
 
@@ -996,7 +1000,7 @@ bool isPtrToPtrToElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy);
 /// SrcTy.
 bool isVTableAccess(llvm::Type *SrcTy, llvm::Type *DestTy);
 
-  /// Remove pointer, vector, and array types to uncover the base type which
+/// Remove pointer, vector, and array types to uncover the base type which
 /// the contain.
 Type *unwrapType(Type *Ty);
 
@@ -1044,7 +1048,7 @@ bool isDummyFuncWithThisAndPtrArgs(const CallBase *Call,
 //                       a string. Signature should be:
 //                       std::string F(IterType::value_type V);
 // \p Separator        - Delimiter to use between elements output.
-template <typename IterType, class Fn>
+template<typename IterType, class Fn>
 static void printCollectionSorted(raw_ostream &OS, IterType Begin, IterType End,
                                   const char *Separator, Fn ToString) {
   SmallVector<std::string, 8> Outputs;

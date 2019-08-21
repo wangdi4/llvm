@@ -771,6 +771,7 @@ public:
 /// \endcode
 class WRNTargetVariantNode : public WRegionNode {
 private:
+  UseDevicePtrClause UseDevicePtr;
   EXPR Device;
 
 public:
@@ -780,6 +781,7 @@ protected:
   void setDevice(EXPR E) { Device = E; }
 
 public:
+  DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr, UseDevicePtr)
   EXPR getDevice() const { return Device; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,

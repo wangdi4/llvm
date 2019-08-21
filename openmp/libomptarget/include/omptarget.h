@@ -302,6 +302,21 @@ EXTERN
 void *__tgt_create_buffer(int device_num, void *host_ptr);
 EXTERN
 int __tgt_release_buffer(int device_num, void *tgt_buffer);
+
+// Returns implementation defined device name for the given device number,
+// using provided Buffer. Buffer must be able to hold at least BufferMaxSize
+// characters. Returns nullptr, if device name cannot be acquired, otherwise,
+// returns a '\0' terminated C string (pointer to Buffer).
+EXTERN char *__tgt_get_device_name(
+    int device_num, char *buffer, size_t buffer_max_size);
+
+// Returns implementation defined RTL name corresponding to the given
+// device number, using provided Buffer. Buffer must be able to hold
+// at least BufferMaxSize characters.
+// Returns nullptr, if RTL name cannot be acquired, otherwise,
+// returns a '\0' terminated C string (pointer to Buffer).
+EXTERN char *__tgt_get_device_rtl_name(
+    int device_num, char *buffer, size_t buffer_max_size);
 #endif // INTEL_COLLAB
 
 #ifdef __cplusplus

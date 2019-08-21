@@ -292,6 +292,7 @@ public:
   std::vector<cl_command_queue> Queues;
   std::vector<FuncOrGblEntryTy> FuncGblEntries;
   std::vector<std::map<void *, void *> > BaseBuffers;
+  std::vector<std::map<void *, int64_t> > BufferSizes;
   std::vector<std::map<cl_kernel, std::set<void *> > > ImplicitArgs;
   std::mutex *Mutexes;
 
@@ -448,14 +449,17 @@ int32_t __tgt_rtl_number_of_devices() {
   for (cl_platform_id id : platformIds) {
     std::vector<char> buf;
     size_t buf_size;
-    clGetPlatformInfo(id, CL_PLATFORM_VERSION, 0, nullptr, &buf_size);
+    cl_int rc;
+    rc = clGetPlatformInfo(id, CL_PLATFORM_VERSION, 0, nullptr, &buf_size);
+    if (rc != CL_SUCCESS || buf_size == 0)
+      continue;
     buf.resize(buf_size);
-    clGetPlatformInfo(id, CL_PLATFORM_VERSION, buf_size, buf.data(), nullptr);
+    rc = clGetPlatformInfo(id, CL_PLATFORM_VERSION, buf_size, buf.data(),
+                           nullptr);
     // clCreateProgramWithIL() requires OpenCL 2.1.
-    if (strncmp("OpenCL 2.1", buf.data(), 8)) {
+    if (rc != CL_SUCCESS || strncmp("OpenCL 2.1", buf.data(), 8)) {
       continue;
     }
-
     cl_uint numGPU = 0, numACC = 0, numCPU = 0;
     char *envStr = getenv("LIBOMPTARGET_DEVICETYPE");
     if (!envStr || strncmp(envStr, "GPU", 3) == 0)
@@ -505,6 +509,7 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo.Queues.resize(DeviceInfo.numDevices);
   DeviceInfo.FuncGblEntries.resize(DeviceInfo.numDevices);
   DeviceInfo.BaseBuffers.resize(DeviceInfo.numDevices);
+  DeviceInfo.BufferSizes.resize(DeviceInfo.numDevices);
   DeviceInfo.ImplicitArgs.resize(DeviceInfo.numDevices);
   DeviceInfo.Mutexes = new std::mutex[DeviceInfo.numDevices];
 
@@ -512,9 +517,16 @@ int32_t __tgt_rtl_number_of_devices() {
   for (unsigned i = 0; i < DeviceInfo.numDevices; i++) {
     std::vector<char> buf;
     size_t buf_size;
+    cl_int rc;
     cl_device_id deviceId = DeviceInfo.deviceIDs[i];
-    clGetDeviceInfo(deviceId, CL_DEVICE_NAME, 0, nullptr, &buf_size);
-    clGetDeviceInfo(deviceId, CL_DEVICE_NAME, buf_size, buf.data(), nullptr);
+    rc = clGetDeviceInfo(deviceId, CL_DEVICE_NAME, 0, nullptr, &buf_size);
+    if (rc != CL_SUCCESS || buf_size == 0)
+      continue;
+    buf.resize(buf_size);
+    rc = clGetDeviceInfo(deviceId, CL_DEVICE_NAME, buf_size, buf.data(),
+                         nullptr);
+    if (rc != CL_SUCCESS)
+      continue;
     DP("Device %d: %s\n", i, buf.data());
     clGetDeviceInfo(deviceId, CL_DEVICE_MAX_COMPUTE_UNITS, 4,
                     &DeviceInfo.maxWorkGroups[i], nullptr);
@@ -935,6 +947,8 @@ void *tgt_rtl_data_alloc_template(int32_t device_id, int64_t size,
   if (offset != 0)
     DeviceInfo.BaseBuffers[device_id][ret] = base;
 
+  DeviceInfo.BufferSizes[device_id][ret] = size;
+
   // Store list of pointers to be passed to kernel implicitly
   if (is_implicit_arg) {
     DP("Stashing an implicit argument " DPxMOD " for next kernel\n",
@@ -964,8 +978,15 @@ void *__tgt_rtl_data_alloc_base(int32_t device_id, int64_t size, void *hst_ptr,
 EXTERN
 void *__tgt_rtl_create_buffer(int32_t device_id, void *tgt_ptr) {
   cl_int rc;
+  auto I = DeviceInfo.BufferSizes[device_id].find(tgt_ptr);
+  if (I == DeviceInfo.BufferSizes[device_id].end()) {
+    DP("Warning: Cannot create buffer from unknown device pointer " DPxMOD "\n",
+       DPxPTR(tgt_ptr));
+    return nullptr;
+  }
+  int64_t size = I->second;
   cl_mem ret = clCreateBuffer(DeviceInfo.CTX[device_id], CL_MEM_USE_HOST_PTR,
-                              1, tgt_ptr, &rc);
+                              size, tgt_ptr, &rc);
   if (rc != CL_SUCCESS) {
     DP("Error: Failed to create a buffer from a SVM pointer " DPxMOD "\n",
        DPxPTR(tgt_ptr));
@@ -1119,8 +1140,13 @@ int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
   std::map<void *, void *> &bases = DeviceInfo.BaseBuffers[device_id];
   void *base = tgt_ptr;
   auto I = bases.find(tgt_ptr);
-  if (I != bases.end())
+  if (I != bases.end()) {
+    base = I->second;
     bases.erase(I);
+  }
+
+  if (DeviceInfo.BufferSizes[device_id].count(tgt_ptr) > 0)
+    DeviceInfo.BufferSizes[device_id].erase(tgt_ptr);
 
   DeviceInfo.Mutexes[device_id].lock();
   // Erase from the internal list
@@ -1260,11 +1286,13 @@ static inline int32_t run_target_team_nd_region(
       INVOKE_CL_RET_FAIL(clWaitForEvents, 1, &event);
       INVOKE_CL_RET_FAIL(clGetKernelInfo, *kernel, CL_KERNEL_FUNCTION_NAME, 0,
                          nullptr, &buf_size);
-      buf.resize(buf_size);
-      INVOKE_CL_RET_FAIL(clGetKernelInfo, *kernel, CL_KERNEL_FUNCTION_NAME,
-                         buf.size(), buf.data(), nullptr);
       std::string kernel_name("EXEC-");
-      kernel_name += buf.data();
+      if (buf_size > 0) {
+        buf.resize(buf_size);
+        INVOKE_CL_RET_FAIL(clGetKernelInfo, *kernel, CL_KERNEL_FUNCTION_NAME,
+                           buf.size(), buf.data(), nullptr);
+        kernel_name += buf.data();
+      }
       profile.update(kernel_name.c_str(), event);
     }
     INVOKE_CL_RET_FAIL(clFinish, DeviceInfo.Queues[device_id]);
@@ -1334,6 +1362,15 @@ int32_t __tgt_rtl_run_target_region(int32_t device_id, void *tgt_entry_ptr,
   // use one team!
   return __tgt_rtl_run_target_team_region(device_id, tgt_entry_ptr, tgt_args,
                                           tgt_offsets, arg_num, 1, 0, 0);
+}
+
+EXTERN char *__tgt_rtl_get_device_name(
+    int32_t device_id, char *buffer, size_t buffer_max_size) {
+  assert(buffer && "buffer cannot be nullptr.");
+  assert(buffer_max_size > 0 && "buffer_max_size cannot be zero.");
+  INVOKE_CL_RET_NULL(clGetDeviceInfo, DeviceInfo.deviceIDs[device_id],
+                     CL_DEVICE_NAME, buffer_max_size, buffer, nullptr);
+  return buffer;
 }
 
 #ifdef __cplusplus
