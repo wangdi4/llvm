@@ -160,10 +160,6 @@ public:
   /// Similar to operator[], but this will insert a new CallGraphNode for
   /// \c F if one does not already exist.
   CallGraphNode *getOrInsertFunction(const Function *F);
-<<<<<<< HEAD
-
-  /// \brief Return the dummy node associated with the given metadata node.
-  CallGraphNode *getOrInsertNodeForCalleesMD(MDNode *Callees);
 
 #if INTEL_CUSTOMIZATION
 
@@ -189,8 +185,6 @@ public:
     }
   }
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 31a47f9890911c162fc0d8efa27ad6f56d81e737
 };
 
 /// A node in the call graph for a module.
