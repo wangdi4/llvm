@@ -49,7 +49,7 @@ entry:
   %arrayidx4 = getelementptr inbounds i32, i32 addrspace(1)* %b, i64 %add
   store i32 %call1, i32 addrspace(1)* %arrayidx4, align 4, !tbaa !10
 ; FIXME: Use uniformity/linearity information to not have scatter.
-; CHECK: call void @llvm.masked.scatter.v4i32.v4p1i32(<4 x i32> [[VECTOR_ALL]]
+; CHECK: {{call.*.llvm.masked.scatter.*\(|store }}<4 x i32> [[VECTOR_ALL]]
 
   %cmp = icmp eq i32 %slid, 0
 ; CHECK: [[VICMP:%.*]] = icmp eq <4 x i32> [[VSLID]], zeroinitializer
