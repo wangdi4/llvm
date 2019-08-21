@@ -186,7 +186,7 @@ bool FixupBWInstPass::getSuperRegDestIfDead(MachineInstr *OrigMI,
                                             bool IsMOV) const { // INTEL
   auto *TRI = &TII->getRegisterInfo();
 
-  unsigned OrigDestReg = OrigMI->getOperand(0).getReg();
+  Register OrigDestReg = OrigMI->getOperand(0).getReg();
   SuperDestReg = getX86SubSuperRegister(OrigDestReg, 32);
 
   const auto SubRegIdx = TRI->getSubRegIndex(SuperDestReg, OrigDestReg);

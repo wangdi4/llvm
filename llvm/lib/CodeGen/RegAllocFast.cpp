@@ -458,7 +458,7 @@ void RegAllocFast::usePhysReg(MachineOperand &MO) {
   if (MO.isUndef())
     return;
 
-  unsigned PhysReg = MO.getReg();
+  Register PhysReg = MO.getReg();
   assert(Register::isPhysicalRegister(PhysReg) && "Bad usePhysReg operand");
 
   markRegUsedInInstr(PhysReg);
@@ -648,7 +648,7 @@ unsigned RegAllocFast::traceCopies(unsigned VirtReg) const {
   unsigned C = 0;
   for (const MachineInstr &MI : MRI->def_instructions(VirtReg)) {
     if (isCoalescable(MI)) {
-      unsigned Reg = MI.getOperand(1).getReg();
+      Register Reg = MI.getOperand(1).getReg();
       Reg = traceCopyChain(Reg);
       if (Reg != 0)
         return Reg;
@@ -753,7 +753,7 @@ void RegAllocFast::allocVirtReg(MachineInstr &MI, LiveReg &LR, unsigned Hint0) {
 
 void RegAllocFast::allocVirtRegUndef(MachineOperand &MO) {
   assert(MO.isUndef() && "expected undef use");
-  unsigned VirtReg = MO.getReg();
+  Register VirtReg = MO.getReg();
   assert(Register::isVirtualRegister(VirtReg) && "Expected virtreg");
 
   LiveRegMap::const_iterator LRI = findLiveVirtReg(VirtReg);
@@ -892,8 +892,13 @@ void RegAllocFast::handleThroughOperands(MachineInstr &MI,
   SmallSet<unsigned, 8> ThroughRegs;
   for (const MachineOperand &MO : MI.operands()) {
     if (!MO.isReg()) continue;
+<<<<<<< HEAD
     unsigned Reg = MO.getReg();
     if (!isVirtualRegister(Reg)) // INTEL
+=======
+    Register Reg = MO.getReg();
+    if (!Register::isVirtualRegister(Reg))
+>>>>>>> 0c476111317cb7aaa9a3e9f75e1c35f83122ee26
       continue;
     if (MO.isEarlyClobber() || (MO.isUse() && MO.isTied()) ||
         (MO.getSubReg() && MI.readsVirtualRegister(Reg))) {
@@ -907,7 +912,7 @@ void RegAllocFast::handleThroughOperands(MachineInstr &MI,
   LLVM_DEBUG(dbgs() << "\nChecking for physdef collisions.\n");
   for (const MachineOperand &MO : MI.operands()) {
     if (!MO.isReg() || !MO.isDef()) continue;
-    unsigned Reg = MO.getReg();
+    Register Reg = MO.getReg();
     if (!Reg || !Register::isPhysicalRegister(Reg))
       continue;
     markRegUsedInInstr(Reg);
@@ -922,8 +927,14 @@ void RegAllocFast::handleThroughOperands(MachineInstr &MI,
   for (unsigned I = 0, E = MI.getNumOperands(); I != E; ++I) {
     MachineOperand &MO = MI.getOperand(I);
     if (!MO.isReg()) continue;
+<<<<<<< HEAD
     unsigned Reg = MO.getReg();
     if (!isVirtualRegister(Reg)) continue; // INTEL
+=======
+    Register Reg = MO.getReg();
+    if (!Register::isVirtualRegister(Reg))
+      continue;
+>>>>>>> 0c476111317cb7aaa9a3e9f75e1c35f83122ee26
     if (MO.isUse()) {
       if (!MO.isTied()) continue;
       LLVM_DEBUG(dbgs() << "Operand " << I << "(" << MO
@@ -947,8 +958,14 @@ void RegAllocFast::handleThroughOperands(MachineInstr &MI,
   for (unsigned I = 0, E = MI.getNumOperands(); I != E; ++I) {
     const MachineOperand &MO = MI.getOperand(I);
     if (!MO.isReg()) continue;
+<<<<<<< HEAD
     unsigned Reg = MO.getReg();
     if (!isVirtualRegister(Reg)) continue; // INTEL
+=======
+    Register Reg = MO.getReg();
+    if (!Register::isVirtualRegister(Reg))
+      continue;
+>>>>>>> 0c476111317cb7aaa9a3e9f75e1c35f83122ee26
     if (!MO.isEarlyClobber())
       continue;
     // Note: defineVirtReg may invalidate MO.
@@ -961,7 +978,7 @@ void RegAllocFast::handleThroughOperands(MachineInstr &MI,
   UsedInInstr.clear();
   for (const MachineOperand &MO : MI.operands()) {
     if (!MO.isReg() || (MO.isDef() && !MO.isEarlyClobber())) continue;
-    unsigned Reg = MO.getReg();
+    Register Reg = MO.getReg();
     if (!Reg || !Register::isPhysicalRegister(Reg))
       continue;
     LLVM_DEBUG(dbgs() << "\tSetting " << printReg(Reg, TRI)
@@ -1045,7 +1062,7 @@ bool RegAllocFast::allocateInstruction(MachineInstr &MI) { // INTEL
       continue;
     }
     if (!MO.isReg()) continue;
-    unsigned Reg = MO.getReg();
+    Register Reg = MO.getReg();
     if (!Reg) continue;
     if (Register::isVirtualRegister(Reg)) {
       VirtOpEnd = i+1;
@@ -1096,7 +1113,7 @@ bool RegAllocFast::allocateInstruction(MachineInstr &MI) { // INTEL
   for (unsigned I = 0; I != VirtOpEnd; ++I) {
     MachineOperand &MO = MI.getOperand(I);
     if (!MO.isReg()) continue;
-    unsigned Reg = MO.getReg();
+    Register Reg = MO.getReg();
     if (!Register::isVirtualRegister(Reg))
       continue;
     if (MO.isUse()) {
@@ -1125,7 +1142,7 @@ bool RegAllocFast::allocateInstruction(MachineInstr &MI) { // INTEL
     for (MachineOperand &MO : MI.uses()) {
       if (!MO.isReg() || !MO.isUse())
         continue;
-      unsigned Reg = MO.getReg();
+      Register Reg = MO.getReg();
       if (!Register::isVirtualRegister(Reg))
         continue;
 
@@ -1140,7 +1157,7 @@ bool RegAllocFast::allocateInstruction(MachineInstr &MI) { // INTEL
   if (hasEarlyClobbers) {
     for (const MachineOperand &MO : MI.operands()) {
       if (!MO.isReg()) continue;
-      unsigned Reg = MO.getReg();
+      Register Reg = MO.getReg();
       if (!Reg || !Register::isPhysicalRegister(Reg))
         continue;
       // Look for physreg defs and tied uses.
@@ -1168,7 +1185,7 @@ bool RegAllocFast::allocateInstruction(MachineInstr &MI) { // INTEL
     const MachineOperand &MO = MI.getOperand(I);
     if (!MO.isReg() || !MO.isDef() || !MO.getReg() || MO.isEarlyClobber())
       continue;
-    unsigned Reg = MO.getReg();
+    Register Reg = MO.getReg();
 
     if (!Reg || !Register::isPhysicalRegister(Reg) || !MRI->isAllocatable(Reg))
       continue;
@@ -1181,7 +1198,7 @@ bool RegAllocFast::allocateInstruction(MachineInstr &MI) { // INTEL
     const MachineOperand &MO = MI.getOperand(I);
     if (!MO.isReg() || !MO.isDef() || !MO.getReg() || MO.isEarlyClobber())
       continue;
-    unsigned Reg = MO.getReg();
+    Register Reg = MO.getReg();
 
     if (Register::isPhysicalRegister(Reg)) {
       if (!MRI->isAllocatable(Reg)) continue;
@@ -1219,7 +1236,7 @@ void RegAllocFast::handleDebugValue(MachineInstr &MI) {
   // mostly constants and frame indices.
   if (!MO.isReg())
     return;
-  unsigned Reg = MO.getReg();
+  Register Reg = MO.getReg();
   if (!Register::isVirtualRegister(Reg))
     return;
 
