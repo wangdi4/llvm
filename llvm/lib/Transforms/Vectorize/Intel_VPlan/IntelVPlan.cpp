@@ -52,6 +52,10 @@ static cl::opt<int>
     DumpVPlanLiveness("vplan-dump-liveness", cl::init(0), cl::Hidden,
                        cl::desc("Print VPlan instructions' liveness info"));
 
+static cl::opt<bool> EnableNames(
+    "vplan-enable-names", cl::init(false), cl::Hidden,
+    cl::desc("Print VP Operands using VPValue's Name member."));
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 raw_ostream &llvm::vpo::operator<<(raw_ostream &OS, const VPValue &V) {
   if (const VPInstruction *I = dyn_cast<VPInstruction>(&V))
@@ -1845,6 +1849,18 @@ void VPValue::invalidateUnderlyingIR() {
     // invalidation should be propagated to users as well.
   }
 }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void VPValue::printAsOperand(raw_ostream &OS) const {
+  if (EnableNames && !Name.empty())
+    // There is no interface to enforce uniqueness of the names, so continue
+    // using the pointer-based name for the suffix.
+    OS << *getType() << " %" << Name << "."
+       << (unsigned short)(unsigned long long)this;
+  else
+    OS << *getType() << " %vp" << (unsigned short)(unsigned long long)this;
+}
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 void VPBlockUtils::setParentRegionForBody(VPRegionBlock *Region) {
   for (VPBlockBase *Block :
