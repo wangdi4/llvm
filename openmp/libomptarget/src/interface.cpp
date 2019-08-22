@@ -328,7 +328,7 @@ EXTERN void __kmpc_push_target_tripcount(int64_t device_id,
 }
 
 #if INTEL_COLLAB
-EXTERN bool __tgt_is_device_available(int device_num, void *device_type) {
+EXTERN bool __tgt_is_device_available(int64_t device_num, void *device_type) {
   if (IsOffloadDisabled())
     return false;
 
@@ -337,7 +337,7 @@ EXTERN bool __tgt_is_device_available(int device_num, void *device_type) {
   }
 
   if (CheckDeviceAndCtors(device_num) != OFFLOAD_SUCCESS) {
-    DP("Failed to get device %" PRId32 " ready\n", device_num);
+    DP("Failed to get device %" PRId64 " ready\n", device_num);
     HandleTargetOutcome(false);
     return false;
   }
@@ -346,9 +346,9 @@ EXTERN bool __tgt_is_device_available(int device_num, void *device_type) {
 }
 
 // Find device pointer from the given host pointer and create a buffer object
-EXTERN void *__tgt_create_buffer(int device_num, void *host_ptr) {
+EXTERN void *__tgt_create_buffer(int64_t device_num, void *host_ptr) {
   DP("Call to __tgt_create_buffer with host_ptr " DPxMOD ", "
-      "device_num %d\n", DPxPTR(host_ptr), device_num);
+      "device_num %" PRId64 "\n", DPxPTR(host_ptr), device_num);
 
   if (IsOffloadDisabled())
     return NULL;
@@ -358,7 +358,7 @@ EXTERN void *__tgt_create_buffer(int device_num, void *host_ptr) {
   }
 
   if (CheckDeviceAndCtors(device_num) != OFFLOAD_SUCCESS) {
-    DP("Failed to get device %" PRId32 " ready\n", device_num);
+    DP("Failed to get device %" PRId64 " ready\n", device_num);
     HandleTargetOutcome(false);
     return NULL;
   }
@@ -376,9 +376,9 @@ EXTERN void *__tgt_create_buffer(int device_num, void *host_ptr) {
 }
 
 // Release the device buffer
-EXTERN int __tgt_release_buffer(int device_num, void *device_buffer) {
+EXTERN int __tgt_release_buffer(int64_t device_num, void *device_buffer) {
   DP("Call to __tgt_release_buffer with device_buffer " DPxMOD ", "
-      "device_num %d\n", DPxPTR(device_buffer), device_num);
+      "device_num %" PRId64 "\n", DPxPTR(device_buffer), device_num);
 
   if (IsOffloadDisabled())
     return OFFLOAD_FAIL;
@@ -388,7 +388,7 @@ EXTERN int __tgt_release_buffer(int device_num, void *device_buffer) {
   }
 
   if (CheckDeviceAndCtors(device_num) != OFFLOAD_SUCCESS) {
-    DP("Failed to get device %" PRId32 " ready\n", device_num);
+    DP("Failed to get device %" PRId64 " ready\n", device_num);
     HandleTargetOutcome(false);
     return OFFLOAD_FAIL;
   }
@@ -403,10 +403,10 @@ EXTERN int __tgt_release_buffer(int device_num, void *device_buffer) {
 }
 
 EXTERN char *__tgt_get_device_name(
-    int device_num, char *buffer, size_t buffer_max_size) {
-  DP("Call to __tgt_get_device_name with device_num %" PRId32 " and "
-     "buffer_max_size %" PRId32 ".\n",
-     device_num, (int32_t)buffer_max_size);
+    int64_t device_num, char *buffer, size_t buffer_max_size) {
+  DP("Call to __tgt_get_device_name with device_num %" PRId64 " and "
+     "buffer_max_size %zu.\n",
+     device_num, buffer_max_size);
 
   if (!buffer || buffer_max_size == 0 || IsOffloadDisabled())
     return NULL;
@@ -416,7 +416,7 @@ EXTERN char *__tgt_get_device_name(
   }
 
   if (CheckDeviceAndCtors(device_num) != OFFLOAD_SUCCESS) {
-    DP("Failed to get device %" PRId32 " ready\n", device_num);
+    DP("Failed to get device %" PRId64 " ready\n", device_num);
     HandleTargetOutcome(false);
     return NULL;
   }
@@ -428,10 +428,10 @@ EXTERN char *__tgt_get_device_name(
 }
 
 EXTERN char *__tgt_get_device_rtl_name(
-    int device_num, char *buffer, size_t buffer_max_size) {
-  DP("Call to __tgt_get_device_rtl_name with device_num %" PRId32 " and "
-     "buffer_max_size %" PRId32 ".\n",
-     device_num, (int32_t)buffer_max_size);
+    int64_t device_num, char *buffer, size_t buffer_max_size) {
+  DP("Call to __tgt_get_device_rtl_name with device_num %" PRId64 " and "
+     "buffer_max_size %zu.\n",
+     device_num, buffer_max_size);
 
   if (!buffer || buffer_max_size == 0 || IsOffloadDisabled())
     return NULL;
@@ -441,7 +441,7 @@ EXTERN char *__tgt_get_device_rtl_name(
   }
 
   if (CheckDeviceAndCtors(device_num) != OFFLOAD_SUCCESS) {
-    DP("Failed to get device %" PRId32 " ready\n", device_num);
+    DP("Failed to get device %" PRId64 " ready\n", device_num);
     HandleTargetOutcome(false);
     return NULL;
   }
