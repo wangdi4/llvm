@@ -70,6 +70,7 @@ static void initializeOCLPasses(PassRegistry &Registry) {
     intel::initializeAutorunReplicatorPass(Registry);
     intel::initializeImplicitGlobalIdPassPass(Registry);
     intel::initializeStripIntelIPPass(Registry);
+    intel::initializeOCLReqdSubGroupSizePass(Registry);
     intel::initializeOCLVecClonePass(Registry);
     intel::initializeOCLPostVectPass(Registry);
     intel::initializeChannelsUsageAnalysisPass(Registry);
