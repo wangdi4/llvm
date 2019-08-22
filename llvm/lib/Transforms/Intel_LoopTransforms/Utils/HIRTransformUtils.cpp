@@ -886,7 +886,7 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
   bool IsConstTrip = FirstLoop->isConstTripLoop(&TripCount);
 
   // Caller should call canStripmine before
-  assert(!(IsConstTrip && (TripCount <= StripmineSize)) &&
+  assert(FirstLoop->canStripmine(StripmineSize) &&
          "Caller should call canStripmine() first");
 
   HLNodeUtils *HNU = &(FirstLoop->getHLNodeUtils());

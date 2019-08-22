@@ -1337,19 +1337,13 @@ bool HLLoop::normalize() {
   return true;
 }
 
-bool HLLoop::canStripmine(unsigned StripmineSize, bool &NotRequired) const {
-
-  uint64_t TripCount;
-
+bool HLLoop::canStripmine(unsigned StripmineSize) const {
   assert(isNormalized() &&
          "Loop needs stripmine are expected to be normalized");
 
-  if (isConstTripLoop(&TripCount) && (TripCount <= StripmineSize)) {
-    NotRequired = true;
+  if (!isStripmineRequired(StripmineSize)) {
     return true;
   }
-
-  NotRequired = false;
 
   unsigned Level = getNestingLevel();
   if (Level == MaxLoopNestLevel) {
@@ -1373,6 +1367,14 @@ bool HLLoop::canStripmine(unsigned StripmineSize, bool &NotRequired) const {
 
   getCanonExprUtils().destroy(CE);
   return Result;
+}
+
+bool HLLoop::isStripmineRequired(unsigned StripmineSize) const {
+  assert(isNormalized() &&
+      "Loop needs stripmine are expected to be normalized");
+
+  uint64_t TripCount;
+  return !isConstTripLoop(&TripCount) || (TripCount > StripmineSize);
 }
 
 HLIf *HLLoop::getBottomTest() {
