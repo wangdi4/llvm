@@ -137,17 +137,10 @@ public:
   }
 
   bool hasMemRef() const;
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  LLVM_DUMP_METHOD
-  void dump() {
-    if (isSimpleControlNode()) {
-      cast<HLIf>(HNode)->dumpHeader();
-      dbgs() << "\n";
-      return;
-    }
 
-    HNode->dump();
-  }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  LLVM_DUMP_METHOD void dump();
+  unsigned getNum() const { return getNode()->getNumber(); }
 #endif
 };
 
@@ -205,9 +198,10 @@ struct DistPPEdge {
       : Src(DistSrc), Sink(DistSink),
         DDEdges(EdgeList.begin(), EdgeList.end()) {}
 
-  void print(raw_ostream &OS) const {
-    // TODO
-  }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  LLVM_DUMP_METHOD
+  void dump() const;
+#endif
 };
 
 class DistPPGraph : public HIRGraph<DistPPNode, DistPPEdge> {

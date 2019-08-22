@@ -540,3 +540,34 @@ bool DistPPNode::hasMemRef() const {
 
   return FoundMemRef;
 }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+LLVM_DUMP_METHOD
+void DistPPNode::dump() {
+  dbgs() << "\"" << getNum() << "\": ";
+
+  auto ControlDep = Graph->getControlDependence(this);
+  if (ControlDep) {
+    dbgs() << "<dep " << ControlDep->first->getNode()->getNumber() << "> ";
+  }
+
+  if (isSimpleControlNode()) {
+    cast<HLIf>(HNode)->dumpHeader();
+    dbgs() << "\n";
+    return;
+  }
+
+  HNode->dump();
+}
+
+LLVM_DUMP_METHOD
+void DistPPEdge::dump() const {
+  dbgs() << Src->getNum() << " -> " << Sink->getNum() << "\n";
+
+  if (!DDEdges.empty()) {
+    for (auto *DDEdge : DDEdges) {
+      DDEdge->dump();
+    }
+  }
+}
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
