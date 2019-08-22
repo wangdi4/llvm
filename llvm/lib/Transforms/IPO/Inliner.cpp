@@ -1065,6 +1065,15 @@ bool LegacyInlinerBase::removeDeadFunctions(CallGraph &CG,
                                             bool AlwaysInlineOnly) {
   SmallVector<CallGraphNode *, 16> FunctionsToRemove;
   SmallVector<Function *, 16> DeadFunctionsInComdats;
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-10061: Use a std::set with the Function name as a comparator
+  // to ensure that the DEAD STATIC FUNCTIONs in the inlining report are
+  // emitted in a consistent order.
+  auto cmp = [](Function *F1, Function *F2) {
+    return F1->getName().compare(F2->getName()) < 0;
+  };
+  std::set<Function *, decltype(cmp)> InlineReportFunctionsToRemove(cmp);
+#endif // INTEL_CUSTOMIZATION
 
   auto RemoveCGN = [&](CallGraphNode *CGN) {
     // Remove any call graph edges from the function to its callees.
@@ -1077,6 +1086,7 @@ bool LegacyInlinerBase::removeDeadFunctions(CallGraph &CG,
 
     // Removing the node for callee from the call graph and delete it.
     FunctionsToRemove.push_back(CGN);
+    InlineReportFunctionsToRemove.insert(CGN->getFunction()); // INTEL
   };
 
   // Scan for all of the functions, looking for ones that should now be removed
@@ -1123,6 +1133,13 @@ bool LegacyInlinerBase::removeDeadFunctions(CallGraph &CG,
 
   if (FunctionsToRemove.empty())
     return false;
+
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-10061: Remove references to these newly dead functions
+  // in a consistent order.
+  for (auto F : InlineReportFunctionsToRemove)
+    getReport().removeFunctionReference(*F);
+#endif // INTEL_CUSTOMIZATION
 
   // Now that we know which functions to delete, do so.  We didn't want to do
   // this inline, because that would invalidate our CallGraph::iterator
@@ -1286,6 +1303,15 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   // Track the dead functions to delete once finished with inlining calls. We
   // defer deleting these to make it easier to handle the call graph updates.
   SmallVector<Function *, 4> DeadFunctions;
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-10061: Use a std::set with the Function name as a comparator
+  // to ensure that the DEAD STATIC FUNCTIONs in the inlining report are
+  // emitted in a consistent order.
+  auto cmp = [](Function *F1, Function *F2) {
+    return F1->getName().compare(F2->getName()) < 0;
+  };
+  std::set<Function *, decltype(cmp)> InlineReportDeadFunctions(cmp);
+#endif // INTEL_CUSTOMIZATION
 
   // Loop forward over all of the calls. Note that we cannot cache the size as
   // inlining can introduce new calls that need to be processed.
@@ -1504,6 +1530,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
           assert(find(DeadFunctions, &Callee) == DeadFunctions.end() &&
                  "Cannot put cause a function to become dead twice!");
           DeadFunctions.push_back(&Callee);
+          InlineReportDeadFunctions.insert(&Callee); // INTEL
           ILIC->invalidateFunction(&Callee);  // INTEL
           Report.setDead(&Callee); // INTEL
         }
@@ -1574,6 +1601,12 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
     InlinedCallees.clear();
   }
 
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-10061: Remove references to these newly dead functions
+  // in a consistent order.
+  for (auto F : InlineReportDeadFunctions)
+    getReport().removeFunctionReference(*F);
+#endif // INTEL_CUSTOMIZATION
   // Now that we've finished inlining all of the calls across this SCC, delete
   // all of the trivially dead functions, updating the call graph and the CGSCC
   // pass manager in the process.
