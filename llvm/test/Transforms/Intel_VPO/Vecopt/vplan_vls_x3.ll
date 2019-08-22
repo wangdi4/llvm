@@ -47,16 +47,20 @@ define void @foo(i32* nocapture %ary) {
 ; CHECK-NEXT:    [[MM_VECTORGEP3:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT]], <4 x i64> [[TMP3]]
 ; CHECK-NEXT:    [[GROUPSHUFFLE4:%.*]] = shufflevector <12 x i32> [[GROUPLOAD]], <12 x i32> undef, <4 x i32> <i32 2, i32 5, i32 8, i32 11>
 ; CHECK-NEXT:    [[TMP4:%.*]] = add nsw <4 x i32> [[GROUPSHUFFLE4]], <i32 12, i32 12, i32 12, i32 12>
-; CHECK-NEXT:    call void @llvm.masked.scatter.v4i32.v4p0i32(<4 x i32> [[TMP0]], <4 x i32*> [[MM_VECTORGEP]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
-; CHECK-NEXT:    call void @llvm.masked.scatter.v4i32.v4p0i32(<4 x i32> [[TMP2]], <4 x i32*> [[MM_VECTORGEP1]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
-; CHECK-NEXT:    call void @llvm.masked.scatter.v4i32.v4p0i32(<4 x i32> [[TMP4]], <4 x i32*> [[MM_VECTORGEP3]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
-; CHECK-NEXT:    [[TMP5:%.*]] = add nuw nsw <4 x i64> [[VEC_IND]], <i64 3, i64 3, i64 3, i64 3>
-; CHECK-NEXT:    [[TMP6:%.*]] = icmp ult <4 x i64> [[TMP5]], <i64 3072, i64 3072, i64 3072, i64 3072>
-; CHECK-NEXT:    [[TMP7:%.*]] = extractelement <4 x i1> [[TMP6]], i32 0
+; CHECK-NEXT:    [[TMP5:%.*]] = shufflevector <4 x i32> [[TMP0]], <4 x i32> [[TMP2]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+; CHECK-NEXT:    [[TMP6:%.*]] = shufflevector <4 x i32> [[TMP4]], <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[TMP7:%.*]] = shufflevector <8 x i32> [[TMP5]], <8 x i32> [[TMP6]], <12 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11>
+; CHECK-NEXT:    [[GROUPSHUFFLE5:%.*]] = shufflevector <12 x i32> [[TMP7]], <12 x i32> undef, <12 x i32> <i32 0, i32 4, i32 8, i32 1, i32 5, i32 9, i32 2, i32 6, i32 10, i32 3, i32 7, i32 11>
+; CHECK-NEXT:    [[MM_VECTORGEP_06:%.*]] = extractelement <4 x i32*> [[MM_VECTORGEP]], i64 0
+; CHECK-NEXT:    [[GROUPPTR7:%.*]] = bitcast i32* [[MM_VECTORGEP_06]] to <12 x i32>*
+; CHECK-NEXT:    store <12 x i32> [[GROUPSHUFFLE5]], <12 x i32>* [[GROUPPTR7]], align 4
+; CHECK-NEXT:    [[TMP8:%.*]] = add nuw nsw <4 x i64> [[VEC_IND]], <i64 3, i64 3, i64 3, i64 3>
+; CHECK-NEXT:    [[TMP9:%.*]] = icmp ult <4 x i64> [[TMP8]], <i64 3072, i64 3072, i64 3072, i64 3072>
+; CHECK-NEXT:    [[TMP10:%.*]] = extractelement <4 x i1> [[TMP9]], i32 0
 ; CHECK-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], 4
-; CHECK-NEXT:    [[TMP8:%.*]] = icmp eq i64 [[INDEX_NEXT]], 1024
+; CHECK-NEXT:    [[TMP11:%.*]] = icmp eq i64 [[INDEX_NEXT]], 1024
 ; CHECK-NEXT:    [[VEC_IND_NEXT]] = add <4 x i64> [[VEC_IND]], <i64 12, i64 12, i64 12, i64 12>
-; CHECK-NEXT:    br i1 [[TMP8]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]]
+; CHECK-NEXT:    br i1 [[TMP11]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]]
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]

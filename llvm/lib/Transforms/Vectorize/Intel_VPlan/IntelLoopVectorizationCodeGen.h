@@ -651,10 +651,14 @@ private:
   /// Vectorize \p VPLoad instruction that is part of a \p Group.
   Value *vectorizeInterleavedLoad(VPInstruction *VPLoad, OVLSGroup *Group);
 
+  /// Vectorize \p VPStore instruction that is part of a \p Group.
+  void vectorizeInterleavedStore(VPInstruction *VPStore, OVLSGroup *Group);
+
   DenseMap<AllocaInst *, Value *> ReductionEofLoopVal;
   DenseMap<AllocaInst *, Value *> ReductionVecInitVal;
 
   SmallDenseMap<const OVLSGroup *, LoadInst *> VLSGroupLoadMap;
+  SmallDenseMap<const OVLSGroup *, StoreInst *> VLSGroupStoreMap;
 };
 
 } // end vpo namespace

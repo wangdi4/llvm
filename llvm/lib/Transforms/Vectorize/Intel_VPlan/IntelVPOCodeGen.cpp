@@ -484,8 +484,10 @@ Value *VPOCodeGen::getOrCreateWideLoadForGroup(OVLSGroup *Group) {
   assert(!MaskValue && "Scalar address may be invalid (masked out)");
   Value *ScalarAddress = Builder.CreateExtractElement(
       GatherAddress, (uint64_t)0, GatherAddress->getName() + "_0");
+  auto AddressSpace =
+      cast<PointerType>(ScalarAddress->getType())->getAddressSpace();
   Value *GroupPtr = Builder.CreateBitCast(
-      ScalarAddress, GroupType->getPointerTo(), "groupPtr");
+      ScalarAddress, GroupType->getPointerTo(AddressSpace), "groupPtr");
   unsigned Align = getOriginalLoadStoreAlignment(Leader);
   LoadInst *GroupLoad =
       Builder.CreateAlignedLoad(GroupType, GroupPtr, Align, "groupLoad");
@@ -591,6 +593,83 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
   VPWidenMap[VPInst] = NewLI;
 }
 
+void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
+                                           OVLSGroup *Group) {
+  // First, check if the wide store has been already generated.
+  if (VLSGroupStoreMap.find(Group) != VLSGroupStoreMap.end())
+    return;
+
+  // If the wide store hasn't been generated yet, generate it.
+
+  // FIXME: Currently VLS groups store instructions only if it is safe to move
+  //        all the stores to the lexically first one (that means that all the
+  //        stored values must be available at this point). That matches our
+  //        current behavior in VPlan: we generate wide store when we encounter
+  //        first store from a group. However, we may want to modify VLS
+  //        analysis, and for example check if it is safe to move all group
+  //        elements to the last store. If we do such change, the code below
+  //        will be broken, as it will keep generating wide store in place of
+  //        the first store.
+
+  // Values to be stored.
+  SmallVector<Value *, 8> GrpValues;
+
+  // Interleave indexes of the values/memrefs.
+  SmallVector<int, 8> GrpIndexes;
+
+  // Populate GrpValues and GrpIndexes.
+  for (OVLSMemref *Mrf : *Group) {
+    VPValue *V = cast<VPVLSClientMemref>(Mrf)->getInstruction()->getOperand(0);
+    GrpValues.push_back(getVectorValue(V));
+    GrpIndexes.push_back(computeInterleaveIndex(Mrf, Group));
+  }
+
+  // For now indexes are assumed to be <0, 1, 2, ... N-1>. If it turns out not
+  // true, we can sort the arrays and/or insert undefs instead of gaps.
+  for (int i = 0, ie = GrpIndexes.size(); i < ie; ++i)
+    assert(GrpIndexes[i] == i && "Unsupported memory references sequence");
+
+  // Check that all memory references have the same interleave factor.
+  auto InterleaveFactor = computeInterleaveFactor(Group->getFirstMemref());
+  assert(all_of(*Group,
+                [InterleaveFactor](OVLSMemref *x) {
+                  return computeInterleaveFactor(x) == InterleaveFactor;
+                }) &&
+         "Cannot compute shuffle mask for groups with different access sizes");
+
+  // Check if the group is valid for this VF.
+  assert(Group->getNumElems() == VF &&
+         "Group number of elements must match VF");
+
+  // Concatenate all the values being stored into a single wide vector.
+  Value *ConcatValue = concatenateVectors(Builder, GrpValues);
+
+  // Shuffle scalar values into the correct order.
+  Constant *ShuffleMask = createInterleaveMask(Builder, VF, InterleaveFactor);
+  Value *StoredValue = Builder.CreateShuffleVector(
+      ConcatValue, UndefValue::get(ConcatValue->getType()), ShuffleMask,
+      "groupShuffle");
+
+  // Compute address for the wide store.
+  const VPInstruction *Leader =
+      cast<VPVLSClientMemref>(Group->getFirstMemref())->getInstruction();
+  Value *ScatterAddress = getVectorValue(Leader->getOperand(1));
+  assert(!MaskValue && "Scalar address may be invalid (masked out)");
+  Value *ScalarAddress = Builder.CreateExtractElement(
+      ScatterAddress, (uint64_t)0, ScatterAddress->getName() + "_0");
+  auto AddressSpace =
+      cast<PointerType>(ScalarAddress->getType())->getAddressSpace();
+  Type *GroupPtrTy = StoredValue->getType()->getPointerTo(AddressSpace);
+  Value *GroupPtr =
+      Builder.CreateBitCast(ScalarAddress, GroupPtrTy, "groupPtr");
+
+  // Create the wide store.
+  unsigned Align = getOriginalLoadStoreAlignment(VPStore);
+  StoreInst *GroupStore =
+      Builder.CreateAlignedStore(StoredValue, GroupPtr, Align);
+  VLSGroupStoreMap.insert(std::make_pair(Group, GroupStore));
+}
+
 void VPOCodeGen::widenVectorStore(VPInstruction *VPStore) {
   VPValue *Ptr = VPStore->getOperand(1);
   VPValue *DataOp = VPStore->getOperand(0);
@@ -685,6 +764,19 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
                      Builder);
 #endif
   } else {
+    // Try to do SCATTER-to-SHUFFLE optimization.
+    // TODO: VLS optimization is disabled in masked basic blocks so far. It
+    // should be enabled for uniform masks, though.
+    OVLSGroup *Group = MaskValue ? nullptr : VLSA->getGroupsFor(Plan, VPInst);
+    if (Group && Group->size() > 1) {
+      Optional<int64_t> GroupStride = Group->getConstStride();
+      assert(GroupStride && "Indexed loads are not supported");
+      // Groups with gaps are not supported either.
+      if (Group->getNByteAccessMask() == ~(UINT64_MAX << *GroupStride)) {
+        vectorizeInterleavedStore(VPInst, Group);
+        return;
+      }
+    }
 
     // SCATTER
     Value *VectorPtr = getVectorValue(Ptr);
