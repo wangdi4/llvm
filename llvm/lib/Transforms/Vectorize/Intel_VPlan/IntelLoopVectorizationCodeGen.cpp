@@ -1251,21 +1251,19 @@ Value *VPOCodeGen::createWidenedBasePtrConsecutiveLoadStore(Instruction *I,
   Type *WideDataTy = VectorType::get(SubTy, VF * OriginalVL);
   Value *VecPtr = nullptr;
   if (Legal->isLoopPrivate(Ptr))
+    // 'isLoopPrivate(Ptr)' returns true only for scalar privates.
     VecPtr = getVectorPrivateBase(Ptr);
-  else if (auto GEP = getGEPInstruction(Ptr)) {
-    GetElementPtrInst *Gep2 = cast<GetElementPtrInst>(GEP->clone());
-    Gep2->setName("gep.indvar");
-
-    for (unsigned i = 0; i < GEP->getNumOperands(); ++i)
-      Gep2->setOperand(i, getScalarValue(GEP->getOperand(i), 0));
-    VecPtr = Builder.InsertWithDbgLoc(Gep2);
-
-  } else // No GEP
+  else
+    // We do not care whether the 'Ptr' operand comes from a GEP or any other
+    // source. We just fetch the first element and then create a
+    // bitcast  which assumes the 'consecutive-ness' property and return the
+    // correct operand for widened load/store.
     VecPtr = getScalarValue(Ptr, 0);
 
-  VecPtr = Reverse ? Builder.CreateGEP(nullptr, VecPtr,
-                                       Builder.getInt32(1 - OriginalVL * VF))
-                   : VecPtr;
+  VecPtr =
+      Reverse ? Builder.CreateGEP(VecPtr, Builder.getInt32(1 - OriginalVL * VF),
+                                  "reverse.ptr.")
+              : VecPtr;
   VecPtr = Builder.CreateBitCast(VecPtr, WideDataTy->getPointerTo(AddrSpace));
   return VecPtr;
 }
@@ -3024,11 +3022,22 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
   case Instruction::GetElementPtr: {
     GetElementPtrInst *GEP = cast<GetElementPtrInst>(Inst);
 
-    // Consecutive Load/Store will clone the GEP
-    if (all_of(Inst->users(), [&](User *U) -> bool {
-          return getLoadStorePointerOperand(U) == Inst;
-        }) && Legal->isConsecutivePtr(Inst))
+    // For Consecutive Load/Store we will create a scalar-gep.
+    if (all_of(Inst->users(),
+               [&](User *U) -> bool {
+                 return getLoadStorePointerOperand(U) == Inst;
+               }) &&
+        Legal->isConsecutivePtr(Inst)) {
+      Value *NewGEPPtrOp = getScalarValue(GEP->getPointerOperand(), 0);
+      SmallVector<Value *, 6> OpsV;
+      for (unsigned I = 1; I < GEP->getNumOperands(); ++I)
+        OpsV.push_back(getScalarValue(GEP->getOperand(I), 0));
+      GetElementPtrInst *ScalarGEP = cast<GetElementPtrInst>(
+          Builder.CreateGEP(NewGEPPtrOp, OpsV, "scalar.gep."));
+      ScalarGEP->setIsInBounds(GEP->isInBounds());
+      ScalarMap[GEP][0] = ScalarGEP;
       break;
+    }
     if (!Legal->isLoopPrivateAggregate(getPointerOperand(GEP)) &&
         all_of(Inst->users(), [&](User *U) -> bool {
           return getLoadStorePointerOperand(U) == Inst &&
