@@ -354,6 +354,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
             }
             return CL_INVALID_HANDLE;
         }
+        if (pContext->IsFPGAEmulator())
+        {
+            if (NULL != pErrcodeRet)
+            {
+                *pErrcodeRet = CL_INVALID_OPERATION;
+            }
+            return CL_INVALID_HANDLE;
+        }
 
         // Do some initial (not context specific) parameter checking
         // check input memory flags
