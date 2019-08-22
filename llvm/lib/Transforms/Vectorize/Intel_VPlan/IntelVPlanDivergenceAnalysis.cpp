@@ -802,6 +802,7 @@ VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForBinaryInst(
             return new VPVectorShape(Desc0, Shape0->getStride());
         }
       }
+      LLVM_FALLTHROUGH;
     }
     default:
       return getRandomVectorShape();
