@@ -91,6 +91,7 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
   DistPPNode *CurDistPPNode;
   SmallVector<DistPPNode *, 8> CurControlDepNodes;
   SmallVector<DistPPNode *, 8> UnsafeSideEffectNodes;
+  bool CreateControlNodes;
 
   bool isDone() const { return !DGraph->isGraphValid(); }
 
@@ -100,7 +101,9 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
     DGraph->getNodeMap()[HNode] = DNode;
   }
 
-  DistributionNodeCreator(DistPPGraph *G) : DGraph(G), CurDistPPNode(nullptr) {}
+  DistributionNodeCreator(DistPPGraph *G, bool CreateControlNodes)
+      : DGraph(G), CurDistPPNode(nullptr),
+        CreateControlNodes(CreateControlNodes) {}
 
   // Creates new PPNode if current node is not defined. Adds \p HNode to the
   // current PPNode.
@@ -143,6 +146,10 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
   }
 
   bool mayDistributeCondition(HLIf *If) {
+    if (!CreateControlNodes) {
+      return false;
+    }
+
     // Allow distribution of top level HLIf only. This may be extended.
     if (!CurControlDepNodes.empty()) {
       return false;
@@ -164,7 +171,7 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
     startDistPPNode(If);
 
     if (MayDistributeParent && mayDistributeCondition(If)) {
-      CurDistPPNode->setSimpleControlNode();
+      CurDistPPNode->setControlNode();
       CurControlDepNodes.push_back(CurDistPPNode);
       stopDistPPNode(If);
     }
@@ -456,12 +463,12 @@ void DistPPGraph::constructUnknownSideEffectEdges(
 
 DistPPGraph::DistPPGraph(HLLoop *Loop, HIRDDAnalysis &DDA,
                          HIRSparseArrayReductionAnalysis &SARA,
-                         bool ForceCycleForLoopIndepDep) {
-
+                         bool ForceCycleForLoopIndepDep,
+                         bool CreateControlNodes) {
   const unsigned MaxDistPPSize = 128;
   const unsigned MaxDDEdges = 300;
 
-  DistributionNodeCreator NodeCreator(this);
+  DistributionNodeCreator NodeCreator(this, CreateControlNodes);
   HLNodeUtils::visitRange(NodeCreator, Loop->getFirstChild(),
                           Loop->getLastChild());
 
@@ -532,7 +539,7 @@ bool DistPPNode::hasMemRef() const {
     FoundMemRef = FoundMemRef || Ref->isMemRef();
   };
 
-  if (isSimpleControlNode()) {
+  if (isControlNode()) {
     ForEach<const RegDDRef>::visit<false>(DDNode, HasMemRef);
   } else {
     ForEach<const RegDDRef>::visit(DDNode, HasMemRef);
@@ -551,7 +558,7 @@ void DistPPNode::dump() {
     dbgs() << "<dep " << ControlDep->first->getNode()->getNumber() << "> ";
   }
 
-  if (isSimpleControlNode()) {
+  if (isControlNode()) {
     cast<HLIf>(HNode)->dumpHeader();
     dbgs() << "\n";
     return;

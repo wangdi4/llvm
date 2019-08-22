@@ -112,6 +112,7 @@ bool HIRLoopDistribution::run() {
 
     unsigned TotalMemOps = 0;
     bool ForceCycleForLoopIndepDep = true;
+    bool CreateControlNodes = false;
 
     if (DistCostModel == DistHeuristics::BreakMemRec) {
       TotalMemOps = HLR.getSelfLoopResource(Lp).getNumIntMemOps() +
@@ -125,14 +126,16 @@ bool HIRLoopDistribution::run() {
                         << " memory operations which makes it "
                         << (ForceCycleForLoopIndepDep ? "non-" : "")
                         << "profitable for scalar expansion\n");
+
+      CreateControlNodes = true;
     }
 
     // Sparse array reduction info is needed to create the DistPPGraph
     // and in findDistPoints while breaking the PiBlock Recurrences.
     SARA.computeSparseArrayReductionChains(Lp);
 
-    std::unique_ptr<PiGraph> PG(
-        new PiGraph(Lp, DDA, SARA, ForceCycleForLoopIndepDep));
+    std::unique_ptr<PiGraph> PG(new PiGraph(
+        Lp, DDA, SARA, ForceCycleForLoopIndepDep, CreateControlNodes));
 
     if (!PG->isGraphValid()) {
       LLVM_DEBUG(
