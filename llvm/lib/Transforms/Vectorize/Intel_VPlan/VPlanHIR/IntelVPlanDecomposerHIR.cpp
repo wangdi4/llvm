@@ -891,7 +891,7 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
     IndList.reset(new VPInductionHIRList);
   IndList->insert(
       IndList->begin(),
-      llvm::make_unique<VPInductionHIR>(
+      std::make_unique<VPInductionHIR>(
           IVNext, One,
           Plan->getVPConstant(Constant::getNullValue(HLp->getIVType()))));
 

@@ -842,7 +842,7 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
   case X86Local::MRMr0:
-    filter = llvm::make_unique<ExtendedRMFilter>(true, Form - X86Local::MRMr0);
+    filter = std::make_unique<ExtendedRMFilter>(true, Form - X86Local::MRMr0);
     break;
 #endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION

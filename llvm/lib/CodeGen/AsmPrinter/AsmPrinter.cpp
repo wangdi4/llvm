@@ -343,7 +343,7 @@ bool AsmPrinter::doInitialization(Module &M) {
 
 #if INTEL_CUSTOMIZATION
   if (needsBinaryOptReport()) {
-    Handlers.emplace_back(llvm::make_unique<OptReportAsmPrinterHandler>(this),
+    Handlers.emplace_back(std::make_unique<OptReportAsmPrinterHandler>(this),
                        DbgTimerName, DbgTimerDescription, OptReportGroupName,
                        OptReportGroupDescription);
   }

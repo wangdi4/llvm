@@ -473,7 +473,7 @@ struct PartialInlinerLegacyPass : public ModulePass {
     };
 
 #if INTEL_CUSTOMIZATION
-    auto ILIC = make_unique<InliningLoopInfoCache>();
+    auto ILIC = std::make_unique<InliningLoopInfoCache>();
     return PartialInlinerImpl(&GetAssumptionCache, LookupAssumptionCache,
                               &GetTTI, NoneType::None, ILIC.get(), PSI,
                               RunLTOPartialInline, EnableSpecialCases)
@@ -1786,7 +1786,7 @@ PreservedAnalyses PartialInlinerPass::run(Module &M,
 #if INTEL_CUSTOMIZATION
   PreservedAnalyses PA;
   PA.preserve<WholeProgramAnalysis>();
-  auto ILIC = make_unique<InliningLoopInfoCache>();
+  auto ILIC = std::make_unique<InliningLoopInfoCache>();
   if (PartialInlinerImpl(&GetAssumptionCache, LookupAssumptionCache, &GetTTI,
                          {GetBFI}, ILIC.get(), PSI, RunLTOPartialInline,
                          EnableSpecialCases)
