@@ -43,7 +43,7 @@ define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_inner_loop) 
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]] (BP: NULL) :
 ; CHECK-NEXT:       [DA: Divergent] i1 [[VP_CMP216:%.*]] = icmp i64 [[VP_OUTER_IV]] i64 0
-; CHECK-NEXT:       [DA: Uniform]   i1 [[VP_CMP216_NOT:%.*]] = not i1 [[VP_CMP216]]
+; CHECK-NEXT:       [DA: Divergent] i1 [[VP_CMP216_NOT:%.*]] = not i1 [[VP_CMP216]]
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB5]](i1 [[VP_CMP216]]), [[LOOP1:loop[0-9]+]](!i1 [[VP_CMP216]])
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
@@ -54,19 +54,19 @@ define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_inner_loop) 
 ; CHECK-NEXT:      no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB8]] (BP: NULL) :
-; CHECK-NEXT:       [DA: Uniform]   i64 [[VP_PHI_USE_LIVE_OUT_PREV:%.*]] = phi  [ i64 [[VP_PHI_USE_LIVE_OUT_BLEND:%.*]], [[BB9:BB[0-9]+]] ],  [ i64 undef, [[BB7]] ]
-; CHECK-NEXT:       [DA: Uniform]   i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_PREV:%.*]] = phi  [ i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_BLEND:%.*]], [[BB9]] ],  [ i64 undef, [[BB7]] ]
-; CHECK-NEXT:       [DA: Uniform]   i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_PREV:%.*]] = phi  [ i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_BLEND:%.*]], [[BB9]] ],  [ i1 undef, [[BB7]] ]
+; CHECK-NEXT:       [DA: Divergent] i64 [[VP_PHI_USE_LIVE_OUT_PREV:%.*]] = phi  [ i64 [[VP_PHI_USE_LIVE_OUT_BLEND:%.*]], [[BB9:BB[0-9]+]] ],  [ i64 undef, [[BB7]] ]
+; CHECK-NEXT:       [DA: Divergent] i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_PREV:%.*]] = phi  [ i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_BLEND:%.*]], [[BB9]] ],  [ i64 undef, [[BB7]] ]
+; CHECK-NEXT:       [DA: Divergent] i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_PREV:%.*]] = phi  [ i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_BLEND:%.*]], [[BB9]] ],  [ i1 undef, [[BB7]] ]
 ; CHECK-NEXT:       [DA: Uniform]   i64 [[VP_INNER_IV:%.*]] = phi  [ i64 [[VP_INNER_IV_NEXT:%.*]], [[BB9]] ],  [ i64 0, [[BB7]] ]
 ; CHECK-NEXT:       [DA: Uniform]   i32 [[VP0:%.*]] = phi  [ i32 [[VP1:%.*]], [[BB9]] ],  [ i32 0, [[BB7]] ]
-; CHECK-NEXT:       [DA: Uniform]   i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_CMP216_NOT]], [[BB7]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB9]] ]
+; CHECK-NEXT:       [DA: Divergent] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_CMP216_NOT]], [[BB7]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB9]] ]
 ; CHECK-NEXT:      SUCCESSORS(1):mask_[[REGION2:region[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB9]] [[BB7]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      REGION: mask_[[REGION2]] (BP: NULL)
 ; CHECK-NEXT:      [[BB10:BB[0-9]+]] (BP: NULL) :
 ; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:       Condition([[BB8]]): [DA: Uniform]   i1 [[VP_LOOP_MASK]] = phi  [ i1 [[VP_CMP216_NOT]], [[BB7]] ],  [ i1 [[VP_LOOP_MASK_NEXT]], [[BB9]] ]
+; CHECK-NEXT:       Condition([[BB8]]): [DA: Divergent] i1 [[VP_LOOP_MASK]] = phi  [ i1 [[VP_CMP216_NOT]], [[BB7]] ],  [ i1 [[VP_LOOP_MASK_NEXT]], [[BB9]] ]
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB11:BB[0-9]+]](i1 [[VP_LOOP_MASK]]), [[BB12:BB[0-9]+]](!i1 [[VP_LOOP_MASK]])
 ; CHECK-NEXT:      no PREDECESSORS
 ; CHECK-EMPTY:
@@ -108,11 +108,11 @@ define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_inner_loop) 
 ; CHECK-NEXT:        END Region([[REGION3]])
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB12]] (BP: NULL) :
-; CHECK-NEXT:       [DA: Uniform]   i1 [[VP__NOT:%.*]] = not i1 [[VP2]]
-; CHECK-NEXT:       [DA: Uniform]   i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP__NOT]] i1 [[VP_LOOP_MASK]]
-; CHECK-NEXT:       [DA: Uniform]   i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_NO_PHI_INST_USE]] i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_PREV]]
-; CHECK-NEXT:       [DA: Uniform]   i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i64 [[VP_PHI_UPDATE_USE]] i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_PREV]]
-; CHECK-NEXT:       [DA: Uniform]   i64 [[VP_PHI_USE_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i64 [[VP_PHI_USE]] i64 [[VP_PHI_USE_LIVE_OUT_PREV]]
+; CHECK-NEXT:       [DA: Divergent] i1 [[VP__NOT:%.*]] = not i1 [[VP2]]
+; CHECK-NEXT:       [DA: Divergent] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP__NOT]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:       [DA: Divergent] i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_NO_PHI_INST_USE]] i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_PREV]]
+; CHECK-NEXT:       [DA: Divergent] i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i64 [[VP_PHI_UPDATE_USE]] i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_PREV]]
+; CHECK-NEXT:       [DA: Divergent] i64 [[VP_PHI_USE_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i64 [[VP_PHI_USE]] i64 [[VP_PHI_USE_LIVE_OUT_PREV]]
 ; CHECK-NEXT:       [DA: Uniform]   i1 [[VP3:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:      no SUCCESSORS
 ; CHECK-NEXT:      PREDECESSORS(2): [[REGION3]] [[BB10]]
@@ -127,9 +127,9 @@ define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_inner_loop) 
 ; CHECK-NEXT:      PREDECESSORS(1): mask_[[REGION2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB16]] (BP: NULL) :
-; CHECK-NEXT:       [DA: Uniform]   i64 [[VP_PHI_USE_LIVE_OUT_LCSSA:%.*]] = phi  [ i64 [[VP_PHI_USE_LIVE_OUT_BLEND]], [[BB9]] ]
-; CHECK-NEXT:       [DA: Uniform]   i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_LCSSA:%.*]] = phi  [ i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_BLEND]], [[BB9]] ]
-; CHECK-NEXT:       [DA: Uniform]   i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_LCSSA:%.*]] = phi  [ i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_BLEND]], [[BB9]] ]
+; CHECK-NEXT:       [DA: Divergent] i64 [[VP_PHI_USE_LIVE_OUT_LCSSA:%.*]] = phi  [ i64 [[VP_PHI_USE_LIVE_OUT_BLEND]], [[BB9]] ]
+; CHECK-NEXT:       [DA: Divergent] i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_LCSSA:%.*]] = phi  [ i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_BLEND]], [[BB9]] ]
+; CHECK-NEXT:       [DA: Divergent] i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_LCSSA:%.*]] = phi  [ i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_BLEND]], [[BB9]] ]
 ; CHECK-NEXT:       [DA: Divergent] i64 [[VP_USE_A:%.*]] = add i64 [[VP_PHI_USE_LIVE_OUT_LCSSA]] i64 1
 ; CHECK-NEXT:       [DA: Divergent] i64 [[VP_USE_B:%.*]] = add i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_LCSSA]] i64 1
 ; CHECK-NEXT:       [DA: Divergent] i1 [[VP_USE_C:%.*]] = xor i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_LCSSA]] i1 true

@@ -59,7 +59,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT: REGION: [[MASKREGION:mask_region[0-9]+]] (BP: NULL)
 ; CHECK-NEXT: [[MASKREGIONENTRY:BB[0-9]+]] (BP: NULL) :
 ; CHECK-NEXT: <Empty Block>
-; CHECK-NEXT: Condition([[HEADER]]): [DA: Uniform]  i1 [[MASKPHI]]
+; CHECK-NEXT: Condition([[HEADER]]): [DA: Divergent] i1 [[MASKPHI]]
 ; CHECK-NEXT: SUCCESSORS(2):[[LOOPBODYHEADER:BB[0-9]+]](i1 [[MASKPHI]]), [[REGIONEXIT:BB[0-9]+]](!i1 [[MASKPHI]])
 ; CHECK-NEXT: no PREDECESSORS
 ; CHECK-EMPTY:

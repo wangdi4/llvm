@@ -39,7 +39,7 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unna
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]] (BP: NULL) :
 ; CHECK-NEXT:       [DA: Divergent] i1 [[VP_CMP216:%.*]] = icmp i64 [[VP_OUTER_IV]] i64 0
-; CHECK-NEXT:       [DA: Uniform]   i1 [[VP_CMP216_NOT:%.*]] = not i1 [[VP_CMP216]]
+; CHECK-NEXT:       [DA: Divergent] i1 [[VP_CMP216_NOT:%.*]] = not i1 [[VP_CMP216]]
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB5]](i1 [[VP_CMP216]]), [[LOOP1:loop[0-9]+]](!i1 [[VP_CMP216]])
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
@@ -50,18 +50,18 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unna
 ; CHECK-NEXT:      no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB8]] (BP: NULL) :
-; CHECK-NEXT:       [DA: Uniform]   i64 [[VP_INNER_IV_NEXT_LIVE_OUT_PREV:%.*]] = phi  [ i64 [[VP_INNER_IV_NEXT_LIVE_OUT_BLEND:%.*]], [[BB9:BB[0-9]+]] ],  [ i64 undef, [[BB7]] ]
-; CHECK-NEXT:       [DA: Uniform]   i1 [[VP_SOME_CMP_LIVE_OUT_PREV:%.*]] = phi  [ i1 [[VP_SOME_CMP_LIVE_OUT_BLEND:%.*]], [[BB9]] ],  [ i1 undef, [[BB7]] ]
-; CHECK-NEXT:       [DA: Uniform]   i64 [[VP_INNER_IV_LIVE_OUT_PREV:%.*]] = phi  [ i64 [[VP_INNER_IV_LIVE_OUT_BLEND:%.*]], [[BB9]] ],  [ i64 undef, [[BB7]] ]
+; CHECK-NEXT:       [DA: Divergent] i64 [[VP_INNER_IV_NEXT_LIVE_OUT_PREV:%.*]] = phi  [ i64 [[VP_INNER_IV_NEXT_LIVE_OUT_BLEND:%.*]], [[BB9:BB[0-9]+]] ],  [ i64 undef, [[BB7]] ]
+; CHECK-NEXT:       [DA: Divergent] i1 [[VP_SOME_CMP_LIVE_OUT_PREV:%.*]] = phi  [ i1 [[VP_SOME_CMP_LIVE_OUT_BLEND:%.*]], [[BB9]] ],  [ i1 undef, [[BB7]] ]
+; CHECK-NEXT:       [DA: Divergent] i64 [[VP_INNER_IV_LIVE_OUT_PREV:%.*]] = phi  [ i64 [[VP_INNER_IV_LIVE_OUT_BLEND:%.*]], [[BB9]] ],  [ i64 undef, [[BB7]] ]
 ; CHECK-NEXT:       [DA: Uniform]   i64 [[VP_INNER_IV:%.*]] = phi  [ i64 [[VP_INNER_IV_NEXT:%.*]], [[BB9]] ],  [ i64 0, [[BB7]] ]
-; CHECK-NEXT:       [DA: Uniform]   i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_CMP216_NOT]], [[BB7]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB9]] ]
+; CHECK-NEXT:       [DA: Divergent] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_CMP216_NOT]], [[BB7]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB9]] ]
 ; CHECK-NEXT:      SUCCESSORS(1):mask_[[REGION2:region[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB9]] [[BB7]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      REGION: mask_[[REGION2]] (BP: NULL)
 ; CHECK-NEXT:      [[BB10:BB[0-9]+]] (BP: NULL) :
 ; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:       Condition([[BB8]]): [DA: Uniform]   i1 [[VP_LOOP_MASK]] = phi  [ i1 [[VP_CMP216_NOT]], [[BB7]] ],  [ i1 [[VP_LOOP_MASK_NEXT]], [[BB9]] ]
+; CHECK-NEXT:       Condition([[BB8]]): [DA: Divergent] i1 [[VP_LOOP_MASK]] = phi  [ i1 [[VP_CMP216_NOT]], [[BB7]] ],  [ i1 [[VP_LOOP_MASK_NEXT]], [[BB9]] ]
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB11:BB[0-9]+]](i1 [[VP_LOOP_MASK]]), [[BB12:BB[0-9]+]](!i1 [[VP_LOOP_MASK]])
 ; CHECK-NEXT:      no PREDECESSORS
 ; CHECK-EMPTY:
@@ -75,11 +75,11 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unna
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB12]] (BP: NULL) :
 ; CHECK-NEXT:       [DA: Divergent] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INNER_IV_NEXT]] i64 [[VP_OUTER_IV]]
-; CHECK-NEXT:       [DA: Uniform]   i1 [[VP_EXITCOND_NOT:%.*]] = not i1 [[VP_EXITCOND]]
-; CHECK-NEXT:       [DA: Uniform]   i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND_NOT]] i1 [[VP_LOOP_MASK]]
-; CHECK-NEXT:       [DA: Uniform]   i64 [[VP_INNER_IV_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i64 [[VP_INNER_IV]] i64 [[VP_INNER_IV_LIVE_OUT_PREV]]
-; CHECK-NEXT:       [DA: Uniform]   i1 [[VP_SOME_CMP_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_SOME_CMP]] i1 [[VP_SOME_CMP_LIVE_OUT_PREV]]
-; CHECK-NEXT:       [DA: Uniform]   i64 [[VP_INNER_IV_NEXT_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i64 [[VP_INNER_IV_NEXT]] i64 [[VP_INNER_IV_NEXT_LIVE_OUT_PREV]]
+; CHECK-NEXT:       [DA: Divergent] i1 [[VP_EXITCOND_NOT:%.*]] = not i1 [[VP_EXITCOND]]
+; CHECK-NEXT:       [DA: Divergent] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND_NOT]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:       [DA: Divergent] i64 [[VP_INNER_IV_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i64 [[VP_INNER_IV]] i64 [[VP_INNER_IV_LIVE_OUT_PREV]]
+; CHECK-NEXT:       [DA: Divergent] i1 [[VP_SOME_CMP_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_SOME_CMP]] i1 [[VP_SOME_CMP_LIVE_OUT_PREV]]
+; CHECK-NEXT:       [DA: Divergent] i64 [[VP_INNER_IV_NEXT_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i64 [[VP_INNER_IV_NEXT]] i64 [[VP_INNER_IV_NEXT_LIVE_OUT_PREV]]
 ; CHECK-NEXT:       [DA: Uniform]   i1 [[VP0:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:      no SUCCESSORS
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB11]] [[BB10]]
