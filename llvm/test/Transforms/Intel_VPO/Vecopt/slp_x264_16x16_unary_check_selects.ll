@@ -217,7 +217,7 @@ define dso_local i32 @x264_pixel_satd_16x16(i8* nocapture readonly %pix1, i32 %i
 ; 8WIDE-NEXT:    [[TMP158:%.*]] = add <8 x i32> [[TMP149]], [[TMP157]]
 ; 8WIDE-NEXT:    [[TMP159:%.*]] = sub <8 x i32> [[TMP149]], [[TMP157]]
 ; 8WIDE-NEXT:    [[TMP160:%.*]] = select <8 x i1> <i1 true, i1 true, i1 false, i1 false, i1 true, i1 false, i1 false, i1 false>, <8 x i32> [[TMP158]], <8 x i32> [[TMP159]]
-; 8WIDE-NEXT:    [[TMP161:%.*]] = add <8 x i32> [[TMP90]], [[TMP160]]
+; 8WIDE-NEXT:    [[TMP161:%.*]] = add <8 x i32> [[TMP160]], [[TMP90]]
 ; 8WIDE-NEXT:    [[TMP162:%.*]] = sub <8 x i32> [[TMP160]], [[TMP90]]
 ; 8WIDE-NEXT:    [[TMP163:%.*]] = select <8 x i1> <i1 true, i1 false, i1 false, i1 true, i1 true, i1 false, i1 false, i1 true>, <8 x i32> [[TMP161]], <8 x i32> [[TMP162]]
 ; 8WIDE-NEXT:    [[TMP164:%.*]] = bitcast i32* [[ARRAYIDX1043]] to <8 x i32>*
