@@ -201,7 +201,7 @@ namespace intel {
                           SmallPtrSetImpl<GlobalValue*> &ReqFunctions,
                           SmallPtrSetImpl<GlobalVariable*> &ReqGlobals) {
     std::unique_ptr<Module> New =
-      llvm::make_unique<Module>(M->getModuleIdentifier(), M->getContext());
+      std::make_unique<Module>(M->getModuleIdentifier(), M->getContext());
 
     New->setDataLayout(M->getDataLayout());
     New->setTargetTriple(M->getTargetTriple());
