@@ -84,6 +84,16 @@ endif()
 
 set(OPENCL_INCLUDE "${OpenCL_INCLUDE_DIRS}")
 
+add_library (OpenCL-Headers INTERFACE)
+add_library (OpenCL::Headers ALIAS OpenCL-Headers)
+target_include_directories(OpenCL-Headers
+    INTERFACE ${OPENCL_INCLUDE}
+)
+install(DIRECTORY ${OPENCL_INCLUDE}/CL
+    DESTINATION ${LLVM_INST_INC_DIRECTORY}
+    COMPONENT opencl-headers
+)
+
 # Configure SYCL version macro
 set(sycl_inc_dir ${CMAKE_CURRENT_SOURCE_DIR}/include)
 string(TIMESTAMP __SYCL_COMPILER_VERSION "%Y%m%d")
@@ -97,11 +107,6 @@ COMMENT "Copying SYCL headers ...")
 
 # Configure SYCL headers
 install(DIRECTORY "${sycl_inc_dir}/." DESTINATION "${LLVM_INST_INC_DIRECTORY}" COMPONENT sycl-headers)
-
-# Configure OpenCL header and ICD loader
-include_directories(AFTER "${sycl_inc_dir}" "${OpenCL_INCLUDE_DIRS}")
-link_libraries(${OpenCL_LIBRARIES})
-
 # SYCL runtime library
 add_subdirectory(source)
 

@@ -81,6 +81,11 @@ target_compile_options (sycl PRIVATE
 )
 #end INTEL_CUSTOMIZATION
 
+target_include_directories(sycl PRIVATE "${sycl_inc_dir}")
+target_link_libraries(sycl
+                      PRIVATE OpenCL::Headers
+                      PRIVATE ${OpenCL_LIBRARIES}
+)
 if (SYCL_USE_LIBCXX)
     if ((CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR
         (CMAKE_CXX_COMPILER_ID STREQUAL "Clang"))
@@ -100,7 +105,7 @@ else()
 # More information https://bugs.launchpad.net/ubuntu/+source/gcc-5/+bug/1568899
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND
     CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 5.0)
-  target_link_libraries(sycl gcc_s gcc)
+  target_link_libraries(sycl PRIVATE gcc_s gcc)
 endif()
 
 endif()
