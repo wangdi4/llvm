@@ -39,17 +39,17 @@ If the installation is successful, the following OpenCL(TM) platform will be
 available:
 
     Profile             : EMBEDDED_PROFILE
-    Version             : OpenCL 1.0 Intel(R) FPGA SDK for OpenCL(TM), Version 19.2
+    Version             : OpenCL 1.2 Intel(R) FPGA SDK for OpenCL(TM), Version 19.2
     Name                : Intel(R) FPGA Emulation Platform for OpenCL(TM) (preview)
     Vendor              : Intel(R) Corporation
     Devices             : 1
     Device [#1]         :
         Type            : accelerator
         Profile         : EMBEDDED_PROFILE
-        Version         : OpenCL 1.0
+        Version         : OpenCL 1.2
         Name            : Intel(R) FPGA Emulation Device (preview)
         Vendor          : Intel(R) Corporation
-        C version       : OpenCL C 1.0
+        C version       : OpenCL C 1.2
         Driver version  : 2019.8.4.0
 
 ================================================================================

@@ -164,6 +164,10 @@ const char* CPUDeviceConfig::GetExtensions() const
             m_extensions += OCL_EXT_INTEL_FPGA_HOST_PIPE " ";
             m_extensions += OCL_EXT_ES_KHR_INT64 " ";
             m_extensions += OCL_EXT_KHR_IL_PROGRAM " ";
+            m_extensions += OCL_EXT_KHR_GLOBAL_BASE_ATOMICS " ";
+            m_extensions += OCL_EXT_KHR_GLOBAL_EXTENDED_ATOMICS " ";
+            m_extensions += OCL_EXT_KHR_LOCAL_BASE_ATOMICS " ";
+            m_extensions += OCL_EXT_KHR_LOCAL_EXTENDED_ATOMICS " ";
 
             return m_extensions.c_str();
         }
