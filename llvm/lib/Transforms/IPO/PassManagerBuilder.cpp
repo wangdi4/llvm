@@ -1739,6 +1739,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
   // Run additional cleanup passes that help to cleanup the code.
   if (IsLTO && RunLoopOpts == LoopOptMode::Full) {
     PM.add(createCFGSimplificationPass());
+    PM.add(createAggressiveDCEPass());
   }
 
   // This pass "canonicalizes" loops and makes analysis easier.
