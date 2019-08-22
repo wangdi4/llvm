@@ -99,6 +99,12 @@ void GlobalCompilerConfig::LoadConfig()
     {
         m_LLVMOptions += pEnv;
     }
+
+    if (const char *pEnv = getenv("CL_CONFIG_CPU_REQD_SUB_GROUP_SIZE"))
+    {
+        m_LLVMOptions += "-reqd-sub-group-size=";
+        m_LLVMOptions += pEnv;
+    }
 }
 
 void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)
