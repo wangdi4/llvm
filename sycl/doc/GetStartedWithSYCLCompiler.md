@@ -14,7 +14,7 @@ to install.
 
    b. Experimental Intel&reg; CPU Runtime for OpenCL&trade; Applications with
 SYCL support: follow the instructions under
-[https://github.com/intel/llvm/releases/tag/expoclcpu-1.0.0](https://github.com/intel/llvm/releases/tag/expoclcpu-1.0.0)
+[SYCL* Compiler and Runtimes](https://github.com/intel/llvm/releases/tag/2019-07)
 
 # Build the SYCL compiler and runtime
 
@@ -42,6 +42,18 @@ make -j`nproc` sycl-toolchain
 
 After the build completed, the SYCL compiler/include/libraries can be found
 under `$SYCL_HOME/build` directory.
+
+## Build the SYCL runtime with libc++ library.
+
+There is experimental support for building and linking SYCL runtime with
+libc++ library instead of libstdc++. To enable it the following cmake options
+should be used:
+
+```
+-DSYCL_USE_LIBCXX=ON \
+-DSYCL_LIBCXX_INCLUDE_PATH=<path to libc++ headers> \
+-DSYCL_LIBCXX_LIBRARY_PATH=<path to libc++ and libc++abi libraries>
+```
 
 # Test the SYCL compiler and runtime
 

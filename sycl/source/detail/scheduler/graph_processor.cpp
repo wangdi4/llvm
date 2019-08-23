@@ -23,8 +23,12 @@ static Command *getCommand(const EventImplPtr &Event) {
 
 std::vector<EventImplPtr>
 Scheduler::GraphProcessor::getWaitList(EventImplPtr Event) {
-  std::vector<EventImplPtr> Result;
   Command *Cmd = getCommand(Event);
+  // Command can be nullptr if user creates cl::sycl::event explicitly,
+  // as such event is not mapped to any SYCL task.
+  if (!Cmd)
+    return {};
+  std::vector<EventImplPtr> Result;
   for (const DepDesc &Dep : Cmd->MDeps) {
     if (Dep.MDepCommand)
       Result.push_back(Dep.MDepCommand->getEvent());
@@ -40,9 +44,9 @@ void Scheduler::GraphProcessor::waitForEvent(EventImplPtr Event) {
     // TODO: Reschedule commands.
     throw runtime_error("Enqueue process failed.");
 
-  cl_event &CLEvent = Cmd->getEvent()->getHandleRef();
+  RT::PiEvent &CLEvent = Cmd->getEvent()->getHandleRef();
   if (CLEvent)
-    CHECK_OCL_CODE(clWaitForEvents(1, &CLEvent));
+    PI_CALL(RT::piEventsWait(1, &CLEvent));
 }
 
 Command *Scheduler::GraphProcessor::enqueueCommand(Command *Cmd) {

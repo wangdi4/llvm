@@ -478,8 +478,9 @@ public:
   /// Returns true if the address space in these qualifiers is equal to or
   /// a superset of the address space in the argument qualifiers.
   bool isAddressSpaceSupersetOf(Qualifiers other) const {
+
     return
-      isAddressSpaceSupersetOf(getAddressSpace(), other.getAddressSpace()) ||
+        isAddressSpaceSupersetOf(getAddressSpace(), other.getAddressSpace()) ||
         (!hasAddressSpace() &&
          (other.getAddressSpace() == LangAS::sycl_private ||
           other.getAddressSpace() == LangAS::sycl_local ||

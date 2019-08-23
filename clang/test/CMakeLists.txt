@@ -102,6 +102,7 @@ if( NOT CLANG_BUILT_STANDALONE )
     FileCheck count not
     llc
     llvm-as
+    llvm-ar
     llvm-bcanalyzer
     llvm-cat
     llvm-cxxfilt
@@ -110,6 +111,7 @@ if( NOT CLANG_BUILT_STANDALONE )
     llvm-lto2
     llvm-modextract
     llvm-nm
+    llvm-objcopy
     llvm-objdump
     llvm-profdata
     llvm-readelf

@@ -271,6 +271,9 @@ bool Sema::DiagnoseUseOfDecl(NamedDecl *D, ArrayRef<SourceLocation> Locs,
 
     if (getLangOpts().CUDA && !CheckCUDACall(Loc, FD))
       return true;
+
+    if (getLangOpts().SYCLIsDevice)
+      CheckSYCLCall(Loc, FD);
   }
 
   if (auto *MD = dyn_cast<CXXMethodDecl>(D)) {
@@ -3230,6 +3233,67 @@ ExprResult Sema::BuildPredefinedExpr(SourceLocation Loc,
   }
 
   return PredefinedExpr::Create(Context, Loc, ResTy, IK, SL);
+}
+
+ExprResult Sema::BuildUniqueStableName(SourceLocation OpLoc,
+                                       TypeSourceInfo *Operand) {
+  QualType ResultTy;
+  StringLiteral *SL = nullptr;
+  if (Operand->getType()->isDependentType()) {
+    ResultTy = Context.DependentTy;
+  } else {
+    std::string Str = PredefinedExpr::ComputeName(
+        Context, PredefinedExpr::UniqueStableNameType, Operand->getType());
+    llvm::APInt Length(32, Str.length() + 1);
+    ResultTy = Context.adjustStringLiteralBaseType(Context.CharTy.withConst());
+    ResultTy = Context.getConstantArrayType(ResultTy, Length, ArrayType::Normal,
+                                            /*IndexTypeQuals*/ 0);
+    SL = StringLiteral::Create(Context, Str, StringLiteral::Ascii,
+                               /*Pascal*/ false, ResultTy, OpLoc);
+  }
+
+  return PredefinedExpr::Create(Context, OpLoc, ResultTy,
+                                PredefinedExpr::UniqueStableNameType, SL,
+                                Operand);
+}
+
+ExprResult Sema::BuildUniqueStableName(SourceLocation OpLoc,
+                                       Expr *E) {
+  QualType ResultTy;
+  StringLiteral *SL = nullptr;
+  if (E->getType()->isDependentType()) {
+    ResultTy = Context.DependentTy;
+  } else {
+    std::string Str = PredefinedExpr::ComputeName(Context,
+        PredefinedExpr::UniqueStableNameExpr, E->getType());
+    llvm::APInt Length(32, Str.length()  + 1);
+    ResultTy = Context.adjustStringLiteralBaseType(Context.CharTy.withConst());
+    ResultTy = Context.getConstantArrayType(ResultTy, Length, ArrayType::Normal,
+                                           /*IndexTypeQuals*/ 0);
+    SL = StringLiteral::Create(Context, Str, StringLiteral::Ascii,
+                               /*Pascal*/ false, ResultTy, OpLoc);
+  }
+
+  return PredefinedExpr::Create(Context, OpLoc, ResultTy,
+                                PredefinedExpr::UniqueStableNameExpr, SL, E);
+}
+
+ExprResult Sema::ActOnUniqueStableNameExpr(SourceLocation OpLoc,
+                                           SourceLocation L, SourceLocation R,
+                                           ParsedType Ty) {
+  TypeSourceInfo *TInfo = nullptr;
+  QualType T = GetTypeFromParser(Ty, &TInfo);
+
+  if (T.isNull()) return ExprError();
+  if (!TInfo) TInfo = Context.getTrivialTypeSourceInfo(T, OpLoc);
+
+  return BuildUniqueStableName(OpLoc, TInfo);
+}
+
+ExprResult Sema::ActOnUniqueStableNameExpr(SourceLocation OpLoc,
+                                           SourceLocation L, SourceLocation R,
+                                           Expr *E) {
+  return BuildUniqueStableName(OpLoc, E);
 }
 
 ExprResult Sema::ActOnPredefinedExpr(SourceLocation Loc, tok::TokenKind Kind) {
@@ -15536,6 +15600,8 @@ void Sema::MarkFunctionReferenced(SourceLocation Loc, FunctionDecl *Func,
 
   if (getLangOpts().CUDA)
     CheckCUDACall(Loc, Func);
+  if (getLangOpts().SYCLIsDevice)
+    CheckSYCLCall(Loc, Func);
 
   // If we need a definition, try to create one.
   if (NeedDefinition && !Func->getBody()) {
@@ -17082,7 +17148,15 @@ namespace {
     }
 
     void VisitCXXNewExpr(CXXNewExpr *E) {
-      if (E->getOperatorNew())
+      FunctionDecl *FD = E->getOperatorNew();
+      if (FD && S.getLangOpts().SYCLIsDevice) {
+        if (FD->isReplaceableGlobalAllocationFunction())
+          S.SYCLDiagIfDeviceCode(E->getExprLoc(), diag::err_sycl_restrict)
+              << S.KernelAllocateStorage;
+        else if (FunctionDecl *Def = FD->getDefinition())
+          S.CheckSYCLCall(E->getExprLoc(), Def);
+      }
+      if (FD)
         S.MarkFunctionReferenced(E->getBeginLoc(), E->getOperatorNew());
       if (E->getOperatorDelete())
         S.MarkFunctionReferenced(E->getBeginLoc(), E->getOperatorDelete());

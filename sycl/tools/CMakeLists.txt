@@ -11,3 +11,13 @@ add_definitions(-D MIN_INTEL_OCL_CPU_VERSION=\\"18.1.0.0901\\",\\"7.6.0.1202\\")
 add_executable(sycl-check sycl-check.cpp)
 add_dependencies(sycl-check sycl)
 target_link_libraries(sycl-check sycl)
+
+# INTEL_CUSTOMIZATION CORC-4868
+#
+# Do not treat warnings as error unless it fixed upstream
+#
+target_compile_options (sycl-check PRIVATE
+    $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:-Wno-error>
+    $<$<CXX_COMPILER_ID:MSVC>:/WX->
+)
+#end INTEL_CUSTOMIZATION
