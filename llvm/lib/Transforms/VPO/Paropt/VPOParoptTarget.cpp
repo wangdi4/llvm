@@ -396,6 +396,15 @@ void VPOParoptTransform::guardSideEffectStatements(
       if (isa<IntrinsicInst>(&I))
         continue;
       if (I.mayHaveSideEffects()) {
+        // REMOVE this code when hierarchical parallelism is fully implemented.
+        // We avoid conditionalizing calls with return values, because the
+        // threads > 0 will get undefined values. We also might need a better
+        // filter than mayHaveSideEffects, which is very broad.
+        if (auto *Call = dyn_cast<CallInst>(&I)) {
+          auto *FnType = Call->getFunctionType();
+          if (!FnType->getReturnType()->isVoidTy() && Call->hasNUsesOrMore(1))
+            continue;
+        }
         if (ignoreSpecialOperands(&I, PrivateVariables))
           continue;
 
