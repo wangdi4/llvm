@@ -121,7 +121,7 @@ void SYCL::Linker::constructPartialLinkCommand(Compilation &C,
 
   SmallString<128> ExecPath(getToolChain().GetLinkerPath());
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
-  C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs, None));
+  C.addCommand(std::make_unique<Command>(JA, *this, Exec, CmdArgs, None));
 }
 
 // For SYCL the inputs of the linker job are SPIR-V binaries and output is
@@ -388,7 +388,7 @@ void SYCL::fpga::BackendCompiler::ConstructJob(Compilation &C,
 
   SmallString<128> ExecPath(getToolChain().GetProgramPath("aoc"));
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
-  C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs, None));
+  C.addCommand(std::make_unique<Command>(JA, *this, Exec, CmdArgs, None));
 }
 
 void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
@@ -409,7 +409,7 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
   TranslateSYCLTargetArgs(C, Args, getToolChain(), CmdArgs);
   SmallString<128> ExecPath(getToolChain().GetProgramPath("ocloc"));
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
-  C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs, None));
+  C.addCommand(std::make_unique<Command>(JA, *this, Exec, CmdArgs, None));
 }
 
 void SYCL::x86_64::BackendCompiler::ConstructJob(Compilation &C,
@@ -427,7 +427,7 @@ void SYCL::x86_64::BackendCompiler::ConstructJob(Compilation &C,
   TranslateSYCLTargetArgs(C, Args, getToolChain(), CmdArgs);
   SmallString<128> ExecPath(getToolChain().GetProgramPath("ioc64"));
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
-  C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs, None));
+  C.addCommand(std::make_unique<Command>(JA, *this, Exec, CmdArgs, None));
 }
 
 SYCLToolChain::SYCLToolChain(const Driver &D, const llvm::Triple &Triple,

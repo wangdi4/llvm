@@ -38,11 +38,8 @@
 #include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
-<<<<<<< HEAD
 #include "llvm/Passes/StandardInstrumentations.h"
-=======
 #include "llvm/SYCL/ASFixer.h"
->>>>>>> 813621e49df799aa4c3970b07536911d2ac1a7ca
 #include "llvm/Support/BuryPointer.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"

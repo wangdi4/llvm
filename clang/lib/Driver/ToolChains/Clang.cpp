@@ -6616,15 +6616,11 @@ void OffloadBundler::ConstructJobMultipleOutputs(
             TCArgs.getAllArgValues(options::OPT_foffload_static_lib_EQ))
       LinkArgs.push_back(TCArgs.MakeArgString(A));
     const char *Exec = TCArgs.MakeArgString(getToolChain().GetLinkerPath());
-<<<<<<< HEAD
     C.addCommand(std::make_unique<Command>(JA, *this, Exec, LinkArgs, Inputs));
-=======
-    C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, LinkArgs, Inputs));
   } else if (Input.getType() == types::TY_FPGA_AOCX ||
              Input.getType() == types::TY_FPGA_AOCR) {
     // Override type with object type.
     TypeArg = "o";
->>>>>>> 813621e49df799aa4c3970b07536911d2ac1a7ca
   }
   if (C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment() &&
       Input.getType() == types::TY_Archive)
@@ -6809,7 +6805,7 @@ void SPIRCheck::ConstructJob(Compilation &C, const JobAction &JA,
     CheckArgs.push_back(I.getFilename());
   }
 
-  C.addCommand(llvm::make_unique<Command>(JA, *this,
+  C.addCommand(std::make_unique<Command>(JA, *this,
       TCArgs.MakeArgString(getToolChain().GetProgramPath(getShortName())),
       CheckArgs, None));
 }
