@@ -838,6 +838,15 @@ VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForGepInst(
   const VPValue* PtrOp = I->getOperand(0);
   VPVectorShape *PtrShape = getVectorShape(PtrOp);
   unsigned NumOperands = I->getNumOperands();
+
+  // GEPs on StructType pointers need further analysis to determine actual
+  // stride. Currently mark it as Random to stay conservative. Check JIRA :
+  // CMPLRLLVM-10122
+  if (auto *PtrOpTy = dyn_cast<PointerType>(PtrOp->getType())) {
+    if (isa<StructType>(PtrOpTy->getPointerElementType()))
+      return getRandomVectorShape();
+  }
+
   // If any of the gep indices, except the last, are not uniform, then return
   // random shape.
   for (unsigned i = 1; i < NumOperands - 1; i++) {
