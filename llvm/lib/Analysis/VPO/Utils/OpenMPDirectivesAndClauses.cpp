@@ -533,6 +533,11 @@ bool VPOAnalysisUtils::isScheduleClause(int ClauseID) {
     case QUAL_OMP_SCHEDULE_GUIDED:
     case QUAL_OMP_SCHEDULE_RUNTIME:
     case QUAL_OMP_SCHEDULE_STATIC:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    case QUAL_OMP_SA_SCHEDULE_STATIC:
+#endif // INTEL_FEATURE_CSA
+#endif //INTEL_CUSTOMIZATION
     return true;
   }
   return false;
@@ -630,6 +635,12 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_THREAD_LIMIT:
     case QUAL_OMP_DEVICE:
     case QUAL_OMP_OFFLOAD_ENTRY_IDX:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    case QUAL_OMP_SA_NUM_WORKERS:
+    case QUAL_OMP_SA_PIPELINE:
+#endif // INTEL_FEATURE_CSA
+#endif //INTEL_CUSTOMIZATION
       return 1;
   }
   return 2; //everything else

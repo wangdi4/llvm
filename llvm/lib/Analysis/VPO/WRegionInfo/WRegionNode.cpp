@@ -332,6 +332,13 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
   if (canHaveSchedule())
     PrintedSomething |= getSchedule().print(OS, Depth, Verbosity);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  if (canHaveWorkerSchedule())
+      PrintedSomething |= getWorkerSchedule().print(OS, Depth, Verbosity);
+#endif // INTEL_FEATURE_CSA
+#endif //INTEL_CUSTOMIZATION
+
   if (canHaveShared())
     PrintedSomething |= getShared().print(OS, Depth, Verbosity);
 
@@ -661,6 +668,16 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
   case QUAL_OMP_DEVICE:
     setDevice(V);
     break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  case QUAL_OMP_SA_NUM_WORKERS:
+      setNumWorkers(N);
+      break;
+  case QUAL_OMP_SA_PIPELINE:
+      setPipelineDepth(N);
+      break;
+#endif // INTEL_FEATURE_CSA
+#endif //INTEL_CUSTOMIZATION
   default:
     llvm_unreachable("Unknown ClauseID in handleQualOpnd()");
   }
@@ -1174,6 +1191,14 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     extractScheduleOpndList(getSchedule(), Args, ClauseInfo, WRNScheduleStatic);
     break;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  case QUAL_OMP_SA_SCHEDULE_STATIC: {
+      extractScheduleOpndList(getWorkerSchedule(), Args, ClauseInfo, WRNScheduleStatic);
+      break;
+  }
+#endif // INTEL_FEATURE_CSA
+#endif //INTEL_CUSTOMIZATION
   case QUAL_OMP_INREDUCTION_ADD:
   case QUAL_OMP_INREDUCTION_SUB:
   case QUAL_OMP_INREDUCTION_MUL:
@@ -1310,6 +1335,20 @@ bool WRegionNode::canHaveDistSchedule() const {
   // true for WRNDistribute and WRNDistributeParLoop
   return getIsDistribute();
 }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+bool WRegionNode::canHaveWorkerSchedule() const {
+    unsigned SubClassID = getWRegionKindID();
+    switch (SubClassID) {
+    case WRNParallelLoop:
+    case WRNWksLoop:
+        return true;
+    }
+    return false;
+}
+#endif // INTEL_FEATURE_CSA
+#endif //INTEL_CUSTOMIZATION
 
 bool WRegionNode::canHaveShared() const {
   unsigned SubClassID = getWRegionKindID();
