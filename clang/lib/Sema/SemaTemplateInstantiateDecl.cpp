@@ -617,9 +617,10 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
           *this, TemplateArgs, NWPA, New);
       continue;
     }
-    const MaxReplicatesAttr *MRA = dyn_cast<MaxReplicatesAttr>(TmplAttr);
+    const IntelFPGAMaxReplicatesAttr *MRA =
+        dyn_cast<IntelFPGAMaxReplicatesAttr>(TmplAttr);
     if (MRA) {
-      instantiateDependentHLSOneConstantValueAttr<MaxReplicatesAttr>(
+      instantiateDependentHLSOneConstantValueAttr<IntelFPGAMaxReplicatesAttr>(
         *this, TemplateArgs, MRA, New);
       continue;
     }

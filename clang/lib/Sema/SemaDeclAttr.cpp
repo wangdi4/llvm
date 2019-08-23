@@ -3505,7 +3505,7 @@ static void handleHLSOneConstantValueAttr(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
     return;
 
-  if (checkAttrMutualExclusion<MaxReplicatesAttr>(S, D, Attr))
+  if (checkAttrMutualExclusion<IntelFPGAMaxReplicatesAttr>(S, D, Attr))
     return;
 
   S.HLSAddOneConstantValueAttr<AttrType>(Attr.getRange(), D,
@@ -3527,7 +3527,7 @@ static void handleNumPortsReadOnlyWriteOnlyAttr(Sema &S, Decl *D,
   checkForDuplicateAttribute<NumWritePortsAttr>(S, D, Attr);
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
     return;
-  if (checkAttrMutualExclusion<MaxReplicatesAttr>(S, D, Attr))
+  if (checkAttrMutualExclusion<IntelFPGAMaxReplicatesAttr>(S, D, Attr))
     return;
 
   S.HLSAddOneConstantValueAttr<NumReadPortsAttr>(Attr.getRange(), D,
@@ -3549,73 +3549,6 @@ static void handleStaticArrayResetAttr(Sema &S, Decl *D,
   S.HLSAddOneConstantValueAttr<StaticArrayResetAttr>(
       Attr.getRange(), D, Attr.getArgAsExpr(0),
       Attr.getAttributeSpellingListIndex());
-}
-
-static void handleSimpleDualPortAttr(Sema &S, Decl *D,
-                                     const ParsedAttr &Attr) {
-  checkForDuplicateAttribute<SimpleDualPortAttr>(S, D, Attr);
-
-  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
-    return;
-
-  if (!D->hasAttr<IntelFPGAMemoryAttr>())
-    D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
-        S.Context, IntelFPGAMemoryAttr::Default));
-
-  D->addAttr(::new (S.Context)
-    SimpleDualPortAttr(Attr.getRange(), S.Context, 0));
-}
-
-static void handleMaxReplicatesAttr(Sema &S, Decl *D,
-                                    const ParsedAttr &Attr) {
-  checkForDuplicateAttribute<MaxReplicatesAttr>(S, D, Attr);
-
-  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
-    return;
-
-  if (checkAttrMutualExclusion<NumReadPortsAttr>(S, D, Attr))
-    return;
-  if (checkAttrMutualExclusion<NumWritePortsAttr>(S, D, Attr))
-    return;
-  if (checkAttrMutualExclusion<NumPortsReadOnlyWriteOnlyAttr>(S, D, Attr))
-    return;
-
-  S.HLSAddOneConstantValueAttr<MaxReplicatesAttr>(
-      Attr.getRange(), D, Attr.getArgAsExpr(0),
-      Attr.getAttributeSpellingListIndex());
-}
-
-/// Handle the merge attribute.
-/// This requires two string arguments.  The first argument is a name, the
-/// second is a direction.  The direction must be "depth" or "width".
-/// This is incompatible with the register attribute.
-static void handleMergeAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
-
-  checkForDuplicateAttribute<MergeAttr>(S, D, Attr);
-
-  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
-    return;
-
-  SmallVector<StringRef, 2> Results;
-  for (int I = 0; I < 2; I++) {
-    StringRef Str;
-    if (!S.checkStringLiteralArgumentAttr(Attr, I, Str))
-      return;
-
-    if (I == 1 && Str != "depth" && Str != "width") {
-      S.Diag(Attr.getLoc(), diag::err_hls_merge_dir_invalid) << Attr;
-      return;
-    }
-    Results.push_back(Str);
-  }
-
-  if (!D->hasAttr<IntelFPGAMemoryAttr>())
-    D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
-        S.Context, IntelFPGAMemoryAttr::Default));
-
-  D->addAttr(::new (S.Context)
-                 MergeAttr(Attr.getRange(), S.Context, Results[0], Results[1],
-                           Attr.getAttributeSpellingListIndex()));
 }
 
 /// Handle the bank_bits attribute.
@@ -4968,6 +4901,16 @@ void Sema::IntelFPGAAddOneConstantValueAttr(SourceRange AttrRange, Decl *D,
           Context, IntelFPGAMemoryAttr::Default));
   }
 
+#if INTEL_CUSTOMIZATION
+  if (isa<NumReadPortsAttr>(TmpAttr) || isa<NumWritePortsAttr>(TmpAttr) ||
+      isa<IntelFPGAMaxReplicatesAttr>(TmpAttr) ||
+      (isa<MaxConcurrencyAttr>(TmpAttr) && isa<VarDecl>(D))) {
+    if (!D->hasAttr<IntelFPGAMemoryAttr>())
+      D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
+          Context, IntelFPGAMemoryAttr::Default));
+  }
+#endif // INTEL_CUSTOMIZATION
+
   D->addAttr(::new (Context)
                  AttrType(AttrRange, Context, E, SpellingListIndex));
 }
@@ -4990,7 +4933,7 @@ void Sema::IntelFPGAAddOneConstantPowerTwoValueAttr(
       return;
     }
 #if INTEL_CUSTOMIZATION
-    if (IntelFPGANumBanksAttr::classof(&TmpAttr)) {
+    if (isa<IntelFPGANumBanksAttr>(TmpAttr)) {
       if (auto *BBA = D->getAttr<BankBitsAttr>()) {
         unsigned NumBankBits = BBA->args_size();
         if (NumBankBits != Value.ceilLogBase2()) {
@@ -6308,8 +6251,6 @@ static bool checkIntelFPGARegisterAttrCompatibility(Sema &S, Decl *D,
 #if INTEL_CUSTOMIZATION
   if (checkAttrMutualExclusion<MaxConcurrencyAttr>(S, D, Attr))
     InCompat = true;
-  if (checkAttrMutualExclusion<MergeAttr>(S, D, Attr))
-    InCompat = true;
   if (checkAttrMutualExclusion<BankBitsAttr>(S, D, Attr))
     InCompat = true;
   if (checkAttrMutualExclusion<NumReadPortsAttr>(S, D, Attr))
@@ -6319,10 +6260,6 @@ static bool checkIntelFPGARegisterAttrCompatibility(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<StaticArrayResetAttr>(S, D, Attr))
     InCompat = true;
   if (checkAttrMutualExclusion<InternalMaxBlockRamDepthAttr>(S, D, Attr))
-    InCompat = true;
-  if (checkAttrMutualExclusion<MaxReplicatesAttr>(S, D, Attr))
-    InCompat = true;
-  if (checkAttrMutualExclusion<SimpleDualPortAttr>(S, D, Attr))
     InCompat = true;
   if (checkAttrMutualExclusion<OptimizeFMaxAttr>(S, D, Attr))
     InCompat = true;
@@ -6387,6 +6324,10 @@ static void handleIntelFPGASimpleDualPortAttr(Sema &S, Decl *D,
                                               const ParsedAttr &Attr) {
   if (S.LangOpts.SYCLIsHost)
     return;
+#if INTEL_CUSTOMIZATION
+  if (checkValidSYCLSpelling(S, Attr))
+   return;
+#endif // INTEL_CUSTOMIZATION
 
   checkForDuplicateAttribute<IntelFPGASimpleDualPortAttr>(S, D, Attr);
 
@@ -6405,11 +6346,24 @@ static void handleIntelFPGAMaxReplicatesAttr(Sema &S, Decl *D,
                                              const ParsedAttr &Attr) {
   if (S.LangOpts.SYCLIsHost)
     return;
+#if INTEL_CUSTOMIZATION
+  if (checkValidSYCLSpelling(S, Attr))
+   return;
+#endif // INTEL_CUSTOMIZATION
 
   checkForDuplicateAttribute<IntelFPGAMaxReplicatesAttr>(S, D, Attr);
 
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
     return;
+
+#if INTEL_CUSTOMIZATION
+  if (checkAttrMutualExclusion<NumReadPortsAttr>(S, D, Attr))
+    return;
+  if (checkAttrMutualExclusion<NumWritePortsAttr>(S, D, Attr))
+    return;
+  if (checkAttrMutualExclusion<NumPortsReadOnlyWriteOnlyAttr>(S, D, Attr))
+    return;
+#endif // INTEL_CUSTOMIZATION
 
   S.IntelFPGAAddOneConstantValueAttr<IntelFPGAMaxReplicatesAttr>(
       Attr.getRange(), D, Attr.getArgAsExpr(0),
@@ -6421,6 +6375,12 @@ static void handleIntelFPGAMaxReplicatesAttr(Sema &S, Decl *D,
 /// second is a direction.  The direction must be "depth" or "width".
 /// This is incompatible with the register attribute.
 static void handleIntelFPGAMergeAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+
+#if INTEL_CUSTOMIZATION
+  if (checkValidSYCLSpelling(S, Attr))
+   return;
+#endif // INTEL
+
   checkForDuplicateAttribute<IntelFPGAMergeAttr>(S, D, Attr);
 
   if (S.LangOpts.SYCLIsHost)
@@ -8926,15 +8886,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_NumPortsReadOnlyWriteOnly:
     handleNumPortsReadOnlyWriteOnlyAttr(S, D, AL);
-    break;
-  case ParsedAttr::AT_MaxReplicates:
-    handleMaxReplicatesAttr(S, D, AL);
-    break;
-  case ParsedAttr::AT_SimpleDualPort:
-    handleSimpleDualPortAttr(S, D, AL);
-    break;
-  case ParsedAttr::AT_Merge:
-    handleMergeAttr(S, D, AL);
     break;
   case ParsedAttr::AT_BankBits:
     handleBankBitsAttr(S, D, AL);
