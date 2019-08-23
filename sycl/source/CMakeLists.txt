@@ -110,4 +110,7 @@ endif()
 
 endif()
 
-install(TARGETS sycl DESTINATION "lib" COMPONENT sycl)
+install(TARGETS sycl
+        ARCHIVE DESTINATION "lib" COMPONENT sycl
+        LIBRARY DESTINATION "lib" COMPONENT sycl
+        RUNTIME DESTINATION "bin" COMPONENT sycl)
