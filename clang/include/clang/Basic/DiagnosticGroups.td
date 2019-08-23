@@ -1082,3 +1082,5 @@ def CrossTU : DiagGroup<"ctu">;
 def CTADMaybeUnsupported : DiagGroup<"ctad-maybe-unsupported">;
 
 def FortifySource : DiagGroup<"fortify-source">;
+
+def IntelFPGA : DiagGroup<"intel-fpga">;

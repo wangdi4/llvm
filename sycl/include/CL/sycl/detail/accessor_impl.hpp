@@ -10,7 +10,7 @@
 
 #include <CL/sycl/access/access.hpp>
 #include <CL/sycl/detail/event_impl.hpp>
-#include <CL/sycl/detail/sycl_mem_obj.hpp>
+#include <CL/sycl/detail/sycl_mem_obj_i.hpp>
 #include <CL/sycl/id.hpp>
 #include <CL/sycl/range.hpp>
 
@@ -60,7 +60,7 @@ public:
 class AccessorImplHost {
 public:
   AccessorImplHost(id<3> Offset, range<3> AccessRange, range<3> MemoryRange,
-                   access::mode AccessMode, detail::SYCLMemObjT *SYCLMemObject,
+                   access::mode AccessMode, detail::SYCLMemObjI *SYCLMemObject,
                    int Dims, int ElemSize)
       : MOffset(Offset), MAccessRange(AccessRange), MMemoryRange(MemoryRange),
         MAccessMode(AccessMode), MSYCLMemObj(SYCLMemObject), MDims(Dims),
@@ -83,7 +83,7 @@ public:
   range<3> MMemoryRange;
   access::mode MAccessMode;
 
-  detail::SYCLMemObjT *MSYCLMemObj;
+  detail::SYCLMemObjI *MSYCLMemObj;
 
   unsigned int MDims;
   unsigned int MElemSize;
@@ -91,6 +91,8 @@ public:
   void *MData = nullptr;
 
   EventImplPtr BlockingEvent;
+
+  bool MUsedFromSourceKernel = false;
 };
 
 using AccessorImplPtr = std::shared_ptr<AccessorImplHost>;
@@ -98,7 +100,7 @@ using AccessorImplPtr = std::shared_ptr<AccessorImplHost>;
 class AccessorBaseHost {
 public:
   AccessorBaseHost(id<3> Offset, range<3> AccessRange, range<3> MemoryRange,
-                   access::mode AccessMode, detail::SYCLMemObjT *SYCLMemObject,
+                   access::mode AccessMode, detail::SYCLMemObjI *SYCLMemObject,
                    int Dims, int ElemSize) {
     impl = std::make_shared<AccessorImplHost>(Offset, AccessRange, MemoryRange,
                                               AccessMode, SYCLMemObject,
@@ -110,6 +112,7 @@ protected:
   range<3> &getAccessRange() { return impl->MAccessRange; }
   range<3> &getMemoryRange() { return impl->MMemoryRange; }
   void *getPtr() { return impl->MData; }
+  unsigned int getElemSize() const { return impl->MElemSize; }
 
   const id<3> &getOffset() const { return impl->MOffset; }
   const range<3> &getAccessRange() const { return impl->MAccessRange; }

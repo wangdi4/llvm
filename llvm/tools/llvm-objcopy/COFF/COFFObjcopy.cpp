@@ -218,6 +218,28 @@ static Error handleArgs(const CopyConfig &Config, Object &Obj) {
     return createStringError(llvm::errc::invalid_argument,
                              "option not supported by llvm-objcopy for COFF");
   }
+<<<<<<< HEAD
+=======
+#else  // INTEL_COLLAB
+  if (Config.AllowBrokenLinks || !Config.BuildIdLinkDir.empty() ||
+      Config.BuildIdLinkInput || Config.BuildIdLinkOutput ||
+      !Config.SplitDWO.empty() || !Config.SymbolsPrefix.empty() ||
+      !Config.AllocSectionsPrefix.empty() ||
+      !Config.DumpSection.empty() || !Config.KeepSection.empty() ||
+      !Config.SymbolsToGlobalize.empty() || !Config.SymbolsToKeep.empty() ||
+      !Config.SymbolsToLocalize.empty() || !Config.SymbolsToWeaken.empty() ||
+      !Config.SymbolsToKeepGlobal.empty() || !Config.SectionsToRename.empty() ||
+      !Config.SetSectionFlags.empty() || !Config.SymbolsToRename.empty() ||
+      Config.ExtractDWO || Config.KeepFileSymbols || Config.LocalizeHidden ||
+      Config.PreserveDates || Config.StripDWO || Config.StripNonAlloc ||
+      Config.StripSections || Config.Weaken || Config.DecompressDebugSections ||
+      Config.DiscardMode == DiscardType::Locals ||
+      !Config.SymbolsToAdd.empty() || Config.EntryExpr) {
+    return createStringError(llvm::errc::invalid_argument,
+                             "option not supported by llvm-objcopy for COFF");
+  }
+#endif // INTEL_COLLAB
+>>>>>>> 813621e49df799aa4c3970b07536911d2ac1a7ca
 
   return Error::success();
 }
