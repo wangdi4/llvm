@@ -1182,6 +1182,14 @@ static inline int32_t run_target_team_nd_region(
   if (thread_limit)
     local_work_size_max = MIN((size_t)thread_limit, local_work_size_max);
 
+  // Account for kernel-specific maximum work group size.
+  size_t kernel_wg_size = 1;
+
+  INVOKE_CL_RET_FAIL(clGetKernelWorkGroupInfo, *kernel,
+                     DeviceInfo.deviceIDs[device_id], CL_KERNEL_WORK_GROUP_SIZE,
+                     sizeof(size_t), &kernel_wg_size, nullptr);
+  local_work_size_max = MIN(kernel_wg_size, local_work_size_max);
+
   if (num_teams)
     num_work_groups_max = MIN((size_t)num_teams, num_work_groups_max);
 
