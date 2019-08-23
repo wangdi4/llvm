@@ -5,12 +5,8 @@
 // RUN: %clang -### --sycl -c -emit-llvm %s 2>&1 | FileCheck %s --check-prefix=COMBINED
 
 // DEFAULT: "-triple" "spir64-unknown-{{.*}}-sycldevice"{{.*}} "-fsycl-is-device"{{.*}} "-emit-llvm-bc"
-<<<<<<< HEAD
-// DEFAULT-NOT: "{{.*}}llvm-spirv"{{.*}} "-spirv-max-version=1.0"{{.*}} "-spirv-ext=+all"
-=======
 // DEFAULT: "-internal-isystem" "{{.*lib.*clang.*include}}"
-// DEFAULT-NOT: "{{.*}}llvm-spirv"{{.*}} "-spirv-no-deref-attr"
->>>>>>> 813621e49df799aa4c3970b07536911d2ac1a7ca
+// DEFAULT-NOT: "{{.*}}llvm-spirv"{{.*}} "-spirv-max-version=1.0"{{.*}} "-spirv-ext=+all"
 // NO-BITCODE: "-triple" "spir64-unknown-{{.*}}-sycldevice"{{.*}} "-fsycl-is-device"{{.*}} "-emit-llvm-bc"
 // NO-BITCODE: "{{.*}}llvm-spirv"{{.*}} "-spirv-max-version=1.0"{{.*}} "-spirv-ext=+all"
 // TARGET: "-triple" "spir64-unknown-linux-sycldevice"{{.*}} "-fsycl-is-device"{{.*}} "-emit-llvm-bc"

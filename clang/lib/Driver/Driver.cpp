@@ -4285,7 +4285,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
       Action *Current = C.MakeAction<InputAction>(*InputArg, types::TY_Archive);
       OffloadBuilder.addHostDependenceToDeviceActions(Current, InputArg, Args);
       OffloadBuilder.addDeviceDependencesToHostAction(
-          Current, InputArg, phases::Link, FinalPhase, PL);
+          Current, InputArg, phases::Link, PL.back(), PL);
     }
   }
 
