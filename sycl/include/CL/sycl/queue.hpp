@@ -11,6 +11,7 @@
 #include <CL/sycl/detail/common.hpp>
 #include <CL/sycl/detail/queue_impl.hpp>
 #include <CL/sycl/device_selector.hpp>
+#include <CL/sycl/exception_list.hpp>
 #include <CL/sycl/info/info_desc.hpp>
 #include <CL/sycl/property_list.hpp>
 
@@ -101,6 +102,14 @@ public:
 
   template <typename propertyT> propertyT get_property() const {
     return impl->get_property<propertyT>();
+  }
+
+  event memset(void* ptr, int value, size_t count) {
+    return impl->memset(ptr, value, count);
+  }
+
+  event memcpy(void* dest, const void* src, size_t count) {
+    return impl->memcpy(dest, src, count);
   }
 
 private:

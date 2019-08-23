@@ -10,7 +10,7 @@
 
 #include <CL/sycl/detail/cg.hpp>
 #include <CL/sycl/detail/scheduler/commands.hpp>
-#include <CL/sycl/detail/sycl_mem_obj.hpp>
+#include <CL/sycl/detail/sycl_mem_obj_i.hpp>
 
 #include <memory>
 #include <mutex>
@@ -28,6 +28,23 @@ class context_impl;
 using QueueImplPtr = std::shared_ptr<detail::queue_impl>;
 using EventImplPtr = std::shared_ptr<detail::event_impl>;
 using ContextImplPtr = std::shared_ptr<detail::context_impl>;
+
+// The MemObjRecord is created for each memory object used in command
+// groups. There should be only one MemObjRecord for SYCL memory object.
+struct MemObjRecord {
+  // Contains all allocation commands for the memory object.
+  std::vector<AllocaCommandBase *> MAllocaCommands;
+
+  // Contains latest read only commands working with memory object.
+  std::vector<Command *> MReadLeafs;
+
+  // Contains latest write commands working with memory object.
+  std::vector<Command *> MWriteLeafs;
+
+  // The flag indicates that the content of the memory object was/will be
+  // modified. Used while deciding if copy back needed.
+  bool MMemModified;
+};
 
 class Scheduler {
 public:
@@ -49,7 +66,7 @@ public:
   // accessing the memory objects are executed and triggers deallocation of all
   // memory assigned to the memory object. It's called from the sycl::buffer and
   // sycl::image destructors.
-  void removeMemoryObject(detail::SYCLMemObjT *MemObj);
+  void removeMemoryObject(detail::SYCLMemObjI *MemObj);
 
   EventImplPtr addHostAccessor(Requirement *Req);
 
@@ -63,12 +80,14 @@ public:
 
 private:
   Scheduler();
-  ~Scheduler();
+  static Scheduler instance;
 
   // The graph builder provides interfaces that can change already existing
   // graph (e.g. add/remove edges/nodes).
   class GraphBuilder {
   public:
+    GraphBuilder();
+
     // Registers command group, adds it to the dependency graph and returns an
     // command that represents command group execution. It's called by SYCL's
     // queue::submit.
@@ -97,35 +116,17 @@ private:
     // command fails to enqueue/execute in primary queue.
     void rescheduleCommand(Command *Cmd, QueueImplPtr Queue);
 
-    // The MemObjRecord is created for each memory object used in command
-    // groups. There should be only one MemObjRecord for SYCL memory object.
-
-    struct MemObjRecord {
-      // Used to distinguish one memory object from another.
-      detail::SYCLMemObjT *MMemObj;
-
-      // Contains all allocation commands for the memory object.
-      std::vector<AllocaCommand *> MAllocaCommands;
-
-      // Contains latest read only commands working with memory object.
-      std::vector<Command *> MReadLeafs;
-
-      // Contains latest write commands working with memory object.
-      std::vector<Command *> MWriteLeafs;
-
-      // The flag indicates that the content of the memory object was/will be
-      // modified. Used while deciding if copy back needed.
-      bool MMemModified;
-    };
-
-    MemObjRecord *getMemObjRecord(SYCLMemObjT *MemObject);
+    MemObjRecord *getMemObjRecord(SYCLMemObjI *MemObject);
     // Returns pointer to MemObjRecord for pointer to memory object.
     // Return nullptr if there the record is not found.
     MemObjRecord *getOrInsertMemObjRecord(const QueueImplPtr &Queue,
                                           Requirement *Req);
 
+    // Removes commands that use given MemObjRecord from the graph.
+    void cleanupCommandsForRecord(MemObjRecord *Record);
+
     // Removes MemObjRecord for memory object passed.
-    void removeRecordForMemObj(SYCLMemObjT *MemObject);
+    void removeRecordForMemObj(SYCLMemObjI *MemObject);
 
     // Add new command to leafs if needed.
     void AddNodeToLeafs(MemObjRecord *Record, Command *Cmd, Requirement *Req);
@@ -134,7 +135,7 @@ private:
     void UpdateLeafs(const std::set<Command *> &Cmds, MemObjRecord *Record,
                      Requirement *Req);
 
-    std::vector<MemObjRecord> MMemObjRecords;
+    std::vector<SYCLMemObjI *> MMemObjs;
 
   private:
     // The method inserts memory copy operation from the context where the
@@ -146,11 +147,31 @@ private:
     std::set<Command *> findDepsForReq(MemObjRecord *Record, Requirement *Req,
                                        QueueImplPtr Context);
 
-    AllocaCommand *findAllocaForReq(MemObjRecord *Record, Requirement *Req,
-                                    QueueImplPtr Queue);
+    // Searches for suitable alloca in memory record.
+    AllocaCommandBase *findAllocaForReq(MemObjRecord *Record, Requirement *Req,
+                                        QueueImplPtr Queue);
+    // Searches for suitable alloca in memory record.
+    // If none found, creates new one.
+    AllocaCommandBase *getOrCreateAllocaForReq(MemObjRecord *Record,
+                                               Requirement *Req,
+                                               QueueImplPtr Queue,
+                                               bool ForceFullReq = false);
 
-    void markModifiedIfWrite(GraphBuilder::MemObjRecord *Record,
+    void markModifiedIfWrite(MemObjRecord *Record,
                              Requirement *Req);
+
+    // Print contents of graph to text file in DOT format
+    void printGraphAsDot(const char *ModeName);
+    enum PrintOptions {
+      BeforeAddCG = 0,
+      AfterAddCG,
+      BeforeAddCopyBack,
+      AfterAddCopyBack,
+      BeforeAddHostAcc,
+      AfterAddHostAcc,
+      Size
+    };
+    std::array<bool, PrintOptions::Size> MPrintOptionsArray;
   };
 
   // The class that provides interfaces for enqueueing command and its
@@ -171,7 +192,7 @@ private:
     static Command *enqueueCommand(Command *Cmd);
   };
 
-  void waitForRecordToFinish(GraphBuilder::MemObjRecord *Record);
+  void waitForRecordToFinish(MemObjRecord *Record);
 
   GraphBuilder MGraphBuilder;
   // Use read-write mutex in future.

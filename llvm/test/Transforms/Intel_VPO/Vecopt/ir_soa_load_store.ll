@@ -1,22 +1,26 @@
 ; RUN: opt -VPlanDriver -vplan-force-vf=4 -S %s | FileCheck %s
 
 ; CHECK-LABEL: foo1
+; CHECK: entry:
+; CHECK: [[PTR:%.*]] = load <2 x i32>*, <2 x i32>** {{.*}}, align 8
+
 ; CHECK: vector.body:
-; CHECK:  %replicatedMaskElts. = shufflevector <4 x i1> %[[MASK:.*]], <4 x i1> undef, <8 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
-; CHECK:  %wide.masked.load = call <8 x i32> @llvm.masked.load.v8i32.p0v8i32(<8 x i32>* %{{.*}}, i32 4, <8 x i1> %replicatedMaskElts., <8 x i32> undef)
-; CHECK:  %[[ADD:.*]] = add <8 x i32> %wide.masked.load, <i32 5, i32 5, i32 5, i32 5, i32 6, i32 6, i32 6, i32 6>
+; CHECK: [[IDX:%.*]] = phi i64
+; CHECK: [[GEP1:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[PTR]], i64 [[IDX]]
+; CHECK: [[BC_1:%.*]] = bitcast <2 x i32>* [[GEP1]] to <8 x i32>*
+; CHECK: [[REP_MASK_1:%.*]] = shufflevector <4 x i1> [[MASK:%.*]], <4 x i1> undef, <8 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
+; CHECK:  [[WIDE_LOAD:%.*]] = call <8 x i32> @llvm.masked.load.v8i32.p0v8i32(<8 x i32>* [[BC_1]], i32 4, <8 x i1> [[REP_MASK_1]], <8 x i32> undef)
+; CHECK:  %[[ADD:.*]] = add <8 x i32> [[WIDE_LOAD]], <i32 5, i32 5, i32 5, i32 5, i32 6, i32 6, i32 6, i32 6>
 ; CHECK:  bitcast <8 x i32> {{.*}} to <4 x i64>
-; CHECK:  %[[BC:.*]] = bitcast
-; CHECK:  %[[GEP1:.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* %0, i64 %index
-; CHECK:  bitcast <2 x i32>* %[[GEP1]] to <8 x i32>*
-; CHECK: %[[ReplicatedMaskElts:.*]] = shufflevector <4 x i1> %[[MASK]], <4 x i1> undef, <8 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
-; CHECK:  call void @llvm.masked.store.v8i32.p0v8i32(<8 x i32> %{{.*}}, <8 x i32>* %{{.*}}, i32 4, <8 x i1> %[[ReplicatedMaskElts]]
-; CHECK:  %[[GEP3:.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* %0, i64 %index
+; CHECK:  [[BC:.*]] = bitcast
+; CHECK:  [[BC_2:%.*]] = bitcast <2 x i32>* [[GEP1]] to <8 x i32>*
+; CHECK: [[REP_MASK_2:%.*]] = shufflevector <4 x i1> [[MASK:%.*]], <4 x i1> undef, <8 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
+; CHECK:  call void @llvm.masked.store.v8i32.p0v8i32(<8 x i32> {{.*}}, <8 x i32>* {{.*}}, i32 4, <8 x i1> [[REP_MASK_2]]
+; CHECK:  %[[GEP3:.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[PTR]], i64 [[IDX]]
 ; CHECK:  %[[ADDR:.*]] = bitcast <2 x i32>* %[[GEP3]] to <8 x i32>*
 ; CHECK:  %[[LOAD:.*]] = load <8 x i32>, <8 x i32>* %[[ADDR]], align 4
 ; CHECK:  %[[ADD2:.*]] = add <8 x i32> %[[LOAD]], <i32 7, i32 7, i32 7, i32 7, i32 8, i32 8, i32 8, i32 8>
-; CHECK:  %[[GEP4:.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* %0, i64 %index
-; CHECK:  %[[ADDR2:.*]] = bitcast <2 x i32>* %[[GEP4]] to <8 x i32>*
+; CHECK:  %[[ADDR2:.*]] = bitcast <2 x i32>* %[[GEP3]] to <8 x i32>*
 ; CHECK:  store <8 x i32> %[[ADD2]], <8 x i32>* %[[ADDR2]], align 4
 
 

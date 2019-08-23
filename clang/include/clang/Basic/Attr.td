@@ -301,8 +301,9 @@ class LangOpt<string name, code customCode = [{}]> {
 def MicrosoftExt : LangOpt<"MicrosoftExt">;
 def Borland : LangOpt<"Borland">;
 def CUDA : LangOpt<"CUDA">;
+def SYCLIsDevice : LangOpt<"SYCLIsDevice">;
+def SYCLIsHost : LangOpt<"SYCLIsHost">;
 def HIP : LangOpt<"HIP">;
-def SYCL : LangOpt<"SYCLIsDevice">;
 def COnly : LangOpt<"COnly", "!LangOpts.CPlusPlus">;
 def CPlusPlus : LangOpt<"CPlusPlus">;
 def OpenCL : LangOpt<"OpenCL">;
@@ -1033,15 +1034,43 @@ def CUDAShared : InheritableAttr {
 def SYCLDevice : InheritableAttr {
   let Spellings = [GNU<"sycl_device">];
   let Subjects = SubjectList<[Function, Var]>;
-  let LangOpts = [SYCL];
+  let LangOpts = [SYCLIsDevice];
   let Documentation = [Undocumented];
 }
 
 def SYCLKernel : InheritableAttr {
   let Spellings = [GNU<"sycl_kernel">];
   let Subjects = SubjectList<[Function]>;
-  let LangOpts = [SYCL];
+  let LangOpts = [SYCLIsDevice];
   let Documentation = [Undocumented];
+}
+
+def SYCLScope : Attr {
+  // No spelling, as this attribute can't be created in the source code.
+  let Spellings = [];
+  let Args = [EnumArgument<"level", "Level", ["work_group", "work_item"],
+                                             ["WorkGroup", "WorkItem"]>];
+  let Subjects = SubjectList<[Function, Var]>;
+  let LangOpts = [SYCLIsDevice];
+
+  let AdditionalMembers = [{
+    bool isWorkGroup() const {
+      return getLevel() == SYCLScopeAttr::WorkGroup;
+    }
+
+    bool isWorkItem() const {
+      return getLevel() == SYCLScopeAttr::WorkItem;
+    }
+  }];
+
+  let Documentation = [Undocumented];
+}
+
+def SYCLDeviceIndirectlyCallable : InheritableAttr {
+  let Spellings = [ CXX11<"intel", "device_indirectly_callable"> ];
+  let Subjects = SubjectList<[Function]>;
+  let LangOpts = [SYCLIsDevice];
+  let Documentation = [SYCLDeviceIndirectlyCallableDocs];
 }
 
 def C11NoReturn : InheritableAttr {
@@ -1076,7 +1105,7 @@ def IntelReqdSubGroupSize: InheritableAttr {
   let Args = [UnsignedArgument<"SubGroupSize">];
   let Subjects = SubjectList<[Function, CXXMethod], ErrorDiag>;
   let Documentation = [IntelReqdSubGroupSizeDocs];
-  let LangOpts = [OpenCL, SYCL];
+  let LangOpts = [OpenCL, SYCLIsDevice];
 }
 
 // This attribute is both a type attribute, and a declaration attribute (for
@@ -1096,27 +1125,27 @@ def OpenCLAccess : Attr {
 }
 
 def OpenCLPrivateAddressSpace : TypeAttr {
-  let Spellings = [Keyword<"__private">, Keyword<"private">];
+  let Spellings = [Keyword<"__private">, Keyword<"private">, Clang<"ocl_private">];
   let Documentation = [OpenCLAddressSpacePrivateDocs];
 }
 
 def OpenCLGlobalAddressSpace : TypeAttr {
-  let Spellings = [Keyword<"__global">, Keyword<"global">];
+  let Spellings = [Keyword<"__global">, Keyword<"global">, Clang<"ocl_global">];
   let Documentation = [OpenCLAddressSpaceGlobalDocs];
 }
 
 def OpenCLLocalAddressSpace : TypeAttr {
-  let Spellings = [Keyword<"__local">, Keyword<"local">];
+  let Spellings = [Keyword<"__local">, Keyword<"local">, Clang<"ocl_local">];
   let Documentation = [OpenCLAddressSpaceLocalDocs];
 }
 
 def OpenCLConstantAddressSpace : TypeAttr {
-  let Spellings = [Keyword<"__constant">, Keyword<"constant">];
+  let Spellings = [Keyword<"__constant">, Keyword<"constant">, Clang<"ocl_constant">];
   let Documentation = [OpenCLAddressSpaceConstantDocs];
 }
 
 def OpenCLGenericAddressSpace : TypeAttr {
-  let Spellings = [Keyword<"__generic">, Keyword<"generic">];
+  let Spellings = [Keyword<"__generic">, Keyword<"generic">, Clang<"ocl_generic">];
   let Documentation = [OpenCLAddressSpaceGenericDocs];
 }
 
@@ -1428,7 +1457,7 @@ def Mode : Attr {
 def SYCLIntelFPGAIVDep : Attr {
   let Spellings = [CXX11<"intelfpga","ivdep">];
   let Args = [IntArgument<"Safelen">];
-  let LangOpts = [SYCL];
+  let LangOpts = [SYCLIsDevice, SYCLIsHost];
   let AdditionalMembers = [{
     static const char *getName() {
       return "ivdep";
@@ -1440,7 +1469,7 @@ def SYCLIntelFPGAIVDep : Attr {
 def SYCLIntelFPGAII : Attr {
   let Spellings = [CXX11<"intelfpga","ii">];
   let Args = [IntArgument<"Interval">];
-  let LangOpts = [SYCL];
+  let LangOpts = [SYCLIsDevice, SYCLIsHost];
   let AdditionalMembers = [{
     static const char *getName() {
       return "ii";
@@ -1452,7 +1481,7 @@ def SYCLIntelFPGAII : Attr {
 def SYCLIntelFPGAMaxConcurrency : Attr {
   let Spellings = [CXX11<"intelfpga","max_concurrency">];
   let Args = [IntArgument<"NThreads">];
-  let LangOpts = [SYCL];
+  let LangOpts = [SYCLIsDevice, SYCLIsHost];
   let AdditionalMembers = [{
     static const char *getName() {
       return "max_concurrency";
@@ -1499,7 +1528,7 @@ def IntelFPGADoublePump : Attr {
   let Subjects = SubjectList<[IntelFPGAConstVar,               // INTEL
                               IntelFPGALocalStaticSlaveMemVar, // INTEL
                               Field], ErrorDiag>;
-  let LangOpts = [SYCL, OpenCL, HLS];                          // INTEL
+  let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL, HLS];      // INTEL
   let Documentation = [IntelFPGADoublePumpAttrDocs];
 }
 
@@ -1509,7 +1538,7 @@ def IntelFPGASinglePump : Attr {
   let Subjects = SubjectList<[IntelFPGAConstVar,               // INTEL
                               IntelFPGALocalStaticSlaveMemVar, // INTEL
                               Field], ErrorDiag>;
-  let LangOpts = [SYCL, OpenCL, HLS];                          // INTEL
+  let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL, HLS];      // INTEL
   let Documentation = [IntelFPGASinglePumpAttrDocs];
 }
 
@@ -1529,7 +1558,7 @@ def IntelFPGAMemory : Attr {
   }];
   let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticSlaveMemVar,
                               Field], ErrorDiag>;
-  let LangOpts = [SYCL, OpenCL, HLS];  // INTEL
+  let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL, HLS];  // INTEL
   let Documentation = [IntelFPGAMemoryAttrDocs];
 }
 
@@ -1537,7 +1566,7 @@ def IntelFPGARegister : Attr {
   let Spellings = [CXX11<"intelfpga", "register">, GNU<"register">]; // INTEL
   let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalOrStaticVar,
                               Field], ErrorDiag>;
-  let LangOpts = [SYCL, OpenCL, HLS];  // INTEL
+  let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL, HLS];  // INTEL
   let Documentation = [IntelFPGARegisterAttrDocs];
 }
 
@@ -1547,7 +1576,7 @@ def IntelFPGABankWidth : Attr {
   let Args = [ExprArgument<"Value">];
   let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticSlaveMemVar,
                               Field], ErrorDiag>;
-  let LangOpts = [SYCL, OpenCL, HLS]; // INTEL
+  let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL, HLS];  // INTEL
   let Documentation = [IntelFPGABankWidthAttrDocs];
   let AdditionalMembers = [{
     static unsigned getMinValue() {
@@ -1564,7 +1593,7 @@ def IntelFPGANumBanks : Attr {
   let Args = [ExprArgument<"Value">];
   let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticSlaveMemVar,
                               Field], ErrorDiag>;
-  let LangOpts = [SYCL, OpenCL, HLS]; // INTEL
+  let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL, HLS];  // INTEL
   let Documentation = [IntelFPGANumBanksAttrDocs];
   let AdditionalMembers = [{
     static unsigned getMinValue() {
@@ -1579,7 +1608,7 @@ def IntelFPGANumBanks : Attr {
 def IntelFPGAMaxPrivateCopies : InheritableAttr {
   let Spellings = [CXX11<"intelfpga","max_private_copies">];
   let Args = [ExprArgument<"Value">];
-  let LangOpts = [SYCL];
+  let LangOpts = [SYCLIsDevice, SYCLIsHost];
   let Subjects = SubjectList<[IntelFPGALocalNonConstVar, Field], ErrorDiag>;
   let Documentation = [IntelFPGAMaxPrivateCopiesAttrDocs];
   let AdditionalMembers = [{
@@ -1590,6 +1619,41 @@ def IntelFPGAMaxPrivateCopies : InheritableAttr {
       return 1024*1024;
     }
   }];
+}
+
+// Two string arguments.
+def IntelFPGAMerge : Attr {
+  let Spellings = [CXX11<"intelfpga","merge">];
+  let Args = [StringArgument<"Name">, StringArgument<"Direction">];
+  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalOrStaticVar,
+                              Field], ErrorDiag>;
+  let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let Documentation = [IntelFPGAMergeAttrDocs];
+}
+
+def IntelFPGAMaxReplicates : Attr {
+  let Spellings = [CXX11<"intelfpga","max_replicates">];
+  let Args = [ExprArgument<"Value">];
+  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticSlaveMemVar,
+                              Field], ErrorDiag>;
+  let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let Documentation = [IntelFPGAMaxReplicatesAttrDocs];
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 1;
+    }
+    static unsigned getMaxValue() {
+      return 1024*1024;
+    }
+  }];
+}
+
+def IntelFPGASimpleDualPort : Attr {
+  let Spellings = [CXX11<"intelfpga","simple_dual_port">];
+  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticSlaveMemVar,
+                              Field], ErrorDiag>;
+  let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let Documentation = [IntelFPGASimpleDualPortAttrDocs];
 }
 
 def Naked : InheritableAttr {
@@ -2119,8 +2183,8 @@ def NoDeref : TypeAttr {
 }
 
 def ReqdWorkGroupSize : InheritableAttr {
-  // Does not have a [[]] spelling because it is an OpenCL-related attribute.
-  let Spellings = [GNU<"reqd_work_group_size">];
+  let Spellings = [GNU<"reqd_work_group_size">,
+                   CXX11<"cl","reqd_work_group_size">];
   let Args = [UnsignedArgument<"XDim">, UnsignedArgument<"YDim">,
               UnsignedArgument<"ZDim">];
   let Subjects = SubjectList<[Function], ErrorDiag>;

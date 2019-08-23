@@ -20,7 +20,7 @@
 ;
 ; The dispatch code looks like this:
 ;
-;   %call1 = call i32 @__tgt_is_device_available(i32 -1, i8* null)
+;   %call1 = call i32 @__tgt_is_device_available(i64 -1, i8* null)
 ;   %dispatch = icmp ne i32 %call1, 0
 ;   br i1 %dispatch, label %variant.call, label %base.call
 ;
@@ -36,7 +36,7 @@
 ;   %callphi = phi i32 [ %variant, %variant.call ], [ %call, %base.call ]
 ;   store i32 %callphi, i32* %rrr, align 4
 
-; CHECK: [[CALL:%[a-zA-Z._0-9]+]] = call i32 @__tgt_is_device_available(i32 -1
+; CHECK: [[CALL:%[a-zA-Z._0-9]+]] = call i32 @__tgt_is_device_available(i64 -1
 ; CHECK-NEXT: [[DISPATCH:%[a-zA-Z._0-9]+]] = icmp ne i32 [[CALL]], 0
 ; CHECK-NEXT: br i1 [[DISPATCH]], label %[[VARIANTLBL:[a-zA-Z._0-9]+]], label %[[BASELBL:[a-zA-Z._0-9]+]]
 

@@ -1251,21 +1251,19 @@ Value *VPOCodeGen::createWidenedBasePtrConsecutiveLoadStore(Instruction *I,
   Type *WideDataTy = VectorType::get(SubTy, VF * OriginalVL);
   Value *VecPtr = nullptr;
   if (Legal->isLoopPrivate(Ptr))
+    // 'isLoopPrivate(Ptr)' returns true only for scalar privates.
     VecPtr = getVectorPrivateBase(Ptr);
-  else if (auto GEP = getGEPInstruction(Ptr)) {
-    GetElementPtrInst *Gep2 = cast<GetElementPtrInst>(GEP->clone());
-    Gep2->setName("gep.indvar");
-
-    for (unsigned i = 0; i < GEP->getNumOperands(); ++i)
-      Gep2->setOperand(i, getScalarValue(GEP->getOperand(i), 0));
-    VecPtr = Builder.InsertWithDbgLoc(Gep2);
-
-  } else // No GEP
+  else
+    // We do not care whether the 'Ptr' operand comes from a GEP or any other
+    // source. We just fetch the first element and then create a
+    // bitcast  which assumes the 'consecutive-ness' property and return the
+    // correct operand for widened load/store.
     VecPtr = getScalarValue(Ptr, 0);
 
-  VecPtr = Reverse ? Builder.CreateGEP(nullptr, VecPtr,
-                                       Builder.getInt32(1 - OriginalVL * VF))
-                   : VecPtr;
+  VecPtr =
+      Reverse ? Builder.CreateGEP(VecPtr, Builder.getInt32(1 - OriginalVL * VF),
+                                  "reverse.ptr.")
+              : VecPtr;
   VecPtr = Builder.CreateBitCast(VecPtr, WideDataTy->getPointerTo(AddrSpace));
   return VecPtr;
 }
@@ -2797,25 +2795,36 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     assert(Inst &&
            "Underlying instruction cannot be null for valid VPInstruction.");
 
-    // Temporary workaround to detect and handle uniform loads in codegen by
-    // transferring knowledge from DA to VPOLegal about uniform loads.
+    // Temporary workaround to detect and handle uniform loads and unit-stride
+    // loads/stores in codegen by transferring knowledge from DA to VPOLegal.
     // TODO: Is this too late to do a knowledge transfer. Other option is to
     // write a full HCFG traversal in collectLoopUniforms.
     if (VPlanTeachLegalFromDA) {
-      if (isa<LoadInst>(Inst) && !Plan->getVPlanDA()->isDivergent(*VPInst)) {
+      VPlanDivergenceAnalysis *DA = Plan->getVPlanDA();
+      // We do special handling for uniform loads, nothing is done in codegen
+      // for uniform stores.
+      if (isa<LoadInst>(Inst) && !DA->isDivergent(*VPInst)) {
         if (auto *PtrInst =
                 dyn_cast<Instruction>(getLoadStorePointerOperand(Inst))) {
           Legal->UniformForAnyVF.insert(PtrInst);
           Uniforms[VF].insert(Inst);
         }
       }
-      if (isa<GetElementPtrInst>(Inst) &&
-          !Plan->getVPlanDA()->isDivergent(*VPInst)) {
-        // A pointer identified by DA as uniform for outer-loop vectorization
-        // was marked as unit-strided by legality based on inner-loop
-        // vectorization. Fix legality by unsetting the stride.
-        if (Legal->isConsecutivePtr(Inst)) {
-          Legal->erasePtrStride(Inst);
+      if (isa<GetElementPtrInst>(Inst)) {
+        if (!DA->isDivergent(*VPInst)) {
+          // A pointer identified by DA as uniform for outer-loop vectorization
+          // was marked as unit-strided by legality based on inner-loop
+          // vectorization. Fix legality by unsetting the stride.
+          if (Legal->isConsecutivePtr(Inst)) {
+            Legal->erasePtrStride(Inst);
+          }
+        }
+
+        // Check for GEPs producing unit-stride pointers.
+        VPVectorShape *VPPtrShape = DA->getVectorShape(VPInst);
+        if (VPPtrShape->isUnitStridePtr()) {
+          int StrideInBytes = VPPtrShape->getStrideVal();
+          Legal->addPtrStride(Inst, StrideInBytes > 0 ? 1 : -1);
         }
       }
     }
@@ -3024,11 +3033,22 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
   case Instruction::GetElementPtr: {
     GetElementPtrInst *GEP = cast<GetElementPtrInst>(Inst);
 
-    // Consecutive Load/Store will clone the GEP
-    if (all_of(Inst->users(), [&](User *U) -> bool {
-          return getLoadStorePointerOperand(U) == Inst;
-        }) && Legal->isConsecutivePtr(Inst))
+    // For Consecutive Load/Store we will create a scalar-gep.
+    if (all_of(Inst->users(),
+               [&](User *U) -> bool {
+                 return getLoadStorePointerOperand(U) == Inst;
+               }) &&
+        Legal->isConsecutivePtr(Inst)) {
+      Value *NewGEPPtrOp = getScalarValue(GEP->getPointerOperand(), 0);
+      SmallVector<Value *, 6> OpsV;
+      for (unsigned I = 1; I < GEP->getNumOperands(); ++I)
+        OpsV.push_back(getScalarValue(GEP->getOperand(I), 0));
+      GetElementPtrInst *ScalarGEP = cast<GetElementPtrInst>(
+          Builder.CreateGEP(NewGEPPtrOp, OpsV, "scalar.gep."));
+      ScalarGEP->setIsInBounds(GEP->isInBounds());
+      ScalarMap[GEP][0] = ScalarGEP;
       break;
+    }
     if (!Legal->isLoopPrivateAggregate(getPointerOperand(GEP)) &&
         all_of(Inst->users(), [&](User *U) -> bool {
           return getLoadStorePointerOperand(U) == Inst &&

@@ -129,6 +129,12 @@ def err_intel_fpga_memory_arg_invalid : Error<
   "%0 attribute requires either no argument or one of: %1">;
 def err_intel_fpga_loop_attr_duplication : Error<
   "duplicate Intel FPGA loop attribute '%0'">;
+def err_intel_fpga_merge_dir_invalid : Error<
+  "merge direction must be 'depth' or 'width'">;
+def err_intel_fpga_reg_limitations : Error <
+  "Illegal %select{argument of type %1 |field in argument}0 to __builtin_intel_fpga_reg.">;
+def illegal_type_declared_here : Note<
+  "Field with illegal type declared here">;
 
 // C99 variable-length arrays
 def ext_vla : Extension<"variable length arrays are a C99 feature">,
@@ -2550,14 +2556,24 @@ def err_attribute_wrong_number_arguments : Error<
   ":requires exactly %1 arguments}1">;
 def err_attribute_too_many_arguments : Error<
   "%0 attribute takes no more than %1 argument%s1">;
+def warn_attribute_too_many_arguments : Warning<
+  "%0 attribute takes no more than %1 argument%s1 - attribute ignored">,
+ InGroup<IgnoredAttributes>;
 def err_attribute_too_few_arguments : Error<
   "%0 attribute takes at least %1 argument%s1">;
+def warn_attribute_too_few_arguments : Warning<
+  "%0 attribute takes at least %1 argument%s1 - attribute ignored">,
+ InGroup<IgnoredAttributes>;
 def err_attribute_invalid_vector_type : Error<"invalid vector element type %0">;
 def err_attribute_bad_neon_vector_size : Error<
   "Neon vector size must be 64 or 128 bits">;
 def err_attribute_requires_positive_integer : Error<
   "%0 attribute requires a %select{positive|non-negative}1 "
   "integral compile time constant expression">;
+def warn_attribute_requires_positive_integer : Warning<
+  "%0 attribute requires a %select{positive|non-negative}1 "
+  "integral compile time constant expression - attribute ignored">,
+ InGroup<IgnoredAttributes>;
 def err_attribute_requires_opencl_version : Error<
   "%0 attribute requires OpenCL version %1%select{| or above}2">;
 def warn_unsupported_target_attribute
@@ -9839,11 +9855,6 @@ def err_builtin_launder_invalid_arg : Error<
   "%select{non-pointer|function pointer|void pointer}0 argument to "
   "'__builtin_launder' is not allowed">;
 
-def err_bit_cast_non_trivially_copyable : Error<
-  "__builtin_bit_cast %select{source|destination}0 type must be trivially copyable">;
-def err_bit_cast_type_size_mismatch : Error<
-  "__builtin_bit_cast source size does not equal destination size (%0 vs %1)">;
-
 // SYCL-specific diagnostics
 def err_sycl_attribute_address_space_invalid : Error<
   "address space is outside the valid range of values">;
@@ -9856,11 +9867,13 @@ def err_sycl_restrict : Error<
   "|use rtti"
   "|use a non-const static data variable"
   "|call a virtual function"
+  "|use exceptions"
   "|call a recursive function"
   "|call through a function pointer"
   "|allocate storage"
-  "|use exceptions"
-  "|use inline assembly}0">;
+  "|use inline assembly"
+  "|have a class with a virtual function table"
+  "|call a variadic function}0">;
 def err_sycl_virtual_types : Error<
   "No class with a vtable can be used in a SYCL kernel or any code included in the kernel">;
 def note_sycl_used_here : Note<"used here">;
@@ -9869,4 +9882,13 @@ def err_sycl_non_std_layout_type : Error<
   "kernel parameter has non-standard layout class/struct type">;
 def err_conflicting_sycl_kernel_attributes : Error<
   "conflicting attributes applied to a SYCL kernel">;
+def err_sycl_device_indirectly_callable_cannot_be_applied_here
+    : Error<"device_indirectly_callable attribute cannot be applied to a "
+            "%select{static function or function in an anonymous namespace"
+            "|class member function}0">;
+
+def err_bit_cast_non_trivially_copyable : Error<
+  "__builtin_bit_cast %select{source|destination}0 type must be trivially copyable">;
+def err_bit_cast_type_size_mismatch : Error<
+  "__builtin_bit_cast source size does not equal destination size (%0 vs %1)">;
 } // end of sema component.

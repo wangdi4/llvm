@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/CodeGen/BackendUtil.h"
+#include "SYCLLowerIR/LowerWGScope.h"
 #include "clang/Basic/CodeGenOptions.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/LangOptions.h"
@@ -37,6 +38,7 @@
 #include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
+#include "llvm/SYCL/ASFixer.h"
 #include "llvm/Support/BuryPointer.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -71,7 +73,6 @@
 #include "llvm/Transforms/Utils/EntryExitInstrumenter.h"
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
-#include "llvm/SYCL/ASFixer.h"
 #include <memory>
 
 namespace SPIRV {
@@ -832,6 +833,9 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
   PerFunctionPasses.add(
       createTargetTransformInfoWrapperPass(getTargetIRAnalysis()));
 
+  if (LangOpts.SYCLIsDevice)
+    PerModulePasses.add(createSYCLLowerWGScopePass());
+
   CreatePasses(PerModulePasses, PerFunctionPasses);
 
   legacy::PassManager CodeGenPasses;
@@ -846,7 +850,7 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
 
   case Backend_EmitBC:
     if (LangOpts.SYCLIsDevice) {
-      if (!getenv("ENABLE_INFER_AS"))
+      if (getenv("DISABLE_INFER_AS"))
         PerModulePasses.add(createASFixerPass());
       PerModulePasses.add(createDeadCodeEliminationPass());
     }
@@ -1243,7 +1247,7 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
 
   case Backend_EmitBC:
     if (LangOpts.SYCLIsDevice) {
-      if (!getenv("ENABLE_INFER_AS"))
+      if (getenv("DISABLE_INFER_AS"))
         CodeGenPasses.add(createASFixerPass());
       CodeGenPasses.add(createDeadCodeEliminationPass());
     }

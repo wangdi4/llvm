@@ -2027,7 +2027,8 @@ createTargetVariantDispatchHostPtrs(WRegionNode *W, Instruction *InsertPt,
 ///
 /// IR:
 ///    %0 = load i32, i32* @dnum, align 4
-///    %call = call i32 @__tgt_is_device_available(i32 %0, i8* null)       (1)
+///    %1 = sext i32 %0 to i64
+///    %call = call i32 @__tgt_is_device_available(i64 %0, i8* null)       (1)
 ///    %dispatch = icmp ne i32 %call1, 0                                   (2)
 ///    br i1 %dispatch, label %variant.call, label %base.call              (3)
 ///
@@ -2153,7 +2154,7 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
 
   // Emit call to check for device availability:
   //
-  //   %call = call i32 @__tgt_is_device_available(i32 %0, i8* null)       (1)
+  //   %call = call i32 @__tgt_is_device_available(i64 %0, i8* null)       (1)
   //   %dispatch = icmp ne i32 %call1, 0                                   (2)
   //
   // The second argument of __tgt_is_device_available() is a pointer

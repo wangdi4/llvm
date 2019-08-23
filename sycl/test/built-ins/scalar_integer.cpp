@@ -1,4 +1,4 @@
-// RUN: %clang -std=c++11 -fsycl %s -o %t.out -lstdc++ -lOpenCL -lsycl
+// RUN: %clangxx -fsycl %s -o %t.out -lOpenCL
 // RUN: env SYCL_DEVICE_TYPE=HOST %t.out
 // RUN: %CPU_RUN_PLACEHOLDER %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
@@ -60,6 +60,22 @@ int main() {
     assert(r == 2);
   }
 
+  // min (longlong)
+  {
+    s::longlong r{ 0 };
+    {
+      s::buffer<s::longlong, 1> BufR(&r, s::range<1>(1));
+      s::queue myQueue;
+      myQueue.submit([&](s::handler &cgh) {
+        auto AccR = BufR.get_access<s::access::mode::write>(cgh);
+        cgh.single_task<class minSLL1SLL1>([=]() {
+          AccR[0] = s::min(s::longlong{ 5 }, s::longlong{ 2 });
+        });
+      });
+    }
+    assert(r == 2);
+  }
+
   // min
   {
     s::cl_uint r{ 0 };
@@ -70,6 +86,22 @@ int main() {
         auto AccR = BufR.get_access<s::access::mode::write>(cgh);
         cgh.single_task<class minUI1UI1>([=]() {
           AccR[0] = s::min(s::cl_uint{ 5 }, s::cl_uint{ 2 });
+        });
+      });
+    }
+    assert(r == 2);
+  }
+
+  // min (ulonglong)
+  {
+    s::ulonglong r{ 0 };
+    {
+      s::buffer<s::ulonglong, 1> BufR(&r, s::range<1>(1));
+      s::queue myQueue;
+      myQueue.submit([&](s::handler &cgh) {
+        auto AccR = BufR.get_access<s::access::mode::write>(cgh);
+        cgh.single_task<class minULL1ULL1>([=]() {
+          AccR[0] = s::min(s::ulonglong{ 5 }, s::ulonglong{ 2 });
         });
       });
     }
@@ -106,6 +138,22 @@ int main() {
       });
     }
     assert(r == 4);
+  }
+
+  // abs_diff(uchar)
+  {
+    s::cl_uchar r{ 0 };
+    {
+      s::buffer<s::cl_uchar, 1> BufR(&r, s::range<1>(1));
+      s::queue myQueue;
+      myQueue.submit([&](s::handler &cgh) {
+        auto AccR = BufR.get_access<s::access::mode::write>(cgh);
+        cgh.single_task<class abs_diffUC1UC1>([=]() {
+          AccR[0] = s::abs_diff(s::uchar{ 3 }, s::uchar{ 250 });
+        });
+      });
+    }
+    assert(r == 247);
   }
 
   // add_sat

@@ -9524,10 +9524,10 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
 #endif // INTEL_CUSTOMIZATION
       if(const PipeType *PipeTy = PT->getAs<PipeType>()) {
         QualType ElemTy = PipeTy->getElementType();
-          if (ElemTy->isReferenceType() || ElemTy->isPointerType()) {
-            Diag(Param->getTypeSpecStartLoc(), diag::err_reference_pipe_type );
-            D.setInvalidType();
-          }
+        if (ElemTy->isReferenceType() || ElemTy->isPointerType()) {
+          Diag(Param->getTypeSpecStartLoc(), diag::err_reference_pipe_type );
+          D.setInvalidType();
+        }
       }
     }
   }

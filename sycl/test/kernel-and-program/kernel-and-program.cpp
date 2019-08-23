@@ -1,4 +1,4 @@
-// RUN: %clang -std=c++11 -fsycl %s -o %t.out -lstdc++ -lOpenCL -lsycl
+// RUN: %clangxx -fsycl %s -o %t.out -lOpenCL
 // RUN: env SYCL_DEVICE_TYPE=HOST %t.out
 // RUN: %CPU_RUN_PLACEHOLDER %t.out
 // RUNx: %GPU_RUN_PLACEHOLDER %t.out
@@ -149,7 +149,7 @@ int main() {
         q.submit([&](cl::sycl::handler &cgh) {
           auto acc = buf.get_access<cl::sycl::access::mode::read_write>(cgh);
           cgh.parallel_for<class ParallelFor>(
-              numOfItems, krn,
+              krn, numOfItems,
               [=](cl::sycl::id<1> wiID) { acc[wiID] = acc[wiID] + 1; });
         });
       }
@@ -233,7 +233,7 @@ int main() {
               localAcc(localRange, cgh);
 
           cgh.parallel_for<class ParallelForND>(
-              cl::sycl::nd_range<1>(numOfItems, localRange), krn,
+              krn, cl::sycl::nd_range<1>(numOfItems, localRange),
               [=](cl::sycl::nd_item<1> item) {
                 size_t idx = item.get_global_linear_id();
                 int pos = idx & 1;

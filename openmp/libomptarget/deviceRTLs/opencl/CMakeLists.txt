@@ -14,10 +14,15 @@
 if(LIBOMPTARGET_DEP_OPENCL_FOUND)
   libomptarget_say("Building OpenCL offloading device RTL.")
 
-  set(opencl_inc src/omptarget-opencl.h)
+  set(opencl_inc
+    src/internal.h
+    src/omptarget-opencl.h
+  )
   set(opencl_src
     src/abi.cl
     src/abi-atomic.cl
+    src/abi-loop.cl
+    src/abi-parallel.cl
     src/api.cl
     src/omptarget-opencl.cl
   )
