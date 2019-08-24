@@ -8,7 +8,6 @@
 ;    L1:  tmp = tmp + 88;
 ;        sum = sum + tmp; }
 ;
-; REQUIRES: asserts
 ; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-safe-reduction-analysis | FileCheck %s
 ; RUN: opt < %s -passes="loop-simplify,hir-ssa-deconstruction,print<hir-safe-reduction-analysis>" -disable-output 2>&1 | FileCheck %s
 ; CHECK:   %sum.018 = %sum.018  +  %add4;  <Safe Reduction>
