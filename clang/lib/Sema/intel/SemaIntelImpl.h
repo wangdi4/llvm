@@ -24,7 +24,7 @@ void Sema::HLSAddOneConstantValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
 
   if (NumReadPortsAttr::classof(&TmpAttr) ||
       NumWritePortsAttr::classof(&TmpAttr) ||
-      MaxReplicatesAttr::classof(&TmpAttr) ||
+      IntelFPGAMaxReplicatesAttr::classof(&TmpAttr) ||
       (MaxConcurrencyAttr::classof(&TmpAttr) && isa<VarDecl>(D))) {
     if (!D->hasAttr<IntelFPGAMemoryAttr>())
       D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
