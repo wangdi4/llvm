@@ -110,12 +110,15 @@ void PiGraph::createEdges() {
 LLVM_DUMP_METHOD
 void PiBlock::dump() const {
   for (auto *PPNode : DistPPNodes) {
-    auto ControlDep = Graph->getControlDependence(PPNode);
-    if (ControlDep) {
-      dbgs() << "<dep " << ControlDep->first->getNode()->getNumber() << "> ";
-    }
-
     PPNode->dump();
   }
 }
+
+LLVM_DUMP_METHOD
+void PiGraphEdge::dump() const {
+  for (auto *DDEdge : DDEdges) {
+    DDEdge->dump();
+  }
+}
+
 #endif

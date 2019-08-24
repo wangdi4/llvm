@@ -843,7 +843,10 @@ CallInst *VPOParoptUtils::genCxaAtExit(Value *TgtDescUnregFn, Value *Desc,
 }
 
 // Generate a call to
-//   bool __tgt_is_device_available(int device_num, void *device_type)
+//   bool __tgt_is_device_available(int64_t device_num, void *device_type)
+//
+// TODO: DeviceType has to be encoded in int64_t device_num passed to
+//       __tgt_is_device_available.
 CallInst *VPOParoptUtils::genTgtIsDeviceAvailable(Value *DeviceNum,
                                                   Value *DeviceType,
                                                   Instruction *InsertPt) {
@@ -851,42 +854,45 @@ CallInst *VPOParoptUtils::genTgtIsDeviceAvailable(Value *DeviceNum,
   Function *F = B->getParent();
   LLVMContext &C = F->getContext();
   Type *Int32Ty = Type::getInt32Ty(C);
+  Type *Int64Ty = Type::getInt64Ty(C);
   Type *Int8PtrTy = Type::getInt8PtrTy(C);
 
   assert(DeviceNum && DeviceNum->getType()->isIntegerTy(32) &&
          "DeviceNum expected to be Int32");
   assert(DeviceType && DeviceType->getType()->isPointerTy() &&
          "DeviceType expected to be pointer");
+  DeviceNum = IRBuilder<>(InsertPt).CreateSExt(DeviceNum, Int64Ty);
   Value *Args[] = {DeviceNum, DeviceType};
-  Type *ArgTypes[] = {Int32Ty, Int8PtrTy};
+  Type *ArgTypes[] = {Int64Ty, Int8PtrTy};
   CallInst *Call =
       genCall("__tgt_is_device_available", Int32Ty, Args, ArgTypes, InsertPt);
   return Call;
 }
 
 // Generate a call to
-//   void *__tgt_create_buffer(int device_num, void *host_ptr)
+//   void *__tgt_create_buffer(int64_t device_num, void *host_ptr)
 CallInst *VPOParoptUtils::genTgtCreateBuffer(Value *DeviceNum, Value *HostPtr,
                                              Instruction *InsertPt) {
   BasicBlock *B = InsertPt->getParent();
   Function *F = B->getParent();
   LLVMContext &C = F->getContext();
-  Type *Int32Ty = Type::getInt32Ty(C);
+  Type *Int64Ty = Type::getInt64Ty(C);
   Type *Int8PtrTy = Type::getInt8PtrTy(C);
 
   assert(DeviceNum && DeviceNum->getType()->isIntegerTy(32) &&
          "DeviceNum expected to be Int32");
   assert(HostPtr && HostPtr->getType() == Int8PtrTy &&
          "HostPtr expected to be void*");
+  DeviceNum = IRBuilder<>(InsertPt).CreateSExt(DeviceNum, Int64Ty);
   Value *Args[] = {DeviceNum, HostPtr};
-  Type *ArgTypes[] = {Int32Ty, Int8PtrTy};
+  Type *ArgTypes[] = {Int64Ty, Int8PtrTy};
   CallInst *Call =
       genCall("__tgt_create_buffer", Int8PtrTy, Args, ArgTypes, InsertPt);
   return Call;
 }
 
 // Generate a call to
-//   int __tgt_release_buffer(int device_num, void *tgt_buffer)
+//   int __tgt_release_buffer(int64_t device_num, void *tgt_buffer)
 CallInst *VPOParoptUtils::genTgtReleaseBuffer(Value *DeviceNum,
                                               Value *TgtBuffer,
                                               Instruction *InsertPt) {
@@ -894,14 +900,16 @@ CallInst *VPOParoptUtils::genTgtReleaseBuffer(Value *DeviceNum,
   Function *F = B->getParent();
   LLVMContext &C = F->getContext();
   Type *Int32Ty = Type::getInt32Ty(C);
+  Type *Int64Ty = Type::getInt64Ty(C);
   Type *Int8PtrTy = Type::getInt8PtrTy(C);
 
   assert(DeviceNum && DeviceNum->getType()->isIntegerTy(32) &&
          "DeviceNum expected to be Int32");
   assert(TgtBuffer && TgtBuffer->getType() == Int8PtrTy &&
          "TgtBuffer expected to be void*");
+  DeviceNum = IRBuilder<>(InsertPt).CreateSExt(DeviceNum, Int64Ty);
   Value *Args[] = {DeviceNum, TgtBuffer};
-  Type *ArgTypes[] = {Int32Ty, Int8PtrTy};
+  Type *ArgTypes[] = {Int64Ty, Int8PtrTy};
   CallInst *Call =
       genCall("__tgt_release_buffer", Int32Ty, Args, ArgTypes, InsertPt);
   return Call;
