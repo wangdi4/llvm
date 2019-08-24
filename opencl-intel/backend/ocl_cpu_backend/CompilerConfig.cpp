@@ -134,14 +134,21 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
         m_LLVMOptions += " -eyeq-div-crash-behavior";
     }
 
-    VectorizerType VType =
+    if (m_LLVMOptions.find("-enable-vplan-kernel-vectorizer")
+        == std::string::npos) {
+      // If VOLCANO_LLVM_OPTIONS doesn't try to override vectorizer choice
+      // look at CL_CONFIG_CPU_VECTORIZER_MODE. Check also whether
+      // VOLCANO_VECTORIZER_OPTIONS wants to override
+      // enable-default-kernel-vectorizer.
+      // Can be verified with -emit-vectorizer-sign-on
+      VectorizerType VType =
         static_cast<VectorizerType>(pBackendOptions->GetIntValue(
             (int)CL_DEV_BACKEND_OPTION_VECTORIZER_TYPE, DEFAULT_VECTORIZER));
-    if (VType == DEFAULT_VECTORIZER) {
+      if (VType == DEFAULT_VECTORIZER &&
+          m_LLVMOptions.find("-enable-default-kernel-vectorizer")
+          == std::string::npos)
         m_LLVMOptions += " -enable-default-kernel-vectorizer";
-    } else if (VPO_VECTORIZER == VType &&
-        m_LLVMOptions.find("-enable-vplan-kernel-vectorizer")
-        == std::string::npos) {
+      else if (VPO_VECTORIZER == VType)
         m_LLVMOptions += " -enable-vplan-kernel-vectorizer";
     }
 
