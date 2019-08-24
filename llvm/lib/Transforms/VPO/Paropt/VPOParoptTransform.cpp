@@ -1157,7 +1157,10 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNDistributeParLoop:
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
-          Changed = regularizeOMPLoop(W);
+          if (W->getIsParSections())
+            Changed = addNormUBsToParents(W);
+
+          Changed |= regularizeOMPLoop(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
           Changed |= propagateCancellationPointsToIR(W);
         }
@@ -1181,14 +1184,15 @@ bool VPOParoptTransform::paroptTransforms() {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
-            if (isTargetCSA()) {
-               // Generate remarks using Loop Opt Report framework (under -qopt-report).
-               if (isa<WRNParallelLoopNode>(W)) {
-                  ORLinfo = W->getWRNLoopInfo().getLoopInfo();
-                  ORLoop = W->getWRNLoopInfo().getLoop();
-                  if (ORLoop != nullptr)
-                      LORBuilder(*ORLoop, *ORLinfo).addRemark(OptReportVerbosity::Low,
-                                "CSA: OpenMP parallel loop will be pipelined");
+          if (isTargetCSA()) {
+            // Generate remarks using Loop Opt Report framework
+            // (under -qopt-report).
+            if (isa<WRNParallelLoopNode>(W)) {
+              ORLinfo = W->getWRNLoopInfo().getLoopInfo();
+              ORLoop = W->getWRNLoopInfo().getLoop();
+              if (ORLoop != nullptr)
+                LORBuilder(*ORLoop, *ORLinfo).addRemark(OptReportVerbosity::Low,
+                           "CSA: OpenMP parallel loop will be pipelined");
             }
 
             if (W->getIsParSections()) {
@@ -1253,8 +1257,7 @@ bool VPOParoptTransform::paroptTransforms() {
 
           LLVM_DEBUG(dbgs()<<"\n Parallel W-Region::"<<*W->getEntryBBlock());
 
-          if (IsTargetSPIRV && (isa<WRNParallelLoopNode>(W)
-                || isa<WRNDistributeParLoopNode>(W))) {
+          if (IsTargetSPIRV) {
             // The directive gets removed, when processing the target region,
             // do not remove it here, since guardSideEffects needs the
             // parallel directive to insert barriers.
@@ -1499,7 +1502,10 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNDistribute:
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
-          Changed = regularizeOMPLoop(W);
+          if (W->getIsSections())
+            Changed = addNormUBsToParents(W);
+
+          Changed |= regularizeOMPLoop(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
           Changed |= propagateCancellationPointsToIR(W);
         }
@@ -6770,6 +6776,64 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Recalculating DT.\n");
   }
   return true;
+}
+
+// Propagate NormUBs of sections to parent constructs to be outlined
+bool VPOParoptTransform::addNormUBsToParents(WRegionNode* W) {
+
+  WRegionNode *P = W;
+
+  assert(P && "Null WRegionNode.");
+
+  if (!isa<WRNParallelSectionsNode>(P) && !isa<WRNSectionsNode>(P))
+    return false;
+
+  auto &LI = P->getWRNLoopInfo();
+
+  if (LI.getNormUBSize() <= 0)
+    return false;
+
+  SmallVector <Value*,2> NormUBs;
+
+  for (unsigned I = 0; I < LI.getNormUBSize(); ++I)
+    NormUBs.push_back(LI.getNormUB(I));
+
+  bool Changed = false;
+  while ((P = P->getParent())) {
+    if (isa<WRNParallelNode>(P)) {
+      SharedClause &ShrClause = P->getShared();
+
+      for (Value *V: NormUBs)
+        WRegionUtils::addToClause(ShrClause, V);
+
+      StringRef ClauseString =
+          VPOAnalysisUtils::getClauseString(QUAL_OMP_SHARED);
+
+      CallInst *CI = cast<CallInst>(P->getEntryDirective());
+      CI = VPOParoptUtils::addOperandBundlesInCall(CI,
+                                                   {{ClauseString, {NormUBs}}});
+      P->setEntryDirective(CI);
+      Changed = true;
+
+    } else if (isa<WRNTargetNode>(P)) {
+      MapClause &MpClause = P->getMap();
+
+      for (Value *V: NormUBs)
+        WRegionUtils::addToClause(MpClause, V);
+
+      MpClause.back()->setIsMapTo();
+      StringRef ClauseString =
+          VPOAnalysisUtils::getClauseString(QUAL_OMP_MAP_TO);
+
+      CallInst *CI = cast<CallInst>(P->getEntryDirective());
+      CI = VPOParoptUtils::addOperandBundlesInCall(CI,
+                                                   {{ClauseString, {NormUBs}}});
+      P->setEntryDirective(CI);
+      Changed = true;
+    }
+  }
+
+  return Changed;
 }
 
 // Set the values in the private clause to be empty.

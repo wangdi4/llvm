@@ -149,6 +149,8 @@ public:
   /// Top level interface for parallel and prepare transformation
   bool paroptTransforms();
 
+  bool addNormUBsToParents(WRegionNode* W);
+
   bool isModeOmpNoCollapse() { return Mode & vpo::OmpNoCollapse; }
   bool isModeOmpSimt() { return Mode & vpo::OmpSimt; }
 
