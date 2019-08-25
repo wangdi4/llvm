@@ -46,7 +46,8 @@ enum cl_dev_backend_options                            // Description           
     CL_DEV_BACKEND_OPTION_FORCED_PRIVATE_MEMORY_SIZE,  //!< Set additional memory size          |size_t                  |
     CL_DEV_BACKEND_OPTION_CHANNEL_DEPTH_EMULATION_MODE,//!< Set channel depth emulation mode    |int                     |
     CL_DEV_BACKEND_OPTION_VECTORIZER_TYPE,             //!< Select vectorizer                   |VectorizerType          | VOLCANO_VECTORIZER,VPO_VECTORIZER
-    CL_DEV_BACKEND_OPTION_NATIVE_SUBGROUPS             //!< Enable native subgroups             |boolean                 |
+    CL_DEV_BACKEND_OPTION_NATIVE_SUBGROUPS,            //!< Enable native subgroups             |boolean                 |
+    CL_DEV_BACKEND_OPTION_FORCED_WORK_GROUP_SIZE       //!< Set additional work group size      |size_t                  |
 };
 
 /*! \enum cl_dev_backend_dump_options

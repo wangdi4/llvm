@@ -681,6 +681,22 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     return false;
   }
 
+  bool CompilationUtils::hasLoopIdiom(const Module &M) {
+    if (!CompilationUtils::generatedFromOCLCPP(M))
+      return false;
+    /*
+    Example of the metadata
+    !is_ocl_loop_idiom = !{!0}
+    !0 = !{}
+    */
+    for (auto &F : M.functions()) {
+      if (F.hasMetadata() && F.getMetadata("is_ocl_loop_idiom") != nullptr)
+        return true;
+    }
+    return false;
+  }
+
+
   bool CompilationUtils::generatedFromSPIRV(const Module &M) {
     /*
     Example of the metadata

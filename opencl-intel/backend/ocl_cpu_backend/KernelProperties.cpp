@@ -21,7 +21,7 @@
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 KernelJITProperties::KernelJITProperties():
-    m_useVTune(false), m_vectorSize(1), m_maxPrivateMemorySize(0)
+    m_useVTune(false), m_vectorSize(1), m_maxPrivateMemorySize(0), m_forcedWorkGroupSize(0)
 {}
 
 KernelJITProperties::~KernelJITProperties()
@@ -63,7 +63,9 @@ KernelProperties::KernelProperties():
     m_bIsNonUniformWGSizeSupported(false),
     m_canUniteWG(false),
     m_verctorizeOnDimention(0),
-    m_debugInfo(false)
+    m_debugInfo(false),
+    m_bCanUseForcedWGSize(false),
+    m_forcedWGSize(0)
 {
     memset(m_reqdWGSize, 0, MAX_WORK_DIM * sizeof(size_t));
     memset(m_hintWGSize, 0, MAX_WORK_DIM * sizeof(size_t));
@@ -102,6 +104,8 @@ void KernelProperties::Serialize(IOutputStream& ost, SerializationStatus* stats)
     Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
     tmp = (unsigned long long int)m_privateMemorySize;
     Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+    tmp = (unsigned long long int)m_forcedWGSize;
+    Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
     tmp = (unsigned long long int)m_reqdNumSG;
     Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
     Serializer::SerialPrimitive<bool>(&m_isVectorizedWithTail, ost);
@@ -118,6 +122,7 @@ void KernelProperties::Serialize(IOutputStream& ost, SerializationStatus* stats)
     Serializer::SerialPrimitive<bool>(&m_bNeedSerializeWGs, ost);
     Serializer::SerialPrimitive<bool>(&m_bIsTask, ost);
     Serializer::SerialPrimitive<bool>(&m_bCanUseGlobalWorkOffset, ost);
+    Serializer::SerialPrimitive<bool>(&m_bCanUseForcedWGSize, ost);
 }
 
 void KernelProperties::Deserialize(IInputStream& ist, SerializationStatus* stats)
@@ -155,6 +160,8 @@ void KernelProperties::Deserialize(IInputStream& ist, SerializationStatus* stats
     Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
     m_privateMemorySize = (size_t)tmp;
     Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
+    m_forcedWGSize = (size_t)tmp;
+    Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
     m_reqdNumSG = (size_t)tmp;
     Serializer::DeserialPrimitive<bool>(&m_isVectorizedWithTail, ist);
     Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
@@ -173,6 +180,7 @@ void KernelProperties::Deserialize(IInputStream& ist, SerializationStatus* stats
     Serializer::DeserialPrimitive<bool>(&m_bNeedSerializeWGs, ist);
     Serializer::DeserialPrimitive<bool>(&m_bIsTask, ist);
     Serializer::DeserialPrimitive<bool>(&m_bCanUseGlobalWorkOffset, ist);
+    Serializer::DeserialPrimitive<bool>(&m_bCanUseForcedWGSize, ist);
 }
 
 
@@ -209,6 +217,11 @@ size_t KernelProperties::GetPrivateMemorySize() const
 size_t KernelProperties::GetMaxPrivateMemorySize() const
 {
     return m_maxPrivateMemorySize;
+}
+
+size_t KernelProperties::GetForcedWorkGroupSize() const
+{
+    return m_forcedWGSize;
 }
 
 size_t KernelProperties::GetRequiredNumSubGroups() const
