@@ -73,6 +73,14 @@ static cl::opt<bool>
                             cl::Hidden,
                             cl::desc("Enable VPlan Kernel Vectorizer"));
 
+// Enables kernel vectorizer identification message.
+static cl::opt<bool>
+    EmitKernelVectorizerSignOn("emit-kernel-vectorizer-sign-on",
+                              cl::init(false),
+                              cl::Hidden,
+                              cl::desc("Emit which vectorizer is used "
+                                       "(Volcano or Vplan)"));
+
 // This flag indicates that a vectorizer type was not specified, and the
 // compiler is free to use any vectorizer (volcano or vpo).
 //
@@ -554,6 +562,8 @@ static void populatePassesPostFailCheck(
 
     if (!pRtlModuleList.empty()) {
       if (UseVplan) {
+        if (EmitKernelVectorizerSignOn)
+          dbgs() << "DPC++ Kernel Vectorizer\n";
 
         // Replace 'div' and 'rem' instructions with calls to optimized library
         // functions
@@ -593,8 +603,11 @@ static void populatePassesPostFailCheck(
         PM.add(createCFGSimplificationPass());
         PM.add(createPromoteMemoryToRegisterPass());
         PM.add(createAggressiveDCEPass());
-      } else
+      } else {
+        if (EmitKernelVectorizerSignOn)
+          dbgs() << "OpenCL Kernel Vectorizer\n";
         PM.add(createVectorizerPass(pRtlModuleList, pConfig));
+      }
     }
 
     if (dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)) {
