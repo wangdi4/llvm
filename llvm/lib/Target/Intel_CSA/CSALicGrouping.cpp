@@ -52,6 +52,13 @@ void CSACvtCFDFPass::findLICGroups(bool preDFConversion) {
     }
   };
 
+  // Keep track of parallel incoming edges for picks. Note that the pick inputs
+  // can be grouped due to identical control even if coming from different
+  // basic blocks, so we track the two groups across the whole function.
+  SmallVector<unsigned, 0> pickConditions;
+  SmallVector<unsigned, 0> pickTrueRegs;
+  SmallVector<unsigned, 0> pickFalseRegs;
+
   for (auto &BB : *thisMF) {
     unsigned joinGroupVreg = UNMAPPED_REG;
 
@@ -115,8 +122,26 @@ void CSACvtCFDFPass::findLICGroups(bool preDFConversion) {
         // exist before we run dataflow conversion.
         unsigned opDef = getVregIndex(MI.getOperand(0));
         unsigned opCtl = getVregIndex(MI.getOperand(1));
+        unsigned opFalse = getVregIndex(MI.getOperand(2));
+        unsigned opTrue = getVregIndex(MI.getOperand(3));
         if (opDef != UNMAPPED_REG && opCtl != UNMAPPED_REG)
           joinWithGroup(opDef, opCtl);
+
+        // Only map the true/false legs if the control operand has a meaningful
+        // value.
+        if (opCtl != UNMAPPED_REG) {
+          auto it = std::find(pickConditions.begin(),
+              pickConditions.end(), opCtl);
+          if (it == pickConditions.end()) {
+            pickConditions.push_back(opCtl);
+            pickTrueRegs.push_back(opTrue);
+            pickFalseRegs.push_back(opFalse);
+          } else {
+            auto index = it - pickConditions.begin();
+            joinWithGroup(opTrue, pickTrueRegs[index]);
+            joinWithGroup(opFalse, pickFalseRegs[index]);
+          }
+        }
       } else if (TII->isSwitch(&MI)) {
         // Switches are the most complex case to deal with. Like PICK ops,
         // we can join the control and incoming edge to the same group. However,
@@ -279,11 +304,38 @@ void CSACvtCFDFPass::assignLicFrequencies(MachineBlockFrequencyInfo &MBFI) {
   // Lambda for assigning the frequency to a LIC equivalence class. Note that it
   // will assert if you try to set an inconsistent frequency (this would
   // probably be indicative of a bug in dataflow conversion somewhere).
-  auto setFrequency = [&](unsigned licClass, BlockFrequency freq) {
+  auto setGroupInfo = [&](unsigned licClass, bool preciseFreq, BlockFrequency freq, unsigned LoopId, unsigned LoopDepth) {
     auto licGroup = std::make_shared<CSALicGroup>();
-    licGroup->executionFrequency = Scaled64(freq.getFrequency(), 0) / entryFreq;
-    if (groups[licClass])
-      assert(groups[licClass]->executionFrequency == licGroup->executionFrequency);
+    ScaledNumber<uint64_t> newExecFreq = Scaled64(freq.getFrequency(), 0) / entryFreq;
+
+    // Do some sanity checking when possible
+    if (groups[licClass]) {
+      if (groups[licClass]->execFreqIsPrecise && preciseFreq) {
+        assert(groups[licClass]->executionFrequency == newExecFreq);
+      }
+      if (groups[licClass]->LoopId && LoopId) {
+        assert(groups[licClass]->LoopId == LoopId);
+        assert(groups[licClass]->LoopDepth == LoopDepth);
+      }
+    }
+
+    if (!groups[licClass] || (groups[licClass] && !groups[licClass]->execFreqIsPrecise)) {
+      // If we didn't have an estimate before or we did and it was not precise,
+      // use the new estimate.
+      licGroup->executionFrequency = newExecFreq;
+    } else {
+      // Otherwise, keep the old estimate.
+      licGroup->executionFrequency = groups[licClass]->executionFrequency;
+    }
+
+    // Inherit Loop info. This intent is that loop information can be added to
+    // the group in a second call as long as the first call specified 0
+    // ID/depth. Note that we are not changing or losing loop info due to the
+    // assertion above.
+    if (LoopId) {
+      licGroup->LoopId = LoopId;
+      licGroup->LoopDepth = LoopDepth;
+    }
     groups[licClass] = std::move(licGroup);
   };
 
@@ -297,20 +349,25 @@ void CSACvtCFDFPass::assignLicFrequencies(MachineBlockFrequencyInfo &MBFI) {
     auto index = BB.getNumber();
     auto nominalVreg = basicBlockRegs[index];
     auto blockFreq = MBFI.getBlockFreq(&BB);
+    unsigned loopDepth = 0;
+    unsigned loopId = 0;
+    MachineLoop *L = MLI->getLoopFor(&BB);
+    if (L) {
+      loopDepth = L->getLoopDepth();
+      loopId = std::find(Loops.begin(), Loops.end(), L) - Loops.begin() + 1;
+    }
     // If there is a class for the basic block, propagate block frequency.
     if (nominalVreg != ~0U) {
       auto groupId = licGrouping[nominalVreg];
-      setFrequency(groupId, blockFreq);
+      setGroupInfo(groupId, true, blockFreq, 0, 0);
       auto &licGroup = groups[groupId];
 
       // Propagate loop information too. There's no assertion here that the
       // information is consistent, unlike frequency, since the frequency being
       // wrong should catch it.
-      MachineLoop *L = MLI->getLoopFor(&BB);
       if (L) {
-        licGroup->LoopDepth = L->getLoopDepth();
-        licGroup->LoopId = std::find(Loops.begin(), Loops.end(), L) -
-          Loops.begin() + 1;
+        licGroup->LoopDepth = loopDepth;
+        licGroup->LoopId = loopId;
       }
     }
 
@@ -331,15 +388,31 @@ void CSACvtCFDFPass::assignLicFrequencies(MachineBlockFrequencyInfo &MBFI) {
           licGrouping[destBBReg] == licGrouping[vreg])
         continue;
 
+      // If we didn't have a basic block association, then we are unlikely to
+      // have had a loop association. Make an effort to recover this. One
+      // observation is that edges effecting control flow within the same loop
+      // are part of that loop.
+      unsigned groupLoopDepth = 0;
+      unsigned groupLoopId = 0;
+      if (L) {
+        MachineLoop *dstLoop = MLI->getLoopFor(destBB);
+        if (dstLoop && L == dstLoop) {
+          groupLoopDepth = loopDepth;
+          groupLoopId = loopId;
+        }
+      }
+
       // Block frequency is more accurate than doing the calculation ourself
       // (which may round differently than block frequency calculations).
       // If the target has no other predecessor, its execution count is
       // identical to the edge's count, so use its block frequency instead.
       if (destBB->pred_size() == 1) {
-        setFrequency(licGrouping[vreg], MBFI.getBlockFreq(destBB));
+        setGroupInfo(licGrouping[vreg], true, MBFI.getBlockFreq(destBB),
+            groupLoopId, groupLoopDepth);
       } else {
-        setFrequency(licGrouping[vreg],
-          blockFreq * MBFI.getMBPI()->getEdgeProbability(&BB, succ));
+        setGroupInfo(licGrouping[vreg], false,
+          blockFreq * MBFI.getMBPI()->getEdgeProbability(&BB, succ),
+          groupLoopId, groupLoopDepth);
       }
     }
   }

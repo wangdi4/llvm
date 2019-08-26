@@ -28,6 +28,7 @@ namespace llvm {
 class CSAInstrInfo;
 struct CSALicGroup {
   ScaledNumber<uint64_t> executionFrequency;
+  bool execFreqIsPrecise = false;
   unsigned LoopId = 0;
   unsigned LoopDepth = 0;
 
