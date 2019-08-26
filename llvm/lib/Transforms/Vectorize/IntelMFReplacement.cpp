@@ -27,6 +27,11 @@ using namespace llvm;
 
 #define DEBUG_TYPE "mf-replace"
 
+static cl::opt<bool> DisableMFReplacement(
+    "disable-mf-replacement", cl::init(false), cl::Hidden,
+    cl::desc("Disable replacement of math-instruction like u/i-div and i/s-rem "
+             "with scalar SVML function."));
+
 STATISTIC(NumInstConverted, "Number of instructions converted");
 
 struct MathLibraryFunctionsReplacementPass
@@ -142,6 +147,11 @@ public:
   }
 
   bool runOnFunction(Function &F) override {
+    // Return without any change if instruction to function replacement is
+    // disabled.
+    if (DisableMFReplacement)
+      return false;
+
     if (skipFunction(F))
       return false;
 
