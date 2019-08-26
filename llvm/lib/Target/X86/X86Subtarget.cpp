@@ -230,6 +230,12 @@ void X86Subtarget::initSubtargetFeatures(StringRef CPU, StringRef FS) {
 
   std::string FullFS = FS;
   if (In64BitMode) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+    // SSE2 is disabled in IceCode mode.
+    if (!InIceCodeMode)
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
     // SSE2 should default to enabled in 64-bit mode, but can be turned off
     // explicitly.
     if (!FullFS.empty())
