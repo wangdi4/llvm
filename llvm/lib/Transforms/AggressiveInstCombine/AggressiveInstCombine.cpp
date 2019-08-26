@@ -19,6 +19,7 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_WP.h"            // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
@@ -300,6 +301,7 @@ void AggressiveInstCombinerLegacyPass::getAnalysisUsage(
   AU.addPreserved<BasicAAWrapperPass>();
   AU.addPreserved<DominatorTreeWrapperPass>();
   AU.addPreserved<GlobalsAAWrapperPass>();
+  AU.addPreserved<WholeProgramWrapperPass>(); // INTEL
 }
 
 bool AggressiveInstCombinerLegacyPass::runOnFunction(Function &F) {
@@ -321,6 +323,7 @@ PreservedAnalyses AggressiveInstCombinePass::run(Function &F,
   PA.preserveSet<CFGAnalyses>();
   PA.preserve<AAManager>();
   PA.preserve<GlobalsAA>();
+  PA.preserve<WholeProgramAnalysis>();   // INTEL
   return PA;
 }
 

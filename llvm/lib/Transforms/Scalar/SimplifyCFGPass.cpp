@@ -27,6 +27,7 @@
 #include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"                  // INTEL
+#include "llvm/Analysis/Intel_WP.h"                         // INTEL
 #if INTEL_COLLAB
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #endif // INTEL_COLLAB
@@ -230,6 +231,7 @@ PreservedAnalyses SimplifyCFGPass::run(Function &F,
   PreservedAnalyses PA;
   PA.preserve<GlobalsAA>();
   PA.preserve<AndersensAA>();        // INTEL
+  PA.preserve<WholeProgramAnalysis>(); // INTEL
   return PA;
 }
 
@@ -286,6 +288,7 @@ struct CFGSimplifyPass : public FunctionPass {
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<TargetTransformInfoWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();     // INTEL
+    AU.addPreserved<WholeProgramWrapperPass>();    // INTEL
     AU.addPreserved<GlobalsAAWrapperPass>();
   }
 };
