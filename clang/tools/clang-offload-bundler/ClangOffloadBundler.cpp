@@ -607,6 +607,18 @@ public:
       consumeError(Content.takeError());
       return;
     }
+
+    // Backwards compatibility adjustment: object files created with older
+    // versions of clang-offload-bundler (before support for partially-linked
+    // objects) do not contain a sizes section and rightfully so because such a
+    // section was not necessary. However, the current version of the bundler
+    // expects the object to have a sizes section, even if it is a
+    // non-partially-linked one. Emulate the existence of a sizes section by
+    // adding the related number into ObjectSizes manually.
+    if (CurBundle->second->ObjectSizes.empty() && FilesType == "o") {
+      CurBundle->second->ObjectSizes.push_back(Content->size());
+    }
+
     const char *ObjData = Content->data();
     // Determine the number of "device objects" (or individual bundles
     // concatenated by partial linkage) in the bundle:
