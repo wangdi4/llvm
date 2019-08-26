@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "CL/sycl/detail/sycl_mem_obj.hpp"
+#include "CL/sycl/detail/sycl_mem_obj_i.hpp"
 #include <CL/sycl/detail/queue_impl.hpp>
 #include <CL/sycl/detail/scheduler/scheduler.hpp>
 #include <CL/sycl/device_selector.hpp>
@@ -20,7 +20,7 @@ namespace cl {
 namespace sycl {
 namespace detail {
 
-void Scheduler::waitForRecordToFinish(GraphBuilder::MemObjRecord *Record) {
+void Scheduler::waitForRecordToFinish(MemObjRecord *Record) {
   for (Command *Cmd : Record->MReadLeafs) {
     Command *FailedCommand = GraphProcessor::enqueueCommand(Cmd);
     if (FailedCommand) {
@@ -37,7 +37,7 @@ void Scheduler::waitForRecordToFinish(GraphBuilder::MemObjRecord *Record) {
     }
     GraphProcessor::waitForEvent(Cmd->getEvent());
   }
-  for (AllocaCommand *AllocaCmd : Record->MAllocaCommands) {
+  for (AllocaCommandBase *AllocaCmd : Record->MAllocaCommands) {
     Command *ReleaseCmd = AllocaCmd->getReleaseCmd();
     Command *FailedCommand = GraphProcessor::enqueueCommand(ReleaseCmd);
     if (FailedCommand) {
@@ -79,6 +79,7 @@ EventImplPtr Scheduler::addCG(std::unique_ptr<detail::CG> CommandGroup,
 }
 
 EventImplPtr Scheduler::addCopyBack(Requirement *Req) {
+  std::lock_guard<std::mutex> lock(MGraphLock);
   Command *NewCmd = MGraphBuilder.addCopyBack(Req);
   // Command was not creted because there were no operations with
   // buffer.
@@ -91,17 +92,17 @@ EventImplPtr Scheduler::addCopyBack(Requirement *Req) {
   return NewCmd->getEvent();
 }
 
-Scheduler::~Scheduler() {
-  // TODO: Make running wait and release on destruction configurable?
-  // TODO: Process release commands only?
-  //std::lock_guard<std::mutex> lock(MGraphLock);
-  //for (GraphBuilder::MemObjRecord &Record : MGraphBuilder.MMemObjRecords)
-    //waitForRecordToFinish(&Record);
-  //MGraphBuilder.cleanupCommands([>CleanupReleaseCommands = <] true);
-}
+#ifdef __GCC__
+// The init_priority here causes the constructor for scheduler to run relatively
+// early, and therefore the destructor to run relatively late (after anything
+// else that has no priority set, or has a priority higher than 2000).
+Scheduler Scheduler::instance __attribute__((init_priority(2000)));
+#else
+#pragma init_seg(lib)
+Scheduler Scheduler::instance;
+#endif
 
 Scheduler &Scheduler::getInstance() {
-  static Scheduler instance;
   return instance;
 }
 
@@ -115,16 +116,15 @@ void Scheduler::waitForEvent(EventImplPtr Event) {
   GraphProcessor::waitForEvent(std::move(Event));
 }
 
-void Scheduler::removeMemoryObject(detail::SYCLMemObjT *MemObj) {
+void Scheduler::removeMemoryObject(detail::SYCLMemObjI *MemObj) {
   std::lock_guard<std::mutex> lock(MGraphLock);
 
-  GraphBuilder::MemObjRecord *Record = MGraphBuilder.getMemObjRecord(MemObj);
-  if (!Record) {
-    assert("No operations were performed on the mem object?");
+  MemObjRecord *Record = MGraphBuilder.getMemObjRecord(MemObj);
+  if (!Record)
+    // No operations were performed on the mem object
     return;
-  }
   waitForRecordToFinish(Record);
-  MGraphBuilder.cleanupCommands(/*CleanupReleaseCommands = */ true);
+  MGraphBuilder.cleanupCommandsForRecord(Record);
   MGraphBuilder.removeRecordForMemObj(MemObj);
 }
 

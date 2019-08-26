@@ -353,11 +353,12 @@ public:
     kind_accessor = kind_first,
     kind_std_layout,
     kind_sampler,
-    kind_last = kind_sampler
+    kind_pointer,
+    kind_last = kind_pointer
   };
 
 public:
-  SYCLIntegrationHeader(DiagnosticsEngine &Diag);
+  SYCLIntegrationHeader(DiagnosticsEngine &Diag, bool UnnamedLambdaSupport);
 
   /// Emits contents of the header into given stream.
   void emit(raw_ostream &Out);
@@ -368,7 +369,8 @@ public:
 
   ///  Signals that subsequent parameter descriptor additions will go to
   ///  the kernel with given name. Starts new kernel invocation descriptor.
-  void startKernel(StringRef KernelName, QualType KernelNameType);
+  void startKernel(StringRef KernelName, QualType KernelNameType,
+                   StringRef KernelStableName);
 
   /// Adds a kernel parameter descriptor to current kernel invocation
   /// descriptor.
@@ -402,6 +404,9 @@ private:
 
     /// Kernel name type.
     QualType NameType;
+
+    /// Kernel name with stable lambda name mangling
+    std::string StableName;
 
     /// Descriptor of kernel actual parameters.
     SmallVector<KernelParamDesc, 8> Params;
@@ -438,6 +443,9 @@ private:
 
   /// Used for emitting diagnostics.
   DiagnosticsEngine &Diag;
+
+  /// Whether header is generated with unnamed lambda support
+  bool UnnamedLambdaSupport;
 };
 
 /// Keeps track of expected type during expression parsing. The type is tied to
@@ -4662,6 +4670,13 @@ public:
   ExprResult ActOnPredefinedExpr(SourceLocation Loc, tok::TokenKind Kind);
   ExprResult ActOnIntegerConstant(SourceLocation Loc, uint64_t Val);
 
+  ExprResult BuildUniqueStableName(SourceLocation OpLoc,
+                                   TypeSourceInfo *Operand);
+  ExprResult BuildUniqueStableName(SourceLocation OpLoc, Expr *E);
+  ExprResult ActOnUniqueStableNameExpr(SourceLocation OpLoc, SourceLocation L,
+                                       SourceLocation R, ParsedType Ty);
+  ExprResult ActOnUniqueStableNameExpr(SourceLocation OpLoc, SourceLocation L,
+                                       SourceLocation R, Expr *Operand);
 #if INTEL_CUSTOMIZATION
   bool CheckIntelBlockLoopAttribute(const IntelBlockLoopAttr *BLA);
   /// \param IsCheckRange Indicates whether \p E is a #pragma unroll expression
@@ -11242,6 +11257,8 @@ private:
   bool CheckFPGABuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
 #endif // INTEL_CUSTOMIZATION
 
+  bool CheckIntelFPGABuiltinFunctionCall(unsigned BuiltinID, CallExpr *Call);
+
   bool SemaBuiltinVAStart(unsigned BuiltinID, CallExpr *TheCall);
   bool SemaBuiltinVAStartARMMicrosoft(CallExpr *Call);
   bool SemaBuiltinUnorderedCompare(CallExpr *TheCall);
@@ -11610,25 +11627,45 @@ public:
 private:
   // We store SYCL Kernels here and handle separately -- which is a hack.
   // FIXME: It would be best to refactor this.
-  SmallVector<Decl*, 4> SyclKernel;
+  SmallVector<Decl*, 4> SyclDeviceDecls;
   // SYCL integration header instance for current compilation unit this Sema
   // is associated with.
   std::unique_ptr<SYCLIntegrationHeader> SyclIntHeader;
 
 public:
-  void AddSyclKernel(Decl * d) { SyclKernel.push_back(d); }
-  SmallVector<Decl*, 4> &SyclKernels() { return SyclKernel; }
+  void addSyclDeviceDecl(Decl *d) { SyclDeviceDecls.push_back(d); }
+  SmallVectorImpl<Decl *> &syclDeviceDecls() { return SyclDeviceDecls; }
 
   /// Lazily creates and returns SYCL integration header instance.
   SYCLIntegrationHeader &getSyclIntegrationHeader() {
     if (SyclIntHeader == nullptr)
+<<<<<<< HEAD
       SyclIntHeader = std::make_unique<SYCLIntegrationHeader>(
         getDiagnostics());
+=======
+      SyclIntHeader = llvm::make_unique<SYCLIntegrationHeader>(
+          getDiagnostics(), getLangOpts().SYCLUnnamedLambda);
+>>>>>>> 813621e49df799aa4c3970b07536911d2ac1a7ca
     return *SyclIntHeader.get();
   }
 
+  enum SYCLRestrictKind {
+    KernelGlobalVariable,
+    KernelRTTI,
+    KernelNonConstStaticDataVariable,
+    KernelCallVirtualFunction,
+    KernelUseExceptions,
+    KernelCallRecursiveFunction,
+    KernelCallFunctionPointer,
+    KernelAllocateStorage,
+    KernelUseAssembly,
+    KernelHavePolymorphicClass,
+    KernelCallVariadicFunction
+ };
+  DeviceDiagBuilder SYCLDiagIfDeviceCode(SourceLocation Loc, unsigned DiagID);
   void ConstructOpenCLKernel(FunctionDecl *KernelCallerFunc);
   void MarkDevice(void);
+  bool CheckSYCLCall(SourceLocation Loc, FunctionDecl *Callee);
 };
 
 /// RAII object that enters a new expression evaluation context.

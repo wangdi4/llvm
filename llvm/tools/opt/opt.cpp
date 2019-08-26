@@ -565,8 +565,8 @@ int main(int argc, char **argv) {
   initializeExpandReductionsPass(Registry);
   initializeWasmEHPreparePass(Registry);
   initializeWriteBitcodePassPass(Registry);
-  initializeHardwareLoopsPass(Registry);
   initializeASFixerPass(Registry);
+  initializeHardwareLoopsPass(Registry);
 #if INTEL_CUSTOMIZATION
   initializeIntel_LoopAnalysis(Registry);
   initializeIntel_LoopTransforms(Registry);

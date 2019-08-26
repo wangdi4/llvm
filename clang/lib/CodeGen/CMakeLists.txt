@@ -1,3 +1,5 @@
+add_subdirectory(SYCLLowerIR)
+
 set(LLVM_LINK_COMPONENTS
   Analysis
   BitReader
@@ -83,6 +85,7 @@ add_clang_library(clangCodeGen
 # INTEL_COLLAB
   intel/CGOpenMPLateOutline.cpp
 # end INTEL_COLLAB
+  CGSYCLRuntime.cpp
   CGVTT.cpp
   CGVTables.cpp
   CodeGenABITypes.cpp
@@ -121,4 +124,5 @@ add_clang_library(clangCodeGen
   clangFrontend
   clangLex
   clangSerialization
+  clangSYCLLowerIR
   )

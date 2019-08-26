@@ -5603,6 +5603,27 @@ static void handleOptimizeNoneAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
     D->addAttr(Optnone);
 }
 
+static void handleSYCLDeviceIndirectlyCallableAttr(Sema &S, Decl *D,
+                                                   const ParsedAttr &AL) {
+  auto *FD = cast<FunctionDecl>(D);
+  if (!FD->isExternallyVisible()) {
+    S.Diag(AL.getLoc(),
+           diag::err_sycl_device_indirectly_callable_cannot_be_applied_here)
+        << 0 /* static function or anonymous namespace */;
+    return;
+  }
+  if (isa<CXXMethodDecl>(FD)) {
+    S.Diag(AL.getLoc(),
+           diag::err_sycl_device_indirectly_callable_cannot_be_applied_here)
+        << 1 /* class member function */;
+    return;
+  }
+
+  S.addSyclDeviceDecl(D);
+  D->addAttr(SYCLDeviceAttr::CreateImplicit(S.Context));
+  handleSimpleAttribute<SYCLDeviceIndirectlyCallableAttr>(S, D, AL);
+}
+
 static void handleConstantAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (checkAttrMutualExclusion<CUDASharedAttr>(S, D, AL))
     return;
@@ -6282,6 +6303,8 @@ static void handleTypeTagForDatatypeAttr(Sema &S, Decl *D,
 template <typename AttrType, typename IncompatAttrType>
 static void handleIntelFPGAPumpAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
 
+  if (S.LangOpts.SYCLIsHost)
+    return;
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, Attr))
    return;
@@ -6306,6 +6329,8 @@ static void handleIntelFPGAPumpAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
 static void handleIntelFPGAMemoryAttr(Sema &S, Decl *D,
                                       const ParsedAttr &Attr) {
 
+  if (S.LangOpts.SYCLIsHost)
+    return;
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, Attr))
    return;
@@ -6386,6 +6411,13 @@ static bool checkIntelFPGARegisterAttrCompatibility(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<OptimizeRamUsageAttr>(S, D, Attr))
     InCompat = true;
 #endif // INTEL_CUSTOMIZATION
+  if (checkAttrMutualExclusion<IntelFPGAMaxReplicatesAttr>(S, D, Attr))
+    InCompat = true;
+  if (checkAttrMutualExclusion<IntelFPGASimpleDualPortAttr>(S, D, Attr))
+    InCompat = true;
+  if (checkAttrMutualExclusion<IntelFPGAMergeAttr>(S, D, Attr))
+    InCompat = true;
+
   return InCompat;
 }
 
@@ -6394,6 +6426,8 @@ static bool checkIntelFPGARegisterAttrCompatibility(Sema &S, Decl *D,
 static void handleIntelFPGARegisterAttr(Sema &S, Decl *D,
                                         const ParsedAttr &Attr) {
 
+  if (S.LangOpts.SYCLIsHost)
+    return;
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, Attr))
    return;
@@ -6415,6 +6449,8 @@ template <typename AttrType>
 static void
 handleIntelFPGAOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
                                             const ParsedAttr &Attr) {
+  if (S.LangOpts.SYCLIsHost)
+    return;
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, Attr))
    return;
@@ -6429,8 +6465,79 @@ handleIntelFPGAOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
       Attr.getAttributeSpellingListIndex());
 }
 
+static void handleIntelFPGASimpleDualPortAttr(Sema &S, Decl *D,
+                                              const ParsedAttr &Attr) {
+  if (S.LangOpts.SYCLIsHost)
+    return;
+
+  checkForDuplicateAttribute<IntelFPGASimpleDualPortAttr>(S, D, Attr);
+
+  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
+    return;
+
+  if (!D->hasAttr<IntelFPGAMemoryAttr>())
+    D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
+        S.Context, IntelFPGAMemoryAttr::Default));
+
+  D->addAttr(::new (S.Context)
+                 IntelFPGASimpleDualPortAttr(Attr.getRange(), S.Context, 0));
+}
+
+static void handleIntelFPGAMaxReplicatesAttr(Sema &S, Decl *D,
+                                             const ParsedAttr &Attr) {
+  if (S.LangOpts.SYCLIsHost)
+    return;
+
+  checkForDuplicateAttribute<IntelFPGAMaxReplicatesAttr>(S, D, Attr);
+
+  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
+    return;
+
+  S.IntelFPGAAddOneConstantValueAttr<IntelFPGAMaxReplicatesAttr>(
+      Attr.getRange(), D, Attr.getArgAsExpr(0),
+      Attr.getAttributeSpellingListIndex());
+}
+
+/// Handle the merge attribute.
+/// This requires two string arguments.  The first argument is a name, the
+/// second is a direction.  The direction must be "depth" or "width".
+/// This is incompatible with the register attribute.
+static void handleIntelFPGAMergeAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+  checkForDuplicateAttribute<IntelFPGAMergeAttr>(S, D, Attr);
+
+  if (S.LangOpts.SYCLIsHost)
+    return;
+
+  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
+    return;
+
+  SmallVector<StringRef, 2> Results;
+  for (int I = 0; I < 2; I++) {
+    StringRef Str;
+    if (!S.checkStringLiteralArgumentAttr(Attr, I, Str))
+      return;
+
+    if (I == 1 && Str != "depth" && Str != "width") {
+      S.Diag(Attr.getLoc(), diag::err_intel_fpga_merge_dir_invalid) << Attr;
+      return;
+    }
+    Results.push_back(Str);
+  }
+
+  if (!D->hasAttr<IntelFPGAMemoryAttr>())
+    D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
+        S.Context, IntelFPGAMemoryAttr::Default));
+
+  D->addAttr(::new (S.Context) IntelFPGAMergeAttr(
+      Attr.getRange(), S.Context, Results[0], Results[1],
+      Attr.getAttributeSpellingListIndex()));
+}
+
 static void handleIntelFPGAMaxPrivateCopiesAttr(Sema &S, Decl *D,
                                                 const ParsedAttr &Attr) {
+
+  if (S.LangOpts.SYCLIsHost)
+    return;
   checkForDuplicateAttribute<IntelFPGAMaxPrivateCopiesAttr>(S, D, Attr);
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
     return;
@@ -8283,6 +8390,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_SYCLKernel:
     handleSimpleAttribute<SYCLKernelAttr>(S, D, AL);
     break;
+  case ParsedAttr::AT_SYCLDeviceIndirectlyCallable:
+    handleSYCLDeviceIndirectlyCallableAttr(S, D, AL);
+    break;
   case ParsedAttr::AT_Format:
     handleFormatAttr(S, D, AL);
     break;
@@ -8961,6 +9071,15 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleHLSMaxInvocationDelayAttr(S, D, AL);
     break;
 #endif // INTEL_CUSTOMIZATION
+  case ParsedAttr::AT_IntelFPGAMaxReplicates:
+    handleIntelFPGAMaxReplicatesAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_IntelFPGASimpleDualPort:
+    handleIntelFPGASimpleDualPortAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_IntelFPGAMerge:
+    handleIntelFPGAMergeAttr(S, D, AL);
+    break;
   case ParsedAttr::AT_AnyX86NoCallerSavedRegisters:
     handleSimpleAttribute<AnyX86NoCallerSavedRegistersAttr>(S, D, AL);
     break;
@@ -9029,7 +9148,8 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
   // good to have a way to specify "these attributes must appear as a group",
   // for these. Additionally, it would be good to have a way to specify "these
   // attribute must never appear as a group" for attributes like cold and hot.
-  if (!D->hasAttr<OpenCLKernelAttr>()) {
+  if (!(D->hasAttr<OpenCLKernelAttr>() ||
+        LangOpts.SYCLIsDevice || LangOpts.SYCLIsHost)) {
     // These attributes cannot be applied to a non-kernel function.
     if (const auto *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
       // FIXME: This emits a different error message than
