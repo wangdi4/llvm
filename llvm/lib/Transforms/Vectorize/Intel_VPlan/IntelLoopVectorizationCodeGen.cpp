@@ -1087,6 +1087,12 @@ Value *VPOCodeGen::getScalarValue(Value *V, unsigned Lane) {
 
   if (ScalarMap.count(V)) {
     auto SV = ScalarMap[V];
+
+    if (auto *Inst = dyn_cast<Instruction>(V))
+      if (isUniformAfterVectorization(Inst, VF))
+        // For uniform instructions the mapping is updated for lane zero only.
+        Lane = 0;
+
     if (SV.count(Lane))
       return SV[Lane];
   }
