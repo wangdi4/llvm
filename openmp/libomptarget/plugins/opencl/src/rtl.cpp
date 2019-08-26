@@ -16,6 +16,7 @@
 
 #include <CL/cl.h>
 #include <cassert>
+#include <cctype>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
@@ -46,10 +47,6 @@
 #define GETNAME2(name) #name
 #define GETNAME(name) GETNAME2(name)
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
-
-#ifndef USE_SVM_MEMCPY
-#define USE_SVM_MEMCPY 0
-#endif
 
 #ifdef OMPTARGET_OPENCL_DEBUG
 static int DebugLevel = 0;
@@ -273,6 +270,16 @@ struct ExtensionsTy {
 struct AsyncEventTy {
   void (*handler)(void *); // Handler for the event
   void *arg;               // Argument to the handler
+  void *data;              // Internal data
+};
+
+/// Data transfer method
+enum DataTransferMethodTy {
+  DATA_TRANSFER_METHOD_INVALID = -1,   // Invalid
+  DATA_TRANSFER_METHOD_CLMEM = 0,      // Use Buffer on SVM
+  DATA_TRANSFER_METHOD_SVMMAP,         // Use SVMMap/Unmap
+  DATA_TRANSFER_METHOD_SVMMEMCPY,      // Use SVMMemcpy
+  DATA_TRANSFER_METHOD_LAST,
 };
 
 /// Class containing all the device information.
@@ -298,13 +305,15 @@ public:
 
   int64_t flag;
   int32_t DataTransferLatency;
+  int32_t DataTransferMethod;
   const int64_t DEVICE_LIMIT_NUM_WORK_GROUPS = 0x1;
   const int64_t DATA_TRANSFER_LATENCY = 0x2;
 #if INTEL_CUSTOMIZATION
   bool CheckExtensionGlobalRelocation = false;
 #endif  // INTEL_CUSTOMIZATION
 
-  RTLDeviceInfoTy() : numDevices(0), flag(0), DataTransferLatency(0) {
+  RTLDeviceInfoTy() : numDevices(0), flag(0), DataTransferLatency(0),
+      DataTransferMethod(DATA_TRANSFER_METHOD_CLMEM) {
 #ifdef OMPTARGET_OPENCL_DEBUG
     if (char *envStr = getenv("LIBOMPTARGET_DEBUG")) {
       DebugLevel = std::stoi(envStr);
@@ -322,6 +331,21 @@ public:
         flag |= DATA_TRANSFER_LATENCY;
         int32_t usec = std::stoi(value.substr(2).c_str());
         DataTransferLatency = (usec > 0) ? usec : 0;
+      }
+    }
+    // Read LIBOMPTARGET_DATA_TRANSFER_METHOD
+    if ((env = std::getenv("LIBOMPTARGET_DATA_TRANSFER_METHOD"))) {
+      std::string value(env);
+      DataTransferMethod = DATA_TRANSFER_METHOD_INVALID;
+      if (value.size() == 1 && std::isdigit(value.c_str()[0])) {
+        int method = std::stoi(env);
+        if (method < DATA_TRANSFER_METHOD_LAST)
+          DataTransferMethod = method;
+      }
+      if (DataTransferMethod == DATA_TRANSFER_METHOD_INVALID) {
+        DP("Warning: Invalid data transfer method (%s) selected"
+           " -- using default method.\n", env);
+        DataTransferMethod = DATA_TRANSFER_METHOD_CLMEM;
       }
     }
 #if INTEL_CUSTOMIZATION
@@ -871,19 +895,30 @@ void event_callback_completed(cl_event event, cl_int status, void *data) {
       return;
     }
 
+    cl_command_type cmd;
+    clGetEventInfo(event, CL_EVENT_COMMAND_TYPE, sizeof(cmd), &cmd, nullptr);
+    if (cmd == CL_COMMAND_READ_BUFFER || cmd == CL_COMMAND_WRITE_BUFFER) {
+      if (!async_event->data ||
+          clReleaseMemObject((cl_mem)async_event->data) != CL_SUCCESS) {
+        DP("Error: Failed to handle asynchronous data operation.\n");
+        return;
+      }
+    }
+
     if (profile.flags & PROFILE_ENABLED) {
-      cl_command_type cmd;
       const char *event_name;
-      clGetEventInfo(event, CL_EVENT_COMMAND_TYPE, sizeof(cmd), &cmd, nullptr);
       switch (cmd) {
       case CL_COMMAND_NDRANGE_KERNEL:
         event_name = "EXEC-ASYNC";
         break;
+      case CL_COMMAND_SVM_MEMCPY:
+        event_name = "DATA-ASYNC";
+        break;
       case CL_COMMAND_READ_BUFFER:
-        event_name = "DATA-READ-ASYNC";
+        event_name = "DATA-ASYNC-READ";
         break;
       case CL_COMMAND_WRITE_BUFFER:
-        event_name = "DATA-WRITE-ASYNC";
+        event_name = "DATA-ASYNC-WRITE";
         break;
       default:
         event_name = "OTHERS-ASYNC";
@@ -1026,43 +1061,64 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
   // Add synthetic delay for experiments
   addDataTransferLatency();
 
-#if USE_SVM_MEMCPY
-  cl_event event;
-  if (async_event) {
-    INVOKE_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_FALSE, tgt_ptr, hst_ptr,
-                       size, 0, nullptr, &event);
-    if (((AsyncEventTy *)async_event)->handler) {
-      // Add event handler if necessary.
+  switch (DeviceInfo.DataTransferMethod) {
+  case DATA_TRANSFER_METHOD_SVMMAP: {
+    // No asynchronous data copy here since we use map/unmap as explicit
+    // synchronization points.
+    cl_ulong begin, end, dummy;
+    if (profile.flags & PROFILE_ENABLED)
+      INVOKE_CL_RET_FAIL(clGetDeviceAndHostTimer, id, &begin, &dummy);
+
+    INVOKE_CL_RET_FAIL(clEnqueueSVMMap, queue, CL_TRUE, CL_MAP_WRITE, tgt_ptr,
+                       size, 0, nullptr, nullptr);
+    memcpy(tgt_ptr, hst_ptr, size);
+    INVOKE_CL_RET_FAIL(clEnqueueSVMUnmap, queue, tgt_ptr, 0, nullptr, nullptr);
+
+    if (profile.flags & PROFILE_ENABLED) {
+      INVOKE_CL_RET_FAIL(clGetDeviceAndHostTimer, id, &end, &dummy);
+      profile.update("DATA-WRITE", end - begin);
+    }
+  } break;
+  case DATA_TRANSFER_METHOD_SVMMEMCPY: {
+    cl_event event;
+    if (async_event && ((AsyncEventTy *)async_event)->handler) {
+      INVOKE_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_FALSE, tgt_ptr, hst_ptr,
+                         size, 0, nullptr, &event);
       INVOKE_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
                          &event_callback_completed, async_event);
     } else {
-      // Make sure all queued commands finish before the next one starts.
-      INVOKE_CL_RET_FAIL(clEnqueueBarrierWithWaitList, queue, 0, nullptr,
-                         nullptr);
+      INVOKE_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_TRUE, tgt_ptr, hst_ptr,
+                         size, 0, nullptr, &event);
+      if (profile.flags & PROFILE_ENABLED)
+        profile.update("DATA-WRITE", event);
     }
-  } else {
-    INVOKE_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_TRUE, tgt_ptr, hst_ptr,
-                       size, 0, nullptr, &event);
-    if (profile.flags & PROFILE_ENABLED)
-      profile.update("DATA-WRITE", event);
+  } break;
+  case DATA_TRANSFER_METHOD_CLMEM:
+  default: {
+    cl_event event;
+    cl_int rc;
+    cl_mem mem = clCreateBuffer(DeviceInfo.CTX[device_id], CL_MEM_USE_HOST_PTR,
+                                size, tgt_ptr, &rc);
+    if (rc != CL_SUCCESS) {
+      DP("Error: Failed to create a buffer from a SVM pointer " DPxMOD "\n",
+         DPxPTR(tgt_ptr));
+      return OFFLOAD_FAIL;
+    }
+    if (async_event && ((AsyncEventTy *)async_event)->handler) {
+      INVOKE_CL_RET_FAIL(clEnqueueWriteBuffer, queue, mem, CL_FALSE, 0, size,
+                         hst_ptr, 0, nullptr, &event);
+      ((AsyncEventTy *)async_event)->data = (void *)mem;
+      INVOKE_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
+                         &event_callback_completed, async_event);
+    } else {
+      INVOKE_CL_RET_FAIL(clEnqueueWriteBuffer, queue, mem, CL_TRUE, 0, size,
+                         hst_ptr, 0, nullptr, &event);
+      INVOKE_CL_RET_FAIL(clReleaseMemObject, mem);
+      if (profile.flags & PROFILE_ENABLED)
+        profile.update("DATA-WRITE", event);
+    }
   }
-#else
-  // No asynchronous data copy here since we use map/unmap as explicit
-  // synchronization points.
-  cl_ulong begin, end, dummy;
-  if (profile.flags & PROFILE_ENABLED)
-    INVOKE_CL_RET_FAIL(clGetDeviceAndHostTimer, id, &begin, &dummy);
-
-  INVOKE_CL_RET_FAIL(clEnqueueSVMMap, queue, CL_TRUE, CL_MAP_WRITE, tgt_ptr,
-                     size, 0, nullptr, nullptr);
-  memcpy(tgt_ptr, hst_ptr, size);
-  INVOKE_CL_RET_FAIL(clEnqueueSVMUnmap, queue, tgt_ptr, 0, nullptr, nullptr);
-
-  if (profile.flags & PROFILE_ENABLED) {
-    INVOKE_CL_RET_FAIL(clGetDeviceAndHostTimer, id, &end, &dummy);
-    profile.update("DATA-WRITE", end - begin);
   }
-#endif
   return OFFLOAD_SUCCESS;
 }
 
@@ -1088,43 +1144,64 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
   // Add synthetic delay for experiments
   addDataTransferLatency();
 
-#if USE_SVM_MEMCPY
-  cl_event event;
-  if (async_event) {
-    INVOKE_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_FALSE, hst_ptr, tgt_ptr,
-                       size, 0, nullptr, &event);
-    if (((AsyncEventTy *)async_event)->handler) {
-      // Add event handler if necessary.
+  switch (DeviceInfo.DataTransferMethod) {
+  case DATA_TRANSFER_METHOD_SVMMAP: {
+    // No asynchronous data copy here since we use map/unmap as explicit
+    // synchronization points.
+    cl_ulong begin, end, dummy;
+    if (profile.flags & PROFILE_ENABLED)
+      INVOKE_CL_RET_FAIL(clGetDeviceAndHostTimer, id, &begin, &dummy);
+
+    INVOKE_CL_RET_FAIL(clEnqueueSVMMap, queue, CL_TRUE, CL_MAP_READ, tgt_ptr,
+                       size, 0, nullptr, nullptr);
+    memcpy(hst_ptr, tgt_ptr, size);
+    INVOKE_CL_RET_FAIL(clEnqueueSVMUnmap, queue, tgt_ptr, 0, nullptr, nullptr);
+
+    if (profile.flags & PROFILE_ENABLED) {
+      INVOKE_CL_RET_FAIL(clGetDeviceAndHostTimer, id, &end, &dummy);
+      profile.update("DATA-READ", end - begin);
+    }
+  } break;
+  case DATA_TRANSFER_METHOD_SVMMEMCPY: {
+    cl_event event;
+    if (async_event && ((AsyncEventTy *)async_event)->handler) {
+      INVOKE_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_FALSE, hst_ptr, tgt_ptr,
+                         size, 0, nullptr, &event);
       INVOKE_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
                          &event_callback_completed, async_event);
     } else {
-      // Make sure all queued commands finish before the next one starts.
-      INVOKE_CL_RET_FAIL(clEnqueueBarrierWithWaitList, queue, 0, nullptr,
-                         nullptr);
+      INVOKE_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_TRUE, hst_ptr, tgt_ptr,
+                         size, 0, nullptr, &event);
+      if (profile.flags & PROFILE_ENABLED)
+        profile.update("DATA-READ", event);
     }
-  } else {
-    INVOKE_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_TRUE, hst_ptr, tgt_ptr,
-                       size, 0, nullptr, &event);
-    if (profile.flags & PROFILE_ENABLED)
-      profile.update("DATA-READ", event);
+  } break;
+  case DATA_TRANSFER_METHOD_CLMEM:
+  default: {
+    cl_int rc;
+    cl_event event;
+    cl_mem mem = clCreateBuffer(DeviceInfo.CTX[device_id], CL_MEM_USE_HOST_PTR,
+                                size, tgt_ptr, &rc);
+    if (rc != CL_SUCCESS) {
+      DP("Error: Failed to create a buffer from a SVM pointer " DPxMOD "\n",
+         DPxPTR(tgt_ptr));
+      return OFFLOAD_FAIL;
+    }
+    if (async_event && ((AsyncEventTy *)async_event)->handler) {
+      INVOKE_CL_RET_FAIL(clEnqueueReadBuffer, queue, mem, CL_FALSE, 0, size,
+                         hst_ptr, 0, nullptr, &event);
+      ((AsyncEventTy *)async_event)->data = (void *)mem;
+      INVOKE_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
+                         &event_callback_completed, async_event);
+    } else {
+      INVOKE_CL_RET_FAIL(clEnqueueReadBuffer, queue, mem, CL_TRUE, 0, size,
+                         hst_ptr, 0, nullptr, &event);
+      INVOKE_CL_RET_FAIL(clReleaseMemObject, mem);
+      if (profile.flags & PROFILE_ENABLED)
+        profile.update("DATA-READ", event);
+    }
   }
-#else
-  // No asynchronous data copy here since we use map/unmap as explicit
-  // synchronization points.
-  cl_ulong begin, end, dummy;
-  if (profile.flags & PROFILE_ENABLED)
-    INVOKE_CL_RET_FAIL(clGetDeviceAndHostTimer, id, &begin, &dummy);
-
-  INVOKE_CL_RET_FAIL(clEnqueueSVMMap, queue, CL_TRUE, CL_MAP_READ, tgt_ptr,
-                     size, 0, nullptr, nullptr);
-  memcpy(hst_ptr, tgt_ptr, size);
-  INVOKE_CL_RET_FAIL(clEnqueueSVMUnmap, queue, tgt_ptr, 0, nullptr, nullptr);
-
-  if (profile.flags & PROFILE_ENABLED) {
-    INVOKE_CL_RET_FAIL(clGetDeviceAndHostTimer, id, &end, &dummy);
-    profile.update("DATA-READ", end - begin);
   }
-#endif
   return OFFLOAD_SUCCESS;
 }
 
@@ -1181,6 +1258,14 @@ static inline int32_t run_target_team_nd_region(
 
   if (thread_limit)
     local_work_size_max = MIN((size_t)thread_limit, local_work_size_max);
+
+  // Account for kernel-specific maximum work group size.
+  size_t kernel_wg_size = 1;
+
+  INVOKE_CL_RET_FAIL(clGetKernelWorkGroupInfo, *kernel,
+                     DeviceInfo.deviceIDs[device_id], CL_KERNEL_WORK_GROUP_SIZE,
+                     sizeof(size_t), &kernel_wg_size, nullptr);
+  local_work_size_max = MIN(kernel_wg_size, local_work_size_max);
 
   if (num_teams)
     num_work_groups_max = MIN((size_t)num_teams, num_work_groups_max);

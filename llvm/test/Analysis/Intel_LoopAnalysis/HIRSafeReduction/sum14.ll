@@ -1,7 +1,6 @@
 ;    for ( i=0; i< n; i++) {
 ;        s1  = 10 * s1 + a[i] ;
 ;
-; REQUIRES: asserts
 ; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-safe-reduction-analysis | FileCheck %s
 ; RUN: opt < %s -passes="loop-simplify,hir-ssa-deconstruction,print<hir-safe-reduction-analysis>" -disable-output 2>&1 | FileCheck %s
 ; CHECK: No Safe Reduction
