@@ -277,7 +277,14 @@ define i1 @nocaptureInboundsGEPICmp(i32* %x) {
   ret i1 %3
 }
 
-<<<<<<< HEAD
+; CHECK: define i1 @nocaptureInboundsGEPICmpRev(i32* nocapture readnone %x)
+define i1 @nocaptureInboundsGEPICmpRev(i32* %x) {
+  %1 = getelementptr inbounds i32, i32* %x, i32 5
+  %2 = bitcast i32* %1 to i8*
+  %3 = icmp eq i8* null, %2
+  ret i1 %3
+}
+
 ; INTEL_CUSTOMIZATION
 ; FIXME: after converting GEP to llvm.intel.subscript the pointer shouldn't be nocapture.
 ; CHECK-NO-SUBSCRIPT: define i1 @captureGEPICmp(i32* readnone %x)
@@ -288,16 +295,17 @@ define i1 @captureGEPICmp(i32* %x) {
   %3 = icmp eq i8* %2, null
   ret i1 %3
 }
-; end INTEL_CUSTOMIZATION
-=======
-; CHECK: define i1 @nocaptureInboundsGEPICmpRev(i32* nocapture readnone %x)
-define i1 @nocaptureInboundsGEPICmpRev(i32* %x) {
-  %1 = getelementptr inbounds i32, i32* %x, i32 5
+
+; FIXME: after converting GEP to llvm.intel.subscript the pointer shouldn't be nocapture.
+; CHECK-NO-SUBSCRIPT: define i1 @captureGEPICmpRev(i32* readnone %x)
+; CHECK-SUBSCRIPT: define i1 @captureGEPICmpRev(i32* nocapture readnone %x)
+define i1 @captureGEPICmpRev(i32* %x) {
+  %1 = getelementptr i32, i32* %x, i32 5
   %2 = bitcast i32* %1 to i8*
   %3 = icmp eq i8* null, %2
   ret i1 %3
 }
->>>>>>> 17cb91853638facffe4a26fbf632c845a9830359
+; end INTEL_CUSTOMIZATION
 
 ; CHECK: define i1 @nocaptureDereferenceableOrNullICmp(i32* nocapture readnone dereferenceable_or_null(4) %x)
 define i1 @nocaptureDereferenceableOrNullICmp(i32* dereferenceable_or_null(4) %x) {
