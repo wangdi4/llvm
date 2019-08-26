@@ -79,13 +79,9 @@ HLIf *createRuntimeChecks(
 
 } // end of anonymous namespace
 
-bool HIRTransformUtils::isHIRLoopReversible(
-    HLLoop *InnermostLp,            // INPUT + OUTPUT: a given loop
-    HIRDDAnalysis &HDDA,            // INPUT: HIR DDAnalysis
-    HIRSafeReductionAnalysis &HSRA, // INPUT: HIRSafeReductionAnalysis
-    HIRLoopStatistics &HLS,         // INPUT: Existing HIRLoopStatitics
-    bool DoProfitTest               // INPUT: Control Profit Tests
-) {
+bool HIRTransformUtils::isLoopReversible(
+    HLLoop *InnermostLp, HIRDDAnalysis &HDDA, HIRSafeReductionAnalysis &HSRA,
+    HIRLoopStatistics &HLS, bool DoProfitTest, bool SkipLoopBoundChecks) {
   assert(InnermostLp && "HLLoop* can't be a nullptr\n");
   assert(InnermostLp->isInnermost() &&
          "HIR LoopReversal can only work with an inner-most loop\n");
@@ -95,20 +91,14 @@ bool HIRTransformUtils::isHIRLoopReversible(
                                HDDA, HLS, HSRA);
 
   // Call HIRLoopReversal.isReversible(-)
-  return ReversalPass.isReversible(
-      InnermostLp,  // HLLoop*
-      DoProfitTest, // Control Profit Test
-      true,         // Always do Legal Tests
-      false         // OFF Short-circuit action (doing analysis now)
-  );
+  return ReversalPass.isReversible(InnermostLp, DoProfitTest,
+                                   true, // Always do Legal Tests
+                                   SkipLoopBoundChecks);
 }
 
-void HIRTransformUtils::doHIRLoopReversal(
-    HLLoop *InnermostLp,            // INPUT + OUTPUT: an inner-most loop
-    HIRDDAnalysis &HDDA,            // INPUT: HIR DDAnalysis
-    HIRSafeReductionAnalysis &HSRA, // INPUT: HIRSafeReductionAnalysis
-    HIRLoopStatistics &HLS          // INPUT: Existing HIRLoopStatitics
-) {
+void HIRTransformUtils::doLoopReversal(HLLoop *InnermostLp, HIRDDAnalysis &HDDA,
+                                       HIRSafeReductionAnalysis &HSRA,
+                                       HIRLoopStatistics &HLS) {
   assert(InnermostLp && "HLLoop* can't be a nullptr\n");
   assert(InnermostLp->isInnermost() &&
          "HIR LoopReversal can only work with an inner-most loop\n");
@@ -117,16 +107,16 @@ void HIRTransformUtils::doHIRLoopReversal(
   HIRLoopReversal ReversalPass(InnermostLp->getHLNodeUtils().getHIRFramework(),
                                HDDA, HLS, HSRA);
 
-  // Call HIRLoopReversal.isReversible(-), expect the loop is reversible
+  // This check is required for the transformation because it collects all the
+  // CEs which need to be transformed.
+  // TODO: Fix this hidden state mutability.
   bool IsReversible = ReversalPass.isReversible(
-      InnermostLp, // HLLoop*
-      false,       // Ignore Profit Tests
-      false,       // Assert on legality
-      true // ON Short-circuit action (expect the analysis has been done in the
-           // previous API call)
-  );
+      InnermostLp,
+      false,  // Skip profit tests
+      false,  // Assert that loop is legal
+      false); // Don't care flag, loop bounds are always checked in legality
+              // assertion mode.
 
-  // Reverse the Loop
   assert(IsReversible && "Expect the loop is reversible\n");
   (void)IsReversible;
 
