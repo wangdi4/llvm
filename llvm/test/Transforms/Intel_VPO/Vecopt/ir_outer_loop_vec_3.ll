@@ -15,10 +15,11 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK-LABEL: foo
 ; CHECK: vector.body
+; CHECK: [[SCALAR_GEP:%.*]] = getelementptr i32, i32* [[PTR:%.*]], i64 [[IDX:%.*]]
 ; CHECK: %[[I:.*]] = trunc <4 x i64> %vec.ind to <4 x i32>
 ; CHECK: store <4 x i32>
 ; CHECK: [[VP1:VPlannedBB[0-9]+]]:
-; CHECK: phi {{.*i64.*}} [{{.*}}, %[[VP1]] ], [ {{.*}}, %VPlannedBB{{[0-9]*}} ]
+; CHECK-NEXT: phi {{.*i64.*}} [{{.*}}, %[[VP1]] ], [ {{.*}}, %VPlannedBB{{[0-9]*}} ]
 ; CHECK: [[A_val_vec:%.*]] = phi <4 x i32>
 ; CHECK: %[[B_j:.*]] = load i32, i32*
 ; CHECK: %[[B_j_insert:.*]] = insertelement <4 x i32> undef, i32 %[[B_j]], i32 0
@@ -26,9 +27,9 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: add <4 x i32> %[[B_j_splat]], %[[I]]
 ; CHECK: add <4 x i32> %{{.*}}, [[A_val_vec]]
 ; CHECK: [[VP2:VPlannedBB[0-9]+]]:
-; CHECK:  [[add6_lcssa_vec:%.*]] = phi <4 x i32> 
-; CHECK:  getelementptr i32, i32* %A, i64 {{.*}}
-; CHECK:  store <4 x i32> [[add6_lcssa_vec]], <4 x i32>*
+; CHECK:  [[add6_lcssa_vec:%.*]] = phi <4 x i32>
+; CHECK: [[BC_1:%.*]] = bitcast i32* [[SCALAR_GEP]] to <4 x i32>*
+; CHECK:  store <4 x i32> [[add6_lcssa_vec]], <4 x i32>* [[BC_1]]
 
 
 define void @foo(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32 %iCount, i32 %jCount, i32 %c) local_unnamed_addr #0 {
