@@ -1037,6 +1037,10 @@ void CSACvtCFDFPass::pipelineLoop(MachineBasicBlock *lphdr, CSALoopInfo &DFLoop,
     // The index/token edges need buffering.
     LMFI->setLICDepth(newToken, numTokens);
     LMFI->setLICDepth(backToken, numTokens);
+    // Note that this backedge buffering is satisfying a buffering requirement
+    // for the entire inner loop. This is a hint to the late tools that the
+    // they may want to try to redistribute this buffering into the loop body.
+    LMFI->addLICAttribute(backToken, "csasim_innerloop_buffering");
     // Advise the simulator not to be concerned if the this has values in it on
     // exit; this is expected.
     LMFI->addLICAttribute(newToken, "csasim_ignore_on_exit");
@@ -1091,6 +1095,7 @@ void CSACvtCFDFPass::pipelineLoop(MachineBasicBlock *lphdr, CSALoopInfo &DFLoop,
     assert(g->isReg() && "Unexpected non-LIC backedge in inner loop pipeline");
     LMFI->setLICDepth(g->getReg(), numTokens);
     LMFI->setLICName(g->getReg(), "backEdge");
+    LMFI->addLICAttribute(g->getReg(), "csasim_innerloop_buffering");
   }
 
   // Set up the criteria for accepting new iterations. First, delete the old
