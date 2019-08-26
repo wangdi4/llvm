@@ -97,12 +97,12 @@ class FixupBWInstPass : public MachineFunctionPass {
   /// Change the MachineInstr \p MI into the equivalent 32-bit unop if it is
   /// safe to do so.  Return the replacement instruction if OK, otherwise return
   /// nullptr.
-  MachineInstr *tryReplaceUnOp(Register NewOpc, MachineInstr *MI) const;
+  MachineInstr *tryReplaceUnOp(unsigned NewOpc, MachineInstr *MI) const;
 
   /// Change the MachineInstr \p MI into the equivalent 32-bit reg/imm if it is
   /// safe to do so.  Return the replacement instruction if OK, otherwise return
   /// nullptr.
-  MachineInstr *tryReplaceRegImmOp(Register NewOpc, MachineInstr *MI) const;
+  MachineInstr *tryReplaceRegImmOp(unsigned NewOpc, MachineInstr *MI) const;
 #endif // INTEL_CUSTOMIZATION
 
   // Change the MachineInstr \p MI into an eqivalent 32 bit instruction if
@@ -348,7 +348,7 @@ MachineInstr *FixupBWInstPass::tryReplaceCopy(MachineInstr *MI) const {
 }
 
 #if INTEL_CUSTOMIZATION
-MachineInstr *FixupBWInstPass::tryReplaceUnOp(Register NewOpc,
+MachineInstr *FixupBWInstPass::tryReplaceUnOp(unsigned NewOpc,
                                               MachineInstr *MI) const {
   auto *TRI = &TII->getRegisterInfo();
 
@@ -381,7 +381,7 @@ MachineInstr *FixupBWInstPass::tryReplaceUnOp(Register NewOpc,
   return MIB;
 }
 
-MachineInstr *FixupBWInstPass::tryReplaceRegImmOp(Register NewOpc,
+MachineInstr *FixupBWInstPass::tryReplaceRegImmOp(unsigned NewOpc,
                                                   MachineInstr *MI) const {
   auto *TRI = &TII->getRegisterInfo();
 
