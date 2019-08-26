@@ -197,6 +197,7 @@ private:
   SDValue CombineSelect(SDNode *, SelectionDAG &) const;
   SDValue CombineMinMax(SDNode *, SelectionDAG &) const;
   SDValue CombineShuffle(SDNode *, SelectionDAG &) const;
+  SDValue CombineBuildVector(SDNode *, SelectionDAG &) const;
 
   /// Searches the SelectionDAG for compares with the same inputs as a
   /// recently-created min/max op and attempts to replace them with a value

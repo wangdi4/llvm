@@ -83,65 +83,31 @@ FunctionPass *llvm::createCSAISelDag(CSATargetMachine &TM,
 
 // Match a register or immediate operand
 bool CSADAGToDAGISel::SelectRegImm(SDValue Opnd, SDValue &Result) {
-  if (ConstantSDNode *CN = dyn_cast<ConstantSDNode>(Opnd)) {
-    SDLoc dl(Opnd);
-    const ConstantInt &ci = *(CN->getConstantIntValue());
-    Result = CurDAG->getTargetConstant(ci, dl, CN->getValueType(0));
+
+  // Ignore bitcasts when looking for constants.
+  SDValue CV = Opnd;
+  if (CV->getOpcode() == ISD::BITCAST)
+    CV = CV->getOperand(0);
+
+  // Extract the bits if this is a constant; clear CV otherwise.
+  APInt ImmBits;
+  EVT ImmType =
+    EVT::getIntegerVT(*CurDAG->getContext(), CV.getValueSizeInBits());
+  if (const auto CN = dyn_cast<ConstantSDNode>(CV)) {
+    ImmBits = CN->getAPIntValue();
+  } else if (const auto CFN = dyn_cast<ConstantFPSDNode>(CV)) {
+    ImmBits = CFN->getValueAPF().bitcastToAPInt();
+  } else {
+    CV = SDValue{};
+  }
+
+  // If a constant was found, create a TargetConstant.
+  if (CV) {
+    Result = CurDAG->getTargetConstant(ImmBits, SDLoc{CV}, ImmType);
     return true;
   }
 
-  // Get the bits for FP types
-  // See also CSAMCInstLower.cpp::Lower, case MO_FPImmediate
-  if (ConstantFPSDNode *CN = dyn_cast<ConstantFPSDNode>(Opnd)) {
-    SDLoc dl(Opnd);
-    const ConstantFP *f = CN->getConstantFPValue();
-    APFloat apf         = f->getValueAPF();
-    bool ignored;
-    if (f->getType() == Type::getFloatTy(f->getContext()))
-      apf.convert(APFloat::IEEEdouble(), APFloat::rmNearestTiesToEven,
-                  &ignored);
-    double d = apf.convertToDouble();
-    if (f->getType()->getTypeID() == Type::FloatTyID) {
-      // Result = CurDAG->getTargetConstantFP(f, dl, EVT(MVT::f32)); ?
-      union {
-        int i;
-        float f;
-      } ifu;
-      ifu.f  = d;
-      Result = CurDAG->getTargetConstant(ifu.i, dl, MVT::i64);
-      return true;
-    } else if (f->getType()->getTypeID() == Type::DoubleTyID) {
-      // Result = CurDAG->getTargetConstantFP(f, dl, EVT(MVT::f64)); ?
-      union {
-        long long l;
-        double d;
-      } ldu;
-      ldu.d  = d;
-      Result = CurDAG->getTargetConstant(ldu.l, dl, MVT::i64);
-      return true;
-    }
-  }
-
-  // Vector types: match constant vectors
-  if (ISD::isBuildVectorOfConstantSDNodes(Opnd.getNode()) ||
-      ISD::isBuildVectorOfConstantFPSDNodes(Opnd.getNode())) {
-    APInt ImmValue(Opnd.getValueSizeInBits(), 0, false);
-    unsigned BitSize = Opnd.getScalarValueSizeInBits();
-    for (unsigned i = 0; i < Opnd->getNumOperands(); i++) {
-      SDValue Op = Opnd->getOperand(i);
-      if (auto ConstNode = dyn_cast<ConstantSDNode>(Op)) {
-        ImmValue.insertBits(ConstNode->getAPIntValue(), BitSize * i);
-      } else if (auto ConstNode = dyn_cast<ConstantFPSDNode>(Op)) {
-        ImmValue.insertBits(ConstNode->getValueAPF().bitcastToAPInt(),
-            BitSize * i);
-      }
-    }
-    Result = CurDAG->getTargetConstant(ImmValue, SDLoc(Opnd),
-        EVT::getIntegerVT(*CurDAG->getContext(), Opnd.getValueSizeInBits()));
-    return true;
-  }
-
-  // Fall back to register match
+  // Otherwise, fall back to a register match.
   Result = Opnd;
   return true;
 }

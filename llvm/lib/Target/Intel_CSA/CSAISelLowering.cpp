@@ -399,6 +399,7 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
   setTargetDAGCombine(ISD::FMINIMUM);
   setTargetDAGCombine(ISD::FMAXIMUM);
   setTargetDAGCombine(ISD::VECTOR_SHUFFLE);
+  setTargetDAGCombine(ISD::BUILD_VECTOR);
 }
 
 EVT CSATargetLowering::getSetCCResultType(const DataLayout &DL,
@@ -1317,6 +1318,9 @@ SDValue CSATargetLowering::PerformDAGCombine(SDNode *N,
   case ISD::VECTOR_SHUFFLE:
     return CombineShuffle(N, DAG);
 
+  case ISD::BUILD_VECTOR:
+    return CombineBuildVector(N, DAG);
+
   // Return SDValue{} for opcodes that we don't handle to show that we don't
   // handle them.
   default:
@@ -1586,6 +1590,33 @@ SDValue CSATargetLowering::CombineShuffle(SDNode *N, SelectionDAG &DAG) const {
 
   // Otherwise, just use regular shuffle instructions.
   return SDValue{};
+}
+
+SDValue CSATargetLowering::CombineBuildVector(SDNode *N,
+                                              SelectionDAG &DAG) const {
+
+  // Target build_vector nodes with all-constant inputs.
+  if (not ISD::isBuildVectorOfConstantSDNodes(N) and
+      not ISD::isBuildVectorOfConstantFPSDNodes(N))
+    return SDValue{};
+
+  // Collect the constant bits to form an integer constant.
+  const EVT VT      = N->getValueType(0);
+  const EVT ImmType = EVT::getIntegerVT(*DAG.getContext(), VT.getSizeInBits());
+  APInt ImmValue(VT.getSizeInBits(), 0, false);
+  const unsigned BitSize = VT.getScalarSizeInBits();
+  for (unsigned i = 0; i < N->getNumOperands(); i++) {
+    SDValue Op = N->getOperand(i);
+    if (auto ConstNode = dyn_cast<ConstantSDNode>(Op)) {
+      ImmValue.insertBits(ConstNode->getAPIntValue(), BitSize * i);
+    } else if (auto ConstNode = dyn_cast<ConstantFPSDNode>(Op)) {
+      ImmValue.insertBits(ConstNode->getValueAPF().bitcastToAPInt(),
+                          BitSize * i);
+    }
+  }
+
+  // Replace the BUILD_VECTOR with an equivalent bitcasted constant.
+  return DAG.getBitcast(VT, DAG.getConstant(ImmValue, SDLoc{N}, ImmType));
 }
 
 //===----------------------------------------------------------------------===//
