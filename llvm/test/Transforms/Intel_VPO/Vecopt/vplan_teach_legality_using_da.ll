@@ -1,4 +1,6 @@
-; Test to check that VPlan DA's knowledge about uniform loads is transferred to VPOLegal, which ensures that gathers are not generated for vector code.
+; Test to check that VPlan DA's knowledge about uniform loads & loads/stores
+; with unit-strided pointers is transferred to VPOLegal, which ensures that
+; gathers/scatters are not generated for vector code.
 
 ; REQUIRES: asserts
 ; RUN: opt %s -VPlanDriver -disable-vplan-predicator -debug-only=vplan-divergence-analysis -vplan-force-vf=16 -S 2>&1 | FileCheck %s
@@ -11,6 +13,7 @@
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i32 [[LOAD_USER:%vp.*]] = add i32 [[UNI_LOAD]] i32 42
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride Pointer, Stride: i64 4] i32* [[UNIT_STRIDE_GEP:%vp.*]] = getelementptr inbounds i32* [[OUTER_GEP]] i64 [[OUTER_IV:%vp.*]]
 ; CHECK-NEXT: Divergent: [Shape: Random] i32 [[UNIT_STRIDE_LOAD:%vp.*]] = load i32* [[UNIT_STRIDE_GEP]]
+; CHECK-NEXT: Divergent: [Shape: Random] store i32 [[UNIT_STRIDE_LOAD]] i32* [[UNIT_STRIDE_GEP]]
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()
@@ -49,6 +52,12 @@ for.body2:
 ; CHECK-NEXT: [[WIDE_USER:%.*]] = add <16 x i32> [[BCAST_SHUFFLE]], <i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42>
   %unit.stride.gep = getelementptr inbounds i32, i32* %outer.gep2, i64 %indvars.iv
   %unit.stride.load = load i32, i32* %unit.stride.gep
+; CHECK: [[UNIT_GEP:%.*]] = getelementptr inbounds i32, i32* {{.*}}, i64 {{.*}}
+; CHECK-NEXT: [[UNIT_GEP_BC:%.*]] = bitcast i32* [[UNIT_GEP]] to <16 x i32>*
+; CHECK-NEXT: [[WIDE_LOAD:%.*]] = load <16 x i32>, <16 x i32>* [[UNIT_GEP_BC]], align 4
+  store i32 %unit.stride.load, i32* %unit.stride.gep
+; CHECK-NEXT: [[UNIT_GEP_BC:%.*]] = bitcast i32* [[UNIT_GEP]] to <16 x i32>*
+; CHECK-NEXT: store <16 x i32> [[WIDE_LOAD]], <16 x i32>* [[UNIT_GEP_BC]], align 4
   %indvars.iv.next2 = add nuw nsw i64 %indvars.iv2, 1
   %exitcond2 = icmp eq i64 %indvars.iv.next2, %n
   br i1 %exitcond2, label %for.latch, label %for.body2

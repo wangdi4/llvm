@@ -4119,13 +4119,6 @@ void CodeGenModule::generateHLSAnnotation(const Decl *D,
         NWPA->getValue()->EvaluateKnownConstInt(getContext());
     Out << '{' << NWPA->getSpelling() << ':' << NWPAInt << '}';
   }
-  if (const auto *MRA = D->getAttr<MaxReplicatesAttr>()) {
-    llvm::APSInt MRAInt =
-      MRA->getValue()->EvaluateKnownConstInt(getContext());
-    Out << '{' << MRA->getSpelling() << ':' << MRAInt << '}';
-  }
-  if (D->hasAttr<SimpleDualPortAttr>())
-    Out << "{simple_dual_port:1}";
   if (const auto *IMDA = D->getAttr<InternalMaxBlockRamDepthAttr>()) {
     llvm::APSInt IMDAInt =
         IMDA->getInternalMaxBlockRamDepth()->EvaluateKnownConstInt(
@@ -4146,10 +4139,6 @@ void CodeGenModule::generateHLSAnnotation(const Decl *D,
       Out << BBAInt;
     }
     Out << '}';
-  }
-  if (const auto *MA = D->getAttr<MergeAttr>()) {
-    Out << '{' << MA->getSpelling() << ':' << MA->getName() << ':'
-        << MA->getDirection() << '}';
   }
   if (const auto *VD = dyn_cast<VarDecl>(D)) {
     if (VD->getStorageClass() == SC_Static) {

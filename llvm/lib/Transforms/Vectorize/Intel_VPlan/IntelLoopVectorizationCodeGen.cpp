@@ -2795,25 +2795,36 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     assert(Inst &&
            "Underlying instruction cannot be null for valid VPInstruction.");
 
-    // Temporary workaround to detect and handle uniform loads in codegen by
-    // transferring knowledge from DA to VPOLegal about uniform loads.
+    // Temporary workaround to detect and handle uniform loads and unit-stride
+    // loads/stores in codegen by transferring knowledge from DA to VPOLegal.
     // TODO: Is this too late to do a knowledge transfer. Other option is to
     // write a full HCFG traversal in collectLoopUniforms.
     if (VPlanTeachLegalFromDA) {
-      if (isa<LoadInst>(Inst) && !Plan->getVPlanDA()->isDivergent(*VPInst)) {
+      VPlanDivergenceAnalysis *DA = Plan->getVPlanDA();
+      // We do special handling for uniform loads, nothing is done in codegen
+      // for uniform stores.
+      if (isa<LoadInst>(Inst) && !DA->isDivergent(*VPInst)) {
         if (auto *PtrInst =
                 dyn_cast<Instruction>(getLoadStorePointerOperand(Inst))) {
           Legal->UniformForAnyVF.insert(PtrInst);
           Uniforms[VF].insert(Inst);
         }
       }
-      if (isa<GetElementPtrInst>(Inst) &&
-          !Plan->getVPlanDA()->isDivergent(*VPInst)) {
-        // A pointer identified by DA as uniform for outer-loop vectorization
-        // was marked as unit-strided by legality based on inner-loop
-        // vectorization. Fix legality by unsetting the stride.
-        if (Legal->isConsecutivePtr(Inst)) {
-          Legal->erasePtrStride(Inst);
+      if (isa<GetElementPtrInst>(Inst)) {
+        if (!DA->isDivergent(*VPInst)) {
+          // A pointer identified by DA as uniform for outer-loop vectorization
+          // was marked as unit-strided by legality based on inner-loop
+          // vectorization. Fix legality by unsetting the stride.
+          if (Legal->isConsecutivePtr(Inst)) {
+            Legal->erasePtrStride(Inst);
+          }
+        }
+
+        // Check for GEPs producing unit-stride pointers.
+        VPVectorShape *VPPtrShape = DA->getVectorShape(VPInst);
+        if (VPPtrShape->isUnitStridePtr()) {
+          int StrideInBytes = VPPtrShape->getStrideVal();
+          Legal->addPtrStride(Inst, StrideInBytes > 0 ? 1 : -1);
         }
       }
     }
