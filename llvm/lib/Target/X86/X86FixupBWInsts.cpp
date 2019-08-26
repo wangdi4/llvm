@@ -80,12 +80,8 @@ class FixupBWInstPass : public MachineFunctionPass {
   /// destination register of the MachineInstr passed in. It returns true if
   /// that super register is dead just prior to \p OrigMI, and false if not.
   bool getSuperRegDestIfDead(MachineInstr *OrigMI,
-<<<<<<< HEAD
-                             unsigned &SuperDestReg, // INTEL
+                             Register &SuperDestReg, // INTEL
                              bool IsMOV = true) const; // INTEL
-=======
-                             Register &SuperDestReg) const;
->>>>>>> a17d1d2250448a8dcffc3c7be3a70eb24309537e
 
   /// Change the MachineInstr \p MI into the equivalent extending load to 32 bit
   /// register if it is safe to do so.  Return the replacement instruction if
@@ -101,12 +97,12 @@ class FixupBWInstPass : public MachineFunctionPass {
   /// Change the MachineInstr \p MI into the equivalent 32-bit unop if it is
   /// safe to do so.  Return the replacement instruction if OK, otherwise return
   /// nullptr.
-  MachineInstr *tryReplaceUnOp(unsigned NewOpc, MachineInstr *MI) const;
+  MachineInstr *tryReplaceUnOp(Register NewOpc, MachineInstr *MI) const;
 
   /// Change the MachineInstr \p MI into the equivalent 32-bit reg/imm if it is
   /// safe to do so.  Return the replacement instruction if OK, otherwise return
   /// nullptr.
-  MachineInstr *tryReplaceRegImmOp(unsigned NewOpc, MachineInstr *MI) const;
+  MachineInstr *tryReplaceRegImmOp(Register NewOpc, MachineInstr *MI) const;
 #endif // INTEL_CUSTOMIZATION
 
   // Change the MachineInstr \p MI into an eqivalent 32 bit instruction if
@@ -186,12 +182,8 @@ bool FixupBWInstPass::runOnMachineFunction(MachineFunction &MF) {
 ///
 /// If so, return that super register in \p SuperDestReg.
 bool FixupBWInstPass::getSuperRegDestIfDead(MachineInstr *OrigMI,
-<<<<<<< HEAD
-                                            unsigned &SuperDestReg, // INTEL
+                                            Register &SuperDestReg, // INTEL
                                             bool IsMOV) const { // INTEL
-=======
-                                            Register &SuperDestReg) const {
->>>>>>> a17d1d2250448a8dcffc3c7be3a70eb24309537e
   auto *TRI = &TII->getRegisterInfo();
 
   Register OrigDestReg = OrigMI->getOperand(0).getReg();
@@ -356,7 +348,7 @@ MachineInstr *FixupBWInstPass::tryReplaceCopy(MachineInstr *MI) const {
 }
 
 #if INTEL_CUSTOMIZATION
-MachineInstr *FixupBWInstPass::tryReplaceUnOp(unsigned NewOpc,
+MachineInstr *FixupBWInstPass::tryReplaceUnOp(Register NewOpc,
                                               MachineInstr *MI) const {
   auto *TRI = &TII->getRegisterInfo();
 
@@ -366,7 +358,7 @@ MachineInstr *FixupBWInstPass::tryReplaceUnOp(unsigned NewOpc,
 
   // FIXME: Skip checking implicit operands until we have a better understanding
   // of whether that applies to arithmetic or only moves.
-  unsigned NewReg;
+  Register NewReg;
   if (!getSuperRegDestIfDead(MI, NewReg, /*IsMOV*/false))
     return nullptr;
 
@@ -389,7 +381,7 @@ MachineInstr *FixupBWInstPass::tryReplaceUnOp(unsigned NewOpc,
   return MIB;
 }
 
-MachineInstr *FixupBWInstPass::tryReplaceRegImmOp(unsigned NewOpc,
+MachineInstr *FixupBWInstPass::tryReplaceRegImmOp(Register NewOpc,
                                                   MachineInstr *MI) const {
   auto *TRI = &TII->getRegisterInfo();
 
@@ -399,7 +391,7 @@ MachineInstr *FixupBWInstPass::tryReplaceRegImmOp(unsigned NewOpc,
 
   // FIXME: Skip checking implicit operands until we have a better understanding
   // of whether that applies to arithmetic or only moves.
-  unsigned NewReg;
+  Register NewReg;
   if (!getSuperRegDestIfDead(MI, NewReg, /*IsMOV*/false))
     return nullptr;
 
