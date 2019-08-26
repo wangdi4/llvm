@@ -1796,7 +1796,8 @@ VarDecl *Sema::isOpenMPCapturedDecl(ValueDecl *D, bool CheckScopeInfo,
     if (isInOpenMPDeclareTargetContext()) {
       // Try to mark variable as declare target if it is used in capturing
       // regions.
-      if (!OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD))
+      if (LangOpts.OpenMP <= 45 &&
+          !OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD))
         checkDeclIsAllowedInOpenMPTarget(nullptr, VD);
       return nullptr;
     } else if (isInOpenMPTargetExecutionDirective()) {
@@ -5844,8 +5845,7 @@ Expr *OpenMPIterationSpaceChecker::buildPreCond(
     Scope *S, Expr *Cond,
     llvm::MapVector<const Expr *, DeclRefExpr *> &Captures) const {
   // Try to build LB <op> UB, where <op> is <, >, <=, or >=.
-  bool Suppress = SemaRef.getDiagnostics().getSuppressAllDiagnostics();
-  SemaRef.getDiagnostics().setSuppressAllDiagnostics(/*Val=*/true);
+  Sema::TentativeAnalysisScope Trap(SemaRef);
 
   ExprResult NewLB =
       InitDependOnLC ? LB : tryBuildCapture(SemaRef, LB, Captures);
@@ -5867,7 +5867,7 @@ Expr *OpenMPIterationSpaceChecker::buildPreCond(
           CondExpr.get(), SemaRef.Context.BoolTy, /*Action=*/Sema::AA_Casting,
           /*AllowExplicit=*/true);
   }
-  SemaRef.getDiagnostics().setSuppressAllDiagnostics(Suppress);
+
   // Otherwise use original loop condition and evaluate it in runtime.
   return CondExpr.isUsable() ? CondExpr.get() : Cond;
 }
@@ -6289,8 +6289,8 @@ static ExprResult buildCounterUpdate(
   if (VarRef.get()->getType()->isOverloadableType() ||
       NewStart.get()->getType()->isOverloadableType() ||
       Update.get()->getType()->isOverloadableType()) {
-    bool Suppress = SemaRef.getDiagnostics().getSuppressAllDiagnostics();
-    SemaRef.getDiagnostics().setSuppressAllDiagnostics(/*Val=*/true);
+    Sema::TentativeAnalysisScope Trap(SemaRef);
+
     Update =
         SemaRef.BuildBinOp(S, Loc, BO_Assign, VarRef.get(), NewStart.get());
     if (Update.isUsable()) {
@@ -6302,7 +6302,6 @@ static ExprResult buildCounterUpdate(
                                             UpdateVal.get());
       }
     }
-    SemaRef.getDiagnostics().setSuppressAllDiagnostics(Suppress);
   }
 
   // Second attempt: try to build 'VarRef = Start (+|-) Iter * Step'.
@@ -13830,11 +13829,13 @@ Sema::ActOnOpenMPDependClause(OpenMPDependClauseKind DepKind,
             << RefExpr->getSourceRange();
         continue;
       }
-      bool Suppress = getDiagnostics().getSuppressAllDiagnostics();
-      getDiagnostics().setSuppressAllDiagnostics(/*Val=*/true);
-      ExprResult Res =
-          CreateBuiltinUnaryOp(ELoc, UO_AddrOf, RefExpr->IgnoreParenImpCasts());
-      getDiagnostics().setSuppressAllDiagnostics(Suppress);
+
+      ExprResult Res;
+      {
+        Sema::TentativeAnalysisScope Trap(*this);
+        Res = CreateBuiltinUnaryOp(ELoc, UO_AddrOf,
+                                   RefExpr->IgnoreParenImpCasts());
+      }
       if (!Res.isUsable() && !isa<OMPArraySectionExpr>(SimpleExpr)) {
         Diag(ELoc, diag::err_omp_expected_addressable_lvalue_or_array_item)
             << RefExpr->getSourceRange();
@@ -15574,7 +15575,28 @@ static void checkDeclInTargetContext(SourceLocation SL, SourceRange SR,
   if (!D || !isa<VarDecl>(D))
     return;
   auto *VD = cast<VarDecl>(D);
-  if (OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD))
+  Optional<OMPDeclareTargetDeclAttr::MapTypeTy> MapTy =
+      OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD);
+  if (SemaRef.LangOpts.OpenMP >= 50 &&
+      (SemaRef.getCurLambda(/*IgnoreNonLambdaCapturingScope=*/true) ||
+       SemaRef.getCurBlock() || SemaRef.getCurCapturedRegion()) &&
+      VD->hasGlobalStorage()) {
+    llvm::Optional<OMPDeclareTargetDeclAttr::MapTypeTy> MapTy =
+        OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD);
+    if (!MapTy || *MapTy != OMPDeclareTargetDeclAttr::MT_To) {
+      // OpenMP 5.0, 2.12.7 declare target Directive, Restrictions
+      // If a lambda declaration and definition appears between a
+      // declare target directive and the matching end declare target
+      // directive, all variables that are captured by the lambda
+      // expression must also appear in a to clause.
+      SemaRef.Diag(VD->getLocation(),
+                   diag::omp_lambda_capture_in_declare_target_not_to);
+      SemaRef.Diag(SL, diag::note_var_explicitly_captured_here)
+          << VD << 0 << SR;
+      return;
+    }
+  }
+  if (MapTy.hasValue())
     return;
   SemaRef.Diag(VD->getLocation(), diag::warn_omp_not_in_target_context);
   SemaRef.Diag(SL, diag::note_used_here) << SR;
