@@ -14,21 +14,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "Intel_DTrans/Transforms/ReorderFields.h"
-#include "Intel_DTrans/Analysis/DTrans.h"
-#include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/DTransCommon.h"
-#include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/Intel_WP.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/IR/Module.h"
 #include "llvm/IR/PatternMatch.h"
-#include "llvm/Pass.h"
 #include "llvm/Transforms/IPO.h"
-
-#include <algorithm>
-#include <vector>
 
 using namespace llvm;
 
@@ -1516,16 +1506,18 @@ bool ReorderFieldsPass::isProfitable(TypeInfo *TI, const DataLayout &DL) {
     // to the top, and minimize padding at top position.
     //
     const unsigned Alignments[] = {8, 4, 2, 1};
-    unsigned Idx = -1;
+    // Set TopAlign to 1 (its default value).
+    // Even if the search loop (below) fails, the default value is valid.
+    unsigned TopAlign = Alignments[3];
     for (unsigned I = 0, E = sizeof(Alignments) / sizeof(unsigned); I < E;
          ++I) {
       if (TopAlignToMatch % Alignments[I] == 0) {
-        Idx = I;
+        TopAlign = Alignments[I];
         break;
       }
     }
-    const unsigned TopAlign = Alignments[Idx];
 
+    unsigned Idx = 0;
     bool FoundTopMatch = false;
     for (unsigned I = TopIdx; I < BottomIdx; ++I) {
       if (Fields[I].getSize() == TopAlign) {

@@ -65,10 +65,6 @@ private:
   std::map<StructType *, StructType *> InclusiveStructTypeUnmap;
   std::map<Function *, bool> InclusiveStructTypeMapped;
 
-  // Alignment for Reordered StructType
-  DenseMap<StructType *, SmallVector<uint32_t, 8>> AlignMap;
-  DenseMap<StructType *, bool> AlignMapCreated;
-
 public:
   // Set new size of \p StructT after reordering fields.
   void setTransformedTypeNewSize(StructType *StructT, uint64_t NewSize) {
