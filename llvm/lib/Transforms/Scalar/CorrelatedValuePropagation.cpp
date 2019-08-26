@@ -827,12 +827,8 @@ CorrelatedValuePropagationPass::run(Function &F, FunctionAnalysisManager &AM) {
   PreservedAnalyses PA;
   PA.preserve<GlobalsAA>();
   PA.preserve<DominatorTreeAnalysis>();
-<<<<<<< HEAD
   PA.preserve<LazyValueAnalysis>();
   PA.preserve<AndersensAA>();       // INTEL
-=======
-  PA.preserve<AndersensAA>();          // INTEL
   PA.preserve<WholeProgramAnalysis>(); // INTEL
->>>>>>> 6f97098697f1e23a6bf253a3acd2557a7010053e
   return PA;
 }
