@@ -2502,8 +2502,7 @@ cl_err_code ExecutionModule::EnqueueReadImage(
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-
-    if (pCommandQueue->GetDefaultDevice() == CL_DEVICE_TYPE_ACCELERATOR)
+    if (pCommandQueue->GetContext()->IsFPGAEmulator())
     {
         return CL_INVALID_OPERATION;
     }
@@ -2592,7 +2591,7 @@ cl_err_code ExecutionModule::EnqueueWriteImage(
         return CL_INVALID_COMMAND_QUEUE;
     }
 
-    if (pCommandQueue->GetDefaultDevice() == CL_DEVICE_TYPE_ACCELERATOR)
+    if (pCommandQueue->GetContext()->IsFPGAEmulator())
     {
         return CL_INVALID_OPERATION;
     }
@@ -2742,7 +2741,7 @@ cl_err_code ExecutionModule::EnqueueCopyImage(
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-    if (pCommandQueue->GetDefaultDevice() == CL_DEVICE_TYPE_ACCELERATOR)
+    if (pCommandQueue->GetContext()->IsFPGAEmulator())
     {
         return CL_INVALID_OPERATION;
     }
@@ -2847,7 +2846,7 @@ cl_err_code ExecutionModule::EnqueueCopyImageToBuffer(
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-    if (pCommandQueue->GetDefaultDevice() == CL_DEVICE_TYPE_ACCELERATOR)
+    if (pCommandQueue->GetContext()->IsFPGAEmulator())
     {
         return CL_INVALID_OPERATION;
     }
@@ -2937,7 +2936,7 @@ cl_err_code ExecutionModule::EnqueueCopyBufferToImage(
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-    if (pCommandQueue->GetDefaultDevice() == CL_DEVICE_TYPE_ACCELERATOR)
+    if (pCommandQueue->GetContext()->IsFPGAEmulator())
     {
         return CL_INVALID_OPERATION;
     }
@@ -3044,7 +3043,7 @@ void * ExecutionModule::EnqueueMapImage(
     {
         *pErrcodeRet = CL_INVALID_COMMAND_QUEUE;
     }
-    else if (pCommandQueue->GetDefaultDevice() == CL_DEVICE_TYPE_ACCELERATOR)
+    else if (pCommandQueue->GetContext()->IsFPGAEmulator())
     {
         *pErrcodeRet = CL_INVALID_OPERATION;
     }

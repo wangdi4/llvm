@@ -62,5 +62,20 @@ public:
   /// Returns the name of the pass
   llvm::StringRef getPassName() const override { return "OCLVecClone pass"; }
 };
+
+class OCLReqdSubGroupSize : public ModulePass {
+private:
+  bool runOnModule(Module &F) override;
+
+public:
+  static char ID;
+
+  OCLReqdSubGroupSize();
+
+  /// Returns the name of the pass
+  llvm::StringRef getPassName() const override {
+    return "OCLReqdSubGroupSize pass";
+  }
+};
 } // namespace intel
 #endif // BACKEND_VECTORIZER_OCLVECCLONE_OCLVECCLONE_H

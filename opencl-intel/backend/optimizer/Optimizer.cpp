@@ -103,6 +103,7 @@ FunctionPass *createScalarizerPass(const Intel::CPUId &CpuId,
                                    bool InVPlanPipeline);
 llvm::Pass *createVectorizerPass(SmallVector<Module *, 2> builtinModules,
                                  const intel::OptimizerConfig *pConfig);
+llvm::Pass *createOCLReqdSubGroupSizePass();
 llvm::Pass *createOCLVecClonePass(const intel::OptimizerConfig *pConfig,
                                   bool EnableVPlanVecForOpenCL);
 llvm::Pass *createOCLPostVectPass();
@@ -568,6 +569,7 @@ static void populatePassesPostFailCheck(
         PM.add(createInstructionCombiningPass());
         PM.add(createGVNHoistPass());
         PM.add(createDeadCodeEliminationPass());
+        PM.add(createOCLReqdSubGroupSizePass());
 
         // Calculate VL.
         PM.add(createWeightedInstCounter(true, pConfig->GetCpuId()));

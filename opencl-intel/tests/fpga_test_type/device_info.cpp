@@ -37,7 +37,7 @@ protected:
 
 TEST_F(TestInfo, Platform) {
   checkPlatform(CL_PLATFORM_PROFILE, "EMBEDDED_PROFILE");
-  checkPlatform(CL_PLATFORM_VERSION, "OpenCL 1.0 Intel(R) FPGA SDK for OpenCL(TM), Version 19.2");
+  checkPlatform(CL_PLATFORM_VERSION, "OpenCL 1.2 Intel(R) FPGA SDK for OpenCL(TM), Version 19.2");
   checkPlatform(CL_PLATFORM_NAME,    "Intel(R) FPGA Emulation Platform for OpenCL(TM) (preview)");
   checkPlatform(CL_PLATFORM_VENDOR,  "Intel(R) Corporation");
 }
@@ -45,12 +45,12 @@ TEST_F(TestInfo, Platform) {
 TEST_F(TestInfo, Device) {
   for (auto device : devices()) {
     checkDevice(device, CL_DEVICE_PROFILE,          "EMBEDDED_PROFILE");
-    checkDevice(device, CL_DEVICE_VERSION,          "OpenCL 1.0 ");
+    checkDevice(device, CL_DEVICE_VERSION,          "OpenCL 1.2 ");
     checkDevice(device, CL_DEVICE_NAME,             "Intel(R) FPGA Emulation Device (preview)");
     checkDevice(device, CL_DEVICE_VENDOR,           "Intel(R) Corporation");
-    checkDevice(device, CL_DEVICE_OPENCL_C_VERSION, "OpenCL C 1.0 ");
+    checkDevice(device, CL_DEVICE_OPENCL_C_VERSION, "OpenCL C 1.2 ");
     checkDevice(device, CL_DEVICE_EXTENSIONS,
-        "cl_khr_icd cl_khr_byte_addressable_store cl_intel_fpga_host_pipe cles_khr_int64 cl_khr_il_program ");
+        "cl_khr_icd cl_khr_byte_addressable_store cl_intel_fpga_host_pipe cles_khr_int64 cl_khr_il_program cl_khr_global_int32_base_atomics cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics cl_khr_local_int32_extended_atomics ");
 
     cl_device_type type;
     cl_int err =
