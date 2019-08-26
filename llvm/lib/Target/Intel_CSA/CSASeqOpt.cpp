@@ -45,12 +45,6 @@ static cl::opt<bool> EnableBuffer(
   "csa-enable-buffer", cl::Hidden, cl::init(false),
   cl::desc("CSA Specific: Add buffering to loop LICs"));
 
-static cl::opt<bool>
-  UseDeprecatedReducInsts("csa-use-deprecated-reduc-insts", cl::Hidden,
-                          cl::init(false),
-                          cl::desc("CSA Specific: Re-enable the generation of "
-                                   "deprecated reduction instructions"));
-
 CSASeqOpt::CSASeqOpt(MachineFunction *F, MachineOptimizationRemarkEmitter &ORE,
                      CSALoopInfoPass &LI, const char *PassName) :
   ORE(ORE), LI(LI), PassName(PassName) {
@@ -492,119 +486,7 @@ MachineInstr *CSASeqOpt::getSeqOTDef(MachineOperand &opnd, bool *isNegated) {
 
 void CSASeqOpt::SequenceApp(MachineInstr *switchInst, MachineInstr *addInst,
                             MachineInstr *lhdrPickInst) {
-  unsigned phidst = lhdrPickInst->getOperand(0).getReg();
-  unsigned adddst = addInst->getOperand(0).getReg();
-  if (MRI->hasOneNonDBGUse(phidst) && MRI->hasOneNonDBGUse(adddst)) {
-    SequenceReduction(switchInst, addInst, lhdrPickInst);
-  } else {
-    MultiSequence(switchInst, addInst, lhdrPickInst);
-  }
-}
-
-void CSASeqOpt::SequenceReduction(MachineInstr *switchInst,
-                                  MachineInstr *addInst,
-                                  MachineInstr *lhdrPickInst) {
-
-  // If -csa-use-deprecated-reduc-insts isn't passed, reduction instructions
-  // shouldn't be generated except where needed for CSAReassocReduc. Make sure
-  // that pass is enabled and that the reduction is one of the floating point
-  // ones that it can handle.
-  if (!UseDeprecatedReducInsts) {
-    if (!willRunCSAReassocReduc(*thisMF))
-      return;
-    if (TII->getOpcodeClass(addInst->getOpcode()) !=
-        CSA::OpcodeClass::VARIANT_FLOAT)
-      return;
-  }
-
-  // switchNode has inputs addNode, and switch's control is SeqOT
-  MachineInstr *seqOT = getSeqOTDef(switchInst->getOperand(2));
-  bool isIDVCycle =
-    seqOT && MRI->getVRegDef(switchInst->getOperand(3).getReg()) ==
-               addInst;
-  unsigned backedgeReg = 0;
-  unsigned loopSense = 0;
-  unsigned idvIdx, strideIdx;
-  bool successful = analyzePickSwitchPair(
-    lhdrPickInst, switchInst, backedgeReg, loopSense, seqOT);
-  if (TII->isFMA(addInst)) {
-    assert(MRI->getVRegDef(addInst->getOperand(3).getReg()) ==
-           lhdrPickInst);
-    idvIdx    = 3;
-    strideIdx = 100;
-  } else {
-    idvIdx = MRI->getVRegDef(addInst->getOperand(1).getReg()) ==
-                 lhdrPickInst
-               ? 1
-               : 2;
-    strideIdx = 3 - idvIdx;
-  }
-  isIDVCycle = isIDVCycle && successful &&
-               MRI->getVRegDef(addInst->getOperand(idvIdx).getReg()) ==
-                 lhdrPickInst;
-  if (!isIDVCycle)
-    return;
-
-  unsigned pickInitIdx     = 2 + loopSense;
-  MachineOperand &initOpnd = lhdrPickInst->getOperand(pickInitIdx);
-  unsigned switchOutIndex =
-    switchInst->getOperand(0).getReg() == backedgeReg ? 1 : 0;
-  unsigned switchOutReg =
-    switchInst->getOperand(switchOutIndex).getReg();
-  isIDVCycle = isIDVCycle &&
-               (switchInst->getOperand(1 - switchOutIndex).getReg() ==
-                backedgeReg) &&
-               MRI->hasOneNonDBGUse(backedgeReg);
-
-  if (isIDVCycle) {
-    // build reduction seqeuence.
-    unsigned redOp =
-      TII->convertTransformToReductionOp(addInst->getOpcode());
-    // 64bit operations such as ADDF64 are not supported
-    // if (redOp != CSA::INVALID_OPCODE)
-    assert(redOp != CSA::INVALID_OPCODE);
-    MachineInstr *redInstr;
-    const DebugLoc DL = addInst->getDebugLoc();
-    if (TII->isFMA(addInst)) {
-      // two input reduction besides init
-      redInstr = BuildMI(*lhdrPickInst->getParent(),
-                         lhdrPickInst, DL, TII->get(redOp),
-                         switchOutReg)
-                   . // result
-                 addReg(backedgeReg, RegState::Define)
-                   . // each
-                 add(initOpnd)
-                   . // initial value
-                 add(addInst->getOperand(1))
-                   . // input 1
-                 add(addInst->getOperand(2))
-                   .                                    // input 2
-                 addReg(seqOT->getOperand(1).getReg()); // control
-    } else {
-      // normal one input reduciton besides init
-      redInstr = BuildMI(*lhdrPickInst->getParent(),
-                         lhdrPickInst, DL, TII->get(redOp),
-                         switchOutReg)
-                   . // result
-                 addReg(backedgeReg, RegState::Define)
-                   . // each
-                 add(initOpnd)
-                   . // initial value
-                 add(addInst->getOperand(strideIdx))
-                   .                                    // input 1
-                 addReg(seqOT->getOperand(1).getReg()); // control
-    }
-    redInstr->setFlag(MachineInstr::NonSequential);
-    // remove the instructions in the IDV cycle.
-    switchInst->eraseFromParent();
-    MRI->markUsesInDebugValueAsUndef(addInst->getOperand(0).getReg());
-    addInst->removeFromBundle();
-    MRI->markUsesInDebugValueAsUndef(lhdrPickInst->getOperand(0).getReg());
-    lhdrPickInst->eraseFromParent();
-
-    NewDrivenOps.push_back(redInstr);
-    LLVM_DEBUG(errs() << "  Replaced with " << *redInstr);
-  }
+  MultiSequence(switchInst, addInst, lhdrPickInst);
 }
 
 void CSASeqOpt::SequenceSwitchOut(MachineInstr *switchInst,
@@ -662,7 +544,11 @@ void CSASeqOpt::MultiSequence(MachineInstr *switchInst, MachineInstr *addInst,
   if (!successful)
     return;
 
-  unsigned PickBackedge = lhdrPickInst->getOperand(2).getReg() == backedgeReg ? 2 : 3;
+  unsigned PickBackedge =
+    lhdrPickInst->getOperand(2).isReg() &&
+        lhdrPickInst->getOperand(2).getReg() == backedgeReg
+      ? 2
+      : 3;
 
   // handle only positive constant address stride for now
   unsigned strideIdx = addInst->getOperand(1).isReg() ? 2 : 1;
@@ -1031,6 +917,7 @@ void CSASeqOpt::optimizeDFLoop(const CSALoopInfo &Loop) {
     LLVM_DEBUG(dbgs() << "Er, no switches?\n");
     return;
   }
+  DebugLoc LoopLoc = (*std::begin(ExitSwitches))->getDebugLoc();
 
   // Get some useful loop details.
   unsigned PickOpIdx = Loop.getPickBackedgeIndex() + 2;
@@ -1113,6 +1000,11 @@ void CSASeqOpt::optimizeDFLoop(const CSALoopInfo &Loop) {
         });
     MachineInstr *CmpInst = getSrcIfMatches(MRI, SwitchInst->getOperand(2),
         [this](MachineInstr *MI) { return TII->isCmp(MI); });
+    MachineInstr *ReducModInst =
+      getSrcIfMatches(MRI, SwitchInst->getOperand(3), [this](MachineInstr *MI) {
+        return TII->convertTransformToReductionOp(MI->getOpcode()) !=
+               CSA::INVALID_OPCODE;
+      });
 
     // Filter out the add inst if it doesn't use the result of the pick.
     if (AddInst) {
@@ -1138,6 +1030,93 @@ void CSASeqOpt::optimizeDFLoop(const CSALoopInfo &Loop) {
         CmpInst = nullptr;
     }
 
+    // Filter potential reductions based on the reduction generation settings.
+    if (ReducModInst) {
+      const CSA::Generic ReducModGeneric =
+        TII->getGenericOpcode(ReducModInst->getOpcode());
+      const bool IsAdd =
+        ReducModGeneric == CSA::Generic::ADD ||
+        ReducModGeneric == CSA::Generic::SUB ||
+        (csa_reduc::fissionFMAs() && ReducModGeneric == CSA::Generic::FMA);
+      csa_reduc::ReducLevel ReducLevel =
+        IsAdd ? csa_reduc::REDUC_LEVEL_ADD : csa_reduc::REDUC_LEVEL_ALL;
+      const bool HasReassocFlag =
+        ReducModInst->getFlag(MachineInstr::FmReassoc);
+
+      // Don't generate this reduction if it's not enabled.
+      if (csa_reduc::reducsEnabled() < ReducLevel)
+        ReducModInst = nullptr;
+
+      // Also don't generate it if it isn't forced and doesn't have a flag
+      // saying it can be reassociated.
+      if (csa_reduc::reducsForced() < ReducLevel and not HasReassocFlag)
+        ReducModInst = nullptr;
+    }
+
+    // Filter out the potential reduction if it doesn't use the result of the
+    // pick or has exposed partial reduction uses.
+    if (ReducModInst) {
+
+      // Make sure that there is a supported use of the pick output.
+      const unsigned PickReg     = PickInst->getOperand(0).getReg();
+      const auto OpndIsUseOfPick = [&](unsigned OpIdx) {
+        const MachineOperand &Op = ReducModInst->getOperand(OpIdx);
+        return Op.isReg() && Op.getReg() == PickReg;
+      };
+      bool UsesPick      = false;
+      const unsigned OpC = ReducModInst->getOpcode();
+      switch (TII->getGenericOpcode(OpC)) {
+
+      // SUB and FMA ops are non-commutative, so the pick needs to be on a
+      // specific operand for those.
+      case CSA::Generic::SUB:
+        UsesPick = OpndIsUseOfPick(1);
+        break;
+      case CSA::Generic::FMA:
+        UsesPick = OpndIsUseOfPick(3);
+        break;
+
+      // Other ones are commutative, so the pick can appear on either of the
+      // input operands.
+      default:
+        UsesPick = OpndIsUseOfPick(1) || OpndIsUseOfPick(2);
+        break;
+      }
+
+      // Also check that there are no external uses of the partial values.
+      const unsigned ReducReg    = ReducModInst->getOperand(0).getReg();
+      const unsigned BackReg     = PickInst->getOperand(PickOpIdx).getReg();
+      const bool HasExternalUses = !MRI->hasOneNonDBGUse(PickReg) ||
+                                   !MRI->hasOneNonDBGUse(ReducReg) ||
+                                   !MRI->hasOneNonDBGUse(BackReg);
+      bool IneligibleReduc = false;
+      if (!UsesPick || HasExternalUses)
+        IneligibleReduc = true;
+
+      // SIMD ops must also have no swizzle/disable bits set.
+      // TODO: Add support for disable bits with a code transform.
+      if (ReducModInst && TII->getOpcodeClass(OpC) == CSA::VARIANT_SIMD) {
+        if (TII->getGenericOpcode(OpC) == CSA::Generic::FMA) {
+          if (ReducModInst->getOperand(4).getImm() != 0)
+            IneligibleReduc = true;
+          if (ReducModInst->getOperand(5).getImm() != 0)
+            IneligibleReduc = true;
+          if (ReducModInst->getOperand(6).getImm() != 0)
+            IneligibleReduc = true;
+        } else {
+          if (ReducModInst->getOperand(3).getImm() != 0)
+            IneligibleReduc = true;
+          if (ReducModInst->getOperand(4).getImm() != 0)
+            IneligibleReduc = true;
+          if (ReducModInst->getOperand(5).getImm() != 0)
+            IneligibleReduc = true;
+        }
+      }
+
+      if (IneligibleReduc)
+        ReducModInst = nullptr;
+    }
+
     LLVM_DEBUG({
       dbgs() << "Header pick of loop has these dependencies:\n";
       dbgs() << "    (pick) " << *PickInst;
@@ -1145,6 +1124,8 @@ void CSASeqOpt::optimizeDFLoop(const CSALoopInfo &Loop) {
         dbgs() << "     (add) " << *AddInst;
       if (CmpInst)
         dbgs() << "     (cmp) " << *CmpInst;
+      if (ReducModInst)
+        dbgs() << "   (reduc) " << *ReducModInst;
       dbgs() << "  (switch) " << *SwitchInst;
     });
 
@@ -1164,6 +1145,12 @@ void CSASeqOpt::optimizeDFLoop(const CSALoopInfo &Loop) {
           LoopFirstReg = SeqInstr->getOperand(2).getReg();
         }
       }
+    }
+
+    // Or, try to convert to a reduction operator.
+    if (ReducModInst) {
+      NewInst =
+        CreateReduc(PickInst, PickOpIdx, SwitchInst, LoopPredReg, ReducModInst);
     }
 
     if (!NewInst) {
@@ -1186,10 +1173,8 @@ void CSASeqOpt::optimizeDFLoop(const CSALoopInfo &Loop) {
       PickInst->getOperand(1).setReg(LoopFirstReg);
     }
   } else {
-    MachineInstr *LocInst = *std::begin(ExitSwitches);
-    MachineOptimizationRemarkMissed Remark(PassName, "CSASeqOptMissed: ",
-                                           LocInst->getDebugLoc(),
-                                           LocInst->getParent());
+    MachineOptimizationRemarkMissed Remark(
+      PassName, "CSASeqOptMissed: ", LoopLoc, &thisMF->front());
     ORE.emit(Remark << " loop will not be driven by a sequence operator");
   }
 
@@ -1410,6 +1395,113 @@ MachineInstr *CSASeqOpt::StrideToSeq(MachineInstr *cmpInst,
   LMFI->setLICGroup(firstReg, loopGroup);
   LMFI->setLICGroup(lastReg, loopGroup);
   return seqInstr;
+}
+
+MachineInstr *CSASeqOpt::CreateReduc(MachineInstr *PickInst,
+                                     unsigned PickBackedgeIdx,
+                                     MachineInstr *SwitchInst,
+                                     unsigned LoopPredicate,
+                                     MachineInstr *ReducModInst) {
+
+  // Get the opcode out of TII.
+  const unsigned ReducOpC =
+    TII->convertTransformToReductionOp(ReducModInst->getOpcode());
+  const bool IsSIMD =
+    (TII->getOpcodeClass(ReducModInst->getOpcode()) == CSA::VARIANT_SIMD);
+
+  // Get the init value from the non-backedge input to the pick.
+  const unsigned PickNonBackedgeIdx = (PickBackedgeIdx == 2) ? 3 : 2;
+  const MachineOperand &Init        = PickInst->getOperand(PickNonBackedgeIdx);
+
+  // The output of the new instruction will be the non-backedge switch output.
+  const unsigned BackedgeReg = PickInst->getOperand(PickBackedgeIdx).getReg();
+  const unsigned SwitchNonBackedgeIdx =
+    (SwitchInst->getOperand(0).getReg() != BackedgeReg) ? 0 : 1;
+  const unsigned SwitchNonBackedgeReg =
+    SwitchInst->getOperand(SwitchNonBackedgeIdx).getReg();
+
+  // FMA ops need to be handled specially because of the multiple inputs and
+  // also possibly fission.
+  MachineInstr *ReducInst = nullptr;
+  if (TII->getGenericOpcode(ReducModInst->getOpcode()) == CSA::Generic::FMA) {
+    const MachineOperand &Data0 = ReducModInst->getOperand(1);
+    const MachineOperand &Data1 = ReducModInst->getOperand(2);
+    const MachineOperand &RMode = ReducModInst->getOperand(IsSIMD ? 7 : 4);
+
+    if (csa_reduc::fissionFMAs()) {
+      const unsigned Mul =
+        LMFI->allocateLIC(MRI->getRegClass(SwitchNonBackedgeReg), "redfiss");
+      LMFI->setLICGroup(Mul, LMFI->getLICGroup(SwitchNonBackedgeReg));
+      const unsigned MulOpC =
+        TII->adjustOpcode(ReducModInst->getOpcode(), CSA::Generic::MUL);
+      const unsigned RedAddOpC =
+        TII->adjustOpcode(ReducOpC, CSA::Generic::REDADD);
+      if (IsSIMD) {
+        BuildMI(*ReducModInst->getParent(), ReducModInst,
+                ReducModInst->getDebugLoc(), TII->get(MulOpC), Mul)
+          .add(Data0)
+          .add(Data1)
+          .addImm(0)
+          .addImm(0)
+          .addImm(0)
+          .add(RMode)
+          .setMIFlags(MachineInstr::NonSequential | ReducModInst->getFlags());
+      } else {
+        BuildMI(*ReducModInst->getParent(), ReducModInst,
+                ReducModInst->getDebugLoc(), TII->get(MulOpC), Mul)
+          .add(Data0)
+          .add(Data1)
+          .add(RMode)
+          .setMIFlags(MachineInstr::NonSequential | ReducModInst->getFlags());
+      }
+      ReducInst =
+        BuildMI(*ReducModInst->getParent(), ReducModInst,
+                ReducModInst->getDebugLoc(), TII->get(RedAddOpC),
+                SwitchNonBackedgeReg)
+          .add(Init)
+          .addUse(Mul)
+          .addUse(LoopPredicate)
+          .add(RMode)
+          .setMIFlags(MachineInstr::NonSequential | ReducModInst->getFlags());
+    } else {
+      ReducInst =
+        BuildMI(*ReducModInst->getParent(), ReducModInst,
+                ReducModInst->getDebugLoc(), TII->get(ReducOpC),
+                SwitchNonBackedgeReg)
+          .add(Init)
+          .add(Data0)
+          .add(Data1)
+          .addUse(LoopPredicate)
+          .add(RMode)
+          .setMIFlags(MachineInstr::NonSequential | ReducModInst->getFlags());
+    }
+  } else {
+
+    // For other ops, the data input should be the non-pick input.
+    const unsigned PickResultReg = PickInst->getOperand(0).getReg();
+    const unsigned NonPickIdx =
+      (ReducModInst->getOperand(1).getReg() != PickResultReg) ? 1 : 2;
+    const MachineOperand &Data  = ReducModInst->getOperand(NonPickIdx);
+    const MachineOperand &RMode = ReducModInst->getOperand(IsSIMD ? 6 : 3);
+
+    ReducInst =
+      BuildMI(*ReducModInst->getParent(), ReducModInst,
+              ReducModInst->getDebugLoc(), TII->get(ReducOpC),
+              SwitchNonBackedgeReg)
+        .add(Init)
+        .add(Data)
+        .addUse(LoopPredicate)
+        .add(RMode)
+        .setMIFlags(MachineInstr::NonSequential | ReducModInst->getFlags());
+  }
+
+  // Delete the pick, switch, and original op.
+  PickInst->eraseFromParentAndMarkDBGValuesForRemoval();
+  ReducModInst->eraseFromParentAndMarkDBGValuesForRemoval();
+  SwitchInst->eraseFromParentAndMarkDBGValuesForRemoval();
+
+  NewDrivenOps.push_back(ReducInst);
+  return ReducInst;
 }
 
 unsigned CSASeqOpt::negateRegister(unsigned Reg) {

@@ -73,6 +73,8 @@ enum OpcodeClass {
   VARIANT_SIGNED = 2,
   /// This is an opcode that refers specifically to an unsigned integer.
   VARIANT_UNSIGNED = 3,
+  /// This is an opcode that refers specifically to a SIMD value.
+  VARIANT_SIMD = 4,
   /// This is used in some function calls to indicate that the desired class
   /// doesn't matter and any opcode suffices. This is the default argument,
   /// so it generally only matters if this doesn't appear.

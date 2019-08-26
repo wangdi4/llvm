@@ -1,4 +1,4 @@
-; RUN: llc -mtriple=csa -csa-use-deprecated-reduc-insts < %s | FileCheck %s --check-prefix=CHECK
+; RUN: llc -mtriple=csa -csa-hw-reducer-experiment < %s | FileCheck %s --check-prefix=CHECK
 target datalayout = "e-m:e-i64:64-n32:64"
 target triple = "csa"
 
@@ -38,7 +38,7 @@ loop:
 ; CHECK: .param .lic .i64 %[[LEN:[a-z0-9_.]+]]
 ; CHECK: maxs64 %[[SAFELEN:[a-z0-9_.]+]], %ign, 1, %[[LEN]]
 ; CHECK: sld64 %[[VAL:[a-z0-9_\.]+]], %[[SRC]], %[[SAFELEN]], 1, %[[OUTORD]], %[[INORD]], MEMLEVEL_T0
-; CHECK: sredaddf64 %[[REDUCE:[a-z0-9_\.]+]], %ign, 0, %[[VAL]],
+; CHECK: redaddf64 %[[REDUCE:[a-z0-9_\.]+]], 0, %[[VAL]],
 
 exit:
   ret double %sum

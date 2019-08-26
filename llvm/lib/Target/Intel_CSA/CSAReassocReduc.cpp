@@ -41,6 +41,12 @@ static cl::opt<bool> DisableReassocReduc{
            "fully pipelined \"software\" implementations."),
   cl::init(false)};
 
+static cl::opt<bool> HWReducerExperiment{
+  "csa-hw-reducer-experiment", cl::Hidden,
+  cl::desc("CSA Specific: Generate red{add,sub}f* instructions to experiment "
+           "with hardware reductions"),
+  cl::init(false)};
+
 static cl::opt<int> PartRedCount{
   "csa-reassoc-reduc-partred-count", cl::Hidden, cl::ZeroOrMore,
   cl::desc("CSA Specific: The number of partial reductions to use for "
@@ -95,10 +101,9 @@ private:
   MachineOptimizationRemarkEmitter *ORE;
 
   // Determines whether a MachineInstr is eligible for conversion. This is the
-  // case if it is a floating-point reduction (integer reductions are already
-  // fully pipelined) and its sequence reduction output is %ign (as it isn't
-  // possible to produce those values when the reduction is reassociated)
-  bool isEligibleFloatingReduction(const MachineInstr &) const;
+  // case if it is a reduction operation that is not part of the hardware
+  // experiment.
+  bool isEligibleReduction(const MachineInstr &) const;
 
   // Expands an eligible reduction into its pipelined "software" form. The
   // iterator to the instruction after the expanded reduction is returned.
@@ -108,35 +113,51 @@ private:
   // opcode. Hardcoded here for now.
   int knownRedloopLatency(CSA::Generic) const;
 
-  // Constant-propagates a floating point operand if it happens to be a constant
-  // supplied through repeats/filters/movs. This is dangerous in general because
-  // it might result in the operation running constantly if that value was the
-  // last thing stopping it from executing immediately on the graph load, but
-  // it's safe for reductions because that won't be the case.
-  void constantPropagateFPOperand(MachineOperand &opnd);
-
-  // Determines the use operand of a repeat/filter/mov. If the instruction is
-  // not a repeat/filter/mov, returns nullptr.
-  const MachineOperand *getPropagatableUse(const MachineInstr *) const;
-
   // Determines the opcode for the collapser op. This can also be used for the
   // one in the reduction loop unless the reduction is an FMA or SUB reduction.
-  unsigned getCollapserOpcode(CSA::Generic, unsigned lic_size) const;
+  unsigned getCollapserOpcode(unsigned red_opcode) const;
 };
 
 } // namespace
 
-bool llvm::willRunCSAReassocReduc(const MachineFunction &MF) {
+// The IEEE754 representation of the f32x2 value {1.0f, 1.0f} for bitcasting.
+constexpr int64_t SIMD_ONE = 0x3f8000003f800000;
 
-  // If either option was passed, honor that.
-  if (DisableReassocReduc)
-    return false;
+// The sign bits of the f32x2 type for negation.
+constexpr int64_t SIMD_SIGNS = 0x8000000080000000;
+
+csa_reduc::ReducLevel csa_reduc::reducsEnabled() {
+
+  // If CSAReassocReduc is explicitly disabled, only allow reduction operations
+  // used by the hardware experiment.
+  if (DisableReassocReduc) {
+    if (HWReducerExperiment)
+      return REDUC_LEVEL_ADD;
+    return REDUC_LEVEL_NONE;
+  }
+
+  // Otherwise, enable all reductions.
+  return REDUC_LEVEL_ALL;
+}
+
+csa_reduc::ReducLevel csa_reduc::reducsForced() {
+
+  // If CSAReassocReduc is explicitly enabled, force all reductions.
   if (EnableReassocReduc)
-    return true;
+    return REDUC_LEVEL_ALL;
 
-  // Otherwise, decide based on the unsafe-fp-math flag.
-  return MF.getFunction().getFnAttribute("unsafe-fp-math").getValueAsString() ==
-         "true";
+  // If the hardware experiment is still enabled, force only those reductions.
+  if (HWReducerExperiment)
+    return REDUC_LEVEL_ADD;
+
+  // Otherwise, do not force any reductions.
+  return REDUC_LEVEL_NONE;
+}
+
+bool csa_reduc::fissionFMAs() {
+
+  // Only fission FMA reductions if the hardware experiment is enabled.
+  return HWReducerExperiment;
 }
 
 char CSAReassocReduc::ID = 0;
@@ -159,15 +180,11 @@ bool CSAReassocReduc::runOnMachineFunction(MachineFunction &MF) {
   MCP  = MF.getConstantPool();
   ORE  = &getAnalysis<MachineOptimizationRemarkEmitterPass>().getORE();
 
-  // Skip if willRunCSAReassocReduc determines that the pass shouldn't be run.
-  if (not willRunCSAReassocReduc(MF))
-    return false;
-
-  // Otherwise, expand any reductions that should be expanded.
+  // Expand any reductions that should be expanded.
   bool expanded_reduc = false;
   for (MachineBasicBlock &MBB : MF) {
     for (auto MI_it = std::begin(MBB); MI_it != std::end(MBB);) {
-      if (isEligibleFloatingReduction(*MI_it)) {
+      if (isEligibleReduction(*MI_it)) {
         MI_it          = expandReduction(*MI_it);
         expanded_reduc = true;
       } else
@@ -178,12 +195,12 @@ bool CSAReassocReduc::runOnMachineFunction(MachineFunction &MF) {
   return expanded_reduc;
 }
 
-bool CSAReassocReduc::isEligibleFloatingReduction(
-  const MachineInstr &MI) const {
-  return TII->isReduction(&MI) and
-         TII->getOpcodeClass(MI.getOpcode()) ==
-           CSA::OpcodeClass::VARIANT_FLOAT and
-         MI.getOperand(1).isReg() and MI.getOperand(1).getReg() == CSA::IGN;
+bool CSAReassocReduc::isEligibleReduction(const MachineInstr &MI) const {
+  const bool IsReduction        = TII->isReduction(&MI);
+  const CSA::Generic GenericOpC = TII->getGenericOpcode(MI.getOpcode());
+  const bool IsAdd =
+    GenericOpC == CSA::Generic::REDADD or GenericOpC == CSA::Generic::REDSUB;
+  return IsReduction and not(HWReducerExperiment and IsAdd);
 }
 
 // Creates a value containing n ones in its lowest n bits.
@@ -260,27 +277,26 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
   */
 
   // Extract information about the reduction. The two forms are:
-  //  sredXfN redout, %ign, init, val, pred, rm
-  //  fmsredafN redout, %ign, init, val1, val2, pred, rm
+  //  redXfN redout, init, val, pred, rm
+  //  fmredafN redout, init, val1, val2, pred, rm
   const unsigned lic_size = TII->getLicSize(MI.getOpcode());
   const TargetRegisterClass *const lic_class =
     TII->getLicClassForSize(lic_size);
   const TargetRegisterClass *const i1_class = TII->getLicClassForSize(1);
   const CSA::Generic gen_opcode = TII->getGenericOpcode(MI.getOpcode());
-  const bool is_fma             = gen_opcode == CSA::Generic::FMSREDA;
-  MachineOperand &result        = MI.getOperand(0);
-  MachineOperand &init          = MI.getOperand(2);
-  MachineOperand &pred          = MI.getOperand(is_fma ? 5 : 4);
+  const bool is_fma             = gen_opcode == CSA::Generic::FMREDA;
+  const bool is_simd = TII->getOpcodeClass(MI.getOpcode()) == CSA::VARIANT_SIMD;
+  MachineOperand &result = MI.getOperand(0);
+  MachineOperand &init   = MI.getOperand(1);
+  MachineOperand &pred   = MI.getOperand(is_fma ? 4 : 3);
 
   // Determine the number of partial reductions needed. If the flag is set, use
   // that value. Otherwise, grab the value from the known ones.
   const int partred_count =
     PartRedCount ? PartRedCount : knownRedloopLatency(gen_opcode);
 
-  // Try constant-propagating init. If there is an immediate for it, that can
-  // be put in parts directly.
-  constantPropagateFPOperand(init);
-  const bool init_is_imm = init.isFPImm();
+  // If init is an immediate, it that can be put in parts directly.
+  const bool init_is_imm = init.isFPImm() or init.isImm();
 
   // A convenient lambda for making new lics. This is mostly just a wrapper for
   // setting the name: we used to just precompute the prefix but it's difficult
@@ -305,13 +321,6 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
       BuildMI(*MI.getParent(), ins_pos, MI.getDebugLoc(), TII->get(opcode));
     builder->setFlag(MachineInstr::NonSequential);
     return builder;
-  };
-
-  // Another for propagating the rounding mode if present.
-  const unsigned rm_opnd = is_fma ? 6 : 5;
-  const auto add_rm      = [&](const MachineInstrBuilder &builder) {
-    if (MI.getNumOperands() > rm_opnd)
-      builder.add(MI.getOperand(rm_opnd));
   };
 
   // Another for creating small fountain1s producing <64-bit sequences.
@@ -350,22 +359,39 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
   const unsigned opcode_pick = TII->makeOpcode(CSA::Generic::PICK, lic_size);
   const unsigned opcode_switch =
     TII->makeOpcode(CSA::Generic::SWITCH, lic_size);
-  const unsigned opcode_clpsr = getCollapserOpcode(gen_opcode, lic_size);
+  const unsigned opcode_clpsr = getCollapserOpcode(MI.getOpcode());
 
   // Determine the identity element to use for this reduction.
-  assert(lic_size == 32 or lic_size == 64);
-  Type *const fp_type =
-    (lic_size == 32) ? Type::getFloatTy(ctx) : Type::getDoubleTy(ctx);
-  ConstantFP *const identity = static_cast<ConstantFP *>(ConstantFP::get(
-    fp_type, (gen_opcode == CSA::Generic::SREDMUL) ? 1.0 : 0.0));
-  const bool init_is_identity =
-    init_is_imm and init.getFPImm()->isExactlyValue(identity->getValueAPF());
+  ConstantFP *identity_fp = nullptr;
+  int64_t identity_simd;
+  bool init_is_identity;
+  if (is_simd) {
+    assert(lic_size == 64);
+    identity_simd    = (gen_opcode == CSA::Generic::REDMUL) ? SIMD_ONE : 0;
+    init_is_identity = init_is_imm and init.getImm() == identity_simd;
+  } else {
+    assert(lic_size == 32 or lic_size == 64);
+    Type *const fp_type =
+      (lic_size == 32) ? Type::getFloatTy(ctx) : Type::getDoubleTy(ctx);
+    identity_fp      = static_cast<ConstantFP *>(ConstantFP::get(
+      fp_type, (gen_opcode == CSA::Generic::REDMUL) ? 1.0 : 0.0));
+    init_is_identity = init_is_imm and init.getFPImm()->isExactlyValue(
+                                         identity_fp->getValueAPF());
+  }
 
   // The partial reduction lic, with initial values.
   const unsigned parts = add_lic(lic_class, "parts", false);
   LMFI->setLICDepth(parts, partred_count);
   for (int i = 0; i < partred_count - 1; ++i) {
-    add_instr(TII->getInitOpcode(lic_class)).addDef(parts).addFPImm(identity);
+    if (is_simd) {
+      add_instr(TII->getInitOpcode(lic_class))
+        .addDef(parts)
+        .addImm(identity_simd);
+    } else {
+      add_instr(TII->getInitOpcode(lic_class))
+        .addDef(parts)
+        .addFPImm(identity_fp);
+    }
   }
 
   // If init is an immediate, add it here.
@@ -397,11 +423,19 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
   // If init happens to be the identity element, parts can just be reinitialized
   // with identity elements.
   if (init_is_identity) {
-    add_instr(opcode_pick)
-      .addDef(parts)
-      .addUse(parts_pred_ctl)
-      .addFPImm(identity)
-      .addUse(op_to_parts);
+    if (is_simd) {
+      add_instr(opcode_pick)
+        .addDef(parts)
+        .addUse(parts_pred_ctl)
+        .addImm(identity_simd)
+        .addUse(op_to_parts);
+    } else {
+      add_instr(opcode_pick)
+        .addDef(parts)
+        .addUse(parts_pred_ctl)
+        .addFPImm(identity_fp)
+        .addUse(op_to_parts);
+    }
   }
 
   // If it's some other immediate, use a fountain to reinitialize parts.
@@ -416,7 +450,11 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
       const unsigned init_opcode =
           TII->makeOpcode(CSA::Generic::INIT, lic_size);
       for (int i = 0; i < partred_count - 1; ++i) {
-        add_instr(init_opcode).addDef(lthack).addFPImm(identity);
+        if (is_simd) {
+          add_instr(init_opcode).addDef(lthack).addImm(identity_simd);
+        } else {
+          add_instr(init_opcode).addDef(lthack).addFPImm(identity_fp);
+        }
       }
       add_instr(init_opcode).addDef(lthack).add(init);
       add_instr(TII->makeOpcode(CSA::Generic::MOV, lic_size))
@@ -428,11 +466,20 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
           .addUse(parts_init)
           .addUse(op_to_parts);
     } else {
-      SmallVector<Constant *, 10> consts(partred_count, identity);
-      consts.back() = const_cast<ConstantFP *>(init.getFPImm());
+      Constant *const identity =
+        is_simd ? ConstantInt::get(IntegerType::getInt64Ty(ctx), identity_simd)
+                : static_cast<Constant *>(identity_fp);
+      SmallVector<Constant *, 16> consts(partred_count, identity);
+      if (is_simd) {
+        consts.back() =
+          ConstantInt::get(IntegerType::getInt64Ty(ctx), init.getImm());
+      } else {
+        consts.back() = const_cast<ConstantFP *>(init.getFPImm());
+      }
       const unsigned scratch = MCP->getConstantPoolIndex(
-          ConstantArray::get(ArrayType::get(fp_type, partred_count), consts),
-          lic_size / 8);
+        ConstantArray::get(ArrayType::get(identity->getType(), partred_count),
+                           consts),
+        lic_size / 8);
       const unsigned parts_init = add_lic(lic_class, "parts_init", true);
       add_instr(TII->makeOpcode(CSA::Generic::FOUNTAIN, lic_size))
           .addDef(parts_init)
@@ -454,11 +501,19 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
       n_ones(partred_count - 1) << 1, partred_count, "parts_init_pred");
     const unsigned parts_init        = add_lic(lic_class, "parts_init", false);
     const unsigned parts_pred_picker = add_lic(i1_class,  "parts_pred_picker", false);
-    add_instr(opcode_pick)
-      .addDef(parts_init)
-      .addUse(parts_init_pred)
-      .add(init)
-      .addFPImm(identity);
+    if (is_simd) {
+      add_instr(opcode_pick)
+        .addDef(parts_init)
+        .addUse(parts_init_pred)
+        .add(init)
+        .addImm(identity_simd);
+    } else {
+      add_instr(opcode_pick)
+        .addDef(parts_init)
+        .addUse(parts_init_pred)
+        .add(init)
+        .addFPImm(identity_fp);
+    }
     add_instr(TII->getInitOpcode(i1_class)).addDef(parts_pred_picker).addImm(0);
     add_instr(TII->getMoveOpcode(i1_class))
       .addDef(parts_pred_picker)
@@ -475,26 +530,65 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
   // SUB. If multiplexing is enabled, this will be handled later.
   if (Multiplex == none) {
     if (is_fma) {
-      add_rm(add_instr(
-               TII->makeOpcode(CSA::Generic::FMA, lic_size, CSA::VARIANT_FLOAT))
-               .addDef(op_to_parts)
-               .add(MI.getOperand(3))
-               .add(MI.getOperand(4))
-               .addUse(parts_to_op));
-    } else if (gen_opcode == CSA::Generic::SREDSUB) {
-      add_rm(add_instr(
-               TII->makeOpcode(CSA::Generic::SUB, lic_size, CSA::VARIANT_FLOAT))
-               .addDef(op_to_parts)
-               .addUse(parts_to_op)
-               .add(MI.getOperand(3)));
+      if (is_simd) {
+        add_instr(
+          TII->makeOpcode(CSA::Generic::FMA, lic_size, CSA::VARIANT_SIMD))
+          .addDef(op_to_parts)
+          .add(MI.getOperand(2))
+          .add(MI.getOperand(3))
+          .addUse(parts_to_op)
+          .addImm(0)
+          .addImm(0)
+          .addImm(0)
+          .add(MI.getOperand(5));
+      } else {
+        add_instr(
+          TII->makeOpcode(CSA::Generic::FMA, lic_size, CSA::VARIANT_FLOAT))
+          .addDef(op_to_parts)
+          .add(MI.getOperand(2))
+          .add(MI.getOperand(3))
+          .addUse(parts_to_op)
+          .add(MI.getOperand(5));
+      }
+    } else if (gen_opcode == CSA::Generic::REDSUB) {
+      if (is_simd) {
+        add_instr(
+          TII->makeOpcode(CSA::Generic::SUB, lic_size, CSA::VARIANT_SIMD))
+          .addDef(op_to_parts)
+          .addUse(parts_to_op)
+          .add(MI.getOperand(2))
+          .addImm(0)
+          .addImm(0)
+          .addImm(0)
+          .add(MI.getOperand(4));
+      } else {
+        add_instr(
+          TII->makeOpcode(CSA::Generic::SUB, lic_size, CSA::VARIANT_FLOAT))
+          .addDef(op_to_parts)
+          .addUse(parts_to_op)
+          .add(MI.getOperand(2))
+          .add(MI.getOperand(4));
+      }
     } else {
 
       // parts_to_op is the first operand here in order to make it more likely
       // to get fused.
-      add_rm(add_instr(opcode_clpsr)
-               .addDef(op_to_parts)
-               .addUse(parts_to_op)
-               .add(MI.getOperand(3)));
+      if (is_simd) {
+        add_instr(opcode_clpsr)
+          .addDef(op_to_parts)
+          .addUse(parts_to_op)
+          .add(MI.getOperand(2))
+          .addImm(0)
+          .addImm(0)
+          .addImm(0)
+          .add(MI.getOperand(4));
+      } else {
+        add_instr(opcode_clpsr)
+          .addDef(op_to_parts)
+          .addUse(parts_to_op)
+          .add(MI.getOperand(2))
+          .add(MI.getOperand(4));
+      }
     }
   }
 
@@ -523,10 +617,22 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
     .addUse(clpsr_alternate)
     .addUse(clpsr_in);
   if (Multiplex == none) {
-    add_rm(add_instr(opcode_clpsr)
-             .addDef(clpsr_out)
-             .addUse(clpsr_left)
-             .addUse(clpsr_right));
+    if (is_simd) {
+      add_instr(opcode_clpsr)
+        .addDef(clpsr_out)
+        .addUse(clpsr_left)
+        .addUse(clpsr_right)
+        .addImm(0)
+        .addImm(0)
+        .addImm(0)
+        .add(MI.getOperand(is_fma ? 5 : 4));
+    } else {
+      add_instr(opcode_clpsr)
+        .addDef(clpsr_out)
+        .addUse(clpsr_left)
+        .addUse(clpsr_right)
+        .add(MI.getOperand(is_fma ? 5 : 4));
+    }
   }
   add_instr(opcode_switch)
     .add(result)
@@ -574,13 +680,22 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
         .addDef(op_left)
         .addUse(op_pred_ctl)
         .addUse(clpsr_left)
-        .add(MI.getOperand(3));
+        .add(MI.getOperand(2));
       const unsigned op_not_as_left = add_lic(lic_class, "op_not_as_left", false);
-      add_instr(opcode_pick)
-        .addDef(op_not_as_left)
-        .addUse(op_pred_ctl)
-        .addFPImm(static_cast<ConstantFP *>(ConstantFP::get(fp_type, 1.0)))
-        .add(MI.getOperand(4));
+      if (is_simd) {
+        add_instr(opcode_pick)
+          .addDef(op_not_as_left)
+          .addUse(op_pred_ctl)
+          .addImm(SIMD_ONE)
+          .add(MI.getOperand(3));
+      } else {
+        add_instr(opcode_pick)
+          .addDef(op_not_as_left)
+          .addUse(op_pred_ctl)
+          .addFPImm(static_cast<ConstantFP *>(
+            ConstantFP::get(identity_fp->getType(), 1.0)))
+          .add(MI.getOperand(3));
+      }
 
       // For the lowest loop latency, we need the last input to be fused here
       // rather than either of the first two. This disables fusion on the first
@@ -593,33 +708,67 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
         LMFI->addLICAttribute(op_not_as_left, "csa_fuse_disable");
       }
 
-      add_rm(add_instr(
-               TII->makeOpcode(CSA::Generic::FMA, lic_size, CSA::VARIANT_FLOAT))
-               .addDef(op_out)
-               .addUse(op_left)
-               .addUse(op_not_as_left)
-               .addUse(op_right));
+      if (is_simd) {
+        add_instr(
+          TII->makeOpcode(CSA::Generic::FMA, lic_size, CSA::VARIANT_SIMD))
+          .addDef(op_out)
+          .addUse(op_left)
+          .addUse(op_not_as_left)
+          .addUse(op_right)
+          .addImm(0)
+          .addImm(0)
+          .addImm(0)
+          .add(MI.getOperand(5));
+      } else {
+        add_instr(
+          TII->makeOpcode(CSA::Generic::FMA, lic_size, CSA::VARIANT_FLOAT))
+          .addDef(op_out)
+          .addUse(op_left)
+          .addUse(op_not_as_left)
+          .addUse(op_right)
+          .add(MI.getOperand(5));
+      }
     }
 
     // For SUBs, the collapser needs to be equivalent to an addf so the "left"
     // input (which is really the right one for SUBs - the conventions here are
     // FMA-based) needs a negation there.
-    else if (gen_opcode == CSA::Generic::SREDSUB) {
+    else if (gen_opcode == CSA::Generic::REDSUB) {
       const unsigned op_neg = add_lic(lic_class, "op_neg", false);
-      add_instr(
-        TII->makeOpcode(CSA::Generic::NEG, lic_size, CSA::VARIANT_FLOAT))
-        .addDef(op_neg)
-        .addUse(clpsr_left);
+      if (is_simd) {
+        add_instr(TII->makeOpcode(CSA::Generic::XOR, lic_size))
+          .addDef(op_neg)
+          .addUse(clpsr_left)
+          .addImm(SIMD_SIGNS);
+      } else {
+        add_instr(
+          TII->makeOpcode(CSA::Generic::NEG, lic_size, CSA::VARIANT_FLOAT))
+          .addDef(op_neg)
+          .addUse(clpsr_left);
+      }
       add_instr(opcode_pick)
         .addDef(op_left)
         .addUse(op_pred_ctl)
         .addUse(op_neg)
-        .add(MI.getOperand(3));
-      add_rm(add_instr(
-               TII->makeOpcode(CSA::Generic::SUB, lic_size, CSA::VARIANT_FLOAT))
-               .addDef(op_out)
-               .addUse(op_right)
-               .addUse(op_left));
+        .add(MI.getOperand(2));
+      if (is_simd) {
+        add_instr(
+          TII->makeOpcode(CSA::Generic::SUB, lic_size, CSA::VARIANT_SIMD))
+          .addDef(op_out)
+          .addUse(op_right)
+          .addUse(op_left)
+          .addImm(0)
+          .addImm(0)
+          .addImm(0)
+          .add(MI.getOperand(4));
+      } else {
+        add_instr(
+          TII->makeOpcode(CSA::Generic::SUB, lic_size, CSA::VARIANT_FLOAT))
+          .addDef(op_out)
+          .addUse(op_right)
+          .addUse(op_left)
+          .add(MI.getOperand(4));
+      }
     }
 
     else {
@@ -627,15 +776,27 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
         .addDef(op_left)
         .addUse(op_pred_ctl)
         .addUse(clpsr_left)
-        .add(MI.getOperand(3));
+        .add(MI.getOperand(2));
 
       // Mapping tends to fuse the first input to binary ops, but we want the
       // "right" one fused because that is on the critical path. Therefore, the
       // operands are emitted in reverse order here.
-      add_rm(add_instr(opcode_clpsr)
-               .addDef(op_out)
-               .addUse(op_right)
-               .addUse(op_left));
+      if (is_simd) {
+        add_instr(opcode_clpsr)
+          .addDef(op_out)
+          .addUse(op_right)
+          .addUse(op_left)
+          .addImm(0)
+          .addImm(0)
+          .addImm(0)
+          .add(MI.getOperand(4));
+      } else {
+        add_instr(opcode_clpsr)
+          .addDef(op_out)
+          .addUse(op_right)
+          .addUse(op_left)
+          .add(MI.getOperand(4));
+      }
     }
     add_instr(opcode_switch)
       .addDef(clpsr_out)
@@ -649,7 +810,7 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
   MachineOptimizationRemark Remark{
     DEBUG_TYPE, "CSAReassocReduc: ", MI.getDebugLoc(), MI.getParent()};
   ORE->emit(Remark << " reduction optimized using pipelined expansion");
-  MI.eraseFromParent();
+  MI.eraseFromParentAndMarkDBGValuesForRemoval();
   ++ReducsExpanded;
   return ins_pos;
 }
@@ -661,7 +822,7 @@ int CSAReassocReduc::knownRedloopLatency(CSA::Generic generic) const {
   case deterministic:
     return 9; // Multiplexing is "free" here because it is more fusion-friendly.
   case nondeterministic:
-    return generic == CSA::Generic::FMSREDA
+    return generic == CSA::Generic::FMREDA
              ? 15  // Unfortunately fusion is not so helpful here, especially
              : 13; // for FMAs.
   default:
@@ -669,68 +830,15 @@ int CSAReassocReduc::knownRedloopLatency(CSA::Generic generic) const {
   }
 }
 
-void CSAReassocReduc::constantPropagateFPOperand(MachineOperand &opnd) {
-
-  // If the operand already is a floating point immediate, there isn't anything
-  // to be done.
-  if (opnd.isFPImm())
-    return;
-
-  // Walk backwards through repeats/filters/movs to see if there is a
-  // constant to be propagated.
-  const MachineOperand *cur_opnd = &opnd;
-  while (not cur_opnd->isFPImm()) {
-    if (not cur_opnd->isReg())
-      return;
-    const MachineInstr *const def = MRI->getUniqueVRegDef(cur_opnd->getReg());
-    if (not def)
-      return;
-    cur_opnd = getPropagatableUse(def);
-    if (not cur_opnd)
-      return;
-  }
-
-  // If there is, propagate it and DCE anything along the path that doesn't have
-  // other users.
-  assert(opnd.isReg());
-  MachineInstr *cur_def = MRI->getUniqueVRegDef(opnd.getReg());
-  assert(cur_def);
-  opnd.ChangeToFPImmediate(cur_opnd->getFPImm());
-  while (cur_def and MRI->use_nodbg_empty(cur_def->getOperand(0).getReg())) {
-    const MachineOperand *const prop_use = getPropagatableUse(cur_def);
-    assert(prop_use);
-    MachineInstr *next_def = nullptr;
-    if (prop_use->isReg())
-      next_def = MRI->getUniqueVRegDef(prop_use->getReg());
-
-    cur_def->eraseFromParentAndMarkDBGValuesForRemoval();
-    cur_def = next_def;
-  }
-}
-
-const MachineOperand *
-CSAReassocReduc::getPropagatableUse(const MachineInstr *MI) const {
-  switch (TII->getGenericOpcode(MI->getOpcode())) {
-  case CSA::Generic::REPEAT:
-  case CSA::Generic::REPEATO:
-  case CSA::Generic::FILTER:
-    return &MI->getOperand(2);
-  case CSA::Generic::MOV:
-    return &MI->getOperand(1);
-  default:
-    return nullptr;
-  }
-}
-
-unsigned CSAReassocReduc::getCollapserOpcode(CSA::Generic generic,
-                                             unsigned lic_size) const {
+unsigned CSAReassocReduc::getCollapserOpcode(unsigned red_opcode) const {
+  const CSA::Generic generic = TII->getGenericOpcode(red_opcode);
   switch (generic) {
-  case CSA::Generic::SREDADD:
-  case CSA::Generic::FMSREDA:
-  case CSA::Generic::SREDSUB:
-    return TII->makeOpcode(CSA::Generic::ADD, lic_size, CSA::VARIANT_FLOAT);
-  case CSA::Generic::SREDMUL:
-    return TII->makeOpcode(CSA::Generic::MUL, lic_size, CSA::VARIANT_FLOAT);
+  case CSA::Generic::REDADD:
+  case CSA::Generic::FMREDA:
+  case CSA::Generic::REDSUB:
+    return TII->adjustOpcode(red_opcode, CSA::Generic::ADD);
+  case CSA::Generic::REDMUL:
+    return TII->adjustOpcode(red_opcode, CSA::Generic::MUL);
   default:
     llvm_unreachable("unexpected generic reducer type");
   }

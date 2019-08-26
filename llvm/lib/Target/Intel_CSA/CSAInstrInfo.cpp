@@ -499,13 +499,10 @@ bool CSAInstrInfo::isSeqZT(const MachineInstr *MI) const {
 
 bool CSAInstrInfo::isReduction(const MachineInstr *MI) const {
   switch (getGenericOpcode(MI->getOpcode())) {
-  case CSA::Generic::SREDOR:
-  case CSA::Generic::SREDAND:
-  case CSA::Generic::SREDXOR:
-  case CSA::Generic::SREDADD:
-  case CSA::Generic::SREDSUB:
-  case CSA::Generic::SREDMUL:
-  case CSA::Generic::FMSREDA:
+  case CSA::Generic::REDADD:
+  case CSA::Generic::REDSUB:
+  case CSA::Generic::REDMUL:
+  case CSA::Generic::FMREDA:
     return true;
   default:
     return false;
@@ -666,28 +663,25 @@ bool CSAInstrInfo::isCommutingReductionTransform(const MachineInstr *MI) const {
 
 unsigned
 CSAInstrInfo::convertTransformToReductionOp(unsigned transform_opcode) const {
+
+  // Only floating-point/SIMD reduction ops are supported.
+  const CSA::OpcodeClass Class = getOpcodeClass(transform_opcode);
+  if (Class != CSA::VARIANT_FLOAT and Class != CSA::VARIANT_SIMD)
+    return CSA::INVALID_OPCODE;
+
   CSA::Generic reductGeneric;
   switch (getGenericOpcode(transform_opcode)) {
   case CSA::Generic::FMA:
-    reductGeneric = CSA::Generic::FMSREDA;
+    reductGeneric = CSA::Generic::FMREDA;
     break;
   case CSA::Generic::ADD:
-    reductGeneric = CSA::Generic::SREDADD;
+    reductGeneric = CSA::Generic::REDADD;
     break;
   case CSA::Generic::SUB:
-    reductGeneric = CSA::Generic::SREDSUB;
+    reductGeneric = CSA::Generic::REDSUB;
     break;
   case CSA::Generic::MUL:
-    reductGeneric = CSA::Generic::SREDMUL;
-    break;
-  case CSA::Generic::AND:
-    reductGeneric = CSA::Generic::SREDAND;
-    break;
-  case CSA::Generic::OR:
-    reductGeneric = CSA::Generic::SREDOR;
-    break;
-  case CSA::Generic::XOR:
-    reductGeneric = CSA::Generic::SREDXOR;
+    reductGeneric = CSA::Generic::REDMUL;
     break;
   default:
     return CSA::INVALID_OPCODE;

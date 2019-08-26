@@ -44,8 +44,6 @@ public:
                      MachineInstr *lhdrPickInst);
   void SequenceApp(MachineInstr *switchInst, MachineInstr *addInst,
                    MachineInstr *lhdrPhiInst);
-  void SequenceReduction(MachineInstr *switchInst, MachineInstr *addInst,
-                         MachineInstr *lhdrPhiInst);
   void SequenceSwitchOut(MachineInstr *switchInst, MachineInstr *addInst,
                          MachineInstr *lhdrPickInst, MachineInstr *seqIndv,
                          unsigned seqReg, unsigned backedgeReg);
@@ -99,6 +97,11 @@ private:
   MachineInstr *StrideToSeq(MachineInstr *cmpInst, MachineInstr *switchInst,
                             MachineInstr *addInst, MachineInstr *strideInst,
                             unsigned SwitchBackedgeIdx, unsigned LoopPredicate);
+
+  /// Turn a reduction pattern into a RED operator.
+  MachineInstr *CreateReduc(MachineInstr *PickInst, unsigned PickBackedgeIdx,
+                            MachineInstr *SwitchInst, unsigned LoopPredicate,
+                            MachineInstr *ReducModInst);
 
   MachineOperand *getInvariantOperand(MachineOperand &Op);
 

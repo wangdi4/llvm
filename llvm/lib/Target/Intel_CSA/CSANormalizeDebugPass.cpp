@@ -107,6 +107,10 @@ bool CSANormalizeDebug::runOnMachineFunction(MachineFunction &MF) {
     if (!MRI->use_nodbg_empty(reg))
       continue;
 
+    // Also skip lics with no uses.
+    if (MRI->use_empty(reg))
+      continue;
+
     const TargetRegisterClass *RC = MRI->getRegClass(reg);
     MachineInstr &MI = *MRI->use_instr_begin(reg);
     MachineInstr *ignMov = BuildMI(*MI.getParent(), &MI, DebugLoc(),
