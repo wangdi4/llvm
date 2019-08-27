@@ -82,6 +82,9 @@ VPValue *VPlanPredicator::genPredicateTree(std::list<VPValue *> &Worklist) {
 
     // Create an OR of these values.
     VPValue *Or = Builder.createOr(LHS, RHS);
+    auto *DA = Plan.getVPlanDA();
+    if (DA->isDivergent(*LHS) || DA->isDivergent(*RHS))
+      DA->markDivergent(*Or);
 
     // Push OR to the back of the worklist.
     Worklist.push_back(Or);
@@ -101,6 +104,9 @@ VPValue *VPlanPredicator::genPredicateTree(std::list<VPValue *> &Worklist) {
 
 VPValue *VPlanPredicator::createNot(VPValue *Cond) {
   auto *Not = Builder.createNot(Cond, Cond->getName() + ".not");
+  auto *DA = Plan.getVPlanDA();
+  if (DA->isDivergent(*Cond))
+    DA->markDivergent(*Not);
 
   return Not;
 }
@@ -157,9 +163,13 @@ VPValue *VPlanPredicator::createValueForPredicateTerm(PredicateTerm Term) {
   // TODO: Once we start presrving uniform control flow, there will be no
   // need to create "and" for uniform predicate that is true on all incoming
   // edges.
-  return Val = Builder.createAnd(Predicate, Val,
-                                 "vp." + Block->getName() + ".br." +
-                                     Val->getName());
+  auto *DA = Plan.getVPlanDA();
+  bool IsDivergent = DA->isDivergent(*Val) || DA->isDivergent(*Predicate);
+  Val = Builder.createAnd(Predicate, Val,
+                          "vp." + Block->getName() + ".br." + Val->getName());
+  if (IsDivergent)
+    DA->markDivergent(*Val);
+  return Val;
 }
 
 static void markPhisAsBlended(VPBlockBase *Block) {
@@ -220,6 +230,7 @@ void VPlanPredicator::predicateAndLinearizeRegionRec(VPRegionBlock *Region,
   if (!SearchLoopHack)
     linearizeRegion(RPOT);
 
+  auto *DA = Plan.getVPlanDA();
   ReversePostOrderTraversal<VPBlockBase *> PostLinearizationRPOT(
       Region->getEntry());
   for (VPBlockBase *Block : PostLinearizationRPOT) {
@@ -238,9 +249,12 @@ void VPlanPredicator::predicateAndLinearizeRegionRec(VPRegionBlock *Region,
     if (PredTerms.size() == 1 && PredTerms[0].Condition == nullptr) {
       // Re-use predicate of the OriginBlock.
       Block->setPredicate(PredTerms[0].OriginBlock->getPredicate());
-      if (Block->getPredicate() && Block != Region->getEntry()) {
+      auto *Predicate = Block->getPredicate();
+      if (Predicate && Block != Region->getEntry()) {
         // Pred for region entry created when processing the region itself.
-        Builder.createPred(Block->getPredicate());
+        auto *BlockPredicateInst = Builder.createPred(Predicate);
+        if (DA->isDivergent(*Predicate))
+          DA->markDivergent(*BlockPredicateInst);
       }
 
       continue;
@@ -253,8 +267,11 @@ void VPlanPredicator::predicateAndLinearizeRegionRec(VPRegionBlock *Region,
 
     auto *Predicate = genPredicateTree(IncomingConditions);
     Block->setPredicate(Predicate);
-    if (Predicate)
-      Builder.createPred(Block->getPredicate());
+    if (Predicate) {
+      auto *BlockPredicateInst = Builder.createPred(Predicate);
+      if (DA->isDivergent(*Predicate))
+        DA->markDivergent(*BlockPredicateInst);
+    }
   }
 
   // Recurse inside Region

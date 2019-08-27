@@ -37,8 +37,8 @@ define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_inner_loop) 
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_SKIP_LOOP_NOT:%.*]] = not i1 [[VP_SKIP_LOOP]]
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP0:%.*]] = block-predicate i1 [[VP_SKIP_LOOP_NOT]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_SKIP_LOOP_NOT:%.*]] = not i1 [[VP_SKIP_LOOP]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP0:%.*]] = block-predicate i1 [[VP_SKIP_LOOP_NOT]]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_CMP216:%.*]] = icmp i64 [[VP_OUTER_IV]] i64 0
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_CMP216_NOT:%.*]] = not i1 [[VP_CMP216]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[LOOP1:loop[0-9]+]]
@@ -46,9 +46,9 @@ define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_inner_loop) 
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    REGION: [[LOOP1]] (BP: NULL)
 ; CHECK-NEXT:    [[BB6:BB[0-9]+]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_CMP216_NOT_1:%.*]] = not i1 [[VP_CMP216]]
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_BB5_BR_VP_CMP216_NOT:%.*]] = and i1 [[VP_SKIP_LOOP_NOT]] i1 [[VP_CMP216_NOT_1]]
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP1:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_CMP216_NOT]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_CMP216_NOT_1:%.*]] = not i1 [[VP_CMP216]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB5_BR_VP_CMP216_NOT:%.*]] = and i1 [[VP_SKIP_LOOP_NOT]] i1 [[VP_CMP216_NOT_1]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP1:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_CMP216_NOT]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB7:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
@@ -56,8 +56,8 @@ define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_inner_loop) 
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP_PHI_USE_LIVE_OUT_PREV:%.*]] = phi  [ i64 [[VP_PHI_USE_LIVE_OUT_BLEND:%.*]], [[BB8:BB[0-9]+]] ],  [ i64 undef, [[BB6]] ]
 ; CHECK-NEXT:     [DA: Uniform]   i64 [[VP_INNER_IV:%.*]] = phi  [ i64 [[VP_INNER_IV_NEXT:%.*]], [[BB8]] ],  [ i64 0, [[BB6]] ]
 ; CHECK-NEXT:     [DA: Uniform]   i32 [[VP2:%.*]] = phi  [ i32 [[VP3:%.*]], [[BB8]] ],  [ i32 0, [[BB6]] ]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_CMP216_NOT]], [[BB6]] ],  [ i1 [[VP_LIVE_OUT_MASK:%.*]], [[BB8]] ]
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP4:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_CMP216_NOT]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_CMP216_NOT]], [[BB6]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB8]] ]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP4:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_CMP216_NOT]]
 ; CHECK-NEXT:    SUCCESSORS(1):mask_[[REGION2:region[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB8]] [[BB6]]
 ; CHECK-EMPTY:

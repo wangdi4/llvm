@@ -61,7 +61,7 @@ define dso_local void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b,
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    REGION: [[REGION2]] (BP: NULL)
 ; CHECK-NEXT:    [[BB5:BB[0-9]+]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP5:%.*]] = block-predicate i1 [[VP4]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP5:%.*]] = block-predicate i1 [[VP4]]
 ; CHECK-NEXT:     [DA: Divergent] i32* [[VP6:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP0]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP7:%.*]] = load i32* [[VP6]]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP8:%.*]] = icmp i32 [[VP7]] i32 0
@@ -69,9 +69,9 @@ define dso_local void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b,
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP__NOT:%.*]] = not i1 [[VP8]]
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_BB5_BR_VP__NOT:%.*]] = and i1 [[VP4]] i1 [[VP__NOT]]
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP9:%.*]] = block-predicate i1 [[VP_BB5_BR_VP__NOT]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP__NOT:%.*]] = not i1 [[VP8]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB5_BR_VP__NOT:%.*]] = and i1 [[VP4]] i1 [[VP__NOT]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP9:%.*]] = block-predicate i1 [[VP_BB5_BR_VP__NOT]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP10:%.*]] = add i32 [[VP7]] i32 5
 ; CHECK-NEXT:     [DA: Divergent] i32* [[VP11:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP0]]
 ; CHECK-NEXT:     [DA: Divergent] store i32 [[VP10]] i32* [[VP11]]
@@ -79,8 +79,8 @@ define dso_local void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b,
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_BB5_BR_:%.*]] = and i1 [[VP4]] i1 [[VP8]]
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP12:%.*]] = block-predicate i1 [[VP_BB5_BR_]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB5_BR_:%.*]] = and i1 [[VP4]] i1 [[VP8]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP12:%.*]] = block-predicate i1 [[VP_BB5_BR_]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP13:%.*]] = mul i32 [[VP3]] i32 5
 ; CHECK-NEXT:     [DA: Divergent] i32* [[VP14:%.*]] = getelementptr inbounds i32* [[B0]] i64 [[VP0]]
 ; CHECK-NEXT:     [DA: Divergent] store i32 [[VP13]] i32* [[VP14]]
@@ -88,7 +88,7 @@ define dso_local void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b,
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB8]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP15:%.*]] = block-predicate i1 [[VP4]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP15:%.*]] = block-predicate i1 [[VP4]]
 ; CHECK-NEXT:     [DA: Divergent] i32* [[VP16:%.*]] = getelementptr inbounds i32* [[C0:%.*]] i64 [[VP0]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP17:%.*]] = load i32* [[VP16]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP18:%.*]] = mul i32 [[VP17]] i32 [[N0:%.*]]
@@ -105,14 +105,14 @@ define dso_local void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b,
 ; CHECK-NEXT:    END Region([[REGION2]])
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP24:%.*]] = block-predicate i1 [[VP4]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP24:%.*]] = block-predicate i1 [[VP4]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB10:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[REGION2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB10]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP__NOT_1:%.*]] = not i1 [[VP23]]
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_BB16_BR_VP__NOT:%.*]] = and i1 [[VP4]] i1 [[VP__NOT_1]]
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP25:%.*]] = block-predicate i1 [[VP_BB16_BR_VP__NOT]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP__NOT_1:%.*]] = not i1 [[VP23]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB16_BR_VP__NOT:%.*]] = and i1 [[VP4]] i1 [[VP__NOT_1]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP25:%.*]] = block-predicate i1 [[VP_BB16_BR_VP__NOT]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP26:%.*]] = mul i32 [[VP21]] i32 [[N0]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP27:%.*]] = mul i32 [[VP17]] i32 [[VP26]]
 ; CHECK-NEXT:     [DA: Divergent] i32* [[VP28:%.*]] = getelementptr inbounds i32* [[B0]] i64 [[VP0]]
@@ -121,8 +121,8 @@ define dso_local void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b,
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB11]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_BB16_BR_:%.*]] = and i1 [[VP4]] i1 [[VP23]]
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP29:%.*]] = block-predicate i1 [[VP_BB16_BR_]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB16_BR_:%.*]] = and i1 [[VP4]] i1 [[VP23]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP29:%.*]] = block-predicate i1 [[VP_BB16_BR_]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP30:%.*]] = mul i32 [[VP17]] i32 [[N0]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP31:%.*]] = mul i32 [[VP21]] i32 -1
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP32:%.*]] = add i32 [[VP30]] i32 [[VP31]]
