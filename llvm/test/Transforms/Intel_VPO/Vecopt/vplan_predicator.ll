@@ -213,8 +213,13 @@ define void @test_two_linearized_pathes_merge(i32* %a, i32 %b) local_unnamed_add
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB10]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB7_BR_VP_BB2_VARYING:%.*]] = and i1 [[VP_BB0_UNIFORM_NOT]] i1 [[VP_BB2_VARYING]]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP6:%.*]] = or i1 [[VP4]] i1 [[VP_BB7_BR_VP_BB2_VARYING]]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP7:%.*]] = block-predicate i1 [[VP6]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB3_VARYING_NOT_1:%.*]] = not i1 [[VP_BB3_VARYING]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB10_BR_VP_BB3_VARYING_NOT_1:%.*]] = and i1 [[VP_BB6_BR_VP_BB1_VARYING]] i1 [[VP_BB3_VARYING_NOT_1]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB1_VARYING_NOT_1:%.*]] = not i1 [[VP_BB1_VARYING]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB6_BR_VP_BB1_VARYING_NOT_1:%.*]] = and i1 [[VP_BB0_UNIFORM]] i1 [[VP_BB1_VARYING_NOT_1]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP6:%.*]] = or i1 [[VP_BB7_BR_VP_BB2_VARYING]] i1 [[VP_BB10_BR_VP_BB3_VARYING_NOT_1]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP7:%.*]] = or i1 [[VP_BB6_BR_VP_BB1_VARYING_NOT_1]] i1 [[VP6]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP8:%.*]] = block-predicate i1 [[VP7]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP_BB5_ADD:%.*]] = add i32 [[VP_LD]] i32 5
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB11:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB9]]

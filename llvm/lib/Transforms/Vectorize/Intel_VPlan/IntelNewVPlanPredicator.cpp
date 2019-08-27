@@ -111,6 +111,22 @@ VPValue *VPlanPredicator::createNot(VPValue *Cond) {
   return Not;
 }
 
+static void getPostDomFrontier(VPBlockBase *Block,
+                               VPPostDominatorTree &PDT,
+                               SmallPtrSetImpl<VPBlockBase *> &Frontier) {
+  assert(Frontier.empty() && "Output set isn't empty on the entry!");
+  // TODO: LLORG's templated DomFrontier uses DFS numbering. Not sure if that's
+  // needed to ensure some particular traversal order.
+  SmallVector<VPBlockBase *, 8> PostDominatedBlocks;
+  PDT.getDescendants(Block, PostDominatedBlocks);
+  // getDescendants includes the node itself into the list too, no need to
+  // special case for it.
+  for (VPBlockBase *B : PostDominatedBlocks)
+    for (VPBlockBase *Pred : B->getPredecessors())
+      if (!PDT.dominates(Block, Pred))
+        Frontier.insert(Pred);
+}
+
 void VPlanPredicator::calculatePredicateTerms(VPBlockBase *CurrBlock) {
   VPRegionBlock *Region = CurrBlock->getParent();
   // Blocks that dominate region exit inherit the predicate from the region.
@@ -125,7 +141,8 @@ void VPlanPredicator::calculatePredicateTerms(VPBlockBase *CurrBlock) {
     if (PredBB->getSingleSuccessor() == CurrBlock) {
       // Re-use PredBB's block predicate - it is the same and we don't want to
       // emit VPInstructions to re-calculate it in generic way based on the
-      // influencing conditions that affect CurrBlock's predicate.
+      // influencing conditions (post-dom frontier) that affect CurrBlock's
+      // predicate.
       assert(Block2PredicateTerms.count(PredBB) == 1 &&
              "PredBB should have been processed already!");
       Block2PredicateTerms[CurrBlock] = {{PredicateTerm(PredBB)}};
@@ -135,14 +152,40 @@ void VPlanPredicator::calculatePredicateTerms(VPBlockBase *CurrBlock) {
 
   Block2PredicateTerms[CurrBlock] = {};
 
-  for (auto *PredBB : CurrBlock->getPredecessors()) {
-    auto *Cond = PredBB->getCondBit();
-    assert((Cond || CurrBlock == PredBB->getSuccessors()[0]) &&
+  SmallPtrSet<VPBlockBase *, 12> Frontier;
+  getPostDomFrontier(CurrBlock, VPPostDomTree, Frontier);
+
+  // Conditional branches that are "interesting" for computing the predicate for
+  // the current block are exactly the ones forming the post dominance frontier.
+  // Branches that we post-dominate converge before reaching the current block,
+  // and branches that aren't in neither post dominance frontier, nor in the set
+  // of the one that CurrBlock dominates, affect CurrBlock indirectly only (via
+  // the block predicate of the blocks forming the frontier).
+  //
+  //        P----------+
+  //        |          |
+  //        |          |
+  //     +- O          |
+  //     |  |          |   E      - CurrBlock
+  //     |  A ----     |   {A, O} - its post-dom frontier
+  //     |  |     |    |
+  //     |  B     |    |
+  //     \ / \    |    |
+  //      C   D  /     |
+  //       \ /  /      |
+  //        E  /       |
+  //        | /        |
+  //        F          |
+  //
+  for (auto *InfluenceBB : Frontier) {
+    auto *Cond = InfluenceBB->getCondBit();
+    assert((Cond || CurrBlock == InfluenceBB->getSuccessors()[0]) &&
            "Single predecessor on false edge?");
     // Cond == nullptr would just mean that PredBB's predicate should be used.
     // Still ok.
     Block2PredicateTerms[CurrBlock].push_back(PredicateTerm(
-        PredBB, Cond, CurrBlock != PredBB->getSuccessors()[0] /* Negate */));
+        InfluenceBB, Cond,
+        CurrBlock != InfluenceBB->getSuccessors()[0] /* Negate */));
   }
 }
 
@@ -223,6 +266,7 @@ void VPlanPredicator::predicateAndLinearizeRegionRec(VPRegionBlock *Region,
                                                      bool SearchLoopHack) {
   ReversePostOrderTraversal<VPBlockBase *> RPOT(Region->getEntry());
   VPDomTree.recalculate(*Region);
+  VPPostDomTree.recalculate(*Region);
 
   for (VPBlockBase *Block : RPOT)
     calculatePredicateTerms(Block);

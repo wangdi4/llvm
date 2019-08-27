@@ -46,8 +46,9 @@ private:
   // VPLoopInfo for Plan's HCFG.
   VPLoopInfo *VPLI;
 
-  // Dominator tree for Plan's HCFG.
+  // Dominator/PostDominator tree for Plan's HCFG.
   VPDominatorTree VPDomTree;
+  VPPostDominatorTree VPPostDomTree;
 
   // VPlan builder used to generate VPInstructions for block predicates.
   VPBuilder Builder;
