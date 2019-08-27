@@ -220,16 +220,11 @@ enum IIT_Info {
   IIT_STRUCT7 = 39,
   IIT_STRUCT8 = 40,
   IIT_F128 = 41,
-<<<<<<< HEAD
-  IIT_VEC_ELEMENT = 42,
-  IIT_V48  = 43
+  IIT_VEC_ELEMENT = 42
 #if INTEL_CUSTOMIZATION
   ,
-  IIT_STRUCT9 = 44
+  IIT_STRUCT9 = 43
 #endif  // INTEL_CUSTOMIZATION
-=======
-  IIT_VEC_ELEMENT = 42
->>>>>>> 8651ec6a84498f8b81a74a1f89ce60c29a2984bf
 };
 
 static void EncodeFixedValueType(MVT::SimpleValueType VT,
