@@ -584,6 +584,8 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   Builder.defineMacro("__clang_version__",
                       "\"" CLANG_VERSION_STRING " (icx "
                       + getICXVersionString() + ")\"");
+  Builder.defineMacro("__INTEL_LLVM_COMPILER", getICXVersionNumber());
+  Builder.defineMacro("__INTEL_CLANG_COMPILER", getICXVersionNumber());
 #endif // INTEL_CUSTOMIZATION
   if (!LangOpts.MSVCCompat) {
     // Currently claim to be compatible with GCC 4.2.1-5621, but only if we're
