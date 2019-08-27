@@ -34,6 +34,7 @@ using namespace llvm;
 #define PASS_NAME "CSA: Dataflow simplification pass"
 
 STATISTIC(NumSwitchesAdded, "Number of switches added due to inversion");
+STATISTIC(NumFiltersToOncounts, "Number of filter0s converted to oncount0s");
 
 static cl::opt<bool>
   DisableSwitchInversion("csa-disable-swi", cl::Hidden,
@@ -80,6 +81,9 @@ private:
   /// The following mini pass replaces SWITCH operations where one output
   /// is ignored with FILTER operations.
   bool createFilterOps(MachineInstr *MI);
+
+  // The following replaces filter0s driven by sequencers with oncount0s.
+  bool createOncountFromFilter(MachineInstr *MI);
 
   /// The following mini pass replaces MOV operations.
   bool eliminateMovInsts(MachineInstr *MI);
@@ -138,7 +142,8 @@ bool CSADataflowCanonicalizationPass::runOnMachineFunction(
     &CSADataflowCanonicalizationPass::eliminateMovInsts,
     &CSADataflowCanonicalizationPass::createFilterOps,
     &CSADataflowCanonicalizationPass::invertIgnoredSwitches,
-    &CSADataflowCanonicalizationPass::stopPipingLiterals
+    &CSADataflowCanonicalizationPass::stopPipingLiterals,
+    &CSADataflowCanonicalizationPass::createOncountFromFilter
   };
   for (auto func : functions) {
     if (func == &CSADataflowCanonicalizationPass::invertIgnoredSwitches &&
@@ -254,6 +259,74 @@ bool CSADataflowCanonicalizationPass::createFilterOps(MachineInstr *MI) {
   }
 
   return false;
+}
+
+// This will transform a filter of the form:
+//   -, -, -, %end = seqotneN 0, %N, 1
+//   %out = filter0 %end, %in
+// with an oncount based on the sequencer's range:
+//   -, -, -, %end = seqotneN 0, %N, 1
+//   %out = oncount0 %N, %in
+bool CSADataflowCanonicalizationPass::createOncountFromFilter(MachineInstr *MI) {
+  if (MI->getOpcode() != CSA::FILTER0)
+    return false;
+
+  if (!MI->getOperand(1).isReg())
+    return false;
+
+  unsigned endStream = MI->getOperand(1).getReg();
+  MachineInstr *seqInst = MRI->getUniqueVRegDef(endStream);
+  if (!seqInst)
+    return false;
+
+  // Look for a sequencer with a known trip count. There are certainly other
+  // cases, but for now we look for a seqotne counting from 0 to N by 1.
+  if (TII->getGenericOpcode(seqInst->getOpcode()) != CSA::Generic::SEQOTNE)
+    return false;
+
+  // The control stream indicating the final value must be driving our filter0.
+  if (!seqInst->getOperand(3).isReg() || seqInst->getOperand(3).getReg() != endStream)
+    return false;
+
+  // Look for a start of literal 0...
+  if (!seqInst->getOperand(4).isImm() || seqInst->getOperand(4).getImm() != 0)
+    return false;
+
+  // ...and an increment of literal 1.
+  if (!seqInst->getOperand(6).isImm() || seqInst->getOperand(6).getImm() != 1)
+    return false;
+
+  // We've decided that we can make the transformation in this case. Bump the
+  // statistic.
+  NumFiltersToOncounts++;
+
+  // Before making any transformation, note whether or not the filter is the
+  // only user of the control stream.
+  bool exclusiveStreamUser = MRI->hasOneNonDBGUser(endStream);
+
+  // We then know that the filter0 is simply going to eat N-1 zeroes (and data
+  // values) and then emit a 0-bit data value on the Nth one. This can be
+  // replaced by an oncount0 which eats N values and then emits a 0-bit data
+  // value. The oncount potentially uses an additional integer resource, but in
+  // return we eliminate the need to send a control stream to do the eating.
+  MachineOperand &count = seqInst->getOperand(5);
+  BuildMI(*MI->getParent(), MI, MI->getDebugLoc(), TII->get(CSA::ONCOUNT0),
+      MI->getOperand(0).getReg()).add(count).add(MI->getOperand(2))
+    .addReg(CSA::NA).addReg(CSA::NA).addReg(CSA::NA)
+    ->setFlag(MachineInstr::NonSequential);
+
+  // If the endStream had no other users, redirect the sequencer's output to
+  // IGN. This could make the sequencer a dead op.
+  if (exclusiveStreamUser)
+    seqInst->getOperand(3).setReg(CSA::IGN);
+
+  //Finally, disconnect and schedule the filter0 for deletion.
+  for (MachineOperand &opnd : MI->operands())
+    if (opnd.isReg())
+      opnd.setReg(CSA::NA);
+
+  to_delete.push_back(MI);
+  return true;
 }
 
 // This will transform a switch of the form:
