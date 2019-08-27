@@ -2106,9 +2106,6 @@ private:
       return Operands[OpIdx][0];
     }
 
-<<<<<<< HEAD
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) //INTEL
-=======
     /// Some of the instructions in the list have alternate opcodes.
     bool isAltShuffle() const {
       return getOpcode() != getAltOpcode();
@@ -2160,9 +2157,7 @@ private:
       setOperations(S);
       return true;
     }
-
-#ifndef NDEBUG
->>>>>>> 081c57989e8846ed947707f559b6ce6481aad827
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) //INTEL
     /// Debug printer.
     LLVM_DUMP_METHOD void dump() const {
       dbgs() << Idx << ".\n";
@@ -4672,7 +4667,7 @@ void BoUpSLP::buildTreeMultiNode_rec(const InstructionsState &S,
   assert(!CurrentMultiNode->empty() && "Not resized ?");
 
   // If this VL looks OK for the Multi-Node, proceed with adding a new entry.
-  auto *NewTE = newTreeEntry(VL, Bundle, UserTreeIdx, ReuseShuffleIndices);
+  auto *NewTE = newTreeEntry(VL, Bundle, S, UserTreeIdx, ReuseShuffleIndices);
 
   int LastTEIdx = VectorizableTree.size() - 1;
 
@@ -4956,7 +4951,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
   if (!S.getOpcode() &&
       (!EnableMultiNodeSLP || !areMultiNodeCompatibleOpcodes(VL))) {
     LLVM_DEBUG(dbgs() << "SLP: Gathering due to O. \n");
-    newTreeEntry(VL, None, UserTreeIdx, ReuseShuffleIndicies);
+    newTreeEntry(VL, None, S, UserTreeIdx, ReuseShuffleIndicies);
     return;
   }
 #endif // INTEL_CUSTOMIZATION
@@ -5106,7 +5101,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
     }
     if (!S.getOpcode()) {
       LLVM_DEBUG(dbgs() << "SLP: Gathering due to O. \n");
-      newTreeEntry(VL, None, UserTreeIdx);
+      newTreeEntry(VL, None, S, UserTreeIdx);
       return;
     }
   }
@@ -5169,7 +5164,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
     if (Reuse) {
       LLVM_DEBUG(dbgs() << "SLP: Reusing or shuffling extract sequence.\n");
       ++NumOpsWantToKeepOriginalOrder;
-      newTreeEntry(VL, Bundle /*vectorized*/, UserTreeIdx,
+      newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
                    ReuseShuffleIndicies);
       // This is a special case, as it does not gather, but at the same time
       // we are not extending buildTree_rec() towards the operands.
@@ -5178,7 +5173,6 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       VectorizableTree.back()->setOperand(0, Op0);
       return;
     }
-<<<<<<< HEAD
     if (!CurrentOrder.empty()) {
       LLVM_DEBUG({
         dbgs() << "SLP: Reusing or shuffling of reordered extract sequence "
@@ -5192,7 +5186,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       auto StoredCurrentOrderAndNum =
           NumOpsWantToKeepOrder.try_emplace(CurrentOrder).first;
       ++StoredCurrentOrderAndNum->getSecond();
-      newTreeEntry(VL, Bundle /*vectorized*/, UserTreeIdx,
+      newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
                    ReuseShuffleIndicies,
                    StoredCurrentOrderAndNum->getFirst());
       // This is a special case, as it does not gather, but at the same time
@@ -5203,7 +5197,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       return;
     }
     LLVM_DEBUG(dbgs() << "SLP: Gather extract sequence.\n");
-    newTreeEntry(VL, None /*not vectorized*/, UserTreeIdx,
+    newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx,
                  ReuseShuffleIndicies);
     BS.cancelScheduling(VL, VL0);
     return;
@@ -5220,50 +5214,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
     if (DL->getTypeSizeInBits(ScalarTy) !=
       DL->getTypeAllocSizeInBits(ScalarTy)) {
       BS.cancelScheduling(VL, VL0);
-      newTreeEntry(VL, None /*not vectorized*/, UserTreeIdx,
-=======
-    case Instruction::ExtractValue:
-    case Instruction::ExtractElement: {
-      OrdersType CurrentOrder;
-      bool Reuse = canReuseExtract(VL, VL0, CurrentOrder);
-      if (Reuse) {
-        LLVM_DEBUG(dbgs() << "SLP: Reusing or shuffling extract sequence.\n");
-        ++NumOpsWantToKeepOriginalOrder;
-        newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
-                     ReuseShuffleIndicies);
-        // This is a special case, as it does not gather, but at the same time
-        // we are not extending buildTree_rec() towards the operands.
-        ValueList Op0;
-        Op0.assign(VL.size(), VL0->getOperand(0));
-        VectorizableTree.back()->setOperand(0, Op0);
-        return;
-      }
-      if (!CurrentOrder.empty()) {
-        LLVM_DEBUG({
-          dbgs() << "SLP: Reusing or shuffling of reordered extract sequence "
-                    "with order";
-          for (unsigned Idx : CurrentOrder)
-            dbgs() << " " << Idx;
-          dbgs() << "\n";
-        });
-        // Insert new order with initial value 0, if it does not exist,
-        // otherwise return the iterator to the existing one.
-        auto StoredCurrentOrderAndNum =
-            NumOpsWantToKeepOrder.try_emplace(CurrentOrder).first;
-        ++StoredCurrentOrderAndNum->getSecond();
-        newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
-                     ReuseShuffleIndicies,
-                     StoredCurrentOrderAndNum->getFirst());
-        // This is a special case, as it does not gather, but at the same time
-        // we are not extending buildTree_rec() towards the operands.
-        ValueList Op0;
-        Op0.assign(VL.size(), VL0->getOperand(0));
-        VectorizableTree.back()->setOperand(0, Op0);
-        return;
-      }
-      LLVM_DEBUG(dbgs() << "SLP: Gather extract sequence.\n");
       newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx,
->>>>>>> 081c57989e8846ed947707f559b6ce6481aad827
                    ReuseShuffleIndicies);
       LLVM_DEBUG(dbgs() << "SLP: Gathering loads of non-packed type.\n");
       return;
@@ -5286,7 +5237,6 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       ++POIter;
     }
 
-<<<<<<< HEAD
     OrdersType CurrentOrder;
     // Check the order of pointer operands.
     if (llvm::sortPtrAccesses(PointerOps, *DL, *SE, CurrentOrder)) {
@@ -5308,7 +5258,8 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         if (CurrentOrder.empty()) {
           // Original loads are consecutive and does not require reordering.
           ++NumOpsWantToKeepOriginalOrder;
-          TreeEntry *TE = newTreeEntry(VL, Bundle /*vectorized*/, UserTreeIdx,
+          TreeEntry *TE = newTreeEntry(VL, Bundle /*vectorized*/, S,
+                                       UserTreeIdx,
                                        ReuseShuffleIndicies);
           TE->setOperandsInOrder();
           LLVM_DEBUG(dbgs() << "SLP: added a vector of loads.\n");
@@ -5316,24 +5267,10 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
           // Need to reorder.
           auto I = NumOpsWantToKeepOrder.try_emplace(CurrentOrder).first;
           ++I->getSecond();
-          TreeEntry *TE = newTreeEntry(VL, Bundle /*vectorized*/, UserTreeIdx,
+          TreeEntry *TE = newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
                                        ReuseShuffleIndicies, I->getFirst());
           TE->setOperandsInOrder();
           LLVM_DEBUG(dbgs() << "SLP: added a vector of jumbled loads.\n");
-=======
-      // Make sure all loads in the bundle are simple - we can't vectorize
-      // atomic or volatile loads.
-      SmallVector<Value *, 4> PointerOps(VL.size());
-      auto POIter = PointerOps.begin();
-      for (Value *V : VL) {
-        auto *L = cast<LoadInst>(V);
-        if (!L->isSimple()) {
-          BS.cancelScheduling(VL, VL0);
-          newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx,
-                       ReuseShuffleIndicies);
-          LLVM_DEBUG(dbgs() << "SLP: Gathering non-simple loads.\n");
-          return;
->>>>>>> 081c57989e8846ed947707f559b6ce6481aad827
         }
 #if INTEL_CUSTOMIZATION
         // Use the split-load support in codegen for the consecutive loads.
@@ -5364,7 +5301,6 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
             From = To + 1;
           }
         }
-<<<<<<< HEAD
 
         // Check if the group contains enough loads.
         auto isFullGroupLoad = [&]() {
@@ -5385,31 +5321,6 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
             // TODO: We should allow groups of various sizes.
             if (Group.size() != VL.size() / ConsecutiveGroups.size())
               return false;
-=======
-        const SCEV *Scev0 = SE->getSCEV(Ptr0);
-        const SCEV *ScevN = SE->getSCEV(PtrN);
-        const auto *Diff =
-            dyn_cast<SCEVConstant>(SE->getMinusSCEV(ScevN, Scev0));
-        uint64_t Size = DL->getTypeAllocSize(ScalarTy);
-        // Check that the sorted loads are consecutive.
-        if (Diff && Diff->getAPInt().getZExtValue() == (VL.size() - 1) * Size) {
-          if (CurrentOrder.empty()) {
-            // Original loads are consecutive and does not require reordering.
-            ++NumOpsWantToKeepOriginalOrder;
-            TreeEntry *TE = newTreeEntry(VL, Bundle /*vectorized*/, S,
-                                         UserTreeIdx, ReuseShuffleIndicies);
-            TE->setOperandsInOrder();
-            LLVM_DEBUG(dbgs() << "SLP: added a vector of loads.\n");
-          } else {
-            // Need to reorder.
-            auto I = NumOpsWantToKeepOrder.try_emplace(CurrentOrder).first;
-            ++I->getSecond();
-            TreeEntry *TE =
-                newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
-                             ReuseShuffleIndicies, I->getFirst());
-            TE->setOperandsInOrder();
-            LLVM_DEBUG(dbgs() << "SLP: added a vector of jumbled loads.\n");
->>>>>>> 081c57989e8846ed947707f559b6ce6481aad827
           }
           return true;
         };
@@ -5417,7 +5328,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         if (isFullGroupLoad()) {
           ++NumOpsWantToKeepOriginalOrder;
           TreeEntry *TE =
-              newTreeEntry(VL, Bundle, UserTreeIdx, ReuseShuffleIndicies);
+              newTreeEntry(VL, Bundle, S, UserTreeIdx, ReuseShuffleIndicies);
           TE->setOperandsInOrder();
           assert(!ConsecutiveGroups.empty() && "No groups!");
           VectorizableTree.back()->ConsecutiveLoadGroups = ConsecutiveGroups;
@@ -6103,7 +6014,6 @@ int BoUpSLP::getEntryCost(TreeEntry *E) {
       }
       VectorType *MaskTy = VectorType::get(Builder.getInt1Ty(), VL.size());
       int ScalarCost = VecTy->getNumElements() * ScalarEltCost;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       if (DoPSLP && PSLPAdjustCosts) {
         // Count the PSLP-emitted instructions and remove them from the
@@ -6121,10 +6031,7 @@ int BoUpSLP::getEntryCost(TreeEntry *E) {
         assert(ScalarCost >= 0 && "Too much cost reduction");
       }
 #endif // INTEL_CUSTOMIZATION
-      int VecCost = TTI->getCmpSelInstrCost(S.getOpcode(), VecTy, MaskTy, VL0);
-=======
       int VecCost = TTI->getCmpSelInstrCost(E->getOpcode(), VecTy, MaskTy, VL0);
->>>>>>> 081c57989e8846ed947707f559b6ce6481aad827
       return ReuseShuffleCost + VecCost - ScalarCost;
     }
     case Instruction::FNeg:
@@ -6204,7 +6111,7 @@ int BoUpSLP::getEntryCost(TreeEntry *E) {
           }
         }
         int SingleCost = TTI->getArithmeticInstrCost(
-            S.getOpcode(), ScalarTy, Op1VK, Op2VK, Op1VP, Op2VP, Operands);
+            E->getOpcode(), ScalarTy, Op1VK, Op2VK, Op1VP, Op2VP, Operands);
         ScalarCost -= CntPadded * SingleCost;
         assert(ScalarCost >= 0 && "Too much cost reduction");
       }
@@ -7077,26 +6984,16 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
 #endif // INTEL_CUSTOMIZATION
       // Loads are inserted at the head of the tree because we don't want to
       // sink them all the way down past store instructions.
-<<<<<<< HEAD
-      bool IsReorder = !E->ReorderIndices.empty();
-      if (IsReorder) {
-        S = getSameOpcode(E->Scalars, E->ReorderIndices.front());
-        VL0 = cast<Instruction>(S.OpValue);
-      }
+      bool IsReorder = E->updateStateIfReorder();
+      if (IsReorder)
+        VL0 = E->getMainOp();
 #if INTEL_CUSTOMIZATION
       // Split-loads need both vector loads and shuffles. We should emit them
       // one by one in a sequence. So don't touch the insertion point again as
       // it has already been set at the beginning.
 #else
-      setInsertPointAfterBundle(E->Scalars, S);
-#endif // INTEL_CUSTOMIZATION
-=======
-      bool IsReorder = E->updateStateIfReorder();
-      if (IsReorder)
-        VL0 = E->getMainOp();
       setInsertPointAfterBundle(E);
-
->>>>>>> 081c57989e8846ed947707f559b6ce6481aad827
+#endif // INTEL_CUSTOMIZATION
       LoadInst *LI = cast<LoadInst>(VL0);
       Type *ScalarLoadTy = LI->getType();
       unsigned AS = LI->getPointerAddressSpace();
@@ -7140,7 +7037,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
 
       // Set insertion point once per load. This is done outside of 'createLoad'
       // lambda.
-      setInsertPointAfterBundle(E->Scalars, S);
+      setInsertPointAfterBundle(E);
 
       // Go through all split groups and emit the vector loads.
       for (const LoadGroup &Group : E->ConsecutiveLoadGroups) {
