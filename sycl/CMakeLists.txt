@@ -34,7 +34,19 @@ set(CLANG_VERSION "${CLANG_VERSION_MAJOR}.${CLANG_VERSION_MINOR}.${CLANG_VERSION
 set(LLVM_INST_INC_DIRECTORY "lib${LLVM_LIBDIR_SUFFIX}/clang/${CLANG_VERSION}/include")
 set(dst_dir ${LLVM_LIBRARY_OUTPUT_INTDIR}/clang/${CLANG_VERSION}/include)
 
-find_package(OpenCL)
+if( INTEL_CUSTOMIZATION )
+  set( ICD_LOADER_SRC_DIR ${LLVM_MAIN_SRC_DIR}/../external/opencl-icd-loader)
+endif()
+
+if( DEFINED ICD_LOADER_SRC_DIR )
+  if( NOT EXISTS ${OpenCL_INCLUDE_DIR} )
+    message(ERROR "Missed OpenCL headers" )
+  endif()
+
+  set(OpenCL_INCLUDE_DIRS ${OpenCL_INCLUDE_DIR})
+else()
+  find_package(OpenCL)
+endif()
 
 include(ExternalProject)
 
@@ -60,7 +72,48 @@ else()
   )
 endif()
 
-if( NOT OpenCL_LIBRARIES )
+if( DEFINED ICD_LOADER_SRC_DIR )
+  message ("Build OpenCL from provided sources")
+  file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/icd_build/deploy)
+  if(MSVC)
+    set(OPENCL_ICD_LOADER_WDK "-DOPENCL_ICD_LOADER_REQUIRE_WDK=OFF")
+    set(OpenCL_LIBRARIES
+      "${LLVM_LIBRARY_OUTPUT_INTDIR}/${CMAKE_SHARED_LIBRARY_PREFIX}OpenCL${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+  else()
+    set(OPENCL_ICD_LOADER_WDK "")
+    set(OpenCL_LIBRARIES
+        "${LLVM_LIBRARY_OUTPUT_INTDIR}/${CMAKE_SHARED_LIBRARY_PREFIX}OpenCL${CMAKE_SHARED_LIBRARY_SUFFIX}"
+    )
+  endif()
+
+  ExternalProject_Add(ocl-icd
+      SOURCE_DIR        "${ICD_LOADER_SRC_DIR}"
+      BINARY_DIR        "${CMAKE_CURRENT_BINARY_DIR}/icd_build"
+      CMAKE_ARGS        -DOPENCL_ICD_LOADER_HEADERS_DIR=${OpenCL_INCLUDE_DIRS}
+                        -DBUILD_TESTING=OFF
+                        -DCMAKE_INSTALL_LIBDIR:PATH=lib
+                        -DCMAKE_INSTALL_BINDIR:PATH=bin
+                        ${OPENCL_ICD_LOADER_WDK}
+                        -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/icd_build/deploy
+                        -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+      INSTALL_COMMAND   ${CMAKE_COMMAND} --build <BINARY_DIR> --target install
+      COMMAND           ${CMAKE_COMMAND} -DCMAKE_INSTALL_PREFIX=${LLVM_BINARY_DIR}
+                        -P <BINARY_DIR>/cmake_install.cmake
+      STEP_TARGETS      install
+  )
+
+  install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/icd_build/deploy/lib
+      DESTINATION .
+      COMPONENT khronos-icd-loader
+  )
+  if(MSVC)
+    install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/icd_build/deploy/bin
+        DESTINATION .
+        COMPONENT khronos-icd-loader
+    )
+  endif()
+elseif( NOT OpenCL_LIBRARIES )
   message("OpenCL_LIBRARIES is missed. Try to build from GitHub sources.")
   set(OpenCL_LIBRARIES "${LLVM_LIBRARY_OUTPUT_INTDIR}/libOpenCL.so")
   file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/icd_build)
@@ -71,7 +124,7 @@ if( NOT OpenCL_LIBRARIES )
     BINARY_DIR        "${CMAKE_CURRENT_BINARY_DIR}/icd_build"
     CONFIGURE_COMMAND ${CMAKE_COMMAND} "${CMAKE_CURRENT_BINARY_DIR}/OpenCL/icd" -DCMAKE_INSTALL_LIBDIR:PATH=lib -DCMAKE_INSTALL_PREFIX=${LLVM_BINARY_DIR}
     BUILD_COMMAND     make C_INCLUDE_PATH=${CMAKE_CURRENT_BINARY_DIR}/OpenCL/inc
-    INSTALL_COMMAND   make install 
+    INSTALL_COMMAND   make install
     STEP_TARGETS      configure,build,install
     DEPENDS           ocl-headers
   )
