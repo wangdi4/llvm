@@ -1063,6 +1063,10 @@ Value *VPOCodeGen::getScalarValueUplifted(VPValue *V, unsigned Lane) {
 
   if (VPScalarMap.count(V)) {
     auto SV = VPScalarMap[V];
+    if (isVPValueUniform(V, Plan))
+      // For uniform instructions the mapping is updated for lane zero only.
+      Lane = 0;
+
     if (SV.count(Lane))
       return SV[Lane];
   }
