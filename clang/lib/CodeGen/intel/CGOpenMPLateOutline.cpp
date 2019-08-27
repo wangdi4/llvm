@@ -1940,8 +1940,18 @@ void CGLateOutlineOpenMPRegionInfo::EmitBody(CodeGenFunction &CGF,
   if (!CGF.HaveInsertPoint())
     return;
   CGF.EHStack.pushTerminate();
-  auto *CS = cast<CapturedStmt>(S);
-  CGF.EmitStmt(CS->getCapturedStmt());
+
+  auto *CS = (cast<CapturedStmt>(S))->getCapturedStmt();
+  // The OMP structured-block (captured statement) is a declaration. Create a
+  // new exception scope so we can handle any lingering cleanup exceptions
+  // (due to ill-formed block) before popping the terminate exception.
+  if (isa<DeclStmt>(CS)) {
+    CodeGenFunction::RunCleanupsScope Scope(CGF);
+    CGF.EmitStmt(CS);
+  } else {
+    CGF.EmitStmt(CS);
+  }
+
   CGF.EHStack.popTerminate();
 }
 
