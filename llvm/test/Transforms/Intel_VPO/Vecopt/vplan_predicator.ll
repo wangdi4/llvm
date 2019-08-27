@@ -220,7 +220,6 @@ define void @test_two_linearized_pathes_merge(i32* %a, i32 %b) local_unnamed_add
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB11]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP17:%.*]] = and i1 [[VP6]] i1 [[VP_BB3_VARYING]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP_INDVARS_IV_NEXT]] = add i32 [[VP_INDVARS_IV]] i32 1
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_EXITCOND:%.*]] = icmp i32 [[VP_INDVARS_IV_NEXT]] i32 300
 ; CHECK-NEXT:    no SUCCESSORS
@@ -369,7 +368,6 @@ define void @test_separate_blend_bb_for_2_div_plus_uniform(i32* %a, i32 %b) loca
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB8]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP6:%.*]] = not i1 [[VP_BB0_UNIFORM]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP_PHI:%.*]] = phi  [ i32 0, [[BB4]] ],  [ i32 2, [[BB6]] ],  [ i32 3, [[BB7]] ]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP_BB4_ADD:%.*]] = add i32 [[VP_LD]] i32 4
 ; CHECK-NEXT:    no SUCCESSORS
@@ -530,9 +528,6 @@ define void @test_two_blend_bbs(i32* %a, i32 %b)  local_unnamed_addr {
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB11]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP13:%.*]] = not i1 [[VP_BB5_VARYING]]
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP14:%.*]] = and i1 [[VP3]] i1 [[VP13]]
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP15:%.*]] = and i1 [[VP0]] i1 [[VP_BB4_UNIFORM]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP_PHI:%.*]] = phi  [ i32 5, [[BB6]] ],  [ i32 3, [[BB10]] ],  [ i32 4, [[BB5]] ],  [ i32 6, [[BB7]] ],  [ i32 2, [[BB9]] ]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP_BB7_ADD:%.*]] = add i32 [[VP_LD]] i32 7
 ; CHECK-NEXT:    no SUCCESSORS
@@ -700,8 +695,6 @@ define dso_local void @test_divergent_inner_loop_with_double_top_test(i64 %N, i6
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB11]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP9:%.*]] = not i1 [[VP_LOOP_MASK]]
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP10:%.*]] = and i1 [[VP3]] i1 [[VP9]]
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP11:%.*]] = block-predicate i1 [[VP3]]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INNER_IV_NEXT]] i64 [[VP_OUTER_IV]]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_EXITCOND_NOT:%.*]] = not i1 [[VP_EXITCOND]]
@@ -730,7 +723,6 @@ define dso_local void @test_divergent_inner_loop_with_double_top_test(i64 %N, i6
 ; CHECK-NEXT:    END Region([[LOOP1]])
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB13]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP15:%.*]] = and i1 [[VP0]] i1 [[VP_CMP216]]
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP_OUTER_IV_NEXT]] = add i64 [[VP_OUTER_IV]] i64 1
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_OUTER_EXIT_COND:%.*]] = icmp i64 [[VP_OUTER_IV_NEXT]] i64 [[N0]]
 ; CHECK-NEXT:    no SUCCESSORS

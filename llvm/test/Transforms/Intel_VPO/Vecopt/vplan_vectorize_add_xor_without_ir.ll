@@ -28,8 +28,6 @@
 ; CHECK-NEXT:    [[PREDPHI9:%.*]] = select <2 x i1> [[TMP13]], <2 x i64> [[TMP9]], <2 x i64> <i64 100, i64 100>
 ; CHECK-NEXT:    [[PREDPHI10:%.*]] = select <2 x i1> [[TMP13]], <2 x i64> [[VEC_PHI3]], <2 x i64> <i64 100, i64 100>
 ; CHECK-NEXT:    [[PREDPHI11:%.*]] = select <2 x i1> [[TMP13]], <2 x i1> <i1 true, i1 true>, <2 x i1> [[TMP12]]
-; CHECK-NEXT:    [[TMP14:%.*]] = xor <2 x i1> [[VEC_PHI5]], <i1 true, i1 true>
-; CHECK-NEXT:    [[TMP15:%.*]] = and <2 x i1> [[TMP5]], [[TMP14]]
 ; CHECK-NEXT:    [[TMP16:%.*]] = xor <2 x i1> [[PREDPHI11]], <i1 true, i1 true>
 ; CHECK-NEXT:    [[TMP17]] = and <2 x i1> [[TMP16]], [[VEC_PHI5]]
 ; CHECK-NEXT:    [[TMP18]] = select <2 x i1> [[VEC_PHI5]], <2 x i1> [[PREDPHI8]], <2 x i1> [[VEC_PHI2]]

@@ -106,7 +106,14 @@ VPValue *VPlanPredicator::createNot(VPValue *Cond) {
 }
 
 void VPlanPredicator::calculatePredicateTerms(VPBlockBase *CurrBlock) {
-  // FIXME: Return immediately if CurrBlock dominates region exit.
+  VPRegionBlock *Region = CurrBlock->getParent();
+  // Blocks that dominate region exit inherit the predicate from the region.
+  if (VPDomTree.dominates(CurrBlock, Region->getExit())) {
+    assert(Block2PredicateTerms.count(Region) == 1 &&
+           "Region should have been processed already!");
+    Block2PredicateTerms[CurrBlock] = {{PredicateTerm(Region)}};
+    return;
+  }
 
   if (auto *PredBB = CurrBlock->getSinglePredecessor()) {
     if (PredBB->getSingleSuccessor() == CurrBlock) {
@@ -123,10 +130,6 @@ void VPlanPredicator::calculatePredicateTerms(VPBlockBase *CurrBlock) {
   Block2PredicateTerms[CurrBlock] = {};
 
   for (auto *PredBB : CurrBlock->getPredecessors()) {
-    // Skip back-edges.
-    if (VPBlockUtils::isBackEdge(PredBB, CurrBlock, VPLI))
-      continue;
-
     if (is_contained(PredBB->getSuccessors(), CurrBlock) &&
         VPBlockUtils::countSuccessorsNoBE(PredBB, VPLI) == 1 &&
         PredBB->getSuccessors().size() == 2) {
@@ -262,20 +265,6 @@ void VPlanPredicator::predicateAndLinearizeRegionRec(VPRegionBlock *Region,
     for (auto Term : PredTerms)
       if (auto *Val = createValueForPredicateTerm(Term))
         IncomingConditions.push_back(Val);
-
-    if (VPDomTree.dominates(Block, Region->getExit())) {
-      // FIXME: This is here to preserve NFC of the change. Should really be
-      // moved to calculatePredicateTerms.
-      assert(Block2PredicateTerms.count(Region) == 1 &&
-             "Region should have been processed already!");
-      Block->setPredicate(Region->getPredicate());
-      if (Block->getPredicate() && Block != Region->getEntry()) {
-        // Pred for region entry created when processing the region itself.
-        Builder.createPred(Block->getPredicate());
-      }
-
-      continue;
-    }
 
     auto *Predicate = genPredicateTree(IncomingConditions);
     Block->setPredicate(Predicate);

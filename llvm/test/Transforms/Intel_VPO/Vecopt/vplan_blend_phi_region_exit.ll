@@ -56,7 +56,6 @@ inner.exit:
 ; CHECK-NEXT:    [[TMP8:%.*]] = extractelement <2 x i1> [[TMP7]], i32 0
 ; CHECK-NEXT:    br i1 [[TMP8]], label [[VPLANNEDBB1]], label [[VPLANNEDBB]]
 ; CHECK:       VPlannedBB1:
-; CHECK-NEXT:    [[TMP9:%.*]] = xor <2 x i1> [[TMP1]], <i1 true, i1 true>
 ; CHECK-NEXT:    [[PREDPHI:%.*]] = select <2 x i1> [[TMP1]], <2 x i64> <i64 2, i64 2>, <2 x i64> <i64 1, i64 1>
 ; CHECK-NEXT:    [[PREDPHI2:%.*]] = select <2 x i1> [[TMP1]], <2 x i64> <i64 2, i64 2>, <2 x i64> <i64 1, i64 1>
 outer.cont:

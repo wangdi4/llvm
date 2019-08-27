@@ -132,7 +132,6 @@ define dso_local void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b,
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB10]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB12]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP40:%.*]] = not i1 [[VP4]]
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP1]] = add i64 [[VP0]] i64 1
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP41:%.*]] = icmp i64 [[VP1]] i64 299
 ; CHECK-NEXT:    no SUCCESSORS

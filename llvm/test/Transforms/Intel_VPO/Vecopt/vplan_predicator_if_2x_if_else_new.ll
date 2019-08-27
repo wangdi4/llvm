@@ -133,7 +133,6 @@ define void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b, i32* noal
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB10]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB12]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP17:%.*]] = not i1 [[VP_CMP1]]
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 300
 ; CHECK-NEXT:    no SUCCESSORS

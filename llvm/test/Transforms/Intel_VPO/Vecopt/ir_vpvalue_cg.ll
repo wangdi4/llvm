@@ -21,7 +21,6 @@
 ; CHECK-NEXT:    [[TMP9:%.*]] = select <16 x i1> [[TMP5]], <16 x i32> [[TMP7]], <16 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>
 ; CHECK-NEXT:    [[TMP10:%.*]] = mul nsw <16 x i32> [[WIDE_MASKED_GATHER2]], [[WIDE_MASKED_GATHER2]]
 ; CHECK-NEXT:    [[TMP11:%.*]] = mul nsw <16 x i32> [[WIDE_MASKED_GATHER]], [[WIDE_MASKED_GATHER]]
-; CHECK-NEXT:    [[TMP12:%.*]] = xor <16 x i1> [[TMP4]], <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>
 ; CHECK-NEXT:    [[PREDPHI:%.*]] = select <16 x i1> [[TMP4]], <16 x i32> [[TMP10]], <16 x i32> zeroinitializer
 ; CHECK-NEXT:    [[PREDPHI3:%.*]] = select <16 x i1> [[TMP4]], <16 x i32> [[TMP11]], <16 x i32> zeroinitializer
 ; CHECK-NEXT:    [[PREDPHI4:%.*]] = select <16 x i1> [[TMP4]], <16 x i32> [[TMP8]], <16 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>
