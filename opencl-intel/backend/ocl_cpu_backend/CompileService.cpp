@@ -23,7 +23,6 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Path.h"
-#include "llvm/Support/MutexGuard.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/SourceMgr.h"
@@ -100,7 +99,7 @@ cl_dev_err_code CompileService::CreateProgram( const void* pBinary,
 
 void CompileService::ReleaseProgram(ICLDevBackendProgram_* pProgram) const
 {
-    llvm::MutexGuard lock(m_buildLock);
+    std::lock_guard<llvm::sys::Mutex> lock(m_buildLock);
 #ifdef OCL_DEV_BACKEND_PLUGINS
     m_pluginManager.OnReleaseProgram(pProgram);
 #endif
@@ -118,7 +117,7 @@ cl_dev_err_code CompileService::BuildProgram( ICLDevBackendProgram_* pProgram,
             return CL_DEV_INVALID_VALUE;
         }
 
-        llvm::MutexGuard lock(m_buildLock);
+        std::lock_guard<llvm::sys::Mutex> lock(m_buildLock);
 
         return GetProgramBuilder()->BuildProgram(static_cast<Program*>(pProgram), pOptions, pBuildOpts);
     }

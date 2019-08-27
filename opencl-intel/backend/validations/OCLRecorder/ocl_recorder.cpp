@@ -21,7 +21,6 @@
 #include "BufferDesc.h"
 
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/MutexGuard.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
@@ -37,6 +36,7 @@
 #include <assert.h>
 #include <atomic>
 #include <memory>
+#include <mutex>
 #include <sstream>
 
 #if defined (_WIN32)
@@ -441,13 +441,13 @@ namespace Validation
 
     bool RecorderContext::containsKernel( const ICLDevBackendKernel_* pKernel )
     {
-        llvm::MutexGuard lock(m_kernelsLock);
+        std::lock_guard<llvm::sys::Mutex> lock(m_kernelsLock);
         return m_kernels.end() != m_kernels.find( pKernel );
     }
 
     KernelContext* RecorderContext::getKernelContext(const ICLDevBackendKernel_* pKernel )
     {
-        llvm::MutexGuard lock(m_kernelsLock);
+        std::lock_guard<llvm::sys::Mutex> lock(m_kernelsLock);
 
         KernelContextMap::iterator itContext = m_kernels.find(pKernel);
         assert( m_kernels.end() != itContext);
@@ -458,7 +458,7 @@ namespace Validation
     void RecorderContext::createKernelContext(const ICLDevBackendKernel_* pKernel,
                                               const llvm::Function* pFunction)
     {
-        llvm::MutexGuard lock(m_kernelsLock);
+        std::lock_guard<llvm::sys::Mutex> lock(m_kernelsLock);
         assert( m_kernels.end() == m_kernels.find( pKernel ));
 
         m_kernels.insert(std::make_pair(pKernel, KernelContext( pKernel->GetKernelName(), pFunction)));
@@ -477,7 +477,7 @@ namespace Validation
 
     RecorderContext* OCLRecorder::GetProgramContext(const ICLDevBackendProgram_* pProgram)
     {
-        llvm::MutexGuard lock(m_contextsLock);
+        std::lock_guard<llvm::sys::Mutex> lock(m_contextsLock);
 
         RecorderContextMap::iterator itContext = m_contexts.find(pProgram);
         assert( m_contexts.end() != itContext);
@@ -490,7 +490,7 @@ namespace Validation
 
     RecorderContext* OCLRecorder::GetProgramContextForKernel(const ICLDevBackendKernel_* pKernel)
     {
-        llvm::MutexGuard lock(m_contextsLock);
+        std::lock_guard<llvm::sys::Mutex> lock(m_contextsLock);
 
         for( RecorderContextMap::iterator i= m_contexts.begin(), e = m_contexts.end(); i != e; ++i )
         {
@@ -508,13 +508,13 @@ namespace Validation
 
     void OCLRecorder::AddNewProgramContext(const ICLDevBackendProgram_* pProgram, RecorderContext* pContext)
     {
-        llvm::MutexGuard lock(m_contextsLock);
+        std::lock_guard<llvm::sys::Mutex> lock(m_contextsLock);
         m_contexts[pProgram] = pContext;
     }
 
     void OCLRecorder::RemoveProgramContext(const ICLDevBackendProgram_* pProgram)
     {
-        llvm::MutexGuard lock(m_contextsLock);
+        std::lock_guard<llvm::sys::Mutex> lock(m_contextsLock);
 
         RecorderContextMap::iterator itContext = m_contexts.find(pProgram);
         assert( m_contexts.end() != itContext);
@@ -756,7 +756,7 @@ namespace Validation
             AddChildTextNode( pNodeKernelConfig, "NeatDataFileType", "binary");
         }
 
-        llvm::MutexGuard lock(programContext.m_configLock);
+        std::lock_guard<llvm::sys::Mutex> lock(programContext.m_configLock);
         programContext.m_pRunConfig->LinkEndChild(pNodeKernelConfig);
         programContext.Flush();
     }
@@ -935,7 +935,7 @@ namespace Validation
         DeviceBackend::ICLDevBackendPlugin* getBackendPlugin()
         {
             {
-                llvm::MutexGuard mutex(lock);
+                std::lock_guard<llvm::sys::Mutex> mutex(lock);
                 if (pOclRecorder)
                     return pOclRecorder;
                 char* sz_logdir = getenv("OCLRECORDER_LOGDIR");
@@ -964,7 +964,7 @@ namespace Validation
         Frontend::ICLFrontendPlugin* getFrontendPlugin()
         {
             {
-                llvm::MutexGuard mutex(lock);
+                std::lock_guard<llvm::sys::Mutex> mutex(lock);
                 if (pSourceRecorder)
                     return pSourceRecorder;
                 pSourceRecorder = new OclSourceRecorder();

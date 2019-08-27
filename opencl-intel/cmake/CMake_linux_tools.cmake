@@ -42,7 +42,7 @@ set (ADD_C_FLAGS_DEBUG          "-O0 -ggdb3 -D _DEBUG" )
 set (ADD_C_FLAGS_RELEASE        "-O2 -ggdb2 -U _DEBUG")
 set (ADD_C_FLAGS_RELWITHDEBINFO "-O2 -ggdb3 -U _DEBUG")
 
-set (ADD_CXX_FLAGS              "${ADD_COMMON_C_FLAGS} -std=c++11" )
+set (ADD_CXX_FLAGS              "${ADD_COMMON_C_FLAGS} -std=c++14" )
 
 # Linker switches
 set (INIT_LINKER_FLAGS          "-z noexecstack -z relro -z now" )
