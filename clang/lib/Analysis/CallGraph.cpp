@@ -94,12 +94,15 @@ public:
     CXXConstructorDecl *Ctor = E->getConstructor();
     if (FunctionDecl *Def = Ctor->getDefinition())
       addCalledDecl(Def);
+<<<<<<< HEAD
     const auto *ConstructedType = Ctor->getParent();
     if (ConstructedType->hasUserDeclaredDestructor()) {
       CXXDestructorDecl *Dtor = ConstructedType->getDestructor();
       if (FunctionDecl *Def = Dtor->getDefinition())
         addCalledDecl(Def);
     }
+=======
+>>>>>>> 8cf3dfea54187769b9c3feeb032f084857e8c79c
     VisitChildren(E);
   }
 
