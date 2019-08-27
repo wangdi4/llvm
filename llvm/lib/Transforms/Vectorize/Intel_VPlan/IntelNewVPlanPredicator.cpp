@@ -130,15 +130,6 @@ void VPlanPredicator::calculatePredicateTerms(VPBlockBase *CurrBlock) {
   Block2PredicateTerms[CurrBlock] = {};
 
   for (auto *PredBB : CurrBlock->getPredecessors()) {
-    if (is_contained(PredBB->getSuccessors(), CurrBlock) &&
-        VPBlockUtils::countSuccessorsNoBE(PredBB, VPLI) == 1 &&
-        PredBB->getSuccessors().size() == 2) {
-      // FIXME: Artificial condition to preserve NFC property of the refactoring
-      // change.
-      Block2PredicateTerms[CurrBlock].push_back(PredicateTerm(PredBB));
-      continue;
-    }
-
     auto *Cond = PredBB->getCondBit();
     assert((Cond || CurrBlock == PredBB->getSuccessors()[0]) &&
            "Single predecessor on false edge?");

@@ -590,10 +590,39 @@ void VPBasicBlock::dump() const {
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
+/// Return true if \p Recipe is a VPInstruction in a single-use chain of
+/// instructions ending in block-predicate instruction that is the last
+/// instruction in the block (and thus not really masking anything).
+static bool isDeadPredicateInst(VPRecipeBase &Recipe) {
+  auto *Inst = dyn_cast<VPInstruction>(&Recipe);
+  if (!Inst)
+    return false;
+  unsigned Opcode = Inst->getOpcode();
+  if (Opcode == VPInstruction::Pred) {
+    auto *BB = Inst->getParent();
+    return ++(Inst->getIterator()) == BB->end();
+  }
+
+  if (Opcode != VPInstruction::Not && Opcode != Instruction::And)
+    return false;
+
+  if (Inst->getNumUsers() != 1)
+    return false;
+
+  return isDeadPredicateInst(*cast<VPInstruction>(*Inst->user_begin()));
+}
+
+
 void VPBasicBlock::executeHIR(VPOCodeGenHIR *CG) {
   CG->setCurMaskValue(nullptr);
-  for (VPRecipeBase &Recipe : Recipes)
+  for (VPRecipeBase &Recipe : Recipes) {
+    if (isDeadPredicateInst(Recipe))
+      // This is not just emitted code clean-up, but something required to
+      // support our hacky search loop CG that crashes trying to emit code for
+      // "and/not" instructions that use "icmp" decomposed from the HLLoop.
+      continue;
     Recipe.executeHIR(CG);
+  }
 }
 
 void VPRegionBlock::computeDT(void) {

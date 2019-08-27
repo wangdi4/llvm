@@ -53,13 +53,9 @@ define dso_local i32 @_Z3fooiPKaPaa(i32 %n, i8* nocapture readonly %a, i8* nocap
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]] (BP: NULL) :
-
-; This condition bit looks wrong, it can't have the same predicate as the
-; predecessor because this block is taken only if VP8 above is false. It's not
-; failing because our hacky CG support for search loops doesn't use this
-; predicate.
-; CHECK-NEXT:       [DA: Uniform]   i1 [[VP9:%.*]] = block-predicate i1 [[VP__NOT]]
-
+; CHECK-NEXT:       [DA: Uniform]   i1 [[VP__NOT_1:%.*]] = not i1 [[VP8]]
+; CHECK-NEXT:       [DA: Uniform]   i1 [[VP_BB7_BR_VP__NOT:%.*]] = and i1 [[VP__NOT]] i1 [[VP__NOT_1]]
+; CHECK-NEXT:       [DA: Uniform]   i1 [[VP9:%.*]] = block-predicate i1 [[VP_BB7_BR_VP__NOT]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB7:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
