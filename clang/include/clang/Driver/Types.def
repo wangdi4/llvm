@@ -83,6 +83,7 @@ TYPE("lto-ir",                   LTO_IR,       INVALID,         "s",      phases
 TYPE("lto-bc",                   LTO_BC,       INVALID,         "o",      phases::Compile, phases::Backend, phases::Assemble, phases::Link)
 
 // Misc.
+<<<<<<< HEAD
 TYPE("ast",                      AST,          INVALID,         "ast",    phases::Compile, phases::Backend, phases::Assemble, phases::Link)
 TYPE("ifs",                      IFS,          INVALID,         "ifs",    phases::Compile, phases::Backend, phases::Assemble, phases::Link)
 TYPE("pcm",                      ModuleFile,   INVALID,         "pcm",    phases::Compile, phases::Backend, phases::Assemble, phases::Link)
@@ -106,3 +107,28 @@ TYPE("archive",                  Archive,      INVALID,         "a",      phases
 TYPE("fpga-aocx",                FPGA_AOCX,    INVALID,         "aocx",   phases::Compile, phases::Backend, phases::Assemble, phases::Link)
 TYPE("fpga-aocr",                FPGA_AOCR,    INVALID,         "aocr",   phases::Compile, phases::Backend, phases::Assemble, phases::Link)
 TYPE("none",                     Nothing,      INVALID,         nullptr,  phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+=======
+TYPE("ast",                      AST,          INVALID,         "ast",   "u", phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+TYPE("ifs",                      IFS,          INVALID,         "ifs",   "u", phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+TYPE("pcm",                      ModuleFile,   INVALID,         "pcm",   "u", phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+TYPE("plist",                    Plist,        INVALID,         "plist", "",  phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+TYPE("rewritten-objc",           RewrittenObjC,INVALID,         "cpp",   "",  phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+TYPE("rewritten-legacy-objc",    RewrittenLegacyObjC,INVALID,   "cpp",   "",  phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+TYPE("remap",                    Remap,        INVALID,         "remap", "",  phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+TYPE("precompiled-header",       PCH,          INVALID,         "gch",   "",  phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+TYPE("object",                   Object,       INVALID,         "o",     "",  phases::Link)
+TYPE("treelang",                 Treelang,     INVALID,         nullptr, "u", phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+TYPE("image",                    Image,        INVALID,         "out",   "",  phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+TYPE("dSYM",                     dSYM,         INVALID,         "dSYM",  "",  phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+TYPE("dependencies",             Dependencies, INVALID,         "d",     "",  phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+TYPE("cuda-fatbin",              CUDA_FATBIN,  INVALID,         "fatbin","",  phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+TYPE("hip-fatbin",               HIP_FATBIN,   INVALID,         "hipfb", "",  phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+TYPE("spirv",                    SPIRV,        INVALID,         "spv",   "",  phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+TYPE("sycl-header",              SYCL_Header,  INVALID,         "h",     "",  phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+TYPE("sycl-fatbin",              SYCL_FATBIN,  INVALID,         nullptr, "",  phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+TYPE("tempfilelist",             Tempfilelist, INVALID,         nullptr, "",  phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+TYPE("archive",                  Archive,      INVALID,         "a",     "",  phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+TYPE("fpga-aocx",                FPGA_AOCX,    INVALID,         "aocx",  "",  phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+TYPE("fpga-aocr",                FPGA_AOCR,    INVALID,         "aocr",  "",  phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+TYPE("none",                     Nothing,      INVALID,         nullptr, "u", phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+>>>>>>> bf5fcb27ec5c266719962c63c60ce2cef71751ab
