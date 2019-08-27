@@ -4137,8 +4137,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     if (TC.getArch() == llvm::Triple::x86 ||
         TC.getArch() == llvm::Triple::x86_64)
       A->render(Args, CmdArgs);
-    else if ((TC.getArch() == llvm::Triple::ppc ||
-              TC.getArch() == TC.getTriple().isPPC64()) &&
+    else if ((TC.getArch() == llvm::Triple::ppc || TC.getTriple().isPPC64()) &&
              (A->getOption().getID() != options::OPT_mlong_double_80))
       A->render(Args, CmdArgs);
     else

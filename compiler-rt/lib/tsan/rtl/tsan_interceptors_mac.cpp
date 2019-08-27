@@ -24,7 +24,10 @@
 #include <libkern/OSAtomic.h>
 #include <objc/objc-sync.h>
 #include <sys/ucontext.h>
+
+#if defined(__has_include) && __has_include(<xpc/xpc.h>)
 #include <xpc/xpc.h>
+#endif  // #if defined(__has_include) && __has_include(<xpc/xpc.h>)
 
 typedef long long_t;  // NOLINT
 
@@ -243,6 +246,61 @@ TSAN_INTERCEPTOR(void, os_lock_unlock, void *lock) {
   REAL(os_lock_unlock)(lock);
 }
 
+extern "C" {
+  #define _LOCK_AVAILABILITY \
+    __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) \
+    __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0)
+
+  _LOCK_AVAILABILITY void os_unfair_lock_lock(void *lock);
+  // NOTE: `options` actually has type `os_unfair_lock_options_t` but this
+  // should be ABI compatible.
+  _LOCK_AVAILABILITY void os_unfair_lock_lock_with_options(void *lock,
+                                                           u32 options);
+  _LOCK_AVAILABILITY bool os_unfair_lock_trylock(void *lock);
+  _LOCK_AVAILABILITY void os_unfair_lock_unlock(void *lock);
+}
+
+TSAN_INTERCEPTOR(void, os_unfair_lock_lock, void *lock) {
+  if (!cur_thread()->is_inited || cur_thread()->is_dead) {
+    return REAL(os_unfair_lock_lock)(lock);
+  }
+  SCOPED_TSAN_INTERCEPTOR(os_unfair_lock_lock, lock);
+  REAL(os_unfair_lock_lock)(lock);
+  Acquire(thr, pc, (uptr)lock);
+}
+
+TSAN_INTERCEPTOR(void, os_unfair_lock_lock_with_options, void *lock,
+                 u32 options) {
+  if (!cur_thread()->is_inited || cur_thread()->is_dead) {
+    return REAL(os_unfair_lock_lock_with_options)(lock, options);
+  }
+  SCOPED_TSAN_INTERCEPTOR(os_unfair_lock_lock_with_options, lock, options);
+  REAL(os_unfair_lock_lock_with_options)(lock, options);
+  Acquire(thr, pc, (uptr)lock);
+}
+
+TSAN_INTERCEPTOR(bool, os_unfair_lock_trylock, void *lock) {
+  if (!cur_thread()->is_inited || cur_thread()->is_dead) {
+    return REAL(os_unfair_lock_trylock)(lock);
+  }
+  SCOPED_TSAN_INTERCEPTOR(os_unfair_lock_trylock, lock);
+  bool result = REAL(os_unfair_lock_trylock)(lock);
+  if (result)
+    Acquire(thr, pc, (uptr)lock);
+  return result;
+}
+
+TSAN_INTERCEPTOR(void, os_unfair_lock_unlock, void *lock) {
+  if (!cur_thread()->is_inited || cur_thread()->is_dead) {
+    return REAL(os_unfair_lock_unlock)(lock);
+  }
+  SCOPED_TSAN_INTERCEPTOR(os_unfair_lock_unlock, lock);
+  Release(thr, pc, (uptr)lock);
+  REAL(os_unfair_lock_unlock)(lock);
+}
+
+#if defined(__has_include) && __has_include(<xpc/xpc.h>)
+
 TSAN_INTERCEPTOR(void, xpc_connection_set_event_handler,
                  xpc_connection_t connection, xpc_handler_t handler) {
   SCOPED_TSAN_INTERCEPTOR(xpc_connection_set_event_handler, connection,
@@ -294,6 +352,8 @@ TSAN_INTERCEPTOR(void, xpc_connection_cancel, xpc_connection_t connection) {
   Release(thr, pc, (uptr)connection);
   REAL(xpc_connection_cancel)(connection);
 }
+
+#endif  // #if defined(__has_include) && __has_include(<xpc/xpc.h>)
 
 // Determines whether the Obj-C object pointer is a tagged pointer. Tagged
 // pointers encode the object data directly in their pointer bits and do not
