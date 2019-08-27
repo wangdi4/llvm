@@ -256,10 +256,13 @@ PUNCTUATOR(caretcaret,            "^^")
 //               MSVC <= v18.
 //   KEYOPENCLC   - This is a keyword in OpenCL C
 //   KEYOPENCLCXX - This is a keyword in C++ for OpenCL
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 //   KEYOPENCLCHANNEL - This is a keyword in Intel FPGA OpenCL C if
 //                      cl_intel_channels extension is supported
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 4a601a2de65deb7ca8046cccab0f1202365bc974
 //   KEYSYCL      - This is a keyword in SYCL C++
 //   KEYNOOPENCL  - This is a keyword that is not supported in OpenCL
 //   KEYALTIVEC - This is a keyword in AltiVec
