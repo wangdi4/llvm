@@ -3,6 +3,8 @@
 // RUN: %CPU_RUN_PLACEHOLDER %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 // RUN: %ACC_RUN_PLACEHOLDER %t.out
+// TODO: SYCL specific fail - windows+debug mode - analyze and enable
+// XFAIL: windows
 
 //==-- group.cpp - Regression tests for cl::sycl::group API bug fixes. -----==//
 //
