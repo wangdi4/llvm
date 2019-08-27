@@ -4014,11 +4014,12 @@ void Driver::handleArguments(Compilation &C, DerivedArgList &Args,
   }
 
   unsigned LastPLSize = 0;
+  llvm::SmallVector<phases::ID, phases::MaxNumberOfPhases> PL;
   for (auto &I : Inputs) {
     types::ID InputType = I.first;
     const Arg *InputArg = I.second;
 
-    llvm::SmallVector<phases::ID, phases::MaxNumberOfPhases> PL;
+    PL.clear();
     types::getCompilationPhases(InputType, PL);
     LastPLSize = PL.size();
 
