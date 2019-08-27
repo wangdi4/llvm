@@ -671,10 +671,10 @@ define dso_local void @test_divergent_inner_loop_with_double_top_test(i64 %N, i6
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP5:%.*]] = block-predicate i1 [[VP3]]
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INNER_IV_LIVE_OUT_PREV:%.*]] = phi  [ i64 [[VP_INNER_IV_LIVE_OUT_BLEND:%.*]], [[BB8:BB[0-9]+]] ],  [ i64 undef, [[BB6]] ]
 ; CHECK-NEXT:     [DA: Uniform]   i64 [[VP_INNER_IV:%.*]] = phi  [ i64 [[VP_INNER_IV_NEXT:%.*]], [[BB8]] ],  [ i64 0, [[BB6]] ]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_CMP216_NOT]], [[BB6]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB8]] ]
+; CHECK-NEXT:     [DA: Uniform]   i1 [[VP5:%.*]] = block-predicate i1 [[VP3]]
 ; CHECK-NEXT:    SUCCESSORS(1):mask_[[REGION2:region[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB8]] [[BB6]]
 ; CHECK-EMPTY:

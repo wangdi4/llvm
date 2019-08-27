@@ -233,12 +233,6 @@ void VPlanPredicator::predicateAndLinearizeRegionRec(VPRegionBlock *Region,
       while (It != BB->end() && isa<VPPHINode>(*It))
         ++It;
 
-    // FIXME: This is wrong and is added to preserve NFC property of this
-    // refactoring. Corresponding test was added in an earlier commit
-    // (vplan_predicator_vectorize_store_without_ir.ll)
-    if (It == BB->end())
-      It = BB->begin();
-
     Builder.setInsertPoint(BB, It);
 
     if (PredTerms.size() == 1 && PredTerms[0].Condition == nullptr) {

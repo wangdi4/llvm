@@ -53,16 +53,11 @@ define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_inner_loop) 
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]] (BP: NULL) :
-
-; FIXME: This looks wrong, predication shouldnt' affect phi nodes. I think we
-; don't really use predicate when doing code-gen for phi nodes, that's why the
-; issue hasn't been found earlier.
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP5:%.*]] = block-predicate i1 [[VP3]]
-
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP_PHI_USE_LIVE_OUT_PREV:%.*]] = phi  [ i64 [[VP_PHI_USE_LIVE_OUT_BLEND:%.*]], [[BB8:BB[0-9]+]] ],  [ i64 undef, [[BB6]] ]
 ; CHECK-NEXT:     [DA: Uniform]   i64 [[VP_INNER_IV:%.*]] = phi  [ i64 [[VP_INNER_IV_NEXT:%.*]], [[BB8]] ],  [ i64 0, [[BB6]] ]
-; CHECK-NEXT:     [DA: Uniform]   i32 [[VP6:%.*]] = phi  [ i32 [[VP7:%.*]], [[BB8]] ],  [ i32 0, [[BB6]] ]
+; CHECK-NEXT:     [DA: Uniform]   i32 [[VP5:%.*]] = phi  [ i32 [[VP6:%.*]], [[BB8]] ],  [ i32 0, [[BB6]] ]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_CMP216_NOT]], [[BB6]] ],  [ i1 [[VP_LIVE_OUT_MASK:%.*]], [[BB8]] ]
+; CHECK-NEXT:     [DA: Uniform]   i1 [[VP7:%.*]] = block-predicate i1 [[VP3]]
 ; CHECK-NEXT:    SUCCESSORS(1):mask_[[REGION2:region[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB8]] [[BB6]]
 ; CHECK-EMPTY:
