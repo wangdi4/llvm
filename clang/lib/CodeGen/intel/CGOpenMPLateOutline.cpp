@@ -276,23 +276,24 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyAssign(QualType Ty,
 /// used where an array section is expected.  Optionally (if AS is not
 /// a nullptr) fills in the array section data for each dimension.
 const Expr *OpenMPLateOutliner::getArraySectionBase(const Expr *E,
+                                                    CodeGenFunction *CGF,
                                                     ArraySectionTy *AS) {
   const Expr *Base = E->IgnoreParenImpCasts();
   while (const auto *TempOASE = dyn_cast<OMPArraySectionExpr>(Base)) {
     if (AS)
-      AS->insert(AS->begin(), emitArraySectionData(Base));
+      AS->insert(AS->begin(), emitArraySectionData(Base, *CGF));
     Base = TempOASE->getBase()->IgnoreParenImpCasts();
   }
   while (const auto *TempASE = dyn_cast<ArraySubscriptExpr>(Base)) {
     if (AS)
-      AS->insert(AS->begin(), emitArraySectionData(Base));
+      AS->insert(AS->begin(), emitArraySectionData(Base, *CGF));
     Base = TempASE->getBase()->IgnoreParenImpCasts();
   }
   return Base;
 }
 
 OpenMPLateOutliner::ArraySectionDataTy
-OpenMPLateOutliner::emitArraySectionData(const Expr *E) {
+OpenMPLateOutliner::emitArraySectionData(const Expr *E, CodeGenFunction &CGF) {
   ArraySectionDataTy Data;
   auto &C = CGF.getContext();
 
@@ -347,7 +348,7 @@ OpenMPLateOutliner::emitArraySectionData(const Expr *E) {
 /// array sections.
 Address OpenMPLateOutliner::emitOMPArraySectionExpr(const Expr *E,
                                                     ArraySectionTy *AS) {
-  const Expr *Base = getArraySectionBase(E, AS);
+  const Expr *Base = getArraySectionBase(E, &CGF, AS);
   QualType BaseTy = Base->getType();
   Address BaseAddr = CGF.EmitLValue(Base).getAddress();
   if (BaseTy->isVariablyModifiedType()) {
@@ -666,13 +667,19 @@ void OpenMPLateOutliner::addRefsToOuter() {
 }
 
 const VarDecl *OpenMPLateOutliner::getExplicitVarDecl(const Expr *E) {
+  if (const DeclRefExpr *DRE = getExplicitDeclRefOrNull(E))
+    return cast<VarDecl>(DRE->getDecl());
+  return nullptr;
+}
+
+const DeclRefExpr *OpenMPLateOutliner::getExplicitDeclRefOrNull(const Expr *E) {
   const Expr *ExplicitVarExpr = E;
   if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
       E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection)) {
-    ExplicitVarExpr = getArraySectionBase(E, /*AS=*/nullptr);
+    ExplicitVarExpr = OpenMPLateOutliner::getArraySectionBase(E);
   }
   if (auto *DRE = dyn_cast<DeclRefExpr>(ExplicitVarExpr))
-    return cast<VarDecl>(DRE->getDecl());
+    return DRE;
   return nullptr;
 }
 
@@ -2322,9 +2329,15 @@ void CodeGenFunction::RemapForLateOutlining(const OMPExecutableDirective &D,
      for (const auto *Ref : C->varlists())
        RemapVars.push_back(Ref);
   for (const auto *C : D.getClausesOfKind<OMPReductionClause>())
-     for (const auto *Ref : C->varlists())
-       RemapVars.push_back(Ref);
-
+     for (const auto *Ref : C->varlists()) {
+       const Expr *VarExpr = OpenMPLateOutliner::getExplicitDeclRefOrNull(Ref);
+       RemapVars.push_back(VarExpr ? VarExpr : Ref);
+     }
+  for (const auto *C : D.getClausesOfKind<OMPMapClause>())
+     for (const auto *Ref : C->varlists()) {
+       const Expr *VarExpr = OpenMPLateOutliner::getExplicitDeclRefOrNull(Ref);
+       RemapVars.push_back(VarExpr ? VarExpr : Ref);
+     }
   for (const auto *Ref : RemapVars) {
     if (auto *DRE = dyn_cast<DeclRefExpr>(Ref->IgnoreParenImpCasts())) {
       if (auto *VD = dyn_cast<VarDecl>(DRE->getDecl())) {

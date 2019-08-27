@@ -162,10 +162,9 @@ class OpenMPLateOutliner {
   const OMPExecutableDirective &Directive;
   OpenMPDirectiveKind CurrentDirectiveKind;
 
-  const Expr *getArraySectionBase(const Expr *E, ArraySectionTy *AS);
-  ArraySectionDataTy emitArraySectionData(const Expr *E);
+  static ArraySectionDataTy emitArraySectionData(const Expr *E,
+                                                 CodeGenFunction &CGF);
   Address emitOMPArraySectionExpr(const Expr *E, ArraySectionTy *AS);
-  const VarDecl *getExplicitVarDecl(const Expr *E);
 
   void addArg(llvm::Value *V, bool Handled = false);
   void addArg(StringRef Str);
@@ -284,6 +283,11 @@ class OpenMPLateOutliner {
   llvm::DenseSet<llvm::Value *> HandledValues;
 
 public:
+  static const VarDecl *getExplicitVarDecl(const Expr *E);
+  static const DeclRefExpr *getExplicitDeclRefOrNull(const Expr *E);
+  static const Expr *getArraySectionBase(const Expr *E,
+                                         CodeGenFunction *CGF = nullptr,
+                                         ArraySectionTy *AS = nullptr);
   OpenMPLateOutliner(CodeGenFunction &CGF, const OMPExecutableDirective &D,
                      OpenMPDirectiveKind Kind);
   ~OpenMPLateOutliner();
