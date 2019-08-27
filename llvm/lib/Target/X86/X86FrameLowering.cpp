@@ -2230,7 +2230,12 @@ bool X86FrameLowering::restoreCalleeSavedRegisters(MachineBasicBlock &MBB,
   X86MachineFunctionInfo *X86FI = MF.getInfo<X86MachineFunctionInfo>();
   int XMMFrameSlotOrigin;
   int SEHFrameOffset = X86FI->getCalleeSavedXMMFrameInfo(XMMFrameSlotOrigin) +
+#if INTEL_CUSTOMIZATION
+                       alignDown(MF.getFrameInfo().getMaxCallFrameSize(),
+                                 TRI->getSpillAlignment(X86::VR128RegClass));
+#else // INTEL_CUSTOMIZATION
                        MF.getFrameInfo().getMaxCallFrameSize();
+#endif // INTEL_CUSTOMIZATION
   for (unsigned i = 0, e = CSI.size(); i != e; ++i) {
     unsigned Reg = CSI[i].getReg();
     if (MBB.isEHFuncletEntry() && STI.is64Bit()) {
