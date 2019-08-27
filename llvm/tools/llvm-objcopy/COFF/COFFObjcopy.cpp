@@ -65,8 +65,6 @@ static std::vector<uint8_t> createGnuDebugLinkSectionContents(StringRef File) {
   return Data;
 }
 
-#if INTEL_COLLAB
-// INTEL: cherry-pick of https://reviews.llvm.org/D65040
 // Adds named section with given contents to the object.
 static void addSection(Object &Obj, StringRef Name, ArrayRef<uint8_t> Contents,
                        uint32_t Characteristics) {
@@ -99,29 +97,6 @@ static void addGnuDebugLink(Object &Obj, StringRef DebugLinkFile) {
              IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ |
                  IMAGE_SCN_MEM_DISCARDABLE);
 }
-#else  // INTEL_COLLAB
-static void addGnuDebugLink(Object &Obj, StringRef DebugLinkFile) {
-  uint32_t StartRVA = getNextRVA(Obj);
-
-  std::vector<Section> Sections;
-  Section Sec;
-  Sec.setOwnedContents(createGnuDebugLinkSectionContents(DebugLinkFile));
-  Sec.Name = ".gnu_debuglink";
-  Sec.Header.VirtualSize = Sec.getContents().size();
-  Sec.Header.VirtualAddress = StartRVA;
-  Sec.Header.SizeOfRawData = alignTo(Sec.Header.VirtualSize,
-                                     Obj.IsPE ? Obj.PeHeader.FileAlignment : 1);
-  // Sec.Header.PointerToRawData is filled in by the writer.
-  Sec.Header.PointerToRelocations = 0;
-  Sec.Header.PointerToLinenumbers = 0;
-  // Sec.Header.NumberOfRelocations is filled in by the writer.
-  Sec.Header.NumberOfLinenumbers = 0;
-  Sec.Header.Characteristics = IMAGE_SCN_CNT_INITIALIZED_DATA |
-                               IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_DISCARDABLE;
-  Sections.push_back(Sec);
-  Obj.addSections(Sections);
-}
-#endif // INTEL_COLLAB
 
 static Error handleArgs(const CopyConfig &Config, Object &Obj) {
   // Perform the actual section removals.
@@ -206,15 +181,11 @@ static Error handleArgs(const CopyConfig &Config, Object &Obj) {
 
     return false;
   });
-#if INTEL_COLLAB
-  // INTEL: cherry-pick of https://reviews.llvm.org/D65040
+
   for (const auto &Flag : Config.AddSection) {
     StringRef SecName, FileName;
     std::tie(SecName, FileName) = Flag.split("=");
 
-    if (FileName.empty())
-      return createStringError(llvm::errc::invalid_argument,
-                               "bad format for --add-section");
     auto BufOrErr = MemoryBuffer::getFile(FileName);
     if (!BufOrErr)
       return createFileError(FileName, errorCodeToError(BufOrErr.getError()));
@@ -226,11 +197,10 @@ static Error handleArgs(const CopyConfig &Config, Object &Obj) {
                      Buf->getBufferSize()),
         IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_ALIGN_1BYTES);
   }
-#endif  // INTEL_COLLAB
+
   if (!Config.AddGnuDebugLink.empty())
     addGnuDebugLink(Obj, Config.AddGnuDebugLink);
-#if INTEL_COLLAB
-  // INTEL: cherry-pick of https://reviews.llvm.org/D65040
+
   if (Config.AllowBrokenLinks || !Config.BuildIdLinkDir.empty() ||
       Config.BuildIdLinkInput || Config.BuildIdLinkOutput ||
       !Config.SplitDWO.empty() || !Config.SymbolsPrefix.empty() ||
@@ -248,25 +218,6 @@ static Error handleArgs(const CopyConfig &Config, Object &Obj) {
     return createStringError(llvm::errc::invalid_argument,
                              "option not supported by llvm-objcopy for COFF");
   }
-#else  // INTEL_COLLAB
-  if (Config.AllowBrokenLinks || !Config.BuildIdLinkDir.empty() ||
-      Config.BuildIdLinkInput || Config.BuildIdLinkOutput ||
-      !Config.SplitDWO.empty() || !Config.SymbolsPrefix.empty() ||
-      !Config.AllocSectionsPrefix.empty() ||
-      !Config.DumpSection.empty() || !Config.KeepSection.empty() ||
-      !Config.SymbolsToGlobalize.empty() || !Config.SymbolsToKeep.empty() ||
-      !Config.SymbolsToLocalize.empty() || !Config.SymbolsToWeaken.empty() ||
-      !Config.SymbolsToKeepGlobal.empty() || !Config.SectionsToRename.empty() ||
-      !Config.SetSectionFlags.empty() || !Config.SymbolsToRename.empty() ||
-      Config.ExtractDWO || Config.KeepFileSymbols || Config.LocalizeHidden ||
-      Config.PreserveDates || Config.StripDWO || Config.StripNonAlloc ||
-      Config.StripSections || Config.Weaken || Config.DecompressDebugSections ||
-      Config.DiscardMode == DiscardType::Locals ||
-      !Config.SymbolsToAdd.empty() || Config.EntryExpr) {
-    return createStringError(llvm::errc::invalid_argument,
-                             "option not supported by llvm-objcopy for COFF");
-  }
-#endif // INTEL_COLLAB
 
   return Error::success();
 }

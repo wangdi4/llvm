@@ -344,10 +344,14 @@ typedef std::vector<std::tuple<uint64_t, StringRef, uint8_t>> SectionSymbolsTy;
 static bool shouldKeep(object::SectionRef S) {
   if (FilterSections.empty())
     return true;
-  StringRef SecName;
-  std::error_code error = S.getName(SecName);
-  if (error)
+
+  Expected<StringRef> SecNameOrErr = S.getName();
+  if (!SecNameOrErr) {
+    consumeError(SecNameOrErr.takeError());
     return false;
+  }
+  StringRef SecName = *SecNameOrErr;
+
   // StringSet does not allow empty key so avoid adding sections with
   // no name (such as the section with index 0) here.
   if (!SecName.empty())
@@ -668,23 +672,19 @@ public:
     if (SP && (PrintSource || PrintLines))
       SP->printSourceLine(OS, Address);
 
-    {
-      formatted_raw_ostream FOS(OS);
-      if (!NoLeadingAddr)
-        FOS << format("%8" PRIx64 ":", Address.Address);
-      if (!NoShowRawInsn) {
-        FOS << ' ';
-        dumpBytes(Bytes, FOS);
-      }
-      FOS.flush();
-      // The output of printInst starts with a tab. Print some spaces so that
-      // the tab has 1 column and advances to the target tab stop.
-      unsigned TabStop = NoShowRawInsn ? 16 : 40;
-      unsigned Column = FOS.getColumn();
-      FOS.indent(Column < TabStop - 1 ? TabStop - 1 - Column : 7 - Column % 8);
-
-      // The dtor calls flush() to ensure the indent comes before printInst().
+    size_t Start = OS.tell();
+    if (!NoLeadingAddr)
+      OS << format("%8" PRIx64 ":", Address.Address);
+    if (!NoShowRawInsn) {
+      OS << ' ';
+      dumpBytes(Bytes, OS);
     }
+
+    // The output of printInst starts with a tab. Print some spaces so that
+    // the tab has 1 column and advances to the target tab stop.
+    unsigned TabStop = NoShowRawInsn ? 16 : 40;
+    unsigned Column = OS.tell() - Start;
+    OS.indent(Column < TabStop - 1 ? TabStop - 1 - Column : 7 - Column % 8);
 
     if (MI)
       IP.printInst(MI, OS, "", STI);
@@ -924,10 +924,12 @@ static void addPltEntries(const ObjectFile *Obj,
                           StringSaver &Saver) {
   Optional<SectionRef> Plt = None;
   for (const SectionRef &Section : Obj->sections()) {
-    StringRef Name;
-    if (Section.getName(Name))
+    Expected<StringRef> SecNameOrErr = Section.getName();
+    if (!SecNameOrErr) {
+      consumeError(SecNameOrErr.takeError());
       continue;
-    if (Name == ".plt")
+    }
+    if (*SecNameOrErr == ".plt")
       Plt = Section;
   }
   if (!Plt)
@@ -1210,9 +1212,8 @@ static void disassembleObject(const Target *TheTarget, const ObjectFile *Obj,
       DataRefImpl DR = Section.getRawDataRefImpl();
       SegmentName = MachO->getSectionFinalSegmentName(DR);
     }
-    StringRef SectionName;
-    error(Section.getName(SectionName));
 
+    StringRef SectionName = unwrapOrError(Section.getName(), Obj->getFileName());
     // If the section has no symbol at the start, just insert a dummy one.
     if (Symbols.empty() || std::get<0>(Symbols[0]) != 0) {
       Symbols.insert(
@@ -1585,8 +1586,7 @@ void printRelocations(const ObjectFile *Obj) {
   }
 
   for (std::pair<SectionRef, std::vector<SectionRef>> &P : SecToRelSec) {
-    StringRef SecName;
-    error(P.first.getName(SecName));
+    StringRef SecName = unwrapOrError(P.first.getName(), Obj->getFileName());
     outs() << "RELOCATION RECORDS FOR [" << SecName << "]:\n";
 
     for (SectionRef Section : P.second) {
@@ -1658,8 +1658,7 @@ void printSectionHeaders(const ObjectFile *Obj) {
               "Idx Name          Size     VMA          Type\n";
 
   for (const SectionRef &Section : ToolSectionFilter(*Obj)) {
-    StringRef Name;
-    error(Section.getName(Name));
+    StringRef Name = unwrapOrError(Section.getName(), Obj->getFileName());
     uint64_t VMA = Section.getAddress();
     if (shouldAdjustVA(Section))
       VMA += AdjustVMA;
@@ -1686,8 +1685,7 @@ void printSectionHeaders(const ObjectFile *Obj) {
 
 void printSectionContents(const ObjectFile *Obj) {
   for (const SectionRef &Section : ToolSectionFilter(*Obj)) {
-    StringRef Name;
-    error(Section.getName(Name));
+    StringRef Name = unwrapOrError(Section.getName(), Obj->getFileName());
     uint64_t BaseAddr = Section.getAddress();
     uint64_t Size = Section.getSize();
     if (!Size)
@@ -1751,11 +1749,16 @@ void printSymbolTable(const ObjectFile *O, StringRef ArchiveName,
     section_iterator Section = unwrapOrError(Symbol.getSection(), ArchiveName,
                                              FileName, ArchitectureName);
     StringRef Name;
-    if (Type == SymbolRef::ST_Debug && Section != O->section_end())
-      Section->getName(Name);
-    else
+    if (Type == SymbolRef::ST_Debug && Section != O->section_end()) {
+      if (Expected<StringRef> NameOrErr = Section->getName())
+        Name = *NameOrErr;
+      else
+        consumeError(NameOrErr.takeError());
+
+    } else {
       Name = unwrapOrError(Symbol.getName(), ArchiveName, FileName,
                            ArchitectureName);
+    }
 
     bool Global = Flags & SymbolRef::SF_Global;
     bool Weak = Flags & SymbolRef::SF_Weak;
@@ -1801,8 +1804,8 @@ void printSymbolTable(const ObjectFile *O, StringRef ArchiveName,
         StringRef SegmentName = MachO->getSectionFinalSegmentName(DR);
         outs() << SegmentName << ",";
       }
-      StringRef SectionName;
-      error(Section->getName(SectionName));
+      StringRef SectionName =
+          unwrapOrError(Section->getName(), O->getFileName());
       outs() << SectionName;
     }
 
@@ -1875,7 +1878,11 @@ void printRawClangAST(const ObjectFile *Obj) {
   Optional<object::SectionRef> ClangASTSection;
   for (auto Sec : ToolSectionFilter(*Obj)) {
     StringRef Name;
-    Sec.getName(Name);
+    if (Expected<StringRef> NameOrErr = Sec.getName())
+      Name = *NameOrErr;
+    else
+      consumeError(NameOrErr.takeError());
+
     if (Name == ClangASTSectionName) {
       ClangASTSection = Sec;
       break;
@@ -1907,7 +1914,11 @@ static void printFaultMaps(const ObjectFile *Obj) {
 
   for (auto Sec : ToolSectionFilter(*Obj)) {
     StringRef Name;
-    Sec.getName(Name);
+    if (Expected<StringRef> NameOrErr = Sec.getName())
+      Name = *NameOrErr;
+    else
+      consumeError(NameOrErr.takeError());
+
     if (Name == FaultMapSectionName) {
       FaultMapSection = Sec;
       break;
@@ -2010,6 +2021,40 @@ static void printArchiveChild(StringRef Filename, const Archive::Child &C) {
   outs() << Name << "\n";
 }
 
+// For ELF only now.
+static bool shouldWarnForInvalidStartStopAddress(ObjectFile *Obj) {
+  if (const auto *Elf = dyn_cast<ELFObjectFileBase>(Obj)) {
+    if (Elf->getEType() != ELF::ET_REL)
+      return true;
+  }
+  return false;
+}
+
+static void checkForInvalidStartStopAddress(ObjectFile *Obj,
+                                            uint64_t Start, uint64_t Stop) {
+  if (!shouldWarnForInvalidStartStopAddress(Obj))
+    return;
+
+  for (const SectionRef &Section : Obj->sections())
+    if (ELFSectionRef(Section).getFlags() & ELF::SHF_ALLOC) {
+      uint64_t BaseAddr = Section.getAddress();
+      uint64_t Size = Section.getSize();
+      if ((Start < BaseAddr + Size) && Stop > BaseAddr)
+        return;
+    }
+
+  if (StartAddress.getNumOccurrences() == 0)
+    warn("no section has address less than 0x" +
+         Twine::utohexstr(Stop) + " specified by --stop-address");
+  else if (StopAddress.getNumOccurrences() == 0)
+    warn("no section has address greater than or equal to 0x" +
+         Twine::utohexstr(Start) + " specified by --start-address");
+  else
+    warn("no section overlaps the range [0x" +
+         Twine::utohexstr(Start) + ",0x" + Twine::utohexstr(Stop) +
+         ") specified by --start-address/--stop-address");
+}
+
 static void dumpObject(ObjectFile *O, const Archive *A = nullptr,
                        const Archive::Child *C = nullptr) {
   // Avoid other output when using a raw option.
@@ -2021,6 +2066,9 @@ static void dumpObject(ObjectFile *O, const Archive *A = nullptr,
       outs() << O->getFileName();
     outs() << ":\tfile format " << O->getFileFormatName() << "\n\n";
   }
+
+  if (StartAddress.getNumOccurrences() || StopAddress.getNumOccurrences())
+    checkForInvalidStartStopAddress(O, StartAddress, StopAddress);
 
   StringRef ArchiveName = A ? A->getFileName() : "";
   if (FileHeaders)

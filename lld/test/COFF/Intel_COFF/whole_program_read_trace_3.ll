@@ -4,8 +4,8 @@
 ; is not present during link time.
 
 ; RUN: llvm-as -o %T/wpt3.bc %s
-; RUN: not lld-link /out:%T/wpt3.exe /entry:main %T/wpt3.bc /subsystem:console  \
-; RUN:     /mllvm:-whole-program-read-trace \
+; RUN: lld-link /out:%T/wpt3.exe /entry:main %T/wpt3.bc /subsystem:console  \
+; RUN:     /mllvm:-whole-program-read-trace /force:unresolved \
 ; RUN:     2>&1 | FileCheck %s
 
 ; CHECK: WHOLE-PROGRAM-ANALYSIS: WHOLE PROGRAM READ

@@ -42,7 +42,7 @@ define void @useB(%B* %b) {
 define void @useB2(%B.2**) {
   ret void
 }
-; CHECK: void @useB2(%B.2**)
+; CHECK: void @useB2(%B.2** %0)
 
 define void @useA1(%A.1* %a) {
   ret void

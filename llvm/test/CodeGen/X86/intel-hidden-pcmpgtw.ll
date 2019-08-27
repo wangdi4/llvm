@@ -36,15 +36,9 @@ define <8 x i32> @hidden_cmpw_v8i32(<8 x i32> %x) {
 define <16 x i32> @hidden_cmpw_v16i32(<16 x i32> %x) {
 ; AVX2-LABEL: hidden_cmpw_v16i32:
 ; AVX2:       # %bb.0:
-; AVX2-NEXT:    vpsrld $15, %ymm0, %ymm0
-; AVX2-NEXT:    vpsrld $15, %ymm1, %ymm1
-; AVX2-NEXT:    vpbroadcastd {{.*#+}} ymm2 = [65537,65537,65537,65537,65537,65537,65537,65537]
-; AVX2-NEXT:    vpand %ymm2, %ymm1, %ymm1
-; AVX2-NEXT:    vpand %ymm2, %ymm0, %ymm0
-; AVX2-NEXT:    vpslld $16, %ymm0, %ymm2
-; AVX2-NEXT:    vpsubd %ymm0, %ymm2, %ymm0
-; AVX2-NEXT:    vpslld $16, %ymm1, %ymm2
-; AVX2-NEXT:    vpsubd %ymm1, %ymm2, %ymm1
+; AVX2-NEXT:    vpxor %xmm2, %xmm2, %xmm2
+; AVX2-NEXT:    vpcmpgtw %ymm0, %ymm2, %ymm0
+; AVX2-NEXT:    vpcmpgtw %ymm1, %ymm2, %ymm1
 ; AVX2-NEXT:    retq
 ;
 ; KNL-LABEL: hidden_cmpw_v16i32:
@@ -69,10 +63,9 @@ define <16 x i32> @hidden_cmpw_v16i32(<16 x i32> %x) {
 ; NOOPT-NEXT:    vpbroadcastd {{.*#+}} ymm2 = [65537,65537,65537,65537,65537,65537,65537,65537]
 ; NOOPT-NEXT:    vpand %ymm2, %ymm1, %ymm1
 ; NOOPT-NEXT:    vpand %ymm2, %ymm0, %ymm0
-; NOOPT-NEXT:    vpslld $16, %ymm0, %ymm2
-; NOOPT-NEXT:    vpsubd %ymm0, %ymm2, %ymm0
-; NOOPT-NEXT:    vpslld $16, %ymm1, %ymm2
-; NOOPT-NEXT:    vpsubd %ymm1, %ymm2, %ymm1
+; NOOPT-NEXT:    vpbroadcastd {{.*#+}} ymm2 = [65535,65535,65535,65535,65535,65535,65535,65535]
+; NOOPT-NEXT:    vpmulld %ymm2, %ymm0, %ymm0
+; NOOPT-NEXT:    vpmulld %ymm2, %ymm1, %ymm1
 ; NOOPT-NEXT:    retq
   %a = lshr <16 x i32> %x, <i32 15, i32 15, i32 15, i32 15, i32 15, i32 15, i32 15, i32 15, i32 15, i32 15, i32 15, i32 15, i32 15, i32 15, i32 15, i32 15>
   %b = and <16 x i32> %a, <i32 65537, i32 65537, i32 65537, i32 65537, i32 65537, i32 65537, i32 65537, i32 65537, i32 65537, i32 65537, i32 65537, i32 65537, i32 65537, i32 65537, i32 65537, i32 65537>

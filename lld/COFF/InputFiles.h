@@ -47,7 +47,6 @@ class Defined;
 class DefinedImportData;
 class DefinedImportThunk;
 class DefinedRegular;
-class Lazy;
 class SectionChunk;
 class Symbol;
 class Undefined;
@@ -96,7 +95,7 @@ public:
   // Enqueues an archive member load for the given symbol. If we've already
   // enqueued a load for the same archive member, this function does nothing,
   // which ensures that we don't load the same member more than once.
-  void addMember(const Archive::Symbol *sym);
+  void addMember(const Archive::Symbol &sym);
 
 private:
   std::unique_ptr<Archive> file;

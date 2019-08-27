@@ -87,6 +87,7 @@ namespace {
       AU.addRequired<LazyValueInfoWrapperPass>();
       AU.addPreserved<GlobalsAAWrapperPass>();
       AU.addPreserved<DominatorTreeWrapperPass>();
+      AU.addPreserved<LazyValueInfoWrapperPass>();
       AU.addPreserved<AndersensAAWrapperPass>();  // INTEL
       AU.addPreserved<WholeProgramWrapperPass>(); // INTEL
     }
@@ -826,7 +827,8 @@ CorrelatedValuePropagationPass::run(Function &F, FunctionAnalysisManager &AM) {
   PreservedAnalyses PA;
   PA.preserve<GlobalsAA>();
   PA.preserve<DominatorTreeAnalysis>();
-  PA.preserve<AndersensAA>();          // INTEL
+  PA.preserve<LazyValueAnalysis>();
+  PA.preserve<AndersensAA>();       // INTEL
   PA.preserve<WholeProgramAnalysis>(); // INTEL
   return PA;
 }

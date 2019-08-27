@@ -617,8 +617,17 @@ Expected<DriverConfig> parseObjcopyOptions(ArrayRef<const char *> ArgsArr) {
     Config.KeepSection.emplace_back(Arg->getValue(), UseRegex);
   for (auto Arg : InputArgs.filtered(OBJCOPY_only_section))
     Config.OnlySection.emplace_back(Arg->getValue(), UseRegex);
-  for (auto Arg : InputArgs.filtered(OBJCOPY_add_section))
-    Config.AddSection.push_back(Arg->getValue());
+  for (auto Arg : InputArgs.filtered(OBJCOPY_add_section)) {
+    StringRef ArgValue(Arg->getValue());
+    if (!ArgValue.contains('='))
+      return createStringError(errc::invalid_argument,
+                               "bad format for --add-section: missing '='");
+    if (ArgValue.split("=").second.empty())
+      return createStringError(
+          errc::invalid_argument,
+          "bad format for --add-section: missing file name");
+    Config.AddSection.push_back(ArgValue);
+  }
   for (auto Arg : InputArgs.filtered(OBJCOPY_dump_section))
     Config.DumpSection.push_back(Arg->getValue());
   Config.StripAll = InputArgs.hasArg(OBJCOPY_strip_all);
@@ -801,6 +810,7 @@ parseStripOptions(ArrayRef<const char *> ArgsArr,
         InputArgs.hasFlag(STRIP_discard_all, STRIP_discard_locals)
             ? DiscardType::All
             : DiscardType::Locals;
+  Config.StripSections = InputArgs.hasArg(STRIP_strip_sections);
   Config.StripUnneeded = InputArgs.hasArg(STRIP_strip_unneeded);
   if (auto Arg = InputArgs.getLastArg(STRIP_strip_all, STRIP_no_strip_all))
     Config.StripAll = Arg->getOption().getID() == STRIP_strip_all;

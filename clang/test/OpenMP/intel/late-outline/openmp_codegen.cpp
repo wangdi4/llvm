@@ -469,7 +469,7 @@ int main(int argc, char **argv) {
   return 0;
 }
 
-// CHECK: define internal %struct.S1* @_ZTS2S1.omp.def_constr(%struct.S1*)
+// CHECK: define internal %struct.S1* @_ZTS2S1.omp.def_constr(%struct.S1* %0)
 // CHECK: alloca %struct.S1*,
 // CHECK-NEXT: alloca %struct.S1*,
 // CHECK-NEXT:  store %struct.S1* %{{.+}}, %struct.S1** %
@@ -477,7 +477,7 @@ int main(int argc, char **argv) {
 // CHECK-NEXT:  ret %struct.S1* %
 // CHECK-NEXT: }
 
-// CHECK: define internal void @_ZTS2S1.omp.destr(%struct.S1*)
+// CHECK: define internal void @_ZTS2S1.omp.destr(%struct.S1* %0)
 // CHECK: alloca %struct.S1*,
 // CHECK-NEXT: store %struct.S1* %{{.+}}, %struct.S1** %
 // CHECK-NEXT: load %struct.S1*, %struct.S1** %
@@ -485,7 +485,7 @@ int main(int argc, char **argv) {
 // CHECK-NEXT: ret void
 // CHECK-NEXT: }
 
-// CHECK: define internal %struct.S2* @_ZTS2S2.omp.def_constr(%struct.S2*)
+// CHECK: define internal %struct.S2* @_ZTS2S2.omp.def_constr(%struct.S2* %0)
 // CHECK: alloca %struct.S2*,
 // CHECK-NEXT: store %struct.S2* %{{.+}}, %struct.S2** %
 // CHECK-NEXT: load %struct.S2*, %struct.S2** %
@@ -493,13 +493,13 @@ int main(int argc, char **argv) {
 // CHECK-NEXT: ret %struct.S2* %
 // CHECK-NEXT: }
 
-// CHECK: define internal void @_ZTS2S2.omp.destr(%struct.S2*)
+// CHECK: define internal void @_ZTS2S2.omp.destr(%struct.S2* %0)
 // CHECK: alloca %struct.S2*,
 // CHECK-NEXT: store %struct.S2* %{{.+}}, %struct.S2** %
 // CHECK-NEXT: ret void
 // CHECK-NEXT: }
 
-// CHECK: define internal [10 x %struct.S1]* @_ZTSA10_2S1.omp.def_constr([10 x %struct.S1]*)
+// CHECK: define internal [10 x %struct.S1]* @_ZTSA10_2S1.omp.def_constr([10 x %struct.S1]* %0)
 // CHECK: alloca [10 x %struct.S1]*,
 // CHECK-NEXT: alloca [10 x %struct.S1]*,
 // CHECK-NEXT: store [10 x %struct.S1]* %{{.+}}, [10 x %struct.S1]** %
@@ -507,7 +507,7 @@ int main(int argc, char **argv) {
 // CHECK-NEXT: ret [10 x %struct.S1]* %
 // CHECK-NEXT: }
 
-// CHECK: define internal void @_ZTSA10_2S1.omp.destr([10 x %struct.S1]*)
+// CHECK: define internal void @_ZTSA10_2S1.omp.destr([10 x %struct.S1]* %0)
 // CHECK: alloca [10 x %struct.S1]*,
 // CHECK-NEXT: store [10 x %struct.S1]* %{{.+}}, [10 x %struct.S1]** %
 // CHECK-NEXT: load [10 x %struct.S1]*, [10 x %struct.S1]** %
@@ -515,7 +515,7 @@ int main(int argc, char **argv) {
 // CHECK:  ret void
 // CHECK-NEXT: }
 
-// CHECK: define internal [10 x %struct.S2]* @_ZTSA10_2S2.omp.def_constr([10 x %struct.S2]*)
+// CHECK: define internal [10 x %struct.S2]* @_ZTSA10_2S2.omp.def_constr([10 x %struct.S2]* %0)
 // CHECK: alloca [10 x %struct.S2]*,
 // CHECK-NEXT: store [10 x %struct.S2]* %{{.+}}, [10 x %struct.S2]** %
 // CHECK-NEXT: load [10 x %struct.S2]*, [10 x %struct.S2]** %
@@ -523,7 +523,7 @@ int main(int argc, char **argv) {
 // CHECK: ret [10 x %struct.S2]* %
 // CHECK-NEXT: }
 
-// CHECK: define internal void @_ZTSA10_2S2.omp.destr([10 x %struct.S2]*)
+// CHECK: define internal void @_ZTSA10_2S2.omp.destr([10 x %struct.S2]* %0)
 // CHECK: alloca [10 x %struct.S2]*,
 // CHECK-NEXT: store [10 x %struct.S2]* %{{.+}}, [10 x %struct.S2]** %
 // CHECK-NEXT: ret void

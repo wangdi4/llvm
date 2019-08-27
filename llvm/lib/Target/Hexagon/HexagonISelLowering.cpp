@@ -1783,7 +1783,8 @@ bool HexagonTargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
     // The offset value comes through Modifier register. For now, assume the
     // offset is 0.
     Info.offset = 0;
-    Info.align = DL.getABITypeAlignment(Info.memVT.getTypeForEVT(Cont));
+    Info.align =
+        MaybeAlign(DL.getABITypeAlignment(Info.memVT.getTypeForEVT(Cont)));
     Info.flags = MachineMemOperand::MOLoad;
     return true;
   }
@@ -1805,7 +1806,8 @@ bool HexagonTargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
     Info.memVT = MVT::getVT(VecTy);
     Info.ptrVal = I.getArgOperand(0);
     Info.offset = 0;
-    Info.align = M.getDataLayout().getTypeAllocSizeInBits(VecTy) / 8;
+    Info.align =
+        MaybeAlign(M.getDataLayout().getTypeAllocSizeInBits(VecTy) / 8);
     Info.flags = MachineMemOperand::MOLoad |
                  MachineMemOperand::MOStore |
                  MachineMemOperand::MOVolatile;
@@ -1815,6 +1817,10 @@ bool HexagonTargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
     break;
   }
   return false;
+}
+
+bool HexagonTargetLowering::hasBitTest(SDValue X, SDValue Y) const {
+  return X.getValueType().isScalarInteger(); // 'tstbit'
 }
 
 bool HexagonTargetLowering::isTruncateFree(Type *Ty1, Type *Ty2) const {

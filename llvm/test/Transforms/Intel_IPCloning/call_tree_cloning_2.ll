@@ -5,7 +5,7 @@
 ; CHECK:@"b|19.-15"()
 ; CHECK:@"x|3.5"()
 ; CHECK:@"y|17.2"()
-; CHECK:@"y|_.-2"(i32)
+; CHECK:@"y|_.-2"(i32 %0)
 ; CHECK:@"a|-1"()
 
 ; This test checks is "call-tree-clone" optimization works correctly on the

@@ -4,8 +4,8 @@
 ; is not present during link time.
 
 ; RUN: llvm-as -o %T/wp3.bc %s
-; RUN: not lld-link /out:%T/wp3.exe /entry:main %T/wp3.bc /subsystem:console  \
-; RUN:     /mllvm:-whole-program-trace \
+; RUN: lld-link /out:%T/wp3.exe /entry:main %T/wp3.bc /subsystem:console  \
+; RUN:     /mllvm:-whole-program-trace /force:unresolved \
 ; RUN:     2>&1 | FileCheck %s
 
 ; CHECK:   Main definition seen

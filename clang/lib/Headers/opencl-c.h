@@ -12,7 +12,7 @@
 #include "opencl-c-common.h"
 #include "opencl-c-platform.h"
 
-#if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
+#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
 #include "opencl-c-20.h"
 #include "opencl-c-platform-20.h"
 #else

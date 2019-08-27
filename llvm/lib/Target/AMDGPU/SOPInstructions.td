@@ -853,13 +853,13 @@ class SOPC_Base <bits<7> op, RegisterOperand rc0, RegisterOperand rc1,
   let Defs = [SCC];
 }
 class SOPC_Helper <bits<7> op, RegisterOperand rc, ValueType vt,
-                    string opName, PatLeaf cond> : SOPC_Base <
+                    string opName, SDPatternOperator cond> : SOPC_Base <
   op, rc, rc, opName,
   [(set SCC, (si_setcc_uniform vt:$src0, vt:$src1, cond))] > {
 }
 
 class SOPC_CMP_32<bits<7> op, string opName,
-                  PatLeaf cond = COND_NULL, string revOp = opName>
+                  SDPatternOperator cond = COND_NULL, string revOp = opName>
   : SOPC_Helper<op, SSrc_b32, i32, opName, cond>,
     Commutable_REV<revOp, !eq(revOp, opName)>,
     SOPKInstTable<0, opName> {
@@ -868,7 +868,7 @@ class SOPC_CMP_32<bits<7> op, string opName,
 }
 
 class SOPC_CMP_64<bits<7> op, string opName,
-                  PatLeaf cond = COND_NULL, string revOp = opName>
+                  SDPatternOperator cond = COND_NULL, string revOp = opName>
   : SOPC_Helper<op, SSrc_b64, i64, opName, cond>,
     Commutable_REV<revOp, !eq(revOp, opName)> {
   let isCompare = 1;
@@ -1110,12 +1110,11 @@ def S_SETPRIO : SOPP <0x0000000f, (ins i16imm:$simm16), "s_setprio $simm16">;
 let Uses = [EXEC, M0] in {
 // FIXME: Should this be mayLoad+mayStore?
 def S_SENDMSG : SOPP <0x00000010, (ins SendMsgImm:$simm16), "s_sendmsg $simm16",
-  [(AMDGPUsendmsg (i32 imm:$simm16))]
->;
+  [(int_amdgcn_s_sendmsg (i32 imm:$simm16), M0)]>;
 
 def S_SENDMSGHALT : SOPP <0x00000011, (ins SendMsgImm:$simm16), "s_sendmsghalt $simm16",
-  [(AMDGPUsendmsghalt (i32 imm:$simm16))]
->;
+  [(int_amdgcn_s_sendmsghalt (i32 imm:$simm16), M0)]>;
+
 } // End Uses = [EXEC, M0]
 
 def S_TRAP : SOPP <0x00000012, (ins i16imm:$simm16), "s_trap $simm16"> {
@@ -1169,7 +1168,10 @@ let SubtargetPredicate = isGFX10Plus in {
   def S_ROUND_MODE :
     SOPP<0x024, (ins s16imm:$simm16), "s_round_mode $simm16">;
   def S_DENORM_MODE :
-    SOPP<0x025, (ins s16imm:$simm16), "s_denorm_mode $simm16">;
+    SOPP<0x025, (ins i32imm:$simm16), "s_denorm_mode $simm16",
+    [(SIdenorm_mode (i32 timm:$simm16))]> {
+      let hasSideEffects = 1;
+    }
   def S_TTRACEDATA_IMM :
     SOPP<0x028, (ins s16imm:$simm16), "s_ttracedata_imm $simm16">;
 } // End SubtargetPredicate = isGFX10Plus

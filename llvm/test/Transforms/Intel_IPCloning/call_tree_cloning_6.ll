@@ -66,7 +66,7 @@ define internal fastcc void @mc_chroma(i32, i32) unnamed_addr #0 {
 }
 
 ; Checks the multi-version (MV) function on mc_chroma() has proper code generation
-; CHECK-LABEL:  define internal fastcc void @mc_chroma(i32, i32) unnamed_addr #0 {
+; CHECK-LABEL:  define internal fastcc void @mc_chroma(i32 %0, i32 %1) unnamed_addr #0 {
 ;
 ; checks 4 2-variable clones
 ;
@@ -132,15 +132,15 @@ define dso_local i32 @main() local_unnamed_addr #1 {
 ; CHECK: define internal fastcc void @"mc_chroma|8.16"()
 ; CHECK: define internal fastcc void @"mc_chroma|16.8"()
 ; CHECK: define internal fastcc void @"mc_chroma|16.16"()
-; CHECK: define internal fastcc void @"mc_chroma|_._"(i32, i32)
-; CHECK: define internal fastcc void @"mc_chroma|20._"(i32)
-; CHECK: define internal fastcc void @"mc_chroma|16._"(i32)
-; CHECK: define internal fastcc void @"mc_chroma|12._"(i32)
-; CHECK: define internal fastcc void @"mc_chroma|8._"(i32)
-; CHECK: define internal fastcc void @"mc_chroma|_.20"(i32)
-; CHECK: define internal fastcc void @"mc_chroma|_.16"(i32)
-; CHECK: define internal fastcc void @"mc_chroma|_.12"(i32)
-; CHECK: define internal fastcc void @"mc_chroma|_.8"(i32)
+; CHECK: define internal fastcc void @"mc_chroma|_._"(i32 %0, i32 %1)
+; CHECK: define internal fastcc void @"mc_chroma|20._"(i32 %0)
+; CHECK: define internal fastcc void @"mc_chroma|16._"(i32 %0)
+; CHECK: define internal fastcc void @"mc_chroma|12._"(i32 %0)
+; CHECK: define internal fastcc void @"mc_chroma|8._"(i32 %0)
+; CHECK: define internal fastcc void @"mc_chroma|_.20"(i32 %0)
+; CHECK: define internal fastcc void @"mc_chroma|_.16"(i32 %0)
+; CHECK: define internal fastcc void @"mc_chroma|_.12"(i32 %0)
+; CHECK: define internal fastcc void @"mc_chroma|_.8"(i32 %0)
 
 attributes #0 = { noinline norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }

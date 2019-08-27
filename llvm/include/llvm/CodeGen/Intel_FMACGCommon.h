@@ -440,7 +440,7 @@ public:
   /// more information and some of FMA node attributes should be printed out.
   void print(raw_ostream &OS, bool PrintAttributes) const override {
     OS << "T" << TermIndexInBB << "%%vreg"
-       << TargetRegisterInfo::virtReg2Index(Reg);
+       << Register::virtReg2Index(Reg);
     if (PrintAttributes) {
       OS << " // Type: " << EVT(VT).getEVTString();
       if (IsEverKilled)

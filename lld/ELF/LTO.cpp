@@ -51,7 +51,7 @@ using namespace lld::elf;
 static std::unique_ptr<raw_fd_ostream> openFile(StringRef file) {
   std::error_code ec;
   auto ret =
-      llvm::make_unique<raw_fd_ostream>(file, ec, sys::fs::OpenFlags::F_None);
+      llvm::make_unique<raw_fd_ostream>(file, ec, sys::fs::OpenFlags::OF_None);
   if (ec) {
     error("cannot open " + file + ": " + ec.message());
     return nullptr;
@@ -80,7 +80,9 @@ static lto::Config createConfig() {
   c.Options.IntelAdvancedOptim = config->intelAdvancedOptim;
 #endif // INTEL_CUSTOMIZATION
 
-  if (config->relocatable)
+  if (auto relocModel = getRelocModelFromCMModel())
+    c.RelocModel = *relocModel;
+  else if (config->relocatable)
     c.RelocModel = None;
   else if (config->isPic)
     c.RelocModel = Reloc::PIC_;

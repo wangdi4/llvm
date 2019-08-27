@@ -120,8 +120,6 @@ size_t COFFWriter::finalizeStringTable() {
   StrTabBuilder.finalize();
 
   for (auto &S : Obj.getMutableSections()) {
-#if INTEL_COLLAB
-    // INTEL: cherry-pick of https://reviews.llvm.org/D65040
     memset(S.Header.Name, 0, sizeof(S.Header.Name));
     if (S.Name.size() > COFF::NameSize) {
       snprintf(S.Header.Name, sizeof(S.Header.Name), "/%d",
@@ -129,15 +127,6 @@ size_t COFFWriter::finalizeStringTable() {
     } else {
       memcpy(S.Header.Name, S.Name.data(), S.Name.size());
     }
-#else  // INTEL_COLLAB
-    if (S.Name.size() > COFF::NameSize) {
-      memset(S.Header.Name, 0, sizeof(S.Header.Name));
-      snprintf(S.Header.Name, sizeof(S.Header.Name), "/%d",
-               (int)StrTabBuilder.getOffset(S.Name));
-    } else {
-      strncpy(S.Header.Name, S.Name.data(), COFF::NameSize);
-    }
-#endif // INTEL_COLLAB
   }
   for (auto &S : Obj.getMutableSymbols()) {
     if (S.Name.size() > COFF::NameSize) {

@@ -148,17 +148,17 @@ bool InitHeaderSearch::AddUnmappedPath(const Twine &Path, IncludeDirGroup Group,
   }
 
   // If the directory exists, add it.
-  if (const DirectoryEntry *DE = FM.getDirectory(MappedPathStr)) {
+  if (auto DE = FM.getDirectory(MappedPathStr)) {
     IncludePath.push_back(
-      std::make_pair(Group, DirectoryLookup(DE, Type, isFramework)));
+      std::make_pair(Group, DirectoryLookup(*DE, Type, isFramework)));
     return true;
   }
 
   // Check to see if this is an apple-style headermap (which are not allowed to
   // be frameworks).
   if (!isFramework) {
-    if (const FileEntry *FE = FM.getFile(MappedPathStr)) {
-      if (const HeaderMap *HM = Headers.CreateHeaderMap(FE)) {
+    if (auto FE = FM.getFile(MappedPathStr)) {
+      if (const HeaderMap *HM = Headers.CreateHeaderMap(*FE)) {
         // It is a headermap, add it to the search path.
         IncludePath.push_back(
           std::make_pair(Group,
@@ -642,13 +642,13 @@ void clang::ApplyHeaderSearchOptions(HeaderSearch &HS,
     // Set up the builtin include directory in the module map.
     SmallString<128> P = StringRef(HSOpts.ResourceDir);
     llvm::sys::path::append(P, "include");
-    if (const DirectoryEntry *Dir = HS.getFileMgr().getDirectory(P))
-      HS.getModuleMap().setBuiltinIncludeDir(Dir);
+    if (auto Dir = HS.getFileMgr().getDirectory(P))
+      HS.getModuleMap().setBuiltinIncludeDir(*Dir);
 #if INTEL_CUSTOMIZATION
     else if (!IntelSystem.empty()) {
       P = StringRef(IntelSystem);
-      if (const DirectoryEntry *Dir = HS.getFileMgr().getDirectory(P.str()))
-        HS.getModuleMap().setBuiltinIncludeDir(Dir);
+      if (auto Dir = HS.getFileMgr().getDirectory(P.str()))
+        HS.getModuleMap().setBuiltinIncludeDir(*Dir);
     }
 #endif // INTEL_CUSTOMIZATION
   }

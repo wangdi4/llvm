@@ -128,18 +128,18 @@ static bool isCompatible(InputFile *file) {
 
   if (!config->emulation.empty()) {
     error(toString(file) + " is incompatible with " + config->emulation);
-  } else {
-    InputFile *existing;
-    if (!objectFiles.empty())
-      existing = objectFiles[0];
-    else if (!sharedFiles.empty())
-      existing = sharedFiles[0];
-    else
-      existing = bitcodeFiles[0];
-
-    error(toString(file) + " is incompatible with " + toString(existing));
+    return false;
   }
 
+  InputFile *existing;
+  if (!objectFiles.empty())
+    existing = objectFiles[0];
+  else if (!sharedFiles.empty())
+    existing = sharedFiles[0];
+  else
+    existing = bitcodeFiles[0];
+
+  error(toString(file) + " is incompatible with " + toString(existing));
   return false;
 }
 
@@ -582,7 +582,7 @@ void ObjFile<ELFT>::initializeSections(bool ignoreComdats) {
   this->sectionStringTable =
       CHECK(obj.getSectionStringTable(objSections), this);
 
-  for (size_t i = 0, e = objSections.size(); i < e; i++) {
+  for (size_t i = 0, e = objSections.size(); i < e; ++i) {
     if (this->sections[i] == &InputSection::discarded)
       continue;
     const Elf_Shdr &sec = objSections[i];
@@ -669,25 +669,29 @@ void ObjFile<ELFT>::initializeSections(bool ignoreComdats) {
     default:
       this->sections[i] = createInputSection(sec);
     }
+  }
+
+  for (size_t i = 0, e = objSections.size(); i < e; ++i) {
+    if (this->sections[i] == &InputSection::discarded)
+      continue;
+    const Elf_Shdr &sec = objSections[i];
+    if (!(sec.sh_flags & SHF_LINK_ORDER))
+      continue;
 
     // .ARM.exidx sections have a reverse dependency on the InputSection they
     // have a SHF_LINK_ORDER dependency, this is identified by the sh_link.
-    if (sec.sh_flags & SHF_LINK_ORDER) {
-      InputSectionBase *linkSec = nullptr;
-      if (sec.sh_link < this->sections.size())
-        linkSec = this->sections[sec.sh_link];
-      if (!linkSec)
-        fatal(toString(this) +
-              ": invalid sh_link index: " + Twine(sec.sh_link));
+    InputSectionBase *linkSec = nullptr;
+    if (sec.sh_link < this->sections.size())
+      linkSec = this->sections[sec.sh_link];
+    if (!linkSec)
+      fatal(toString(this) + ": invalid sh_link index: " + Twine(sec.sh_link));
 
-      InputSection *isec = cast<InputSection>(this->sections[i]);
-      linkSec->dependentSections.push_back(isec);
-      if (!isa<InputSection>(linkSec))
-        error("a section " + isec->name +
-              " with SHF_LINK_ORDER should not refer a non-regular "
-              "section: " +
-              toString(linkSec));
-    }
+    InputSection *isec = cast<InputSection>(this->sections[i]);
+    linkSec->dependentSections.push_back(isec);
+    if (!isa<InputSection>(linkSec))
+      error("a section " + isec->name +
+            " with SHF_LINK_ORDER should not refer a non-regular section: " +
+            toString(linkSec));
   }
 }
 
@@ -1111,6 +1115,7 @@ template <class ELFT> void ObjFile<ELFT>::initializeSymbols() {
     // Handle global undefined symbols.
     if (eSym.st_shndx == SHN_UNDEF) {
       this->symbols[i]->resolve(Undefined{this, name, binding, stOther, type});
+      this->symbols[i]->referenced = true;
       continue;
     }
 
@@ -1161,7 +1166,7 @@ void ArchiveFile::fetch(const Archive::Symbol &sym) {
   Archive::Child c =
       CHECK(sym.getMember(), toString(this) +
                                  ": could not get the member for symbol " +
-                                 sym.getName());
+                                 toELFString(sym));
 
   if (!seen.insert(c.getChildOffset()).second)
     return;
@@ -1170,7 +1175,7 @@ void ArchiveFile::fetch(const Archive::Symbol &sym) {
       CHECK(c.getMemoryBufferRef(),
             toString(this) +
                 ": could not get the buffer for the member defining symbol " +
-                sym.getName());
+                toELFString(sym));
 
 #if INTEL_CUSTOMIZATION
   // If the parent is a thin archive and the child is an archive that
@@ -1511,10 +1516,10 @@ static Symbol *createBitcodeSymbol(const std::vector<bool> &keptComdats,
 
   int c = objSym.getComdatIndex();
   if (objSym.isUndefined() || (c != -1 && !keptComdats[c])) {
-    Undefined New(&f, name, binding, visibility, type);
+    Undefined newSym(&f, name, binding, visibility, type);
     if (canOmitFromDynSym)
-      New.exportDynamic = false;
-    return symtab->addSymbol(New);
+      newSym.exportDynamic = false;
+    return symtab->addSymbol(newSym);
   }
 
   if (objSym.isCommon())
@@ -1522,10 +1527,10 @@ static Symbol *createBitcodeSymbol(const std::vector<bool> &keptComdats,
         CommonSymbol{&f, name, binding, visibility, STT_OBJECT,
                      objSym.getCommonAlignment(), objSym.getCommonSize()});
 
-  Defined New(&f, name, binding, visibility, type, 0, 0, nullptr);
+  Defined newSym(&f, name, binding, visibility, type, 0, 0, nullptr);
   if (canOmitFromDynSym)
-    New.exportDynamic = false;
-  return symtab->addSymbol(New);
+    newSym.exportDynamic = false;
+  return symtab->addSymbol(newSym);
 }
 
 template <class ELFT> void BitcodeFile::parse() {

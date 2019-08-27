@@ -6,9 +6,9 @@ set(DD_CFLAGS ${SANITIZER_COMMON_CFLAGS})
 append_rtti_flag(OFF DD_CFLAGS)
 
 set(DD_SOURCES
-  dd_rtl.cc
-  dd_interceptors.cc
-)
+  dd_rtl.cpp
+  dd_interceptors.cpp
+  )
 
 if (INTEL_CUSTOMIZATION)
   # Workaround for CMPLRLLVM-9960: dd_interceptors.cc redefines

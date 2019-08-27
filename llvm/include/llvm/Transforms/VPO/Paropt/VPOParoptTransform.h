@@ -1095,7 +1095,10 @@ private:
     TGT_MAP_LITERAL = 0x100,
     // instructs the runtime to forward the value to target construct.
     TGT_MAP_IMPLICIT = 0x200,
-    TGT_MAP_ND_DESC = 0x400,
+    TGT_MAP_CLOSE = 0x400,
+    // The close map-type-modifier is a hint to the runtime to
+    // allocate memory close to the target device.
+    TGT_MAP_ND_DESC = 0x800,
     // indicates that the parameter is loop descriptor struct.
     TGT_MAP_MEMBER_OF = 0xffff000000000000
   };

@@ -260,6 +260,15 @@ struct X86Operand final : public MCParsedAsmOperand {
     return isImmSExti64i32Value(CE->getValue());
   }
 
+  bool isImmUnsignedi4() const {
+    if (!isImm()) return false;
+    // If this isn't a constant expr, reject it. The immediate byte is shared
+    // with a register encoding. We can't have it affected by a relocation.
+    const MCConstantExpr *CE = dyn_cast<MCConstantExpr>(getImm());
+    if (!CE) return false;
+    return isImmUnsignedi4Value(CE->getValue());
+  }
+
   bool isImmUnsignedi8() const {
     if (!isImm()) return false;
     // If this isn't a constant expr, just assume it fits and let relaxation
@@ -268,20 +277,6 @@ struct X86Operand final : public MCParsedAsmOperand {
     if (!CE) return true;
     return isImmUnsignedi8Value(CE->getValue());
   }
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-  bool isImmUnsignedi4() const {
-    if (!isImm()) return false;
-    // If this isn't a constant expr, just assume it fits and let relaxation
-    // handle it.
-    const MCConstantExpr *CE = dyn_cast<MCConstantExpr>(getImm());
-    if (!CE) return true;
-    uint64_t x = CE->getValue();
-    return x == (x & 15);
-  }
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
 
   bool isOffsetOf() const override {
     return OffsetOfLoc.getPointer();

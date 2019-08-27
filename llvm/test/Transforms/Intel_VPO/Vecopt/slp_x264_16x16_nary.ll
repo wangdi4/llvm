@@ -1,5 +1,5 @@
 ; RUN: opt < %s -slp-vectorizer -enable-intel-advanced-opts -mtriple=x86_64-unknown-linux-gnu -pslp -mcpu=skylake-avx512 -tti -enable-path-steering=true -S | FileCheck %s -check-prefix=8WIDE_PATH_STEERING
-; RUN: opt < %s -slp-vectorizer -enable-intel-advanced-opts -mtriple=x86_64-unknown-linux-gnu -pslp -mcpu=skylake-avx512 -tti -enable-path-steering=false -S | FileCheck %s -check-prefix=8WIDE
+; norun: opt < %s -slp-vectorizer -enable-intel-advanced-opts -mtriple=x86_64-unknown-linux-gnu -pslp -mcpu=skylake-avx512 -tti -enable-path-steering=false -S | FileCheck %s -check-prefix=8WIDE
 
 ; Check that we vectorize Multi-Node with vector length 8
 
