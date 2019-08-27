@@ -59,33 +59,63 @@ private:
   void fixupUniformInnerLoops(void);
 #endif
 
-  /// Get the type of edge from \p FromBlock to \p ToBlock. Returns TRUE_EDGE if
-  /// \p ToBlock is either the unconditional successor or the conditional true
-  /// successor of \p FromBlock and FALSE_EDGE otherwise.
-  EdgeType getEdgeTypeBetween(VPBlockBase *FromBlock, VPBlockBase *ToBlock);
+  // Describe an edge/condition/predicate affecting given block predicate. Final
+  // predicate for that block is an OR of all the PredicateTerms affecting the
+  // block.
+  struct PredicateTerm {
+    // Its predicate will affect this term.
+    VPBlockBase *OriginBlock;
+    // Needed if currect block that has this PredicateTerm is affected by the
+    // conditional branch terminator in the OriginBlock.
+    VPValue *Condition;
+    // If condition isn't nullptr and Negate is "true", the influence is coming
+    // through the "False" edge coming from the OriginBlock. Must be false if
+    // Condition is nullptr.
+    bool Negate;
 
-  /// Create and return VPValue corresponding to the predicate for the edge from
-  /// \p PredBB to \p CurrentBlock.
-#if INTEL_CUSTOMIZATION
-  VPValue *getOrCreateNotPredicate(VPBasicBlock *PredBB, VPBlockBase *CurrBB);
-#else
-  VPValue *getOrCreateNotPredicate(VPBasicBlock *PredBB, VPBasicBlock *CurrBB);
-#endif // INTEL_CUSTOMIZATION
+    PredicateTerm(VPBlockBase *OriginBlock, VPValue *Condition, bool Negate)
+        : OriginBlock(OriginBlock), Condition(Condition), Negate(Negate) {
+      assert((Condition || !Negate) && "Can't negate missing condition!");
+    }
+
+    PredicateTerm(VPBlockBase *OriginBlock)
+        : PredicateTerm(OriginBlock, nullptr, false) {}
+
+    PredicateTerm(const PredicateTerm &) = default;
+  };
+  using PredicateTermsSet = SmallVector<PredicateTerm, 4>;
+
+  // Mapping from the block to its complete set of PredicateTerms affecting this
+  // block's predicates.
+  DenseMap<VPBlockBase *, PredicateTermsSet> Block2PredicateTerms;
+
+  /// Create (not Cond) at the current Builder's insertion point.
+  VPValue *createNot(VPValue *Cond);
+
+  // Fill in the information about PredicateTerms of the predicate of the
+  // \p CurrBlock.
+  void calculatePredicateTerms(VPBlockBase *CurrBlock);
+
+  /// If PredTerm.Condition is empty, just return PredTerm.OriginBlock's
+  /// predicate. Otherwise, create Value represeting \p PredTerm, insert it at
+  /// the current Builder's insertion point and return it. That value is
+  ///
+  ///   Val = OriginBlock.Predicate && (possibly negated)Condition.
+  ///
+  VPValue *createValueForPredicateTerm(PredicateTerm PredTerm);
 
   /// Generate and return the result of ORing all the predicate VPValues in \p
-  /// Worklist.
+  /// Worklist. Uses the current insertion point of Builder member.
   VPValue *genPredicateTree(std::list<VPValue *> &Worklist);
 
-  /// Create or propagate predicate for \p CurrBlock in region \p Region using
-  /// predicate(s) of its predecessor(s)
-  void createOrPropagatePredicates(VPBlockBase *CurrBlock,
-                                   VPRegionBlock *Region);
+  /// Predicate and linearize the CFG within \p Region, recursively.
+  void predicateAndLinearizeRegionRec(VPRegionBlock *Region,
+                                      bool SearchLoopHack);
 
-  /// Predicate the CFG within \p Region.
-  void predicateRegionRec(VPRegionBlock *Region);
-
-  /// Linearize the CFG within \p Region.
-  void linearizeRegionRec(VPRegionBlock *Region);
+  /// Linearize \p Region (without recursion) and mark PHIs in the linearized
+  /// blocks as blended.
+  void
+  linearizeRegion(const ReversePostOrderTraversal<VPBlockBase *> &RegionRPOT);
 
 #if INTEL_CUSTOMIZATION
   void handleInnerLoopBackedges(VPLoopRegion *LoopRegion);
