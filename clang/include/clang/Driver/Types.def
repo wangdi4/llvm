@@ -101,6 +101,12 @@ TYPE("spirv",                    SPIRV,        INVALID,         "spv",    phases
 TYPE("sycl-header",              SYCL_Header,  INVALID,         "h",      phases::Compile, phases::Backend, phases::Assemble, phases::Link)
 TYPE("sycl-fatbin",              SYCL_FATBIN,  INVALID,         nullptr,  phases::Compile, phases::Backend, phases::Assemble, phases::Link)
 TYPE("hip-fatbin",               HIP_FATBIN,   INVALID,         "hipfb",  phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+<<<<<<< HEAD
+=======
+TYPE("spirv",                    SPIRV,        INVALID,         "spv",    phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+TYPE("sycl-header",              SYCL_Header,  INVALID,         "h",      phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+TYPE("sycl-fatbin",              SYCL_FATBIN,  INVALID,         nullptr,  phases::Compile, phases::Backend, phases::Assemble, phases::Link)
+>>>>>>> eacb17a9f14cf6798a678e493b19a71f9e5a1db6
 TYPE("tempfilelist",             Tempfilelist, INVALID,         nullptr,  phases::Compile, phases::Backend, phases::Assemble, phases::Link)
 TYPE("archive",                  Archive,      INVALID,         "a",      phases::Compile, phases::Backend, phases::Assemble, phases::Link)
 TYPE("fpga-aocx",                FPGA_AOCX,    INVALID,         "aocx",   phases::Compile, phases::Backend, phases::Assemble, phases::Link)
