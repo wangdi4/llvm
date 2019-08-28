@@ -627,9 +627,14 @@ private:
         exit(1);
       }
       MemoryBuffer *Bin = loadFile(Img.File);
-<<<<<<< HEAD
-      std::pair<Constant *, Constant *> Fbin = addMemBufToModule(
-          M, Bin, Twine(OffloadKindTag) + Twine(ImgId) + Twine(".data"));
+      std::pair<Constant *, Constant *> Fbin = addDeviceImageToModule(
+          makeArrayRef(Bin->getBufferStart(), Bin->getBufferSize()),
+          Twine(OffloadKindTag) + Twine(ImgId) + Twine(".data"), Kind, Img.Tgt);
+
+      // Need to add 'host' dummy bundle if target triple was specified for at
+      // least one target image.
+      AddHostBundle |= !Img.Tgt.empty();
+
 #if INTEL_COLLAB
       if (Kind == OffloadKind::OpenMP)
         ImagesInits.push_back(ConstantStruct::get(
@@ -641,16 +646,6 @@ private:
             { Fver, Fknd, Ffmt, Ftgt, Fopt, FMnf.first, FMnf.second,
               Fbin.first, Fbin.second, EntriesB, EntriesE }));
 #else  // INTEL_COLLAB
-=======
-      std::pair<Constant *, Constant *> Fbin = addDeviceImageToModule(
-          makeArrayRef(Bin->getBufferStart(), Bin->getBufferSize()),
-          Twine(OffloadKindTag) + Twine(ImgId) + Twine(".data"), Kind, Img.Tgt);
-
-      // Need to add 'host' dummy bundle if target triple was specified for at
-      // least one target image.
-      AddHostBundle |= !Img.Tgt.empty();
-
->>>>>>> 1ebc32f90ea69df3ea13551c866e91de2a15de49
       ImagesInits.push_back(ConstantStruct::get(
           getDeviceImageTy(),
           {Fver, Fknd, Ffmt, Ftgt, Fopt, FMnf.first, FMnf.second, Fbin.first,
@@ -658,13 +653,6 @@ private:
 #endif  // INTEL_COLLAB
       ImgId++;
     }
-<<<<<<< HEAD
-#if INTEL_COLLAB
-    auto *ImagesData = ConstantArray::get(
-        ArrayType::get(getDeviceImageTy(Kind), ImagesInits.size()),
-        ImagesInits);
-#else  // INTEL_COLLAB
-=======
 
     if (AddHostBundle) {
       // Add dummy image for the 'host' binary to satisfy bundler expectations
@@ -673,7 +661,11 @@ private:
                              OffloadKind::Host, Target);
     }
 
->>>>>>> 1ebc32f90ea69df3ea13551c866e91de2a15de49
+#if INTEL_COLLAB
+    auto *ImagesData = ConstantArray::get(
+        ArrayType::get(getDeviceImageTy(Kind), ImagesInits.size()),
+        ImagesInits);
+#else  // INTEL_COLLAB
     auto *ImagesData = ConstantArray::get(
         ArrayType::get(getDeviceImageTy(), ImagesInits.size()), ImagesInits);
 #endif  // INTEL_COLLAB
