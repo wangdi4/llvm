@@ -274,6 +274,10 @@ bool RenderscriptRuntime::isMaskedFunctionCall(const std::string &func_name) con
   return false;
 }
 
+bool RenderscriptRuntime::needsVPlanStyleMask(StringRef name) const {
+  return false;
+}
+
 // TODO[MA]: revisit
 bool RenderscriptRuntime::isFakedFunction(StringRef fname)const{
   bool isFake = Mangler::isFakeInsert(fname) ||

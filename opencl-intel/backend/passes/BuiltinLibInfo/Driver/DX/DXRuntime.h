@@ -85,6 +85,11 @@ public:
   /// @return true if function is masked version
   virtual bool isMaskedFunctionCall(const std::string &func_name) const;
 
+  /// @brief Check wether the function needs 'VPlan' style masking,
+  ///  meaning it has i32 mask as the last argument.
+  /// @param the function name that is a subject to check
+  bool needsVPlanStyleMask(StringRef) const override;
+
   /// @brief returns true iff whenever the there is vector argument to 
   ///        a vectorizeable scalar built-in it should be spread for 
   ///        the packertized version 
