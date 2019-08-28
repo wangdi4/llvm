@@ -186,12 +186,6 @@ static Error handleArgs(const CopyConfig &Config, Object &Obj) {
     StringRef SecName, FileName;
     std::tie(SecName, FileName) = Flag.split("=");
 
-<<<<<<< HEAD
-=======
-    if (FileName.empty())
-      return createStringError(llvm::errc::invalid_argument,
-                               "bad format for --add-section");
->>>>>>> bd009a3ba99b7dcee5bc817cc18a444caf4248fd
     auto BufOrErr = MemoryBuffer::getFile(FileName);
     if (!BufOrErr)
       return createFileError(FileName, errorCodeToError(BufOrErr.getError()));
