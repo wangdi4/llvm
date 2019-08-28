@@ -41,12 +41,16 @@
 ## Another negative test for invalid --add-sections command line argument.
 # RUN: not llvm-objcopy --add-section=.another.section %t %t3 2>&1 | FileCheck %s --check-prefixes=ERR2
 
+<<<<<<< HEAD
 # ERR2: error: bad format for --add-section: missing '='
 
 ## Negative test for invalid --add-sections argument - missing file name.
 # RUN: not llvm-objcopy --add-section=.section.name= %t %t3 2>&1 | FileCheck %s --check-prefixes=ERR3
 
 # ERR3: error: bad format for --add-section: missing file name
+=======
+# CHECK-ERR2: llvm-objcopy{{(.exe)?}}: error: '[[FILE]]': bad format for --add-section
+>>>>>>> bd009a3ba99b7dcee5bc817cc18a444caf4248fd
 
 --- !COFF
 header:
