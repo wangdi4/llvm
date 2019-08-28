@@ -1603,6 +1603,10 @@ void CSACvtCFDFPass::pipelineLoopWithTokenLIC(MachineLoop                       
     assert(g->isReg() && "Unexpected non-LIC backedge in inner loop pipeline");
     LMFI->setLICDepth(g->getReg(), numTokens);
     LMFI->setLICName(g->getReg(), "backEdge");
+    // Note that this backedge buffering is satisfying a buffering requirement
+    // for the entire inner loop. This is a hint to the late tools that they
+    // may want to try to redistribute this buffering into the loop body.
+    LMFI->addLICAttribute(g->getReg(), "csasim_innerloop_buffering");
   }
 
   LLVM_DEBUG(dbgs() << "Function after adding ILPL token LIC:\n"; thisMF->print(dbgs()));
