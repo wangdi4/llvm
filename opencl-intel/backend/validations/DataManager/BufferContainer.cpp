@@ -40,7 +40,7 @@ namespace Validation
             m_buffs.push_back(pB);
             return pB;
         }
-        catch (std::bad_alloc e)
+        catch (std::bad_alloc& e)
         {
             std::ostringstream oss;
             oss << buffDesc.GetSizeInBytes();
@@ -57,7 +57,7 @@ namespace Validation
             m_buffs.push_back(pIm);
             return pIm;
         }
-        catch (std::bad_alloc e)
+        catch (std::bad_alloc& e)
         {
             std::ostringstream oss;
             oss << imDesc.GetSizeInBytes();

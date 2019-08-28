@@ -157,7 +157,7 @@ cl_err_code FrontEndCompiler::ProcessResults(cl_err_code Error,
       *Binary = new char[*BinarySize];
       MEMCPY_S(*Binary, *BinarySize, Result->GetIR(), *BinarySize);
     }
-  } catch (std::bad_alloc) {
+  } catch (std::bad_alloc& e) {
     Result->Release();
     return CL_OUT_OF_HOST_MEMORY;
   }
@@ -289,7 +289,7 @@ cl_err_code FrontEndCompiler::LinkProgram(
       *ppBinary = new char[*puiBinarySize];
       MEMCPY_S(*ppBinary, *puiBinarySize, Result->GetIR(), *puiBinarySize);
     }
-  } catch (std::bad_alloc) {
+  } catch (std::bad_alloc& e) {
     Result->Release();
     return CL_OUT_OF_HOST_MEMORY;
   }
