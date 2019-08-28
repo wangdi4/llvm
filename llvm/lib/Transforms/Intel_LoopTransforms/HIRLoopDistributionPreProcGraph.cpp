@@ -156,7 +156,10 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
     }
 
     for (auto &Ref : make_range(If->ddref_begin(), If->ddref_end())) {
-      if (Ref->isMemRef() || Ref->isNonLinear()) {
+      // Only distribute conditions with linear and privatizable (non-livein)
+      // temps as they can be scalar-expanded.
+      if (!Ref->isTerminalRef() ||
+          (!Ref->isLinear() && Ref->isLiveIntoParentLoop())) {
         return false;
       }
     }

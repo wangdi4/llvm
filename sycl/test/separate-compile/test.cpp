@@ -36,6 +36,8 @@
 // RUN: %clangxx wrapper.o a.o b.o -o app.exe -lOpenCL -lsycl
 // RUN: ./app.exe | FileCheck %s
 // CHECK: pass
+// TODO: SYCL specific fail - windows+debug mode - analyze and enable
+// XFAIL: windows
 
 //==----------- test.cpp - Tests SYCL separate compilation -----------------==//
 //

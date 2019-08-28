@@ -574,8 +574,9 @@ bool HIRLoopDistribution::distributeLoop(
   if (arrayTempExceeded(LastLoopNum, NumArrayTemps, Refs)) {
     return false;
   }
-  bool NotRequired = true;
-  if (NumArrayTemps && !Loop->canStripmine(StripmineSize, NotRequired)) {
+  bool StripmineRequired = Loop->isStripmineRequired(StripmineSize);
+  if (NumArrayTemps && StripmineRequired &&
+      !Loop->canStripmine(StripmineSize)) {
     return false;
   }
 
@@ -638,8 +639,7 @@ bool HIRLoopDistribution::distributeLoop(
     replaceWithArrayTemp(Refs);
 
     // For constant trip count <= StripmineSize, no stripmine is done
-    if (!NotRequired) {
-
+    if (StripmineRequired) {
       HIRTransformUtils::stripmine(NewLoops[0], NewLoops[LastLoopNum - 1],
                                    StripmineSize);
       // Fix TempArray index if stripmine is peformed: 64 * i1 + i2 => i2
@@ -982,8 +982,7 @@ unsigned HIRLoopDistribution::distributeLoopForDirective(HLLoop *Lp) {
     return NotProcessed;
   }
 
-  bool NotRequired = true;
-  if (!Lp->canStripmine(StripmineSize, NotRequired)) {
+  if (!Lp->canStripmine(StripmineSize)) {
     return TooComplex;
   }
 

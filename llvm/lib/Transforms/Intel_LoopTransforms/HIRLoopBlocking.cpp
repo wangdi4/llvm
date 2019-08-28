@@ -480,14 +480,15 @@ bool determineProfitableStripmineLoop(
                       << NumRefsMissingAtLevel[Level] << "\n";);
     LLVM_DEBUG(dbgs() << "NumRefsWithSmallStrides " << Level << ": "
                       << NumRefsWithSmallStrides[Level] << "\n");
+
     if (NumTotalLoops >= MaxLoopNestLevel) {
       break;
     }
-    bool NotRequired = false;
+    auto StripmineSize = LoopToBS.find(Lp)->second;
     if ((NumRefsMissingAtLevel[Level] > 0 ||
          NumRefsWithSmallStrides[Level] > 0) &&
-        Lp->canStripmine(LoopToBS.find(Lp)->second, NotRequired) &&
-        !NotRequired) {
+        Lp->isStripmineRequired(StripmineSize) &&
+        Lp->canStripmine(StripmineSize)) {
 
       NumTotalLoops++;
 
@@ -509,10 +510,9 @@ bool determineProfitableStripmineLoop(
       (std::any_of(NumRefsMissingAtLevel.begin(), NumRefsMissingAtLevel.end(),
                    [](int Num) { return Num > 0; }))) {
 
-    bool NotRequired = false;
-    if (InnermostLoop->canStripmine(LoopToBS.find(InnermostLoop)->second,
-                                    NotRequired) &&
-        !NotRequired) {
+    auto StripmineSize = LoopToBS.find(InnermostLoop)->second;
+    if (InnermostLoop->isStripmineRequired(StripmineSize) &&
+        InnermostLoop->canStripmine(StripmineSize)) {
       // calcConsecutiveDepthOverTCThreshold already checked TC
       // of the innermost Loop.
       LLVM_DEBUG(dbgs() << "* Loop at Level "

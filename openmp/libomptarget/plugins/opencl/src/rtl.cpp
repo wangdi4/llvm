@@ -282,6 +282,12 @@ enum DataTransferMethodTy {
   DATA_TRANSFER_METHOD_LAST,
 };
 
+/// Buffer allocation information.
+struct BufferInfoTy {
+  void *Base;   // Base address
+  int64_t Size; // Allocation size
+};
+
 /// Class containing all the device information.
 class RTLDeviceInfoTy {
 
@@ -298,8 +304,7 @@ public:
   std::vector<cl_context> CTX;
   std::vector<cl_command_queue> Queues;
   std::vector<FuncOrGblEntryTy> FuncGblEntries;
-  std::vector<std::map<void *, void *> > BaseBuffers;
-  std::vector<std::map<void *, int64_t> > BufferSizes;
+  std::vector<std::map<void *, BufferInfoTy> > Buffers;
   std::vector<std::map<cl_kernel, std::set<void *> > > ImplicitArgs;
   std::mutex *Mutexes;
 
@@ -532,8 +537,7 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo.CTX.resize(DeviceInfo.numDevices);
   DeviceInfo.Queues.resize(DeviceInfo.numDevices);
   DeviceInfo.FuncGblEntries.resize(DeviceInfo.numDevices);
-  DeviceInfo.BaseBuffers.resize(DeviceInfo.numDevices);
-  DeviceInfo.BufferSizes.resize(DeviceInfo.numDevices);
+  DeviceInfo.Buffers.resize(DeviceInfo.numDevices);
   DeviceInfo.ImplicitArgs.resize(DeviceInfo.numDevices);
   DeviceInfo.Mutexes = new std::mutex[DeviceInfo.numDevices];
 
@@ -978,11 +982,8 @@ void *tgt_rtl_data_alloc_template(int32_t device_id, int64_t size,
 
   void *ret = (void *)((intptr_t)base + offset);
 
-  // Store base pointer if returning something else
-  if (offset != 0)
-    DeviceInfo.BaseBuffers[device_id][ret] = base;
-
-  DeviceInfo.BufferSizes[device_id][ret] = size;
+  // Store allocation information
+  DeviceInfo.Buffers[device_id][ret] = {base, size};
 
   // Store list of pointers to be passed to kernel implicitly
   if (is_implicit_arg) {
@@ -1012,14 +1013,13 @@ void *__tgt_rtl_data_alloc_base(int32_t device_id, int64_t size, void *hst_ptr,
 // Create a buffer from the given SVM pointer.
 EXTERN
 void *__tgt_rtl_create_buffer(int32_t device_id, void *tgt_ptr) {
-  cl_int rc;
-  auto I = DeviceInfo.BufferSizes[device_id].find(tgt_ptr);
-  if (I == DeviceInfo.BufferSizes[device_id].end()) {
-    DP("Warning: Cannot create buffer from unknown device pointer " DPxMOD "\n",
+  if (DeviceInfo.Buffers[device_id].count(tgt_ptr) == 0) {
+    DP("Error: Cannot create buffer from unknown device pointer " DPxMOD "\n",
        DPxPTR(tgt_ptr));
     return nullptr;
   }
-  int64_t size = I->second;
+  cl_int rc;
+  int64_t size = DeviceInfo.Buffers[device_id][tgt_ptr].Size;
   cl_mem ret = clCreateBuffer(DeviceInfo.CTX[device_id], CL_MEM_USE_HOST_PTR,
                               size, tgt_ptr, &rc);
   if (rc != CL_SUCCESS) {
@@ -1214,16 +1214,12 @@ int32_t __tgt_rtl_data_retrieve(int32_t device_id, void *hst_ptr, void *tgt_ptr,
 
 EXTERN
 int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
-  std::map<void *, void *> &bases = DeviceInfo.BaseBuffers[device_id];
-  void *base = tgt_ptr;
-  auto I = bases.find(tgt_ptr);
-  if (I != bases.end()) {
-    base = I->second;
-    bases.erase(I);
+  if (DeviceInfo.Buffers[device_id].count(tgt_ptr) == 0) {
+    DP("Cannot find allocation information for " DPxMOD "\n", DPxPTR(tgt_ptr));
+    return OFFLOAD_FAIL;
   }
-
-  if (DeviceInfo.BufferSizes[device_id].count(tgt_ptr) > 0)
-    DeviceInfo.BufferSizes[device_id].erase(tgt_ptr);
+  void *base = DeviceInfo.Buffers[device_id][tgt_ptr].Base;
+  DeviceInfo.Buffers[device_id].erase(tgt_ptr);
 
   DeviceInfo.Mutexes[device_id].lock();
   // Erase from the internal list
