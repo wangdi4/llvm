@@ -60,9 +60,10 @@ public:
   /// in the sinked instruction. These are ignored from DD edge checks
   /// for loop interchange later. The same DDG before sinking will be used
   /// later.
-  static bool enablePerfectLoopNest(
-      HLLoop *InnermostLoop, DDGraph DDG,
-      InterchangeIgnorableSymbasesTy &SinkedTempDDRefSymbases);
+  static bool
+  enablePerfectLoopNest(HLLoop *InnermostLoop, DDGraph DDG,
+                        InterchangeIgnorableSymbasesTy &SinkedTempDDRefSymbases,
+                        bool AllowNonPerfectSinking = false);
 
   /// \brief  Checks if a LvalRef has 'Threshold' uses in a loop
   static bool maxUsesInLoop(const RegDDRef *LvalRef, const HLLoop *Loop,

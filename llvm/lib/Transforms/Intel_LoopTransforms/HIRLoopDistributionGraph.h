@@ -120,9 +120,10 @@ public:
     assert(Start && End && "Null src/sink for pi edge");
   }
 
-  PiGraphEdge(PiBlock *Start, PiBlock *End) : Src(Start), Sink(End) {
-    assert(Start && End && "Null src/sink for pi edge");
-  }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  LLVM_DUMP_METHOD
+  void dump() const;
+#endif
 };
 
 // PiGraph is a DAG of piblocks. PiEdges represent a set of dd constraints
@@ -168,13 +169,16 @@ class PiGraph : public HIRGraph<PiBlock, PiGraphEdge> {
 public:
   PiGraph(HLLoop *Loop, HIRDDAnalysis &DDA,
           HIRSparseArrayReductionAnalysis &SARA,
-          bool ForceCycleForLoopIndepDep) {
+          bool ForceCycleForLoopIndepDep,
+          bool CreateControlNodes) {
 
-    PPGraph = new DistPPGraph(Loop, DDA, SARA, ForceCycleForLoopIndepDep);
+    PPGraph = new DistPPGraph(Loop, DDA, SARA, ForceCycleForLoopIndepDep,
+                              CreateControlNodes);
 
     if (!isGraphValid()) {
       return;
     }
+
     // Simplify DistPPGraph into PiGraph
     createNodes();
     createEdges();
@@ -184,14 +188,6 @@ public:
 
   // Condenses all DistPPGraph edges into a single PiGraphEdge
   void createEdges();
-
-  void processControlDependencies();
-
-  // Marks graph as invalid for given reason
-  // Possible failures could be too many nodes, edges etc
-  void setInvalid(StringRef FailureReason) {
-    PPGraph->setInvalid(FailureReason);
-  }
 
   bool isGraphValid() { return PPGraph->isGraphValid(); }
 
@@ -203,12 +199,28 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   LLVM_DUMP_METHOD
-  void dump() {
-    dbgs() << "\nProposed order\n";
-    for (auto NI = PiBlocks.begin(), NE = PiBlocks.end(); NI != NE; ++NI) {
+  void dump() const {
+    dbgs() << "\n<start> Proposed order\n";
+    for (auto *Block : PiBlocks) {
       dbgs() << "\nPiBlock: \n";
-      (*NI)->dump();
+      Block->dump();
+
+      dbgs() << "\nInternal PP Edges: \n";
+      for (auto *Node :
+           make_range(Block->dist_node_begin(), Block->dist_node_end())) {
+        for (auto *Edge : PPGraph->outgoing(Node)) {
+          Edge->dump();
+        }
+        dbgs() << "-\n";
+      }
+
+      dbgs() << "\nExternal Pi Edges: \n";
+      for (auto *Edge : outgoing(Block)) {
+        Edge->dump();
+      }
+      dbgs() << "\n";
     }
+    dbgs() << "<end>\n";
   }
 #endif
 

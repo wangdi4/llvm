@@ -237,7 +237,8 @@ void CSAMemopOrderingBase::expandDataGatedPrefetches(Function &F) {
       // function.
       if (not PrefetchIntr) {
         PrefetchIntr =
-          Intrinsic::getDeclaration(F.getParent(), Intrinsic::prefetch);
+            Intrinsic::getDeclaration(F.getParent(), Intrinsic::prefetch,
+                                      DGPrefetch->getArgOperand(1)->getType());
       }
 
       // Construct the prefetch arguments. These are the same as the data-gated

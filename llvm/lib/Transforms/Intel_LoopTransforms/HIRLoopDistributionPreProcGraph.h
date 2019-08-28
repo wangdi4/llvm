@@ -117,36 +117,27 @@ class DistPPNode {
 
   // Indicates that PP node represents HLIf statement only, without its
   // children.
-  bool IsSimpleControlNode;
+  bool IsControlNode;
 
 public:
   DistPPNode(HLNode *N, DistPPGraph *G)
-      : HNode(N), Graph(G), IsSimpleControlNode(false) {}
+      : HNode(N), Graph(G), IsControlNode(false) {}
 
   DistPPGraph *getGraph() const { return Graph; }
   HLNode *getNode() const { return HNode; }
 
-  void setSimpleControlNode() {
-    assert(isControlNode());
-    IsSimpleControlNode = true;
+  void setControlNode() {
+    assert(isa<HLIf>(getNode()));
+    IsControlNode = true;
   }
 
-  bool isControlNode() const { return isa<HLIf>(getNode()); }
-  bool isSimpleControlNode() const {
-    return isControlNode() && IsSimpleControlNode;
-  }
+  bool isControlNode() const { return IsControlNode; }
+
+  bool hasMemRef() const;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  LLVM_DUMP_METHOD
-  void dump() {
-    if (isSimpleControlNode()) {
-      cast<HLIf>(HNode)->dumpHeader();
-      dbgs() << "\n";
-      return;
-    }
-
-    HNode->dump();
-  }
+  LLVM_DUMP_METHOD void dump();
+  unsigned getNum() const { return getNode()->getNumber(); }
 #endif
 };
 
@@ -204,22 +195,25 @@ struct DistPPEdge {
       : Src(DistSrc), Sink(DistSink),
         DDEdges(EdgeList.begin(), EdgeList.end()) {}
 
-  void print(raw_ostream &OS) const {
-    // TODO
-  }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  LLVM_DUMP_METHOD
+  void dump() const;
+#endif
 };
 
 class DistPPGraph : public HIRGraph<DistPPNode, DistPPEdge> {
-public:
-  void createNodes(HLLoop *Loop);
-  unsigned getNodeCount() { return DistPPNodeList.size(); }
+  void addCycle(DistPPNode *NodeA, DistPPNode *NodeB);
+  void constructUnknownSideEffectEdges(ArrayRef<DistPPNode *> UnsafeNodes);
 
+public:
   // Marks graph as invalid for given reason
   // Possible failures could be too many nodes, edges etc
   void setInvalid(StringRef FailureReason) {
     GraphValidity = false;
     FailureString = FailureReason;
   }
+
+  unsigned getNodeCount() { return DistPPNodeList.size(); }
 
   bool isGraphValid() { return GraphValidity; }
   std::string getFailureReason() { return FailureString; }
@@ -236,7 +230,7 @@ public:
 
   DistPPGraph(HLLoop *Loop, HIRDDAnalysis &DDA,
               HIRSparseArrayReductionAnalysis &SARA,
-              bool ForceCycleForLoopIndepDep);
+              bool ForceCycleForLoopIndepDep, bool CreateControlNodes);
 
   // TODO destruction needs to be handled carefully if we want
   // to reuse graph from inner loop dist in outer loop distribution

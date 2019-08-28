@@ -271,6 +271,9 @@ bool Sema::DiagnoseUseOfDecl(NamedDecl *D, ArrayRef<SourceLocation> Locs,
 
     if (getLangOpts().CUDA && !CheckCUDACall(Loc, FD))
       return true;
+
+    if (getLangOpts().SYCLIsDevice)
+      CheckSYCLCall(Loc, FD);
   }
 
   if (auto *MD = dyn_cast<CXXMethodDecl>(D)) {
@@ -3232,6 +3235,67 @@ ExprResult Sema::BuildPredefinedExpr(SourceLocation Loc,
   return PredefinedExpr::Create(Context, Loc, ResTy, IK, SL);
 }
 
+ExprResult Sema::BuildUniqueStableName(SourceLocation OpLoc,
+                                       TypeSourceInfo *Operand) {
+  QualType ResultTy;
+  StringLiteral *SL = nullptr;
+  if (Operand->getType()->isDependentType()) {
+    ResultTy = Context.DependentTy;
+  } else {
+    std::string Str = PredefinedExpr::ComputeName(
+        Context, PredefinedExpr::UniqueStableNameType, Operand->getType());
+    llvm::APInt Length(32, Str.length() + 1);
+    ResultTy = Context.adjustStringLiteralBaseType(Context.CharTy.withConst());
+    ResultTy = Context.getConstantArrayType(ResultTy, Length, ArrayType::Normal,
+                                            /*IndexTypeQuals*/ 0);
+    SL = StringLiteral::Create(Context, Str, StringLiteral::Ascii,
+                               /*Pascal*/ false, ResultTy, OpLoc);
+  }
+
+  return PredefinedExpr::Create(Context, OpLoc, ResultTy,
+                                PredefinedExpr::UniqueStableNameType, SL,
+                                Operand);
+}
+
+ExprResult Sema::BuildUniqueStableName(SourceLocation OpLoc,
+                                       Expr *E) {
+  QualType ResultTy;
+  StringLiteral *SL = nullptr;
+  if (E->getType()->isDependentType()) {
+    ResultTy = Context.DependentTy;
+  } else {
+    std::string Str = PredefinedExpr::ComputeName(Context,
+        PredefinedExpr::UniqueStableNameExpr, E->getType());
+    llvm::APInt Length(32, Str.length()  + 1);
+    ResultTy = Context.adjustStringLiteralBaseType(Context.CharTy.withConst());
+    ResultTy = Context.getConstantArrayType(ResultTy, Length, ArrayType::Normal,
+                                           /*IndexTypeQuals*/ 0);
+    SL = StringLiteral::Create(Context, Str, StringLiteral::Ascii,
+                               /*Pascal*/ false, ResultTy, OpLoc);
+  }
+
+  return PredefinedExpr::Create(Context, OpLoc, ResultTy,
+                                PredefinedExpr::UniqueStableNameExpr, SL, E);
+}
+
+ExprResult Sema::ActOnUniqueStableNameExpr(SourceLocation OpLoc,
+                                           SourceLocation L, SourceLocation R,
+                                           ParsedType Ty) {
+  TypeSourceInfo *TInfo = nullptr;
+  QualType T = GetTypeFromParser(Ty, &TInfo);
+
+  if (T.isNull()) return ExprError();
+  if (!TInfo) TInfo = Context.getTrivialTypeSourceInfo(T, OpLoc);
+
+  return BuildUniqueStableName(OpLoc, TInfo);
+}
+
+ExprResult Sema::ActOnUniqueStableNameExpr(SourceLocation OpLoc,
+                                           SourceLocation L, SourceLocation R,
+                                           Expr *E) {
+  return BuildUniqueStableName(OpLoc, E);
+}
+
 ExprResult Sema::ActOnPredefinedExpr(SourceLocation Loc, tok::TokenKind Kind) {
   PredefinedExpr::IdentKind IK;
 
@@ -4346,6 +4410,15 @@ Sema::ActOnArraySubscriptExpr(Scope *S, Expr *base, SourceLocation lbLoc,
     base = result.get();
   }
 
+  // A comma-expression as the index is deprecated in C++2a onwards.
+  if (getLangOpts().CPlusPlus2a &&
+      ((isa<BinaryOperator>(idx) && cast<BinaryOperator>(idx)->isCommaOp()) ||
+       (isa<CXXOperatorCallExpr>(idx) &&
+        cast<CXXOperatorCallExpr>(idx)->getOperator() == OO_Comma))) {
+    Diag(idx->getExprLoc(), diag::warn_deprecated_comma_subscript)
+      << SourceRange(base->getBeginLoc(), rbLoc);
+  }
+
   // Handle any non-overload placeholder types in the base and index
   // expressions.  We can't handle overloads here because the other
   // operand might be an overloadable type, in which case the overload
@@ -5338,6 +5411,11 @@ static bool isPlaceholderToRemoveAsArg(QualType type) {
 #define EXT_OPAQUE_TYPE(ExtType, Id, Ext) \
   case BuiltinType::Id:
 #include "clang/Basic/OpenCLExtensionTypes.def"
+  // In practice we'll never use this, since all SVE types are sugared
+  // via TypedefTypes rather than exposed directly as BuiltinTypes.
+#define SVE_TYPE(Name, Id, SingletonId) \
+  case BuiltinType::Id:
+#include "clang/Basic/AArch64SVEACLETypes.def"
 #define PLACEHOLDER_TYPE(ID, SINGLETON_ID)
 #define BUILTIN_TYPE(ID, SINGLETON_ID) case BuiltinType::ID:
 #include "clang/AST/BuiltinTypes.def"
@@ -5413,8 +5491,8 @@ static FunctionDecl *rewriteBuiltinFunctionDecl(Sema *Sema, ASTContext &Context,
   QualType DeclType = FDecl->getType();
   const FunctionProtoType *FT = dyn_cast<FunctionProtoType>(DeclType);
 
-  if (!Context.BuiltinInfo.hasPtrArgsOrResult(FDecl->getBuiltinID()) ||
-      !FT || FT->isVariadic() || ArgExprs.size() != FT->getNumParams())
+  if (!Context.BuiltinInfo.hasPtrArgsOrResult(FDecl->getBuiltinID()) || !FT ||
+      ArgExprs.size() < FT->getNumParams())
     return nullptr;
 
   bool NeedsNewDecl = false;
@@ -5453,6 +5531,7 @@ static FunctionDecl *rewriteBuiltinFunctionDecl(Sema *Sema, ASTContext &Context,
     return nullptr;
 
   FunctionProtoType::ExtProtoInfo EPI;
+  EPI.Variadic = FT->isVariadic();
   QualType OverloadTy = Context.getFunctionType(FT->getReturnType(),
                                                 OverloadParams, EPI);
   DeclContext *Parent = FDecl->getParent();
@@ -6260,7 +6339,7 @@ Sema::BuildCompoundLiteralExpr(SourceLocation LParenLoc, TypeSourceInfo *TInfo,
         ILE->setInit(i, ConstantExpr::Create(Context, Init));
       }
 
-  auto *E = new (Context) CompoundLiteralExpr(LParenLoc, TInfo, literalType,
+  Expr *E = new (Context) CompoundLiteralExpr(LParenLoc, TInfo, literalType,
                                               VK, LiteralExpr, isFileScope);
   if (isFileScope) {
     if (!LiteralExpr->isTypeDependent() &&
@@ -6277,19 +6356,6 @@ Sema::BuildCompoundLiteralExpr(SourceLocation LParenLoc, TypeSourceInfo *TInfo,
       << SourceRange(LParenLoc, LiteralExpr->getSourceRange().getEnd());
     return ExprError();
   }
-
-  // Compound literals that have automatic storage duration are destroyed at
-  // the end of the scope. Emit diagnostics if it is or contains a C union type
-  // that is non-trivial to destruct.
-  if (!isFileScope)
-    if (E->getType().hasNonTrivialToPrimitiveDestructCUnion())
-      checkNonTrivialCUnion(E->getType(), E->getExprLoc(),
-                            NTCUC_CompoundLiteral, NTCUK_Destruct);
-
-  if (E->getType().hasNonTrivialToPrimitiveDefaultInitializeCUnion() ||
-      E->getType().hasNonTrivialToPrimitiveCopyCUnion())
-    checkNonTrivialCUnionInInitializer(E->getInitializer(),
-                                       E->getInitializer()->getExprLoc());
 
   return MaybeBindToTemporary(E);
 }
@@ -10552,45 +10618,55 @@ static void diagnoseTautologicalComparison(Sema &S, SourceLocation Loc,
   // result.
   ValueDecl *DL = getCompareDecl(LHSStripped);
   ValueDecl *DR = getCompareDecl(RHSStripped);
+
+  // Used for indexing into %select in warn_comparison_always
+  enum {
+    AlwaysConstant,
+    AlwaysTrue,
+    AlwaysFalse,
+    AlwaysEqual, // std::strong_ordering::equal from operator<=>
+  };
   if (DL && DR && declaresSameEntity(DL, DR)) {
-    StringRef Result;
+    unsigned Result;
     switch (Opc) {
     case BO_EQ: case BO_LE: case BO_GE:
-      Result = "true";
+      Result = AlwaysTrue;
       break;
     case BO_NE: case BO_LT: case BO_GT:
-      Result = "false";
+      Result = AlwaysFalse;
       break;
     case BO_Cmp:
-      Result = "'std::strong_ordering::equal'";
+      Result = AlwaysEqual;
       break;
     default:
+      Result = AlwaysConstant;
       break;
     }
     S.DiagRuntimeBehavior(Loc, nullptr,
                           S.PDiag(diag::warn_comparison_always)
-                              << 0 /*self-comparison*/ << !Result.empty()
+                              << 0 /*self-comparison*/
                               << Result);
   } else if (DL && DR &&
              DL->getType()->isArrayType() && DR->getType()->isArrayType() &&
              !DL->isWeak() && !DR->isWeak()) {
     // What is it always going to evaluate to?
-    StringRef Result;
+    unsigned Result;
     switch(Opc) {
     case BO_EQ: // e.g. array1 == array2
-      Result = "false";
+      Result = AlwaysFalse;
       break;
     case BO_NE: // e.g. array1 != array2
-      Result = "true";
+      Result = AlwaysTrue;
       break;
     default: // e.g. array1 <= array2
       // The best we can say is 'a constant'
+      Result = AlwaysConstant;
       break;
     }
     S.DiagRuntimeBehavior(Loc, nullptr,
                           S.PDiag(diag::warn_comparison_always)
                               << 1 /*array comparison*/
-                              << !Result.empty() << Result);
+                              << Result);
   }
 
   if (isa<CastExpr>(LHSStripped))
@@ -10821,6 +10897,32 @@ static QualType checkArithmeticOrEnumeralCompare(Sema &S, ExprResult &LHS,
   return S.Context.getLogicalOperationType();
 }
 
+void Sema::CheckPtrComparisonWithNullChar(ExprResult &E, ExprResult &NullE) {
+  if (!NullE.get()->getType()->isAnyPointerType())
+    return;
+  int NullValue = PP.isMacroDefined("NULL") ? 0 : 1;
+  if (!E.get()->getType()->isAnyPointerType() &&
+      E.get()->isNullPointerConstant(Context,
+                                     Expr::NPC_ValueDependentIsNotNull) ==
+        Expr::NPCK_ZeroExpression) {
+    if (const auto *CL = dyn_cast<CharacterLiteral>(E.get())) {
+      if (CL->getValue() == 0)
+        Diag(E.get()->getExprLoc(), diag::warn_pointer_compare)
+            << NullValue
+            << FixItHint::CreateReplacement(E.get()->getExprLoc(),
+                                            NullValue ? "NULL" : "(void *)0");
+    } else if (const auto *CE = dyn_cast<CStyleCastExpr>(E.get())) {
+        TypeSourceInfo *TI = CE->getTypeInfoAsWritten();
+        QualType T = Context.getCanonicalType(TI->getType()).getUnqualifiedType();
+        if (T == Context.CharTy)
+          Diag(E.get()->getExprLoc(), diag::warn_pointer_compare)
+              << NullValue
+              << FixItHint::CreateReplacement(E.get()->getExprLoc(),
+                                              NullValue ? "NULL" : "(void *)0");
+      }
+  }
+}
+
 // C99 6.5.8, C++ [expr.rel]
 QualType Sema::CheckCompareOperands(ExprResult &LHS, ExprResult &RHS,
                                     SourceLocation Loc,
@@ -10854,6 +10956,10 @@ QualType Sema::CheckCompareOperands(ExprResult &LHS, ExprResult &RHS,
   }
 
   checkArithmeticNull(*this, LHS, RHS, Loc, /*IsCompare=*/true);
+  if (!getLangOpts().CPlusPlus && BinaryOperator::isEqualityOp(Opc)) {
+    CheckPtrComparisonWithNullChar(LHS, RHS);
+    CheckPtrComparisonWithNullChar(RHS, LHS);
+  }
 
   // Handle vector comparisons separately.
   if (LHS.get()->getType()->isVectorType() ||
@@ -12964,10 +13070,6 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
           if (auto *VD = dyn_cast<VarDecl>(DRE->getDecl()))
             if (VD->hasLocalStorage() && getCurScope()->isDeclScope(VD))
               BE->getBlockDecl()->setCanAvoidCopyToHeap();
-
-      if (LHS.get()->getType().hasNonTrivialToPrimitiveCopyCUnion())
-        checkNonTrivialCUnion(LHS.get()->getType(), LHS.get()->getExprLoc(),
-                              NTCUC_Assignment, NTCUK_Copy);
     }
     RecordModifiableNonNullParam(*this, LHS.get());
     break;
@@ -14409,11 +14511,6 @@ ExprResult Sema::ActOnBlockStmtExpr(SourceLocation CaretLoc,
       !BD->isDependentContext())
     computeNRVO(Body, BSI);
 
-  if (RetTy.hasNonTrivialToPrimitiveDestructCUnion() ||
-      RetTy.hasNonTrivialToPrimitiveCopyCUnion())
-    checkNonTrivialCUnion(RetTy, BD->getCaretLocation(), NTCUC_FunctionReturn,
-                          NTCUK_Destruct|NTCUK_Copy);
-
   PopDeclContext();
 
   // Pop the block scope now but keep it alive to the end of this function.
@@ -15536,6 +15633,8 @@ void Sema::MarkFunctionReferenced(SourceLocation Loc, FunctionDecl *Func,
 
   if (getLangOpts().CUDA)
     CheckCUDACall(Loc, Func);
+  if (getLangOpts().SYCLIsDevice)
+    CheckSYCLCall(Loc, Func);
 
   // If we need a definition, try to create one.
   if (NeedDefinition && !Func->getBody()) {
@@ -16674,15 +16773,6 @@ static ExprResult rebuildPotentialResultsAsNonOdrUsed(Sema &S, Expr *E,
 }
 
 ExprResult Sema::CheckLValueToRValueConversionOperand(Expr *E) {
-  // Check whether the operand is or contains an object of non-trivial C union
-  // type.
-  if (E->getType().isVolatileQualified() &&
-      (E->getType().hasNonTrivialToPrimitiveDestructCUnion() ||
-       E->getType().hasNonTrivialToPrimitiveCopyCUnion()))
-    checkNonTrivialCUnion(E->getType(), E->getExprLoc(),
-                          Sema::NTCUC_LValueToRValueVolatile,
-                          NTCUK_Destruct|NTCUK_Copy);
-
   // C++2a [basic.def.odr]p4:
   //   [...] an expression of non-volatile-qualified non-class type to which
   //   the lvalue-to-rvalue conversion is applied [...]
@@ -17082,7 +17172,15 @@ namespace {
     }
 
     void VisitCXXNewExpr(CXXNewExpr *E) {
-      if (E->getOperatorNew())
+      FunctionDecl *FD = E->getOperatorNew();
+      if (FD && S.getLangOpts().SYCLIsDevice) {
+        if (FD->isReplaceableGlobalAllocationFunction())
+          S.SYCLDiagIfDeviceCode(E->getExprLoc(), diag::err_sycl_restrict)
+              << S.KernelAllocateStorage;
+        else if (FunctionDecl *Def = FD->getDefinition())
+          S.CheckSYCLCall(E->getExprLoc(), Def);
+      }
+      if (FD)
         S.MarkFunctionReferenced(E->getBeginLoc(), E->getOperatorNew());
       if (E->getOperatorDelete())
         S.MarkFunctionReferenced(E->getBeginLoc(), E->getOperatorDelete());
@@ -18008,6 +18106,9 @@ ExprResult Sema::CheckPlaceholderExpr(Expr *E) {
 #define EXT_OPAQUE_TYPE(ExtType, Id, Ext) \
   case BuiltinType::Id:
 #include "clang/Basic/OpenCLExtensionTypes.def"
+#define SVE_TYPE(Name, Id, SingletonId) \
+  case BuiltinType::Id:
+#include "clang/Basic/AArch64SVEACLETypes.def"
 #define BUILTIN_TYPE(Id, SingletonId) case BuiltinType::Id:
 #define PLACEHOLDER_TYPE(Id, SingletonId)
 #include "clang/AST/BuiltinTypes.def"

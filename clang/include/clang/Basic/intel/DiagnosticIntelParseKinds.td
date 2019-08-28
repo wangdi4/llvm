@@ -50,10 +50,6 @@ def warn_multiple_blockloop_clause : Warning<
   "%select{'factor'|'level'|'private'}0 cannot appear "
   "multiple times in '#pragma block_loop' - ignored">,
   InGroup<IgnoredPragmas>;
-def warn_multiple_loop_count_clause : Warning<
-  "%select{'loop_count'|'min'|'max'|'avg'}0 cannot appear "
-  "multiple times in '#pragma loop_count' - ignored">,
-  InGroup<IgnoredPragmas>;
 def warn_pragma_loop_count_invalid_option
     : Warning<"invalid loop count '#pragma loop_count' - ignored">,
       InGroup<IgnoredPragmas>;

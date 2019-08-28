@@ -730,21 +730,20 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
       if (Opcode == Instruction::Load || Opcode == Instruction::Store) {
         VPlanVLSAnalysis *VLSA = CG->getVLS();
         const VPlan *Plan = CG->getPlan();
-        int64_t GroupStride = 0;
         int32_t GrpSize = 0;
 
         // Get OPTVLS group for current load/store instruction
         Group = VLSA->getGroupsFor(Plan, this);
+        Optional<int64_t> GroupStride = Group ? Group->getConstStride() : None;
 
         // Only handle strided OptVLS Groups with no access gaps for now.
-        if (Group && Group->hasAConstStride(GroupStride)) {
-          uint64_t AllAccessMask = ~(UINT64_MAX << GroupStride);
+        if (GroupStride) {
+          uint64_t AllAccessMask = ~(UINT64_MAX << *GroupStride);
           GrpSize = Group->size();
 
           // Access mask is currently 64 bits, skip groups with group stride >
           // 64 and access gaps.
-          if ((GroupStride > 64) ||
-              (Group->getNByteAccessMask() != AllAccessMask))
+          if (*GroupStride > 64 || Group->getNByteAccessMask() != AllAccessMask)
             Group = nullptr;
         } else
           Group = nullptr;
@@ -785,9 +784,8 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
             // Setup the interleave index of the current instruction within the
             // VLS group.
             if (Memref->getInstruction() == this) {
-              int64_t Dist = 0;
-              Memref->isAConstDistanceFrom(*FirstMemref, &Dist);
-              InterleaveIndex = Dist / RefSizeInBytes;
+              auto DistOrNone = Memref->getConstDistanceFrom(*FirstMemref);
+              InterleaveIndex = DistOrNone.getValueOr(0) / RefSizeInBytes;
             }
           }
 
@@ -799,9 +797,8 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
           //     a[2*i]
           auto *LastMemref =
               cast<VPVLSClientMemrefHIR>(Group->getMemref(GrpSize - 1));
-          int64_t LastDist = 0;
-          LastMemref->isAConstDistanceFrom(*FirstMemref, &LastDist);
-          InterleaveFactor = LastDist / RefSizeInBytes + 1;
+          auto LastDistOrNone = LastMemref->getConstDistanceFrom(*FirstMemref);
+          InterleaveFactor = LastDistOrNone.getValueOr(0) / RefSizeInBytes + 1;
 
           // If interleave factor is less than 2, nothing special needs to be
           // done. Similarly, we do not handle the case where all memrefs in the
@@ -1817,7 +1814,7 @@ void VPValue::replaceAllUsesWithImpl(VPValue *NewVal, VPLoop *Loop,
 
 bool VPValue::isUnderlyingIRValid() const {
   if (auto *VPI = dyn_cast<VPInstruction>(this))
-    return UnderlyingVal != nullptr || VPI->HIR.isValid();
+    return IsUnderlyingValueValid || VPI->HIR.isValid();
   else {
     // Non VPInstruction values can never be invalidated.
     return true;
@@ -1830,7 +1827,7 @@ void VPValue::invalidateUnderlyingIR() {
   // their underlying IR. Hence invalidation is strictly limited to
   // VPInstructions only.
   if (auto *VPI = dyn_cast<VPInstruction>(this)) {
-    UnderlyingVal = nullptr;
+    IsUnderlyingValueValid = false;
     // Temporary hook-up to ignore loop induction related instructions during CG
     // by not invalidating them.
     // TODO: Remove this code after VPInduction support is added to HIR CG.

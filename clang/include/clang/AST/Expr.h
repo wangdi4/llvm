@@ -1883,10 +1883,16 @@ public:
   }
 };
 
+union PredefExprStorage {
+  Stmt *S;
+  Expr *E;
+  TypeSourceInfo *T;
+};
+
 /// [C99 6.4.2.2] - A predefined identifier such as __func__.
 class PredefinedExpr final
     : public Expr,
-      private llvm::TrailingObjects<PredefinedExpr, Stmt *> {
+      private llvm::TrailingObjects<PredefinedExpr, PredefExprStorage> {
   friend class ASTStmtReader;
   friend TrailingObjects;
 
@@ -1905,12 +1911,18 @@ public:
     PrettyFunction,
     /// The same as PrettyFunction, except that the
     /// 'virtual' keyword is omitted for virtual member functions.
-    PrettyFunctionNoVirtual
+    PrettyFunctionNoVirtual,
+    UniqueStableNameType,
+    UniqueStableNameExpr,
   };
 
 private:
   PredefinedExpr(SourceLocation L, QualType FNTy, IdentKind IK,
                  StringLiteral *SL);
+  PredefinedExpr(SourceLocation L, QualType FNTy, IdentKind IK,
+                 TypeSourceInfo *Info);
+  PredefinedExpr(SourceLocation L, QualType FNTy, IdentKind IK,
+                 Expr *E);
 
   explicit PredefinedExpr(EmptyShell Empty, bool HasFunctionName);
 
@@ -1920,13 +1932,33 @@ private:
   void setFunctionName(StringLiteral *SL) {
     assert(hasFunctionName() &&
            "This PredefinedExpr has no storage for a function name!");
-    *getTrailingObjects<Stmt *>() = SL;
+    getTrailingObjects<PredefExprStorage>()->S = SL;
+  }
+
+  void setTypeSourceInfo(TypeSourceInfo *Info) {
+    assert(!hasFunctionName() && getIdentKind() == UniqueStableNameType &&
+           "TypeSourceInfo only valid for UniqueStableName of a Type");
+    getTrailingObjects<PredefExprStorage>()->T = Info;
+  }
+
+  void setExpr(Expr *E) {
+    assert(!hasFunctionName() && getIdentKind() == UniqueStableNameExpr &&
+           "Expr only valid for UniqueStableName of an Expression.");
+    getTrailingObjects<PredefExprStorage>()->E = E;
   }
 
 public:
   /// Create a PredefinedExpr.
   static PredefinedExpr *Create(const ASTContext &Ctx, SourceLocation L,
                                 QualType FNTy, IdentKind IK, StringLiteral *SL);
+
+  static PredefinedExpr *Create(const ASTContext &Ctx, SourceLocation L,
+                                QualType FnTy, IdentKind IK, StringLiteral *SL,
+                                TypeSourceInfo *Info);
+
+  static PredefinedExpr *Create(const ASTContext &Ctx, SourceLocation L,
+                                QualType FnTy, IdentKind IK, StringLiteral *SL,
+                                Expr *E);
 
   /// Create an empty PredefinedExpr.
   static PredefinedExpr *CreateEmpty(const ASTContext &Ctx,
@@ -1939,20 +1971,47 @@ public:
   SourceLocation getLocation() const { return PredefinedExprBits.Loc; }
   void setLocation(SourceLocation L) { PredefinedExprBits.Loc = L; }
 
+  TypeSourceInfo *getTypeSourceInfo() {
+    assert(!hasFunctionName() && getIdentKind() == UniqueStableNameType &&
+           "TypeSourceInfo only valid for UniqueStableName of a Type");
+    return getTrailingObjects<PredefExprStorage>()->T;
+  }
+
+  const TypeSourceInfo *getTypeSourceInfo() const {
+    assert(!hasFunctionName() && getIdentKind() == UniqueStableNameType &&
+           "TypeSourceInfo only valid for UniqueStableName of a Type");
+    return getTrailingObjects<PredefExprStorage>()->T;
+  }
+
+  Expr *getExpr() {
+    assert(!hasFunctionName() && getIdentKind() == UniqueStableNameExpr &&
+           "Expr only valid for UniqueStableName of an Expression.");
+    return getTrailingObjects<PredefExprStorage>()->E;
+  }
+
+  const Expr *getExpr() const {
+    assert(!hasFunctionName() && getIdentKind() == UniqueStableNameExpr &&
+           "Expr only valid for UniqueStableName of an Expression.");
+    return getTrailingObjects<PredefExprStorage>()->E;
+  }
+
+
   StringLiteral *getFunctionName() {
-    return hasFunctionName()
-               ? static_cast<StringLiteral *>(*getTrailingObjects<Stmt *>())
-               : nullptr;
+    return hasFunctionName() ? static_cast<StringLiteral *>(
+                                   getTrailingObjects<PredefExprStorage>()->S)
+                             : nullptr;
   }
 
   const StringLiteral *getFunctionName() const {
-    return hasFunctionName()
-               ? static_cast<StringLiteral *>(*getTrailingObjects<Stmt *>())
-               : nullptr;
+    return hasFunctionName() ? static_cast<StringLiteral *>(
+                                   getTrailingObjects<PredefExprStorage>()->S)
+                             : nullptr;
   }
 
   static StringRef getIdentKindName(IdentKind IK);
   static std::string ComputeName(IdentKind IK, const Decl *CurrentDecl);
+  static std::string ComputeName(ASTContext &Ctx, IdentKind IK,
+                                 const QualType Ty);
 
   SourceLocation getBeginLoc() const { return getLocation(); }
   SourceLocation getEndLoc() const { return getLocation(); }
@@ -1963,13 +2022,15 @@ public:
 
   // Iterators
   child_range children() {
-    return child_range(getTrailingObjects<Stmt *>(),
-                       getTrailingObjects<Stmt *>() + hasFunctionName());
+    return child_range(&getTrailingObjects<PredefExprStorage>()->S,
+                       &getTrailingObjects<PredefExprStorage>()->S +
+                           hasFunctionName());
   }
 
   const_child_range children() const {
-    return const_child_range(getTrailingObjects<Stmt *>(),
-                             getTrailingObjects<Stmt *>() + hasFunctionName());
+    return const_child_range(&getTrailingObjects<PredefExprStorage>()->S,
+                             &getTrailingObjects<PredefExprStorage>()->S +
+                                 hasFunctionName());
   }
 };
 
@@ -2632,9 +2693,8 @@ public:
   /// + sizeof(Stmt *) bytes of storage, aligned to alignof(CallExpr):
   ///
   /// \code{.cpp}
-  ///   llvm::AlignedCharArray<alignof(CallExpr),
-  ///                          sizeof(CallExpr) + sizeof(Stmt *)> Buffer;
-  ///   CallExpr *TheCall = CallExpr::CreateTemporary(Buffer.buffer, etc);
+  ///   alignas(CallExpr) char Buffer[sizeof(CallExpr) + sizeof(Stmt *)];
+  ///   CallExpr *TheCall = CallExpr::CreateTemporary(Buffer, etc);
   /// \endcode
   static CallExpr *CreateTemporary(void *Mem, Expr *Fn, QualType Ty,
                                    ExprValueKind VK, SourceLocation RParenLoc,

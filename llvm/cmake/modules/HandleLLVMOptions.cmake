@@ -18,15 +18,16 @@ else()
   set(LINKER_IS_LLD_LINK FALSE)
 endif()
 
-set(LLVM_CXX_STD_default "c++11")
+set(LLVM_CXX_STD_default "c++14")
 # Preserve behaviour of legacy cache variables
-if (LLVM_ENABLE_CXX1Y)
-  set(LLVM_CXX_STD_default "c++1y")
-elseif (LLVM_ENABLE_CXX1Z)
+if (LLVM_ENABLE_CXX1Z)
   set(LLVM_CXX_STD_default "c++1z")
 endif()
+if (LLVM_CXX_STD STREQUAL "c++11")
+  set(LLVM_CXX_STD_force FORCE)
+endif()
 set(LLVM_CXX_STD ${LLVM_CXX_STD_default}
-    CACHE STRING "C++ standard to use for compilation.")
+    CACHE STRING "C++ standard to use for compilation." ${LLVM_CXX_STD_force})
 
 set(LLVM_ENABLE_LTO OFF CACHE STRING "Build LLVM with LTO. May be specified as Thin or Full to use a particular kind of LTO")
 string(TOUPPER "${LLVM_ENABLE_LTO}" uppercase_LLVM_ENABLE_LTO)
@@ -169,7 +170,7 @@ endif()
 
 # Pass -Wl,-z,defs. This makes sure all symbols are defined. Otherwise a DSO
 # build might work on ELF but fail on MachO/COFF.
-if(NOT (${CMAKE_SYSTEM_NAME} MATCHES "Darwin|FreeBSD|OpenBSD|DragonFly|AIX" OR
+if(NOT (${CMAKE_SYSTEM_NAME} MATCHES "Darwin|FreeBSD|OpenBSD|DragonFly|AIX|SunOS" OR
         WIN32 OR CYGWIN) AND
    NOT LLVM_USE_SANITIZER)
   set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,defs")
@@ -223,8 +224,14 @@ endfunction()
 macro(intel_add_sdl_flag flag name)
   cmake_parse_arguments(ARG "FUTURE" "" "" ${ARGN})
   if(ARG_FUTURE)
-    check_c_compiler_flag("-Werror ${flag}" "C_SUPPORTS_${name}")
-    check_cxx_compiler_flag("-Werror ${flag}" "CXX_SUPPORTS_${name}")
+    set(CHECK_STRING "${flag}")
+    if (MSVC)
+      set(CHECK_STRING "/WX ${CHECK_STRING}")
+    else()
+      set(CHECK_STRING "-Werror ${CHECK_STRING}")
+    endif()
+    check_c_compiler_flag("${CHECK_STRING}" "C_SUPPORTS_${name}")
+    check_cxx_compiler_flag("${CHECK_STRING}" "CXX_SUPPORTS_${name}")
     if(C_SUPPORTS_${name} AND CXX_SUPPORTS_${name})
       # Remove FUTURE option from intel_add_sdl_flag() call
       # to enable this flag. Make sure you do comprehensive
@@ -236,7 +243,24 @@ macro(intel_add_sdl_flag flag name)
         "INTEL: ignoring unsupported SDL option ${flag}")
     endif()
   else()
-    add_flag_or_print_warning("${flag}" ${name})
+    set(CHECK_STRING "${flag}")
+    if (MSVC)
+      set(CHECK_STRING "/WX ${CHECK_STRING}")
+    else()
+      set(CHECK_STRING "-Werror ${CHECK_STRING}")
+    endif()
+    # Copied from add_flag_if_supported(), because it does not work
+    # with MSVC CL (it complains about -Werror).
+    check_c_compiler_flag("${CHECK_STRING}" "C_SUPPORTS_${name}")
+    check_cxx_compiler_flag("${CHECK_STRING}" "CXX_SUPPORTS_${name}")
+    if (C_SUPPORTS_${name} AND CXX_SUPPORTS_${name})
+      message(STATUS "Building with ${flag}")
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${flag}")
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${flag}")
+      set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} ${flag}")
+    else()
+      message(WARNING "${flag} is not supported.")
+    endif()
   endif()
 endmacro()
 
@@ -400,12 +424,6 @@ elseif(MINGW) # FIXME: Also cygwin?
 endif()
 
 if( MSVC )
-  if( CMAKE_CXX_COMPILER_VERSION VERSION_LESS 19.0 )
-    # For MSVC 2013, disable iterator null pointer checking in debug mode,
-    # especially so std::equal(nullptr, nullptr, nullptr) will not assert.
-    add_definitions("-D_DEBUG_POINTER_IMPL=")
-  endif()
-
   include(ChooseMSVCCRT)
 
   # Add definitions that make MSVC much less annoying.
@@ -444,16 +462,10 @@ if( MSVC )
           CMAKE_SHARED_LINKER_FLAGS)
   endif()
 
-  # /Zc:strictStrings is incompatible with VS12's (Visual Studio 2013's)
-  # debug mode headers. Instead of only enabling them in VS2013's debug mode,
-  # we'll just enable them for Visual Studio 2015 (VS 14, MSVC_VERSION 1900)
-  # and up.
-  if (NOT (MSVC_VERSION LESS 1900))
-    # Disable string literal const->non-const type conversion.
-    # "When specified, the compiler requires strict const-qualification
-    # conformance for pointers initialized by using string literals."
-    append("/Zc:strictStrings" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
-  endif(NOT (MSVC_VERSION LESS 1900))
+  # Disable string literal const->non-const type conversion.
+  # "When specified, the compiler requires strict const-qualification
+  # conformance for pointers initialized by using string literals."
+  append("/Zc:strictStrings" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
 
   # "Generate Intrinsic Functions".
   append("/Oi" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
@@ -1196,7 +1208,72 @@ if(INTEL_CUSTOMIZATION)
       # to build Position Independent Executables.
       intel_add_sdl_linker_flag("-pie" PIE CMAKE_EXE_LINKER_FLAGS)
     elseif(MSVC)
-      message(FATAL_ERROR "### INTEL: SDL build is currently unsupported. ###")
+      if (LLVM_ENABLE_WERROR)
+        # Force warnings as errors for link:
+        intel_add_sdl_linker_flag("/WX" LINKERWX CMAKE_EXE_LINKER_FLAGS)
+      endif()
+
+      # Dynamic Base (ASLR) (strongly recommended):
+      intel_add_sdl_linker_flag(
+        "/DYNAMICBASE" DYNAMICBASE CMAKE_EXE_LINKER_FLAGS)
+
+      # High Entropy VA (strongly recommended):
+      # This is not strictly required, since MSVC seems to enable
+      # it by default. Adding it here will result in an appropriate
+      # message in the build log, which is convenient:
+      intel_add_sdl_linker_flag(
+        "/HIGHENTROPYVA" HIGHENTROPYVA CMAKE_EXE_LINKER_FLAGS)
+      intel_add_sdl_linker_flag(
+        "/LARGEADDRESSAWARE" LARGEADDRESSAWARE CMAKE_EXE_LINKER_FLAGS)
+
+      # Force Integrity (recommended):
+      # Disabled now, because xmain parts (e.g. libraries) may be used
+      # with not signed user parts. Moreover, executables built with this
+      # option will not run from U4Win.
+      intel_add_sdl_linker_flag(
+        "/INTEGRITYCHECK" INTEGRITYCHECK CMAKE_EXE_LINKER_FLAGS FUTURE)
+
+      # Namespace Isolation (strongly recommended):
+      intel_add_sdl_linker_flag(
+        "/ALLOWISOLATION" ALLOWISOLATION CMAKE_EXE_LINKER_FLAGS)
+
+      # DEP (NX) (strongly recommended):
+      intel_add_sdl_linker_flag("/NXCOMPAT" NXCOMPAT CMAKE_EXE_LINKER_FLAGS)
+
+      # Control Flow Guard (recommended):
+      # Microsoft claims small performance impact, but this has to be
+      # measured on a CFG-aware OS.
+      if (CLANG_CL)
+        intel_add_sdl_flag("/Qcf-protection:full" QCFPROTECTIONFULL FUTURE)
+      else()
+        # CL option is lower-case.
+        intel_add_sdl_flag("/guard:cf" GUARDCF FUTURE)
+      endif()
+      intel_add_sdl_linker_flag(
+        "/GUARD:CF" LINKGUARDCF CMAKE_EXE_LINKER_FLAGS FUTURE)
+
+      # Safe SEH (recommended, 32-bit only):
+      if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+        intel_add_sdl_linker_flag("/SAFESEH" SAFESEH CMAKE_EXE_LINKER_FLAGS)
+      endif()
+
+      # Stack Canaries (strongly recommended):
+      intel_add_sdl_flag("/GS" GS)
+
+      # Spectre (recommended):
+      # Disabled due to potential performance impact.
+      if (CLANG_CL)
+        intel_add_sdl_flag(
+          "/Qconditional-branch:pattern-report" QCONDITIONALBRANCHPATTERNREPORT
+          FUTURE)
+        intel_add_sdl_flag(
+          "/Qconditional-branch:pattern-fix" QCONDITIONALBRANCHPATTERNFIX
+          FUTURE)
+        intel_add_sdl_flag(
+          "/Qconditional-branch:all-fix" QCONDITIONALBRANCHALLFIX FUTURE)
+      else()
+        intel_add_sdl_flag("/Qspectre" QSPECTRE FUTURE)
+      endif()
     else()
       message(FATAL_ERROR "### INTEL: SDL build is currently unsupported. ###")
     endif()

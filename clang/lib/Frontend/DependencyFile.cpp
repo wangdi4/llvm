@@ -179,8 +179,8 @@ void DependencyCollector::attachToASTReader(ASTReader &R) {
 
 DependencyFileGenerator::DependencyFileGenerator(
     const DependencyOutputOptions &Opts)
-    : OutputFile(Opts.OutputFile), Targets(Opts.Targets),
-      DependencyFilter(Opts.DependencyFilter),
+    : OutputFile(Opts.OutputFile),
+      DependencyFilter(Opts.DependencyFilter), Targets(Opts.Targets),
       IncludeSystemHeaders(Opts.IncludeSystemHeaders),
       PhonyTarget(Opts.UsePhonyTargets),
       AddMissingHeaderDeps(Opts.AddMissingHeaderDeps), SeenMissingHeader(false),
@@ -222,8 +222,7 @@ bool DependencyFileGenerator::sawDependency(StringRef Filename, bool FromModule,
     return false;
 
   if (DependencyFilter.size() &&
-      DependencyFilter.compare(0, DependencyFilter.size(),
-                               Filename.str().c_str(),
+      DependencyFilter.compare(0, DependencyFilter.size(), Filename.data(),
                                DependencyFilter.size()) == 0)
     // Remove dependencies that are prefixed by the Filter string.
     return false;
@@ -324,7 +323,7 @@ void DependencyFileGenerator::outputDependencyFile(DiagnosticsEngine &Diags) {
   }
 
   std::error_code EC;
-  llvm::raw_fd_ostream OS(OutputFile, EC, llvm::sys::fs::F_Text);
+  llvm::raw_fd_ostream OS(OutputFile, EC, llvm::sys::fs::OF_Text);
   if (EC) {
     Diags.Report(diag::err_fe_error_opening) << OutputFile << EC.message();
     return;

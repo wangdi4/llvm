@@ -12,80 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "omptarget-opencl.h"
-
-/// Counting barrier
-INLINE void __kmp_barrier_counting(global kmp_barrier_t *barrier) {
-  kmp_barrier_counting_t *bar = &barrier->counting;
-  if (__kmp_get_local_id() == 0) {
-    uint curr_go = atomic_load_explicit(&bar->go, memory_order_acquire);
-    if (atomic_fetch_add_explicit(&bar->count, 1, memory_order_acq_rel) ==
-        __kmp_get_num_groups() - 1) {
-      atomic_store_explicit(&bar->count, 0, memory_order_release);
-      atomic_store_explicit(&bar->go, ~curr_go, memory_order_release);
-    } else {
-      while (atomic_load_explicit(&bar->go, memory_order_acquire) == curr_go)
-        continue;
-    }
-  }
-
-  work_group_barrier(CLK_GLOBAL_MEM_FENCE | CLK_LOCAL_MEM_FENCE);
-}
-
-/// Dissemination barrier initializer: compute total rounds, partner location.
-INLINE void __kmp_barrier_dissem_init(global kmp_barrier_dissem_t *bar) {
-  if (__kmp_get_local_id() == 0) {
-    int num_groups = __kmp_get_num_groups();
-    int group_id = __kmp_get_group_id();
-    kmp_barrier_dissem_node_t *node = &bar->node[group_id];
-    node->sense = 1;
-    node->parity = 0;
-    bar->num_rounds = (int)ceil(log2(num_groups * 1.0));
-
-    for (int i = 0; i < bar->num_rounds; i++) {
-      int j = (group_id + (1 << i)) % num_groups;
-      node->mine[0][i] = 0;
-      node->mine[1][i] = 0;
-      node->partner[0][i] = &bar->node[j].mine[0][i];
-      node->partner[1][i] = &bar->node[j].mine[1][i];
-    }
-    // Make sure every node is initialized at this point
-    while (atomic_fetch_add_explicit(&bar->num_initialized, 1,
-                                     memory_order_acq_rel) < num_groups - 1);
-  }
-
-  work_group_barrier(CLK_GLOBAL_MEM_FENCE | CLK_LOCAL_MEM_FENCE);
-}
-
-/// Dissemination barrier: initializer must be called before any barrier calls.
-INLINE void __kmp_barrier_dissem(global kmp_barrier_t *barrier) {
-  global kmp_barrier_dissem_t *bar = &barrier->dissem;
-  kmp_barrier_dissem_node_t *node = &bar->node[__kmp_get_group_id()];
-  int local_id = __kmp_get_local_id();
-  int local_size = __kmp_get_local_size();
-
-  // Utilize the idle work item to wait for partners' arrival in parallel
-  for (int i = local_id; i < bar->num_rounds; i += local_size) {
-    *node->partner[node->parity][i] = node->sense;
-    while (node->mine[node->parity][i] != node->sense);
-  }
-
-  work_group_barrier(CLK_GLOBAL_MEM_FENCE | CLK_LOCAL_MEM_FENCE);
-
-  if (local_id == 0) {
-    if (node->parity == 1)
-      node->sense = !node->sense;
-    node->parity = 1 - node->parity;
-  }
-
-  work_group_barrier(CLK_GLOBAL_MEM_FENCE | CLK_LOCAL_MEM_FENCE);
-}
-
-/// Team barrier
-INLINE void __kmp_team_barrier(int global_id) {
-  // We need to implement this if we allow single-team-multi-group mapping
-  // TODO: use global_id to access the barrier object for the team.
-}
-
+#include "internal.h"
 
 ///
 /// OpenMP* RTL routines
@@ -104,25 +31,68 @@ EXTERN int omp_get_num_teams(void) {
 }
 
 EXTERN int omp_get_team_size(int level) {
-  return __kmp_get_local_size();
+  bool is_spmd_mode = __kmp_is_spmd_mode();
+  if (is_spmd_mode)
+    return level == 1 ? __kmp_get_local_size() : 1;
+
+  int tid = __kmp_get_logical_thread_id(is_spmd_mode);
+  kmp_local_state_t *local_state = __kmp_get_local_state();
+  uint par_level = local_state->parallel_level[tid];
+
+  // We are either in the level-1 active parallel region or
+  // in its nested serialized region
+  if (level == 1 && par_level > KMP_ACTIVE_PARALLEL_BUMP)
+    return local_state->team_threads;
+
+  // Level-0 is serial region
+  if (level == 0)
+    return 1;
+
+  // We are in nested inactive parallel regions with level-1 being inactive
+  if (level > 0 && par_level < KMP_ACTIVE_PARALLEL_BUMP && level <= par_level)
+    return 1;
+
+  // We are in nested inactive parallel regions with level-1 being active
+  if (level > 1 && par_level > KMP_ACTIVE_PARALLEL_BUMP &&
+      level <= (par_level - KMP_ACTIVE_PARALLEL_BUMP))
+    return 1;
+
+  // Gray area
+  return KMP_UNSPECIFIED;
 }
 
 EXTERN int omp_get_thread_num(void) {
-  return __kmp_get_local_id();
+  if (GLOBAL.assume_simple_spmd_mode)
+    return __kmp_get_local_id();
+
+  return __kmp_get_omp_thread_id(__kmp_is_spmd_mode());
 }
 
 EXTERN int omp_get_num_threads(void) {
-  // need more information
-  return KMP_UNSPECIFIED;
+  if (GLOBAL.assume_simple_spmd_mode)
+    return __kmp_get_local_size();
+
+  return __kmp_get_num_omp_threads(__kmp_is_spmd_mode());
 }
 
 EXTERN int omp_get_max_threads(void) {
-  return __kmp_get_local_size();
+  if (GLOBAL.assume_simple_spmd_mode)
+    return 1;
+
+  kmp_local_state_t *local_state = __kmp_get_local_state();
+  int level = local_state->parallel_level[__kmp_get_local_id()];
+  int ret = 1;
+  if (level == 0)
+    ret = local_state->num_threads;
+  return ret;
 }
 
 EXTERN int omp_in_parallel(void) {
-  // need more information
-  return KMP_UNSPECIFIED;
+  if (GLOBAL.assume_simple_spmd_mode)
+    return 1;
+
+  int level = __kmp_get_local_state()->parallel_level[__kmp_get_local_id()];
+  return (level > KMP_ACTIVE_PARALLEL_BUMP);
 }
 
 EXTERN int omp_get_device_num(void) {
@@ -149,7 +119,7 @@ EXTERN int omp_get_initial_device(void) {
 EXTERN void kmp_global_barrier_init(void) {
 // TODO: decide default implementation based on performance
 #ifdef KMP_GLOBAL_BARRIER_DISSEM
-  __kmp_barrier_dissem_init(&gstate.g_barrier);
+  __kmp_barrier_dissem_init(&GLOBAL.g_barrier);
 #else
   // nothing to be done
 #endif
@@ -159,9 +129,9 @@ EXTERN void kmp_global_barrier_init(void) {
 EXTERN void kmp_global_barrier(void) {
 // TODO: decide default implementation based on performance
 #ifdef KMP_GLOBAL_BARRIER_DISSEM
-  __kmp_barrier_dissem(&gstate.g_barrier);
+  __kmp_barrier_dissem(&GLOBAL.g_barrier);
 #else
-  __kmp_barrier_counting(&gstate.g_barrier);
+  __kmp_barrier_counting(&GLOBAL.g_barrier);
 #endif
 }
 

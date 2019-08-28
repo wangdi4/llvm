@@ -480,9 +480,9 @@ bool CSADataflowCanonicalizationPass::eliminateMovInsts(MachineInstr *MI) {
   unsigned destReg = MI->getOperand(0).getReg();
 
   // Moves involving physical registers should not be removed here
-  if (!TargetRegisterInfo::isVirtualRegister(srcReg))  return false;
-  if (!TargetRegisterInfo::isVirtualRegister(destReg)) return false;
-  if (!MRI->getUniqueVRegDef(destReg))                 return false;
+  if (!Register::isVirtualRegister(srcReg))  return false;
+  if (!Register::isVirtualRegister(destReg)) return false;
+  if (!MRI->getUniqueVRegDef(destReg))       return false;
 
   // If the opcode is a generic copy, replace it with a MOV instruction. This
   // prevents COPY->MOV conversion later in the pipeline from creating

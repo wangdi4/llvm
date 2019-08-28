@@ -1,4 +1,5 @@
 ; RUN: opt -instcombine -disable-type-lowering-opts=true < %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes=instcombine -disable-type-lowering-opts=true < %s -S 2>&1 | FileCheck %s
 
 ; Check that all three original GEPs are retained when
 ; -disable-gepinst-opts=true.

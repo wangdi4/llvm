@@ -170,7 +170,8 @@ void HIRSafeReductionAnalysis::computeSafeReductionChains(const HLLoop *Loop) {
 const SafeRedInfoList &
 HIRSafeReductionAnalysis::getSafeRedInfoList(const HLLoop *Loop) {
 
-//  assert(Loop->isInnermost() && "SafeReduction supports only innermost loop");
+  //  assert(Loop->isInnermost() && "SafeReduction supports only innermost
+  //  loop");
   SafeRedInfoList &SRCL = SafeReductionMap[Loop];
   return SRCL;
 }
@@ -192,20 +193,13 @@ bool HIRSafeReductionAnalysis::isValidSR(const RegDDRef *LRef,
                                          DDRef **SinkDDRef,
                                          unsigned ReductionOpCode,
                                          DDGraph DDG) {
-
-  auto I = DDG.outgoing_edges_begin(LRef);
-  auto E = DDG.outgoing_edges_end(LRef);
-
-  // No outgoing edges
-  if (I == E) {
-    return false;
-  }
-
   HLNode *UseNode = nullptr;
   HLInst *SingleOutputDepInst = nullptr;
   bool FlowEdgeFound = false;
 
-  for (; I != E; ++I) {
+  for (auto I = DDG.outgoing_edges_begin(LRef),
+            E = DDG.outgoing_edges_end(LRef);
+            I != E; ++I) {
     const DDEdge *Edge = *I;
     if (Edge->isOUTPUTdep()) {
       // Allow only one output edge for case 'c' mentioned above in the
@@ -232,7 +226,7 @@ bool HIRSafeReductionAnalysis::isValidSR(const RegDDRef *LRef,
       }
     } else {
       if (isa<HLSwitch>(SinkParent)) {
-	return false;
+        return false;
       }
       HLNode *SrcNode = (Edge->getSrc())->getHLDDNode();
       HLNode *SrcParent = SrcNode->getParent();
@@ -242,10 +236,10 @@ bool HIRSafeReductionAnalysis::isValidSR(const RegDDRef *LRef,
       }
       HLIf *If;
       if ((If = dyn_cast<HLIf>(SrcParent)) &&
-	  (If->isThenChild(SrcNode) != If->isThenChild(SinkNode))) {
-	return false;
-      } 
-     }
+          (If->isThenChild(SrcNode) != If->isThenChild(SinkNode))) {
+        return false;
+      }
+    }
 
     *SinkInst = dyn_cast<HLInst>(SinkNode);
     if (!(*SinkInst)) {
@@ -364,8 +358,8 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(const HLLoop *Loop,
         const HLInst *FirstInstOfChain = nullptr;
 
         if (isa<HLSwitch>(Inst->getParent())) {
-	  return;
-	}
+          return;
+        }
 
         if (isa<HLLoop>(Inst->getParent()) &&
             !HLNodeUtils::postDominates(Inst, FirstChild)) {
@@ -381,7 +375,6 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(const HLLoop *Loop,
         if (!findFirstRedStmt(Loop, Inst, &SingleStmtReduction, &FirstRvalSB,
                               &ReductionOpCode, DDG)) {
           return;
-          ;
         }
 
         RedInsts.push_back(Inst);

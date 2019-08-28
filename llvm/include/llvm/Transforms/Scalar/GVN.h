@@ -159,6 +159,7 @@ private:
   SetVector<BasicBlock *> DeadBlocks;
   OptimizationRemarkEmitter *ORE;
   ImplicitControlFlowTracking *ICF;
+  LoopInfo *LI;
 
   ValueTable VN;
 
@@ -295,7 +296,13 @@ FunctionPass *createGVNPass(bool NoLoads = false);
 
 /// A simple and fast domtree-based GVN pass to hoist common expressions
 /// from sibling branches.
-struct GVNHoistPass : PassInfoMixin<GVNHoistPass> {
+#if INTEL_CUSTOMIZATION
+class GVNHoistPass : public PassInfoMixin<GVNHoistPass> {
+  const bool HoistingGeps;
+public:
+  GVNHoistPass() : GVNHoistPass(false) {}
+  GVNHoistPass(bool HoistingGeps) : HoistingGeps(HoistingGeps) {}
+#endif // INTEL_CUSTOMIZATION
   /// Run the pass over the function.
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };

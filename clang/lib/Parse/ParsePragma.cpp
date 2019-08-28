@@ -1247,7 +1247,6 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
   bool PragmaFusion = PragmaNameInfo->getName() == "fusion";
   bool PragmaNoVector = PragmaNameInfo->getName() == "novector";
   bool PragmaVector = PragmaNameInfo->getName() == "vector";
-  bool PragmaLoopCount = PragmaNameInfo->getName() == "loop_count";
 #endif // INTEL_CUSTOMIZATION
   bool PragmaUnroll = PragmaNameInfo->getName() == "unroll";
   bool PragmaNoUnroll = PragmaNameInfo->getName() == "nounroll";
@@ -1261,7 +1260,6 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
                        PragmaForceHyperopt || PragmaForceNoHyperopt ||
                        PragmaDistributePoint || PragmaNoFusion ||
                        PragmaFusion || PragmaNoVector || PragmaVector ||
-                       PragmaLoopCount ||
 #endif // INTEL_CUSTOMIZATION
                        PragmaNoUnrollAndJam)) {
     ConsumeAnnotationToken();
@@ -1305,6 +1303,7 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
     StateOption = llvm::StringSwitch<bool>(OptionInfo->getName())
                       .Case("vectorize", true)
                       .Case("interleave", true)
+                      .Case("vectorize_predicate", true)
                       .Default(false) ||
                   OptionUnroll || OptionUnrollAndJam || OptionDistribute ||
                   OptionPipelineDisabled;
@@ -3072,6 +3071,7 @@ static bool ParseLoopHintValue(Preprocessor &PP, Token &Tok, Token PragmaName,
 ///    'vectorize' '(' loop-hint-keyword ')'
 ///    'interleave' '(' loop-hint-keyword ')'
 ///    'unroll' '(' unroll-hint-keyword ')'
+///    'vectorize_predicate' '(' loop-hint-keyword ')'
 ///    'vectorize_width' '(' loop-hint-value ')'
 ///    'interleave_count' '(' loop-hint-value ')'
 ///    'unroll_count' '(' loop-hint-value ')'
@@ -3133,6 +3133,7 @@ void PragmaLoopHintHandler::HandlePragma(Preprocessor &PP,
                            .Case("interleave", true)
                            .Case("unroll", true)
                            .Case("distribute", true)
+                           .Case("vectorize_predicate", true)
                            .Case("vectorize_width", true)
                            .Case("interleave_count", true)
                            .Case("unroll_count", true)
@@ -3185,9 +3186,6 @@ void PragmaLoopHintHandler::HandlePragma(Preprocessor &PP,
 ///  #pragma unroll
 ///  #pragma unroll unroll-hint-value
 ///  #pragma unroll '(' unroll-hint-value ')'
-#if INTEL_CUSTOMIZATION
-///  #pragma unroll '=' unroll-hint-value
-#endif // INTEL_CUSTOMIZATION
 ///  #pragma nounroll
 ///  #pragma unroll_and_jam
 ///  #pragma unroll_and_jam unroll-hint-value
@@ -3227,11 +3225,7 @@ void PragmaUnrollHintHandler::HandlePragma(Preprocessor &PP,
     // "#pragma unroll(N)".
     // Read '(' if it exists.
     bool ValueInParens = Tok.is(tok::l_paren);
-#if INTEL_CUSTOMIZATION
-    // CQ#374273 - allow '#pragma unroll = N' spelling.
-    bool ValueWithEqual = PP.getLangOpts().IntelCompat && Tok.is(tok::equal);
-    if (ValueInParens || ValueWithEqual)
-#endif // INTEL_CUSTOMIZATION
+    if (ValueInParens)
       PP.Lex(Tok);
 
     Token Option;
@@ -3768,48 +3762,97 @@ void PragmaFusionHandler::HandlePragma(Preprocessor &PP,
                       /*DisableMacroExpansion=*/false, /*IsReinject*/false);
 }
 
-
-/// Parses loop_count value and fills in Info.
-static void ParseLoopCountValue(Preprocessor &PP, Token &Tok, Token PragmaName,
-                                Token Option, PragmaLoopHintInfo &Info) {
-  SmallVector<Token, 1> ValueList;
-
-  while (Tok.isNot(tok::eod) && Tok.isNot(tok::r_paren) &&
-         Tok.isNot(tok::l_paren) && Tok.isNot(tok::comma)) {
-    // Read constant expression.
-    if (Tok.is(tok::identifier)) {
-      IdentifierInfo *Id = Tok.getIdentifierInfo();
-      if (Id->isStr("loop_count") || Id->isStr("min") || Id->isStr("max") ||
-          Id->isStr("avg"))
-        break;
-    }
-    ValueList.push_back(Tok);
+/// Handle the \#pragma loop_count directive.
+///  #pragma loop_count loopcount_component [loopcount_component]
+///
+void PragmaLoopCountHandler::HandlePragma(Preprocessor &PP,
+                                          PragmaIntroducer Introducer,
+                                          Token &FirstTok) {
+  Token PragmaName = FirstTok;
+  SmallVector<Token, 4> Pragma;
+  Token Tok;
+  Tok.startToken();
+  Tok.setKind(tok::annot_pragma_loop_count);
+  PragmaLoopHintInfo *Info =
+          new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo;
+  Info->PragmaName = PragmaName;
+  Info->Option = Tok;
+  Tok.setAnnotationValue(static_cast<void *>(Info));
+  Tok.setLocation(Introducer.Loc);
+  Pragma.push_back(Tok);
+  Pragma.push_back(FirstTok);
+  while (Tok.isNot(tok::eod) && Tok.isNot(tok::eof)) {
     PP.Lex(Tok);
+    Pragma.push_back(Tok);
   }
-
-  Token EOFTok;
-  EOFTok.startToken();
-  EOFTok.setKind(tok::eof);
-  EOFTok.setLocation(Tok.getLocation());
-  ValueList.push_back(EOFTok); // Terminates expression for parsing.
-
-  Info.Toks = llvm::makeArrayRef(ValueList).copy(PP.getPreprocessorAllocator());
-
-  Info.PragmaName = PragmaName;
-  Info.Option = Option;
+  SourceLocation EodLoc = Tok.getLocation();
+  Tok.startToken();
+  Tok.setKind(tok::annot_pragma_loop_count_end);
+  Tok.setLocation(EodLoc);
+  Pragma.push_back(Tok);
+  auto Toks = llvm::make_unique<Token[]>(Pragma.size());
+  std::copy(Pragma.begin(), Pragma.end(), Toks.get());
+  PP.EnterTokenStream(std::move(Toks), Pragma.size(),
+                      /*DisableMacroExpansion=*/false, /*IsReinject=*/false);
 }
 
-static void GenLoopHintToken(SmallVector<Token, 4> &TokenList, Token PragmaName,
-                             Token Option, PragmaLoopHintInfo &Info) {
-  Info.PragmaName = PragmaName;
-  Info.Option = Option;
-  Token LoopHintTok;
-  LoopHintTok.startToken();
-  LoopHintTok.setKind(tok::annot_pragma_loop_hint);
-  LoopHintTok.setLocation(PragmaName.getLocation());
-  LoopHintTok.setAnnotationEndLoc(PragmaName.getLocation());
-  LoopHintTok.setAnnotationValue(static_cast<void *>(&Info));
-  TokenList.push_back(LoopHintTok);
+bool Parser::ParseLoopHintValue(LoopHint &Hint, SourceLocation Loc,
+                                ParsedAttributesWithRange &Attrs) {
+  SourceLocation BeginExprLoc = Tok.getLocation();
+  ExprResult R = ParseConstantExpression();
+  if (R.isInvalid() ||
+      Actions.CheckLoopHintExpr(R.get(), BeginExprLoc,
+                                /*IsCheckRange=*/true,
+                                /*AllowNonNegativeValue=*/false))
+    return false;
+  Hint.ValueExpr = R.get();
+  Hint.Range = SourceRange(Loc, Tok.getLocation());
+  ArgsUnion ArgHints[] = {Hint.PragmaNameLoc, Hint.OptionLoc, Hint.StateLoc,
+                          ArgsUnion(Hint.ValueExpr),
+                          ArgsUnion(Hint.ArrayExpr)};
+  Attrs.addNew(Hint.PragmaNameLoc->Ident, Hint.Range, nullptr,
+               Hint.PragmaNameLoc->Loc, ArgHints, 5,
+               ParsedAttr::AS_Pragma);
+  return true;
+}
+
+bool Parser::ParseLoopHintValueList(LoopHint &Hint,
+                                    ParsedAttributesWithRange &Attrs) {
+  SourceLocation Loc = Tok.getLocation();
+  ConsumeToken();
+  if (Tok.is(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_loop_count_invalid_option);
+    return false;
+  }
+  if (Tok.isNot(tok::l_paren) && Tok.isNot(tok::equal))
+    return true;
+  ConsumeAnyToken(); // Consume l_paren or equal
+  do {
+    if (Tok.is(tok::comma))
+      ConsumeToken();
+    if (!ParseLoopHintValue(Hint, Loc, Attrs))
+      return false;
+  } while (Tok.is(tok::comma));
+  while (Tok.is(tok::r_paren) || Tok.is(tok::comma) || Tok.is(tok::semi))
+    ConsumeAnyToken();  // Consume r_paren, comma
+  return true;
+}
+
+bool Parser::ParseLoopCountClause(LoopHint &Hint,
+                                  ParsedAttributesWithRange &Attrs) {
+  SourceLocation Loc = Tok.getLocation();
+  ConsumeToken();
+  if (Tok.is(tok::l_paren) || Tok.is(tok::equal)) {
+    ConsumeAnyToken();  // Consume l_paren or equal
+    if (!ParseLoopHintValue(Hint, Loc, Attrs))
+      return false;
+  } else {
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_loop_count_invalid_option);
+    return false;
+  }
+  while (Tok.is(tok::comma) || Tok.is(tok::r_paren) || Tok.is(tok::semi))
+    ConsumeAnyToken();  // Consume r_paren, comma
+  return true;
 }
 
 /// Handle the \#pragma loop_count directive.
@@ -3821,110 +3864,70 @@ static void GenLoopHintToken(SmallVector<Token, 4> &TokenList, Token PragmaName,
 ///     maxmod := max(x) | max=x
 ///     avgmid := avg(x) | avg=x
 ///
-void PragmaLoopCountHandler::HandlePragma(Preprocessor &PP,
-                                          PragmaIntroducer Introducer,
-                                          Token &Tok) {
-  // Incoming token is "loop_count" for "#pragma loop_count"
-  Token PragmaName = Tok;
-  SmallVector<Token, 4> TokenList;
+bool Parser::HandlePragmaLoopCount(LoopHint &Hint,
+                                   ParsedAttributesWithRange &Attrs) {
+  PragmaLoopHintInfo *Info =
+      static_cast<PragmaLoopHintInfo *>(Tok.getAnnotationValue());
+  IdentifierInfo *PragmaNameInfo = Info->PragmaName.getIdentifierInfo();
+  Hint.PragmaNameLoc = IdentifierLoc::create(
+      Actions.Context, Info->PragmaName.getLocation(), PragmaNameInfo);
+  ConsumeAnyToken();  // Consume annot_pragma_loop_count
+  IdentifierInfo *OptionInfo = Tok.getIdentifierInfo();
+  Hint.OptionLoc =
+     IdentifierLoc::create(Actions.Context, Tok.getLocation(), OptionInfo);
 
-  bool HasLoopCount = false;
-  bool HasMax = false;
-  bool HasMin = false;
-  bool HasAvg = false;
-
-  do {
-    Token Option = Tok;
+  if (!ParseLoopHintValueList(Hint, Attrs))
+    return false;
+  while (Tok.is(tok::identifier)) {
     IdentifierInfo *OptionInfo = Tok.getIdentifierInfo();
+    Hint.OptionLoc =
+        IdentifierLoc::create(Actions.Context, Tok.getLocation(), OptionInfo);
 
     bool OptionValid = llvm::StringSwitch<bool>(OptionInfo->getName())
-                           .Case("loop_count", true)
                            .Case("min", true)
                            .Case("max", true)
                            .Case("avg", true)
                            .Default(false);
     if (!OptionValid) {
       PP.Diag(Tok.getLocation(), diag::warn_pragma_loop_count_invalid_option);
-      return;
+      return false;
     }
-    if (OptionInfo->isStr("loop_count")) {
-      if (HasLoopCount) {
-        PP.Diag(Tok.getLocation(), diag::warn_multiple_loop_count_clause) << 0;
-        return;
-      }
-      HasLoopCount = true;
-    }
-    if (OptionInfo->isStr("min")) {
-      if (HasMin) {
-        PP.Diag(Tok.getLocation(), diag::warn_multiple_loop_count_clause) << 1;
-        return;
-      }
-      HasMin = true;
-    }
-    if (OptionInfo->isStr("max")) {
-      if (HasMax) {
-        PP.Diag(Tok.getLocation(), diag::warn_multiple_loop_count_clause) << 2;
-        return;
-      }
-      HasMax = true;
-    }
-    if (OptionInfo->isStr("avg")) {
-      if (HasAvg) {
-        PP.Diag(Tok.getLocation(), diag::warn_multiple_loop_count_clause) << 3;
-        return;
-      }
-      HasAvg = true;
-    }
-    // Read identifier
-    PP.Lex(Tok);
-    if (Tok.is(tok::identifier) && OptionInfo->isStr("loop_count"))
-      continue;
-    if (Tok.isNot(tok::l_paren) && Tok.isNot(tok::equal)) {
-      //invalid loop_count
-      PP.Diag(Tok.getLocation(), diag::warn_pragma_loop_count_invalid_option);
-      return;
-    }
-    PragmaLoopHintInfo *Info = nullptr;
-    bool ValueInParens = Tok.is(tok::l_paren);
-    // Read "(" or "="
-    PP.Lex(Tok);
-    if (OptionInfo->isStr("loop_count")) {
-      do {
-        if (Tok.is(tok::comma))
-          PP.Lex(Tok);
-        Info = new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo;
-        ParseLoopCountValue(PP, Tok, PragmaName, Option, *Info);
-        GenLoopHintToken(TokenList, PragmaName, Option, *Info);
-      } while (Tok.is(tok::comma));
-      if (ValueInParens && Tok.isNot(tok::r_paren)) {
-         PP.Diag(Tok.getLocation(), diag::err_expected) << tok::r_paren;
-         return;
-      }
-    } else {
-      Info = new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo;
-      ParseLoopCountValue(PP, Tok, PragmaName, Option, *Info);
-      if (ValueInParens && Tok.isNot(tok::r_paren)) {
-         PP.Diag(Tok.getLocation(), diag::err_expected) << tok::r_paren;
-         return;
-      }
-      // Generate the loop hint token.
-      GenLoopHintToken(TokenList, PragmaName, Option, *Info);
-    }
-    if (ValueInParens && Tok.is(tok::r_paren))
-      PP.Lex(Tok);
-  } while (Tok.is(tok::identifier));
-
-  if (Tok.isNot(tok::eod)) {
-    PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
-        << "loop_count";
-    return;
+    if (!ParseLoopCountClause(Hint, Attrs))
+      return false;
   }
 
-  auto TokenArray = llvm::make_unique<Token[]>(TokenList.size());
-  std::copy(TokenList.begin(), TokenList.end(), TokenArray.get());
+  if (Tok.isNot(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_loop_count_invalid_option);
+    return false;
+  }
+  ConsumeToken();  // Consume eod
+  ConsumeAnyToken();  // Consume annot_pragma_loop_hint_end
+  return true;
+}
 
-  PP.EnterTokenStream(std::move(TokenArray), TokenList.size(),
-                      /*DisableMacroExpansion=*/false, /*IsReinject*/false);
+StmtResult Parser::ParsePragmaLoopCount(StmtVector &Stmts,
+                                        ParsedStmtContext StmtCtx,
+                                        SourceLocation *TrailingElseLoc,
+                                        ParsedAttributesWithRange &Attrs) {
+  // Create temporary attribute list.
+  ParsedAttributesWithRange TempAttrs(AttrFactory);
+  // Get loop hints and consume annotated token.
+  bool HasAttrs = false;
+  if (Tok.is(tok::annot_pragma_loop_count)) {
+    LoopHint Hint;
+    HasAttrs = HandlePragmaLoopCount(Hint, TempAttrs);
+    if (!HasAttrs) {
+      while (Tok.isNot(tok::annot_pragma_loop_count_end))
+        ConsumeAnyToken();
+      ConsumeAnyToken();
+    }
+  }
+  MaybeParseCXX11Attributes(Attrs);
+  StmtResult S = ParseStatementOrDeclarationAfterAttributes(
+      Stmts, StmtCtx, TrailingElseLoc, Attrs);
+  if (HasAttrs)
+    Attrs.takeAllFrom(TempAttrs);
+  return S;
 }
 
 void PragmaNoVectorHandler::HandlePragma(Preprocessor &PP,

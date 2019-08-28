@@ -12,15 +12,19 @@
 //===----------------------------------------------------------------------===//
 
 #include "omptarget-opencl.h"
+#include "internal.h"
 
 ///
-/// Global state
+/// Runtime data stored in global address space
 ///
-/// TODO: barrier is bound to team, so we need per-team barrier object if there
-/// is a team that maps to multiple work groups.
 
-kmp_global_state_t gstate = {
+kmp_global_state_t GLOBAL = {
   .g_barrier = {{ATOMIC_VAR_INIT(0), ATOMIC_VAR_INIT(0)}},
+  .assume_simple_spmd_mode = 1
 };
+
+kmp_local_state_t LOCALS[KMP_MAX_NUM_GROUPS];
+
+kmp_thread_state_t THREADS[KMP_MAX_NUM_GROUPS];
 
 #endif // INTEL_COLLAB

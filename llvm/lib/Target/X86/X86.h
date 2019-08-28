@@ -58,6 +58,8 @@ FunctionPass *createX86IndirectBranchTrackingPass();
 FunctionPass *createX86PadShortFunctions();
 
 #if INTEL_CUSTOMIZATION
+/// This pass performs Ciscization Helper transformations.
+FunctionPass *createX86CiscizationHelperPass();
 /// This pass performs Fused-Multiply-Add transformations.
 FunctionPass *createX86GlobalFMAPass();
 FunctionPass *createFeatureInitPass();
@@ -130,12 +132,19 @@ FunctionPass *createX86DiscriminateMemOpsPass();
 /// This pass applies profiling information to insert cache prefetches.
 FunctionPass *createX86InsertPrefetchPass();
 
+#if INTEL_CUSTOMIZATION
+/// Return a pass that generate LEA instructions for removing redundant address
+/// recalculations by Optimize LEA optimization.
+FunctionPass *createX86GenerateLEAs();
+#endif // INTEL_CUSTOMIZATION
+
 InstructionSelector *createX86InstructionSelector(const X86TargetMachine &TM,
                                                   X86Subtarget &,
                                                   X86RegisterBankInfo &);
 
 FunctionPass *createX86SpeculativeLoadHardeningPass();
 
+void initializeX86CiscizationHelperPassPass(PassRegistry &); // INTEL
 void initializeX86FeatureInitPassPass(PassRegistry&); // INTEL
 void initializeEvexToVexInstPassPass(PassRegistry &);
 void initializeFixupBWInstPassPass(PassRegistry &);
@@ -151,7 +160,10 @@ void initializeX86DomainReassignmentPass(PassRegistry &);
 void initializeX86ExecutionDomainFixPass(PassRegistry &);
 void initializeX86FlagsCopyLoweringPassPass(PassRegistry &);
 void initializeX86SpeculativeLoadHardeningPassPass(PassRegistry &);
-
+#if INTEL_CUSTOMIZATION
+void initializeOptimizeLEAPassPass(PassRegistry &);
+void initializeGenerateLEAPassPass(PassRegistry &);
+#endif // INTEL_CUSTOMIZATION
 } // End llvm namespace
 
 #endif

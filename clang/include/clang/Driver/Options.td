@@ -124,6 +124,9 @@ def pedantic_Group : OptionGroup<"<pedantic group>">, Group<f_Group>,
 def opencl_Group : OptionGroup<"<opencl group>">, Group<f_Group>,
                    DocName<"OpenCL flags">;
 
+def sycl_Group : OptionGroup<"<sycl group>">, Group<f_Group>, 
+                  DocName<"SYCL flags">;
+
 def m_Group : OptionGroup<"<m group>">, Group<CompileOnly_Group>,
               DocName<"Target-dependent compilation options">;
 
@@ -329,14 +332,18 @@ def ccc_ : Joined<["-"], "ccc-">, Group<internal_Group>, Flags<[Unsupported]>;
 // Standard Options
 
 // Intel-specific options
-// if INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 def _intel : Flag<["--"], "intel">, Flags<[DriverOption]>,
   HelpText<"Run in Intel Compiler mode">;
 def extended_float_types : Flag<["--"], "extended_float_types">, Flags<[CC1Option]>;
 def fintel_long_double_size_EQ : Joined<["-"], "fintel-long-double-size=">,
   HelpText<"Overrides the size of long double from the architecture/OS defaults.">,
   Flags<[CC1Option]>;
-// endif // INTEL_CUSTOMIZATION
+def intel_mintrinsic_promote : Flag<["-"], "mintrinsic-promote">,
+  Flags<[CC1Option]>, HelpText<"Force certain functions using intrinsics to "
+  "promote their architectures and make the intrinsic headers included by default">;
+def intel_mno_intrinsic_promote : Flag<["-"], "mno-intrinsic-promote">, Flags<[DriverOption]>;
+#endif // INTEL_CUSTOMIZATION
 
 def _HASH_HASH_HASH : Flag<["-"], "###">, Flags<[DriverOption, CoreOption]>,
     HelpText<"Print (but do not run) the commands to run for this compilation">;
@@ -482,11 +489,23 @@ def Xopenmp_target : Separate<["-"], "Xopenmp-target">,
 def Xopenmp_target_EQ : JoinedAndSeparate<["-"], "Xopenmp-target=">,
   HelpText<"Pass <arg> to the target offloading toolchain identified by <triple>.">,
   MetaVarName<"<triple> <arg>">;
-def Xsycl_target : Separate<["-"], "Xsycl-target">,
-  HelpText<"Pass <arg> to the SYCL based target offloading toolchain.">, MetaVarName<"<arg>">;
-def Xsycl_target_EQ : JoinedAndSeparate<["-"], "Xsycl-target=">,
-  HelpText<"Pass <arg> to the SYCL based target offloading toolchain identified by <triple>.">,
+def Xsycl_backend : Separate<["-"], "Xsycl-target-backend">,
+  HelpText<"Pass <arg> to the SYCL based target backend.">, MetaVarName<"<arg>">;
+def Xsycl_backend_EQ : JoinedAndSeparate<["-"], "Xsycl-target-backend=">,
+  HelpText<"Pass <arg> to the SYCL based backend identified by <triple>.">,
   MetaVarName<"<triple> <arg>">;
+def Xsycl_frontend : Separate<["-"], "Xsycl-target-frontend">,
+  HelpText<"Pass <arg> to the SYCL based target frontend.">, MetaVarName<"<arg>">;
+def Xsycl_frontend_EQ : JoinedAndSeparate<["-"], "Xsycl-target-frontend=">,
+  HelpText<"Pass <arg> to the SYCL based target frontend identified by <triple>.">,
+  MetaVarName<"<triple> <arg>">;
+def Xsycl_linker : Separate<["-"], "Xsycl-target-linker">,
+  HelpText<"Pass <arg> to the SYCL based target linker.">, MetaVarName<"<arg>">;
+def Xsycl_linker_EQ : JoinedAndSeparate<["-"], "Xsycl-target-linker=">,
+  HelpText<"Pass <arg> to the SYCL based target linker identified by <triple>.">,
+  MetaVarName<"<triple> <arg>">;
+def Xs : Joined<["-"], "Xs">, HelpText<"Pass <arg> to the offline compiler.">, MetaVarName<"<arg">;
+def Xs_separate : Separate<["-"], "Xs">, HelpText<"Pass <arg> to the offline compiler.">, MetaVarName<"<arg">;
 def z : Separate<["-"], "z">, Flags<[LinkerInput, RenderAsInput]>,
   HelpText<"Pass -z <arg> to the linker">, MetaVarName<"<arg>">,
   Group<Link_Group>;
@@ -533,7 +552,9 @@ def cl_mad_enable : Flag<["-"], "cl-mad-enable">, Group<opencl_Group>, Flags<[CC
 def cl_no_signed_zeros : Flag<["-"], "cl-no-signed-zeros">, Group<opencl_Group>, Flags<[CC1Option]>,
   HelpText<"OpenCL only. Allow use of less precise no signed zeros computations in the generated binary.">;
 def cl_std_EQ : Joined<["-"], "cl-std=">, Group<opencl_Group>, Flags<[CC1Option]>,
-  HelpText<"OpenCL language standard to compile for.">, Values<"cl,CL,cl1.1,CL1.1,cl1.2,CL1.2,cl2.0,CL2.0,c++">;
+  HelpText<"OpenCL language standard to compile for.">, Values<"cl,CL,cl1.1,CL1.1,cl1.2,CL1.2,cl2.0,CL2.0,clc++,CLC++">;
+def sycl_std_EQ : Joined<["-"], "sycl-std=">, Group<sycl_Group>, Flags<[CC1Option]>,
+  HelpText<"SYCL language standard to compile for.">, Values<"1.2.1">;
 def cl_denorms_are_zero : Flag<["-"], "cl-denorms-are-zero">, Group<opencl_Group>, Flags<[CC1Option]>,
   HelpText<"OpenCL only. Allow denormals to be flushed to zero.">;
 def cl_fp32_correctly_rounded_divide_sqrt : Flag<["-"], "cl-fp32-correctly-rounded-divide-sqrt">, Group<opencl_Group>, Flags<[CC1Option]>,
@@ -947,6 +968,12 @@ def fno_signaling_math : Flag<["-"], "fno-signaling-math">, Group<f_Group>;
 def fjump_tables : Flag<["-"], "fjump-tables">, Group<f_Group>;
 def fno_jump_tables : Flag<["-"], "fno-jump-tables">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Do not use jump tables for lowering switches">;
+#if INTEL_CUSTOMIZATION
+def qopt_jump_tables : Flag<["-"], "qopt-jump-tables">,Alias<fjump_tables>,
+HelpText<"Control the generation of jump tables">;
+def qno_opt_jump_tables : Flag<["-"], "qno-opt-jump-tables">,Alias<fno_jump_tables>,
+HelpText<"Do not use jump tables for lowering switches">;
+#endif //INTEL_CUSTOMIZATION
 def fforce_enable_int128 : Flag<["-"], "fforce-enable-int128">,
   Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Enable support for int128_t type">;
@@ -1068,8 +1095,14 @@ def fsanitize_minimal_runtime : Flag<["-"], "fsanitize-minimal-runtime">,
                                         Group<f_clang_Group>;
 def fno_sanitize_minimal_runtime : Flag<["-"], "fno-sanitize-minimal-runtime">,
                                         Group<f_clang_Group>;
+def fsanitize_link_runtime : Flag<["-"], "fsanitize-link-runtime">,
+                           Group<f_clang_Group>;
+def fno_sanitize_link_runtime : Flag<["-"], "fno-sanitize-link-runtime">,
+                              Group<f_clang_Group>;
 def fsanitize_link_cxx_runtime : Flag<["-"], "fsanitize-link-c++-runtime">,
                                  Group<f_clang_Group>;
+def fno_sanitize_link_cxx_runtime : Flag<["-"], "fno-sanitize-link-c++-runtime">,
+                                    Group<f_clang_Group>;
 def fsanitize_cfi_cross_dso : Flag<["-"], "fsanitize-cfi-cross-dso">,
                               Group<f_clang_Group>,
                               HelpText<"Enable control flow integrity (CFI) checks for cross-DSO calls.">;
@@ -1080,6 +1113,13 @@ def fno_sanitize_cfi_cross_dso : Flag<["-"], "fno-sanitize-cfi-cross-dso">,
 def fsanitize_cfi_icall_generalize_pointers : Flag<["-"], "fsanitize-cfi-icall-generalize-pointers">,
                                               Group<f_clang_Group>,
                                               HelpText<"Generalize pointers in CFI indirect call type signature checks">;
+def fsanitize_cfi_canonical_jump_tables : Flag<["-"], "fsanitize-cfi-canonical-jump-tables">,
+                                          Group<f_clang_Group>,
+                                          HelpText<"Make the jump table addresses canonical in the symbol table">;
+def fno_sanitize_cfi_canonical_jump_tables : Flag<["-"], "fno-sanitize-cfi-canonical-jump-tables">,
+                                             Group<f_clang_Group>,
+                                             Flags<[CoreOption, DriverOption]>,
+                                             HelpText<"Do not make the jump table addresses canonical in the symbol table">;
 def fsanitize_stats : Flag<["-"], "fsanitize-stats">,
                               Group<f_clang_Group>,
                               HelpText<"Enable sanitizer statistics gathering.">;
@@ -1755,6 +1795,8 @@ def fstrict_vtable_pointers: Flag<["-"], "fstrict-vtable-pointers">,
   HelpText<"Enable optimizations based on the strict rules for overwriting "
              "polymorphic C++ objects">;
 def fstrict_overflow : Flag<["-"], "fstrict-overflow">, Group<f_Group>;
+def fintelfpga : Flag<["-"], "fintelfpga">, Group<f_Group>,
+  Flags<[CC1Option]>, HelpText<"Perform ahead of time compilation for FPGA">;
 def fsycl : Flag<["-"], "fsycl">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>,
   HelpText<"generate SYCL code.">;
 def fno_sycl : Flag<["-"], "fno-sycl">, Group<f_Group>, Flags<[NoArgumentUnused]>;
@@ -1768,8 +1810,18 @@ def fsycl_use_bitcode : Flag<["-"], "fsycl-use-bitcode">,
   Flags<[CC1Option]>, HelpText<"Use LLVM bitcode instead of SPIR-V in fat objects">;
 def fno_sycl_use_bitcode : Flag<["-"], "fno-sycl-use-bitcode">,
   Flags<[CC1Option]>, HelpText<"Use SPIR-V instead of LLVM bitcode in fat objects">;
-def fsycl_link : Flag<["-"], "fsycl-link">,
-  Flags<[CC1Option]>, HelpText<"Generate partially linked device object to be used with the host link">;
+def fsycl_link_EQ : Joined<["-"], "fsycl-link=">,
+  Flags<[CC1Option]>, HelpText<"Generate partially linked device and host object to be used at various stages of compilation">, Values<"image,early">;
+def fsycl_link : Flag<["-"], "fsycl-link">, Alias<fsycl_link_EQ>,
+  AliasArgs<["early"]>, Flags<[CC1Option]>,
+  HelpText<"Generate partially linked device object to be used with the host link">;
+def fsycl_unnamed_lambda : Flag<["-"], "fsycl-unnamed-lambda">,
+  Flags<[CC1Option]>, HelpText<"Allow unnamed SYCL lambda kernels">;
+def fsycl_help_EQ : Joined<["-"], "fsycl-help=">,
+  Flags<[DriverOption]>, HelpText<"Emit help information from the related offline compilation tool">, Values<"all,fpga,gen,x86_64">;
+def fsycl_help : Flag<["-"], "fsycl-help">, Alias<fsycl_help_EQ>,
+  Flags<[DriverOption]>, AliasArgs<["all"]>, HelpText<"Emit help information "
+  "from all of the offline compilation tools">;
 def fsyntax_only : Flag<["-"], "fsyntax-only">,
   Flags<[DriverOption,CoreOption,CC1Option]>, Group<Action_Group>;
 def ftabstop_EQ : Joined<["-"], "ftabstop=">, Group<f_Group>;
@@ -1819,7 +1871,11 @@ def Wframe_larger_than_EQ : Joined<["-"], "Wframe-larger-than=">, Group<f_Group>
 def : Flag<["-"], "fterminated-vtables">, Alias<fapple_kext>;
 def fthreadsafe_statics : Flag<["-"], "fthreadsafe-statics">, Group<f_Group>;
 def ftime_report : Flag<["-"], "ftime-report">, Group<f_Group>, Flags<[CC1Option]>;
-def ftime_trace : Flag<["-"], "ftime-trace">, Group<f_Group>, Flags<[CC1Option, CoreOption]>;
+def ftime_trace : Flag<["-"], "ftime-trace">, Group<f_Group>,
+  HelpText<"Turn on time profiler">, Flags<[CC1Option, CoreOption]>;
+def ftime_trace_granularity_EQ : Joined<["-"], "ftime-trace-granularity=">, Group<f_Group>,
+  HelpText<"Minimum time granularity (in microseconds) traced by time profiler">,
+  Flags<[CC1Option, CoreOption]>;
 def ftlsmodel_EQ : Joined<["-"], "ftls-model=">, Group<f_Group>, Flags<[CC1Option]>;
 def ftrapv : Flag<["-"], "ftrapv">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Trap on integer overflow">;
@@ -2391,7 +2447,7 @@ def mno_backchain : Flag<["-"], "mno-backchain">, Group<m_Group>, Flags<[DriverO
 def mno_warn_nonportable_cfstrings : Flag<["-"], "mno-warn-nonportable-cfstrings">, Group<m_Group>;
 def mno_omit_leaf_frame_pointer : Flag<["-"], "mno-omit-leaf-frame-pointer">, Group<m_Group>;
 def momit_leaf_frame_pointer : Flag<["-"], "momit-leaf-frame-pointer">, Group<m_Group>,
-  HelpText<"Omit frame pointer setup for leaf functions">, Flags<[CC1Option]>;
+  HelpText<"Omit frame pointer setup for leaf functions">;
 def moslib_EQ : Joined<["-"], "moslib=">, Group<m_Group>;
 def mpascal_strings : Flag<["-"], "mpascal-strings">, Alias<fpascal_strings>;
 def mred_zone : Flag<["-"], "mred-zone">, Group<m_Group>;
@@ -2727,11 +2783,15 @@ def std_EQ : Joined<["-", "--"], "std=">, Flags<[CC1Option]>,
     const char *Values =
     #define LANGSTANDARD(id, name, lang, desc, features) name ","
     #define LANGSTANDARD_ALIAS(id, alias) alias ","
-    #include "clang/Frontend/LangStandards.def"
+    #include "clang/Basic/LangStandards.def"
     ;
   }]>;
 def stdlib_EQ : Joined<["-", "--"], "stdlib=">, Flags<[CC1Option]>,
   HelpText<"C++ standard library to use">, Values<"libc++,libstdc++,platform">;
+def stdlibxx_isystem : JoinedOrSeparate<["-"], "stdlib++-isystem">,
+  Group<clang_i_Group>,
+  HelpText<"Use directory as the C++ standard library include path">,
+  Flags<[DriverOption]>, MetaVarName<"<directory>">;
 def unwindlib_EQ : Joined<["-", "--"], "unwindlib=">, Flags<[CC1Option]>,
   HelpText<"Unwind library to use">, Values<"libgcc,unwindlib,platform">;
 def sub__library : JoinedOrSeparate<["-"], "sub_library">;
@@ -3369,6 +3429,10 @@ defm whole_file : BooleanFFlag<"whole-file">, Group<gfortran_Group>;
 
 def sycl : Flag<["--"], "sycl">,
   HelpText<"Compile SYCL kernels for device">;
+
+def reuse_exe_EQ : Joined<["-"], "reuse-exe=">,
+  HelpText<"Speed up FPGA aoc compile if the device code in <exe> is unchanged.">,
+  MetaVarName<"<exe>">;
 
 include "CC1Options.td"
 

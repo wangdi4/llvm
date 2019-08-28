@@ -1748,16 +1748,19 @@ void CodeGenModule::ConstructDefaultFnAttrList(StringRef Name, bool HasOptnone,
     if (!CodeGenOpts.TrapFuncName.empty())
       FuncAttrs.addAttribute("trap-func-name", CodeGenOpts.TrapFuncName);
   } else {
-    // Attributes that should go on the function, but not the call site.
-    if (!CodeGenOpts.DisableFPElim) {
-      FuncAttrs.addAttribute("no-frame-pointer-elim", "false");
-    } else if (CodeGenOpts.OmitLeafFramePointer) {
-      FuncAttrs.addAttribute("no-frame-pointer-elim", "false");
-      FuncAttrs.addAttribute("no-frame-pointer-elim-non-leaf");
-    } else {
-      FuncAttrs.addAttribute("no-frame-pointer-elim", "true");
-      FuncAttrs.addAttribute("no-frame-pointer-elim-non-leaf");
+    StringRef FpKind;
+    switch (CodeGenOpts.getFramePointer()) {
+    case CodeGenOptions::FramePointerKind::None:
+      FpKind = "none";
+      break;
+    case CodeGenOptions::FramePointerKind::NonLeaf:
+      FpKind = "non-leaf";
+      break;
+    case CodeGenOptions::FramePointerKind::All:
+      FpKind = "all";
+      break;
     }
+    FuncAttrs.addAttribute("frame-pointer", FpKind);
 
     FuncAttrs.addAttribute("less-precise-fpmad",
                            llvm::toStringRef(CodeGenOpts.LessPreciseFPMAD));
@@ -2912,12 +2915,14 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
 #if INTEL_CUSTOMIZATION
         // Fix for CQ379239: Emit debug location for return instruction, not
         // eliminated store.
-        if (!getLangOpts().IntelCompat || !getLangOpts().IntelMSCompat ||
-            !CurCodeDecl || !isa<FunctionDecl>(CurCodeDecl) ||
-            !cast<FunctionDecl>(CurCodeDecl)->getBody() ||
-            !isa<CompoundStmt>(cast<FunctionDecl>(CurCodeDecl)->getBody()))
+       bool IsIntelandMSCompat =
+           getLangOpts().IntelCompat && getLangOpts().IntelMSCompat;
 #endif // INTEL_CUSTOMIZATION
-        if (EmitRetDbgLoc && !AutoreleaseResult)
+        if (EmitRetDbgLoc && !AutoreleaseResult
+#if INTEL_CUSTOMIZATION
+          && !IsIntelandMSCompat
+#endif // INTEL_CUSTOMIZATION
+          )
           RetDbgLoc = SI->getDebugLoc();
         // Get the stored value and nuke the now-dead store.
         RV = SI->getValueOperand();
@@ -3562,7 +3567,7 @@ struct DestroyUnpassedArg final : EHScopeStack::Cleanup {
       const CXXDestructorDecl *Dtor = Ty->getAsCXXRecordDecl()->getDestructor();
       assert(!Dtor->isTrivial());
       CGF.EmitCXXDestructorCall(Dtor, Dtor_Complete, /*for vbase*/ false,
-                                /*Delegating=*/false, Addr);
+                                /*Delegating=*/false, Addr, Ty);
     } else {
       CGF.callCStructDestructor(CGF.MakeAddrLValue(Addr, Ty));
     }
@@ -4325,7 +4330,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
     deactivateArgCleanupsBeforeCall(*this, CallArgs);
 
   // Addrspace cast to generic if necessary
-  if (getenv("ENABLE_INFER_AS")) {
+  if (!getenv("DISABLE_INFER_AS")) {
     for (unsigned i = 0; i < IRFuncTy->getNumParams(); ++i) {
       if (auto *PtrTy = dyn_cast<llvm::PointerType>(IRCallArgs[i]->getType())) {
         auto *ExpectedPtrType =
@@ -4494,13 +4499,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   // If the call doesn't return, finish the basic block and clear the
   // insertion point; this allows the rest of IRGen to discard
   // unreachable code.
-#if INTEL_COLLAB
-  if (CI->doesNotReturn() &&
-            (!CapturedStmtInfo ||
-             !dyn_cast<CGLateOutlineOpenMPRegionInfo>(CapturedStmtInfo))) {
-#else
   if (CI->doesNotReturn()) {
-#endif // INTEL_COLLAB
     if (UnusedReturnSizePtr)
       PopCleanupBlock();
 

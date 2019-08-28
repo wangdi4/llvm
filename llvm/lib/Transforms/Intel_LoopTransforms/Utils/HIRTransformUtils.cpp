@@ -960,6 +960,8 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
                                            true);
     MinOpRef1->setSymbase(GenericRvalSymbase);
 
+    MinOpRef1->makeConsistent(UBRef, Level);
+
     // StripmineSize-1
     RegDDRef *MinOpRef2 = UBRef->getDDRefUtils().createConstDDRef(
         MinOpRef1->getDestType(), StripmineSize - 1);

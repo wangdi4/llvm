@@ -1808,61 +1808,282 @@ StringRef getVariantName(CallInst *BaseCall, StringRef &MatchConstruct,
   return VariantName;
 }
 
-/// Given
+/// Auxiliary function called from genTargetVariantDispatchCode() to
+///   (A) Emit calls to __tgt_create_buffer() to create a target buffer
+///       for each host pointer
+///   (B) Compute the dispatch condition; it is
+///          (device.available) && (all tgt buffers successfully created)
+///   (C) If (device.available) but some target buffers failed to create (ie,
+///       dispatch is false), emit cleanup code with __tgt_release_buffer()
+///       calls to free all target buffers that got created.
+///
+/// Pseudocode:
+/// \code
+///   bool dispatch = false;                                  (B1)
+///   void *a_tgtBuff = nullptr;                              (A1)
+///   void *b_tgtBuff = nullptr;                              (A1)
+///   if (available) {
+///
+///     // "if.device.available.create.buffers"
+///
+///     a_tgtBuff = __tgt_create_buffer(dnum, a);             (A2)
+///     if (a_tgtBuff != nullptr) {                           (A2)
+///       b_tgtBuff = __tgt_create_buffer(dnum, b);           (A2)
+///       if (b_tgtBuff != nullptr)                           (A2)
+///         dispatch = true;                                  (B2)
+///     }
+///
+///     // "begin.check.buffer"
+///
+///     if (dispatch == false) {                              (C)
+///       if (a_tgtBuff != nullptr)                           (C)
+///         __tgt_release_buffer(dnum, a_tgtBuff);            (C)
+///       if (b_tgtBuff != nullptr)                           (C)
+///         __tgt_release_buffer(dnum, b_tgtBuff);            (C)
+///     }
+///
+///     // "end.check.buffer"
+///
+///   }
+///   // "end.if.device.available.create.buffers"
+/// \endcode
+static Value *
+createTargetVariantDispatchHostPtrs(WRegionNode *W, Instruction *InsertPt,
+                                    Value *DeviceNum, Value *Available,
+                                    DominatorTree *DT, LoopInfo *LI) {
+  UseDevicePtrClause &UDPtrClause = W->getUseDevicePtr();
+  assert(!UDPtrClause.empty() && "Unexpected: no use_device_ptr clause");
+
+  IRBuilder<> Builder(InsertPt);
+  IntegerType *Int1Ty = Builder.getInt1Ty();
+  PointerType *Int8PtrTy = Builder.getInt8PtrTy();
+  ConstantInt *ValueFalse = Builder.getFalse();
+  ConstantInt *ValueTrue = Builder.getTrue();
+  ConstantPointerNull *NullPtr = ConstantPointerNull::get(Int8PtrTy);
+
+  Value *DispatchTmp; // the dispatch condition
+
+  // (A1)
+  // For each host pointer in the use_device_pointer clause:
+  //   Alloc a target buffer pointer (void*)
+  //   Initialized it to null
+  //   Save it in the Clause Item's "New" field
+  for (UseDevicePtrItem *Item : UDPtrClause.items()) {
+    AllocaInst *TgtBuffer =
+        Builder.CreateAlloca(Int8PtrTy, nullptr, "tgt.buffer");
+    Builder.CreateStore(NullPtr, TgtBuffer);
+    Item->setNew(TgtBuffer);
+  }
+
+  // (B1)
+  // Initialize dispatch flag to false. Later, set it to true
+  // if device is available && all target buffers are created successfully
+  AllocaInst *DispatchFlag =
+      Builder.CreateAlloca(Int1Ty, nullptr, "dispatch.flag");
+  Builder.CreateStore(ValueFalse, DispatchFlag);
+
+  // Split CFG for the if(available) {...} code
+  Instruction *AvailableTerm =
+      SplitBlockAndInsertIfThen(Available, InsertPt, false, nullptr, DT, LI);
+  AvailableTerm->getParent()->setName("if.device.available.create.buffers");
+
+  BasicBlock *BBCheckBuffer = InsertPt->getParent();
+  BasicBlock *BBEndIf = SplitBlock(BBCheckBuffer, InsertPt, DT, LI);
+  BBCheckBuffer->setName("begin.check.buffer");
+  BBEndIf->setName("end.if.device.available.create.buffers");
+
+  // After the previous SplitBlockAndInsertIfThen(Available,...) call,
+  // the successor of the False branch is BBCheckBuffer. We need to
+  // changed it to BBEndIf because we want to skip the tgtBuffer cleanup
+  // code since device is not available.
+  BasicBlock *BBIfAvailable = DispatchFlag->getParent();
+  Instruction *ITerm = BBIfAvailable->getTerminator();
+  assert(isa<BranchInst>(ITerm) && "Expected a branch");
+  BranchInst *IfAvailable = cast<BranchInst>(ITerm);
+  assert(IfAvailable->isConditional() && "Expected a conditional branch");
+  IfAvailable->setSuccessor(1, BBEndIf);
+
+  // CFG so far:
+  //   ...
+  //   br i1 %available, label %if.device.available.create.buffers,
+  //                     label %end.if.device.available.create.buffers
+  //
+  //   if.device.available.create.buffers:
+  //      br label %begin.check.buffer ; <--- AvailableTerm
+  //
+  //   begin.check.buffer:
+  //      br label %end.if.device.available.create.buffers
+  //
+  //   end.if.device.available.create.buffers:
+  //      ; <--- InsertPt
+  //   ...
+
+  // (B2)
+  // Instruction to set dispatch condition to true
+  Builder.SetInsertPoint(AvailableTerm);
+  Instruction *InsertBefore = Builder.CreateStore(ValueTrue, DispatchFlag);
+
+  // (A2)
+  // Create target buffer for each host pointer
+  for (UseDevicePtrItem *Item : UDPtrClause.items()) {
+    Builder.SetInsertPoint(InsertBefore);
+    Value *Orig = Item->getOrig();
+    LoadInst *PtrLoad = Builder.CreateLoad(Orig, "hostPtr");
+    assert(PtrLoad->getType()->isPointerTy() &&
+           "Target Variant: Expected a pointer");
+    Value *Ptr = Builder.CreateBitCast(PtrLoad, Int8PtrTy);
+    CallInst *BufferCall =
+        VPOParoptUtils::genTgtCreateBuffer(DeviceNum, Ptr, InsertBefore);
+    BufferCall->setName("buffer");
+    assert(BufferCall->getType() == Int8PtrTy &&
+           "Expected __tgt_create_buffer() to return a void*");
+    Value *TgtBuffer = Item->getNew();
+    assert(TgtBuffer != nullptr && "Target Variant: missing tgtBuffer");
+    Builder.CreateStore(BufferCall, TgtBuffer);
+
+    Value *IsNull = Builder.CreateICmpEQ(BufferCall, NullPtr, "isNull");
+    SplitBlockAndInsertIfThen(IsNull, InsertBefore, false, nullptr, DT, LI,
+                              BBCheckBuffer);
+    InsertBefore->getParent()->setName("if.ptr.not.null");
+    InsertBefore = PtrLoad;
+  }
+
+  // (C)
+  // Emit cleanup code
+  Instruction *CheckTerm = BBCheckBuffer->getTerminator();
+  Builder.SetInsertPoint(CheckTerm);
+  DispatchTmp = Builder.CreateLoad(DispatchFlag, "dispatch");
+  Value *NotDispatch = Builder.CreateNot(DispatchTmp, "notDispatch");
+  Instruction *CleanupTerm =
+      SplitBlockAndInsertIfThen(NotDispatch, CheckTerm, false, nullptr, DT, LI);
+  for (UseDevicePtrItem *Item : UDPtrClause.items()) {
+    // Note: we cannot hoist Builder.SetInsertPoint(CleanupTerm) above the
+    // for loop. After SplitBlockAndInsertIfThen() below, CleanupTerm ends
+    // up in a new BB, so we need to call Builder.SetInsertPoint(CleanupTerm)
+    // inside the loop. If not, the Buffer=Builder.CreateLoad() below, while
+    // inserted into the right BB, will have its parent BB set to the wrong
+    // one (the old parent of CleanupTerm before the split).
+    // At -O2 this isn't a problem (somehow cleaned up) but at -O0 it
+    // dies in the verifier.
+    Builder.SetInsertPoint(CleanupTerm);
+    CleanupTerm->getParent()->setName("check.unused.buffer");
+    Value *TgtBuffer = Item->getNew();
+    LoadInst *Buffer = Builder.CreateLoad(TgtBuffer, "buffer");
+    Value *NotNull = Builder.CreateICmpNE(Buffer, NullPtr, "notNull");
+    Instruction *FreeTerm =
+        SplitBlockAndInsertIfThen(NotNull, CleanupTerm, false, nullptr, DT, LI);
+    FreeTerm->getParent()->setName("free.unused.buffer");
+    VPOParoptUtils::genTgtReleaseBuffer(DeviceNum, Buffer, FreeTerm);
+  }
+  CleanupTerm->getParent()->setName("end.check.unused.buffer");
+  CheckTerm->getParent()->setName("end.check.buffer");
+  Builder.SetInsertPoint(InsertPt);
+  DispatchTmp = Builder.CreateLoad(DispatchFlag, "dispatch");
+  return DispatchTmp;
+}
+
+/// Gen code for the target variant dispatch construct
+///
+/// Case 1. No use_device_ptr clause:
+/// =================================
 /// \code
 ///   #pragma omp target variant dispatch [device(dnum)]
 ///      foo(<args>);
 /// \endcode
 ///
-/// Emit variant dispatch code for foo():
-/// \code
-///   if (__tgt_is_device_available(dnum, nullptr))
-///      foo_variant(<args>);
-///   else
-///      foo(<args>);
-/// \endcode
+/// If the device clause is absent, the default dnum is -1. This tells
+/// the runtime to use the default device.
 ///
 /// The variant version of the base function "foo" is assumed to have been
 /// specified in a declare variant construct which Clang has processed and
 /// saved the information in the string attribute "openmp-variant" of foo.
 ///
-/// If foo() has users, then we must create a Phi and replace its uses. E.g.,
+/// The dispatch condition is simply a check for the device being available.
+/// If true, call the variant function; else call the original base function.
 ///
-/// ***IR BEFORE:
-///
-///   %call = call i32 @foo(i32 %2)   ; base func call
-///   store i32 %call, i32* %rrr      ; use of base call
-///
-/// ***IR AFTER:
-///
-///   %1 = load i32, i32* @dnum, align 4
-///   %available = call i32 @__tgt_is_device_available(i32 %1, i8* null)
-///   %dispatch = icmp ne i32 %available, 0
-///   br i1 %dispatch, label %if.then, label %if.else
-///
-/// if.then:
-///   %variant = call i32 @foo_gpu(i32 %1)
-///   br label %if.end
-///
-/// if.else:
-///   %call = call i32 @foo(i32 %1)
-///   br label %if.end
-///
-/// if.end:                               ; preds = %if.else, %if.then
-///   %callphi = phi i32 [ %variant, %if.then ], [ %call, %if.else ]
-///   store i32 %callphi, i32* %rrr, align 4
-///
-/// TODO: The second argument of __tgt_is_device_available() is a pointer
-/// that is currently unused. I the future when we support device types,
-/// it will point to a struct holding device-type information.
-///
-/// If the device(dnum) clause is absent, then the dispatch code is:
+/// Pseudocode of the codegen:
 /// \code
-///   if (omp_get_num_devices() > 0)
+///   bool dispatch = __tgt_is_device_available(dnum, nullptr)
+///   if (dispatch == true)
 ///      foo_variant(<args>);
 ///   else
 ///      foo(<args>);
 /// \endcode
+///
+/// IR:
+///    %0 = load i32, i32* @dnum, align 4
+///    %1 = sext i32 %0 to i64
+///    %call = call i32 @__tgt_is_device_available(i64 %0, i8* null)       (1)
+///    %dispatch = icmp ne i32 %call1, 0                                   (2)
+///    br i1 %dispatch, label %variant.call, label %base.call              (3)
+///
+///  variant.call:
+///    %variant = call i32 @foo_gpu(<args>)                                (4)
+///    br label %if.end
+///
+///  base.call:
+///    %call = call i32 @foo(<args>)                                       (5)
+///    br label %if.end
+///
+///  if.end:
+///    %callphi = phi i32 [%variant, %variant.call], [%call, %base.call]   (6)
+///    ; replace all other uses of %call with %callphi
+///
+///
+/// Case 2. With use_device_ptr clause:
+/// ===================================
+/// \code
+///   #pragma omp target variant dispatch [device(dnum)] use_device_ptr(a,b)
+///      foo(a, b);
+/// \endcode
+///
+/// The list items (a,b above) in the use_device_ptr clause are host pointers.
+/// The compiler emits extra code (on top of Case1) as follows:
+///
+///   (A) Emit calls to __tgt_create_buffer() to create a target buffer
+///       for each host pointer
+///   (B) Compute the dispatch condition; it is
+///          (device.available) && (all tgt buffers successfully created)
+///   (C) If (device.available) but some target buffers failed to create (ie,
+///       dispatch is false), emit cleanup code with __tgt_release_buffer()
+///       calls to free all target buffers that got created.
+///   (D) Replace args in the foo_variant() call such that each arg that is a
+///       load from a host pointer becomes a load from the target buffer ptr
+///   (E) Emit calls to __tgt_release_buffer() after returning from
+///       the foo_variant() call
+///
+/// The pseudocode looks like this:
+/// \code
+///   bool available = __tgt_is_device_available(dnum, ...)   (1)
+///   bool dispatch = false;                                  (B)
+///   void *a_tgtBuff = nullptr;                              (A)
+///   void *b_tgtBuff = nullptr;                              (A)
+///   if (available) {
+///     a_tgtBuff = __tgt_create_buffer(dnum, a);             (A)
+///     if (a_tgtBuff != nullptr) {                           (A)
+///       b_tgtBuff = __tgt_create_buffer(dnum, b);           (A)
+///       if (b_tgtBuff != nullptr)                           (A)
+///         dispatch = true;                                  (B)
+///     }
+///     if (dispatch == false) {                              (C)
+///       if (a_tgtBuff != nullptr)                           (C)
+///         __tgt_release_buffer(dnum, a_tgtBuff);            (C)
+///       if (b_tgtBuff != nullptr)                           (C)
+///         __tgt_release_buffer(dnum, b_tgtBuff);            (C)
+///     }
+///   }
+///   if (dispatch == true) {
+///      foo_gpu(a_tgtBuff, b_tgtBuff);                       (D)
+///      __tgt_release_buffer(dnum, a_tgtBuff);               (E)
+///      __tgt_release_buffer(dnum, b_tgtBuff);               (E)
+///   }
+///   else
+///     foo(a, b);
+/// \endcode
+///
+/// Tasks (A,B,C) are done in createTargetVariantDispatchHostPtrs()
+/// Task (D) is done in VPOParoptUtils::genVariantCall()
+/// Task (E) is done here in VPOParoptTransform::genTargetVariantDispatchCode()
 bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   LLVM_DEBUG(
       dbgs() << "\nEnter VPOParoptTransform::genTargetVariantDispatchCode\n");
@@ -1902,70 +2123,105 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Found variant function name: "
                     << VariantName << "\n");
 
-  // Emit code to compute %dispatch, the IF-condition for dispatching:
-  // 1. If the device(dnum) clause is specified, emit this:
-  //
-  //     %available = call i32 @__tgt_is_device_available(i32 %dnum, i8* null)
-  //     %dispatch  = icmp ne i32 %available, 0
-  //
-  // 2. Otherwise (device clause is absent), emit this:
-  //
-  //     %numdevices = call i32 @omp_get_num_devices()
-  //     %dispatch   = icmp sgt i32 %numdevices, 0
-
+  // Initialize types and constants
   Instruction *InsertPt = BaseCall;
   IRBuilder<> Builder(InsertPt);
-  Value *Dispatch;
+  IntegerType *Int32Ty = Builder.getInt32Ty();
+  PointerType *Int8PtrTy = Builder.getInt8PtrTy();
+  ConstantInt *ValueZero = ConstantInt::get(Int32Ty, 0);
+  ConstantPointerNull *NullPtr = ConstantPointerNull::get(Int8PtrTy);
+
+  // Default device num is -1
   Value *DeviceNum = W->getDevice();
-  LLVMContext &C = F->getContext();
-  ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
-  if (DeviceNum) { // case 1
-    PointerType *Int8PtrTy = Type::getInt8PtrTy(C);
-    Value *DeviceType = ConstantPointerNull::get(Int8PtrTy);
-    CallInst *IsDeviceAvailable = VPOParoptUtils::genTgtIsDeviceAvailable(
-        DeviceNum, DeviceType, InsertPt);
-    IsDeviceAvailable->setName("available");
-    Dispatch = Builder.CreateICmpNE(IsDeviceAvailable, ValueZero, "dispatch");
-  } else { // case 2
-    CallInst *NumDevices = VPOParoptUtils::genOmpGetNumDevices(InsertPt);
-    NumDevices->setName("numdevices");
-    Dispatch = Builder.CreateICmpSGT(NumDevices, ValueZero, "dispatch");
+  if (DeviceNum == nullptr) {
+    DeviceNum = ConstantInt::get(Int32Ty, -1);
   }
 
+  // Emit call to check for device availability:
+  //
+  //   %call = call i32 @__tgt_is_device_available(i64 %0, i8* null)       (1)
+  //   %dispatch = icmp ne i32 %call1, 0                                   (2)
+  //
+  // The second argument of __tgt_is_device_available() is a pointer
+  // that is currently unused. When we support device types in the
+  // future, it will point to a struct holding device-type information.
+  Value *DeviceType = NullPtr;
+  CallInst *IsDeviceAvailable =
+      VPOParoptUtils::genTgtIsDeviceAvailable(DeviceNum, DeviceType, InsertPt);
+  IsDeviceAvailable->setName("call");
+  Value *Available =
+      Builder.CreateICmpNE(IsDeviceAvailable, ValueZero, "available");
+
+  Value *DispatchTmp; // the dispatch condition
+
+  UseDevicePtrClause &UDPtrClause = W->getUseDevicePtr();
+  if (!UDPtrClause.empty()) {
+    // A use_device_ptr clause is present. Therefore:
+    //   (A) Create the target buffers
+    //   (C) Free all target buffers if some failed to create
+    //   (B) return the dispatch condition
+    DispatchTmp = createTargetVariantDispatchHostPtrs(W, InsertPt, DeviceNum,
+                                                      Available, DT, LI);
+  } else { // no use_device_ptr clause
+    // No use_device_ptr clause, so dispatch condition == device is available
+    DispatchTmp = Available;
+    DispatchTmp->setName("dispatch");
+  }
+  // Here, Builder insertion point is "InsertPt"
+
   // Emit dispatch code:
-  //   if (%dispatch != 0)
-  //     call variant function
-  //   else
-  //     call base function
+  //
+  //   br i1 %dispatch, label %variant.call, label %base.call               (3)
+  //
+  // variant.call:
+  //   %variant = call i32 @foo_gpu(<args>)                               (4,D)
+  //   [calls to __tgt_release_buffer if use_device_ptr exists]             (E)
+  //   br label %if.end                                              (ThenTerm)
+  //
+  // base.call:
+  //   %call = call i32 @foo(<args>)                                        (5)
+  //   br label %if.end                                              (ElseTerm)
+  //
+  // if.end:
+  //   %callphi = phi i32 [%variant, %variant.call], [%call, %base.call]    (6)
 
   Instruction *ThenTerm, *ElseTerm;
-  buildCFGForIfClause(Dispatch, ThenTerm, ElseTerm, InsertPt);
+  buildCFGForIfClause(DispatchTmp, ThenTerm, ElseTerm, InsertPt);        // (3)
 
   // Create and insert Variant call before ThenTerm
-  bool IsVoidType = (BaseCall->getType() == Type::getVoidTy(C));
-  CallInst *VariantCall =
-      VPOParoptUtils::genVariantCall(BaseCall, VariantName, ThenTerm);
+  ThenTerm->getParent()->setName("variant.call");
+  bool IsVoidType = (BaseCall->getType() == Builder.getVoidTy());
+  CallInst *VariantCall =                                              // (4,D)
+      VPOParoptUtils::genVariantCall(BaseCall, VariantName, ThenTerm, W);
   if (!IsVoidType)
     VariantCall->setName("variant");
+  // Release target buffers after Variant call
+  if (!UDPtrClause.empty()) {
+    Builder.SetInsertPoint(ThenTerm);
+    for (UseDevicePtrItem *Item : UDPtrClause.items()) {
+      Value *TgtBuffer = Item->getNew();
+      LoadInst *Buffer = Builder.CreateLoad(TgtBuffer, "buffer");
+      VPOParoptUtils::genTgtReleaseBuffer(DeviceNum, Buffer, ThenTerm);  // (E)
+    }
+  }
 
   // Move BaseCall to before ElseTerm
+  ElseTerm->getParent()->setName("base.call");
   InsertPt = BaseCall->getNextNode(); // insert PHI before this point later
   assert(InsertPt && "Corrupt IR: BaseCall cannot be last instruction in BB");
-  BaseCall->moveBefore(ElseTerm);
+  BaseCall->moveBefore(ElseTerm);                                        // (5)
 
   // If BaseCall has users, then insert a PHI before InsertPt
   // and replace all uses of BaseCall with PHI
   if (BaseCall->getNumUses() > 0) {
     Builder.SetInsertPoint(InsertPt);
-    PHINode *Phi = Builder.CreatePHI(BaseCall->getType(), 2, "callphi");
+    PHINode *Phi = Builder.CreatePHI(BaseCall->getType(), 2, "callphi"); // (6)
     Phi->addIncoming(VariantCall, ThenTerm->getParent());
     Phi->addIncoming(BaseCall, ElseTerm->getParent());
     for (User *U : BaseCall->users())
-      if (Instruction *UI = dyn_cast<Instruction>(U)) {
-        if (UI != Phi) { // don't replace in Phi
+      if (Instruction *UI = dyn_cast<Instruction>(U))
+        if (UI != Phi) // don't replace in Phi
           UI->replaceUsesOfWith(BaseCall, Phi);
-        }
-      }
   }
 
   LLVM_DEBUG(

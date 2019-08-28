@@ -541,6 +541,12 @@ static unsigned getSingleNonLinearBlobIndex(const RegDDRef *StoreRef,
 // Need to walk the blobs and work with the identified non-linear blob.
 static bool isStructurallyValid(const RegDDRef *StoreRef, unsigned LoopLevel,
                                 unsigned NonLinearBlobIndex) {
+  // This is a profitability check.
+  // Do not recognize refs like (%0)[%1].1 as sparse array reductions.
+  if (StoreRef->hasTrailingStructOffsets(1)) {
+    return false;
+  }
+
   // We do not expect iv in the canon expression.
   auto *FirstCE = StoreRef->getDimensionIndex(1);
   if (FirstCE->hasIV()) {

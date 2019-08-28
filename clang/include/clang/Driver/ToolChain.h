@@ -139,6 +139,8 @@ private:
   mutable std::unique_ptr<Tool> OffloadBundler;
   mutable std::unique_ptr<Tool> OffloadWrapper;
   mutable std::unique_ptr<Tool> SPIRVTranslator;
+  mutable std::unique_ptr<Tool> SPIRCheck;
+  mutable std::unique_ptr<Tool> BackendCompiler;
 
   Tool *getClang() const;
   Tool *getAssemble() const;
@@ -147,6 +149,8 @@ private:
   Tool *getOffloadBundler() const;
   Tool *getOffloadWrapper() const;
   Tool *getSPIRVTranslator() const;
+  Tool *getSPIRCheck() const;
+  Tool *getBackendCompiler() const;
 
   mutable std::unique_ptr<SanitizerArgs> SanitizerArguments;
   mutable std::unique_ptr<XRayArgs> XRayArguments;
@@ -170,6 +174,7 @@ protected:
 
   virtual Tool *buildAssembler() const;
   virtual Tool *buildLinker() const;
+  virtual Tool *buildBackendCompiler() const;
   virtual Tool *getTool(Action::ActionClass AC) const;
 
   /// \name Utilities for implementing subclasses.
@@ -547,6 +552,11 @@ public:
   virtual void
   AddClangCXXStdlibIncludeArgs(const llvm::opt::ArgList &DriverArgs,
                                llvm::opt::ArgStringList &CC1Args) const;
+
+  /// AddClangCXXStdlibIsystemArgs - Add the clang -cc1 level arguments to set
+  /// the specified include paths for the C++ standard library.
+  void AddClangCXXStdlibIsystemArgs(const llvm::opt::ArgList &DriverArgs,
+                                    llvm::opt::ArgStringList &CC1Args) const;
 
   /// Returns if the C++ standard library should be linked in.
   /// Note that e.g. -lm should still be linked even if this returns false.

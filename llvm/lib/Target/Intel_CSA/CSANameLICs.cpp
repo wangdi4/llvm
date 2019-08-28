@@ -111,7 +111,7 @@ void CSANameLICsPass::nameLIC(MachineInstr &MI) {
   //                 after register allocation for CSA, so we cannot easily
   //                 move CSANameLICsPass after the register allocation.
   //                 The temporary workaround is to just check for $noreg.
-  if (TargetRegisterInfo::isPhysicalRegister(reg) || reg == 0)
+  if (Register::isPhysicalRegister(reg) || reg == 0)
     return;
   LMFI->setLICName(reg, name);
 }
@@ -124,7 +124,7 @@ void CSANameLICsPass::nameTerminator(const MachineBasicBlock &MBB,
   if (!MO.isReg())
     return;
   unsigned reg = MO.getReg();
-  if (TargetRegisterInfo::isPhysicalRegister(reg))
+  if (Register::isPhysicalRegister(reg))
     return;
   // Don't try to change the name of something already set.
   if (!LMFI->getLICName(reg).empty())

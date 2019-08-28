@@ -77,6 +77,7 @@
 
 #include "HIRLoopDistributionPreProcGraph.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSparseArrayReductionAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -89,6 +90,8 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
   DistPPGraph *DGraph;
   DistPPNode *CurDistPPNode;
   SmallVector<DistPPNode *, 8> CurControlDepNodes;
+  SmallVector<DistPPNode *, 8> UnsafeSideEffectNodes;
+  bool CreateControlNodes;
 
   bool isDone() const { return !DGraph->isGraphValid(); }
 
@@ -98,7 +101,9 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
     DGraph->getNodeMap()[HNode] = DNode;
   }
 
-  DistributionNodeCreator(DistPPGraph *G) : DGraph(G), CurDistPPNode(nullptr) {}
+  DistributionNodeCreator(DistPPGraph *G, bool CreateControlNodes)
+      : DGraph(G), CurDistPPNode(nullptr),
+        CreateControlNodes(CreateControlNodes) {}
 
   // Creates new PPNode if current node is not defined. Adds \p HNode to the
   // current PPNode.
@@ -141,6 +146,10 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
   }
 
   bool mayDistributeCondition(HLIf *If) {
+    if (!CreateControlNodes) {
+      return false;
+    }
+
     // Allow distribution of top level HLIf only. This may be extended.
     if (!CurControlDepNodes.empty()) {
       return false;
@@ -162,7 +171,7 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
     startDistPPNode(If);
 
     if (MayDistributeParent && mayDistributeCondition(If)) {
-      CurDistPPNode->setSimpleControlNode();
+      CurDistPPNode->setControlNode();
       CurControlDepNodes.push_back(CurDistPPNode);
       stopDistPPNode(If);
     }
@@ -180,10 +189,6 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
   void visit(HLSwitch *Switch) { startDistPPNode(Switch); }
   void postVisit(HLSwitch *Switch) { stopDistPPNode(Switch); }
   void visit(HLInst *I) {
-    if (I->isCallInst()) {
-      DGraph->setInvalid("Cannot distribute loops with calls");
-      return;
-    }
     HLLoop *ParentLoop = I->getParentLoop();
 
     if (ParentLoop && ParentLoop->hasPreheader() &&
@@ -192,6 +197,14 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
       startDistPPNode(I, ParentLoop);
     } else {
       startDistPPNode(I);
+    }
+
+    if (I->isUnsafeSideEffectsCallInst() || I->isUnknownAliasingCallInst()) {
+      // Add unsafe side effect nodes without duplicates.
+      if (UnsafeSideEffectNodes.empty() ||
+          UnsafeSideEffectNodes.back() != CurDistPPNode) {
+        UnsafeSideEffectNodes.push_back(CurDistPPNode);
+      }
     }
 
     if (ParentLoop && ParentLoop->hasPostexit() &&
@@ -207,6 +220,7 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
     DGraph->setInvalid(
         "Cannot distribute graph with unstructured control flow");
   }
+
   void visit(const HLGoto *G) {
     DGraph->setInvalid(
         "Cannot distribute graph with unstructured control flow");
@@ -218,39 +232,40 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
 
 // Creates DistPPEdges out of DDEdges and adds them to DistPPGraph
 struct DistributionEdgeCreator final : public HLNodeVisitorBase {
-
-  DDGraph *LoopDDGraph;
+  unsigned LoopLevel;
+  DDGraph LoopDDGraph;
   HIRSparseArrayReductionAnalysis *SARA;
   DistPPGraph *DistG;
-  HLLoop *Loop;
   bool ForceCycleForLoopIndepDep;
   unsigned EdgeCount = 0;
   typedef DenseMap<DistPPNode *, SmallVector<const DDEdge *, 16>> EdgeNodeMapTy;
-  DistributionEdgeCreator(DDGraph *DDG, HIRSparseArrayReductionAnalysis *SARA,
-                          DistPPGraph *DistPreProcGraph, HLLoop *Loop,
-                          bool ForceCycleForLoopIndepDep)
-      : LoopDDGraph(DDG), SARA(SARA), DistG(DistPreProcGraph), Loop(Loop),
+
+  DistributionEdgeCreator(HIRSparseArrayReductionAnalysis *SARA,
+                          DistPPGraph *DistPreProcGraph, DDGraph LoopDDGraph,
+                          unsigned LoopLevel, bool ForceCycleForLoopIndepDep)
+      : LoopLevel(LoopLevel), LoopDDGraph(LoopDDGraph), SARA(SARA),
+        DistG(DistPreProcGraph),
         ForceCycleForLoopIndepDep(ForceCycleForLoopIndepDep) {}
 
   void processOutgoingEdges(const DDRef *Ref, EdgeNodeMapTy &EdgeMap) {
     DenseMap<HLNode *, DistPPNode *> &HLNodeToDistPPNode = DistG->getNodeMap();
-    for (auto Edge = LoopDDGraph->outgoing_edges_begin(Ref),
-              LastEdge = LoopDDGraph->outgoing_edges_end(Ref);
-         Edge != LastEdge; ++Edge) {
-      HLDDNode *DstDDNode = (*Edge)->getSink()->getHLDDNode();
+
+    for (auto *Edge : LoopDDGraph.outgoing(Ref)) {
+      HLDDNode *DstDDNode = Edge->getSink()->getHLDDNode();
       auto DstDistPPNodeI = HLNodeToDistPPNode.find(DstDDNode);
-      if (DstDistPPNodeI == HLNodeToDistPPNode.end()) {
-        // Every hlnode in loop nest has a dist node, so this edge goes out of
-        // our loop nest. Don't need an edge in this case.
-        continue;
-      }
-      // Add ddedge to list of edges for this sink DistPPNode
+
+      assert(DstDistPPNodeI != HLNodeToDistPPNode.end() &&
+             "Every hlnode in loop nest has a dist node, so this edge goes out "
+             "of our loop nest. Don't need an edge in this case.");
+
       DistPPNode *DstDistNode = DstDistPPNodeI->second;
-      EdgeMap[DstDistNode].push_back(*Edge);
+
+      // Add ddedge to list of edges for this sink DistPPNode
+      EdgeMap[DstDistNode].push_back(Edge);
     }
   }
 
-  bool needBackEdgeForIndepDep(const DDEdge *Edge, unsigned LoopLevel) const {
+  bool needBackEdgeForIndepDep(const DDEdge *Edge) const {
     //  Relaxing the condition will cause temps splitted into
     //  different PiGroups resulting in scalar expansion
 
@@ -295,10 +310,7 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
     // Note: do not force cycle in Break Recurrence pass because Scalar
     // Expansion is performed
 
-    unsigned LoopLevel = Loop->getNestingLevel();
-
-    if (Edge->isLoopIndependentDepTemp() &&
-        needBackEdgeForIndepDep(Edge, LoopLevel)) {
+    if (Edge->isLoopIndependentDepTemp() && needBackEdgeForIndepDep(Edge)) {
       return true;
     }
 
@@ -393,19 +405,98 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
   void postVisit(const HLNode *Node) {}
 };
 
+static bool ppSort(const DistPPNode *A, const DistPPNode *B) {
+  return A->getNode()->getTopSortNum() < B->getNode()->getTopSortNum();
+}
+
+void DistPPGraph::addCycle(loopopt::DistPPNode *NodeA,
+                           loopopt::DistPPNode *NodeB) {
+  addEdge(DistPPEdge(NodeA, NodeB));
+  addEdge(DistPPEdge(NodeB, NodeA));
+}
+
+void DistPPGraph::constructUnknownSideEffectEdges(
+    ArrayRef<DistPPNode *> UnsafeNodes) {
+  if (UnsafeNodes.empty()) {
+    return;
+  }
+
+  auto UnsafeI = UnsafeNodes.begin();
+  auto UnsafeE = UnsafeNodes.end();
+
+  DistPPNode *UnsafeL = nullptr;
+  DistPPNode *UnsafeR = *UnsafeI;
+
+  // Create cycles for each pair of nodes {N, Ul}, {Ul, Ur}, {Ur, N}: where
+  // N is a node with memory reference, and
+  // Ul, Ur are left and right unsafe nodes.
+  for (auto *Node : make_range(node_begin(), node_end())) {
+    if (Node == *UnsafeI) {
+      if (UnsafeL) {
+        addCycle(UnsafeL, Node);
+      }
+
+      UnsafeL = UnsafeR;
+      ++UnsafeI;
+
+      if (UnsafeI == UnsafeE) {
+        UnsafeR = nullptr;
+      } else {
+        UnsafeR = *UnsafeI;
+      }
+
+      continue;
+    } else if (!Node->hasMemRef()) {
+      // Skip nodes which does not access memory.
+      continue;
+    }
+
+    if (UnsafeL) {
+      addCycle(Node, UnsafeL);
+    }
+
+    if (UnsafeR) {
+      addCycle(UnsafeR, Node);
+    }
+  }
+}
+
 DistPPGraph::DistPPGraph(HLLoop *Loop, HIRDDAnalysis &DDA,
                          HIRSparseArrayReductionAnalysis &SARA,
-                         bool ForceCycleForLoopIndepDep) {
-
+                         bool ForceCycleForLoopIndepDep,
+                         bool CreateControlNodes) {
+  const unsigned MaxDistPPSize = 128;
   const unsigned MaxDDEdges = 300;
 
-  createNodes(Loop);
+  DistributionNodeCreator NodeCreator(this, CreateControlNodes);
+  HLNodeUtils::visitRange(NodeCreator, Loop->getFirstChild(),
+                          Loop->getLastChild());
+
   if (!isGraphValid()) {
     return;
   }
 
-  DDGraph DDG = DDA.getGraph(Loop);
-  DistributionEdgeCreator EdgeCreator(&DDG, &SARA, this, Loop,
+  auto NodeCount = getNodeCount();
+
+  // Bail early before DD for invalid cases
+  if (NodeCount > MaxDistPPSize) {
+    setInvalid("Too many stmts to analyze");
+    return;
+  }
+
+  if (NodeCount == 1) {
+    setInvalid("Single Node Loop cannot be analyzed");
+    return;
+  }
+
+  std::sort(node_begin(), node_end(), ppSort);
+
+  constructUnknownSideEffectEdges(NodeCreator.UnsafeSideEffectNodes);
+
+  unsigned Level = Loop->getNestingLevel();
+  DDGraph DG = DDA.getGraph(Loop);
+
+  DistributionEdgeCreator EdgeCreator(&SARA, this, DG, Level,
                                       ForceCycleForLoopIndepDep);
   HLNodeUtils::visitRange(EdgeCreator, Loop->getFirstChild(),
                           Loop->getLastChild());
@@ -420,39 +511,70 @@ DistPPGraph::DistPPGraph(HLLoop *Loop, HIRDDAnalysis &DDA,
 
   if (TotalEdges > MaxDDEdges) {
     setInvalid("Too many DD edges for proper analysis");
+    return;
   }
 
-  auto PPSort = [](const DistPPNode *A, const DistPPNode *B) -> bool {
-    return A->getNode()->getTopSortNum() < B->getNode()->getTopSortNum();
-  };
-
-  std::sort(node_begin(), node_end(), PPSort);
-
-  std::for_each(node_begin(), node_end(), [this, PPSort](const DistPPNode *n) {
-    std::sort(this->mutable_incoming_edges_begin(n),
-              this->mutable_incoming_edges_end(n),
-              [PPSort](const DistPPEdge *a, const DistPPEdge *b) -> bool {
-                return PPSort(a->Src, b->Src);
+  std::for_each(node_begin(), node_end(), [this](const DistPPNode *N) {
+    std::sort(this->mutable_incoming_edges_begin(N),
+              this->mutable_incoming_edges_end(N),
+              [](const DistPPEdge *a, const DistPPEdge *b) -> bool {
+                return ppSort(a->Src, b->Src);
               });
-    std::sort(this->mutable_outgoing_edges_begin(n),
-              this->mutable_outgoing_edges_end(n),
-              [PPSort](const DistPPEdge *a, const DistPPEdge *b) -> bool {
-                return PPSort(a->Sink, b->Sink);
+    std::sort(this->mutable_outgoing_edges_begin(N),
+              this->mutable_outgoing_edges_end(N),
+              [](const DistPPEdge *a, const DistPPEdge *b) -> bool {
+                return ppSort(a->Sink, b->Sink);
               });
   });
 }
-void DistPPGraph::createNodes(HLLoop *Loop) {
-  const unsigned MaxDistPPSize = 128;
 
-  DistributionNodeCreator NodeCreator(this);
-  Loop->getHLNodeUtils().visitRange(NodeCreator, Loop->getFirstChild(),
-                                    Loop->getLastChild());
-  // Bail early before DD for invalid cases
-  if (getNodeCount() > MaxDistPPSize) {
-    setInvalid("Too many stmts to analyze");
+bool DistPPNode::hasMemRef() const {
+  HLDDNode *DDNode = dyn_cast<HLDDNode>(getNode());
+  if (!DDNode) {
+    return false;
   }
 
-  if (getNodeCount() == 1) {
-    setInvalid("Single Node Loop cannot be analyzed");
+  bool FoundMemRef = false;
+  auto HasMemRef = [&](const RegDDRef *Ref) {
+    FoundMemRef = FoundMemRef || Ref->isMemRef();
+  };
+
+  if (isControlNode()) {
+    ForEach<const RegDDRef>::visit<false>(DDNode, HasMemRef);
+  } else {
+    ForEach<const RegDDRef>::visit(DDNode, HasMemRef);
+  }
+
+  return FoundMemRef;
+}
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+LLVM_DUMP_METHOD
+void DistPPNode::dump() {
+  dbgs() << "\"" << getNum() << "\": ";
+
+  auto ControlDep = Graph->getControlDependence(this);
+  if (ControlDep) {
+    dbgs() << "<dep " << ControlDep->first->getNode()->getNumber() << "> ";
+  }
+
+  if (isControlNode()) {
+    cast<HLIf>(HNode)->dumpHeader();
+    dbgs() << "\n";
+    return;
+  }
+
+  HNode->dump();
+}
+
+LLVM_DUMP_METHOD
+void DistPPEdge::dump() const {
+  dbgs() << Src->getNum() << " -> " << Sink->getNum() << "\n";
+
+  if (!DDEdges.empty()) {
+    for (auto *DDEdge : DDEdges) {
+      DDEdge->dump();
+    }
   }
 }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

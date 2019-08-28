@@ -5250,12 +5250,10 @@ TryObjectArgumentInitialization(Sema &S, SourceLocation Loc, QualType FromType,
   QualType ClassType = S.Context.getTypeDeclType(ActingContext);
   // [class.dtor]p2: A destructor can be invoked for a const, volatile or
   //                 const volatile object.
-  Qualifiers Quals;
+  Qualifiers Quals = Method->getMethodQualifiers();
   if (isa<CXXDestructorDecl>(Method)) {
     Quals.addConst();
     Quals.addVolatile();
-  } else {
-    Quals = Method->getMethodQualifiers();
   }
 
   QualType ImplicitParamType = S.Context.getQualifiedType(ClassType, Quals);
@@ -7242,10 +7240,9 @@ void Sema::AddConversionCandidate(
   // allocator).
   QualType CallResultType = ConversionType.getNonLValueExprType(Context);
 
-  llvm::AlignedCharArray<alignof(CallExpr), sizeof(CallExpr) + sizeof(Stmt *)>
-      Buffer;
+  alignas(CallExpr) char Buffer[sizeof(CallExpr) + sizeof(Stmt *)];
   CallExpr *TheTemporaryCall = CallExpr::CreateTemporary(
-      Buffer.buffer, &ConversionFn, CallResultType, VK, From->getBeginLoc());
+      Buffer, &ConversionFn, CallResultType, VK, From->getBeginLoc());
 
   ImplicitConversionSequence ICS =
       TryCopyInitialization(*this, TheTemporaryCall, ToType,
@@ -12620,6 +12617,8 @@ Sema::CreateOverloadedUnaryOp(SourceLocation OpLoc, UnaryOperatorKind Opc,
                             FnDecl->getType()->castAs<FunctionProtoType>()))
         return ExprError();
 
+      if (getLangOpts().SYCLIsDevice)
+        CheckSYCLCall(OpLoc, FnDecl);
       return MaybeBindToTemporary(TheCall);
     } else {
       // We matched a built-in operator. Convert the arguments, then
@@ -12863,6 +12862,8 @@ Sema::CreateOverloadedBinOp(SourceLocation OpLoc,
                   isa<CXXMethodDecl>(FnDecl), OpLoc, TheCall->getSourceRange(),
                   VariadicDoesNotApply);
 
+        if (getLangOpts().SYCLIsDevice)
+          CheckSYCLCall(OpLoc, FnDecl);
         return MaybeBindToTemporary(TheCall);
       } else {
         // We matched a built-in operator. Convert the arguments, then
@@ -13076,6 +13077,8 @@ Sema::CreateOverloadedArraySubscriptExpr(SourceLocation LLoc,
                               Method->getType()->castAs<FunctionProtoType>()))
           return ExprError();
 
+        if (getLangOpts().SYCLIsDevice)
+          CheckSYCLCall(RLoc, FnDecl);
         return MaybeBindToTemporary(TheCall);
       } else {
         // We matched a built-in operator. Convert the arguments, then

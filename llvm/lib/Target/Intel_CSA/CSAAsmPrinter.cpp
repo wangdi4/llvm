@@ -659,7 +659,7 @@ void CSAAsmPrinter::setLICNames(void) {
   const CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
   if (not ImplicitLicDefs) {
     for (unsigned index = 0, e = MRI->getNumVirtRegs(); index != e; ++index) {
-      unsigned vreg = TargetRegisterInfo::index2VirtReg(index);
+      unsigned vreg = Register::index2VirtReg(index);
       if (!MRI->reg_empty(vreg)) {
         StringRef name = LMFI->getLICName(vreg);
         if ((!EmitRegNames && !(csa_utils::isAlwaysDataFlowLinkageSet()))
@@ -717,12 +717,12 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
         EmitLicGroup(*group);
 
       O << "\t.lic";
-      if (TargetRegisterInfo::isVirtualRegister(reg)) {
+      if (Register::isVirtualRegister(reg)) {
         if (unsigned depth = LMFI->getLICDepth(reg)) {
           O << "@" << depth;
         }
       }
-      if (TargetRegisterInfo::isVirtualRegister(reg))
+      if (Register::isVirtualRegister(reg))
         O << " .i" << LMFI->getLICSize(reg) << " ";
       else
         O << " .i64 ";
@@ -753,7 +753,7 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
       // instruction. (Sometimes all such instructions are cleaned up by DIE.)
       if (reg != CSA::IGN && reg != CSA::NA && !MRI->reg_empty(reg)) {
         StringRef name = "";
-        if (TargetRegisterInfo::isVirtualRegister(reg))
+        if (Register::isVirtualRegister(reg))
           name = LMFI->getLICName(reg);
         else
           name = CSAInstPrinter::getRegisterName(reg);
@@ -761,7 +761,7 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
       }
     }
     for (unsigned index = 0, e = MRI->getNumVirtRegs(); index != e; ++index) {
-      unsigned vreg = TargetRegisterInfo::index2VirtReg(index);
+      unsigned vreg = Register::index2VirtReg(index);
       if (!MRI->reg_empty(vreg) && LMFI->getIsDeclared(vreg)) {
         if (csa_utils::isAlwaysDataFlowLinkageSet()) {
           if (LMFI->getNumCallSites() == 0) {
@@ -806,7 +806,7 @@ void CSAAsmPrinter::EmitCSAOperands(const MachineInstr *MI, raw_ostream &O,
     unsigned reg = MI->getOperand(i).getReg();
     StringRef name = "";
     if (reg != CSA::IGN && reg != CSA::NA) {
-      if (TargetRegisterInfo::isVirtualRegister(reg))
+      if (Register::isVirtualRegister(reg))
         name = LMFI->getLICName(reg);
       else
         name = CSAInstPrinter::getRegisterName(reg);
@@ -894,7 +894,7 @@ void CSAAsmPrinter::EmitAll0(const MachineInstr *MI) {
     unsigned reg = MI->getOperand(i).getReg();
     StringRef name = "";
     if (reg != CSA::IGN && reg != CSA::NA) {
-      if (TargetRegisterInfo::isVirtualRegister(reg))
+      if (Register::isVirtualRegister(reg))
         name = LMFI->getLICName(reg);
       else
         name = CSAInstPrinter::getRegisterName(reg);

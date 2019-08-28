@@ -79,6 +79,11 @@ Value *findScalarElement(Value *V, unsigned EltNo);
 /// The value may be extracted from a splat constants vector or from
 /// a sequence of instructions that broadcast a single value into a vector.
 const Value *getSplatValue(const Value *V);
+#if INTEL_CUSTOMIZATION
+inline Value *getSplatValue(Value *V) {
+  return const_cast<Value *>(getSplatValue(static_cast<const Value *>(V)));
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// Return true if the input value is known to be a vector with all identical
 /// elements (potentially including undefined elements).
@@ -151,7 +156,7 @@ std::vector<Attribute> getVectorVariantAttributes(Function& F);
 Type* calcCharacteristicType(Function& F, VectorVariant& Variant);
 
 /// Helper function that returns widened type of given type \p Ty.
-inline Type *getWidenedType(Type *Ty, unsigned VF) {
+inline VectorType *getWidenedType(Type *Ty, unsigned VF) {
   unsigned NumElts =
       Ty->isVectorTy() ? Ty->getVectorNumElements() * VF : VF;
   return VectorType::get(Ty->getScalarType(), NumElts);

@@ -20,6 +20,9 @@
 #include <cassert>
 #include <cstdlib>
 #include <mutex>
+#if INTEL_COLLAB
+#include <string.h>
+#endif  // INTEL_COLLAB
 
 // Store target policy (disabled, mandatory, default)
 kmp_target_offload_kind_t TargetOffloadPolicy = tgt_default;
@@ -304,8 +307,33 @@ EXTERN int __tgt_target_teams_nowait(int64_t device_id, void *host_ptr,
                             arg_sizes, arg_types, team_num, thread_limit);
 }
 
+// Get the current number of components for a user-defined mapper.
+EXTERN int64_t __tgt_mapper_num_components(void *rt_mapper_handle) {
+  auto *MapperComponentsPtr = (struct MapperComponentsTy *)rt_mapper_handle;
+  int64_t size = MapperComponentsPtr->Components.size();
+  DP("__tgt_mapper_num_components(Handle=" DPxMOD ") returns %" PRId64 "\n",
+     DPxPTR(rt_mapper_handle), size);
+  return size;
+}
+
+// Push back one component for a user-defined mapper.
+EXTERN void __tgt_push_mapper_component(void *rt_mapper_handle, void *base,
+                                        void *begin, int64_t size,
+                                        int64_t type) {
+  DP("__tgt_push_mapper_component(Handle=" DPxMOD
+     ") adds an entry (Base=" DPxMOD ", Begin=" DPxMOD ", Size=%" PRId64
+     ", Type=0x%" PRIx64 ").\n",
+     DPxPTR(rt_mapper_handle), DPxPTR(base), DPxPTR(begin), size, type);
+  auto *MapperComponentsPtr = (struct MapperComponentsTy *)rt_mapper_handle;
+  MapperComponentsPtr->Components.push_back(
+      MapComponentInfoTy(base, begin, size, type));
+}
+
 EXTERN void __kmpc_push_target_tripcount(int64_t device_id,
     uint64_t loop_tripcount) {
+  if (IsOffloadDisabled())
+    return;
+
   if (device_id == OFFLOAD_DEVICE_DEFAULT) {
     device_id = omp_get_default_device();
   }
@@ -325,7 +353,128 @@ EXTERN void __kmpc_push_target_tripcount(int64_t device_id,
 }
 
 #if INTEL_COLLAB
-EXTERN bool __tgt_is_device_available(int device_num, void *device_type) {
+EXTERN bool __tgt_is_device_available(int64_t device_num, void *device_type) {
+  if (IsOffloadDisabled())
+    return false;
+
+  if (device_num == OFFLOAD_DEVICE_DEFAULT) {
+    device_num = omp_get_default_device();
+  }
+
+  if (CheckDeviceAndCtors(device_num) != OFFLOAD_SUCCESS) {
+    DP("Failed to get device %" PRId64 " ready\n", device_num);
+    HandleTargetOutcome(false);
+    return false;
+  }
+
   return (device_num >= 0 && device_num < omp_get_num_devices());
+}
+
+// Find device pointer from the given host pointer and create a buffer object
+EXTERN void *__tgt_create_buffer(int64_t device_num, void *host_ptr) {
+  DP("Call to __tgt_create_buffer with host_ptr " DPxMOD ", "
+      "device_num %" PRId64 "\n", DPxPTR(host_ptr), device_num);
+
+  if (IsOffloadDisabled())
+    return NULL;
+
+  if (device_num == OFFLOAD_DEVICE_DEFAULT) {
+    device_num = omp_get_default_device();
+  }
+
+  if (CheckDeviceAndCtors(device_num) != OFFLOAD_SUCCESS) {
+    DP("Failed to get device %" PRId64 " ready\n", device_num);
+    HandleTargetOutcome(false);
+    return NULL;
+  }
+
+  if (!host_ptr) {
+    DP("Call to __tgt_create_buffer with invalid host_ptr\n");
+    return NULL;
+  }
+
+  DeviceTy &Device = Devices[device_num];
+  void *ret = Device.create_buffer(host_ptr);
+  DP("__tgt_create_buffer returns " DPxMOD "\n", DPxPTR(ret));
+
+  return ret;
+}
+
+// Release the device buffer
+EXTERN int __tgt_release_buffer(int64_t device_num, void *device_buffer) {
+  DP("Call to __tgt_release_buffer with device_buffer " DPxMOD ", "
+      "device_num %" PRId64 "\n", DPxPTR(device_buffer), device_num);
+
+  if (IsOffloadDisabled())
+    return OFFLOAD_FAIL;
+
+  if (device_num == OFFLOAD_DEVICE_DEFAULT) {
+    device_num = omp_get_default_device();
+  }
+
+  if (CheckDeviceAndCtors(device_num) != OFFLOAD_SUCCESS) {
+    DP("Failed to get device %" PRId64 " ready\n", device_num);
+    HandleTargetOutcome(false);
+    return OFFLOAD_FAIL;
+  }
+
+  if (!device_buffer) {
+    DP("Call to __tgt_release_buffer with invalid device_buffer\n");
+    return OFFLOAD_FAIL;
+  }
+
+  DeviceTy &Device = Devices[device_num];
+  return Device.release_buffer(device_buffer);
+}
+
+EXTERN char *__tgt_get_device_name(
+    int64_t device_num, char *buffer, size_t buffer_max_size) {
+  DP("Call to __tgt_get_device_name with device_num %" PRId64 " and "
+     "buffer_max_size %zu.\n",
+     device_num, buffer_max_size);
+
+  if (!buffer || buffer_max_size == 0 || IsOffloadDisabled())
+    return NULL;
+
+  if (device_num == OFFLOAD_DEVICE_DEFAULT) {
+    device_num = omp_get_default_device();
+  }
+
+  if (CheckDeviceAndCtors(device_num) != OFFLOAD_SUCCESS) {
+    DP("Failed to get device %" PRId64 " ready\n", device_num);
+    HandleTargetOutcome(false);
+    return NULL;
+  }
+
+  DP("Querying device for its name.\n");
+
+  DeviceTy &Device = Devices[device_num];
+  return Device.get_device_name(buffer, buffer_max_size);
+}
+
+EXTERN char *__tgt_get_device_rtl_name(
+    int64_t device_num, char *buffer, size_t buffer_max_size) {
+  DP("Call to __tgt_get_device_rtl_name with device_num %" PRId64 " and "
+     "buffer_max_size %zu.\n",
+     device_num, buffer_max_size);
+
+  if (!buffer || buffer_max_size == 0 || IsOffloadDisabled())
+    return NULL;
+
+  if (device_num == OFFLOAD_DEVICE_DEFAULT) {
+    device_num = omp_get_default_device();
+  }
+
+  if (CheckDeviceAndCtors(device_num) != OFFLOAD_SUCCESS) {
+    DP("Failed to get device %" PRId64 " ready\n", device_num);
+    HandleTargetOutcome(false);
+    return NULL;
+  }
+
+  const RTLInfoTy *RTL = Devices[device_num].RTL;
+  assert(RTL && "Device with uninitialized RTL.");
+  strncpy(buffer, RTL->RTLConstName, buffer_max_size - 1);
+  buffer[buffer_max_size - 1] = '\0';
+  return buffer;
 }
 #endif // INTEL_COLLAB

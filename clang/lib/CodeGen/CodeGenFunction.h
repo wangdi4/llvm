@@ -728,7 +728,8 @@ public:
   /// PushDestructorCleanup - Push a cleanup to call the
   /// complete-object variant of the given destructor on the object at
   /// the given address.
-  void PushDestructorCleanup(const CXXDestructorDecl *Dtor, Address Addr);
+  void PushDestructorCleanup(const CXXDestructorDecl *Dtor, QualType T,
+                             Address Addr);
 
   /// PopCleanupBlock - Will pop the cleanup entry on the stack and
   /// process all branch fixups.
@@ -2769,8 +2770,8 @@ public:
   static Destroyer destroyCXXObject;
 
   void EmitCXXDestructorCall(const CXXDestructorDecl *D, CXXDtorType Type,
-                             bool ForVirtualBase, bool Delegating,
-                             Address This);
+                             bool ForVirtualBase, bool Delegating, Address This,
+                             QualType ThisTy);
 
   void EmitNewArrayInitializer(const CXXNewExpr *E, QualType elementType,
                                llvm::Type *ElementTy, Address NewPtr,
@@ -3931,9 +3932,9 @@ public:
                               llvm::Value *ImplicitParam,
                               QualType ImplicitParamTy, const CallExpr *E,
                               CallArgList *RtlArgs);
-  RValue EmitCXXDestructorCall(GlobalDecl Dtor,
-                               const CGCallee &Callee,
-                               llvm::Value *This, llvm::Value *ImplicitParam,
+  RValue EmitCXXDestructorCall(GlobalDecl Dtor, const CGCallee &Callee,
+                               llvm::Value *This, QualType ThisTy,
+                               llvm::Value *ImplicitParam,
                                QualType ImplicitParamTy, const CallExpr *E);
   RValue EmitCXXMemberCallExpr(const CXXMemberCallExpr *E,
                                ReturnValueSlot ReturnValue);
@@ -4045,6 +4046,8 @@ public:
                                           const CallExpr *E);
   llvm::Value *EmitHexagonBuiltinExpr(unsigned BuiltinID, const CallExpr *E);
 
+  RValue EmitIntelFPGARegBuiltin(const CallExpr *E, ReturnValueSlot ReturnValue);
+
 private:
   enum class MSVCIntrin;
 
@@ -4144,10 +4147,6 @@ public:
   /// Emits a reference binding to the passed in expression.
   RValue EmitReferenceBindingToExpr(const Expr *E);
 
-  /// Emit Intel FPGA field annotations for the given field and value. Returns
-  /// the annotation result.
-  Address EmitIntelFPGAFieldAnnotations(const FieldDecl *D, Address V,
-                                        StringRef AnnotStr);
   //===--------------------------------------------------------------------===//
   //                           Expression Emission
   //===--------------------------------------------------------------------===//
@@ -4302,6 +4301,13 @@ public:
   Address EmitHLSFieldAnnotations(const FieldDecl *D, Address V,
                                   StringRef AnnotStr);
 #endif // INTEL_CUSTOMIZATION
+  /// Emit Intel FPGA field annotations for the given field and value. Returns
+  /// the annotation result.
+  Address EmitIntelFPGAFieldAnnotations(const FieldDecl *D, Address V,
+                                        StringRef AnnotStr);
+
+  Address EmitIntelFPGAFieldAnnotations(SourceLocation Location, Address V,
+                                        StringRef AnnotStr);
   //===--------------------------------------------------------------------===//
   //                             Internal Helpers
   //===--------------------------------------------------------------------===//

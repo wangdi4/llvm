@@ -88,7 +88,7 @@ bool CSANormalizeDebug::runOnMachineFunction(MachineFunction &MF) {
 
   // Look for LICs with a producer and no non-debug uses.
   for (unsigned index = 0, e = MRI->getNumVirtRegs(); index != e; ++index) {
-    unsigned reg = TargetRegisterInfo::index2VirtReg(index);
+    unsigned reg = Register::index2VirtReg(index);
     if (!TII->isLICClass(MRI->getRegClass(reg)))
       continue;
 

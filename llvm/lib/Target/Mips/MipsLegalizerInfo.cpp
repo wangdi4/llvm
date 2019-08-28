@@ -63,6 +63,9 @@ MipsLegalizerInfo::MipsLegalizerInfo(const MipsSubtarget &ST) {
       .legalFor({s32})
       .minScalar(0, s32);
 
+  getActionDefinitionsBuilder(G_BRJT)
+      .legalFor({{p0, s32}});
+
   getActionDefinitionsBuilder(G_PHI)
       .legalFor({p0, s32, s64})
       .minScalar(0, s32);
@@ -89,13 +92,16 @@ MipsLegalizerInfo::MipsLegalizerInfo(const MipsSubtarget &ST) {
       .legalFor({s32})
       .clampScalar(0, s32, s32);
 
-  getActionDefinitionsBuilder(G_GEP)
+  getActionDefinitionsBuilder({G_GEP, G_INTTOPTR})
       .legalFor({{p0, s32}});
+
+  getActionDefinitionsBuilder(G_PTRTOINT)
+      .legalFor({{s32, p0}});
 
   getActionDefinitionsBuilder(G_FRAME_INDEX)
       .legalFor({p0});
 
-  getActionDefinitionsBuilder(G_GLOBAL_VALUE)
+  getActionDefinitionsBuilder({G_GLOBAL_VALUE, G_JUMP_TABLE})
       .legalFor({p0});
 
   // FP instructions
@@ -138,6 +144,8 @@ MipsLegalizerInfo::MipsLegalizerInfo(const MipsSubtarget &ST) {
       .libcallForCartesianProduct({s64, s32}, {s64})
       .minScalar(1, s32);
 
+  getActionDefinitionsBuilder(G_SEXT_INREG).lower();
+
   computeTables();
   verify(*ST.getInstrInfo());
 }
@@ -152,4 +160,21 @@ bool MipsLegalizerInfo::legalizeCustom(MachineInstr &MI,
   MIRBuilder.setInstr(MI);
 
   return false;
+}
+
+bool MipsLegalizerInfo::legalizeIntrinsic(MachineInstr &MI, MachineRegisterInfo &MRI,
+                                          MachineIRBuilder &MIRBuilder) const {
+  switch (MI.getIntrinsicID()) {
+  case Intrinsic::memcpy:
+  case Intrinsic::memset:
+  case Intrinsic::memmove:
+    if (createMemLibcall(MIRBuilder, MRI, MI) ==
+        LegalizerHelper::UnableToLegalize)
+      return false;
+    MI.eraseFromParent();
+    return true;
+  default:
+    break;
+  }
+  return true;
 }

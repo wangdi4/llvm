@@ -5261,9 +5261,10 @@ bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
       } else {
         // c) output when x = ;
         //                x = ;
-        //    one edge (*) from Src to sink is sufficient
+        //    make it all = for now
+        //    Strictly speaking, there should be another backedge (<)
         for (unsigned II = 1; II <= Levels; ++II) {
-          ForwardDV[II - 1] = DVKind::ALL;
+          ForwardDV[II - 1] = DVKind::EQ;
         }
       }
       if (IsReversed) {

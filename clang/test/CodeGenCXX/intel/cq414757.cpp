@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -std=c++11 -fintel-compatibility -triple x86_64-pc-win32 -O0 -fexceptions -pedantic -fcxx-exceptions %s -emit-llvm -o - | FileCheck --check-prefix=CHECK_INTEL %s
-// RUN: %clang_cc1 -std=c++11 -fintel-compatibility -triple x86_64-pc-win32 -O0 -fexceptions -fcxx-exceptions %s -emit-llvm -o - | FileCheck --check-prefix=CHECK_INTEL_NOPEDANTIC %s
+// RUN: %clang_cc1 -std=c++11 -fintel-compatibility -triple x86_64-pc-win32 -O0 -fexceptions -pedantic -fcxx-exceptions %s -emit-llvm -o - | FileCheck --check-prefix=CHECK %s
+// RUN: %clang_cc1 -std=c++11 -fintel-compatibility-enable=StringCharStarCatchable -triple x86_64-pc-win32 -O0 -fexceptions -fcxx-exceptions %s -emit-llvm -o - | FileCheck --check-prefix=CHECK_INTEL_NOPEDANTIC %s
 // RUN: %clang_cc1 -std=c++11 -triple x86_64-pc-win32 -O0 -fexceptions -fcxx-exceptions %s -emit-llvm -o - | FileCheck %s
 
 // Check that string literals are catchable by pointer-to-non-const handlers on

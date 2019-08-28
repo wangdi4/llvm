@@ -200,6 +200,8 @@ def compress_debug_sections_EQ : Joined<["-", "--"], "compress-debug-sections=">
     HelpText<"DWARF debug sections compression type">;
 def mno_exec_stack : Flag<["-"], "mnoexecstack">,
   HelpText<"Mark the file as not needing an executable stack">;
+def massembler_no_warn : Flag<["-"], "massembler-no-warn">,
+  HelpText<"Make assembler not emit warnings">;
 def massembler_fatal_warnings : Flag<["-"], "massembler-fatal-warnings">,
   HelpText<"Make assembler warnings fatal">;
 def mrelax_relocations : Flag<["--"], "mrelax-relocations">,
@@ -218,10 +220,6 @@ def fno_math_builtin : Flag<["-"], "fno-math-builtin">,
 def disable_intel_proprietary_opts : Flag<["-"],
   "disable-intel-proprietary-opts">,
   HelpText<"Disable Intel proprietary optimizations">;
-// IntrinsicPromotion implementation.
-def intel_mintrinsic_promote : Flag<["-"], "mintrinsic-promote">, HelpText<"Force "
-  "certain functions using intrinsics to promote their architectures and make "
-  "the intrinsic headers included by default">;
 // endif INTEL_CUSTOMIZATION
 
 def disable_llvm_verifier : Flag<["-"], "disable-llvm-verifier">,
@@ -295,8 +293,8 @@ def mcode_model : Separate<["-"], "mcode-model">,
   HelpText<"The code model to use">, Values<"tiny,small,kernel,medium,large">;
 def mdebug_pass : Separate<["-"], "mdebug-pass">,
   HelpText<"Enable additional debug output">;
-def mdisable_fp_elim : Flag<["-"], "mdisable-fp-elim">,
-  HelpText<"Disable frame pointer elimination optimization">;
+def mframe_pointer_EQ : Joined<["-"], "mframe-pointer=">,
+  HelpText<"Specify which frame pointers to retain (all, non-leaf, none).">, Values<"all,non-leaf,none">;
 def mdisable_tail_calls : Flag<["-"], "mdisable-tail-calls">,
   HelpText<"Disable tail call optimization, keeping the call stack accurate">;
 def menable_no_infinities : Flag<["-"], "menable-no-infs">,
@@ -949,7 +947,8 @@ def fopenmp_host_ir_file_path : Separate<["-"], "fopenmp-host-ir-file-path">,
 
 def fsycl_is_device : Flag<["-"], "fsycl-is-device">,
   HelpText<"Generate code for SYCL device.">;
-
+def fsycl_is_host : Flag<["-"], "fsycl-is-host">,
+  HelpText<"SYCL host compilation">;
 def fsycl_int_header : Separate<["-"], "fsycl-int-header">,
   HelpText<"Generate SYCL integration header into this file.">;
 def fsycl_int_header_EQ : Joined<["-"], "fsycl-int-header=">,

@@ -129,6 +129,12 @@ def err_intel_fpga_memory_arg_invalid : Error<
   "%0 attribute requires either no argument or one of: %1">;
 def err_intel_fpga_loop_attr_duplication : Error<
   "duplicate Intel FPGA loop attribute '%0'">;
+def err_intel_fpga_merge_dir_invalid : Error<
+  "merge direction must be 'depth' or 'width'">;
+def err_intel_fpga_reg_limitations : Error <
+  "Illegal %select{argument of type %1 |field in argument}0 to __builtin_intel_fpga_reg.">;
+def illegal_type_declared_here : Note<
+  "Field with illegal type declared here">;
 
 // C99 variable-length arrays
 def ext_vla : Extension<"variable length arrays are a C99 feature">,
@@ -605,6 +611,10 @@ def ext_implicit_lib_function_decl : ExtWarn<
 def note_include_header_or_declare : Note<
   "include the header <%0> or explicitly provide a declaration for '%1'">;
 def note_previous_builtin_declaration : Note<"%0 is a builtin with type %1">;
+def warn_implicit_decl_no_jmp_buf
+    : Warning<"declaration of built-in function '%0' requires the declaration"
+    " of the 'jmp_buf' type, commonly provided in the header <setjmp.h>.">,
+      InGroup<DiagGroup<"incomplete-setjmp-declaration">>;
 def warn_implicit_decl_requires_sysheader : Warning<
   "declaration of built-in function '%1' requires inclusion of the header <%0>">,
   InGroup<BuiltinRequiresHeader>;
@@ -627,23 +637,8 @@ def warn_cstruct_memaccess : Warning<
   InGroup<NonTrivialMemaccess>;
 def note_nontrivial_field : Note<
   "field is non-trivial to %select{copy|default-initialize}0">;
-def err_non_trivial_c_union_in_invalid_context : Error<
-  "cannot %select{"
-  "use type %1 for a function/method parameter|"
-  "use type %1 for function/method return|"
-  "default-initialize an object of type %1|"
-  "declare an automatic variable of type %1|"
-  "copy-initialize an object of type %1|"
-  "assign to a variable of type %1|"
-  "construct an automatic compound literal of type %1|"
-  "capture a variable of type %1|"
-  "cannot use volatile type %1 where it causes an lvalue-to-rvalue conversion"
-  "}3 "
-  "since it %select{contains|is}2 a union that is non-trivial to "
-  "%select{default-initialize|destruct|copy}0">;
-def note_non_trivial_c_union : Note<
-  "%select{%2 has subobjects that are|%3 has type %2 that is}0 "
-  "non-trivial to %select{default-initialize|destruct|copy}1">;
+def err_nontrivial_primitive_type_in_union : Error<
+  "non-trivial C types are disallowed in union">;
 def warn_dyn_class_memaccess : Warning<
   "%select{destination for|source of|first operand of|second operand of}0 this "
   "%1 call is a pointer to %select{|class containing a }2dynamic class %3; "
@@ -2545,19 +2540,32 @@ def err_nsobject_attribute : Error<
   "'NSObject' attribute is for pointer types only">;
 def err_attributes_are_not_compatible : Error<
   "%0 and %1 attributes are not compatible">;
+def err_attribute_invalid_argument : Error<
+  "%select{'void'|a reference type|an array type|a non-vector or "
+  "non-vectorizable scalar type}0 is an invalid argument to attribute %1">;
 def err_attribute_wrong_number_arguments : Error<
   "%0 attribute %plural{0:takes no arguments|1:takes one argument|"
   ":requires exactly %1 arguments}1">;
 def err_attribute_too_many_arguments : Error<
   "%0 attribute takes no more than %1 argument%s1">;
+def warn_attribute_too_many_arguments : Warning<
+  "%0 attribute takes no more than %1 argument%s1 - attribute ignored">,
+ InGroup<IgnoredAttributes>;
 def err_attribute_too_few_arguments : Error<
   "%0 attribute takes at least %1 argument%s1">;
+def warn_attribute_too_few_arguments : Warning<
+  "%0 attribute takes at least %1 argument%s1 - attribute ignored">,
+ InGroup<IgnoredAttributes>;
 def err_attribute_invalid_vector_type : Error<"invalid vector element type %0">;
 def err_attribute_bad_neon_vector_size : Error<
   "Neon vector size must be 64 or 128 bits">;
 def err_attribute_requires_positive_integer : Error<
   "%0 attribute requires a %select{positive|non-negative}1 "
   "integral compile time constant expression">;
+def warn_attribute_requires_positive_integer : Warning<
+  "%0 attribute requires a %select{positive|non-negative}1 "
+  "integral compile time constant expression - attribute ignored">,
+ InGroup<IgnoredAttributes>;
 def err_attribute_requires_opencl_version : Error<
   "%0 attribute requires OpenCL version %1%select{| or above}2">;
 def warn_unsupported_target_attribute
@@ -2593,8 +2601,6 @@ def err_attribute_argument_out_of_range : Error<
 def err_init_priority_object_attr : Error<
   "can only use 'init_priority' attribute on file-scope definitions "
   "of objects of class type">;
-def err_attribute_argument_vec_type_hint : Error<
-  "invalid attribute argument %0 - expecting a vector or vectorizable scalar type">;
 def err_attribute_argument_out_of_bounds : Error<
   "%0 attribute parameter %1 is out of bounds">;
 def err_attribute_only_once_per_parameter : Error<
@@ -2804,6 +2810,11 @@ def err_no_accessor_for_property : Error<
 def err_cannot_find_suitable_accessor : Error<
   "cannot find suitable %select{getter|setter}0 for property %1">;
 
+def warn_alloca : Warning<
+  "use of function %0 is discouraged; there is no way to check for failure but "
+  "failure may still occur, resulting in a possibly exploitable security vulnerability">,
+  InGroup<DiagGroup<"alloca">>, DefaultIgnore;
+
 def warn_alloca_align_alignof : Warning<
   "second argument to __builtin_alloca_with_align is supposed to be in bits">,
   InGroup<DiagGroup<"alloca-with-align-alignof">>;
@@ -2992,6 +3003,7 @@ def warn_cconv_unsupported : Warning<
   "|on builtin function"
   "}1">,
   InGroup<IgnoredAttributes>;
+def error_cconv_unsupported : Error<warn_cconv_unsupported.Text>;
 def err_cconv_knr : Error<
   "function with no prototype cannot use the %0 calling convention">;
 def warn_cconv_knr : Warning<
@@ -3306,6 +3318,14 @@ def warn_impcast_float_integer : Warning<
   "implicit conversion turns floating-point number into integer: %0 to %1">,
   InGroup<FloatConversion>, DefaultIgnore;
 
+// Implicit int -> float conversion precision loss warnings.
+def warn_impcast_integer_float_precision : Warning<
+  "implicit conversion from %0 to %1 may lose precision">,
+  InGroup<ImplicitIntFloatConversion>, DefaultIgnore;
+def warn_impcast_integer_float_precision_constant : Warning<
+  "implicit conversion from %2 to %3 changes value from %0 to %1">,
+  InGroup<ImplicitIntFloatConversion>;
+
 def warn_impcast_float_to_integer : Warning<
   "implicit conversion from %0 to %1 changes value from %2 to %3">,
   InGroup<FloatOverflowConversion>, DefaultIgnore;
@@ -3328,6 +3348,10 @@ def warn_impcast_bool_to_null_pointer : Warning<
 def warn_non_literal_null_pointer : Warning<
     "expression which evaluates to zero treated as a null pointer constant of "
     "type %0">, InGroup<NonLiteralNullConversion>;
+def warn_pointer_compare : Warning<
+    "comparing a pointer to a null character constant; did you mean "
+    "to compare to %select{NULL|(void *)0}0?">,
+    InGroup<DiagGroup<"pointer-compare">>;
 def warn_impcast_null_pointer_to_integer : Warning<
     "implicit conversion of %select{NULL|nullptr}0 constant to %1">,
     InGroup<NullConversion>;
@@ -5700,10 +5724,10 @@ def note_logical_instead_of_bitwise_remove_constant : Note<
   "remove constant to silence this warning">;
 
 def warn_bitwise_op_in_bitwise_op : Warning<
-  "'%0' within '%1'">, InGroup<BitwiseOpParentheses>;
+  "'%0' within '%1'">, InGroup<BitwiseOpParentheses>, DefaultIgnore;
 
 def warn_logical_and_in_logical_or : Warning<
-  "'&&' within '||'">, InGroup<LogicalOpParentheses>;
+  "'&&' within '||'">, InGroup<LogicalOpParentheses>, DefaultIgnore;
 
 def warn_overloaded_shift_in_comparison :Warning<
   "overloaded operator %select{>>|<<}0 has higher precedence than "
@@ -5780,6 +5804,9 @@ def err_arithmetic_nonfragile_interface : Error<
   "arithmetic on pointer to interface %0, which is not a constant size for "
   "this architecture and platform">;
 
+def warn_deprecated_comma_subscript : Warning<
+  "top-level comma expression in array subscript is deprecated">,
+  InGroup<DeprecatedCommaSubscript>;
 
 def ext_subscript_non_lvalue : Extension<
   "ISO C90 does not allow subscripting non-lvalue array">;
@@ -7502,6 +7529,12 @@ def warn_unused_container_subscript_expr : Warning<
 def warn_unused_call : Warning<
   "ignoring return value of function declared with %0 attribute">,
   InGroup<UnusedValue>;
+def warn_unused_constructor : Warning<
+  "ignoring temporary created by a constructor declared with %0 attribute">,
+  InGroup<UnusedValue>;
+def warn_unused_constructor_msg : Warning<
+  "ignoring temporary created by a constructor declared with %0 attribute: %1">,
+  InGroup<UnusedValue>;
 def warn_side_effects_unevaluated_context : Warning<
   "expression with side effects has no effect in an unevaluated context">,
   InGroup<UnevaluatedExpression>;
@@ -7511,6 +7544,9 @@ def warn_side_effects_typeid : Warning<
 def warn_unused_result : Warning<
   "ignoring return value of function declared with %0 attribute">,
   InGroup<UnusedResult>;
+def warn_unused_result_msg : Warning<
+  "ignoring return value of function declared with %0 attribute: %1">,
+  InGroup<UnusedResult>;
 def warn_unused_volatile : Warning<
   "expression result unused; assign into a variable to force a volatile load">,
   InGroup<DiagGroup<"unused-volatile-lvalue">>;
@@ -7519,6 +7555,8 @@ def ext_cxx14_attr : Extension<
   "use of the %0 attribute is a C++14 extension">, InGroup<CXX14>;
 def ext_cxx17_attr : Extension<
   "use of the %0 attribute is a C++17 extension">, InGroup<CXX17>;
+def ext_cxx2a_attr : Extension<
+  "use of the %0 attribute is a C++2a extension">, InGroup<CXX2a>;
 
 def warn_unused_comparison : Warning<
   "%select{equality|inequality|relational|three-way}0 comparison result unused">,
@@ -8161,6 +8199,10 @@ def warn_dangling_member : Warning<
   "%select{binds to|is}2 a temporary object "
   "whose lifetime is shorter than the lifetime of the constructed object">,
   InGroup<DanglingField>;
+def warn_dangling_lifetime_pointer_member : Warning<
+  "initializing pointer member %0 to point to a temporary object "
+  "whose lifetime is shorter than the lifetime of the constructed object">,
+  InGroup<DanglingField>;
 def note_lifetime_extending_member_declared_here : Note<
   "%select{%select{reference|'std::initializer_list'}0 member|"
   "member with %select{reference|'std::initializer_list'}0 subobject}1 "
@@ -8179,6 +8221,10 @@ def warn_new_dangling_reference : Warning<
   "temporary bound to reference member of allocated object "
   "will be destroyed at the end of the full-expression">,
   InGroup<DanglingField>;
+def warn_dangling_lifetime_pointer : Warning<
+  "object backing the pointer "
+  "will be destroyed at the end of the full-expression">,
+  InGroup<Dangling>;
 def warn_new_dangling_initializer_list : Warning<
   "array backing "
   "%select{initializer list subobject of the allocated object|"
@@ -8196,7 +8242,8 @@ def warn_unsupported_lifetime_extension : Warning<
 // should result in a warning, since these always evaluate to a constant.
 // Array comparisons have similar warnings
 def warn_comparison_always : Warning<
-  "%select{self-|array }0comparison always evaluates to %select{a constant|%2}1">,
+  "%select{self-|array }0comparison always evaluates to "
+  "%select{a constant|true|false|'std::strong_ordering::equal'}1">,
   InGroup<TautologicalCompare>;
 def warn_comparison_bitwise_always : Warning<
   "bitwise comparison always evaluates to %select{false|true}0">,
@@ -8585,10 +8632,11 @@ def warn_sync_fetch_and_nand_semantics_change : Warning<
   InGroup<DiagGroup<"sync-fetch-and-nand-semantics-changed">>;
 
 // Type
-def ext_invalid_sign_spec : Extension<"'%0' cannot be signed or unsigned">;
+def ext_wchar_t_sign_spec : ExtWarn<"'%0' cannot be signed or unsigned">,
+  InGroup<DiagGroup<"signed-unsigned-wchar">>, DefaultError;
 def warn_receiver_forward_class : Warning<
-    "receiver %0 is a forward class and corresponding @interface may not exist">,
-    InGroup<ForwardClassReceiver>;
+  "receiver %0 is a forward class and corresponding @interface may not exist">,
+  InGroup<ForwardClassReceiver>;
 def note_method_sent_forward_class : Note<"method %0 is used for the forward class">;
 def ext_missing_declspec : ExtWarn<
   "declaration specifier missing, defaulting to 'int'">;
@@ -9839,11 +9887,6 @@ def err_builtin_launder_invalid_arg : Error<
   "%select{non-pointer|function pointer|void pointer}0 argument to "
   "'__builtin_launder' is not allowed">;
 
-def err_bit_cast_non_trivially_copyable : Error<
-  "__builtin_bit_cast %select{source|destination}0 type must be trivially copyable">;
-def err_bit_cast_type_size_mismatch : Error<
-  "__builtin_bit_cast source size does not equal destination size (%0 vs %1)">;
-
 // SYCL-specific diagnostics
 def err_sycl_attribute_address_space_invalid : Error<
   "address space is outside the valid range of values">;
@@ -9856,11 +9899,13 @@ def err_sycl_restrict : Error<
   "|use rtti"
   "|use a non-const static data variable"
   "|call a virtual function"
+  "|use exceptions"
   "|call a recursive function"
   "|call through a function pointer"
   "|allocate storage"
-  "|use exceptions"
-  "|use inline assembly}0">;
+  "|use inline assembly"
+  "|have a class with a virtual function table"
+  "|call a variadic function}0">;
 def err_sycl_virtual_types : Error<
   "No class with a vtable can be used in a SYCL kernel or any code included in the kernel">;
 def note_sycl_used_here : Note<"used here">;
@@ -9869,4 +9914,13 @@ def err_sycl_non_std_layout_type : Error<
   "kernel parameter has non-standard layout class/struct type">;
 def err_conflicting_sycl_kernel_attributes : Error<
   "conflicting attributes applied to a SYCL kernel">;
+def err_sycl_device_indirectly_callable_cannot_be_applied_here
+    : Error<"device_indirectly_callable attribute cannot be applied to a "
+            "%select{static function or function in an anonymous namespace"
+            "|class member function}0">;
+
+def err_bit_cast_non_trivially_copyable : Error<
+  "__builtin_bit_cast %select{source|destination}0 type must be trivially copyable">;
+def err_bit_cast_type_size_mismatch : Error<
+  "__builtin_bit_cast source size does not equal destination size (%0 vs %1)">;
 } // end of sema component.

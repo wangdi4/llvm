@@ -33,6 +33,7 @@
 #include "clang/Lex/Token.h"
 #include "clang/Lex/VariadicMacroSupport.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/STLExtras.h"
@@ -726,7 +727,7 @@ const FileEntry *Preprocessor::LookupFile(
         BuildSystemModule = getCurrentModule()->IsSystem;
       } else if ((FileEnt =
                     SourceMgr.getFileEntryForID(SourceMgr.getMainFileID())))
-        Includers.push_back(std::make_pair(FileEnt, FileMgr.getDirectory(".")));
+        Includers.push_back(std::make_pair(FileEnt, *FileMgr.getDirectory(".")));
     } else {
       Includers.push_back(std::make_pair(FileEnt, FileEnt->getDir()));
     }
@@ -1153,12 +1154,6 @@ void Preprocessor::HandleLineDirective() {
   if (StrTok.is(tok::eod))
     ; // ok
   else if (StrTok.isNot(tok::string_literal)) {
-#if INTEL_CUSTOMIZATION
-    // CQ#375723. Emit a warning instead of an error.
-    if (getLangOpts().IntelCompat)
-      Diag(StrTok, diag::warn_pp_line_invalid_filename);
-    else
-#endif // INTEL_CUSTOMIZATION
     Diag(StrTok, diag::err_pp_line_invalid_filename);
     DiscardUntilEndOfDirective();
     return;
@@ -1238,10 +1233,6 @@ static bool ReadLineMarkerFlags(bool &IsFileEntry, bool &IsFileExit,
     SourceLocation IncLoc = PLoc.getIncludeLoc();
     if (IncLoc.isInvalid() ||
         SM.getDecomposedExpansionLoc(IncLoc).first != CurFileID) {
-#if INTEL_CUSTOMIZATION
-      // CQ#375723. This error message is sacrificed for icc-compatibility.
-      if (!PP.getLangOpts().IntelCompat)
-#endif // INTEL_CUSTOMIZATION
       PP.Diag(FlagTok, diag::err_pp_linemarker_invalid_pop);
       PP.DiscardUntilEndOfDirective();
       return true;
@@ -1313,12 +1304,6 @@ void Preprocessor::HandleDigitDirective(Token &DigitTok) {
     // Treat this like "#line NN", which doesn't change file characteristics.
     FileKind = SourceMgr.getFileCharacteristic(DigitTok.getLocation());
   } else if (StrTok.isNot(tok::string_literal)) {
-#if INTEL_CUSTOMIZATION
-    // CQ#375723. Emit warning instead of error.
-    if (getLangOpts().IntelCompat) {
-      Diag(StrTok, diag::warn_pp_line_invalid_filename);
-    } else
-#endif // INTEL_CUSTOMIZATION
     Diag(StrTok, diag::err_pp_linemarker_invalid_filename);
     DiscardUntilEndOfDirective();
     return;
@@ -1791,9 +1776,9 @@ Preprocessor::ImportAction Preprocessor::HandleHeaderIncludeOrImport(
       // Give the clients a chance to recover.
       SmallString<128> RecoveryPath;
       if (Callbacks->FileNotFound(Filename, RecoveryPath)) {
-        if (const DirectoryEntry *DE = FileMgr.getDirectory(RecoveryPath)) {
+        if (auto DE = FileMgr.getDirectory(RecoveryPath)) {
           // Add the recovery path to the list of search paths.
-          DirectoryLookup DL(DE, SrcMgr::C_User, false);
+          DirectoryLookup DL(*DE, SrcMgr::C_User, false);
           HeaderInfo.AddSearchPath(DL, isAngled);
 
           // Try the lookup again, skipping the cache.
@@ -2678,7 +2663,7 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
   }
   HeaderFilename += TypelibHeaderName;
 
-  const FileEntry *FE = HeaderInfo.getFileMgr().getFile(HeaderFilename,
+  llvm::ErrorOr<const FileEntry *> FE = HeaderInfo.getFileMgr().getFile(HeaderFilename,
                                                         /*OpenFile=*/true);
   if (FE) {
     CharSourceRange FilenameRange =
@@ -2691,14 +2676,14 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
       SrcMgr::CharacteristicKind FileCharacter =
         SourceMgr.getFileCharacteristic(FilenameTok.getLocation());
 
-      FileCharacter = std::max(HeaderInfo.getFileDirFlavor(FE), FileCharacter);
+      FileCharacter = std::max(HeaderInfo.getFileDirFlavor(*FE), FileCharacter);
 
       // Notify the callback object that we've seen an inclusion directive.
       Callbacks->InclusionDirective(HashLoc, ImportTok, HeaderFilename.c_str(),
-                                    false, FilenameRange, FE, "", "", nullptr,
+                                    false, FilenameRange, *FE, "", "", nullptr,
                                     FileCharacter);
     }
-    FileID FID = SourceMgr.createFileID(FE, FilenameTok.getLocation(), SrcMgr::C_System);
+    FileID FID = SourceMgr.createFileID(*FE, FilenameTok.getLocation(), SrcMgr::C_System);
     EnterSourceFile(FID, /*Dir=*/nullptr, FilenameTok.getLocation());
   }
 }
@@ -2907,6 +2892,13 @@ MacroInfo *Preprocessor::ReadOptionalMacroParameterListAndBody(
   Token Tok;
   LexUnexpandedToken(Tok);
 
+  // Ensure we consume the rest of the macro body if errors occur.
+  auto _ = llvm::make_scope_exit([&]() {
+    // The flag indicates if we are still waiting for 'eod'.
+    if (CurLexer->ParsingPreprocessorDirective)
+      DiscardUntilEndOfDirective();
+  });
+
   // Used to un-poison and then re-poison identifiers of the __VA_ARGS__ ilk
   // within their appropriate context.
   VariadicMacroScopeGuard VariadicMacroScopeGuard(*this);
@@ -2928,12 +2920,8 @@ MacroInfo *Preprocessor::ReadOptionalMacroParameterListAndBody(
   } else if (Tok.is(tok::l_paren)) {
     // This is a function-like macro definition.  Read the argument list.
     MI->setIsFunctionLike();
-    if (ReadMacroParameterList(MI, LastTok)) {
-      // Throw away the rest of the line.
-      if (CurPPLexer->ParsingPreprocessorDirective)
-        DiscardUntilEndOfDirective();
+    if (ReadMacroParameterList(MI, LastTok))
       return nullptr;
-    }
 
     // If this is a definition of an ISO C/C++ variadic function-like macro (not
     // using the GNU named varargs extension) inform our variadic scope guard

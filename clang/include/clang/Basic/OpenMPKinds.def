@@ -316,6 +316,9 @@ OPENMP_DIRECTIVE_SPIR_SUBSET(for)
 OPENMP_DIRECTIVE_SPIR_SUBSET(for_simd)
 OPENMP_DIRECTIVE_SPIR_SUBSET(parallel_for_simd)
 OPENMP_DIRECTIVE_SPIR_SUBSET(distribute_parallel_for)
+OPENMP_DIRECTIVE_SPIR_SUBSET(parallel_sections)
+OPENMP_DIRECTIVE_SPIR_SUBSET(sections)
+OPENMP_DIRECTIVE_SPIR_SUBSET(section)
 #endif // INTEL_CUSTOMIZATION
 
 // OpenMP clauses.
@@ -604,6 +607,7 @@ OPENMP_ALLOCATE_CLAUSE(allocator)
 #if INTEL_CUSTOMIZATION
 // Clauses allowed for OpenMP directive 'target variant dispatch'.
 OPENMP_TARGET_VARIANT_DISPATCH_CLAUSE(device)
+OPENMP_TARGET_VARIANT_DISPATCH_CLAUSE(use_device_ptr)
 #endif // INTEL_CUSTOMIZATION
 
 // Modifiers for 'atomic_default_mem_order' clause.

@@ -22,7 +22,7 @@
 .DS_store
 
 # Nested build directory
-/build
+/build*
 
 #==============================================================================#
 # Explicit files to ignore (only matches one).
@@ -46,6 +46,7 @@ autoconf/autom4te.cache
 # CLion project configuration
 /.idea
 # External projects
+/external
 /llvm-spirv
 /ocl-cclang
 /opencl

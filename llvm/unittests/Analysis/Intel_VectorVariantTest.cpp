@@ -54,4 +54,19 @@ TEST(VectorManglingTest, Alias) {
   EXPECT_TRUE(VV.getName() == "bar");
 }
 
+TEST(VectorManglingTest, MissingValues) {
+  std::string FuncName = "_ZGVxN0v_";
+  VectorVariant VV(FuncName);
+
+  EXPECT_TRUE(VV.getISA() == VectorVariant::ISAClass::OTHER);
+  EXPECT_EQ(VV.getVlen(), 0u);
+
+  EXPECT_TRUE(VV.encodeISAClass(VectorVariant::ISAClass::OTHER) == 'x');
+  VV.setISA(VectorVariant::ISAClass::YMM1);
+  VV.setVlen(8);
+
+  EXPECT_TRUE(VV.getISA() == VectorVariant::ISAClass::YMM1);
+  EXPECT_EQ(VV.getVlen(), 8u);
+}
+
 } // anonymous namespace

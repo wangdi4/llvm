@@ -26,7 +26,7 @@ namespace llvm {
 
 namespace vpo {
 
-class VPVLSClientMemrefHIR : public VPVLSClientMemref {
+class VPVLSClientMemrefHIR final : public VPVLSClientMemref {
 private:
   /// That is necessary to keep information about parent loop of the current
   /// memory reference, because whether it can or cannot be moved depends on
@@ -47,17 +47,17 @@ public:
                           /*VLSA=*/nullptr),
         LoopLevel(LoopLevel), DDA(DDA), Ref(Ref) {}
 
-  virtual ~VPVLSClientMemrefHIR() {}
-
-  virtual bool isAConstDistanceFrom(const OVLSMemref &From,
-                                    int64_t *Dist) final {
+  Optional<int64_t> getConstDistanceFrom(const OVLSMemref &From) override {
     auto FromMem = dyn_cast<const VPVLSClientMemrefHIR>(&From);
     assert(FromMem && "Invalid OVLSMemref");
-    return DDRefUtils::getConstByteDistance(getRegDDRef(),
-                                            FromMem->getRegDDRef(), Dist);
+    int64_t Dist;
+    if (DDRefUtils::getConstByteDistance(getRegDDRef(), FromMem->getRegDDRef(),
+                                         &Dist))
+      return Dist;
+    return None;
   }
 
-  virtual bool canMoveTo(const OVLSMemref &To) final {
+  bool canMoveTo(const OVLSMemref &To) override {
     const VPVLSClientMemrefHIR *ToHIR = cast<const VPVLSClientMemrefHIR>(&To);
     const RegDDRef *ToRef = ToHIR->getRegDDRef();
     const HLDDNode *ToDDNode = ToRef->getHLDDNode();
@@ -145,11 +145,14 @@ public:
     return true;
   }
 
-  virtual bool hasAConstStride(int64_t *Stride) const final {
-    return getRegDDRef()->getConstStrideAtLevel(getLoopLevel(), Stride);
+  Optional<int64_t> getConstStride() const override {
+    int64_t Stride;
+    if (getRegDDRef()->getConstStrideAtLevel(getLoopLevel(), &Stride))
+      return Stride;
+    return None;
   }
 
-  virtual unsigned getLocation() const final { return 0; }
+  unsigned getLocation() const override { return 0; }
 
   static bool classof(const OVLSMemref *Memref) {
     return Memref->getKind() == VLSK_VPlanHIRVLSClientMemref;

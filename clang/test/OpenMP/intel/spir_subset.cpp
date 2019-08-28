@@ -218,11 +218,14 @@ void foo1()
   #pragma omp distribute parallel for
   for (i=0;i<16;++i) {}
 
-  // Test warnings for some unsupported directives.
-
-  //expected-warning@+2 {{OpenMP directive 'sections' ignored for target}}
-  //expected-warning@+3 {{OpenMP directive 'section' ignored for}}
   #pragma omp sections
+  {
+    #pragma omp section
+    {
+    }
+  }
+
+  #pragma omp parallel sections
   {
     #pragma omp section
     {

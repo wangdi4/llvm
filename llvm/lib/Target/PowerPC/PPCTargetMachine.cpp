@@ -185,10 +185,11 @@ static std::string computeFSAdditions(StringRef FS, CodeGenOpt::Level OL,
 }
 
 static std::unique_ptr<TargetLoweringObjectFile> createTLOF(const Triple &TT) {
-  // If it isn't a Mach-O file then it's going to be a linux ELF
-  // object file.
   if (TT.isOSDarwin())
     return llvm::make_unique<TargetLoweringObjectFileMachO>();
+
+  if (TT.isOSAIX())
+    return llvm::make_unique<TargetLoweringObjectFileXCOFF>();
 
   return llvm::make_unique<PPC64LinuxTargetObjectFile>();
 }
@@ -248,10 +249,19 @@ static CodeModel::Model getEffectivePPCCodeModel(const Triple &TT,
       report_fatal_error("Target does not support the kernel CodeModel", false);
     return *CM;
   }
-  if (!TT.isOSDarwin() && !JIT &&
-      (TT.getArch() == Triple::ppc64 || TT.getArch() == Triple::ppc64le))
-    return CodeModel::Medium;
-  return CodeModel::Small;
+
+  if (JIT)
+    return CodeModel::Small;
+  if (TT.isOSAIX())
+    return CodeModel::Small;
+
+  assert(TT.isOSBinFormatELF() && "All remaining PPC OSes are ELF based.");
+
+  if (TT.isArch32Bit())
+    return CodeModel::Small;
+
+  assert(TT.isArch64Bit() && "Unsupported PPC architecture.");
+  return CodeModel::Medium;
 }
 
 

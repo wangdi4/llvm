@@ -1069,6 +1069,7 @@ bool VPOParoptTransform::paroptTransforms() {
     bool Changed = false;
 
     bool RemoveDirectives = false;
+    bool HandledWithoutRemovingDirectives = false;
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -1147,6 +1148,7 @@ bool VPOParoptTransform::paroptTransforms() {
             // do not remove it here, since guardSideEffects needs the
             // parallel directive to insert barriers.
             RemoveDirectives = false;
+            HandledWithoutRemovingDirectives = true;
           }
         }
         break;
@@ -1229,12 +1231,15 @@ bool VPOParoptTransform::paroptTransforms() {
                }
 #endif  // INTEL_CUSTOMIZATION
 
-            Changed |= genLoopSchedulingCode(W, IsLastVal);
+            Instruction *InsertLastIterCheckBefore = nullptr;
+            Changed |=
+                genLoopSchedulingCode(W, IsLastVal, InsertLastIterCheckBefore);
             // Privatization is enabled for both Prepare and Transform passes
             Changed |= genPrivatizationCode(W);
-            Changed |= genBarrierForFpLpAndLinears(W);
-            Changed |= genLastIterationCheck(W, IsLastVal, IfLastIterBB);
+            Changed |= genLastIterationCheck(W, IsLastVal, IfLastIterBB,
+                                             InsertLastIterCheckBefore);
             Changed |= genLinearCode(W, IfLastIterBB);
+            // Must be in this order, if vars are both FP and LP
             Changed |= genLastPrivatizationCode(W, IfLastIterBB);
             Changed |= genFirstPrivatizationCode(W);
             Changed |= genReductionCode(W);
@@ -1254,6 +1259,7 @@ bool VPOParoptTransform::paroptTransforms() {
             // do not remove it here, since guardSideEffects needs the
             // parallel directive to insert barriers.
             RemoveDirectives = false;
+            HandledWithoutRemovingDirectives = true;
           }
         }
         break;
@@ -1305,10 +1311,9 @@ bool VPOParoptTransform::paroptTransforms() {
               genTaskLoopInitCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,
                                   LBPtr, UBPtr, STPtr, LastIterGep);
           Changed |= genPrivatizationCode(W);
-          Changed |= genFirstPrivatizationCode(W);
-          Changed |= genBarrierForFpLpAndLinears(W);
           Changed |= genLastIterationCheck(W, LastIterGep, IfLastIterBB);
           Changed |= genLastPrivatizationCode(W, IfLastIterBB);
+          Changed |= genFirstPrivatizationCode(W);
           Changed |= genSharedCodeForTaskGeneric(W);
           Changed |= genRedCodeForTaskGeneric(W);
           Changed |= genTaskGenericCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,
@@ -1325,6 +1330,12 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         break;
       case WRegionNode::WRNTarget:
+        if (DisableOffload) {
+          // Ignore TARGET construct
+          LLVM_DEBUG(dbgs()<<"VPO: Ignored " << W->getName() << " construct\n");
+          RemoveDirectives = true;
+          break;
+        }
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
           // Override function linkage for the target compilation to prevent
@@ -1351,6 +1362,12 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNTargetEnterData:
       case WRegionNode::WRNTargetExitData:
       case WRegionNode::WRNTargetUpdate:
+        if (DisableOffload) {
+          // Ignore TARGET UPDATE and TARGET ENTER/EXIT DATA constructs
+          LLVM_DEBUG(dbgs()<<"VPO: Ignored " << W->getName() << " construct\n");
+          RemoveDirectives = true;
+          break;
+        }
         // These constructs do not have to be transformed during
         // the target compilation, hence, hasOffloadCompilation()
         // check below.
@@ -1375,6 +1392,12 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         break;
       case WRegionNode::WRNTargetData:
+        if (DisableOffload) {
+          // Ignore TARGET DATA construct
+          LLVM_DEBUG(dbgs()<<"VPO: Ignored " << W->getName() << " construct\n");
+          RemoveDirectives = true;
+          break;
+        }
         // This construct does not have to be transformed during
         // the target compilation, hence, hasOffloadCompilation()
         // check below.
@@ -1400,6 +1423,12 @@ bool VPOParoptTransform::paroptTransforms() {
       //    E.g., simd, taskgroup, atomic, for, sections, etc.
 
       case WRegionNode::WRNTargetVariant:
+        if (DisableOffload) {
+          // Ignore TARGET VARIANT DISPATCH construct
+          LLVM_DEBUG(dbgs()<<"VPO: Ignored " << W->getName() << " construct\n");
+          RemoveDirectives = true;
+          break;
+        }
         // The target variant dispatch construct does not need outlining so
         // it is codegen'ed during the Prepare phase of the HOST compilation
         if (Mode & ParPrepare) {
@@ -1528,10 +1557,12 @@ bool VPOParoptTransform::paroptTransforms() {
 
             AllocaInst *IsLastVal = nullptr;
             BasicBlock *IfLastIterBB = nullptr;
-            Changed |= genLoopSchedulingCode(W, IsLastVal);
+            Instruction *InsertLastIterCheckBefore = nullptr;
+            Changed |=
+                genLoopSchedulingCode(W, IsLastVal, InsertLastIterCheckBefore);
             Changed |= genPrivatizationCode(W);
-            Changed |= genBarrierForFpLpAndLinears(W);
-            Changed |= genLastIterationCheck(W, IsLastVal, IfLastIterBB);
+            Changed |= genLastIterationCheck(W, IsLastVal, IfLastIterBB,
+                                             InsertLastIterCheckBefore);
             Changed |= genLinearCode(W, IfLastIterBB);
             Changed |= genLastPrivatizationCode(W, IfLastIterBB);
             Changed |= genFirstPrivatizationCode(W);
@@ -1657,6 +1688,19 @@ bool VPOParoptTransform::paroptTransforms() {
       default:
         break;
       } // switch
+    }
+
+    // Emit opt-report remarks for handled/ignored constructs.
+    if (RemoveDirectives || HandledWithoutRemovingDirectives) {
+      if (Changed) {
+        OptimizationRemark R("openmp", "Region", W->getEntryDirective());
+        R << ore::NV("Construct", W->getName()) << " construct transformed";
+        ORE.emit(R);
+      } else {
+        OptimizationRemarkMissed R("openmp", "Region", W->getEntryDirective());
+        R << ore::NV("Construct", W->getName()) << " construct ignored";
+        ORE.emit(R);
+      }
     }
 
     // Remove calls to directive intrinsics since the LLVM back end does not
@@ -1992,22 +2036,16 @@ bool VPOParoptTransform::genReductionScalarFini(
     auto *TempRedLoad = Rhs2->clone();
     TempRedLoad->insertAfter(Rhs2);
     TempRedLoad->takeName(Rhs2);
-    auto HRCall = VPOParoptUtils::genSPIRVHorizontalReduction(
+    auto HRed = VPOParoptUtils::genSPIRVHorizontalReduction(
         RedI, ScalarTy, TempRedLoad, spirv::Scope::Subgroup);
 
-    if (!HRCall)
+    if (HRed)
+      Rhs2->replaceAllUsesWith(HRed);
+    else
       LLVM_DEBUG(dbgs() << __FUNCTION__ <<
                  ": SPIRV horizontal reduction is not available "
                  "for critical section reduction: " << RedI->getOpName() <<
                  " with type " << *ScalarTy << "\n");
-    else {
-      LLVM_DEBUG(dbgs() << __FUNCTION__ <<
-                 ": SPIRV horizontal reduction is used "
-                 "for critical section reduction: " <<
-                 HRCall->getCalledFunction()->getName() << "\n");
-
-      Rhs2->replaceAllUsesWith(HRCall);
-    }
 
     OptimizationRemarkMissed R(DEBUG_TYPE, "ReductionAtomic", Tmp0);
     R << ore::NV("Kind", RedI->getOpName()) << " reduction update of type " <<
@@ -2268,9 +2306,10 @@ bool VPOParoptTransform::genRedAggregateInitOrFini(WRegionNode *W,
 void VPOParoptTransform::genFprivInit(FirstprivateItem *FprivI,
                                       Instruction *InsertPt) {
   auto *NewV = FprivI->getNew();
-  // NewV is either AllocaInst or an AddrSpaceCastInst of AllocaInst.
-  assert(GeneralUtils::isOMPItemLocalVAR(NewV) &&
-         "genFprivInit: Expect non-empty optionally casted alloca instruction");
+  // NewV is either AllocaInst, GEP, or an AddrSpaceCastInst of AllocaInst.
+  assert((GeneralUtils::isOMPItemLocalVAR(NewV) ||
+          isa<GetElementPtrInst>(FprivI->getNew())) &&
+         "genFprivInit: Expect valid memory pointer instruction");
   VPOParoptUtils::genCopyByAddr(NewV, FprivI->getOrig(), InsertPt,
                                 FprivI->getCopyConstructor(),
                                 FprivI->getIsByRef());
@@ -3042,6 +3081,8 @@ void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
 //  |  %2 = load i16, i16* @y           |                            ; (3)
 //  |  store i16 %2, i16* %linear.start |                            ; (4)
 //  +----------------+------------------+
+//                    |
+//           __kmpc_barrier(...)    ; inserted by genBarrierForFpLpAndLinears()
 //                   |
 //         __kmpc_static_init(...)
 //                   |
@@ -3058,8 +3099,6 @@ void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
 //  +-----------------+-----------------+
 //                    |
 //         __kmpc_static_fini(...)
-//                    |
-//           __kmpc_barrier(...)    ; inserted by genBarrierForFpLpAndLinears()
 //                    |
 //               if(%is_last)       ; inserted by genLastIterationCheck()
 //                    |   \
@@ -3215,7 +3254,6 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
     // Force BBSet rebuild due to the entry block change.
     W->populateBBSet(true);
     BasicBlock *EntryBB = W->getEntryBBlock();
-    BasicBlock *ExitBB = W->getExitBBlock();
     BasicBlock *PrivInitEntryBB = nullptr;
     bool ForTask = W->getIsTask();
 
@@ -3251,40 +3289,37 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
       LastprivateItem *LprivI = FprivI->getInLastprivate();
 
       if (!LprivI) {
+        // Only make new storage if !LprivI.
+        // If the item was lastprivate, we should use the lastprivate
+        // new version as the item's storage.
         Instruction *InsertPt = EntryBB->getFirstNonPHI();
-        NewPrivInst = genPrivatizationAlloca(FprivI, InsertPt, ".fpriv");
-        FprivI->setNewOnTaskStack(NewPrivInst);
-
+        if (!ForTask) {
+          NewPrivInst = genPrivatizationAlloca(FprivI, InsertPt, ".fpriv");
+          FprivI->setNewOnTaskStack(NewPrivInst);
+        } else
+          NewPrivInst = FprivI->getNew(); // Use the task thunk directly
         Value *ReplacementVal = getClauseItemReplacementValue(FprivI, InsertPt);
         genPrivatizationReplacement(W, Orig, ReplacementVal);
-
-        // For task firstprivate, copy the data from the task entry object
-        // to the task's local stack copy, and back again
-        // when the task region ends.
-
-        if (ForTask) {
-          Value *OutsideVal = ForTask ? FprivI->getNew() : Orig;
-          VPOParoptUtils::genCopyByAddr(
-              NewPrivInst, OutsideVal, EntryBB->getTerminator(),
-              FprivI->getCopyConstructor(), FprivI->getIsByRef());
-
-          // TODO: it is not clear why this write-out is needed.
-          //       This seems to copy data back to the task structure,
-          //       but there is no way to access this copy after the task
-          //       completes.
-          VPOParoptUtils::genCopyByAddr(
-              OutsideVal, NewPrivInst, ExitBB->getTerminator(),
-              FprivI->getCopyConstructor(), FprivI->getIsByRef());
-        }
-
         FprivI->setNew(NewPrivInst);
-      } else {
-        FprivI->setNew(LprivI->getNew());
+      } else if (!ForTask) { // && LprivI
+        // Lastprivate codegen has replaced the original var with the
+        // lastprivate new version.
+        // Parallel-for: Set up the firstprivate new version to point to the
+        // lastprivate new version. Then the copy codegen below, will
+        // copy the original var's value to that location.
+        // We don't do this for tasks because the firstprivate new version
+        // already has the correct data (it points to the incoming task thunk).
         LLVM_DEBUG(dbgs() << "\n  genFirstPrivatizationCode: (" << *Orig
                           << ") is also lastprivate\n");
+        FprivI->setNew(LprivI->getNew());
       }
 
       if (!ForTask) {
+        // Copy the original data to the firstprivate new version.
+        // Note: We must run lastprivate codegen before firstprivate codegen.
+        // Otherwise the lastprivate var replacement will mess up the
+        // copy instructions.
+
         createEmptyPrvInitBB(W, PrivInitEntryBB);
         if (!NewPrivInst ||
             // Note that NewPrivInst will be nullptr, if the variable
@@ -3292,6 +3327,10 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
             FprivI->getIsByRef() ||
             !NewPrivInst->getType()->isPointerTy() ||
             !NewPrivInst->getType()->getPointerElementType()->isPointerTy())
+          // Copy the firstprivate data from the original version to the
+          // private copy. In the case of lastprivate, this is the lastprivate
+          // copy. The lastprivate codegen will replace all original vars
+          // with the lastprivate copy.
           genFprivInit(FprivI, PrivInitEntryBB->getTerminator());
         else {
           // If the firstprivate() item is a pointer to pointer,
@@ -3321,6 +3360,18 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
           FprivI->setOrig(Load);
         }
       }
+      else if (LprivI) { // && ForTask
+        // For taskloop, the firstprivate new version already contains
+        // the correct data (it points to the task thunk). Copy the
+        // data to the lastprivate new version, which is the version used
+        // inside the taskloop.
+        createEmptyPrvInitBB(W, PrivInitEntryBB);
+        VPOParoptUtils::genCopyByAddr(LprivI->getNew(), FprivI->getNew(),
+                                      PrivInitEntryBB->getTerminator(),
+                                      nullptr,
+                                      FprivI->getIsByRef());
+      }
+
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": firstprivatized '";
                  Orig->printAsOperand(dbgs()); dbgs() << "'\n");
     } // for
@@ -4656,8 +4707,9 @@ void VPOParoptTransform::replaceUseWithinRegion(WRegionNode *W, Value *OldV,
   }
 }
 
-bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
-                                               AllocaInst *&IsLastVal) {
+bool VPOParoptTransform::genLoopSchedulingCode(
+    WRegionNode *W, AllocaInst *&IsLastVal,
+    Instruction *&InsertLastIterCheckBeforeOut) {
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genLoopSchedulingCode\n");
 
   assert(W->getIsOmpLoop() && "genLoopSchedulingCode: not a loop-type WRN");
@@ -4951,6 +5003,9 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
                                             IsUnsigned, PHTerm);
   }
 
+  // Add implicit barrier for FP+LP/Linear variables before the init call.
+  genBarrierForFpLpAndLinears(W, KmpcInitCI);
+
   // Insert doacross_init call for ordered(n)
   if (IsDoacrossLoop)
     VPOParoptUtils::genKmpcDoacrossInit(W, IdentTy, LoadTid, KmpcInitCI,
@@ -5115,7 +5170,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     //        |  i = phi(lb,i')     |          |
     //        |    /  |  ...        |          |
     //        |   /   |  ...        |          |
-    //        |  |    |             |          |
+    //        |  |    |             |  <Lastpivate copyout>
     //        |   \   |             |          |
     //        |    i' = i + 1 ------+          |
     //        |     i' < ub                    |
@@ -5163,6 +5218,10 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
 
     TermInst = LoopRegionExitBB->getTerminator();
     TermInst->setSuccessor(0, DispatchHeaderBB);
+
+    // To support non-monotonic scheduling, lastprivate copyout should happen
+    // before the jump back to the dispatch_next call.
+    InsertLastIterCheckBeforeOut = TermInst;
 
     // Update Dispatch Header BB Branch instruction
     TermInst = DispatchHeaderBB->getTerminator();
@@ -6036,7 +6095,12 @@ bool VPOParoptTransform::genCriticalCode(WRNCriticalNode *CriticalNode) {
 //
 //  The barrier (2) is needed to prevent a race between (1) and (3), which
 //  read/write to/from @x.
-bool VPOParoptTransform::genBarrierForFpLpAndLinears(WRegionNode *W) {
+//
+//  For supporting non-monotonic scheduling of loops, the barrier needs to
+//  be inserted before the init call shown , which is done by passing in
+//  the insert point as InsertBefore.
+bool VPOParoptTransform::genBarrierForFpLpAndLinears(
+    WRegionNode *W, Instruction *InsertBefore) {
 
   // A barrier is needed for capturing the initial value of linear
   // variables.
@@ -6062,7 +6126,7 @@ bool VPOParoptTransform::genBarrierForFpLpAndLinears(WRegionNode *W) {
       << __FUNCTION__
       << ": Emitting implicit barrier for FP-LP/Linear clause operands.\n");
 
-  genBarrier(W, false); // Implicit Barrier
+  genBarrier(W, false /*IsExplicit*/, false /*IsTargetSPIRV*/, InsertBefore);
 
   W->resetBBSet(); // CFG changed; clear BBSet
   return true;
@@ -6092,8 +6156,9 @@ bool VPOParoptTransform::genBarrierForFpLpAndLinears(WRegionNode *W) {
 // exit.BB:                 |   exit.BB:
 // llvm.region.exit(...)    |   llvm.region.exit(...)
 //                          |
-bool VPOParoptTransform::genLastIterationCheck(WRegionNode *W, Value *IsLastVal,
-                                               BasicBlock *&IfLastIterOut) {
+bool VPOParoptTransform::genLastIterationCheck(
+    WRegionNode *W, Value *IsLastVal, BasicBlock *&IfLastIterOut,
+    Instruction *InsertBefore) {
 
   // No need to emit the branch if W doesn't have any linear or lastprivate var.
   if ((!W->canHaveLastprivate() || (W->getLpriv()).empty()) &&
@@ -6102,25 +6167,27 @@ bool VPOParoptTransform::genLastIterationCheck(WRegionNode *W, Value *IsLastVal,
 
   assert(IsLastVal && "genLastIterationCheck: IsLastVal is null.");
 
-  // First, create an empty predecessor BBlock for ExitBB of the WRegion.  (3)
-  BasicBlock *ExitBBPredecessor = nullptr;
-  createEmptyPrivFiniBB(W, ExitBBPredecessor);
-  assert(ExitBBPredecessor && "genLoopLastIterationCheck: Couldn't create "
-                              "empty BBlock before the exit BB.");
+  if (!InsertBefore) {
+    BasicBlock *ExitBBPredecessor = nullptr;
+    // First, create an empty predecessor BBlock for ExitBB of the WRegion.  (3)
+    createEmptyPrivFiniBB(W, ExitBBPredecessor);
+    assert(ExitBBPredecessor && "genLoopLastIterationCheck: Couldn't create "
+                                "empty BBlock before the exit BB.");
+    InsertBefore = ExitBBPredecessor->getTerminator();
+  }
 
-  // Next, we insert the branching code in the newly created BBlock.
-  Instruction *BranchInsertPt = ExitBBPredecessor->getTerminator();
-  IRBuilder<> Builder(BranchInsertPt);
+  // Next, we insert the branching code before InsertBefore.
+  IRBuilder<> Builder(InsertBefore);
 
   LoadInst *LastLoad = Builder.CreateLoad(IsLastVal);                   // (1)
   ConstantInt *ValueZero =
       ConstantInt::getSigned(Type::getInt32Ty(F->getContext()), 0);
   Value *LastCompare = Builder.CreateICmpNE(LastLoad, ValueZero);       // (2)
 
-  Instruction *Term = SplitBlockAndInsertIfThen(LastCompare, BranchInsertPt,
-                                                   false, nullptr, DT, LI);
+  Instruction *Term = SplitBlockAndInsertIfThen(LastCompare, InsertBefore,
+                                                false, nullptr, DT, LI);
   Term->getParent()->setName("last.then");
-  ExitBBPredecessor->getTerminator()->getSuccessor(1)->setName("last.done");
+  InsertBefore->getParent()->setName("last.done");
 
   IfLastIterOut = Term->getParent();
 
@@ -6132,25 +6199,32 @@ bool VPOParoptTransform::genLastIterationCheck(WRegionNode *W, Value *IsLastVal,
   return true;
 }
 
-// Insert a call to __kmpc_barrier() at the end of the construct
+// Insert a call to __kmpc_barrier() at the end of the construct (or before
+// InsertBefore).
 bool VPOParoptTransform::genBarrier(WRegionNode *W, bool IsExplicit,
-                                    bool IsTargetSPIRV) {
+                                    bool IsTargetSPIRV,
+                                    Instruction *InsertBefore) {
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genBarrier [explicit="
                     << IsExplicit << "]\n");
 
-  // Create a new BB split from W's ExitBB to be used as InsertPt.
-  // Reuse the util that does this for Reduction and Lastprivate fini code.
-  BasicBlock *NewBB = nullptr;
-  createEmptyPrivFiniBB(W, NewBB);
-  Instruction *InsertPt = NewBB->getTerminator();
+  bool InsertPtProvided = (InsertBefore != nullptr);
 
-  VPOParoptUtils::genKmpcBarrier(W, TidPtrHolder, InsertPt, IdentTy, IsExplicit,
-                                 IsTargetSPIRV);
+  if (!InsertPtProvided) {
+    // Create a new BB split from W's ExitBB to be used as InsertPt.
+    // Reuse the util that does this for Reduction and Lastprivate fini code.
+    BasicBlock *NewBB = nullptr;
+    createEmptyPrivFiniBB(W, NewBB);
+    InsertBefore = NewBB->getTerminator();
+  }
+
+  VPOParoptUtils::genKmpcBarrier(W, TidPtrHolder, InsertBefore, IdentTy,
+                                 IsExplicit, IsTargetSPIRV);
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genBarrier\n");
 
-  W->resetBBSet(); // CFG changed; clear BBSet
+  if (!InsertPtProvided)
+    W->resetBBSet(); // CFG changed because of NewBB; clear BBSet
   return true;
 }
 
@@ -6802,7 +6876,6 @@ bool VPOParoptTransform::genCopyPrivateCode(WRegionNode *W,
   W->resetBBSet(); // CFG changed; clear BBSet
   return true;
 }
-
 // Generate the helper function for copying the copyprivate data.
 // TODO: nonPOD support
 Function *VPOParoptTransform::genCopyPrivateFunc(WRegionNode *W,

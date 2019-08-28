@@ -233,5 +233,5 @@ attributes #6 = { uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disab
 ; CHECK-NEXT: }
 
 ; Check that the metadata was added
-; CHECK: define linkonce_odr hidden zeroext i1 @_ZN7Derived3fooEi(%class.Derived* %this, i32 %a) unnamed_addr #5 comdat align 2 !_Intel.Devirt.Target
-; CHECK: define linkonce_odr hidden zeroext i1 @_ZN8Derived23fooEi(%class.Derived2* %this, i32 %a) unnamed_addr #5 comdat align 2 !_Intel.Devirt.Target
+; CHECK: define linkonce_odr hidden zeroext i1 @_ZN7Derived3fooEi(%class.Derived* %this, i32 %a) unnamed_addr #{{.*}} comdat align 2 !_Intel.Devirt.Target
+; CHECK: define linkonce_odr hidden zeroext i1 @_ZN8Derived23fooEi(%class.Derived2* %this, i32 %a) unnamed_addr #{{.*}} comdat align 2 !_Intel.Devirt.Target

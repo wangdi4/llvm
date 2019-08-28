@@ -316,6 +316,38 @@ public:
       }
   }
 
+  // Indicate that the CallSite whose Instruction is 'I' has been
+  // eliminated as dead code.
+  void removeCallSiteReference(Instruction &I) {
+    if (ActiveInlineInstruction != &I) {
+      InlineReportInstructionCallSiteMap::const_iterator MapIt;
+      MapIt = IRInstructionCallSiteMap.find(&I);
+      if (MapIt != IRInstructionCallSiteMap.end()) {
+        InlineReportCallSite *IRCS = MapIt->second;
+        IRInstructionCallSiteMap.erase(MapIt);
+        IRCS->setReason(InlineReportTypes::NinlrDeleted);
+      }
+    }
+    // If necessary, remove any reference in the ActiveInlinedCalls
+    for (unsigned II = 0, E = ActiveInlinedCalls.size(); II < E; ++II)
+      if (ActiveInlinedCalls[II] == &I)
+        ActiveInlinedCalls[II] = nullptr;
+  }
+
+  // Indicate that the Function 'F' has been eliminated as a dead static
+  // function.
+  void removeFunctionReference(Function &F) {
+    InlineReportFunctionMap::iterator MapIt;
+    MapIt = IRFunctionMap.find(&F);
+    if (MapIt != IRFunctionMap.end()) {
+      InlineReportFunction *IRF = MapIt->second;
+      setDead(&F);
+      IRF->setLinkageChar(&F);
+      IRFunctionMap.erase(MapIt);
+      IRDeadFunctionVector.push_back(IRF);
+    }
+  }
+
 private:
   /// \brief The Level is specified by the option -inline-report=N.
   /// See llvm/lib/Transforms/IPO/Inliner.cpp for details on Level.
@@ -368,32 +400,12 @@ private:
         /// \brief Indicate in the inline report that the call site
         /// corresponding to the Value has been deleted
         Instruction *I = cast<Instruction>(getValPtr());
-        if (IR->ActiveInlineInstruction != I) {
-          InlineReportInstructionCallSiteMap::const_iterator MapIt;
-          MapIt = IR->IRInstructionCallSiteMap.find(I);
-          if (MapIt != IR->IRInstructionCallSiteMap.end()) {
-            InlineReportCallSite *IRCS = MapIt->second;
-            IR->IRInstructionCallSiteMap.erase(MapIt);
-            IRCS->setReason(InlineReportTypes::NinlrDeleted);
-          }
-        }
-        // If necessary, remove any reference in the ActiveInlinedCalls
-        for (unsigned II = 0, E = IR->ActiveInlinedCalls.size(); II < E; ++II)
-          if (IR->ActiveInlinedCalls[II] == I)
-            IR->ActiveInlinedCalls[II] = nullptr;
+        IR->removeCallSiteReference(*I);
       } else if (isa<Function>(getValPtr())) {
         /// \brief Indicate in the inline report that the function
         /// corresponding to the Value has been deleted
         Function *F = cast<Function>(getValPtr());
-        InlineReportFunctionMap::iterator MapIt;
-        MapIt = IR->IRFunctionMap.find(F);
-        if (MapIt != IR->IRFunctionMap.end()) {
-          InlineReportFunction *IRF = MapIt->second;
-          IR->setDead(F);
-          IRF->setLinkageChar(F);
-          IR->IRFunctionMap.erase(MapIt);
-          IR->IRDeadFunctionVector.push_back(IRF);
-        }
+        IR->removeFunctionReference(*F);
       }
       setValPtr(nullptr);
     }

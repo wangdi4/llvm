@@ -1482,6 +1482,13 @@ generated when a function or its return type is marked with ``[[nodiscard]]``
 potentially-evaluated discarded-value expression that is not explicitly cast to
 `void`.
 
+A string literal may optionally be provided to the attribute, which will be
+reproduced in any resulting diagnostics. Redeclarations using different forms
+of the attribute (with or without the string literal or with different string
+literal contents) are allowed. If there are redeclarations of the entity with
+differing string literals, it is unspecified which one will be used by Clang
+in any resulting diagnostics.
+
 .. code-block: c++
   struct [[nodiscard]] error_info { /*...*/ };
   error_info enable_missile_safety_mode();
@@ -1493,6 +1500,33 @@ potentially-evaluated discarded-value expression that is not explicitly cast to
   }
   error_info &foo();
   void f() { foo(); } // Does not diagnose, error_info is a reference.
+
+Additionally, discarded temporaries resulting from a call to a constructor
+marked with ``[[nodiscard]]`` or a constructor of a type marked
+``[[nodiscard]]`` will also diagnose. This also applies to type conversions that
+use the annotated ``[[nodiscard]]`` constructor or result in an annotated type.
+
+.. code-block: c++
+  struct [[nodiscard]] marked_type {/*..*/ };
+  struct marked_ctor {
+    [[nodiscard]] marked_ctor();
+    marked_ctor(int);
+  };
+
+  struct S {
+    operator marked_type() const;
+    [[nodiscard]] operator int() const;
+  };
+
+  void usages() {
+    marked_type(); // diagnoses.
+    marked_ctor(); // diagnoses.
+    marked_ctor(3); // Does not diagnose, int constructor isn't marked nodiscard.
+
+    S s;
+    static_cast<marked_type>(s); // diagnoses
+    (int)s; // diagnoses
+  }
   }];
 }
 
@@ -1759,6 +1793,40 @@ threads or loop iterations.
   }];
 }
 
+def IntelFPGAMergeAttrDocs : Documentation {
+  let Category = DocCatVariable;
+  let Heading = "merge (IntelFPGA)";
+  let Content = [{
+This attribute may be attached to a variable or struct member declaration and
+instructs the backend to merge the memories used to implement any variable or
+struct members that are annotated with this attribute and the same first
+argument. The second argument indicates if the memories should be merged in a
+depth-wise or width-wise manner.
+  }];
+}
+
+def IntelFPGAMaxReplicatesAttrDocs : Documentation {
+  let Category = DocCatVariable;
+  let Heading = "max_replicates (IntelFPGA)";
+  let Content = [{
+This attribute may be attached to a variable or struct member declaration and
+instructs the backend to replicate the memory generated for the variable or
+struct member no more than the specified maximum number of times to enable
+simultaneous accesses from different load/store sites in the program.
+  }];
+}
+
+def IntelFPGASimpleDualPortAttrDocs : Documentation {
+  let Category = DocCatVariable;
+  let Heading = "simple_dual_port (IntelFPGA)";
+  let Content = [{
+This attribute may be attached to a variable or struct member declaration and
+instructs the backend to implement the variable or struct member in a memory
+with simple dual port configuration (no memory port services both stores and
+loads).
+  }];
+}
+
 def SYCLIntelFPGAIVDepAttrDocs : Documentation {
   let Category = DocCatVariable;
   let Heading = "ivdep";
@@ -1785,8 +1853,29 @@ def SYCLIntelFPGAMaxConcurrencyAttrDocs : Documentation {
   let Heading = "max_concurrency";
   let Content = [{
 This attribute applies to a loop. Indicates that the loop should allow no more
-than N threads or iterations to execute it simultaneously. N must be a positive
-integer. Cannot be applied multiple times to the same loop.
+than N threads or iterations to execute it simultaneously. N must be a non
+negative integer. '0' indicates the max_concurrency case to be unbounded. Cannot
+be applied multiple times to the same loop.
+  }];
+}
+
+def SYCLDeviceIndirectlyCallableDocs : Documentation {
+  let Category = DocCatFunction;
+  let Heading = "intel::device_indirectly_callable";
+  let Content = [{
+This attribute can only be applied to functions and indicates that the
+function must be treated as a device function and must be emitted even if it has
+no direct uses from other SYCL device functions. However, it cannot be applied
+to functions marked as 'static', functions declared within an anonymous
+namespace or class member functions.
+
+It also means that function should be available externally and
+cannot be optimized out due to reachability analysis or by any other
+optimization.
+
+This attribute allows to pass name and address of the function to a special
+``cl::sycl::intel::get_device_func_ptr`` API call which extracts the device
+function pointer for the specified function.
   }];
 }
 
@@ -2287,6 +2376,18 @@ Use ``__attribute__((no_sanitize_memory))`` on a function declaration to
 specify that checks for uninitialized memory should not be inserted
 (e.g. by MemorySanitizer). The function may still be instrumented by the tool
 to avoid false positives in other places.
+  }];
+}
+
+def CFICanonicalJumpTableDocs : Documentation {
+  let Category = DocCatFunction;
+  let Heading = "cfi_canonical_jump_table";
+  let Content = [{
+.. _langext-cfi_canonical_jump_table:
+
+Use ``__attribute__((cfi_canonical_jump_table))`` on a function declaration to
+make the function's CFI jump table canonical. See :ref:`the CFI documentation
+<cfi-canonical-jump-tables>` for more details.
   }];
 }
 
@@ -2812,9 +2913,10 @@ def LoopHintDocs : Documentation {
   let Content = [{
 The ``#pragma clang loop`` directive allows loop optimization hints to be
 specified for the subsequent loop. The directive allows pipelining to be
-disabled, or vectorization, interleaving, and unrolling to be enabled or disabled.
-Vector width, interleave count, unrolling count, and the initiation interval
-for pipelining can be explicitly specified. See `language extensions
+disabled, or vectorization, vector predication, interleaving, and unrolling to
+be enabled or disabled. Vector width, vector predication, interleave count,
+unrolling count, and the initiation interval for pipelining can be explicitly
+specified. See `language extensions
 <http://clang.llvm.org/docs/LanguageExtensions.html#extensions-for-loop-hint-optimizations>`_
 for details.
   }];
@@ -3023,6 +3125,7 @@ More details can be found in the OpenCL C language Spec v2.0, Section 6.5.
 
 def OpenCLAddressSpaceGenericDocs : Documentation {
   let Category = DocOpenCLAddressSpaces;
+  let Heading = "__generic, generic, ocl_generic (OpenCL)";
   let Content = [{
 The generic address space attribute is only available with OpenCL v2.0 and later.
 It can be used with pointer types. Variables in global and local scope and
@@ -3035,6 +3138,7 @@ spaces.
 
 def OpenCLAddressSpaceConstantDocs : Documentation {
   let Category = DocOpenCLAddressSpaces;
+  let Heading = "__constant, constant, ocl_constant (OpenCL)";
   let Content = [{
 The constant address space attribute signals that an object is located in
 a constant (non-modifiable) memory region. It is available to all work items.
@@ -3046,6 +3150,7 @@ have an initializer.
 
 def OpenCLAddressSpaceGlobalDocs : Documentation {
   let Category = DocOpenCLAddressSpaces;
+  let Heading = "__global, global, ocl_global (OpenCL)";
   let Content = [{
 The global address space attribute specifies that an object is allocated in
 global memory, which is accessible by all work items. The content stored in this
@@ -3058,6 +3163,7 @@ scope) variables and static local variable as well.
 
 def OpenCLAddressSpaceLocalDocs : Documentation {
   let Category = DocOpenCLAddressSpaces;
+  let Heading = "__local, local, ocl_local (OpenCL)";
   let Content = [{
 The local address space specifies that an object is allocated in the local (work
 group) memory area, which is accessible to all work items in the same work
@@ -3070,6 +3176,7 @@ space are allowed. Local address space variables cannot have an initializer.
 
 def OpenCLAddressSpacePrivateDocs : Documentation {
   let Category = DocOpenCLAddressSpaces;
+  let Heading = "__private, private, ocl_private (OpenCL)";
   let Content = [{
 The private address space specifies that an object is allocated in the private
 (work item) memory. Other work items cannot access the same memory area and its
@@ -4320,4 +4427,72 @@ be accessed on both device side and host side. It has external linkage and is
 not initialized on device side. It has internal linkage and is initialized by
 the initializer on host side.
   }];
+}
+
+def LifetimeOwnerDocs : Documentation {
+  let Category = DocCatDecl;
+  let Content = [{
+.. Note:: This attribute is experimental and its effect on analysis is subject to change in
+  a future version of clang.
+
+The attribute ``[[gsl::Owner(T)]]`` applies to structs and classes that own an
+object of type ``T``:
+
+.. code-block:: c++
+
+  class [[gsl::Owner(int)]] IntOwner {
+  private:
+    int value;
+  public:
+    int *getInt() { return &value; }
+  };
+
+The argument ``T`` is optional and is ignored.
+This attribute may be used by analysis tools and has no effect on code
+generation.
+
+See Pointer_ for an example.
+}];
+}
+
+def LifetimePointerDocs : Documentation {
+  let Category = DocCatDecl;
+  let Content = [{
+.. Note:: This attribute is experimental and its effect on analysis is subject to change in
+  a future version of clang.
+
+The attribute ``[[gsl::Pointer(T)]]`` applies to structs and classes that behave
+like pointers to an object of type ``T``:
+
+.. code-block:: c++
+
+  class [[gsl::Pointer(int)]] IntPointer {
+  private:
+    int *valuePointer;
+  public:
+    int *getInt() { return &valuePointer; }
+  };
+
+The argument ``T`` is optional and is ignored.
+This attribute may be used by analysis tools and has no effect on code
+generation.
+
+Example:
+When constructing an instance of a class annotated like this (a Pointer) from
+an instance of a class annotated with ``[[gsl::Owner]]`` (an Owner),
+then the analysis will consider the Pointer to point inside the Owner.
+When the Owner's lifetime ends, it will consider the Pointer to be dangling.
+
+.. code-block:: c++
+
+  int f() {
+    IntPointer P;
+    if (true) {
+      IntOwner O(7);
+      P = IntPointer(O); // P "points into" O
+    } // P is dangling
+    return P.get(); // error: Using a dangling Pointer.
+  }
+
+}];
 }

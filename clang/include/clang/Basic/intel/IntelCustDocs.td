@@ -71,8 +71,10 @@ def StringCharStarCatchableDocs : Documentation {
   let RegressionTest = "cfeCpp/tr38183";
   let Owner = "mprice1";
   let CompatVersions = "vs2015";
+  let Default = 0;
   let Content = [{
 Microsoft allows you to catch a string literal with catch(char \*).
+This behavior is off-by-default.
 
 .. code-block:: c++
 
@@ -163,8 +165,8 @@ behavior is off-by-default.
 def IntelTBAABFDocs : Documentation {
   let Category = DocCatIntelOptimization;
   let Option = "IntelCompat";
-  let BugTracker= "CMPLRLLVM-2066";
-  let RegressionTest = "test/CodeGen/intel/bitfield-tbaa1.c";
+  let BugTracker= "CMPLRLLVM-2066,CMPLRLLVM-4118";
+  let RegressionTest = "test/CodeGen/intel/bitfield-tbaa1.c,test/CodeGen/intel/tbaa.cpp";
   let Content = [{
 Adds tbaa metadata to improve alias analysis for bitfields.
 Optimizer team identified a problem with leela benchmark due to missing
@@ -311,10 +313,11 @@ def AllowExtraArgumentDocs : Documentation {
   let RegressionTest = "c9xcC/c9x_7_24_4_5_8_10_a,...";
   let Owner = "";
   let CompatVersions = "";
+  let Default = 0;
   let Content = [{
 Microsoft allows the call with extra arguments with warning in C. Clang and gcc emit error.
 
-The Intel compiler allows this with warning in C.
+The Intel compiler allows this with warning in C. This behavior is off-by-default.
 
 .. code-block:: c
 

@@ -27,20 +27,17 @@ catch:
   catchret from %p to label %return
 }
 
-; INTEL_CUSTOMIZATION
-; CMPLRLLVM-7519: These changes are based on a preliminary workaround.
-; When a long term fix is checked into llorg, it will take precedence.
 ; CHECK: f: # @f
 ; CHECK: pushq   %rbp
 ; CHECK: .seh_pushreg 5
-; CHECK: subq    $80, %rsp
-; CHECK: .seh_stackalloc 80
-; CHECK: leaq    80(%rsp), %rbp
-; CHECK: .seh_setframe 5, 80
+; CHECK: subq    $64, %rsp
+; CHECK: .seh_stackalloc 64
+; CHECK: leaq    64(%rsp), %rbp
+; CHECK: .seh_setframe 5, 64
 ; CHECK: movaps  %xmm6, -16(%rbp)        # 16-byte Spill
-; CHECK: .seh_savexmm 6, 64
+; CHECK: .seh_savexmm 6, 48
 ; CHECK: .seh_endprologue
-; CHECK: movq    $-2, -40(%rbp)
+; CHECK: movq    $-2, -24(%rbp)
 ; CHECK: movsd   fp_global(%rip), %xmm6  # xmm6 = mem[0],zero
 ; CHECK: callq   g
 ; CHECK: addsd   __real@3ff0000000000000(%rip), %xmm6
@@ -50,27 +47,22 @@ catch:
 ; CHECK: .Ltmp{{.*}}
 ; CHECK: .LBB{{.*}} # Block address taken
 ; CHECK: movaps  -16(%rbp), %xmm6
-; CHECK: addq    $80, %rsp
+; CHECK: addq    $64, %rsp
 ; CHECK: popq    %rbp
 ; CHECK: retq
 ; CHECK: .seh_handlerdata
-
-; CHECK: "?catch$2@?0?f@4HA":
-; CHECK: .seh_proc "?catch$2@?0?f@4HA"
-; CHECK: .seh_handler __CxxFrameHandler3, @unwind, @except
-; CHECK: .LBB0{{.*}} # %catch
-; CHECK: movq   %rdx, 16(%rsp)
-; CHECK: pushq  %rbp
+; CHECK: # %catch
+; CHECK: movq    %rdx, 16(%rsp)
+; CHECK: pushq   %rbp
 ; CHECK: .seh_pushreg 5
-; CHECK: subq   $32, %rsp
-; CHECK: .seh_stackalloc 32
-; CHECK: leaq   80(%rdx), %rbp
-; CHECK: movapd %xmm6, -32(%rbp)        # 16-byte Spill
-; CHECK: .seh_savexmm 6, 48
+; CHECK: subq    $48, %rsp
+; CHECK: .seh_stackalloc 48
+; CHECK: leaq    64(%rdx), %rbp
+; CHECK: movapd  %xmm6, 32(%rsp)
+; CHECK: .seh_savexmm 6, 32
 ; CHECK: .seh_endprologue
-; CHECK: movapd -32(%rbp), %xmm6        # 16-byte Reload
-; CHECK: leaq   .LBB{{.*}}(%rip), %rax
-; CHECK: addq   $32, %rsp
-; CHECK: popq   %rbp
-; CHECK: retq                            # CATCHRET
-; end INTEL_CUSTOMIZATION
+; CHECK: movapd  32(%rsp), %xmm6
+; CHECK: leaq    .LBB0_1(%rip), %rax
+; CHECK: addq    $48, %rsp
+; CHECK: popq    %rbp
+; CHECK: retq # CATCHRET

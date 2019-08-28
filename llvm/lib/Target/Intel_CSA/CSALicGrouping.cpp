@@ -23,8 +23,8 @@ using namespace llvm;
 #define DEBUG_TYPE "csa-cvt-cf-df-pass"
 
 static unsigned getVregIndex(const MachineOperand &MO) {
-  if (MO.isReg() && TargetRegisterInfo::isVirtualRegister(MO.getReg()))
-    return TargetRegisterInfo::virtReg2Index(MO.getReg());
+  if (MO.isReg() && Register::isVirtualRegister(MO.getReg()))
+    return Register::virtReg2Index(MO.getReg());
   return ~0U;
 }
 
@@ -222,7 +222,7 @@ void CSACvtCFDFPass::findLICGroups(bool preDFConversion) {
       map = licGrouping.findLeader(map);
       dbgs() << "BB#" << BB.getNumber() << " has vregs";
       for (unsigned index = 0; index < MRI->getNumVirtRegs(); index++) {
-        auto vreg = TargetRegisterInfo::index2VirtReg(index);
+        auto vreg = Register::index2VirtReg(index);
         if (MRI->use_nodbg_empty(vreg))
           continue;
         if (licGrouping.findLeader(index) == map)
@@ -244,7 +244,7 @@ void CSACvtCFDFPass::findLICGroups(bool preDFConversion) {
           map = licGrouping.findLeader(map);
           dbgs() << " has vregs";
           for (unsigned index = 0; index < MRI->getNumVirtRegs(); index++) {
-            auto vreg = TargetRegisterInfo::index2VirtReg(index);
+            auto vreg = Register::index2VirtReg(index);
             if (MRI->use_nodbg_empty(vreg))
               continue;
             if (licGrouping.findLeader(index) == map)
@@ -348,7 +348,7 @@ void CSACvtCFDFPass::assignLicFrequencies(MachineBlockFrequencyInfo &MBFI) {
   unsigned empty = 0, count = 0;
   LLVM_DEBUG(dbgs() << "Unassigned lics:");
   for (unsigned i = 0, e = MRI->getNumVirtRegs(); i != e; i++) {
-    auto vreg = TargetRegisterInfo::index2VirtReg(i);
+    auto vreg = Register::index2VirtReg(i);
     if (MRI->use_nodbg_empty(vreg))
       continue;
     auto group = groups[licGrouping[i]];

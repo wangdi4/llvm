@@ -238,6 +238,7 @@ extern "C" void LLVMInitializeAMDGPUTarget() {
   initializeAMDGPUUseNativeCallsPass(*PR);
   initializeAMDGPUSimplifyLibCallsPass(*PR);
   initializeAMDGPUInlinerPass(*PR);
+  initializeAMDGPUPrintfRuntimeBindingPass(*PR);
   initializeGCNRegBankReassignPass(*PR);
   initializeGCNNSAReassignPass(*PR);
 }
@@ -412,6 +413,7 @@ void AMDGPUTargetMachine::adjustPassManager(PassManagerBuilder &Builder) {
         PM.add(createAMDGPUExternalAAWrapperPass());
       }
       PM.add(createAMDGPUUnifyMetadataPass());
+      PM.add(createAMDGPUPrintfRuntimeBinding());
       PM.add(createAMDGPUPropagateAttributesLatePass(this));
       if (Internalize) {
         PM.add(createInternalizePass(mustPreserveGV));
@@ -659,6 +661,8 @@ void AMDGPUPassConfig::addIRPasses() {
   disablePass(&FuncletLayoutID);
   disablePass(&PatchableFunctionID);
 
+  addPass(createAMDGPUPrintfRuntimeBinding());
+
   // This must occur before inlining, as the inliner will not look through
   // bitcast calls.
   addPass(createAMDGPUFixFunctionBitcastsPass());
@@ -882,6 +886,9 @@ bool GCNPassConfig::addInstSelector() {
   addPass(createSILowerI1CopiesPass());
   addPass(createSIFixupVectorISelPass());
   addPass(createSIAddIMGInitPass());
+  // FIXME: Remove this once the phi on CF_END is cleaned up by either removing
+  // LCSSA or other ways.
+  addPass(&UnreachableMachineBlockElimID);
   return false;
 }
 

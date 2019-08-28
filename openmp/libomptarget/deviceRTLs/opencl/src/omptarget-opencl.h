@@ -11,6 +11,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifndef OMPTARGET_OPENCL_H
+#define OMPTARGET_OPENCL_H
+
 ///
 /// Misc. definitions
 ///
@@ -29,6 +32,7 @@
 
 #define KMP_PAUSE() // We don't have any candidates for this.
 
+
 ///
 /// Device information
 ///
@@ -40,30 +44,30 @@
 /// Constants to be used when allocating internal data structures.
 /// TODO: numbers may be too conservative (or large).
 #ifdef KMP_DEVICE_GEN9_GT2 // 3 subslices
-#define KMP_MAX_WORKGROUP_SIZE 256
+#define KMP_MAX_GROUP_SIZE 256
 #define KMP_MAX_NUM_GROUPS (24 * 7)
 #define KMP_MAX_LOG_NUM_GROUPS 16
-#define KMP_MAX_GLOBAL_SIZE KMP_MAX_WORKGROUP_SIZE * KMP_MAX_NUM_GROUPS
+#define KMP_MAX_GLOBAL_SIZE KMP_MAX_GROUP_SIZE * KMP_MAX_NUM_GROUPS
 #define KMP_MAX_DATA_SIZE 16 // quad
 #define KMP_ATOMIC_FIXED4_SUPPORTED 1
 #define KMP_ATOMIC_FIXED8_SUPPORTED 0
 #define KMP_USE_BARRIER_COUNTING
 
 #elif defined(KMP_DEVICE_GEN9_GT3) // 6 subslices
-#define KMP_MAX_WORKGROUP_SIZE 256
+#define KMP_MAX_GROUP_SIZE 256
 #define KMP_MAX_NUM_GROUPS (48 * 7)
 #define KMP_MAX_LOG_NUM_GROUPS 16
-#define KMP_MAX_GLOBAL_SIZE KMP_MAX_WORKGROUP_SIZE * KMP_MAX_NUM_GROUPS
+#define KMP_MAX_GLOBAL_SIZE KMP_MAX_GROUP_SIZE * KMP_MAX_NUM_GROUPS
 #define KMP_MAX_DATA_SIZE 16 // quad
 #define KMP_ATOMIC_FIXED4_SUPPORTED 1
 #define KMP_ATOMIC_FIXED8_SUPPORTED 0
 #define KMP_USE_BARRIER_COUNTING
 
 #elif defined(KMP_DEVICE_GEN9_GT4) // 9 subslices
-#define KMP_MAX_WORKGROUP_SIZE 256
+#define KMP_MAX_GROUP_SIZE 256
 #define KMP_MAX_NUM_GROUPS (72 * 7)
 #define KMP_MAX_LOG_NUM_GROUPS 16
-#define KMP_MAX_GLOBAL_SIZE KMP_MAX_WORKGROUP_SIZE * KMP_MAX_NUM_GROUPS
+#define KMP_MAX_GLOBAL_SIZE KMP_MAX_GROUP_SIZE * KMP_MAX_NUM_GROUPS
 #define KMP_MAX_DATA_SIZE 16 // quad
 #define KMP_ATOMIC_FIXED4_SUPPORTED 1
 #define KMP_ATOMIC_FIXED8_SUPPORTED 0
@@ -75,11 +79,32 @@
 #error Unsupported device!!!
 #endif
 
+/// Static parameters used in RTL
+#define KMP_ACTIVE_PARALLEL_BUMP 128  // used for tracking active level
+#define KMP_MAX_PARALLEL_LEVEL 8      // used for task object allocation
+#define KMP_MAX_SHAREDS 64            // used for data sharing
+
 /// Enable extensions if available
 #if KMP_ATOMIC_FIXED8_SUPPORTED
 #pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable
 #pragma OPENCL EXTENSION cl_khr_int64_extended_atomics : enable
 #endif
+
+/// OP definitions for atomic/reduction entries
+#define OP_MIN(X, Y, DT) ((X) < (Y) ? (X) : (Y))
+#define OP_MAX(X, Y, DT) ((X) > (Y) ? (X) : (Y))
+#define TO_LOGIC(X, DT) ((X) != (DT)0 ? 1 : 0)
+#define OP_OR(X, Y, DT) ((DT)(TO_LOGIC(X, DT) || TO_LOGIC(Y, DT)))
+#define OP_AND(X, Y, DT) ((DT)(TO_LOGIC(X, DT) && TO_LOGIC(Y, DT)))
+#define OP_ADD(X, Y, DT) ((X) + (Y))
+#define OP_SUB(X, Y, DT) ((X) - (Y))
+#define OP_MUL(X, Y, DT) ((X) * (Y))
+#define OP_DIV(X, Y, DT) ((X) / (Y))
+#define OP_ORB(X, Y, DT) ((X) | (Y))
+#define OP_ANDB(X, Y, DT) ((X) & (Y))
+#define OP_XOR(X, Y, DT) ((X) ^ (Y))
+#define OP_SHL(X, Y, DT) ((X) << (Y))
+#define OP_SHR(X, Y, DT) ((X) >> (Y))
 
 
 ///
@@ -109,106 +134,309 @@ typedef union kmp_barrier {
   kmp_barrier_dissem_t dissem;
 } kmp_barrier_t;
 
+/// Schedule type
+typedef enum kmp_sched {
+  kmp_sched_static_chunk = 33,
+  kmp_sched_static_nochunk = 34,
+  kmp_sched_dynamic = 35,
+  kmp_sched_guided = 36,
+  kmp_sched_runtime = 37,
+  kmp_sched_auto = 38,
+
+  kmp_sched_static_balanced_chunk = 45,
+
+  kmp_sched_static_ordered = 65,
+  kmp_sched_static_nochunk_ordered = 66,
+  kmp_sched_dynamic_ordered = 67,
+  kmp_sched_guided_ordered = 68,
+  kmp_sched_runtime_ordered = 69,
+  kmp_sched_auto_ordered = 70,
+
+  kmp_sched_distr_static_chunk = 91,
+  kmp_sched_distr_static_nochunk = 92,
+  kmp_sched_distr_static_chunk_sched_static_chunkone = 93,
+
+  kmp_sched_default = kmp_sched_static_nochunk,
+  kmp_sched_unorderd_first = kmp_sched_static_chunk,
+  kmp_sched_unordered_last = kmp_sched_auto,
+  kmp_sched_ordered_first = kmp_sched_static_ordered,
+  kmp_sched_ordered_last = kmp_sched_auto_ordered,
+  kmp_sched_distribute_first = kmp_sched_distr_static_chunk,
+  kmp_sched_distribute_last =
+      kmp_sched_distr_static_chunk_sched_static_chunkone,
+
+  kmp_sched_modifier_monotonic = (1 << 29),
+  kmp_sched_modifier_nonmonotonic = (1 << 30),
+
+#define SCHEDULE_WITHOUT_MODIFIERS(s)                                          \
+  (enum kmp_sched)(                                                            \
+      (s) & ~(kmp_sched_modifier_nonmonotonic | kmp_sched_modifier_monotonic))
+} kmp_sched_t;
+
+typedef enum omp_sched_t {
+  omp_sched_static = 0x1,
+  omp_sched_dynamic = 0x2,
+  omp_sched_guided = 0x3,
+  omp_sched_auto = 0x4,
+} omp_sched_t;
+
+///
+/// Task state
+///
+
+enum {
+  TASK_SCHED_MASK = (0x1 | 0x2 | 0x3), // for runtime schedule
+  TASK_IN_PARALLEL = 0x10, // has encountered at least one parallel region
+  TASK_IMPLICIT = 0x20, // is an implicit task in a parallel region
+  TASK_IN_DEEP_PARALLEL = 0x40, // has encountered at least two parallel region
+};
+
+typedef struct kmp_task_state {
+  struct {
+    long loop_ub;
+    long next_lb;
+    long chunk;
+    long stride;
+    kmp_sched_t schedule;
+  } loop_data;
+  struct {
+    uchar flags;
+    uchar unused;
+    ushort num_threads;
+    ushort thread_limit;
+    ushort thread_id;
+    ushort num_team_threads;
+    ulong runtime_chunk_size;
+  } task_data;
+  struct kmp_task_state *prev;
+} kmp_task_state_t;
+
+/// Team state
+typedef struct kmp_team_state {
+  kmp_task_state_t level_zero_task;
+  kmp_task_state_t work_parallel; // work for active parallel
+} kmp_team_state_t;
+
+/// Thread states
+typedef struct kmp_thread_state {
+  kmp_team_state_t team;
+  kmp_task_state_t level_one_task[KMP_MAX_GROUP_SIZE];
+  // TODO: We do not have dynamic memory allocation, so we need to set limit on
+  // maximum parallel level to allocate task data for serialized region.
+  kmp_task_state_t serialized_task[KMP_MAX_PARALLEL_LEVEL][KMP_MAX_GROUP_SIZE];
+  // TODO: llvm-spirv -r crashes when this is declared as kmp_task_state_t*
+  void *top_level_task[KMP_MAX_GROUP_SIZE];
+  union {
+    ushort num_threads[KMP_MAX_GROUP_SIZE];
+    ushort simd_limit[KMP_MAX_GROUP_SIZE];
+  } next_region;
+  kmp_sched_t schedule[KMP_MAX_GROUP_SIZE];
+  long chunk[KMP_MAX_GROUP_SIZE];
+  long loop_ub[KMP_MAX_GROUP_SIZE];
+  long next_lb[KMP_MAX_GROUP_SIZE];
+  long stride[KMP_MAX_GROUP_SIZE];
+  long count;
+} kmp_thread_state_t;
+
+/// For outlined parallel regions
+typedef void *kmp_work_fn_t;
+
+/// Data-sharing support. The list cannot grow dynamically.
+typedef struct kmp_shared_data {
+  void *shareds[KMP_MAX_SHAREDS];
+  uint num_shareds;
+} kmp_shared_data_t;
+
+/// Local state
+/// We need to use an array of local states for each work group
+typedef struct kmp_local_state {
+  uchar parallel_level[KMP_MAX_GROUP_SIZE];
+  kmp_thread_state_t *thread_state;
+  kmp_work_fn_t work_fn;
+  uint execution_flags;
+  ushort thread_limit;
+  ushort team_threads;
+  ushort num_threads;
+  kmp_shared_data_t shared_data;
+  kmp_barrier_counting_t work_barrier;
+} kmp_local_state_t;
+
+/// Global state
 typedef struct kmp_global_state {
   kmp_barrier_t g_barrier;              // global barrier
+  int assume_simple_spmd_mode;     // assume simple SPMD mode
 } kmp_global_state_t;
+
+
+///
+/// Types from host runtime
+///
 
 typedef int kmp_critical_name[8];
 
-
-///
-/// Global data
-///
-EXTERN kmp_global_state_t gstate;
+typedef struct ident {
+  char bytes[24];
+} ident_t;
 
 
 ///
-/// Utility functions
+/// Program-scope global data
 ///
 
-/// Return linear global id
-INLINE size_t __kmp_get_global_id() {
-  return get_global_linear_id();
-}
+/// Global state
+EXTERN kmp_global_state_t GLOBAL;
 
-/// Return linear local id
-INLINE size_t __kmp_get_local_id() {
-  return get_local_linear_id();
-}
+/// Per-team state
+EXTERN kmp_local_state_t LOCALS[KMP_MAX_NUM_GROUPS];
 
-/// Return linear group id
-INLINE size_t __kmp_get_group_id() {
-  uint work_dim = get_work_dim();
-  size_t ret = get_group_id(0);
-  if (work_dim == 1)
-    return ret;
-  ret += get_num_groups(0) * get_group_id(1);
-  if (work_dim == 2)
-    return ret;
-  ret += get_num_groups(0) * get_num_groups(1) * get_group_id(2);
-  return (work_dim == 3) ? ret : 0;
-}
+/// Per-thread state for all work groups
+EXTERN kmp_thread_state_t THREADS[KMP_MAX_NUM_GROUPS];
 
-/// Return global size
-INLINE size_t __kmp_get_global_size() {
-  uint work_dim = get_work_dim();
-  size_t ret = get_global_size(0);
-  if (work_dim == 1)
-    return ret;
-  ret *= get_global_size(1);
-  if (work_dim == 2)
-    return ret;
-  ret *= get_global_size(2);
-  return (work_dim == 3) ? ret : 1;
-}
+///
+/// RTL init/fini routines
+///
 
-/// Return local size
-INLINE size_t __kmp_get_local_size() {
-  uint work_dim = get_work_dim();
-  size_t ret = get_local_size(0);
-  if (work_dim == 1)
-    return ret;
-  ret *= get_local_size(1);
-  if (work_dim == 2)
-    return ret;
-  ret *= get_local_size(2);
-  return (work_dim == 3) ? ret : 1;
-}
+/// Initialize information maintained by RTL
+EXTERN void __kmpc_kernel_init_params(void *params);
 
-/// Return number of groups
-INLINE size_t __kmp_get_num_groups() {
-  uint work_dim = get_work_dim();
-  size_t ret = get_num_groups(0);
-  if (work_dim == 1)
-    return ret;
-  ret *= get_num_groups(1);
-  if (work_dim == 2)
-    return ret;
-  ret *= get_num_groups(2);
-  return (work_dim == 3) ? ret : 1;
-}
+/// Initialize a kernel execution
+EXTERN void __kmpc_kernel_init(int thread_limit, short needs_rtl);
 
-/// Lock builtins which are not widened (considered
-/// uniform) by the device compiler(s).
-EXTERN void __builtin_IB_kmp_acquire_lock(__global int *);
-EXTERN void __builtin_IB_kmp_release_lock(__global int *);
+/// Finalize a kernel execution
+EXTERN void __kmpc_kernel_fini(short is_rtl_initialized);
 
-/// Acquire lock
-INLINE void __kmp_acquire_lock(__global int *lock) {
-  __builtin_IB_kmp_acquire_lock(lock);
-}
+/// Initialize a SPMD kernel execution
+EXTERN void __kmpc_spmd_kernel_init(int thread_limit, short needs_rtl,
+                                    short needs_data_sharing);
 
-/// Release lock
-INLINE void __kmp_release_lock(__global int *lock) {
-  __builtin_IB_kmp_release_lock(lock);
-}
+/// Finalize a SPMD kernel execution
+EXTERN void __kmpc_spmd_kernel_fini(short needs_rtl);
+
+/// Return if we are in SPMD execution mode
+EXTERN char __kmpc_is_spmd_exec_mode(void);
+
+
+///
+/// Parallel regions
+///
+
+/// Prepare a parallel region -- called by master
+EXTERN void __kmpc_kernel_prepare_parallel(void *work_fn,
+                                           short is_rtl_initialized);
+
+/// Initialize a parallel region -- called by workers
+EXTERN bool __kmpc_kernel_parallel(void **work_fn, short is_rtl_initialized);
+
+/// Finalize a parallel region -- called by workers
+EXTERN void __kmpc_kernel_end_parallel(void);
+
+/// Initialize a serialized parallel region
+EXTERN void __kmpc_serialized_parallel(ident_t *loc, uint tid);
+
+/// Finalize a serialized parallel region
+EXTERN void __kmpc_end_serialized_parallel(ident_t *loc, uint tid);
+
+/// Return the current parallel level (counting active & inactive regions)
+EXTERN short __kmpc_parallel_level(ident_t *loc, uint gtid);
+
+/// Push num_threads for the next parallel region
+EXTERN void __kmpc_push_num_threads(ident_t *loc, int tid, int num_threads);
+
+/// Push simd_limit for the next region
+EXTERN void __kmpc_push_simd_limit(ident_t *loc, int tid, int simd_limit);
+
+/// Init sharing variables
+EXTERN void __kmpc_init_sharing_variables(void);
+
+/// Begin sharing variables
+EXTERN void __kmpc_begin_sharing_variables(void ***shareds, size_t num_shareds);
+
+/// End sharing variables
+EXTERN void __kmpc_end_sharing_variables(void);
+
+/// Return the list of shared variables
+EXTERN void __kmpc_get_shared_variables(void ***shareds);
+
+///
+/// Loop scheduling
+///
+
+/// Static init with 4-byte signed loop bounds
+EXTERN void __kmpc_for_static_init_4(ident_t *loc, int tid, int schedtype,
+    int *plastiter, int *plower, int *puppper, int *pstride, int incr,
+    int chunk);
+
+/// Static init with 4-byte unsigned loop bounds
+EXTERN void __kmpc_for_static_init_4u(ident_t *loc, int tid, int schedtype,
+    int *plastiter, uint *plower, uint *puppper, int *pstride, int incr,
+    int chunk);
+
+/// Static init with 8-byte signed loop bounds
+EXTERN void __kmpc_for_static_init_8(ident_t *loc, int tid, int schedtype,
+    int *plastiter, long *plower, long *puppper, long *pstride, long incr,
+    long chunk);
+
+/// Static init with 8-byte unsigned loop bounds
+EXTERN void __kmpc_for_static_init_8u(ident_t *loc, int tid, int schedtype,
+    int *plastiter, ulong *plower, ulong *puppper, long *pstride, long incr,
+    long chunk);
+
+/// Static init with 4-byte signed loop bounds in SPMD mode
+EXTERN void __kmpc_for_static_init_4_spmd(ident_t *loc, int tid, int schedtype,
+    int *plastiter, int *plower, int *puppper, int *pstride, int incr,
+    int chunk);
+
+/// Static init with 4-byte unsigned loop bounds in SPMD mode
+EXTERN void __kmpc_for_static_init_4u_spmd(ident_t *loc, int tid, int schedtype,
+    int *plastiter, uint *plower, uint *puppper, int *pstride, int incr,
+    int chunk);
+
+/// Static init with 8-byte signed loop bounds in SPMD mode
+EXTERN void __kmpc_for_static_init_8_spmd(ident_t *loc, int tid, int schedtype,
+    int *plastiter, long *plower, long *puppper, long *pstride, long incr,
+    long chunk);
+
+/// Static init with 8-byte unsigned loop bounds in SPMD mode
+EXTERN void __kmpc_for_static_init_8u_spmd(ident_t *loc, int tid, int schedtype,
+    int *plastiter, ulong *plower, ulong *puppper, long *pstride, long incr,
+    long chunk);
+
+/// Static init with 4-byte signed loop bounds in generic mode
+EXTERN void __kmpc_for_static_init_4_generic(ident_t *loc, int tid,
+    int schedtype, int *plastiter, int *plower, int *puppper, int *pstride,
+    int incr, int chunk);
+
+/// Static init with 4-byte unsigned loop bounds in generic mode
+EXTERN void __kmpc_for_static_init_4u_generic(ident_t *loc, int tid,
+    int schedtype, int *plastiter, uint *plower, uint *puppper, int *pstride,
+    int incr, int chunk);
+
+/// Static init with 8-byte signed loop bounds in generic mode
+EXTERN void __kmpc_for_static_init_8_generic(ident_t *loc, int tid,
+    int schedtype, int *plastiter, long *plower, long *puppper, long *pstride,
+    long incr, long chunk);
+
+/// Static init with 8-byte unsigned loop bounds in generic mode
+EXTERN void __kmpc_for_static_init_8u_generic(ident_t *loc, int tid,
+    int schedtype, int *plastiter, ulong *plower, ulong *puppper, long *pstride,
+    long incr, long chunk);
+
+/// Finalize static scheduling
+EXTERN void __kmpc_for_static_fini(ident_t *loc, int tid);
 
 
 ///
 /// Barriers
 ///
 
+/// Barrier for active workers
+EXTERN void __kmpc_work_barrier();
+
+/// Barrier for entire work group
 EXTERN void __kmpc_barrier();
+
+/// Runtime initializer
+EXTERN void __kmpc_init_runtime();
 
 
 ///
@@ -412,6 +640,26 @@ EXTERN void __kmpc_end_critical(kmp_critical_name *);
 EXTERN int __kmpc_master();
 EXTERN void __kmpc_end_master();
 
+/// Check if the current work item belongs to the master sub group
+EXTERN int __kmpc_master_sub_group();
+
+/// Check if the current work item is the leader of the master sub group
+EXTERN int __kmpc_master_sub_group_leader();
+
+
+///
+/// Support for reduction
+///
+
+EXTERN void __kmpc_reduction_add_int(const uint id, const uint size,
+                                     void *local_result, void *output);
+EXTERN void __kmpc_reduction_add_long(const uint id, const uint size,
+                                      void *local_result, void *output);
+EXTERN void __kmpc_reduction_add_float(const uint id, const uint size,
+                                       void *local_result, void *output);
+EXTERN void __kmpc_reduction_add_double(const uint id, const uint size,
+                                        void *local_result, void *output);
+
 
 ///
 /// OpenMP* RTL routines
@@ -447,4 +695,5 @@ EXTERN void kmp_global_barrier(void);
 /// Device runtime initialization
 ///
 /// Some of the global states
+#endif // OMPTARGET_OPENCL_H
 #endif // INTEL_COLLAB

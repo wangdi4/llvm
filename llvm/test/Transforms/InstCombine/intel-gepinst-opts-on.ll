@@ -1,6 +1,7 @@
 ; RUN: opt -instcombine -disable-type-lowering-opts=false < %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes=instcombine -aa-pipeline=basic-aa -disable-type-lowering-opts=false < %s -S 2>&1 | FileCheck %s
 
-; Check that only one original GEPs is retained and one btyte-flattened GEP
+; Check that only one original GEPs is retained and one byte-flattened GEP
 ; is generated when -disable-gepinst-opts=false.
 
 %struct.lzma_next_coder = type { i8*, i32, i32 }

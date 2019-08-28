@@ -732,8 +732,8 @@ llvm::BasicBlock *CodeGenFunction::getInvokeDestImpl() {
       return nullptr;
   }
 
-  // CUDA device code doesn't have exceptions.
-  if (LO.CUDA && LO.CUDAIsDevice)
+  // CUDA and SYCL device code doesn't have exceptions.
+  if (LO.CUDA && LO.CUDAIsDevice || LO.SYCLIsDevice)
     return nullptr;
 
   // Check the innermost scope for a cached landing pad.  If this is
@@ -1789,7 +1789,8 @@ void CodeGenFunction::EmitCapturedLocals(CodeGenFunction &ParentCGF,
     // EH registration is passed in as the EBP physical register.  We can
     // recover that with llvm.frameaddress(1).
     EntryFP = Builder.CreateCall(
-        CGM.getIntrinsic(llvm::Intrinsic::frameaddress), {Builder.getInt32(1)});
+        CGM.getIntrinsic(llvm::Intrinsic::frameaddress, AllocaInt8PtrTy),
+        {Builder.getInt32(1)});
   } else {
     // Otherwise, for x64 and 32-bit finally functions, the parent FP is the
     // second parameter.

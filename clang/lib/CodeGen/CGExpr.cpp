@@ -1752,7 +1752,7 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *Value, Address Addr,
     return;
   }
 
-  if (getenv("ENABLE_INFER_AS")) {
+  if (!getenv("DISABLE_INFER_AS")) {
     if (auto *PtrTy = dyn_cast<llvm::PointerType>(Value->getType())) {
       auto *ExpectedPtrType =
           cast<llvm::PointerType>(Addr.getType()->getElementType());
@@ -2048,34 +2048,11 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
   // Get the source value, truncated to the width of the bit-field.
   llvm::Value *SrcVal = Src.getScalarVal();
 
-#if INTEL_CUSTOMIZATION
-  // CQ#371662 - don't do bit manipulations in IntelCompat mode if both offset
-  // and size are of natural sizes. This improves code size.
-  unsigned ByteWidth = getTarget().getCharWidth();
-  bool ShouldSkipBitMasking = getLangOpts().IntelCompat &&
-                              Info.Offset % ByteWidth == 0 &&
-                              Info.Size % ByteWidth == 0;
-  if (ShouldSkipBitMasking) {
-    llvm::Value *PtrVal = Ptr.getPointer();
-    if (Info.Offset)
-      PtrVal = Builder.CreateConstGEP1_64(EmitCastToVoidPtr(PtrVal),
-                                          Info.Offset / ByteWidth);
-    PtrVal = Builder.CreatePointerBitCastOrAddrSpaceCast(
-        PtrVal, Builder.getIntNTy(Info.Size)->getPointerTo());
-    // Fixme - I don't think this code is quite right. In particular,
-    // I think the alignment is probably optimistic, and it should probably
-    // just be 1.
-    Ptr = Address(PtrVal, Ptr.getAlignment());
-  }
-#endif // INTEL_CUSTOMIZATION
   // Cast the source to the storage type and shift it into place.
   SrcVal = Builder.CreateIntCast(SrcVal, Ptr.getElementType(),
                                  /*isSigned=*/false);
   llvm::Value *MaskedVal = SrcVal;
 
-#if INTEL_CUSTOMIZATION
-  if (!ShouldSkipBitMasking) {
-#endif // INTEL_CUSTOMIZATION
   // See if there are other bits in the bitfield's storage we'll need to load
   // and mask together with source before storing.
   if (Info.StorageSize != Info.Size) {
@@ -2111,8 +2088,6 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
     assert(Info.Offset == 0);
   }
 #if INTEL_CUSTOMIZATION
-  }  // !ShouldSkipBitMasking
-
   // Write the new value back out.
   llvm::StoreInst *Store = Builder.CreateStore(SrcVal, Ptr,
                                                Dst.isVolatileQualified());
@@ -3508,6 +3483,7 @@ static Address emitArraySubscriptGEP(CodeGenFunction &CGF, Address addr,
                                      ArrayRef<llvm::Value *> indices,
                                      QualType eltType, bool inbounds,
                                      bool signedIndices, SourceLocation loc,
+                                     QualType *arrayType = nullptr,
                                      const llvm::Twine &name = "arrayidx") {
   // All the indices except that last must be zero.
 #ifndef NDEBUG
@@ -3536,9 +3512,12 @@ static Address emitArraySubscriptGEP(CodeGenFunction &CGF, Address addr,
   } else {
     // Remember the original array subscript for bpf target
     unsigned idx = LastIndex->getZExtValue();
+    llvm::DIType *DbgInfo = nullptr;
+    if (arrayType)
+      DbgInfo = CGF.getDebugInfo()->getOrCreateStandaloneType(*arrayType, loc);
     eltPtr = CGF.Builder.CreatePreserveArrayAccessIndex(addr.getPointer(),
                                                         indices.size() - 1,
-                                                        idx);
+                                                        idx, DbgInfo);
   }
 
   return Address(eltPtr, eltAlign);
@@ -3675,10 +3654,11 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
     auto *Idx = EmitIdxAfterBase(/*Promote*/true);
 
     // Propagate the alignment from the array itself to the result.
+    QualType arrayType = Array->getType();
     Addr = emitArraySubscriptGEP(
         *this, ArrayLV.getAddress(), {CGM.getSize(CharUnits::Zero()), Idx},
         E->getType(), !getLangOpts().isSignedOverflowDefined(), SignedIndices,
-        E->getExprLoc());
+        E->getExprLoc(), &arrayType);
     EltBaseInfo = ArrayLV.getBaseInfo();
 #if INTEL_CUSTOMIZATION
     // CQ#379144 TBAA for arrays
@@ -3710,9 +3690,10 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
     // The base must be a pointer; emit it with an estimate of its alignment.
     Addr = EmitPointerWithAlignment(E->getBase(), &EltBaseInfo, &EltTBAAInfo);
     auto *Idx = EmitIdxAfterBase(/*Promote*/true);
+    QualType ptrType = E->getBase()->getType();
     Addr = emitArraySubscriptGEP(*this, Addr, Idx, E->getType(),
                                  !getLangOpts().isSignedOverflowDefined(),
-                                 SignedIndices, E->getExprLoc());
+                                 SignedIndices, E->getExprLoc(), &ptrType);
   }
 
   LValue LV = MakeAddrLValue(Addr, E->getType(), EltBaseInfo, EltTBAAInfo);

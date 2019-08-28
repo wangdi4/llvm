@@ -1380,7 +1380,20 @@ void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
         CGM.getCodeGenOpts().OptimizationLevel < 2 || !IsFakeLoadCand(RV) ||
         !EmitFakeLoadForRetPtr(RV)) {
       RValue Result = EmitReferenceBindingToExpr(RV);
-      Builder.CreateStore(Result.getScalarVal(), ReturnValue);
+      llvm::Value *Val = Result.getScalarVal();
+      if (!getenv("DISABLE_INFER_AS")) {
+        if (auto *PtrTy = dyn_cast<llvm::PointerType>(Val->getType())) {
+          auto *ExpectedPtrType =
+              cast<llvm::PointerType>(ReturnValue.getType()->getElementType());
+          unsigned ValueAS = PtrTy->getAddressSpace();
+          unsigned ExpectedAS = ExpectedPtrType->getAddressSpace();
+          if (ValueAS != ExpectedAS) {
+            Val =
+                Builder.CreatePointerBitCastOrAddrSpaceCast(Val, ExpectedPtrType);
+          }
+        }
+      }
+      Builder.CreateStore(Val, ReturnValue);
     }
 #endif // INTEL_CUSTOMIZATION
   } else {
@@ -1394,7 +1407,19 @@ void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
           CGM.getCodeGenOpts().OptimizationLevel < 2 || !Exp ||
           Exp->getOpcode() != UO_AddrOf || !IsFakeLoadCand(Exp->getSubExpr()) ||
           !EmitFakeLoadForRetPtr(Exp->getSubExpr())) {
-        Builder.CreateStore(EmitScalarExpr(RV), ReturnValue);
+        llvm::Value *Val = EmitScalarExpr(RV);
+        if (!getenv("DISABLE_INFER_AS")) {
+          if (auto *PtrTy = dyn_cast<llvm::PointerType>(Val->getType())) {
+            auto *ExpectedPtrType =
+                cast<llvm::PointerType>(ReturnValue.getType()->getElementType());
+            unsigned ValueAS = PtrTy->getAddressSpace();
+            unsigned ExpectedAS = ExpectedPtrType->getAddressSpace();
+            if (ValueAS != ExpectedAS)
+              Val = Builder.CreatePointerBitCastOrAddrSpaceCast(
+                  Val, ExpectedPtrType);
+          }
+        }
+        Builder.CreateStore(Val, ReturnValue);
       }
     }
 #endif // INTEL_CUSTOMIZATION
@@ -2145,11 +2170,9 @@ llvm::Value* CodeGenFunction::EmitAsmInput(
       InputExpr->EvaluateAsRValue(EVResult, getContext(), true);
 
       llvm::APSInt IntResult;
-      if (!EVResult.Val.toIntegralConstant(IntResult, InputExpr->getType(),
-                                           getContext()))
-        llvm_unreachable("Invalid immediate constant!");
-
-      return llvm::ConstantInt::get(getLLVMContext(), IntResult);
+      if (EVResult.Val.toIntegralConstant(IntResult, InputExpr->getType(),
+                                          getContext()))
+        return llvm::ConstantInt::get(getLLVMContext(), IntResult);
     }
 
     Expr::EvalResult Result;
@@ -2274,19 +2297,6 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
     bool IsValid =
       getTarget().validateInputConstraint(OutputConstraintInfos, Info);
     assert(IsValid && "Failed to parse input constraint"); (void)IsValid;
-#if INTEL_CUSTOMIZATION
-    // CQ#371735 - allow use of registers for rvalues under 'm' constraint.
-    if (getLangOpts().IntelCompat &&
-        S.getInputConstraint(i).find('m') != StringRef::npos &&
-        Info.allowsMemory() && !Info.allowsRegister())
-      if (const Expr *E = S.getInputExpr(i)) {
-        const Expr *E2 = E->IgnoreParenNoopCasts(getContext());
-        Expr::Classification::Kinds Kind = E2->Classify(getContext()).getKind();
-        // Allow registers for anything except lvalues, xvalues and functions.
-        if (!E->isLValue() && Kind > Expr::Classification::CL_Function)
-          Info.setAllowsRegister();
-      }
-#endif // INTEL_CUSTOMIZATION
     InputConstraintInfos.push_back(Info);
   }
 

@@ -256,9 +256,12 @@ static void combineKnownMetadata(Instruction *ReplInst, Instruction *I) {
 class GVNHoist {
 public:
   GVNHoist(DominatorTree *DT, PostDominatorTree *PDT, AliasAnalysis *AA,
-           MemoryDependenceResults *MD, MemorySSA *MSSA)
+#if INTEL_CUSTOMIZATION
+           MemoryDependenceResults *MD, MemorySSA *MSSA, bool HoistingGeps)
       : DT(DT), PDT(PDT), AA(AA), MD(MD), MSSA(MSSA),
-        MSSAUpdater(llvm::make_unique<MemorySSAUpdater>(MSSA)) {}
+        MSSAUpdater(llvm::make_unique<MemorySSAUpdater>(MSSA)),
+        HoistingGeps(HoistingGeps) {}
+#endif // INTEL_CUSTOMIZATION
 
   bool run(Function &F) {
     NumFuncArgs = F.arg_size();
@@ -338,7 +341,7 @@ private:
   DenseSet<const BasicBlock *> HoistBarrier;
   SmallVector<BasicBlock *, 32> IDFBlocks;
   unsigned NumFuncArgs;
-  const bool HoistingGeps = false;
+  const bool HoistingGeps; // INTEL
 
   enum InsKind { Unknown, Scalar, Load, Store };
 
@@ -1140,10 +1143,12 @@ private:
 };
 
 class GVNHoistLegacyPass : public FunctionPass {
+  const bool HoistingGeps; // INTEL
 public:
   static char ID;
 
-  GVNHoistLegacyPass() : FunctionPass(ID) {
+  GVNHoistLegacyPass(bool HoistingGeps = false)        // INTEL
+      : FunctionPass(ID), HoistingGeps(HoistingGeps) { // INTEL
     initializeGVNHoistLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
@@ -1156,7 +1161,7 @@ public:
     auto &MD = getAnalysis<MemoryDependenceWrapperPass>().getMemDep();
     auto &MSSA = getAnalysis<MemorySSAWrapperPass>().getMSSA();
 
-    GVNHoist G(&DT, &PDT, &AA, &MD, &MSSA);
+    GVNHoist G(&DT, &PDT, &AA, &MD, &MSSA, HoistingGeps); // INTEL
     return G.run(F);
   }
 
@@ -1180,7 +1185,7 @@ PreservedAnalyses GVNHoistPass::run(Function &F, FunctionAnalysisManager &AM) {
   AliasAnalysis &AA = AM.getResult<AAManager>(F);
   MemoryDependenceResults &MD = AM.getResult<MemoryDependenceAnalysis>(F);
   MemorySSA &MSSA = AM.getResult<MemorySSAAnalysis>(F).getMSSA();
-  GVNHoist G(&DT, &PDT, &AA, &MD, &MSSA);
+  GVNHoist G(&DT, &PDT, &AA, &MD, &MSSA, HoistingGeps); // INTEL
   if (!G.run(F))
     return PreservedAnalyses::all();
 
@@ -1203,4 +1208,8 @@ INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_END(GVNHoistLegacyPass, "gvn-hoist",
                     "Early GVN Hoisting of Expressions", false, false)
 
-FunctionPass *llvm::createGVNHoistPass() { return new GVNHoistLegacyPass(); }
+#if INTEL_CUSTOMIZATION
+FunctionPass *llvm::createGVNHoistPass(bool HoistingGeps) {
+  return new GVNHoistLegacyPass(HoistingGeps);
+}
+#endif // INTEL_CUSTOMIZATION

@@ -1,6 +1,5 @@
 // RUN: %clang -I %S/Inputs --sycl -Xclang -fsycl-int-header=%t.h %s -c -o %T/kernel.spv
 // RUN: FileCheck -input-file=%t.h %s
-
 //
 // CHECK: #include <CL/sycl/detail/kernel_desc.hpp>
 //
@@ -48,7 +47,6 @@
 // CHECK-EMPTY:
 // CHECK-NEXT: };
 //
-// CHECK: template <class KernelNameType> struct KernelInfo;
 // CHECK: template <> struct KernelInfo<class first_kernel> {
 // CHECK: template <> struct KernelInfo<::second_namespace::second_kernel<char>> {
 // CHECK: template <> struct KernelInfo<::third_kernel<1, int, ::point<X> >> {

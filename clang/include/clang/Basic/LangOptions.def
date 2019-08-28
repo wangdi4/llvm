@@ -222,6 +222,7 @@ LANGOPT(OpenCL            , 1, 0, "OpenCL")
 LANGOPT(OpenCLVersion     , 32, 0, "OpenCL C version")
 LANGOPT(OpenCLCPlusPlus   , 1, 0, "C++ for OpenCL")
 LANGOPT(OpenCLCPlusPlusVersion     , 32, 0, "C++ for OpenCL version")
+ENUM_LANGOPT(SYCLVersion, SYCLVersionList, 4, SYCLVersionList::undefined, "Version of the SYCL standard used")
 LANGOPT(NativeHalfType    , 1, 0, "Native half type support")
 LANGOPT(NativeHalfArgsAndReturns, 1, 0, "Native half args and returns")
 LANGOPT(HalfArgsAndReturns, 1, 0, "half args and returns")
@@ -259,7 +260,9 @@ LANGOPT(CUDADeviceApproxTranscendentals, 1, 0, "using approximate transcendental
 LANGOPT(GPURelocatableDeviceCode, 1, 0, "generate relocatable device code")
 
 LANGOPT(SYCLIsDevice      , 1, 0, "Generate code for SYCL device")
+LANGOPT(SYCLIsHost        , 1, 0, "SYCL host compilation")
 LANGOPT(SYCLAllowFuncPtr  , 1, 0, "Allow function pointers in SYCL device code")
+LANGOPT(SYCLUnnamedLambda , 1, 0, "Allow unnamed lambda SYCL kernels")
 
 LANGOPT(SizedDeallocation , 1, 0, "sized deallocation")
 LANGOPT(AlignedAllocation , 1, 0, "aligned allocation")
@@ -294,6 +297,7 @@ LANGOPT(ObjCSubscriptingLegacyRuntime         , 1, 0, "Subscripting support in l
 LANGOPT(CFProtectionBranch , 1, 0, "Control-Flow Branch Protection enabled")
 LANGOPT(FakeAddressSpaceMap , 1, 0, "OpenCL fake address space map")
 #if INTEL_CUSTOMIZATION
+LANGOPT(OpenCLChannel       , 1, 0, "Intel FPGA OpenCL cl_intel_channels extension supported")
 LANGOPT(OpenCLForceVectorABI, 1, 0, "OpenCL vector to scalar coercion disabling")
 // IntrinsicPromotion implementation.
 LANGOPT(IntrinsicAutoPromote, 1, 0, "Auto promote functions using intrinsics and include intrinsics headers")

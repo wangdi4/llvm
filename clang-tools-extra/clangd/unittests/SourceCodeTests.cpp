@@ -422,6 +422,36 @@ TEST(SourceCodeTests, GetMacros) {
   EXPECT_THAT(*Result, MacroName("MACRO"));
 }
 
+TEST(SourceCodeTests, IsInsideMainFile){
+  TestTU TU;
+  TU.HeaderCode = R"cpp(
+    #define DEFINE_CLASS(X) class X {};
+    #define DEFINE_YY DEFINE_CLASS(YY)
+
+    class Header1 {};
+    DEFINE_CLASS(Header2)
+    class Header {};
+  )cpp";
+  TU.Code = R"cpp(
+    class Main1 {};
+    DEFINE_CLASS(Main2)
+    DEFINE_YY
+    class Main {};
+  )cpp";
+  TU.ExtraArgs.push_back("-DHeader=Header3");
+  TU.ExtraArgs.push_back("-DMain=Main3");
+  auto AST = TU.build();
+  const auto& SM = AST.getSourceManager();
+  auto DeclLoc = [&AST](llvm::StringRef Name) {
+    return findDecl(AST, Name).getLocation();
+  };
+  for (const auto *HeaderDecl : {"Header1", "Header2", "Header3"})
+    EXPECT_FALSE(isInsideMainFile(DeclLoc(HeaderDecl), SM));
+
+  for (const auto *MainDecl : {"Main1", "Main2", "Main3", "YY"})
+    EXPECT_TRUE(isInsideMainFile(DeclLoc(MainDecl), SM));
+}
+
 // Test for functions toHalfOpenFileRange and getHalfOpenFileRange
 TEST(SourceCodeTests, HalfOpenFileRange) {
   // Each marked range should be the file range of the decl with the same name
@@ -430,15 +460,22 @@ TEST(SourceCodeTests, HalfOpenFileRange) {
     #define FOO(X, Y) int Y = ++X
     #define BAR(X) X + 1
     #define ECHO(X) X
+
+    #define BUZZ BAZZ(ADD)
+    #define BAZZ(m) m(1)
+    #define ADD(a) int f = a + 1;
     template<typename T>
     class P {};
-    void f() {
+
+    int main() {
       $a[[P<P<P<P<P<int>>>>> a]];
       $b[[int b = 1]];
       $c[[FOO(b, c)]]; 
       $d[[FOO(BAR(BAR(b)), d)]];
       // FIXME: We might want to select everything inside the outer ECHO.
       ECHO(ECHO($e[[int) ECHO(e]]));
+      // Shouldn't crash.
+      $f[[BUZZ]];
     }
   )cpp");
 
@@ -465,6 +502,7 @@ TEST(SourceCodeTests, HalfOpenFileRange) {
   CheckRange("c");
   CheckRange("d");
   CheckRange("e");
+  CheckRange("f");
 }
 
 } // namespace

@@ -175,7 +175,11 @@ static StringRef offloadKindToString(OffloadKind Kind) {
   case OffloadKind::Host:
     return "host";
   case OffloadKind::OpenMP:
+#if INTEL_COLLAB
+    return "omp";
+#else  // INTEL_COLLAB
     return "openmp";
+#endif  // INTEL_COLLAB
   case OffloadKind::HIP:
     return "hip";
   case OffloadKind::SYCL:
@@ -244,6 +248,10 @@ private:
   StructType *EntryTy = nullptr;
   StructType *ImageTy = nullptr;
   StructType *DescTy = nullptr;
+#if INTEL_COLLAB
+  StructType *OmpImageTy = nullptr;
+  StructType *OmpDescTy = nullptr;
+#endif  // INTEL_COLLAB
 
   /// Records all added device binary images per offload kind.
   llvm::DenseMap<OffloadKind, std::unique_ptr<SameKindPack>> Packs;
@@ -319,7 +327,26 @@ private:
   //    __tgt_offload_entry *EntriesEnd;
   //  };
   //
+#if INTEL_COLLAB
+  StructType *getDeviceImageTy(OffloadKind Kind) {
+#else  // INTEL_COLLAB
   StructType *getDeviceImageTy() {
+#endif // INTEL_COLLAB
+#if INTEL_COLLAB
+    if (Kind == OffloadKind::OpenMP) {
+      if (!OmpImageTy)
+        OmpImageTy = StructType::create(
+            {
+                Type::getInt8PtrTy(C), // ImageStart
+                Type::getInt8PtrTy(C), // ImageEnd
+                getEntryPtrTy(),       // EntriesBegin
+                getEntryPtrTy()        // EntriesEnd
+            },
+            "__tgt_device_image.omp");
+
+      ImageTy = OmpImageTy;
+    }
+#endif  // INTEL_COLLAB
     if (!ImageTy) {
       ImageTy = StructType::create(
           {
@@ -340,9 +367,15 @@ private:
     return ImageTy;
   }
 
+#if INTEL_COLLAB
+  PointerType *getDeviceImagePtrTy(OffloadKind Kind) {
+    return PointerType::getUnqual(getDeviceImageTy(Kind));
+  }
+#else  // INTEL_COLLAB
   PointerType *getDeviceImagePtrTy() {
     return PointerType::getUnqual(getDeviceImageTy());
   }
+#endif  // INTEL_COLLAB
 
   const uint16_t BinDescStructVersion = 1;
 
@@ -357,13 +390,36 @@ private:
   //   __tgt_offload_entry *HostEntriesBegin;
   //   __tgt_offload_entry *HostEntriesEnd;
   // };
+#if INTEL_COLLAB
+  StructType *getBinDescTy(OffloadKind Kind) {
+#else  // INTEL_COLLAB
   StructType *getBinDescTy() {
+#endif  // INTEL_COLLAB
+#if INTEL_COLLAB
+    if (Kind == OffloadKind::OpenMP) {
+      if (!OmpDescTy)
+        OmpDescTy = StructType::create(
+          {
+              Type::getInt32Ty(C),       // NumDeviceImages
+              getDeviceImagePtrTy(Kind), // DeviceImages
+              getEntryPtrTy(),           // HostEntriesBegin
+              getEntryPtrTy()            // HostEntriesEnd
+          },
+          "__tgt_bin_desc.omp");
+
+      DescTy = OmpDescTy;
+    }
+#endif  // INTEL_COLLAB
     if (!DescTy) {
       DescTy = StructType::create(
           {
               Type::getInt16Ty(C),   // Version
               Type::getInt16Ty(C),   // NumDeviceImages
+#if INTEL_COLLAB
+              getDeviceImagePtrTy(Kind), // DeviceImages
+#else  // INTEL_COLLAB
               getDeviceImagePtrTy(), // DeviceImages
+#endif  // INTEL_COLLAB
               getEntryPtrTy(),       // HostEntriesBegin
               getEntryPtrTy()        // HostEntriesEnd
           },
@@ -372,9 +428,15 @@ private:
     return DescTy;
   }
 
+#if INTEL_COLLAB
+  PointerType *getBinDescPtrTy(OffloadKind Kind) {
+    return PointerType::getUnqual(getBinDescTy(Kind));
+  }
+#else  // INTEL_COLLAB
   PointerType *getBinDescPtrTy() {
     return PointerType::getUnqual(getBinDescTy());
   }
+#endif  // INTEL_COLLAB
 
   MemoryBuffer *loadFile(llvm::StringRef Name) {
     auto InputOrErr = MemoryBuffer::getFileOrSTDIN(Name);
@@ -437,12 +499,49 @@ private:
     Constant *EntriesB = nullptr, *EntriesE = nullptr;
 
     if (Kind != OffloadKind::SYCL) {
+#if INTEL_COLLAB
+#if _WIN32
+      if (Kind == OffloadKind::OpenMP) {
+        auto LabelTy = ArrayType::get(Type::getInt8Ty(C), 0);
+        EntriesB = new GlobalVariable(
+            M, LabelTy, true, GlobalValue::ExternalLinkage,
+            ConstantAggregateZero::get(LabelTy),
+            Twine(OffloadKindTag) + Twine("entries_begin"));
+        auto *EntriesBObj = cast<GlobalObject>(EntriesB);
+        EntriesBObj->setAlignment(32);
+        EntriesBObj->setSection(".omp_offloading.entries$A");
+        EntriesBObj->setVisibility(GlobalValue::HiddenVisibility);
+        EntriesBObj->setUnnamedAddr(GlobalValue::UnnamedAddr::Local);
+        EntriesB = ConstantExpr::getBitCast(EntriesB, getEntryPtrTy());
+        EntriesE = new GlobalVariable(
+            M, LabelTy, true, GlobalValue::ExternalLinkage,
+            ConstantAggregateZero::get(LabelTy),
+            Twine(OffloadKindTag) + Twine("entries_end"));
+        auto *EntriesEObj = cast<GlobalObject>(EntriesE);
+        // Set 32-byte alignment so that (entries_end - entries_begin) % 32 == 0
+        // MSVC incremental linking may introduce zero padding bytes
+        // in the middle of the section, and we want to make sure
+        // entries_end points to the end of 32-byte aligned chunk,
+        // otherwise libomptarget may read past the section.
+        EntriesEObj->setAlignment(32);
+        EntriesEObj->setSection(".omp_offloading.entries$C");
+        EntriesEObj->setVisibility(GlobalValue::HiddenVisibility);
+        EntriesEObj->setUnnamedAddr(GlobalValue::UnnamedAddr::Local);
+        EntriesE = ConstantExpr::getBitCast(EntriesE, getEntryPtrTy());
+      }
+#endif  // !_WIN32
+
+      if (!EntriesB) {
+#endif // INTEL_COLLAB
       EntriesB = new GlobalVariable(
           M, getEntryTy(), true, GlobalValue::ExternalLinkage, nullptr,
           Twine(OffloadKindTag) + Twine("entries_begin"));
       EntriesE = new GlobalVariable(
           M, getEntryTy(), true, GlobalValue::ExternalLinkage, nullptr,
           Twine(OffloadKindTag) + Twine("entries_end"));
+#if INTEL_COLLAB
+      }
+#endif  // INTEL_COLLAB
 
       if (Verbose) {
         errs() << "  global added: " << EntriesB->getName() << "\n";
@@ -489,15 +588,32 @@ private:
       MemoryBuffer *Bin = loadFile(Img.File);
       std::pair<Constant *, Constant *> Fbin = addMemBufToModule(
           M, Bin, Twine(OffloadKindTag) + Twine(ImgId) + Twine(".data"));
-
+#if INTEL_COLLAB
+      if (Kind == OffloadKind::OpenMP)
+        ImagesInits.push_back(ConstantStruct::get(
+            getDeviceImageTy(Kind),
+            { Fbin.first, Fbin.second, EntriesB, EntriesE }));
+      else
+        ImagesInits.push_back(ConstantStruct::get(
+            getDeviceImageTy(Kind),
+            { Fver, Fknd, Ffmt, Ftgt, Fopt, FMnf.first, FMnf.second,
+              Fbin.first, Fbin.second, EntriesB, EntriesE }));
+#else  // INTEL_COLLAB
       ImagesInits.push_back(ConstantStruct::get(
           getDeviceImageTy(),
           {Fver, Fknd, Ffmt, Ftgt, Fopt, FMnf.first, FMnf.second, Fbin.first,
            Fbin.second, EntriesB, EntriesE}));
+#endif  // INTEL_COLLAB
       ImgId++;
     }
+#if INTEL_COLLAB
+    auto *ImagesData = ConstantArray::get(
+        ArrayType::get(getDeviceImageTy(Kind), ImagesInits.size()),
+        ImagesInits);
+#else  // INTEL_COLLAB
     auto *ImagesData = ConstantArray::get(
         ArrayType::get(getDeviceImageTy(), ImagesInits.size()), ImagesInits);
+#endif  // INTEL_COLLAB
 
     auto *Images = new GlobalVariable(
         M, ImagesData->getType(), true, GlobalValue::InternalLinkage,
@@ -510,10 +626,27 @@ private:
                                                    Images, ZeroZero);
     Constant *Version =
         ConstantInt::get(Type::getInt16Ty(C), BinDescStructVersion);
+#if INTEL_COLLAB
+    Constant *DescInit;
+    if (Kind == OffloadKind::OpenMP) {
+      Constant *NumImages =
+          ConstantInt::get(Type::getInt32Ty(C), ImagesInits.size());
+      DescInit = ConstantStruct::get(
+          getBinDescTy(Kind),
+          {NumImages, ImagesB, EntriesB, EntriesE});
+    } else {
+      Constant *NumImages =
+          ConstantInt::get(Type::getInt16Ty(C), ImagesInits.size());
+      DescInit = ConstantStruct::get(
+          getBinDescTy(Kind),
+          {Version, NumImages, ImagesB, EntriesB, EntriesE});
+    }
+#else  // INTEL_COLLAB
     Constant *NumImages =
         ConstantInt::get(Type::getInt16Ty(C), ImagesInits.size());
     auto *DescInit = ConstantStruct::get(
         getBinDescTy(), {Version, NumImages, ImagesB, EntriesB, EntriesE});
+#endif  // INTEL_COLLAB
 
     GlobalValue::LinkageTypes Lnk = DescriptorName.getNumOccurrences() > 0
                                         ? GlobalValue::ExternalLinkage
@@ -535,8 +668,13 @@ private:
     Func->setSection(".text.startup");
 
     // Get RegFuncName function declaration.
+#if INTEL_COLLAB
+    auto *RegFuncTy =
+        FunctionType::get(Type::getVoidTy(C), {getBinDescPtrTy(Kind)}, false);
+#else  // INTEL_COLLAB
     auto *RegFuncTy =
         FunctionType::get(Type::getVoidTy(C), {getBinDescPtrTy()}, false);
+#endif  // INTEL_COLLAB
     FunctionCallee RegFunc = M.getOrInsertFunction(RegFuncName, RegFuncTy);
 
     // Construct function body
@@ -557,8 +695,13 @@ private:
     Func->setSection(".text.startup");
 
     // Get UnregFuncName function declaration.
+#if INTEL_COLLAB
+    auto *UnRegFuncTy =
+        FunctionType::get(Type::getVoidTy(C), {getBinDescPtrTy(Kind)}, false);
+#else  // INTEL_COLLAB
     auto *UnRegFuncTy =
         FunctionType::get(Type::getVoidTy(C), {getBinDescPtrTy()}, false);
+#endif  // INTEL_COLLAB
     FunctionCallee UnRegFunc = M.getOrInsertFunction(UnregFuncName, UnRegFuncTy);
 
     // Construct function body

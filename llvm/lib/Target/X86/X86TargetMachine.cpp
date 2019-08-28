@@ -87,6 +87,7 @@ extern "C" void LLVMInitializeX86Target() {
   initializeFPSPass(PR);
   initializeX86CallFrameOptimizationPass(PR);
   initializeX86CmovConverterPassPass(PR);
+  initializeX86CiscizationHelperPassPass(PR); // INTEL
   initializeX86ExpandPseudoPass(PR);
   initializeX86ExecutionDomainFixPass(PR);
   initializeX86DomainReassignmentPass(PR);
@@ -94,6 +95,10 @@ extern "C" void LLVMInitializeX86Target() {
   initializeX86SpeculativeLoadHardeningPassPass(PR);
   initializeX86FlagsCopyLoweringPassPass(PR);
   initializeX86CondBrFoldingPassPass(PR);
+#if INTEL_CUSTOMIZATION
+  initializeOptimizeLEAPassPass(PR);
+  initializeGenerateLEAPassPass(PR);
+#endif // INTEL_CUSTOMIZATION
 }
 
 static std::unique_ptr<TargetLoweringObjectFile> createTLOF(const Triple &TT) {
@@ -486,6 +491,9 @@ bool X86PassConfig::addPreISel() {
   if (TT.isOSWindows() && TT.getArch() == Triple::x86)
     addPass(createX86WinEHStatePass());
 #if INTEL_CUSTOMIZATION
+  if (getOptLevel() == CodeGenOpt::Aggressive &&
+      TM->Options.IntelAdvancedOptim)
+    addPass(createX86CiscizationHelperPass());
   if (getOptLevel() != CodeGenOpt::None)
     addPass(createFeatureInitPass());
   if (getOptLevel() == CodeGenOpt::Aggressive)
@@ -498,6 +506,9 @@ void X86PassConfig::addPreRegAlloc() {
   if (getOptLevel() != CodeGenOpt::None) {
     addPass(&LiveRangeShrinkID);
     addPass(createX86FixupSetCC());
+#if INTEL_CUSTOMIZATION
+    addPass(createX86GenerateLEAs());
+#endif // INTEL_CUSTOMIZATION
     addPass(createX86OptimizeLEAs());
     addPass(createX86CallFrameOptimization());
     addPass(createX86AvoidStoreForwardingBlocks());

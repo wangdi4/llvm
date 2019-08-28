@@ -221,23 +221,29 @@ bool X86TargetInfo::initFeatureMap(
   case CK_Goldencove:
     for (auto Feature : AnonymousCPU1Features)
       setFeatureEnabledImpl(Features, Feature, true);
+    // Add the icelake server features.
+    setFeatureEnabledImpl(Features, "pconfig", true);
+    setFeatureEnabledImpl(Features, "wbnoinvd", true);
     LLVM_FALLTHROUGH;
 #endif // INTEL_FEATURE_CPU_GLC
+#endif // INTEL_CUSTOMIZATION
   case CK_Tigerlake:
+#if INTEL_CUSTOMIZATION
     TGLXFEATURE1
+#endif // INTEL_CUSTOMIZATION
     setFeatureEnabledImpl(Features, "avx512vp2intersect", true);
     setFeatureEnabledImpl(Features, "movdiri", true);
     setFeatureEnabledImpl(Features, "movdir64b", true);
     setFeatureEnabledImpl(Features, "shstk", true);
-    LLVM_FALLTHROUGH;
+    // Tigerlake cores inherits IcelakeClient, except pconfig and wbnoinvd
+    goto IcelakeCommon;
+
   case CK_IcelakeServer:
-    if (Kind != CK_Tigerlake) {
-      setFeatureEnabledImpl(Features, "pconfig", true);
-      setFeatureEnabledImpl(Features, "wbnoinvd", true);
-    }
-#endif // INTEL_CUSTOMIZATION
+    setFeatureEnabledImpl(Features, "pconfig", true);
+    setFeatureEnabledImpl(Features, "wbnoinvd", true);
     LLVM_FALLTHROUGH;
   case CK_IcelakeClient:
+IcelakeCommon:
     setFeatureEnabledImpl(Features, "vaes", true);
     setFeatureEnabledImpl(Features, "gfni", true);
     setFeatureEnabledImpl(Features, "vpclmulqdq", true);
@@ -1083,7 +1089,7 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
 /// definitions for this particular subtarget.
 void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
                                      MacroBuilder &Builder) const {
-  // Inline assembly supports X86 flag outputs. 
+  // Inline assembly supports X86 flag outputs.
   Builder.defineMacro("__GCC_ASM_FLAG_OUTPUTS__");
 
   std::string CodeModel = getTargetOpts().CodeModel;
@@ -1205,8 +1211,8 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_Cannonlake:
   case CK_IcelakeClient:
   case CK_IcelakeServer:
-#if INTEL_CUSTOMIZATION
   case CK_Tigerlake:
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_GLC
   case CK_Goldencove:
 #endif // INTEL_FEATURE_CPU_GLC

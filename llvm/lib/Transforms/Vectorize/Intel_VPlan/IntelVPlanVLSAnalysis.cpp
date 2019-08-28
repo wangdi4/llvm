@@ -142,11 +142,7 @@ void VPlanVLSAnalysis::dump(const VPlan *Plan) const {
       dbgs() << "\t distance to ";
       const auto To = cast<VPVLSClientMemrefHIR>(*J);
       To->print(dbgs(), "\t");
-      int64_t Dist;
-      if (From->isAConstDistanceFrom(*To, &Dist))
-        dbgs() << "\t" << Dist;
-      else
-        dbgs() << "\t Unknown";
+      dbgs() << "\t" << From->getConstDistanceFrom(*To);
 
       dbgs() << " | "
              << (From->canMoveTo(*To) ? "can be moved" : "cannot be moved");
@@ -170,15 +166,38 @@ void VPVLSClientMemref::print(raw_ostream &Os, const Twine Indent) const {
   getAccessType().print(Os);
   Os << " | VLSType = ";
   getType().print(Os);
-  int64_t Stride;
-  Os << " | Stride = ";
-  if (hasAConstStride(&Stride))
-    Os << Stride;
-  else
-    Os << "unknown";
+  Os << " | Stride = " << getConstStride();
 }
 
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+/// InterleaveIndex is a distance (in elements) of a \p Memref from the first
+/// memory reference in the \p Group.
+int computeInterleaveIndex(OVLSMemref *Memref, OVLSGroup *Group) {
+  OVLSMemref *FirstMemref = Group->getFirstMemref();
+  Optional<int64_t> Offset = Memref->getConstDistanceFrom(*FirstMemref);
+  assert(Offset && "Memref is from another group?");
+
+  auto ElementSizeInBits = Memref->getType().getElementSize();
+  int InterleaveIndex = *Offset / (ElementSizeInBits / 8);
+  assert(InterleaveIndex * ElementSizeInBits == (*Offset) * 8 &&
+         "Offset is not a multiple of element size");
+
+  return InterleaveIndex;
+}
+
+/// InterleaveFactor is a stride of a \p Memref (in elements).
+int computeInterleaveFactor(OVLSMemref *Memref) {
+  Optional<int64_t> Stride = Memref->getConstStride();
+  assert(Stride && "Interleave factor requested for non-strided accesses");
+
+  auto ElementSizeInBits = Memref->getType().getElementSize();
+  int InterleaveFactor = *Stride / (ElementSizeInBits / 8);
+  assert(InterleaveFactor * ElementSizeInBits == 8 * (*Stride) &&
+         "Stride is not a multiple of element size");
+
+  return InterleaveFactor;
+}
 
 } // namespace vpo
 

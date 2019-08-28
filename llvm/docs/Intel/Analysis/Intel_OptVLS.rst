@@ -193,27 +193,27 @@ server defines this interface but leaves it to the client to implement.
   class OVLSMemref {
 
   public:
-    virtual bool isAConstDistanceFrom(const OVLSMemref& Memref, int64_t *Dist) = 0;
+    virtual Optional<int64_t> getConstDistanceFrom(const OVLSMemref& Memref) = 0;
 
     virtual bool haveSameNumElements(const OVLSMemref& Memref) = 0;
 
     virtual bool canMoveTo(const OVLSMemref& Memref) = 0;
 
-    virtual bool hasAConstStride(int64_t *Stride) = 0;
+    virtual Optional<int64_t> getConstStride() = 0;
 
   }
 
 ... Here is quick description of the semantics of the callback functions that need to
 ... be implemented by the client:
 
-  isAConstDistanceFrom()- queries whether two memrefs are a constant distance apart.
+  getConstDistanceFrom()- queries whether two memrefs are a constant distance apart.
 
   haveSameNumElements()- queries whether two memrefs have same number of elements.
 
   canMoveTo()- FIXME: We are still discussing whether it's the server or the client is responsible
                for code placement, which will affect this interface.
 
-  hasAConstStride()-returns true if a memref has a constant distance between its vector elements.
+  getConstStride()-returns a constant distance between vector elements of a memref or None.
 
 The code below shows how the client would extend the virtual class to implement these methods.
 
@@ -224,7 +224,7 @@ The code below shows how the client would extend the virtual class to implement 
 
   class ClientMemref : public OVLSMemref {
   public:
-    bool isAConstDistanceFrom(const OVLSMemref& Memref, int64_t *Dist) {
+    Optional<int64_t> getConstDistanceFrom(const OVLSMemref& Memref) {
        // Client implements this
     }
     bool haveSameNumElements(const OVLSMemref& Memref) {
@@ -233,7 +233,7 @@ The code below shows how the client would extend the virtual class to implement 
     bool canMoveTo(const OVLSMemref& Memref) {
       // client implements this
     }
-    bool hasAConstStride(int64_t *Stride) {
+    Optional<int64_t> getConstStride() {
       // client implements this
     }
  }

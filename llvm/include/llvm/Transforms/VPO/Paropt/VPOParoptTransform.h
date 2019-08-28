@@ -99,7 +99,8 @@ public:
                      OptReportVerbosity::Level ORVerbosity,
 #endif  // INTEL_CUSTOMIZATION
                      OptimizationRemarkEmitter &ORE,
-                     unsigned OptLevel = 2, bool SwitchToOffload = false)
+                     unsigned OptLevel = 2, bool SwitchToOffload = false,
+                     bool DisableOffload = false)
       : MT(MT), F(F), WI(WI), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC),
         TLI(TLI), AA(AA), Mode(Mode),
         TargetTriple(F->getParent()->getTargetTriple()),
@@ -107,6 +108,7 @@ public:
         ORVerbosity(ORVerbosity),
 #endif  // INTEL_CUSTOMIZATION
         ORE(ORE), OptLevel(OptLevel), SwitchToOffload(SwitchToOffload),
+        DisableOffload(DisableOffload),
         IdentTy(nullptr), TidPtrHolder(nullptr), BidPtrHolder(nullptr),
         KmpcMicroTaskTy(nullptr), KmpRoutineEntryPtrTy(nullptr),
         KmpTaskTTy(nullptr), KmpTaskTRedTy(nullptr),
@@ -203,6 +205,9 @@ private:
 
   /// Offload compilation mode.
   bool SwitchToOffload;
+
+  /// Ignore TARGET construct
+  bool DisableOffload;
 
   /// Contain all parallel/sync/offload constructs to be transformed
   WRegionListTy WRegionList;
@@ -518,7 +523,11 @@ private:
   /// Generate loop schdudeling code.
   /// \p IsLastVal is an output from this routine and is used to emit
   /// lastprivate code.
-  bool genLoopSchedulingCode(WRegionNode *W, AllocaInst *&IsLastVal);
+  /// If \p W is a loop construct with scheduling involving __kmpc_dispatch
+  /// calls, \p InsertLastIterCheckBeforeOut is set to point to the instruction
+  /// before which the lastprivate/linear finalization code should be inserted.
+  bool genLoopSchedulingCode(WRegionNode *W, AllocaInst *&IsLastVal,
+                             Instruction *&InsertLastIterCheckBeforeOut);
 
   /// Generate the code to replace the variables in the task loop with
   /// the thunk field dereferences
@@ -543,8 +552,11 @@ private:
   /// Generate the call __kmpc_omp_taskwait.
   bool genTaskWaitCode(WRegionNode *W);
 
+  /// Generate the function that destructs firstprivate local vars.
+  Function *genTaskDestructorThunk(WRegionNode *W, StructType *TaskThunkType);
+
   /// Replace the shared variable reference with the thunk field
-  /// derefernce
+  /// dereference
   bool genSharedCodeForTaskGeneric(WRegionNode *W);
 
   /// Replace the reduction variable reference with the dereference of
@@ -577,7 +589,7 @@ private:
   void genSharedInitForTaskLoop(WRegionNode *W, AllocaInst *Src, Value *Dst,
                                 StructType *KmpSharedTy,
                                 StructType *KmpTaskTTWithPrivatesTy,
-                                Instruction *InsertPt);
+                                Function *DestrThunk, Instruction *InsertPt);
 
   /// Save the loop lower upper bound, upper bound and stride for the use
   /// by the call __kmpc_taskloop
@@ -590,10 +602,10 @@ private:
   /// Generate the outline function for the reduction update
   Function *genTaskLoopRedCombFunc(WRegionNode *W, ReductionItem *RedI);
 
-  /// Generate the outline function to set the last iteration
-  //  flag at runtime.
-  Function *genLastPrivateTaskDup(WRegionNode *W,
-                                  StructType *KmpTaskTTWithPrivatesTy);
+  /// Generate the runtime callback to set the last iteration
+  /// flag for lastprivates, and copy-construct firstprivates.
+  Function *genFLPrivateTaskDup(WRegionNode *W,
+                                StructType *KmpTaskTTWithPrivatesTy);
 
   /// Generate the function type void @routine_entry(i32 %tid, i8*)
   void genKmpRoutineEntryT();
@@ -769,17 +781,25 @@ private:
   ///
   /// Emitted pseudocode:
   ///
+  /// \code
   ///   %x.local = @x                         ; (1) firstprivate copyin
-  ///   __kmpc_static_init(...)
+  ///   __kmpc_static_init(...)               ; (i) init call
   ///   ...
   ///   __kmpc_static_fini(...)
   ///
   ///   __kmpc_barrier(...)                   ; (2)
   ///   @x = %x.local                         ; (3) lastprivate copyout
   ///
-  ///  The barrier (2) is needed to prevent a race between (1) and (3), which
-  ///  read/write to/from @x.
-  bool genBarrierForFpLpAndLinears(WRegionNode *W);
+  /// \endcode
+  ///
+  /// The barrier (2) is needed to prevent a race between (1) and (3), which
+  /// read from / write to @x.
+  ///
+  /// For supporting non-monotonic scheduling on loops, the barrier is to be
+  /// inserted before the 'init call (i)'. This is done by passing in '(i)'
+  /// as \p InsertBefore.
+  bool genBarrierForFpLpAndLinears(WRegionNode *W,
+                                   Instruction *InsertBefore = nullptr);
 
   /// Emits an if-then branch using \p IsLastVal and sets \p IfLastIterOut to
   /// the if-then BBlock. This is used for emitting the final copy-out code for
@@ -813,15 +833,20 @@ private:
   /// iteration is the last one.
   /// \param [out] IfLastIterOut The BasicBlock for when the last iteration
   /// check is true.
+  /// \param [in] InsertBefore If not null, the branch is inserted before it.
+  /// Otherwise, the branch is inserted before \p W's exit BB.
   ///
   /// \returns \b true if the branch is emitted, \b false otherwise.
   ///
   /// The branch is not emitted if \p W has no Linear or Lastprivate var.
   bool genLastIterationCheck(WRegionNode *W, Value *IsLastVal,
-                             BasicBlock *&IfLastIterOut);
+                             BasicBlock *&IfLastIterOut,
+                             Instruction *InsertBefore = nullptr);
 
-  /// Insert a barrier at the end of the construct
-  bool genBarrier(WRegionNode *W, bool IsExplicit, bool IsTargetSPIRV = false);
+  /// Insert a barrier at the end of the construct if \p InsertBefore is
+  /// null. Otherwise, insert the barrier before \p InsertBefore.
+  bool genBarrier(WRegionNode *W, bool IsExplicit, bool IsTargetSPIRV = false,
+                  Instruction *InsertBefore = nullptr);
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -1070,7 +1095,10 @@ private:
     TGT_MAP_LITERAL = 0x100,
     // instructs the runtime to forward the value to target construct.
     TGT_MAP_IMPLICIT = 0x200,
-    TGT_MAP_ND_DESC = 0x400,
+    TGT_MAP_CLOSE = 0x400,
+    // The close map-type-modifier is a hint to the runtime to
+    // allocate memory close to the target device.
+    TGT_MAP_ND_DESC = 0x800,
     // indicates that the parameter is loop descriptor struct.
     TGT_MAP_MEMBER_OF = 0xffff000000000000
   };

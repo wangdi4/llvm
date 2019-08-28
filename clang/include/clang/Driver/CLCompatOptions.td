@@ -165,14 +165,24 @@ def _SLASH_Qipo_ : CLFlag<"Qipo-">, Alias<fno_lto>,
   HelpText<"Disable LTO mode (default)">;
 def _SLASH_Qopenmp : CLFlag<"Qopenmp">, Alias<fopenmp>,
   HelpText<"Parse OpenMP pragmas and generate parallel code.">;
-#endif // INTEL_CUSTOMIZATION
-def _SLASH_QUESTION : CLFlag<"?">, Alias<help>,
-  HelpText<"Display available options">;
+def _SLASH_Qopt_jump_tables : CLFlag<"Qopt-jump-tables">,
+  Alias<fjump_tables>, HelpText<"Control the generation of jump tables">;
+def _SLASH_Qopt_jump_tables_ : CLFlag<"Qopt-jump-tables-">,
+  Alias<fno_jump_tables>, HelpText<"Do not use jump tables for lowering switches">;
 def _SLASH_Qvec : CLFlag<"Qvec">,
   HelpText<"Enable the loop vectorization passes">, Alias<fvectorize>;
 def _SLASH_Qvec_ : CLFlag<"Qvec-">,
   HelpText<"Disable the loop vectorization passes">, Alias<fno_vectorize>;
+#endif // INTEL_CUSTOMIZATION
+def _SLASH_QUESTION : CLFlag<"?">, Alias<help>,
+  HelpText<"Display available options">;
 #if INTEL_CUSTOMIZATION
+def _SLASH_Qintrinsic_promote : CLFlag<"Qintrinsic-promote">,
+  Alias<intel_mintrinsic_promote>, HelpText<"For certain functions using "
+  "intrinsics to promote their architectures and make the intrinsic headers "
+  "included by default">;
+def _SLASH_Qintrinsic_promote_ : CLFlag<"Qintrinsic-promote-">,
+  Alias<intel_mno_intrinsic_promote>;
 def _SLASH_Qrestrict : CLFlag<"Qrestrict">, Alias<restrict>,
   HelpText<"enable the 'restrict' keyword for disambiguating pointers">;
 def _SLASH_Qrestrict_ : CLFlag<"Qrestrict-">, Alias<no_restrict>,
@@ -277,7 +287,13 @@ def _SLASH_Zp_flag : CLFlag<"Zp">,
   Alias<fpack_struct_EQ>, AliasArgs<["1"]>;
 def _SLASH_Zs : CLFlag<"Zs">, HelpText<"Syntax-check only">,
   Alias<fsyntax_only>;
-
+def _SLASH_openmp_ : CLFlag<"openmp-">,
+  HelpText<"Disable OpenMP support">, Alias<fno_openmp>;
+def _SLASH_openmp : CLFlag<"openmp">, HelpText<"Enable OpenMP support">,
+  Alias<fopenmp>;
+def _SLASH_openmp_experimental : CLFlag<"openmp:experimental">,
+  HelpText<"Enable OpenMP support with experimental SIMD support">,
+  Alias<fopenmp>;
 
 // Non-aliases:
 
@@ -408,7 +424,6 @@ def _SLASH_FS : CLIgnoredFlag<"FS">;
 def _SLASH_JMC : CLIgnoredFlag<"JMC">;
 def _SLASH_kernel_ : CLIgnoredFlag<"kernel-">;
 def _SLASH_nologo : CLIgnoredFlag<"nologo">;
-def _SLASH_openmp_ : CLIgnoredFlag<"openmp-">;
 def _SLASH_permissive_ : CLIgnoredFlag<"permissive-">;
 def _SLASH_RTC : CLIgnoredJoined<"RTC">;
 def _SLASH_sdl : CLIgnoredFlag<"sdl">;
@@ -463,8 +478,6 @@ def _SLASH_hotpatch : CLFlag<"hotpatch">;
 def _SLASH_kernel : CLFlag<"kernel">;
 def _SLASH_LN : CLFlag<"LN">;
 def _SLASH_MP : CLJoined<"MP">;
-def _SLASH_openmp : CLFlag<"openmp">;
-def _SLASH_openmp_experimental : CLFlag<"openmp:experimental">;
 def _SLASH_Qfast_transcendentals : CLFlag<"Qfast_transcendentals">;
 def _SLASH_QIfist : CLFlag<"QIfist">;
 def _SLASH_Qimprecise_fwaits : CLFlag<"Qimprecise_fwaits">;

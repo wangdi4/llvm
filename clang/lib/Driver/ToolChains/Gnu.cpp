@@ -579,13 +579,10 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   // linked archives.  The unbundled information is a list of files and not
   // an actual object/archive.  Take that list and pass those to the linker
   // instead of the original object.
-  if (JA.isDeviceOffloading(Action::OFK_OpenMP) &&
-      Args.hasArg(options::OPT_foffload_static_lib_EQ)) {
+  if (JA.isDeviceOffloading(Action::OFK_OpenMP)) {
     InputInfoList UpdatedInputs;
-    // Go through the Inputs to the link.  When an object is encountered, we
+    // Go through the Inputs to the link.  When a listfile is encountered, we
     // know it is an unbundled generated list.
-    // FIXME - properly add objects from list to be removed when compilation is
-    // complete.
     for (const auto &II : Inputs) {
       if (II.getType() == types::TY_Tempfilelist) {
         // Take the unbundled list file and pass it in with '@'.
@@ -667,8 +664,13 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
       AddRunTimeLibs(ToolChain, D, CmdArgs, Args);
 
-      if (Args.hasArg(options::OPT_fsycl))
+      if (Args.hasArg(options::OPT_fsycl)) {
         CmdArgs.push_back("-lsycl");
+        // Use of -fintelfpga implies -lOpenCL.
+        // FIXME: Adjust to use plugin interface when available.
+        if (Args.hasArg(options::OPT_fintelfpga))
+          CmdArgs.push_back("-lOpenCL");
+      }
 
       if (WantPthread && !isAndroid)
         CmdArgs.push_back("-lpthread");
@@ -2121,7 +2123,8 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
   static const char *const RISCV64LibDirs[] = {"/lib64", "/lib"};
   static const char *const RISCV64Triples[] = {"riscv64-unknown-linux-gnu",
                                                "riscv64-linux-gnu",
-                                               "riscv64-unknown-elf"};
+                                               "riscv64-unknown-elf",
+                                               "riscv64-suse-linux"};
 
   static const char *const SPARCv8LibDirs[] = {"/lib32", "/lib"};
   static const char *const SPARCv8Triples[] = {"sparc-linux-gnu",

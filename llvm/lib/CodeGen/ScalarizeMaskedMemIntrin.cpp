@@ -15,6 +15,7 @@
 
 #include "llvm/ADT/Twine.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/VectorUtils.h" // INTEL
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
@@ -31,6 +32,7 @@
 #include "llvm/IR/Value.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Transforms/Utils/Local.h" // INTEL
 #include <algorithm>
 #include <cassert>
 
@@ -173,15 +175,30 @@ static void scalarizeMaskedLoad(CallInst *CI, bool &ModifiedDT) {
     return;
   }
 
+  // If the mask is not v1i1, use scalar bit test operations. This generates
+  // better results on X86 at least.
+  Value *SclrMask;
+  if (VectorWidth != 1) {
+    Type *SclrMaskTy = Builder.getIntNTy(VectorWidth);
+    SclrMask = Builder.CreateBitCast(Mask, SclrMaskTy, "scalar_mask");
+  }
+
   for (unsigned Idx = 0; Idx < VectorWidth; ++Idx) {
     // Fill the "else" block, created in the previous iteration
     //
     //  %res.phi.else3 = phi <16 x i32> [ %11, %cond.load1 ], [ %res.phi.else, %else ]
-    //  %mask_1 = extractelement <16 x i1> %mask, i32 Idx
+    //  %mask_1 = and i16 %scalar_mask, i32 1 << Idx
+    //  %cond = icmp ne i16 %mask_1, 0
     //  br i1 %mask_1, label %cond.load, label %else
     //
-
-    Value *Predicate = Builder.CreateExtractElement(Mask, Idx);
+    Value *Predicate;
+    if (VectorWidth != 1) {
+      Value *Mask = Builder.getInt(APInt::getOneBitSet(VectorWidth, Idx));
+      Predicate = Builder.CreateICmpNE(Builder.CreateAnd(SclrMask, Mask),
+                                       Builder.getIntN(VectorWidth, 0));
+    } else {
+      Predicate = Builder.CreateExtractElement(Mask, Idx);
+    }
 
     // Create "cond" block
     //
@@ -290,13 +307,29 @@ static void scalarizeMaskedStore(CallInst *CI, bool &ModifiedDT) {
     return;
   }
 
+  // If the mask is not v1i1, use scalar bit test operations. This generates
+  // better results on X86 at least.
+  Value *SclrMask;
+  if (VectorWidth != 1) {
+    Type *SclrMaskTy = Builder.getIntNTy(VectorWidth);
+    SclrMask = Builder.CreateBitCast(Mask, SclrMaskTy, "scalar_mask");
+  }
+
   for (unsigned Idx = 0; Idx < VectorWidth; ++Idx) {
     // Fill the "else" block, created in the previous iteration
     //
-    //  %mask_1 = extractelement <16 x i1> %mask, i32 Idx
+    //  %mask_1 = and i16 %scalar_mask, i32 1 << Idx
+    //  %cond = icmp ne i16 %mask_1, 0
     //  br i1 %mask_1, label %cond.store, label %else
     //
-    Value *Predicate = Builder.CreateExtractElement(Mask, Idx);
+    Value *Predicate;
+    if (VectorWidth != 1) {
+      Value *Mask = Builder.getInt(APInt::getOneBitSet(VectorWidth, Idx));
+      Predicate = Builder.CreateICmpNE(Builder.CreateAnd(SclrMask, Mask),
+                                       Builder.getIntN(VectorWidth, 0));
+    } else {
+      Predicate = Builder.CreateExtractElement(Mask, Idx);
+    }
 
     // Create "cond" block
     //
@@ -325,6 +358,68 @@ static void scalarizeMaskedStore(CallInst *CI, bool &ModifiedDT) {
 
   ModifiedDT = true;
 }
+
+#if INTEL_CUSTOMIZATION
+// Look for GEP where the base pointer and all indices are made of scalars,
+// splats of scalars, or constant ints. These GEPs are trivially scalarizable.
+// This creates opportunities for the arithmetic to be folded into the address
+// of the load/stores we're going to create. Otherwise we end up broadcasting
+// the scalars into vector registers, doing the address arithmetic there, and
+// then extracting the address for each element.
+static Value *tryScalarizeGEP(GetElementPtrInst *GEP, unsigned Element,
+                              IRBuilder<> &Builder) {
+  Value *Base = GEP->getPointerOperand();
+
+  // Base should be a scalar, or a splatted scalar.
+  if (Base->getType()->isVectorTy()) {
+    Base = getSplatValue(Base);
+    if (!Base)
+      return nullptr;
+  }
+
+  // Found a scalar to use for base. Now try to find scalars for the indices.
+  SmallVector<Value *, 8> Indices;
+
+  for (unsigned i = 1, e = GEP->getNumOperands(); i != e; ++i) {
+    Value *GEPIdx = GEP->getOperand(i);
+    if (!GEPIdx->getType()->isVectorTy()) {
+      // Just copy it.
+      Indices.push_back(GEPIdx);
+    } else if (Value *V = getSplatValue(GEPIdx)) {
+      // Splatted scalar, copy the original scalar value.
+      Indices.push_back(V);
+    } else {
+      // We have some kind of non-splat vector.
+      if (auto *C = dyn_cast<Constant>(GEPIdx)) {
+        // If all elements are ConstantInts, use the Constant for this element.
+        unsigned NumElts = C->getType()->getVectorNumElements();
+        for (unsigned j = 0; j != NumElts; ++j) {
+          Constant *Elt = C->getAggregateElement(j);
+          if (!Elt || !isa<ConstantInt>(Elt))
+            return nullptr;
+        }
+        Indices.push_back(C->getAggregateElement(Element));
+        continue;
+      }
+
+      // Don't know how to scalarize this yet.
+      return nullptr;
+    }
+  }
+
+  // Create a GEP from the scalar components.
+  return Builder.CreateGEP(Base, Indices, "Ptr" + Twine(Element));
+}
+
+static Value *getScalarAddress(Value *Ptrs, unsigned Element,
+                               IRBuilder<> &Builder) {
+  if (auto *GEP = dyn_cast<GetElementPtrInst>(Ptrs))
+    if (Value *V = tryScalarizeGEP(GEP, Element, Builder))
+      return V;
+
+  return Builder.CreateExtractElement(Ptrs, Element, "Ptr" + Twine(Element));
+}
+#endif // INTEL_CUSTOMIZATION
 
 // Translate a masked gather intrinsic like
 // <16 x i32 > @llvm.masked.gather.v16i32( <16 x i32*> %Ptrs, i32 4,
@@ -381,7 +476,7 @@ static void scalarizeMaskedGather(CallInst *CI, bool &ModifiedDT) {
     for (unsigned Idx = 0; Idx < VectorWidth; ++Idx) {
       if (cast<Constant>(Mask)->getAggregateElement(Idx)->isNullValue())
         continue;
-      Value *Ptr = Builder.CreateExtractElement(Ptrs, Idx, "Ptr" + Twine(Idx));
+      Value *Ptr = getScalarAddress(Ptrs, Idx, Builder); // INTEL
       LoadInst *Load =
           Builder.CreateAlignedLoad(EltTy, Ptr, AlignVal, "Load" + Twine(Idx));
       VResult =
@@ -389,18 +484,38 @@ static void scalarizeMaskedGather(CallInst *CI, bool &ModifiedDT) {
     }
     CI->replaceAllUsesWith(VResult);
     CI->eraseFromParent();
+#if INTEL_CUSTOMIZATION
+    // If we scalarized the address, remove it too.
+    if (Ptrs->use_empty())
+      RecursivelyDeleteTriviallyDeadInstructions(Ptrs);
+#endif
     return;
+  }
+
+  // If the mask is not v1i1, use scalar bit test operations. This generates
+  // better results on X86 at least.
+  Value *SclrMask;
+  if (VectorWidth != 1) {
+    Type *SclrMaskTy = Builder.getIntNTy(VectorWidth);
+    SclrMask = Builder.CreateBitCast(Mask, SclrMaskTy, "scalar_mask");
   }
 
   for (unsigned Idx = 0; Idx < VectorWidth; ++Idx) {
     // Fill the "else" block, created in the previous iteration
     //
-    //  %Mask1 = extractelement <16 x i1> %Mask, i32 1
+    //  %Mask1 = and i16 %scalar_mask, i32 1 << Idx
+    //  %cond = icmp ne i16 %mask_1, 0
     //  br i1 %Mask1, label %cond.load, label %else
     //
 
-    Value *Predicate =
-        Builder.CreateExtractElement(Mask, Idx, "Mask" + Twine(Idx));
+    Value *Predicate;
+    if (VectorWidth != 1) {
+      Value *Mask = Builder.getInt(APInt::getOneBitSet(VectorWidth, Idx));
+      Predicate = Builder.CreateICmpNE(Builder.CreateAnd(SclrMask, Mask),
+                                       Builder.getIntN(VectorWidth, 0));
+    } else {
+      Predicate = Builder.CreateExtractElement(Mask, Idx, "Mask" + Twine(Idx));
+    }
 
     // Create "cond" block
     //
@@ -492,21 +607,41 @@ static void scalarizeMaskedScatter(CallInst *CI, bool &ModifiedDT) {
         continue;
       Value *OneElt =
           Builder.CreateExtractElement(Src, Idx, "Elt" + Twine(Idx));
-      Value *Ptr = Builder.CreateExtractElement(Ptrs, Idx, "Ptr" + Twine(Idx));
+      Value *Ptr = getScalarAddress(Ptrs, Idx, Builder); // INTEL
       Builder.CreateAlignedStore(OneElt, Ptr, AlignVal);
     }
     CI->eraseFromParent();
+#if INTEL_CUSTOMIZATION
+    // If we scalarized the address, remove it too.
+    if (Ptrs->use_empty())
+      RecursivelyDeleteTriviallyDeadInstructions(Ptrs);
+#endif
     return;
+  }
+
+  // If the mask is not v1i1, use scalar bit test operations. This generates
+  // better results on X86 at least.
+  Value *SclrMask;
+  if (VectorWidth != 1) {
+    Type *SclrMaskTy = Builder.getIntNTy(VectorWidth);
+    SclrMask = Builder.CreateBitCast(Mask, SclrMaskTy, "scalar_mask");
   }
 
   for (unsigned Idx = 0; Idx < VectorWidth; ++Idx) {
     // Fill the "else" block, created in the previous iteration
     //
-    //  %Mask1 = extractelement <16 x i1> %Mask, i32 Idx
+    //  %Mask1 = and i16 %scalar_mask, i32 1 << Idx
+    //  %cond = icmp ne i16 %mask_1, 0
     //  br i1 %Mask1, label %cond.store, label %else
     //
-    Value *Predicate =
-        Builder.CreateExtractElement(Mask, Idx, "Mask" + Twine(Idx));
+    Value *Predicate;
+    if (VectorWidth != 1) {
+      Value *Mask = Builder.getInt(APInt::getOneBitSet(VectorWidth, Idx));
+      Predicate = Builder.CreateICmpNE(Builder.CreateAnd(SclrMask, Mask),
+                                       Builder.getIntN(VectorWidth, 0));
+    } else {
+      Predicate = Builder.CreateExtractElement(Mask, Idx, "Mask" + Twine(Idx));
+    }
 
     // Create "cond" block
     //
@@ -555,6 +690,32 @@ static void scalarizeMaskedExpandLoad(CallInst *CI, bool &ModifiedDT) {
   // The result vector
   Value *VResult = PassThru;
 
+  // Shorten the way if the mask is a vector of constants.
+  if (isConstantIntVector(Mask)) {
+    unsigned MemIndex = 0;
+    for (unsigned Idx = 0; Idx < VectorWidth; ++Idx) {
+      if (cast<Constant>(Mask)->getAggregateElement(Idx)->isNullValue())
+        continue;
+      Value *NewPtr = Builder.CreateConstInBoundsGEP1_32(EltTy, Ptr, MemIndex);
+      LoadInst *Load =
+          Builder.CreateAlignedLoad(EltTy, NewPtr, 1, "Load" + Twine(Idx));
+      VResult =
+          Builder.CreateInsertElement(VResult, Load, Idx, "Res" + Twine(Idx));
+      ++MemIndex;
+    }
+    CI->replaceAllUsesWith(VResult);
+    CI->eraseFromParent();
+    return;
+  }
+
+  // If the mask is not v1i1, use scalar bit test operations. This generates
+  // better results on X86 at least.
+  Value *SclrMask;
+  if (VectorWidth != 1) {
+    Type *SclrMaskTy = Builder.getIntNTy(VectorWidth);
+    SclrMask = Builder.CreateBitCast(Mask, SclrMaskTy, "scalar_mask");
+  }
+
   for (unsigned Idx = 0; Idx < VectorWidth; ++Idx) {
     // Fill the "else" block, created in the previous iteration
     //
@@ -563,8 +724,14 @@ static void scalarizeMaskedExpandLoad(CallInst *CI, bool &ModifiedDT) {
     //  br i1 %mask_1, label %cond.load, label %else
     //
 
-    Value *Predicate =
-        Builder.CreateExtractElement(Mask, Idx);
+    Value *Predicate;
+    if (VectorWidth != 1) {
+      Value *Mask = Builder.getInt(APInt::getOneBitSet(VectorWidth, Idx));
+      Predicate = Builder.CreateICmpNE(Builder.CreateAnd(SclrMask, Mask),
+                                       Builder.getIntN(VectorWidth, 0));
+    } else {
+      Predicate = Builder.CreateExtractElement(Mask, Idx, "Mask" + Twine(Idx));
+    }
 
     // Create "cond" block
     //
@@ -633,13 +800,44 @@ static void scalarizeMaskedCompressStore(CallInst *CI, bool &ModifiedDT) {
 
   unsigned VectorWidth = VecType->getNumElements();
 
+  // Shorten the way if the mask is a vector of constants.
+  if (isConstantIntVector(Mask)) {
+    unsigned MemIndex = 0;
+    for (unsigned Idx = 0; Idx < VectorWidth; ++Idx) {
+      if (cast<Constant>(Mask)->getAggregateElement(Idx)->isNullValue())
+        continue;
+      Value *OneElt =
+          Builder.CreateExtractElement(Src, Idx, "Elt" + Twine(Idx));
+      Value *NewPtr = Builder.CreateConstInBoundsGEP1_32(EltTy, Ptr, MemIndex);
+      Builder.CreateAlignedStore(OneElt, NewPtr, 1);
+      ++MemIndex;
+    }
+    CI->eraseFromParent();
+    return;
+  }
+
+  // If the mask is not v1i1, use scalar bit test operations. This generates
+  // better results on X86 at least.
+  Value *SclrMask;
+  if (VectorWidth != 1) {
+    Type *SclrMaskTy = Builder.getIntNTy(VectorWidth);
+    SclrMask = Builder.CreateBitCast(Mask, SclrMaskTy, "scalar_mask");
+  }
+
   for (unsigned Idx = 0; Idx < VectorWidth; ++Idx) {
     // Fill the "else" block, created in the previous iteration
     //
     //  %mask_1 = extractelement <16 x i1> %mask, i32 Idx
     //  br i1 %mask_1, label %cond.store, label %else
     //
-    Value *Predicate = Builder.CreateExtractElement(Mask, Idx);
+    Value *Predicate;
+    if (VectorWidth != 1) {
+      Value *Mask = Builder.getInt(APInt::getOneBitSet(VectorWidth, Idx));
+      Predicate = Builder.CreateICmpNE(Builder.CreateAnd(SclrMask, Mask),
+                                       Builder.getIntN(VectorWidth, 0));
+    } else {
+      Predicate = Builder.CreateExtractElement(Mask, Idx, "Mask" + Twine(Idx));
+    }
 
     // Create "cond" block
     //

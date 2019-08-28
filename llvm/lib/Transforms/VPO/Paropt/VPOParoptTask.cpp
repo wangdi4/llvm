@@ -104,6 +104,104 @@ bool VPOParoptTransform::genRedCodeForTaskGeneric(WRegionNode *W) {
   return Changed;
 }
 
+// Generate the destructor thunk for task firstprivate data.
+// int32_t destr(int32_t gtid, char *taskThunk)
+// This thunk is stored in the kmp_task_t structure which is passed to the
+// task/taskloop creation call.
+//
+// This is required if a firstprivate object has a destructor, and:
+// 1) The task executes a cancellation, *or*
+// 2) It is a taskloop construct.
+// Currently the thunk is passed to all tasks, so the firstprivates and their
+// copies are always destructed from a destructor thunk.
+Function *VPOParoptTransform::genTaskDestructorThunk(
+    WRegionNode *W, StructType *KmpTaskTTWithPrivatesTy) {
+  // First check if we need this thunk.
+  if (!W->canHaveFirstprivate())
+    return nullptr;
+  bool hasDestr = false;
+  for (FirstprivateItem *FI : W->getFpriv().items())
+    if (FI->getDestructor()) {
+      hasDestr = true;
+      break;
+    }
+  if (!hasDestr)
+    return nullptr;
+
+  LLVMContext &C = F->getContext();
+  Module *M = F->getParent();
+  Type *DestThunkParams[] = {Type::getIntNTy(C, 32),
+                             PointerType::getUnqual(Type::getIntNTy(C, 8))};
+  FunctionType *DestThunkTy =
+      FunctionType::get(Type::getIntNTy(C, 32), DestThunkParams, false);
+  Function *DestThunk = Function::Create(
+      DestThunkTy, GlobalValue::InternalLinkage,
+      F->getName() + "_dtor_thunk_" + Twine(W->getNumber()), M);
+  DestThunk->setCallingConv(CallingConv::C);
+  BasicBlock *EntryBB = BasicBlock::Create(C, "entry", DestThunk);
+
+  DominatorTree DT;
+  DT.recalculate(*DestThunk);
+  auto *ArgIter = DestThunk->arg_begin();
+  // 2nd arg is the pointer to the task thunk.
+  ArgIter++;
+  IRBuilder<> Builder(EntryBB);
+
+  Type *TaskThunkPtrType = PointerType::getUnqual(KmpTaskTTWithPrivatesTy);
+  // The task thunk was passed in as char*. Cast it to the task thunk type.
+  auto *TaskThunkPtr = Builder.CreateBitCast(&*ArgIter, TaskThunkPtrType);
+
+  // Create the block terminator. This return value is unused.
+  auto *RetInst = Builder.CreateRet(Builder.getInt32(0));
+
+  // Insert the next sequences before the return.
+  Builder.SetInsertPoint(RetInst);
+
+  // Now call all the destructors on all firstprivate objects.
+  SmallVector<Value *, 4> Indices;
+  for (FirstprivateItem *FI : W->getFpriv().items()) {
+    if (!FI->getDestructor())
+      continue;
+    // The firstprivate objects are stored whole, in the private area of the
+    // task thunk.
+    // %__struct.kmp_task_t_with_privates =
+    //     type { %__struct.kmp_task_t, %__struct.kmp_privates.t }
+    // %__struct.kmp_privates.t = type { %class.foo, %class.foo, i64, i32 }
+    // Each FI is represented by a GEP from the start of the private area.
+    // This was set up by firstprivate codegen.
+    // We have a kmp_task_t_with_privates, so first GEP to kmp_privates_t
+    // and then add the FI's GEP index.
+    //
+    // If firstprivate codegen is later changed to use local vars instead
+    // of thunk references, we will need to find the indices a different way.
+    assert(isa<GetElementPtrInst>(FI->getNew()) &&
+      "Firstprivate item must have a GEP pointing to local storage");
+
+    auto *FIGEP = cast<GetElementPtrInst>(FI->getNew());
+    // a struct GEP should have 2 indices: 0 then the real index
+    assert(FIGEP->getNumIndices() == 2);
+    Indices.clear();
+    // 0 == struct reference
+    Indices.push_back(Builder.getInt32(0));
+    // 1 == index of private area in kmp_task_t_with_privates
+    Indices.push_back(Builder.getInt32(1));
+    // GEP index from FI
+    Indices.push_back(FIGEP->getOperand(2));
+    Value *DestrGEP = Builder.CreateInBoundsGEP(KmpTaskTTWithPrivatesTy,
+                                                TaskThunkPtr, Indices);
+    // Call the destructor. Insert the call before the return inst.
+    // The gencall will verify that the GEP type matches the destructor
+    // parameter.
+    auto *DestrCall =
+        VPOParoptUtils::genDestructorCall(FI->getDestructor(), DestrGEP, RetInst);
+
+    // Move the builder before the destructor call.
+    Builder.SetInsertPoint(DestrCall);
+  }
+
+  return DestThunk;
+}
+
 // Generate the code to update the last privates for taskloop.
 void VPOParoptTransform::genLprivFiniForTaskLoop(LastprivateItem *LprivI,
                                                  Instruction *InsertPt) {
@@ -644,9 +742,9 @@ AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
       Indices.push_back(Builder.getInt32(FprivI->getThunkIdx()));
       Value *Gep =
           Builder.CreateInBoundsGEP(KmpSharedTy, TaskSharedBase, Indices);
-      // TODO: need to call copy constructor here
-      VPOParoptUtils::genCopyByAddr(Gep, FprivI->getOrig(),
-                                    cast<Instruction>(Gep)->getNextNode());
+      VPOParoptUtils::genCopyByAddr(
+          Gep, FprivI->getOrig(), cast<Instruction>(Gep)->getNextNode(),
+          FprivI->getCopyConstructor(), FprivI->getIsByRef());
     }
   }
 
@@ -705,10 +803,12 @@ AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
   return TaskSharedBase;
 }
 
-// Initialize the data in the shared data area inside the thunk
+// Initialize the data in the shared data area inside the thunk.
+// Also used for tasks.
 void VPOParoptTransform::genSharedInitForTaskLoop(
     WRegionNode *W, AllocaInst *Src, Value *Dst, StructType *KmpSharedTy,
-    StructType *KmpTaskTTWithPrivatesTy, Instruction *InsertPt) {
+    StructType *KmpTaskTTWithPrivatesTy, Function *DestrThunk,
+    Instruction *InsertPt) {
   IRBuilder<> Builder(InsertPt);
 
   Value *Cast = Builder.CreateBitCast(
@@ -781,6 +881,16 @@ void VPOParoptTransform::genSharedInitForTaskLoop(
           PrivateGep, PointerType::getUnqual(Type::getInt8PtrTy(C)));
       unsigned Align = DL.getABITypeAlignment(FprivI->getOrig()->getType());
       Builder.CreateMemCpy(D, Align, S, Align, Size);
+    }
+
+    if (DestrThunk) {
+      Indices.clear();
+      Indices.push_back(Builder.getInt32(0)); // struct GEP
+      Indices.push_back(Builder.getInt32(3)); // data1 field (cmplrdata_t)
+      Indices.push_back(Builder.getInt32(0)); // destructor thunk in cmplrdata
+      Value *DestrGep =
+          Builder.CreateInBoundsGEP(KmpTaskTTy, TaskTTyGep, Indices);
+      Builder.CreateStore(DestrThunk, DestrGep);
     }
   }
 }
@@ -918,15 +1028,34 @@ Function *VPOParoptTransform::genTaskLoopRedCombFunc(WRegionNode *W,
   return FnTaskLoopRedComb;
 }
 
-// Generate the function for the last private so that the runtime can call it to
-// set the last iteration flag.
+// Generate the taskdup function for the first and last privates.
+// void task_dup(%__struct.kmp_task_t_with_privates* dst,
+//               %__struct.kmp_task_t_with_privates* src,
+//               i32 last_iter_flag)
+//
+// Firstprivates: If a firstprivate var has a copy constructor, call the copy
+// constructor to copy the data from src to dst.
+// Lastprivates: Store the value of the last_iter_flag parameter, to the
+// last_iter field of dst.
 Function *
-VPOParoptTransform::genLastPrivateTaskDup(WRegionNode *W,
-                                          StructType *KmpTaskTTWithPrivatesTy) {
-
+VPOParoptTransform::genFLPrivateTaskDup(WRegionNode *W,
+                                        StructType *KmpTaskTTWithPrivatesTy) {
+  // We only need the taskdup if there is a lastprivate, or a firstprivate
+  // with a copy constructor.
   LastprivateClause &LprivClause = W->getLpriv();
-  if (LprivClause.empty())
-    return nullptr;
+  FirstprivateClause &FprivClause = W->getFpriv();
+  if (LprivClause.empty()) {
+    if (FprivClause.empty())
+      return nullptr;
+    bool hasCtor = false;
+    for (FirstprivateItem *FI : FprivClause.items())
+      if (FI->getCopyConstructor()) {
+        hasCtor = true;
+        break;
+      }
+    if (!hasCtor)
+      return nullptr;
+  }
 
   LLVMContext &C = F->getContext();
   Module *M = F->getParent();
@@ -943,9 +1072,13 @@ VPOParoptTransform::genLastPrivateTaskDup(WRegionNode *W,
   FnTaskDup->setCallingConv(CallingConv::C);
 
   auto I = FnTaskDup->arg_begin();
+  // Arg1: dst
   Value *Arg1 = &*I;
   I++;
+  // Arg2: src
+  Value *Arg2 = &*I;
   I++;
+  // Arg3: last_iter flag
   Value *Arg3 = &*I;
 
   BasicBlock *EntryBB = BasicBlock::Create(C, "entry", FnTaskDup);
@@ -956,23 +1089,62 @@ VPOParoptTransform::genLastPrivateTaskDup(WRegionNode *W,
   IRBuilder<> Builder(EntryBB);
 
   SmallVector<Value *, 4> Indices;
-  Indices.push_back(Builder.getInt32(0));
-  Indices.push_back(Builder.getInt32(0));
-  Value *BaseTaskTGep =
-      Builder.CreateInBoundsGEP(KmpTaskTTWithPrivatesTy, Arg1, Indices);
+  if (!LprivClause.empty()) {
+    Indices.push_back(Builder.getInt32(0));
+    Indices.push_back(Builder.getInt32(0));
+    Value *BaseTaskTGep =
+        Builder.CreateInBoundsGEP(KmpTaskTTWithPrivatesTy, Arg1, Indices);
 
-  StructType *KmpTaskTTy =
-      dyn_cast<StructType>(KmpTaskTTWithPrivatesTy->getElementType(0));
+    StructType *KmpTaskTTy =
+        dyn_cast<StructType>(KmpTaskTTWithPrivatesTy->getElementType(0));
 
-  Indices.clear();
-  Indices.push_back(Builder.getInt32(0));
-  Indices.push_back(Builder.getInt32(8));
-  Value *LastIterGep =
-      Builder.CreateInBoundsGEP(KmpTaskTTy, BaseTaskTGep, Indices);
+    Indices.clear();
+    // Index of last_iter flag in dst.
+    Indices.push_back(Builder.getInt32(0));
+    Indices.push_back(Builder.getInt32(8));
+    Value *LastIterGep =
+        Builder.CreateInBoundsGEP(KmpTaskTTy, BaseTaskTGep, Indices);
 
-  Builder.CreateStore(Arg3, LastIterGep);
-  Builder.CreateRetVoid();
+    // Store last_iter flag value to dst.
+    Builder.CreateStore(Arg3, LastIterGep);
+  }
+  auto *RetInst = Builder.CreateRetVoid();
 
+  if (FprivClause.empty())
+    return FnTaskDup;
+
+  // Generate the copy constructor calls for the firstprivate items.
+  Builder.SetInsertPoint(RetInst);
+  for (FirstprivateItem *FI : FprivClause.items()) {
+    if (!FI->getCopyConstructor())
+      continue;
+
+    // kmp_task_t_with_privates { kmp_task_t, kmp_privates_t }
+    // kmp_privates_t { object_1, object_2, ... }
+    // Assume each FI is represented by a GEP from kmp_privates_t.
+    // area. We have a pointer to kmp_task_t_with_privates, so we will GEP
+    // to kmp_privates_t and then add the FI's GEP index.
+    //
+    // If firstprivate codegen is later changed to use local vars instead
+    // of thunk references, we will need to find the indices a different way.
+    auto *FIGEP = cast<GetElementPtrInst>(FI->getNew());
+    // a struct GEP should have 2 indices: 0 then the real index
+    assert(FIGEP->getNumIndices() == 2);
+    Indices.clear();
+    // 0 == struct reference
+    Indices.push_back(Builder.getInt32(0));
+    // 1 == index of private area in kmp_task_t_with_privates
+    Indices.push_back(Builder.getInt32(1));
+    // GEP index from FI
+    Indices.push_back(FIGEP->getOperand(2));
+    Value *DstGEP =
+        Builder.CreateInBoundsGEP(KmpTaskTTWithPrivatesTy, Arg1, Indices);
+    Value *SrcGEP =
+        Builder.CreateInBoundsGEP(KmpTaskTTWithPrivatesTy, Arg2, Indices);
+    VPOParoptUtils::genCopyByAddr(DstGEP, SrcGEP, RetInst,
+                                  FI->getCopyConstructor(), FI->getIsByRef());
+    Builder.SetInsertPoint(RetInst);
+  }
   return FnTaskDup;
 }
 
@@ -1259,13 +1431,18 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
   int KmpSharedTySz = DL.getTypeAllocSize(KmpSharedTy);
   assert(MTFnCI->getCalledFunction() &&
          "genTaskGenericCode: Expect non-empty function.");
+
+  Function *DestrThunk = genTaskDestructorThunk(W, KmpTaskTTWithPrivatesTy);
+  if (DestrThunk)
+    W->setTaskFlag(W->getTaskFlag() | 0x8);
+
   CallInst *TaskAllocCI = VPOParoptUtils::genKmpcTaskAlloc(
       W, IdentTy, TidPtrHolder, KmpTaskTTWithPrivatesTySz, KmpSharedTySz,
       KmpRoutineEntryPtrTy, MTFnCI->getCalledFunction(), NewCall,
       Mode & OmpTbb);
 
   genSharedInitForTaskLoop(W, PrivateBase, TaskAllocCI, KmpSharedTy,
-                           KmpTaskTTWithPrivatesTy, NewCall);
+                           KmpTaskTTWithPrivatesTy, DestrThunk, NewCall);
 
   IRBuilder<> Builder(NewCall);
 
@@ -1277,7 +1454,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
     VPOParoptUtils::genKmpcTaskLoop(
         W, IdentTy, TidPtrHolder, TaskAllocCI, Cmp, LBPtr, UBPtr, STPtr,
         KmpTaskTTWithPrivatesTy, NewCall, Mode & OmpTbb,
-        genLastPrivateTaskDup(W, KmpTaskTTWithPrivatesTy));
+        genFLPrivateTaskDup(W, KmpTaskTTWithPrivatesTy));
   } else {
     if (!VIf) {
       if (!DummyTaskTDependRec)

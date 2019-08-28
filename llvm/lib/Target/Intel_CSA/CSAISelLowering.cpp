@@ -515,7 +515,7 @@ bool CSATargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
       Info.memVT = MVT::getVT(I.getType());
       Info.ptrVal = I.getArgOperand(0);
       Info.offset = 0;
-      Info.align = 1;
+      Info.align = Align(1);
       Info.flags = MachineMemOperand::MOLoad;
       if (Info.memVT == MVT::iPTR)
         Info.memVT = MVT::i64;
@@ -527,7 +527,7 @@ bool CSATargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
       Info.memVT = MVT::getVT(I.getType()->getContainedType(0));
       Info.ptrVal = I.getArgOperand(0);
       Info.offset = 0;
-      Info.align = 1; // XXX: alignment rules for sld/sst?
+      Info.align = Align(1); // XXX: alignment rules for sld/sst?
       Info.flags = MachineMemOperand::MOLoad;
       if (Info.memVT == MVT::iPTR)
         Info.memVT = MVT::i64;
@@ -539,7 +539,7 @@ bool CSATargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
       Info.memVT = MVT::getVT(I.getArgOperand(0)->getType());
       Info.ptrVal = I.getArgOperand(1);
       Info.offset = 0;
-      Info.align = 1;
+      Info.align = Align(1);
       Info.flags = MachineMemOperand::MOStore;
       if (Info.memVT == MVT::iPTR)
         Info.memVT = MVT::i64;

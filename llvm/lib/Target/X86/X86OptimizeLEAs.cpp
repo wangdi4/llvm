@@ -43,6 +43,9 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
+#if INTEL_CUSTOMIZATION
+#include "Intel_X86MemOpKey.h"
+#endif
 #include <cassert>
 #include <cstdint>
 #include <iterator>
@@ -59,6 +62,7 @@ static cl::opt<bool>
 STATISTIC(NumSubstLEAs, "Number of LEA instruction substitutions");
 STATISTIC(NumRedundantLEAs, "Number of redundant LEA instructions removed");
 
+#if !INTEL_CUSTOMIZATION
 /// Returns true if two machine operands are identical and they are not
 /// physical registers.
 static inline bool isIdenticalOp(const MachineOperand &MO1,
@@ -68,10 +72,12 @@ static inline bool isIdenticalOp(const MachineOperand &MO1,
 /// type and use the same symbol/index/address regardless of the offset.
 static bool isSimilarDispOp(const MachineOperand &MO1,
                             const MachineOperand &MO2);
+#endif // !INTEL_CUSTOMIZATION
 
 /// Returns true if the instruction is LEA.
 static inline bool isLEA(const MachineInstr &MI);
 
+#if !INTEL_CUSTOMIZATION
 namespace {
 
 /// A key based on instruction's memory operands.
@@ -182,7 +188,7 @@ template <> struct DenseMapInfo<MemOpKey> {
 };
 
 } // end namespace llvm
-
+#endif // !INTEL_CUSTOMIZATION
 /// Returns a hash table key based on memory operands of \p MI. The
 /// number of the first memory operand of \p MI is specified through \p N.
 static inline MemOpKey getMemOpKey(const MachineInstr &MI, unsigned N) {
@@ -195,11 +201,11 @@ static inline MemOpKey getMemOpKey(const MachineInstr &MI, unsigned N) {
                   &MI.getOperand(N + X86::AddrDisp));
 }
 
+#if !INTEL_CUSTOMIZATION
 static inline bool isIdenticalOp(const MachineOperand &MO1,
                                  const MachineOperand &MO2) {
   return MO1.isIdenticalTo(MO2) &&
-         (!MO1.isReg() ||
-          !TargetRegisterInfo::isPhysicalRegister(MO1.getReg()));
+         (!MO1.isReg() || !Register::isPhysicalRegister(MO1.getReg()));
 }
 
 #ifndef NDEBUG
@@ -226,7 +232,7 @@ static bool isSimilarDispOp(const MachineOperand &MO1,
           MO1.getMCSymbol() == MO2.getMCSymbol()) ||
          (MO1.isMBB() && MO2.isMBB() && MO1.getMBB() == MO2.getMBB());
 }
-
+#endif // !INTEL_CUSTOMIZATION
 static inline bool isLEA(const MachineInstr &MI) {
   unsigned Opcode = MI.getOpcode();
   return Opcode == X86::LEA16r || Opcode == X86::LEA32r ||
@@ -245,7 +251,9 @@ public:
   /// calculations in load and store instructions, if it's already
   /// been calculated by LEA. Also, remove redundant LEAs.
   bool runOnMachineFunction(MachineFunction &MF) override;
-
+#if INTEL_CUSTOMIZATION
+  static char ID;
+#endif // INTEL_CUSTOMIZATION
 private:
   using MemOpMap = DenseMap<MemOpKey, SmallVector<MachineInstr *, 16>>;
 
@@ -297,7 +305,9 @@ private:
   const X86InstrInfo *TII;
   const X86RegisterInfo *TRI;
 
+#if !INTEL_CUSTOMIZATION
   static char ID;
+#endif // !INTEL_CUSTOMIZATION
 };
 
 } // end anonymous namespace
@@ -305,6 +315,10 @@ private:
 char OptimizeLEAPass::ID = 0;
 
 FunctionPass *llvm::createX86OptimizeLEAs() { return new OptimizeLEAPass(); }
+#if INTEL_CUSTOMIZATION
+INITIALIZE_PASS(OptimizeLEAPass, DEBUG_TYPE,
+                "X86 optimize LEA pass", false, false)
+#endif //INTEL_CUSTOMIZATION
 
 int OptimizeLEAPass::calcInstrDist(const MachineInstr &First,
                                    const MachineInstr &Last) {

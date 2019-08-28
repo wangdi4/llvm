@@ -58,6 +58,7 @@ entry:
 ; CHECK: %F7 = getelementptr i8, i8* %bp, i64 16
 
   %bp3 = bitcast %struct.test.02* %tp3 to i8*
+
 ; GEP shouldn't be modified
   %F8 = getelementptr i8, i8* %bp3, i64 0
 ; CHECK: %F8 = getelementptr i8, i8* %bp3, i64 0

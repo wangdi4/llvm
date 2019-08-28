@@ -195,6 +195,15 @@ private:
   std::map<Value *, std::pair<Value *, int>> UnitStepLinears;
 
 public:
+  /// Add stride information for pointer \p Ptr.
+  // Used for a temporary solution of teaching legality based on DA.
+  // TODO: Is it okay to overwrite existing stride value?
+  void addPtrStride(Value *Ptr, int Stride) { PtrStrides[Ptr] = Stride; }
+
+  /// Erase pointer \p Ptr from the stride information map.
+  // Used for a temporary solution of teaching legality based on DA.
+  void erasePtrStride(Value *Ptr) { PtrStrides.erase(Ptr); }
+
   /// Holds the instructions known to be uniform after vectorization for any VF.
   SmallPtrSet<Instruction *, 4> UniformForAnyVF;
 

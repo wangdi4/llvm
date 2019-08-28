@@ -1,7 +1,4 @@
-# INTEL_COLLAB
-# Cherry-pick from https://github.com/intel/llvm/pull/363/commits
 set(LLVM_LINK_COMPONENTS Object Support)
-# end INTEL_COLLAB
 
 if(NOT CLANG_BUILT_STANDALONE)
   set(tablegen_deps intrinsics_gen)

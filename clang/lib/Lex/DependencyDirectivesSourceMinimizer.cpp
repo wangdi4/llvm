@@ -59,6 +59,7 @@ private:
   LLVM_NODISCARD bool minimizeImpl(const char *First, const char *const End);
   LLVM_NODISCARD bool lexPPLine(const char *&First, const char *const End);
   LLVM_NODISCARD bool lexAt(const char *&First, const char *const End);
+  LLVM_NODISCARD bool lexModule(const char *&First, const char *const End);
   LLVM_NODISCARD bool lexDefine(const char *&First, const char *const End);
   LLVM_NODISCARD bool lexPragma(const char *&First, const char *const End);
   LLVM_NODISCARD bool lexEndif(const char *&First, const char *const End);
@@ -576,6 +577,59 @@ bool Minimizer::lexAt(const char *&First, const char *const End) {
   return false;
 }
 
+bool Minimizer::lexModule(const char *&First, const char *const End) {
+  IdInfo Id = lexIdentifier(First, End);
+  First = Id.Last;
+  bool Export = false;
+  if (Id.Name == "export") {
+    Export = true;
+    skipWhitespace(First, End);
+    if (!isIdentifierBody(*First)) {
+      skipLine(First, End);
+      return false;
+    }
+    Id = lexIdentifier(First, End);
+    First = Id.Last;
+  }
+
+  if (Id.Name != "module" && Id.Name != "import") {
+    skipLine(First, End);
+    return false;
+  }
+
+  skipWhitespace(First, End);
+
+  // Ignore this as a module directive if the next character can't be part of
+  // an import.
+
+  switch (*First) {
+  case ':':
+  case '<':
+  case '"':
+    break;
+  default:
+    if (!isIdentifierBody(*First)) {
+      skipLine(First, End);
+      return false;
+    }
+  }
+
+  if (Export) {
+    makeToken(cxx_export_decl);
+    append("export ");
+  }
+
+  if (Id.Name == "module")
+    makeToken(cxx_module_decl);
+  else
+    makeToken(cxx_import_decl);
+  append(Id.Name);
+  append(" ");
+  printToNewline(First, End);
+  append("\n");
+  return false;
+}
+
 bool Minimizer::lexDefine(const char *&First, const char *const End) {
   makeToken(pp_define);
   append("#define ");
@@ -612,7 +666,21 @@ bool Minimizer::lexDefine(const char *&First, const char *const End) {
 
 bool Minimizer::lexPragma(const char *&First, const char *const End) {
   // #pragma.
-  if (!isNextIdentifier("clang", First, End)) {
+  skipWhitespace(First, End);
+  if (First == End || !isIdentifierHead(*First))
+    return false;
+
+  IdInfo FoundId = lexIdentifier(First, End);
+  First = FoundId.Last;
+  if (FoundId.Name == "once") {
+    // #pragma once
+    skipLine(First, End);
+    makeToken(pp_pragma_once);
+    append("#pragma once\n");
+    return false;
+  }
+
+  if (FoundId.Name != "clang") {
     skipLine(First, End);
     return false;
   }
@@ -663,6 +731,18 @@ bool Minimizer::lexDefault(TokenKind Kind, StringRef Directive,
   return false;
 }
 
+static bool isStartOfRelevantLine(char First) {
+  switch (First) {
+  case '#':
+  case '@':
+  case 'i':
+  case 'e':
+  case 'm':
+    return true;
+  }
+  return false;
+}
+
 bool Minimizer::lexPPLine(const char *&First, const char *const End) {
   assert(First != End);
 
@@ -671,7 +751,7 @@ bool Minimizer::lexPPLine(const char *&First, const char *const End) {
   if (First == End)
     return false;
 
-  if (*First != '#' && *First != '@') {
+  if (!isStartOfRelevantLine(*First)) {
     skipLine(First, End);
     assert(First <= End);
     return false;
@@ -680,6 +760,9 @@ bool Minimizer::lexPPLine(const char *&First, const char *const End) {
   // Handle "@import".
   if (*First == '@')
     return lexAt(First, End);
+
+  if (*First == 'i' || *First == 'e' || *First == 'm')
+    return lexModule(First, End);
 
   // Handle preprocessing directives.
   ++First; // Skip over '#'.

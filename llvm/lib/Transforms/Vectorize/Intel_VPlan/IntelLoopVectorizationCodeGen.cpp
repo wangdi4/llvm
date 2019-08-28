@@ -16,6 +16,7 @@
 #include "IntelLoopVectorizationCodeGen.h"
 #include "IntelLoopVectorizationLegality.h"
 #include "IntelVPlan.h"
+#include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSAnalysis.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
@@ -39,6 +40,10 @@ static cl::opt<bool>
 cl::opt<bool> EnableVPValueCodegen("enable-vp-value-codegen", cl::init(false),
                                    cl::Hidden,
                                    cl::desc("Enable VPValue based codegen"));
+
+static cl::opt<bool> VPlanTeachLegalFromDA(
+    "vplan-teach-legal-from-da", cl::init(true), cl::Hidden,
+    cl::desc("Teach legal about uniforms recognized by DA"));
 
 /// A helper function that returns GEP instruction and knows to skip a
 /// 'bitcast'. The 'bitcast' may be skipped if the source and the destination
@@ -108,6 +113,25 @@ static Value *createVectorSplat(Value *V, unsigned VF, IRBuilder<>& Builder,
 static void addBlockToParentLoop(Loop *L, BasicBlock *BB, LoopInfo& LI) {
   if (auto *ParentLoop = L->getParentLoop())
     ParentLoop->addBasicBlockToLoop(BB, LI);
+}
+
+unsigned VPOCodeGen::getPrivateVarAlignment(Value *V) {
+  // Get the alignment value based on what the type of V is.
+  // We always set the alignment-value for the new, widened alloca as the
+  // alignment of the original alloca. This means that in some cases, when the
+  // original alloca has no alignment value, we end up setting up the alignment
+  // based on the value computed from DataLayout for a particular pointer-type.
+  // This might not be the most optimal value, but safe. One issue we might have
+  // to deal with is in cost-modeling, where we compute costs based on
+  // alignment.
+  if (isa<GlobalValue>(V))
+    return cast<GlobalValue>(V)->getAlignment();
+  else if (isa<AllocaInst>(V))
+    return cast<AllocaInst>(V)->getAlignment();
+  else {
+    const DataLayout &DL = OrigLoop->getHeader()->getModule()->getDataLayout();
+    return DL.getPrefTypeAlignment(V->getType());
+  }
 }
 
 bool VPOCodeGen::isSerializedPrivateArray(Value *Priv) const {
@@ -722,7 +746,8 @@ void VPOCodeGen::createSerialPrivateArrayBase(Value *ArrPriv) {
   for (unsigned I = 0; I < VF; ++I) {
     AllocaInst *SPrivArr = Builder.CreateAlloca(
         PointeeTy, nullptr, ArrPrivInst->getName() + ".vec");
-    SPrivArr->setAlignment(cast<AllocaInst>(ArrPrivInst)->getAlignment());
+    // Alignment of the alloca should match the original alignment.
+    SPrivArr->setAlignment(getPrivateVarAlignment(ArrPriv));
     ScalarMap[ArrPriv][I] = SPrivArr;
   }
   Builder.restoreIP(OldIP);
@@ -797,18 +822,17 @@ Value *VPOCodeGen::getVectorPrivateAggregateBase(Value *AggrPriv) {
 
   // Create an alloca in the appropriate block
   auto OldIP = Builder.saveIP();
-  Function *F = cast<Instruction>(AggrPriv)->getParent()->getParent();
-  BasicBlock &FirstBB = F->front();
-  Builder.SetInsertPoint(&*FirstBB.getFirstInsertionPt());
+  Builder.SetInsertPoint(&*(getFunctionEntryBlock().getFirstInsertionPt()));
   AllocaInst *WidenedPrivArr = Builder.CreateAlloca(
       VecTyForAlloca, nullptr, AggrPriv->getName() + ".vec");
-  WidenedPrivArr->setAlignment(cast<AllocaInst>(AggrPriv)->getAlignment());
+  // Alignment of the alloca should match the original alignment.
+  WidenedPrivArr->setAlignment(getPrivateVarAlignment(AggrPriv));
 
   // Save alloca's result
   LoopPrivateWidenMap[AggrPriv] = WidenedPrivArr;
 
   if (Legal->isCondLastPrivate(AggrPriv)) {
-    Builder.SetInsertPoint((cast<Instruction>(WidenedPrivArr))->getNextNode());
+    Builder.SetInsertPoint(WidenedPrivArr->getNextNode());
     // Create a memory location for last non-zero mask
     // We save mask as an integer value
     Type *MaskTy = IntegerType::get(AggrPriv->getContext(), VF);
@@ -855,14 +879,12 @@ Value *VPOCodeGen::getVectorPrivateBase(Value *V) {
 
   auto VecTyForAlloca = VectorType::get(OrigAllocaTy->getScalarType(),
                                         OriginalVL * VF);
-  Function *F = cast<Instruction>(V)->getParent()->getParent();
-  BasicBlock& FirstBB = F->front();
-  Builder.SetInsertPoint(&*FirstBB.getFirstInsertionPt());
-  Value *PtrToVec =
-      Builder.CreateAlloca(VecTyForAlloca, nullptr, V->getName() + ".vec");
+  Builder.SetInsertPoint(&*(getFunctionEntryBlock().getFirstInsertionPt()));
+  AllocaInst *PtrToVec = cast<AllocaInst>(
+      Builder.CreateAlloca(VecTyForAlloca, nullptr, V->getName() + ".vec"));
 
   // Alignment of vector alloca should match the original alignment
-  cast<AllocaInst>(PtrToVec)->setAlignment(cast<AllocaInst>(V)->getAlignment());
+  PtrToVec->setAlignment(getPrivateVarAlignment(V));
 
   // Save alloca's result
   LoopPrivateWidenMap[V] = PtrToVec;
@@ -906,10 +928,10 @@ Value *VPOCodeGen::getVectorPrivateBase(Value *V) {
     Builder.CreateStore(InitVec, PtrToVec);
   }
 
-  PtrToVec = Builder.CreateBitCast(PtrToVec, NewType);
+  Value *BitCastPtrToVec = Builder.CreateBitCast(PtrToVec, NewType);
 
   Builder.restoreIP(OldIP);
-  return PtrToVec;
+  return BitCastPtrToVec;
 }
 
 template<typename CastInstTy>
@@ -941,9 +963,8 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
   if (EnableVPValueCodegen)
     return getVectorValueUplifted(V);
 
-  Value *UV = V->getUnderlyingValue();
-  if (UV)
-    return getVectorValue(UV);
+  if (V->isUnderlyingIRValid())
+    return getVectorValue(V->getUnderlyingValue());
 
   Value *VecV = VPWidenMap[V];
   assert(VecV && "Value not in VPWidenMap");
@@ -1028,10 +1049,8 @@ Value *VPOCodeGen::getScalarValue(VPValue *V, unsigned Lane) {
   if (EnableVPValueCodegen)
     return getScalarValueUplifted(V, Lane);
 
-  Value *UV = V->getUnderlyingValue();
-
-  if (UV)
-    return getScalarValue(UV, Lane);
+  if (V->isUnderlyingIRValid())
+    return getScalarValue(V->getUnderlyingValue(), Lane);
   else {
     Value *VecV = getVectorValue(V);
     IRBuilder<>::InsertPointGuard Guard(Builder);
@@ -1068,6 +1087,12 @@ Value *VPOCodeGen::getScalarValue(Value *V, unsigned Lane) {
 
   if (ScalarMap.count(V)) {
     auto SV = ScalarMap[V];
+
+    if (auto *Inst = dyn_cast<Instruction>(V))
+      if (isUniformAfterVectorization(Inst, VF))
+        // For uniform instructions the mapping is updated for lane zero only.
+        Lane = 0;
+
     if (SV.count(Lane))
       return SV[Lane];
   }
@@ -1232,21 +1257,19 @@ Value *VPOCodeGen::createWidenedBasePtrConsecutiveLoadStore(Instruction *I,
   Type *WideDataTy = VectorType::get(SubTy, VF * OriginalVL);
   Value *VecPtr = nullptr;
   if (Legal->isLoopPrivate(Ptr))
+    // 'isLoopPrivate(Ptr)' returns true only for scalar privates.
     VecPtr = getVectorPrivateBase(Ptr);
-  else if (auto GEP = getGEPInstruction(Ptr)) {
-    GetElementPtrInst *Gep2 = cast<GetElementPtrInst>(GEP->clone());
-    Gep2->setName("gep.indvar");
-
-    for (unsigned i = 0; i < GEP->getNumOperands(); ++i)
-      Gep2->setOperand(i, getScalarValue(GEP->getOperand(i), 0));
-    VecPtr = Builder.InsertWithDbgLoc(Gep2);
-
-  } else // No GEP
+  else
+    // We do not care whether the 'Ptr' operand comes from a GEP or any other
+    // source. We just fetch the first element and then create a
+    // bitcast  which assumes the 'consecutive-ness' property and return the
+    // correct operand for widened load/store.
     VecPtr = getScalarValue(Ptr, 0);
 
-  VecPtr = Reverse ? Builder.CreateGEP(nullptr, VecPtr,
-                                       Builder.getInt32(1 - OriginalVL * VF))
-                   : VecPtr;
+  VecPtr =
+      Reverse ? Builder.CreateGEP(VecPtr, Builder.getInt32(1 - OriginalVL * VF),
+                                  "reverse.ptr.")
+              : VecPtr;
   VecPtr = Builder.CreateBitCast(VecPtr, WideDataTy->getPointerTo(AddrSpace));
   return VecPtr;
 }
@@ -1388,7 +1411,10 @@ void VPOCodeGen::vectorizeLoadInstruction(Instruction *Inst,
 
   if (!Legal->isLoopPrivateAggregate(GEP ? getPointerOperand(GEP) : Ptr) &&
       (Legal->isLoopInvariant(Ptr) || Legal->isUniformForTheLoop(Ptr))) {
-    serializeInstruction(Inst);
+    if (MaskValue)
+      serializePredicatedUniformLoad(Inst);
+    else
+      serializeInstruction(Inst);
     return;
   }
 
@@ -1727,6 +1753,40 @@ void VPOCodeGen::vectorizeInsertElement(Instruction *Inst) {
   Value *SecondShuf = Builder.CreateShuffleVector(InsertTo, ExtendSubVec,
                                                   ShufMask2, "wide.insert");
   WidenMap[Inst] = SecondShuf;
+}
+
+void VPOCodeGen::serializePredicatedUniformLoad(Instruction *Inst) {
+  assert(MaskValue->getType()->isVectorTy() &&
+         MaskValue->getType()->getVectorNumElements() == VF &&
+         "Unexpected Mask Type");
+  // Emit not of all-zero check for mask
+  Type *MaskTy = MaskValue->getType();
+  Type *IntTy =
+      IntegerType::get(MaskTy->getContext(), MaskTy->getPrimitiveSizeInBits());
+  auto *MaskBitCast = Builder.CreateBitCast(MaskValue, IntTy);
+
+  // Check if the bitcast value is not zero. The generated compare will be true
+  // if atleast one of the i1 masks in <VF x i1> is true.
+  auto *CmpInst =
+      Builder.CreateICmpNE(MaskBitCast, Constant::getNullValue(IntTy));
+
+  // Now create a clone of the load, populating correct values for its operands.
+  Instruction *Cloned = Inst->clone();
+  if (!Inst->getType()->isVoidTy())
+    Cloned->setName(Inst->getName() + ".cloned");
+
+  // Replace the operands of the cloned instructions with their scalar
+  // equivalents in the new loop.
+  for (unsigned Op = 0, e = Inst->getNumOperands(); Op != e; ++Op) {
+    auto *NewOp = getScalarValue(Inst->getOperand(Op), 0 /*Lane*/);
+    Cloned->setOperand(Op, NewOp);
+  }
+
+  // Place the cloned scalar load in the new loop.
+  Builder.InsertWithDbgLoc(Cloned);
+  ScalarMap[Inst][0] = Cloned;
+
+  PredicatedInstructions.push_back(std::make_pair(Cloned, CmpInst));
 }
 
 void VPOCodeGen::serializeWithPredication(Instruction *Inst) {
@@ -2735,8 +2795,46 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     return;
   }
 
-  // Generate code by peeking at underlying IR.
-  if (auto *Inst = VPInst->getInstruction()) {
+  // Generate code by peeking at underlying IR, if valid.
+  if (VPInst->isUnderlyingIRValid()) {
+    auto *Inst = VPInst->getInstruction();
+    assert(Inst &&
+           "Underlying instruction cannot be null for valid VPInstruction.");
+
+    // Temporary workaround to detect and handle uniform loads and unit-stride
+    // loads/stores in codegen by transferring knowledge from DA to VPOLegal.
+    // TODO: Is this too late to do a knowledge transfer. Other option is to
+    // write a full HCFG traversal in collectLoopUniforms.
+    if (VPlanTeachLegalFromDA) {
+      VPlanDivergenceAnalysis *DA = Plan->getVPlanDA();
+      // We do special handling for uniform loads, nothing is done in codegen
+      // for uniform stores.
+      if (isa<LoadInst>(Inst) && !DA->isDivergent(*VPInst)) {
+        if (auto *PtrInst =
+                dyn_cast<Instruction>(getLoadStorePointerOperand(Inst))) {
+          Legal->UniformForAnyVF.insert(PtrInst);
+          Uniforms[VF].insert(Inst);
+        }
+      }
+      if (isa<GetElementPtrInst>(Inst)) {
+        if (!DA->isDivergent(*VPInst)) {
+          // A pointer identified by DA as uniform for outer-loop vectorization
+          // was marked as unit-strided by legality based on inner-loop
+          // vectorization. Fix legality by unsetting the stride.
+          if (Legal->isConsecutivePtr(Inst)) {
+            Legal->erasePtrStride(Inst);
+          }
+        }
+
+        // Check for GEPs producing unit-stride pointers.
+        VPVectorShape *VPPtrShape = DA->getVectorShape(VPInst);
+        if (VPPtrShape->isUnitStridePtr()) {
+          int StrideInBytes = VPPtrShape->getStrideVal();
+          Legal->addPtrStride(Inst, StrideInBytes > 0 ? 1 : -1);
+        }
+      }
+    }
+
     vectorizeInstruction(Inst);
 
     // Add the widened value to the VPValue widen map.
@@ -2889,6 +2987,61 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     VPWidenMap[VPInst] = V;
     return;
   }
+  case Instruction::Store: {
+    Value *VecPtr = getVectorValue(VPInst->getOperand(1));
+    Value *VecDataOp = getVectorValue(VPInst->getOperand(0));
+    Type *PtrToElemTy = VecPtr->getType()->getVectorElementType();
+    Type *ElemTy = PtrToElemTy->getPointerElementType();
+    VectorType *DesiredDataTy = getWidenedType(ElemTy, VF);
+    VecDataOp = Builder.CreateBitCast(VecDataOp, DesiredDataTy, "cast");
+
+    // TODO: Without underlying store, we will choose align=1.
+    unsigned Alignment = getOriginalLoadStoreAlignment(VPInst);
+    Builder.CreateMaskedScatter(VecDataOp, VecPtr, Alignment, MaskValue);
+    return;
+  }
+  case Instruction::Add:
+  case Instruction::FAdd:
+  case Instruction::Xor: {
+    assert(VPInst->getUnderlyingValue() &&
+           "Can't handle a newly generated add/xor VPInstruction.");
+
+    // Widen binary operands.
+    Value *A = getVectorValue(VPInst->getOperand(0));
+    Value *B = getVectorValue(VPInst->getOperand(1));
+
+    // Create wide instruction.
+    auto BinOpCode = static_cast<Instruction::BinaryOps>(VPInst->getOpcode());
+    Value *V = Builder.CreateBinOp(BinOpCode, A, B);
+
+    // TODO: Can't set any IR flags since they are not stored in VPInstruction
+    // (example FMF, wrapping flags).
+
+    VPWidenMap[VPInst] = V;
+    // Inserting into the WidenMap is dirty and illegal. This is a temporary
+    // hack and should be retired when we transition completely to VPValue-based
+    // CG approach.
+    WidenMap[VPInst->getUnderlyingValue()] = V;
+    return;
+  }
+  case Instruction::ZExt: {
+    assert(VPInst->getUnderlyingValue() &&
+           "Can't handle a newly generated zext VPInstruction.");
+
+    // Widen source operands.
+    Value *VecSrc = getVectorValue(VPInst->getOperand(0));
+
+    // Create wide instruction.
+    Value *WideZExt =
+        Builder.CreateZExt(VecSrc, VectorType::get(VPInst->getType(), VF));
+
+    VPWidenMap[VPInst] = WideZExt;
+    // Inserting into the WidenMap is dirty and illegal. This is a temporary
+    // hack and should be retired when we transition completely to VPValue-based
+    // CG approach.
+    WidenMap[VPInst->getUnderlyingValue()] = WideZExt;
+    return;
+  }
   default:
     llvm_unreachable("Unexpected VPInstruction");
   }
@@ -2904,11 +3057,22 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
   case Instruction::GetElementPtr: {
     GetElementPtrInst *GEP = cast<GetElementPtrInst>(Inst);
 
-    // Consecutive Load/Store will clone the GEP
-    if (all_of(Inst->users(), [&](User *U) -> bool {
-          return getLoadStorePointerOperand(U) == Inst;
-        }) && Legal->isConsecutivePtr(Inst))
+    // For Consecutive Load/Store we will create a scalar-gep.
+    if (all_of(Inst->users(),
+               [&](User *U) -> bool {
+                 return getLoadStorePointerOperand(U) == Inst;
+               }) &&
+        Legal->isConsecutivePtr(Inst)) {
+      Value *NewGEPPtrOp = getScalarValue(GEP->getPointerOperand(), 0);
+      SmallVector<Value *, 6> OpsV;
+      for (unsigned I = 1; I < GEP->getNumOperands(); ++I)
+        OpsV.push_back(getScalarValue(GEP->getOperand(I), 0));
+      GetElementPtrInst *ScalarGEP = cast<GetElementPtrInst>(
+          Builder.CreateGEP(NewGEPPtrOp, OpsV, "scalar.gep."));
+      ScalarGEP->setIsInBounds(GEP->isInBounds());
+      ScalarMap[GEP][0] = ScalarGEP;
       break;
+    }
     if (!Legal->isLoopPrivateAggregate(getPointerOperand(GEP)) &&
         all_of(Inst->users(), [&](User *U) -> bool {
           return getLoadStorePointerOperand(U) == Inst &&

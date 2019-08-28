@@ -73,7 +73,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT: i1 [[BOTTOMTEST_1:%vp[0-9]+]] = icmp
 ; CHECK-NEXT: i1 [[BOTTOMTEST_1_NOT:%vp[0-9]+]] = not i1 [[BOTTOMTEST_1]]
 ; CHECK-NEXT: i1 [[BOTTOMTEST]] = and i1 [[BOTTOMTEST_1_NOT]] i1 [[MASKPHI]]
-; CHECK-NEXT: select i1 [[BOTTOMTEST]]
 ; CHECK-NEXT: i1 [[ALLZEROCHECK:%vp[0-9]+]] = all-zero-check i1 [[BOTTOMTEST]]
 ; CHECK-NEXT: no SUCCESSORS
 ; CHECK-NEXT: PREDECESSORS(2): [[LOOPBODYHEADER]] [[MASKREGIONENTRY]]

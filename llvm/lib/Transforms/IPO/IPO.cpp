@@ -69,6 +69,7 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeInlineAggressiveWrapperPassPass(Registry);  // INTEL
   initializeIPCloningLegacyPassPass(Registry);          // INTEL
   initializeCallTreeCloningLegacyPassPass(Registry);    // INTEL
+  initializeIntelAdvancedFastCallWrapperPassPass(Registry); // INTEL
   initializeIntelPartialInlineLegacyPassPass(Registry); // INTEL
 }
 
@@ -141,6 +142,15 @@ void LLVMAddInternalizePass(LLVMPassManagerRef PM, unsigned AllButMain) {
     return AllButMain && GV.getName() == "main";
   };
   unwrap(PM)->add(createInternalizePass(PreserveMain));
+}
+
+void LLVMAddInternalizePassWithMustPreservePredicate(
+    LLVMPassManagerRef PM,
+    void *Context,
+    LLVMBool (*Pred)(LLVMValueRef, void *)) {
+  unwrap(PM)->add(createInternalizePass([=](const GlobalValue &GV) {
+    return Pred(wrap(&GV), Context) == 0 ? false : true;
+  }));
 }
 
 void LLVMAddStripDeadPrototypesPass(LLVMPassManagerRef PM) {

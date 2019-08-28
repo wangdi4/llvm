@@ -20,33 +20,33 @@
 ;
 ; The dispatch code looks like this:
 ;
-;   %numdevices = call i32 @omp_get_num_devices()
-;   %dispatch = icmp sgt i32 %numdevices, 0
-;   br i1 %dispatch, label %if.then, label %if.else
+;   %call1 = call i32 @__tgt_is_device_available(i64 -1, i8* null)
+;   %dispatch = icmp ne i32 %call1, 0
+;   br i1 %dispatch, label %variant.call, label %base.call
 ;
-; if.then:
-;   %variant = call i32 @foo_gpu(i32 %1)
+; variant.call:
+;   %variant = call i32 @foo_gpu(i32 %0)
 ;   br label %if.end
 ;
-; if.else:
-;   %call = call i32 @foo(i32 %1)
+; base.call:
+;   %call = call i32 @foo(i32 %0)
 ;   br label %if.end
 ;
 ; if.end:
-;   %callphi = phi i32 [ %variant, %if.then ], [ %call, %if.else ]
+;   %callphi = phi i32 [ %variant, %variant.call ], [ %call, %base.call ]
 ;   store i32 %callphi, i32* %rrr, align 4
 
-; CHECK: [[NUMDEVICES:%[a-zA-Z._0-9]+]] = call i32 @omp_get_num_devices()
-; CHECK-NEXT: [[DISPATCH:%[a-zA-Z._0-9]+]] = icmp sgt i32 [[NUMDEVICES]], 0
-; CHECK-NEXT: br i1 [[DISPATCH]], label %[[IFTHEN:[a-zA-Z._0-9]+]], label %[[IFELSE:[a-zA-Z._0-9]+]]
+; CHECK: [[CALL:%[a-zA-Z._0-9]+]] = call i32 @__tgt_is_device_available(i64 -1
+; CHECK-NEXT: [[DISPATCH:%[a-zA-Z._0-9]+]] = icmp ne i32 [[CALL]], 0
+; CHECK-NEXT: br i1 [[DISPATCH]], label %[[VARIANTLBL:[a-zA-Z._0-9]+]], label %[[BASELBL:[a-zA-Z._0-9]+]]
 
-; CHECK-DAG: [[IFTHEN]]:
+; CHECK-DAG: [[VARIANTLBL]]:
 ; CHECK-NEXT: [[VARIANT:%[a-zA-Z._0-9]+]] = call i32 @foo_gpu
 
-; CHECK-DAG: [[IFELSE]]:
+; CHECK-DAG: [[BASELBL]]:
 ; CHECK-NEXT: [[BASE:%[a-zA-Z._0-9]+]] = call i32 @foo
 
-; CHECK: phi i32 [ [[VARIANT]], %[[IFTHEN]] ], [ [[BASE]], %[[IFELSE]] ]
+; CHECK: phi i32 [ [[VARIANT]], %[[VARIANTLBL]] ], [ [[BASE]], %[[BASELBL]] ]
 
 
 ; ModuleID = 'target_variant_dispatch_intfunc.c'

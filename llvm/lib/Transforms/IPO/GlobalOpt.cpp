@@ -1646,10 +1646,12 @@ static bool TryToShrinkGlobalToBoolean(GlobalVariable *GV, Constant *OtherVal) {
   // instead of a select to synthesize the desired value.
   bool IsOneZero = false;
   bool EmitOneOrZero = true;
-  if (ConstantInt *CI = dyn_cast<ConstantInt>(OtherVal)){
+  auto *CI = dyn_cast<ConstantInt>(OtherVal);
+  if (CI && CI->getValue().getActiveBits() <= 64) {
     IsOneZero = InitVal->isNullValue() && CI->isOne();
 
-    if (ConstantInt *CIInit = dyn_cast<ConstantInt>(GV->getInitializer())){
+    auto *CIInit = dyn_cast<ConstantInt>(GV->getInitializer());
+    if (CIInit && CIInit->getValue().getActiveBits() <= 64) {
       uint64_t ValInit = CIInit->getZExtValue();
       uint64_t ValOther = CI->getZExtValue();
       uint64_t ValMinus = ValOther - ValInit;
@@ -1942,7 +1944,6 @@ static bool isStoredOnceValueUsedByAllUsesInFunction(
   // Collect all uses of GV. Returns false if any use of GV is other
   // than Load/Store/BitCast instructions.
   StoreInst* StoreI = nullptr;
-  const DataLayout &DL = GV->getParent()->getDataLayout();
   SmallVector<LoadInst *, 8> Loads;
   for (auto *U : GV->users()) {
     // Get actual uses of GV by ignoring BitCast.
@@ -1978,13 +1979,12 @@ static bool isStoredOnceValueUsedByAllUsesInFunction(
 
   auto &DT = LookupDomTree(*const_cast<Function *>(F));
 
-  // Check all Load Instructions  are dominated by Store Instruction
-  // and size of store is less than or equal to size of any loads.
+  // Check all load instructions are dominated by store instruction
+  // and all load/store instructions have same type.
   auto *STy = StoreI->getValueOperand()->getType();
   for (auto *L : Loads) {
     auto *LTy = L->getType();
-    if (!DT.dominates(StoreI, L) ||
-        (DL.getTypeStoreSize(LTy) > DL.getTypeStoreSize(STy)))
+    if ((LTy != STy) || !DT.dominates(StoreI, L))
       return false;
   }
 

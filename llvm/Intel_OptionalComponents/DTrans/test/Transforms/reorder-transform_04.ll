@@ -52,6 +52,7 @@ entry:
 ; CHECK: malloc(i64 400)
 
   %p = bitcast i8* %call6 to %struct.test*
+
   ret i32 0
 }
 

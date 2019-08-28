@@ -51,8 +51,10 @@ enum tgt_map_type {
   OMP_TGT_MAPTYPE_LITERAL         = 0x100,
   // mapping is implicit
   OMP_TGT_MAPTYPE_IMPLICIT        = 0x200,
+  // copy data to device
+  OMP_TGT_MAPTYPE_CLOSE           = 0x400,
 #if INTEL_COLLAB
-  OMP_TGT_MAPTYPE_ND_DESC         = 0x400,
+  OMP_TGT_MAPTYPE_ND_DESC         = 0x800,
 #endif // INTEL_COLLAB
   // member of struct, member given by [16 MSBs] - 1
   OMP_TGT_MAPTYPE_MEMBER_OF       = 0xffff000000000000
@@ -116,40 +118,102 @@ struct __tgt_target_table {
       *EntriesEnd; // End of the table with all the entries (non inclusive)
 };
 
+#if INTEL_COLLAB
+#ifdef __cplusplus
+
+#if _WIN32
+#define EXTERN extern "C" __declspec(dllexport)
+#else   // !_WIN32
+#define EXTERN extern "C"
+#endif  // !_WIN32
+
+#else   // !__cplusplus
+
+#if _WIN32
+#define EXTERN extern __declspec(dllexport)
+#else   // !_WIN32
+#define EXTERN extern
+#endif  // !_WIN32
+
+#endif  // !__cplusplus
+#endif  // INTEL_COLLAB
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int omp_get_num_devices(void);
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int omp_get_initial_device(void);
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 void *omp_target_alloc(size_t size, int device_num);
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 void omp_target_free(void *device_ptr, int device_num);
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int omp_target_is_present(void *ptr, int device_num);
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int omp_target_memcpy(void *dst, void *src, size_t length, size_t dst_offset,
     size_t src_offset, int dst_device, int src_device);
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int omp_target_memcpy_rect(void *dst, void *src, size_t element_size,
     int num_dims, const size_t *volume, const size_t *dst_offsets,
     const size_t *src_offsets, const size_t *dst_dimensions,
     const size_t *src_dimensions, int dst_device, int src_device);
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int omp_target_associate_ptr(void *host_ptr, void *device_ptr, size_t size,
     size_t device_offset, int device_num);
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int omp_target_disassociate_ptr(void *host_ptr, int device_num);
 
 /// add the clauses of the requires directives in a given file
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 void __tgt_register_requires(int64_t flags);
 
 /// adds a target shared library to the target execution image
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 void __tgt_register_lib(__tgt_bin_desc *desc);
 
 /// removes a target shared library from the target execution image
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 void __tgt_unregister_lib(__tgt_bin_desc *desc);
 
 // creates the host to target data mapping, stores it in the
 // libomptarget.so internal structure (an entry in a stack of data maps) and
 // passes the data to the device;
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 void __tgt_target_data_begin(int64_t device_id, int32_t arg_num,
                              void **args_base, void **args, int64_t *arg_sizes,
                              int64_t *arg_types);
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 void __tgt_target_data_begin_nowait(int64_t device_id, int32_t arg_num,
                                     void **args_base, void **args,
                                     int64_t *arg_sizes, int64_t *arg_types,
@@ -160,8 +224,14 @@ void __tgt_target_data_begin_nowait(int64_t device_id, int32_t arg_num,
 // passes data from the target, release target memory and destroys the
 // host-target mapping (top entry from the stack of data maps) created by
 // the last __tgt_target_data_begin
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 void __tgt_target_data_end(int64_t device_id, int32_t arg_num, void **args_base,
                            void **args, int64_t *arg_sizes, int64_t *arg_types);
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 void __tgt_target_data_end_nowait(int64_t device_id, int32_t arg_num,
                                   void **args_base, void **args,
                                   int64_t *arg_sizes, int64_t *arg_types,
@@ -169,9 +239,15 @@ void __tgt_target_data_end_nowait(int64_t device_id, int32_t arg_num,
                                   int32_t noAliasDepNum, void *noAliasDepList);
 
 /// passes data to/from the target
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 void __tgt_target_data_update(int64_t device_id, int32_t arg_num,
                               void **args_base, void **args, int64_t *arg_sizes,
                               int64_t *arg_types);
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 void __tgt_target_data_update_nowait(int64_t device_id, int32_t arg_num,
                                      void **args_base, void **args,
                                      int64_t *arg_sizes, int64_t *arg_types,
@@ -185,27 +261,62 @@ void __tgt_target_data_update_nowait(int64_t device_id, int32_t arg_num,
 // same action as data_end above. The following types are used; this
 // function returns 0 if it was able to transfer the execution to a
 // target and an int different from zero otherwise.
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int __tgt_target(int64_t device_id, void *host_ptr, int32_t arg_num,
                  void **args_base, void **args, int64_t *arg_sizes,
                  int64_t *arg_types);
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int __tgt_target_nowait(int64_t device_id, void *host_ptr, int32_t arg_num,
                         void **args_base, void **args, int64_t *arg_sizes,
                         int64_t *arg_types, int32_t depNum, void *depList,
                         int32_t noAliasDepNum, void *noAliasDepList);
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int __tgt_target_teams(int64_t device_id, void *host_ptr, int32_t arg_num,
                        void **args_base, void **args, int64_t *arg_sizes,
                        int64_t *arg_types, int32_t num_teams,
                        int32_t thread_limit);
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int __tgt_target_teams_nowait(int64_t device_id, void *host_ptr,
                               int32_t arg_num, void **args_base, void **args,
                               int64_t *arg_sizes, int64_t *arg_types,
                               int32_t num_teams, int32_t thread_limit,
                               int32_t depNum, void *depList,
                               int32_t noAliasDepNum, void *noAliasDepList);
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 void __kmpc_push_target_tripcount(int64_t device_id, uint64_t loop_tripcount);
 #if INTEL_COLLAB
-bool __tgt_is_device_available(int device_num, void *device_type);
+EXTERN
+bool __tgt_is_device_available(int64_t device_num, void *device_type);
+EXTERN
+void *__tgt_create_buffer(int64_t device_num, void *host_ptr);
+EXTERN
+int __tgt_release_buffer(int64_t device_num, void *tgt_buffer);
+
+// Returns implementation defined device name for the given device number,
+// using provided Buffer. Buffer must be able to hold at least BufferMaxSize
+// characters. Returns nullptr, if device name cannot be acquired, otherwise,
+// returns a '\0' terminated C string (pointer to Buffer).
+EXTERN char *__tgt_get_device_name(
+    int64_t device_num, char *buffer, size_t buffer_max_size);
+
+// Returns implementation defined RTL name corresponding to the given
+// device number, using provided Buffer. Buffer must be able to hold
+// at least BufferMaxSize characters.
+// Returns nullptr, if RTL name cannot be acquired, otherwise,
+// returns a '\0' terminated C string (pointer to Buffer).
+EXTERN char *__tgt_get_device_rtl_name(
+    int64_t device_num, char *buffer, size_t buffer_max_size);
 #endif // INTEL_COLLAB
 
 #ifdef __cplusplus
@@ -251,10 +362,13 @@ bool __tgt_is_device_available(int device_num, void *device_type);
   {}
 #endif
 
+#if INTEL_COLLAB
+#else  // INTEL_COLLAB
 #ifdef __cplusplus
 #define EXTERN extern "C"
 #else
 #define EXTERN extern
 #endif
+#endif  // INTEL_COLLAB
 
 #endif // _OMPTARGET_H_

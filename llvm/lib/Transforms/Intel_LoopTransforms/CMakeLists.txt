@@ -46,6 +46,7 @@ add_llvm_library(LLVMIntel_LoopTransforms
         HIRRecognizeParLoop.cpp
         HIRIdentityMatrixIdiomRecognition.cpp
         HIRPrefetching.cpp
+        HIRSinkingForPerfectLoopnest.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms

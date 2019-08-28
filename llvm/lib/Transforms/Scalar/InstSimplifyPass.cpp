@@ -12,6 +12,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/Intel_WP.h"         // INTEL
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/DataLayout.h"
@@ -33,37 +34,34 @@ static bool runImpl(Function &F, const SimplifyQuery &SQ,
   bool Changed = false;
 
   do {
-    for (BasicBlock *BB : depth_first(&F.getEntryBlock())) {
-      // Here be subtlety: the iterator must be incremented before the loop
-      // body (not sure why), so a range-for loop won't work here.
-      for (BasicBlock::iterator BI = BB->begin(), BE = BB->end(); BI != BE;) {
-        Instruction *I = &*BI++;
-        // The first time through the loop ToSimplify is empty and we try to
-        // simplify all instructions.  On later iterations ToSimplify is not
+    for (BasicBlock &BB : F) {
+      SmallVector<Instruction *, 8> DeadInstsInBB;
+      for (Instruction &I : BB) {
+        // The first time through the loop, ToSimplify is empty and we try to
+        // simplify all instructions. On later iterations, ToSimplify is not
         // empty and we only bother simplifying instructions that are in it.
-        if (!ToSimplify->empty() && !ToSimplify->count(I))
+        if (!ToSimplify->empty() && !ToSimplify->count(&I))
           continue;
 
-        // Don't waste time simplifying unused instructions.
-        if (!I->use_empty()) {
-          if (Value *V = SimplifyInstruction(I, SQ, ORE)) {
+        // Don't waste time simplifying dead/unused instructions.
+        if (isInstructionTriviallyDead(&I)) {
+          DeadInstsInBB.push_back(&I);
+          Changed = true;
+        } else if (!I.use_empty()) {
+          if (Value *V = SimplifyInstruction(&I, SQ, ORE)) {
             // Mark all uses for resimplification next time round the loop.
-            for (User *U : I->users())
+            for (User *U : I.users())
               Next->insert(cast<Instruction>(U));
-            I->replaceAllUsesWith(V);
+            I.replaceAllUsesWith(V);
             ++NumSimplified;
             Changed = true;
+            // A call can get simplified, but it may not be trivially dead.
+            if (isInstructionTriviallyDead(&I))
+              DeadInstsInBB.push_back(&I);
           }
         }
-        if (RecursivelyDeleteTriviallyDeadInstructions(I, SQ.TLI)) {
-          // RecursivelyDeleteTriviallyDeadInstruction can remove more than one
-          // instruction, so simply incrementing the iterator does not work.
-          // When instructions get deleted re-iterate instead.
-          BI = BB->begin();
-          BE = BB->end();
-          Changed = true;
-        }
       }
+      RecursivelyDeleteTriviallyDeadInstructions(DeadInstsInBB, SQ.TLI);
     }
 
     // Place the list of instructions to simplify on the next loop iteration
@@ -84,6 +82,7 @@ struct InstSimplifyLegacyPass : public FunctionPass {
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
+    AU.addPreserved<WholeProgramWrapperPass>(); // INTEL
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
@@ -151,5 +150,6 @@ PreservedAnalyses InstSimplifyPass::run(Function &F,
 
   PreservedAnalyses PA;
   PA.preserveSet<CFGAnalyses>();
+  PA.preserve<WholeProgramAnalysis>();  // INTEL
   return PA;
 }

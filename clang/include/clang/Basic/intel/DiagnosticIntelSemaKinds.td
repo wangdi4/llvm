@@ -48,10 +48,6 @@ def err_recursive_attribute_expected : Error<
 def warn_func_redecl_conflicting_types: Warning<
   "declaration of %0 is incompatible with previous "
   "%select{declaration|definition}1">, InGroup<IntelCompat>;
-// CQ#365886
-def ext_intel_forward_ref_enum : ExtWarn<
-  "forward references to 'enum' types are an Intel extension">,
-  InGroup<IntelCompat>;
 // CQ370802 - allows bypassing var init in switch statement if IntelCompat
 def warn_switch_into_protected_scope : Warning<
   "jump from switch statement to this case label bypasses variable initialization">,
@@ -282,8 +278,6 @@ def err_ap_int_bad_size : Error <
   "%select{signed|unsigned|}0 __ap_int must have a size of at least %select{2|1|1}0">;
 def err_fpga_reg_limitations : Error <
   "Illegal %select{argument of type %1 |field in argument}0 to __builtin_fpga_reg.">;
-def illegal_type_declared_here : Note<
-  "Field with illegal type declared here">;
 def err_pragma_loop_invalid_negative_value : Error<
   "invalid value '%0'; must be non-negative">;
 

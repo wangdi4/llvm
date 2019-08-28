@@ -79,6 +79,7 @@ set(LLVM_TEST_DEPENDS
           llvm-modextract
           llvm-mt
           llvm-nm
+          llvm-no-spir-kernel
           llvm-objcopy
           llvm-objdump
           llvm-opt-fuzzer
@@ -89,6 +90,7 @@ set(LLVM_TEST_DEPENDS
           llvm-rc
           llvm-readobj
           llvm-readelf
+          llvm-reduce
           llvm-rtdyld
           llvm-size
           llvm-split

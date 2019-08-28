@@ -36,6 +36,7 @@
 #include <cmath>
 #include <set>
 #include <string>
+#include <vector>
 
 using namespace llvm;
 using namespace PatternMatch;
@@ -140,12 +141,16 @@ namespace dtrans {
 // eliminate gaps due to shrinking.
 class FieldData {
 public:
-  uint64_t Align;
-  uint64_t Size;
-  unsigned Index;
+  uint64_t Align = 0;
+  uint64_t Size = 0;
+  unsigned Index = 0;
 
   FieldData(uint64_t Align, uint64_t Size, unsigned Index)
       : Align(Align), Size(Size), Index(Index) {}
+
+  // Copy constructor:
+  FieldData(const FieldData &FD)
+      : Align(FD.Align), Size(FD.Size), Index(FD.Index) {}
 
   // Sort fields based on below compare function to avoid gaps between fields.
   //    Ascending order based on Alignment, then
@@ -1262,8 +1267,7 @@ bool DynCloneImpl::trackPointersOfAllocCalls(void) {
   // ComplexPtrStoreSet depending on PointerOperand. \p ModifiedMem is set to
   // true if allocated memory is modified. \p GEPI will be added to \p
   // ProcessedInst.
-  TrackGEP = [&TrackGEP, &TrackPHI,
-              &ProcessStoreInst](
+  TrackGEP = [&TrackGEP, &TrackPHI, &ProcessStoreInst](
                  GetElementPtrInst *GEPI, unsigned Depth, bool &ModifiedMem,
                  StoreInstSet &SimplePtrStoreSet,
                  StoreInstSet &ComplexPtrStoreSet, InstSet &ProcessedInst) {
@@ -2008,7 +2012,9 @@ void DynCloneImpl::createShrunkenTypes(void) {
     TransformedTypeMap[StructT] = NewSt;
   }
 
-  SmallVector<FieldData, 8> Fields;
+  std::vector<FieldData> Fields; // SmallVector causes memory corruptions
+                                 // use std::vector instead
+
   for (auto &CPair : TransformedTypeMap) {
     Fields.clear();
     StructType *StructT = CPair.first;
@@ -2208,10 +2214,10 @@ void DynCloneImpl::transformInitRoutine(void) {
   };
 
   // Generate final condition and "or" with previous condition if available.
-  auto GenerateFinalCond = [&GenerateFinalCondWithLIValue](
-                               AllocaInst *AI, Value *V,
-                               CmpInst::Predicate Pred, Value *PrevCond,
-                               ReturnInst *RI) -> Value * {
+  auto GenerateFinalCond =
+      [&GenerateFinalCondWithLIValue](AllocaInst *AI, Value *V,
+                                      CmpInst::Predicate Pred, Value *PrevCond,
+                                      ReturnInst *RI) -> Value * {
     LoadInst *LI = new LoadInst(AI, "d.ld", RI);
     LLVM_DEBUG(dbgs() << "      " << *LI << "\n");
     return GenerateFinalCondWithLIValue(LI, V, Pred, PrevCond, RI);
@@ -3736,8 +3742,7 @@ bool DynClonePass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
                            LoopInfoFuncType &GetLI) {
 
   auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
-  if (!WPInfo.isWholeProgramSafe() ||
-      !WPInfo.isAdvancedOptEnabled(TTIAVX2))
+  if (!WPInfo.isWholeProgramSafe() || !WPInfo.isAdvancedOptEnabled(TTIAVX2))
     return false;
 
   if (!DTInfo.useDTransAnalysis())

@@ -134,6 +134,7 @@ public:
     YMM1, // (AVX1)
     YMM2, // (AVX2)
     ZMM,  // (MIC)
+    OTHER, // Sometimes the ISA is not known and it is marked with 'x'
     ISA_CLASSES_NUM
   };
 
@@ -192,11 +193,17 @@ public:
   /// \brief Get the ISA corresponding to this vector variant.
   ISAClass getISA() const { return Isa; }
 
+  /// \brief Set the ISA corresponding to this vector variant.
+  void setISA(ISAClass ISA) { Isa = ISA; }
+
   /// \brief Is this a masked vector function variant?
   bool isMasked() const { return Mask; }
 
   /// \brief Get the vector length of the vector variant.
   unsigned int getVlen() const { return Vlen; }
+
+  /// \brief Set the vector length of the vector variant.
+  void setVlen(unsigned int VL) { Vlen = VL; }
 
   /// \brief Get the parameters of the vector variant.
   std::vector<VectorKind> &getParameters() { return Parameters; }
@@ -363,6 +370,8 @@ public:
       return 'd';
     case ZMM:
       return 'e';
+    case OTHER:
+      return 'x';
     default:
       break;
     }
@@ -388,6 +397,8 @@ public:
       return YMM2;
     case 'e':
       return ZMM;
+    case 'x':
+      return OTHER;
     default:
       llvm_unreachable("unsupported ISA class");
       return XMM;

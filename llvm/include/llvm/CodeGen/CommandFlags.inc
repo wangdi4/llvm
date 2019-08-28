@@ -272,10 +272,13 @@ static cl::opt<bool>
                   cl::init(false));
 
 #if INTEL_CUSTOMIZATION
+// This option can be used to enable advanced optimizations when running opt.
+// This option must be used with -mtriple and -mattr. For example:
+//   opt -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2
 static cl::opt<bool>
-IntelAdvancedOptim("intel-advanced-optim",
-                   cl::desc("Allow intel advanced optimization."),
-                   cl::init(false));
+EnableIntelAdvancedOpts("enable-intel-advanced-opts",
+                        cl::desc("Enable Intel advanced optimizations"),
+                        cl::init(false));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
@@ -313,8 +316,8 @@ static TargetOptions InitTargetOptionsFromCodeGenFlags() {
   Options.EmitStackSizeSection = EnableStackSizeSection;
   Options.EmitAddrsig = EnableAddrsig;
 #if INTEL_CUSTOMIZATION
-  if (IntelAdvancedOptim)
-    Options.IntelAdvancedOptim = IntelAdvancedOptim;
+  if (EnableIntelAdvancedOpts)
+    Options.IntelAdvancedOptim = EnableIntelAdvancedOpts;
 #endif // INTEL_CUSTOMIZATION
   Options.EnableDebugEntryValues = EnableDebugEntryValues;
 

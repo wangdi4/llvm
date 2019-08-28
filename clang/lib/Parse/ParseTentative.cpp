@@ -1100,6 +1100,7 @@ Parser::isExpressionOrTypeSpecifierSimple(tok::TokenKind Kind) {
   case tok::kw_L__FUNCSIG__:
   case tok::kw___PRETTY_FUNCTION__:
   case tok::kw___uuidof:
+  case tok::kw___unique_stable_name:
 #define TYPE_TRAIT(N,Spelling,K) \
   case tok::kw_##Spelling:
 #include "clang/Basic/TokenKinds.def"
@@ -1469,6 +1470,8 @@ Parser::isCXXDeclarationSpecifier(Parser::TPResult BracedCastResult,
   case tok::kw___read_write:
     // OpenCL pipe
   case tok::kw_pipe:
+    // SYCL pipe
+  case tok::kw___pipe:
 
     // GNU
   case tok::kw_restrict:

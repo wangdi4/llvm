@@ -28,6 +28,7 @@ class LoopInfo;
 class Function;
 class VectorVariant;
 class LLVMContext;
+class OVLSGroup;
 
 namespace vpo {
 
@@ -226,6 +227,61 @@ private:
   void serializeWithPredication(Instruction *Inst);
   void serializeWithPredication(VPInstruction *VPInst);
 
+  /// Specialized method to handle predication of uniform load instruction. This
+  /// function generates a single scalar load predicated by a not all-zero check
+  /// of the current MaskValue.
+  // Example :
+  //
+  // Incoming scalar pseudo IR -
+  // loop.body:
+  //   ...
+  //   %cond = icmp ...
+  //   br %cond, %if.then, %loop.latch
+  //
+  // if.then:
+  //   %uniform.gep = getelementptr ...
+  //   %uniform.load = load %uniform.gep
+  //   %user = add %uniform.load, %loop.iv
+  //   br %loop.latch
+  //
+  // ...
+  //
+  // Vector pseudo IR emitted by this method -
+  // vector.body:
+  //   ...
+  //   %wide.cond = icmp <VF x Ty>
+  //   %uniform.gep = getelementptr ...
+  //   %bitcast.cond = bitcast <VF x i1> %wide.cond to iVF
+  //   %not.all.zero = icmp ne %bitcast.cond, 0
+  //   %load = load %uniform.gep
+  //   %bcast = <insert + shuffle> bcast %load
+  //   %wide.user = add <VF x Ty> %bcast, %wide.loop.iv
+  //   ...
+  //
+  // This is finally modified by predicateInstructions as -
+  // vector.body:
+  //   ...
+  //   %wide.cond = icmp <VF x Ty>
+  //   %uniform.gep = getelementptr ...
+  //   %bitcast.cond = bitcast <VF x i1> %wide.cond to iVF
+  //   %not.all.zero = icmp ne %bitcast.cond, 0
+  //   br %not.all.zero, %pred.load.if, %merge
+  //
+  // pred.load.if:
+  //   %load = load %uniform.gep
+  //   %insert = insert load to undef vector
+  //
+  // merge:
+  //   %merge.phi = [undef, %vector.body], [%insert, %pred.load.if]
+  //   br %pred.load.continue
+  //
+  // pred.load.continue:
+  //   %bcast = shufflevector %merge.phi
+  //   %wide.user = add <VF x Ty> %bcast, %wide.loop.iv
+  //
+  void serializePredicatedUniformLoad(Instruction *Inst);
+  void serializePredicatedUniformLoad(VPInstruction *VPInst);
+
   /// Predicate conditional instructions that require predication on their
   /// respective conditions.
   void predicateInstructions();
@@ -288,6 +344,14 @@ private:
   /// Insert the new loop to the loop hierarchy and pass manager
   /// and update the analysis passes.
   void updateAnalysis();
+
+  /// Get the Function-entry block.
+  BasicBlock &getFunctionEntryBlock() const {
+    return OrigLoop->getHeader()->getParent()->front();
+  }
+
+  /// Return the alignment to be set on the 'alloca' inst.
+  unsigned getPrivateVarAlignment(Value *V);
 
   /// This function adds (StartIdx, StartIdx + Step, StartIdx + 2*Step, ...)
   /// to each vector element of Val. The sequence starts at StartIndex.
@@ -461,7 +525,7 @@ private:
 
   // Get alignment for load/store VPInstruction using underlying
   // llvm::Instruction.
-  unsigned getOriginalLoadStoreAlignment(VPInstruction *VPInst);
+  unsigned getOriginalLoadStoreAlignment(const VPInstruction *VPInst);
 
   // Widen the load of a linear value. We do a scalar load and generate a vector
   // value using the linear \p Step 
@@ -581,8 +645,20 @@ private:
   Value *createWidenedBasePtrConsecutiveLoadStore(Instruction *I, Value *Ptr,
                                                   bool Reverse);
 
+  /// Create a wide load for the \p Group (or get existing one).
+  Value *getOrCreateWideLoadForGroup(OVLSGroup *Group);
+
+  /// Vectorize \p VPLoad instruction that is part of a \p Group.
+  Value *vectorizeInterleavedLoad(VPInstruction *VPLoad, OVLSGroup *Group);
+
+  /// Vectorize \p VPStore instruction that is part of a \p Group.
+  void vectorizeInterleavedStore(VPInstruction *VPStore, OVLSGroup *Group);
+
   DenseMap<AllocaInst *, Value *> ReductionEofLoopVal;
   DenseMap<AllocaInst *, Value *> ReductionVecInitVal;
+
+  SmallDenseMap<const OVLSGroup *, LoadInst *> VLSGroupLoadMap;
+  SmallDenseMap<const OVLSGroup *, StoreInst *> VLSGroupStoreMap;
 };
 
 } // end vpo namespace

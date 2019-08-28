@@ -478,8 +478,9 @@ public:
   /// Returns true if the address space in these qualifiers is equal to or
   /// a superset of the address space in the argument qualifiers.
   bool isAddressSpaceSupersetOf(Qualifiers other) const {
+
     return
-      isAddressSpaceSupersetOf(getAddressSpace(), other.getAddressSpace()) ||
+        isAddressSpaceSupersetOf(getAddressSpace(), other.getAddressSpace()) ||
         (!hasAddressSpace() &&
          (other.getAddressSpace() == LangAS::sycl_private ||
           other.getAddressSpace() == LangAS::sycl_local ||
@@ -1137,6 +1138,12 @@ public:
   };
 
   /// Check if this is a non-trivial type that would cause a C struct
+  /// transitively containing this type to be non-trivial. This function can be
+  /// used to determine whether a field of this type can be declared inside a C
+  /// union.
+  bool isNonTrivialPrimitiveCType(const ASTContext &Ctx) const;
+
+  /// Check if this is a non-trivial type that would cause a C struct
   /// transitively containing this type to be non-trivial to copy and return the
   /// kind.
   PrimitiveCopyKind isNonTrivialToPrimitiveCopy() const;
@@ -1164,22 +1171,6 @@ public:
   DestructionKind isDestructedType() const {
     return isDestructedTypeImpl(*this);
   }
-
-  /// Check if this is or contains a C union that is non-trivial to
-  /// default-initialize, which is a union that has a member that is non-trivial
-  /// to default-initialize. If this returns true,
-  /// isNonTrivialToPrimitiveDefaultInitialize returns PDIK_Struct.
-  bool hasNonTrivialToPrimitiveDefaultInitializeCUnion() const;
-
-  /// Check if this is or contains a C union that is non-trivial to destruct,
-  /// which is a union that has a member that is non-trivial to destruct. If
-  /// this returns true, isDestructedType returns DK_nontrivial_c_struct.
-  bool hasNonTrivialToPrimitiveDestructCUnion() const;
-
-  /// Check if this is or contains a C union that is non-trivial to copy, which
-  /// is a union that has a member that is non-trivial to copy. If this returns
-  /// true, isNonTrivialToPrimitiveCopy returns PCK_Struct.
-  bool hasNonTrivialToPrimitiveCopyCUnion() const;
 
   /// Determine whether expressions of the given type are forbidden
   /// from being lvalues in C.
@@ -1253,11 +1244,6 @@ private:
                                                  const ASTContext &C);
   static QualType IgnoreParens(QualType T);
   static DestructionKind isDestructedTypeImpl(QualType type);
-
-  /// Check if \param RD is or contains a non-trivial C union.
-  static bool hasNonTrivialToPrimitiveDefaultInitializeCUnion(const RecordDecl *RD);
-  static bool hasNonTrivialToPrimitiveDestructCUnion(const RecordDecl *RD);
-  static bool hasNonTrivialToPrimitiveCopyCUnion(const RecordDecl *RD);
 };
 
 } // namespace clang
@@ -2443,6 +2429,9 @@ public:
 // OpenCL extension types
 #define EXT_OPAQUE_TYPE(ExtType, Id, Ext) Id,
 #include "clang/Basic/OpenCLExtensionTypes.def"
+// SVE Types
+#define SVE_TYPE(Name, Id, SingletonId) Id,
+#include "clang/Basic/AArch64SVEACLETypes.def"
 // All other builtin types
 #define BUILTIN_TYPE(Id, SingletonId) Id,
 #define LAST_BUILTIN_TYPE(Id) LastKind = Id
@@ -6381,24 +6370,6 @@ inline LangAS QualType::getAddressSpace() const {
 /// Return the gc attribute of this type.
 inline Qualifiers::GC QualType::getObjCGCAttr() const {
   return getQualifiers().getObjCGCAttr();
-}
-
-inline bool QualType::hasNonTrivialToPrimitiveDefaultInitializeCUnion() const {
-  if (auto *RD = getTypePtr()->getBaseElementTypeUnsafe()->getAsRecordDecl())
-    return hasNonTrivialToPrimitiveDefaultInitializeCUnion(RD);
-  return false;
-}
-
-inline bool QualType::hasNonTrivialToPrimitiveDestructCUnion() const {
-  if (auto *RD = getTypePtr()->getBaseElementTypeUnsafe()->getAsRecordDecl())
-    return hasNonTrivialToPrimitiveDestructCUnion(RD);
-  return false;
-}
-
-inline bool QualType::hasNonTrivialToPrimitiveCopyCUnion() const {
-  if (auto *RD = getTypePtr()->getBaseElementTypeUnsafe()->getAsRecordDecl())
-    return hasNonTrivialToPrimitiveCopyCUnion(RD);
-  return false;
 }
 
 inline FunctionType::ExtInfo getFunctionExtInfo(const Type &t) {

@@ -1,7 +1,7 @@
 ; RUN: opt -whole-program-assume < %s -S -dtrans-reorderfields | FileCheck %s
 ; RUN: opt -whole-program-assume < %s -S -passes=dtrans-reorderfields | FileCheck %s
 
-; Verify that fields are not reordered when invoke instructon involved
+; Verify that fields are not reordered when any invoke instruction is involved
 ;   (_Z11doSomethingP4testi).
 ; CHECK-NOT: %__DFR_struct.test = type { i64, i64, i64, i32, i32, i32, i16 }
 ; CHECK: %struct.test = type { i32, i64, i32, i32, i16, i64, i64 }

@@ -367,7 +367,7 @@ void CSACvtCFDFPass::generateSingleReturn() {
       const MachineOperand &Op = ReturnInsts[0]->getOperand(i);
       assert(Op.getReg() && "CSA_RETURN needs register operands");
       unsigned Reg = Op.getReg();
-      assert(TargetRegisterInfo::isVirtualRegister(Reg) &&
+      assert(Register::isVirtualRegister(Reg) &&
         "CSA_RETURN should not have physical registers");
 
       // Add the result register for the PHI.
@@ -549,7 +549,7 @@ void CSACvtCFDFPass::switchNormalRegisters() {
   // switching any of them--switching creates new registers that we don't want
   // to switch.
   for (unsigned i = 0, e = MRI->getNumVirtRegs(); i != e; i++) {
-    switchRegister(TargetRegisterInfo::index2VirtReg(i), false);
+    switchRegister(Register::index2VirtReg(i), false);
   }
 }
 
@@ -1318,7 +1318,7 @@ void CSACvtCFDFPass::createFIEntryDefs() {
     MachineInstr *oldInst = mo->getParent();
 
     if (oldInst->getOpcode() == CSA::MOV64 && oldInst->getOperand(0).isReg() &&
-        TargetRegisterInfo::isVirtualRegister(
+        Register::isVirtualRegister(
           oldInst->getOperand(0).getReg())) {
       // If the value we're replacing is just being moved into another virtual
       // register, then replace the whole instruction.
@@ -1362,7 +1362,7 @@ void CSACvtCFDFPass::assignLicForDF() {
         if (!Op.isReg())
           continue;
         unsigned Reg = Op.getReg();
-        if (TargetRegisterInfo::isVirtualRegister(Reg)) {
+        if (Register::isVirtualRegister(Reg)) {
           const TargetRegisterClass *RC = MRI->getRegClass(Reg);
           switch (RC->getID()) {
           case CSA::RI0RegClassID:
@@ -1388,7 +1388,7 @@ void CSACvtCFDFPass::assignLicForDF() {
         if (!Op.isReg())
           continue;
         unsigned Reg = Op.getReg();
-        if (TargetRegisterInfo::isPhysicalRegister(Reg))
+        if (Register::isPhysicalRegister(Reg))
           continue;
         // In the case of registers without uses, replace them without ignore
         // instead of switching them to an unused LIC.
@@ -1682,7 +1682,7 @@ void CSACvtCFDFPass::TraceCtrl(MachineBasicBlock *inBB, MachineBasicBlock *mbb,
 void CSACvtCFDFPass::TraceThroughPhi(MachineInstr *iphi, MachineBasicBlock *mbb,
                                      unsigned dst) {
   for (MIOperands MO(*iphi); MO.isValid(); ++MO) {
-    if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg()))
+    if (!MO->isReg() || !Register::isVirtualRegister(MO->getReg()))
       continue;
     if (MO->isUse()) {
       unsigned Reg = MO->getReg();
@@ -2018,7 +2018,7 @@ void CSACvtCFDFPass::PatchCFGLeaksFromPickTree(unsigned phiDst, MachineBasicBloc
 
   // Note the switch output as being set to the current basic block.
   unsigned bbnum = phiHome->getNumber();
-  unsigned vregNo = TargetRegisterInfo::virtReg2Index(phiDst);
+  unsigned vregNo = Register::virtReg2Index(phiDst);
   licGrouping.grow(vregNo + 1);
   if (basicBlockRegs[bbnum] == UNMAPPED_REG)
     basicBlockRegs[bbnum] = vregNo;

@@ -100,7 +100,7 @@ namespace {
     KEYOPENCLCXX  = 0x400000,
     KEYMSCOMPAT   = 0x800000,
     KEYSYCL       = 0x1000000,
-    KEYALLCXX = KEYSYCL | KEYCXX | KEYCXX11 | KEYCXX2A,
+    KEYALLCXX = KEYCXX | KEYCXX11 | KEYCXX2A,
 #if INTEL_CUSTOMIZATION
     KEYALL = (0x7fffffff & ~KEYNOMS18 & // INTEL_CUSTOMIZATION 0x7fffffff
               ~KEYNOOPENCL), // KEYNOMS18 and KEYNOOPENCL are used to exclude.
@@ -109,7 +109,9 @@ namespace {
     KEYMSASM    = 0x8000000,
     KEYBASES    = 0x10000000,
     KEYDECIMAL  = 0x20000000,
-    KEYINTELALL = KEYFLOAT128 | KEYRESTRICT | KEYMSASM | KEYBASES | KEYDECIMAL,
+    KEYOPENCLCHANNEL = 0x40000000,
+    KEYINTELALL = KEYFLOAT128 | KEYRESTRICT | KEYMSASM | KEYBASES | KEYDECIMAL |
+                  KEYOPENCLCHANNEL,
     KEYNOINTELALL = KEYALL & ~KEYINTELALL,
 #endif // INTEL_CUSTOMIZATION
   };
@@ -158,6 +160,7 @@ static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
     // CQ#374317 - don't recognize _Decimal keyword if not in GNU mode.
     return KS_Enabled;
   }
+  if (LangOpts.OpenCLChannel && (Flags & KEYOPENCLCHANNEL)) return KS_Enabled;
 #endif // INTEL_CUSTOMIZATION
   if (LangOpts.CPlusPlus && (Flags & KEYCXX)) return KS_Enabled;
   if (LangOpts.CPlusPlus11 && (Flags & KEYCXX11)) return KS_Enabled;
@@ -458,6 +461,21 @@ public:
 };
 
 } // namespace clang.
+
+bool Selector::isKeywordSelector(ArrayRef<StringRef> Names) const {
+  assert(!Names.empty() && "must have >= 1 selector slots");
+  if (getNumArgs() != Names.size())
+    return false;
+  for (unsigned I = 0, E = Names.size(); I != E; ++I) {
+    if (getNameForSlot(I) != Names[I])
+      return false;
+  }
+  return true;
+}
+
+bool Selector::isUnarySelector(StringRef Name) const {
+  return isUnarySelector() && getNameForSlot(0) == Name;
+}
 
 unsigned Selector::getNumArgs() const {
   unsigned IIF = getIdentifierInfoFlag();

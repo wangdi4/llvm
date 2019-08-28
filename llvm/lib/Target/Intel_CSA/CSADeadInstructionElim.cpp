@@ -142,7 +142,7 @@ bool CSADeadInstructionElim::isDead(const MachineInstr &MI) const {
       continue; // %ign and %na operands do not cause instruction to be live.
 
     if (MO.isDef()) {
-      if (TargetRegisterInfo::isPhysicalRegister(Reg)) {
+      if (Register::isPhysicalRegister(Reg)) {
         // Don't delete live physreg defs, or any reserved register defs.
         if (LivePhysRegs.test(Reg) || MRI->isReserved(Reg))
           return false;
@@ -243,7 +243,7 @@ bool CSADeadInstructionElim::runOnMachineFunction(MachineFunction &MF) {
           if (MO.isReg() && MO.isUse()) {
             unsigned Reg = MO.getReg();
             if (Reg != CSA::IGN && Reg != CSA::NA &&
-                TargetRegisterInfo::isPhysicalRegister(Reg)) {
+                Register::isPhysicalRegister(Reg)) {
               for (MCRegAliasIterator AI(Reg, TRI, true); AI.isValid(); ++AI)
                 LivePhysRegs.set(*AI);
             }
@@ -291,7 +291,7 @@ bool CSADeadInstructionElim::runOnMachineFunction(MachineFunction &MF) {
           unsigned Reg = MO.getReg();
           if (Reg != CSA::IGN && Reg != CSA::NA && isLIC(Reg)) {
             bool dead = false;
-            if (TargetRegisterInfo::isPhysicalRegister(Reg))
+            if (Register::isPhysicalRegister(Reg))
               dead = !LivePhysRegs.test(Reg);
             else
               dead = MRI->use_nodbg_empty(Reg);

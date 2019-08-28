@@ -48,6 +48,7 @@
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/Attributor.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
+#include "llvm/Transforms/IPO/Intel_AdvancedFastCall.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineLists.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineReportSetup.h" // INTEL
@@ -114,6 +115,7 @@ namespace {
       (void) llvm::createInlineListsPass();
       (void) llvm::createInlineReportSetupPass();
       (void) llvm::createInlineReportEmitterPass();
+      (void) llvm::createIntelAdvancedFastCallWrapperPass();
       (void) llvm::createXmainOptLevelWrapperPass();
       (void) llvm::createOptReportOptionsPass();
       (void) llvm::createRemoveRegionDirectivesLegacyPass();
@@ -348,6 +350,7 @@ namespace {
       (void) llvm::createHIRMultiExitLoopRerollPass();
       (void) llvm::createHIRIdentityMatrixIdiomRecognitionPass();
       (void) llvm::createHIRPrefetchingPass();
+      (void) llvm::createHIRSinkingForPerfectLoopnestPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();

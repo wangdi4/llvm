@@ -40,6 +40,9 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
     LLVM_DEBUG(dbgs() << "SubLoopHeader: " << SubLoopHeader->getName() << "\n");
     auto *SubLoopLatch = cast<VPBasicBlock>(SubLoop->getLoopLatch());
     LLVM_DEBUG(dbgs() << "SubLoopLatch: " << SubLoopLatch->getName() << "\n");
+    auto *SubLoopExitBlock = cast<VPBasicBlock>(SubLoop->getExitBlock());
+    LLVM_DEBUG(dbgs() << "SubLoopExitBlock: " << SubLoopExitBlock->getName() << "\n");
+    (void)SubLoopExitBlock; // Unused under old-predicator release build.
 
     auto *SubLoopRegnPred = SubLoopRegion->getSinglePredecessor();
     // Find inner loop top test
@@ -53,6 +56,11 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
 
     if (!VPDA->isDivergent(*BottomTest)) {
       LLVM_DEBUG(dbgs() << "BottomTest is uniform\n");
+#ifdef VPlanPredicator
+      // Uniform inner loops under a predicate need to be fixed up after
+      // predication taking into account this predicate.
+      FixupLoopRegions.push_back(SubLoopRegion);
+#endif
       continue;
     }
 
@@ -160,15 +168,134 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
       BottomTest =
           Builder.createAnd(BottomTest, cast<VPInstruction>(LoopBodyMask));
 
-      // The subloop header phis are live out of the subloop. The incoming
-      // value of such phis from the loop latch need to be blended in with
-      // the phi value using bottom test as the mask.
-      for (auto *Inst : SubLoopHeaderPhis) {
-        auto *VPPhi = cast<VPPHINode>(Inst);
-        auto *IncomingValForLatch = VPPhi->getIncomingValue(NewLoopLatch);
-        auto *Blend =
-            Builder.createSelect(BottomTest, IncomingValForLatch, VPPhi);
-        VPPhi->setIncomingValue(VPPhi->getBlockIndex(NewLoopLatch), Blend);
+      // Update live-outs of the subloop. We should take the value which was
+      // computed during the last not-masked-out iteration. For that, we need to
+      // introduce a phi-node if one doesn't exist already. For example:
+      //
+      //    Header:
+      //      %new_phi = phi [ undef, %PreHeader ], [ %LastComputed, %Latch ]
+      //       ; ...
+      //       br <...>
+      //
+      //    ...
+      //
+      //    SomeBB:
+      //      %live_out.def =
+      //      br <...>
+      //
+      //    ...
+      //
+      //    Latch: ; preds <...>
+      //      ; Don't rewrite the live-out with the junk value of
+      //      ; %live_out.def for masked-out iterations.
+      //      %LastComputed = select %CurrentMask,  %live_out.def, %new_phi
+      //      ; ...
+      //      br i1 %exit_cond, label %ExitBB, label %Header
+      //
+      //    ExitBB
+      //      %lcssa.live.out.phi = phi [ %LastComputed, %Latch ]
+      //
+      // We don't have control over BBs iteration order and at the point we
+      // start processing Latch some blends might have been already created.
+      // Don't try to process them as that's not needed.
+      SmallSet<VPValue *, 8> CreatedBlends;
+      for (auto *BlockBase : SubLoop->blocks()) {
+        // Skip BB if it corresponds to an inner loop - we have processed
+        // instructions in it already and all live-outs are through LCSSA phi of
+        // that inner loop right now. We will create one more if the result
+        // lives out of the current loop too when processing that inner's loop
+        // exit block.
+        if (VPLI->getLoopFor(BlockBase) != SubLoop)
+          continue;
+
+        auto *BB = dyn_cast<VPBasicBlock>(BlockBase);
+        if (!BB)
+          continue;
+
+        // We will be adding instructions to the latch so do the copy to avoid
+        // stale iterators.
+        SmallVector<VPInstruction *, 16> Instructions(map_range(
+            BB->vpinstructions(),
+            // Can't have a vector of references - take the address.
+            [](VPInstruction &VPInst) -> VPInstruction * { return &VPInst; }));
+        for (VPInstruction *Inst : Instructions) {
+          if (CreatedBlends.count(Inst))
+            // This instruction is a blend that we've just created, no
+            // processing needed.
+            continue;
+
+          VPPHINode *LCSSAPhi = nullptr;
+          VPValue *Blend = nullptr;
+
+          SmallVector<VPUser *, 8> Users(Inst->user_begin(), Inst->user_end());
+          for (VPUser *U : Users) {
+            auto *UserInst = dyn_cast<VPInstruction>(U);
+            if (!UserInst)
+              continue;
+
+            if (SubLoop->contains(UserInst))
+              // Not live-out.
+              continue;
+
+            // Ok, Inst is live-out, need to create a proper blend for the
+            // live-out value and update the use.
+            if (!Blend) {
+              // Create a new phi and use mask for the current iteration.
+              auto *NewPhi = new VPPHINode(Inst->getType());
+              // It can be either SubLoopHeader or NewLoopLatch - doesn't really
+              // matter.
+              assert(SubLoopHeader->getNumPredecessors() == 2 &&
+                     "Expected exactly two predecessors for SubLoopHeader!");
+              SubLoopHeader->addRecipeAfter(NewPhi, nullptr /* be the first */);
+
+              // Create the blend before population NewPhi's incoming values
+              // that blend will be one of them.
+              Blend = Builder.createSelect(LoopBodyMask, Inst, NewPhi);
+              CreatedBlends.insert(Blend);
+
+              // We need undef for all the predecessors except NewLoopLatch.
+              auto *VPUndef =
+                  Plan->getVPConstant(UndefValue::get(Inst->getType()));
+              for (VPBlockBase *Pred : SubLoopHeader->getPredecessors())
+                NewPhi->addIncoming(Pred == NewLoopLatch ? Blend : VPUndef,
+                                    cast<VPBasicBlock>(Pred));
+
+              LLVM_DEBUG(dbgs() << "LoopCFU: Handled live-out: " << *Inst
+                                << "Created blend: " << *Blend
+                                << "and phi: " << *NewPhi << "\n";);
+            }
+
+            if (auto *Phi = dyn_cast<VPPHINode>(UserInst)) {
+              if (Phi->getParent() == SubLoopExitBlock) {
+                // LCSSA phi, just update incoming value.
+                assert(Phi->getNumIncomingValues() == 1 &&
+                       "Expected single incoming value for phi!");
+
+                Phi->setIncomingValue((unsigned)0, Blend);
+                // TODO: assert for being equivalent if already set. Also, the
+                // previous value can be RAUW'ed with newly found one.
+                LCSSAPhi = Phi;
+                continue;
+              }
+            }
+
+            // This UserInst isn't an LCSSA-phi. Change it to reference a proper
+            // LCSSA-phi instead of the original non-blended live-out. This
+            // isn't really required, but we will likely decide to preserve
+            // LCSSA form through the whole VPlan pipeline, so make the IR
+            // coming out of this transformation as much LCSSA-ish as possible.
+
+            // Check if we have already found/created an LCSSA-like phi.
+            if (!LCSSAPhi) {
+              LCSSAPhi = new VPPHINode(Inst->getType());
+              SubLoopExitBlock->addRecipeAfter(LCSSAPhi,
+                                               nullptr /* be the first */);
+              LCSSAPhi->addIncoming(Blend, NewLoopLatch);
+            }
+
+            U->replaceUsesOfWith(Inst, LCSSAPhi);
+          }
+        }
       }
 
       // Compute and set the new condition bit in the loop latch. If all the

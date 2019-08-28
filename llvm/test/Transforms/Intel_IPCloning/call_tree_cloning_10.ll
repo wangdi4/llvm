@@ -94,7 +94,7 @@ define internal fastcc void @get_ref(i32, i32) unnamed_addr #1 {
 }
 
 ; Checks the multi-version (MV) function on get_ref() has proper code generation
-; CHECK-LABEL:  define internal fastcc void @get_ref(i32, i32) unnamed_addr #1 {
+; CHECK-LABEL:  define internal fastcc void @get_ref(i32 %0, i32 %1) unnamed_addr #1 {
 ;
 ; checks 4 2-variable clones
 ;

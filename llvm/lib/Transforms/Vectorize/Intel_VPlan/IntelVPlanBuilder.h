@@ -129,7 +129,8 @@ public:
                         ArrayRef<VPValue *> Operands,
                         Instruction *Inst = nullptr) {
     VPInstruction *NewVPInst = createInstruction(Opcode, BaseTy, Operands);
-    NewVPInst->setUnderlyingValue(Inst);
+    if (Inst)
+      NewVPInst->setUnderlyingValue(*Inst);
     return NewVPInst;
   }
   VPValue *createNaryOp(unsigned Opcode, Type *BaseTy,
@@ -196,7 +197,7 @@ public:
     assert(CI && "CI can't be null.");
     VPCmpInst *VPCI =
         createCmpInst(CI->getPredicate(), LeftOp, RightOp);
-    VPCI->setUnderlyingValue(CI);
+    VPCI->setUnderlyingValue(*CI);
     return VPCI;
   }
 
@@ -221,7 +222,7 @@ public:
   VPInstruction *createPhiInstruction(Instruction *Inst) {
     assert(Inst != nullptr && "Instruction cannot be a nullptr");
     VPInstruction *NewVPInst = createPhiInstruction(Inst->getType());
-    NewVPInst->setUnderlyingValue(Inst);
+    NewVPInst->setUnderlyingValue(*Inst);
     return NewVPInst;
   }
 
@@ -245,7 +246,8 @@ public:
     VPInstruction *NewVPInst = new VPGEPInstruction(Ty, Ptr, IdxList);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
-    NewVPInst->setUnderlyingValue(Inst);
+    if (Inst)
+      NewVPInst->setUnderlyingValue(*Inst);
     return NewVPInst;
   }
 

@@ -57,6 +57,9 @@
 // replaced by KMP_IDENT_BARRIER_EXPL below
 // #define KMP_IDENT_EXPLICIT_BARRIER 0x20
 
+// Pass OpenMP version to runtime to enable non-monotonic scheduling by default
+#define KMP_IDENT_OPENMP_SPEC_VERSION_5_0 0x32000000 //(major*10 + minor) << 24
+
 //
 // Implicit barriers are classified further
 //
@@ -992,6 +995,20 @@ public:
 
   /// Generate a call to
   /// \code
+  ///    void *__tgt_create_buffer(int device_num, void *host_ptr)
+  /// \endcode
+  static CallInst *genTgtCreateBuffer(Value *DeviceNum, Value *HostPtr,
+                                      Instruction *InsertPt);
+
+  /// Generate a call to
+  /// \code
+  ///    int __tgt_release_buffer(int device_num, void *tgt_buffer)
+  /// \endcode
+  static CallInst *genTgtReleaseBuffer(Value *DeviceNum, Value *TgtBuffer,
+                                       Instruction *InsertPt);
+
+  /// Generate a call to
+  /// \code
   ///   int omp_get_num_devices()
   /// \endcode
   static CallInst *genOmpGetNumDevices(Instruction *InsertPt);
@@ -1123,9 +1140,13 @@ public:
   /// Given a call \p BaseCall, create another call with name \p VariantName
   /// using the same arguments from \p BaseCall. Both functions are expected
   /// to have identical signatures.
+  /// \p W is a TargetVariant WRN. If present, replace each call argument that
+  /// is a host pointer (listed in the use_device_ptr clause) with its
+  /// corresponding target buffer.
   static CallInst *genVariantCall(CallInst *BaseCall, StringRef VariantName,
-                                  Instruction *InsertPt = nullptr,
-                                  bool IsTail = false, bool IsVarArg = false);
+                                  Instruction *InsertPt,
+                                  WRegionNode *W = nullptr, bool IsTail = false,
+                                  bool IsVarArg = false);
 
   // Creates a call with no parameters.
   // If \p InsertPt is not null, insert the call before InsertPt
@@ -1139,10 +1160,12 @@ public:
                                       AssumptionCache *AC);
 
   // If there is a SPIRV builtin performing horizontal reduction for the given
-  // reduction operation, this method will insert a call to this builtin
-  // with \p RedDef as the reduction argument. \p Scope defines the SPIRV
-  // reduction scope (e.g. Group, Subgroup, etc.)
-  static CallInst *genSPIRVHorizontalReduction(
+  // reduction operation, this method will insert code with a call
+  // of this builtin with \p RedDef as the reduction value.
+  // \p Scope defines the SPIRV reduction scope (e.g. Group, Subgroup, etc.)
+  // In some case sign/zero integer extension and truncation may be inserted
+  // before and after the call.
+  static Value *genSPIRVHorizontalReduction(
       ReductionItem *RedI, Type *ScalarTy, Instruction *RedDef,
       spirv::Scope Scope);
 

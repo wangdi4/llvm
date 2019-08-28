@@ -34,24 +34,22 @@ static int DebugLevel = 0;
       DEBUGP("Target " GETNAME(TARGET_NAME) " RTL", __VA_ARGS__); \
     } \
   } while (false)
+
+// Utility for retrieving and printing CUDA error string.
+#define CUDA_ERR_STRING(err) \
+  do { \
+    if (DebugLevel > 0) { \
+      const char *errStr; \
+      cuGetErrorString(err, &errStr); \
+      DEBUGP("Target " GETNAME(TARGET_NAME) " RTL", "CUDA error is: %s\n", errStr); \
+    } \
+  } while (false)
 #else // OMPTARGET_DEBUG
 #define DP(...) {}
+#define CUDA_ERR_STRING(err) {}
 #endif // OMPTARGET_DEBUG
 
 #include "../../common/elf_common.c"
-
-// Utility for retrieving and printing CUDA error string.
-#ifdef CUDA_ERROR_REPORT
-#define CUDA_ERR_STRING(err)                                                   \
-  do {                                                                         \
-    const char *errStr;                                                        \
-    cuGetErrorString(err, &errStr);                                            \
-    DP("CUDA error is: %s\n", errStr);                                         \
-  } while (0)
-#else
-#define CUDA_ERR_STRING(err)                                                   \
-  {}
-#endif
 
 /// Keep entries table per device.
 struct FuncOrGblEntryTy {
@@ -264,18 +262,30 @@ static RTLDeviceInfoTy DeviceInfo;
 extern "C" {
 #endif
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *image) {
   return elf_check_machine(image, 190); // EM_CUDA = 190.
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_number_of_devices() { return DeviceInfo.NumberOfDevices; }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int64_t __tgt_rtl_init_requires(int64_t RequiresFlags) {
   DP("Init requires flags to %ld\n", RequiresFlags);
   DeviceInfo.RequiresFlags = RequiresFlags;
   return RequiresFlags;
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_init_device(int32_t device_id) {
 
   CUdevice cuDevice;
@@ -382,6 +392,9 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
   return OFFLOAD_SUCCESS;
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     __tgt_device_image *image) {
 
@@ -574,6 +587,9 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   return DeviceInfo.getOffloadEntriesTable(device_id);
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *hst_ptr) {
   if (size == 0) {
     return NULL;
@@ -599,6 +615,9 @@ void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *hst_ptr) {
   return vptr;
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_data_submit(int32_t device_id, void *tgt_ptr, void *hst_ptr,
     int64_t size) {
   // Set the context we are using.
@@ -620,6 +639,9 @@ int32_t __tgt_rtl_data_submit(int32_t device_id, void *tgt_ptr, void *hst_ptr,
   return OFFLOAD_SUCCESS;
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_data_retrieve(int32_t device_id, void *hst_ptr, void *tgt_ptr,
     int64_t size) {
   // Set the context we are using.
@@ -641,6 +663,9 @@ int32_t __tgt_rtl_data_retrieve(int32_t device_id, void *hst_ptr, void *tgt_ptr,
   return OFFLOAD_SUCCESS;
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
   // Set the context we are using.
   CUresult err = cuCtxSetCurrent(DeviceInfo.Contexts[device_id]);
@@ -659,6 +684,9 @@ int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
   return OFFLOAD_SUCCESS;
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
     void **tgt_args, ptrdiff_t *tgt_offsets, int32_t arg_num, int32_t team_num,
     int32_t thread_limit, uint64_t loop_tripcount) {
@@ -780,6 +808,9 @@ int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
   return OFFLOAD_SUCCESS;
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_run_target_region(int32_t device_id, void *tgt_entry_ptr,
     void **tgt_args, ptrdiff_t *tgt_offsets, int32_t arg_num) {
   // use one team and the default number of threads.

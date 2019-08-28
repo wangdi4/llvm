@@ -353,11 +353,12 @@ public:
     kind_accessor = kind_first,
     kind_std_layout,
     kind_sampler,
-    kind_last = kind_sampler
+    kind_pointer,
+    kind_last = kind_pointer
   };
 
 public:
-  SYCLIntegrationHeader(DiagnosticsEngine &Diag);
+  SYCLIntegrationHeader(DiagnosticsEngine &Diag, bool UnnamedLambdaSupport);
 
   /// Emits contents of the header into given stream.
   void emit(raw_ostream &Out);
@@ -368,7 +369,8 @@ public:
 
   ///  Signals that subsequent parameter descriptor additions will go to
   ///  the kernel with given name. Starts new kernel invocation descriptor.
-  void startKernel(StringRef KernelName, QualType KernelNameType);
+  void startKernel(StringRef KernelName, QualType KernelNameType,
+                   StringRef KernelStableName);
 
   /// Adds a kernel parameter descriptor to current kernel invocation
   /// descriptor.
@@ -402,6 +404,9 @@ private:
 
     /// Kernel name type.
     QualType NameType;
+
+    /// Kernel name with stable lambda name mangling
+    std::string StableName;
 
     /// Descriptor of kernel actual parameters.
     SmallVector<KernelParamDesc, 8> Params;
@@ -438,6 +443,9 @@ private:
 
   /// Used for emitting diagnostics.
   DiagnosticsEngine &Diag;
+
+  /// Whether header is generated with unnamed lambda support
+  bool UnnamedLambdaSupport;
 };
 
 /// Keeps track of expected type during expression parsing. The type is tied to
@@ -2289,8 +2297,16 @@ public:
                                      bool &AddToScope);
   bool AddOverriddenMethods(CXXRecordDecl *DC, CXXMethodDecl *MD);
 
-  bool CheckConstexprFunctionDecl(const FunctionDecl *FD);
-  bool CheckConstexprFunctionBody(const FunctionDecl *FD, Stmt *Body);
+  enum class CheckConstexprKind {
+    /// Diagnose issues that are non-constant or that are extensions.
+    Diagnose,
+    /// Identify whether this function satisfies the formal rules for constexpr
+    /// functions in the current lanugage mode (with no extensions).
+    CheckValid
+  };
+
+  bool CheckConstexprFunctionDefinition(const FunctionDecl *FD,
+                                        CheckConstexprKind Kind);
 
   void DiagnoseHiddenVirtualMethods(CXXMethodDecl *MD);
   void FindHiddenVirtualMethods(CXXMethodDecl *MD,
@@ -2326,48 +2342,6 @@ public:
   void ActOnParamDefaultArgumentError(Decl *param, SourceLocation EqualLoc);
   bool SetParamDefaultArgument(ParmVarDecl *Param, Expr *DefaultArg,
                                SourceLocation EqualLoc);
-
-  // Contexts where using non-trivial C union types can be disallowed. This is
-  // passed to err_non_trivial_c_union_in_invalid_context.
-  enum NonTrivialCUnionContext {
-    // Function parameter.
-    NTCUC_FunctionParam,
-    // Function return.
-    NTCUC_FunctionReturn,
-    // Default-initialized object.
-    NTCUC_DefaultInitializedObject,
-    // Variable with automatic storage duration.
-    NTCUC_AutoVar,
-    // Initializer expression that might copy from another object.
-    NTCUC_CopyInit,
-    // Assignment.
-    NTCUC_Assignment,
-    // Compound literal.
-    NTCUC_CompoundLiteral,
-    // Block capture.
-    NTCUC_BlockCapture,
-    // lvalue-to-rvalue conversion of volatile type.
-    NTCUC_LValueToRValueVolatile,
-  };
-
-  /// Emit diagnostics if the initializer or any of its explicit or
-  /// implicitly-generated subexpressions require copying or
-  /// default-initializing a type that is or contains a C union type that is
-  /// non-trivial to copy or default-initialize.
-  void checkNonTrivialCUnionInInitializer(const Expr *Init, SourceLocation Loc);
-
-  // These flags are passed to checkNonTrivialCUnion.
-  enum NonTrivialCUnionKind {
-    NTCUK_Init = 0x1,
-    NTCUK_Destruct = 0x2,
-    NTCUK_Copy = 0x4,
-  };
-
-  /// Emit diagnostics if a non-trivial C union type or a struct that contains
-  /// a non-trivial C union is used in an invalid context.
-  void checkNonTrivialCUnion(QualType QT, SourceLocation Loc,
-                             NonTrivialCUnionContext UseContext,
-                             unsigned NonTrivialKind);
 
   void AddInitializerToDecl(Decl *dcl, Expr *init, bool DirectInit);
   void ActOnUninitializedDecl(Decl *dcl);
@@ -4696,6 +4670,13 @@ public:
   ExprResult ActOnPredefinedExpr(SourceLocation Loc, tok::TokenKind Kind);
   ExprResult ActOnIntegerConstant(SourceLocation Loc, uint64_t Val);
 
+  ExprResult BuildUniqueStableName(SourceLocation OpLoc,
+                                   TypeSourceInfo *Operand);
+  ExprResult BuildUniqueStableName(SourceLocation OpLoc, Expr *E);
+  ExprResult ActOnUniqueStableNameExpr(SourceLocation OpLoc, SourceLocation L,
+                                       SourceLocation R, ParsedType Ty);
+  ExprResult ActOnUniqueStableNameExpr(SourceLocation OpLoc, SourceLocation L,
+                                       SourceLocation R, Expr *Operand);
 #if INTEL_CUSTOMIZATION
   bool CheckIntelBlockLoopAttribute(const IntelBlockLoopAttr *BLA);
   /// \param IsCheckRange Indicates whether \p E is a #pragma unroll expression
@@ -6414,6 +6395,17 @@ public:
       CXXRecordDecl *Class, Attr *ClassAttr,
       ClassTemplateSpecializationDecl *BaseTemplateSpec,
       SourceLocation BaseLoc);
+
+  /// Add gsl::Pointer attribute to std::container::iterator
+  /// \param ND The declaration that introduces the name
+  /// std::container::iterator. \param UnderlyingRecord The record named by ND.
+  void inferGslPointerAttribute(NamedDecl *ND, CXXRecordDecl *UnderlyingRecord);
+
+  /// Add [[gsl::Owner]] and [[gsl::Pointer]] attributes for std:: types.
+  void inferGslOwnerPointerAttribute(CXXRecordDecl *Record);
+
+  /// Add [[gsl::Pointer]] attributes for std:: types.
+  void inferGslPointerAttribute(TypedefNameDecl *TD);
 
   void CheckCompletedCXXClass(CXXRecordDecl *Record);
 
@@ -8490,6 +8482,11 @@ public:
                              LocalInstantiationScope *StartingScope,
                              bool InstantiatingVarTemplate = false,
                              VarTemplateSpecializationDecl *PrevVTSD = nullptr);
+
+  VarDecl *getVarTemplateSpecialization(
+      VarTemplateDecl *VarTempl, const TemplateArgumentListInfo *TemplateArgs,
+      const DeclarationNameInfo &MemberNameInfo, SourceLocation TemplateKWLoc);
+
   void InstantiateVariableInitializer(
       VarDecl *Var, VarDecl *OldVar,
       const MultiLevelTemplateArgumentList &TemplateArgs);
@@ -10374,6 +10371,7 @@ public:
   QualType CheckShiftOperands( // C99 6.5.7
     ExprResult &LHS, ExprResult &RHS, SourceLocation Loc,
     BinaryOperatorKind Opc, bool IsCompAssign = false);
+  void CheckPtrComparisonWithNullChar(ExprResult &E, ExprResult &NullE);
   QualType CheckCompareOperands( // C99 6.5.8/9
       ExprResult &LHS, ExprResult &RHS, SourceLocation Loc,
       BinaryOperatorKind Opc);
@@ -11259,6 +11257,8 @@ private:
   bool CheckFPGABuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
 #endif // INTEL_CUSTOMIZATION
 
+  bool CheckIntelFPGABuiltinFunctionCall(unsigned BuiltinID, CallExpr *Call);
+
   bool SemaBuiltinVAStart(unsigned BuiltinID, CallExpr *TheCall);
   bool SemaBuiltinVAStartARMMicrosoft(CallExpr *Call);
   bool SemaBuiltinUnorderedCompare(CallExpr *TheCall);
@@ -11531,6 +11531,7 @@ public:
   // Emitting members of dllexported classes is delayed until the class
   // (including field initializers) is fully parsed.
   SmallVector<CXXRecordDecl*, 4> DelayedDllExportClasses;
+  SmallVector<CXXMethodDecl*, 4> DelayedDllExportMemberFunctions;
 
 #if INTEL_CUSTOMIZATION
   llvm::DenseMap<const Type *, SmallVector<FunctionDecl *, 4>> OCLChannelBIs;
@@ -11626,25 +11627,40 @@ public:
 private:
   // We store SYCL Kernels here and handle separately -- which is a hack.
   // FIXME: It would be best to refactor this.
-  SmallVector<Decl*, 4> SyclKernel;
+  SmallVector<Decl*, 4> SyclDeviceDecls;
   // SYCL integration header instance for current compilation unit this Sema
   // is associated with.
   std::unique_ptr<SYCLIntegrationHeader> SyclIntHeader;
 
 public:
-  void AddSyclKernel(Decl * d) { SyclKernel.push_back(d); }
-  SmallVector<Decl*, 4> &SyclKernels() { return SyclKernel; }
+  void addSyclDeviceDecl(Decl *d) { SyclDeviceDecls.push_back(d); }
+  SmallVectorImpl<Decl *> &syclDeviceDecls() { return SyclDeviceDecls; }
 
   /// Lazily creates and returns SYCL integration header instance.
   SYCLIntegrationHeader &getSyclIntegrationHeader() {
     if (SyclIntHeader == nullptr)
       SyclIntHeader = llvm::make_unique<SYCLIntegrationHeader>(
-        getDiagnostics());
+          getDiagnostics(), getLangOpts().SYCLUnnamedLambda);
     return *SyclIntHeader.get();
   }
 
+  enum SYCLRestrictKind {
+    KernelGlobalVariable,
+    KernelRTTI,
+    KernelNonConstStaticDataVariable,
+    KernelCallVirtualFunction,
+    KernelUseExceptions,
+    KernelCallRecursiveFunction,
+    KernelCallFunctionPointer,
+    KernelAllocateStorage,
+    KernelUseAssembly,
+    KernelHavePolymorphicClass,
+    KernelCallVariadicFunction
+ };
+  DeviceDiagBuilder SYCLDiagIfDeviceCode(SourceLocation Loc, unsigned DiagID);
   void ConstructOpenCLKernel(FunctionDecl *KernelCallerFunc);
   void MarkDevice(void);
+  bool CheckSYCLCall(SourceLocation Loc, FunctionDecl *Callee);
 };
 
 /// RAII object that enters a new expression evaluation context.

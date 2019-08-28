@@ -17,6 +17,9 @@ VERS1.0 {
     __tgt_rtl_manifest_data_for_region;
     __tgt_rtl_data_alloc_base;
     __tgt_rtl_data_alloc_user;
+    __tgt_rtl_create_buffer;
+    __tgt_rtl_get_device_name;
+    __tgt_rtl_release_buffer;
     __tgt_rtl_run_target_team_nd_region;
     __tgt_rtl_run_target_team_region_nowait;
     __tgt_rtl_run_target_region_nowait;

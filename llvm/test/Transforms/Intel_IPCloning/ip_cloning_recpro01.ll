@@ -26,13 +26,13 @@
 
 ; CHECK: define dso_local i32 @main()
 ; CHECK: tail call i32 @foo.1
-; CHECK: define internal i32 @foo.1(i32, i32)
+; CHECK: define internal i32 @foo.1(i32 %0, i32 %1)
 ; CHECK: call i32 @foo.2
-; CHECK: define internal i32 @foo.2(i32, i32)
+; CHECK: define internal i32 @foo.2(i32 %0, i32 %1)
 ; CHECK: call i32 @foo.3
-; CHECK: define internal i32 @foo.3(i32, i32)
+; CHECK: define internal i32 @foo.3(i32 %0, i32 %1)
 ; CHECK: call i32 @foo.4
-; CHECK: define internal i32 @foo.4(i32, i32)
+; CHECK: define internal i32 @foo.4(i32 %0, i32 %1)
 ; CHECK: call i32 @foo.1
 
 define internal i32 @foo(i32, i32) {

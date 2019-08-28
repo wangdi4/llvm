@@ -3,8 +3,15 @@
 ; RUN: opt -vec-clone -S < %s | FileCheck %s
 
 ; CHECK-LABEL: <4 x i32> @_ZGVbN4u_foo(i32 %b)
+; CHECK: simd.begin.region:
+; CHECK-NEXT: %entry.region = call token @llvm.directive.region.entry()
+; CHECK-SAME: DIR.OMP.SIMD
+; CHECK-SAME: QUAL.OMP.SIMDLEN
+; CHECK-SAME: i32 4
+; CHECK-SAME: QUAL.OMP.UNIFORM
+; CHECK-SAME: i32* %alloca.b
 ; CHECK: simd.loop:
-; CHECK: store i32 %b
+; CHECK: store i32 %load.b
 
 ; ModuleID = 'uniform.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

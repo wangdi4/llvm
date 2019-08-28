@@ -18,22 +18,6 @@
 ///
 /// TODO: relax memory order later (current: seq_cst)
 
-/// OP definitions
-#define OP_MIN(X, Y, DT) ((X) < (Y) ? (X) : (Y))
-#define OP_MAX(X, Y, DT) ((X) > (Y) ? (X) : (Y))
-#define TO_LOGIC(X, DT) ((X) != (DT)0 ? 1 : 0)
-#define OP_OR(X, Y, DT) ((DT)(TO_LOGIC(X, DT) || TO_LOGIC(Y, DT)))
-#define OP_AND(X, Y, DT) ((DT)(TO_LOGIC(X, DT) && TO_LOGIC(Y, DT)))
-#define OP_ADD(X, Y, DT) ((X) + (Y))
-#define OP_SUB(X, Y, DT) ((X) - (Y))
-#define OP_MUL(X, Y, DT) ((X) * (Y))
-#define OP_DIV(X, Y, DT) ((X) / (Y))
-#define OP_ORB(X, Y, DT) ((X) | (Y))
-#define OP_ANDB(X, Y, DT) ((X) & (Y))
-#define OP_XOR(X, Y, DT) ((X) ^ (Y))
-#define OP_SHL(X, Y, DT) ((X) << (Y))
-#define OP_SHR(X, Y, DT) ((X) >> (Y))
-
 /// Fallback implementation
 // TODO: lock is not working at work-item level, so we don't have any way to
 // implement this correctly only in software.

@@ -33,6 +33,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/MDBuilder.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
@@ -329,6 +330,26 @@ class BoolMultiVersioningImpl {
     }
   };
 
+  // Return the branch weights for the 'true' and 'false' path, if there is
+  // profiling data.
+  static Optional<std::pair<uint64_t, uint64_t>>
+  getBranchWeights(const BranchInst *I) {
+    MDNode *ProfMD = I->getMetadata(LLVMContext::MD_prof);
+    if (!ProfMD)
+      return None;
+
+    MDString *MDS = dyn_cast<MDString>(ProfMD->getOperand(0));
+    if (!MDS || !MDS->getString().equals("branch_weights"))
+      return None;
+
+    assert(ProfMD->getNumOperands() == 3 && "Expected 3 value operands");
+    ConstantInt *CI1 = mdconst::extract<ConstantInt>(ProfMD->getOperand(1));
+    ConstantInt *CI2 = mdconst::extract<ConstantInt>(ProfMD->getOperand(2));
+
+    return std::make_pair(CI1->getValue().getZExtValue(),
+                          CI2->getValue().getZExtValue());
+  }
+
   // Multi-version function body for the given closure.
   void doMultiVersioning(BoolClosure &C) const {
     LLVM_DEBUG(dbgs() << DEBUG_PREFIX "Multi-versioning function "
@@ -361,13 +382,17 @@ class BoolMultiVersioningImpl {
     auto *Load = Builder.CreateLoad(GEP);
     auto *ICmp = Builder.CreateICmp(ICmpInst::ICMP_NE, Load,
                                     ConstantInt::get(Load->getType(), 0u));
-    Builder.CreateCondBr(ICmp, OldEntryBB, VMap.getClone(OldEntryBB));
+    auto *Br =
+        Builder.CreateCondBr(ICmp, OldEntryBB, VMap.getClone(OldEntryBB));
 
     // Fixup conditional uses for 'true' and 'false' specializations. Replace
     // GEPs and Loads with the GEP and Load which we have added to the entry.
     auto *True = ConstantInt::getTrue(F.getParent()->getContext());
     auto *False = ConstantInt::getFalse(F.getParent()->getContext());
 
+    uint64_t TrueWeight = 0;
+    uint64_t FalseWeight = 0;
+    MDBuilder MDB(F.getContext());
     for (const auto &GEPNode : C.getGEPs()) {
       for (const auto &LoadNode : GEPNode.second) {
         for (auto &CmpNode : LoadNode.second) {
@@ -376,6 +401,53 @@ class BoolMultiVersioningImpl {
 
           auto Pred = Inst->getPredicate();
           assert(ICmpInst::isEquality(Pred));
+
+          // Collect the profile counts to enable setting the branch weights on
+          // the version selection branch instruction. The version selection
+          // branch always uses not-equal, update and accumulate the weights
+          // based on which way the branches will be revised below.
+          bool PredIsNE = Pred == ICmpInst::ICMP_NE;
+          for (auto *U : Inst->users()) {
+            if (auto *BrInst = dyn_cast<BranchInst>(U)) {
+              if (Optional<std::pair<uint64_t, uint64_t>> Weights =
+                      getBranchWeights(BrInst)) {
+                auto *BrInstClone = VMap.getClone(BrInst);
+                assert(BrInstClone && "Branch should have a clone");
+
+                // The version selection branch always uses "not equal", update
+                // and accumulate the weights based on which way the branches
+                // will be revised below.
+                TrueWeight += PredIsNE ? Weights.getValue().first
+                                       : Weights.getValue().second;
+                FalseWeight += PredIsNE ? Weights.getValue().second
+                                        : Weights.getValue().first;
+
+                // Update the profiling data on the branches. The conditional
+                // will eventually be discarded, so this is not strictly
+                // necessary, but do it to try to keep the profile info
+                // in a consistent state.
+                if (PredIsNE) {
+                  // The original branch will become 'if i1 true ...'
+                  // The clone branch will become 'if i1 false ...'
+                  BrInst->setMetadata(
+                      LLVMContext::MD_prof,
+                      MDB.createBranchWeights(Weights.getValue().first, 0));
+                  BrInstClone->setMetadata(
+                      LLVMContext::MD_prof,
+                      MDB.createBranchWeights(0, Weights.getValue().second));
+                } else {
+                  // The original branch will become 'if i1 false ...'
+                  // The clone branch will become 'if i1 true ...'
+                  BrInst->setMetadata(
+                      LLVMContext::MD_prof,
+                      MDB.createBranchWeights(0, Weights.getValue().second));
+                  BrInstClone->setMetadata(
+                      LLVMContext::MD_prof,
+                      MDB.createBranchWeights(Weights.getValue().first, 0));
+                }
+              }
+            }
+          }
 
           Inst->replaceAllUsesWith(Pred == ICmpInst::ICMP_NE ? True : False);
           Inst->eraseFromParent();
@@ -402,6 +474,18 @@ class BoolMultiVersioningImpl {
 
       Clone->replaceAllUsesWith(GEP);
       Clone->eraseFromParent();
+    }
+
+    // Set the profile weight for the branch the controls the version
+    // selection as a percentage of the function entry count.
+    Function::ProfileCount EntryCount = F.getEntryCount();
+    if (EntryCount.hasValue() && (TrueWeight != 0 || FalseWeight != 0)) {
+      uint64_t TotalWeight = TrueWeight + FalseWeight;
+      Br->setMetadata(
+          LLVMContext::MD_prof,
+          MDB.createBranchWeights(
+              ((float)TrueWeight / TotalWeight) * EntryCount.getCount(),
+              ((float)FalseWeight / TotalWeight) * EntryCount.getCount()));
     }
 
     // Update statistics.

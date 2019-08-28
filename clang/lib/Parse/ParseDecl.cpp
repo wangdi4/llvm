@@ -414,6 +414,7 @@ unsigned Parser::ParseAttributeArgsCommon(
   ConsumeParen();
 
   bool ChangeKWThisToIdent = attributeTreatsKeywordThisAsIdentifier(*AttrName);
+  bool AttributeIsTypeArgAttr = attributeIsTypeArgAttr(*AttrName, Syntax, ScopeName);
 
   // Interpret "kw_this" as an identifier if the attributed requests it.
   if (ChangeKWThisToIdent && Tok.is(tok::kw_this))
@@ -442,6 +443,7 @@ unsigned Parser::ParseAttributeArgsCommon(
       ArgExprs.push_back(ParseIdentifierLoc());
   }
 
+  ParsedType TheParsedType;
   if (!ArgExprs.empty() ? Tok.is(tok::comma) : Tok.isNot(tok::r_paren)) {
     // Eat the comma.
     if (!ArgExprs.empty())
@@ -454,10 +456,17 @@ unsigned Parser::ParseAttributeArgsCommon(
         Tok.setKind(tok::identifier);
 
       ExprResult ArgExpr;
-      if (Tok.is(tok::identifier) &&
-#if INTEL_CUSTOMIZATION
-          attributeHasVariadicIdentifierArg(*AttrName)) {
-#endif // INTEL_CUSTOMIZATION
+      if (AttributeIsTypeArgAttr) {
+        TypeResult T = ParseTypeName();
+        if (T.isInvalid()) {
+          SkipUntil(tok::r_paren, StopAtSemi);
+          return 0;
+        }
+        if (T.isUsable())
+          TheParsedType = T.get();
+        break; // FIXME: Multiple type arguments are not implemented.
+      } else if (Tok.is(tok::identifier) &&
+                 attributeHasVariadicIdentifierArg(*AttrName)) {
         ArgExprs.push_back(ParseIdentifierLoc());
       } else {
 #if INTEL_CUSTOMIZATION
@@ -484,14 +493,20 @@ unsigned Parser::ParseAttributeArgsCommon(
   SourceLocation RParen = Tok.getLocation();
   if (!ExpectAndConsume(tok::r_paren)) {
     SourceLocation AttrLoc = ScopeLoc.isValid() ? ScopeLoc : AttrNameLoc;
-    Attrs.addNew(AttrName, SourceRange(AttrLoc, RParen), ScopeName, ScopeLoc,
-                 ArgExprs.data(), ArgExprs.size(), Syntax);
+
+    if (AttributeIsTypeArgAttr && !TheParsedType.get().isNull()) {
+      Attrs.addNewTypeAttr(AttrName, SourceRange(AttrNameLoc, RParen),
+                           ScopeName, ScopeLoc, TheParsedType, Syntax);
+    } else {
+      Attrs.addNew(AttrName, SourceRange(AttrLoc, RParen), ScopeName, ScopeLoc,
+                   ArgExprs.data(), ArgExprs.size(), Syntax);
+    }
   }
 
   if (EndLoc)
     *EndLoc = RParen;
 
-  return static_cast<unsigned>(ArgExprs.size());
+  return static_cast<unsigned>(ArgExprs.size() + !TheParsedType.get().isNull());
 }
 
 /// Parse the arguments to a parameterized GNU attribute or
@@ -2662,7 +2677,8 @@ bool Parser::ParseImplicitInt(DeclSpec &DS, CXXScopeSpec *SS,
 
   // Early exit as Sema has a dedicated missing_actual_pipe_type diagnostic
   // for incomplete declarations such as `pipe p`.
-  if (getLangOpts().OpenCLCPlusPlus && DS.isTypeSpecPipe())
+  if ((getLangOpts().OpenCLCPlusPlus || getLangOpts().SYCLIsDevice) &&
+      DS.isTypeSpecPipe())
     return false;
 
   if (getLangOpts().CPlusPlus &&
@@ -3906,17 +3922,14 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       break;
 #if INTEL_CUSTOMIZATION
     case tok::kw_channel:
-      if (!getLangOpts().OpenCL ||
-          !getTargetInfo().getSupportedOpenCLOpts()
-          .isSupported("cl_intel_channels", getLangOpts())) {
-        // 'channel' is a keyword only for OpenCL with cl_intel_channels
-        // extension
-        Tok.setKind(tok::identifier);
-        continue;
-      }
       isInvalid = DS.SetTypeChannel(true, Loc, PrevSpec, DiagID, Policy);
       break;
 #endif // INTEL_CUSTOMIZATION
+    case tok::kw___pipe:
+      if (getLangOpts().SYCLIsDevice)
+        // __pipe keyword is defined only for SYCL kernel language
+        isInvalid = DS.SetTypePipe(true, Loc, PrevSpec, DiagID, Policy);
+      break;
 #define GENERIC_IMAGE_TYPE(ImgType, Id) \
   case tok::kw_##ImgType##_t: \
     isInvalid = DS.SetTypeSpecType(DeclSpec::TST_##ImgType##_t, Loc, PrevSpec, \
@@ -4216,7 +4229,7 @@ void Parser::ParseStructDeclaration(
 /// [OBC]   '@' 'defs' '(' class-name ')'
 ///
 void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
-                                  unsigned TagType, Decl *TagDecl) {
+                                  DeclSpec::TST TagType, Decl *TagDecl) {
   PrettyDeclStackTraceEntry CrashInfo(Actions.Context, TagDecl, RecordLoc,
                                       "parsing struct/union body");
   assert(!getLangOpts().CPlusPlus && "C++ declarations not supported");
@@ -4263,6 +4276,14 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
       AccessSpecifier AS = AS_none;
       ParsedAttributesWithRange Attrs(AttrFactory);
       (void)ParseOpenMPDeclarativeDirectiveWithExtDecl(AS, Attrs);
+      continue;
+    }
+
+    if (tok::isPragmaAnnotation(Tok.getKind())) {
+      Diag(Tok.getLocation(), diag::err_pragma_misplaced_in_decl)
+          << DeclSpec::getSpecifierName(
+                 TagType, Actions.getASTContext().getPrintingPolicy());
+      ConsumeAnnotationToken();
       continue;
     }
 
@@ -5059,8 +5080,9 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   default: return false;
 
   case tok::kw_pipe:
+  case tok::kw___pipe:
     return (getLangOpts().OpenCL && getLangOpts().OpenCLVersion >= 200) ||
-           getLangOpts().OpenCLCPlusPlus;
+            getLangOpts().OpenCLCPlusPlus || getLangOpts().SYCLIsDevice;
 #if INTEL_CUSTOMIZATION
   case tok::kw_channel:
     return getLangOpts().OpenCL &&
@@ -5569,8 +5591,9 @@ static bool isPtrOperatorToken(tok::TokenKind Kind, const LangOptions &Lang,
   if (Kind == tok::star || Kind == tok::caret)
     return true;
 
-  if (Kind == tok::kw_pipe &&
-      ((Lang.OpenCL && Lang.OpenCLVersion >= 200) || Lang.OpenCLCPlusPlus))
+  if ((Kind == tok::kw_pipe || Kind == tok::kw___pipe) &&
+      ((Lang.OpenCL && Lang.OpenCLVersion >= 200) || Lang.OpenCLCPlusPlus ||
+       Lang.SYCLIsDevice))
     return true;
 #if INTEL_CUSTOMIZATION
   if ((Kind == tok::kw_channel) && Lang.OpenCL &&

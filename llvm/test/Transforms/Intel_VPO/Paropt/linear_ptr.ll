@@ -64,6 +64,7 @@ entry:
 ; Initial copy of linear var
 ; CHECK: [[LOAD1:%[a-zA-Z._0-9]+]] = load i32*, i32** @xptr
 ; CHECK: store i32* [[LOAD1]], i32** [[LINEAR_INIT:%[a-zA-Z._0-9]+]]
+; CHECK: call void @__kmpc_barrier{{.*}}
 ; CHECK: call void @__kmpc_for_static_init_4({{.*}}
 
 ; Initialization of linear var per iteration
@@ -74,9 +75,8 @@ entry:
 ; CHECK: store i32* [[GEP]], i32** [[LINEAR_LOCAL:%[a-zA-Z._0-9]+]]
 
 ; Final copyout for linear var
-; CHECK: call void @__kmpc_barrier{{.*}}
-; CHECK: [[LOAD3:%[a-zA-Z._0-9]+]] = load i32*, i32** [[LINEAR_LOCAL]]
-; CHECK: store i32* [[LOAD3]], i32** @xptr
+; CHECK-DAG: store i32* [[LOAD3:%[a-zA-Z._0-9]+]], i32** @xptr
+; CHECK-DAG: [[LOAD3]] = load i32*, i32** [[LINEAR_LOCAL]]
 
   %2 = load i32, i32* %.omp.lb, align 4
   store i32 %2, i32* %.omp.iv, align 4

@@ -184,14 +184,6 @@ DisableIntelProprietaryOpts("disable-intel-proprietary-opts",
                cl::desc("Disable Intel proprietary optimizations"),
                cl::init(false));
 
-// This option can be used to enable advanced optimizations when running opt.
-// This option must be used with -mtriple and -mattr. For example:
-//   opt -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2
-static cl::opt<bool>
-EnableIntelAdvancedOpts("enable-intel-advanced-opts",
-                        cl::desc("Enable Intel advanced optimizations"),
-                        cl::init(false));
-
 // This option can be used to configure the pipeline to run like the
 // PrepareForLTO mode of a -c compilation.
 static cl::opt<bool>
@@ -573,8 +565,8 @@ int main(int argc, char **argv) {
   initializeExpandReductionsPass(Registry);
   initializeWasmEHPreparePass(Registry);
   initializeWriteBitcodePassPass(Registry);
-  initializeHardwareLoopsPass(Registry);
   initializeASFixerPass(Registry);
+  initializeHardwareLoopsPass(Registry);
 #if INTEL_CUSTOMIZATION
   initializeIntel_LoopAnalysis(Registry);
   initializeIntel_LoopTransforms(Registry);
@@ -667,7 +659,7 @@ int main(int argc, char **argv) {
       OutputFilename = "-";
 
     std::error_code EC;
-    Out.reset(new ToolOutputFile(OutputFilename, EC, sys::fs::F_None));
+    Out.reset(new ToolOutputFile(OutputFilename, EC, sys::fs::OF_None));
     if (EC) {
       errs() << EC.message() << '\n';
       return 1;
@@ -675,7 +667,7 @@ int main(int argc, char **argv) {
 
     if (!ThinLinkBitcodeFile.empty()) {
       ThinLinkOut.reset(
-          new ToolOutputFile(ThinLinkBitcodeFile, EC, sys::fs::F_None));
+          new ToolOutputFile(ThinLinkBitcodeFile, EC, sys::fs::OF_None));
       if (EC) {
         errs() << EC.message() << '\n';
         return 1;
@@ -692,10 +684,6 @@ int main(int argc, char **argv) {
     CPUStr = getCPUStr();
     FeaturesStr = getFeaturesStr();
     Machine = GetTargetMachine(ModuleTriple, CPUStr, FeaturesStr, Options);
-#if INTEL_CUSTOMIZATION
-    if (Machine && EnableIntelAdvancedOpts)
-      Machine->Options.IntelAdvancedOptim = true;
-#endif // INTEL_CUSTOMIZATION
   } else if (ModuleTriple.getArchName() != "unknown" &&
              ModuleTriple.getArchName() != "") {
     errs() << argv[0] << ": unrecognized architecture '"
@@ -780,7 +768,7 @@ int main(int argc, char **argv) {
 
       std::error_code EC;
       Out = llvm::make_unique<ToolOutputFile>(OutputFilename, EC,
-                                              sys::fs::F_None);
+                                              sys::fs::OF_None);
       if (EC) {
         errs() << EC.message() << '\n';
         return 1;

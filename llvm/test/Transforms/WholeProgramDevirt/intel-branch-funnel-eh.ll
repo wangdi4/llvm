@@ -11,7 +11,7 @@
 
 
 ; Check that the wrapper for the branch funnel was created
-; CHECK: define hidden void @__typeid_type_id1_0_branch_funnel(i8* nest, ...
+; CHECK: define hidden void @__typeid_type_id1_0_branch_funnel(i8* nest %0, ...
 
 ; Check that the branch funnel call was created with with the virtual calls vfn_1
 ; and vfn_2

@@ -17,6 +17,7 @@
 #include "CGCXXABI.h"
 #include "CGDebugInfo.h"
 #include "CGOpenMPRuntime.h"
+#include "CGSYCLRuntime.h"
 #include "CodeGenModule.h"
 #include "CodeGenPGO.h"
 #include "TargetInfo.h"
@@ -789,6 +790,15 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
       SanOpts.Mask &= ~SanitizerKind::CFIUnrelatedCast;
   }
 
+  // Ignore null checks in coroutine functions since the coroutines passes
+  // are not aware of how to move the extra UBSan instructions across the split
+  // coroutine boundaries.
+  if (D && SanOpts.has(SanitizerKind::Null))
+    if (const auto *FD = dyn_cast<FunctionDecl>(D))
+      if (FD->getBody() &&
+          FD->getBody()->getStmtClass() == Stmt::CoroutineBodyStmtClass)
+        SanOpts.Mask &= ~SanitizerKind::Null;
+
   // Apply xray attributes to the function (as a string, for now)
   if (D) {
     if (const auto *XRayAttr = D->getAttr<XRayInstrumentAttr>()) {
@@ -819,6 +829,9 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
   if (CGM.getCodeGenOpts().ProfileSampleAccurate)
     Fn->addFnAttr("profile-sample-accurate");
 
+  if (D && D->hasAttr<CFICanonicalJumpTableAttr>())
+    Fn->addFnAttr("cfi-canonical-jump-table");
+
 #if INTEL_CUSTOMIZATION
   if (getLangOpts().HLS) {
     // Add metadata for HLS components
@@ -836,8 +849,12 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
 
   if (getLangOpts().OpenCL || getLangOpts().SYCLIsDevice) {
     // Add metadata for a kernel function.
-    if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
+    if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D)) {
       EmitOpenCLKernelMetadata(FD, Fn);
+
+      if (getLangOpts().SYCLIsDevice)
+        CGM.getSYCLRuntime().actOnFunctionStart(*FD, *Fn);
+    }
   }
 
   // If we are checking function types, emit a function type signature as
@@ -889,6 +906,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
     if ((FD->isMain() || FD->isMSVCRTEntryPoint()) &&
         CGM.getCodeGenOpts().StackAlignment)
       Fn->addFnAttr("stackrealign");
+
+  if (getLangOpts().SYCLIsDevice)
+    if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
+      if (FD->hasAttr<SYCLDeviceIndirectlyCallableAttr>())
+        Fn->addFnAttr("referenced-indirectly");
 
   llvm::BasicBlock *EntryBB = createBasicBlock("entry", CurFn);
 
@@ -2334,6 +2356,12 @@ Address CodeGenFunction::EmitHLSFieldAnnotations(const FieldDecl *D,
 Address CodeGenFunction::EmitIntelFPGAFieldAnnotations(const FieldDecl *D,
                                                        Address Addr,
                                                        StringRef AnnotStr) {
+  return EmitIntelFPGAFieldAnnotations(D->getLocation(), Addr, AnnotStr);
+}
+
+Address CodeGenFunction::EmitIntelFPGAFieldAnnotations(SourceLocation Location,
+                                                       Address Addr,
+                                                       StringRef AnnotStr) {
   llvm::Value *V = Addr.getPointer();
   llvm::Type *VTy = V->getType();
   llvm::Function *F =
@@ -2343,7 +2371,7 @@ Address CodeGenFunction::EmitIntelFPGAFieldAnnotations(const FieldDecl *D,
   // itself.
   if (VTy != CGM.Int8PtrTy)
     V = Builder.CreateBitCast(V, CGM.Int8PtrTy);
-  V = EmitAnnotationCall(F, V, AnnotStr, D->getLocation());
+  V = EmitAnnotationCall(F, V, AnnotStr, Location);
   V = Builder.CreateBitCast(V, VTy);
   return Address(V, Addr.getAlignment());
 }

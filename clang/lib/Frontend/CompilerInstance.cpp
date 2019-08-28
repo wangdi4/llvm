@@ -13,6 +13,7 @@
 #include "clang/Basic/CharInfo.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/FileManager.h"
+#include "clang/Basic/LangStandard.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/Stack.h"
 #include "clang/Basic/TargetInfo.h"
@@ -163,7 +164,7 @@ static void collectIncludePCH(CompilerInstance &CI,
 
   StringRef PCHInclude = PPOpts.ImplicitPCHInclude;
   FileManager &FileMgr = CI.getFileManager();
-  const DirectoryEntry *PCHDir = FileMgr.getDirectory(PCHInclude);
+  auto PCHDir = FileMgr.getDirectory(PCHInclude);
   if (!PCHDir) {
     MDC->addFile(PCHInclude);
     return;
@@ -171,7 +172,7 @@ static void collectIncludePCH(CompilerInstance &CI,
 
   std::error_code EC;
   SmallString<128> DirNative;
-  llvm::sys::path::native(PCHDir->getName(), DirNative);
+  llvm::sys::path::native((*PCHDir)->getName(), DirNative);
   llvm::vfs::FileSystem &FS = FileMgr.getVirtualFileSystem();
   SimpleASTReaderListener Validator(CI.getPreprocessor());
   for (llvm::vfs::directory_iterator Dir = FS.dir_begin(DirNative, EC), DirEnd;
@@ -218,7 +219,7 @@ static void SetUpDiagnosticLog(DiagnosticOptions *DiagOpts,
     // Create the output stream.
     auto FileOS = llvm::make_unique<llvm::raw_fd_ostream>(
         DiagOpts->DiagnosticLogFile, EC,
-        llvm::sys::fs::F_Append | llvm::sys::fs::F_Text);
+        llvm::sys::fs::OF_Append | llvm::sys::fs::OF_Text);
     if (EC) {
       Diags.Report(diag::warn_fe_cc_log_diagnostics_failure)
           << DiagOpts->DiagnosticLogFile << EC.message();
@@ -344,7 +345,7 @@ static void InitializeFileRemapping(DiagnosticsEngine &Diags,
   // Remap files in the source manager (with other files).
   for (const auto &RF : InitOpts.RemappedFiles) {
     // Find the file that we're mapping to.
-    const FileEntry *ToFile = FileMgr.getFile(RF.second);
+    auto ToFile = FileMgr.getFile(RF.second);
     if (!ToFile) {
       Diags.Report(diag::err_fe_remap_missing_to_file) << RF.first << RF.second;
       continue;
@@ -352,7 +353,7 @@ static void InitializeFileRemapping(DiagnosticsEngine &Diags,
 
     // Create the file entry for the file that we're mapping from.
     const FileEntry *FromFile =
-        FileMgr.getVirtualFile(RF.first, ToFile->getSize(), 0);
+        FileMgr.getVirtualFile(RF.first, (*ToFile)->getSize(), 0);
     if (!FromFile) {
       Diags.Report(diag::err_fe_remap_missing_from_file) << RF.first;
       continue;
@@ -360,7 +361,7 @@ static void InitializeFileRemapping(DiagnosticsEngine &Diags,
 
     // Override the contents of the "from" file with the contents of
     // the "to" file.
-    SourceMgr.overrideFileContents(FromFile, ToFile);
+    SourceMgr.overrideFileContents(FromFile, *ToFile);
   }
 
   SourceMgr.setOverridenFilesKeepOriginalName(
@@ -560,7 +561,7 @@ static bool EnableCodeCompletion(Preprocessor &PP,
                                  unsigned Column) {
   // Tell the source manager to chop off the given file at a specific
   // line and column.
-  const FileEntry *Entry = PP.getFileManager().getFile(Filename);
+  auto Entry = PP.getFileManager().getFile(Filename);
   if (!Entry) {
     PP.getDiagnostics().Report(diag::err_fe_invalid_code_complete_file)
       << Filename;
@@ -568,7 +569,7 @@ static bool EnableCodeCompletion(Preprocessor &PP,
   }
 
   // Truncate the named file at the given line/column.
-  PP.SetCodeCompletionPoint(Entry, Line, Column);
+  PP.SetCodeCompletionPoint(*Entry, Line, Column);
   return false;
 }
 
@@ -777,7 +778,7 @@ std::unique_ptr<llvm::raw_pwrite_stream> CompilerInstance::createOutputFile(
     OSFile = OutFile;
     OS.reset(new llvm::raw_fd_ostream(
         OSFile, Error,
-        (Binary ? llvm::sys::fs::F_None : llvm::sys::fs::F_Text)));
+        (Binary ? llvm::sys::fs::OF_None : llvm::sys::fs::OF_Text)));
     if (Error)
       return nullptr;
   }
@@ -832,11 +833,12 @@ bool CompilerInstance::InitializeSourceManager(
 
   // Figure out where to get and map in the main file.
   if (InputFile != "-") {
-    const FileEntry *File = FileMgr.getFile(InputFile, /*OpenFile=*/true);
-    if (!File) {
+    auto FileOrErr = FileMgr.getFile(InputFile, /*OpenFile=*/true);
+    if (!FileOrErr) {
       Diags.Report(diag::err_fe_error_reading) << InputFile;
       return false;
     }
+    auto File = *FileOrErr;
 
     // The natural SourceManager infrastructure can't currently handle named
     // pipes, but we would at least like to accept them for the main
@@ -989,8 +991,8 @@ bool CompilerInstance::ExecuteAction(FrontendAction &Act) {
   StringRef StatsFile = getFrontendOpts().StatsFile;
   if (!StatsFile.empty()) {
     std::error_code EC;
-    auto StatS = llvm::make_unique<llvm::raw_fd_ostream>(StatsFile, EC,
-                                                         llvm::sys::fs::F_Text);
+    auto StatS = llvm::make_unique<llvm::raw_fd_ostream>(
+        StatsFile, EC, llvm::sys::fs::OF_Text);
     if (EC) {
       getDiagnostics().Report(diag::warn_fe_unable_to_open_stats_file)
           << StatsFile << EC.message();
@@ -1004,14 +1006,14 @@ bool CompilerInstance::ExecuteAction(FrontendAction &Act) {
 
 /// Determine the appropriate source input kind based on language
 /// options.
-static InputKind::Language getLanguageFromOptions(const LangOptions &LangOpts) {
+static Language getLanguageFromOptions(const LangOptions &LangOpts) {
   if (LangOpts.OpenCL)
-    return InputKind::OpenCL;
+    return Language::OpenCL;
   if (LangOpts.CUDA)
-    return InputKind::CUDA;
+    return Language::CUDA;
   if (LangOpts.ObjC)
-    return LangOpts.CPlusPlus ? InputKind::ObjCXX : InputKind::ObjC;
-  return LangOpts.CPlusPlus ? InputKind::CXX : InputKind::C;
+    return LangOpts.CPlusPlus ? Language::ObjCXX : Language::ObjC;
+  return LangOpts.CPlusPlus ? Language::CXX : Language::C;
 }
 
 /// Compile a module file for the given module, using the options
@@ -1157,7 +1159,9 @@ static const FileEntry *getPublicModuleMap(const FileEntry *File,
     llvm::sys::path::append(PublicFilename, "module.modulemap");
   else
     return nullptr;
-  return FileMgr.getFile(PublicFilename);
+  if (auto FE = FileMgr.getFile(PublicFilename))
+    return *FE;
+  return nullptr;
 }
 
 /// Compile a module file for the given module, using the options
@@ -1370,7 +1374,7 @@ static void checkConfigMacro(Preprocessor &PP, StringRef ConfigMacro,
 /// Write a new timestamp file with the given path.
 static void writeTimestampFile(StringRef TimestampFile) {
   std::error_code EC;
-  llvm::raw_fd_ostream Out(TimestampFile.str(), EC, llvm::sys::fs::F_None);
+  llvm::raw_fd_ostream Out(TimestampFile.str(), EC, llvm::sys::fs::OF_None);
 }
 
 /// Prune the module cache of modules that haven't been accessed in
@@ -1721,8 +1725,9 @@ CompilerInstance::loadModule(SourceLocation ImportLoc,
       if (Source != ModuleCache && !Module) {
         Module = PP->getHeaderSearchInfo().lookupModule(ModuleName, true,
                                                         !IsInclusionDirective);
+        auto ModuleFile = FileMgr->getFile(ModuleFileName);
         if (!Module || !Module->getASTFile() ||
-            FileMgr->getFile(ModuleFileName) != Module->getASTFile()) {
+            !ModuleFile || (*ModuleFile != Module->getASTFile())) {
           // Error out if Module does not refer to the file in the prebuilt
           // module path.
           getDiagnostics().Report(ModuleNameLoc, diag::err_module_prebuilt)

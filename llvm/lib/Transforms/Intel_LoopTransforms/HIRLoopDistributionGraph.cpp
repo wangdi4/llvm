@@ -75,7 +75,7 @@ void PiGraph::createEdges() {
        PiBlkIt != PiEndIt; ++PiBlkIt) {
     PiBlock *SrcBlk = *PiBlkIt;
     for (auto NodeIt = SrcBlk->dist_node_begin(),
-           EndIt = SrcBlk->dist_node_end();
+              EndIt = SrcBlk->dist_node_end();
          NodeIt != EndIt; ++NodeIt) {
       // Maps a sink piblock to a list of ddedges
       DenseMap<PiBlock *, SmallVector<const DDEdge *, 16>> CurEdges;
@@ -83,7 +83,7 @@ void PiGraph::createEdges() {
       // Go through all outgoing dist edges and add their dd edges
       // to sink pi block's list in CurEdges
       for (auto EdgeIt = PPGraph->outgoing_edges_begin(*NodeIt),
-             EndEdgeIt = PPGraph->outgoing_edges_end(*NodeIt);
+                EndEdgeIt = PPGraph->outgoing_edges_end(*NodeIt);
            EdgeIt != EndEdgeIt; ++EdgeIt) {
         PiBlock *SinkPiBlk = DistPPNodeToPiBlock[(*EdgeIt)->getSink()];
         assert(SinkPiBlk && "Invalid dist edge added");
@@ -110,12 +110,15 @@ void PiGraph::createEdges() {
 LLVM_DUMP_METHOD
 void PiBlock::dump() const {
   for (auto *PPNode : DistPPNodes) {
-    auto ControlDep = Graph->getControlDependence(PPNode);
-    if (ControlDep) {
-      dbgs() << "<dep " << ControlDep->first->getNode()->getNumber() << "> ";
-    }
-
     PPNode->dump();
   }
 }
+
+LLVM_DUMP_METHOD
+void PiGraphEdge::dump() const {
+  for (auto *DDEdge : DDEdges) {
+    DDEdge->dump();
+  }
+}
+
 #endif

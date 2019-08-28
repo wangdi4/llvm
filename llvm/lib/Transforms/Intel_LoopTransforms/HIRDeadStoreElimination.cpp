@@ -1,5 +1,4 @@
-//===- HIRDeadStoreElimination.cpp - Implements DeadStoreElimination class
-//------------===//
+//===- HIRDeadStoreElimination.cpp - Implements DeadStoreElimination class ===//
 //
 // Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
@@ -53,12 +52,12 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
 
 namespace {
 
-class HIRDeadStoreElimination : public HIRTransformPass {
-
+class HIRDeadStoreEliminationLegacyPass : public HIRTransformPass {
 public:
   static char ID;
-  HIRDeadStoreElimination() : HIRTransformPass(ID) {
-    initializeHIRDeadStoreEliminationPass(*PassRegistry::getPassRegistry());
+  HIRDeadStoreEliminationLegacyPass() : HIRTransformPass(ID) {
+    initializeHIRDeadStoreEliminationLegacyPassPass(
+        *PassRegistry::getPassRegistry());
   }
 
   bool runOnFunction(Function &F) override;
@@ -70,17 +69,85 @@ public:
     AU.setPreservesAll();
   }
 };
+
+class HIRDeadStoreElimination {
+  HIRLoopStatistics &HLS;
+
+  bool isValidParentChain(const HLNode *PostDominatingNode,
+                          const HLNode *PrevNode,
+                          const RegDDRef *PostDominatingRef);
+
+public:
+  HIRDeadStoreElimination(HIRLoopStatistics &HLS) : HLS(HLS) {}
+  bool doTransform(HLRegion &Reg);
+};
+
+class UnsafeCallVisitor final : public HLNodeVisitorBase {
+  HIRLoopStatistics &HLS;
+  const HLNode *StartNode;
+  const HLNode *EndNode;
+  bool FoundStartNode;
+  bool FoundEndNode;
+  bool FoundUnsafeCall;
+
+public:
+  UnsafeCallVisitor(HIRLoopStatistics &HLS, const HLNode *StartNode,
+                    const HLNode *EndNode)
+      : HLS(HLS), StartNode(StartNode), EndNode(EndNode), FoundStartNode(false),
+        FoundEndNode(false), FoundUnsafeCall(false) {
+    assert((isa<HLLoop>(StartNode) || isa<HLInst>(StartNode)) &&
+           "Invalid start node!");
+    assert((isa<HLLoop>(EndNode) || isa<HLInst>(EndNode)) &&
+           "Invalid end node!");
+  }
+
+  bool isNodeRelevant(const HLNode *Node) {
+    if (Node == StartNode) {
+      FoundStartNode = true;
+    } else if (Node == EndNode) {
+      FoundEndNode = true;
+    }
+
+    return FoundStartNode;
+  }
+
+  void visit(const HLInst *Inst) {
+    if (!isNodeRelevant(Inst)) {
+      return;
+    }
+
+    // TODO: check mayThrow() as well
+    FoundUnsafeCall = Inst->isUnknownAliasingCallInst();
+  }
+
+  void visit(const HLLoop *Loop) {
+    if (!isNodeRelevant(Loop)) {
+      return;
+    }
+
+    FoundUnsafeCall =
+        HLS.getTotalLoopStatistics(Loop).hasCallsWithUnknownAliasing();
+  }
+
+  void visit(const HLNode *Node) {}
+  void postVisit(const HLNode *Node) {}
+
+  bool foundUnsafeCall() const { return FoundUnsafeCall; }
+  bool isDone() const { return FoundEndNode || FoundUnsafeCall; }
+};
+
 } // namespace
 
-char HIRDeadStoreElimination::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRDeadStoreElimination, OPT_SWITCH, OPT_DESC, false,
-                      false)
+char HIRDeadStoreEliminationLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(HIRDeadStoreEliminationLegacyPass, OPT_SWITCH, OPT_DESC,
+                      false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_END(HIRDeadStoreElimination, OPT_SWITCH, OPT_DESC, false, false)
+INITIALIZE_PASS_END(HIRDeadStoreEliminationLegacyPass, OPT_SWITCH, OPT_DESC,
+                    false, false)
 
 FunctionPass *llvm::createHIRDeadStoreEliminationPass() {
-  return new HIRDeadStoreElimination();
+  return new HIRDeadStoreEliminationLegacyPass();
 }
 
 // Check whether the DDRefs in other groups have the same symbase as the
@@ -93,12 +160,18 @@ FunctionPass *llvm::createHIRDeadStoreEliminationPass() {
 // A[i] =
 static bool
 overlapsWithAnotherGroup(HIRLoopLocality::RefGroupTy &RefGroup,
-                         HIRLoopLocality::RefGroupVecTy &TemporalGroups,
+                         HIRLoopLocality::RefGroupVecTy &EqualityGroups,
                          const RegDDRef *FirstRef) {
-  uint64_t SizeofRef =
-      FirstRef->getCanonExprUtils().getTypeSizeInBytes(FirstRef->getDestType());
+  auto *DestTy = FirstRef->getDestType();
 
-  for (auto &TmpRefGroup : TemporalGroups) {
+  // Can happen for fake refs with opqaue types.
+  if (!DestTy->isSized()) {
+    return true;
+  }
+
+  uint64_t SizeofRef = FirstRef->getCanonExprUtils().getTypeSizeInBytes(DestTy);
+
+  for (auto &TmpRefGroup : EqualityGroups) {
     auto *CurRef = TmpRefGroup.front();
 
     if (FirstRef == CurRef) {
@@ -124,8 +197,11 @@ overlapsWithAnotherGroup(HIRLoopLocality::RefGroupTy &RefGroup,
   return false;
 }
 
-static bool checkParentLoopBounds(HLLoop *PostDominatingLoop, HLLoop *PrevLoop,
-                                  const RegDDRef *PostDominatingRef) {
+static bool hasValidParentLoopBounds(const HLLoop *PostDominatingLoop,
+                                     const HLLoop *PrevLoop,
+                                     const RegDDRef *Ref,
+                                     const HLNode *&OutermostPostDominatingNode,
+                                     const HLNode *&OutermostPrevNode) {
   unsigned LoopLevel = PostDominatingLoop->getNestingLevel();
   unsigned PrevLoopLevel = PrevLoop->getNestingLevel();
 
@@ -133,25 +209,29 @@ static bool checkParentLoopBounds(HLLoop *PostDominatingLoop, HLLoop *PrevLoop,
     return false;
   }
 
+  // Check whether PostDominatingLoop and PrevLoop's parent loop chain have the
+  // same upperbound, lowerbound and stride.
   for (; PrevLoop != PostDominatingLoop;
-       LoopLevel--, PostDominatingLoop = PostDominatingLoop->getParentLoop(),
+       LoopLevel--, OutermostPostDominatingNode = PostDominatingLoop,
+                    OutermostPrevNode = PrevLoop,
+                    PostDominatingLoop = PostDominatingLoop->getParentLoop(),
                     PrevLoop = PrevLoop->getParentLoop()) {
 
     if (!PrevLoop->isDo() || !PostDominatingLoop->isDo()) {
       return false;
     }
 
-    if (!PostDominatingRef->hasIV(LoopLevel)) {
+    if (!Ref->hasIV(LoopLevel)) {
       continue;
     }
 
-    RegDDRef *PDLoopUpperRef = PostDominatingLoop->getUpperDDRef();
-    RegDDRef *PDLoopLowerRef = PostDominatingLoop->getLowerDDRef();
-    RegDDRef *PDLoopStrideRef = PostDominatingLoop->getStrideDDRef();
+    auto *PDLoopUpperRef = PostDominatingLoop->getUpperDDRef();
+    auto *PDLoopLowerRef = PostDominatingLoop->getLowerDDRef();
+    auto *PDLoopStrideRef = PostDominatingLoop->getStrideDDRef();
 
-    RegDDRef *PrevLoopUpperRef = PrevLoop->getUpperDDRef();
-    RegDDRef *PrevLoopLowerRef = PrevLoop->getLowerDDRef();
-    RegDDRef *PrevLoopStrideRef = PrevLoop->getStrideDDRef();
+    auto *PrevLoopUpperRef = PrevLoop->getUpperDDRef();
+    auto *PrevLoopLowerRef = PrevLoop->getLowerDDRef();
+    auto *PrevLoopStrideRef = PrevLoop->getStrideDDRef();
 
     if (!DDRefUtils::areEqual(PDLoopUpperRef, PrevLoopUpperRef) ||
         !DDRefUtils::areEqual(PDLoopLowerRef, PrevLoopLowerRef) ||
@@ -160,26 +240,141 @@ static bool checkParentLoopBounds(HLLoop *PostDominatingLoop, HLLoop *PrevLoop,
     }
   }
 
+  // We should conservatively return false if the ref is non-linear at the
+  // common loop level. For example, different values of 't' prevent dead store
+  // elimination in the following case-
+  //
+  // DO i1
+  //   t =
+  //   DO i2 = 0, 10
+  //    A[t+i2] =
+  //   END DO
+  //
+  //   t =
+  //   DO i2 = 0, 10
+  //    A[t+i2] =
+  //   END DO
+  // END DO
+  //
+  // TODO: refine the check in the visitor.
+  if (PrevLoop) {
+    // PrevLoop is now the LCA loop.
+    if (!Ref->isLinearAtLevel(PrevLoop->getNestingLevel())) {
+      return false;
+    }
+  } else {
+    auto *Reg = OutermostPrevNode->getParentRegion();
+
+    // Check that all the blobs in Ref are live in to the region to avoid
+    // incorrectly optimizing cases like this-
+    //
+    // A[5+t] =
+    // t =
+    // A[5+t] =
+    for (auto *BlobRef : make_range(Ref->blob_begin(), Ref->blob_end())) {
+      if (!Reg->isLiveIn(BlobRef->getSymbase())) {
+        return false;
+      }
+    }
+  }
+
   return true;
 }
 
-static bool doTransform(HLLoop *OutermostLp) {
+bool HIRDeadStoreElimination::isValidParentChain(
+    const HLNode *PostDominatingNode, const HLNode *PrevNode,
+    const RegDDRef *PostDominatingRef) {
+
+  auto *PrevLoop = PrevNode->getLexicalParentLoop();
+  auto *PostDominatingLoop = PostDominatingNode->getLexicalParentLoop();
+
+  auto *OutermostPrevNode = PrevNode;
+  auto *OutermostPostDominatingNode = PostDominatingNode;
+  const HLLoop *CommonLoop = nullptr;
+
+  // We only handle the following two cases right now-
+  // 1) Both refs have a parent loop.
+  // 2) Neither ref has parent loop.
+  if (PrevLoop && PostDominatingLoop) {
+    if (!hasValidParentLoopBounds(
+            PostDominatingLoop, PrevLoop, PostDominatingRef,
+            OutermostPostDominatingNode, OutermostPrevNode)) {
+      return false;
+    }
+
+    CommonLoop =
+        HLNodeUtils::getLowestCommonAncestorLoop(PrevLoop, PostDominatingLoop);
+
+    // Shortcut to avoid visitor below.
+    if (CommonLoop &&
+        !HLS.getTotalLoopStatistics(CommonLoop).hasCallsWithUnknownAliasing()) {
+      return true;
+    }
+
+  } else if (PrevLoop || PostDominatingLoop) {
+    // Give up if only one of the refs has parent loop.
+    // This can be improved later.
+    return false;
+  }
+
+  auto *Reg = OutermostPrevNode->getParentRegion();
+
+  // Check whether an intermediate unsafe call prevents dead store elimination.
+  // Outermost nodes determine the range that needs to be checked for safety of
+  // the transformation. This will be the outermost parent loop of the refs,
+  // leading up to the LCA loop. For example, consider this case-
+  //
+  // DO i1
+  //   DO i2
+  //     unsafe_call()
+  //     DO i3
+  //       A[i2][i3] =
+  //     END DO
+  //   END DO
+  //
+  //   DO i3
+  //     DO i3
+  //       A[i2][i3] =
+  //     END DO
+  //   END DO
+  // END DO
+  //
+  // Even though unsafe_call() lies lexically before the first ref, it still
+  // prevents dead store elimination as array A can be read inside the call.
+  // That is why range starts from first i2 loop.
+  UnsafeCallVisitor UCV(HLS, OutermostPrevNode, OutermostPostDominatingNode);
+
+  // No need to recurse into loops. Checking the statistics of outermost loop is
+  // enough for now.
+  HLNodeUtils::visitRange<true, false>(
+      UCV, CommonLoop ? CommonLoop->child_begin() : Reg->child_begin(),
+      CommonLoop ? CommonLoop->child_end() : Reg->child_end());
+
+  return !UCV.foundUnsafeCall();
+}
+
+bool HIRDeadStoreElimination::doTransform(HLRegion &Reg) {
   bool Result = false;
 
-  HIRLoopLocality::RefGroupVecTy TemporalGroups;
+  // It isn't worth optimizing incoming single bblock regions.
+  if (Reg.isLoopMaterializationCandidate()) {
+    return false;
+  }
+
+  HIRLoopLocality::RefGroupVecTy EqualityGroups;
   SmallSet<unsigned, 8> UniqueGroupSymbases;
 
-  // Populates TemporalGroups by populating it with memref groups which have
-  // unique temporal locality.
-  HIRLoopLocality::populateTemporalLocalityGroups(
-      OutermostLp, 0, TemporalGroups, &UniqueGroupSymbases);
+  // Populates EqualityGroups with memrefs with the same address, like A[i1] and
+  // (i32*)A[i1].
+  HIRLoopLocality::populateEqualityGroups(Reg.child_begin(), Reg.child_end(),
+                                          EqualityGroups, &UniqueGroupSymbases);
 
   auto HigherTopSortNum = [](const RegDDRef *Ref1, const RegDDRef *Ref2) {
     return Ref1->getHLDDNode()->getTopSortNum() >
            Ref2->getHLDDNode()->getTopSortNum();
   };
 
-  for (auto &RefGroup : TemporalGroups) {
+  for (auto &RefGroup : EqualityGroups) {
     auto *Ref = RefGroup.front();
 
     if (Ref->isNonLinear()) {
@@ -187,7 +382,7 @@ static bool doTransform(HLLoop *OutermostLp) {
     }
 
     if (!UniqueGroupSymbases.count(Ref->getSymbase())) {
-      if (overlapsWithAnotherGroup(RefGroup, TemporalGroups, Ref)) {
+      if (overlapsWithAnotherGroup(RefGroup, EqualityGroups, Ref)) {
         continue;
       }
     }
@@ -224,20 +419,18 @@ static bool doTransform(HLLoop *OutermostLp) {
           continue;
         }
 
-        // Check whether PostDominatingRef and PrevRef's parent loops have the
-        // same upperbound, lowerbound and stride.
-        HLLoop *PostDominatingLoop = DDNode->getLexicalParentLoop();
-        HLLoop *PrevLoop = PrevDDNode->getLexicalParentLoop();
-
-        if (!checkParentLoopBounds(PostDominatingLoop, PrevLoop,
-                                   PostDominatingRef)) {
+        if (!isValidParentChain(DDNode, PrevDDNode, PostDominatingRef)) {
           I++;
           continue;
         }
 
-        auto ParentNode = PrevDDNode->getParent();
+        if (auto *PrevLoop = PrevDDNode->getLexicalParentLoop()) {
+          HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(PrevLoop);
+        }
+
+        auto *PrevParent = PrevDDNode->getParent();
         HLNodeUtils::remove(const_cast<HLDDNode *>(PrevDDNode));
-        HLNodeUtils::removeEmptyNodes(ParentNode, true);
+        HLNodeUtils::removeEmptyNodes(PrevParent, true);
 
         Result = true;
         RefGroup.erase(RefGroup.begin() + I);
@@ -245,10 +438,8 @@ static bool doTransform(HLLoop *OutermostLp) {
     }
   }
 
-  // Mark the loop and its parent loop/region have been changed
   if (Result) {
-    OutermostLp->getParentRegion()->setGenCode();
-    HIRInvalidationUtils::invalidateBody(OutermostLp);
+    Reg.setGenCode();
   }
 
   return Result;
@@ -261,29 +452,18 @@ static bool runDeadStoreElimination(HIRFramework &HIRF,
     return false;
   }
 
-  SmallVector<HLLoop *, 64> CandidateLoops;
-
-  HIRF.getHLNodeUtils().gatherOutermostLoops(CandidateLoops);
-
-  if (CandidateLoops.empty()) {
-    LLVM_DEBUG(dbgs() << HIRF.getFunction().getName()
-                      << "() has no outer-most loop\n ");
-    return false;
-  }
+  HIRDeadStoreElimination DSE(HLS);
 
   bool Result = false;
 
-  for (auto &Lp : CandidateLoops) {
-    if (HLS.getTotalLoopStatistics(Lp).hasCallsWithUnknownAliasing()) {
-      continue;
-    }
-    Result = doTransform(Lp) || Result;
+  for (auto &Reg : make_range(HIRF.hir_begin(), HIRF.hir_end())) {
+    Result = DSE.doTransform(cast<HLRegion>(Reg)) || Result;
   }
 
   return Result;
 }
 
-bool HIRDeadStoreElimination::runOnFunction(Function &F) {
+bool HIRDeadStoreEliminationLegacyPass::runOnFunction(Function &F) {
   if (skipFunction(F)) {
     LLVM_DEBUG(dbgs() << "HIR Dead Store Elimination Disabled \n");
     return false;
@@ -303,4 +483,4 @@ HIRDeadStoreEliminationPass::run(llvm::Function &F,
   return PreservedAnalyses::all();
 }
 
-void HIRDeadStoreElimination::releaseMemory() {}
+void HIRDeadStoreEliminationLegacyPass::releaseMemory() {}

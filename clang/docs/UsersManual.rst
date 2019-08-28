@@ -992,13 +992,24 @@ is treated as a system header.
 Enabling All Diagnostics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-In addition to the traditional ``-W`` flags, one can enable **all**
-diagnostics by passing :option:`-Weverything`. This works as expected
-with
-:option:`-Werror`, and also includes the warnings from :option:`-pedantic`.
+In addition to the traditional ``-W`` flags, one can enable **all** diagnostics
+by passing :option:`-Weverything`. This works as expected with
+:option:`-Werror`, and also includes the warnings from :option:`-pedantic`. Some
+diagnostics contradict each other, therefore, users of :option:`-Weverything`
+often disable many diagnostics such as `-Wno-c++98-compat` and `-Wno-c++-compat`
+because they contradict recent C++ standards.
 
-Note that when combined with :option:`-w` (which disables all warnings), that
-flag wins.
+Since :option:`-Weverything` enables every diagnostic, we generally don't
+recommend using it. `-Wall` `-Wextra` are a better choice for most projects.
+Using :option:`-Weverything` means that updating your compiler is more difficult
+because you're exposed to experimental diagnostics which might be of lower
+quality than the default ones. If you do use :option:`-Weverything` then we
+advise that you address all new compiler diagnostics as they get added to Clang,
+either by fixing everything they find or explicitly disabling that diagnostic
+with its corresponding `Wno-` option.
+
+Note that when combined with :option:`-w` (which disables all warnings),
+disabling all warnings wins.
 
 Controlling Static Analyzer Diagnostics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -2776,7 +2787,7 @@ restrictions from OpenCL C v2.0 will inherently apply. All OpenCL C builtin type
 and function libraries are supported and can be used in the new mode.
 
 To enable the new mode pass the following command line option when compiling ``.cl``
-file ``-cl-std=c++`` or ``-std=c++``.
+file ``-cl-std=clc++``, ``-cl-std=CLC++``, ``-std=clc++`` or ``-std=CLC++``.
 
    .. code-block:: c++
 
@@ -2794,7 +2805,7 @@ file ``-cl-std=c++`` or ``-std=c++``.
 
    .. code-block:: console
 
-     clang -cl-std=c++ test.cl
+     clang -cl-std=clc++ test.cl
 
 .. _target_features:
 

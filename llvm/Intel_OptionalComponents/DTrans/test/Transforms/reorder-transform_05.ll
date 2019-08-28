@@ -11,7 +11,6 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-
 %struct.test01 = type { i32, i64, i32, i32, i16, i64, %struct.test02* }
 %struct.test02 = type { i32, i64, i32, i32, i16, %struct.test01*, i64 }
 

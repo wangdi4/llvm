@@ -979,7 +979,7 @@ def CC_X86_32_Common : CallingConv<[
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
   // FIXME is this correct?
-  CCIfType<[f16], CCAssignToStack<2, 2>>,
+  CCIfType<[f16], CCAssignToStack<4, 4>>,
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 

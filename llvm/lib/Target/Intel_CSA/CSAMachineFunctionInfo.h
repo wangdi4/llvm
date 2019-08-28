@@ -145,7 +145,7 @@ public:
   /// Get a user-readable name of the LIC for the virtual register, or return
   /// an empty string if none is known.
   StringRef getLICName(unsigned vreg) const {
-    if (TargetRegisterInfo::isPhysicalRegister(vreg))
+    if (Register::isPhysicalRegister(vreg))
       return "";
     return getLICInfo(vreg).name;
   }

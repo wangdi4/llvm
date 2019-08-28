@@ -225,7 +225,7 @@ void prepareForMerging(MachineFunction *DstMF, MachineFunction *SrcMF) {
   for (auto &MI : *MBB) {
     if (TII->isInit(&MI)) continue;
     for (MachineOperand &MO : MI.operands()) {
-      if (MO.isReg() && TargetRegisterInfo::isVirtualRegister(MO.getReg())) {
+      if (MO.isReg() && Register::isVirtualRegister(MO.getReg())) {
         if (MO.isDef()) {
           auto OldReg = MO.getReg();
           auto NewReg =
@@ -527,7 +527,7 @@ void avoidParamsResultsOverlap(MachineFunction *MF) {
     static_cast<const CSAInstrInfo *>(MF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &(MF->getRegInfo());
   for (MachineOperand &MO : EntryMI->operands()) {
-    if (MO.isReg() && TargetRegisterInfo::isVirtualRegister(MO.getReg())) {
+    if (MO.isReg() && Register::isVirtualRegister(MO.getReg())) {
       auto Reg = MO.getReg();
       for (auto U = MRI->use_begin(Reg); U != MRI->use_end(); ++U) {
         MachineInstr *UI = U->getParent();

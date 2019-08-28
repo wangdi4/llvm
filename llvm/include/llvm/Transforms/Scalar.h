@@ -362,7 +362,7 @@ FunctionPass *createEarlyCSEPass(bool UseMemorySSA = false);
 // GVNHoist - This pass performs a simple and fast GVN pass over the dominator
 // tree to hoist common expressions from sibling branches.
 //
-FunctionPass *createGVNHoistPass();
+FunctionPass *createGVNHoistPass(bool HoistingGeps = false); // INTEL
 
 //===----------------------------------------------------------------------===//
 //

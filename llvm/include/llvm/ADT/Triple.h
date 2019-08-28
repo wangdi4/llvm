@@ -105,6 +105,9 @@ public:
     wasm64,         // WebAssembly with 64-bit pointers
     renderscript32, // 32-bit RenderScript
     renderscript64, // 64-bit RenderScript
+    fpga_aoco,      // Intel FPGA: unlinked object file
+    fpga_aocr,      // Intel FPGA: linked early image
+    fpga_aocx,      // Intel FPGA: linked image
     LastArchType = renderscript64
   };
   enum SubArchType {
@@ -138,7 +141,11 @@ public:
     KalimbaSubArch_v4,
     KalimbaSubArch_v5,
 
-    MipsSubArch_r6
+    MipsSubArch_r6,
+
+    SPIRSubArch_fpga,
+    SPIRSubArch_gen,
+    SPIRSubArch_x86_64
   };
   enum VendorType {
     UnknownVendor,
@@ -151,6 +158,7 @@ public:
     Freescale,
     IBM,
     ImaginationTechnologies,
+    Intel,
     MipsTechnologies,
     NVIDIA,
     CSR,
@@ -228,9 +236,9 @@ public:
     Itanium,
     Cygnus,
     CoreCLR,
-    Simulator, // Simulator variants of other systems, e.g., Apple's iOS
-    MacABI, // Mac Catalyst variant of Apple's iOS deployment target.
     SYCLDevice,
+    Simulator,  // Simulator variants of other systems, e.g., Apple's iOS
+    MacABI, // Mac Catalyst variant of Apple's iOS deployment target.
     LastEnvironmentType = MacABI
   };
   enum ObjectFormatType {
@@ -501,12 +509,12 @@ public:
     return getEnvironment() == Triple::Simulator;
   }
 
-  bool isMacCatalystEnvironment() const {
-    return getEnvironment() == Triple::MacABI;
-  }
-
   bool isSYCLDeviceEnvironment() const {
     return getEnvironment() == Triple::SYCLDevice;
+  }
+
+  bool isMacCatalystEnvironment() const {
+    return getEnvironment() == Triple::MacABI;
   }
 
   bool isOSNetBSD() const {

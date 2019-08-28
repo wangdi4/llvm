@@ -52,6 +52,12 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vplan-divergence-analysis"
 
+static cl::opt<bool>
+    VPlanDARecognizeOverflow("vplan-da-recognize-integer-overflow",
+                             cl::init(true), cl::Hidden,
+                             cl::desc("Allow VPlan's divergence analysis to "
+                                      "recognize integer overflow checks."));
+
 #define Uni VPVectorShape::Uni
 #define Seq VPVectorShape::Seq
 #define Ptr VPVectorShape::Ptr
@@ -786,6 +792,18 @@ VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForBinaryInst(
       VPVectorShape::VPShapeDescriptor NewDesc = SubConversion[Desc0][Desc1];
       return new VPVectorShape(NewDesc, NewStride);
     }
+    case Instruction::And: {
+      if (VPlanDARecognizeOverflow) {
+        // AND operation with UINT_MAX indicates an integer overflow check and
+        // clamping. Propagate the shape of the operand being checked for
+        // overflow.
+        if (auto *ConstOp1 = dyn_cast<VPConstant>(Op1)) {
+          if (ConstOp1->isConstantInt() && ConstOp1->getZExtValue() == UINT_MAX)
+            return new VPVectorShape(Desc0, Shape0->getStride());
+        }
+      }
+      LLVM_FALLTHROUGH;
+    }
     default:
       return getRandomVectorShape();
   }
@@ -821,6 +839,23 @@ VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForGepInst(
   const VPValue* PtrOp = I->getOperand(0);
   VPVectorShape *PtrShape = getVectorShape(PtrOp);
   unsigned NumOperands = I->getNumOperands();
+
+  // Non-uniform GEPs on StructType pointers need further analysis to determine
+  // actual stride. Currently mark it as Random to stay conservative. Check JIRA
+  // : CMPLRLLVM-10122
+  if (auto *PtrOpTy = dyn_cast<PointerType>(PtrOp->getType())) {
+    if (isa<StructType>(PtrOpTy->getPointerElementType())) {
+      // If all operands of the GEP are uniform, then return Uniform shape for
+      // the resulting GEP.
+      if (llvm::all_of(I->operands(), [this](const VPValue *Op) {
+            return getVectorShape(Op)->isUniform();
+          }))
+        return getUniformVectorShape();
+
+      return getRandomVectorShape();
+    }
+  }
+
   // If any of the gep indices, except the last, are not uniform, then return
   // random shape.
   for (unsigned i = 1; i < NumOperands - 1; i++) {
@@ -1098,8 +1133,19 @@ void VPlanDivergenceAnalysis::initializeShapes(
     VPVectorShape *NewShape = nullptr;
     if (const VPInduction *Ind = RegionLoopEntities->getInduction(Phi)) {
       const VPValue *Step = Ind->getStep();
-      NewShape =
-          new VPVectorShape(VPVectorShape::Seq, const_cast<VPValue*>(Step));
+      // Default StepInt is 0 to account for variable step IV cases.
+      int StepInt = 0;
+      if (auto *StepConst = dyn_cast<VPConstant>(Step))
+        if (StepConst->isConstantInt())
+          StepInt = StepConst->getZExtValue();
+
+      // IV's vector shape is determined based on its step value. For variable
+      // step IVs, we choose Strided (unknown stride value).
+      VPVectorShape::VPShapeDescriptor IVShape = (StepInt == 1 || StepInt == -1)
+                                                     ? VPVectorShape::Seq
+                                                     : VPVectorShape::Str;
+
+      NewShape = new VPVectorShape(IVShape, const_cast<VPValue *>(Step));
     } else
       // To be conservative, we mark phi nodes with random shape unless we
       // know the phi is an induction. This matches the divergent property

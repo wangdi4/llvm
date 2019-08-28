@@ -635,6 +635,12 @@ public:
     TopLevelPipelineParsingCallbacks.push_back(C);
   }
 
+  /// Add PGOInstrumenation passes for O0 only.
+  void addPGOInstrPassesForO0(ModulePassManager &MPM, bool DebugLogging,
+                              bool RunProfileGen, bool IsCS,
+                              std::string ProfileFile,
+                              std::string ProfileRemappingFile);
+
 private:
   static Optional<std::vector<PipelineElement>>
   parsePipelineText(StringRef Text);
@@ -666,7 +672,6 @@ private:
                          OptimizationLevel Level, bool RunProfileGen, bool IsCS,
                          std::string ProfileFile,
                          std::string ProfileRemappingFile);
-
   void invokePeepholeEPCallbacks(FunctionPassManager &, OptimizationLevel);
 
   // Extension Point callbacks

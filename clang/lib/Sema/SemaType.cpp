@@ -1305,14 +1305,14 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
     if (DS.getTypeSpecSign() == DeclSpec::TSS_unspecified)
       Result = Context.WCharTy;
     else if (DS.getTypeSpecSign() == DeclSpec::TSS_signed) {
-      S.Diag(DS.getTypeSpecSignLoc(), diag::ext_invalid_sign_spec)
+      S.Diag(DS.getTypeSpecSignLoc(), diag::ext_wchar_t_sign_spec)
         << DS.getSpecifierName(DS.getTypeSpecType(),
                                Context.getPrintingPolicy());
       Result = Context.getSignedWCharType();
     } else {
       assert(DS.getTypeSpecSign() == DeclSpec::TSS_unsigned &&
         "Unknown TSS value");
-      S.Diag(DS.getTypeSpecSignLoc(), diag::ext_invalid_sign_spec)
+      S.Diag(DS.getTypeSpecSignLoc(), diag::ext_wchar_t_sign_spec)
         << DS.getSpecifierName(DS.getTypeSpecType(),
                                Context.getPrintingPolicy());
       Result = Context.getUnsignedWCharType();
@@ -1388,7 +1388,8 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
         // errors.
         declarator.setInvalidType(true);
       } else if ((S.getLangOpts().OpenCLVersion >= 200 ||
-                  S.getLangOpts().OpenCLCPlusPlus) &&
+                  S.getLangOpts().OpenCLCPlusPlus ||
+                  S.getLangOpts().SYCLIsDevice) &&
                  DS.isTypeSpecPipe()) {
         S.Diag(DeclLoc, diag::err_missing_actual_pipe_type)
           << DS.getSourceRange();
@@ -1525,7 +1526,8 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
       Result = Context.DoubleTy;
     break;
   case DeclSpec::TST_float128:
-    if (!S.Context.getTargetInfo().hasFloat128Type() &&
+    if (!S.Context.getTargetInfo().hasFloat128Type() && 
+        !S.getLangOpts().SYCLIsDevice &&
         !(S.getLangOpts().OpenMP && S.getLangOpts().OpenMPIsDevice))
       S.Diag(DS.getTypeSpecTypeLoc(), diag::err_type_unsupported)
         << "__float128";
@@ -2428,7 +2430,7 @@ QualType Sema::BuildArrayType(QualType T, ArrayType::ArraySizeModifier ASM,
   // OpenCL v2.0 s6.12.5 - Arrays of blocks are not supported.
   // OpenCL v2.0 s6.16.13.1 - Arrays of pipe type are not supported.
   // OpenCL v2.0 s6.9.b - Arrays of image/sampler type are not supported.
-  if (getLangOpts().OpenCL || getLangOpts().SYCLIsDevice) {
+  if (getLangOpts().OpenCL) {
     const QualType ArrType = Context.getBaseElementType(T);
     if (ArrType->isBlockPointerType() || ArrType->isPipeType() ||
         ArrType->isSamplerT() || ArrType->isImageType()) {
@@ -2563,11 +2565,6 @@ bool Sema::CheckFunctionReturnType(QualType T, SourceLocation Loc) {
         << 0 << T << FixItHint::CreateInsertion(Loc, "*");
     return true;
   }
-
-  if (T.hasNonTrivialToPrimitiveDestructCUnion() ||
-      T.hasNonTrivialToPrimitiveCopyCUnion())
-    checkNonTrivialCUnion(T, Loc, NTCUC_FunctionReturn,
-                          NTCUK_Destruct|NTCUK_Copy);
 
   return false;
 }
@@ -4737,11 +4734,20 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         }
       }
 
+      if (LangOpts.OpenCL) {
+        // OpenCL v2.0 s6.12.5 - A pipe cannot be the return value of a
+        // function. Disrespect this for SYCL.
+        if (T->isPipeType()) {
+          S.Diag(D.getIdentifierLoc(), diag::err_opencl_invalid_return)
+              << T << 1 /*hint off*/;
+          D.setInvalidType(true);
+        }
+      }
+
       if (LangOpts.OpenCL || LangOpts.SYCLIsDevice) {
         // OpenCL v2.0 s6.12.5 - A block cannot be the return value of a
         // function.
-        if (T->isBlockPointerType() || T->isImageType() || T->isSamplerT() ||
-            T->isPipeType()) {
+        if (T->isBlockPointerType() || T->isImageType() || T->isSamplerT()) {
           S.Diag(D.getIdentifierLoc(), diag::err_opencl_invalid_return)
               << T << 1 /*hint off*/;
           D.setInvalidType(true);
@@ -6160,9 +6166,9 @@ static void HandleAddressSpaceTypeAttribute(QualType &Type,
     }
 
     ASTContext &Ctx = S.Context;
-    auto *ASAttr = ::new (Ctx) AddressSpaceAttr(
-        Attr.getRange(), Ctx, Attr.getAttributeSpellingListIndex(),
-        static_cast<unsigned>(ASIdx));
+    auto *ASAttr = ::new (Ctx)
+        AddressSpaceAttr(Attr.getRange(), Ctx, static_cast<unsigned>(ASIdx),
+                         Attr.getAttributeSpellingListIndex());
 
     // If the expression is not value dependent (not templated), then we can
     // apply the address space qualifiers just to the equivalent type.
@@ -7215,9 +7221,17 @@ static bool handleFunctionTypeAttr(TypeProcessingState &state, ParsedAttr &attr,
   // much ability to diagnose it later.
   if (!supportsVariadicCall(CC)) {
     const FunctionProtoType *FnP = dyn_cast<FunctionProtoType>(fn);
-    if (FnP && FnP->isVariadic()) {
+    // Disable these diagnostics for SYCL
+    if (FnP && FnP->isVariadic() && !S.getLangOpts().SYCLIsDevice) {
       // stdcall and fastcall are ignored with a warning for GCC and MS
       // compatibility.
+#if INTEL_CUSTOMIZATION
+      if (CC == CC_SpirFunction && S.getLangOpts().IntelCompat &&
+          !S.Context.getTargetInfo().shouldDiagnoseVariadicCall())
+        return S.Diag(attr.getLoc(), diag::warn_cconv_unsupported)
+               << FunctionType::getNameForCallConv(CC)
+               << (int)Sema::CallingConventionIgnoredReason::VariadicFunction;
+#endif // INTEL_CUSTOMIZATION
       if (CC == CC_X86StdCall || CC == CC_X86FastCall ||            // INTEL
           (S.getLangOpts().IntelCompat && CC == CC_X86VectorCall))  // INTEL
         return S.Diag(attr.getLoc(), diag::warn_cconv_unsupported)
@@ -7717,6 +7731,16 @@ static void HandleLifetimeBoundAttr(TypeProcessingState &State,
   }
 }
 
+static bool isAddressSpaceKind(const ParsedAttr &attr) {
+  auto attrKind = attr.getKind();
+
+  return attrKind == ParsedAttr::AT_AddressSpace ||
+         attrKind == ParsedAttr::AT_OpenCLPrivateAddressSpace ||
+         attrKind == ParsedAttr::AT_OpenCLGlobalAddressSpace ||
+         attrKind == ParsedAttr::AT_OpenCLLocalAddressSpace ||
+         attrKind == ParsedAttr::AT_OpenCLConstantAddressSpace ||
+         attrKind == ParsedAttr::AT_OpenCLGenericAddressSpace;
+}
 
 static void processTypeAttrs(TypeProcessingState &state, QualType &type,
                              TypeAttrLocation TAL,
@@ -7755,11 +7779,11 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
           if (!IsTypeAttr)
             continue;
         }
-      } else if (TAL != TAL_DeclChunk &&
-                 attr.getKind() != ParsedAttr::AT_AddressSpace) {
+      } else if (TAL != TAL_DeclChunk && !isAddressSpaceKind(attr)) {
         // Otherwise, only consider type processing for a C++11 attribute if
         // it's actually been applied to a type.
-        // We also allow C++11 address_space attributes to pass through.
+        // We also allow C++11 address_space and
+        // opencl language address space attributes to pass through.
         continue;
       }
     }

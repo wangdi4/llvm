@@ -457,5 +457,5 @@ attributes #11 = { noreturn nounwind }
 ; CHECK-NEXT:   br i1 %matches, label %catch, label %eh.resume
 
 ; Check that the metadata was added correctly
-; CHECK: define linkonce_odr hidden zeroext i1 @_ZN7Derived3fooEi(%class.Derived* %this, i32 %a) unnamed_addr #6 comdat align 2 !_Intel.Devirt.Target
-; CHECK: define linkonce_odr hidden zeroext i1 @_ZN8Derived23fooEi(%class.Derived2* %this, i32 %a) unnamed_addr #6 comdat align 2 !_Intel.Devirt.Target
+; CHECK: define linkonce_odr hidden zeroext i1 @_ZN7Derived3fooEi(%class.Derived* %this, i32 %a) unnamed_addr #{{.*}} comdat align 2 !_Intel.Devirt.Target
+; CHECK: define linkonce_odr hidden zeroext i1 @_ZN8Derived23fooEi(%class.Derived2* %this, i32 %a) unnamed_addr #{{.*}} comdat align 2 !_Intel.Devirt.Target

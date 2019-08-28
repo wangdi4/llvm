@@ -760,6 +760,11 @@ ExprResult Sema::BuildCXXThrow(SourceLocation OpLoc, Expr *Ex,
     CUDADiagIfDeviceCode(OpLoc, diag::err_cuda_device_exceptions)
         << "throw" << CurrentCUDATarget();
 
+  // Exceptions aren't allowed in SYCL device code.
+  if (getLangOpts().SYCLIsDevice)
+    SYCLDiagIfDeviceCode(OpLoc, diag::err_sycl_restrict)
+        << Sema::KernelUseExceptions;
+
   if (getCurScope() && getCurScope()->isOpenMPSimdDirectiveScope())
     Diag(OpLoc, diag::err_omp_simd_region_cannot_use_stmt) << "throw";
 
@@ -2157,11 +2162,16 @@ Sema::BuildCXXNew(SourceRange Range, bool UseGlobal,
     if (DiagnoseUseOfDecl(OperatorNew, StartLoc))
       return ExprError();
     MarkFunctionReferenced(StartLoc, OperatorNew);
+    if (getLangOpts().SYCLIsDevice) {
+      CheckSYCLCall(StartLoc, OperatorNew);
+    }
   }
   if (OperatorDelete) {
     if (DiagnoseUseOfDecl(OperatorDelete, StartLoc))
       return ExprError();
     MarkFunctionReferenced(StartLoc, OperatorDelete);
+    if (getLangOpts().SYCLIsDevice)
+      CheckSYCLCall(StartLoc, OperatorDelete);
   }
 
   return CXXNewExpr::Create(Context, UseGlobal, OperatorNew, OperatorDelete,
@@ -7184,7 +7194,7 @@ ExprResult Sema::BuildCXXMemberCallExpr(Expr *E, NamedDecl *FoundDecl,
 
   if (Method->getParent()->isLambda() &&
       Method->getConversionType()->isBlockPointerType()) {
-    // This is a lambda coversion to block pointer; check if the argument
+    // This is a lambda conversion to block pointer; check if the argument
     // was a LambdaExpr.
     Expr *SubE = E;
     CastExpr *CE = dyn_cast<CastExpr>(SubE);

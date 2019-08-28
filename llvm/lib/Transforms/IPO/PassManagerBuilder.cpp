@@ -682,7 +682,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   }
 #if INTEL_CUSTOMIZATION
 #if INTEL_INCLUDE_DTRANS
-  // Skip MemCpyOpt when PrepareForLTO and EnableDTrans both flags are
+  // Skip MemCpyOpt when both PrepareForLTO and EnableDTrans flags are
   // true to simplify handling of memcpy/memset/memmov calls in DTrans
   // implementation.
   // TODO: Remove this customization once DTrans handled partial memcpy/
@@ -1444,8 +1444,22 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   addPGOInstrPasses(PM, /* IsCS */ true);
 
   // Optimize globals again if we ran the inliner.
-  if (RunInliner)
+  if (RunInliner) { // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+    // The global optimizer pass can convert function calls to use
+    // the 'fastcc' calling convention. The following pass enables more
+    // functions to be converted to this calling convention. This can improve
+    // performance by having arguments passed in registers, and enable more
+    // cases where pointer parameters are changed to pass-by-value parameters.
+    // We can remove the test for EnableDTrans if it is found to be useful
+    // on other cases.
+    if (EnableDTrans)
+      PM.add(createIntelAdvancedFastCallWrapperPass());
+#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_CUSTOMIZATION
     PM.add(createGlobalOptimizerPass());
+  } // INTEL
 
 #if INTEL_CUSTOMIZATION
   if (RunLTOPartialInlining)
@@ -1486,6 +1500,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createSROAPass());
 
 #if INTEL_CUSTOMIZATION
+  PM.add(createCorrelatedValuePropagationPass());
+
   if (EnableInlineAggAnalysis) {
     PM.add(createAggInlAALegacyPass());
   }
@@ -1723,6 +1739,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
   // Run additional cleanup passes that help to cleanup the code.
   if (IsLTO && RunLoopOpts == LoopOptMode::Full) {
     PM.add(createCFGSimplificationPass());
+    PM.add(createAggressiveDCEPass());
   }
 
   // This pass "canonicalizes" loops and makes analysis easier.
@@ -1764,7 +1781,6 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
     }
 
     if (RunLoopOpts == LoopOptMode::Full) {
-      PM.add(createHIRDeadStoreEliminationPass());
 
       // TODO: refine cost model for individual transformations for code size.
       if (SizeLevel == 0) {
@@ -1777,8 +1793,10 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
         PM.add(createHIRMVForConstUBPass());
       }
 
+      PM.add(createHIRSinkingForPerfectLoopnestPass());
       PM.add(createHIRLoopDistributionForLoopNestPass());
       PM.add(createHIRLoopInterchangePass());
+      PM.add(createHIRDeadStoreEliminationPass());
       PM.add(createHIRGenerateMKLCallPass());
       PM.add(createHIRLoopBlockingPass());
       PM.add(createHIRLoopReversalPass());

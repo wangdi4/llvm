@@ -326,6 +326,8 @@ namespace {
     std::string getIsOmitted() const override {
       if (type == "IdentifierInfo *")
         return "!get" + getUpperName().str() + "()";
+      if (type == "TypeSourceInfo *")
+        return "!get" + getUpperName().str() + "Loc()";
       if (type == "ParamIdx")
         return "!get" + getUpperName().str() + "().isValid()";
       return "false";
@@ -363,6 +365,8 @@ namespace {
            << "      OS << \" \" << SA->get" << getUpperName()
            << "()->getName();\n";
       } else if (type == "TypeSourceInfo *") {
+        if (isOptional())
+          OS << "    if (SA->get" << getUpperName() << "Loc())";
         OS << "    OS << \" \" << SA->get" << getUpperName()
            << "().getAsString();\n";
 #if INTEL_CUSTOMIZATION

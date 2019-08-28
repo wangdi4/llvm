@@ -727,7 +727,7 @@ bool CSAInstrInfo::isLICClass(const TargetRegisterClass *RC) const {
 const TargetRegisterClass *
 CSAInstrInfo::getRegisterClass(unsigned reg,
                                const MachineRegisterInfo &MRI) const {
-  if (TargetRegisterInfo::isVirtualRegister(reg))
+  if (Register::isVirtualRegister(reg))
     return MRI.getRegClass(reg);
 
   if (CSA::CI64RegClass.contains(reg)) {

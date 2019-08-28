@@ -1004,6 +1004,9 @@ DeviceInfoTy& getDeviceInfo() {
 
 // Plugin API implementation
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *Image) {
   auto Ehdr = reinterpret_cast<Elf64_Ehdr*>(Image->ImageStart);
 
@@ -1028,10 +1031,16 @@ int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *Image) {
   return 1;
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_number_of_devices() {
   return getDeviceInfo().getNumberOfDevices();
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_init_device(int32_t ID) {
   if (!getDeviceInfo().getDevice(ID).start(ID)) {
     return OFFLOAD_FAIL;
@@ -1039,6 +1048,9 @@ int32_t __tgt_rtl_init_device(int32_t ID) {
   return OFFLOAD_SUCCESS;
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 __tgt_target_table *__tgt_rtl_load_binary(
   int32_t ID,
   __tgt_device_image *Image
@@ -1049,10 +1061,16 @@ __tgt_target_table *__tgt_rtl_load_binary(
   return getDeviceInfo().getDevice(ID).loadLibrary(Image);
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 void* __tgt_rtl_data_alloc(int32_t ID, int64_t Size, void *HostPtr) {
   return getDeviceInfo().getDevice(ID).allocBuffer(Size);
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_data_submit(
   int32_t ID,
   void *TargetPtr,
@@ -1065,6 +1083,9 @@ int32_t __tgt_rtl_data_submit(
   return OFFLOAD_SUCCESS;
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_data_retrieve(
   int32_t ID,
   void *HostPtr,
@@ -1077,6 +1098,9 @@ int32_t __tgt_rtl_data_retrieve(
   return OFFLOAD_SUCCESS;
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_data_delete(int32_t ID, void *TargetPtr) {
   if (!getDeviceInfo().getDevice(ID).freeBuffer(TargetPtr)) {
     return OFFLOAD_FAIL;
@@ -1084,6 +1108,9 @@ int32_t __tgt_rtl_data_delete(int32_t ID, void *TargetPtr) {
   return OFFLOAD_SUCCESS;
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_run_target_region(
   int32_t ID,
   void *Entry,
@@ -1097,6 +1124,9 @@ int32_t __tgt_rtl_run_target_region(
   return OFFLOAD_SUCCESS;
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_run_target_team_region(
   int32_t ID,
   void *Entry,

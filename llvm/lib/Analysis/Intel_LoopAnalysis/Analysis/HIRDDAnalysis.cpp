@@ -616,7 +616,7 @@ RefinedDependence HIRDDAnalysis::refineDV(const DDRef *SrcDDRef,
                                           const DDRef *DstDDRef,
                                           unsigned StartNestingLevel,
                                           unsigned DeepestNestingLevel,
-                                          bool ForFusion) {
+                                          bool ForFusion) const {
 
   RefinedDependence Dep;
 

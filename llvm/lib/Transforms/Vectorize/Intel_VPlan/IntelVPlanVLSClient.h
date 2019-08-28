@@ -27,26 +27,18 @@ class VPlanVLSAnalysis;
 class VPVLSClientMemref : public OVLSMemref {
   const VPInstruction *Inst;
   const VPlanVLSAnalysis *VLSA;
+  const SCEV *ScevExpr = nullptr;
 
 public:
   VPVLSClientMemref(const OVLSMemrefKind &Kind, const OVLSAccessType &AccTy,
                     const OVLSType &Ty, const VPInstruction *Inst,
-                    const VPlanVLSAnalysis *VLSA)
-      : OVLSMemref(Kind, Ty, AccTy), Inst(Inst), VLSA(VLSA) {}
+                    const VPlanVLSAnalysis *VLSA);
 
-  virtual ~VPVLSClientMemref() {}
+  Optional<int64_t> getConstDistanceFrom(const OVLSMemref &From) override;
 
-  /// Return true if constant distance between current memref and \p From
-  /// can be computed and assign this distance in \p Dist.
-  /// If distance cannot be computed or it's non-constant, return false.
-  bool isAConstDistanceFrom(const OVLSMemref &From, int64_t *Dist) override;
-
-  /// Return true if current memref can be moved to memref \p To.
   bool canMoveTo(const OVLSMemref &To) override;
 
-  /// Return true if current memref has constant stride and return this stride
-  /// in \p Stride.
-  bool hasAConstStride(int64_t *Stride) const override;
+  Optional<int64_t> getConstStride() const override;
 
   unsigned getLocation() const override {
     llvm_unreachable("Unimplemented");

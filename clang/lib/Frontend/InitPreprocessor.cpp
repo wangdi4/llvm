@@ -437,18 +437,30 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
       default:
         llvm_unreachable("Unsupported OpenCL version");
       }
-      Builder.defineMacro("CL_VERSION_1_0", "100");
-      Builder.defineMacro("CL_VERSION_1_1", "110");
-      Builder.defineMacro("CL_VERSION_1_2", "120");
-      Builder.defineMacro("CL_VERSION_2_0", "200");
-
-      if (TI.isLittleEndian())
-        Builder.defineMacro("__ENDIAN_LITTLE__");
-
-      if (LangOpts.FastRelaxedMath)
-        Builder.defineMacro("__FAST_RELAXED_MATH__");
     }
+    Builder.defineMacro("CL_VERSION_1_0", "100");
+    Builder.defineMacro("CL_VERSION_1_1", "110");
+    Builder.defineMacro("CL_VERSION_1_2", "120");
+    Builder.defineMacro("CL_VERSION_2_0", "200");
+
+    if (TI.isLittleEndian())
+      Builder.defineMacro("__ENDIAN_LITTLE__");
+
+    if (LangOpts.FastRelaxedMath)
+      Builder.defineMacro("__FAST_RELAXED_MATH__");
   }
+
+  // SYCL Version is set to a value when building SYCL applications
+  switch (LangOpts.getSYCLVersion()) {
+    case LangOptions::SYCLVersionList::sycl_1_2_1:
+      Builder.defineMacro("CL_SYCL_LANGUAGE_VERSION", "121");
+      break;
+    case LangOptions::SYCLVersionList::undefined:
+    default:
+      // This is not a SYCL source, nothing to add
+      break;
+  }
+
   // Not "standard" per se, but available even with the -undef flag.
   if (LangOpts.AsmPreprocessor)
     Builder.defineMacro("__ASSEMBLER__");
@@ -571,6 +583,8 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   Builder.defineMacro("__clang_version__",
                       "\"" CLANG_VERSION_STRING " (icx "
                       + getICXVersionString() + ")\"");
+  Builder.defineMacro("__INTEL_LLVM_COMPILER", getICXVersionNumber());
+  Builder.defineMacro("__INTEL_CLANG_COMPILER", getICXVersionNumber());
 #endif // INTEL_CUSTOMIZATION
   if (!LangOpts.MSVCCompat) {
     // Currently claim to be compatible with GCC 4.2.1-5621, but only if we're
@@ -1066,15 +1080,18 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     switch (LangOpts.OpenMP) {
     case 0:
       break;
+    case 31:
+      Builder.defineMacro("_OPENMP", "201107");
+      break;
     case 40:
       Builder.defineMacro("_OPENMP", "201307");
       break;
-    case 45:
-      Builder.defineMacro("_OPENMP", "201511");
+    case 50:
+      Builder.defineMacro("_OPENMP", "201811");
       break;
     default:
-      // Default version is OpenMP 3.1
-      Builder.defineMacro("_OPENMP", "201107");
+      // Default version is OpenMP 4.5
+      Builder.defineMacro("_OPENMP", "201511");
       break;
     }
   }
@@ -1095,7 +1112,11 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   // SYCL device compiler which doesn't produce host binary.
   if (LangOpts.SYCLIsDevice) {
     Builder.defineMacro("__SYCL_DEVICE_ONLY__", "1");
+    if (!getenv("DISABLE_INFER_AS"))
+      Builder.defineMacro("__SYCL_ENABLE_INFER_AS__", "1");
   }
+  if (LangOpts.SYCLUnnamedLambda)
+    Builder.defineMacro("__SYCL_UNNAMED_LAMBDA__", "1");
 
   // OpenCL definitions.
   if (LangOpts.OpenCL) {

@@ -65,13 +65,13 @@ CSAMachineFunctionInfo::licRCFromGenRC(const TargetRegisterClass *RC) {
 bool CSAMachineFunctionInfo::canDeleteLICReg(unsigned reg) const {
   if (getIsGloballyVisible(reg)) return false;
   for (MIOperands MO(*entryMI); MO.isValid(); ++MO) {
-    if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg()))
+    if (!MO->isReg() || !Register::isVirtualRegister(MO->getReg()))
       continue;
     unsigned MOReg = MO->getReg();
     if (MOReg == reg) return false;
   }
   for (MIOperands MO(*returnMI); MO.isValid(); ++MO) {
-    if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg()))
+    if (!MO->isReg() || !Register::isVirtualRegister(MO->getReg()))
       continue;
     unsigned MOReg = MO->getReg();
     if (MOReg == reg) return false;
@@ -122,7 +122,7 @@ std::string replaceFuncNameWithNewUniqueName(std::string fname_str, MachineFunct
 void CSAMachineFunctionInfo::setLICName(unsigned vreg,
                                         const Twine &name,
                                         const Twine &fname) const {
-  if (TargetRegisterInfo::isPhysicalRegister(vreg))
+  if (Register::isPhysicalRegister(vreg))
     return;
   std::string composed;
   if (!name.isTriviallyEmpty()) {
@@ -157,9 +157,9 @@ void CSAMachineFunctionInfo::setLICName(unsigned vreg,
 
 CSAMachineFunctionInfo::LICInfo &
 CSAMachineFunctionInfo::getLICInfo(unsigned regno) {
-  assert(TargetRegisterInfo::isVirtualRegister(regno) &&
+  assert(Register::isVirtualRegister(regno) &&
          "LICs should be virtual registers");
-  auto index = TargetRegisterInfo::virtReg2Index(regno);
+  auto index = Register::virtReg2Index(regno);
   return licInfo[index];
 }
 

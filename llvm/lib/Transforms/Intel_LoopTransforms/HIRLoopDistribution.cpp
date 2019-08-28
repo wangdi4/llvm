@@ -40,6 +40,18 @@ cl::opt<bool> DisableDist("disable-hir-loop-distribute",
                           cl::desc("Disable HIR Loop Distribution"), cl::Hidden,
                           cl::init(false));
 
+cl::opt<unsigned> MaxMemResourceToDistribute(
+    "hir-loop-distribute-max-mem",
+    cl::desc("Number of memory references to be placed into new distributed "
+             "loop chunks"),
+    cl::Hidden, cl::init(20));
+
+cl::opt<unsigned> ScalarExpansionCost(
+    "hir-loop-distribute-scex-cost",
+    cl::desc(
+        "Number of mem operations in loop when to enable scalar expansion."),
+    cl::Hidden, cl::init(20));
+
 enum PragmaReturnCode {
   NotProcessed,
   NoDistribution,
@@ -100,12 +112,13 @@ bool HIRLoopDistribution::run() {
 
     unsigned TotalMemOps = 0;
     bool ForceCycleForLoopIndepDep = true;
+    bool CreateControlNodes = false;
 
     if (DistCostModel == DistHeuristics::BreakMemRec) {
       TotalMemOps = HLR.getSelfLoopResource(Lp).getNumIntMemOps() +
                     HLR.getSelfLoopResource(Lp).getNumFPMemOps();
 
-      if (TotalMemOps >= MaxMemResourceToDistribute) {
+      if (TotalMemOps >= ScalarExpansionCost) {
         ForceCycleForLoopIndepDep = false;
       }
 
@@ -113,14 +126,16 @@ bool HIRLoopDistribution::run() {
                         << " memory operations which makes it "
                         << (ForceCycleForLoopIndepDep ? "non-" : "")
                         << "profitable for scalar expansion\n");
+
+      CreateControlNodes = true;
     }
 
     // Sparse array reduction info is needed to create the DistPPGraph
     // and in findDistPoints while breaking the PiBlock Recurrences.
     SARA.computeSparseArrayReductionChains(Lp);
 
-    std::unique_ptr<PiGraph> PG(
-        new PiGraph(Lp, DDA, SARA, ForceCycleForLoopIndepDep));
+    std::unique_ptr<PiGraph> PG(new PiGraph(
+        Lp, DDA, SARA, ForceCycleForLoopIndepDep, CreateControlNodes));
 
     if (!PG->isGraphValid()) {
       LLVM_DEBUG(

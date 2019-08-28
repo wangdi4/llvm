@@ -843,7 +843,10 @@ CallInst *VPOParoptUtils::genCxaAtExit(Value *TgtDescUnregFn, Value *Desc,
 }
 
 // Generate a call to
-//   bool __tgt_is_device_available(int device_num, void *device_type)
+//   bool __tgt_is_device_available(int64_t device_num, void *device_type)
+//
+// TODO: DeviceType has to be encoded in int64_t device_num passed to
+//       __tgt_is_device_available.
 CallInst *VPOParoptUtils::genTgtIsDeviceAvailable(Value *DeviceNum,
                                                   Value *DeviceType,
                                                   Instruction *InsertPt) {
@@ -851,16 +854,64 @@ CallInst *VPOParoptUtils::genTgtIsDeviceAvailable(Value *DeviceNum,
   Function *F = B->getParent();
   LLVMContext &C = F->getContext();
   Type *Int32Ty = Type::getInt32Ty(C);
+  Type *Int64Ty = Type::getInt64Ty(C);
   Type *Int8PtrTy = Type::getInt8PtrTy(C);
 
   assert(DeviceNum && DeviceNum->getType()->isIntegerTy(32) &&
          "DeviceNum expected to be Int32");
   assert(DeviceType && DeviceType->getType()->isPointerTy() &&
          "DeviceType expected to be pointer");
+  DeviceNum = IRBuilder<>(InsertPt).CreateSExt(DeviceNum, Int64Ty);
   Value *Args[] = {DeviceNum, DeviceType};
-  Type *ArgTypes[] = {Int32Ty, Int8PtrTy};
+  Type *ArgTypes[] = {Int64Ty, Int8PtrTy};
   CallInst *Call =
       genCall("__tgt_is_device_available", Int32Ty, Args, ArgTypes, InsertPt);
+  return Call;
+}
+
+// Generate a call to
+//   void *__tgt_create_buffer(int64_t device_num, void *host_ptr)
+CallInst *VPOParoptUtils::genTgtCreateBuffer(Value *DeviceNum, Value *HostPtr,
+                                             Instruction *InsertPt) {
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  LLVMContext &C = F->getContext();
+  Type *Int64Ty = Type::getInt64Ty(C);
+  Type *Int8PtrTy = Type::getInt8PtrTy(C);
+
+  assert(DeviceNum && DeviceNum->getType()->isIntegerTy(32) &&
+         "DeviceNum expected to be Int32");
+  assert(HostPtr && HostPtr->getType() == Int8PtrTy &&
+         "HostPtr expected to be void*");
+  DeviceNum = IRBuilder<>(InsertPt).CreateSExt(DeviceNum, Int64Ty);
+  Value *Args[] = {DeviceNum, HostPtr};
+  Type *ArgTypes[] = {Int64Ty, Int8PtrTy};
+  CallInst *Call =
+      genCall("__tgt_create_buffer", Int8PtrTy, Args, ArgTypes, InsertPt);
+  return Call;
+}
+
+// Generate a call to
+//   int __tgt_release_buffer(int64_t device_num, void *tgt_buffer)
+CallInst *VPOParoptUtils::genTgtReleaseBuffer(Value *DeviceNum,
+                                              Value *TgtBuffer,
+                                              Instruction *InsertPt) {
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  LLVMContext &C = F->getContext();
+  Type *Int32Ty = Type::getInt32Ty(C);
+  Type *Int64Ty = Type::getInt64Ty(C);
+  Type *Int8PtrTy = Type::getInt8PtrTy(C);
+
+  assert(DeviceNum && DeviceNum->getType()->isIntegerTy(32) &&
+         "DeviceNum expected to be Int32");
+  assert(TgtBuffer && TgtBuffer->getType() == Int8PtrTy &&
+         "TgtBuffer expected to be void*");
+  DeviceNum = IRBuilder<>(InsertPt).CreateSExt(DeviceNum, Int64Ty);
+  Value *Args[] = {DeviceNum, TgtBuffer};
+  Type *ArgTypes[] = {Int64Ty, Int8PtrTy};
+  CallInst *Call =
+      genCall("__tgt_release_buffer", Int32Ty, Args, ArgTypes, InsertPt);
   return Call;
 }
 
@@ -1947,6 +1998,8 @@ VPOParoptUtils::genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
     break;
   }
 
+  Flags |= KMP_IDENT_OPENMP_SPEC_VERSION_5_0; // Enable nonmonotonic scheduling
+
   // Constant Definitions
   ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
   ConstantInt *ValueFlags = ConstantInt::get(Type::getInt32Ty(C), Flags);
@@ -2713,14 +2766,35 @@ CallInst *VPOParoptUtils::genCall(StringRef FnName, Type *ReturnTy,
 // The base and variant functions must have identical signatures.
 CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
                                          StringRef VariantName,
-                                         Instruction *InsertPt, bool IsTail,
-                                         bool IsVarArg) {
+                                         Instruction *InsertPt, WRegionNode *W,
+                                         bool IsTail, bool IsVarArg) {
   assert(BaseCall && "BaseCall is null");
   Module *M = BaseCall->getModule();
   Type *ReturnTy = BaseCall->getType();
   SmallVector<Value *, 4> FnArgs(BaseCall->arg_operands());
-  CallInst *VariantCall = genCall(M, VariantName, ReturnTy, FnArgs, InsertPt,
-                                  IsTail, IsVarArg);
+  CallInst *VariantCall =
+      genCall(M, VariantName, ReturnTy, FnArgs, InsertPt, IsTail, IsVarArg);
+
+  // Replace each VariantCall argument that is a load from a HostPtr listed
+  // on the use_device_ptr clause with a load from the corresponding TgtBuffer.
+  if (W) {
+    assert(isa<WRNTargetVariantNode>(W) && "Expected a Target Variant WRN");
+    UseDevicePtrClause &UDPtrClause = W->getUseDevicePtr();
+    if (!UDPtrClause.empty()) {
+      IRBuilder<> VCBuilder(VariantCall);
+      for (UseDevicePtrItem *Item : UDPtrClause.items()) {
+        Value *HostPtr = Item->getOrig();
+        Value *TgtBuffer = Item->getNew();
+        for (Value *Arg : FnArgs)
+          if (LoadInst *Load = dyn_cast<LoadInst>(Arg))
+            if (Load->getPointerOperand() == HostPtr) {
+              LoadInst *Buffer = VCBuilder.CreateLoad(TgtBuffer, "buffer");
+              VariantCall->replaceUsesOfWith(Arg, Buffer);
+              break;
+            }
+      }
+    }
+  }
   return VariantCall;
 }
 
@@ -3494,7 +3568,7 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
 // constants (e.g. I8, I16, etc.)
 using namespace llvm::vpo::intrinsics;
 
-CallInst *VPOParoptUtils::genSPIRVHorizontalReduction(
+Value *VPOParoptUtils::genSPIRVHorizontalReduction(
     ReductionItem *RedI, Type *ScalarTy, Instruction *RedDef,
     spirv::Scope Scope) {
 
@@ -3515,65 +3589,70 @@ CallInst *VPOParoptUtils::genSPIRVHorizontalReduction(
         //    OperationKind                   IsSigned      Type
         //Builtin name
         { { { ReductionItem::WRNReductionAdd, true       }, I16 },
-          "__builtin_spirv_OpGroupIAdd_i32_i32_i16" },
-        { { { ReductionItem::WRNReductionAdd, false      }, I16 },
-          "__builtin_spirv_OpGroupIAdd_i32_i32_i16" },
+          "_Z20sub_group_reduce_addi" },
         { { { ReductionItem::WRNReductionAdd, true       }, I32 },
-          "__builtin_spirv_OpGroupIAdd_i32_i32_i32" },
-        { { { ReductionItem::WRNReductionAdd, false      }, I32 },
-          "__builtin_spirv_OpGroupIAdd_i32_i32_i32" },
+          "_Z20sub_group_reduce_addi" },
         { { { ReductionItem::WRNReductionAdd, true       }, I64 },
-          "__builtin_spirv_OpGroupIAdd_i32_i32_i64" },
-        { { { ReductionItem::WRNReductionAdd, false      }, I64 },
-          "__builtin_spirv_OpGroupIAdd_i32_i32_i64" },
+          "_Z20sub_group_reduce_addl" },
         { { { ReductionItem::WRNReductionAdd, llvm::None }, F16 },
-          "__builtin_spirv_OpGroupFAdd_i32_i32_f16" },
+          "_Z20sub_group_reduce_addDh" },
         { { { ReductionItem::WRNReductionAdd, llvm::None }, F32 },
-          "__builtin_spirv_OpGroupFAdd_i32_i32_f32" },
+          "_Z20sub_group_reduce_addf" },
         { { { ReductionItem::WRNReductionAdd, llvm::None }, F64 },
-          "__builtin_spirv_OpGroupFAdd_i32_i32_f64" },
+          "_Z20sub_group_reduce_addd" },
         { { { ReductionItem::WRNReductionMin, true       }, I16 },
-          "__builtin_spirv_OpGroupSMin_i32_i32_i16" },
+          "_Z20sub_group_reduce_mini" },
         { { { ReductionItem::WRNReductionMin, false      }, I16 },
-          "__builtin_spirv_OpGroupUMin_i32_i32_i16" },
+          "_Z20sub_group_reduce_minj" },
         { { { ReductionItem::WRNReductionMin, true       }, I32 },
-          "__builtin_spirv_OpGroupSMin_i32_i32_i32" },
+          "_Z20sub_group_reduce_mini" },
         { { { ReductionItem::WRNReductionMin, false      }, I32 },
-          "__builtin_spirv_OpGroupUMin_i32_i32_i32" },
+          "_Z20sub_group_reduce_minj" },
         { { { ReductionItem::WRNReductionMin, true       }, I64 },
-          "__builtin_spirv_OpGroupSMin_i32_i32_i64" },
+          "_Z20sub_group_reduce_minl" },
         { { { ReductionItem::WRNReductionMin, false      }, I64 },
-          "__builtin_spirv_OpGroupUMin_i32_i32_i64" },
+          "_Z20sub_group_reduce_minm" },
         { { { ReductionItem::WRNReductionMin, llvm::None }, F16 },
-          "__builtin_spirv_OpGroupFMin_i32_i32_f16" },
+          "_Z20sub_group_reduce_minDh" },
         { { { ReductionItem::WRNReductionMin, llvm::None }, F32 },
-          "__builtin_spirv_OpGroupFMin_i32_i32_f32" },
+          "_Z20sub_group_reduce_minf" },
         { { { ReductionItem::WRNReductionMin, llvm::None }, F64 },
-          "__builtin_spirv_OpGroupFMin_i32_i32_f64" },
+          "_Z20sub_group_reduce_mind" },
         { { { ReductionItem::WRNReductionMax, true       }, I16 },
-          "__builtin_spirv_OpGroupSMax_i32_i32_i16" },
+          "_Z20sub_group_reduce_maxi" },
         { { { ReductionItem::WRNReductionMax, false      }, I16 },
-          "__builtin_spirv_OpGroupUMax_i32_i32_i16" },
+          "_Z20sub_group_reduce_maxj" },
         { { { ReductionItem::WRNReductionMax, true       }, I32 },
-          "__builtin_spirv_OpGroupSMax_i32_i32_i32" },
+          "_Z20sub_group_reduce_maxi" },
         { { { ReductionItem::WRNReductionMax, false      }, I32 },
-          "__builtin_spirv_OpGroupUMax_i32_i32_i32" },
+          "_Z20sub_group_reduce_maxj" },
         { { { ReductionItem::WRNReductionMax, true       }, I64 },
-          "__builtin_spirv_OpGroupSMax_i32_i32_i64" },
+          "_Z20sub_group_reduce_maxl" },
         { { { ReductionItem::WRNReductionMax, false      }, I64 },
-          "__builtin_spirv_OpGroupUMax_i32_i32_i64" },
+          "_Z20sub_group_reduce_maxm" },
         { { { ReductionItem::WRNReductionMax, llvm::None }, F16 },
-          "__builtin_spirv_OpGroupFMax_i32_i32_f16" },
+          "_Z20sub_group_reduce_maxDh" },
         { { { ReductionItem::WRNReductionMax, llvm::None }, F32 },
-          "__builtin_spirv_OpGroupFMax_i32_i32_f32" },
+          "_Z20sub_group_reduce_maxf" },
         { { { ReductionItem::WRNReductionMax, llvm::None }, F64 },
-          "__builtin_spirv_OpGroupFMax_i32_i32_f64" },
+          "_Z20sub_group_reduce_maxd" },
       };
+
+  // The table above only specialized for Subgroup reductions.
+  // It may be extended for other scopes, if needed.
+  if (Scope != spirv::Scope::Subgroup)
+    return nullptr;
 
   ReductionItem::WRNReductionKind Kind = RedI->getType();
   Optional<bool> IsSigned = llvm::None;
   if (ScalarTy->isIntegerTy())
     IsSigned = !RedI->getIsUnsigned();
+
+  assert((IsSigned != false ||
+          Kind == ReductionItem::WRNReductionMin ||
+          Kind == ReductionItem::WRNReductionMax) &&
+         "The UNSIGNED modifier is for MIN/MAX reduction only");
+
   auto TyID = ScalarTy->getTypeID();
   auto TySize = ScalarTy->getScalarSizeInBits();
 
@@ -3583,16 +3662,35 @@ CallInst *VPOParoptUtils::genSPIRVHorizontalReduction(
   if (MapEntry == SPIRVHorizontalReductionMap.end())
     return nullptr;
 
-  StringRef Name = MapEntry->second;
-  auto &C = RedDef->getContext();
-  Value *Args[] = { ConstantInt::get(Type::getInt32Ty(C), Scope),
-                    ConstantInt::get(
-                        Type::getInt32Ty(C),
-                        spirv::GroupOperations::GroupOperationReduce),
-                    RedDef };
+  IRBuilder<> Builder(RedDef->getNextNode());
+  Value *Result = RedDef;
+  auto CallArgRetTy = ScalarTy;
 
-  return genCall(RedDef->getModule(), Name, ScalarTy, Args,
-                 RedDef->getNextNode());
+  // Extend 16-bit integer reduction value to 32-bit one.
+  if (TySize == 16 && ScalarTy->isIntegerTy()) {
+    CallArgRetTy = Builder.getIntNTy(32);
+    if (IsSigned)
+      Result = Builder.CreateSExt(Result, CallArgRetTy);
+    else
+      Result = Builder.CreateZExt(Result, CallArgRetTy);
+  }
+
+  StringRef Name = MapEntry->second;
+
+  auto HRCall = genCall(RedDef->getModule(), Name, CallArgRetTy,  { Result },
+                        &*Builder.GetInsertPoint());
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__ <<
+             ": SPIRV horizontal reduction is used "
+             "for critical section reduction: " <<
+             HRCall->getCalledFunction()->getName() << "\n");
+
+  Result = HRCall;
+
+  if (TySize == 16 && ScalarTy->isIntegerTy())
+    Result = Builder.CreateTrunc(Result, Builder.getIntNTy(16));
+
+  return Result;
 }
 
 #endif // INTEL_COLLAB

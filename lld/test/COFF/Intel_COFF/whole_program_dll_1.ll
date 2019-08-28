@@ -34,7 +34,7 @@ entry:
 ; CHECK: WHOLE-PROGRAM-ANALYSIS: SIMPLE ANALYSIS
 ; CHECK: UNRESOLVED CALLSITES: 0
 ; CHECK: VISIBLE OUTSIDE LTO: 2
-; CHECK:   exportfn
-; CHECK:   _DllMainCRTStartup
+; CHECK-DAG:   exportfn
+; CHECK-DAG:   _DllMainCRTStartup
 ; CHECK: WHOLE PROGRAM NOT DETECTED
 ; CHECK: not linking an executable;

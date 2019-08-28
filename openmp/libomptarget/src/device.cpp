@@ -119,7 +119,7 @@ LookupResult DeviceTy::lookupMapping(void *HstPtrBegin, int64_t Size) {
   uintptr_t hp = (uintptr_t)HstPtrBegin;
   LookupResult lr;
 
-  DP("Looking up mapping(HstPtrBegin=" DPxMOD ", Size=%ld)...\n", DPxPTR(hp),
+  DP("Looking up mapping(HstPtrBegin=" DPxMOD ", Size=%" PRId64 ")...\n", DPxPTR(hp),
       Size);
   for (lr.Entry = HostDataToTargetMap.begin();
       lr.Entry != HostDataToTargetMap.end(); ++lr.Entry) {
@@ -157,12 +157,17 @@ LookupResult DeviceTy::lookupMapping(void *HstPtrBegin, int64_t Size) {
 // If NULL is returned, then either data allocation failed or the user tried
 // to do an illegal mapping.
 void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
-    int64_t Size, bool &IsNew, bool IsImplicit, bool UpdateRefCount) {
+    int64_t Size, bool &IsNew, bool &IsHostPtr, bool IsImplicit,
+    bool UpdateRefCount, bool HasCloseModifier) {
   void *rc = NULL;
+  IsHostPtr = false;
   DataMapMtx.lock();
   LookupResult lr = lookupMapping(HstPtrBegin, Size);
 
   // Check if the pointer is contained.
+  // If a variable is mapped to the device manually by the user - which would
+  // lead to the IsContained flag to be true - then we must ensure that the
+  // device address is returned even under unified memory conditions.
   if (lr.Flags.IsContained ||
       ((lr.Flags.ExtendsBefore || lr.Flags.ExtendsAfter) && IsImplicit)) {
     auto &HT = *lr.Entry;
@@ -173,7 +178,7 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
 
     uintptr_t tp = HT.TgtPtrBegin + ((uintptr_t)HstPtrBegin - HT.HstPtrBegin);
     DP("Mapping exists%s with HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", "
-        "Size=%ld,%s RefCount=%s\n", (IsImplicit ? " (implicit)" : ""),
+        "Size=%" PRId64 ",%s RefCount=%s\n", (IsImplicit ? " (implicit)" : ""),
         DPxPTR(HstPtrBegin), DPxPTR(tp), Size,
         (UpdateRefCount ? " updated" : ""),
         (CONSIDERED_INF(HT.RefCount)) ? "INF" :
@@ -183,19 +188,32 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
     // Explicit extension of mapped data - not allowed.
     DP("Explicit extension of mapping is not allowed.\n");
   } else if (Size) {
-    // If it is not contained and Size > 0 we should create a new entry for it.
-    IsNew = true;
+    // If unified shared memory is active, implicitly mapped variables that are not
+    // privatized use host address. Any explicitly mapped variables also use
+    // host address where correctness is not impeded. In all other cases
+    // maps are respected.
+    // In addition to the mapping rules above, the close map
+    // modifier forces the mapping of the variable to the device.
+    if (RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY && !HasCloseModifier) {
+      DP("Return HstPtrBegin " DPxMOD " Size=%" PRId64 " RefCount=%s\n",
+         DPxPTR((uintptr_t)HstPtrBegin), Size, (UpdateRefCount ? " updated" : ""));
+      IsHostPtr = true;
+      rc = HstPtrBegin;
+    } else {
+      // If it is not contained and Size > 0 we should create a new entry for it.
+      IsNew = true;
 #if INTEL_COLLAB
-    uintptr_t tp = (uintptr_t)data_alloc_base(Size, HstPtrBegin, HstPtrBase);
+      uintptr_t tp = (uintptr_t)data_alloc_base(Size, HstPtrBegin, HstPtrBase);
 #else
-    uintptr_t tp = (uintptr_t)RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin);
+      uintptr_t tp = (uintptr_t)RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin);
 #endif // INTEL_COLLAB
-    DP("Creating new map entry: HstBase=" DPxMOD ", HstBegin=" DPxMOD ", "
-        "HstEnd=" DPxMOD ", TgtBegin=" DPxMOD "\n", DPxPTR(HstPtrBase),
-        DPxPTR(HstPtrBegin), DPxPTR((uintptr_t)HstPtrBegin + Size), DPxPTR(tp));
-    HostDataToTargetMap.push_front(HostDataToTargetTy((uintptr_t)HstPtrBase,
-        (uintptr_t)HstPtrBegin, (uintptr_t)HstPtrBegin + Size, tp));
-    rc = (void *)tp;
+      DP("Creating new map entry: HstBase=" DPxMOD ", HstBegin=" DPxMOD ", "
+         "HstEnd=" DPxMOD ", TgtBegin=" DPxMOD "\n", DPxPTR(HstPtrBase),
+         DPxPTR(HstPtrBegin), DPxPTR((uintptr_t)HstPtrBegin + Size), DPxPTR(tp));
+      HostDataToTargetMap.push_front(HostDataToTargetTy((uintptr_t)HstPtrBase,
+          (uintptr_t)HstPtrBegin, (uintptr_t)HstPtrBegin + Size, tp));
+      rc = (void *)tp;
+    }
   }
 
   DataMapMtx.unlock();
@@ -206,8 +224,10 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
 // Return the target pointer begin (where the data will be moved).
 // Decrement the reference counter if called from target_data_end.
 void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
-    bool UpdateRefCount) {
+    bool UpdateRefCount, bool &IsHostPtr) {
   void *rc = NULL;
+  IsHostPtr = false;
+  IsLast = false;
   DataMapMtx.lock();
   LookupResult lr = lookupMapping(HstPtrBegin, Size);
 
@@ -220,13 +240,19 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
 
     uintptr_t tp = HT.TgtPtrBegin + ((uintptr_t)HstPtrBegin - HT.HstPtrBegin);
     DP("Mapping exists with HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", "
-        "Size=%ld,%s RefCount=%s\n", DPxPTR(HstPtrBegin), DPxPTR(tp), Size,
+        "Size=%" PRId64 ",%s RefCount=%s\n", DPxPTR(HstPtrBegin), DPxPTR(tp), Size,
         (UpdateRefCount ? " updated" : ""),
         (CONSIDERED_INF(HT.RefCount)) ? "INF" :
             std::to_string(HT.RefCount).c_str());
     rc = (void *)tp;
-  } else {
-    IsLast = false;
+  } else if (RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
+    // If the value isn't found in the mapping and unified shared memory
+    // is on then it means we have stumbled upon a value which we need to
+    // use directly from the host.
+    DP("Get HstPtrBegin " DPxMOD " Size=%" PRId64 " RefCount=%s\n",
+       DPxPTR((uintptr_t)HstPtrBegin), Size, (UpdateRefCount ? " updated" : ""));
+    IsHostPtr = true;
+    rc = HstPtrBegin;
   }
 
   DataMapMtx.unlock();
@@ -247,7 +273,10 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size) {
   return NULL;
 }
 
-int DeviceTy::deallocTgtPtr(void *HstPtrBegin, int64_t Size, bool ForceDelete) {
+int DeviceTy::deallocTgtPtr(void *HstPtrBegin, int64_t Size, bool ForceDelete,
+                            bool HasCloseModifier) {
+  if (RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY && !HasCloseModifier)
+    return OFFLOAD_SUCCESS;
   // Check if the pointer is contained in any sub-nodes.
   int rc;
   DataMapMtx.lock();
@@ -258,11 +287,11 @@ int DeviceTy::deallocTgtPtr(void *HstPtrBegin, int64_t Size, bool ForceDelete) {
       HT.RefCount = 1;
     if (--HT.RefCount <= 0) {
       assert(HT.RefCount == 0 && "did not expect a negative ref count");
-      DP("Deleting tgt data " DPxMOD " of size %ld\n",
+      DP("Deleting tgt data " DPxMOD " of size %" PRId64 "\n",
           DPxPTR(HT.TgtPtrBegin), Size);
       RTL->data_delete(RTLDeviceID, (void *)HT.TgtPtrBegin);
       DP("Removing%s mapping with HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD
-          ", Size=%ld\n", (ForceDelete ? " (forced)" : ""),
+          ", Size=%" PRId64 "\n", (ForceDelete ? " (forced)" : ""),
           DPxPTR(HT.HstPtrBegin), DPxPTR(HT.TgtPtrBegin), Size);
       HostDataToTargetMap.erase(lr.Entry);
     }
@@ -281,7 +310,7 @@ int DeviceTy::deallocTgtPtr(void *HstPtrBegin, int64_t Size, bool ForceDelete) {
 void DeviceTy::init() {
   // Make call to init_requires if it exists for this plugin.
   if (RTL->init_requires)
-    RTL->init_requires(RTLRequiresFlags);
+    RTL->init_requires(RTLs.RequiresFlags);
   int32_t rc = RTL->init_device(RTLDeviceID);
   if (rc == OFFLOAD_SUCCESS) {
     IsInit = true;
@@ -397,6 +426,35 @@ int32_t DeviceTy::manifest_data_for_region(void *TgtEntryPtr) {
                                     ObjectPtrs.data(), ObjectPtrs.size());
 
   return RC;
+}
+
+void *DeviceTy::create_buffer(void *HstPtr) {
+  void *rc = NULL;
+  DataMapMtx.lock();
+  rc = getTgtPtrBegin(HstPtr, 1);
+  if (rc != NULL && RTL->create_buffer)
+    rc = RTL->create_buffer(RTLDeviceID, rc);
+  else
+    rc = NULL;
+  DataMapMtx.unlock();
+  return rc;
+}
+
+int32_t DeviceTy::release_buffer(void *TgtBuffer) {
+  if (RTL->release_buffer)
+    return RTL->release_buffer(TgtBuffer);
+  return OFFLOAD_SUCCESS;
+}
+
+char *DeviceTy::get_device_name(char *Buffer, size_t BufferMaxSize) {
+  assert(Buffer && "Buffer cannot be nullptr.");
+  assert(BufferMaxSize > 0 && "BufferMaxSize cannot be zero.");
+  if (RTL->get_device_name)
+    return RTL->get_device_name(RTLDeviceID, Buffer, BufferMaxSize);
+  // Make Buffer an empty string, if RTL does not support
+  // name query.
+  Buffer[0] = '\0';
+  return Buffer;
 }
 
 void *DeviceTy::data_alloc_base(int64_t Size, void *HstPtrBegin,

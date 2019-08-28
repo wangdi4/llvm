@@ -52,6 +52,13 @@ private:
   // VPlan builder used to generate VPInstructions for block predicates.
   VPBuilder Builder;
 
+#if INTEL_CUSTOMIZATION
+  /// Uniform inner loop regions that need to be fixed up using the loop
+  /// preheader's block predicate
+  SmallVector<VPLoopRegion *, 2> FixupLoopRegions;
+  void fixupUniformInnerLoops(void);
+#endif
+
   /// Get the type of edge from \p FromBlock to \p ToBlock. Returns TRUE_EDGE if
   /// \p ToBlock is either the unconditional successor or the conditional true
   /// successor of \p FromBlock and FALSE_EDGE otherwise.

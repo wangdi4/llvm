@@ -55,7 +55,7 @@ declare void @llvm.directive.region.exit(token)
 ; CHECK: define internal void [[OUTLINEDTARGET2:@.+]]()
 
 ; Check presence of unregistration code.
-; CHECK:     define internal void @[[UNREGFN:.+]](i8*)
+; CHECK:     define internal void @[[UNREGFN:.+]](i8* %0)
 ; CHECK-SAME: comdat($[[REGFN]]) {
 ; CHECK:     call i32 @__tgt_unregister_lib({{.+}}* [[DESC]])
 ; CHECK:     ret void

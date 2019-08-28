@@ -87,6 +87,14 @@ private:
   // Hold the underlying Val, if any, attached to this VPValue.
   Value *UnderlyingVal;
 
+  // Flag to indicate the validity of underlying Value attached to this VPValue.
+  // If the VPValue is modified or updated, then this should be false.
+  // Current exceptional use-cases in codegen where underlying Value is still
+  // used despite invalidation -
+  // 1. Alignment info of load/store
+  // 2. IR flags and call attributes
+  bool IsUnderlyingValueValid;
+
   /// Replace all uses of *this with \p NewVal. If the \p Loop is not null then
   /// replacement is restricted by VPInstructions from the \p Loop.
   void replaceAllUsesWithImpl(VPValue *NewVal, VPLoop *L, bool InvalidateIR);
@@ -95,7 +103,8 @@ protected:
 
 #if INTEL_CUSTOMIZATION
   VPValue(const unsigned char SC, Type *BaseTy, Value *UV = nullptr)
-      : SubclassID(SC), BaseTy(BaseTy), UnderlyingVal(UV) {
+      : SubclassID(SC), BaseTy(BaseTy), UnderlyingVal(UV),
+        IsUnderlyingValueValid(UV ? true : false) {
     assert(BaseTy && "BaseTy can't be null!");
   }
 #else
@@ -114,9 +123,10 @@ protected:
   Value *getUnderlyingValue() const { return UnderlyingVal; }
 
   // Set \p Val as the underlying Value of this VPValue.
-  void setUnderlyingValue(Value *Val) {
+  void setUnderlyingValue(Value &Val) {
     assert(!UnderlyingVal && "Underlying Value is already set.");
-    UnderlyingVal = Val;
+    UnderlyingVal = &Val;
+    IsUnderlyingValueValid = true;
   }
 
   /// Return validity of underlying Value or HIR node.
@@ -498,7 +508,7 @@ private:
   // Construct a VPExternalUse given a Value \p ExtVal.
   VPExternalUse(Value *ExtVal)
       : VPUser(VPValue::VPExternalUseSC, ExtVal->getType()) {
-    setUnderlyingValue(ExtVal);
+    setUnderlyingValue(*ExtVal);
   }
   // Construct a VPExternalUse given an underlying DDRef \p DDR.
   VPExternalUse(loopopt::DDRef *DDR)

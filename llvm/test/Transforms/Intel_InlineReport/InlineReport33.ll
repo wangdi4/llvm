@@ -4,9 +4,9 @@
 ; Test that the first n-1 recursive progression clones are inlined, while
 ; the n-th is not.
 
-; CHECK-OLD-DAG: DEAD STATIC FUNC: foo.1
-; CHECK-OLD-DAG: DEAD STATIC FUNC: foo.2
-; CHECK-OLD-DAG: DEAD STATIC FUNC: foo.3
+; CHECK-OLD: DEAD STATIC FUNC: foo.1
+; CHECK-OLD: DEAD STATIC FUNC: foo.2
+; CHECK-OLD: DEAD STATIC FUNC: foo.3
 ; CHECK-OLD: COMPILE FUNC: foo.4
 ; CHECK-OLD: INLINE: foo.1{{.*}}Callee is recursive progression clone
 ; CHECK-OLD: INLINE: foo.2{{.*}}Callee is recursive progression clone
@@ -23,9 +23,9 @@
 ; CHECK-LABEL: define{{.*}}foo.4
 ; CHECK: call{{.*}}foo.4
 ;
-; CHECK-NEW-DAG: DEAD STATIC FUNC: foo.1
-; CHECK-NEW-DAG: DEAD STATIC FUNC: foo.2
-; CHECK-NEW-DAG: DEAD STATIC FUNC: foo.3
+; CHECK-NEW: DEAD STATIC FUNC: foo.2
+; CHECK-NEW: DEAD STATIC FUNC: foo.3
+; CHECK-NEW: DEAD STATIC FUNC: foo.1
 ; CHECK-NEW: COMPILE FUNC: foo.4
 ; CHECK-NEW: INLINE: foo.1{{.*}}Callee is recursive progression clone
 ; CHECK-NEW: INLINE: foo.2{{.*}}Callee is recursive progression clone

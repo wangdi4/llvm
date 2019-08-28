@@ -340,6 +340,48 @@ void VPlanPredicator::linearizeRegionRec(VPRegionBlock *Region) {
 
 #if INTEL_CUSTOMIZATION
 #include "IntelVPlanLoopCFU.h"
+void VPlanPredicator::fixupUniformInnerLoops(void) {
+  // Uniform sub Loop regions need bottom test to be fixed to take into account
+  // the predicate of the loop pre-header. We fix the bottom test to take care
+  // of the case where the loop should never be entered to begin with. The fix
+  // below will enter the inner loop once but the generated code should still be
+  // functionally correct since all the loop blocks are appropriately masked.
+  // Another way to handle the same would be to add an allzero by pass around
+  // such subloops that are under a predicate.
+  for (auto *LoopRegion : FixupLoopRegions) {
+    auto *Loop = LoopRegion->getVPLoop();
+    auto *LoopPH = cast<VPBasicBlock>(Loop->getLoopPreheader());
+    auto *LoopPHBP = LoopPH->getPredicate();
+
+    // Nothing to do if this is not an inner loop or if the loop is not under
+    // a predicate.
+    if (!Loop->getParentLoop() || !LoopPHBP)
+      continue;
+
+    auto *LoopLatch = cast<VPBasicBlock>(Loop->getLoopLatch());
+    auto *LoopHeader = cast<VPBasicBlock>(Loop->getHeader());
+    bool BackEdgeIsFalseSucc = LoopLatch->getSuccessors()[1] == LoopHeader;
+    VPValue *LatchCond = LoopLatch->getCondBit();
+    VPBuilder::InsertPointGuard Guard(Builder);
+    Builder.setInsertPoint(LoopLatch);
+
+    // Check if the loop should not be entered for all lanes
+    auto *NewAllZeroCheck = Builder.createAllZeroCheck(LoopPHBP);
+
+    // If the loop back edge is the false successor of the loop latch,
+    // we exit the loop if either the all zero check is true or the
+    // latch condition bit is true. Otherwise, we take the back edge
+    // if the latch condition is true and the all zero check is false.
+    VPValue *NewCondBit;
+    if (!BackEdgeIsFalseSucc) {
+      NewAllZeroCheck = Builder.createNot(NewAllZeroCheck);
+      NewCondBit = Builder.createAnd(NewAllZeroCheck, LatchCond);
+    } else {
+      NewCondBit = Builder.createOr(NewAllZeroCheck, LatchCond);
+    }
+    LoopLatch->setCondBit(NewCondBit);
+  }
+}
 #endif // INTEL_CUSTOMIZATION
 // Entry point. The driver function for the predicator.
 void VPlanPredicator::predicate(void) {
@@ -368,6 +410,7 @@ void VPlanPredicator::predicate(void) {
   if (Exits.size() == 1) // INTEL - search loops need linearization suppressed
     linearizeRegionRec(cast<VPRegionBlock>(Plan.getEntry()));
 #if INTEL_CUSTOMIZATION
+  fixupUniformInnerLoops();
   LLVM_DEBUG(dbgs() << "VPlan after predication and linearization\n");
   LLVM_DEBUG(Plan.setName("Predicator: After predication\n"));
   LLVM_DEBUG(Plan.dump());
