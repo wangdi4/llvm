@@ -417,7 +417,11 @@ public:
 /// In order to bundle we create an IR file with the content of each section and
 /// use incremental linking to produce the resulting object.
 ///
+<<<<<<< HEAD
 /// To unbundle, we just copy the contents of the designated section.
+=======
+/// To unbundle, we use just copy the contents of the designated section.
+>>>>>>> a795dd88f7b90be83c1ccb286c7de9a0e6a05d89
 ///
 /// The bundler produces object file in host target native format (e.g. ELF for
 /// Linux). The sections it creates are:
@@ -635,6 +639,22 @@ public:
                           MemoryBuffer &Input) final override {
     assert(CurBundle != TripleToBundleInfo.end() &&
            "all bundles have been read already");
+
+    // TODO: temporary workaround to copy fat object to the host output until
+    // driver is fixed to correctly handle list file for the host bundle in
+    // 'oo' mode.
+    if (FilesType == "oo" && hasHostKind(CurBundle->getKey())) {
+      std::error_code EC;
+      raw_fd_ostream OS(OutName, EC);
+
+      if (EC)
+        report_fatal_error(Twine("can't open file for writing") +
+                                 Twine(OutName) + Twine(": ") +
+                                 Twine(EC.message()));
+      OS.write(Input.getBufferStart(), Input.getBufferSize());
+      return;
+    }
+
     // Read content of the section representing the bundle
     Expected<StringRef> Content =
       CurBundle->second->BundleSection->getContents();
@@ -658,7 +678,10 @@ public:
     // Iterate through individual objects and extract them
     for (size_t I = 0; I < NumObjects; ++I) {
       uint64_t ObjSize = SizeVec[I];
+<<<<<<< HEAD
 
+=======
+>>>>>>> a795dd88f7b90be83c1ccb286c7de9a0e6a05d89
       StringRef ObjFileName = OutName;
       SmallString<128> Path;
 
@@ -717,12 +740,15 @@ public:
     // And input sizes.
     for (unsigned I = 0; I < NumberOfInputs; ++I)
       InputSizes.push_back(Inputs[I]->getBufferSize());
+<<<<<<< HEAD
 #else  // INTEL_COLLAB
     // Create an LLVM module to have the content we need to bundle.
     auto *M = new Module("clang-offload-bundle", VMContext);
     M->setTargetTriple(getTriple(TargetNames[HostInputIndex]));
     AuxModule.reset(M);
 #endif // INTEL_COLLAB
+=======
+>>>>>>> a795dd88f7b90be83c1ccb286c7de9a0e6a05d89
   }
 
   void WriteBundleStart(raw_fd_ostream &OS, StringRef TargetTriple) final {
@@ -913,6 +939,7 @@ public:
 #endif // INTEL_COLLAB
     return false;
   }
+<<<<<<< HEAD
 #if INTEL_COLLAB
 // Cherry-pick from https://github.com/intel/llvm/pull/363/commits
   void WriteBundle(raw_fd_ostream &OS, MemoryBuffer &Input) final {}
@@ -953,6 +980,10 @@ public:
     SizeV->setAlignment(1);
   }
 #endif // INTEL_COLLAB
+=======
+
+  void WriteBundle(raw_fd_ostream &OS, MemoryBuffer &Input) final {}
+>>>>>>> a795dd88f7b90be83c1ccb286c7de9a0e6a05d89
 };
 
 /// Handler for text files. The bundled file will have the following format.
