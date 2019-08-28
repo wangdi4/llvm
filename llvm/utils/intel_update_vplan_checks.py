@@ -63,7 +63,7 @@ CHECK_LABEL_RE = re.compile(r'Cost Model')
 IR_VALUE_RE = re.compile(r'(\s+|[\(\!])%([\w\.]+?)([,\s\(\)]|\Z)')
 VP_VALUE_RE = re.compile(r'vp[0-9]+')
 VP_NAMED_VALUE_RE = re.compile(r'vp\.[\w\.]+\.[0-9]+')
-VPBB_RE = re.compile(r'\b(BB[0-9]+)')
+VPBB_RE = re.compile(r'\b(BB[0-9]+|BlendBB[0-9]+)')
 REGION_RE = re.compile(r'(region[0-9]+)')
 VPLOOP_RE = re.compile(r'(loop[0-9]+)')
 PREDICATOR_IF_STMT_RE = re.compile(r'(If[FT][0-9]+)')
@@ -178,7 +178,8 @@ def genericize_check_lines(lines):
     return rv
 
   def transform_vpbb(match):
-    return transform_cfg_vars(match, 'BB')
+    name_without_number =match.group(0).rstrip('0123456789')
+    return transform_cfg_vars(match, name_without_number)
 
   def transform_region(match):
     return transform_cfg_vars(match, 'region')

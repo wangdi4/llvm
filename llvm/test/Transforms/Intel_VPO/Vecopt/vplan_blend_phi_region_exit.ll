@@ -47,14 +47,8 @@ inner.exit:
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ [[TMP2:%.*]], [[VPLANNEDBB]] ], [ zeroinitializer, [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 1, i64 1>
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp eq <2 x i64> [[TMP2]], <i64 72, i64 72>
-; CHECK-NEXT:    [[TMP4:%.*]] = and <2 x i1> [[TMP1]], [[TMP1]]
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <2 x i1> [[TMP4]] to i2
-; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq i2 [[TMP5]], 0
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i1> undef, i1 [[TMP6]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i1> [[BROADCAST_SPLATINSERT]], <2 x i1> undef, <2 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP7:%.*]] = or <2 x i1> [[BROADCAST_SPLAT]], [[TMP3]]
-; CHECK-NEXT:    [[TMP8:%.*]] = extractelement <2 x i1> [[TMP7]], i32 0
-; CHECK-NEXT:    br i1 [[TMP8]], label [[VPLANNEDBB1]], label [[VPLANNEDBB]]
+; CHECK-NEXT:    [[TMP4:%.*]] = extractelement <2 x i1> [[TMP3]], i32 0
+; CHECK-NEXT:    br i1 [[TMP4]], label [[VPLANNEDBB1]], label [[VPLANNEDBB]]
 ; CHECK:       VPlannedBB1:
 ; CHECK-NEXT:    [[PREDPHI:%.*]] = select <2 x i1> [[TMP1]], <2 x i64> <i64 2, i64 2>, <2 x i64> <i64 1, i64 1>
 ; CHECK-NEXT:    [[PREDPHI2:%.*]] = select <2 x i1> [[TMP1]], <2 x i64> <i64 2, i64 2>, <2 x i64> <i64 1, i64 1>

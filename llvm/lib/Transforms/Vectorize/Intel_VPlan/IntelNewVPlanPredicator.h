@@ -84,7 +84,7 @@ private:
 
     PredicateTerm(const PredicateTerm &) = default;
 
-    // To be used as a key in std::set.
+    // To be used as a key in std::map.
     bool operator<(const PredicateTerm &Other) const {
       return std::tie(OriginBlock, Condition, Negate) <
              std::tie(Other.OriginBlock, Other.Condition, Other.Negate);
@@ -94,7 +94,8 @@ private:
 
   // Mapping from the block to its complete set of PredicateTerms affecting this
   // block's predicates.
-  DenseMap<VPBlockBase *, PredicateTermsSet> Block2PredicateTerms;
+  DenseMap<VPBlockBase *, std::pair<PredicateTermsSet, bool>>
+      Block2PredicateTermsAndUniformity;
   std::map<PredicateTerm, SmallVector<VPBlockBase *, 4>>
       PredicateTerm2UseBlocks;
 
@@ -108,6 +109,10 @@ private:
   // Set of blocks that were already split to insert "AND" calculation for
   // PredicateTerms.
   SmallPtrSet<VPBlockBase *, 16> SplitBlocks;
+
+  // We don't emit block predicates for uniform blocks, thus need store the
+  // predicate in a separate map.
+  DenseMap<VPBlockBase *, VPValue *> Block2Predicate;
 
   /// Returns the negation of the \p Cond inserted at the end of the block
   /// defining it or at VPlan's entry. Avoids creating duplicates by caching
@@ -164,9 +169,13 @@ private:
                                       bool SearchLoopHack);
 
   /// Linearize \p Region (without recursion) and mark PHIs in the linearized
-  /// blocks as blended.
+  /// blocks as blended. It does *NOT* update condition bits for the blocks,
+  /// this information is needed for block predicate insertion after
+  /// linearization.
   void
   linearizeRegion(const ReversePostOrderTraversal<VPBlockBase *> &RegionRPOT);
+
+  bool hasUniformOutgoingEdges(VPBlockBase *Block);
 
 #if INTEL_CUSTOMIZATION
   void handleInnerLoopBackedges(VPLoopRegion *LoopRegion);

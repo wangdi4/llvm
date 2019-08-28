@@ -56,11 +56,6 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
 
     if (!VPDA->isDivergent(*BottomTest)) {
       LLVM_DEBUG(dbgs() << "BottomTest is uniform\n");
-#ifdef VPlanPredicator
-      // Uniform inner loops under a predicate need to be fixed up after
-      // predication taking into account this predicate.
-      FixupLoopRegions.push_back(SubLoopRegion);
-#endif
       continue;
     }
 

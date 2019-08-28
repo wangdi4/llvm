@@ -1120,6 +1120,7 @@ public:
     auto it = VPBBUsers.begin();
     std::advance(it, Idx);
     VPBBUsers.erase(it);
+    removeOperand(Idx);
   }
 
   /// Return index for a given \p Block.

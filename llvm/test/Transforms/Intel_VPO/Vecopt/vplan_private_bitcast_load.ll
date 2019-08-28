@@ -23,6 +23,7 @@
 ; CHECK: VPlannedBB{{.*}}:
 ; CHECK: VPlannedBB{{.*}}:
 ; CHECK: VPlannedBB{{.*}}:
+; CHECK: VPlannedBB{{.*}}:
 ; CHECK-NEXT: [[BC1:%.*]] = bitcast <4 x [2520 x double]*> [[PRIV_BASE]] to <4 x i64*>
 ; CHECK-NEXT: [[GATHER2:%.*]] = call <4 x i64> @llvm.masked.gather.v4i64.v4p0i64(<4 x i64*> [[BC1]], i32 8, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i64> undef)
 ; CHECK-NEXT: [[GEP2:%.*]] = getelementptr inbounds double, <4 x double addrspace(1)*> {{.*}}, <4 x i64> {{.*}}

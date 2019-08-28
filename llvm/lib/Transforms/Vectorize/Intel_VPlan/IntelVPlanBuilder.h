@@ -125,6 +125,14 @@ public:
     InsertPt = IP;
   }
 
+  void setInsertPointFirstNonPhi(VPBasicBlock *TheBB) {
+    BB = TheBB;
+    VPBasicBlock::iterator IP = TheBB->begin();
+    while (IP != TheBB->end() && isa<VPPHINode>(*IP))
+      ++IP;
+    InsertPt = IP;
+  }
+
   // Create an N-ary operation with \p Opcode, \p Operands and set \p Inst as
   // its underlying Instruction.
   VPValue *createNaryOp(unsigned Opcode, Type *BaseTy,
