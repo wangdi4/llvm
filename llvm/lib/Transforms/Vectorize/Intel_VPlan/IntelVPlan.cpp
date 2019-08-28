@@ -98,6 +98,47 @@ VPBasicBlock *VPBlockBase::getExitBasicBlock() {
 }
 
 #if INTEL_CUSTOMIZATION
+VPBasicBlock *VPBlockUtils::splitExitBlock(VPBlockBase *Block,
+                                           VPLoopInfo *VPLInfo) {
+  VPBasicBlock *BB = Block->getExitBasicBlock();
+  VPBasicBlock *NewBlock = new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
+  BB->moveConditionalEOBTo(NewBlock);
+  insertBlockAfter(NewBlock, BB);
+
+  // Add NewBlock to VPLoopInfo
+  if (VPLoop *Loop = VPLInfo->getLoopFor(BB)) {
+    Loop->addBasicBlockToLoop(NewBlock, *VPLInfo);
+  }
+
+
+  // Update incoming block of VPPHINodes in successors, if any
+  for (auto &Successor : NewBlock->getHierarchicalSuccessors()) {
+    // Iterate over all VPPHINodes in Successor. Successor can be a region so
+    // we should take its entry.
+    // NOTE: Here we assume that all VPPHINodes are always placed at the top of
+    // its parent VPBasicBlock
+    for (auto &Inst : Successor->getEntryBasicBlock()->getVPPhis()) {
+      assert(isa<VPPHINode>(Inst) &&
+             "Non VPPHINode found in sublist returned by getVPPhis().");
+      VPPHINode *VPN = cast<VPPHINode>(&Inst);
+
+      if (VPN->getBlend())
+        continue;
+
+      // Transform the VPBBUsers vector of the PHI node by replacing any
+      // occurrence of Block with NewBlock
+      llvm::transform(VPN->blocks(), VPN->block_begin(),
+                      [BB, NewBlock](VPBasicBlock *A) -> VPBasicBlock * {
+                        if (A == BB)
+                          return NewBlock;
+                        return A;
+                      });
+    }
+  }
+
+  return NewBlock;
+}
+
 // It turns A->B into A->NewSucc->B and updates VPLoopInfo, DomTree and
 // PostDomTree accordingly.
 VPBasicBlock *VPBlockUtils::splitBlock(VPBlockBase *Block,

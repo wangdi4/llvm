@@ -83,6 +83,12 @@ private:
         : PredicateTerm(OriginBlock, nullptr, false) {}
 
     PredicateTerm(const PredicateTerm &) = default;
+
+    // To be used as a key in std::set.
+    bool operator<(const PredicateTerm &Other) const {
+      return std::tie(OriginBlock, Condition, Negate) <
+             std::tie(Other.OriginBlock, Other.Condition, Other.Negate);
+    }
   };
   using PredicateTermsSet = SmallVector<PredicateTerm, 4>;
 
@@ -90,8 +96,22 @@ private:
   // block's predicates.
   DenseMap<VPBlockBase *, PredicateTermsSet> Block2PredicateTerms;
 
-  /// Create (not Cond) at the current Builder's insertion point.
-  VPValue *createNot(VPValue *Cond);
+  // Map from PredicateTerm to a VPValue that we generated for it. Needed for
+  // caching and to avoid duplicates generation.
+  std::map<PredicateTerm, VPValue *> PredicateTerm2Value;
+
+  // Map from condition bits to their's negation. Needed to avoid duplicate
+  // "not" vpinstructions creation.
+  DenseMap<VPValue *, VPValue *> Cond2NotCond;
+
+  // Set of blocks that were already split to insert "AND" calculation for
+  // PredicateTerms.
+  SmallPtrSet<VPBlockBase *, 16> SplitBlocks;
+
+  /// Returns the negation of the \p Cond inserted at the end of the block
+  /// defining it or at VPlan's entry. Avoids creating duplicates by caching
+  /// created NOTs.
+  VPValue *getOrCreateNot(VPValue *Cond);
 
   // Fill in the information about PredicateTerms of the predicate of the
   // \p CurrBlock.
@@ -103,7 +123,13 @@ private:
   ///
   ///   Val = OriginBlock.Predicate && (possibly negated)Condition.
   ///
-  VPValue *createValueForPredicateTerm(PredicateTerm PredTerm);
+  /// Note, that "and" instruction is created in a new block inserted right
+  /// after the OriginBlock so that its calculation isn't affected by
+  /// OriginBlock's block-predicate instruction.
+  ///
+  /// At the first query for a given \p PredTerm the value is created (if
+  /// needed) and returned. Subsequent queries return pre-calculated value.
+  VPValue *getOrCreateValueForPredicateTerm(PredicateTerm PredTerm);
 
   /// Generate and return the result of ORing all the predicate VPValues in \p
   /// Worklist. Uses the current insertion point of Builder member.

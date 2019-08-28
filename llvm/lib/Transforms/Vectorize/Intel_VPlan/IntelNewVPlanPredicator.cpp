@@ -102,12 +102,24 @@ VPValue *VPlanPredicator::genPredicateTree(std::list<VPValue *> &Worklist) {
   return Root;
 }
 
-VPValue *VPlanPredicator::createNot(VPValue *Cond) {
+VPValue *VPlanPredicator::getOrCreateNot(VPValue *Cond) {
+  auto It = Cond2NotCond.find(Cond);
+  if (It != Cond2NotCond.end())
+    return It->second;
+
+  auto *Inst = dyn_cast<VPInstruction>(Cond);
+  VPBuilder::InsertPointGuard Guard(Builder);
+  VPBasicBlock *InsertBB =
+      Inst ? Inst->getParent() : Plan.getEntry()->getEntryBasicBlock();
+
+  Builder.setInsertPoint(InsertBB, InsertBB->end());
   auto *Not = Builder.createNot(Cond, Cond->getName() + ".not");
+
   auto *DA = Plan.getVPlanDA();
   if (DA->isDivergent(*Cond))
     DA->markDivergent(*Not);
 
+  Cond2NotCond[Cond] = Not;
   return Not;
 }
 
@@ -189,20 +201,40 @@ void VPlanPredicator::calculatePredicateTerms(VPBlockBase *CurrBlock) {
   }
 }
 
-VPValue *VPlanPredicator::createValueForPredicateTerm(PredicateTerm Term) {
+VPValue *VPlanPredicator::getOrCreateValueForPredicateTerm(PredicateTerm Term) {
+  auto It = PredicateTerm2Value.find(Term);
+  if (It != PredicateTerm2Value.end())
+    return It->second;
+
   auto *Block = Term.OriginBlock;
   auto *Val = Term.Condition;
   if (Term.Negate) {
     assert(Val && "Can't negate non-existing condition!");
-    Val = createNot(Val);
+    Val = getOrCreateNot(Val);
   }
   VPValue *Predicate = Block->getPredicate();
-  if (!Predicate)
+  if (!Predicate) {
+    PredicateTerm2Value[Term] = Val;
     return Val;
+  }
 
-  if (!Val)
+  if (!Val) {
+    PredicateTerm2Value[Term] = Predicate;
     return Predicate;
+  }
 
+  VPBuilder::InsertPointGuard Guard(Builder);
+  VPBasicBlock *PredicateInstsBB = nullptr;
+  // TODO: Don't do splitting once we start preserving uniform control flow
+  // and the Block is uniform.
+  if (SplitBlocks.count(Block))
+    PredicateInstsBB =
+        cast<VPBasicBlock>(Block->getExitBasicBlock()->getSingleSuccessor());
+  else {
+    PredicateInstsBB = VPBlockUtils::splitExitBlock(Block, VPLI);
+    SplitBlocks.insert(Block);
+  }
+  Builder.setInsertPoint(PredicateInstsBB);
   // TODO: Once we start presrving uniform control flow, there will be no
   // need to create "and" for uniform predicate that is true on all incoming
   // edges.
@@ -212,6 +244,8 @@ VPValue *VPlanPredicator::createValueForPredicateTerm(PredicateTerm Term) {
                           "vp." + Block->getName() + ".br." + Val->getName());
   if (IsDivergent)
     DA->markDivergent(*Val);
+
+  PredicateTerm2Value[Term] = Val;
   return Val;
 }
 
@@ -306,7 +340,7 @@ void VPlanPredicator::predicateAndLinearizeRegionRec(VPRegionBlock *Region,
 
     std::list<VPValue *> IncomingConditions;
     for (auto Term : PredTerms)
-      if (auto *Val = createValueForPredicateTerm(Term))
+      if (auto *Val = getOrCreateValueForPredicateTerm(Term))
         IncomingConditions.push_back(Val);
 
     auto *Predicate = genPredicateTree(IncomingConditions);

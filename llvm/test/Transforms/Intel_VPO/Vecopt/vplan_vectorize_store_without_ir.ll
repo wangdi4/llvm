@@ -20,8 +20,8 @@
 ; CHECK-NEXT:    [[TMP9]] = add nuw nsw <2 x i64> [[VEC_PHI1]], <i64 1, i64 1>
 ; CHECK-NEXT:    [[TMP10:%.*]] = xor <2 x i1> [[TMP8]], <i1 true, i1 true>
 ; CHECK-NEXT:    [[TMP11:%.*]] = and <2 x i1> [[TMP6]], [[TMP10]]
-; CHECK-NEXT:    [[TMP12:%.*]] = icmp eq <2 x i64> [[TMP9]], [[VEC_IND]]
 ; CHECK-NEXT:    [[TMP13:%.*]] = and <2 x i1> [[TMP6]], [[TMP8]]
+; CHECK-NEXT:    [[TMP12:%.*]] = icmp eq <2 x i64> [[TMP9]], [[VEC_IND]]
 ; CHECK-NEXT:    [[PREDPHI]] = select <2 x i1> [[TMP13]], <2 x i32> <i32 1, i32 1>, <2 x i32> [[VEC_PHI2]]
 ; CHECK-NEXT:    [[PREDPHI6:%.*]] = select <2 x i1> [[TMP13]], <2 x i1> [[TMP8]], <2 x i1> zeroinitializer
 ; CHECK-NEXT:    [[PREDPHI7:%.*]] = select <2 x i1> [[TMP13]], <2 x i64> [[TMP9]], <2 x i64> <i64 100, i64 100>

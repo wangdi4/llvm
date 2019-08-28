@@ -90,24 +90,43 @@ static bool canSpeculate(const RegDDRef *Ref, bool CheckPadding = true) {
   return false;
 }
 
-// Expect following sequence of instructions in latch block:
-//    ..
+// Expect following sequence of instructions/blocks
+//  latch->getSinglePredecessor():
 //    BlockPredicate
 //    add
 //    cmp
+//    not
+//
+//  latch:
+//    and
 bool VPlanIdioms::isSafeLatchBlockForSearchLoop(const VPBasicBlock *Block) {
-  unsigned NumAdds = 0;
-  for (const VPInstruction &VPInst : Block->getNonPredicateInstructions()) {
-    if (VPInst.getOpcode() == Instruction::Add) {
-      ++NumAdds;
-      continue;
-    }
-    if (VPInst.getOpcode() == Instruction::ICmp)
-        continue;
-
+  auto *SinglePred = dyn_cast_or_null<VPBasicBlock>(Block->getSinglePredecessor());
+  if (!SinglePred)
     return false;
-  }
-  return NumAdds == 1;
+
+  SmallVector<const VPInstruction *, 1> Insts(
+      map_range(Block->vpinstructions(),
+                [](const VPInstruction &Inst) { return &Inst; }));
+  if (Insts.size() != 1)
+    return false;
+  if (Insts[0]->getOpcode() != Instruction::And)
+    return false;
+
+  SmallVector<const VPInstruction *, 4> PredInsts(
+      map_range(SinglePred->vpinstructions(),
+                [](const VPInstruction &Inst) { return &Inst; }));
+  if (PredInsts.size() != 4)
+    return false;
+  if (PredInsts[0]->getOpcode() != VPInstruction::Pred)
+    return false;
+  if (PredInsts[1]->getOpcode() != Instruction::Add)
+    return false;
+  if (PredInsts[2]->getOpcode() != Instruction::ICmp)
+    return false;
+  if (PredInsts[3]->getOpcode() != VPInstruction::Not)
+    return false;
+
+  return true;
 }
 
 /// Recognize following pattern in the Header:
@@ -128,6 +147,9 @@ VPlanIdioms::isStrEqSearchLoop(const VPBasicBlock *Block,
 
     if (isa<const VPBranchInst>(Inst) ||
         (Inst->HIR.isDecomposed() && Inst->isUnderlyingIRValid()))
+      continue;
+
+    if (Inst->getOpcode() == VPInstruction::Not)
       continue;
 
     // FIXME: Without proper decomposition we have to parse predicates of
@@ -256,6 +278,9 @@ VPlanIdioms::isStructPtrEqSearchLoop(const VPBasicBlock *Block,
 
     if (isa<const VPBranchInst>(Inst) ||
         (Inst->HIR.isDecomposed() && Inst->isUnderlyingIRValid()))
+      continue;
+
+    if (Inst->getOpcode() == VPInstruction::Not)
       continue;
 
     // FIXME: Without proper decomposition we have to parse predicates of
@@ -494,6 +519,7 @@ VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlan *Plan,
     return VPlanIdioms::Unsafe;
   }
   IgnoreBlocks.insert(Latch);
+  IgnoreBlocks.insert(Latch->getSinglePredecessor());
 
   for (const VPBlockBase *Exit : Exits) {
     if (!isSafeExitBlockForSearchLoop(cast<VPBasicBlock>(Exit))) {

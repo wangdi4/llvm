@@ -3374,6 +3374,8 @@ public:
     return Count;
   }
 
+  static VPBasicBlock *splitExitBlock(VPBlockBase *Block, VPLoopInfo *VPLInfo);
+
   static VPBasicBlock *splitBlock(VPBlockBase *Block, VPLoopInfo *VPLInfo,
                                   VPDominatorTree &DomTree,
                                   VPPostDominatorTree &PostDomTree);
