@@ -26,6 +26,7 @@
 #include "llvm/Analysis/CFG.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
+#include "llvm/CodeGen/MachineSSAUpdater.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/PassSupport.h"
 #include "llvm/Support/Debug.h"
@@ -47,6 +48,11 @@ static cl::opt<int> UseDynamicPred(
   cl::desc(
     "CSA Specific: use solely dynamic predicate to generate data flow code"),
   cl::init(0));
+
+cl::opt<bool> ILPLUseCompletionBuf (
+  "csa-ilpl-use-completion-buf", cl::Hidden,
+  cl::desc("CSA Specific: ILPL codegen: always use completion buffer for ILPL"),
+  cl::init(true));
 
 static cl::opt<bool> ILPLWaitForAllIncoming(
   "csa-ilpl-all0-incoming", cl::Hidden,
@@ -126,7 +132,6 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   if (!shouldRunDataflowPass(MF))
     return false;
 
-
   if (CvtCFDFPass == 0)
     return false;
   thisMF = &MF;
@@ -190,6 +195,18 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
       MachineLoopInfo>(*RPOT, *MLI)) {
     report_fatal_error("Cannot compile irreducible CFGs for CSA");
   }
+
+  // Prefill the dataflow loop info with information about each loop.
+  for (auto L : *MLI)
+    prefillLoopInfo(L);
+
+  // Add PHI instructions as necessary to enable inner-loop pipelining.
+  // Only the token LIC-based ILPL needs to spin these values around.
+  // (All calls to `prefillLoopInfo` must complete before the first call to
+  // `spinValuesForILPL`. Do not fuse the following loop with the preceding one.)
+  if (!ILPLUseCompletionBuf)
+    for (auto L : *MLI)
+      spinValuesForILPL(L);
 
   // Insert switches.
   switchNormalRegisters();
@@ -542,15 +559,246 @@ void CSACvtCFDFPass::prefillLoopInfo(MachineLoop *L) {
   }
 }
 
+void CSACvtCFDFPass::spinValuesForILPL(MachineLoop *InnerLoop) {
+
+  if (getInnerLoopPipeliningDegree(InnerLoop) <= 1) {
+    for (auto Subloop : *InnerLoop)
+      spinValuesForILPL(Subloop); // Apply ILPL to subloops
+    return;  // Do not apply ILPL to this loop
+  }
+
+  LLVM_DEBUG(dbgs() << "Function before spinning values:\n"; thisMF->print(dbgs()));
+
+  CSALoopInfo &DFLoop = loopInfo[InnerLoop];
+  MachineLoop *const OuterLoop = InnerLoop->getParentLoop();
+  MachineBasicBlock *const Header = InnerLoop->getHeader();
+
+  // Goal: For every value used or defined in `InnerLoop`, identify other
+  // members of the same cohort that are defined before `InnerLoop` and used
+  // after `InnerLoop`, bypassing transformation in `InnerLoop`
+  // itelf. Artificially create a definition and use of those values in
+  // `InnerLoop` so that they will "spin" around `InnerLoop` and remain with
+  // their cohort in case the cohorts exit `InnerLoop` out of order.
+  //
+  // Algorithm:
+  // 1. Divide the instructions within `OuterLoop` into four sets:
+  //    a. `InnerInstrs`: Instructions within `InnerLoop`
+  //    b. Predecessors: Instructions within basic blocks that dominate
+  //       `InnerLoop` (assuming SSA form)
+  //    c. `Successors`: Instructions that directly or indirectly use values
+  //       that flow out of `InnerLoop` (assuming SSA form)
+  //    d. Other instructions, i.e., in control paths that don't pass through
+  //       `InnerLoop`
+  //
+  // 2. For each value `V` used in the `Successors` set and defined in a
+  //    dominator block:
+  //    a. Create a register `S` to "spin" this value around with its cohort
+  //       in `InnerLoop`
+  //    b. Create an arificial loop of `S` in `InnerLoop` by defining a PHI
+  //       in `InnerLoop` whose inputs are its own outpu and 'S'.
+  //    c. Adjust the graph such that an available value of `S` is seen as
+  //       coming from `InnerLoop`.
+
+  // Collect the list of instructions in `InnerLoop`
+  std::vector<MachineInstr*> InnerInstrs;
+  for (MachineBasicBlock *LB : InnerLoop->blocks()) {
+    for (MachineInstr& instr : LB->instrs()) {
+      InnerInstrs.push_back(&instr);
+    }
+  }
+
+  // Collect that blocks that dominate and post-dominate the inner loop. Only
+  // blocks that might precede or succeed the inner loop need to be considered
+  // for this algorithm.
+  std::set<MachineBasicBlock*> DomBlocks;
+  std::set<MachineBasicBlock*> PostDomBlocks;
+  SmallVector<MachineBasicBlock*, 1> ExitBlocks;
+  InnerLoop->getExitBlocks(ExitBlocks);
+  for (MachineBasicBlock *block : OuterLoop->getBlocks()) {
+    if (InnerLoop->contains(block))
+      continue;
+    if (DT->dominates(block, Header))
+      DomBlocks.insert(block);
+    else {
+      for (MachineBasicBlock* ExitBlock : ExitBlocks) {
+        if (PDT->dominates(block, ExitBlock)) {
+          // TODO: This is probably not sufficient. A block that follows the
+          // inner loop but does not post-dominate it (e.g., if it's in a
+          // conditional) should be added to the set, too. Probably, we should
+          // start with the immediate postdominators, then traverse the block
+          // graph recursively, adding every block until we reach a back-edge
+          // or an edge not in the outer loop.
+          PostDomBlocks.insert(block);
+          break;
+        }
+      }
+    }
+  }
+
+  // Create set of successor instructions within `OuterLoop` that use
+  // values defined in `InnerLoop`, along with the transitive closure of
+  // instructions that use values defined within `Successors`.
+  std::vector<MachineInstr*> ProcessingQueue(InnerInstrs);
+  auto InnerInstrToBeProcessed = ProcessingQueue.size();  // Low-water mark of instructions
+  std::set<MachineInstr*> Successors;
+  while (! ProcessingQueue.empty()) {
+    bool IsInnerLoopInstr = (ProcessingQueue.size() <= InnerInstrToBeProcessed);
+    MachineInstr* i = ProcessingQueue.back();
+    ProcessingQueue.pop_back();
+    if (IsInnerLoopInstr)
+      --InnerInstrToBeProcessed;
+
+    // Follow outputs of each instruction.
+    for (auto& Def : i->defs()) {
+      if (! Def.isReg())
+        continue;
+
+      for (MachineInstr &UseInstr : MRI->use_instructions(Def.getReg())) {
+        MachineBasicBlock *UseBlock = UseInstr.getParent();
+
+        if (! PostDomBlocks.count(UseBlock))
+          continue; // Ignore defs not within the set of blocks that dominate `InnerLoop`
+
+        // Add to set of Successors. Add to processing queue only if
+        // this is the first time this instruction is being added to the set.
+        if (Successors.insert(&UseInstr).second)
+          ProcessingQueue.push_back(&UseInstr);
+      }
+    }
+
+    // Follow inputs of each instruction, but not for instructions in the
+    // inner loop itself.
+    if (IsInnerLoopInstr)
+      continue;
+
+    for (auto& Use : i->uses()) {
+      if (! Use.isReg())
+        continue;
+
+      for (MachineInstr &DefInstr : MRI->def_instructions(Use.getReg())) {
+        MachineBasicBlock *DefBlock = DefInstr.getParent();
+
+        if (! PostDomBlocks.count(DefBlock))
+          continue; // Ignore defs not within the set of blocks that dominate `InnerLoop`
+
+        // Add to set of Successors. Add to processing queue only if
+        // this is the first time this instruction is being added to the set.
+        if (Successors.insert(&DefInstr).second)
+          ProcessingQueue.push_back(&DefInstr);
+      }
+    }
+  }
+
+  LLVM_DEBUG(dbgs() << "*** Successors: ***\n";
+             for (MachineInstr *UseInstr : Successors)
+               UseInstr->dump(); );
+
+  // Prepare to create new MOVs and PHIs
+  const MCInstrDesc& MPHI = TII->get(TargetOpcode::PHI);
+  auto DebugLoc = Header->front().getDebugLoc();
+
+  // Get source block from which all spinning values appear to originate.
+  MachineBasicBlock *SrcBB = DT->getNode(Header)->getIDom()->getBlock();
+  assert(SrcBB->isSuccessor(Header));
+
+  // Use a `MachineSSAUpdater` to track spinning values in the SSA form of the CFG.
+  SmallVector<MachineInstr*, 4> NewPHIs;  // TODO: For debugging
+  MachineSSAUpdater updater(*thisMF, &NewPHIs);
+
+  // Find virtual registers defined in `Predecessors` that are used in `Successors`
+  // and not used in `InnerLoop`.  These are the values that need to be spun
+  // around in order to stay with the other members of their cohort that *are*
+  // used within the inner loop.
+  LLVM_DEBUG(dbgs() << "*** Regs to spin: ***\n");
+  std::set<MachineOperand*> SpinDefs;
+  for (MachineInstr *UseInstr : Successors) {
+
+    for (MachineOperand &Use : UseInstr->uses()) {
+      if (! Use.isReg())
+        continue;
+      unsigned Reg = Use.getReg();
+      if (! Register::isVirtualRegister(Reg))
+        continue;
+
+      // Find the defs of this register in the Predecessors set, if any. These
+      // defs will need to be rewritten when the register is spun.
+      MachineOperand &Def = *MRI->def_begin(Reg);
+      MachineInstr *DefInstr = Def.getParent();
+      MachineBasicBlock *DefBlock = DefInstr->getParent();
+      if (DomBlocks.count(DefBlock)) {
+        if (SpinDefs.insert(&Def).second) {
+          // This debug message is under the heading "*** Regs to spin ***"
+          LLVM_DEBUG(dbgs() << "  %bb." << DefBlock->getNumber() << " -> %bb." << Header->getNumber()
+                     << " output from "; DefInstr->dump());
+        }
+      }
+    }
+  }
+
+  LLVM_DEBUG(dbgs() << "*** New spinning instructions: ***\n");
+  for (MachineOperand* Def : SpinDefs) {
+    // The value represented by `Reg` must be spun around `InnerLoop`.
+    // Create a MOV instruction to separate the "spun" from the "unspun" copy
+    // of `Reg`, then create an artificial def/use PHI in `InnerLoop`.
+    unsigned Reg = Def->getReg();
+    TargetRegisterClass const* RegClass = MRI->getRegClass(Reg);
+    MachineInstr *DefInstr = Def->getParent();
+    auto DefDebugLoc = DefInstr->getDebugLoc();
+    MachineBasicBlock *DefBlock = DefInstr->getParent();
+
+    // Create a MOV instruction to copy the register.
+    // Spin the copy, but retain the original in contexts that are not
+    // dependent on the inner loop.
+    unsigned SpinReg = MRI->createVirtualRegister(RegClass);
+    auto MovInstr = BuildMI(*DefBlock, DefBlock->getFirstTerminator(), DefDebugLoc,
+                            TII->get(TII->getMoveOpcode(RegClass)), SpinReg).addUse(Reg);
+    (void) MovInstr;
+    LLVM_DEBUG(MovInstr->dump());
+
+    // Spin the copy.
+    unsigned PhiOut = MRI->createVirtualRegister(RegClass);
+    auto SpinPhi = BuildMI(*Header, Header->getFirstNonPHI(),
+                          DebugLoc, MPHI, PhiOut);
+    SpinPhi.addUse(SpinReg).addMBB(SrcBB);
+    DFLoop.addILPLSpinningReg(SpinReg);
+
+    updater.Initialize(SpinReg);
+    updater.AddAvailableValue(DefBlock, SpinReg);
+    // updater.AddAvailableValue(Header, PhiOut);
+
+    // For each latch block, feed the new PHI's output back into the PHI as if
+    // it were coming from that latch block, thus creating a loop that tracks
+    // the rest of the cohort for `SpinReg`.
+    SmallVector<MachineBasicBlock*, 2> InnerLatches;
+    InnerLoop->getLoopLatches(InnerLatches);
+    for (MachineBasicBlock* Latch : InnerLatches) {
+      SpinPhi.addUse(PhiOut).addMBB(Latch);
+      updater.AddAvailableValue(Latch, PhiOut);
+    }
+    LLVM_DEBUG(SpinPhi->dump());
+
+    // Rewrite all after-loop uses of `Reg`, not just the principle use in this loop.
+    // Uses of the original register not in the successor list will be
+    // unchanged, thus segregating them from post-inner-loop uses.
+    for (MachineOperand &U : MRI->use_operands(Reg)) {
+      MachineInstr *UInstr = U.getParent();
+      if (Successors.count(UInstr)) {
+        U.setReg(SpinReg);
+        updater.RewriteUse(U);
+      }
+    }
+  }
+
+  LLVM_DEBUG(if (NewPHIs.size()) {
+      dbgs() << "New PHIs:\n"; for (const MachineInstr *NewPHI : NewPHIs) NewPHI->dump(); });
+
+  LLVM_DEBUG(dbgs() << "Function after adding spinning values:\n"; thisMF->print(dbgs()));
+}
+
 void CSACvtCFDFPass::switchNormalRegisters() {
   // In the future, when we start having dataflow LICs that exist in the IR,
   // we are going to need to be more selective about which registers we switch.
   // For now, though, switch all of them.
-
-  // Prefill the dataflow loop info with information about loops.
-  for (auto L : *MLI) {
-    prefillLoopInfo(L);
-  }
 
   // It's important that we save the number of registers to switch before
   // switching any of them--switching creates new registers that we don't want
@@ -591,7 +839,7 @@ void CSACvtCFDFPass::switchRegister(unsigned Reg, bool StrictLive) {
         // so when we find the first node in the region that is dominated by the
         // definition, then that node will be the canonical for every other node
         // in the region.
-        if (!Head && DT->dominates(DefBB, Node))
+        if (!Head && (DT->dominates(DefBB, Node)))
           Head = Node;
         if (Head)
           CanonicalMap[Node->getNumber()] = Head;
@@ -627,6 +875,7 @@ void CSACvtCFDFPass::switchRegister(unsigned Reg, bool StrictLive) {
   // until we reach the definition block.
   while (!WorkList.empty()) {
     MachineBasicBlock *LiveBB = CanonicalMap[WorkList.back()->getNumber()];
+    assert(LiveBB);
     WorkList.pop_back();
 
     // Is this a define block? If so, stop recursion.
@@ -755,7 +1004,7 @@ void CSACvtCFDFPass::processLoop(MachineLoop *L) {
     assert(DFLoop.getNumExits() == 1 &&
       "Can only pipeline loops with single exit blocks");
     bufferPipelinedLoopBypass(L, numTokens);
-    pipelineLoop(L->getHeader(), DFLoop, numTokens);
+    pipelineLoop(L, DFLoop, numTokens);
   }
 
   // Annotate all the edges on the pick backedge with csasim_backedge
@@ -959,56 +1208,44 @@ void CSACvtCFDFPass::generateLoopHeader(MachineLoop *Loop) {
 }
 
 // This version uses additional operators in order to allow multiple incoming
-// "gangs" of data to flow through the loop at once. The number of gangs
-// allowed to be in the pipeline at once is determined by the "completion"
-// buffer operators: no new gangs will be admitted if these do not have
-// available storage to reorder the loop's outputs. The number of "gangs"
-// admitted is bounded on two sides: it is not correct to admit more than we
-// have backedge and completion buffering for, and it does not increase
-// performance to admit more than the pipeline depth of the body would fit.
-void CSACvtCFDFPass::pipelineLoop(MachineBasicBlock *lphdr, CSALoopInfo &DFLoop,
+// "cohorts" of data to flow through the loop at once. The number of cohorts
+// allowed to be in the pipeline at once is determined by either the
+// "completion-buffer" operators or the "cohort token" LIC: no new cohorts
+// will be admitted if these do not have available storage to prevent the loop
+// from deadlocking. The number of "cohorts" admitted is bounded on two sides:
+// it is not correct to admit more than we have backedge and completion
+// buffering for, and it does not increase performance to admit more than the
+// pipeline depth of the body would fit.
+void CSACvtCFDFPass::pipelineLoop(MachineLoop *L, CSALoopInfo &DFLoop,
     unsigned numTokens) {
-  MachineLoop* mloop = MLI->getLoopFor(lphdr);
-  assert(mloop);
-  DebugLoc mloopLoc = mloop->getStartLoc();
 
   // Get the loop id string.
-  std::string loopId = std::to_string(getLoopId(mloop));
+  std::string loopId = std::to_string(getLoopId(L));
 
-  SmallVector<MachineOperand *, 4> newGang, backGang;
+  // `NewCohort` collects the values flowing into the loop from outside.
+  // `BackCohort` collects the values flowing from one iteration of the loop
+  // into the next iteration.  Both cohorts are represented as vectors of
+  // pointers to input operands of pick operations at the top of the loop.
+  SmallVector<MachineOperand *, 4> NewCohort, BackCohort;
 
   // Convert the 0/1 indexes of the pick to operand numbers of the pick
   // instruction itself.
   unsigned pickIncomingIdx = DFLoop.getPickInitialIndex() + 2;
   unsigned pickBackedgeIdx = DFLoop.getPickBackedgeIndex() + 2;
-  unsigned switchBackedgeIdx = DFLoop.getSwitchBackedgeIndex(0);
   for (MachineInstr *pick : DFLoop.getHeaderPicks()) {
     MachineOperand* incoming = &pick->getOperand(pickIncomingIdx);
     // Mark the input of the loop and the loop id.
     LMFI->addLICAttribute(incoming->getReg(), "input_to_csasim_loop_id=",
                           loopId);
-    newGang.push_back(incoming);
-    backGang.push_back(&pick->getOperand(pickBackedgeIdx));
+    NewCohort.push_back(incoming);
+    BackCohort.push_back(&pick->getOperand(pickBackedgeIdx));
   }
 
-  assert(!newGang.empty() && !backGang.empty() &&
+  assert(!NewCohort.empty() && !BackCohort.empty() &&
     "We have a loop with nothing flowing around the loop?");
 
-  MachineOperand *newPulse  = newGang[0];
-  MachineOperand *backPulse = backGang[0];
-
-  if (ILPLWaitForAllIncoming) {
-    newPulse = createUseTree(lphdr, lphdr->begin(), CSA::ALL0, newGang);
-    LMFI->setLICName(newPulse->getReg(), "newAll");
-  }
-
-  if (ILPLWaitForAllBack) {
-    backPulse = createUseTree(lphdr, lphdr->begin(), CSA::ALL0, backGang);
-    LMFI->setLICName(backPulse->getReg(), "backAll");
-  }
-
-  // Look for loop outputs.
-  SmallVector<MachineOperand *, 4> loopOutputs;
+  // Look for loop outputs and store them in the `LoopOutputs` vector.
+  SmallVector<MachineOperand *, 4> LoopOutputs;
   unsigned OutgoingIdx = DFLoop.getSwitchLastIndex(0);
   for (MachineInstr *ExitSwitch : DFLoop.getExitSwitches(0)) {
     MachineOperand *LoopOutput = &ExitSwitch->getOperand(OutgoingIdx);
@@ -1017,14 +1254,34 @@ void CSACvtCFDFPass::pipelineLoop(MachineBasicBlock *lphdr, CSALoopInfo &DFLoop,
     if (MRI->use_nodbg_empty(LoopOutput->getReg()))
       continue;
 
-    loopOutputs.push_back(LoopOutput);
+    LoopOutputs.push_back(LoopOutput);
   }
 
+  if (ILPLUseCompletionBuf)
+    pipelineLoopWithCompletionBuffer(L, DFLoop, NewCohort, BackCohort, LoopOutputs, numTokens);
+  else
+    pipelineLoopWithTokenLIC(L, DFLoop, NewCohort, BackCohort, LoopOutputs, numTokens);
+}
+
+void CSACvtCFDFPass::pipelineLoopWithCompletionBuffer(MachineLoop                             *L,
+                                                      CSALoopInfo                             &DFLoop,
+                                                      const SmallVectorImpl<MachineOperand *> &NewCohort,
+                                                      const SmallVectorImpl<MachineOperand *> &BackCohort,
+                                                      const SmallVectorImpl<MachineOperand *> &LoopOutputs,
+                                                      unsigned                                 numTokens)
+{
+  MachineBasicBlock *lphdr = L->getHeader();
+  DebugLoc mloopLoc = L->getStartLoc();
+
+  // Get the loop id string.
+  std::string loopId = std::to_string(getLoopId(L));
+
+
   // If there were no loop outputs, conceptually create a null operand which
-  // will get a trivially-used completion1 buffer to limit new cohorts with.
-  if (loopOutputs.size() == 0) {
-    loopOutputs.push_back(nullptr);
-  }
+  // will get a trivially-used completion buffer to limit new cohorts with.
+  const SmallVector<MachineOperand *, 1> NullLoopOutputs(1, nullptr);
+  const SmallVectorImpl<MachineOperand *> &LoopOutputsOrNull =
+    LoopOutputs.empty() ? NullLoopOutputs : LoopOutputs;
 
   // For each output, create and hook up completion buffers.
   // The completion buffers' indices (indicating space available) are used to
@@ -1033,7 +1290,7 @@ void CSACvtCFDFPass::pipelineLoop(MachineBasicBlock *lphdr, CSALoopInfo &DFLoop,
   unsigned cpyReg = (*DFLoop.getHeaderPicks().begin())->getOperand(1).getReg();
   unsigned predReg =
     (*DFLoop.getExitSwitches(0).begin())->getOperand(2).getReg();
-  for (MachineOperand *g : loopOutputs) {
+  for (MachineOperand *g : LoopOutputsOrNull) {
     unsigned newToken = LMFI->allocateLIC(&CSA::CI8RegClass, "newToken");
     unsigned bodyToken = LMFI->allocateLIC(&CSA::CI8RegClass, "bodyToken");
     unsigned backToken = LMFI->allocateLIC(&CSA::CI8RegClass, "backToken");
@@ -1043,14 +1300,22 @@ void CSACvtCFDFPass::pipelineLoop(MachineBasicBlock *lphdr, CSALoopInfo &DFLoop,
     // corresponding data. The data in/out for the completion op will both be
     // IGN. TODO: don't waste a "completion1" on this.
     // Otherwise (if g is a real operand) it needs to be reordered.
-    unsigned orderedOut = g ? g->getReg() : Register(CSA::IGN);
-    const TargetRegisterClass *RC = g ? MRI->getRegClass(g->getReg()) : &CSA::CI1RegClass;
-    unsigned unorderedOut = g ? LMFI->allocateLIC(RC, "unorderedOut") :
-                                                           static_cast<unsigned>(CSA::IGN);
-    if (g)
-      g->setReg(unorderedOut);
+    // Set `unorderedOut` to the LIC flowing out of the loop.
+    // Set `orderedOut` to the LIC flowing out of the completion buffer.
+    unsigned unorderedOut         = static_cast<unsigned>(CSA::IGN);
+    unsigned orderedOut           = static_cast<unsigned>(CSA::IGN);
+    const TargetRegisterClass *RC = &CSA::CI1RegClass;
+
+    if (g) {
+      orderedOut = g->getReg();
+      RC = MRI->getRegClass(orderedOut);
+      unorderedOut = LMFI->allocateLIC(RC, "unorderedOut");
+      g->setReg(unorderedOut);  // Prepare to interpose completion buffer
+    }
 
     // The index/token edges need buffering.
+    // TODO (PGH): Does newToken really need buffering? Won't completion
+    // buffer work fine with backpressure on the newToken output?
     LMFI->setLICDepth(newToken, numTokens);
     LMFI->setLICDepth(backToken, numTokens);
     // Note that this backedge buffering is satisfying a buffering requirement
@@ -1087,6 +1352,7 @@ void CSACvtCFDFPass::pipelineLoop(MachineBasicBlock *lphdr, CSALoopInfo &DFLoop,
     newTokens.push_back(&compBuffer->getOperand(0));
 
     // Pick and switch the token around the loop.
+    unsigned switchBackedgeIdx = DFLoop.getSwitchBackedgeIndex(0);
     MachineInstr *tokPick =
       BuildMI(*lphdr, lphdr->begin(), mloopLoc, TII->get(CSA::PICK8), bodyToken)
           .addReg(cpyReg)
@@ -1101,8 +1367,12 @@ void CSACvtCFDFPass::pipelineLoop(MachineBasicBlock *lphdr, CSALoopInfo &DFLoop,
     DFLoop.addHeaderPick(tokPick);
     DFLoop.addExitSwitch(0, tokSwitch);
   }
+
+  // The `haveTokens` zero-width LIC is non-empty if all of the `newTokens`
+  // LICs have available tokens.
   MachineOperand *haveTokens;
   if (newTokens.size()) {
+    // TODO: This could be folded into the ALL0 tree
     SmallVector<MachineInstr *, 4> useTreeInstrs;
     haveTokens = createUseTree(lphdr, lphdr->begin(), CSA::ALL0, newTokens, &useTreeInstrs);
     for (MachineInstr *newInst : useTreeInstrs)
@@ -1113,7 +1383,7 @@ void CSACvtCFDFPass::pipelineLoop(MachineBasicBlock *lphdr, CSALoopInfo &DFLoop,
   }
 
   // Add buffering to backedges.
-  for (MachineOperand *g : backGang) {
+  for (MachineOperand *g : BackCohort) {
     assert(g->isReg() && "Unexpected non-LIC backedge in inner loop pipeline");
     LMFI->setLICDepth(g->getReg(), numTokens);
     LMFI->setLICName(g->getReg(), "backEdge");
@@ -1129,9 +1399,44 @@ void CSACvtCFDFPass::pipelineLoop(MachineBasicBlock *lphdr, CSALoopInfo &DFLoop,
   for (auto MI : oldDefs)
     MI->eraseFromParent();
 
+  // Choose one member of each cohort to be the "pulse" of that cohort, i.e.,
+  // data present on the pulse operand indicates that data is or soon will be
+  // present on all of the other operands in the cohort.
+  MachineOperand *newPulse  = NewCohort[0];
+  MachineOperand *backPulse = BackCohort[0];
+  // TODO: The ideal pulse is a zero-width register. Perhaps we should loop
+  // through the cohorts looking for zero-width registers and perfering them
+  // if found.
+
+  // `ILPLWaitForAllIncoming` is true if the `-csa-ilpl-all0-incoming` option
+  // is set (which it is by default). If true, then no members of a new cohort
+  // are admitted into the loop until they are all ready. Pulse for the
+  // incomming cohort then becomes the ALL0 of the control signals of all the
+  // members of the cohort. This option prevents stalling all pipelined
+  // instances of the loop waiting for a straggler to arrive from the
+  // outside. The optimization comes at the cost of a few LICs and a (tree of)
+  // `ALL0` operations.
+  if (ILPLWaitForAllIncoming) {
+    newPulse = createUseTree(lphdr, lphdr->begin(), CSA::ALL0, NewCohort);
+    LMFI->setLICName(newPulse->getReg(), "newAll");
+  }
+
+  // `ILPLWaitForAllBack` is true if the `-csa-ilpl-all0-backedges` option is
+  // set (which is NOT the default). The logic is the same as for
+  // `ILPLWaitForAllIncoming` except that it affects the cohort of back edges
+  // instead of incoming edges. This option might allow more cohorts to enter
+  // the loop at a time, producing fewer bubbles, but since the incoming
+  // edges are already held to a limit, it is not clear that there would be
+  // any real gains.
+  if (ILPLWaitForAllBack) {
+    backPulse = createUseTree(lphdr, lphdr->begin(), CSA::ALL0, BackCohort);
+    LMFI->setLICName(backPulse->getReg(), "backAll");
+  }
+
   // Check to see if we both have sufficient space to execute a new iteration
   // (which comes from haveTokens) and have a new iteration that is ready to
   // execute (newPulse).
+  // TODO: This GATE0 could be folded into the ALL0 tree
   MachineInstrBuilder newGated =
     BuildMI(*lphdr, lphdr->begin(), mloopLoc, TII->get(CSA::GATE0),
             LMFI->allocateLIC(&CSA::CI0RegClass, "newGated"))
@@ -1160,6 +1465,147 @@ void CSACvtCFDFPass::pipelineLoop(MachineBasicBlock *lphdr, CSALoopInfo &DFLoop,
       .addReg(any->getOperand(0).getReg())
       .setMIFlag(MachineInstr::NonSequential);
   }
+}
+
+void CSACvtCFDFPass::pipelineLoopWithTokenLIC(MachineLoop                             *L,
+                                              CSALoopInfo                             &DFLoop,
+                                              const SmallVectorImpl<MachineOperand *> &NewCohort,
+                                              const SmallVectorImpl<MachineOperand *> &BackCohort,
+                                              const SmallVectorImpl<MachineOperand *> &LoopOutputs,
+                                              unsigned                                 numTokens)
+{
+  LLVM_DEBUG(dbgs() << "Function before adding ILPL token LIC:\n"; thisMF->print(dbgs()));
+
+  MachineBasicBlock *Header = L->getHeader();
+  DebugLoc mloopLoc = L->getStartLoc();
+
+  // `PickerReg` feeds the index operands of all of the picks that choose
+  // whether values come from the outside of the loop or from the loop back edges.
+  // `SwitcherReg` feeds the index operands of all of the switches that choose
+  // whether values are emitted from the loop or looped back into the loop body.
+  unsigned PickerReg = (*DFLoop.getHeaderPicks().begin())->getOperand(1).getReg();
+  unsigned SwitcherReg = (*DFLoop.getExitSwitches(0).begin())->getOperand(2).getReg();
+
+  // Create a zero-width LIC to hold the tokens that control the max number of concurrent
+  // inner-loop instances. Fill that LIC with tokens using an INIT instruction.
+  unsigned ILPLTokens = LMFI->allocateLIC(&CSA::CI0RegClass, "ILPLTokens");
+  LMFI->setLICDepth(ILPLTokens, numTokens);
+  auto InsertPoint = Header->getFirstNonPHI();
+  auto& INIT_Op = TII->get(CSA::INIT1);
+  for (unsigned i = 0; i < numTokens; ++i)
+    BuildMI(*Header, InsertPoint, mloopLoc, INIT_Op, ILPLTokens).addImm(0);
+
+  // Connect the source of token replenishment to `ILPLTokens`.
+  // When the loop switch causes a cohort to exit the loop, push a token into
+  // the token LIC, allowing another cohort to enter the loop.
+  unsigned TokenFilterIdx = SwitcherReg;
+  if (! DFLoop.getSwitchLastIndex(0)) {
+    // Must negate index before feeding into filter
+    TokenFilterIdx = LMFI->allocateLIC(&CSA::CI1RegClass, "invertedSwitchIdx");
+    BuildMI(*Header, InsertPoint, mloopLoc, TII->get(CSA::NOT1),
+            TokenFilterIdx).addUse(SwitcherReg);
+  }
+  // Filter will produce a new (zero-bit) token whenever a 1 bit appears on
+  // the `TokenFilterIdx` LIC.
+  MachineInstr* TokenFilter =
+    BuildMI(*Header, InsertPoint, mloopLoc, TII->get(CSA::FILTER0), ILPLTokens)
+    .addUse(TokenFilterIdx)
+    .addImm(0);
+  MachineOperand& ILPLTokensDef = TokenFilter->getOperand(0);
+
+  // Set up the criteria for accepting new iterations.
+  //
+  // First, delete the old copy-predicate and INIT loop instructions that feed
+  // the PICks.
+  //
+  // Assumed definitions:
+  //   PickerReg = INIT 0
+  //   PickerReg = COPY SwitcherReg
+  SmallVector<MachineInstr*, 2> OldDefs;
+  for (auto &MI : MRI->def_instructions(PickerReg))
+    OldDefs.push_back(&MI);
+  assert(OldDefs.size() == 2 && "Should have MOV+INIT for loop");
+  for (auto MI : OldDefs)
+    MI->eraseFromParent();
+
+  // `eraseFromParent()` invalidated `InsertPoint`, so reestablish it here.
+  InsertPoint = Header->getFirstNonPHI();
+
+  // `ILPLWaitForAllIncoming` is true if the `-csa-ilpl-all0-incoming` option
+  // is set (which it is by default). If true, then no members of a new cohort
+  // are admitted into the loop until they are all ready. If false, the
+  // admission criteria is based only on the first member of the cohort.  This
+  // option (when true) prevents stalling all pipelined instances of the loop
+  // waiting for a straggler to arrive from the outside. The optimization
+  // comes at the cost of a few LICs and a (tree of) `ALL0` operations.
+  SmallVector<MachineOperand *, 4> AdmissionOpnds;
+  if (ILPLWaitForAllIncoming) {
+    for (MachineOperand* Op : NewCohort) {
+      if (Op->isReg() && DFLoop.isILPLSpinningReg(Op->getReg()))
+        // Exclude LICs that aren't accessed or modified in the loop, as that
+        // would create an unnecessary dependency for starting the inner loop computation.
+        continue;
+      AdmissionOpnds.push_back(Op);
+    }
+  }
+  else
+    AdmissionOpnds.push_back(NewCohort[0]);
+
+  // A new cohort cannot be admitted into the loop unless there are tokens in
+  // `ILPLTokens`. Add `ILPLTokens to the admission criteria:
+  AdmissionOpnds.push_back(&ILPLTokensDef);
+
+  // The `AdmitNewCohort` zero-width LIC is non-empty if the admission
+  // criteria have been met.
+  MachineOperand *AdmitNewCohort = createUseTree(Header, InsertPoint, CSA::ALL0, AdmissionOpnds);
+  LMFI->setLICName(AdmitNewCohort->getReg(), "AdmitNewCohort");
+
+  // Choose one member of set of back edges to be the "pulse" of that cohort,
+  // i.e., data present on the pulse operand indicates that data is or soon
+  // will be present on all of the other back edges.
+  MachineOperand *backPulse = BackCohort[0];
+  // TODO: The ideal pulse is a zero-width register. Perhaps we should loop
+  // through `BackCohort` looking for a zero-width register.
+
+  // `ILPLWaitForAllBack` is true if the `-csa-ilpl-all0-backedges` option is
+  // set (which is NOT the default). The logic is the same as for
+  // `ILPLWaitForAllIncoming` except that it affects the cohort of back edges
+  // instead of incoming edges. This option might allow more cohorts to enter
+  // the loop at a time, producing fewer bubbles, but since the incoming
+  // edges are already held to a limit, it is not clear that there would be
+  // any real gains.
+  if (ILPLWaitForAllBack) {
+    backPulse = createUseTree(Header, InsertPoint, CSA::ALL0, BackCohort);
+    LMFI->setLICName(backPulse->getReg(), "backAll");
+  }
+
+  // Choose whether or not to accept a new iteration or to continue an earlier
+  // one. The ANY here is a priority any--we'll prefer accepting new iterations
+  // if we have a choice.
+  MachineInstrBuilder any = BuildMI(*Header, InsertPoint, mloopLoc,
+                                    TII->get(CSA::ANY0), PickerReg)
+    .addUse(AdmitNewCohort->getReg())
+    .addUse(backPulse->getReg())
+    .setMIFlag(MachineInstr::NonSequential);
+
+  // If the new iteration is selected when pick index is 1, we need to negate
+  // the result of the ANY0 to select the corresponding values on the picks.
+  if (DFLoop.getPickInitialIndex() == 1) {
+    unsigned notLoopCtrl = LMFI->allocateLIC(&CSA::CI1RegClass, "notLoopCtl");
+    any->getOperand(0).setReg(notLoopCtrl);
+    BuildMI(*Header, InsertPoint, mloopLoc, TII->get(CSA::NOT1), PickerReg)
+      .addUse(notLoopCtrl)
+      .setMIFlag(MachineInstr::NonSequential);
+  }
+
+  // Add buffering to backedges.
+  for (MachineOperand *g : BackCohort) {
+    assert(g->isReg() && "Unexpected non-LIC backedge in inner loop pipeline");
+    LMFI->setLICDepth(g->getReg(), numTokens);
+    LMFI->setLICName(g->getReg(), "backEdge");
+  }
+
+  LLVM_DEBUG(dbgs() << "Function after adding ILPL token LIC:\n"; thisMF->print(dbgs()));
 }
 
 void CSACvtCFDFPass::bufferPipelinedLoopBypass(MachineLoop *L, unsigned Depth) {
@@ -1208,23 +1654,23 @@ void CSACvtCFDFPass::bufferPipelinedLoopBypass(MachineLoop *L, unsigned Depth) {
 // defaults to IGN.
 MachineOperand *CSACvtCFDFPass::createUseTree(
     MachineBasicBlock *mbb, MachineBasicBlock::iterator before,
-    unsigned opcode, const SmallVector<MachineOperand *, 4> vals,
-    SmallVector<MachineInstr *, 4> *created, unsigned unusedReg) {
+    unsigned opcode, const SmallVectorImpl<MachineOperand *> &vals,
+    SmallVectorImpl<MachineInstr *> *created, unsigned unusedReg) {
 
   unsigned n = vals.size();
   assert(n && "Can't combine 0 values");
-  MCInstrDesc id = TII->get(opcode);
-  assert(id.getNumDefs() == 1 &&
+  auto& OpDesc = TII->get(opcode);
+  assert(OpDesc.getNumDefs() == 1 &&
          "Must have exactly one output to use createUseTree");
 
   const TargetRegisterClass *outTRC = LMFI->licRCFromGenRC(
-    TII->getRegClass(id, 0, TRI, *mbb->getParent()));
+    TII->getRegClass(OpDesc, 0, TRI, *mbb->getParent()));
 
   // If the instruction is variadic, we don't really need to make a tree.
-  if (id.isVariadic()) {
+  if (OpDesc.isVariadic()) {
     MachineInstrBuilder MIB = BuildMI(
         *mbb, before, before == mbb->end() ? DebugLoc() : before->getDebugLoc(),
-        TII->get(opcode), LMFI->allocateLIC(outTRC));
+        OpDesc, LMFI->allocateLIC(outTRC));
     MIB.setMIFlag(MachineInstr::NonSequential);
     for (unsigned j = 0; j < n; ++j)
       MIB.addUse(vals[j]->getReg());
@@ -1235,9 +1681,9 @@ MachineOperand *CSACvtCFDFPass::createUseTree(
 
   // Ensure that this is an op that we can build some kind of 1-to-N tree out
   // of.
-  assert(id.getNumOperands() > 2 &&
+  assert(OpDesc.getNumOperands() > 2 &&
          "Don't know how to build a tree out of this opcode");
-  unsigned radix                    = id.getNumOperands() - id.getNumDefs();
+  unsigned radix                    = OpDesc.getNumOperands() - OpDesc.getNumDefs();
 
   // If one left, we're done.
   if (n == 1)
@@ -1249,7 +1695,7 @@ MachineOperand *CSACvtCFDFPass::createUseTree(
   // Create a new element to combine some of the others.
   MachineInstrBuilder next =
     BuildMI(*mbb, before, before->getDebugLoc(),
-            TII->get(opcode), LMFI->allocateLIC(outTRC));
+            OpDesc, LMFI->allocateLIC(outTRC));
   next.setMIFlag(MachineInstr::NonSequential);
 
   // vals will be partitioned into those items being combined and those items
@@ -2438,39 +2884,45 @@ bool CSACvtCFDFPass::checkIfDepthLimitedLoop(MachineLoop *L,
 }
 
 unsigned CSACvtCFDFPass::getInnerLoopPipeliningDegree(MachineLoop *L) {
+  CSALoopInfo &LInfo = loopInfo[L];
+  if (LInfo.getInnerLoopPipeliningDegree()) {
+    return LInfo.getInnerLoopPipeliningDegree(); // Use cached value
+  }
+
   // No pipelining if we can't identify a loop header.
-	MachineBasicBlock *header = L->getHeader();
-	if (not header)
-		return 1;
+  MachineBasicBlock *header = L->getHeader();
+  if (not header) {
+    return LInfo.setInnerLoopPipeliningDegree(1);
+  }
 
   // Look for a marker left by the IR prep pass in the loop header. Sometimes
   // it gets moved here.
-	for (MachineInstr &headerInst : *header) {
-		if (headerInst.getOpcode() == CSA::CSA_PIPELINEABLE_LOOP) {
-			unsigned maxDOP = headerInst.getOperand(0).getImm();
-			// Remove the directive so that we know it was acted upon.
-			headerInst.eraseFromParentAndMarkDBGValuesForRemoval();
-			return maxDOP;
-		}
-	}
+  for (MachineInstr &headerInst : *header) {
+    if (headerInst.getOpcode() == CSA::CSA_PIPELINEABLE_LOOP) {
+      unsigned maxDOP = headerInst.getOperand(0).getImm();
+      // Remove the directive so that we know it was acted upon.
+      headerInst.eraseFromParentAndMarkDBGValuesForRemoval();
+      return LInfo.setInnerLoopPipeliningDegree(maxDOP);
+    }
+  }
 
   // Also check the latch. This is where it's inserted and usually found.
   MachineBasicBlock *latch = L->getLoopLatch();
   if (not latch)
-    return 1;
+    return LInfo.setInnerLoopPipeliningDegree(1);
 
-	for (MachineInstr &latchInst : *latch) {
+  for (MachineInstr &latchInst : *latch) {
     if (latchInst.getOpcode() == CSA::CSA_PIPELINEABLE_LOOP) {
       unsigned maxDOP = latchInst.getOperand(0).getImm();
       // Remove the directive so that we know it was acted upon.
       latchInst.eraseFromParentAndMarkDBGValuesForRemoval();
-      return maxDOP;
+      return LInfo.setInnerLoopPipeliningDegree(maxDOP);
     }
   }
 
   // Finally, if there's no indication from the prep pass that we can pipeline,
   // don't.
-  return 1;
+  return LInfo.setInnerLoopPipeliningDegree(1);
 }
 
 void CSACvtCFDFPass::generateDynamicPreds() {

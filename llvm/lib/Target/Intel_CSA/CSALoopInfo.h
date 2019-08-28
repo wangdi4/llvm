@@ -21,6 +21,9 @@
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/PassRegistry.h"
 
+#include <vector>
+#include <set>
+
 namespace llvm {
 class MachineInstr;
 class raw_ostream;
@@ -61,7 +64,7 @@ public:
   /// For the exiting block referred to by ExitNum, return the operand of the
   /// corresponding switches that corresponds to continuing loop execution.
   unsigned getSwitchBackedgeIndex(unsigned ExitNum) const {
-    return Exits[ExitNum].first;
+    return Exits[ExitNum].SwitchBackedgeIndex;
   }
 
   /// For the exiting block referred to by ExitNum, return the operand of the
@@ -77,7 +80,7 @@ public:
 
   /// Get the set of switches for the exiting block referred to by ExitNum..
   instr_iterator_range getExitSwitches(unsigned ExitNum) const {
-    return instr_iterator_range(Exits[ExitNum].second);
+    return instr_iterator_range(Exits[ExitNum].ExitSwitches);
   }
 
 #ifndef NDEBUG
@@ -93,6 +96,15 @@ public:
   }
   void addHeaderPick(MachineInstr *Pick);
 
+  unsigned setInnerLoopPipeliningDegree(unsigned d) { return ILPipeliningDegree = d; }
+  unsigned getInnerLoopPipeliningDegree() const { return ILPipeliningDegree; }
+
+  // Register a LIC as being spun around the loop but not accessed or modified.
+  void addILPLSpinningReg(unsigned Reg);
+
+  // Query whether a LIC as being spun around the loop but not accessed or modified.
+  bool isILPLSpinningReg(unsigned Reg) const;
+
   /// Note a new exiting block where the loop will continue when the control
   /// register reads SwitchBackedgeIndex (0 or 1). The number of this exiting
   /// block is returned, and can be passed to addExitSwitch.
@@ -101,12 +113,24 @@ public:
 
   void removePickSwitch(MachineInstr *Pick, MachineInstr *Switch);
 private:
-  unsigned BackedgeIndex;
+  unsigned BackedgeIndex = 0;
+  unsigned ILPipeliningDegree = 0;
+  std::set<unsigned>          ILPLSpinningRegs;
   std::vector<MachineInstr *> Picks;
 
   /// Each exiting block needs to keep track of both the switch backedge index
   /// and the list of switches.
-  typedef std::pair<unsigned, std::vector<MachineInstr *>> ExitInfo;
+  struct ExitInfo {
+    unsigned                    SwitchBackedgeIndex;
+    std::vector<MachineInstr *> ExitSwitches;
+
+    ExitInfo(unsigned backedge, const std::vector<MachineInstr *> &switches)
+      : SwitchBackedgeIndex(backedge), ExitSwitches(switches) { }
+
+    ExitInfo(unsigned backedge, std::vector<MachineInstr *> &&switches)
+      : SwitchBackedgeIndex(backedge), ExitSwitches(std::move(switches)) { }
+  };
+
   SmallVector<ExitInfo, 1> Exits;
 };
 

@@ -95,8 +95,8 @@ public:
   MachineOperand *createUseTree(MachineBasicBlock *mbb,
                                 MachineBasicBlock::iterator before,
                                 unsigned opcode,
-                                const SmallVector<MachineOperand *, 4> vals,
-                                SmallVector<MachineInstr *, 4> *created = nullptr,
+                                const SmallVectorImpl<MachineOperand *> &vals,
+                                SmallVectorImpl<MachineInstr *> *created = nullptr,
                                 unsigned unusedReg = CSA::IGN);
   unsigned generateLandSeq(SmallVectorImpl<unsigned> &landOpnds,
                            MachineBasicBlock *mbb, MachineInstr *MI = nullptr);
@@ -281,8 +281,28 @@ private:
 
   /// Given a dataflow loop, pipeline the loop using inner-loop pipelining
   /// that supports at most the given number of concurrent iterations.
-  void pipelineLoop(MachineBasicBlock *header, CSALoopInfo &DFLoop,
-                    unsigned numTokens);
+  void pipelineLoop(MachineLoop *L, CSALoopInfo &DFLoop, unsigned numTokens);
+
+  /// identified, pipeline the loop using inner-loop pipelining using a
+  /// completion buffer to keep track of when a new cohort can enter the loop
+  /// and to keep the output cohorts in the same order as the input cohorts.
+  void pipelineLoopWithCompletionBuffer(MachineLoop                             *L,
+                                        CSALoopInfo                             &DFLoop,
+                                        const SmallVectorImpl<MachineOperand *> &NewCohort,
+                                        const SmallVectorImpl<MachineOperand *> &BackCohort,
+                                        const SmallVectorImpl<MachineOperand *> &LoopOutputs,
+                                        unsigned                                 numTokens);
+
+  /// Given a dataflow loop where the cohorts and outputs have been
+  /// identified, pipeline the loop using inner-loop pipelining using a
+  /// token LIC to keep track of when a new cohort can enter the loop. Cohorts
+  /// are likely to exit the loop in a different order than the enter.
+  void pipelineLoopWithTokenLIC(MachineLoop                             *L,
+                                CSALoopInfo                             &DFLoop,
+                                const SmallVectorImpl<MachineOperand *> &NewCohort,
+                                const SmallVectorImpl<MachineOperand *> &BackCohort,
+                                const SmallVectorImpl<MachineOperand *> &LoopOutputs,
+                                unsigned                                 numTokens);
 
   /// Add buffering to dataflow arcs that bypass a pipelined inner loop, to deal
   /// with deficiencies in automatic buffer insertion.
@@ -291,6 +311,10 @@ private:
   /// Map all loops to CSALoopInfo. This does not enter any of the pick or
   /// switch information.
   void prefillLoopInfo(MachineLoop *Loop);
+
+  /// Add PHI instructions as necessary to preserve value cohorts through
+  /// the inner-loop pipeline transformation.
+  void spinValuesForILPL(MachineLoop *L);
 
   /// The map of MachineLoop to CSALoopInfo data for the current function.
   DenseMap<MachineLoop *, CSALoopInfo> loopInfo;

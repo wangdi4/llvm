@@ -58,6 +58,8 @@ static cl::opt<bool> EnableAllLoops(
   "csa-streammem-expensive", cl::Hidden,
   cl::desc("CSA Specific: enable streaming memory even if trip counts are expensive"));
 
+extern cl::opt<bool> ILPLUseCompletionBuf;
+
 static cl::opt<unsigned> NumVCPRUnits("csa-max-vcpr", cl::Hidden, cl::init(256),
   cl::desc("Maximum number of VCPR units to generate for"));
 
@@ -358,6 +360,18 @@ bool CSAStreamingMemoryImpl::runOnLoop(Loop *L) {
   if (isPipelinedLoop(L)) {
     LLVM_DEBUG(dbgs() << "Ignoring ILPL-based loop " << *L);
     return Changed;
+  }
+
+  // If any nested loops are pipelined without order being restored (i.e., not
+  // using a completion buffer), then do not add streaming ops to the outer
+  // loop.
+  if (! ILPLUseCompletionBuf) {
+    for (Loop *childLoop : L->getSubLoops()) {
+      if (isPipelinedLoop(childLoop)) {
+        LLVM_DEBUG(dbgs() << "Ignoring loop containing ILPL-based loop " << *L);
+        return Changed;
+      }
+    }
   }
 
   LLVM_DEBUG(dbgs() << "Searching for opportunities in " << *L);

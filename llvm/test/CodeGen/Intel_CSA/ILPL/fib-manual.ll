@@ -1,16 +1,32 @@
-; RUN: llc -mtriple=csa -csa-ilpl-selection=manual < %s | FileCheck %s --check-prefix=CHECK
+; RUN: llc -mtriple=csa -csa-ilpl-selection=manual < %s | FileCheck %s --check-prefix=COMPLETION
+; RUN: llc -mtriple=csa -csa-ilpl-use-completion-buf=false -csa-ilpl-selection=manual < %s | FileCheck %s --check-prefix=TOKENLIC
 target datalayout = "e-m:e-i64:64-n32:64"
 target triple = "csa"
 
 ; Function Attrs: nounwind
 define void @csa_fib(i64* noalias nocapture %results, i64* noalias nocapture readonly %inputs, i64 %size) local_unnamed_addr #0 {
-; Ensure there's an any0, a token being initialized with multiple values, and
-; at least one pick64 driven by the any0 result. Here, we also ensure that
-; the number of token values matches exactly the depth specified by the
-; programmer. (7.)
-; CHECK-DAG:  any0 [[CTRL:%.+]], [[OUTER:%.+]], [[INNER:%.+]], 0
-; CHECK-DAG:  pick64 [[INNERVAL:%.+]], [[CTRL]], [[V1:%.+]], [[V2:%.+]]
-; CHECK-DAG:  completion64 [[TOKENS:%.+]], [[ORDERED:%.+]], [[IDXIN:%.+]], [[VALIN:%.+]], 7
+; For completion buffer ILPL, ensure there's an any0, a token being
+; initialized with multiple values, and at least one pick64 driven by the
+; any0 result. Here, we also ensure that the number of token values matches
+; exactly the depth specified by the programmer. (7.)
+; COMPLETION-DAG:  any0 [[CTRL:%.+]], [[OUTER:%.+]], [[INNER:%.+]], 0
+; COMPLETION-DAG:  pick64 [[INNERVAL:%.+]], [[CTRL]], [[V1:%.+]], [[V2:%.+]]
+; COMPLETION-DAG:  completion64 [[TOKENS:%.+]], [[ORDERED:%.+]], [[IDXIN:%.+]], [[VALIN:%.+]], 7
+;
+; For for token LIC ILPL, ensure there's an any0, a token being
+; initialized with multiple values, and at least one pick64 driven by the
+; any0 result. Here, we also ensure that the number of token values matches
+; exactly the depth specified by the programmer. (7.)
+; TOKENLIC-DAG:  any0 [[CTRL:%.+]], [[OUTER:%.+]], [[INNER:%.+]], 0
+; TOKENLIC-DAG:  pick64 [[INNERVAL:%.+]], [[CTRL]], [[V1:%.+]], [[V2:%.+]]
+; TOKENLIC-DAG:  all0 [[OUTER]], [[TOKENLIC:%.+]], [[NEWSIGS:%.+]], {{%.+}}, {{%.+}}
+; TOKENLIC-DAG:  .curr [[TOKENLIC]]; .value 0
+; TOKENLIC-DAG:  .curr [[TOKENLIC]]; .value 0
+; TOKENLIC-DAG:  .curr [[TOKENLIC]]; .value 0
+; TOKENLIC-DAG:  .curr [[TOKENLIC]]; .value 0
+; TOKENLIC-DAG:  .curr [[TOKENLIC]]; .value 0
+; TOKENLIC-DAG:  .curr [[TOKENLIC]]; .value 0
+; TOKENLIC-DAG:  .curr [[TOKENLIC]]; .value 0
 entry:
   %clie_pre = tail call i32 @llvm.csa.parallel.region.entry(i32 1023)
   %cmp12 = icmp sgt i64 %size, 0
