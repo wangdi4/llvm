@@ -6,9 +6,12 @@
 //
 // Generate all the types of files we can bundle.
 //
+<<<<<<< HEAD
 // generate the emulated fat object:
 // RUN: %clangxx -O0 -target %itanium_abi_triple -DEMULATE_FAT_OBJ %s -c -o %t.2.o
 //
+=======
+>>>>>>> d9ebc64081946800e95ec1a4cea54a5eef07b084
 // RUN: %clang -O0 -target %itanium_abi_triple %s -E -o %t.i
 // RUN: %clangxx -O0 -target %itanium_abi_triple -x c++ %s -E -o %t.ii
 // RUN: %clang -O0 -target %itanium_abi_triple %s -S -emit-llvm -o %t.ll
@@ -252,10 +255,16 @@
 // end INTEL_COLLAB
 =======
 
+<<<<<<< HEAD
 // RUN: clang-offload-bundler -type=o -targets=host-powerpc64le-ibm-linux-gnu,openmp-powerpc64le-ibm-linux-gnu,openmp-x86_64-pc-linux-gnu -inputs=%t.o,%t.tgt1,%t.tgt2 -outputs=%t.bundle3.o -### 2>&1 \
 // RUN: | FileCheck %s --check-prefix CK-OBJ-CMD
 // CK-OBJ-CMD: llvm-objcopy{{(.exe)?}}" "--add-section=__CLANG_OFFLOAD_BUNDLE__host-powerpc64le-ibm-linux-gnu={{.+}}.tmp" "--add-section=__CLANG_OFFLOAD_BUNDLE_SIZE__host-powerpc64le-ibm-linux-gnu={{.+}}.tmp" "--add-section=__CLANG_OFFLOAD_BUNDLE__openmp-powerpc64le-ibm-linux-gnu={{.+}}.tgt1" "--add-section=__CLANG_OFFLOAD_BUNDLE_SIZE__openmp-powerpc64le-ibm-linux-gnu={{.+}}.tmp" "--add-section=__CLANG_OFFLOAD_BUNDLE__openmp-x86_64-pc-linux-gnu={{.+}}.tgt2" "--add-section=__CLANG_OFFLOAD_BUNDLE_SIZE__openmp-x86_64-pc-linux-gnu={{.+}}.tmp" "{{.+}}.o" "{{.+}}.bundle3.o"
 >>>>>>> 813621e49df799aa4c3970b07536911d2ac1a7ca
+=======
+// RUN: clang-offload-bundler -type=o -targets=host-%itanium_abi_triple,openmp-powerpc64le-ibm-linux-gnu,openmp-x86_64-pc-linux-gnu -inputs=%t.o,%t.tgt1,%t.tgt2 -outputs=%t.bundle3.o -### 2>&1 \
+// RUN: | FileCheck %s -DHOST=%itanium_abi_triple -DINOBJ1=%t.o -DINOBJ2=%t.tgt1 -DINOBJ3=%t.tgt2 -DOUTOBJ=%t.bundle3.o --check-prefix CK-OBJ-CMD
+// CK-OBJ-CMD: llvm-objcopy{{(.exe)?}}" "--add-section=__CLANG_OFFLOAD_BUNDLE__host-[[HOST]]={{.+}}.tmp" "--add-section=__CLANG_OFFLOAD_BUNDLE_SIZE__host-[[HOST]]={{.+}}.tmp" "--add-section=__CLANG_OFFLOAD_BUNDLE__openmp-powerpc64le-ibm-linux-gnu=[[INOBJ2]]" "--add-section=__CLANG_OFFLOAD_BUNDLE_SIZE__openmp-powerpc64le-ibm-linux-gnu={{.+}}.tmp" "--add-section=__CLANG_OFFLOAD_BUNDLE__openmp-x86_64-pc-linux-gnu=[[INOBJ3]]" "--add-section=__CLANG_OFFLOAD_BUNDLE_SIZE__openmp-x86_64-pc-linux-gnu={{.+}}.tmp" "[[INOBJ1]]" "[[OUTOBJ]]"
+>>>>>>> d9ebc64081946800e95ec1a4cea54a5eef07b084
 
 // RUN: clang-offload-bundler -type=o -targets=host-%itanium_abi_triple,openmp-powerpc64le-ibm-linux-gnu,openmp-x86_64-pc-linux-gnu -inputs=%t.o,%t.tgt1,%t.tgt2 -outputs=%t.bundle3.o
 // RUN: clang-offload-bundler -type=o -targets=host-%itanium_abi_triple,openmp-powerpc64le-ibm-linux-gnu,openmp-x86_64-pc-linux-gnu -outputs=%t.res.o,%t.res.tgt1,%t.res.tgt2 -inputs=%t.bundle3.o -unbundle
@@ -263,7 +272,11 @@
 // RUN: diff %t.tgt1 %t.res.tgt1
 // RUN: diff %t.tgt2 %t.res.tgt2
 // RUN: clang-offload-bundler -type=o -targets=openmp-powerpc64le-ibm-linux-gnu,host-%itanium_abi_triple,openmp-x86_64-pc-linux-gnu -outputs=%t.res.tgt1,%t.res.o,%t.res.tgt2 -inputs=%t.bundle3.o -unbundle
+<<<<<<< HEAD
 // RUN: diff %t.o %t.res.o
+=======
+// RUN: diff %t.bundle3.o %t.res.o
+>>>>>>> d9ebc64081946800e95ec1a4cea54a5eef07b084
 // RUN: diff %t.tgt1 %t.res.tgt1
 // RUN: diff %t.tgt2 %t.res.tgt2
 
@@ -280,7 +293,7 @@
 //
 // Check target checking
 //
-// RUN: clang-offload-bundler -type=bc -targets=host-powerpc64le-ibm-linux-gnu -inputs=%t.bundle3.bc -check-section
+// RUN: clang-offload-bundler -type=bc -targets=host-%itanium_abi_triple -inputs=%t.bundle3.bc -check-section
 // RUN: clang-offload-bundler -type=bc -targets=openmp-powerpc64le-ibm-linux-gnu -inputs=%t.bundle3.bc -check-section
 // RUN: clang-offload-bundler -type=bc -targets=openmp-x86_64-pc-linux-gnu -inputs=%t.bundle3.bc -check-section
 // RUN: not clang-offload-bundler -type=bc -targets=fpga-fpga_aocr-intel-linux-sycldevice -inputs=%t.bundle3.bc -check-section
@@ -291,39 +304,17 @@
 // Check archive bundle.
 //
 // RUN: echo 'Invalid object' > %t.invalid.o
-// RUN: llvm-ar crv %t.a %t.2.o %t.invalid.o
-// RUN: clang-offload-bundler -type=ao -targets=host-powerpc64le-ibm-linux-gnu,openmp-powerpc64le-ibm-linux-gnu,openmp-x86_64-pc-linux-gnu -outputs=%t.host.lst,%t.tgt1.lst,%t.tgt2.lst -inputs=%t.a -unbundle
+// RUN: rm -f %t.a
+// RUN: llvm-ar crv %t.a %t.bundle3.o %t.invalid.o
+// RUN: clang-offload-bundler -type=ao -targets=host-%itanium_abi_triple,openmp-powerpc64le-ibm-linux-gnu,openmp-x86_64-pc-linux-gnu -outputs=%t.host.lst,%t.tgt1.lst,%t.tgt2.lst -inputs=%t.a -unbundle
 // RUN: wc -l %t.host.lst | FileCheck %s --check-prefix=CHECK-AR-FILE-LIST
 // RUN: wc -l %t.tgt1.lst | FileCheck %s --check-prefix=CHECK-AR-FILE-LIST
 // RUN: wc -l %t.tgt2.lst | FileCheck %s --check-prefix=CHECK-AR-FILE-LIST
-// RUN: diff %t.2.o `cat %t.host.lst`
+// RUN: diff %t.bundle3.o `cat %t.host.lst`
 // RUN: diff %t.tgt1 `cat %t.tgt1.lst`
-// RUN: diff %t.tgt1 `cat %t.tgt1.lst`
+// RUN: diff %t.tgt2 `cat %t.tgt2.lst`
 
 // CHECK-AR-FILE-LIST: 1
-
-#ifdef EMULATE_FAT_OBJ
-#define BUNDLE_SECTION_PREFIX "__CLANG_OFFLOAD_BUNDLE__"
-#define BUNDLE_SIZE_SECTION_PREFIX "__CLANG_OFFLOAD_BUNDLE_SIZE__"
-
-#define TARGET_HOST "host-powerpc64le-ibm-linux-gnu"
-#define TARGET1 "openmp-powerpc64le-ibm-linux-gnu"
-#define TARGET2 "openmp-x86_64-pc-linux-gnu"
-
-// not to rely on <cstdint>:
-typedef long long int64_t;
-
-// Populate sections with special names recognized by the unbundler;
-// this emulates a fat object created by the bundler
-char str0[] __attribute__((section(BUNDLE_SECTION_PREFIX TARGET_HOST))) = { 0 };
-int64_t size0[] __attribute__((section(BUNDLE_SIZE_SECTION_PREFIX TARGET_HOST))) = { 1 };
-
-char str1[] __attribute__((section(BUNDLE_SECTION_PREFIX TARGET1))) = { "Content of device file 1\n" };
-int64_t size1[] __attribute__((section(BUNDLE_SIZE_SECTION_PREFIX TARGET1))) = { 25 };
-
-char str2[] __attribute__((section(BUNDLE_SECTION_PREFIX TARGET2))) = { "Content of device file 2\n" };
-int64_t size2[] __attribute__((section(BUNDLE_SIZE_SECTION_PREFIX TARGET2))) = { 25 };
-#endif // EMULATE_FAT_OBJ
 
 // Some code so that we can create a binary out of this file.
 int A = 0;
