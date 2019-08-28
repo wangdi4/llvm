@@ -34,8 +34,9 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
-#include "llvm/Support/Signals.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Signals.h"
+#include "llvm/Support/StringSaver.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -100,18 +101,6 @@ static cl::opt<bool> PrintExternalCommands(
     cl::desc("Print any external commands that are to be executed "
              "instead of actually executing them - for testing purposes.\n"),
     cl::init(false), cl::cat(ClangOffloadBundlerCategory));
-#if INTEL_COLLAB
-// Cherry-pick from https://github.com/intel/llvm/pull/363/commits
-static cl::opt<bool>
-    SaveTemporaryFiles("save-temps",
-                       cl::desc("Saves intermediate temporary files.\n"),
-                       cl::init(false), cl::cat(ClangOffloadBundlerCategory));
-#else  // INTEL_COLLAB
-static cl::opt<bool> DumpTemporaryFiles(
-    "dump-temporary-files",
-    cl::desc("Dumps any temporary files created - for testing purposes.\n"),
-    cl::init(false), cl::cat(ClangOffloadBundlerCategory));
-#endif // INTEL_COLLAB
 
 /// Magic string that marks the existence of offloading data.
 #define OFFLOAD_BUNDLER_MAGIC_STR "__CLANG_OFFLOAD_BUNDLE__"
@@ -133,17 +122,6 @@ static void getOffloadKindAndTriple(StringRef Target, StringRef &OffloadKind,
   OffloadKind = KindTriplePair.first;
   Triple = KindTriplePair.second;
 }
-#if INTEL_COLLAB
-// Cherry-pick from https://github.com/intel/llvm/pull/363/commits
-// The lines in the else clause were deleted.
-#else  // INTEL_COLLAB
-static StringRef getTriple(StringRef Target) {
-  StringRef OffloadKind;
-  StringRef Triple;
-  getOffloadKindAndTriple(Target, OffloadKind, Triple);
-  return Triple;
-}
-#endif // INTEL_COLLAB
 static bool hasHostKind(StringRef Target) {
   StringRef OffloadKind;
   StringRef Triple;
@@ -417,11 +395,7 @@ public:
 /// In order to bundle we create an IR file with the content of each section and
 /// use incremental linking to produce the resulting object.
 ///
-<<<<<<< HEAD
 /// To unbundle, we just copy the contents of the designated section.
-=======
-/// To unbundle, we use just copy the contents of the designated section.
->>>>>>> a795dd88f7b90be83c1ccb286c7de9a0e6a05d89
 ///
 /// The bundler produces object file in host target native format (e.g. ELF for
 /// Linux). The sections it creates are:
@@ -517,15 +491,7 @@ class ObjectFileHandler final : public FileHandler {
     NameSuffix = SectionName.substr(NamePrefix.size());
     return true;
   }
-#if INTEL_COLLAB
-  // Cherry-pick from https://github.com/intel/llvm/pull/363/commits
-  // The lines in the else clause were deleted.
-#else  // INTEL_COLLAB
-  /// \return LLVM type representing an ELF section size.
-  static inline Type *getSectionSizeTy(LLVMContext &C) {
-    return Type::getInt64Ty(C);
-  }
-#endif // INTEL_COLLAB
+
   /// Total number of inputs.
   unsigned NumberOfInputs = 0;
 
@@ -533,25 +499,8 @@ class ObjectFileHandler final : public FileHandler {
   /// read from the buffers.
   unsigned NumberOfProcessedInputs = 0;
 
-#if INTEL_COLLAB
-  // Cherry-pick from https://github.com/intel/llvm/pull/363/commits
-  // The lines in the else clause were deleted.
   /// Input sizes.
   SmallVector<uint64_t, 16u> InputSizes;
-#else  // INTEL_COLLAB
-  /// LLVM context used to create the auxiliary modules.
-  LLVMContext VMContext;
-
-  /// LLVM module used to create an object with all the bundle
-  /// components.
-  std::unique_ptr<Module> AuxModule;
-
-  /// The current triple we are working with.
-  StringRef CurrentTriple;
-
-  /// The name of the main input file.
-  StringRef MainInputFileName;
-#endif // INTEL_COLLAB
 
 public:
   ObjectFileHandler(std::unique_ptr<ObjectFile> ObjIn)
@@ -588,13 +537,7 @@ public:
           consumeError(Content.takeError());
           return;
         }
-#if INTEL_COLLAB
-        // Cherry-pick from https://github.com/intel/llvm/pull/363/commits
         unsigned int ElemSize = sizeof(uint64_t);
-#else  // INTEL_COLLAB
-        unsigned int ElemSize =
-            getSectionSizeTy(VMContext)->getPrimitiveSizeInBits() / 8;
-#endif // INTEL_COLLAB
 
         // the size of the size section must be a multiple of ElemSize
         if (Content->size() % ElemSize != 0)
@@ -678,10 +621,6 @@ public:
     // Iterate through individual objects and extract them
     for (size_t I = 0; I < NumObjects; ++I) {
       uint64_t ObjSize = SizeVec[I];
-<<<<<<< HEAD
-
-=======
->>>>>>> a795dd88f7b90be83c1ccb286c7de9a0e6a05d89
       StringRef ObjFileName = OutName;
       SmallString<128> Path;
 
@@ -735,32 +674,14 @@ public:
 
     // Record number of inputs.
     NumberOfInputs = Inputs.size();
-#if INTEL_COLLAB
-    // Cherry-pick from https://github.com/intel/llvm/pull/363/commits
+
     // And input sizes.
     for (unsigned I = 0; I < NumberOfInputs; ++I)
       InputSizes.push_back(Inputs[I]->getBufferSize());
-<<<<<<< HEAD
-#else  // INTEL_COLLAB
-    // Create an LLVM module to have the content we need to bundle.
-    auto *M = new Module("clang-offload-bundle", VMContext);
-    M->setTargetTriple(getTriple(TargetNames[HostInputIndex]));
-    AuxModule.reset(M);
-#endif // INTEL_COLLAB
-=======
->>>>>>> a795dd88f7b90be83c1ccb286c7de9a0e6a05d89
   }
 
   void WriteBundleStart(raw_fd_ostream &OS, StringRef TargetTriple) final {
     ++NumberOfProcessedInputs;
-#if INTEL_COLLAB
-    // Cherry-pick from https://github.com/intel/llvm/pull/363/commits
-    // The lines in the else clause were deleted.
-#else  // INTEL_COLLAB
-    // Record the triple we are using, that will be used to name the section we
-    // will create.
-    CurrentTriple = TargetTriple;
-#endif // INTEL_COLLAB
   }
 
   bool WriteBundleEnd(raw_fd_ostream &OS, StringRef TargetTriple) final {
@@ -771,52 +692,15 @@ public:
     // If this is not the last output, we don't have to do anything.
     if (NumberOfProcessedInputs != NumberOfInputs)
       return false;
-#if INTEL_COLLAB
-    // Cherry-pick from https://github.com/intel/llvm/pull/363/commits
+
     // Find llvm-objcopy in order to create the bundle binary.
-    auto Objcopy = sys::findProgramByName(
+    ErrorOr<std::string> Objcopy = sys::findProgramByName(
         "llvm-objcopy", sys::path::parent_path(BundlerExecutable));
-    if (Objcopy.getError()) {
+    if (!Objcopy) {
       errs() << "error: unable to find 'llvm-objcopy' in path.\n";
       return true;
     }
-#else  // INTEL_COLLAB
-    // Create the bitcode file name to write the resulting code to. Keep it if
-    // save-temps is active.
-    SmallString<128> BitcodeFileName;
-    if (sys::fs::createTemporaryFile("clang-offload-bundler", "bc",
-                                     BitcodeFileName)) {
-      errs() << "error: unable to create temporary file.\n";
-      return true;
-    }
-#endif // INTEL_COLLAB
-#if INTEL_COLLAB
-    // Cherry-pick from https://github.com/intel/llvm/pull/363/commits
-    // The lines in the else clause were deleted.
-#else  // INTEL_COLLAB
-    // Dump the contents of the temporary file if that was requested.
-    if (DumpTemporaryFiles) {
-      errs() << ";\n; Object file bundler IR file.\n;\n";
-      AuxModule.get()->print(errs(), nullptr,
-                             /*ShouldPreserveUseListOrder=*/false,
-                             /*IsForDebug=*/true);
-      errs() << '\n';
-    }
 
-    // Find clang in order to create the bundle binary.
-    StringRef Dir = sys::path::parent_path(BundlerExecutable);
-
-    auto ClangBinary = sys::findProgramByName("clang", Dir);
-    if (ClangBinary.getError()) {
-      // Remove bitcode file.
-      sys::fs::remove(BitcodeFileName);
-
-      errs() << "error: unable to find 'clang' in path.\n";
-      return true;
-    }
-#endif // INTEL_COLLAB
-#if INTEL_COLLAB
-    // Cherry-pick from https://github.com/intel/llvm/pull/363/commits
     // We write to the output file directly. So, we close it and use the name
     // to pass down to llvm-objcopy.
     OS.close();
@@ -824,9 +708,8 @@ public:
     // Temp files that need to be removed.
     struct Dummy : public SmallVector<std::string, 8u> {
       ~Dummy() {
-        if (!SaveTemporaryFiles)
-          for (const auto &File : *this)
-            sys::fs::remove(File);
+        for (const auto &File : *this)
+          sys::fs::remove(File);
         clear();
       }
     } TempFiles;
@@ -855,12 +738,13 @@ public:
     };
 
     // Compose command line for the objcopy tool.
-    SmallVector<std::string, 16u> ObjcopyArgs = {"llvm-objcopy"};
+    BumpPtrAllocator Alloc;
+    StringSaver SS{Alloc};
+    SmallVector<StringRef, 8u> ObjcopyArgs{"llvm-objcopy"};
     for (unsigned I = 0; I < NumberOfInputs; ++I) {
-      // Add section with target object.
-      ObjcopyArgs.push_back(std::string("--add-section=") +
-                            OFFLOAD_BUNDLER_MAGIC_STR + TargetNames[I] + "=" +
-                            InputFileNames[I]);
+      ObjcopyArgs.push_back(SS.save(Twine("--add-section=") +
+                                    OFFLOAD_BUNDLER_MAGIC_STR + TargetNames[I] +
+                                    "=" + InputFileNames[I]));
 
       // Create temporary file with the section size contents.
       auto SizeFile = CreateTempFile(makeArrayRef(
@@ -869,121 +753,31 @@ public:
         return true;
 
       // And add one more section with target object size.
-      ObjcopyArgs.push_back(std::string("--add-section=") +
-                            SIZE_SECTION_PREFIX + TargetNames[I] + "=" +
-                            SizeFile.getValue());
+      ObjcopyArgs.push_back(SS.save(Twine("--add-section=") +
+                                    SIZE_SECTION_PREFIX + TargetNames[I] + "=" +
+                                    SizeFile.getValue()));
     }
-
     ObjcopyArgs.push_back(InputFileNames[HostInputIndex]);
     ObjcopyArgs.push_back(OutputFileNames.front());
-#else  // INTEL_COLLAB
-    // Do the incremental linking. We write to the output file directly. So, we
-    // close it and use the name to pass down to clang.
-    OS.close();
-    SmallString<128> TargetName = getTriple(TargetNames[HostInputIndex]);
-    std::vector<StringRef> ClangArgs = {"clang",
-                                        "-r",
-                                        "-target",
-                                        TargetName.c_str(),
-                                        "-o",
-                                        OutputFileNames.front().c_str(),
-                                        InputFileNames[HostInputIndex].c_str(),
-                                        BitcodeFileName.c_str(),
-                                        "-nostdlib"};
-#endif // INTEL_COLLAB
+
     // If the user asked for the commands to be printed out, we do that instead
     // of executing it.
-#if INTEL_COLLAB
-    // Cherry-pick from https://github.com/intel/llvm/pull/363/commits
     if (PrintExternalCommands) {
       errs() << "\"" << Objcopy.get() << "\"";
-      for (StringRef Arg : ObjcopyArgs)
+      for (StringRef Arg : drop_begin(ObjcopyArgs, 1))
         errs() << " \"" << Arg << "\"";
       errs() << "\n";
     } else {
-      SmallVector<StringRef, 16u> Args;
-      copy(ObjcopyArgs, std::back_inserter(Args));
-      if (sys::ExecuteAndWait(Objcopy.get(), Args)) {
+      if (sys::ExecuteAndWait(Objcopy.get(), ObjcopyArgs)) {
         errs() << "error: llvm-objcopy tool failed.\n";
         return true;
       }
     }
-#else  // INTEL_COLLAB
-    if (PrintExternalCommands) {
-      errs() << "\"" << ClangBinary.get() << "\"";
-      for (StringRef Arg : ClangArgs)
-        errs() << " \"" << Arg << "\"";
-      errs() << "\n";
-    } else {
-      // Write the bitcode contents to the temporary file.
-      {
-        std::error_code EC;
-        raw_fd_ostream BitcodeFile(BitcodeFileName, EC, sys::fs::OF_None);
-        if (EC) {
-          errs() << "error: unable to open temporary file.\n";
-          return true;
-        }
-        WriteBitcodeToFile(*AuxModule, BitcodeFile);
-      }
 
-      bool Failed = sys::ExecuteAndWait(ClangBinary.get(), ClangArgs);
-
-      // Remove bitcode file.
-      sys::fs::remove(BitcodeFileName);
-
-      if (Failed) {
-        errs() << "error: incremental linking by external tool failed.\n";
-        return true;
-      }
-    }
-#endif // INTEL_COLLAB
     return false;
   }
-<<<<<<< HEAD
-#if INTEL_COLLAB
-// Cherry-pick from https://github.com/intel/llvm/pull/363/commits
-  void WriteBundle(raw_fd_ostream &OS, MemoryBuffer &Input) final {}
-#else  // INTEL_COLLAB
-  void WriteBundle(raw_fd_ostream &OS, MemoryBuffer &Input) final {
-    Module *M = AuxModule.get();
-
-    // Create the new section name, it will consist of the reserved prefix
-    // concatenated with the triple.
-    std::string SectionName = OFFLOAD_BUNDLER_MAGIC_STR;
-    SectionName += CurrentTriple;
-
-    // Create the constant with the content of the section.
-    auto *Content = ConstantDataArray::get(
-        VMContext, ArrayRef<uint8_t>(reinterpret_cast<const uint8_t *>(
-                                         Input.getBufferStart()),
-                                     Input.getBufferSize()));
-
-    // Create the global in the desired section. We don't want these globals
-    // in the symbol table, so we mark them private.
-    auto *GV = new GlobalVariable(*M, Content->getType(), /*IsConstant=*/true,
-                                  GlobalVariable::PrivateLinkage, Content);
-    GV->setSection(SectionName);
-    // Set alignment to 1 to avoid gaps between concatenated sections after
-    // linkage of a number of fat objects:
-    GV->setAlignment(1);
-
-    // Now add a section with the data section size
-    ConstantDataArray *CDA = reinterpret_cast<ConstantDataArray *>(Content);
-    auto *BufSize =
-        ConstantInt::get(getSectionSizeTy(VMContext),
-                         CDA->getNumElements() * CDA->getElementByteSize());
-    auto *SizeV =
-        new GlobalVariable(*M, Type::getInt64Ty(VMContext), /*IsConstant=*/true,
-                           GlobalVariable::PrivateLinkage, BufSize);
-    SizeV->setSection(
-        (Twine(SIZE_SECTION_PREFIX) + Twine(CurrentTriple)).str());
-    SizeV->setAlignment(1);
-  }
-#endif // INTEL_COLLAB
-=======
 
   void WriteBundle(raw_fd_ostream &OS, MemoryBuffer &Input) final {}
->>>>>>> a795dd88f7b90be83c1ccb286c7de9a0e6a05d89
 };
 
 /// Handler for text files. The bundled file will have the following format.
@@ -1402,7 +1196,7 @@ static bool UnbundleFiles() {
       FH->ReadBundle(Output->second, Input);
       Worklist.erase(Output);
     }
-    
+
     FH->ReadBundleEnd(Input);
 
     // Record if we found the host bundle.
@@ -1579,7 +1373,7 @@ int main(int argc, const char **argv) {
                                      .Case("hip", true)
                                      .Case("sycl", true)
                                      .Case("fpga", true)
-                                     .Default(false);                           
+                                     .Default(false);
 
     bool TripleIsValid = !Triple.empty();
     llvm::Triple T(Triple);
