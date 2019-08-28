@@ -339,11 +339,7 @@
 // CHK-LINK-UB: 1: clang-offload-unbundler, {0}, object
 // CHK-LINK-UB: 2: linker, {1}, image, (device-sycl)
 // CHK-LINK-UB: 3: clang-offload-wrapper, {2}, object, (device-sycl)
-<<<<<<< HEAD
-// CHK-LINK-UB: 4: offload, "device-sycl (spir64-unknown-{{linux|windows}}-sycldevice)" {3}, object
-=======
 // CHK-LINK-UB: 4: offload, "device-sycl (spir64-unknown-{{linux|windows}}-sycldevice{{.*}})" {3}, object
->>>>>>> f5a75223a4a276ab254aa17822d7eab0645bd142
 
 /// ###########################################################################
 
@@ -359,11 +355,7 @@
 // CHK-LINK: 4: assembler, {3}, object, (device-sycl)
 // CHK-LINK: 5: linker, {4}, image, (device-sycl)
 // CHK-LINK: 6: clang-offload-wrapper, {5}, object, (device-sycl)
-<<<<<<< HEAD
-// CHK-LINK: 7: offload, "device-sycl (spir64-unknown-{{linux|windows}}-sycldevice)" {6}, object
-=======
 // CHK-LINK: 7: offload, "device-sycl (spir64-unknown-{{linux|windows}}-sycldevice{{.*}})" {6}, object
->>>>>>> f5a75223a4a276ab254aa17822d7eab0645bd142
 
 /// ###########################################################################
 
