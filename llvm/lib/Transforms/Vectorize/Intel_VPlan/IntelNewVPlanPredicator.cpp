@@ -16,6 +16,7 @@
 #if INTEL_CUSTOMIZATION
 #include "IntelNewVPlanPredicator.h"
 #include "IntelVPlan.h"
+#include "llvm/Analysis/IteratedDominanceFrontier.h"
 #else
 #include "VPlanPredicator.h"
 #include "VPlan.h"
@@ -145,7 +146,9 @@ void VPlanPredicator::calculatePredicateTerms(VPBlockBase *CurrBlock) {
   if (VPDomTree.dominates(CurrBlock, Region->getExit())) {
     assert(Block2PredicateTerms.count(Region) == 1 &&
            "Region should have been processed already!");
-    Block2PredicateTerms[CurrBlock] = {{PredicateTerm(Region)}};
+    PredicateTerm Term(Region);
+    Block2PredicateTerms[CurrBlock] = {{Term}};
+    PredicateTerm2UseBlocks[Term].push_back(CurrBlock);
     return;
   }
 
@@ -157,7 +160,9 @@ void VPlanPredicator::calculatePredicateTerms(VPBlockBase *CurrBlock) {
       // predicate.
       assert(Block2PredicateTerms.count(PredBB) == 1 &&
              "PredBB should have been processed already!");
-      Block2PredicateTerms[CurrBlock] = {{PredicateTerm(PredBB)}};
+      PredicateTerm Term(PredBB);
+      Block2PredicateTerms[CurrBlock] = {{Term}};
+      PredicateTerm2UseBlocks[Term].push_back(CurrBlock);
       return;
     }
   }
@@ -195,34 +200,37 @@ void VPlanPredicator::calculatePredicateTerms(VPBlockBase *CurrBlock) {
            "Single predecessor on false edge?");
     // Cond == nullptr would just mean that PredBB's predicate should be used.
     // Still ok.
-    Block2PredicateTerms[CurrBlock].push_back(PredicateTerm(
-        InfluenceBB, Cond,
-        CurrBlock != InfluenceBB->getSuccessors()[0] /* Negate */));
+    PredicateTerm Term(InfluenceBB, Cond,
+                       CurrBlock !=
+                           InfluenceBB->getSuccessors()[0] /* Negate */);
+    Block2PredicateTerms[CurrBlock].push_back(Term);
+    PredicateTerm2UseBlocks[Term].push_back(CurrBlock);
   }
 }
 
-VPValue *VPlanPredicator::getOrCreateValueForPredicateTerm(PredicateTerm Term) {
-  auto It = PredicateTerm2Value.find(Term);
-  if (It != PredicateTerm2Value.end())
-    return It->second;
+VPValue *
+VPlanPredicator::createDefiningValueForPredicateTerm(PredicateTerm Term) {
+  assert(PredicateTerm2LiveInMap.find(Term) == PredicateTerm2LiveInMap.end() &&
+         "Defining value has been created already!");
 
+  assert(PredicateTerm2UseBlocks.count(Term) == 1 &&
+         "No use blocks recorded for the PredicateTerm!");
   auto *Block = Term.OriginBlock;
   auto *Val = Term.Condition;
+
   if (Term.Negate) {
-    assert(Val && "Can't negate non-existing condition!");
+    assert(Val && "Can negate non-existing condition!");
     Val = getOrCreateNot(Val);
   }
+
   VPValue *Predicate = Block->getPredicate();
-  if (!Predicate) {
-    PredicateTerm2Value[Term] = Val;
+  if (!Predicate)
     return Val;
-  }
 
-  if (!Val) {
-    PredicateTerm2Value[Term] = Predicate;
+  if (!Val)
     return Predicate;
-  }
 
+  auto *DA = Plan.getVPlanDA();
   VPBuilder::InsertPointGuard Guard(Builder);
   VPBasicBlock *PredicateInstsBB = nullptr;
   // TODO: Don't do splitting once we start preserving uniform control flow
@@ -231,22 +239,114 @@ VPValue *VPlanPredicator::getOrCreateValueForPredicateTerm(PredicateTerm Term) {
     PredicateInstsBB =
         cast<VPBasicBlock>(Block->getExitBasicBlock()->getSingleSuccessor());
   else {
-    PredicateInstsBB = VPBlockUtils::splitExitBlock(Block, VPLI);
+    PredicateInstsBB = VPBlockUtils::splitExitBlock(Block, VPLI, VPDomTree);
     SplitBlocks.insert(Block);
   }
   Builder.setInsertPoint(PredicateInstsBB);
   // TODO: Once we start presrving uniform control flow, there will be no
   // need to create "and" for uniform predicate that is true on all incoming
   // edges.
-  auto *DA = Plan.getVPlanDA();
   bool IsDivergent = DA->isDivergent(*Val) || DA->isDivergent(*Predicate);
   Val = Builder.createAnd(Predicate, Val,
                           "vp." + Block->getName() + ".br." + Val->getName());
   if (IsDivergent)
     DA->markDivergent(*Val);
 
-  PredicateTerm2Value[Term] = Val;
   return Val;
+}
+
+VPValue *
+VPlanPredicator::getOrCreateValueForPredicateTerm(PredicateTerm Term,
+                                                  VPBlockBase *AtBlock) {
+  auto It = PredicateTerm2LiveInMap.find(Term);
+  if (It != PredicateTerm2LiveInMap.end()) {
+    // Already calculated the IDF and inserted needed phis.
+    assert(It->second.count(AtBlock) &&
+           "Missing live-in information for PredicateTerm!");
+    return It->second[AtBlock];
+  }
+
+  VPValue *Val = createDefiningValueForPredicateTerm(Term);
+  assert(Val && "Value for PredicateTerm wasn't created!");
+
+  // SSA Phi insertion is equivalent to performing a mem2reg transformation for
+  // an alloca with two stores: false at the region entry, Val at the Block
+  // (splitting of the Block for AND instructions creation is irrelevant here,
+  // as it will be a single-succ/single-pred edge for Block/SplitBlock).
+  VPBlockBase *Block = Term.OriginBlock;
+
+  SmallPtrSet<VPBlockBase *, 2> DefBlocks = {Block,
+                                             AtBlock->getParent()->getEntry()};
+  SmallPtrSet<VPBlockBase *, 16> LiveInBlocks;
+  SmallVector<VPBlockBase *, 8> IDFPHIBlocks;
+  computeLiveInsForIDF(Term, LiveInBlocks);
+
+  VPlanForwardIDFCalculator IDF(VPDomTree);
+  IDF.setDefiningBlocks(DefBlocks);
+  IDF.setLiveInBlocks(LiveInBlocks);
+  IDF.calculate(IDFPHIBlocks);
+
+  DenseMap<VPBlockBase *, VPValue *> &LiveValueMap =
+      PredicateTerm2LiveInMap[Term];
+  assert(LiveValueMap.begin() == LiveValueMap.end() &&
+         "Live ins already collected?");
+  LiveValueMap[Block] = Val;
+
+  using EdgeTy = std::pair<VPBlockBase * /* Curr */, VPBlockBase * /* Pred */>;
+  SmallVector<EdgeTy, 16> Worklist;
+  DenseSet<EdgeTy> Visited;
+  Worklist.emplace_back(Block, Block);
+
+  while (!Worklist.empty()) {
+    VPBlockBase *BB, *PredBB;
+    std::tie(BB, PredBB) = Worklist.back();
+    Worklist.pop_back();
+
+    // Add successors to worklist now, so that the code can do early-continue
+    // without duplicating this insertion code.
+    for (auto *Succ : BB->getSuccessors()) {
+      if (Visited.insert(std::make_pair(Succ, BB)).second)
+        Worklist.emplace_back(Succ, BB);
+    }
+
+    auto *LiveIn = LiveValueMap[PredBB];
+    if (!is_contained(IDFPHIBlocks, BB)) {
+      LiveValueMap[BB] = LiveIn;
+      PredBB = BB;
+      continue;
+    }
+    assert(BB != Block &&
+           "Why does the PredicateTerm.OriginBlock need an SSA phi?");
+    VPPHINode *Phi;
+    auto ExistingLiveInIt = LiveValueMap.find(BB);
+    if (ExistingLiveInIt != LiveValueMap.end()) {
+      // Already visited, there is an existing phi.
+      Phi = cast<VPPHINode>(ExistingLiveInIt->second);
+    } else {
+      // First visit, create the phi, set all incoming values to false as
+      // default.
+      Phi = new VPPHINode(LiveIn->getType());
+      Phi->setName(Val->getName() + ".phi." + BB->getName());
+      BB->getEntryBasicBlock()->addRecipeAfter(Phi, nullptr /*be the first*/);
+      for (auto *BBPred : BB->getPredecessors()) {
+        Phi->addIncoming(
+            Plan.getVPConstant(ConstantInt::getFalse(*Plan.getLLVMContext())),
+            BBPred->getExitBasicBlock());
+      }
+      LiveValueMap[BB] = Phi;
+    }
+    Phi->setIncomingValue(Phi->getBlockIndex(PredBB->getExitBasicBlock()),
+                          LiveIn);
+
+    auto *DA = Plan.getVPlanDA();
+    // TODO: Should it be an assert instead?
+    if (DA->isDivergent(*LiveIn))
+      DA->markDivergent(*Phi);
+    PredBB = BB;
+  }
+
+  assert(LiveValueMap.count(AtBlock) == 1 && "Live for AtBlock not computed!");
+  return LiveValueMap[AtBlock];
 }
 
 static void markPhisAsBlended(VPBlockBase *Block) {
@@ -295,6 +395,35 @@ void VPlanPredicator::linearizeRegion(
   }
 }
 
+void VPlanPredicator::computeLiveInsForIDF(
+    PredicateTerm Term, SmallPtrSetImpl<VPBlockBase *> &LiveInBlocks) {
+  auto &UseBlocks = PredicateTerm2UseBlocks[Term];
+  SmallVector<VPBlockBase *, 16> Worklist(UseBlocks.begin(), UseBlocks.end());
+
+  while (!Worklist.empty()) {
+    VPBlockBase *VPBB = Worklist.pop_back_val();
+
+    // Blocks on the path from region entry to the def block aren't interesting,
+    // they don't depend on the condition in Term.OriginBlock and won't be
+    // affecting the blocks that depend (these should see the def from
+    // Term.OriginBlock).
+    if (VPBB == Term.OriginBlock)
+      continue;
+
+    if (!LiveInBlocks.insert(VPBB).second)
+      // Already processed.
+      continue;
+
+    // Add predecessors of VPBB unless it is a latch coming through back edge.
+    for (VPBlockBase *Pred : VPBB->getPredecessors()) {
+      if (VPBlockUtils::blockIsLoopLatch(Pred, VPLI))
+        continue;
+
+      Worklist.push_back(Pred);
+    }
+  }
+}
+
 // Predicate and linearize the CFG within Region.
 void VPlanPredicator::predicateAndLinearizeRegionRec(VPRegionBlock *Region,
                                                      bool SearchLoopHack) {
@@ -309,6 +438,10 @@ void VPlanPredicator::predicateAndLinearizeRegionRec(VPRegionBlock *Region,
     linearizeRegion(RPOT);
 
   auto *DA = Plan.getVPlanDA();
+
+  // Get updated DomTree for the proper IDF calculation to insert needed phis
+  // for predicates propagation.
+  VPDomTree.recalculate(*Region);
   ReversePostOrderTraversal<VPBlockBase *> PostLinearizationRPOT(
       Region->getEntry());
   for (VPBlockBase *Block : PostLinearizationRPOT) {
@@ -326,8 +459,11 @@ void VPlanPredicator::predicateAndLinearizeRegionRec(VPRegionBlock *Region,
 
     if (PredTerms.size() == 1 && PredTerms[0].Condition == nullptr) {
       // Re-use predicate of the OriginBlock.
-      Block->setPredicate(PredTerms[0].OriginBlock->getPredicate());
-      auto *Predicate = Block->getPredicate();
+      assert((Block->getParent() == PredTerms[0].OriginBlock ||
+              VPDomTree.dominates(PredTerms[0].OriginBlock, Block)) &&
+             "Broken dominance!");
+      auto *Predicate = PredTerms[0].OriginBlock->getPredicate();
+      Block->setPredicate(Predicate);
       if (Predicate && Block != Region->getEntry()) {
         // Pred for region entry created when processing the region itself.
         auto *BlockPredicateInst = Builder.createPred(Predicate);
@@ -338,9 +474,13 @@ void VPlanPredicator::predicateAndLinearizeRegionRec(VPRegionBlock *Region,
       continue;
     }
 
+    // Either 2+ incoming edges or a single edge under condition. Create generic
+    // OR sequence for all incoming predicates.
+    assert(Block != Region->getEntry() && "Not a SESE region?");
+
     std::list<VPValue *> IncomingConditions;
     for (auto Term : PredTerms)
-      if (auto *Val = getOrCreateValueForPredicateTerm(Term))
+      if (auto *Val = getOrCreateValueForPredicateTerm(Term, Block))
         IncomingConditions.push_back(Val);
 
     auto *Predicate = genPredicateTree(IncomingConditions);

@@ -99,7 +99,8 @@ VPBasicBlock *VPBlockBase::getExitBasicBlock() {
 
 #if INTEL_CUSTOMIZATION
 VPBasicBlock *VPBlockUtils::splitExitBlock(VPBlockBase *Block,
-                                           VPLoopInfo *VPLInfo) {
+                                           VPLoopInfo *VPLInfo,
+                                           VPDominatorTree &DomTree) {
   VPBasicBlock *BB = Block->getExitBasicBlock();
   VPBasicBlock *NewBlock = new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
   BB->moveConditionalEOBTo(NewBlock);
@@ -135,6 +136,23 @@ VPBasicBlock *VPBlockUtils::splitExitBlock(VPBlockBase *Block,
                       });
     }
   }
+
+  if (Block != BB)
+    // No DomTree updates because it's not recursive.
+    return NewBlock;
+
+  // Update dom information
+
+  VPDomTreeNode *BlockDT = DomTree.getNode(Block);
+  assert(BlockDT && "Expected node in dom tree!");
+  SmallVector<VPDomTreeNode *, 2> BlockDTChildren(BlockDT->begin(),
+                                                  BlockDT->end());
+  // Block is NewBlock's idom.
+  VPDomTreeNode *NewBlockDT = DomTree.addNewBlock(NewBlock, Block /*IDom*/);
+
+  // NewBlock dominates all other nodes dominated by Block.
+  for (VPDomTreeNode *Child : BlockDTChildren)
+    DomTree.changeImmediateDominator(Child, NewBlockDT);
 
   return NewBlock;
 }
