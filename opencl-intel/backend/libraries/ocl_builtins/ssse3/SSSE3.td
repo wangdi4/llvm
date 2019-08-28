@@ -86,5 +86,4 @@ include "ssse3/vloadstore.td"
 include "ssse3/relational.td"
 include "ssse3/transpose.td"
 include "ssse3/masked_load_store.td"
-include "ssse3/sub_group_builtin_impl.td"
 }

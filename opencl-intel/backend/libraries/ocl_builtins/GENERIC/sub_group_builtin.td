@@ -1,20 +1,19 @@
 //
 // Sub group functions and their vectorized versions
 //
-let NeedForwardDecl = 1 in {
-  let Types = [ v1i32,  v4i32,  v8i32,  v16i32 ],
-  Attrs = [OVERLOADABLE] in {
+let NeedForwardDecl = 1,
+Attrs = [OVERLOADABLE] in {
+  let Types = [ v1i32 ] in {
     def sub_group_all  : OclBuiltin<"sub_group_all",  (outs gentype:$ret), (ins gentype:$predicate), [], [], 1, 0>;
     def sub_group_any  : OclBuiltin<"sub_group_any",  (outs gentype:$ret), (ins gentype:$predicate), [], [], 1, 0>;
   }
 
-  let Types = [ v1i32, v4i32, v8i32, v16i32,
-                v1u32, v4u32, v8u32, v16u32,
-                v1i64, v4i64, v8i64, v16i64,
-                v1u64, v4u64, v8u64, v16u64,
-                v1f32, v4f32, v8f32, v16f32,
-                v1f64, v4f64, v8f64, v16f64 ],
-      Attrs = [OVERLOADABLE] in {
+  let Types = [ v4i32,  v8i32,  v16i32 ] in {
+    def sub_group_all_vec  : OclBuiltin<"sub_group_all",  (outs gentype:$ret), (ins gentype:$predicate, u32gentype:$vec_mask), [], [], 1, 0>;
+    def sub_group_any_vec  : OclBuiltin<"sub_group_any",  (outs gentype:$ret), (ins gentype:$predicate, u32gentype:$vec_mask), [], [], 1, 0>;
+  }
+
+  let Types = [ v1i32, v1u32, v1i64, v1u64, v1f32, v1f64 ] in {
         def sub_group_broadcast           : OclBuiltin<"sub_group_broadcast",           (outs gentype:$ret), (ins gentype:$src, uint:$sub_group_local_id), [], [], 1, 0>;
         def sub_group_reduce_add          : OclBuiltin<"sub_group_reduce_add",          (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
         def sub_group_reduce_min          : OclBuiltin<"sub_group_reduce_min",          (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
@@ -27,13 +26,30 @@ let NeedForwardDecl = 1 in {
         def sub_group_scan_inclusive_max  : OclBuiltin<"sub_group_scan_inclusive_max",  (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
       }
 
+  // Vectorized reductions
+  let Types = [ v4i32, v8i32, v16i32,
+                v4u32, v8u32, v16u32,
+                v4i64, v8i64, v16i64,
+                v4u64, v8u64, v16u64,
+                v4f32, v8f32, v16f32,
+                v4f64, v8f64, v16f64 ] in {
+        def sub_group_broadcast_vec           : OclBuiltin<"sub_group_broadcast",           (outs gentype:$ret), (ins gentype:$src, uint:$sub_group_local_id, u32gentype:$vec_mask), [], [], 1, 0>;
+        def sub_group_reduce_add_vec          : OclBuiltin<"sub_group_reduce_add",          (outs gentype:$ret), (ins gentype:$src, u32gentype:$vec_mask), [], [], 1, 0>;
+        def sub_group_reduce_min_vec          : OclBuiltin<"sub_group_reduce_min",          (outs gentype:$ret), (ins gentype:$src, u32gentype:$vec_mask), [], [], 1, 0>;
+        def sub_group_reduce_max_vec          : OclBuiltin<"sub_group_reduce_max",          (outs gentype:$ret), (ins gentype:$src, u32gentype:$vec_mask), [], [], 1, 0>;
+        def sub_group_scan_exclusive_add_vec  : OclBuiltin<"sub_group_scan_exclusive_add",  (outs gentype:$ret), (ins gentype:$src, u32gentype:$vec_mask), [], [], 1, 0>;
+        def sub_group_scan_exclusive_min_vec  : OclBuiltin<"sub_group_scan_exclusive_min",  (outs gentype:$ret), (ins gentype:$src, u32gentype:$vec_mask), [], [], 1, 0>;
+        def sub_group_scan_exclusive_max_vec  : OclBuiltin<"sub_group_scan_exclusive_max",  (outs gentype:$ret), (ins gentype:$src, u32gentype:$vec_mask), [], [], 1, 0>;
+        def sub_group_scan_inclusive_add_vec  : OclBuiltin<"sub_group_scan_inclusive_add",  (outs gentype:$ret), (ins gentype:$src, u32gentype:$vec_mask), [], [], 1, 0>;
+        def sub_group_scan_inclusive_min_vec  : OclBuiltin<"sub_group_scan_inclusive_min",  (outs gentype:$ret), (ins gentype:$src, u32gentype:$vec_mask), [], [], 1, 0>;
+        def sub_group_scan_inclusive_max_vec  : OclBuiltin<"sub_group_scan_inclusive_max",  (outs gentype:$ret), (ins gentype:$src, u32gentype:$vec_mask), [], [], 1, 0>;
+      }
 
   // Declare "scalar" (not vectorized) versions of shuffle.
   let Types = [v1i32, v1u32, v1i64, v1u64, v1f32, v1f64,
                v2i32, v4i32, v8i32, v16i32,
                v2u32, v4u32, v8u32, v16u32,
-               v2f32, v4f32, v8f32, v16f32],
-      Attrs = [OVERLOADABLE] in {
+               v2f32, v4f32, v8f32, v16f32] in {
         def sub_group_shuffle :     OclBuiltin<"intel_sub_group_shuffle", (outs gentype:$ret), (ins gentype:$data, v1u32: $sub_group_local_id), [], [], 1, 0>;
         def sub_group_shuffle_xor : OclBuiltin<"intel_sub_group_shuffle_xor", (outs gentype:$ret), (ins gentype:$data, v1u32: $value), [], [], 1, 0>;
         def sub_group_shuffle_down : OclBuiltin<"intel_sub_group_shuffle_down", (outs gentype:$ret), (ins gentype:$current, gentype:$next, v1u32:$value), [], [], 1, 0>;
@@ -44,8 +60,7 @@ let NeedForwardDecl = 1 in {
   let Types = [v4i32, v4u32, v4i64, v4u64, v4f32, v4f64,
                v8i32, v16i32, v32i32, v64i32,
                v8u32, v16u32, v32u32, v64u32,
-               v8f32, v16f32, v32f32, v64f32 ],
-      Attrs = [OVERLOADABLE] in {
+               v8f32, v16f32, v32f32, v64f32 ] in {
         def sub_group_shuffle_avx : OclBuiltin<"intel_sub_group_shuffle", (outs gentype:$ret), (ins gentype:$data, v4u32:$sub_group_local_id, v4u32:$vec_mask), [], [], 1, 0>;
         def sub_group_shuffle_xor_avx : OclBuiltin<"intel_sub_group_shuffle_xor", (outs gentype:$ret), (ins gentype:$data, v4u32:$value, v4u32:$vec_mask), [], [], 1, 0>;
         def sub_group_shuffle_down_avx : OclBuiltin<"intel_sub_group_shuffle_down", (outs gentype:$ret), (ins gentype:$current, gentype:$next, v4u32:$value, v4u32:$vec_mask), [], [], 1, 0>;
@@ -56,8 +71,7 @@ let NeedForwardDecl = 1 in {
   let Types = [v8i32, v8u32, v8i64, v8u64, v8f32, v8f64,
                v16i32, v32i32, v64i32, v128i32,
                v16u32, v32u32, v64u32, v128u32,
-               v16f32, v32f32, v64f32, v128f32 ],
-      Attrs = [OVERLOADABLE] in {
+               v16f32, v32f32, v64f32, v128f32 ] in {
         def sub_group_shuffle_avx2 : OclBuiltin<"intel_sub_group_shuffle", (outs gentype:$ret), (ins gentype:$data, v8u32:$sub_group_local_id, v8u32:$vec_mask), [], [], 1, 0>;
         def sub_group_shuffle_xor_avx2 : OclBuiltin<"intel_sub_group_shuffle_xor", (outs gentype:$ret), (ins gentype:$data, v8u32:$value, v8u32:$vec_mask), [], [], 1, 0>;
         def sub_group_shuffle_down_avx2 : OclBuiltin<"intel_sub_group_shuffle_down", (outs gentype:$ret), (ins gentype:$current, gentype:$next, v8u32:$value, v8u32:$vec_mask), [], [], 1, 0>;
@@ -68,8 +82,7 @@ let NeedForwardDecl = 1 in {
   let Types = [v16i32, v16u32, v16i64, v16u64, v16f32, v16f64,
                v32i32, v64i32, v128i32, v256i32,
                v32u32, v64u32, v128u32, v256u32,
-               v32f32, v64f32, v128f32, v256f32 ],
-      Attrs = [OVERLOADABLE] in {
+               v32f32, v64f32, v128f32, v256f32 ] in {
         def sub_group_shuffle_avx512 : OclBuiltin<"intel_sub_group_shuffle", (outs gentype:$ret), (ins gentype:$data, v16u32:$sub_group_local_id, v16u32:$vec_mask), [], [], 1, 0>;
         def sub_group_shuffle_xor_avx512 : OclBuiltin<"intel_sub_group_shuffle_xor", (outs gentype:$ret), (ins gentype:$data, v16u32:$value, v16u32:$vec_mask), [], [], 1, 0>;
         def sub_group_shuffle_down_avx512 : OclBuiltin<"intel_sub_group_shuffle_down", (outs gentype:$ret), (ins gentype:$current, gentype:$next, v16u32:$value, v16u32:$vec_mask), [], [], 1, 0>;
@@ -77,8 +90,7 @@ let NeedForwardDecl = 1 in {
       }
 
   // Sub group block read & write
-  let Types = [ v1u32 ],
-      Attrs = [OVERLOADABLE] in {
+  let Types = [ v1u32 ] in {
         // scalar
         def intel_sub_group_block_read  : OclBuiltin<"intel_sub_group_block_read",  (outs gentype:$ret), (ins cgpv1u32:$p), [], [], 1, 0>;
         def intel_sub_group_block_write : OclBuiltin<"intel_sub_group_block_write", (outs void:$ret), (ins gpv1u32:$p, gentype:$data), [], [], 1, 0>;
@@ -103,9 +115,9 @@ let NeedForwardDecl = 1 in {
 //
 foreach func_name = [ "sub_group_all", "sub_group_any" ] in {
   def func_name#_cell1  : MapCell<!cast<OclBuiltin>(func_name), v1i32>;
-  def func_name#_cell4  : MapCell<!cast<OclBuiltin>(func_name), v4i32>;
-  def func_name#_cell8  : MapCell<!cast<OclBuiltin>(func_name), v8i32>;
-  def func_name#_cell16 : MapCell<!cast<OclBuiltin>(func_name), v16i32>;
+  def func_name#_cell4  : MapCell<!cast<OclBuiltin>(func_name#_#"vec"), v4i32>;
+  def func_name#_cell8  : MapCell<!cast<OclBuiltin>(func_name#_#"vec"), v8i32>;
+  def func_name#_cell16 : MapCell<!cast<OclBuiltin>(func_name#_#"vec"), v16i32>;
   def func_name#_vectorized : MapRow<[
     !cast<MapCell>(func_name#"_cell1"),  //scalar
     nullCell,                            //v2
@@ -115,14 +127,15 @@ foreach func_name = [ "sub_group_all", "sub_group_any" ] in {
     nullCell],                           //3
     0,1>;          //not scalarizable, packetizable
 }
+
 foreach func_name = [ "sub_group_broadcast", "sub_group_reduce_add", "sub_group_reduce_min", "sub_group_reduce_max",
                       "sub_group_scan_exclusive_add", "sub_group_scan_exclusive_min", "sub_group_scan_exclusive_max",
                       "sub_group_scan_inclusive_add", "sub_group_scan_inclusive_min", "sub_group_scan_inclusive_max"] in {
   foreach base_type = [ "i32", "u32", "i64", "u64", "f32", "f64" ] in {
     def func_name#_#base_type#_cell1  : MapCell<!cast<OclBuiltin>(func_name), !cast<OclType>("v1"#base_type)>;
-    def func_name#_#base_type#_cell4  : MapCell<!cast<OclBuiltin>(func_name), !cast<OclType>("v4"#base_type)>;
-    def func_name#_#base_type#_cell8  : MapCell<!cast<OclBuiltin>(func_name), !cast<OclType>("v8"#base_type)>;
-    def func_name#_#base_type#_cell16 : MapCell<!cast<OclBuiltin>(func_name), !cast<OclType>("v16"#base_type)>;
+    def func_name#_#base_type#_cell4  : MapCell<!cast<OclBuiltin>(func_name#_#"vec"), !cast<OclType>("v4"#base_type)>;
+    def func_name#_#base_type#_cell8  : MapCell<!cast<OclBuiltin>(func_name#_#"vec"), !cast<OclType>("v8"#base_type)>;
+    def func_name#_#base_type#_cell16 : MapCell<!cast<OclBuiltin>(func_name#_#"vec"), !cast<OclType>("v16"#base_type)>;
     def func_name#_#base_type#_vectorized : MapRow<[
     !cast<MapCell>(func_name#_#base_type#"_cell1"),  //scalar
     nullCell,
@@ -150,4 +163,3 @@ foreach func_name = [ "sub_group_shuffle", "sub_group_shuffle_xor", "sub_group_s
     0,1>;          //not scalarizable, packetizable
   }
 }
-
