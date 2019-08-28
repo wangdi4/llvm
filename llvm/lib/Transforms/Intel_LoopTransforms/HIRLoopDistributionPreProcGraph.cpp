@@ -291,16 +291,6 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
       return true;
     }
 
-    //  Except blobs in Sparse Array Reductions,
-    //  We will not handle Blob DDREF for scalar expansion now
-    //  because of direct replacement is done w/o creating an assignment.
-    //  It is uncommon anyway.
-    //  TODO: Check it helps performance
-    DDRef *DDRefSink = Edge->getSink();
-    if (isa<BlobDDRef>(DDRefSink)) {
-      return true;
-    }
-
     return false;
   }
 
