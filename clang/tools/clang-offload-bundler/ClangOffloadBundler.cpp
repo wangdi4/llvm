@@ -879,7 +879,6 @@ public:
       copy(ObjcopyArgs, std::back_inserter(Args));
       if (sys::ExecuteAndWait(Objcopy.get(), Args)) {
         errs() << "error: llvm-objcopy tool failed.\n";
-<<<<<<< HEAD
         return true;
       }
     }
@@ -908,8 +907,6 @@ public:
 
       if (Failed) {
         errs() << "error: incremental linking by external tool failed.\n";
-=======
->>>>>>> 5de5aee4a573b5f807855f704f319b653f42bd57
         return true;
       }
     }
