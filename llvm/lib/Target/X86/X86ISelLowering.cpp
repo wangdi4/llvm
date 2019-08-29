@@ -41643,7 +41643,6 @@ static SDValue combineStore(SDNode *N, SelectionDAG &DAG,
                              MVT::v16i8, St->getMemOperand());
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Try to fold a vpmovuswb 256->128 into a truncating store.
   // FIXME: Generalize this to other types.
@@ -41658,7 +41657,7 @@ static SDValue combineStore(SDNode *N, SelectionDAG &DAG,
                            MVT::v16i8, St->getMemOperand(), DAG);
   }
 #endif // INTEL_CUSTOMIZATION
-=======
+
   // Look for a truncating store to a less than 128 bit vector that has been
   // truncated from an any_extend_inreg from a 128 bit vector with the same
   // element size. We can use a 64/32/16-bit extractelement and store that.
@@ -41693,7 +41692,6 @@ static SDValue combineStore(SDNode *N, SelectionDAG &DAG,
                           St->getMemOperand());
     }
   }
->>>>>>> 1ada137854be55265f1b8128e1a19c57c48582f9
 
   // Optimize trunc store (of multiple scalars) to shuffle and store.
   // First, pack all of the elements in one place. Next, store to memory
