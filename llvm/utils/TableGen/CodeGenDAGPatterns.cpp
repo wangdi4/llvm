@@ -1619,7 +1619,18 @@ bool TreePatternNode::UpdateNodeTypeFromInst(unsigned ResNo,
   if (Operand->isSubClassOf("Operand")) {
     Record *R = Operand->getValueAsDef("Type");
     const CodeGenTarget &T = TP.getDAGPatterns().getTargetInfo();
-    return UpdateNodeType(ResNo, getValueTypeByHwMode(R, T.getHwModes()), TP);
+#if INTEL_CUSTOMIZATION
+    ValueTypeByHwMode Type = getValueTypeByHwMode(R, T.getHwModes());
+    if (!Operand->getValueAsBit("TypeAgnostic")) {
+      return UpdateNodeType(ResNo, Type, TP);
+    }
+    // A more complex operand: get all types that have the same size.
+    TypeInfer &TI = TP.getInfer();
+    TypeSetByHwMode ValidTypes, TypeAsSet(Type);
+    TI.EnforceAny(ValidTypes);
+    TI.EnforceSameSize(ValidTypes, TypeAsSet);
+    return UpdateNodeType(ResNo, ValidTypes, TP);
+#endif // INTEL_CUSTOMIZATION
   }
 
   // PointerLikeRegClass has a type that is determined at runtime.

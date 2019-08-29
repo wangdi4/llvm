@@ -78,14 +78,13 @@ class RegImmOperand<ValueType vt> : Operand<vt>, ComplexPattern<vt,1,"SelectRegI
   }
 
 // This version is meant to be used for operations that are agnostic to the
-// actual integer/floating/vector form. It relies on a hack in the typechecking:
-// if you merge {iPTR} and {i32}, you get {i32}... and you get {f32} if you try
-// to merge {f32} with {iPTR}.
-class RegImmOperandUntyped<ValueType vt> : Operand<iPTR>, ComplexPattern<vt,1,"SelectRegImm", [imm, fpimm]> {
+// actual integer/floating/vector form.
+class RegImmOperandUntyped<ValueType vt> : Operand<vt>, ComplexPattern<vt,1,"SelectRegImm", [imm, fpimm]> {
     let OperandType = "OPERAND_REG_IMM";
     // We need to give TableGen some clues (along with some custom function in
     // CSAAsmParser) to deal with these particularly flexible operands.
     let ParserMatchClass = RegImmAsmOperand;
+    let TypeAgnostic = 1;
   }
 
 // Rounding mode operands. These are literal integers underneath, but are
@@ -146,6 +145,7 @@ def RCLi0  : RegImmOperand<i1>;
 def RCLi1  : RegImmOperand<i1>;
 def RCLi8  : RegImmOperand<i8>;
 def RCLi16 : RegImmOperand<i16>;
+def RCLf16 : RegImmOperand<i16>;
 def RCLi32 : RegImmOperand<i32>;
 def RCLf32 : RegImmOperand<f32>;
 def RCLi64 : RegImmOperand<i64>;
@@ -231,6 +231,7 @@ def Tu8  : CSAOpInfo< i8,  8,  "u8",  I8,  RI8,  CI8,  RCLi8,  i8imm,  [HasI8]>;
 def Ti16 : CSAOpInfo<i16, 16,  "16", I16, RI16, CI16, RCLi16, i16imm, [HasI16]>;
 def Ts16 : CSAOpInfo<i16, 16, "s16", I16, RI16, CI16, RCLi16, i16imm, [HasI16]>;
 def Tu16 : CSAOpInfo<i16, 16, "u16", I16, RI16, CI16, RCLi16, i16imm, [HasI16]>;
+def Tf16 : CSAOpInfo<f16, 16, "f16", I16, RI16, CI16, RCLf16, i16imm, [HasI16]>;
 def Ti32 : CSAOpInfo<i32, 32,  "32", I32, RI32, CI32, RCLi32, i32imm, [HasI32]>;
 def Ts32 : CSAOpInfo<i32, 32, "s32", I32, RI32, CI32, RCLi32, i32imm, [HasI32]>;
 def Tu32 : CSAOpInfo<i32, 32, "u32", I32, RI32, CI32, RCLi32, i32imm, [HasI32]>;
@@ -242,6 +243,65 @@ def Tf64 : CSAOpInfo<f64, 64, "f64", I64, RI64, CI64, RCLf64, f64imm, [HasF64]>;
 def Tf32x2 : CSAOpInfo<v2f32, 64, "f32x2", I64, RI64, CI64, RCLf32x2, i64imm, []>;
 def T32  : CSAOpInfo<i32, 32,  "32", I32, RI32, CI32, RCL32, i32imm, [HasI32]>;
 def T64  : CSAOpInfo<i64, 64,  "64", I64, RI64, CI64, RCL64, i64imm, [HasI64]>;
+
+class subst;
+def LICRC : subst;
+def RC : subst;
+def RCL : subst;
+def VT : subst;
+
+class CastOps<CSAOpInfo opInfo, dag g> {
+  dag Result = !foreach(tmp, g,
+                        !subst(LICRC, opInfo.LICRC,
+                        !subst(RC, opInfo.RC,
+                        !subst(RCL, opInfo.RCL, tmp))));
+}
+
+class CastType<ValueType vt, dag g> {
+  dag Result = !foreach(tmp, g, !subst(VT, vt, tmp));
+}
+
+class TemplatedInst<GenericOp genOp, CSAOpInfo opInfo, dag outs, dag ins,
+                    string asmstr, list<dag> pattern>
+      : FMTGEN<genOp, opInfo, (outs), (ins),
+               asmstr, [], []> {
+  let OutOperandList = CastOps<opInfo, outs>.Result;
+  let InOperandList  = CastOps<opInfo, ins>.Result;
+  let Pattern        = !foreach(pat, pattern,
+                                CastOps<opInfo,
+                                  CastType<opInfo.VT, pat>.Result>.Result);
+}
+
+multiclass DataflowInst<string asm, dag outs, dag ins, string asmops,
+                        list<dag> pats = []> {
+  def "" : GenericOp<asm>;
+  def "0"  : TemplatedInst<!cast<GenericOp>(NAME), Ti0,  outs, ins,
+                           !strconcat(asm, "0\t",  asmops), pats>;
+  def "1"  : TemplatedInst<!cast<GenericOp>(NAME), Ti1,  outs, ins,
+                           !strconcat(asm, "1\t",  asmops), pats>;
+  def "8"  : TemplatedInst<!cast<GenericOp>(NAME), Ti8,  outs, ins,
+                           !strconcat(asm, "8\t",  asmops), pats>;
+  def "16" : TemplatedInst<!cast<GenericOp>(NAME), Ti16, outs, ins,
+                           !strconcat(asm, "16\t", asmops), pats>;
+  def "32" : TemplatedInst<!cast<GenericOp>(NAME), T32,  outs, ins,
+                           !strconcat(asm, "32\t", asmops), pats>;
+  def "64" : TemplatedInst<!cast<GenericOp>(NAME), T64,  outs, ins,
+                           !strconcat(asm, "64\t", asmops), pats>;
+}
+
+
+multiclass IntegerInst<string asm, dag outs, dag ins, string asmops,
+                       list<dag> pats = []> {
+  def "" : GenericOp<asm>;
+  def "8"  : TemplatedInst<!cast<GenericOp>(NAME), Ti8,  outs, ins,
+                           !strconcat(asm, "8\t",  asmops), pats>;
+  def "16" : TemplatedInst<!cast<GenericOp>(NAME), Ti16, outs, ins,
+                           !strconcat(asm, "16\t", asmops), pats>;
+  def "32" : TemplatedInst<!cast<GenericOp>(NAME), T32,  outs, ins,
+                           !strconcat(asm, "32\t", asmops), pats>;
+  def "64" : TemplatedInst<!cast<GenericOp>(NAME), T64,  outs, ins,
+                           !strconcat(asm, "64\t", asmops), pats>;
+}
 
 
 def flog : SDNode<"ISD::FLOG", SDTFPUnaryOp>;
@@ -413,17 +473,6 @@ def CSA_RETURN : PseudoInstCSA<
     "csa_return",
     [(CSARet CI0:$mem_ord)], [IsDataflow]>;
 
-class MovOp<GenericOp gen, CSAOpInfo oi,
-            InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
-  FMTGEN<gen, oi,
-    (outs oi.RC:$dst),
-    (ins oi.RC:$op1), // Reg or literal (e.g. either i32 or f32 for 32b)
-    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op1"),
-    [],
-    !listconcat(preds,oi.Preds), itin> {
-      let OpInfo = oi;
-    }
-
 class UnaryOp<GenericOp gen, SDNode opNode, CSAOpInfo oi,
               InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
   FMTGEN<gen, oi,
@@ -445,15 +494,6 @@ class UnaryOpP<GenericOp gen, PatFrag opNode, CSAOpInfo oi,
       let OpInfo = oi;
       let AddedComplexity = 1;  // prefer not/neg to other forms
     }
-
-class SExtOp<GenericOp gen, CSAOpInfo oid, CSAOpInfo ois,
-             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
-  FMTGEN<gen, oid,
-    (outs oid.RC:$dst),
-    (ins ois.RCL:$op1, ois.RCL:$op2),
-    !strconcat(gen.AsmString, oid.InstrSuffix, "\t$dst, $op1, $op2"),
-    [],
-    !listconcat(preds,gen.Preds,oid.Preds), itin>;
 
 class CvtOp<GenericOp gen, SDNode opNode, CSAOpInfo oid, CSAOpInfo ois,
             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
@@ -595,73 +635,7 @@ class TriOp1<GenericOp gen, SDPatternOperator node, CSAOpInfo oi,
     [(set oi.RC:$dst, (node oi.RCL:$op1, oi.RCL:$op2, oi.RCL:$op3))],
     !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
-class CopyOp<GenericOp gen, CSAOpInfo oi,
-             InstrItinClass itin = IIVir, list<Predicate> preds = []> :
-  FMTGEN<gen, oi,
-    (outs oi.RC:$op0, oi.RC:$op1, oi.RC:$op2, oi.RC:$op3),
-    (ins oi.RCL:$op4),
-    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$op0, $op1, $op2, $op3, $op4"),
-    [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
-
-def MERGE     : GenericOp<"merge">;
-class MergeOp<string opStr, CSAOpInfo t,
-              list<Predicate> preds, InstrItinClass itin> :
-  FMTGEN<MERGE, t,
-    (outs t.RC:$dst),
-    (ins RCLi1:$sel, t.RCL:$v0, t.RCL:$v1),
-    !strconcat(opStr, "\t$dst, $sel, $v0, $v1"),
-    [(set t.VT:$dst, (select RCLi1:$sel, (t.VT t.RCL:$v1), (t.VT t.RCL:$v0)))],
-    preds, itin>;
-
-class GateOp<GenericOp gen, CSAOpInfo oi,
-             InstrItinClass itin, list<Predicate> preds = []> :
-  FMTGEN<gen, oi,
-    (outs oi.RC:$dst),
-    (ins CI0:$sel, oi.RCL:$v),
-    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $sel, $v"),
-    [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
-
 let isMultiTriggered = 1 in {
-class SwitchOp<GenericOp gen, CSAOpInfo oi,
-               InstrItinClass itin, list<Predicate> preds = []> :
-  FMTGEN<gen, oi,
-    (outs oi.RC:$dst0, oi.RC:$dst1),
-    (ins RCLi1:$sel, oi.RCL:$v),
-    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst0, $dst1, $sel, $v"),
-    [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
-
-class SwitchAnyOp<GenericOp gen, CSAOpInfo oi,
-                  InstrItinClass itin, list<Predicate> preds = []> :
-  FMTGEN<gen, oi,
-    (outs oi.RC:$dst0, oi.RC:$dst1, I1:$sel),
-    (ins oi.RCL:$v, PrioOrderOperand:$mode),
-    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst0, $dst1, $sel, $v, $mode"),
-    [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
-
-class FilterOp<GenericOp gen, CSAOpInfo oi,
-               InstrItinClass itin, list<Predicate> preds = []> :
-  FMTGEN<gen, oi,
-    (outs oi.RC:$dst),
-    (ins CI1:$sel, oi.RCL:$v),
-    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $sel, $v"),
-    [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
-
-class PickOp<GenericOp gen, CSAOpInfo oi,
-             InstrItinClass itin, list<Predicate> preds = []>:
-  FMTGEN<gen, oi,
-    (outs oi.RC:$dst),
-    (ins RCLi1:$sel, oi.RCL:$v0, oi.RCL:$v1),
-    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $sel, $v0, $v1"),
-    [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
-
-class PickAnyOp<GenericOp gen, CSAOpInfo oi,
-                InstrItinClass itin, list<Predicate> preds = []> :
-  FMTGEN<gen, oi,
-    (outs oi.RC:$dst, I1:$sel),
-    (ins oi.RCL:$v0, oi.RCL:$v1, PrioOrderOperand:$mode),
-    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $sel, $v0, $v1, $mode"),
-    [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
-
 class CompletionOp<GenericOp gen, CSAOpInfo oi,
              InstrItinClass itin, list<Predicate> preds = []> :
   FMTGEN<gen, oi,
@@ -692,15 +666,6 @@ class SeqSOp<GenericOp gen, CSAOpInfo oi,
     (outs oi.LICRC:$val, CI1:$pred, CI1:$first, CI1:$last),
     (ins oi.RCL:$base, oi.RCL:$bound, oi.RCL:$stride),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$val, $pred, $first, $last, $base, $bound, $stride"),
-    [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
-
-// See comment for SeqCOp, above, as to why hasSideEffects is not being set.
-class RepeatOp<GenericOp gen, CSAOpInfo oi,
-               InstrItinClass itin, list<Predicate> preds = []> :
-  FMTGEN<gen, oi,  // TODO: something to reflect state
-    (outs oi.LICRC:$out),
-    (ins RCLi1:$pred, oi.RCL:$in),
-    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$out, $pred, $in"),
     [], !listconcat(preds,gen.Preds,oi.Preds), itin> { }
 
 // See comment for SeqCOp, above, as to why hasSideEffects is not being set.
@@ -1020,13 +985,8 @@ def : Pat<(CSATailCall texternalsym:$dst), (JTRi texternalsym:$dst)>;
 def : Pat<(CSATailCall imm:$dst),          (JTRi imm:$dst)>;
 def : Pat<(CSATailCall I64:$dst),          (JTR I64:$dst)>;
 
-def MOV : GenericOp<"mov">;
-def MOV0      : MovOp<MOV, Ti0,  IIALU>;
-def MOV1      : MovOp<MOV, Ti1,  IIALU>;
-def MOV8      : MovOp<MOV, Ti8,  IIALU>;
-def MOV16     : MovOp<MOV, Ti16, IIALU>;
-def MOV32     : MovOp<MOV, Ti32, IIALU>;
-def MOV64     : MovOp<MOV, Ti64, IIALU>;
+defm MOV : DataflowInst<"mov", (outs RC:$dst), (ins RCL:$op1),
+                        "$dst, $op1">;
 
 def : Pat<(i64 (CSAWrapper tglobaladdr:$src)),   (MOV64 tglobaladdr:$src)>;
 def : Pat<(i64 (CSAWrapper texternalsym:$src)),  (MOV64 texternalsym:$src)>;
@@ -1040,11 +1000,11 @@ def NOT16     : UnaryOpP<NOT,    not,    Ti16, IIALU>;
 def NOT32     : UnaryOpP<NOT,    not,    Ti32, IIALU>;
 def NOT64     : UnaryOpP<NOT,    not,    Ti64, IIALU>;
 
-def NEG       : GenericOp<"neg">;
-def NEG8      : UnaryOpP<NEG,    ineg,   Ti8,  IIALU>;
-def NEG16     : UnaryOpP<NEG,    ineg,   Ti16, IIALU>;
-def NEG32     : UnaryOpP<NEG,    ineg,   Ti32, IIALU>;
-def NEG64     : UnaryOpP<NEG,    ineg,   Ti64, IIALU>;
+let AddedComplexity = 1 in {
+defm NEG : IntegerInst<"neg",
+                       (outs RC:$res), (ins RCL:$op1), "$res, $op1",
+                       [(set RC:$res, (ineg RCL:$op1))]>;
+}
 
 def NEGF32    : UnaryOp< NEG,    fneg,   Tf32, IIALU>;
 def NEGF64    : UnaryOp< NEG,    fneg,   Tf64, IIALU>;
@@ -1115,39 +1075,44 @@ def MODF64    : FModOp<  MOD,            Tf64, IIMathF64>;
 
 // BitOps. Note that LLVM's SDNodes expect the output type to match the input
 // type, while in the simulator all output types are 8-bit.
-def CTPOP     : GenericOp<"ctpop", [HasBitOp]>;
-def CTPOP8    : UnaryOp< CTPOP,  ctpop,  Ti8,  IIALU>;
-def CTPOP16   : UnaryOp< CTPOP,  ctpop,  Ti16, IIALU>;
-def CTPOP32   : UnaryOp< CTPOP,  ctpop,  Ti32, IIALU>;
-def CTPOP64   : UnaryOp< CTPOP,  ctpop,  Ti64, IIALU>;
+defm CTPOP : IntegerInst<"ctpop",
+                         (outs RC:$res), (ins RCL:$op1),
+                         "$res, $op1",
+                         [(set VT:$res, (ctpop RCL:$op1))]>;
 
-def CTLZ      : GenericOp<"ctlz", [HasBitOp]>;
-def CTLZ8     : UnaryOp< CTLZ,   ctlz,   Ti8,  IIALU>;
-def CTLZ16    : UnaryOp< CTLZ,   ctlz,   Ti16, IIALU>;
-def CTLZ32    : UnaryOp< CTLZ,   ctlz,   Ti32, IIALU>;
-def CTLZ64    : UnaryOp< CTLZ,   ctlz,   Ti64, IIALU>;
+defm CTLZ : IntegerInst<"ctlz",
+                        (outs RC:$res), (ins RCL:$op1),
+                        "$res, $op1",
+                        [(set VT:$res, (ctlz RCL:$op1))]>;
 
-def CTTZ      : GenericOp<"cttz", [HasBitOp]>;
-def CTTZ8     : UnaryOp< CTTZ,   cttz,   Ti8,  IIALU>;
-def CTTZ16    : UnaryOp< CTTZ,   cttz,   Ti16, IIALU>;
-def CTTZ32    : UnaryOp< CTTZ,   cttz,   Ti32, IIALU>;
-def CTTZ64    : UnaryOp< CTTZ,   cttz,   Ti64, IIALU>;
+defm CTTZ : IntegerInst<"cttz",
+                        (outs RC:$res), (ins RCL:$op1),
+                        "$res, $op1",
+                        [(set VT:$res, (cttz RCL:$op1))]>;
+
+defm ROR : IntegerInst<"ror",
+                       (outs RC:$res), (ins RCL:$op1, RCL:$op2),
+                       "$res, $op1, $op2",
+                       [(set VT:$res, (rotr RCL:$op1, RCL:$op2))]>;
+
+defm ROL : IntegerInst<"rol",
+                       (outs RC:$res), (ins RCL:$op1, RCL:$op2),
+                       "$res, $op1, $op2",
+                       [(set VT:$res, (rotl RCL:$op1, RCL:$op2))]>;
 
 // Helper fragment to find "parity". Clang's __builtin_parity(x) will result in
 // (ctpop(x)&1) in IR, which will be transformed back to parityN(x) by this
 // pattern fragment.
 def parity : PatFrag<(ops node:$in), (and (ctpop node:$in), 1)>;
-def PARITY    : GenericOp<"parity", [HasBitOp]>;
-def PARITY8   : UnaryOpP<PARITY, parity, Ti8,  IIALU>;
-def PARITY16  : UnaryOpP<PARITY, parity, Ti16, IIALU>;
-def PARITY32  : UnaryOpP<PARITY, parity, Ti32, IIALU>;
-def PARITY64  : UnaryOpP<PARITY, parity, Ti64, IIALU>;
+defm PARITY : IntegerInst<"parity",
+                          (outs RC:$res), (ins RCL:$op1),
+                          "$res, $op1",
+                          [(set VT:$res, (parity RCL:$op1))]>;
 
-def SEXT      : GenericOp<"sext">;
-def SEXT8     : SExtOp<  SEXT,           Ti8,  Ti8,  IIALU>;
-def SEXT16    : SExtOp<  SEXT,           Ti16, Ti16, IIALU>;
-def SEXT32    : SExtOp<  SEXT,           Ti32, Ti32, IIALU>;
-def SEXT64    : SExtOp<  SEXT,           Ti64, Ti64, IIALU>;
+defm SEXT : IntegerInst<"sext",
+                        (outs RC:$res), (ins RCL:$op1, RCL:$op2),
+                        "$res, $op1, $op2",
+                        []>;
 
 // first type in convert name is result, second is source type
 def CVT       : GenericOp<"cvt">;
@@ -1176,6 +1141,9 @@ def CVTF64U64 : CvtOpR<   CVT, uint_to_fp,Tf64, Tu64, IICvtFI>;
 def CVTF32F64 : CvtOpR<   CVT, fpround,    Tf32, Tf64, IICvtFF>;
 
 def CVTF64F32 : CvtOpR<   CVT, fpextend,   Tf64, Tf32, IICvtFF>;
+
+def CVTF16F32 : CvtOpR<   CVT, fp_to_f16,  Tf16, Tf32, IICvtFF>;
+def CVTF32F16 : CvtOpR<   CVT, f16_to_fp,  Tf32, Tf16, IICvtFF>;
 
 def AND       : GenericOp<"and">;
 let isCommutable = 1 in {
@@ -1427,20 +1395,17 @@ def FMRSF32   : TriOp1<FMRS, fmrs, Tf32, IIFMAF32>;
 def FMRSF64   : TriOp1<FMRS, fmrs, Tf64, IIFMAF64>;
 
 // Unfortunately, "COPY" is already defined...
-def GCOPY     : GenericOp<"copy">;
-def COPY0     : CopyOp<  GCOPY, Ti0>;
-def COPY1     : CopyOp<  GCOPY, Ti1>;
-def COPY8     : CopyOp<  GCOPY, Ti8>;
-def COPY16    : CopyOp<  GCOPY, Ti16>;
-def COPY32    : CopyOp<  GCOPY, Ti32>;
-def COPY64    : CopyOp<  GCOPY, Ti64>;
+defm GCOPY : DataflowInst<"copy", 
+                          (outs RC:$o0, RC:$o1, RC:$o2, RC:$o3),
+                          (ins RCL:$src),
+                          "$o0, $o1, $o2, $o3, $src">;
 
-def MERGE0    : MergeOp< "merge0",  Ti0,  [HasI0],  IIVir>;
-def MERGE1    : MergeOp< "merge1",  Ti1,  [HasI1],  IIVir>;
-def MERGE8    : MergeOp< "merge8",  Ti8,  [HasI8],  IIVir>;
-def MERGE16   : MergeOp< "merge16", Ti16, [HasI16], IIVir>;
-def MERGE32   : MergeOp< "merge32", T32, [HasI32], IIVir>;
-def MERGE64   : MergeOp< "merge64", T64, [HasI64], IIVir>;
+defm MERGE : DataflowInst<"merge",
+                          (outs RC:$dst),
+                          (ins RCLi1:$sel, RCL:$v0, RCL:$v1),
+                          "$dst, $sel, $v0, $v1",
+                        [(set VT:$dst, (select RCLi1:$sel, RCL:$v1, RCL:$v0))]>;
+
 def : Pat<(f32 (select RCLi1:$sel, RCLf32:$v1, RCLf32:$v0)),
           (MERGE32 $sel, $v0, $v1)>;
 def : Pat<(f64 (select RCLi1:$sel, RCLf64:$v1, RCLf64:$v0)),
@@ -1448,53 +1413,44 @@ def : Pat<(f64 (select RCLi1:$sel, RCLf64:$v1, RCLf64:$v0)),
 def : Pat<(v2f32 (select RCLi1:$sel, RCLf32x2:$v1, RCLf32x2:$v0)),
           (MERGE64 $sel, $v0, $v1)>;
 
-def SWITCH    : GenericOp<"switch">;
-def SWITCH0   : SwitchOp<SWITCH, Ti0,  IIVir>;
-def SWITCH1   : SwitchOp<SWITCH, Ti1,  IIVir>;
-def SWITCH8   : SwitchOp<SWITCH, Ti8,  IIVir>;
-def SWITCH16  : SwitchOp<SWITCH, Ti16, IIVir>;
-def SWITCH32  : SwitchOp<SWITCH, Ti32, IIVir>;
-def SWITCH64  : SwitchOp<SWITCH, Ti64, IIVir>;
+let isMultiTriggered = 1 in {
+defm SWITCH : DataflowInst<"switch",
+                           (outs RC:$dst0, RC:$dst1),
+                           (ins RCLi1:$sel, RCL:$v),
+                           "$dst0, $dst1, $sel, $v">;
 
-def SWITCHANY : GenericOp<"switchany">;
-def SWITCHANY0  : SwitchAnyOp<SWITCHANY, Ti0,  IIVir>;
-def SWITCHANY1  : SwitchAnyOp<SWITCHANY, Ti1,  IIVir>;
-def SWITCHANY8  : SwitchAnyOp<SWITCHANY, Ti8,  IIVir>;
-def SWITCHANY16 : SwitchAnyOp<SWITCHANY, Ti16, IIVir>;
-def SWITCHANY32 : SwitchAnyOp<SWITCHANY, Ti32, IIVir>;
-def SWITCHANY64 : SwitchAnyOp<SWITCHANY, Ti64, IIVir>;
+defm SWITCHANY : DataflowInst<"switchany",
+                              (outs RC:$dst0, RC:$dst1, I1:$sel),
+                              (ins RCL:$v, PrioOrderOperand:$mode),
+                              "$dst0, $dst1, $sel, $v, $mode">;
 
-def FILTER    : GenericOp<"filter">;
-def FILTER0   : FilterOp<FILTER, Ti0,  IIVir>;
-def FILTER1   : FilterOp<FILTER, Ti1,  IIVir>;
-def FILTER8   : FilterOp<FILTER, Ti8,  IIVir>;
-def FILTER16  : FilterOp<FILTER, Ti16, IIVir>;
-def FILTER32  : FilterOp<FILTER, Ti32, IIVir>;
-def FILTER64  : FilterOp<FILTER, Ti64, IIVir>;
+defm FILTER : DataflowInst<"filter",
+                           (outs RC:$dst), (ins CI1:$sel, RCL:$v),
+                           "$dst, $sel, $v">;
 
-def PICK      : GenericOp<"pick">;
-def PICK0     : PickOp<PICK, Ti0,  IIVir>;
-def PICK1     : PickOp<PICK, Ti1,  IIVir>;
-def PICK8     : PickOp<PICK, Ti8,  IIVir>;
-def PICK16    : PickOp<PICK, Ti16, IIVir>;
-def PICK32    : PickOp<PICK, Ti32, IIVir>;
-def PICK64    : PickOp<PICK, Ti64, IIVir>;
+defm PICK : DataflowInst<"pick",
+                         (outs RC:$dst), (ins RCLi1:$sel, RCL:$v0, RCL:$v1),
+                         "$dst, $sel, $v0, $v1">;
 
-def PICKANY   : GenericOp<"pickany">;
-def PICKANY0  : PickAnyOp<PICKANY, Ti0,  IIVir>;
-def PICKANY1  : PickAnyOp<PICKANY, Ti1,  IIVir>;
-def PICKANY8  : PickAnyOp<PICKANY, Ti8,  IIVir>;
-def PICKANY16 : PickAnyOp<PICKANY, Ti16, IIVir>;
-def PICKANY32 : PickAnyOp<PICKANY, Ti32, IIVir>;
-def PICKANY64 : PickAnyOp<PICKANY, Ti64, IIVir>;
+defm PICKANY : DataflowInst<"pickany",
+                            (outs RC:$dst, I1:$sel),
+                            (ins RCL:$v0, RCL:$v1, PrioOrderOperand:$mode),
+                            "$dst, $sel, $v0, $v1, $mode">;
 
-def GATE      : GenericOp<"gate">;
-def GATE0     : GateOp<GATE, Ti0,  IIVir>;
-def GATE1     : GateOp<GATE, Ti1,  IIVir>;
-def GATE8     : GateOp<GATE, Ti8,  IIVir>;
-def GATE16    : GateOp<GATE, Ti16, IIVir>;
-def GATE32    : GateOp<GATE, Ti32, IIVir>;
-def GATE64    : GateOp<GATE, Ti64, IIVir>;
+defm STSWITCH : DataflowInst<"stswitch",
+                             (outs I1:$ctl0, RC:$val0, I1:$ctl1, RC:$val1),
+                             (ins RCLi1:$idx, RCLi1:$ctl, RCL:$val),
+                             "$ctl0, $val0, $ctl1, $val1, $idx, $ctl, $val">;
+
+defm STPICK : DataflowInst<"stpick",
+               (outs I1:$ctl_out, RC:$val_out),
+               (ins RCLi1:$idx, RCLi1:$ctl0, RCL:$val0, RCLi1:$ctl1, RCL:$val1),
+               "$ctl_out, $val_out, $idx, $ctl0, $val0, $ctl1, $val1">;
+}
+
+defm GATE : DataflowInst<"gate",
+                         (outs RC:$dst), (ins CI0:$sel, RCL:$v),
+                         "$dst, $sel, $v">;
 
 def LAND : GenericOp<"land">;
 def LAND1 : FMTGEN<LAND, Ti1,
@@ -1558,12 +1514,6 @@ def PREDFILTER : FMTGEN<PREDFILTER_G, Ti1,
   (ins RCLi1:$ctl, RCLi1:$pred),
   "predfilter\t$ctlout, $ctl, $pred",
   [], [], IIALU> { let isMultiTriggered = 1; }
-
-def SEQC      : GenericOp<"seqc">;
-def SEQC8     : SeqCOp<  SEQC,  Ti8,  IIALU>;
-def SEQC16    : SeqCOp<  SEQC,  Ti16, IIALU>;
-def SEQC32    : SeqCOp<  SEQC,  Ti32, IIALU>;
-def SEQC64    : SeqCOp<  SEQC,  Ti64, IIALU>;
 
 def SEQLT     : GenericOp<"seqlt">;
 def SEQLTS8   : SeqSOp<  SEQLT, Ts8,  IIALU>;
@@ -1667,21 +1617,14 @@ def SEQOTGEU16  : SeqSOp<  SEQOTGE, Tu16, IIALU>;
 def SEQOTGEU32  : SeqSOp<  SEQOTGE, Tu32, IIALU>;
 def SEQOTGEU64  : SeqSOp<  SEQOTGE, Tu64, IIALU>;
 
-def REPEAT    : GenericOp<"repeat">;
-def REPEAT0   : RepeatOp<REPEAT, Ti0,  IIALU>;
-def REPEAT1   : RepeatOp<REPEAT, Ti1,  IIALU>;
-def REPEAT8   : RepeatOp<REPEAT, Ti8,  IIALU>;
-def REPEAT16  : RepeatOp<REPEAT, Ti16, IIALU>;
-def REPEAT32  : RepeatOp<REPEAT, Ti32, IIALU>;
-def REPEAT64  : RepeatOp<REPEAT, Ti64, IIALU>;
-
-def REPEATO   : GenericOp<"repeato">;
-def REPEATO0  : RepeatOp<REPEATO, Ti0,  IIALU>;
-def REPEATO1  : RepeatOp<REPEATO, Ti1,  IIALU>;
-def REPEATO8  : RepeatOp<REPEATO, Ti8,  IIALU>;
-def REPEATO16 : RepeatOp<REPEATO, Ti16, IIALU>;
-def REPEATO32 : RepeatOp<REPEATO, Ti32, IIALU>;
-def REPEATO64 : RepeatOp<REPEATO, Ti64, IIALU>;
+let isMultiTriggered = 1 in {
+defm REPEAT : DataflowInst<"repeat",
+                           (outs LICRC:$out), (ins RCLi1:$pred, RCL:$in),
+                           "$out, $pred, $in">;
+defm REPEATO : DataflowInst<"repeato",
+                            (outs LICRC:$out), (ins RCLi1:$pred, RCL:$in),
+                            "$out, $pred, $in">;
+}
 
 def STRIDE    : GenericOp<"stride">;
 def STRIDE8   : StrideOp<STRIDE, Ti8,  IIALU>;
@@ -1733,29 +1676,54 @@ def FOUNTAIN16 : FountainOp<FOUNTAIN, Ti16, IIALU>;
 def FOUNTAIN32 : FountainOp<FOUNTAIN, Ti32, IIALU>;
 def FOUNTAIN64 : FountainOp<FOUNTAIN, Ti64, IIALU>;
 
-def REPLICATE  : GenericOp<"replicate">;
-def REPLICATE1 : FMTGEN<REPLICATE, Ti1,
+def REPEATC : GenericOp<"repeatc">;
+
+let isMultiTriggered = 1 in {
+def REPEATC1 : TemplatedInst<REPEATC, Ti1,
+  (outs RC:$res), (ins RCLi64:$count, RCL:$v),
+  "repeatc1\t$res, $count, $v", []>;
+
+def NESTREPEAT1 : FMTGEN<?, ?,
+  (outs I1:$out), (ins RCLi1:$outer, RCLi1:$inner),
+  "nestrepeat1\t$out, $outer, $inner", [], [], IIALU>;
+
+def REPLICATE1 : FMTGEN<?, Ti1,
   (outs I1:$outchan),
   (ins RCLi1:$inchan, i1imm:$match, i64imm:$count, i64imm:$initpos),
   "replicate1\t$outchan, $inchan, $match, $count, $initpos",
   [], [], IIALU>;
 
-def REPLACE    : GenericOp<"replace">;
-def REPLACE1   : FMTGEN<REPLACE, Ti1,
+def FIRST : FMTGEN<?, ?,
+  (outs CI1:$out), (ins CI1:$seqctl),
+  "first\t$out, $seqctl", [], [], IIALU>;
+
+def LAST : FMTGEN<?, ?,
+  (outs CI1:$out), (ins CI1:$seqctl),
+  "last\t$out, $seqctl", [], [], IIALU>;
+
+def REPLACE1: FMTGEN<?, ?,
   (outs I1:$out),
   (ins RCLi1:$in, i64imm:$patlen, i64imm:$patbits, i64imm:$repllen, i64imm:$replbits),
-  "replace1 $out, $in, $patlen, $patbits, $repllen, $replbits", []> {
-    let isMultiTriggered = 1;
-}
+  "replace1\t$out, $in, $patlen, $patbits, $repllen, $replbits", [], [], IIALU>;
 
-// TBD(jsukha): This info probably needs predicates
-// Also, the input can probably be an I0 channel.
-def ONEND_G : GenericOp<"onend">;
-def ONEND : FMTGEN<ONEND_G, Ti0,  // TODO: something to reflect state
+def EXTEND : FMTGEN<?, ?,
+  (outs CI1:$out), (ins CI1:$in, i1imm:$v),
+  "extend\t$out, $in, $v", [], [], IIALU>;
+
+def COLLAPSE : FMTGEN<?, ?,
+  (outs CI1:$out), (ins CI1:$in, i1imm:$v),
+  "collapse\t$out, $in, $v", [], [], IIALU>;
+
+def ONEND : FMTGEN<?, ?,
   (outs I0:$dst),
   (ins RCLi1:$ctrl, RCLi0:$in),
   "onend\t$dst, $ctrl, $in",
-  []> { let Itinerary = IIVir; let isMultiTriggered = 1; }
+  []>;
+
+def SNULL : FMTGEN<?, ?,
+  (outs I1:$res), (ins RCLi1:$ctlseq),
+  "snull\t$res, $ctlseq", [], [], IIALU>;
+}
 
 // Not clear that "hasSideEffects" is a good description of static initialization...
 def INIT : GenericOp<"init">;
@@ -1804,6 +1772,24 @@ defm SST8     : StreamStOp<"sst8",   Ti8>;
 defm SST16    : StreamStOp<"sst16",  Ti16>;
 defm SST32    : StreamStOp<"sst32",  Ti32>;
 defm SST64    : StreamStOp<"sst64",  Ti64>;
+
+let mayLoad=1, isMultiTriggered=1 in {
+def SLD32X2P  : FMTGEN<?, ?,
+  (outs I64:$data, MemOrdDef:$outord, MemOrdDef:$xoutord),
+  (ins ADDR_R:$addr, RCLi64:$len, RCLi64:$stride, MEMLVL:$memlvl,
+       MemOrdUse:$inord),
+  "sld32x2p\t$data, $addr, $len, $stride, $outord, $inord, $memlvl, $xoutord",
+  []>;
+}
+
+let mayStore=1, isMultiTriggered=1 in {
+def SST32X2P  : FMTGEN<?, ?,
+  (outs MemOrdDef:$outord, MemOrdDef:$xoutord),
+  (ins ADDR_R:$addr, RCLi64:$len, RCLi64:$stride, RCLf32x2:$data,
+       MEMLVL:$memlvl, MemOrdUse:$inord),
+  "sst32x2p\t$addr, $len, $stride, $data, $outord, $inord, $memlvl, $xoutord",
+  []>;
+}
 
 // Extended multiplication
 def XMUL    : GenericOp<"xmul">;
@@ -2177,6 +2163,9 @@ let hasSideEffects = 1 in {
     [],
     IIVir
   >;
+
+  def TRAP : FMTGEN<?, ?, (outs), (ins RCLi64:$trapcode, RCLi64:$value),
+    "trap\t$trapcode, $value", [], [], IIVir>;
 }
 
 // Floating-point simd instructions
@@ -2252,11 +2241,33 @@ defm FMSAF32X2: SimdTriOp<FMSA, CSAFMSubAdd, int_csa_fmsaf32x2, Tf32x2>;
 // Pack, unpack
 def PACK: GenericOp<"pack">;
 def UNPACK: GenericOp<"unpack">;
+def PACK8_64 : FMTGEN<PACK, Ti8,
+    (outs I64:$dst),
+    (ins RCLi8:$v0, RCLi8:$v1, RCLi8:$v2, RCLi8:$v3,
+         RCLi8:$v4, RCLi8:$v5, RCLi8:$v6, RCLi8:$v7),
+    "pack8_64\t$dst, $v0, $v1, $v2, $v3, $v4, $v5, $v6, $v7",
+    []>;
+def PACK16_64 : FMTGEN<PACK, Ti16,
+    (outs I64:$dst),
+    (ins RCLi16:$v0, RCLi16:$v1, RCLi16:$v2, RCLi16:$v3),
+    "pack16_64\t$dst, $v0, $v1, $v2, $v3",
+    []>;
 def PACK32_64 : FMTGEN<PACK, Ti32,
     (outs I64:$dst),
     (ins RCLf32:$lo, RCLf32:$hi),
     "pack32_64\t$dst, $lo, $hi",
     [(set v2f32:$dst, (build_vector RCLf32:$lo, RCLf32:$hi))]>;
+def UNPACK64_8 : FMTGEN<UNPACK, Ti8,
+    (outs I8:$v0, I8:$v1, I8:$v2, I8:$v3,
+          I8:$v4, I8:$v5, I8:$v6, I8:$v7),
+    (ins RCLi64:$src),
+    "unpack64_8\t$src, $v0, $v1, $v2, $v3, $v4, $v5, $v6, $v7",
+    []>;
+def UNPACK64_16 : FMTGEN<UNPACK, Ti16,
+    (outs I16:$v0, I16:$v1, I16:$v2, I16:$v3),
+    (ins RCLi64:$src),
+    "unpack64_16\t$src, $v0, $v1, $v2, $v3",
+    []>;
 def UNPACK64_32 : FMTGEN<UNPACK, Ti32,
     (outs I32:$lo, I32:$hi),
     (ins RCLi64:$src),

@@ -30,6 +30,11 @@ def MAOperationFMA : MAOperation<2>; // FMA: A * B + C
 class GenericOp<string opStr, list<Predicate> preds = []> {
   string AsmString = opStr;
   list<Predicate> Preds = preds;
+
+  // These values are unused, but are defined to make it easier to define these
+  // operations with Instruction.
+  bit isMultiTriggered = ?;
+  int AddedComplexity = 0;
 }
 
 class CSAOpInfo;

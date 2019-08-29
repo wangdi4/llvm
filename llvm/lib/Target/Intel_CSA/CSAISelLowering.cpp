@@ -184,6 +184,8 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
   for (MVT VT : MVT::fp_valuetypes()) {
     setOperationAction(ISD::BR_CC, VT, Expand);
     setOperationAction(ISD::SELECT_CC, VT, Expand);
+    setTruncStoreAction(VT, MVT::f16, Expand);
+    setLoadExtAction(ISD::EXTLOAD, VT, MVT::f16, Expand);
   }
 
   setOperationAction(ISD::BR_JT, MVT::Other, Expand);
@@ -256,6 +258,9 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::FP_TO_SINT, MVT::i1, Promote);
   setOperationAction(ISD::FP_TO_SINT, MVT::i8, Promote);
   setOperationAction(ISD::FP_TO_SINT, MVT::i16, Promote);
+
+  setOperationAction(ISD::FP16_TO_FP, MVT::f32, Legal);
+  setOperationAction(ISD::FP_TO_FP16, MVT::f32, Legal);
 
   // Allow full FP literals
   setOperationAction(ISD::ConstantFP, MVT::f32, Legal);

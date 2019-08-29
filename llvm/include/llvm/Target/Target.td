@@ -790,6 +790,13 @@ class Operand<ValueType ty> : DAGOperand {
   // can match a subset of some other class, in which case the AsmOperandClass
   // should declare the other operand as one of its super classes.
   AsmOperandClass ParserMatchClass = ImmAsmOperand;
+
+  // INTEL_CUSTOMIZATION
+  // TypeAgnostic - If this is true, then, for the purposes of type matching,
+  // any type of the same size as Type can be matched in the type in any pattern
+  // matching against this operand.
+  bit TypeAgnostic = 0;
+  // end INTEL_CUSTOMIZATION
 }
 
 class RegisterOperand<RegisterClass regclass, string pm = "printOperand">
