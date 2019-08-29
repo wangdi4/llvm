@@ -702,7 +702,7 @@ static const char* __itt_get_env_var(const char* name)
             if (len < max_len)
             {
                 const char* ret = (const char*)env_value;
-                strncpy(env_value, env, len + 1);
+                memcpy(env_value, env, len + 1);
                 env_value += len + 1;
                 return ret;
             } else
