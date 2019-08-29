@@ -46,7 +46,7 @@ enum DeviceMode {
 
 // List of supported vectorizers
 enum VectorizerType {
-  VOLCANO_VECTORIZER, VPO_VECTORIZER
+  VOLCANO_VECTORIZER, VPO_VECTORIZER, DEFAULT_VECTORIZER
 };
 
 #endif // __COMMON_DEV_LIMITES_H__

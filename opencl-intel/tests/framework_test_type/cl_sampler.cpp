@@ -51,53 +51,62 @@ bool clSampler()
                                                  CL_SAMPLER_FILTER_MODE, CL_FILTER_LINEAR, 0};
 
         cl_sampler sampler = clCreateSamplerWithProperties(context, samplerProps, &iRet);
-        CheckException("clCreateSamplerWithProperties", CL_SUCCESS, iRet);
-        iRet = clReleaseSampler(sampler);
-        CheckException("clReleaseSampler", CL_SUCCESS, iRet);
 
-        // NULL properties
-        sampler = clCreateSamplerWithProperties(context, NULL, &iRet);
-        CheckException("clCreateSamplerWithProperties", CL_SUCCESS, iRet);
-        iRet = clReleaseSampler(sampler);
-        CheckException("clReleaseSampler", CL_SUCCESS, iRet);
+        // FPGA emulator doesn't support sampler
+        if (gDeviceType == CL_DEVICE_TYPE_ACCELERATOR)
+        {
+            CheckException("clCreateSamplerWithProperties", CL_INVALID_OPERATION, iRet);
+        }
+        else
+        {
+            CheckException("clCreateSamplerWithProperties", CL_SUCCESS, iRet);
+            iRet = clReleaseSampler(sampler);
+            CheckException("clReleaseSampler", CL_SUCCESS, iRet);
 
-        // wrong API:        
+            // NULL properties
+            sampler = clCreateSamplerWithProperties(context, NULL, &iRet);
+            CheckException("clCreateSamplerWithProperties", CL_SUCCESS, iRet);
+            iRet = clReleaseSampler(sampler);
+            CheckException("clReleaseSampler", CL_SUCCESS, iRet);
 
-        // the same name appears twice
-        samplerProps[2] = CL_SAMPLER_NORMALIZED_COORDS;
-        clCreateSamplerWithProperties(context, samplerProps, &iRet);
-        CheckException("clCreateSamplerWithProperties", CL_INVALID_VALUE, iRet);
+            // wrong API:
 
-        // invalid value for CL_SAMPLER_NORMALIZED_COORDS
-        samplerProps[2] = CL_SAMPLER_ADDRESSING_MODE;
-        assert(CL_FALSE != 2 && CL_TRUE != 2);
-        samplerProps[1] = 2;
-        clCreateSamplerWithProperties(context, samplerProps, &iRet);
-        CheckException("clCreateSamplerWithProperties", CL_INVALID_VALUE, iRet);
+            // the same name appears twice
+            samplerProps[2] = CL_SAMPLER_NORMALIZED_COORDS;
+            clCreateSamplerWithProperties(context, samplerProps, &iRet);
+            CheckException("clCreateSamplerWithProperties", CL_INVALID_VALUE, iRet);
 
-        // invalid value for CL_SAMPLER_ADDRESSING_MODE
-        samplerProps[1] = CL_FALSE;
-        const cl_sampler_properties invalidAddrMode = CL_ADDRESS_MIRRORED_REPEAT + 1;
-        assert(CL_ADDRESS_NONE != invalidAddrMode && CL_ADDRESS_CLAMP_TO_EDGE != invalidAddrMode && CL_ADDRESS_CLAMP != invalidAddrMode && CL_ADDRESS_REPEAT != invalidAddrMode);
-        samplerProps[3] = invalidAddrMode;
-        clCreateSamplerWithProperties(context, samplerProps, &iRet);
-        CheckException("clCreateSamplerWithProperties", CL_INVALID_VALUE, iRet);
+            // invalid value for CL_SAMPLER_NORMALIZED_COORDS
+            samplerProps[2] = CL_SAMPLER_ADDRESSING_MODE;
+            assert(CL_FALSE != 2 && CL_TRUE != 2);
+            samplerProps[1] = 2;
+            clCreateSamplerWithProperties(context, samplerProps, &iRet);
+            CheckException("clCreateSamplerWithProperties", CL_INVALID_VALUE, iRet);
 
-        // invalid value for CL_SAMPLER_FILTER_MODE
-        samplerProps[3] = CL_ADDRESS_MIRRORED_REPEAT;
-        assert(CL_FILTER_LINEAR + 1 != CL_FILTER_NEAREST);
-        samplerProps[5] = CL_FILTER_LINEAR + 1;
-        clCreateSamplerWithProperties(context, samplerProps, &iRet);
-        CheckException("clCreateSamplerWithProperties", CL_INVALID_VALUE, iRet);
+            // invalid value for CL_SAMPLER_ADDRESSING_MODE
+            samplerProps[1] = CL_FALSE;
+            const cl_sampler_properties invalidAddrMode = CL_ADDRESS_MIRRORED_REPEAT + 1;
+            assert(CL_ADDRESS_NONE != invalidAddrMode && CL_ADDRESS_CLAMP_TO_EDGE != invalidAddrMode && CL_ADDRESS_CLAMP != invalidAddrMode && CL_ADDRESS_REPEAT != invalidAddrMode);
+            samplerProps[3] = invalidAddrMode;
+            clCreateSamplerWithProperties(context, samplerProps, &iRet);
+            CheckException("clCreateSamplerWithProperties", CL_INVALID_VALUE, iRet);
 
-        // invalid name
-        samplerProps[5] = CL_FILTER_LINEAR;
-        assert(1 != CL_SAMPLER_NORMALIZED_COORDS && 1 != CL_SAMPLER_ADDRESSING_MODE && 1 != CL_SAMPLER_FILTER_MODE);
-        samplerProps[0] = 1;
-        clCreateSamplerWithProperties(context, samplerProps, &iRet);
-        CheckException("clCreateSamplerWithProperties", CL_INVALID_VALUE, iRet);
-	}
-	catch (const std::exception&)
+            // invalid value for CL_SAMPLER_FILTER_MODE
+            samplerProps[3] = CL_ADDRESS_MIRRORED_REPEAT;
+            assert(CL_FILTER_LINEAR + 1 != CL_FILTER_NEAREST);
+            samplerProps[5] = CL_FILTER_LINEAR + 1;
+            clCreateSamplerWithProperties(context, samplerProps, &iRet);
+            CheckException("clCreateSamplerWithProperties", CL_INVALID_VALUE, iRet);
+
+            // invalid name
+            samplerProps[5] = CL_FILTER_LINEAR;
+            assert(1 != CL_SAMPLER_NORMALIZED_COORDS && 1 != CL_SAMPLER_ADDRESSING_MODE && 1 != CL_SAMPLER_FILTER_MODE);
+            samplerProps[0] = 1;
+            clCreateSamplerWithProperties(context, samplerProps, &iRet);
+            CheckException("clCreateSamplerWithProperties", CL_INVALID_VALUE, iRet);
+        }
+    }
+    catch (const std::exception&)
     {
         bResult = false;
     }

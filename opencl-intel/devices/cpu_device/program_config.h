@@ -41,7 +41,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         ProgramConfig() :
             m_useVectorizer(false),
             m_vectorizerMode(TRANSPOSE_SIZE_NOT_SET),
-            m_vectorizerType(VOLCANO_VECTORIZER),
+            m_vectorizerType(DEFAULT_VECTORIZER),
             m_enableNativeSubgroups(false),
             m_rtLoopUnrollFactor(0),
             m_useVTune(false),

@@ -90,14 +90,15 @@ cl_int CPUDeviceConfig::GetVectorizerMode() const
 VectorizerType CPUDeviceConfig::GetVectorizerType() const
 {
     std::string VType = m_pConfigFile->Read<string>(
-        CL_CONFIG_CPU_VECTORIZER_TYPE, "volcano");
+        CL_CONFIG_CPU_VECTORIZER_TYPE, "default");
     std::transform(VType.begin(), VType.end(), VType.begin(), ::tolower);
 
     if ("vpo" == VType) {
         return VPO_VECTORIZER;
-    } else {
+    } else if ("volcano" == VType) {
         return VOLCANO_VECTORIZER;
     }
+    return DEFAULT_VECTORIZER;
 }
 
 bool CPUDeviceConfig::GetUseNativeSubgroups() const {
@@ -163,6 +164,10 @@ const char* CPUDeviceConfig::GetExtensions() const
             m_extensions += OCL_EXT_INTEL_FPGA_HOST_PIPE " ";
             m_extensions += OCL_EXT_ES_KHR_INT64 " ";
             m_extensions += OCL_EXT_KHR_IL_PROGRAM " ";
+            m_extensions += OCL_EXT_KHR_GLOBAL_BASE_ATOMICS " ";
+            m_extensions += OCL_EXT_KHR_GLOBAL_EXTENDED_ATOMICS " ";
+            m_extensions += OCL_EXT_KHR_LOCAL_BASE_ATOMICS " ";
+            m_extensions += OCL_EXT_KHR_LOCAL_EXTENDED_ATOMICS " ";
 
             return m_extensions.c_str();
         }

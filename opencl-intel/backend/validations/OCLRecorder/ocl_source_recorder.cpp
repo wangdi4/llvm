@@ -14,9 +14,9 @@
 
 #include <assert.h>
 #include <algorithm>
+#include <mutex>
 #include <vector>
 
-#include "llvm/Support/MutexGuard.h"
 #include "ocl_source_recorder.h"
 #include "link_data.h"
 #include "compile_data.h"
@@ -48,7 +48,7 @@ namespace Validation{
         MD5Code outputHash = md5Output.digest();
 
         {
-          llvm::MutexGuard lock(m_sourcemapLock);
+          std::lock_guard<llvm::sys::Mutex> lock(m_sourcemapLock);
           m_sourceMap[outputHash] = m_sourceMap[inputHash];
         } 
         // get out after first iteration
@@ -71,7 +71,7 @@ namespace Validation{
         compileData->endHeaders()
       );
       {
-        llvm::MutexGuard lock(m_sourcemapLock);
+        std::lock_guard<llvm::sys::Mutex> lock(m_sourcemapLock);
         m_sourceMap[res] = sourceVector;
       }
     }
@@ -79,7 +79,7 @@ namespace Validation{
     FileIter OclSourceRecorder::begin(const MD5Code& code) const{
       FileIter ret;
       {
-        llvm::MutexGuard lock(m_sourcemapLock);
+        std::lock_guard<llvm::sys::Mutex> lock(m_sourcemapLock);
         SourceFileMap::const_iterator iter = m_sourceMap.find(code);
         if (iter == m_sourceMap.end())
           return FileIter::end();

@@ -15,6 +15,7 @@ bool clCopyImageTest()
 {
     bool         bResult = true;
     cl_int       iRet = CL_SUCCESS;
+    cl_int       expectRet = CL_SUCCESS;
     cl_device_id clDefaultDeviceId;
     cl_uint ui;
     srand( (unsigned)time( NULL ) );
@@ -92,7 +93,16 @@ bool clCopyImageTest()
 
 	printf( " - Creating src image %d by %d with unsupported format...\n", (int)szSrcWidth, (int)szSrcHeight );
     clCreateImage2D( context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, &clFormat, szSrcWidth, szSrcHeight, szSrcRowPitch, pSrcImageValues, &iRet );
-	bResult &= Check("clCreateImage2D", CL_IMAGE_FORMAT_NOT_SUPPORTED, iRet);
+    // FPGA emulator doesn't support images
+    if (gDeviceType == CL_DEVICE_TYPE_ACCELERATOR)
+    {
+        expectRet = CL_INVALID_OPERATION;
+    }
+    else
+    {
+        expectRet = CL_IMAGE_FORMAT_NOT_SUPPORTED;
+    }
+    bResult &= Check("clCreateImage2D", expectRet, iRet);
 
 	clFormat.image_channel_order = CL_RGBA;
     clFormat.image_channel_data_type = CL_UNORM_INT8;
@@ -100,13 +110,21 @@ bool clCopyImageTest()
     // Src img
     printf( " - Creating src image %d by %d...\n", (int)szSrcWidth, (int)szSrcHeight );
     cl_mem clSrcImg = clCreateImage2D( context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, &clFormat, szSrcWidth, szSrcHeight, szSrcRowPitch, pSrcImageValues, &iRet );
-	bResult &= Check("clCreateImage2D", CL_SUCCESS, iRet);
+    if (gDeviceType == CL_DEVICE_TYPE_ACCELERATOR)
+    {
+        expectRet = CL_INVALID_OPERATION;
+    }
+    else
+    {
+        expectRet = CL_SUCCESS;
+    }
+    bResult &= Check("clCreateImage2D", expectRet, iRet);
 	if (!bResult) goto release_queue;
 
     // Dst image
     printf( " - Creating image %d by %d by %d...\n", (int)szDstWidth, (int)szDstHeight, (int)szDstDepth );
     cl_mem clDstImg = clCreateImage3D( context, CL_MEM_READ_ONLY, &clFormat, szDstWidth, szDstHeight, szDstDepth, 0, 0, NULL, &iRet );
-	bResult &= Check("clCreateImage3D", CL_SUCCESS, iRet);
+    bResult &= Check("clCreateImage3D", expectRet, iRet);
 	if (!bResult) goto release_queue;
 
     // 
@@ -125,7 +143,7 @@ bool clCopyImageTest()
     size_t region[ 3 ] = { szSrcWidth, szSrcHeight, 1 };
 	
 	iRet = clEnqueueWriteImage(queue, clSrcImg, CL_TRUE, origin, region, 0, 0, pSrcImageValues, 0, NULL, NULL);
-	bResult &= Check("clEnqueueWriteImage - src", CL_SUCCESS, iRet);
+	bResult &= Check("clEnqueueWriteImage - src", expectRet, iRet);
 	if (!bResult) goto release_image;
 	
 	//
@@ -136,7 +154,7 @@ bool clCopyImageTest()
 	region[ 2 ] = szDstDepth;
   
 	iRet = clEnqueueWriteImage( queue, clDstImg, CL_TRUE, origin, region, 0, 0, pDstImageValues, 0, NULL, NULL );
-			bResult &= Check("clEnqueueWriteImage - dst", CL_SUCCESS, iRet);
+			bResult &= Check("clEnqueueWriteImage - dst", expectRet, iRet);
 			if (!bResult) goto release_image;
 
 			//
@@ -149,7 +167,7 @@ bool clCopyImageTest()
 				region[ 2 ] = 1;
 
 				iRet = clEnqueueCopyImage( queue, clSrcImg, clDstImg, origin, dstOrigin, region, 0, NULL, NULL );
-				bResult &= Check("clEnqueueCopyImage - 2D --> 3D", CL_SUCCESS, iRet);
+				bResult &= Check("clEnqueueCopyImage - 2D --> 3D", expectRet, iRet);
 			}
 			if (!bResult) goto release_image;
 
@@ -162,8 +180,9 @@ bool clCopyImageTest()
 	region[ 2 ] = szDstDepth;
 
 	iRet = clEnqueueReadImage( queue, clDstImg, CL_TRUE, origin, region, 0, 0, pResultImageValues, 0, NULL, NULL );
-	bResult &= Check("clEnqueueReadImage - Dst", CL_SUCCESS, iRet);
+	bResult &= Check("clEnqueueReadImage - Dst", expectRet, iRet);
 	if (!bResult) goto release_image;
+    if (gDeviceType == CL_DEVICE_TYPE_ACCELERATOR) goto release_queue;
 
     //
     // Compare results according to slices

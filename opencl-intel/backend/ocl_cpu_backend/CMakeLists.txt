@@ -5,6 +5,7 @@ set (LLVM_FE_INCLUDE_DIRS ${LLVM_PATH_FE}/include)
 
 set(TARGET_NAME OclCpuBackEnd${BUILD_PLATFORM})
 project(${TARGET_NAME})
+add_subdirectory(emutls)
 
 if( CMAKE_SIZEOF_VOID_P EQUAL 4)
     # 32 bit
@@ -298,6 +299,7 @@ add_opencl_library (${TARGET_NAME} SHARED
       metadataapi
       CacheBinaryHandler
       CLElfLib
+      emutls
 
       # LLVM LIBS
       ${LLVM_MODULE_LIBS}

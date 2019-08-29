@@ -38,7 +38,7 @@ public:
                                           const std::string& filePath) const;
 
     cl_dev_err_code CheckProgramBinary( const void* pBinary,
-                                        size_t uiBinarySize ) const;
+                                        size_t uiBinarySize );
 private:
     CPUProgramBuilder m_programBuilder;
 };

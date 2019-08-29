@@ -155,6 +155,10 @@ public:
       if (VecLenHint.hasValue()) return VecLenHint.get();
       else return ReqdIntelSGSize.get();
     }
+  void setReqdIntelSGSize(int Size)
+    {
+      ReqdIntelSGSize.set(Size);
+    }
 private:
   llvm::SmallVector<llvm::StringRef, 16> MDNames;
 };

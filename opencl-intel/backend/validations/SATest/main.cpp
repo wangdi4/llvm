@@ -258,25 +258,25 @@ int main(int argc, char *argv[])
         test.Run(TestMode, runConfig);
         return 0;
     }
-    catch (Exception::InvalidEnvironmentException e)
+    catch (Exception::InvalidEnvironmentException& e)
     {
         // Exception of invalid execution environment of SATest
         std::cerr << "InvalidEnvironment exception occurred: " << e.what() << endl;
         return int(e.GetErrorCode());
     }
-    catch (Exception::TestFailException e)
+    catch (Exception::TestFailException& e)
     {
         // Test does not match reference
         std::cerr << "Test Failed: " << e.what() << endl;
         return int(e.GetErrorCode());
     }
-    catch (Exception::ValidationExceptionBase e)
+    catch (Exception::ValidationExceptionBase& e)
     {
         // Exception occurred during test run process
         std::cerr << "Validation exception occurred: " << e.what() << endl;
         return int(e.GetErrorCode());
     }
-    catch (Exceptions::DeviceBackendExceptionBase e)
+    catch (Exceptions::DeviceBackendExceptionBase& e)
     {
         // Exception occurred inside the back-end
         std::cerr << "Back-end exception occurred: "<< e.what() << endl;

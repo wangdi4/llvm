@@ -240,10 +240,10 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
 
         std::unique_ptr<KernelJITProperties> spKernelJITProps( CreateKernelJITProperties( vecSize ));
 
-        intel::DebuggingServiceType debugType =
-            intel::getDebuggingServiceType(buildOptions.GetDebugInfoFlag());
-        bool useTLSGlobals = getenv("NO_IMPLICIT_ARGUMENTS") &&
-                             (debugType == intel::Native) &&
+        intel::DebuggingServiceType debugType = intel::getDebuggingServiceType(
+            buildOptions.GetDebugInfoFlag() ||
+            CompilationUtils::getDebugFlagFromMetadata(pModule));
+        bool useTLSGlobals = (debugType == intel::Native) &&
                              !m_isFpgaEmulator && !m_isEyeQEmulator;
         std::unique_ptr<Kernel> spKernel(
             CreateKernel(pFunc, pWrapperFunc->getName().str(),

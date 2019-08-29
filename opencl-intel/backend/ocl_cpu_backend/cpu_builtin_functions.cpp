@@ -94,6 +94,10 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void __opencl_dbg_stoppoin
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void __opencl_dbg_enter_function(uint64_t metadata_addr, uint64_t gid0, uint64_t gid1, uint64_t gid2) LLVM_BACKEND_NOINLINE_POST;
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void __opencl_dbg_exit_function(uint64_t metadata_addr, uint64_t gid0, uint64_t gid1, uint64_t gid2) LLVM_BACKEND_NOINLINE_POST;
 
+// Thread-local storage emulation built-in
+struct __emutls_control;
+extern "C" LLVM_BACKEND_API void *__opencl_emutls_get_address(__emutls_control *control);
+
 // OpenCL20. Extended execution
 class IDeviceCommandManager;
 class IBlockToKernelMapper;
@@ -129,4 +133,5 @@ void RegisterCPUBIFunctions(void)
     REGISTER_BI_FUNCTION("ocl20_get_kernel_wg_size",ocl20_get_kernel_wg_size)
     REGISTER_BI_FUNCTION("ocl20_get_kernel_preferred_wg_size_multiple",ocl20_get_kernel_preferred_wg_size_multiple)
     REGISTER_BI_FUNCTION("ocl20_is_valid_event",ocl20_is_valid_event)
+    REGISTER_BI_FUNCTION("__emutls_get_address",__opencl_emutls_get_address)
 }

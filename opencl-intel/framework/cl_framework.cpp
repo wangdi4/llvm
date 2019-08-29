@@ -173,6 +173,11 @@ static void* GetExtensionFunctionAddress(const char *funcname)
 	return ptr->second;
 }
 
+#if defined( __GNUC__ ) &&  __GNUC__  > 7
+# pragma GCC diagnostic push
+# pragma GCC diagnostic ignored "-Wattribute-alias"
+#endif
+
 void * CL_API_CALL clGetExtensionFunctionAddress(const char *funcname)
 {
     if (g_pUserLogger->IsApiLoggingEnabled())
@@ -2921,5 +2926,10 @@ cl_int CL_API_CALL clGetDeviceFunctionPointerINTEL(cl_device_id device,
     }
 }
 SET_ALIAS(clGetDeviceFunctionPointerINTEL);
+
+#if defined( __GNUC__ ) && __GNUC__ > 7
+# pragma GCC diagnostic pop
+#endif
+
 REGISTER_EXTENSION_FUNCTION(clGetDeviceFunctionPointerINTEL,
     clGetDeviceFunctionPointerINTEL);

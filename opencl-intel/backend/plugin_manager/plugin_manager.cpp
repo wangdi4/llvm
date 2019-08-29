@@ -102,7 +102,7 @@ void PluginManager::LoadPlugins()
             PluginInfo* pInfo = new PluginInfo(*it);
             plugins.push_back(pInfo);
         }
-        catch (DeviceBackend::Exceptions::DynamicLibException ex)
+        catch (DeviceBackend::Exceptions::DynamicLibException& ex)
         {
             throw PluginManagerException(ex.what());
         }

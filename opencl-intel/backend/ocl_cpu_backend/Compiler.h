@@ -188,6 +188,7 @@ public:
 
     virtual void SetObjectCache(ObjectCodeCache* pCache) = 0;
 
+    virtual void SetBuiltinModules(const std::string& cpuName, const std::string& cpuFeatures=""){}
 protected:
     void LoadBuiltinModules(BuiltinLibrary* pLibrary,
       llvm::SmallVector<llvm::Module*, 2>& builtinsModules) const;

@@ -37,6 +37,11 @@ public:
   static char ID;
 
   OCLPostVect();
+
+  /// Returns the name of the pass
+  llvm::StringRef getPassName() const override {
+    return "VPlan post vectorization pass for OpenCL kernels";
+  }
 };
 } // namespace intel
 #endif // BACKEND_VECTORIZER_OCLVECCLONE_OCLPOSTVECT_H

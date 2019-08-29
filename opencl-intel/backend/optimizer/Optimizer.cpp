@@ -72,6 +72,28 @@ static cl::opt<bool>
     EnableVPlanVecForOpenCL("enable-vplan-kernel-vectorizer", cl::init(false),
                             cl::Hidden,
                             cl::desc("Enable VPlan Kernel Vectorizer"));
+
+// Enables kernel vectorizer identification message.
+static cl::opt<bool>
+    EmitKernelVectorizerSignOn("emit-kernel-vectorizer-sign-on",
+                              cl::init(false),
+                              cl::Hidden,
+                              cl::desc("Emit which vectorizer is used "
+                                       "(Volcano or Vplan)"));
+
+// This flag indicates that a vectorizer type was not specified, and the
+// compiler is free to use any vectorizer (volcano or vpo).
+//
+// Compiler chooses default vectorizer based on spirv.Source metadata. If OpenCL
+// C++ is set (SYCL, DPC++), default vectorizer is vplan. Else, default
+// vectorizer is volcano.
+static cl::opt<bool>
+    EnableDefaultVecForOpenCL("enable-default-kernel-vectorizer",
+                              cl::init(false),
+                              cl::Hidden,
+                              cl::desc("Enable a default Kernel Vectorizer "
+                                       "(Volcano or Vplan)"));
+
 // INTEL VPO END
 
 // TODO: The switch is required until subgroup implementation passes
@@ -89,6 +111,7 @@ FunctionPass *createScalarizerPass(const Intel::CPUId &CpuId,
                                    bool InVPlanPipeline);
 llvm::Pass *createVectorizerPass(SmallVector<Module *, 2> builtinModules,
                                  const intel::OptimizerConfig *pConfig);
+llvm::Pass *createOCLReqdSubGroupSizePass();
 llvm::Pass *createOCLVecClonePass(const intel::OptimizerConfig *pConfig,
                                   bool EnableVPlanVecForOpenCL);
 llvm::Pass *createOCLPostVectPass();
@@ -181,7 +204,8 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
                                             bool UnrollLoops,
                                             int rtLoopUnrollFactor,
                                             bool allowAllocaModificationOpt,
-                                            bool isDBG, unsigned RunVPOParopt) {
+                                            bool isDBG, unsigned RunVPOParopt,
+                                            bool UseVplan) {
   if (OptLevel == 0) {
     return;
   }
@@ -260,7 +284,17 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
   }
   if (UnrollLoops) {
     // Unroll small loops
-    PM->add(llvm::createLoopUnrollPass(OptLevel, false, false, 512, 0, 0));
+    if (UseVplan)
+      // Parameters for unrolling are as follows:
+      // Optimization level, OnlyWhenForced (If false, use cost model to
+      // determine loop unrolling profitability. If true, only loops that
+      // explicitly request unrolling via metadata are considered),
+      // ForgetAllSCEV (If false, when SCEV is invalidated, only forget
+      // everything in the top-most loop), cost threshold, explicit unroll
+      // count, allow partial unrolling, allow runtime unrolling.
+      PM->add(llvm::createLoopUnrollPass(OptLevel, false, false, 512, 0, 0, 0));
+    else
+      PM->add(llvm::createLoopUnrollPass(OptLevel, false, false, 512, 0, 0));
     // unroll loops with non-constant trip count
     const int thresholdBase = 16;
     if (rtLoopUnrollFactor > 1) {
@@ -311,23 +345,6 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
 // INTEL VPO END
 }
 
-static bool getDebugFlagFromMetadata(llvm::Module *M) {
-  if (llvm::NamedMDNode *CompileOptsNamed =
-      M->getNamedMetadata("opencl.compiler.options")) {
-
-    llvm::MDTupleTypedArrayWrapper<llvm::MDString>
-        CompileOpts(cast<llvm::MDTuple>(CompileOptsNamed->getOperand(0)));
-
-    for (llvm::MDString *Opt : CompileOpts) {
-      if (Opt->getString() == "-g") {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
 static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
                                        llvm::Module *M,
                                        SmallVector<Module*, 2> & pRtlModuleList,
@@ -337,10 +354,11 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
                                        bool isFpgaEmulator,
                                        bool UnrollLoops,
                                        bool EnableInferAS,
-                                       bool isSPIRV) {
+                                       bool isSPIRV,
+                                       bool UseVplan) {
   DebuggingServiceType debugType =
       getDebuggingServiceType(pConfig->GetDebugInfoFlag() ||
-                              getDebugFlagFromMetadata(M));
+                              CompilationUtils::getDebugFlagFromMetadata(M));
 
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(
@@ -445,7 +463,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
       &PM, OptLevel,
       UnitAtATime, UnrollLoops, rtLoopUnrollFactor, allowAllocaModificationOpt,
       debugType != intel::None,
-      RunVPOParopt);  // INTEL VPO
+      RunVPOParopt, UseVplan);  // INTEL VPO
 
   // check there is no recursion, if there is fail compilation
   PM.add(createDetectRecursionPass());
@@ -463,7 +481,7 @@ static void populatePassesPostFailCheck(
     const intel::OptimizerConfig *pConfig,
     std::vector<std::string> &UndefinedExternals, bool isOcl20,
     bool isFpgaEmulator, bool isEyeQEmulator, bool UnrollLoops,
-    bool EnableInferAS) {
+    bool EnableInferAS, bool UseVplan) {
   bool isProfiling = pConfig->GetProfilingFlag();
   bool HasGatherScatter = pConfig->GetCpuId().HasGatherScatter();
   bool HasGatherScatterPrefetch = pConfig->GetCpuId().HasGatherScatterPrefetch();
@@ -471,10 +489,9 @@ static void populatePassesPostFailCheck(
   // utilized by GVN.
   DebuggingServiceType debugType =
       getDebuggingServiceType(pConfig->GetDebugInfoFlag() ||
-                              getDebugFlagFromMetadata(M));
-  bool UseTLSGlobals = getenv("NO_IMPLICIT_ARGUMENTS") &&
-                       (debugType == intel::Native) && !isFpgaEmulator &&
-                       !isEyeQEmulator;
+                              CompilationUtils::getDebugFlagFromMetadata(M));
+  bool UseTLSGlobals =
+      (debugType == intel::Native) && !isFpgaEmulator && !isEyeQEmulator;
 
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(
@@ -544,7 +561,9 @@ static void populatePassesPostFailCheck(
     }
 
     if (!pRtlModuleList.empty()) {
-      if (EnableVPlanVecForOpenCL) {
+      if (UseVplan) {
+        if (EmitKernelVectorizerSignOn)
+          dbgs() << "DPC++ Kernel Vectorizer\n";
 
         // Replace 'div' and 'rem' instructions with calls to optimized library
         // functions
@@ -560,12 +579,13 @@ static void populatePassesPostFailCheck(
         PM.add(createInstructionCombiningPass());
         PM.add(createGVNHoistPass());
         PM.add(createDeadCodeEliminationPass());
+        PM.add(createOCLReqdSubGroupSizePass());
 
         // Calculate VL.
         PM.add(createWeightedInstCounter(true, pConfig->GetCpuId()));
 
         // Prepare Function for VecClone and call VecClone
-        PM.add(createOCLVecClonePass(pConfig, EnableVPlanVecForOpenCL));
+        PM.add(createOCLVecClonePass(pConfig, UseVplan));
         PM.add(createScalarizerPass(pConfig->GetCpuId(), true));
 
         // Call VPlan
@@ -583,8 +603,11 @@ static void populatePassesPostFailCheck(
         PM.add(createCFGSimplificationPass());
         PM.add(createPromoteMemoryToRegisterPass());
         PM.add(createAggressiveDCEPass());
-      } else
+      } else {
+        if (EmitKernelVectorizerSignOn)
+          dbgs() << "OpenCL Kernel Vectorizer\n";
         PM.add(createVectorizerPass(pRtlModuleList, pConfig));
+      }
     }
 
     if (dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)) {
@@ -807,9 +830,9 @@ Optimizer::Optimizer(llvm::Module *pModule,
       m_IsEyeQEmulator(pConfig->isEyeQEmulator()) {
   PassRegistry &Registry = *PassRegistry::getPassRegistry();
   initializeOCLPasses(Registry);
-  DebuggingServiceType debugType =
-      getDebuggingServiceType(pConfig->GetDebugInfoFlag() ||
-                              getDebugFlagFromMetadata(pModule));
+  DebuggingServiceType debugType = getDebuggingServiceType(
+      pConfig->GetDebugInfoFlag() ||
+      CompilationUtils::getDebugFlagFromMetadata(pModule));
 
   TargetMachine* targetMachine = pConfig->GetTargetMachine();
   assert(targetMachine && "Uninitialized TargetMachine!");
@@ -839,17 +862,29 @@ Optimizer::Optimizer(llvm::Module *pModule,
 
   bool EnableInferAS = !getenv("DISABLE_INFER_AS");
 
+  // The only noticeable difference between SYCL flow and OpenCL flow is the
+  // spirv.Source metadata: in SYCL the value for spirv.Source is OpenCL C++
+  // (because SYCL does not have a dedicated enum value yet), while in OpenCL
+  // spirv.Source is OpenCL C.
+  //
+  // spirv.Source is an *optional* metadata and can be omitted (optimized)
+  // during SPIR-V translation. It also is not emitted if we do not use SPIR-V
+  // as an intermediate. These two cases are not supported now.
+  bool IsSYCL = CompilationUtils::generatedFromOCLCPP(*pModule);
+  bool UseVplan = EnableVPlanVecForOpenCL ||
+                      (EnableDefaultVecForOpenCL && IsSYCL);
+
   // Add passes which will run unconditionally
   populatePassesPreFailCheck(m_PreFailCheckPM, pModule, m_pRtlModuleList,
                              OptLevel, pConfig, isOcl20, m_IsFpgaEmulator,
-                             UnrollLoops, EnableInferAS, isSPIRV);
+                             UnrollLoops, EnableInferAS, isSPIRV, UseVplan);
 
   // Add passes which will be run only if hasFunctionPtrCalls() and
   // hasRecursion() will return false
   populatePassesPostFailCheck(m_PostFailCheckPM, pModule, m_pRtlModuleList,
                               OptLevel, pConfig, m_undefinedExternalFunctions,
                               isOcl20, m_IsFpgaEmulator, m_IsEyeQEmulator,
-                              UnrollLoops, EnableInferAS);
+                              UnrollLoops, EnableInferAS, UseVplan);
 }
 
 void Optimizer::Optimize() {

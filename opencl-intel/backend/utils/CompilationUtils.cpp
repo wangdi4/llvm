@@ -648,6 +648,23 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     return OclVersion::CL_VER_DEFAULT;
   }
 
+  bool CompilationUtils::getDebugFlagFromMetadata(Module *M) {
+    if (llvm::NamedMDNode *CompileOptsNamed =
+            M->getNamedMetadata("opencl.compiler.options")) {
+
+      llvm::MDTupleTypedArrayWrapper<llvm::MDString> CompileOpts(
+          cast<llvm::MDTuple>(CompileOptsNamed->getOperand(0)));
+
+      for (llvm::MDString *Opt : CompileOpts) {
+        if (Opt->getString() == "-g") {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
   bool CompilationUtils::generatedFromOCLCPP(const Module &M) {
     /*
     Example of the metadata
@@ -966,7 +983,17 @@ std::string CompilationUtils::mangledGetSubGroupLocalId() {
     NAME_GET_SUB_GROUP_LOCAL_ID.c_str());
 }
 
-static bool isOptionalMangleOf(const std::string& LHS, const std::string& RHS) {
+std::string CompilationUtils::mangledGetGlobalLinearId() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+      NAME_GET_LINEAR_GID.c_str());
+}
+
+std::string CompilationUtils::mangledGetLocalLinearId() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+      NAME_GET_LINEAR_LID.c_str());
+}
+
+static bool isOptionalMangleOf(const std::string &LHS, const std::string &RHS) {
   //LHS should be mangled
   const char*const LC = LHS.c_str();
   if (!isMangledName(LC))

@@ -85,7 +85,7 @@ bool clImageExecuteTest()
 			cl_kernel kernel = clCreateKernel(program, "image_test", &iRet);
 			bResult &= Check("clCreateKernel - image_test", CL_SUCCESS, iRet);
 			if (!bResult) goto release_program;
-
+			if (gDeviceType != CL_DEVICE_TYPE_ACCELERATOR)
 			{
 
 				//

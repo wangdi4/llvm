@@ -277,6 +277,16 @@ void DebugInfoPass::addDebugBuiltinDeclarations()
 
 void DebugInfoPass::runOnUserFunction(Function* pFunc)
 {
+    // Try to find this function in the debug information metadata.
+    // If it's not there - it's not a function the user compiled, so we
+    // don't instrument it.
+    // Moreover, we will not insert computeGlobalId instructions, otherwise
+    // it will give build error after running BarrierPass
+    Value* func_metadata = extractSubprogramDescriptorMetadata(pFunc);
+    if (!func_metadata) {
+        return;
+    }
+
     FunctionContext fContext;
     insertComputeGlobalIds(pFunc, fContext);
 
@@ -328,15 +338,6 @@ void DebugInfoPass::insertComputeGlobalIds(Function* pFunc, FunctionContext& fCo
 
 void DebugInfoPass::addDebugCallsToFunction(Function* pFunc, const FunctionContext& fContext)
 {
-    // Try to find this function in the debug information metadata.
-    // If it's not there - it's not a function the user compiled, so we
-    // don't instrument it.
-    //
-    Value* func_metadata = extractSubprogramDescriptorMetadata(pFunc);
-    if (!func_metadata) {
-        return;
-    }
-
     // A note on the order of instructions inserted into the function:
     // fContext.original_first_instr contains the original first instruction
     // of the function, before the GID computations have been added (they are

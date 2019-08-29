@@ -40,6 +40,7 @@ void CPUBuiltinLibrary::Load() {
 
   if (m_useDynamicSvmlLibrary) {
     // Load SVML functions
+    assert(CPUPrefix && "CPUPrefix is null");
     std::string SVMLPath = PathStr + "__ocl_svml_" + CPUPrefix;
 #if defined (_WIN32)
     SVMLPath += ".dll";

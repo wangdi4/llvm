@@ -739,115 +739,141 @@ bool clCreateImageTest()
         clImageDesc.image_height = IMAGE_HEIGHT;
         clImageDesc.image_depth = IMAGE_DEPTH;
 
-        // 1D image
-        clImageDesc.image_type = CL_MEM_OBJECT_IMAGE1D;
-        clImg1D = clCreateImage(context, 0, &clFormat, &clImageDesc, NULL, &iRet);
-        CheckException("clCreateImage", CL_SUCCESS, iRet);
-
-        // 1D image buffer
-
-        clBuffer = clCreateBuffer(context, 0, clImageDesc.image_width * IMAGE_ELEM_SIZE, NULL, &iRet);
-        CheckException("clCreateBuffer", CL_SUCCESS, iRet);
-
-        clImageDesc.image_type = CL_MEM_OBJECT_IMAGE1D_BUFFER;
-        clImageDesc.mem_object = clBuffer;
-        clImg1DBuffer = clCreateImage(context, 0, &clFormat, &clImageDesc, NULL, &iRet);
-        CheckException("clCreateImage", CL_SUCCESS, iRet);
-        clImageDesc.mem_object = NULL;
-
-        TestImageFromMemObject(queue, clBuffer, clImg1DBuffer, clImageDesc, true);
-
-        // 2D image
-        clImageDesc.image_type = CL_MEM_OBJECT_IMAGE2D;
-        clImg2D = clCreateImage(context, 0, &clFormat, &clImageDesc, NULL, &iRet);    
-        CheckException("clCreateImage", CL_SUCCESS, iRet);
-
-        // 2D image, old API
-        clImg2DOld = clCreateImage2D(context, 0, &clFormat, clImageDesc.image_width, clImageDesc.image_height, clImageDesc.image_row_pitch, NULL, &iRet);
-        CheckException("clCreateImage2D", CL_SUCCESS, iRet);
-
-		// 2D image buffer
-		clBuffer = clCreateBuffer(context, 0, clImageDesc.image_width * clImageDesc.image_height * IMAGE_ELEM_SIZE, NULL, &iRet);
-		CheckException("clCreateBuffer", CL_SUCCESS, iRet);
-
-		clImageDesc.image_type = CL_MEM_OBJECT_IMAGE2D;
-		clImageDesc.mem_object = clBuffer;
-		clImg2DBuffer = clCreateImage(context, 0, &clFormat, &clImageDesc, NULL, &iRet);
-		CheckException("clCreateImage", CL_SUCCESS, iRet);
-        clImageDesc.mem_object = NULL;
-
-		TestImageFromMemObject(queue, clBuffer, clImg2DBuffer, clImageDesc, true);
-		
-		// 2D image from another 2D image
-		Test2DImageFromImage(context, queue);
-
-        // 3D image 
-        clImageDesc.image_type = CL_MEM_OBJECT_IMAGE3D;
-		clImg3D = clCreateImage(context, CL_MEM_READ_WRITE, &clFormat, &clImageDesc, NULL, &iRet);
-        CheckException("clCreateImage", CL_SUCCESS, iRet);		
-
-        // 3D image, old API
-        clImg3DOld = clCreateImage3D(context, 0, &clFormat, clImageDesc.image_width, clImageDesc.image_height, clImageDesc.image_depth, clImageDesc.image_row_pitch,
-            clImageDesc.image_slice_pitch, NULL, &iRet);
-        CheckException("clCreateImage3D", CL_SUCCESS, iRet);
-
-        // unsupported image type
-        clImageDesc.image_type = 0xffff;
-        clCreateImage(context, 0, &clFormat, &clImageDesc, NULL, &iRet);
-        CheckException("clCreateImage", CL_INVALID_IMAGE_DESCRIPTOR, iRet);
-
-        // 1D image array
-        clImageDesc.image_type = CL_MEM_OBJECT_IMAGE1D_ARRAY;
-        clImageDesc.image_array_size = IMAGE_ARRAY_SIZE;
-        clImg1DArr = clCreateImage(context, 0, &clFormat, &clImageDesc, NULL, &iRet);
-        CheckException("clCreateImage", CL_SUCCESS, iRet);
-
-        size_t szImgArrSize;
-        iRet = clGetImageInfo(clImg1DArr, CL_IMAGE_ARRAY_SIZE, sizeof(szImgArrSize), &szImgArrSize, &szSize);
-        CheckException("clGetMemObjectInfo", CL_SUCCESS, iRet);
-        CheckException("CL_IMAGE_ARRAY_SIZE", clImageDesc.image_array_size, szImgArrSize);
-        CheckException("szSize", sizeof(szImgArrSize), szSize);
-
-        // CL_IMAGE_ARRAY_SIZE for non image array objects should return 0 without an error
-        iRet = clGetImageInfo(clImg3D, CL_IMAGE_ARRAY_SIZE, sizeof(szImgArrSize), &szImgArrSize, &szSize);
-        CheckException("clGetMemObjectInfo", CL_SUCCESS, iRet);
-        CheckException("CL_IMAGE_ARRAY_SIZE", (size_t)0, szImgArrSize);
-        CheckException("szSize", sizeof(szImgArrSize), szSize);
-
-        TestWriteReadImgArray(queue, clImg1DArr, CL_MEM_OBJECT_IMAGE1D_ARRAY, clImageDesc);
-
-        // 2D image array
-        clImageDesc.image_type = CL_MEM_OBJECT_IMAGE2D_ARRAY;    
-        clImg2DArr = clCreateImage(context, 0, &clFormat, &clImageDesc, NULL, &iRet);
-        CheckException("clCreateImage", CL_SUCCESS, iRet);
-
-        iRet = clGetImageInfo(clImg2DArr, CL_IMAGE_ARRAY_SIZE, sizeof(szImgArrSize), &szImgArrSize, &szSize);
-        CheckException("clGetMemObjectInfo", CL_SUCCESS, iRet);
-        CheckException("CL_IMAGE_ARRAY_SIZE", clImageDesc.image_array_size, szImgArrSize);
-        CheckException("szSize", sizeof(szImgArrSize), szSize);
-
-        // CL_IMAGE_NUM_MIP_LEVELS and CL_IMAGE_NUM_SAMPLES should be 0
-        cl_uint uiNumMipLevels, uiNumSamples;
-        iRet = clGetImageInfo(clImg2DArr, CL_IMAGE_NUM_MIP_LEVELS, sizeof(uiNumMipLevels), &uiNumMipLevels, &szSize);
-        CheckException("clGetImageInfo", CL_SUCCESS, iRet);
-        CheckException("CL_IMAGE_NUM_MIP_LEVELS", (cl_uint)0, uiNumMipLevels);
-        CheckException("szSize", sizeof(uiNumMipLevels), szSize);
-        iRet = clGetImageInfo(clImg2DArr, CL_IMAGE_NUM_SAMPLES, sizeof(uiNumSamples), &uiNumSamples, &szSize);
-        CheckException("clGetImageInfo", CL_SUCCESS, iRet);
-        CheckException("CL_IMAGE_NUM_SAMPLES", (cl_uint)0, uiNumSamples);
-        CheckException("szSize", sizeof(uiNumSamples), szSize);
-
-        TestWriteReadImgArray(queue, clImg2DArr, CL_MEM_OBJECT_IMAGE2D_ARRAY, clImageDesc);
-
-        // host pointer
-        for (size_t i = 0; i < sizeof(clImgTypes) / sizeof(clImgTypes[0]); i++)
+        // FPGA emulator doesn't support images
+        if (gDeviceType == CL_DEVICE_TYPE_ACCELERATOR)
         {
-            TestHostPtr(context, queue, clImgTypes[i], clImageDesc, clFormat);
+            // 1D image
+            clImageDesc.image_type = CL_MEM_OBJECT_IMAGE1D;
+            clImg1D = clCreateImage(context, 0, &clFormat, &clImageDesc, NULL, &iRet);
+            CheckException("clCreateImage", CL_INVALID_OPERATION, iRet);
+
+            // 2D image, old API
+            clImageDesc.image_type = CL_MEM_OBJECT_IMAGE2D;
+            clImg2DOld = clCreateImage2D(context, 0, &clFormat, clImageDesc.image_width,
+                                         clImageDesc.image_height,
+                                         clImageDesc.image_row_pitch, NULL, &iRet);
+            CheckException("clCreateImage2D", CL_INVALID_OPERATION, iRet);
+
+            // 3D image, old API
+            clImageDesc.image_type = CL_MEM_OBJECT_IMAGE3D;
+            clImg3DOld = clCreateImage3D(context, 0, &clFormat, clImageDesc.image_width,
+                                         clImageDesc.image_height, clImageDesc.image_depth,
+                                         clImageDesc.image_row_pitch,
+                                         clImageDesc.image_slice_pitch, NULL, &iRet);
+            CheckException("clCreateImage3D", CL_INVALID_OPERATION, iRet);
         }
+        else
+        {
+            // 1D image
+            clImageDesc.image_type = CL_MEM_OBJECT_IMAGE1D;
+            clImg1D = clCreateImage(context, 0, &clFormat, &clImageDesc, NULL, &iRet);
+            CheckException("clCreateImage", CL_SUCCESS, iRet);
 
-        TestNegative(clFormat, clImageDesc, context, device, queue);
+            // 1D image buffer
 
-        TestInvalidFlags(context, clFormat, clImageDesc);
+            clBuffer = clCreateBuffer(context, 0, clImageDesc.image_width * IMAGE_ELEM_SIZE, NULL, &iRet);
+            CheckException("clCreateBuffer", CL_SUCCESS, iRet);
+
+            clImageDesc.image_type = CL_MEM_OBJECT_IMAGE1D_BUFFER;
+            clImageDesc.mem_object = clBuffer;
+            clImg1DBuffer = clCreateImage(context, 0, &clFormat, &clImageDesc, NULL, &iRet);
+            CheckException("clCreateImage", CL_SUCCESS, iRet);
+            clImageDesc.mem_object = NULL;
+
+            TestImageFromMemObject(queue, clBuffer, clImg1DBuffer, clImageDesc, true);
+
+            // 2D image
+            clImageDesc.image_type = CL_MEM_OBJECT_IMAGE2D;
+            clImg2D = clCreateImage(context, 0, &clFormat, &clImageDesc, NULL, &iRet);
+            CheckException("clCreateImage", CL_SUCCESS, iRet);
+
+            // 2D image, old API
+            clImg2DOld = clCreateImage2D(context, 0, &clFormat, clImageDesc.image_width, clImageDesc.image_height, clImageDesc.image_row_pitch, NULL, &iRet);
+            CheckException("clCreateImage2D", CL_SUCCESS, iRet);
+
+            // 2D image buffer
+            clBuffer = clCreateBuffer(context, 0, clImageDesc.image_width * clImageDesc.image_height * IMAGE_ELEM_SIZE, NULL, &iRet);
+            CheckException("clCreateBuffer", CL_SUCCESS, iRet);
+
+            clImageDesc.image_type = CL_MEM_OBJECT_IMAGE2D;
+            clImageDesc.mem_object = clBuffer;
+            clImg2DBuffer = clCreateImage(context, 0, &clFormat, &clImageDesc, NULL, &iRet);
+            CheckException("clCreateImage", CL_SUCCESS, iRet);
+            clImageDesc.mem_object = NULL;
+
+            TestImageFromMemObject(queue, clBuffer, clImg2DBuffer, clImageDesc, true);
+
+            // 2D image from another 2D image
+            Test2DImageFromImage(context, queue);
+
+            // 3D image
+            clImageDesc.image_type = CL_MEM_OBJECT_IMAGE3D;
+            clImg3D = clCreateImage(context, CL_MEM_READ_WRITE, &clFormat, &clImageDesc, NULL, &iRet);
+            CheckException("clCreateImage", CL_SUCCESS, iRet);
+
+            // 3D image, old API
+            clImg3DOld = clCreateImage3D(context, 0, &clFormat, clImageDesc.image_width, clImageDesc.image_height, clImageDesc.image_depth, clImageDesc.image_row_pitch,
+                clImageDesc.image_slice_pitch, NULL, &iRet);
+            CheckException("clCreateImage3D", CL_SUCCESS, iRet);
+
+            // unsupported image type
+            clImageDesc.image_type = 0xffff;
+            clCreateImage(context, 0, &clFormat, &clImageDesc, NULL, &iRet);
+            CheckException("clCreateImage", CL_INVALID_IMAGE_DESCRIPTOR, iRet);
+
+            // 1D image array
+            clImageDesc.image_type = CL_MEM_OBJECT_IMAGE1D_ARRAY;
+            clImageDesc.image_array_size = IMAGE_ARRAY_SIZE;
+            clImg1DArr = clCreateImage(context, 0, &clFormat, &clImageDesc, NULL, &iRet);
+            CheckException("clCreateImage", CL_SUCCESS, iRet);
+
+            size_t szImgArrSize;
+            iRet = clGetImageInfo(clImg1DArr, CL_IMAGE_ARRAY_SIZE, sizeof(szImgArrSize), &szImgArrSize, &szSize);
+            CheckException("clGetMemObjectInfo", CL_SUCCESS, iRet);
+            CheckException("CL_IMAGE_ARRAY_SIZE", clImageDesc.image_array_size, szImgArrSize);
+            CheckException("szSize", sizeof(szImgArrSize), szSize);
+
+            // CL_IMAGE_ARRAY_SIZE for non image array objects should return 0 without an error
+            iRet = clGetImageInfo(clImg3D, CL_IMAGE_ARRAY_SIZE, sizeof(szImgArrSize), &szImgArrSize, &szSize);
+            CheckException("clGetMemObjectInfo", CL_SUCCESS, iRet);
+            CheckException("CL_IMAGE_ARRAY_SIZE", (size_t)0, szImgArrSize);
+            CheckException("szSize", sizeof(szImgArrSize), szSize);
+
+            TestWriteReadImgArray(queue, clImg1DArr, CL_MEM_OBJECT_IMAGE1D_ARRAY, clImageDesc);
+
+            // 2D image array
+            clImageDesc.image_type = CL_MEM_OBJECT_IMAGE2D_ARRAY;
+            clImg2DArr = clCreateImage(context, 0, &clFormat, &clImageDesc, NULL, &iRet);
+            CheckException("clCreateImage", CL_SUCCESS, iRet);
+
+            iRet = clGetImageInfo(clImg2DArr, CL_IMAGE_ARRAY_SIZE, sizeof(szImgArrSize), &szImgArrSize, &szSize);
+            CheckException("clGetMemObjectInfo", CL_SUCCESS, iRet);
+            CheckException("CL_IMAGE_ARRAY_SIZE", clImageDesc.image_array_size, szImgArrSize);
+            CheckException("szSize", sizeof(szImgArrSize), szSize);
+
+            // CL_IMAGE_NUM_MIP_LEVELS and CL_IMAGE_NUM_SAMPLES should be 0
+            cl_uint uiNumMipLevels, uiNumSamples;
+            iRet = clGetImageInfo(clImg2DArr, CL_IMAGE_NUM_MIP_LEVELS, sizeof(uiNumMipLevels), &uiNumMipLevels, &szSize);
+            CheckException("clGetImageInfo", CL_SUCCESS, iRet);
+            CheckException("CL_IMAGE_NUM_MIP_LEVELS", (cl_uint)0, uiNumMipLevels);
+            CheckException("szSize", sizeof(uiNumMipLevels), szSize);
+            iRet = clGetImageInfo(clImg2DArr, CL_IMAGE_NUM_SAMPLES, sizeof(uiNumSamples), &uiNumSamples, &szSize);
+            CheckException("clGetImageInfo", CL_SUCCESS, iRet);
+            CheckException("CL_IMAGE_NUM_SAMPLES", (cl_uint)0, uiNumSamples);
+            CheckException("szSize", sizeof(uiNumSamples), szSize);
+
+            TestWriteReadImgArray(queue, clImg2DArr, CL_MEM_OBJECT_IMAGE2D_ARRAY, clImageDesc);
+
+            // host pointer
+            for (size_t i = 0; i < sizeof(clImgTypes) / sizeof(clImgTypes[0]); i++)
+            {
+                TestHostPtr(context, queue, clImgTypes[i], clImageDesc, clFormat);
+            }
+
+            TestNegative(clFormat, clImageDesc, context, device, queue);
+
+            TestInvalidFlags(context, clFormat, clImageDesc);
+        }
     }
     catch (const std::exception&)
     {

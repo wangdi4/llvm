@@ -366,7 +366,15 @@ static inline size_t AT_LEAST1(const size_t val) { return val ? val : 1; }
 		ImgColorDataType *theColor;
 
 		cl_mem img = clCreateImage(m_context, CL_MEM_READ_WRITE, &m_imgFormat, &m_imgDesc, NULL, &iRet);
-		EXPECT_EQ(CL_SUCCESS, iRet) << "clCreateImage img = " << ClErrTxt(iRet);
+		if (gDeviceType != CL_DEVICE_TYPE_ACCELERATOR)
+		{
+			EXPECT_EQ(CL_SUCCESS, iRet) << "clCreateImage img = " << ClErrTxt(iRet);
+		}
+		else
+		{
+			EXPECT_EQ(CL_INVALID_OPERATION, iRet) << "clCreateImage img = " << ClErrTxt(iRet);
+		}
+
 		if (CL_SUCCESS != iRet)
 		{
 			return iRet;

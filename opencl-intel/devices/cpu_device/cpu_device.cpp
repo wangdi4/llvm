@@ -320,6 +320,10 @@ cl_dev_err_code CPUDevice::Init()
         GetCPUDevInfo(m_CPUDeviceConfig)->bImageSupport = false;
         GetCPUDevInfo(m_CPUDeviceConfig)->bDoubleSupport = false;
     }
+    else if (FPGA_EMU_DEVICE == m_CPUDeviceConfig.GetDeviceMode())
+    {
+        GetCPUDevInfo(m_CPUDeviceConfig)->bImageSupport = false;
+    }
 
 
 #ifdef __HARD_TRAPPING__
@@ -844,9 +848,9 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                     switch (m_CPUDeviceConfig.GetDeviceMode())
                     {
                         case CPU_DEVICE:
-                        case FPGA_EMU_DEVICE:
                             *(cl_bool*)paramVal = CL_TRUE;
                             break;
+                        case FPGA_EMU_DEVICE:
                         case EYEQ_EMU_DEVICE:
                             *(cl_bool*)paramVal = CL_FALSE;
                             break;
@@ -2798,6 +2802,10 @@ const void* CPUDevice::clDevFEDeviceInfo() const
     {
         dev_info->bImageSupport = false;
         dev_info->bDoubleSupport = false;
+    }
+    else if (FPGA_EMU_DEVICE == m_CPUDeviceConfig.GetDeviceMode())
+    {
+        dev_info->bImageSupport = false;
     }
     return dev_info;
 }

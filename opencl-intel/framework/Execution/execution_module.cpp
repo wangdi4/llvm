@@ -2502,6 +2502,10 @@ cl_err_code ExecutionModule::EnqueueReadImage(
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
+    if (pCommandQueue->GetContext()->IsFPGAEmulator())
+    {
+        return CL_INVALID_OPERATION;
+    }
 
     SharedPtr<MemoryObject> pImage = m_pContextModule->GetMemoryObject(clImage);
     if (NULL == pImage)
@@ -2585,6 +2589,11 @@ cl_err_code ExecutionModule::EnqueueWriteImage(
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
+    }
+
+    if (pCommandQueue->GetContext()->IsFPGAEmulator())
+    {
+        return CL_INVALID_OPERATION;
     }
 
     SharedPtr<MemoryObject> pImage = m_pContextModule->GetMemoryObject(clImage);
@@ -2732,6 +2741,10 @@ cl_err_code ExecutionModule::EnqueueCopyImage(
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
+    if (pCommandQueue->GetContext()->IsFPGAEmulator())
+    {
+        return CL_INVALID_OPERATION;
+    }
 
     SharedPtr<MemoryObject> pSrcImage = m_pContextModule->GetMemoryObject(clSrcImage);
     SharedPtr<MemoryObject> pDstImage = m_pContextModule->GetMemoryObject(clDstImage);
@@ -2833,6 +2846,10 @@ cl_err_code ExecutionModule::EnqueueCopyImageToBuffer(
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
+    if (pCommandQueue->GetContext()->IsFPGAEmulator())
+    {
+        return CL_INVALID_OPERATION;
+    }
 
     SharedPtr<MemoryObject> pSrcImage = m_pContextModule->GetMemoryObject(clSrcImage);
     SharedPtr<MemoryObject> pDstBuffer = m_pContextModule->GetMemoryObject(clDstBuffer);
@@ -2918,6 +2935,10 @@ cl_err_code ExecutionModule::EnqueueCopyBufferToImage(
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
+    }
+    if (pCommandQueue->GetContext()->IsFPGAEmulator())
+    {
+        return CL_INVALID_OPERATION;
     }
 
     SharedPtr<MemoryObject> pSrcBuffer = m_pContextModule->GetMemoryObject(clSrcBuffer);
@@ -3021,6 +3042,10 @@ void * ExecutionModule::EnqueueMapImage(
     if (NULL == pCommandQueue)
     {
         *pErrcodeRet = CL_INVALID_COMMAND_QUEUE;
+    }
+    else if (pCommandQueue->GetContext()->IsFPGAEmulator())
+    {
+        *pErrcodeRet = CL_INVALID_OPERATION;
     }
     else if (NULL == pImage)
     {

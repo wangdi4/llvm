@@ -16,7 +16,7 @@
 #include "ICLDevBackendServiceFactory.h"
 #include "exceptions.h"
 #include "opencl_printf_ext.h"
-#include "llvm/Support/MutexGuard.h"
+#include "llvm/Support/Mutex.h"
 #include <stdio.h>
 
 using namespace std;
@@ -31,7 +31,7 @@ static llvm::sys::Mutex m_lock;
 
 extern "C" LLVM_BACKEND_API int opencl_printf(const char* format, char* args, void* pCallback, void* pHandle)
 {
-    llvm::MutexGuard locked(m_lock);
+    std::lock_guard<llvm::sys::Mutex> locked(m_lock);
     StreamOutputAccumulator output(stdout);
     return printFormatCommon(output, format, args);
 }

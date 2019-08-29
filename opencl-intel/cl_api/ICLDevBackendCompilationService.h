@@ -25,7 +25,7 @@ class ICLDevBackendOptions;
 
 /**
  * This interface class is responsible for the compilation services which should be
- * loaded at the Host side and Device side, programs can be created and compiled 
+ * loaded at the Host side and Device side, programs can be created and compiled
  * through this interface;
  */
 class ICLDevBackendCompilationService
@@ -35,10 +35,10 @@ public:
 
     virtual cl_dev_err_code CheckProgramBinary(
         const void* pBinary,
-        size_t uiBinarySize ) const = 0;
+        size_t uiBinarySize ) = 0;
 
     /**
-     * Creates program from the specified bytecode, it should verify the byte code before 
+     * Creates program from the specified bytecode, it should verify the byte code before
      * creation
      *
      * @param pByteCodeContainer is the byte code buffer
@@ -47,12 +47,12 @@ public:
      * @returns in case of success CL_DEV_SUCCESS will be returned and ppProgram will be modified
      *  to point to the generated program; otherwise pProgram will point to NULL and will return:
      *  CL_DEV_INVALID_BINARY if the program bytecode is invalid
-     *  CL_DEV_OUT_OF_MEMORY if there's no sufficient memory 
+     *  CL_DEV_OUT_OF_MEMORY if there's no sufficient memory
      *  CL_DEV_ERROR_FAIL in any other error
      */
     virtual cl_dev_err_code CreateProgram(
         const void* pBinary,
-        size_t uiBinarySize, 
+        size_t uiBinarySize,
         ICLDevBackendProgram_** ppProgram) = 0;
 
     /**
@@ -65,7 +65,7 @@ public:
      *
      * @param pProgram pointer to the program which will be passed to the builder
      *  (will be modified with the build output)
-     * @param pOptions pointer to ICLDevBackendOptions that describes the build options to be 
+     * @param pOptions pointer to ICLDevBackendOptions that describes the build options to be
      *  used for building the program
      *
      * @returns
@@ -73,7 +73,7 @@ public:
      *	CL_DEV_BUILD_WARNING	- in case their is warnings
      *	CL_DEV_SUCCESS	        - the build succeeded
      *	CL_DEV_INVALID_BUILD_OPTIONS  - if the build options specified by pOptions are invalid
-     *	CL_DEV_OUT_OF_MEMORY          - if the there is a failure to allocate memory 
+     *	CL_DEV_OUT_OF_MEMORY          - if the there is a failure to allocate memory
      *  CL_DEV_BUILD_ALREADY_COMPLETE - if the program has been already compiled
      */
     virtual cl_dev_err_code BuildProgram(
@@ -92,7 +92,7 @@ public:
      * @returns
      *	CL_DEV_SUCCESS	        - the build succeeded
      *	CL_DEV_INVALID_BUILD_OPTIONS  - if the build options specified by pOptions are invalid
-     *	CL_DEV_OUT_OF_MEMORY          - if the there is a failure to allocate memory 
+     *	CL_DEV_OUT_OF_MEMORY          - if the there is a failure to allocate memory
      */
     virtual cl_dev_err_code DumpCodeContainer(
         const ICLDevBackendCodeContainer* pCodeContainer,

@@ -42,6 +42,15 @@ private:
   // Prepare OpenCL kernel for VecClone (emits vector-variant attributes).
   void languageSpecificInitializations(Module &M) override;
 
+  /// The actions to take for the OpenCL builtin functions.
+  enum class FnAction {
+    MoveAndUpdateUses,       // Moves to entry block + update uses
+    MoveAndUpdateUsesForDim, // Moves to entry block + update uses for a
+    // specific dimension
+    MoveOnly,            // Moves to entry block only
+    AssertIfEncountered, // Assert false.
+  };
+
 public:
   static char ID;
   bool EnableVPlanVecForOpenCL = false;
@@ -49,6 +58,24 @@ public:
   OCLVecClone(const Intel::CPUId *CPUId, bool EnableVPlanVecForOpenCL);
 
   OCLVecClone();
+
+  /// Returns the name of the pass
+  llvm::StringRef getPassName() const override { return "OCLVecClone pass"; }
+};
+
+class OCLReqdSubGroupSize : public ModulePass {
+private:
+  bool runOnModule(Module &F) override;
+
+public:
+  static char ID;
+
+  OCLReqdSubGroupSize();
+
+  /// Returns the name of the pass
+  llvm::StringRef getPassName() const override {
+    return "OCLReqdSubGroupSize pass";
+  }
 };
 } // namespace intel
 #endif // BACKEND_VECTORIZER_OCLVECCLONE_OCLVECCLONE_H

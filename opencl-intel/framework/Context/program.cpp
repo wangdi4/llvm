@@ -69,6 +69,7 @@ cl_err_code Program::GetDeviceFunctionPointer(cl_device_id device,
     const char* func_name, cl_ulong* func_pointer_ret)
 {
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(device);
+    assert(pDeviceProgram && " pDeviceProgram is null");
     return pDeviceProgram->GetFunctionPointer(func_name, func_pointer_ret);
 }
 

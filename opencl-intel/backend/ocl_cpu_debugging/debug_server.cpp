@@ -35,7 +35,6 @@
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/MutexGuard.h"
 #include "llvm/Support/Path.h"
 
 #include <string>
@@ -746,7 +745,7 @@ DebugServer::~DebugServer()
 
 bool DebugServer::Init(unsigned int port_number)
 {
-    llvm::MutexGuard lock(m_Lock);
+    std::lock_guard<llvm::sys::Mutex> lock(m_Lock);
     if (d->m_initialized)
         return true;
     
@@ -780,7 +779,7 @@ void DebugServer::WaitForStartCommand()
 {
     // Receive a START_SESSION message and reply to it
     //
-    llvm::MutexGuard lock(m_Lock);
+    std::lock_guard<llvm::sys::Mutex> lock(m_Lock);
     ClientToServerMessage msg = d->m_comm->receiveMessage();
     LOG_RECEIVED_MESSAGE(msg);
 
@@ -852,7 +851,7 @@ void DebugServer::Stoppoint(const MDNode* line_metadata)
     // while our breakpoints database deals with absolute paths.
     string absPath = getAbsPath(file, dir);
 
-    llvm::MutexGuard lock(m_Lock);
+    std::lock_guard<llvm::sys::Mutex> lock(m_Lock);
     d->m_prev_stoppoint_line = line_metadata;
     bool stopped = false;
 
@@ -949,7 +948,7 @@ void DebugServer::Stoppoint(const MDNode* line_metadata)
 
 bool DebugServer::DebuggedGlobalIdMatch(unsigned x, unsigned y, unsigned z)
 {
-    llvm::MutexGuard lock(m_Lock);
+    std::lock_guard<llvm::sys::Mutex> lock(m_Lock);
     return d->DebuggedGlobalIdMatch(x, y, z);
 }
 
@@ -959,7 +958,7 @@ void DebugServer::EnterFunction(const llvm::MDNode* subprogram_mdn)
     FunctionStackFrame stack_frame = FunctionStackFrame();
     stack_frame.function_metadata = subprogram_mdn;
     stack_frame.calling_line_metadata = d->m_prev_stoppoint_line;
-    llvm::MutexGuard lock(m_Lock);
+    std::lock_guard<llvm::sys::Mutex> lock(m_Lock);
     d->m_stack.push_front(stack_frame);
 }
 
@@ -967,7 +966,7 @@ void DebugServer::EnterFunction(const llvm::MDNode* subprogram_mdn)
 void DebugServer::ExitFunction(const llvm::MDNode* subprogram_mdn)
 {
     assert(d->m_stack.size() > 0);
-    llvm::MutexGuard lock(m_Lock);
+    std::lock_guard<llvm::sys::Mutex> lock(m_Lock);
     d->m_stack.pop_front();
 }
 
@@ -976,7 +975,7 @@ void DebugServer::DeclareLocal(void* addr, const llvm::MDNode* description, cons
 {
     FunctionStackFrame::VarDeclInfo varinfo(addr, description, expression);
     assert(d->m_stack.size() > 0);
-    llvm::MutexGuard lock(m_Lock);
+    std::lock_guard<llvm::sys::Mutex> lock(m_Lock);
     d->m_stack.front().vars.push_back(varinfo);
 }
 
@@ -985,14 +984,14 @@ void DebugServer::DeclareGlobal(void* addr, const llvm::MDNode* description)
 {
     FunctionStackFrame::VarDeclInfo varinfo(addr, description, nullptr);
     assert(d->m_stack.size() > 0);
-    llvm::MutexGuard lock(m_Lock);
+    std::lock_guard<llvm::sys::Mutex> lock(m_Lock);
     d->m_stack.front().vars.push_back(varinfo);
 }
 
 
 void DebugServer::TerminateConnection()
 {
-    llvm::MutexGuard lock(m_Lock);
+    std::lock_guard<llvm::sys::Mutex> lock(m_Lock);
     d->TerminateCommunicator();
 }
 

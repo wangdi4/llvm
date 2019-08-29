@@ -49,14 +49,14 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; CHECK: %[[B_PIPE1:.*]] = load {{.*}} @b.pipe
 ; CHECK: call void @sendData2{{.*}} %[[A_PIPE1]], {{.*}} %[[B_PIPE1]]
 ;
-; CHECK: define {{.*}} @sendData(%opencl.pipe_rw_t {{.*}}*)
+; CHECK: define {{.*}} @sendData(%opencl.pipe_rw_t {{.*}}* %0)
 ; CHECK: %[[PIPE_ARG_ADDR:.*]] = alloca %opencl.pipe_rw_t {{.*}}*
 ; CHECK: store {{.*}} %0, {{.*}} %[[PIPE_ARG_ADDR]]
 ; CHECK: %[[PIPE:.*]] = load {{.*}} %[[PIPE_ARG_ADDR]]
 ; CHECK: %[[PIPE_BITCAST:.*]] = bitcast {{.*}} %[[PIPE]] to %opencl.pipe_wo_t
 ; CHECK: call i32 @__write_pipe_2{{.*}} %[[PIPE_BITCAST]]
 ;
-; CHECK: define {{.*}} @sendData2(%opencl.pipe_rw_t {{.*}}*, %opencl.pipe_rw_t {{.*}}*, i32)
+; CHECK: define {{.*}} @sendData2(%opencl.pipe_rw_t {{.*}}* %0, %opencl.pipe_rw_t {{.*}}* %1, i32 %2)
 ; CHECK: %[[PIPE_ARG0_ADDR:.*]] = alloca %opencl.pipe_rw_t {{.*}}*
 ; CHECK: %[[PIPE_ARG1_ADDR:.*]] = alloca %opencl.pipe_rw_t {{.*}}*
 ; CHECK: store {{.*}} %0, {{.*}} %[[PIPE_ARG0_ADDR]]

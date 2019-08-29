@@ -57,8 +57,13 @@ FrameworkUserLogger* g_pUserLogger = NULL;
 vector<string> FPGATests = {
     "fpga_host_side_pipes",
     "fpga_channels",
-    "fpga_autorun"
+    "fpga_autorun",
     "fpga_fp16"
+};
+
+// List of tests which should not be launched on FPGA Emulator
+vector<string> NonFPGATests = {
+    "images_and_struct" // FPGA Emulator does not support image
 };
 
 // Encapsulates options parsed from a flag string.
@@ -233,6 +238,14 @@ int main(int argc, char** argv)
             find(FPGATests.begin(),
                  FPGATests.end(), host_program_name) != FPGATests.end()) {
             DTT_LOG("Not a FGPA emulator device. Skip the fpga-spicific test");
+            return 0;
+        }
+
+        // Skip non-fpga tests on FPGA Emulator
+        if (deviceType == CL_DEVICE_TYPE_ACCELERATOR &&
+            find(NonFPGATests.begin(), NonFPGATests.end(),
+                 host_program_name) != NonFPGATests.end()) {
+            DTT_LOG("FGPA emulator device. Skip the non-fpga test");
             return 0;
         }
 

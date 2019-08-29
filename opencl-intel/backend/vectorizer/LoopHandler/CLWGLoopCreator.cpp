@@ -482,10 +482,22 @@ static void dropDISubprogram(Function *F) {
 // Remap DILocation of all instructions in the provided basic block
 // to be belong the provided function scope.
 static void fixDILocation(BasicBlock *BB, Function *ScopeF) {
-  for (auto &I : *BB) {
-    if (DebugLoc DL = I.getDebugLoc())
-      I.setDebugLoc(
+  auto I = BB->begin();
+  while (I != BB->end()) {
+    // Current implementation couldn't clone debug intrinsics in proper way.
+    // Workaround is to remove these intrinsics. TODO: implement correct
+    // handling of cloned debug instrinsics
+    if (isa<DbgVariableIntrinsic>(I)) {
+      auto ToRemove = I;
+      I++;
+      ToRemove->eraseFromParent();
+      continue;
+    }
+
+    if (DebugLoc DL = I->getDebugLoc())
+      I->setDebugLoc(
           DebugLoc::get(DL.getLine(), DL.getCol(), ScopeF->getSubprogram()));
+    I++;
   }
 }
 

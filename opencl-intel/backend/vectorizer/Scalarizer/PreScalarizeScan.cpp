@@ -28,6 +28,11 @@ void ScalarizeFunction::preScalarizeScanFunctions()
     // Grab the next instruction (if its a CALL)
     CallInst *CI = dyn_cast<CallInst>(&*sI);
     if (!CI) continue;
+    if (!CI->getCalledFunction()) {
+      V_ASSERT(InVPlanPipeline &&
+               "Unexpected indirect call in Volcano pipeline");
+      continue;
+    }
 
     // Generate vector for holding function root values.
     funcRootsVect rootVals;

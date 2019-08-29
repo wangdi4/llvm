@@ -113,7 +113,26 @@ bool clImagePermissions()
     //TODO: once new clCreateImage() interface is here, use it!
     //imgForErr = PROV_OBJ( clCreateImage(context, CL_MEM_HOST_NO_ACCESS, &imgFormat, &imgDesc, NULL, &iRet) );
     imgForErr = PROV_OBJ( clCreateImage3D(context, CL_MEM_HOST_NO_ACCESS, &imgFormat, IMG_W, IMG_H, IMG_D, 0, 0, NULL, &iRet) );
-    EXPECT_EQ(oclErr(CL_SUCCESS),oclErr(iRet)) << "clCreateImage3D with flags (CL_MEM_HOST_NO_ACCESS) should be OK.";
+    if (gDeviceType == CL_DEVICE_TYPE_ACCELERATOR)
+	{
+		EXPECT_EQ(oclErr(CL_INVALID_OPERATION), oclErr(iRet))
+			<< "clCreateImage3D with flags (CL_MEM_HOST_NO_ACCESS) should fail "
+				"for CL_DEVICE_TYPE_ACCELERATOR.";
+		if (CL_INVALID_OPERATION != iRet)
+		{
+			PROV_RETURN_AND_ABANDON(false);
+		}
+		else
+		{
+			PROV_RETURN_AND_ABANDON(true);
+		}
+	}
+	else
+	{
+		EXPECT_EQ(oclErr(CL_SUCCESS), oclErr(iRet))
+			<< "clCreateImage3D with flags (CL_MEM_HOST_NO_ACCESS) should be OK.";
+	}
+
     if (CL_SUCCESS != iRet)
 	{
 		printf("clCreateImage (CL_MEM_HOST_NO_ACCESS) = %s\n",ClErrTxt(iRet));

@@ -70,6 +70,7 @@ static void initializeOCLPasses(PassRegistry &Registry) {
     intel::initializeAutorunReplicatorPass(Registry);
     intel::initializeImplicitGlobalIdPassPass(Registry);
     intel::initializeStripIntelIPPass(Registry);
+    intel::initializeOCLReqdSubGroupSizePass(Registry);
     intel::initializeOCLVecClonePass(Registry);
     intel::initializeOCLPostVectPass(Registry);
     intel::initializeChannelsUsageAnalysisPass(Registry);
@@ -78,5 +79,7 @@ static void initializeOCLPasses(PassRegistry &Registry) {
     intel::initializePatchCallbackArgsPass(Registry);
     intel::initializeAddTLSGlobalsPass(Registry);
     intel::initializeCoerceTypesPass(Registry);
+    intel::initializeWeightedInstCounterPass(Registry);
+    intel::initializeScalarizeFunctionPass(Registry);
 }
 #endif //INITIALIZE_OCL_PASSES_H

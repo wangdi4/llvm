@@ -47,9 +47,16 @@
 
 #define DEBUG_TYPE "OCLVecClone"
 #define SV_NAME "ocl-vecclone"
+#define SV_NAME1 "ocl-reqd-sub-group-size"
 
 using namespace llvm;
 using namespace Intel::MetadataAPI;
+
+static cl::opt<std::string> ReqdSubGroupSizes("reqd-sub-group-size", cl::init(""),
+                                        cl::Hidden,
+                                        cl::desc("Per-kernel required subgroup"
+                                                 "size. Comma separated list of"
+                                                 " name(num)"));
 
 namespace intel {
 
@@ -106,42 +113,95 @@ static void updateMetadata(Function &F, Function *Clone) {
 }
 
 // Updates all the uses of TID calls with TID + new induction variable.
-static void updateTID(IVecVec &TIDCalls, PHINode *Phi, BasicBlock *EntryBlock) {
+static void updateAndMoveTID(Instruction *TIDCallInstr, PHINode *Phi,
+                             BasicBlock *EntryBlock) {
   IRBuilder<> IRB(Phi);
   IRB.SetInsertPoint(Phi->getNextNode());
-  // Currently, only zero dimension is vectorized.
-  // Once that is fixed, don't forget to address the FIXME in the
-  // collectIDCallInst regarding zero-operand ID calls.
-  IVec zeroDimTIDCalls = TIDCalls[0];
-  for (IVec::iterator tidIt = zeroDimTIDCalls.begin(),
-                      tidE = zeroDimTIDCalls.end();
-       tidIt != tidE; ++tidIt) {
-    Instruction *TIDCallInstr = *tidIt;
-    // Update the uses of the TID with TID+ind.
-    Instruction *InductionSExt =
-        cast<Instruction>(IRB.CreateSExtOrTrunc(Phi, TIDCallInstr->getType()));
-    Instruction *Add = BinaryOperator::CreateNUWAdd(
-        InductionSExt, UndefValue::get(InductionSExt->getType()), "add");
-    Add->insertAfter(InductionSExt);
-    TIDCallInstr->replaceAllUsesWith(Add);
-    Add->setOperand(1, TIDCallInstr);
-    // Move TID call outside of the loop.
-    TIDCallInstr->moveBefore(EntryBlock->getTerminator());
-  }
+  // Update the uses of the TID with TID+ind.
+  Instruction *InductionSExt =
+      cast<Instruction>(IRB.CreateSExtOrTrunc(Phi, TIDCallInstr->getType()));
+  Instruction *Add = BinaryOperator::CreateNUWAdd(
+      InductionSExt, UndefValue::get(InductionSExt->getType()), "add");
+  Add->insertAfter(InductionSExt);
+  TIDCallInstr->replaceAllUsesWith(Add);
+  Add->setOperand(1, TIDCallInstr);
+  // Move TID call outside of the loop.
+  TIDCallInstr->moveBefore(EntryBlock->getTerminator());
 }
 
 void OCLVecClone::handleLanguageSpecifics(Function &F, PHINode *Phi,
                                           Function *Clone,
                                           BasicBlock *EntryBlock) {
-  // FIXME: Add *_linear_id.
-  std::string MangledIDFuncs[] = {CompilationUtils::mangledGetGID(),
-                                  CompilationUtils::mangledGetLID(),
-                                  CompilationUtils::mangledGetSubGroupLID()};
-  for (auto &MangledIDFunc : MangledIDFuncs) {
-    IVecVec Calls;
-    LoopUtils::collectTIDCallInst(MangledIDFunc.c_str(), Calls, Clone);
-    updateTID(Calls, Phi, EntryBlock);
+  // The FunctionsAndActions array has only the OpenCL function built-ins that
+  // are uniform.
+  std::pair<std::string, FnAction> FunctionsAndActions[] = {
+      std::make_pair(CompilationUtils::mangledGetGID(),
+                     FnAction::MoveAndUpdateUsesForDim),
+      std::make_pair(CompilationUtils::mangledGetLID(),
+                     FnAction::MoveAndUpdateUsesForDim),
+      std::make_pair(CompilationUtils::mangledGetSubGroupLID(),
+                     FnAction::MoveAndUpdateUses),
+      std::make_pair(CompilationUtils::mangledGetGlobalSize(),
+                     FnAction::MoveOnly),
+      std::make_pair(CompilationUtils::mangledGetGlobalOffset(),
+                     FnAction::MoveOnly),
+      std::make_pair(CompilationUtils::mangledGetGroupID(), FnAction::MoveOnly),
+      std::make_pair(CompilationUtils::mangledGetLocalSize(),
+                     FnAction::MoveOnly),
+      std::make_pair(CompilationUtils::mangledGetEnqueuedLocalSize(),
+                     FnAction::MoveOnly),
+      std::make_pair(CompilationUtils::mangledGetGlobalLinearId(),
+                     FnAction::AssertIfEncountered),
+      std::make_pair(CompilationUtils::mangledGetLocalLinearId(),
+                     FnAction::AssertIfEncountered)};
+
+  // Collect all OpenCL function built-ins.
+  for (const auto &Pair : FunctionsAndActions) {
+    const auto &FuncName = Pair.first;
+    auto Action = Pair.second;
+    Function *Func = Clone->getParent()->getFunction(FuncName);
+    if (!Func)
+      continue;
+
+    for (User *U : Func->users()) {
+      CallInst *CI = dyn_cast<CallInst>(U);
+      assert(CI && "Unexpected use of OpenCL function built-ins.");
+      Function *parentFunc = CI->getParent()->getParent();
+      if (parentFunc != Clone)
+        continue;
+      switch (Action) {
+      case FnAction::MoveAndUpdateUsesForDim: {
+        ConstantInt *C = dyn_cast<ConstantInt>(CI->getArgOperand(0));
+        assert(C && "The function argument must be constant");
+        unsigned dim = C->getValue().getZExtValue();
+        assert(dim < 3 && "Argument is not in range");
+        if (dim == 0) {
+          // Currently, only zero dimension is vectorized.
+          updateAndMoveTID(CI, Phi, EntryBlock);
+        } else
+          CI->moveBefore(EntryBlock->getTerminator());
+        break;
+      }
+      case FnAction::MoveAndUpdateUses:
+        updateAndMoveTID(CI, Phi, EntryBlock);
+        break;
+      case FnAction::MoveOnly:
+        // All the other OpenCL function built-ins should just be moved at
+        // the entry block.
+        CI->moveBefore(EntryBlock->getTerminator());
+        break;
+      case FnAction::AssertIfEncountered:
+        assert(
+            Func && FuncName != CompilationUtils::mangledGetGlobalLinearId() &&
+            FuncName != CompilationUtils::mangledGetLocalLinearId() &&
+            "get_global_linear_id() and get_local_linear_id() should have been "
+            "resolved in earlier passes");
+      default:
+        llvm_unreachable("Unexpected Action");
+      }
+    }
   }
+
   updateMetadata(F, Clone);
 
   static auto VecInfo = OCLBuiltinVecInfo();
@@ -534,9 +594,68 @@ void OCLVecClone::languageSpecificInitializations(Module &M) {
       PK.run(F);
   }
 }
+
+char OCLReqdSubGroupSize::ID = 0;
+static const char lv_name1[] = "OCLReqdSubGroupSize";
+OCL_INITIALIZE_PASS_BEGIN(OCLReqdSubGroupSize, SV_NAME1, lv_name1,
+                          true /* CFG unchanged */, false /* transform pass */)
+OCL_INITIALIZE_PASS_END(OCLReqdSubGroupSize, SV_NAME1, lv_name1,
+                        true /* CFG unchanged */, false /* transform pass */)
+
+OCLReqdSubGroupSize::OCLReqdSubGroupSize() : ModulePass(ID) {}
+
+bool OCLReqdSubGroupSize::runOnModule(Module &M) {
+  // Split name1(n1),name2(n2),name3(n3)... into
+  //    name1(n1)
+  //    name2(n2)
+  //    name3(n3)
+  //    ...
+  StringRef Sizes(ReqdSubGroupSizes);
+  SmallVector<StringRef, 3> VSizes;
+  Sizes.split(VSizes, ',', -1, false /* KeepEmpty */);
+
+  // Match up each Kernel against each name(num)
+  auto Kernels = KernelList(*&M).getList();
+  for (Function *F : Kernels) {
+    auto KMD = KernelMetadataAPI(F);
+    StringRef FName(F->getName());
+    auto FNameLen = FName.size();
+
+    // Process each SubGrpSize specifier represented in "name(num)"
+    for (auto &SubGrpSize : VSizes) {
+      auto Len = SubGrpSize.size();
+      if (!SubGrpSize.startswith(FName))
+        continue; // Name should match
+      if (SubGrpSize.rfind('(') != FNameLen || SubGrpSize.find(')') != Len-1)
+        continue; // ( and ) should be found in the correct locations.
+      auto SubStr = SubGrpSize.substr(FNameLen+1, Len-FNameLen-2); // "num"
+      size_t ReqdSubGrpSize = 0;
+      if (SubStr.getAsInteger(10 /* radix */, ReqdSubGrpSize))
+        continue;
+      // Process valid values only.
+      if (ReqdSubGrpSize != 0 && ReqdSubGrpSize != 1 &&
+          ReqdSubGrpSize != 2 && ReqdSubGrpSize != 4 &&
+          ReqdSubGrpSize != 8 && ReqdSubGrpSize != 16 &&
+          ReqdSubGrpSize != 32 && ReqdSubGrpSize != 64)
+        continue;
+      // Set required sub group size to the kernel.
+      KMD.setReqdIntelSGSize(ReqdSubGrpSize);
+      // We could actually transform LLVM IR to set the kernel
+      // attribute, but it won't be recaptured by any OCL passes.
+      // Sub group size info is also stored in the kernel property
+      // at the build time, but that is not referenced by vectorizer
+      // either.
+    }
+  }
+  return false;
+}
 } // namespace intel
 
 extern "C" Pass *createOCLVecClonePass(const Intel::CPUId *CPUId,
                                        bool EnableVPlanVecForOpenCL) {
   return new intel::OCLVecClone(CPUId, EnableVPlanVecForOpenCL);
+}
+
+extern "C" Pass *createOCLReqdSubGroupSizePass() {
+  return new intel::OCLReqdSubGroupSize();
 }

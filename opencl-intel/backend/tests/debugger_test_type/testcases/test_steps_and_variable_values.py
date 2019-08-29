@@ -7,8 +7,8 @@ class TestStepsAndVariableValues(DebuggerTestCase):
     # to represent the same "stop after the if statement" logic
     INNER1_FUNCTION_ROW = 58
     INNER1_FUNCTION_BLOCK_ROW = 55
-    INNER2_FUNCTION_ROW = 33
-    INNER2_FUNCTION_BLOCK_ROW = 38
+    INNER2_FUNCTION_ROW = 32
+    INNER2_FUNCTION_BLOCK_ROW = 37
     INNER3_FUNCTION_ROW = 22
     INNER3_FUNCTION_BLOCK_ROW = 19
     FOO_FUNCTION_ROW = 6
@@ -57,8 +57,12 @@ class TestStepsAndVariableValues(DebuggerTestCase):
         self.assertEqual(self.client.var_query_value('globalLong'), '1,22,333,4444')
 
         # check variables values in block and before block in function test2, after using step out
+        # The source location of the instruction after step out could be either the call line
+        # or the next one
         bp = (self.CLNAME, self.INNER2_FUNCTION_ROW)
-        self.assertEqual(self.client.debug_step_out(), bp)
+        result = self.client.debug_step_out()
+        assertion = result[0] == bp[0] and (result[1] == bp[1] or result[1] == bp[1] + 1)
+        self.assertTrue(assertion)
         # before block
         self.assertEqual(self.client.var_query_value('i2'), '3')
         self.assertEqual(self.client.var_query_value('a'), '2')
@@ -67,8 +71,12 @@ class TestStepsAndVariableValues(DebuggerTestCase):
         self.assertEqual(self.client.var_query_value('globalLong'), '1,22,333,4444')
         bp = (self.CLNAME, self.FOO_FUNCTION_ROW)
         self.assertEqual(self.client.debug_run([bp]), bp)
+        # The source location of the instruction after step out could be either the call line
+        # or the next one
         bp = (self.CLNAME, self.INNER2_FUNCTION_BLOCK_ROW)
-        self.assertEqual(self.client.debug_step_out(), bp)
+        result = self.client.debug_step_out()
+        assertion = result[0] == bp[0] and (result[1] == bp[1] or result[1] == bp[1] + 1)
+        self.assertTrue(assertion)
         # in block
         self.assertEqual(self.client.var_query_value('i2'), '3')
         self.assertEqual(self.client.var_query_value('a'), '2')

@@ -59,7 +59,7 @@ cl_dev_err_code CPUCompileService::DumpJITCodeContainer( const ICLDevBackendCode
 
 cl_dev_err_code
 CPUCompileService::CheckProgramBinary(const void *pBinary,
-                                      size_t uiBinarySize) const
+                                      size_t uiBinarySize)
 {
     // check if it is LLVM BC (such as SPIR 1.2)
     if (!memcmp(_CL_LLVM_BITCODE_MASK_, pBinary, sizeof(_CL_LLVM_BITCODE_MASK_)-1)) {
@@ -108,17 +108,28 @@ CPUCompileService::CheckProgramBinary(const void *pBinary,
     // check maximum supported instruction
     // get maximum supported instruction from ELF header
     CLElfLib::E_EH_FLAGS headerFlag = static_cast<CLElfLib::E_EH_FLAGS>(reader.GetElfHeader()->Flags);
-    if (cpuId.HasAVX512ICL())
-        valid &= (headerFlag == CLElfLib::EH_FLAG_AVX512_ICL);
-    else if (cpuId.HasAVX512SKX())
-        valid &= (headerFlag == CLElfLib::EH_FLAG_AVX512_SKX);
-    else if (cpuId.HasAVX2())
-        valid &= (headerFlag == CLElfLib::EH_FLAG_AVX2);
-    else if (cpuId.HasAVX1())
-        valid &= (headerFlag == CLElfLib::EH_FLAG_AVX1);
-    else
-        valid &= (headerFlag == CLElfLib::EH_FLAG_SSE4);
 
+    ECPU cpu = DEVICE_INVALID;
+    if (headerFlag == CLElfLib::EH_FLAG_AVX512_ICL){
+        valid &= cpuId.HasAVX512ICL();
+        cpu = CPU_ICL;
+    }else if (headerFlag == CLElfLib::EH_FLAG_AVX512_SKX){
+        valid &= cpuId.HasAVX512SKX();
+        cpu = CPU_SKX;
+    }else if (headerFlag == CLElfLib::EH_FLAG_AVX2){
+        valid &= cpuId.HasAVX2();
+        cpu = CPU_HASWELL;
+    }else if (headerFlag == CLElfLib::EH_FLAG_AVX1){
+        valid &= cpuId.HasAVX1();
+        cpu = CPU_SANDYBRIDGE;
+    }else if (headerFlag == CLElfLib::EH_FLAG_SSE4){
+        valid &= (cpuId.HasSSE41()||cpuId.HasSSE42());
+        cpu = CPU_COREI7;
+    }else{
+        valid=false;
+    }
+    if (valid && cpuId.GetCPU() != cpu)
+        m_programBuilder.GetCompiler()->SetBuiltinModules(CPUId::GetCPUName(cpu));
     return valid ? CL_DEV_SUCCESS : CL_DEV_INVALID_BINARY;
 }
 }}}

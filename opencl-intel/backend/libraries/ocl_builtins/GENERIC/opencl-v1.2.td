@@ -769,8 +769,6 @@ def soa_fast_normalize4       : OclBuiltin<"soa_fast_normalize4",   (outs), (ins
 let Types = [v1i32, v1u32],
     Attrs = [OVERLOADABLE],
     NeedForwardDecl = 1 in {
-def atomic_add_global : OclBuiltin<"atomic_add", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 1, 0>, VOLATILE_GLOBAL;
-def atomic_add_local  : OclBuiltin<"atomic_add", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 1, 0>, VOLATILE_LOCAL;
 def atomic_sub_global : OclBuiltin<"atomic_sub", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 1, 0>, VOLATILE_GLOBAL;
 def atomic_sub_local  : OclBuiltin<"atomic_sub", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 1, 0>, VOLATILE_LOCAL;
 def atomic_inc_global : OclBuiltin<"atomic_inc", (outs gentype:$ret), (ins pgentype:$p), [], [], 1, 0>, VOLATILE_GLOBAL;
@@ -796,13 +794,13 @@ def atomic_max_global : OclBuiltin<"atomic_max", (outs gentype:$ret), (ins pgent
 def atomic_max_local  : OclBuiltin<"atomic_max", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 1, 0>, VOLATILE_LOCAL;
 def atomic_cmpxchg_global : OclBuiltin<"atomic_cmpxchg", (outs gentype:$ret), (ins pgentype:$p, gentype:$cmp, gentype:$val), [], [], 1, 0>, VOLATILE_GLOBAL;
 def atomic_cmpxchg_local  : OclBuiltin<"atomic_cmpxchg", (outs gentype:$ret), (ins pgentype:$p, gentype:$cmp, gentype:$val), [], [], 1, 0>, VOLATILE_LOCAL;
+def atomic_add_global : OclBuiltin<"atomic_add", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 1, 0>, VOLATILE_GLOBAL;
+def atomic_add_local  : OclBuiltin<"atomic_add", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 1, 0>, VOLATILE_LOCAL;
 }
 
 let Types = [v1i32, v1u32, v1i64, v1u64],
     Attrs = [OVERLOADABLE],
     NeedForwardDecl = 1 in {
-def atom_add_vol_global     : OclBuiltin<"atom_add", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 0, 0>, VOLATILE_GLOBAL;
-def atom_add_global         : OclBuiltin<"atom_add", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 0, 0>, GLOBAL;
 def atom_sub_vol_global     : OclBuiltin<"atom_sub", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 0, 0>, VOLATILE_GLOBAL;
 def atom_sub_global         : OclBuiltin<"atom_sub", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 0, 0>, GLOBAL;
 def atom_inc_vol_global     : OclBuiltin<"atom_inc", (outs gentype:$ret), (ins pgentype:$p), [], [], 0, 0>, VOLATILE_GLOBAL;
@@ -822,8 +820,6 @@ def atom_or_global          : OclBuiltin<"atom_or", (outs gentype:$ret), (ins pg
 def atom_xor_vol_global     : OclBuiltin<"atom_xor", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 0, 0>, VOLATILE_GLOBAL;
 def atom_xor_global         : OclBuiltin<"atom_xor", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 0, 0>, GLOBAL;
 
-def atom_add_vol_local     : OclBuiltin<"atom_add", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 0, 0>, VOLATILE_LOCAL;
-def atom_add_local         : OclBuiltin<"atom_add", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 0, 0>, LOCAL;
 def atom_sub_vol_local     : OclBuiltin<"atom_sub", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 0, 0>, VOLATILE_LOCAL;
 def atom_sub_local         : OclBuiltin<"atom_sub", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 0, 0>, LOCAL;
 def atom_cmpxchg_vol_local : OclBuiltin<"atom_cmpxchg", (outs gentype:$ret), (ins pgentype:$p, gentype:$cmp, gentype:$val), [], [], 0, 0>, VOLATILE_LOCAL;
@@ -851,6 +847,10 @@ def atom_xchg_vol_global    : OclBuiltin<"atom_xchg", (outs gentype:$ret), (ins 
 def atom_xchg_global        : OclBuiltin<"atom_xchg", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 0, 0>, GLOBAL;
 def atom_xchg_vol_local    : OclBuiltin<"atom_xchg", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 0, 0>, VOLATILE_LOCAL;
 def atom_xchg_local        : OclBuiltin<"atom_xchg", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 0, 0>, LOCAL;
+def atom_add_vol_global    : OclBuiltin<"atom_add", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 0, 0>, VOLATILE_GLOBAL;
+def atom_add_global        : OclBuiltin<"atom_add", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 0, 0>, GLOBAL;
+def atom_add_vol_local     : OclBuiltin<"atom_add", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 0, 0>, VOLATILE_LOCAL;
+def atom_add_local         : OclBuiltin<"atom_add", (outs gentype:$ret), (ins pgentype:$p, gentype:$val), [], [], 0, 0>, LOCAL;
 }
 
 // SOA versions of the any/all relational builtins
