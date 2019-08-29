@@ -814,7 +814,7 @@ int main(int argc, char **argv) {
     assert(Out);
     OS = &Out->os();
     if (RunTwice) {
-      BOS = make_unique<raw_svector_ostream>(Buffer);
+      BOS = std::make_unique<raw_svector_ostream>(Buffer);
       OS = BOS.get();
     }
     if (OutputAssembly) {
