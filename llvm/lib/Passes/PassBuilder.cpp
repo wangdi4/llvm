@@ -652,21 +652,16 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   FPM.addPass(createFunctionToLoopPassAdaptor(
       std::move(LPM1), EnableMSSALoopDependency, DebugLogging));
   FPM.addPass(SimplifyCFGPass());
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   FPM.addPass(
       InstCombinePass(/*ExpensiveCombines=default value*/ true,
                       GEPInstOptimizations)); // Combine silly sequences.
 #endif // INTEL_CUSTOMIZATION
-  FPM.addPass(createFunctionToLoopPassAdaptor(std::move(LPM2), DebugLogging));
-=======
-  FPM.addPass(InstCombinePass());
   // The loop passes in LPM2 (IndVarSimplifyPass, LoopIdiomRecognizePass,
   // LoopDeletionPass and LoopFullUnrollPass) do not preserve MemorySSA.
   // *All* loop passes must preserve it, in order to be able to use it.
   FPM.addPass(createFunctionToLoopPassAdaptor(
       std::move(LPM2), /*UseMemorySSA=*/false, DebugLogging));
->>>>>>> 7425179fee9b4ed1ff6d366ee06487f05a1c0ab3
 
   // Eliminate redundancies.
   if (Level != O1) {
