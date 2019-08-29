@@ -94,22 +94,14 @@ public:
     CXXConstructorDecl *Ctor = E->getConstructor();
     if (FunctionDecl *Def = Ctor->getDefinition())
       addCalledDecl(Def);
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-=======
     // TODO: resolve issues raised in review with llorg. See
     // https://reviews.llvm.org/D65453?vs=on&id=212351&whitespace=ignore-most#1632207
->>>>>>> bf6cf0c962202c58774a647e04f85c5603267ebc
     const auto *ConstructedType = Ctor->getParent();
     if (ConstructedType->hasUserDeclaredDestructor()) {
       CXXDestructorDecl *Dtor = ConstructedType->getDestructor();
       if (FunctionDecl *Def = Dtor->getDefinition())
         addCalledDecl(Def);
     }
-<<<<<<< HEAD
-#endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> bf6cf0c962202c58774a647e04f85c5603267ebc
     VisitChildren(E);
   }
 
