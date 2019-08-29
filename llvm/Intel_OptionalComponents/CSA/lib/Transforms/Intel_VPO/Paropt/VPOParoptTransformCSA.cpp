@@ -43,16 +43,12 @@ static cl::opt<bool> DoLoopSplitting(
   "csa-omp-paropt-loop-splitting", cl::init(false), cl::ReallyHidden,
   cl::desc("Do OpenMP loop splitting in VPO Paropt."));
 
-// Temporary: until hookup to dataflow(pipeline(p)) clause is completed.
-static cl::opt<unsigned>
-    LoopPipelineDepth("csa-omp-ls-pipeline-depth", cl::init(0),
-                      cl::ReallyHidden,
-                      cl::desc("Set pipeline depth for OpenMP loops."));
-
-static Value *genParDepthRegionEntryCall(unsigned ID, Instruction *EntryPt,
+static Value *genParDepthRegionEntryCall(unsigned ID, int Depth,
+                                         Instruction *EntryPt,
                                          const Twine &Name = "depth.region");
 
-static void genParDepthRegionExitCall(Value *Region, Instruction *ExitPt);
+static void genParDepthRegionExitCall(Value *Region, int Depth,
+                                      Instruction *ExitPt);
 
 namespace {
 
@@ -641,18 +637,19 @@ public:
 
 // Insert a CSA parallel depth-limited region entry call
 // at specified insertion point.
-static Value *genParDepthRegionEntryCall(unsigned ID, Instruction *EntryPt,
+static Value *genParDepthRegionEntryCall(unsigned ID, int Depth,
+                                         Instruction *EntryPt,
                                          const Twine &Name) {
 
-  if (LoopPipelineDepth > 0) {
+  if (Depth > 0) {
     auto *M = EntryPt->getModule();
     auto *DepthLimitedRegionEntry =
         Intrinsic::getDeclaration(M, Intrinsic::csa_pipeline_limited_entry);
     IRBuilder<> Builder(EntryPt);
     auto *UniqueID = Builder.getInt32(2000u + ID);
     auto *F = EntryPt->getParent()->getParent();
-    Value *pipelineDepth = ConstantInt::get(
-        IntegerType::get(F->getContext(), 32), LoopPipelineDepth);
+    Value *pipelineDepth =
+        ConstantInt::get(IntegerType::get(F->getContext(), 32), Depth);
     auto *Region = Builder.CreateCall(DepthLimitedRegionEntry,
                                       {UniqueID, pipelineDepth}, Name);
     return Region;
@@ -662,9 +659,10 @@ static Value *genParDepthRegionEntryCall(unsigned ID, Instruction *EntryPt,
 
 // Insert a CSA parallel depth-limited region exit call
 // at specified insertion point.
-static void genParDepthRegionExitCall(Value *Region, Instruction *ExitPt) {
+static void genParDepthRegionExitCall(Value *Region, int Depth,
+                                      Instruction *ExitPt) {
 
-  if (Region and LoopPipelineDepth > 0) {
+  if (Region and Depth > 0) {
     auto *M = ExitPt->getModule();
     auto *DepthLimitedRegionExit =
         Intrinsic::getDeclaration(M, Intrinsic::csa_pipeline_limited_exit);
@@ -674,26 +672,26 @@ static void genParDepthRegionExitCall(Value *Region, Instruction *ExitPt) {
   }
 }
 
-static void genParDepthRegionCalls(unsigned ID, Instruction *EntryPt,
+static void genParDepthRegionCalls(unsigned ID, int Depth, Instruction *EntryPt,
                                    Instruction *ExitPt, const Twine &Name) {
 
   Value *DepthRegion =
-      genParDepthRegionEntryCall(5000 + ID, EntryPt, "depth." + Name);
-  genParDepthRegionExitCall(DepthRegion, ExitPt);
+      genParDepthRegionEntryCall(5000 + ID, Depth, EntryPt, "depth." + Name);
+  genParDepthRegionExitCall(DepthRegion, Depth, ExitPt);
 }
 
 // Insert a pair of CSA parallel region entry/exit calls at specified insertion
 // points.
 static Value *genParRegionCalls(unsigned ID, Instruction *EntryPt,
-                                Instruction *ExitPt, bool depth = false,
+                                Instruction *ExitPt, int Depth = 0,
                                 const Twine &Name = "region") {
   auto *M = EntryPt->getModule();
   assert(M == ExitPt->getModule());
 
   Value *DepthRegion;
-  if (depth)
+  if (Depth)
     DepthRegion =
-        genParDepthRegionEntryCall(5000 + ID, EntryPt, "depth." + Name);
+        genParDepthRegionEntryCall(5000 + ID, Depth, EntryPt, "depth." + Name);
 
   // CSA parallel region entry/exit intrinsics
   auto *RegionEntry = Intrinsic::getDeclaration(M,
@@ -709,8 +707,8 @@ static Value *genParRegionCalls(unsigned ID, Instruction *EntryPt,
   Builder.SetInsertPoint(ExitPt);
   Builder.CreateCall(RegionExit, { Region }, {}, "");
 
-  if (depth)
-    genParDepthRegionExitCall(DepthRegion, ExitPt);
+  if (Depth)
+    genParDepthRegionExitCall(DepthRegion, Depth, ExitPt);
 
   return Region;
 }
@@ -742,22 +740,23 @@ static void genParSectionCalls(Value *Region,
 static unsigned getNumWorkers(const WRegionNode *W) {
   assert(W->getIsOmpLoop() && "expecting a loop construct");
   unsigned NumWorkers = 0;
-  if (W->getIsPar())
-    if (auto *NumThreads = W->getNumThreads())
+  // First check if dataflow(num_workers(n)) has been specified.
+  // If num_workers is not specified, check num_threads(n) clause
+  if (W->getIsPar()) {
+    auto NumSAWorkers = W->getNumWorkers();
+    if (NumSAWorkers != 0)
+      NumWorkers = NumSAWorkers;
+    else if (auto *NumThreads = W->getNumThreads())
       NumWorkers = cast<ConstantInt>(NumThreads)->getZExtValue();
+  }
   if (!NumWorkers)
     NumWorkers = LoopWorkersDefault;
-
-  // Temporary hack until hookup to dataflow(...) clause is completed
-  if (NumWorkers >= 1000) {
-    LoopPipelineDepth = NumWorkers / 1000;
-    NumWorkers = NumWorkers % 1000;
-  }
 
   return NumWorkers;
 }
 
-// Returns SPMDization mode for the loop WRN. It depends on a schedule clause.
+// Returns SPMDization mode for the loop WRN.
+// Use the dataflow(<schedule>) specification first.
 //   No schedule, schedule(auto) or
 //   schedule(static)                 => blocked SPMD (0)
 //   schedule(static, chunksize)
@@ -765,6 +764,10 @@ static unsigned getNumWorkers(const WRegionNode *W) {
 //     (chunksize > 1)                => hybrid SPMD  (chunksize)
 static int getSPMDMode(const WRegionNode *W) {
   assert(W->getIsOmpLoop() && "expecting a loop construct");
+  const auto &WSched = W->getWorkerSchedule();
+  if (WSched.getChunkExpr()) {
+    return WSched.getChunk();
+  }
   const auto &Sched = W->getSchedule();
   return Sched.getChunkExpr() ? Sched.getChunk() : LoopSpmdModeDefault;
 }
@@ -1081,7 +1084,7 @@ class VPOParoptTransform::CSALoopSplitter {
       // Mark inner loop as parallel.
       auto *Region = genParRegionCalls(
           getParRegionID(W, ID + 1u, true), CLoop->getTerminator(),
-          CLatch->getFirstNonPHI(), false, "inner.region" + Suffix);
+          CLatch->getFirstNonPHI(), /*Depth=*/0, "inner.region" + Suffix);
       genParSectionCalls(Region,
                          WL->getHeader()->getFirstNonPHI(),
                          WL->getLoopLatch()->getTerminator(),
@@ -1102,9 +1105,9 @@ class VPOParoptTransform::CSALoopSplitter {
 
     void addParallelIntrinsicCalls() {
       // Add region entry/exit calls.
-      auto *Region =
-          genParRegionCalls(getParRegionID(W, ID + 1u), Head->getTerminator(),
-                            Tail->getFirstNonPHI(), false, "region" + Suffix);
+      auto *Region = genParRegionCalls(
+          getParRegionID(W, ID + 1u), Head->getTerminator(),
+          Tail->getFirstNonPHI(), /*Depth*/ 0, "region" + Suffix);
 
       // And section entry/exit calls.
       auto *L = HL ? HL : WL;
@@ -1481,6 +1484,9 @@ public:
 
     SPMDMode = getSPMDMode(W);
 
+    // Determine pipelining depth
+    auto LoopPipelineDepth = W->getPipelineDepth();
+
     // Check if we can get TC estimate from the function's assumption cache.
     getTripCountEstimate(W);
 
@@ -1543,15 +1549,16 @@ public:
     if (Workers.size() > 1u) {
       auto *Region = genParRegionCalls(
           getParRegionID(W), W->getEntryBBlock()->getTerminator(),
-          W->getExitBBlock()->getFirstNonPHI(), LoopPipelineDepth > 0);
+          W->getExitBBlock()->getFirstNonPHI(), LoopPipelineDepth);
       for (auto &WI : Workers)
         genParSectionCalls(Region,
                            WI.Head->getFirstNonPHI(),
                            WI.Tail->getTerminator());
     } else {
-      genParDepthRegionCalls(
-          getParRegionID(W), W->getEntryBBlock()->getTerminator(),
-          W->getExitBBlock()->getFirstNonPHI(), "depth.region");
+      genParDepthRegionCalls(getParRegionID(W), LoopPipelineDepth,
+                             W->getEntryBBlock()->getTerminator(),
+                             W->getExitBBlock()->getFirstNonPHI(),
+                             "depth.region");
     }
     return true;
   }
@@ -1601,8 +1608,30 @@ bool VPOParoptTransform::isSupportedOnCSA(WRegionNode *W) {
 
   // schedule
   if (W->canHaveSchedule()) {
-    // Check schedule clause of there is one.
+    // Check schedule clause if there is one.
     auto &Sched = W->getSchedule();
+    if (Sched.getChunkExpr()) {
+      // So far we support only static and auto schedule types.
+      if (Sched.getKind() != WRNScheduleStatic &&
+          Sched.getKind() != WRNScheduleAuto) {
+        reportWarning("ignoring unsupported schedule type");
+        Sched.setChunkExpr(nullptr);
+      }
+      // Three options for the chunk size
+      //   Sched->getChunk() == 0 => chunk was not specified
+      //   Sched->getChunk() > 0  => chunk is a compile time constant
+      //   Sched->getChunk() < 0  => chunk is an expression (unsupported)
+      else if (Sched.getChunk() < 0) {
+        reportWarning("schedule chunk must be a compile time constant");
+        Sched.setChunkExpr(nullptr);
+      }
+    }
+  }
+
+  // dataflow(static)
+  if (W->canHaveWorkerSchedule()) {
+    // Check dataflow(<schedule>) clause of there is one.
+    auto &Sched = W->getWorkerSchedule();
     if (Sched.getChunkExpr()) {
       // So far we support only static and auto schedule types.
       if (Sched.getKind() != WRNScheduleStatic &&

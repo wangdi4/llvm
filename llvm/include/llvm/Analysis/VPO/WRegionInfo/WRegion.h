@@ -178,6 +178,12 @@ private:
   /// Values such as linear step, array section bounds, which will be
   /// used directly inside the outlined function created for the WRegion.
   SmallVector<Value *, 2> DirectlyUsedNonPointerValues;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  int NumWorkers;
+  int PipelineDepth;
+#endif // INTEL_FEATURE_CSA
+#endif //INTEL_CUSTOMIZATION
 
 public:
   WRNParallelNode(BasicBlock *BB);
@@ -187,6 +193,12 @@ protected:
   void setNumThreads(EXPR E) { NumThreads = E; }
   void setDefault(WRNDefaultKind D) { Default = D; }
   void setProcBind(WRNProcBindKind P) { ProcBind = P; }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  void setNumWorkers(int N) { NumWorkers = N; }
+  void setPipelineDepth(int P) { PipelineDepth = P; }
+#endif // INTEL_FEATURE_CSA
+#endif //INTEL_CUSTOMIZATION
 
 public:
   DEFINE_GETTER(SharedClause,       getShared, Shared)
@@ -215,6 +227,12 @@ public:
   void addDirectlyUsedNonPointerValue(Value *V) {
     DirectlyUsedNonPointerValues.push_back(V);
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  int getNumWorkers() const { return NumWorkers; }
+  int getPipelineDepth() const { return PipelineDepth; }
+#endif // INTEL_FEATURE_CSA
+#endif //INTEL_CUSTOMIZATION
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;
@@ -256,6 +274,11 @@ private:
   loopopt::HLNode *EntryHLNode; // for HIR only
   loopopt::HLNode *ExitHLNode;  // for HIR only
   loopopt::HLLoop *HLp;         // for HIR only
+#if INTEL_FEATURE_CSA
+  int NumWorkers;
+  int PipelineDepth;
+  ScheduleClause WorkerSchedule;
+#endif // INTEL_FEATURE_CSA
 #endif //INTEL_CUSTOMIZATION
 
 public:
@@ -276,6 +299,10 @@ protected:
   void setEntryHLNode(loopopt::HLNode *E) { EntryHLNode = E; }
   void setExitHLNode(loopopt::HLNode *X) { ExitHLNode = X; }
   void setHLLoop(loopopt::HLLoop *L) { HLp = L; }
+#if INTEL_FEATURE_CSA
+  void setNumWorkers(int N) { NumWorkers = N; }
+  void setPipelineDepth(int P) { PipelineDepth = P; }
+#endif // INTEL_FEATURE_CSA
 #endif //INTEL_CUSTOMIZATION
 
 public:
@@ -288,6 +315,11 @@ public:
   DEFINE_GETTER(CopyinClause,       getCopyin, Copyin)
   DEFINE_GETTER(ScheduleClause,     getSchedule, Schedule)
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  DEFINE_GETTER(ScheduleClause, getWorkerSchedule, WorkerSchedule)
+#endif // INTEL_FEATURE_CSA
+#endif //INTEL_CUSTOMIZATION
 
   EXPR getIf() const { return IfExpr; }
   EXPR getNumThreads() const { return NumThreads; }
@@ -322,6 +354,10 @@ public:
   loopopt::HLLoop *getHLLoop() const { return HLp; }
   void printHIR(formatted_raw_ostream &OS, unsigned Depth,
                                            unsigned Verbosity=1) const;
+#if INTEL_FEATURE_CSA
+  int getNumWorkers() const { return NumWorkers; }
+  int getPipelineDepth() const { return PipelineDepth; }
+#endif // INTEL_FEATURE_CSA
 #endif //INTEL_CUSTOMIZATION
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
@@ -1068,6 +1104,11 @@ private:
   SmallVector<Value *, 2> OrderedTripCounts;
   SmallVector<Instruction *, 2> CancellationPoints;
   SmallVector<AllocaInst *, 2> CancellationPointAllocas;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  ScheduleClause WorkerSchedule;
+#endif // INTEL_FEATURE_CSA
+#endif //INTEL_CUSTOMIZATION
 
 public:
   WRNWksLoopNode(BasicBlock *BB, LoopInfo *L);
@@ -1085,6 +1126,11 @@ public:
   DEFINE_GETTER(LinearClause,       getLinear,   Linear)
   DEFINE_GETTER(ScheduleClause,     getSchedule, Schedule)
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  DEFINE_GETTER(ScheduleClause, getWorkerSchedule, WorkerSchedule)
+#endif // INTEL_FEATURE_CSA
+#endif //INTEL_CUSTOMIZATION
 
   int getCollapse() const { return Collapse; }
   int getOrdered() const { return Ordered; }

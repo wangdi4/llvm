@@ -209,6 +209,11 @@ public:
   /// @{
   bool canHaveSchedule() const;
   bool canHaveDistSchedule() const;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  bool canHaveWorkerSchedule() const;
+#endif // INTEL_FEATURE_CSA
+#endif //INTEL_CUSTOMIZATION
   bool canHaveShared() const;
   bool canHavePrivate() const;
   bool canHaveFirstprivate() const;
@@ -267,6 +272,11 @@ public:
   virtual ScheduleClause &getSchedule()      {WRNERROR("SCHEDULE");           }
        // ScheduleClause is not list-type, but has similar API so put here too
   virtual ScheduleClause &getDistSchedule()   {WRNERROR("DIST_SCHEDULE");     }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  virtual ScheduleClause &getWorkerSchedule()  {WRNERROR("SA_SCHEDULE");      }
+#endif // INTEL_FEATURE_CSA
+#endif //INTEL_CUSTOMIZATION
 
   virtual SharedClause &getShared()          {WRNERROR(QUAL_OMP_SHARED);      }
   virtual UniformClause &getUniform()        {WRNERROR(QUAL_OMP_UNIFORM);     }
@@ -307,6 +317,12 @@ public:
                                            {WRNERROR("SCHEDULE");           }
   virtual const ScheduleClause &getDistSchedule() const
                                            {WRNERROR("DIST_SCHEDULE");      }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  virtual const ScheduleClause &getWorkerSchedule() const
+                                           {WRNERROR("SA_SCHEDULE")         }
+#endif // INTEL_FEATURE_CSA
+#endif //INTEL_CUSTOMIZATION
   virtual const SharedClause &getShared() const
                                            {WRNERROR(QUAL_OMP_SHARED);      }
   virtual const UniformClause &getUniform() const
@@ -354,6 +370,14 @@ public:
   virtual EXPR getNumTeams()              const {WRNERROR(QUAL_OMP_NUM_TEAMS);}
   virtual void setNumThreads(EXPR E)          {WRNERROR(QUAL_OMP_NUM_THREADS);}
   virtual EXPR getNumThreads()          const {WRNERROR(QUAL_OMP_NUM_THREADS);}
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  virtual void setNumWorkers(int E)        {WRNERROR(QUAL_OMP_SA_NUM_WORKERS);}
+  virtual int  getNumWorkers()       const {WRNERROR(QUAL_OMP_SA_NUM_WORKERS);}
+  virtual void setPipelineDepth(int E)        {WRNERROR(QUAL_OMP_SA_PIPELINE);}
+  virtual int  getPipelineDepth()       const {WRNERROR(QUAL_OMP_SA_PIPELINE);}
+#endif // INTEL_FEATURE_CSA
+#endif //INTEL_CUSTOMIZATION
   virtual void setOffloadEntryIdx(int N)       {WRNERROR("OFFLOAD_ENTRY_IDX");}
   virtual int  getOffloadEntryIdx()      const {WRNERROR("OFFLOAD_ENTRY_IDX");}
   virtual void setOrdered(int N)                {WRNERROR(QUAL_OMP_ORDERED);  }

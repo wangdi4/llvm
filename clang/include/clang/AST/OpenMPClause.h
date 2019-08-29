@@ -722,6 +722,13 @@ public:
                                                       NUMMODIFIERS]));
   }
 
+  child_range used_children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range used_children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
   static bool classof(const OMPClause *T) {
     return T->getClauseKind() == OMPC_dataflow;
   }

@@ -96,6 +96,12 @@ WRNParallelNode::WRNParallelNode(BasicBlock *BB)
   setNumThreads(nullptr);
   setDefault(WRNDefaultAbsent);
   setProcBind(WRNProcBindAbsent);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  setNumWorkers(0);
+  setPipelineDepth(0);
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
   LLVM_DEBUG(dbgs() << "\nCreated WRNParallelNode<" << getNumber() << ">\n");
 }
 
@@ -121,6 +127,12 @@ WRNParallelLoopNode::WRNParallelLoopNode(BasicBlock *BB, LoopInfo *Li)
   setProcBind(WRNProcBindAbsent);
   setCollapse(0);
   setOrdered(-1);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  setNumWorkers(0);
+  setPipelineDepth(0);
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNParallelLoopNode<" << getNumber()
                     << ">\n");
@@ -139,6 +151,13 @@ WRNParallelLoopNode::WRNParallelLoopNode(loopopt::HLNode *EntryHLN)
   setProcBind(WRNProcBindAbsent);
   setCollapse(0);
   setOrdered(-1);
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  setNumWorkers(0);
+  setPipelineDepth(0);
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
   setExitHLNode(nullptr);
   setHLLoop(nullptr);
