@@ -2553,6 +2553,7 @@ ChangeStatus Attributor::run() {
   NumAttributesManifested += NumManifested;
   NumAttributesValidFixpoint += NumAtFixpoint;
 
+  (void)NumFinalAAs;
   assert(
       NumFinalAAs == AllAbstractAttributes.size() &&
       "Expected the final number of abstract attributes to remain unchanged!");
