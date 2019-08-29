@@ -2157,19 +2157,6 @@ bool X86FrameLowering::restoreCalleeSavedRegisters(MachineBasicBlock &MBB,
   DebugLoc DL = MBB.findDebugLoc(MI);
 
   // Reload XMMs from stack frame.
-<<<<<<< HEAD
-  MachineFunction &MF = *MBB.getParent();
-  X86MachineFunctionInfo *X86FI = MF.getInfo<X86MachineFunctionInfo>();
-  int XMMFrameSlotOrigin;
-  int SEHFrameOffset = X86FI->getCalleeSavedXMMFrameInfo(XMMFrameSlotOrigin) +
-#if INTEL_CUSTOMIZATION
-                       alignDown(MF.getFrameInfo().getMaxCallFrameSize(),
-                                 TRI->getSpillAlignment(X86::VR128RegClass));
-#else // INTEL_CUSTOMIZATION
-                       MF.getFrameInfo().getMaxCallFrameSize();
-#endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 22fb734907e004b057a4f97da5a3f8b90bf350cf
   for (unsigned i = 0, e = CSI.size(); i != e; ++i) {
     unsigned Reg = CSI[i].getReg();
     if (X86::GR64RegClass.contains(Reg) ||
