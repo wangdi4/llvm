@@ -106,10 +106,12 @@ using namespace llvm;
 using namespace clang;
 
 namespace {
+#ifdef LLDB_CONFIGURATION_DEBUG
 static void VerifyDecl(clang::Decl *decl) {
   assert(decl && "VerifyDecl called with nullptr?");
   decl->getAccess();
 }
+#endif
 
 static inline bool
 ClangASTContextSupportsLanguage(lldb::LanguageType language) {
@@ -1557,9 +1559,8 @@ CompilerType ClangASTContext::CreateRecordType(DeclContext *decl_ctx,
     //
     // FIXME: An unnamed class within a class is also wrongly recognized as an
     // anonymous struct.
-    if (CXXRecordDecl *record = dyn_cast<CXXRecordDecl>(decl_ctx)) {
+    if (isa<CXXRecordDecl>(decl_ctx))
       decl->setAnonymousStructOrUnion(true);
-    }
   }
 
   if (decl) {
