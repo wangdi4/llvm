@@ -343,9 +343,7 @@ void XCOFFObjectWriter::writeSectionHeaderTable() {
 }
 
 void XCOFFObjectWriter::writeSymbolTable() {
-  assert((ProgramCodeCsects.size() == 1 &&
-          ProgramCodeCsects.back().Syms.size() == 0) &&
-         ".text csects not handled yet.");
+  assert(ProgramCodeCsects.size() == 0 && ".text csects not handled yet.");
 
   // The BSS Section is special in that the csects must contain a single symbol,
   // and the contained symbol cannot be represented in the symbol table as a
@@ -465,7 +463,6 @@ void XCOFFObjectWriter::assignAddressesAndIndices(
 uint8_t getEncodedType(const MCSectionXCOFF *Sec) {
   unsigned Align = Sec->getAlignment();
   assert(isPowerOf2_32(Align) && "Alignment must be a power of 2.");
-  assert((Sec->getCSectType() <= 0x07u) && "csect type exceeds 3 bits.");
   unsigned Log2Align = Log2_32(Align);
   // Result is a number in the range [0, 31] which fits in the 5 least
   // significant bits. Shift this value into the 5 most significant bits, and
