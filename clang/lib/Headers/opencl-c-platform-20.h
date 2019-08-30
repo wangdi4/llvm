@@ -973,6 +973,6 @@ void __ovld capture_event_profiling_info(clk_event_t, clk_profiling_info, __glob
 
 queue_t __ovld get_default_queue(void);
 
-int __ovld enqueue_marker(queue_t, uint, const __private clk_event_t*, __private clk_event_t*);
+int __ovld enqueue_marker(queue_t, uint, const clk_event_t*, clk_event_t*);
 
 #endif // _OPENCL_PLATFORM_H_
