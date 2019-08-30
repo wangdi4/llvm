@@ -27,7 +27,7 @@ entry:
 
   %call1 = tail call spir_func i32 @_Z13sub_group_alli(i32 %0) #4
   %call3 = tail call spir_func i32 @_Z16get_sub_group_idv() #4
-; CHECK: [[VECTOR_ALL:%.*]] = call <4 x i32> @_Z13sub_group_allDv4_i(<4 x i32> %wide.load)
+; CHECK: [[VECTOR_ALL:%.*]] = call <4 x i32> @_Z13sub_group_allDv4_iDv4_j(<4 x i32> %wide.load, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
 ; CHECK: [[UNIFORM_SUB_GROUP_ID:%.*]] = tail call spir_func i32 @_Z16get_sub_group_idv()
 
   %call4 = tail call spir_func i64 @_Z28intel_sub_group_shuffle_downllj(i64 %call, i64 42, i32 %slid.reverse)
