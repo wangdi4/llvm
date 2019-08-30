@@ -159,11 +159,15 @@ void initializeX86DomainReassignmentPass(PassRegistry &);
 void initializeX86ExecutionDomainFixPass(PassRegistry &);
 void initializeX86ExpandPseudoPass(PassRegistry &);
 void initializeX86FlagsCopyLoweringPassPass(PassRegistry &);
+void initializeX86OptimizeLEAPassPass(PassRegistry &);
 void initializeX86SpeculativeLoadHardeningPassPass(PassRegistry &);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 void initializeOptimizeLEAPassPass(PassRegistry &);
 void initializeGenerateLEAPassPass(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 7630e24492c55cf07e43c0783997cbf9a1603f45
 } // End llvm namespace
 
 #endif
