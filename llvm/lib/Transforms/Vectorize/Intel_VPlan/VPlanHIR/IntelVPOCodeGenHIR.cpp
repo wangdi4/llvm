@@ -2549,7 +2549,7 @@ RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
       auto *CE = CEU.createCanonExpr(VecRefDestTy);
       CE->addIV(IVLevel, InvalidBlobIndex /* no blob */,
                 1 /* constant IV coefficient */);
-      WideRef = DDU.createScalarRegDDRef(DDU.getNewSymbase(), CE);
+      WideRef = DDU.createScalarRegDDRef(GenericRvalSymbase, CE);
     }
   } else {
     assert(isa<VPConstant>(VPVal) && "Expected a VPConstant");
@@ -2672,7 +2672,7 @@ void VPOCodeGenHIR::widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask) {
   CE->getBlobUtils().createConstantBlob(ConstantVector::get(ConstVec), true,
                                         &Idx);
   CE->addBlob(Idx, 1);
-  auto *NewRef = DDU.createScalarRegDDRef(DDU.getNewSymbase(), CE);
+  auto *NewRef = DDU.createScalarRegDDRef(GenericRvalSymbase, CE);
   addVPValueWideRefMapping(VPPhi, NewRef);
 }
 

@@ -244,8 +244,7 @@ bool HIRTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
 
 void HIRTransformUtils::updateBoundDDRef(RegDDRef *BoundRef, unsigned BlobIndex,
                                          unsigned DefLevel) {
-  // Overwrite symbase to a newly created one to avoid unnecessary DD edges.
-  BoundRef->setSymbase(BoundRef->getDDRefUtils().getNewSymbase());
+  BoundRef->setSymbase(GenericRvalSymbase);
 
   // Add blob DDRef for the temp in UB.
   BoundRef->addBlobDDRef(BlobIndex, DefLevel);
@@ -1186,6 +1185,7 @@ bool HIRTransformUtils::multiplyTripCount(HLLoop *Lp, unsigned Multiplier) {
     auto *BlobRef = UpperRef->getDDRefUtils().createBlobDDRef(
         OrigIndex, UpperCE->getDefinedAtLevel());
     UpperRef->addBlobDDRef(BlobRef);
+    UpperRef->setSymbase(GenericRvalSymbase);
   }
 
   Lp->setMaxTripCountEstimate(Lp->getMaxTripCountEstimate() * Multiplier);
