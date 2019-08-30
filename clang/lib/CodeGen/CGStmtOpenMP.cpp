@@ -5154,17 +5154,24 @@ void CodeGenFunction::EmitOMPTargetUpdateDirective(
 }
 
 #if INTEL_CUSTOMIZATION
+bool CodeGenFunction::hasOMPSpirTarget() const {
+  for (const llvm::Triple &T : getLangOpts().OMPTargetTriples) {
+    if (T.getArch() == llvm::Triple::spir64 ||
+        T.getArch() == llvm::Triple::spir)
+      return true;
+  }
+  return false;
+}
+
+bool CodeGenFunction::useUncollapsedLoop(const OMPLoopDirective &S) const {
+  return S.getCollapsedNumber() > 1 && hasOMPSpirTarget() &&
+         getLangOpts().OpenMPLateOutlineAllowUncollapsedLoops;
+}
+
 void CodeGenFunction::HoistLoopBoundsIfPossible(const OMPExecutableDirective &S,
                                                 OpenMPDirectiveKind Kind) {
   // Only hoist when there are spir targets.
-  bool HasSpirTarget = false;
-  for (const llvm::Triple &T : getLangOpts().OMPTargetTriples) {
-    if (T.getArch() == llvm::Triple::spir64 ||
-        T.getArch() == llvm::Triple::spir) {
-      HasSpirTarget = true;
-      break;
-    }
-  }
+  bool HasSpirTarget = hasOMPSpirTarget();
   if (!HasSpirTarget)
     return;
 
@@ -5298,18 +5305,113 @@ void CodeGenFunction::EmitLateOutlineOMPLoopBounds(const OMPLoopDirective &S,
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  if (useUncollapsedLoop(S)) {
+    auto UncollapsedLowerBounds = S.uncollapsedLowerBounds();
+    auto UncollapsedUpperBounds = S.uncollapsedUpperBounds();
+    for (unsigned I = 0, E = S.getCollapsedNumber(); I < E; ++I) {
+      if (Kind != OMPD_simd)
+        EmitOMPHelperVar(*this, cast<DeclRefExpr>(UncollapsedLowerBounds[I]));
+      EmitOMPHelperVar(*this, cast<DeclRefExpr>(UncollapsedUpperBounds[I]));
+    }
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
   if (Kind != OMPD_simd)
     EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getLowerBoundVariable()));
   EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getUpperBoundVariable()));
 }
 
-void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
-                                             OpenMPDirectiveKind Kind) {
+void CodeGenFunction::EmitLateOutlineOMPIterationVariable(
+    const OMPLoopDirective &S) {
+#if INTEL_CUSTOMIZATION
+  if (useUncollapsedLoop(S)) {
+    for (const Expr *E : S.uncollapsedIVs()) {
+      auto VD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+      EmitVarDecl(*VD);
+    }
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
   // Emit the loop iteration variable.
   auto IVExpr = cast<DeclRefExpr>(S.getIterationVariable());
   auto IVDecl = cast<VarDecl>(IVExpr->getDecl());
   EmitVarDecl(*IVDecl);
+}
 
+void CodeGenFunction::EmitLateOutlineOMPFinals(const OMPLoopDirective &S) {
+  // Emit final expressions for counters that are lastprivate.
+  llvm::DenseMap<const VarDecl *, const Expr *> Finals;
+  auto IC = S.counters().begin();
+  for (const auto *E : S.finals()) {
+    const auto *D =
+        cast<VarDecl>(cast<DeclRefExpr>(*IC)->getDecl())->getCanonicalDecl();
+    Finals[D] = E;
+    ++IC;
+  }
+  for (const auto *C : S.getClausesOfKind<OMPLastprivateClause>()) {
+    for (const auto *E : C->varlists()) {
+      const auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+      if (const auto *FinalExpr = Finals.lookup(PVD))
+        EmitIgnoredExpr(FinalExpr);
+    }
+  }
+}
+
+void CodeGenFunction::EmitLateOutlineOMPUncollapsedLoop(
+    const OMPLoopDirective &S, OpenMPDirectiveKind Kind, unsigned Depth) {
+  auto UncollapsedInits = S.uncollapsedInits();
+  auto UncollapsedLoopConds = S.uncollapsedLoopConds();
+  auto UncollapsedIncs = S.uncollapsedIncs();
+
+  EmitIgnoredExpr(UncollapsedInits[Depth]);
+
+  auto LoopEnd =
+      getJumpDestInCurrentScope(createBasicBlock("omp.uncollapsed.loop.end"));
+
+  auto CondBlock = createBasicBlock("omp.uncollapsed.loop.cond");
+  EmitBlock(CondBlock);
+
+  llvm::BasicBlock *EndBlock = LoopEnd.getBlock();
+
+  llvm::BasicBlock *LoopBody = createBasicBlock("omp.uncollapsed.loop.body");
+  EmitBranchOnBoolExpr(UncollapsedLoopConds[Depth], LoopBody, EndBlock,
+                       getProfileCount(&S));
+  EmitBlock(LoopBody);
+
+  if (Depth == S.getCollapsedNumber() - 1) {
+    RunCleanupsScope BodyScope(*this);
+    for (auto *E : S.counters()) {
+      auto *VD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+      // Emit var without initialization.
+      if (VD->isLocalVarDecl() && !LocalDeclMap.count(VD)) {
+        auto VarEmission = EmitAutoVarAlloca(*VD);
+        if (CapturedStmtInfo) {
+          CapturedStmtInfo->recordVariableDefinition(VD);
+          CapturedStmtInfo->recordValueSuppression(
+              VarEmission.Addr.getPointer());
+        }
+        EmitAutoVarCleanups(VarEmission);
+      }
+    }
+    for (const Expr *UE : S.uncollapsedUpdates())
+      EmitIgnoredExpr(UE);
+    EmitStmt(S.getBody());
+    EmitStopPoint(&S);
+  } else
+    EmitLateOutlineOMPUncollapsedLoop(S, Kind, Depth + 1);
+
+  JumpDest Inc = getJumpDestInCurrentScope("omp.uncollapsed.loop.inc");
+  EmitBlock(Inc.getBlock());
+  GenerateOMPIncrement(UncollapsedIncs[Depth]);
+  if (Depth == 0)
+    EmitLateOutlineOMPFinals(S);
+  EmitBranch(CondBlock);
+  EmitBlock(LoopEnd.getBlock());
+}
+
+void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
+                                             OpenMPDirectiveKind Kind) {
   // Check pre-condition.
   {
     OMPLoopScope PreInitScope(*this, S);
@@ -5337,6 +5439,7 @@ void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
       incrementProfileCounter(&S);
     }
 
+    EmitLateOutlineOMPIterationVariable(S);
     EmitLateOutlineOMPLoopBounds(S, Kind);
 
     // Emit 'then' code.
@@ -5389,38 +5492,27 @@ void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
       Outliner.insertMarker();
       Outliner.emitVLAExpressions();
 
-      EmitIgnoredExpr(S.getInit());
-      // while (idx <= UB) { BODY; ++idx; }
-      if (ThenBlock == nullptr)
-        ThenBlock = Builder.GetInsertBlock();
-      EmitOMPInnerLoop(
-          S, LoopScope.requiresCleanups(),
-          (Kind == OMPD_simd ? S.getLateOutlineCond() : S.getCond()),
-          S.getInc(),
-          [&S, LoopExit](CodeGenFunction &CGF) {
-            CGF.EmitOMPLoopBody(S, LoopExit);
-            CGF.EmitStopPoint(&S);
-          },
-          [&S](CodeGenFunction &CGF) {
-            // Emit final expressions for counters that are lastprivate.
-            llvm::DenseMap<const VarDecl *, const Expr *> Finals;
-            auto IC = S.counters().begin();
-            for (const auto *E : S.finals()) {
-              const auto *D = cast<VarDecl>(cast<DeclRefExpr>(*IC)->getDecl())
-                                  ->getCanonicalDecl();
-              Finals[D] = E;
-              ++IC;
-            }
-            for (const auto *C : S.getClausesOfKind<OMPLastprivateClause>()) {
-              for (const auto *E : C->varlists()) {
-                const auto *PVD =
-                    cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
-                if (const auto *FinalExpr = Finals.lookup(PVD))
-                  CGF.EmitIgnoredExpr(FinalExpr);
-              }
-            }
-          });
-      EmitBlock(LoopExit.getBlock());
+#if INTEL_CUSTOMIZATION
+      if (useUncollapsedLoop(S))
+        EmitLateOutlineOMPUncollapsedLoop(S, Kind, /*Depth=*/0);
+      else
+#endif // INTEL_CUSTOMIZATION
+      {
+        EmitIgnoredExpr(S.getInit());
+        // while (idx <= UB) { BODY; ++idx; }
+        if (ThenBlock == nullptr)
+          ThenBlock = Builder.GetInsertBlock();
+        EmitOMPInnerLoop(
+            S, /*RequiresCleanup=*/false,
+            (Kind == OMPD_simd ? S.getLateOutlineCond() : S.getCond()),
+            S.getInc(),
+            [&S, LoopExit](CodeGenFunction &CGF) {
+              CGF.EmitOMPLoopBody(S, LoopExit);
+              CGF.EmitStopPoint(&S);
+            },
+            [&S](CodeGenFunction &CGF) { CGF.EmitLateOutlineOMPFinals(S); });
+        EmitBlock(LoopExit.getBlock());
+      }
     }
 
     // We're now done with the loop, so jump to the continuation block.
