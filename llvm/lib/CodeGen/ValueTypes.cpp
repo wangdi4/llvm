@@ -337,6 +337,7 @@ Type *EVT::getTypeForEVT(LLVMContext &Context) const {
   case MVT::v3f16:   return VectorType::get(Type::getHalfTy(Context), 3);
   case MVT::v4f16:   return VectorType::get(Type::getHalfTy(Context), 4);
   case MVT::v8f16:   return VectorType::get(Type::getHalfTy(Context), 8);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
   case MVT::v1f16:   return VectorType::get(Type::getHalfTy(Context), 1);
@@ -344,6 +345,10 @@ Type *EVT::getTypeForEVT(LLVMContext &Context) const {
   case MVT::v32f16:  return VectorType::get(Type::getHalfTy(Context), 32);
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
+=======
+  case MVT::v16f16:  return VectorType::get(Type::getHalfTy(Context), 16);
+  case MVT::v32f16:  return VectorType::get(Type::getHalfTy(Context), 32);
+>>>>>>> 3f59bfd5be39687cd3a853aaffe8ef2d84ab2ff8
   case MVT::v1f32:   return VectorType::get(Type::getFloatTy(Context), 1);
   case MVT::v2f32:   return VectorType::get(Type::getFloatTy(Context), 2);
   case MVT::v3f32:   return VectorType::get(Type::getFloatTy(Context), 3);
