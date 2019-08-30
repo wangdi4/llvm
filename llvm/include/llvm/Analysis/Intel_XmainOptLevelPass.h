@@ -29,10 +29,17 @@ public:
   XmainOptLevel(unsigned OptLevel);
 
   unsigned getOptLevel() const { return OptLevel; }
+  void setOptLevel(unsigned Level) { OptLevel = Level; }
 
   // Handle invalidation explicitly
   bool invalidate(Function &, const PreservedAnalyses &,
                   FunctionAnalysisManager::Invalidator &) {
+    // Never invalidate analysis.
+    return false;
+  }
+
+  bool invalidate(Module &M, const PreservedAnalyses &,
+                  ModuleAnalysisManager::Invalidator &) {
     // Never invalidate analysis.
     return false;
   }
@@ -44,7 +51,20 @@ class XmainOptLevelAnalysis : public AnalysisInfoMixin<XmainOptLevelAnalysis> {
 
 public:
   typedef XmainOptLevel Result;
-  Result run(Function &, FunctionAnalysisManager &) { return XmainOptLevel(2); }
+  Result run(Function &F, FunctionAnalysisManager &AM);
+  Result run(Module &M, ModuleAnalysisManager &AM);
+};
+
+// Helper class for initializing XmainOptLevelAnalysis in the new pass manager
+class XmainOptLevelAnalysisInit :
+      public PassInfoMixin<XmainOptLevelAnalysisInit> {
+private:
+  unsigned OptLevel;
+
+public:
+  XmainOptLevelAnalysisInit(unsigned OptLevel = 2) : OptLevel(OptLevel) {}
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 };
 
 class XmainOptLevelWrapperPass : public ImmutablePass {
