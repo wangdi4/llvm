@@ -246,7 +246,6 @@ namespace llvm {
       FIRST_VECTOR_VALUETYPE = v1i1,
       LAST_VECTOR_VALUETYPE  = nxv8f64,
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
       x86mmx         =  130,   // This is an X86 MMX value
@@ -264,10 +263,7 @@ namespace llvm {
       FIRST_VALUETYPE = 1,     // This is always the beginning of the list.
       LAST_VALUETYPE =  135,   // This always remains at the end of the list.
 #else // INTEL_FEATURE_ISA_FP16
-      x86mmx         =  127,   // This is an X86 MMX value
-=======
       x86mmx         =  129,   // This is an X86 MMX value
->>>>>>> 3f59bfd5be39687cd3a853aaffe8ef2d84ab2ff8
 
       Glue           =  130,   // This glues nodes together during pre-RA sched
 
@@ -280,13 +276,9 @@ namespace llvm {
       exnref         =  133,   // WebAssembly's exnref type
 
       FIRST_VALUETYPE = 1,     // This is always the beginning of the list.
-<<<<<<< HEAD
-      LAST_VALUETYPE =  132,   // This always remains at the end of the list.
+      LAST_VALUETYPE =  134,   // This always remains at the end of the list.
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
-=======
-      LAST_VALUETYPE =  134,   // This always remains at the end of the list.
->>>>>>> 3f59bfd5be39687cd3a853aaffe8ef2d84ab2ff8
 
       // This is the current maximum for LAST_VALUETYPE.
       // MVT::MAX_ALLOWED_VALUETYPE is used for asserts and to size bit vectors
@@ -421,44 +413,18 @@ namespace llvm {
 
     /// Return true if this is a 256-bit vector type.
     bool is256BitVector() const {
-<<<<<<< HEAD
-      return (SimpleTy == MVT::v8f32 || SimpleTy == MVT::v4f64  ||
-              SimpleTy == MVT::v32i8 || SimpleTy == MVT::v16i16 ||
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-              SimpleTy == MVT::v8i32 || SimpleTy == MVT::v4i64 ||
-              SimpleTy == MVT::v16f16);
-#else // INTEL_FEATURE_ISA_FP16
-              SimpleTy == MVT::v8i32 || SimpleTy == MVT::v4i64);
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-=======
       return (SimpleTy == MVT::v16f16 || SimpleTy == MVT::v8f32 ||
               SimpleTy == MVT::v4f64  || SimpleTy == MVT::v32i8 ||
               SimpleTy == MVT::v16i16 || SimpleTy == MVT::v8i32 ||
               SimpleTy == MVT::v4i64);
->>>>>>> 3f59bfd5be39687cd3a853aaffe8ef2d84ab2ff8
     }
 
     /// Return true if this is a 512-bit vector type.
     bool is512BitVector() const {
-<<<<<<< HEAD
-      return (SimpleTy == MVT::v16f32 || SimpleTy == MVT::v8f64  ||
-              SimpleTy == MVT::v512i1 || SimpleTy == MVT::v64i8  ||
-              SimpleTy == MVT::v32i16 || SimpleTy == MVT::v16i32 ||
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-              SimpleTy == MVT::v8i64 || SimpleTy == MVT::v32f16);
-#else // INTEL_FEATURE_ISA_FP16
-              SimpleTy == MVT::v8i64);
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-=======
       return (SimpleTy == MVT::v32f16 || SimpleTy == MVT::v16f32 ||
               SimpleTy == MVT::v8f64  || SimpleTy == MVT::v512i1 ||
               SimpleTy == MVT::v64i8  || SimpleTy == MVT::v32i16 ||
               SimpleTy == MVT::v16i32 || SimpleTy == MVT::v8i64);
->>>>>>> 3f59bfd5be39687cd3a853aaffe8ef2d84ab2ff8
     }
 
     /// Return true if this is a 1024-bit vector type.
@@ -595,17 +561,8 @@ namespace llvm {
       case v3f16:
       case v4f16:
       case v8f16:
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
       case v16f16:
       case v32f16:
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-=======
-      case v16f16:
-      case v32f16:
->>>>>>> 3f59bfd5be39687cd3a853aaffe8ef2d84ab2ff8
       case nxv2f16:
       case nxv4f16:
       case nxv8f16: return f16;
@@ -669,15 +626,7 @@ namespace llvm {
       case v32i16:
       case v32i32:
       case v32i64:
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
       case v32f16:
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-=======
-      case v32f16:
->>>>>>> 3f59bfd5be39687cd3a853aaffe8ef2d84ab2ff8
       case v32f32:
       case nxv32i1:
       case nxv32i8:
@@ -689,15 +638,7 @@ namespace llvm {
       case v16i16:
       case v16i32:
       case v16i64:
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
       case v16f16:
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-=======
-      case v16f16:
->>>>>>> 3f59bfd5be39687cd3a853aaffe8ef2d84ab2ff8
       case v16f32:
       case nxv16i1:
       case nxv16i8:
@@ -892,15 +833,7 @@ namespace llvm {
       case v16i16:
       case v8i32:
       case v4i64:
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
       case v16f16:
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-=======
-      case v16f16:
->>>>>>> 3f59bfd5be39687cd3a853aaffe8ef2d84ab2ff8
       case v8f32:
       case v4f64:
       case nxv32i8:
@@ -914,15 +847,7 @@ namespace llvm {
       case v32i16:
       case v16i32:
       case v8i64:
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
       case v32f16:
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-=======
-      case v32f16:
->>>>>>> 3f59bfd5be39687cd3a853aaffe8ef2d84ab2ff8
       case v16f32:
       case v8f64:
       case nxv32i16:
@@ -1105,17 +1030,8 @@ namespace llvm {
         if (NumElements == 3)  return MVT::v3f16;
         if (NumElements == 4)  return MVT::v4f16;
         if (NumElements == 8)  return MVT::v8f16;
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
         if (NumElements == 16) return MVT::v16f16;
         if (NumElements == 32) return MVT::v32f16;
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-=======
-        if (NumElements == 16) return MVT::v16f16;
-        if (NumElements == 32) return MVT::v32f16;
->>>>>>> 3f59bfd5be39687cd3a853aaffe8ef2d84ab2ff8
         break;
       case MVT::f32:
         if (NumElements == 1)    return MVT::v1f32;
