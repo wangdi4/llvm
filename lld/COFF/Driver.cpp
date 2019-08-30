@@ -1216,6 +1216,7 @@ void LinkerDriver::maybeExportMinGWSymbols(const opt::InputArgList &args) {
   });
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Return true if argv contains a response file (@) and the file calls "/lib".
 // This function basically wraps the process of extracting a response file (@)
@@ -1249,6 +1250,13 @@ bool LinkerDriver::processLibInResponseFile(ArrayRef<const char *> argv) {
   return false;
 }
 #endif // INTEL_CUSTOMIZATION
+=======
+static const char *libcallRoutineNames[] = {
+#define HANDLE_LIBCALL(code, name) name,
+#include "llvm/IR/RuntimeLibcalls.def"
+#undef HANDLE_LIBCALL
+};
+>>>>>>> a1c022c791b506f021a630f6263c14c981b8977b
 
 void LinkerDriver::link(ArrayRef<const char *> argsArr) {
   // Needed for LTO.
@@ -1958,6 +1966,15 @@ void LinkerDriver::link(ArrayRef<const char *> argsArr) {
         if (!u->weakAlias)
           u->weakAlias = symtab->addUndefined(to);
     }
+
+    // If any inputs are bitcode files, the LTO code generator may create
+    // references to library functions that are not explicit in the bitcode
+    // file's symbol table. If any of those library functions are defined in a
+    // bitcode file in an archive member, we need to arrange to use LTO to
+    // compile those archive members by adding them to the link beforehand.
+    if (!BitcodeFile::instances.empty())
+      for (const char *s : libcallRoutineNames)
+        symtab->addLibcall(s);
 
     // Windows specific -- if __load_config_used can be resolved, resolve it.
     if (symtab->findUnderscore("_load_config_used"))
