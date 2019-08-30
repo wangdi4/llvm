@@ -89,7 +89,7 @@ STATISTIC(NumAttributesManifested,
   STATS_DECLTRACK(NAME, CS, BUILD_STAT_MSG_IR_ATTR(call site, NAME))
 #define STATS_DECLTRACK_FNRET_ATTR(NAME)                                       \
   STATS_DECLTRACK(NAME, FunctionReturn,                                        \
-                  BUILD_STAT_MSG_IR_ATTR(function returns, NAME));
+                  BUILD_STAT_MSG_IR_ATTR(function returns, NAME))
 #define STATS_DECLTRACK_CSRET_ATTR(NAME)                                       \
   STATS_DECLTRACK(NAME, CSReturn,                                              \
                   BUILD_STAT_MSG_IR_ATTR(call site returns, NAME))
@@ -1337,7 +1337,7 @@ struct AANonNullCallSiteArgument final : AANonNullFloating {
   AANonNullCallSiteArgument(const IRPosition &IRP) : AANonNullFloating(IRP) {}
 
   /// See AbstractAttribute::trackStatistics()
-  void trackStatistics() const override { STATS_DECLTRACK_CSARG_ATTR(aligned) }
+  void trackStatistics() const override { STATS_DECLTRACK_CSARG_ATTR(nonnul) }
 };
 
 /// NonNull attribute for a call site return position.
@@ -1632,6 +1632,9 @@ struct AAIsDeadImpl : public AAIsDead {
       Instruction *I = const_cast<Instruction *>(NRC);
       BasicBlock *BB = I->getParent();
       Instruction *SplitPos = I->getNextNode();
+      // TODO: mark stuff before unreachable instructions as dead.
+      if (isa_and_nonnull<UnreachableInst>(SplitPos))
+        continue;
 
       if (auto *II = dyn_cast<InvokeInst>(I)) {
         // If we keep the invoke the split position is at the beginning of the
