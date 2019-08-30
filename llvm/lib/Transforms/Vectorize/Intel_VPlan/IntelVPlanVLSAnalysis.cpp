@@ -28,15 +28,15 @@ namespace vpo {
 OVLSMemref *VPlanVLSAnalysis::createVLSMemref(const VPInstruction *VPInst,
                                               const unsigned VF) const {
   int Opcode = VPInst->getOpcode();
-  OVLSAccessType AccTy = OVLSAccessType::getUnknownTy();
+  OVLSAccessKind AccKind = OVLSAccessKind::Unknown;
   int AccessSize;
 
   if (Opcode == Instruction::Load) {
-    AccTy = OVLSAccessType::getStridedLoadTy();
+    AccKind = OVLSAccessKind::SLoad;
     AccessSize = DL.getTypeAllocSizeInBits(VPInst->getType());
   } else {
     assert(Opcode == Instruction::Store);
-    AccTy = OVLSAccessType::getStridedStoreTy();
+    AccKind = OVLSAccessKind::SStore;
     AccessSize = DL.getTypeAllocSizeInBits(VPInst->getOperand(0)->getType());
   }
 
@@ -45,7 +45,7 @@ OVLSMemref *VPlanVLSAnalysis::createVLSMemref(const VPInstruction *VPInst,
   // At this point we are not sure if this memref should be created. So, we
   // create a temporary memref on the stack and move it to the heap only if it
   // is strided.
-  VPVLSClientMemref Memref(OVLSMemref::VLSK_VPlanVLSClientMemref, AccTy, Ty,
+  VPVLSClientMemref Memref(OVLSMemref::VLSK_VPlanVLSClientMemref, AccKind, Ty,
                            VPInst, this);
   return Memref.getConstStride() ? new VPVLSClientMemref(std::move(Memref))
                                  : nullptr;
@@ -160,7 +160,7 @@ void VPVLSClientMemref::print(raw_ostream &Os, const Twine Indent) const {
   Os << "[ ";
   Os << "id = " << getId();
   Os << " | AccessType: ";
-  getAccessType().print(Os);
+  getAccessKind().print(Os);
   Os << " | VLSType = ";
   getType().print(Os);
   Os << " | Stride = " << getConstStride();

@@ -39,11 +39,11 @@ private:
   const DDGraph getDDGraph() const;
 
 public:
-  explicit VPVLSClientMemrefHIR(const OVLSAccessType &AccTy, const OVLSType &Ty,
+  explicit VPVLSClientMemrefHIR(OVLSAccessKind AccKind, const OVLSType &Ty,
                                 const VPInstruction *Inst,
                                 const unsigned LoopLevel, HIRDDAnalysis *DDA,
                                 const RegDDRef *Ref)
-      : VPVLSClientMemref(VLSK_VPlanHIRVLSClientMemref, AccTy, Ty, Inst,
+      : VPVLSClientMemref(VLSK_VPlanHIRVLSClientMemref, AccKind, Ty, Inst,
                           /*VLSA=*/nullptr),
         LoopLevel(LoopLevel), DDA(DDA), Ref(Ref) {}
 

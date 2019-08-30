@@ -44,14 +44,14 @@ typedef OVLSVector<MemrefDistanceMap *> MemrefDistanceMapVector;
 typedef MemrefDistanceMapVector::iterator MemrefDistanceMapVectorIt;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void OVLSAccessType::dump() const {
+void OVLSAccessKind::dump() const {
   print(OVLSdbgs());
   OVLSdbgs() << '\n';
 }
 #endif
 
-void OVLSAccessType::print(OVLSostream &OS) const {
-  switch (AccType) {
+void OVLSAccessKind::print(OVLSostream &OS) const {
+  switch (AccessKind) {
   case SLoad:
     OS << "SLoad";
     break;
@@ -70,14 +70,13 @@ void OVLSAccessType::print(OVLSostream &OS) const {
   }
 }
 
-OVLSMemref::OVLSMemref(OVLSMemrefKind K, OVLSType T,
-                       const OVLSAccessType &AType)
-    : Kind(K), AccType(AType) {
+OVLSMemref::OVLSMemref(OVLSMemrefKind K, OVLSType T, OVLSAccessKind AKind)
+    : Kind(K), AccessKind(AKind) {
   DType = T;
   static unsigned MemrefId = 1;
   Id = MemrefId++;
 
-  if (AccType.isUnknown()) {
+  if (AccessKind == OVLSAccessKind::Unknown) {
     OVLSDebug(OVLSdbgs() << "#" << Id
                          << " .Created an OVLSMemref of Unknown AccesType.");
   }
@@ -104,7 +103,7 @@ void OVLSMemref::print(OVLSostream &OS, unsigned NumSpaces) const {
 
   // print accessType
   OS << " ";
-  getAccessType().print(OS);
+  getAccessKind().print(OS);
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1047,7 +1046,7 @@ public:
     uint32_t TotalGSNodes = 0;
 
     bool GroupOfGathers = false;
-    if (Group.hasGathers())
+    if (Group.getAccessKind().isLoad())
       GroupOfGathers = true;
 
     for (GraphNode *N : Nodes) {
@@ -1236,8 +1235,8 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
     assert(!AdjMemrefSet->empty() && "Adjacent memref-set cannot be empty");
     MemrefDistanceMapIt AdjMemrefSetIt = (*AdjMemrefSet).begin();
 
-    OVLSAccessType AccType = (AdjMemrefSetIt->second)->getAccessType();
-    OVLSGroup *CurrGrp = new OVLSGroup(VectorLength, AccType);
+    OVLSAccessKind AccessKind = AdjMemrefSetIt->second->getAccessKind();
+    OVLSGroup *CurrGrp = new OVLSGroup(VectorLength, AccessKind);
     int GrpFirstMDist = AdjMemrefSetIt->first;
 
     // Group memrefs in each set using a greedy approach, keep inserting the
@@ -1260,7 +1259,7 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
               (Dist - GrpFirstMDist + ElemSize) > VectorLength ||
               !Memref->canMoveTo(*CurrGrp->getFirstMemref()))) {
         OVLSGrps.push_back(CurrGrp);
-        CurrGrp = new OVLSGroup(VectorLength, AccType);
+        CurrGrp = new OVLSGroup(VectorLength, AccessKind);
 
         // Reset GrpFirstMDist
         GrpFirstMDist = Dist;
@@ -1285,7 +1284,7 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
 
 // Split the memref-vector into groups where memrefs in each group
 // are neighbors(adjacent), means they
-//   1) have the same access type
+//   1) have the same access kind
 //   2) have same number of vector elements
 //   3) are a constant distance apart
 //
@@ -1309,7 +1308,7 @@ static void splitMrfs(const OVLSMemrefVector &Memrefs,
 
       OVLSMemref *SetFirstSeenMrf = (*AdjMemrefSet).find(0)->second;
 
-      if (Memref->getAccessType() != SetFirstSeenMrf->getAccessType())
+      if (Memref->getAccessKind() != SetFirstSeenMrf->getAccessKind())
         continue;
 
       if (Memref->getNumElements() != SetFirstSeenMrf->getNumElements())
@@ -1487,7 +1486,7 @@ static void getLoadsOrStores(const OVLSGroup &Group, Graph &G,
 
   // If it's not a group of gathers that means it's a group of scatters.
   bool GroupOfGathers = false;
-  if (Group.hasGathers())
+  if (Group.getAccessKind().isLoad())
     GroupOfGathers = true;
 
   // Assuming the highest element size is 64.
@@ -1702,7 +1701,7 @@ void OVLSGroup::print(OVLSostream &OS, unsigned NumSpaces) const {
   OS << "\n    Vector Length(in bytes): " << getVectorLength();
   // print accessType
   OS << "\n    AccType: ";
-  getAccessType().print(OS);
+  getAccessKind().print(OS);
 
   // Print result mask
   OS << "\n    AccessMask(per byte, R to L): ";
@@ -1824,7 +1823,7 @@ void OptVLSInterface::getGroups(const OVLSMemrefVector &Memrefs,
 
   // Split the vector of memrefs into sub groups where memrefs in each sub group
   // are neighbors, means they
-  //   1) have the same access type
+  //   1) have the same access kind
   //   2) are a constant distance apart
   MemrefDistanceMapVector AdjMemrefSetVec;
   OptVLS::splitMrfs(Memrefs, AdjMemrefSetVec);
@@ -1886,7 +1885,8 @@ bool OptVLSInterface::getSequence(const OVLSGroup &Group,
   // Allowing execution of the graph algorithm only for this case.
   // Stride = 16 , represents factor =2.
   // Group.size = 2, has two neighbors.
-  if (!(Group.getElemSize() == 64 && Group.size() == 2 && Group.hasGathers() &&
+  if (!(Group.getElemSize() == 64 && Group.size() == 2 &&
+        Group.getAccessKind().isLoad() &&
         Group.getConstStride() == (int64_t)16))
     return false;
 
@@ -2472,7 +2472,7 @@ bool OptVLSInterface::getSequencePredefined(
       // of size stride instead of hard-coded 65535. See other uses of
       // getNByteAccessMask.
       Group.getNByteAccessMask() == 65535 &&
-      Group.getAccessType().isStridedLoad()) {
+      Group.getAccessKind() == OVLSAccessKind::SLoad) {
     // Sequence can be safely generated.
     return genSeqLoadStride16Packed8xi32(Group, InstVector, MemrefToInstMap);
   }
@@ -2507,7 +2507,7 @@ bool OptVLSInterface::getSequencePredefined(
   // independent for now.
   if (*Stride == 16 && Group.getNumElems() == 8 && Group.getElemSize() == 16 &&
       Group.getNByteAccessMask() == 65535 &&
-      Group.getAccessType().isStridedLoad()) {
+      Group.getAccessKind() == OVLSAccessKind::SLoad) {
     // Sequence can be safely generated.
     return genSeqLoadStride16Packed8xi16(Group, InstVector, MemrefToInstMap);
   }
@@ -2537,7 +2537,7 @@ bool OptVLSInterface::getSequencePredefined(
   // independent for now.
   if (*Stride == 16 && Group.getNumElems() == 8 && Group.getElemSize() == 32 &&
       Group.getNByteAccessMask() == 65535 &&
-      Group.getAccessType().isStridedAccess() && Group.hasScatters() == true) {
+      Group.getAccessKind() == OVLSAccessKind::SStore) {
     // Sequence can be safely generated.
     return genSeqStoreStride16Packed8xi32(Group, InstVector);
   }

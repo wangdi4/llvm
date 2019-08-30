@@ -30,7 +30,7 @@ class VPVLSClientMemref : public OVLSMemref {
   const SCEV *ScevExpr = nullptr;
 
 public:
-  VPVLSClientMemref(const OVLSMemrefKind &Kind, const OVLSAccessType &AccTy,
+  VPVLSClientMemref(const OVLSMemrefKind &Kind, OVLSAccessKind AccKind,
                     const OVLSType &Ty, const VPInstruction *Inst,
                     const VPlanVLSAnalysis *VLSA);
 
