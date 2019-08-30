@@ -1883,6 +1883,7 @@ void ASTWriter::WriteInputFiles(SourceManager &SourceMgr,
         Entry.IsTransient,
         Entry.IsTopLevelModuleMap};
 
+    // FIXME: The path should be taken from the FileEntryRef.
     EmitRecordWithPath(IFAbbrevCode, Record, Entry.File->getName());
   }
 
