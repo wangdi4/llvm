@@ -249,26 +249,28 @@ SDValue DAGTypeLegalizer::SoftenFloatRes_FADD(SDNode *N) {
 SDValue DAGTypeLegalizer::SoftenFloatRes_FATAN(SDNode *N) {
   EVT NVT = TLI.getTypeToTransformTo(*DAG.getContext(), N->getValueType(0));
   SDValue Op = GetSoftenedFloat(N->getOperand(0));
+  TargetLowering::MakeLibCallOptions CallOptions;
   return TLI.makeLibCall(DAG, GetFPLibCall(N->getValueType(0),
                                            RTLIB::ATAN_F32,
                                            RTLIB::ATAN_F64,
                                            RTLIB::ATAN_F80,
                                            RTLIB::ATAN_F128,
                                            RTLIB::ATAN_PPCF128),
-                         NVT, Op, false, SDLoc(N)).first;
+                         NVT, Op, CallOptions, SDLoc(N)).first;
 }
 
 SDValue DAGTypeLegalizer::SoftenFloatRes_FATAN2(SDNode *N) {
   EVT NVT = TLI.getTypeToTransformTo(*DAG.getContext(), N->getValueType(0));
   SDValue Ops[2] = { GetSoftenedFloat(N->getOperand(0)),
                      GetSoftenedFloat(N->getOperand(1)) };
+  TargetLowering::MakeLibCallOptions CallOptions;
   return TLI.makeLibCall(DAG, GetFPLibCall(N->getValueType(0),
                                            RTLIB::ATAN2_F32,
                                            RTLIB::ATAN2_F64,
                                            RTLIB::ATAN2_F80,
                                            RTLIB::ATAN2_F128,
                                            RTLIB::ATAN2_PPCF128),
-                         NVT, Ops, false, SDLoc(N)).first;
+                         NVT, Ops, CallOptions, SDLoc(N)).first;
 }
 #endif
 
@@ -684,13 +686,14 @@ SDValue DAGTypeLegalizer::SoftenFloatRes_FSUB(SDNode *N) {
 SDValue DAGTypeLegalizer::SoftenFloatRes_FTAN(SDNode *N) {
   EVT NVT = TLI.getTypeToTransformTo(*DAG.getContext(), N->getValueType(0));
   SDValue Op = GetSoftenedFloat(N->getOperand(0));
+  TargetLowering::MakeLibCallOptions CallOptions;
   return TLI.makeLibCall(DAG, GetFPLibCall(N->getValueType(0),
                                            RTLIB::TAN_F32,
                                            RTLIB::TAN_F64,
                                            RTLIB::TAN_F80,
                                            RTLIB::TAN_F128,
                                            RTLIB::TAN_PPCF128),
-                         NVT, Op, false, SDLoc(N)).first;
+                         NVT, Op, CallOptions, SDLoc(N)).first;
 }
 #endif
 
