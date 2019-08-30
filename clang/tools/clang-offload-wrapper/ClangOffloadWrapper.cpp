@@ -344,7 +344,7 @@ private:
             },
             "__tgt_device_image.omp");
 
-      ImageTy = OmpImageTy;
+      return OmpImageTy;
     }
 #endif  // INTEL_COLLAB
     if (!ImageTy) {
@@ -407,7 +407,7 @@ private:
           },
           "__tgt_bin_desc.omp");
 
-      DescTy = OmpDescTy;
+      return OmpDescTy;
     }
 #endif  // INTEL_COLLAB
     if (!DescTy) {
