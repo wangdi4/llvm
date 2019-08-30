@@ -16182,7 +16182,8 @@ static bool captureInCapturedRegion(CapturedRegionScopeInfo *RSI,
         DeclRefType.addVolatile();
 #endif // INTEL_CUSTOMIZATION
     }
-    ByRef = S.isOpenMPCapturedByRef(Var, RSI->OpenMPLevel);
+    ByRef = S.isOpenMPCapturedByRef(Var, RSI->OpenMPLevel,
+                                    RSI->OpenMPCaptureLevel);
   }
 
   if (ByRef)
