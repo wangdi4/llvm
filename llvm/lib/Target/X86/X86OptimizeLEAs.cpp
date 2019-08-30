@@ -251,15 +251,9 @@ public:
   /// calculations in load and store instructions, if it's already
   /// been calculated by LEA. Also, remove redundant LEAs.
   bool runOnMachineFunction(MachineFunction &MF) override;
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  static char ID;
-#endif // INTEL_CUSTOMIZATION
-=======
 
   static char ID;
 
->>>>>>> 7630e24492c55cf07e43c0783997cbf9a1603f45
 private:
   using MemOpMap = DenseMap<MemOpKey, SmallVector<MachineInstr *, 16>>;
 
@@ -310,30 +304,15 @@ private:
   MachineRegisterInfo *MRI;
   const X86InstrInfo *TII;
   const X86RegisterInfo *TRI;
-<<<<<<< HEAD
-
-#if !INTEL_CUSTOMIZATION
-  static char ID;
-#endif // !INTEL_CUSTOMIZATION
-=======
->>>>>>> 7630e24492c55cf07e43c0783997cbf9a1603f45
 };
 
 } // end anonymous namespace
 
 char X86OptimizeLEAPass::ID = 0;
 
-<<<<<<< HEAD
-FunctionPass *llvm::createX86OptimizeLEAs() { return new OptimizeLEAPass(); }
-#if INTEL_CUSTOMIZATION
-INITIALIZE_PASS(OptimizeLEAPass, DEBUG_TYPE,
-                "X86 optimize LEA pass", false, false)
-#endif //INTEL_CUSTOMIZATION
-=======
 FunctionPass *llvm::createX86OptimizeLEAs() { return new X86OptimizeLEAPass(); }
 INITIALIZE_PASS(X86OptimizeLEAPass, DEBUG_TYPE, "X86 optimize LEA pass", false,
                 false)
->>>>>>> 7630e24492c55cf07e43c0783997cbf9a1603f45
 
 int X86OptimizeLEAPass::calcInstrDist(const MachineInstr &First,
                                       const MachineInstr &Last) {

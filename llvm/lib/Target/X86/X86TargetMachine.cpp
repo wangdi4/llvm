@@ -95,14 +95,10 @@ extern "C" void LLVMInitializeX86Target() {
   initializeX86SpeculativeLoadHardeningPassPass(PR);
   initializeX86FlagsCopyLoweringPassPass(PR);
   initializeX86CondBrFoldingPassPass(PR);
-<<<<<<< HEAD
+  initializeX86OptimizeLEAPassPass(PR);
 #if INTEL_CUSTOMIZATION
-  initializeOptimizeLEAPassPass(PR);
   initializeGenerateLEAPassPass(PR);
 #endif // INTEL_CUSTOMIZATION
-=======
-  initializeX86OptimizeLEAPassPass(PR);
->>>>>>> 7630e24492c55cf07e43c0783997cbf9a1603f45
 }
 
 static std::unique_ptr<TargetLoweringObjectFile> createTLOF(const Triple &TT) {
