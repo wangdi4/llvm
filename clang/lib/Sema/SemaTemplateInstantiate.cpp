@@ -1283,17 +1283,18 @@ TemplateInstantiator::TransformLoopHintAttr(const LoopHintAttr *LH) {
 
     // Generate error if there is a problem with the value.
 #if INTEL_CUSTOMIZATION
-  if (TransformedExpr &&
-      getSema().CheckLoopHintExpr(
-          TransformedExpr, LH->getLocation(),
-          !getSema().getLangOpts().IntelCompat ||
-              !((LH->getSemanticSpelling() == LoopHintAttr::Pragma_unroll) ||
-                (LH->getSemanticSpelling() ==
-                 LoopHintAttr::Pragma_unroll_and_jam)),
-          LH->getSemanticSpelling() ==
-              LoopHintAttr::Pragma_speculated_iterations))
-#endif // INTEL_CUSTOMIZATION
+  bool AllowZero = false;
+  if (LH->getSemanticSpelling() == LoopHintAttr::Pragma_speculated_iterations)
+    AllowZero = true;
+  if ((LH->getSemanticSpelling() == LoopHintAttr::Pragma_unroll ||
+       LH->getSemanticSpelling() == LoopHintAttr::Pragma_unroll_and_jam) &&
+      getSema().getLangOpts().isIntelCompat(LangOptions::UnrollZero))
+    AllowZero = true;
+
+  if (TransformedExpr && getSema().CheckLoopHintExpr(
+                             TransformedExpr, LH->getLocation(), AllowZero))
     return LH;
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
   if (getSema().getLangOpts().IntelCompat &&

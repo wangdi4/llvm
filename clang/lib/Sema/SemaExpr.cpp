@@ -3409,8 +3409,7 @@ static Expr *BuildFloatingLiteral(Sema &S, NumericLiteralParser &Literal,
 }
 
 #if INTEL_CUSTOMIZATION
-bool Sema::CheckLoopHintExpr(Expr *E, SourceLocation Loc, bool IsCheckRange,
-                             bool AllowNonNegativeValue) {
+bool Sema::CheckLoopHintExpr(Expr *E, SourceLocation Loc, bool AllowZero) {
 #endif // INTEL_CUSTOMIZATION
   assert(E && "Invalid expression");
 
@@ -3432,26 +3431,16 @@ bool Sema::CheckLoopHintExpr(Expr *E, SourceLocation Loc, bool IsCheckRange,
   bool ValueIsPositive = ValueAPS.isStrictlyPositive();
 
 #if INTEL_CUSTOMIZATION
-  // CQ415958/CQ366562: In non-dependent cases, warn if the value is going
-  // to be ignored.
-  if (!IsCheckRange) {
-    if ((!ValueIsPositive || ValueAPS.getActiveBits() > 31) &&
-        ValueAPS.getBoolValue()) {
-      Diag(E->getExprLoc(),
-             diag::warn_pragma_unroll_invalid_factor_ignored)
-          << ValueAPS.toString(10) << ValueIsPositive;
-    }
-  } else if (AllowNonNegativeValue) {
-    if (ValueAPS.isNegative())
-      return Diag(E->getExprLoc(),
-                  diag::err_pragma_loop_invalid_negative_value)
-             << ValueAPS.toString(10);
-    if (ValueAPS.getSExtValue() > INT_MAX)
-      return Diag(E->getExprLoc(), diag::err_pragma_loop_invalid_argument_value)
-             << ValueAPS.toString(10) << /* out of range */1;
+  bool ValueIsNegative = ValueAPS.isNegative();
+  bool ValueIsZero = !ValueIsPositive && !ValueIsNegative;
+
+  if (AllowZero && ValueIsZero)
     return false;
-  } else
+  if (AllowZero && ValueIsNegative)
+    return Diag(E->getExprLoc(), diag::err_pragma_loop_invalid_negative_value)
+           << ValueAPS.toString(10);
 #endif // INTEL_CUSTOMIZATION
+
   if (!ValueIsPositive || ValueAPS.getActiveBits() > 31) {
     Diag(E->getExprLoc(), diag::err_pragma_loop_invalid_argument_value)
         << ValueAPS.toString(10) << ValueIsPositive;
