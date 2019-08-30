@@ -847,14 +847,14 @@ Optional<FileEntryRef> HeaderSearch::LookupFile(
     }
   }
 
-<<<<<<< HEAD
-=======
   Optional<FileEntryRef> MSFE(MSFE_FE ? FileEntryRef(MSFE_Name, *MSFE_FE)
                                       : Optional<FileEntryRef>());
-
+#if !INTEL_CUSTOMIZATION
+  // This code is disabled due to modifications introduced in
+  // ec229b227e55012e78bef1605d73e9da4ab37a7f
   CurDir = nullptr;
+#endif // !INTEL_CUSTOMIZATION
 
->>>>>>> 4dc5573acc0d2e7c59d8bac2543eb25cb4b32984
   // If this is a system #include, ignore the user #include locs.
   unsigned i = isAngled ? AngledDirIdx : 0;
 
