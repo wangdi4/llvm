@@ -968,22 +968,28 @@ void *tgt_rtl_data_alloc_template(int32_t device_id, int64_t size,
                                   void *hst_ptr, void *hst_base,
                                   int32_t is_implicit_arg) {
   intptr_t offset = (intptr_t)hst_ptr - (intptr_t)hst_base;
-  if (offset < 0) {
-    DP("Error: Failed to create base buffer due to invalid array section\n");
-    return nullptr;
-  }
+  // If the offset is negative, then for our practical purposes it can be
+  // considered 0 because the base address of an array will be contained
+  // within or after the allocated memory.
+  intptr_t meaningful_offset = offset >= 0 ? offset : 0;
+  // If the offset is negative and the size we map is not large enough to reach
+  // the base, then we must allocate extra memory up to the base (+1 to include
+  // at least the first byte the base is pointing to).
+  int64_t meaningful_size =
+      offset < 0 && abs(offset) >= size ? abs(offset) + 1 : size;
+
   void *base = clSVMAlloc(DeviceInfo.CTX[device_id], CL_MEM_READ_WRITE,
-                          size + offset, 0);
+      meaningful_size + meaningful_offset, 0);
   if (!base) {
     DP("Error: Failed to allocate base buffer\n");
     return nullptr;
   }
   DP("Created base buffer " DPxMOD " during data alloc\n", DPxPTR(base));
 
-  void *ret = (void *)((intptr_t)base + offset);
+  void *ret = (void *)((intptr_t)base + meaningful_offset);
 
   // Store allocation information
-  DeviceInfo.Buffers[device_id][ret] = {base, size};
+  DeviceInfo.Buffers[device_id][ret] = {base, meaningful_size};
 
   // Store list of pointers to be passed to kernel implicitly
   if (is_implicit_arg) {
