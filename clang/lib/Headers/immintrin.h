@@ -581,6 +581,14 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 
 /* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ICECODE */
+#if defined(__ICECODE__)
+#include <icecode/ceintrin.h>
+#endif
+/* end INTEL_FEATURE_ICECODE */
+/* end INTEL_CUSTOMIZATION */
+
+/* INTEL_CUSTOMIZATION */
 
 /* INTEL_FEATURE_ISA_ULI */
 /*

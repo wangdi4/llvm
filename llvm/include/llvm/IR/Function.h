@@ -831,17 +831,12 @@ public:
   void setPreLoopOpt() { addFnAttr(PreLoopOptStr); }
 
   /// Returns true if loopopt is going to be run later in the pipeline.
-  bool isPreLoopOpt() const { 
-    return hasFnAttribute(PreLoopOptStr); 
+  bool isPreLoopOpt() const {
+    return hasFnAttribute(PreLoopOptStr);
   }
 
   /// Resets "pre-loopopt" state for the function.
-  void resetPreLoopOpt() { 
-    // TODO: Replace with removeFnAttr(PreLoopOptStr) when the interface is
-    // available.
-    setAttributes(AttributeSets.removeAttribute(
-      getContext(), AttributeList::FunctionIndex, PreLoopOptStr)); 
-  }
+  void resetPreLoopOpt() { removeFnAttr(PreLoopOptStr); }
 #endif // INTEL_CUSTOMIZATION
 
   /// Returns true if we should emit debug info for profiling.

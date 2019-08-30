@@ -39,11 +39,11 @@ _tile_release(void)
 }
 
 #define _tile_loadd(dst, base, stride) \
-  __builtin_ia32_tileloadd64((dst), ((unsigned long long)(base)), (stride))
+  __builtin_ia32_tileloadd64((dst), ((const void *)(base)), (__SIZE_TYPE__)(stride))
 #define _tile_stream_loadd(dst, base, stride) \
-  __builtin_ia32_tileloaddt164((dst), ((unsigned long long)(base)), (stride))
+  __builtin_ia32_tileloaddt164((dst), ((const void *)(base)), (__SIZE_TYPE__)(stride))
 #define _tile_stored(dst, base, stride) \
-  __builtin_ia32_tilestored64((dst), ((unsigned long long)(base)), (stride))
+  __builtin_ia32_tilestored64((dst), ((void *)(base)), (__SIZE_TYPE__)(stride))
 
 #define _tile_zero(tile) \
   __builtin_ia32_tilezero((tile))

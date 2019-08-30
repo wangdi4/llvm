@@ -150,8 +150,15 @@ bool X86TargetInfo::initFeatureMap(
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
   // Enable icecode-mode for IceCode target.
-  if (getTriple().getArch() == llvm::Triple::x86_icecode)
-    setFeatureEnabledImpl(Features, "icecode-mode", true);
+  if (getTriple().getArch() == llvm::Triple::x86_icecode) {
+    Features["icecode-mode"] = true;
+    setFeatureEnabledImpl(Features, "avx512f", true);
+    setFeatureEnabledImpl(Features, "avx512cd", true);
+    setFeatureEnabledImpl(Features, "avx512dq", true);
+    setFeatureEnabledImpl(Features, "avx512bw", true);
+    setFeatureEnabledImpl(Features, "avx512vl", true);
+    return true;
+  }
 #endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
 
@@ -1104,6 +1111,7 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__amd64__");
     Builder.defineMacro("__amd64");
     Builder.defineMacro("__x86_64");
+    Builder.defineMacro("__x86_64__");
     Builder.defineMacro("__ICECODE__");
   } else
 #endif // INTEL_FEATURE_ICECODE
