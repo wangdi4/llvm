@@ -203,6 +203,16 @@ def lldmap_file : Joined<["/", "-", "/?", "-?"], "lldmap:">;
 def show_timing : F<"time">;
 def summary : F<"summary">;
 
+#if INTEL_CUSTOMIZATION
+// Option for debugging the memory freeing process when
+// shutting down LLD
+def intel_debug_mem : F<"intel-debug=mem">;
+
+// Option for keeping the information related to LLVM in
+// case LLD is embedded in the compiler
+def intel_embedded_linker : F<"intel-embedded-linker">;
+#endif // INTEL_CUSTOMIZATION
+
 //==============================================================================
 // The flags below do nothing. They are defined only for link.exe compatibility.
 //==============================================================================

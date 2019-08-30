@@ -435,6 +435,14 @@ bool parse(llvm::ArrayRef<const char *> args, MachOLinkingContext &ctx) {
     // No min-os version on command line, check environment variables
   }
 
+#if INTEL_CUSTOMIZATION
+  if (parsedArgs.hasArg(OPT_intel_debug_mem))
+    errorHandler().intelDebugMem = true;
+
+  if (parsedArgs.hasArg(OPT_intel_embedded_linker))
+    errorHandler().intelEmbeddedLinker = true;
+#endif // INTEL_CUSTOMIZATION
+
   // Handle export_dynamic
   // FIXME: Should we warn when this applies to something other than a static
   // executable or dylib?  Those are the only cases where this has an effect.
@@ -1224,24 +1232,15 @@ bool link(llvm::ArrayRef<const char *> args, bool CanExitEarly,
     return false;
   }
 
-#if INTEL_CUSTOMIZATION
-  // The following code is commented out because is from the community and
-  // it will be replaced.
-
   // Call exit() if we can to avoid calling destructors.
-  // if (CanExitEarly)
-  //  exitLld(errorCount() ? 1 : 0);
-
-  // CMPLRLLVM-8800: We are going to replace exitLld with cleanIntelLld.
-  // This is because we want to prevent calling the early exit and use
-  // the destructors. Also, exitLld uses the value passed through the
-  // parameter as an exit value. We need to make sure that the same
-  // exit error is returned when CanExitEarly is triggered.
-  cleanIntelLld();
   if (CanExitEarly)
-    _exit(errorCount() ? 1 : 0);
-#endif // INTEL_CUSTOMIZATION
+    exitLld(errorCount() ? 1 : 0);
 
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-10208: This part here is for destroying the global data
+  // if the user doesn't need it (e.g. testing system).
+  cleanIntelLld();
+#endif
 
   return true;
 }

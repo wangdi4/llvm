@@ -175,6 +175,16 @@ defm check_features: B<"check-features",
 def features: CommaJoined<["--", "-"], "features=">,
   HelpText<"Comma-separated used features, inferred from input objects by default.">;
 
+// INTEL_CUSTOMIZATION
+// Option for debugging the memory freeing process when
+// shutting down LLD
+def intel_debug_mem: F<"intel-debug=mem">;
+
+// Option for keeping the information related to LLVM in
+// case LLD is embedded in the compiler
+def intel_embedded_linker: F<"intel-embedded-linker">;
+// END INTEL_CUSTOMIZATION
+
 // Aliases
 def: JoinedOrSeparate<["-"], "e">, Alias<entry>;
 def: J<"entry=">, Alias<entry>;
