@@ -122,56 +122,6 @@ def nxv8i64 : ValueType<512, 90>;  // n x  8 x i64 vector value
 def nxv16i64: ValueType<1024,91>;  // n x 16 x i64 vector value
 def nxv32i64: ValueType<2048,92>;  // n x 32 x i64 vector value
 
-// INTEL_CUSTOMIZATION
-// Workaround here by commenting INTEL_CUSTOMIZATION, because tblgen test
-// cases need to include this file, and INTEL_CUSTOMIZATION is not defined
-// in the cases.
-#if INTEL_FEATURE_ISA_FP16
-def v1f16    : ValueType<16 , 93>;    //    1 x f16 vector value
-def v2f16    : ValueType<32 , 94>;    //    2 x f16 vector value
-def v3f16    : ValueType<48 , 95>;    //    3 x f16 vector value
-def v4f16    : ValueType<64 , 96>;    //    4 x f16 vector value
-def v8f16    : ValueType<128, 97>;    //    8 x f16 vector value
-def v16f16   : ValueType<256, 98>;    //   16 x f16 vector value
-def v32f16   : ValueType<512, 99>;    //   32 x f16 vector value
-def v1f32    : ValueType<32 , 100>;    //    1 x f32 vector value
-def v2f32    : ValueType<64 , 101>;    //    2 x f32 vector value
-def v3f32    : ValueType<96 , 102>;   //    3 x f32 vector value
-def v4f32    : ValueType<128, 103>;   //    4 x f32 vector value
-def v5f32    : ValueType<160, 104>;   //    5 x f32 vector value
-def v8f32    : ValueType<256, 105>;   //    8 x f32 vector value
-def v16f32   : ValueType<512,  106>;  //   16 x f32 vector value
-def v32f32   : ValueType<1024, 107>;  //   32 x f32 vector value
-def v64f32   : ValueType<2048, 108>;  //   64 x f32 vector value
-def v128f32  : ValueType<4096, 109>;  //  128 x f32 vector value
-def v256f32  : ValueType<8182, 110>;  //  256 x f32 vector value
-def v512f32  : ValueType<16384, 111>; //  512 x f32 vector value
-def v1024f32 : ValueType<32768, 112>; // 1024 x f32 vector value
-def v2048f32 : ValueType<65536, 113>; // 2048 x f32 vector value
-def v1f64    : ValueType<64, 114>;    //    1 x f64 vector value
-def v2f64    : ValueType<128, 115>;   //    2 x f64 vector value
-def v4f64    : ValueType<256, 116>;   //    4 x f64 vector value
-def v8f64    : ValueType<512, 117>;   //    8 x f64 vector value
-
-def nxv2f16  : ValueType<32 , 118>; // n x  2 x f16 vector value
-def nxv4f16  : ValueType<64 , 119>; // n x  4 x f16 vector value
-def nxv8f16  : ValueType<128, 120>; // n x  8 x f16 vector value
-def nxv1f32  : ValueType<32 , 121>; // n x  1 x f32 vector value
-def nxv2f32  : ValueType<64 , 122>; // n x  2 x f32 vector value
-def nxv4f32  : ValueType<128, 123>; // n x  4 x f32 vector value
-def nxv8f32  : ValueType<256, 124>; // n x  8 x f32 vector value
-def nxv16f32 : ValueType<512, 125>; // n x 16 x f32 vector value
-def nxv1f64  : ValueType<64,  126>; // n x  1 x f64 vector value
-def nxv2f64  : ValueType<128, 127>; // n x  2 x f64 vector value
-def nxv4f64  : ValueType<256, 128>; // n x  4 x f64 vector value
-def nxv8f64  : ValueType<512, 129>; // n x  8 x f64 vector value
-
-def x86mmx : ValueType<64 , 130>;   // X86 MMX value
-def FlagVT : ValueType<0  , 131>;   // Pre-RA sched glue
-def isVoid : ValueType<0  , 132>;   // Produces no value
-def untyped: ValueType<8  , 133>;   // Produces an untyped value
-def exnref : ValueType<0, 134>;     // WebAssembly's except_ref type
-#else // INTEL_FEATURE_ISA_FP16
 def v2f16    : ValueType<32 , 93>;    //    2 x f16 vector value
 def v3f16    : ValueType<48 , 94>;    //    3 x f16 vector value
 def v4f16    : ValueType<64 , 95>;    //    4 x f16 vector value
@@ -215,8 +165,6 @@ def FlagVT : ValueType<0  , 130>;   // Pre-RA sched glue
 def isVoid : ValueType<0  , 131>;   // Produces no value
 def untyped: ValueType<8  , 132>;   // Produces an untyped value
 def exnref: ValueType<0, 133>;      // WebAssembly's exnref type
-#endif // INTEL_FEATURE_ISA_FP16
-// end INTEL_CUSTOMIZATION
 def token  : ValueType<0  , 248>;   // TokenTy
 def MetadataVT: ValueType<0, 249>;  // Metadata
 
