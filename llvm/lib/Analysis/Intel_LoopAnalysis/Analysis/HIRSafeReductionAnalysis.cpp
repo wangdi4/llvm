@@ -176,6 +176,24 @@ HIRSafeReductionAnalysis::getSafeRedInfoList(const HLLoop *Loop) {
   return SRCL;
 }
 
+namespace {
+// This is for recognizing a safe reduction chain
+// with mix of addition and subtractions.
+// e.g. s = q - a[i]
+//      q = s + b[i] ==> q = q + (b[i] - a[i]) is a safe reduction.
+bool isValidMixOfOpcodes(unsigned OpCode1, unsigned OpCode2) {
+  if (OpCode1 == OpCode2)
+    return true;
+
+  if (OpCode1 == Instruction::FAdd && OpCode2 == Instruction::FSub ||
+      OpCode1 == Instruction::FSub && OpCode2 == Instruction::FAdd ||
+      OpCode1 == Instruction::Add && OpCode2 == Instruction::Sub ||
+      OpCode1 == Instruction::Sub && OpCode2 == Instruction::Add)
+    return true;
+
+  return false;
+}
+} // namespace
 // Safe reduction chain could be
 // a.  t1 = t2 +
 //     t3 = t1 +
@@ -199,7 +217,7 @@ bool HIRSafeReductionAnalysis::isValidSR(const RegDDRef *LRef,
 
   for (auto I = DDG.outgoing_edges_begin(LRef),
             E = DDG.outgoing_edges_end(LRef);
-            I != E; ++I) {
+       I != E; ++I) {
     const DDEdge *Edge = *I;
     if (Edge->isOUTPUTdep()) {
       // Allow only one output edge for case 'c' mentioned above in the
@@ -266,8 +284,16 @@ bool HIRSafeReductionAnalysis::isValidSR(const RegDDRef *LRef,
       continue;
     }
     unsigned ReductionOpCodeSave = ReductionOpCode;
-    if (!(*SinkInst)->isReductionOp(&ReductionOpCode) ||
-        ReductionOpCode != ReductionOpCodeSave) {
+    if (!(*SinkInst)->isReductionOp(&ReductionOpCode)) {
+      return false;
+    }
+    if ((ReductionOpCode == Instruction::FSub ||
+         ReductionOpCode == Instruction::Sub) &&
+        (*SinkDDRef) == (*SinkInst)->getOperandDDRef(2)) {
+      // S = .. - S, we bail out
+      return false;
+    }
+    if (!isValidMixOfOpcodes(ReductionOpCode, ReductionOpCodeSave)) {
       return false;
     }
     if (Bref && ReductionOpCode != Instruction::Add) {
@@ -494,7 +520,8 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(
         // First stmt could be   a.  t1 = t2
         //          or           b.  t1 = t2 + ..
 
-        if (!Inst->isCopyInst() && ReductionOpCodeSave != *ReductionOpCode) {
+        if (!Inst->isCopyInst() &&
+            !isValidMixOfOpcodes(ReductionOpCodeSave, *ReductionOpCode)) {
           return SKIPTONEXT;
         }
 
