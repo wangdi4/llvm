@@ -43,6 +43,7 @@ OMPClause::child_range OMPClause::used_children() {
 #include "clang/Basic/OpenMPKinds.def"
   case OMPC_threadprivate:
   case OMPC_uniform:
+  case OMPC_device_type:
   case OMPC_unknown:
     break;
   }
@@ -133,6 +134,7 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
   case OMPC_reverse_offload:
   case OMPC_dynamic_allocators:
   case OMPC_atomic_default_mem_order:
+  case OMPC_device_type:
     break;
   }
 
@@ -209,11 +211,15 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_reverse_offload:
   case OMPC_dynamic_allocators:
   case OMPC_atomic_default_mem_order:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+=======
+  case OMPC_device_type:
+>>>>>>> d3e712a946319bba0412e46d329b1ed3411d2513
     break;
   }
 
