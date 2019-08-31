@@ -516,9 +516,8 @@ static const Value *stripPointerCastsAndOffsets(const Value *V) {
         // Matches GEPOperator above.
         if (auto *Subs = dyn_cast<SubscriptInst>(V)) {
           switch (StripKind) {
-          case PSK_ZeroIndicesAndAliases:
-          case PSK_ZeroIndicesAndAliasesSameRepresentation:
-          case PSK_ZeroIndicesAndAliasesAndInvariantGroups:
+          case PSK_ZeroIndicesSameRepresentation:
+          case PSK_ZeroIndicesAndInvariantGroups:
           case PSK_ZeroIndices:
             return V;
           case PSK_InBoundsConstantIndices:
