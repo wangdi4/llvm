@@ -9797,7 +9797,6 @@ bool CGOpenMPRuntime::emitTargetFunctions(GlobalDecl GD) {
   const ValueDecl *VD = cast<ValueDecl>(GD.getDecl());
   StringRef Name = CGM.getMangledName(GD);
   // Try to detect target regions in the function.
-<<<<<<< HEAD
 #if INTEL_COLLAB
   if (const auto *FD = dyn_cast<FunctionDecl>(VD)) {
     bool HasTargetRegions =
@@ -9812,12 +9811,14 @@ bool CGOpenMPRuntime::emitTargetFunctions(GlobalDecl GD) {
       (void) CGM.GetAddrOfFunction(FD);
       return false;
     }
+
+    Optional<OMPDeclareTargetDeclAttr::DevTypeTy> DevTy =
+        OMPDeclareTargetDeclAttr::getDeviceType(FD);
+    // Do not emit device_type(nohost) functions for the host.
+    if (DevTy && *DevTy == OMPDeclareTargetDeclAttr::DT_Host)
+      return true;
   }
 #else
-  if (const auto *FD = dyn_cast<FunctionDecl>(VD))
-    scanForTargetRegionsFunctions(FD->getBody(), Name);
-#endif // INTEL_COLLAB
-=======
   if (const auto *FD = dyn_cast<FunctionDecl>(VD)) {
     scanForTargetRegionsFunctions(FD->getBody(), Name);
     Optional<OMPDeclareTargetDeclAttr::DevTypeTy> DevTy =
@@ -9826,7 +9827,7 @@ bool CGOpenMPRuntime::emitTargetFunctions(GlobalDecl GD) {
     if (DevTy && *DevTy == OMPDeclareTargetDeclAttr::DT_Host)
       return true;
   }
->>>>>>> d3e712a946319bba0412e46d329b1ed3411d2513
+#endif // INTEL_COLLAB
 
   // Do not to emit function if it is not marked as declare target.
   return !OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD) &&

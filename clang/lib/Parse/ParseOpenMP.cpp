@@ -799,7 +799,6 @@ Parser::ParseOMPDeclareSimdClauses(Parser::DeclGroupPtrTy Ptr,
       LinModifiers, Steps, SourceRange(Loc, EndLoc));
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Parses the 'construct' part of the match clause.
 ///
@@ -1054,7 +1053,7 @@ Parser::ParseOMPDeclareVariantClauses(Parser::DeclGroupPtrTy Ptr,
       Ptr, FD, Constructs, Devices, SourceRange(Loc, EndLoc));
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 /// Parsing of simple OpenMP clauses like 'default' or 'proc_bind'.
 ///
 ///    default-clause:
@@ -1103,7 +1102,6 @@ parseOpenMPSimpleClause(Parser &P, OpenMPClauseKind Kind) {
 
   return SimpleClauseData(Type, Loc, LOpen, TypeLoc, RLoc);
 }
->>>>>>> d3e712a946319bba0412e46d329b1ed3411d2513
 
 Parser::DeclGroupPtrTy Parser::ParseOMPDeclareTargetClauses() {
   // OpenMP 4.5 syntax with list of entities.
