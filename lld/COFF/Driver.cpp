@@ -1216,7 +1216,6 @@ void LinkerDriver::maybeExportMinGWSymbols(const opt::InputArgList &args) {
   });
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Return true if argv contains a response file (@) and the file calls "/lib".
 // This function basically wraps the process of extracting a response file (@)
@@ -1250,13 +1249,12 @@ bool LinkerDriver::processLibInResponseFile(ArrayRef<const char *> argv) {
   return false;
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 static const char *libcallRoutineNames[] = {
 #define HANDLE_LIBCALL(code, name) name,
 #include "llvm/IR/RuntimeLibcalls.def"
 #undef HANDLE_LIBCALL
 };
->>>>>>> a1c022c791b506f021a630f6263c14c981b8977b
 
 void LinkerDriver::link(ArrayRef<const char *> argsArr) {
   // Needed for LTO.
