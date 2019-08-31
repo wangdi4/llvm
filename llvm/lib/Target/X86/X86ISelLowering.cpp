@@ -15261,7 +15261,7 @@ getHalfShuffleMask(ArrayRef<int> Mask, MutableArrayRef<int> HalfMask,
 static SDValue getShuffleHalfVectors(const SDLoc &DL, SDValue V1, SDValue V2,
                                      ArrayRef<int> HalfMask, int HalfIdx1,
                                      int HalfIdx2, bool UndefLower,
-                                     SelectionDAG &DAG) {
+                                     SelectionDAG &DAG, bool UseConcat = false) {
   assert(V1.getValueType() == V2.getValueType() && "Different sized vectors?");
   assert(V1.getValueType().isSimple() && "Expecting only simple types");
 
@@ -15282,6 +15282,14 @@ static SDValue getShuffleHalfVectors(const SDLoc &DL, SDValue V1, SDValue V2,
   SDValue Half1 = getHalfVector(HalfIdx1);
   SDValue Half2 = getHalfVector(HalfIdx2);
   SDValue V = DAG.getVectorShuffle(HalfVT, DL, Half1, Half2, HalfMask);
+  if (UseConcat) {
+    SDValue Op0 = V;
+    SDValue Op1 = DAG.getUNDEF(HalfVT);
+    if (UndefLower)
+      std::swap(Op0, Op1);
+    return DAG.getNode(ISD::CONCAT_VECTORS, DL, VT, Op0, Op1);
+  }
+
   unsigned Offset = UndefLower ? HalfNumElts : 0;
   return DAG.getNode(ISD::INSERT_SUBVECTOR, DL, VT, DAG.getUNDEF(VT), V,
                      DAG.getIntPtrConstant(Offset, DL));
@@ -20827,8 +20835,11 @@ static SDValue LowerVSETCC(SDValue Op, const X86Subtarget &Subtarget,
 
   // This is being called by type legalization because v2i32 is marked custom
   // for result type legalization for v2f32.
-  if (VTOp0 == MVT::v2i32)
+  if (VTOp0 == MVT::v2i32) {
+    assert(!ExperimentalVectorWideningLegalization &&
+           "Should only get here with promote legalization!");
     return SDValue();
+  }
 
   // The non-AVX512 code below works under the assumption that source and
   // destination types are the same.
@@ -34865,7 +34876,7 @@ static SDValue narrowShuffle(ShuffleVectorSDNode *Shuf, SelectionDAG &DAG) {
   // the wide shuffle that we started with.
   return getShuffleHalfVectors(SDLoc(Shuf), Shuf->getOperand(0),
                                Shuf->getOperand(1), HalfMask, HalfIdx1,
-                               HalfIdx2, false, DAG);
+                               HalfIdx2, false, DAG, /*UseConcat*/true);
 }
 
 static SDValue combineShuffle(SDNode *N, SelectionDAG &DAG,
