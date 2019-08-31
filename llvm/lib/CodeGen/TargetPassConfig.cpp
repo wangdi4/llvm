@@ -54,22 +54,16 @@
 
 using namespace llvm;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static cl::opt<bool> DisableMapIntrinToIml("disable-iml-trans",
   cl::init(false), cl::Hidden,
   cl::desc("Disable mapping vectorized math intrinsic calls to svml/libm."));
 #endif // INTEL_CUSTOMIZATION
 
-cl::opt<bool> EnableIPRA("enable-ipra", cl::init(false), cl::Hidden,
-                         cl::desc("Enable interprocedural register allocation "
-                                  "to reduce load/store at procedure calls."));
-=======
 static cl::opt<bool>
     EnableIPRA("enable-ipra", cl::init(false), cl::Hidden,
                cl::desc("Enable interprocedural register allocation "
                         "to reduce load/store at procedure calls."));
->>>>>>> dc5f805d31f62e094bd3eb105b47620633f65e5b
 static cl::opt<bool> DisablePostRASched("disable-post-ra", cl::Hidden,
     cl::desc("Disable Post Regalloc Scheduler"));
 static cl::opt<bool> DisableBranchFold("disable-branch-fold", cl::Hidden,
