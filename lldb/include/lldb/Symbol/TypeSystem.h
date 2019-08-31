@@ -38,7 +38,7 @@ namespace lldb_private {
 /// architectures a LanguageSet can be completely stack-allocated.
 struct LanguageSet {
   llvm::SmallBitVector bitvector;
-  LanguageSet() = default;
+  LanguageSet();
 
   /// If the set contains a single language only, return it.
   llvm::Optional<lldb::LanguageType> GetSingularLanguage();
@@ -125,6 +125,8 @@ public:
 
   virtual CompilerType DeclGetFunctionArgumentType(void *opaque_decl,
                                                    size_t arg_idx);
+
+  virtual CompilerType GetTypeForDecl(void *opaque_decl) = 0;
 
   // CompilerDeclContext functions
 

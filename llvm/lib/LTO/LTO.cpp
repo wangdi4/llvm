@@ -391,7 +391,9 @@ static bool isWeakObjectWithRWAccess(GlobalValueSummary *GVS) {
 
 static void thinLTOInternalizeAndPromoteGUID(
     GlobalValueSummaryList &GVSummaryList, GlobalValue::GUID GUID,
-    function_ref<bool(StringRef, GlobalValue::GUID)> isExported) {
+    function_ref<bool(StringRef, GlobalValue::GUID)> isExported,
+    function_ref<bool(GlobalValue::GUID, const GlobalValueSummary *)>
+        isPrevailing) {
   for (auto &S : GVSummaryList) {
     if (isExported(S->modulePath(), GUID)) {
       if (GlobalValue::isLocalLinkage(S->linkage()))
@@ -400,6 +402,8 @@ static void thinLTOInternalizeAndPromoteGUID(
                // Ignore local and appending linkage values since the linker
                // doesn't resolve them.
                !GlobalValue::isLocalLinkage(S->linkage()) &&
+               (!GlobalValue::isInterposableLinkage(S->linkage()) ||
+                isPrevailing(GUID, S.get())) &&
                S->linkage() != GlobalValue::AppendingLinkage &&
                // We can't internalize available_externally globals because this
                // can break function pointer equality.
@@ -418,9 +422,12 @@ static void thinLTOInternalizeAndPromoteGUID(
 // as external and non-exported values as internal.
 void llvm::thinLTOInternalizeAndPromoteInIndex(
     ModuleSummaryIndex &Index,
-    function_ref<bool(StringRef, GlobalValue::GUID)> isExported) {
+    function_ref<bool(StringRef, GlobalValue::GUID)> isExported,
+    function_ref<bool(GlobalValue::GUID, const GlobalValueSummary *)>
+        isPrevailing) {
   for (auto &I : Index)
-    thinLTOInternalizeAndPromoteGUID(I.second.SummaryList, I.first, isExported);
+    thinLTOInternalizeAndPromoteGUID(I.second.SummaryList, I.first, isExported,
+                                     isPrevailing);
 }
 
 // Requires a destructor for std::vector<InputModule>.
@@ -1376,12 +1383,13 @@ Error LTO::runThinLTO(AddStreamFn AddStream, NativeObjectCache Cache,
             ExportList->second.count(GUID)) ||
            ExportedGUIDs.count(GUID);
   };
-  thinLTOInternalizeAndPromoteInIndex(ThinLTO.CombinedIndex, isExported);
-
   auto isPrevailing = [&](GlobalValue::GUID GUID,
                           const GlobalValueSummary *S) {
     return ThinLTO.PrevailingModuleForGUID[GUID] == S->modulePath();
   };
+  thinLTOInternalizeAndPromoteInIndex(ThinLTO.CombinedIndex, isExported,
+                                      isPrevailing);
+
   auto recordNewLinkage = [&](StringRef ModuleIdentifier,
                               GlobalValue::GUID GUID,
                               GlobalValue::LinkageTypes NewLinkage) {

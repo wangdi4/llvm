@@ -544,14 +544,12 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
       continue;
     }
 
-    const AssumeAlignedAttr *AssumeAligned = dyn_cast<AssumeAlignedAttr>(TmplAttr);
-    if (AssumeAligned) {
+    if (const auto *AssumeAligned = dyn_cast<AssumeAlignedAttr>(TmplAttr)) {
       instantiateDependentAssumeAlignedAttr(*this, TemplateArgs, AssumeAligned, New);
       continue;
     }
 
-    const AlignValueAttr *AlignValue = dyn_cast<AlignValueAttr>(TmplAttr);
-    if (AlignValue) {
+    if (const auto *AlignValue = dyn_cast<AlignValueAttr>(TmplAttr)) {
       instantiateDependentAlignValueAttr(*this, TemplateArgs, AlignValue, New);
       continue;
     }
@@ -669,14 +667,14 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
       continue;
     }
 
-    if (const CUDALaunchBoundsAttr *CUDALaunchBounds =
+    if (const auto *CUDALaunchBounds =
             dyn_cast<CUDALaunchBoundsAttr>(TmplAttr)) {
       instantiateDependentCUDALaunchBoundsAttr(*this, TemplateArgs,
                                                *CUDALaunchBounds, New);
       continue;
     }
 
-    if (const ModeAttr *Mode = dyn_cast<ModeAttr>(TmplAttr)) {
+    if (const auto *Mode = dyn_cast<ModeAttr>(TmplAttr)) {
       instantiateDependentModeAttr(*this, TemplateArgs, *Mode, New);
       continue;
     }
@@ -686,13 +684,13 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
       continue;
     }
 
-    if (const AMDGPUFlatWorkGroupSizeAttr *AMDGPUFlatWorkGroupSize =
+    if (const auto *AMDGPUFlatWorkGroupSize =
             dyn_cast<AMDGPUFlatWorkGroupSizeAttr>(TmplAttr)) {
       instantiateDependentAMDGPUFlatWorkGroupSizeAttr(
           *this, TemplateArgs, *AMDGPUFlatWorkGroupSize, New);
     }
 
-    if (const AMDGPUWavesPerEUAttr *AMDGPUFlatWorkGroupSize =
+    if (const auto *AMDGPUFlatWorkGroupSize =
             dyn_cast<AMDGPUWavesPerEUAttr>(TmplAttr)) {
       instantiateDependentAMDGPUWavesPerEUAttr(*this, TemplateArgs,
                                                *AMDGPUFlatWorkGroupSize, New);
@@ -706,7 +704,7 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
       }
     }
 
-    if (auto ABIAttr = dyn_cast<ParameterABIAttr>(TmplAttr)) {
+    if (const auto *ABIAttr = dyn_cast<ParameterABIAttr>(TmplAttr)) {
       AddParameterABIAttr(ABIAttr->getRange(), New, ABIAttr->getABI(),
                           ABIAttr->getSpellingListIndex());
       continue;
