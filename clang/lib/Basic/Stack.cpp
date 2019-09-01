@@ -1,4 +1,4 @@
-//===--- Stack.h - Utilities for dealing with stack space -------*- C++ -*-===//
+//===--- Stack.cpp - Utilities for dealing with stack space ---------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -14,6 +14,10 @@
 #include "clang/Basic/Stack.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/Support/CrashRecoveryContext.h"
+
+#ifdef _MSC_VER
+#include <intrin.h>  // for _AddressOfReturnAddress
+#endif
 
 static LLVM_THREAD_LOCAL void *BottomOfStack = nullptr;
 
