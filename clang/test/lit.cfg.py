@@ -175,6 +175,7 @@ if lit.util.which('xmllint'):
 if config.enable_backtrace:
     config.available_features.add('backtrace')
 
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 # Add 'intel_opencl' feature based on ICS_WSVARIANT value.
 # TODO (vzakhari 11/30/2018): we probably want to make intel_opencl
@@ -186,6 +187,10 @@ if ics_wsvariant and ics_wsvariant.startswith('xmainocl'):
 
 llvm_config.add_intel_features()
 # end INTEL_CUSTOMIZATION
+=======
+if config.enable_threads:
+    config.available_features.add('thread_support')
+>>>>>>> 26a92d5852b2c6bf77efd26f6c0194c913f40285
 
 # Check if we should allow outputs to console.
 run_console_tests = int(lit_config.params.get('enable_console', '0'))
