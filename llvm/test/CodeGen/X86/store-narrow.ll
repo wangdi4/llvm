@@ -13,7 +13,7 @@ define void @test1(i32* nocapture %a0, i8 zeroext %a1) nounwind ssp {
 ;
 ; X32-LABEL: test1:
 ; X32:       ## %bb.0: ## %entry
-; X32-NEXT:    movb {{[0-9]+}}(%esp), %al
+; X32-NEXT:    {{movb|movzbl}} {{[0-9]+}}(%esp), {{%al|%eax}} ;INTEL
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X32-NEXT:    movb %al, (%ecx)
 ; X32-NEXT:    retl
@@ -24,16 +24,6 @@ entry:
   %D = or i32 %C, %B
   store i32 %D, i32* %a0, align 4
   ret void
-<<<<<<< HEAD
-
-; X64-LABEL: test1:
-; X64: movb	%sil, (%rdi)
-
-; X32-LABEL: test1:
-; X32: {{movb|movzbl}}	8(%esp), {{%al|%eax}}                 ;INTEL
-; X32: movb	%al, (%{{.*}})
-=======
->>>>>>> 298c0b352d5ed998c91328f5023fb192c688e1ed
 }
 
 define void @test2(i32* nocapture %a0, i8 zeroext %a1) nounwind ssp {
@@ -44,7 +34,7 @@ define void @test2(i32* nocapture %a0, i8 zeroext %a1) nounwind ssp {
 ;
 ; X32-LABEL: test2:
 ; X32:       ## %bb.0: ## %entry
-; X32-NEXT:    movb {{[0-9]+}}(%esp), %al
+; X32-NEXT:    {{movb|movzbl}} {{[0-9]+}}(%esp), %{{e?}}[[REG:[abcd]]]{{x|l}} ;INTEL
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X32-NEXT:    movb %al, 1(%ecx)
 ; X32-NEXT:    retl
@@ -56,15 +46,6 @@ entry:
   %D = or i32 %B, %CS
   store i32 %D, i32* %a0, align 4
   ret void
-<<<<<<< HEAD
-; X64-LABEL: test2:
-; X64: movb	%sil, 1(%rdi)
-
-; X32-LABEL: test2:
-; X32: {{movb|movzbl}}	8(%esp), %{{e?}}[[REG:[abcd]]]{{x|l}}  ;INTEL
-; X32: movb	%[[REG]]l, 1(%{{.*}})
-=======
->>>>>>> 298c0b352d5ed998c91328f5023fb192c688e1ed
 }
 
 define void @test3(i32* nocapture %a0, i16 zeroext %a1) nounwind ssp {
@@ -161,9 +142,9 @@ define void @test6(i64* nocapture %a0, i8 zeroext %a1) nounwind ssp {
 ;
 ; X32-LABEL: test6:
 ; X32:       ## %bb.0: ## %entry
-; X32-NEXT:    movb {{[0-9]+}}(%esp), %al
+; X32-NEXT:    {{movb|movzbl}} {{[0-9]+}}(%esp), %{{e?}}[[REG:[abcd]]]{{x|l}} ;INTEL
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X32-NEXT:    movb %al, 5(%ecx)
+; X32-NEXT:    movb %[[REG]]l, 5(%ecx) ;INTEL
 ; X32-NEXT:    retl
 entry:
   %A = load i64, i64* %a0, align 4
@@ -173,16 +154,6 @@ entry:
   %D = or i64 %B, %CS
   store i64 %D, i64* %a0, align 4
   ret void
-<<<<<<< HEAD
-; X64-LABEL: test6:
-; X64: movb	%sil, 5(%rdi)
-
-
-; X32-LABEL: test6:
-; X32: {{movb|movzbl}}	8(%esp), %{{e?}}[[REG:[abcd]]]{{x|l}}  ;INTEL
-; X32: movb	%[[REG]]l, 5(%{{.*}})                          ;INTEL
-=======
->>>>>>> 298c0b352d5ed998c91328f5023fb192c688e1ed
 }
 
 define i32 @test7(i64* nocapture %a0, i8 zeroext %a1, i32* %P2) nounwind {
@@ -194,11 +165,11 @@ define i32 @test7(i64* nocapture %a0, i8 zeroext %a1, i32* %P2) nounwind {
 ;
 ; X32-LABEL: test7:
 ; X32:       ## %bb.0: ## %entry
-; X32-NEXT:    movb {{[0-9]+}}(%esp), %cl
+; X32-NEXT:    {{movb|movzbl}} {{[0-9]+}}(%esp), %{{e?}}[[REG:[abcd]]]{{x|l}} ;INTEL
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %edx
 ; X32-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X32-NEXT:    movl (%eax), %eax
-; X32-NEXT:    movb %cl, 5(%edx)
+; X32-NEXT:    movb %[[REG]]l, 5(%edx) ;INTEL
 ; X32-NEXT:    retl
 entry:
   %OtherLoad = load i32 , i32 *%P2
@@ -209,16 +180,6 @@ entry:
   %D = or i64 %B, %CS
   store i64 %D, i64* %a0, align 4
   ret i32 %OtherLoad
-<<<<<<< HEAD
-; X64-LABEL: test7:
-; X64: movb	%sil, 5(%rdi)
-
-
-; X32-LABEL: test7:
-; X32: {{movb|movzbl}}	8(%esp), %{{e?}}[[REG:[abcd]]]{{x|l}}  ;INTEL
-; X32: movb	%[[REG]]l, 5(%{{.*}})                          ;INTEL
-=======
->>>>>>> 298c0b352d5ed998c91328f5023fb192c688e1ed
 }
 
 ; PR7833
