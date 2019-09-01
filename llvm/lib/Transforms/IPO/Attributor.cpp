@@ -108,6 +108,10 @@ static cl::opt<unsigned>
     MaxFixpointIterations("attributor-max-iterations", cl::Hidden,
                           cl::desc("Maximal number of fixpoint iterations."),
                           cl::init(32));
+static cl::opt<bool> VerifyMaxFixpointIterations(
+    "attributor-max-iterations-verify", cl::Hidden,
+    cl::desc("Verify that max-iterations is a tight bound for a fixpoint"),
+    cl::init(false));
 
 static cl::opt<bool> DisableAttributor(
     "attributor-disable", cl::Hidden,
@@ -2510,6 +2514,10 @@ ChangeStatus Attributor::run() {
       Worklist.insert(QuerriedAAs.begin(), QuerriedAAs.end());
     }
 
+    LLVM_DEBUG(dbgs() << "[Attributor] #Iteration: " << IterationCounter
+                      << ", Worklist+Dependent size: " << Worklist.size()
+                      << "\n");
+
     // Reset the changed set.
     ChangedAAs.clear();
 
@@ -2530,13 +2538,17 @@ ChangeStatus Attributor::run() {
     Worklist.clear();
     Worklist.insert(ChangedAAs.begin(), ChangedAAs.end());
 
-  } while (!Worklist.empty() && ++IterationCounter < MaxFixpointIterations);
+  } while (!Worklist.empty() && IterationCounter++ < MaxFixpointIterations);
 
   size_t NumFinalAAs = AllAbstractAttributes.size();
 
   LLVM_DEBUG(dbgs() << "\n[Attributor] Fixpoint iteration done after: "
                     << IterationCounter << "/" << MaxFixpointIterations
                     << " iterations\n");
+
+  if (VerifyMaxFixpointIterations && IterationCounter != MaxFixpointIterations)
+    llvm_unreachable("The fixpoint was not reached with exactly the number of "
+                     "specified iterations!");
 
   bool FinishedAtFixpoint = Worklist.empty();
 
