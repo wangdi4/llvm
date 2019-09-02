@@ -79,7 +79,6 @@ public:
     bool GetUseVTune() const                  { return m_useVTune; }
     bool GetLoadBuiltins() const              { return m_loadBuiltins; }
     size_t GetForcedPrivateMemorySize() const { return m_forcedPrivateMemorySize; }
-    size_t GetForcedWorkGroupSize() const { return m_forcedWorkGroupSize; }
     std::vector<int> GetIRDumpOptionsAfter() const
     {
         if(!m_DumpIROptionAfter){
@@ -124,7 +123,6 @@ protected:
     std::string m_statFileBaseName;
     int m_forcedPrivateMemorySize;
     DeviceMode  m_targetDevice;
-    int m_forcedWorkGroupSize;
 };
 
 }}}

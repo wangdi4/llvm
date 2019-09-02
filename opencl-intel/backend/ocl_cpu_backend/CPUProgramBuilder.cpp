@@ -208,7 +208,7 @@ Kernel *CPUProgramBuilder::CreateKernel(llvm::Function *pFunc,
     CompilationUtils::parseKernelArguments(pFunc->getParent() /* = pModule */,
                                            pFunc, useTLSGlobals, arguments,
                                            memoryArguments);
-    pProps->SetCanUseForcedWorkGroupSize(CompilationUtils::hasLoopIdiom(*pFunc->getParent()));
+
     return m_pBackendFactory->CreateKernel( funcName, arguments, memoryArguments, pProps );
 }
 

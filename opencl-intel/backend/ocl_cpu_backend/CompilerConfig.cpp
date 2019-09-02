@@ -209,15 +209,6 @@ void CompilerConfig::LoadConfig()
         m_statFileBaseName = pEnv;
     }
 #endif // INTEL_PRODUCT_RELEASE
-    if (const char *pEnv = getenv("CL_CONFIG_CPU_FORCE_WORK_GROUP_SIZE"))
-    {
-        unsigned int size;
-        if ((std::stringstream(pEnv) >> size).fail())
-        {
-            throw  Exceptions::BadConfigException("Failed to load the transpose size from environment");
-        }
-        m_forcedWorkGroupSize = size;
-    }
 }
 
 void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)
@@ -238,7 +229,6 @@ void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOpt
     m_dumpHeuristicIR = pBackendOptions->GetBooleanValue((int)CL_DEV_BACKEND_OPTION_DUMP_HEURISTIC_IR, m_dumpHeuristicIR);
     m_targetDevice = static_cast<DeviceMode>(pBackendOptions->GetIntValue(
         (int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE));
-    m_forcedWorkGroupSize = pBackendOptions->GetIntValue((int)CL_DEV_BACKEND_OPTION_FORCED_WORK_GROUP_SIZE, m_forcedWorkGroupSize);
 }
 
 }}}
