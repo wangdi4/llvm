@@ -16195,6 +16195,7 @@
     float16 __attribute__((intel_ocl_bicc)) __ocl_svml_b3_powf16_rm (float16 a, float16 b);
     float16 __attribute__((intel_ocl_bicc)) __ocl_svml_b3_sinf16_rm (float16 a);
     float16 __attribute__((intel_ocl_bicc)) __ocl_svml_b3_tanf16_rm (float16 a);
+    float16 __attribute__((intel_ocl_bicc)) __ocl_svml_b3_divf16_rm (float16 a, float16 b);
 
     // SKX BIs
 
