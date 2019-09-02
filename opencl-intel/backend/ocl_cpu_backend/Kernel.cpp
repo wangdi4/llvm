@@ -29,6 +29,11 @@
 #include <stddef.h>
 #include <stdio.h>
 
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
+
+#define DEBUG_TYPE "ocl-rt-kernel"
+
 static size_t GCD(size_t a, size_t b) {
   while (1) {
     a = a % b;
@@ -143,9 +148,49 @@ void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs,
   // TODO[MA]: recheck if the CanUniteWG flag is set only if the correctness analysis passed
   bool canUniteWG = m_pProps->GetCanUniteWG();
   unsigned int vectorizeOnDim = m_pProps->GetVectorizedDimention();
+  //
+  // When JIT transforms a simple loop to memcpy, the memcpy size should is bigger enough
+  // to get a better performance, but the CPU_MAX_WORK_GROUP_SIZE is fixed to 8192,
+  // we couldn't change it directly, because some CTS cases depends on it.
+  // the forced size should meet below conditions,
+  // it only for CPU device now, other device might need to tune a new factor.
+  //
+  // 1. forcedSize > factor(8000) and forcedSize % factor(8000) == 0
+  // 2. globalWorkSize > forcedSize and globalWorkSize % forcedSize == 0
+  //
+  // if it doesn't be set, using the origial algorithm to calculate it
+  bool UseForcedWGSize = false;
+  unsigned int forcedSize = m_pProps->GetForcedWorkGroupSize();
+  LLVM_DEBUG(llvm::dbgs() << "Forced Work Group Size: " << m_pProps->GetForcedWorkGroupSize() <<
+             ", Can use it? " << m_pProps->GetCanUseForcedWorkGroupSize());
+  if (UseAutoGroupSize && m_pProps->TargetDevice() == CPU_DEVICE &&
+      m_pProps->GetForcedWorkGroupSize() > CPU_MAX_WORK_GROUP_SIZE &&
+      m_pProps->GetCanUseForcedWorkGroupSize()) {
+    size_t gwSizeX = UniformImplicitArgs->GlobalSize[vectorizeOnDim];
+    unsigned int gwSizeYZ = 1;
+    for (unsigned int i = 0; i < UniformImplicitArgs->WorkDim; ++i) {
+      if (vectorizeOnDim == i) { //skip the dimension on which we vectorized
+        continue;
+      }
+      // Calculate global group size on dimensions Y & Z
+      gwSizeYZ *= UniformImplicitArgs->GlobalSize[i];
+    }
+    // TODO: User should follow same logic to set CL_CONFIG_CPU_FORCE_WORK_GROUP_SIZE
+    unsigned int factor = (CPU_MAX_WORK_GROUP_SIZE == 8 * 1024 ? 8000 : 0);
+    const unsigned int gwSize = gwSizeX * gwSizeYZ;
+    if (factor > 0 && gwSizeYZ == 1 &&
+        (forcedSize % factor == 0) && (forcedSize > factor) &&
+        (gwSize > forcedSize) && (gwSize % forcedSize == 0)) {
+      UseForcedWGSize = true;
+    }
+    if (UseForcedWGSize) {
+      UniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][vectorizeOnDim] =
+      UniformImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][vectorizeOnDim] = forcedSize;
+    }
+  }
 
   // In case we can merge WG's but we have local size given (not NULL)
-  if (canUniteWG && !UseAutoGroupSize) {
+  if (canUniteWG && !UseAutoGroupSize && !UseForcedWGSize) {
     // Need to merge WG in the dimension a kernel is vectorized for
     size_t localWorkSizeX = UniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][vectorizeOnDim];
     size_t globalWorkSizeX = UniformImplicitArgs->GlobalSize[vectorizeOnDim];
@@ -185,7 +230,7 @@ void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs,
     UniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][vectorizeOnDim] = bestLocalSize;
   }
 
-  else if (UseAutoGroupSize) {
+  else if (UseAutoGroupSize && !UseForcedWGSize) {
     unsigned int globalWorkSizeYZ = 1;
     for (unsigned int i = 0; i < UniformImplicitArgs->WorkDim; ++i) {
       if (vectorizeOnDim == i){ //skip the dimension on which we vectorized

@@ -665,6 +665,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @brief Returns true if the function is a block invoke kernel
     static bool isBlockInvocationKernel(Function *F);
 
+    /// @brief Returns true if a simple ocl loop is detected
+    static bool hasLoopIdiom(const Module &M);
+
     /// @brief Recursively update metadata nodes with new functions
     static void updateMetadataTreeWithNewFuncs(
         Module *M, DenseMap<Function *, Function *> &FunctionMap,

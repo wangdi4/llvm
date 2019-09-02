@@ -35,10 +35,12 @@ public:
     void SetVectorSize(unsigned int size){ m_vectorSize = size; }
     void SetUseVTune(bool value) { m_useVTune = value; }
     void SetMaxPrivateMemorySize(size_t value) { m_maxPrivateMemorySize = value; }
+    void SetForcedWorkGroupSize(size_t value) { m_forcedWorkGroupSize = value; }
 
     unsigned int GetVectorSize() const{ return m_vectorSize;}
     bool GetUseVTune() const          { return m_useVTune;}
     size_t GetMaxPrivateMemorySize() const { return m_maxPrivateMemorySize; }
+    size_t GetForcedWorkGroupSize() { return m_forcedWorkGroupSize; }
 
     /**
      * Serialization methods for the class (used by the serialization service)
@@ -50,6 +52,7 @@ protected:
     bool m_useVTune;
     unsigned int m_vectorSize;
     size_t m_maxPrivateMemorySize;
+    size_t m_forcedWorkGroupSize;
 };
 
 
@@ -88,6 +91,11 @@ public:
      */
     virtual size_t GetPrivateMemorySize() const;
     virtual size_t GetMaxPrivateMemorySize() const;
+
+    /**
+     * @returns the forced work group size set by user.
+     */
+    virtual size_t GetForcedWorkGroupSize() const;
 
     /**
      * @param   wgSizeUpperBound - maximum possible WG size.
@@ -254,6 +262,8 @@ public:
     void SetVerctorizeOnDimention(unsigned int value) { m_verctorizeOnDimention = value; }
     void SetHasDebugInfo(const bool value) { m_debugInfo = value; }
     void SetRequiredSubGroupSize(const size_t value) { m_reqdSubGroupSize = value; }
+    void SetCanUseForcedWorkGroupSize(const bool value) { m_bCanUseForcedWGSize = value; }
+    void SetForcedWorkGroupSize(size_t size) { m_forcedWGSize = size; }
 
     unsigned int  GetOptWGSize()      const { return m_optWGSize; }
     const size_t* GetReqdWGSize()     const { return m_reqdWGSize; }
@@ -265,6 +275,7 @@ public:
     unsigned int  GetPointerSize()     const { return m_uiSizeT;}
     bool          GetCanUniteWG() const { return m_canUniteWG; }
     unsigned int  GetVectorizedDimention() const { return m_verctorizeOnDimention;}
+    bool          GetCanUseForcedWorkGroupSize() { return m_bCanUseForcedWGSize; }
 
     /**
      * Serialization methods for the class (used by the serialization service)
@@ -304,6 +315,8 @@ protected:
     unsigned int m_verctorizeOnDimention;
     bool m_debugInfo;
     DeviceMode m_targetDevice;
+    bool m_bCanUseForcedWGSize;
+    size_t m_forcedWGSize;
 };
 
 }}}

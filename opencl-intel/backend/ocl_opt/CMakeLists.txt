@@ -51,6 +51,7 @@ set(OCL_BE_PASSES
     OCLAliasAnalysis
     PrintfArgumentsPromotion
     SYCLPipesHack
+    OCLLoopIdiomRecognize
 )
 
 # Dependencies of the passes

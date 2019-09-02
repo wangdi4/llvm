@@ -615,6 +615,7 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
             assert(0 && "Unknown channel depth emulation mode!");
             return CHANNEL_DEPTH_MODE_STRICT;
         }
+        int GetForcedWorkGroupSize() const { return m_pConfigFile->Read<int>("CL_CONFIG_CPU_FORCE_WORK_GROUP_SIZE", 8000); }
 
     private:
         BasicCLConfigWrapper(const BasicCLConfigWrapper&);

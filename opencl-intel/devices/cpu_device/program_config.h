@@ -92,6 +92,10 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
                 {
                     return m_enableNativeSubgroups;
                 }
+                case CL_DEV_BACKEND_OPTION_FORCED_WORK_GROUP_SIZE:
+                {
+                    return m_forcedWorkGroupSize;
+                }
                 default:
                     return defaultValue;
             }
@@ -117,6 +121,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         int  m_forcedPrivateMemorySize;
         int  m_channelDepthEmulationMode;
         DeviceMode  m_targetDevice;
+        int  m_forcedWorkGroupSize;
     };
 
     /**
