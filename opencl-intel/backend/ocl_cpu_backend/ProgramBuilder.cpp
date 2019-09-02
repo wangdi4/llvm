@@ -162,7 +162,6 @@ ProgramBuilder::ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const I
     m_useVTune(config.GetUseVTune()),
     m_targetDevice(config.TargetDevice()),
     m_forcedPrivateMemorySize(config.GetForcedPrivateMemorySize()),
-    m_forcedWorkGroupSize(config.GetForcedWorkGroupSize()),
     m_statFileBaseName(config.GetStatFileBaseName())
 {
     // prepare default base file name for stat file in the following cases:
@@ -371,7 +370,6 @@ KernelJITProperties* ProgramBuilder::CreateKernelJITProperties( unsigned int vec
     pProps->SetUseVTune(m_useVTune);
     pProps->SetVectorSize(vectorSize);
     pProps->SetMaxPrivateMemorySize(m_forcedPrivateMemorySize);
-    pProps->SetForcedWorkGroupSize(m_forcedWorkGroupSize);
     return pProps;
 }
 
@@ -582,7 +580,6 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   //   size per work-item even if there are no work-group level built-ins.
   pProps->SetPrivateMemorySize(privateMemorySize);
   pProps->SetMaxPrivateMemorySize(m_forcedPrivateMemorySize);
-  pProps->SetForcedWorkGroupSize(m_forcedWorkGroupSize);
 
   // set isBlock property
   pProps->SetIsBlock(CompilationUtils::isBlockInvocationKernel(func));

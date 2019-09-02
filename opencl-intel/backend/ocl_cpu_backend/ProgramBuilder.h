@@ -106,7 +106,6 @@ protected:
     bool m_useVTune;
     DeviceMode m_targetDevice;
     int m_forcedPrivateMemorySize;
-    int m_forcedWorkGroupSize;
 
 private:
     /// @brief Dump stats collected for module if requested

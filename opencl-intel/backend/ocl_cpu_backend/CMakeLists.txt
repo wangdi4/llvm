@@ -269,7 +269,6 @@ set( BACKEND_PASSES
     OCLAliasAnalysis
     PrintfArgumentsPromotion
     SYCLPipesHack
-    OCLLoopIdiomRecognize
 )
 
 set(UTILS_LIBS

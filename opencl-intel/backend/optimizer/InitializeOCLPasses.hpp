@@ -81,6 +81,5 @@ static void initializeOCLPasses(PassRegistry &Registry) {
     intel::initializeCoerceTypesPass(Registry);
     intel::initializeWeightedInstCounterPass(Registry);
     intel::initializeScalarizeFunctionPass(Registry);
-    intel::initializeOCLLoopIdiomRecognizePass(Registry);
 }
 #endif //INITIALIZE_OCL_PASSES_H
