@@ -111,7 +111,6 @@ void initializeAddTLSGlobalsPass(llvm::PassRegistry &);
 void initializeCoerceTypesPass(llvm::PassRegistry &);
 void initializeWeightedInstCounterPass(llvm::PassRegistry &);
 void initializeScalarizeFunctionPass(llvm::PassRegistry &);
-void initializeOCLLoopIdiomRecognizePass(llvm::PassRegistry &);
 }
 
 #endif
