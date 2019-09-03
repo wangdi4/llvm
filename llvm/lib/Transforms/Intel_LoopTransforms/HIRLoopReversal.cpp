@@ -116,6 +116,10 @@ static cl::opt<bool> DisableHIRLoopReversal(
     "disable-hir-loop-reversal", cl::init(false), cl::Hidden,
     cl::desc("Disable HIR Loop Reversal Transformation"));
 
+static cl::opt<bool> AssumeProfitability(
+    "hir-loop-reversal-assume-profitability", cl::init(false), cl::Hidden,
+    cl::desc("Assumes profitability of reversal so only legality is checked"));
+
 STATISTIC(HIRLoopReversalTriggered, "Number of HIR Loop(s) Reversed");
 
 const unsigned DefaultReadWeight = 1;         // default Weight for a Read is 1
@@ -129,14 +133,16 @@ struct HIRLoopReversal::MarkedCECollector final : public HLNodeVisitorBase {
   unsigned LoopLevel;
   HIRLoopReversal *HLR;
   bool AbortCollector;
+  bool CheckProfitability;
   bool HasNegIVExpr;
 
 public:
   explicit MarkedCECollector(SmallVectorImpl<MarkedCanonExpr> &InitMCEV,
                              HLLoop *InitLp, unsigned InitLevel,
-                             HIRLoopReversal *HLR)
+                             bool CheckProfitability, HIRLoopReversal *HLR)
       : CEVAP(InitMCEV), Lp(InitLp), LoopLevel(InitLevel), HLR(HLR),
-        AbortCollector(false), HasNegIVExpr(false) {
+        AbortCollector(false), CheckProfitability(CheckProfitability),
+        HasNegIVExpr(!CheckProfitability) {
     assert((LoopLevel <= MaxLoopNestLevel) && "LoopLevel is out of bound\n");
     assert(Lp && HLR && "none of Lp and HLR can be null\n");
   }
@@ -203,6 +209,12 @@ void HIRLoopReversal::MarkedCECollector::checkAndCollectMCE(
     // Skip the rest for the current iteration:
     // if a CE has no IV, it can't be collected!
     if (!HasIV) {
+      continue;
+    }
+
+    if (!CheckProfitability) {
+      // Just collect the CE containing IV if we don't care about profitability.
+      CEVAP.push_back(MarkedCanonExpr(CE, 0, RegDD, 0));
       continue;
     }
 
@@ -334,8 +346,8 @@ void HIRLoopReversal::AnalyzeDDInfo::visit(const HLDDNode *DDNode) {
   }
 
   // Iterate over each DDRef
-  for (auto It = DDNode->op_ddref_begin(), ItE = DDNode->op_ddref_end();
-       It != ItE; ++It) {
+  for (auto It = DDNode->ddref_begin(), ItE = DDNode->ddref_end(); It != ItE;
+       ++It) {
 
     // Selectively skip operand(s) from a SafeReduction Instruction
     const RegDDRef *Ref = (*It);
@@ -398,7 +410,7 @@ bool HIRLoopReversal::run() {
         isReversible(Lp,
                      true, // always do profit test when running as a pass
                      true, // always do legal test when running as a pass
-                     false // short-circuit off when running as a pass
+                     false // don't skip loop bound checks
         );
 
     // *** Do HIR Loop Reversal Transformation if suitable ***
@@ -436,34 +448,38 @@ bool HIRLoopReversal::run() {
 // - Run a statistics on Loop and check it contains no: goto/jmp/lablel;
 // - Filter off any loop with very small trip count;
 //
-bool HIRLoopReversal::doLoopPreliminaryChecks(const HLLoop *Lp) {
+bool HIRLoopReversal::doLoopPreliminaryChecks(const HLLoop *Lp,
+                                              bool CheckProfitability,
+                                              bool SkipLoopBoundChecks) {
   // No multiple-exit loop or unknown loops
   if (!Lp->isDo()) {
     return false;
   }
 
-  // No non-normalized loop
-  // (Expect the reversal candidates to be a normalized loop)
-  if (!Lp->isNormalized()) {
-    return false;
-  }
+  if (!SkipLoopBoundChecks) {
+    // No non-normalized loop
+    // (Expect the reversal candidates to be a normalized loop)
+    if (!Lp->isNormalized()) {
+      return false;
+    }
 
-  // Checks on UBCE and related
-  const CanonExpr *UBCE = Lp->getUpperCanonExpr();
+    // Checks on UBCE and related
+    const CanonExpr *UBCE = Lp->getUpperCanonExpr();
 
-  // UBCE's Denominator must be 1
-  if (!(UBCE->getDenominator() == 1)) {
-    return false;
-  }
+    // UBCE's Denominator must be 1
+    if (UBCE->getDenominator() != 1) {
+      return false;
+    }
 
-  // UBCE can be converted to StandAloneBlob
-  if (!UBCE->canConvertToStandAloneBlob()) {
-    return false;
+    // UBCE can be converted to StandAloneBlob
+    if (!UBCE->canConvertToStandAloneBlob()) {
+      return false;
+    }
   }
 
   // Filter off any loop with constant trip count below the given threshold
   uint64_t TripCount = 0;
-  if (Lp->isConstTripLoop(&TripCount)) {
+  if (CheckProfitability && Lp->isConstTripLoop(&TripCount)) {
     if (TripCount < DefaultShortTripThreshold) {
       return false;
     }
@@ -483,9 +499,9 @@ bool HIRLoopReversal::doLoopPreliminaryChecks(const HLLoop *Lp) {
   return true;
 }
 
-bool HIRLoopReversal::doCollection(HLLoop *Lp) {
+bool HIRLoopReversal::doCollection(HLLoop *Lp, bool CheckProfitability) {
   // Do a loop collection on MCEs
-  MarkedCECollector MCEC(MCEAV, Lp, LoopLevel, this);
+  MarkedCECollector MCEC(MCEAV, Lp, LoopLevel, CheckProfitability, this);
   Lp->getHLNodeUtils().visitRange(MCEC, Lp->getFirstChild(),
                                   Lp->getLastChild());
 
@@ -496,24 +512,7 @@ bool HIRLoopReversal::doCollection(HLLoop *Lp) {
     return false;
   }
 
-  // See all MCEs collected
-  // LLVM_DEBUG(::dump(MCEAV, StringRef("All Collected MCEs:")););
-
-  // Save a flag into HIRReversal pass if there is any NegIVExpr from
-  // collection.
-  // Essentially, it is part of the profit test model, because for the loop
-  // for (..) {
-  //  ..
-  //  A[i] = i;
-  //  ..
-  //}
-  // It is legal to reverse, but may not be profitable afterward.
-  // That decision should be from profit test.
-  // Keep it as a quick bypass over the heavy-duty weight
-  // accumulation work in profit analysis.
-  HasNegIVExpr = MCEC.hasNegIVExpr();
-
-  return true;
+  return MCEC.hasNegIVExpr();
 }
 
 // Profitability Analysis for HIR Loop Reversal
@@ -525,11 +524,6 @@ bool HIRLoopReversal::doCollection(HLLoop *Lp) {
 // - Decision: return (AccumulatedNegIVs > AccumulatedPosIVs)
 //
 bool HIRLoopReversal::isProfitable(const HLLoop *Lp) {
-  // Quick Test on the IVConstCoeff:
-  // Must have AT LEAST 1 Neg IVExpr among all MCEs collected
-  if (!HasNegIVExpr) {
-    return false;
-  }
 
   // Accumulate weights over each Neg-IV CEs and Pos-IV CE
   unsigned AccumuWeightNegIVs = 0, AccumuWeightPosIVs = 0, Weight = 0;
@@ -629,52 +623,49 @@ bool HIRLoopReversal::isLegal(const DirectionVector &DV, unsigned Level) {
 //    normal pass and called through utility APIs.
 //
 bool HIRLoopReversal::isReversible(HLLoop *Lp, bool DoProfitTest,
-                                   bool DoLegalTest,
-                                   bool DoShortCircuitUtilityAPI) {
+                                   bool DoLegalTest, bool SkipLoopBoundChecks) {
   // LLVM_DEBUG(dbgs() << "Current Loop: \n"; Lp->dump(););
   clearWorkingSetMemory();
 
   // Show The Current Loop
   // LLVM_DEBUG(Lp->dump(););
   LoopLevel = Lp->getNestingLevel();
+  bool CheckProfitability = (DoProfitTest && !AssumeProfitability);
 
-  // Do Preliminary Check on a loop, aim for early/rapid bail out
-  if (!DoShortCircuitUtilityAPI) {
-    // normal path: normal call to doLoopPreliminaryChecks()
-    if (!doLoopPreliminaryChecks(Lp)) {
+  if (DoLegalTest) {
+    // Do Preliminary Check on a loop, aim for early/rapid bail out
+    if (!doLoopPreliminaryChecks(Lp, CheckProfitability, SkipLoopBoundChecks)) {
       LLVM_DEBUG(dbgs() << "Reversal: Loop Preliminary Checks failed\n";);
       return false;
     }
   } else {
-    // Utility-API path: call doLoopPreliminaryChecks() under assert()
-    assert(doLoopPreliminaryChecks(Lp) &&
+    // Assert legality (including loop bound checks) when the caller skips it.
+    // This is for the utility path when the client is actually trying to
+    // perform reversal.
+    assert(doLoopPreliminaryChecks(Lp, false, false) &&
            "Loop Reversal Preliminary Test failed\n");
   }
 
   // Do collection and check result
   //(must do, can't control by a parameter)
-  if (!doCollection(Lp)) {
+  if (!doCollection(Lp, CheckProfitability)) {
     LLVM_DEBUG(dbgs() << "Reversal: collection failed\n");
     return false;
   }
 
   // Check Profitability
-  //(can be controlled by DoProfitTest)
-  if (DoProfitTest && !isProfitable(Lp)) {
+  if (CheckProfitability && !isProfitable(Lp)) {
     LLVM_DEBUG(dbgs() << "Reversal: Loop Profitability Test failed\n");
     return false;
   }
 
-  // Check Legality
-  //(can be controlled by DoLegalTest)
-  if (!DoShortCircuitUtilityAPI) {
-    // normal path: normal call to isLegal()
-    if (DoLegalTest && !isLegal(Lp)) {
+  if (DoLegalTest) {
+    if (!isLegal(Lp)) {
       LLVM_DEBUG(dbgs() << "Reversal: Loop Legality Test failed\n");
       return false;
     }
   } else {
-    // Utility-API path: call isLegal() under assert()
+    // Assert legality when the caller skips it.
     assert(isLegal(Lp) && "Loop Reversal Legal Test failed\n");
   }
 
@@ -760,7 +751,6 @@ bool HIRLoopReversal::doHIRReversalTransform(HLLoop *Lp) {
 
 void HIRLoopReversal::clearWorkingSetMemory(void) {
   MCEAV.clear();
-  HasNegIVExpr = false;
 }
 
 PreservedAnalyses HIRLoopReversalPass::run(llvm::Function &F,

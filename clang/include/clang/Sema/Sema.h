@@ -4698,10 +4698,7 @@ public:
                                        SourceLocation R, Expr *Operand);
 #if INTEL_CUSTOMIZATION
   bool CheckIntelBlockLoopAttribute(const IntelBlockLoopAttr *BLA);
-  /// \param IsCheckRange Indicates whether \p E is a #pragma unroll expression
-  /// in IntelCompat mode.
-  bool CheckLoopHintExpr(Expr *E, SourceLocation Loc, bool IsCheckRange = true,
-                         bool AllowNonNegativeValue = false);
+  bool CheckLoopHintExpr(Expr *E, SourceLocation Loc, bool AllowZero = false);
 #endif // INTEL_CUSTOMIZATION
 
   ExprResult ActOnNumericConstant(const Token &Tok, Scope *UDLScope = nullptr);

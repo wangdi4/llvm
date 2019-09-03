@@ -119,7 +119,6 @@ class HIRLoopReversal {
   struct MarkedCECollector;              // MarkedCE Collector
   struct AnalyzeDDInfo;                  // AnalyzeDDInfo Forward Declaration
   unsigned LoopLevel = 0;                // Current Loop's Level
-  bool HasNegIVExpr = false; // Has at least 1 Neg IV Expr in the collected MCEs
 
 public:
   HIRLoopReversal(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
@@ -134,11 +133,12 @@ public:
 
   /// Do Preliminary Checks on the given loop
   /// (and bail out quickly if the loop doesn't pass the filter tests.)
-  bool doLoopPreliminaryChecks(const HLLoop *Lp);
+  bool doLoopPreliminaryChecks(const HLLoop *Lp, bool CheckProfitability,
+                               bool SkipLoopBoundChecks);
 
   /// Do a Collection on the given HLLoop
   /// (and bail out if the loop doesn't have any suitable case to reverse)
-  bool doCollection(HLLoop *Lp);
+  bool doCollection(HLLoop *Lp, bool CheckProfitability);
 
   /// Profitability check for HIR Loop Reversal
   //(is the given loop Profitable?)
@@ -154,7 +154,7 @@ public:
   // Add control flags to allow the same function to be called from inside a
   // pass and from external utility APIs.
   bool isReversible(HLLoop *Lp, bool DoProfitTest, bool DoLegalTest,
-                    bool DoShortCircuitUtilityAPI);
+                    bool SkipLoopBoundChecks);
 
   /// \brief HIR Loop Reversal Transformation
   bool doHIRReversalTransform(HLLoop *Lp);

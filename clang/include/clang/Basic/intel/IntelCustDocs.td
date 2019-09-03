@@ -647,6 +647,55 @@ IR:
   }];
 }
 
+def UnrollZeroDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Option = "IntelCompat";
+  let BugTracker = "cq366562";
+  let Owner = "zahiraam";
+  let Default = 1;
+  let Content = [{
+Clang doesn't allow an unroll value of zero. We allow that as Fortran uses this
+feature. It will have the same semantics as nounroll, an 'llvm.loop.fusion.disable'
+attribute is attached to the loop.
+
+Syntax:
+
+.. code-block:: c
+
+   int main(void) {
+     int i = 0, s = 0;
+
+     #pragma unroll(0)
+     for (i = 0; i < 10; ++i)
+       s = s + i;
+     return s;
+   }
+
+IR:
+
+.. code-block:: console
+
+   $ clang -cc1 -fintel-compatibility -fintel-compatibility-enable=UnrollZero  -emit-llvm t1.c
+
+.. code-block:: llvm
+
+   br label %for.cond, !llvm.loop !2
+   !2 = distinct !{!2, !3}
+   !3 = !{!"llvm.loop.unroll.disable"}
+
+.. code-block:: console
+
+   $ clang -cc1 -fintel-compatibility -fintel-compatibility-disable=UnrollZero  -emit-llvm t1.c
+
+.. code-block:: text
+
+   t1.c:4:16: error: invalid value '0'; must be positive
+   #pragma unroll(0)
+               ^
+   1 error generated.
+  }];
+}
+
 def PragmaUnrollAndJamDocs : Documentation {
   let Category = DocCatIntelLoops;
   let Option = "IntelCompat";
