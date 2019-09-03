@@ -4040,13 +4040,14 @@ void VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
       resetValueInOmpClauseGeneric(W, V);
       // Only AllocaInst can be here.
       auto *AI = dyn_cast<AllocaInst>(V);
-      assert(AI && "Trying mem-to-reg for not an AllocaInst.");
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
-      if (AI == NormUB && !isAllocaPromotable(AI))
+      // For CSA UB does not need to be allocated as omp loops are not outlined.
+      if (V == NormUB && (!AI || !isAllocaPromotable(AI)))
         continue;
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
+      assert(AI && "Trying mem-to-reg for not an AllocaInst.");
       Allocas.push_back(AI);
     }
   }
