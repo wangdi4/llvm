@@ -189,6 +189,11 @@ define <8 x double> @masked_gather.v8f64 (<8 x i1> %mask, double* %addr,
   ret <8 x double> %res
 }
 
+define <8 x double> @masked_gather.v8f64_ind_v8i32(<8 x i1> %mask, double* %addr, <8 x i32> %index) {
+  %t0 = call <8 x double> @masked_gather.v8f64(<8 x i1> %mask, double* %addr, <8 x i32> %index)
+  ret <8 x double> %t0
+}
+
 ;; ------------------------------------
 ;;       Gather for char
 ;; ------------------------------------
