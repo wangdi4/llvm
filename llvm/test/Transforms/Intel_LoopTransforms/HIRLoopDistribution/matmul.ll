@@ -18,7 +18,7 @@
 ;<35>         + END LOOP
 ;          END REGION
 
-; CHECK: BEGIN REGION
+; CHECK: BEGIN REGION { }
 ; check first loop nest has only initialization of C[][]
 ; CHECK: DO i1 = 0, 99999, 1
 ; CHECK: DO i2 = 0, 99999, 1
@@ -41,8 +41,8 @@
 ; CHECK-NEXT: END LOOP
 ; CHECK: END REGION
 
-;RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-loop-distribute-loopnest -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
-;RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-loop-distribute-loopnest,hir-cg,simplify-cfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
+;RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-loop-distribute-loopnest -hir-cg -force-hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
+;RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-loop-distribute-loopnest,hir-cg,simplify-cfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -force-hir-cg -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
 ;
 ;OPTREPORT: LOOP BEGIN
 ;OPTREPORT: <Distributed chunk 1>

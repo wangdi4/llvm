@@ -650,8 +650,14 @@ bool HIRLoopDistribution::distributeLoop(
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion<HIRLoopStatistics>(
       Loop);
   HIRInvalidationUtils::invalidateBody(Loop);
-  RegionNode->setGenCode();
   HLNodeUtils::remove(Loop);
+
+  // Distribution for perfect loopnest is not profitable by itself, it is only
+  // used for enabling other transformations so we should not mark region as
+  // modified.
+  if (DistCostModel != DistHeuristics::NestFormation) {
+    RegionNode->setGenCode();
+  }
 
   return true;
 }
