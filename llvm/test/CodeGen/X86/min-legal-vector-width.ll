@@ -4,8 +4,8 @@
 ; Ensure that these CPUs default to a 256-bit vector preference
 ; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=skylake-avx512 -mattr=-fast-variable-shuffle | FileCheck %s
 ; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=cannonlake -mattr=-avx512vbmi,-fast-variable-shuffle | FileCheck %s
-; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=icelake-client -mattr=-avx512vbmi,-fast-variable-shuffle | FileCheck %s
-; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=icelake-server -mattr=-avx512vbmi,-fast-variable-shuffle | FileCheck %s
+; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=icelake-client -mattr=-avx512vbmi,-fast-variable-shuffle,-avx512vnni | FileCheck %s
+; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=icelake-server -mattr=-avx512vbmi,-fast-variable-shuffle,-avx512vnni | FileCheck %s
 ; end INTEL_CUSTOMIZATION
 
 ; This file primarily contains tests for specific places in X86ISelLowering.cpp that needed be made aware of the legalizer not allowing 512-bit vectors due to prefer-256-bit even though AVX512 is enabled.
