@@ -65,7 +65,6 @@ add_dependencies(sycl
 
 set_target_properties(sycl PROPERTIES LINKER_LANGUAGE CXX)
 
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION CORC-4868
 #
 # Try to prevent use of deprecated interface warning
@@ -78,11 +77,6 @@ target_compile_options (sycl PRIVATE
 )
 #end INTEL_CUSTOMIZATION
 
-target_include_directories(sycl PRIVATE "${sycl_inc_dir}")
-target_link_libraries(sycl
-                      PRIVATE OpenCL::Headers
-                      PRIVATE ${OpenCL_LIBRARIES}
-=======
 if (MSVC)
     target_compile_definitions(sycl PRIVATE __SYCL_BUILD_SYCL_DLL )
 endif()
@@ -90,7 +84,6 @@ target_include_directories(sycl PRIVATE "${sycl_inc_dir}")
 target_link_libraries(sycl
     PRIVATE OpenCL::Headers
     PRIVATE ${OpenCL_LIBRARIES}
->>>>>>> 67c6ae5594ae14f9b00f491b7b25c244bbace88a
 )
 if (SYCL_USE_LIBCXX)
     if ((CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR
@@ -117,12 +110,6 @@ endif()
 endif()
 
 install(TARGETS sycl
-<<<<<<< HEAD
-        ARCHIVE DESTINATION "lib" COMPONENT sycl
-        LIBRARY DESTINATION "lib" COMPONENT sycl
-        RUNTIME DESTINATION "bin" COMPONENT sycl)
-=======
     ARCHIVE DESTINATION "lib" COMPONENT sycl
     LIBRARY DESTINATION "lib" COMPONENT sycl
     RUNTIME DESTINATION "bin" COMPONENT sycl)
->>>>>>> 67c6ae5594ae14f9b00f491b7b25c244bbace88a

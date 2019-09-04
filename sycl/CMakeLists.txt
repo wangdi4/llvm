@@ -140,19 +140,11 @@ set(OPENCL_INCLUDE "${OpenCL_INCLUDE_DIRS}")
 add_library (OpenCL-Headers INTERFACE)
 add_library (OpenCL::Headers ALIAS OpenCL-Headers)
 target_include_directories(OpenCL-Headers
-<<<<<<< HEAD
-    INTERFACE ${OPENCL_INCLUDE}
-)
-install(DIRECTORY ${OPENCL_INCLUDE}/CL
-    DESTINATION ${LLVM_INST_INC_DIRECTORY}
-    COMPONENT opencl-headers
-=======
   INTERFACE ${OPENCL_INCLUDE}
 )
 install(DIRECTORY ${OPENCL_INCLUDE}/CL
   DESTINATION ${LLVM_INST_INC_DIRECTORY}
   COMPONENT opencl-headers
->>>>>>> 67c6ae5594ae14f9b00f491b7b25c244bbace88a
 )
 
 # Configure SYCL version macro
@@ -168,10 +160,7 @@ COMMENT "Copying SYCL headers ...")
 
 # Configure SYCL headers
 install(DIRECTORY "${sycl_inc_dir}/." DESTINATION "${LLVM_INST_INC_DIRECTORY}" COMPONENT sycl-headers)
-<<<<<<< HEAD
-=======
 
->>>>>>> 67c6ae5594ae14f9b00f491b7b25c244bbace88a
 # SYCL runtime library
 add_subdirectory(source)
 
