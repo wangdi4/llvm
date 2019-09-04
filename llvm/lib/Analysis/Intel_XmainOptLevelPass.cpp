@@ -42,3 +42,30 @@ XmainOptLevelWrapperPass::XmainOptLevelWrapperPass(unsigned OptLevel)
 ImmutablePass *llvm::createXmainOptLevelWrapperPass(unsigned OptLevel) {
   return new XmainOptLevelWrapperPass(OptLevel);
 }
+
+typedef XmainOptLevel Result;
+// Run at module level
+Result XmainOptLevelAnalysis::run(Module &M, ModuleAnalysisManager &AM) {
+  return XmainOptLevel(2);
+}
+
+// Run at function level
+Result XmainOptLevelAnalysis::run(Function &F, FunctionAnalysisManager &AM) {
+  return XmainOptLevel(2);
+}
+
+// Helper functions for initializing XmainOptLevel in the new pass manager
+
+// Run at function level
+PreservedAnalyses XmainOptLevelAnalysisInit::run(Function &F,
+                                                 FunctionAnalysisManager &AM) {
+  AM.getResult<XmainOptLevelAnalysis>(F).setOptLevel(OptLevel);
+  return PreservedAnalyses::all();
+}
+
+// Run at module level
+PreservedAnalyses XmainOptLevelAnalysisInit::run(Module &M,
+                                                 ModuleAnalysisManager &AM) {
+  AM.getResult<XmainOptLevelAnalysis>(M).setOptLevel(OptLevel);
+  return PreservedAnalyses::all();
+}

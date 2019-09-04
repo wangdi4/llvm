@@ -28,6 +28,8 @@
 ; CHECK-O-NEXT: Running pass: PassManager<{{.*}}Module
 ; CHECK-O-NEXT: Starting llvm::Module pass manager run.
 ; CHECK-O-NEXT: Running pass: InlineReportSetupPass   ;INTEL
+; CHECK-O-NEXT: Running pass: XmainOptLevelAnalysisInit  ;INTEL
+; CHECK-O-NEXT: Running analysis: XmainOptLevelAnalysis  ;INTEL
 ; CHECK-O-NEXT: Running pass: GlobalDCEPass
 ; CHECK-O-NEXT: Running pass: IPCloningPass ;INTEL
 ; CHECK-O-NEXT: Running pass: ForceFunctionAttrsPass
