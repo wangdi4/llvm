@@ -1175,6 +1175,7 @@ void LiveDebugValues::flushPendingLocs(VarLocInMBB &PendingInLocs,
                      DebugInstr->getDesc(), IsIndirect, Reg,
                      DebugInstr->getDebugVariable(), DebugExpr);
       }
+      (void)MI;
       LLVM_DEBUG(dbgs() << "Inserted: "; MI->dump(););
     }
   }
