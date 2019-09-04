@@ -352,6 +352,7 @@ namespace {
       (void) llvm::createHIRIdentityMatrixIdiomRecognitionPass();
       (void) llvm::createHIRPrefetchingPass();
       (void) llvm::createHIRSinkingForPerfectLoopnestPass();
+      (void) llvm::createHIRConditionalTempSinkingPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();

@@ -544,6 +544,7 @@ void initializeHIRRecognizeParLoopPass(PassRegistry&);
 void initializeHIRIdentityMatrixIdiomRecognitionLegacyPassPass(PassRegistry&);
 void initializeHIRPrefetchingLegacyPassPass(PassRegistry&);
 void initializeHIRSinkingForPerfectLoopnestLegacyPassPass(PassRegistry&);
+void initializeHIRConditionalTempSinkingLegacyPassPass(PassRegistry&);
 // VPO Vectorizer Passes
 void initializeAVRGeneratePass(PassRegistry&);
 void initializeAVRGenerateHIRPass(PassRegistry&);

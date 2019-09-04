@@ -167,6 +167,9 @@ FunctionPass *createHIRPrefetchingPass();
 
 /// Create pass that enables sinking for perfect Loop nest.
 FunctionPass *createHIRSinkingForPerfectLoopnestPass();
+
+/// Create pass that enables sinking for conditional temps.
+FunctionPass *createHIRConditionalTempSinkingPass();
 } // namespace llvm
 
 #endif
