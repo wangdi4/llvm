@@ -4261,53 +4261,39 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
       addr = emitPreserveStructAccess(*this, addr, field);
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-    // TODO: Doc. Another case is GetElementConstantExpr. I hope it will be
-    // handled by the AA even without TBAA.
-    if (getLangOpts().isIntelCompat(LangOptions::IntelTBAA)) {
-      auto *GEP = dyn_cast<llvm::GetElementPtrInst>(addr.getPointer());
-      if (GEP && !FieldTBAAInfo.isMayAlias()) {
-        // HACK: If the base didn't have a base type we created the base type
-        // for the field access exclusively above. In such case, we need to
-        // re-use that newly created BaseType. Otherwise, we already have a
-        // bigger chain of the TBAA accesses in FieldTBBAAInfo and we only need
-        // to use the "base" of the last field access.
-        auto BaseType = base.getTBAAInfo().BaseType
-                            ? base.getTBAAInfo().AccessType
-                            : FieldTBAAInfo.BaseType;
-        // FIXME: isValidBaseType returns false for the structs with flexible
-        // array members. For some reason, for such structs TBAA access tags are
-        // completely disabled (even in LLORG), so we don't have a valid
-        // BaseType available. Don't emit anything in such case.
-        //
-        // Note: I'd expect that only annotation of the flexible array member
-        // itself should not contain the access path. Not sure why it affects
-        // other fields of the structs.
-        if (BaseType) {
-          TBAAAccessInfo AI(BaseType, FieldTBAAInfo.AccessType,
-                            FieldTBAAInfo.Offset - base.getTBAAInfo().Offset,
-                            FieldTBAAInfo.Size);
-          llvm::MDNode *N = CGM.getTBAAAccessTagInfo(AI);
-          GEP->setMetadata("intel-tbaa", N);
-        }
+  // TODO: Doc. Another case is GetElementConstantExpr. I hope it will be
+  // handled by the AA even without TBAA.
+  if (getLangOpts().isIntelCompat(LangOptions::IntelTBAA)) {
+    auto *GEP = dyn_cast<llvm::GetElementPtrInst>(addr.getPointer());
+    if (GEP && !FieldTBAAInfo.isMayAlias()) {
+      // HACK: If the base didn't have a base type we created the base type
+      // for the field access exclusively above. In such case, we need to
+      // re-use that newly created BaseType. Otherwise, we already have a
+      // bigger chain of the TBAA accesses in FieldTBBAAInfo and we only need
+      // to use the "base" of the last field access.
+      auto BaseType = base.getTBAAInfo().BaseType
+                          ? base.getTBAAInfo().AccessType
+                          : FieldTBAAInfo.BaseType;
+      // FIXME: isValidBaseType returns false for the structs with flexible
+      // array members. For some reason, for such structs TBAA access tags are
+      // completely disabled (even in LLORG), so we don't have a valid
+      // BaseType available. Don't emit anything in such case.
+      //
+      // Note: I'd expect that only annotation of the flexible array member
+      // itself should not contain the access path. Not sure why it affects
+      // other fields of the structs.
+      if (BaseType) {
+        TBAAAccessInfo AI(BaseType, FieldTBAAInfo.AccessType,
+                          FieldTBAAInfo.Offset - base.getTBAAInfo().Offset,
+                          FieldTBAAInfo.Size);
+        llvm::MDNode *N = CGM.getTBAAAccessTagInfo(AI);
+        GEP->setMetadata("intel-tbaa", N);
       }
     }
+  }
 #endif // INTEL_CUSTOMIZATION
 
-    // If this is a reference field, load the reference right now.
-    if (FieldType->isReferenceType()) {
-      LValue RefLVal = MakeAddrLValue(addr, FieldType, FieldBaseInfo,
-                                      FieldTBAAInfo);
-      if (RecordCVR & Qualifiers::Volatile)
-        RefLVal.getQuals().addVolatile();
-      addr = EmitLoadOfReference(RefLVal, &FieldBaseInfo, &FieldTBAAInfo);
-
-      // Qualifiers on the struct don't apply to the referencee.
-      RecordCVR = 0;
-      FieldType = FieldType->getPointeeType();
-    }
-=======
   // If this is a reference field, load the reference right now.
   if (FieldType->isReferenceType()) {
     LValue RefLVal =
@@ -4319,7 +4305,6 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
     // Qualifiers on the struct don't apply to the referencee.
     RecordCVR = 0;
     FieldType = FieldType->getPointeeType();
->>>>>>> 0299dbd2ae89e81584cf95571ef0549862e10fea
   }
 
   // Make sure that the address is pointing to the right type.  This is critical
