@@ -22,6 +22,7 @@ target_compile_definitions(sycl-check
      PRIVATE  MIN_INTEL_OCL_GPU_VERSION=\"18.47.11882\"
      PRIVATE  MIN_INTEL_OCL_CPU_VERSION=\"18.1.0.0901\",\"7.6.0.1202\"
 )
+<<<<<<< HEAD
 
 # INTEL_CUSTOMIZATION CORC-4868
 #
@@ -32,3 +33,5 @@ target_compile_options (sycl-check PRIVATE
     $<$<CXX_COMPILER_ID:MSVC>:/WX->
 )
 #end INTEL_CUSTOMIZATION
+=======
+>>>>>>> 67c6ae5594ae14f9b00f491b7b25c244bbace88a
