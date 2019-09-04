@@ -611,9 +611,11 @@ static std::string getMangledTypeStr(Type* Ty) {
       Result += "vararg";
     // Ensure nested function types are distinguishable.
     Result += "f";
-  } else if (isa<VectorType>(Ty)) {
-    Result += "v" + utostr(Ty->getVectorNumElements()) +
-      getMangledTypeStr(Ty->getVectorElementType());
+  } else if (VectorType* VTy = dyn_cast<VectorType>(Ty)) {
+    if (VTy->isScalable())
+      Result += "nx";
+    Result += "v" + utostr(VTy->getVectorNumElements()) +
+      getMangledTypeStr(VTy->getVectorElementType());
   } else if (Ty) {
     switch (Ty->getTypeID()) {
     default: llvm_unreachable("Unhandled type");
@@ -700,11 +702,16 @@ enum IIT_Info {
   IIT_STRUCT7 = 39,
   IIT_STRUCT8 = 40,
   IIT_F128 = 41,
+<<<<<<< HEAD
   IIT_VEC_ELEMENT = 42
 #if INTEL_CUSTOMIZATION
   ,
   IIT_STRUCT9 = 43
 #endif  // INTEL_CUSTOMIZATION
+=======
+  IIT_VEC_ELEMENT = 42,
+  IIT_SCALABLE_VEC = 43
+>>>>>>> 2ba5d64a80d0debaec396dbd512e59de9cc82e48
 };
 
 static void DecodeIITType(unsigned &NextElt, ArrayRef<unsigned char> Infos,
@@ -878,6 +885,12 @@ static void DecodeIITType(unsigned &NextElt, ArrayRef<unsigned char> Infos,
                                              ArgInfo));
     return;
   }
+  case IIT_SCALABLE_VEC: {
+    OutputTable.push_back(IITDescriptor::get(IITDescriptor::ScalableVecArgument,
+                                             0));
+    DecodeIITType(NextElt, Infos, OutputTable);
+    return;
+  }
   }
   llvm_unreachable("unhandled");
 }
@@ -975,7 +988,7 @@ static Type *DecodeFixedType(ArrayRef<Intrinsic::IITDescriptor> &Infos,
     Type *EltTy = DecodeFixedType(Infos, Tys, Context);
     Type *Ty = Tys[D.getArgumentNumber()];
     if (auto *VTy = dyn_cast<VectorType>(Ty))
-      return VectorType::get(EltTy, VTy->getNumElements());
+      return VectorType::get(EltTy, VTy->getElementCount());
     return EltTy;
   }
   case IITDescriptor::PtrToArgument: {
@@ -999,6 +1012,11 @@ static Type *DecodeFixedType(ArrayRef<Intrinsic::IITDescriptor> &Infos,
   case IITDescriptor::VecOfAnyPtrsToElt:
     // Return the overloaded type (which determines the pointers address space)
     return Tys[D.getOverloadArgNumber()];
+  case IITDescriptor::ScalableVecArgument: {
+    Type *Ty = DecodeFixedType(Infos, Tys, Context);
+    return VectorType::get(Ty->getVectorElementType(),
+                           { Ty->getVectorNumElements(), true });
+  }
   }
   llvm_unreachable("unhandled");
 }
@@ -1198,8 +1216,8 @@ static bool matchIntrinsicType(
         return true;
       Type *EltTy = Ty;
       if (ThisArgType) {
-        if (ReferenceType->getVectorNumElements() !=
-            ThisArgType->getVectorNumElements())
+        if (ReferenceType->getElementCount() !=
+            ThisArgType->getElementCount())
           return true;
         EltTy = ThisArgType->getVectorElementType();
       }
@@ -1261,6 +1279,13 @@ static bool matchIntrinsicType(
         return IsDeferredCheck ? true : DeferCheck(Ty);
       auto *ReferenceType = dyn_cast<VectorType>(ArgTys[D.getArgumentNumber()]);
       return !ReferenceType || Ty != ReferenceType->getElementType();
+    }
+    case IITDescriptor::ScalableVecArgument: {
+      VectorType *VTy = dyn_cast<VectorType>(Ty);
+      if (!VTy || !VTy->isScalable())
+        return true;
+      return matchIntrinsicType(VTy, Infos, ArgTys, DeferredChecks,
+                                IsDeferredCheck);
     }
   }
   llvm_unreachable("unhandled");

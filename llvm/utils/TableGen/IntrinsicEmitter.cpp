@@ -220,11 +220,16 @@ enum IIT_Info {
   IIT_STRUCT7 = 39,
   IIT_STRUCT8 = 40,
   IIT_F128 = 41,
+<<<<<<< HEAD
   IIT_VEC_ELEMENT = 42
 #if INTEL_CUSTOMIZATION
   ,
   IIT_STRUCT9 = 43
 #endif  // INTEL_CUSTOMIZATION
+=======
+  IIT_VEC_ELEMENT = 42,
+  IIT_SCALABLE_VEC = 43
+>>>>>>> 2ba5d64a80d0debaec396dbd512e59de9cc82e48
 };
 
 static void EncodeFixedValueType(MVT::SimpleValueType VT,
@@ -343,6 +348,8 @@ static void EncodeFixedType(Record *R, std::vector<unsigned char> &ArgCodes,
 
   if (MVT(VT).isVector()) {
     MVT VVT = VT;
+    if (VVT.isScalableVector())
+      Sig.push_back(IIT_SCALABLE_VEC);
     switch (VVT.getVectorNumElements()) {
     default: PrintFatalError("unhandled vector type width in intrinsic!");
     case 1: Sig.push_back(IIT_V1); break;
