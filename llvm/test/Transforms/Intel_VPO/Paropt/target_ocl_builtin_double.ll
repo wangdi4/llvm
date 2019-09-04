@@ -2,8 +2,18 @@
 ; RUN: opt -passes='vpo-paropt' -S < %s  | FileCheck %s
 
 ; This test checks that VPOParopt translates names of math functions (double)
-; into OpenCL builtin names. This is needed in the spirv compilation phase
-; of icx -fiopenmp -fopenmp-targets=spir64 for
+; into OpenCL builtin names. This is needed for spir64 targets.
+;
+; List of functions:
+; sin,cos,tan,pow,exp,log,ceil,floor,fabs,sqrt,log2,erf,fmax,fmin,
+; asin,asinh,acos,acosh,atan,atanh,atan2
+; To add new functions, add them to the 2 areas marked MANUALLY ADDED.
+
+;   - For C++, clang will generate calls to ceil, floor, fabs, fmax, fmin.
+;   - For C, clang will generate calls to
+;       llvm.(ceil|floor|fabs|maxnum|minnum).f64
+; We test both forms in one test.
+
 ;
 ; #include <stdio.h>
 ; #include <mathimf.h>
@@ -25,17 +35,12 @@
 ;      array[11] = erf(3.0);
 ;      array[12] = fmax(2.0, 3.0);
 ;      array[13] = fmin(2.0, 3.0);
+;         ... other functions ...
 ;   }
 ;   for (int i = 0; i<14; i++)
 ;     printf("array[%d] = %lf\n", i, array[i]);
 ;   return 0;
 ; }
-
-; The IR below is manually modified for ceil, floor, fabs, fmax, fmin:
-;   - For C++, clang will generate calls to ceil, floor, fabs, fmax, fmin.
-;   - For C, clang will generate calls to
-;       llvm.(ceil|floor|fabs|maxnum|minnum).f64
-; We test both forms in one test.
 
 ; ModuleID = '<stdin>'
 source_filename = "target_ocl_builtin_double.cpp"
@@ -120,6 +125,48 @@ declare dso_local spir_func double @fmin(double, double) #1
 declare dso_local spir_func double @llvm.minnum.f64(double, double) #6
 ; CHECK: declare dso_local spir_func double @_Z4fmindd(double, double)
 
+; MANUALLY ADDED
+
+; Function Attrs: nounwind
+declare dso_local spir_func double @asin(double) #1
+; CHECK: declare dso_local spir_func double @_Z4asind(double)
+
+; Function Attrs: nounwind
+declare dso_local spir_func double @asinh(double) #1
+; CHECK: declare dso_local spir_func double @_Z5asinhd(double)
+
+; Function Attrs: nounwind
+declare dso_local spir_func double @sinh(double) #1
+; CHECK: declare dso_local spir_func double @_Z4sinhd(double)
+
+; Function Attrs: nounwind
+declare dso_local spir_func double @acos(double) #1
+; CHECK: declare dso_local spir_func double @_Z4acosd(double)
+
+; Function Attrs: nounwind
+declare dso_local spir_func double @acosh(double) #1
+; CHECK: declare dso_local spir_func double @_Z5acoshd(double)
+
+; Function Attrs: nounwind
+declare dso_local spir_func double @cosh(double) #1
+; CHECK: declare dso_local spir_func double @_Z4coshd(double)
+
+; Function Attrs: nounwind
+declare dso_local spir_func double @atan(double) #1
+; CHECK: declare dso_local spir_func double @_Z4atand(double)
+
+; Function Attrs: nounwind
+declare dso_local spir_func double @atanh(double) #1
+; CHECK: declare dso_local spir_func double @_Z5atanhd(double)
+
+; Function Attrs: nounwind
+declare dso_local spir_func double @atan2(double, double) #1
+; CHECK: declare dso_local spir_func double @_Z5atan2d(double, double)
+
+; Function Attrs: nounwind
+declare dso_local spir_func double @tanh(double) #1
+; CHECK: declare dso_local spir_func double @_Z4tanhd(double)
+
 ; Function Attrs: noinline norecurse optnone uwtable
 define dso_local spir_kernel void @__omp_offloading_fd02_d323b8_main_l37([20 x double] addrspace(1)* %array) #4 {
 newFuncRoot:
@@ -203,6 +250,41 @@ DIR.OMP.TARGET.1:                                 ; preds = %for.end
   %call26 = fadd double %call26.1, %call26.2
   %arrayidx27 = getelementptr inbounds [20 x double], [20 x double] addrspace(1)* %array, i64 0, i64 13
   store double %call26, double addrspace(1)* %arrayidx27, align 8
+
+; MANUALLY ADDED
+; Since there's no dead store elimination in this test, use the same address.
+
+  %call27 = call spir_func double @asin(double 1.00e+00)
+; CHECK: {{.*}} call spir_func double @_Z4asind
+  store double %call27, double addrspace(1)* %arrayidx25, align 8
+  %call28 = call spir_func double @asinh(double 1.00e+00)
+; CHECK: {{.*}} call spir_func double @_Z5asinhd
+  store double %call28, double addrspace(1)* %arrayidx25, align 8
+  %call29 = call spir_func double @sinh(double 1.00e+00)
+; CHECK: {{.*}} call spir_func double @_Z4sinhd
+  store double %call29, double addrspace(1)* %arrayidx25, align 8
+  %call30 = call spir_func double @acos(double 1.00e+00)
+; CHECK: {{.*}} call spir_func double @_Z4acosd
+  store double %call30, double addrspace(1)* %arrayidx25, align 8
+  %call31 = call spir_func double @acosh(double 1.00e+00)
+; CHECK: {{.*}} call spir_func double @_Z5acoshd
+  store double %call31, double addrspace(1)* %arrayidx25, align 8
+  %call32 = call spir_func double @cosh(double 1.00e+00)
+; CHECK: {{.*}} call spir_func double @_Z4coshd
+  store double %call32, double addrspace(1)* %arrayidx25, align 8
+  %call33 = call spir_func double @atan(double 1.00e+00)
+; CHECK: {{.*}} call spir_func double @_Z4atand
+  store double %call33, double addrspace(1)* %arrayidx25, align 8
+  %call34 = call spir_func double @atanh(double 1.00e+00)
+; CHECK: {{.*}} call spir_func double @_Z5atanhd
+  store double %call34, double addrspace(1)* %arrayidx25, align 8
+  %call35 = call spir_func double @atan2(double 1.00e+00, double 1.00e+00)
+; CHECK: {{.*}} call spir_func double @_Z5atan2d
+  store double %call35, double addrspace(1)* %arrayidx25, align 8
+  %call36 = call spir_func double @tanh(double 1.00e+00)
+; CHECK: {{.*}} call spir_func double @_Z4tanhd
+  store double %call36, double addrspace(1)* %arrayidx25, align 8
+
   br label %DIR.OMP.END.TARGET.2
 
 DIR.OMP.END.TARGET.2:                             ; preds = %DIR.OMP.TARGET.1
