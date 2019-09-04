@@ -1363,6 +1363,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     addDTransLegacyPasses(PM);
   }
 #endif // INTEL_INCLUDE_DTRANS
+  PM.add(createDopeVectorConstPropLegacyPass());
 #endif // INTEL_CUSTOMIZATION
 
   // Now that we internalized some globals, see if we can hack on them!
