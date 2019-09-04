@@ -481,7 +481,13 @@ private:
 
   /// Prepare the empty basic block for the array
   /// reduction or lastprivate update.
-  void createEmptyPrivFiniBB(WRegionNode *W, BasicBlock *&RedEntryBB);
+  /// If \p W is a loop region, and the loop has ZTT check,
+  /// then the new block will be inserted at the exit block
+  /// of the loop, unless \p HonorZTT is false.  Otherwise,
+  /// the new block will be inserted at the region's exit
+  /// block
+  void createEmptyPrivFiniBB(WRegionNode *W, BasicBlock *&RedEntryBB,
+                             bool HonorZTT = true);
 
   /// Generate the reduction update instructions for min/max.
   Value* genReductionMinMaxFini(ReductionItem *RedI, Value *Rhs1, Value *Rhs2,

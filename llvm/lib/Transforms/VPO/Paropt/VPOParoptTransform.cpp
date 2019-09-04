@@ -2407,7 +2407,8 @@ void VPOParoptTransform::createEmptyPrvInitBB(WRegionNode *W,
 
 // Prepare the empty basic block for the array reduction update.
 void VPOParoptTransform::createEmptyPrivFiniBB(WRegionNode *W,
-                                               BasicBlock *&PrivEntryBB) {
+                                               BasicBlock *&PrivEntryBB,
+                                               bool HonorZTT) {
   BasicBlock *ExitBlock = W->getExitBBlock();
   BasicBlock *PrivExitBB;
   if (W->getIsOmpLoop()) {
@@ -2415,7 +2416,7 @@ void VPOParoptTransform::createEmptyPrivFiniBB(WRegionNode *W,
     // update code at the exit block of the loop.
     BasicBlock *ZttBlock = W->getWRNLoopInfo().getZTTBB();
 
-    if (ZttBlock) {
+    if (ZttBlock && HonorZTT) {
       while (distance(pred_begin(ExitBlock), pred_end(ExitBlock)) == 1)
         ExitBlock = *pred_begin(ExitBlock);
       assert(distance(pred_begin(ExitBlock), pred_end(ExitBlock)) == 2 &&
@@ -2458,7 +2459,12 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
     bool NeedsKmpcCritical = false;
     BasicBlock *RedInitEntryBB = nullptr;
     BasicBlock *RedUpdateEntryBB = nullptr;
-    createEmptyPrivFiniBB(W, RedUpdateEntryBB);
+    // Insert reduction update at the region's exit block
+    // for SPIRV target, so that potential __kmpc_[end_]critical
+    // calls are executed the same number of times for all work
+    // items. The results should be the same, as long as the reduction
+    // variable is initialized at the region's entry block.
+    createEmptyPrivFiniBB(W, RedUpdateEntryBB, !isTargetSPIRV());
 
     for (ReductionItem *RedI : RedClause.items()) {
       Value *NewRedInst;
@@ -2483,7 +2489,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       genReductionInit(W, RedI, RedInitEntryBB->getTerminator(), DT);
 
       BasicBlock *BeginBB;
-      createEmptyPrivFiniBB(W, BeginBB);
+      createEmptyPrivFiniBB(W, BeginBB, !isTargetSPIRV());
       NeedsKmpcCritical |= genReductionFini(W, RedI, RedI->getOrig(),
                                             BeginBB->getTerminator(), DT);
 
@@ -2503,7 +2509,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       // case the end_critical() would get emitted before the copy-out loop that
       // the critical section is trying to guard.
       BasicBlock *EndBB;
-      createEmptyPrivFiniBB(W, EndBB);
+      createEmptyPrivFiniBB(W, EndBB, !isTargetSPIRV());
       VPOParoptUtils::genKmpcCriticalSection(
           W, IdentTy, TidPtrHolder,
           dyn_cast<Instruction>(RedUpdateEntryBB->begin()),
