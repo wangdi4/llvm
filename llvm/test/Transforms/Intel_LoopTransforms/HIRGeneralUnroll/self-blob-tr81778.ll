@@ -5,13 +5,13 @@
 
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:       + DO i64 i1 = 8 * %tgu, %1, 1   <DO_LOOP>  <MAX_TC_EST = 7>
-; CHECK:       | <RVAL-REG> LINEAR i64 8 * %tgu {sb:14}
+; CHECK:       | <RVAL-REG> LINEAR i64 8 * %tgu {sb:2}
 ; CHECK:       |    <BLOB> LINEAR i64 %tgu {sb:12}
 ; CHECK:       | <RVAL-REG> LINEAR i64 %1 {sb:4}
 ;                                      ^ No blob DDRef for self blobs
-; CHECK:       | <ZTT-REG> LINEAR i64 8 * %tgu {sb:14}
+; CHECK:       | <ZTT-REG> LINEAR i64 8 * %tgu {sb:2}
 ; CHECK:       |    <BLOB> LINEAR i64 %tgu {sb:12}
-; CHECK:       | <ZTT-REG> LINEAR i64 %1 + 1 {sb:4}
+; CHECK:       | <ZTT-REG> LINEAR i64 %1 + 1 {sb:2}
 ; CHECK:       |    <BLOB> LINEAR i64 %1 {sb:4}
 ;                                     ^ Here should be a blob ddref as %1 + 1 is no longer a self-blob
 

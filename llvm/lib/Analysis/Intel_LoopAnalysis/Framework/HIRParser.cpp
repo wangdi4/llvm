@@ -2437,19 +2437,7 @@ static bool isKnownNonNegativeForLoop(ScalarEvolution &SE, const Loop *Lp,
 
 RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
                                       Type *IVType, const Loop *Lp) {
-  const Value *Val;
-  unsigned Symbase = 0;
   clearTempBlobLevelMap();
-
-  if (auto ConstSCEV = dyn_cast<SCEVConstant>(BETC)) {
-    Val = ConstSCEV->getValue();
-    Symbase = getOrAssignSymbase(Val);
-  } else if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(BETC)) {
-    Val = UnknownSCEV->getValue();
-    Symbase = getOrAssignSymbase(Val);
-  } else {
-    Symbase = GenericRvalSymbase;
-  }
 
   auto CE = getCanonExprUtils().createCanonExpr(IVType);
   auto BETCType = BETC->getType();
@@ -2484,6 +2472,10 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
     getCanonExprUtils().destroy(CE);
     return nullptr;
   }
+
+  // Symbase for self-blobs is updated after parsing below.
+  unsigned Symbase =
+      isa<SCEVConstant>(BETC) ? ConstantSymbase : GenericRvalSymbase;
 
   auto Ref = getDDRefUtils().createRegDDRef(Symbase);
   Ref->setSingleCanonExpr(CE);

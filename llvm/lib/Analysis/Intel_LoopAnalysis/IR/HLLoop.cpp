@@ -1685,6 +1685,7 @@ HLLoop *HLLoop::generatePeelLoop(const RegDDRef *PeelArrayRef, unsigned VF) {
                          LoopLevel - 1);
   PeelLpUBCanonExpr->setDefinedAtLevel(LoopLevel - 1);
   PeelLpUBCanonExpr->addConstant(-1, true /*IsMath*/);
+  PeelLpUB->setSymbase(GenericRvalSymbase);
   PeelLoop->setUpperDDRef(PeelLpUB);
 
   // RT check for peel iterations
