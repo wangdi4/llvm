@@ -6672,7 +6672,7 @@ void OffloadBundler::ConstructJobMultipleOutputs(
              Input.getType() == types::TY_FPGA_AOCR) {
     // Override type with archive object
     if (getToolChain().getTriple().getSubArch() ==
-                                     llvm::Triple::SPIRSubArch_fpga)
+        llvm::Triple::SPIRSubArch_fpga)
       TypeArg = "ao";
     else
       TypeArg = "aoo";
@@ -6696,7 +6696,7 @@ void OffloadBundler::ConstructJobMultipleOutputs(
     if (Input.getType() == types::TY_FPGA_AOCX ||
         Input.getType() == types::TY_FPGA_AOCR) {
       if (getToolChain().getTriple().getSubArch() ==
-                                     llvm::Triple::SPIRSubArch_fpga &&
+              llvm::Triple::SPIRSubArch_fpga &&
           Dep.DependentOffloadKind == Action::OFK_SYCL) {
         llvm::Triple TT;
         TT.setArchName(Input.getType() == types::TY_FPGA_AOCX ? "fpga_aocx"
@@ -6707,7 +6707,7 @@ void OffloadBundler::ConstructJobMultipleOutputs(
         Triples += "sycl-";
         Triples += TT.normalize();
       } else if (getToolChain().getTriple().getSubArch() !=
-                                     llvm::Triple::SPIRSubArch_fpga &&
+                     llvm::Triple::SPIRSubArch_fpga &&
                  Dep.DependentOffloadKind == Action::OFK_Host) {
         Triples += Action::GetOffloadKindName(Dep.DependentOffloadKind);
         Triples += '-';
@@ -6785,7 +6785,7 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
   // appropriate triple that corresponds (fpga_aoc[xr]-intel-<os>-sycldevice)
   // to the target triple setting.
   if (getToolChain().getTriple().getSubArch() ==
-                                   llvm::Triple::SPIRSubArch_fpga &&
+          llvm::Triple::SPIRSubArch_fpga &&
       TCArgs.hasArg(options::OPT_fsycl_link_EQ)) {
     llvm::Triple TT;
     auto *A = C.getInputArgs().getLastArg(options::OPT_fsycl_link_EQ);
