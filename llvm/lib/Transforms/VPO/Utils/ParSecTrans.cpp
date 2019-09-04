@@ -645,7 +645,7 @@ void VPOUtils::doParSectTrans(
   //             i = phi(0, i')              |
   //             switch (i)                  |
   //             /  |  ...  \                |
-  //        sec1  sec2 ... DefualtCase       |
+  //        sec1  sec2 ... DefaultCase       |
   //          \      | ...  /                |
   //          SwitchEpilogBB                 |
   //                 |                       |
@@ -789,9 +789,6 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
 
   Builder.SetInsertPoint(HeaderBB);
 
-  // Value *LoopZTT = Builder.CreateICmp(ICmpInst::ICMP_SLE, IV, UB);
-  // LoopZTT->setName(FName + ".sloop.ztt." + Twine(Counter));
-  // Builder.CreateCondBr(LoopZTT, BodyBB, ExitBB);
   Builder.CreateBr(BodyBB);
 
   // Loop BodyBB
@@ -848,7 +845,7 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
 //             |switch(i)         |
 //             --------------------
 //             /    |    ...  \
-//        case1  case2    ... DefualtCase
+//        case1  case2    ... DefaultCase
 //           \      |     ...  /
 //             SwitchEpilogBB
 //                  |
@@ -858,7 +855,6 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
 //             |......            |
 //             --------------------
 //
-//SwitchInst *VPOUtils::genParSectSwitch(
 void VPOUtils::genParSectSwitch(
   Value *SwitchCond,
   ParSectNode *Node,
@@ -935,6 +931,5 @@ void VPOUtils::genParSectSwitch(
   }
 
   return;
-  //return SwitchInstruction;
 }
 #endif // INTEL_COLLAB
