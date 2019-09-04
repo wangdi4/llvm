@@ -47,7 +47,8 @@
 // CK-HELP: {{.*}}o {{.*}}- object
 // CK-HELP: {{.*}}gch {{.*}}- precompiled-header
 // CK-HELP: {{.*}}ast {{.*}}- clang AST file
-// CK-HELP: {{.*}}ao {{.*}}- archive; output file is a list of unbundled objects
+// CK-HELP: {{.*}}ao {{.*}}- archive with one object; output is an unbundled object
+// CK-HELP: {{.*}}aoo {{.*}}- archive; output file is a list of unbundled objects
 // CK-HELP: {{.*}}-unbundle {{.*}}- Unbundle bundled file into several output files.
 
 //
@@ -278,10 +279,12 @@
 //
 // Check archive bundle.
 //
+
+// Check file-list mode.
 // RUN: echo 'Invalid object' > %t.invalid.o
 // RUN: rm -f %t.a
 // RUN: llvm-ar crv %t.a %t.bundle3.o %t.invalid.o
-// RUN: clang-offload-bundler -type=ao -targets=host-%itanium_abi_triple,openmp-powerpc64le-ibm-linux-gnu,openmp-x86_64-pc-linux-gnu -outputs=%t.host.lst,%t.tgt1.lst,%t.tgt2.lst -inputs=%t.a -unbundle
+// RUN: clang-offload-bundler -type=aoo -targets=host-%itanium_abi_triple,openmp-powerpc64le-ibm-linux-gnu,openmp-x86_64-pc-linux-gnu -outputs=%t.host.lst,%t.tgt1.lst,%t.tgt2.lst -inputs=%t.a -unbundle
 // RUN: wc -l %t.host.lst | FileCheck %s --check-prefix=CHECK-AR-FILE-LIST
 // RUN: wc -l %t.tgt1.lst | FileCheck %s --check-prefix=CHECK-AR-FILE-LIST
 // RUN: wc -l %t.tgt2.lst | FileCheck %s --check-prefix=CHECK-AR-FILE-LIST
@@ -290,6 +293,20 @@
 // RUN: diff %t.tgt2 `cat %t.tgt2.lst`
 
 // CHECK-AR-FILE-LIST: 1
+
+// Check single-file mode.
+// RUN: clang-offload-bundler -type=ao -targets=host-%itanium_abi_triple,openmp-powerpc64le-ibm-linux-gnu,openmp-x86_64-pc-linux-gnu -outputs=%t.host.out,%t.tgt1.out,%t.tgt2.out -inputs=%t.a -unbundle
+// RUN: diff %t.o %t.host.out
+// RUN: diff %t.tgt1 %t.tgt1.out
+// RUN: diff %t.tgt2 %t.tgt2.out
+
+// Check that bundler does not accept multi-file archive in single-file mode.
+// RUN: cp %t.bundle3.o %t.bundle4.o
+// RUN: llvm-ar crv %t.a %t.bundle3.o %t.bundle4.o %t.invalid.o
+// RUN: not clang-offload-bundler -type=ao -targets=host-%itanium_abi_triple,openmp-powerpc64le-ibm-linux-gnu,openmp-x86_64-pc-linux-gnu -outputs=%t.host.out,%t.tgt1.out,%t.tgt2.out -inputs=%t.a -unbundle 2>&1 \
+// RUN:   | FileCheck %s --check-prefix CHECK-MULTI-FILE-AR-ERROR
+
+// CHECK-MULTI-FILE-AR-ERROR: 'ao' file type is requested, but the archive contains multiple device objects; use 'aoo' instead
 
 // Some code so that we can create a binary out of this file.
 int A = 0;

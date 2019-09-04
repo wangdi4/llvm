@@ -6675,7 +6675,7 @@ void OffloadBundler::ConstructJobMultipleOutputs(
   }
   if (C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment() &&
       Input.getType() == types::TY_Archive)
-    TypeArg = "ao";
+    TypeArg = "aoo";
 
   // Get the type.
   CmdArgs.push_back(TCArgs.MakeArgString(Twine("-type=") + TypeArg));
@@ -6826,7 +6826,7 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
   TranslatorArgs.push_back("-o");
   TranslatorArgs.push_back(Output.getFilename());
   if (getToolChain().getTriple().isSYCLDeviceEnvironment()) {
-    TranslatorArgs.push_back("-spirv-max-version=1.0");
+    TranslatorArgs.push_back("-spirv-max-version=1.1");
     TranslatorArgs.push_back("-spirv-ext=+all");
   }
   for (auto I : Inputs) {
