@@ -129,7 +129,7 @@ def note_previous_default_assoc : Note<
 def err_no_arith_type : Error <"expression must have an arithmetic type">; // INTEL
 
 def ext_c11_feature : Extension<
-  "%0 is a C11 extension">, InGroup<C11>;
+  "'%0' is a C11 extension">, InGroup<C11>;
 
 def ext_c11_noreturn : Extension<
   "_Noreturn functions are a C11-specific feature">, InGroup<C11>;
