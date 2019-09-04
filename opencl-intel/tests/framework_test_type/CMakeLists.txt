@@ -5,6 +5,7 @@ endif(INCLUDE_MKL)
 set( TARGET framework_test_type )
 
 include_directories( ${OCL_SOURCE_DIR}/framework/export
+                     ${OCL_SOURCE_DIR}/framework/Tracing
                      ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export )
 
 if (NOT WIN32)

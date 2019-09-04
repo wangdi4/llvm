@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2019 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -31,6 +31,9 @@
 #include <cl_linux_utils.h>
 #include "cl_framework_alias_linux.h"
 #endif
+
+#include <tracing_api.h>
+#include <tracing_notify.h>
 
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
@@ -81,6 +84,29 @@ using namespace Intel::OpenCL::Utils;
     } \
 	}
 
+#define CALL_TRACED_API_LOGGER(module, return_type, function_call, function_name, ...) \
+    TRACING_ENTER(function_name, __VA_ARGS__); \
+    return_type ret_val = API_DISABLED_USER_RETURN_VALUE; \
+    ocl_gpa_data *pGPAData = module->GetGPAData(); \
+    if ((nullptr != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableAPITracing)) \
+    { \
+        __itt_id ittID; \
+        __startITTTask(pGPAData, ittID, __FUNCTION__); \
+        ret_val = (API_IS_DISABLED) ? API_DISABLED_USER_RETURN_VALUE : module->function_call; \
+        __endITTTask(pGPAData, ittID); \
+        apiLogger.EndApiFunc(ret_val); \
+    } else { \
+        if (API_IS_DISABLED) { \
+            apiLogger.EndApiFunc(API_DISABLED_USER_RETURN_VALUE); \
+            ret_val = API_DISABLED_USER_RETURN_VALUE; \
+        } else { \
+            ret_val = module->function_call; \
+            apiLogger.EndApiFunc(ret_val); \
+        } \
+    } \
+    TRACING_EXIT(function_name, &ret_val); \
+    return ret_val;
+
 #define CALL_INSTRUMENTED_API(module, return_type, function_call) \
 	ocl_gpa_data *pGPAData = module->GetGPAData(); \
 	if ((nullptr != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableAPITracing)) \
@@ -98,6 +124,26 @@ using namespace Intel::OpenCL::Utils;
 	    } \
 	}
 
+#define CALL_TRACED_API(module, return_type, function_call, function_name, ...) \
+    TRACING_ENTER(function_name, __VA_ARGS__); \
+    return_type ret_val = API_DISABLED_USER_RETURN_VALUE; \
+    ocl_gpa_data *pGPAData = module->GetGPAData(); \
+    if ((nullptr != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableAPITracing)) \
+    { \
+        __itt_id ittID; \
+        __startITTTask(pGPAData, ittID, __FUNCTION__); \
+        ret_val = (API_IS_DISABLED) ? API_DISABLED_USER_RETURN_VALUE : module->function_call; \
+        __endITTTask(pGPAData, ittID); \
+    } else { \
+        if (API_IS_DISABLED) { \
+            ret_val = API_DISABLED_USER_RETURN_VALUE; \
+        } else { \
+            ret_val = module->function_call; \
+        } \
+    } \
+    TRACING_EXIT(function_name, &ret_val); \
+    return ret_val;
+
 #define CALL_INSTRUMENTED_API_LOGGER_NO_RET(module, function_call) \
 ocl_gpa_data *pGPAData = module->GetGPAData(); \
 if ((nullptr != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableAPITracing)) \
@@ -111,6 +157,22 @@ if ((nullptr != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableAPITracing
         apiLogger.EndApiFunc(); \
     }
 
+#define CALL_TRACED_API_LOGGER_NO_RET(module, function_call, function_name, ...) \
+    TRACING_ENTER(function_name, __VA_ARGS__); \
+    ocl_gpa_data *pGPAData = module->GetGPAData(); \
+    if ((nullptr != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableAPITracing)) \
+    { \
+        __itt_id ittID; \
+        __startITTTask(pGPAData, ittID, __FUNCTION__); \
+        module->function_call; \
+        apiLogger.EndApiFunc(); \
+        __endITTTask(pGPAData, ittID); \
+    } else { \
+        module->function_call; \
+        apiLogger.EndApiFunc(); \
+    } \
+    TRACING_EXIT(function_name, nullptr);
+
 #define CALL_INSTRUMENTED_API_NO_RET(module, function_call) \
 ocl_gpa_data *pGPAData = module->GetGPAData(); \
 if ((nullptr != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableAPITracing)) \
@@ -121,6 +183,20 @@ if ((nullptr != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableAPITracing
     __endITTTask(pGPAData, ittID); } else { \
         module->function_call; \
 }
+
+#define CALL_TRACED_API_NO_RET(module, function_call, function_name, ...) \
+    TRACING_ENTER(function_name, __VA_ARGS__); \
+    ocl_gpa_data *pGPAData = module->GetGPAData(); \
+    if ((nullptr != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableAPITracing)) \
+    { \
+        __itt_id ittID; \
+        __startITTTask(pGPAData, ittID, __FUNCTION__); \
+        module->function_call; \
+        __endITTTask(pGPAData, ittID); \
+    } else { \
+        module->function_call; \
+    } \
+    TRACING_EXIT(function_name, nullptr);
 
 #else
 
@@ -136,8 +212,29 @@ if ((nullptr != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableAPITracing
         return ret; \
     }
 
+#define CALL_TRACED_API_LOGGER(module, return_type, function_call, function_name, ...) \
+    TRACING_ENTER(function_name, __VA_ARGS__); \
+    return_type ret = API_DISABLED_USER_RETURN_VALUE; \
+    if (API_IS_DISABLED) \
+    { \
+        ret = API_DISABLED_USER_RETURN_VALUE; \
+    } \
+    else \
+    { \
+        ret = module->function_call; \
+        apiLogger.EndApiFunc(ret); \
+    } \
+    TRACING_EXIT(function_name, &ret); \
+    return ret;
+
 #define CALL_INSTRUMENTED_API(module, return_type, function_call) \
 return (API_IS_DISABLED) ? API_DISABLED_USER_RETURN_VALUE : module->function_call;
+
+#define CALL_TRACED_API(module, return_type, function_call, function_name, ...) \
+    TRACING_ENTER(function_name, __VA_ARGS__); \
+    return_type ret = (API_IS_DISABLED) ? API_DISABLED_USER_RETURN_VALUE : module->function_call; \
+    TRACING_EXIT(function_name, &ret); \
+    return ret;
 
 #define CALL_INSTRUMENTED_API_LOGGER_NO_RET(module, function_call) \
     { \
@@ -145,8 +242,21 @@ return (API_IS_DISABLED) ? API_DISABLED_USER_RETURN_VALUE : module->function_cal
         apiLogger.EndApiFunc(); \
     }
 
+#define CALL_TRACED_API_LOGGER_NO_RET(module, function_call, funcion_name, ...) \
+    { \
+        TRACING_ENTER(function_name, __VA_ARGS__); \
+        module->function_call; \
+        apiLogger.EndApiFunc(); \
+        TRACING_EXIT(function_name, nullptr); \
+    }
+
 #define CALL_INSTRUMENTED_API_NO_RET(module, function_call) \
 	module->function_call;
+
+#define CALL_TRACED_API_NO_RET(module, function_call, function_name, ...) \
+    TRACING_ENTER(function_name, __VA_ARGS__); \
+    module->function_call; \
+    TRACING_EXIT(function_name, nullptr);
 
 #endif
 
@@ -185,13 +295,18 @@ void * CL_API_CALL clGetExtensionFunctionAddress(const char *funcname)
         START_LOG_API(clGetExtensionFunctionAddress);
         apiLogger << "const char *funcname";
         apiLogger.PrintCStringVal(funcname);
+        TRACING_ENTER(clGetExtensionFunctionAddress, &funcname);
         void* addr = GetExtensionFunctionAddress(funcname);
+        TRACING_EXIT(clGetExtensionFunctionAddress, &addr);
         apiLogger.EndApiFunc(addr);
         return addr;
     }
     else
     {
-        return GetExtensionFunctionAddress(funcname);
+        TRACING_ENTER(clGetExtensionFunctionAddress, &funcname);
+        void* addr = GetExtensionFunctionAddress(funcname);
+        TRACING_EXIT(clGetExtensionFunctionAddress, &addr);
+        return addr;
     }
 }
 SET_ALIAS(clGetExtensionFunctionAddress);
@@ -203,13 +318,18 @@ void* CL_API_CALL clGetExtensionFunctionAddressForPlatform(cl_platform_id platfo
         START_LOG_API(clGetExtensionFunctionAddressForPlatform);
         apiLogger << "cl_platform_id platform" << platform << "const char* funcname";
         apiLogger.PrintCStringVal(funcname);
+        TRACING_ENTER(clGetExtensionFunctionAddressForPlatform, &platform, &funcname);
         void* addr = !PLATFORM_MODULE->CheckPlatformId(platform) ? nullptr : GetExtensionFunctionAddress(funcname);
+        TRACING_EXIT(clGetExtensionFunctionAddressForPlatform, &addr);
         apiLogger.EndApiFunc(addr);
         return addr;
     }
     else
     {
-        return !PLATFORM_MODULE->CheckPlatformId(platform) ? nullptr : GetExtensionFunctionAddress(funcname);
+        TRACING_ENTER(clGetExtensionFunctionAddressForPlatform, &platform, &funcname);
+        void* addr = !PLATFORM_MODULE->CheckPlatformId(platform) ? nullptr : GetExtensionFunctionAddress(funcname);
+        TRACING_EXIT(clGetExtensionFunctionAddressForPlatform, &addr);
+        return addr;
     }
 }
 SET_ALIAS(clGetExtensionFunctionAddressForPlatform);
@@ -300,11 +420,13 @@ cl_int CL_API_CALL clGetPlatformIDs(cl_uint num_entries, cl_platform_id * platfo
         apiLogger << "cl_uint num_entries" << num_entries << "cl_platform_id * platforms" << platforms << "cl_uint * num_platforms" << num_platforms;
         OutputListPrinter<cl_platform_id, cl_uint> listPrinter("platforms", platforms, num_platforms, num_entries);
         OutputParamsValueProvider provider(apiLogger, &listPrinter);
-        CALL_INSTRUMENTED_API_LOGGER(PLATFORM_MODULE,  cl_int, GetPlatformIDs(num_entries, platforms, num_platforms));
+        CALL_TRACED_API_LOGGER(PLATFORM_MODULE,  cl_int, GetPlatformIDs(num_entries, platforms, num_platforms),
+            clGetPlatformIDs, &num_entries, &platforms, &num_platforms);
     }
     else
     {
-        CALL_INSTRUMENTED_API(PLATFORM_MODULE,  cl_int, GetPlatformIDs(num_entries, platforms, num_platforms));
+        CALL_TRACED_API(PLATFORM_MODULE,  cl_int, GetPlatformIDs(num_entries, platforms, num_platforms),
+            clGetPlatformIDs, &num_entries, &platforms, &num_platforms);
     }
 }
 SET_ALIAS(clGetPlatformIDs);
@@ -322,11 +444,13 @@ cl_int CL_API_CALL clGetPlatformInfo(cl_platform_id platform,
         apiLogger << "cl_platform_id platform" << platform << "cl_platform_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void* param_value" << param_value << "size_t* param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
-        CALL_INSTRUMENTED_API_LOGGER(PLATFORM_MODULE,  cl_int, GetPlatformInfo(platform, param_name, param_value_size, param_value, param_value_size_ret));
+        CALL_TRACED_API_LOGGER(PLATFORM_MODULE,  cl_int, GetPlatformInfo(platform, param_name, param_value_size, param_value, param_value_size_ret),
+            clGetPlatformInfo, &platform, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(PLATFORM_MODULE,  cl_int, GetPlatformInfo(platform, param_name, param_value_size, param_value, param_value_size_ret));
+        CALL_TRACED_API(PLATFORM_MODULE,  cl_int, GetPlatformInfo(platform, param_name, param_value_size, param_value, param_value_size_ret),
+            clGetPlatformInfo, &platform, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
 }
 SET_ALIAS(clGetPlatformInfo);
@@ -348,11 +472,13 @@ cl_int CL_API_CALL clGetHostTimer(cl_device_id device,
         apiLogger << "cl_device_id device" << device << "cl_ulong* host_timestamp" << host_timestamp;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("host_timestamp", host_timestamp, false, true);
-        CALL_INSTRUMENTED_API_LOGGER(PLATFORM_MODULE, cl_int, GetHostTimer(device, host_timestamp));
+        CALL_TRACED_API_LOGGER(PLATFORM_MODULE, cl_int, GetHostTimer(device, host_timestamp),
+            clGetHostTimer, &device, &host_timestamp);
     }
     else
     {
-        CALL_INSTRUMENTED_API(PLATFORM_MODULE, cl_int, GetHostTimer(device, host_timestamp));
+        CALL_TRACED_API(PLATFORM_MODULE, cl_int, GetHostTimer(device, host_timestamp),
+            clGetHostTimer, &device, &host_timestamp);
     }
 }
 SET_ALIAS(clGetHostTimer);
@@ -377,11 +503,13 @@ cl_int CL_API_CALL clGetDeviceAndHostTimer(cl_device_id device,
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("host_timestamp",   host_timestamp,   false, true);
         provider.AddParam("device_timestamp", device_timestamp, false, true);
-        CALL_INSTRUMENTED_API_LOGGER(PLATFORM_MODULE, cl_int, GetDeviceAndHostTimer(device, device_timestamp, host_timestamp));
+        CALL_TRACED_API_LOGGER(PLATFORM_MODULE, cl_int, GetDeviceAndHostTimer(device, device_timestamp, host_timestamp),
+            clGetDeviceAndHostTimer, &device, &device_timestamp, &host_timestamp);
     }
     else
     {
-        CALL_INSTRUMENTED_API(PLATFORM_MODULE, cl_int, GetDeviceAndHostTimer(device, device_timestamp, host_timestamp));
+        CALL_TRACED_API(PLATFORM_MODULE, cl_int, GetDeviceAndHostTimer(device, device_timestamp, host_timestamp),
+            clGetDeviceAndHostTimer, &device, &device_timestamp, &host_timestamp);
     }
 }
 SET_ALIAS(clGetDeviceAndHostTimer);
@@ -402,11 +530,13 @@ cl_int CL_API_CALL clGetDeviceIDs(cl_platform_id platform,
         apiLogger << "cl_platform_id platform" << platform << "cl_device_type device_type" << device_type << "cl_uint num_entries" << num_entries << "cl_device_id* devices" << devices << "cl_uint* num_devices" << num_devices;
         OutputListPrinter<cl_device_id, cl_uint> printer("devices", devices, num_devices, num_entries);
         OutputParamsValueProvider provider(apiLogger, &printer);
-        CALL_INSTRUMENTED_API_LOGGER(PLATFORM_MODULE, cl_int, GetDeviceIDs(platform, device_type, num_entries, devices, num_devices));
+        CALL_TRACED_API_LOGGER(PLATFORM_MODULE, cl_int, GetDeviceIDs(platform, device_type, num_entries, devices, num_devices),
+            clGetDeviceIDs, &platform, &device_type, &num_entries, &devices, &num_devices);
     }
     else
     {
-        CALL_INSTRUMENTED_API(PLATFORM_MODULE, cl_int, GetDeviceIDs(platform, device_type, num_entries, devices, num_devices));
+        CALL_TRACED_API(PLATFORM_MODULE, cl_int, GetDeviceIDs(platform, device_type, num_entries, devices, num_devices),
+            clGetDeviceIDs, &platform, &device_type, &num_entries, &devices, &num_devices);
     }
 }
 SET_ALIAS(clGetDeviceIDs);
@@ -423,11 +553,13 @@ cl_int CL_API_CALL clGetDeviceInfo(cl_device_id device,
         apiLogger << "cl_device_id device" << device << "cl_device_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void* param_value" << param_value << "size_t* param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
-        CALL_INSTRUMENTED_API_LOGGER(PLATFORM_MODULE, cl_int, GetDeviceInfo(device, param_name, param_value_size, param_value, param_value_size_ret));
+        CALL_TRACED_API_LOGGER(PLATFORM_MODULE, cl_int, GetDeviceInfo(device, param_name, param_value_size, param_value, param_value_size_ret),
+            clGetDeviceInfo, &device, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(PLATFORM_MODULE, cl_int, GetDeviceInfo(device, param_name, param_value_size, param_value, param_value_size_ret));
+        CALL_TRACED_API(PLATFORM_MODULE, cl_int, GetDeviceInfo(device, param_name, param_value_size, param_value, param_value_size_ret),
+            clGetDeviceInfo, &device, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
 }
 SET_ALIAS(clGetDeviceInfo);
@@ -449,11 +581,13 @@ cl_context CL_API_CALL clCreateContext(const cl_context_properties * properties,
         apiLogger << "const cl_context_properties * properties" << properties << "cl_uint num_devices" << num_devices << "const cl_device_id * devices" << devices << "logging_fn pfn_notify" << pfn_notify << "void * user_data" << user_data << "cl_int * errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_context, CreateContext(properties, num_devices, devices, pfn_notify, user_data, errcode_ret));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_context, CreateContext(properties, num_devices, devices, pfn_notify, user_data, errcode_ret),
+           clCreateContext, &properties, &num_devices, &devices, &pfn_notify, &user_data, &errcode_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_context, CreateContext(properties, num_devices, devices, pfn_notify, user_data, errcode_ret));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_context, CreateContext(properties, num_devices, devices, pfn_notify, user_data, errcode_ret),
+            clCreateContext, &properties, &num_devices, &devices, &pfn_notify, &user_data, &errcode_ret);
     }
 }
 SET_ALIAS(clCreateContext);
@@ -470,11 +604,13 @@ cl_context CL_API_CALL clCreateContextFromType(const cl_context_properties * pro
         apiLogger << "const cl_context_properties * properties" << properties << "cl_device_type device_type" << device_type << "logging_fn pfn_notify" << pfn_notify << "void * user_data" << user_data << "cl_int * errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_context, CreateContextFromType(properties, device_type, pfn_notify, user_data, errcode_ret));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_context, CreateContextFromType(properties, device_type, pfn_notify, user_data, errcode_ret),
+           clCreateContextFromType, &properties, &device_type, &pfn_notify, &user_data, &errcode_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_context, CreateContextFromType(properties, device_type, pfn_notify, user_data, errcode_ret));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_context, CreateContextFromType(properties, device_type, pfn_notify, user_data, errcode_ret),
+            clCreateContextFromType, &properties, &device_type, &pfn_notify, &user_data, &errcode_ret);
     }
 }
 SET_ALIAS(clCreateContextFromType);
@@ -485,11 +621,13 @@ cl_int CL_API_CALL clRetainContext(cl_context context)
     {
         START_LOG_API(clRetainContext);
         apiLogger << "cl_context context" << context;
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, RetainContext(context));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, RetainContext(context),
+           clRetainContext, &context);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, RetainContext(context));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, RetainContext(context),
+            clRetainContext, &context);
     }
 }
 SET_ALIAS(clRetainContext);
@@ -500,11 +638,13 @@ cl_int CL_API_CALL clReleaseContext(cl_context context)
     {
         START_LOG_API(clReleaseContext);
         apiLogger << "cl_context context" << context;
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, ReleaseContext(context));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, ReleaseContext(context),
+           clReleaseContext, &context);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, ReleaseContext(context));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, ReleaseContext(context),
+            clReleaseContext, &context);
     }
 }
 SET_ALIAS(clReleaseContext);
@@ -521,11 +661,13 @@ cl_int CL_API_CALL clGetContextInfo(cl_context      context,
         apiLogger << "cl_context context" << context << "cl_context_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, GetContextInfo(context, param_name, param_value_size, param_value, param_value_size_ret));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, GetContextInfo(context, param_name, param_value_size, param_value, param_value_size_ret),
+           clGetContextInfo, &context, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, GetContextInfo(context, param_name, param_value_size, param_value, param_value_size_ret));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, GetContextInfo(context, param_name, param_value_size, param_value, param_value_size_ret),
+            clGetContextInfo, &context, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
 }
 SET_ALIAS(clGetContextInfo);
@@ -544,11 +686,13 @@ cl_command_queue CL_API_CALL clCreateCommandQueue(cl_context                  co
         apiLogger << "cl_context context" << context << "cl_device_id device" << device << "cl_command_queue_properties properties" << properties << "cl_int * errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_command_queue, CreateCommandQueue(context, device, propertiesArr, errcode_ret));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_command_queue, CreateCommandQueue(context, device, propertiesArr, errcode_ret),
+           clCreateCommandQueue, &context, &device, &properties, &errcode_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_command_queue, CreateCommandQueue(context, device, propertiesArr, errcode_ret));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_command_queue, CreateCommandQueue(context, device, propertiesArr, errcode_ret),
+            clCreateCommandQueue, &context, &device, &properties, &errcode_ret);
     }
 }
 SET_ALIAS(clCreateCommandQueue);
@@ -558,11 +702,13 @@ cl_int CL_API_CALL clRetainCommandQueue(cl_command_queue command_queue)
     {
         START_LOG_API(clRetainCommandQueue);
         apiLogger << "cl_command_queue command_queue" << command_queue;
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, RetainCommandQueue(command_queue));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, RetainCommandQueue(command_queue),
+           clRetainCommandQueue, &command_queue);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, RetainCommandQueue(command_queue));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, RetainCommandQueue(command_queue),
+            clRetainCommandQueue, &command_queue);
     }
 }
 SET_ALIAS(clRetainCommandQueue);
@@ -572,11 +718,13 @@ cl_int CL_API_CALL clReleaseCommandQueue(cl_command_queue command_queue)
     {
         START_LOG_API(clReleaseCommandQueue);
         apiLogger << "cl_command_queue command_queue" << command_queue;
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, ReleaseCommandQueue(command_queue));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, ReleaseCommandQueue(command_queue),
+           clReleaseCommandQueue, &command_queue);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, ReleaseCommandQueue(command_queue));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, ReleaseCommandQueue(command_queue),
+            clReleaseCommandQueue, &command_queue);
     }
 }
 SET_ALIAS(clReleaseCommandQueue);
@@ -592,11 +740,13 @@ cl_int CL_API_CALL clGetCommandQueueInfo(cl_command_queue      command_queue,
         apiLogger << "cl_command_queue command_queue" << command_queue << "cl_command_queue_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, GetCommandQueueInfo(command_queue, param_name, param_value_size, param_value, param_value_size_ret));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, GetCommandQueueInfo(command_queue, param_name, param_value_size, param_value, param_value_size_ret),
+           clGetCommandQueueInfo, &command_queue, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, GetCommandQueueInfo(command_queue, param_name, param_value_size, param_value, param_value_size_ret));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, GetCommandQueueInfo(command_queue, param_name, param_value_size, param_value, param_value_size_ret),
+            clGetCommandQueueInfo, &command_queue, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
 }
 SET_ALIAS(clGetCommandQueueInfo);
@@ -609,11 +759,13 @@ cl_int CL_API_CALL clSetCommandQueueProperty(cl_command_queue              comma
     {
         START_LOG_API(clSetCommandQueueProperty);
         apiLogger << "cl_command_queue command_queue" << command_queue << "cl_command_queue_properties properties" << properties << "cl_bool enable" << enable << "cl_command_queue_properties * old_properties" << old_properties;
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, SetCommandQueueProperty(command_queue, properties, enable, old_properties));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, SetCommandQueueProperty(command_queue, properties, enable, old_properties),
+           clSetCommandQueueProperty, &command_queue, &properties, &enable, &old_properties);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, SetCommandQueueProperty(command_queue, properties, enable, old_properties));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, SetCommandQueueProperty(command_queue, properties, enable, old_properties),
+            clSetCommandQueueProperty, &command_queue, &properties, &enable, &old_properties);
     }
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -631,11 +783,13 @@ cl_mem CL_API_CALL clCreateBuffer(cl_context   context,
         apiLogger << "cl_context context" << context << "cl_mem_flags flags" << flags << "size_t size" << size << "void * host_ptr" << host_ptr << "cl_int * errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_mem, CreateBuffer(context, flags, size, host_ptr, errcode_ret));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_mem, CreateBuffer(context, flags, size, host_ptr, errcode_ret),
+           clCreateBuffer, &context, &flags, &size, &host_ptr, &errcode_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_mem, CreateBuffer(context, flags, size, host_ptr, errcode_ret));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_mem, CreateBuffer(context, flags, size, host_ptr, errcode_ret),
+            clCreateBuffer, &context, &flags, &size, &host_ptr, &errcode_ret);
     }
 }
 SET_ALIAS(clCreateBuffer);
@@ -652,29 +806,32 @@ cl_mem CL_API_CALL clCreateSubBuffer(cl_mem buffer,
         apiLogger << "cl_mem buffer" << buffer << "cl_mem_flags flags" << flags << "cl_buffer_create_type buffer_create_type" << buffer_create_type << "const void * buffer_create_info" << buffer_create_info << "cl_int * errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_mem, CreateSubBuffer(buffer, flags, buffer_create_type, buffer_create_info, errcode_ret));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_mem, CreateSubBuffer(buffer, flags, buffer_create_type, buffer_create_info, errcode_ret),
+           clCreateSubBuffer, &buffer, &flags, &buffer_create_type, &buffer_create_info, &errcode_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_mem, CreateSubBuffer(buffer, flags, buffer_create_type, buffer_create_info, errcode_ret));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_mem, CreateSubBuffer(buffer, flags, buffer_create_type, buffer_create_info, errcode_ret),
+            clCreateSubBuffer, &buffer, &flags, &buffer_create_type, &buffer_create_info, &errcode_ret);
     }
 }
 SET_ALIAS(clCreateSubBuffer);
 
-cl_int CL_API_CALL
-clSetMemObjectDestructorCallback(cl_mem			memObj,
-								 mem_dtor_fn	pfn_notify,
-								void *			pUserData )
+cl_int CL_API_CALL clSetMemObjectDestructorCallback(cl_mem      memObj,
+								                    mem_dtor_fn pfn_notify,
+								                    void *      pUserData)
 {
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(CL_API_CALLclSetMemObjectDestructorCallback);
         apiLogger << "cl_mem memObj" << memObj << "mem_dtor_fn pfn_notify" << pfn_notify << "void * pUserData" << pUserData;
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, SetMemObjectDestructorCallback(memObj, pfn_notify, pUserData));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, SetMemObjectDestructorCallback(memObj, pfn_notify, pUserData),
+           clSetMemObjectDestructorCallback, &memObj, &pfn_notify, &pUserData);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, SetMemObjectDestructorCallback(memObj, pfn_notify, pUserData));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, SetMemObjectDestructorCallback(memObj, pfn_notify, pUserData),
+            clSetMemObjectDestructorCallback, &memObj, &pfn_notify, &pUserData);
     }
 }
 SET_ALIAS(clSetMemObjectDestructorCallback);
@@ -693,11 +850,13 @@ cl_mem CL_API_CALL clCreateImage(
         apiLogger << "cl_context context" << context << "cl_mem_flags flags" << flags << "const cl_image_format *image_format" << image_format << "const cl_image_desc *image_desc" << image_desc << "void *host_ptr" << host_ptr << "cl_int *errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
-        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_mem, CreateImage(context, flags, image_format, image_desc, host_ptr, errcode_ret));
+        CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_mem, CreateImage(context, flags, image_format, image_desc, host_ptr, errcode_ret),
+            clCreateImage, &context, &flags, &image_format, &image_desc, &host_ptr, &errcode_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_mem, CreateImage(context, flags, image_format, image_desc, host_ptr, errcode_ret));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_mem, CreateImage(context, flags, image_format, image_desc, host_ptr, errcode_ret),
+            clCreateImage, &context, &flags, &image_format, &image_desc, &host_ptr, &errcode_ret);
     }
 }
 SET_ALIAS(clCreateImage);
@@ -717,11 +876,13 @@ cl_mem CL_API_CALL clCreateImage2D(cl_context              context,
         apiLogger << "cl_context context" << context << "cl_mem_flags flags" << flags << "const cl_image_format * image_format" << image_format << "size_t image_width" << image_width << "size_t image_height" << image_height << "size_t image_row_pitch" << image_row_pitch << "void * host_ptr" << host_ptr << "cl_int * errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_mem, CreateImage2D(context, flags, image_format, image_width, image_height, image_row_pitch, host_ptr, errcode_ret));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_mem, CreateImage2D(context, flags, image_format, image_width, image_height, image_row_pitch, host_ptr, errcode_ret),
+           clCreateImage2D, &context, &flags, &image_format, &image_width, &image_height, &image_row_pitch, &host_ptr, &errcode_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_mem, CreateImage2D(context, flags, image_format, image_width, image_height, image_row_pitch, host_ptr, errcode_ret));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_mem, CreateImage2D(context, flags, image_format, image_width, image_height, image_row_pitch, host_ptr, errcode_ret),
+            clCreateImage2D, &context, &flags, &image_format, &image_width, &image_height, &image_row_pitch, &host_ptr, &errcode_ret);
     }
 }
 SET_ALIAS(clCreateImage2D);
@@ -743,11 +904,13 @@ cl_mem CL_API_CALL clCreateImage3D(cl_context              context,
         apiLogger << "cl_context context" << context << "cl_mem_flags flags" << flags << "const cl_image_format * image_format" << image_format << "size_t image_width" << image_width << "size_t image_height" << image_height << "size_t image_depth" << image_depth << "size_t image_row_pitch" << image_row_pitch << "size_t image_slice_pitch" << image_slice_pitch << "void * host_ptr" << host_ptr << "cl_int * errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_mem, CreateImage3D(context, flags, image_format, image_width, image_height, image_depth, image_row_pitch, image_slice_pitch, host_ptr, errcode_ret));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_mem, CreateImage3D(context, flags, image_format, image_width, image_height, image_depth, image_row_pitch, image_slice_pitch, host_ptr, errcode_ret),
+           clCreateImage3D, &context, &flags, &image_format, &image_width, &image_height, &image_depth, &image_row_pitch, &image_slice_pitch, &host_ptr, &errcode_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_mem, CreateImage3D(context, flags, image_format, image_width, image_height, image_depth, image_row_pitch, image_slice_pitch, host_ptr, errcode_ret));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_mem, CreateImage3D(context, flags, image_format, image_width, image_height, image_depth, image_row_pitch, image_slice_pitch, host_ptr, errcode_ret),
+            clCreateImage3D, &context, &flags, &image_format, &image_width, &image_height, &image_depth, &image_row_pitch, &image_slice_pitch, &host_ptr, &errcode_ret);
     }
 }
 SET_ALIAS(clCreateImage3D);
@@ -758,11 +921,13 @@ cl_int CL_API_CALL clRetainMemObject(cl_mem memobj)
     {
         START_LOG_API(clRetainMemObject);
         apiLogger << "cl_mem memobj" << memobj;
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, RetainMemObject(memobj));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, RetainMemObject(memobj),
+           clRetainMemObject, &memobj);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, RetainMemObject(memobj));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, RetainMemObject(memobj),
+            clRetainMemObject, &memobj);
     }
 }
 SET_ALIAS(clRetainMemObject);
@@ -773,11 +938,13 @@ cl_int CL_API_CALL clReleaseMemObject(cl_mem memobj)
     {
         START_LOG_API(clReleaseMemObject);
         apiLogger << "cl_mem memobj" << memobj;
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, ReleaseMemObject(memobj));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, ReleaseMemObject(memobj),
+           clReleaseMemObject, &memobj);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, ReleaseMemObject(memobj));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, ReleaseMemObject(memobj),
+            clReleaseMemObject, &memobj);
     }
 }
 SET_ALIAS(clReleaseMemObject);
@@ -807,11 +974,13 @@ cl_int CL_API_CALL clGetSupportedImageFormats(cl_context           context,
         apiLogger << "cl_context context" << context << "cl_mem_flags flags" << flags << "cl_mem_object_type image_type" << image_type << "cl_uint num_entries" << num_entries << "cl_image_format * image_formats" << image_formats << "cl_uint * num_image_formats" << num_image_formats;
         OutputListPrinter<cl_image_format, cl_uint, ImageFormatValuePrinter> printer("image_formats (order,type)", image_formats, num_image_formats, num_entries);
         OutputParamsValueProvider provider(apiLogger, &printer);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, GetSupportedImageFormats(context, flags, image_type, num_entries, image_formats, num_image_formats));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, GetSupportedImageFormats(context, flags, image_type, num_entries, image_formats, num_image_formats),
+           clGetSupportedImageFormats, &context, &flags, &image_type, &num_entries, &image_formats, &num_image_formats);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, GetSupportedImageFormats(context, flags, image_type, num_entries, image_formats, num_image_formats));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, GetSupportedImageFormats(context, flags, image_type, num_entries, image_formats, num_image_formats),
+            clGetSupportedImageFormats, &context, &flags, &image_type, &num_entries, &image_formats, &num_image_formats);
     }
 }
 SET_ALIAS(clGetSupportedImageFormats);
@@ -828,11 +997,13 @@ cl_int CL_API_CALL clGetMemObjectInfo(cl_mem           memobj,
         apiLogger << "cl_mem memobj" << memobj << "cl_mem_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, GetMemObjectInfo(memobj, param_name, param_value_size, param_value, param_value_size_ret));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, GetMemObjectInfo(memobj, param_name, param_value_size, param_value, param_value_size_ret),
+           clGetMemObjectInfo, &memobj, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, GetMemObjectInfo(memobj, param_name, param_value_size, param_value, param_value_size_ret));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, GetMemObjectInfo(memobj, param_name, param_value_size, param_value, param_value_size_ret),
+            clGetMemObjectInfo, &memobj, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
 }
 SET_ALIAS(clGetMemObjectInfo);
@@ -849,11 +1020,13 @@ cl_int CL_API_CALL clGetImageInfo(cl_mem           image,
         apiLogger << "cl_mem image" << image << "cl_image_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, GetImageInfo(image, param_name, param_value_size, param_value, param_value_size_ret));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, GetImageInfo(image, param_name, param_value_size, param_value, param_value_size_ret),
+           clGetImageInfo, &image, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, GetImageInfo(image, param_name, param_value_size, param_value, param_value_size_ret));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, GetImageInfo(image, param_name, param_value_size, param_value, param_value_size_ret),
+            clGetImageInfo, &image, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
 }
 SET_ALIAS(clGetImageInfo);
@@ -872,11 +1045,13 @@ cl_sampler CL_API_CALL clCreateSampler(cl_context			context,
         apiLogger << "cl_context context" << context << "cl_bool normalized_coords" << normalized_coords << "cl_addressing_mode addressing_mode" << addressing_mode << "cl_filter_mode filter_mode" << filter_mode << "cl_int * errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_sampler, CreateSampler(context, normalized_coords, addressing_mode, filter_mode, errcode_ret));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_sampler, CreateSampler(context, normalized_coords, addressing_mode, filter_mode, errcode_ret),
+           clCreateSampler, &context, &normalized_coords, &addressing_mode, &filter_mode, &errcode_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_sampler, CreateSampler(context, normalized_coords, addressing_mode, filter_mode, errcode_ret));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_sampler, CreateSampler(context, normalized_coords, addressing_mode, filter_mode, errcode_ret),
+            clCreateSampler, &context, &normalized_coords, &addressing_mode, &filter_mode, &errcode_ret);
     }
 }
 SET_ALIAS(clCreateSampler);
@@ -891,11 +1066,13 @@ cl_sampler CL_API_CALL clCreateSamplerWithProperties(cl_context context,
         apiLogger << "cl_context context" << context << "const cl_sampler_properties *sampler_properties" << sampler_properties << "cl_int *errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_sampler, CreateSamplerWithProperties(context, sampler_properties, errcode_ret));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_sampler, CreateSamplerWithProperties(context, sampler_properties, errcode_ret),
+           clCreateSamplerWithProperties, &context, &sampler_properties, &errcode_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_sampler, CreateSamplerWithProperties(context, sampler_properties, errcode_ret));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_sampler, CreateSamplerWithProperties(context, sampler_properties, errcode_ret),
+            clCreateSamplerWithProperties, &context, &sampler_properties, &errcode_ret);
     }
 }
 SET_ALIAS(clCreateSamplerWithProperties);
@@ -906,11 +1083,13 @@ cl_int CL_API_CALL clRetainSampler(cl_sampler sampler)
     {
         START_LOG_API(clRetainSampler);
         apiLogger << "cl_sampler sampler" << sampler;
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, RetainSampler(sampler));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, RetainSampler(sampler),
+           clRetainSampler, &sampler);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, RetainSampler(sampler));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, RetainSampler(sampler),
+            clRetainSampler, &sampler);
     }
 }
 SET_ALIAS(clRetainSampler);
@@ -921,11 +1100,13 @@ cl_int CL_API_CALL clReleaseSampler(cl_sampler sampler)
     {
         START_LOG_API(clReleaseSampler);
         apiLogger << "cl_sampler sampler" << sampler;
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, ReleaseSampler(sampler));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, ReleaseSampler(sampler),
+           clReleaseSampler, &sampler);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, ReleaseSampler(sampler));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, ReleaseSampler(sampler),
+            clReleaseSampler, &sampler);
     }
 }
 SET_ALIAS(clReleaseSampler);
@@ -942,11 +1123,13 @@ cl_int CL_API_CALL clGetSamplerInfo(cl_sampler		sampler,
         apiLogger << "cl_sampler sampler" << sampler << "cl_sampler_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, GetSamplerInfo(sampler, param_name, param_value_size, param_value, param_value_size_ret));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, GetSamplerInfo(sampler, param_name, param_value_size, param_value, param_value_size_ret),
+           clGetSamplerInfo, &sampler, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, GetSamplerInfo(sampler, param_name, param_value_size, param_value, param_value_size_ret));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, GetSamplerInfo(sampler, param_name, param_value_size, param_value, param_value_size_ret),
+            clGetSamplerInfo, &sampler, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
 }
 SET_ALIAS(clGetSamplerInfo);
@@ -966,11 +1149,13 @@ cl_program CL_API_CALL clCreateProgramWithSource(cl_context     context,
         apiLogger << "cl_context context" << context << "cl_uint count" << count << "const char ** strings" << strings << "const size_t * lengths" << lengths << "cl_int * errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_program, CreateProgramWithSource(context, count, strings, lengths, errcode_ret));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_program, CreateProgramWithSource(context, count, strings, lengths, errcode_ret),
+           clCreateProgramWithSource, &context, &count, &strings, &lengths, &errcode_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_program, CreateProgramWithSource(context, count, strings, lengths, errcode_ret));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_program, CreateProgramWithSource(context, count, strings, lengths, errcode_ret),
+            clCreateProgramWithSource, &context, &count, &strings, &lengths, &errcode_ret);
     }
 }
 SET_ALIAS(clCreateProgramWithSource);
@@ -990,11 +1175,13 @@ cl_program CL_API_CALL clCreateProgramWithBinary(cl_context           context,
         OutputListPrinter<cl_int, cl_uint> printer("binary_statuses", binary_status, nullptr, num_devices);
         OutputParamsValueProvider provider(apiLogger, &printer);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_program, CreateProgramWithBinary(context, num_devices, device_list, lengths, binaries, binary_status, errcode_ret));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_program, CreateProgramWithBinary(context, num_devices, device_list, lengths, binaries, binary_status, errcode_ret),
+           clCreateProgramWithBinary, &context, &num_devices, &device_list, &lengths, &binaries, &binary_status, &errcode_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_program, CreateProgramWithBinary(context, num_devices, device_list, lengths, binaries, binary_status, errcode_ret));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_program, CreateProgramWithBinary(context, num_devices, device_list, lengths, binaries, binary_status, errcode_ret),
+            clCreateProgramWithBinary, &context, &num_devices, &device_list, &lengths, &binaries, &binary_status, &errcode_ret);
     }
 }
 SET_ALIAS(clCreateProgramWithBinary);
@@ -1012,11 +1199,13 @@ cl_program CL_API_CALL clCreateProgramWithBuiltInKernels(cl_context            c
         apiLogger.PrintCStringVal(kernel_names) << "cl_int * errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_program, CreateProgramWithBuiltInKernels(context, num_devices, device_list, kernel_names, errcode_ret));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_program, CreateProgramWithBuiltInKernels(context, num_devices, device_list, kernel_names, errcode_ret),
+           clCreateProgramWithBuiltInKernels, &context, &num_devices, &device_list, &kernel_names, &errcode_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_program, CreateProgramWithBuiltInKernels(context, num_devices, device_list, kernel_names, errcode_ret));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_program, CreateProgramWithBuiltInKernels(context, num_devices, device_list, kernel_names, errcode_ret),
+            clCreateProgramWithBuiltInKernels, &context, &num_devices, &device_list, &kernel_names, &errcode_ret);
     }
 }
 SET_ALIAS(clCreateProgramWithBuiltInKernels);
@@ -1027,11 +1216,13 @@ cl_int CL_API_CALL clRetainProgram(cl_program program)
     {
         START_LOG_API(clRetainProgram);
         apiLogger << "cl_program program" << program;
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, RetainProgram(program));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, RetainProgram(program),
+           clRetainProgram, &program);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, RetainProgram(program));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, RetainProgram(program),
+            clRetainProgram, &program);
     }
 }
 SET_ALIAS(clRetainProgram);
@@ -1042,11 +1233,13 @@ cl_int CL_API_CALL clReleaseProgram(cl_program program)
     {
         START_LOG_API(clReleaseProgram);
         apiLogger << "cl_program program" << program;
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, ReleaseProgram(program));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, ReleaseProgram(program),
+           clReleaseProgram, &program);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, ReleaseProgram(program));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, ReleaseProgram(program),
+            clReleaseProgram, &program);
     }
 }
 SET_ALIAS(clReleaseProgram);
@@ -1063,11 +1256,13 @@ cl_int CL_API_CALL clBuildProgram(cl_program           program,
         START_LOG_API(clBuildProgram);
         apiLogger << "cl_program program" << program << "cl_uint num_devices" << num_devices << "const cl_device_id * device_list" << device_list << "const char * options";
         apiLogger.PrintCStringVal(options) << "void (CL_CALLBACK *pfn_notify)(cl_program program, void * user_data)" << pfn_notify << "void * user_data" << user_data;
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, BuildProgram(program, num_devices, device_list, options, pfn_notify, user_data));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, BuildProgram(program, num_devices, device_list, options, pfn_notify, user_data),
+           clBuildProgram, &program, &num_devices, &device_list, &options, &pfn_notify, &user_data);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, BuildProgram(program, num_devices, device_list, options, pfn_notify, user_data));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, BuildProgram(program, num_devices, device_list, options, pfn_notify, user_data),
+            clBuildProgram, &program, &num_devices, &device_list, &options, &pfn_notify, &user_data);
     }
 }
 SET_ALIAS(clBuildProgram);
@@ -1077,11 +1272,13 @@ cl_int CL_API_CALL clUnloadPlatformCompiler(cl_platform_id platform)
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clUnloadPlatformCompiler);
-        CALL_INSTRUMENTED_API_LOGGER(PLATFORM_MODULE, cl_int, UnloadPlatformCompiler(platform));
+        CALL_TRACED_API_LOGGER(PLATFORM_MODULE, cl_int, UnloadPlatformCompiler(platform),
+            clUnloadPlatformCompiler, &platform);
     }
     else
     {
-        CALL_INSTRUMENTED_API(PLATFORM_MODULE, cl_int, UnloadPlatformCompiler(platform));
+        CALL_TRACED_API(PLATFORM_MODULE, cl_int, UnloadPlatformCompiler(platform),
+            clUnloadPlatformCompiler, &platform);
     }
 }
 SET_ALIAS(clUnloadPlatformCompiler);
@@ -1091,11 +1288,13 @@ cl_int CL_API_CALL clUnloadCompiler(void)
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clUnloadCompiler);
-	      CALL_INSTRUMENTED_API_LOGGER(PLATFORM_MODULE, cl_int, UnloadCompiler());
+	      CALL_TRACED_API_LOGGER(PLATFORM_MODULE, cl_int, UnloadCompiler(),
+           clUnloadCompiler, nullptr);
     }
     else
     {
-        CALL_INSTRUMENTED_API(PLATFORM_MODULE, cl_int, UnloadCompiler());
+        CALL_TRACED_API(PLATFORM_MODULE, cl_int, UnloadCompiler(),
+            clUnloadCompiler, nullptr);
     }
 }
 SET_ALIAS(clUnloadCompiler);
@@ -1112,11 +1311,13 @@ cl_int CL_API_CALL clGetProgramInfo(cl_program      program,
         apiLogger << "cl_program program" << program << "cl_program_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, GetProgramInfo(program, param_name, param_value_size, param_value, param_value_size_ret));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, GetProgramInfo(program, param_name, param_value_size, param_value, param_value_size_ret),
+           clGetProgramInfo, &program, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, GetProgramInfo(program, param_name, param_value_size, param_value, param_value_size_ret));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, GetProgramInfo(program, param_name, param_value_size, param_value, param_value_size_ret),
+            clGetProgramInfo, &program, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
 }
 SET_ALIAS(clGetProgramInfo);
@@ -1134,11 +1335,13 @@ cl_int CL_API_CALL clGetProgramBuildInfo(cl_program            program,
         apiLogger << "cl_program program" << program << "cl_device_id device" << device << "cl_program_build_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, GetProgramBuildInfo(program, device, param_name, param_value_size, param_value, param_value_size_ret));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, GetProgramBuildInfo(program, device, param_name, param_value_size, param_value, param_value_size_ret),
+           clGetProgramBuildInfo, &program, &device, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, GetProgramBuildInfo(program, device, param_name, param_value_size, param_value, param_value_size_ret));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, GetProgramBuildInfo(program, device, param_name, param_value_size, param_value, param_value_size_ret),
+            clGetProgramBuildInfo, &program, &device, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
 }
 SET_ALIAS(clGetProgramBuildInfo);
@@ -1157,11 +1360,13 @@ cl_kernel CL_API_CALL clCreateKernel(cl_program   program,
         apiLogger.PrintCStringVal(kernel_name) << "cl_int * errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_kernel, CreateKernel(program, kernel_name, errcode_ret));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_kernel, CreateKernel(program, kernel_name, errcode_ret),
+           clCreateKernel, &program, &kernel_name, &errcode_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_kernel, CreateKernel(program, kernel_name, errcode_ret));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_kernel, CreateKernel(program, kernel_name, errcode_ret),
+            clCreateKernel, &program, &kernel_name, &errcode_ret);
     }
 }
 SET_ALIAS(clCreateKernel);
@@ -1177,11 +1382,13 @@ cl_int CL_API_CALL clCreateKernelsInProgram(cl_program  program,
         apiLogger << "cl_program program" << program << "cl_uint num_kernels" << num_kernels << "cl_kernel * kernels" << kernels << "cl_uint * num_kernels_ret" << num_kernels_ret;
         OutputListPrinter<cl_kernel, cl_uint> printer("kernels", kernels, num_kernels_ret, num_kernels);
         OutputParamsValueProvider provider(apiLogger, &printer);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, CreateKernelsInProgram(program, num_kernels, kernels, num_kernels_ret));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, CreateKernelsInProgram(program, num_kernels, kernels, num_kernels_ret),
+           clCreateKernelsInProgram, &program, &num_kernels, &kernels, &num_kernels_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, CreateKernelsInProgram(program, num_kernels, kernels, num_kernels_ret));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, CreateKernelsInProgram(program, num_kernels, kernels, num_kernels_ret),
+            clCreateKernelsInProgram, &program, &num_kernels, &kernels, &num_kernels_ret);
     }
 }
 SET_ALIAS(clCreateKernelsInProgram);
@@ -1192,11 +1399,13 @@ cl_int CL_API_CALL clRetainKernel(cl_kernel kernel)
     {
         START_LOG_API(clRetainKernel);
         apiLogger << "cl_kernel kernel" << kernel;
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, RetainKernel(kernel));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, RetainKernel(kernel),
+           clRetainKernel, &kernel);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, RetainKernel(kernel));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, RetainKernel(kernel),
+            clRetainKernel, &kernel);
     }
 }
 SET_ALIAS(clRetainKernel);
@@ -1207,11 +1416,13 @@ cl_int CL_API_CALL clReleaseKernel(cl_kernel kernel)
     {
         START_LOG_API(clReleaseKernel);
         apiLogger << "cl_kernel kernel" << kernel;
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, ReleaseKernel(kernel));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, ReleaseKernel(kernel),
+           clReleaseKernel, &kernel);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, ReleaseKernel(kernel));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, ReleaseKernel(kernel),
+            clReleaseKernel, &kernel);
     }
 }
 SET_ALIAS(clReleaseKernel);
@@ -1225,11 +1436,13 @@ cl_int CL_API_CALL clSetKernelArg(cl_kernel    kernel,
     {
         START_LOG_API(clSetKernelArg);
         apiLogger << "cl_kernel kernel" << kernel << "cl_uint arg_indx" << arg_indx << "size_t arg_size" << arg_size << "const void * arg_value" << arg_value;
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, SetKernelArg(kernel, arg_indx, arg_size, arg_value));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, SetKernelArg(kernel, arg_indx, arg_size, arg_value),
+           clSetKernelArg, &kernel, &arg_indx, &arg_size, &arg_value);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, SetKernelArg(kernel, arg_indx, arg_size, arg_value));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, SetKernelArg(kernel, arg_indx, arg_size, arg_value),
+            clSetKernelArg, &kernel, &arg_indx, &arg_size, &arg_value);
     }
 }
 SET_ALIAS(clSetKernelArg);
@@ -1246,11 +1459,13 @@ cl_int CL_API_CALL clGetKernelInfo(cl_kernel      kernel,
         apiLogger << "cl_kernel kernel" << kernel << "cl_kernel_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, GetKernelInfo(kernel, param_name, param_value_size, param_value, param_value_size_ret));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, GetKernelInfo(kernel, param_name, param_value_size, param_value, param_value_size_ret),
+           clGetKernelInfo, &kernel, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, GetKernelInfo(kernel, param_name, param_value_size, param_value, param_value_size_ret));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, GetKernelInfo(kernel, param_name, param_value_size, param_value, param_value_size_ret),
+            clGetKernelInfo, &kernel, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
 }
 SET_ALIAS(clGetKernelInfo);
@@ -1268,11 +1483,13 @@ cl_int CL_API_CALL clGetKernelWorkGroupInfo(cl_kernel                 kernel,
         apiLogger << "cl_kernel kernel" << kernel << "cl_device_id device" << device << "cl_kernel_work_group_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, GetKernelWorkGroupInfo(kernel, device, param_name, param_value_size, param_value, param_value_size_ret));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, GetKernelWorkGroupInfo(kernel, device, param_name, param_value_size, param_value, param_value_size_ret),
+           clGetKernelWorkGroupInfo, &kernel, &device, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, GetKernelWorkGroupInfo(kernel, device, param_name, param_value_size, param_value, param_value_size_ret));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, GetKernelWorkGroupInfo(kernel, device, param_name, param_value_size, param_value, param_value_size_ret),
+            clGetKernelWorkGroupInfo, &kernel, &device, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
 }
 SET_ALIAS(clGetKernelWorkGroupInfo);
@@ -1285,11 +1502,13 @@ cl_int CL_API_CALL clWaitForEvents(cl_uint num_events, const cl_event * event_li
     {
         START_LOG_API(clWaitForEvents);
         apiLogger << "cl_uint num_events" << num_events << "const cl_event * event_list" << event_list;
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, WaitForEvents(num_events, event_list));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, WaitForEvents(num_events, event_list),
+           clWaitForEvents, &num_events, &event_list);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, WaitForEvents(num_events, event_list));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, WaitForEvents(num_events, event_list),
+            clWaitForEvents, &num_events, &event_list);
     }
 }
 SET_ALIAS(clWaitForEvents);
@@ -1305,11 +1524,13 @@ cl_int CL_API_CALL clGetEventInfo(cl_event		event,
         apiLogger << "cl_event event" << event << "cl_event_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, GetEventInfo(event, param_name, param_value_size, param_value, param_value_size_ret));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, GetEventInfo(event, param_name, param_value_size, param_value, param_value_size_ret),
+           clGetEventInfo, &event, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, GetEventInfo(event, param_name, param_value_size, param_value, param_value_size_ret));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, GetEventInfo(event, param_name, param_value_size, param_value, param_value_size_ret),
+            clGetEventInfo, &event, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
 }
 SET_ALIAS(clGetEventInfo);
@@ -1320,11 +1541,13 @@ cl_int CL_API_CALL clRetainEvent(cl_event event)
     {
         START_LOG_API(clRetainEvent);
         apiLogger << "cl_event event" << event;
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, RetainEvent(event));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, RetainEvent(event),
+           clRetainEvent, &event);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, RetainEvent(event));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, RetainEvent(event),
+            clRetainEvent, &event);
     }
 }
 SET_ALIAS(clRetainEvent);
@@ -1335,11 +1558,13 @@ cl_int CL_API_CALL clReleaseEvent(cl_event event)
     {
         START_LOG_API(clReleaseEvent);
         apiLogger << "cl_event event" << event;
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, ReleaseEvent(event));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, ReleaseEvent(event),
+           clReleaseEvent, &event);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, ReleaseEvent(event));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, ReleaseEvent(event),
+            clReleaseEvent, &event);
     }
 }
 SET_ALIAS(clReleaseEvent);
@@ -1358,11 +1583,13 @@ cl_int CL_API_CALL clGetEventProfilingInfo(cl_event				event,
         apiLogger << "cl_event event" << event << "cl_profiling_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, GetEventProfilingInfo(event, param_name, param_value_size, param_value, param_value_size_ret));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, GetEventProfilingInfo(event, param_name, param_value_size, param_value, param_value_size_ret),
+           clGetEventProfilingInfo, &event, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, GetEventProfilingInfo(event, param_name, param_value_size, param_value, param_value_size_ret));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, GetEventProfilingInfo(event, param_name, param_value_size, param_value, param_value_size_ret),
+            clGetEventProfilingInfo, &event, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
 }
 SET_ALIAS(clGetEventProfilingInfo);
@@ -1375,11 +1602,13 @@ cl_int CL_API_CALL clFlush(cl_command_queue command_queue)
     {
         START_LOG_API(clFlush);
         apiLogger << "cl_command_queue command_queue" << command_queue;
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, Flush(command_queue));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, Flush(command_queue),
+           clFlush, &command_queue);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, Flush(command_queue));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, Flush(command_queue),
+            clFlush, &command_queue);
     }
 }
 SET_ALIAS(clFlush);
@@ -1389,11 +1618,13 @@ cl_int CL_API_CALL clFinish(cl_command_queue command_queue)
     {
         START_LOG_API(clFinish);
         apiLogger << "cl_command_queue command_queue" << command_queue;
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, Finish(command_queue));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, Finish(command_queue),
+           clFinish, &command_queue);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, Finish(command_queue));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, Finish(command_queue),
+            clFinish, &command_queue);
     }
 }
 SET_ALIAS(clFinish);
@@ -1417,11 +1648,13 @@ cl_int CL_API_CALL clEnqueueReadBuffer(cl_command_queue	command_queue,
         apiLogger << "cl_command_queue command_queue" << command_queue << "cl_mem buffer" << buffer << "cl_bool blocking_read" << blocking_read << "size_t offset" << offset << "size_t cb" << cb << "void * ptr" << ptr << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event * event_wait_list" << event_wait_list << "cl_event * event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
-        CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueReadBuffer(command_queue, buffer, blocking_read, offset, cb, ptr, num_events_in_wait_list, event_wait_list, event, &apiLogger));
+        CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueReadBuffer(command_queue, buffer, blocking_read, offset, cb, ptr, num_events_in_wait_list, event_wait_list, event, &apiLogger),
+            clEnqueueReadBuffer, &command_queue, &buffer, &blocking_read, &offset, &cb, &ptr, &num_events_in_wait_list, &event_wait_list, &event);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueReadBuffer(command_queue, buffer, blocking_read, offset, cb, ptr, num_events_in_wait_list, event_wait_list, event, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, EnqueueReadBuffer(command_queue, buffer, blocking_read, offset, cb, ptr, num_events_in_wait_list, event_wait_list, event, nullptr),
+            clEnqueueReadBuffer, &command_queue, &buffer, &blocking_read, &offset, &cb, &ptr, &num_events_in_wait_list, &event_wait_list, &event);
     }
 }
 SET_ALIAS(clEnqueueReadBuffer);
@@ -1452,11 +1685,13 @@ cl_int CL_API_CALL clEnqueueReadBufferRect(
             << "const cl_event * event_wait_list" << event_wait_list << "cl_event * event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueReadBufferRect(command_queue, buffer, blocking_read, buffer_origin, host_origin, region, buffer_row_pitch, buffer_slice_pitch, host_row_pitch, host_slice_pitch, ptr, num_events_in_wait_list, event_wait_list, event, &apiLogger));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueReadBufferRect(command_queue, buffer, blocking_read, buffer_origin, host_origin, region, buffer_row_pitch, buffer_slice_pitch, host_row_pitch, host_slice_pitch, ptr, num_events_in_wait_list, event_wait_list, event, &apiLogger),
+           clEnqueueReadBufferRect, &command_queue, &buffer, &blocking_read, &buffer_origin, &host_origin, &region, &buffer_row_pitch, &buffer_slice_pitch, &host_row_pitch, &host_slice_pitch, &ptr, &num_events_in_wait_list, &event_wait_list, &event);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueReadBufferRect(command_queue, buffer, blocking_read, buffer_origin, host_origin, region, buffer_row_pitch, buffer_slice_pitch, host_row_pitch, host_slice_pitch, ptr, num_events_in_wait_list, event_wait_list, event, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, EnqueueReadBufferRect(command_queue, buffer, blocking_read, buffer_origin, host_origin, region, buffer_row_pitch, buffer_slice_pitch, host_row_pitch, host_slice_pitch, ptr, num_events_in_wait_list, event_wait_list, event, nullptr),
+            clEnqueueReadBufferRect, &command_queue, &buffer, &blocking_read, &buffer_origin, &host_origin, &region, &buffer_row_pitch, &buffer_slice_pitch, &host_row_pitch, &host_slice_pitch, &ptr, &num_events_in_wait_list, &event_wait_list, &event);
     }
 }
 SET_ALIAS(clEnqueueReadBufferRect);
@@ -1477,11 +1712,13 @@ cl_int CL_API_CALL clEnqueueWriteBuffer(cl_command_queue	command_queue,
         apiLogger << "cl_command_queue command_queue" << command_queue << "cl_mem buffer" << buffer << "cl_bool blocking_write" << blocking_write << "size_t offset" << offset << "size_t cb" << cb << "const void * ptr" << ptr << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event * event_wait_list" << event_wait_list << "cl_event * event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueWriteBuffer(command_queue, buffer, blocking_write, offset, cb, ptr, num_events_in_wait_list, event_wait_list, event, &apiLogger));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueWriteBuffer(command_queue, buffer, blocking_write, offset, cb, ptr, num_events_in_wait_list, event_wait_list, event, &apiLogger),
+           clEnqueueWriteBuffer, &command_queue, &buffer, &blocking_write, &offset, &cb, &ptr, &num_events_in_wait_list, &event_wait_list, &event);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueWriteBuffer(command_queue, buffer, blocking_write, offset, cb, ptr, num_events_in_wait_list, event_wait_list, event, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, EnqueueWriteBuffer(command_queue, buffer, blocking_write, offset, cb, ptr, num_events_in_wait_list, event_wait_list, event, nullptr),
+            clEnqueueWriteBuffer, &command_queue, &buffer, &blocking_write, &offset, &cb, &ptr, &num_events_in_wait_list, &event_wait_list, &event);
     }
 }
 SET_ALIAS(clEnqueueWriteBuffer);
@@ -1514,11 +1751,13 @@ cl_int CL_API_CALL  clEnqueueWriteBufferRect(
             << "cl_event * event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueWriteBufferRect(command_queue, buffer, blocking_read, buffer_origin, host_origin, region, buffer_row_pitch, buffer_slice_pitch, host_row_pitch, host_slice_pitch, ptr, num_events_in_wait_list, event_wait_list, event, &apiLogger));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueWriteBufferRect(command_queue, buffer, blocking_read, buffer_origin, host_origin, region, buffer_row_pitch, buffer_slice_pitch, host_row_pitch, host_slice_pitch, ptr, num_events_in_wait_list, event_wait_list, event, &apiLogger),
+           clEnqueueWriteBufferRect, &command_queue, &buffer, &blocking_read, &buffer_origin, &host_origin, &region, &buffer_row_pitch, &buffer_slice_pitch, &host_row_pitch, &host_slice_pitch, &ptr, &num_events_in_wait_list, &event_wait_list, &event);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueWriteBufferRect(command_queue, buffer, blocking_read, buffer_origin, host_origin, region, buffer_row_pitch, buffer_slice_pitch, host_row_pitch, host_slice_pitch, ptr, num_events_in_wait_list, event_wait_list, event, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, EnqueueWriteBufferRect(command_queue, buffer, blocking_read, buffer_origin, host_origin, region, buffer_row_pitch, buffer_slice_pitch, host_row_pitch, host_slice_pitch, ptr, num_events_in_wait_list, event_wait_list, event, nullptr),
+            clEnqueueWriteBufferRect, &command_queue, &buffer, &blocking_read, &buffer_origin, &host_origin, &region, &buffer_row_pitch, &buffer_slice_pitch, &host_row_pitch, &host_slice_pitch, &ptr, &num_events_in_wait_list, &event_wait_list, &event);
     }
 }
 SET_ALIAS(clEnqueueWriteBufferRect);
@@ -1539,11 +1778,13 @@ cl_int CL_API_CALL clEnqueueCopyBuffer(cl_command_queue	command_queue,
         apiLogger << "cl_command_queue command_queue" << command_queue << "cl_mem src_buffer" << src_buffer << "cl_mem dst_buffer" << dst_buffer << "size_t src_offset" << src_offset << "size_t dst_offset" << dst_offset << "size_t cb" << cb << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event * event_wait_list" << event_wait_list << "cl_event * event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueCopyBuffer(command_queue, src_buffer, dst_buffer, src_offset, dst_offset, cb, num_events_in_wait_list, event_wait_list, event, &apiLogger));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueCopyBuffer(command_queue, src_buffer, dst_buffer, src_offset, dst_offset, cb, num_events_in_wait_list, event_wait_list, event, &apiLogger),
+           clEnqueueCopyBuffer, &command_queue, &src_buffer, &dst_buffer, &src_offset, &dst_offset, &cb, &num_events_in_wait_list, &event_wait_list, &event);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueCopyBuffer(command_queue, src_buffer, dst_buffer, src_offset, dst_offset, cb, num_events_in_wait_list, event_wait_list, event, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, EnqueueCopyBuffer(command_queue, src_buffer, dst_buffer, src_offset, dst_offset, cb, num_events_in_wait_list, event_wait_list, event, nullptr),
+            clEnqueueCopyBuffer, &command_queue, &src_buffer, &dst_buffer, &src_offset, &dst_offset, &cb, &num_events_in_wait_list, &event_wait_list, &event);
     }
 }
 SET_ALIAS(clEnqueueCopyBuffer);
@@ -1573,11 +1814,13 @@ cl_int CL_API_CALL clEnqueueCopyBufferRect(cl_command_queue    command_queue,
             << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event * event_wait_list" << event_wait_list << "cl_event * event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueCopyBufferRect(command_queue, src_buffer, dst_buffer, src_origin, dst_origin, region, src_row_pitch, src_slice_pitch, dst_row_pitch, dst_slice_pitch, num_events_in_wait_list, event_wait_list, event, &apiLogger));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueCopyBufferRect(command_queue, src_buffer, dst_buffer, src_origin, dst_origin, region, src_row_pitch, src_slice_pitch, dst_row_pitch, dst_slice_pitch, num_events_in_wait_list, event_wait_list, event, &apiLogger),
+           clEnqueueCopyBufferRect, &command_queue, &src_buffer, &dst_buffer, &src_origin, &dst_origin, &region, &src_row_pitch, &src_slice_pitch, &dst_row_pitch, &dst_slice_pitch, &num_events_in_wait_list, &event_wait_list, &event);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueCopyBufferRect(command_queue, src_buffer, dst_buffer, src_origin, dst_origin, region, src_row_pitch, src_slice_pitch, dst_row_pitch, dst_slice_pitch, num_events_in_wait_list, event_wait_list, event, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, EnqueueCopyBufferRect(command_queue, src_buffer, dst_buffer, src_origin, dst_origin, region, src_row_pitch, src_slice_pitch, dst_row_pitch, dst_slice_pitch, num_events_in_wait_list, event_wait_list, event, nullptr),
+            clEnqueueCopyBufferRect, &command_queue, &src_buffer, &dst_buffer, &src_origin, &dst_origin, &region, &src_row_pitch, &src_slice_pitch, &dst_row_pitch, &dst_slice_pitch, &num_events_in_wait_list, &event_wait_list, &event);
     }
 }
 SET_ALIAS(clEnqueueCopyBufferRect);
@@ -1598,11 +1841,13 @@ cl_int CL_API_CALL clEnqueueFillBuffer(cl_command_queue command_queue,
         apiLogger << "cl_command_queue command_queue" << command_queue << "cl_mem buffer" << buffer << "const void *pattern" << pattern << "size_t pattern_size" << pattern_size << "size_t offset" << offset << "size_t size" << size << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event *event_wait_list" << event_wait_list << "cl_event *event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueFillBuffer (command_queue, buffer, pattern, pattern_size, offset, size, num_events_in_wait_list, event_wait_list, event, &apiLogger));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueFillBuffer (command_queue, buffer, pattern, pattern_size, offset, size, num_events_in_wait_list, event_wait_list, event, &apiLogger),
+           clEnqueueFillBuffer, &command_queue, &buffer, &pattern, &pattern_size, &offset, &size, &num_events_in_wait_list, &event_wait_list, &event);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueFillBuffer (command_queue, buffer, pattern, pattern_size, offset, size, num_events_in_wait_list, event_wait_list, event, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, EnqueueFillBuffer (command_queue, buffer, pattern, pattern_size, offset, size, num_events_in_wait_list, event_wait_list, event, nullptr),
+            clEnqueueFillBuffer, &command_queue, &buffer, &pattern, &pattern_size, &offset, &size, &num_events_in_wait_list, &event_wait_list, &event);
     }
 }
 SET_ALIAS(clEnqueueFillBuffer);
@@ -1629,11 +1874,13 @@ cl_int CL_API_CALL clEnqueueReadImage(cl_command_queue command_queue,
             << "cl_event * event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueReadImage(command_queue, image, blocking_read, origin, region, row_pitch, slice_pitch, ptr, num_events_in_wait_list, event_wait_list, event, &apiLogger));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueReadImage(command_queue, image, blocking_read, origin, region, row_pitch, slice_pitch, ptr, num_events_in_wait_list, event_wait_list, event, &apiLogger),
+           clEnqueueReadImage, &command_queue, &image, &blocking_read, &origin, &region, &row_pitch, &slice_pitch, &ptr, &num_events_in_wait_list, &event_wait_list, &event);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueReadImage(command_queue, image, blocking_read, origin, region, row_pitch, slice_pitch, ptr, num_events_in_wait_list, event_wait_list, event, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, EnqueueReadImage(command_queue, image, blocking_read, origin, region, row_pitch, slice_pitch, ptr, num_events_in_wait_list, event_wait_list, event, nullptr),
+            clEnqueueReadImage, &command_queue, &image, &blocking_read, &origin, &region, &row_pitch, &slice_pitch, &ptr, &num_events_in_wait_list, &event_wait_list, &event);
     }
 }
 SET_ALIAS(clEnqueueReadImage);
@@ -1660,11 +1907,13 @@ cl_int CL_API_CALL clEnqueueWriteImage(cl_command_queue command_queue,
             << "const cl_event * event_wait_list" << event_wait_list << "cl_event * event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueWriteImage(command_queue, image, blocking_write, origin, region, input_row_pitch, input_slice_pitch, ptr, num_events_in_wait_list, event_wait_list, event, &apiLogger));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueWriteImage(command_queue, image, blocking_write, origin, region, input_row_pitch, input_slice_pitch, ptr, num_events_in_wait_list, event_wait_list, event, &apiLogger),
+           clEnqueueWriteImage, &command_queue, &image, &blocking_write, &origin, &region, &input_row_pitch, &input_slice_pitch, &ptr, &num_events_in_wait_list, &event_wait_list, &event);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueWriteImage(command_queue, image, blocking_write, origin, region, input_row_pitch, input_slice_pitch, ptr, num_events_in_wait_list, event_wait_list, event, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, EnqueueWriteImage(command_queue, image, blocking_write, origin, region, input_row_pitch, input_slice_pitch, ptr, num_events_in_wait_list, event_wait_list, event, nullptr),
+            clEnqueueWriteImage, &command_queue, &image, &blocking_write, &origin, &region, &input_row_pitch, &input_slice_pitch, &ptr, &num_events_in_wait_list, &event_wait_list, &event);
     }
 }
 SET_ALIAS(clEnqueueWriteImage);
@@ -1689,17 +1938,19 @@ cl_int CL_API_CALL clEnqueueCopyImage(cl_command_queue	command_queue,
             << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event * event_wait_list" << event_wait_list << "cl_event * event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueCopyImage(command_queue, src_image, dst_image, src_origin, dst_origin, region, num_events_in_wait_list, event_wait_list, event, &apiLogger));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueCopyImage(command_queue, src_image, dst_image, src_origin, dst_origin, region, num_events_in_wait_list, event_wait_list, event, &apiLogger),
+           clEnqueueCopyImage, &command_queue, &src_image, &dst_image, &src_origin, &dst_origin, &region, &num_events_in_wait_list, &event_wait_list, &event);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueCopyImage(command_queue, src_image, dst_image, src_origin, dst_origin, region, num_events_in_wait_list, event_wait_list, event, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, EnqueueCopyImage(command_queue, src_image, dst_image, src_origin, dst_origin, region, num_events_in_wait_list, event_wait_list, event, nullptr),
+            clEnqueueCopyImage, &command_queue, &src_image, &dst_image, &src_origin, &dst_origin, &region, &num_events_in_wait_list, &event_wait_list, &event);
     }
 }
 SET_ALIAS(clEnqueueCopyImage);
 
 
-cl_int CL_API_CALL clEnqueueFillImage (cl_command_queue command_queue,
+cl_int CL_API_CALL clEnqueueFillImage(cl_command_queue command_queue,
 						cl_mem image,
 						const void *fill_color,
 						const size_t *origin,
@@ -1714,11 +1965,13 @@ cl_int CL_API_CALL clEnqueueFillImage (cl_command_queue command_queue,
         apiLogger << "cl_command_queue command_queue" << command_queue << "cl_mem image" << image << "const void *fill_color" << fill_color << "const size_t *origin" << origin << "const size_t *region" << region << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event *event_wait_list" << event_wait_list << "cl_event *event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueFillImage(command_queue, image, fill_color, origin, region, num_events_in_wait_list, event_wait_list, event, &apiLogger));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueFillImage(command_queue, image, fill_color, origin, region, num_events_in_wait_list, event_wait_list, event, &apiLogger),
+           clEnqueueFillImage, &command_queue, &image, &fill_color, &origin, &region, &num_events_in_wait_list, &event_wait_list, &event);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueFillImage(command_queue, image, fill_color, origin, region, num_events_in_wait_list, event_wait_list, event, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, EnqueueFillImage(command_queue, image, fill_color, origin, region, num_events_in_wait_list, event_wait_list, event, nullptr),
+            clEnqueueFillImage, &command_queue, &image, &fill_color, &origin, &region, &num_events_in_wait_list, &event_wait_list, &event);
     }
 }
 SET_ALIAS(clEnqueueFillImage);
@@ -1741,11 +1994,13 @@ cl_int CL_API_CALL clEnqueueCopyImageToBuffer(cl_command_queue	command_queue,
             << "region[0]" << region[0] << "region[1]" << region[1] << "region[2]" << region[2] << "size_t dst_offset" << dst_offset << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event * event_wait_list" << event_wait_list << "cl_event * event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueCopyImageToBuffer(command_queue, src_image, dst_buffer, src_origin, region, dst_offset, num_events_in_wait_list, event_wait_list, event, &apiLogger));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueCopyImageToBuffer(command_queue, src_image, dst_buffer, src_origin, region, dst_offset, num_events_in_wait_list, event_wait_list, event, &apiLogger),
+           clEnqueueCopyImageToBuffer, &command_queue, &src_image, &dst_buffer, &src_origin, &region, &dst_offset, &num_events_in_wait_list, &event_wait_list, &event);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueCopyImageToBuffer(command_queue, src_image, dst_buffer, src_origin, region, dst_offset, num_events_in_wait_list, event_wait_list, event, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, EnqueueCopyImageToBuffer(command_queue, src_image, dst_buffer, src_origin, region, dst_offset, num_events_in_wait_list, event_wait_list, event, nullptr),
+            clEnqueueCopyImageToBuffer, &command_queue, &src_image, &dst_buffer, &src_origin, &region, &dst_offset, &num_events_in_wait_list, &event_wait_list, &event);
     }
 }
 SET_ALIAS(clEnqueueCopyImageToBuffer);
@@ -1768,11 +2023,13 @@ cl_int CL_API_CALL clEnqueueCopyBufferToImage(cl_command_queue	command_queue,
             << "region[0]" << region[0] << "region[1]" << region[1] << "region[2]" << region[2] << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event * event_wait_list" << event_wait_list << "cl_event * event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueCopyBufferToImage(command_queue, src_buffer, dst_image, src_offset, dst_origin, region, num_events_in_wait_list, event_wait_list, event, &apiLogger));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueCopyBufferToImage(command_queue, src_buffer, dst_image, src_offset, dst_origin, region, num_events_in_wait_list, event_wait_list, event, &apiLogger),
+           clEnqueueCopyBufferToImage, &command_queue, &src_buffer, &dst_image, &src_offset, &dst_origin, &region, &num_events_in_wait_list, &event_wait_list, &event);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueCopyBufferToImage(command_queue, src_buffer, dst_image, src_offset, dst_origin, region, num_events_in_wait_list, event_wait_list, event, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, EnqueueCopyBufferToImage(command_queue, src_buffer, dst_image, src_offset, dst_origin, region, num_events_in_wait_list, event_wait_list, event, nullptr),
+            clEnqueueCopyBufferToImage, &command_queue, &src_buffer, &dst_image, &src_offset, &dst_origin, &region, &num_events_in_wait_list, &event_wait_list, &event);
     }
 }
 SET_ALIAS(clEnqueueCopyBufferToImage);
@@ -1795,11 +2052,13 @@ void * CL_API_CALL clEnqueueMapBuffer(cl_command_queue	command_queue,
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, void *, EnqueueMapBuffer(command_queue, buffer, blocking_map, map_flags, offset, cb, num_events_in_wait_list, event_wait_list, event, errcode_ret, &apiLogger));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, void *, EnqueueMapBuffer(command_queue, buffer, blocking_map, map_flags, offset, cb, num_events_in_wait_list, event_wait_list, event, errcode_ret, &apiLogger),
+           clEnqueueMapBuffer, &command_queue, &buffer, &blocking_map, &map_flags, &offset, &cb, &num_events_in_wait_list, &event_wait_list, &event, &errcode_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, void *, EnqueueMapBuffer(command_queue, buffer, blocking_map, map_flags, offset, cb, num_events_in_wait_list, event_wait_list, event, errcode_ret, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, void *, EnqueueMapBuffer(command_queue, buffer, blocking_map, map_flags, offset, cb, num_events_in_wait_list, event_wait_list, event, errcode_ret, nullptr),
+            clEnqueueMapBuffer, &command_queue, &buffer, &blocking_map, &map_flags, &offset, &cb, &num_events_in_wait_list, &event_wait_list, &event, &errcode_ret);
     }
 }
 SET_ALIAS(clEnqueueMapBuffer);
@@ -1826,11 +2085,13 @@ void * CL_API_CALL clEnqueueMapImage(cl_command_queue	command_queue,
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, void *, EnqueueMapImage(command_queue, image, blocking_map, map_flags, origin, region, image_row_pitch, image_slice_pitch, num_events_in_wait_list, event_wait_list, event, errcode_ret, &apiLogger));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, void *, EnqueueMapImage(command_queue, image, blocking_map, map_flags, origin, region, image_row_pitch, image_slice_pitch, num_events_in_wait_list, event_wait_list, event, errcode_ret, &apiLogger),
+           clEnqueueMapImage, &command_queue, &image, &blocking_map, &map_flags, &origin, &region, &image_row_pitch, &image_slice_pitch, &num_events_in_wait_list, &event_wait_list, &event, &errcode_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, void *, EnqueueMapImage(command_queue, image, blocking_map, map_flags, origin, region, image_row_pitch, image_slice_pitch, num_events_in_wait_list, event_wait_list, event, errcode_ret, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, void *, EnqueueMapImage(command_queue, image, blocking_map, map_flags, origin, region, image_row_pitch, image_slice_pitch, num_events_in_wait_list, event_wait_list, event, errcode_ret, nullptr),
+            clEnqueueMapImage, &command_queue, &image, &blocking_map, &map_flags, &origin, &region, &image_row_pitch, &image_slice_pitch, &num_events_in_wait_list, &event_wait_list, &event, &errcode_ret);
     }
 }
 SET_ALIAS(clEnqueueMapImage);
@@ -1848,11 +2109,13 @@ cl_int CL_API_CALL clEnqueueUnmapMemObject(cl_command_queue	command_queue,
         apiLogger << "cl_command_queue command_queue" << command_queue << "cl_mem memobj" << memobj << "void * mapped_ptr" << mapped_ptr << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event * event_wait_list" << event_wait_list << "cl_event * event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueUnmapMemObject(command_queue, memobj, mapped_ptr, num_events_in_wait_list, event_wait_list, event, &apiLogger));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueUnmapMemObject(command_queue, memobj, mapped_ptr, num_events_in_wait_list, event_wait_list, event, &apiLogger),
+           clEnqueueUnmapMemObject, &command_queue, &memobj, &mapped_ptr, &num_events_in_wait_list, &event_wait_list, &event);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueUnmapMemObject(command_queue, memobj, mapped_ptr, num_events_in_wait_list, event_wait_list, event, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, EnqueueUnmapMemObject(command_queue, memobj, mapped_ptr, num_events_in_wait_list, event_wait_list, event, nullptr),
+            clEnqueueUnmapMemObject, &command_queue, &memobj, &mapped_ptr, &num_events_in_wait_list, &event_wait_list, &event);
     }
 }
 SET_ALIAS(clEnqueueUnmapMemObject);
@@ -1873,11 +2136,13 @@ cl_int CL_API_CALL clEnqueueNDRangeKernel(cl_command_queue	command_queue,
         apiLogger << "cl_command_queue command_queue" << command_queue << "cl_kernel kernel" << kernel << "cl_uint work_dim" << work_dim << "const size_t * global_work_offset" << global_work_offset << "const size_t * global_work_size" << global_work_size << "const size_t * local_work_size" << local_work_size << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event * event_wait_list" << event_wait_list << "cl_event * event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueNDRangeKernel(command_queue, kernel, work_dim, global_work_offset, global_work_size, local_work_size, num_events_in_wait_list, event_wait_list, event, &apiLogger));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueNDRangeKernel(command_queue, kernel, work_dim, global_work_offset, global_work_size, local_work_size, num_events_in_wait_list, event_wait_list, event, &apiLogger),
+           clEnqueueNDRangeKernel, &command_queue, &kernel, &work_dim, &global_work_offset, &global_work_size, &local_work_size, &num_events_in_wait_list, &event_wait_list, &event);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueNDRangeKernel(command_queue, kernel, work_dim, global_work_offset, global_work_size, local_work_size, num_events_in_wait_list, event_wait_list, event, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, EnqueueNDRangeKernel(command_queue, kernel, work_dim, global_work_offset, global_work_size, local_work_size, num_events_in_wait_list, event_wait_list, event, nullptr),
+            clEnqueueNDRangeKernel, &command_queue, &kernel, &work_dim, &global_work_offset, &global_work_size, &local_work_size, &num_events_in_wait_list, &event_wait_list, &event);
     }
 }
 SET_ALIAS(clEnqueueNDRangeKernel);
@@ -1894,11 +2159,13 @@ cl_int CL_API_CALL clEnqueueTask(cl_command_queue	command_queue,
         apiLogger << "cl_command_queue command_queue" << command_queue << "cl_kernel kernel" << kernel << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event * event_wait_list" << event_wait_list << "cl_event * event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueTask(command_queue, kernel, num_events_in_wait_list, event_wait_list, event, &apiLogger));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueTask(command_queue, kernel, num_events_in_wait_list, event_wait_list, event, &apiLogger),
+           clEnqueueTask, &command_queue, &kernel, &num_events_in_wait_list, &event_wait_list, &event);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueTask(command_queue, kernel, num_events_in_wait_list, event_wait_list, event, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, EnqueueTask(command_queue, kernel, num_events_in_wait_list, event_wait_list, event, nullptr),
+            clEnqueueTask, &command_queue, &kernel, &num_events_in_wait_list, &event_wait_list, &event);
     }
 }
 SET_ALIAS(clEnqueueTask);
@@ -1920,11 +2187,13 @@ cl_int CL_API_CALL clEnqueueNativeKernel(cl_command_queue	command_queue,
         apiLogger << "cl_command_queue command_queue" << command_queue << "void (CL_CALLBACK *user_func)(void *)" << user_func << "void * args" << args << "size_t cb_args" << cb_args << "cl_uint num_mem_objects" << num_mem_objects << "const cl_mem * mem_list" << mem_list << "const void ** args_mem_loc" << args_mem_loc << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event * event_wait_list" << event_wait_list << "cl_event * event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueNativeKernel(command_queue, user_func, args, cb_args, num_mem_objects, mem_list, args_mem_loc, num_events_in_wait_list, event_wait_list, event, &apiLogger));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueNativeKernel(command_queue, user_func, args, cb_args, num_mem_objects, mem_list, args_mem_loc, num_events_in_wait_list, event_wait_list, event, &apiLogger),
+           clEnqueueNativeKernel, &command_queue, &user_func, &args, &cb_args, &num_mem_objects, &mem_list, &args_mem_loc, &num_events_in_wait_list, &event_wait_list, &event);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueNativeKernel(command_queue, user_func, args, cb_args, num_mem_objects, mem_list, args_mem_loc, num_events_in_wait_list, event_wait_list, event, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, EnqueueNativeKernel(command_queue, user_func, args, cb_args, num_mem_objects, mem_list, args_mem_loc, num_events_in_wait_list, event_wait_list, event, nullptr),
+            clEnqueueNativeKernel, &command_queue, &user_func, &args, &cb_args, &num_mem_objects, &mem_list, &args_mem_loc, &num_events_in_wait_list, &event_wait_list, &event);
     }
 }
 SET_ALIAS(clEnqueueNativeKernel);
@@ -1937,11 +2206,13 @@ cl_int CL_API_CALL clEnqueueMarker(cl_command_queue command_queue, cl_event * ev
         apiLogger << "cl_command_queue command_queue" << command_queue << "cl_event * event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueMarker(command_queue, event, &apiLogger));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueMarker(command_queue, event, &apiLogger),
+           clEnqueueMarker, &command_queue, &event);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueMarker(command_queue, event, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, EnqueueMarker(command_queue, event, nullptr),
+            clEnqueueMarker, &command_queue, &event);
     }
 }
 SET_ALIAS(clEnqueueMarker);
@@ -1954,11 +2225,13 @@ cl_int CL_API_CALL clEnqueueWaitForEvents(cl_command_queue	command_queue,
     {
         START_LOG_API(clEnqueueWaitForEvents);
         apiLogger << "cl_command_queue command_queue" << command_queue << "cl_uint num_events" << num_events << "const cl_event * event_list" << event_list;
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueWaitForEvents(command_queue, num_events, event_list, &apiLogger));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueWaitForEvents(command_queue, num_events, event_list, &apiLogger),
+           clEnqueueWaitForEvents, &command_queue, &num_events, &event_list);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueWaitForEvents(command_queue, num_events, event_list, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, EnqueueWaitForEvents(command_queue, num_events, event_list, nullptr),
+            clEnqueueWaitForEvents, &command_queue, &num_events, &event_list);
     }
 }
 SET_ALIAS(clEnqueueWaitForEvents);
@@ -1969,11 +2242,13 @@ cl_int CL_API_CALL clEnqueueBarrier(cl_command_queue command_queue)
     {
         START_LOG_API(clEnqueueBarrier);
         apiLogger << "cl_command_queue command_queue" << command_queue;
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueBarrier(command_queue, &apiLogger));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueBarrier(command_queue, &apiLogger),
+           clEnqueueBarrier, &command_queue);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueBarrier(command_queue, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, EnqueueBarrier(command_queue, nullptr),
+            clEnqueueBarrier, &command_queue);
     }
 }
 SET_ALIAS(clEnqueueBarrier);
@@ -1982,9 +2257,8 @@ SET_ALIAS(clEnqueueBarrier);
 // New OpenCL 1.1 functions
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-cl_event CL_API_CALL
-clCreateUserEvent(cl_context    context,
-				  cl_int *      errcode_ret)
+cl_event CL_API_CALL clCreateUserEvent(cl_context    context,
+				                       cl_int *      errcode_ret)
 {
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
@@ -1992,48 +2266,52 @@ clCreateUserEvent(cl_context    context,
         apiLogger << "cl_context context" << context << "cl_int * errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_event, CreateUserEvent(context, errcode_ret));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_event, CreateUserEvent(context, errcode_ret),
+           clCreateUserEvent, &context, &errcode_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_event, CreateUserEvent(context, errcode_ret));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_event, CreateUserEvent(context, errcode_ret),
+            clCreateUserEvent, &context, &errcode_ret);
     }
 }
 SET_ALIAS(clCreateUserEvent);
 
-cl_int CL_API_CALL
-clSetEventCallback( cl_event    evt,
-				   cl_int      command_exec_callback_type,
-				   void (CL_CALLBACK *pfn_notify)(cl_event, cl_int, void *),
-				   void *      user_data)
+cl_int CL_API_CALL clSetEventCallback(cl_event    evt,
+				                      cl_int      command_exec_callback_type,
+				                      void (CL_CALLBACK *pfn_notify)(cl_event, cl_int, void *),
+				                      void *      user_data)
 {
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(CL_API_CALLclSetEventCallback);
         apiLogger << "cl_event evt" << evt << "cl_int command_exec_callback_type" << command_exec_callback_type
             << "void (CL_CALLBACK *pfn_notify)(cl_event, cl_int, void *)" << pfn_notify << "void * user_data" << user_data;
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, SetEventCallback(evt, command_exec_callback_type, pfn_notify, user_data));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, SetEventCallback(evt, command_exec_callback_type, pfn_notify, user_data),
+           clSetEventCallback, &evt, &command_exec_callback_type, &pfn_notify, &user_data);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, SetEventCallback(evt, command_exec_callback_type, pfn_notify, user_data));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, SetEventCallback(evt, command_exec_callback_type, pfn_notify, user_data),
+            clSetEventCallback, &evt, &command_exec_callback_type, &pfn_notify, &user_data);
     }
 }
 SET_ALIAS(clSetEventCallback);
 
-cl_int CL_API_CALL
-clSetUserEventStatus(cl_event   evt,
-					 cl_int     execution_status)
+cl_int CL_API_CALL clSetUserEventStatus(cl_event   evt,
+					                    cl_int     execution_status)
 {
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(CL_API_CALLclSetUserEventStatus);
         apiLogger << "cl_event evt" << evt << "cl_int execution_status" << execution_status;
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, SetUserEventStatus(evt, execution_status));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, SetUserEventStatus(evt, execution_status),
+           clSetUserEventStatus, &evt, &execution_status);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, SetUserEventStatus(evt, execution_status));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, SetUserEventStatus(evt, execution_status),
+            clSetUserEventStatus, &evt, &execution_status);
     }
 }
 SET_ALIAS(clSetUserEventStatus);
@@ -2067,11 +2345,13 @@ cl_int CL_API_CALL clRetainDevice(cl_device_id devId)
     {
         START_LOG_API(clRetainDevice);
         apiLogger << "cl_device_id devId" << devId;
-	      CALL_INSTRUMENTED_API_LOGGER(PLATFORM_MODULE, cl_int, clRetainDevice(devId));
+	      CALL_TRACED_API_LOGGER(PLATFORM_MODULE, cl_int, clRetainDevice(devId),
+           clRetainDevice, &devId);
     }
     else
     {
-        CALL_INSTRUMENTED_API(PLATFORM_MODULE, cl_int, clRetainDevice(devId));
+        CALL_TRACED_API(PLATFORM_MODULE, cl_int, clRetainDevice(devId),
+            clRetainDevice, &devId);
     }
 }
 SET_ALIAS(clRetainDevice);
@@ -2082,11 +2362,13 @@ cl_int CL_API_CALL clReleaseDevice(cl_device_id device)
     {
         START_LOG_API(clReleaseDevice);
         apiLogger << "cl_device_id device" << device;
-	      CALL_INSTRUMENTED_API_LOGGER(PLATFORM_MODULE, cl_int, clReleaseDevice(device));
+	      CALL_TRACED_API_LOGGER(PLATFORM_MODULE, cl_int, clReleaseDevice(device),
+           clReleaseDevice, &device);
     }
     else
     {
-        CALL_INSTRUMENTED_API(PLATFORM_MODULE, cl_int, clReleaseDevice(device));
+        CALL_TRACED_API(PLATFORM_MODULE, cl_int, clReleaseDevice(device),
+            clReleaseDevice, &device);
     }
 }
 SET_ALIAS(clReleaseDevice);
@@ -2103,11 +2385,13 @@ cl_int CL_API_CALL clCreateSubDevices(cl_device_id device,
         apiLogger << "cl_device_id device" << device << "const cl_device_partition_property* properties" << properties << "cl_uint num_entries" << num_entries << "cl_device_id* out_devices" << out_devices << "cl_uint* num_devices" << num_devices;
         OutputListPrinter<cl_device_id, cl_uint> printer("out_devices", out_devices, num_devices, num_entries);
         OutputParamsValueProvider provider(apiLogger, &printer);
-	      CALL_INSTRUMENTED_API_LOGGER(PLATFORM_MODULE, cl_int, clCreateSubDevices(device, properties, num_entries, out_devices, num_devices));
+	      CALL_TRACED_API_LOGGER(PLATFORM_MODULE, cl_int, clCreateSubDevices(device, properties, num_entries, out_devices, num_devices),
+           clCreateSubDevices, &device, &properties, &num_entries, &out_devices, &num_devices);
     }
     else
     {
-        CALL_INSTRUMENTED_API(PLATFORM_MODULE, cl_int, clCreateSubDevices(device, properties, num_entries, out_devices, num_devices));
+        CALL_TRACED_API(PLATFORM_MODULE, cl_int, clCreateSubDevices(device, properties, num_entries, out_devices, num_devices),
+            clCreateSubDevices, &device, &properties, &num_entries, &out_devices, &num_devices);
     }
 }
 SET_ALIAS(clCreateSubDevices);
@@ -2128,11 +2412,13 @@ cl_int CL_API_CALL clGetKernelArgInfo(cl_kernel		kernel,
         apiLogger << "cl_kernel kernel" << kernel << "cl_uint arg_indx" << arg_indx << "cl_kernel_arg_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, GetKernelArgInfo(kernel, arg_indx, param_name, param_value_size, param_value, param_value_size_ret));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, GetKernelArgInfo(kernel, arg_indx, param_name, param_value_size, param_value, param_value_size_ret),
+           clGetKernelArgInfo, &kernel, &arg_indx, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, GetKernelArgInfo(kernel, arg_indx, param_name, param_value_size, param_value, param_value_size_ret));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, GetKernelArgInfo(kernel, arg_indx, param_name, param_value_size, param_value, param_value_size_ret),
+            clGetKernelArgInfo, &kernel, &arg_indx, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
 }
 SET_ALIAS(clGetKernelArgInfo);
@@ -2148,11 +2434,13 @@ cl_int CL_API_CALL clEnqueueMarkerWithWaitList(cl_command_queue command_queue,
         apiLogger << "cl_command_queue command_queue" << command_queue << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event *event_wait_list" << event_wait_list << "cl_event *event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
-        CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueMarkerWithWaitList(command_queue, num_events_in_wait_list, event_wait_list, event, &apiLogger));
+        CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueMarkerWithWaitList(command_queue, num_events_in_wait_list, event_wait_list, event, &apiLogger),
+            clEnqueueMarkerWithWaitList, &command_queue, &num_events_in_wait_list, &event_wait_list, &event);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueMarkerWithWaitList(command_queue, num_events_in_wait_list, event_wait_list, event, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, EnqueueMarkerWithWaitList(command_queue, num_events_in_wait_list, event_wait_list, event, nullptr),
+            clEnqueueMarkerWithWaitList, &command_queue, &num_events_in_wait_list, &event_wait_list, &event);
     }
 }
 SET_ALIAS(clEnqueueMarkerWithWaitList);
@@ -2168,11 +2456,13 @@ cl_int CL_API_CALL clEnqueueBarrierWithWaitList(cl_command_queue command_queue,
         apiLogger << "cl_command_queue command_queue" << command_queue << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event *event_wait_list" << event_wait_list << "cl_event *event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
-        CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueBarrierWithWaitList(command_queue, num_events_in_wait_list, event_wait_list, event, &apiLogger));
+        CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueBarrierWithWaitList(command_queue, num_events_in_wait_list, event_wait_list, event, &apiLogger),
+            clEnqueueBarrierWithWaitList, &command_queue, &num_events_in_wait_list, &event_wait_list, &event);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueBarrierWithWaitList(command_queue, num_events_in_wait_list, event_wait_list, event, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, EnqueueBarrierWithWaitList(command_queue, num_events_in_wait_list, event_wait_list, event, nullptr),
+            clEnqueueBarrierWithWaitList, &command_queue, &num_events_in_wait_list, &event_wait_list, &event);
     }
 }
 SET_ALIAS(clEnqueueBarrierWithWaitList);
@@ -2191,13 +2481,15 @@ cl_int CL_API_CALL clEnqueueMigrateMemObjects(cl_command_queue command_queue,
         apiLogger << "cl_command_queue command_queue" << command_queue << "cl_uint num_mem_objects" << num_mem_objects << "const cl_mem *mem_objects" << mem_objects << "cl_mem_migration_flags flags" << flags << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event *event_wait_list" << event_wait_list << "cl_event *event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
-        CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueMigrateMemObjects(command_queue,
-            num_mem_objects, mem_objects, flags, num_events_in_wait_list, event_wait_list, event, &apiLogger));
+        CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueMigrateMemObjects(command_queue,
+            num_mem_objects, mem_objects, flags, num_events_in_wait_list, event_wait_list, event, &apiLogger),
+            clEnqueueMigrateMemObjects, &command_queue, &num_mem_objects, &mem_objects, &flags, &num_events_in_wait_list, &event_wait_list, &event);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueMigrateMemObjects(command_queue,
-            num_mem_objects, mem_objects, flags, num_events_in_wait_list, event_wait_list, event, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, EnqueueMigrateMemObjects(command_queue,
+            num_mem_objects, mem_objects, flags, num_events_in_wait_list, event_wait_list, event, nullptr),
+            clEnqueueMigrateMemObjects, &command_queue, &num_mem_objects, &mem_objects, &flags, &num_events_in_wait_list, &event_wait_list, &event);
     }
 }
 SET_ALIAS(clEnqueueMigrateMemObjects);
@@ -2229,11 +2521,13 @@ cl_int CL_API_CALL clEnqueueSVMMigrateMem(cl_command_queue command_queue,
                   << "cl_event* event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
-        CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueSVMMigrateMem(command_queue, num_svm_pointers, svm_pointers, sizes, flags, num_events_in_wait_list, event_wait_list, event, &apiLogger));
+        CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueSVMMigrateMem(command_queue, num_svm_pointers, svm_pointers, sizes, flags, num_events_in_wait_list, event_wait_list, event, &apiLogger),
+            clEnqueueSVMMigrateMem, &command_queue, &num_svm_pointers, &svm_pointers, &sizes, &flags, &num_events_in_wait_list, &event_wait_list, &event);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSVMMigrateMem(command_queue, num_svm_pointers, svm_pointers, sizes, flags, num_events_in_wait_list, event_wait_list, event, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, EnqueueSVMMigrateMem(command_queue, num_svm_pointers, svm_pointers, sizes, flags, num_events_in_wait_list, event_wait_list, event, nullptr),
+            clEnqueueSVMMigrateMem, &command_queue, &num_svm_pointers, &svm_pointers, &sizes, &flags, &num_events_in_wait_list, &event_wait_list, &event);
     }
 }
 SET_ALIAS(clEnqueueSVMMigrateMem);
@@ -2253,13 +2547,15 @@ cl_int CL_API_CALL clCompileProgram(cl_program program,
         START_LOG_API(clCompileProgram);
         apiLogger << "cl_program program" << program << "cl_uint num_devices" << num_devices << "const cl_device_id *device_list" << device_list << "const char *options";
         apiLogger.PrintCStringVal(options) << "cl_uint num_input_headers" << num_input_headers << "const cl_program *input_headers" << input_headers << "const char **header_include_names" << header_include_names << "void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data)" << pfn_notify << "void *user_data" << user_data;
-        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, CompileProgram(program, num_devices, device_list, options,
-            num_input_headers, input_headers, header_include_names, pfn_notify, user_data));
+        CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, CompileProgram(program, num_devices, device_list, options,
+            num_input_headers, input_headers, header_include_names, pfn_notify, user_data),
+            clCompileProgram, &program, &num_devices, &device_list, &options, &num_input_headers, &input_headers, &header_include_names, &pfn_notify, &user_data);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, CompileProgram(program, num_devices, device_list, options,
-            num_input_headers, input_headers, header_include_names, pfn_notify, user_data));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, CompileProgram(program, num_devices, device_list, options,
+            num_input_headers, input_headers, header_include_names, pfn_notify, user_data),
+            clCompileProgram, &program, &num_devices, &device_list, &options, &num_input_headers, &input_headers, &header_include_names, &pfn_notify, &user_data);
     }
 }
 SET_ALIAS(clCompileProgram);
@@ -2281,13 +2577,15 @@ cl_program CL_API_CALL clLinkProgram(cl_context context,
         apiLogger.PrintCStringVal(options) << "cl_uint num_input_programs" << num_input_programs << "const cl_program *input_programs" << input_programs << "void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data)" << pfn_notify << "void *user_data" << user_data << "cl_int *errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
-        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_program, LinkProgram(context, num_devices, device_list, options,
-            num_input_programs, input_programs, pfn_notify, user_data, errcode_ret));
+        CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_program, LinkProgram(context, num_devices, device_list, options,
+            num_input_programs, input_programs, pfn_notify, user_data, errcode_ret),
+            clLinkProgram, &context, &num_devices, &device_list, &options, &num_input_programs, &input_programs, &pfn_notify, &user_data, &errcode_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_program, LinkProgram(context, num_devices, device_list, options,
-            num_input_programs, input_programs, pfn_notify, user_data, errcode_ret));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_program, LinkProgram(context, num_devices, device_list, options,
+            num_input_programs, input_programs, pfn_notify, user_data, errcode_ret),
+            clLinkProgram, &context, &num_devices, &device_list, &options, &num_input_programs, &input_programs, &pfn_notify, &user_data, &errcode_ret);
     }
 }
 SET_ALIAS(clLinkProgram);
@@ -2301,11 +2599,13 @@ void* CL_API_CALL clSVMAlloc(cl_context context,
     {
         START_LOG_API(clSVMAlloc);
         apiLogger << "cl_context context" << context << "cl_svm_mem_flags flags" << flags << "size_t size" << size << "unsigned int alignment" << alignment;
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, void*, SVMAlloc(context, flags, size, alignment));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, void*, SVMAlloc(context, flags, size, alignment),
+           clSVMAlloc, &context, &flags, &size, &alignment);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, void*, SVMAlloc(context, flags, size, alignment));
+        CALL_TRACED_API(CONTEXT_MODULE, void*, SVMAlloc(context, flags, size, alignment),
+            clSVMAlloc, &context, &flags, &size, &alignment);
     }
 }
 SET_ALIAS(clSVMAlloc);
@@ -2317,11 +2617,13 @@ void CL_API_CALL clSVMFree(cl_context context,
     {
         START_LOG_API(clSVMFree);
         apiLogger << "cl_context context" << context << "void* svm_pointer" << svm_pointer;
-	      CALL_INSTRUMENTED_API_LOGGER_NO_RET(CONTEXT_MODULE, SVMFree(context, svm_pointer));
+	      CALL_TRACED_API_LOGGER_NO_RET(CONTEXT_MODULE, SVMFree(context, svm_pointer),
+           clSVMFree, &context, &svm_pointer);
     }
     else
     {
-        CALL_INSTRUMENTED_API_NO_RET(CONTEXT_MODULE, SVMFree(context, svm_pointer));
+        CALL_TRACED_API_NO_RET(CONTEXT_MODULE, SVMFree(context, svm_pointer),
+            clSVMFree, &context, &svm_pointer);
     }
 }
 SET_ALIAS(clSVMFree);
@@ -2346,13 +2648,15 @@ cl_int CL_API_CALL clEnqueueSVMFree(cl_command_queue command_queue,
             << "void (CL_CALLBACK* pfn_free_func)(cl_command_queue queue queue, cl_uint num_svm_pointers, void* svm_pointers[], void* user_data)" << pfn_free_func << "void* user_data" << user_data << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event* event_wait_list" << event_wait_list << "cl_event* event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueSVMFree(command_queue, num_svm_pointers, svm_pointers, pfn_free_func, user_data, num_events_in_wait_list, event_wait_list,
-		        event, &apiLogger));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueSVMFree(command_queue, num_svm_pointers, svm_pointers, pfn_free_func, user_data, num_events_in_wait_list, event_wait_list,
+		        event, &apiLogger),
+           clEnqueueSVMFree, &command_queue, &num_svm_pointers, &svm_pointers, &pfn_free_func, &user_data, &num_events_in_wait_list, &event_wait_list, &event);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSVMFree(command_queue, num_svm_pointers, svm_pointers, pfn_free_func, user_data, num_events_in_wait_list, event_wait_list,
-		        event, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, EnqueueSVMFree(command_queue, num_svm_pointers, svm_pointers, pfn_free_func, user_data, num_events_in_wait_list, event_wait_list,
+		        event, nullptr),
+            clEnqueueSVMFree, &command_queue, &num_svm_pointers, &svm_pointers, &pfn_free_func, &user_data, &num_events_in_wait_list, &event_wait_list, &event);
     }
 }
 SET_ALIAS(clEnqueueSVMFree);
@@ -2372,11 +2676,13 @@ cl_int CL_API_CALL clEnqueueSVMMemcpy(cl_command_queue command_queue,
         apiLogger << "cl_command_queue command_queue" << command_queue << "cl_bool blocking_copy" << blocking_copy << "void *dst_ptr" << dst_ptr << "const void *src_ptr" << src_ptr << "size_t size" << size << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event *event_wait_list" << event_wait_list << "cl_event *event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueSVMMemcpy(command_queue, blocking_copy, dst_ptr, src_ptr, size, num_events_in_wait_list, event_wait_list, event, &apiLogger));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueSVMMemcpy(command_queue, blocking_copy, dst_ptr, src_ptr, size, num_events_in_wait_list, event_wait_list, event, &apiLogger),
+           clEnqueueSVMMemcpy, &command_queue, &blocking_copy, &dst_ptr, &src_ptr, &size, &num_events_in_wait_list, &event_wait_list, &event);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSVMMemcpy(command_queue, blocking_copy, dst_ptr, src_ptr, size, num_events_in_wait_list, event_wait_list, event, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, EnqueueSVMMemcpy(command_queue, blocking_copy, dst_ptr, src_ptr, size, num_events_in_wait_list, event_wait_list, event, nullptr),
+            clEnqueueSVMMemcpy, &command_queue, &blocking_copy, &dst_ptr, &src_ptr, &size, &num_events_in_wait_list, &event_wait_list, &event);
     }
 }
 SET_ALIAS(clEnqueueSVMMemcpy);
@@ -2396,11 +2702,13 @@ cl_int CL_API_CALL clEnqueueSVMMemFill(cl_command_queue command_queue,
         apiLogger << "cl_command_queue command_queue" << command_queue << "void* svm_ptr" << svm_ptr << "const void* pattern" << pattern << "size_t pattern_size" << pattern_size << "size_t size" << size << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event* event_wait_list" << event_wait_list << "cl_event* event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueSVMMemFill(command_queue, svm_ptr, pattern, pattern_size, size, num_events_in_wait_list, event_wait_list, event, &apiLogger));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueSVMMemFill(command_queue, svm_ptr, pattern, pattern_size, size, num_events_in_wait_list, event_wait_list, event, &apiLogger),
+           clEnqueueSVMMemFill, &command_queue, &svm_ptr, &pattern, &pattern_size, &size, &num_events_in_wait_list, &event_wait_list, &event);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSVMMemFill(command_queue, svm_ptr, pattern, pattern_size, size, num_events_in_wait_list, event_wait_list, event, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, EnqueueSVMMemFill(command_queue, svm_ptr, pattern, pattern_size, size, num_events_in_wait_list, event_wait_list, event, nullptr),
+            clEnqueueSVMMemFill, &command_queue, &svm_ptr, &pattern, &pattern_size, &size, &num_events_in_wait_list, &event_wait_list, &event);
     }
 }
 SET_ALIAS(clEnqueueSVMMemFill);
@@ -2420,11 +2728,13 @@ cl_int CL_API_CALL clEnqueueSVMMap(cl_command_queue command_queue,
         apiLogger << "cl_command_queue command_queue" << command_queue << "cl_bool blocking_map" << blocking_map << "cl_map_flags map_flags" << map_flags << "void* svm_ptr" << svm_ptr << "size_t size" << size << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event* event_wait_list" << event_wait_list << "cl_event* event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueSVMMap(command_queue, blocking_map, map_flags, svm_ptr, size, num_events_in_wait_list, event_wait_list, event, &apiLogger));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueSVMMap(command_queue, blocking_map, map_flags, svm_ptr, size, num_events_in_wait_list, event_wait_list, event, &apiLogger),
+           clEnqueueSVMMap, &command_queue, &blocking_map, &map_flags, &svm_ptr, &size, &num_events_in_wait_list, &event_wait_list, &event);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSVMMap(command_queue, blocking_map, map_flags, svm_ptr, size, num_events_in_wait_list, event_wait_list, event, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, EnqueueSVMMap(command_queue, blocking_map, map_flags, svm_ptr, size, num_events_in_wait_list, event_wait_list, event, nullptr),
+            clEnqueueSVMMap, &command_queue, &blocking_map, &map_flags, &svm_ptr, &size, &num_events_in_wait_list, &event_wait_list, &event);
     }
 }
 SET_ALIAS(clEnqueueSVMMap);
@@ -2441,11 +2751,13 @@ cl_int CL_API_CALL clEnqueueSVMUnmap(cl_command_queue command_queue,
         apiLogger << "cl_command_queue command_queue" << command_queue << "void* svm_ptr" << svm_ptr << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event* event_wait_list" << event_wait_list << "cl_event* event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueSVMUnmap(command_queue, svm_ptr, num_events_in_wait_list, event_wait_list, event, &apiLogger));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueSVMUnmap(command_queue, svm_ptr, num_events_in_wait_list, event_wait_list, event, &apiLogger),
+           clEnqueueSVMUnmap, &command_queue, &svm_ptr, &num_events_in_wait_list, &event_wait_list, &event);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSVMUnmap(command_queue, svm_ptr, num_events_in_wait_list, event_wait_list, event, nullptr));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, EnqueueSVMUnmap(command_queue, svm_ptr, num_events_in_wait_list, event_wait_list, event, nullptr),
+            clEnqueueSVMUnmap, &command_queue, &svm_ptr, &num_events_in_wait_list, &event_wait_list, &event);
     }
 }
 SET_ALIAS(clEnqueueSVMUnmap);
@@ -2458,11 +2770,13 @@ cl_int CL_API_CALL clSetKernelArgSVMPointer(cl_kernel kernel,
     {
         START_LOG_API(clSetKernelArgSVMPointer);
         apiLogger << "cl_kernel kernel" << kernel << "cl_uint arg_index" << arg_index << "const void* arg_value" << arg_value;
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, SetKernelArgSVMPointer(kernel, arg_index, arg_value));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, SetKernelArgSVMPointer(kernel, arg_index, arg_value),
+           clSetKernelArgSVMPointer, &kernel, &arg_index, &arg_value);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, SetKernelArgSVMPointer(kernel, arg_index, arg_value));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, SetKernelArgSVMPointer(kernel, arg_index, arg_value),
+            clSetKernelArgSVMPointer, &kernel, &arg_index, &arg_value);
     }
 }
 SET_ALIAS(clSetKernelArgSVMPointer);
@@ -2476,11 +2790,13 @@ cl_int CL_API_CALL clSetKernelExecInfo(cl_kernel kernel,
     {
         START_LOG_API(clSetKernelExecInfo);
         apiLogger << "cl_kernel kernel" << kernel << "cl_kernel_exec_info param_name" << param_name << "size_t param_value_size" << param_value_size << "const void* param_value" << param_value;
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, SetKernelExecInfo(kernel, param_name, param_value_size, param_value));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, SetKernelExecInfo(kernel, param_name, param_value_size, param_value),
+           clSetKernelExecInfo, &kernel, &param_name, &param_value_size, &param_value);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, SetKernelExecInfo(kernel, param_name, param_value_size, param_value));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, SetKernelExecInfo(kernel, param_name, param_value_size, param_value),
+            clSetKernelExecInfo, &kernel, &param_name, &param_value_size, &param_value);
     }
 }
 SET_ALIAS(clSetKernelExecInfo);
@@ -2498,11 +2814,13 @@ cl_mem CL_API_CALL clCreatePipe(cl_context context,
         apiLogger << "cl_context context" << context << "cl_mem_flags flags" << flags << "cl_uint pipe_packet_size" << pipe_packet_size << "cl_uint pipe_max_packets" << pipe_max_packets << "const cl_pipe_properties *properties" << properties << "cl_int *errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_mem, CreatePipe(context, flags, pipe_packet_size, pipe_max_packets, properties, nullptr, nullptr, errcode_ret));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_mem, CreatePipe(context, flags, pipe_packet_size, pipe_max_packets, properties, nullptr, nullptr, errcode_ret),
+           clCreatePipe, &context, &flags, &pipe_packet_size, &pipe_max_packets, &properties, &errcode_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_mem, CreatePipe(context, flags, pipe_packet_size, pipe_max_packets, properties, nullptr, nullptr, errcode_ret));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_mem, CreatePipe(context, flags, pipe_packet_size, pipe_max_packets, properties, nullptr, nullptr, errcode_ret),
+            clCreatePipe, &context, &flags, &pipe_packet_size, &pipe_max_packets, &properties, &errcode_ret);
     }
 }
 SET_ALIAS(clCreatePipe);
@@ -2546,11 +2864,13 @@ cl_int CL_API_CALL clGetPipeInfo(cl_mem pipe,
         apiLogger << "cl_mem pipe" << pipe << "cl_pipe_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void *param_value" << param_value << "size_t *param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, GetPipeInfo(pipe, param_name, param_value_size, param_value, param_value_size_ret));
+	      CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, GetPipeInfo(pipe, param_name, param_value_size, param_value, param_value_size_ret),
+           clGetPipeInfo, &pipe, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, GetPipeInfo(pipe, param_name, param_value_size, param_value, param_value_size_ret));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, GetPipeInfo(pipe, param_name, param_value_size, param_value, param_value_size_ret),
+            clGetPipeInfo, &pipe, &param_name, &param_value_size, &param_value, &param_value_size_ret);
     }
 }
 SET_ALIAS(clGetPipeInfo);
@@ -2587,11 +2907,13 @@ cl_command_queue CL_API_CALL clCreateCommandQueueWithProperties(cl_context conte
         apiLogger << "cl_context context" << context << "cl_device_id device_id" << device_id << "const cl_queue_properties* properties" << properties << "cl_int* errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_command_queue, CreateCommandQueue(context, device_id, pCmdQueueProps, errcode_ret));
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_command_queue, CreateCommandQueue(context, device_id, pCmdQueueProps, errcode_ret),
+           clCreateCommandQueueWithProperties, &context, &device_id, &properties, &errcode_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_command_queue, CreateCommandQueue(context, device_id, pCmdQueueProps, errcode_ret));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_command_queue, CreateCommandQueue(context, device_id, pCmdQueueProps, errcode_ret),
+            clCreateCommandQueueWithProperties, &context, &device_id, &properties, &errcode_ret);
     }
 }
 SET_ALIAS(clCreateCommandQueueWithProperties);
@@ -2616,11 +2938,13 @@ cl_program CL_API_CALL clCreateProgramWithIL(cl_context context,
         apiLogger << "cl_context context" << context << "const void* il" << il << "size_t lengths" << lengths << "cl_int * errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
-        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_program, CreateProgramWithIL(context, (const unsigned char*)il, lengths, errcode_ret));
+        CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_program, CreateProgramWithIL(context, (const unsigned char*)il, lengths, errcode_ret),
+            clCreateProgramWithIL, &context, &il, &lengths, &errcode_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_program, CreateProgramWithIL(context, (const unsigned char*)il, lengths, errcode_ret));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_program, CreateProgramWithIL(context, (const unsigned char*)il, lengths, errcode_ret),
+            clCreateProgramWithIL, &context, &il, &lengths, &errcode_ret);
     }
 }
 SET_ALIAS(clCreateProgramWithIL);
@@ -2667,11 +2991,13 @@ cl_kernel CL_API_CALL clCloneKernel(cl_kernel source_kernel,
         apiLogger << "const cl_kernel source_kernel" << source_kernel << "cl_int* errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
-        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_kernel, CloneKernel(source_kernel, errcode_ret));
+        CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_kernel, CloneKernel(source_kernel, errcode_ret),
+            clCloneKernel, &source_kernel, &errcode_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_kernel, CloneKernel(source_kernel, errcode_ret));
+        CALL_TRACED_API(CONTEXT_MODULE, cl_kernel, CloneKernel(source_kernel, errcode_ret),
+            clCloneKernel, &source_kernel, &errcode_ret);
     }
 }
 SET_ALIAS(clCloneKernel);
@@ -2690,11 +3016,13 @@ cl_int CL_API_CALL clSetDefaultDeviceCommandQueue(cl_context context,
         START_LOG_API(clSetDefaultCommandQueue);
         apiLogger << "cl_context context" << context << "cl_device_id device" << device << "cl_command_queue" << command_queue;
         OutputParamsValueProvider provider(apiLogger);
-        CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, SetDefaultDeviceCommandQueue(context, device, command_queue));
+        CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, SetDefaultDeviceCommandQueue(context, device, command_queue),
+            clSetDefaultDeviceCommandQueue, &context, &device, &command_queue);
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, SetDefaultDeviceCommandQueue(context, device, command_queue));
+        CALL_TRACED_API(EXECUTION_MODULE, cl_int, SetDefaultDeviceCommandQueue(context, device, command_queue),
+            clSetDefaultDeviceCommandQueue, &context, &device, &command_queue);
     }
 }
 SET_ALIAS(clSetDefaultDeviceCommandQueue);
@@ -2726,17 +3054,19 @@ cl_int CL_API_CALL clGetKernelSubGroupInfo(cl_kernel kernel,
                   << "size_t* param_value_size_ret" << param_value_size_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
-        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, GetKernelSubGroupInfo(kernel, device, param_name,
+        CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_int, GetKernelSubGroupInfo(kernel, device, param_name,
                                                                                    input_value_size, input_value,
                                                                                    param_value_size, param_value,
-                                                                                   param_value_size_ret));
+                                                                                   param_value_size_ret),
+            clGetKernelSubGroupInfo, &kernel, &device, &param_name, &input_value_size, &input_value, &param_value_size, &param_value, &param_value_size_ret);
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, GetKernelSubGroupInfo(kernel, device, param_name,
+        CALL_TRACED_API(CONTEXT_MODULE, cl_int, GetKernelSubGroupInfo(kernel, device, param_name,
                                                                             input_value_size, input_value,
                                                                             param_value_size, param_value,
-                                                                            param_value_size_ret));
+                                                                            param_value_size_ret),
+            clGetKernelSubGroupInfo, &kernel, &device, &param_name, &input_value_size, &input_value, &param_value_size, &param_value, &param_value_size_ret);
     }
 }
 SET_ALIAS(clGetKernelSubGroupInfo);
