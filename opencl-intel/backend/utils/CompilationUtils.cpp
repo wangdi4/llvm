@@ -1523,7 +1523,8 @@ ChannelKind CompilationUtils::getChannelKind(const std::string &Name) {
 }
 
 Function *CompilationUtils::importFunctionDecl(Module *Dst,
-                                                    const Function *Orig) {
+                                               const Function *Orig,
+                                               bool DuplicateIfExists) {
   assert(Dst && "Invalid module");
   assert(Orig && "Invalid function");
 
@@ -1554,9 +1555,18 @@ Function *CompilationUtils::importFunctionDecl(Module *Dst,
                : FunctionType::get(Orig->getReturnType(),
                                    NewArgTypes,
                                    Orig->isVarArg());
+  if (!DuplicateIfExists)
+    return cast<Function>(Dst->getOrInsertFunction(Orig->getName(), NewFnType,
+                                                   Orig->getAttributes())
+                              .getCallee());
 
-  return cast<Function>(Dst->getOrInsertFunction(
-    Orig->getName(), NewFnType, Orig->getAttributes()).getCallee());
+  // Create a declaration of the function to import disrespecting the fact of
+  // it's existence in the module.
+  Function *NewF = Function::Create(NewFnType, GlobalVariable::ExternalLinkage,
+                                    Orig->getName(), Dst);
+  NewF->setAttributes(Orig->getAttributes());
+
+  return NewF;
 }
 
 StringRef CompilationUtils::stripStructNameTrailingDigits(StringRef TyName) {
