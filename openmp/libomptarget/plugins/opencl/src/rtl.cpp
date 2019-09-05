@@ -313,9 +313,6 @@ public:
   int32_t DataTransferMethod;
   const int64_t DEVICE_LIMIT_NUM_WORK_GROUPS = 0x1;
   const int64_t DATA_TRANSFER_LATENCY = 0x2;
-#if INTEL_CUSTOMIZATION
-  bool CheckExtensionGlobalRelocation = false;
-#endif  // INTEL_CUSTOMIZATION
 
   RTLDeviceInfoTy() : numDevices(0), flag(0), DataTransferLatency(0),
       DataTransferMethod(DATA_TRANSFER_METHOD_CLMEM) {
@@ -353,16 +350,6 @@ public:
         DataTransferMethod = DATA_TRANSFER_METHOD_CLMEM;
       }
     }
-#if INTEL_CUSTOMIZATION
-    // Check environment variable that enables
-    // clGetDeviceGlobalVariablePointerINTEL extension in OpenCL graphics
-    // compiler rather than using a separate environment variable.
-    // FIXME: remove this, when it is enabled by default in
-    //        OpenCL graphics compiler.
-    if (const auto *Val = std::getenv("IGC_EnableGlobalRelocation"))
-      if (std::stoi(Val) != 0)
-        CheckExtensionGlobalRelocation = true;
-#endif  // INTEL_CUSTOMIZATION
   }
 
   ~RTLDeviceInfoTy() {
@@ -570,17 +557,6 @@ int32_t __tgt_rtl_number_of_devices() {
                     nullptr);
     DP("Addressing mode is %d bit\n", addressmode);
 #endif
-#if INTEL_CUSTOMIZATION
-    // Disable GetDeviceGlobalVariablePointer extension, if
-    // IGC_EnableGlobalRelocation environment variable is not set.
-    // If the extension status is left ExtensionStatusUnknown,
-    // then we will query OpenCL in __tgt_rtl_init_device().
-    // FIXME: this is a temporary solution until clGetDeviceInfo
-    //        supports querying this extension.
-    if (!DeviceInfo.CheckExtensionGlobalRelocation)
-      DeviceInfo.Extensions[i].GetDeviceGlobalVariablePointer =
-          ExtensionStatusDisabled;
-#endif  // INTEL_CUSTOMIZATION
   }
   if (DeviceInfo.numDevices == 0)
     DP("WARNING: No OpenCL devices found.\n");
@@ -664,16 +640,18 @@ static void dumpImageToFile(
 #else  // !_WIN32
   int WErr = write(TmpFileFd, Image, ImageSize);
 #endif  // !_WIN32
-  if (WErr < 0)
+  if (WErr < 0) {
     DPI("Error writing temporary file %s: %s\n", TmpFileName, strerror(errno));
+  }
 
 #if _WIN32
   int CloseErr = _close(TmpFileFd);
 #else  // !_WIN32
   int CloseErr = close(TmpFileFd);
 #endif  // !_WIN32
-  if (CloseErr < 0)
+  if (CloseErr < 0) {
     DPI("Error closing temporary file %s: %s\n", TmpFileName, strerror(errno));
+  }
 #endif  // OMPTARGET_OPENCL_DEBUG
 #endif  // INTEL_INTERNAL_BUILD
 #endif  // INTEL_CUSTOMIZATION
@@ -688,12 +666,27 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
 
   size_t ImageSize = (size_t)image->ImageEnd - (size_t)image->ImageStart;
   size_t NumEntries = (size_t)(image->EntriesEnd - image->EntriesBegin);
-  DP("Expecting to have %zd entries defined.\n", NumEntries);
+  DP("Expecting to have %zu entries defined.\n", NumEntries);
 
   // create Program
   cl_int status;
   cl_program program[3];
   cl_uint num_programs = 0;
+  const char *compilation_options = "";
+#if INTEL_CUSTOMIZATION
+  cl_device_type device_type;
+
+  if (clGetDeviceInfo(DeviceInfo.deviceIDs[device_id],
+                      CL_DEVICE_TYPE, sizeof(device_type), &device_type,
+                      nullptr) == CL_SUCCESS &&
+      device_type == CL_DEVICE_TYPE_GPU)
+    // OpenCL CPU compiler complains about unsupported option.
+    // Intel Graphics compilers that do not support that option
+    // silently ignore it.
+    compilation_options = "-cl-intel-enable-global-relocation";
+#endif // INTEL_CUSTOMIZATION
+
+  DP("OpenCL compilation options: %s\n", compilation_options);
 
   std::string device_rtl_path = getDeviceRTLPath();
   std::ifstream device_rtl(device_rtl_path, std::ios::binary);
@@ -719,8 +712,9 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
       return NULL;
     }
 
-    INVOKE_CL_RET_NULL(clCompileProgram, program[1], 0, nullptr, nullptr, 0,
-                       nullptr, nullptr, nullptr, nullptr);
+    INVOKE_CL_RET_NULL(clCompileProgram, program[1], 0, nullptr,
+                       compilation_options, 0, nullptr, nullptr,
+                       nullptr, nullptr);
     num_programs++;
   } else {
     DP("Cannot find device RTL: %s\n", device_rtl_path.c_str());
@@ -735,8 +729,9 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     return NULL;
   }
 
-  INVOKE_CL_RET_NULL(clCompileProgram, program[0], 0, nullptr, nullptr, 0,
-                     nullptr, nullptr, nullptr, nullptr);
+  INVOKE_CL_RET_NULL(clCompileProgram, program[0], 0, nullptr,
+                     compilation_options, 0, nullptr, nullptr,
+                     nullptr, nullptr);
 
   num_programs++;
 
@@ -744,8 +739,9 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     DP("Skipped device RTL.\n");
 
   program[2] = clLinkProgram(
-      DeviceInfo.CTX[device_id], 1, &DeviceInfo.deviceIDs[device_id], nullptr,
-      num_programs, &program[0], nullptr, nullptr, &status);
+      DeviceInfo.CTX[device_id], 1, &DeviceInfo.deviceIDs[device_id],
+      compilation_options, num_programs, &program[0], nullptr, nullptr,
+      &status);
   if (status != CL_SUCCESS) {
     DP("Error: Failed to link program: %d\n", status);
     return NULL;
@@ -760,6 +756,25 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
       DeviceInfo.FuncGblEntries[device_id].Entries;
   std::vector<cl_kernel> &kernels =
       DeviceInfo.FuncGblEntries[device_id].Kernels;
+
+#if INTEL_CUSTOMIZATION
+  cl_int (CL_API_CALL *ExtCall)(cl_device_id, cl_program, const char *,
+                                size_t *, void **) = nullptr;
+
+  if (DeviceInfo.Extensions[device_id].GetDeviceGlobalVariablePointer ==
+      ExtensionStatusEnabled)
+    ExtCall = reinterpret_cast<decltype(ExtCall)>(
+        clGetExtensionFunctionAddressForPlatform(
+            DeviceInfo.platformIDs[device_id],
+            "clGetDeviceGlobalVariablePointerINTEL"));
+
+  if (!ExtCall) {
+    DPI("Error: clGetDeviceGlobalVariablePointerINTEL API "
+        "is nullptr.  Direct references to declare target variables "
+        "will not work properly.\n");
+  }
+#endif  // INTEL_CUSTOMIZATION
+
   for (unsigned i = 0; i < NumEntries; i++) {
     // Size is 0 means that it is kernel function.
     auto Size = image->EntriesBegin[i].size;
@@ -769,64 +784,61 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
       void *TgtAddr = nullptr;
       auto HostAddr = image->EntriesBegin[i].addr;
       auto Name = image->EntriesBegin[i].name;
+      size_t DeviceSize = 0;
 
-      DP("Looking up global variable '%s' of size %" PRIu64 " bytes\n",
-         Name, (uint64_t)Size);
+      if (ExtCall) {
+        DP("Looking up global variable '%s' of size %zu bytes\n",
+           Name, Size);
 
-      if (DeviceInfo.Extensions[device_id].GetDeviceGlobalVariablePointer ==
-          ExtensionStatusEnabled) {
-        // TODO: we should probably query the API pointer once
-        //       and keep it in some platform/device descriptor
-        //       (e.g. DeviceInfo.Extensions).
-        cl_int (CL_API_CALL *ExtCall)(cl_device_id, cl_program, const char *,
-                                      size_t *, void **);
-
-        ExtCall = reinterpret_cast<decltype(ExtCall)>(
-            clGetExtensionFunctionAddressForPlatform(
-                DeviceInfo.platformIDs[device_id],
-                "clGetDeviceGlobalVariablePointerINTEL"));
-        if (!ExtCall) {
-          DPI("Error: clGetDeviceGlobalVariablePointerINTEL API "
-              "is nullptr.\n");
-          return nullptr;
+        if (ExtCall(DeviceInfo.deviceIDs[device_id], program[2],
+                    Name, &DeviceSize, &TgtAddr) != CL_SUCCESS) {
+          // FIXME: this may happen for static global variables,
+          //        since they are not declared as Extern, thus,
+          //        the driver cannot find them. We have to be able
+          //        to externalize static variables, if we name
+          //        them uniquely.
+          DPI("Error: clGetDeviceGlobalVariablePointerINTEL API returned "
+              "nullptr for global variable '%s'.\n", Name);
+          DP("Error: direct references to declare target variable '%s' "
+             "will not work properly.\n", Name);
+          DeviceSize = 0;
+        } else if (Size != DeviceSize) {
+          DP("Error: size mismatch for host (%zu) and device (%zu) versions "
+             "of global variable: %s\n.  Direct references "
+             "to this variable will not work properly.\n",
+             Size, DeviceSize, Name);
+          DeviceSize = 0;
         }
+      }
 
-        size_t DeviceSize = 0;
-        INVOKE_CL_RET_NULL(ExtCall,
-                           DeviceInfo.deviceIDs[device_id], program[2],
-                           Name, &DeviceSize, &TgtAddr);
-        if (Size != DeviceSize) {
-          DP("Error: size mismatch for host and device versions "
-             "of global variable: %s\n", Name);
-          return nullptr;
-        }
-      } else {
-        // Allocate buffers for global data and copy data from host to device.
-        // FIXME: this is a temporary solution for global declare target data,
-        //        until we have support from OpenCL side.
-        //        This will not solve issues for the following case:
-        //          #pragma omp declare target
-        //          int a[100];
-        //          void foo() {
-        //            a[7] = 7;
-        //          }
-        //          #pragma omp end declare target
-        //
-        //          void bar() {
-        //          #pragma omp target
-        //            { foo(); }
-        //          }
-        //
-        //        foo() will have a reference to global 'a', and there
-        //        is currently no way to associate this access with the buffer
-        //        that we allocate here.
+      // DeviceSize equal to zero means that the symbol lookup failed.
+      // Allocate the device buffer dynamically for this host object.
+      // Note that the direct references to the global object in the device
+      // code will refer to completely different memory, so programs
+      // may produce incorrect results, e.g.:
+      //          #pragma omp declare target
+      //          static int a[100];
+      //          void foo() {
+      //            a[7] = 7;
+      //          }
+      //          #pragma omp end declare target
+      //
+      //          void bar() {
+      //          #pragma omp target
+      //            { foo(); }
+      //          }
+      //
+      //        foo() will have a reference to global 'a', and there
+      //        is currently no way to associate this access with the buffer
+      //        that we allocate here.
+      if (DeviceSize == 0) {
         TgtAddr = __tgt_rtl_data_alloc(device_id, Size, HostAddr);
         __tgt_rtl_data_submit(device_id, TgtAddr, HostAddr, Size);
       }
 
-      DP("Global variable allocated: Name = %s, Size = %" PRIu64
+      DP("Global variable allocated: Name = %s, Size = %zu"
          ", HostPtr = " DPxMOD ", TgtPtr = " DPxMOD "\n",
-         Name, (uint64_t)Size, DPxPTR(HostAddr), DPxPTR(TgtAddr));
+         Name, Size, DPxPTR(HostAddr), DPxPTR(TgtAddr));
       entries[i].addr = TgtAddr;
       entries[i].name = Name;
       entries[i].size = Size;
@@ -1306,9 +1318,9 @@ static inline int32_t run_target_team_nd_region(
   if (loop_levels) {
     DP("Collapsed %" PRId64 " loops.\n", *loop_levels);
   }
-  DP("Global work size = (%zd, %zd, %zd)\n", global_work_size[0],
+  DP("Global work size = (%zu, %zu, %zu)\n", global_work_size[0],
      global_work_size[1], global_work_size[2]);
-  DP("Local work size = (%zd, %zd, %zd)\n", local_work_size[0],
+  DP("Local work size = (%zu, %zu, %zu)\n", local_work_size[0],
      local_work_size[1], local_work_size[2]);
   DP("Work dimension = %u\n", work_dim);
 
@@ -1339,7 +1351,7 @@ static inline int32_t run_target_team_nd_region(
   }
 
   if (implicit_args.size() > 0) {
-    DP("Calling clSetKernelExecInfo to pass %zd implicit arguments to kernel "
+    DP("Calling clSetKernelExecInfo to pass %zu implicit arguments to kernel "
        DPxMOD "\n", implicit_args.size(), DPxPTR(kernel));
     INVOKE_CL_RET_FAIL(clSetKernelExecInfo, *kernel,
                        CL_KERNEL_EXEC_INFO_SVM_PTRS,
