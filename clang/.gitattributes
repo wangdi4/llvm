@@ -1,13 +1,10 @@
-<<<<<<< HEAD
 #
 # Unset text property on all files, so line endings are
 # not modified on either commit or checkout
 #
 * -text
 
-=======
 # Windows line ending tests
 test/Lexer/minimize_source_to_dependency_directives_invalid_error.c text eol=crlf
 test/FixIt/fixit-newline-style.c text eol=crlf
 test/Frontend/system-header-line-directive-ms-lineendings.c text eol=crlf
->>>>>>> 57b4e107e43a785c38cbc16bcfd631fde80228f8
