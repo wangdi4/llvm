@@ -31,17 +31,38 @@
 ; CHECK-O-NEXT: Running pass: XmainOptLevelAnalysisInit  ;INTEL
 ; CHECK-O-NEXT: Running analysis: XmainOptLevelAnalysis  ;INTEL
 ; CHECK-O-NEXT: Running pass: GlobalDCEPass
-; CHECK-O-NEXT: Running pass: IPCloningPass ;INTEL
+; INTEL_CUSTOMIZATION
+; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}WholeProgramAnalysis
+; CHECK-O-NEXT: Running analysis: WholeProgramAnalysis
+; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}Function
+; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
+; CHECK-O-NEXT: Running analysis: TargetIRAnalysis
+; CHECK-O-NEXT: Running analysis: PassInstrumentationAnalysis
+; CHECK-O-NEXT: Running pass: IPCloningPass
+; end INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: ForceFunctionAttrsPass
 ; CHECK-O-NEXT: Running pass: InferFunctionAttrsPass
-; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
+; INTEL_CUSTOMIZATION
+; The TargetLibraryAnalysis is required by the Intel WholeProgramAnalysis.
+; It will run during O1. The following CHECK won't be executed.
+; CHECK-O-NEXT-: Running analysis: TargetLibraryAnalysis
+; end INTEL_CUSTOMIZATION
 ; CHECK-O2-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}PassManager{{.*}}>
-; CHECK-O2-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}Module
-; CHECK-O2-NEXT: Running analysis: PassInstrumentationAnalysis
+; INTEL_CUSTOMIZATION
+; The InnerAnalysisManagerProxy and the PassInstrumentationAnalysis is needed
+; for the Intel WholeProgramAnalysis. It will run with O1. The following CHECK
+; won't be executed. The following two CHECKs won't be executed.
+; CHECK-O2-NEXT-: Running analysis: InnerAnalysisManagerProxy<{{.*}}Module
+; CHECK-O2-NEXT-: Running analysis: PassInstrumentationAnalysis
+; end INTEL_CUSTOMIZATION
 ; CHECK-O2-NEXT: Starting llvm::Function pass manager run.
 ; CHECK-O2-NEXT: Running pass: CallSiteSplittingPass on foo
 ; CHECK-O2-NEXT: Running analysis: TargetLibraryAnalysis on foo
-; CHECK-O2-NEXT: Running analysis: TargetIRAnalysis on foo
+; INTEL_CUSTOMIZATION
+; The TargetIRAnalysis is needed for the Intel WholeProgramAnalysis.
+; It will run with O1. The following CHECK won't be executed.
+; CHECK-O2-NEXT-: Running analysis: TargetIRAnalysis on foo
+; end INTEL_CUSTOMIZATION
 ; CHECK-O2-NEXT: Running analysis: DominatorTreeAnalysis on foo
 ; CHECK-O2-NEXT: Finished llvm::Function pass manager run.
 ; CHECK-O2-NEXT: PGOIndirectCallPromotion
@@ -52,19 +73,25 @@
 ; CHECK-O2-NEXT: Running pass: CalledValuePropagationPass
 ; CHECK-O-NEXT: Running pass: ModuleToPostOrderCGSCCPassAdaptor<{{.*}}PostOrderFunctionAttrsPass>
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}SCC
-; CHECK-O1-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}Function
+; INTEL_CUSTOMIZATION
+; The InnerAnalysisManagerProxy is needed for the Intel WholeProgramAnalysis.
+; It should run at O1. The following CHECK won't be executed.
+; CHECK-O1-NEXT-: Running analysis: InnerAnalysisManagerProxy<{{.*}}Function
+; end INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running analysis: LazyCallGraphAnalysis
 ; CHECK-O-NEXT: Running analysis: FunctionAnalysisManagerCGSCCProxy
 ; CHECK-O-NEXT: Running analysis: PassInstrumentationAnalysis
 ; CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy<{{.*}}LazyCallGraph{{.*}}>
 ; CHECK-O-NEXT: Running analysis: AAManager
-; CHECK-O1-NEXT: Running analysis: PassInstrumentationAnalysis
+; INTEL_CUSTOMIZATION
+; The PassInstrumentationAnalysis is needed for the Intel WholeProgramAnalysis.
+; It should run at O1. The following CHECK won't be executed.
+; CHECK-O1-NEXT-: Running analysis: PassInstrumentationAnalysis
+; end INTEL_CUSTOMIZATION
 ; CHECK-O1-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-O-NEXT: Running pass: ReversePostOrderFunctionAttrsPass
 ; CHECK-O-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-O-NEXT: Running pass: OptimizeDynamicCastsPass    ;INTEL
-; CHECK-O-NEXT: Running analysis: WholeProgramAnalysis    ;INTEL
-; CHECK-O1-NEXT: Running analysis: TargetIRAnalysis on foo ;INTEL
 ; CHECK-O-NEXT: Running pass: GlobalSplitPass
 ; CHECK-O-NEXT: Running pass: WholeProgramDevirtPass
 ; CHECK-O1-NEXT: Running pass: LowerTypeTestsPass

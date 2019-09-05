@@ -4,9 +4,7 @@
 
 ; RUN: opt < %s -xmain-opt-level=0 -wholeprogramanalysis -whole-program-assume -S 2>&1 | FileCheck %s
 
-; TODO: The new pass manager version will be disabled until the
-; XmainOptLevelAnalysis is fixed to work properly.
-;;  opt < %s -xmain-opt-level=0 -passes='require<wholeprogram>' -whole-program-assume -S 2>&1 | FileCheck %s
+; RUN: opt < %s -xmain-opt-level=0 -passes='require<wholeprogram>' -whole-program-assume -S 2>&1 | FileCheck %s
 
 declare i1 @llvm.intel.wholeprogramsafe()
 

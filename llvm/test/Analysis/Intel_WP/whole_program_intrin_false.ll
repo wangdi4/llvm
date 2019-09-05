@@ -3,6 +3,7 @@
 ; llvm.intel.wholeprogramsafe should be removed.
 
 ; RUN: opt < %s -wholeprogramanalysis -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='require<wholeprogram>' -S 2>&1 | FileCheck %s
 
 declare i1 @llvm.intel.wholeprogramsafe()
 
