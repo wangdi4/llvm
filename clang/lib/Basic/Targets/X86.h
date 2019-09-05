@@ -367,8 +367,7 @@ public:
     LongDoubleWidth = 96;
     LongDoubleAlign = 32;
     SuitableAlign = 128;
-    resetDataLayout("e-m:e-p:32:32-p270:32:32-p271:32:32-p272:64:64-f64:32:64-"
-                    "f80:32-n8:16:32-S128");
+    resetDataLayout("e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128");
     SizeType = UnsignedInt;
     PtrDiffType = SignedInt;
     IntPtrType = SignedInt;
@@ -468,8 +467,7 @@ public:
       UseSignedCharForObjCBool = false;
     SizeType = UnsignedLong;
     IntPtrType = SignedLong;
-    resetDataLayout("e-m:o-p:32:32-p270:32:32-p271:32:32-p272:64:64-f64:32:64-"
-                    "f80:128-n8:16:32-S128");
+    resetDataLayout("e-m:o-p:32:32-f64:32:64-f80:128-n8:16:32-S128");
     HasAlignMac68kSupport = true;
   }
 
@@ -494,10 +492,9 @@ public:
     DoubleAlign = LongLongAlign = 64;
     bool IsWinCOFF =
         getTriple().isOSWindows() && getTriple().isOSBinFormatCOFF();
-    resetDataLayout(IsWinCOFF ? "e-m:x-p:32:32-p270:32:32-p271:32:32-p272:64:"
-                                "64-i64:64-f80:32-n8:16:32-a:0:32-S32"
-                              : "e-m:e-p:32:32-p270:32:32-p271:32:32-p272:64:"
-                                "64-i64:64-f80:32-n8:16:32-a:0:32-S32");
+    resetDataLayout(IsWinCOFF
+                        ? "e-m:x-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32"
+                        : "e-m:e-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32");
   }
 };
 
@@ -545,8 +542,7 @@ public:
       : X86_32TargetInfo(Triple, Opts) {
     this->WCharType = TargetInfo::UnsignedShort;
     DoubleAlign = LongLongAlign = 64;
-    resetDataLayout("e-m:x-p:32:32-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:"
-                    "32-n8:16:32-a:0:32-S32");
+    resetDataLayout("e-m:x-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32");
   }
 
   void getTargetDefines(const LangOptions &Opts,
@@ -583,8 +579,7 @@ public:
       : X86_32TargetInfo(Triple, Opts) {
     LongDoubleWidth = 64;
     LongDoubleFormat = &llvm::APFloat::IEEEdouble();
-    resetDataLayout("e-m:e-p:32:32-p270:32:32-p271:32:32-p272:64:64-i64:32-f64:"
-                    "32-f128:32-n8:16:32-a:0:32-S32");
+    resetDataLayout("e-m:e-p:32:32-i64:32-f64:32-f128:32-n8:16:32-a:0:32-S32");
     WIntType = UnsignedInt;
   }
 
@@ -643,12 +638,10 @@ public:
     RegParmMax = 6;
 
     // Pointers are 32-bit in x32.
-    resetDataLayout(IsX32 ? "e-m:e-p:32:32-p270:32:32-p271:32:32-p272:64:64-"
-                            "i64:64-f80:128-n8:16:32:64-S128"
-                          : IsWinCOFF ? "e-m:w-p270:32:32-p271:32:32-p272:64:"
-                                        "64-i64:64-f80:128-n8:16:32:64-S128"
-                                      : "e-m:e-p270:32:32-p271:32:32-p272:64:"
-                                        "64-i64:64-f80:128-n8:16:32:64-S128");
+    resetDataLayout(IsX32
+                        ? "e-m:e-p:32:32-i64:64-f80:128-n8:16:32:64-S128"
+                        : IsWinCOFF ? "e-m:w-i64:64-f80:128-n8:16:32:64-S128"
+                                    : "e-m:e-i64:64-f80:128-n8:16:32:64-S128");
 
     // Use fpret only for long double.
     RealTypeUsesObjCFPRet = (1 << TargetInfo::LongDouble);
@@ -838,8 +831,7 @@ public:
     llvm::Triple T = llvm::Triple(Triple);
     if (T.isiOS())
       UseSignedCharForObjCBool = false;
-    resetDataLayout("e-m:o-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:"
-                    "16:32:64-S128");
+    resetDataLayout("e-m:o-i64:64-f80:128-n8:16:32:64-S128");
   }
 
   bool handleTargetFeatures(std::vector<std::string> &Features,
