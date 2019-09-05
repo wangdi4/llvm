@@ -109,19 +109,15 @@ bool elf::link(ArrayRef<const char *> args, bool canExitEarly,
 
   driver->main(args);
 
-#if INTEL_CUSTOMIZATION
-  // The following code is commented out because is from the community and
-  // it will be replaced.
-
   // Exit immediately if we don't need to return to the caller.
   // This saves time because the overhead of calling destructors
   // for all globally-allocated objects is not negligible.
-  // if (canExitEarly)
-  //  exitLld(errorCount() ? 1 : 0);
+  if (canExitEarly)
+    exitLld(errorCount() ? 1 : 0);
 
-  // CMPLRLLVM-8800: We are going to replace exitLld with cleanIntelLld.
-  // This is because we want to prevent calling the early exit and use
-  // destructors.
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-10208: This part here is for destroying the global data
+  // if the user doesn't need it (e.g. testing system).
   cleanIntelLld();
 #endif // INTEL_CUSTOMIZATION
 
@@ -476,6 +472,14 @@ void LinkerDriver::main(ArrayRef<const char *> argsArr) {
   if (errorCount())
     return;
 
+#if INTEL_CUSTOMIZATION
+  if (args.hasArg(OPT_intel_debug_mem))
+    errorHandler().intelDebugMem = true;
+
+  if (args.hasArg(OPT_intel_embedded_linker))
+    errorHandler().intelEmbeddedLinker = true;
+#endif // INTEL_CUSTOMIZATION
+
   // The Target instance handles target-specific stuff, such as applying
   // relocations or writing a PLT section. It also contains target-dependent
   // values such as a default image base address.
@@ -805,7 +809,7 @@ static void readConfigs(opt::InputArgList &args) {
   errorHandler().vsDiagnostics =
       args.hasArg(OPT_visual_studio_diagnostics_format, false);
 #if INTEL_CUSTOMIZATION
-  // CMPLRLLVM-8800: Prevent running LLD in parallel during the testing
+  // CMPLRLLVM-10208: Prevent running LLD in parallel during the testing
   // process in Windows unless the user specifies it. This is to avoid
   // exhausting the memory and flaky failures.
 #if defined(_WIN32)
