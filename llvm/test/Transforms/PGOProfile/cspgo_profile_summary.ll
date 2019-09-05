@@ -4,7 +4,6 @@
 ; RUN: opt < %s -O2 -disable-preinline -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -S | FileCheck %s --check-prefix=PGOSUMMARY
 ; RUN: opt < %s -O2 -disable-preinline -pgo-kind=pgo-instr-use-pipeline -profile-file=%t.profdata -S -cspgo-kind=cspgo-instr-use-pipeline| FileCheck %s --check-prefix=CSPGOSUMMARY
 
-<<<<<<< HEAD
 ; INTEL CUSTOMIZATION: This test fails in xmain.  JR CMPLRLLVM-8686
 ; There are two issues that prevent this test from working in xmain:
 ; 1) xmain has replaced the SimplifyCFG function FoldTwoEntryPHINode
@@ -27,10 +26,7 @@
 ; XFAIL: *
 ; END INTEL CUSTOMIZATION
 
-target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
-=======
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
->>>>>>> 57076d3199fc2b0af4a3736b7749dd5462cacda5
 target triple = "x86_64-unknown-linux-gnu"
 
 @odd = common dso_local global i32 0, align 4
