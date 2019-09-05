@@ -1277,7 +1277,14 @@ static bool isSafePHIToSpeculate(PHINode &PN) {
     if (!isLiveAtPHI(dyn_cast<Instruction>(U), PN, MaxAlign, MaxSize))
       return false;
 
+<<<<<<< HEAD
     HasLoad = true;
+=======
+    uint64_t Size = DL.getTypeStoreSize(LI->getType());
+    MaxAlign = std::max(MaxAlign, LI->getAlignment());
+    MaxSize = MaxSize.ult(Size) ? APInt(APWidth, Size) : MaxSize;
+    HaveLoad = true;
+>>>>>>> 2694522f1345f0baded022515728cf033b4694d1
   }
 
   if (!HasLoad)
