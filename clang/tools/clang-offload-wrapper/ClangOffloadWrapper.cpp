@@ -539,8 +539,8 @@ private:
 
     if (Kind != OffloadKind::SYCL) {
 #if INTEL_COLLAB
-#if _WIN32
-      if (Kind == OffloadKind::OpenMP) {
+      if (Triple(M.getTargetTriple()).isWindowsMSVCEnvironment() &&
+          Kind == OffloadKind::OpenMP) {
         auto LabelTy = ArrayType::get(Type::getInt8Ty(C), 0);
         EntriesB = new GlobalVariable(
             M, LabelTy, true, GlobalValue::ExternalLinkage,
@@ -568,7 +568,6 @@ private:
         EntriesEObj->setUnnamedAddr(GlobalValue::UnnamedAddr::Local);
         EntriesE = ConstantExpr::getBitCast(EntriesE, getEntryPtrTy());
       }
-#endif  // !_WIN32
 
       if (!EntriesB) {
 #endif // INTEL_COLLAB
