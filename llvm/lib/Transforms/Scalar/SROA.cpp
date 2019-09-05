@@ -1210,7 +1210,7 @@ static bool isLiveAtPHI(const Instruction * Inst,
     const DataLayout &DL = PN.getModule()->getDataLayout();
 
     uint64_t APWidth = DL.getIndexTypeSizeInBits(PN.getType());
-    uint64_t Size = DL.getTypeStoreSizeInBits(LI->getType());
+    uint64_t Size = DL.getTypeStoreSize(LI->getType());
     MaxAlign = std::max(MaxAlign, LI->getAlignment());
     MaxSize = MaxSize.ult(Size) ? APInt(APWidth, Size) : MaxSize;
 
