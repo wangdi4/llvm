@@ -2789,7 +2789,31 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
           if (LoadInst *Load = dyn_cast<LoadInst>(Arg))
             if (Load->getPointerOperand() == HostPtr) {
               LoadInst *Buffer = VCBuilder.CreateLoad(TgtBuffer, "buffer");
-              VariantCall->replaceUsesOfWith(Arg, Buffer);
+
+              // HostPtr   type is:  SomeType**
+              // Arg       type is:  SomeType*
+              // TgtBuffer type is:  void**
+              // Buffer    type is:  void*
+              //
+              // To replace 'Arg' with 'Buffer' in the variant call,
+              // we must cast Buffer from void* to SomeType*
+              // Example (SomeType==float):
+              //    %buffer = load i8*, i8** %tgt.buffer
+              //    %buffer.cast = bitcast i8* %buffer23 to float*
+              //    call void @foo_gpu(..., float* %buffer.cast,... )
+              Type *HostPtrTy = HostPtr->getType(); // SomeType**
+              assert(HostPtrTy->isPointerTy() &&
+                     "HostPtrTy expected to be pointer type");
+              Type *HostPtrElemTy =
+                  HostPtrTy->getPointerElementType(); // SomeType*
+              assert(HostPtrElemTy->isPointerTy() &&
+                     "HostPtrElemTy expected to be pointer type");
+              assert(Arg->getType() == HostPtrElemTy &&
+                     "HostPtrElemTy expected to be the same as Arg's type");
+              Value *BufferCast =
+                  VCBuilder.CreateBitCast(Buffer, HostPtrElemTy);
+              BufferCast->setName("buffer.cast");
+              VariantCall->replaceUsesOfWith(Arg, BufferCast);
               break;
             }
       }

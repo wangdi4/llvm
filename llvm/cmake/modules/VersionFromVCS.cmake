@@ -17,9 +17,12 @@ function(get_source_info_svn path revision repository)
     if(Project_WC_REVISION)
       set(${revision} ${Project_WC_REVISION} PARENT_SCOPE)
     endif()
-    if(Project_WC_URL)
-      set(${repository} ${Project_WC_URL} PARENT_SCOPE)
-    endif()
+    # INTEL_CUSTOMIZATION
+    # -- Don't expose our repository location --
+    # if(Project_WC_URL)
+    #   set(${repository} ${Project_WC_URL} PARENT_SCOPE)
+    # endif()
+    # end INTEL_CUSTOMIZATION
   endif()
 endfunction()
 
@@ -43,9 +46,12 @@ function(get_source_info_git path revision repository)
           string(REGEX REPLACE "^(.*\n)?Revision: ([^\n]+).*"
             "\\2" git_svn_rev "${git_output}")
           set(${revision} ${git_svn_rev} PARENT_SCOPE)
-          string(REGEX REPLACE "^(.*\n)?URL: ([^\n]+).*"
-            "\\2" git_url "${git_output}")
-          set(${repository} ${git_url} PARENT_SCOPE)
+          # INTEL_CUSTOMIZATION
+          # -- Don't expose our repository location --
+          # string(REGEX REPLACE "^(.*\n)?URL: ([^\n]+).*"
+          #   "\\2" git_url "${git_output}")
+          # set(${repository} ${git_url} PARENT_SCOPE)
+          # end INTEL_CUSTOMIZATION
         endif()
       else()
         execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse HEAD
@@ -67,17 +73,20 @@ function(get_source_info_git path revision repository)
         else()
           set(remote "origin")
         endif()
-        execute_process(COMMAND ${GIT_EXECUTABLE} remote get-url ${remote}
-          WORKING_DIRECTORY ${path}
-          RESULT_VARIABLE git_result
-          OUTPUT_VARIABLE git_output
-          ERROR_QUIET)
-        if(git_result EQUAL 0)
-          string(STRIP "${git_output}" git_output)
-          set(${repository} ${git_output} PARENT_SCOPE)
-        else()
-          set(${repository} ${path} PARENT_SCOPE)
-        endif()
+        # INTEL_CUSTOMIZATION
+        # -- Don't expose our repository location --
+        # execute_process(COMMAND ${GIT_EXECUTABLE} remote get-url ${remote}
+        #   WORKING_DIRECTORY ${path}
+        #   RESULT_VARIABLE git_result
+        #   OUTPUT_VARIABLE git_output
+        #   ERROR_QUIET)
+        # if(git_result EQUAL 0)
+        #   string(STRIP "${git_output}" git_output)
+        #   set(${repository} ${git_output} PARENT_SCOPE)
+        # else()
+        #   set(${repository} ${path} PARENT_SCOPE)
+        # endif()
+        # end INTEL_CUSTOMIZATION
       endif()
     endif()
   endif()

@@ -13,6 +13,7 @@
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Analysis/Intel_XmainOptLevelPass.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
@@ -73,6 +74,7 @@ INITIALIZE_PASS_BEGIN(WholeProgramWrapperPass, "wholeprogramanalysis",
                 "Whole program analysis", false, false)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(XmainOptLevelWrapperPass)
 INITIALIZE_PASS_END(WholeProgramWrapperPass, "wholeprogramanalysis",
                 "Whole program analysis", false, false)
 
@@ -95,12 +97,16 @@ bool WholeProgramWrapperPass::runOnModule(Module &M) {
   auto GTTI = [this](Function &F) -> TargetTransformInfo & {
     return this->getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
   };
+
   CallGraphWrapperPass *CGPass =
       getAnalysisIfAvailable<CallGraphWrapperPass>();
   CallGraph *CG = CGPass ? &CGPass->getCallGraph() : nullptr;
+  unsigned OptLevel = getAnalysis<XmainOptLevelWrapperPass>().getOptLevel();
+
   Result.reset(new WholeProgramInfo(
                 WholeProgramInfo::analyzeModule(
-      M, getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(), GTTI, CG)));
+      M, getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(), GTTI, CG, OptLevel)));
+
   return false;
 }
 
@@ -121,7 +127,8 @@ WholeProgramInfo::~WholeProgramInfo() {}
 // llvm.intel.wholeprogramsafe should be removed completely after
 // this process since it won't be lowered. See the language reference
 // manual for more information.
-void WholeProgramInfo::foldIntrinsicWholeProgramSafe(Module &M) {
+void WholeProgramInfo::foldIntrinsicWholeProgramSafe(Module &M,
+                                                     unsigned OptLevel) {
 
   Function *WhPrIntrin = M.getFunction("llvm.intel.wholeprogramsafe");
 
@@ -130,7 +137,11 @@ void WholeProgramInfo::foldIntrinsicWholeProgramSafe(Module &M) {
 
   LLVMContext &Context = M.getContext();
 
-  ConstantInt *InitVal = (isWholeProgramSafe()?
+  // If the optimization level is 0 then we are going to take the path
+  // when whole program is not safe. This means that any optimization
+  // wrapped in the intrinsic llvm.intel.wholeprogramsafe won't be
+  // applied (e.g. devirtualization).
+  ConstantInt *InitVal = ((isWholeProgramSafe() && OptLevel > 0) ?
                           ConstantInt::getTrue(Context) :
                           ConstantInt::getFalse(Context));
 
@@ -157,7 +168,8 @@ void WholeProgramInfo::foldIntrinsicWholeProgramSafe(Module &M) {
 WholeProgramInfo
 WholeProgramInfo::analyzeModule(Module &M, const TargetLibraryInfo &TLI,
                                 function_ref<TargetTransformInfo
-                                    &(Function &)> GTTI, CallGraph *CG) {
+                                    &(Function &)> GTTI, CallGraph *CG,
+                                unsigned OptLevel) {
 
   WholeProgramInfo Result;
 
@@ -172,7 +184,7 @@ WholeProgramInfo::analyzeModule(Module &M, const TargetLibraryInfo &TLI,
 
   // Remove the uses of the intrinsic
   // llvm.intel.wholeprogramsafe
-  Result.foldIntrinsicWholeProgramSafe(M);
+  Result.foldIntrinsicWholeProgramSafe(M, OptLevel);
   Result.computeIsAdvancedOptEnabled(M, GTTI);
 
   return Result;
@@ -184,6 +196,7 @@ void WholeProgramWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
   AU.addRequired<TargetTransformInfoWrapperPass>();
+  AU.addRequired<XmainOptLevelWrapperPass>();
 }
 
 // This function takes Value that is an operand to call or invoke instruction
@@ -572,9 +585,16 @@ WholeProgramInfo WholeProgramAnalysis::run(Module &M,
       [&FAM](Function &F) -> TargetTransformInfo & {
     return FAM.getResult<TargetIRAnalysis>(F);
   };
+
+  // TODO: The analysis XmainOptLevelAnalysis run at function level. We are
+  // going to use the default level until the analysis is extended to
+  // module level.
+  unsigned OptLevel = 2;
+
   return WholeProgramInfo::analyzeModule(M,
                                   AM.getResult<TargetLibraryAnalysis>(M), GTTI,
-                                  AM.getCachedResult<CallGraphAnalysis>(M));
+                                  AM.getCachedResult<CallGraphAnalysis>(M),
+                                  OptLevel);
 }
 
 

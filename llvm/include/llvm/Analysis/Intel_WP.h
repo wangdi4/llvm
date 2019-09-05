@@ -86,11 +86,11 @@ public:
                                         const TargetLibraryInfo &TLI,
                                         function_ref<TargetTransformInfo
                                             &(Function &)> GTTI,
-                                        CallGraph *CG);
+                                        CallGraph *CG, unsigned OptLevel);
 
   // Fold the intrinsic llvm.intel.wholeprogramsafe
   // into true or false depending on the result of the analysis
-  void foldIntrinsicWholeProgramSafe(Module &M);
+  void foldIntrinsicWholeProgramSafe(Module &M, unsigned OptLevel);
 
   // Return true if the input GlobName is a form of main,
   // else return false.
