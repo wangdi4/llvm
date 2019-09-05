@@ -105,9 +105,9 @@ bool SYCLPipesHack::runOnModule(Module &M) {
   OCLBuiltins Builtins(M, BLI.getBuiltinModules());
 
   // SYCL Program scope pipes are currently represented by global struct with 3
-  // i32 values: size, align and capacity. We need to find them all these global
-  // structs and replace with %opencl.pipe_rw_t objects to utilize the rest of
-  // pipe related passes without any modifications.
+  // i32 values: size, align and capacity. We need to find these global structs
+  // and replace with %opencl.pipe_rw_t objects to utilize the rest of pipe
+  // related passes without any modifications.
   SmallVector<GlobalVariable *, 16> StorageVars;
   findPipeStorageGlobals(&M, StorageVars);
   if (StorageVars.empty()) {
