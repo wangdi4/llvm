@@ -124,8 +124,13 @@ def err_duplicate_default_assoc : Error<
 def note_previous_default_assoc : Note<
   "previous default generic association is here">;
 
+<<<<<<< HEAD
 def err_no_arith_type : Error <"expression must have an arithmetic type">; // INTEL
 
+=======
+def ext_c99_feature : Extension<
+  "'%0' is a C99 extension">, InGroup<C99>;
+>>>>>>> 9fac4a5d3522682e3799f407ff783cad1cde0e7e
 def ext_c11_feature : Extension<
   "'%0' is a C11 extension">, InGroup<C11>;
 
