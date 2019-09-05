@@ -6809,6 +6809,13 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
   WrapperArgs.push_back(
       C.getArgs().MakeArgString(Twine("-kind=") + Twine(Kind)));
 
+  // When debugging, make the native debugger the default for SYCL on Windows.
+  if (getToolChain().getTriple().isWindowsMSVCEnvironment() &&
+      JA.getOffloadingDeviceKind() == Action::OFK_SYCL &&
+      TCArgs.getLastArg(options::OPT_g_Group)) {
+    WrapperArgs.push_back("--build-opts=-gnative");
+  }
+
   for (auto I : Inputs) {
     WrapperArgs.push_back(I.getFilename());
   }
