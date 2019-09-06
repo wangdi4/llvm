@@ -153,11 +153,18 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
         cast<PointerType>(ArgV->getType())->getAddressSpace();
     unsigned OldAddressSpace =
         cast<PointerType>(I->getType())->getAddressSpace();
+
+#if INTEL_CUSTOMIZATION
+    // FIXME: reenable this assertion, when ifort is able to generate
+    //        correct addrspaces.
+    //
     // Assert the correct addrspacecast here instead of failing
     // during SPIRV emission.
     assert(OldAddressSpace == vpo::ADDRESS_SPACE_GENERIC &&
            "finalizeKernelFunction: OpenCL global addrspaces can only be "
            "casted to generic.");
+#endif  // INTEL_CUSTOMIZATION
+
     Value *NewArgV = ArgV;
     if (NewAddressSpace != OldAddressSpace)
       NewArgV = Builder.CreatePointerBitCastOrAddrSpaceCast(ArgV, I->getType());
@@ -203,6 +210,7 @@ static bool isParOrTargetDirective(Instruction *Inst,
   switch (ID) {
     case DIR_OMP_PARALLEL:
     case DIR_OMP_PARALLEL_LOOP:
+    case DIR_OMP_PARALLEL_SECTIONS:
     case DIR_OMP_DISTRIBUTE_PARLOOP:
     case DIR_OMP_TEAMS:
     case DIR_OMP_SIMD:
@@ -234,7 +242,7 @@ static Instruction *getExitInstruction(Instruction *DirectiveBegin,
   // already been handled above.
   for (auto U : DirectiveBegin->users()) {
     if (auto DEnd = dyn_cast<IntrinsicInst>(U)) {
-      LLVM_DEBUG(dbgs() << "\n Direc End::" << *DEnd);
+      LLVM_DEBUG(dbgs() << "\n Directive End::" << *DEnd);
       return DEnd;
     }
   }
