@@ -1740,6 +1740,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   // TODO:: is it the way we want to support masked calls ?
   // currently we have only the DX calls and this works for them.
   bool hasNoSideEffects = m_rtServices->hasNoSideEffect(scalarFuncName);
+  bool isVPlanStyleMasking = m_rtServices->needsVPlanStyleMask(scalarFuncName);
   std::string vectorFuncNameStr = LibFunc->getName().str();
   bool isMaskedFunctionCall = m_rtServices->isMaskedFunctionCall(vectorFuncNameStr);
   if (!hasNoSideEffects && isMangled && !isMaskedFunctionCall) {
@@ -1750,7 +1751,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   }
 
   std::vector<Value *> newArgs;
-  if (!obtainNewCallArgs(CI, LibFunc, isMangled, isMaskedFunctionCall, newArgs)) {
+  if (!obtainNewCallArgs(CI, LibFunc, isMangled, isMaskedFunctionCall, isVPlanStyleMasking, newArgs)) {
     V_PRINT(vectorizer_stat, "<<<<NoVectorFuncCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(CI->getOpcode()) <<" Failed to convert args to vectorized function:" <<origFuncName<<"\n");
     V_STAT(m_noVectorFuncCtr++;)
     Scalarize_Function_Call++; // statistics
@@ -1844,10 +1845,10 @@ void PacketizeFunction::packetizedMemsetSoaAllocaDerivedInst(CallInst *CI) {
 }
 
 bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
-         bool isMangled, bool isMaskedFunctionCall, std::vector<Value *>& newArgs) {
+         bool isMangled, bool isMaskedFunctionCall, bool isVPlanStyleMask, std::vector<Value *>& newArgs) {
   // For masked calls we widen the mask as first operand (or creating mask of all 1
   // incase no call is not masked)
-  if (isMaskedFunctionCall) {
+  if (isMaskedFunctionCall && !isVPlanStyleMask) {
     Value *maskV;
     if (isMangled) {
       Value *mask = CI->getArgOperand(0);
@@ -1932,6 +1933,21 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
       newArgs.push_back(AI);
     }
   }
+
+  if (isMaskedFunctionCall && isVPlanStyleMask) {
+    Value *maskV = nullptr;
+    if (isMangled) {
+      Value *mask = CI->getArgOperand(0);
+      obtainVectorizedValue(&maskV, mask, CI);
+    } else {
+      // 0xffffffff means that mask is active
+      Constant *mask = ConstantInt::get(CI->getContext(), APInt(32,-1));
+      maskV = ConstantVector::getSplat(m_packetWidth, mask);
+    }
+    // VPlan style mask is the last argument.
+    newArgs.push_back(maskV);
+  }
+
   return true;
 }
 

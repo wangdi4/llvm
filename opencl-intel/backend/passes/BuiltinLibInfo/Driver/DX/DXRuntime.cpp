@@ -83,6 +83,10 @@ bool DXRuntime::isMaskedFunctionCall(const std::string &func_name) const {
   return func_name.find("dx_soa") == 0;
 }
 
+bool DXRuntime::needsVPlanStyleMask(StringRef) const {
+  return false;
+}
+
 } // Namespace
 
 /// Support for static linking of modules for Windows

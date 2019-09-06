@@ -452,34 +452,34 @@ static void addBlockReadWriteBuiltins(ContainerTy &Info) {
 static ContainerTy OCLBuiltinVecInfo() {
   ContainerTy Info;
 
-  addEntries(Info, "_Z13sub_group_all", TypeInfo{'i'}, {VectorKind::vector()});
-  addEntries(Info, "_Z13sub_group_any", TypeInfo{'i'}, {VectorKind::vector()});
+  addEntries(Info, "_Z13sub_group_all", TypeInfo{'i'}, {VectorKind::vector()}, true);
+  addEntries(Info, "_Z13sub_group_any", TypeInfo{'i'}, {VectorKind::vector()}, true);
 
   addBlockReadWriteBuiltins(Info);
 
   TypeInfo Types[] = {{'i'}, {'j'}, {'l'}, {'m'}, {'f'}, {'d'}};
   for (TypeInfo &Type : Types) {
     addEntries(Info, std::string("_Z19sub_group_broadcast"), {Type, {'j'}},
-               {VectorKind::vector(), VectorKind::uniform()});
+               {VectorKind::vector(), VectorKind::uniform()}, true);
     addEntries(Info, std::string("_Z20sub_group_reduce_add"), Type,
-               {VectorKind::vector()});
+               {VectorKind::vector()}, true);
     addEntries(Info, std::string("_Z20sub_group_reduce_max"), Type,
-               {VectorKind::vector()});
+               {VectorKind::vector()}, true);
     addEntries(Info, std::string("_Z20sub_group_reduce_min"), Type,
-               {VectorKind::vector()});
+               {VectorKind::vector()}, true);
 
     addEntries(Info, std::string("_Z28sub_group_scan_exclusive_add"), Type,
-               {VectorKind::vector()});
+               {VectorKind::vector()}, true);
     addEntries(Info, std::string("_Z28sub_group_scan_exclusive_max"), Type,
-               {VectorKind::vector()});
+               {VectorKind::vector()}, true);
     addEntries(Info, std::string("_Z28sub_group_scan_exclusive_min"), Type,
-               {VectorKind::vector()});
+               {VectorKind::vector()}, true);
     addEntries(Info, std::string("_Z28sub_group_scan_inclusive_add"), Type,
-               {VectorKind::vector()});
+               {VectorKind::vector()}, true);
     addEntries(Info, std::string("_Z28sub_group_scan_inclusive_max"), Type,
-               {VectorKind::vector()});
+               {VectorKind::vector()}, true);
     addEntries(Info, std::string("_Z28sub_group_scan_inclusive_min"), Type,
-               {VectorKind::vector()});
+               {VectorKind::vector()}, true);
   }
   TypeInfo ShuffleTypes[] = {{'i'}, {'i', 2}, {'i', 4}, {'i', 8}, {'i', 16},
                              {'j'}, {'j', 2}, {'j', 4}, {'j', 8}, {'j', 16},
