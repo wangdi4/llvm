@@ -102,6 +102,34 @@ define i8* @SyFgets(i8* %line, i64 %length, i64 %fid) {
 ; CHECK-NEXT:    xorl %r12d, %r12d ;INTEL
 ; CHECK-NEXT:    jmp LBB0_13
 ; CHECK-NEXT:    .p2align 4, 0x90
+; CHECK-NEXT:  LBB0_20: ## %sw.bb256
+; CHECK-NEXT:    ## in Loop: Header=BB0_13 Depth=1
+; CHECK-NEXT:    movl %r14d, %r13d
+; CHECK-NEXT:  LBB0_21: ## %while.cond197.backedge
+; CHECK-NEXT:    ## in Loop: Header=BB0_13 Depth=1
+; CHECK-NEXT:    decl %r15d
+; CHECK-NEXT:    testl %r15d, %r15d
+; CHECK-NEXT:    movl %r13d, %r14d
+; CHECK-NEXT:    jle LBB0_22
+; CHECK-NEXT:  LBB0_13: ## %while.body200
+; CHECK-NEXT:    ## =>This Loop Header: Depth=1
+; CHECK-NEXT:    ## Child Loop BB0_30 Depth 2
+; CHECK-NEXT:    ## Child Loop BB0_38 Depth 2
+; CHECK-NEXT:    leal -268(%r14), %eax
+; CHECK-NEXT:    cmpl $105, %eax
+; CHECK-NEXT:    ja LBB0_14
+; CHECK-NEXT:  ## %bb.56: ## %while.body200
+; CHECK-NEXT:    ## in Loop: Header=BB0_13 Depth=1
+; CHECK-NEXT:    movslq (%rdi,%rax,4), %rax
+; CHECK-NEXT:    addq %rdi, %rax
+; CHECK-NEXT:    jmpq *%rax
+; CHECK-NEXT:  LBB0_44: ## %while.cond1037.preheader
+; CHECK-NEXT:    ## in Loop: Header=BB0_13 Depth=1
+; CHECK-NEXT:    testb %dl, %dl
+; CHECK-NEXT:    movl %r14d, %r13d
+; CHECK-NEXT:    jne LBB0_21
+; CHECK-NEXT:    jmp LBB0_55
+; CHECK-NEXT:    .p2align 4, 0x90
 ; CHECK-NEXT:  LBB0_14: ## %while.body200
 ; CHECK-NEXT:    ## in Loop: Header=BB0_13 Depth=1
 ; CHECK-NEXT:    leal 1(%rcx), %eax ;INTEL
@@ -116,6 +144,7 @@ define i8* @SyFgets(i8* %line, i64 %length, i64 %fid) {
 ; CHECK-NEXT:    ## in Loop: Header=BB0_13 Depth=1
 ; CHECK-NEXT:    movl $-1, %ecx ;INTEL
 ; CHECK-NEXT:    jmp LBB0_21
+<<<<<<< HEAD
 ; CHECK-NEXT:  LBB0_30: ## %sw.bb474 ;INTEL
 ; CHECK-NEXT:    ## in Loop: Header=BB0_13 Depth=1
 ; CHECK-NEXT:    movq %rcx, {{[-0-9]+}}(%r{{[sb]}}p) ## 8-byte Spill ;INTEL
@@ -123,6 +152,9 @@ define i8* @SyFgets(i8* %line, i64 %length, i64 %fid) {
 ; CHECK-NEXT:    ## implicit-def: $r14 ;INTEL
 ; CHECK-NEXT:    jne LBB0_38 ;INTEL
 ; CHECK-NEXT:  ## %bb.31: ## %do.body479.preheader ;INTEL
+=======
+; CHECK-NEXT:  LBB0_26: ## %sw.bb474
+>>>>>>> f9f81289e6864ca3f09df16bad0ffc3ca58c3162
 ; CHECK-NEXT:    ## in Loop: Header=BB0_13 Depth=1
 ; CHECK-NEXT:    testb %r13b, %r13b ;INTEL
 ; CHECK-NEXT:    ## implicit-def: $r14 ;INTEL
@@ -130,7 +162,11 @@ define i8* @SyFgets(i8* %line, i64 %length, i64 %fid) {
 ; CHECK-NEXT:  ## %bb.32: ## %land.rhs485.preheader ;INTEL
 ; CHECK-NEXT:    ## in Loop: Header=BB0_13 Depth=1
 ; CHECK-NEXT:    ## implicit-def: $rax
+; CHECK-NEXT:    testb %al, %al
+; CHECK-NEXT:    jns LBB0_30
+; CHECK-NEXT:    jmp LBB0_55
 ; CHECK-NEXT:    .p2align 4, 0x90
+<<<<<<< HEAD
 ; CHECK-NEXT:  LBB0_33: ## %land.rhs485 ;INTEL
 ; CHECK-NEXT:    ## Parent Loop BB0_13 Depth=1
 ; CHECK-NEXT:    ## => This Inner Loop Header: Depth=2
@@ -153,6 +189,50 @@ define i8* @SyFgets(i8* %line, i64 %length, i64 %fid) {
 ; CHECK-NEXT:    testb %r13b, %r13b ;INTEL
 ; CHECK-NEXT:    jne LBB0_33 ;INTEL
 ; CHECK-NEXT:  ## %bb.37: ## %if.end517.loopexitsplit ;INTEL
+=======
+; CHECK-NEXT:  LBB0_32: ## %do.body479.backedge
+; CHECK-NEXT:    ## in Loop: Header=BB0_30 Depth=2
+; CHECK-NEXT:    leaq 1(%r12), %rax
+; CHECK-NEXT:    testb %dl, %dl
+; CHECK-NEXT:    je LBB0_33
+; CHECK-NEXT:  ## %bb.29: ## %land.rhs485
+; CHECK-NEXT:    ## in Loop: Header=BB0_30 Depth=2
+; CHECK-NEXT:    testb %al, %al
+; CHECK-NEXT:    js LBB0_55
+; CHECK-NEXT:  LBB0_30: ## %cond.true.i.i2780
+; CHECK-NEXT:    ## Parent Loop BB0_13 Depth=1
+; CHECK-NEXT:    ## => This Inner Loop Header: Depth=2
+; CHECK-NEXT:    movq %rax, %r12
+; CHECK-NEXT:    testb %dl, %dl
+; CHECK-NEXT:    jne LBB0_32
+; CHECK-NEXT:  ## %bb.31: ## %lor.rhs500
+; CHECK-NEXT:    ## in Loop: Header=BB0_30 Depth=2
+; CHECK-NEXT:    movl $256, %esi ## imm = 0x100
+; CHECK-NEXT:    callq ___maskrune
+; CHECK-NEXT:    xorl %edx, %edx
+; CHECK-NEXT:    testb %dl, %dl
+; CHECK-NEXT:    jne LBB0_32
+; CHECK-NEXT:    jmp LBB0_34
+; CHECK-NEXT:  LBB0_45: ## %sw.bb1134
+; CHECK-NEXT:    ## in Loop: Header=BB0_13 Depth=1
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
+; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rcx
+; CHECK-NEXT:    cmpq %rax, %rcx
+; CHECK-NEXT:    jb LBB0_55
+; CHECK-NEXT:  ## %bb.46: ## in Loop: Header=BB0_13 Depth=1
+; CHECK-NEXT:    xorl %ebp, %ebp
+; CHECK-NEXT:    movl $268, %r13d ## imm = 0x10C
+; CHECK-NEXT:    jmp LBB0_21
+; CHECK-NEXT:  LBB0_19: ## %sw.bb243
+; CHECK-NEXT:    ## in Loop: Header=BB0_13 Depth=1
+; CHECK-NEXT:    movl $2, %r13d
+; CHECK-NEXT:    jmp LBB0_21
+; CHECK-NEXT:  LBB0_40: ## %sw.bb566
+; CHECK-NEXT:    ## in Loop: Header=BB0_13 Depth=1
+; CHECK-NEXT:    movl $20, %r13d
+; CHECK-NEXT:    jmp LBB0_21
+; CHECK-NEXT:  LBB0_33: ## %if.end517.loopexitsplit
+>>>>>>> f9f81289e6864ca3f09df16bad0ffc3ca58c3162
 ; CHECK-NEXT:    ## in Loop: Header=BB0_13 Depth=1
 ; CHECK-NEXT:    incq %r14 ;INTEL
 ; CHECK-NEXT:  LBB0_38: ## %if.end517 ;INTEL
@@ -191,6 +271,7 @@ define i8* @SyFgets(i8* %line, i64 %length, i64 %fid) {
 ; CHECK-NEXT:    leaq {{.*}}(%rip), %rdx ;INTEL
 ; CHECK-NEXT:    leaq {{.*}}(%rip), %rsi
 ; CHECK-NEXT:    jmp LBB0_21
+<<<<<<< HEAD
 ; CHECK-NEXT:  LBB0_48: ## %while.cond1037.preheader ;INTEL
 ; CHECK-NEXT:    ## in Loop: Header=BB0_13 Depth=1 ;INTEL
 ; CHECK-NEXT:    testb %r13b, %r13b ;INTEL
@@ -239,6 +320,8 @@ define i8* @SyFgets(i8* %line, i64 %length, i64 %fid) {
 ; CHECK-NEXT:    movl %ecx, %r12d ;INTEL
 ; CHECK-NEXT:    jg LBB0_13
 ; CHECK-NEXT:    jmp LBB0_22
+=======
+>>>>>>> f9f81289e6864ca3f09df16bad0ffc3ca58c3162
 ; CHECK-NEXT:    .p2align 4, 0x90
 ; CHECK-NEXT:  LBB0_46: ## %while.cond864 ;INTEL
 ; CHECK-NEXT:    ## =>This Inner Loop Header: Depth=1
