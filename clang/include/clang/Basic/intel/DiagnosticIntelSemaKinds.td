@@ -48,13 +48,6 @@ def err_recursive_attribute_expected : Error<
 def warn_func_redecl_conflicting_types: Warning<
   "declaration of %0 is incompatible with previous "
   "%select{declaration|definition}1">, InGroup<IntelCompat>;
-// CQ370802 - allows bypassing var init in switch statement if IntelCompat
-def warn_switch_into_protected_scope : Warning<
-  "jump from switch statement to this case label bypasses variable initialization">,
-  InGroup<IntelCompat>;
-// CQ370802 - allows indirect got to any places
-def warn_indirect_goto_in_protected_scope : Warning<
-  err_indirect_goto_in_protected_scope.Text>, InGroup<IntelCompat>;
   // CQ#366309 - allow arrays with incomplete element type in IntelCompat mode.
 def ext_intel_array_incomplete_type : Extension<
   "array with incomplete element type %0 is an Intel extension">,
