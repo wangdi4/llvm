@@ -630,7 +630,10 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
     assert(GrpIndexes[i] == i && "Unsupported memory references sequence");
 
   // Check that all memory references have the same interleave factor.
-  auto InterleaveFactor = computeInterleaveFactor(Group->getFirstMemref());
+  OVLSMemref *MemRef = Group->getFirstMemref();
+  assert(MemRef &&
+         "Expect a non-null first memref to determine the Interleave factor.");
+  auto InterleaveFactor = computeInterleaveFactor(MemRef);
   assert(all_of(*Group,
                 [InterleaveFactor](OVLSMemref *x) {
                   return computeInterleaveFactor(x) == InterleaveFactor;
@@ -652,7 +655,7 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
 
   // Compute address for the wide store.
   const VPInstruction *Leader =
-      cast<VPVLSClientMemref>(Group->getFirstMemref())->getInstruction();
+      cast<VPVLSClientMemref>(MemRef)->getInstruction();
   Value *ScatterAddress = getVectorValue(Leader->getOperand(1));
   assert(!MaskValue && "Scalar address may be invalid (masked out)");
   Value *ScalarAddress = Builder.CreateExtractElement(
