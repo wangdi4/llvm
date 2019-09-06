@@ -478,6 +478,13 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
     LatchExitBlock = BackedgeCond ? OrigLoopLatch->getSuccessors()[1]
                                   : OrigLoopLatch->getSuccessors()[0];
   }
+  VPlanDivergenceAnalysis *VPlanDA = Plan->getVPlanDA();
+  // The divergence information is later used to set the new condition bit
+  // that merge loops exits transformation introduces.
+  bool IsDivergent =
+      llvm::any_of(ExitingBlocks, [VPlanDA](VPBlockBase *ExitingBlock) {
+        return VPlanDA->isDivergent(*ExitingBlock->getCondBit());
+      });
 
   // Step 1 : Creates a new loop latch and fills it with all the necessary
   // instructions.
@@ -513,8 +520,12 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   }
   // Update the condbit.
   NewLoopLatch->setCondBit(NewCondBit);
-  VPlanDivergenceAnalysis *VPlanDA = Plan->getVPlanDA();
-  VPlanDA->markDivergent(*NewCondBit);
+  // We should only mark divergent values. DA checks if a value is in
+  // DivergentValues set. If it is not there, then the value is considered
+  // uniform.
+  if (IsDivergent)
+    VPlanDA->markDivergent(*NewCondBit);
+
   // Add the original loop latch in the NewLoopLatch's phi node.
   VPPHINode *NewLoopHeaderPhiNode =
       updatePhiNodeInLoopHeader(LoopHeader, NewLoopLatch, VPPhi, Plan);
