@@ -75,17 +75,13 @@ bool link(ArrayRef<const char *> args, bool canExitEarly, raw_ostream &diag) {
 
   driver->link(args);
 
-#if INTEL_CUSTOMIZATION
-  // The following code is commented out because is from the community and
-  // it will be replaced.
-
   // Call exit() if we can to avoid calling destructors.
-  // if (CanExitEarly)
-  //  exitLld(errorCount() ? 1 : 0);
+  if (canExitEarly)
+    exitLld(errorCount() ? 1 : 0);
 
-  // CMPLRLLVM-8800: We are going to replace exitLld with cleanIntelLld.
-  // This is because we want to prevent calling the early exit and use
-  // the destructors.
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-10208: This part here is for destroying the global data
+  // if the user doesn't need it (e.g. testing system).
   cleanIntelLld();
 #endif // INTEL_CUSTOMIZATION
 
@@ -976,6 +972,8 @@ void LinkerDriver::invokeMSVC(opt::InputArgList &args) {
     case OPT_lldmap:
     case OPT_lldmap_file:
     case OPT_lldsavetemps:
+    case OPT_intel_debug_mem:
+    case OPT_intel_embedded_linker:
     case OPT_opt:
       if (!StringRef(arg->getValue()).startswith("lld"))
         rsp += toString(*arg) + " ";
@@ -1345,6 +1343,14 @@ void LinkerDriver::link(ArrayRef<const char *> argsArr) {
     else
       fatal("no input files");
   }
+
+#if INTEL_CUSTOMIZATION
+  if (args.hasArg(OPT_intel_debug_mem))
+    errorHandler().intelDebugMem = true;
+
+  if (args.hasArg(OPT_intel_embedded_linker))
+    errorHandler().intelEmbeddedLinker = true;
+#endif // INTEL_CUSTOMIZATION
 
   // Construct search path list.
   searchPaths.push_back("");
