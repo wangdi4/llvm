@@ -268,9 +268,11 @@ def FeatureCLDEMOTE  : SubtargetFeature<"cldemote", "HasCLDEMOTE", "true",
                                       "Enable Cache Demote">;
 def FeaturePTWRITE  : SubtargetFeature<"ptwrite", "HasPTWRITE", "true",
                                       "Support ptwrite instruction">;
-<<<<<<< HEAD
-def FeatureMPX     : SubtargetFeature<"mpx", "HasMPX", "true",
-                                      "Support MPX instructions">;
+// FIXME: This feature is deprecated in 10.0 and should not be used for
+// anything, but removing it would break IR files that may contain it in a
+// target-feature attribute.
+def FeatureDeprecatedMPX : SubtargetFeature<"mpx", "DeprecatedHasMPX", "false",
+                                      "Deprecated. Support MPX instructions">;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
 def FeatureAMXTILE     : SubtargetFeature<"amx-tile", "HasAMXTILE", "true",
@@ -303,13 +305,6 @@ def FeatureAMXFP16     : SubtargetFeature<"amx-bf16", "HasAMXFP16", "true",
                                       [FeatureAMXTILE]>;
 #endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
-=======
-// FIXME: This feature is deprecated in 10.0 and should not be used for
-// anything, but removing it would break IR files that may contain it in a
-// target-feature attribute.
-def FeatureDeprecatedMPX : SubtargetFeature<"mpx", "DeprecatedHasMPX", "false",
-                                      "Deprecated. Support MPX instructions">;
->>>>>>> 5a43fdd3139640116fc18d82cb1b6d2788def156
 def FeatureLEAForSP : SubtargetFeature<"lea-sp", "UseLeaForSP", "true",
                                      "Use LEA for adjusting the stack pointer">;
 def FeatureSlowDivide32 : SubtargetFeature<"idivl-to-divb",
