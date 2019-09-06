@@ -2397,36 +2397,26 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
       return true;
     }
 
-<<<<<<< HEAD
     Value *TrueVal = PN->getIncomingValueForBlock(IfTrue);
     Value *FalseVal = PN->getIncomingValueForBlock(IfFalse);
-=======
-  // Return true if at least one of these is a 'not', and another is either
-  // a 'not' too, or a constant.
-  auto CanHoistNotFromBothValues = [](Value *V0, Value *V1) {
-    if (!match(V0, m_Not(m_Value())))
-      std::swap(V0, V1);
-    auto Invertible = m_CombineOr(m_Not(m_Value()), m_AnyIntegralConstant());
-    return match(V0, m_Not(m_Value())) && match(V1, Invertible);
-  };
 
-  // Don't fold i1 branches on PHIs which contain binary operators, unless one
-  // of the incoming values is an 'not' and another one is freely invertible.
-  // These can often be turned into switches and other things.
-  if (PN->getType()->isIntegerTy(1) &&
-      (isa<BinaryOperator>(PN->getIncomingValue(0)) ||
-       isa<BinaryOperator>(PN->getIncomingValue(1)) ||
-       isa<BinaryOperator>(IfCond)) &&
-      !CanHoistNotFromBothValues(PN->getIncomingValue(0),
-                                 PN->getIncomingValue(1)))
-    return false;
->>>>>>> 9f35d2b564041da3a661b763414b75a51eda9a77
+    // Return true if at least one of these is a 'not', and another is either
+    // a 'not' too, or a constant.
+    auto CanHoistNotFromBothValues = [](Value *V0, Value *V1) {
+      if (!match(V0, m_Not(m_Value())))
+        std::swap(V0, V1);
+      auto Invertible = m_CombineOr(m_Not(m_Value()), m_AnyIntegralConstant());
+      return match(V0, m_Not(m_Value())) && match(V1, Invertible);
+    };
 
-    // Don't fold i1 branches on PHIs which contain binary operators. These
-    // can often be turned into switches and other things.
+    // Don't fold i1 branches on PHIs which contain binary operators, unless one
+    // of the incoming values is an 'not' and another one is freely invertible.
+    // These can often be turned into switches and other things.
     if (PN->getType()->isIntegerTy(1) &&
         (isa<BinaryOperator>(TrueVal) || isa<BinaryOperator>(FalseVal) ||
-         isa<BinaryOperator>(IfCond))) {
+         isa<BinaryOperator>(IfCond)) &&
+        !CanHoistNotFromBothValues(PN->getIncomingValue(0),
+                                   PN->getIncomingValue(1))) {
       // Continue to look for next "if condition".
       continue;
     }
