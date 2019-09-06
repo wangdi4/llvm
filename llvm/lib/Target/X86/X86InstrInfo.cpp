@@ -493,19 +493,6 @@ static bool regIsPICBase(unsigned BaseReg, const MachineRegisterInfo &MRI) {
 bool X86InstrInfo::isReallyTriviallyReMaterializable(const MachineInstr &MI,
                                                      AliasAnalysis *AA) const {
   switch (MI.getOpcode()) {
-<<<<<<< HEAD
-  default: break;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-  // Community now explicitly lists all opcodes that should return true instead
-  // of doing it as the default behavior. Explicitly listing this so that it
-  // causes a merge conflict with that instead of maybe triggering an
-  // llvm_unreachable.
-  case X86::AVX512_FsFLD0SH:
-    return true;
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-=======
   default:
     // This function should only be called for opcodes with the ReMaterializable
     // flag set.
@@ -520,6 +507,11 @@ bool X86InstrInfo::isReallyTriviallyReMaterializable(const MachineInstr &MI,
   case X86::AVX512_512_SET0:
   case X86::AVX512_512_SETALLONES:
   case X86::AVX512_FsFLD0SD:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::AVX512_FsFLD0SH:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::AVX512_FsFLD0SS:
   case X86::AVX_SET0:
   case X86::FsFLD0SD:
@@ -546,7 +538,6 @@ bool X86InstrInfo::isReallyTriviallyReMaterializable(const MachineInstr &MI,
   case X86::MOV8ri:
     return true;
 
->>>>>>> 160ed4cab4e1f25f2d6668d691577abab651f2d8
   case X86::MOV8rm:
   case X86::MOV8rm_NOREX:
   case X86::MOV16rm:
