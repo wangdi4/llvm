@@ -23,6 +23,8 @@
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportPrintUtils.h"
 
+#include "llvm/ADT/Triple.h"
+
 #define DEBUG_TYPE "intel-ir-optreport-emitter"
 
 using namespace llvm;
@@ -39,6 +41,12 @@ struct LoopOptReportEmitter {
 
   void printLoopOptReportRecursive(const Loop *L, unsigned Depth,
                                    formatted_raw_ostream &FOS);
+
+#if INTEL_FEATURE_CSA
+  bool isCSALibMathFunction(const Function &F);
+
+  bool isCSALibCFunction(const Function &F);
+#endif // INTEL_FEATURE_CSA
 
   bool run(Function &F, LoopInfo &LI);
 };
@@ -63,9 +71,74 @@ void LoopOptReportEmitter::printLoopOptReportRecursive(
     printEnclosedOptReport(FOS, Depth, OptReport.nextSibling());
 }
 
+#if INTEL_FEATURE_CSA
+bool LoopOptReportEmitter::isCSALibMathFunction(const Function &F) {
+  // The functions listed below are defined in the CSA SDK file:
+  // base/<DATE>/libcsa/libcsamath.bc
+  //
+  // Note: A better approach than checking for the functions by name
+  // would be to use a custom function attribute, which would disable
+  // opt-report for a function. This attribute can be used for all
+  // "library" functions, instead of listing them here.
+
+  if (F.getName() == "ceil") return true;
+  if (F.getName() == "ceilf") return true;
+  if (F.getName() == "dp_sqrt_RD") return true;
+  if (F.getName() == "dp_sqrt_RN") return true;
+  if (F.getName() == "dp_sqrt_RU") return true;
+  if (F.getName() == "dp_sqrt_RZ") return true;
+  if (F.getName() == "exp2f") return true;
+  if (F.getName() == "exp2") return true;
+  if (F.getName() == "expf") return true;
+  if (F.getName() == "exp") return true;
+  if (F.getName() == "floor") return true;
+  if (F.getName() == "floorf") return true;
+  if (F.getName() == "log10f") return true;
+  if (F.getName() == "log10") return true;
+  if (F.getName() == "log2f") return true;
+  if (F.getName() == "log2") return true;
+  if (F.getName() == "log") return true;
+  if (F.getName() == "logf") return true;
+  if (F.getName() == "powf") return true;
+  if (F.getName() == "pow") return true;
+  if (F.getName() == "round") return true;
+  if (F.getName() == "roundf") return true;
+  if (F.getName() == "sin") return true;
+  if (F.getName() == "sinf") return true;
+  if (F.getName() == "cos") return true;
+  if (F.getName() == "cosf") return true;
+  if (F.getName() == "trunc") return true;
+  if (F.getName() == "truncf") return true;
+  return false;
+}
+
+bool LoopOptReportEmitter::isCSALibCFunction(const Function &F) {
+  // The functions listed below are defined in the CSA SDK file:
+  // base/<DATE>/libcsa/libcsac.bc
+  //
+  // Note: A better approach than checking for the functions by name
+  // would be to use a custom function attribute, which would disable
+  // opt-report for a function. This attribute can be used for all
+  // "library" functions, instead of listing them here.
+
+  if (F.getName() == "CsaMemInitialize") return true;
+  if (F.getName() == "CsaMemFree") return true;
+  if (F.getName() == "CsaMemAlloc") return true;
+  return false;
+}
+#endif // INTEL_FEATURE_CSA
+
 bool LoopOptReportEmitter::run(Function &F, LoopInfo &LI) {
   if (DisableIROptReportEmitter)
     return false;
+
+#if INTEL_FEATURE_CSA
+  bool IsCsaTarget = Triple(F.getParent()->getTargetTriple()).getArch() == Triple::ArchType::csa;
+
+  if (IsCsaTarget)
+    if (isCSALibMathFunction(F) || isCSALibCFunction(F))
+      return false;
+#endif // INTEL_FEATURE_CSA
 
   formatted_raw_ostream OS(dbgs());
   OS << "Global loop optimization report for : " << F.getName() << "\n";
