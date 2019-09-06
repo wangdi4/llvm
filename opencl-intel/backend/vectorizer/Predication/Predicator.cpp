@@ -831,8 +831,14 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
     //if the predicated is a faked one, we need to create it artificially.
     //Otherwise, we simply import it from the builtin module.
     Function* func;
-    if (m_rtServices->isFakedFunction(maskedName))
+    if (m_rtServices->isFakedFunction(maskedName)) {
+      if (m_rtServices->needsVPlanStyleMask(maskedName)) {
+        // VPlan style mask is i32
+        Type* pMaskTy = Type::getInt32Ty(inst->getContext());
+        pred = CastInst::CreateSExtOrBitCast(pred, pMaskTy, "", call);
+      }
       func = createPredicatedFunction(call, pred, maskedName);
+    }
     else {
       Function* pMaskedfunc = m_rtServices->findInRuntimeModule(maskedName);
       V_ASSERT(pMaskedfunc && "function not found in runtime module");

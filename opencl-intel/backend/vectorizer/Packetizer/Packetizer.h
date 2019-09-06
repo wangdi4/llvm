@@ -388,7 +388,8 @@ private:
   /// @param newArgs - vector of arguments to fill
   /// @return true if all arguments were succesfully obtained
   bool obtainNewCallArgs(CallInst *CI, const Function *LibFunc, bool isMangled,
-               bool isMaskedFunctionCall, std::vector<Value *>& newArgs);
+               bool isMaskedFunctionCall, bool isVPlanStyleMask,
+               std::vector<Value *>& newArgs);
 
   /// @brief Find the insertElement roots of packetized vector type.
   //  Fill an array of the newly packetized values.
