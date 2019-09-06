@@ -635,6 +635,14 @@ let IntrProperties = [IntrInaccessibleMemOnly, IntrWillReturn] in {
                                                       llvm_metadata_ty,
                                                       llvm_metadata_ty ]>;
 
+  def int_experimental_constrained_fptosi : Intrinsic<[ llvm_anyint_ty ],
+                                                    [ llvm_anyfloat_ty,
+                                                      llvm_metadata_ty ]>;
+
+  def int_experimental_constrained_fptoui : Intrinsic<[ llvm_anyint_ty ],
+                                                    [ llvm_anyfloat_ty,
+                                                      llvm_metadata_ty ]>;
+
   def int_experimental_constrained_fptrunc : Intrinsic<[ llvm_anyfloat_ty ],
                                                        [ llvm_anyfloat_ty,
                                                          llvm_metadata_ty,
@@ -725,7 +733,8 @@ let IntrProperties = [IntrInaccessibleMemOnly, IntrWillReturn] in {
                                                        llvm_metadata_ty,
                                                        llvm_metadata_ty ]>;
 }
-// FIXME: Add intrinsics for fcmp, fptoui and fptosi.
+// FIXME: Add intrinsic for fcmp.
+// FIXME: Consider maybe adding intrinsics for sitofp, uitofp.
 
 //===------------------------- Expect Intrinsics --------------------------===//
 //
