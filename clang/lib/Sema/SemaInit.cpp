@@ -1096,62 +1096,16 @@ void InitListChecker::CheckExplicitInitList(const InitializedEntity &Entity,
   // Don't complain for incomplete types, since we'll get an error elsewhere.
   if (Index < IList->getNumInits() && !T->isIncompleteType()) {
     // We have leftover initializers
-    bool ExtraInitsIsError = SemaRef.getLangOpts().CPlusPlus ||
+#if INTEL_CUSTOMIZATION
+    // CQ#376357: Allow excess initializers in permissive mode.
+    bool ExtraInitsIsError =
+        (SemaRef.getLangOpts().CPlusPlus &&
+         !(SemaRef.getLangOpts().IntelCompat &&
+           SemaRef.getLangOpts().GnuPermissive)) ||
+#endif // INTEL_CUSTOMIZATION
           (SemaRef.getLangOpts().OpenCL && T->isVectorType());
     hadError = ExtraInitsIsError;
     if (VerifyOnly) {
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-      // CQ#376357: Allow excess initializers in permissive mode.
-      if ((SemaRef.getLangOpts().CPlusPlus &&
-          !(SemaRef.getLangOpts().IntelCompat &&
-            SemaRef.getLangOpts().GnuPermissive)) ||
-#endif // INTEL_CUSTOMIZATION
-          (SemaRef.getLangOpts().OpenCL &&
-           IList->getType()->isVectorType())) {
-        hadError = true;
-      }
-      return;
-    }
-
-    if (StructuredIndex == 1 &&  StructuredList->getNumInits() > 0 && // INTEL cq371131
-        IsStringInit(StructuredList->getInit(0), T, SemaRef.Context) ==
-            SIF_None) {
-      unsigned DK = diag::ext_excess_initializers_in_char_array_initializer;
-      if (SemaRef.getLangOpts().CPlusPlus) {
-        DK = diag::err_excess_initializers_in_char_array_initializer;
-        hadError = true;
-      }
-      // Special-case
-      SemaRef.Diag(IList->getInit(Index)->getBeginLoc(), DK)
-          << IList->getInit(Index)->getSourceRange();
-    } else if (!T->isIncompleteType()) {
-      // Don't complain for incomplete types, since we'll get an error
-      // elsewhere
-      QualType CurrentObjectType = StructuredList->getType();
-      int initKind =
-        CurrentObjectType->isArrayType()? 0 :
-        CurrentObjectType->isVectorType()? 1 :
-        CurrentObjectType->isScalarType()? 2 :
-        CurrentObjectType->isUnionType()? 3 :
-        4;
-
-      unsigned DK = diag::ext_excess_initializers;
-#if INTEL_CUSTOMIZATION
-      // CQ#376357: Allow excess initializers in permissive mode.
-      if (SemaRef.getLangOpts().CPlusPlus &&
-          !(SemaRef.getLangOpts().IntelCompat &&
-            SemaRef.getLangOpts().GnuPermissive)) {
-#endif // INTEL_CUSTOMIZATION
-        DK = diag::err_excess_initializers;
-        hadError = true;
-      }
-      if (SemaRef.getLangOpts().OpenCL && initKind == 1) {
-        DK = diag::err_excess_initializers;
-        hadError = true;
-      }
-
-=======
       return;
     } else if (StructuredIndex == 1 &&
                IsStringInit(StructuredList->getInit(0), T, SemaRef.Context) ==
@@ -1171,7 +1125,6 @@ void InitListChecker::CheckExplicitInitList(const InitializedEntity &Entity,
 
       unsigned DK = ExtraInitsIsError ? diag::err_excess_initializers
                                       : diag::ext_excess_initializers;
->>>>>>> 8823dbc552ec6946027c59ac53510404b98671b6
       SemaRef.Diag(IList->getInit(Index)->getBeginLoc(), DK)
           << initKind << IList->getInit(Index)->getSourceRange();
     }
