@@ -738,10 +738,6 @@ void LinkerDriver::link(ArrayRef<const char *> argsArr) {
   if (errorCount())
     return;
 
-<<<<<<< HEAD
-=======
-  createOptionalSymbols();
-
 #if INTEL_CUSTOMIZATION
   if (args.hasArg(OPT_intel_debug_mem))
     errorHandler().intelDebugMem = true;
@@ -750,7 +746,6 @@ void LinkerDriver::link(ArrayRef<const char *> argsArr) {
     errorHandler().intelEmbeddedLinker = true;
 #endif // INTEL_CUSTOMIZATION
 
->>>>>>> 3871bd1c5fa674b4a233fafdf0feaba7ee5ae0b0
   // Handle the `--undefined <sym>` options.
   for (auto *arg : args.filtered(OPT_undefined))
     handleUndefined(arg->getValue());
