@@ -1093,9 +1093,14 @@ void InitListChecker::CheckExplicitInitList(const InitializedEntity &Entity,
   if (hadError)
     return;
 
-  if (Index < IList->getNumInits()) {
+  // Don't complain for incomplete types, since we'll get an error elsewhere.
+  if (Index < IList->getNumInits() && !T->isIncompleteType()) {
     // We have leftover initializers
+    bool ExtraInitsIsError = SemaRef.getLangOpts().CPlusPlus ||
+          (SemaRef.getLangOpts().OpenCL && T->isVectorType());
+    hadError = ExtraInitsIsError;
     if (VerifyOnly) {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       // CQ#376357: Allow excess initializers in permissive mode.
       if ((SemaRef.getLangOpts().CPlusPlus &&
@@ -1146,6 +1151,27 @@ void InitListChecker::CheckExplicitInitList(const InitializedEntity &Entity,
         hadError = true;
       }
 
+=======
+      return;
+    } else if (StructuredIndex == 1 &&
+               IsStringInit(StructuredList->getInit(0), T, SemaRef.Context) ==
+                   SIF_None) {
+      unsigned DK =
+          ExtraInitsIsError
+              ? diag::err_excess_initializers_in_char_array_initializer
+              : diag::ext_excess_initializers_in_char_array_initializer;
+      SemaRef.Diag(IList->getInit(Index)->getBeginLoc(), DK)
+          << IList->getInit(Index)->getSourceRange();
+    } else {
+      int initKind = T->isArrayType() ? 0 :
+                     T->isVectorType() ? 1 :
+                     T->isScalarType() ? 2 :
+                     T->isUnionType() ? 3 :
+                     4;
+
+      unsigned DK = ExtraInitsIsError ? diag::err_excess_initializers
+                                      : diag::ext_excess_initializers;
+>>>>>>> 8823dbc552ec6946027c59ac53510404b98671b6
       SemaRef.Diag(IList->getInit(Index)->getBeginLoc(), DK)
           << initKind << IList->getInit(Index)->getSourceRange();
     }
@@ -1373,8 +1399,8 @@ void InitListChecker::CheckSubElementType(const InitializedEntity &Entity,
         hadError = true;
       else {
         ExprRes = SemaRef.DefaultFunctionArrayLvalueConversion(ExprRes.get());
-          if (ExprRes.isInvalid())
-            hadError = true;
+        if (ExprRes.isInvalid())
+          hadError = true;
       }
       UpdateStructuredListElement(StructuredList, StructuredIndex,
                                   ExprRes.getAs<Expr>());
@@ -1399,10 +1425,15 @@ void InitListChecker::CheckSubElementType(const InitializedEntity &Entity,
     ++StructuredIndex;
   } else {
     if (!VerifyOnly) {
-      // We cannot initialize this element, so let
-      // PerformCopyInitialization produce the appropriate diagnostic.
-      SemaRef.PerformCopyInitialization(Entity, SourceLocation(), expr,
-                                        /*TopLevelOfInitList=*/true);
+      // We cannot initialize this element, so let PerformCopyInitialization
+      // produce the appropriate diagnostic. We already checked that this
+      // initialization will fail.
+      ExprResult Copy =
+          SemaRef.PerformCopyInitialization(Entity, SourceLocation(), expr,
+                                            /*TopLevelOfInitList=*/true);
+      (void)Copy;
+      assert(Copy.isInvalid() &&
+             "expected non-aggregate initialization to fail");
     }
     hadError = true;
     ++Index;
@@ -1882,6 +1913,8 @@ void InitListChecker::CheckArrayType(const InitializedEntity &Entity,
     // enough elements, or if we're performing an array new with an unknown
     // bound.
     // FIXME: This needs to detect holes left by designated initializers too.
+    // FIXME: Doing this now is wrong; these holes can be filled by later
+    // designated initializers.
     if ((maxElementsKnown && elementIndex < maxElements) ||
         Entity.isVariableLengthArrayNew())
       CheckEmptyInitializable(
@@ -2142,6 +2175,8 @@ void InitListChecker::CheckStructUnionTypes(
   if (VerifyOnly && Field != FieldEnd && !DeclType->isUnionType() &&
       !Field->getType()->isIncompleteArrayType()) {
     // FIXME: Should check for holes left by designated initializers too.
+    // FIXME: Doing this now is wrong; these holes can be filled by later
+    // designated initializers.
     for (; Field != FieldEnd && !hadError; ++Field) {
       if (!Field->isUnnamedBitfield() && !Field->hasInClassInitializer())
         CheckEmptyInitializable(
