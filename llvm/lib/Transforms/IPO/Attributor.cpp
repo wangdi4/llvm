@@ -429,16 +429,16 @@ void IRPosition::verify() {
     assert(KindOrArgNo >= 0 && "Expected argument or call site argument!");
     assert((isa<CallBase>(AnchorVal) || isa<Argument>(AnchorVal)) &&
            "Expected call base or argument for positive attribute index!");
-    if (auto *Arg = dyn_cast<Argument>(AnchorVal)) {
-      assert(Arg->getArgNo() == unsigned(getArgNo()) &&
+    if (isa<Argument>(AnchorVal)) {
+      assert(cast<Argument>(AnchorVal)->getArgNo() == unsigned(getArgNo()) &&
              "Argument number mismatch!");
-      assert(Arg == &getAssociatedValue() && "Associated value mismatch!");
+      assert(cast<Argument>(AnchorVal) == &getAssociatedValue() &&
+             "Associated value mismatch!");
     } else {
-      auto &CB = cast<CallBase>(*AnchorVal);
-      (void)CB;
-      assert(CB.arg_size() > unsigned(getArgNo()) &&
+      assert(cast<CallBase>(*AnchorVal).arg_size() > unsigned(getArgNo()) &&
              "Call site argument number mismatch!");
-      assert(CB.getArgOperand(getArgNo()) == &getAssociatedValue() &&
+      assert(cast<CallBase>(*AnchorVal).getArgOperand(getArgNo()) ==
+                 &getAssociatedValue() &&
              "Associated value mismatch!");
     }
     break;
@@ -1418,7 +1418,7 @@ struct AANonNullCallSiteArgument final : AANonNullFloating {
   AANonNullCallSiteArgument(const IRPosition &IRP) : AANonNullFloating(IRP) {}
 
   /// See AbstractAttribute::trackStatistics()
-  void trackStatistics() const override { STATS_DECLTRACK_CSARG_ATTR(nonnul) }
+  void trackStatistics() const override { STATS_DECLTRACK_CSARG_ATTR(nonnull) }
 };
 
 /// NonNull attribute for a call site return position.
@@ -1560,6 +1560,12 @@ struct AANoAliasImpl : AANoAlias {
 struct AANoAliasFloating final : AANoAliasImpl {
   AANoAliasFloating(const IRPosition &IRP) : AANoAliasImpl(IRP) {}
 
+  /// See AbstractAttribute::initialize(...).
+  void initialize(Attributor &A) override {
+    // TODO: It isn't sound to initialize as the same with `AANoAliasImpl`
+    // because `noalias` may not be valid in the current position.
+  }
+
   /// See AbstractAttribute::updateImpl(...).
   ChangeStatus updateImpl(Attributor &A) override {
     // TODO: Implement this.
@@ -1573,14 +1579,10 @@ struct AANoAliasFloating final : AANoAliasImpl {
 };
 
 /// NoAlias attribute for an argument.
-struct AANoAliasArgument final : AANoAliasImpl {
-  AANoAliasArgument(const IRPosition &IRP) : AANoAliasImpl(IRP) {}
-
-  /// See AbstractAttribute::updateImpl(...).
-  ChangeStatus updateImpl(Attributor &A) override {
-    // TODO: Implement this.
-    return indicatePessimisticFixpoint();
-  }
+struct AANoAliasArgument final
+    : AAArgumentFromCallSiteArguments<AANoAlias, AANoAliasImpl> {
+  AANoAliasArgument(const IRPosition &IRP)
+      : AAArgumentFromCallSiteArguments<AANoAlias, AANoAliasImpl>(IRP) {}
 
   /// See AbstractAttribute::trackStatistics()
   void trackStatistics() const override { STATS_DECLTRACK_ARG_ATTR(noalias) }
@@ -1588,6 +1590,12 @@ struct AANoAliasArgument final : AANoAliasImpl {
 
 struct AANoAliasCallSiteArgument final : AANoAliasImpl {
   AANoAliasCallSiteArgument(const IRPosition &IRP) : AANoAliasImpl(IRP) {}
+
+  /// See AbstractAttribute::initialize(...).
+  void initialize(Attributor &A) override {
+    // TODO: It isn't sound to initialize as the same with `AANoAliasImpl`
+    // because `noalias` may not be valid in the current position.
+  }
 
   /// See AbstractAttribute::updateImpl(...).
   ChangeStatus updateImpl(Attributor &A) override {
@@ -1957,6 +1965,7 @@ ChangeStatus AAIsDeadImpl::updateImpl(Attributor &A) {
     // which will prevent us from querying isAssumedDead().
     indicatePessimisticFixpoint();
     assert(!isValidState() && "Expected an invalid state!");
+    Status = ChangeStatus::CHANGED;
   }
 
   return Status;
@@ -2608,22 +2617,14 @@ ChangeStatus Attributor::run() {
     Worklist.clear();
     Worklist.insert(ChangedAAs.begin(), ChangedAAs.end());
 
-  } while (!Worklist.empty() && IterationCounter++ < MaxFixpointIterations);
-
-  size_t NumFinalAAs = AllAbstractAttributes.size();
-
-  if (VerifyMaxFixpointIterations && IterationCounter != MaxFixpointIterations) {
-    errs() << "\n[Attributor] Fixpoint iteration done after: "
-           << IterationCounter << "/" << MaxFixpointIterations
-           << " iterations\n";
-    llvm_unreachable("The fixpoint was not reached with exactly the number of "
-                     "specified iterations!");
-  }
+  } while (!Worklist.empty() && (IterationCounter++ < MaxFixpointIterations ||
+                                 VerifyMaxFixpointIterations));
 
   LLVM_DEBUG(dbgs() << "\n[Attributor] Fixpoint iteration done after: "
                     << IterationCounter << "/" << MaxFixpointIterations
                     << " iterations\n");
 
+  size_t NumFinalAAs = AllAbstractAttributes.size();
 
   bool FinishedAtFixpoint = Worklist.empty();
 
@@ -2737,6 +2738,15 @@ ChangeStatus Attributor::run() {
     Fn->eraseFromParent();
   }
 
+  if (VerifyMaxFixpointIterations &&
+      IterationCounter != MaxFixpointIterations) {
+    errs() << "\n[Attributor] Fixpoint iteration done after: "
+           << IterationCounter << "/" << MaxFixpointIterations
+           << " iterations\n";
+    llvm_unreachable("The fixpoint was not reached with exactly the number of "
+                     "specified iterations!");
+  }
+
   return ManifestChange;
 }
 
@@ -2813,6 +2823,9 @@ void Attributor::identifyDefaultAbstractAttributes(
       // Every argument with pointer type might be marked nonnull.
       checkAndRegisterAA<AANonNullArgument>(ArgPos, *this, Whitelist);
 
+      // Every argument with pointer type might be marked noalias.
+      checkAndRegisterAA<AANoAliasArgument>(ArgPos, *this, Whitelist);
+
       // Every argument with pointer type might be marked dereferenceable.
       checkAndRegisterAA<AADereferenceableArgument>(ArgPos, *this, Whitelist);
 
@@ -2876,6 +2889,10 @@ void Attributor::identifyDefaultAbstractAttributes(
 
         // Call site argument attribute "non-null".
         checkAndRegisterAA<AANonNullCallSiteArgument>(CSArgPos, *this,
+                                                      Whitelist);
+
+        // Call site argument attribute "no-alias".
+        checkAndRegisterAA<AANoAliasCallSiteArgument>(CSArgPos, *this,
                                                       Whitelist);
 
         // Call site argument attribute "dereferenceable".
