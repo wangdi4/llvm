@@ -118,17 +118,13 @@ VPBasicBlock *VPBlockUtils::splitExitBlock(VPBlockBase *Block,
     // we should take its entry.
     // NOTE: Here we assume that all VPPHINodes are always placed at the top of
     // its parent VPBasicBlock
-    for (auto &Inst : Successor->getEntryBasicBlock()->getVPPhis()) {
-      assert(isa<VPPHINode>(Inst) &&
-             "Non VPPHINode found in sublist returned by getVPPhis().");
-      VPPHINode *VPN = cast<VPPHINode>(&Inst);
-
-      if (VPN->getBlend())
+    for (VPPHINode &VPN : Successor->getEntryBasicBlock()->getVPPhis()) {
+      if (VPN.getBlend())
         continue;
 
       // Transform the VPBBUsers vector of the PHI node by replacing any
       // occurrence of Block with NewBlock
-      llvm::transform(VPN->blocks(), VPN->block_begin(),
+      llvm::transform(VPN.blocks(), VPN.block_begin(),
                       [BB, NewBlock](VPBasicBlock *A) -> VPBasicBlock * {
                         if (A == BB)
                           return NewBlock;
@@ -179,14 +175,10 @@ VPBasicBlock *VPBlockUtils::splitBlock(VPBlockBase *Block,
     // we should take its entry.
     // NOTE: Here we assume that all VPPHINodes are always placed at the top of
     // its parent VPBasicBlock
-    for (auto &Inst : Successor->getEntryBasicBlock()->getVPPhis()) {
-      assert(isa<VPPHINode>(Inst) &&
-             "Non VPPHINode found in sublist returned by getVPPhis().");
-      VPPHINode *VPN = cast<VPPHINode>(&Inst);
-
+    for (VPPHINode &VPN : Successor->getEntryBasicBlock()->getVPPhis()) {
       // Transform the VPBBUsers vector of the PHI node by replacing any
       // occurrence of Block with NewBlock
-      llvm::transform(VPN->blocks(), VPN->block_begin(),
+      llvm::transform(VPN.blocks(), VPN.block_begin(),
                       [Block, NewBlock](VPBasicBlock *A) -> VPBasicBlock * {
                         if (A == cast<VPBasicBlock>(Block))
                           return NewBlock;

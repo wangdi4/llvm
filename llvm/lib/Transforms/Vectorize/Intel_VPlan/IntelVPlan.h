@@ -2402,18 +2402,21 @@ public:
     return &VPBasicBlock::Recipes;
   }
 
-  /// Returns a range that iterates over the VPPHINodes in the VPBasicBlock
-  iterator_range<iterator> getVPPhis() {
+  auto getVPPhis() {
+    auto AsVPPHINode = [](VPRecipeBase &Recipe) -> VPPHINode & {
+      return cast<VPPHINode>(Recipe);
+    };
+
     // If the block is empty or if it has no PHIs, return null range
     if (empty() || !isa<VPPHINode>(begin()))
-      return make_range(nullptr, nullptr);
+      return map_range(make_range(end(), end()), AsVPPHINode);
 
     // Increment iterator till a non PHI VPInstruction is found
     iterator It = begin();
     while (It != end() && isa<VPPHINode>(It))
       ++It;
 
-    return make_range(begin(), It);
+    return map_range(make_range(begin(), It), AsVPPHINode);
   }
 
   VPBasicBlock(const std::string &Name, VPRecipeBase *Recipe = nullptr)

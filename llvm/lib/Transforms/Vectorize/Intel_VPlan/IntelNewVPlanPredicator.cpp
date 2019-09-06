@@ -365,10 +365,8 @@ VPlanPredicator::getOrCreateValueForPredicateTerm(PredicateTerm Term,
 }
 
 static void markPhisAsBlended(VPBlockBase *Block) {
-  for (auto &PhiRecipe : Block->getEntryBasicBlock()->getVPPhis()) {
-    auto *Phi = cast<VPPHINode>(&PhiRecipe);
-    Phi->setBlend(true);
-  }
+  for (VPPHINode &Phi : Block->getEntryBasicBlock()->getVPPhis())
+    Phi.setBlend(true);
 }
 
 bool VPlanPredicator::shouldPreserveUniformBranches() const {
@@ -617,24 +615,23 @@ void VPlanPredicator::linearizeRegion(
       VPBlockUtils::connectBlocks(IncomingBlock, BlendBB);
       VPBlockUtils::connectBlocks(BlendBB, CurrBlock);
       CurrBlock->removePredecessor(IncomingBlock);
-      for (auto &PhiRecipe : VPPhisIteratorRange) {
-        auto *Phi = cast<VPPHINode>(&PhiRecipe);
-        auto BlendPhi = new VPPHINode(Phi->getType());
+      for (VPPHINode &Phi : VPPhisIteratorRange) {
+        auto BlendPhi = new VPPHINode(Phi.getType());
         BlendPhi->setBlend(true);
         BlendBB->addRecipe(BlendPhi);
-        int NumIncoming = Phi->getNumIncomingValues();
+        int NumIncoming = Phi.getNumIncomingValues();
         // Ugly loop to protect against iterator invalidation due to removal
         // of incoming values.
         for (int IdxIt = 0; IdxIt < NumIncoming; ++IdxIt) {
           int Idx = NumIncoming - 1 - IdxIt;
-          VPValue *PhiIncVal = Phi->getIncomingValue(Idx);
-          auto *PhiIncBB = cast<VPBasicBlock>(Phi->getIncomingBlock(Idx));
+          VPValue *PhiIncVal = Phi.getIncomingValue(Idx);
+          auto *PhiIncBB = cast<VPBasicBlock>(Phi.getIncomingBlock(Idx));
           if (!is_contained(It.second, PhiIncBB))
             continue;
-          Phi->removeIncomingValue(PhiIncBB);
+          Phi.removeIncomingValue(PhiIncBB);
           BlendPhi->addIncoming(PhiIncVal, PhiIncBB);
         }
-        Phi->addIncoming(BlendPhi, BlendBB);
+        Phi.addIncoming(BlendPhi, BlendBB);
       }
     }
   }

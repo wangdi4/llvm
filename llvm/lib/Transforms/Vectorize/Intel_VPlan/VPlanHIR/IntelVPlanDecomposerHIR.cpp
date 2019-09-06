@@ -1416,9 +1416,8 @@ void VPDecomposerHIR::fixPhiNodePass(
   LLVM_DEBUG(dbgs() << "\nEntering VPBB: " << VPBB->getName() << " from Pred: "
                     << (Pred ? Pred->getName() : "nullptr") << "\n");
   // First step is updating any PHI nodes in this VPBB, if it's incomplete
-  for (auto &VPN : VPBB->getVPPhis()) {
-    VPPHINode *FPN = cast<VPPHINode>(&VPN);
-    if (PhiToSymbaseMap.count(FPN)) {
+  for (VPPHINode &VPN : VPBB->getVPPhis()) {
+    if (PhiToSymbaseMap.count(&VPN)) {
       assert(Pred && "VPBB has null predecessor.");
 
       // Number of incoming edges from Pred to VPBB
@@ -1427,7 +1426,7 @@ void VPDecomposerHIR::fixPhiNodePass(
       assert(NumEdges && "Atleast one edge must exist from Pred to VPBB.");
 
       // Find Symbase that this PHI node corresponds to in TrackedSymbases
-      unsigned Symbase = PhiToSymbaseMap[FPN];
+      unsigned Symbase = PhiToSymbaseMap[&VPN];
       assert(TrackedSymbases.count(Symbase) &&
              "Empty PHI corresponds to a Symbase which is not being tracked.");
 
@@ -1468,10 +1467,10 @@ void VPDecomposerHIR::fixPhiNodePass(
           LLVM_DEBUG(dbgs() << "DDG:\n"; DDG.dump());
           (void)DDR;
         } else {
-          FPN->addIncoming(IncomingVPVals[Symbase], Pred);
+          VPN.addIncoming(IncomingVPVals[Symbase], Pred);
           // Current value for the Symbase is now the result of PHI for control
           // flowing through this VPBB
-          IncomingVPVals[Symbase] = FPN;
+          IncomingVPVals[Symbase] = &VPN;
         }
       }
     }
