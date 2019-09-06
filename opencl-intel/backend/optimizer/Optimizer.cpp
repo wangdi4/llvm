@@ -249,6 +249,8 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
   PM->add(llvm::createSROAPass());
   PM->add(llvm::createEarlyCSEPass());           // Catch trivial redundancies
   PM->add(llvm::createInstSimplifyLegacyPass());
+  // Rotate loops to prevent losing NSW info on IVs during InstCombine.
+  PM->add(llvm::createLoopRotatePass());
   PM->add(llvm::createInstructionCombiningPass()); // Cleanup for scalarrepl.
   PM->add(llvm::createJumpThreadingPass());        // Thread jumps.
   // Propagate conditionals
