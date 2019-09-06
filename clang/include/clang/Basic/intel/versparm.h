@@ -7,8 +7,9 @@
 // whole or in part without explicit written authorization from the company.
 //
 // ===--------------------------------------------------------------------=== //
-#define XMAIN_VERSION_STRING   "2019.8.8.0"
+#define XMAIN_VERSION_NUMBER   "201900"
+#define XMAIN_VERSION_STRING   "2019.8.9.0"
 #define XMAIN_VERSION_MAJOR     2019
 #define XMAIN_VERSION_CLANG     8
-#define XMAIN_VERSION_MINOR     8
+#define XMAIN_VERSION_MINOR     9
 #define XMAIN_VERSION_UPDATE    0

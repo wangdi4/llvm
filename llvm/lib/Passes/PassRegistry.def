@@ -30,6 +30,7 @@ MODULE_ANALYSIS("profile-summary", ProfileSummaryAnalysis())
 MODULE_ANALYSIS("stack-safety", StackSafetyGlobalAnalysis())
 MODULE_ANALYSIS("targetlibinfo", TargetLibraryAnalysis())
 MODULE_ANALYSIS("wholeprogram", WholeProgramAnalysis())     // INTEL
+MODULE_ANALYSIS("xm-module-opt-level", XmainOptLevelAnalysis()) // INTEL
 MODULE_ANALYSIS("verify", VerifierAnalysis())
 MODULE_ANALYSIS("pass-instrumentation", PassInstrumentationAnalysis(PIC))
 MODULE_ANALYSIS("asan-globals-md", ASanGlobalsMetadataAnalysis())
@@ -130,6 +131,7 @@ MODULE_PASS("wholeprogramdevirt", WholeProgramDevirtPass(nullptr, nullptr))
 MODULE_PASS("verify", VerifierPass())
 MODULE_PASS("asan-module", ModuleAddressSanitizerPass(/*CompileKernel=*/false, false, true, false))
 MODULE_PASS("kasan-module", ModuleAddressSanitizerPass(/*CompileKernel=*/true, false, true, false))
+MODULE_PASS("sancov-module", ModuleSanitizerCoveragePass())
 MODULE_PASS("poison-checking", PoisonCheckingPass())
 MODULE_PASS("inlinelists", InlineListsPass()) // INTEL
 MODULE_PASS("inlinereportsetup", InlineReportSetupPass()) // INTEL
@@ -396,6 +398,7 @@ FUNCTION_PASS("vpo-paropt-prepare", VPOParoptPreparePass())
 #endif // INTEL_COLLAB
 FUNCTION_PASS("kmsan", MemorySanitizerPass({0, false, /*Kernel=*/true}))
 FUNCTION_PASS("tsan", ThreadSanitizerPass())
+FUNCTION_PASS("sancov-func", SanitizerCoveragePass())
 #undef FUNCTION_PASS
 
 #ifndef FUNCTION_PASS_WITH_PARAMS
@@ -451,6 +454,7 @@ LOOP_PASS("unroll-and-jam", LoopUnrollAndJamPass())
 LOOP_PASS("unroll-full", LoopFullUnrollPass())
 LOOP_PASS("print-access-info", LoopAccessInfoPrinterPass(dbgs()))
 LOOP_PASS("print<ivusers>", IVUsersPrinterPass(dbgs()))
+LOOP_PASS("print<loop-cache-cost>", LoopCachePrinterPass(dbgs()))
 LOOP_PASS("loop-predication", LoopPredicationPass())
 LOOP_PASS("guard-widening", GuardWideningPass())
 #undef LOOP_PASS

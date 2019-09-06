@@ -101,7 +101,8 @@ def Feature3DNowA  : SubtargetFeature<"3dnowa", "X863DNowLevel", "ThreeDNowA",
 def Feature64Bit   : SubtargetFeature<"64bit", "HasX86_64", "true",
                                       "Support 64-bit instructions">;
 def FeatureCMPXCHG16B : SubtargetFeature<"cx16", "HasCmpxchg16b", "true",
-                                      "64-bit with cmpxchg16b">;
+                                      "64-bit with cmpxchg16b",
+                                      [FeatureCMPXCHG8B]>;
 def FeatureSlowSHLD : SubtargetFeature<"slow-shld", "IsSHLDSlow", "true",
                                        "SHLD instruction is slow">;
 def FeatureSlowPMULLD : SubtargetFeature<"slow-pmulld", "IsPMULLDSlow", "true",
@@ -771,24 +772,23 @@ def ProcessorFeatures {
   list<SubtargetFeature> ICXFeatures =
     !listconcat(ICLInheritableFeatures, ICXSpecificFeatures);
 
-#if INTEL_CUSTOMIZATION
-  list<SubtargetFeature> IntelAnonymousFeatures1 = [
-#if INTEL_FEATURE_ISA_KEYLOCKER
-    FeatureKeyLocker
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
-  ];
   //Tigerlake
-  list<SubtargetFeature> TGLAdditionalFeatures1 = [FeatureMOVDIRI,
-                                                   FeatureMOVDIR64B,
-                                                   FeatureSHSTK,
-                                                   FeatureVP2INTERSECT];
-
-  list<SubtargetFeature> TGLAdditionalFeatures2 =
-    !listconcat(IntelAnonymousFeatures1, TGLAdditionalFeatures1);
-
+  list<SubtargetFeature> TGLAdditionalFeatures = [FeatureVP2INTERSECT,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_KEYLOCKER
+                                                  FeatureKeyLocker,
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
+#endif // INTEL_CUSTOMIZATION
+                                                  FeatureMOVDIRI,
+                                                  FeatureMOVDIR64B,
+                                                  FeatureSHSTK];
+  list<SubtargetFeature> TGLSpecificFeatures = [FeatureHasFastGather];
+  list<SubtargetFeature> TGLInheritableFeatures =
+    !listconcat(TGLAdditionalFeatures ,TGLSpecificFeatures);
   list<SubtargetFeature> TGLFeatures =
-    !listconcat(ICLFeatures, TGLAdditionalFeatures2);
+    !listconcat(ICLFeatures, TGLInheritableFeatures );
 
+#if INTEL_CUSTOMIZATION
   list<SubtargetFeature> IntelAnonymous1AdditionalFeatures =[
 #if INTEL_FEATURE_ISA_AMX
     FeatureAMXTILE,
@@ -928,6 +928,22 @@ def ProcessorFeatures {
   list<SubtargetFeature> KNMFeatures =
     !listconcat(KNLFeatures, [FeatureVPOPCNTDQ]);
 
+  // Barcelona
+  list<SubtargetFeature> BarcelonaInheritableFeatures = [FeatureX87,
+                                                         FeatureCMPXCHG8B,
+                                                         FeatureSSE4A,
+                                                         Feature3DNowA,
+                                                         FeatureFXSR,
+                                                         FeatureNOPL,
+                                                         FeatureCMPXCHG16B,
+                                                         FeatureLZCNT,
+                                                         FeaturePOPCNT,
+                                                         FeatureSlowSHLD,
+                                                         FeatureLAHFSAHF,
+                                                         FeatureCMOV,
+                                                         Feature64Bit,
+                                                         FeatureFastScalarShiftMasks];
+  list<SubtargetFeature> BarcelonaFeatures = BarcelonaInheritableFeatures;
 
   // Bobcat
   list<SubtargetFeature> BtVer1InheritableFeatures = [FeatureX87,
@@ -1240,11 +1256,10 @@ def : ProcessorModel<"icelake-client", SkylakeServerModel,
                      ProcessorFeatures.ICLFeatures>;
 def : ProcessorModel<"icelake-server", SkylakeServerModel,
                      ProcessorFeatures.ICXFeatures>;
-
-#if INTEL_CUSTOMIZATION
 def : ProcessorModel<"tigerlake", SkylakeServerModel,
                      ProcessorFeatures.TGLFeatures>;
 
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_GLC
 def : ProcessorModel<"goldencove", SkylakeServerModel,
                      ProcessorFeatures.IntelAnonymous1Features>;
@@ -1286,10 +1301,7 @@ foreach P = ["k8-sse3", "opteron-sse3", "athlon64-sse3"] in {
 }
 
 foreach P = ["amdfam10", "barcelona"] in {
-  def : Proc<P, [FeatureX87, FeatureCMPXCHG8B, FeatureSSE4A, Feature3DNowA,
-                 FeatureFXSR, FeatureNOPL, FeatureCMPXCHG16B, FeatureLZCNT,
-                 FeaturePOPCNT, FeatureSlowSHLD, FeatureLAHFSAHF, FeatureCMOV,
-                 Feature64Bit, FeatureFastScalarShiftMasks]>;
+  def : Proc<P, ProcessorFeatures.BarcelonaFeatures>;
 }
 
 // Bobcat

@@ -9,6 +9,7 @@
 #include "ClangdUnit.h"
 #include "../clang-tidy/ClangTidyDiagnosticConsumer.h"
 #include "../clang-tidy/ClangTidyModuleRegistry.h"
+#include "AST.h"
 #include "Compiler.h"
 #include "Diagnostics.h"
 #include "Headers.h"
@@ -19,6 +20,7 @@
 #include "index/CanonicalIncludes.h"
 #include "index/Index.h"
 #include "clang/AST/ASTContext.h"
+#include "clang/AST/Decl.h"
 #include "clang/Basic/LangOptions.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/TokenKinds.h"
@@ -68,8 +70,11 @@ public:
   bool HandleTopLevelDecl(DeclGroupRef DG) override {
     for (Decl *D : DG) {
       auto &SM = D->getASTContext().getSourceManager();
-      if (!SM.isWrittenInMainFile(SM.getExpansionLoc(D->getLocation())))
+      if (!isInsideMainFile(D->getLocation(), SM))
         continue;
+      if (const NamedDecl *ND = dyn_cast<NamedDecl>(D))
+        if (isImplicitTemplateInstantiation(ND))
+          continue;
 
       // ObjCMethodDecl are not actually top-level decls.
       if (isa<ObjCMethodDecl>(D))
@@ -236,7 +241,8 @@ private:
     for (const auto &Inc : Includes.MainFileIncludes) {
       const FileEntry *File = nullptr;
       if (Inc.Resolved != "")
-        File = SM.getFileManager().getFile(Inc.Resolved);
+        if (auto FE = SM.getFileManager().getFile(Inc.Resolved))
+          File = *FE;
 
       llvm::StringRef WrittenFilename =
           llvm::StringRef(Inc.Written).drop_front().drop_back();
@@ -298,6 +304,7 @@ ParsedAST::build(std::unique_ptr<CompilerInvocation> CI,
 
   StoreDiags ASTDiags;
   std::string Content = Buffer->getBuffer();
+  std::string Filename = Buffer->getBufferIdentifier(); // Absolute.
 
   auto Clang = prepareCompilerInstance(std::move(CI), PreamblePCH,
                                        std::move(Buffer), VFS, ASTDiags);
@@ -323,7 +330,7 @@ ParsedAST::build(std::unique_ptr<CompilerInvocation> CI,
   llvm::Optional<tidy::ClangTidyContext> CTContext;
   {
     trace::Span Tracer("ClangTidyInit");
-    dlog("ClangTidy configuration for file {0}: {1}", MainInput.getFile(),
+    dlog("ClangTidy configuration for file {0}: {1}", Filename,
          tidy::configurationAsText(Opts.ClangTidyOpts));
     tidy::ClangTidyCheckFactories CTFactories;
     for (const auto &E : tidy::ClangTidyModuleRegistry::entries())
@@ -332,7 +339,7 @@ ParsedAST::build(std::unique_ptr<CompilerInvocation> CI,
         tidy::ClangTidyGlobalOptions(), Opts.ClangTidyOpts));
     CTContext->setDiagnosticsEngine(&Clang->getDiagnostics());
     CTContext->setASTContext(&Clang->getASTContext());
-    CTContext->setCurrentFile(MainInput.getFile());
+    CTContext->setCurrentFile(Filename);
     CTFactories.createChecks(CTContext.getPointer(), CTChecks);
     ASTDiags.setLevelAdjuster([&CTContext](DiagnosticsEngine::Level DiagLevel,
                                            const clang::Diagnostic &Info) {
@@ -355,8 +362,7 @@ ParsedAST::build(std::unique_ptr<CompilerInvocation> CI,
           // those might take us into a preamble file as well.
           bool IsInsideMainFile =
               Info.hasSourceManager() &&
-              Info.getSourceManager().isWrittenInMainFile(
-                  Info.getSourceManager().getFileLoc(Info.getLocation()));
+              isInsideMainFile(Info.getLocation(), Info.getSourceManager());
           if (IsInsideMainFile && tidy::ShouldSuppressDiagnostic(
                                       DiagLevel, Info, *CTContext,
                                       /* CheckMacroExpansion = */ false)) {
@@ -375,20 +381,20 @@ ParsedAST::build(std::unique_ptr<CompilerInvocation> CI,
     }
   }
 
-  // Add IncludeFixer which can recorver diagnostics caused by missing includes
+  // Add IncludeFixer which can recover diagnostics caused by missing includes
   // (e.g. incomplete type) and attach include insertion fixes to diagnostics.
   llvm::Optional<IncludeFixer> FixIncludes;
   auto BuildDir = VFS->getCurrentWorkingDirectory();
   if (Opts.SuggestMissingIncludes && Index && !BuildDir.getError()) {
-    auto Style = getFormatStyleForFile(MainInput.getFile(), Content, VFS.get());
+    auto Style = getFormatStyleForFile(Filename, Content, VFS.get());
     auto Inserter = std::make_shared<IncludeInserter>(
-        MainInput.getFile(), Content, Style, BuildDir.get(),
+        Filename, Content, Style, BuildDir.get(),
         &Clang->getPreprocessor().getHeaderSearchInfo());
     if (Preamble) {
       for (const auto &Inc : Preamble->Includes.MainFileIncludes)
         Inserter->addExisting(Inc);
     }
-    FixIncludes.emplace(MainInput.getFile(), Inserter, *Index,
+    FixIncludes.emplace(Filename, Inserter, *Index,
                         /*IndexRequestLimit=*/5);
     ASTDiags.contributeFixes([&FixIncludes](DiagnosticsEngine::Level DiagLevl,
                                             const clang::Diagnostic &Info) {
@@ -571,7 +577,8 @@ buildPreamble(PathRef FileName, CompilerInvocation &CI,
               PreambleParsedCallback PreambleCallback) {
   // Note that we don't need to copy the input contents, preamble can live
   // without those.
-  auto ContentsBuffer = llvm::MemoryBuffer::getMemBuffer(Inputs.Contents);
+  auto ContentsBuffer =
+      llvm::MemoryBuffer::getMemBuffer(Inputs.Contents, FileName);
   auto Bounds =
       ComputePreambleBounds(*CI.getLangOpts(), ContentsBuffer.get(), 0);
 
@@ -651,10 +658,10 @@ buildAST(PathRef FileName, std::unique_ptr<CompilerInvocation> Invocation,
     // dirs.
   }
 
-  return ParsedAST::build(llvm::make_unique<CompilerInvocation>(*Invocation),
-                          Preamble,
-                          llvm::MemoryBuffer::getMemBufferCopy(Inputs.Contents),
-                          std::move(VFS), Inputs.Index, Inputs.Opts);
+  return ParsedAST::build(
+      llvm::make_unique<CompilerInvocation>(*Invocation), Preamble,
+      llvm::MemoryBuffer::getMemBufferCopy(Inputs.Contents, FileName),
+      std::move(VFS), Inputs.Index, Inputs.Opts);
 }
 
 SourceLocation getBeginningOfIdentifier(const ParsedAST &Unit,

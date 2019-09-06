@@ -101,48 +101,51 @@ public:
   ///
   /// Do Reversal Tests for a given HIR inner-most loop and return true if
   /// the loop is reversible.
-  //
-  // Parameters:
-  // -HLLoop*: the HLLoop *
-  // -HIRDDAnalysis &: Existing DD Analysis
-  // -HIRSafeReductionAnalysis &: Existing SafeReduction analysis
-  // -HIRLoopStatistics &: existing LoopStatistics analysis
-  // -DoProfitTest:
-  //    Whether to conduct profitable test using reverser's profit model.
-  //    Default is false, which ignores Reverser's profit model and don't do
-  //    profit test.
-  //
-  // Return: bool
-  // - true:  the loop is reversible;
-  // - false: otherwise;
-  //
-  // Note: the following decisions are made after group (HPO+Vectorization)
-  //       discussions.
-  //
-  // - DoProfitTest:
-  //   This is an option to the client, and can be ignored if the client decides
-  //   to proceed without using Reversal's profit model.
-  //
-  // - NO DoLegalTest flag
-  //   Can't allow a client to skip this test. The client may not have a legal
-  //   model thus has to rely on Reversal's legal model instead.
-  //   Even if the client does have one, it may be quite different from the
-  //   reversal's legal model, and may not want to spend effort maintaining.
-  //   As a result, this function will implicitly perform legal test.
-  //
-  // There is also an idea of passing context from this API to the next one in
-  // order to avoid doing repetitive work on collection and analysis (save some
-  // compile time). This idea is currently on hold due to unclear usage cases
-  // from client.
-  // Will revisit the situation once there is any request from potential client.
-  //
-  static bool isHIRLoopReversible(
-      HLLoop *InnermostLp,            // INPUT + OUTPUT: a given loop
-      HIRDDAnalysis &HDDA,            // INPUT: HIR DDAnalysis
-      HIRSafeReductionAnalysis &HSRA, // INPUT: HIRSafeReductionAnalysis
-      HIRLoopStatistics &HLS,         // INPUT: Existing HIRLoopStatitics
-      bool DoProfitTest = false       // INPUT: Control Profit Tests
-  );
+  ///
+  /// Parameters:
+  /// -HLLoop*: the HLLoop *
+  /// -HIRDDAnalysis &: Existing DD Analysis
+  /// -HIRSafeReductionAnalysis &: Existing SafeReduction analysis
+  /// -HIRLoopStatistics &: existing LoopStatistics analysis
+  /// -DoProfitTest:
+  ///    Whether to conduct profitable test using reverser's profit model.
+  ///    Default is false, which ignores Reverser's profit model and don't do
+  ///    profit test.
+  /// -SkipLoopBoundChecks: Indicates skipping checks related to loop bounds
+  /// like whether loop is normalized. These are weaknesses of the reveral
+  /// transformation and do not affect legality. Therefore they can be skipped
+  /// for the purposes of legality analysis.
+  ///
+  /// Return: bool
+  /// - true:  the loop is reversible;
+  /// - false: otherwise;
+  ///
+  /// Note: the following decisions are made after group (HPO+Vectorization)
+  ///       discussions.
+  ///
+  /// - DoProfitTest:
+  ///   This is an option to the client, and can be ignored if the client
+  ///   decides to proceed without using Reversal's profit model.
+  ///
+  /// - NO DoLegalTest flag
+  ///   Can't allow a client to skip this test. The client may not have a legal
+  ///   model thus has to rely on Reversal's legal model instead.
+  ///   Even if the client does have one, it may be quite different from the
+  ///   reversal's legal model, and may not want to spend effort maintaining.
+  ///   As a result, this function will implicitly perform legal test.
+  ///
+  /// There is also an idea of passing context from this API to the next one in
+  /// order to avoid doing repetitive work on collection and analysis (save some
+  /// compile time). This idea is currently on hold due to unclear usage cases
+  /// from client.
+  /// Will revisit the situation once there is any request from potential
+  /// client.
+  ///
+  static bool isLoopReversible(HLLoop *InnermostLp, HIRDDAnalysis &HDDA,
+                               HIRSafeReductionAnalysis &HSRA,
+                               HIRLoopStatistics &HLS,
+                               bool DoProfitTest = false,
+                               bool SkipLoopBoundChecks = false);
 
   /// Do Certain Reversal Tests for a given HIR inner-most loop.
   /// Reverse the loop if the loop is legal to reverse.
@@ -165,7 +168,7 @@ public:
   // preparation, this function will implicitly assert on preliminary check
   // and legal check, only ignoring profit check.
   //
-  static void doHIRLoopReversal(
+  static void doLoopReversal(
       HLLoop *InnermostLp,            // INPUT + OUTPUT: an inner-most loop
       HIRDDAnalysis &HDDA,            // INPUT: HIR DDAnalysis
       HIRSafeReductionAnalysis &HSRA, // INPUT: HIRSafeReductionAnalysis

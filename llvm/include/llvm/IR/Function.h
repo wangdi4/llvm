@@ -710,6 +710,12 @@ public:
     return Arguments + NumArgs;
   }
 
+  Argument* getArg(unsigned i) const {
+    assert (i < NumArgs && "getArg() out of range!");
+    CheckLazyArguments();
+    return Arguments + i;
+  }
+
   iterator_range<arg_iterator> args() {
     return make_range(arg_begin(), arg_end());
   }
@@ -825,17 +831,12 @@ public:
   void setPreLoopOpt() { addFnAttr(PreLoopOptStr); }
 
   /// Returns true if loopopt is going to be run later in the pipeline.
-  bool isPreLoopOpt() const { 
-    return hasFnAttribute(PreLoopOptStr); 
+  bool isPreLoopOpt() const {
+    return hasFnAttribute(PreLoopOptStr);
   }
 
   /// Resets "pre-loopopt" state for the function.
-  void resetPreLoopOpt() { 
-    // TODO: Replace with removeFnAttr(PreLoopOptStr) when the interface is
-    // available.
-    setAttributes(AttributeSets.removeAttribute(
-      getContext(), AttributeList::FunctionIndex, PreLoopOptStr)); 
-  }
+  void resetPreLoopOpt() { removeFnAttr(PreLoopOptStr); }
 #endif // INTEL_CUSTOMIZATION
 
   /// Returns true if we should emit debug info for profiling.

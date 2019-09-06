@@ -2472,6 +2472,37 @@ bool X86DAGToDAGISel::selectLEAAddr(SDValue N,
       Complexity += 2;
   }
 
+  // Heuristic: try harder to form an LEA from ADD if the operands set flags.
+  // Unlike ADD, LEA does not affect flags, so we will be less likely to require
+  // duplicating flag-producing instructions later in the pipeline.
+  if (N.getOpcode() == ISD::ADD) {
+    auto isMathWithFlags = [](SDValue V) {
+      switch (V.getOpcode()) {
+      case X86ISD::ADD:
+      case X86ISD::SUB:
+      case X86ISD::ADC:
+      case X86ISD::SBB:
+      /* TODO: These opcodes can be added safely, but we may want to justify
+               their inclusion for different reasons (better for reg-alloc).
+      case X86ISD::SMUL:
+      case X86ISD::UMUL:
+      case X86ISD::OR:
+      case X86ISD::XOR:
+      case X86ISD::AND:
+      */
+        // Value 1 is the flag output of the node - verify it's not dead.
+        return !SDValue(V.getNode(), 1).use_empty();
+      default:
+        return false;
+      }
+    };
+    // TODO: This could be an 'or' rather than 'and' to make the transform more
+    //       likely to happen. We might want to factor in whether there's a
+    //       load folding opportunity for the math op that disappears with LEA.
+    if (isMathWithFlags(N.getOperand(0)) && isMathWithFlags(N.getOperand(1)))
+      Complexity++;
+  }
+
   if (AM.Disp)
     Complexity++;
 
@@ -4178,6 +4209,7 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
 
       unsigned Opc = 0;
       switch (IntNo) {
+      default: llvm_unreachable("Unexpected intrinsic!");
       case Intrinsic::x86_sse3_monitor:
         if (!Subtarget->hasSSE3())
           break;
@@ -4218,6 +4250,96 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
         return;
       }
     }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+    case Intrinsic::x86_tilezero: {
+      if (!Subtarget->hasAMXTILE())
+        break;
+      unsigned RegNo = Node->getConstantOperandVal(2);
+      SDValue Reg = CurDAG->getRegister(X86::TMM0 + RegNo, MVT::Untyped);
+      SDValue Chain = Node->getOperand(0);
+      MachineSDNode *CNode = CurDAG->getMachineNode(X86::TILEZERO, dl,
+                                                    MVT::Other,
+                                                    { Reg, Chain });
+      ReplaceNode(Node, CNode);
+      return;
+    }
+    case Intrinsic::x86_tdpbssd:
+    case Intrinsic::x86_tdpbsud:
+    case Intrinsic::x86_tdpbusd:
+    case Intrinsic::x86_tdpbuud:
+    case Intrinsic::x86_tdpbf16ps: {
+      if (IntNo != Intrinsic::x86_tdpbf16ps && !Subtarget->hasAMXINT8())
+        break;
+      if (IntNo == Intrinsic::x86_tdpbf16ps && !Subtarget->hasAMXBF16())
+        break;
+      unsigned Opc;
+      switch (IntNo) {
+      default: llvm_unreachable("Unexpected intrinsic!");
+      case Intrinsic::x86_tdpbssd:   Opc = X86::TDPBSSD;   break;
+      case Intrinsic::x86_tdpbsud:   Opc = X86::TDPBSUD;   break;
+      case Intrinsic::x86_tdpbusd:   Opc = X86::TDPBUSD;   break;
+      case Intrinsic::x86_tdpbuud:   Opc = X86::TDPBUUD;   break;
+      case Intrinsic::x86_tdpbf16ps: Opc = X86::TDPBF16PS; break;
+      }
+      unsigned RegNo0 = Node->getConstantOperandVal(2);
+      unsigned RegNo1 = Node->getConstantOperandVal(3);
+      unsigned RegNo2 = Node->getConstantOperandVal(4);
+      SDValue Reg0 = CurDAG->getRegister(X86::TMM0 + RegNo0, MVT::Untyped);
+      SDValue Reg1 = CurDAG->getRegister(X86::TMM0 + RegNo1, MVT::Untyped);
+      SDValue Reg2 = CurDAG->getRegister(X86::TMM0 + RegNo2, MVT::Untyped);
+      SDValue Chain = Node->getOperand(0);
+      SDValue Ops[] = { Reg0, Reg1, Reg2, Chain };
+      MachineSDNode *CNode = CurDAG->getMachineNode(Opc, dl, MVT::Other, Ops);
+      ReplaceNode(Node, CNode);
+      return;
+    }
+    case Intrinsic::x86_tileloadd64:
+    case Intrinsic::x86_tileloaddt164: {
+      if (!Subtarget->hasAMXTILE())
+        break;
+      unsigned Opc;
+      switch (IntNo) {
+      default: llvm_unreachable("Unexpected intrinsic!");
+      case Intrinsic::x86_tileloadd64:   Opc = X86::TILELOADD; break;
+      case Intrinsic::x86_tileloaddt164: Opc = X86::TILELOADDT1; break;
+      }
+      unsigned RegNo = Node->getConstantOperandVal(2);
+      SDValue Reg = CurDAG->getRegister(X86::TMM0 + RegNo, MVT::Untyped);
+
+      // FIXME: Match displacement and scale.
+      SDValue Base = Node->getOperand(3);
+      SDValue Scale = getI8Imm(1, dl);
+      SDValue Index = Node->getOperand(4);
+      SDValue Disp = CurDAG->getTargetConstant(0, dl, MVT::i32);
+      SDValue Segment = CurDAG->getRegister(0, MVT::i16);
+      SDValue Chain = Node->getOperand(0);
+      SDValue Ops[] = { Reg, Base, Scale, Index, Disp, Segment, Chain };
+      MachineSDNode *CNode = CurDAG->getMachineNode(Opc, dl, MVT::Other, Ops);
+      ReplaceNode(Node, CNode);
+      return;
+    }
+    case Intrinsic::x86_tilestored64: {
+      if (!Subtarget->hasAMXTILE())
+        break;
+      unsigned Opc = X86::TILESTORED;
+      unsigned RegNo = Node->getConstantOperandVal(2);
+      SDValue Reg = CurDAG->getRegister(X86::TMM0 + RegNo, MVT::Untyped);
+
+      // FIXME: Match displacement and scale.
+      SDValue Base = Node->getOperand(3);
+      SDValue Scale = getI8Imm(1, dl);
+      SDValue Index = Node->getOperand(4);
+      SDValue Disp = CurDAG->getTargetConstant(0, dl, MVT::i32);
+      SDValue Segment = CurDAG->getRegister(0, MVT::i16);
+      SDValue Chain = Node->getOperand(0);
+      SDValue Ops[] = { Base, Scale, Index, Disp, Segment, Reg, Chain };
+      MachineSDNode *CNode = CurDAG->getMachineNode(Opc, dl, MVT::Other, Ops);
+      ReplaceNode(Node, CNode);
+      return;
+    }
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
     }
 
     break;

@@ -12,6 +12,9 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/BinaryFormat/COFF.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/DebugInfo/CodeView/SymbolRecord.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCCodeView.h"
@@ -344,9 +347,110 @@ void MCStreamer::EmitCVInlineLinetableDirective(unsigned PrimaryFunctionId,
                                                 const MCSymbol *FnStartSym,
                                                 const MCSymbol *FnEndSym) {}
 
+/// Only call this on endian-specific types like ulittle16_t and little32_t, or
+/// structs composed of them.
+template <typename T>
+static void copyBytesForDefRange(SmallString<20> &BytePrefix,
+                                 codeview::SymbolKind SymKind,
+                                 const T &DefRangeHeader) {
+  BytePrefix.resize(2 + sizeof(T));
+  codeview::ulittle16_t SymKindLE = codeview::ulittle16_t(SymKind);
+  memcpy(&BytePrefix[0], &SymKindLE, 2);
+  memcpy(&BytePrefix[2], &DefRangeHeader, sizeof(T));
+}
+
 void MCStreamer::EmitCVDefRangeDirective(
     ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
     StringRef FixedSizePortion) {}
+
+#if INTEL_CUSTOMIZATION
+
+void MCStreamer::EmitCVDefRangeDirectiveRegisterRelSym(
+    ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
+    support::ulittle16_t Register, support::ulittle16_t Flags,
+    support::little32_t BasePointerOffset) {
+  SmallString<20> BytePrefix;
+  codeview::DefRangeRegisterRelSym::Header DRHdr;
+  DRHdr.Register = Register;
+  DRHdr.Flags = Flags;
+  DRHdr.BasePointerOffset = BasePointerOffset;
+  copyBytesForDefRange(BytePrefix, codeview::S_DEFRANGE_REGISTER_REL, DRHdr);
+  EmitCVDefRangeDirective(Ranges, BytePrefix);
+}
+
+void MCStreamer::EmitCVDefRangeDirectiveSubfieldRegisterSym(
+    ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
+      support::ulittle16_t Register, support::ulittle16_t MayHaveNoName,
+      support::ulittle32_t OffsetInParent) {
+  SmallString<20> BytePrefix;
+  codeview::DefRangeSubfieldRegisterSym::Header DRHdr;
+  DRHdr.Register = Register;
+  DRHdr.MayHaveNoName = MayHaveNoName;
+  DRHdr.OffsetInParent = OffsetInParent;
+  copyBytesForDefRange(BytePrefix, codeview::S_DEFRANGE_SUBFIELD_REGISTER,
+                       DRHdr);
+  EmitCVDefRangeDirective(Ranges, BytePrefix);
+}
+
+void MCStreamer::EmitCVDefRangeDirectiveRegisterSym(
+    ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
+    support::ulittle16_t Register, support::ulittle16_t MayHaveNoName) {
+  SmallString<20> BytePrefix;
+  codeview::DefRangeRegisterSym::Header DRHdr;
+  DRHdr.Register = Register;
+  DRHdr.MayHaveNoName = MayHaveNoName;
+  copyBytesForDefRange(BytePrefix, codeview::S_DEFRANGE_REGISTER, DRHdr);
+  EmitCVDefRangeDirective(Ranges, BytePrefix);
+}
+
+void MCStreamer::EmitCVDefRangeDirectiveFramePointerRelSym(
+    ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
+    support::little32_t Offset) {
+  SmallString<20> BytePrefix;
+  codeview::DefRangeFramePointerRelSym::Header DRHdr;
+  DRHdr.Offset = Offset;
+  copyBytesForDefRange(BytePrefix, codeview::S_DEFRANGE_FRAMEPOINTER_REL,
+                       DRHdr);
+  EmitCVDefRangeDirective(Ranges, BytePrefix);
+}
+
+#else // INTEL_CUSTOMIZATION
+
+void MCStreamer::EmitCVDefRangeDirective(
+    ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
+    codeview::DefRangeRegisterRelSym::Header DRHdr) {
+  SmallString<20> BytePrefix;
+  copyBytesForDefRange(BytePrefix, codeview::S_DEFRANGE_REGISTER_REL, DRHdr);
+  EmitCVDefRangeDirective(Ranges, BytePrefix);
+}
+
+void MCStreamer::EmitCVDefRangeDirective(
+    ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
+    codeview::DefRangeSubfieldRegisterSym::Header DRHdr) {
+  SmallString<20> BytePrefix;
+  copyBytesForDefRange(BytePrefix, codeview::S_DEFRANGE_SUBFIELD_REGISTER,
+                       DRHdr);
+  EmitCVDefRangeDirective(Ranges, BytePrefix);
+}
+
+void MCStreamer::EmitCVDefRangeDirective(
+    ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
+    codeview::DefRangeRegisterSym::Header DRHdr) {
+  SmallString<20> BytePrefix;
+  copyBytesForDefRange(BytePrefix, codeview::S_DEFRANGE_REGISTER, DRHdr);
+  EmitCVDefRangeDirective(Ranges, BytePrefix);
+}
+
+void MCStreamer::EmitCVDefRangeDirective(
+    ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
+    codeview::DefRangeFramePointerRelSym::Header DRHdr) {
+  SmallString<20> BytePrefix;
+  copyBytesForDefRange(BytePrefix, codeview::S_DEFRANGE_FRAMEPOINTER_REL,
+                       DRHdr);
+  EmitCVDefRangeDirective(Ranges, BytePrefix);
+}
+
+#endif // INTEL_CUSTOMIZATION
 
 void MCStreamer::EmitEHSymAttributes(const MCSymbol *Symbol,
                                      MCSymbol *EHSymbol) {
@@ -1025,6 +1129,10 @@ void MCStreamer::EmitCOFFSymbolStorageClass(int StorageClass) {
 }
 void MCStreamer::EmitCOFFSymbolType(int Type) {
   llvm_unreachable("this directive only supported on COFF targets");
+}
+void MCStreamer::EmitXCOFFLocalCommonSymbol(MCSymbol *Symbol, uint64_t Size,
+                                            unsigned ByteAlign) {
+  llvm_unreachable("this directive only supported on XCOFF targets");
 }
 void MCStreamer::emitELFSize(MCSymbol *Symbol, const MCExpr *Value) {}
 void MCStreamer::emitELFSymverDirective(StringRef AliasName,

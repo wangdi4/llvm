@@ -802,6 +802,7 @@ VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForBinaryInst(
             return new VPVectorShape(Desc0, Shape0->getStride());
         }
       }
+      LLVM_FALLTHROUGH;
     }
     default:
       return getRandomVectorShape();
@@ -839,12 +840,20 @@ VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForGepInst(
   VPVectorShape *PtrShape = getVectorShape(PtrOp);
   unsigned NumOperands = I->getNumOperands();
 
-  // GEPs on StructType pointers need further analysis to determine actual
-  // stride. Currently mark it as Random to stay conservative. Check JIRA :
-  // CMPLRLLVM-10122
+  // Non-uniform GEPs on StructType pointers need further analysis to determine
+  // actual stride. Currently mark it as Random to stay conservative. Check JIRA
+  // : CMPLRLLVM-10122
   if (auto *PtrOpTy = dyn_cast<PointerType>(PtrOp->getType())) {
-    if (isa<StructType>(PtrOpTy->getPointerElementType()))
+    if (isa<StructType>(PtrOpTy->getPointerElementType())) {
+      // If all operands of the GEP are uniform, then return Uniform shape for
+      // the resulting GEP.
+      if (llvm::all_of(I->operands(), [this](const VPValue *Op) {
+            return getVectorShape(Op)->isUniform();
+          }))
+        return getUniformVectorShape();
+
       return getRandomVectorShape();
+    }
   }
 
   // If any of the gep indices, except the last, are not uniform, then return

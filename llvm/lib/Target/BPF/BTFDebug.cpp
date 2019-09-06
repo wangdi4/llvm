@@ -184,9 +184,7 @@ void BTFTypeEnum::emitType(MCStreamer &OS) {
   }
 }
 
-BTFTypeArray::BTFTypeArray(uint32_t ElemTypeId, uint32_t ElemSize,
-                           uint32_t NumElems)
-    : ElemSize(ElemSize) {
+BTFTypeArray::BTFTypeArray(uint32_t ElemTypeId, uint32_t NumElems) {
   Kind = BTF::BTF_KIND_ARRAY;
   BTFType.NameOff = 0;
   BTFType.Info = Kind << 24;
@@ -214,12 +212,6 @@ void BTFTypeArray::emitType(MCStreamer &OS) {
   OS.EmitIntValue(ArrayInfo.ElemType, 4);
   OS.EmitIntValue(ArrayInfo.IndexType, 4);
   OS.EmitIntValue(ArrayInfo.Nelems, 4);
-}
-
-void BTFTypeArray::getLocInfo(uint32_t Loc, uint32_t &LocOffset,
-                              uint32_t &ElementTypeId) {
-  ElementTypeId = ArrayInfo.ElemType;
-  LocOffset = Loc * ElemSize;
 }
 
 /// Represent either a struct or a union.
@@ -251,7 +243,8 @@ void BTFTypeStruct::completeType(BTFDebug &BDebug) {
     } else {
       BTFMember.Offset = DDTy->getOffsetInBits();
     }
-    BTFMember.Type = BDebug.getTypeId(DDTy->getBaseType());
+    const auto *BaseTy = DDTy->getBaseType();
+    BTFMember.Type = BDebug.getTypeId(BaseTy);
     Members.push_back(BTFMember);
   }
 }
@@ -267,15 +260,6 @@ void BTFTypeStruct::emitType(MCStreamer &OS) {
 }
 
 std::string BTFTypeStruct::getName() { return STy->getName(); }
-
-void BTFTypeStruct::getMemberInfo(uint32_t Loc, uint32_t &MemberOffset,
-                                  uint32_t &MemberType) {
-  MemberType = Members[Loc].Type;
-  MemberOffset =
-      HasBitField ? Members[Loc].Offset & 0xffffff : Members[Loc].Offset;
-}
-
-uint32_t BTFTypeStruct::getStructSize() { return STy->getSizeInBits() >> 3; }
 
 /// The Func kind represents both subprogram and pointee of function
 /// pointers. If the FuncName is empty, it represents a pointee of function
@@ -492,11 +476,12 @@ void BTFDebug::visitArrayType(const DICompositeType *CTy, uint32_t &TypeId) {
   uint32_t ElemTypeId, ElemSize;
   const DIType *ElemType = CTy->getBaseType();
   visitTypeEntry(ElemType, ElemTypeId, false, false);
+
+  // Strip qualifiers from element type to get accurate element size.
   ElemSize = ElemType->getSizeInBits() >> 3;
 
   if (!CTy->getSizeInBits()) {
-    auto TypeEntry = llvm::make_unique<BTFTypeArray>(ElemTypeId, 0, 0);
-    ArrayTypes.push_back(TypeEntry.get());
+    auto TypeEntry = llvm::make_unique<BTFTypeArray>(ElemTypeId, 0);
     ElemTypeId = addType(std::move(TypeEntry), CTy);
   } else {
     // Visit array dimensions.
@@ -509,8 +494,7 @@ void BTFDebug::visitArrayType(const DICompositeType *CTy, uint32_t &TypeId) {
           int64_t Count = CI->getSExtValue();
 
           auto TypeEntry =
-              llvm::make_unique<BTFTypeArray>(ElemTypeId, ElemSize, Count);
-          ArrayTypes.push_back(TypeEntry.get());
+              llvm::make_unique<BTFTypeArray>(ElemTypeId, Count);
           if (I == 0)
             ElemTypeId = addType(std::move(TypeEntry), CTy);
           else
@@ -980,70 +964,22 @@ unsigned BTFDebug::populateStructType(const DIType *Ty) {
   return Id;
 }
 
-// Find struct/array debuginfo types given a type id.
-void BTFDebug::setTypeFromId(uint32_t TypeId, BTFTypeStruct **PrevStructType,
-                             BTFTypeArray **PrevArrayType) {
-  for (const auto &StructType : StructTypes) {
-    if (StructType->getId() == TypeId) {
-      *PrevStructType = StructType;
-      return;
-    }
-  }
-  for (const auto &ArrayType : ArrayTypes) {
-    if (ArrayType->getId() == TypeId) {
-      *PrevArrayType = ArrayType;
-      return;
-    }
-  }
-}
-
 /// Generate a struct member offset relocation.
 void BTFDebug::generateOffsetReloc(const MachineInstr *MI,
                                    const MCSymbol *ORSym, DIType *RootTy,
                                    StringRef AccessPattern) {
-  BTFTypeStruct *PrevStructType = nullptr;
-  BTFTypeArray *PrevArrayType = nullptr;
   unsigned RootId = populateStructType(RootTy);
-  setTypeFromId(RootId, &PrevStructType, &PrevArrayType);
-  unsigned RootTySize = PrevStructType->getStructSize();
+  size_t FirstDollar = AccessPattern.find_first_of('$');
+  size_t FirstColon = AccessPattern.find_first_of(':');
+  StringRef IndexPattern = AccessPattern.substr(FirstDollar + 1);
+  StringRef OffsetStr = AccessPattern.substr(FirstColon + 1,
+      FirstDollar - FirstColon);
 
   BTFOffsetReloc OffsetReloc;
   OffsetReloc.Label = ORSym;
-  OffsetReloc.OffsetNameOff = addString(AccessPattern.drop_back());
+  OffsetReloc.OffsetNameOff = addString(IndexPattern);
   OffsetReloc.TypeID = RootId;
-
-  uint32_t Start = 0, End = 0, Offset = 0;
-  bool FirstAccess = true;
-  for (auto C : AccessPattern) {
-    if (C != ':') {
-      End++;
-    } else {
-      std::string SubStr = AccessPattern.substr(Start, End - Start);
-      int Loc = std::stoi(SubStr);
-
-      if (FirstAccess) {
-        Offset = Loc * RootTySize;
-        FirstAccess = false;
-      } else if (PrevStructType) {
-        uint32_t MemberOffset, MemberTypeId;
-        PrevStructType->getMemberInfo(Loc, MemberOffset, MemberTypeId);
-
-        Offset += MemberOffset >> 3;
-        PrevStructType = nullptr;
-        setTypeFromId(MemberTypeId, &PrevStructType, &PrevArrayType);
-      } else if (PrevArrayType) {
-        uint32_t LocOffset, ElementTypeId;
-        PrevArrayType->getLocInfo(Loc, LocOffset, ElementTypeId);
-
-        Offset += LocOffset;
-        PrevArrayType = nullptr;
-        setTypeFromId(ElementTypeId, &PrevStructType, &PrevArrayType);
-      }
-      Start = End + 1;
-      End = Start;
-    }
-  }
-  AccessOffsets[RootTy->getName().str() + ":" + AccessPattern.str()] = Offset;
+  AccessOffsets[AccessPattern.str()] = std::stoi(OffsetStr);
   OffsetRelocTable[SecNameOff].push_back(OffsetReloc);
 }
 
@@ -1227,7 +1163,7 @@ bool BTFDebug::InstLower(const MachineInstr *MI, MCInst &OutMI) {
         MDNode *MDN = GVar->getMetadata(LLVMContext::MD_preserve_access_index);
         DIType *Ty = dyn_cast<DIType>(MDN);
         std::string TypeName = Ty->getName();
-        int64_t Imm = AccessOffsets[TypeName + ":" + GVar->getName().str()];
+        int64_t Imm = AccessOffsets[GVar->getName().str()];
 
         // Emit "mov ri, <imm>" for abstract member accesses.
         OutMI.setOpcode(BPF::MOV_ri);

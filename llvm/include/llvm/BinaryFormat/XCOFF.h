@@ -19,7 +19,7 @@ namespace llvm {
 namespace XCOFF {
 
 // Constants used in the XCOFF definition.
-enum { SectionNameSize = 8, SymbolNameSize = 8 };
+enum { NameSize = 8 };
 enum ReservedSectionNum { N_DEBUG = -2, N_ABS = -1, N_UNDEF = 0 };
 
 // x_smclas field of x_csect from system header: /usr/include/syms.h
@@ -137,6 +137,14 @@ enum StorageClass : uint8_t {
 
   // Storage classes - reserved
   C_TCSYM = 134 // Reserved
+};
+
+enum SymbolType {
+  XTY_ER = 0, ///< External reference.
+  XTY_SD = 1, ///< Csect definition for initialized storage.
+  XTY_LD = 2, ///< Label definition.
+              ///< Defines an entry point to an initialized csect.
+  XTY_CM = 3  ///< Common csect definition. For uninitialized storage.
 };
 
 } // end namespace XCOFF

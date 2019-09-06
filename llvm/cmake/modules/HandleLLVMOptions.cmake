@@ -18,15 +18,16 @@ else()
   set(LINKER_IS_LLD_LINK FALSE)
 endif()
 
-set(LLVM_CXX_STD_default "c++11")
+set(LLVM_CXX_STD_default "c++14")
 # Preserve behaviour of legacy cache variables
-if (LLVM_ENABLE_CXX1Y)
-  set(LLVM_CXX_STD_default "c++1y")
-elseif (LLVM_ENABLE_CXX1Z)
+if (LLVM_ENABLE_CXX1Z)
   set(LLVM_CXX_STD_default "c++1z")
 endif()
+if (LLVM_CXX_STD STREQUAL "c++11")
+  set(LLVM_CXX_STD_force FORCE)
+endif()
 set(LLVM_CXX_STD ${LLVM_CXX_STD_default}
-    CACHE STRING "C++ standard to use for compilation.")
+    CACHE STRING "C++ standard to use for compilation." ${LLVM_CXX_STD_force})
 
 set(LLVM_ENABLE_LTO OFF CACHE STRING "Build LLVM with LTO. May be specified as Thin or Full to use a particular kind of LTO")
 string(TOUPPER "${LLVM_ENABLE_LTO}" uppercase_LLVM_ENABLE_LTO)
@@ -169,7 +170,7 @@ endif()
 
 # Pass -Wl,-z,defs. This makes sure all symbols are defined. Otherwise a DSO
 # build might work on ELF but fail on MachO/COFF.
-if(NOT (${CMAKE_SYSTEM_NAME} MATCHES "Darwin|FreeBSD|OpenBSD|DragonFly|AIX" OR
+if(NOT (${CMAKE_SYSTEM_NAME} MATCHES "Darwin|FreeBSD|OpenBSD|DragonFly|AIX|SunOS" OR
         WIN32 OR CYGWIN) AND
    NOT LLVM_USE_SANITIZER)
   set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,defs")
@@ -423,12 +424,6 @@ elseif(MINGW) # FIXME: Also cygwin?
 endif()
 
 if( MSVC )
-  if( CMAKE_CXX_COMPILER_VERSION VERSION_LESS 19.0 )
-    # For MSVC 2013, disable iterator null pointer checking in debug mode,
-    # especially so std::equal(nullptr, nullptr, nullptr) will not assert.
-    add_definitions("-D_DEBUG_POINTER_IMPL=")
-  endif()
-
   include(ChooseMSVCCRT)
 
   # Add definitions that make MSVC much less annoying.
@@ -467,16 +462,10 @@ if( MSVC )
           CMAKE_SHARED_LINKER_FLAGS)
   endif()
 
-  # /Zc:strictStrings is incompatible with VS12's (Visual Studio 2013's)
-  # debug mode headers. Instead of only enabling them in VS2013's debug mode,
-  # we'll just enable them for Visual Studio 2015 (VS 14, MSVC_VERSION 1900)
-  # and up.
-  if (NOT (MSVC_VERSION LESS 1900))
-    # Disable string literal const->non-const type conversion.
-    # "When specified, the compiler requires strict const-qualification
-    # conformance for pointers initialized by using string literals."
-    append("/Zc:strictStrings" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
-  endif(NOT (MSVC_VERSION LESS 1900))
+  # Disable string literal const->non-const type conversion.
+  # "When specified, the compiler requires strict const-qualification
+  # conformance for pointers initialized by using string literals."
+  append("/Zc:strictStrings" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
 
   # "Generate Intrinsic Functions".
   append("/Oi" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)

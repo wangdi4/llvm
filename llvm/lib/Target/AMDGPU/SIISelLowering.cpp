@@ -218,28 +218,6 @@ SITargetLowering::SITargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::v4i16, Custom);
   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::Other, Custom);
 
-  setOperationAction(ISD::INTRINSIC_WO_CHAIN, MVT::Other, Custom);
-  setOperationAction(ISD::INTRINSIC_WO_CHAIN, MVT::f32, Custom);
-  setOperationAction(ISD::INTRINSIC_WO_CHAIN, MVT::v4f32, Custom);
-  setOperationAction(ISD::INTRINSIC_WO_CHAIN, MVT::i16, Custom);
-  setOperationAction(ISD::INTRINSIC_WO_CHAIN, MVT::f16, Custom);
-  setOperationAction(ISD::INTRINSIC_WO_CHAIN, MVT::v2i16, Custom);
-  setOperationAction(ISD::INTRINSIC_WO_CHAIN, MVT::v2f16, Custom);
-
-  setOperationAction(ISD::INTRINSIC_W_CHAIN, MVT::v2f16, Custom);
-  setOperationAction(ISD::INTRINSIC_W_CHAIN, MVT::v4f16, Custom);
-  setOperationAction(ISD::INTRINSIC_W_CHAIN, MVT::v8f16, Custom);
-  setOperationAction(ISD::INTRINSIC_W_CHAIN, MVT::Other, Custom);
-  setOperationAction(ISD::INTRINSIC_W_CHAIN, MVT::i16, Custom);
-  setOperationAction(ISD::INTRINSIC_W_CHAIN, MVT::i8, Custom);
-
-  setOperationAction(ISD::INTRINSIC_VOID, MVT::Other, Custom);
-  setOperationAction(ISD::INTRINSIC_VOID, MVT::v2i16, Custom);
-  setOperationAction(ISD::INTRINSIC_VOID, MVT::v2f16, Custom);
-  setOperationAction(ISD::INTRINSIC_VOID, MVT::v4f16, Custom);
-  setOperationAction(ISD::INTRINSIC_VOID, MVT::i16, Custom);
-  setOperationAction(ISD::INTRINSIC_VOID, MVT::i8, Custom);
-
   setOperationAction(ISD::BRCOND, MVT::Other, Custom);
   setOperationAction(ISD::BR_CC, MVT::i1, Expand);
   setOperationAction(ISD::BR_CC, MVT::i32, Expand);
@@ -653,6 +631,7 @@ SITargetLowering::SITargetLowering(const TargetMachine &TM,
 
     setOperationAction(ISD::FADD, MVT::v4f16, Custom);
     setOperationAction(ISD::FMUL, MVT::v4f16, Custom);
+    setOperationAction(ISD::FMA, MVT::v4f16, Custom);
 
     setOperationAction(ISD::FMAXNUM, MVT::v2f16, Custom);
     setOperationAction(ISD::FMINNUM, MVT::v2f16, Custom);
@@ -686,6 +665,33 @@ SITargetLowering::SITargetLowering(const TargetMachine &TM,
   for (MVT VT : { MVT::v4i16, MVT::v4f16, MVT::v2i8, MVT::v4i8, MVT::v8i8 }) {
     setOperationAction(ISD::SELECT, VT, Custom);
   }
+
+  setOperationAction(ISD::INTRINSIC_WO_CHAIN, MVT::Other, Custom);
+  setOperationAction(ISD::INTRINSIC_WO_CHAIN, MVT::f32, Custom);
+  setOperationAction(ISD::INTRINSIC_WO_CHAIN, MVT::v4f32, Custom);
+  setOperationAction(ISD::INTRINSIC_WO_CHAIN, MVT::i16, Custom);
+  setOperationAction(ISD::INTRINSIC_WO_CHAIN, MVT::f16, Custom);
+  setOperationAction(ISD::INTRINSIC_WO_CHAIN, MVT::v2i16, Custom);
+  setOperationAction(ISD::INTRINSIC_WO_CHAIN, MVT::v2f16, Custom);
+
+  setOperationAction(ISD::INTRINSIC_W_CHAIN, MVT::v2f16, Custom);
+  setOperationAction(ISD::INTRINSIC_W_CHAIN, MVT::v2i16, Custom);
+  setOperationAction(ISD::INTRINSIC_W_CHAIN, MVT::v4f16, Custom);
+  setOperationAction(ISD::INTRINSIC_W_CHAIN, MVT::v4i16, Custom);
+  setOperationAction(ISD::INTRINSIC_W_CHAIN, MVT::v8f16, Custom);
+  setOperationAction(ISD::INTRINSIC_W_CHAIN, MVT::Other, Custom);
+  setOperationAction(ISD::INTRINSIC_W_CHAIN, MVT::f16, Custom);
+  setOperationAction(ISD::INTRINSIC_W_CHAIN, MVT::i16, Custom);
+  setOperationAction(ISD::INTRINSIC_W_CHAIN, MVT::i8, Custom);
+
+  setOperationAction(ISD::INTRINSIC_VOID, MVT::Other, Custom);
+  setOperationAction(ISD::INTRINSIC_VOID, MVT::v2i16, Custom);
+  setOperationAction(ISD::INTRINSIC_VOID, MVT::v2f16, Custom);
+  setOperationAction(ISD::INTRINSIC_VOID, MVT::v4f16, Custom);
+  setOperationAction(ISD::INTRINSIC_VOID, MVT::v4i16, Custom);
+  setOperationAction(ISD::INTRINSIC_VOID, MVT::f16, Custom);
+  setOperationAction(ISD::INTRINSIC_VOID, MVT::i16, Custom);
+  setOperationAction(ISD::INTRINSIC_VOID, MVT::i8, Custom);
 
   setTargetDAGCombine(ISD::ADD);
   setTargetDAGCombine(ISD::ADDCARRY);
@@ -768,19 +774,22 @@ bool SITargetLowering::isShuffleMaskLegal(ArrayRef<int>, EVT) const {
 MVT SITargetLowering::getRegisterTypeForCallingConv(LLVMContext &Context,
                                                     CallingConv::ID CC,
                                                     EVT VT) const {
-  // TODO: Consider splitting all arguments into 32-bit pieces.
-  if (CC != CallingConv::AMDGPU_KERNEL && VT.isVector()) {
+  if (CC == CallingConv::AMDGPU_KERNEL)
+    return TargetLowering::getRegisterTypeForCallingConv(Context, CC, VT);
+
+  if (VT.isVector()) {
     EVT ScalarVT = VT.getScalarType();
     unsigned Size = ScalarVT.getSizeInBits();
     if (Size == 32)
       return ScalarVT.getSimpleVT();
 
-    if (Size == 64)
+    if (Size > 32)
       return MVT::i32;
 
     if (Size == 16 && Subtarget->has16BitInsts())
       return VT.isInteger() ? MVT::v2i16 : MVT::v2f16;
-  }
+  } else if (VT.getSizeInBits() > 32)
+    return MVT::i32;
 
   return TargetLowering::getRegisterTypeForCallingConv(Context, CC, VT);
 }
@@ -788,7 +797,10 @@ MVT SITargetLowering::getRegisterTypeForCallingConv(LLVMContext &Context,
 unsigned SITargetLowering::getNumRegistersForCallingConv(LLVMContext &Context,
                                                          CallingConv::ID CC,
                                                          EVT VT) const {
-  if (CC != CallingConv::AMDGPU_KERNEL && VT.isVector()) {
+  if (CC == CallingConv::AMDGPU_KERNEL)
+    return TargetLowering::getNumRegistersForCallingConv(Context, CC, VT);
+
+  if (VT.isVector()) {
     unsigned NumElts = VT.getVectorNumElements();
     EVT ScalarVT = VT.getScalarType();
     unsigned Size = ScalarVT.getSizeInBits();
@@ -796,12 +808,13 @@ unsigned SITargetLowering::getNumRegistersForCallingConv(LLVMContext &Context,
     if (Size == 32)
       return NumElts;
 
-    if (Size == 64)
-      return 2 * NumElts;
+    if (Size > 32)
+      return NumElts * ((Size + 31) / 32);
 
     if (Size == 16 && Subtarget->has16BitInsts())
-      return (VT.getVectorNumElements() + 1) / 2;
-  }
+      return (NumElts + 1) / 2;
+  } else if (VT.getSizeInBits() > 32)
+    return (VT.getSizeInBits() + 31) / 32;
 
   return TargetLowering::getNumRegistersForCallingConv(Context, CC, VT);
 }
@@ -821,10 +834,10 @@ unsigned SITargetLowering::getVectorTypeBreakdownForCallingConv(
       return NumIntermediates;
     }
 
-    if (Size == 64) {
+    if (Size > 32) {
       RegisterVT = MVT::i32;
       IntermediateVT = RegisterVT;
-      NumIntermediates = 2 * NumElts;
+      NumIntermediates = NumElts * ((Size + 31) / 32);
       return NumIntermediates;
     }
 
@@ -901,7 +914,7 @@ bool SITargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
       Info.ptrVal = MFI->getImagePSV(
         *MF.getSubtarget<GCNSubtarget>().getInstrInfo(),
         CI.getArgOperand(RsrcIntr->RsrcArg));
-      Info.align = 0;
+      Info.align.reset();
     } else {
       Info.ptrVal = MFI->getBufferPSV(
         *MF.getSubtarget<GCNSubtarget>().getInstrInfo(),
@@ -947,7 +960,7 @@ bool SITargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
     Info.opc = ISD::INTRINSIC_W_CHAIN;
     Info.memVT = MVT::getVT(CI.getType());
     Info.ptrVal = CI.getOperand(0);
-    Info.align = 0;
+    Info.align.reset();
     Info.flags = MachineMemOperand::MOLoad | MachineMemOperand::MOStore;
 
     const ConstantInt *Vol = cast<ConstantInt>(CI.getOperand(4));
@@ -964,7 +977,7 @@ bool SITargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
     Info.ptrVal = MFI->getBufferPSV(
       *MF.getSubtarget<GCNSubtarget>().getInstrInfo(),
       CI.getArgOperand(1));
-    Info.align = 0;
+    Info.align.reset();
     Info.flags = MachineMemOperand::MOLoad | MachineMemOperand::MOStore;
 
     const ConstantInt *Vol = dyn_cast<ConstantInt>(CI.getOperand(4));
@@ -978,7 +991,7 @@ bool SITargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
     Info.memVT = MVT::getVT(CI.getOperand(0)->getType()
                             ->getPointerElementType());
     Info.ptrVal = CI.getOperand(0);
-    Info.align = 0;
+    Info.align.reset();
     Info.flags = MachineMemOperand::MOLoad | MachineMemOperand::MOStore;
 
     return true;
@@ -988,7 +1001,7 @@ bool SITargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
     Info.opc = ISD::INTRINSIC_W_CHAIN;
     Info.memVT = MVT::getVT(CI.getType());
     Info.ptrVal = CI.getOperand(0);
-    Info.align = 0;
+    Info.align.reset();
     Info.flags = MachineMemOperand::MOLoad | MachineMemOperand::MOStore;
 
     const ConstantInt *Vol = cast<ConstantInt>(CI.getOperand(1));
@@ -1012,7 +1025,7 @@ bool SITargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
     // This is an abstract access, but we need to specify a type and size.
     Info.memVT = MVT::i32;
     Info.size = 4;
-    Info.align = 4;
+    Info.align = Align(4);
 
     Info.flags = MachineMemOperand::MOStore;
     if (IntrID == Intrinsic::amdgcn_ds_gws_barrier)
@@ -1562,7 +1575,8 @@ static void processShaderInputArgs(SmallVectorImpl<ISD::InputArg> &Splits,
       // entire split argument.
       if (Arg->Flags.isSplit()) {
         while (!Arg->Flags.isSplitEnd()) {
-          assert(!Arg->VT.isVector() &&
+          assert((!Arg->VT.isVector() ||
+                  Arg->VT.getScalarSizeInBits() == 16) &&
                  "unexpected vector split in ps argument type");
           if (!SkipArg)
             Splits.push_back(*Arg);
@@ -1589,29 +1603,32 @@ static void processShaderInputArgs(SmallVectorImpl<ISD::InputArg> &Splits,
 }
 
 // Allocate special inputs passed in VGPRs.
-static void allocateSpecialEntryInputVGPRs(CCState &CCInfo,
-                                           MachineFunction &MF,
-                                           const SIRegisterInfo &TRI,
-                                           SIMachineFunctionInfo &Info) {
+void SITargetLowering::allocateSpecialEntryInputVGPRs(CCState &CCInfo,
+                                                      MachineFunction &MF,
+                                                      const SIRegisterInfo &TRI,
+                                                      SIMachineFunctionInfo &Info) const {
+  const LLT S32 = LLT::scalar(32);
+  MachineRegisterInfo &MRI = MF.getRegInfo();
+
   if (Info.hasWorkItemIDX()) {
-    unsigned Reg = AMDGPU::VGPR0;
-    MF.addLiveIn(Reg, &AMDGPU::VGPR_32RegClass);
+    Register Reg = AMDGPU::VGPR0;
+    MRI.setType(MF.addLiveIn(Reg, &AMDGPU::VGPR_32RegClass), S32);
 
     CCInfo.AllocateReg(Reg);
     Info.setWorkItemIDX(ArgDescriptor::createRegister(Reg));
   }
 
   if (Info.hasWorkItemIDY()) {
-    unsigned Reg = AMDGPU::VGPR1;
-    MF.addLiveIn(Reg, &AMDGPU::VGPR_32RegClass);
+    Register Reg = AMDGPU::VGPR1;
+    MRI.setType(MF.addLiveIn(Reg, &AMDGPU::VGPR_32RegClass), S32);
 
     CCInfo.AllocateReg(Reg);
     Info.setWorkItemIDY(ArgDescriptor::createRegister(Reg));
   }
 
   if (Info.hasWorkItemIDZ()) {
-    unsigned Reg = AMDGPU::VGPR2;
-    MF.addLiveIn(Reg, &AMDGPU::VGPR_32RegClass);
+    Register Reg = AMDGPU::VGPR2;
+    MRI.setType(MF.addLiveIn(Reg, &AMDGPU::VGPR_32RegClass), S32);
 
     CCInfo.AllocateReg(Reg);
     Info.setWorkItemIDZ(ArgDescriptor::createRegister(Reg));
@@ -1671,10 +1688,10 @@ static ArgDescriptor allocateSGPR64Input(CCState &CCInfo) {
   return allocateSGPR32InputImpl(CCInfo, &AMDGPU::SGPR_64RegClass, 16);
 }
 
-static void allocateSpecialInputVGPRs(CCState &CCInfo,
-                                      MachineFunction &MF,
-                                      const SIRegisterInfo &TRI,
-                                      SIMachineFunctionInfo &Info) {
+void SITargetLowering::allocateSpecialInputVGPRs(CCState &CCInfo,
+                                                 MachineFunction &MF,
+                                                 const SIRegisterInfo &TRI,
+                                                 SIMachineFunctionInfo &Info) const {
   const unsigned Mask = 0x3ff;
   ArgDescriptor Arg;
 
@@ -1692,10 +1709,11 @@ static void allocateSpecialInputVGPRs(CCState &CCInfo,
     Info.setWorkItemIDZ(allocateVGPR32Input(CCInfo, Mask << 20, Arg));
 }
 
-static void allocateSpecialInputSGPRs(CCState &CCInfo,
-                                      MachineFunction &MF,
-                                      const SIRegisterInfo &TRI,
-                                      SIMachineFunctionInfo &Info) {
+void SITargetLowering::allocateSpecialInputSGPRs(
+  CCState &CCInfo,
+  MachineFunction &MF,
+  const SIRegisterInfo &TRI,
+  SIMachineFunctionInfo &Info) const {
   auto &ArgInfo = Info.getArgInfo();
 
   // TODO: Unify handling with private memory pointers.
@@ -1728,10 +1746,10 @@ static void allocateSpecialInputSGPRs(CCState &CCInfo,
 }
 
 // Allocate special inputs passed in user SGPRs.
-static void allocateHSAUserSGPRs(CCState &CCInfo,
-                                 MachineFunction &MF,
-                                 const SIRegisterInfo &TRI,
-                                 SIMachineFunctionInfo &Info) {
+void SITargetLowering::allocateHSAUserSGPRs(CCState &CCInfo,
+                                            MachineFunction &MF,
+                                            const SIRegisterInfo &TRI,
+                                            SIMachineFunctionInfo &Info) const {
   if (Info.hasImplicitBufferPtr()) {
     unsigned ImplicitBufferPtrReg = Info.addImplicitBufferPtr(TRI);
     MF.addLiveIn(ImplicitBufferPtrReg, &AMDGPU::SGPR_64RegClass);
@@ -1758,9 +1776,12 @@ static void allocateHSAUserSGPRs(CCState &CCInfo,
   }
 
   if (Info.hasKernargSegmentPtr()) {
-    unsigned InputPtrReg = Info.addKernargSegmentPtr(TRI);
-    MF.addLiveIn(InputPtrReg, &AMDGPU::SGPR_64RegClass);
+    MachineRegisterInfo &MRI = MF.getRegInfo();
+    Register InputPtrReg = Info.addKernargSegmentPtr(TRI);
     CCInfo.AllocateReg(InputPtrReg);
+
+    Register VReg = MF.addLiveIn(InputPtrReg, &AMDGPU::SGPR_64RegClass);
+    MRI.setType(VReg, LLT::pointer(AMDGPUAS::CONSTANT_ADDRESS, 64));
   }
 
   if (Info.hasDispatchID()) {
@@ -1780,11 +1801,11 @@ static void allocateHSAUserSGPRs(CCState &CCInfo,
 }
 
 // Allocate special input registers that are initialized per-wave.
-static void allocateSystemSGPRs(CCState &CCInfo,
-                                MachineFunction &MF,
-                                SIMachineFunctionInfo &Info,
-                                CallingConv::ID CallConv,
-                                bool IsShader) {
+void SITargetLowering::allocateSystemSGPRs(CCState &CCInfo,
+                                           MachineFunction &MF,
+                                           SIMachineFunctionInfo &Info,
+                                           CallingConv::ID CallConv,
+                                           bool IsShader) const {
   if (Info.hasWorkGroupIDX()) {
     unsigned Reg = Info.addWorkGroupIDX();
     MF.addLiveIn(Reg, &AMDGPU::SReg_32_XM0RegClass);
@@ -3055,6 +3076,20 @@ splitBlockForLoop(MachineInstr &MI, MachineBasicBlock &MBB, bool InstInLoop) {
   return std::make_pair(LoopBB, RemainderBB);
 }
 
+/// Insert \p MI into a BUNDLE with an S_WAITCNT 0 immediately following it.
+void SITargetLowering::bundleInstWithWaitcnt(MachineInstr &MI) const {
+  MachineBasicBlock *MBB = MI.getParent();
+  const SIInstrInfo *TII = getSubtarget()->getInstrInfo();
+  auto I = MI.getIterator();
+  auto E = std::next(I);
+
+  BuildMI(*MBB, E, MI.getDebugLoc(), TII->get(AMDGPU::S_WAITCNT))
+    .addImm(0);
+
+  MIBundleBuilder Bundler(*MBB, I, E);
+  finalizeBundle(*MBB, Bundler.begin());
+}
+
 MachineBasicBlock *
 SITargetLowering::emitGWSMemViolTestLoop(MachineInstr &MI,
                                          MachineBasicBlock *BB) const {
@@ -3066,12 +3101,13 @@ SITargetLowering::emitGWSMemViolTestLoop(MachineInstr &MI,
   MachineBasicBlock *RemainderBB;
   const SIInstrInfo *TII = getSubtarget()->getInstrInfo();
 
-  MachineBasicBlock::iterator Prev = std::prev(MI.getIterator());
+  // Apparently kill flags are only valid if the def is in the same block?
+  if (MachineOperand *Src = TII->getNamedOperand(MI, AMDGPU::OpName::data0))
+    Src->setIsKill(false);
 
   std::tie(LoopBB, RemainderBB) = splitBlockForLoop(MI, *BB, true);
 
   MachineBasicBlock::iterator I = LoopBB->end();
-  MachineOperand *Src = TII->getNamedOperand(MI, AMDGPU::OpName::data0);
 
   const unsigned EncodedReg = AMDGPU::Hwreg::encodeHwreg(
     AMDGPU::Hwreg::ID_TRAPSTS, AMDGPU::Hwreg::OFFSET_MEM_VIOL, 1);
@@ -3081,21 +3117,7 @@ SITargetLowering::emitGWSMemViolTestLoop(MachineInstr &MI,
     .addImm(0)
     .addImm(EncodedReg);
 
-  // This is a pain, but we're not allowed to have physical register live-ins
-  // yet. Insert a pair of copies if the VGPR0 hack is necessary.
-  if (Src && TargetRegisterInfo::isPhysicalRegister(Src->getReg())) {
-    unsigned Data0 = MRI.createVirtualRegister(&AMDGPU::VGPR_32RegClass);
-    BuildMI(*BB, std::next(Prev), DL, TII->get(AMDGPU::COPY), Data0)
-      .add(*Src);
-
-    BuildMI(*LoopBB, LoopBB->begin(), DL, TII->get(AMDGPU::COPY), Src->getReg())
-      .addReg(Data0);
-
-    MRI.setSimpleHint(Data0, Src->getReg());
-  }
-
-  BuildMI(*LoopBB, I, DL, TII->get(AMDGPU::S_WAITCNT))
-    .addImm(0);
+  bundleInstWithWaitcnt(MI);
 
   unsigned Reg = MRI.createVirtualRegister(&AMDGPU::SReg_32_XM0RegClass);
 
@@ -3814,8 +3836,12 @@ MachineBasicBlock *SITargetLowering::EmitInstrWithCustomInserter(
   case AMDGPU::DS_GWS_SEMA_P:
   case AMDGPU::DS_GWS_SEMA_RELEASE_ALL:
   case AMDGPU::DS_GWS_BARRIER:
-    if (getSubtarget()->hasGWSAutoReplay())
+    // A s_waitcnt 0 is required to be the instruction immediately following.
+    if (getSubtarget()->hasGWSAutoReplay()) {
+      bundleInstWithWaitcnt(MI);
       return BB;
+    }
+
     return emitGWSMemViolTestLoop(MI, BB);
   default:
     return AMDGPUTargetLowering::EmitInstrWithCustomInserter(MI, BB);
@@ -3939,6 +3965,30 @@ SDValue SITargetLowering::splitBinaryVectorOp(SDValue Op,
   return DAG.getNode(ISD::CONCAT_VECTORS, SDLoc(Op), VT, OpLo, OpHi);
 }
 
+SDValue SITargetLowering::splitTernaryVectorOp(SDValue Op,
+                                              SelectionDAG &DAG) const {
+  unsigned Opc = Op.getOpcode();
+  EVT VT = Op.getValueType();
+  assert(VT == MVT::v4i16 || VT == MVT::v4f16);
+
+  SDValue Lo0, Hi0;
+  std::tie(Lo0, Hi0) = DAG.SplitVectorOperand(Op.getNode(), 0);
+  SDValue Lo1, Hi1;
+  std::tie(Lo1, Hi1) = DAG.SplitVectorOperand(Op.getNode(), 1);
+  SDValue Lo2, Hi2;
+  std::tie(Lo2, Hi2) = DAG.SplitVectorOperand(Op.getNode(), 2);
+
+  SDLoc SL(Op);
+
+  SDValue OpLo = DAG.getNode(Opc, SL, Lo0.getValueType(), Lo0, Lo1, Lo2,
+                             Op->getFlags());
+  SDValue OpHi = DAG.getNode(Opc, SL, Hi0.getValueType(), Hi0, Hi1, Hi2,
+                             Op->getFlags());
+
+  return DAG.getNode(ISD::CONCAT_VECTORS, SDLoc(Op), VT, OpLo, OpHi);
+}
+
+
 SDValue SITargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   switch (Op.getOpcode()) {
   default: return AMDGPUTargetLowering::LowerOperation(Op, DAG);
@@ -3991,6 +4041,8 @@ SDValue SITargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   case ISD::FMINNUM:
   case ISD::FMAXNUM:
     return lowerFMINNUM_FMAXNUM(Op, DAG);
+  case ISD::FMA:
+    return splitTernaryVectorOp(Op, DAG);
   case ISD::SHL:
   case ISD::SRA:
   case ISD::SRL:
@@ -4068,6 +4120,41 @@ SDValue SITargetLowering::adjustLoadValueType(unsigned Opcode,
   SDValue Adjusted = adjustLoadValueTypeImpl(Load, LoadVT, DL, DAG, Unpacked);
 
   return DAG.getMergeValues({ Adjusted, Load.getValue(1) }, DL);
+}
+
+SDValue SITargetLowering::lowerIntrinsicLoad(MemSDNode *M, bool IsFormat,
+                                             SelectionDAG &DAG,
+                                             ArrayRef<SDValue> Ops) const {
+  SDLoc DL(M);
+  EVT LoadVT = M->getValueType(0);
+  EVT EltType = LoadVT.getScalarType();
+  EVT IntVT = LoadVT.changeTypeToInteger();
+
+  bool IsD16 = IsFormat && (EltType.getSizeInBits() == 16);
+
+  unsigned Opc =
+      IsFormat ? AMDGPUISD::BUFFER_LOAD_FORMAT : AMDGPUISD::BUFFER_LOAD;
+
+  if (IsD16) {
+    return adjustLoadValueType(AMDGPUISD::BUFFER_LOAD_FORMAT_D16, M, DAG, Ops);
+  }
+
+  // Handle BUFFER_LOAD_BYTE/UBYTE/SHORT/USHORT overloaded intrinsics
+  if (!IsD16 && !LoadVT.isVector() && EltType.getSizeInBits() < 32)
+    return handleByteShortBufferLoads(DAG, LoadVT, DL, Ops, M);
+
+  if (isTypeLegal(LoadVT)) {
+    return getMemIntrinsicNode(Opc, DL, M->getVTList(), Ops, IntVT,
+                               M->getMemOperand(), DAG);
+  }
+
+  EVT CastVT = getEquivalentMemType(*DAG.getContext(), LoadVT);
+  SDVTList VTList = DAG.getVTList(CastVT, MVT::Other);
+  SDValue MemNode = getMemIntrinsicNode(Opc, DL, VTList, Ops, CastVT,
+                                        M->getMemOperand(), DAG);
+  return DAG.getMergeValues(
+      {DAG.getNode(ISD::BITCAST, DL, LoadVT, MemNode), MemNode.getValue(1)},
+      DL);
 }
 
 static SDValue lowerICMPIntrinsic(const SITargetLowering &TLI,
@@ -4196,8 +4283,14 @@ void SITargetLowering::ReplaceNodeResults(SDNode *N,
   }
   case ISD::INTRINSIC_W_CHAIN: {
     if (SDValue Res = LowerINTRINSIC_W_CHAIN(SDValue(N, 0), DAG)) {
-      Results.push_back(Res);
-      Results.push_back(Res.getValue(1));
+      if (Res.getOpcode() == ISD::MERGE_VALUES) {
+        // FIXME: Hacky
+        Results.push_back(Res.getOperand(0));
+        Results.push_back(Res.getOperand(1));
+      } else {
+        Results.push_back(Res);
+        Results.push_back(Res.getValue(1));
+      }
       return;
     }
 
@@ -5947,16 +6040,6 @@ SDValue SITargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
                                Op.getOperand(1), Op.getOperand(2));
     return DAG.getNode(ISD::BITCAST, DL, VT, Node);
   }
-  case Intrinsic::amdgcn_wqm: {
-    SDValue Src = Op.getOperand(1);
-    return SDValue(DAG.getMachineNode(AMDGPU::WQM, DL, Src.getValueType(), Src),
-                   0);
-  }
-  case Intrinsic::amdgcn_wwm: {
-    SDValue Src = Op.getOperand(1);
-    return SDValue(DAG.getMachineNode(AMDGPU::WWM, DL, Src.getValueType(), Src),
-                   0);
-  }
   case Intrinsic::amdgcn_fmad_ftz:
     return DAG.getNode(AMDGPUISD::FMAD_FTZ, DL, VT, Op.getOperand(1),
                        Op.getOperand(2), Op.getOperand(3));
@@ -6155,6 +6238,8 @@ SDValue SITargetLowering::LowerINTRINSIC_W_CHAIN(SDValue Op,
   }
   case Intrinsic::amdgcn_raw_buffer_load:
   case Intrinsic::amdgcn_raw_buffer_load_format: {
+    const bool IsFormat = IntrID == Intrinsic::amdgcn_raw_buffer_load_format;
+
     auto Offsets = splitBufferOffsets(Op.getOperand(3), DAG);
     SDValue Ops[] = {
       Op.getOperand(0), // Chain
@@ -6167,28 +6252,12 @@ SDValue SITargetLowering::LowerINTRINSIC_W_CHAIN(SDValue Op,
       DAG.getConstant(0, DL, MVT::i1), // idxen
     };
 
-    unsigned Opc = (IntrID == Intrinsic::amdgcn_raw_buffer_load) ?
-        AMDGPUISD::BUFFER_LOAD : AMDGPUISD::BUFFER_LOAD_FORMAT;
-
-    EVT VT = Op.getValueType();
-    EVT IntVT = VT.changeTypeToInteger();
-    auto *M = cast<MemSDNode>(Op);
-    EVT LoadVT = Op.getValueType();
-
-    if (LoadVT.getScalarType() == MVT::f16)
-      return adjustLoadValueType(AMDGPUISD::BUFFER_LOAD_FORMAT_D16,
-                                 M, DAG, Ops);
-
-    // Handle BUFFER_LOAD_BYTE/UBYTE/SHORT/USHORT overloaded intrinsics
-    if (LoadVT.getScalarType() == MVT::i8 ||
-        LoadVT.getScalarType() == MVT::i16)
-      return handleByteShortBufferLoads(DAG, LoadVT, DL, Ops, M);
-
-    return getMemIntrinsicNode(Opc, DL, Op->getVTList(), Ops, IntVT,
-                               M->getMemOperand(), DAG);
+    return lowerIntrinsicLoad(cast<MemSDNode>(Op), IsFormat, DAG, Ops);
   }
   case Intrinsic::amdgcn_struct_buffer_load:
   case Intrinsic::amdgcn_struct_buffer_load_format: {
+    const bool IsFormat = IntrID == Intrinsic::amdgcn_struct_buffer_load_format;
+
     auto Offsets = splitBufferOffsets(Op.getOperand(4), DAG);
     SDValue Ops[] = {
       Op.getOperand(0), // Chain
@@ -6201,25 +6270,7 @@ SDValue SITargetLowering::LowerINTRINSIC_W_CHAIN(SDValue Op,
       DAG.getConstant(1, DL, MVT::i1), // idxen
     };
 
-    unsigned Opc = (IntrID == Intrinsic::amdgcn_struct_buffer_load) ?
-        AMDGPUISD::BUFFER_LOAD : AMDGPUISD::BUFFER_LOAD_FORMAT;
-
-    EVT VT = Op.getValueType();
-    EVT IntVT = VT.changeTypeToInteger();
-    auto *M = cast<MemSDNode>(Op);
-    EVT LoadVT = Op.getValueType();
-
-    if (LoadVT.getScalarType() == MVT::f16)
-      return adjustLoadValueType(AMDGPUISD::BUFFER_LOAD_FORMAT_D16,
-                                 M, DAG, Ops);
-
-    // Handle BUFFER_LOAD_BYTE/UBYTE/SHORT/USHORT overloaded intrinsics
-    if (LoadVT.getScalarType() == MVT::i8 ||
-        LoadVT.getScalarType() == MVT::i16)
-      return handleByteShortBufferLoads(DAG, LoadVT, DL, Ops, M);
-
-    return getMemIntrinsicNode(Opc, DL, Op->getVTList(), Ops, IntVT,
-                               M->getMemOperand(), DAG);
+    return lowerIntrinsicLoad(cast<MemSDNode>(Op), IsFormat, DAG, Ops);
   }
   case Intrinsic::amdgcn_tbuffer_load: {
     MemSDNode *M = cast<MemSDNode>(Op);
@@ -6377,7 +6428,9 @@ SDValue SITargetLowering::LowerINTRINSIC_W_CHAIN(SDValue Op,
   case Intrinsic::amdgcn_raw_buffer_atomic_umax:
   case Intrinsic::amdgcn_raw_buffer_atomic_and:
   case Intrinsic::amdgcn_raw_buffer_atomic_or:
-  case Intrinsic::amdgcn_raw_buffer_atomic_xor: {
+  case Intrinsic::amdgcn_raw_buffer_atomic_xor:
+  case Intrinsic::amdgcn_raw_buffer_atomic_inc:
+  case Intrinsic::amdgcn_raw_buffer_atomic_dec: {
     auto Offsets = splitBufferOffsets(Op.getOperand(4), DAG);
     SDValue Ops[] = {
       Op.getOperand(0), // Chain
@@ -6426,6 +6479,12 @@ SDValue SITargetLowering::LowerINTRINSIC_W_CHAIN(SDValue Op,
     case Intrinsic::amdgcn_raw_buffer_atomic_xor:
       Opcode = AMDGPUISD::BUFFER_ATOMIC_XOR;
       break;
+    case Intrinsic::amdgcn_raw_buffer_atomic_inc:
+      Opcode = AMDGPUISD::BUFFER_ATOMIC_INC;
+      break;
+    case Intrinsic::amdgcn_raw_buffer_atomic_dec:
+      Opcode = AMDGPUISD::BUFFER_ATOMIC_DEC;
+      break;
     default:
       llvm_unreachable("unhandled atomic opcode");
     }
@@ -6442,7 +6501,9 @@ SDValue SITargetLowering::LowerINTRINSIC_W_CHAIN(SDValue Op,
   case Intrinsic::amdgcn_struct_buffer_atomic_umax:
   case Intrinsic::amdgcn_struct_buffer_atomic_and:
   case Intrinsic::amdgcn_struct_buffer_atomic_or:
-  case Intrinsic::amdgcn_struct_buffer_atomic_xor: {
+  case Intrinsic::amdgcn_struct_buffer_atomic_xor:
+  case Intrinsic::amdgcn_struct_buffer_atomic_inc:
+  case Intrinsic::amdgcn_struct_buffer_atomic_dec: {
     auto Offsets = splitBufferOffsets(Op.getOperand(5), DAG);
     SDValue Ops[] = {
       Op.getOperand(0), // Chain
@@ -6490,6 +6551,12 @@ SDValue SITargetLowering::LowerINTRINSIC_W_CHAIN(SDValue Op,
       break;
     case Intrinsic::amdgcn_struct_buffer_atomic_xor:
       Opcode = AMDGPUISD::BUFFER_ATOMIC_XOR;
+      break;
+    case Intrinsic::amdgcn_struct_buffer_atomic_inc:
+      Opcode = AMDGPUISD::BUFFER_ATOMIC_INC;
+      break;
+    case Intrinsic::amdgcn_struct_buffer_atomic_dec:
+      Opcode = AMDGPUISD::BUFFER_ATOMIC_DEC;
       break;
     default:
       llvm_unreachable("unhandled atomic opcode");
@@ -6686,15 +6753,6 @@ SDValue SITargetLowering::LowerINTRINSIC_VOID(SDValue Op,
       AMDGPUISD::EXPORT : AMDGPUISD::EXPORT_DONE;
     return DAG.getNode(Opc, DL, Op->getVTList(), Ops);
   }
-  case Intrinsic::amdgcn_s_sendmsg:
-  case Intrinsic::amdgcn_s_sendmsghalt: {
-    unsigned NodeOp = (IntrinsicID == Intrinsic::amdgcn_s_sendmsg) ?
-      AMDGPUISD::SENDMSG : AMDGPUISD::SENDMSGHALT;
-    Chain = copyToM0(DAG, Chain, DL, Op.getOperand(3));
-    SDValue Glue = Chain.getValue(1);
-    return DAG.getNode(NodeOp, DL, MVT::Other, Chain,
-                       Op.getOperand(2), Glue);
-  }
   case Intrinsic::amdgcn_init_exec: {
     return DAG.getNode(AMDGPUISD::INIT_EXEC, DL, MVT::Other, Chain,
                        Op.getOperand(2));
@@ -6833,10 +6891,22 @@ SDValue SITargetLowering::LowerINTRINSIC_VOID(SDValue Op,
 
   case Intrinsic::amdgcn_raw_buffer_store:
   case Intrinsic::amdgcn_raw_buffer_store_format: {
+    const bool IsFormat =
+        IntrinsicID == Intrinsic::amdgcn_raw_buffer_store_format;
+
     SDValue VData = Op.getOperand(2);
-    bool IsD16 = (VData.getValueType().getScalarType() == MVT::f16);
+    EVT VDataVT = VData.getValueType();
+    EVT EltType = VDataVT.getScalarType();
+    bool IsD16 = IsFormat && (EltType.getSizeInBits() == 16);
     if (IsD16)
       VData = handleD16VData(VData, DAG);
+
+    if (!isTypeLegal(VDataVT)) {
+      VData =
+          DAG.getNode(ISD::BITCAST, DL,
+                      getEquivalentMemType(*DAG.getContext(), VDataVT), VData);
+    }
+
     auto Offsets = splitBufferOffsets(Op.getOperand(4), DAG);
     SDValue Ops[] = {
       Chain,
@@ -6849,15 +6919,14 @@ SDValue SITargetLowering::LowerINTRINSIC_VOID(SDValue Op,
       Op.getOperand(6), // cachepolicy
       DAG.getConstant(0, DL, MVT::i1), // idxen
     };
-    unsigned Opc = IntrinsicID == Intrinsic::amdgcn_raw_buffer_store ?
-                   AMDGPUISD::BUFFER_STORE : AMDGPUISD::BUFFER_STORE_FORMAT;
+    unsigned Opc =
+        IsFormat ? AMDGPUISD::BUFFER_STORE_FORMAT : AMDGPUISD::BUFFER_STORE;
     Opc = IsD16 ? AMDGPUISD::BUFFER_STORE_FORMAT_D16 : Opc;
     MemSDNode *M = cast<MemSDNode>(Op);
 
     // Handle BUFFER_STORE_BYTE/SHORT overloaded intrinsics
-    EVT VDataType = VData.getValueType().getScalarType();
-    if (VDataType == MVT::i8 || VDataType == MVT::i16)
-      return handleByteShortBufferStores(DAG, VDataType, DL, Ops, M);
+    if (!IsD16 && !VDataVT.isVector() && EltType.getSizeInBits() < 32)
+      return handleByteShortBufferStores(DAG, VDataVT, DL, Ops, M);
 
     return DAG.getMemIntrinsicNode(Opc, DL, Op->getVTList(), Ops,
                                    M->getMemoryVT(), M->getMemOperand());
@@ -6865,10 +6934,23 @@ SDValue SITargetLowering::LowerINTRINSIC_VOID(SDValue Op,
 
   case Intrinsic::amdgcn_struct_buffer_store:
   case Intrinsic::amdgcn_struct_buffer_store_format: {
+    const bool IsFormat =
+        IntrinsicID == Intrinsic::amdgcn_struct_buffer_store_format;
+
     SDValue VData = Op.getOperand(2);
-    bool IsD16 = (VData.getValueType().getScalarType() == MVT::f16);
+    EVT VDataVT = VData.getValueType();
+    EVT EltType = VDataVT.getScalarType();
+    bool IsD16 = IsFormat && (EltType.getSizeInBits() == 16);
+
     if (IsD16)
       VData = handleD16VData(VData, DAG);
+
+    if (!isTypeLegal(VDataVT)) {
+      VData =
+          DAG.getNode(ISD::BITCAST, DL,
+                      getEquivalentMemType(*DAG.getContext(), VDataVT), VData);
+    }
+
     auto Offsets = splitBufferOffsets(Op.getOperand(5), DAG);
     SDValue Ops[] = {
       Chain,
@@ -6888,7 +6970,7 @@ SDValue SITargetLowering::LowerINTRINSIC_VOID(SDValue Op,
 
     // Handle BUFFER_STORE_BYTE/SHORT overloaded intrinsics
     EVT VDataType = VData.getValueType().getScalarType();
-    if (VDataType == MVT::i8 || VDataType == MVT::i16)
+    if (!IsD16 && !VDataVT.isVector() && EltType.getSizeInBits() < 32)
       return handleByteShortBufferStores(DAG, VDataType, DL, Ops, M);
 
     return DAG.getMemIntrinsicNode(Opc, DL, Op->getVTList(), Ops,
@@ -7053,9 +7135,10 @@ SDValue SITargetLowering::handleByteShortBufferLoads(SelectionDAG &DAG,
   SDValue BufferLoad = DAG.getMemIntrinsicNode(Opc, DL, ResList,
                                                Ops, IntVT,
                                                M->getMemOperand());
-  SDValue BufferLoadTrunc = DAG.getNode(ISD::TRUNCATE, DL,
-                                        LoadVT.getScalarType(), BufferLoad);
-  return DAG.getMergeValues({BufferLoadTrunc, BufferLoad.getValue(1)}, DL);
+  SDValue LoadVal = DAG.getNode(ISD::TRUNCATE, DL, IntVT, BufferLoad);
+  LoadVal = DAG.getNode(ISD::BITCAST, DL, LoadVT, LoadVal);
+
+  return DAG.getMergeValues({LoadVal, BufferLoad.getValue(1)}, DL);
 }
 
 // Handle 8 bit and 16 bit buffer stores
@@ -7063,6 +7146,9 @@ SDValue SITargetLowering::handleByteShortBufferStores(SelectionDAG &DAG,
                                                       EVT VDataType, SDLoc DL,
                                                       SDValue Ops[],
                                                       MemSDNode *M) const {
+  if (VDataType == MVT::f16)
+    Ops[1] = DAG.getNode(ISD::BITCAST, DL, MVT::i16, Ops[1]);
+
   SDValue BufferStoreExt = DAG.getNode(ISD::ANY_EXTEND, DL, MVT::i32, Ops[1]);
   Ops[1] = BufferStoreExt;
   unsigned Opc = (VDataType == MVT::i8) ? AMDGPUISD::BUFFER_STORE_BYTE :
@@ -7505,6 +7591,19 @@ SDValue SITargetLowering::lowerFDIV_FAST(SDValue Op, SelectionDAG &DAG) const {
   return DAG.getNode(ISD::FMUL, SL, MVT::f32, r3, Mul);
 }
 
+// Returns immediate value for setting the F32 denorm mode when using the
+// S_DENORM_MODE instruction.
+static const SDValue getSPDenormModeValue(int SPDenormMode, SelectionDAG &DAG,
+                                          const SDLoc &SL, const GCNSubtarget *ST) {
+  assert(ST->hasDenormModeInst() && "Requires S_DENORM_MODE");
+  int DPDenormModeDefault = ST->hasFP64Denormals()
+                                ? FP_DENORM_FLUSH_NONE
+                                : FP_DENORM_FLUSH_IN_FLUSH_OUT;
+
+  int Mode = SPDenormMode | (DPDenormModeDefault << 2);
+  return DAG.getTargetConstant(Mode, SL, MVT::i32);
+}
+
 SDValue SITargetLowering::LowerFDIV32(SDValue Op, SelectionDAG &DAG) const {
   if (SDValue FastLowered = lowerFastUnsafeFDIV(Op, DAG))
     return FastLowered;
@@ -7531,16 +7630,26 @@ SDValue SITargetLowering::LowerFDIV32(SDValue Op, SelectionDAG &DAG) const {
   const unsigned Denorm32Reg = AMDGPU::Hwreg::ID_MODE |
                                (4 << AMDGPU::Hwreg::OFFSET_SHIFT_) |
                                (1 << AMDGPU::Hwreg::WIDTH_M1_SHIFT_);
-
   const SDValue BitField = DAG.getTargetConstant(Denorm32Reg, SL, MVT::i16);
 
   if (!Subtarget->hasFP32Denormals()) {
     SDVTList BindParamVTs = DAG.getVTList(MVT::Other, MVT::Glue);
-    const SDValue EnableDenormValue = DAG.getConstant(FP_DENORM_FLUSH_NONE,
-                                                      SL, MVT::i32);
-    SDValue EnableDenorm = DAG.getNode(AMDGPUISD::SETREG, SL, BindParamVTs,
-                                       DAG.getEntryNode(),
-                                       EnableDenormValue, BitField);
+
+    SDValue EnableDenorm;
+    if (Subtarget->hasDenormModeInst()) {
+      const SDValue EnableDenormValue =
+          getSPDenormModeValue(FP_DENORM_FLUSH_NONE, DAG, SL, Subtarget);
+
+      EnableDenorm = DAG.getNode(AMDGPUISD::DENORM_MODE, SL, BindParamVTs,
+                                 DAG.getEntryNode(), EnableDenormValue);
+    } else {
+      const SDValue EnableDenormValue = DAG.getConstant(FP_DENORM_FLUSH_NONE,
+                                                        SL, MVT::i32);
+      EnableDenorm = DAG.getNode(AMDGPUISD::SETREG, SL, BindParamVTs,
+                                 DAG.getEntryNode(), EnableDenormValue,
+                                 BitField);
+    }
+
     SDValue Ops[3] = {
       NegDivScale0,
       EnableDenorm.getValue(0),
@@ -7562,19 +7671,29 @@ SDValue SITargetLowering::LowerFDIV32(SDValue Op, SelectionDAG &DAG) const {
   SDValue Fma2 = getFPTernOp(DAG, ISD::FMA, SL, MVT::f32, NegDivScale0, Mul,
                              NumeratorScaled, Mul);
 
-  SDValue Fma3 = getFPTernOp(DAG, ISD::FMA,SL, MVT::f32, Fma2, Fma1, Mul, Fma2);
+  SDValue Fma3 = getFPTernOp(DAG, ISD::FMA, SL, MVT::f32, Fma2, Fma1, Mul, Fma2);
 
   SDValue Fma4 = getFPTernOp(DAG, ISD::FMA, SL, MVT::f32, NegDivScale0, Fma3,
                              NumeratorScaled, Fma3);
 
   if (!Subtarget->hasFP32Denormals()) {
-    const SDValue DisableDenormValue =
-        DAG.getConstant(FP_DENORM_FLUSH_IN_FLUSH_OUT, SL, MVT::i32);
-    SDValue DisableDenorm = DAG.getNode(AMDGPUISD::SETREG, SL, MVT::Other,
-                                        Fma4.getValue(1),
-                                        DisableDenormValue,
-                                        BitField,
-                                        Fma4.getValue(2));
+
+    SDValue DisableDenorm;
+    if (Subtarget->hasDenormModeInst()) {
+      const SDValue DisableDenormValue =
+          getSPDenormModeValue(FP_DENORM_FLUSH_IN_FLUSH_OUT, DAG, SL, Subtarget);
+
+      DisableDenorm = DAG.getNode(AMDGPUISD::DENORM_MODE, SL, MVT::Other,
+                                  Fma4.getValue(1), DisableDenormValue,
+                                  Fma4.getValue(2));
+    } else {
+      const SDValue DisableDenormValue =
+          DAG.getConstant(FP_DENORM_FLUSH_IN_FLUSH_OUT, SL, MVT::i32);
+
+      DisableDenorm = DAG.getNode(AMDGPUISD::SETREG, SL, MVT::Other,
+                                  Fma4.getValue(1), DisableDenormValue,
+                                  BitField, Fma4.getValue(2));
+    }
 
     SDValue OutputChain = DAG.getNode(ISD::TokenFactor, SL, MVT::Other,
                                       DisableDenorm, DAG.getRoot());
@@ -10065,7 +10184,7 @@ SDNode *SITargetLowering::legalizeTargetIndependentNode(SDNode *Node,
     // Insert a copy to a VReg_1 virtual register so LowerI1Copies doesn't have
     // to try understanding copies to physical registers.
     if (SrcVal.getValueType() == MVT::i1 &&
-        TargetRegisterInfo::isPhysicalRegister(DestReg->getReg())) {
+        Register::isPhysicalRegister(DestReg->getReg())) {
       SDLoc SL(Node);
       MachineRegisterInfo &MRI = DAG.getMachineFunction().getRegInfo();
       SDValue VReg = DAG.getRegister(
@@ -10218,7 +10337,7 @@ void SITargetLowering::AdjustInstrPostInstrSelection(MachineInstr &MI,
         MachineOperand &Op = MI.getOperand(I);
         if ((OpInfo[I].RegClass != llvm::AMDGPU::AV_64RegClassID &&
              OpInfo[I].RegClass != llvm::AMDGPU::AV_32RegClassID) ||
-            !TargetRegisterInfo::isVirtualRegister(Op.getReg()) ||
+            !Register::isVirtualRegister(Op.getReg()) ||
             !TRI->isAGPR(MRI, Op.getReg()))
           continue;
         auto *Src = MRI.getUniqueVRegDef(Op.getReg());
@@ -10415,6 +10534,8 @@ SITargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
       }
       break;
     case 'a':
+      if (!Subtarget->hasMAIInsts())
+        break;
       switch (VT.getSizeInBits()) {
       default:
         return std::make_pair(0U, nullptr);
@@ -10644,7 +10765,7 @@ bool SITargetLowering::isSDNodeSourceOfDivergence(const SDNode * N,
       const MachineRegisterInfo &MRI = MF->getRegInfo();
       const SIRegisterInfo &TRI = ST.getInstrInfo()->getRegisterInfo();
       unsigned Reg = R->getReg();
-      if (TRI.isPhysicalRegister(Reg))
+      if (Register::isPhysicalRegister(Reg))
         return !TRI.isSGPRReg(MRI, Reg);
 
       if (MRI.isLiveIn(Reg)) {

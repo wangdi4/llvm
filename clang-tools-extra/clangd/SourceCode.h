@@ -75,6 +75,28 @@ llvm::Optional<Range> getTokenRange(const SourceManager &SM,
 llvm::Expected<SourceLocation> sourceLocationInMainFile(const SourceManager &SM,
                                                         Position P);
 
+/// Returns true iff \p Loc is inside the main file. This function handles
+/// file & macro locations. For macro locations, returns iff the macro is being
+/// expanded inside the main file.
+///
+/// The function is usually used to check whether a declaration is inside the
+/// the main file.
+bool isInsideMainFile(SourceLocation Loc, const SourceManager &SM);
+
+/// Returns true if the token at Loc is spelled in the source code.
+/// This is not the case for:
+///   * symbols formed via macro concatenation, the spelling location will
+///     be "<scratch space>"
+///   * symbols controlled and defined by a compile command-line option
+///     `-DName=foo`, the spelling location will be "<command line>".
+bool isSpelledInSource(SourceLocation Loc, const SourceManager &SM);
+
+/// Returns the spelling location of the token at Loc if isSpelledInSource,
+/// otherwise its expansion location.
+/// FIXME: Most callers likely want some variant of "file location" instead.
+SourceLocation spellingLocIfSpelled(SourceLocation Loc,
+                                    const SourceManager &SM);
+
 /// Turns a token range into a half-open range and checks its correctness.
 /// The resulting range will have only valid source location on both sides, both
 /// of which are file locations.

@@ -504,7 +504,10 @@ class ObjectFileHandler final : public FileHandler {
   static bool matchSectionName(StringRef NamePrefix, SectionRef CurSection,
                                StringRef &NameSuffix) {
     StringRef SectionName;
-    CurSection.getName(SectionName);
+    if (Expected<StringRef> NameOrErr = CurSection.getName())
+      SectionName = *NameOrErr;
+    else
+      consumeError(NameOrErr.takeError());
 
     // If it does not start with given prefix, just skip this section.
     if (!SectionName.startswith(NamePrefix))
@@ -932,7 +935,7 @@ public:
       // Write the bitcode contents to the temporary file.
       {
         std::error_code EC;
-        raw_fd_ostream BitcodeFile(BitcodeFileName, EC, sys::fs::F_None);
+        raw_fd_ostream BitcodeFile(BitcodeFileName, EC, sys::fs::OF_None);
         if (EC) {
           errs() << "error: unable to open temporary file.\n";
           return true;
@@ -1314,7 +1317,7 @@ static bool BundleFiles() {
   }
 
   // Create output file.
-  raw_fd_ostream OutputFile(OutputFileNames.front(), EC, sys::fs::F_None);
+  raw_fd_ostream OutputFile(OutputFileNames.front(), EC, sys::fs::OF_None);
 
   if (EC) {
     errs() << "error: Can't open file " << OutputFileNames.front() << ".\n";
@@ -1427,7 +1430,7 @@ static bool UnbundleFiles() {
   if (Worklist.size() == TargetNames.size()) {
     for (auto &E : Worklist) {
       std::error_code EC;
-      raw_fd_ostream OutputFile(E.second, EC, sys::fs::F_None);
+      raw_fd_ostream OutputFile(E.second, EC, sys::fs::OF_None);
       if (EC) {
         errs() << "error: Can't open file " << E.second << ": " << EC.message()
                << "\n";
@@ -1451,7 +1454,7 @@ static bool UnbundleFiles() {
   // If we still have any elements in the worklist, create empty files for them.
   for (auto &E : Worklist) {
     std::error_code EC;
-    raw_fd_ostream OutputFile(E.second, EC, sys::fs::F_None);
+    raw_fd_ostream OutputFile(E.second, EC, sys::fs::OF_None);
     if (EC) {
       errs() << "error: Can't open file " << E.second << ": " << EC.message()
              << "\n";

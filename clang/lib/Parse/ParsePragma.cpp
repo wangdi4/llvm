@@ -1303,6 +1303,7 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
     StateOption = llvm::StringSwitch<bool>(OptionInfo->getName())
                       .Case("vectorize", true)
                       .Case("interleave", true)
+                      .Case("vectorize_predicate", true)
                       .Default(false) ||
                   OptionUnroll || OptionUnrollAndJam || OptionDistribute ||
                   OptionPipelineDisabled;
@@ -1371,18 +1372,17 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
 
     ConsumeToken(); // Consume the constant expression eof terminator.
 
-    if (R.isInvalid() ||
 #if INTEL_CUSTOMIZATION
-        // CQ#366562 - allow pragma unroll value in IntelCompat mode be out of
-        // strictly positive 32-bit integer range.
-        Actions.CheckLoopHintExpr(R.get(), Toks[0].getLocation(),
-                                  /*IsCheckRange=*/
-                                  !getLangOpts().IntelCompat ||
-                                  !(PragmaUnroll || PragmaUnrollAndJam),
-                                  /* AllowNonNegativeValue */
-                                  PragmaSpeculatedIterations))
-#endif // INTEL_CUSTOMIZATION
+    bool AllowZero = false;
+    if (PragmaSpeculatedIterations)
+      AllowZero = true;
+    if ((PragmaUnroll || PragmaUnrollAndJam) &&
+        getLangOpts().isIntelCompat(LangOptions::UnrollZero))
+      AllowZero = true;
+    if (R.isInvalid() ||
+        Actions.CheckLoopHintExpr(R.get(), Toks[0].getLocation(), AllowZero))
       return false;
+#endif // INTEL_CUSTOMIZATION
 
     // Argument is a constant expression with an integer type.
     Hint.ValueExpr = R.get();
@@ -3070,6 +3070,7 @@ static bool ParseLoopHintValue(Preprocessor &PP, Token &Tok, Token PragmaName,
 ///    'vectorize' '(' loop-hint-keyword ')'
 ///    'interleave' '(' loop-hint-keyword ')'
 ///    'unroll' '(' unroll-hint-keyword ')'
+///    'vectorize_predicate' '(' loop-hint-keyword ')'
 ///    'vectorize_width' '(' loop-hint-value ')'
 ///    'interleave_count' '(' loop-hint-value ')'
 ///    'unroll_count' '(' loop-hint-value ')'
@@ -3131,6 +3132,7 @@ void PragmaLoopHintHandler::HandlePragma(Preprocessor &PP,
                            .Case("interleave", true)
                            .Case("unroll", true)
                            .Case("distribute", true)
+                           .Case("vectorize_predicate", true)
                            .Case("vectorize_width", true)
                            .Case("interleave_count", true)
                            .Case("unroll_count", true)
@@ -3797,10 +3799,7 @@ bool Parser::ParseLoopHintValue(LoopHint &Hint, SourceLocation Loc,
                                 ParsedAttributesWithRange &Attrs) {
   SourceLocation BeginExprLoc = Tok.getLocation();
   ExprResult R = ParseConstantExpression();
-  if (R.isInvalid() ||
-      Actions.CheckLoopHintExpr(R.get(), BeginExprLoc,
-                                /*IsCheckRange=*/true,
-                                /*AllowNonNegativeValue=*/false))
+  if (R.isInvalid() || Actions.CheckLoopHintExpr(R.get(), BeginExprLoc))
     return false;
   Hint.ValueExpr = R.get();
   Hint.Range = SourceRange(Loc, Tok.getLocation());

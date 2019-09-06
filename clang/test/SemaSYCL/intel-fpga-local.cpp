@@ -1,11 +1,5 @@
 // RUN: %clang_cc1 -x c++ -Wno-return-type -fsycl-is-device -std=c++11 -fcxx-exceptions -fsyntax-only -ast-dump -verify -pedantic %s | FileCheck %s
 
-// INTEL_CUSTOMIZATION
-// This test fails on xmain after recent SYCL merge and requires more investigation: CMPLRLLVM-10111
-// Mark as expected fail
-// XFAIL: *
-// end INTEL_CUSTOMIZATION
-
 //CHECK: FunctionDecl{{.*}}foo1
 void foo1()
 {

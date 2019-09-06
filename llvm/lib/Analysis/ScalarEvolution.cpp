@@ -10353,14 +10353,9 @@ Optional<APInt> ScalarEvolution::computeConstantDifference(const SCEV *More,
   // We avoid subtracting expressions here because this function is usually
   // fairly deep in the call stack (i.e. is called many times).
 
-#if INTEL_CUSTOMIZATION
-  // This customization is supposed to be replaced by a similar code from LLORG
-  // after the patch is pushed upstream.
-
   // X - X = 0.
   if (More == Less)
     return APInt(getTypeSizeInBits(More->getType()), 0);
-#endif /* INTEL_CUSTOMIZATION */
 
   if (isa<SCEVAddRecExpr>(Less) && isa<SCEVAddRecExpr>(More)) {
     const auto *LAR = cast<SCEVAddRecExpr>(Less);

@@ -1127,15 +1127,18 @@ bool InferAddressSpaces::rewriteWithNewAddressSpaces(
           }
         }
 
+        // If the use is an ASC with the same space as the replacement NewV,
+        // remove it (possibly replacing it with a bitcast).
         if (AddrSpaceCastInst *ASC = dyn_cast<AddrSpaceCastInst>(CurUser)) {
           unsigned NewAS = NewV->getType()->getPointerAddressSpace();
           if (ASC->getDestAddressSpace() == NewAS) {
+            auto *BCNewV = NewV;
             if (ASC->getType()->getPointerElementType() !=
                 NewV->getType()->getPointerElementType()) {
-              NewV = CastInst::Create(Instruction::BitCast, NewV,
-                                      ASC->getType(), "", ASC);
+              BCNewV = CastInst::Create(Instruction::BitCast, NewV,
+                                        ASC->getType(), "", ASC);
             }
-            ASC->replaceAllUsesWith(NewV);
+            ASC->replaceAllUsesWith(BCNewV);
             DeadInstructions.push_back(ASC);
             continue;
           }

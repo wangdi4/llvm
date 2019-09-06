@@ -9,7 +9,7 @@
 //CHECK: [[ANN3:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{max_replicates:2}{simple_dual_port:1}
 //CHECK: [[ANN4:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{simple_dual_port:1}
 //CHECK: @[[Struct3:.*]] = internal global %struct.foo_three zeroinitializer, align 4
-//CHECK: [[ANN5:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{numreadports:2}{simple_dual_port:1}
+//CHECK: [[ANN5:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{simple_dual_port:1}{numreadports:2}
 //CHECK: @[[Struct5:.*]] = internal global %struct.foo_five zeroinitializer, align 1
 //CHECK: [[ANN6:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:1}{max_replicates:2}
 //CHECK: [[ANN7:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:1,2}{max_replicates:2}
@@ -20,13 +20,13 @@
 //CHECK: [[ANN10:@.str[\.]*[0-9]*]] = {{.*}}{staticreset:2}
 //CHECK: [[ANN20:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4,8}{max_replicates:3}{staticreset:1}
 //CHECK: [[ANN21:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4,8}{max_replicates:4}{staticreset:1}
-//CHECK: [[ANN11:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{bankwidth:4}{numbanks:8}{max_concurrency:4}{max_replicates:2}
-//CHECK: [[ANN12:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{bankwidth:4}{numbanks:8}{max_concurrency:4}{simple_dual_port:1}
-//CHECK: [[ANN13:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{numreadports:2}{numwriteports:3}{simple_dual_port:1}
+//CHECK: [[ANN11:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{bankwidth:4}{numbanks:8}{max_replicates:2}{max_concurrency:4}
+//CHECK: [[ANN12:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{bankwidth:4}{numbanks:8}{simple_dual_port:1}{max_concurrency:4}
+//CHECK: [[ANN13:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{simple_dual_port:1}{numreadports:2}{numwriteports:3}
 //CHECK: [[ANN14:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{max_replicates:3}
 //CHECK: [[ANN15:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{numbanks:8}{max_replicates:3}{bank_bits:4,3,2}
 //CHECK: [[ANN16:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{numbanks:8}{simple_dual_port:1}{bank_bits:4,3,2}
-//CHECK: [[ANN17:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{numbanks:8}{numreadports:2}{simple_dual_port:1}
+//CHECK: [[ANN17:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{numbanks:8}{simple_dual_port:1}{numreadports:2}
 //CHECK: [[ANN18:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{max_replicates:3}{simple_dual_port:1}
 
 const int __attribute__((max_replicates(2))) gc1 = 0;

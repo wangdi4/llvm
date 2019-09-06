@@ -36,6 +36,7 @@
 #include "llvm/Option/Option.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/LEB128.h"
+#include "llvm/Support/MathExtras.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Process.h"
 #include "llvm/Support/TarWriter.h"
@@ -62,29 +63,25 @@ LinkerDriver *driver;
 bool link(ArrayRef<const char *> args, bool canExitEarly, raw_ostream &diag) {
   errorHandler().logName = args::getFilenameWithoutExe(args[0]);
   errorHandler().errorOS = &diag;
-  errorHandler().colorDiagnostics = diag.has_colors();
   errorHandler().errorLimitExceededMsg =
       "too many errors emitted, stopping now"
       " (use /errorlimit:0 to see all errors)";
   errorHandler().exitEarly = canExitEarly;
+  enableColors(diag.has_colors());
+
   config = make<Configuration>();
-
   symtab = make<SymbolTable>();
-
   driver = make<LinkerDriver>();
+
   driver->link(args);
 
-#if INTEL_CUSTOMIZATION
-  // The following code is commented out because is from the community and
-  // it will be replaced.
-
   // Call exit() if we can to avoid calling destructors.
-  // if (CanExitEarly)
-  //  exitLld(errorCount() ? 1 : 0);
+  if (canExitEarly)
+    exitLld(errorCount() ? 1 : 0);
 
-  // CMPLRLLVM-8800: We are going to replace exitLld with cleanIntelLld.
-  // This is because we want to prevent calling the early exit and use
-  // the destructors.
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-10208: This part here is for destroying the global data
+  // if the user doesn't need it (e.g. testing system).
   cleanIntelLld();
 #endif // INTEL_CUSTOMIZATION
 
@@ -194,8 +191,10 @@ void LinkerDriver::addBuffer(std::unique_ptr<MemoryBuffer> mb,
     if (wholeArchive) {
       std::unique_ptr<Archive> file =
           CHECK(Archive::create(mbref), filename + ": failed to parse archive");
+      Archive *archive = file.get();
+      make<std::unique_ptr<Archive>>(std::move(file)); // take ownership
 
-      for (MemoryBufferRef m : getArchiveMembers(file.get()))
+      for (MemoryBufferRef m : getArchiveMembers(archive))
         addArchiveBuffer(m, "<whole-archive>", filename, 0);
       return;
     }
@@ -290,13 +289,12 @@ void LinkerDriver::addArchiveBuffer(MemoryBufferRef mb, StringRef symName,
 }
 
 void LinkerDriver::enqueueArchiveMember(const Archive::Child &c,
-                                        StringRef symName,
+                                        const Archive::Symbol &sym,
                                         StringRef parentName) {
 
-  auto reportBufferError = [=](Error &&e,
-                              StringRef childName) {
+  auto reportBufferError = [=](Error &&e, StringRef childName) {
     fatal("could not get the buffer for the member defining symbol " +
-          symName + ": " + parentName + "(" + childName + "): " +
+          toCOFFString(sym) + ": " + parentName + "(" + childName + "): " +
           toString(std::move(e)));
   };
 
@@ -307,7 +305,8 @@ void LinkerDriver::enqueueArchiveMember(const Archive::Child &c,
       reportBufferError(mbOrErr.takeError(), check(c.getFullName()));
     MemoryBufferRef mb = mbOrErr.get();
     enqueueTask([=]() {
-      driver->addArchiveBuffer(mb, symName, parentName, offsetInArchive);
+      driver->addArchiveBuffer(mb, toCOFFString(sym), parentName,
+                               offsetInArchive);
     });
     return;
   }
@@ -315,15 +314,16 @@ void LinkerDriver::enqueueArchiveMember(const Archive::Child &c,
   std::string childName = CHECK(
       c.getFullName(),
       "could not get the filename for the member defining symbol " +
-      symName);
+      toCOFFString(sym));
   auto future = std::make_shared<std::future<MBErrPair>>(
       createFutureForFile(childName));
   enqueueTask([=]() {
     auto mbOrErr = future->get();
     if (mbOrErr.second)
       reportBufferError(errorCodeToError(mbOrErr.second), childName);
-    driver->addArchiveBuffer(takeBuffer(std::move(mbOrErr.first)), symName,
-                             parentName, /* OffsetInArchive */ 0);
+    driver->addArchiveBuffer(takeBuffer(std::move(mbOrErr.first)),
+                             toCOFFString(sym), parentName,
+                             /*OffsetInArchive=*/0);
   });
 }
 
@@ -972,6 +972,8 @@ void LinkerDriver::invokeMSVC(opt::InputArgList &args) {
     case OPT_lldmap:
     case OPT_lldmap_file:
     case OPT_lldsavetemps:
+    case OPT_intel_debug_mem:
+    case OPT_intel_embedded_linker:
     case OPT_opt:
       if (!StringRef(arg->getValue()).startswith("lld"))
         rsp += toString(*arg) + " ";
@@ -1336,6 +1338,14 @@ void LinkerDriver::link(ArrayRef<const char *> argsArr) {
       fatal("no input files");
   }
 
+#if INTEL_CUSTOMIZATION
+  if (args.hasArg(OPT_intel_debug_mem))
+    errorHandler().intelDebugMem = true;
+
+  if (args.hasArg(OPT_intel_embedded_linker))
+    errorHandler().intelEmbeddedLinker = true;
+#endif // INTEL_CUSTOMIZATION
+
   // Construct search path list.
   searchPaths.push_back("");
   for (auto *arg : args.filtered(OPT_libpath))
@@ -1619,6 +1629,13 @@ void LinkerDriver::link(ArrayRef<const char *> argsArr) {
   // Handle /section
   for (auto *arg : args.filtered(OPT_section))
     parseSection(arg->getValue());
+
+  // Handle /align
+  if (auto *arg = args.getLastArg(OPT_align)) {
+    parseNumbers(arg->getValue(), &config->align);
+    if (!isPowerOf2_64(config->align))
+      error("/align: not a power of two: " + StringRef(arg->getValue()));
+  }
 
   // Handle /aligncomm
   for (auto *arg : args.filtered(OPT_aligncomm))
@@ -1952,31 +1969,6 @@ void LinkerDriver::link(ArrayRef<const char *> argsArr) {
       addUndefined(mangle("_load_config_used"));
   } while (run());
 
-  if (errorCount())
-    return;
-
-#if INTEL_CUSTOMIZATION
-  if (msGLFilesFound) {
-    invokeMSVC(args);
-    return;
-  }
-#endif // INTEL_CUSTOMIZATION
-
-  // Do LTO by compiling bitcode input files to a set of native COFF files then
-  // link those files (unless -thinlto-index-only was given, in which case we
-  // resolve symbols and write indices, but don't generate native code or link).
-  symtab->addCombinedLTOObjects();
-
-  // If -thinlto-index-only is given, we should create only "index
-  // files" and not object files. Index file creation is already done
-  // in addCombinedLTOObject, so we are done if that's the case.
-  if (config->thinLTOIndexOnly)
-    return;
-
-  // If we generated native object files from bitcode files, this resolves
-  // references to the symbols we use from them.
-  run();
-
   if (args.hasArg(OPT_include_optional)) {
     // Handle /includeoptional
     for (auto *arg : args.filtered(OPT_include_optional))
@@ -2003,8 +1995,39 @@ void LinkerDriver::link(ArrayRef<const char *> argsArr) {
     run();
   }
 
-  // Make sure we have resolved all symbols.
-  symtab->reportRemainingUndefines();
+#if INTEL_CUSTOMIZATION
+  if (msGLFilesFound) {
+    invokeMSVC(args);
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
+
+  // At this point, we should not have any symbols that cannot be resolved.
+  // If we are going to do codegen for link-time optimization, check for
+  // unresolvable symbols first, so we don't spend time generating code that
+  // will fail to link anyway.
+  if (!BitcodeFile::instances.empty() && !config->forceUnresolved)
+    symtab->reportUnresolvable();
+  if (errorCount())
+    return;
+
+  // Do LTO by compiling bitcode input files to a set of native COFF files then
+  // link those files (unless -thinlto-index-only was given, in which case we
+  // resolve symbols and write indices, but don't generate native code or link).
+  symtab->addCombinedLTOObjects();
+
+  // If -thinlto-index-only is given, we should create only "index
+  // files" and not object files. Index file creation is already done
+  // in addCombinedLTOObject, so we are done if that's the case.
+  if (config->thinLTOIndexOnly)
+    return;
+
+  // If we generated native object files from bitcode files, this resolves
+  // references to the symbols we use from them.
+  run();
+
+  // Resolve remaining undefined symbols and warn about imported locals.
+  symtab->resolveRemainingUndefines();
   if (errorCount())
     return;
 

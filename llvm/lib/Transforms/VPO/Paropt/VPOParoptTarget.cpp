@@ -88,7 +88,28 @@ void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
     for (int I = MapChain.size() - 1; I >= 0; --I) {
       MapAggrTy *Aggr = MapChain[I];
       Value *SectionPtr = Aggr->getSectionPtr();
-      resetValueInOmpClauseGeneric(W, SectionPtr);
+      // Do not reset section pointers in cases like this:
+      //   %12 = call i8* @llvm.launder.invariant.group.p0i8(
+      //       i8* bitcast (double** @f_global to i8*))
+      //   %f_global = bitcast i8* %12 to double**
+      //   %13 = call token @llvm.directive.region.entry() [
+      //       "DIR.OMP.TARGET"(),
+      //       "QUAL.OMP.MAP.TOFROM:AGGRHEAD"(double** %f_global,
+      //                                      double** %f_global, i64 8),
+      //       "QUAL.OMP.MAP.TOFROM:AGGR"(double** %f_global,
+      //                                  double* %6, i64 %10)
+      //
+      // Resetting section pointer of AGGRHEAD will cause removal
+      // of all references to %f_global.
+      //
+      // Due to the outlining differences between host and SPIR-V target,
+      // a reference to @f_global may be observable during compilation
+      // for SPIR-V target, but for host it may not be observable
+      // (e.g. the inner "parallel" region referencing @f_global
+      // is outlined). This difference may cause a mismatch between
+      // outlined functions generated for the host and the device.
+      if (SectionPtr != Aggr->getBasePtr())
+        resetValueInOmpClauseGeneric(W, SectionPtr);
       Value *Size = Aggr->getSize();
       if (!dyn_cast<ConstantInt>(Size))
         resetValueInOmpClauseGeneric(W, Size);
@@ -132,11 +153,18 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
         cast<PointerType>(ArgV->getType())->getAddressSpace();
     unsigned OldAddressSpace =
         cast<PointerType>(I->getType())->getAddressSpace();
+
+#if INTEL_CUSTOMIZATION
+    // FIXME: reenable this assertion, when ifort is able to generate
+    //        correct addrspaces.
+    //
     // Assert the correct addrspacecast here instead of failing
     // during SPIRV emission.
     assert(OldAddressSpace == vpo::ADDRESS_SPACE_GENERIC &&
            "finalizeKernelFunction: OpenCL global addrspaces can only be "
            "casted to generic.");
+#endif  // INTEL_CUSTOMIZATION
+
     Value *NewArgV = ArgV;
     if (NewAddressSpace != OldAddressSpace)
       NewArgV = Builder.CreatePointerBitCastOrAddrSpaceCast(ArgV, I->getType());
@@ -182,6 +210,7 @@ static bool isParOrTargetDirective(Instruction *Inst,
   switch (ID) {
     case DIR_OMP_PARALLEL:
     case DIR_OMP_PARALLEL_LOOP:
+    case DIR_OMP_PARALLEL_SECTIONS:
     case DIR_OMP_DISTRIBUTE_PARLOOP:
     case DIR_OMP_TEAMS:
     case DIR_OMP_SIMD:
@@ -213,7 +242,7 @@ static Instruction *getExitInstruction(Instruction *DirectiveBegin,
   // already been handled above.
   for (auto U : DirectiveBegin->users()) {
     if (auto DEnd = dyn_cast<IntrinsicInst>(U)) {
-      LLVM_DEBUG(dbgs() << "\n Direc End::" << *DEnd);
+      LLVM_DEBUG(dbgs() << "\n Directive End::" << *DEnd);
       return DEnd;
     }
   }

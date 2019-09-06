@@ -1,0 +1,15 @@
+# REQUIRES: asserts
+
+# RUN: ld64.lld -arch x86_64 -lto_library %t -intel-debug=mem -r %s 2>&1 | FileCheck %s
+#
+# This test checks that the memory was freed when running
+# lld without early exit.
+#
+
+# CHECK: ld64.lld: warning: Cleaning up LLD memory
+# CHECK: ld64.lld: warning: Cleaning up LLVM memory
+
+--- !native
+defined-atoms:
+    - name:              _foo
+...

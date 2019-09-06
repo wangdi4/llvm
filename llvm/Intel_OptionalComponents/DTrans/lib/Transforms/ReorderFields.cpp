@@ -14,21 +14,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "Intel_DTrans/Transforms/ReorderFields.h"
-#include "Intel_DTrans/Analysis/DTrans.h"
-#include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/DTransCommon.h"
-#include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/Intel_WP.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/IR/Module.h"
 #include "llvm/IR/PatternMatch.h"
-#include "llvm/Pass.h"
 #include "llvm/Transforms/IPO.h"
-
-#include <algorithm>
-#include <vector>
 
 using namespace llvm;
 
@@ -1256,55 +1246,56 @@ bool ReorderFieldsImpl::checkDependentTypeSafety(llvm::Type *Ty) {
 // [Notes]
 // Work in the following order in this function:
 // 1. do collection
-// 2. do reduced legal test for collected Inclusive Struct Types
+// 2. do secondary legal test for any available Inclusive Struct Types
 // 3. do Type mapping
 //
-// If any test on inclusive struct type fail, will return false and bail out immediately.
+// If any test on a DFR candidate's inclusive struct type fails, this routine
+// returns false.
+// As a result, DTrans Field Reorder (DFR) on the respective struct type
+// candidate will fail.
+//
+// This is a side exit inside the DTrans Optimization Framework.
+//
+// It is necessary to locate the 2nd legal test in the prepareTypes() routine
+// because the test needs to access TypeToDependenTypes map which is only
+// available inside an overwritten virtual function from a sub class of
+// DtransOptBase type.
 //
 bool ReorderFieldsImpl::prepareTypes(Module &M) {
   LLVM_DEBUG(dbgs() << "ReorderFieldsImpl::prepareTypes(M)\n");
 
-  // If there is any candidate, do legal test on any dependent type.
-  for (auto &TyPair : RTI.getTypesMap()) {
-    StructType *OrigTy = TyPair.first;
-    assert(OrigTy && "Expect OrigTy be valid");
-    LLVM_DEBUG(dbgs() << "OrigTy: " << *OrigTy << "\n";);
-
-    auto It = TypeToDependentTypes.find(OrigTy);
-    if (It == TypeToDependentTypes.end())
-      continue;
-
-    // Ensure each relevant DependentType is legal
-    for (auto *DepTy : It->second) {
-      // Skip any non StructType DepTy
-      if (!isa<llvm::StructType>(DepTy))
-        continue;
-
-      // Don't check any dependent type that is subject to DFR transformation.
-      if (!RTI.getTransformedTypeNewSize(OrigTy))
-        continue;
-
-      // Legal test on DepTy
-      if (!checkDependentTypeSafety(DepTy)) {
-        LLVM_DEBUG(dbgs() << "DTRANS-FieldsReordering: Disqualifying type: "
-                          << getStName(OrigTy) << " " << *OrigTy
-                          << " based on safety conditions of dependent type: "
-                          << getStName(cast<StructType>(DepTy)) << *DepTy
-                          << "\n");
-        return false;
-      }
-    }
-  }
-
-  // If there is any candidate, collect Inclusive Struct Type(s).
+  // If there is any candidate, collect the Inclusive Struct Type(s):
+  bool HasInclStTy = false;
   if (!RTI.getTypesMap().empty()) {
-    bool HasInclStTy = collectInclusiveStructTypes(M);
+    HasInclStTy = collectInclusiveStructTypes(M);
     LLVM_DEBUG({
                  std::string Msg = HasInclStTy ? "Has" : "No";
                  dbgs() << Msg + " InclusiveStructType found.\n";
                  RTI.dumpInclusiveStructTypes();
                });
-    (void) HasInclStTy;
+  }
+
+  // If there is any Inclusive Type(s), do legal test on them:
+  if (HasInclStTy) {
+    for (auto &InclStTy : RTI.getInclusiveStructTypes()) {
+      // Skip any non StructType DepTy
+      if (!isa<llvm::StructType>(InclStTy))
+        continue;
+
+      // Skip any dependent type that is subject to DFR transformation.
+      if (RTI.hasTransformedTypeNewSize(InclStTy))
+        continue;
+
+      // Legal test on InclStTy:
+      if (!checkDependentTypeSafety(InclStTy)) {
+        LLVM_DEBUG(
+            dbgs() << "DTRANS-FieldsReordering: Disqualified based on safety"
+                      " conditions of dependent inclusive type: "
+                   << getStName(cast<StructType>(InclStTy)) << *InclStTy
+                   << "\n");
+        return false;
+      }
+    }
   }
 
   // Create opaque type place holder for each to-be reordered struct type
@@ -1515,16 +1506,18 @@ bool ReorderFieldsPass::isProfitable(TypeInfo *TI, const DataLayout &DL) {
     // to the top, and minimize padding at top position.
     //
     const unsigned Alignments[] = {8, 4, 2, 1};
-    unsigned Idx = -1;
+    // Set TopAlign to 1 (its default value).
+    // Even if the search loop (below) fails, the default value is valid.
+    unsigned TopAlign = Alignments[3];
     for (unsigned I = 0, E = sizeof(Alignments) / sizeof(unsigned); I < E;
          ++I) {
       if (TopAlignToMatch % Alignments[I] == 0) {
-        Idx = I;
+        TopAlign = Alignments[I];
         break;
       }
     }
-    const unsigned TopAlign = Alignments[Idx];
 
+    unsigned Idx = 0;
     bool FoundTopMatch = false;
     for (unsigned I = TopIdx; I < BottomIdx; ++I) {
       if (Fields[I].getSize() == TopAlign) {

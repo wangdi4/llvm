@@ -18,6 +18,9 @@
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
+#if !INTEL_CUSTOMIZATION
+#include "llvm/DebugInfo/CodeView/SymbolRecord.h"
+#endif // !INTEL_CUSTOMIZATION
 #include "llvm/MC/MCDirectives.h"
 #include "llvm/MC/MCLinkerOptimizationHint.h"
 #include "llvm/MC/MCSymbol.h"
@@ -536,6 +539,15 @@ public:
   /// \param Symbol - Symbol the image relative relocation should point to.
   virtual void EmitCOFFImgRel32(MCSymbol const *Symbol, int64_t Offset);
 
+  /// Emits an lcomm directive with XCOFF csect information.
+  ///
+  /// \param Symbol - The symbol we are emiting.
+  /// \param Size - The size of the block of storage.
+  /// \param ByteAlignment - The alignment of the symbol in bytes. Must be a power
+  /// of 2.
+  virtual void EmitXCOFFLocalCommonSymbol(MCSymbol *Symbol, uint64_t Size,
+                                          unsigned ByteAlignment);
+
   /// Emit an ELF .size directive.
   ///
   /// This corresponds to an assembler statement such as:
@@ -867,6 +879,45 @@ public:
   virtual void EmitCVDefRangeDirective(
       ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
       StringRef FixedSizePortion);
+
+#if INTEL_CUSTOMIZATION
+  virtual void EmitCVDefRangeDirectiveRegisterRelSym(
+      ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
+      support::ulittle16_t Register, support::ulittle16_t Flags,
+      support::little32_t BasePointerOffset);
+
+  virtual void EmitCVDefRangeDirectiveSubfieldRegisterSym(
+      ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
+       support::ulittle16_t Register, support::ulittle16_t MayHaveNoName,
+       support::ulittle32_t OffsetInParent);
+
+  virtual void EmitCVDefRangeDirectiveRegisterSym(
+      ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
+      support::ulittle16_t Register, support::ulittle16_t MayHaveNoName);
+
+  virtual void EmitCVDefRangeDirectiveFramePointerRelSym(
+      ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
+      support::little32_t Offset);
+
+#else // INTEL_CUSTOMIZATION
+
+  virtual void EmitCVDefRangeDirective(
+      ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
+      codeview::DefRangeRegisterRelSym::Header DRHdr);
+
+  virtual void EmitCVDefRangeDirective(
+      ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
+      codeview::DefRangeSubfieldRegisterSym::Header DRHdr);
+
+  virtual void EmitCVDefRangeDirective(
+      ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
+      codeview::DefRangeRegisterSym::Header DRHdr);
+
+  virtual void EmitCVDefRangeDirective(
+      ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
+      codeview::DefRangeFramePointerRelSym::Header DRHdr);
+
+#endif // INTEL_CUSTOMIZATION
 
   /// This implements the CodeView '.cv_stringtable' assembler directive.
   virtual void EmitCVStringTableDirective() {}

@@ -746,6 +746,10 @@ class PatFrags<dag ops, list<dag> frags, code pred = [{}],
   // If this empty, accept any address space.
   list<int> AddressSpaces = ?;
 
+  // cast<MemSDNode>(N)->getAlignment() >=
+  // If this is empty, accept any alignment.
+  int MinAlignment = ?;
+
   // cast<AtomicSDNode>(N)->getOrdering() == AtomicOrdering::Monotonic
   bit IsAtomicOrderingMonotonic = ?;
   // cast<AtomicSDNode>(N)->getOrdering() == AtomicOrdering::Acquire
@@ -771,8 +775,6 @@ class PatFrags<dag ops, list<dag> frags, code pred = [{}],
   // cast<LoadSDNode>(N)->getMemoryVT().getScalarType() == MVT::<VT>;
   // cast<StoreSDNode>(N)->getMemoryVT().getScalarType() == MVT::<VT>;
   ValueType ScalarMemoryVT = ?;
-
-  // TODO: Add alignment
 }
 
 // PatFrag - A version of PatFrags matching only a single fragment.
@@ -1124,6 +1126,16 @@ def pre_truncstf32 : PatFrag<(ops node:$val, node:$base, node:$offset),
   let IsStore = 1;
   let MemoryVT = f32;
 }
+def pre_truncstvi8 : PatFrag<(ops node:$val, node:$base, node:$offset),
+                             (pre_truncst node:$val, node:$base, node:$offset)> {
+  let IsStore = 1;
+  let ScalarMemoryVT = i8;
+}
+def pre_truncstvi16 : PatFrag<(ops node:$val, node:$base, node:$offset),
+                              (pre_truncst node:$val, node:$base, node:$offset)> {
+  let IsStore = 1;
+  let ScalarMemoryVT = i16;
+}
 
 def post_store : PatFrag<(ops node:$val, node:$ptr, node:$offset),
                          (istore node:$val, node:$ptr, node:$offset), [{
@@ -1160,6 +1172,16 @@ def post_truncstf32 : PatFrag<(ops node:$val, node:$base, node:$offset),
                               (post_truncst node:$val, node:$base, node:$offset)> {
   let IsStore = 1;
   let MemoryVT = f32;
+}
+def post_truncstvi8 : PatFrag<(ops node:$val, node:$base, node:$offset),
+                              (post_truncst node:$val, node:$base, node:$offset)> {
+  let IsStore = 1;
+  let ScalarMemoryVT = i8;
+}
+def post_truncstvi16 : PatFrag<(ops node:$val, node:$base, node:$offset),
+                               (post_truncst node:$val, node:$base, node:$offset)> {
+  let IsStore = 1;
+  let ScalarMemoryVT = i16;
 }
 
 def nonvolatile_load : PatFrag<(ops node:$ptr),
@@ -1380,26 +1402,26 @@ multiclass ternary_atomic_op_ord<SDNode atomic_op> {
   }
 }
 
-multiclass binary_atomic_op<SDNode atomic_op> {
+multiclass binary_atomic_op<SDNode atomic_op, bit IsInt = 1> {
   def _8 : PatFrag<(ops node:$ptr, node:$val),
                    (atomic_op  node:$ptr, node:$val)> {
     let IsAtomic = 1;
-    let MemoryVT = i8;
+    let MemoryVT = !if(IsInt, i8, ?);
   }
   def _16 : PatFrag<(ops node:$ptr, node:$val),
                     (atomic_op node:$ptr, node:$val)> {
     let IsAtomic = 1;
-    let MemoryVT = i16;
+    let MemoryVT = !if(IsInt, i16, f16);
   }
   def _32 : PatFrag<(ops node:$ptr, node:$val),
                     (atomic_op node:$ptr, node:$val)> {
     let IsAtomic = 1;
-    let MemoryVT = i32;
+    let MemoryVT = !if(IsInt, i32, f32);
   }
   def _64 : PatFrag<(ops node:$ptr, node:$val),
                     (atomic_op node:$ptr, node:$val)> {
     let IsAtomic = 1;
-    let MemoryVT = i64;
+    let MemoryVT = !if(IsInt, i64, f64);
   }
 
   defm NAME#_8  : binary_atomic_op_ord<atomic_op>;

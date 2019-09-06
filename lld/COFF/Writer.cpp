@@ -762,6 +762,28 @@ void Writer::locateImportTables() {
   }
 }
 
+// Return whether a SectionChunk's suffix (the dollar and any trailing
+// suffix) should be removed and sorted into the main suffixless
+// PartialSection.
+static bool shouldStripSectionSuffix(SectionChunk *sc, StringRef name) {
+  // On MinGW, comdat groups are formed by putting the comdat group name
+  // after the '$' in the section name. For .eh_frame$<symbol>, that must
+  // still be sorted before the .eh_frame trailer from crtend.o, thus just
+  // strip the section name trailer. For other sections, such as
+  // .tls$$<symbol> (where non-comdat .tls symbols are otherwise stored in
+  // ".tls$"), they must be strictly sorted after .tls. And for the
+  // hypothetical case of comdat .CRT$XCU, we definitely need to keep the
+  // suffix for sorting. Thus, to play it safe, only strip the suffix for
+  // the standard sections.
+  if (!config->mingw)
+    return false;
+  if (!sc || !sc->isCOMDAT())
+    return false;
+  return name.startswith(".text$") || name.startswith(".data$") ||
+         name.startswith(".rdata$") || name.startswith(".pdata$") ||
+         name.startswith(".xdata$") || name.startswith(".eh_frame$");
+}
+
 // Create output section objects and add them to OutputSections.
 void Writer::createSections() {
   // First, create the builtin sections.
@@ -807,10 +829,7 @@ void Writer::createSections() {
       continue;
     }
     StringRef name = c->getSectionName();
-    // On MinGW, comdat groups are formed by putting the comdat group name
-    // after the '$' in the section name. Such a section name suffix shouldn't
-    // imply separate alphabetical sorting of those section chunks though.
-    if (config->mingw && sc && sc->isCOMDAT())
+    if (shouldStripSectionSuffix(sc, name))
       name = name.split('$').first;
     PartialSection *pSec = createPartialSection(name,
                                                 c->getOutputCharacteristics());
@@ -1076,6 +1095,13 @@ Optional<coff_symbol16> Writer::createSymbol(Defined *def) {
   }
   }
 
+  // Symbols that are runtime pseudo relocations don't point to the actual
+  // symbol data itself (as they are imported), but points to the IAT entry
+  // instead. Avoid emitting them to the symbol table, as they can confuse
+  // debuggers.
+  if (def->isRuntimePseudoReloc)
+    return None;
+
   StringRef name = def->getName();
   if (name.size() > COFF::NameSize) {
     sym.Name.Offset.Zeroes = 0;
@@ -1179,8 +1205,10 @@ void Writer::assignAddresses() {
   sizeOfHeaders +=
       config->is64() ? sizeof(pe32plus_header) : sizeof(pe32_header);
   sizeOfHeaders = alignTo(sizeOfHeaders, config->fileAlign);
-  uint64_t rva = pageSize; // The first page is kept unmapped.
   fileSize = sizeOfHeaders;
+
+  // The first page is kept unmapped.
+  uint64_t rva = alignTo(sizeOfHeaders, config->align);
 
   for (OutputSection *sec : outputSections) {
     if (sec == relocSec)
@@ -1211,10 +1239,10 @@ void Writer::assignAddresses() {
     sec->header.SizeOfRawData = rawSize;
     if (rawSize != 0)
       sec->header.PointerToRawData = fileSize;
-    rva += alignTo(virtualSize, pageSize);
+    rva += alignTo(virtualSize, config->align);
     fileSize += alignTo(rawSize, config->fileAlign);
   }
-  sizeOfImage = alignTo(rva, pageSize);
+  sizeOfImage = alignTo(rva, config->align);
 
   // Assign addresses to sections in MergeChunks.
   for (MergeChunk *mc : MergeChunk::instances)
@@ -1283,7 +1311,7 @@ template <typename PEHeaderTy> void Writer::writeHeader() {
   pe->MinorLinkerVersion = 0;
 
   pe->ImageBase = config->imageBase;
-  pe->SectionAlignment = pageSize;
+  pe->SectionAlignment = config->align;
   pe->FileAlignment = config->fileAlign;
   pe->MajorImageVersion = config->majorImageVersion;
   pe->MinorImageVersion = config->minorImageVersion;

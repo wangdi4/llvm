@@ -3024,6 +3024,24 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     WidenMap[VPInst->getUnderlyingValue()] = V;
     return;
   }
+  case Instruction::ZExt: {
+    assert(VPInst->getUnderlyingValue() &&
+           "Can't handle a newly generated zext VPInstruction.");
+
+    // Widen source operands.
+    Value *VecSrc = getVectorValue(VPInst->getOperand(0));
+
+    // Create wide instruction.
+    Value *WideZExt =
+        Builder.CreateZExt(VecSrc, VectorType::get(VPInst->getType(), VF));
+
+    VPWidenMap[VPInst] = WideZExt;
+    // Inserting into the WidenMap is dirty and illegal. This is a temporary
+    // hack and should be retired when we transition completely to VPValue-based
+    // CG approach.
+    WidenMap[VPInst->getUnderlyingValue()] = WideZExt;
+    return;
+  }
   default:
     llvm_unreachable("Unexpected VPInstruction");
   }
@@ -3244,10 +3262,10 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
     }
 
     StringRef CalledFunc = F->getName();
-    bool isMasked = (MaskValue != nullptr) ? true : false;
-    if (TLI->isFunctionVectorizable(CalledFunc, VF) ||
-        ((matchVectorVariant(Call, isMasked) ||
-          (!isMasked && matchVectorVariant(Call, true)))) ||
+    bool IsMasked = (MaskValue != nullptr) ? true : false;
+    if (TLI->isFunctionVectorizable(CalledFunc, VF, IsMasked) ||
+        ((matchVectorVariant(Call, IsMasked) ||
+          (!IsMasked && matchVectorVariant(Call, true)))) ||
         (isOpenCLReadChannel(CalledFunc) || isOpenCLWriteChannel(CalledFunc))) {
       vectorizeCallInstruction(Call);
     } else {

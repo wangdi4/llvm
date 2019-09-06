@@ -73,6 +73,17 @@
 ; CHECK-VF8: [[REM64:%.*]] = srem <8 x i64> [[OP1:%.*]], [[OP2:%.*]]
 ; CHECK-VF8-NEXT: [[SUREM64:%.*]] = sitofp <8 x i64> [[REM64]] to <8 x float>
 
+; RUN: opt %s -S -disable-mf-replacement -replace-with-math-library-functions \
+; RUN: | FileCheck %s --check-prefix=CHECK-NO-REPLACEMENT
+
+; Check that we do not do any instruction replacement.
+; CHECK-NO-REPLACEMENT: {{.*}} = udiv i32 {{.*}}, {{.*}}
+; CHECK-NO-REPLACEMENT: {{.*}} = urem i32 {{.*}}, {{.*}}
+; CHECK-NO-REPLACEMENT: {{.*}} = sdiv i32 {{.*}}, {{.*}}
+; CHECK-NO-REPLACEMENT: {{.*}} = srem i32 {{.*}}, {{.*}}
+; CHECK-NO-REPLACEMENT: {{.*}} = sdiv i32 {{.*}}, {{.*}}
+; CHECK-NO-REPLACEMENT: {{.*}} = sdiv i64 {{.*}}, {{.*}}
+; CHECK-NO-REPLACEMENT: {{.*}} = srem i64 {{.*}}, {{.*}}
 
 ; ModuleID = 'main'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

@@ -116,7 +116,7 @@ static bool isVirtualOrNoReg(const MachineOperand *MO) {
   if (MO->getReg() == X86::NoRegister)
     return true;
 
-  if (TargetRegisterInfo::isVirtualRegister(MO->getReg()))
+  if (Register::isVirtualRegister(MO->getReg()))
     return true;
 
   return false;

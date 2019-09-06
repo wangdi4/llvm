@@ -1135,7 +1135,7 @@ void CodeViewDebug::emitDebugInfoForFunction(const Function *GV,
       if (!BeginLabel->isDefined() || !EndLabel->isDefined())
         continue;
 
-      DIType *DITy = std::get<2>(HeapAllocSite);
+      const DIType *DITy = std::get<2>(HeapAllocSite);
       MCSymbol *HeapAllocEnd = beginSymbolRecord(SymbolKind::S_HEAPALLOCSITE);
       OS.AddComment("Call site offset");
       OS.EmitCOFFSecRel32(BeginLabel, /*Offset=*/0);
@@ -2633,17 +2633,6 @@ void CodeViewDebug::emitLocalVariableList(const FunctionInfo &FI,
       emitLocalVariable(FI, L);
 }
 
-/// Only call this on endian-specific types like ulittle16_t and little32_t, or
-/// structs composed of them.
-template <typename T>
-static void copyBytesForDefRange(SmallString<20> &BytePrefix,
-                                 SymbolKind SymKind, const T &DefRangeHeader) {
-  BytePrefix.resize(2 + sizeof(T));
-  ulittle16_t SymKindLE = ulittle16_t(SymKind);
-  memcpy(&BytePrefix[0], &SymKindLE, 2);
-  memcpy(&BytePrefix[2], &DefRangeHeader, sizeof(T));
-}
-
 void CodeViewDebug::emitLocalVariable(const FunctionInfo &FI,
                                       const LocalVariable &Var) {
   // LocalSym record, see SymbolRecord.h for more info.
@@ -2692,8 +2681,14 @@ void CodeViewDebug::emitLocalVariable(const FunctionInfo &FI,
           (bool(Flags & LocalSymFlags::IsParameter)
                ? (EncFP == FI.EncodedParamFramePtrReg)
                : (EncFP == FI.EncodedLocalFramePtrReg))) {
-        little32_t FPOffset = little32_t(Offset);
-        copyBytesForDefRange(BytePrefix, S_DEFRANGE_FRAMEPOINTER_REL, FPOffset);
+        DefRangeFramePointerRelSym::Header DRHdr;
+        DRHdr.Offset = Offset;
+#if INTEL_CUSTOMIZATION
+        OS.EmitCVDefRangeDirectiveFramePointerRelSym(DefRange.Ranges,
+                                                     DRHdr.Offset);
+#else // INTEL_CUSTOMIZATION
+        OS.EmitCVDefRangeDirective(DefRange.Ranges, DRHdr);
+#endif // INTEL_CUSTOMIZATION
       } else {
         uint16_t RegRelFlags = 0;
         if (DefRange.IsSubfield) {
@@ -2705,7 +2700,13 @@ void CodeViewDebug::emitLocalVariable(const FunctionInfo &FI,
         DRHdr.Register = Reg;
         DRHdr.Flags = RegRelFlags;
         DRHdr.BasePointerOffset = Offset;
-        copyBytesForDefRange(BytePrefix, S_DEFRANGE_REGISTER_REL, DRHdr);
+#if INTEL_CUSTOMIZATION
+        OS.EmitCVDefRangeDirectiveRegisterRelSym(
+          DefRange.Ranges, DRHdr.Register, DRHdr.Flags,
+          DRHdr.BasePointerOffset);
+#else // INTEL_CUSTOMIZATION
+        OS.EmitCVDefRangeDirective(DefRange.Ranges, DRHdr);
+#endif // INTEL_CUSTOMIZATION
       }
     } else {
       assert(DefRange.DataOffset == 0 && "unexpected offset into register");
@@ -2714,15 +2715,25 @@ void CodeViewDebug::emitLocalVariable(const FunctionInfo &FI,
         DRHdr.Register = DefRange.CVRegister;
         DRHdr.MayHaveNoName = 0;
         DRHdr.OffsetInParent = DefRange.StructOffset;
-        copyBytesForDefRange(BytePrefix, S_DEFRANGE_SUBFIELD_REGISTER, DRHdr);
+#if INTEL_CUSTOMIZATION
+        OS.EmitCVDefRangeDirectiveSubfieldRegisterSym(
+          DefRange.Ranges, DRHdr.Register, DRHdr.MayHaveNoName,
+          DRHdr.OffsetInParent);
+#else // INTEL_CUSTOMIZATION
+        OS.EmitCVDefRangeDirective(DefRange.Ranges, DRHdr);
+#endif // INTEL_CUSTOMIZATION
       } else {
         DefRangeRegisterSym::Header DRHdr;
         DRHdr.Register = DefRange.CVRegister;
         DRHdr.MayHaveNoName = 0;
-        copyBytesForDefRange(BytePrefix, S_DEFRANGE_REGISTER, DRHdr);
+#if INTEL_CUSTOMIZATION
+        OS.EmitCVDefRangeDirectiveRegisterSym(
+          DefRange.Ranges, DRHdr.Register, DRHdr.MayHaveNoName);
+#else // INTEL_CUSTOMIZATION
+        OS.EmitCVDefRangeDirective(DefRange.Ranges, DRHdr);
+#endif // INTEL_CUSTOMIZATION
       }
     }
-    OS.EmitCVDefRangeDirective(DefRange.Ranges, BytePrefix);
   }
 }
 

@@ -444,15 +444,11 @@ void Value::replaceUsesOutsideBlock(Value *New, BasicBlock *BB) {
          "replaceUses of value with new value of different type!");
   assert(BB && "Basic block that may contain a use of 'New' must be defined\n");
 
-  use_iterator UI = use_begin(), E = use_end();
-  for (; UI != E;) {
-    Use &U = *UI;
-    ++UI;
-    auto *Usr = dyn_cast<Instruction>(U.getUser());
-    if (Usr && Usr->getParent() == BB)
-      continue;
-    U.set(New);
-  }
+  replaceUsesWithIf(New, [BB](Use &U) {
+    auto *I = dyn_cast<Instruction>(U.getUser());
+    // Don't replace if it's an instruction in the BB basic block.
+    return !I || I->getParent() != BB;
+  });
 }
 
 namespace {
@@ -674,6 +670,19 @@ uint64_t Value::getPointerDereferenceableBytes(const DataLayout &DL,
       }
       CanBeNull = true;
     }
+  } else if (auto *IP = dyn_cast<IntToPtrInst>(this)) {
+    if (MDNode *MD = IP->getMetadata(LLVMContext::MD_dereferenceable)) {
+      ConstantInt *CI = mdconst::extract<ConstantInt>(MD->getOperand(0));
+      DerefBytes = CI->getLimitedValue();
+    }
+    if (DerefBytes == 0) {
+      if (MDNode *MD =
+              IP->getMetadata(LLVMContext::MD_dereferenceable_or_null)) {
+        ConstantInt *CI = mdconst::extract<ConstantInt>(MD->getOperand(0));
+        DerefBytes = CI->getLimitedValue();
+      }
+      CanBeNull = true;
+    }
   } else if (auto *AI = dyn_cast<AllocaInst>(this)) {
     if (!AI->isArrayAllocation()) {
       DerefBytes = DL.getTypeStoreSize(AI->getAllocatedType());
@@ -696,11 +705,13 @@ unsigned Value::getPointerAlignment(const DataLayout &DL) const {
   unsigned Align = 0;
   if (auto *GO = dyn_cast<GlobalObject>(this)) {
     if (isa<Function>(GO)) {
+      MaybeAlign FunctionPtrAlign = DL.getFunctionPtrAlign();
+      unsigned Align = FunctionPtrAlign ? FunctionPtrAlign->value() : 0;
       switch (DL.getFunctionPtrAlignType()) {
       case DataLayout::FunctionPtrAlignType::Independent:
-        return DL.getFunctionPtrAlign();
+        return Align;
       case DataLayout::FunctionPtrAlignType::MultipleOfFunctionAlign:
-        return std::max(DL.getFunctionPtrAlign(), GO->getAlignment());
+        return std::max(Align, GO->getAlignment());
       }
     }
     Align = GO->getAlignment();
@@ -734,9 +745,11 @@ unsigned Value::getPointerAlignment(const DataLayout &DL) const {
       if (AllocatedType->isSized())
         Align = DL.getPrefTypeAlignment(AllocatedType);
     }
-  } else if (const auto *Call = dyn_cast<CallBase>(this))
-    Align = Call->getAttributes().getRetAlignment();
-  else if (const LoadInst *LI = dyn_cast<LoadInst>(this))
+  } else if (const auto *Call = dyn_cast<CallBase>(this)) {
+    Align = Call->getRetAlignment();
+    if (Align == 0 && Call->getCalledFunction())
+      Align = Call->getCalledFunction()->getAttributes().getRetAlignment();
+  } else if (const LoadInst *LI = dyn_cast<LoadInst>(this))
     if (MDNode *MD = LI->getMetadata(LLVMContext::MD_align)) {
       ConstantInt *CI = mdconst::extract<ConstantInt>(MD->getOperand(0));
       Align = CI->getLimitedValue();

@@ -24,7 +24,7 @@ void *operator new(
     __SIZE_TYPE__ _Sz,
     std::align_val_t _A) throw() {
 #ifdef ERROR
-// expected-error@-2 {{no type named 'align_val_t' in namespace 'std'}}
+// expected-error@-2 {{use of undeclared identifier 'std'}}
 #endif
   return 0;
 }

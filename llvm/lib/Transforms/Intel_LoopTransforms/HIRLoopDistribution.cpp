@@ -112,6 +112,7 @@ bool HIRLoopDistribution::run() {
 
     unsigned TotalMemOps = 0;
     bool ForceCycleForLoopIndepDep = true;
+    bool CreateControlNodes = false;
 
     if (DistCostModel == DistHeuristics::BreakMemRec) {
       TotalMemOps = HLR.getSelfLoopResource(Lp).getNumIntMemOps() +
@@ -125,14 +126,16 @@ bool HIRLoopDistribution::run() {
                         << " memory operations which makes it "
                         << (ForceCycleForLoopIndepDep ? "non-" : "")
                         << "profitable for scalar expansion\n");
+
+      CreateControlNodes = true;
     }
 
     // Sparse array reduction info is needed to create the DistPPGraph
     // and in findDistPoints while breaking the PiBlock Recurrences.
     SARA.computeSparseArrayReductionChains(Lp);
 
-    std::unique_ptr<PiGraph> PG(
-        new PiGraph(Lp, DDA, SARA, ForceCycleForLoopIndepDep));
+    std::unique_ptr<PiGraph> PG(new PiGraph(
+        Lp, DDA, SARA, ForceCycleForLoopIndepDep, CreateControlNodes));
 
     if (!PG->isGraphValid()) {
       LLVM_DEBUG(
@@ -571,8 +574,9 @@ bool HIRLoopDistribution::distributeLoop(
   if (arrayTempExceeded(LastLoopNum, NumArrayTemps, Refs)) {
     return false;
   }
-  bool NotRequired = true;
-  if (NumArrayTemps && !Loop->canStripmine(StripmineSize, NotRequired)) {
+  bool StripmineRequired = Loop->isStripmineRequired(StripmineSize);
+  if (NumArrayTemps && StripmineRequired &&
+      !Loop->canStripmine(StripmineSize)) {
     return false;
   }
 
@@ -635,8 +639,7 @@ bool HIRLoopDistribution::distributeLoop(
     replaceWithArrayTemp(Refs);
 
     // For constant trip count <= StripmineSize, no stripmine is done
-    if (!NotRequired) {
-
+    if (StripmineRequired) {
       HIRTransformUtils::stripmine(NewLoops[0], NewLoops[LastLoopNum - 1],
                                    StripmineSize);
       // Fix TempArray index if stripmine is peformed: 64 * i1 + i2 => i2
@@ -647,8 +650,14 @@ bool HIRLoopDistribution::distributeLoop(
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion<HIRLoopStatistics>(
       Loop);
   HIRInvalidationUtils::invalidateBody(Loop);
-  RegionNode->setGenCode();
   HLNodeUtils::remove(Loop);
+
+  // Distribution for perfect loopnest is not profitable by itself, it is only
+  // used for enabling other transformations so we should not mark region as
+  // modified.
+  if (DistCostModel != DistHeuristics::NestFormation) {
+    RegionNode->setGenCode();
+  }
 
   return true;
 }
@@ -979,8 +988,7 @@ unsigned HIRLoopDistribution::distributeLoopForDirective(HLLoop *Lp) {
     return NotProcessed;
   }
 
-  bool NotRequired = true;
-  if (!Lp->canStripmine(StripmineSize, NotRequired)) {
+  if (!Lp->canStripmine(StripmineSize)) {
     return TooComplex;
   }
 

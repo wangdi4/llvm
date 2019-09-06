@@ -556,31 +556,6 @@ def NumReadPorts : Attr {
   }];
 }
 
-def MaxReplicates : Attr {
-  let Spellings = [GNU<"max_replicates">];
-  let Args = [ExprArgument<"Value">];
-  let Subjects = SubjectList<[HLSConstVar, HLSLocalStaticSlaveMemVar,
-                              Field], ErrorDiag>;
-  let LangOpts = [OpenCL, HLS];
-  let Documentation = [Undocumented];
-  let AdditionalMembers = [{
-    static unsigned getMinValue() {
-      return 1;
-    }
-    static unsigned getMaxValue() {
-      return 1024*1024;
-    }
-  }];
-}
-
-def SimpleDualPort : Attr {
-  let Spellings = [GNU<"simple_dual_port">];
-  let Subjects = SubjectList<[HLSConstVar, HLSLocalStaticSlaveMemVar,
-                              Field], ErrorDiag>;
-  let LangOpts = [OpenCL, HLS];
-  let Documentation = [Undocumented];
-}
-
 def NumWritePorts : Attr {
   let Spellings = [GNU<"numwriteports">];
   let Args = [ExprArgument<"Value">];
@@ -614,16 +589,6 @@ def NumPortsReadOnlyWriteOnly : Attr {
       return 1024*1024;
     }
   }];
-}
-
-// Two string arguments.
-def Merge : Attr {
-  let Spellings = [GNU<"merge">];
-  let Args = [StringArgument<"Name">, StringArgument<"Direction">];
-  let Subjects = SubjectList<[HLSConstVar, HLSLocalOrStaticVar,
-                              Field], ErrorDiag>;
-  let LangOpts = [OpenCL, HLS];
-  let Documentation = [Undocumented];
 }
 
 // Variadic integral arguments.

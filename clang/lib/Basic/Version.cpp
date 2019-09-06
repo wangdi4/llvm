@@ -131,6 +131,10 @@ std::string getICXVersionString() {
   return XMAIN_VERSION_STRING;
 }
 
+std::string getICXVersionNumber() {
+  return XMAIN_VERSION_NUMBER;
+}
+
 std::string getXMainFullCPPVersion() {
   // The version string we report in __VERSION__ is just a compacted version of
   // the one we report on the command line.

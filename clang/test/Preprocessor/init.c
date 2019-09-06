@@ -9599,6 +9599,7 @@
 // X86-64-DECLSPEC: #define __declspec{{.*}}
 //
 // RUN: %clang_cc1 -E -dM -ffreestanding -triple=sparc64-none-none < /dev/null | FileCheck -match-full-lines -check-prefix SPARCV9 %s
+// SPARCV9:#define __BIGGEST_ALIGNMENT__ 16
 // SPARCV9:#define __INT64_TYPE__ long int
 // SPARCV9:#define __INTMAX_C_SUFFIX__ L
 // SPARCV9:#define __INTMAX_TYPE__ long int
@@ -9820,6 +9821,10 @@
 // WEBASSEMBLY-NEXT:#define __INT8_FMTi__ "hhi"
 // WEBASSEMBLY-NEXT:#define __INT8_MAX__ 127
 // WEBASSEMBLY-NEXT:#define __INT8_TYPE__ signed char
+// INTEL_CUSTOMIZATION
+// WEBASSEMBLY-NEXT:#define __INTEL_CLANG_COMPILER {{.*}}
+// WEBASSEMBLY-NEXT:#define __INTEL_LLVM_COMPILER {{.*}}
+// INTEL_CUSTOMIZATION 
 // WEBASSEMBLY-NEXT:#define __INTMAX_C_SUFFIX__ LL
 // WEBASSEMBLY-NEXT:#define __INTMAX_FMTd__ "lld"
 // WEBASSEMBLY-NEXT:#define __INTMAX_FMTi__ "lli"

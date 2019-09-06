@@ -187,7 +187,7 @@ int PPCInstrInfo::getOperandLatency(const InstrItineraryData *ItinData,
   unsigned Reg = DefMO.getReg();
 
   bool IsRegCR;
-  if (TargetRegisterInfo::isVirtualRegister(Reg)) {
+  if (Register::isVirtualRegister(Reg)) {
     const MachineRegisterInfo *MRI =
         &DefMI.getParent()->getParent()->getRegInfo();
     IsRegCR = MRI->getRegClass(Reg)->hasSuperClassEq(&PPC::CRRCRegClass) ||
@@ -329,7 +329,7 @@ bool PPCInstrInfo::isReallyTriviallyReMaterializable(const MachineInstr &MI,
   case PPC::LIS:
   case PPC::LIS8:
   case PPC::QVGPCI:
-  case PPC::ADDIStocHA:
+  case PPC::ADDIStocHA8:
   case PPC::ADDItocL:
   case PPC::LOAD_STACK_GUARD:
   case PPC::XXLXORz:
@@ -1671,7 +1671,7 @@ bool PPCInstrInfo::optimizeCompareInstr(MachineInstr &CmpInstr, unsigned SrcReg,
 
   // Look through copies unless that gets us to a physical register.
   unsigned ActualSrc = TRI->lookThruCopyLike(SrcReg, MRI);
-  if (TargetRegisterInfo::isVirtualRegister(ActualSrc))
+  if (Register::isVirtualRegister(ActualSrc))
     SrcReg = ActualSrc;
 
   // Get the unique definition of SrcReg.
@@ -2328,6 +2328,23 @@ void PPCInstrInfo::replaceInstrWithLI(MachineInstr &MI,
       .addImm(LII.Imm);
 }
 
+MachineInstr *PPCInstrInfo::getDefMIPostRA(unsigned Reg, MachineInstr &MI,
+                                           bool &SeenIntermediateUse) const {
+  assert(!MI.getParent()->getParent()->getRegInfo().isSSA() &&
+         "Should be called after register allocation.");
+  const TargetRegisterInfo *TRI = &getRegisterInfo();
+  MachineBasicBlock::reverse_iterator E = MI.getParent()->rend(), It = MI;
+  It++;
+  SeenIntermediateUse = false;
+  for (; It != E; ++It) {
+    if (It->modifiesRegister(Reg, TRI))
+      return &*It;
+    if (It->readsRegister(Reg, TRI))
+      SeenIntermediateUse = true;
+  }
+  return nullptr;
+}
+
 MachineInstr *PPCInstrInfo::getForwardingDefMI(
   MachineInstr &MI,
   unsigned &OpNoForForwarding,
@@ -2343,10 +2360,10 @@ MachineInstr *PPCInstrInfo::getForwardingDefMI(
       if (!MI.getOperand(i).isReg())
         continue;
       unsigned Reg = MI.getOperand(i).getReg();
-      if (!TargetRegisterInfo::isVirtualRegister(Reg))
+      if (!Register::isVirtualRegister(Reg))
         continue;
       unsigned TrueReg = TRI->lookThruCopyLike(Reg, MRI);
-      if (TargetRegisterInfo::isVirtualRegister(TrueReg)) {
+      if (Register::isVirtualRegister(TrueReg)) {
         DefMI = MRI->getVRegDef(TrueReg);
         if (DefMI->getOpcode() == PPC::LI || DefMI->getOpcode() == PPC::LI8) {
           OpNoForForwarding = i;
@@ -2370,7 +2387,10 @@ MachineInstr *PPCInstrInfo::getForwardingDefMI(
       Opc == PPC::RLDICL_32 || Opc == PPC::RLDICL_32_64 ||
       Opc == PPC::RLWINM || Opc == PPC::RLWINMo ||
       Opc == PPC::RLWINM8 || Opc == PPC::RLWINM8o;
-    if (!instrHasImmForm(MI, III, true) && !ConvertibleImmForm)
+    bool IsVFReg = (MI.getNumOperands() && MI.getOperand(0).isReg())
+                       ? isVFRegister(MI.getOperand(0).getReg())
+                       : false;
+    if (!ConvertibleImmForm && !instrHasImmForm(Opc, IsVFReg, III, true))
       return nullptr;
 
     // Don't convert or %X, %Y, %Y since that's just a register move.
@@ -2381,29 +2401,24 @@ MachineInstr *PPCInstrInfo::getForwardingDefMI(
       MachineOperand &MO = MI.getOperand(i);
       SeenIntermediateUse = false;
       if (MO.isReg() && MO.isUse() && !MO.isImplicit()) {
-        MachineBasicBlock::reverse_iterator E = MI.getParent()->rend(), It = MI;
-        It++;
         unsigned Reg = MI.getOperand(i).getReg();
-
-        // Is this register defined by some form of add-immediate (including
-        // load-immediate) within this basic block?
-        for ( ; It != E; ++It) {
-          if (It->modifiesRegister(Reg, &getRegisterInfo())) {
-            switch (It->getOpcode()) {
-            default: break;
-            case PPC::LI:
-            case PPC::LI8:
-            case PPC::ADDItocL:
-            case PPC::ADDI:
-            case PPC::ADDI8:
-              OpNoForForwarding = i;
-              return &*It;
-            }
+        // If we see another use of this reg between the def and the MI,
+        // we want to flat it so the def isn't deleted.
+        MachineInstr *DefMI = getDefMIPostRA(Reg, MI, SeenIntermediateUse);
+        if (DefMI) {
+          // Is this register defined by some form of add-immediate (including
+          // load-immediate) within this basic block?
+          switch (DefMI->getOpcode()) {
+          default:
             break;
-          } else if (It->readsRegister(Reg, &getRegisterInfo()))
-            // If we see another use of this reg between the def and the MI,
-            // we want to flat it so the def isn't deleted.
-            SeenIntermediateUse = true;
+          case PPC::LI:
+          case PPC::LI8:
+          case PPC::ADDItocL:
+          case PPC::ADDI:
+          case PPC::ADDI8:
+            OpNoForForwarding = i;
+            return DefMI;
+          }
         }
       }
     }
@@ -2543,7 +2558,10 @@ bool PPCInstrInfo::convertToImmediateForm(MachineInstr &MI,
     *KilledDef = DefMI;
 
   ImmInstrInfo III;
-  bool HasImmForm = instrHasImmForm(MI, III, PostRA);
+  bool IsVFReg = MI.getOperand(0).isReg()
+                     ? isVFRegister(MI.getOperand(0).getReg())
+                     : false;
+  bool HasImmForm = instrHasImmForm(MI.getOpcode(), IsVFReg, III, PostRA);
   // If this is a reg+reg instruction that has a reg+imm form,
   // and one of the operands is produced by an add-immediate,
   // try to convert it.
@@ -2777,9 +2795,8 @@ bool PPCInstrInfo::convertToImmediateForm(MachineInstr &MI,
   return false;
 }
 
-bool PPCInstrInfo::instrHasImmForm(const MachineInstr &MI,
+bool PPCInstrInfo::instrHasImmForm(unsigned Opc, bool IsVFReg,
                                    ImmInstrInfo &III, bool PostRA) const {
-  unsigned Opc = MI.getOpcode();
   // The vast majority of the instructions would need their operand 2 replaced
   // with an immediate when switching to the reg+imm form. A marked exception
   // are the update form loads/stores for which a constant operand 2 would need
@@ -3111,7 +3128,7 @@ bool PPCInstrInfo::instrHasImmForm(const MachineInstr &MI,
       break;
     case PPC::LXSSPX:
       if (PostRA) {
-        if (isVFRegister(MI.getOperand(0).getReg()))
+        if (IsVFReg)
           III.ImmOpcode = PPC::LXSSP;
         else {
           III.ImmOpcode = PPC::LFS;
@@ -3125,7 +3142,7 @@ bool PPCInstrInfo::instrHasImmForm(const MachineInstr &MI,
       break;
     case PPC::LXSDX:
       if (PostRA) {
-        if (isVFRegister(MI.getOperand(0).getReg()))
+        if (IsVFReg)
           III.ImmOpcode = PPC::LXSD;
         else {
           III.ImmOpcode = PPC::LFD;
@@ -3143,7 +3160,7 @@ bool PPCInstrInfo::instrHasImmForm(const MachineInstr &MI,
       break;
     case PPC::STXSSPX:
       if (PostRA) {
-        if (isVFRegister(MI.getOperand(0).getReg()))
+        if (IsVFReg)
           III.ImmOpcode = PPC::STXSSP;
         else {
           III.ImmOpcode = PPC::STFS;
@@ -3157,7 +3174,7 @@ bool PPCInstrInfo::instrHasImmForm(const MachineInstr &MI,
       break;
     case PPC::STXSDX:
       if (PostRA) {
-        if (isVFRegister(MI.getOperand(0).getReg()))
+        if (IsVFReg)
           III.ImmOpcode = PPC::STXSD;
         else {
           III.ImmOpcode = PPC::STFD;
@@ -3602,7 +3619,7 @@ bool PPCInstrInfo::transformToImmFormFedByLI(MachineInstr &MI,
       // If operand at III.ZeroIsSpecialNew is physical reg(eg: ZERO/ZERO8), no
       // need to fix up register class.
       unsigned RegToModify = MI.getOperand(III.ZeroIsSpecialNew).getReg();
-      if (TargetRegisterInfo::isVirtualRegister(RegToModify)) {
+      if (Register::isVirtualRegister(RegToModify)) {
         const TargetRegisterClass *NewRC =
           MRI.getRegClass(RegToModify)->hasSuperClassEq(&PPC::GPRCRegClass) ?
           &PPC::GPRC_and_GPRC_NOR0RegClass : &PPC::G8RC_and_G8RC_NOX0RegClass;
@@ -3818,7 +3835,7 @@ PPCInstrInfo::isSignOrZeroExtended(const MachineInstr &MI, bool SignExt,
     }
 
     // If this is a copy from another register, we recursively check source.
-    if (!TargetRegisterInfo::isVirtualRegister(SrcReg))
+    if (!Register::isVirtualRegister(SrcReg))
       return false;
     const MachineInstr *SrcMI = MRI->getVRegDef(SrcReg);
     if (SrcMI != NULL)
@@ -3842,7 +3859,7 @@ PPCInstrInfo::isSignOrZeroExtended(const MachineInstr &MI, bool SignExt,
     // logical operation with 16-bit immediate does not change the upper bits.
     // So, we track the operand register as we do for register copy.
     unsigned SrcReg = MI.getOperand(1).getReg();
-    if (!TargetRegisterInfo::isVirtualRegister(SrcReg))
+    if (!Register::isVirtualRegister(SrcReg))
       return false;
     const MachineInstr *SrcMI = MRI->getVRegDef(SrcReg);
     if (SrcMI != NULL)
@@ -3871,7 +3888,7 @@ PPCInstrInfo::isSignOrZeroExtended(const MachineInstr &MI, bool SignExt,
     for (unsigned I = 1; I != E; I += D) {
       if (MI.getOperand(I).isReg()) {
         unsigned SrcReg = MI.getOperand(I).getReg();
-        if (!TargetRegisterInfo::isVirtualRegister(SrcReg))
+        if (!Register::isVirtualRegister(SrcReg))
           return false;
         const MachineInstr *SrcMI = MRI->getVRegDef(SrcReg);
         if (SrcMI == NULL || !isSignOrZeroExtended(*SrcMI, SignExt, Depth+1))
@@ -3896,9 +3913,9 @@ PPCInstrInfo::isSignOrZeroExtended(const MachineInstr &MI, bool SignExt,
     unsigned SrcReg1 = MI.getOperand(1).getReg();
     unsigned SrcReg2 = MI.getOperand(2).getReg();
 
-    if (!TargetRegisterInfo::isVirtualRegister(SrcReg1) ||
-        !TargetRegisterInfo::isVirtualRegister(SrcReg2))
-       return false;
+    if (!Register::isVirtualRegister(SrcReg1) ||
+        !Register::isVirtualRegister(SrcReg2))
+      return false;
 
     const MachineInstr *MISrc1 = MRI->getVRegDef(SrcReg1);
     const MachineInstr *MISrc2 = MRI->getVRegDef(SrcReg2);

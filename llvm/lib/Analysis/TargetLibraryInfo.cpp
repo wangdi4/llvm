@@ -62,7 +62,7 @@ static bool hasBcmp(const Triple &TT) {
     return TT.isGNUEnvironment() || TT.isMusl();
   // Both NetBSD and OpenBSD are planning to remove the function. Windows does
   // not have it.
-  return TT.isOSFreeBSD() || TT.isOSSolaris() || TT.isOSDarwin();
+  return TT.isOSFreeBSD() || TT.isOSSolaris();
 }
 
 /// Initialize the set of available library functions based on the specified
@@ -118,9 +118,10 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_log10);
     TLI.setUnavailable(LibFunc_log10f);
     TLI.setUnavailable(LibFunc_log10l);
+    TLI.setUnavailable(LibFunc_printf);
   }
 
-  // There are no library implementations of mempcy and memset for AMD gpus and
+  // There are no library implementations of memcpy and memset for AMD gpus and
   // these can be difficult to lower in the backend.
   if (T.getArch() == Triple::r600 ||
       T.getArch() == Triple::amdgcn) {
@@ -3610,21 +3611,24 @@ void TargetLibraryInfoImpl::addVectorizableFunctionsFromVecLib(
   }
 }
 
-bool TargetLibraryInfoImpl::isFunctionVectorizable(StringRef funcName) const {
+bool TargetLibraryInfoImpl::isFunctionVectorizable(StringRef funcName,
+                                                   bool IsMasked) const {
   funcName = sanitizeFunctionName(funcName);
   if (funcName.empty())
     return false;
 
-#if INTEL_CUSTOMIZATION
-  // TODO: We must be able to distinguish between masked/non-masked entries,
-  // so this function will need to move away from using lower_bound, as this
-  // could be an entry for either the masked or non-masked version. For now,
-  // assume that both the masked and non-masked variants are vectorizable as
-  // long as lower_bound says so.
-#endif
   std::vector<VecDesc>::const_iterator I =
       llvm::lower_bound(VectorDescs, funcName, compareWithScalarFnName);
-  return I != VectorDescs.end() && StringRef(I->ScalarFnName) == funcName;
+#if INTEL_CUSTOMIZATION
+  // A masked version of a function can be used in unmasked calling context.
+  // Hence we return 'true' in this case.
+  while (I != VectorDescs.end() && StringRef(I->ScalarFnName) == funcName) {
+    if (I->Masked || !IsMasked)
+      return true;
+    ++I;
+  }
+  return false;
+#endif
 }
 
 StringRef TargetLibraryInfoImpl::getVectorizedFunction(StringRef F,

@@ -51,6 +51,11 @@ X86RegisterInfo::X86RegisterInfo(const Triple &TT)
   // Cache some information.
   Is64Bit = TT.isArch64Bit();
   IsWin64 = Is64Bit && TT.isOSWindows();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  IsIceCode = TT.getArch() == Triple::x86_icecode;
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 
   // Use a callee-saved register as the base pointer.  These registers must
   // not conflict with any ABI requirements.  For example, in 32-bit mode PIC
@@ -611,6 +616,17 @@ BitVector X86RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
         Reserved.set(*AI);
     }
   }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  // Reserve the registers ZMM0~15 in IceCode mode.
+  if (IsIceCode)
+    for (unsigned n = 0; n != 16; ++n)
+      // ZMM0, ZMM1, ...
+      for (MCRegAliasIterator AI(X86::ZMM0 + n, this, true); AI.isValid(); ++AI)
+        Reserved.set(*AI);
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 
   assert(checkAllSuperRegsMarked(Reserved,
                                  {X86::SIL, X86::DIL, X86::BPL, X86::SPL,

@@ -1623,20 +1623,21 @@ def IntelFPGAMaxPrivateCopies : InheritableAttr {
 
 // Two string arguments.
 def IntelFPGAMerge : Attr {
-  let Spellings = [CXX11<"intelfpga","merge">];
+  let Spellings = [CXX11<"intelfpga","merge">, GNU<"merge">]; // INTEL
   let Args = [StringArgument<"Name">, StringArgument<"Direction">];
   let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalOrStaticVar,
                               Field], ErrorDiag>;
-  let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL, HLS];      // INTEL
   let Documentation = [IntelFPGAMergeAttrDocs];
 }
 
 def IntelFPGAMaxReplicates : Attr {
-  let Spellings = [CXX11<"intelfpga","max_replicates">];
+  let Spellings = [CXX11<"intelfpga","max_replicates">, // INTEL
+                   GNU<"max_replicates">];              // INTEL
   let Args = [ExprArgument<"Value">];
   let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticSlaveMemVar,
                               Field], ErrorDiag>;
-  let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL, HLS]; // INTEL
   let Documentation = [IntelFPGAMaxReplicatesAttrDocs];
   let AdditionalMembers = [{
     static unsigned getMinValue() {
@@ -1649,10 +1650,11 @@ def IntelFPGAMaxReplicates : Attr {
 }
 
 def IntelFPGASimpleDualPort : Attr {
-  let Spellings = [CXX11<"intelfpga","simple_dual_port">];
+  let Spellings = [CXX11<"intelfpga","simple_dual_port">, // INTEL
+                   GNU<"simple_dual_port">];              // INTEL
   let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticSlaveMemVar,
                               Field], ErrorDiag>;
-  let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL, HLS]; // INTEL
   let Documentation = [IntelFPGASimpleDualPortAttrDocs];
 }
 
@@ -2591,11 +2593,19 @@ def WarnUnused : InheritableAttr {
 }
 
 def WarnUnusedResult : InheritableAttr {
-  let Spellings = [CXX11<"", "nodiscard", 201603>, C2x<"", "nodiscard">,
+  let Spellings = [CXX11<"", "nodiscard", 201907>, C2x<"", "nodiscard">,
                    CXX11<"clang", "warn_unused_result">,
                    GCC<"warn_unused_result">];
   let Subjects = SubjectList<[ObjCMethod, Enum, Record, FunctionLike]>;
+  let Args = [StringArgument<"Message", 1>];
   let Documentation = [WarnUnusedResultsDocs];
+  let AdditionalMembers = [{
+    // Check whether this the C++11 nodiscard version, even in non C++11
+    // spellings.
+    bool IsCXX11NoDiscard() const {
+      return this->getSemanticSpelling() == CXX11_nodiscard;
+    }
+  }];
 }
 
 def Weak : InheritableAttr {
@@ -2682,6 +2692,12 @@ def NoSanitizeSpecific : InheritableAttr {
   let Documentation = [NoSanitizeAddressDocs, NoSanitizeThreadDocs,
                        NoSanitizeMemoryDocs];
   let ASTNode = 0;
+}
+
+def CFICanonicalJumpTable : InheritableAttr {
+  let Spellings = [Clang<"cfi_canonical_jump_table">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [CFICanonicalJumpTableDocs];
 }
 
 // C/C++ Thread safety attributes (e.g. for deadlock, data race checking)
@@ -3044,6 +3060,20 @@ def TypeTagForDatatype : InheritableAttr {
   let Documentation = [TypeTagForDatatypeDocs];
 }
 
+def Owner : InheritableAttr {
+  let Spellings = [CXX11<"gsl", "Owner">];
+  let Subjects = SubjectList<[Struct]>;
+  let Args = [TypeArgument<"DerefType", /*opt=*/1>];
+  let Documentation = [LifetimeOwnerDocs];
+}
+
+def Pointer : InheritableAttr {
+  let Spellings = [CXX11<"gsl", "Pointer">];
+  let Subjects = SubjectList<[Struct]>;
+  let Args = [TypeArgument<"DerefType", /*opt=*/1>];
+  let Documentation = [LifetimePointerDocs];
+}
+
 // Microsoft-related attributes
 
 def MSNoVTable : InheritableAttr, TargetSpecificAttr<TargetMicrosoftCXXABI> {
@@ -3254,6 +3284,7 @@ def LoopHint : Attr {
   let Args = [EnumArgument<"Option", "OptionType",
                           ["vectorize", "vectorize_width", "interleave", "interleave_count",
                            "unroll", "unroll_count", "unroll_and_jam", "unroll_and_jam_count",
+                           "vectorize_predicate",
 // INTEL_CUSTOMIZATION
                            "pipeline", "pipeline_initiation_interval",
                            "distribute",
@@ -3269,6 +3300,7 @@ def LoopHint : Attr {
 // end INTEL_CUSTOMIZATION
                           ["Vectorize", "VectorizeWidth", "Interleave", "InterleaveCount",
                            "Unroll", "UnrollCount", "UnrollAndJam", "UnrollAndJamCount",
+                           "VectorizePredicate",
 // INTEL_CUSTOMIZATION
                            "PipelineDisabled", "PipelineInitiationInterval",
                            "Distribute",
@@ -3303,6 +3335,7 @@ def LoopHint : Attr {
     case PipelineDisabled: return "pipeline";
     case PipelineInitiationInterval: return "pipeline_initiation_interval";
     case Distribute: return "distribute";
+    case VectorizePredicate: return "vectorize_predicate";
 // INTEL_CUSTOMIZATION
     case VectorizeAlways: return "vectorize_always";
     case LoopCount: return "loop_count";

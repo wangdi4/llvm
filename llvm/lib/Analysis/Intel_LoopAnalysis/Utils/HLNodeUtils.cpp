@@ -1015,8 +1015,8 @@ HLInst *HLNodeUtils::createCall(Function *Func,
 HLInst *HLNodeUtils::createPrefetch(RegDDRef *AddressRef, RegDDRef *RW,
                                     RegDDRef *Locality, RegDDRef *CacheTy) {
 
-  Function *PrefetchFunc =
-      Intrinsic::getDeclaration(&getModule(), Intrinsic::prefetch);
+  Function *PrefetchFunc = Intrinsic::getDeclaration(
+      &getModule(), Intrinsic::prefetch, AddressRef->getDestType());
 
   SmallVector<RegDDRef *, 4> Ops = {AddressRef, RW, Locality, CacheTy};
 

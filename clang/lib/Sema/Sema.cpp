@@ -354,7 +354,13 @@ void Sema::Initialize() {
     addImplicitTypedef(#ExtType, Context.Id##Ty); \
     setOpenCLExtensionForType(Context.Id##Ty, #Ext);
 #include "clang/Basic/OpenCLExtensionTypes.def"
-    };
+  }
+
+  if (Context.getTargetInfo().hasAArch64SVETypes()) {
+#define SVE_TYPE(Name, Id, SingletonId) \
+    addImplicitTypedef(Name, Context.SingletonId);
+#include "clang/Basic/AArch64SVEACLETypes.def"
+  }
 
   if (Context.getTargetInfo().hasBuiltinMSVaList()) {
     DeclarationName MSVaList = &Context.Idents.get("__builtin_ms_va_list");
@@ -367,13 +373,11 @@ void Sema::Initialize() {
     PushOnScopeChains(Context.getBuiltinVaListDecl(), TUScope);
 
 #if INTEL_CUSTOMIZATION
-  bool PushedStdNamespace = false;
   if (PP.getLangOpts().CPlusPlus && PP.getLangOpts().AlignedAllocation &&
       PP.getLangOpts().isIntelCompat(LangOptions::PredeclareAlignValT)) {
     NamespaceDecl *StdNamespace = getOrCreateStdNamespace();
     if (StdNamespace->isImplicit()) {
       PushOnScopeChains(StdNamespace, TUScope);
-      PushedStdNamespace = true;
     }
 
     // In C++17 this should be picked up in <new> but the Intel compiler
@@ -389,27 +393,6 @@ void Sema::Initialize() {
       QualType BestType = Context.getSizeType();
       AlignValTTy->setIntegerType(BestType);
       StdNamespace->addDecl(AlignValTTy);
-    }
-  }
-
-  if (PP.getLangOpts().CPlusPlus &&
-      PP.getLangOpts().isIntelCompat(LangOptions::PredeclareTypeInfo)) {
-    NamespaceDecl *StdNamespace = getOrCreateStdNamespace();
-    if (!PushedStdNamespace && StdNamespace->isImplicit())
-      PushOnScopeChains(StdNamespace, TUScope);
-
-    // Fix for CQ#374800: For gcc compatibility sake, we should recognize
-    // "std::type_info" even without inclusion of <typeinfo> header. This should
-    // happen on Linux only, as in MS mode even open-source clang recognizes
-    // "type_info" (but not std::type_info!)
-    if (!PP.getLangOpts().MSVCCompat) {
-      IdentifierInfo *TypeInfo = &Context.Idents.get("type_info");
-      if (IdResolver.begin(TypeInfo) == IdResolver.end()) {
-        auto *TypeInfoTy =
-          CXXRecordDecl::Create(Context, TTK_Class, StdNamespace,
-                                SourceLocation(), SourceLocation(), TypeInfo);
-        StdNamespace->addDecl(TypeInfoTy);
-      }
     }
   }
 #endif // INTEL_CUSTOMIZATION
@@ -1035,6 +1018,7 @@ void Sema::ActOnEndOfTranslationUnit() {
 
   // All dllexport classes should have been processed already.
   assert(DelayedDllExportClasses.empty());
+  assert(DelayedDllExportMemberFunctions.empty());
 
   // Remove file scoped decls that turned out to be used.
   UnusedFileScopedDecls.erase(
@@ -1733,24 +1717,12 @@ static void markEscapingByrefs(const FunctionScopeInfo &FSI, Sema &S) {
   // Set the EscapingByref flag of __block variables captured by
   // escaping blocks.
   for (const BlockDecl *BD : FSI.Blocks) {
+    if (BD->doesNotEscape())
+      continue;
     for (const BlockDecl::Capture &BC : BD->captures()) {
       VarDecl *VD = BC.getVariable();
-      if (VD->hasAttr<BlocksAttr>()) {
-        // Nothing to do if this is a __block variable captured by a
-        // non-escaping block.
-        if (BD->doesNotEscape())
-          continue;
+      if (VD->hasAttr<BlocksAttr>())
         VD->setEscapingByref();
-      }
-      // Check whether the captured variable is or contains an object of
-      // non-trivial C union type.
-      QualType CapType = BC.getVariable()->getType();
-      if (CapType.hasNonTrivialToPrimitiveDestructCUnion() ||
-          CapType.hasNonTrivialToPrimitiveCopyCUnion())
-        S.checkNonTrivialCUnion(BC.getVariable()->getType(),
-                                BD->getCaretLocation(),
-                                Sema::NTCUC_BlockCapture,
-                                Sema::NTCUK_Destruct|Sema::NTCUK_Copy);
     }
   }
 

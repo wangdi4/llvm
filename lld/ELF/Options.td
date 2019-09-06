@@ -217,6 +217,14 @@ defm init: Eq<"init", "Specify an initializer function">,
 // INTEL_CUSTOMIZATION
 // Option for -plugin-opt=fintel-advanced-optim
 def plugin_opt_intel_advanced_optim: F<"plugin-opt=fintel-advanced-optim">;
+
+// Option for debugging the memory freeing process when
+// shutting down LLD
+def intel_debug_mem: F<"intel-debug=mem">;
+
+// Option for keeping the information related to LLVM in
+// case LLD is embedded in the compiler
+def intel_embedded_linker: F<"intel-embedded-linker">;
 // END INTEL_CUSTOMIZATION
 
 defm just_symbols: Eq<"just-symbols", "Just link symbols">;

@@ -83,7 +83,7 @@ bool elf::link(ArrayRef<const char *> args, bool canExitEarly,
       "-error-limit=0 to see all errors)";
   errorHandler().errorOS = &error;
   errorHandler().exitEarly = canExitEarly;
-  errorHandler().colorDiagnostics = error.has_colors();
+  enableColors(error.has_colors());
 
   inputSections.clear();
   outputSections.clear();
@@ -109,19 +109,15 @@ bool elf::link(ArrayRef<const char *> args, bool canExitEarly,
 
   driver->main(args);
 
-#if INTEL_CUSTOMIZATION
-  // The following code is commented out because is from the community and
-  // it will be replaced.
-
   // Exit immediately if we don't need to return to the caller.
   // This saves time because the overhead of calling destructors
   // for all globally-allocated objects is not negligible.
-  // if (canExitEarly)
-  //  exitLld(errorCount() ? 1 : 0);
+  if (canExitEarly)
+    exitLld(errorCount() ? 1 : 0);
 
-  // CMPLRLLVM-8800: We are going to replace exitLld with cleanIntelLld.
-  // This is because we want to prevent calling the early exit and use
-  // destructors.
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-10208: This part here is for destroying the global data
+  // if the user doesn't need it (e.g. testing system).
   cleanIntelLld();
 #endif // INTEL_CUSTOMIZATION
 
@@ -390,9 +386,10 @@ static bool isKnownZFlag(StringRef s) {
          s == "execstack" || s == "global" || s == "hazardplt" ||
          s == "ifunc-noplt" || s == "initfirst" || s == "interpose" ||
          s == "keep-text-section-prefix" || s == "lazy" || s == "muldefs" ||
-         s == "nocombreloc" || s == "nocopyreloc" || s == "nodefaultlib" ||
-         s == "nodelete" || s == "nodlopen" || s == "noexecstack" ||
-         s == "nokeep-text-section-prefix" || s == "norelro" || s == "notext" ||
+         s == "separate-code" || s == "nocombreloc" || s == "nocopyreloc" ||
+         s == "nodefaultlib" || s == "nodelete" || s == "nodlopen" ||
+         s == "noexecstack" || s == "nokeep-text-section-prefix" ||
+         s == "norelro" || s == "noseparate-code" || s == "notext" ||
          s == "now" || s == "origin" || s == "relro" || s == "retpolineplt" ||
          s == "rodynamic" || s == "text" || s == "wxneeded" ||
          s.startswith("common-page-size") || s.startswith("max-page-size=") ||
@@ -471,6 +468,14 @@ void LinkerDriver::main(ArrayRef<const char *> argsArr) {
   checkOptions();
   if (errorCount())
     return;
+
+#if INTEL_CUSTOMIZATION
+  if (args.hasArg(OPT_intel_debug_mem))
+    errorHandler().intelDebugMem = true;
+
+  if (args.hasArg(OPT_intel_embedded_linker))
+    errorHandler().intelEmbeddedLinker = true;
+#endif // INTEL_CUSTOMIZATION
 
   // The Target instance handles target-specific stuff, such as applying
   // relocations or writing a PLT section. It also contains target-dependent
@@ -801,7 +806,7 @@ static void readConfigs(opt::InputArgList &args) {
   errorHandler().vsDiagnostics =
       args.hasArg(OPT_visual_studio_diagnostics_format, false);
 #if INTEL_CUSTOMIZATION
-  // CMPLRLLVM-8800: Prevent running LLD in parallel during the testing
+  // CMPLRLLVM-10208: Prevent running LLD in parallel during the testing
   // process in Windows unless the user specifies it. This is to avoid
   // exhausting the memory and flaky failures.
 #if defined(_WIN32)
@@ -957,6 +962,7 @@ static void readConfigs(opt::InputArgList &args) {
   config->zRelro = getZFlag(args, "relro", "norelro", true);
   config->zRetpolineplt = hasZOption(args, "retpolineplt");
   config->zRodynamic = hasZOption(args, "rodynamic");
+  config->zSeparateCode = getZFlag(args, "separate-code", "noseparate-code", false);
   config->zStackSize = args::getZOptionValue(args, OPT_z, "stack-size", 0);
   config->zText = getZFlag(args, "text", "notext", true);
   config->zWxneeded = hasZOption(args, "wxneeded");
@@ -1037,14 +1043,20 @@ static void readConfigs(opt::InputArgList &args) {
     }
   }
 
+  assert(config->versionDefinitions.empty());
+  config->versionDefinitions.push_back({"local", (uint16_t)VER_NDX_LOCAL, {}});
+  config->versionDefinitions.push_back(
+      {"global", (uint16_t)VER_NDX_GLOBAL, {}});
+
   // If --retain-symbol-file is used, we'll keep only the symbols listed in
   // the file and discard all others.
   if (auto *arg = args.getLastArg(OPT_retain_symbols_file)) {
-    config->defaultSymbolVersion = VER_NDX_LOCAL;
+    config->versionDefinitions[VER_NDX_LOCAL].patterns.push_back(
+        {"*", /*isExternCpp=*/false, /*hasWildcard=*/true});
     if (Optional<MemoryBufferRef> buffer = readFile(arg->getValue()))
       for (StringRef s : args::getLines(*buffer))
-        config->versionScriptGlobals.push_back(
-            {s, /*IsExternCpp*/ false, /*HasWildcard*/ false});
+        config->versionDefinitions[VER_NDX_GLOBAL].patterns.push_back(
+            {s, /*isExternCpp=*/false, /*hasWildcard=*/false});
   }
 
   bool hasExportDynamic =

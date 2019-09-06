@@ -11,7 +11,7 @@
 
 ; CHECK: define dso_local void @MAIN__() [[ATTR1:#[0-9]+]]
 ; CHECK: define internal void @bar() [[ATTR2:#[0-9]+]]
-; CHECK: define internal void @foo(i32* noalias nocapture readonly)
+; CHECK: define internal void @foo(i32* noalias nocapture readonly %0)
 ; CHECK: attributes [[ATTR1]] = { "contains-rec-pro-clone" }
 ; CHECK: attributes [[ATTR2]] = { noinline }
 

@@ -603,6 +603,12 @@ void CodeGenModule::Release() {
     getModule().addModuleFlag(llvm::Module::Override, "Cross-DSO CFI", 1);
   }
 
+  if (LangOpts.Sanitize.has(SanitizerKind::CFIICall)) {
+    getModule().addModuleFlag(llvm::Module::Override,
+                              "CFI Canonical Jump Tables",
+                              CodeGenOpts.SanitizeCfiCanonicalJumpTables);
+  }
+
   if (CodeGenOpts.CFProtectionReturn &&
       Target.checkCFProtectionReturnSupported(getDiags())) {
     // Indicate that we want to instrument return control flow protection.
@@ -1130,16 +1136,6 @@ static std::string getMangledNameImpl(const CodeGenModule &CGM, GlobalDecl GD,
         llvm_unreachable("None multiversion type isn't valid here");
       }
     }
-
-#if INTEL_CUSTOMIZATION
-    // CQ#379698, CQ#374883: redefinition of builtin functions
-  if (CGM.getLangOpts().IntelCompat)
-    if (const auto *D = dyn_cast<FunctionDecl>(GD.getDecl())) {
-      StringRef Str = Out.str();
-      if (D->getBuiltinID() && D->hasBody() && Str.startswith("__builtin_"))
-        return Str.drop_front(10);
-    }
-#endif // INTEL_CUSTOMIZATION
 
   return Out.str();
 }
@@ -1774,10 +1770,17 @@ void CodeGenModule::SetLLVMFunctionAttributesForDefinition(const Decl *D,
       F->setAlignment(2);
   }
 
-  // In the cross-dso CFI mode, we want !type attributes on definitions only.
-  if (CodeGenOpts.SanitizeCfiCrossDso)
-    if (auto *FD = dyn_cast<FunctionDecl>(D))
-      CreateFunctionTypeMetadataForIcall(FD, F);
+  // In the cross-dso CFI mode with canonical jump tables, we want !type
+  // attributes on definitions only.
+  if (CodeGenOpts.SanitizeCfiCrossDso &&
+      CodeGenOpts.SanitizeCfiCanonicalJumpTables) {
+    if (auto *FD = dyn_cast<FunctionDecl>(D)) {
+      // Skip available_externally functions. They won't be codegen'ed in the
+      // current module anyway.
+      if (getContext().GetGVALinkageForFunction(FD) != GVA_AvailableExternally)
+        CreateFunctionTypeMetadataForIcall(FD, F);
+    }
+  }
 
   // Emit type metadata on member functions for member function pointer checks.
   // These are only ever necessary on definitions; we're guaranteed that the
@@ -1937,14 +1940,6 @@ void CodeGenModule::CreateFunctionTypeMetadataForIcall(const FunctionDecl *FD,
   if (isa<CXXMethodDecl>(FD) && !cast<CXXMethodDecl>(FD)->isStatic())
     return;
 
-  // Additionally, if building with cross-DSO support...
-  if (CodeGenOpts.SanitizeCfiCrossDso) {
-    // Skip available_externally functions. They won't be codegen'ed in the
-    // current module anyway.
-    if (getContext().GetGVALinkageForFunction(FD) == GVA_AvailableExternally)
-      return;
-  }
-
   llvm::Metadata *MD = CreateMetadataIdentifierForType(FD->getType());
   F->addTypeMetadata(0, MD);
   F->addTypeMetadata(0, CreateMetadataIdentifierGeneralized(FD->getType()));
@@ -2065,8 +2060,11 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
       F->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
 
   // Don't emit entries for function declarations in the cross-DSO mode. This
-  // is handled with better precision by the receiving DSO.
-  if (!CodeGenOpts.SanitizeCfiCrossDso)
+  // is handled with better precision by the receiving DSO. But if jump tables
+  // are non-canonical then we need type metadata in order to produce the local
+  // jump table.
+  if (!CodeGenOpts.SanitizeCfiCrossDso ||
+      !CodeGenOpts.SanitizeCfiCanonicalJumpTables)
     CreateFunctionTypeMetadataForIcall(FD, F);
 
   if (getLangOpts().OpenMP && FD->hasAttr<OMPDeclareSimdDeclAttr>())
@@ -4111,13 +4109,6 @@ void CodeGenModule::generateHLSAnnotation(const Decl *D,
         NWPA->getValue()->EvaluateKnownConstInt(getContext());
     Out << '{' << NWPA->getSpelling() << ':' << NWPAInt << '}';
   }
-  if (const auto *MRA = D->getAttr<MaxReplicatesAttr>()) {
-    llvm::APSInt MRAInt =
-      MRA->getValue()->EvaluateKnownConstInt(getContext());
-    Out << '{' << MRA->getSpelling() << ':' << MRAInt << '}';
-  }
-  if (D->hasAttr<SimpleDualPortAttr>())
-    Out << "{simple_dual_port:1}";
   if (const auto *IMDA = D->getAttr<InternalMaxBlockRamDepthAttr>()) {
     llvm::APSInt IMDAInt =
         IMDA->getInternalMaxBlockRamDepth()->EvaluateKnownConstInt(
@@ -4138,10 +4129,6 @@ void CodeGenModule::generateHLSAnnotation(const Decl *D,
       Out << BBAInt;
     }
     Out << '}';
-  }
-  if (const auto *MA = D->getAttr<MergeAttr>()) {
-    Out << '{' << MA->getSpelling() << ':' << MA->getName() << ':'
-        << MA->getDirection() << '}';
   }
   if (const auto *VD = dyn_cast<VarDecl>(D)) {
     if (VD->getStorageClass() == SC_Static) {
@@ -5249,7 +5236,10 @@ CodeGenModule::GetAddrOfConstantCFString(const StringLiteral *Literal) {
   }
   Fields.addInt(LengthTy, StringLength);
 
-  CharUnits Alignment = getPointerAlign();
+  // Swift ABI requires 8-byte alignment to ensure that the _Atomic(uint64_t) is
+  // properly aligned on 32-bit platforms.
+  CharUnits Alignment =
+      IsSwiftABI ? Context.toCharUnitsFromBits(64) : getPointerAlign();
 
   // The struct.
   GV = Fields.finishAndCreateGlobal("_unnamed_cfstring_", Alignment,

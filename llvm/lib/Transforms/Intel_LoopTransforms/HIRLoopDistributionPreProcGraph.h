@@ -117,24 +117,21 @@ class DistPPNode {
 
   // Indicates that PP node represents HLIf statement only, without its
   // children.
-  bool IsSimpleControlNode;
+  bool IsControlNode;
 
 public:
   DistPPNode(HLNode *N, DistPPGraph *G)
-      : HNode(N), Graph(G), IsSimpleControlNode(false) {}
+      : HNode(N), Graph(G), IsControlNode(false) {}
 
   DistPPGraph *getGraph() const { return Graph; }
   HLNode *getNode() const { return HNode; }
 
-  void setSimpleControlNode() {
-    assert(isControlNode());
-    IsSimpleControlNode = true;
+  void setControlNode() {
+    assert(isa<HLIf>(getNode()));
+    IsControlNode = true;
   }
 
-  bool isControlNode() const { return isa<HLIf>(getNode()); }
-  bool isSimpleControlNode() const {
-    return isControlNode() && IsSimpleControlNode;
-  }
+  bool isControlNode() const { return IsControlNode; }
 
   bool hasMemRef() const;
 
@@ -233,7 +230,7 @@ public:
 
   DistPPGraph(HLLoop *Loop, HIRDDAnalysis &DDA,
               HIRSparseArrayReductionAnalysis &SARA,
-              bool ForceCycleForLoopIndepDep);
+              bool ForceCycleForLoopIndepDep, bool CreateControlNodes);
 
   // TODO destruction needs to be handled carefully if we want
   // to reuse graph from inner loop dist in outer loop distribution

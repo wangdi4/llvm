@@ -24,7 +24,7 @@ define internal void @test1(i32 %a1, i32 %a2) {
 }
 ; Verify the address taken function was changed into a wrapper function
 ; that calls the cloned function.
-; CHECK-LABEL: define internal void @test1(i32, i32)
+; CHECK-LABEL: define internal void @test1(i32 %0, i32 %1)
 ; CHECK: tail call void @test1.1(i32 %0, i32 %1)
 ; CHECK: ret void
 
@@ -36,7 +36,7 @@ define internal void @test1(i32 %a1, i32 %a2) {
 define internal i32 @test2(i32 %a1, i32 %a2) {
  ret i32 0;
 }
-; CHECK-LABEL: define internal i32 @test2(i32, i32)
+; CHECK-LABEL: define internal i32 @test2(i32 %0, i32 %1)
 ; CHECK: %3 = tail call i32 @test2.2(i32 %0, i32 %1)
 ; CHECK: ret i32 %3
 

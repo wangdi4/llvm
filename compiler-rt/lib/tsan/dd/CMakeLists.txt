@@ -6,15 +6,15 @@ set(DD_CFLAGS ${SANITIZER_COMMON_CFLAGS})
 append_rtti_flag(OFF DD_CFLAGS)
 
 set(DD_SOURCES
-  dd_rtl.cc
-  dd_interceptors.cc
-)
+  dd_rtl.cpp
+  dd_interceptors.cpp
+  )
 
 if (INTEL_CUSTOMIZATION)
   # Workaround for CMPLRLLVM-9960: dd_interceptors.cc redefines
   # realpath(), which is defined in bits/stdlib.h under
   # _FORTIFY_SOURCE=2.
-  set_source_files_properties(dd_interceptors.cc
+  set_source_files_properties(dd_interceptors.cpp
     PROPERTIES COMPILE_FLAGS " -U_FORTIFY_SOURCE ")
 endif(INTEL_CUSTOMIZATION)
 

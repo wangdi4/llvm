@@ -7,6 +7,10 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+
+// CORC-5709:
+//  XFAIL: *
+
 #include <CL/sycl.hpp>
 #include <iostream>
 

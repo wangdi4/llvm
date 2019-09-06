@@ -14,6 +14,7 @@ set(CMAKE_MODULE_PATH
 # If we are not building as part of LLVM, build LLDB as a standalone project,
 # using LLVM as an external library.
 if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+  project(lldb)
   include(LLDBStandalone)
 endif()
 
@@ -42,18 +43,19 @@ endif ()
 if(CMAKE_CROSSCOMPILING AND LLDB_BUILT_STANDALONE)
   set(LLVM_USE_HOST_TOOLS ON)
   include(CrossCompile)
-  if (NOT LLDB_PATH_TO_NATIVE_LLVM_BUILD OR
-      NOT LLDB_PATH_TO_NATIVE_CLANG_BUILD)
+  if (NOT NATIVE_LLVM_DIR OR NOT NATIVE_Clang_DIR)
     message(FATAL_ERROR
-      "Crosscompiling standalone requires the variables LLDB_PATH_TO_NATIVE_{CLANG,LLVM}_BUILD
+      "Crosscompiling standalone requires the variables NATIVE_{CLANG,LLVM}_DIR
       for building the native lldb-tblgen used during the build process.")
   endif()
   llvm_create_cross_target(lldb NATIVE "" Release
-    -DLLDB_PATH_TO_LLVM_BUILD=${LLDB_PATH_TO_NATIVE_LLVM_BUILD}
-    -DLLDB_PATH_TO_CLANG_BUILD=${LLDB_PATH_TO_NATIVE_CLANG_BUILD})
+    -DLLVM_DIR=${NATIVE_LLVM_DIR}
+    -DClang_DIR=${NATIVE_Clang_DIR})
 endif()
 
+# TableGen
 add_subdirectory(utils/TableGen)
+
 add_subdirectory(source)
 add_subdirectory(tools)
 add_subdirectory(docs)
@@ -105,14 +107,6 @@ if(LLDB_INCLUDE_TESTS)
 
   if(TARGET lldb-server)
     list(APPEND LLDB_TEST_DEPS lldb-server)
-  endif()
-
-  if(TARGET debugserver)
-    list(APPEND LLDB_TEST_DEPS debugserver)
-  endif()
-
-  if(TARGET lldb-mi)
-    list(APPEND LLDB_TEST_DEPS lldb-mi)
   endif()
 
   if(TARGET lldb-vscode)
@@ -215,10 +209,7 @@ if (NOT LLDB_DISABLE_PYTHON)
         DEPENDS ${lldb_scripts_dir}/lldb.py
         COMMENT "Python script sym-linking LLDB Python API")
 
-    if (TARGET readline)
-      set(readline_dep readline)
-    endif()
-    add_dependencies(finish_swig swig_wrapper liblldb lldb-argdumper ${readline_dep})
+    add_dependencies(finish_swig swig_wrapper liblldb lldb-argdumper)
     set_target_properties(finish_swig swig_wrapper PROPERTIES FOLDER "lldb misc")
 
     # Ensure we do the python post-build step when building lldb.
@@ -238,6 +229,6 @@ if (NOT LLDB_DISABLE_PYTHON)
     endif ()
 endif ()
 
-if(LLDB_BUILT_STANDALONE)
+if(LLDB_BUILT_STANDALONE AND NOT LLVM_ENABLE_IDE)
   llvm_distribution_add_targets()
 endif()
