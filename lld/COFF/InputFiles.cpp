@@ -146,8 +146,8 @@ void LazyObjFile::parse() {
   }
 
   // Native object file.
-  COFFObjectFile *coffObj =
-      dyn_cast<COFFObjectFile>(CHECK(createBinary(mb), this).get());
+  std::unique_ptr<Binary> coffObjPtr = CHECK(createBinary(mb), this);
+  COFFObjectFile *coffObj = cast<COFFObjectFile>(coffObjPtr.get());
   uint32_t numSymbols = coffObj->getNumberOfSymbols();
   for (uint32_t i = 0; i < numSymbols; ++i) {
     COFFSymbolRef coffSym = check(coffObj->getSymbol(i));

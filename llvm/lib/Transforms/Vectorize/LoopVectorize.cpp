@@ -2697,8 +2697,9 @@ void InnerLoopVectorizer::emitSCEVChecks(Loop *L, BasicBlock *Bypass) {
     if (C->isZero())
       return;
 
-  assert(!Cost->foldTailByMasking() &&
-         "Cannot SCEV check stride or overflow when folding tail");
+  assert(!BB->getParent()->hasOptSize() &&
+         "Cannot SCEV check stride or overflow when optimizing for size");
+
   // Create a new block containing the stride check.
   BB->setName("vector.scevcheck");
   auto *NewBB = BB->splitBasicBlock(BB->getTerminator(), "vector.ph");
@@ -2731,7 +2732,9 @@ void InnerLoopVectorizer::emitMemRuntimeChecks(Loop *L, BasicBlock *Bypass) {
   if (!MemRuntimeCheck)
     return;
 
-  assert(!Cost->foldTailByMasking() && "Cannot check memory when folding tail");
+  assert(!BB->getParent()->hasOptSize() &&
+         "Cannot emit memory checks when optimizing for size");
+
   // Create a new block containing the memory check.
   BB->setName("vector.memcheck");
   auto *NewBB = BB->splitBasicBlock(BB->getTerminator(), "vector.ph");
