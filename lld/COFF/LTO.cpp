@@ -152,7 +152,7 @@ void BitcodeCompiler::add(BitcodeFile &f) {
     // symbol is a symbol whose definition was found in a library but it
     // isn't used.
     else {
-      definitionFound = isa<Defined>(sym) || isa<Lazy>(sym);
+      definitionFound = isa<Defined>(sym) || sym->isLazy();
     }
 
     // Mark that the symbol was resolved by the Linker
