@@ -191,12 +191,17 @@ std::string EVT::getEVTString() const {
   case MVT::v3f16:   return "v3f16";
   case MVT::v4f16:   return "v4f16";
   case MVT::v8f16:   return "v8f16";
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
   case MVT::v16f16:  return "v16f16";
   case MVT::v32f16:  return "v32f16";
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
+=======
+  case MVT::v16f16:  return "v16f16";
+  case MVT::v32f16:  return "v32f16";
+>>>>>>> 30ddd2ab6c778ed2b02ea99c6c46ee40e3d91a41
   case MVT::v3f32:   return "v3f32";
   case MVT::v4f32:   return "v4f32";
   case MVT::v5f32:   return "v5f32";
