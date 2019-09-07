@@ -3235,6 +3235,7 @@ void X86InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
   unsigned Opc = getLoadRegOpcode(DestReg, RC, isAligned, Subtarget);
   addFrameReference(BuildMI(MBB, MI, DebugLoc(), get(Opc), DestReg), FrameIdx);
 }
+#if INTEL_CUSTOMIZATION
 
 void X86InstrInfo::loadRegFromAddr(
     MachineFunction &MF, unsigned DestReg,
@@ -3252,6 +3253,7 @@ void X86InstrInfo::loadRegFromAddr(
   MIB.setMemRefs(MMOs);
   NewMIs.push_back(MIB);
 }
+#endif // INTEL_CUSTOMIZATION
 
 bool X86InstrInfo::analyzeCompare(const MachineInstr &MI, unsigned &SrcReg,
                                   unsigned &SrcReg2, int &CmpMask,

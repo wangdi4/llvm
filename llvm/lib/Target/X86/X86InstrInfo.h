@@ -321,12 +321,14 @@ public:
                             MachineBasicBlock::iterator MI, unsigned DestReg,
                             int FrameIndex, const TargetRegisterClass *RC,
                             const TargetRegisterInfo *TRI) const override;
+#if INTEL_CUSTOMIZATION
 
   void loadRegFromAddr(MachineFunction &MF, unsigned DestReg,
                        SmallVectorImpl<MachineOperand> &Addr,
                        const TargetRegisterClass *RC,
                        ArrayRef<MachineMemOperand *> MMOs,
                        SmallVectorImpl<MachineInstr *> &NewMIs) const;
+#endif // INTEL_CUSTOMIZATION
 
   bool expandPostRAPseudo(MachineInstr &MI) const override;
 
