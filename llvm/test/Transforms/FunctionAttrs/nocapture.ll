@@ -1,16 +1,13 @@
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
-; RUN: opt < %s -functionattrs -S | FileCheck %s --check-prefixes=CHECK,CHECK-NO-SUBSCRIPT
-; RUN: opt < %s -passes=function-attrs -S | FileCheck %s --check-prefixes=CHECK,CHECK-NO-SUBSCRIPT
-; RUN: opt -S -convert-to-subscript < %s | opt -functionattrs -S | FileCheck %s --check-prefixes=CHECK,CHECK-SUBSCRIPT
-; RUN: opt -S -passes=convert-to-subscript < %s | opt -passes=function-attrs -S | FileCheck %s --check-prefixes=CHECK,CHECK-SUBSCRIPT
+; RUN: opt -functionattrs -S < %s | FileCheck %s --check-prefixes=FNATTR,EITHER,FNATTR-NO-SUBSCRIPT
+; RUN: opt -passes=function-attrs -S < %s | FileCheck %s --check-prefixes=FNATTR,EITHER,FNATTR-NO-SUBSCRIPT
+; RUN: opt -attributor -attributor-manifest-internal -attributor-disable=false -S < %s | FileCheck %s --check-prefixes=ATTRIBUTOR,EITHER,ATTRIBUTOR-NO-SUBSCRIPT
+; RUN: opt -passes=attributor -attributor-manifest-internal -attributor-disable=false -S < %s | FileCheck %s --check-prefixes=ATTRIBUTOR,EITHER,ATTRIBUTOR-NO-SUBSCRIPT
+; RUN: opt -S -convert-to-subscript < %s | opt -functionattrs -S | FileCheck %s --check-prefixes=EITHER,FNATTR-SUBSCRIPT
+; RUN: opt -S -passes=convert-to-subscript < %s | opt -passes=function-attrs -S | FileCheck %s --check-prefixes=EITHER,FNATTR-SUBSCRIPT
+; RUN: opt -S -convert-to-subscript < %s | opt -attributor -attributor-manifest-internal -attributor-disable=false -S | FileCheck %s --check-prefixes=ATTRIBUTOR,EITHER,ATTRIBUTOR-SUBSCRIPT
+; RUN: opt -S -passes=convert-to-subscript < %s | opt -passes=attributor -attributor-manifest-internal -attributor-disable=false -S | FileCheck %s --check-prefixes=ATTRIBUTOR,EITHER,ATTRIBUTOR-SUBSCRIPT
 ; end INTEL_CUSTOMIZATION
-=======
-; RUN: opt -functionattrs -S < %s | FileCheck %s --check-prefixes=FNATTR,EITHER
-; RUN: opt -passes=function-attrs -S < %s | FileCheck %s --check-prefixes=FNATTR,EITHER
-; RUN: opt -attributor -attributor-manifest-internal -attributor-disable=false -S < %s | FileCheck %s --check-prefixes=ATTRIBUTOR,EITHER
-; RUN: opt -passes=attributor -attributor-manifest-internal -attributor-disable=false -S < %s | FileCheck %s --check-prefixes=ATTRIBUTOR,EITHER
->>>>>>> 7516a5e04568e38d701095a9ff29ee4e321274d7
 
 @g = global i32* null		; <i32**> [#uses=1]
 
@@ -314,11 +311,12 @@ define i1 @nocaptureInboundsGEPICmpRev(i32* %x) {
   ret i1 %3
 }
 
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; FIXME: after converting GEP to llvm.intel.subscript the pointer shouldn't be nocapture.
-; CHECK-NO-SUBSCRIPT: define i1 @captureGEPICmp(i32* readnone %x)
-; CHECK-SUBSCRIPT: define i1 @captureGEPICmp(i32* nocapture readnone %x)
+; FNATTR-NO-SUBSCRIPT: define i1 @captureGEPICmp(i32* readnone %x)
+; ATTRIBUTOR-NO-SUBSCRIPT: define i1 @captureGEPICmp(i32* %x)
+; FNATTR-SUBSCRIPT: define i1 @captureGEPICmp(i32* nocapture readnone %x)
+; ATTRIBUTOR-SUBSCRIPT: define i1 @captureGEPICmp(i32* nocapture %x)
 define i1 @captureGEPICmp(i32* %x) {
   %1 = getelementptr i32, i32* %x, i32 5
   %2 = bitcast i32* %1 to i8*
@@ -327,8 +325,10 @@ define i1 @captureGEPICmp(i32* %x) {
 }
 
 ; FIXME: after converting GEP to llvm.intel.subscript the pointer shouldn't be nocapture.
-; CHECK-NO-SUBSCRIPT: define i1 @captureGEPICmpRev(i32* readnone %x)
-; CHECK-SUBSCRIPT: define i1 @captureGEPICmpRev(i32* nocapture readnone %x)
+; FNATTR-NO-SUBSCRIPT: define i1 @captureGEPICmpRev(i32* readnone %x)
+; ATTRIBUTOR-NO-SUBSCRIPT: define i1 @captureGEPICmpRev(i32* %x)
+; FNATTR-SUBSCRIPT: define i1 @captureGEPICmpRev(i32* nocapture readnone %x)
+; ATTRIBUTOR-SUBSCRIPT: define i1 @captureGEPICmpRev(i32* nocapture %x)
 define i1 @captureGEPICmpRev(i32* %x) {
   %1 = getelementptr i32, i32* %x, i32 5
   %2 = bitcast i32* %1 to i8*
@@ -337,11 +337,8 @@ define i1 @captureGEPICmpRev(i32* %x) {
 }
 ; end INTEL_CUSTOMIZATION
 
-; CHECK: define i1 @nocaptureDereferenceableOrNullICmp(i32* nocapture readnone dereferenceable_or_null(4) %x)
-=======
 ; FNATTR: define i1 @nocaptureDereferenceableOrNullICmp(i32* nocapture readnone dereferenceable_or_null(4) %x)
 ; ATTRIBUTOR: define i1 @nocaptureDereferenceableOrNullICmp(i32* nocapture dereferenceable_or_null(4) %x)
->>>>>>> 7516a5e04568e38d701095a9ff29ee4e321274d7
 define i1 @nocaptureDereferenceableOrNullICmp(i32* dereferenceable_or_null(4) %x) {
   %1 = bitcast i32* %x to i8*
   %2 = icmp eq i8* %1, null
