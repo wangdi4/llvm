@@ -3236,6 +3236,23 @@ void X86InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
   addFrameReference(BuildMI(MBB, MI, DebugLoc(), get(Opc), DestReg), FrameIdx);
 }
 
+void X86InstrInfo::loadRegFromAddr(
+    MachineFunction &MF, unsigned DestReg,
+    SmallVectorImpl<MachineOperand> &Addr, const TargetRegisterClass *RC,
+    ArrayRef<MachineMemOperand *> MMOs,
+    SmallVectorImpl<MachineInstr *> &NewMIs) const {
+  const TargetRegisterInfo &TRI = *MF.getSubtarget().getRegisterInfo();
+  unsigned Alignment = std::max<uint32_t>(TRI.getSpillSize(*RC), 16);
+  bool isAligned = !MMOs.empty() && MMOs.front()->getAlignment() >= Alignment;
+  unsigned Opc = getLoadRegOpcode(DestReg, RC, isAligned, Subtarget);
+  DebugLoc DL;
+  MachineInstrBuilder MIB = BuildMI(MF, DL, get(Opc), DestReg);
+  for (unsigned i = 0, e = Addr.size(); i != e; ++i)
+    MIB.add(Addr[i]);
+  MIB.setMemRefs(MMOs);
+  NewMIs.push_back(MIB);
+}
+
 bool X86InstrInfo::analyzeCompare(const MachineInstr &MI, unsigned &SrcReg,
                                   unsigned &SrcReg2, int &CmpMask,
                                   int &CmpValue) const {
