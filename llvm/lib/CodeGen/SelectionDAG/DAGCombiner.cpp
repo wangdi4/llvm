@@ -4183,10 +4183,10 @@ SDValue DAGCombiner::visitMULHS(SDNode *N) {
 
   if (VT.isVector()) {
     // fold (mulhs x, 0) -> 0
-    if (ISD::isBuildVectorAllZeros(N1.getNode()))
-      return N1;
-    if (ISD::isBuildVectorAllZeros(N0.getNode()))
-      return N0;
+    // do not return N0/N1, because undef node may exist.
+    if (ISD::isBuildVectorAllZeros(N0.getNode()) ||
+        ISD::isBuildVectorAllZeros(N1.getNode()))
+      return DAG.getConstant(0, DL, VT);
   }
 
   // fold (mulhs x, 0) -> 0
@@ -4195,7 +4195,7 @@ SDValue DAGCombiner::visitMULHS(SDNode *N) {
   // fold (mulhs x, 1) -> (sra x, size(x)-1)
   if (isOneConstant(N1))
     return DAG.getNode(ISD::SRA, DL, N0.getValueType(), N0,
-                       DAG.getConstant(N0.getValueSizeInBits() - 1, DL,
+                       DAG.getConstant(N0.getScalarValueSizeInBits() - 1, DL,
                                        getShiftAmountTy(N0.getValueType())));
 
   // fold (mulhs x, undef) -> 0
@@ -4230,10 +4230,10 @@ SDValue DAGCombiner::visitMULHU(SDNode *N) {
 
   if (VT.isVector()) {
     // fold (mulhu x, 0) -> 0
-    if (ISD::isBuildVectorAllZeros(N1.getNode()))
-      return N1;
-    if (ISD::isBuildVectorAllZeros(N0.getNode()))
-      return N0;
+    // do not return N0/N1, because undef node may exist.
+    if (ISD::isBuildVectorAllZeros(N0.getNode()) ||
+        ISD::isBuildVectorAllZeros(N1.getNode()))
+      return DAG.getConstant(0, DL, VT);
   }
 
   // fold (mulhu x, 0) -> 0
@@ -8715,9 +8715,9 @@ SDValue DAGCombiner::visitVSELECT(SDNode *N) {
       if (TLI.isOperationLegalOrCustom(ISD::ABS, VT))
         return DAG.getNode(ISD::ABS, DL, VT, LHS);
 
-      SDValue Shift = DAG.getNode(
-          ISD::SRA, DL, VT, LHS,
-          DAG.getConstant(VT.getScalarSizeInBits() - 1, DL, VT));
+      SDValue Shift = DAG.getNode(ISD::SRA, DL, VT, LHS,
+                                  DAG.getConstant(VT.getScalarSizeInBits() - 1,
+                                                  DL, getShiftAmountTy(VT)));
       SDValue Add = DAG.getNode(ISD::ADD, DL, VT, LHS, Shift);
       AddToWorklist(Shift.getNode());
       AddToWorklist(Add.getNode());
