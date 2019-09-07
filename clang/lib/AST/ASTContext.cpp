@@ -12,7 +12,6 @@
 
 #include "clang/AST/ASTContext.h"
 #include "CXXABI.h"
-#include "Interp/Context.h"
 #include "clang/AST/APValue.h"
 #include "clang/AST/ASTMutationListener.h"
 #include "clang/AST/ASTTypeTraits.h"
@@ -785,13 +784,6 @@ CXXABI *ASTContext::createCXXABI(const TargetInfo &T) {
   if (!LangOpts.CPlusPlus) return nullptr;
 #endif // INTEL_CUSTOMIZATION
   llvm_unreachable("Invalid CXXABI type!");
-}
-
-interp::Context &ASTContext::getInterpContext() {
-  if (!InterpContext) {
-    InterpContext.reset(new interp::Context(*this));
-  }
-  return *InterpContext.get();
 }
 
 static const LangASMap *getAddressSpaceMap(const TargetInfo &T,

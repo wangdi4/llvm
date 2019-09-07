@@ -139,12 +139,6 @@ class FullComment;
 
 } // namespace comments
 
-namespace interp {
-
-class Context;
-
-} // namespace interp
-
 struct TypeInfo {
   uint64_t Width = 0;
   unsigned Align = 0;
@@ -581,7 +575,6 @@ private:
   const TargetInfo *Target = nullptr;
   const TargetInfo *AuxTarget = nullptr;
   clang::PrintingPolicy PrintingPolicy;
-  std::unique_ptr<interp::Context> InterpContext;
 
 public:
   IdentifierTable &Idents;
@@ -590,9 +583,6 @@ public:
   mutable DeclarationNameTable DeclarationNames;
   IntrusiveRefCntPtr<ExternalASTSource> ExternalSource;
   ASTMutationListener *Listener = nullptr;
-
-  /// Returns the clang bytecode interpreter context.
-  interp::Context &getInterpContext();
 
   /// Container for either a single DynTypedNode or for an ArrayRef to
   /// DynTypedNode. For use with ParentMap.
