@@ -84,7 +84,7 @@ bool llvm::VerifyMemorySSA = false;
 #endif
 /// Enables memory ssa as a dependency for loop passes in legacy pass manager.
 cl::opt<bool> llvm::EnableMSSALoopDependency(
-    "enable-mssa-loop-dependency", cl::Hidden, cl::init(true),
+    "enable-mssa-loop-dependency", cl::Hidden, cl::init(false),
     cl::desc("Enable MemorySSA dependency for loop pass manager"));
 
 static cl::opt<bool, true>
@@ -1872,7 +1872,7 @@ void MemorySSA::verifyMemorySSA() const {
 }
 
 void MemorySSA::verifyPrevDefInPhis(Function &F) const {
-#ifndef NDEBUG
+#if !defined(NDEBUG) && defined(EXPENSIVE_CHECKS)
   for (const BasicBlock &BB : F) {
     if (MemoryPhi *Phi = getMemoryAccess(&BB)) {
       for (unsigned I = 0, E = Phi->getNumIncomingValues(); I != E; ++I) {
@@ -2048,7 +2048,7 @@ void MemorySSA::verifyUseInDefs(MemoryAccess *Def, MemoryAccess *Use) const {
 /// accesses and verifying that, for each use, it appears in the
 /// appropriate def's use list
 void MemorySSA::verifyDefUses(Function &F) const {
-#ifndef NDEBUG
+#if !defined(NDEBUG) && defined(EXPENSIVE_CHECKS)
   for (BasicBlock &B : F) {
     // Phi nodes are attached to basic blocks
     if (MemoryPhi *Phi = getMemoryAccess(&B)) {
