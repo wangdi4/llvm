@@ -126,16 +126,16 @@ std::string Driver::GetResourcesPath(StringRef BinaryPath,
 Driver::Driver(StringRef ClangExecutable, StringRef TargetTriple,
                DiagnosticsEngine &Diags,
                IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS)
-    : Opts(createDriverOptTable()), Diags(Diags), VFS(std::move(VFS)),
-      Mode(GCCMode), SaveTemps(SaveTempsNone), BitcodeEmbed(EmbedNone),
-      LTOMode(LTOK_None), ClangExecutable(ClangExecutable),
-      SysRoot(DEFAULT_SYSROOT), DriverTitle("clang LLVM compiler"),
-      CCPrintOptionsFilename(nullptr), CCPrintHeadersFilename(nullptr),
-      CCLogDiagnosticsFilename(nullptr), CCCPrintBindings(false),
-      CCPrintOptions(false), CCPrintHeaders(false), CCLogDiagnostics(false),
-      CCGenDiagnostics(false), TargetTriple(TargetTriple),
-      CCCGenericGCCName(""), Saver(Alloc), CheckInputsExist(true),
-      GenReproducer(false), SuppressMissingInputWarning(false) {
+    : Diags(Diags), VFS(std::move(VFS)), Mode(GCCMode),
+      SaveTemps(SaveTempsNone), BitcodeEmbed(EmbedNone), LTOMode(LTOK_None),
+      ClangExecutable(ClangExecutable), SysRoot(DEFAULT_SYSROOT),
+      DriverTitle("clang LLVM compiler"), CCPrintOptionsFilename(nullptr),
+      CCPrintHeadersFilename(nullptr), CCLogDiagnosticsFilename(nullptr),
+      CCCPrintBindings(false), CCPrintOptions(false), CCPrintHeaders(false),
+      CCLogDiagnostics(false), CCGenDiagnostics(false),
+      TargetTriple(TargetTriple), CCCGenericGCCName(""), Saver(Alloc),
+      CheckInputsExist(true), GenReproducer(false),
+      SuppressMissingInputWarning(false) {
 
   // Provide a sane fallback if no VFS is specified.
   if (!this->VFS)
@@ -317,7 +317,7 @@ phases::ID Driver::getFinalPhase(const DerivedArgList &DAL,
   return FinalPhase;
 }
 
-static Arg *MakeInputArg(DerivedArgList &Args, OptTable &Opts,
+static Arg *MakeInputArg(DerivedArgList &Args, const OptTable &Opts,
                          StringRef Value, bool Claim = true) {
   Arg *A = new Arg(Opts.getOption(options::OPT_INPUT), Value,
                    Args.getBaseArgs().MakeIndex(Value), Value.data());
@@ -328,6 +328,7 @@ static Arg *MakeInputArg(DerivedArgList &Args, OptTable &Opts,
 }
 
 DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
+  const llvm::opt::OptTable &Opts = getOpts();
   DerivedArgList *DAL = new DerivedArgList(Args);
 
   bool HasNostdlib = Args.hasArg(options::OPT_nostdlib);
@@ -344,12 +345,12 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
          A->getOption().matches(options::OPT_Xlinker)) &&
         A->containsValue("--no-demangle")) {
       // Add the rewritten no-demangle argument.
-      DAL->AddFlagArg(A, Opts->getOption(options::OPT_Z_Xlinker__no_demangle));
+      DAL->AddFlagArg(A, Opts.getOption(options::OPT_Z_Xlinker__no_demangle));
 
       // Add the remaining values as Xlinker arguments.
       for (StringRef Val : A->getValues())
         if (Val != "--no-demangle")
-          DAL->AddSeparateArg(A, Opts->getOption(options::OPT_Xlinker), Val);
+          DAL->AddSeparateArg(A, Opts.getOption(options::OPT_Xlinker), Val);
 
       continue;
     }
@@ -362,12 +363,11 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
          A->getValue(0) == StringRef("-MMD"))) {
       // Rewrite to -MD/-MMD along with -MF.
       if (A->getValue(0) == StringRef("-MD"))
-        DAL->AddFlagArg(A, Opts->getOption(options::OPT_MD));
+        DAL->AddFlagArg(A, Opts.getOption(options::OPT_MD));
       else
-        DAL->AddFlagArg(A, Opts->getOption(options::OPT_MMD));
+        DAL->AddFlagArg(A, Opts.getOption(options::OPT_MMD));
       if (A->getNumValues() == 2)
-        DAL->AddSeparateArg(A, Opts->getOption(options::OPT_MF),
-                            A->getValue(1));
+        DAL->AddSeparateArg(A, Opts.getOption(options::OPT_MF), A->getValue(1));
       continue;
     }
 
@@ -378,13 +378,13 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
       // Rewrite unless -nostdlib is present.
       if (!HasNostdlib && !HasNodefaultlib && !HasNostdlibxx &&
           Value == "stdc++") {
-        DAL->AddFlagArg(A, Opts->getOption(options::OPT_Z_reserved_lib_stdcxx));
+        DAL->AddFlagArg(A, Opts.getOption(options::OPT_Z_reserved_lib_stdcxx));
         continue;
       }
 
       // Rewrite unconditionally.
       if (Value == "cc_kext") {
-        DAL->AddFlagArg(A, Opts->getOption(options::OPT_Z_reserved_lib_cckext));
+        DAL->AddFlagArg(A, Opts.getOption(options::OPT_Z_reserved_lib_cckext));
         continue;
       }
     }
@@ -393,7 +393,7 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
     if (A->getOption().matches(options::OPT__DASH_DASH)) {
       A->claim();
       for (StringRef Val : A->getValues())
-        DAL->append(MakeInputArg(*DAL, *Opts, Val, false));
+        DAL->append(MakeInputArg(*DAL, Opts, Val, false));
       continue;
     }
 
@@ -402,7 +402,7 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
 
   // Enforce -static if -miamcu is present.
   if (Args.hasFlag(options::OPT_miamcu, options::OPT_mno_iamcu, false))
-    DAL->AddFlagArg(0, Opts->getOption(options::OPT_static));
+    DAL->AddFlagArg(0, Opts.getOption(options::OPT_static));
 
   // Use of -fintelfpga implies -g and -MMD
   if (Args.hasArg(options::OPT_fintelfpga)) {
@@ -415,7 +415,7 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
 #if defined(HOST_LINK_VERSION)
   if (!Args.hasArg(options::OPT_mlinker_version_EQ) &&
       strlen(HOST_LINK_VERSION) > 0) {
-    DAL->AddJoinedArg(0, Opts->getOption(options::OPT_mlinker_version_EQ),
+    DAL->AddJoinedArg(0, Opts.getOption(options::OPT_mlinker_version_EQ),
                       HOST_LINK_VERSION);
     DAL->getLastArg(options::OPT_mlinker_version_EQ)->claim();
   }
@@ -1811,16 +1811,17 @@ void Driver::HandleAutocompletions(StringRef PassedFlags) const {
   if (llvm::is_contained(Flags, "-Xclang") || llvm::is_contained(Flags, "-cc1"))
     DisableFlags &= ~options::NoDriverOption;
 
+  const llvm::opt::OptTable &Opts = getOpts();
   StringRef Cur;
   Cur = Flags.at(Flags.size() - 1);
   StringRef Prev;
   if (Flags.size() >= 2) {
     Prev = Flags.at(Flags.size() - 2);
-    SuggestedCompletions = Opts->suggestValueCompletions(Prev, Cur);
+    SuggestedCompletions = Opts.suggestValueCompletions(Prev, Cur);
   }
 
   if (SuggestedCompletions.empty())
-    SuggestedCompletions = Opts->suggestValueCompletions(Cur, "");
+    SuggestedCompletions = Opts.suggestValueCompletions(Cur, "");
 
   // If Flags were empty, it means the user typed `clang [tab]` where we should
   // list all possible flags. If there was no value completion and the user
@@ -1838,7 +1839,7 @@ void Driver::HandleAutocompletions(StringRef PassedFlags) const {
     // If the flag is in the form of "--autocomplete=-foo",
     // we were requested to print out all option names that start with "-foo".
     // For example, "--autocomplete=-fsyn" is expanded to "-fsyntax-only".
-    SuggestedCompletions = Opts->findByPrefix(Cur, DisableFlags);
+    SuggestedCompletions = Opts.findByPrefix(Cur, DisableFlags);
 
     // We have to query the -W flags manually as they're not in the OptTable.
     // TODO: Find a good way to add them to OptTable instead and them remove
@@ -2261,6 +2262,7 @@ bool Driver::DiagnoseInputExistence(const DerivedArgList &Args, StringRef Value,
 // Construct a the list of inputs and their types.
 void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
                          InputList &Inputs) const {
+  const llvm::opt::OptTable &Opts = getOpts();
   // Track the current user specified (-x) input. We also explicitly track the
   // argument used to set the type; we only want to claim the type when we
   // actually use it, so we warn about unused -x arguments.
@@ -2384,7 +2386,7 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
       StringRef Value = A->getValue();
       if (DiagnoseInputExistence(Args, Value, types::TY_C,
                                  /*TypoCorrect=*/false)) {
-        Arg *InputArg = MakeInputArg(Args, *Opts, A->getValue());
+        Arg *InputArg = MakeInputArg(Args, Opts, A->getValue());
         Inputs.push_back(std::make_pair(types::TY_C, InputArg));
       }
       A->claim();
@@ -2392,7 +2394,7 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
       StringRef Value = A->getValue();
       if (DiagnoseInputExistence(Args, Value, types::TY_CXX,
                                  /*TypoCorrect=*/false)) {
-        Arg *InputArg = MakeInputArg(Args, *Opts, A->getValue());
+        Arg *InputArg = MakeInputArg(Args, Opts, A->getValue());
         Inputs.push_back(std::make_pair(types::TY_CXX, InputArg));
       }
       A->claim();
@@ -2426,7 +2428,7 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
   if (CCCIsCPP() && Inputs.empty()) {
     // If called as standalone preprocessor, stdin is processed
     // if no other input is present.
-    Arg *A = MakeInputArg(Args, *Opts, "-");
+    Arg *A = MakeInputArg(Args, Opts, "-");
     Inputs.push_back(std::make_pair(types::TY_C, A));
   }
 }
