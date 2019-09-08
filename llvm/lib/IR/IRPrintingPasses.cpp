@@ -26,16 +26,10 @@ PrintModulePass::PrintModulePass(raw_ostream &OS, const std::string &Banner,
       ShouldPreserveUseListOrder(ShouldPreserveUseListOrder) {}
 
 PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &) {
-<<<<<<< HEAD
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-  if (!Banner.empty())
-    OS << Banner << "\n";
-  if (llvm::isFunctionInPrintList("*"))
-=======
   if (llvm::isFunctionInPrintList("*")) {
     if (!Banner.empty())
       OS << Banner << "\n";
->>>>>>> 1975e635e64358e725b2ae67700aa07d481f29ee
     M.print(OS, nullptr, ShouldPreserveUseListOrder);
   }
   else {
