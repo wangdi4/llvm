@@ -34,7 +34,6 @@ set(CLANG_VERSION "${CLANG_VERSION_MAJOR}.${CLANG_VERSION_MINOR}.${CLANG_VERSION
 set(LLVM_INST_INC_DIRECTORY "lib${LLVM_LIBDIR_SUFFIX}/clang/${CLANG_VERSION}/include")
 set(dst_dir ${LLVM_LIBRARY_OUTPUT_INTDIR}/clang/${CLANG_VERSION}/include)
 
-<<<<<<< HEAD
 if( INTEL_CUSTOMIZATION )
   set( ICD_LOADER_SRC_DIR ${LLVM_MAIN_SRC_DIR}/../external/opencl-icd-loader)
 endif()
@@ -46,16 +45,15 @@ if( DEFINED ICD_LOADER_SRC_DIR )
 
   set(OpenCL_INCLUDE_DIRS ${OpenCL_INCLUDE_DIR})
 else()
-=======
-# Find OpenCL headers and libraries installed in the system and use them to
-# build SYCL runtime.
-# WARNING: use with caution, building SYCL runtime with OpenCL implementation
-# instead of Khronos ICD loader might cause build and/or portability issues.
-option(OpenCL_BUILD_WITH_SYSTEM_SDK OFF)
+  # Find OpenCL headers and libraries installed in the system and use them to
+  # build SYCL runtime.
+  # WARNING: use with caution, building SYCL runtime with OpenCL implementation
+  # instead of Khronos ICD loader might cause build and/or portability issues.
+  option(OpenCL_BUILD_WITH_SYSTEM_SDK OFF)
 
-if( (OpenCL_INCLUDE_DIR AND OpenCL_LIBRARY) OR OpenCL_BUILD_WITH_SYSTEM_SDK)
->>>>>>> 590e79b6c61d9aeb68f577f6fd1e7e6a91fb3a84
-  find_package(OpenCL)
+  if( (OpenCL_INCLUDE_DIR AND OpenCL_LIBRARY) OR OpenCL_BUILD_WITH_SYSTEM_SDK)
+    find_package(OpenCL)
+  endif()
 endif()
 
 include(ExternalProject)
@@ -81,7 +79,6 @@ else()
   )
 endif()
 
-<<<<<<< HEAD
 if( DEFINED ICD_LOADER_SRC_DIR )
   message ("Build OpenCL from provided sources")
   file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/icd_build/deploy)
@@ -124,10 +121,6 @@ if( DEFINED ICD_LOADER_SRC_DIR )
     )
   endif()
 elseif( NOT OpenCL_LIBRARIES )
-  message("OpenCL_LIBRARIES is missed. Try to build from GitHub sources.")
-  set(OpenCL_LIBRARIES "${LLVM_LIBRARY_OUTPUT_INTDIR}/libOpenCL.so")
-=======
-if( NOT OpenCL_LIBRARIES )
   message("OpenCL_LIBRARIES is missed. Will try to download OpenCL ICD Loader from github.com")
   if(MSVC)
     set(OpenCL_LIBRARIES
@@ -138,7 +131,6 @@ if( NOT OpenCL_LIBRARIES )
         "${LLVM_LIBRARY_OUTPUT_INTDIR}/${CMAKE_SHARED_LIBRARY_PREFIX}OpenCL${CMAKE_SHARED_LIBRARY_SUFFIX}")
     set(OPENCL_ICD_LOADER_WDK "")
   endif()
->>>>>>> 590e79b6c61d9aeb68f577f6fd1e7e6a91fb3a84
   file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/icd_build)
   ExternalProject_Add(ocl-icd
     GIT_REPOSITORY    https://github.com/KhronosGroup/OpenCL-ICD-Loader.git
