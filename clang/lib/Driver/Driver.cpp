@@ -406,8 +406,8 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
 
   // Use of -fintelfpga implies -g and -MMD
   if (Args.hasArg(options::OPT_fintelfpga)) {
-    DAL->AddFlagArg(0, Opts->getOption(options::OPT_MMD));
-    DAL->AddFlagArg(0, Opts->getOption(options::OPT_g_Flag));
+    DAL->AddFlagArg(0, Opts.getOption(options::OPT_MMD));
+    DAL->AddFlagArg(0, Opts.getOption(options::OPT_g_Flag));
   }
 
 // Add a default value of -mlinker-version=, if one was given and the user
@@ -424,7 +424,7 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
 #if INTEL_CUSTOMIZATION
   // The Intel compiler defaults to -O2
   if (Args.hasArg(options::OPT__intel) && !Args.hasArg(options::OPT_O_Group)) {
-    DAL->AddJoinedArg(0, Opts->getOption(options::OPT_O), "2");
+    DAL->AddJoinedArg(0, Opts.getOption(options::OPT_O), "2");
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -4251,7 +4251,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
     // link actions and host list is ignored since we are adding
     // offload-static-libs as normal libraries to the host link command.
     for (const auto *A : Args.filtered(options::OPT_foffload_static_lib_EQ)) {
-      Arg *InputArg = MakeInputArg(Args, *Opts, A->getValue());
+      Arg *InputArg = MakeInputArg(Args, getOpts(), A->getValue());
       Action *Current = C.MakeAction<InputAction>(*InputArg, types::TY_Archive);
       OffloadBuilder.addHostDependenceToDeviceActions(Current, InputArg, Args);
       OffloadBuilder.addDeviceDependencesToHostAction(
@@ -4272,7 +4272,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
     if (UnbundlerInput) {
       if (auto *IA = dyn_cast<InputAction>(UnbundlerInput)) {
         std::string FileName = IA->getInputArg().getAsString(Args);
-        Arg *InputArg = MakeInputArg(Args, *Opts, FileName);
+        Arg *InputArg = MakeInputArg(Args, getOpts(), FileName);
         OffloadBuilder.addHostDependenceToDeviceActions(UnbundlerInput,
                                                         InputArg, Args);
         OffloadBuilder.addDeviceDependencesToHostAction(
