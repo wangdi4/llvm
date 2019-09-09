@@ -33,11 +33,12 @@ struct VecDesc {
 #endif
 };
 
-  enum LibFunc {
+  enum LibFunc : unsigned {
 #define TLI_DEFINE_ENUM
 #include "llvm/Analysis/TargetLibraryInfo.def"
 
-    NumLibFuncs
+    NumLibFuncs,
+    NotLibFunc
   };
 
 /// Implementation of the target library information.
