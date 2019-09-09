@@ -116,14 +116,11 @@ def note_decl_hiding_tag_type : Note<
 def err_attribute_not_type_attr : Error<
   "%0 attribute cannot be applied to types">;
 def err_enum_template : Error<"enumeration cannot be a template">;
-<<<<<<< HEAD
-=======
 
 def warn_cxx20_compat_consteval : Warning<
   "'consteval' specifier is incompatible with C++ standards before C++20">,
   InGroup<CXX2aCompat>, DefaultIgnore;
 
->>>>>>> a6e8b685e13492abfb2e58dc49007deda165a00d
 }
 
 let CategoryName = "Nullability Issue" in {
