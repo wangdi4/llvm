@@ -125,6 +125,10 @@ bool VPOParoptPass::runImpl(
 
   LLVM_DEBUG(dbgs() << "\n====== VPO ParoptPass ======\n\n");
 
+  // Disable offload constructs if -fopenmp-targets was not used on command line
+  if (M.getTargetDevices().empty())
+     DisableOffload = true;
+
   // AUTOPAR | OPENMP | SIMD | OFFLOAD
   VPOParoptModuleTransform VP(M, Mode, OptLevel, SwitchToOffload,
                               DisableOffload);

@@ -46,6 +46,7 @@
 source_filename = "num_teams_thread_limit_by_ref.cpp"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
+target device_triples = "spir64"
 
 ; Function Attrs: nounwind uwtable
 define dso_local void @_Z4foo1x(i64 %n) #0 {
