@@ -284,17 +284,14 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
   }
   if (UnrollLoops) {
     // Unroll small loops
-    if (UseVplan)
-      // Parameters for unrolling are as follows:
-      // Optimization level, OnlyWhenForced (If false, use cost model to
-      // determine loop unrolling profitability. If true, only loops that
-      // explicitly request unrolling via metadata are considered),
-      // ForgetAllSCEV (If false, when SCEV is invalidated, only forget
-      // everything in the top-most loop), cost threshold, explicit unroll
-      // count, allow partial unrolling, allow runtime unrolling.
-      PM->add(llvm::createLoopUnrollPass(OptLevel, false, false, 512, 0, 0, 0));
-    else
-      PM->add(llvm::createLoopUnrollPass(OptLevel, false, false, 512, 0, 0));
+    // Parameters for unrolling are as follows:
+    // Optimization level, OnlyWhenForced (If false, use cost model to
+    // determine loop unrolling profitability. If true, only loops that
+    // explicitly request unrolling via metadata are considered),
+    // ForgetAllSCEV (If false, when SCEV is invalidated, only forget
+    // everything in the top-most loop), cost threshold, explicit unroll
+    // count, allow partial unrolling, allow runtime unrolling.
+    PM->add(llvm::createLoopUnrollPass(OptLevel, false, false, 512, 0, 0, 0));
     // unroll loops with non-constant trip count
     const int thresholdBase = 16;
     if (rtLoopUnrollFactor > 1) {
