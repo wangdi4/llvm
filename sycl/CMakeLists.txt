@@ -34,6 +34,7 @@ set(CLANG_VERSION "${CLANG_VERSION_MAJOR}.${CLANG_VERSION_MINOR}.${CLANG_VERSION
 set(LLVM_INST_INC_DIRECTORY "lib${LLVM_LIBDIR_SUFFIX}/clang/${CLANG_VERSION}/include")
 set(dst_dir ${LLVM_LIBRARY_OUTPUT_INTDIR}/clang/${CLANG_VERSION}/include)
 
+<<<<<<< HEAD
 if( INTEL_CUSTOMIZATION )
   set( ICD_LOADER_SRC_DIR ${LLVM_MAIN_SRC_DIR}/../external/opencl-icd-loader)
 endif()
@@ -45,13 +46,22 @@ if( DEFINED ICD_LOADER_SRC_DIR )
 
   set(OpenCL_INCLUDE_DIRS ${OpenCL_INCLUDE_DIR})
 else()
+=======
+# Find OpenCL headers and libraries installed in the system and use them to
+# build SYCL runtime.
+# WARNING: use with caution, building SYCL runtime with OpenCL implementation
+# instead of Khronos ICD loader might cause build and/or portability issues.
+option(OpenCL_BUILD_WITH_SYSTEM_SDK OFF)
+
+if( (OpenCL_INCLUDE_DIR AND OpenCL_LIBRARY) OR OpenCL_BUILD_WITH_SYSTEM_SDK)
+>>>>>>> 590e79b6c61d9aeb68f577f6fd1e7e6a91fb3a84
   find_package(OpenCL)
 endif()
 
 include(ExternalProject)
 
 if( NOT OpenCL_INCLUDE_DIRS )
-  message ("OpenCL_INCLUDE_DIRS is missed. Try to download headers from github.com")
+  message("OpenCL_INCLUDE_DIRS is missed. Will try to download OpenCL headers from github.com")
   set(OpenCL_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/OpenCL/inc")
   ExternalProject_Add(ocl-headers
     GIT_REPOSITORY    https://github.com/KhronosGroup/OpenCL-Headers.git
@@ -64,7 +74,6 @@ if( NOT OpenCL_INCLUDE_DIRS )
     COMMENT           "Downloading OpenCL headers."
   )
 else()
-  message("OpenCL header have been found under ${OpenCL_INCLUDE_DIRS}.")
   add_custom_target( ocl-headers ALL
     DEPENDS ${OpenCL_INCLUDE_DIRS}
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${OpenCL_INCLUDE_DIRS}/CL ${dst_dir}/CL
@@ -72,6 +81,7 @@ else()
   )
 endif()
 
+<<<<<<< HEAD
 if( DEFINED ICD_LOADER_SRC_DIR )
   message ("Build OpenCL from provided sources")
   file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/icd_build/deploy)
@@ -116,20 +126,35 @@ if( DEFINED ICD_LOADER_SRC_DIR )
 elseif( NOT OpenCL_LIBRARIES )
   message("OpenCL_LIBRARIES is missed. Try to build from GitHub sources.")
   set(OpenCL_LIBRARIES "${LLVM_LIBRARY_OUTPUT_INTDIR}/libOpenCL.so")
+=======
+if( NOT OpenCL_LIBRARIES )
+  message("OpenCL_LIBRARIES is missed. Will try to download OpenCL ICD Loader from github.com")
+  if(MSVC)
+    set(OpenCL_LIBRARIES
+        "${LLVM_LIBRARY_OUTPUT_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}OpenCL${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(OPENCL_ICD_LOADER_WDK "-DOPENCL_ICD_LOADER_REQUIRE_WDK=OFF")
+  else()
+    set(OpenCL_LIBRARIES
+        "${LLVM_LIBRARY_OUTPUT_INTDIR}/${CMAKE_SHARED_LIBRARY_PREFIX}OpenCL${CMAKE_SHARED_LIBRARY_SUFFIX}")
+    set(OPENCL_ICD_LOADER_WDK "")
+  endif()
+>>>>>>> 590e79b6c61d9aeb68f577f6fd1e7e6a91fb3a84
   file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/icd_build)
   ExternalProject_Add(ocl-icd
     GIT_REPOSITORY    https://github.com/KhronosGroup/OpenCL-ICD-Loader.git
     GIT_TAG           origin/master
     SOURCE_DIR        "${CMAKE_CURRENT_BINARY_DIR}/OpenCL/icd"
     BINARY_DIR        "${CMAKE_CURRENT_BINARY_DIR}/icd_build"
-    CONFIGURE_COMMAND ${CMAKE_COMMAND} "${CMAKE_CURRENT_BINARY_DIR}/OpenCL/icd" -DCMAKE_INSTALL_LIBDIR:PATH=lib -DCMAKE_INSTALL_PREFIX=${LLVM_BINARY_DIR}
-    BUILD_COMMAND     make C_INCLUDE_PATH=${CMAKE_CURRENT_BINARY_DIR}/OpenCL/inc
-    INSTALL_COMMAND   make install
+    CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+               -DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}
+               -DOPENCL_ICD_LOADER_HEADERS_DIR=${CMAKE_CURRENT_BINARY_DIR}/OpenCL/inc
+               -DCMAKE_INSTALL_PREFIX=${LLVM_BINARY_DIR}
+               -DCMAKE_INSTALL_LIBDIR:PATH=lib
+               ${OPENCL_ICD_LOADER_WDK}
     STEP_TARGETS      configure,build,install
     DEPENDS           ocl-headers
   )
 else()
-  message("OpenCL loader has been found: ${OpenCL_LIBRARIES}.")
   file(GLOB ICD_LOADER_SRC "${OpenCL_LIBRARIES}*")
   file(COPY ${ICD_LOADER_SRC} DESTINATION ${LLVM_LIBRARY_OUTPUT_INTDIR})
   add_custom_target(ocl-icd DEPENDS ${OpenCL_LIBRARIES} COMMENT "Copying OpenCL ICD Loader ...")
