@@ -2,9 +2,14 @@
 // RUN: env SYCL_DEVICE_TYPE=HOST %t.out
 // RUN: env SYCL_PI_TRACE=1 %CPU_RUN_PLACEHOLDER %t.out 2>&1 %CPU_CHECK_PLACEHOLDER
 // RUN: env SYCL_PI_TRACE=1 %GPU_RUN_PLACEHOLDER %t.out 2>&1 %GPU_CHECK_PLACEHOLDER
+<<<<<<< HEAD
 // RUN: env SYCL_PI_TRACE=1 %ACC_RUN_PLACEHOLDER %t.out 2>&1 %ACC_CHECK_PLACEHOLDER
 // TODO: SYCL specific fail - windows+debug mode - analyze and enable
 // XFAIL: windows
+=======
+// TODO: For now PI checks are skipped for ACC device. To decide if it's good.
+// RUN: env %ACC_RUN_PLACEHOLDER %t.out
+>>>>>>> 023126111277f1a95b9a376b7cea6fec2d919bdf
 
 //==-------------- image_access.cpp - SYCL image accessors test  -----------==//
 //
