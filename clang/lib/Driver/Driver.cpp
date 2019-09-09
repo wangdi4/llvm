@@ -4242,6 +4242,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
     for (const auto &TLI : TempLinkerInputs)
       LinkerInputs.push_back(TLI);
   }
+  const llvm::opt::OptTable &Opts = getOpts();
   if (C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment() &&
       Args.hasArg(options::OPT_foffload_static_lib_EQ)) {
     // In MSVC environment offload-static-libs are handled slightly different
@@ -4251,7 +4252,11 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
     // link actions and host list is ignored since we are adding
     // offload-static-libs as normal libraries to the host link command.
     for (const auto *A : Args.filtered(options::OPT_foffload_static_lib_EQ)) {
+<<<<<<< HEAD
       Arg *InputArg = MakeInputArg(Args, getOpts(), A->getValue());
+=======
+      Arg *InputArg = MakeInputArg(Args, Opts, A->getValue());
+>>>>>>> 50b8c86feacb4d099d07b751527c4278fd9079a2
       Action *Current = C.MakeAction<InputAction>(*InputArg, types::TY_Archive);
       OffloadBuilder.addHostDependenceToDeviceActions(Current, InputArg, Args);
       OffloadBuilder.addDeviceDependencesToHostAction(
@@ -4272,7 +4277,11 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
     if (UnbundlerInput) {
       if (auto *IA = dyn_cast<InputAction>(UnbundlerInput)) {
         std::string FileName = IA->getInputArg().getAsString(Args);
+<<<<<<< HEAD
         Arg *InputArg = MakeInputArg(Args, getOpts(), FileName);
+=======
+        Arg *InputArg = MakeInputArg(Args, Opts, FileName);
+>>>>>>> 50b8c86feacb4d099d07b751527c4278fd9079a2
         OffloadBuilder.addHostDependenceToDeviceActions(UnbundlerInput,
                                                         InputArg, Args);
         OffloadBuilder.addDeviceDependencesToHostAction(
