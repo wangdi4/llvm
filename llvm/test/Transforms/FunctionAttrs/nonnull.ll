@@ -1,9 +1,13 @@
 ; RUN: opt -S -functionattrs -enable-nonnull-arg-prop %s | FileCheck %s --check-prefixes=BOTH,FNATTR
 ; RUN: opt -S -passes=function-attrs -enable-nonnull-arg-prop %s | FileCheck %s --check-prefixes=BOTH,FNATTR
+<<<<<<< HEAD
 ; RUN: opt -attributor --attributor-disable=false -attributor-max-iterations-verify -attributor-max-iterations=9 -S < %s | FileCheck %s --check-prefixes=BOTH,ATTRIBUTOR
 ; INTEL
 ; RUN: opt -S -convert-to-subscript %s | opt -S -functionattrs -enable-nonnull-arg-prop | FileCheck %s --check-prefixes=BOTH,FNATTR
 ; RUN: opt -S -passes=convert-to-subscript %s | opt -S -passes=function-attrs -enable-nonnull-arg-prop | FileCheck %s --check-prefixes=BOTH,FNATTR
+=======
+; RUN: opt -attributor --attributor-disable=false -attributor-max-iterations-verify -attributor-max-iterations=8 -S < %s | FileCheck %s --check-prefixes=BOTH,ATTRIBUTOR
+>>>>>>> 97fd582b91581f0b4cb10c77813f1a284bd69a92
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
