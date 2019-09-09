@@ -58,6 +58,11 @@ static cl::opt<std::string> ReqdSubGroupSizes("reqd-sub-group-size", cl::init(""
                                                  "size. Comma separated list of"
                                                  " name(num)"));
 
+static cl::opt<bool>
+    LT2GBWorkGroupSize("less-than-two-gig-max-work-group-size", cl::init(true),
+                       cl::Hidden,
+                       cl::desc("Max work group size is less than 2GB."));
+
 namespace intel {
 
 using ContainerTy = std::vector<std::pair<std::string, VectorVariant>>;
@@ -129,6 +134,53 @@ static void updateAndMoveTID(Instruction *TIDCallInstr, PHINode *Phi,
   TIDCallInstr->moveBefore(EntryBlock->getTerminator());
 }
 
+static void updateAndMoveGetLID(Instruction *LIDCallInst, PHINode *Phi,
+                                BasicBlock *EntryBlock) {
+  IRBuilder<> IRB(Phi);
+  IRB.SetInsertPoint(Phi->getNextNode());
+  // TODO: assertions for type of LIDCallInst and Phi
+  // Truncate LID to Phi's type (we know LID is in range {0-8192} since max work
+  // group size is less than 2GB).
+  Instruction *LIDTrunc =
+      cast<Instruction>(IRB.CreateTrunc(LIDCallInst, Phi->getType()));
+  // Generates LID+ind.
+  Instruction *Add = cast<Instruction>(IRB.CreateNUWAdd(LIDTrunc, Phi, "add"));
+  // Sign extend result to 64-bit (LIDCallInst's type)
+  Instruction *AddSExt =
+      cast<Instruction>(IRB.CreateSExt(Add, LIDCallInst->getType()));
+  // Replace all uses of LID with AddSExt, except truncs that go back to same
+  // size as Add. NOTE: This will also exclude LIDTrunc since Add and Phi are of
+  // same type.
+  LIDCallInst->replaceUsesWithIf(AddSExt, [Add](Use &U) {
+    User *Usr = U.getUser();
+    if (auto *UsrTruncInst = dyn_cast<TruncInst>(Usr)) {
+      if (UsrTruncInst->getDestTy() == Add->getType())
+        return false;
+    }
+    return true;
+  });
+
+  // All the remaining users of LID are either LIDTrunc or trunc instructions
+  // from incoming IR which go back to same size as Add. The latter are trivial
+  // and can be removed, with all their uses replaced directly by Add.
+  for (auto *User : LIDCallInst->users()) {
+    assert(isa<TruncInst>(User) && "Invalid remaining user of get_local_id.");
+    TruncInst *UserInst = cast<TruncInst>(User);
+
+    if (UserInst == LIDTrunc)
+      continue;
+
+    UserInst->replaceAllUsesWith(Add);
+    UserInst->eraseFromParent();
+  }
+
+  // Reset the operand of LID's trunc, after all uses of LID are replaced.
+  assert(LIDTrunc->getOperand(0) == LIDCallInst && "LIDTrunc is corrupted.");
+  // Move LID and its trunc call outside of the loop.
+  LIDCallInst->moveBefore(EntryBlock->getTerminator());
+  LIDTrunc->moveBefore(EntryBlock->getTerminator());
+}
+
 void OCLVecClone::handleLanguageSpecifics(Function &F, PHINode *Phi,
                                           Function *Clone,
                                           BasicBlock *EntryBlock) {
@@ -177,7 +229,11 @@ void OCLVecClone::handleLanguageSpecifics(Function &F, PHINode *Phi,
         assert(dim < 3 && "Argument is not in range");
         if (dim == 0) {
           // Currently, only zero dimension is vectorized.
-          updateAndMoveTID(CI, Phi, EntryBlock);
+          if (FuncName == CompilationUtils::mangledGetLID() &&
+              LT2GBWorkGroupSize)
+            updateAndMoveGetLID(CI, Phi, EntryBlock);
+          else
+            updateAndMoveTID(CI, Phi, EntryBlock);
         } else
           CI->moveBefore(EntryBlock->getTerminator());
         break;
