@@ -1,4 +1,4 @@
-// RUN: %clangxx -fsycl %s -o %t.out -lOpenCL
+// RUN: %clangxx -fsycl %s -o %t.out
 // RUN: %t.out
 // TODO: SYCL specific fail - windows+debug mode - analyze and enable
 // XFAIL: windows

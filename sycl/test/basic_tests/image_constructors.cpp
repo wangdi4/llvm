@@ -1,11 +1,15 @@
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // This test fires assertion: CORC-5473.
 // TODO: remove the requirement once issue fixed.
 // REQUIRES: !asserts
 // end INTEL_CUSTOMIZATION
 // RUN: %clangxx %s -o %t1.out -lOpenCL -lsycl
+=======
+// RUN: %clangxx %s -o %t1.out -lsycl
+>>>>>>> f0006765e3dc8acef09095b17ee39b55ebb79e27
 // RUN: env SYCL_DEVICE_TYPE=HOST %t1.out
-// RUN: %clangxx -fsycl %s -o %t2.out -lOpenCL
+// RUN: %clangxx -fsycl %s -o %t2.out
 // RUN: env SYCL_DEVICE_TYPE=HOST %t2.out
 // RUN: %CPU_RUN_PLACEHOLDER %t2.out
 // RUN: %GPU_RUN_PLACEHOLDER %t2.out
