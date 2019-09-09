@@ -38,6 +38,9 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
+#if INTEL_COLLAB
+#include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
+#endif  // INTEL_COLLAB
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -2614,6 +2617,45 @@ unsigned CastInst::isEliminableCastPair(
       (IsSecondBitcast && isa<VectorType>(MidTy) != isa<VectorType>(DstTy)))
     if (!AreBothBitcasts)
       return 0;
+
+#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-10068:
+#endif  // INTEL_CUSTOMIZATION
+  // FIXME: temporary workaround for incomplete handling of
+  //        global variables for SPIR targets in Paropt.
+  //        Paropt assumes that all uses of global variables
+  //        in OpenMP target regions are using the same addrspacecast
+  //        constant expression, and the same addrspacecast is used
+  //        in OpenMP clauses, so that standard uses relinking
+  //        works for the clause items. This constant folding
+  //        may cause the following IR:
+  //        %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+  //            "QUAL.OMP.MAP.TOFROM"([1000 x float] addrspace(4)*
+  //                addrspacecast (
+  //                    [1000 x float] addrspace(1)* @global_var
+  //                    to [1000 x float] addrspace(4)*)) ]
+  //        ...
+  //        %9 = getelementptr inbounds float,
+  //            float addrspace(4)* addrspacecast (
+  //                float addrspace(1)* getelementptr inbounds (
+  //                    [1000 x float],
+  //                    [1000 x float] addrspace(1)* @global_var,
+  //                    i32 0, i32 0)
+  //            to float addrspace(4)*), i64 %8
+  //
+  //        There is no use of the MAP() clause's item inside the region,
+  //        so the use of @global_var will not be relinked.
+  //        Paropt has to be able to handle this, and this code
+  //        has to be removed. For the time being, disallow
+  //        optimizing addrspacecasts's from global address space
+  //        to generic address space.
+  if (SrcTy->getContext().hasOpenMPOffloadTarget() &&
+      firstOp == Instruction::AddrSpaceCast &&
+      SrcTy->getPointerAddressSpace() == vpo::ADDRESS_SPACE_GLOBAL &&
+      MidTy->getPointerAddressSpace() == vpo::ADDRESS_SPACE_GENERIC)
+    return 0;
+#endif  // INTEL_COLLAB
 
   int ElimCase = CastResults[firstOp-Instruction::CastOpsBegin]
                             [secondOp-Instruction::CastOpsBegin];
