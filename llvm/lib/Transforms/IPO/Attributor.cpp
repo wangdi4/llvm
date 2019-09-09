@@ -647,12 +647,6 @@ struct AACallSiteReturnedFromReturned : public Base {
 struct AANoUnwindImpl : AANoUnwind {
   AANoUnwindImpl(const IRPosition &IRP) : AANoUnwind(IRP) {}
 
-  /// See AbstractAttribute::initialize(...).
-  void initialize(Attributor &A) override {
-    if (hasAttr({Attribute::NoUnwind}))
-      indicateOptimisticFixpoint();
-  }
-
   const std::string getAsStr() const override {
     return getAssumed() ? "nounwind" : "may-unwind";
   }
@@ -698,7 +692,7 @@ struct AANoUnwindCallSite final : AANoUnwindImpl {
   void initialize(Attributor &A) override {
     AANoUnwindImpl::initialize(A);
     Function *F = getAssociatedFunction();
-    if (!F || !F->hasExactDefinition())
+    if (!F)
       indicatePessimisticFixpoint();
   }
 
@@ -758,7 +752,7 @@ public:
     ReturnedValues.clear();
 
     Function *F = getAssociatedFunction();
-    if (!F || !F->hasExactDefinition()) {
+    if (!F) {
       indicatePessimisticFixpoint();
       return;
     }
@@ -777,6 +771,9 @@ public:
         return;
       }
     }
+
+    if (!F->hasExactDefinition())
+      indicatePessimisticFixpoint();
   }
 
   /// See AbstractAttribute::manifest(...).
@@ -1143,12 +1140,6 @@ struct AAReturnedValuesCallSite final : AAReturnedValuesImpl {
 struct AANoSyncImpl : AANoSync {
   AANoSyncImpl(const IRPosition &IRP) : AANoSync(IRP) {}
 
-  /// See AbstractAttribute::initialize(...).
-  void initialize(Attributor &A) override {
-    if (hasAttr({Attribute::NoSync}))
-      indicateOptimisticFixpoint();
-  }
-
   const std::string getAsStr() const override {
     return getAssumed() ? "nosync" : "may-sync";
   }
@@ -1316,7 +1307,7 @@ struct AANoSyncCallSite final : AANoSyncImpl {
   void initialize(Attributor &A) override {
     AANoSyncImpl::initialize(A);
     Function *F = getAssociatedFunction();
-    if (!F || !F->hasExactDefinition())
+    if (!F)
       indicatePessimisticFixpoint();
   }
 
@@ -1341,12 +1332,6 @@ struct AANoSyncCallSite final : AANoSyncImpl {
 
 struct AANoFreeImpl : public AANoFree {
   AANoFreeImpl(const IRPosition &IRP) : AANoFree(IRP) {}
-
-  /// See AbstractAttribute::initialize(...).
-  void initialize(Attributor &A) override {
-    if (hasAttr({Attribute::NoFree}))
-      indicateOptimisticFixpoint();
-  }
 
   /// See AbstractAttribute::updateImpl(...).
   ChangeStatus updateImpl(Attributor &A) override {
@@ -1386,7 +1371,7 @@ struct AANoFreeCallSite final : AANoFreeImpl {
   void initialize(Attributor &A) override {
     AANoFreeImpl::initialize(A);
     Function *F = getAssociatedFunction();
-    if (!F || !F->hasExactDefinition())
+    if (!F)
       indicatePessimisticFixpoint();
   }
 
@@ -1415,6 +1400,8 @@ struct AANonNullImpl : AANonNull {
   void initialize(Attributor &A) override {
     if (hasAttr({Attribute::NonNull, Attribute::Dereferenceable}))
       indicateOptimisticFixpoint();
+    else
+      AANonNull::initialize(A);
   }
 
   /// See AbstractAttribute::getAsStr().
@@ -1520,14 +1507,6 @@ struct AANonNullCallSiteReturned final
 struct AANoRecurseImpl : public AANoRecurse {
   AANoRecurseImpl(const IRPosition &IRP) : AANoRecurse(IRP) {}
 
-  /// See AbstractAttribute::initialize(...).
-  void initialize(Attributor &A) override {
-    if (hasAttr({getAttrKind()})) {
-      indicateOptimisticFixpoint();
-      return;
-    }
-  }
-
   /// See AbstractAttribute::getAsStr()
   const std::string getAsStr() const override {
     return getAssumed() ? "norecurse" : "may-recurse";
@@ -1554,7 +1533,7 @@ struct AANoRecurseCallSite final : AANoRecurseImpl {
   void initialize(Attributor &A) override {
     AANoRecurseImpl::initialize(A);
     Function *F = getAssociatedFunction();
-    if (!F || !F->hasExactDefinition())
+    if (!F)
       indicatePessimisticFixpoint();
   }
 
@@ -1607,10 +1586,7 @@ struct AAWillReturnImpl : public AAWillReturn {
 
   /// See AbstractAttribute::initialize(...).
   void initialize(Attributor &A) override {
-    if (hasAttr({Attribute::WillReturn})) {
-      indicateOptimisticFixpoint();
-      return;
-    }
+    AAWillReturn::initialize(A);
 
     Function *F = getAssociatedFunction();
     if (containsPossiblyEndlessLoop(F))
@@ -1657,7 +1633,7 @@ struct AAWillReturnCallSite final : AAWillReturnImpl {
   void initialize(Attributor &A) override {
     AAWillReturnImpl::initialize(A);
     Function *F = getAssociatedFunction();
-    if (!F || !F->hasExactDefinition())
+    if (!F)
       indicatePessimisticFixpoint();
   }
 
@@ -1683,12 +1659,6 @@ struct AAWillReturnCallSite final : AAWillReturnImpl {
 
 struct AANoAliasImpl : AANoAlias {
   AANoAliasImpl(const IRPosition &IRP) : AANoAlias(IRP) {}
-
-  /// See AbstractAttribute::initialize(...).
-  void initialize(Attributor &A) override {
-    if (hasAttr({Attribute::NoAlias}))
-      indicateOptimisticFixpoint();
-  }
 
   const std::string getAsStr() const override {
     return getAssumed() ? "noalias" : "may-alias";
@@ -1793,7 +1763,7 @@ struct AANoAliasCallSiteReturned final : AANoAliasImpl {
   void initialize(Attributor &A) override {
     AANoAliasImpl::initialize(A);
     Function *F = getAssociatedFunction();
-    if (!F || !F->hasExactDefinition())
+    if (!F)
       indicatePessimisticFixpoint();
   }
 
@@ -2187,6 +2157,12 @@ struct AADereferenceableImpl : AADereferenceable {
       takeKnownDerefBytesMaximum(Attr.getValueAsInt());
 
     NonNullAA = &A.getAAFor<AANonNull>(*this, getIRPosition());
+
+    const IRPosition &IRP = this->getIRPosition();
+    bool IsFnInterface = IRP.isFnInterfaceKind();
+    const Function *FnScope = IRP.getAnchorScope();
+    if (IsFnInterface && (!FnScope || !FnScope->hasExactDefinition()))
+      indicatePessimisticFixpoint();
   }
 
   /// See AbstractAttribute::getState()
@@ -2341,7 +2317,7 @@ struct AADereferenceableCallSiteReturned final : AADereferenceableImpl {
   void initialize(Attributor &A) override {
     AADereferenceableImpl::initialize(A);
     Function *F = getAssociatedFunction();
-    if (!F || !F->hasExactDefinition())
+    if (!F)
       indicatePessimisticFixpoint();
   }
 
@@ -2509,7 +2485,7 @@ struct AAAlignCallSiteReturned final : AAAlignImpl {
   void initialize(Attributor &A) override {
     AAAlignImpl::initialize(A);
     Function *F = getAssociatedFunction();
-    if (!F || !F->hasExactDefinition())
+    if (!F)
       indicatePessimisticFixpoint();
   }
 
@@ -2539,12 +2515,6 @@ struct AANoReturnImpl : public AANoReturn {
     return getAssumed() ? "noreturn" : "may-return";
   }
 
-  /// See AbstractAttribute::initialize(...).
-  void initialize(Attributor &A) override {
-    if (hasAttr({getAttrKind()}))
-      indicateOptimisticFixpoint();
-  }
-
   /// See AbstractAttribute::updateImpl(Attributor &A).
   virtual ChangeStatus updateImpl(Attributor &A) override {
     auto CheckForNoReturn = [](Instruction &) { return false; };
@@ -2570,7 +2540,7 @@ struct AANoReturnCallSite final : AANoReturnImpl {
   void initialize(Attributor &A) override {
     AANoReturnImpl::initialize(A);
     Function *F = getAssociatedFunction();
-    if (!F || !F->hasExactDefinition())
+    if (!F)
       indicatePessimisticFixpoint();
   }
 
@@ -2600,10 +2570,7 @@ struct AANoCaptureImpl : public AANoCapture {
 
   /// See AbstractAttribute::initialize(...).
   void initialize(Attributor &A) override {
-    if (hasAttr(Attribute::NoCapture)) {
-      indicateOptimisticFixpoint();
-      return;
-    }
+    AANoCapture::initialize(A);
 
     const IRPosition &IRP = getIRPosition();
     const Function *F =
@@ -2612,8 +2579,7 @@ struct AANoCaptureImpl : public AANoCapture {
     // Check what state the associated function can actually capture.
     if (F)
       determineFunctionCaptureCapabilities(*F, *this);
-
-    if (!F || !F->hasExactDefinition())
+    else
       indicatePessimisticFixpoint();
   }
 
@@ -3000,7 +2966,7 @@ bool Attributor::checkForAllCallSites(const function_ref<bool(CallSite)> &Pred,
     }
 
     CallSite CS(U.getUser());
-    if (!CS || !CS.isCallee(&U) || !CS.getCaller()->hasExactDefinition()) {
+    if (!CS || !CS.isCallee(&U)) {
       if (!RequireAllCallSites)
         continue;
 
@@ -3030,7 +2996,7 @@ bool Attributor::checkForAllReturnedValuesAndReturnInsts(
   // Since we need to provide return instructions we have to have an exact
   // definition.
   const Function *AssociatedFunction = IRP.getAssociatedFunction();
-  if (!AssociatedFunction || !AssociatedFunction->hasExactDefinition())
+  if (!AssociatedFunction)
     return false;
 
   // If this is a call site query we use the call site specific return values
@@ -3050,7 +3016,7 @@ bool Attributor::checkForAllReturnedValues(
 
   const IRPosition &IRP = QueryingAA.getIRPosition();
   const Function *AssociatedFunction = IRP.getAssociatedFunction();
-  if (!AssociatedFunction || !AssociatedFunction->hasExactDefinition())
+  if (!AssociatedFunction)
     return false;
 
   // TODO: use the function scope once we have call site AAReturnedValues.
@@ -3072,7 +3038,7 @@ bool Attributor::checkForAllInstructions(
   const IRPosition &IRP = QueryingAA.getIRPosition();
   // Since we need to provide instructions we have to have an exact definition.
   const Function *AssociatedFunction = IRP.getAssociatedFunction();
-  if (!AssociatedFunction || !AssociatedFunction->hasExactDefinition())
+  if (!AssociatedFunction)
     return false;
 
   // TODO: use the function scope once we have call site AAReturnedValues.
@@ -3577,24 +3543,15 @@ static bool runAttributorOnModule(Module &M) {
   Attributor A(InfoCache, DepRecInterval);
 
   for (Function &F : M) {
-    // TODO: Not all attributes require an exact definition. Find a way to
-    //       enable deduction for some but not all attributes in case the
-    //       definition might be changed at runtime, see also
-    //       http://lists.llvm.org/pipermail/llvm-dev/2018-February/121275.html.
-    // TODO: We could always determine abstract attributes and if sufficient
-    //       information was found we could duplicate the functions that do not
-    //       have an exact definition.
-    if (!F.hasExactDefinition()) {
+    if (F.hasExactDefinition())
+      NumFnWithExactDefinition++;
+    else
       NumFnWithoutExactDefinition++;
-      continue;
-    }
 
     // For now we ignore naked and optnone functions.
     if (F.hasFnAttribute(Attribute::Naked) ||
         F.hasFnAttribute(Attribute::OptimizeNone))
       continue;
-
-    NumFnWithExactDefinition++;
 
     // Populate the Attributor with abstract attribute opportunities in the
     // function and the information cache with IR information.
