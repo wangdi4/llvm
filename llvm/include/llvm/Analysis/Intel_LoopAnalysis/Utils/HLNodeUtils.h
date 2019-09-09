@@ -1559,7 +1559,10 @@ public:
                             const bool FitsIn32Bits = false);
 
   // Returns true if both HLIf nodes are equal.
-  static bool areEqual(const HLIf *NodeA, const HLIf *NodeB);
+  static bool areEqualConditions(const HLIf *NodeA, const HLIf *NodeB);
+
+  // Returns true if both HLSwitches are equal.
+  static bool areEqualConditions(const HLSwitch *NodeA, const HLSwitch *NodeB);
 
   // Replaces \p If with its *then* or *else* body.
   // Returns iterator range [FirstBodyChild, LastBodyChild) in the destination

@@ -103,6 +103,11 @@ public:
     return Node->getHLNodeClassID() == HLNode::HLSwitchVal;
   }
 
+  /// Print switch statement header.
+  void printHeader(formatted_raw_ostream &OS, unsigned Depth,
+                   bool Detailed) const;
+  void dumpHeader() const;
+
   /// \brief Prints HLSwitch.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,
                      bool Detailed = false) const override;
