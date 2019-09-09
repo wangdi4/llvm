@@ -56,11 +56,6 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
 
     if (!VPDA->isDivergent(*BottomTest)) {
       LLVM_DEBUG(dbgs() << "BottomTest is uniform\n");
-#ifdef VPlanPredicator
-      // Uniform inner loops under a predicate need to be fixed up after
-      // predication taking into account this predicate.
-      FixupLoopRegions.push_back(SubLoopRegion);
-#endif
       continue;
     }
 
@@ -79,7 +74,10 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
       if (SubLoopRegnPredBlock->getSuccessors()[1] == SubLoopRegion) {
         VPBuilder::InsertPointGuard Guard(Builder);
         Builder.setInsertPoint(SubLoopRegnPredBlock);
-        TopTest = Builder.createNot(TopTest);
+        bool Divergent = VPDA->isDivergent(*TopTest);
+        TopTest = Builder.createNot(TopTest, TopTest->getName() + ".not");
+        if (Divergent)
+          VPDA->markDivergent(*TopTest);
       }
 #endif // VPlanPredicator
       LLVM_DEBUG(dbgs() << "Top Test: "; TopTest->dump(); errs() << "\n");
@@ -134,6 +132,9 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
 
     // Construct loop body mask and insert into the loop header
     VPPHINode *LoopBodyMask = new VPPHINode(BottomTest->getType());
+    LoopBodyMask->setName("vp.loop.mask");
+    VPDA->markDivergent(*LoopBodyMask);
+
     if (TopTest)
       LoopBodyMask->addIncoming(TopTest, SubLoopPreHeader);
     else {
@@ -160,13 +161,19 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
           NewLoopLatch->getSuccessors()[1]->getEntryBasicBlock() ==
           SubLoopHeader;
 
-      if (BackEdgeIsFalseSucc)
-        BottomTest = Builder.createNot(cast<VPInstruction>(BottomTest));
+      if (BackEdgeIsFalseSucc) {
+        assert(VPDA->isDivergent(*BottomTest));
+        BottomTest = Builder.createNot(cast<VPInstruction>(BottomTest),
+                                       BottomTest->getName() + ".not");
+        VPDA->markDivergent(*BottomTest);
+      }
 
       // Combine the bottom test with the current loop body mask - inactive
       // lanes need to to remain inactive.
       BottomTest =
-          Builder.createAnd(BottomTest, cast<VPInstruction>(LoopBodyMask));
+          Builder.createAnd(BottomTest, cast<VPInstruction>(LoopBodyMask),
+                            LoopBodyMask->getName() + ".next");
+      VPDA->markDivergent(*BottomTest);
 
       // Update live-outs of the subloop. We should take the value which was
       // computed during the last not-masked-out iteration. For that, we need to
@@ -242,6 +249,9 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
             if (!Blend) {
               // Create a new phi and use mask for the current iteration.
               auto *NewPhi = new VPPHINode(Inst->getType());
+              NewPhi->setName(Inst->getName() + ".live.out.prev");
+              VPDA->markDivergent(*NewPhi);
+
               // It can be either SubLoopHeader or NewLoopLatch - doesn't really
               // matter.
               assert(SubLoopHeader->getNumPredecessors() == 2 &&
@@ -250,7 +260,9 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
 
               // Create the blend before population NewPhi's incoming values
               // that blend will be one of them.
-              Blend = Builder.createSelect(LoopBodyMask, Inst, NewPhi);
+              Blend = Builder.createSelect(LoopBodyMask, Inst, NewPhi,
+                                           Inst->getName() + ".live.out.blend");
+              VPDA->markDivergent(*Blend);
               CreatedBlends.insert(Blend);
 
               // We need undef for all the predecessors except NewLoopLatch.
@@ -288,6 +300,8 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
             // Check if we have already found/created an LCSSA-like phi.
             if (!LCSSAPhi) {
               LCSSAPhi = new VPPHINode(Inst->getType());
+              LCSSAPhi->setName(Inst->getName() + ".live.out.lcssa");
+              VPDA->markDivergent(*LCSSAPhi);
               SubLoopExitBlock->addRecipeAfter(LCSSAPhi,
                                                nullptr /* be the first */);
               LCSSAPhi->addIncoming(Blend, NewLoopLatch);
@@ -339,9 +353,10 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
       if (RegionBlock->getParent() == SubLoopRegion)
         RegionBlock->setParent(MaskRegion);
     }
+
     LLVM_DEBUG(
         dbgs() << "Subloop after inner loop control flow transformation\n");
-    LLVM_DEBUG(SubLoopRegion->dump());
+    LLVM_DEBUG(SubLoopRegion->dump(dbgs(), 0));
   }
 }
 #endif // INTEL_CUSTOMIZATION

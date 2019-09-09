@@ -915,9 +915,11 @@ public:
   void executeHIR(VPOCodeGenHIR *CG) override;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Dump the VPInstruction.
-  void dump(raw_ostream &O) const override;
+  void dump(raw_ostream &O) const override { dump(O, nullptr); };
+  void dump(raw_ostream &O, const VPlanDivergenceAnalysis *DA) const;
 
   void dump() const override { dump(errs()); }
+  void dump(const VPlanDivergenceAnalysis *DA) const { dump(dbgs(), DA); }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
@@ -927,8 +929,7 @@ public:
   void print(raw_ostream &O, const Twine &Indent) const override;
 
   /// Print the VPInstruction.
-  void print(raw_ostream &O) const;
-
+  void print(raw_ostream &O, const VPlanDivergenceAnalysis *DA = nullptr) const;
   static const char *getOpcodeName(unsigned Opcode);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
@@ -1119,6 +1120,7 @@ public:
     auto it = VPBBUsers.begin();
     std::advance(it, Idx);
     VPBBUsers.erase(it);
+    removeOperand(Idx);
   }
 
   /// Return index for a given \p Block.
@@ -2198,7 +2200,8 @@ public:
 
   virtual void dump() const = 0;
 
-  virtual void dump(raw_ostream &OS, unsigned Indent = 0) const = 0;
+  virtual void dump(raw_ostream &OS, unsigned Indent = 0,
+                    const VPlanDivergenceAnalysis *DA = nullptr) const = 0;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // Iterators and types to access Successors of a VPBlockBase
@@ -2509,7 +2512,8 @@ public:
   }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const override;
-  void dump(raw_ostream &OS, unsigned Indent = 0) const override;
+  void dump(raw_ostream &OS, unsigned Indent = 0,
+            const VPlanDivergenceAnalysis *DA = nullptr) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   void setCBlock(BasicBlock *CB) { CBlock = CB; }
   void setFBlock(BasicBlock *FB) { FBlock = FB; }
@@ -2524,24 +2528,11 @@ public:
   void setOriginalBB(BasicBlock *BB) { OriginalBB = BB; }
   BasicBlock *getOriginalBB() const { return OriginalBB; }
 
-  // Pair of incoming edge mask and predecessor basic block. This
-  // information is used to convert phis to select blends.
-  using MaskBlockPair = std::pair<VPValue *, VPBasicBlock *>;
-
-  void addMaskBlockPair(VPValue *Mask, VPBasicBlock *Block) {
-    IncomingMasks.push_back(std::make_pair(Mask, Block));
-  }
-
-  const SmallVectorImpl<MaskBlockPair> &getIncomingMasks() const {
-    return IncomingMasks;
-  }
-
 private:
   BasicBlock *CBlock;
   BasicBlock *TBlock;
   BasicBlock *FBlock;
   BasicBlock *OriginalBB;
-  SmallVector<MaskBlockPair, 4> IncomingMasks;
 #endif
   /// Create an IR BasicBlock to hold the instructions vectorized from this
   /// VPBasicBlock, and return it. Update the CFGState accordingly.
@@ -2689,10 +2680,10 @@ public:
   /// Compute the Post-Dominator Tree for this region
   void computePDT(void);
 
-  void getOrderedBlocks(std::vector<const VPBlockBase *> &Blocks) const;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const override;
-  void dump(raw_ostream &OS, unsigned Indent = 0) const override;
+  void dump(raw_ostream &OS, unsigned Indent = 0,
+            const VPlanDivergenceAnalysis *DA = nullptr) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
@@ -2870,7 +2861,7 @@ public:
   void printInst2Recipe();
 
   /// Print (in text format) VPlan blocks in order based on dominator tree.
-  void dump(raw_ostream &OS) const;
+  void dump(raw_ostream &OS, bool DumpDA = false) const;
   void dump() const;
   void dumpLivenessInfo(raw_ostream &OS) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -3383,6 +3374,9 @@ public:
     }
     return Count;
   }
+
+  static VPBasicBlock *splitExitBlock(VPBlockBase *Block, VPLoopInfo *VPLInfo,
+                                      VPDominatorTree &DomTree);
 
   static VPBasicBlock *splitBlock(VPBlockBase *Block, VPLoopInfo *VPLInfo,
                                   VPDominatorTree &DomTree,

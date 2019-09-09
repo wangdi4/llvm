@@ -5,18 +5,18 @@
 
 ; CHECK: Printing Divergence info for Loop at depth 1 containing: BB3<header>,BB4,BB5<latch><exiting>
 ; CHECK-LABEL: Basic Block: BB3
-; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VAL1:%vp[0-9]+]] = phi [ i64 0, BB2 ], [ i64 [[VAL2:%vp[0-9]+]], BB5 ]
-; CHECK-NEXT: Divergent: [Shape: Random] i64 [[VAL3:%vp[0-9]+]] = srem i64 [[VAL1:%vp[0-9]+]] i64 2
-; CHECK-NEXT: Divergent: [Shape: Random] i1 [[VAL4:%vp[0-9]+]] = trunc i64 [[VAL3:%vp[0-9]+]]
+; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VAL1:%vp.*]] = phi [ i64 0, BB2 ], [ i64 [[VAL2:%vp.*]], BB5 ]
+; CHECK-NEXT: Divergent: [Shape: Random] i64 [[VAL3:%vp.*]] = srem i64 [[VAL1:%vp.*]] i64 2
+; CHECK-NEXT: Divergent: [Shape: Random] i1 [[VAL4:%vp.*]] = trunc i64 [[VAL3:%vp.*]]
 ; CHECK-LABEL: Basic Block: BB4
-; CHECK-NEXT: Uniform: [Shape: Uniform] i32 [[VAL5:%vp[0-9]+]] = trunc i64 [[VAL6:%n]]
-; CHECK-NEXT: Uniform: [Shape: Uniform] float [[VAL7:%vp[0-9]+]] = sitofp i32 [[VAL5:%vp[0-9]+]]
+; CHECK-NEXT: Uniform: [Shape: Uniform] i32 [[VAL5:%vp.*]] = trunc i64 [[VAL6:%n]]
+; CHECK-NEXT: Uniform: [Shape: Uniform] float [[VAL7:%vp.*]] = sitofp i32 [[VAL5:%vp.*]]
 ; CHECK-LABEL: Basic Block: BB5
-; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL8:%vp[0-9]+]] = phi [ float [[VAL7:%vp[0-9]+]], BB4 ], [ float 4.200000e+01, BB3 ]
-; CHECK-NEXT: Divergent: [Shape: Unit Stride Pointer, Stride: i64 4] float* [[VAL9:%vp[0-9]+]] = getelementptr inbounds float* [[VAL10:%ptr]] i64 [[VAL1:%vp[0-9]+]]
-; CHECK-NEXT: Divergent: [Shape: Random] store float [[VAL8:%vp[0-9]+]] float* [[VAL9:%vp[0-9]+]]
-; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VAL2:%vp[0-9]+]] = add i64 [[VAL1:%vp[0-9]+]] i64 1
-; CHECK-NEXT: Uniform: [Shape: Uniform] i1 [[VAL11:%vp[0-9]+]] = icmp i64 [[VAL2:%vp[0-9]+]] i64 [[VAL6:%n]]
+; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL8:%vp.*]] = phi [ float [[VAL7:%vp.*]], BB4 ], [ float 4.200000e+01, BB3 ]
+; CHECK-NEXT: Divergent: [Shape: Unit Stride Pointer, Stride: i64 4] float* [[VAL9:%vp.*]] = getelementptr inbounds float* [[VAL10:%ptr]] i64 [[VAL1:%vp.*]]
+; CHECK-NEXT: Divergent: [Shape: Random] store float [[VAL8:%vp.*]] float* [[VAL9:%vp.*]]
+; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VAL2:%vp.*]] = add i64 [[VAL1:%vp.*]] i64 1
+; CHECK-NEXT: Uniform: [Shape: Uniform] i1 [[VAL11:%vp.*]] = icmp i64 [[VAL2:%vp.*]] i64 [[VAL6:%n]]
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #1

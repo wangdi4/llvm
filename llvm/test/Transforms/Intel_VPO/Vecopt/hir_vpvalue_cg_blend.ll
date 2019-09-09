@@ -10,7 +10,7 @@
 ; CHECK:           [[ARR3VAL:%.*]] = (<4 x i64>*)(@arr3)[0][i1 + <i64 0, i64 1, i64 2, i64 3>]; Mask = @{[[TMASK]]}
 ; CHECK:           [[SUB:%.*]] = [[ARR3VAL]]  +  -20; Mask = @{[[TMASK]]}
 ; CHECK:           [[SUBCOPY:%.*]] = [[SUB]]; Mask = @{[[TMASK]]}
-; CHECK:           [[SELECT:%.*]] = ([[FMASK]] == <i1 true, i1 true, i1 true, i1 true>) ? [[ADDCOPY]] : [[SUBCOPY]];
+; CHECK:           [[SELECT:%.*]] = ([[TMASK]] == <i1 true, i1 true, i1 true, i1 true>) ? [[SUBCOPY]] : [[ADDCOPY]];
 ; CHECK:           (<4 x i64>*)(@arr1)[0][i1 + <i64 0, i64 1, i64 2, i64 3>] = [[SELECT]];
 ; CHECK:        END LOOP
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

@@ -20,7 +20,7 @@
 
 ; Check plain HCFG
 ; HCFG: i1 [[Cmp:%.*]] = fcmp float [[Arr:%.*]] float 0.000000e+00
-; HCFG: Condition({{BB.*}}): i1 [[Cmp]] = fcmp float [[Arr]] float 0.000000e+00
+; HCFG: Condition({{BB.*}}): [DA: Divergent] i1 [[Cmp]] = fcmp float [[Arr]] float 0.000000e+00
 
 ; NOTE: We force VF=4 here to test correctness of code generation
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-after=VPlanDriverHIR -S < %s 2>&1 | FileCheck %s

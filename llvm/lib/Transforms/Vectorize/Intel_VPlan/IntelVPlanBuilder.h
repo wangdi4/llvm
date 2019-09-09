@@ -32,10 +32,12 @@ private:
 
 #if INTEL_CUSTOMIZATION
   VPInstruction *createInstruction(unsigned Opcode, Type *BaseTy,
-                                   ArrayRef<VPValue *> Operands) {
+                                   ArrayRef<VPValue *> Operands,
+                                   const Twine &Name = "") {
     VPInstruction *Instr = new VPInstruction(Opcode, BaseTy, Operands);
     if (BB)
       BB->insert(Instr, InsertPt);
+    Instr->setName(Name);
     return Instr;
   }
 
@@ -123,6 +125,14 @@ public:
     InsertPt = IP;
   }
 
+  void setInsertPointFirstNonPhi(VPBasicBlock *TheBB) {
+    BB = TheBB;
+    VPBasicBlock::iterator IP = TheBB->begin();
+    while (IP != TheBB->end() && isa<VPPHINode>(*IP))
+      ++IP;
+    InsertPt = IP;
+  }
+
   // Create an N-ary operation with \p Opcode, \p Operands and set \p Inst as
   // its underlying Instruction.
   VPValue *createNaryOp(unsigned Opcode, Type *BaseTy,
@@ -141,28 +151,29 @@ public:
 
   // Create a VPInstruction with \p LHS and \p RHS as operands and Add opcode.
   // For now, no no-wrap flags are used since they cannot be modeled in VPlan.
-  VPValue *createAdd(VPValue *LHS, VPValue *RHS) {
+  VPValue *createAdd(VPValue *LHS, VPValue *RHS, const Twine &Name = "") {
     return createInstruction(Instruction::BinaryOps::Add, LHS->getType(),
-                             {LHS, RHS});
+                             {LHS, RHS}, Name);
   }
 
-  VPValue *createAllZeroCheck(VPValue *Operand) {
+  VPValue *createAllZeroCheck(VPValue *Operand, const Twine &Name = "") {
     return createInstruction(VPInstruction::AllZeroCheck, Operand->getType(),
-                             {Operand});
+                             {Operand}, Name);
   }
 
-  VPValue *createAnd(VPValue *LHS, VPValue *RHS) {
+  VPValue *createAnd(VPValue *LHS, VPValue *RHS, const Twine &Name = "") {
     return createInstruction(Instruction::BinaryOps::And, LHS->getType(),
-                             {LHS, RHS});
+                             {LHS, RHS}, Name);
   }
 
-  VPValue *createNot(VPValue *Operand) {
-    return createInstruction(VPInstruction::Not, Operand->getType(), {Operand});
+  VPValue *createNot(VPValue *Operand, const Twine &Name = "") {
+    return createInstruction(VPInstruction::Not, Operand->getType(), {Operand},
+                             Name);
   }
 
-  VPValue *createOr(VPValue *LHS, VPValue *RHS) {
+  VPValue *createOr(VPValue *LHS, VPValue *RHS, const Twine &Name = "") {
     return createInstruction(Instruction::BinaryOps::Or, LHS->getType(),
-                             {LHS, RHS});
+                             {LHS, RHS}, Name);
   }
 
   VPValue *createPred(VPValue *Operand) {
@@ -170,9 +181,10 @@ public:
                              {Operand});
   }
 
-  VPValue *createSelect(VPValue *Mask, VPValue *Tval, VPValue *Fval) {
+  VPValue *createSelect(VPValue *Mask, VPValue *Tval, VPValue *Fval,
+                        const Twine &Name = "") {
     return createInstruction(Instruction::Select, Tval->getType(),
-                             {Mask, Tval, Fval});
+                             {Mask, Tval, Fval}, Name);
   }
 #else
 
@@ -203,9 +215,10 @@ public:
 
   /// \brief Create VPCmpInst with its two operands.
   VPCmpInst *createCmpInst(CmpInst::Predicate Pred, VPValue *LeftOp,
-                           VPValue *RightOp) {
+                           VPValue *RightOp, const Twine &Name = "") {
     assert(LeftOp && RightOp && "VPCmpInst's operands can't be null!");
     VPCmpInst *Instr = new VPCmpInst(LeftOp, RightOp, Pred);
+    Instr->setName(Name);
     if (BB)
       BB->insert(Instr, InsertPt);
     return Instr;

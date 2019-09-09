@@ -30,8 +30,8 @@
 ;    i1 %vp1776 = icmp i64 %vp1520 i64 1599
 ;  SUCCESSORS(1):BB7
 
-; CHECK: i32 [[Load:%vp[0-9]*]] = load i32* %vp{{[0-9]*}}
-; CHECK: i32 [[Trunc:%vp[0-9]*]] = trunc i64 %i1
+; CHECK: i32 [[Load:%vp.*]] = load i32* %vp{{[0-9]*}}
+; CHECK: i32 [[Trunc:%vp.*]] = trunc i64 %i1
 ; CHECK: i32 %vp{{[0-9]*}} = mul i32 [[Load]] i32 [[Trunc]]
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
