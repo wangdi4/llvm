@@ -182,6 +182,8 @@ public:
 
   bool isUniqueNameMangler() { return IsUniqueNameMangler; }
 
+  virtual void mangleLambdaSig(const CXXRecordDecl *Lambda, raw_ostream &) = 0;
+
   static bool classof(const MangleContext *C) {
     return C->getKind() == MK_Itanium;
   }
