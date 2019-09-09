@@ -306,6 +306,17 @@ public:
   /// LLVMContext is used by compilation.
   void setOptPassGate(OptPassGate&);
 
+#if INTEL_COLLAB
+  /// FIXME: remove this method, when addrspacecasts are fully
+  ///        supported in Paropt. See CastInst::isEliminableCastPair()
+  ///        for the usage and the comments.
+  ///
+  /// Return true, if any of the owned Modules are compiled
+  /// with OpenMP offload (which means omp_offload.info metadata
+  /// is present and not empty).
+  bool hasOpenMPOffloadTarget() const;
+#endif  // INTEL_COLLAB
+
 private:
   // Module needs access to the add/removeModule methods.
   friend class Module;
