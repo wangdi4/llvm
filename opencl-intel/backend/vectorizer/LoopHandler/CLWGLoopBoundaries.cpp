@@ -1060,7 +1060,11 @@ bool CLWGLoopBoundaries::isEarlyExitSucc(BasicBlock *BB){
     BranchInst *Br = dyn_cast<BranchInst>(BB->getTerminator());
     if (!Br) return false;
     if (Br->isConditional()) return false;
-    BB = Br->getSuccessor(0);
+    BasicBlock *SuccBB = Br->getSuccessor(0);
+    // Avoid hang in case of infinite loop
+    if (BB == SuccBB)
+      break;
+    BB = SuccBB;
   } while(1);
   return false;
 }
