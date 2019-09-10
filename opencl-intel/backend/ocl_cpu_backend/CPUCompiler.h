@@ -17,6 +17,8 @@
 #include "Compiler.h"
 #include "ICompilerConfig.h"
 
+#include "llvm/Target/TargetMachine.h"
+
 #include <string>
 
 namespace llvm {
@@ -54,8 +56,9 @@ public:
     // Get execution engine
     void *GetExecutionEngine() override { return m_pExecEngine; }
 
-    void DumpJIT( llvm::Module* pModule, const std::string& filename) const;
-
+    void DumpJIT( llvm::Module* pModule, const std::string& filename,
+                  llvm::TargetMachine::CodeGenFileType genType =
+                  llvm::TargetMachine::CGFT_AssemblyFile) const;
     void SetObjectCache(ObjectCodeCache* pCache) override;
 
     void SetBuiltinModules(const std::string& cpuName, const std::string& cpuFeatures) override;
@@ -65,7 +68,7 @@ protected:
 
 private:
     void SelectCpu( const std::string& cpuName, const std::string& cpuFeatures );
-
+    bool useLLDJITForExecution(llvm::Module* pModule) const;
     llvm::ExecutionEngine* CreateCPUExecutionEngine( llvm::Module* pModule ) const;
 
 private:

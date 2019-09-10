@@ -1,4 +1,4 @@
-from testlib.debuggertestcase import DebuggerTestCase
+from testlib.debuggertestcase import DebuggerTestCase, expectedFailureCDB
 
 #
 # TEST-CASE: DefaultGlobalId
@@ -28,7 +28,6 @@ class DefaultGlobalIdTest(DebuggerTestCase):
     #   4. global_work_offset is NULL - global ID start at offset 0.
     #   5. Minimum number of total number of global work-items (1)
     #   6. Minimum size of work-group
-
     def test_1D_default_global_id(self):
         import itertools
         CLNAME = 'check_ndrange_dimensions.cl'

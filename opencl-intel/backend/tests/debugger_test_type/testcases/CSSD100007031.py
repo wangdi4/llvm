@@ -1,9 +1,10 @@
-from testlib.debuggertestcase import DebuggerTestCase
+from testlib.debuggertestcase import DebuggerTestCase, expectedFailureCDB
 
 
 # Reproducer for CQ issue CSSD100007031
 #
 class CSSD100007031(DebuggerTestCase):
+    @expectedFailureCDB
     def test_CSSD100007031(self):
         CLNAME = 'cssd100007031.cl'
 

@@ -331,6 +331,7 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
         }
 
         PostOptimizationProcessing(pProgram, pModule, pOptions);
+
         if (!(pOptions && pOptions->
               GetBooleanValue(CL_DEV_BACKEND_OPTION_STOP_BEFORE_JIT, false)))
         {

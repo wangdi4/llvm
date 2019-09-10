@@ -26,12 +26,17 @@
 #include "MetadataAPI.h"
 
 #include "llvm/Bitcode/BitcodeReader.h"
-#include "llvm/CodeGen/CommandFlags.inc"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/TargetRegistry.h"
+
+#ifdef _WIN32
+#include "lld/Common/TargetOptionsCommandFlags.h"
+#else
+#include "llvm/CodeGen/CommandFlags.inc"
+#endif
 
 #include <sstream>
 #include <string>
@@ -40,7 +45,12 @@
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 TargetOptions ExternInitTargetOptionsFromCodeGenFlags() {
-  return InitTargetOptionsFromCodeGenFlags();
+#ifdef _WIN32
+    // We only link to LLD on Windows
+    return lld::initTargetOptionsFromCodeGenFlags();
+#else
+    return InitTargetOptionsFromCodeGenFlags();
+#endif
 }
 
 // Supported target triples.
@@ -156,6 +166,7 @@ cl_dev_err_code ProgramBuildResult::GetBuildResult() const
 
 CompilerBuildOptions::CompilerBuildOptions(const char* pBuildOpts):
     m_debugInfo(false),
+    m_useNativeDebugger(false),
     m_profiling(false),
     m_disableOpt(false),
     m_relaxedMath(false),
@@ -176,6 +187,10 @@ CompilerBuildOptions::CompilerBuildOptions(const char* pBuildOpts):
          m_profiling = true;
        else if (opt.equals("-g"))
          m_debugInfo = true;
+       else if (opt.equals("-gnative")) {
+         m_debugInfo = true;
+         m_useNativeDebugger = true;
+       }
        else if (opt.equals("-cl-fast-relaxed-math"))
          m_relaxedMath = true;
        else if (opt.equals("-cl-opt-disable"))
@@ -187,7 +202,6 @@ CompilerBuildOptions::CompilerBuildOptions(const char* pBuildOpts):
        else if (opt.compare("-auto-prefetch-level") == 1)
          opt.substr(opt.find("=") + 1).getAsInteger(10, m_APFLevel);
      }
-
 }
 
 bool Compiler::s_globalStateInitialized = false;
@@ -306,7 +320,8 @@ Compiler::Compiler(const ICompilerConfig& config):
     m_IRDumpBefore(config.GetIRDumpOptionsBefore()),
     m_IRDumpDir(config.GetDumpIRDir()),
     m_dumpHeuristicIR(config.GetDumpHeuristicIRFlag()),
-    m_debug(false)
+    m_debug(false),
+    m_useNativeDebugger(false)
 {
     // WORKAROUND!!! See the notes in TerminationBlocker description
    static Utils::TerminationBlocker blocker;
@@ -464,11 +479,13 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
                 Optimizer::InvalidGVType::FPGA_DEPTH_IS_IGNORED));
     }
 
+    // Record the debug control flags.
+    m_debug = buildOptions.GetDebugInfoFlag();
+    m_useNativeDebugger = buildOptions.GetUseNativeDebuggerFlag();
+
     //
     // Populate the build results
     //
-    m_debug = buildOptions.GetDebugInfoFlag();
-
     pResult->SetBuildResult( CL_DEV_SUCCESS );
 
     // Execution Engine depends on module configuration and should

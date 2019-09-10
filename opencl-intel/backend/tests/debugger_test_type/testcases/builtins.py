@@ -35,7 +35,7 @@ class BuiltinsTester(DebuggerTestCase):
 
         floats_expff4 = self._vec2floats(self.client.var_query_value('expff4'))
         for i in range(4):
-            self.assertAlmostEqual(floats_expff4[i], math.exp(fi + i), 1)
+            self.assertAlmostEqual(floats_expff4[i], math.exp(fi + i), 0)
 
         self.client.debug_run_finish(bps)
 

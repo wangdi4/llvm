@@ -15,7 +15,7 @@ class StartWithStep(DebuggerTestCase):
         self.client.start_session(0, 0, 0)
 
         # First send a SINGLE_STEP_IN
-        if self.use_gdb:
+        if self.use_gdb or self.use_cdb:
             # GDB single-steps into the program entry point (which varies with
             # the test driver/gdb version) instead of the test case as the
             # simulator does. Here, we use a breakpoint to get GDB to the first
