@@ -93,6 +93,7 @@ class FixupBWInstPass : public MachineFunctionPass {
   /// nullptr.
   MachineInstr *tryReplaceCopy(MachineInstr *MI) const;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// Change the MachineInstr \p MI into the equivalent 32-bit unop if it is
   /// safe to do so.  Return the replacement instruction if OK, otherwise return
@@ -104,6 +105,13 @@ class FixupBWInstPass : public MachineFunctionPass {
   /// nullptr.
   MachineInstr *tryReplaceRegImmOp(unsigned NewOpc, MachineInstr *MI) const;
 #endif // INTEL_CUSTOMIZATION
+=======
+  /// Change the MachineInstr \p MI into the equivalent extend to 32 bit
+  /// register if it is safe to do so.  Return the replacement instruction if
+  /// OK, otherwise return nullptr.
+  MachineInstr *tryReplaceExtend(unsigned New32BitOpcode,
+                                 MachineInstr *MI) const;
+>>>>>>> 0364d89b6d60e305ffec8bae74e9564f4e9355f2
 
   // Change the MachineInstr \p MI into an eqivalent 32 bit instruction if
   // possible.  Return the replacement instruction if OK, return nullptr
@@ -253,12 +261,12 @@ bool FixupBWInstPass::getSuperRegDestIfDead(MachineInstr *OrigMI,
   //   %ax = KILL %ax, implicit killed %eax
   //   RET 0, %ax
   unsigned Opc = OrigMI->getOpcode(); (void)Opc;
-  // These are the opcodes currently handled by the pass, if something
-  // else will be added we need to ensure that new opcode has the same
-  // properties.
-  assert((Opc == X86::MOV8rm || Opc == X86::MOV16rm || Opc == X86::MOV8rr ||
-          Opc == X86::MOV16rr) &&
-         "Unexpected opcode.");
+  // These are the opcodes currently known to work with the code below, if
+  // something // else will be added we need to ensure that new opcode has the
+  // same properties.
+  if (Opc != X86::MOV8rm && Opc != X86::MOV16rm && Opc != X86::MOV8rr &&
+      Opc != X86::MOV16rr)
+    return false;
 
   bool IsDefined = false;
   for (auto &MO: OrigMI->implicit_operands()) {
@@ -347,6 +355,7 @@ MachineInstr *FixupBWInstPass::tryReplaceCopy(MachineInstr *MI) const {
   return MIB;
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 MachineInstr *FixupBWInstPass::tryReplaceUnOp(unsigned NewOpc,
                                               MachineInstr *MI) const {
@@ -415,6 +424,34 @@ MachineInstr *FixupBWInstPass::tryReplaceRegImmOp(unsigned NewOpc,
   return MIB;
 }
 #endif // INTEL_CUSTOMIZATION
+=======
+MachineInstr *FixupBWInstPass::tryReplaceExtend(unsigned New32BitOpcode,
+                                                MachineInstr *MI) const {
+  Register NewDestReg;
+  if (!getSuperRegDestIfDead(MI, NewDestReg))
+    return nullptr;
+
+  // Don't interfere with formation of CBW instructions which should be a
+  // shorter encoding than even the MOVSX32rr8. It's also immunte to partial
+  // merge issues on Intel CPUs.
+  if (MI->getOpcode() == X86::MOVSX16rr8 &&
+      MI->getOperand(0).getReg() == X86::AX &&
+      MI->getOperand(1).getReg() == X86::AL)
+    return nullptr;
+
+  // Safe to change the instruction.
+  MachineInstrBuilder MIB =
+      BuildMI(*MF, MI->getDebugLoc(), TII->get(New32BitOpcode), NewDestReg);
+
+  unsigned NumArgs = MI->getNumOperands();
+  for (unsigned i = 1; i < NumArgs; ++i)
+    MIB.add(MI->getOperand(i));
+
+  MIB.setMemRefs(MI->memoperands());
+
+  return MIB;
+}
+>>>>>>> 0364d89b6d60e305ffec8bae74e9564f4e9355f2
 
 MachineInstr *FixupBWInstPass::tryReplaceInstr(MachineInstr *MI,
                                                MachineBasicBlock &MBB) const {
@@ -445,6 +482,7 @@ MachineInstr *FixupBWInstPass::tryReplaceInstr(MachineInstr *MI,
     // of the register.
     return tryReplaceCopy(MI);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case X86::DEC16r:
     return tryReplaceUnOp(X86::DEC32r, MI);
@@ -473,6 +511,16 @@ MachineInstr *FixupBWInstPass::tryReplaceInstr(MachineInstr *MI,
   case X86::XOR16ri:
     return tryReplaceRegImmOp(X86::XOR32ri, MI);
 #endif // INTEL_CUSTOMIZATION
+=======
+  case X86::MOVSX16rr8:
+    return tryReplaceExtend(X86::MOVSX32rr8, MI);
+  case X86::MOVSX16rm8:
+    return tryReplaceExtend(X86::MOVSX32rm8, MI);
+  case X86::MOVZX16rr8:
+    return tryReplaceExtend(X86::MOVZX32rr8, MI);
+  case X86::MOVZX16rm8:
+    return tryReplaceExtend(X86::MOVZX32rm8, MI);
+>>>>>>> 0364d89b6d60e305ffec8bae74e9564f4e9355f2
 
   default:
     // nothing to do here.
