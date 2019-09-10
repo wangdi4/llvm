@@ -324,13 +324,3 @@ const DiagnosticHandler *LLVMContext::getDiagHandlerPtr() const {
 std::unique_ptr<DiagnosticHandler> LLVMContext::getDiagnosticHandler() {
   return std::move(pImpl->DiagHandler);
 }
-
-#if INTEL_COLLAB
-bool LLVMContext::hasOpenMPOffloadTarget() const {
-  for (auto *M : pImpl->OwnedModules)
-    if (auto *MD = M->getNamedMetadata("omp_offload.info"))
-      if (MD->getNumOperands() != 0)
-        return true;
-  return false;
-}
-#endif  // INTEL_COLLAB
