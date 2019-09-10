@@ -560,7 +560,7 @@ static void populatePassesPostFailCheck(
     if (!pRtlModuleList.empty()) {
       if (UseVplan) {
         if (EmitKernelVectorizerSignOn)
-          dbgs() << "DPC++ Kernel Vectorizer\n";
+          dbgs() << "Kernel Vectorizer\n";
 
         // Replace 'div' and 'rem' instructions with calls to optimized library
         // functions
