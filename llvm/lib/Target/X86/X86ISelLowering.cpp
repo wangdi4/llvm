@@ -7875,17 +7875,9 @@ static SDValue EltsFromConsecutiveLoads(EVT VT, ArrayRef<SDValue> Elts,
   int LoadSizeInBits = (1 + LastLoadedElt - FirstLoadedElt) * BaseSizeInBits;
   assert((BaseSizeInBits % 8) == 0 && "Sub-byte element loads detected");
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
   // TODO: Support offsetting the base load.
   if (ByteOffsets[FirstLoadedElt] != 0)
     return SDValue();
-#endif // INTEL_CUSTOMIZATION
-=======
-  // TODO: Support offsetting the base load.
-  if (ByteOffsets[FirstLoadedElt] != 0)
-    return SDValue();
->>>>>>> 29361c704dfaefdd0f5a1c4b2d8eaa56f012bb7d
 
   // Check to see if the element's load is consecutive to the base load
   // or offset from a previous (already checked) load.
