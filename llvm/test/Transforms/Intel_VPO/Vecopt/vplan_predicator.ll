@@ -390,7 +390,7 @@ define void @test_separate_blend_bb_for_2_div_plus_uniform(i32* %a, i32 %b) loca
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB10]] (BP: NULL) :
-; CHECK-NEXT:       [DA: Uniform]   i32 [[VP2:%.*]] = phi  [ i32 3, [[BB9]] ],  [ i32 2, [[BB8]] ]
+; CHECK-NEXT:       [DA: Divergent] i32 [[VP2:%.*]] = phi  [ i32 3, [[BB9]] ],  [ i32 2, [[BB8]] ]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB6]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB9]]
 ; CHECK-EMPTY:
@@ -540,7 +540,7 @@ define void @test_two_blend_bbs(i32* %a, i32 %b)  local_unnamed_addr {
 ; CHECK-NEXT:        PREDECESSORS(1): [[BB10]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB12]] (BP: NULL) :
-; CHECK-NEXT:         [DA: Uniform]   i32 [[VP1:%.*]] = phi  [ i32 6, [[BB11]] ],  [ i32 5, [[BB9]] ]
+; CHECK-NEXT:         [DA: Divergent] i32 [[VP1:%.*]] = phi  [ i32 6, [[BB11]] ],  [ i32 5, [[BB9]] ]
 ; CHECK-NEXT:        SUCCESSORS(1):[[BB8]]
 ; CHECK-NEXT:        PREDECESSORS(1): [[BB11]]
 ; CHECK-EMPTY:
@@ -570,7 +570,7 @@ define void @test_two_blend_bbs(i32* %a, i32 %b)  local_unnamed_addr {
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB14]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB16]] (BP: NULL) :
-; CHECK-NEXT:       [DA: Uniform]   i32 [[VP4:%.*]] = phi  [ i32 2, [[BB14]] ],  [ i32 3, [[BB15]] ]
+; CHECK-NEXT:       [DA: Divergent] i32 [[VP4:%.*]] = phi  [ i32 2, [[BB14]] ],  [ i32 3, [[BB15]] ]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB8]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB15]]
 ; CHECK-EMPTY:
