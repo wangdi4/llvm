@@ -24,7 +24,7 @@ for.body.lr.ph:
 
 for.body:
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.latch ]
-  %cond = icmp eq i64 %n, 42
+  %cond = icmp eq i64 %indvars.iv, 42
   %gep = getelementptr inbounds <2 x i64>, <2 x i64>* %arr, i64 42
 ; CHECK:    [[TMP1:%.*]] = getelementptr inbounds <2 x i64>, <2 x i64>* [[ARR:%.*]], i64 42
   %load.uni = load <2 x i64>, <2 x i64>* %gep

@@ -1,3 +1,8 @@
+; Test if we preserve SSA after single exit while loop canonicalization. Some
+; values are defined in the loop body, but they are used in the loop header. To
+; preserve dominance for these values, a phi node is emitted at the top of the
+; new loop latch.
+
 ; REQUIRES: asserts
 ; RUN: opt -S < %s -VPlanDriver -disable-output -vplan-print-after-hcfg 2>&1 | FileCheck %s
 
@@ -20,7 +25,7 @@ define dso_local i32 @main() #0 {
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]] (BP: NULL) :
-; CHECK-NEXT:    i32 [[VP_I:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP_I_INC:%.*]], [[BB3:BB[0-9]+]] ]
+; CHECK-NEXT:     [DA: Divergent] i32 [[VP_I:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP_I_INC:%.*]], [[BB3:BB[0-9]+]] ]
 ; CHECK-NEXT:    SUCCESSORS(1):[[LOOP1:loop[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB1]]
 ; CHECK-EMPTY:
@@ -31,29 +36,30 @@ define dso_local i32 @main() #0 {
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]] (BP: NULL) :
-
-; VP_K_INC is defined in the loop body (BB8), but it is used in the loop header
-; (BB5). This breaks dominance.
-; CHECK-NEXT:     i32 [[VP_J:%.*]] = phi  [ i32 0, [[BB4]] ],  [ i32 [[VP_K_INC:%.*]], [[BB6:BB[0-9]+]] ]
-; CHECK-NEXT:     i32 [[VP_J_INC:%.*]] = add i32 [[VP_J]] i32 1
-; CHECK-NEXT:     i1 [[VP_CMP2:%.*]] = icmp i32 [[VP_J_INC]] i32 16
+; CHECK-NEXT:     [DA: Uniform]   i32 [[VP_J:%.*]] = phi  [ i32 0, [[BB4]] ],  [ i32 [[VP0:%.*]], [[BB6:BB[0-9]+]] ]
+; CHECK-NEXT:     [DA: Uniform]   i32 [[VP_J_INC:%.*]] = add i32 [[VP_J]] i32 1
+; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_CMP2:%.*]] = icmp i32 [[VP_J_INC]] i32 16
 ; CHECK-NEXT:    SUCCESSORS(1):[[REGION1:region[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB6]] [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    REGION: [[REGION1]] (BP: NULL)
 ; CHECK-NEXT:    [[BB7:BB[0-9]+]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:     Condition([[BB5]]): i1 [[VP_CMP2]] = icmp i32 [[VP_J_INC]] i32 16
+; CHECK-NEXT:     Condition([[BB5]]): [DA: Uniform]   i1 [[VP_CMP2]] = icmp i32 [[VP_J_INC]] i32 16
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB8:BB[0-9]+]](i1 [[VP_CMP2]]), [[BB9:BB[0-9]+]](!i1 [[VP_CMP2]])
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB8]] (BP: NULL) :
-; CHECK-NEXT:      i32 [[VP_K_INC]] = add i32 [[VP_J]] i32 1
+; VP_K_INC is defined in the loop body (BB8), but it is used in the loop header
+; (BB5). This breaks dominance.
+; CHECK-NEXT:       [DA: Uniform]   i32 [[VP_K_INC:%.*]] = add i32 [[VP_J]] i32 1
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB9]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB7]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]] (BP: NULL) :
-; CHECK-NEXT:     i1 [[VP0:%.*]] = phi  [ i1 true, [[BB8]] ],  [ i1 false, [[BB7]] ]
+; The following phi node is added to preserve SSA.
+; CHECK-NEXT:     [DA: Uniform]   i32 [[VP0]] = phi  [ i32 [[VP_K_INC]], [[BB8]] ],  [ i32 undef, [[BB7]] ]
+; CHECK-NEXT:     [DA: Uniform]   i1 [[VP1:%.*]] = phi  [ i1 true, [[BB8]] ],  [ i1 false, [[BB7]] ]
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB8]] [[BB7]]
 ; CHECK-EMPTY:
@@ -62,13 +68,13 @@ define dso_local i32 @main() #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:     Condition([[BB9]]): i1 [[VP0]] = phi  [ i1 true, [[BB8]] ],  [ i1 false, [[BB7]] ]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB5]](i1 [[VP0]]), [[BB10:BB[0-9]+]](!i1 [[VP0]])
+; CHECK-NEXT:     Condition([[BB9]]): [DA: Uniform]   i1 [[VP1]] = phi  [ i1 true, [[BB8]] ],  [ i1 false, [[BB7]] ]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB5]](i1 [[VP1]]), [[BB10:BB[0-9]+]](!i1 [[VP1]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[REGION1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB10]] (BP: NULL) :
-; CHECK-NEXT:     i32 [[VP_M1:%.*]] = phi  [ i32 0, [[BB6]] ]
-; CHECK-NEXT:     i32 [[VP_M2:%.*]] = add i32 [[VP_I]] i32 [[VP_M1]]
+; CHECK-NEXT:     [DA: Uniform]   i32 [[VP_M1:%.*]] = phi  [ i32 0, [[BB6]] ]
+; CHECK-NEXT:     [DA: Divergent] i32 [[VP_M2:%.*]] = add i32 [[VP_I]] i32 [[VP_M1]]
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
 ; CHECK-EMPTY:
@@ -76,13 +82,13 @@ define dso_local i32 @main() #0 {
 ; CHECK-NEXT:    END Region([[LOOP1]])
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB11]] (BP: NULL) :
-; CHECK-NEXT:     i32 [[VP_M3:%.*]] = add i32 [[VP_M1]] i32 4
+; CHECK-NEXT:     [DA: Uniform]   i32 [[VP_M3:%.*]] = add i32 [[VP_M1]] i32 4
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[LOOP1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]] (BP: NULL) :
-; CHECK-NEXT:     i32 [[VP_I_INC]] = add i32 [[VP_I]] i32 [[VP_M3]]
-; CHECK-NEXT:     i1 [[VP_CMP4:%.*]] = icmp i32 [[VP_I_INC]] i32 1024
+; CHECK-NEXT:     [DA: Divergent] i32 [[VP_I_INC]] = add i32 [[VP_I]] i32 [[VP_M3]]
+; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_CMP4:%.*]] = icmp i32 [[VP_I_INC]] i32 1024
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP_CMP4]]), [[BB12:BB[0-9]+]](!i1 [[VP_CMP4]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB11]]
 ; CHECK-EMPTY:
@@ -101,6 +107,7 @@ define dso_local i32 @main() #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    END Region([[REGION0]])
 ;
+
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %loop1
@@ -139,7 +146,7 @@ loop1_exit:
 end:
   call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"()]
   ret i32 0
-}
+  }
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #1

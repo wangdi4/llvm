@@ -15,24 +15,24 @@
 ; CHECK-DAG: i64* %ret
 ; CHECK-DAG: i8* %0
 ; CHECK-NEXT: Used externally
-; CHECK-DAG: i64 {{%vp[0-9]+}}
-; CHECK-DAG: i64 {{%vp[0-9]+}}
-; CHECK-DAG: i64 {{%vp[0-9]+}}
-; CHECK-DAG: i64 {{%vp[0-9]+}} liveout in the loop: BB2
+; CHECK-DAG: i64 {{%vp.*}}
+; CHECK-DAG: i64 {{%vp.*}}
+; CHECK-DAG: i64 {{%vp.*}}
+; CHECK-DAG: i64 {{%vp.*}} liveout in the loop: BB2
 ; CHECK-DAG: i8* %4 livein in the loops:  BB2
 ; CHECK-DAG: i64* %k livein in the loops:  BB2
 ; CHECK-DAG: i64* %ub livein in the loops:  BB2
-; CHECK-DAG: i64 {{%vp[0-9]+}} livein in the loops:  BB9
-; CHECK-DAG: i1 {{%vp[0-9]+}} liveout in the loop: BB9
-; CHECK-DAG: i64 {{%vp[0-9]+}} livein in the loops:  BB9
+; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB9
+; CHECK-DAG: i1 {{%vp.*}} liveout in the loop: BB9
+; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB9
 ; CHECK-DAG: [101 x float]* %a livein in the loops:  BB9 BB2
-; CHECK-DAG: i64 {{%vp[0-9]+}} livein in the loops:  BB9
+; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB9
 ; CHECK-DAG: i64 %n livein in the loops:  BB9 BB2
-; CHECK-DAG: i64 {{%vp[0-9]+}} liveout in the loop: BB2
+; CHECK-DAG: i64 {{%vp.*}} liveout in the loop: BB2
 ; CHECK-DAG: i64 %add13 livein in the loops:  BB2
 ; CHECK-DAG: [101 x float]* %B livein in the loops:  BB2
 ; CHECK-DAG: i8* %4 livein in the loops:  BB2
-; CHECK-DAG: i64 {{%vp[0-9]+}} liveout in the loop: BB2
+; CHECK-DAG: i64 {{%vp.*}} liveout in the loop: BB2
 ; CHECK-DAG: i64 %3 livein in the loops:  BB2
 ; CHECK-NEXT:Live-in and Live-out info end
 

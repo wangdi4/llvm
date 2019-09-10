@@ -80,6 +80,11 @@ private:
 
   /// Represents the "base" type of the value, i.e. without VF/UF applied.
   Type *BaseTy;
+
+  // FIXME: To be moved out of the VPValue to some analogue of the
+  // llvm::Context (probably the separate HCFG class once we refactor it out of
+  // the VPlan).
+  std::string Name;
 #endif // INTEL_CUSTOMIZATION
 
   SmallVector<VPUser *, 1> Users;
@@ -106,6 +111,8 @@ protected:
       : SubclassID(SC), BaseTy(BaseTy), UnderlyingVal(UV),
         IsUnderlyingValueValid(UV ? true : false) {
     assert(BaseTy && "BaseTy can't be null!");
+    if (UV && !UV->getName().empty())
+      Name = ("vp." + UV->getName()).str();
   }
 #else
   VPValue(const unsigned char SC, Value *UV = nullptr)
@@ -127,6 +134,9 @@ protected:
     assert(!UnderlyingVal && "Underlying Value is already set.");
     UnderlyingVal = &Val;
     IsUnderlyingValueValid = true;
+
+    if (!Val.getName().empty())
+      Name = ("vp." + Val.getName()).str();
   }
 
   /// Return validity of underlying Value or HIR node.
@@ -172,6 +182,23 @@ public:
   // FIXME: Remove this when the cost model issues are resolved (see comments
   // for VPInstruction::getCMType())
   virtual Type *getCMType() const { return nullptr; }
+  // If \p BaseName starts with "vp.", set it as new name. Otherwise, prepend
+  // with "vp." and set the result as new name.
+  void setName(const Twine &BaseName) {
+    SmallString<256> NameData;
+    StringRef NameRef = BaseName.toStringRef(NameData);
+
+    if (NameRef.empty())
+      return;
+
+    if (NameRef.startswith("vp."))
+      Name = std::string(NameRef);
+    else
+      Name = ("vp." + NameRef).str();
+  }
+  StringRef getName() const {
+    return Name;
+  }
 #endif
 
   /// \return an ID for the concrete type of this object.
@@ -182,11 +209,8 @@ public:
 #if INTEL_CUSTOMIZATION
   virtual void dump(raw_ostream &OS) const { printAsOperand(OS); }
   virtual void dump() const { dump(errs()); }
-  virtual
+  virtual void printAsOperand(raw_ostream &OS) const;
 #endif
-void printAsOperand(raw_ostream &OS) const {
-    OS << *getType() << " %vp" << (unsigned short)(unsigned long long)this;
-}
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   unsigned getNumUsers() const { return Users.size(); }

@@ -64,8 +64,8 @@
 ; CHECK-EMPTY:
 
 ; CHECK-NEXT: [[LoopHeader:BB[0-9]+]] (BP: NULL) :
-; CHECK-NEXT: i32 [[PHI_OUT0:%vp[0-9]+]] = phi  [ i32 0, [[LoopPreHeader]] ], [ i32 {{%vp[0-9]+}}, [[NewLoopLatch:BB[0-9]+]] ]
-; CHECK-NEXT: i32 [[ADD_OUT1:%vp[0-9]+]] = add
+; CHECK-NEXT: i32 [[PHI_OUT0:%vp[0-9]+]] = phi  [ i32 0, [[LoopPreHeader]] ], [ i32 [[ADD_OUT1:%vp[0-9]+]], [[NewLoopLatch:BB[0-9]+]] ]
+; CHECK-NEXT: i32 [[ADD_OUT1]] = add
 ; CHECK-NEXT: SUCCESSORS(1):[[ExitingBlock:BB[0-9]+]]
 ; CHECK-NEXT: PREDECESSORS(2): [[NewLoopLatch:BB[0-9]+]] [[LoopPreHeader]]
 ; CHECK-EMPTY:

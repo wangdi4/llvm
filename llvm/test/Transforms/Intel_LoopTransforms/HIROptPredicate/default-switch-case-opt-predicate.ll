@@ -3,9 +3,9 @@
 
 ; Verify that predicate in switch's default case is optimized successfully.
 
-; CHECK: Function
-; CHECK: DO i1
+; CHECK-LABEL: Function
 
+; CHECK: DO i1
 ; CHECK: default:
 ; CHECK: |      if (%p.0702 == 6)
 ; CHECK: |      {
@@ -18,15 +18,14 @@
 ; CHECK: |         (@sa)[0][i1] = 0;
 ; CHECK: |      }
 
-; CHECK: Function
+; CHECK-LABEL: Function
 
+; CHECK: default:
 ; CHECK: DO i1
-; CHECK: |   default:
 ; CHECK: |      (@ua)[0][i1] = -32768;
 ; CHECK: |      (@sa)[0][i1] = -32768;
 
 ; CHECK: DO i1
-; CHECK: |   default:
 ; CHECK: |      (@ua)[0][i1] = 0;
 ; CHECK: |      (@sa)[0][i1] = 0;
 

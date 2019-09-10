@@ -109,7 +109,8 @@ std::string getClangToolFullVersion(StringRef ToolName) {
   std::string buf;
   llvm::raw_string_ostream OS(buf);
 #if INTEL_CUSTOMIZATION
-  OS << "icx (ICX) " << getICXVersionString();
+  OS << "DPC++ Compiler " << getDPCPPVersionString() << " (" <<
+      getICXVersionString() << ")";
 #endif // INTEL_CUSTOMIZATION
   return OS.str();
 }
@@ -128,7 +129,29 @@ std::string getClangFullCPPVersion() {
 
 #if INTEL_CUSTOMIZATION
 std::string getICXVersionString() {
+  // XMAIN_BUILD_DATE_STAMP_STR is expected to be 8 characters of YYYYMMDD.
+  // Split the string for our usage in the version, which should resemble
+  // YYYY.8.x.0.MMDD
+  StringRef Date(XMAIN_BUILD_DATE_STAMP_STR);
+  if (Date.size() == 8) {
+    StringRef MMDD(Date.take_back(4));
+    StringRef YYYY(Date.take_front(4));
+    std::string buf;
+    llvm::raw_string_ostream OS(buf);
+    OS << YYYY << "." << XMAIN_VERSION_STRING << "." << MMDD;
+    return OS.str();
+  }
   return XMAIN_VERSION_STRING;
+}
+
+std::string getDPCPPVersionString() {
+  std::string buf;
+  llvm::raw_string_ostream OS(buf);
+  OS << DPCPP_VERSION_MAJOR_STR << "." << DPCPP_VERSION_MINOR_STR;
+  StringRef Q(DPCPP_VERSION_QUALITY);
+  if (!Q.empty())
+    OS << "-" << Q;
+  return OS.str();
 }
 
 std::string getICXVersionNumber() {

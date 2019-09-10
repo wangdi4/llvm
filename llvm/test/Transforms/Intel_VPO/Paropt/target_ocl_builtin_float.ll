@@ -1,41 +1,46 @@
 ; RUN: opt -vpo-paropt -S < %s | FileCheck %s
 ; RUN: opt -passes='vpo-paropt' -S < %s  | FileCheck %s
 
-; This test checks that VPOParopt translates names of math functions (float)
-; into OpenCL builtin names. This is needed in the spirv compilation phase
-; of icx -fiopenmp -fopenmp-targets=spir64 for
+; This test checks that VPOParopt translates names of math functions (double)
+; into OpenCL builtin names. This is needed for spir64 targets.
+;
+; List of functions:
+; sin,cos,tan,pow,exp,log,ceil,floor,fabs,sqrt,log2,erf,fmax,fmin,
+; asin,asinh,acos,acosh,atan,atanh,atan2
+; To add new functions, add them to the 2 areas marked MANUALLY ADDED.
+
+;   - For C++, clang will generate calls to ceil, floor, fabs, fmax, fmin.
+;   - For C, clang will generate calls to
+;       llvm.(ceil|floor|fabs|maxnum|minnum).f64
+; We test both forms in one test.
+
 ;
 ; #include <stdio.h>
 ; #include <mathimf.h>
 ; int main() {
-;   float array[20];
+;   double array[20];
 ;   #pragma omp target map(tofrom:array)
 ;   {
-;      array[0] = sinf(1.0);
-;      array[1] = cosf(1.0);
-;      array[2] = tanf(1.0);
-;      array[3] = powf(2.0, 3.0);
-;      array[4] = expf(2.0);
-;      array[5] = logf(2.0);
-;      array[6] = ceilf(2.5);
-;      array[7] = floorf(2.5);
-;      array[8] = fabsf(-2.0);
-;      array[9] = sqrtf(3.0);
-;      array[10] = log2f(3.0);
-;      array[11] = erff(3.0);
-;      array[12] = fmaxf(2.0, 3.0);
-;      array[13] = fminf(2.0, 3.0);
+;      array[0] = sin(1.0);
+;      array[1] = cos(1.0);
+;      array[2] = tan(1.0);
+;      array[3] = pow(2.0, 3.0);
+;      array[4] = exp(2.0);
+;      array[5] = log(2.0);
+;      array[6] = ceil(2.5);
+;      array[7] = floor(2.5);
+;      array[8] = fabs(-2.0);
+;      array[9] = sqrt(3.0);
+;      array[10] = log2(3.0);
+;      array[11] = erf(3.0);
+;      array[12] = fmax(2.0, 3.0);
+;      array[13] = fmin(2.0, 3.0);
+;         ... other functions ...
 ;   }
 ;   for (int i = 0; i<14; i++)
-;     printf("array[%d] = %f\n", i, array[i]);
+;     printf("array[%d] = %lf\n", i, array[i]);
 ;   return 0;
 ; }
-
-; The IR below is manually modified for ceilf, floorf, fabsf, fmaxf, fminf:
-;   - For C++, clang will generate calls to ceilf, floorf, fabsf, fmaxf, fminf.
-;   - For C, clang will generate calls to
-;       llvm.(ceil|floor|fabs|maxnum|minnum).f32
-; We test both forms in one test.
 
 ; ModuleID = '<stdin>'
 source_filename = "target_ocl_builtin_float.cpp"
@@ -120,6 +125,48 @@ declare dso_local spir_func float @fminf(float, float) #1
 declare dso_local spir_func float @llvm.minnum.f32(float, float) #6
 ; CHECK: declare dso_local spir_func float @_Z4fminff(float, float)
 
+; MANUALLY ADDED
+
+; Function Attrs: nounwind
+declare dso_local spir_func float @asinf(float) #1
+; CHECK: declare dso_local spir_func float @_Z4asinf(float)
+
+; Function Attrs: nounwind
+declare dso_local spir_func float @asinhf(float) #1
+; CHECK: declare dso_local spir_func float @_Z5asinhf(float)
+
+; Function Attrs: nounwind
+declare dso_local spir_func float @sinhf(float) #1
+; CHECK: declare dso_local spir_func float @_Z4sinhf(float)
+
+; Function Attrs: nounwind
+declare dso_local spir_func float @acosf(float) #1
+; CHECK: declare dso_local spir_func float @_Z4acosf(float)
+
+; Function Attrs: nounwind
+declare dso_local spir_func float @acoshf(float) #1
+; CHECK: declare dso_local spir_func float @_Z5acoshf(float)
+
+; Function Attrs: nounwind
+declare dso_local spir_func float @coshf(float) #1
+; CHECK: declare dso_local spir_func float @_Z4coshf(float)
+
+; Function Attrs: nounwind
+declare dso_local spir_func float @atanf(float) #1
+; CHECK: declare dso_local spir_func float @_Z4atanf(float)
+
+; Function Attrs: nounwind
+declare dso_local spir_func float @atanhf(float) #1
+; CHECK: declare dso_local spir_func float @_Z5atanhf(float)
+
+; Function Attrs: nounwind
+declare dso_local spir_func float @atan2f(float, float) #1
+; CHECK: declare dso_local spir_func float @_Z5atan2f(float, float)
+
+; Function Attrs: nounwind
+declare dso_local spir_func float @tanhf(float) #1
+; CHECK: declare dso_local spir_func float @_Z4tanhf(float)
+
 ; Function Attrs: noinline norecurse optnone uwtable
 define dso_local spir_kernel void @__omp_offloading_fd02_d323ad_main_l46([20 x float] addrspace(1)* %array) #4 {
 newFuncRoot:
@@ -202,6 +249,38 @@ DIR.OMP.TARGET.1:                                 ; preds = %for.end
 ; CHECK: {{.*}} call spir_func float @_Z4fminff
   %call26 = fadd float %call26.1, %call26.2
   %arrayidx27 = getelementptr inbounds [20 x float], [20 x float] addrspace(1)* %array, i64 0, i64 13
+
+; MANUALLY ADDED
+; Since there's no dead store elimination in this test, use the same address.
+
+  %call27 = call spir_func float @asinf(float 1.00e+00)
+; CHECK: {{.*}} call spir_func float @_Z4asinf
+  store float %call27, float addrspace(1)* %arrayidx25, align 8
+  %call28 = call spir_func float @asinhf(float 1.00e+00)
+; CHECK: {{.*}} call spir_func float @_Z5asinhf
+  store float %call28, float addrspace(1)* %arrayidx25, align 8
+  %call29 = call spir_func float @sinhf(float 1.00e+00)
+; CHECK: {{.*}} call spir_func float @_Z4sinhf
+  store float %call29, float addrspace(1)* %arrayidx25, align 8
+  %call30 = call spir_func float @acosf(float 1.00e+00)
+; CHECK: {{.*}} call spir_func float @_Z4acosf
+  store float %call30, float addrspace(1)* %arrayidx25, align 8
+  %call31 = call spir_func float @acoshf(float 1.00e+00)
+; CHECK: {{.*}} call spir_func float @_Z5acoshf
+  store float %call31, float addrspace(1)* %arrayidx25, align 8
+  %call32 = call spir_func float @coshf(float 1.00e+00)
+; CHECK: {{.*}} call spir_func float @_Z4coshf
+  store float %call32, float addrspace(1)* %arrayidx25, align 8
+  %call33 = call spir_func float @atanf(float 1.00e+00)
+; CHECK: {{.*}} call spir_func float @_Z4atanf
+  store float %call33, float addrspace(1)* %arrayidx25, align 8
+  %call34 = call spir_func float @atanhf(float 1.00e+00)
+; CHECK: {{.*}} call spir_func float @_Z5atanhf
+  store float %call34, float addrspace(1)* %arrayidx25, align 8
+  %call35 = call spir_func float @atan2f(float 1.00e+00, float 1.00e+00)
+; CHECK: {{.*}} call spir_func float @_Z5atan2f
+  store float %call35, float addrspace(1)* %arrayidx25, align 8
+
   br label %DIR.OMP.END.TARGET.2
 
 DIR.OMP.END.TARGET.2:                             ; preds = %DIR.OMP.TARGET.1

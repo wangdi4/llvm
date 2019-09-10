@@ -43,7 +43,7 @@ define void @test1(double %t, float %tf, i32 %idx) {
     %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.exit ]
     %1 = call double @_Z3expd(double %t)
     %2 = call double @_Z4sqrtd(double %t)
-    %cmp1 = icmp sgt i32 %idx, 2
+    %cmp1 = icmp sgt i32 %index, 2
     br i1 %cmp1, label %if.then, label %omp.body.continue
   if.then:
     ;; TODO: For uniform input arguments like 'tf', we should have a single

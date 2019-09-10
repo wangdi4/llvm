@@ -22,7 +22,7 @@
 ; HCFG: i1 [[Cmp1:%.*]] = icmp i64 {{%.*}} i64 512
 ; HCFG-NEXT: i1 [[Cmp2:%.*]] = icmp i32 {{%.*}} i32 0
 ; HCFG-NEXT: i1 [[And:%.*]] = and i1 [[Cmp1]] i1 [[Cmp2]]
-; HCFG: Condition({{BB.*}}): i1 [[And]] = and i1 [[Cmp1]] i1 [[Cmp2]]
+; HCFG: Condition({{BB.*}}): [DA: Divergent] i1 [[And]] = and i1 [[Cmp1]] i1 [[Cmp2]]
 
 ; NOTE: We force VF=4 here to test correctness of code generation
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-after=VPlanDriverHIR -S < %s 2>&1 | FileCheck %s
