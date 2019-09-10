@@ -1087,6 +1087,14 @@ public:
     setOperand(Idx, Value);
   }
 
+  /// Set the incoming value for a specific basic block.
+  void setIncomingValue(VPBasicBlock *VPBB, VPValue *Value) {
+    assert(Value && VPBB && "Value and VPBB must not be null.");
+    auto Idx = getBlockIndex(VPBB);
+    assert(Idx >= 0 && "VPBB should have a valid index.");
+    setIncomingValue(Idx, Value);
+  }
+
   /// Add an incoming value to the end of the PHI list
   void addIncoming(VPValue *Value, VPBasicBlock *Block) {
     assert(Value && "Value must not be null.");
