@@ -629,11 +629,6 @@ private:
           makeArrayRef(Bin->getBufferStart(), Bin->getBufferSize()),
           Twine(OffloadKindTag) + Twine(ImgId) + Twine(".data"), Kind, Img.Tgt);
 
-<<<<<<< HEAD
-      // Need to add 'host' dummy bundle if target triple was specified for at
-      // least one target image.
-      AddHostBundle |= !Img.Tgt.empty();
-
 #if INTEL_COLLAB
       if (Kind == OffloadKind::OpenMP)
         ImagesInits.push_back(ConstantStruct::get(
@@ -645,8 +640,6 @@ private:
             { Fver, Fknd, Ffmt, Ftgt, Fopt, FMnf.first, FMnf.second,
               Fbin.first, Fbin.second, EntriesB, EntriesE }));
 #else  // INTEL_COLLAB
-=======
->>>>>>> 661da122c4255e5db9137c6df713467a25cc349c
       ImagesInits.push_back(ConstantStruct::get(
           getDeviceImageTy(),
           {Fver, Fknd, Ffmt, Ftgt, Fopt, FMnf.first, FMnf.second, Fbin.first,
@@ -655,21 +648,11 @@ private:
       ImgId++;
     }
 
-<<<<<<< HEAD
-    if (AddHostBundle) {
-      // Add dummy image for the 'host' binary to satisfy bundler expectations
-      // for fat objects.
-      addDeviceImageToModule(0, Twine(OffloadKindTag) + Twine("host.data"),
-                             OffloadKind::Host, Target);
-    }
-
 #if INTEL_COLLAB
     auto *ImagesData = ConstantArray::get(
         ArrayType::get(getDeviceImageTy(Kind), ImagesInits.size()),
         ImagesInits);
 #else  // INTEL_COLLAB
-=======
->>>>>>> 661da122c4255e5db9137c6df713467a25cc349c
     auto *ImagesData = ConstantArray::get(
         ArrayType::get(getDeviceImageTy(), ImagesInits.size()), ImagesInits);
 #endif  // INTEL_COLLAB
