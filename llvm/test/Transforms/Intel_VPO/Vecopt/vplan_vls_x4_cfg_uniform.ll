@@ -31,17 +31,8 @@ define void @foo(i32* nocapture %ary, i32 %param) {
 ; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
 ; CHECK-NEXT:   #2 <4 x 32> SStore
 ;
-; CHECK-LABEL: @foo(
-; CHECK-NEXT:  entry:
-; CHECK-NEXT:    br i1 false, label [[SCALAR_PH:%.*]], label [[MIN_ITERS_CHECKED:%.*]]
-; CHECK:       min.iters.checked:
-; CHECK-NEXT:    br i1 false, label [[SCALAR_PH]], label [[VECTOR_PH:%.*]]
-; CHECK:       vector.ph:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT1:%.*]] = insertelement <4 x i32*> undef, i32* [[ARY:%.*]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT2:%.*]] = shufflevector <4 x i32*> [[BROADCAST_SPLATINSERT1]], <4 x i32*> undef, <4 x i32> zeroinitializer
-; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], [[VPLANNEDBB9:%.*]] ]
+; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VPLANNEDBB9:%.*]] ]
 ; CHECK-NEXT:    [[VEC_IND:%.*]] = phi <4 x i64> [ <i64 0, i64 4, i64 8, i64 12>, [[VECTOR_PH]] ], [ [[VEC_IND_NEXT:%.*]], [[VPLANNEDBB9]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = and i32 [[PARAM:%.*]], 1
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x i32> undef, i32 [[TMP0]], i32 0
@@ -51,7 +42,7 @@ define void @foo(i32* nocapture %ary, i32 %param) {
 ; CHECK-NEXT:    [[TMP3:%.*]] = xor <4 x i1> [[TMP1]], <i1 true, i1 true, i1 true, i1 true>
 ; CHECK-NEXT:    br i1 [[TMP2]], label [[VPLANNEDBB9]], label [[VPLANNEDBB:%.*]]
 ; CHECK:       VPlannedBB:
-; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT2]], <4 x i64> [[VEC_IND]]
+; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT2:%.*]], <4 x i64> [[VEC_IND]]
 ; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0i32(<4 x i32*> [[MM_VECTORGEP]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> undef)
 ; CHECK-NEXT:    [[TMP4:%.*]] = add nsw <4 x i32> [[WIDE_MASKED_GATHER]], <i32 7, i32 7, i32 7, i32 7>
 ; CHECK-NEXT:    [[TMP5:%.*]] = or <4 x i64> [[VEC_IND]], <i64 1, i64 1, i64 1, i64 1>
@@ -78,7 +69,7 @@ define void @foo(i32* nocapture %ary, i32 %param) {
 ; CHECK-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], 4
 ; CHECK-NEXT:    [[TMP14:%.*]] = icmp eq i64 [[INDEX_NEXT]], 256
 ; CHECK-NEXT:    [[VEC_IND_NEXT]] = add <4 x i64> [[VEC_IND]], <i64 16, i64 16, i64 16, i64 16>
-; CHECK-NEXT:    br i1 [[TMP14]], label [[VPLANNEDBB10:%.*]], label [[VECTOR_BODY]]
+; CHECK-NEXT:    br i1 [[TMP14]], label [[VPLANNEDBB10:%.*]], label [[VECTOR_BODY:%.*]]
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
