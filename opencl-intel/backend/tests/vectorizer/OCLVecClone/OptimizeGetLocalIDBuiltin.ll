@@ -2,7 +2,8 @@
 ; manner if it is known that max work group size is less than 2GB.
 
 ; Check for default case i.e. max work group size < 2GB. Note that %trunc.user is removed from function,
-; its uses replaced by %add.
+; its uses replaced by %add. Similarly %shl.user and %ashr.inst are removed, with all uses of %ashr.inst
+; replaced by %add.sext.
 ; RUN: %oclopt --ocl-vecclone --ocl-vec-clone-isa-encoding-override=AVX512Core < %s -S -o - | FileCheck %s --check-prefix=LT2GB
 ; LT2GB-LABEL: @_ZGVeN8uu_foo
 
@@ -16,7 +17,8 @@
 ; LT2GB-NEXT: [[ADD_SEXT:%.*]] = sext i32 %add to i64
 ; LT2GB-NEXT: %non.trunc.user = add i64 [[ADD_SEXT]], 42
 ; LT2GB-NEXT: %other.trunc = trunc i64 %non.trunc.user to i32
-; LT2GB-NEXT: %ret = mul i32 %other.trunc, %add
+; LT2GB-NEXT: %ret0 = mul i32 %other.trunc, %add
+; LT2GB-NEXT: %ret1 = mul i64 %non.trunc.user, [[ADD_SEXT]]
 ; LT2GB-NEXT: br label %simd.loop.exit
 
 
@@ -34,7 +36,10 @@
 ; GT2GB-NEXT: %non.trunc.user = add i64 %add, 42
 ; GT2GB-NEXT: %other.trunc = trunc i64 %non.trunc.user to i32
 ; GT2GB-NEXT: %trunc.user = trunc i64 %add to i32
-; GT2GB-NEXT: %ret = mul i32 %other.trunc, %trunc.user
+; GT2GB-NEXT: %shl.user = shl i64 %add, 32
+; GT2GB-NEXT: %ashr.inst = ashr exact i64 %shl.user, 32
+; GT2GB-NEXT: %ret0 = mul i32 %other.trunc, %trunc.user
+; GT2GB-NEXT: %ret1 = mul i64 %non.trunc.user, %ashr.inst
 ; GT2GB-NEXT: br label %simd.loop.exit
 
 
@@ -52,7 +57,10 @@ entry:
    %non.trunc.user = add i64 %lid_call, 42
    %other.trunc = trunc i64 %non.trunc.user to i32
    %trunc.user = trunc i64 %lid_call to i32
-   %ret = mul i32 %other.trunc, %trunc.user
+   %shl.user = shl i64 %lid_call, 32
+   %ashr.inst = ashr exact i64 %shl.user, 32
+   %ret0 = mul i32 %other.trunc, %trunc.user
+   %ret1 = mul i64 %non.trunc.user, %ashr.inst
    ret void
 }
 
