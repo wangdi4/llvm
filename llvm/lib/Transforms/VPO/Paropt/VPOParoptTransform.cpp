@@ -1130,6 +1130,7 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNParallel:
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
+          Changed |= canonicalizeGlobalVariableReferences(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
           Changed |= propagateCancellationPointsToIR(W);
         }
@@ -1185,6 +1186,7 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed = addNormUBsToParents(W);
 
           Changed |= regularizeOMPLoop(W);
+          Changed |= canonicalizeGlobalVariableReferences(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
           Changed |= propagateCancellationPointsToIR(W);
         }
@@ -1292,6 +1294,7 @@ bool VPOParoptTransform::paroptTransforms() {
         break;
       case WRegionNode::WRNTask:
         if (Mode & ParPrepare) {
+          Changed |= canonicalizeGlobalVariableReferences(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
           Changed |= propagateCancellationPointsToIR(W);
         }
@@ -1323,6 +1326,7 @@ bool VPOParoptTransform::paroptTransforms() {
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
           Changed = regularizeOMPLoop(W);
+          Changed |= canonicalizeGlobalVariableReferences(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
@@ -1369,6 +1373,7 @@ bool VPOParoptTransform::paroptTransforms() {
           // functions with target regions from being deleted by LTO.
           if (hasOffloadCompilation())
             F->setLinkage(GlobalValue::LinkageTypes::ExternalLinkage);
+          Changed |= canonicalizeGlobalVariableReferences(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed |= promoteClauseArgumentUses(W);
@@ -1400,8 +1405,10 @@ bool VPOParoptTransform::paroptTransforms() {
         // check below.
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
-          if (!hasOffloadCompilation())
+          if (!hasOffloadCompilation()) {
+            Changed |= canonicalizeGlobalVariableReferences(W);
             Changed |= renameOperandsUsingStoreThenLoad(W);
+          }
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
           if (!hasOffloadCompilation()) {
             // The purpose is to generate place holder for global variable.
@@ -1430,8 +1437,10 @@ bool VPOParoptTransform::paroptTransforms() {
         // check below.
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
-          if (!hasOffloadCompilation())
+          if (!hasOffloadCompilation()) {
+            Changed |= canonicalizeGlobalVariableReferences(W);
             Changed |= renameOperandsUsingStoreThenLoad(W);
+          }
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
           if (!hasOffloadCompilation()) {
             // The purpose is to generate place holder for global variable.
@@ -1477,6 +1486,7 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNVecLoop:
         if (Mode & ParPrepare) {
           Changed = regularizeOMPLoop(W);
+          Changed |= canonicalizeGlobalVariableReferences(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
         }
         // Privatization is enabled for SIMD Transform passes
@@ -1530,6 +1540,7 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed = addNormUBsToParents(W);
 
           Changed |= regularizeOMPLoop(W);
+          Changed |= canonicalizeGlobalVariableReferences(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
           Changed |= propagateCancellationPointsToIR(W);
         }
@@ -1711,6 +1722,7 @@ bool VPOParoptTransform::paroptTransforms() {
           debugPrintHeader(W, true);
           Changed = replaceGenericLoop(W);
           Changed |= regularizeOMPLoop(W);
+          Changed |= canonicalizeGlobalVariableReferences(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
           RemoveDirectives = false;
         }
@@ -7148,4 +7160,133 @@ bool VPOParoptTransform::replaceGenericLoop(WRegionNode *W) {
   return Changed;
 }
 
+// Targets that support non-default address spaces may have the following
+// representation for global variables referenced in OpenMP clauses:
+//   %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+//       "QUAL.OMP.MAP.TOFROM"([1000 x float] addrspace(4)*
+//           addrspacecast ([1000 x float] addrspace(1)* @global_var
+//               to [1000 x float] addrspace(4)*)) ]
+//
+// At the same time, references of the same global variable inside
+// the region may look differently (e.g. due to constant folding):
+//   %9 = getelementptr inbounds float,
+//       float addrspace(4)* addrspacecast (
+//           float addrspace(1)* getelementptr inbounds (
+//               [1000 x float],
+//               [1000 x float] addrspace(1)* @global_var,
+//               i32 0, i32 0)
+//       to float addrspace(4)*), i64 %8
+//
+// Different places in Paropt rely on finding the original (source code)
+// references of the global variable by just looking for users
+// of the clause item (which is addrspacecast ConstantExpr).
+// In this example, the region refers @global_var via getelementptr
+// ConstantExpr, which prevents correct handling of the clause item.
+//
+// This routine fixes up the clauses (in IR) and the corresponding
+// parsed representation (Orig members of Item), so that
+// a clause item used for finding the references is always
+// the global variable itself, e.g. this routine will transform
+// the region's entry call to the following:
+//   %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+//       "QUAL.OMP.MAP.TOFROM"([1000 x float] addrspace(1)* @global_var) ]
+bool VPOParoptTransform::canonicalizeGlobalVariableReferences(WRegionNode *W) {
+  if (!isTargetSPIRV())
+    return false;
+
+  SmallPtrSet<Value *, 16> HandledASCasts;
+
+  auto getGlobalVarItem = [](Value *Orig) {
+    GlobalVariable *GVar = nullptr;
+
+    if (GeneralUtils::isOMPItemGlobalVAR(Orig))
+      // isOMPItemGlobalVAR() is an optionally addrspacecasted
+      // GlobalVariable. The GlobalVariable must be in the global
+      // address space.
+      if (auto *CE = dyn_cast<ConstantExpr>(Orig))
+        if (CE->getOpcode() == Instruction::AddrSpaceCast) {
+          GVar = dyn_cast<GlobalVariable>(CE->getOperand(0));
+          assert(GVar &&
+                 GVar->getAddressSpace() == vpo::ADDRESS_SPACE_GLOBAL &&
+                 "Unexpected form of global variable item.");
+        }
+
+    return GVar;
+  };
+
+  auto rename = [&getGlobalVarItem, &HandledASCasts](Item *I) {
+    auto *Orig = I->getOrig();
+    if (auto *GVar = getGlobalVarItem(Orig)) {
+      HandledASCasts.insert(Orig);
+      I->setOrig(GVar);
+    }
+  };
+
+  // Look at the clauses and update Orig items, if they
+  // refer an addrspacecast of a GlobalVariable.
+  if (W->canHavePrivate())
+    for (PrivateItem *PrivI : W->getPriv().items())
+      rename(PrivI);
+
+  if (W->canHaveFirstprivate())
+    for (FirstprivateItem *FprivI : W->getFpriv().items())
+      rename(FprivI);
+
+  if (W->canHaveShared())
+    for (SharedItem *ShaI : W->getShared().items())
+      rename(ShaI);
+
+  if (W->canHaveReduction())
+    for (ReductionItem *RedI : W->getRed().items())
+      rename(RedI);
+
+  if (W->canHaveLastprivate())
+    for (LastprivateItem *LprivI : W->getLpriv().items())
+      rename(LprivI);
+
+  if (W->canHaveLinear())
+    for (LinearItem *LrI : W->getLinear().items())
+      rename(LrI);
+
+  if (W->canHaveIsDevicePtr())
+    for (IsDevicePtrItem *DPtrI : W->getIsDevicePtr().items())
+      rename(DPtrI);
+
+  if (W->canHaveMap()) {
+    for (MapItem *MapI : W->getMap().items()) {
+      if (MapI->getIsMapChain()) {
+        MapChainTy const &MapChain = MapI->getMapChain();
+        for (unsigned I = 0, IE = MapChain.size(); I < IE; ++I) {
+          MapAggrTy *Aggr = MapChain[I];
+          // It is not strictly necessary to transform section pointer
+          // and the base pointer, because they will not be used
+          // for references replacements. At the same time,
+          // we will fix all references of an addrspacecast
+          // of a GlobalVariable in the IR, so we'd rather
+          // have consistency between IR and the parsed representation.
+          if (auto *GVar = getGlobalVarItem(Aggr->getSectionPtr())) {
+            HandledASCasts.insert(Aggr->getSectionPtr());
+            Aggr->setSectionPtr(GVar);
+          }
+          if (auto *GVar = getGlobalVarItem(Aggr->getBasePtr())) {
+            HandledASCasts.insert(Aggr->getBasePtr());
+            Aggr->setBasePtr(GVar);
+          }
+        }
+      }
+
+      rename(MapI);
+    }
+  }
+
+  // Fixup the region's entry call in IR.
+  CallInst *CI = cast<CallInst>(W->getEntryDirective());
+  for (auto *ASCast : HandledASCasts) {
+    auto *GVar = getGlobalVarItem(ASCast);
+    assert(GVar && "Invalid element in HandledASCasts.");
+    CI->replaceUsesOfWith(ASCast, GVar);
+  }
+
+  return !HandledASCasts.empty();
+}
 #endif // INTEL_COLLAB

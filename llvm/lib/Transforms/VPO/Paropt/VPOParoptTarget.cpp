@@ -154,20 +154,15 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
     unsigned OldAddressSpace =
         cast<PointerType>(I->getType())->getAddressSpace();
 
-#if INTEL_CUSTOMIZATION
-    // FIXME: reenable this assertion, when ifort is able to generate
-    //        correct addrspaces.
-    //
-    // Assert the correct addrspacecast here instead of failing
-    // during SPIRV emission.
-    assert(OldAddressSpace == vpo::ADDRESS_SPACE_GENERIC &&
-           "finalizeKernelFunction: OpenCL global addrspaces can only be "
-           "casted to generic.");
-#endif  // INTEL_CUSTOMIZATION
-
     Value *NewArgV = ArgV;
-    if (NewAddressSpace != OldAddressSpace)
+    if (NewAddressSpace != OldAddressSpace) {
+      // Assert the correct addrspacecast here instead of failing
+      // during SPIRV emission.
+      assert(OldAddressSpace == vpo::ADDRESS_SPACE_GENERIC &&
+             "finalizeKernelFunction: OpenCL global addrspaces can only be "
+             "casted to generic.");
       NewArgV = Builder.CreatePointerBitCastOrAddrSpaceCast(ArgV, I->getType());
+    }
     I->replaceAllUsesWith(NewArgV);
     NewArgI->takeName(&*I);
     ++NewArgI;

@@ -712,8 +712,13 @@ private:
                                 unsigned &Cnt,
                                 bool hasRuntimeEvaluationCaptureSize);
 
+  /// Fixup references generated for global variables in OpenMP
+  /// clauses for targets supporting non-default address spaces.
+  /// This fixup has to be done as soon as possible after FE.
+  bool canonicalizeGlobalVariableReferences(WRegionNode *W);
+
   // If the incoming data is global variable, create a stack variable
-  // and replace the the global variable with the stack variable.
+  // and replace the global variable with the stack variable.
   bool genGlobalPrivatizationLaunderIntrin(WRegionNode *W);
 
   /// build the CFG for if clause.

@@ -175,14 +175,6 @@ void GeneralUtils::breakExpressionsHelper(
     ConstantExpr *Expr, unsigned OperandIndex, Instruction *User,
     SmallVectorImpl<Instruction *> *NewInstArr) {
   // Create a new instruction, and insert it at the appropriate point.
-  if (isOMPItemGlobalVAR(Expr))
-    // Avoid breaking AddrSpaceCast expression, which operand
-    // is a GlobalVariable. For targets that use non-default
-    // addrspaces we have to keep this representation unbreakable,
-    // otherwise we may not be able to match OpenMP clause references
-    // with references inside OpenMP target regions.
-    return;
-
   Instruction *NewInst = Expr->getAsInstruction();
   NewInst->setDebugLoc(User->getDebugLoc());
   if (NewInstArr != nullptr)
