@@ -370,6 +370,7 @@ void LLDJIT::buildDllFromObjs(
   std::vector<const char *> Args;
   Args.push_back("dummy.exe");
   Args.push_back("-dll");
+  Args.push_back("-intel-embedded-linker");
   Args.push_back("-nodefaultlib");
   Args.push_back(LibPathArg.c_str());
   Args.push_back(PDBPathArg.c_str());
