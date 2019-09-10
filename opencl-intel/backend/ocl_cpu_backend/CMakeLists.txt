@@ -181,6 +181,18 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     opencl_cpu_printf_ext.cpp
     opencl_printf_ext.cpp
   )
+if (WIN32)
+    list(APPEND OCL_CPU_BACKEND_INCLUDE_FILES
+        LLDJITBuilder.h
+        LLDJIT.h
+        AsmCompiler.h
+    )
+    list(APPEND OCL_CPU_BACKEND_SOURCE_FILES
+        LLDJITBuilder.cpp
+        LLDJIT.cpp
+        AsmCompiler.cpp
+    )
+endif (WIN32)
 
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     if (WIN32)
@@ -219,6 +231,11 @@ endif( LLVM_USE_INTEL_JITEVENTS )
 if( LLVM_USE_OPROFILE )
     link_directories ( ${LLVM_OPROFILE_INCDIR} )
 endif( LLVM_USE_OPROFILE )
+
+if( WIN32 )
+    # Libraries in LLD_LIBS are in LLVM_LIBRARY_DIRS directory
+    link_directories(${LLVM_LIBRARY_DIRS})
+endif( WIN32 )
 
 set( BACKEND_PASSES
     LLVMBarrier
@@ -277,6 +294,13 @@ set(UTILS_LIBS
     OclOptimizer
 )
 
+if (WIN32)
+    set(LLD_LIBS
+        lldCOFF
+        lldCommon
+    )
+endif(WIN32)
+
 # Create DLL
 add_opencl_library (${TARGET_NAME} SHARED
     ${OCL_CPU_BACKEND_INCLUDE_FILES}
@@ -300,6 +324,7 @@ add_opencl_library (${TARGET_NAME} SHARED
       CacheBinaryHandler
       CLElfLib
       emutls
+      ${LLD_LIBS}
 
       # LLVM LIBS
       ${LLVM_MODULE_LIBS}

@@ -1,4 +1,4 @@
-from testlib.debuggertestcase import DebuggerTestCase
+from testlib.debuggertestcase import DebuggerTestCase, expectedFailureCDB
 
 class TestStepsAndVariableValues(DebuggerTestCase):
     CLNAME = 'nested_calls4.cl'
@@ -18,7 +18,7 @@ class TestStepsAndVariableValues(DebuggerTestCase):
     #  Test - test the variable values query after making diffrent type of step (in, over and out)
     #  TC-47, TC-48, TC-49
         gdb_offset = 0
-        if self.use_gdb:
+        if self.use_gdb or self.use_cdb:
           gdb_offset = 1
 
         self.client.execute_debuggee(
@@ -44,7 +44,7 @@ class TestStepsAndVariableValues(DebuggerTestCase):
         # as GDB stops on the next line after the brace.
         bp = (self.CLNAME, self.INNER3_FUNCTION_BLOCK_ROW + 2 + gdb_offset)
         self.assertEqual(self.client.debug_step_in(), bp)
-        if not self.use_gdb:
+        if not self.use_gdb and not self.use_cdb:
           # Simulator debugger considers the closing-brace a steppable
           # instruction, whereas GDB does not. Advance simulator to next line.
           bp = (self.CLNAME, self.INNER3_FUNCTION_ROW)

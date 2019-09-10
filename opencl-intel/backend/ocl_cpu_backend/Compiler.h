@@ -81,6 +81,7 @@ public:
 
     bool GetDisableOpt()    const { return m_disableOpt; }
     bool GetDebugInfoFlag() const { return m_debugInfo; }
+    bool GetUseNativeDebuggerFlag() const { return m_useNativeDebugger; }
     bool GetProfilingFlag() const { return m_profiling; }
     bool GetRelaxedMath()   const { return m_relaxedMath; }
     bool GetUniformWGSize() const { return m_uniformWGSize; }
@@ -89,6 +90,7 @@ public:
 
     void SetDisableOpt(bool disableOpt)       { m_disableOpt = disableOpt; }
     void SetDebugInfoFlag(bool debugInfo)     { m_debugInfo = debugInfo; }
+    void SetUseNativeDebuggerFlag(bool V)     { m_useNativeDebugger = V; };
     void SetProfilingFlag(bool profiling)     { m_profiling = profiling; }
     void SetRelaxedMath(bool relaxedMath)     { m_relaxedMath = relaxedMath; }
     void SetUniformWGSize(bool uniformWGSize) { m_uniformWGSize = uniformWGSize; }
@@ -97,6 +99,7 @@ public:
 
 private:
     bool m_debugInfo;
+    bool m_useNativeDebugger;
     bool m_profiling;
     bool m_disableOpt;
     bool m_relaxedMath;
@@ -210,6 +213,7 @@ protected:
     std::string              m_IRDumpDir;
     bool                     m_dumpHeuristicIR;
     bool                     m_debug;
+    bool                     m_useNativeDebugger;
 
     static bool s_globalStateInitialized;
 

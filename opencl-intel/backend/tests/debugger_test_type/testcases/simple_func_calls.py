@@ -1,8 +1,9 @@
-from testlib.debuggertestcase import DebuggerTestCase
+from testlib.debuggertestcase import DebuggerTestCase, expectedFailureCDB
 
 
 class SimpleFuncCalls(DebuggerTestCase):
     CLNAME = 'simple_func_calls.cl'
+
     def test_stepping(self):
         self.client.execute_debuggee(
             hostprog_name='ndrange_inout',
@@ -18,13 +19,15 @@ class SimpleFuncCalls(DebuggerTestCase):
         self.assertEqual(self.client.debug_step_in(), (self.CLNAME, 12))
 
         # now step into first foo() call
-        if not self.use_gdb:
+        if self.use_cdb:
+          self.assertEqual(self.client.debug_step_in(), (self.CLNAME, 2))
+        if not self.use_gdb and not self.use_cdb:
           self.assertEqual(self.client.debug_step_in(), (self.CLNAME, 1))
         self.assertEqual(self.client.debug_step_in(), (self.CLNAME, 3))
 
         # step out of the first foo() call
         location = self.client.debug_step_out()
-        if self.use_gdb:
+        if self.use_gdb or self.use_cdb:
           # Note: step_out works incorrectly with GDB.
           # See test_steps.py tests for details.
           self.assertEqual(location, (self.CLNAME, 12))
@@ -51,7 +54,8 @@ class SimpleFuncCalls(DebuggerTestCase):
         # step through the whole code of foo()
         for i in range(4):
             file, line = self.client.debug_step_over()
-
+        if self.use_cdb:
+            file, line = self.client.debug_step_over()
         self.assertEqual((file, line), (self.CLNAME, 18))
 
         # done
@@ -77,7 +81,7 @@ class SimpleFuncCalls(DebuggerTestCase):
 
         # get to the next call to foo and step in, get to line 3
         location = self.client.debug_step_out()
-        if self.use_gdb:
+        if self.use_gdb or self.use_cdb:
           # Note: step_out works incorrectly with GDB.
           # See test_steps.py tests for details.
           self.assertEqual(location, (self.CLNAME, 12))
@@ -99,7 +103,7 @@ class SimpleFuncCalls(DebuggerTestCase):
         self.assertEqual(self.client.debug_step_out(), (self.CLNAME, 4))
 
         # stepping out again now takes us back to main_kernel
-        if self.use_gdb:
+        if self.use_gdb or self.use_cdb:
           # Note: step_out works incorrectly with GDB.
           # See test_steps.py tests for details.
           self.assertEqual(self.client.debug_step_out(), (self.CLNAME, 14))

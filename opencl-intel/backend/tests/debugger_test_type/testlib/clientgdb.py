@@ -13,11 +13,12 @@ import subprocess
 from common import os_is_windows, find_on_path, GDBContinueError, StopReason, loge, logd, logw, TestClient
 
 from clientsimulator import ClientSimulator, SimulatorError
-from distutils.spawn import find_executable	
+from distutils.spawn import find_executable
 
 RPC_TIMEOUT = 30
 RPC_RETRY_DELAY = 10
 GDB_PROMPT_TIMEOUT = 100
+USE_GWORKITEM = False
 
 class ClientError(SimulatorError): pass
 class ClientTimeout(SimulatorError): pass
@@ -129,8 +130,6 @@ class ClientGDB(TestClient):
         if self.child is not None:
             self.reset()
 
-        env = os.environ.copy()
-
         exe_dir, exe_name = os.path.split(self.debuggee_exe_path)
         cwd = os.path.abspath(exe_dir)
 
@@ -141,10 +140,13 @@ class ClientGDB(TestClient):
         options_str = ""
         if self.device_type:
             options_str = 'device=' + self.device_type + ','
-        options_str += ','.join('%s=%s' % (k, v) for k, v in options.iteritems())
+        options_str += ','.join('%s=%s' % (k, v) for k, v in options.items())
         if not options_str:
             options_str = 'none'
         args = [gdb_command,
+                # On specific gdb versions, the debuggee is not getting LD_LIBRARY_PATH and in some conficutations,
+                # that may cause problesm. This hack will pass it to the debuggee explicitly.
+                "-iex 'set exec-wrapper env LD_LIBRARY_PATH=" + os.environ.get('LD_LIBRARY_PATH', "") + "'",
 #                "localhost:12345",
                 "--args",
                 self.debuggee_exe_path,
@@ -152,10 +154,16 @@ class ClientGDB(TestClient):
                 options_str,
                 "'" + cl_file_fullpath + "'"]
         args += map(str, extra_args)
-        logd("Testing debugger command: " + " ".join(args))
-        self.child = pexpect.spawn(" ".join(args),
-                                   logfile=self.logfile,
-                                   env=os.environ)
+        # env -i will remove the python2 environment for gdb process
+        # This is needed when GDB is built with python3, while tests are running in python2
+        # The only environment variable, that we will keep for client process is LD_LIBRARY_PATH
+        cmd = "env -i " + " ".join(args)
+
+        logd("Testing debugger command: " + cmd)
+        self.child = pexpect.spawn(cmd ,
+                                   logfile=self.logfile
+                                   #,env=os.environ
+                                   )
         logd("Process started, pid=" + str(self.child.pid))
 
         try:
@@ -212,7 +220,7 @@ class ClientGDB(TestClient):
 
     def send_message_to_server_wrong_size(self, message, size):
         pass
-        
+
     def _expect_prompt(self, timeout):
         """
         Reads GDB's output stream until a prompt (or question or error)
@@ -225,9 +233,8 @@ class ClientGDB(TestClient):
                                    pexpect.TIMEOUT],
                                    timeout=timeout)
         output = self.child.before
-        if type(self.child.after) in types.StringTypes:
+        if self.child.after != None:
             output += self.child.after
-
         if index < 3:
             pass
             # Uncomment the line below to see all output from GDB.
@@ -246,10 +253,13 @@ class ClientGDB(TestClient):
 
     def start_session(self, gid_x, gid_y, gid_z, timeout=10):
         """ Send 'start' command to GDB """
-
         self.gid_x = gid_x
         self.gid_y = gid_y
         self.gid_z = gid_z
+
+        if USE_GWORKITEM:
+            output = self._command("set env GWORKITEM=(" + str(gid_x) + ","
+                                   + str(gid_y) + "," + str(gid_z) + ")");
         # When multiple tests are running at the same time, GDB may take
         # longer to return from the "start" command.
         output = self._command("start", timeout=200);
@@ -466,7 +476,10 @@ class ClientGDB(TestClient):
 
         # Set new breakpoints
         for loc in breakpoint_locations:
-            args = ["ocl-break-workitem", loc,
+            if USE_GWORKITEM:
+                args = ["b", loc]
+            else:
+                args = ["ocl-break-workitem", loc,
                     str(self.gid_x), str(self.gid_y), str(self.gid_z)]
             output = self._command(" ".join(args))
             s = re.search(ClientGDB.REGEX_BREAKPOINT_SET, output)

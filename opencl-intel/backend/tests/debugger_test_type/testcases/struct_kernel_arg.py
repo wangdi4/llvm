@@ -26,7 +26,7 @@ class StructKernelArg(DebuggerTestCase):
             float(self.client.var_query_value('ksum_rotation')),
             float(sum(range(16))))
 
-        if self.use_gdb:
+        if self.use_gdb or self.use_cdb:
             # GDB's printing of user defined types in OCL is a little broken, but individual
             # members can be accessed OK.
             self.assertEqual(self.client.var_query_value('kcopy.f1'), '100.0')

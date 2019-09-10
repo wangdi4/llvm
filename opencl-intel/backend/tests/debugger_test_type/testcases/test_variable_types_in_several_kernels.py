@@ -1,4 +1,4 @@
-from testlib.debuggertestcase import DebuggerTestCase
+from testlib.debuggertestcase import DebuggerTestCase, expectedFailureCDB
 
 
 # Test a usage of query value for all variable types TC-
@@ -13,6 +13,8 @@ class TestVariableTypesInSeveralKernels(DebuggerTestCase):
     INNER_KERNEL_ROW2 = 6
     # these "defines" are for test_only_arguments_variables_several_kernels
     INNER_KERNEL_ROW3 = 5
+
+    @expectedFailureCDB
     def test_global_variables_several_kernels(self):
     #
     # Test usage of global varables by testing it values in several of nested kernels
@@ -34,6 +36,7 @@ class TestVariableTypesInSeveralKernels(DebuggerTestCase):
         self.assertEqual(self.client.stack_query_func_name(3), 'main_kernel')
         self.client.debug_run_finish()
 
+    @expectedFailureCDB
     def test_no_global_variables_several_kernels(self):
     #
     # Test usage of non-global varables by testing it values in several of nested kernels
@@ -56,6 +59,7 @@ class TestVariableTypesInSeveralKernels(DebuggerTestCase):
         self.assertEqual(self.client.stack_query_func_name(3), 'main_kernel')
         self.client.debug_run_finish()
 
+    @expectedFailureCDB
     def test_only_arguments_variables_several_kernels(self):
     #
     # Test usage of function arguments by testing it values in several of nested kernels
