@@ -313,12 +313,12 @@ bool TargetTransformInfo::isLegalMaskedLoad(Type *DataType) const {
 }
 
 bool TargetTransformInfo::isLegalNTStore(Type *DataType,
-                                         unsigned Alignment) const {
+                                         llvm::Align Alignment) const {
   return TTIImpl->isLegalNTStore(DataType, Alignment);
 }
 
 bool TargetTransformInfo::isLegalNTLoad(Type *DataType,
-                                        unsigned Alignment) const {
+                                        llvm::Align Alignment) const {
   return TTIImpl->isLegalNTLoad(DataType, Alignment);
 }
 
