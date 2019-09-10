@@ -388,9 +388,9 @@ std::unique_ptr<FMADag> FMAPatterns::getDagForBestSPMatch(const FMAExprSP &SP) {
     auto *CandidateSP = acquireSP(Dag64);
 
     LLVM_DEBUG(dbgs() << "  MATCHING: let's try to match 2 SPs:\n    actual: ");
-    SP.print(dbgs());
+    LLVM_DEBUG(SP.print(dbgs()));
     LLVM_DEBUG(dbgs() << "    formal: ");
-    CandidateSP->print(dbgs());
+    LLVM_DEBUG(CandidateSP->print(dbgs()));
 
     FMASPToSPMatcher SPMatcher;
     if (auto *CandidateDag = SPMatcher.getDagToMatchSPs(*CandidateSP, SP)) {
