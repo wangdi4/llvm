@@ -5,22 +5,22 @@
 
 ; CHECK-LABEL: Before single exit while loop transformation.
 ; CHECK: [[Header:BB[0-9]+]] (BP: NULL) :
-; CHECK: i32 [[PHI0:%vp.*]] = phi  [ i32 0, {{BB[0-9]+}} ], [ i32 {{%vp.*}}, [[Latch:BB[0-9]+]] ]
-; CHECK: i32 [[ADD0:%vp.*]] = add
+; CHECK: i32 [[PHI0:%vp[0-9]+]] = phi  [ i32 0, {{BB[0-9]+}} ], [ i32 {{%vp[0-9]+}}, [[Latch:BB[0-9]+]] ]
+; CHECK: i32 [[ADD0:%vp[0-9]+]] = add
 ; CHECK-NEXT: SUCCESSORS(1):[[Exiting:BB[0-9]+]]
 ; CHECK-NEXT: PREDECESSORS(2): [[Latch:BB[0-9]+]] {{BB[0-9]+}}
 ; CHECK-EMPTY:
 
 ; CHECK-NEXT: [[Exiting:BB[0-9]+]] (BP: NULL) :
-; CHECK-NEXT: i32 [[ADD1:%vp.*]] = add
-; CHECK-NEXT: i1 [[CMP1:%vp.*]] = icmp
+; CHECK-NEXT: i32 [[ADD1:%vp[0-9]+]] = add
+; CHECK-NEXT: i1 [[CMP1:%vp[0-9]+]] = icmp
 ; CHECK-NEXT: SUCCESSORS(2):{{BB[0-9]+}}(i1 [[CMP1]]), [[EXIT:BB[0-9]+]](!i1 [[CMP1]])
 ; CHECK-NEXT: PREDECESSORS(1): [[Header:BB[0-9]+]]
 ; CHECK-EMPTY:
 
 ; CHECK-NEXT: [[Exit:BB[0-9]+]] (BP: NULL) :
-; CHECK-NEXT: i32 [[PHI2:%vp.*]] = phi  [ i32 0, [[Exiting]] ]
-; CHECK-NEXT: i32 [[ADD2:%vp.*]] = add
+; CHECK-NEXT: i32 [[PHI2:%vp[0-9]+]] = phi  [ i32 0, [[Exiting]] ]
+; CHECK-NEXT: i32 [[ADD2:%vp[0-9]+]] = add
 ; CHECK-NEXT: SUCCESSORS(1):{{BB[0-9]+}}
 ; CHECK-NEXT: PREDECESSORS(1): [[Latch:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -52,7 +52,7 @@
 ; CHECK-EMPTY:
 
 ; CHECK-NEXT: {{BB[0-9]+}} (BP: NULL) :
-; CHECK-NEXT: i32 [[PHI_OUT:%vp.*]] = phi
+; CHECK-NEXT: i32 [[PHI_OUT:%vp[0-9]+]] = phi
 ; CHECK-NEXT: SUCCESSORS(1):{{BB[0-9]+}}
 ; CHECK-NEXT: PREDECESSORS(2): {{BB[0-9]+}} {{BB[0-9]+}}
 ; CHECK-EMPTY:
@@ -64,16 +64,16 @@
 ; CHECK-EMPTY:
 
 ; CHECK-NEXT: [[LoopHeader:BB[0-9]+]] (BP: NULL) :
-; CHECK-NEXT: i32 [[PHI_OUT0:%vp.*]] = phi  [ i32 0, [[LoopPreHeader]] ], [ i32 {{%vp.*}}, [[NewLoopLatch:BB[0-9]+]] ]
-; CHECK-NEXT: i32 [[ADD_OUT1:%vp.*]] = add
+; CHECK-NEXT: i32 [[PHI_OUT0:%vp[0-9]+]] = phi  [ i32 0, [[LoopPreHeader]] ], [ i32 [[ADD_OUT1:%vp[0-9]+]], [[NewLoopLatch:BB[0-9]+]] ]
+; CHECK-NEXT: i32 [[ADD_OUT1]] = add
 ; CHECK-NEXT: SUCCESSORS(1):[[ExitingBlock:BB[0-9]+]]
 ; CHECK-NEXT: PREDECESSORS(2): [[NewLoopLatch:BB[0-9]+]] [[LoopPreHeader]]
 ; CHECK-EMPTY:
 
 ; The exiting block is redirected to the new loop latch.
 ; CHECK-NEXT: [[ExitingBlock:BB[0-9]+]] (BP: NULL) :
-; CHECK-NEXT: i32 [[ADD_OUT2:%vp.*]] = add
-; CHECK-NEXT: i1 [[CMP_OUT2:%vp.*]] = icmp
+; CHECK-NEXT: i32 [[ADD_OUT2:%vp[0-9]+]] = add
+; CHECK-NEXT: i1 [[CMP_OUT2:%vp[0-9]+]] = icmp
 ; CHECK-NEXT: SUCCESSORS(2):{{BB[0-9]+}}(i1 [[CMP_OUT2]]), [[NewLoopLatch:BB[0-9]+]](!i1 [[CMP_OUT2]])
 ; CHECK-NEXT: PREDECESSORS(1): [[LoopHeader]]
 ; CHECK-EMPTY:
@@ -92,7 +92,7 @@
 
 ; CHECK-NEXT: [[NewLoopLatch:BB[0-9]+]] (BP: NULL) :
 ; The phi node is also the condition bit.
-; CHECK-NEXT: i1 [[PHI_OUT3:%vp.*]] = phi  [ i1 true, [[OrigLoopLatch]] ],  [ i1 false, [[ExitingBlock]] ]
+; CHECK-NEXT: i1 [[PHI_OUT3:%vp[0-9]+]] = phi  [ i1 true, [[OrigLoopLatch]] ],  [ i1 false, [[ExitingBlock]] ]
 ; The back-edge is taken when phi is true. If phi is false, then we move to the exit block.
 ; CHECK-NEXT: SUCCESSORS(2):[[LoopHeader]](i1 [[PHI_OUT3]]), [[ExitBlock:BB[0-9]+]](!i1 [[PHI_OUT3]])
 ; CHECK-NEXT: PREDECESSORS(2): [[OrigLoopLatch]] [[ExitingBlock]]
@@ -100,8 +100,8 @@
 
 ; CHECK-NEXT: [[ExitBlock:BB[0-9]+]] (BP: NULL) :
 ; The phi node of exit block is now updated to point to new loop latch.
-; CHECK-NEXT: i32 [[PHI_OUT4:%vp.*]] = phi  [ i32 0, [[NewLoopLatch]] ]
-; CHECK-NEXT: i32 [[ADD_OUT4:%vp.*]] = add
+; CHECK-NEXT: i32 [[PHI_OUT4:%vp[0-9]+]] = phi  [ i32 0, [[NewLoopLatch]] ]
+; CHECK-NEXT: i32 [[ADD_OUT4:%vp[0-9]+]] = add
 ; CHECK-NEXT: SUCCESSORS(1):{{BB[0-9]+}}
 ; CHECK-NEXT: PREDECESSORS(1): [[NewLoopLatch]]
 ; CHECK-EMPTY:
