@@ -1020,13 +1020,11 @@ define void @test_use_dom_instead_of_direct_succ(i32* %a, i32 %b) local_unnamed_
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP0:%.*]] = block-predicate i1 [[VP_BB0_VARYING_NOT]]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB6_VARYING:%.*]] = or i1 [[VP_VARYING]] i1 true
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP_BB6_ADD:%.*]] = add i32 [[VP_LD]] i32 6
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB6_VARYING_NOT:%.*]] = not i1 [[VP_BB6_VARYING]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB7_BR_VP_BB6_VARYING:%.*]] = and i1 [[VP_BB0_VARYING_NOT]] i1 [[VP_BB6_VARYING]]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB7_BR_VP_BB6_VARYING_NOT:%.*]] = and i1 [[VP_BB0_VARYING_NOT]] i1 [[VP_BB6_VARYING_NOT]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB7:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
@@ -1089,8 +1087,7 @@ define void @test_use_dom_instead_of_direct_succ(i32* %a, i32 %b) local_unnamed_
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB14]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB16]] (BP: NULL) :
-; FIXME: Should be VP_BB7_BR_VP_BB6_VARYING
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP7:%.*]] = or i1 [[VP_BB7_BR_VP_BB6_VARYING_NOT]] i1 [[VP_BB6_BR_VP_BB1_VARYING_NOT]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP7:%.*]] = or i1 [[VP_BB7_BR_VP_BB6_VARYING]] i1 [[VP_BB6_BR_VP_BB1_VARYING_NOT]]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP8:%.*]] = block-predicate i1 [[VP7]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP_BB5_ADD:%.*]] = add i32 [[VP_LD]] i32 5
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB17:BB[0-9]+]]
