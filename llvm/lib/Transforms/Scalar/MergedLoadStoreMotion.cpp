@@ -119,17 +119,9 @@ private:
   PHINode *getPHIOperand(BasicBlock *BB, StoreInst *S0, StoreInst *S1);
   bool isStoreSinkBarrierInRange(const Instruction &Start,
                                  const Instruction &End, MemoryLocation Loc);
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
   bool canSinkStoresAndGEPs(StoreInst *S0, StoreInst *S1) const;
   void sinkStoresAndGEPs(BasicBlock *BB, StoreInst *SinkCand,
                          StoreInst *ElseInst);
-#endif // INTEL_CUSTOMIZATION
-=======
-  bool canSinkStoresAndGEPs(StoreInst *S0, StoreInst *S1) const;
-  void sinkStoresAndGEPs(BasicBlock *BB, StoreInst *SinkCand,
-                         StoreInst *ElseInst);
->>>>>>> 58f172f05ae0d6d4fa6a222d04fa59fc98807489
   bool mergeStores(BasicBlock *BB);
 };
 } // end anonymous namespace
@@ -231,19 +223,6 @@ PHINode *MergedLoadStoreMotion::getPHIOperand(BasicBlock *BB, StoreInst *S0,
   return NewPN;
 }
 
-#if INTEL_CUSTOMIZATION
-///
-/// Check if 2 stores can be sunk together with corresponding GEPs
-///
-bool MergedLoadStoreMotion::canSinkStoresAndGEPs(StoreInst *S0,
-                                                 StoreInst *S1) const {
-  auto *A0 = dyn_cast<Instruction>(S0->getPointerOperand());
-  auto *A1 = dyn_cast<Instruction>(S1->getPointerOperand());
-  return A0 && A1 && A0->isIdenticalTo(A1) && A0->hasOneUse() &&
-         (A0->getParent() == S0->getParent()) && A1->hasOneUse() &&
-         (A1->getParent() == S1->getParent()) && isa<GetElementPtrInst>(A0);
-}
-
 ///
 /// Check if 2 stores can be sunk together with corresponding GEPs
 ///
@@ -294,15 +273,10 @@ void MergedLoadStoreMotion::sinkStoresAndGEPs(BasicBlock *BB, StoreInst *S0,
   A1->replaceAllUsesWith(ANew);
   A1->eraseFromParent();
 }
-#endif // INTEL_CUSTOMIZATION
 
 ///
 /// True when two stores are equivalent and can sink into the footer
 ///
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-=======
->>>>>>> 58f172f05ae0d6d4fa6a222d04fa59fc98807489
 /// Starting from a diamond head block, iterate over the instructions in one
 /// successor block and try to match a store in the second successor.
 ///
@@ -314,30 +288,18 @@ bool MergedLoadStoreMotion::mergeStores(BasicBlock *HeadBB) {
   assert(SinkBB && "Footer of a diamond cannot be empty");
 
   succ_iterator SI = succ_begin(HeadBB);
-<<<<<<< HEAD
-  assert(SI != succ_end(HeadBB));
-  BasicBlock *Pred0 = *SI;
-  ++SI;
-  assert(SI != succ_end(HeadBB));
-=======
   assert(SI != succ_end(HeadBB) && "Diamond head cannot have zero successors");
   BasicBlock *Pred0 = *SI;
   ++SI;
   assert(SI != succ_end(HeadBB) && "Diamond head cannot have single successor");
->>>>>>> 58f172f05ae0d6d4fa6a222d04fa59fc98807489
   BasicBlock *Pred1 = *SI;
   // tail block  of a diamond/hammock?
   if (Pred0 == Pred1)
     return false; // No.
-<<<<<<< HEAD
-  // #Instructions in Pred1 for Compile Time Control
-#endif // INTEL_CUSTOMIZATION
-=======
   // bail out early if we can not merge into the footer BB
   if (!SplitFooterBB && TailBB->hasNPredecessorsOrMore(3))
     return false;
   // #Instructions in Pred1 for Compile Time Control
->>>>>>> 58f172f05ae0d6d4fa6a222d04fa59fc98807489
   auto InstsNoDbg = Pred1->instructionsWithoutDebug();
   int Size1 = std::distance(InstsNoDbg.begin(), InstsNoDbg.end());
   int NStores = 0;
@@ -357,10 +319,6 @@ bool MergedLoadStoreMotion::mergeStores(BasicBlock *HeadBB) {
     if (NStores * Size1 >= MagicCompileTimeControl)
       break;
     if (StoreInst *S1 = canSinkFromBlock(Pred1, S0)) {
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-=======
->>>>>>> 58f172f05ae0d6d4fa6a222d04fa59fc98807489
       if (!canSinkStoresAndGEPs(S0, S1))
         // Don't attempt to sink below stores that had to stick around
         // But after removal of a store and some of its feeding
@@ -378,10 +336,6 @@ bool MergedLoadStoreMotion::mergeStores(BasicBlock *HeadBB) {
 
       MergedStores = true;
       sinkStoresAndGEPs(SinkBB, S0, S1);
-<<<<<<< HEAD
-#endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 58f172f05ae0d6d4fa6a222d04fa59fc98807489
       RBI = Pred0->rbegin();
       RBE = Pred0->rend();
       LLVM_DEBUG(dbgs() << "Search again\n"; Instruction *I = &*RBI; I->dump());
@@ -406,11 +360,7 @@ bool MergedLoadStoreMotion::run(Function &F, AliasAnalysis &AA) {
     // Hoist equivalent loads and sink stores
     // outside diamonds when possible
     if (isDiamondHead(BB)) {
-<<<<<<< HEAD
-      Changed |= mergeStores(BB); // INTEL
-=======
       Changed |= mergeStores(BB);
->>>>>>> 58f172f05ae0d6d4fa6a222d04fa59fc98807489
     }
   }
   return Changed;
@@ -439,15 +389,8 @@ public:
 
 private:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-<<<<<<< HEAD
-#if !INTEL_CUSTOMIZATION
-    // This code is disable, since we now can split sink block
-    AU.setPreservesCFG();
-#endif // !INTEL_CUSTOMIZATION
-=======
     if (!SplitFooterBB)
       AU.setPreservesCFG();
->>>>>>> 58f172f05ae0d6d4fa6a222d04fa59fc98807489
     AU.addRequired<AAResultsWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();        // INTEL
@@ -478,15 +421,8 @@ MergedLoadStoreMotionPass::run(Function &F, FunctionAnalysisManager &AM) {
     return PreservedAnalyses::all();
 
   PreservedAnalyses PA;
-<<<<<<< HEAD
-#if !INTEL_CUSTOMIZATION
-  // This code is disable, since we now can split sink block
-  PA.preserveSet<CFGAnalyses>();
-#endif // !INTEL_CUSTOMIZATION
-=======
   if (!Options.SplitFooterBB)
     PA.preserveSet<CFGAnalyses>();
->>>>>>> 58f172f05ae0d6d4fa6a222d04fa59fc98807489
   PA.preserve<GlobalsAA>();
   PA.preserve<AndersensAA>();       // INTEL
   return PA;
