@@ -3077,11 +3077,6 @@ llvm::Type *X86_64ABIInfo::GetByteVectorType(QualType Ty) const {
     Ty = QualType(InnerTy, 0);
 
   llvm::Type *IRType = CGT.ConvertType(Ty);
-<<<<<<< HEAD
-
-  if (isa<llvm::VectorType>(IRType) ||
-      IRType->getTypeID() == llvm::Type::FP128TyID)
-=======
   if (isa<llvm::VectorType>(IRType)) {
     // Don't pass vXi128 vectors in their native type, the backend can't
     // legalize them.
@@ -3097,7 +3092,6 @@ llvm::Type *X86_64ABIInfo::GetByteVectorType(QualType Ty) const {
   }
 
   if (IRType->getTypeID() == llvm::Type::FP128TyID)
->>>>>>> 6c8a34ed9b49704bdd60838143047c62ba9f2502
     return IRType;
 
   // We couldn't find the preferred IR vector type for 'Ty'.
