@@ -27,6 +27,12 @@
       printf("Assertion Failed: " #Check ", " Message "\n");                   \
   } while (0)
 
+/// Unsupported feature
+#define KMP_UNSUPPORTED(Feature)                                               \
+  do {                                                                         \
+    printf("Device does not support %s\n", Feature);                           \
+  } while (0)
+
 ///
 /// Utility functions
 ///
