@@ -295,6 +295,7 @@ void initializeLowerInvokeLegacyPassPass(PassRegistry&);
 void initializeLowerSwitchPass(PassRegistry&);
 void initializeLowerTypeTestsPass(PassRegistry&);
 void initializeMIRCanonicalizerPass(PassRegistry &);
+void initializeMIRNamerPass(PassRegistry &);
 void initializeMIRPrintingPassPass(PassRegistry&);
 void initializeMachineBlockFrequencyInfoPass(PassRegistry&);
 void initializeMachineBlockPlacementPass(PassRegistry&);
