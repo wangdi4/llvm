@@ -3,19 +3,10 @@
 
 // Test the -fdeclare-opencl-builtins option.
 
-<<<<<<< HEAD
-typedef float float4 __attribute__((ext_vector_type(4)));
-=======
 #pragma OPENCL EXTENSION cl_khr_fp16 : enable
 
-// Provide typedefs when invoking clang without -finclude-default-header.
-#ifdef NO_HEADER
-typedef char char2 __attribute__((ext_vector_type(2)));
-typedef char char4 __attribute__((ext_vector_type(4)));
 typedef float float4 __attribute__((ext_vector_type(4)));
 typedef half half4 __attribute__((ext_vector_type(4)));
-typedef int int2 __attribute__((ext_vector_type(2)));
->>>>>>> 988f1e3e32a95df46da4f98b5652b0dc8b444c7f
 typedef int int4 __attribute__((ext_vector_type(4)));
 typedef int int2 __attribute__((ext_vector_type(2)));
 typedef unsigned int uint;
