@@ -21,11 +21,10 @@
 ; CHECK-NEXT:    [[TMP9:%.*]] = select <16 x i1> [[TMP5]], <16 x i32> [[TMP7]], <16 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>
 ; CHECK-NEXT:    [[TMP10:%.*]] = mul nsw <16 x i32> [[WIDE_MASKED_GATHER2]], [[WIDE_MASKED_GATHER2]]
 ; CHECK-NEXT:    [[TMP11:%.*]] = mul nsw <16 x i32> [[WIDE_MASKED_GATHER]], [[WIDE_MASKED_GATHER]]
-; CHECK-NEXT:    [[TMP12:%.*]] = xor <16 x i1> [[TMP4]], <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>
-; CHECK-NEXT:    [[PREDPHI:%.*]] = select <16 x i1> [[TMP12]], <16 x i32> zeroinitializer, <16 x i32> [[TMP10]]
-; CHECK-NEXT:    [[PREDPHI3:%.*]] = select <16 x i1> [[TMP12]], <16 x i32> zeroinitializer, <16 x i32> [[TMP11]]
-; CHECK-NEXT:    [[PREDPHI4:%.*]] = select <16 x i1> [[TMP12]], <16 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>, <16 x i32> [[TMP8]]
-; CHECK-NEXT:    [[PREDPHI5:%.*]] = select <16 x i1> [[TMP12]], <16 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>, <16 x i32> [[TMP9]]
+; CHECK-NEXT:    [[PREDPHI:%.*]] = select <16 x i1> [[TMP4]], <16 x i32> [[TMP10]], <16 x i32> zeroinitializer
+; CHECK-NEXT:    [[PREDPHI3:%.*]] = select <16 x i1> [[TMP4]], <16 x i32> [[TMP11]], <16 x i32> zeroinitializer
+; CHECK-NEXT:    [[PREDPHI4:%.*]] = select <16 x i1> [[TMP4]], <16 x i32> [[TMP8]], <16 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>
+; CHECK-NEXT:    [[PREDPHI5:%.*]] = select <16 x i1> [[TMP4]], <16 x i32> [[TMP9]], <16 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>
 ; CHECK-NEXT:    [[TMP13:%.*]] = mul nsw <16 x i32> [[PREDPHI4]], [[PREDPHI]]
 ; CHECK-NEXT:    [[TMP14:%.*]] = add nsw <16 x i32> [[TMP13]], [[WIDE_MASKED_GATHER2]]
 ; CHECK-NEXT:    call void @llvm.masked.scatter.v16i32.v16p0i32(<16 x i32> [[TMP14]], <16 x i32*> [[MM_VECTORGEP1]], i32 4, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>)

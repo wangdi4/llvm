@@ -3,53 +3,53 @@
 ; RUN: opt -S %s -VPlanDriver -disable-vplan-da=false -vplan-loop-cfu -debug 2>&1 | FileCheck %s
 
 ; CHECK: Basic Block: [[BB1:BB[0-9]+]]
-; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VAL1:%vp[0-9]+]] = phi  [ i64 [[VAL2:%vp[0-9]+]], [[BB5:BB[0-9]+]] ],  [ i64 0, BB2 ]
-; CHECK-NEXT: Uniform: [Shape: Uniform] void {{%vp[0-9]+}} = call i64 4 i8* %2 void (i64, i8*)* @llvm.lifetime.start.p0i8
-; CHECK-NEXT: Divergent: [Shape: Random] i32 [[VAL3:%vp[0-9]+]] = trunc i64 [[VAL1]] to i32
-; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL4:%vp[0-9]+]] = sitofp i32 [[VAL3]] to float
-; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL5:%vp[0-9]+]] = fmul float [[VAL4]] float 0x3F5063B3E0000000
-; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL6:%vp[0-9]+]] = fadd float [[VAL5]] float -2.000000e+00
+; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VAL1:%vp.*]] = phi  [ i64 [[VAL2:%vp.*]], [[BB5:BB[0-9]+]] ],  [ i64 0, BB2 ]
+; CHECK-NEXT: Uniform: [Shape: Uniform] void {{%vp.*}} = call i64 4 i8* %2 void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECK-NEXT: Divergent: [Shape: Random] i32 [[VAL3:%vp.*]] = trunc i64 [[VAL1]] to i32
+; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL4:%vp.*]] = sitofp i32 [[VAL3]] to float
+; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL5:%vp.*]] = fmul float [[VAL4]] float 0x3F5063B3E0000000
+; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL6:%vp.*]] = fadd float [[VAL5]] float -2.000000e+00
 ; CHECK-NEXT: Divergent: [Shape: Random] store float [[VAL6]] float* %in_vals_tmp_real.priv.priv
-; CHECK-NEXT: Uniform: [Shape: Uniform] void {{%vp[0-9]+}} = call i64 4 i8* %3 void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECK-NEXT: Uniform: [Shape: Uniform] void {{%vp.*}} = call i64 4 i8* %3 void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT: Uniform: [Shape: Uniform] store float %sub float* %in_vals_tmp_imagine.priv.priv
-; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL7:%vp[0-9]+]] = fmul float [[VAL6]] float [[VAL6]]
-; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL8:%vp[0-9]+]] = fadd float %mul1.i float [[VAL7]]
-; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL9:%vp[0-9]+]] = call float [[VAL8]] float (float)* @sqrtf
-; CHECK-NEXT: Divergent: [Shape: Random] i1 {{%vp[0-9]+}} = fcmp float [[VAL9]] float 2.000000e+00
+; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL7:%vp.*]] = fmul float [[VAL6]] float [[VAL6]]
+; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL8:%vp.*]] = fadd float %mul1.i float [[VAL7]]
+; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL9:%vp.*]] = call float [[VAL8]] float (float)* @sqrtf
+; CHECK-NEXT: Divergent: [Shape: Random] i1 {{%vp.*}} = fcmp float [[VAL9]] float 2.000000e+00
 ; CHECK-EMPTY:
 ; CHECK-NEXT: Basic Block: [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT: Basic Block: [[BB3:BB[0-9]+]]
-; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL10:%vp[0-9]+]] = phi  [ float [[VAL12:%vp[0-9]+]], [[BB3]] ],  [ float %sub, [[BB2]] ]
-; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL11:%vp[0-9]+]] = phi  [ float [[VAL13:%vp[0-9]+]], [[BB3]] ],  [ float [[VAL6]], [[BB2]] ]
-; CHECK-NEXT: Uniform: [Shape: Uniform] i32 [[VAL14:%vp[0-9]+]] = phi  [ i32 [[VAL15:%vp[0-9]+]], [[BB3]] ],  [ i32 1, [[BB2]] ]
-; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL16:%vp[0-9]+]] = fmul float [[VAL11]] float [[VAL11]]
-; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL17:%vp[0-9]+]] = fmul float [[VAL10]] float [[VAL10]]
-; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL18:%vp[0-9]+]] = fsub float [[VAL16]] float [[VAL17]]
+; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL10:%vp.*]] = phi  [ float [[VAL12:%vp.*]], [[BB3]] ],  [ float %sub, [[BB2]] ]
+; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL11:%vp.*]] = phi  [ float [[VAL13:%vp.*]], [[BB3]] ],  [ float [[VAL6]], [[BB2]] ]
+; CHECK-NEXT: Uniform: [Shape: Uniform] i32 [[VAL14:%vp.*]] = phi  [ i32 [[VAL15:%vp.*]], [[BB3]] ],  [ i32 1, [[BB2]] ]
+; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL16:%vp.*]] = fmul float [[VAL11]] float [[VAL11]]
+; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL17:%vp.*]] = fmul float [[VAL10]] float [[VAL10]]
+; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL18:%vp.*]] = fsub float [[VAL16]] float [[VAL17]]
 ; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL13]] = fadd float [[VAL6]] float [[VAL18]]
-; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL19:%vp[0-9]+]] = fmul float [[VAL13]] float 2.000000e+00
-; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL20:%vp[0-9]+]] = fmul float [[VAL10]] float [[VAL19]]
+; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL19:%vp.*]] = fmul float [[VAL13]] float 2.000000e+00
+; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL20:%vp.*]] = fmul float [[VAL10]] float [[VAL19]]
 ; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL12]] = fadd float %sub float [[VAL20]]
-; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL21:%vp[0-9]+]] = fmul float [[VAL13]] float [[VAL13]]
-; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL22:%vp[0-9]+]] = fmul float [[VAL12]] float [[VAL12]]
-; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL23:%vp[0-9]+]] = fadd float [[VAL21]] float [[VAL22]]
-; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL24:%vp[0-9]+]] = call float [[VAL23]] float (float)* @sqrtf
+; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL21:%vp.*]] = fmul float [[VAL13]] float [[VAL13]]
+; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL22:%vp.*]] = fmul float [[VAL12]] float [[VAL12]]
+; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL23:%vp.*]] = fadd float [[VAL21]] float [[VAL22]]
+; CHECK-NEXT: Divergent: [Shape: Random] float [[VAL24:%vp.*]] = call float [[VAL23]] float (float)* @sqrtf
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i32 [[VAL15]] = add i32 [[VAL14]] i32 1
-; CHECK-NEXT: Divergent: [Shape: Random] i1 [[VAL25:%vp[0-9]+]] = fcmp float [[VAL24]] float 2.000000e+00
-; CHECK-NEXT: Uniform: [Shape: Uniform] i1 [[VAL26:%vp[0-9]+]] = icmp i32 [[VAL15]] i32 3000
-; CHECK-NEXT: Divergent: [Shape: Random] i1 {{%vp[0-9]+}} = and i1 [[VAL26]] i1 [[VAL25]]
+; CHECK-NEXT: Divergent: [Shape: Random] i1 [[VAL25:%vp.*]] = fcmp float [[VAL24]] float 2.000000e+00
+; CHECK-NEXT: Uniform: [Shape: Uniform] i1 [[VAL26:%vp.*]] = icmp i32 [[VAL15]] i32 3000
+; CHECK-NEXT: Divergent: [Shape: Random] i1 {{%vp.*}} = and i1 [[VAL26]] i1 [[VAL25]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT: Basic Block: [[BB4:BB[0-9]+]]
-; CHECK-NEXT: Divergent: [Shape: Random] i32 [[VAL27:%vp[0-9]+]] = phi  [ i32 [[VAL15]], [[BB3]] ]
+; CHECK-NEXT: Divergent: [Shape: Random] i32 [[VAL27:%vp.*]] = phi  [ i32 [[VAL15]], [[BB3]] ]
 ; CHECK-EMPTY:
 ; CHECK-NEXT: Basic Block: [[BB5]]
-; CHECK-NEXT: Divergent: [Shape: Random] i32 [[VAL28:%vp[0-9]+]] = phi  [ i32 1, [[BB1]] ],  [ i32 [[VAL27]], [[BB4]] ]
-; CHECK-NEXT: Divergent: [Shape: Unit Stride Pointer, Stride: i64 4] i32* [[VAL29:%vp[0-9]+]] = getelementptr inbounds [3000 x [3000 x i32]]* @count i64 0 i64 %indvars.iv39 i64 [[VAL1]]
+; CHECK-NEXT: Divergent: [Shape: Random] i32 [[VAL28:%vp.*]] = phi  [ i32 1, [[BB1]] ],  [ i32 [[VAL27]], [[BB4]] ]
+; CHECK-NEXT: Divergent: [Shape: Unit Stride Pointer, Stride: i64 4] i32* [[VAL29:%vp.*]] = getelementptr inbounds [3000 x [3000 x i32]]* @count i64 0 i64 %indvars.iv39 i64 [[VAL1]]
 ; CHECK-NEXT: Divergent: [Shape: Random] store i32 [[VAL28]] i32* [[VAL29]]
-; CHECK-NEXT: Uniform: [Shape: Uniform] void {{%vp[0-9]+}} = call i64 4 i8* %3 void (i64, i8*)* @llvm.lifetime.end.p0i8
-; CHECK-NEXT: Uniform: [Shape: Uniform] void {{%vp[0-9]+}} = call i64 4 i8* %2 void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECK-NEXT: Uniform: [Shape: Uniform] void {{%vp.*}} = call i64 4 i8* %3 void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECK-NEXT: Uniform: [Shape: Uniform] void {{%vp.*}} = call i64 4 i8* %2 void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VAL2]] = add i64 [[VAL1]] i64 1
-; CHECK-NEXT: Uniform: [Shape: Uniform] i1 {{%vp[0-9]+}} = icmp i64 [[VAL2]] i64 3000
+; CHECK-NEXT: Uniform: [Shape: Uniform] i1 {{%vp.*}} = icmp i64 [[VAL2]] i64 3000
 
 ; ModuleID = 'mod.cpp'
 source_filename = "mod.cpp"

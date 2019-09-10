@@ -24,7 +24,7 @@ define i32 @foo() local_unnamed_addr {
 ; CHECK:         SUCCESSORS(1):[[BB3:BB[0-9]+]]
 ; CHECK:         [[BB3]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:     Condition([[BB2]]): i1 [[VPBP1:.*]] = icmp
+; CHECK-NEXT:     Condition([[BB2]]): [DA: Divergent] i1 [[VPBP1:.*]] = icmp
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VPBP1]]), [[BB5:BB[0-9]+]](!i1 [[VPBP1]])
 ; CHECK:           [[BB4]] (BP: NULL) :
 ; CHECK:           SUCCESSORS(1):[[BB5]]
@@ -36,7 +36,7 @@ define i32 @foo() local_unnamed_addr {
 ; CHECK:         SUCCESSORS(1):[[BB6]]
 ; CHECK:         [[BB6]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:     Condition([[BB5]]): i1 [[VPBP2:.*]] = icmp
+; CHECK-NEXT:     Condition([[BB5]]): [DA: Uniform] i1 [[VPBP2:.*]] = icmp
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VPBP2]]), [[BB7:BB[0-9]+]](!i1 [[VPBP2]])
 ; CHECK:         [[BB7]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>

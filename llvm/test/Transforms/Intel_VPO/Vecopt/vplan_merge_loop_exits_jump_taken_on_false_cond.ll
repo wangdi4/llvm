@@ -19,7 +19,7 @@
 ; CHECK-NEXT:   PREDECESSORS(1): [[BB_12]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:   [[BB_3]] (BP: NULL) :
-; CHECK-NEXT:    i32 [[vp_40240:%vp[0-9]+]] = phi  [ i32 0, [[BB_2]] ],  [ i32 [[vp_49152:%vp[0-9]+]], [[BB_5:BB[0-9]+]] ]
+; CHECK-NEXT:    i32 [[vp_40240:%vp.*]] = phi  [ i32 0, [[BB_2]] ],  [ i32 [[vp_49152:%vp.*]], [[BB_5:BB[0-9]+]] ]
 ; CHECK-NEXT:   SUCCESSORS(1):[[LoopPreHeader:BB[0-9]+]]
 ; CHECK-NEXT:   PREDECESSORS(2): [[BB_5]] [[BB_2]]
 ; CHECK-EMPTY:
@@ -29,14 +29,14 @@
 ; CHECK-NEXT:   PREDECESSORS(1): [[BB_3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:   [[LoopHeader]] (BP: NULL) :
-; CHECK-NEXT:    i32 [[vp_42064:%vp[0-9]+]] = phi  [ i32 0, [[LoopPreHeader]] ],  [ i32 [[vp_43376:%vp[0-9]+]], [[BB_7:BB[0-9]+]] ]
+; CHECK-NEXT:    i32 [[vp_42064:%vp.*]] = phi  [ i32 0, [[LoopPreHeader]] ],  [ i32 [[vp_43376:%vp.*]], [[BB_7:BB[0-9]+]] ]
 ; CHECK-NEXT:    i32 [[vp_43376]] = add i32 [[vp_42064]] i32 1
-; CHECK-NEXT:    i1 [[vp_43600:%vp[0-9]+]] = icmp i32 [[vp_43376]] i32 16
+; CHECK-NEXT:    i1 [[vp_43600:%vp.*]] = icmp i32 [[vp_43376]] i32 16
 ; CHECK-NEXT:   SUCCESSORS(2):[[BB_6:BB[0-9]+]](i1 [[vp_43600]]), [[OrigLoopLatch:BB[0-9]+]](!i1 [[vp_43600]])
 ; CHECK-NEXT:   PREDECESSORS(2): [[OrigLoopLatch]] [[LoopPreHeader]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:     [[OrigLoopLatch]] (BP: NULL) :
-; CHECK-NEXT:      i1 [[vp_48064:%vp[0-9]+]] = icmp i32 [[vp_42064]] i32 128
+; CHECK-NEXT:      i1 [[vp_48064:%vp.*]] = icmp i32 [[vp_42064]] i32 128
 ; CHECK-NEXT:     SUCCESSORS(2):[[BB_8:BB[0-9]+]](i1 [[vp_48064]]), [[LoopHeader]](!i1 [[vp_48064]])
 ; CHECK-NEXT:     PREDECESSORS(1): [[LoopHeader]]
 
@@ -66,7 +66,7 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT:   [[LoopHeader]] (BP: NULL) :
 ; CHECK-NEXT:    i32 [[vp_42064]] = phi  [ i32 0, [[LoopPreHeader]] ],  [ i32 [[vp_43376]], [[NewLoopLatch_15:NewLoopLatch[0-9]+]] ]
-; CHECK-NEXT:    i32 [[vp_4208:%vp[0-9]+]] = phi  [ i32 [[vp_3792:%vp[0-9]+]], [[NewLoopLatch_15]] ],  [ i32 0, [[LoopPreHeader]] ]
+; CHECK-NEXT:    i32 [[vp_4208:%vp.*]] = phi  [ i32 [[vp_3792:%vp.*]], [[NewLoopLatch_15]] ],  [ i32 0, [[LoopPreHeader]] ]
 ; CHECK-NEXT:    i32 [[vp_43376]] = add i32 [[vp_42064]] i32 1
 ; CHECK-NEXT:    i1 [[vp_43600]] = icmp i32 [[vp_43376]] i32 16
 ; CHECK-NEXT:   SUCCESSORS(2):[[IntermediateBB16:IntermediateBB[0-9]+]](i1 [[vp_43600]]), [[OrigLoopLatch]](!i1 [[vp_43600]])
@@ -86,7 +86,7 @@
 ; CHECK-NEXT:   [[NewLoopLatch_15]] (BP: NULL) :
 ; CHECK-NEXT:    i32 [[vp_3792]] = phi  [ i32 [[vp_4208]], [[OrigLoopLatch]] ],  [ i32 1, [[IntermediateBB16]] ]
 ; The following phi is the new condbit. The backedge is taken when the condbit is false. Thus, vp_48064 is false.
-; CHECK-NEXT:    i1 [[vp_4000:%vp[0-9]+]] = phi  [ i1 [[vp_48064]], [[OrigLoopLatch]] ],  [ i1 true, [[IntermediateBB16]] ]
+; CHECK-NEXT:    i1 [[vp_4000:%vp.*]] = phi  [ i1 [[vp_48064]], [[OrigLoopLatch]] ],  [ i1 true, [[IntermediateBB16]] ]
 ; CHECK-NEXT:   SUCCESSORS(2):[[IfBlock_17:IfBlock[0-9]+]](i1 [[vp_4000]]), [[LoopHeader]](!i1 [[vp_4000]])
 ; CHECK-NEXT:   PREDECESSORS(2): [[OrigLoopLatch]] [[IntermediateBB16]]
 

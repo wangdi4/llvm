@@ -9,8 +9,8 @@
 ; CHECK: BB{{[0-9]+}} {{.*}} :
 ; CHECK-NEXT: block-predicate
 ; CHECK-NEXT: call {{.*}} @foo
-; CHECK-NEXT: [[LRES:%vp[0-9]+]] = load i32* [[LDADDR:%vp[0-9]+]]
-; CHECK-NEXT: [[ADDRES:%vp[0-9]+]] = add i32 [[LRES]] i32 1
+; CHECK-NEXT: [[LRES:%vp.*]] = load i32* [[LDADDR:%vp.*]]
+; CHECK-NEXT: [[ADDRES:%vp.*]] = add i32 [[LRES]] i32 1
 ; CHECK-NEXT:   store i32 [[ADDRES]] i32* [[LDADDR]]
 ; ModuleID = 't6.c'
 source_filename = "t6.c"

@@ -77,7 +77,9 @@ for.body:                                         ; preds = %for.body, %entry
   %base = getelementptr %Struct, %Struct *%a, i64 %indvars.iv
   %ptr = getelementptr inbounds %Struct, %Struct * %base, i32 0, i32 0
   %ld = load <3 x i32>, <3 x i32>* %ptr
-  br i1 %flag, label %block1, label %block2
+  %ld.0 = extractelement <3 x i32> %ld, i32 0
+  %cmp = icmp eq i32 %ld.0, 42
+  br i1 %cmp, label %block1, label %block2
 
 block1:
   %ptr1 = getelementptr inbounds %Struct, %Struct * %base, i32 0, i32 0

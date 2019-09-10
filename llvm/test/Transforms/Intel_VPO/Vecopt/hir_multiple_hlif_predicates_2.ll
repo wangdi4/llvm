@@ -24,7 +24,7 @@
 ; HCFG-NEXT: i1 [[And1:%.*]] = and i1 [[Cmp1]] i1 [[Cmp2]]
 ; HCFG-NEXT: i1 [[Cmp3:%.*]] = fcmp float {{%.*}} float 0.000000e+00
 ; HCFG-NEXT: i1 [[And2:%.*]] = and i1 [[And1]] i1 [[Cmp3]]
-; HCFG: Condition({{BB.*}}): i1 [[And2]] = and i1 [[And1]] i1 [[Cmp3]]
+; HCFG: Condition({{BB.*}}): [DA: Divergent] i1 [[And2]] = and i1 [[And1]] i1 [[Cmp3]]
 
 ; NOTE: We force VF=4 here to test correctness of code generation
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-after=VPlanDriverHIR -S < %s 2>&1 | FileCheck %s

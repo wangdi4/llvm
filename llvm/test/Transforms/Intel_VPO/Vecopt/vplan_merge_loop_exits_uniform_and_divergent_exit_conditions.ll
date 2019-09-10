@@ -46,7 +46,7 @@ define dso_local i32 @main() #0 {
 ; CHECK-NEXT:    REGION: [[REGION1]] (BP: NULL)
 ; CHECK-NEXT:    [[BB7:BB[0-9]+]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:     Condition([[BB5]]): i1 [[VP_CMP2]] = icmp i32 [[VP_J_INC]] i32 16
+; CHECK-NEXT:     Condition([[BB5]]): [DA: Uniform]  i1 [[VP_CMP2]] = icmp i32 [[VP_J_INC]] i32 16
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB8:BB[0-9]+]](i1 [[VP_CMP2]]), Intermediate[[BB9:BB[0-9]+]](!i1 [[VP_CMP2]])
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
@@ -83,7 +83,7 @@ define dso_local i32 @main() #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:     Condition(NewLoopLatch15): i1 [[VP2]] = phi  [ i1 true, [[BB10]] ],  [ i1 false, Intermediate[[BB9]] ],  [ i1 false, Intermediate[[BB11]] ]
+; CHECK-NEXT:     Condition(NewLoopLatch15): [DA: Divergent] i1 [[VP2]] = phi  [ i1 true, [[BB10]] ],  [ i1 false, Intermediate[[BB9]] ],  [ i1 false, Intermediate[[BB11]] ]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB5]](i1 [[VP2]]), IfBlock18(!i1 [[VP2]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[REGION1]]
 ; CHECK-EMPTY:
@@ -98,7 +98,7 @@ define dso_local i32 @main() #0 {
 ; CHECK-NEXT:    REGION: [[REGION2]] (BP: NULL)
 ; CHECK-NEXT:    [[BB12:BB[0-9]+]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:     Condition(IfBlock18): i1 [[VP3]] = icmp i32 [[VP1]] i32 2
+; CHECK-NEXT:     Condition(IfBlock18): [DA: Uniform]  i1 [[VP3]] = icmp i32 [[VP1]] i32 2
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB13:BB[0-9]+]](i1 [[VP3]]), [[BB14:BB[0-9]+]](!i1 [[VP3]])
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
