@@ -134,6 +134,46 @@ static void updateAndMoveTID(Instruction *TIDCallInstr, PHINode *Phi,
   TIDCallInstr->moveBefore(EntryBlock->getTerminator());
 }
 
+// Check if a Value represents the following truncation pattern implemented
+// using shl and ashr instructions -
+// %1 = shl %0, <TruncatedToBitSize>
+// %2 = ashr %1, <TruncatedToBitSize>
+static bool isShlAshrTruncationPattern(Value *V, unsigned TruncatedToBitSize) {
+  if (!isa<Instruction>(V))
+    return false;
+
+  Instruction *I = cast<Instruction>(V);
+
+  // Capture only 'shl' instructions.
+  if (I->getOpcode() != Instruction::Shl)
+    return false;
+
+  // Check if shift is done by a constant int value.
+  if (!isa<ConstantInt>(I->getOperand(1)))
+    return false;
+
+  // Check if shift is happening to TruncatedToBitSize.
+  if (cast<ConstantInt>(I->getOperand(1))->getZExtValue() != TruncatedToBitSize)
+    return false;
+
+  // 'shl' is expected to have only a single user, the 'ashr' instruction.
+  if (I->getNumUses() != 1)
+    return false;
+
+  User *ShlSingleUsr = *I->user_begin();
+  if (auto *ShlSingleUsrInst = dyn_cast<Instruction>(ShlSingleUsr)) {
+    if (ShlSingleUsrInst->getOpcode() == Instruction::AShr) {
+      Value *AshrByVal = ShlSingleUsrInst->getOperand(1);
+      if (isa<ConstantInt>(AshrByVal) &&
+          cast<ConstantInt>(AshrByVal)->getZExtValue() == TruncatedToBitSize)
+        return true;
+    }
+  }
+
+  // Invalid single user of 'shl'.
+  return false;
+}
+
 static void updateAndMoveGetLID(Instruction *LIDCallInst, PHINode *Phi,
                                 BasicBlock *EntryBlock) {
   IRBuilder<> IRB(Phi);
@@ -145,33 +185,46 @@ static void updateAndMoveGetLID(Instruction *LIDCallInst, PHINode *Phi,
       cast<Instruction>(IRB.CreateTrunc(LIDCallInst, Phi->getType()));
   // Generates LID+ind.
   Instruction *Add = cast<Instruction>(IRB.CreateNUWAdd(LIDTrunc, Phi, "add"));
+  unsigned AddTypeSize = Add->getType()->getPrimitiveSizeInBits();
   // Sign extend result to 64-bit (LIDCallInst's type)
   Instruction *AddSExt =
       cast<Instruction>(IRB.CreateSExt(Add, LIDCallInst->getType()));
-  // Replace all uses of LID with AddSExt, except truncs that go back to same
-  // size as Add. NOTE: This will also exclude LIDTrunc since Add and Phi are of
-  // same type.
-  LIDCallInst->replaceUsesWithIf(AddSExt, [Add](Use &U) {
+  // Replace all uses of LID with AddSExt, except truncating sequences that go
+  // back to same size as Add. NOTE: This will also exclude LIDTrunc since Add
+  // and Phi are of same type.
+  LIDCallInst->replaceUsesWithIf(AddSExt, [Add, AddTypeSize](Use &U) {
     User *Usr = U.getUser();
     if (auto *UsrTruncInst = dyn_cast<TruncInst>(Usr)) {
       if (UsrTruncInst->getDestTy() == Add->getType())
         return false;
     }
+    if (isShlAshrTruncationPattern(Usr, AddTypeSize))
+      return false;
     return true;
   });
 
-  // All the remaining users of LID are either LIDTrunc or trunc instructions
-  // from incoming IR which go back to same size as Add. The latter are trivial
-  // and can be removed, with all their uses replaced directly by Add.
+  // All the remaining users of LID are either LIDTrunc, trunc instructions or
+  // truncating sequences (shl + ashr) from incoming IR which go back to same
+  // size as Add. The last two cases are trivial and can be removed, with all
+  // their uses replaced directly by Add (or AddSExt).
   for (auto *User : LIDCallInst->users()) {
-    assert(isa<TruncInst>(User) && "Invalid remaining user of get_local_id.");
-    TruncInst *UserInst = cast<TruncInst>(User);
+    assert((isa<TruncInst>(User) ||
+            isShlAshrTruncationPattern(User, AddTypeSize)) &&
+           "Invalid remaining user of get_local_id.");
+    Instruction *UserInst = cast<Instruction>(User);
 
     if (UserInst == LIDTrunc)
       continue;
 
-    UserInst->replaceAllUsesWith(Add);
-    UserInst->eraseFromParent();
+    if (isa<TruncInst>(UserInst)) {
+      UserInst->replaceAllUsesWith(Add);
+      UserInst->eraseFromParent();
+    } else {
+      Instruction *AshrInst = cast<Instruction>(*UserInst->user_begin());
+      AshrInst->replaceAllUsesWith(AddSExt);
+      AshrInst->eraseFromParent();
+      UserInst->eraseFromParent();
+    }
   }
 
   // Reset the operand of LID's trunc, after all uses of LID are replaced.
