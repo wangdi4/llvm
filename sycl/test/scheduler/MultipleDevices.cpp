@@ -1,11 +1,8 @@
-// RUN: %clangxx -fsycl %s -o %t.out -lOpenCL
+// RUN: %clangxx -fsycl %s -o %t.out
 // RUN: %t.out
 
 // INTEL_CUSTOMIZATION
-// Tests fails on xmain after latest merge of SYCL and requires more investigation: CMPLRLLVM-10112
-// Mark as expected fail
-// XFAIL: *
-// end INTEL_CUSTOMIZATION
+// XFAIL: windows
 
 //===- MultipleDevices.cpp - Test checking multi-device execution --------===//
 //
@@ -107,7 +104,7 @@ int main() {
     queue MyQueue1(hostSelector);
     queue MyQueue2(hostSelector);
     Result &= multidevice_test(MyQueue1, MyQueue2);
-  } catch(cl::sycl::invalid_parameter_error &) {
+  } catch(cl::sycl::runtime_error &) {
     std::cout << "Skipping host and host" << std::endl;
   }
 
@@ -115,7 +112,7 @@ int main() {
     queue MyQueue1(hostSelector);
     queue MyQueue2(CPUSelector);
     Result &= multidevice_test(MyQueue1, MyQueue2);
-  } catch(cl::sycl::invalid_parameter_error &) {
+  } catch(cl::sycl::runtime_error &) {
     std::cout << "Skipping host and CPU" << std::endl;
   }
 
@@ -123,7 +120,7 @@ int main() {
     queue MyQueue1(CPUSelector);
     queue MyQueue2(CPUSelector);
     Result &= multidevice_test(MyQueue1, MyQueue2);
-  } catch(cl::sycl::invalid_parameter_error &) {
+  } catch(cl::sycl::runtime_error &) {
     std::cout << "Skipping CPU and CPU" << std::endl;
   }
 
@@ -131,7 +128,7 @@ int main() {
     queue MyQueue1(CPUSelector);
     queue MyQueue2(GPUSelector);
     Result &= multidevice_test(MyQueue1, MyQueue2);
-  } catch(cl::sycl::invalid_parameter_error &) {
+  } catch(cl::sycl::runtime_error &) {
     std::cout << "Skipping CPU and GPU" << std::endl;
   }
 
@@ -139,7 +136,7 @@ int main() {
     queue MyQueue1(hostSelector);
     queue MyQueue2(GPUSelector);
     Result &= multidevice_test(MyQueue1, MyQueue2);
-  } catch(cl::sycl::invalid_parameter_error &) {
+  } catch(cl::sycl::runtime_error &) {
     std::cout << "Skipping host and GPU" << std::endl;
   }
 
@@ -147,7 +144,7 @@ int main() {
     queue MyQueue1(GPUSelector);
     queue MyQueue2(GPUSelector);
     Result &= multidevice_test(MyQueue1, MyQueue2);
-  } catch(cl::sycl::invalid_parameter_error &) {
+  } catch (cl::sycl::runtime_error &) {
     std::cout << "Skipping GPU and GPU" << std::endl;
   }
 

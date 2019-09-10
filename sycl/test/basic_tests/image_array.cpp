@@ -1,13 +1,7 @@
-// RUN: %clangxx -fsycl %s -o %t.out -lOpenCL
+// RUN: %clangxx -fsycl %s -o %t.out
 // RUNx: env SYCL_DEVICE_TYPE=HOST %t.out
 // RUN: %CPU_RUN_PLACEHOLDER %t.out
 // RUNx: %GPU_RUN_PLACEHOLDER %t.out
-
-// INTEL_CUSTOMIZATION
-// Tests fails on xmain after initial merge of SYCL and requires more investigation: CMPLRLLVM-10112
-// Mark as expected fail
-// XFAIL: *
-// end INTEL_CUSTOMIZATION
 
 //==------------------- image.cpp - SYCL image basic test -----------------==//
 //

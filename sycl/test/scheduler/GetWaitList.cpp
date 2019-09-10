@@ -1,4 +1,4 @@
-// RUN: %clangxx -fsycl %s -o %t.out -lOpenCL
+// RUN: %clangxx -fsycl %s -o %t.out
 // RUN: %t.out
 // TODO: SYCL specific fail - analyze and enable
 // XFAIL: windows
@@ -13,16 +13,7 @@
 
 #include <CL/sycl.hpp>
 
-void foo() {
+int main() {
   cl::sycl::event start;
   start.wait_and_throw();
-  return;
-}
-
-int main() {
-  cl::sycl::queue Q;
-  Q.submit([&](cl::sycl::handler &CGH) {
-    foo();
-  });
-  return 0;
 }

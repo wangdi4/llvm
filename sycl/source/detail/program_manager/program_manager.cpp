@@ -10,12 +10,13 @@
 #include <CL/sycl/detail/common.hpp>
 #include <CL/sycl/detail/os_util.hpp>
 #include <CL/sycl/detail/program_manager/program_manager.hpp>
+#include <CL/sycl/detail/type_traits.hpp>
 #include <CL/sycl/detail/util.hpp>
 #include <CL/sycl/device.hpp>
 #include <CL/sycl/exception.hpp>
 #include <CL/sycl/stl.hpp>
 
-#include <assert.h>
+#include <cassert>
 #include <cstdlib>
 #include <fstream>
 #include <memory>
@@ -87,12 +88,19 @@ RT::PiProgram ProgramManager::getBuiltOpenCLProgram(OSModuleHandle M,
   std::shared_ptr<context_impl> Ctx = getSyclObjImpl(Context);
   std::map<OSModuleHandle, RT::PiProgram> &CachedPrograms =
       Ctx->getCachedPrograms();
-  RT::PiProgram &Program = CachedPrograms[M];
-  if (!Program) {
-    DeviceImage *Img = nullptr;
-    Program = loadProgram(M, Context, &Img);
-    build(Program, Img->BuildOptions);
-  }
+  auto It = CachedPrograms.find(M);
+  if (It != CachedPrograms.end())
+    return It->second;
+
+  DeviceImage *Img = nullptr;
+  using PiProgramT = remove_pointer_t<RT::PiProgram>;
+  unique_ptr_class<PiProgramT, decltype(RT::piProgramRelease)> ProgramManaged(
+      loadProgram(M, Context, &Img), RT::piProgramRelease);
+
+  build(ProgramManaged.get(), Img->BuildOptions);
+  RT::PiProgram Program = ProgramManaged.release();
+  CachedPrograms[M] = Program;
+
   return Program;
 }
 
@@ -124,7 +132,33 @@ RT::PiProgram ProgramManager::getClProgramFromClKernel(RT::PiKernel Kernel) {
   return Program;
 }
 
-void ProgramManager::build(RT::PiProgram &Program, const string_class &Options,
+string_class ProgramManager::getProgramBuildLog(const RT::PiProgram &Program) {
+  size_t Size = 0;
+  PI_CALL(RT::piProgramGetInfo(Program, CL_PROGRAM_DEVICES, 0, nullptr, &Size));
+  vector_class<RT::PiDevice> PIDevices(Size / sizeof(RT::PiDevice));
+  PI_CALL(RT::piProgramGetInfo(Program, CL_PROGRAM_DEVICES, Size,
+                               PIDevices.data(), nullptr));
+  string_class Log = "The program was built for " +
+                     std::to_string(PIDevices.size()) + " devices";
+  for (RT::PiDevice &Device : PIDevices) {
+    PI_CALL(RT::piProgramGetBuildInfo(Program, Device, CL_PROGRAM_BUILD_LOG, 0,
+                                      nullptr, &Size));
+    vector_class<char> DeviceBuildInfo(Size);
+    PI_CALL(RT::piProgramGetBuildInfo(Program, Device, CL_PROGRAM_BUILD_LOG,
+                                      Size, DeviceBuildInfo.data(), nullptr));
+    PI_CALL(
+        RT::piDeviceGetInfo(Device, PI_DEVICE_INFO_NAME, 0, nullptr, &Size));
+    vector_class<char> DeviceName(Size);
+    PI_CALL(RT::piDeviceGetInfo(Device, PI_DEVICE_INFO_NAME, Size,
+                                DeviceName.data(), nullptr));
+
+    Log += "\nBuild program log for '" + string_class(DeviceName.data()) +
+           "':\n" + string_class(DeviceBuildInfo.data());
+  }
+  return Log;
+}
+
+void ProgramManager::build(RT::PiProgram Program, const string_class &Options,
                            std::vector<RT::PiDevice> Devices) {
 
   if (DbgProgMgr > 0) {
@@ -148,29 +182,7 @@ void ProgramManager::build(RT::PiProgram &Program, const string_class &Options,
         Opts, nullptr, nullptr)) == PI_SUCCESS)
     return;
 
-  // Get OpenCL build log and add it to the exception message.
-  size_t Size = 0;
-  PI_CALL(RT::piProgramGetInfo(
-      Program, CL_PROGRAM_DEVICES, 0, nullptr, &Size));
-
-  std::vector<RT::PiDevice> DevIds(Size / sizeof(RT::PiDevice));
-  PI_CALL(RT::piProgramGetInfo(
-      Program, CL_PROGRAM_DEVICES, Size, DevIds.data(), nullptr));
-  std::string Log;
-  for (RT::PiDevice &DevId : DevIds) {
-    PI_CALL(RT::piProgramGetBuildInfo(
-        Program, DevId, CL_PROGRAM_BUILD_LOG, 0, nullptr, &Size));
-    std::vector<char> BuildLog(Size);
-    PI_CALL(RT::piProgramGetBuildInfo(
-        Program, DevId, CL_PROGRAM_BUILD_LOG, Size,
-        BuildLog.data(), nullptr));
-
-    device Dev = createSyclObjFromImpl<device>(
-        std::make_shared<device_impl_pi>(DevId));
-    Log += "\nBuild program fail log for '" +
-           Dev.get_info<info::device::name>() + "':\n" + BuildLog.data();
-  }
-  throw compile_program_error(Log.c_str());
+  throw compile_program_error(getProgramBuildLog(Program));
 }
 
 void ProgramManager::addImages(pi_device_binaries DeviceBinary) {
@@ -228,12 +240,12 @@ static bool is_device_binary_type_supported(const context &C,
       C.get_platform().get_info<info::platform::version>() >= "2.1")
     return true;
 
-  // Otherwise we need cl_khr_program_il extension to be present
+  // Otherwise we need cl_khr_il_program extension to be present
   // and we can call clCreateProgramWithILKHR using the extension
   for (const auto &D : C.get_devices()) {
     auto Extensions = D.get_info<info::device::extensions>();
     if (std::find(Extensions.begin(), Extensions.end(),
-                  string_class("cl_khr_program_il")) != Extensions.end())
+                  string_class("cl_khr_il_program")) != Extensions.end())
       return true;
   }
 

@@ -1,4 +1,4 @@
-// RUN: %clangxx -fsycl %s -o %t.out -lOpenCL
+// RUN: %clangxx -fsycl %s -o %t.out
 // RUN: env SYCL_DEVICE_TYPE=HOST %t.out
 // RUNx: %CPU_RUN_PLACEHOLDER %t.out
 // RUNx: %GPU_RUN_PLACEHOLDER %t.out
@@ -73,13 +73,16 @@ int main() {
       int8{2, 3, 3, -2, -3, -3, 0, 0});
   test<float, int, 8, rounding_mode::automatic>(
       float8{+2.3f, +2.5f, +2.7f, -2.3f, -2.5f, -2.7f, 0.f, 0.f},
-      int8{2, 3, 3, -2, -3, -3, 0, 0});
+      int8{2, 2, 3, -2, -2, -3, 0, 0});
   test<int, float, 8, rounding_mode::automatic>(
       int8{2, 3, 3, -2, -3, -3, 0, 0},
       float8{2.f, 3.f, 3.f, -2.f, -3.f, -3.f, 0.f, 0.f});
   test<float, float, 8, rounding_mode::automatic>(
       float8{+2.3f, +2.5f, +2.7f, -2.3f, -2.5f, -2.7f, 0.f, 0.f},
       float8{+2.3f, +2.5f, +2.7f, -2.3f, -2.5f, -2.7f, 0.f, 0.f});
+  test<float, half, 8, rounding_mode::automatic>(
+      float8{+2.3f, +2.5f, +2.7f, -2.3f, -2.5f, -2.7f, 0.f, 0.f},
+      half8{+2.3f, +2.5f, +2.7f, -2.3f, -2.5f, -2.7f, 0.f, 0.f});
 
   // rte
   test<int, int, 8, rounding_mode::rte>(
@@ -87,13 +90,16 @@ int main() {
       int8{2, 3, 3, -2, -3, -3, 0, 0});
   test<float, int, 8, rounding_mode::rte>(
       float8{+2.3f, +2.5f, +2.7f, -2.3f, -2.5f, -2.7f, 0.f, 0.f},
-      int8{2, 3, 3, -2, -3, -3, 0, 0});
+      int8{2, 2, 3, -2, -2, -3, 0, 0});
   test<int, float, 8, rounding_mode::rte>(
       int8{2, 3, 3, -2, -3, -3, 0, 0},
       float8{2.f, 3.f, 3.f, -2.f, -3.f, -3.f, 0.f, 0.f});
   test<float, float, 8, rounding_mode::rte>(
       float8{+2.3f, +2.5f, +2.7f, -2.3f, -2.5f, -2.7f, 0.f, 0.f},
       float8{+2.3f, +2.5f, +2.7f, -2.3f, -2.5f, -2.7f, 0.f, 0.f});
+  test<float, half, 8, rounding_mode::rte>(
+      float8{+2.3f, +2.5f, +2.7f, -2.3f, -2.5f, -2.7f, 0.f, 0.f},
+      half8{+2.3f, +2.5f, +2.7f, -2.3f, -2.5f, -2.7f, 0.f, 0.f});
 
   // rtz
   test<int, int, 8, rounding_mode::rtz>(
@@ -108,6 +114,9 @@ int main() {
   test<float, float, 8, rounding_mode::rtz>(
       float8{+2.3f, +2.5f, +2.7f, -2.3f, -2.5f, -2.7f, 0.f, 0.f},
       float8{+2.3f, +2.5f, +2.7f, -2.3f, -2.5f, -2.7f, 0.f, 0.f});
+  test<float, half, 8, rounding_mode::rtz>(
+      float8{+2.3f, +2.5f, +2.7f, -2.3f, -2.5f, -2.7f, 0.f, 0.f},
+      half8{+2.3f, +2.5f, +2.7f, -2.3f, -2.5f, -2.7f, 0.f, 0.f});
 
   // rtp
   test<int, int, 8, rounding_mode::rtp>(
@@ -122,6 +131,9 @@ int main() {
   test<float, float, 8, rounding_mode::rtp>(
       float8{+2.3f, +2.5f, +2.7f, -2.3f, -2.5f, -2.7f, 0.f, 0.f},
       float8{+2.3f, +2.5f, +2.7f, -2.3f, -2.5f, -2.7f, 0.f, 0.f});
+  test<float, half, 8, rounding_mode::rtp>(
+      float8{+2.3f, +2.5f, +2.7f, -2.3f, -2.5f, -2.7f, 0.f, 0.f},
+      half8{+2.3f, +2.5f, +2.7f, -2.3f, -2.5f, -2.7f, 0.f, 0.f});
 
   // rtn
   test<int, int, 8, rounding_mode::rtn>(
@@ -136,6 +148,9 @@ int main() {
   test<float, float, 8, rounding_mode::rtn>(
       float8{+2.3f, +2.5f, +2.7f, -2.3f, -2.5f, -2.7f, 0.f, 0.f},
       float8{+2.3f, +2.5f, +2.7f, -2.3f, -2.5f, -2.7f, 0.f, 0.f});
+  test<float, half, 8, rounding_mode::rtn>(
+      float8{+2.3f, +2.5f, +2.7f, -2.3f, -2.5f, -2.7f, 0.f, 0.f},
+      half8{+2.3f, +2.5f, +2.7f, -2.3f, -2.5f, -2.7f, 0.f, 0.f});
 
   return 0;
 }

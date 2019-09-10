@@ -1,4 +1,4 @@
-// RUN: %clangxx -fsycl %s -o %t1.out -lOpenCL
+// RUN: %clangxx -fsycl %s -o %t1.out
 // RUN: %CPU_RUN_PLACEHOLDER %t1.out
 // TODO: SYCL specific fail - analyze and enable
 // XFAIL: windows
@@ -30,7 +30,7 @@ int main() {
   auto dev = q.get_device();
   auto ctxt = q.get_context();
 
-  usm_allocator<Node, usm::alloc::device> alloc(&ctxt, &dev);
+  usm_allocator<Node, usm::alloc::device> alloc(ctxt, dev);
 
   Node *d_head = nullptr;
   Node *d_cur = nullptr;
