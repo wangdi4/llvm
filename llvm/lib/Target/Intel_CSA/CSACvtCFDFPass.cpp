@@ -961,7 +961,12 @@ void CSACvtCFDFPass::generateLoopHeader(MachineLoop *Loop) {
 // performance to admit more than the pipeline depth of the body would fit.
 void CSACvtCFDFPass::pipelineLoop(MachineBasicBlock *lphdr, CSALoopInfo &DFLoop,
     unsigned numTokens) {
-  DebugLoc mloopLoc = MLI->getLoopFor(lphdr)->getStartLoc();
+  MachineLoop* mloop = MLI->getLoopFor(lphdr);
+  assert(mloop);
+  DebugLoc mloopLoc = mloop->getStartLoc();
+
+  // Get the loop id string.
+  std::string loopId = std::to_string(getLoopId(mloop));
 
   SmallVector<MachineOperand *, 4> newGang, backGang;
 
@@ -971,7 +976,11 @@ void CSACvtCFDFPass::pipelineLoop(MachineBasicBlock *lphdr, CSALoopInfo &DFLoop,
   unsigned pickBackedgeIdx = DFLoop.getPickBackedgeIndex() + 2;
   unsigned switchBackedgeIdx = DFLoop.getSwitchBackedgeIndex(0);
   for (MachineInstr *pick : DFLoop.getHeaderPicks()) {
-    newGang.push_back(&pick->getOperand(pickIncomingIdx));
+    MachineOperand* incoming = &pick->getOperand(pickIncomingIdx);
+    // Mark the input of the loop and the loop id.
+    LMFI->addLICAttribute(incoming->getReg(), "input_to_csasim_loop_id=",
+                          loopId);
+    newGang.push_back(incoming);
     backGang.push_back(&pick->getOperand(pickBackedgeIdx));
   }
 
@@ -1047,6 +1056,12 @@ void CSACvtCFDFPass::pipelineLoop(MachineBasicBlock *lphdr, CSALoopInfo &DFLoop,
 
     // This is also a backedge from a dataflow perspective.
     LMFI->addLICAttribute(newToken, "csasim_backedge");
+
+    if (g)
+      // Mark the output LIC of the loop and the loop id.
+      LMFI->addLICAttribute(orderedOut, "output_from_csasim_loop_id=",
+                            loopId);
+
 
     // TODO: Do not need to reorder 0-bit channels; we should be able to just
     // do rate-limiting with no reordering/storage once the compiler starts

@@ -288,6 +288,21 @@ static void addLoop(MachineLoop *L, SmallVectorImpl<MachineLoop *> &Loops) {
     addLoop(SubLoop, Loops);
 }
 
+static void collectLoops(MachineLoopInfo *MLI, SmallVectorImpl<MachineLoop *> &Loops) {
+  for (auto L : *MLI)
+    addLoop(L, Loops);
+}
+
+static unsigned findLoopId(SmallVectorImpl<MachineLoop *> &Loops, MachineLoop* loop) {
+  return std::find(Loops.begin(), Loops.end(), loop) - Loops.begin() + 1;
+}
+
+unsigned CSACvtCFDFPass::getLoopId(MachineLoop* loop) {
+  SmallVector<MachineLoop *, 8> Loops;
+  collectLoops(MLI, Loops);
+  return findLoopId(Loops, loop);
+}
+
 void CSACvtCFDFPass::assignLicFrequencies(MachineBlockFrequencyInfo &MBFI) {
   LLVM_DEBUG(dbgs() <<
              "Propagating block frequency information to LIC groups.\n");
@@ -342,8 +357,7 @@ void CSACvtCFDFPass::assignLicFrequencies(MachineBlockFrequencyInfo &MBFI) {
   // Get a list of loops in preorder traversal. This helps with mapping to loop
   // ID in lic groups.
   SmallVector<MachineLoop *, 8> Loops;
-  for (auto L : *MLI)
-    addLoop(L, Loops);
+  collectLoops(MLI, Loops);
 
   for (auto &BB: *thisMF) {
     auto index = BB.getNumber();
@@ -354,7 +368,7 @@ void CSACvtCFDFPass::assignLicFrequencies(MachineBlockFrequencyInfo &MBFI) {
     MachineLoop *L = MLI->getLoopFor(&BB);
     if (L) {
       loopDepth = L->getLoopDepth();
-      loopId = std::find(Loops.begin(), Loops.end(), L) - Loops.begin() + 1;
+      loopId = findLoopId(Loops, L);
     }
     // If there is a class for the basic block, propagate block frequency.
     if (nominalVreg != ~0U) {

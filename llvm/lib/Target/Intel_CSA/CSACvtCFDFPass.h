@@ -406,5 +406,10 @@ private:
   /// generate entry inst from entrypseudo and getval insts
   void  generateEntryInstr(void);
   void  generateContinueInstrs(void);
+
+  /// Find the loop id of a MachineLoop when marking the input_to_loop_id
+  /// and output_from_loop_id attributes of a LIC. May not be meaningful
+  /// in other context.
+  unsigned getLoopId(MachineLoop* mloop);
 };
 } // namespace llvm
