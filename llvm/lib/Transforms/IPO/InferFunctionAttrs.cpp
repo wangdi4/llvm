@@ -19,6 +19,7 @@ using namespace llvm;
 
 #define DEBUG_TYPE "inferattrs"
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // For experimenting with new keywords use -force-attribute option
 const std::array<StringRef, 3> ErrorHandlingKeywords = {"croak", "warn", "signal"};
@@ -47,6 +48,10 @@ static bool addColdAttrToErrHandleFunc(Function &F) {
 
 static bool inferAllPrototypeAttributes(Module &M,
                                         const TargetLibraryInfo &TLI) {
+=======
+static bool inferAllPrototypeAttributes(
+    Module &M, function_ref<TargetLibraryInfo &(Function &)> GetTLI) {
+>>>>>>> 9c27b59cec76abea4f3f9261f3ffa73450f239c6
   bool Changed = false;
 
 #if INTEL_CUSTOMIZATION
@@ -55,20 +60,28 @@ static bool inferAllPrototypeAttributes(Module &M,
     // We only infer things using the prototype and the name; we don't need
     // definitions.
     if (F.isDeclaration() && !F.hasOptNone())
+<<<<<<< HEAD
       Changed |= inferLibFuncAttributes(F, TLI);
     if (!F.hasFnAttribute(Attribute::OptimizeNone))
       Changed |= addColdAttrToErrHandleFunc(F);
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+      Changed |= inferLibFuncAttributes(F, GetTLI(F));
+>>>>>>> 9c27b59cec76abea4f3f9261f3ffa73450f239c6
 
   return Changed;
 }
 
 PreservedAnalyses InferFunctionAttrsPass::run(Module &M,
                                               ModuleAnalysisManager &AM) {
-  auto &TLI = AM.getResult<TargetLibraryAnalysis>(M);
+  FunctionAnalysisManager &FAM =
+      AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto GetTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(F);
+  };
 
-  if (!inferAllPrototypeAttributes(M, TLI))
+  if (!inferAllPrototypeAttributes(M, GetTLI))
     // If we didn't infer anything, preserve all analyses.
     return PreservedAnalyses::all();
 
@@ -94,8 +107,10 @@ struct InferFunctionAttrsLegacyPass : public ModulePass {
     if (skipModule(M))
       return false;
 
-    auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
-    return inferAllPrototypeAttributes(M, TLI);
+    auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
+      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+    };
+    return inferAllPrototypeAttributes(M, GetTLI);
   }
 };
 }

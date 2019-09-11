@@ -2489,8 +2489,9 @@ bool BasicAAWrapperPass::runOnFunction(Function &F) {
   auto *LIWP = getAnalysisIfAvailable<LoopInfoWrapperPass>();
   auto *PVWP = getAnalysisIfAvailable<PhiValuesWrapperPass>();
 
-  Result.reset(new BasicAAResult(F.getParent()->getDataLayout(), F, TLIWP.getTLI(),
-                                 ACT.getAssumptionCache(F), &DTWP.getDomTree(),
+  Result.reset(new BasicAAResult(F.getParent()->getDataLayout(), F,
+                                 TLIWP.getTLI(F), ACT.getAssumptionCache(F),
+                                 &DTWP.getDomTree(),
                                  LIWP ? &LIWP->getLoopInfo() : nullptr,
                                  PVWP ? &PVWP->getResult() : nullptr));
 
@@ -2507,8 +2508,7 @@ void BasicAAWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
 
 BasicAAResult llvm::createLegacyPMBasicAAResult(Pass &P, Function &F) {
   return BasicAAResult(
-      F.getParent()->getDataLayout(),
-      F,
-      P.getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(),
+      F.getParent()->getDataLayout(), F,
+      P.getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F),
       P.getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F));
 }

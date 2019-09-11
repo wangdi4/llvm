@@ -28,9 +28,12 @@ MODULE_ANALYSIS("module-summary", ModuleSummaryIndexAnalysis())
 MODULE_ANALYSIS("no-op-module", NoOpModuleAnalysis())
 MODULE_ANALYSIS("profile-summary", ProfileSummaryAnalysis())
 MODULE_ANALYSIS("stack-safety", StackSafetyGlobalAnalysis())
+<<<<<<< HEAD
 MODULE_ANALYSIS("targetlibinfo", TargetLibraryAnalysis())
 MODULE_ANALYSIS("wholeprogram", WholeProgramAnalysis())     // INTEL
 MODULE_ANALYSIS("xm-module-opt-level", XmainOptLevelAnalysis()) // INTEL
+=======
+>>>>>>> 9c27b59cec76abea4f3f9261f3ffa73450f239c6
 MODULE_ANALYSIS("verify", VerifierAnalysis())
 MODULE_ANALYSIS("pass-instrumentation", PassInstrumentationAnalysis(PIC))
 MODULE_ANALYSIS("asan-globals-md", ASanGlobalsMetadataAnalysis())

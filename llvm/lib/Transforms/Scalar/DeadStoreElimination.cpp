@@ -1363,7 +1363,7 @@ public:
     MemoryDependenceResults *MD =
         &getAnalysis<MemoryDependenceWrapperPass>().getMemDep();
     const TargetLibraryInfo *TLI =
-        &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+        &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
 
     return eliminateDeadStores(F, AA, MD, DT, TLI);
   }

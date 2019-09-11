@@ -699,7 +699,8 @@ static unsigned recursiveCallCount(Function &F) {
 static bool
 inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
                 std::function<AssumptionCache &(Function &)> GetAssumptionCache,
-                ProfileSummaryInfo *PSI, TargetLibraryInfo &TLI,
+                ProfileSummaryInfo *PSI,
+                std::function<TargetLibraryInfo &(Function &)> GetTLI,
                 bool InsertLifetime,
                 function_ref<InlineCost(CallSite CS)> GetInlineCost,
                 function_ref<AAResults &(Function &)> AARGetter,
@@ -826,7 +827,8 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
 
       Instruction *Instr = CS.getInstruction();
 
-      bool IsTriviallyDead = isInstructionTriviallyDead(Instr, &TLI);
+      bool IsTriviallyDead =
+          isInstructionTriviallyDead(Instr, &GetTLI(*Caller));
 
       int InlineHistoryID;
       if (!IsTriviallyDead) {
@@ -1025,6 +1027,7 @@ bool LegacyInlinerBase::inlineCalls(CallGraphSCC &SCC) {
   CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
   ACT = &getAnalysis<AssumptionCacheTracker>();
   PSI = &getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
+<<<<<<< HEAD
   auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
   ILIC = new InliningLoopInfoCache(); // INTEL
   auto GetAssumptionCache = [&](Function &F) -> AssumptionCache & {
@@ -1043,6 +1046,18 @@ bool LegacyInlinerBase::inlineCalls(CallGraphSCC &SCC) {
   delete ILIC;    // INTEL
   ILIC = nullptr; // INTEL
   return rv;      // INTEL
+=======
+  auto GetTLI = [&](Function &F) -> TargetLibraryInfo & {
+    return getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+  };
+  auto GetAssumptionCache = [&](Function &F) -> AssumptionCache & {
+    return ACT->getAssumptionCache(F);
+  };
+  return inlineCallsImpl(
+      SCC, CG, GetAssumptionCache, PSI, GetTLI, InsertLifetime,
+      [this](CallSite CS) { return getInlineCost(CS); }, LegacyAARGetter(*this),
+      ImportedFunctionsStats);
+>>>>>>> 9c27b59cec76abea4f3f9261f3ffa73450f239c6
 }
 
 /// Remove now-dead linkonce functions at the end of
