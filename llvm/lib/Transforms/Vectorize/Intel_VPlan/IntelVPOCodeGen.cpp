@@ -415,50 +415,6 @@ VPOCodeGen::getOriginalLoadStoreAlignment(const VPInstruction *VPInst) {
   return Alignment;
 }
 
-void VPOCodeGen::widenVectorLoad(VPInstruction *VPLoad) {
-  // Pointer operand for Load is first operand.
-  VPValue *Ptr = VPLoad->getOperand(0);
-  unsigned Alignment = getOriginalLoadStoreAlignment(VPLoad);
-  Type *VecTy = getLoadStoreType(VPLoad);
-  Type *ScalarTy = VecTy->getVectorElementType();
-  unsigned OriginalVL = VecTy->getVectorNumElements();
-  if (!ScalarTy->isSingleValueType())
-    llvm_unreachable("Re-vectorization supports simple vectors only!");
-  int ConsecutiveStride = isVPValueConsecutivePtr(Ptr);
-
-  Value *NewLI = nullptr;
-  if (ConsecutiveStride) {
-    llvm_unreachable(
-        "VPVALCG: Unit strided vector load vectorization not uplifted.");
-#if 0
-    Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(
-        LI, Ptr, ConsecutiveStride == -1);
-
-    if (MaskValue && !Legal->isLoopPrivate(Ptr)) {
-      // Masking not needed for privates.
-      // Mask value should be replicated for each element.
-      Value *RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
-                                                "replicatedMaskElts.");
-      NewLI = Builder.CreateMaskedLoad(VecPtr, Alignment, RepMaskValue, nullptr,
-                                       "wide.masked.load");
-    } else
-      NewLI = Builder.CreateAlignedLoad(VecPtr, Alignment, "wide.load");
-    if (ConsecutiveStride == -1)
-      NewLI = reverseVector(NewLI, OriginalVL);
-#endif
-  } else {
-    // We replicate the mask-value as {m0, m0, m1, m1, m2, m2, m3, m3}.
-    Value *WidenMask = MaskValue
-                           ? replicateVectorElts(MaskValue, OriginalVL, Builder,
-                                                 "replicatedMaskVecElts.")
-                           : nullptr;
-    Value *VectorGEP = createWidenedGEPForScatterGather(VPLoad);
-    NewLI = Builder.CreateMaskedGather(VectorGEP, Alignment, WidenMask, nullptr,
-                                       "wide.masked.gather");
-  }
-  VPWidenMap[VPLoad] = NewLI;
-}
-
 Value *VPOCodeGen::getOrCreateWideLoadForGroup(OVLSGroup *Group) {
   auto FoundIter = VLSGroupLoadMap.find(Group);
   if (FoundIter != VLSGroupLoadMap.end())
@@ -512,6 +468,11 @@ Value *VPOCodeGen::vectorizeInterleavedLoad(VPInstruction *VPLoad,
 
 void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
                                           bool EmitIntrinsic) {
+  Type *LoadType = VPInst->getType();
+  assert((!LoadType->isVectorTy() ||
+          LoadType->getVectorElementType()->isSingleValueType()) &&
+         "Re-vectorization supports simple vectors only!");
+
   // Pointer operand of Load is always the first operand.
   VPValue *Ptr = VPInst->getOperand(0);
   int LinStride = 0;
@@ -534,11 +495,9 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
     return;
   }
 
+  unsigned OriginalVL =
+      LoadType->isVectorTy() ? LoadType->getVectorNumElements() : 1;
   int ConsecutiveStride = isVPValueConsecutivePtr(Ptr);
-
-  if (VPInst->getType()->isVectorTy()) {
-    return widenVectorLoad(VPInst);
-  }
 
   unsigned Alignment = getOriginalLoadStoreAlignment(VPInst);
   Value *NewLI = nullptr;
@@ -550,9 +509,12 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
     Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(
         LI, Ptr, ConsecutiveStride == -1);
 
+    // Masking not needed for privates.
     if (MaskValue && !Legal->isLoopPrivate(Ptr)) {
-      // Masking not needed for privates.
-      NewLI = Builder.CreateMaskedLoad(VecPtr, Alignment, MaskValue, nullptr,
+      // Replicate the mask if VPInst is a vector instruction.
+      Value *RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
+                                                "replicatedMaskElts.");
+      NewLI = Builder.CreateMaskedLoad(VecPtr, Alignment, RepMaskValue, nullptr,
                                        "wide.masked.load");
     } else
       NewLI = Builder.CreateAlignedLoad(VecPtr, Alignment, "wide.load");
@@ -568,7 +530,9 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
     // TODO: VLS optimization is disabled in masked basic blocks so far. It
     // should be enabled for uniform masks, though.
     OVLSGroup *Group = MaskValue ? nullptr : VLSA->getGroupsFor(Plan, VPInst);
-    if (Group && Group->size() > 1) {
+    // TODO: Enable VLS for vector types. We cannot generate correct shuffle
+    // mask yet.
+    if (Group && Group->size() > 1 && OriginalVL == 1) {
       Optional<int64_t> GroupStride = Group->getConstStride();
       assert(GroupStride && "Indexed loads are not supported");
       // Groups with gaps are not supported either.
@@ -576,11 +540,16 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
         NewLI = vectorizeInterleavedLoad(VPInst, Group);
     }
 
-    // GATHER
+    // If VLS failed to emit a wide load, we have to emit a GATHER instruction.
     if (!NewLI) {
-      NewLI =
-          Builder.CreateMaskedGather(getVectorValue(Ptr), Alignment, MaskValue,
-                                     nullptr, "wide.masked.gather");
+      // Replicate the mask if VPInst is a vector instruction originally.
+      Value *RepMaskValue = nullptr;
+      if (MaskValue)
+        RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
+                                           "replicatedMaskElts.");
+      Value *GatherAddress = getWidenedAddressForScatterGather(VPInst);
+      NewLI = Builder.CreateMaskedGather(GatherAddress, Alignment, RepMaskValue,
+                                         nullptr, "wide.masked.gather");
     }
   }
 
@@ -667,55 +636,13 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
   VLSGroupStoreMap.insert(std::make_pair(Group, GroupStore));
 }
 
-void VPOCodeGen::widenVectorStore(VPInstruction *VPStore) {
-  VPValue *Ptr = VPStore->getOperand(1);
-  VPValue *DataOp = VPStore->getOperand(0);
-  unsigned Alignment = getOriginalLoadStoreAlignment(VPStore);
-  Value *VecDataOp = getVectorValue(DataOp);
-  Type *WideDataTy = VecDataOp->getType();
-  unsigned OriginalVL = WideDataTy->getVectorNumElements() / VF;
-
-  int ConsecutiveStride = isVPValueConsecutivePtr(Ptr);
-  if (ConsecutiveStride) {
-    llvm_unreachable(
-        "VPVALCG: Unit strided vector store vectorization not uplifted.");
-#if 0
-    Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(
-        SI, Ptr, ConsecutiveStride == -1);
-
-    // We replicate the mask-value as {m0, m0, m1, m1, m2, m2, m3, m3}.
-    Value *WidenedMask =
-        MaskValue ? replicateVectorElts(MaskValue, OriginalVL, Builder,
-                                        "replicatedMaskElts.")
-                  : nullptr;
-
-    if (ConsecutiveStride == -1) // Reverse
-      VecDataOp = reverseVector(VecDataOp, OriginalVL);
-
-    if (WidenedMask) {
-      Builder.CreateMaskedStore(VecDataOp, VecPtr, Alignment, WidenedMask);
-    } else
-      Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment);
-
-    // Store the mask value in case of a last-private.
-    if (Legal->isCondLastPrivate(Ptr))
-      storeMaskValue(MaskValue, LoopPrivateLastMask[getPtrThruCast<BitCastInst>(Ptr)], VF,
-                     Builder);
-
-#endif
-  } else {
-    // We replicate the mask-value as {m0, m1, m2, m3, m0, m1, m2, m3}.
-    Value *WidenMask = MaskValue
-                           ? replicateVectorElts(MaskValue, OriginalVL, Builder,
-                                                 "replicatedMaskVecElts.")
-                           : nullptr;
-    Value *VectorGEP = createWidenedGEPForScatterGather(VPStore);
-    Builder.CreateMaskedScatter(VecDataOp, VectorGEP, Alignment, WidenMask);
-  }
-}
-
 void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
                                            bool EmitIntrinsic) {
+  Type *StoreType = VPInst->getOperand(0)->getType();
+  assert((!StoreType->isVectorTy() ||
+          StoreType->getVectorElementType()->isSingleValueType()) &&
+         "Re-vectorization supports simple vectors only!");
+
   // Pointer operand of Store will always be second operand.
   VPValue *Ptr = VPInst->getOperand(1);
 
@@ -728,12 +655,9 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
 #endif
   }
 
+  unsigned OriginalVL =
+      StoreType->isVectorTy() ? StoreType->getVectorNumElements() : 1;
   int ConsecutiveStride = isVPValueConsecutivePtr(Ptr);
-
-  // Value operand of store is always the first operand.
-  if (VPInst->getOperand(0)->getType()->isVectorTy()) {
-    return widenVectorStore(VPInst);
-  }
 
   unsigned Alignment = getOriginalLoadStoreAlignment(VPInst);
   Value *VecDataOp = getVectorValue(VPInst->getOperand(0));
@@ -751,9 +675,12 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
       // to reverse the order of elements in the stored value.
       VecDataOp = reverseVector(VecDataOp);
 
-    if (MaskValue)
-      Builder.CreateMaskedStore(VecDataOp, VecPtr, Alignment, MaskValue);
-    else
+    if (MaskValue) {
+      // Replicate the mask if VPInst is a vector instruction originally.
+      Value *RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
+                                                "replicatedMaskElts.");
+      Builder.CreateMaskedStore(VecDataOp, VecPtr, Alignment, RepMaskValue);
+    } else
       Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment);
 
     if (StoreMaskValue)
@@ -765,7 +692,9 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
     // TODO: VLS optimization is disabled in masked basic blocks so far. It
     // should be enabled for uniform masks, though.
     OVLSGroup *Group = MaskValue ? nullptr : VLSA->getGroupsFor(Plan, VPInst);
-    if (Group && Group->size() > 1) {
+    // TODO: Enable VLS for vector types. We cannot generate correct shuffle
+    // mask yet.
+    if (Group && Group->size() > 1 && OriginalVL == 1) {
       Optional<int64_t> GroupStride = Group->getConstStride();
       assert(GroupStride && "Indexed loads are not supported");
       // Groups with gaps are not supported either.
@@ -775,16 +704,22 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
       }
     }
 
-    // SCATTER
-    Value *VectorPtr = getVectorValue(Ptr);
-    Type *PtrToElemTy = VectorPtr->getType()->getVectorElementType();
+    // If VLS failed to emit a wide store, we have to emit a SCATTER
+    // instruction.
+    Value *ScatterPtr = getWidenedAddressForScatterGather(VPInst);
+    Type *PtrToElemTy = ScatterPtr->getType()->getVectorElementType();
     Type *ElemTy = PtrToElemTy->getPointerElementType();
-    VectorType *DesiredDataTy = VectorType::get(ElemTy, VF);
+    VectorType *DesiredDataTy = VectorType::get(ElemTy, VF * OriginalVL);
     // TODO: Verify if this bitcast should be done this late. Maybe an earlier
     // transform can introduce it, if needed.
     VecDataOp = Builder.CreateBitCast(VecDataOp, DesiredDataTy, "cast");
 
-    Builder.CreateMaskedScatter(VecDataOp, VectorPtr, Alignment, MaskValue);
+    // Replicate the mask if VPInst is a vector instruction originally.
+    Value *RepMaskValue = nullptr;
+    if (MaskValue)
+      RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
+                                         "replicatedMaskElts.");
+    Builder.CreateMaskedScatter(VecDataOp, ScatterPtr, Alignment, RepMaskValue);
   }
 }
 
@@ -792,22 +727,22 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
 // accessed in the vectorized code. These addresses, take the form of a GEP
 // instruction, and this GEP is used as pointer operand of the resulting
 // scatter/gather intrinsic.
-Value *VPOCodeGen::createWidenedGEPForScatterGather(VPInstruction *VPI) {
+Value *VPOCodeGen::getWidenedAddressForScatterGather(VPInstruction *VPI) {
   assert((VPI->getOpcode() == Instruction::Load ||
           VPI->getOpcode() == Instruction::Store) &&
          "Expect 'VPI' to be either a LoadInst or a StoreInst");
-  Type *LSIType = getLoadStoreType(VPI);
-  assert(
-      isa<VectorType>(LSIType) &&
-      "Expect the original type of Load/Store instruction to be a vector-type");
 
+  // Vectorize BasePtr.
   VPValue *VPBasePtr = getPointerOperand(VPI);
+  Value *BasePtr = getVectorValue(VPBasePtr);
+
+  // No replication is needed for non-vector types.
+  Type *LSIType = getLoadStoreType(VPI);
+  if (!isa<VectorType>(LSIType))
+    return BasePtr;
 
   unsigned AddrSpace =
       cast<PointerType>(VPBasePtr->getType())->getAddressSpace();
-
-  // Vectorize BasePtr.
-  Value *BasePtr = getVectorValue(VPBasePtr);
 
   // Cast the inner vector-type to it's elemental scalar type.
   // e.g. - <VF x <OriginalVL x Ty> addrspace(x)*>
