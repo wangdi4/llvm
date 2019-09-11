@@ -24,7 +24,9 @@ set(SPIRV_CONVERTER  "${LLVM_PATH_BE}/bin/llvm-spirv")
 include(itt)
 
 # LIT infrastructure configuration
-include(${LLVM_PATH}/lib/cmake/llvm/AddLLVM.cmake)
+if (NOT OPENCL_INTREE_BUILD)
+  include(${LLVM_PATH}/lib/cmake/llvm/AddLLVM.cmake)
+endif()
 
 # It is used by lit.cfg to find lit.site.cfg when user launches LIT tests from a
 # certain sub-directory instead of launching 'check-ocl-runtime' target

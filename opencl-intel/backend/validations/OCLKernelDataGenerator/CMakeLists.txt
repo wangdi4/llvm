@@ -24,4 +24,8 @@ OCLKernelBufferContainerListAllocator.h
 OCLKernelBufferContainerListAllocator.cpp
 )
 
+if (OPENCL_INTREE_BUILD)
+  add_dependencies(${TARGET_NAME} intrinsics_gen)
+endif()
+
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_VALIDATION_FOLDER_NAME} )

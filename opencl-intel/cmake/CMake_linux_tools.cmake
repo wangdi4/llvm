@@ -60,7 +60,7 @@ set( CMAKE_CXX_FLAGS_RELEASE                "${CMAKE_CXX_FLAGS_RELEASE}         
 set( CMAKE_CXX_FLAGS_RELWITHDEBINFO         "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}        ${ADD_CXX_FLAGS_RELWITHDEBINFO}")
 
 # ASM switches
-set( CMAKE_ASM_FLAGS                        ${CMAKE_ASM_FLAGS}                        ${ASM_BIT} )
+set( CMAKE_ASM_FLAGS                        "${CMAKE_ASM_FLAGS}                        ${ASM_BIT}")
 set( CMAKE_ASM_INCLUDE_DIR_FLAG             -I )
 set( CMAKE_ASM_OUTPUT_NAME_FLAG             -o )
 

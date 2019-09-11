@@ -5,6 +5,10 @@ add_library(
   INTERFACE
 )
 
+if (OPENCL_INTREE_BUILD)
+  add_dependencies(${TARGET_NAME} intrinsics_gen)
+endif()
+
 target_include_directories(
   ${TARGET_NAME}
   INTERFACE

@@ -11,7 +11,7 @@ set(TARGET_NAME ocl-tblgen)
 set(CLANG_BIN_PATH "${LLVM_BINARY_DIR}/clang")
 
 add_definitions(
-  -D CCLANG_INCLUDE_PATH=${CCLANG_INCLUDE_DIRS}
+  -D CCLANG_INCLUDE_PATH=${CCLANG_DEV_INCLUDE_DIRS}
   -D CLANG_BIN_PATH=${CLANG_BIN_PATH}
   -D CL_BUILTIN_SOURCE_DIR=${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins
 )
@@ -40,5 +40,14 @@ add_opencl_executable(${TARGET_NAME}
   name_mangle
   ${LLVM_MODULE_LIBS}
 )
+
+if (OPENCL_INTREE_BUILD)
+  add_dependencies(${TARGET_NAME} intrinsics_gen)
+  # ocl-tblgen executes clang, so clang has to be available
+  # before we can launch ocl-tblgen. Instead of adding
+  # the clang dependece to all target invoking ocl-tblgen,
+  # add clang dependency here.
+  add_dependencies(${TARGET_NAME} clang)
+endif()
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )

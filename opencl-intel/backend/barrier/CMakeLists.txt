@@ -10,6 +10,7 @@ include_directories(
     ${BACKEND_ROOT_DIR}/metadata_api
     ${BACKEND_ROOT_DIR}/name_mangling
     ${CMAKE_BINARY_DIR}/include/
+    ${OCL_BINARY_DIR}/include/
     )
 
 set(TARGET_SOURCE_FILES
