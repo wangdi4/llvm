@@ -4,10 +4,6 @@
 #cmake_policy(SET CMP0057 NEW)
 #include(AddLLVM)
 
-if(MSVC)
-  add_definitions(-D__SYCL_BUILD_SYCL_DLL)
-endif()
-
 add_library(sycl SHARED
   "${sycl_inc_dir}/CL/sycl.hpp"
   "detail/builtins_common.cpp"
@@ -43,7 +39,7 @@ add_library(sycl SHARED
   "detail/scheduler/graph_processor.cpp"
   "detail/scheduler/graph_builder.cpp"
   "detail/usm/clusm.cpp"
-  "detail/usm/opencl_shim.cpp"
+  "detail/usm/usm_dispatch.cpp"
   "detail/usm/usm_impl.cpp"
   "detail/util.cpp"
   "context.cpp"
@@ -56,6 +52,7 @@ add_library(sycl SHARED
   "kernel.cpp"
   "platform.cpp"
   "queue.cpp"
+  "ordered_queue.cpp"
   "sampler.cpp"
   "stream.cpp"
   "spirv_ops.cpp"
@@ -81,10 +78,13 @@ target_compile_options (sycl PRIVATE
 )
 #end INTEL_CUSTOMIZATION
 
+if (MSVC)
+    target_compile_definitions(sycl PRIVATE __SYCL_BUILD_SYCL_DLL )
+endif()
 target_include_directories(sycl PRIVATE "${sycl_inc_dir}")
 target_link_libraries(sycl
-                      PRIVATE OpenCL::Headers
-                      PRIVATE ${OpenCL_LIBRARIES}
+    PRIVATE OpenCL::Headers
+    PRIVATE ${OpenCL_LIBRARIES}
 )
 if (SYCL_USE_LIBCXX)
     if ((CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR
@@ -111,6 +111,6 @@ endif()
 endif()
 
 install(TARGETS sycl
-        ARCHIVE DESTINATION "lib" COMPONENT sycl
-        LIBRARY DESTINATION "lib" COMPONENT sycl
-        RUNTIME DESTINATION "bin" COMPONENT sycl)
+    ARCHIVE DESTINATION "lib" COMPONENT sycl
+    LIBRARY DESTINATION "lib" COMPONENT sycl
+    RUNTIME DESTINATION "bin" COMPONENT sycl)

@@ -169,8 +169,8 @@ mode in SYCL:
 * IsSYCLOffloadDevice: True if calling clang to set up a device compilation
 * IsSYCLHost: True if setting up a call to clang to do a host compilation
 
-The option `-sycl-std` allows specifiying which version of
-the SYCL standard will be used for the compilation. 
+The option `-sycl-std` allows specifying which version of
+the SYCL standard will be used for the compilation.
 The default value for this option is `1.2.1`.
 
 #### Ahead of time (AOT) compilation
@@ -371,7 +371,7 @@ host_a.cpp and host_b.cpp where only dev_a.cpp and dev_b.cpp contain device code
 they can divide the compilation process into three steps:
 1.  Device link: dev_a.cpp dev_b.cpp -> dev_image.o (contain device image)
 2.  Host Compile (c): host_a.cpp -> host_a.o; host_b.cpp -> host_b.o
-3.  Linking: dev_image.o host_a.o host_b.o -> exectuable
+3.  Linking: dev_image.o host_a.o host_b.o -> executable
 
 Step 1 can take hours for some targets.  But if the user wish to recompile after
 modifying only host_a.cpp and host_b.cpp, they can simply run steps 2 and 3 without
@@ -515,11 +515,11 @@ compiler:
 
 ## Supported extensions
 
-- [Intel subgroups](extensions/sub_group_ndrange/sub_group_ndrange.md)
+- [Intel subgroups](extensions/SubGroupNDRange/SubGroupNDRange.md)
 
 ## Unsupported extensions/proposals
 
-- [Ordered queue](extensions/ordered_queue/ordered_queue.adoc)
-- [Unified shared memory](extensions/usm/usm.adoc)
+- [Ordered queue](extensions/OrderedQueue/OrderedQueue.adoc)
+- [Unified shared memory](extensions/USM/USM.adoc)
 
 \*Other names and brands may be claimed as the property of others.

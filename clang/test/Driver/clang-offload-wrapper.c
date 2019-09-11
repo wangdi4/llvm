@@ -32,26 +32,26 @@
 // CHECK-HELP: {{.*}}USAGE: clang-offload-wrapper [options] <input  files>
 // CHECK-HELP: {{.*}}OPTIONS:
 // CHECK-HELP: {{.*}}clang-offload-wrapper options:
-// CHECK-HELP: {{.*}}  -build-opts=<string>    - build options passed to the offload runtime
-// CHECK-HELP: {{.*}}  -desc-name=<name>       - Specifies offload descriptor symbol name: '.<offload kind>.<name>', and makes it globally visible
-// CHECK-HELP: {{.*}}  -emit-reg-funcs         - Emit [un-]registration functions
-// CHECK-HELP: {{.*}}  -format                 - device binary image formats:
-// CHECK-HELP: {{.*}}    =none                 -   not set
-// CHECK-HELP: {{.*}}    =native               -   unknown or native
-// CHECK-HELP: {{.*}}    =spirv                -   SPIRV binary
-// CHECK-HELP: {{.*}}    =llvmbc               -   LLVMIR bitcode
-// CHECK-HELP: {{.*}}  -host=<triple>          - wrapper object target triple
-// CHECK-HELP: {{.*}}  -kind                   - offload kind:
-// CHECK-HELP: {{.*}}    =unknown              -   unknown
-// CHECK-HELP: {{.*}}    =host                 -   host
-// CHECK-HELP: {{.*}}    =openmp               -   OpenMP
-// CHECK-HELP: {{.*}}    =hip                  -   HIP
-// CHECK-HELP: {{.*}}    =sycl                 -   SYCL
-// CHECK-HELP: {{.*}}  -o=<filename>           - Output filename
-// CHECK-HELP: {{.*}}  -reg-func-name=<name>   - Offload descriptor registration function name
-// CHECK-HELP: {{.*}}  -target=<string>        - offload target triple
-// CHECK-HELP: {{.*}}  -unreg-func-name=<name> - Offload descriptor un-registration function name
-// CHECK-HELP: {{.*}}  -v                      - verbose output
+// CHECK-HELP: {{.*}}  --build-opts=<string>    - build options passed to the offload runtime
+// CHECK-HELP: {{.*}}  --desc-name=<name>       - Specifies offload descriptor symbol name: '.<offload kind>.<name>', and makes it globally visible
+// CHECK-HELP: {{.*}}  --emit-reg-funcs         - Emit [un-]registration functions
+// CHECK-HELP: {{.*}}  --format=<value>         - device binary image formats:
+// CHECK-HELP: {{.*}}    =none                  -   not set
+// CHECK-HELP: {{.*}}    =native                -   unknown or native
+// CHECK-HELP: {{.*}}    =spirv                 -   SPIRV binary
+// CHECK-HELP: {{.*}}    =llvmbc                -   LLVMIR bitcode
+// CHECK-HELP: {{.*}}  --host=<triple>          - wrapper object target triple
+// CHECK-HELP: {{.*}}  --kind=<value>           - offload kind:
+// CHECK-HELP: {{.*}}    =unknown               -   unknown
+// CHECK-HELP: {{.*}}    =host                  -   host
+// CHECK-HELP: {{.*}}    =openmp                -   OpenMP
+// CHECK-HELP: {{.*}}    =hip                   -   HIP
+// CHECK-HELP: {{.*}}    =sycl                  -   SYCL
+// CHECK-HELP: {{.*}}  -o=<filename>            - Output filename
+// CHECK-HELP: {{.*}}  --reg-func-name=<name>   - Offload descriptor registration function name
+// CHECK-HELP: {{.*}}  --target=<string>        - offload target triple
+// CHECK-HELP: {{.*}}  --unreg-func-name=<name> - Offload descriptor un-registration function name
+// CHECK-HELP: {{.*}}  -v                       - verbose output
 
 // -------
 // Generate files to wrap.
@@ -75,6 +75,10 @@
 // CHECK-IR: target triple = "x86_64-pc-linux-gnu"
 
 // CHECK-IR: [[ENTRYTY:%.+]] = type { i8*, i8*, i64, i32, i32 }
+// INTEL_CUSTOMIZATION
+// CHECK-IR: [[OMP_IMGTY:%.+]] = type { i8*, i8*, [[ENTRYTY]]*, [[ENTRYTY]]* }
+// CHECK-IR: [[OMP_DESCTY:%.+]] = type { i32, [[OMP_IMGTY]]*, [[ENTRYTY]]*, [[ENTRYTY]]* }
+// END INTEL_CUSTOMIZATION
 // CHECK-IR: [[IMGTY:%.+]] = type { i16, i8, i8, i8*, i8*, i8*, i8*, i8*, i8*, [[ENTRYTY]]*, [[ENTRYTY]]* }
 // CHECK-IR: [[DESCTY:%.+]] = type { i16, i16, [[IMGTY]]*, [[ENTRYTY]]*, [[ENTRYTY]]* }
 // CHECK-IR: [[OMP_ENTRIESB:@.+]] = external constant [[ENTRYTY]]
@@ -85,9 +89,10 @@
 // CHECK-IR: [[OMP_MANIF0:@.+]] = internal unnamed_addr constant [26 x i8] c"Content of manifest file1\0A"
 // CHECK-IR: [[OMP_BIN0:@.+]] = internal unnamed_addr constant [24 x i8] c"Content of device file3\0A"
 
-// CHECK-IR: [[OMP_IMGS:@.+]] = internal unnamed_addr constant [1 x [[IMGTY]]] [{{.+}} { i16 1, i8 2, i8 1, i8* [[GEP:getelementptr inbounds]] ([4 x i8], [4 x i8]* [[OMP_TGT0]], i64 0, i64 0), i8* [[GEP]] ([1 x i8], [1 x i8]* [[OMP_OPTS0]], i64 0, i64 0), i8* [[GEP]] ([26 x i8], [26 x i8]* [[OMP_MANIF0]], i64 0, i64 0), i8* [[GEP]] ([26 x i8], [26 x i8]* [[OMP_MANIF0]], i64 1, i64 0), i8* [[GEP]] ([24 x i8], [24 x i8]* [[OMP_BIN0]], i64 0, i64 0), i8* [[GEP]] ([24 x i8], [24 x i8]* [[OMP_BIN0]], i64 1, i64 0), [[ENTRYTY]]* [[OMP_ENTRIESB]], [[ENTRYTY]]* [[OMP_ENTRIESE]] }]
-
-// CHECK-IR: [[OMP_DESC:@.+]] = internal constant [[DESCTY]] { i16 1, i16 1, [[IMGTY]]* [[GEP]] ([1 x [[IMGTY]]], [1 x [[IMGTY]]]* [[OMP_IMGS]], i64 0, i64 0), [[ENTRYTY]]* [[OMP_ENTRIESB]], [[ENTRYTY]]* [[OMP_ENTRIESE]] }
+// INTEL_CUSTOMIZATION
+// CHECK-IR: [[OMP_IMGS:@.+]] = internal unnamed_addr constant [1 x [[OMP_IMGTY]]] [{{.+}} { i8* [[GEP:getelementptr inbounds]] ([24 x i8], [24 x i8]* [[OMP_BIN0]], i64 0, i64 0), i8* [[GEP]] ([24 x i8], [24 x i8]* [[OMP_BIN0]], i64 1, i64 0), [[ENTRYTY]]* [[OMP_ENTRIESB]], [[ENTRYTY]]* [[OMP_ENTRIESE]] }]
+// CHECK-IR: [[OMP_DESC:@.+]] = internal constant [[OMP_DESCTY]] { i32 1, [[OMP_IMGTY]]* [[GEP]] ([1 x [[OMP_IMGTY]]], [1 x [[OMP_IMGTY]]]* [[OMP_IMGS]], i64 0, i64 0), [[ENTRYTY]]* [[OMP_ENTRIESB]], [[ENTRYTY]]* [[OMP_ENTRIESE]] }
+// END INTEL_CUSTOMIZATION
 
 // CHECK-IR: [[SYCL_TGT0:@.+]] = internal unnamed_addr constant [4 x i8] c"tg1\00"
 // CHECK-IR: [[SYCL_OPTS0:@.+]] = internal unnamed_addr constant [3 x i8] c"-g\00"
@@ -107,24 +112,34 @@
 
 // CHECK-IR: define internal void [[OMP_REGF]]() section ".text.startup" {
 // CHECK-IR: entry:
-// CHECK-IR:   call void @__tgt_register_lib([[DESCTY]]* [[OMP_DESC]])
+// INTEL_CUSTOMIZATION
+// CHECK-IR:   call void @__tgt_register_lib([[OMP_DESCTY]]* [[OMP_DESC]])
+// END INTEL_CUSTOMIZATION
 // CHECK-IR:   ret void
 // CHECK-IR: }
-// CHECK-IR: declare void @__tgt_register_lib([[DESCTY]]*)
+// INTEL_CUSTOMIZATION
+// CHECK-IR: declare void @__tgt_register_lib([[OMP_DESCTY]]*)
+// END INTEL_CUSTOMIZATION
 // CHECK-IR: define internal void [[OMP_UNREGF]]() section ".text.startup" {
 // CHECK-IR: entry:
-// CHECK-IR:   call void @__tgt_unregister_lib([[DESCTY]]* [[OMP_DESC]])
+// INTEL_CUSTOMIZATION
+// CHECK-IR:   call void @__tgt_unregister_lib([[OMP_DESCTY]]* [[OMP_DESC]])
+// END INTEL_CUSTOMIZATION
 // CHECK-IR:   ret void
 // CHECK-IR: }
-// CHECK-IR: declare void @__tgt_unregister_lib([[DESCTY]]*)
+// CHECK-IR: declare void @__tgt_unregister_lib([[OMP_DESCTY]]*)
 // CHECK-IR: define internal void @.sycl_offloading.descriptor_reg() section ".text.startup" {
 // CHECK-IR: entry:
-// CHECK-IR:   call void @__tgt_register_lib([[DESCTY]]* [[SYCL_DESC]])
+// INTEL_CUSTOMIZATION
+// CHECK-IR:   call void bitcast (void ([[OMP_DESCTY]]*)* @__tgt_register_lib to void ([[DESCTY]]*)*)([[DESCTY]]* [[SYCL_DESC]])
+// END INTEL_CUSTOMIZATION
 // CHECK-IR:   ret void
 // CHECK-IR: }
 // CHECK-IR: define internal void @.sycl_offloading.descriptor_unreg() section ".text.startup" {
 // CHECK-IR: entry:
-// CHECK-IR:   call void @__tgt_unregister_lib([[DESCTY]]* [[SYCL_DESC]])
+// INTEL_CUSTOMIZATION
+// CHECK-IR:   call void bitcast (void ([[OMP_DESCTY]]*)* @__tgt_unregister_lib to void ([[DESCTY]]*)*)([[DESCTY]]* [[SYCL_DESC]])
+// END INTEL_CUSTOMIZATION
 // CHECK-IR:   ret void
 // CHECK-IR: }
 
@@ -159,4 +174,10 @@
 
 // CHECK-IR2: declare void @__UNREGFUNC__
 
-
+// -------
+// Check that device image can be extracted from the wrapper object by the clang-offload-bundler tool.
+//
+// RUN: clang-offload-wrapper -o %t.wrapper.bc -host=x86_64-pc-linux-gnu -kind=sycl -target=spir64-unknown-linux-sycldevice %t1.tgt
+// RUN: %clang -target x86_64-pc-linux-gnu -c %t.wrapper.bc -o %t.wrapper.o
+// RUN: clang-offload-bundler --type=o --inputs=%t.wrapper.o --targets=sycl-spir64-unknown-linux-sycldevice --outputs=%t1.out --unbundle
+// RUN: diff %t1.out %t1.tgt

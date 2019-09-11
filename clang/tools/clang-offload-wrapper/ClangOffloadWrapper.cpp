@@ -344,7 +344,7 @@ private:
             },
             "__tgt_device_image.omp");
 
-      ImageTy = OmpImageTy;
+      return OmpImageTy;
     }
 #endif  // INTEL_COLLAB
     if (!ImageTy) {
@@ -407,7 +407,7 @@ private:
           },
           "__tgt_bin_desc.omp");
 
-      DescTy = OmpDescTy;
+      return OmpDescTy;
     }
 #endif  // INTEL_COLLAB
     if (!DescTy) {
@@ -450,24 +450,36 @@ private:
     return AutoGcBufs.back().get();
   }
 
-  // Adds given buffer as a global variable into the module and, depending on
-  // the StartEnd flag, returns either a pair of pointers to the beginning
-  // and end of the variable or a <pointer to the beginning, size> pair. The
-  // input memory buffer must outlive 'this' object.
-  std::pair<Constant *, Constant *>
-  addMemBufToModule(Module &M, MemoryBuffer *Buf, const Twine &Name) {
-    auto *Buf1 = ConstantDataArray::get(
-        C, makeArrayRef(Buf->getBufferStart(), Buf->getBufferSize()));
-    auto *Var = new GlobalVariable(M, Buf1->getType(), true,
-                                   GlobalVariable::InternalLinkage, Buf1, Name);
+  // Adds a global readonly variable that is initialized by given data to the
+  // module.
+  GlobalVariable *addGlobalArrayVariable(const Twine &Name,
+                                         ArrayRef<char> Initializer,
+                                         const Twine &Section = "") {
+    auto *Arr = ConstantDataArray::get(C, Initializer);
+    auto *Var = new GlobalVariable(M, Arr->getType(), true,
+                                   GlobalVariable::InternalLinkage, Arr, Name);
     if (Verbose)
       errs() << "  global added: " << Var->getName() << "\n";
     Var->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
+
+    SmallVector<char, 32u> NameBuf;
+    auto SectionName = Section.toStringRef(NameBuf);
+    if (!SectionName.empty())
+      Var->setSection(SectionName);
+    return Var;
+  }
+
+  // Adds given buffer as a global variable into the module and returns a pair
+  // of pointers that point to the beginning and end of the variable.
+  std::pair<Constant *, Constant *>
+  addArrayToModule(ArrayRef<char> Buf, const Twine &Name,
+                   const Twine &Section = "") {
+    auto *Var = addGlobalArrayVariable(Name, Buf, Section);
     auto *Zero = ConstantInt::get(getSizeTTy(), 0u);
     Constant *ZeroZero[] = {Zero, Zero};
     auto *ImageB =
         ConstantExpr::getGetElementPtr(Var->getValueType(), Var, ZeroZero);
-    auto *Size = ConstantInt::get(getSizeTTy(), Buf->getBufferSize());
+    auto *Size = ConstantInt::get(getSizeTTy(), Buf.size());
 
     Constant *ZeroSize[] = {Zero, Size};
     auto *ImageE =
@@ -475,13 +487,40 @@ private:
     return std::make_pair(ImageB, ImageE);
   }
 
+  // Creates all necessary data objects for the given image and returns a pair
+  // of pointers that point to the beginning and end of the global variable that
+  // contains the image data.
+  std::pair<Constant *, Constant *>
+  addDeviceImageToModule(ArrayRef<char> Buf, const Twine &Name,
+                         OffloadKind Kind, StringRef TargetTriple) {
+    // Do not bother adding 'size' section if target triple was not provided
+    // since we anyway won't be able to construct what bundler expects to see in
+    // the fat object.
+    if (!TargetTriple.empty()) {
+      // Create global data object for the image size.
+      size_t BufSize = Buf.size();
+      addGlobalArrayVariable(
+          Name + ".size",
+          makeArrayRef(reinterpret_cast<char *>(&BufSize), sizeof(BufSize)),
+          "__CLANG_OFFLOAD_BUNDLE_SIZE__" + offloadKindToString(Kind) + "-" +
+              TargetTriple);
+    }
+
+    // Create global variable for the image data.
+    return addArrayToModule(Buf, Name,
+                            TargetTriple.empty()
+                                ? ""
+                                : "__CLANG_OFFLOAD_BUNDLE__" +
+                                      offloadKindToString(Kind) + "-" +
+                                      TargetTriple);
+  }
+
   // Creates a global variable of const char* type and creates an
-  // initializer that initializes it with given null-terminated string.
-  // Returns a link-time constant pointer (constant expr) to that variable.
-  Constant *addStringToModule(Module &M, const std::string &Str,
-                              const Twine &Name) {
-    Constant *Arr =
-        ConstantDataArray::get(C, makeArrayRef(Str.c_str(), Str.size() + 1));
+  // initializer that initializes it with given string (with added null
+  // terminator). Returns a link-time constant pointer (constant expr) to that
+  // variable.
+  Constant *addStringToModule(StringRef Str, const Twine &Name) {
+    auto *Arr = ConstantDataArray::getString(C, Str);
     auto *Var = new GlobalVariable(M, Arr->getType(), true,
                                    GlobalVariable::InternalLinkage, Arr, Name);
     if (Verbose)
@@ -500,8 +539,8 @@ private:
 
     if (Kind != OffloadKind::SYCL) {
 #if INTEL_COLLAB
-#if _WIN32
-      if (Kind == OffloadKind::OpenMP) {
+      if (Triple(M.getTargetTriple()).isWindowsMSVCEnvironment() &&
+          Kind == OffloadKind::OpenMP) {
         auto LabelTy = ArrayType::get(Type::getInt8Ty(C), 0);
         EntriesB = new GlobalVariable(
             M, LabelTy, true, GlobalValue::ExternalLinkage,
@@ -529,7 +568,6 @@ private:
         EntriesEObj->setUnnamedAddr(GlobalValue::UnnamedAddr::Local);
         EntriesE = ConstantExpr::getBitCast(EntriesE, getEntryPtrTy());
       }
-#endif  // !_WIN32
 
       if (!EntriesB) {
 #endif // INTEL_COLLAB
@@ -568,9 +606,9 @@ private:
       auto *Fknd = ConstantInt::get(Type::getInt8Ty(C), Kind);
       auto *Ffmt = ConstantInt::get(Type::getInt8Ty(C), Img.Fmt);
       auto *Ftgt = addStringToModule(
-          M, Img.Tgt, Twine(OffloadKindTag) + Twine("target.") + Twine(ImgId));
+          Img.Tgt, Twine(OffloadKindTag) + Twine("target.") + Twine(ImgId));
       auto *Fopt = addStringToModule(
-          M, Img.Opts, Twine(OffloadKindTag) + Twine("opts.") + Twine(ImgId));
+          Img.Opts, Twine(OffloadKindTag) + Twine("opts.") + Twine(ImgId));
       std::pair<Constant *, Constant *> FMnf;
 
       if (Img.Manif.empty()) {
@@ -578,16 +616,19 @@ private:
         FMnf = std::make_pair(NullPtr, NullPtr);
       } else {
         MemoryBuffer *Mnf = loadFile(Img.Manif);
-        FMnf = addMemBufToModule(
-            M, Mnf, Twine(OffloadKindTag) + Twine(ImgId) + Twine(".manifest"));
+        FMnf = addArrayToModule(
+            makeArrayRef(Mnf->getBufferStart(), Mnf->getBufferSize()),
+            Twine(OffloadKindTag) + Twine(ImgId) + Twine(".manifest"));
       }
       if (Img.File.empty()) {
         errs() << "error: image file name missing\n";
         exit(1);
       }
       MemoryBuffer *Bin = loadFile(Img.File);
-      std::pair<Constant *, Constant *> Fbin = addMemBufToModule(
-          M, Bin, Twine(OffloadKindTag) + Twine(ImgId) + Twine(".data"));
+      std::pair<Constant *, Constant *> Fbin = addDeviceImageToModule(
+          makeArrayRef(Bin->getBufferStart(), Bin->getBufferSize()),
+          Twine(OffloadKindTag) + Twine(ImgId) + Twine(".data"), Kind, Img.Tgt);
+
 #if INTEL_COLLAB
       if (Kind == OffloadKind::OpenMP)
         ImagesInits.push_back(ConstantStruct::get(

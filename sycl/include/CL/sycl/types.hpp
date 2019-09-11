@@ -51,15 +51,12 @@
 
 #include <array>
 #include <cmath>
+#ifndef __SYCL_DEVICE_ONLY__
+#include <cfenv>
+#endif
 
 // 4.10.1: Scalar data types
 // 4.10.2: SYCL vector types
-
-#ifdef __SYCL_DEVICE_ONLY__
-using half = _Float16;
-#else
-using half = cl::sycl::detail::half_impl::half;
-#endif
 
 namespace cl {
 namespace sycl {
@@ -228,6 +225,12 @@ template <typename T> struct LShift {
   }
 };
 
+// Add a specific is_arithmetic for SYCL types that include half FP type
+template <typename T>
+using is_arithmetic = std::integral_constant<bool,
+     std::is_arithmetic<T>::value ||
+     std::is_same<typename std::remove_const<T>::type, half>::value>;
+
 template <typename T>
 using is_floating_point =
     std::integral_constant<bool, std::is_floating_point<T>::value ||
@@ -258,6 +261,8 @@ detail::enable_if_t<std::is_same<T, R>::value, R> convertImpl(T Value) {
   return Value;
 }
 
+// Note for float to half conversions, static_cast calls the conversion operator
+// implemented for host that takes care of the precision requirements.
 template <typename T, typename R, rounding_mode roundingMode>
 detail::enable_if_t<!std::is_same<T, R>::value &&
                         (is_int_to_int<T, R>::value ||
@@ -270,16 +275,23 @@ convertImpl(T Value) {
 
 // float to int
 template <typename T, typename R, rounding_mode roundingMode>
-detail::enable_if_t<!std::is_same<T, R>::value && is_float_to_int<T, R>::value,
-                    R>
-convertImpl(T Value) {
+detail::enable_if_t<is_float_to_int<T, R>::value, R> convertImpl(T Value) {
 #ifndef __SYCL_DEVICE_ONLY__
   switch (roundingMode) {
     // Round to nearest even is default rounding mode for floating-point types
   case rounding_mode::automatic:
     // Round to nearest even.
-  case rounding_mode::rte:
-    return std::round(Value);
+  case rounding_mode::rte: {
+    int OldRoundingDirection = std::fegetround();
+    int Err = std::fesetround(FE_TONEAREST);
+    if (Err)
+      throw runtime_error("Unable to set rounding mode to FE_TONEAREST");
+    R Result = std::rint(Value);
+    Err = std::fesetround(OldRoundingDirection);
+    if (Err)
+      throw runtime_error("Unable to restore rounding mode.");
+    return Result;
+  }
     // Round toward zero.
   case rounding_mode::rtz:
     return std::trunc(Value);
@@ -294,12 +306,40 @@ convertImpl(T Value) {
     return static_cast<R>(Value);
   };
 #else
-  // TODO implement device side convertion.
+  // TODO implement device side conversion.
   return static_cast<R>(Value);
 #endif
 }
 
+// 4.10.2.6 Memory layout and alignment
+template <int N> struct VectorLength { constexpr static int value = N; };
+
+template <> struct VectorLength<3> { constexpr static int value = 4; };
+
+template <typename T, int N> struct VectorAlignment {
+  constexpr static int value = sizeof(T) * VectorLength<N>::value;
+};
+
 } // namespace detail
+
+#if defined(_WIN32) && (_MSC_VER)
+// MSVC Compiler doesn't allow using of function arguments with alignment
+// requirements. MSVC Compiler Error C2719: 'parameter': formal parameter with
+// __declspec(align('#')) won't be aligned. The align __declspec modifier
+// is not permitted on function parameters. Function parameter alignment
+// is controlled by the calling convention used.
+// For more information, see Calling Conventions
+// (https://docs.microsoft.com/en-us/cpp/cpp/calling-conventions).
+// For information on calling conventions for x64 processors, see
+// Calling Convention
+// (https://docs.microsoft.com/en-us/cpp/build/x64-calling-convention).
+#pragma message ("Alignment of class vec is not in accordance with SYCL \
+specification requirements, a limitation of the MSVC compiler(Error C2719).\
+Applied default alignment.")
+#define SYCL_ALIGNAS(x)
+#else
+#define SYCL_ALIGNAS(N) alignas(N)
+#endif
 
 template <typename Type, int NumElements> class vec {
   using DataT = Type;
@@ -1007,7 +1047,12 @@ private:
   }
 
   // fields
-  DataType m_Data;
+  // Used "SYCL_ALIGNAS" instead "alignas" to handle MSVC compiler.
+  // For MSVC compiler max alignment is 64, e.g. vec<double, 16> required
+  // alignment of 128 and MSVC compiler cann't align a parameter with requested
+  // alignment of 128.
+  SYCL_ALIGNAS((detail::VectorAlignment<DataT, NumElements>::value))
+      DataType m_Data;
 
   // friends
   template <typename T1, typename T2, typename T3, template <typename> class T4,
@@ -1762,7 +1807,7 @@ DECLARE_TYPE_T(half);
 DECLARE_TYPE_T(double);
 
 #define GET_CL_TYPE(target, num) __##target##num##_vec_t
-#define GET_SCALAR_CL_TYPE(target) __##target##_t
+#define GET_SCALAR_CL_TYPE(target) target
 
 #undef DECLARE_TYPE_T
 #undef DECLARE_LLTYPE_T
@@ -1785,16 +1830,17 @@ using cl_schar16 = cl_char16;
 // As a result half values will be converted to the integer and passed as a
 // kernel argument which is expected to be floating point number.
 #ifndef __SYCL_DEVICE_ONLY__
-template <int NumElements, typename CLType> struct alignas(CLType) half_vec {
-  std::array<half, NumElements> s;
+template <int NumElements> struct half_vec {
+  alignas(cl::sycl::detail::VectorAlignment<half, NumElements>::value)
+      std::array<half, NumElements> s;
 };
 
-typedef half __half_t;
-typedef half_vec<2, cl_half2> __half2_vec_t;
-typedef half_vec<4, cl_half3> __half3_vec_t;
-typedef half_vec<4, cl_half4> __half4_vec_t;
-typedef half_vec<8, cl_half8> __half8_vec_t;
-typedef half_vec<16, cl_half16> __half16_vec_t;
+using __half_t = half;
+using __half2_vec_t = half_vec<2>;
+using __half3_vec_t = half_vec<3>;
+using __half4_vec_t = half_vec<4>;
+using __half8_vec_t = half_vec<8>;
+using __half16_vec_t = half_vec<16>;
 #endif
 
 #define GET_CL_HALF_TYPE(target, num) __##target##num##_vec_t
@@ -1925,7 +1971,7 @@ using select_apply_cl_t =
   DECLARE_LONGLONG_CONVERTER(base, 16)                                         \
   template <> class BaseCLTypeConverter<base##long, 1> {                       \
   public:                                                                      \
-    using DataType = GET_SCALAR_CL_TYPE(base);                                 \
+    using DataType = base##long;                                               \
   };                                                                           \
   } // namespace detail
 
@@ -1965,6 +2011,18 @@ using select_apply_cl_t =
   using half3 = vec<half, 3>;                                                  \
   using half2 = vec<half, 2>;
 
+#define DECLARE_SYCL_VEC_LONG_WO_CONVERTERS(base)                              \
+  using cl_##base##16 = vec<cl_##base, 16>;                                    \
+  using cl_##base##8 = vec<cl_##base, 8>;                                      \
+  using cl_##base##4 = vec<cl_##base, 4>;                                      \
+  using cl_##base##3 = vec<cl_##base, 3>;                                      \
+  using cl_##base##2 = vec<cl_##base, 2>;                                      \
+  using base##16 = vec<base, 16>;                                              \
+  using base##8 = vec<base, 8>;                                                \
+  using base##4 = vec<base, 4>;                                                \
+  using base##3 = vec<base, 3>;                                                \
+  using base##2 = vec<base, 2>;
+
 // cl_longlong/cl_ulonglong are not supported in SYCL
 #define DECLARE_SYCL_VEC_LONGLONG_WO_CONVERTERS(base)                          \
   using base##long16 = vec<base##long, 16>;                                    \
@@ -1989,6 +2047,14 @@ using select_apply_cl_t =
   DECLARE_VECTOR_CONVERTERS(char)                                              \
   DECLARE_SYCL_VEC_CHAR_WO_CONVERTERS
 
+#define DECLARE_SYCL_VEC_LONG                                                  \
+  DECLARE_SIGNED_INTEGRAL_VECTOR_CONVERTERS(long)                              \
+  DECLARE_SYCL_VEC_LONG_WO_CONVERTERS(long)
+
+#define DECLARE_SYCL_VEC_ULONG                                                 \
+  DECLARE_UNSIGNED_INTEGRAL_VECTOR_CONVERTERS(ulong)                           \
+  DECLARE_SYCL_VEC_LONG_WO_CONVERTERS(ulong)
+
 #define DECLARE_SYCL_VEC_LONGLONG(base)                                        \
   DECLARE_VECTOR_LONGLONG_CONVERTERS(base)                                     \
   DECLARE_SYCL_VEC_LONGLONG_WO_CONVERTERS(base)
@@ -2004,8 +2070,8 @@ DECLARE_SYCL_SIGNED_INTEGRAL_VEC(short)
 DECLARE_SYCL_UNSIGNED_INTEGRAL_VEC(ushort)
 DECLARE_SYCL_SIGNED_INTEGRAL_VEC(int)
 DECLARE_SYCL_UNSIGNED_INTEGRAL_VEC(uint)
-DECLARE_SYCL_SIGNED_INTEGRAL_VEC(long)
-DECLARE_SYCL_UNSIGNED_INTEGRAL_VEC(ulong)
+DECLARE_SYCL_VEC_LONG
+DECLARE_SYCL_VEC_ULONG
 DECLARE_SYCL_VEC_LONGLONG(long)
 DECLARE_SYCL_VEC_LONGLONG(ulong)
 DECLARE_SYCL_VEC_HALF(half)
@@ -2018,6 +2084,11 @@ DECLARE_SYCL_FLOAT_VEC(double)
 #undef DECLARE_VECTOR_CONVERTERS
 #undef DECLARE_SYCL_VEC
 #undef DECLARE_SYCL_VEC_WO_CONVERTERS
+#undef DECLARE_SYCL_VEC_LONG_WO_CONVERTERS
+#undef DECLARE_SYCL_VEC_LONG
+#undef DECLARE_SYCL_VEC_ULONG
 
 } // namespace sycl
 } // namespace cl
+
+#undef SYCL_ALIGNAS

@@ -1,4 +1,4 @@
-// RUN: %clangxx -fsycl %s -o %t1.out -lOpenCL
+// RUN: %clangxx -fsycl %s -o %t1.out
 // RUN: %CPU_RUN_PLACEHOLDER %t1.out
 //==---- allocator_vector.cpp - Allocator Container test -------------------==//
 //
@@ -22,7 +22,7 @@ int main() {
   auto dev = q.get_device();
   auto ctxt = q.get_context();
 
-  usm_allocator<int, usm::alloc::host> alloc(&ctxt, &dev);
+  usm_allocator<int, usm::alloc::host> alloc(ctxt, dev);
 
   std::vector<int, decltype(alloc)> vec(alloc);
   vec.reserve(N);
