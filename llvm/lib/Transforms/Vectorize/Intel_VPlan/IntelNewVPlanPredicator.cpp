@@ -208,9 +208,10 @@ void VPlanPredicator::calculatePredicateTerms(VPBlockBase *CurrBlock) {
            "Single predecessor on false edge?");
     // Cond == nullptr would just mean that PredBB's predicate should be used.
     // Still ok.
-    PredicateTerm Term(InfluenceBB, Cond,
-                       CurrBlock !=
-                           InfluenceBB->getSuccessors()[0] /* Negate */);
+    PredicateTerm Term(
+        InfluenceBB, Cond,
+        !VPPostDomTree.dominates(CurrBlock,
+                                 InfluenceBB->getSuccessors()[0]) /* Negate */);
     Block2PredicateTermsAndUniformity[CurrBlock].first.push_back(Term);
     PredicateTerm2UseBlocks[Term].push_back(CurrBlock);
   }

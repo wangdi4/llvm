@@ -1089,11 +1089,10 @@ bool InductionDescr::hasUserOfIndIncrement(
     // 2. Already processed in recursion chain.
     // 3. One of the whitelist instruction listed above.
     if (!Loop->contains(cast<VPBlockBase>(UserVPI->getParent())) ||
-        AnalyzedVPIs.count(UserVPI) ||
-        UserVPI == StartPhi ||
+        AnalyzedVPIs.count(UserVPI) || UserVPI == StartPhi ||
         (UserVPI->getOpcode() == Instruction::Store &&
          UserVPI->getOperand(1) == AllocaInst) ||
-        (isa<VPCmpInst>(UserVPI) &&
+        (isa<VPCmpInst>(UserVPI) && Loop->getLoopLatch() &&
          Loop->getLoopLatch()->getCondBit() == UserVPI))
       continue;
 
