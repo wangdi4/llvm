@@ -101,6 +101,17 @@ bool WholeProgramWrapperPass::runOnModule(Module &M) {
   CallGraphWrapperPass *CGPass =
       getAnalysisIfAvailable<CallGraphWrapperPass>();
   CallGraph *CG = CGPass ? &CGPass->getCallGraph() : nullptr;
+
+  // NOTE: The old pass manager uses two variables to represent the
+  // optimization levels:
+  //
+  //   - OptLevel: stores the optimization level
+  //               0 = -O0, 1 = -O1, 2 = -O2, 3 = -O3
+  //
+  //   - SizeLevel: stores if we are optimizing for size
+  //               0 = no, 1 = Os, 2 = Oz
+  //
+  // The values of OptLevel can be 0, 1, 2 or 3.
   unsigned OptLevel = getAnalysis<XmainOptLevelWrapperPass>().getOptLevel();
 
   Result.reset(new WholeProgramInfo(
@@ -586,15 +597,27 @@ WholeProgramInfo WholeProgramAnalysis::run(Module &M,
     return FAM.getResult<TargetIRAnalysis>(F);
   };
 
-  // TODO: The analysis XmainOptLevelAnalysis run at function level. We are
-  // going to use the default level until the analysis is extended to
-  // module level.
-  unsigned OptLevel = 2;
+  // NOTE: The new pass manager uses an enum to represent the
+  // optimization levels:
+  //
+  //   - PassBuilder::OptimizationLevel
+  //
+  //     PassBuilder::OptimizationLevel::O0 = -O0
+  //     PassBuilder::OptimizationLevel::O1 = -O1
+  //     PassBuilder::OptimizationLevel::O2 = -O2
+  //     PassBuilder::OptimizationLevel::O3 = -O3
+  //     PassBuilder::OptimizationLevel::Os = -Os
+  //     PassBuilder::OptimizationLevel::Oz = -Oz
+  //
+  // The values of OptLevel can be 0, 1, 2, 3, 4 or 5. The options -Os and
+  // -Oz are optimization level but for size. The compiler will treat these
+  // two levels as -O2 but without increasing the size of the code. The main
+  // difference between -Os and -Oz is that the second one does more aggressive
+  // optimizations related to size.
+  unsigned OptLevel = AM.getResult<XmainOptLevelAnalysis>(M).getOptLevel();
 
   return WholeProgramInfo::analyzeModule(M,
                                   AM.getResult<TargetLibraryAnalysis>(M), GTTI,
                                   AM.getCachedResult<CallGraphAnalysis>(M),
                                   OptLevel);
 }
-
-

@@ -278,6 +278,7 @@
 #include "llvm/Transforms/Intel_VPO/VPODirectiveCleanup.h"
 #endif //INTEL_CUSTOMIZATION
 using namespace llvm;
+using namespace llvm::llvm_intel_wp_analysis;  // INTEL
 
 static cl::opt<unsigned> MaxDevirtIterations("pm-max-devirt-iterations",
                                              cl::ReallyHidden, cl::init(4));
@@ -338,6 +339,11 @@ static cl::opt<bool> EnableIndirectCallConv("enable-npm-ind-call-conv",
 static cl::opt<bool> EnableMultiVersioning("enable-npm-multiversioning",
   cl::init(false), cl::ReallyHidden,
   cl::desc("Enable Function Multi-versioning in the new PM"));
+
+// Enable whole program analysis
+static cl::opt<bool> EnableWPA("enable-npm-whole-program-analysis",
+  cl::init(true), cl::ReallyHidden,
+  cl::desc("Enable Whole Program analysis in the new pass manager"));
 #endif // INTEL_CUSTOMIZATION
 
 static Regex DefaultAliasRegex(
@@ -1407,6 +1413,13 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
   ModulePassManager MPM(DebugLogging);
 
   if (Level == O0) {
+#if INTEL_CUSTOMIZATION
+    if (EnableWPA) {
+      // Set the optimization level
+      MPM.addPass(XmainOptLevelAnalysisInit(Level));
+      MPM.addPass(RequireAnalysisPass<WholeProgramAnalysis, Module>());
+    }
+#endif // INTEL_CUSTOMIZATION
     // The WPD and LowerTypeTest passes need to run at -O0 to lower type
     // metadata and intrinsics.
     MPM.addPass(WholeProgramDevirtPass(ExportSummary, nullptr));
@@ -1438,6 +1451,77 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
   MPM.addPass(GlobalDCEPass());
 
 #if INTEL_CUSTOMIZATION
+  if (EnableWPA) {
+    MPM.addPass(RequireAnalysisPass<WholeProgramAnalysis, Module>());
+    // If whole-program-assume is enabled then we are going to call
+    // the internalization pass.
+    if (AssumeWholeProgram) {
+
+      // The internalization pass does certain checks if a GlobalValue
+      // should be internalized (e.g. is local, DLL export, etc.). The
+      // pass also accepts a helper function that defines extra conditions
+      // on top of the default requirements. If the function returns true
+      // then it means that the GlobalValue should not be internalized, else
+      // if it returns false then internalize it.
+      auto PreserveSymbol = [](const GlobalValue &GV) {
+
+        // If GlobalValue is "main", has one definition rule (ODR) or
+        // is a special symbol added by the linker then don't internalize
+        // it. The ODR symbols are expected to be merged with equivalent
+        // globals and then be removed. If these symbols aren't removed
+        // then it could cause linking issues (e.g. undefined symbols).
+        if (GV.hasWeakODRLinkage() ||
+            WPUtils.isMainEntryPoint(GV.getName()) ||
+            WPUtils.isLinkerAddedSymbol(GV.getName()))
+          return true;
+
+        // If the GlobalValue is an alias then we need to make sure that this
+        // alias is OK to internalize.
+        if (const GlobalAlias *Alias = dyn_cast<const GlobalAlias>(&GV)) {
+
+          // Check if the alias has an aliasee and this aliasee is a
+          // GlobalValue
+          const GlobalValue *Glob =
+            dyn_cast<const GlobalValue>(Alias->getAliasee());
+          if (!Glob)
+            return true;
+
+          // Aliasee is a declaration
+          if (Glob->isDeclaration())
+            return true;
+
+          // Aliasee is an external declaration
+          if (Glob->hasAvailableExternallyLinkage())
+            return true;
+
+          // Aliasee is an DLL export
+          if (Glob->hasDLLExportStorageClass())
+            return true;
+
+          // Aliasee is local already
+          if (Glob->hasLocalLinkage())
+            return true;
+
+          // Aliasee is ODR
+          if (Glob->hasWeakODRLinkage())
+            return true;
+
+          // Aliasee is mapped to a linker added symbol
+          if (WPUtils.isLinkerAddedSymbol(Glob->getName()))
+            return true;
+
+          // Aliasee is mapped to main
+          if (WPUtils.isMainEntryPoint(Glob->getName()))
+            return true;
+        }
+
+        // OK to internalize
+        return false;
+      };
+      MPM.addPass(InternalizePass(PreserveSymbol));
+    }
+  }
+
   if (EnableIPCloning) {
 #if INTEL_INCLUDE_DTRANS
     // This pass is being added under DTRANS only at this point, because a
