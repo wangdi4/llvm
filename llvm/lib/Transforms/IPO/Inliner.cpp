@@ -1027,16 +1027,17 @@ bool LegacyInlinerBase::inlineCalls(CallGraphSCC &SCC) {
   CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
   ACT = &getAnalysis<AssumptionCacheTracker>();
   PSI = &getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
-<<<<<<< HEAD
-  auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+  auto GetTLI = [&](Function &F) -> TargetLibraryInfo & {
+    return getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+  };
   ILIC = new InliningLoopInfoCache(); // INTEL
   auto GetAssumptionCache = [&](Function &F) -> AssumptionCache & {
     return ACT->getAssumptionCache(F);
   };
   CG.registerCGReport(&Report); // INTEL
   CG.registerCGReport(&MDReport); // INTEL
-  bool rv = inlineCallsImpl(SCC, CG, GetAssumptionCache, PSI, TLI, // INTEL
-                            InsertLifetime,                        // INTEL
+  bool rv = inlineCallsImpl(SCC, CG, GetAssumptionCache, PSI, GetTLI, // INTEL
+                            InsertLifetime,                           // INTEL
                             [this](CallSite CS) { return getInlineCost(CS); },
                             LegacyAARGetter(*this), // INTEL
                             ImportedFunctionsStats, // INTEL
@@ -1046,18 +1047,6 @@ bool LegacyInlinerBase::inlineCalls(CallGraphSCC &SCC) {
   delete ILIC;    // INTEL
   ILIC = nullptr; // INTEL
   return rv;      // INTEL
-=======
-  auto GetTLI = [&](Function &F) -> TargetLibraryInfo & {
-    return getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-  };
-  auto GetAssumptionCache = [&](Function &F) -> AssumptionCache & {
-    return ACT->getAssumptionCache(F);
-  };
-  return inlineCallsImpl(
-      SCC, CG, GetAssumptionCache, PSI, GetTLI, InsertLifetime,
-      [this](CallSite CS) { return getInlineCost(CS); }, LegacyAARGetter(*this),
-      ImportedFunctionsStats);
->>>>>>> 9c27b59cec76abea4f3f9261f3ffa73450f239c6
 }
 
 /// Remove now-dead linkonce functions at the end of

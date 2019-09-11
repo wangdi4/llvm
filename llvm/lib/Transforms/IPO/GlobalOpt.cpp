@@ -2110,11 +2110,11 @@ static bool TryToReplaceGlobalWithStoredOnceValue(
 
 /// Analyze the specified global variable and optimize
 /// it if possible.  If we make a change, return true.
-<<<<<<< HEAD
-static bool processInternalGlobal(
-    GlobalVariable *GV, const GlobalStatus &GS, TargetLibraryInfo *TLI,
-    WholeProgramInfo *WPInfo,  // INTEL
-    function_ref<DominatorTree &(Function &)> LookupDomTree) {
+static bool
+processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
+                      function_ref<TargetLibraryInfo &(Function &)> GetTLI,
+                      WholeProgramInfo *WPInfo,  // INTEL
+                      function_ref<DominatorTree &(Function &)> LookupDomTree) {
 #if INTEL_COLLAB
 
   // Do not optimize away target-declare vars
@@ -2122,12 +2122,6 @@ static bool processInternalGlobal(
     return false;
 
 #endif // INTEL_COLLAB
-=======
-static bool
-processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
-                      function_ref<TargetLibraryInfo &(Function &)> GetTLI,
-                      function_ref<DominatorTree &(Function &)> LookupDomTree) {
->>>>>>> 9c27b59cec76abea4f3f9261f3ffa73450f239c6
   auto &DL = GV->getParent()->getDataLayout();
   // If this is a first class global and has only one accessing function and
   // this function is non-recursive, we replace the global with a local alloca
@@ -2297,13 +2291,9 @@ processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
 /// Analyze the specified global variable and optimize it if possible.  If we
 /// make a change, return true.
 static bool
-<<<<<<< HEAD
-processGlobal(GlobalValue &GV, TargetLibraryInfo *TLI,
-              WholeProgramInfo *WPInfo,  // INTEL
-=======
 processGlobal(GlobalValue &GV,
               function_ref<TargetLibraryInfo &(Function &)> GetTLI,
->>>>>>> 9c27b59cec76abea4f3f9261f3ffa73450f239c6
+              WholeProgramInfo *WPInfo,  // INTEL
               function_ref<DominatorTree &(Function &)> LookupDomTree) {
   if (GV.getName().startswith("llvm."))
     return false;
@@ -2335,12 +2325,8 @@ processGlobal(GlobalValue &GV,
   if (GVar->isConstant() || !GVar->hasInitializer())
     return Changed;
 
-<<<<<<< HEAD
-  return processInternalGlobal(GVar, GS, TLI, WPInfo,      // INTEL
+  return processInternalGlobal(GVar, GS, GetTLI, WPInfo,   // INTEL
                                LookupDomTree) || Changed;  // INTEL
-=======
-  return processInternalGlobal(GVar, GS, GetTLI, LookupDomTree) || Changed;
->>>>>>> 9c27b59cec76abea4f3f9261f3ffa73450f239c6
 }
 
 /// Walk all of the direct calls of the specified function, changing them to
@@ -2540,11 +2526,7 @@ OptimizeFunctions(Module &M,
       }
     }
 
-<<<<<<< HEAD
-    Changed |= processGlobal(*F, TLI, nullptr, LookupDomTree);  // INTEL
-=======
-    Changed |= processGlobal(*F, GetTLI, LookupDomTree);
->>>>>>> 9c27b59cec76abea4f3f9261f3ffa73450f239c6
+    Changed |= processGlobal(*F, GetTLI, nullptr, LookupDomTree); // INTEL
 
     if (!F->hasLocalLinkage())
       continue;
@@ -2631,11 +2613,7 @@ OptimizeGlobalVars(Module &M,
       continue;
     }
 
-<<<<<<< HEAD
-    Changed |= processGlobal(*GV, TLI, WPInfo, LookupDomTree);  // INTEL
-=======
-    Changed |= processGlobal(*GV, GetTLI, LookupDomTree);
->>>>>>> 9c27b59cec76abea4f3f9261f3ffa73450f239c6
+    Changed |= processGlobal(*GV, GetTLI, WPInfo, LookupDomTree); // INTEL
   }
   return Changed;
 }
@@ -3203,13 +3181,8 @@ static bool optimizeGlobalsInModule(
     });
 
     // Optimize non-address-taken globals.
-<<<<<<< HEAD
-    LocalChange |= OptimizeGlobalVars(M, TLI, LookupDomTree, WPInfo, // INTEL
-                                      NotDiscardableComdats);
-=======
-    LocalChange |=
-        OptimizeGlobalVars(M, GetTLI, LookupDomTree, NotDiscardableComdats);
->>>>>>> 9c27b59cec76abea4f3f9261f3ffa73450f239c6
+    LocalChange |= OptimizeGlobalVars(M, GetTLI, LookupDomTree, WPInfo, // INTEL
+                                      NotDiscardableComdats);           // INTEL
 
     // Resolve aliases, when possible.
     LocalChange |= OptimizeGlobalAliases(M, NotDiscardableComdats);
@@ -3247,13 +3220,9 @@ PreservedAnalyses GlobalOptPass::run(Module &M, ModuleAnalysisManager &AM) {
       return FAM.getResult<BlockFrequencyAnalysis>(F);
     };
 
-<<<<<<< HEAD
-    auto *WPInfo = AM.getCachedResult<WholeProgramAnalysis>(M);       // INTEL
-    if (!optimizeGlobalsInModule(M, DL, &TLI, GetTTI, GetBFI, WPInfo, // INTEL
-                                 LookupDomTree))                      // INTEL
-=======
-    if (!optimizeGlobalsInModule(M, DL, GetTLI, GetTTI, GetBFI, LookupDomTree))
->>>>>>> 9c27b59cec76abea4f3f9261f3ffa73450f239c6
+    auto *WPInfo = AM.getCachedResult<WholeProgramAnalysis>(M);         // INTEL
+    if (!optimizeGlobalsInModule(M, DL, GetTLI, GetTTI, GetBFI, WPInfo, // INTEL
+                                 LookupDomTree))                        // INTEL
       return PreservedAnalyses::all();
 
     auto PA = PreservedAnalyses();        // INTEL
@@ -3292,15 +3261,10 @@ struct GlobalOptLegacyPass : public ModulePass {
       return this->getAnalysis<BlockFrequencyInfoWrapperPass>(F).getBFI();
     };
 
-<<<<<<< HEAD
-    auto *WPA = getAnalysisIfAvailable<WholeProgramWrapperPass>();     // INTEL
-    WholeProgramInfo *WPInfo = WPA ? &WPA->getResult() : nullptr;      // INTEL
-    return optimizeGlobalsInModule(M, DL, TLI, GetTTI, GetBFI, WPInfo, // INTEL
-                                   LookupDomTree);                     // INTEL
-=======
-    return optimizeGlobalsInModule(M, DL, GetTLI, GetTTI, GetBFI,
-                                   LookupDomTree);
->>>>>>> 9c27b59cec76abea4f3f9261f3ffa73450f239c6
+    auto *WPA = getAnalysisIfAvailable<WholeProgramWrapperPass>();        // INTEL
+    WholeProgramInfo *WPInfo = WPA ? &WPA->getResult() : nullptr;         // INTEL
+    return optimizeGlobalsInModule(M, DL, GetTLI, GetTTI, GetBFI, WPInfo, // INTEL
+                                   LookupDomTree);                        // INTEL
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {

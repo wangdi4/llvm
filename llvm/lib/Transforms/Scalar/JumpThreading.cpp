@@ -325,8 +325,7 @@ static void updatePredecessorProfileMetadata(PHINode *PN, BasicBlock *BB) {
 bool JumpThreading::runOnFunction(Function &F) {
   if (skipFunction(F))
     return false;
-<<<<<<< HEAD
-  auto TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+  auto TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
 #if INTEL_CUSTOMIZATION
   // If we need structured CFGs, disable jump threading, since it generally
   // tends to destructure them.
@@ -334,9 +333,6 @@ bool JumpThreading::runOnFunction(Function &F) {
   if (TTI->needsStructuredCFG())
     return false;
 #endif
-=======
-  auto TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
->>>>>>> 9c27b59cec76abea4f3f9261f3ffa73450f239c6
   // Get DT analysis before LVI. When LVI is initialized it conditionally adds
   // DT if it's available.
   auto DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();

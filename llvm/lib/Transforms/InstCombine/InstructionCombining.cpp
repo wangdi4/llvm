@@ -3668,12 +3668,8 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
   // Required analyses.
   auto AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
   auto &AC = getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
-<<<<<<< HEAD
-  auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
-  auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F); // INTEL
-=======
   auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
->>>>>>> 9c27b59cec76abea4f3f9261f3ffa73450f239c6
+  auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F); // INTEL
   auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   auto &ORE = getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
 

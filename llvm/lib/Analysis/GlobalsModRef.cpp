@@ -398,13 +398,9 @@ bool GlobalsAAResult::AnalyzeUsesOfPointer(Value *V,
         }
 #endif // INTEL_CUSTOMIZATION
         // Detect calls to free.
-<<<<<<< HEAD
-        if (Call->isArgOperand(&U) && (isFreeCall(I, &TLI) ||    // INTEL
-            (isNonEscapingArgsLibCall(I)))) {                    // INTEL
-=======
         if (Call->isArgOperand(&U) &&
-            isFreeCall(I, &GetTLI(*Call->getFunction()))) {
->>>>>>> 9c27b59cec76abea4f3f9261f3ffa73450f239c6
+            (isFreeCall(I, &GetTLI(*Call->getFunction())) || // INTEL
+             (isNonEscapingArgsLibCall(I)))) {               // INTEL
           if (Writers)
             Writers->insert(Call->getParent()->getParent());
         } else {

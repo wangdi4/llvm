@@ -150,12 +150,8 @@ static bool isKnownLibFunction(Function &F, TargetLibraryInfo &TLI) {
   return TLI.getLibFunc(F, LF) || TLI.isFunctionVectorizable(F.getName());
 }
 
-<<<<<<< HEAD
-LazyCallGraph::LazyCallGraph(Module &M, TargetLibraryInfo &TLI) : M(M) {//INTEL
-=======
 LazyCallGraph::LazyCallGraph(
-    Module &M, function_ref<TargetLibraryInfo &(Function &)> GetTLI) {
->>>>>>> 9c27b59cec76abea4f3f9261f3ffa73450f239c6
+    Module &M, function_ref<TargetLibraryInfo &(Function &)> GetTLI) : M(M) { // INTEL
   LLVM_DEBUG(dbgs() << "Building CG for module: " << M.getModuleIdentifier()
                     << "\n");
   for (Function &F : M) {
