@@ -749,7 +749,7 @@ LLDJIT::TmpFile::TmpFile(const llvm::Twine &Prefix,
   if (std::error_code EC = llvm::sys::fs::createTemporaryFile(
           Prefix, FileExtension, FD, ResultPath))
     report_fatal_error("Failed to create a temporary file on the system!");
-  File = llvm::make_unique<llvm::ToolOutputFile>(ResultPath, FD);
+  File = std::make_unique<llvm::ToolOutputFile>(ResultPath, FD);
   Name = ResultPath.str();
 }
 
