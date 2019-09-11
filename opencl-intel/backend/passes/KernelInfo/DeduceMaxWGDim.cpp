@@ -37,7 +37,14 @@ namespace intel {
       return false;
     }
 
+    // If we have subgroups then at least one vector iteration is expected,
+    // it can't be achieved without a loop.
+    bool SubGroupPath = KernelInternalMetadataAPI(&F).KernelHasSubgroups.get();
+    if (SubGroupPath)
+      return false;
+
     SmallVector<CallInst*, 8> TIDCalls;
+    // TODO: handle other built-ins like get_group_id(dim), etc.
     LoopUtils::getAllCallInFunc(MangledGetGID, &F, TIDCalls);
     LoopUtils::getAllCallInFunc(MangledGetLID, &F, TIDCalls);
     int MaxDim = -1;
