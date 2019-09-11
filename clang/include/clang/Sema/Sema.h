@@ -11707,6 +11707,7 @@ public:
     KernelAllocateStorage,
     KernelUseAssembly,
     KernelHavePolymorphicClass,
+    KernelCallDllimportFunction,
     KernelCallVariadicFunction
  };
   DeviceDiagBuilder SYCLDiagIfDeviceCode(SourceLocation Loc, unsigned DiagID);

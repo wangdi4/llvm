@@ -595,7 +595,6 @@ private:
 
     SmallVector<Constant *, 4> ImagesInits;
     unsigned ImgId = 0;
-    bool AddHostBundle = false;
 
     for (const auto &ImgPtr : Pack) {
       const BinaryWrapper::Image &Img = *(ImgPtr.get());
@@ -630,10 +629,13 @@ private:
           makeArrayRef(Bin->getBufferStart(), Bin->getBufferSize()),
           Twine(OffloadKindTag) + Twine(ImgId) + Twine(".data"), Kind, Img.Tgt);
 
+<<<<<<< HEAD
       // Need to add 'host' dummy bundle if target triple was specified for at
       // least one target image.
       AddHostBundle |= !Img.Tgt.empty();
 
+=======
+>>>>>>> dbda3d697d1861430a28dc6021bcab562e079e45
 #if INTEL_COLLAB
       if (Kind == OffloadKind::OpenMP)
         ImagesInits.push_back(ConstantStruct::get(
@@ -652,6 +654,7 @@ private:
 #endif  // INTEL_COLLAB
       ImgId++;
     }
+<<<<<<< HEAD
 
     if (AddHostBundle) {
       // Add dummy image for the 'host' binary to satisfy bundler expectations
@@ -660,6 +663,8 @@ private:
                              OffloadKind::Host, Target);
     }
 
+=======
+>>>>>>> dbda3d697d1861430a28dc6021bcab562e079e45
 #if INTEL_COLLAB
     auto *ImagesData = ConstantArray::get(
         ArrayType::get(getDeviceImageTy(Kind), ImagesInits.size()),

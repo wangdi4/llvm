@@ -1,8 +1,3 @@
-// INTEL_CUSTOMIZATION
-// This test fails on xmain bacuse of assumed dependency on sycl: CORC-5634
-// Mark as expected fail
-// XFAIL: *
-// end INTEL_CUSTOMIZATION
 // UNSUPPORTED: system-windows
 // Test temp file cleanup
 // RUN: touch %t_obj.o
