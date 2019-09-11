@@ -65,4 +65,7 @@ add_llvm_library(LLVMCore
 
   DEPENDS
   intrinsics_gen
+# INTEL_COLLAB
+  directives_gen
+# end INTEL_COLLAB
   )
