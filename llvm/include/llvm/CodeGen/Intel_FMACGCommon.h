@@ -46,6 +46,26 @@ class FMADag;
 class FMAPerfDesc;
 class FMAPatterns;
 
+/// This class provides the methods returning output streams
+/// for debug messages which can be turned ON/OFF depending
+/// on their categories.
+class FMADbg {
+  static const int Main = 1;
+  static const int Matching = 2;
+  static const int FWS = 4;
+public:
+  /// Return output stream if the general purpose debug messages are enabled.
+  static raw_ostream &dbgs();
+
+  /// Return output stream if the debug messages from pattern matching
+  /// are enabled.
+  static raw_ostream &match();
+
+  /// Return output stream if the debug messages from expressions-fusing
+  /// module are enabled.
+  static raw_ostream &fws();
+};
+
 /// This class describes the performance metrics of some expression tree.
 /// In particular, it keeps information about the number of various operations
 /// and latency of the expression tree.
@@ -575,6 +595,10 @@ private:
   /// that would use the term defined by 'this' expression.
   bool IsFullyConsumedByKnownExpressions;
 
+  /// This field is set to true only if it must be re-generated at the
+  /// code-generation phase.
+  bool IsMustBeOptimized;
+
   /// A reference to an FMA term defined by 'this' FMA expression.
   FMARegisterTerm *ResultTerm;
 
@@ -733,6 +757,10 @@ public:
   /// Returns expression index in the parent FMABasicBlock.
   unsigned getIndexInBB() const { return IndexInBB; }
 
+  /// This method puts all immediate parents/users of \p Node to \p ExprSet.
+  void insertImmediateUsersOfTo(
+          const FMANode *Node, SmallPtrSetImpl<const FMAExpr *> &ExprSet) const;
+
   /// This method puts 'this' node and all subexpressions to the given
   /// set \p ExprSet. It may be needed when each expression node must be
   /// visited only once.
@@ -810,6 +838,14 @@ public:
   void markAsFullyConsumedByKnownExpressions() {
     IsFullyConsumedByKnownExpressions = true;
   }
+
+  /// Returns true iff the expression MUST  be re-generated/optimized
+  /// during the code-generation phase of this optimization.
+  bool isMustBeOptimized() const { return IsMustBeOptimized; }
+
+  /// Marks the expression as an expression that MUST be re-generated/optimized
+  /// during the code-generation phase of this optimization.
+  void markAsMustBeOptimized() { IsMustBeOptimized = true; }
 
   // Returns true iff 'this' FMA expression has consumed some other expression.
   // In this case it is considered as optimizable.
@@ -1058,6 +1094,19 @@ protected:
   /// \p FWSExpr must be an expression defining the term used by \p Expr.
   std::unique_ptr<FMADag> getDagForFusedExpression(FMAExpr &Expr,
                                                    FMAExpr &FWSExpr) const;
+
+  /// Checks if fusing of \p T into all of \p GoodUsersSet is safe,
+  /// we need to check that FMA expressions from \p GoodUsersSet do not
+  /// intersect (as result of FWS) with FMA expressions from \p BadUsersSet.
+  ///     T   A       T - is the candidate for fusing it may be replaced
+  ///      \ /            with some expression during FWS.
+  ///   Z   N   X     U - is immediate user of T, included into "good" expr G
+  ///    \ / \ /          and "bad" expr B.
+  ///     G   B       Replacing T would cause changes in both G and B,
+  ///                 and such cases are considered unsafe.
+  bool isSafeToFuse(const FMATerm *T,
+                    const SmallPtrSetImpl<const FMAExpr *> &GoodUsersSet,
+                    const SmallPtrSetImpl<const FMAExpr *> &BadUsersSet) const;
 
   /// If fusing the expression \p FWSExpr and users of it is profitable and
   /// gives good opportunities for pattern matching then this routine does

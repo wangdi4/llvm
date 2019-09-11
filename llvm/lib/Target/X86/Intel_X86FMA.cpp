@@ -838,7 +838,7 @@ FMAMemoryTerm *X86FMABasicBlock::createMemoryTerm(MVT VT, MachineInstr *MI) {
 
 unsigned X86FMABasicBlock::parseBasicBlock(MachineRegisterInfo *MRI,
                                            bool LookForAVX512) {
-  LLVM_DEBUG(dbgs() << "FMA-STEP1: FIND FMA OPERATIONS:\n");
+  LLVM_DEBUG(FMADbg::dbgs() << "FMA-STEP1: FIND FMA OPERATIONS:\n");
 
   for (auto &MI : getMBB()) {
     MVT VT;
@@ -912,7 +912,7 @@ unsigned X86FMABasicBlock::parseBasicBlock(MachineRegisterInfo *MRI,
   }
   setDefHasUnknownUsersForRegisterTerms(MRI);
 
-  LLVM_DEBUG(dbgs() << *this << "FMA-STEP1 DONE.\n");
+  LLVM_DEBUG(FMADbg::dbgs() << *this << "FMA-STEP1 DONE.\n");
   return getFMAs().size();
 }
 
@@ -987,7 +987,8 @@ bool X86GlobalFMA::runOnMachineFunction(MachineFunction &MFunc) {
         Opcode == Instruction::FRem || Opcode == Instruction::FCmp ||
         Opcode == Instruction::Call;
     if (CheckedOp && isa<FPMathOperator>(&I) && !I.hasAllowReassoc()) {
-      LLVM_DEBUG(dbgs() << "Exit because found mixed fast-math settings.\n");
+      LLVM_DEBUG(FMADbg::dbgs()
+                     << "Exit because found mixed fast-math settings.\n");
       return false;
     }
   }
@@ -1122,8 +1123,8 @@ X86GlobalFMA::generateMachineOperandForFMATerm(FMATerm *Term,
   // In case of FMAMemoryTerm terms the new instruction must be inserted before
   // the original machine instruction performing the load from memory.
   MBB->insert(MI, NewMIs[0]);
-  LLVM_DEBUG(dbgs() << "  GENERATE NEW LOAD FROM MEM for MemTerm: " << Term
-                    << "\n    " << *NewMIs[0]);
+  LLVM_DEBUG(FMADbg::dbgs() << "  GENERATE NEW LOAD FROM MEM for MemTerm: "
+                            << Term << "\n    " << *NewMIs[0]);
 
   // 3. This is the first time when the load to a virtual register was
   // generated. Save the register to avoid the load duplication when the same
@@ -1271,7 +1272,7 @@ void X86GlobalFMA::generateOutputIR(FMAExpr &Expr, const FMADag &Dag) {
       ResultRegs[NodeInd] = NewMI->getOperand(0).getReg();
 
     MBB.insert(MI, NewMI);
-    LLVM_DEBUG(dbgs() << "  GENERATE NEW INSTRUCTION:\n    " << *NewMI);
+    LLVM_DEBUG(FMADbg::dbgs() << "  GENERATE NEW INSTRUCTION:\n    " << *NewMI);
 
     if (NegateResult) {
       // Currently, for the expression -R we generate SUB(0, R).
@@ -1284,11 +1285,13 @@ void X86GlobalFMA::generateOutputIR(FMAExpr &Expr, const FMADag &Dag) {
       NewMI = genInstruction(SubOpcode, MI->getOperand(0).getReg(), MOs, DL);
       Term->setLastUseMI(NewMI);
       MBB.insert(MI, NewMI);
-      LLVM_DEBUG(dbgs() << "  GENERATE NEW INSTRUCTION:\n    " << *NewMI);
+      LLVM_DEBUG(FMADbg::dbgs() << "  GENERATE NEW INSTRUCTION:\n    "
+                                << *NewMI);
     }
   }
   auto DeleteMI = [&MBB](MachineInstr *MI) {
-    LLVM_DEBUG(dbgs() << "  DELETE the MI (it is replaced): \n    " << *MI);
+    LLVM_DEBUG(FMADbg::dbgs() << "  DELETE the MI (it is replaced): \n    "
+                              << *MI);
     MBB.erase(MI);
   };
   for (auto *MI : Expr.getConsumedMIs())
