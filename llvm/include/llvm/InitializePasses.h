@@ -508,7 +508,6 @@ void initializeHIRTempCleanupLegacyPassPass(PassRegistry&);
 void initializeHIRParVecAnalysisWrapperPassPass(PassRegistry &);
 void initializeHIRParDirInsertPass(PassRegistry&);
 void initializeHIRVecDirInsertPass(PassRegistry&);
-void initializeHIRVectVLSAnalysisPass(PassRegistry&);
 void initializeHIRPrinterPass(llvm::PassRegistry&);
 void initializeHIRPreVecCompleteUnrollLegacyPassPass(PassRegistry&);
 void initializeHIRPostVecCompleteUnrollLegacyPassPass(PassRegistry&);
