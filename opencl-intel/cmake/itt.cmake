@@ -13,7 +13,7 @@ add_definitions( -DUSE_ITT )
 # dependency calculations - see compiler docs.
 set(EXTERNALS_DIR ${CMAKE_SOURCE_DIR}/externals)
 if (OPENCL_INTREE_BUILD)
-  set(EXTERNALS_DIR ${CMAKE_SOURCE_DIR}/opencl/externals)
+  set(EXTERNALS_DIR ${PROJECT_SOURCE_DIR}/externals)
 endif()
 include_directories( SYSTEM ${EXTERNALS_DIR}/itt/include
                      ${EXTERNALS_DIR}/itt/ittnotify/ )

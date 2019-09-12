@@ -618,7 +618,7 @@ float half2float( cl_ushort us )
         if( mantissa == 0 )
             return sign ? -0.0f : 0.0f;
         
-        int shift = __builtin_clz( mantissa ) - 8;
+        int shift = internal_clz( mantissa ) - 8;
         exponent -= shift-1;
         mantissa <<= shift;
         mantissa &= 0x007fffff;
@@ -696,7 +696,7 @@ std::string GetConfigFilePath()
 //  starting at the most significant bit position. 
 //  If x is 0, the result is undefined.
 // 
-int __builtin_clz(unsigned int pattern)
+int internal_clz(unsigned int pattern)
 {
     unsigned long index;
     unsigned char res = _BitScanReverse( &index, pattern);
@@ -707,7 +707,7 @@ int __builtin_clz(unsigned int pattern)
     }
 }
 #else
-int __builtin_clz(unsigned int pattern)
+int internal_clz(unsigned int pattern)
 {
    int count;
    if (pattern == 0u) {

@@ -5,7 +5,8 @@ add_definitions( ${LLVM_DEFINITIONS} )
 # Add include directories
 include_directories(
     ${LLVM_INCLUDE_DIRS}
-    ${CCLANG_USER_INCLUDE_DIRS}
+    # common_clang.h is in CCLANG_DEV_INCLUDE_DIRS
+    ${CCLANG_DEV_INCLUDE_DIRS}
     ${OCL_SOURCE_DIR}/FrontendDriver
     ${OCL_SOURCE_DIR}/externals/khronos/spirv/headers/include )
 

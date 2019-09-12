@@ -1,9 +1,9 @@
-if( NOT DEFINED LLVM_PATH_FE )
-    message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM library location for backend using LLVM_PATH_FE parameter to CMAKE" )
-endif()
-set (LLVM_FE_INCLUDE_DIRS ${LLVM_PATH_FE}/include)
-
 if (NOT OPENCL_INTREE_BUILD)
+  if( NOT DEFINED LLVM_PATH_FE )
+    message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM library location for backend using LLVM_PATH_FE parameter to CMAKE" )
+  endif()
+  set (LLVM_FE_INCLUDE_DIRS ${LLVM_PATH_FE}/include)
+
   find_package(LLVM REQUIRED)
 endif()
 if(NOT WIN32)
@@ -48,7 +48,6 @@ set (OCL_RECORDER_SOURCE_FILES
 # Add include directories
 set (INCLUDE_DIRS
   ${LLVM_INCLUDE_DIRS}
-  ${LLVM_FE_INCLUDE_DIRS}/cclang
   ${CL_API_HEADERS}
   ${VALIDATIONS_ROOT}/DataVersion
   ${OCL_RECORDER_IMPORT_DIR}
@@ -61,6 +60,12 @@ set (INCLUDE_DIRS
   ${OCL_SOURCE_DIR}/backend/plugin_manager
   ${OCL_BINARY_DIR}
 )
+
+if (OPENCL_INTREE_BUILD)
+  list(APPEND INCLUDE_DIRS ${CCLANG_DEV_INCLUDE_DIRS})
+else()
+  list(APPEND INCLUDE_DIRS ${LLVM_FE_INCLUDE_DIRS}/cclang)
+endif()
 
 if(WIN32)
     get_target_property( lib_dir NEAT_wrapper lib_dir )

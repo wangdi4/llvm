@@ -7,6 +7,8 @@ config.opencl_library_dir = "@OCL_OUTPUT_LIBRARY_DIR@"
 config.opencl_tests_binary_dir = "@OCL_TESTS_BINARY_DIR@"
 config.llvm_binary_dir = "@LLVM_BINARY_DIR@"
 config.operating_system = "@CMAKE_SYSTEM_NAME@"
+config.llvm_lib_dir = "@LLVM_LIBRARY_DIR@"
+config.intree_build = "@OPENCL_INTREE_BUILD@"
 
 config.host_arch = "@HOST_ARCH@"
 

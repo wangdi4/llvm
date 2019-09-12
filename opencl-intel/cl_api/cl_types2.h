@@ -42,7 +42,7 @@ struct float16
 // Change LLVM backend (JIT) to perform more efficient call to short vectors
 
 //char - 8bit
-#if defined (__GNUC__) && !(__INTEL_COMPILER)
+#if defined (__GNUC__) && !(__INTEL_COMPILER) && !(__clang__)
 typedef int8_t		__int8;
 #endif
 typedef char			_1i8;
@@ -69,7 +69,7 @@ struct _8u8p { unsigned char a; unsigned char b; unsigned char c; unsigned char 
 typedef __m128i			_16u8;
 
 //short - 16 bit
-#if defined (__GNUC__) && !(__INTEL_COMPILER)
+#if defined (__GNUC__) && !(__INTEL_COMPILER) && !(__clang__)
 typedef int16_t		__int16;
 #endif
 typedef short			_1i16;
@@ -102,7 +102,7 @@ struct _8i32 { __m128i a; __m128i b;};
 struct _16i32 { __m128i a; __m128i b;__m128i c; __m128i d;};
 
 //unit - 32 bit
-#if defined (__GNUC__) && !(__INTEL_COMPILER)
+#if defined (__GNUC__) && !(__INTEL_COMPILER) && !(__clang__)
 typedef int32_t		__int32;
 #endif
 typedef unsigned int	_1u32;
@@ -113,7 +113,7 @@ struct _8u32 { __m128i a; __m128i b;};
 struct _16u32 { __m128i a; __m128i b;__m128i c; __m128i d;};
 
 //long - 64 bit
-#if defined (__GNUC__) && !(__INTEL_COMPILER)
+#if defined (__GNUC__) && !(__INTEL_COMPILER) && !(__clang__)
 typedef int64_t		_1i64;
 #else         
 typedef __int64		_1i64;
@@ -127,7 +127,7 @@ struct _16i64 { __m128i a; __m128i b;__m128i c; __m128i d;
 __m128i e; __m128i f;__m128i g; __m128i h;};
 
 //ulong 64 bit
-#if defined (__GNUC__) && !(__INTEL_COMPILER)
+#if defined (__GNUC__) && !(__INTEL_COMPILER) && !(__clang__)
 typedef uint64_t	_1u64;
 #else
 typedef unsigned __int64	_1u64;
