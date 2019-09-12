@@ -294,6 +294,22 @@ def TMM15: X86Reg<"tmm15", 15>;
 #endif // INTEL_FEATURE_ISA_AMX
 
 #if INTEL_FEATURE_ISA_AMX2
+def TMM16: X86Reg<"tmm16", 16>;
+def TMM17: X86Reg<"tmm17", 17>;
+def TMM18: X86Reg<"tmm18", 18>;
+def TMM19: X86Reg<"tmm19", 19>;
+def TMM20: X86Reg<"tmm20", 20>;
+def TMM21: X86Reg<"tmm21", 21>;
+def TMM22: X86Reg<"tmm22", 22>;
+def TMM23: X86Reg<"tmm23", 23>;
+def TMM24: X86Reg<"tmm24", 24>;
+def TMM25: X86Reg<"tmm25", 25>;
+def TMM26: X86Reg<"tmm26", 26>;
+def TMM27: X86Reg<"tmm27", 27>;
+def TMM28: X86Reg<"tmm28", 28>;
+def TMM29: X86Reg<"tmm29", 29>;
+def TMM30: X86Reg<"tmm30", 30>;
+def TMM31: X86Reg<"tmm31", 31>;
 // TMM register pairs
 def TPAIRS : RegisterTuples<[sub_t0, sub_t1],
                             [(add TMM0, TMM2, TMM4, TMM6, TMM8, TMM10, TMM12, TMM14),
@@ -696,6 +712,11 @@ def BNDR : RegisterClass<"X86", [v2i64], 128, (sequence "BND%u", 0, 3)>;
 #if INTEL_FEATURE_ISA_AMX
 // Tiles
 def VTILE : RegisterClass<"X86", [untyped], 0,
-                          (sequence "TMM%u", 0, 15)> {let Size = 1;}
+                          (sequence "TMM%u", 0, 15)> {let Size = 8192;}
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX2
+// Tiles
+def VTILEX : RegisterClass<"X86", [untyped], 0,
+                          (sequence "TMM%u", 0, 31)> {let Size = 8192;}
+#endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
