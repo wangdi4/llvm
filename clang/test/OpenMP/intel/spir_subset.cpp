@@ -234,7 +234,6 @@ void foo1()
 
   #pragma omp parallel
   {
-    //expected-warning@+1 {{OpenMP directive 'critical' ignored for target}}
     #pragma omp critical
     {
     }
