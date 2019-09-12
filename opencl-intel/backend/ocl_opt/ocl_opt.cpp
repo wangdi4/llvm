@@ -519,14 +519,14 @@ int main(int argc, char **argv) {
   if (RemarksFilename != "") {
     std::error_code EC;
     OptRemarkFile =
-        llvm::make_unique<ToolOutputFile>(RemarksFilename, EC, sys::fs::F_None);
+        std::make_unique<ToolOutputFile>(RemarksFilename, EC, sys::fs::F_None);
     if (EC) {
       errs() << EC.message() << '\n';
       return 1;
     }
-    Context.setRemarkStreamer(llvm::make_unique<RemarkStreamer>(
+    Context.setRemarkStreamer(std::make_unique<RemarkStreamer>(
         RemarksFilename,
-        llvm::make_unique<remarks::YAMLRemarkSerializer>(
+        std::make_unique<remarks::YAMLRemarkSerializer>(
           OptRemarkFile->os(), remarks::SerializerMode::Separate)));
   }
 
@@ -668,7 +668,7 @@ int main(int argc, char **argv) {
         OutputFilename = "-";
 
       std::error_code EC;
-      Out = llvm::make_unique<ToolOutputFile>(OutputFilename, EC,
+      Out = std::make_unique<ToolOutputFile>(OutputFilename, EC,
                                               sys::fs::F_None);
       if (EC) {
         errs() << EC.message() << '\n';
@@ -814,7 +814,7 @@ int main(int argc, char **argv) {
     assert(Out);
     OS = &Out->os();
     if (RunTwice) {
-      BOS = make_unique<raw_svector_ostream>(Buffer);
+      BOS = std::make_unique<raw_svector_ostream>(Buffer);
       OS = BOS.get();
     }
     if (OutputAssembly) {
