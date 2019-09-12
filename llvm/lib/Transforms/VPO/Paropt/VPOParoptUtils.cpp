@@ -3118,7 +3118,8 @@ void VPOParoptUtils::genCopyByAddr(Value *To, Value *From,
     genCopyConstructorCall(Cctor, To, From, InsertPt);
   else if (!VPOUtils::canBeRegisterized(ObjType, DL) ||
            (AI && AI->isArrayAllocation())) {
-    unsigned Alignment = AI ? AI->getAlignment() : DL.getStackAlignment();
+    unsigned Alignment =
+        AI ? AI->getAlignment() : DL.getABITypeAlignment(To->getType());
     VPOUtils::genMemcpy(To, From, DL, Alignment, InsertPt);
   } else
     Builder.CreateStore(Builder.CreateLoad(From), To);
