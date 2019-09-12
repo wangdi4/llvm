@@ -39,6 +39,7 @@
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IRBuilder.h"
@@ -91,6 +92,29 @@ static cl::opt<bool, true> UseOmpRegionsInLoopopt(
     "loopopt-use-omp-region", cl::desc("Handle OpenMP directives in LoopOpt"),
     cl::Hidden, cl::location(UseOmpRegionsInLoopoptFlag), cl::init(false));
 #endif  // INTEL_CUSTOMIZATION
+
+namespace {
+class ParoptTransformDiagInfo : public DiagnosticInfoWithLocationBase {
+  const Twine &Msg;
+
+public:
+  ParoptTransformDiagInfo(const Function &F, const DiagnosticLocation &Loc,
+                          const Twine &Msg, DiagnosticSeverity DS = DS_Warning)
+    : DiagnosticInfoWithLocationBase(
+          static_cast<DiagnosticKind>(getNextAvailablePluginDiagnosticKind()),
+          DS, F, Loc),
+      Msg(Msg)
+  {}
+
+  void print(DiagnosticPrinter &DP) const override {
+    if (isLocationAvailable())
+      DP << getLocationStr() << ": ";
+    DP << Msg;
+    if (!isLocationAvailable())
+      DP << " (use -g for location info)";
+  }
+};
+} // anonymous namespace
 
 //
 // Use with the WRNVisitor class (in WRegionUtils.h) to walk the WRGraph
@@ -6058,6 +6082,13 @@ bool VPOParoptTransform::genDoacrossWaitOrPost(WRNOrderedNode *W) {
 
 // Generates code for the OpenMP critical construct.
 bool VPOParoptTransform::genCriticalCode(WRNCriticalNode *CriticalNode) {
+  if (isTargetSPIRV()) {
+    F->getContext().diagnose(ParoptTransformDiagInfo(*F,
+        CriticalNode->getEntryDirective()->getDebugLoc(),
+        "OpenMP critical is not supported"));
+    return removeCompilerGeneratedFences(CriticalNode);
+  }
+
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genCriticalCode\n");
   assert(CriticalNode != nullptr && "Critical node is null.");
 
