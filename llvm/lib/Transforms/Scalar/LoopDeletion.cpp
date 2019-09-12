@@ -510,7 +510,7 @@ static LoopDeletionResult deleteLoopIfDead(Loop *L, DominatorTree &DT,
 
   // Don't remove loops for which we can't solve the trip count.
   // They could be infinite, in which case we'd be changing program behavior.
-  const SCEV *S = SE.getMaxBackedgeTakenCount(L);
+  const SCEV *S = SE.getConstantMaxBackedgeTakenCount(L);
 #if INTEL_CUSTOMIZATION
   if (isa<SCEVCouldNotCompute>(S) && !NotInfinite) {
 #endif // INTEL_CUSTOMIZATION

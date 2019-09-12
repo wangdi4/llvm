@@ -4319,13 +4319,13 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
   //  except for IVDEP
   if (CommonIVDEPLoop && TestingMemRefs && !EqualBaseAndShape &&
       adjustDVforIVDEP(Result, false)) { // SameBase = false
-    return make_unique<Dependences>(Result);
+    return std::make_unique<Dependences>(Result);
   }
 
   if (!EqualBaseAndShape || (NoCommonNest && !ForFusion)) {
     LLVM_DEBUG(dbgs() << "\nDiff dim,  base, or no common nests\n");
     // DV has been initialized as *
-    return make_unique<Dependences>(Result);
+    return std::make_unique<Dependences>(Result);
   }
 
   unsigned Pairs = SrcRegDDRef->getNumDimensions();
@@ -4810,7 +4810,7 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
     }
   }
 
-  return make_unique<Dependences>(Result);
+  return std::make_unique<Dependences>(Result);
 }
 
 ///  Create  DV for Backward Edge

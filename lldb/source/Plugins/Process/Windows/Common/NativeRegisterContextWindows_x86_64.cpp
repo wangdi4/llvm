@@ -16,7 +16,7 @@
 #include "ProcessWindowsLog.h"
 #include "lldb/Host/HostInfo.h"
 #include "lldb/Host/HostThread.h"
-#include "lldb/Host/Windows/HostThreadWindows.h"
+#include "lldb/Host/windows/HostThreadWindows.h"
 #include "lldb/Host/windows/windows.h"
 
 #include "lldb/Utility/Log.h"
@@ -100,11 +100,11 @@ NativeRegisterContextWindows::CreateHostNativeRegisterContextWindows(
     const ArchSpec &target_arch, NativeThreadProtocol &native_thread) {
   // Register context for a WoW64 application.
   if (target_arch.GetAddressByteSize() == 4)
-    return llvm::make_unique<NativeRegisterContextWindows_WoW64>(target_arch,
+    return std::make_unique<NativeRegisterContextWindows_WoW64>(target_arch,
                                                                  native_thread);
 
   // Register context for a native 64-bit application.
-  return llvm::make_unique<NativeRegisterContextWindows_x86_64>(target_arch,
+  return std::make_unique<NativeRegisterContextWindows_x86_64>(target_arch,
                                                                 native_thread);
 }
 

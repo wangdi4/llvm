@@ -1198,7 +1198,7 @@ public:
   }
 
   std::unique_ptr<CorrectionCandidateCallback> clone() override {
-    return llvm::make_unique<TentativeParseCCC>(*this);
+    return std::make_unique<TentativeParseCCC>(*this);
   }
 };
 }

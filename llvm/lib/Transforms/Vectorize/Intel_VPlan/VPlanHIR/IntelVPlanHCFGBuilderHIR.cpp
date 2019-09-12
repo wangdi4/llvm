@@ -233,7 +233,7 @@ void HIRVectorizationLegality::findAliasDDRefs(HLNode *ClauseNode,
                  RVal->dump(); dbgs() << "\n");
       RegDDRef *LVal = HInst->getLvalDDRef();
       assert(LVal && "HLInst in the preheader does not have an Lval.");
-      Descr->Aliases[LVal] = llvm::make_unique<DescrValues>(LVal);
+      Descr->Aliases[LVal] = std::make_unique<DescrValues>(LVal);
     }
   }
 }
@@ -606,7 +606,7 @@ void PlainCFGBuilderHIR::visit(HLLabel *HLabel) {
 
 std::unique_ptr<VPRegionBlock> PlainCFGBuilderHIR::buildPlainCFG() {
   // Create new TopRegion.
-  TopRegion = llvm::make_unique<VPRegionBlock>(
+  TopRegion = std::make_unique<VPRegionBlock>(
       VPBlockBase::VPRegionBlockSC, VPlanUtils::createUniqueName("region"));
 
   // Create a dummy VPBB as TopRegion's Entry.
@@ -640,7 +640,7 @@ VPlanHCFGBuilderHIR::VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp,
                        Lp->getHLNodeUtils().getDataLayout(), WRL, Plan,
                        nullptr),
       TheLoop(Lp), DDG(DDG), HIRLegality(Legal) {
-  Verifier = llvm::make_unique<VPlanVerifierHIR>(Lp);
+  Verifier = std::make_unique<VPlanVerifierHIR>(Lp);
   assert((!WRLp || WRLp->getTheLoop<HLLoop>() == TheLoop) &&
          "Inconsistent Loop information");
 }

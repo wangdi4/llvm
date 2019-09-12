@@ -96,7 +96,7 @@ public:
 protected:
   std::unique_ptr<ASTConsumer>
   CreateASTConsumer(CompilerInstance &CI, llvm::StringRef InFile) override {
-    return llvm::make_unique<DeclTrackingASTConsumer>(/*ref*/ TopLevelDecls);
+    return std::make_unique<DeclTrackingASTConsumer>(/*ref*/ TopLevelDecls);
   }
 
 private:
@@ -160,9 +160,9 @@ public:
 
   std::unique_ptr<PPCallbacks> createPPCallbacks() override {
     assert(SourceMgr && "SourceMgr must be set at this point");
-    return llvm::make_unique<PPChainedCallbacks>(
+    return std::make_unique<PPChainedCallbacks>(
         collectIncludeStructureCallback(*SourceMgr, &Includes),
-        llvm::make_unique<CollectMainFileMacros>(*SourceMgr, &MainFileMacros));
+        std::make_unique<CollectMainFileMacros>(*SourceMgr, &MainFileMacros));
   }
 
   CommentHandler *getCommentHandler() override {
@@ -268,7 +268,9 @@ private:
                                         FilenameTok.getEndLoc()),
           File, "SearchPath", "RelPath", /*Imported=*/nullptr, Inc.FileKind);
       if (File)
-        Delegate->FileSkipped(*File, FilenameTok, Inc.FileKind);
+        // FIXME: Use correctly named FileEntryRef.
+        Delegate->FileSkipped(FileEntryRef(File->getName(), *File), FilenameTok,
+                              Inc.FileKind);
       else {
         llvm::SmallString<1> UnusedRecovery;
         Delegate->FileNotFound(WrittenFilename, UnusedRecovery);
@@ -311,7 +313,7 @@ ParsedAST::build(std::unique_ptr<CompilerInvocation> CI,
   if (!Clang)
     return None;
 
-  auto Action = llvm::make_unique<ClangdFrontendAction>();
+  auto Action = std::make_unique<ClangdFrontendAction>();
   const FrontendInputFile &MainInput = Clang->getFrontendOpts().Inputs[0];
   if (!Action->BeginSourceFile(*Clang, MainInput)) {
     log("BeginSourceFile() failed when building AST for {0}",
@@ -335,7 +337,7 @@ ParsedAST::build(std::unique_ptr<CompilerInvocation> CI,
     tidy::ClangTidyCheckFactories CTFactories;
     for (const auto &E : tidy::ClangTidyModuleRegistry::entries())
       E.instantiate()->addCheckFactories(CTFactories);
-    CTContext.emplace(llvm::make_unique<tidy::DefaultOptionsProvider>(
+    CTContext.emplace(std::make_unique<tidy::DefaultOptionsProvider>(
         tidy::ClangTidyGlobalOptions(), Opts.ClangTidyOpts));
     CTContext->setDiagnosticsEngine(&Clang->getDiagnostics());
     CTContext->setASTContext(&Clang->getASTContext());
@@ -616,7 +618,7 @@ buildPreamble(PathRef FileName, CompilerInvocation &CI,
 
   llvm::SmallString<32> AbsFileName(FileName);
   Inputs.FS->makeAbsolute(AbsFileName);
-  auto StatCache = llvm::make_unique<PreambleFileStatusCache>(AbsFileName);
+  auto StatCache = std::make_unique<PreambleFileStatusCache>(AbsFileName);
   auto BuiltPreamble = PrecompiledPreamble::Build(
       CI, ContentsBuffer.get(), Bounds, *PreambleDiagsEngine,
       StatCache->getProducingFS(Inputs.FS),
@@ -659,7 +661,7 @@ buildAST(PathRef FileName, std::unique_ptr<CompilerInvocation> Invocation,
   }
 
   return ParsedAST::build(
-      llvm::make_unique<CompilerInvocation>(*Invocation), Preamble,
+      std::make_unique<CompilerInvocation>(*Invocation), Preamble,
       llvm::MemoryBuffer::getMemBufferCopy(Inputs.Contents, FileName),
       std::move(VFS), Inputs.Index, Inputs.Opts);
 }
@@ -704,22 +706,25 @@ namespace tidy {
   extern volatile int X##ModuleAnchorSource;                                   \
   static int LLVM_ATTRIBUTE_UNUSED X##ModuleAnchorDestination =                \
       X##ModuleAnchorSource
-LINK_TIDY_MODULE(CERT);
 LINK_TIDY_MODULE(Abseil);
+LINK_TIDY_MODULE(Android);
 LINK_TIDY_MODULE(Boost);
 LINK_TIDY_MODULE(Bugprone);
-LINK_TIDY_MODULE(LLVM);
+LINK_TIDY_MODULE(CERT);
 LINK_TIDY_MODULE(CppCoreGuidelines);
 LINK_TIDY_MODULE(Fuchsia);
 LINK_TIDY_MODULE(Google);
-LINK_TIDY_MODULE(Android);
+LINK_TIDY_MODULE(HICPP);
+LINK_TIDY_MODULE(LinuxKernel);
+LINK_TIDY_MODULE(LLVM);
 LINK_TIDY_MODULE(Misc);
 LINK_TIDY_MODULE(Modernize);
+// LINK_TIDY_MODULE(MPI); // clangd doesn't support static analyzer.
+LINK_TIDY_MODULE(ObjC);
+LINK_TIDY_MODULE(OpenMP);
 LINK_TIDY_MODULE(Performance);
 LINK_TIDY_MODULE(Portability);
 LINK_TIDY_MODULE(Readability);
-LINK_TIDY_MODULE(ObjC);
-LINK_TIDY_MODULE(HICPP);
 LINK_TIDY_MODULE(Zircon);
 #undef LINK_TIDY_MODULE
 } // namespace tidy

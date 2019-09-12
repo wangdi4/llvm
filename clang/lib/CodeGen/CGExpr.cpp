@@ -522,13 +522,13 @@ EmitMaterializeTemporaryExpr(const MaterializeTemporaryExpr *M) {
 
       // Avoid creating a conditional cleanup just to hold an llvm.lifetime.end
       // marker. Instead, start the lifetime of a conditional temporary earlier
-      // so that it's unconditional. Don't do this in ASan's use-after-scope
-      // mode so that it gets the more precise lifetime marks. If the type has
-      // a non-trivial destructor, we'll have a cleanup block for it anyway,
-      // so this typically doesn't help; skip it in that case.
+      // so that it's unconditional. Don't do this with sanitizers which need
+      // more precise lifetime marks.
       ConditionalEvaluation *OldConditional = nullptr;
       CGBuilderTy::InsertPoint OldIP;
       if (isInConditionalBranch() && !E->getType().isDestructedType() &&
+          !SanOpts.has(SanitizerKind::HWAddress) &&
+          !SanOpts.has(SanitizerKind::Memory) &&
           !CGM.getCodeGenOpts().SanitizeAddressUseAfterScope) {
         OldConditional = OutermostConditional;
         OutermostConditional = nullptr;
@@ -683,8 +683,7 @@ void CodeGenFunction::EmitTypeCheck(TypeCheckKind TCK, SourceLocation Loc,
   // Quickly determine whether we have a pointer to an alloca. It's possible
   // to skip null checks, and some alignment checks, for these pointers. This
   // can reduce compile-time significantly.
-  auto PtrToAlloca =
-      dyn_cast<llvm::AllocaInst>(Ptr->stripPointerCastsNoFollowAliases());
+  auto PtrToAlloca = dyn_cast<llvm::AllocaInst>(Ptr->stripPointerCasts());
 
   llvm::Value *True = llvm::ConstantInt::getTrue(getLLVMContext());
   llvm::Value *IsNonNull = nullptr;
@@ -4233,7 +4232,6 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
   unsigned RecordCVR = base.getVRQualifiers();
   if (rec->isUnion()) {
     // For unions, there is no pointer adjustment.
-    assert(!FieldType->isReferenceType() && "union has reference member");
     if (CGM.getCodeGenOpts().StrictVTablePointers &&
         hasAnyVptr(FieldType, getContext()))
       // Because unions can easily skip invariant.barriers, we need to add
@@ -4250,60 +4248,63 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
               addr.getPointer(), getDebugInfoFIndex(rec, field->getFieldIndex()), DbgInfo),
           addr.getAlignment());
     }
-  } else {
 
+    if (FieldType->isReferenceType())
+      addr = Builder.CreateElementBitCast(
+          addr, CGM.getTypes().ConvertTypeForMem(FieldType), field->getName());
+  } else {
     if (!IsInPreservedAIRegion)
       // For structs, we GEP to the field that the record layout suggests.
       addr = emitAddrOfFieldStorage(*this, addr, field);
     else
       // Remember the original struct field index
       addr = emitPreserveStructAccess(*this, addr, field);
+  }
 
 #if INTEL_CUSTOMIZATION
-    // TODO: Doc. Another case is GetElementConstantExpr. I hope it will be
-    // handled by the AA even without TBAA.
-    if (getLangOpts().isIntelCompat(LangOptions::IntelTBAA)) {
-      auto *GEP = dyn_cast<llvm::GetElementPtrInst>(addr.getPointer());
-      if (GEP && !FieldTBAAInfo.isMayAlias()) {
-        // HACK: If the base didn't have a base type we created the base type
-        // for the field access exclusively above. In such case, we need to
-        // re-use that newly created BaseType. Otherwise, we already have a
-        // bigger chain of the TBAA accesses in FieldTBBAAInfo and we only need
-        // to use the "base" of the last field access.
-        auto BaseType = base.getTBAAInfo().BaseType
-                            ? base.getTBAAInfo().AccessType
-                            : FieldTBAAInfo.BaseType;
-        // FIXME: isValidBaseType returns false for the structs with flexible
-        // array members. For some reason, for such structs TBAA access tags are
-        // completely disabled (even in LLORG), so we don't have a valid
-        // BaseType available. Don't emit anything in such case.
-        //
-        // Note: I'd expect that only annotation of the flexible array member
-        // itself should not contain the access path. Not sure why it affects
-        // other fields of the structs.
-        if (BaseType) {
-          TBAAAccessInfo AI(BaseType, FieldTBAAInfo.AccessType,
-                            FieldTBAAInfo.Offset - base.getTBAAInfo().Offset,
-                            FieldTBAAInfo.Size);
-          llvm::MDNode *N = CGM.getTBAAAccessTagInfo(AI);
-          GEP->setMetadata("intel-tbaa", N);
-        }
+  // TODO: Doc. Another case is GetElementConstantExpr. I hope it will be
+  // handled by the AA even without TBAA.
+  if (getLangOpts().isIntelCompat(LangOptions::IntelTBAA)) {
+    auto *GEP = dyn_cast<llvm::GetElementPtrInst>(addr.getPointer());
+    if (GEP && !FieldTBAAInfo.isMayAlias()) {
+      // HACK: If the base didn't have a base type we created the base type
+      // for the field access exclusively above. In such case, we need to
+      // re-use that newly created BaseType. Otherwise, we already have a
+      // bigger chain of the TBAA accesses in FieldTBBAAInfo and we only need
+      // to use the "base" of the last field access.
+      auto BaseType = base.getTBAAInfo().BaseType
+                          ? base.getTBAAInfo().AccessType
+                          : FieldTBAAInfo.BaseType;
+      // FIXME: isValidBaseType returns false for the structs with flexible
+      // array members. For some reason, for such structs TBAA access tags are
+      // completely disabled (even in LLORG), so we don't have a valid
+      // BaseType available. Don't emit anything in such case.
+      //
+      // Note: I'd expect that only annotation of the flexible array member
+      // itself should not contain the access path. Not sure why it affects
+      // other fields of the structs.
+      if (BaseType) {
+        TBAAAccessInfo AI(BaseType, FieldTBAAInfo.AccessType,
+                          FieldTBAAInfo.Offset - base.getTBAAInfo().Offset,
+                          FieldTBAAInfo.Size);
+        llvm::MDNode *N = CGM.getTBAAAccessTagInfo(AI);
+        GEP->setMetadata("intel-tbaa", N);
       }
     }
+  }
 #endif // INTEL_CUSTOMIZATION
 
-    // If this is a reference field, load the reference right now.
-    if (FieldType->isReferenceType()) {
-      LValue RefLVal = MakeAddrLValue(addr, FieldType, FieldBaseInfo,
-                                      FieldTBAAInfo);
-      if (RecordCVR & Qualifiers::Volatile)
-        RefLVal.getQuals().addVolatile();
-      addr = EmitLoadOfReference(RefLVal, &FieldBaseInfo, &FieldTBAAInfo);
+  // If this is a reference field, load the reference right now.
+  if (FieldType->isReferenceType()) {
+    LValue RefLVal =
+        MakeAddrLValue(addr, FieldType, FieldBaseInfo, FieldTBAAInfo);
+    if (RecordCVR & Qualifiers::Volatile)
+      RefLVal.getQuals().addVolatile();
+    addr = EmitLoadOfReference(RefLVal, &FieldBaseInfo, &FieldTBAAInfo);
 
-      // Qualifiers on the struct don't apply to the referencee.
-      RecordCVR = 0;
-      FieldType = FieldType->getPointeeType();
-    }
+    // Qualifiers on the struct don't apply to the referencee.
+    RecordCVR = 0;
+    FieldType = FieldType->getPointeeType();
   }
 
   // Make sure that the address is pointing to the right type.  This is critical

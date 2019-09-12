@@ -515,6 +515,14 @@ WindowsResourceCOFFWriter::write(uint32_t TimeDateStamp) {
   return std::move(OutputBuffer);
 }
 
+// According to COFF specification, if the Src has a size equal to Dest,
+// it's okay to *not* copy the trailing zero.
+static void coffnamecpy(char (&Dest)[COFF::NameSize], StringRef Src) {
+  assert(Src.size() <= COFF::NameSize &&
+         "Src is not larger than COFF::NameSize");
+  strncpy(Dest, Src.data(), (size_t)COFF::NameSize);
+}
+
 void WindowsResourceCOFFWriter::writeCOFFHeader(uint32_t TimeDateStamp) {
   // Write the COFF header.
   auto *Header = reinterpret_cast<coff_file_header *>(BufferStart);
@@ -534,9 +542,7 @@ void WindowsResourceCOFFWriter::writeFirstSectionHeader() {
   CurrentOffset += sizeof(coff_file_header);
   auto *SectionOneHeader =
       reinterpret_cast<coff_section *>(BufferStart + CurrentOffset);
-#if INTEL_CUSTOMIZATION
-  memcpy(SectionOneHeader->Name, ".rsrc$01", (size_t)COFF::NameSize);
-#endif // INTEL_CUSTOMIZATION
+  coffnamecpy(SectionOneHeader->Name, ".rsrc$01");
   SectionOneHeader->VirtualSize = 0;
   SectionOneHeader->VirtualAddress = 0;
   SectionOneHeader->SizeOfRawData = SectionOneSize;
@@ -554,9 +560,7 @@ void WindowsResourceCOFFWriter::writeSecondSectionHeader() {
   CurrentOffset += sizeof(coff_section);
   auto *SectionTwoHeader =
       reinterpret_cast<coff_section *>(BufferStart + CurrentOffset);
-#if INTEL_CUSTOMIZATION
-  memcpy(SectionTwoHeader->Name, ".rsrc$02", (size_t)COFF::NameSize);
-#endif // INTEL_CUSTOMIZATION
+  coffnamecpy(SectionTwoHeader->Name, ".rsrc$02");
   SectionTwoHeader->VirtualSize = 0;
   SectionTwoHeader->VirtualAddress = 0;
   SectionTwoHeader->SizeOfRawData = SectionTwoSize;
@@ -594,9 +598,7 @@ void WindowsResourceCOFFWriter::writeSymbolTable() {
   // Now write the symbol table.
   // First, the feat symbol.
   auto *Symbol = reinterpret_cast<coff_symbol16 *>(BufferStart + CurrentOffset);
-#if INTEL_CUSTOMIZATION
-  memcpy(Symbol->Name.ShortName, "@feat.00", (size_t)COFF::NameSize);
-#endif // INTEL_CUSTOMIZATION
+  coffnamecpy(Symbol->Name.ShortName, "@feat.00");
   Symbol->Value = 0x11;
   Symbol->SectionNumber = 0xffff;
   Symbol->Type = COFF::IMAGE_SYM_DTYPE_NULL;
@@ -606,9 +608,7 @@ void WindowsResourceCOFFWriter::writeSymbolTable() {
 
   // Now write the .rsrc1 symbol + aux.
   Symbol = reinterpret_cast<coff_symbol16 *>(BufferStart + CurrentOffset);
-#if INTEL_CUSTOMIZATION
-  memcpy(Symbol->Name.ShortName, ".rsrc$01", (size_t)COFF::NameSize);
-#endif // INTEL_CUSTOMIZATION
+  coffnamecpy(Symbol->Name.ShortName, ".rsrc$01");
   Symbol->Value = 0;
   Symbol->SectionNumber = 1;
   Symbol->Type = COFF::IMAGE_SYM_DTYPE_NULL;
@@ -627,9 +627,7 @@ void WindowsResourceCOFFWriter::writeSymbolTable() {
 
   // Now write the .rsrc2 symbol + aux.
   Symbol = reinterpret_cast<coff_symbol16 *>(BufferStart + CurrentOffset);
-#if INTEL_CUSTOMIZATION
-  memcpy(Symbol->Name.ShortName, ".rsrc$02", (size_t)COFF::NameSize);
-#endif // INTEL_CUSTOMIZATION
+  coffnamecpy(Symbol->Name.ShortName, ".rsrc$02");
   Symbol->Value = 0;
   Symbol->SectionNumber = 2;
   Symbol->Type = COFF::IMAGE_SYM_DTYPE_NULL;
@@ -650,9 +648,7 @@ void WindowsResourceCOFFWriter::writeSymbolTable() {
   for (unsigned i = 0; i < Data.size(); i++) {
     auto RelocationName = formatv("$R{0:X-6}", i & 0xffffff).sstr<COFF::NameSize>();
     Symbol = reinterpret_cast<coff_symbol16 *>(BufferStart + CurrentOffset);
-#if INTEL_CUSTOMIZATION
-    memcpy(Symbol->Name.ShortName, RelocationName.data(), (size_t) COFF::NameSize);
-#endif // INTEL_CUSTOMIZATION
+    coffnamecpy(Symbol->Name.ShortName, RelocationName);
     Symbol->Value = DataOffsets[i];
     Symbol->SectionNumber = 2;
     Symbol->Type = COFF::IMAGE_SYM_DTYPE_NULL;

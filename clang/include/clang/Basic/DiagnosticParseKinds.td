@@ -128,8 +128,8 @@ def note_previous_default_assoc : Note<
 
 def err_no_arith_type : Error <"expression must have an arithmetic type">; // INTEL
 
-def ext_c11_alignment : Extension<
-  "%0 is a C11-specific feature">, InGroup<C11>;
+def ext_c11_feature : Extension<
+  "%0 is a C11 extension">, InGroup<C11>;
 
 def ext_c11_noreturn : Extension<
   "_Noreturn functions are a C11-specific feature">, InGroup<C11>;
@@ -1236,13 +1236,16 @@ def err_omp_declare_simd_inbranch_notinbranch : Error<
 def err_expected_end_declare_target : Error<
   "expected '#pragma omp end declare target'">;
 def err_omp_declare_target_unexpected_clause: Error<
-  "unexpected '%0' clause, only 'to' or 'link' clauses expected">;
+  "unexpected '%0' clause, only %select{'to' or 'link'|'to', 'link' or 'device_type'}1 clauses expected">;
 def err_omp_expected_clause: Error<
   "expected at least one clause on '#pragma omp %0' directive">;
 def err_omp_mapper_illegal_identifier : Error<
   "illegal OpenMP user-defined mapper identifier">;
 def err_omp_mapper_expected_declarator : Error<
   "expected declarator on 'omp declare mapper' directive">;
+def warn_omp_more_one_device_type_clause : Warning<
+  "more than one 'device_type' clause is specified">,
+  InGroup<OpenMPClauses>;
 
 // Pragma loop support.
 def err_pragma_loop_missing_argument : Error<

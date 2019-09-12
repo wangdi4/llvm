@@ -15,7 +15,7 @@
 #include "ProcessWindowsLog.h"
 #include "lldb/Host/HostInfo.h"
 #include "lldb/Host/HostThread.h"
-#include "lldb/Host/Windows/HostThreadWindows.h"
+#include "lldb/Host/windows/HostThreadWindows.h"
 #include "lldb/Host/windows/windows.h"
 
 #include "lldb/Utility/Log.h"
@@ -86,7 +86,7 @@ static Status SetThreadContextHelper(lldb::thread_t thread_handle,
 std::unique_ptr<NativeRegisterContextWindows>
 NativeRegisterContextWindows::CreateHostNativeRegisterContextWindows(
     const ArchSpec &target_arch, NativeThreadProtocol &native_thread) {
-  return llvm::make_unique<NativeRegisterContextWindows_i386>(target_arch,
+  return std::make_unique<NativeRegisterContextWindows_i386>(target_arch,
                                                               native_thread);
 }
 

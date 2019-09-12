@@ -410,7 +410,7 @@ void NativeProcessWindows::OnDebuggerConnected(lldb::addr_t image_base) {
 
   // The very first one shall always be the main thread.
   assert(m_threads.empty());
-  m_threads.push_back(llvm::make_unique<NativeThreadWindows>(
+  m_threads.push_back(std::make_unique<NativeThreadWindows>(
       *this, m_session_data->m_debugger->GetMainThread()));
 }
 
@@ -430,7 +430,7 @@ NativeProcessWindows::OnDebugException(bool first_chance,
 
   ExceptionResult result = ExceptionResult::SendToApplication;
   switch (record.GetExceptionCode()) {
-  case STATUS_SINGLE_STEP:
+  case DWORD(STATUS_SINGLE_STEP):
   case STATUS_WX86_SINGLE_STEP:
     StopThread(record.GetThreadID(), StopReason::eStopReasonTrace);
     SetState(eStateStopped, true);
@@ -438,7 +438,7 @@ NativeProcessWindows::OnDebugException(bool first_chance,
     // Continue the debugger.
     return ExceptionResult::MaskException;
 
-  case STATUS_BREAKPOINT:
+  case DWORD(STATUS_BREAKPOINT):
   case STATUS_WX86_BREAKPOINT:
     if (FindSoftwareBreakpoint(record.GetExceptionAddress())) {
       LLDB_LOG(log, "Hit non-loader breakpoint at address {0:x}.",
@@ -514,7 +514,7 @@ NativeProcessWindows::OnDebugException(bool first_chance,
 void NativeProcessWindows::OnCreateThread(const HostThread &new_thread) {
   llvm::sys::ScopedLock lock(m_mutex);
   m_threads.push_back(
-      llvm::make_unique<NativeThreadWindows>(*this, new_thread));
+      std::make_unique<NativeThreadWindows>(*this, new_thread));
 }
 
 void NativeProcessWindows::OnExitThread(lldb::tid_t thread_id,

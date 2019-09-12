@@ -59,7 +59,8 @@ buildCompilerInvocation(const ParseInputs &Inputs) {
       CompilerInstance::createDiagnostics(new DiagnosticOptions,
                                           &IgnoreDiagnostics, false);
   std::unique_ptr<CompilerInvocation> CI = createInvocationFromCommandLine(
-      ArgStrs, CommandLineDiagsEngine, Inputs.FS);
+      ArgStrs, CommandLineDiagsEngine, Inputs.FS,
+      /*ShouldRecoverOnErrors=*/true);
   if (!CI)
     return nullptr;
   // createInvocationFromCommandLine sets DisableFree.
@@ -88,7 +89,7 @@ prepareCompilerInstance(std::unique_ptr<clang::CompilerInvocation> CI,
         CI->getFrontendOpts().Inputs[0].getFile(), Buffer.get());
   }
 
-  auto Clang = llvm::make_unique<CompilerInstance>(
+  auto Clang = std::make_unique<CompilerInstance>(
       std::make_shared<PCHContainerOperations>());
   Clang->setInvocation(std::move(CI));
   Clang->createDiagnostics(&DiagsClient, false);

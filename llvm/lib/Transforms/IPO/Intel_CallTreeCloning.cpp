@@ -1546,7 +1546,7 @@ ParamMappingResult ParamTform::mapBack(int ActParamInd, ParamIndSet &Res) {
 
   // Create the container for resulting "formula" - dependencies in DFS order:
   assert(ActParamFormulas[ActParamInd] == nullptr);
-  ActParamFormulas[ActParamInd] = llvm::make_unique<ActualParamFormula>();
+  ActParamFormulas[ActParamInd] = std::make_unique<ActualParamFormula>();
   auto &Formula = ActParamFormulas[ActParamInd];
 
   // maps a value to its DFS number to detect cycles, also serves as 'visited'
@@ -2540,10 +2540,10 @@ bool CallTreeCloningImpl::run(Module &M, Analyses &Anls, TargetLibraryInfo *TLI,
   std::map<Function *, SetOfParamIndSets, CompareFuncPtr> LeafSeeds;
 
   if (!CCloneSeeds.empty())
-    CM = llvm::make_unique<CTCDebugCostModel>(CCloneSeeds.begin(),
+    CM = std::make_unique<CTCDebugCostModel>(CCloneSeeds.begin(),
                                               CCloneSeeds.end());
   else
-    CM = llvm::make_unique<CTCLoopBasedCostModel>(Anls);
+    CM = std::make_unique<CTCLoopBasedCostModel>(Anls);
 
   LLVM_DEBUG(dbgs() << "--- Seeds for cloning:\n");
 

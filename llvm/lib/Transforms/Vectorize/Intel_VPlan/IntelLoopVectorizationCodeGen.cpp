@@ -2353,7 +2353,7 @@ VPOCodeGen::matchVectorVariantImpl(StringRef VecVariantStringValue, bool Masked)
   }
 
   if (VariantIdx >= 0)
-    return llvm::make_unique<VectorVariant>(Variants[VariantIdx]);
+    return std::make_unique<VectorVariant>(Variants[VariantIdx]);
 
   return nullptr;
 }

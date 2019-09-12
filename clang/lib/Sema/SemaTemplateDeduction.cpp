@@ -4692,8 +4692,11 @@ bool Sema::DeduceReturnType(FunctionDecl *FD, SourceLocation Loc,
 
       // We might need to deduce the return type by instantiating the definition
       // of the operator() function.
-      if (CallOp->getReturnType()->isUndeducedType())
-        InstantiateFunctionDefinition(Loc, CallOp);
+      if (CallOp->getReturnType()->isUndeducedType()) {
+        runWithSufficientStackSpace(Loc, [&] {
+          InstantiateFunctionDefinition(Loc, CallOp);
+        });
+      }
     }
 
     if (CallOp->isInvalidDecl())
@@ -4714,8 +4717,11 @@ bool Sema::DeduceReturnType(FunctionDecl *FD, SourceLocation Loc,
     return false;
   }
 
-  if (FD->getTemplateInstantiationPattern())
-    InstantiateFunctionDefinition(Loc, FD);
+  if (FD->getTemplateInstantiationPattern()) {
+    runWithSufficientStackSpace(Loc, [&] {
+      InstantiateFunctionDefinition(Loc, FD);
+    });
+  }
 
   bool StillUndeduced = FD->getReturnType()->isUndeducedType();
   if (StillUndeduced && Diagnose && !FD->isInvalidDecl()) {
