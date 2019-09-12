@@ -1809,8 +1809,11 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
       PM.add(createHIRPreVecCompleteUnrollPass(OptLevel, DisableUnrollLoops));
     }
 
-    if (RunLoopOpts == LoopOptMode::Full)
+    if (RunLoopOpts == LoopOptMode::Full) {
       PM.add(createHIRLMMPass());
+      if (SizeLevel == 0)
+        PM.add(createHIRMemoryReductionSinkingPass());
+    }
 
     PM.add(createHIRLastValueComputationPass());
 
