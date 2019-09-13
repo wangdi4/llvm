@@ -27,6 +27,7 @@ class DominatorTree;
 namespace dtrans {
 
 using MemInitDominatorTreeType = std::function<DominatorTree &(Function &)>;
+using MemGetTLITy = std::function<const TargetLibraryInfo &(Function &)>;
 
 /// Pass to perform Initial Memory Allocation Trim Down optimization.
 class MemInitTrimDownPass : public PassInfoMixin<MemInitTrimDownPass> {
@@ -34,7 +35,7 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // This is used to share the core implementation with the legacy pass.
-  bool runImpl(Module &M, DTransAnalysisInfo &Info, TargetLibraryInfo &TLI,
+  bool runImpl(Module &M, DTransAnalysisInfo &Info, MemGetTLITy GetTLI,
                WholeProgramInfo &WPInfo, MemInitDominatorTreeType &GetDT);
 };
 
