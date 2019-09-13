@@ -668,6 +668,27 @@ static void dumpImageToFile(
 #endif  // INTEL_CUSTOMIZATION
 }
 
+static void debugPrintBuildLog(cl_program program, cl_device_id did) {
+#if INTEL_CUSTOMIZATION
+#if OMPTARGET_OPENCL_DEBUG
+  if (DebugLevel <= 0)
+    return;
+
+  size_t len = 0;
+  int ret =
+      clGetProgramBuildInfo(program, did, CL_PROGRAM_BUILD_LOG, 0, NULL, &len);
+  if (ret != CL_SUCCESS || len == 0)
+    return;
+  std::vector<char> buffer(len);
+  ret = clGetProgramBuildInfo(program, did, CL_PROGRAM_BUILD_LOG, len,
+                              buffer.data(), NULL);
+  if (ret != CL_SUCCESS)
+    return;
+  DPI("%s\n", buffer.data());
+#endif // OMPTARGET_OPENCL_DEBUG
+#endif // INTEL_CUSTOMIZATION
+}
+
 EXTERN
 __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
                                           __tgt_device_image *image) {
@@ -724,9 +745,13 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
         return NULL;
       }
 
-      INVOKE_CL_RET_NULL(clCompileProgram, program[1], 0, nullptr,
-                         compilation_options, 0, nullptr, nullptr,
-                         nullptr, nullptr);
+      status = clCompileProgram(program[1], 0, nullptr, compilation_options, 0,
+                                nullptr, nullptr, nullptr, nullptr);
+      if (status != CL_SUCCESS) {
+        debugPrintBuildLog(program[1], DeviceInfo.deviceIDs[device_id]);
+        DP("Error: Failed to compile program: %d\n", status);
+        return NULL;
+      }
       num_programs++;
     } else {
       DP("Cannot find device RTL: %s\n", device_rtl_path.c_str());
@@ -737,14 +762,18 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   dumpImageToFile(image->ImageStart, ImageSize, "OpenMP");
   program[0] = clCreateProgramWithIL(DeviceInfo.CTX[device_id],
                                      image->ImageStart, ImageSize, &status);
-  if (status != 0) {
+  if (status != CL_SUCCESS) {
+    debugPrintBuildLog(program[0], DeviceInfo.deviceIDs[device_id]);
     DP("Error: Failed to create program: %d\n", status);
     return NULL;
   }
-
-  INVOKE_CL_RET_NULL(clCompileProgram, program[0], 0, nullptr,
-                     compilation_options, 0, nullptr, nullptr,
-                     nullptr, nullptr);
+  status = clCompileProgram(program[0], 0, nullptr, compilation_options, 0,
+                            nullptr, nullptr, nullptr, nullptr);
+  if (status != CL_SUCCESS) {
+    debugPrintBuildLog(program[0], DeviceInfo.deviceIDs[device_id]);
+    DP("Error: Failed to compile program: %d\n", status);
+    return NULL;
+  }
 
   num_programs++;
 
@@ -756,6 +785,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
       compilation_options, num_programs, &program[0], nullptr, nullptr,
       &status);
   if (status != CL_SUCCESS) {
+    debugPrintBuildLog(program[2], DeviceInfo.deviceIDs[device_id]);
     DP("Error: Failed to link program: %d\n", status);
     return NULL;
   } else {
