@@ -89,8 +89,10 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // Actual implementation of the optimization
-  bool runImpl(Module &M, DTransAnalysisInfo &DTInfo, LoopInfoFuncType &GetLI,
-               const TargetLibraryInfo &TLInfo, WholeProgramInfo &WPInfo);
+  bool runImpl(
+      Module &M, DTransAnalysisInfo &DTInfo, LoopInfoFuncType &GetLI,
+      std::function<const TargetLibraryInfo &(Function &)> GetTLI,
+      WholeProgramInfo &WPInfo);
 
 private:
   PaddedMallocGlobals PaddedMallocData;
