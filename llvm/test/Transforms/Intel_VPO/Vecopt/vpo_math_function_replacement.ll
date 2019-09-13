@@ -186,6 +186,31 @@ declare token @llvm.directive.region.entry()
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)
 
-
 !18 = distinct !{!18, !19}
 !19 = !{!"llvm.loop.unroll.disable"}
+
+; RUN: opt %s -S -replace-with-math-library-functions \
+; RUN: | FileCheck %s --check-prefix=CHECK-VEC-NO-REPLACEMENT
+
+%VEC3 = type { <3 x i32> }
+%RANGE = type { %ARRAY }
+%ARRAY = type { [1 x i64] }
+
+define void @test(%VEC3 addrspace(1)* noalias %0, %RANGE* byval(%RANGE) %1, %RANGE* byval(%RANGE) %2, %RANGE* byval(%RANGE) %3) {
+  %.sroa.0.0..sroa_idx = getelementptr inbounds %RANGE, %RANGE* %3, i64 0, i32 0, i32 0, i64 0
+  %.sroa.0.0.copyload = load i64, i64* %.sroa.0.0..sroa_idx, align 8
+  %5 = getelementptr inbounds %VEC3, %VEC3 addrspace(1)* %0, i64 %.sroa.0.0.copyload
+  %6 = call i64 @_Z13get_global_idj(i32 0)
+  %7 = trunc i64 %6 to i32
+  %8 = insertelement <3 x i32> undef, i32 %7, i32 0
+  %9 = getelementptr inbounds %VEC3, %VEC3 addrspace(1)* %5, i64 %6
+  %10 = shufflevector <3 x i32> %8, <3 x i32> undef, <3 x i32> zeroinitializer
+  %11 = bitcast %VEC3 addrspace(1)* %9 to <4 x i32> addrspace(1)*
+  %12 = load <4 x i32>, <4 x i32> addrspace(1)* %11, align 16
+  %13 = shufflevector <4 x i32> %12, <4 x i32> undef, <3 x i32> <i32 0, i32 1, i32 2>
+  %14 = sdiv <3 x i32> %10, %13
+; CHECK-VEC-NO-REPLACEMENT: {{.*}} = sdiv <3 x i32> {{.*}}, {{.*}}
+  %15 = shufflevector <3 x i32> %14, <3 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
+  store <4 x i32> %15, <4 x i32> addrspace(1)* %11, align 16
+  ret void
+}
