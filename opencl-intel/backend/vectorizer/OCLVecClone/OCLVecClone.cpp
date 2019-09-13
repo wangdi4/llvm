@@ -482,7 +482,9 @@ static void addEntries(ContainerTy &Info, std::string ScalarBaseName,
   addEntries(Info, ScalarBaseName, Types, std::move(Params), Masked);
 }
 
-static void addBlockReadWriteBuiltins(ContainerTy &Info) {
+// Handle built-ins that have different base name and do not rely
+// solely on overloading to distinguish between widened versions.
+static void addSpecialBuiltins(ContainerTy &Info) {
   // Scalar -> [VF4, VF8, VF16]
   using BuiltinInfo = std::pair<std::string, std::array<std::string, 3>>;
 
@@ -522,13 +524,21 @@ static void addBlockReadWriteBuiltins(ContainerTy &Info) {
         "_Z30intel_sub_group_block_write8_8PU3AS1jDv64_j",
         "_Z31intel_sub_group_block_write8_16PU3AS1jDv128_j"}},
   };
+  // Handle unmangled ballot variant
+  BuiltinInfo BallotBuiltins[] = {
+      {"intel_sub_group_ballot",
+       {"intel_sub_group_ballot_vf4",
+        "intel_sub_group_ballot_vf8",
+        "intel_sub_group_ballot_vf16"}}
+  };
 
 
-  auto AddBuiltin = [&Info](BuiltinInfo &Builtin, std::vector<VectorKind> Params, unsigned VF,
+  auto AddBuiltin = [&Info](BuiltinInfo &Builtin, bool Masked,
+                                std::vector<VectorKind> Params, unsigned VF,
                                 unsigned Idx) -> void {
     Info.emplace_back(Builtin.first,
                       VectorVariant{VectorVariant::ISAClass::XMM,
-                                    false /*Masked*/,
+                                    Masked,
                                     VF,
                                     Params,
                                     "", // Empty BaseName - does not matter
@@ -537,7 +547,7 @@ static void addBlockReadWriteBuiltins(ContainerTy &Info) {
 
   auto AddReadBuiltin = [&AddBuiltin](BuiltinInfo &Builtin, unsigned VF,
                                 unsigned Idx) -> void {
-    AddBuiltin(Builtin, {VectorKind::uniform()}, VF, Idx);
+    AddBuiltin(Builtin, false /*Masked*/, {VectorKind::uniform()}, VF, Idx);
   };
 
   for (auto &ReadBuiltin : ReadBuiltins) {
@@ -548,13 +558,26 @@ static void addBlockReadWriteBuiltins(ContainerTy &Info) {
 
   auto AddWriteBuiltin = [&AddBuiltin](BuiltinInfo &Builtin, unsigned VF,
                                 unsigned Idx) -> void {
-    AddBuiltin(Builtin, {VectorKind::uniform(), VectorKind::vector()}, VF, Idx);
+    AddBuiltin(Builtin, false /*Masked*/, {VectorKind::uniform(), VectorKind::vector()},
+               VF, Idx);
   };
 
   for (auto &WriteBuiltin : WriteBuiltins) {
     AddWriteBuiltin(WriteBuiltin, 4, 0);
     AddWriteBuiltin(WriteBuiltin, 8, 1);
     AddWriteBuiltin(WriteBuiltin, 16, 2);
+  }
+
+  auto AddBallotBuiltin = [&AddBuiltin](BuiltinInfo &Builtin, unsigned VF,
+                                  unsigned Idx) -> void {
+    AddBuiltin(Builtin, true /*Masked*/, {VectorKind::vector()},
+               VF, Idx);
+  };
+
+  for (auto &BallotBuiltin : BallotBuiltins) {
+    AddBallotBuiltin(BallotBuiltin, 4, 0);
+    AddBallotBuiltin(BallotBuiltin, 8, 1);
+    AddBallotBuiltin(BallotBuiltin, 16, 2);
   }
 }
 
@@ -563,8 +586,9 @@ static ContainerTy OCLBuiltinVecInfo() {
 
   addEntries(Info, "_Z13sub_group_all", TypeInfo{'i'}, {VectorKind::vector()}, true);
   addEntries(Info, "_Z13sub_group_any", TypeInfo{'i'}, {VectorKind::vector()}, true);
+  addEntries(Info, "_Z22intel_sub_group_ballot", TypeInfo{'i'}, {VectorKind::vector()}, true);
 
-  addBlockReadWriteBuiltins(Info);
+  addSpecialBuiltins(Info);
 
   TypeInfo Types[] = {{'i'}, {'j'}, {'l'}, {'m'}, {'f'}, {'d'}};
   for (TypeInfo &Type : Types) {
@@ -620,6 +644,7 @@ static std::pair<const char *, VectorKind> OCLBuiltinReturnInfo[] = {
     // known as uniform too.
     {"_Z13sub_group_alli", VectorKind::uniform()},
     {"_Z13sub_group_anyi", VectorKind::uniform()},
+    {"_Z22intel_sub_group_balloti", VectorKind::uniform()},
     {"_Z19sub_group_broadcastij", VectorKind::uniform()},
     {"_Z19sub_group_broadcastjj", VectorKind::uniform()},
     {"_Z19sub_group_broadcastlj", VectorKind::uniform()},

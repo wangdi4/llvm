@@ -1,7 +1,6 @@
 ; RUN: %oclopt --ocl-vecclone -VPlanDriver --ocl-vec-clone-isa-encoding-override=AVX512Core < %s -S -o - | FileCheck %s
 
 ; ModuleID = '<stdin>'
-source_filename = "/nfs/site/home/aeloviko/1.cl"
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -42,6 +41,12 @@ entry:
   call void @_Z28intel_sub_group_block_write2PU3AS1jDv2_j(i32 addrspace(1)* %b, <2 x i32> %blk_read.x2)
 ; CHECK: call void @_Z30intel_sub_group_block_write2_4PU3AS1jDv8_j(i32 addrspace(1)* [[LOAD_b:%.*]], <8 x i32> {{%.*}})
 
+  %call6 = call <4 x i32> @_Z22intel_sub_group_balloti(i32 %0)
+; CHECK: call <16 x i32> @_Z22intel_sub_group_ballotDv4_iDv4_j(<4 x i32> %wide.load, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
+
+  %tobool = icmp ne i32 %0, 0
+  %call7 = call i32 @intel_sub_group_ballot(i1 zeroext %tobool)
+; CHECK: call <4 x i32> @intel_sub_group_ballot_vf4(<4 x i1> zeroext {{%.*}}, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
 
   %mul = mul i32 %call3, 1000
   %conv = zext i32 %mul to i64
@@ -79,6 +84,12 @@ declare spir_func i64 @_Z13get_global_idj(i32) local_unnamed_addr #2
 ; Function Attrs: convergent
 declare spir_func i32 @_Z16get_sub_group_idv() local_unnamed_addr #1
 
+; Function Attrs: convergent
+declare <4 x i32> @_Z22intel_sub_group_balloti(i32 %0) local_unnamed_addr #1
+
+; Function Attrs: convergent
+declare i32 @intel_sub_group_ballot(i1 zeroext) local_unnamed_addr #1
+
 declare spir_func i32 @_Z23intel_sub_group_shuffleij(i32, i32) local_unnamed_addr #1
 declare spir_func i32 @_Z23intel_sub_group_shufflejj(i32, i32) local_unnamed_addr #1
 declare spir_func i32 @_Z22get_sub_group_local_idv() local_unnamed_addr #1
@@ -102,14 +113,12 @@ attributes #4 = { convergent nounwind }
 !opencl.used.extensions = !{!2}
 !opencl.used.optional.core.features = !{!2}
 !opencl.compiler.options = !{!2}
-!llvm.ident = !{!3}
 
 !opencl.kernels = !{!14}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{i32 2, i32 0}
 !2 = !{}
-!3 = !{!"icx (ICX) dev.8.x.0"}
 !4 = !{i32 1, i32 1}
 !5 = !{!"none", !"none"}
 !6 = !{!"int*", !"int*"}
