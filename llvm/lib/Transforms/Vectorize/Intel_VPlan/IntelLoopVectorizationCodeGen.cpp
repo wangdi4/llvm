@@ -2193,7 +2193,7 @@ void VPOCodeGen::widenNonInductionPhi(VPPHINode *VPPhi) {
         NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "uni.phi");
         ScalarMap[UnderlyingPhi][0] = NewPhi;
       } else {
-        PhiTy = VectorType::get(PhiTy, VF);
+        PhiTy = getWidenedType(PhiTy, VF);
         NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "vec.phi");
         WidenMap[UnderlyingPhi] = NewPhi;
         VPWidenMap[VPPhi] = NewPhi;
@@ -2269,6 +2269,10 @@ void VPOCodeGen::widenNonInductionPhi(VPPHINode *VPPhi) {
     }
 
     Value *Cond = getVectorValue(Block->getPredicate());
+    if (VPPhi->getType()->isVectorTy()) {
+      unsigned OriginalVL = VPPhi->getType()->getVectorNumElements();
+      Cond = replicateVectorElts(Cond, OriginalVL, Builder);
+    }
     BlendVal = Builder.CreateSelect(Cond, IncomingVecVal, BlendVal, "predphi");
   }
 
@@ -3048,7 +3052,7 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     }
     Value *A = getVectorValue(VPInst->getOperand(1));
     Value *B = getVectorValue(VPInst->getOperand(2));
-    Value *V = Builder.CreateSelect(M, A, B);
+    Value *V = Builder.CreateSelect(M, A, B, "wide.select.");
     VPWidenMap[VPInst] = V;
     return;
   }
