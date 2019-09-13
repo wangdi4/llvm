@@ -116,10 +116,12 @@ class SOAArrayMethodReplacement : public DTransOptBase {
 public:
   SOAArrayMethodReplacement(
       DTransAnalysisInfo &DTInfo, LLVMContext &Context, const DataLayout &DL,
-      const TargetLibraryInfo &TLI, const ArraySummaryForIdiom &S,
+      std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
+      const ArraySummaryForIdiom &S,
       const SOAToAOSArrayMethodsCheckDebugResult &InstsToTransform,
       StringRef DepTypePrefix, DTransTypeRemapper *TypeRemapper)
-      : DTransOptBase(&DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper),
+      : DTransOptBase(&DTInfo, Context, DL, GetTLI, DepTypePrefix,
+                      TypeRemapper),
         S(S), InstsToTransform(InstsToTransform) {}
 
   bool prepareTypes(Module &M) override {
@@ -172,7 +174,7 @@ public:
     // New instructions after cloning is obtained using VMap.
     if (!isCloned)
       return;
-
+    const TargetLibraryInfo &TLI = GetTLI(OrigFunc);
     ArrayMethodTransformation AMT(DL, *DTInfo, TLI, VMap, InstsToTransform,
                                   Context);
 
@@ -241,8 +243,10 @@ SOAToAOSArrayMethodsTransformDebug::run(Module &M, ModuleAnalysisManager &AM) {
       getParametersForSOAToAOSArrayMethodsCheckDebug(*MethodToTest);
 
   auto &DTInfo = AM.getResult<DTransAnalysis>(M);
-  auto &TLI = AM.getResult<TargetLibraryAnalysis>(M);
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto GetTLI = [&FAM](const Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function*>(&F)));
+  };
   // SOAToAOSArrayMethodsCheckDebug uses SOAToAOSApproximationDebug internally.
   FAM.getResult<SOAToAOSApproximationDebug>(*MethodToTest);
   auto &InstsToTransformPtr =
@@ -255,7 +259,7 @@ SOAToAOSArrayMethodsTransformDebug::run(Module &M, ModuleAnalysisManager &AM) {
   DTransTypeRemapper TypeRemapper;
 
   SOAArrayMethodReplacement Transformer(
-      DTInfo, M.getContext(), M.getDataLayout(), TLI, S,
+      DTInfo, M.getContext(), M.getDataLayout(), GetTLI, S,
       *InstsToTransformPtr.get(), "__SOA_", &TypeRemapper);
 
   bool Changed = Transformer.run(M);
