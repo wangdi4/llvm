@@ -2718,6 +2718,10 @@ private:
   std::unique_ptr<VPLoopInfo> VPLInfo;
   std::unique_ptr<VPlanDivergenceAnalysis> VPlanDA;
   const DataLayout *DL = nullptr;
+
+  // Ugly hack to enable full linearization for cases where while-loop
+  // canonicalization or merge loop exits transformation break SSA.
+  bool SSAIsBroken = false;
 #endif
 
 #if INTEL_CUSTOMIZATION
@@ -2818,6 +2822,9 @@ public:
   LLVMContext *getLLVMContext(void) const { return Context; }
 
   VPlanDivergenceAnalysis *getVPlanDA() const { return VPlanDA.get(); }
+
+  void markSSABroken() { SSAIsBroken = true; }
+  bool isSSABroken() { return SSAIsBroken; }
 
   const DataLayout* getDataLayout() const { return DL; }
 

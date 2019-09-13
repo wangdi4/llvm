@@ -451,6 +451,11 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   if ((ExitingBlocks.size() < 2) || ParentLoop == nullptr)
     return;
 
+  // FIXME: Don't break SSA form during the transformation.
+  if (!Plan->isSSABroken()   // Already marked, so...
+      && isBreakingSSA(VPL)) // don't try to analyze any more.
+    Plan->markSSABroken();
+
   // The merge loop exits transformation kicks-in.
 
   LLVM_DEBUG(dbgs() << "Before merge loop exits transformation.\n");
@@ -800,6 +805,54 @@ void VPlanHCFGBuilder::preserveSSAForLoopHeader(VPBasicBlock *LoopHeader,
   }
 }
 
+bool VPlanHCFGBuilder::isBreakingSSA(VPLoop *VPL) {
+  auto *VPLI = Plan->getVPLoopInfo();
+  SmallVector<VPBlockBase *, 2> ExitingBlocks;
+  VPL->getExitingBlocks(ExitingBlocks);
+
+  auto *Header = VPL->getHeader();
+  VPBasicBlock *LoopLatch = dyn_cast<VPBasicBlock>(VPL->getLoopLatch());
+  if (!LoopLatch)
+    return true;
+
+  for (VPBlockBase *BB : VPL->getBlocks()) {
+    if (VPLI->getLoopFor(BB) != VPL)
+      continue; // Inner loops already handled.
+
+    if (VPDomTree.dominates(BB, LoopLatch) &&
+        all_of(ExitingBlocks, [&](VPBlockBase *ExitingBlock) {
+            return VPDomTree.dominates(BB, ExitingBlock);
+        }))
+      // Defs in this block will be available in NewLoopLatch.
+      continue;
+
+    auto *BasicBlock = dyn_cast<VPBasicBlock>(BB);
+    if (!BasicBlock)
+      // We are operation on PlainCFG, so this shouldn't happen. Just be
+      // conservative if that's not true for some reason.
+      return true;
+
+    for (auto &Inst : BasicBlock->vpinstructions()) {
+      for (auto *User : Inst.users()) {
+        auto *UserInst = dyn_cast<VPInstruction>(User);
+        if (!UserInst)
+          return true;
+
+        if (!VPL->contains(UserInst))
+          return true;
+
+        if (UserInst->getParent() == Header) {
+          assert(isa<VPPHINode>(UserInst) &&
+                 "Can't have non-phi user in header!");
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
 // The single-exit while tranformation creates a new loop latch where the
 // side-exit is redirected.
 // -------------------------------------------
@@ -832,6 +885,12 @@ void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
   VPLoop *ParentLoop = VPL->getParentLoop();
   if (!VPL->getExitingBlock() || ParentLoop == nullptr)
     return;
+
+  // FIXME: Don't break SSA form during the transformation.
+  if (!Plan->isSSABroken()   // Already marked, so...
+      && isBreakingSSA(VPL)) // don't try to analyze any more.
+    Plan->markSSABroken();
+
 
   LLVM_DEBUG(dbgs() << "Before single exit while loop transformation.\n");
   LLVM_DEBUG(Plan->dump());
