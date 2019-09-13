@@ -17,6 +17,7 @@
 #define LLVM_IR_INTEL_LOOPIR_CANONEXPR_H
 
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/IntegerRange.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
@@ -740,6 +741,19 @@ public:
 
   void setDebugLoc(const DebugLoc &DbgLoc) { this->DbgLoc = DbgLoc; }
   const DebugLoc &getDebugLoc() const { return DbgLoc; }
+};
+
+//  All possible loop levels, which is [1, MaxLoopNestLevel].
+//     ex) for (auto Level :
+//                make_range(AllLoopLevel::begin(), AllLoopLevel::end()))
+//     Notice it is the same as
+//         for (unsigned I = 1; I <= MaxLoopNestLevel; I++)
+class AllLoopLevelRange final {
+public:
+  static IntegerRangeIterator begin() { return IntegerRangeIterator(1); }
+  static IntegerRangeIterator end() {
+    return IntegerRangeIterator(MaxLoopNestLevel + 1);
+  }
 };
 
 } // namespace loopopt
