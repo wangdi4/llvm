@@ -308,7 +308,7 @@ bool HIRParVecAnalysis::isSIMDEnabledFunction(Function &Func) {
 }
 
 bool DDWalk::isSafeReductionFlowDep(const DDEdge *Edge) {
-  assert(Edge->isFLOWdep() && "Flow edge expected!");
+  assert(Edge->isFlow() && "Flow edge expected!");
 
   DDRef *SrcRef = Edge->getSrc();
 
@@ -360,7 +360,7 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
 
   DDRef *SinkRef = Edge->getSink();
 
-  if (Edge->isFLOWdep() && isSafeReductionFlowDep(Edge)) {
+  if (Edge->isFlow() && isSafeReductionFlowDep(Edge)) {
     LLVM_DEBUG(
         dbgs() << "\tis safe to vectorize/parallelize (safe reduction)\n");
     return;
@@ -678,11 +678,11 @@ void HIRIdiomAnalyzer::visit(HLDDNode *Node) {
   //
 
   for (DDEdge *E : DDG.outgoing(Lval)) {
-    if (E->isOUTPUTdep()) {
+    if (E->isOutput()) {
       if (E->getSink() != Lval)
         return;
     } else {
-      assert(E->isFLOWdep() && "Flow edge expected");
+      assert(E->isFlow() && "Flow edge expected");
 
       auto *SinkRef = E->getSink();
 

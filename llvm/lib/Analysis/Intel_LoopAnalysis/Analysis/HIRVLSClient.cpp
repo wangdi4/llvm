@@ -111,7 +111,7 @@ bool HIRVLSClientMemref::canAccessWith(const RegDDRef *Ref,
     if (Edge->getSrc() == Edge->getSink()) {
       continue;
     }
-    if (Edge->isINPUTdep()) {
+    if (Edge->isInput()) {
       continue;
     }
     if (Edge->isForwardDep()) {

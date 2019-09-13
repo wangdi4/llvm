@@ -323,7 +323,7 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
     HLNode *SrcHIR = DDRefSrc->getHLDDNode();
     RegDDRef *RegRef = dyn_cast<RegDDRef>(DDRefSrc);
 
-    if (Edge->isOUTPUTdep()) {
+    if (Edge->isOutput()) {
       assert(RegRef && "RegDDRef expected");
       if (RegRef->isTerminalRef() &&
           Edge->getDVAtLevel(LoopLevel) == DVKind::ALL) {

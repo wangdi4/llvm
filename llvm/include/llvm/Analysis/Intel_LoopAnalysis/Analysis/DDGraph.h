@@ -90,7 +90,7 @@ public:
   // Note that this function only performs a quick check. It doesn't
   // perform the same level of analysis as ParVec analysis.
   bool preventsParallelization(unsigned Level) const {
-    return !isINPUTdep() && hasCrossIterDepAtLevel(Level);
+    return !isInput() && hasCrossIterDepAtLevel(Level);
   }
   // Returns true if the edge prevents vectorization of Loop at Level
   // Note that this function only performs a quick check. It doesn't
@@ -111,10 +111,10 @@ public:
     return DV.isRefinableAtLevel(Level);
   }
 
-  bool isOUTPUTdep() const { return getEdgeType() == DepType::OUTPUT; }
-  bool isFLOWdep() const { return getEdgeType() == DepType::FLOW; }
-  bool isANTIdep() const { return getEdgeType() == DepType::ANTI; }
-  bool isINPUTdep() const { return getEdgeType() == DepType::INPUT; }
+  bool isOutput() const { return getEdgeType() == DepType::OUTPUT; }
+  bool isFlow() const { return getEdgeType() == DepType::FLOW; }
+  bool isAnti() const { return getEdgeType() == DepType::ANTI; }
+  bool isInput() const { return getEdgeType() == DepType::INPUT; }
 
   friend llvm::raw_ostream &operator<<(llvm::raw_ostream &out, DepType value) {
     const char *s = 0;

@@ -300,7 +300,7 @@ public:
   // Scan DD edges to this ref, which is a flow edge.
   HLInst *findTempDef(const DDRef *TempRef) const {
     for (DDEdge *E : DDG.incoming(TempRef)) {
-      if (E->isFLOWdep() && E->getDVAtLevel(Level) == DVKind::EQ) {
+      if (E->isFlow() && E->getDVAtLevel(Level) == DVKind::EQ) {
         DDRef *Src = E->getSrc();
         if (HLInst *DefInst = dyn_cast<HLInst>(Src->getHLDDNode())) {
           return DefInst;

@@ -420,7 +420,7 @@ struct HIROptPredicate::CandidateLookup final : public HLNodeVisitorBase {
 bool HIROptPredicate::processPUEdge(
     const HLIf *If, DDEdge *Edge, PUContext &PU,
     SmallVectorImpl<const RegDDRef *> &RefsStack, DDGraph &DDG) const {
-  if (!Edge->isFLOWdep()) {
+  if (!Edge->isFlow()) {
     // May ignore non-flow edges.
     return true;
   }
@@ -505,7 +505,7 @@ bool HIROptPredicate::processPUEdge(
   }
 
   for (auto &Edge : DDG.outgoing(SrcRef)) {
-    if (Edge->isOUTPUTdep()) {
+    if (Edge->isOutput()) {
       return false;
     }
   }
