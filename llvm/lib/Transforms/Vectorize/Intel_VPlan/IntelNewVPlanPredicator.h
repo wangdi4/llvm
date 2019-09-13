@@ -175,7 +175,9 @@ private:
   void
   linearizeRegion(const ReversePostOrderTraversal<VPBlockBase *> &RegionRPOT);
 
-  bool hasUniformOutgoingEdges(VPBlockBase *Block);
+  bool shouldPreserveUniformBranches() const;
+
+  bool shouldPreserveOutgoingEdges(VPBlockBase *Block);
 
 #if INTEL_CUSTOMIZATION
   void handleInnerLoopBackedges(VPLoopRegion *LoopRegion);

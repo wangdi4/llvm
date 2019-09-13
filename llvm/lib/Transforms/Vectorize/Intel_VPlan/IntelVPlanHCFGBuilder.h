@@ -110,6 +110,7 @@ protected:
   void mergeLoopExits(VPLoop *VPLp);
   void splitLoopsExit(VPLoop *VPLp);
   void simplifyNonLoopRegions();
+  bool isBreakingSSA(VPLoop *VPL);
 
   void buildLoopRegions();
   virtual void collectUniforms(VPRegionBlock *Region);
