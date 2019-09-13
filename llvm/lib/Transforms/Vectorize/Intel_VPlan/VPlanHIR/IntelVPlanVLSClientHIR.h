@@ -161,8 +161,9 @@ public:
   const RegDDRef *getRegDDRef() const { return Ref; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  virtual void print(raw_ostream &Os, const Twine Indent = "") const final {
+  void print(raw_ostream &Os, unsigned Indent = 0) const override {
     VPVLSClientMemref::print(Os, Indent);
+    Os << " | ";
     formatted_raw_ostream Fos(Os);
     getRegDDRef()->print(Fos);
   }

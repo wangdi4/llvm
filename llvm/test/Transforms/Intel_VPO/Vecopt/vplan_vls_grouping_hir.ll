@@ -26,16 +26,16 @@
 ; CHECK-NEXT:    Vector Length(in bytes): 64
 ; CHECK-NEXT:    AccType: SLoad, Stride (in bytes): 12
 ; CHECK-NEXT:    AccessMask(per byte, R to L): 111111111111
-; CHECK-NEXT:   #1 <8 x 32> SLoad
-; CHECK-NEXT:   #2 <8 x 32> SLoad
-; CHECK-NEXT:   #3 <8 x 32> SLoad
+; CHECK-NEXT:   #1 <8 x 32> SLoad: i32 %{{.*}} = load i32* %{{.*}} | (@x)[0][3 * i1]
+; CHECK-NEXT:   #2 <8 x 32> SLoad: i32 %{{.*}} = load i32* %{{.*}} | (@x)[0][3 * i1 + 1]
+; CHECK-NEXT:   #3 <8 x 32> SLoad: i32 %{{.*}} = load i32* %{{.*}} | (@x)[0][3 * i1 + 2]
 ; CHECK-NEXT:  Group#2
 ; CHECK-NEXT:    Vector Length(in bytes): 64
 ; CHECK-NEXT:    AccType: SStore, Stride (in bytes): 12
 ; CHECK-NEXT:    AccessMask(per byte, R to L): 111111111111
-; CHECK-NEXT:   #4 <8 x 32> SStore
-; CHECK-NEXT:   #5 <8 x 32> SStore
-; CHECK-NEXT:   #6 <8 x 32> SStore
+; CHECK-NEXT:   #4 <8 x 32> SStore: store i32 %{{.*}} i32* %{{.*}} | (@x)[0][3 * i1]
+; CHECK-NEXT:   #5 <8 x 32> SStore: store i32 %{{.*}} i32* %{{.*}} | (@x)[0][3 * i1 + 1]
+; CHECK-NEXT:   #6 <8 x 32> SStore: store i32 %{{.*}} i32* %{{.*}} | (@x)[0][3 * i1 + 2]
 
 @x = dso_local local_unnamed_addr global [300 x i32] zeroinitializer, align 16
 

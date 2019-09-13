@@ -193,11 +193,8 @@ public:
 
   unsigned getId() const { return Id; }
 
-  void print(OVLSostream &OS, unsigned SpaceCount) const;
-
+  virtual void print(OVLSostream &OS, unsigned SpaceCount = 0) const;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  /// This method is used for debugging.
-  ///
   void dump() const;
 #endif
 
