@@ -2129,8 +2129,13 @@ bool HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
 
   } else if (auto CastSCEV = dyn_cast<SCEVCastExpr>(SC)) {
 
-    if (IsTop && !UnderCast) {
-      CE->setSrcType(CastSCEV->getOperand()->getType());
+    bool IsTrunc = isa<SCEVTruncateExpr>(CastSCEV);
+    auto *OpTy = CastSCEV->getOperand()->getType();
+    // If trunc's operand type does not fit in 64 bits, we want to parse it as a
+    // blob as CanonExpr cannot hold constants which are outside this range.
+    if (IsTop && !UnderCast &&
+        (!IsTrunc || OpTy->getPrimitiveSizeInBits() <= 64)) {
+      CE->setSrcType(OpTy);
       CE->setExtType(isa<SCEVSignExtendExpr>(CastSCEV));
       return parseRecursive(CastSCEV->getOperand(), CE, Level, true, true,
                             IndicateFailure);
