@@ -24,28 +24,56 @@
 #ifndef __CSASTREAM_H
 #define __CSASTREAM_H
 #include <cstddef>
+#include <queue>
+#include <mutex>
+#include <condition_variable>
 
 /* Define the C++ interface for High-level LICs or streams on CSA */
 namespace csa
 {
   template<typename T, int depth = 0, int pref_depth = 0>
   class stream {
+#ifdef __CSA__
     int identifier;
+#else
+    std::queue<T> myqueue;
+    std::mutex mtx;
+    std::condition_variable cv;
+#endif
 
   public:
     __attribute__((always_inline))
+#ifdef __CSA__
     stream() : identifier(__builtin_csa_lic_init(sizeof(T), depth, pref_depth))
     {}
+#else
+  stream(): myqueue(){}
+#endif
     //delete the move constructor
     stream(stream<T, depth, pref_depth>&&) = delete;
 
     __attribute__((always_inline))
     T read() {
+#ifdef __CSA__
       return __builtin_csa_lic_read(T(), identifier);
+#else
+      auto available = [this](){return !myqueue.empty();};
+      std::unique_lock<std::mutex> lck(mtx);
+      cv.wait(lck, available);
+      T val =  myqueue.front();
+      myqueue.pop();
+      return val;
+#endif
     }
     __attribute__((always_inline))
     void write(T val) {
+#ifdef __CSA__
       __builtin_csa_lic_write(identifier, val);
+#else
+      std::unique_lock<std::mutex> lck(mtx);
+      myqueue.push(val);
+      cv.notify_one();
+#endif
     }
     // rotate is used to bypass the single write site restriction
     // to the same stream in the following scenario:
@@ -93,6 +121,7 @@ namespace csa
     friend void scatter(csa::stream<Tf>& in, Out&... out);
 
   private:
+#ifdef __CSA__
     //The templated constructor is the default  one
     // if the depths happened to be the same
     stream(const stream<T, depth, pref_depth> &) = default;
@@ -101,8 +130,11 @@ namespace csa
     template <int d2, int pd2>
     __attribute__((always_inline))
     stream(const stream<T, d2, pd2> &other) : identifier(other.identifier) {}
-
+#else
+    stream(const stream<T, depth, pref_depth> &) = delete;
+#endif
   };
+#ifdef __CSA__
   //merge is used to collect data from different streams into
   // one stream
   // this has been useful in cases where the conversion of strided
@@ -199,7 +231,7 @@ namespace csa
     scatter(in, out_array);
     return;
   }
-
+#endif /*__CSA__*/
 }
 
 #endif /* __CSASTREAM_H */
