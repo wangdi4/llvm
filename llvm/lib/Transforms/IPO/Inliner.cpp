@@ -1192,7 +1192,6 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   assert(InitialC.size() > 0 && "Cannot handle an empty SCC!");
   Module &M = *InitialC.begin()->getFunction().getParent();
 #if INTEL_CUSTOMIZATION
-  TargetLibraryInfo *TLI = MAM.getCachedResult<TargetLibraryAnalysis>(M);
   InlineAggressiveInfo* AggI = MAM.getCachedResult<InlineAggAnalysis>(M);
 #endif // INTEL_CUSTOMIZATION
   ProfileSummaryInfo *PSI = MAM.getCachedResult<ProfileSummaryAnalysis>(M);
@@ -1366,6 +1365,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 #if INTEL_CUSTOMIZATION
       if (IntelInlineReportLevel & InlineReportOptions::RealCost)
         Params.ComputeFullInlineCost = true;
+      TargetLibraryInfo *TLI =
+          FAM.getCachedResult<TargetLibraryAnalysis>(Callee);
 #endif // INTEL_CUSTOMIZATION
 
       return getInlineCost(cast<CallBase>(*CS.getInstruction()), Params,

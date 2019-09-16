@@ -522,7 +522,7 @@ SOAToAOSApproximationDebug::run(Function &F, FunctionAnalysisManager &AM) {
   const ModuleAnalysisManager &MAM =
       AM.getResult<ModuleAnalysisManagerFunctionProxy>(F).getManager();
   auto *DTInfo = MAM.getCachedResult<DTransAnalysis>(*F.getParent());
-  auto *TLI = MAM.getCachedResult<TargetLibraryAnalysis>(*F.getParent());
+  auto *TLI = AM.getCachedResult<TargetLibraryAnalysis>(F);
 
   if (!DTInfo || !TLI)
     report_fatal_error("DTransAnalysis was not run before "

@@ -23,7 +23,6 @@
 ; CHECK-NEXT: Running analysis: XmainOptLevelAnalysis
 ; CHECK-NEXT: GlobalDCEPass
 ; CHECK-NEXT: IPSCCPPass
-; CHECK: Running analysis: TargetLibraryAnalysis
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}Module{{.*}}>
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
 ; CHECK-NEXT: Running analysis: PassInstrumentationAnalysis on foo
@@ -49,6 +48,8 @@
 ; Now we switch to CHECK-NEXT to make sure the analysis passes aren't re-run.
 ; CHECK: Running pass:
 ; CHECK-SAME: dtrans::WeakAlignPass
+; CHECK-NEXT: Running analysis: TargetLibraryAnalysis
+; CHECK-NEXT: Running analysis: PassInstrumentationAnalysis
 ; CHECK-NEXT: Running pass: dtrans::DeleteFieldPass
 ; CHECK-NEXT: Running pass: dtrans::MemInitTrimDownPass
 ; CHECK-NEXT: Running pass: dtrans::ReorderFieldsPass
