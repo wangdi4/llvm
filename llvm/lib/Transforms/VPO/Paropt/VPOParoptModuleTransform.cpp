@@ -71,6 +71,7 @@ std::unordered_map<std::string, std::string> llvm::vpo::OCLBuiltin = {
     {"log2f",                 "_Z4log2f"},
     {"powf",                  "_Z3powff"},
     {"sqrtf",                 "_Z4sqrtf"},
+    {"invsqrtf",              "_Z5rsqrtf"},   // from mathimf.h
     {"fmaxf",                 "_Z4fmaxff"},
     {"llvm.maxnum.f32",       "_Z4fmaxff"},
     {"fminf",                 "_Z4fminff"},
@@ -101,6 +102,7 @@ std::unordered_map<std::string, std::string> llvm::vpo::OCLBuiltin = {
     {"log2",                  "_Z4log2d"},
     {"pow",                   "_Z3powdd"},
     {"sqrt",                  "_Z4sqrtd"},
+    {"invsqrt",               "_Z5rsqrtd"},   // from mathimf.h
     {"fmax",                  "_Z4fmaxdd"},
     {"llvm.maxnum.f64",       "_Z4fmaxdd"},
     {"fmin",                  "_Z4fmindd"},
