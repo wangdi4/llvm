@@ -1360,8 +1360,16 @@ void HIROptPredicate::removeOrHoistIf(HoistCandidate &Candidate,
                 return A->getTopSortNum() < B->getTopSortNum();
               });
 
+    unsigned Level = TargetLoop->getNestingLevel();
     for (HLInst *DefInst : DefInstructions) {
-      HLNodeUtils::insertBefore(TargetLoop, DefInst->clone());
+      HLInst *DefInstClone = DefInst->clone();
+      HLNodeUtils::insertBefore(TargetLoop, DefInstClone);
+
+      // Update def levels in DefInstructions.
+      for (RegDDRef *Ref : make_range(DefInstClone->ddref_begin(),
+                                      DefInstClone->ddref_end())) {
+        Ref->updateDefLevel(Level - 1);
+      }
     }
 
     hoistIf(FirstIf, TargetLoop);
