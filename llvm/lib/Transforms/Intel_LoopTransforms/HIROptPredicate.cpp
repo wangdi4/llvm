@@ -50,6 +50,8 @@
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/ADT/Triple.h"
+
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/Pass.h"
@@ -686,6 +688,25 @@ bool HIROptPredicate::run() {
   if (DisableLoopUnswitch) {
     return false;
   }
+
+#if INTEL_FEATURE_CSA
+  // When compiling for offload target = CSA:
+  //
+  // If the user does not specify the option -mllvm
+  // disable-hir-opt-predicate at all on the command line, then
+  // HIROptPredicate (i.e., loop unswitching) will be disabled by
+  // default. HIROptPredicate will be enabled only when the user
+  // specifies -mllvm disable-hir-opt-predicate=false (or = 0) on the
+  // command line.
+
+  bool IsCsaTarget =
+      Triple(HIRF.getFunction().getParent()->getTargetTriple()).getArch() ==
+      Triple::ArchType::csa;
+
+  if (IsCsaTarget && (DisableLoopUnswitch.getNumOccurrences() == 0)) {
+    return false;
+  }
+#endif // INTEL_FEATURE_CSA
 
   LLVM_DEBUG(dbgs() << "Opt Predicate for Function: "
                     << HIRF.getFunction().getName() << "\n");

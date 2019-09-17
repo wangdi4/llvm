@@ -69,6 +69,8 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIROptVarPredicate.h"
 
 #include "llvm/ADT/Statistic.h"
+#include "llvm/ADT/Triple.h"
+
 #include "llvm/IR/Function.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
@@ -353,6 +355,25 @@ bool HIROptVarPredicate::run() {
   if (DisablePass) {
     return false;
   }
+
+#if INTEL_FEATURE_CSA
+  // When compiling for offload target = CSA:
+  //
+  // If the user does not specify the option -mllvm
+  // disable-hir-opt-var-predicate at all on the command line, then
+  // HIROptVarPredicate (i.e., this pass) will be disabled by
+  // default. HIROptVarPredicate will be enabled only when the user
+  // specifies -mllvm disable-hir-opt-var-predicate=false (or = 0) on
+  // the command line.
+
+  bool IsCsaTarget =
+      Triple(HIRF.getFunction().getParent()->getTargetTriple()).getArch() ==
+      Triple::ArchType::csa;
+
+  if (IsCsaTarget && (DisablePass.getNumOccurrences() == 0)) {
+    return false;
+  }
+#endif // INTEL_FEATURE_CSA
 
   LLVM_DEBUG(dbgs() << "Optimization of Variant Predicates Function: "
                     << HIRF.getFunction().getName() << "\n");
