@@ -259,6 +259,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRIdentityMatrixIdiomRecognition.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPrefetching.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRSinkingForPerfectLoopnest.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRUndoSinkingForPerfectLoopnest.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRConditionalTempSinking.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMemoryReductionSinking.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRVecDirInsert.h"

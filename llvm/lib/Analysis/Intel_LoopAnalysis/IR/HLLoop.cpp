@@ -55,7 +55,7 @@ HLLoop::HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop)
       NestingLevel(0), IsInnermost(true), IVType(nullptr), IsNSW(false),
       DistributedForMemRec(false), LoopMetadata(LLVMLoop->getLoopID()),
       MaxTripCountEstimate(0), MaxTCIsUsefulForDD(false),
-      HasDistributePoint(false) {
+      HasDistributePoint(false), IsUndoSinkingCandidate(false) {
   assert(LLVMLoop && "LLVM loop cannot be null!");
 
   initialize();
@@ -78,7 +78,7 @@ HLLoop::HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
       NestingLevel(0), IsInnermost(true), IsNSW(false),
       DistributedForMemRec(false), LoopMetadata(nullptr),
       MaxTripCountEstimate(0), MaxTCIsUsefulForDD(false),
-      HasDistributePoint(false) {
+      HasDistributePoint(false), IsUndoSinkingCandidate(false) {
   initialize();
   setNumExits(NumEx);
 
@@ -105,7 +105,8 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
       MaxTripCountEstimate(HLLoopObj.MaxTripCountEstimate),
       MaxTCIsUsefulForDD(HLLoopObj.MaxTCIsUsefulForDD),
       CmpDbgLoc(HLLoopObj.CmpDbgLoc), BranchDbgLoc(HLLoopObj.BranchDbgLoc),
-      HasDistributePoint(HLLoopObj.HasDistributePoint) {
+      HasDistributePoint(HLLoopObj.HasDistributePoint),
+      IsUndoSinkingCandidate(HLLoopObj.IsUndoSinkingCandidate) {
 
   initialize();
 
@@ -139,6 +140,7 @@ HLLoop &HLLoop::operator=(HLLoop &&Lp) {
   MaxTripCountEstimate = Lp.MaxTripCountEstimate;
   MaxTCIsUsefulForDD = Lp.MaxTCIsUsefulForDD;
   HasDistributePoint = Lp.HasDistributePoint;
+  IsUndoSinkingCandidate = Lp.IsUndoSinkingCandidate;
 
   // LiveInSet/LiveOutSet do not need to be moved as they depend on the lexical
   // order of HLLoops which remains the same as before.
