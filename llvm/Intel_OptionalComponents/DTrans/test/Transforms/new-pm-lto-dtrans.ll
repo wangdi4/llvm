@@ -22,14 +22,10 @@
 ; CHECK-NEXT: Running pass: XmainOptLevelAnalysisInit
 ; CHECK-NEXT: Running analysis: XmainOptLevelAnalysis
 ; CHECK-NEXT: GlobalDCEPass
-<<<<<<< HEAD
-; CHECK-NEXT: IPSCCPPass
-=======
 ; CHECK: Running analysis: WholeProgramAnalysis
 ; CHECK: Running analysis: TargetLibraryAnalysis
 ; CHECK: Running pass: InternalizePass
 ; CHECK: Running pass: IPSCCPPass
->>>>>>> 01d60f7e866daf3291d13a18606415bbdde83e19
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}Module{{.*}}>
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
 ; CHECK-NEXT: Running analysis: PassInstrumentationAnalysis on foo
