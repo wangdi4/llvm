@@ -193,10 +193,7 @@ COMMENT "Copying SYCL headers ...")
 
 # Configure SYCL headers
 install(DIRECTORY "${sycl_inc_dir}/." DESTINATION "${LLVM_INST_INC_DIRECTORY}" COMPONENT sycl-headers)
-<<<<<<< HEAD
-=======
 
->>>>>>> 823e830387a9d471cd1cd19faa238a41244ee285
 # SYCL runtime library
 add_subdirectory(source)
 
