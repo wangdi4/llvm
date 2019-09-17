@@ -1,21 +1,17 @@
 /*
-    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2019 Intel Corporation
 
-    The source code contained or described herein and all documents related
-    to the source code ("Material") are owned by Intel Corporation or its
-    suppliers or licensors.  Title to the Material remains with Intel
-    Corporation or its suppliers and licensors.  The Material is protected
-    by worldwide copyright laws and treaty provisions.  No part of the
-    Material may be used, copied, reproduced, modified, published, uploaded,
-    posted, transmitted, distributed, or disclosed in any way without
-    Intel's prior express written permission.
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    No license under any patent, copyright, trade secret or other
-    intellectual property right is granted to or conferred upon you by
-    disclosure or delivery of the Materials, either expressly, by
-    implication, inducement, estoppel or otherwise.  Any license under such
-    intellectual property rights must be express and approved by Intel in
-    writing.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
 */
 
 #ifndef __TBB_flow_graph_streaming_H
@@ -466,6 +462,7 @@ private:
         device_selector_base *my_device_selector;
     };
 
+    // TODO: investigate why copy-construction is disallowed
     class args_storage_base : tbb::internal::no_copy {
     public:
         typedef typename kernel_multifunction_node::output_ports_type output_ports_type;
@@ -481,7 +478,7 @@ private:
         {}
 
         args_storage_base( const args_storage_base &k )
-            : my_kernel( k.my_kernel ), my_factory( k.my_factory )
+            : tbb::internal::no_copy(), my_kernel( k.my_kernel ), my_factory( k.my_factory )
         {}
 
         const kernel_type my_kernel;

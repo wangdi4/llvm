@@ -1,25 +1,35 @@
 /*
-    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2019 Intel Corporation
 
-    The source code contained or described herein and all documents related
-    to the source code ("Material") are owned by Intel Corporation or its
-    suppliers or licensors.  Title to the Material remains with Intel
-    Corporation or its suppliers and licensors.  The Material is protected
-    by worldwide copyright laws and treaty provisions.  No part of the
-    Material may be used, copied, reproduced, modified, published, uploaded,
-    posted, transmitted, distributed, or disclosed in any way without
-    Intel's prior express written permission.
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    No license under any patent, copyright, trade secret or other
-    intellectual property right is granted to or conferred upon you by
-    disclosure or delivery of the Materials, either expressly, by
-    implication, inducement, estoppel or otherwise.  Any license under such
-    intellectual property rights must be express and approved by Intel in
-    writing.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
 */
+
+#include "../internal/_deprecated_header_message_guard.h"
+
+#if !defined(__TBB_show_deprecation_message_ppl_H) && defined(__TBB_show_deprecated_header_message)
+#define  __TBB_show_deprecation_message_ppl_H
+#pragma message("TBB Warning: tbb/compat/ppl.h is deprecated. For details, please see Deprecated Features appendix in the TBB reference manual.")
+#endif
+
+#if defined(__TBB_show_deprecated_header_message)
+#undef __TBB_show_deprecated_header_message
+#endif
 
 #ifndef __TBB_compat_ppl_H
 #define __TBB_compat_ppl_H
+
+#define __TBB_ppl_H_include_area
+#include "../internal/_warning_suppress_enable_notice.h"
 
 #include "../task_group.h"
 #include "../parallel_invoke.h"
@@ -58,5 +68,8 @@ namespace Concurrency {
     using tbb::improper_lock;
 
 } // namespace Concurrency
+
+#include "../internal/_warning_suppress_disable_notice.h"
+#undef __TBB_ppl_H_include_area
 
 #endif /* __TBB_compat_ppl_H */
