@@ -58,6 +58,10 @@ include_directories(
   ${BACKEND_ROOT_DIR}/metadata_api
   ${BACKEND_ROOT_DIR}/ocl_cpu_backend
   ${CMAKE_BINARY_DIR}/include
+  # OpenCL API headers are copied during the configuration step
+  # in cl_api/CMakeLists.txt.
+  # Should we include OpenCL cl.h or cclang's one???
+  ${OCL_BINARY_DIR}/include
   ${CMAKE_BINARY_DIR}
 )
 
@@ -81,5 +85,9 @@ add_library(${TARGET_NAME} STATIC
 )
 
 target_link_libraries(${TARGET_NAME} name_mangle LLVMSupport)
+
+if (OPENCL_INTREE_BUILD)
+  add_dependencies(${TARGET_NAME} intrinsics_gen)
+endif()
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )

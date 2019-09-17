@@ -129,12 +129,19 @@ if (CXX_SUPPORTS_MISSING_FIELD_INITIALIZERS_FLAG)
   endif()
 endif()
 
-# Supported configurations
-set(CMAKE_CONFIGURATION_TYPES
-    "Debug"
-    "Release"
-  )
-set(CMAKE_CONFIGURATION_TYPES ${CMAKE_CONFIGURATION_TYPES} CACHE STRING "Available build configurations." FORCE)
+if (OPENCL_INTREE_BUILD)
+  add_flag_if_supported("-Wno-cast-qual" CMPLR_NO_CAST_QUAL_FLAG)
+  add_flag_if_supported("-Wno-discarded-qualifiers" CMPLR_NO_DISCARDED_QUALIFIERS)
+endif()
+
+if (NOT OPENCL_INTREE_BUILD)
+  # Supported configurations
+  set(CMAKE_CONFIGURATION_TYPES
+      "Debug"
+      "Release"
+    )
+  set(CMAKE_CONFIGURATION_TYPES ${CMAKE_CONFIGURATION_TYPES} CACHE STRING "Available build configurations." FORCE)
+endif()
 
 if (NOT WIN32)
   add_custom_target(strip
@@ -148,6 +155,16 @@ endif (NOT WIN32)
 # Project defs
 #
 project(OCL C CXX)
+
+if (OPENCL_INTREE_BUILD)
+  get_target_property(COMMON_CLANG_H_LOC common_clang SOURCE_DIR)
+  if ((NOT COMMON_CLANG_H_LOC) OR
+      (NOT EXISTS "${COMMON_CLANG_H_LOC}/common_clang.h"))
+    message(FATAL_ERROR
+      "Cannot find common_clang.h from common_clang project (in ${COMMON_CLANG_H_LOC}).")
+  endif()
+  copy_to(${COMMON_CLANG_H_LOC}/common_clang.h DESTINATION include/cclang)
+endif()
 
 FIND_PACKAGE ( Threads REQUIRED )
 if(NOT CMAKE_THREAD_LIBS_INIT)
@@ -321,10 +338,12 @@ if(BUILD_LLVM_FROM_SOURCE)
 endif()
 
 # Let's help CMake to find llvm-lit
-set(LLVM_EXTERNAL_LIT "${LLVM_PATH_BE}/bin/llvm-lit")
-if (WIN32 AND NOT CYGWIN)
-      set(LLVM_EXTERNAL_LIT "${LLVM_EXTERNAL_LIT}.py")
-endif (WIN32 AND NOT CYGWIN)
+if (NOT OPENCL_INTREE_BUILD)
+  set(LLVM_EXTERNAL_LIT "${LLVM_PATH_BE}/bin/llvm-lit")
+  if (WIN32 AND NOT CYGWIN)
+    set(LLVM_EXTERNAL_LIT "${LLVM_EXTERNAL_LIT}.py")
+  endif (WIN32 AND NOT CYGWIN)
+endif()
 
 if (OPENCL_RT_INCLUDE_TESTS)
     add_subdirectory( tests )
@@ -377,38 +396,39 @@ add_lit_target(check-ocl-all
   ARGS ${LLVM_LIT_EXTRA_ARGS}
   )
 
-set(INTEL_DEPLOY_COMPONENTS
-  ocl-clang_compiler${BUILD_PLATFORM}
-  ocl-OclCpuBackEnd${BUILD_PLATFORM}
-  ocl-builtins
-  ocl-svml
-  ocl-OpenCL
-  ocl-intelocl${BUILD_PLATFORM}
-  ocl-config
-  ocl-cpu_device${BUILD_PLATFORM}
-  ocl-task_executor${BUILD_PLATFORM}
-  ocl-tbb-ext
-  ocl-common_clang
-  ocl-builtins-shared
-  ocl-cl_logger
-  ocl-gdb-plugin
-  ocl-eyeq-builtins
-)
+if (NOT OPENCL_INTREE_BUILD)
+  set(INTEL_DEPLOY_COMPONENTS
+    ocl-clang_compiler${BUILD_PLATFORM}
+    ocl-OclCpuBackEnd${BUILD_PLATFORM}
+    ocl-builtins
+    ocl-svml
+    ocl-OpenCL
+    ocl-intelocl${BUILD_PLATFORM}
+    ocl-config
+    ocl-cpu_device${BUILD_PLATFORM}
+    ocl-task_executor${BUILD_PLATFORM}
+    ocl-tbb-ext
+    ocl-common_clang
+    ocl-builtins-shared
+    ocl-cl_logger
+    ocl-gdb-plugin
+    ocl-eyeq-builtins
+  )
 
-if(WIN32)
-  set(INTEL_DEPLOY_COMPONENTS ${INTEL_DEPLOY_COMPONENTS} ocl-${DEBUGGING_DLL_NAME}${DEBUGGING_DLL_VERSION})
-endif(WIN32)
+  if(WIN32)
+    set(INTEL_DEPLOY_COMPONENTS ${INTEL_DEPLOY_COMPONENTS} ocl-${DEBUGGING_DLL_NAME}${DEBUGGING_DLL_VERSION})
+  endif(WIN32)
 
-# This command is used for creating a fake dependency in order to force
-# another command(s) to execute.
-# Its output is never produced as a result thus each other
-# command that depends on it will always be executed.
-# We use this to force running deploy installation regardless of
-# manifest files state.
-add_custom_command(OUTPUT __force_it
-                   COMMAND "${CMAKE_COMMAND}" -E echo)
+  # This command is used for creating a fake dependency in order to force
+  # another command(s) to execute.
+  # Its output is never produced as a result thus each other
+  # command that depends on it will always be executed.
+  # We use this to force running deploy installation regardless of
+  # manifest files state.
+  add_custom_command(OUTPUT __force_it
+                     COMMAND "${CMAKE_COMMAND}" -E echo)
 
-if(DEFINED INTEL_DEPLOY_COMPONENTS)
+  if(DEFINED INTEL_DEPLOY_COMPONENTS)
     set(manifest_list)
 
     foreach( comp ${INTEL_DEPLOY_COMPONENTS} )
@@ -426,7 +446,7 @@ if(DEFINED INTEL_DEPLOY_COMPONENTS)
     endforeach( comp )
 
     add_custom_target(deploy DEPENDS ${manifest_list})
-else()
+  else()
     # no specific components was given so do full installation
     set (manifest ${CMAKE_CURRENT_BINARY_DIR}/install_manifest.txt)
     add_custom_command(OUTPUT ${manifest}
@@ -436,4 +456,5 @@ else()
                        COMMENT "Performing deploy operation..."
                        USES_TERMINAL)
     add_custom_target(deploy DEPENDS ${manifest})
+  endif()
 endif()

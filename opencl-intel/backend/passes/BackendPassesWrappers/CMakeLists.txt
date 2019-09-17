@@ -16,4 +16,8 @@ add_library(${TARGET_NAME}
     ${PASSESWRAPPERS_SOURCE_FILES}
 )
 
+if (OPENCL_INTREE_BUILD)
+  add_dependencies(${TARGET_NAME} intrinsics_gen)
+endif()
+
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER "Backend" )

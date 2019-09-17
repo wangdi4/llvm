@@ -21,6 +21,7 @@ include_directories(
   ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/Driver/OpenCL
   ${BACKEND_ROOT_DIR}/metadata_api
   ${CMAKE_BINARY_DIR}/include
+  ${OCL_BINARY_DIR}/include
 )
 
 set(TARGET_EXTRA_SOURCE_FILES
@@ -122,5 +123,7 @@ add_dependencies(${TARGET_NAME} LoopUtils OclBackendUtils)
 set( BACKEND_PASSES_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/passes )
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_PASSES_FOLDER_NAME})
 
-set_property( GLOBAL APPEND PROPERTY LLVM_LIBS ${TARGET_NAME} )
+if (NOT OPENCL_INTREE_BUILD)
+  set_property( GLOBAL APPEND PROPERTY LLVM_LIBS ${TARGET_NAME} )
+endif()
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_PASSES_FOLDER_NAME})

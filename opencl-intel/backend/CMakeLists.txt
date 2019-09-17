@@ -23,8 +23,9 @@ set( BACKEND_FOLDER_NAME       Backend )
 set( BACKEND_TESTS_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/tests )
 set( BACKEND_PASSES_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/passes )
 set( BACKEND_VALIDATION_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/validation )
-
-set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "")
+if (NOT OPENCL_INTREE_BUILD)
+  set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "")
+endif()
 
 # Version of cached binary
 add_definitions(-DOCL_CACHED_BINARY_VERSION=4)
@@ -93,7 +94,8 @@ project(Backend C CXX)
 add_definitions(${LLVM_DEFINITIONS})
 use_rtti(FALSE)
 
-include_directories (${BACKEND_ROOT_DIR}/utils
+include_directories (BEFORE
+                     ${BACKEND_ROOT_DIR}/utils
                      ${OCL_SOURCE_DIR}/cl_api)
 
 if (LLVM_BUILD_OCL_CPU_BACKEND)

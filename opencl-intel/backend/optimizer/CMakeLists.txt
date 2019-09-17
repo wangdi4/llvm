@@ -17,6 +17,12 @@ include_directories(
     ${CMAKE_BINARY_DIR}/include/
 )
 
+if (OPENCL_INTREE_BUILD)
+  include_directories(
+    ${CL_API_HEADERS}
+  )
+endif()
+
 include_directories(
     ${BACKEND_ROOT_DIR}/arch_headers
     ${BACKEND_ROOT_DIR}/passes/PrintIRPass
@@ -30,5 +36,10 @@ add_library(${TARGET_NAME}
     ${TARGET_INCLUDE_FILES}
     ${TARGET_SOURCE_FILES}
 )
+
+if (OPENCL_INTREE_BUILD)
+  add_dependencies(${TARGET_NAME} intrinsics_gen)
+  add_dependencies(${TARGET_NAME} directives_gen)
+endif()
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )

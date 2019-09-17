@@ -11,8 +11,12 @@ add_definitions( -DUSE_ITT )
 # platforms. Signalling this setting might achieve effects such as the compiler
 # skipping warnings, or these fixed-install system files not being considered in
 # dependency calculations - see compiler docs.
-include_directories( SYSTEM ${CMAKE_SOURCE_DIR}/externals/itt/include
-                     ${CMAKE_SOURCE_DIR}/externals/itt/ittnotify/ )
+set(EXTERNALS_DIR ${CMAKE_SOURCE_DIR}/externals)
+if (OPENCL_INTREE_BUILD)
+  set(EXTERNALS_DIR ${CMAKE_SOURCE_DIR}/opencl/externals)
+endif()
+include_directories( SYSTEM ${EXTERNALS_DIR}/itt/include
+                     ${EXTERNALS_DIR}/itt/ittnotify/ )
 
 # ITT libraries directory suffix
 if( USE_GPA )
@@ -23,9 +27,9 @@ if( USE_GPA )
     endif()
 
     add_library(imp_gpasdk STATIC IMPORTED)
-    set_property(TARGET imp_gpasdk PROPERTY IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/externals/gpa/libs/${GPA_LIB_DIR_SUFFIX}/gpasdk_s.lib )
+    set_property(TARGET imp_gpasdk PROPERTY IMPORTED_LOCATION ${EXTERNALS_DIR}/gpa/libs/${GPA_LIB_DIR_SUFFIX}/gpasdk_s.lib )
 
     list( APPEND LINK_LIBS imp_gpasdk )
 else()
-    list( APPEND TARGET_SOURCES ${CMAKE_SOURCE_DIR}/externals/itt/ittnotify/ittnotify_static.c )
+    list( APPEND TARGET_SOURCES ${EXTERNALS_DIR}/itt/ittnotify/ittnotify_static.c )
 endif(  )
