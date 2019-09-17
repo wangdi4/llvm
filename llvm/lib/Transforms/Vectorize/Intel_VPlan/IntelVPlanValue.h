@@ -478,7 +478,7 @@ private:
   }
 
   // Construct a VPExternalDef given an underlying DDRef \p DDR.
-  VPExternalDef(loopopt::DDRef *DDR)
+  VPExternalDef(const loopopt::DDRef *DDR)
       : VPValue(VPValue::VPExternalDefSC, DDR->getDestType()),
         HIROperand(new VPBlob(DDR)) {}
 
@@ -535,7 +535,7 @@ private:
     setUnderlyingValue(*ExtVal);
   }
   // Construct a VPExternalUse given an underlying DDRef \p DDR.
-  VPExternalUse(loopopt::DDRef *DDR)
+  VPExternalUse(const loopopt::DDRef *DDR)
       : VPUser(VPValue::VPExternalUseSC, DDR->getDestType()),
         HIROperand(new VPBlob(DDR)) {}
   // Construct a VPExternalUse given an underlying IV level \p IVLevel.

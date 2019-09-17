@@ -216,11 +216,12 @@ static bool isTrivialBitcast(VPInstruction *VPI) {
   return true;
 }
 
-unsigned VPReduction::getReductionOpcode() const {
-  switch (getRecurrenceKind()) {
+unsigned VPReduction::getReductionOpcode(RecurrenceKind K,
+                                         MinMaxRecurrenceKind MK) {
+  switch (K) {
   case RecurrenceKind::RK_IntegerMinMax:
   case RecurrenceKind::RK_FloatMinMax:
-    switch (getMinMaxRecurrenceKind()) {
+    switch (MK) {
     default:
       llvm_unreachable("Unknown recurrence kind");
       return Instruction::BinaryOpsEnd;
@@ -238,7 +239,7 @@ unsigned VPReduction::getReductionOpcode() const {
       return VPInstruction::FMax;
     }
   default:
-    return RDTempl::getRecurrenceBinOp(getRecurrenceKind());
+    return RDTempl::getRecurrenceBinOp(K);
   }
 }
 
@@ -310,6 +311,7 @@ VPReduction *VPLoopEntityList::addReduction(
                                      Signed, ValidMemOnly);
   ReductionList.emplace_back(Red);
   linkValue(ReductionMap, Red, Instr);
+  linkValue(ReductionMap, Red, Exit);
   createMemDescFor(Red, AI);
   return Red;
 }
@@ -323,6 +325,7 @@ VPIndexReduction *VPLoopEntityList::addIndexReduction(
                                                Signed, ForLast, ValidMemOnly);
   ReductionList.emplace_back(Red);
   linkValue(ReductionMap, Red, Instr);
+  linkValue(ReductionMap, Red, Exit);
   MinMaxIndexes[Parent] = Red;
   createMemDescFor(Red, AI);
   return Red;
@@ -394,6 +397,29 @@ VPValue *VPLoopEntityList::getReductionIdentity(const VPReduction *Red) const {
 }
 //TODO - not implemented yet
 bool VPLoopEntityList::isMinMaxInclusive(const VPReduction &Red) {
+  if (Red.getRecurrenceKind() != RecurrenceKind::RK_IntegerMinMax &&
+      Red.getRecurrenceKind() != RecurrenceKind::RK_FloatMinMax)
+    return false;
+
+  auto &LinkedVals = Red.getLinkedVPValues();
+  for (auto *Val : LinkedVals)
+    if (auto VPInst = dyn_cast<VPInstruction>(Val))
+      if (VPInst->getOpcode() == Instruction::Select) {
+        auto PredInst = cast<VPCmpInst>(VPInst->getOperand(0));
+        switch (PredInst->getPredicate()) {
+        case CmpInst::FCMP_OGE:
+        case CmpInst::FCMP_OLE:
+        case CmpInst::FCMP_UGE:
+        case CmpInst::FCMP_ULE:
+        case CmpInst::ICMP_UGE:
+        case CmpInst::ICMP_ULE:
+        case CmpInst::ICMP_SGE:
+        case CmpInst::ICMP_SLE:
+          return true;
+        default:
+          break;
+        }
+      }
   return false;
 }
 
@@ -424,8 +450,6 @@ void VPLoopEntityList::finalizeImport() {
     VPReduction* R = Red.get();
     if (auto StartVal = R->getRecurrenceStartValue())
       linkValue(ReductionMap, R, StartVal);
-    if (auto ExInstr = R->getLoopExitInstr())
-      linkValue(ReductionMap, R, ExInstr);
   }
 }
 
@@ -496,6 +520,8 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
 
   VPBuilder::InsertPointGuard Guard(Builder);
 
+  DenseMap<const VPReduction *, std::pair<VPReductionFinal *, VPInstruction *>>
+      RedFinalMap;
   for (auto &RedPtr : ReductionList) {
     VPReduction *Reduction = RedPtr.get();
     Builder.setInsertPoint(Preheader);
@@ -525,34 +551,41 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
 
     // Create instruction for last value
     Builder.setInsertPoint(PostExit);
-    VPValue *Exit =
+    VPInstruction *Exit = cast<VPInstruction>(
         Reduction->getIsMemOnly()
             ? Builder.createNaryOp(Instruction::Load, Ty, {PrivateMem})
-            : Reduction->getLoopExitInstr();
+            : Reduction->getLoopExitInstr());
 
-    VPInstruction *Final;
-    if (StartIncluded || Reduction->isMinMax()) {
-      Final =
-          Builder.createReductionFinal(Reduction->getReductionOpcode(), Exit);
+    VPReductionFinal *Final = nullptr;
+    if (auto IndexRed = dyn_cast<VPIndexReduction>(Reduction)) {
+      const VPReduction *Parent = IndexRed->getParentReduction();
+      VPInstruction *ParentExit;
+      VPReductionFinal *ParentFinal;
+      std::tie(ParentFinal, ParentExit) = RedFinalMap[Parent];
+      Final = Builder.createReductionFinal(Reduction->getReductionOpcode(),
+                                           Exit, ParentExit, ParentFinal,
+                                           Reduction->isSigned());
     } else {
-      // Create a load for Start value if it's a pointer
-      VPValue *FinalStartValue = Reduction->getRecurrenceStartValue();
-      if (FinalStartValue->getType() != Ty) { // Ty is recurrence type
-        assert(isa<PointerType>(FinalStartValue->getType()) &&
-               "Expected pointer type here.");
-        FinalStartValue =
-            Builder.createNaryOp(Instruction::Load, Ty, {FinalStartValue});
+      if (StartIncluded || Reduction->isMinMax()) {
+        Final =
+            Builder.createReductionFinal(Reduction->getReductionOpcode(), Exit);
+      } else {
+        // Create a load for Start value if it's a pointer
+        VPValue *FinalStartValue = Reduction->getRecurrenceStartValue();
+        if (FinalStartValue->getType() != Ty) { // Ty is recurrence type
+          assert(isa<PointerType>(FinalStartValue->getType()) &&
+                 "Expected pointer type here.");
+          FinalStartValue =
+              Builder.createNaryOp(Instruction::Load, Ty, {FinalStartValue});
+        }
+
+        Final = Builder.createReductionFinal(Reduction->getReductionOpcode(),
+                                             Exit, FinalStartValue,
+                                             Reduction->isSigned());
       }
-
-      Final =
-          Builder.createReductionFinal(Reduction->getReductionOpcode(), Exit,
-                                       FinalStartValue, Reduction->isSigned());
+      RedFinalMap[Reduction] = std::make_pair(Final, Exit);
     }
-
     processFinalValue(*Reduction, AI, Builder, *Final, Ty, Exit);
-    // Loop exit VPInstruction needs to be added to linkedVPValues for later
-    // uses
-    Reduction->addLinkedVPValue(Exit);
   }
   for (auto &IndPtr : InductionList) {
     VPInduction *Induction = IndPtr.get();

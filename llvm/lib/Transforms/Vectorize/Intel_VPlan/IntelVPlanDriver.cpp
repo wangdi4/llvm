@@ -749,7 +749,7 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
 
   HIRSafeReductionAnalysis *SafeRedAnalysis =
       &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
-  HIRVectorizationLegality HIRVecLegal(SafeRedAnalysis);
+  HIRVectorizationLegality HIRVecLegal(SafeRedAnalysis, DDA);
   LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, DL, &HIRVecLegal, DDA,
                                   &VLSA);
 

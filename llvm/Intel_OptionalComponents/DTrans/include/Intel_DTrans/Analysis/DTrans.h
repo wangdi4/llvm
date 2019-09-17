@@ -961,6 +961,13 @@ void collectSpecialFreeArgs(FreeKind Kind, const CallBase *Call,
                             SmallPtrSetImpl<const Value *> &OutputSet,
                             const TargetLibraryInfo &TLI);
 
+/// There is a possibility that a call to be analyzed is inside a BitCast, in
+/// which case we need to strip the pointer casting from the \p Call operand to
+/// identify the Function. The call may also be using an Alias to a Function,
+/// in which case we need to get the aliasee. If a function is found, return it.
+/// Otherwise, return nullptr.
+Function *getCalledFunction(const CallBase &Call);
+
 /// Checks if a \p Val is a constant integer and sets it to \p ConstValue.
 bool isValueConstant(const Value *Val, uint64_t *ConstValue = nullptr);
 

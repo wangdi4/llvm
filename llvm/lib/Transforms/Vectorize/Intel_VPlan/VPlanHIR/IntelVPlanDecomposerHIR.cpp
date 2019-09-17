@@ -505,7 +505,7 @@ static CmpInst::Predicate getPredicateFromHIR(HLDDNode *DDNode) {
 // Return true if \p Def is considered an external definition. An external
 // definition is a definition that happens outside of the outermost HLLoop,
 // including its preheader and exit.
-bool VPDecomposerHIR::isExternalDef(DDRef *UseDDR) {
+bool VPDecomposerHIR::isExternalDef(const DDRef *UseDDR) {
   // TODO: We are pushing outermost loop PH and Exit outside of the VPlan region
   // for now so this code won't be valid until we bring them back. return
   // !Def->getHLNodeUtils().contains(OutermostHLp, Def,

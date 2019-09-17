@@ -1484,10 +1484,10 @@ public:
         BinOpcode(BinOp), Signed(false) {}
 
   /// Constructor for index part of min/max+index reduction.
-  VPReductionFinal(unsigned BinOp, VPValue *ReducVec, VPValue *StartValue,
-                   bool Sign, VPReductionFinal *MinMax)
+  VPReductionFinal(unsigned BinOp, VPValue *ReducVec, VPValue *ParentExit,
+                   VPReductionFinal *ParentFinal, bool Sign)
       : VPInstruction(VPInstruction::ReductionFinal, ReducVec->getType(),
-                      {ReducVec, StartValue, MinMax}),
+                      {ReducVec, ParentExit, ParentFinal}),
         BinOpcode(BinOp), Signed(Sign) {}
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
@@ -1510,12 +1510,17 @@ public:
   /// Return operand that corresponds to the start value. Can be nullptr for
   /// optimized reduce.
   VPValue *getStartValueOperand() const {
-    return getNumOperands() > 1 ? getOperand(1) : nullptr;
+    return getNumOperands() == 2 ? getOperand(1) : nullptr;
   }
 
-  /// Return operand that corrrespond to min/max parent reduction.
-  VPValue *getParentValueOperand() const {
-    return getNumOperands() > 2 ? getOperand(2) : nullptr;
+  /// Return operand that corrresponds to min/max parent vector value.
+  VPValue *getParentExitValOperand() const {
+    return getNumOperands() == 3 ? getOperand(2) : nullptr;
+  }
+
+  /// Return operand that corrresponds to min/max parent final value.
+  VPValue *getParentFinalValOperand() const {
+    return getNumOperands() == 3 ? getOperand(1) : nullptr;
   }
 
   /// Return ID of the corresponding reduce intrinsic.
@@ -2904,7 +2909,7 @@ public:
 
   /// Create or retrieve a VPExternalDef for a given non-decomposable DDRef \p
   /// DDR.
-  VPExternalDef *getVPExternalDefForDDRef(loopopt::DDRef *DDR) {
+  VPExternalDef *getVPExternalDefForDDRef(const loopopt::DDRef *DDR) {
     return getExternalItemForDDRef(VPExternalDefsHIR, DDR);
   }
 
@@ -2927,7 +2932,7 @@ public:
 
   /// Create or retrieve a VPExternalUse for a given non-decomposable DDRef \p
   /// DDR.
-  VPExternalUse *getVPExternalUseForDDRef(loopopt::DDRef *DDR) {
+  VPExternalUse *getVPExternalUseForDDRef(const loopopt::DDRef *DDR) {
     return getExternalItemForDDRef(VPExternalUsesHIR, DDR);
   }
 
@@ -3017,7 +3022,8 @@ private:
   // Create or retrieve an external item from \p Table for given HIR unitary
   // DDRef \p DDR.
   template <typename Def>
-  Def *getExternalItemForDDRef(FoldingSet<Def> &Table, loopopt::DDRef *DDR) {
+  Def *getExternalItemForDDRef(FoldingSet<Def> &Table,
+                               const loopopt::DDRef *DDR) {
     assert(DDR->isNonDecomposable() && "Expected non-decomposable DDRef!");
     FoldingSetNodeID ID;
     ID.AddInteger(DDR->getSymbase());

@@ -17,6 +17,7 @@
 #include "IntelVPOCodeGenHIR.h"
 #include "../IntelVPlanUtils.h"
 #include "../IntelVPlanVLSAnalysis.h"
+#include "IntelVPlanHCFGBuilderHIR.h"
 #include "IntelVPlanVLSClientHIR.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
@@ -492,21 +493,41 @@ void HandledCheck::visit(HLDDNode *Node) {
       return;
     }
 
+    // Handling liveouts for privates/inductions is not implemented in
+    // VPValue-based CG. The checks below enable the following -
+    // 1. For full VPValue-based CG all reductions are supported.
+    // 2. For mixed mode CG, minmax reductions are not supported if VPLoopEntity
+    // representation is not used.
+    // TODO: Revisit when VPLoopEntity representation for reductions is made
+    // default.
     auto TLval = Inst->getLvalDDRef();
-    if (EnableVPValueCodegenHIR && TLval && TLval->isTerminalRef() &&
+    if (TLval && TLval->isTerminalRef() &&
         OrigLoop->isLiveOut(TLval->getSymbase())) {
-      unsigned RedOpcode;
+      unsigned RedOpcode = 0;
       if (CG->isReductionRef(TLval, RedOpcode)) {
-        // VPValue-based CG for reductions is supported.
-        // TODO: Extend this check for explicit SIMD reduction variables using
-        // HIRLegality
+        if (EnableVPValueCodegenHIR)
+          // VPValue-based CG for reductions is supported.
+          return;
+        // Min/max reductions are not supported without VPLoopEntities.
+        if (!VPlanUseVPEntityInstructions &&
+            (RedOpcode == Instruction::Select ||
+             RedOpcode == VPInstruction::UMin ||
+             RedOpcode == VPInstruction::UMax ||
+             RedOpcode == VPInstruction::SMin ||
+             RedOpcode == VPInstruction::SMax ||
+             RedOpcode == VPInstruction::FMin ||
+             RedOpcode == VPInstruction::FMax))
+          IsHandled = false;
+      } else if (EnableVPValueCodegenHIR)
+        IsHandled = false;
+
+      if (!IsHandled) {
+        LLVM_DEBUG(Inst->dump());
+        LLVM_DEBUG(
+            dbgs() << "VPLAN_OPTREPORT: VPValCG liveout induction/private or "
+                      "min/max reduction not handled\n");
         return;
       }
-      LLVM_DEBUG(Inst->dump());
-      LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: VPValCG liveout induction/private "
-                           "not handled\n");
-      IsHandled = false;
-      return;
     }
 
     if (!CG->isSearchLoop() && TLval && TLval->isTerminalRef() &&
@@ -1211,6 +1232,17 @@ bool VPOCodeGenHIR::isReductionRef(const RegDDRef *Ref, unsigned &Opcode) {
   if (!Ref->getHLDDNode())
     return false;
 
+  // Check for explicit SIMD reductions.
+  if (auto *Descr = HIRLegality->isReduction(Ref)) {
+    Opcode = VPReduction::getReductionOpcode(Descr->Kind, Descr->MMKind);
+    return true;
+  }
+  // Check for minmax+index idiom.
+  if (HIRLegality->isMinMaxIdiomTemp(Ref, OrigLoop)) {
+    Opcode = Instruction::Select;
+    return true;
+  }
+  // Check for auto-recognized SafeReduction.
   return SRA->isReductionRef(Ref, Opcode);
 }
 

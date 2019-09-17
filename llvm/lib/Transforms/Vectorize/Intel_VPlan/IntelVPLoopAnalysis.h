@@ -228,13 +228,16 @@ public:
     return V->getID() == Reduction;
   }
 
-  unsigned getReductionOpcode() const;
+  unsigned getReductionOpcode() const {
+    return getReductionOpcode(getRecurrenceKind(), getMinMaxRecurrenceKind());
+  }
 
   bool isMinMax() const { return MinMaxKind != MRK_Invalid; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   virtual void dump(raw_ostream &OS) const;
 #endif
+  static unsigned getReductionOpcode(RecurrenceKind K, MinMaxRecurrenceKind MK);
 };
 
 /// Descriptor of the index part of min/max+index reduction.
@@ -660,6 +663,8 @@ private:
 
   void linkValue(VPLoopEntity *E, VPValue *Val) {
     if (auto Red = dyn_cast<VPReduction>(E))
+      linkValue(ReductionMap, Red, Val);
+    else if (auto Red = dyn_cast<VPIndexReduction>(E))
       linkValue(ReductionMap, Red, Val);
     else if (auto Ind = dyn_cast<VPInduction>(E))
       linkValue(InductionMap, Ind, Val);

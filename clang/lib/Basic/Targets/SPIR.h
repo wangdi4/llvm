@@ -269,11 +269,6 @@ public:
       : WindowsTargetInfo<SPIR32SYCLDeviceTargetInfo>(Triple, Opts) {
     DoubleAlign = LongLongAlign = 64;
     WCharType = UnsignedShort;
-    bool IsWinCOFF =
-        getTriple().isOSWindows() && getTriple().isOSBinFormatCOFF();
-    resetDataLayout(IsWinCOFF
-                        ? "e-m:x-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32"
-                        : "e-m:e-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32");
   }
 
   BuiltinVaListKind getBuiltinVaListKind() const override {
@@ -298,6 +293,7 @@ public:
       : WindowsX86_32SPIRTargetInfo(Triple, Opts) {
     LongDoubleWidth = LongDoubleAlign = 64;
     LongDoubleFormat = &llvm::APFloat::IEEEdouble();
+    assert(DataLayout->getPointerSizeInBits() == 32);
   }
 
   void getTargetDefines(const LangOptions &Opts,
@@ -331,11 +327,6 @@ public:
     PtrDiffType = SignedLongLong;
     IntPtrType = SignedLongLong;
     WCharType = UnsignedShort;
-    bool IsWinCOFF =
-        getTriple().isOSWindows() && getTriple().isOSBinFormatCOFF();
-    resetDataLayout(IsWinCOFF
-                        ? "e-m:x-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32"
-                        : "e-m:e-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32");
   }
 
   BuiltinVaListKind getBuiltinVaListKind() const override {
@@ -360,6 +351,7 @@ public:
       : WindowsX86_64_SPIR64TargetInfo(Triple, Opts) {
     LongDoubleWidth = LongDoubleAlign = 64;
     LongDoubleFormat = &llvm::APFloat::IEEEdouble();
+    assert(DataLayout->getPointerSizeInBits() == 64);
   }
 
   void getTargetDefines(const LangOptions &Opts,

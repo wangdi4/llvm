@@ -154,20 +154,15 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
     unsigned OldAddressSpace =
         cast<PointerType>(I->getType())->getAddressSpace();
 
-#if INTEL_CUSTOMIZATION
-    // FIXME: reenable this assertion, when ifort is able to generate
-    //        correct addrspaces.
-    //
-    // Assert the correct addrspacecast here instead of failing
-    // during SPIRV emission.
-    assert(OldAddressSpace == vpo::ADDRESS_SPACE_GENERIC &&
-           "finalizeKernelFunction: OpenCL global addrspaces can only be "
-           "casted to generic.");
-#endif  // INTEL_CUSTOMIZATION
-
     Value *NewArgV = ArgV;
-    if (NewAddressSpace != OldAddressSpace)
+    if (NewAddressSpace != OldAddressSpace) {
+      // Assert the correct addrspacecast here instead of failing
+      // during SPIRV emission.
+      assert(OldAddressSpace == vpo::ADDRESS_SPACE_GENERIC &&
+             "finalizeKernelFunction: OpenCL global addrspaces can only be "
+             "casted to generic.");
       NewArgV = Builder.CreatePointerBitCastOrAddrSpaceCast(ArgV, I->getType());
+    }
     I->replaceAllUsesWith(NewArgV);
     NewArgI->takeName(&*I);
     ++NewArgI;
@@ -396,6 +391,15 @@ void VPOParoptTransform::guardSideEffectStatements(
       if (isa<IntrinsicInst>(&I))
         continue;
       if (I.mayHaveSideEffects()) {
+        // REMOVE this code when hierarchical parallelism is fully implemented.
+        // We avoid conditionalizing calls with return values, because the
+        // threads > 0 will get undefined values. We also might need a better
+        // filter than mayHaveSideEffects, which is very broad.
+        if (auto *Call = dyn_cast<CallInst>(&I)) {
+          auto *FnType = Call->getFunctionType();
+          if (!FnType->getReturnType()->isVoidTy() && Call->hasNUsesOrMore(1))
+            continue;
+        }
         if (ignoreSpecialOperands(&I, PrivateVariables))
           continue;
 

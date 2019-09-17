@@ -104,6 +104,7 @@ MODULE_PASS("intel-partialinline", IntelPartialInlinePass())            // INTEL
 MODULE_PASS("post-inline-ip-cloning", IPCloningPass(/*AfterInl*/ true,  // INTEL
                                         /*IFSwitchHeuristic*/ false))   // INTEL
 MODULE_PASS("call-tree-clone", CallTreeCloningPass())                   // INTEL
+MODULE_PASS("dopevectorconstprop", DopeVectorConstPropPass())           // INTEL
 MODULE_PASS("ipsccp", IPSCCPPass())
 MODULE_PASS("lowertypetests", LowerTypeTestsPass(nullptr, nullptr))
 MODULE_PASS("name-anon-globals", NameAnonGlobalPass())

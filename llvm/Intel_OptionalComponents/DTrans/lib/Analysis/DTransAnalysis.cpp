@@ -926,12 +926,9 @@ bool DTransAllocAnalyzer::isVisitedBlock(BasicBlock *BB) const {
 // Trivial wrappers are important special cases.
 //
 bool DTransAllocAnalyzer::isMallocPostDom(const CallBase *Call) {
-  // If the Function wasn't found, then there is a possibility
-  // that it is inside a BitCast. In this case we need
-  // to strip the pointer casting from the Value and then
-  // access the Function.
-  const Function *F =
-      dyn_cast<const Function>(Call->getCalledValue()->stripPointerCasts());
+  // Try to find the called function, stripping away Bitcasts or looking
+  // through GlobalAlias definitions, if necessary.
+  const Function *F = dtrans::getCalledFunction(*Call);
 
   if (!F)
     // Check for allocation routine.
@@ -956,12 +953,9 @@ bool DTransAllocAnalyzer::isMallocPostDom(const CallBase *Call) {
 // Trivial wrappers are important special cases.
 //
 bool DTransAllocAnalyzer::isFreePostDom(const CallBase *Call) {
-  // If the Function wasn't found, then there is a possibility
-  // that it is inside a BitCast. In this case we need
-  // to strip the pointer casting from the Value and then
-  // access the Function.
-  const Function *F =
-      dyn_cast<const Function>(Call->getCalledValue()->stripPointerCasts());
+  // Try to find the called function, stripping away Bitcasts or looking
+  // through GlobalAlias definitions, if necessary.
+  const Function *F = dtrans::getCalledFunction(*Call);
 
   if (!F)
     // Check for deallocation routine.
@@ -3182,8 +3176,7 @@ private:
           DEBUG_WITH_TYPE(
               DTRANS_LPA_VERBOSE,
               dbgs() << "Analyzing use in call instruction: " << *Call << "\n");
-          Function *F =
-              dyn_cast<Function>(Call->getCalledValue()->stripPointerCasts());
+          Function *F = dtrans::getCalledFunction(*Call);
           if (!F) {
             DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE,
                             dbgs() << "Unable to get called function!\n");
@@ -5267,12 +5260,10 @@ public:
     if (Call.getMetadata("_Intel.Devirt.Call") && Call.arg_size() >= 1)
       SpecialArguments.insert(Call.getArgOperand(0));
 
-    // If the Function wasn't found, then there is a possibility
-    // that it is inside a BitCast. In this case we need
-    // to strip the pointer casting from the Value and then
-    // access the Function.
-    Function *F =
-        dyn_cast<Function>(Call.getCalledValue()->stripPointerCasts());
+    // Try to find the called function, stripping away Bitcasts or looking
+    // through GlobalAlias definitions, if necessary, in order to check the
+    // argument types against the parameter values.
+    Function *F = dtrans::getCalledFunction(Call);
 
     // For all other calls, if a pointer to an aggregate type is passed as an
     // argument to a function in a form other than its dominant type, the
@@ -5317,8 +5308,16 @@ public:
     if (SpecialArguments.size() == Call.arg_size())
       return;
 
-    // Check for BitCast functions
-    if (F && isa<ConstantExpr>(Call.getCalledValue())) {
+    // Check for BitCast function (or aliasee)
+    bool MayBeBitcast = false;
+    Value *Callee = Call.getCalledOperand();
+    if (auto *GA = dyn_cast<GlobalAlias>(Callee))
+      Callee = GA->getAliasee();
+
+    if (!isa<Function>(Callee))
+        MayBeBitcast = true;
+
+    if (F && MayBeBitcast) {
       // Account for layout in registers and on stack.
       if (!typesMayBeCRuleCompatible(
               Call.getCalledValue()->getType()->getPointerElementType(),
@@ -7951,7 +7950,7 @@ private:
 
       // A called function should be F.
       if (!Call->isCallee(&U))
-        if (U->stripPointerCasts() != F)
+        if (dtrans::getCalledFunction(*Call) != F)
           return false;
 
       ConstantInt *ArgC =
