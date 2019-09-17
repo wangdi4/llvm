@@ -22,7 +22,14 @@
 ; CHECK-NEXT: Running pass: XmainOptLevelAnalysisInit
 ; CHECK-NEXT: Running analysis: XmainOptLevelAnalysis
 ; CHECK-NEXT: GlobalDCEPass
+<<<<<<< HEAD
 ; CHECK-NEXT: IPSCCPPass
+=======
+; CHECK: Running analysis: WholeProgramAnalysis
+; CHECK: Running analysis: TargetLibraryAnalysis
+; CHECK: Running pass: InternalizePass
+; CHECK: Running pass: IPSCCPPass
+>>>>>>> 01d60f7e866daf3291d13a18606415bbdde83e19
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}Module{{.*}}>
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
 ; CHECK-NEXT: Running analysis: PassInstrumentationAnalysis on foo
@@ -60,7 +67,7 @@
 ; CHECK-NEXT: Running pass: OptimizeDynamicCastsPass
 
 ; Make sure we get the IR back out without changes when we print the module.
-; CHECK-LABEL: define internal void @foo(i32 %n) local_unnamed_addr #0 {
+; CHECK-LABEL: define internal fastcc void @foo(i32 %n) unnamed_addr #0 {
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT:   br label %loop
 ; CHECK:      loop:
@@ -73,8 +80,8 @@
 ; CHECK-NEXT:   ret void
 ; CHECK-NEXT: }
 ;
-; CHECK-LABEL: define i32 @main() local_unnamed_addr {
-; CHECK-NEXT:    call void @foo(i32 1)
+; CHECK-LABEL: define i32 @main(i32 %n) local_unnamed_addr {
+; CHECK-NEXT:    call fastcc void @foo(i32 %n)
 ; CHECK-NEXT:    ret i32 0
 ; CHECK-NEXT:  }
 ;
@@ -97,8 +104,8 @@ exit:
   ret void
 }
 
-define i32 @main() {
-  call void @foo(i32 1)
+define i32 @main(i32 %n) {
+  call void @foo(i32 %n)
   ret i32 0
 }
 
