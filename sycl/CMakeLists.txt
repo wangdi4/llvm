@@ -57,6 +57,7 @@ if( DEFINED ICD_LOADER_SRC_DIR )
 
   set(OpenCL_INCLUDE_DIRS ${OpenCL_INCLUDE_DIR})
 else()
+<<<<<<< HEAD
   # Find OpenCL headers and libraries installed in the system and use them to
   # build SYCL runtime.
   # WARNING: use with caution, building SYCL runtime with OpenCL implementation
@@ -66,6 +67,9 @@ else()
   if( (OpenCL_INCLUDE_DIR AND OpenCL_LIBRARY) OR OpenCL_BUILD_WITH_SYSTEM_SDK)
     find_package(OpenCL)
   endif()
+=======
+  find_package(OpenCL)
+>>>>>>> dbda3d697d1861430a28dc6021bcab562e079e45
 endif()
 
 include(ExternalProject)
@@ -131,6 +135,10 @@ if( DEFINED ICD_LOADER_SRC_DIR )
         DESTINATION .
         COMPONENT khronos-icd-loader
     )
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/icd_build/deploy/bin/OpenCL.dll
+        DESTINATION .
+        COMPONENT khronos-icd-loader
+    )
   endif()
 elseif( NOT OpenCL_LIBRARIES )
   message("OpenCL_LIBRARIES is missed. Will try to download OpenCL ICD Loader from github.com")
@@ -189,7 +197,10 @@ COMMENT "Copying SYCL headers ...")
 
 # Configure SYCL headers
 install(DIRECTORY "${sycl_inc_dir}/." DESTINATION "${LLVM_INST_INC_DIRECTORY}" COMPONENT sycl-headers)
+<<<<<<< HEAD
 
+=======
+>>>>>>> dbda3d697d1861430a28dc6021bcab562e079e45
 # SYCL runtime library
 add_subdirectory(source)
 

@@ -2,10 +2,7 @@
 // RUN: %t.out
 
 // INTEL_CUSTOMIZATION
-// Tests fails on xmain after latest merge of SYCL and requires more investigation: CMPLRLLVM-10112
-// Mark as expected fail
-// XFAIL: *
-// end INTEL_CUSTOMIZATION
+// XFAIL: windows
 
 //===- MultipleDevices.cpp - Test checking multi-device execution --------===//
 //

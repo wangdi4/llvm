@@ -20,7 +20,11 @@
 // CHK-FPGA-LINK-NOT: clang-offload-bundler{{.*}} "-check-section"
 // CHK-FPGA-LINK: clang-offload-bundler{{.*}} "-type=o" "-targets=host-x86_64-unknown-linux-gnu,sycl-spir64_fpga-unknown-{{.*}}-sycldevice" "-inputs=[[INPUT:.+\.o]]" "-outputs=[[OUTPUT1:.+\.o]],[[OUTPUT2:.+\.o]]" "-unbundle"
 // CHK-FPGA-LINK: llvm-link{{.*}} "[[OUTPUT2]]" "-o" "[[OUTPUT3:.+\.bc]]"
+<<<<<<< HEAD
 // CHK-FPGA-LINK: llvm-spirv{{.*}} "-spirv-max-version=1.1" "-spirv-ext=+all" "-o" "[[OUTPUT4:.+\.spv]]" "[[OUTPUT3]]"
+=======
+// CHK-FPGA-LINK: llvm-spirv{{.*}} "-spirv-max-version=1.1"{{.*}} "-spirv-ext=+all" "-o" "[[OUTPUT4:.+\.spv]]" "[[OUTPUT3]]"
+>>>>>>> dbda3d697d1861430a28dc6021bcab562e079e45
 // CHK-FPGA-EARLY: aoc{{.*}} "-o" "[[OUTPUT5:.+\.aocr]]" "[[OUTPUT4]]" "-sycl" "-rtl"
 // CHK-FPGA-IMAGE: aoc{{.*}} "-o" "[[OUTPUT5:.+\.aocx]]" "[[OUTPUT4]]" "-sycl"
 // CHK-FPGA-LINK: {{lib|llvm-ar}}{{.*}}

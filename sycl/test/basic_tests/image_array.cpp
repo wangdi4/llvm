@@ -3,12 +3,6 @@
 // RUN: %CPU_RUN_PLACEHOLDER %t.out
 // RUNx: %GPU_RUN_PLACEHOLDER %t.out
 
-// INTEL_CUSTOMIZATION
-// Tests fails on xmain after initial merge of SYCL and requires more investigation: CMPLRLLVM-10112
-// Mark as expected fail
-// XFAIL: *
-// end INTEL_CUSTOMIZATION
-
 //==------------------- image.cpp - SYCL image basic test -----------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
