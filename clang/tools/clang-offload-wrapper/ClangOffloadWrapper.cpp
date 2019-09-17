@@ -647,10 +647,6 @@ private:
 #endif  // INTEL_COLLAB
       ImgId++;
     }
-<<<<<<< HEAD
-
-=======
->>>>>>> dbda3d697d1861430a28dc6021bcab562e079e45
 #if INTEL_COLLAB
     auto *ImagesData = ConstantArray::get(
         ArrayType::get(getDeviceImageTy(Kind), ImagesInits.size()),
