@@ -34,6 +34,9 @@ if (WIN32)
     set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_VALIDATION_FOLDER_NAME} )
 
 else (WIN32)
+     # TODO: figure out why the default build compiler cannot be used
+     #       instead of ICC here. MSVC seems to work for some reason.
+
      # search for the icc cpu compiler
     set( ICC_DIR2015 "/opt/intel/composerxe/bin/")
     set( ICC_DIR2017 "/opt/intel/compilers_and_libraries/linux/bin/intel64/")

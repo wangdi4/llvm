@@ -1,9 +1,11 @@
 use_eh(TRUE)
 
-if( NOT DEFINED LLVM_PATH_FE )
+if (NOT OPENCL_INTREE_BUILD)
+  if( NOT DEFINED LLVM_PATH_FE )
     message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM library location for backend using LLVM_PATH_FE parameter to CMAKE" )
+  endif()
+  set (LLVM_FE_INCLUDE_DIRS ${LLVM_PATH_FE}/include)
 endif()
-set (LLVM_FE_INCLUDE_DIRS ${LLVM_PATH_FE}/include)
 
 set (TARGET_NAME ValidationTests)
 
@@ -24,7 +26,6 @@ endif(WIN32)
 
 include_directories(
     ${LLVM_INCLUDE_DIRS}
-    ${LLVM_FE_INCLUDE_DIRS}/cclang
     ${CL_API_HEADERS}
     ${BACKEND_ROOT_DIR}/external/tinyxml
     ${BACKEND_ROOT_DIR}/plugin_manager
@@ -48,6 +49,12 @@ include_directories(
     ${OCL_SOURCE_DIR}/externals/gtest/googletest/include
     ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
 )
+
+if (OPENCL_INTREE_BUILD)
+  include_directories(${CCLANG_DEV_INCLUDE_DIRS})
+else()
+  include_directories(${LLVM_FE_INCLUDE_DIRS}/cclang)
+endif()
 
 link_directories(
     ${OCL_OUTPUT_LIBRARY_DIR}

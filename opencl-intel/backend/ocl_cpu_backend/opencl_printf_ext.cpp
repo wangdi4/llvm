@@ -707,7 +707,7 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
             case 'G':
             case 'A':
               capitalCase = true;
-              LLVM_FALLTHROUGH
+              LLVM_FALLTHROUGH;
             case 'f':
             case 'e':
             case 'g':

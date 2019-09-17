@@ -1,8 +1,3 @@
-if( NOT DEFINED LLVM_PATH_FE )
-    message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM library location for backend using LLVM_PATH_FE parameter to CMAKE" )
-endif()
-set (LLVM_FE_INCLUDE_DIRS ${LLVM_PATH_FE}/include)
-
 set(TARGET_NAME OclCpuBackEnd${BUILD_PLATFORM})
 project(${TARGET_NAME})
 add_subdirectory(emutls)
@@ -21,7 +16,10 @@ set(OCL_CPU_BACKEND_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 # Settings for Linux compilation
 #
 if (NOT WIN32)
-    set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Werror -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-unused-function")
+    set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-unused-function")
+    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+      set ( WARNING_LEVEL "${WARNING_LEVEL} -Werror")
+    endif()
 
     # Compiler switches that CANNOT be modified during makefile generation
     set (ADD_COMMON_C_FLAGS  "-msse3 -mssse3 -fPIC -fdiagnostics-show-option -funsigned-bitfields")
@@ -206,7 +204,6 @@ endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 # Add include directories
 set (INCLUDE_DIRS
     ${LLVM_INCLUDE_DIRS}
-    ${LLVM_FE_INCLUDE_DIRS}/cclang
     ${OCL_CPU_BACKEND_DIR}
     ${OCL_SOURCE_DIR}/utils/cache_binary_handler
     ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export

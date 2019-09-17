@@ -63,6 +63,7 @@ include_directories(
   # Should we include OpenCL cl.h or cclang's one???
   ${OCL_BINARY_DIR}/include
   ${CMAKE_BINARY_DIR}
+  ${OCL_BINARY_DIR}
 )
 
 include_directories(

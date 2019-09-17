@@ -312,7 +312,7 @@ float half2float( cl_ushort us );
 // starting at the most significant bit position. 
 // If x is 0, the result is undefined.
 // 
-int __builtin_clz(unsigned int pattern);
+int internal_clz(unsigned int pattern);
 
 /**
  * Copy a pattern repeatedly to a buffer

@@ -1,6 +1,7 @@
 # remove the restriction of warning as error for this component
 if (NOT WIN32)
 remove_definitions( -Werror )
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error")
 endif (NOT WIN32)
 
 link_directories( ${TBB_LIB_DIR} )
