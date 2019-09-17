@@ -1074,6 +1074,7 @@ void DSAStackTy::addDSA(const ValueDecl *D, const Expr *E, OpenMPClauseKind A,
   } else {
     DSAInfo &Data = getTopOfStack().SharingMap[D];
     assert(Data.Attributes == OMPC_unknown || (A == Data.Attributes) ||
+           Data.Attributes == OMPC_map || //INTEL
            (A == OMPC_firstprivate && Data.Attributes == OMPC_lastprivate) ||
            (A == OMPC_lastprivate && Data.Attributes == OMPC_firstprivate) ||
            (isLoopControlVariable(D).first && A == OMPC_private));
@@ -1978,6 +1979,11 @@ VarDecl *Sema::isOpenMPCapturedDecl(ValueDecl *D, bool CheckScopeInfo,
       return VD ? VD : Info.second;
     DSAStackTy::DSAVarData DVarPrivate =
         DSAStack->getTopDSA(D, DSAStack->isClauseParsingMode());
+#if INTEL_CUSTOMIZATION
+    if (getLangOpts().OpenMPLateOutline && isa<FieldDecl>(D) &&
+        DVarPrivate.CKind == OMPC_map)
+      return VD ? VD : cast<VarDecl>(DVarPrivate.PrivateCopy->getDecl());
+#endif // INTEL_CUSTOMIZATION
     if (DVarPrivate.CKind != OMPC_unknown && isOpenMPPrivate(DVarPrivate.CKind))
       return VD ? VD : cast<VarDecl>(DVarPrivate.PrivateCopy->getDecl());
     // Threadprivate variables must not be captured.
@@ -15110,7 +15116,36 @@ OMPClause *Sema::ActOnOpenMPMapClause(
     ++Count;
   }
 
-  MappableVarListInfo MVLI(VarList);
+#if INTEL_CUSTOMIZATION
+  // This is temporary support for field inside member function.
+  // Captured field expression in member function only
+  SmallVector<Expr *, 8> NewVarList;
+  if (this->getLangOpts().OpenMPLateOutline) {
+    for (Expr *RefExpr : VarList) {
+      const Expr *E = RefExpr;
+      while (const auto *OASE = dyn_cast<OMPArraySectionExpr>(E))
+        E = OASE->getBase()->IgnoreParenImpCasts();
+      while (const auto *ASE = dyn_cast<ArraySubscriptExpr>(E))
+        E = ASE->getBase()->IgnoreParenImpCasts();
+
+      Expr *VarsExpr = RefExpr;
+      if (auto *ME = dyn_cast<MemberExpr>(E)) {
+        if (isa<CXXThisExpr>(ME->getBase()->IgnoreParenImpCasts()) &&
+            !CurContext->isDependentContext()) {
+          auto *Field =
+              const_cast<ValueDecl *>(getCanonicalDecl(ME->getMemberDecl()));
+          TransformExprToCaptures RebuildToCapture(*this, Field);
+          VarsExpr =
+              RebuildToCapture.TransformExpr(RefExpr->IgnoreParens()).get();
+          DeclRefExpr *Ref = RebuildToCapture.getCapturedExpr();
+          DSAStack->addDSA(Field, RefExpr->IgnoreParens(), OMPC_map, Ref);
+        }
+      }
+      NewVarList.push_back(VarsExpr);
+    }
+  }
+  MappableVarListInfo MVLI(NewVarList.empty() ? VarList : NewVarList);
+#endif // INTEL_CUSTOMIZATION
   checkMappableExpressionList(*this, DSAStack, OMPC_map, MVLI, Locs.StartLoc,
                               MapperIdScopeSpec, MapperId, UnresolvedMappers,
                               MapType, IsMapTypeImplicit);
