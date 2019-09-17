@@ -184,6 +184,37 @@ foreach func_name = [ "sub_group_broadcast", "sub_group_reduce_add", "sub_group_
   }
 }
 
+foreach func_name = [ "intel_sub_group_block_read", "intel_sub_group_block_write"] in {
+  foreach len = [ "1" ] in {
+    def func_name#_cell1  : MapCell<!cast<OclBuiltin>(func_name), v1u32>;
+    def func_name#_cell4  : MapCell<!cast<OclBuiltin>(func_name#len#_#"4"), v1u32>;
+    def func_name#_cell8  : MapCell<!cast<OclBuiltin>(func_name#len#_#"8"), v1u32>;
+    def func_name#_cell16 : MapCell<!cast<OclBuiltin>(func_name#len#_#"16"), v1u32>;
+    def func_name#_vectorized : MapRow<[
+    !cast<MapCell>(func_name#"_cell1"),  //scalar
+    nullCell,
+    !cast<MapCell>(func_name#"_cell4"),  //v4
+    !cast<MapCell>(func_name#"_cell8"),  //v8
+    !cast<MapCell>(func_name#"_cell16"), //16
+    nullCell],
+    0,1>;          //not scalarizable, packetizable
+  }
+  foreach len = [ "2", "4", "8" ] in {
+    def func_name#_#len#_cell1  : MapCell<!cast<OclBuiltin>(func_name#len), v1u32>;
+    def func_name#_#len#_cell4  : MapCell<!cast<OclBuiltin>(func_name#len#_#"4"), v1u32>;
+    def func_name#_#len#_cell8  : MapCell<!cast<OclBuiltin>(func_name#len#_#"8"), v1u32>;
+    def func_name#_#len#_cell16 : MapCell<!cast<OclBuiltin>(func_name#len#_#"16"), v1u32>;
+    def func_name#_#len#_vectorized : MapRow<[
+    !cast<MapCell>(func_name#_#len#"_cell1"),  //scalar
+    nullCell,
+    !cast<MapCell>(func_name#_#len#"_cell4"),  //v4
+    !cast<MapCell>(func_name#_#len#"_cell8"),  //v8
+    !cast<MapCell>(func_name#_#len#"_cell16"), //16
+    nullCell],
+    0,1>;          //not scalarizable, packetizable
+  }
+}
+
 foreach func_name = [ "intel_sub_group_ballot_igc", "intel_sub_group_ballot" ] in {
   def func_name#_cell1  : MapCell<!cast<OclBuiltin>(func_name), v1i32>;
   def func_name#_cell4  : MapCell<!cast<OclBuiltin>(func_name#_#"vf4"), v4i32>;
