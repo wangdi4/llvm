@@ -155,7 +155,7 @@ volatile char cdbGWorkitemInjectionBuffer[128] = { 0 };
 // This is required, because CDB doesn't provide a facility
 // to change the environment variables, like gdb.
 // This function will return the injected string from cdbGWorkitemInjectionBuffer.
-char* cdbInjectWorkitemFocus()
+const char* cdbInjectWorkitemFocus()
 {
     string gworkitem;
     stringstream filename;
@@ -168,7 +168,7 @@ char* cdbInjectWorkitemFocus()
     }
 
     if (cdbGWorkitemInjectionBuffer[0] == '(')
-        return (char*)cdbGWorkitemInjectionBuffer;
+        return (const char*)cdbGWorkitemInjectionBuffer;
     else
         return "";
 }

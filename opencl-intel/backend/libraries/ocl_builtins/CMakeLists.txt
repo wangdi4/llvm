@@ -589,7 +589,7 @@ add_custom_target(clbltpipeinfo_target
   DEPENDS clbltpipeinfo.obj)
 
 if (OPENCL_INTREE_BUILD)
-  add_dependencies(clbltpipeinfo_target common_clang)
+  add_dependencies(clbltpipeinfo_target common_clang${BUILD_PLATFORM})
 endif()
 
 add_custom_command(OUTPUT clbltpipeinfo.obj

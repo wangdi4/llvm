@@ -50,3 +50,7 @@ else( WIN32 )
 endif( WIN32 )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME} )
+
+if (OPENCL_INTREE_BUILD)
+  add_dependencies(${TARGET_NAME} common_clang${BUILD_PLATFORM})
+endif()

@@ -40,9 +40,9 @@ std::string GetDriverStorePath()
 {
   char dllPath[MAX_PATH];
 #ifdef _M_X64
-  char* crt_name = "IntelOpenCL64.dll";
+  const char* crt_name = "IntelOpenCL64.dll";
 #else //(_M_X64)
-  char* crt_name = "IntelOpenCL32.dll";
+  const char* crt_name = "IntelOpenCL32.dll";
 #endif //(_M_X64)
   DWORD Length = GetModuleFileNameA(
                    GetModuleHandleA(crt_name),
