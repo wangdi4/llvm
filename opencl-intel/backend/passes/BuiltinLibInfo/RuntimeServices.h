@@ -93,12 +93,23 @@ public:
   /// @param the function name that is a subject to check
   virtual bool needsVPlanStyleMask(StringRef) const = 0;
 
-  /// @brief returns true iff whenever the there is vector argument to 
-  ///        a vectorizeable scalar built-in it should be spread for 
-  ///        the packertized version 
-  ///        foo(<2 float> %a) --> foo4(<4 x float> %a.x, <4 xfloat> %a.y)
+  /// @brief returns true iff whenever there is a vector argument to
+  ///        a vectorizeable scalar built-in it should be spread for
+  ///        the packetized version
+  ///        foo(<2 x float> %a) --> foo4(<4 x float> %a.x, <4 xfloat> %a.y)
   virtual bool alwaysSpreadVectorParams() const = 0;
 
+  /// @brief returns true iff whenever there is a vector return
+  ///        of a vectorizeable scalar built-in it should be concatenated
+  ///        for the packetized version:
+  ///        <2 x float> foo(...) --> <8 x float> foo4(...)
+  virtual bool needsConcatenatedVectorReturn(StringRef) const = 0;
+
+  /// @brief returns true iff whenever there is a vector argument to
+  ///        a vectorizeable scalar built-in it should be concatenated
+  ///        for the packetized version:
+  ///        foo(<2 x float> %a) --> foo4(<8 x float>)
+  virtual bool needsConcatenatedVectorParams(StringRef) const = 0;
 };
 
 } // Namespace

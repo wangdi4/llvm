@@ -735,9 +735,12 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
   llvm::StringRef funcName = CI->getCalledFunction()->getName();
   const std::auto_ptr<VectorizerFunction> foundFunction =
     m_rtServices->findBuiltinFunction(funcName);
-  if (!foundFunction->isNull() && foundFunction->getWidth() == 1 &&
-    foundFunction->isPacketizable())
-  {
+  bool RequireFakeInsertExtracts =
+      m_rtServices->needsConcatenatedVectorParams(funcName) ||
+      m_rtServices->needsConcatenatedVectorReturn(funcName);
+  if ((!foundFunction->isNull() && foundFunction->getWidth() == 1 &&
+       foundFunction->isPacketizable()) ||
+      RequireFakeInsertExtracts) {
     scalarizeCallWithVecArgsToScalarCallsWithScalarArgs(CI);
     return;
   }

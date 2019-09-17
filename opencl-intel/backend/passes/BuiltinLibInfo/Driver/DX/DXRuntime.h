@@ -90,11 +90,23 @@ public:
   /// @param the function name that is a subject to check
   bool needsVPlanStyleMask(StringRef) const override;
 
-  /// @brief returns true iff whenever the there is vector argument to 
+  /// @brief returns true iff whenever there is a vector argument to 
   ///        a vectorizeable scalar built-in it should be spread for 
   ///        the packertized version 
   ///        foo(<2 x float> %a) --> foo4(<4 x float> %a.x, <4 x float> %a.y)
   virtual bool alwaysSpreadVectorParams() const {return false;}
+
+  /// @brief returns true iff whenever there is a vector return
+  ///        of a vectorizeable scalar built-in it should be concatenated
+  ///        for the packetized version:
+  ///        <2 x float> foo(...) --> <8 x float> foo4(...)
+  bool needsConcatenatedVectorReturn(StringRef) const override { return false; }
+
+  /// @brief returns true iff whenever there is a vector argument to
+  ///        a vectorizeable scalar built-in it should be concatenated
+  ///        for the packetized version:
+  ///        foo(<2 x float> %a) --> foo4(<8 x float>)
+  bool needsConcatenatedVectorParams(StringRef) const override { return false; }
 
 private:
   DXRuntime(); // Do not implement
