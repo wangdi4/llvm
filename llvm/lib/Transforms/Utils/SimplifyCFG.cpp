@@ -5134,12 +5134,64 @@ static bool EliminateRedundantCases(SwitchInst *SI) {
       CasesToBeRemoved.push_back(C);
   }
 
+  // If there is profile data on the switch instruction, collect
+  // a mapping of the case constant to the branch weight so that the
+  // profile weights can be reconstructed. We need this mapping because the
+  // update to the switch instruction may reorder the case value list, so we
+  // cannot just modify the branch weight list to drop entries from the indices
+  // of the cases being removed.
+  DenseMap<ConstantInt *, uint64_t> OrigValueToWeight;
+  uint64_t DefaultExecWeight = 0;
+  bool ProfileUpdateNeeded = false;
+  if (!CasesToBeRemoved.empty() && HasBranchWeights(SI)) {
+    SmallVector<uint64_t, 8> Weights;
+    GetBranchWeights(SI, Weights);
+
+    // Make sure there is a weight for each case. The IR verifier should
+    // report the module as broken, if this is not true.
+    if (Weights.size() == 1 + SI->getNumCases()) {
+      ProfileUpdateNeeded = true;
+      DefaultExecWeight = Weights[0];
+      uint32_t Idx = 1;
+      for (auto C = SI->case_begin(), E = SI->case_end(); C != E; ++C)
+        OrigValueToWeight.insert({ C->getCaseValue(), Weights[Idx++] });
+    }
+  }
+
   // Remove all redundant cases.
-  for (auto C = CasesToBeRemoved.rbegin(), 
-            E = CasesToBeRemoved.rend(); C != E; ++C) {
+  for (auto C = CasesToBeRemoved.rbegin(), E = CasesToBeRemoved.rend(); C != E;
+       ++C) {
+    if (ProfileUpdateNeeded) {
+      auto Weight = OrigValueToWeight[(*C)->getCaseValue()];
+      DefaultExecWeight += Weight;
+    }
+
     (*C)->getCaseSuccessor()->removePredecessor(SI->getParent());
     SI->removeCase(*C);
     Modified = true;
+  }
+
+  if (ProfileUpdateNeeded) {
+    // Construct a new vector of profile counts for the cases that remain, in
+    // the order the case constants now exist in the switch instruction.
+    //
+    // Note, the profile metadata uses 32 bit values, however the
+    // GetBranchWeights() routine extracts them as 64-bit values. If the default
+    // execution count value has exceeded to max for a 32-bit, we need to
+    // normalize the values.
+    SmallVector<uint32_t, 8> NewWeights;
+    uint64_t NormalizationValue =
+        DefaultExecWeight <= std::numeric_limits<uint32_t>::max()
+            ? 1
+            : DefaultExecWeight / std::numeric_limits<uint32_t>::max() + 1;
+
+    NewWeights.push_back(DefaultExecWeight / NormalizationValue);
+    for (auto C = SI->case_begin(), E = SI->case_end(); C != E; ++C) {
+      auto Weight = OrigValueToWeight[C->getCaseValue()] / NormalizationValue;
+      NewWeights.push_back(Weight);
+    }
+
+    setBranchWeights(SI, NewWeights);
   }
 
   return Modified;
