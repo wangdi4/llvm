@@ -406,16 +406,14 @@ class Value;
   /// Return true if the only users of this pointer are lifetime markers.
   bool onlyUsedByLifetimeMarkers(const Value *V);
 
-<<<<<<< HEAD
-  bool onlyUsedByLifetimeAndVarAnnot(const Value *V);    //INTEL
-=======
   /// Return true if speculation of the given load must be suppressed to avoid
   /// ordering or interfering with an active sanitizer.  If not suppressed,
   /// dereferenceability and alignment must be proven separately.  Note: This
   /// is only needed for raw reasoning; if you use the interface below
   /// (isSafeToSpeculativelyExecute), this is handled internally.
   bool mustSuppressSpeculation(const LoadInst &LI);
->>>>>>> 1e1db800487cbaf96e8f7809e3df42ba979c121d
+
+  bool onlyUsedByLifetimeAndVarAnnot(const Value *V);    //INTEL
 
   /// Return true if the instruction does not have any effects besides
   /// calculating the result and does not have undefined behavior.
