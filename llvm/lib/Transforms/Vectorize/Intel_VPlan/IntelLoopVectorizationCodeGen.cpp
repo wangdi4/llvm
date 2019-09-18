@@ -1037,8 +1037,15 @@ Value *VPOCodeGen::getVectorValue(Value *V) {
   if (V->getType()->isVectorTy()) {
     assert(V->getType()->getVectorElementType()->isSingleValueType() &&
            "Re-vectorization is supported for simple vectors only");
+    // Widen the uniform vector variable as following
+    //                        <i32 0, i32 1>
+    //                             |
+    //                             |VF = 4
+    //                             |
+    //                             V
+    //          <i32 0, i32 1,i32 0, i32 1,i32 0, i32 1,i32 0, i32 1>
     WidenMap[V] =
-        replicateVectorElts(V, VF, Builder, "replicatedVal." + V->getName());
+        replicateVector(V, VF, Builder, "replicatedVal." + V->getName());
   } else
     WidenMap[V] = getBroadcastInstrs(V);
 
@@ -1491,7 +1498,17 @@ void VPOCodeGen::vectorizeSelectInstruction(Instruction *Inst) {
     VCond = getScalarValue(Cond, 0);
   else if (Inst->getType()->isVectorTy()) {
     unsigned OriginalVL = Inst->getType()->getVectorNumElements();
-    VCond = replicateVector(VCond, OriginalVL, Builder);
+
+    // Widen the cond variable as following
+    //                        <0, 1, 0, 1>
+    //                             |
+    //                             | VF = 4,
+    //                             | OriginalVL = 2
+    //                             |
+    //                             V
+    //                  <0, 0, 1, 1, 0, 0, 1, 1>
+
+    VCond = replicateVectorElts(VCond, OriginalVL, Builder);
   }
   Value *NewSelect = Builder.CreateSelect(VCond, Op0, Op1);
 
@@ -3000,6 +3017,10 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
   }
   case Instruction::Select: {
     Value *M = getVectorValue(VPInst->getOperand(0));
+    if (VPInst->getType()->isVectorTy()) {
+      unsigned OriginalVL = VPInst->getType()->getVectorNumElements();
+      M = replicateVectorElts(M, OriginalVL, Builder);
+    }
     Value *A = getVectorValue(VPInst->getOperand(1));
     Value *B = getVectorValue(VPInst->getOperand(2));
     Value *V = Builder.CreateSelect(M, A, B);
