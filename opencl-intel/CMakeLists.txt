@@ -75,8 +75,11 @@ add_definitions( -DTBB_BINARIES_POSTFIX="${TBB_BINARIES_POSTFIX}"
 # TODO: consider to remove from OpenCL CMake scripts
 add_definitions( -DINTEL_CUSTOMIZATION )
 
-if (WIN32)
+if (WIN32 AND NOT OPENCL_INTREE_BUILD)
   # Add definitions that make MSVC much less annoying.
+  # FIXME: all these flags are added to RC_FLAGS, but most of them
+  #        do not make much sense for RC compiler. These have to be
+  #        added as flags, not as definitions.
   add_definitions(
     # For some reason MS wants to deprecate a bunch of standard functions...
     -D_CRT_SECURE_NO_DEPRECATE
@@ -156,8 +159,21 @@ endif (NOT WIN32)
 #
 project(OCL C CXX)
 
+if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+    set(ADDR 32)
+else ()
+    set(ADDR 64)
+endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
+
+# set windows binary suffix
+if (WIN32)
+    set (BUILD_PLATFORM ${ADDR})
+else (WIN32)
+    set (BUILD_PLATFORM "")
+endif (WIN32)
+
 if (OPENCL_INTREE_BUILD)
-  get_target_property(COMMON_CLANG_H_LOC common_clang SOURCE_DIR)
+  get_target_property(COMMON_CLANG_H_LOC common_clang${BUILD_PLATFORM} SOURCE_DIR)
   if ((NOT COMMON_CLANG_H_LOC) OR
       (NOT EXISTS "${COMMON_CLANG_H_LOC}/common_clang.h"))
     message(FATAL_ERROR
@@ -284,19 +300,6 @@ else ()
     set(DLL_SUFIX .so)
     set(DYNAMIC_PREFIX "" )
 endif( )
-
-if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-    set(ADDR 32)
-else ()
-    set(ADDR 64)
-endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
-
-# set windows binary suffix
-if (WIN32)
-    set (BUILD_PLATFORM ${ADDR})
-else (WIN32)
-    set (BUILD_PLATFORM "")
-endif (WIN32)
 
 set(OCL_SYS_DEPENDENT_SUBDIR        ${OS}${ADDR}_${INSTALL_SUBDIR})
 set(OCL_SYS_DEPENDENT_IMPLIB_SUBDIR ${IMPLIB_SUBDIR}/${OCL_SYS_DEPENDENT_SUBDIR})

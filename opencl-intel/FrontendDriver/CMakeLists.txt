@@ -124,7 +124,7 @@ add_opencl_library (${TARGET_NAME} SHARED
 )
 
 if (OPENCL_INTREE_BUILD)
-  add_dependencies(${TARGET_NAME} common_clang)
+  add_dependencies(${TARGET_NAME} common_clang${BUILD_PLATFORM})
 endif()
 
 if (WIN32)
