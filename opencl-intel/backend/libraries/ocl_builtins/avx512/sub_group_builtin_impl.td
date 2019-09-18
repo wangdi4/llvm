@@ -1,4 +1,68 @@
 //
+// Ballot
+//
+
+OclBuiltinImpl intel_sub_group_ballot_avx512fvf16 = OclBuiltinImpl<intel_sub_group_ballot_vf16, [v16i32], 0,
+  [{
+    // This implementation only applicable as long as CPU supports sub group size <= 32,
+    // anything above that would have to extend to the second element of uint4 return vector.
+    __mmask16 mask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    uint16 res = (uint16)(uint)_mm512_mask_cmp_epi32_mask(mask, $Arg0VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    uint16 zero = (uint16) 0;
+    return __builtin_shufflevector(res, zero, 0,  16, 16, 16,
+                                              1,  16, 16, 16,
+                                              2,  16, 16, 16,
+                                              3,  16, 16, 16,
+                                              4,  16, 16, 16,
+                                              5,  16, 16, 16,
+                                              6,  16, 16, 16,
+                                              7,  16, 16, 16,
+                                              8,  16, 16, 16,
+                                              9,  16, 16, 16,
+                                              10, 16, 16, 16,
+                                              11, 16, 16, 16,
+                                              12, 16, 16, 16,
+                                              13, 16, 16, 16,
+                                              14, 16, 16, 16,
+                                              15, 16, 16, 16);
+  }]>;
+
+OclBuiltinImpl intel_sub_group_ballot_avx512fvf8 = OclBuiltinImpl<intel_sub_group_ballot_vf8, [v8i32], 0,
+  [{
+     // This implementation only applicable as long as CPU supports sub group size <= 32,
+     // anything above that would have to extend to the second element of uint4 return vector.
+     __mmask8 mask = _mm256_cmp_epi32_mask($Arg1VarName, _mm256_setzero_ps(), _MM_CMPINT_NE);
+     uint8 res  = (uint8)(uint)_mm256_mask_cmp_epi32_mask(mask, $Arg0VarName, _mm256_setzero_ps(), _MM_CMPINT_NE);
+     uint8 zero = (uint8) 0;
+     return __builtin_shufflevector(res, zero, 0, 8, 8, 8,
+                                               1, 8, 8, 8,
+                                               2, 8, 8, 8,
+                                               3, 8, 8, 8,
+                                               4, 8, 8, 8,
+                                               5, 8, 8, 8,
+                                               6, 8, 8, 8,
+                                               7, 8, 8, 8);
+  }]>;
+
+OclBuiltinImpl intel_sub_group_ballot_avx512fvf4 = OclBuiltinImpl<intel_sub_group_ballot_vf4, [v4i32], 0,
+  [{
+    // This implementation only applicable as long as CPU supports sub group size <= 32,
+    // anything above that would have to extend to the second element of uint4 return vector.
+    uint8 temp_mask;
+    temp_mask.hi = 0;
+    temp_mask.lo = $Arg1VarName;
+    int8 temp_pred;
+    temp_pred.lo = $Arg0VarName;
+    __mmask8 mask = _mm256_cmp_epi32_mask(temp_mask, _mm256_setzero_ps(), _MM_CMPINT_NE);
+    uint8 res  = (uint8)(uint)_mm256_mask_cmp_epi32_mask(mask, temp_pred, _mm256_setzero_ps(), _MM_CMPINT_NE);
+    uint4 zero = (uint4) 0;
+    return __builtin_shufflevector(res.lo, zero, 0, 4, 4, 4,
+                                                 1, 4, 4, 4,
+                                                 2, 4, 4, 4,
+                                                 3, 4, 4, 4);
+  }]>;
+
+//
 // Broadcast
 //
 

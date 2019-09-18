@@ -1,4 +1,24 @@
 //
+// Ballot (NEO-like)
+//
+// NOT overloadable
+let NeedForwardDecl = 1 in {
+  let Types = [ v1i32 ] in {
+    def intel_sub_group_ballot_igc : OclBuiltin<"intel_sub_group_ballot", (outs ugentype:$ret), (ins bool:$pred), [], [], 1, 0>;
+  }
+  let Types = [ v4i32 ]  in {
+    def intel_sub_group_ballot_igc_vf4 : OclBuiltin<"intel_sub_group_ballot_vf4", (outs ugentype:$ret), (ins bool:$pred), [], [], 1, 0>;
+  }
+  let Types = [ v8i32 ]  in {
+    def intel_sub_group_ballot_igc_vf8 : OclBuiltin<"intel_sub_group_ballot_vf8", (outs ugentype:$ret), (ins bool:$pred), [], [], 1, 0>;
+  }
+  let Types = [ v16i32 ] in {
+    def intel_sub_group_ballot_igc_vf16 : OclBuiltin<"intel_sub_group_ballot_vf16", (outs ugentype:$ret), (ins bool:$pred), [], [], 1, 0>;
+  }
+}
+
+
+//
 // Sub group functions and their vectorized versions
 //
 let NeedForwardDecl = 1,
@@ -44,6 +64,23 @@ Attrs = [OVERLOADABLE] in {
         def sub_group_scan_inclusive_min_vec  : OclBuiltin<"sub_group_scan_inclusive_min",  (outs gentype:$ret), (ins gentype:$src, u32gentype:$vec_mask), [], [], 1, 0>;
         def sub_group_scan_inclusive_max_vec  : OclBuiltin<"sub_group_scan_inclusive_max",  (outs gentype:$ret), (ins gentype:$src, u32gentype:$vec_mask), [], [], 1, 0>;
       }
+
+  // Scalar ballot_next
+  let Types = [v1i32] in {
+    def intel_sub_group_ballot : OclBuiltin<"intel_sub_group_ballot", (outs v4u32:$ret), (ins gentype:$predicate), [], [], 1, 0>;
+  }
+
+  let Types = [v4i32] in {
+    def intel_sub_group_ballot_vf4 : OclBuiltin<"intel_sub_group_ballot", (outs v16u32:$ret), (ins gentype:$predicate, u32gentype:$vec_mask), [], [], 1, 0>;
+  }
+
+  let Types = [v8i32] in {
+    def intel_sub_group_ballot_vf8 : OclBuiltin<"intel_sub_group_ballot", (outs v32u32:$ret), (ins gentype:$predicate, u32gentype:$vec_mask), [], [], 1, 0>;
+  }
+
+  let Types = [v16i32] in {
+    def intel_sub_group_ballot_vf16 : OclBuiltin<"intel_sub_group_ballot", (outs v64u32:$ret), (ins gentype:$predicate, u32gentype:$vec_mask), [], [], 1, 0>;
+  }
 
   // Declare "scalar" (not vectorized) versions of shuffle.
   let Types = [v1i32, v1u32, v1i64, v1u64, v1f32, v1f64,
@@ -145,6 +182,21 @@ foreach func_name = [ "sub_group_broadcast", "sub_group_reduce_add", "sub_group_
     nullCell],
     0,1>;          //not scalarizable, packetizable
   }
+}
+
+foreach func_name = [ "intel_sub_group_ballot_igc", "intel_sub_group_ballot" ] in {
+  def func_name#_cell1  : MapCell<!cast<OclBuiltin>(func_name), v1i32>;
+  def func_name#_cell4  : MapCell<!cast<OclBuiltin>(func_name#_#"vf4"), v4i32>;
+  def func_name#_cell8  : MapCell<!cast<OclBuiltin>(func_name#_#"vf8"), v8i32>;
+  def func_name#_cell16 : MapCell<!cast<OclBuiltin>(func_name#_#"vf16"), v16i32>;
+  def func_name#_vectorized : MapRow<[
+    !cast<MapCell>(func_name#"_cell1"),  //scalar
+    nullCell,                            //v2
+    !cast<MapCell>(func_name#"_cell4"),  //v4
+    !cast<MapCell>(func_name#"_cell8"),  //v8
+    !cast<MapCell>(func_name#"_cell16"), //16
+    nullCell],                           //3
+    0,1>;          //not scalarizable, packetizable
 }
 
 foreach func_name = [ "sub_group_shuffle", "sub_group_shuffle_xor", "sub_group_shuffle_up", "sub_group_shuffle_down" ] in {

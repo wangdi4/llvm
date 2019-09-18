@@ -10,6 +10,25 @@ list<OclType> sub_group_types_suffle_scalar = [v1i32, v1u32, v1i64, v1u64, v1f32
                                          v2f32, v4f32, v8f32, v16f32];
 
 list<OclType> sub_group_types_block_read_write_scalar = [v1u32];
+
+//
+// Ballot (NEO-like)
+//
+
+OclBuiltinImpl intel_sub_group_ballot_igc_fake = OclBuiltinImpl<intel_sub_group_ballot_igc, [v1i32], 0,
+  [{
+    return $Arg0VarName;
+  }]>;
+
+//
+// Ballot
+//
+
+OclBuiltinImpl intel_sub_group_ballot_fake = OclBuiltinImpl<intel_sub_group_ballot, sub_group_types_all_any_scalar, 0,
+  [{
+    return (uint4)$Arg0VarName;
+  }]>;
+
 //
 // Reductions
 //

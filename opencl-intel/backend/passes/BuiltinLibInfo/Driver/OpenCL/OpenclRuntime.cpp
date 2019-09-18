@@ -256,7 +256,8 @@ bool OpenclRuntime::isWorkItemBuiltin(const std::string &name) const {
 }
 
 bool OpenclRuntime::needsVPlanStyleMask(StringRef name) const {
-  return name.contains("sub_group_all") ||
+  return name.contains("intel_sub_group_ballot") ||
+         name.contains("sub_group_all") ||
          name.contains("sub_group_any") ||
          name.contains("sub_group_broadcast") ||
          name.contains("sub_group_reduce_add") ||
