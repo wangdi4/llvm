@@ -145,6 +145,11 @@ static cl::opt<unsigned> HIRScalarReplArrayNumRegThreshold(
     "hir-scalarrepl-array-num-reg-threshold", cl::init(100), cl::Hidden,
     cl::desc("Threshold for number of registers which can be used per loop."));
 
+// Enable scalar replacement on the whole loop nest
+static cl::opt<bool> HIRScalarReplArrayLoopNest(
+    "hir-scalarrepl-array-loopnest", cl::init(false), cl::Hidden,
+    cl::desc("Enable HIR scalar replacament of references for the loop nest"));
+
 STATISTIC(HIRScalarReplArrayPerformed,
           "Number of HIR Scalar Replacement of Array (HSRA) Performed");
 
@@ -1025,7 +1030,10 @@ bool HIRScalarReplArray::run() {
 
   // Gather ALL Innermost Loops as Candidates, use 64 increment
   SmallVector<HLLoop *, 64> CandidateLoops;
-  HNU.gatherInnermostLoops(CandidateLoops);
+  if(HIRScalarReplArrayLoopNest)
+    HNU.gatherAllLoops(CandidateLoops);
+  else
+    HNU.gatherInnermostLoops(CandidateLoops);
 
   if (CandidateLoops.empty()) {
     LLVM_DEBUG(
@@ -1131,6 +1139,11 @@ static bool isValid(RefGroupTy &Group, unsigned LoopLevel) {
   }
 
   auto *FirstRef = Group[0];
+
+  if(HIRScalarReplArrayLoopNest)
+    if (FirstRef ->getNodeLevel() != LoopLevel) {
+      return false;
+    }
 
   if (FirstRef->isNonLinear()) {
     return false;
