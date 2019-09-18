@@ -18,6 +18,7 @@
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelLoopVectorizationLegality.h"
 #include "IntelVPOCodeGen.h"
+#include "IntelVPlanAllZeroBypass.h"
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanHCFGBuilder.h"
@@ -75,6 +76,13 @@ static cl::opt<bool> DotAfterLinearization(
     "vplan-dot-after-linearization", cl::init(false), cl::Hidden,
     cl::desc("Print VPlan digraph after predication and linearization."));
 
+static cl::opt<bool> PrintAfterAllZeroBypass(
+    "vplan-print-after-all-zero-bypass", cl::init(false), cl::Hidden,
+    cl::desc("Print VPlan after all zero bypass insertion."));
+
+static cl::opt<bool> DotAfterAllZeroBypass(
+    "vplan-dot-after-all-zero-bypass", cl::init(false), cl::Hidden,
+    cl::desc("Print VPlan digraph after all zero bypass insertion."));
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 using namespace llvm;
@@ -413,6 +421,34 @@ void LoopVectorizationPlanner::predicate() {
 
     PredicatedVPlans.insert(VPlan);
   }
+}
+
+void LoopVectorizationPlanner::insertAllZeroBypasses(VPlan *Plan) {
+  // Skip multi-exit loops at outer VPlan level. Inner loops will be
+  // canonicalized to single exit in VPlan. TODO: this check is only
+  // needed due to hacky search loop support. Change to assert in the
+  // future.
+  VPLoop *VPLp = *(Plan->getVPLoopInfo()->begin());
+  if (!VPLp->getExitBlock())
+    return;
+
+  // Holds the pair of blocks representing the begin/end of an all-zero
+  // bypass region. The block-predicate at the begin block is used to
+  // generate the bypass.
+  VPlanAllZeroBypass::AllZeroBypassRegionsTy AllZeroBypassRegions;
+  VPlanAllZeroBypass AZB(*Plan);
+  AZB.collectAllZeroBypassRegions(AllZeroBypassRegions);
+  AZB.insertAllZeroBypasses(AllZeroBypassRegions);
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (PrintAfterAllZeroBypass) {
+    outs() << "After all zero bypass insertion\n";
+    Plan->dump(outs(), true /* print DA info */);
+  }
+  if (DotAfterAllZeroBypass) {
+    outs() << *Plan;
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 }
 
 void LoopVectorizationPlanner::unroll(
