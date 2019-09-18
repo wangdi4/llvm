@@ -64,6 +64,7 @@ MODULE_PASS("dtrans-deletefield", dtrans::DeleteFieldPass())     // INTEL
 MODULE_PASS("dtrans-reorderfields", dtrans::ReorderFieldsPass()) // INTEL
 MODULE_PASS("dtrans-resolvetypes", dtrans::ResolveTypesPass())   // INTEL
 MODULE_PASS("dtrans-dynclone", dtrans::DynClonePass())           // INTEL
+MODULE_PASS("dtrans-soatoaos-prepare", dtrans::SOAToAOSPreparePass()) // INTEL
 MODULE_PASS("dtrans-soatoaos", dtrans::SOAToAOSPass())           // INTEL
 MODULE_PASS("dtrans-weakalign", dtrans::WeakAlignPass())         // INTEL
 MODULE_PASS("dtrans-paddedmalloc", dtrans::PaddedMallocPass())   // INTEL
