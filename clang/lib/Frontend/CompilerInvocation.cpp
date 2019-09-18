@@ -2633,8 +2633,6 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       Args.hasArg(OPT_fopenmp_threadprivate_legacy);
   Opts.IntelDriverTempfileName =
       Args.getLastArgValue(OPT_fintel_driver_tempfile_name_EQ);
-  Opts.Restrict =
-      Args.hasFlag(OPT_restrict, OPT_no_restrict, /*Default=*/Opts.C99);
   // Fix for CQ#373517: compilation fails with 'redefinition of default
   // argument'.
   Opts.GnuPermissive = Args.hasArg(OPT_gnu_permissive);

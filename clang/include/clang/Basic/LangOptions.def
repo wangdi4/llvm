@@ -99,8 +99,6 @@ LANGOPT(IntelAdvancedOptim, 1, 0,
 LANGOPT(Zc_forScope      , 1, 1, "Supports Microsoft C++ behavior for the For loops")
 LANGOPT(Float128, 1, 0, "128 bit float support")
 LANGOPT(IntelQuad, 1, 0, "Intel's 128 bit float support")
-LANGOPT(Restrict         , 1, 0,
-        "Enables the 'restrict' keyword for disambiguating pointers")
 // CQ#373517, CQ#376357: GCC -fpermissive mode.
 LANGOPT(GnuPermissive   , 1, 0, "Turns on GNU -fpermissive mode")
 // Fix for CQ380574: Ability to set various predefines based on gcc version
