@@ -1394,6 +1394,15 @@ MachineInstr *CSASeqOpt::StrideToSeq(MachineInstr *cmpInst,
   auto loopGroup = LMFI->getLICGroup(PickResultReg);
   LMFI->setLICGroup(firstReg, loopGroup);
   LMFI->setLICGroup(lastReg, loopGroup);
+
+  auto predGroup = LMFI->getLICGroup(LoopPredicate);
+  if (predGroup->LoopId == 0) {
+    // Assign first/last's loop id to LoopPredicate's LIC group.
+    predGroup->LoopId = loopGroup->LoopId;
+  } else {
+    assert(predGroup->LoopId == loopGroup->LoopId);
+  }
+
   return seqInstr;
 }
 
