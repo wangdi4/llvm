@@ -133,83 +133,83 @@ OclBuiltinImpl sub_group_shuffle_down_vec_type_fake = OclBuiltinImpl<sub_group_s
 
 OclBuiltinImpl intel_sub_group_block_read_fake = OclBuiltinImpl<intel_sub_group_block_read, sub_group_types_block_read_write_scalar, 0,
   [{
-    return 0;
+    return *$Arg0VarName;
   }]>;
 
 OclBuiltinImpl intel_sub_group_block_read2_fake = OclBuiltinImpl<intel_sub_group_block_read2, sub_group_types_block_read_write_scalar, 0,
   [{
-    return 0;
+    return *$Arg0VarName;
   }]>;
 
 OclBuiltinImpl intel_sub_group_block_read4_fake = OclBuiltinImpl<intel_sub_group_block_read4, sub_group_types_block_read_write_scalar, 0,
   [{
-    return 0;
+    return *$Arg0VarName;
   }]>;
 
 OclBuiltinImpl intel_sub_group_block_read8_fake = OclBuiltinImpl<intel_sub_group_block_read8, sub_group_types_block_read_write_scalar, 0,
   [{
-    return 0;
+    return *$Arg0VarName;
   }]>;
 
 // vector types
 OclBuiltinImpl intel_sub_group_block_read1_4_fake = OclBuiltinImpl<intel_sub_group_block_read1_4, sub_group_types_block_read_write_scalar, 0,
   [{
-    return 0;
+    return *$Arg0VarName;
   }]>;
 
 OclBuiltinImpl intel_sub_group_block_read2_4_fake = OclBuiltinImpl<intel_sub_group_block_read2_4, sub_group_types_block_read_write_scalar, 0,
   [{
-    return 0;
+    return *$Arg0VarName;
   }]>;
 
 OclBuiltinImpl intel_sub_group_block_read4_4_fake = OclBuiltinImpl<intel_sub_group_block_read4_4, sub_group_types_block_read_write_scalar, 0,
   [{
-    return 0;
+    return *$Arg0VarName;
   }]>;
 
 OclBuiltinImpl intel_sub_group_block_read8_4_fake = OclBuiltinImpl<intel_sub_group_block_read8_4, sub_group_types_block_read_write_scalar, 0,
   [{
-    return 0;
+    return *$Arg0VarName;
   }]>;
 
 OclBuiltinImpl intel_sub_group_block_read1_8_fake = OclBuiltinImpl<intel_sub_group_block_read1_8, sub_group_types_block_read_write_scalar, 0,
   [{
-    return 0;
+    return *$Arg0VarName;
   }]>;
 
 OclBuiltinImpl intel_sub_group_block_read2_8_fake = OclBuiltinImpl<intel_sub_group_block_read2_8, sub_group_types_block_read_write_scalar, 0,
   [{
-    return 0;
+    return *$Arg0VarName;
   }]>;
 
 OclBuiltinImpl intel_sub_group_block_read4_8_fake = OclBuiltinImpl<intel_sub_group_block_read4_8, sub_group_types_block_read_write_scalar, 0,
   [{
-    return 0;
+    return *$Arg0VarName;
   }]>;
 
 OclBuiltinImpl intel_sub_group_block_read8_8_fake = OclBuiltinImpl<intel_sub_group_block_read8_8, sub_group_types_block_read_write_scalar, 0,
   [{
-    return 0;
+    return *$Arg0VarName;
   }]>;
 
 OclBuiltinImpl intel_sub_group_block_read1_16_fake = OclBuiltinImpl<intel_sub_group_block_read1_16, sub_group_types_block_read_write_scalar, 0,
   [{
-    return 0;
+    return *$Arg0VarName;
   }]>;
 
 OclBuiltinImpl intel_sub_group_block_read2_16_fake = OclBuiltinImpl<intel_sub_group_block_read2_16, sub_group_types_block_read_write_scalar, 0,
   [{
-    return 0;
+    return *$Arg0VarName;
   }]>;
 
 OclBuiltinImpl intel_sub_group_block_read4_16_fake = OclBuiltinImpl<intel_sub_group_block_read4_16, sub_group_types_block_read_write_scalar, 0,
   [{
-    return 0;
+    return *$Arg0VarName;
   }]>;
 
 OclBuiltinImpl intel_sub_group_block_read8_16_fake = OclBuiltinImpl<intel_sub_group_block_read8_16, sub_group_types_block_read_write_scalar, 0,
   [{
-    return 0;
+    return *$Arg0VarName;
   }]>;
 
 ///
@@ -220,70 +220,82 @@ OclBuiltinImpl intel_sub_group_block_read8_16_fake = OclBuiltinImpl<intel_sub_gr
 
 OclBuiltinImpl intel_sub_group_block_write_fake = OclBuiltinImpl<intel_sub_group_block_write, sub_group_types_block_read_write_scalar, 0,
   [{
-    return;
+    *$Arg0VarName = $Arg1VarName;
   }]>;
 
 OclBuiltinImpl intel_sub_group_block_write2_fake = OclBuiltinImpl<intel_sub_group_block_write2, sub_group_types_block_read_write_scalar, 0,
   [{
-    return;
+    *$Arg0VarName = $Arg1VarName.s0;
   }]>;
 
 OclBuiltinImpl intel_sub_group_block_write4_fake = OclBuiltinImpl<intel_sub_group_block_write4, sub_group_types_block_read_write_scalar, 0,
   [{
-    return;
+    *$Arg0VarName = $Arg1VarName.s0;
   }]>;
 
 OclBuiltinImpl intel_sub_group_block_write8_fake = OclBuiltinImpl<intel_sub_group_block_write8, sub_group_types_block_read_write_scalar, 0,
   [{
-    return;
+    *$Arg0VarName = $Arg1VarName.s0;
   }]>;
 
 // vector
 
 OclBuiltinImpl intel_sub_group_block_write1_4_fake = OclBuiltinImpl<intel_sub_group_block_write1_4, sub_group_types_block_read_write_scalar, 0,
   [{
+    *$Arg0VarName = $Arg1VarName.s0;
   }]>;
 
 OclBuiltinImpl intel_sub_group_block_write2_4_fake = OclBuiltinImpl<intel_sub_group_block_write2_4, sub_group_types_block_read_write_scalar, 0,
   [{
+    *$Arg0VarName = $Arg1VarName.s0;
   }]>;
 
 OclBuiltinImpl intel_sub_group_block_write4_4_fake = OclBuiltinImpl<intel_sub_group_block_write4_4, sub_group_types_block_read_write_scalar, 0,
   [{
+    *$Arg0VarName = $Arg1VarName.s0;
   }]>;
 
 OclBuiltinImpl intel_sub_group_block_write8_4_fake = OclBuiltinImpl<intel_sub_group_block_write8_4, sub_group_types_block_read_write_scalar, 0,
   [{
+    *$Arg0VarName = $Arg1VarName.s0;
   }]>;
 
 OclBuiltinImpl intel_sub_group_block_write1_8_fake = OclBuiltinImpl<intel_sub_group_block_write1_8, sub_group_types_block_read_write_scalar, 0,
   [{
+    *$Arg0VarName = $Arg1VarName.s0;
   }]>;
 
 OclBuiltinImpl intel_sub_group_block_write2_8_fake = OclBuiltinImpl<intel_sub_group_block_write2_8, sub_group_types_block_read_write_scalar, 0,
   [{
+    *$Arg0VarName = $Arg1VarName.s0;
   }]>;
 
 OclBuiltinImpl intel_sub_group_block_write4_8_fake = OclBuiltinImpl<intel_sub_group_block_write4_8, sub_group_types_block_read_write_scalar, 0,
   [{
+    *$Arg0VarName = $Arg1VarName.s0;
   }]>;
 
 OclBuiltinImpl intel_sub_group_block_write8_8_fake = OclBuiltinImpl<intel_sub_group_block_write8_8, sub_group_types_block_read_write_scalar, 0,
   [{
+    *$Arg0VarName = $Arg1VarName.s0;
   }]>;
 
 OclBuiltinImpl intel_sub_group_block_write1_16_fake = OclBuiltinImpl<intel_sub_group_block_write1_16, sub_group_types_block_read_write_scalar, 0,
   [{
+    *$Arg0VarName = $Arg1VarName.s0;
   }]>;
 
 OclBuiltinImpl intel_sub_group_block_write2_16_fake = OclBuiltinImpl<intel_sub_group_block_write2_16, sub_group_types_block_read_write_scalar, 0,
   [{
+    *$Arg0VarName = $Arg1VarName.s0;
   }]>;
 
 OclBuiltinImpl intel_sub_group_block_write4_16_fake = OclBuiltinImpl<intel_sub_group_block_write4_16, sub_group_types_block_read_write_scalar, 0,
   [{
+    *$Arg0VarName = $Arg1VarName.s0;
   }]>;
 
 OclBuiltinImpl intel_sub_group_block_write8_16_fake = OclBuiltinImpl<intel_sub_group_block_write8_16, sub_group_types_block_read_write_scalar, 0,
   [{
+    *$Arg0VarName = $Arg1VarName.s0;
   }]>;
