@@ -1255,13 +1255,15 @@ bool VPOParoptTransform::paroptTransforms() {
 #endif  // INTEL_CUSTOMIZATION
 
             Instruction *InsertLastIterCheckBefore = nullptr;
+            Instruction *OMPLBForLinearClosedForm = nullptr;
             Changed |=
-                genLoopSchedulingCode(W, IsLastVal, InsertLastIterCheckBefore);
+                genLoopSchedulingCode(W, IsLastVal, InsertLastIterCheckBefore,
+                                      OMPLBForLinearClosedForm);
             // Privatization is enabled for Transform pass
             Changed |= genPrivatizationCode(W);
             Changed |= genLastIterationCheck(W, IsLastVal, IfLastIterBB,
                                              InsertLastIterCheckBefore);
-            Changed |= genLinearCode(W, IfLastIterBB);
+            Changed |= genLinearCode(W, IfLastIterBB, OMPLBForLinearClosedForm);
             // Must be in this order, if vars are both FP and LP
             Changed |= genLastPrivatizationCode(W, IfLastIterBB);
             Changed |= genFirstPrivatizationCode(W);
@@ -1592,12 +1594,14 @@ bool VPOParoptTransform::paroptTransforms() {
             AllocaInst *IsLastVal = nullptr;
             BasicBlock *IfLastIterBB = nullptr;
             Instruction *InsertLastIterCheckBefore = nullptr;
+            Instruction *OMPLBForLinearClosedForm = nullptr;
             Changed |=
-                genLoopSchedulingCode(W, IsLastVal, InsertLastIterCheckBefore);
+                genLoopSchedulingCode(W, IsLastVal, InsertLastIterCheckBefore,
+                                      OMPLBForLinearClosedForm);
             Changed |= genPrivatizationCode(W);
             Changed |= genLastIterationCheck(W, IsLastVal, IfLastIterBB,
                                              InsertLastIterCheckBefore);
-            Changed |= genLinearCode(W, IfLastIterBB);
+            Changed |= genLinearCode(W, IfLastIterBB, OMPLBForLinearClosedForm);
             Changed |= genLastPrivatizationCode(W, IfLastIterBB);
             Changed |= genFirstPrivatizationCode(W);
             if (!W->getIsDistribute()) {
@@ -3158,8 +3162,8 @@ void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
 //     |   llvm.region.exit(...)  |
 //     +--------------------------+
 //
-bool VPOParoptTransform::genLinearCode(WRegionNode *W,
-                                       BasicBlock *LinearFiniBB) {
+bool VPOParoptTransform::genLinearCode(WRegionNode *W, BasicBlock *LinearFiniBB,
+                                       Instruction *OMPLBForLinearClosedForm) {
   if (!W->canHaveLinear())
     return false;
 
@@ -3197,8 +3201,13 @@ bool VPOParoptTransform::genLinearCode(WRegionNode *W,
   LoopBodyBB = *LoopBodyBBIter;
   assert(LoopBodyBB && "genLinearCode: Null loop body.");
   Instruction *NewLinearInsertPt = EntryBB->getFirstNonPHI();
-  IRBuilder<> InitBuilder(LoopBodyBB->getFirstNonPHI());
-  Value *Index = WRegionUtils::getOmpCanonicalInductionVariable(L);
+  IRBuilder<> InitBuilder(
+      OMPLBForLinearClosedForm
+          ? GeneralUtils::nextUniqueInstruction(OMPLBForLinearClosedForm)
+          : LoopBodyBB->getFirstNonPHI());
+  Value *Index = OMPLBForLinearClosedForm
+                     ? OMPLBForLinearClosedForm
+                     : WRegionUtils::getOmpCanonicalInductionVariable(L);
   assert(Index && "genLinearCode: Null Loop index.");
 
   for (LinearItem *LinearI : LrClause.items()) {
@@ -4750,7 +4759,7 @@ void VPOParoptTransform::replaceUseWithinRegion(WRegionNode *W, Value *OldV,
 
 bool VPOParoptTransform::genLoopSchedulingCode(
     WRegionNode *W, AllocaInst *&IsLastVal,
-    Instruction *&InsertLastIterCheckBeforeOut) {
+    Instruction *&InsertLastIterCheckBeforeOut, Instruction *&NewOmpLBInstOut) {
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genLoopSchedulingCode\n");
 
   assert(W->getIsOmpLoop() && "genLoopSchedulingCode: not a loop-type WRN");
@@ -5097,6 +5106,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(
           WRegionUtils::getOmpPredicate(L, IsLeft));
   auto *NewZTTCompInst =
       PHBuilder.CreateICmp(PD, LoadLB, LoadUB, "omp.ztt");
+  NewOmpLBInstOut = cast<Instruction>(LoadLB);
 
   // Update the loop's predicate to use LoadUB value for the upper
   // bound.
@@ -5189,6 +5199,12 @@ bool VPOParoptTransform::genLoopSchedulingCode(
       Loop *OuterLoop = genDispatchLoopForStatic(
           L, LoadLB, LoadUB, LowerBnd, UpperBnd, UpperBndVal, Stride,
           LoopExitBB, StaticInitBB, LoopRegionExitBB);
+
+      // Do linear, lpriv copyout before incrementing lb/ub for the next chunk.
+      // This is needed because otherwise, linear copyout would use the value
+      // from the closed-form computation using 'lb + stride` after the end of
+      // the last chunk.
+      InsertLastIterCheckBeforeOut = LoopRegionExitBB->getFirstNonPHI();
 
       // Update SSA to account values living out of the loop_region_exit_block
       // (note that we did not introduce new live outs, even though we added
