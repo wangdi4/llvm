@@ -17,6 +17,17 @@
 ;   virtual void *deallocate() = 0;
 ; };
 ;
+; foo, which is an alias to bar, is called in F routine to make sure
+; MemInitTrimDown is able to handle aliases.
+;
+; void bar(void) {
+;   return;
+; }
+;
+; // Note that mangled name _Z3barv is used instead of bar to make
+; // clang to compile this code without syntax error.
+; void foo(void) __attribute__((alias("_Z3barv")));
+;
 ;template <typename S> struct Arr {
 ;   bool flag;
 ;   int capacity;
@@ -50,6 +61,7 @@
 ;     f2->set(0, nullptr);
 ;     f2->add(nullptr);
 ;     f1->add(nullptr);
+;     foo();
 ;   }
 ;
 ; };
@@ -83,6 +95,7 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.Arr = type { i8, i32, i32, i32***, %struct.Mem* }
 %struct.Arr1 = type { %struct.Arr.0 }
 %struct.Arr.0 = type { i8, i32, i32, float***, %struct.Mem* }
+@_Z3foov = internal unnamed_addr alias void (), void ()* @_Z3barv
 
 define dso_local i32 @main() {
 entry:
@@ -113,6 +126,7 @@ entry:
   tail call void @_ZN3ArrIPfE3addEPS0_(%struct.Arr.0* %5, float** null)
   %6 = load %struct.Arr*, %struct.Arr** %f1, align 8
   tail call void @_ZN3ArrIPiE3addEPS0_(%struct.Arr* %6, i32** null)
+  call void @_Z3foov()
   ret void
 }
 
@@ -161,6 +175,11 @@ entry:
 }
 
 define void @_ZN3ArrIPiE6resizeEv(%struct.Arr* %this) {
+entry:
+  ret void
+}
+
+define void @_Z3barv() {
 entry:
   ret void
 }

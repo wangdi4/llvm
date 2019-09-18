@@ -999,11 +999,8 @@ void VPOParoptTransform::addBranchToEndDirective(WRegionNode *W) {
 //   Paropt transformations for loop partitioning and outlining
 //
 bool VPOParoptTransform::paroptTransforms() {
-
   LLVMContext &C = F->getContext();
   bool RoutineChanged = false;
-
-  BasicBlock::iterator I = F->getEntryBlock().begin();
 
 #if INTEL_CUSTOMIZATION
   // Following two variables are used when generating remarks using
@@ -1012,20 +1009,18 @@ bool VPOParoptTransform::paroptTransforms() {
   Loop *ORLoop = nullptr;
 #endif  // INTEL_CUSTOMIZATION
 
-  // Setup Anchor Instuction Point
-  Instruction *AI = &*I;
-
   IdentTy = VPOParoptUtils::getIdentStructType(F);
 
   StringRef S = F->getName();
 
   if (!S.compare_lower(StringRef("@main"))) {
-    CallInst *RI = VPOParoptUtils::genKmpcBeginCall(F, AI, IdentTy);
-    RI->insertBefore(AI);
+    BasicBlock::iterator I = F->getEntryBlock().begin();
+    CallInst *RI = VPOParoptUtils::genKmpcBeginCall(F, &*I, IdentTy);
+    RI->insertBefore(&*I);
 
-    for (BasicBlock &I : *F) {
-      if (isa<ReturnInst>(I.getTerminator())) {
-        Instruction *Inst = I.getTerminator();
+    for (BasicBlock &BB : *F) {
+      if (isa<ReturnInst>(BB.getTerminator())) {
+        Instruction *Inst = BB.getTerminator();
 
         CallInst *RI = VPOParoptUtils::genKmpcEndCall(F, Inst, IdentTy);
         RI->insertBefore(Inst);
@@ -1078,7 +1073,7 @@ bool VPOParoptTransform::paroptTransforms() {
     BidPtrHolder = F->getParent()->getOrInsertGlobal("@bid.addr", Int32Ty);
 
   //
-  // Walk throught W-Region list, the outlining / lowering is performed from
+  // Walk through W-Region list, the outlining / lowering is performed from
   // inner to outer
   //
   for (auto I = WRegionList.begin(), E = WRegionList.end(); I != E; ++I) {
@@ -1154,7 +1149,7 @@ bool VPOParoptTransform::paroptTransforms() {
 #if INTEL_CUSTOMIZATION
             improveAliasForOutlinedFunc(W);
 #endif  // INTEL_CUSTOMIZATION
-            // Privatization is enabled for both Prepare and Transform passes
+            // Privatization is enabled for Transform pass
             Changed |= genPrivatizationCode(W);
             Changed |= genFirstPrivatizationCode(W);
             Changed |= genReductionCode(W);
@@ -1162,19 +1157,17 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= genDestructorCode(W);
             Changed |= captureAndAddCollectedNonPointerValuesToSharedClause(W);
             Changed |= genMultiThreadedCode(W);
-          }
 
-          RemoveDirectives = true;
-
-          LLVM_DEBUG(dbgs()<<"\n Parallel W-Region::"<<*W->getEntryBBlock());
-
-          if (IsTargetSPIRV) {
+            RemoveDirectives = true;
+          } else {
             // The directive gets removed, when processing the target region,
             // do not remove it here, since guardSideEffects needs the
             // parallel directive to insert barriers.
             RemoveDirectives = false;
             HandledWithoutRemovingDirectives = true;
           }
+
+          LLVM_DEBUG(dbgs()<<"\n Parallel W-Region::"<<*W->getEntryBBlock());
         }
         break;
       case WRegionNode::WRNParallelSections:
@@ -1264,7 +1257,7 @@ bool VPOParoptTransform::paroptTransforms() {
             Instruction *InsertLastIterCheckBefore = nullptr;
             Changed |=
                 genLoopSchedulingCode(W, IsLastVal, InsertLastIterCheckBefore);
-            // Privatization is enabled for both Prepare and Transform passes
+            // Privatization is enabled for Transform pass
             Changed |= genPrivatizationCode(W);
             Changed |= genLastIterationCheck(W, IsLastVal, IfLastIterBB,
                                              InsertLastIterCheckBefore);
@@ -3651,7 +3644,7 @@ Value *VPOParoptTransform::replaceWithStoreThenLoad(
   LoadInst *VRenamed = BuilderInner.CreateLoad(VAddr); // (3)
   VRenamed->setName(V->getName());
 
-  // Replace uses of V with NewI
+  // Replace uses of V with VRenamed
   for (Instruction * User : Users) {
 
     User->replaceUsesOfWith(V, VRenamed);
@@ -6421,7 +6414,7 @@ bool VPOParoptTransform::propagateCancellationPointsToIR(WRegionNode *W) {
     CancellationPointAllocas.push_back(CPAlloca);
   }
 
-  // (1) Add the list of allocas where cancellation points' return values are
+  // (2) Add the list of allocas where cancellation points' return values are
   // stored, as an operand bundle in the region.entry() directive.
   CI = VPOParoptUtils::addOperandBundlesInCall(
       CI, {{"QUAL.OMP.CANCELLATION.POINTS", CancellationPointAllocas}});

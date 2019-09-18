@@ -122,7 +122,7 @@ private:
   bool distributeLoop(HLLoop *L, SmallVectorImpl<PiBlockList> &DistPoints,
                       LoopOptReportBuilder &LORBuilder);
 
-  bool distributeLoop(HLLoop *L,
+  void distributeLoop(HLLoop *L,
                       SmallVectorImpl<HLDDNodeList> &DistributedLoops,
                       bool ForDirective, LoopOptReportBuilder &LORBuilder);
 
@@ -177,6 +177,8 @@ private:
   processPiBlocksToHLNodes(const std::unique_ptr<PiGraph> &PGraph,
                            ArrayRef<PiBlockList> GroupsOfPiBlocks,
                            SmallVectorImpl<HLDDNodeList> &DistributedLoops);
+
+  void invalidateLoop(HLLoop *Loop) const;
 };
 
 class HIRLoopDistributionLegacyPass : public HIRTransformPass {

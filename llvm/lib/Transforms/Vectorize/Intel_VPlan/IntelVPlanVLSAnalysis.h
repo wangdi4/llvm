@@ -68,12 +68,10 @@ protected:
   }
 
   virtual OVLSMemref *createVLSMemref(const VPInstruction *Inst,
-                                      const VPVectorShape &Shape,
                                       const unsigned VF) const;
 
 private:
   void collectMemrefs(const VPRegionBlock *Region,
-                      const VPlanDivergenceAnalysis &DA,
                       OVLSMemrefVector &MemrefVector, unsigned VF);
 
   /// To call OptVLSInterface, vectorizer has to pass maximum physical

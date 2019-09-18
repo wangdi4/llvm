@@ -144,6 +144,14 @@ bool HIRLoopDistribution::run() {
       continue;
     }
 
+    if (PG->hasControlDependences() && Lp->isStripmineRequired(StripmineSize) &&
+        !Lp->canStripmine(StripmineSize)) {
+      // Assume stripmine is required
+      LLVM_DEBUG(dbgs() << "Stripmine is not possible but assumed to be "
+                           "required for loops with control dependencies\n");
+      continue;
+    }
+
     LLVM_DEBUG(dbgs() << "DDG dump:\n");
     LLVM_DEBUG(DDA.getGraph(Lp).dump());
 
@@ -167,7 +175,8 @@ bool HIRLoopDistribution::run() {
     if (NewOrdering.size() > 1 && NewOrdering.size() < MaxDistributedLoop) {
       SmallVector<HLDDNodeList, 8> DistributedLoops;
       processPiBlocksToHLNodes(PG, NewOrdering, DistributedLoops);
-      Modified = distributeLoop(Lp, DistributedLoops, false, LORBuilder);
+      distributeLoop(Lp, DistributedLoops, false, LORBuilder);
+      Modified = true;
     } else {
       LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION: "
                         << "Found no valid distribution points"
@@ -538,12 +547,14 @@ bool HIRLoopDistribution::arrayTempExceeded(unsigned LastLoopNum,
 /// -  In summary, without using maximal distribution, the solution cannot be
 /// perfect.
 
-bool HIRLoopDistribution::distributeLoop(
+void HIRLoopDistribution::distributeLoop(
     HLLoop *Loop, SmallVectorImpl<HLDDNodeList> &DistributedLoops,
     bool ForDirective, LoopOptReportBuilder &LORBuilder) {
   assert(DistributedLoops.size() < MaxDistributedLoop &&
          "Number of distributed chunks exceed threshold. Expected the caller "
          "to check before calling this function.");
+
+  invalidateLoop(Loop);
 
   LastLoopNum = DistributedLoops.size();
   assert(LastLoopNum > 1 && "Invalid loop distribution");
@@ -569,15 +580,14 @@ bool HIRLoopDistribution::distributeLoop(
 
   // Find number of Scalar Temps.
   // Large number of extra memory refs will affect performance
-  // Do not proceed if threshold exceeds
+  // TODO: Do not proceed if threshold exceeds
+  arrayTempExceeded(LastLoopNum, NumArrayTemps, Refs);
 
-  if (arrayTempExceeded(LastLoopNum, NumArrayTemps, Refs)) {
-    return false;
-  }
   bool StripmineRequired = Loop->isStripmineRequired(StripmineSize);
   if (NumArrayTemps && StripmineRequired &&
       !Loop->canStripmine(StripmineSize)) {
-    return false;
+    llvm_unreachable(
+        "Stripmine conditions should be checked before distribution\n");
   }
 
   unsigned Num = 0;
@@ -647,9 +657,6 @@ bool HIRLoopDistribution::distributeLoop(
     }
   }
 
-  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion<HIRLoopStatistics>(
-      Loop);
-  HIRInvalidationUtils::invalidateBody(Loop);
   HLNodeUtils::remove(Loop);
 
   // Distribution for perfect loopnest is not profitable by itself, it is only
@@ -658,8 +665,6 @@ bool HIRLoopDistribution::distributeLoop(
   if (DistCostModel != DistHeuristics::NestFormation) {
     RegionNode->setGenCode();
   }
-
-  return true;
 }
 
 void HIRLoopDistribution::fixTempArrayCoeff(HLLoop *Loop) {
@@ -1068,8 +1073,8 @@ unsigned HIRLoopDistribution::distributeLoopForDirective(HLLoop *Lp) {
 
   SmallVector<HLDDNodeList, 8> DistributedLoops;
   collectHNodesForDirective(Lp, DistributedLoops, CurLoopHLDDNodeList);
-  bool RC = distributeLoop(Lp, DistributedLoops, true, HIRF.getLORBuilder());
-  return (RC ? Success : TooComplex);
+  distributeLoop(Lp, DistributedLoops, true, HIRF.getLORBuilder());
+  return Success;
 }
 
 void HIRLoopDistribution::collectHNodesForDirective(
@@ -1172,6 +1177,12 @@ HLDDNode *HIRLoopDistribution::processPragmaForIf(
     NewHLIf = nullptr;
   }
   return NewHLIf;
+}
+
+void HIRLoopDistribution::invalidateLoop(loopopt::HLLoop *Loop) const {
+  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion<HIRLoopStatistics>(
+      Loop);
+  HIRInvalidationUtils::invalidateBody(Loop);
 }
 
 void HIRLoopDistributionLegacyPass::getAnalysisUsage(

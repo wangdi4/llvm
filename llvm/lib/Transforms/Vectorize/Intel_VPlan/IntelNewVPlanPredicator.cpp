@@ -49,6 +49,10 @@ static cl::opt<bool> DotAfterLinearization(
     "vplan-dot-after-linearization", cl::init(false), cl::Hidden,
     cl::desc("Print VPlan digraph after predication and linearization."));
 
+static cl::opt<bool> PreserveUniformCFG(
+    "vplan-preserve-uniform-branches", cl::init(true), cl::Hidden,
+    cl::desc("Preserve uniform branches during linearization."));
+
 // Generate a tree of ORs for all IncomingPredicates in  WorkList.
 // Note: This function destroys the original Worklist.
 //
@@ -366,7 +370,14 @@ static void markPhisAsBlended(VPBlockBase *Block) {
   }
 }
 
-bool VPlanPredicator::hasUniformOutgoingEdges(VPBlockBase *Block) {
+bool VPlanPredicator::shouldPreserveUniformBranches() const {
+  if (Plan.isSSABroken())
+    return false;
+
+  return PreserveUniformCFG;
+}
+
+bool VPlanPredicator::shouldPreserveOutgoingEdges(VPBlockBase *Block) {
   if (VPBlockUtils::blockIsLoopLatch(Block, VPLI)) {
     // Preserve the exiting edge from the loop.
 
@@ -383,6 +394,10 @@ bool VPlanPredicator::hasUniformOutgoingEdges(VPBlockBase *Block) {
   if (VPLI->isLoopHeader(Block->getSingleSuccessor())) {
     return true;
   }
+
+  if (!shouldPreserveUniformBranches())
+    return false;
+
   assert(!VPLI->isLoopHeader(Block->getSingleHierarchicalSuccessor()) &&
          "No loop region formed?");
   assert(none_of(Block->getSuccessors(),
@@ -434,7 +449,7 @@ void VPlanPredicator::linearizeRegion(
     SmallVector<VPBlockBase *, 4> RemainingDivergentEdges;
     SmallVector<VPBlockBase *, 4> RemovedDivergentEdges;
     for (auto *Pred : CurrBlock->getPredecessors()) {
-      if (hasUniformOutgoingEdges(Pred)) {
+      if (shouldPreserveOutgoingEdges(Pred)) {
         UniformEdges.push_back(Pred);
         continue;
       }
@@ -580,7 +595,7 @@ void VPlanPredicator::linearizeRegion(
     // All incoming edges to CurrBlock are correct now.
     assert(none_of(CurrBlock->getPredecessors(),
                    [CurrBlock, this](VPBlockBase *PredBlock) -> bool {
-                     return hasUniformOutgoingEdges(PredBlock) &&
+                     return shouldPreserveOutgoingEdges(PredBlock) &&
                             !is_contained(PredBlock->getSuccessors(),
                                           CurrBlock);
                    }) &&
@@ -624,7 +639,7 @@ void VPlanPredicator::linearizeRegion(
   }
 
   // Do remaining edges fixups. Don't remove cond bits yet as they're still
-  // needed to generate predicates (see hasUniformOutgoingEdges).
+  // needed to generate predicates (see shouldPreserveOutgoingEdges).
   for (auto *Block : RegionRPOT) {
     SmallVector<VPBlockBase *, 4> Preds(Block->getPredecessors().begin(),
                                         Block->getPredecessors().end());
@@ -701,11 +716,14 @@ void VPlanPredicator::predicateAndLinearizeRegionRec(VPRegionBlock *Region,
         // processing the region itself.
         continue;
 
-      if (Predicate && DA->isDivergent(*Predicate)) {
+      if (Predicate &&
+          (!shouldPreserveUniformBranches() || DA->isDivergent(*Predicate))) {
         VPBuilder::InsertPointGuard Guard(Builder);
         Builder.setInsertPointFirstNonPhi(Block->getEntryBasicBlock());
         Block->setPredicate(Predicate);
-        DA->markDivergent(*Builder.createPred(Predicate));
+        auto *BlockPredicateInst = Builder.createPred(Predicate);
+        if (DA->isDivergent(*Predicate))
+          DA->markDivergent(*BlockPredicateInst);
       }
 
       continue;
@@ -725,9 +743,12 @@ void VPlanPredicator::predicateAndLinearizeRegionRec(VPRegionBlock *Region,
 
     auto *Predicate = genPredicateTree(IncomingConditions);
     Block2Predicate[Block] = Predicate;
-    if (Predicate && DA->isDivergent(*Predicate)) {
+    if (Predicate &&
+        (!shouldPreserveUniformBranches() || DA->isDivergent(*Predicate))) {
       Block->setPredicate(Predicate);
-      DA->markDivergent(*Builder.createPred(Predicate));
+      auto *BlockPredicateInst = Builder.createPred(Predicate);
+      if (DA->isDivergent(*Predicate))
+        DA->markDivergent(*BlockPredicateInst);
     }
   }
 

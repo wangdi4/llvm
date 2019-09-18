@@ -386,6 +386,7 @@ FUNCTION_PASS("hir-identity-matrix-idiom-recognition", loopopt::HIRIdentityMatri
 FUNCTION_PASS("hir-prefetching", loopopt::HIRPrefetchingPass())
 FUNCTION_PASS("iv-split", IVSplitPass())
 FUNCTION_PASS("hir-sinking-for-perfect-loopnest", loopopt::HIRSinkingForPerfectLoopnestPass())
+FUNCTION_PASS("hir-conditional-temp-sinking", loopopt::HIRConditionalTempSinkingPass())
 
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB

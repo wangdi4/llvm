@@ -167,6 +167,10 @@ declare dso_local spir_func float @atan2f(float, float) #1
 declare dso_local spir_func float @tanhf(float) #1
 ; CHECK: declare dso_local spir_func float @_Z4tanhf(float)
 
+; Function Attrs: nounwind
+declare dso_local spir_func float @invsqrtf(float) #1
+; CHECK: declare dso_local spir_func float @_Z5rsqrtf(float)
+
 ; Function Attrs: noinline norecurse optnone uwtable
 define dso_local spir_kernel void @__omp_offloading_fd02_d323ad_main_l46([20 x float] addrspace(1)* %array) #4 {
 newFuncRoot:
@@ -256,30 +260,42 @@ DIR.OMP.TARGET.1:                                 ; preds = %for.end
   %call27 = call spir_func float @asinf(float 1.00e+00)
 ; CHECK: {{.*}} call spir_func float @_Z4asinf
   store float %call27, float addrspace(1)* %arrayidx25, align 8
+
   %call28 = call spir_func float @asinhf(float 1.00e+00)
 ; CHECK: {{.*}} call spir_func float @_Z5asinhf
   store float %call28, float addrspace(1)* %arrayidx25, align 8
+
   %call29 = call spir_func float @sinhf(float 1.00e+00)
 ; CHECK: {{.*}} call spir_func float @_Z4sinhf
   store float %call29, float addrspace(1)* %arrayidx25, align 8
+
   %call30 = call spir_func float @acosf(float 1.00e+00)
 ; CHECK: {{.*}} call spir_func float @_Z4acosf
   store float %call30, float addrspace(1)* %arrayidx25, align 8
+
   %call31 = call spir_func float @acoshf(float 1.00e+00)
 ; CHECK: {{.*}} call spir_func float @_Z5acoshf
   store float %call31, float addrspace(1)* %arrayidx25, align 8
+
   %call32 = call spir_func float @coshf(float 1.00e+00)
 ; CHECK: {{.*}} call spir_func float @_Z4coshf
   store float %call32, float addrspace(1)* %arrayidx25, align 8
+
   %call33 = call spir_func float @atanf(float 1.00e+00)
 ; CHECK: {{.*}} call spir_func float @_Z4atanf
   store float %call33, float addrspace(1)* %arrayidx25, align 8
+
   %call34 = call spir_func float @atanhf(float 1.00e+00)
 ; CHECK: {{.*}} call spir_func float @_Z5atanhf
   store float %call34, float addrspace(1)* %arrayidx25, align 8
+
   %call35 = call spir_func float @atan2f(float 1.00e+00, float 1.00e+00)
 ; CHECK: {{.*}} call spir_func float @_Z5atan2f
   store float %call35, float addrspace(1)* %arrayidx25, align 8
+
+  %call36 = call spir_func float @invsqrtf(float 1.00e+00)
+; CHECK: {{.*}}  call spir_func float @_Z5rsqrtf
+  store float %call36, float addrspace(1)* %arrayidx25, align 8
 
   br label %DIR.OMP.END.TARGET.2
 
