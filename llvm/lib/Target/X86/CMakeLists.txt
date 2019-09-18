@@ -28,6 +28,7 @@ set(sources
   Intel_X86FeatureInitCall.cpp        # INTEL
   Intel_X86GenerateLEA.cpp        # INTEL
   X86AsmPrinter.cpp
+  X86AvoidTrailingCall.cpp
   X86CallFrameOptimization.cpp
   X86CallingConv.cpp
   X86CallLowering.cpp
