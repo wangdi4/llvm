@@ -1737,40 +1737,37 @@ static Constant *ConstantFoldScalarCall1(StringRef Name,
     if (!Ty->isHalfTy() && !Ty->isFloatTy() && !Ty->isDoubleTy())
       return nullptr;
 
-    if (IntrinsicID == Intrinsic::round) {
-      APFloat V = Op->getValueAPF();
-      V.roundToIntegral(APFloat::rmNearestTiesToAway);
-      return ConstantFP::get(Ty->getContext(), V);
+    // Use internal versions of these intrinsics.
+    APFloat U = Op->getValueAPF();
+
+    if (IntrinsicID == Intrinsic::nearbyint || IntrinsicID == Intrinsic::rint) {
+      U.roundToIntegral(APFloat::rmNearestTiesToEven);
+      return ConstantFP::get(Ty->getContext(), U);
     }
 
-    if (IntrinsicID == Intrinsic::floor) {
-      APFloat V = Op->getValueAPF();
-      V.roundToIntegral(APFloat::rmTowardNegative);
-      return ConstantFP::get(Ty->getContext(), V);
+    if (IntrinsicID == Intrinsic::round) {
+      U.roundToIntegral(APFloat::rmNearestTiesToAway);
+      return ConstantFP::get(Ty->getContext(), U);
     }
 
     if (IntrinsicID == Intrinsic::ceil) {
-      APFloat V = Op->getValueAPF();
-      V.roundToIntegral(APFloat::rmTowardPositive);
-      return ConstantFP::get(Ty->getContext(), V);
+      U.roundToIntegral(APFloat::rmTowardPositive);
+      return ConstantFP::get(Ty->getContext(), U);
+    }
+
+    if (IntrinsicID == Intrinsic::floor) {
+      U.roundToIntegral(APFloat::rmTowardNegative);
+      return ConstantFP::get(Ty->getContext(), U);
     }
 
     if (IntrinsicID == Intrinsic::trunc) {
-      APFloat V = Op->getValueAPF();
-      V.roundToIntegral(APFloat::rmTowardZero);
-      return ConstantFP::get(Ty->getContext(), V);
+      U.roundToIntegral(APFloat::rmTowardZero);
+      return ConstantFP::get(Ty->getContext(), U);
     }
 
-    if (IntrinsicID == Intrinsic::rint) {
-      APFloat V = Op->getValueAPF();
-      V.roundToIntegral(APFloat::rmNearestTiesToEven);
-      return ConstantFP::get(Ty->getContext(), V);
-    }
-
-    if (IntrinsicID == Intrinsic::nearbyint) {
-      APFloat V = Op->getValueAPF();
-      V.roundToIntegral(APFloat::rmNearestTiesToEven);
-      return ConstantFP::get(Ty->getContext(), V);
+    if (IntrinsicID == Intrinsic::fabs) {
+      U.clearSign();
+      return ConstantFP::get(Ty->getContext(), U);
     }
 
     /// We only fold functions with finite arguments. Folding NaN and inf is
@@ -1787,8 +1784,6 @@ static Constant *ConstantFoldScalarCall1(StringRef Name,
 
     switch (IntrinsicID) {
       default: break;
-      case Intrinsic::fabs:
-        return ConstantFoldFP(fabs, V, Ty);
       case Intrinsic::log:
         return ConstantFoldFP(log, V, Ty);
       case Intrinsic::log2:
@@ -1815,7 +1810,6 @@ static Constant *ConstantFoldScalarCall1(StringRef Name,
 
     LibFunc Func = NotLibFunc;
     TLI->getLibFunc(Name, Func);
-
     switch (Func) {
     default:
       break;
@@ -1840,8 +1834,10 @@ static Constant *ConstantFoldScalarCall1(StringRef Name,
       break;
     case LibFunc_ceil:
     case LibFunc_ceilf:
-      if (TLI->has(Func))
-        return ConstantFoldFP(ceil, V, Ty);
+      if (TLI->has(Func)) {
+        U.roundToIntegral(APFloat::rmTowardPositive);
+        return ConstantFP::get(Ty->getContext(), U);
+      }
       break;
     case LibFunc_cos:
     case LibFunc_cosf:
@@ -1872,16 +1868,21 @@ static Constant *ConstantFoldScalarCall1(StringRef Name,
       break;
     case LibFunc_fabs:
     case LibFunc_fabsf:
-      if (TLI->has(Func))
-        return ConstantFoldFP(fabs, V, Ty);
+      if (TLI->has(Func)) {
+        U.clearSign();
+        return ConstantFP::get(Ty->getContext(), U);
+      }
       break;
     case LibFunc_floor:
     case LibFunc_floorf:
-      if (TLI->has(Func))
-        return ConstantFoldFP(floor, V, Ty);
+      if (TLI->has(Func)) {
+        U.roundToIntegral(APFloat::rmTowardNegative);
+        return ConstantFP::get(Ty->getContext(), U);
+      }
       break;
     case LibFunc_log:
     case LibFunc_logf:
+
     case LibFunc_log_finite:
     case LibFunc_logf_finite:
       if (V > 0.0 && TLI->has(Func))
@@ -1897,8 +1898,10 @@ static Constant *ConstantFoldScalarCall1(StringRef Name,
       break;
     case LibFunc_round:
     case LibFunc_roundf:
-      if (TLI->has(Func))
-        return ConstantFoldFP(round, V, Ty);
+      if (TLI->has(Func)) {
+        U.roundToIntegral(APFloat::rmNearestTiesToAway);
+        return ConstantFP::get(Ty->getContext(), U);
+      }
       break;
     case LibFunc_sin:
     case LibFunc_sinf:
@@ -2059,9 +2062,11 @@ static Constant *ConstantFoldScalarCall2(StringRef Name,
         break;
       case LibFunc_fmod:
       case LibFunc_fmodf:
-        if (TLI->has(Func))
-          // TODO: What about hosts that lack a C99 library?
-          return ConstantFoldBinaryFP(fmod, Op1V, Op2V, Ty);
+        if (TLI->has(Func)) {
+          APFloat V = Op1->getValueAPF();
+          if (APFloat::opStatus::opOK == V.mod(Op2->getValueAPF()))
+            return ConstantFP::get(Ty->getContext(), V);
+        }
         break;
       case LibFunc_atan2:
       case LibFunc_atan2f:
