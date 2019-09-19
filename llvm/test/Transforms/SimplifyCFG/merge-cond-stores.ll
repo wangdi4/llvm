@@ -276,12 +276,14 @@ define i32 @test_diamond_simple(i32* %p, i32* %q, i32 %a, i32 %b) {
 ; CHECK-NEXT:    [[Z4:%.*]] = select i1 [[X2]], i32 [[Z2]], i32 3
 ; CHECK-NEXT:    [[TMP0:%.*]] = or i32 [[A]], [[B]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq i32 [[TMP0]], 0
-; CHECK-NEXT:    br i1 [[TMP1]], label [[TMP3:%.*]], label [[TMP2:%.*]]
-; CHECK:       2:
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    br i1 [[TMP1]], label %[[TMP3:.*]], label %[[TMP2:.*]]
+; CHECK:       [[TMP2]]:
 ; CHECK-NEXT:    [[SIMPLIFYCFG_MERGE:%.*]] = select i1 [[X2]], i32 [[Z2]], i32 1
 ; CHECK-NEXT:    store i32 [[SIMPLIFYCFG_MERGE]], i32* [[P:%.*]], align 4
-; CHECK-NEXT:    br label [[TMP3]]
-; CHECK:       3:
+; CHECK-NEXT:    br label %[[TMP3]]
+; CHECK:       [[TMP3]]:
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    ret i32 [[Z4]]
 ;
 entry:
