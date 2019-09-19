@@ -262,6 +262,8 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRSinkingForPerfectLoopnest.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRConditionalTempSinking.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMemoryReductionSinking.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRVecDirInsert.h"
+#include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
 
 #if INTEL_INCLUDE_DTRANS
 #include "Intel_DTrans/DTransCommon.h"
