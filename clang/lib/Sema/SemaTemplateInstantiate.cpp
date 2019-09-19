@@ -1315,24 +1315,21 @@ TemplateInstantiator::TransformLoopHintAttr(const LoopHintAttr *LH) {
         (!ValueAPS.isStrictlyPositive() || ValueAPS.getActiveBits() > 31)) {
       if (ValueAPS.getBoolValue())
         return LoopHintAttr::CreateImplicit(
-            getSema().Context, LH->getSemanticSpelling(), LoopHintAttr::Unroll,
-            LoopHintAttr::Enable, TransformedExpr, TransformedLoopExpr,
-            LH->getRange());
+            getSema().Context, LoopHintAttr::Unroll, LoopHintAttr::Enable,
+            TransformedExpr, TransformedLoopExpr, *LH);
       return LoopHintAttr::CreateImplicit(
-          getSema().Context, LH->getSemanticSpelling(), LoopHintAttr::Unroll,
-          LoopHintAttr::Disable, TransformedExpr, TransformedLoopExpr,
-          LH->getRange());
+          getSema().Context, LoopHintAttr::Unroll, LoopHintAttr::Disable,
+          TransformedExpr, TransformedLoopExpr, *LH);
     }
   }
 #endif // INTEL_CUSTOMIZATION
 
   // Create new LoopHintValueAttr with integral expression in place of the
   // non-type template parameter.
-<<<<<<< HEAD
-  return LoopHintAttr::CreateImplicit(
-      getSema().Context, LH->getSemanticSpelling(), LH->getOption(),
+  return LoopHintAttr::CreateImplicit(getSema().Context, LH->getOption(),
 #if INTEL_CUSTOMIZATION
-      LH->getState(), TransformedExpr, TransformedLoopExpr, LH->getRange());
+                                      LH->getState(), TransformedExpr,
+                                      TransformedLoopExpr, *LH);
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -1371,10 +1368,6 @@ const IntelBlockLoopAttr *TemplateInstantiator::TransformIntelBlockLoopAttr(
 
   getSema().CheckIntelBlockLoopAttribute(NewBL);
   return NewBL;
-=======
-  return LoopHintAttr::CreateImplicit(getSema().Context, LH->getOption(),
-                                      LH->getState(), TransformedExpr, *LH);
->>>>>>> 7759ef539960cf3891941cf7fe40ab2f139ab31b
 }
 #endif // INTEL_CUSTOMIZATION
 

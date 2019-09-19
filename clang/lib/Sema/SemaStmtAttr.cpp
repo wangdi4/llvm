@@ -358,10 +358,9 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
       llvm_unreachable("bad loop hint");
   }
 
-<<<<<<< HEAD
-  return LoopHintAttr::CreateImplicit(S.Context, Spelling, Option, State,
 #if INTEL_CUSTOMIZATION
-                                      ValueExpr, ArrayExpr, A.getRange());
+  return LoopHintAttr::CreateImplicit(S.Context, Option, State, ValueExpr,
+                                      ArrayExpr, A);
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -382,10 +381,7 @@ static Attr *handleIntelInlineAttr(Sema &S, Stmt *St, const ParsedAttr &A,
   else {
     Option = IntelInlineAttr::NotRecursive;
   }
-  return IntelInlineAttr::CreateImplicit(
-      S.Context,
-      static_cast<IntelInlineAttr::Spelling>(A.getAttributeSpellingListIndex()),
-      Option, A.getRange());
+  return IntelInlineAttr::CreateImplicit(S.Context, Option, A);
 }
 
 static int64_t getConstInt(Sema &S, unsigned Idx, const ParsedAttr &A) {
@@ -549,9 +545,6 @@ static bool CheckBlockLoopIntegerExpr(const Expr *E, Sema &S) {
     return false;
   }
   return true;
-=======
-  return LoopHintAttr::CreateImplicit(S.Context, Option, State, ValueExpr, A);
->>>>>>> 7759ef539960cf3891941cf7fe40ab2f139ab31b
 }
 
 // Check expressions and create new attribute for block_loop.

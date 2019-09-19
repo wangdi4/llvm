@@ -7379,7 +7379,7 @@ static void HandleArbPrecIntAttr(QualType &CurType, const ParsedAttr &Attr,
   // check the attribute arguments.
   if (Attr.getNumArgs() != 1) {
     S.Diag(Attr.getLoc(), diag::err_attribute_wrong_number_arguments)
-        << Attr.getName() << 1;
+        << Attr << 1;
     return;
   }
 

@@ -145,12 +145,6 @@ private:
   /// The expressions themselves are stored after the object.
   unsigned NumArgs : 16;
 
-<<<<<<< HEAD
-  /// Corresponds to the Syntax enum.
-  unsigned SyntaxUsed : 4; // INTEL
-
-=======
->>>>>>> 7759ef539960cf3891941cf7fe40ab2f139ab31b
   /// True if already diagnosed as invalid.
   mutable unsigned Invalid : 1;
 
@@ -347,32 +341,6 @@ public:
     return IsProperty;
   }
 
-<<<<<<< HEAD
-  bool isAlignasAttribute() const {
-    // FIXME: Use a better mechanism to determine this.
-    return getKind() == AT_Aligned && isKeywordAttribute();
-  }
-
-  bool isDeclspecAttribute() const { return SyntaxUsed == AS_Declspec; }
-  bool isMicrosoftAttribute() const { return SyntaxUsed == AS_Microsoft; }
-
-  bool isCXX11Attribute() const {
-    return SyntaxUsed == AS_CXX11 || isAlignasAttribute();
-  }
-
-  bool isC2xAttribute() const {
-    return SyntaxUsed == AS_C2x;
-  }
-
-  bool isKeywordAttribute() const {
-    return SyntaxUsed == AS_Keyword || SyntaxUsed == AS_ContextSensitiveKeyword;
-  }
-  bool isContextSensitiveKeywordAttribute() const {
-    return SyntaxUsed == AS_ContextSensitiveKeyword;
-  }
-
-=======
->>>>>>> 7759ef539960cf3891941cf7fe40ab2f139ab31b
   bool isInvalid() const { return Invalid; }
   void setInvalid(bool b = true) const { Invalid = b; }
 

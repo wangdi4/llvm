@@ -44,41 +44,6 @@ namespace clang {
 
 
 /// Attr - This represents one attribute.
-<<<<<<< HEAD
-class Attr {
-private:
-  SourceRange Range;
-  unsigned AttrKind : 16;
-
-protected:
-  /// An index into the spelling list of an
-  /// attribute defined in Attr.td file.
-  unsigned SpellingListIndex : 5; //INTEL
-  unsigned Inherited : 1;
-  unsigned IsPackExpansion : 1;
-  unsigned Implicit : 1;
-  // FIXME: These are properties of the attribute kind, not state for this
-  // instance of the attribute.
-  unsigned IsLateParsed : 1;
-  unsigned InheritEvenIfAlreadyPresent : 1;
-
-  void *operator new(size_t bytes) noexcept {
-    llvm_unreachable("Attrs cannot be allocated with regular 'new'.");
-  }
-  void operator delete(void *data) noexcept {
-    llvm_unreachable("Attrs cannot be released with regular 'delete'.");
-  }
-
-public:
-  // Forward so that the regular new and delete do not hide global ones.
-  void *operator new(size_t Bytes, ASTContext &C,
-                     size_t Alignment = 8) noexcept {
-    return ::operator new(Bytes, C, Alignment);
-  }
-  void operator delete(void *Ptr, ASTContext &C, size_t Alignment) noexcept {
-    return ::operator delete(Ptr, C, Alignment);
-  }
-=======
   class Attr : public AttributeCommonInfo {
   private:
     unsigned AttrKind : 16;
@@ -100,7 +65,6 @@ public:
     void operator delete(void *data) noexcept {
       llvm_unreachable("Attrs cannot be released with regular 'delete'.");
     }
->>>>>>> 7759ef539960cf3891941cf7fe40ab2f139ab31b
 
   public:
     // Forward so that the regular new and delete do not hide global ones.

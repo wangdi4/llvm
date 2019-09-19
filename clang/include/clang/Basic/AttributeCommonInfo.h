@@ -67,10 +67,18 @@ private:
   unsigned AttrKind : 16;
   /// Corresponds to the Syntax enum.
   unsigned SyntaxUsed : 3;
+#if INTEL_CUSTOMIZATION
+  unsigned SpellingIndex : 5;
+#else // INTEL_CUSTOMIZATION
   unsigned SpellingIndex : 4;
+#endif // INTEL_CUSTOMIZATION
 
 protected:
+#if INTEL_CUSTOMIZATION
+  static constexpr unsigned SpellingNotCalculated = 0x1f;
+#else // INTEL_CUSTOMIZATION
   static constexpr unsigned SpellingNotCalculated = 0xf;
+#endif // INTEL_CUSTOMIZATION
 
 public:
   AttributeCommonInfo(SourceRange AttrRange)

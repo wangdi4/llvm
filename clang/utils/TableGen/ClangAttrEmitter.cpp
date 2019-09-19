@@ -2957,14 +2957,10 @@ void EmitClangAttrPCHRead(RecordKeeper &Records, raw_ostream &OS) {
     const Record &R = *Attr;
     if (!R.getValueAsBit("ASTNode"))
       continue;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (DisallowedAttr(Attr))
       continue;
 #endif // INTEL_CUSTOMIZATION
-=======
-
->>>>>>> 7759ef539960cf3891941cf7fe40ab2f139ab31b
     OS << "  case attr::" << R.getName() << ": {\n";
     if (R.isSubClassOf(InhClass))
       OS << "    bool isInherited = Record.readInt();\n";
@@ -3634,7 +3630,7 @@ static std::string GenerateAppertainsTo(const Record &Attr, raw_ostream &OS) {
     SS << "    if (S.getLangOpts().IntelCompat)\n";
     SS << "      S.Diag(Attr.getLoc(), "
           "diag::warn_attribute_wrong_decl_type_str)\n";
-    SS << "        << Attr.getName() << ";
+    SS << "        << Attr << ";
     SS << CalculateDiagnostic(*SubjectObj) << ";\n";
     SS << "    else\n";
   }

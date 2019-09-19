@@ -178,9 +178,7 @@ static void instantiateDependentInternalMaxBlockRamDepthAttr(
   ExprResult Result =
       S.SubstExpr(Max->getInternalMaxBlockRamDepth(), TemplateArgs);
   if (!Result.isInvalid())
-    S.AddInternalMaxBlockRamDepthAttr(Max->getLocation(), New,
-                                      Result.getAs<Expr>(),
-                                      Max->getSpellingListIndex());
+    S.AddInternalMaxBlockRamDepthAttr(New, *Max, Result.getAs<Expr>());
 }
 
 static void instantiateDependentSchedulerTargetFmaxMHzAttr(
@@ -192,9 +190,7 @@ static void instantiateDependentSchedulerTargetFmaxMHzAttr(
   ExprResult Result =
       S.SubstExpr(STFM->getSchedulerTargetFmaxMHz(), TemplateArgs);
   if (!Result.isInvalid())
-    S.AddSchedulerTargetFmaxMHzAttr(STFM->getLocation(), New,
-                                          Result.getAs<Expr>(),
-                                          STFM->getSpellingListIndex());
+    S.AddSchedulerTargetFmaxMHzAttr(New, *STFM, Result.getAs<Expr>());
 }
 
 template <typename AttrType>
@@ -206,8 +202,7 @@ static void instantiateDependentHLSOneConstantValueAttr(
       S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
   ExprResult Result = S.SubstExpr(A->getValue(), TemplateArgs);
   if (!Result.isInvalid())
-    S.HLSAddOneConstantValueAttr<AttrType>(
-        A->getLocation(), New, Result.getAs<Expr>(), A->getSpellingListIndex());
+    S.HLSAddOneConstantValueAttr<AttrType>(New, *A, Result.getAs<Expr>());
 }
 
 template <typename AttrType>
@@ -220,7 +215,7 @@ static void instantiateDependentHLSOneConstantPowerTwoValueAttr(
   ExprResult Result = S.SubstExpr(A->getValue(), TemplateArgs);
   if (!Result.isInvalid())
     S.HLSAddOneConstantPowerTwoValueAttr<AttrType>(
-        A->getLocation(), New, Result.getAs<Expr>(), A->getSpellingListIndex());
+        New, *A, Result.getAs<Expr>());
 }
 
 static void instantiateDependentHLSBankBitsAttr(
@@ -237,8 +232,7 @@ static void instantiateDependentHLSBankBitsAttr(
       return;
     Args.push_back(Result.getAs<Expr>());
   }
-  S.AddBankBitsAttr(BBA->getLocation(), New, Args.data(), Args.size(),
-                    BBA->getSpellingListIndex());
+  S.AddBankBitsAttr(New, *BBA, Args.data(), Args.size());
 }
 #endif // INTEL_CUSTOMIZATION
 

@@ -2913,8 +2913,8 @@ static void handleNumComputeUnitsAttr(Sema &S, Decl *D,
     NumComputeUnits[2] = NumComputeUnitsAttr::DefaultZDim;
 
   D->addAttr(::new (S.Context) NumComputeUnitsAttr(
-      Attr.getRange(), S.Context, NumComputeUnits[0], NumComputeUnits[1],
-      NumComputeUnits[2], Attr.getAttributeSpellingListIndex()));
+      S.Context, Attr, NumComputeUnits[0], NumComputeUnits[1],
+      NumComputeUnits[2]));
 }
 
 static void handleNumSimdWorkItemsAttr(Sema &S, Decl *D,
@@ -2951,8 +2951,7 @@ static void handleNumSimdWorkItemsAttr(Sema &S, Decl *D,
   }
 
   D->addAttr(::new (S.Context) NumSimdWorkItemsAttr(
-      Attr.getRange(), S.Context, NumSimdWorkItems,
-      Attr.getAttributeSpellingListIndex()));
+      S.Context, Attr, NumSimdWorkItems));
 }
 
 static void handleMaxGlobalWorkDimAttr(Sema &S, Decl *D,
@@ -2979,8 +2978,7 @@ static void handleMaxGlobalWorkDimAttr(Sema &S, Decl *D,
     return;
 
   D->addAttr(::new (S.Context) MaxGlobalWorkDimAttr(
-      Attr.getRange(), S.Context, MaxGlobalWorkDim,
-      Attr.getAttributeSpellingListIndex()));
+      S.Context, Attr, MaxGlobalWorkDim));
 }
 
 static void handleAutorunAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
@@ -3009,8 +3007,7 @@ static void handleAutorunAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
 
   // TODO: Check that kernel does not use I/O channels: CORC-2359
 
-  D->addAttr(::new (S.Context) AutorunAttr(Attr.getRange(), S.Context,
-      Attr.getAttributeSpellingListIndex()));
+  D->addAttr(::new (S.Context) AutorunAttr(S.Context, Attr));
 }
 
 static void handleUsesGlobalWorkOffsetAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
@@ -3026,8 +3023,7 @@ static void handleUsesGlobalWorkOffsetAttr(Sema &S, Decl *D, const ParsedAttr &A
                            /*StrictlyUnsigned=*/true)) return;
 
   D->addAttr(::new (S.Context) UsesGlobalWorkOffsetAttr(
-      Attr.getRange(), S.Context, Enabled,
-      Attr.getAttributeSpellingListIndex()));
+      S.Context, Attr, Enabled));
 }
 
 static void handleClusterAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
@@ -3044,8 +3040,7 @@ static void handleClusterAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
     return;
 
   D->addAttr(::new (S.Context)
-                 ClusterAttr(Attr.getRange(), S.Context, Str, Attr.isArgExpr(0),
-                             Attr.getAttributeSpellingListIndex()));
+                 ClusterAttr(S.Context, Attr, Str, Attr.isArgExpr(0)));
 }
 
 static void handleStallEnableAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
@@ -3112,16 +3107,12 @@ static void handleSchedulerTargetFmaxMHzAttr(Sema &S, Decl *D,
   if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/1))
     return;
 
-  S.AddSchedulerTargetFmaxMHzAttr(Attr.getRange(), D,
-                                        Attr.getArgAsExpr(0),
-                                        Attr.getAttributeSpellingListIndex());
+  S.AddSchedulerTargetFmaxMHzAttr(D, Attr, Attr.getArgAsExpr(0));
 }
 
-void Sema::AddSchedulerTargetFmaxMHzAttr(SourceRange AttrRange, Decl *D,
-                                               Expr *E,
-                                               unsigned SpellingListIndex) {
-  SchedulerTargetFmaxMHzAttr TmpAttr(AttrRange, Context, E,
-                                           SpellingListIndex);
+void Sema::AddSchedulerTargetFmaxMHzAttr(Decl *D, const AttributeCommonInfo &CI,
+                                         Expr *E) {
+  SchedulerTargetFmaxMHzAttr TmpAttr(Context, CI, E);
   if (!E->isValueDependent()) {
     ExprResult ICE;
     if (checkRangedIntegralArgument<SchedulerTargetFmaxMHzAttr>(
@@ -3129,8 +3120,7 @@ void Sema::AddSchedulerTargetFmaxMHzAttr(SourceRange AttrRange, Decl *D,
       return;
     E = ICE.get();
   }
-  D->addAttr(::new (Context) SchedulerTargetFmaxMHzAttr(
-      AttrRange, Context, E, SpellingListIndex));
+  D->addAttr(::new (Context) SchedulerTargetFmaxMHzAttr(Context, CI, E));
 }
 
 static void handleHLSInternalMaxBlockRamDepthAttr(Sema &S, Decl *D,
@@ -3168,15 +3158,13 @@ static void handleHLSInternalMaxBlockRamDepthAttr(Sema &S, Decl *D,
     D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
         S.Context, IntelFPGAMemoryAttr::Default));
 
-  S.AddInternalMaxBlockRamDepthAttr(Attr.getRange(), D, Attr.getArgAsExpr(0),
-                                    Attr.getAttributeSpellingListIndex());
+  S.AddInternalMaxBlockRamDepthAttr(D, Attr, Attr.getArgAsExpr(0));
 }
 
-void Sema::AddInternalMaxBlockRamDepthAttr(SourceRange AttrRange, Decl *D,
-                                           Expr *E,
-                                           unsigned SpellingListIndex) {
-  InternalMaxBlockRamDepthAttr TmpAttr(AttrRange, Context, E,
-                                       SpellingListIndex);
+void Sema::AddInternalMaxBlockRamDepthAttr(Decl *D,
+                                           const AttributeCommonInfo &CI,
+                                           Expr *E) {
+  InternalMaxBlockRamDepthAttr TmpAttr(Context, CI, E);
 
   if (!E->isValueDependent()) {
     ExprResult ICE;
@@ -3185,8 +3173,7 @@ void Sema::AddInternalMaxBlockRamDepthAttr(SourceRange AttrRange, Decl *D,
       return;
     E = ICE.get();
   }
-  D->addAttr(::new (Context) InternalMaxBlockRamDepthAttr(AttrRange, Context, E,
-                                                          SpellingListIndex));
+  D->addAttr(::new (Context) InternalMaxBlockRamDepthAttr(Context, CI, E));
 }
 
 static void handleOpenCLBlockingAttr(Sema &S, Decl *D,
@@ -3204,8 +3191,7 @@ static void handleOpenCLBlockingAttr(Sema &S, Decl *D,
     return;
   }
 
-  D->addAttr(::new (S.Context) OpenCLBlockingAttr(
-      Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+  D->addAttr(::new (S.Context) OpenCLBlockingAttr(S.Context, Attr));
 }
 
 static void handleOpenCLDepthAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
@@ -3249,9 +3235,7 @@ static void handleOpenCLDepthAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
     return;
   }
 
-  D->addAttr(::new (S.Context)
-                 OpenCLDepthAttr(Attr.getRange(), S.Context, DepthVal,
-                                 Attr.getAttributeSpellingListIndex()));
+  D->addAttr(::new (S.Context) OpenCLDepthAttr(S.Context, Attr, DepthVal));
 }
 
 static void handleOpenCLIOAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
@@ -3283,8 +3267,7 @@ static void handleOpenCLIOAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str))
     return;
 
-  D->addAttr(::new (S.Context) OpenCLIOAttr(
-      Attr.getRange(), S.Context, Str, Attr.getAttributeSpellingListIndex()));
+  D->addAttr(::new (S.Context) OpenCLIOAttr(S.Context, Attr, Str));
 }
 
 static void handleOpenCLLocalMemSizeAttr(Sema & S, Decl * D,
@@ -3340,8 +3323,7 @@ static void handleOpenCLLocalMemSizeAttr(Sema & S, Decl * D,
   }
 
   D->addAttr(::new (S.Context) OpenCLLocalMemSizeAttr(
-      Attr.getRange(), S.Context, LocalMemSize,
-      Attr.getAttributeSpellingListIndex()));
+      S.Context, Attr, LocalMemSize));
 }
 
 static void handleHLSOptimizeFMaxAttr(Sema &S, Decl *D,
@@ -3415,9 +3397,7 @@ static void handleHLSOneConstantValueAttr(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<IntelFPGAMaxReplicatesAttr>(S, D, Attr))
     return;
 
-  S.HLSAddOneConstantValueAttr<AttrType>(Attr.getRange(), D,
-                                         Attr.getArgAsExpr(0),
-                                         Attr.getAttributeSpellingListIndex());
+  S.HLSAddOneConstantValueAttr<AttrType>(D, Attr, Attr.getArgAsExpr(0));
 }
 
 /// Handle the numports_readonly_writeonly attribute.
@@ -3437,10 +3417,9 @@ static void handleNumPortsReadOnlyWriteOnlyAttr(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<IntelFPGAMaxReplicatesAttr>(S, D, Attr))
     return;
 
-  S.HLSAddOneConstantValueAttr<NumReadPortsAttr>(Attr.getRange(), D,
-                                                 Attr.getArgAsExpr(0), 0);
-  S.HLSAddOneConstantValueAttr<NumWritePortsAttr>(Attr.getRange(), D,
-                                                  Attr.getArgAsExpr(1), 0);
+  S.HLSAddOneConstantValueAttr<NumReadPortsAttr>(D, Attr, Attr.getArgAsExpr(0));
+  S.HLSAddOneConstantValueAttr<NumWritePortsAttr>(D, Attr,
+                                                  Attr.getArgAsExpr(1));
 }
 
 /// Handle the static_array_reset attribute.
@@ -3453,9 +3432,8 @@ static void handleStaticArrayResetAttr(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
     return;
 
-  S.HLSAddOneConstantValueAttr<StaticArrayResetAttr>(
-      Attr.getRange(), D, Attr.getArgAsExpr(0),
-      Attr.getAttributeSpellingListIndex());
+  S.HLSAddOneConstantValueAttr<StaticArrayResetAttr>(D, Attr,
+                                                     Attr.getArgAsExpr(0));
 }
 
 /// Handle the bank_bits attribute.
@@ -3481,13 +3459,12 @@ static void handleBankBitsAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
     Args.push_back(Attr.getArgAsExpr(I));
   }
 
-  S.AddBankBitsAttr(Attr.getRange(), D, Args.data(), Args.size(),
-                    Attr.getAttributeSpellingListIndex());
+  S.AddBankBitsAttr(D, Attr, Args.data(), Args.size());
 }
 
-void Sema::AddBankBitsAttr(SourceRange AttrRange, Decl *D, Expr **Exprs,
-                           unsigned Size, unsigned SpellingListIndex) {
-  BankBitsAttr TmpAttr(AttrRange, Context, Exprs, Size, SpellingListIndex);
+void Sema::AddBankBitsAttr(Decl *D, const AttributeCommonInfo &CI, Expr **Exprs,
+                           unsigned Size) {
+  BankBitsAttr TmpAttr(Context, CI, Exprs, Size);
   SmallVector<Expr *, 8> Args;
   SmallVector<int64_t, 8> Values;
   bool ListIsValueDep = false;
@@ -3512,7 +3489,7 @@ void Sema::AddBankBitsAttr(SourceRange AttrRange, Decl *D, Expr **Exprs,
     bool ListIsAscending = Values[0] < Values[1];
     for (int I = 0, E = Values.size() - 1; I < E; ++I) {
       if (Values[I + 1] != Values[I] + (ListIsAscending ? 1 : -1)) {
-        Diag(AttrRange.getBegin(), diag::err_bankbits_non_consecutive)
+        Diag(CI.getLoc(), diag::err_bankbits_non_consecutive)
             << &TmpAttr;
         return;
       }
@@ -3527,7 +3504,7 @@ void Sema::AddBankBitsAttr(SourceRange AttrRange, Decl *D, Expr **Exprs,
       E->EvaluateAsInt(Result, Context);
       llvm::APSInt Value = Result.Val.getInt();
       if (Args.size() != Value.ceilLogBase2()) {
-        Diag(AttrRange.getBegin(), diag::err_bankbits_numbanks_conflicting);
+        Diag(TmpAttr.getLoc(), diag::err_bankbits_numbanks_conflicting);
         return;
       }
     }
@@ -3542,8 +3519,8 @@ void Sema::AddBankBitsAttr(SourceRange AttrRange, Decl *D, Expr **Exprs,
     D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
         Context, IntelFPGAMemoryAttr::Default));
 
-  D->addAttr(::new (Context) BankBitsAttr(AttrRange, Context, Args.data(),
-                                          Args.size(), SpellingListIndex));
+  D->addAttr(::new (Context) BankBitsAttr(Context, CI, Args.data(),
+                                          Args.size()));
 }
 
 static void setComponentDefaults(Sema &S, Decl *D) {
@@ -3612,8 +3589,7 @@ static void handleComponentInterfaceAttr(Sema &S, Decl *D,
     if (CIA->isImplicit())
       D->dropAttr<ComponentInterfaceAttr>();
 
-  D->addAttr(::new (S.Context) ComponentInterfaceAttr(
-      Attr.getRange(), S.Context, Type, Attr.getAttributeSpellingListIndex()));
+  D->addAttr(::new (S.Context) ComponentInterfaceAttr(S.Context, Attr, Type));
 
   setComponentDefaults(S, D);
 }
@@ -3631,8 +3607,7 @@ static void handleMaxConcurrencyAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
     return;
 
   S.HLSAddOneConstantValueAttr<MaxConcurrencyAttr>(
-      Attr.getRange(), D, Attr.getArgAsExpr(0),
-      Attr.getAttributeSpellingListIndex());
+      D, Attr, Attr.getArgAsExpr(0));
 }
 
 static void handleArgumentInterfaceAttr(Sema & S, Decl * D,
@@ -3661,8 +3636,7 @@ static void handleArgumentInterfaceAttr(Sema & S, Decl * D,
       return;
   }
 
-  D->addAttr(::new (S.Context) ArgumentInterfaceAttr(
-      Attr.getRange(), S.Context, Type, Attr.getAttributeSpellingListIndex()));
+  D->addAttr(::new (S.Context) ArgumentInterfaceAttr(S.Context, Attr, Type));
 }
 
 static void handleStableArgumentAttr(Sema &S, Decl *D,
@@ -3702,9 +3676,7 @@ static void handleHLSIIAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
     return;
   }
 
-  S.HLSAddOneConstantValueAttr<AttrType>(Attr.getRange(), D,
-                                         Attr.getArgAsExpr(0),
-                                         Attr.getAttributeSpellingListIndex());
+  S.HLSAddOneConstantValueAttr<AttrType>(D, Attr, Attr.getArgAsExpr(0));
 }
 
 static void handleHLSMaxInvocationDelayAttr(Sema &S, Decl *D,
@@ -3723,8 +3695,7 @@ static void handleHLSMaxInvocationDelayAttr(Sema &S, Decl *D,
   }
 
   S.HLSAddOneConstantValueAttr<HLSMaxInvocationDelayAttr>(
-      Attr.getRange(), D, Attr.getArgAsExpr(0),
-      Attr.getAttributeSpellingListIndex());
+      D, Attr, Attr.getArgAsExpr(0));
 }
 
 static void handleHLSForceLoopPipeliningAttr(Sema &S, Decl *D,
@@ -3755,7 +3726,7 @@ static void handleHLSForceLoopPipeliningAttr(Sema &S, Decl *D,
   }
 
   D->addAttr(::new (S.Context) HLSForceLoopPipeliningAttr(
-      Attr.getRange(), S.Context, Str, Attr.getAttributeSpellingListIndex()));
+      S.Context, Attr, Str));
 }
 
 static void handleOpenCLBufferLocationAttr(Sema & S, Decl * D,
@@ -3792,7 +3763,7 @@ static void handleOpenCLBufferLocationAttr(Sema & S, Decl * D,
     return;
 
   D->addAttr(::new (S.Context) OpenCLBufferLocationAttr(
-      Attr.getRange(), S.Context, Str, Attr.getAttributeSpellingListIndex()));
+      S.Context, Attr, Str));
 }
 
 static void handleOpenCLHostAccessible(Sema &S, Decl *D,
@@ -3816,8 +3787,7 @@ static void handleOpenCLHostAccessible(Sema &S, Decl *D,
     return;
   }
 
-  D->addAttr(::new (S.Context) OpenCLHostAccessibleAttr(
-      Attr.getRange(), S.Context, Attr.getAttributeSpellingListIndex()));
+  D->addAttr(::new (S.Context) OpenCLHostAccessibleAttr(S.Context, Attr));
 }
 
 static void handleVecLenHint(Sema &S, Decl *D, const ParsedAttr &Attr) {
@@ -3844,9 +3814,7 @@ static void handleVecLenHint(Sema &S, Decl *D, const ParsedAttr &Attr) {
     return;
   }
 
-  D->addAttr(::new (S.Context)
-                 VecLenHintAttr(Attr.getRange(), S.Context, VecLen,
-                                Attr.getAttributeSpellingListIndex()));
+  D->addAttr(::new (S.Context) VecLenHintAttr(S.Context, Attr, VecLen));
 }
 
 template <typename AttrTy>
@@ -4754,12 +4722,6 @@ static void handleAlignedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 }
 
 template <typename AttrType>
-<<<<<<< HEAD
-void Sema::IntelFPGAAddOneConstantValueAttr(SourceRange AttrRange, Decl *D,
-                                            Expr *E,
-                                            unsigned SpellingListIndex) {
-  AttrType TmpAttr(AttrRange, Context, E, SpellingListIndex);
-=======
 bool Sema::checkRangedIntegralArgument(Expr *E, const AttrType *TmpAttr,
                                        ExprResult &Result) {
   llvm::APSInt Value;
@@ -4778,10 +4740,10 @@ bool Sema::checkRangedIntegralArgument(Expr *E, const AttrType *TmpAttr,
 }
 
 template <typename AttrType>
-void Sema::AddOneConstantValueAttr(Decl *D, const AttributeCommonInfo &CI,
-                                   Expr *E) {
+void Sema::IntelFPGAAddOneConstantValueAttr(Decl *D,
+                                            const AttributeCommonInfo &CI,
+                                            Expr *E) {
   AttrType TmpAttr(Context, CI, E);
->>>>>>> 7759ef539960cf3891941cf7fe40ab2f139ab31b
 
   if (!E->isValueDependent()) {
     ExprResult ICE;
@@ -4796,7 +4758,6 @@ void Sema::AddOneConstantValueAttr(Decl *D, const AttributeCommonInfo &CI,
           Context, IntelFPGAMemoryAttr::Default));
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (isa<NumReadPortsAttr>(TmpAttr) || isa<NumWritePortsAttr>(TmpAttr) ||
       isa<IntelFPGAMaxReplicatesAttr>(TmpAttr) ||
@@ -4807,24 +4768,13 @@ void Sema::AddOneConstantValueAttr(Decl *D, const AttributeCommonInfo &CI,
   }
 #endif // INTEL_CUSTOMIZATION
 
-  D->addAttr(::new (Context)
-                 AttrType(AttrRange, Context, E, SpellingListIndex));
-}
-
-template <typename AttrType>
-void Sema::IntelFPGAAddOneConstantPowerTwoValueAttr(
-    SourceRange AttrRange, Decl *D, Expr *E, unsigned SpellingListIndex) {
-  AttrType TmpAttr(AttrRange, Context, E, SpellingListIndex);
-=======
   D->addAttr(::new (Context) AttrType(Context, CI, E));
 }
 
 template <typename AttrType>
-void Sema::AddOneConstantPowerTwoValueAttr(Decl *D,
-                                           const AttributeCommonInfo &CI,
-                                           Expr *E) {
+void Sema::IntelFPGAAddOneConstantPowerTwoValueAttr(
+    Decl *D, const AttributeCommonInfo &CI, Expr *E) {
   AttrType TmpAttr(Context, CI, E);
->>>>>>> 7759ef539960cf3891941cf7fe40ab2f139ab31b
 
   if (!E->isValueDependent()) {
     ExprResult ICE;
@@ -4843,7 +4793,7 @@ void Sema::AddOneConstantPowerTwoValueAttr(Decl *D,
       if (auto *BBA = D->getAttr<BankBitsAttr>()) {
         unsigned NumBankBits = BBA->args_size();
         if (NumBankBits != Value.ceilLogBase2()) {
-          Diag(AttrRange.getBegin(), diag::err_bankbits_numbanks_conflicting);
+          Diag(CI.getLoc(), diag::err_bankbits_numbanks_conflicting);
           return;
         }
       }
@@ -6097,7 +6047,7 @@ static void handleIntelFPGAMemoryAttr(Sema &S, Decl *D,
   if (S.LangOpts.SYCLIsHost)
     return;
 #if INTEL_CUSTOMIZATION
-  if (checkValidSYCLSpelling(S, Attr))
+  if (checkValidSYCLSpelling(S, AL))
    return;
 #endif // INTEL_CUSTOMIZATION
 
@@ -6218,13 +6168,8 @@ handleIntelFPGAOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
     return;
 
-<<<<<<< HEAD
   S.IntelFPGAAddOneConstantPowerTwoValueAttr<AttrType>(
-      Attr.getRange(), D, Attr.getArgAsExpr(0),
-      Attr.getAttributeSpellingListIndex());
-=======
-  S.AddOneConstantPowerTwoValueAttr<AttrType>(D, Attr, Attr.getArgAsExpr(0));
->>>>>>> 7759ef539960cf3891941cf7fe40ab2f139ab31b
+      D, Attr, Attr.getArgAsExpr(0));
 }
 
 static void handleIntelFPGASimpleDualPortAttr(Sema &S, Decl *D,
@@ -6232,7 +6177,7 @@ static void handleIntelFPGASimpleDualPortAttr(Sema &S, Decl *D,
   if (S.LangOpts.SYCLIsHost)
     return;
 #if INTEL_CUSTOMIZATION
-  if (checkValidSYCLSpelling(S, Attr))
+  if (checkValidSYCLSpelling(S, AL))
    return;
 #endif // INTEL_CUSTOMIZATION
 
@@ -6263,7 +6208,6 @@ static void handleIntelFPGAMaxReplicatesAttr(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
     return;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (checkAttrMutualExclusion<NumReadPortsAttr>(S, D, Attr))
     return;
@@ -6274,31 +6218,21 @@ static void handleIntelFPGAMaxReplicatesAttr(Sema &S, Decl *D,
 #endif // INTEL_CUSTOMIZATION
 
   S.IntelFPGAAddOneConstantValueAttr<IntelFPGAMaxReplicatesAttr>(
-      Attr.getRange(), D, Attr.getArgAsExpr(0),
-      Attr.getAttributeSpellingListIndex());
-=======
-  S.AddOneConstantValueAttr<IntelFPGAMaxReplicatesAttr>(D, Attr,
-                                                        Attr.getArgAsExpr(0));
->>>>>>> 7759ef539960cf3891941cf7fe40ab2f139ab31b
+      D, Attr, Attr.getArgAsExpr(0));
 }
 
 /// Handle the merge attribute.
 /// This requires two string arguments.  The first argument is a name, the
 /// second is a direction.  The direction must be "depth" or "width".
 /// This is incompatible with the register attribute.
-<<<<<<< HEAD
-static void handleIntelFPGAMergeAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+static void handleIntelFPGAMergeAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 
 #if INTEL_CUSTOMIZATION
-  if (checkValidSYCLSpelling(S, Attr))
+  if (checkValidSYCLSpelling(S, AL))
    return;
 #endif // INTEL
 
-  checkForDuplicateAttribute<IntelFPGAMergeAttr>(S, D, Attr);
-=======
-static void handleIntelFPGAMergeAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   checkForDuplicateAttribute<IntelFPGAMergeAttr>(S, D, AL);
->>>>>>> 7759ef539960cf3891941cf7fe40ab2f139ab31b
 
   if (S.LangOpts.SYCLIsHost)
     return;
@@ -6336,14 +6270,8 @@ static void handleIntelFPGAMaxPrivateCopiesAttr(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
     return;
 
-<<<<<<< HEAD
   S.IntelFPGAAddOneConstantValueAttr<IntelFPGAMaxPrivateCopiesAttr>(
-      Attr.getRange(), D, Attr.getArgAsExpr(0),
-      Attr.getAttributeSpellingListIndex());
-=======
-  S.AddOneConstantValueAttr<IntelFPGAMaxPrivateCopiesAttr>(
       D, Attr, Attr.getArgAsExpr(0));
->>>>>>> 7759ef539960cf3891941cf7fe40ab2f139ab31b
 }
 
 static void handleXRayLogArgsAttr(Sema &S, Decl *D, const ParsedAttr &AL) {

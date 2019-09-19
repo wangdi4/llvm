@@ -9175,34 +9175,26 @@ public:
   bool checkRangedIntegralArgument(Expr *E, const AttrType *TmpAttr,
                                    ExprResult &Result);
   template <typename AttrType>
-<<<<<<< HEAD
-  void IntelFPGAAddOneConstantValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
-                                        unsigned SpellingListIndex);
+  void IntelFPGAAddOneConstantValueAttr(Decl *D, const AttributeCommonInfo &CI,
+                                        Expr *E);
   template <typename AttrType>
-  void IntelFPGAAddOneConstantPowerTwoValueAttr(SourceRange AttrRange, Decl *D,
-                                                Expr *E,
-                                                unsigned SpellingListIndex);
+  void IntelFPGAAddOneConstantPowerTwoValueAttr(
+      Decl *D, const AttributeCommonInfo &CI, Expr *E);
 
 #if INTEL_CUSTOMIZATION
-  void AddSchedulerTargetFmaxMHzAttr(SourceRange AttrRange, Decl *D, Expr *E,
-                                     unsigned SpellingListIndex);
-  void AddInternalMaxBlockRamDepthAttr(SourceRange AttrRange, Decl *D, Expr *E,
-                                       unsigned SpellingListIndex);
-  template <typename AttrType>
-  void HLSAddOneConstantValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
-                                  unsigned SpellingListIndex);
-  template <typename AttrType>
-  void HLSAddOneConstantPowerTwoValueAttr(SourceRange AttrRange, Decl *D,
-                                          Expr *E, unsigned SpellingListIndex);
-=======
-  void AddOneConstantValueAttr(Decl *D, const AttributeCommonInfo &CI, Expr *E);
-  template <typename AttrType>
-  void AddOneConstantPowerTwoValueAttr(Decl *D, const AttributeCommonInfo &CI,
+  void AddSchedulerTargetFmaxMHzAttr(Decl *D, const AttributeCommonInfo &CI,
+                                     Expr *E);
+  void AddInternalMaxBlockRamDepthAttr(Decl *D, const AttributeCommonInfo &CI,
                                        Expr *E);
->>>>>>> 7759ef539960cf3891941cf7fe40ab2f139ab31b
+  template <typename AttrType>
+  void HLSAddOneConstantValueAttr(Decl *D, const AttributeCommonInfo &CI,
+                                  Expr *E);
+  template <typename AttrType>
+  void HLSAddOneConstantPowerTwoValueAttr(Decl *D, const AttributeCommonInfo &CI,
+                                          Expr *E);
 
-  void AddBankBitsAttr(SourceRange AttrRange, Decl *D, Expr **Exprs,
-                       unsigned Size, unsigned SpellingListIndex);
+  void AddBankBitsAttr(Decl *D, const AttributeCommonInfo &CI, Expr **Exprs,
+                       unsigned Size);
 #endif // INTEL_CUSTOMIZATION
   /// AddAlignedAttr - Adds an aligned attribute to a particular declaration.
   void AddAlignedAttr(Decl *D, const AttributeCommonInfo &CI, Expr *E,

@@ -5758,11 +5758,11 @@ static void PromoteIntelIntrins(Sema &S, ExprResult Call) {
     return;
   }
 
+  AttributeCommonInfo CommonInfo(SourceRange{});
   CurFD->addAttr(new (S.getASTContext())
-                 TargetPromotionAttr(SourceRange{},
-                                     S.getASTContext(),
-                                     FeaturesToAddList,
-                                     0));
+                 TargetPromotionAttr(S.getASTContext(),
+                                     CommonInfo,
+                                     FeaturesToAddList));
 
   // Add new feature.
   return;
