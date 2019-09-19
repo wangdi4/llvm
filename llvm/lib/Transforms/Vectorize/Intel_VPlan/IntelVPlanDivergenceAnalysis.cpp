@@ -152,7 +152,22 @@ static void getPhis(const VPBlockBase *Block,
       Phis.push_back(&VPInst);
   }
 }
-#endif
+
+static bool hasDeterministicResult(const VPInstruction &I) {
+  // As of now only a call instruction known to possibly have non-deterministoic
+  // result.
+  if (I.getOpcode() != Instruction::Call)
+    return true;
+
+  if (I.getType()->isVoidTy())
+    return true;
+
+  // Check whether a call instruction may have a side effect as indicator of
+  // possible non-determinism. It is actually a bit pessimistic approach since
+  // non-determinism is only a subset of possible side effects.
+  return !I.mayHaveSideEffects();
+}
+#endif // INTEL_CUSTOMIZATION
 
 #if !INTEL_CUSTOMIZATION
 // This is used in the community version because br instructions are explicit.
@@ -179,7 +194,9 @@ bool DivergenceAnalysis::updateTerminator(const TerminatorInst &Term) const {
 
 bool VPlanDivergenceAnalysis::updateNormalInstruction(
     const VPInstruction &I) const {
-  // TODO function calls with side effects, etc
+
+  if (!hasDeterministicResult(I))
+    return true;
   for (const auto &Op : I.operands()) {
     if (isDivergent(*Op))
       return true;
@@ -1065,6 +1082,10 @@ VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForCallInst(
   // these types of functions will be handled in intializeKnownShapes. But,
   // there could be other instructions that behave the same way that can be
   // handled here.
+
+  if (!hasDeterministicResult(*I))
+    return getRandomVectorShape();
+
   bool AllOpsUniform = true;
   unsigned NumOps = I->getNumOperands() - 1;
   for (unsigned i = 0; i < NumOps; i++) {
@@ -1207,6 +1228,13 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
 #endif
     markDivergent(*Phi);
   }
+
+  // Collect instructions that may possibly have non-deterministic result.
+  for (auto *B : CandidateLoop->getBlocks())
+    if (auto *VPBB = dyn_cast<VPBasicBlock>(B))
+      for (const auto &VPInst : VPBB->vpinstructions())
+        if (!hasDeterministicResult(VPInst))
+          Worklist.push_back(&VPInst);
 
   // After the scalar remainder loop is extracted, the loop exit condition will
   // be uniform. Source of code divergence here away from community - no

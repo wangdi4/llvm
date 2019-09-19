@@ -1842,12 +1842,10 @@ void VPOCodeGen::serializeInstruction(Instruction *Instr, bool HasLoopPrivateOpe
 
   assert(!Instr->getType()->isAggregateType() && "Can't handle vectors");
 
-  unsigned Lanes =
-      (!HasLoopPrivateOperand && OrigLoop->hasLoopInvariantOperands(Instr)) ||
-              isUniformAfterVectorization(Instr, VF)
-          ? 1
-          : VF;
-
+  unsigned Lanes = !HasLoopPrivateOperand && !Instr->mayHaveSideEffects() &&
+                           isUniformAfterVectorization(Instr, VF)
+                       ? 1
+                       : VF;
   // Does this instruction return a value ?
   bool IsVoidRetTy = Instr->getType()->isVoidTy();
 
@@ -3491,18 +3489,11 @@ void VPOCodeGen::collectLoopUniforms(unsigned VF) {
   // Collect instructions inside the loop that will remain uniform after
   // vectorization.
 
-  // Global values, params and instructions outside of current loop are out of
-  // scope.
-  auto isOutOfScope = [&](Value *V) -> bool {
-    Instruction *I = dyn_cast<Instruction>(V);
-    return (!I || !OrigLoop->contains(I));
-  };
-
   SetVector<Instruction *> Worklist;
 
   // Start from Uniforms that alerady collected for any VF.
   //for (Instruction *I : Legal->uniforms())
-    Worklist.insert(Legal->UniformForAnyVF.begin(), Legal->UniformForAnyVF.end());
+  Worklist.insert(Legal->UniformForAnyVF.begin(), Legal->UniformForAnyVF.end());
 
   // Holds consecutive and consecutive-like pointers. Consecutive-like pointers
   // are pointers that are treated like consecutive pointers during
@@ -3513,6 +3504,12 @@ void VPOCodeGen::collectLoopUniforms(unsigned VF) {
   // Holds pointer operands of instructions that are possibly non-uniform.
   SmallPtrSet<Instruction *, 8> PossibleNonUniformPtrs;
 
+  // Check if a value is loop invariant or has already been
+  // accounted as uniform.
+  auto isInWorklistOrOutOfScope = [&](Value *V) -> bool {
+    return OrigLoop->isLoopInvariant(V) || Worklist.count(cast<Instruction>(V));
+  };
+
   // Iterate over the instructions in the loop, and collect all
   // consecutive-like pointer operands in ConsecutiveLikePtrs. If it's possible
   // that a consecutive-like pointer operand will be scalarized, we collect it
@@ -3521,8 +3518,21 @@ void VPOCodeGen::collectLoopUniforms(unsigned VF) {
   // memory instructions. For example, if a loop loads and stores from the same
   // location, but the store is conditional, the store will be scalarized, and
   // the getelementptr won't remain uniform.
+  // We also collect call instructions that have a return value as they are
+  // (seems) the only instructions that may not be uniform even with uniform
+  // operands(or with no operands at all). Check whether a call instruction
+  // may have a side effect to determine that. That actually is a bit
+  // pessimistic approach since function determinism is only a subset of all
+  // possible side effects.
   for (auto *BB : OrigLoop->blocks())
     for (auto &I : *BB) {
+
+      if (I.getOpcode() == Instruction::Call &&
+          (I.getType()->isVoidTy() || !I.mayHaveSideEffects()) &&
+          all_of(I.operands(), isInWorklistOrOutOfScope)) {
+        Worklist.insert(&I);
+        LLVM_DEBUG(dbgs() << "LV: Found uniform instruction: " << I << "\n");
+      }
 
       // If there's no pointer operand, there's nothing to do.
       auto *Ptr = dyn_cast_or_null<Instruction>(getLoadStorePointerOperand(&I));
@@ -3559,17 +3569,15 @@ void VPOCodeGen::collectLoopUniforms(unsigned VF) {
 
   // Expand Worklist in topological order: whenever a new instruction
   // is added , its users should be either already inside Worklist, or
-  // out of scope. It ensures a uniform instruction will only be used
-  // by uniform instructions or out of scope instructions.
+  // out of scope (loop invariant). It ensures a uniform instruction will only
+  // be used by uniform instructions or out of scope instructions.
   unsigned idx = 0;
   while (idx != Worklist.size()) {
     Instruction *I = Worklist[idx++];
 
     for (auto OV : I->operand_values()) {
       if (auto *OI = dyn_cast<Instruction>(OV)) {
-        if (all_of(OI->users(), [&](User *U) -> bool {
-              return isOutOfScope(U) || Worklist.count(cast<Instruction>(U));
-            })) {
+        if (all_of(OI->users(), isInWorklistOrOutOfScope)) {
           Worklist.insert(OI);
           LLVM_DEBUG(dbgs()
                      << "LV: Found uniform instruction: " << *OI << "\n");
