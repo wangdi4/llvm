@@ -35,11 +35,22 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vpo-ir-loop-vectorize"
 
+static cl::opt<bool> VPlanUseDAForUnitStride(
+    "vplan-use-da-unit-stride-accesses", cl::init(true), cl::Hidden,
+    cl::desc("Use DA knowledge in VPlan for unit-stride accesses."));
+
 ///////// VPValue version of common vectorizer legality utilities /////////
 
-/// Helper function to check if given VPValue has consecutive pointer stride.
-// TODO: Need to use DA to identify unit-stridedness.
-static int isVPValueConsecutivePtr(VPValue *V) { return 0; }
+/// Helper function to check if given VPValue has consecutive pointer stride and
+/// return the stride value.
+static Optional<int> getVPValueConsecutivePtrStride(const VPValue *Ptr,
+                                                    const VPlan *Plan) {
+  VPVectorShape *PtrShape = Plan->getVPlanDA()->getVectorShape(Ptr);
+  if (PtrShape->isUnitStridePtr())
+    return PtrShape->getStrideVal();
+
+  return None;
+}
 
 /// Helper function to check if given VPValue is uniform based on DA.
 bool VPOCodeGen::isVPValueUniform(VPValue *V, const VPlan *Plan) {
@@ -495,6 +506,32 @@ Value *VPOCodeGen::vectorizeInterleavedLoad(VPInstruction *VPLoad,
                                      ShuffleMask, "groupShuffle");
 }
 
+Value *VPOCodeGen::vectorizeUnitStrideLoad(VPInstruction *VPInst, int StrideVal,
+                                           bool IsPvtPtr) {
+  Value *WideLoad = nullptr;
+  VPValue *Ptr = getLoadStorePointerOperand(VPInst);
+  Type *LoadType = getLoadStoreType(VPInst);
+  unsigned OriginalVL =
+      LoadType->isVectorTy() ? LoadType->getVectorNumElements() : 1;
+  unsigned Alignment = getOriginalLoadStoreAlignment(VPInst);
+  Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(Ptr, StrideVal < 0);
+
+  // Masking not needed for privates.
+  if (MaskValue && !IsPvtPtr) {
+    // Replicate the mask if VPInst is a vector instruction.
+    Value *RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
+                                              "replicatedMaskElts.");
+    WideLoad = Builder.CreateMaskedLoad(VecPtr, Alignment, RepMaskValue,
+                                        nullptr, "wide.masked.load");
+  } else
+    WideLoad = Builder.CreateAlignedLoad(VecPtr, Alignment, "wide.load");
+
+  if (StrideVal < 0) // Reverse
+    WideLoad = reverseVector(WideLoad);
+
+  return WideLoad;
+}
+
 void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
                                           bool EmitIntrinsic) {
   Type *LoadType = VPInst->getType();
@@ -543,58 +580,48 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
 
   unsigned OriginalVL =
       LoadType->isVectorTy() ? LoadType->getVectorNumElements() : 1;
-  int ConsecutiveStride = isVPValueConsecutivePtr(Ptr);
 
   unsigned Alignment = getOriginalLoadStoreAlignment(VPInst);
   Value *NewLI = nullptr;
 
-  // Handle consecutive loads.
-  if (ConsecutiveStride) {
-    llvm_unreachable("VPVALCG: Unit-strided load vectorization not uplifted.");
-#if 0
-    Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(
-        LI, Ptr, ConsecutiveStride == -1);
+  // Try to handle consecutive loads without VLS.
+  if (VPlanUseDAForUnitStride) {
+    Optional<int> ConsecutiveStride = getVPValueConsecutivePtrStride(Ptr, Plan);
+    // TODO: VPVALCG: Unit strided load from private pointer not implemented
+    // yet.
+    bool IsPvtPtr = Ptr->getUnderlyingValue() &&
+                    Legal->isLoopPrivate(Ptr->getUnderlyingValue());
 
-    // Masking not needed for privates.
-    if (MaskValue && !Legal->isLoopPrivate(Ptr)) {
-      // Replicate the mask if VPInst is a vector instruction.
-      Value *RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
-                                                "replicatedMaskElts.");
-      NewLI = Builder.CreateMaskedLoad(VecPtr, Alignment, RepMaskValue, nullptr,
-                                       "wide.masked.load");
-    } else
-      NewLI = Builder.CreateAlignedLoad(VecPtr, Alignment, "wide.load");
-
-    if (ConsecutiveStride == -1) //Reverse
-      NewLI = reverseVector(NewLI);
-
-    WidenMap[cast<Value>(Inst)] = NewLI;
-#endif
-  } else {
-
-    // Try to do GATHER-to-SHUFFLE optimization.
-    // TODO: VLS optimization is disabled in masked basic blocks so far. It
-    // should be enabled for uniform masks, though.
-    OVLSGroup *Group = MaskValue ? nullptr : VLSA->getGroupsFor(Plan, VPInst);
-    if (Group && Group->size() > 1) {
-      Optional<int64_t> GroupStride = Group->getConstStride();
-      assert(GroupStride && "Indexed loads are not supported");
-      // Groups with gaps are not supported either.
-      if (Group->getNByteAccessMask() == ~(UINT64_MAX << *GroupStride))
-        NewLI = vectorizeInterleavedLoad(VPInst, Group);
+    if (ConsecutiveStride && !IsPvtPtr) {
+      NewLI = vectorizeUnitStrideLoad(VPInst, ConsecutiveStride.getValue(),
+                                      IsPvtPtr);
+      VPWidenMap[VPInst] = NewLI;
+      return;
     }
+  }
 
-    // If VLS failed to emit a wide load, we have to emit a GATHER instruction.
-    if (!NewLI) {
-      // Replicate the mask if VPInst is a vector instruction originally.
-      Value *RepMaskValue = nullptr;
-      if (MaskValue)
-        RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
-                                           "replicatedMaskElts.");
-      Value *GatherAddress = getWidenedAddressForScatterGather(VPInst);
-      NewLI = Builder.CreateMaskedGather(GatherAddress, Alignment, RepMaskValue,
-                                         nullptr, "wide.masked.gather");
-    }
+  // Try to do GATHER-to-SHUFFLE optimization.
+  // TODO: VLS optimization is disabled in masked basic blocks so far. It
+  // should be enabled for uniform masks, though.
+  OVLSGroup *Group = MaskValue ? nullptr : VLSA->getGroupsFor(Plan, VPInst);
+  if (Group && Group->size() > 1) {
+    Optional<int64_t> GroupStride = Group->getConstStride();
+    assert(GroupStride && "Indexed loads are not supported");
+    // Groups with gaps are not supported either.
+    if (Group->getNByteAccessMask() == ~(UINT64_MAX << *GroupStride))
+      NewLI = vectorizeInterleavedLoad(VPInst, Group);
+  }
+
+  // If VLS failed to emit a wide load, we have to emit a GATHER instruction.
+  if (!NewLI) {
+    // Replicate the mask if VPInst is a vector instruction originally.
+    Value *RepMaskValue = nullptr;
+    if (MaskValue)
+      RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
+                                         "replicatedMaskElts.");
+    Value *GatherAddress = getWidenedAddressForScatterGather(VPInst);
+    NewLI = Builder.CreateMaskedGather(GatherAddress, Alignment, RepMaskValue,
+                                       nullptr, "wide.masked.gather");
   }
 
   VPWidenMap[VPInst] = NewLI;
@@ -684,6 +711,30 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
   VLSGroupStoreMap.insert(std::make_pair(Group, GroupStore));
 }
 
+void VPOCodeGen::vectorizeUnitStrideStore(VPInstruction *VPInst, int StrideVal,
+                                          bool IsPvtPtr) {
+  VPValue *Ptr = getLoadStorePointerOperand(VPInst);
+  Value *VecDataOp = getVectorValue(VPInst->getOperand(0));
+  Type *StoreType = getLoadStoreType(VPInst);
+  unsigned OriginalVL =
+      StoreType->isVectorTy() ? StoreType->getVectorNumElements() : 1;
+  unsigned Alignment = getOriginalLoadStoreAlignment(VPInst);
+  Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(Ptr, StrideVal < 0);
+
+  if (StrideVal < 0) // Reverse
+    // If we store to reverse consecutive memory locations, then we need
+    // to reverse the order of elements in the stored value.
+    VecDataOp = reverseVector(VecDataOp);
+
+  if (MaskValue) {
+    // Replicate the mask if VPInst is a vector instruction originally.
+    Value *RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
+                                              "replicatedMaskElts.");
+    Builder.CreateMaskedStore(VecDataOp, VecPtr, Alignment, RepMaskValue);
+  } else
+    Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment);
+}
+
 void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
                                            bool EmitIntrinsic) {
   Type *StoreType = VPInst->getOperand(0)->getType();
@@ -727,68 +778,54 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
 
   unsigned OriginalVL =
       StoreType->isVectorTy() ? StoreType->getVectorNumElements() : 1;
-  int ConsecutiveStride = isVPValueConsecutivePtr(Ptr);
 
   unsigned Alignment = getOriginalLoadStoreAlignment(VPInst);
   Value *VecDataOp = getVectorValue(VPInst->getOperand(0));
 
-  // Handle consecutive stores.
-  if (ConsecutiveStride) {
-    llvm_unreachable("VPVALCG: Unit-strided store vectorization not uplifted.");
-#if 0
-    bool StoreMaskValue = Legal->isCondLastPrivate(Ptr);
-    Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(
-        SI, Ptr, ConsecutiveStride == -1);
-
-    if (ConsecutiveStride == -1) // Reverse
-      // If we store to reverse consecutive memory locations, then we need
-      // to reverse the order of elements in the stored value.
-      VecDataOp = reverseVector(VecDataOp);
-
-    if (MaskValue) {
-      // Replicate the mask if VPInst is a vector instruction originally.
-      Value *RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
-                                                "replicatedMaskElts.");
-      Builder.CreateMaskedStore(VecDataOp, VecPtr, Alignment, RepMaskValue);
-    } else
-      Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment);
-
-    if (StoreMaskValue)
-      storeMaskValue(MaskValue, LoopPrivateLastMask[getPtrThruCast<BitCastInst>(Ptr)], VF,
-                     Builder);
-#endif
-  } else {
-    // Try to do SCATTER-to-SHUFFLE optimization.
-    // TODO: VLS optimization is disabled in masked basic blocks so far. It
-    // should be enabled for uniform masks, though.
-    OVLSGroup *Group = MaskValue ? nullptr : VLSA->getGroupsFor(Plan, VPInst);
-    if (Group && Group->size() > 1) {
-      Optional<int64_t> GroupStride = Group->getConstStride();
-      assert(GroupStride && "Indexed loads are not supported");
-      // Groups with gaps are not supported either.
-      if (Group->getNByteAccessMask() == ~(UINT64_MAX << *GroupStride)) {
-        vectorizeInterleavedStore(VPInst, Group);
-        return;
-      }
+  // Try to handle consecutive stores without VLS.
+  if (VPlanUseDAForUnitStride) {
+    Optional<int> ConsecutiveStride = getVPValueConsecutivePtrStride(Ptr, Plan);
+    // TODO: VPVALCG: Unit strided store to private pointer not implemented yet.
+    // Special handling for mask value is also needed for conditional last
+    // privates.
+    bool IsPvtPtr = Ptr->getUnderlyingValue() &&
+                    Legal->isLoopPrivate(Ptr->getUnderlyingValue());
+    if (ConsecutiveStride && !IsPvtPtr) {
+      vectorizeUnitStrideStore(VPInst, ConsecutiveStride.getValue(), IsPvtPtr);
+      return;
     }
-
-    // If VLS failed to emit a wide store, we have to emit a SCATTER
-    // instruction.
-    Value *ScatterPtr = getWidenedAddressForScatterGather(VPInst);
-    Type *PtrToElemTy = ScatterPtr->getType()->getVectorElementType();
-    Type *ElemTy = PtrToElemTy->getPointerElementType();
-    VectorType *DesiredDataTy = VectorType::get(ElemTy, VF * OriginalVL);
-    // TODO: Verify if this bitcast should be done this late. Maybe an earlier
-    // transform can introduce it, if needed.
-    VecDataOp = Builder.CreateBitCast(VecDataOp, DesiredDataTy, "cast");
-
-    // Replicate the mask if VPInst is a vector instruction originally.
-    Value *RepMaskValue = nullptr;
-    if (MaskValue)
-      RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
-                                         "replicatedMaskElts.");
-    Builder.CreateMaskedScatter(VecDataOp, ScatterPtr, Alignment, RepMaskValue);
   }
+
+  // Try to do SCATTER-to-SHUFFLE optimization.
+  // TODO: VLS optimization is disabled in masked basic blocks so far. It
+  // should be enabled for uniform masks, though.
+  OVLSGroup *Group = MaskValue ? nullptr : VLSA->getGroupsFor(Plan, VPInst);
+  if (Group && Group->size() > 1) {
+    Optional<int64_t> GroupStride = Group->getConstStride();
+    assert(GroupStride && "Indexed loads are not supported");
+    // Groups with gaps are not supported either.
+    if (Group->getNByteAccessMask() == ~(UINT64_MAX << *GroupStride)) {
+      vectorizeInterleavedStore(VPInst, Group);
+      return;
+    }
+  }
+
+  // If VLS failed to emit a wide store, we have to emit a SCATTER
+  // instruction.
+  Value *ScatterPtr = getWidenedAddressForScatterGather(VPInst);
+  Type *PtrToElemTy = ScatterPtr->getType()->getVectorElementType();
+  Type *ElemTy = PtrToElemTy->getPointerElementType();
+  VectorType *DesiredDataTy = VectorType::get(ElemTy, VF * OriginalVL);
+  // TODO: Verify if this bitcast should be done this late. Maybe an earlier
+  // transform can introduce it, if needed.
+  VecDataOp = Builder.CreateBitCast(VecDataOp, DesiredDataTy, "cast");
+
+  // Replicate the mask if VPInst is a vector instruction originally.
+  Value *RepMaskValue = nullptr;
+  if (MaskValue)
+    RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
+                                       "replicatedMaskElts.");
+  Builder.CreateMaskedScatter(VecDataOp, ScatterPtr, Alignment, RepMaskValue);
 }
 
 // This function returns computed addresses of memory locations which should be
@@ -849,6 +886,35 @@ Value *VPOCodeGen::getWidenedAddressForScatterGather(VPInstruction *VPI) {
   Value *WidenedVectorGEP =
       Builder.CreateGEP(nullptr, VecBasePtr, Cv, "elemBasePtr.");
   return WidenedVectorGEP;
+}
+
+// This function return an appropriate BasePtr for cases where we are dealing
+// with load/store to consecutive memory locations
+Value *VPOCodeGen::createWidenedBasePtrConsecutiveLoadStore(VPValue *Ptr,
+                                                            bool Reverse) {
+  Type *VecTy = Ptr->getType()->getPointerElementType();
+  unsigned AddrSpace = Ptr->getType()->getPointerAddressSpace();
+  Type *WideDataTy = getWidenedType(VecTy, VF);
+
+  // TODO: Peeking at underlying IR for privates.
+  // TODO: Support loop private pointers here.
+  assert(!(Ptr->getUnderlyingValue() &&
+           Legal->isLoopPrivate(Ptr->getUnderlyingValue())) &&
+         "VPVALCG: Widened base ptr for private unit stride load/store not "
+         "uplifted yet.");
+  // We do not care whether the 'Ptr' operand comes from a GEP or any other
+  // source. We just fetch the first element and then create a
+  // bitcast  which assumes the 'consecutive-ness' property and return the
+  // correct operand for widened load/store.
+  Value *VecPtr = getScalarValue(Ptr, 0);
+
+  VecPtr = Reverse
+               ? Builder.CreateGEP(
+                     VecPtr,
+                     Builder.getInt32(1 - WideDataTy->getVectorNumElements()))
+               : VecPtr;
+  VecPtr = Builder.CreateBitCast(VecPtr, WideDataTy->getPointerTo(AddrSpace));
+  return VecPtr;
 }
 
 void VPOCodeGen::vectorizeCallInstruction(VPInstruction *VPCall) {
@@ -1410,13 +1476,31 @@ void VPOCodeGen::serializeInstruction(VPInstruction *VPInst) {
 void VPOCodeGen::vectorizeVPInstruction(VPInstruction *VPInst) {
   switch (VPInst->getOpcode()) {
   case Instruction::GetElementPtr: {
-    // Consecutive Load/Store will clone the GEP.
+    // For consecutive load/store we create a scalar GEP.
+    // TODO: Extend support for private pointers and VLS-based unit-stride
+    // optimization.
+    bool IsPvtPtr = VPInst->getUnderlyingValue() &&
+                    Legal->isLoopPrivate(VPInst->getUnderlyingValue());
     if (all_of(VPInst->users(),
                [&](VPUser *U) -> bool {
                  return getLoadStorePointerOperand(U) == VPInst;
                }) &&
-        isVPValueConsecutivePtr(VPInst))
+        getVPValueConsecutivePtrStride(VPInst, Plan) &&
+        VPlanUseDAForUnitStride && !IsPvtPtr) {
+      SmallVector<Value *, 6> ScalarOperands;
+      for (unsigned Op = 0; Op < VPInst->getNumOperands(); ++Op) {
+        auto *ScalarOp = getScalarValue(VPInst->getOperand(Op), 0 /*Lane*/);
+        assert(ScalarOp && "Operand for scalar GEP not found.");
+        ScalarOperands.push_back(ScalarOp);
+      }
+
+      Value *ScalarGep =
+          generateSerialInstruction(Builder, VPInst, ScalarOperands);
+      ScalarGep->setName("scalar.gep");
+      VPScalarMap[VPInst][0] = ScalarGep;
       break;
+    }
+    // Serialize if all users of GEP are uniform load/store.
     if (all_of(VPInst->users(), [&](VPUser *U) -> bool {
           return getLoadStorePointerOperand(U) == VPInst &&
                  isVPValueUniform(U, Plan);

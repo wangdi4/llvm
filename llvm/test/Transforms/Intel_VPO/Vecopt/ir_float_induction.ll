@@ -46,8 +46,6 @@ define void @fp_iv_loop(float %init, float* noalias nocapture %A, i32 %N) local_
 ; VPBCG:    [[TMP3:%.*]] = fmul float [[TMP0]], 4.000000e+00
 ; VPBCG:    [[IND_STEP_INIT_SPLATINSERT:%.*]] = insertelement <4 x float> undef, float [[TMP3]], i32 0
 ; VPBCG:    [[IND_STEP_INIT_SPLAT:%.*]] = shufflevector <4 x float> [[IND_STEP_INIT_SPLATINSERT]], <4 x float> undef, <4 x i32> zeroinitializer
-; VPBCG:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x float*> undef, float* [[A:%.*]], i32 0
-; VPBCG:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x float*> [[BROADCAST_SPLATINSERT]], <4 x float*> undef, <4 x i32> zeroinitializer
 ; VPBCG:       vector.body:
 ; VPBCG:    [[VEC_PHI2:%.*]] = phi <4 x float> [ [[TMP2]], [[VECTOR_PH:%.*]] ], [ [[TMP4:%.*]], [[VECTOR_BODY:%.*]] ]
 ; VPBCG:    [[TMP4]] = fsub fast <4 x float> [[VEC_PHI2]], [[IND_STEP_INIT_SPLAT]]

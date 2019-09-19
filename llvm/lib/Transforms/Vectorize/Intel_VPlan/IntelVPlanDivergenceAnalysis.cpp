@@ -909,9 +909,10 @@ VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForGepInst(
 
       // See if we can refine a strided pointer to a unit-strided pointer by
       // checking if new stride value is the same as size of pointedto type.
-      uint64_t NewStrideVal =
-          cast<ConstantInt>(NewStride->getUnderlyingValue())->getSExtValue();
-      if (NewDesc == VPVectorShape::Str && PointedToTySize == NewStrideVal)
+      const APInt &NewStrideVal =
+          cast<ConstantInt>(NewStride->getUnderlyingValue())->getValue();
+      uint64_t NewStrideValAbs = NewStrideVal.abs().getZExtValue();
+      if (NewDesc == VPVectorShape::Str && PointedToTySize == NewStrideValAbs)
         NewDesc = VPVectorShape::Ptr;
     }
   }
