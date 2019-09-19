@@ -277,6 +277,7 @@ bool ExecuteCompilerInvocation(CompilerInstance *Clang) {
                                   AnOpts,
                                   Clang->getDiagnostics(),
                                   Clang->getLangOpts());
+    return true;
   }
 
   // Honor -analyzer-config-help.

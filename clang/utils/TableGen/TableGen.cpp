@@ -47,6 +47,7 @@ enum ActionType {
   GenClangCommentNodes,
   GenClangDeclNodes,
   GenClangStmtNodes,
+  GenClangOpcodes,
   GenClangSACheckers,
   GenClangCommentHTMLTags,
   GenClangCommentHTMLTagsProperties,
@@ -133,6 +134,8 @@ cl::opt<ActionType> Action(
                    "Generate Clang AST declaration nodes"),
         clEnumValN(GenClangStmtNodes, "gen-clang-stmt-nodes",
                    "Generate Clang AST statement nodes"),
+        clEnumValN(GenClangOpcodes, "gen-clang-opcodes",
+                   "Generate Clang constexpr interpreter opcodes"),
         clEnumValN(GenClangSACheckers, "gen-clang-sa-checkers",
                    "Generate Clang Static Analyzer checkers"),
         clEnumValN(GenClangCommentHTMLTags, "gen-clang-comment-html-tags",
@@ -260,6 +263,9 @@ bool ClangTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
     break;
   case GenClangStmtNodes:
     EmitClangASTNodes(Records, OS, "Stmt", "");
+    break;
+  case GenClangOpcodes:
+    EmitClangOpcodes(Records, OS);
     break;
   case GenClangSACheckers:
     EmitClangSACheckers(Records, OS);
