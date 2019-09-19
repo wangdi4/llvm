@@ -90,6 +90,7 @@
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/IPO/Intel_AdvancedFastCall.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_IPOPrefetch.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_CallTreeCloning.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_DopeVectorConstProp.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"       // INTEL
@@ -337,6 +338,11 @@ static cl::opt<bool> EnableInlineAggAnalysis(
 static cl::opt<bool> EnableIPCloning(
     "enable-npm-ip-cloning", cl::init(true), cl::Hidden,
     cl::desc("Enable IP Cloning for the new PM (default = on)"));
+
+// IPO Prefetch
+static cl::opt<bool> EnableIPOPrefetch(
+    "enable-npm-ipo-prefetch", cl::init(true), cl::Hidden,
+    cl::desc("Enable IPO Prefetch"));
 
 // Indirect call Conv
 static cl::opt<bool> EnableIndirectCallConv("enable-npm-ind-call-conv",
@@ -1703,6 +1709,10 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
   MPM.addPass(GlobalOptPass());
 
 #if INTEL_CUSTOMIZATION
+  // IPO-based prefetch
+  if (EnableIPOPrefetch)
+    MPM.addPass(IntelIPOPrefetchPass());
+
   if (RunLTOPartialInlining)
     MPM.addPass(PartialInlinerPass(true /*RunLTOPartialInline*/,
                                    false /*EnableSpecialCases*/));

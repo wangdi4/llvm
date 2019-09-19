@@ -274,6 +274,9 @@ ModulePass *createGlobalSplitPass();
 /// calling convention.
 ModulePass *createIntelAdvancedFastCallWrapperPass();
 
+/// \brief This pass conducts IPO-based prefetching
+ModulePass *createIntelIPOPrefetchWrapperPass();
+
 /// \brief This pass implements a simple partial inlining for small functions.
 /// This partial inliner will take care of small functions that the compiler
 /// will like to fully inline. The difference between this partial inliner and

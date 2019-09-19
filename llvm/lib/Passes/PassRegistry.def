@@ -138,6 +138,7 @@ MODULE_PASS("inlinelists", InlineListsPass()) // INTEL
 MODULE_PASS("inlinereportsetup", InlineReportSetupPass()) // INTEL
 MODULE_PASS("inlinereportemitter", InlineReportEmitterPass()) // INTEL
 MODULE_PASS("intel-advancedfastcall", IntelAdvancedFastCallPass()) // INTEL
+MODULE_PASS("intel-ipoprefetch", IntelIPOPrefetchPass()) // INTEL
 #if INTEL_COLLAB
 MODULE_PASS("vpo-paropt", VPOParoptPass())
 MODULE_PASS("vpo-paropt-tpv", VPOParoptTpvLegacyPass())

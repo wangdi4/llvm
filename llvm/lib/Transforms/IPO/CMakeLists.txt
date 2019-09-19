@@ -31,6 +31,8 @@ add_llvm_library(LLVMipo
   Inliner.cpp
   Intel_CallTreeCloning.cpp # INTEL
   Intel_IPCloning.cpp     # INTEL
+  Intel_IPOPrefetch.cpp   # INTEL
+  Utils/Intel_IPOUtils.cpp # INTEL
   Intel_InlineLists.cpp   # INTEL
   Intel_OptimizeDynamicCasts.cpp    # INTEL
   Intel_PartialInline.cpp           # INTEL
