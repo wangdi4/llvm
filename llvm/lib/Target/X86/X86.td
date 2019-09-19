@@ -686,11 +686,15 @@ def ProcessorFeatures {
 
   // Skylake-AVX512
   list<SubtargetFeature> SKXAdditionalFeatures = [FeatureAVX512,
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // All CPUs with AVX512 except KNL should get FeaturePrefer256Bit.
   // Putting it here will inherit.
                                                   FeaturePrefer256Bit,
 #endif // INTEL_CUSTOMIZATION
+=======
+                                                  FeaturePrefer256Bit,
+>>>>>>> 635d383fad2baef4cb4b241c8dd31c91913c0f32
                                                   FeatureCDI,
                                                   FeatureDQI,
                                                   FeatureBWI,
@@ -735,11 +739,15 @@ def ProcessorFeatures {
 
   // Cannonlake
   list<SubtargetFeature> CNLAdditionalFeatures = [FeatureAVX512,
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // All CPUs with AVX512 except KNL should get FeaturePrefer256Bit.
   // Putting it here will inherit.
                                                   FeaturePrefer256Bit,
 #endif // INTEL_CUSTOMIZATION
+=======
+                                                  FeaturePrefer256Bit,
+>>>>>>> 635d383fad2baef4cb4b241c8dd31c91913c0f32
                                                   FeatureCDI,
                                                   FeatureDQI,
                                                   FeatureBWI,
