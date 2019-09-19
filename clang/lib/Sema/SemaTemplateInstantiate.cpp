@@ -1328,6 +1328,7 @@ TemplateInstantiator::TransformLoopHintAttr(const LoopHintAttr *LH) {
 
   // Create new LoopHintValueAttr with integral expression in place of the
   // non-type template parameter.
+<<<<<<< HEAD
   return LoopHintAttr::CreateImplicit(
       getSema().Context, LH->getSemanticSpelling(), LH->getOption(),
 #if INTEL_CUSTOMIZATION
@@ -1370,6 +1371,10 @@ const IntelBlockLoopAttr *TemplateInstantiator::TransformIntelBlockLoopAttr(
 
   getSema().CheckIntelBlockLoopAttribute(NewBL);
   return NewBL;
+=======
+  return LoopHintAttr::CreateImplicit(getSema().Context, LH->getOption(),
+                                      LH->getState(), TransformedExpr, *LH);
+>>>>>>> 7759ef539960cf3891941cf7fe40ab2f139ab31b
 }
 #endif // INTEL_CUSTOMIZATION
 

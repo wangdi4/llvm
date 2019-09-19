@@ -19,6 +19,7 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/Type.h"
 #include "clang/Basic/AttrKinds.h"
+#include "clang/Basic/AttributeCommonInfo.h"
 #include "clang/Basic/LLVM.h"
 #include "clang/Basic/OpenMPKinds.h"
 #include "clang/Basic/Sanitizers.h"
@@ -32,6 +33,7 @@
 
 namespace clang {
   class ASTContext;
+  class AttributeCommonInfo;
   class IdentifierInfo;
   class ObjCInterfaceDecl;
   class Expr;
@@ -42,6 +44,7 @@ namespace clang {
 
 
 /// Attr - This represents one attribute.
+<<<<<<< HEAD
 class Attr {
 private:
   SourceRange Range;
@@ -75,51 +78,81 @@ public:
   void operator delete(void *Ptr, ASTContext &C, size_t Alignment) noexcept {
     return ::operator delete(Ptr, C, Alignment);
   }
+=======
+  class Attr : public AttributeCommonInfo {
+  private:
+    unsigned AttrKind : 16;
 
-protected:
-  Attr(attr::Kind AK, SourceRange R, unsigned SpellingListIndex,
-       bool IsLateParsed)
-    : Range(R), AttrKind(AK), SpellingListIndex(SpellingListIndex),
-      Inherited(false), IsPackExpansion(false), Implicit(false),
-      IsLateParsed(IsLateParsed), InheritEvenIfAlreadyPresent(false) {}
+  protected:
+    /// An index into the spelling list of an
+    /// attribute defined in Attr.td file.
+    unsigned Inherited : 1;
+    unsigned IsPackExpansion : 1;
+    unsigned Implicit : 1;
+    // FIXME: These are properties of the attribute kind, not state for this
+    // instance of the attribute.
+    unsigned IsLateParsed : 1;
+    unsigned InheritEvenIfAlreadyPresent : 1;
 
-public:
+    void *operator new(size_t bytes) noexcept {
+      llvm_unreachable("Attrs cannot be allocated with regular 'new'.");
+    }
+    void operator delete(void *data) noexcept {
+      llvm_unreachable("Attrs cannot be released with regular 'delete'.");
+    }
+>>>>>>> 7759ef539960cf3891941cf7fe40ab2f139ab31b
 
-  attr::Kind getKind() const {
-    return static_cast<attr::Kind>(AttrKind);
-  }
+  public:
+    // Forward so that the regular new and delete do not hide global ones.
+    void *operator new(size_t Bytes, ASTContext &C,
+                       size_t Alignment = 8) noexcept {
+      return ::operator new(Bytes, C, Alignment);
+    }
+    void operator delete(void *Ptr, ASTContext &C, size_t Alignment) noexcept {
+      return ::operator delete(Ptr, C, Alignment);
+    }
 
-  unsigned getSpellingListIndex() const { return SpellingListIndex; }
-  const char *getSpelling() const;
+  protected:
+    Attr(ASTContext &Context, const AttributeCommonInfo &CommonInfo,
+         attr::Kind AK, bool IsLateParsed)
+        : AttributeCommonInfo(CommonInfo), AttrKind(AK), Inherited(false),
+          IsPackExpansion(false), Implicit(false), IsLateParsed(IsLateParsed),
+          InheritEvenIfAlreadyPresent(false) {}
 
-  SourceLocation getLocation() const { return Range.getBegin(); }
-  SourceRange getRange() const { return Range; }
-  void setRange(SourceRange R) { Range = R; }
+  public:
+    attr::Kind getKind() const { return static_cast<attr::Kind>(AttrKind); }
 
-  bool isInherited() const { return Inherited; }
+    unsigned getSpellingListIndex() const {
+      return getAttributeSpellingListIndex();
+    }
+    const char *getSpelling() const;
 
-  /// Returns true if the attribute has been implicitly created instead
-  /// of explicitly written by the user.
-  bool isImplicit() const { return Implicit; }
-  void setImplicit(bool I) { Implicit = I; }
+    SourceLocation getLocation() const { return getRange().getBegin(); }
 
-  void setPackExpansion(bool PE) { IsPackExpansion = PE; }
-  bool isPackExpansion() const { return IsPackExpansion; }
+    bool isInherited() const { return Inherited; }
 
-  // Clone this attribute.
-  Attr *clone(ASTContext &C) const;
+    /// Returns true if the attribute has been implicitly created instead
+    /// of explicitly written by the user.
+    bool isImplicit() const { return Implicit; }
+    void setImplicit(bool I) { Implicit = I; }
 
-  bool isLateParsed() const { return IsLateParsed; }
+    void setPackExpansion(bool PE) { IsPackExpansion = PE; }
+    bool isPackExpansion() const { return IsPackExpansion; }
 
-  // Pretty print this attribute.
-  void printPretty(raw_ostream &OS, const PrintingPolicy &Policy) const;
-};
+    // Clone this attribute.
+    Attr *clone(ASTContext &C) const;
+
+    bool isLateParsed() const { return IsLateParsed; }
+
+    // Pretty print this attribute.
+    void printPretty(raw_ostream &OS, const PrintingPolicy &Policy) const;
+  };
 
 class TypeAttr : public Attr {
 protected:
-  TypeAttr(attr::Kind AK, SourceRange R, unsigned SpellingListIndex,
-           bool IsLateParsed)
-      : Attr(AK, R, SpellingListIndex, IsLateParsed) {}
+  TypeAttr(ASTContext &Context, const AttributeCommonInfo &CommonInfo,
+           attr::Kind AK, bool IsLateParsed)
+      : Attr(Context, CommonInfo, AK, IsLateParsed) {}
 
 public:
   static bool classof(const Attr *A) {
@@ -130,9 +163,9 @@ public:
 
 class StmtAttr : public Attr {
 protected:
-  StmtAttr(attr::Kind AK, SourceRange R, unsigned SpellingListIndex,
-                  bool IsLateParsed)
-      : Attr(AK, R, SpellingListIndex, IsLateParsed) {}
+  StmtAttr(ASTContext &Context, const AttributeCommonInfo &CommonInfo,
+           attr::Kind AK, bool IsLateParsed)
+      : Attr(Context, CommonInfo, AK, IsLateParsed) {}
 
 public:
   static bool classof(const Attr *A) {
@@ -143,9 +176,10 @@ public:
 
 class InheritableAttr : public Attr {
 protected:
-  InheritableAttr(attr::Kind AK, SourceRange R, unsigned SpellingListIndex,
-                  bool IsLateParsed, bool InheritEvenIfAlreadyPresent)
-      : Attr(AK, R, SpellingListIndex, IsLateParsed) {
+  InheritableAttr(ASTContext &Context, const AttributeCommonInfo &CommonInfo,
+                  attr::Kind AK, bool IsLateParsed,
+                  bool InheritEvenIfAlreadyPresent)
+      : Attr(Context, CommonInfo, AK, IsLateParsed) {
     this->InheritEvenIfAlreadyPresent = InheritEvenIfAlreadyPresent;
   }
 
@@ -167,9 +201,10 @@ public:
 
 class InheritableParamAttr : public InheritableAttr {
 protected:
-  InheritableParamAttr(attr::Kind AK, SourceRange R, unsigned SpellingListIndex,
+  InheritableParamAttr(ASTContext &Context,
+                       const AttributeCommonInfo &CommonInfo, attr::Kind AK,
                        bool IsLateParsed, bool InheritEvenIfAlreadyPresent)
-      : InheritableAttr(AK, R, SpellingListIndex, IsLateParsed,
+      : InheritableAttr(Context, CommonInfo, AK, IsLateParsed,
                         InheritEvenIfAlreadyPresent) {}
 
 public:
@@ -184,11 +219,11 @@ public:
 /// for the parameter.
 class ParameterABIAttr : public InheritableParamAttr {
 protected:
-  ParameterABIAttr(attr::Kind AK, SourceRange R,
-                   unsigned SpellingListIndex, bool IsLateParsed,
+  ParameterABIAttr(ASTContext &Context, const AttributeCommonInfo &CommonInfo,
+                   attr::Kind AK, bool IsLateParsed,
                    bool InheritEvenIfAlreadyPresent)
-    : InheritableParamAttr(AK, R, SpellingListIndex, IsLateParsed,
-                           InheritEvenIfAlreadyPresent) {}
+      : InheritableParamAttr(Context, CommonInfo, AK, IsLateParsed,
+                             InheritEvenIfAlreadyPresent) {}
 
 public:
   ParameterABI getABI() const {
