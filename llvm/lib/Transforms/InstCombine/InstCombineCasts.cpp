@@ -1531,11 +1531,10 @@ Instruction *InstCombiner::visitFPTrunc(FPTruncInst &FPT) {
   // what we can and cannot do safely varies from operation to operation, and
   // is explained below in the various case statements.
   Type *Ty = FPT.getType();
-<<<<<<< HEAD
-  BinaryOperator *OpI = dyn_cast<BinaryOperator>(FPT.getOperand(0));
-  if (OpI && OpI->hasOneUse()) {
-    Type *LHSMinType = getMinimumFPType(OpI->getOperand(0));
-    Type *RHSMinType = getMinimumFPType(OpI->getOperand(1));
+  auto *BO = dyn_cast<BinaryOperator>(FPT.getOperand(0));
+  if (BO && BO->hasOneUse()) {
+    Type *LHSMinType = getMinimumFPType(BO->getOperand(0));
+    Type *RHSMinType = getMinimumFPType(BO->getOperand(1));
 #if INTEL_CUSTOMIZATION
     // When this binary operator has fast math flag, we can eliminate some
     // float-double casts at a cost of precision loss. For example, we can
@@ -1546,24 +1545,17 @@ Instruction *InstCombiner::visitFPTrunc(FPTruncInst &FPT) {
     // into:
     //     %c = fadd fast float %x, C' (32-bit representation of C)
     // Same for fsub, fmul and fdiv.
-    if (OpI->getFastMathFlags().isFast() && FPT.getType()->isFloatTy() &&
-        OpI->getOpcode() != Instruction::FRem) {
-      if (isa<ConstantFP>(OpI->getOperand(1)) &&
+    if (BO->getFastMathFlags().isFast() && FPT.getType()->isFloatTy() &&
+        BO->getOpcode() != Instruction::FRem) {
+      if (isa<ConstantFP>(BO->getOperand(1)) &&
           RHSMinType->isDoubleTy() && LHSMinType->isFloatTy())
         RHSMinType = FPT.getType();
-      else if (isa<ConstantFP>(OpI->getOperand(0)) &&
+      else if (isa<ConstantFP>(BO->getOperand(0)) &&
                LHSMinType->isDoubleTy() && RHSMinType->isFloatTy())
         LHSMinType = FPT.getType();
     }
 #endif
-    unsigned OpWidth = OpI->getType()->getFPMantissaWidth();
-=======
-  auto *BO = dyn_cast<BinaryOperator>(FPT.getOperand(0));
-  if (BO && BO->hasOneUse()) {
-    Type *LHSMinType = getMinimumFPType(BO->getOperand(0));
-    Type *RHSMinType = getMinimumFPType(BO->getOperand(1));
     unsigned OpWidth = BO->getType()->getFPMantissaWidth();
->>>>>>> 2bfb955c51fd062a0a45fe25858a00e28217d7ed
     unsigned LHSWidth = LHSMinType->getFPMantissaWidth();
     unsigned RHSWidth = RHSMinType->getFPMantissaWidth();
     unsigned SrcWidth = std::max(LHSWidth, RHSWidth);
