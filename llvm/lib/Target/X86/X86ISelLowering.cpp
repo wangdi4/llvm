@@ -19877,14 +19877,7 @@ SDValue X86TargetLowering::LowerFP_TO_INT(SDValue Op, SelectionDAG &DAG) const {
   llvm_unreachable("Expected FP_TO_INTHelper to handle all remaining cases.");
 }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-SDValue X86TargetLowering::LowerFP_EXTEND(SDValue Op, SelectionDAG &DAG,
-                              const X86Subtarget &Subtarget) const {
-#else // INTEL_FEATURE_ISA_FP16
 SDValue X86TargetLowering::LowerFP_EXTEND(SDValue Op, SelectionDAG &DAG) const {
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
   SDLoc DL(Op);
   MVT VT = Op.getSimpleValueType();
   SDValue In = Op.getOperand(0);
@@ -28471,13 +28464,7 @@ SDValue X86TargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
     return LowerEXTEND_VECTOR_INREG(Op, Subtarget, DAG);
   case ISD::FP_TO_SINT:
   case ISD::FP_TO_UINT:         return LowerFP_TO_INT(Op, DAG);
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-  case ISD::FP_EXTEND:          return LowerFP_EXTEND(Op, DAG, Subtarget);
-#else // INTEL_FEATURE_ISA_FP16
   case ISD::FP_EXTEND:          return LowerFP_EXTEND(Op, DAG);
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
   case ISD::FP_ROUND:           return LowerFP_ROUND(Op, DAG);
   case ISD::STRICT_FP_ROUND:    return LowerSTRICT_FP_ROUND(Op, DAG);
   case ISD::LOAD:               return LowerLoad(Op, Subtarget, DAG);

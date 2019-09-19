@@ -1400,14 +1400,7 @@ namespace llvm {
     SDValue LowerGC_TRANSITION_END(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerINTRINSIC_WO_CHAIN(SDValue Op, SelectionDAG &DAG) const;
     SDValue lowerFaddFsub(SDValue Op, SelectionDAG &DAG) const;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-    SDValue LowerFP_EXTEND(SDValue Op, SelectionDAG &DAG,
-                           const X86Subtarget &Subtarget) const;
-#else  // INTEL_FEATURE_ISA_FP16
     SDValue LowerFP_EXTEND(SDValue Op, SelectionDAG &DAG) const;
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
     SDValue LowerFP_ROUND(SDValue Op, SelectionDAG &DAG) const;
 
     SDValue LowerF128Call(SDValue Op, SelectionDAG &DAG,
