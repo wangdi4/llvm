@@ -1107,13 +1107,15 @@ Value *VPOCodeGen::getScalarValue(Value *V, unsigned Lane) {
   if (Legal->isInductionVariable(V))
     return buildScalarIVForLane(cast<PHINode>(V), Lane);
 
+  // Get the scalar value by extracting from the vector instruction based on the
+  // requested lane.
+  Value *VecV = getVectorValue(V);
+
   // This code assumes that the widened vector, that we are extracting from has
   // data in AOS layout. If OriginalVL = 2, VF = 4 the widened value would be
   // Wide.Val = <v1_0, v2_0, v1_1, v2_1, v1_2, v2_2, v1_3, v2_3>.
   // getScalarValue(Wide.Val, 1) would return <v1_1, v2_1>
-
-  if (V->getType()->isVectorTy() && WidenMap.count(V)) {
-    Value *WidenedVar = WidenMap[V];
+  if (V->getType()->isVectorTy()) {
     unsigned OrigNumElts = V->getType()->getVectorNumElements();
     SmallVector<unsigned, 8> ShufMask;
     for (unsigned StartIdx = Lane * OrigNumElts,
@@ -1122,7 +1124,7 @@ Value *VPOCodeGen::getScalarValue(Value *V, unsigned Lane) {
       ShufMask.push_back(StartIdx);
 
     Value *Shuff = Builder.CreateShuffleVector(
-        WidenedVar, UndefValue::get(WidenedVar->getType()), ShufMask,
+        VecV, UndefValue::get(VecV->getType()), ShufMask,
         "extractsubvec.");
 
     ScalarMap[V][Lane] = Shuff;
@@ -1130,7 +1132,6 @@ Value *VPOCodeGen::getScalarValue(Value *V, unsigned Lane) {
     return Shuff;
   }
 
-  Value *VecV = getVectorValue(V);
   IRBuilder<>::InsertPointGuard Guard(Builder);
   if (auto VecInst = dyn_cast<Instruction>(VecV)) {
     if (isa<PHINode>(VecInst))

@@ -1,9 +1,10 @@
-; RUN: opt %s -S -VPlanDriver -vplan-force-vf=2 | FileCheck %s
-; RUN: opt %s -S -VPlanDriver -vplan-force-vf=2 -enable-vp-value-codegen | FileCheck %s
+; RUN: opt %s -S -VPlanDriver -vplan-force-vf=2 | FileCheck %s --check-prefixes=CHECK,CHECK-LLVM
+; RUN: opt %s -S -VPlanDriver -vplan-force-vf=2 -enable-vp-value-codegen | FileCheck %s --check-prefixes=CHECK,CHECK-VPVAL
 
-; Check that for uniform load followed by serialized call we use that load for
-; all the lanes in the serialized calls sequence (used to crash due to not
-; finding proper mapping).
+; Check that for uniform instruction that has vector type before vectorization and
+; followed by serialized call we use either that uniform non-widened version or
+; a correct broadcast/shuffle sequence that extracts right value of the original
+; vector type.
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()
@@ -12,6 +13,8 @@ declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 
 declare void @foo(<2 x i64>, i64)
+
+declare <2 x i64> @bar(<2 x i64>) nounwind readnone
 
 define void @test1(i64 %n, <2 x i64>* %arr) {
 entry:
@@ -32,6 +35,25 @@ for.body:
   call void @foo(<2 x i64> %load.uni, i64 %indvars.iv)
 ; CHECK-NEXT:    call void @foo(<2 x i64> [[TMP2]], i64 {{%.*}})
 ; CHECK-NEXT:    call void @foo(<2 x i64> [[TMP2]], i64 {{%.*}})
+
+  %call.uni = call <2 x i64> @bar(<2 x i64> zeroinitializer)
+; CHECK-NEXT:    [[UNI_CALL:%.*]] = call <2 x i64> @bar(<2 x i64> zeroinitializer)
+  call void @foo(<2 x i64> %call.uni, i64 %indvars.iv)
+
+; VPValue-based codegen uses DA and knows that both lanes contain the same
+; value. It's harder to get that information with LLVM-based CG, so just check
+; the widen/extract sequence that gives the correct value too, although uses
+; more instructions.
+
+; CHECK-LLVM-NEXT:    [[REPLICATED:%.*]] = shufflevector <2 x i64> [[UNI_CALL]], <2 x i64> undef, <4 x i32> <i32 0, i32 1, i32 0, i32 1>
+
+; Both CGs re-use the scalar call resutls for lane zero.
+; CHECK-NEXT:    call void @foo(<2 x i64> [[UNI_CALL]], i64 {{%.*}})
+
+; CHECK-LLVM-NEXT:    [[UNI_CALL_LANE1:%.*]] = shufflevector <4 x i64> [[REPLICATED]], <4 x i64> undef, <2 x i32> <i32 2, i32 3>
+; CHECK-LLVM-NEXT:    call void @foo(<2 x i64> [[UNI_CALL_LANE1]], i64 {{%.*}})
+; CHECK-VPVAL-NEXT:   call void @foo(<2 x i64> [[UNI_CALL]], i64 {{%.*}})
+
   br i1 %cond, label %if.then, label %for.latch
 
 if.then:
