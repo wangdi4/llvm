@@ -204,6 +204,7 @@ endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 # Add include directories
 set (INCLUDE_DIRS
     ${LLVM_INCLUDE_DIRS}
+    ${CL_API_HEADERS}
     ${OCL_CPU_BACKEND_DIR}
     ${OCL_SOURCE_DIR}/utils/cache_binary_handler
     ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
@@ -217,7 +218,6 @@ set (INCLUDE_DIRS
     ${BACKEND_ROOT_DIR}/metadata_api
     ${BACKEND_ROOT_DIR}/passes/ChannelPipeTransformation
     ${CMAKE_BINARY_DIR}/include/
-    ${OCL_BINARY_DIR}/include
 )
 
 # Add additional link directories

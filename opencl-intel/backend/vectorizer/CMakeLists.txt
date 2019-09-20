@@ -12,6 +12,7 @@ include_directories(BEFORE "ChooseVectorizationDimension")
 
 include_directories(
   ${LLVM_INCLUDE_DIRS}
+  ${CL_API_HEADERS}
   ${BACKEND_ROOT_DIR}/arch_headers
   ${BACKEND_ROOT_DIR}/reflection_module
   ${BACKEND_ROOT_DIR}/name_mangling
@@ -21,7 +22,6 @@ include_directories(
   ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/Driver/OpenCL
   ${BACKEND_ROOT_DIR}/metadata_api
   ${CMAKE_BINARY_DIR}/include
-  ${OCL_BINARY_DIR}/include
 )
 
 set(TARGET_EXTRA_SOURCE_FILES

@@ -52,16 +52,13 @@ set (TARGET_SOURCE_FILES
 
 include_directories(
   ${LLVM_INCLUDE_DIRS}
+  ${CL_API_HEADERS}
   ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
   ${BACKEND_ROOT_DIR}/name_mangling
   ${BACKEND_ROOT_DIR}/reflection_module
   ${BACKEND_ROOT_DIR}/metadata_api
   ${BACKEND_ROOT_DIR}/ocl_cpu_backend
   ${CMAKE_BINARY_DIR}/include
-  # OpenCL API headers are copied during the configuration step
-  # in cl_api/CMakeLists.txt.
-  # Should we include OpenCL cl.h or cclang's one???
-  ${OCL_BINARY_DIR}/include
   ${CMAKE_BINARY_DIR}
   ${OCL_BINARY_DIR}
 )
