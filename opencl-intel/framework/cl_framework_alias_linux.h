@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2019 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -140,4 +140,10 @@ DECLARE_ALIAS(clReadPipeIntelFPGA);
 DECLARE_ALIAS(clWritePipeIntelFPGA);
 DECLARE_ALIAS(clGetDeviceFunctionPointerINTEL);
 DECLARE_ALIAS(clCreateProgramWithILKHR);
+DECLARE_ALIAS(clCreateTracingHandleINTEL);
+DECLARE_ALIAS(clSetTracingPointINTEL);
+DECLARE_ALIAS(clDestroyTracingHandleINTEL);
+DECLARE_ALIAS(clEnableTracingINTEL);
+DECLARE_ALIAS(clDisableTracingINTEL);
+DECLARE_ALIAS(clGetTracingStateINTEL);
 }}}

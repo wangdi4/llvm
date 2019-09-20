@@ -620,7 +620,7 @@ cl_int PlatformModule::UnloadCompiler(void)
     for (cl_uint ui=0; ui<m_mapDevices.Count(); ++ui)
     {
         SharedPtr<FissionableDevice> pDevice = m_mapDevices.GetObjectByIndex(ui).DynamicCast<FissionableDevice>();
-        if (0 != pDevice)
+        if (0 != pDevice && 0 != pDevice->GetDeviceAgent())
         {
             pDevice->GetDeviceAgent()->clDevUnloadCompiler();
         }

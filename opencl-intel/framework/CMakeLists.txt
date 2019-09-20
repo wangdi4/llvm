@@ -29,6 +29,7 @@ include_directories ( BEFORE
         ${CMAKE_CURRENT_SOURCE_DIR}/Context
         ${CMAKE_CURRENT_SOURCE_DIR}/Execution
         ${CMAKE_CURRENT_SOURCE_DIR}/MemoryAllocator
+        ${CMAKE_CURRENT_SOURCE_DIR}/Tracing
         ${OCL_BINARY_DIR}
     )
 
@@ -44,6 +45,7 @@ add_subdirectory( Platform )
 add_subdirectory( Context )
 add_subdirectory( Execution )
 add_subdirectory( MemoryAllocator )
+add_subdirectory( Tracing )
 
 # set that name of the main output file as a target name
 set( TARGET_NAME intelocl${BUILD_PLATFORM} )
@@ -85,6 +87,7 @@ add_opencl_library (${TARGET_NAME} SHARED
       Execution
       Platform
       MemoryAllocator
+      Tracing
       cl_sys_utils
       CLElfLib
       ${LINK_LIBS}

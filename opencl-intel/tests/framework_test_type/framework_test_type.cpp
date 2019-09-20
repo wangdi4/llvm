@@ -523,6 +523,46 @@ TEST(FrameworkTestType, Test_clShutdownSVMTest)
     clShutdownSVMTest();
 }
 
+TEST(FrameworkTestType, Test_clTracingCheckExtensionsTest)
+{
+    EXPECT_TRUE(clTracingCheckExtensionsTest());
+}
+
+TEST(FrameworkTestType, Test_clTracingCheckExtensionsForPlatformTest)
+{
+    EXPECT_TRUE(clTracingCheckExtensionsForPlatformTest());
+}
+
+TEST(FrameworkTestType, Test_clTracingCheckInvalidArgsTest)
+{
+    EXPECT_TRUE(clTracingCheckInvalidArgsTest());
+}
+
+TEST(FrameworkTestType, Test_clTracingCheckInvactiveHandleTest)
+{
+    EXPECT_TRUE(clTracingCheckInvactiveHandleTest());
+}
+
+TEST(FrameworkTestType, Test_clTracingCheckTooManyHandlesTest)
+{
+    EXPECT_TRUE(clTracingCheckTooManyHandlesTest());
+}
+
+TEST(FrameworkTestType, Test_clTracingFlowCheckTest)
+{
+    EXPECT_TRUE(clTracingFlowCheckTest());
+}
+
+TEST(FrameworkTestType, Test_clTracingFunctionsEnabledCheckTest)
+{
+    EXPECT_TRUE(clTracingFunctionsEnabledCheckTest());
+}
+
+TEST(FrameworkTestType, Test_clTracingFunctionsDisabledCheckTest)
+{
+    EXPECT_TRUE(clTracingFunctionsDisabledCheckTest());
+}
+
 TEST_F(CL, Test_CheckExtensions)
 {
     CheckExtensions();

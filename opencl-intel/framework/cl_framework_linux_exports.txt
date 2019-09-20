@@ -122,6 +122,13 @@
         clEnqueueSVMMigrateMem;
 
         clGetDeviceFunctionPointerINTEL;
+
+        clCreateTracingHandleINTEL;
+        clSetTracingPointINTEL;
+        clDestroyTracingHandleINTEL;
+        clEnableTracingINTEL;
+        clDisableTracingINTEL;
+        clGetTracingStateINTEL;
     local:
         *;
 };

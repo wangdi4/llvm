@@ -161,6 +161,14 @@ bool cl_device_local_mem_size_test();
 bool cl_device_private_mem_size_test();
 bool cl_device_private_mem_size_test_out_of_resources();
 bool cl_device_private_mem_size_test_without_vectorizer();
+bool clTracingCheckExtensionsTest();
+bool clTracingCheckExtensionsForPlatformTest();
+bool clTracingCheckInvalidArgsTest();
+bool clTracingCheckInvactiveHandleTest();
+bool clTracingCheckTooManyHandlesTest();
+bool clTracingFlowCheckTest();
+bool clTracingFunctionsEnabledCheckTest();
+bool clTracingFunctionsDisabledCheckTest();
 #ifndef _WIN32
 bool cl_device_local_mem_size_unlimited_stack_test();
 bool TbbSetMaxThreads(int NumThreads);
