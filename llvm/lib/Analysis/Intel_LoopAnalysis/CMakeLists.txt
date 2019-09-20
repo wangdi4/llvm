@@ -25,8 +25,6 @@ add_llvm_library(LLVMIntel_LoopAnalysis
   Framework/HIRParser.cpp
   Framework/HIRSymbaseAssignment.cpp
   Framework/HIRFramework.cpp
-  Analysis/HIRVLSClient.cpp
-  Analysis/HIRVectVLSAnalysis.cpp
   Analysis/HIRAnalysisPass.cpp
   Analysis/HIRDDAnalysis.cpp
   Analysis/DDTests.cpp

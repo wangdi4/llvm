@@ -313,7 +313,6 @@ namespace {
       (void) llvm::createHIRLoopResourceWrapperPass();
       (void) llvm::createHIRLoopStatisticsWrapperPass();
       (void) llvm::createHIRParVecAnalysisPass();
-      (void) llvm::createHIRVectVLSAnalysisPass();
       (void) llvm::createHIRSafeReductionAnalysisPass();
       (void) llvm::createHIRSparseArrayReductionAnalysisPass();
       (void) llvm::createHIRSSADeconstructionLegacyPass();
@@ -353,6 +352,7 @@ namespace {
       (void) llvm::createHIRPrefetchingPass();
       (void) llvm::createHIRSinkingForPerfectLoopnestPass();
       (void) llvm::createHIRConditionalTempSinkingPass();
+      (void) llvm::createHIRMemoryReductionSinkingPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();

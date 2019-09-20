@@ -554,12 +554,10 @@ private:
   // Re-vectorize the given vector load instruction. The function handles 
   // only simple vectors.
   void widenVectorLoad(LoadInst *Inst);
-  void widenVectorLoad(VPInstruction *VPLoad);
 
   // Re-vectorize the given vector store instruction. The function handles 
   // only simple vectors.
   void widenVectorStore(StoreInst *Inst);
-  void widenVectorStore(VPInstruction *VPStore);
 
   // Widen a BitCast/AddrSpaceCast instructions
   template <typename CastInstTy> void vectorizeCast(Instruction *Inst);
@@ -638,7 +636,7 @@ private:
   /// the returned GEP is itself used as an operand of a Scatter/Gather
   /// function.
   Value *createWidenedGEPForScatterGather(Instruction *I);
-  Value *createWidenedGEPForScatterGather(VPInstruction *VPI);
+  Value *getWidenedAddressForScatterGather(VPInstruction *VPI);
 
   /// This function return an appropriate BasePtr for cases where we are have
   /// load/store to consecutive memory locations

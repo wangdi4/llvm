@@ -318,7 +318,13 @@ private:
   /// the local linear var in each iteration of the loop.
   /// -# At the end of the last loop iteration, copy the value of the local
   /// var back to the original linear var.
-  bool genLinearCode(WRegionNode *W, BasicBlock *IfLastIterBB);
+  /// If \p OMPLBForLinearClosedForm is provided, the linear closed-form
+  /// expression is inserted after it, and it is used instead of loop index
+  /// for the closed form computation of the local linear var. Otherwise, the
+  /// closed-form computation of the linear var happens in each iteration of the
+  /// loop, as part of the loop's body.
+  bool genLinearCode(WRegionNode *W, BasicBlock *IfLastIterBB,
+                     Instruction *OMPLBForLinearClosedForm = nullptr);
 
   /// Generate code for firstprivate variables
   bool genFirstPrivatizationCode(WRegionNode *W);
@@ -528,14 +534,17 @@ private:
   /// Generate the lastprivate update code for taskloop
   void genLprivFiniForTaskLoop(LastprivateItem *LprivI, Instruction *InsertPt);
 
-  /// Generate loop schdudeling code.
+  /// Generate loop scheduling code.
   /// \p IsLastVal is an output from this routine and is used to emit
   /// lastprivate code.
   /// If \p W is a loop construct with scheduling involving __kmpc_dispatch
   /// calls, \p InsertLastIterCheckBeforeOut is set to point to the instruction
   /// before which the lastprivate/linear finalization code should be inserted.
+  /// \p NewOmpLBInstOut is set to the load of omp.lb, which is computed for use
+  /// in the loop's ztt (lb < ub).
   bool genLoopSchedulingCode(WRegionNode *W, AllocaInst *&IsLastVal,
-                             Instruction *&InsertLastIterCheckBeforeOut);
+                             Instruction *&InsertLastIterCheckBeforeOut,
+                             Instruction *&NewOmpLBInstOut);
 
   /// Generate the code to replace the variables in the task loop with
   /// the thunk field dereferences

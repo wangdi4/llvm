@@ -508,7 +508,6 @@ void initializeHIRTempCleanupLegacyPassPass(PassRegistry&);
 void initializeHIRParVecAnalysisWrapperPassPass(PassRegistry &);
 void initializeHIRParDirInsertPass(PassRegistry&);
 void initializeHIRVecDirInsertPass(PassRegistry&);
-void initializeHIRVectVLSAnalysisPass(PassRegistry&);
 void initializeHIRPrinterPass(llvm::PassRegistry&);
 void initializeHIRPreVecCompleteUnrollLegacyPassPass(PassRegistry&);
 void initializeHIRPostVecCompleteUnrollLegacyPassPass(PassRegistry&);
@@ -545,6 +544,7 @@ void initializeHIRIdentityMatrixIdiomRecognitionLegacyPassPass(PassRegistry&);
 void initializeHIRPrefetchingLegacyPassPass(PassRegistry&);
 void initializeHIRSinkingForPerfectLoopnestLegacyPassPass(PassRegistry&);
 void initializeHIRConditionalTempSinkingLegacyPassPass(PassRegistry&);
+void initializeHIRMemoryReductionSinkingLegacyPassPass(PassRegistry&);
 // VPO Vectorizer Passes
 void initializeAVRGeneratePass(PassRegistry&);
 void initializeAVRGenerateHIRPass(PassRegistry&);

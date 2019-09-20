@@ -55,4 +55,5 @@ void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeHIRPrefetchingLegacyPassPass(Registry);
   initializeHIRSinkingForPerfectLoopnestLegacyPassPass(Registry);
   initializeHIRConditionalTempSinkingLegacyPassPass(Registry);
+  initializeHIRMemoryReductionSinkingLegacyPassPass(Registry);
 }

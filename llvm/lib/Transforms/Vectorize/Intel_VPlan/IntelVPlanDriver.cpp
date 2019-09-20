@@ -670,7 +670,6 @@ INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 // INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 // INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
-// INITIALIZE_PASS_DEPENDENCY(HIRVectVLSAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
@@ -700,7 +699,6 @@ void VPlanDriverHIR::getAnalysisUsage(AnalysisUsage &AU) const {
   //  AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
   AU.addRequired<HIRDDAnalysisWrapperPass>();
   AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
-  //  AU.addRequired<HIRVectVLSAnalysis>();
   AU.addRequired<OptReportOptionsPass>();
 }
 
@@ -714,7 +712,6 @@ bool VPlanDriverHIR::runOnFunction(Function &Fn) {
   HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   HIRLoopStats = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
   DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
-  // VLS = &getAnalysis<HIRVectVLSAnalysis>();
   LORBuilder.setup(Fn.getContext(),
                    getAnalysis<OptReportOptionsPass>().getVerbosity());
 

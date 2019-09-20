@@ -204,6 +204,7 @@
 #include "llvm/Transforms/Scalar/Intel_LoopOptReportEmitter.h"
 #include "llvm/Transforms/Scalar/Intel_AddSubReassociate.h"
 #include "llvm/Transforms/Scalar/Intel_LoopCarriedCSE.h"
+#include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
 #include "llvm/Transforms/Vectorize/Intel_LoadCoalescing.h"
 
 // Intel Loop Optimization framework
@@ -260,7 +261,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPrefetching.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRSinkingForPerfectLoopnest.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRConditionalTempSinking.h"
-#include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRMemoryReductionSinking.h"
 
 #if INTEL_INCLUDE_DTRANS
 #include "Intel_DTrans/DTransCommon.h"
