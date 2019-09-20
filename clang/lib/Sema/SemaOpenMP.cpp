@@ -3448,7 +3448,6 @@ void Sema::ActOnOpenMPRegionStart(OpenMPDirectiveKind DKind, Scope *CurScope) {
   case OMPD_cancellation_point:
   case OMPD_cancel:
   case OMPD_flush:
-  case OMPD_declare_variant: // INTEL
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
   case OMPD_declare_simd:
@@ -4527,7 +4526,6 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
   case OMPD_end_declare_target:
   case OMPD_threadprivate:
   case OMPD_allocate:
-  case OMPD_declare_variant: // INTEL
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
   case OMPD_declare_simd:
@@ -4912,23 +4910,13 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPDeclareSimdDirective(
   return ConvertDeclToDeclGroup(ADecl);
 }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
 Sema::DeclGroupPtrTy Sema::ActOnOpenMPDeclareVariantDirective(
-    DeclGroupPtrTy DG, FunctionDecl *VariantFD,
+#if INTEL_CUSTOMIZATION
+    Sema::DeclGroupPtrTy DG, Expr *VariantRef,
     SmallVectorImpl<OMPDeclareVariantDeclAttr::ConstructTy> &Constructs,
     SmallVectorImpl<OMPDeclareVariantDeclAttr::DeviceTy> &Devices,
     SourceRange SR) {
-
-  if (!DG || DG.get().isNull())
-    return DeclGroupPtrTy();
-
-  if (!DG.get().isSingleDecl()) {
-    Diag(SR.getBegin(), diag::err_omp_single_decl_in_declare_variant);
-=======
-Sema::DeclGroupPtrTy
-Sema::ActOnOpenMPDeclareVariantDirective(Sema::DeclGroupPtrTy DG,
-                                         Expr *VariantRef, SourceRange SR) {
+#endif // INTEL_CUSTOMIZATION
   if (!DG || DG.get().isNull())
     return DeclGroupPtrTy();
 
@@ -4937,28 +4925,12 @@ Sema::ActOnOpenMPDeclareVariantDirective(Sema::DeclGroupPtrTy DG,
   if (!DG.get().isSingleDecl()) {
     Diag(SR.getBegin(), diag::err_omp_single_decl_in_declare_simd_variant)
         << VariantId << SR;
->>>>>>> d158cf64d64b6b1882fd8f09e5d8619cb8529a5f
     return DG;
   }
   Decl *ADecl = DG.get().getSingleDecl();
   if (auto *FTD = dyn_cast<FunctionTemplateDecl>(ADecl))
     ADecl = FTD->getTemplatedDecl();
 
-<<<<<<< HEAD
-  auto *FD = dyn_cast<FunctionDecl>(ADecl);
-  if (!FD) {
-    Diag(ADecl->getLocation(), diag::err_omp_function_expected_variant);
-    return DeclGroupPtrTy();
-  }
-
-  auto *NewAttr = OMPDeclareVariantDeclAttr::CreateImplicit(
-      Context, VariantFD, Constructs.data(), Constructs.size(), Devices.data(),
-      Devices.size(), SR);
-  ADecl->addAttr(NewAttr);
-  return ConvertDeclToDeclGroup(ADecl);
-}
-#endif // INTEL_CUSTOMIZATION
-=======
   // Decl must be a function.
   auto *FD = dyn_cast<FunctionDecl>(ADecl);
   if (!FD) {
@@ -5137,9 +5109,14 @@ Sema::ActOnOpenMPDeclareVariantDirective(Sema::DeclGroupPtrTy DG,
           /*TemplatesSupported=*/true, /*ConstexprSupported=*/false))
     return DG;
 
+#if INTEL_CUSTOMIZATION
+  auto *NewAttr = OMPDeclareVariantDeclAttr::CreateImplicit(
+      Context, NewFD, Constructs.data(), Constructs.size(), Devices.data(),
+      Devices.size(), SR);
+  FD->addAttr(NewAttr);
+#endif // INTEL_CUSTOMIZATION
   return DG;
 }
->>>>>>> d158cf64d64b6b1882fd8f09e5d8619cb8529a5f
 
 StmtResult Sema::ActOnOpenMPParallelDirective(ArrayRef<OMPClause *> Clauses,
                                               Stmt *AStmt,
@@ -10188,7 +10165,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
-    case OMPD_declare_variant:         // INTEL
     case OMPD_target_variant_dispatch: // INTEL
     case OMPD_teams:
     case OMPD_simd:
@@ -10259,7 +10235,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
-    case OMPD_declare_variant:         // INTEL
     case OMPD_target_variant_dispatch: // INTEL
     case OMPD_teams:
     case OMPD_simd:
@@ -10331,7 +10306,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
-    case OMPD_declare_variant:         // INTEL
     case OMPD_target_variant_dispatch: // INTEL
     case OMPD_simd:
     case OMPD_for:
@@ -10400,7 +10374,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
-    case OMPD_declare_variant:         // INTEL
     case OMPD_target_variant_dispatch: // INTEL
     case OMPD_simd:
     case OMPD_for:
@@ -10470,7 +10443,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
-    case OMPD_declare_variant:         // INTEL
     case OMPD_target_variant_dispatch: // INTEL
     case OMPD_simd:
     case OMPD_sections:
@@ -10539,7 +10511,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
-    case OMPD_declare_variant:         // INTEL
     case OMPD_target_variant_dispatch: // INTEL
     case OMPD_simd:
     case OMPD_for:
@@ -10608,7 +10579,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
-    case OMPD_declare_variant: // INTEL
     case OMPD_simd:
     case OMPD_for:
     case OMPD_for_simd:

@@ -909,7 +909,6 @@ bool clang::isAllowedClauseForDirective(OpenMPDirectiveKind DKind,
     break;
   case OMPD_declare_target:
   case OMPD_end_declare_target:
-  case OMPD_declare_variant: // INTEL
   case OMPD_unknown:
   case OMPD_threadprivate:
   case OMPD_section:
@@ -1145,7 +1144,6 @@ void clang::getOpenMPCaptureRegions(
   case OMPD_cancellation_point:
   case OMPD_cancel:
   case OMPD_flush:
-  case OMPD_declare_variant: // INTEL
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
   case OMPD_declare_simd:

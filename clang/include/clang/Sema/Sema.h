@@ -9609,14 +9609,6 @@ public:
   StmtResult ActOnOpenMPTargetVariantDispatchDirective(
       ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
       SourceLocation EndLoc);
-
-  /// Called on well-formed '\#pragma omp declare variant' after parsing of
-  /// the associated method/function.
-  DeclGroupPtrTy ActOnOpenMPDeclareVariantDirective(
-      DeclGroupPtrTy DG, FunctionDecl *FD,
-      SmallVectorImpl<OMPDeclareVariantDeclAttr::ConstructTy> &Constructs,
-      SmallVectorImpl<OMPDeclareVariantDeclAttr::DeviceTy> &Devices,
-      SourceRange SR);
 #endif // INTEL_CUSTOMIZATION
 
   /// Called on well-formed '\#pragma omp single' after parsing of the
@@ -9849,6 +9841,10 @@ public:
   /// must be used instead of the original one, specified in \p DG.
   DeclGroupPtrTy ActOnOpenMPDeclareVariantDirective(DeclGroupPtrTy DG,
                                                     Expr *VariantRef,
+#if INTEL_CUSTOMIZATION
+    SmallVectorImpl<OMPDeclareVariantDeclAttr::ConstructTy> &Constructs,
+    SmallVectorImpl<OMPDeclareVariantDeclAttr::DeviceTy> &Devices,
+#endif // INTEL_CUSTOMIZATION
                                                     SourceRange SR);
 
   OMPClause *ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind,
