@@ -415,17 +415,7 @@ bool MemInitCandidateInfo::collectMemberFunctions(Module &M, bool AtLTO) {
       return true;
     for (const auto &I : instructions(F))
       if (auto *CB = dyn_cast<CallBase>(&I)) {
-        // Trying to get Called Function similar to getCalledFunction that
-        // is defined in DTransUtils.cpp. Not calling getCalledFunction here
-        // since this is header file.
-        Value *CalledValue = CB->getCalledValue()->stripPointerCasts();
-        auto *Callee = dyn_cast<Function>(CalledValue);
-        if (!Callee)
-          if (auto *GA = dyn_cast<GlobalAlias>(CalledValue))
-            if (!GA->isInterposable())
-              if (auto *AliasF =
-                      dyn_cast<Function>(GA->getAliasee()->stripPointerCasts()))
-                Callee = AliasF;
+        auto *Callee = dtrans::getCalledFunction(*CB);
 
         // At LTO, only direct calls are expected in the member functions.
         if (AtLTO && !Callee) {

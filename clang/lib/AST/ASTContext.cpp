@@ -10418,16 +10418,6 @@ VTableContextBase *ASTContext::getVTableContext() {
 MangleContext *ASTContext::createMangleContext(const TargetInfo *T) {
   if (!T)
     T = Target;
-
-#if INTEL_CUSTOMIZATION
-  // If this is a Windows-hosted Spir64-targeted non-SYCL compilation,
-  // use the MS ABI for mangling.
-  if (T->getTriple().isSPIR() && !getLangOpts().SYCLIsDevice &&
-      llvm::Triple(T->getTargetOpts().HostTriple).
-            isWindowsMSVCEnvironment())
-    return MicrosoftMangleContext::create(*this, getDiagnostics());
-#endif // INTEL_CUSTOMIZATION
-
   switch (T->getCXXABI().getKind()) {
   case TargetCXXABI::GenericAArch64:
   case TargetCXXABI::GenericItanium:

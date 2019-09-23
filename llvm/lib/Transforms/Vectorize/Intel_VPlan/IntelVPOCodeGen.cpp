@@ -320,9 +320,13 @@ void VPOCodeGen::vectorizeCallArgs(VPInstruction *VPCall,
   if (!VecVariant || !VecVariant->isMasked())
     return;
 
+  Value *MaskToUse = MaskValue ? MaskValue
+                               : Constant::getAllOnesValue(VectorType::get(
+                                     Type::getInt1Ty(F->getContext()), VF));
+
   // Add the mask parameter for masked simd functions.
   // Mask should already be vectorized as i1 type.
-  VectorType *MaskTy = cast<VectorType>(MaskValue->getType());
+  VectorType *MaskTy = cast<VectorType>(MaskToUse->getType());
   assert(MaskTy->getVectorElementType()->isIntegerTy(1) &&
          "Mask parameter is not vector of i1");
 
@@ -330,7 +334,7 @@ void VPOCodeGen::vectorizeCallArgs(VPInstruction *VPCall,
   // Therefore, the mask is promoted to the characteristic type of the
   // function, unless we're specifically told not to do so.
   if (Usei1MaskForSimdFunctions) {
-    VecArgs.push_back(MaskValue);
+    VecArgs.push_back(MaskToUse);
     VecArgTys.push_back(MaskTy);
     return;
   }
@@ -345,7 +349,7 @@ void VPOCodeGen::vectorizeCallArgs(VPInstruction *VPCall,
   Type *ScalarToType =
       IntegerType::get(MaskTy->getContext(), CharacteristicTypeSize);
   VectorType *VecToType = VectorType::get(ScalarToType, VF);
-  Value *MaskExt = Builder.CreateSExt(MaskValue, VecToType, "maskext");
+  Value *MaskExt = Builder.CreateSExt(MaskToUse, VecToType, "maskext");
 
   // Bitcast if the promoted type is not the same as the characteristic
   // type.
