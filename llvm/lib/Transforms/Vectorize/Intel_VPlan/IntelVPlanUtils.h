@@ -148,6 +148,24 @@ inline unsigned getLoadStoreAlignment(VPInstruction *VPInst, Loop *L) {
   return DL.getPrefTypeAlignment(PtrType);
 }
 
+/////////// VPValue version of common LLVM CallInst utilities ///////////
+
+/// Get the called Function for given VPInstruction representing a call.
+inline Function *getCalledFunction(const VPInstruction *Call) {
+  assert(Call->getOpcode() == Instruction::Call &&
+         "getCalledFunction called on non-call VPInstruction,");
+  // The called function will always be the last operand.
+  VPValue *FuncOp = Call->getOperand(Call->getNumOperands() - 1);
+  auto *Func = dyn_cast<VPConstant>(FuncOp);
+  if (!Func)
+    // Indirect function call (function pointers).
+    return nullptr;
+
+  assert(isa<Function>(Func->getConstant()) &&
+         "Underlying value for function operand is not Function.");
+  return cast<Function>(Func->getConstant());
+}
+
 // FIXME: BlendPhi to select lowering should be a separate VPlan-to-VPlan
 // transformation and this routine won't be necessary here. Currently it's
 // needed in both LLVM/HIR code gen, so I had to put it here.
