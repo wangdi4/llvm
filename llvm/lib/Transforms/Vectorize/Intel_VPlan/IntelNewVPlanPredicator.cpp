@@ -319,7 +319,10 @@ VPlanPredicator::getOrCreateValueForPredicateTerm(PredicateTerm Term,
     // Add successors to worklist now, so that the code can do early-continue
     // without duplicating this insertion code.
     for (auto *Succ : BB->getSuccessors()) {
-      if (Visited.insert(std::make_pair(Succ, BB)).second)
+      // Don't try to go outside the sub-graph contained in LiveInBlocks - we
+      // don't know where to insert phis outside it (and we don't need to).
+      if (LiveInBlocks.count(Succ) &&
+          Visited.insert(std::make_pair(Succ, BB)).second)
         Worklist.emplace_back(Succ, BB);
     }
 
@@ -672,7 +675,7 @@ void VPlanPredicator::computeLiveInsForIDF(
 
     // Add predecessors of VPBB unless it is a latch coming through back edge.
     for (VPBlockBase *Pred : VPBB->getPredecessors()) {
-      if (VPBlockUtils::blockIsLoopLatch(Pred, VPLI))
+      if (VPBlockUtils::isBackEdge(Pred, VPBB, VPLI))
         continue;
 
       Worklist.push_back(Pred);

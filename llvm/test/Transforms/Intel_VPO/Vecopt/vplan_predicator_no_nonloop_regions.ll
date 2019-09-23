@@ -18,12 +18,7 @@ define void @test_uniform_edge_to_divergent_block(i32* %a, i32 %b) local_unnamed
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]] (BP: NULL) :
-;
-; FIXME: VP_BB6_BR_VP_BB1_VARYING_* shouldn't be here!
-;
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB6_BR_VP_BB1_VARYING_PHI_BB3:%.*]] = phi  [ i1 [[VP_BB6_BR_VP_BB1_VARYING_PHI_BB7:%.*]], [[BB3:BB[0-9]+]] ],  [ i1 false, [[BB1]] ]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB6_BR_VP_BB1_VARYING_NOT_PHI_BB3:%.*]] = phi  [ i1 [[VP_BB6_BR_VP_BB1_VARYING_NOT_PHI_BB7:%.*]], [[BB3]] ],  [ i1 false, [[BB1]] ]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP_INDVARS_IV:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP_INDVARS_IV_NEXT:%.*]], [[BB3]] ]
+; CHECK-NEXT:     [DA: Divergent] i32 [[VP_INDVARS_IV:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP_INDVARS_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ]
 ; CHECK-NEXT:     [DA: Divergent] i32* [[VP_GEP:%.*]] = getelementptr i32* [[A0:%.*]] i32 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP_LD:%.*]] = load i32* [[VP_GEP]]
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_UNIFORM:%.*]] = icmp i32 [[B0:%.*]] i32 42
@@ -52,11 +47,8 @@ define void @test_uniform_edge_to_divergent_block(i32* %a, i32 %b) local_unnamed
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]] (BP: NULL) :
-;
-; FIXME: Should have false incoming via BB4!
-;
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB6_BR_VP_BB1_VARYING_PHI_BB7]] = phi  [ i1 [[VP_BB6_BR_VP_BB1_VARYING]], [[BB7]] ],  [ i1 [[VP_BB6_BR_VP_BB1_VARYING_PHI_BB3]], [[BB4]] ]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB6_BR_VP_BB1_VARYING_NOT_PHI_BB7]] = phi  [ i1 [[VP_BB6_BR_VP_BB1_VARYING_NOT]], [[BB7]] ],  [ i1 [[VP_BB6_BR_VP_BB1_VARYING_NOT_PHI_BB3]], [[BB4]] ]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB6_BR_VP_BB1_VARYING_PHI_BB7:%.*]] = phi  [ i1 [[VP_BB6_BR_VP_BB1_VARYING]], [[BB7]] ],  [ i1 false, [[BB4]] ]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB6_BR_VP_BB1_VARYING_NOT_PHI_BB7:%.*]] = phi  [ i1 [[VP_BB6_BR_VP_BB1_VARYING_NOT]], [[BB7]] ],  [ i1 false, [[BB4]] ]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP0:%.*]] = or i1 [[VP_BB6_BR_VP_BB1_VARYING_NOT_PHI_BB7]] i1 [[VP_BB0_UNIFORM_NOT]]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP1:%.*]] = block-predicate i1 [[VP0]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP_BB2_ADD:%.*]] = add i32 [[VP_LD]] i32 2
@@ -163,13 +155,7 @@ define void @test_two_linearized_pathes_merge(i32* %a, i32 %b) local_unnamed_add
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]] (BP: NULL) :
-;
-; FIXME: Only VP_INDVARS_IV phi should be here!
-;
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB7_BR_VP_BB2_VARYING_PHI_BB3:%.*]] = phi  [ i1 [[VP_BB7_BR_VP_BB2_VARYING_PHI_BB8:%.*]], [[BB3:BB[0-9]+]] ],  [ i1 false, [[BB1]] ]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB6_BR_VP_BB1_VARYING_NOT_PHI_BB3:%.*]] = phi  [ i1 [[VP_BB6_BR_VP_BB1_VARYING_NOT_PHI_BB8:%.*]], [[BB3]] ],  [ i1 false, [[BB1]] ]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB10_BR_VP_BB3_VARYING_NOT_PHI_BB3:%.*]] = phi  [ i1 [[VP_BB10_BR_VP_BB3_VARYING_NOT_PHI_BB8:%.*]], [[BB3]] ],  [ i1 false, [[BB1]] ]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP_INDVARS_IV:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP_INDVARS_IV_NEXT:%.*]], [[BB3]] ]
+; CHECK-NEXT:     [DA: Divergent] i32 [[VP_INDVARS_IV:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP_INDVARS_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ]
 ; CHECK-NEXT:     [DA: Divergent] i32* [[VP_GEP:%.*]] = getelementptr i32* [[A0:%.*]] i32 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP_LD:%.*]] = load i32* [[VP_GEP]]
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_UNIFORM:%.*]] = icmp i32 [[B0:%.*]] i32 42
@@ -237,12 +223,9 @@ define void @test_two_linearized_pathes_merge(i32* %a, i32 %b) local_unnamed_add
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB12]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]] (BP: NULL) :
-;
-; FIXME: One of the incoming values should be "false"!
-;
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB7_BR_VP_BB2_VARYING_PHI_BB8]] = phi  [ i1 [[VP_BB7_BR_VP_BB2_VARYING_PHI_BB3]], [[BB13]] ],  [ i1 [[VP_BB7_BR_VP_BB2_VARYING]], [[BB8]] ]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB6_BR_VP_BB1_VARYING_NOT_PHI_BB8]] = phi  [ i1 [[VP_BB6_BR_VP_BB1_VARYING_NOT]], [[BB13]] ],  [ i1 [[VP_BB6_BR_VP_BB1_VARYING_NOT_PHI_BB3]], [[BB8]] ]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB10_BR_VP_BB3_VARYING_NOT_PHI_BB8]] = phi  [ i1 [[VP_BB10_BR_VP_BB3_VARYING_NOT]], [[BB13]] ],  [ i1 [[VP_BB10_BR_VP_BB3_VARYING_NOT_PHI_BB3]], [[BB8]] ]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB7_BR_VP_BB2_VARYING_PHI_BB8:%.*]] = phi  [ i1 false, [[BB13]] ],  [ i1 [[VP_BB7_BR_VP_BB2_VARYING]], [[BB8]] ]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB6_BR_VP_BB1_VARYING_NOT_PHI_BB8:%.*]] = phi  [ i1 [[VP_BB6_BR_VP_BB1_VARYING_NOT]], [[BB13]] ],  [ i1 false, [[BB8]] ]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB10_BR_VP_BB3_VARYING_NOT_PHI_BB8:%.*]] = phi  [ i1 [[VP_BB10_BR_VP_BB3_VARYING_NOT]], [[BB13]] ],  [ i1 false, [[BB8]] ]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP4:%.*]] = or i1 [[VP_BB7_BR_VP_BB2_VARYING_PHI_BB8]] i1 [[VP_BB10_BR_VP_BB3_VARYING_NOT_PHI_BB8]]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP5:%.*]] = or i1 [[VP_BB6_BR_VP_BB1_VARYING_NOT_PHI_BB8]] i1 [[VP4]]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP6:%.*]] = block-predicate i1 [[VP5]]
