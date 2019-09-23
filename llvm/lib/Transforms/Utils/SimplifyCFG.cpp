@@ -354,20 +354,12 @@ static unsigned ComputeSpeculationCost(const User *I,
 /// After this function returns, CostRemaining is decreased by the cost of
 /// V plus its unavailable operands.  If that cost is greater than
 /// CostRemaining, false is returned and CostRemaining is undefined.
-<<<<<<< HEAD
 static bool
 CanDominateConditionalBranch(Value *V, BasicBlock *BB,
                              SmallPtrSetImpl<Instruction *> &AggressiveInsts,
-                             unsigned &CostRemaining,
+                             int &BudgetRemaining,
                              const TargetTransformInfo &TTI,
                              unsigned Depth = 0) {
-=======
-static bool DominatesMergePoint(Value *V, BasicBlock *BB,
-                                SmallPtrSetImpl<Instruction *> &AggressiveInsts,
-                                int &BudgetRemaining,
-                                const TargetTransformInfo &TTI,
-                                unsigned Depth = 0) {
->>>>>>> 10151f661854e3ee4922662f1d0f62b327cbfa8c
   // It is possible to hit a zero-cost cycle (phi/gep instructions for example),
   // so limit the recursion depth.
   // TODO: While this recursion limit does prevent pathological behavior, it
@@ -424,13 +416,8 @@ static bool DominatesMergePoint(Value *V, BasicBlock *BB,
   // Okay, we can only really hoist these out if their operands do
   // not take us over the cost threshold.
   for (User::op_iterator i = I->op_begin(), e = I->op_end(); i != e; ++i)
-<<<<<<< HEAD
     if (!CanDominateConditionalBranch(*i, BB, AggressiveInsts,
-                                      CostRemaining, TTI, Depth + 1))
-=======
-    if (!DominatesMergePoint(*i, BB, AggressiveInsts, BudgetRemaining, TTI,
-                             Depth + 1))
->>>>>>> 10151f661854e3ee4922662f1d0f62b327cbfa8c
+                                      BudgetRemaining, TTI, Depth + 1))
       return false;
   // Okay, it's safe to do this!  Remember this instruction.
   AggressiveInsts.insert(I);
@@ -2380,10 +2367,8 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
     // instructions.  While we are at it, keep track of the instructions
     // that need to be moved to the conditional block.
     SmallPtrSet<Instruction *, 4> AggressiveInsts;
-    unsigned MaxCostVal0 = PHINodeFoldingThreshold,
-             MaxCostVal1 = PHINodeFoldingThreshold;
-    MaxCostVal0 *= TargetTransformInfo::TCC_Basic;
-    MaxCostVal1 *= TargetTransformInfo::TCC_Basic;
+    int BudgetRemaining =
+        TwoEntryPHINodeFoldingThreshold * TargetTransformInfo::TCC_Basic;
 
     bool CanBeSimplified = true;
     unsigned NumPhis = 0;
@@ -2399,12 +2384,11 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
       Value *TrueVal = PN->getIncomingValueForBlock(IfTrue);
       Value *FalseVal = PN->getIncomingValueForBlock(IfFalse);
 
-<<<<<<< HEAD
       if (TrueVal != FalseVal) {
         if (!CanDominateConditionalBranch(TrueVal, BB, AggressiveInsts,
-                                          MaxCostVal0, TTI) ||
+                                          BudgetRemaining, TTI) ||
             !CanDominateConditionalBranch(FalseVal, BB, AggressiveInsts,
-                                          MaxCostVal1, TTI)) {
+                                          BudgetRemaining, TTI)) {
           CanBeSimplified = false;
           break;
         }
@@ -2425,29 +2409,6 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
     if (NumPhis > 2) {
       continue;
     }
-=======
-  // Loop over the PHI's seeing if we can promote them all to select
-  // instructions.  While we are at it, keep track of the instructions
-  // that need to be moved to the dominating block.
-  SmallPtrSet<Instruction *, 4> AggressiveInsts;
-  int BudgetRemaining =
-      TwoEntryPHINodeFoldingThreshold * TargetTransformInfo::TCC_Basic;
-
-  for (BasicBlock::iterator II = BB->begin(); isa<PHINode>(II);) {
-    PHINode *PN = cast<PHINode>(II++);
-    if (Value *V = SimplifyInstruction(PN, {DL, PN})) {
-      PN->replaceAllUsesWith(V);
-      PN->eraseFromParent();
-      continue;
-    }
-
-    if (!DominatesMergePoint(PN->getIncomingValue(0), BB, AggressiveInsts,
-                             BudgetRemaining, TTI) ||
-        !DominatesMergePoint(PN->getIncomingValue(1), BB, AggressiveInsts,
-                             BudgetRemaining, TTI))
-      return false;
-  }
->>>>>>> 10151f661854e3ee4922662f1d0f62b327cbfa8c
 
     // If we folded the first phi, PN dangles at this point.  Refresh it.  If
     // we ran out of PHIs then we simplified them all.
