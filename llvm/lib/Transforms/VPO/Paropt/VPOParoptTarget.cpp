@@ -728,17 +728,6 @@ uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI,
   return Res;
 }
 
-// Return the map modifiers for the firstprivate.
-uint64_t VPOParoptTransform::getMapModifiersForFirstPrivate() {
-  return TGT_MAP_TO;
-}
-
-// Return the defaut map information.
-uint64_t VPOParoptTransform::generateDefaultMap() {
-  return getMapModifiersForFirstPrivate() | TGT_MAP_TARGET_PARAM |
-         TGT_MAP_IMPLICIT;
-}
-
 // Generate the sizes and map type flags for the given map type, map
 // modifier and the expression V.
 void VPOParoptTransform::genTgtInformationForPtrs(
@@ -800,10 +789,18 @@ void VPOParoptTransform::genTgtInformationForPtrs(
         continue;
       if (FprivI->getInMap())
         continue;
-      Type *T = FprivI->getOrig()->getType()->getPointerElementType();
-      ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
-                                            DL.getTypeAllocSize(T)));
-      MapTypes.push_back(generateDefaultMap());
+      Type *T = V->getType()->getPointerElementType();
+      if (FprivI->getIsPointer()) {
+        // firstprivate() pointers are mapped with zero size
+        // and map type NONE.
+        ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C), 0));
+        MapTypes.push_back(TGT_MAP_TARGET_PARAM);
+      }
+      else {
+        ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
+                                              DL.getTypeAllocSize(T)));
+        MapTypes.push_back(TGT_MAP_TARGET_PARAM | TGT_MAP_TO);
+      }
     }
   }
 
@@ -812,9 +809,26 @@ void VPOParoptTransform::genTgtInformationForPtrs(
     for (IsDevicePtrItem *IsDevicePtrI : IDevicePtrClause.items()) {
       if (IsDevicePtrI->getOrig() != V)
         continue;
-      Type *T = Type::getInt64Ty(C);
-      ConstSizes.push_back(ConstantInt::get(T, DL.getTypeAllocSize(T)));
-      MapTypes.push_back(TGT_MAP_LITERAL | TGT_MAP_TARGET_PARAM | TGT_MAP_IMPLICIT);
+      Type *T = V->getType()->getPointerElementType();
+      ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
+                                            DL.getTypeAllocSize(T)));
+      // Example:
+      //   int *p;
+      //   #pragma omp target is_device_ptr(p)
+      //
+      // is_device_ptr clause will refer to (i32 **%p), where
+      // %p is defined as:
+      //   %p = alloca i32 *
+      //
+      // We have to map 'p' as MAP_TO, so that device allocates
+      // a memory to hold the pointer value, and the pointer value
+      // is supposed to be a valid device pointer.
+      MapTypes.push_back(TGT_MAP_TARGET_PARAM | TGT_MAP_TO);
+      // TODO: we may get rid of the double pointer for is_device_ptr()
+      //       representation the same way as for firstprivate() clause.
+      //       See setIsPointer() call in VPOParoptTransform.cpp.
+      //       When we do this, we need to use the following mapping:
+      //         TGT_MAP_TARGET_PARAM | TGT_MAP_LITERAL
     }
   }
   if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca() == V) {

@@ -14,11 +14,11 @@
 
 ; There must be 4 mapped entries: hh, n, gg, a
 ; Verify that their MAP TYPEs are correct
-; FPRIV(hh):   545= 0x221= TGT_MAP_TO | TGT_MAP_TARGET_PARAM | TGT_MAP_IMPLICIT
-; FPRIV(n):    545= 0x221= TGT_MAP_TO | TGT_MAP_TARGET_PARAM | TGT_MAP_IMPLICIT
-; MAPFROM(gg):  34= 0x022= TGT_MAP_FROM | TGT_MAP_TARGET_PARAM
-; IsDevPtr(a): 800= 0x320= TGT_MAP_TARGET_PARAM | TGT_MAP_LITERAL |TGT_MAP_IMPLICIT
-; CHECK: @.offload_maptypes = private unnamed_addr constant [4 x i64] [i64 34, i64 545, i64 545, i64 800]
+; FPRIV(hh):    33= 0x21= TGT_MAP_TO | TGT_MAP_TARGET_PARAM
+; FPRIV(n):     33= 0x21= TGT_MAP_TO | TGT_MAP_TARGET_PARAM
+; MAPFROM(gg):  34= 0x22= TGT_MAP_FROM | TGT_MAP_TARGET_PARAM
+; IsDevPtr(a):  33= 0x21= TGT_MAP_TO | TGT_MAP_TARGET_PARAM
+; CHECK: @.offload_maptypes = private unnamed_addr constant [4 x i64] [i64 34, i64 33, i64 33, i64 33]
 ;
 ; Verify that the offload entry has the 4 matching arguments
 ; CHECK: call void @__omp_offloading{{.*}}(double* %gg, i32* %n.addr, double* %hh, i32** %a)

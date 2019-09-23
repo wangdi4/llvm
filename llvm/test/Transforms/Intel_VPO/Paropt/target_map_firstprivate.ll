@@ -93,4 +93,4 @@ attributes #3 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 !4 = !{!"int", !5, i64 0}
 !5 = !{!"omnipotent char", !6, i64 0}
 !6 = !{!"Simple C/C++ TBAA"}
-; CHECK: @.offload_maptypes = private unnamed_addr constant [2 x i64] [i64 34, i64 545]
+; CHECK: @.offload_maptypes = private unnamed_addr constant [2 x i64] [i64 34, i64 33]
