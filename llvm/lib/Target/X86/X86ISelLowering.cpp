@@ -38840,44 +38840,6 @@ static SDValue combineSelect(SDNode *N, SelectionDAG &DAG,
     return DAG.getBitcast(VT, newSelect);
   }
 
-#if INTEL_CUSTOMIZATION
-  // Look for (select (usubo X, 1), 0, cttz_zero_undef(X)). Replace with
-  // (and (cttz X), bits-1). This works since cttz will return 'bits' for 0,
-  // which will be a power 2. ANDing with bits-1 will be 0.
-  if (Cond.getOpcode() == ISD::USUBO && TLI.isOperationLegal(ISD::CTTZ, VT) &&
-      Cond.getResNo() == 1 && isOneConstant(Cond.getOperand(1)) &&
-      isNullConstant(LHS) && RHS.getOpcode() == ISD::CTTZ_ZERO_UNDEF &&
-      RHS.getOperand(0) == Cond.getOperand(0)) {
-    SDValue Cttz = DAG.getNode(ISD::CTTZ, DL, VT, RHS.getOperand(0));
-    return DAG.getNode(ISD::AND, DL, VT, Cttz,
-                       DAG.getConstant(VT.getSizeInBits() - 1, DL, VT));
-  }
-
-  // Look for (select (seteq X, 0), 0, cttz_zero_undef(X)). Replace with
-  // (and (cttz X), bits-1). This works since cttz will return 'bits' for 0,
-  // which will be a power 2. ANDing with bits-1 will be 0.
-  if (Cond.getOpcode() == ISD::SETCC && TLI.isOperationLegal(ISD::CTTZ, VT)) {
-    SDValue N0 = Cond.getOperand(0);
-    SDValue N1 = Cond.getOperand(1);
-    ISD::CondCode CC = cast<CondCodeSDNode>(Cond.getOperand(2))->get();
-    if (isNullConstant(N1) && (CC == ISD::SETEQ || CC == ISD::SETNE)) {
-      SDValue ValueOnZero = LHS;
-      SDValue Count = RHS;
-      // If the condition is NE instead of E, swap the operands.
-      if (CC == ISD::SETNE)
-        std::swap(ValueOnZero, Count);
-      // Check if the value on zero is zero.
-      if (isNullConstant(ValueOnZero) &&
-          Count.getOpcode() == ISD::CTTZ_ZERO_UNDEF &&
-          Count.getOperand(0) == N0) {
-        SDValue Cttz = DAG.getNode(ISD::CTTZ, DL, VT, RHS.getOperand(0));
-        return DAG.getNode(ISD::AND, DL, VT, Cttz,
-                           DAG.getConstant(VT.getSizeInBits() - 1, DL, VT));
-      }
-    }
-  }
-#endif // INTEL_CUSTOMIZATION
-
   return SDValue();
 }
 
