@@ -1,5 +1,5 @@
-; RUN: opt %s -VPlanDriver -enable-new-vplan-predicator=false -vplan-predicator-report -vplan-force-vf=4 -S -o /dev/null 2>&1 | FileCheck %s -check-prefix=REPORT
-; RUN: opt %s -VPlanDriver -enable-new-vplan-predicator=false -S -vplan-force-vf=4 2>&1 | FileCheck %s -check-prefix=CG
+; RUN: opt %s -VPlanDriver -enable-new-vplan-predicator=false -disable-vplan-subregions=0 -vplan-predicator-report -vplan-force-vf=4 -S -o /dev/null 2>&1 | FileCheck %s -check-prefix=REPORT
+; RUN: opt %s -VPlanDriver -enable-new-vplan-predicator=false -disable-vplan-subregions=0 -S -vplan-force-vf=4 2>&1 | FileCheck %s -check-prefix=CG
 ; REQUIRES: asserts
 
 ; This is to test that the predicator preserves uniform control flow.
@@ -100,6 +100,3 @@ attributes #1 = { argmemonly nounwind }
 !3 = !{!"int", !4, i64 0}
 !4 = !{!"omnipotent char", !5, i64 0}
 !5 = !{!"Simple C/C++ TBAA"}
-
-
-
