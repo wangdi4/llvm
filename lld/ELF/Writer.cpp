@@ -8,6 +8,7 @@
 
 #include "Writer.h"
 #include "AArch64ErrataFix.h"
+#include "ARMErrataFix.h"
 #include "CallGraphSort.h"
 #include "Config.h"
 #include "LinkerScript.h"
@@ -562,7 +563,8 @@ template <class ELFT> void Writer<ELFT>::run() {
   for (OutputSection *sec : outputSections)
     sec->maybeCompress<ELFT>();
 
-  script->allocateHeaders(mainPart->phdrs);
+  if (script->hasSectionsCommand)
+    script->allocateHeaders(mainPart->phdrs);
 
   // Remove empty PT_LOAD to avoid causing the dynamic linker to try to mmap a
   // 0 sized region. This has to be done late since only after assignAddresses
@@ -1538,6 +1540,7 @@ template <class ELFT> void Writer<ELFT>::resolveShfLinkOrder() {
 template <class ELFT> void Writer<ELFT>::finalizeAddressDependentContent() {
   ThunkCreator tc;
   AArch64Err843419Patcher a64p;
+  ARMErr657417Patcher a32p;
   script->assignAddresses();
 
   int assignPasses = 0;
@@ -1555,6 +1558,11 @@ template <class ELFT> void Writer<ELFT>::finalizeAddressDependentContent() {
       if (changed)
         script->assignAddresses();
       changed |= a64p.createFixes();
+    }
+    if (config->fixCortexA8) {
+      if (changed)
+        script->assignAddresses();
+      changed |= a32p.createFixes();
     }
 
     if (in.mipsGot)
@@ -2224,8 +2232,7 @@ template <class ELFT> void Writer<ELFT>::fixSectionAlignments() {
       // previous segment anyway.
       //
       // TODO Enable this technique on all targets.
-      bool enable = config->emachine != EM_HEXAGON &&
-                    config->emachine != EM_X86_64;
+      bool enable = config->emachine != EM_HEXAGON;
 
       if (!enable ||
           (config->zSeparateCode && prev &&
