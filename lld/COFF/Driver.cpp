@@ -27,6 +27,7 @@
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/BinaryFormat/Magic.h"
+#include "llvm/LTO/LTO.h"
 #include "llvm/Object/ArchiveWriter.h"
 #include "llvm/Object/COFFImportFile.h"
 #include "llvm/Object/COFFModuleDefinition.h"
@@ -1229,6 +1230,7 @@ void LinkerDriver::maybeExportMinGWSymbols(const opt::InputArgList &args) {
   });
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Return true if argv contains a response file (@) and the file calls "/lib".
 // This function basically wraps the process of extracting a response file (@)
@@ -1269,6 +1271,8 @@ static const char *libcallRoutineNames[] = {
 #undef HANDLE_LIBCALL
 };
 
+=======
+>>>>>>> dd63b9f570da6b557d41b05eb22213d070c2d110
 void LinkerDriver::link(ArrayRef<const char *> argsArr) {
   // Needed for LTO.
   InitializeAllTargetInfos();
@@ -2011,7 +2015,7 @@ void LinkerDriver::link(ArrayRef<const char *> argsArr) {
     // bitcode file in an archive member, we need to arrange to use LTO to
     // compile those archive members by adding them to the link beforehand.
     if (!BitcodeFile::instances.empty())
-      for (const char *s : libcallRoutineNames)
+      for (auto *s : lto::LTO::getRuntimeLibcallSymbols())
         symtab->addLibcall(s);
 
     // Windows specific -- if __load_config_used can be resolved, resolve it.
