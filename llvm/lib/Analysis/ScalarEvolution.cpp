@@ -935,7 +935,21 @@ public:
   // Expr by Denominator for the following functions with empty implementation.
   void visitTruncateExpr(const SCEVTruncateExpr *Numerator) {}
   void visitZeroExtendExpr(const SCEVZeroExtendExpr *Numerator) {}
-  void visitSignExtendExpr(const SCEVSignExtendExpr *Numerator) {}
+#if INTEL_CUSTOMIZATION
+  void visitSignExtendExpr(const SCEVSignExtendExpr *Numerator) {
+    if (auto *DenominatorCast = dyn_cast<SCEVSignExtendExpr>(Denominator)) {
+      const SCEV *SrcNumerator = Numerator->getOperand();
+      const SCEV *SrcDenominator = DenominatorCast->getOperand();
+
+      const SCEV *Q, *R;
+      divide(SE, SrcNumerator, SrcDenominator, &Q, &R);
+      if (R->isZero()) {
+        Quotient = SE.getSignExtendExpr(Q, Numerator->getType());
+        Remainder = Zero;
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
   void visitUDivExpr(const SCEVUDivExpr *Numerator) {}
   void visitSMaxExpr(const SCEVSMaxExpr *Numerator) {}
   void visitUMaxExpr(const SCEVUMaxExpr *Numerator) {}
