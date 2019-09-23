@@ -4147,11 +4147,8 @@ struct AttributorLegacyPass : public ModulePass {
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     // FIXME: Think about passes we will preserve and add them here.
-<<<<<<< HEAD
-    AU.addPreserved<WholeProgramWrapperPass>();          // INTEL
-=======
     AU.addRequired<TargetLibraryInfoWrapperPass>();
->>>>>>> 431141c5cc343c7601cbd5f30c5b34810b123e5c
+    AU.addPreserved<WholeProgramWrapperPass>();          // INTEL
   }
 };
 
