@@ -386,7 +386,16 @@ void VPOCodeGen::vectorizeSelectInstruction(VPInstruction *VPInst) {
   } else if (!Cond->getType()->isVectorTy() &&
              VPInst->getType()->isVectorTy()) {
     unsigned OriginalVL = VPInst->getType()->getVectorNumElements();
-    VCond = replicateVector(VCond, OriginalVL, Builder);
+    // Widen the cond variable as following
+    //                        <0, 1, 0, 1>
+    //                             |
+    //                             | VF = 4,
+    //                             | OriginalVL = 2
+    //                             |
+    //                             V
+    //                  <0, 0, 1, 1, 0, 0, 1, 1>
+
+    VCond = replicateVectorElts(VCond, OriginalVL, Builder);
   }
 
   Value *NewSelect = Builder.CreateSelect(VCond, Op0, Op1);
@@ -976,8 +985,15 @@ Value *VPOCodeGen::getVectorValueUplifted(VPValue *V) {
   if (V->getType()->isVectorTy()) {
     assert(V->getType()->getVectorElementType()->isSingleValueType() &&
            "Re-vectorization is supported for simple vectors only");
-    VPWidenMap[V] = replicateVectorElts(
-        UnderlyingV, VF, Builder, "replicatedVal." + UnderlyingV->getName());
+    // Widen the uniform vector variable as following
+    //                        <i32 0, i32 1>
+    //                             |
+    //                             |VF = 4
+    //                             |
+    //                             V
+    //          <i32 0, i32 1,i32 0, i32 1,i32 0, i32 1,i32 0, i32 1>
+    VPWidenMap[V] = replicateVector(UnderlyingV, VF, Builder,
+                                    "replicatedVal." + UnderlyingV->getName());
   } else
     VPWidenMap[V] = getBroadcastInstrs(UnderlyingV);
 
