@@ -534,11 +534,19 @@ def FeatureMergeToThreeWayBranch : SubtargetFeature<"merge-to-threeway-branch",
                                         "ThreewayBranchProfitable", "true",
                                         "Merge branches to a three-way "
                                         "conditional branch">;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // If the target has decoded stream buffer.
 def FeatureHasDSB : SubtargetFeature<"dsb", "HasDSB", "true",
                                     "Target has decoded stream buffer">;
 #endif // INTEL_CUSTOMIZATION
+=======
+
+// Enable use of alias analysis during code generation.
+def FeatureUseAA : SubtargetFeature<"use-aa", "UseAA", "true",
+                                    "Use alias analysis during codegen">;
+
+>>>>>>> 44bfbcc28e715212f9f8ac104424d72e76d38acf
 // Bonnell
 def ProcIntelAtom : SubtargetFeature<"", "X86ProcFamily", "IntelAtom", "">;
 // Silvermont
