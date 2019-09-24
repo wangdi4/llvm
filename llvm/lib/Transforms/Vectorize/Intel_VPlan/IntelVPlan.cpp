@@ -278,6 +278,20 @@ void VPBlockBase::deleteCFG(VPBlockBase *Entry) {
     delete Block;
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void VPBlockBase::print(raw_ostream &OS, unsigned Depth,
+                        const VPlanDivergenceAnalysis *DA) const {
+  formatted_raw_ostream FOS(OS);
+  if (auto *Region = dyn_cast<VPRegionBlock>(this)) {
+    Region->print(FOS, Depth, DA);
+    return;
+  }
+
+  auto *BB = cast<VPBasicBlock>(this);
+  BB->print(FOS, Depth, DA);
+}
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
 BasicBlock *
 #if INTEL_CUSTOMIZATION
 VPBasicBlock::createEmptyBasicBlock(VPTransformState *State)
@@ -558,8 +572,8 @@ void VPRegionBlock::recomputeSize() {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPBasicBlock::dump(raw_ostream &OS, unsigned Indent,
-                        const VPlanDivergenceAnalysis *DA) const {
+void VPBasicBlock::print(raw_ostream &OS, unsigned Indent,
+                         const VPlanDivergenceAnalysis *DA) const {
   std::string StrIndent = std::string(2 * Indent, ' ');
   // Print name and predicate
   OS << StrIndent << getName() << " (BP: ";
@@ -635,10 +649,6 @@ void VPBasicBlock::dump(raw_ostream &OS, unsigned Indent,
   }
   OS << "\n\n";
 }
-
-void VPBasicBlock::dump() const {
-  dump(errs(), 1);
-}
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 /// Return true if \p Recipe is a VPInstruction in a single-use chain of
@@ -689,8 +699,8 @@ void VPRegionBlock::computePDT(void) {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPRegionBlock::dump(raw_ostream &OS, unsigned Indent,
-                         const VPlanDivergenceAnalysis *DA) const {
+void VPRegionBlock::print(raw_ostream &OS, unsigned Indent,
+                          const VPlanDivergenceAnalysis *DA) const {
   SetVector<const VPBlockBase *> Printed;
   SetVector<const VPBlockBase *> SuccList;
 
@@ -717,7 +727,7 @@ void VPRegionBlock::dump(raw_ostream &OS, unsigned Indent,
   //       BB7          +0
   ReversePostOrderTraversal<VPBlockBase *> RPOT(Entry);
   for (const VPBlockBase *BB : RPOT) {
-    BB->dump(OS, Indent + SuccList.size() - 1, DA);
+    BB->print(OS, Indent + SuccList.size() - 1, DA);
     Printed.insert(BB);
     SuccList.remove(BB);
     for (auto *Succ : BB->getSuccessors())
@@ -729,10 +739,6 @@ void VPRegionBlock::dump(raw_ostream &OS, unsigned Indent,
     OS << StrIndent << "SUCCESSORS(1):" << Successor->getName() << "\n";
   OS << StrIndent << "END Region(" << getName() << ")\n";
   OS << "\n";
-}
-
-void VPRegionBlock::dump() const {
-  dump(errs(), 1);
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
@@ -1350,9 +1356,9 @@ void VPlan::dump(raw_ostream &OS, bool DumpDA) const {
     E->dump(OS, EIter->first->getHeader());
   }
   const VPBlockBase *Entry = getEntry();
-  Entry->dump(OS, 1, DumpDA ? getVPlanDA() : nullptr);
+  Entry->print(OS, 1, DumpDA ? getVPlanDA() : nullptr);
   for (auto &Succ : Entry->getSuccessors()) {
-    Succ->dump(OS, 1, DumpDA ? getVPlanDA() : nullptr);
+    Succ->print(OS, 1, DumpDA ? getVPlanDA() : nullptr);
   }
   if (!VPExternalUses.empty()) {
     OS << "External Uses:\n";
