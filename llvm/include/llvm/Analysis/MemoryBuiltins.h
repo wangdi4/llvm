@@ -111,6 +111,7 @@ bool isReallocLikeFn(const Function *F, const TargetLibraryInfo *TLI);
 bool isOpNewLikeFn(const Value *V, const TargetLibraryInfo *TLI,
                      bool LookThroughBitCast = false);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Returns indices of size arguments of Malloc-like functions.
 /// All functions except calloc return -1 as a second argument.
@@ -122,6 +123,12 @@ getAllocSizeArgumentIndices(const Value *I, const TargetLibraryInfo *TLI);
 /// within MemoryBuiltins.cpp as 'AllocationFnData'.
 bool isAllocationLibFunc(LibFunc LF);
 #endif // INTEL_CUSTOMIZATION
+=======
+/// Tests if a value is a call or invoke to a library function that
+/// allocates memory (strdup, strndup).
+bool isStrdupLikeFn(const Value *V, const TargetLibraryInfo *TLI,
+                     bool LookThroughBitCast = false);
+>>>>>>> be2487a2ba43f3929c894e8cf8fe3ddb0b9c6a24
 
 //===----------------------------------------------------------------------===//
 //  malloc Call Utility Functions.
