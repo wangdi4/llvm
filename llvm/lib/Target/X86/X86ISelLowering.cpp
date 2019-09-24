@@ -2119,6 +2119,7 @@ X86TargetLowering::getPreferredVectorAction(MVT VT) const {
 MVT X86TargetLowering::getRegisterTypeForCallingConv(LLVMContext &Context,
                                                      CallingConv::ID CC,
                                                      EVT VT) const {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Preserve mask arguments in their original type. Otherwise they'll be
   // modified on pre-AVX512 targets before we get a chance to analyze them.
@@ -2128,13 +2129,18 @@ MVT X86TargetLowering::getRegisterTypeForCallingConv(LLVMContext &Context,
 #endif
 
   // Break wide vXi1 vectors into scalars to match avx2 behavior.
-  if (VT.isVector() && VT.getVectorElementType() == MVT::i1 &&
-      Subtarget.hasAVX512() &&
-      ((VT.getVectorNumElements() > 32 && !Subtarget.hasBWI()) ||
-       (VT.getVectorNumElements() > 64 && Subtarget.hasBWI())))
-    return MVT::i8;
+=======
+  // v32i1 vectors should be promoted to v32i8 to match avx2.
   if (VT == MVT::v32i1 && Subtarget.hasAVX512() && !Subtarget.hasBWI())
     return MVT::v32i8;
+  // Break wide or odd vXi1 vectors into scalars to match avx2 behavior.
+>>>>>>> 93e1f73b6b2dc751a27568da5797cc2ba8436385
+  if (VT.isVector() && VT.getVectorElementType() == MVT::i1 &&
+      Subtarget.hasAVX512() &&
+      (!isPowerOf2_32(VT.getVectorNumElements()) ||
+       (VT.getVectorNumElements() > 16 && !Subtarget.hasBWI()) ||
+       (VT.getVectorNumElements() > 64 && Subtarget.hasBWI())))
+    return MVT::i8;
   // FIXME: Should we just make these types legal and custom split operations?
   if ((VT == MVT::v32i16 || VT == MVT::v64i8) &&
       Subtarget.hasAVX512() && !Subtarget.hasBWI() && !EnableOldKNLABI)
@@ -2145,6 +2151,7 @@ MVT X86TargetLowering::getRegisterTypeForCallingConv(LLVMContext &Context,
 unsigned X86TargetLowering::getNumRegistersForCallingConv(LLVMContext &Context,
                                                           CallingConv::ID CC,
                                                           EVT VT) const {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Preserve mask arguments in their original type. Otherwise they'll be
   // modified on pre-AVX512 targets before we get a chance to analyze them.
@@ -2154,13 +2161,18 @@ unsigned X86TargetLowering::getNumRegistersForCallingConv(LLVMContext &Context,
 #endif
 
   // Break wide vXi1 vectors into scalars to match avx2 behavior.
-  if (VT.isVector() && VT.getVectorElementType() == MVT::i1 &&
-      Subtarget.hasAVX512() &&
-      ((VT.getVectorNumElements() > 32 && !Subtarget.hasBWI()) ||
-       (VT.getVectorNumElements() > 64 && Subtarget.hasBWI())))
-    return VT.getVectorNumElements();
+=======
+  // v32i1 vectors should be promoted to v32i8 to match avx2.
   if (VT == MVT::v32i1 && Subtarget.hasAVX512() && !Subtarget.hasBWI())
     return 1;
+  // Break wide or odd vXi1 vectors into scalars to match avx2 behavior.
+>>>>>>> 93e1f73b6b2dc751a27568da5797cc2ba8436385
+  if (VT.isVector() && VT.getVectorElementType() == MVT::i1 &&
+      Subtarget.hasAVX512() &&
+      (!isPowerOf2_32(VT.getVectorNumElements()) ||
+       (VT.getVectorNumElements() > 16 && !Subtarget.hasBWI()) ||
+       (VT.getVectorNumElements() > 64 && Subtarget.hasBWI())))
+    return VT.getVectorNumElements();
   // FIXME: Should we just make these types legal and custom split operations?
   if ((VT == MVT::v32i16 || VT == MVT::v64i8) &&
       Subtarget.hasAVX512() && !Subtarget.hasBWI() && !EnableOldKNLABI)
@@ -2171,10 +2183,11 @@ unsigned X86TargetLowering::getNumRegistersForCallingConv(LLVMContext &Context,
 unsigned X86TargetLowering::getVectorTypeBreakdownForCallingConv(
     LLVMContext &Context, CallingConv::ID CC, EVT VT, EVT &IntermediateVT,
     unsigned &NumIntermediates, MVT &RegisterVT) const {
-  // Break wide vXi1 vectors into scalars to match avx2 behavior.
+  // Break wide or odd vXi1 vectors into scalars to match avx2 behavior.
   if (VT.isVector() && VT.getVectorElementType() == MVT::i1 &&
       Subtarget.hasAVX512() &&
-      ((VT.getVectorNumElements() > 32 && !Subtarget.hasBWI()) ||
+      (!isPowerOf2_32(VT.getVectorNumElements()) ||
+       (VT.getVectorNumElements() > 16 && !Subtarget.hasBWI()) ||
        (VT.getVectorNumElements() > 64 && Subtarget.hasBWI()))) {
     RegisterVT = MVT::i8;
     IntermediateVT = MVT::i1;
