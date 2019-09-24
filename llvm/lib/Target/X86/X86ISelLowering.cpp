@@ -1729,6 +1729,9 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     setOperationAction(ISD::FNEG,                 MVT::f16, Custom);
     setOperationAction(ISD::FABS,                 MVT::f16, Custom);
     setOperationAction(ISD::FCOPYSIGN,            MVT::f16, Custom);
+    setOperationAction(ISD::FP_ROUND,             MVT::f16, Custom);
+    if (isTypeLegal(MVT::f80))
+      setOperationAction(ISD::FP_EXTEND,            MVT::f80, Custom);
 
     setCondCodeAction(ISD::SETOEQ, MVT::f16, Expand);
     setCondCodeAction(ISD::SETUNE, MVT::f16, Expand);
@@ -19965,15 +19968,30 @@ SDValue X86TargetLowering::LowerFP_EXTEND(SDValue Op, SelectionDAG &DAG) const {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-  if (Subtarget.hasFP16() && Subtarget.hasVLX() && SVT == MVT::v4f16)
+  if (VT == MVT::f80) {
+    if (SVT == MVT::f16) {
+      assert(Subtarget.hasFP16() && "Unexpected features!");
+      RTLIB::Libcall LC = RTLIB::getFPEXT(SVT, VT);
+      MakeLibCallOptions CallOptions;
+      return makeLibCall(DAG, LC, VT, In, CallOptions, SDLoc(Op)).first;
+    }
+
+    return Op;
+  }
+
+  if (SVT == MVT::v4f16) {
+    assert(Subtarget.hasFP16() && Subtarget.hasVLX() && "Unexpected features!");
     return DAG.getNode(X86ISD::VFPEXT, DL, VT,
                        DAG.getNode(ISD::CONCAT_VECTORS, DL, MVT::v8f16,
                                    In, DAG.getUNDEF(SVT)));
-  if (Subtarget.hasFP16() && Subtarget.hasVLX() && SVT == MVT::v2f16)
+  }
+  if (SVT == MVT::v2f16) {
+    assert(Subtarget.hasFP16() && Subtarget.hasVLX() && "Unexpected features!");
     return DAG.getNode(X86ISD::VFPEXT, DL, VT,
                        DAG.getNode(ISD::CONCAT_VECTORS, DL, MVT::v8f16,
                                    In, DAG.getUNDEF(SVT), DAG.getUNDEF(SVT),
                                    DAG.getUNDEF(SVT)));
+  }
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
@@ -19989,9 +20007,17 @@ SDValue X86TargetLowering::LowerFP_ROUND(SDValue Op, SelectionDAG &DAG) const {
   SDValue In = Op.getOperand(0);
   MVT SVT = In.getSimpleValueType();
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  // It's legal except when f128 is involved or we're converting f80->f16.
+  if (SVT != MVT::f128 && !(VT == MVT::f16 && SVT == MVT::f80))
+    return Op;
+#else // INTEL_FEATURE_ISA_FP16
   // It's legal except when f128 is involved
   if (SVT != MVT::f128)
     return Op;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
   RTLIB::Libcall LC = RTLIB::getFPROUND(SVT, VT);
 

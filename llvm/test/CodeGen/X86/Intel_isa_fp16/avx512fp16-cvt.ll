@@ -615,6 +615,30 @@ define half @s64_to_half(i64 %x) {
   ret half %a
 }
 
+define half @s128_to_half(i128 %x) {
+; X64-LABEL: s128_to_half:
+; X64:       # %bb.0:
+; X64-NEXT:    pushq %rax
+; X64-NEXT:    .cfi_def_cfa_offset 16
+; X64-NEXT:    callq __floattihf
+; X64-NEXT:    popq %rax
+; X64-NEXT:    .cfi_def_cfa_offset 8
+; X64-NEXT:    retq
+;
+; X86-LABEL: s128_to_half:
+; X86:       # %bb.0:
+; X86-NEXT:    subl $16, %esp
+; X86-NEXT:    .cfi_def_cfa_offset 20
+; X86-NEXT:    vmovups {{[0-9]+}}(%esp), %xmm0
+; X86-NEXT:    vmovups %xmm0, (%esp)
+; X86-NEXT:    calll __floattihf
+; X86-NEXT:    addl $16, %esp
+; X86-NEXT:    .cfi_def_cfa_offset 4
+; X86-NEXT:    retl
+  %a = sitofp i128 %x to half
+  ret half %a
+}
+
 define half @u8_to_half(i8 %x) {
 ; X64-LABEL: u8_to_half:
 ; X64:       # %bb.0:
@@ -673,6 +697,30 @@ define half @u64_to_half(i64 %x) {
 ; X86-NEXT:    vcvtuqq2ph %xmm0, %xmm0
 ; X86-NEXT:    retl
   %a = uitofp i64 %x to half
+  ret half %a
+}
+
+define half @u128_to_half(i128 %x) {
+; X64-LABEL: u128_to_half:
+; X64:       # %bb.0:
+; X64-NEXT:    pushq %rax
+; X64-NEXT:    .cfi_def_cfa_offset 16
+; X64-NEXT:    callq __floattihf
+; X64-NEXT:    popq %rax
+; X64-NEXT:    .cfi_def_cfa_offset 8
+; X64-NEXT:    retq
+;
+; X86-LABEL: u128_to_half:
+; X86:       # %bb.0:
+; X86-NEXT:    subl $16, %esp
+; X86-NEXT:    .cfi_def_cfa_offset 20
+; X86-NEXT:    vmovups {{[0-9]+}}(%esp), %xmm0
+; X86-NEXT:    vmovups %xmm0, (%esp)
+; X86-NEXT:    calll __floattihf
+; X86-NEXT:    addl $16, %esp
+; X86-NEXT:    .cfi_def_cfa_offset 4
+; X86-NEXT:    retl
+  %a = uitofp i128 %x to half
   ret half %a
 }
 
@@ -739,6 +787,46 @@ define i64 @half_to_s64(half %x) {
   ret i64 %a
 }
 
+define i128 @half_to_s128(half %x) {
+; X64-LABEL: half_to_s128:
+; X64:       # %bb.0:
+; X64-NEXT:    pushq %rax
+; X64-NEXT:    .cfi_def_cfa_offset 16
+; X64-NEXT:    callq __fixhfti
+; X64-NEXT:    popq %rcx
+; X64-NEXT:    .cfi_def_cfa_offset 8
+; X64-NEXT:    retq
+;
+; X86-LABEL: half_to_s128:
+; X86:       # %bb.0:
+; X86-NEXT:    pushl %ebp
+; X86-NEXT:    .cfi_def_cfa_offset 8
+; X86-NEXT:    .cfi_offset %ebp, -8
+; X86-NEXT:    movl %esp, %ebp
+; X86-NEXT:    .cfi_def_cfa_register %ebp
+; X86-NEXT:    pushl %esi
+; X86-NEXT:    andl $-8, %esp
+; X86-NEXT:    subl $32, %esp
+; X86-NEXT:    .cfi_offset %esi, -12
+; X86-NEXT:    movl 8(%ebp), %esi
+; X86-NEXT:    vmovsh 12(%ebp), %xmm0
+; X86-NEXT:    vmovsh %xmm0, {{[0-9]+}}(%esp)
+; X86-NEXT:    leal {{[0-9]+}}(%esp), %eax
+; X86-NEXT:    movl %eax, (%esp)
+; X86-NEXT:    calll __fixhfti
+; X86-NEXT:    subl $4, %esp
+; X86-NEXT:    vmovups {{[0-9]+}}(%esp), %xmm0
+; X86-NEXT:    vmovups %xmm0, (%esi)
+; X86-NEXT:    movl %esi, %eax
+; X86-NEXT:    leal -4(%ebp), %esp
+; X86-NEXT:    popl %esi
+; X86-NEXT:    popl %ebp
+; X86-NEXT:    .cfi_def_cfa %esp, 4
+; X86-NEXT:    retl $4
+  %a = fptosi half %x to i128
+  ret i128 %a
+}
+
 define i8 @half_to_u8(half %x) {
 ; X64-LABEL: half_to_u8:
 ; X64:       # %bb.0:
@@ -800,4 +888,146 @@ define i64 @half_to_u64(half %x) {
 ; X86-NEXT:    retl
   %a = fptoui half %x to i64
   ret i64 %a
+}
+
+define i128 @half_to_u128(half %x) {
+; X64-LABEL: half_to_u128:
+; X64:       # %bb.0:
+; X64-NEXT:    pushq %rax
+; X64-NEXT:    .cfi_def_cfa_offset 16
+; X64-NEXT:    callq __fixunshfti
+; X64-NEXT:    popq %rcx
+; X64-NEXT:    .cfi_def_cfa_offset 8
+; X64-NEXT:    retq
+;
+; X86-LABEL: half_to_u128:
+; X86:       # %bb.0:
+; X86-NEXT:    pushl %ebp
+; X86-NEXT:    .cfi_def_cfa_offset 8
+; X86-NEXT:    .cfi_offset %ebp, -8
+; X86-NEXT:    movl %esp, %ebp
+; X86-NEXT:    .cfi_def_cfa_register %ebp
+; X86-NEXT:    pushl %esi
+; X86-NEXT:    andl $-8, %esp
+; X86-NEXT:    subl $32, %esp
+; X86-NEXT:    .cfi_offset %esi, -12
+; X86-NEXT:    movl 8(%ebp), %esi
+; X86-NEXT:    vmovsh 12(%ebp), %xmm0
+; X86-NEXT:    vmovsh %xmm0, {{[0-9]+}}(%esp)
+; X86-NEXT:    leal {{[0-9]+}}(%esp), %eax
+; X86-NEXT:    movl %eax, (%esp)
+; X86-NEXT:    calll __fixunshfti
+; X86-NEXT:    subl $4, %esp
+; X86-NEXT:    vmovups {{[0-9]+}}(%esp), %xmm0
+; X86-NEXT:    vmovups %xmm0, (%esi)
+; X86-NEXT:    movl %esi, %eax
+; X86-NEXT:    leal -4(%ebp), %esp
+; X86-NEXT:    popl %esi
+; X86-NEXT:    popl %ebp
+; X86-NEXT:    .cfi_def_cfa %esp, 4
+; X86-NEXT:    retl $4
+  %a = fptoui half %x to i128
+  ret i128 %a
+}
+
+define x86_fp80 @half_to_f80(half %x) nounwind {
+; X64-LABEL: half_to_f80:
+; X64:       # %bb.0:
+; X64-NEXT:    pushq %rax
+; X64-NEXT:    callq __extendhfxf2
+; X64-NEXT:    popq %rax
+; X64-NEXT:    retq
+;
+; X86-LABEL: half_to_f80:
+; X86:       # %bb.0:
+; X86-NEXT:    pushl %eax
+; X86-NEXT:    vmovsh {{[0-9]+}}(%esp), %xmm0
+; X86-NEXT:    vmovsh %xmm0, (%esp)
+; X86-NEXT:    calll __extendhfxf2
+; X86-NEXT:    popl %eax
+; X86-NEXT:    retl
+  %a = fpext half %x to x86_fp80
+  ret x86_fp80 %a
+}
+
+define half @f80_to_half(x86_fp80 %x) nounwind {
+; X64-LABEL: f80_to_half:
+; X64:       # %bb.0:
+; X64-NEXT:    subq $24, %rsp
+; X64-NEXT:    fldt {{[0-9]+}}(%rsp)
+; X64-NEXT:    fstpt (%rsp)
+; X64-NEXT:    callq __truncxfhf2
+; X64-NEXT:    addq $24, %rsp
+; X64-NEXT:    retq
+;
+; X86-LABEL: f80_to_half:
+; X86:       # %bb.0:
+; X86-NEXT:    subl $12, %esp
+; X86-NEXT:    fldt {{[0-9]+}}(%esp)
+; X86-NEXT:    fstpt (%esp)
+; X86-NEXT:    calll __truncxfhf2
+; X86-NEXT:    addl $12, %esp
+; X86-NEXT:    retl
+  %a = fptrunc x86_fp80 %x to half
+  ret half %a
+}
+
+; FIXME: We're doing a two step conversion here on 32-bit.
+; First from f16->f32 then f32->f128. This is occuring
+; due to common code in LegalizeFloatTypes that thinks
+; there are no libcalls for f16 to any type but f32.
+; Changing this may break other non-x86 targets. The code
+; generated here should be functional.
+define fp128 @half_to_f128(half %x) nounwind {
+; X64-LABEL: half_to_f128:
+; X64:       # %bb.0:
+; X64-NEXT:    pushq %rax
+; X64-NEXT:    callq __extendhftf2
+; X64-NEXT:    popq %rax
+; X64-NEXT:    retq
+;
+; X86-LABEL: half_to_f128:
+; X86:       # %bb.0:
+; X86-NEXT:    pushl %ebp
+; X86-NEXT:    movl %esp, %ebp
+; X86-NEXT:    pushl %esi
+; X86-NEXT:    andl $-8, %esp
+; X86-NEXT:    subl $32, %esp
+; X86-NEXT:    movl 8(%ebp), %esi
+; X86-NEXT:    vmovsh 12(%ebp), %xmm0
+; X86-NEXT:    vcvtsh2ss %xmm0, %xmm0, %xmm0
+; X86-NEXT:    vmovss %xmm0, {{[0-9]+}}(%esp)
+; X86-NEXT:    leal {{[0-9]+}}(%esp), %eax
+; X86-NEXT:    movl %eax, (%esp)
+; X86-NEXT:    calll __extendsftf2
+; X86-NEXT:    subl $4, %esp
+; X86-NEXT:    vmovups {{[0-9]+}}(%esp), %xmm0
+; X86-NEXT:    vmovaps %xmm0, (%esi)
+; X86-NEXT:    movl %esi, %eax
+; X86-NEXT:    leal -4(%ebp), %esp
+; X86-NEXT:    popl %esi
+; X86-NEXT:    popl %ebp
+; X86-NEXT:    retl $4
+  %a = fpext half %x to fp128
+  ret fp128 %a
+}
+
+define half @f128_to_half(fp128 %x) nounwind {
+; X64-LABEL: f128_to_half:
+; X64:       # %bb.0:
+; X64-NEXT:    pushq %rax
+; X64-NEXT:    callq __trunctfhf2
+; X64-NEXT:    popq %rax
+; X64-NEXT:    retq
+;
+; X86-LABEL: f128_to_half:
+; X86:       # %bb.0:
+; X86-NEXT:    subl $16, %esp
+; X86-NEXT:    vmovups {{[0-9]+}}(%esp), %xmm0
+; X86-NEXT:    vmovups %xmm0, (%esp)
+; X86-NEXT:    calll __trunctfhf2
+; X86-NEXT:    addl $16, %esp
+; X86-NEXT:    retl
+  %a = fptrunc fp128 %x to half
+  ret half %a
 }
