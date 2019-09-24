@@ -2119,7 +2119,6 @@ X86TargetLowering::getPreferredVectorAction(MVT VT) const {
 MVT X86TargetLowering::getRegisterTypeForCallingConv(LLVMContext &Context,
                                                      CallingConv::ID CC,
                                                      EVT VT) const {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Preserve mask arguments in their original type. Otherwise they'll be
   // modified on pre-AVX512 targets before we get a chance to analyze them.
@@ -2128,13 +2127,10 @@ MVT X86TargetLowering::getRegisterTypeForCallingConv(LLVMContext &Context,
     return VT.getSimpleVT();
 #endif
 
-  // Break wide vXi1 vectors into scalars to match avx2 behavior.
-=======
   // v32i1 vectors should be promoted to v32i8 to match avx2.
   if (VT == MVT::v32i1 && Subtarget.hasAVX512() && !Subtarget.hasBWI())
     return MVT::v32i8;
   // Break wide or odd vXi1 vectors into scalars to match avx2 behavior.
->>>>>>> 93e1f73b6b2dc751a27568da5797cc2ba8436385
   if (VT.isVector() && VT.getVectorElementType() == MVT::i1 &&
       Subtarget.hasAVX512() &&
       (!isPowerOf2_32(VT.getVectorNumElements()) ||
@@ -2151,7 +2147,6 @@ MVT X86TargetLowering::getRegisterTypeForCallingConv(LLVMContext &Context,
 unsigned X86TargetLowering::getNumRegistersForCallingConv(LLVMContext &Context,
                                                           CallingConv::ID CC,
                                                           EVT VT) const {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Preserve mask arguments in their original type. Otherwise they'll be
   // modified on pre-AVX512 targets before we get a chance to analyze them.
@@ -2160,13 +2155,10 @@ unsigned X86TargetLowering::getNumRegistersForCallingConv(LLVMContext &Context,
     return 1;
 #endif
 
-  // Break wide vXi1 vectors into scalars to match avx2 behavior.
-=======
   // v32i1 vectors should be promoted to v32i8 to match avx2.
   if (VT == MVT::v32i1 && Subtarget.hasAVX512() && !Subtarget.hasBWI())
     return 1;
   // Break wide or odd vXi1 vectors into scalars to match avx2 behavior.
->>>>>>> 93e1f73b6b2dc751a27568da5797cc2ba8436385
   if (VT.isVector() && VT.getVectorElementType() == MVT::i1 &&
       Subtarget.hasAVX512() &&
       (!isPowerOf2_32(VT.getVectorNumElements()) ||
