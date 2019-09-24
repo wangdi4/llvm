@@ -1,30 +1,26 @@
 /*
-    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2019 Intel Corporation
 
-    The source code contained or described herein and all documents related
-    to the source code ("Material") are owned by Intel Corporation or its
-    suppliers or licensors.  Title to the Material remains with Intel
-    Corporation or its suppliers and licensors.  The Material is protected
-    by worldwide copyright laws and treaty provisions.  No part of the
-    Material may be used, copied, reproduced, modified, published, uploaded,
-    posted, transmitted, distributed, or disclosed in any way without
-    Intel's prior express written permission.
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    No license under any patent, copyright, trade secret or other
-    intellectual property right is granted to or conferred upon you by
-    disclosure or delivery of the Materials, either expressly, by
-    implication, inducement, estoppel or otherwise.  Any license under such
-    intellectual property rights must be express and approved by Intel in
-    writing.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
 */
 
 #ifndef __TBB_machine_gcc_ia32_common_H
 #define __TBB_machine_gcc_ia32_common_H
 
+#ifndef __TBB_Log2
 //TODO: Add a higher-level function, e.g. tbb::internal::log2(), into tbb_stddef.h, which
 //uses __TBB_Log2 and contains the assert and remove the assert from here and all other
 //platform-specific headers.
-//TODO: Check if use of gcc intrinsic gives a better chance for cross call optimizations
 template <typename T>
 static inline intptr_t __TBB_machine_lg( T x ) {
     __TBB_ASSERT(x>0, "The logarithm of a non-positive value is undefined.");
@@ -33,6 +29,7 @@ static inline intptr_t __TBB_machine_lg( T x ) {
     return j;
 }
 #define __TBB_Log2(V)  __TBB_machine_lg(V)
+#endif /* !__TBB_Log2 */
 
 #ifndef __TBB_Pause
 //TODO: check if raising a ratio of pause instructions to loop control instructions

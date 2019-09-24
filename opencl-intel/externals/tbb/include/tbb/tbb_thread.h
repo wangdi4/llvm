@@ -1,25 +1,35 @@
 /*
-    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2019 Intel Corporation
 
-    The source code contained or described herein and all documents related
-    to the source code ("Material") are owned by Intel Corporation or its
-    suppliers or licensors.  Title to the Material remains with Intel
-    Corporation or its suppliers and licensors.  The Material is protected
-    by worldwide copyright laws and treaty provisions.  No part of the
-    Material may be used, copied, reproduced, modified, published, uploaded,
-    posted, transmitted, distributed, or disclosed in any way without
-    Intel's prior express written permission.
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    No license under any patent, copyright, trade secret or other
-    intellectual property right is granted to or conferred upon you by
-    disclosure or delivery of the Materials, either expressly, by
-    implication, inducement, estoppel or otherwise.  Any license under such
-    intellectual property rights must be express and approved by Intel in
-    writing.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
 */
+
+#include "internal/_deprecated_header_message_guard.h"
+
+#if !defined(__TBB_show_deprecation_message_tbb_thread_H) && defined(__TBB_show_deprecated_header_message)
+#define  __TBB_show_deprecation_message_tbb_thread_H
+#pragma message("TBB Warning: tbb/tbb_thread.h is deprecated. For details, please see Deprecated Features appendix in the TBB reference manual.")
+#endif
+
+#if defined(__TBB_show_deprecated_header_message)
+#undef __TBB_show_deprecated_header_message
+#endif
 
 #ifndef __TBB_tbb_thread_H
 #define __TBB_tbb_thread_H
+
+#define __TBB_tbb_thread_H_include_area
+#include "internal/_warning_suppress_enable_notice.h"
 
 #include "tbb_stddef.h"
 
@@ -47,18 +57,8 @@ namespace tbb { namespace internal {
 #include "internal/_tbb_hash_compare_impl.h"
 #include "tick_count.h"
 
-#if !TBB_USE_EXCEPTIONS && _MSC_VER
-    // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
-    #pragma warning (push)
-    #pragma warning (disable: 4530)
-#endif
-
 #include __TBB_STD_SWAP_HEADER
 #include <iosfwd>
-
-#if !TBB_USE_EXCEPTIONS && _MSC_VER
-    #pragma warning (pop)
-#endif
 
 namespace tbb {
 
@@ -256,7 +256,7 @@ namespace internal {
         friend tbb_thread_v3::id __TBB_EXPORTED_FUNC thread_get_id_v3();
 
         friend inline size_t tbb_hasher( const tbb_thread_v3::id& id ) {
-            __TBB_STATIC_ASSERT(sizeof(id.my_id) <= sizeof(size_t), "Implementaion assumes that thread_id_type fits into machine word");
+            __TBB_STATIC_ASSERT(sizeof(id.my_id) <= sizeof(size_t), "Implementation assumes that thread_id_type fits into machine word");
             return tbb::tbb_hasher(id.my_id);
         }
 
@@ -307,7 +307,7 @@ namespace internal {
 } // namespace internal;
 
 //! Users reference thread class by name tbb_thread
-typedef internal::tbb_thread_v3 tbb_thread;
+__TBB_DEPRECATED_VERBOSE_MSG("tbb::thread is deprecated, use std::thread") typedef internal::tbb_thread_v3 tbb_thread;
 
 using internal::operator==;
 using internal::operator!=;
@@ -328,15 +328,18 @@ inline void swap( internal::tbb_thread_v3& t1, internal::tbb_thread_v3& t2 )  __
 }
 
 namespace this_tbb_thread {
-    inline tbb_thread::id get_id() { return internal::thread_get_id_v3(); }
+    __TBB_DEPRECATED_VERBOSE inline tbb_thread::id get_id() { return internal::thread_get_id_v3(); }
     //! Offers the operating system the opportunity to schedule another thread.
-    inline void yield() { internal::thread_yield_v3(); }
+    __TBB_DEPRECATED_VERBOSE inline void yield() { internal::thread_yield_v3(); }
     //! The current thread blocks at least until the time specified.
-    inline void sleep(const tick_count::interval_t &i) {
+    __TBB_DEPRECATED_VERBOSE inline void sleep(const tick_count::interval_t &i) {
         internal::thread_sleep_v3(i);
     }
 }  // namespace this_tbb_thread
 
 } // namespace tbb
+
+#include "internal/_warning_suppress_disable_notice.h"
+#undef __TBB_tbb_thread_H_include_area
 
 #endif /* __TBB_tbb_thread_H */

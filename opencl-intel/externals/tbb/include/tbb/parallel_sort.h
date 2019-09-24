@@ -1,25 +1,35 @@
 /*
-    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2019 Intel Corporation
 
-    The source code contained or described herein and all documents related
-    to the source code ("Material") are owned by Intel Corporation or its
-    suppliers or licensors.  Title to the Material remains with Intel
-    Corporation or its suppliers and licensors.  The Material is protected
-    by worldwide copyright laws and treaty provisions.  No part of the
-    Material may be used, copied, reproduced, modified, published, uploaded,
-    posted, transmitted, distributed, or disclosed in any way without
-    Intel's prior express written permission.
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    No license under any patent, copyright, trade secret or other
-    intellectual property right is granted to or conferred upon you by
-    disclosure or delivery of the Materials, either expressly, by
-    implication, inducement, estoppel or otherwise.  Any license under such
-    intellectual property rights must be express and approved by Intel in
-    writing.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
 */
+
+#include "internal/_deprecated_header_message_guard.h"
+
+#if !defined(__TBB_show_deprecation_message_parallel_sort_H) && defined(__TBB_show_deprecated_header_message)
+#define  __TBB_show_deprecation_message_parallel_sort_H
+#pragma message("TBB Warning: tbb/parallel_sort.h is deprecated. For details, please see Deprecated Features appendix in the TBB reference manual.")
+#endif
+
+#if defined(__TBB_show_deprecated_header_message)
+#undef __TBB_show_deprecated_header_message
+#endif
 
 #ifndef __TBB_parallel_sort_H
 #define __TBB_parallel_sort_H
+
+#define __TBB_parallel_sort_H_include_area
+#include "internal/_warning_suppress_enable_notice.h"
 
 #include "parallel_for.h"
 #include "blocked_range.h"
@@ -27,6 +37,9 @@
 #include <algorithm>
 #include <iterator>
 #include <functional>
+#if __TBB_TASK_GROUP_CONTEXT
+    #include "tbb_profiling.h"
+#endif
 
 namespace tbb {
 
@@ -159,7 +172,7 @@ struct quick_sort_body {
 template<typename RandomAccessIterator, typename Compare>
 void parallel_quick_sort( RandomAccessIterator begin, RandomAccessIterator end, const Compare& comp ) {
 #if __TBB_TASK_GROUP_CONTEXT
-    task_group_context my_context;
+    task_group_context my_context(PARALLEL_SORT);
     const int serial_cutoff = 9;
 
     __TBB_ASSERT( begin + serial_cutoff < end, "min_parallel_size is smaller than serial cutoff?" );
@@ -205,7 +218,7 @@ do_parallel_quick_sort:
     The compare object must define a bool operator() function.
     @ingroup algorithms **/
 template<typename RandomAccessIterator, typename Compare>
-void parallel_sort( RandomAccessIterator begin, RandomAccessIterator end, const Compare& comp) {
+__TBB_DEPRECATED_VERBOSE void parallel_sort( RandomAccessIterator begin, RandomAccessIterator end, const Compare& comp) {
     const int min_parallel_size = 500;
     if( end > begin ) {
         if (end - begin < min_parallel_size) {
@@ -219,48 +232,37 @@ void parallel_sort( RandomAccessIterator begin, RandomAccessIterator end, const 
 //! Sorts the data in [begin,end) with a default comparator \c std::less<RandomAccessIterator>
 /** @ingroup algorithms **/
 template<typename RandomAccessIterator>
-inline void parallel_sort( RandomAccessIterator begin, RandomAccessIterator end ) {
+__TBB_DEPRECATED_VERBOSE inline void parallel_sort( RandomAccessIterator begin, RandomAccessIterator end ) {
     parallel_sort( begin, end, std::less< typename std::iterator_traits<RandomAccessIterator>::value_type >() );
 }
 
 //! Sorts the data in rng using the given comparator
 /** @ingroup algorithms **/
 template<typename Range, typename Compare>
-void parallel_sort(Range& rng, const Compare& comp) {
-    parallel_sort(tbb::internal::first(rng), tbb::internal::last(rng), comp);
-}
-
-//! Sorts the data in const rng using the given comparator
-/** @ingroup algorithms **/
-template<typename Range, typename Compare>
-void parallel_sort(const Range& rng, const Compare& comp) {
+__TBB_DEPRECATED_VERBOSE void parallel_sort(Range& rng, const Compare& comp) {
     parallel_sort(tbb::internal::first(rng), tbb::internal::last(rng), comp);
 }
 
 //! Sorts the data in rng with a default comparator \c std::less<RandomAccessIterator>
 /** @ingroup algorithms **/
 template<typename Range>
-void parallel_sort(Range& rng) {
-    parallel_sort(tbb::internal::first(rng), tbb::internal::last(rng));
-}
-
-//! Sorts the data in const rng with a default comparator \c std::less<RandomAccessIterator>
-/** @ingroup algorithms **/
-template<typename Range>
-void parallel_sort(const Range& rng) {
+__TBB_DEPRECATED_VERBOSE void parallel_sort(Range& rng) {
     parallel_sort(tbb::internal::first(rng), tbb::internal::last(rng));
 }
 
 //! Sorts the data in the range \c [begin,end) with a default comparator \c std::less<T>
 /** @ingroup algorithms **/
 template<typename T>
-inline void parallel_sort( T * begin, T * end ) {
+__TBB_DEPRECATED_VERBOSE inline void parallel_sort( T * begin, T * end ) {
     parallel_sort( begin, end, std::less< T >() );
 }
 //@}
 
 
 } // namespace tbb
+
+#include "internal/_warning_suppress_disable_notice.h"
+#undef __TBB_parallel_sort_H_include_area
 
 #endif
 

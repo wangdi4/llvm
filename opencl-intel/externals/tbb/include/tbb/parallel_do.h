@@ -1,25 +1,24 @@
 /*
-    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2019 Intel Corporation
 
-    The source code contained or described herein and all documents related
-    to the source code ("Material") are owned by Intel Corporation or its
-    suppliers or licensors.  Title to the Material remains with Intel
-    Corporation or its suppliers and licensors.  The Material is protected
-    by worldwide copyright laws and treaty provisions.  No part of the
-    Material may be used, copied, reproduced, modified, published, uploaded,
-    posted, transmitted, distributed, or disclosed in any way without
-    Intel's prior express written permission.
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    No license under any patent, copyright, trade secret or other
-    intellectual property right is granted to or conferred upon you by
-    disclosure or delivery of the Materials, either expressly, by
-    implication, inducement, estoppel or otherwise.  Any license under such
-    intellectual property rights must be express and approved by Intel in
-    writing.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
 */
 
 #ifndef __TBB_parallel_do_H
 #define __TBB_parallel_do_H
+
+#define __TBB_parallel_do_H_include_area
+#include "internal/_warning_suppress_enable_notice.h"
 
 #include "internal/_range_iterator.h"
 #include "internal/_template_helpers.h"
@@ -500,7 +499,7 @@ void parallel_do( Iterator first, Iterator last, const Body& body )
     if ( first == last )
         return;
 #if __TBB_TASK_GROUP_CONTEXT
-    task_group_context context;
+    task_group_context context(internal::PARALLEL_DO);
 #endif
     interface9::internal::select_parallel_do( first, last, body, &Body::operator()
 #if __TBB_TASK_GROUP_CONTEXT
@@ -547,5 +546,8 @@ void parallel_do(const Range& rng, const Body& body, task_group_context& context
 using interface9::parallel_do_feeder;
 
 } // namespace
+
+#include "internal/_warning_suppress_disable_notice.h"
+#undef __TBB_parallel_do_H_include_area
 
 #endif /* __TBB_parallel_do_H */

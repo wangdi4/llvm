@@ -1,28 +1,27 @@
 /*
-    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2019 Intel Corporation
 
-    The source code contained or described herein and all documents related
-    to the source code ("Material") are owned by Intel Corporation or its
-    suppliers or licensors.  Title to the Material remains with Intel
-    Corporation or its suppliers and licensors.  The Material is protected
-    by worldwide copyright laws and treaty provisions.  No part of the
-    Material may be used, copied, reproduced, modified, published, uploaded,
-    posted, transmitted, distributed, or disclosed in any way without
-    Intel's prior express written permission.
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    No license under any patent, copyright, trade secret or other
-    intellectual property right is granted to or conferred upon you by
-    disclosure or delivery of the Materials, either expressly, by
-    implication, inducement, estoppel or otherwise.  Any license under such
-    intellectual property rights must be express and approved by Intel in
-    writing.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
 */
 
 #ifndef __TBB_task_scheduler_observer_H
 #define __TBB_task_scheduler_observer_H
 
+#define __TBB_task_scheduler_observer_H_include_area
+#include "internal/_warning_suppress_enable_notice.h"
+
 #include "atomic.h"
-#if __TBB_ARENA_OBSERVER || __TBB_SLEEP_PERMISSION
+#if __TBB_ARENA_OBSERVER
 #include "task_arena.h"
 #endif
 
@@ -88,7 +87,7 @@ public:
 
 } // namespace internal
 
-#if __TBB_ARENA_OBSERVER || __TBB_SLEEP_PERMISSION
+#if __TBB_ARENA_OBSERVER
 namespace interface6 {
 class task_scheduler_observer : public internal::task_scheduler_observer_v3 {
     friend class internal::task_scheduler_observer_v3;
@@ -149,26 +148,19 @@ public:
         }
         internal::task_scheduler_observer_v3::observe(state);
     }
-
-#if  __TBB_SLEEP_PERMISSION
-    //! Return commands for may_sleep()
-    enum { keep_awake = false, allow_sleep = true };
-
-    //! The callback can be invoked by a worker thread before it goes to sleep.
-    /** If it returns false ('keep_awake'), the thread will keep spinning and looking for work.
-        It will not be called for master threads. **/
-    virtual bool may_sleep() { return allow_sleep; }
-#endif /*__TBB_SLEEP_PERMISSION*/
 };
 
 } //namespace interface6
 using interface6::task_scheduler_observer;
-#else /*__TBB_ARENA_OBSERVER || __TBB_SLEEP_PERMISSION*/
+#else /*__TBB_ARENA_OBSERVER*/
 typedef tbb::internal::task_scheduler_observer_v3 task_scheduler_observer;
-#endif /*__TBB_ARENA_OBSERVER || __TBB_SLEEP_PERMISSION*/
+#endif /*__TBB_ARENA_OBSERVER*/
 
 } // namespace tbb
 
 #endif /* __TBB_SCHEDULER_OBSERVER */
+
+#include "internal/_warning_suppress_disable_notice.h"
+#undef __TBB_task_scheduler_observer_H_include_area
 
 #endif /* __TBB_task_scheduler_observer_H */
