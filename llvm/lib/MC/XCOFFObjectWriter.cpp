@@ -365,7 +365,11 @@ void XCOFFObjectWriter::writeSymbolTable() {
       W.write<uint32_t>(Strings.getOffset(Sym.getName()));
     } else {
       char Name[XCOFF::NameSize];
-      std::strncpy(Name, Sym.getName().data(), XCOFF::NameSize);
+#if INTEL_CUSTOMIZATION
+      assert(strlen(Sym.getName().data()) <= XCOFF::NameSize &&
+         "Symbol's name is not larger than XCOFF::NameSize");
+      std::memcpy(Name, Sym.getName().data(), XCOFF::NameSize);
+#endif // INTEL_CUSTOMIZATION
       ArrayRef<char> NameRef(Name, XCOFF::NameSize);
       W.write(NameRef);
     }
