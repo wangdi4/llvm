@@ -9848,8 +9848,8 @@ public:
   DeclGroupPtrTy ActOnOpenMPDeclareVariantDirective(DeclGroupPtrTy DG,
                                                     Expr *VariantRef,
 #if INTEL_CUSTOMIZATION
-    SmallVectorImpl<OMPDeclareVariantDeclAttr::ConstructTy> &Constructs,
-    SmallVectorImpl<OMPDeclareVariantDeclAttr::DeviceTy> &Devices,
+    SmallVectorImpl<OMPDeclareVariantAttr::ConstructTy> &Constructs,
+    SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &Devices,
 #endif // INTEL_CUSTOMIZATION
                                                     SourceRange SR);
 

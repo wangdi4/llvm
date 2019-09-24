@@ -4913,8 +4913,8 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPDeclareSimdDirective(
 Sema::DeclGroupPtrTy Sema::ActOnOpenMPDeclareVariantDirective(
 #if INTEL_CUSTOMIZATION
     Sema::DeclGroupPtrTy DG, Expr *VariantRef,
-    SmallVectorImpl<OMPDeclareVariantDeclAttr::ConstructTy> &Constructs,
-    SmallVectorImpl<OMPDeclareVariantDeclAttr::DeviceTy> &Devices,
+    SmallVectorImpl<OMPDeclareVariantAttr::ConstructTy> &Constructs,
+    SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &Devices,
     SourceRange SR) {
 #endif // INTEL_CUSTOMIZATION
   if (!DG || DG.get().isNull())
@@ -4968,8 +4968,11 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPDeclareVariantDirective(
   if (VariantRef->isTypeDependent() || VariantRef->isValueDependent() ||
       VariantRef->containsUnexpandedParameterPack() ||
       VariantRef->isInstantiationDependent() || FD->isDependentContext()) {
-    auto *NewAttr =
-        OMPDeclareVariantAttr::CreateImplicit(Context, VariantRef, SR);
+#if INTEL_CUSTOMIZATION
+    auto *NewAttr = OMPDeclareVariantAttr::CreateImplicit(
+        Context, VariantRef, Constructs.data(), Constructs.size(),
+        Devices.data(), Devices.size(), SR);
+#endif // INTEL_CUSTOMIZATION
     FD->addAttr(NewAttr);
     return DG;
   }
@@ -5124,17 +5127,12 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPDeclareVariantDirective(
           /*TemplatesSupported=*/true, /*ConstexprSupported=*/false))
     return DG;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-  auto *NewAttr = OMPDeclareVariantDeclAttr::CreateImplicit(
-      Context, NewFD, Constructs.data(), Constructs.size(), Devices.data(),
+  auto *NewAttr = OMPDeclareVariantAttr::CreateImplicit(
+      Context, DRE, Constructs.data(), Constructs.size(), Devices.data(),
       Devices.size(), SR);
   FD->addAttr(NewAttr);
 #endif // INTEL_CUSTOMIZATION
-=======
-  auto *NewAttr = OMPDeclareVariantAttr::CreateImplicit(Context, DRE, SR);
-  FD->addAttr(NewAttr);
->>>>>>> bf5d4290943b8a4da873987be7b8fd47b8cfdcb9
   return DG;
 }
 

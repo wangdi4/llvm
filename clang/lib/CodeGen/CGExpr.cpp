@@ -4789,10 +4789,11 @@ static CGCallee EmitDirectCallee(CodeGenFunction &CGF, const FunctionDecl *FD) {
 #if INTEL_CUSTOMIZATION
   if (CGF.getLangOpts().OpenMPIsDevice && CGF.CapturedStmtInfo &&
       CGF.CapturedStmtInfo->inTargetVariantDispatchRegion()) {
-    for (const auto *DVDA : FD->specific_attrs<OMPDeclareVariantDeclAttr>()) {
+    for (const auto *DVA : FD->specific_attrs<OMPDeclareVariantAttr>()) {
       // Force target emission of variants as they are conditionally called
       // based on the device clause.
-      const FunctionDecl *VFD = DVDA->getFunctionDecl();
+      auto *DRE = cast<DeclRefExpr>(DVA->getVariantFuncRef());
+      FunctionDecl *VFD = cast<FunctionDecl>(DRE->getDecl());
       CGF.CGM.GetAddrOfFunction(VFD);
     }
   }

@@ -1968,10 +1968,12 @@ static void addDeclareVariantAttributes(CodeGenModule &CGM,
                                         llvm::Function *F) {
   SmallString<256> S;
   unsigned NumAttrs = 0;
-  for (const auto *Attr : FD->specific_attrs<OMPDeclareVariantDeclAttr>()) {
+  for (const auto *Attr : FD->specific_attrs<OMPDeclareVariantAttr>()) {
     if (NumAttrs++ != 0)
       S += ";;";
-    GlobalDecl GD(Attr->getFunctionDecl());
+    auto *DRE = cast<DeclRefExpr>(Attr->getVariantFuncRef());
+    FunctionDecl *AFD = cast<FunctionDecl>(DRE->getDecl());
+    GlobalDecl GD(AFD);
     S += "name:";
     S += CGM.getMangledName(GD);
     S += ";construct:";
@@ -1979,14 +1981,14 @@ static void addDeclareVariantAttributes(CodeGenModule &CGM,
     for (const auto &C : Attr->construct()) {
       if (NumConstructs++ != 0)
         S += ',';
-      S += OMPDeclareVariantDeclAttr::ConvertConstructTyToStr(C);
+      S += OMPDeclareVariantAttr::ConvertConstructTyToStr(C);
     }
     S += ";arch:";
     unsigned NumDevices = 0;
     for (const auto &D : Attr->device()) {
       if (NumDevices++ != 0)
         S += ',';
-      S += OMPDeclareVariantDeclAttr::ConvertDeviceTyToStr(D);
+      S += OMPDeclareVariantAttr::ConvertDeviceTyToStr(D);
     }
   }
   if (!S.empty())

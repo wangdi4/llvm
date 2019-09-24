@@ -3636,8 +3636,32 @@ def OMPDeclareVariant : Attr {
   let Documentation = [OMPDeclareVariantDocs];
   let Args = [
     ExprArgument<"VariantFuncRef">
+// INTEL_CUSTOMIZATION
+  , VariadicEnumArgument<"Construct", "ConstructTy",
+       ["", "target", "teams", "parallel", "for", "simd",
+        "target_variant_dispatch"],
+       ["Construct_None", "Construct_Target", "Construct_Teams",
+        "Construct_Parallel", "Construct_For", "Construct_Simd",
+        "Construct_Target_Variant_Dispatch"]>,
+       VariadicEnumArgument<"Device", "DeviceTy",
+          ["", "gen"], ["Device_None", "Device_Arch_Gen"]>
+// end INTEL_CUSTOMIZATION
   ];
   let AdditionalMembers = [{
+// INTEL_CUSTOMIZATION
+    static const char *getSupportedSelectorSets() {
+      return "'construct' or 'device'";
+    }
+    static const char *getSupportedConstructs() {
+      return "'target variant dispatch'";
+    }
+    static const char *getSupportedDevices() {
+      return "'arch'";
+    }
+    static const char *getSupportedArchs() {
+      return "'gen'";
+    }
+// end INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream & OS, const PrintingPolicy &Policy)
         const {
       if (const Expr *E = getVariantFuncRef()) {

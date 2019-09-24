@@ -304,26 +304,3 @@ should take place as an ArbPrecInt type, promoting to the larger of the two
 types. All integer operations are currently supported.
   }];
 }
-
-def OMPDeclareVariantDocs : Documentation {
-  let Category = DocCatFunction;
-  let Heading = "#pragma omp declare variant";
-  let Content = [{
-The `declare variant` construct can be applied to a function.
-The syntax of the `declare variant` construct is as follows:
-
-  .. code-block:: none
-
-    #pragma omp declare variant(variant-func-id) clause new-line
-    [#pragma omp declare variant(variant-func-id) clause new-line]
-    [...]
-    function definition or declaration
-
-where clause is the following:
-
-  .. code-block:: none
-
-    match(context-selector-specification)
-
-  }];
-}

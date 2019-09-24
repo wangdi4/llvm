@@ -808,7 +808,7 @@ Parser::ParseOMPDeclareSimdClauses(Parser::DeclGroupPtrTy Ptr,
 /// the only construct supported.
 ///
 static bool parseMatchConstructs(Parser &P,
-    SmallVectorImpl<OMPDeclareVariantDeclAttr::ConstructTy> &Constructs) {
+    SmallVectorImpl<OMPDeclareVariantAttr::ConstructTy> &Constructs) {
   const Token &Tok = P.getCurToken();
   bool IsError = false;
   P.ConsumeToken(); // "construct"
@@ -827,18 +827,18 @@ static bool parseMatchConstructs(Parser &P,
           NextTok.getIdentifierInfo()->getName() == "variant" &&
           NextNextTok.getIdentifierInfo()->getName() == "dispatch") {
         Constructs.push_back(
-            OMPDeclareVariantDeclAttr::Construct_Target_Variant_Dispatch);
+            OMPDeclareVariantAttr::Construct_Target_Variant_Dispatch);
         P.ConsumeToken();
         P.ConsumeToken();
       } else {
         P.Diag(Tok, diag::err_omp_bad_context_selector)
             << "construct"
-            << OMPDeclareVariantDeclAttr::getSupportedConstructs();
+            << OMPDeclareVariantAttr::getSupportedConstructs();
         IsError = true;
       }
     } else {
       P.Diag(Tok, diag::err_omp_bad_context_selector)
-          << "construct" << OMPDeclareVariantDeclAttr::getSupportedConstructs();
+          << "construct" << OMPDeclareVariantAttr::getSupportedConstructs();
       IsError = true;
     }
     P.ConsumeToken();
@@ -860,7 +860,7 @@ static bool parseMatchConstructs(Parser &P,
 /// currently support only 'gen'.
 ///
 static bool parseMatchDeviceArchs(
-    Parser &P, SmallVectorImpl<OMPDeclareVariantDeclAttr::DeviceTy> &Devices) {
+    Parser &P, SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &Devices) {
   const Token &Tok = P.getCurToken();
   bool IsError = false;
   P.ConsumeToken(); // "arch"
@@ -870,10 +870,10 @@ static bool parseMatchDeviceArchs(
     IdentifierInfo *II = Tok.getIdentifierInfo();
     StringRef ArchName = II->getName();
     if (ArchName == "gen")
-      Devices.push_back(OMPDeclareVariantDeclAttr::Device_Arch_Gen);
+      Devices.push_back(OMPDeclareVariantAttr::Device_Arch_Gen);
     else {
       P.Diag(Tok, diag::err_omp_bad_device_selector)
-          << "arch" << OMPDeclareVariantDeclAttr::getSupportedArchs();
+          << "arch" << OMPDeclareVariantAttr::getSupportedArchs();
       T.skipToEnd();
       return true;
     }
@@ -897,7 +897,7 @@ static bool parseMatchDeviceArchs(
 /// We currently support only 'arch'.
 ///
 static bool parseMatchDevices(Parser &P,
-    SmallVectorImpl<OMPDeclareVariantDeclAttr::DeviceTy> &Devices) {
+    SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &Devices) {
   const Token &Tok = P.getCurToken();
   bool IsError = false;
   P.ConsumeToken(); // "device"
@@ -913,7 +913,7 @@ static bool parseMatchDevices(Parser &P,
       IsError = parseMatchDeviceArchs(P, Devices);
     } else {
       P.Diag(Tok, diag::err_omp_bad_context_selector)
-          << "device" << OMPDeclareVariantDeclAttr::getSupportedDevices();
+          << "device" << OMPDeclareVariantAttr::getSupportedDevices();
       T.skipToEnd();
       return true;
     }
@@ -982,8 +982,8 @@ static FunctionDecl *parseVariantFunctionClause(Parser &P) {
 /// a small subset of supported constructs and devices.
 static bool parseMatchClause(
     Parser &P,
-    SmallVectorImpl<OMPDeclareVariantDeclAttr::ConstructTy> &Constructs,
-    SmallVectorImpl<OMPDeclareVariantDeclAttr::DeviceTy> &Devices) {
+    SmallVectorImpl<OMPDeclareVariantAttr::ConstructTy> &Constructs,
+    SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &Devices) {
 
   const Token &Tok = P.getCurToken();
   bool IsError = false;
@@ -1000,7 +1000,7 @@ static bool parseMatchClause(
       IsError = parseMatchDevices(P, Devices);
     } else {
       P.Diag(Tok, diag::err_omp_bad_context_selector_set)
-            << OMPDeclareVariantDeclAttr::getSupportedSelectorSets();
+            << OMPDeclareVariantAttr::getSupportedSelectorSets();
       T.skipToEnd();
       return true;
     }
@@ -1100,8 +1100,8 @@ Parser::ParseOMPDeclareVariantClauses(Parser::DeclGroupPtrTy Ptr,
   }
 
 #if INTEL_CUSTOMIZATION
-  SmallVector<OMPDeclareVariantDeclAttr::ConstructTy, 3> Constructs;
-  SmallVector<OMPDeclareVariantDeclAttr::DeviceTy, 3> Devices;
+  SmallVector<OMPDeclareVariantAttr::ConstructTy, 3> Constructs;
+  SmallVector<OMPDeclareVariantAttr::DeviceTy, 3> Devices;
   bool IsError = false;
 
   if (!getLangOpts().OpenMPLateOutline) {

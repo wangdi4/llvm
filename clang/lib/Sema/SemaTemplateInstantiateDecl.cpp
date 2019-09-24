@@ -456,8 +456,20 @@ static void instantiateOMPDeclareVariantAttr(
   if (Expr *E = Attr.getVariantFuncRef())
     VariantFuncRef = Subst(E);
 
+#if INTEL_CUSTOMIZATION
+  SmallVector<OMPDeclareVariantAttr::ConstructTy, 4> Constructs;
+  SmallVector<OMPDeclareVariantAttr::DeviceTy, 4> Devices;
+  for (auto C : Attr.construct())
+    Constructs.push_back(C);
+  for (auto D : Attr.device())
+    Devices.push_back(D);
+#endif // INTEL_CUSTOMIZATION
+
   (void)S.ActOnOpenMPDeclareVariantDirective(
-      S.ConvertDeclToDeclGroup(New), VariantFuncRef.get(), Attr.getRange());
+#if INTEL_CUSTOMIZATION
+      S.ConvertDeclToDeclGroup(New), VariantFuncRef.get(), Constructs,
+      Devices, Attr.getRange());
+#endif // INTEL_CUSTOMIZATION
 }
 
 static void instantiateDependentAMDGPUFlatWorkGroupSizeAttr(
