@@ -535,6 +535,16 @@ def : Pat<(v8f32 immAllZerosV), (AVX512_256_SET0)>;
 def : Pat<(v4f64 immAllZerosV), (AVX512_256_SET0)>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+let Predicates = [HasFP16] in {
+def : Pat<(v8f16 immAllZerosV), (AVX512_128_SET0)>;
+def : Pat<(v16f16 immAllZerosV), (AVX512_256_SET0)>;
+def : Pat<(v32f16 immAllZerosV), (AVX512_512_SET0)>;
+}
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+
 // Alias instructions that map fld0 to xorps for sse or vxorps for avx.
 // This is expanded by ExpandPostRAPseudos.
 let isReMaterializable = 1, isAsCheapAsAMove = 1, canFoldAsLoad = 1,
