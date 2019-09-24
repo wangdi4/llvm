@@ -4967,8 +4967,12 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPDeclareVariantDirective(
   // Do not check templates, wait until instantiation.
   if (VariantRef->isTypeDependent() || VariantRef->isValueDependent() ||
       VariantRef->containsUnexpandedParameterPack() ||
-      VariantRef->isInstantiationDependent() || FD->isDependentContext())
+      VariantRef->isInstantiationDependent() || FD->isDependentContext()) {
+    auto *NewAttr =
+        OMPDeclareVariantAttr::CreateImplicit(Context, VariantRef, SR);
+    FD->addAttr(NewAttr);
     return DG;
+  }
 
   // Convert VariantRef expression to the type of the original function to
   // resolve possible conflicts.
@@ -5047,6 +5051,17 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPDeclareVariantDirective(
     return DG;
   }
 
+  // Check if variant function is not marked with declare variant directive.
+  if (NewFD->hasAttrs() && NewFD->hasAttr<OMPDeclareVariantAttr>()) {
+    Diag(VariantRef->getExprLoc(),
+         diag::warn_omp_declare_variant_marked_as_declare_variant)
+        << VariantRef->getSourceRange();
+    SourceRange SR =
+        NewFD->specific_attr_begin<OMPDeclareVariantAttr>()->getRange();
+    Diag(SR.getBegin(), diag::note_omp_marked_declare_variant_here) << SR;
+    return DG;
+  }
+
   enum DoesntSupport {
     VirtFuncs = 1,
     Constructors = 3,
@@ -5109,13 +5124,37 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPDeclareVariantDirective(
           /*TemplatesSupported=*/true, /*ConstexprSupported=*/false))
     return DG;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   auto *NewAttr = OMPDeclareVariantDeclAttr::CreateImplicit(
       Context, NewFD, Constructs.data(), Constructs.size(), Devices.data(),
       Devices.size(), SR);
   FD->addAttr(NewAttr);
 #endif // INTEL_CUSTOMIZATION
+=======
+  auto *NewAttr = OMPDeclareVariantAttr::CreateImplicit(Context, DRE, SR);
+  FD->addAttr(NewAttr);
+>>>>>>> bf5d4290943b8a4da873987be7b8fd47b8cfdcb9
   return DG;
+}
+
+void Sema::markOpenMPDeclareVariantFuncsReferenced(SourceLocation Loc,
+                                                   FunctionDecl *Func,
+                                                   bool MightBeOdrUse) {
+  assert(LangOpts.OpenMP && "Expected OpenMP mode.");
+
+  if (!Func->isDependentContext() && Func->hasAttrs()) {
+    for (OMPDeclareVariantAttr *A :
+         Func->specific_attrs<OMPDeclareVariantAttr>()) {
+      // TODO: add checks for active OpenMP context where possible.
+      Expr *VariantRef = A->getVariantFuncRef();
+      auto *DRE = dyn_cast<DeclRefExpr>(VariantRef->IgnoreParenImpCasts());
+      auto *F = cast<FunctionDecl>(DRE->getDecl());
+      if (!F->isDefined() && F->isTemplateInstantiation())
+        InstantiateFunctionDefinition(Loc, F->getFirstDecl());
+      MarkFunctionReferenced(Loc, F, MightBeOdrUse);
+    }
+  }
 }
 
 StmtResult Sema::ActOnOpenMPParallelDirective(ArrayRef<OMPClause *> Clauses,
