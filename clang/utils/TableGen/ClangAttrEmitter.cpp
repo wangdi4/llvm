@@ -1674,11 +1674,7 @@ CreateSemanticSpellings(const std::vector<FlattenedSpelling> &Spellings,
   // If we have a need to have this many spellings we likely need to add an
   // extra bit to the SpellingIndex in AttributeCommonInfo, then increase the
   // value of SpellingNotCalculated there and here.
-#if INTEL_CUSTOMIZATION
-  assert(Spellings.size() < 31 &&
-#else // INTEL_CUSTOMIZATION
-  assert(Spellings.size() < 15 &&
-#endif // INTEL_CUSTOMIZATION
+  assert(Spellings.size() < 31 && // INTEL
          "Too many spellings, would step on SpellingNotCalculated in "
          "AttributeCommonInfo");
   for (auto I = Spellings.begin(), E = Spellings.end(); I != E; ++I, ++Idx) {

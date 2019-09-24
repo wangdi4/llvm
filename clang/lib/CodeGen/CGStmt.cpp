@@ -686,6 +686,8 @@ CodeGenFunction::IntelPragmaInlineState::getPragmaInlineAttribute() {
         return std::make_pair(llvm::Attribute::AlwaysInline, false);
     case IntelInlineAttr::Pragma_noinline:
       return std::make_pair(llvm::Attribute::NoInline, false);
+    case IntelInlineAttr::SpellingNotCalculated:
+      llvm_unreachable("spelling not calculated");
   }
   llvm_unreachable("unhandled attribute");
 }
