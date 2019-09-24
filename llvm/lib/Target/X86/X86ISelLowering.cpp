@@ -2119,7 +2119,6 @@ X86TargetLowering::getPreferredVectorAction(MVT VT) const {
 MVT X86TargetLowering::getRegisterTypeForCallingConv(LLVMContext &Context,
                                                      CallingConv::ID CC,
                                                      EVT VT) const {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Preserve mask arguments in their original type. Otherwise they'll be
   // modified on pre-AVX512 targets before we get a chance to analyze them.
@@ -2128,14 +2127,12 @@ MVT X86TargetLowering::getRegisterTypeForCallingConv(LLVMContext &Context,
     return VT.getSimpleVT();
 #endif
 
-=======
   // Break wide vXi1 vectors into scalars to match avx2 behavior.
   if (VT.isVector() && VT.getVectorElementType() == MVT::i1 &&
       Subtarget.hasAVX512() &&
       ((VT.getVectorNumElements() > 32 && !Subtarget.hasBWI()) ||
        (VT.getVectorNumElements() > 64 && Subtarget.hasBWI())))
     return MVT::i8;
->>>>>>> 95aea7449493e6711a326a8a76b086f87e580619
   if (VT == MVT::v32i1 && Subtarget.hasAVX512() && !Subtarget.hasBWI())
     return MVT::v32i8;
   // FIXME: Should we just make these types legal and custom split operations?
@@ -2148,7 +2145,6 @@ MVT X86TargetLowering::getRegisterTypeForCallingConv(LLVMContext &Context,
 unsigned X86TargetLowering::getNumRegistersForCallingConv(LLVMContext &Context,
                                                           CallingConv::ID CC,
                                                           EVT VT) const {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Preserve mask arguments in their original type. Otherwise they'll be
   // modified on pre-AVX512 targets before we get a chance to analyze them.
@@ -2157,14 +2153,12 @@ unsigned X86TargetLowering::getNumRegistersForCallingConv(LLVMContext &Context,
     return 1;
 #endif
 
-=======
   // Break wide vXi1 vectors into scalars to match avx2 behavior.
   if (VT.isVector() && VT.getVectorElementType() == MVT::i1 &&
       Subtarget.hasAVX512() &&
       ((VT.getVectorNumElements() > 32 && !Subtarget.hasBWI()) ||
        (VT.getVectorNumElements() > 64 && Subtarget.hasBWI())))
     return VT.getVectorNumElements();
->>>>>>> 95aea7449493e6711a326a8a76b086f87e580619
   if (VT == MVT::v32i1 && Subtarget.hasAVX512() && !Subtarget.hasBWI())
     return 1;
   // FIXME: Should we just make these types legal and custom split operations?
