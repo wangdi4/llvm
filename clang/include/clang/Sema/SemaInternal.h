@@ -327,6 +327,24 @@ operator=(Sema::TypoExprState &&other) noexcept {
   return *this;
 }
 
+template <typename AttrType>
+bool Sema::checkRangedIntegralArgument(Expr *E, const AttrType *TmpAttr,
+                                       ExprResult &Result) {
+  llvm::APSInt Value;
+  Result = VerifyIntegerConstantExpression(E, &Value);
+  if (Result.isInvalid())
+    return true;
+
+  if (Value < AttrType::getMinValue() || Value > AttrType::getMaxValue()) {
+    Diag(TmpAttr->getRange().getBegin(),
+         diag::err_attribute_argument_out_of_range)
+        << TmpAttr << AttrType::getMinValue() << AttrType::getMaxValue()
+        << E->getSourceRange();
+    return true;
+  }
+  return false;
+}
+
 } // end namespace clang
 
 #endif
