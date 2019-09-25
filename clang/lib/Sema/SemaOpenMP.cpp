@@ -4910,19 +4910,9 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPDeclareSimdDirective(
   return DG;
 }
 
-<<<<<<< HEAD
-Sema::DeclGroupPtrTy Sema::ActOnOpenMPDeclareVariantDirective(
-#if INTEL_CUSTOMIZATION
-    Sema::DeclGroupPtrTy DG, Expr *VariantRef,
-    SmallVectorImpl<OMPDeclareVariantAttr::ConstructTy> &Constructs,
-    SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &Devices,
-    SourceRange SR) {
-#endif // INTEL_CUSTOMIZATION
-=======
 Optional<std::pair<FunctionDecl *, Expr *>>
 Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
                                         Expr *VariantRef, SourceRange SR) {
->>>>>>> 0736f7f5d72f80a509f6913113ec9f9d5032c963
   if (!DG || DG.get().isNull())
     return None;
 
@@ -4973,20 +4963,8 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
   // Do not check templates, wait until instantiation.
   if (VariantRef->isTypeDependent() || VariantRef->isValueDependent() ||
       VariantRef->containsUnexpandedParameterPack() ||
-<<<<<<< HEAD
-      VariantRef->isInstantiationDependent() || FD->isDependentContext()) {
-#if INTEL_CUSTOMIZATION
-    auto *NewAttr = OMPDeclareVariantAttr::CreateImplicit(
-        Context, VariantRef, Constructs.data(), Constructs.size(),
-        Devices.data(), Devices.size(), SR);
-#endif // INTEL_CUSTOMIZATION
-    FD->addAttr(NewAttr);
-    return DG;
-  }
-=======
       VariantRef->isInstantiationDependent() || FD->isDependentContext())
     return std::make_pair(FD, VariantRef);
->>>>>>> 0736f7f5d72f80a509f6913113ec9f9d5032c963
 
   // Convert VariantRef expression to the type of the original function to
   // resolve possible conflicts.
@@ -5140,22 +5118,20 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
   return std::make_pair(FD, cast<Expr>(DRE));
 }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  auto *NewAttr = OMPDeclareVariantAttr::CreateImplicit(
-      Context, DRE, Constructs.data(), Constructs.size(), Devices.data(),
-      Devices.size(), SR);
-  FD->addAttr(NewAttr);
-#endif // INTEL_CUSTOMIZATION
-  return DG;
-=======
 void Sema::ActOnOpenMPDeclareVariantDirective(FunctionDecl *FD,
                                               Expr *VariantRef,
+#if INTEL_CUSTOMIZATION
+    SmallVectorImpl<OMPDeclareVariantAttr::ConstructTy> &Constructs,
+    SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &Devices,
+#endif // INTEL_CUSTOMIZATION
                                               SourceRange SR) {
   auto *NewAttr =
-      OMPDeclareVariantAttr::CreateImplicit(Context, VariantRef, SR);
+#if INTEL_CUSTOMIZATION
+      OMPDeclareVariantAttr::CreateImplicit(
+          Context, VariantRef, Constructs.data(), Constructs.size(),
+          Devices.data(), Devices.size(), SR);
+#endif // INTEL_CUSTOMIZATION
   FD->addAttr(NewAttr);
->>>>>>> 0736f7f5d72f80a509f6913113ec9f9d5032c963
 }
 
 void Sema::markOpenMPDeclareVariantFuncsReferenced(SourceLocation Loc,

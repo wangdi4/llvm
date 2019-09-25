@@ -2941,7 +2941,13 @@ private:
   /// successfully parsed context selector.
   bool
   parseOpenMPContextSelectors(SourceLocation Loc,
-                              llvm::function_ref<void(SourceRange)> Callback);
+#if INTEL_CUSTOMIZATION
+      llvm::function_ref<void(
+          llvm::SmallVectorImpl<clang::OMPDeclareVariantAttr::ConstructTy> &,
+          llvm::SmallVectorImpl<clang::OMPDeclareVariantAttr::DeviceTy> &,
+          SourceRange)>
+          Callback);
+#endif // INTEL_CUSTOMIZATION
 
   /// Parse clauses for '#pragma omp declare variant'.
   void ParseOMPDeclareVariantClauses(DeclGroupPtrTy Ptr, CachedTokens &Toks,

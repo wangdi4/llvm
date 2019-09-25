@@ -811,12 +811,6 @@ static bool parseMatchConstructs(Parser &P,
     SmallVectorImpl<OMPDeclareVariantAttr::ConstructTy> &Constructs) {
   const Token &Tok = P.getCurToken();
   bool IsError = false;
-  P.ConsumeToken(); // "construct"
-  if (Tok.isNot(tok::equal))
-    IsError = true;
-  P.ConsumeToken(); // tok::equal
-  BalancedDelimiterTracker T(P, tok::l_brace, tok::annot_pragma_openmp_end);
-  T.consumeOpen();
   while (Tok.is(tok::identifier)) {
     IdentifierInfo *II = Tok.getIdentifierInfo();
     StringRef ConstructName = II->getName();
@@ -846,7 +840,6 @@ static bool parseMatchConstructs(Parser &P,
     if (Tok.is(tok::comma))
       P.ConsumeToken();
   }
-  T.consumeClose();
   return IsError;
 }
 
@@ -900,12 +893,6 @@ static bool parseMatchDevices(Parser &P,
     SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &Devices) {
   const Token &Tok = P.getCurToken();
   bool IsError = false;
-  P.ConsumeToken(); // "device"
-  if (Tok.isNot(tok::equal))
-    IsError = true;
-  P.ConsumeToken(); // tok::equal
-  BalancedDelimiterTracker T(P, tok::l_brace, tok::annot_pragma_openmp_end);
-  T.consumeOpen();
   while (Tok.is(tok::identifier)) {
     IdentifierInfo *II = Tok.getIdentifierInfo();
     StringRef SetSelectorName = II->getName();
@@ -914,104 +901,14 @@ static bool parseMatchDevices(Parser &P,
     } else {
       P.Diag(Tok, diag::err_omp_bad_context_selector)
           << "device" << OMPDeclareVariantAttr::getSupportedDevices();
-      T.skipToEnd();
       return true;
     }
     // Skip ',' if any.
     if (Tok.is(tok::comma))
       P.ConsumeToken();
   }
-  T.consumeClose();
   return IsError;
 }
-
-/// Parses the variant function part of the 'declare variant' directive.
-///
-/// Syntax is:
-///
-///   '(' variant-func-id ')'
-///
-/// where variant-func-id is the name of a function or a template-id.
-///
-static FunctionDecl *parseVariantFunctionClause(Parser &P) {
-  const Token &Tok = P.getCurToken();
-  FunctionDecl *FD = nullptr;
-  BalancedDelimiterTracker T(P, tok::l_paren, tok::annot_pragma_openmp_end);
-  T.consumeOpen();
-  // This currently handles only a function name, templates are not yet
-  // supported. Checking that the type of the base and variants are suitable
-  // is not done, since it isn't clear exactly how to do that yet.
-  if (Tok.is(tok::identifier)) {
-    IdentifierInfo *TokenName = Tok.getIdentifierInfo();
-    auto &Actions = P.getActions();
-    LookupResult R(Actions, TokenName, SourceLocation(),
-                   Sema::LookupOrdinaryName);
-    if (Actions.LookupParsedName(R, P.getCurScope(), /*SS=*/nullptr) &&
-        R.getResultKind() == LookupResult::Found) {
-      FD = dyn_cast<FunctionDecl>(R.getFoundDecl());
-      if (!FD) {
-        P.Diag(Tok, diag::err_omp_declare_variant_not_a_function);
-        T.skipToEnd();
-        return nullptr;
-      }
-    } else {
-      P.Diag(Tok, diag::err_omp_declare_variant_not_found);
-      T.skipToEnd();
-      return nullptr;
-    }
-    P.ConsumeToken();
-  } else {
-    P.Diag(Tok, diag::err_omp_declare_variant_func_id_expected);
-    T.skipToEnd();
-    return nullptr;
-  }
-  T.consumeClose();
-  return FD;
-}
-
-/// Parses the 'match' clause for the 'declare variant' directive.
-///
-/// Syntax is:
-///
-///   match(context-selector-specification)
-///
-/// The context-selector-specification can include three types of traits,
-///  'construct', 'device', and 'implementation'.
-///
-/// Currently no implementation traits supported, and parsing will collect
-/// a small subset of supported constructs and devices.
-static bool parseMatchClause(
-    Parser &P,
-    SmallVectorImpl<OMPDeclareVariantAttr::ConstructTy> &Constructs,
-    SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &Devices) {
-
-  const Token &Tok = P.getCurToken();
-  bool IsError = false;
-  P.ConsumeToken(); // "match"
-  BalancedDelimiterTracker T(P, tok::l_paren, tok::annot_pragma_openmp_end);
-  IsError = T.expectAndConsume(diag::err_expected_lparen_after, "match");
-
-  while (Tok.is(tok::identifier)) {
-    IdentifierInfo *II = Tok.getIdentifierInfo();
-    StringRef SetSelectorName = II->getName();
-    if (SetSelectorName.equals("construct")) {
-      IsError = parseMatchConstructs(P, Constructs);
-    } else if (SetSelectorName.equals("device")) {
-      IsError = parseMatchDevices(P, Devices);
-    } else {
-      P.Diag(Tok, diag::err_omp_bad_context_selector_set)
-            << OMPDeclareVariantAttr::getSupportedSelectorSets();
-      T.skipToEnd();
-      return true;
-    }
-    // Skip ',' if any.
-    if (Tok.is(tok::comma))
-      P.ConsumeToken();
-  }
-  T.consumeClose();
-  return IsError;
-}
-
 #endif // INTEL_CUSTOMIZATION
 
 /// Parses clauses for 'declare variant' directive.
@@ -1019,7 +916,16 @@ static bool parseMatchClause(
 /// <selector_set_name> '=' '{' <context_selectors> '}'
 /// [ ',' <selector_set_name> '=' '{' <context_selectors> '}' ]
 bool Parser::parseOpenMPContextSelectors(
-    SourceLocation Loc, llvm::function_ref<void(SourceRange)> Callback) {
+#if INTEL_CUSTOMIZATION
+    SourceLocation Loc,
+    llvm::function_ref<
+        void(SmallVectorImpl<OMPDeclareVariantAttr::ConstructTy> &,
+             SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &, SourceRange)>
+        Callback) {
+  SmallVector<OMPDeclareVariantAttr::ConstructTy, 3> Constructs;
+  SmallVector<OMPDeclareVariantAttr::DeviceTy, 3> Devices;
+  bool IsError = false;
+#endif // INTEL_CUSTOMIZATION
   do {
     // Parse inner context selector set name.
     if (!Tok.is(tok::identifier)) {
@@ -1045,17 +951,44 @@ bool Parser::parseOpenMPContextSelectors(
                                    tok::annot_pragma_openmp_end);
       if (TBr.expectAndConsume(diag::err_expected_lbrace_after, "="))
         return true;
+#if INTEL_CUSTOMIZATION
+      if (getLangOpts().OpenMPLateOutline) {
+        if (CtxSelectorName.equals("construct")) {
+          IsError = parseMatchConstructs(*this, Constructs);
+        } else if (CtxSelectorName.equals("device")) {
+          IsError = parseMatchDevices(*this, Devices);
+        } else {
+          Diag(Tok, diag::err_omp_bad_context_selector_set)
+              << OMPDeclareVariantAttr::getSupportedSelectorSets();
+          TBr.skipToEnd();
+          return true;
+        }
+      } else
+#endif // INTEL_CUSTOMIZATION
       while (!SkipUntil(tok::r_brace, tok::r_paren,
                         tok::annot_pragma_openmp_end, StopBeforeMatch))
         ;
       // Parse '}'.
       (void)TBr.consumeClose();
     }
-    Callback(SourceRange(Loc, Tok.getLocation()));
+#if INTEL_CUSTOMIZATION
+    if (!getLangOpts().OpenMPLateOutline) {
+      SourceRange SR(Loc, Tok.getLocation());
+      Callback(Constructs, Devices, SR);
+    }
+#endif // INTEL_CUSTOMIZATION
     // Consume ','
     if (Tok.isNot(tok::r_paren) && Tok.isNot(tok::annot_pragma_openmp_end))
       (void)ExpectAndConsume(tok::comma);
   } while (Tok.isAnyIdentifier());
+#if INTEL_CUSTOMIZATION
+  if (IsError)
+    return true;
+  if (getLangOpts().OpenMPLateOutline) {
+    SourceRange SR(Loc, Tok.getLocation());
+    Callback(Constructs, Devices, SR);
+  }
+#endif // INTEL_CUSTOMIZATION
   return false;
 }
 
@@ -1090,30 +1023,6 @@ void Parser::ParseOMPDeclareVariantClauses(Parser::DeclGroupPtrTy Ptr,
       Actions.checkOpenMPDeclareVariantFunction(
           Ptr, AssociatedFunction.get(), SourceRange(Loc, Tok.getLocation()));
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  SmallVector<OMPDeclareVariantAttr::ConstructTy, 3> Constructs;
-  SmallVector<OMPDeclareVariantAttr::DeviceTy, 3> Devices;
-  bool IsError = false;
-
-  if (!getLangOpts().OpenMPLateOutline) {
-    IsError = parseDeclareVariantClause(*this);
-  } else if (Tok.is(tok::identifier) &&
-             Tok.getIdentifierInfo()->isStr("match")) {
-    IsError = parseMatchClause(*this, Constructs, Devices);
-  } else {
-    Diag(Tok, diag::err_omp_missing_match_clause);
-    IsError = true;
-  }
-#endif // INTEL_CUSTOMIZATION
-
-  // Need to check for extra tokens.
-  if (Tok.isNot(tok::annot_pragma_openmp_end)) {
-    Diag(Tok, diag::warn_omp_extra_tokens_at_eol)
-        << getOpenMPDirectiveName(OMPD_declare_variant);
-    while (Tok.isNot(tok::annot_pragma_openmp_end))
-      ConsumeAnyToken();
-=======
   // Parse 'match'.
   if (!Tok.is(tok::identifier) || PP.getSpelling(Tok).compare("match")) {
     Diag(Tok.getLocation(), diag::err_omp_declare_variant_wrong_clause)
@@ -1136,10 +1045,20 @@ void Parser::ParseOMPDeclareVariantClauses(Parser::DeclGroupPtrTy Ptr,
   }
 
   // Parse inner context selectors.
-  if (!parseOpenMPContextSelectors(Loc, [this, &DeclVarData](SourceRange SR) {
+#if INTEL_CUSTOMIZATION
+  if (!parseOpenMPContextSelectors(
+          Loc,
+          [this, &DeclVarData](
+              SmallVectorImpl<OMPDeclareVariantAttr::ConstructTy> &Constructs,
+              SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &Devices,
+              SourceRange SR) {
+#endif // INTEL_CUSTOMIZATION
         if (DeclVarData.hasValue())
           Actions.ActOnOpenMPDeclareVariantDirective(
-              DeclVarData.getValue().first, DeclVarData.getValue().second, SR);
+#if INTEL_CUSTOMIZATION
+                  DeclVarData.getValue().first, DeclVarData.getValue().second,
+                  Constructs, Devices, SR);
+#endif // INTEL_CUSTOMIZATION
       })) {
     // Parse ')'.
     (void)T.consumeClose();
@@ -1148,23 +1067,13 @@ void Parser::ParseOMPDeclareVariantClauses(Parser::DeclGroupPtrTy Ptr,
       Diag(Tok, diag::warn_omp_extra_tokens_at_eol)
           << getOpenMPDirectiveName(OMPD_declare_variant);
     }
->>>>>>> 0736f7f5d72f80a509f6913113ec9f9d5032c963
   }
 
   // Skip last tokens.
   while (Tok.isNot(tok::annot_pragma_openmp_end))
     ConsumeAnyToken();
   // Skip the last annot_pragma_openmp_end.
-<<<<<<< HEAD
-  SourceLocation EndLoc = ConsumeAnnotationToken();
-  if (IsError)
-    return Ptr;
-  return Actions.ActOnOpenMPDeclareVariantDirective(
-      Ptr, AssociatedFunction.get(), Constructs, Devices, // INTEL
-      SourceRange(Loc, EndLoc));                          // INTEL
-=======
   (void)ConsumeAnnotationToken();
->>>>>>> 0736f7f5d72f80a509f6913113ec9f9d5032c963
 }
 
 /// Parsing of simple OpenMP clauses like 'default' or 'proc_bind'.

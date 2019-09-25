@@ -9857,18 +9857,12 @@ public:
   /// applied to.
   /// \param VariantRef Expression that references the variant function, which
   /// must be used instead of the original one, specified in \p DG.
-<<<<<<< HEAD
-  DeclGroupPtrTy ActOnOpenMPDeclareVariantDirective(DeclGroupPtrTy DG,
-                                                    Expr *VariantRef,
+  void ActOnOpenMPDeclareVariantDirective(FunctionDecl *FD, Expr *VariantRef,
 #if INTEL_CUSTOMIZATION
     SmallVectorImpl<OMPDeclareVariantAttr::ConstructTy> &Constructs,
     SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &Devices,
 #endif // INTEL_CUSTOMIZATION
-                                                    SourceRange SR);
-=======
-  void ActOnOpenMPDeclareVariantDirective(FunctionDecl *FD, Expr *VariantRef,
                                           SourceRange SR);
->>>>>>> 0736f7f5d72f80a509f6913113ec9f9d5032c963
 
   OMPClause *ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind,
                                          Expr *Expr,

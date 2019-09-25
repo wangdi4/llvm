@@ -456,7 +456,6 @@ static void instantiateOMPDeclareVariantAttr(
   if (Expr *E = Attr.getVariantFuncRef())
     VariantFuncRef = Subst(E);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   SmallVector<OMPDeclareVariantAttr::ConstructTy, 4> Constructs;
   SmallVector<OMPDeclareVariantAttr::DeviceTy, 4> Devices;
@@ -466,12 +465,6 @@ static void instantiateOMPDeclareVariantAttr(
     Devices.push_back(D);
 #endif // INTEL_CUSTOMIZATION
 
-  (void)S.ActOnOpenMPDeclareVariantDirective(
-#if INTEL_CUSTOMIZATION
-      S.ConvertDeclToDeclGroup(New), VariantFuncRef.get(), Constructs,
-      Devices, Attr.getRange());
-#endif // INTEL_CUSTOMIZATION
-=======
   // Check function/variant ref.
   Optional<std::pair<FunctionDecl *, Expr *>> DeclVarData =
       S.checkOpenMPDeclareVariantFunction(
@@ -481,8 +474,8 @@ static void instantiateOMPDeclareVariantAttr(
   // Instantiate the attribute.
   S.ActOnOpenMPDeclareVariantDirective(DeclVarData.getValue().first,
                                        DeclVarData.getValue().second,
+                                       Constructs, Devices, // INTEL
                                        Attr.getRange());
->>>>>>> 0736f7f5d72f80a509f6913113ec9f9d5032c963
 }
 
 static void instantiateDependentAMDGPUFlatWorkGroupSizeAttr(
