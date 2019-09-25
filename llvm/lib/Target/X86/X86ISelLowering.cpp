@@ -1692,6 +1692,9 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     setOperationAction(ISD::FABS,                 MVT::f16, Custom);
     setOperationAction(ISD::FCOPYSIGN,            MVT::f16, Custom);
 
+    setCondCodeAction(ISD::SETOEQ, MVT::f16, Expand);
+    setCondCodeAction(ISD::SETUNE, MVT::f16, Expand);
+
     if (Subtarget.useAVX512Regs()) {
       setGroup(MVT::v32f16);
       addRegisterClass(MVT::v32f16, &X86::VR512RegClass);
@@ -20760,56 +20763,6 @@ static SDValue LowerVSETCCWithSUBUS(SDValue Op0, SDValue Op1, MVT VT,
                      DAG.getConstant(0, dl, VT));
 }
 
-#if INTEL_CUSTOMIZATION
-static SDValue LowerFPSETCC(unsigned Opc, SDValue Op, MVT VT,
-                            const X86Subtarget &Subtarget, SelectionDAG &DAG) {
-
-  SDValue Op0 = Op.getOperand(0);
-  SDValue Op1 = Op.getOperand(1);
-  SDValue CC = Op.getOperand(2);
-  ISD::CondCode Cond = cast<CondCodeSDNode>(CC)->get();
-  SDLoc dl(Op);
-
-  // In the two cases not handled by SSE compare predicates (SETUEQ/SETONE),
-  // emit two comparisons and a logic op to tie them together.
-  SDValue Cmp;
-  unsigned SSECC = translateX86FSETCC(Cond, Op0, Op1);
-  if (SSECC >= 8 && !Subtarget.hasAVX()) {
-    // LLVM predicate is SETUEQ or SETONE.
-    unsigned CC0, CC1;
-    unsigned CombineOpc;
-    if (Cond == ISD::SETUEQ) {
-      CC0 = 3; // UNORD
-      CC1 = 0; // EQ
-      CombineOpc = X86ISD::FOR;
-    } else {
-      assert(Cond == ISD::SETONE);
-      CC0 = 7; // ORD
-      CC1 = 4; // NEQ
-      CombineOpc = X86ISD::FAND;
-    }
-
-    SDValue Cmp0 =
-        DAG.getNode(Opc, dl, VT, Op0, Op1, DAG.getConstant(CC0, dl, MVT::i8));
-    SDValue Cmp1 =
-        DAG.getNode(Opc, dl, VT, Op0, Op1, DAG.getConstant(CC1, dl, MVT::i8));
-    Cmp = DAG.getNode(CombineOpc, dl, VT, Cmp0, Cmp1);
-  } else {
-    // Handle all other FP comparisons here.
-    Cmp =
-        DAG.getNode(Opc, dl, VT, Op0, Op1, DAG.getConstant(SSECC, dl, MVT::i8));
-  }
-
-  // If this is SSE/AVX CMPP, bitcast the result back to integer to match the
-  // result type of SETCC. The bitcast is expected to be optimized away
-  // during combining/isel.
-  if (Opc == X86ISD::CMPP)
-    Cmp = DAG.getBitcast(Op.getSimpleValueType(), Cmp);
-
-  return Cmp;
-}
-#endif // INTEL_CUSTOMIZATION
-
 static SDValue LowerVSETCC(SDValue Op, const X86Subtarget &Subtarget,
                            SelectionDAG &DAG) {
   SDValue Op0 = Op.getOperand(0);
@@ -20820,24 +20773,27 @@ static SDValue LowerVSETCC(SDValue Op, const X86Subtarget &Subtarget,
   bool isFP = Op.getOperand(1).getSimpleValueType().isFloatingPoint();
   SDLoc dl(Op);
 
-#if INTEL_CUSTOMIZATION
   if (isFP) {
 #ifndef NDEBUG
     MVT EltVT = Op0.getSimpleValueType().getVectorElementType();
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
     assert(EltVT == MVT::f16 || EltVT == MVT::f32 || EltVT == MVT::f64);
 #else  // INTEL_FEATURE_ISA_FP16
     assert(EltVT == MVT::f32 || EltVT == MVT::f64);
 #endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 #endif
 
     unsigned Opc;
     if (Subtarget.hasAVX512() && VT.getVectorElementType() == MVT::i1) {
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
       assert(VT.getVectorNumElements() <= 16 || Subtarget.hasFP16());
 #else  // INTEL_FEATURE_ISA_FP16
       assert(VT.getVectorNumElements() <= 16);
 #endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
       Opc = X86ISD::CMPM;
     } else {
       Opc = X86ISD::CMPP;
@@ -20847,9 +20803,44 @@ static SDValue LowerVSETCC(SDValue Op, const X86Subtarget &Subtarget,
       VT = Op0.getSimpleValueType();
     }
 
-    return LowerFPSETCC(Opc, Op, VT, Subtarget, DAG);
+    // In the two cases not handled by SSE compare predicates (SETUEQ/SETONE),
+    // emit two comparisons and a logic op to tie them together.
+    SDValue Cmp;
+    unsigned SSECC = translateX86FSETCC(Cond, Op0, Op1);
+    if (SSECC >= 8 && !Subtarget.hasAVX()) {
+      // LLVM predicate is SETUEQ or SETONE.
+      unsigned CC0, CC1;
+      unsigned CombineOpc;
+      if (Cond == ISD::SETUEQ) {
+        CC0 = 3; // UNORD
+        CC1 = 0; // EQ
+        CombineOpc = X86ISD::FOR;
+      } else {
+        assert(Cond == ISD::SETONE);
+        CC0 = 7; // ORD
+        CC1 = 4; // NEQ
+        CombineOpc = X86ISD::FAND;
+      }
+
+      SDValue Cmp0 =
+          DAG.getNode(Opc, dl, VT, Op0, Op1, DAG.getConstant(CC0, dl, MVT::i8));
+      SDValue Cmp1 =
+          DAG.getNode(Opc, dl, VT, Op0, Op1, DAG.getConstant(CC1, dl, MVT::i8));
+      Cmp = DAG.getNode(CombineOpc, dl, VT, Cmp0, Cmp1);
+    } else {
+      // Handle all other FP comparisons here.
+      Cmp = DAG.getNode(Opc, dl, VT, Op0, Op1,
+                        DAG.getConstant(SSECC, dl, MVT::i8));
+    }
+
+    // If this is SSE/AVX CMPP, bitcast the result back to integer to match the
+    // result type of SETCC. The bitcast is expected to be optimized away
+    // during combining/isel.
+    if (Opc == X86ISD::CMPP)
+      Cmp = DAG.getBitcast(Op.getSimpleValueType(), Cmp);
+
+    return Cmp;
   }
-#endif // INTEL_CUSTOMIZATION
 
   MVT VTOp0 = Op0.getSimpleValueType();
   assert(VTOp0 == Op1.getSimpleValueType() &&
@@ -21264,19 +21255,6 @@ SDValue X86TargetLowering::LowerSETCC(SDValue Op, SelectionDAG &DAG) const {
   SDValue Op1 = Op.getOperand(1);
   SDLoc dl(Op);
   ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(2))->get();
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-  if (Op0.getSimpleValueType() == MVT::f16) {
-    SDValue FSetCC =
-        LowerFPSETCC(X86ISD::FSETCCM, Op, MVT::v1i1, Subtarget, DAG);
-    SDValue Ins = DAG.getNode(ISD::INSERT_SUBVECTOR, dl, MVT::v8i1,
-                              DAG.getConstant(0, dl, MVT::v8i1),
-                              FSetCC, DAG.getIntPtrConstant(0, dl));
-    return DAG.getBitcast(MVT::i8, Ins);
-  }
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
 
   SDValue X86CC;
   SDValue EFLAGS = emitFlagsForSetcc(Op0, Op1, CC, dl, DAG, X86CC);
@@ -39627,7 +39605,14 @@ static SDValue combineCompareEqual(SDNode *N, SelectionDAG &DAG,
     SDValue CMP01 = CMP0->getOperand(1);
     EVT     VT    = CMP00.getValueType();
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    if (VT == MVT::f32 || VT == MVT::f64 ||
+        (VT == MVT::f16 && Subtarget.hasFP16())) {
+#else // INTEL_FEATURE_ISA_FP16
     if (VT == MVT::f32 || VT == MVT::f64) {
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
       bool ExpectingFlags = false;
       // Check for any users that want flags:
       for (SDNode::use_iterator UI = N->use_begin(), UE = N->use_end();

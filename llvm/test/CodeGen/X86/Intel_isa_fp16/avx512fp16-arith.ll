@@ -229,8 +229,8 @@ define half @div_sh_2(half %i, half %j, half* %x.ptr) nounwind readnone {
   ret half %r
 }
 
-define i1 @cmp_sh(half %x, half %y) {
-; CHECK-LABEL: cmp_sh:
+define i1 @cmp_une_sh(half %x, half %y) {
+; CHECK-LABEL: cmp_une_sh:
 ; CHECK:       ## %bb.0: ## %entry
 ; CHECK-NEXT:    vcmpneqsh %xmm1, %xmm0, %k0
 ; CHECK-NEXT:    kmovd %k0, %eax
@@ -238,6 +238,29 @@ define i1 @cmp_sh(half %x, half %y) {
 ; CHECK-NEXT:    retq
 entry:
   %0 = fcmp une half %x, %y
+  ret i1 %0
+}
+
+define i1 @cmp_oeq_sh(half %x, half %y) {
+; CHECK-LABEL: cmp_oeq_sh:
+; CHECK:       ## %bb.0: ## %entry
+; CHECK-NEXT:    vcmpeqsh %xmm1, %xmm0, %k0
+; CHECK-NEXT:    kmovd %k0, %eax
+; CHECK-NEXT:    ## kill: def $al killed $al killed $eax
+; CHECK-NEXT:    retq
+entry:
+  %0 = fcmp oeq half %x, %y
+  ret i1 %0
+}
+
+define i1 @cmp_olt_sh(half %x, half %y) {
+; CHECK-LABEL: cmp_olt_sh:
+; CHECK:       ## %bb.0: ## %entry
+; CHECK-NEXT:    vucomish %xmm0, %xmm1
+; CHECK-NEXT:    seta %al
+; CHECK-NEXT:    retq
+  entry:
+  %0 = fcmp olt half %x, %y
   ret i1 %0
 }
 
