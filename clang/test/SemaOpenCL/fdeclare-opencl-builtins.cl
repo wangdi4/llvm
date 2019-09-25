@@ -1,15 +1,15 @@
-<<<<<<< HEAD
+// INTEL_CUSTOMIZATION
+// This test is significantly modified, because
+// -finclude-default-header and -fdeclare-opencl-builtins
+// don't cowork in xmain due to
+// https://git-amr-2.devtools.intel.com/gerrit/194550
+// end INTEL_CUSTOMIZATION
+
+// RUN: %clang_cc1 %s -triple spir -verify -pedantic -fsyntax-only -cl-std=CL -fdeclare-opencl-builtins
+// RUN: %clang_cc1 %s -triple spir -verify -pedantic -fsyntax-only -cl-std=CL1.2 -fdeclare-opencl-builtins
 // RUN: %clang_cc1 %s -triple spir -verify -pedantic -fsyntax-only -cl-std=CL2.0 -fdeclare-opencl-builtins
-=======
-// RUN: %clang_cc1 %s -triple spir -verify -pedantic -fsyntax-only -cl-std=CL -fdeclare-opencl-builtins -DNO_HEADER
-// RUN: %clang_cc1 %s -triple spir -verify -pedantic -fsyntax-only -cl-std=CL -fdeclare-opencl-builtins -finclude-default-header
-// RUN: %clang_cc1 %s -triple spir -verify -pedantic -fsyntax-only -cl-std=CL1.2 -fdeclare-opencl-builtins -DNO_HEADER
-// RUN: %clang_cc1 %s -triple spir -verify -pedantic -fsyntax-only -cl-std=CL1.2 -fdeclare-opencl-builtins -finclude-default-header
-// RUN: %clang_cc1 %s -triple spir -verify -pedantic -fsyntax-only -cl-std=CL2.0 -fdeclare-opencl-builtins -DNO_HEADER
-// RUN: %clang_cc1 %s -triple spir -verify -pedantic -fsyntax-only -cl-std=CL2.0 -fdeclare-opencl-builtins -finclude-default-header
 
 #if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
->>>>>>> ed69faa01bfff02c61e318ef4bfc4112fa87b1a0
 // expected-no-diagnostics
 #endif
 
@@ -23,12 +23,8 @@
 typedef float float4 __attribute__((ext_vector_type(4)));
 typedef half half4 __attribute__((ext_vector_type(4)));
 typedef int int4 __attribute__((ext_vector_type(4)));
-<<<<<<< HEAD
 typedef int int2 __attribute__((ext_vector_type(2)));
-=======
-typedef long long2 __attribute__((ext_vector_type(2)));
 typedef unsigned char uchar;
->>>>>>> ed69faa01bfff02c61e318ef4bfc4112fa87b1a0
 typedef unsigned int uint;
 typedef unsigned long ulong;
 typedef unsigned short ushort;
