@@ -525,9 +525,9 @@ int main(int argc, char **argv) {
       return 1;
     }
     Context.setRemarkStreamer(std::make_unique<RemarkStreamer>(
-        RemarksFilename,
         std::make_unique<remarks::YAMLRemarkSerializer>(
-          OptRemarkFile->os(), remarks::SerializerMode::Separate)));
+          OptRemarkFile->os(), remarks::SerializerMode::Separate),
+        StringRef(RemarksFilename)));
   }
 
   // Load the input module...
