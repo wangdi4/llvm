@@ -21043,14 +21043,14 @@ static SDValue LowerFPSETCC(unsigned Opc, SDValue Op, MVT VT,
     }
 
     SDValue Cmp0 = DAG.getNode(Opc, dl, VT, Op0, Op1,
-                               DAG.getTargetConstant(CC0, dl, MVT::i8));
+                               DAG.getConstant(CC0, dl, MVT::i8));
     SDValue Cmp1 = DAG.getNode(Opc, dl, VT, Op0, Op1,
-                               DAG.getTargetConstant(CC1, dl, MVT::i8));
+                               DAG.getConstant(CC1, dl, MVT::i8));
     Cmp = DAG.getNode(CombineOpc, dl, VT, Cmp0, Cmp1);
   } else {
     // Handle all other FP comparisons here.
     Cmp = DAG.getNode(Opc, dl, VT, Op0, Op1,
-                      DAG.getTargetConstant(SSECC, dl, MVT::i8));
+                      DAG.getConstant(SSECC, dl, MVT::i8));
   }
 
   // If this is SSE/AVX CMPP, bitcast the result back to integer to match the
@@ -21100,47 +21100,7 @@ static SDValue LowerVSETCC(SDValue Op, const X86Subtarget &Subtarget,
       VT = Op0.getSimpleValueType();
     }
 
-<<<<<<< HEAD
     return LowerFPSETCC(Opc, Op, VT, Subtarget, DAG);
-=======
-    // In the two cases not handled by SSE compare predicates (SETUEQ/SETONE),
-    // emit two comparisons and a logic op to tie them together.
-    SDValue Cmp;
-    unsigned SSECC = translateX86FSETCC(Cond, Op0, Op1);
-    if (SSECC >= 8 && !Subtarget.hasAVX()) {
-      // LLVM predicate is SETUEQ or SETONE.
-      unsigned CC0, CC1;
-      unsigned CombineOpc;
-      if (Cond == ISD::SETUEQ) {
-        CC0 = 3; // UNORD
-        CC1 = 0; // EQ
-        CombineOpc = X86ISD::FOR;
-      } else {
-        assert(Cond == ISD::SETONE);
-        CC0 = 7; // ORD
-        CC1 = 4; // NEQ
-        CombineOpc = X86ISD::FAND;
-      }
-
-      SDValue Cmp0 = DAG.getNode(Opc, dl, VT, Op0, Op1,
-                                 DAG.getConstant(CC0, dl, MVT::i8));
-      SDValue Cmp1 = DAG.getNode(Opc, dl, VT, Op0, Op1,
-                                 DAG.getConstant(CC1, dl, MVT::i8));
-      Cmp = DAG.getNode(CombineOpc, dl, VT, Cmp0, Cmp1);
-    } else {
-      // Handle all other FP comparisons here.
-      Cmp = DAG.getNode(Opc, dl, VT, Op0, Op1,
-                        DAG.getConstant(SSECC, dl, MVT::i8));
-    }
-
-    // If this is SSE/AVX CMPP, bitcast the result back to integer to match the
-    // result type of SETCC. The bitcast is expected to be optimized away
-    // during combining/isel.
-    if (Opc == X86ISD::CMPP)
-      Cmp = DAG.getBitcast(Op.getSimpleValueType(), Cmp);
-
-    return Cmp;
->>>>>>> 13bdae8541c3fc5acf6ee7de78ec5ab8446848e4
   }
 #endif // INTEL_CUSTOMIZATION
 
