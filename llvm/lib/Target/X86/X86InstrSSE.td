@@ -6090,21 +6090,12 @@ def : Pat<(X86Blendi (loadv8i32 addr:$src2), VR256:$src1, timm:$src3),
 
 // Use pblendw for 128-bit integer to keep it in the integer domain and prevent
 // it from becoming movss via commuting under optsize.
-<<<<<<< HEAD
-def : Pat<(X86Blendi (v4i32 VR128:$src1), (v4i32 VR128:$src2), imm:$src3),
-          (VBLENDPSrri VR128:$src1, VR128:$src2, imm:$src3)>;
-def : Pat<(X86Blendi VR128:$src1, (loadv4i32 addr:$src2), imm:$src3),
-          (VBLENDPSrmi VR128:$src1, addr:$src2, imm:$src3)>;
-def : Pat<(X86Blendi (loadv4i32 addr:$src2), VR128:$src1, imm:$src3),
-          (VBLENDPSrmi VR128:$src1, addr:$src2, (BlendCommuteImm4 imm:$src3))>;
-=======
 def : Pat<(X86Blendi (v4i32 VR128:$src1), (v4i32 VR128:$src2), timm:$src3),
           (VPBLENDWrri VR128:$src1, VR128:$src2, (BlendScaleImm4 imm:$src3))>;
 def : Pat<(X86Blendi VR128:$src1, (loadv4i32 addr:$src2), timm:$src3),
           (VPBLENDWrmi VR128:$src1, addr:$src2, (BlendScaleImm4 imm:$src3))>;
 def : Pat<(X86Blendi (loadv4i32 addr:$src2), VR128:$src1, timm:$src3),
           (VPBLENDWrmi VR128:$src1, addr:$src2, (BlendScaleCommuteImm4 imm:$src3))>;
->>>>>>> d8399d12cd851dacd8f3e1be8b7ca79372626f38
 }
 
 defm BLENDPS : SS41I_blend_rmi<0x0C, "blendps", X86Blendi, v4f32,
