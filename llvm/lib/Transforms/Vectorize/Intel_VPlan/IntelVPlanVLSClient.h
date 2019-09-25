@@ -43,10 +43,6 @@ public:
   bool dominates(const OVLSMemref &Mrf) const override;
   bool postDominates(const OVLSMemref &Mrf) const override;
 
-  unsigned getLocation() const override {
-    llvm_unreachable("Unimplemented");
-  }
-
   const VPInstruction *getInstruction(void) const { return Inst; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

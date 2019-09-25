@@ -242,9 +242,9 @@ public:
   /// Therefore, if the caller uses canMoveTo multiple times to ask about
   /// accumulative moves, the answers may not be valid, unless the following
   /// two conditions are met:
-  /// 1) caller only moves loads up, and only moves stores down, based on the
-  /// getLocation() function; This will guarantee that no new Write-After-Read
-  /// (WAR) dependencies will be introduced. (A TODO on the server side).
+  /// 1) caller only moves loads up, and only moves stores down. This will
+  /// guarantee that no new Write-After-Read (WAR) dependencies will be
+  /// introduced. (A TODO on the server side).
   /// 2) canMoveTo will not allow any moves in the face of any Read-After-Write
   /// (RAW) dependences. (A TODO on the client canMoveTo side)
   ///
@@ -264,12 +264,9 @@ public:
   /// st2->canMoveTo(st1): returns true, but this is wrong if previous
   ///                      canMoveTo was actually committed.
   ///
-  /// Validity of canMoveTo answers upon multiple calls that assume
-  /// accumulative moves will be guaranteed with the following sequence of
-  /// calls, in which loads are hoisted up, namely -- moved towards the
-  /// load with the smaller getLocation() between this and Memref; And
-  /// stores are only sinked down, namely moved towards the store with
-  /// larger getLocation() among this and Memref:
+  /// Validity of canMoveTo answers upon multiple calls that assume accumulative
+  /// moves will be guaranteed with the following sequence of calls, in which
+  /// loads are hoisted up, and stores are only sinked down:
   ///
   /// ld2->canMoveTo(ld1): returns true
   /// st1->canMoveTo(st2): returns true, and this is valid even if previous
@@ -281,19 +278,6 @@ public:
   /// Otherwise, returns None. Inverting the return value does not invert the
   /// functionality (None does not mean that it has a variable stride).
   virtual Optional<int64_t> getConstStride() const = 0;
-
-  /// \brief Return the location of this in the code. The location should be
-  /// relative to other Memrefs sent by the client to the VLS engine.
-  /// getLocation can be used for a location-based group-formation heuristic.
-  /// A location-based heuristic can be useful in order to use canMoveTo()
-  /// *multiple* times, to ask about *accumulative* moves (moves that are all
-  /// assumed to take place, if approved). The scheme is to only move loads up
-  /// and only move stores down.
-  /// So, for every pair of loads (ld1,ld2) that the caller wants
-  /// to put together in one group, the caller would ask about moving ld1 to
-  /// the location of ld2 only if ld2->getLocation() < ld1->getLocation().
-  /// Otherwise, the caller should ask about moving ld2 to the location of ld1.
-  virtual unsigned getLocation() const = 0;
 
   /// Check if this memory reference dominates/postdominates another one. It is
   /// safe to form groups only at the location that dominates (in case of loads)

@@ -94,9 +94,6 @@ public:
   bool dominates(const OVLSMemref &Mrf) const override { return true; }
   bool postDominates(const OVLSMemref &Mrf) const override { return true; }
 
-  unsigned getLocation() const override {
-    return MId; // FIXME
-  }
   int getDistance() const { return Dist; }
 
 private:
