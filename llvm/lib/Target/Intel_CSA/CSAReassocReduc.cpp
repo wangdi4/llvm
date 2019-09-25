@@ -70,7 +70,7 @@ static cl::opt<bool> EmulateFountains{
     "csa-no-fountains", cl::Hidden,
     cl::desc("CSA Specific: Emulate fountain ops as a temporary workaround "
              "until real scratchpad support is restored."),
-    cl::init(true)};
+    cl::init(false)};
 
 #define DEBUG_TYPE "csa-reassoc-reduc"
 #define PASS_NAME "CSA: Pipelined Reassociating Reduction Expansion"

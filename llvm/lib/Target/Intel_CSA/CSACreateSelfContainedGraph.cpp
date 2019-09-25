@@ -18,6 +18,7 @@
 #include "CSA.h"
 #include "CSATargetMachine.h"
 #include "CSAMachineFunctionInfo.h"
+#include "llvm/CodeGen/MachineConstantPool.h"
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/SmallSet.h"
@@ -68,6 +69,7 @@ struct CSACreateSelfContainedGraph : public ModulePass {
 private:
   MachineModuleInfo *MMI;
   bool IsOpenMPOffload;
+  Module *thisMod;
   MachineInstr *mergeTwoDataFlowFunctions(MachineFunction *Base,
     MachineFunction *ToBeMerged);
   DenseSet<MachineFunction *> OffloadRegionRoots;
@@ -206,7 +208,17 @@ MachineInstr *copyMachineInstr(
 // of virtual registers that do not exist in either of the two functions
 // thus avoiding any overlaps in virtual register indices when the
 // two functions are merged
-void prepareForMerging(MachineFunction *DstMF, MachineFunction *SrcMF) {
+void prepareForMerging(MachineFunction *DstMF, MachineFunction *SrcMF,
+                       Module &M) {
+  // create list of address spaces used for scratchpads
+  // This will be used to replace constant pools with global variables
+  // that will reside in scratchpads
+  SmallSet<unsigned,16> ScratchPadAddrSpaces;
+  for (const auto &GV: M.globals()) {
+    if (isScratchpadAddressSpace(GV.getAddressSpace())) {
+      ScratchPadAddrSpaces.insert(GV.getAddressSpace());
+    }
+  }
   MachineRegisterInfo *SrcMRI = &(SrcMF->getRegInfo());
   MachineRegisterInfo *DstMRI = &(DstMF->getRegInfo());
   const CSAInstrInfo *TII =
@@ -238,6 +250,30 @@ void prepareForMerging(MachineFunction *DstMF, MachineFunction *SrcMF) {
           SrcLMFI->getLICInfo(NewReg) = SrcLMFI->getLICInfo(OldReg);
         }
       }
+      // MachineOperand points to a Constant Pool
+      if (MO.isCPI()) {
+        ArrayRef<MachineConstantPoolEntry> Constants =
+          SrcMF->getConstantPool()->getConstants();
+        const MachineConstantPoolEntry &ConstantEntry = Constants[MO.getIndex()];
+        const Constant *C = ConstantEntry.Val.ConstVal;
+        unsigned i;
+        // Find an address space index not yet used for scratchpads
+        for (i = 1024; i < 2047; ++i) {
+          if (!ScratchPadAddrSpaces.count(i)) {
+            ScratchPadAddrSpaces.insert(i);
+            break;
+          }
+        }
+        // Constant pool is being replaced by a global variable residing in
+        // scratchpad
+        // Name is set to be _spad_<address space index>
+        auto *NewGV = new GlobalVariable(M,C->getType(),true,
+                                         llvm::Function::InternalLinkage,
+                                         const_cast <Constant *> (C),
+                                         Twine("_spad_")+Twine(i),nullptr,
+                                         llvm::GlobalValue::NotThreadLocal,i);
+        MO.ChangeToGA(NewGV,0,0);
+      }
     }
   }
   return;
@@ -250,7 +286,7 @@ MachineInstr *CSACreateSelfContainedGraph::mergeTwoDataFlowFunctions(
   MachineInstr *NewReturnInst = nullptr;
   assert(Base->size() == 1 && ToBeMerged->size() == 1);
   auto MBB2 = ToBeMerged->begin();
-  prepareForMerging(Base,ToBeMerged);
+  prepareForMerging(Base,ToBeMerged,*thisMod);
   for (MachineInstr &MI : *MBB2) {
     MachineInstr *NewMI = copyMachineInstr(Base,&MI);
     if (MI.getOpcode() == CSA::CSA_ENTRY)
@@ -709,6 +745,7 @@ void cleanupInitializerFunctions(Module &M, MachineModuleInfo *MMI) {
 }
 
 bool CSACreateSelfContainedGraph::runOnModule(Module &M) {
+  thisMod = &M;
   MMI = &getAnalysis<MachineModuleInfo>();
   OffloadRegionRoots.clear();
   EntryToReturnMap.clear();
