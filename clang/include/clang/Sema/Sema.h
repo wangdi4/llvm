@@ -9839,12 +9839,25 @@ public:
       ArrayRef<Expr *> Alignments, ArrayRef<Expr *> Linears,
       ArrayRef<unsigned> LinModifiers, ArrayRef<Expr *> Steps, SourceRange SR);
 
-  /// Called on well-formed '\#pragma omp declare variant' after parsing of
-  /// the associated method/function.
+  /// Checks '\#pragma omp declare variant' variant function and original
+  /// functions after parsing of the associated method/function.
   /// \param DG Function declaration to which declare variant directive is
   /// applied to.
   /// \param VariantRef Expression that references the variant function, which
   /// must be used instead of the original one, specified in \p DG.
+  /// \returns None, if the function/variant function are not compatible with
+  /// the pragma,pair of original function/variant ref expression otherwise.
+  Optional<std::pair<FunctionDecl *, Expr *>>
+  checkOpenMPDeclareVariantFunction(DeclGroupPtrTy DG, Expr *VariantRef,
+                                    SourceRange SR);
+
+  /// Called on well-formed '\#pragma omp declare variant' after parsing of
+  /// the associated method/function.
+  /// \param FD Function declaration to which declare variant directive is
+  /// applied to.
+  /// \param VariantRef Expression that references the variant function, which
+  /// must be used instead of the original one, specified in \p DG.
+<<<<<<< HEAD
   DeclGroupPtrTy ActOnOpenMPDeclareVariantDirective(DeclGroupPtrTy DG,
                                                     Expr *VariantRef,
 #if INTEL_CUSTOMIZATION
@@ -9852,6 +9865,10 @@ public:
     SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &Devices,
 #endif // INTEL_CUSTOMIZATION
                                                     SourceRange SR);
+=======
+  void ActOnOpenMPDeclareVariantDirective(FunctionDecl *FD, Expr *VariantRef,
+                                          SourceRange SR);
+>>>>>>> 0736f7f5d72f80a509f6913113ec9f9d5032c963
 
   OMPClause *ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind,
                                          Expr *Expr,
