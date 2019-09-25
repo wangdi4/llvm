@@ -1226,19 +1226,11 @@ public:
     bool PreserveLCSSA = mustPreserveAnalysisID(LCSSAID);
 
     LoopUnrollResult Result = tryToUnrollLoop(
-<<<<<<< HEAD
         L, DT, LI, SE, TTI, AC, ORE, nullptr, nullptr,
         PreserveLCSSA, OptLevel, LORBuilder, OnlyWhenForced, // INTEL
         ForgetAllSCEV, ProvidedCount, ProvidedThreshold, ProvidedAllowPartial,
         ProvidedRuntime, ProvidedUpperBound, ProvidedAllowPeeling,
-        ProvidedAllowProfileBasedPeeling);
-=======
-        L, DT, LI, SE, TTI, AC, ORE, nullptr, nullptr, PreserveLCSSA, OptLevel,
-        OnlyWhenForced, ForgetAllSCEV, ProvidedCount, ProvidedThreshold,
-        ProvidedAllowPartial, ProvidedRuntime, ProvidedUpperBound,
-        ProvidedAllowPeeling, ProvidedAllowProfileBasedPeeling,
-        ProvidedFullUnrollMaxCount);
->>>>>>> a44768858c75ae3e020bb2951af00743ae48742e
+        ProvidedAllowProfileBasedPeeling, ProvidedFullUnrollMaxCount);
 
     if (Result == LoopUnrollResult::FullyUnrolled)
       LPM.markLoopAsDeleted(*L);
@@ -1324,7 +1316,6 @@ PreservedAnalyses LoopFullUnrollPass::run(Loop &L, LoopAnalysisManager &AM,
 
   std::string LoopName = L.getName();
 
-<<<<<<< HEAD
   bool Changed =
       tryToUnrollLoop(&L, AR.DT, &AR.LI, AR.SE, AR.TTI, AR.AC, *ORE,
                       /*BFI*/ nullptr, /*PSI*/ nullptr,
@@ -1334,20 +1325,9 @@ PreservedAnalyses LoopFullUnrollPass::run(Loop &L, LoopAnalysisManager &AM,
                       /*Threshold*/ None, /*AllowPartial*/ false,
                       /*Runtime*/ false, /*UpperBound*/ false,
                       /*AllowPeeling*/ false,
-                      /*AllowProfileBasedPeeling*/ false) !=
+                      /*AllowProfileBasedPeeling*/ false,
+                      /*FullUnrollMaxCount*/ None) !=
       LoopUnrollResult::Unmodified;
-=======
-  bool Changed = tryToUnrollLoop(&L, AR.DT, &AR.LI, AR.SE, AR.TTI, AR.AC, *ORE,
-                                 /*BFI*/ nullptr, /*PSI*/ nullptr,
-                                 /*PreserveLCSSA*/ true, OptLevel,
-                                 OnlyWhenForced, ForgetSCEV, /*Count*/ None,
-                                 /*Threshold*/ None, /*AllowPartial*/ false,
-                                 /*Runtime*/ false, /*UpperBound*/ false,
-                                 /*AllowPeeling*/ false,
-                                 /*AllowProfileBasedPeeling*/ false,
-                                 /*FullUnrollMaxCount*/ None) !=
-                 LoopUnrollResult::Unmodified;
->>>>>>> a44768858c75ae3e020bb2951af00743ae48742e
   if (!Changed)
     return PreservedAnalyses::all();
 
