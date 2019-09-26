@@ -12846,15 +12846,11 @@ static void CheckImplicitConversion(Sema &S, Expr *E, QualType T,
 
   S.DiscardMisalignedMemberAddress(Target, E);
 
-<<<<<<< HEAD
-  if (!(Source->isIntegerType() || Source->isArbPrecIntType()) || // INTEL
-      !(Target->isIntegerType() || Target->isArbPrecIntType()))   // INTEL
-=======
   if (Target->isBooleanType())
     DiagnoseIntInBoolContext(S, E);
 
-  if (!Source->isIntegerType() || !Target->isIntegerType())
->>>>>>> 84ea41fd17d09e75c50531d8cb4b52d2cc0acbbb
+  if (!(Source->isIntegerType() || Source->isArbPrecIntType()) || // INTEL
+      !(Target->isIntegerType() || Target->isArbPrecIntType()))   // INTEL
     return;
 
   // TODO: remove this early return once the false positives for constant->bool
