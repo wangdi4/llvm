@@ -1926,12 +1926,6 @@ Instruction *InstCombiner::visitAnd(BinaryOperator &I) {
       A->getType()->isIntOrIntVectorTy(1))
     return SelectInst::Create(A, Op0, Constant::getNullValue(I.getType()));
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  if (Instruction *X = recognizeFCmpMinMaxIdiom(I))
-    return X;
-#endif // INTEL_CUSTOMIZATION
-=======
   // and(ashr(subNSW(Y, X), ScalarSizeInBits(Y)-1), X) --> X s> Y ? X : 0.
   {
     Value *X, *Y;
@@ -1945,7 +1939,10 @@ Instruction *InstCombiner::visitAnd(BinaryOperator &I) {
       return SelectInst::Create(NewICmpInst, X, ConstantInt::getNullValue(Ty));
     }
   }
->>>>>>> 895219971592f7011083de395308a0702f911cb9
+#if INTEL_CUSTOMIZATION
+  if (Instruction *X = recognizeFCmpMinMaxIdiom(I))
+    return X;
+#endif // INTEL_CUSTOMIZATION
 
   return nullptr;
 }
