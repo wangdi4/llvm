@@ -1,4 +1,7 @@
 // RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-apple-darwin -emit-llvm -o - | FileCheck %s
+// INTEL_CUSTOMIZATION
+// RUN: %clang_cc1 -ffreestanding %s -triple=i686-apple-darwin -emit-llvm -o - | FileCheck %s
+// end INTEL_CUSTOMIZATION
 
 #include <x86intrin.h>
 

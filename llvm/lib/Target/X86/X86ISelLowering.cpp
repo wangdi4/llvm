@@ -17138,7 +17138,25 @@ static SDValue lower1BitShuffle(const SDLoc &DL, ArrayRef<int> Mask,
     Offset += NumElts; // Increment for next iteration.
   }
 
-
+#if INTEL_CUSTOMIZATION
+  // lower the following DAGs:
+  //   t12: v8i1 = vector_shuffle<0,0,1,1,2,2,3,3> t6, undef:v8i1
+  // into:
+  //         t7: v8i64 = sign_extend t6
+  //       t8: v16i32 = bitcast t7
+  //     t9: v16i1 = truncate t8
+  //   t10: v8i1 = extract_subvector t9, 0
+  if (VT.SimpleTy == MVT::v8i1 && Subtarget.useAVX512Regs()) {
+    int MatchedMask[8] = {0, 0, 1, 1, 2, 2, 3, 3};
+    if (isTargetShuffleEquivalent(Mask, MatchedMask)) {
+      SDValue Res = DAG.getNode(ISD::SIGN_EXTEND, DL, MVT::v8i64, V1);
+      Res = DAG.getNode(ISD::BITCAST, DL, MVT::v16i32, Res);
+      Res = DAG.getNode(ISD::TRUNCATE, DL, MVT::v16i1, Res);
+      return DAG.getNode(ISD::EXTRACT_SUBVECTOR, DL, MVT::v8i1, Res,
+                         DAG.getIntPtrConstant(0, DL));
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   MVT ExtVT;
   switch (VT.SimpleTy) {
