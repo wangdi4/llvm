@@ -1374,6 +1374,7 @@ if (LLVM_INCLUDE_BENCHMARKS)
   add_subdirectory(utils/benchmark)
   add_subdirectory(benchmarks)
 endif()
+<<<<<<< HEAD
 
 if (LLVM_INCLUDE_UTILS)
   add_subdirectory(utils/llvm-locstats)
@@ -1457,3 +1458,5 @@ if (INTEL_CUSTOMIZATION)
     add_custom_target(deploy DEPENDS ${manifest})
   endif()
 endif (INTEL_CUSTOMIZATION)
+=======
+>>>>>>> ead96d73ac1489bb96ed4bab30c8d4b112862251
