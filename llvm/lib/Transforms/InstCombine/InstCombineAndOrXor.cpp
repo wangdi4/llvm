@@ -2701,12 +2701,6 @@ Instruction *InstCombiner::visitOr(BinaryOperator &I) {
     }
   }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  if (Instruction *X = recognizeFCmpMinMaxIdiom(I))
-    return X;
-#endif // INTEL_CUSTOMIZATION
-=======
   // or(ashr(subNSW(Y, X), ScalarSizeInBits(Y)-1), X)  --> X s> Y ? -1 : X.
   {
     Value *X, *Y;
@@ -2721,7 +2715,10 @@ Instruction *InstCombiner::visitOr(BinaryOperator &I) {
                                 X);
     }
   }
->>>>>>> a4dd98f2e90b2916fd347020c70ba804c5557db1
+#if INTEL_CUSTOMIZATION
+  if (Instruction *X = recognizeFCmpMinMaxIdiom(I))
+    return X;
+#endif // INTEL_CUSTOMIZATION
 
   return nullptr;
 }
