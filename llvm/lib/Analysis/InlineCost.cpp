@@ -1637,6 +1637,7 @@ bool CallAnalyzer::visitSwitchInst(SwitchInst &SI) {
   // Maximum valid cost increased in this function.
   int CostUpperBound = INT_MAX - InlineConstants::InstrCost - 1;
 
+<<<<<<< HEAD
   // Exit early for a large switch, assuming one case needs at least one
   // instruction.
   // FIXME: This is not true for a bit test, but ignore such case for now to
@@ -1658,6 +1659,8 @@ bool CallAnalyzer::visitSwitchInst(SwitchInst &SI) {
   }
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 2f32e5d84d3483a0d6170fc61d2cceb49fc930a3
   unsigned JumpTableSize = 0;
   unsigned NumCaseCluster =
       TTI.getEstimatedNumberOfCaseClusters(SI, JumpTableSize);
