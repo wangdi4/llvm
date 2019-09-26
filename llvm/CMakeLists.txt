@@ -1375,7 +1375,10 @@ if (LLVM_INCLUDE_BENCHMARKS)
   add_subdirectory(benchmarks)
 endif()
 
-<<<<<<< HEAD
+if (LLVM_INCLUDE_UTILS)
+  add_subdirectory(utils/llvm-locstats)
+endif()
+
 if (INTEL_CUSTOMIZATION)
   # This command is used for creating a fake dependency in order to force
   # another command(s) to execute.
@@ -1454,8 +1457,3 @@ if (INTEL_CUSTOMIZATION)
     add_custom_target(deploy DEPENDS ${manifest})
   endif()
 endif (INTEL_CUSTOMIZATION)
-=======
-if (LLVM_INCLUDE_UTILS)
-  add_subdirectory(utils/llvm-locstats)
-endif()
->>>>>>> 0e490ae0a93c8b6ec48366ac7d46da442542b902
