@@ -232,15 +232,17 @@ public:
     return Instr;
   }
 
-  VPInstruction *createPhiInstruction(Instruction *Inst) {
+  VPInstruction *createPhiInstruction(Instruction *Inst,
+                                      const Twine &Name = "") {
     assert(Inst != nullptr && "Instruction cannot be a nullptr");
-    VPInstruction *NewVPInst = createPhiInstruction(Inst->getType());
+    VPInstruction *NewVPInst = createPhiInstruction(Inst->getType(), Name);
     NewVPInst->setUnderlyingValue(*Inst);
     return NewVPInst;
   }
 
-  VPInstruction *createPhiInstruction(Type *BaseTy) {
+  VPInstruction *createPhiInstruction(Type *BaseTy, const Twine &Name = "") {
     VPInstruction *NewVPInst = new VPPHINode(BaseTy);
+    NewVPInst->setName(Name);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;

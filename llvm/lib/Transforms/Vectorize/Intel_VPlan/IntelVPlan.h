@@ -1984,6 +1984,8 @@ public:
 
   const std::string &getName() const { return Name; }
 
+  void setName(const Twine &newName) { Name = newName.str(); }
+
   /// \return an ID for the concrete type of this object.
   /// This is used to implement the classof checks. This should not be used
   /// for any other purpose, as the values may change as LLVM evolves.
