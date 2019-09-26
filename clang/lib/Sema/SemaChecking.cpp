@@ -5818,7 +5818,7 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
 #if INTEL_CUSTOMIZATION
   } else if (getLangOpts().IntelCompat && AtomTy->isAtomicType()) {
     if (AtomTy.isConstQualified()) {
-      Diag(DRE->getBeginLoc(), diag::err_atomic_op_needs_non_const_atomic)
+      Diag(ExprRange.getBegin(), diag::err_atomic_op_needs_non_const_atomic)
         << 0 << Ptr->getType() << Ptr->getSourceRange();
       return ExprError();
     }
@@ -5986,10 +5986,11 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
 #if INTEL_CUSTOMIZATION
           if (IntelTypeCoerceSize != 0) {
             // Cast the 3rd param to silence the warning
-            auto tmp = TheCall->getArg(i);
+            auto tmp = Args[i];
             // Only valid if tmp is a ptr!
             if (!tmp->getType()->isPointerType()) {
-              Diag(DRE->getBeginLoc(), diag::err_atomic_builtin_must_be_pointer)
+              Diag(ExprRange.getBegin(),
+                   diag::err_atomic_builtin_must_be_pointer)
                 << tmp->getType() << tmp->getSourceRange();
               return ExprError();
             }
@@ -5998,7 +5999,7 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
                 Context, Ty, tmp->getValueKind(), CK_BitCast, tmp, nullptr,
                 Context.getTrivialTypeSourceInfo(Ty, SourceLocation()),
                 SourceLocation(), SourceLocation());
-            TheCall->setArg(i, Cast);
+            Args[i] = Cast;
           }
 #endif // INTEL_CUSTOMIZATION
         }
@@ -6061,10 +6062,10 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
     break;
 #if INTEL_CUSTOMIZATION
   case IntelCmpXchg:
-    SubExprs.push_back(TheCall->getArg(3)); // Order
-    SubExprs.push_back(TheCall->getArg(1)); // Val1
-    SubExprs.push_back(TheCall->getArg(4)); // OrderFail
-    SubExprs.push_back(TheCall->getArg(2)); // Val2
+    SubExprs.push_back(Args[3]); // Order
+    SubExprs.push_back(Args[1]); // Val1
+    SubExprs.push_back(Args[4]); // OrderFail
+    SubExprs.push_back(Args[2]); // Val2
     break;
 #endif // INTEL_CUSTOMIZATION
   case GNUCmpXchg:
