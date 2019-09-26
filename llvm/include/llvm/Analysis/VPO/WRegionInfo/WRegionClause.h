@@ -277,6 +277,18 @@ class FirstprivateItem : public Item
     RDECL CopyConstructor;
     RDECL Destructor;
 
+    // True for firstprivate() pointer items, such as:
+    //   int *p
+    //   #pragma omp ... firstprivate(p)
+    //
+    // It is set to true, only iff transformation pass got rid of
+    // the double pointer reference in the clause. For "omp target"
+    // regions this attribute is used to guarantee mapping firstprivate()
+    // pointers as zero-sized pointers (note that this is different from
+    // mapping a pointer as literal, because host to device
+    // pointer translation is still applied for zero-sized pointers).
+    bool IsPointer = false;
+
   public:
     FirstprivateItem(VAR Orig)
         : Item(Orig, IK_Firstprivate), InLastprivate(nullptr), InMap(nullptr),
@@ -300,6 +312,8 @@ class FirstprivateItem : public Item
     MapItem *getInMap() const { return InMap; }
     RDECL getCopyConstructor() const { return CopyConstructor; }
     RDECL getDestructor()      const { return Destructor;      }
+    void setIsPointer(bool Val) { IsPointer = Val; }
+    bool getIsPointer() const { return IsPointer; }
 
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
       if (getIsNonPod()) {
