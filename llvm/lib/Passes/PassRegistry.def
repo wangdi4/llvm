@@ -375,6 +375,7 @@ FUNCTION_PASS("hir-pre-vec-complete-unroll", loopopt::HIRPreVecCompleteUnrollPas
 FUNCTION_PASS("hir-runtime-dd", loopopt::HIRRuntimeDDPass())
 FUNCTION_PASS("hir-scalarrepl-array", loopopt::HIRScalarReplArrayPass())
 FUNCTION_PASS("hir-unroll-and-jam", loopopt::HIRUnrollAndJamPass())
+FUNCTION_PASS("hir-vec-dir-insert", loopopt::HIRVecDirInsertPass())
 FUNCTION_PASS("hir-loop-blocking", loopopt::HIRLoopBlockingPass())
 FUNCTION_PASS("hir-generate-mkl-call", loopopt::HIRGenerateMKLCallPass())
 FUNCTION_PASS("intel-ir-optreport-emitter", LoopOptReportEmitterPass())
