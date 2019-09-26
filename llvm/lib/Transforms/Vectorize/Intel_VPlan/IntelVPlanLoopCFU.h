@@ -63,7 +63,7 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
 
     LLVM_DEBUG(
         dbgs() << "SubLoop before inner loop control flow transformation\n");
-    LLVM_DEBUG(SubLoopRegion->dump());
+    LLVM_DEBUG(SubLoop->printRPOT(dbgs(), Plan->getVPLoopInfo()));
 
     VPValue *TopTest = SubLoopRegnPred->getCondBit();
     if (TopTest) {
@@ -356,7 +356,7 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
 
     LLVM_DEBUG(
         dbgs() << "Subloop after inner loop control flow transformation\n");
-    LLVM_DEBUG(SubLoopRegion->dump());
+    LLVM_DEBUG(SubLoop->printRPOT(dbgs(), Plan->getVPLoopInfo()));
   }
 }
 #endif // INTEL_CUSTOMIZATION

@@ -2190,7 +2190,8 @@ public:
   }
 
   void print(raw_ostream &OS, unsigned Indent = 0,
-             const VPlanDivergenceAnalysis *DA = nullptr) const;
+             const VPlanDivergenceAnalysis *DA = nullptr,
+             const Twine &NamePrefix = "") const;
 
   void dump() const { print(dbgs()); };
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -2506,7 +2507,8 @@ public:
   }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, unsigned Indent = 0,
-             const VPlanDivergenceAnalysis *DA = nullptr) const;
+             const VPlanDivergenceAnalysis *DA = nullptr,
+             const Twine &NamePrefix = "") const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   void setCBlock(BasicBlock *CB) { CBlock = CB; }
   void setFBlock(BasicBlock *FB) { FBlock = FB; }
@@ -2675,7 +2677,8 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, unsigned Indent = 0,
-             const VPlanDivergenceAnalysis *DA = nullptr) const;
+             const VPlanDivergenceAnalysis *DA = nullptr,
+             const Twine &NamePrefix = "") const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
