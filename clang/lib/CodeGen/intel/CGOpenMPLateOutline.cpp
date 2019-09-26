@@ -1804,6 +1804,7 @@ operator<<(ArrayRef<OMPClause *> Clauses) {
     emit##Class(cast<Class>(C));                                               \
     break;
 #include "clang/Basic/OpenMPKinds.def"
+    case OMPC_match:
     case OMPC_device_type:
     case OMPC_uniform:
     case OMPC_threadprivate:
