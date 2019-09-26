@@ -136,7 +136,6 @@
 #include "llvm/Transforms/Scalar/GuardWidening.h"
 #include "llvm/Transforms/Scalar/IVUsersPrinter.h"
 #include "llvm/Transforms/Scalar/IndVarSimplify.h"
-#include "llvm/Transforms/Scalar/Intel_AggInlAA.h"          // INTEL
 #include "llvm/Transforms/Scalar/Intel_GlobalOpt.h"         // INTEL
 #include "llvm/Transforms/Scalar/Intel_IndirectCallConv.h"  // INTEL
 #include "llvm/Transforms/Scalar/Intel_LowerSubscriptIntrinsic.h" // INTEL
@@ -1672,7 +1671,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
                              false /* EnableDTrans */)));
 
   // Require the InlineAggAnalysis for the module so we can query it within
-  // the inliner and AggInlAAPass.
+  // the inliner.
   if (EnableInlineAggAnalysis) {
     MPM.addPass(RequireAnalysisPass<InlineAggAnalysis, Module>());
   }
@@ -1742,9 +1741,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
   FPM.addPass(SROA());
 
 #if INTEL_CUSTOMIZATION
-  if (EnableInlineAggAnalysis)
-    FPM.addPass(AggInlAAPass());
-
   if (EnableMultiVersioning)
     FPM.addPass(MultiVersioningPass());
 #endif // INTEL_CUSTOMIZATION

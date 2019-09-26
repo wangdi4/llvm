@@ -300,8 +300,6 @@ FunctionPass *createIndirectCallConvLegacyPass(bool UseAndersen = false,
 // LoopOptMarker - Indicates loopopt based throttling to subsequent passes.
 FunctionPass *createLoopOptMarkerLegacyPass();
 
-FunctionPass *createAggInlAALegacyPass();
-
 // LoopCarriedCSE - This pass groups two Phi Nodes in a binary operation by a
 // new Phi Node if their latch values have the same binary operation.
 FunctionPass *createLoopCarriedCSEPass();

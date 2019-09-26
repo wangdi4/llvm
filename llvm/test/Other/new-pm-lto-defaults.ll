@@ -126,7 +126,6 @@
 ; CHECK-O2-NEXT: Running pass: JumpThreadingPass
 ; CHECK-O2-NEXT: Running analysis: LazyValueAnalysis
 ; CHECK-O2-NEXT: Running pass: SROA on foo
-; CHECK-O2-NEXT: Running pass: AggInlAAPass on foo ;INTEL
 ; CHECK-O2-NEXT: Running pass: TailCallElimPass on foo
 ; CHECK-O2-NEXT: Finished llvm::Function pass manager run.
 ; CHECK-O2-NEXT: Running pass: ModuleToPostOrderCGSCCPassAdaptor<{{.*}}PostOrderFunctionAttrsPass>

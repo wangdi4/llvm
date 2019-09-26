@@ -92,7 +92,6 @@ void initializeAAEvalLegacyPassPass(PassRegistry&);
 void initializeAAResultsWrapperPassPass(PassRegistry&);
 void initializeADCELegacyPassPass(PassRegistry&);
 void initializeAddDiscriminatorsLegacyPassPass(PassRegistry&);
-void initializeAggInlAALegacyPassPass(PassRegistry&); // INTEL
 void initializeModuleAddressSanitizerLegacyPassPass(PassRegistry &);
 void initializeASanGlobalsMetadataWrapperPassPass(PassRegistry &);
 void initializeAddressSanitizerLegacyPassPass(PassRegistry &);
