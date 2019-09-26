@@ -1096,6 +1096,31 @@ Constant *llvm::createStrideMask(IRBuilder<> &Builder, unsigned Start,
   return ConstantVector::get(Mask);
 }
 
+#if INTEL_CUSTOMIZATION
+Constant *llvm::createVectorInterleaveMask(IRBuilder<> &Builder, unsigned VF,
+                                           unsigned NumVecs,
+                                           unsigned VecWidth) {
+  SmallVector<Constant *, 64> Mask;
+  for (unsigned i = 0; i < VF; i++)
+    for (unsigned j = 0; j < NumVecs; j++)
+      for (unsigned k = 0; k < VecWidth; k++)
+        Mask.push_back(Builder.getInt32((j * VF + i) * VecWidth + k));
+
+  return ConstantVector::get(Mask);
+}
+
+Constant *llvm::createVectorStrideMask(IRBuilder<> &Builder, unsigned Start,
+                                       unsigned Stride, unsigned VF,
+                                       unsigned VecWidth) {
+  SmallVector<Constant *, 64> Mask;
+  for (unsigned i = 0; i < VF; i++)
+    for (unsigned j = 0; j < VecWidth; j++)
+      Mask.push_back(Builder.getInt32((Start + i * Stride) * VecWidth + j));
+
+  return ConstantVector::get(Mask);
+}
+#endif // INTEL_CUSTOMIZATION
+
 Constant *llvm::createSequentialMask(IRBuilder<> &Builder, unsigned Start,
                                      unsigned NumInts, unsigned NumUndefs) {
   SmallVector<Constant *, 16> Mask;

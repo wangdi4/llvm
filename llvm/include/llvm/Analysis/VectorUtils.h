@@ -433,6 +433,44 @@ Constant *createInterleaveMask(IRBuilder<> &Builder, unsigned VF,
 Constant *createStrideMask(IRBuilder<> &Builder, unsigned Start,
                            unsigned Stride, unsigned VF);
 
+#if INTEL_CUSTOMIZATION
+/// Create an interleave shuffle mask for a "vector of vectors".
+///
+/// When vectorizing an IR with incoming vector types (e.g. float4), we have to
+/// flatten the resulting widened type. For example, ater applying VF=8 to
+/// float4, instead of <8 x <4 x float>> we have to generate <32 x float>. That
+/// means that masks produced by createInterleaveMask are not applicable to such
+/// widened values. This function adapts createInterleaveMask to be usable for
+/// vectors of size \p VecWidth.
+///
+/// For example, a mask to interleave 3 adjacent <4 x <3 x float>> vectors
+/// (VF = 4, NumVecs = 3, VecWidth = 3) is:
+///
+///     <(0, 1, 2), (12, 13, 14), (24, 25, 26),
+///      (3, 4, 5), (15, 16, 17), (27, 28, 29),
+///      (6, 7, 8), (18, 19, 20), (30, 31, 32),
+///      (9, 10, 11), (21, 22, 23), (33, 34, 35)>.
+Constant *createVectorInterleaveMask(IRBuilder<> &Builder, unsigned VF,
+                                     unsigned NumVecs, unsigned VecWidth);
+
+/// Create a stride shuffle mask for a "vector of vectors".
+///
+/// When vectorizing an IR with incoming vector types (e.g. float4), we have to
+/// flatten the resulting widened type. For example, ater applying VF=8 to
+/// float4, instead of <8 x <4 x float>> we have to generate <32 x float>. That
+/// means that masks produced by createStrideMask are not applicable to such
+/// widened values. This function adapts createStrideMask to be usable for
+/// vectors of size \p VecWidth.
+///
+/// For example, a mask with Stride=3 to extract 4 elements (VF=4) from vector
+/// <12 x <3 x float>> starting with the second element (Start=1) is:
+///
+///     <(3, 4, 5), (12, 13, 14), (21, 22, 23), (30, 31, 32)>.
+Constant *createVectorStrideMask(IRBuilder<> &Builder, unsigned Start,
+                                 unsigned Stride, unsigned VF,
+                                 unsigned VecWidth);
+#endif /* INTEL_CUSTOMIZATION */
+
 /// Create a sequential shuffle mask.
 ///
 /// This function creates shuffle mask whose elements are sequential and begin

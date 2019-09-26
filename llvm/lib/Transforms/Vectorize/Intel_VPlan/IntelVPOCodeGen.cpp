@@ -483,8 +483,13 @@ Value *VPOCodeGen::vectorizeInterleavedLoad(VPInstruction *VPLoad,
   auto InterleaveFactor = computeInterleaveFactor(Memref);
 
   Value *GroupLoad = getOrCreateWideLoadForGroup(Group);
-  Constant *ShuffleMask =
-      createStrideMask(Builder, InterleaveIndex, InterleaveFactor, VF);
+
+  // Extract a proper widened value from the wide load. A bit more sophisticated
+  // shuffle mask is required if the input type is itself a vector type.
+  Type *Ty = VPLoad->getType();
+  unsigned OriginalVL = Ty->isVectorTy() ? Ty->getVectorNumElements() : 1;
+  Constant *ShuffleMask = createVectorStrideMask(
+      Builder, InterleaveIndex, InterleaveFactor, VF, OriginalVL);
   return Builder.CreateShuffleVector(GroupLoad,
                                      UndefValue::get(GroupLoad->getType()),
                                      ShuffleMask, "groupShuffle");
@@ -554,9 +559,7 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
     // TODO: VLS optimization is disabled in masked basic blocks so far. It
     // should be enabled for uniform masks, though.
     OVLSGroup *Group = MaskValue ? nullptr : VLSA->getGroupsFor(Plan, VPInst);
-    // TODO: Enable VLS for vector types. We cannot generate correct shuffle
-    // mask yet.
-    if (Group && Group->size() > 1 && OriginalVL == 1) {
+    if (Group && Group->size() > 1) {
       Optional<int64_t> GroupStride = Group->getConstStride();
       assert(GroupStride && "Indexed loads are not supported");
       // Groups with gaps are not supported either.
@@ -634,8 +637,12 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
   // Concatenate all the values being stored into a single wide vector.
   Value *ConcatValue = concatenateVectors(Builder, GrpValues);
 
-  // Shuffle scalar values into the correct order.
-  Constant *ShuffleMask = createInterleaveMask(Builder, VF, InterleaveFactor);
+  // Shuffle values into the correct order. A bit more sophisticated shuffle
+  // mask is required if the original type is itself a vector type.
+  Type *Ty = VPStore->getOperand(0)->getType();
+  unsigned OriginalVL = Ty->isVectorTy() ? Ty->getVectorNumElements() : 1;
+  Constant *ShuffleMask =
+      createVectorInterleaveMask(Builder, VF, InterleaveFactor, OriginalVL);
   Value *StoredValue = Builder.CreateShuffleVector(
       ConcatValue, UndefValue::get(ConcatValue->getType()), ShuffleMask,
       "groupShuffle");
@@ -716,9 +723,7 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
     // TODO: VLS optimization is disabled in masked basic blocks so far. It
     // should be enabled for uniform masks, though.
     OVLSGroup *Group = MaskValue ? nullptr : VLSA->getGroupsFor(Plan, VPInst);
-    // TODO: Enable VLS for vector types. We cannot generate correct shuffle
-    // mask yet.
-    if (Group && Group->size() > 1 && OriginalVL == 1) {
+    if (Group && Group->size() > 1) {
       Optional<int64_t> GroupStride = Group->getConstStride();
       assert(GroupStride && "Indexed loads are not supported");
       // Groups with gaps are not supported either.
