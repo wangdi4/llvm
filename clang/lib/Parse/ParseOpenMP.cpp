@@ -930,7 +930,7 @@ bool Parser::parseOpenMPContextSelectors(
     // Parse inner context selector set name.
     if (!Tok.is(tok::identifier)) {
       Diag(Tok.getLocation(), diag::err_omp_declare_variant_no_ctx_selector)
-          << "match";
+          << getOpenMPClauseName(OMPC_match);
       return true;
     }
     SmallString<16> Buffer;
@@ -1024,9 +1024,12 @@ void Parser::ParseOMPDeclareVariantClauses(Parser::DeclGroupPtrTy Ptr,
           Ptr, AssociatedFunction.get(), SourceRange(Loc, Tok.getLocation()));
 
   // Parse 'match'.
-  if (!Tok.is(tok::identifier) || PP.getSpelling(Tok).compare("match")) {
+  OpenMPClauseKind CKind = Tok.isAnnotation()
+                               ? OMPC_unknown
+                               : getOpenMPClauseKind(PP.getSpelling(Tok));
+  if (CKind != OMPC_match) {
     Diag(Tok.getLocation(), diag::err_omp_declare_variant_wrong_clause)
-        << "match";
+        << getOpenMPClauseName(OMPC_match);
     while (!SkipUntil(tok::annot_pragma_openmp_end, Parser::StopBeforeMatch))
       ;
     // Skip the last annot_pragma_openmp_end.
@@ -1036,7 +1039,8 @@ void Parser::ParseOMPDeclareVariantClauses(Parser::DeclGroupPtrTy Ptr,
   (void)ConsumeToken();
   // Parse '('.
   BalancedDelimiterTracker T(*this, tok::l_paren, tok::annot_pragma_openmp_end);
-  if (T.expectAndConsume(diag::err_expected_lparen_after, "match")) {
+  if (T.expectAndConsume(diag::err_expected_lparen_after,
+                         getOpenMPClauseName(OMPC_match))) {
     while (!SkipUntil(tok::annot_pragma_openmp_end, StopBeforeMatch))
       ;
     // Skip the last annot_pragma_openmp_end.
@@ -2239,6 +2243,7 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
     break;
   case OMPC_threadprivate:
   case OMPC_uniform:
+  case OMPC_match:
     if (!WrongDirective)
       Diag(Tok, diag::err_omp_unexpected_clause)
           << getOpenMPClauseName(CKind) << getOpenMPDirectiveName(DKind);
