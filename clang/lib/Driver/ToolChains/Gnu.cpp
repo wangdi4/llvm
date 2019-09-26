@@ -2815,6 +2815,12 @@ Tool *Generic_GCC::getTool(Action::ActionClass AC) const {
     if (!Compile)
       Compile.reset(new tools::gcc::Compiler(*this));
     return Compile.get();
+#if INTEL_CUSTOMIZATION
+  case Action::LinkJobClass:
+    if (isTargetSpir())
+      return static_cast<tools::gnutools::SYCLLinker *>
+          (ToolChain::getTool(AC))->GetSYCLToolChainLinker();
+#endif // INTEL_CUSTOMIZATION
   default:
     return ToolChain::getTool(AC);
   }
@@ -2824,7 +2830,13 @@ Tool *Generic_GCC::buildAssembler() const {
   return new tools::gnutools::Assembler(*this);
 }
 
-Tool *Generic_GCC::buildLinker() const { return new tools::gcc::Linker(*this); }
+Tool *Generic_GCC::buildLinker() const {
+#if INTEL_CUSTOMIZATION
+  if (isTargetSpir())
+    return new tools::gnutools::SYCLLinker(*this);
+#endif // INTEL_CUSTOMIZATION
+  return new tools::gcc::Linker(*this);
+}
 
 void Generic_GCC::printVerboseInfo(raw_ostream &OS) const {
   // Print the information about how we detected the GCC installation.

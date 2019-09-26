@@ -3111,7 +3111,10 @@ class OffloadingActionBuilder final {
 
       // By default, we produce an action for each device arch.
       for (Action *&A : OpenMPDeviceActions)
-        A = C.getDriver().ConstructPhaseAction(C, Args, CurPhase, A);
+#if INTEL_CUSTOMIZATION
+        A = C.getDriver().ConstructPhaseAction(C, Args, CurPhase, A,
+                                               Action::OFK_OpenMP);
+#endif // INTEL_CUSTOMIZATION
 
       return ABRT_Success;
     }
@@ -4571,6 +4574,12 @@ Action *Driver::ConstructPhaseAction(
       return C.MakeAction<SPIRVTranslatorJobAction>(BackendAction,
                                                     types::TY_SPIRV);
     }
+#if INTEL_CUSTOMIZATION
+    // SPIR target arch during offload should generate bitcode.
+    if (TargetDeviceOffloadKind == Action::OFK_OpenMP &&
+        C.getSingleOffloadToolChain<Action::OFK_OpenMP>()->getTriple().isSPIR())
+      return C.MakeAction<BackendJobAction>(Input, types::TY_LLVM_BC);
+#endif // INTEL_CUSTOMIZATION
     return C.MakeAction<BackendJobAction>(Input, types::TY_PP_Asm);
   }
   case phases::Assemble:
