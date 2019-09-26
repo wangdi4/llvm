@@ -413,7 +413,7 @@ void X86InstPrinterCommon::printVTILEPair(const MCInst *MI, unsigned OpNo,
     printRegName(OS, X86::TMM14);
     return;
   }
-  llvm_unreachable("Unknown mask pair register name");
+  llvm_unreachable("Unknown tile pair register name");
 }
 #endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION

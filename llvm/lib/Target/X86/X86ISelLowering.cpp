@@ -31954,38 +31954,27 @@ X86TargetLowering::EmitSjLjDispatchBlock(MachineInstr &MI,
   return BB;
 }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
-static unsigned TMMImmToTMMReg(unsigned Imm) {
-  switch (Imm) {
-  case 0: return X86::TMM0;
-  case 1: return X86::TMM1;
-  case 2: return X86::TMM2;
-  case 3: return X86::TMM3;
-  case 4: return X86::TMM4;
-  case 5: return X86::TMM5;
-  case 6: return X86::TMM6;
-  case 7: return X86::TMM7;
-  case 8: return X86::TMM8 ;
-  case 9: return X86::TMM9 ;
-  case 10: return X86::TMM10;
-  case 11: return X86::TMM11;
-  case 12: return X86::TMM12;
-  case 13: return X86::TMM13;
-  case 14: return X86::TMM14;
-  case 15: return X86::TMM15;
-  default: llvm_unreachable("Unexpected tmm immediate");
-  }
-}
-#endif // INTEL_FEATURE_ISA_AMX
-#endif // INTEL_CUSTOMIZATION
-
 MachineBasicBlock *
 X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
                                                MachineBasicBlock *BB) const {
   MachineFunction *MF = BB->getParent();
   const TargetInstrInfo *TII = Subtarget.getInstrInfo();
   DebugLoc DL = MI.getDebugLoc();
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+  auto TMMImmToTMMReg = [](unsigned Imm) {
+    assert (Imm < 16 && "Illegal tmm index.");
+    return X86::TMM0 + Imm;
+  };
+#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX2
+  auto TMMImmToTMMPair = [](unsigned Imm) {
+    assert (Imm < 16 && "Illegal tmm pair index.");
+    return X86::TMM0_TMM1 + Imm / 2;
+  };
+#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_CUSTOMIZATION
 
   switch (MI.getOpcode()) {
   default: llvm_unreachable("Unexpected instr type to insert");
@@ -32234,6 +32223,488 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
       BB->addLiveIn(BasePtr);
     return BB;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX2
+  case X86::PT2RPNTLVW:
+  case X86::PT2RPNTLVWT1:
+  case X86::PT2TRANSPOSEW:
+  case X86::PT2TRANSPOSEWT1:{
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PT2RPNTLVW: Opc = X86::T2RPNTLVW; break;
+    case X86::PT2RPNTLVWT1: Opc = X86::T2RPNTLVWT1; break;
+    case X86::PT2TRANSPOSEW: Opc = X86::T2TRANSPOSEW; break;
+    case X86::PT2TRANSPOSEWT1: Opc = X86::T2TRANSPOSEWT1; break;
+    }
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMPair(MI.getOperand(0).getImm()), RegState::Define);
+
+    MIB.add(MI.getOperand(1)); // base
+    MIB.add(MI.getOperand(2)); // scale
+    MIB.add(MI.getOperand(3)); // index
+    MIB.add(MI.getOperand(4)); // displacement
+    MIB.add(MI.getOperand(5)); // segment
+    MIB.add(MI.getOperand(6)); // reg
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+  case X86::PTADDPS:
+  case X86::PTANDND:
+  case X86::PTANDD:
+  case X86::PTINTERLEAVEEB:
+  case X86::PTINTERLEAVEEW:
+  case X86::PTINTERLEAVEOB:
+  case X86::PTINTERLEAVEOW:
+  case X86::PTMAXPS:
+  case X86::PTMINPS:
+  case X86::PTMULPS:
+  case X86::PTORD:
+  case X86::PTPERMB:
+  case X86::PTPERMD:
+  case X86::PTPERMW:
+  case X86::PTSCALEFPS:
+  case X86::PTSUBPS:
+  case X86::PTXORD:{
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTADDPS: Opc = X86::TADDPSrr; break;
+    case X86::PTANDND: Opc = X86::TANDNDrr; break;
+    case X86::PTANDD: Opc = X86::TANDDrr; break;
+    case X86::PTINTERLEAVEEB: Opc = X86::TINTERLEAVEEB; break;
+    case X86::PTINTERLEAVEEW: Opc = X86::TINTERLEAVEEW; break;
+    case X86::PTINTERLEAVEOB: Opc = X86::TINTERLEAVEOB; break;
+    case X86::PTINTERLEAVEOW: Opc = X86::TINTERLEAVEOW; break;
+    case X86::PTMAXPS: Opc = X86::TMAXPSrr; break;
+    case X86::PTMINPS: Opc = X86::TMINPSrr; break;
+    case X86::PTMULPS: Opc = X86::TMULPSrr; break;
+    case X86::PTORD: Opc = X86::TORDrr; break;
+    case X86::PTPERMB: Opc = X86::TPERMBrr; break;
+    case X86::PTPERMD: Opc = X86::TPERMDrr; break;
+    case X86::PTPERMW: Opc = X86::TPERMWrr; break;
+    case X86::PTSCALEFPS: Opc = X86::TSCALEFPSrr; break;
+    case X86::PTSUBPS: Opc = X86::TSUBPSrr; break;
+    case X86::PTXORD: Opc = X86::TXORDrr; break;
+    }
+
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(2).getImm()));
+
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+  case X86::PTADDPSrm:
+  case X86::PTANDDrm:
+  case X86::PTANDNDrm:
+  case X86::PTMAXPSrm:
+  case X86::PTMINPSrm:
+  case X86::PTMULPSrm:
+  case X86::PTSCALEFPSrm:
+  case X86::PTSRLVDrm:
+  case X86::PTSUBPSrm:
+  case X86::PTORDrm:
+  case X86::PTXORDrm:
+  case X86::PTPERMBrm:
+  case X86::PTPERMDrm:
+  case X86::PTPERMWrm:{
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTADDPSrm: Opc = X86::TADDPSrm; break;
+    case X86::PTANDDrm: Opc = X86::TANDDrm; break;
+    case X86::PTANDNDrm: Opc = X86::TANDNDrm; break;
+    case X86::PTMAXPSrm: Opc = X86::TMAXPSrm; break;
+    case X86::PTMINPSrm: Opc = X86::TMINPSrm; break;
+    case X86::PTMULPSrm: Opc = X86::TMULPSrm; break;
+    case X86::PTSCALEFPSrm: Opc = X86::TSCALEFPSrm; break;
+    case X86::PTSRLVDrm: Opc = X86::TSRLVDrm; break;
+    case X86::PTSUBPSrm: Opc = X86::TSUBPSrm; break;
+    case X86::PTORDrm: Opc = X86::TORDrm; break;
+    case X86::PTXORDrm: Opc = X86::TXORDrm; break;
+    case X86::PTPERMBrm: Opc = X86::TPERMBrm; break;
+    case X86::PTPERMDrm: Opc = X86::TPERMDrm; break;
+    case X86::PTPERMWrm: Opc = X86::TPERMWrm; break;
+    }
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()));
+    MIB.add(MI.getOperand(2));
+    MIB.add(MI.getOperand(3));
+    MIB.add(MI.getOperand(4));
+    MIB.add(MI.getOperand(5));
+    MIB.add(MI.getOperand(6));
+
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+  case X86::PTBROADCASTROWD:{
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTBROADCASTROWD: Opc = X86::TBROADCASTROWD; break;
+    }
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+    MIB.add(MI.getOperand(1)); // base
+    MIB.add(MI.getOperand(2)); // scale
+    MIB.add(MI.getOperand(3)); // index
+    MIB.add(MI.getOperand(4)); // displacement
+    MIB.add(MI.getOperand(5)); // segment
+
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+  case X86::PTCMPPS:{
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTCMPPS: Opc = X86::TCMPPSrr; break;
+    }
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(2).getImm()));
+    MIB.addImm(MI.getOperand(3).getImm());
+
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+  case X86::PTCMPPSrm:{
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTCMPPSrm: Opc = X86::TCMPPSrm; break;
+    }
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()));
+    MIB.add(MI.getOperand(2));
+    MIB.add(MI.getOperand(3));
+    MIB.add(MI.getOperand(4));
+    MIB.add(MI.getOperand(5));
+    MIB.add(MI.getOperand(6));
+    MIB.addImm(MI.getOperand(7).getImm());
+
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+  case X86::PTNARROWB:
+  case X86::PTNARROWW:
+  case X86::PTREDUCEPS:
+  case X86::PTSLLD:
+  case X86::PTSRLD:
+  case X86::PTSRLVD:
+  case X86::PTWIDENB:
+  case X86::PTWIDENW:{
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTNARROWB: Opc = X86::TNARROWB; break;
+    case X86::PTNARROWW: Opc = X86::TNARROWW; break;
+    case X86::PTREDUCEPS: Opc = X86::TREDUCEPS; break;
+    case X86::PTSLLD: Opc = X86::TSLLD; break;
+    case X86::PTSRLD: Opc = X86::TSRLD; break;
+    case X86::PTSRLVD: Opc = X86::TSRLVDrr; break;
+    case X86::PTWIDENB: Opc = X86::TWIDENB; break;
+    case X86::PTWIDENW: Opc = X86::TWIDENW; break;
+    }
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()));
+    MIB.addImm(MI.getOperand(2).getImm());
+
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+  case X86::PTCOLADDPS:
+  case X86::PTSTOREROWD:{
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTCOLADDPS: Opc = X86::TCOLADDPS; break;
+    case X86::PTSTOREROWD: Opc = X86::TSTOREROWD; break;
+    }
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.add(MI.getOperand(0)); // base
+    MIB.add(MI.getOperand(1)); // scale
+    MIB.add(MI.getOperand(2)); // index
+    MIB.add(MI.getOperand(3)); // displacement
+    MIB.add(MI.getOperand(4)); // segment
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()));
+
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+  case X86::PTCOLADDBCASTPS:
+  case X86::PTCVTB2PS:
+  case X86::PTCVTBF162PS:
+  case X86::PTCVTD2PS:
+  case X86::PTCVTPS2BF16:
+  case X86::PTCVTPS2BS:
+  case X86::PTCVTPS2UBS:
+  case X86::PTCVTUB2PS:
+  case X86::PTILEMOVE:
+  case X86::PTRCP14PS:{
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTCOLADDBCASTPS: Opc = X86::TCOLADDBCASTPS; break;
+    case X86::PTCVTB2PS: Opc = X86::TCVTB2PS; break;
+    case X86::PTCVTBF162PS: Opc = X86::TCVTBF162PS; break;
+    case X86::PTCVTD2PS: Opc = X86::TCVTD2PS; break;
+    case X86::PTCVTPS2BF16: Opc = X86::TCVTPS2BF16; break;
+    case X86::PTCVTPS2BS: Opc = X86::TCVTPS2BS; break;
+    case X86::PTCVTPS2UBS: Opc = X86::TCVTPS2UBS; break;
+    case X86::PTCVTUB2PS: Opc = X86::TCVTUB2PS; break;
+    case X86::PTRCP14PS: Opc = X86::TRCP14PS; break;
+    case X86::PTILEMOVE: Opc = X86::TILEMOVE; break;
+    }
+
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()));
+
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+  case X86::PTBLENDVD:
+  case X86::PTDPFP16PS:
+  case X86::PTFMADDPS:
+  case X86::PTFMSUBPS:
+  case X86::PTFNMADDPS:
+  case X86::PTFNMSUBPS:{
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTBLENDVD: Opc = X86::TBLENDVD; break;
+    case X86::PTCMPPS: Opc = X86::TCMPPSrr; break;
+    case X86::PTFMADDPS: Opc = X86::TFMADDPSrr; break;
+    case X86::PTFMSUBPS: Opc = X86::TFMSUBPSrr; break;
+    case X86::PTFNMADDPS: Opc = X86::TFNMADDPSrr; break;
+    case X86::PTFNMSUBPS: Opc = X86::TFNMSUBPSrr; break;
+    case X86::PTDPFP16PS: Opc = X86::TDPFP16PS; break;
+    }
+
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(2).getImm()));
+
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+  case X86::PTFMADDPSrm:
+  case X86::PTFMSUBPSrm:
+  case X86::PTFNMADDPSrm:
+  case X86::PTFNMSUBPSrm:{
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTFMADDPSrm: Opc = X86::TFMADDPSrm; break;
+    case X86::PTFMSUBPSrm: Opc = X86::TFMSUBPSrm; break;
+    case X86::PTFNMADDPSrm: Opc = X86::TFNMADDPSrm; break;
+    case X86::PTFNMSUBPSrm: Opc = X86::TFNMSUBPSrm; break;
+    }
+
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()));
+    MIB.add(MI.getOperand(2));
+    MIB.add(MI.getOperand(3));
+    MIB.add(MI.getOperand(4));
+    MIB.add(MI.getOperand(5));
+    MIB.add(MI.getOperand(6));
+
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+  case X86::PTGATHERROWD:
+  case X86::PTGATHERROWDT1:
+  case X86::PTGATHERROWQ:
+  case X86::PTGATHERROWQT1:{
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTGATHERROWD: Opc = X86::TGATHERROWD; break;
+    case X86::PTGATHERROWDT1: Opc = X86::TGATHERROWDT1; break;
+    case X86::PTGATHERROWQ: Opc = X86::TGATHERROWQ; break;
+    case X86::PTGATHERROWQT1: Opc = X86::TGATHERROWQT1; break;
+    }
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+    MIB.add(MI.getOperand(1)); // base
+    MIB.add(MI.getOperand(2)); // scale
+    MIB.add(MI.getOperand(3)); // index
+    MIB.add(MI.getOperand(4)); // displacement
+    MIB.add(MI.getOperand(5)); // segment
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+  case X86::PTSCATTERROWD:
+  case X86::PTSCATTERROWDT1:
+  case X86::PTSCATTERROWQ:
+  case X86::PTSCATTERROWQT1:
+  case X86::PTSTOREHD:
+  case X86::PTSTOREHDT1:
+  case X86::PTSTOREQD:
+  case X86::PTSTOREQDT1:
+  case X86::PTSTORENTD:{
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTSCATTERROWD: Opc = X86::TSCATTERROWD; break;
+    case X86::PTSCATTERROWDT1: Opc = X86::TSCATTERROWDT1; break;
+    case X86::PTSCATTERROWQ: Opc = X86::TSCATTERROWQ; break;
+    case X86::PTSCATTERROWQT1: Opc = X86::TSCATTERROWQT1; break;
+    case X86::PTSTOREHD: Opc = X86::TSTOREHD; break;
+    case X86::PTSTOREHDT1: Opc = X86::TSTOREHDT1; break;
+    case X86::PTSTOREQD: Opc = X86::TSTOREQD; break;
+    case X86::PTSTOREQDT1: Opc = X86::TSTOREQDT1; break;
+    case X86::PTSTORENTD: Opc = X86::TSTORENTD; break;
+    }
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.add(MI.getOperand(0)); // base
+    MIB.add(MI.getOperand(1)); // scale
+    MIB.add(MI.getOperand(2)); // index
+    MIB.add(MI.getOperand(3)); // displacement
+    MIB.add(MI.getOperand(4)); // segment
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(5).getImm()));
+
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+  case X86::PTILE16MOVE:{
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTILE16MOVE: Opc = X86::TILE16MOVEPseudo; break;
+    }
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+    MIB.add(MI.getOperand(1));
+
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+  case X86::PTILEMOVROWErri:{
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTILEMOVROWErri: Opc = X86::TILEMOVROWErri; break;
+    }
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.add(MI.getOperand(0));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()));
+    MIB.addImm(MI.getOperand(2).getImm());
+
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+  case X86::PTILEMOVROWErre:
+  case X86::PTILEMOVROWErrx:{
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTILEMOVROWErre: Opc = X86::TILEMOVROWErre; break;
+    case X86::PTILEMOVROWErrx: Opc = X86::TILEMOVROWErrx; break;
+    }
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.add(MI.getOperand(0));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()));
+    MIB.add(MI.getOperand(2));
+
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+  case X86::PTDPBSSDE:
+  case X86::PTDPBSUDE:
+  case X86::PTDPBUSDE:
+  case X86::PTDPBUUDE:
+  case X86::PTDPBF16PSE: {
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTDPBSSDE: Opc = X86::TDPBSSDE; break;
+    case X86::PTDPBSUDE: Opc = X86::TDPBSUDE; break;
+    case X86::PTDPBUSDE: Opc = X86::TDPBUSDE; break;
+    case X86::PTDPBUUDE: Opc = X86::TDPBUUDE; break;
+    case X86::PTDPBF16PSE: Opc = X86::TDPBF16PSE; break;
+    }
+
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(2).getImm()));
+
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+  case X86::PTILEZEROE: {
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Imm = MI.getOperand(0).getImm();
+
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(X86::TILEZEROE));
+    MIB.addReg(TMMImmToTMMReg(Imm));
+
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+  case X86::PTILELOADDE64:
+  case X86::PTILELOADDT1E64:
+  case X86::PTILESTOREDE64: {
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTILELOADDE64:
+      Opc = X86::TILELOADDE;
+      break;
+    case X86::PTILELOADDT1E64:
+      Opc = X86::TILELOADDT1E;
+      break;
+    case X86::PTILESTOREDE64:
+      Opc = X86::TILESTOREDE;
+      break;
+    }
+
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    if (Opc == X86::TILESTOREDE)
+      MIB.addReg(TMMImmToTMMPair(MI.getOperand(0).getImm()));
+    else
+      MIB.addReg(TMMImmToTMMPair(MI.getOperand(0).getImm()), RegState::Define);
+
+    MIB.add(MI.getOperand(1)); // base
+    MIB.add(MI.getOperand(2)); // scale
+    MIB.add(MI.getOperand(3)); // index
+    MIB.add(MI.getOperand(4)); // displacement
+    MIB.add(MI.getOperand(5)); // segment
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_CUSTOMIZATION
   }
 }
 

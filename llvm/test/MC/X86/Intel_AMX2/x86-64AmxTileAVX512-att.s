@@ -25,19 +25,35 @@
 // CHECK: encoding: [0x62,0x83,0x7d,0x48,0x07,0xf6,0x7b]
                tilemovrowe $123, %tmm30, %zmm22
 
-// CHECK:      tile16move      %zmm23, %tmm6
-// CHECK: encoding: [0x62,0xb2,0x7d,0x48,0x5f,0xf7]
-               tile16move      %zmm23, %tmm6
+// CHECK:      tile16move      %zmm0, %tmm6
+// CHECK: encoding: [0x62,0xf2,0x7d,0x48,0x5f,0xf0]
+               tile16move      %zmm0, %tmm6
 
-// CHECK:      tile16move      %zmm23, %tmm3
-// CHECK: encoding: [0x62,0xb2,0x7d,0x48,0x5f,0xdf]
-               tile16move      %zmm23, %tmm3
+// CHECK:      tile16move      %zmm0, %tmm3
+// CHECK: encoding: [0x62,0xf2,0x7d,0x48,0x5f,0xd8]
+               tile16move      %zmm0, %tmm3
 
-// CHECK:      tile16move      %zmm23, %tmm22
-// CHECK: encoding: [0x62,0xa2,0x7d,0x48,0x5f,0xf7]
-               tile16move      %zmm23, %tmm22
+// CHECK:      tile16move      %zmm0, %tmm22
+// CHECK: encoding: [0x62,0xe2,0x7d,0x48,0x5f,0xf0]
+               tile16move      %zmm0, %tmm22
 
-// CHECK:      tile16move      %zmm23, %tmm19
-// CHECK: encoding: [0x62,0xa2,0x7d,0x48,0x5f,0xdf]
-               tile16move      %zmm23, %tmm19
+// CHECK:      tile16move      %zmm0, %tmm19
+// CHECK: encoding: [0x62,0xe2,0x7d,0x48,0x5f,0xd8]
+               tile16move      %zmm0, %tmm19
+
+// CHECK:      tile16move      %zmm16, %tmm6
+// CHECK: encoding: [0x62,0xb2,0x7d,0x48,0x5f,0xf0]
+               tile16move      %zmm16, %tmm6
+
+// CHECK:      tile16move      %zmm16, %tmm3
+// CHECK: encoding: [0x62,0xb2,0x7d,0x48,0x5f,0xd8]
+               tile16move      %zmm16, %tmm3
+
+// CHECK:      tile16move      %zmm16, %tmm22
+// CHECK: encoding: [0x62,0xa2,0x7d,0x48,0x5f,0xf0]
+               tile16move      %zmm16, %tmm22
+
+// CHECK:      tile16move      %zmm16, %tmm19
+// CHECK: encoding: [0x62,0xa2,0x7d,0x48,0x5f,0xd8]
+               tile16move      %zmm16, %tmm19
 

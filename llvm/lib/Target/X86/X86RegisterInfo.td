@@ -34,6 +34,23 @@ let Namespace = "X86" in {
 #if INTEL_FEATURE_ISA_AMX2
   def sub_t0   : SubRegIndex<-1>;
   def sub_t1   : SubRegIndex<-1, -1>;
+
+  def sub_z0   : SubRegIndex<512>;
+  def sub_z1   : SubRegIndex<512, 512>;
+  def sub_z2   : SubRegIndex<512, 1024>;
+  def sub_z3   : SubRegIndex<512, 1536>;
+  def sub_z4   : SubRegIndex<512, 2048>;
+  def sub_z5   : SubRegIndex<512, 2560>;
+  def sub_z6   : SubRegIndex<512, 3072>;
+  def sub_z7   : SubRegIndex<512, 3584>;
+  def sub_z8   : SubRegIndex<512, 4096>;
+  def sub_z9   : SubRegIndex<512, 4608>;
+  def sub_z10  : SubRegIndex<512, 5120>;
+  def sub_z11  : SubRegIndex<512, 5632>;
+  def sub_z12  : SubRegIndex<512, 6144>;
+  def sub_z13  : SubRegIndex<512, 6656>;
+  def sub_z14  : SubRegIndex<512, 7168>;
+  def sub_z15  : SubRegIndex<512, 7680>;
 #endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
 }
@@ -310,13 +327,6 @@ def TMM28: X86Reg<"tmm28", 28>;
 def TMM29: X86Reg<"tmm29", 29>;
 def TMM30: X86Reg<"tmm30", 30>;
 def TMM31: X86Reg<"tmm31", 31>;
-// TMM register pairs
-def TPAIRS : RegisterTuples<[sub_t0, sub_t1],
-                            [(add TMM0, TMM2, TMM4, TMM6, TMM8, TMM10, TMM12, TMM14),
-                             (add TMM1, TMM3, TMM5, TMM7, TMM9, TMM11, TMM13, TMM15)]>;
-
-// Need check alignment 3rd operand size=1024*2*8
-def VTILEPAIR : RegisterClass<"X86", [untyped], 32, (add TPAIRS)> {let Size = 16384;}
 #endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
 
@@ -711,12 +721,38 @@ def BNDR : RegisterClass<"X86", [v2i64], 128, (sequence "BND%u", 0, 3)>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
 // Tiles
+let isAllocatable = 0 in
 def VTILE : RegisterClass<"X86", [untyped], 0,
                           (sequence "TMM%u", 0, 15)> {let Size = 8192;}
 #endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX2
 // Tiles
+let isAllocatable = 0 in
 def VTILEX : RegisterClass<"X86", [untyped], 0,
                           (sequence "TMM%u", 0, 31)> {let Size = 8192;}
+
+// TMM register pairs
+def TPAIRS : RegisterTuples<[sub_t0, sub_t1],
+                            [(add TMM0, TMM2, TMM4, TMM6, TMM8, TMM10, TMM12, TMM14),
+                             (add TMM1, TMM3, TMM5, TMM7, TMM9, TMM11, TMM13, TMM15)]>;
+
+// Need check alignment 3rd operand size=1024*2*8
+let isAllocatable = 0 in
+def VTILEPAIR : RegisterClass<"X86", [untyped], 0, (add TPAIRS)> {let Size = 16384;}
+
+// FIXME: Now we only support ZMM16-ZMM31 for ZMM16TUPLES, but the tile16move
+// can also choose ZMM0-ZMM15, so we should support ZMM0-ZMM15 too.
+def Z16TUPLES : RegisterTuples<[sub_z0, sub_z1, sub_z2, sub_z3, sub_z4, sub_z5, sub_z6,
+                                sub_z7, sub_z8, sub_z9, sub_z10, sub_z11, sub_z12,
+                                sub_z13, sub_z14, sub_z15],
+                               [(add ZMM16), (add ZMM17), (add ZMM18),
+                                (add ZMM19), (add ZMM20), (add ZMM21),
+                                (add ZMM22), (add ZMM23), (add ZMM24),
+                                (add ZMM25), (add ZMM26), (add ZMM27),
+                                (add ZMM28), (add ZMM29), (add ZMM30),
+                                (add ZMM31)]>;
+
+// Need check alignment 3rd operand size=512*16
+def ZMM16TUPLES : RegisterClass<"X86", [untyped], 512, (add Z16TUPLES)> {let Size = 8196;}
 #endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
