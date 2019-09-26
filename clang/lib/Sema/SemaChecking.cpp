@@ -5958,6 +5958,14 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
       APIOrderedArgs.push_back(Args[1]); // Order
       APIOrderedArgs.push_back(Args[3]); // OrderFail
       break;
+#if INTEL_CUSTOMIZATION
+    case IntelCmpXchg:
+      APIOrderedArgs.push_back(Args[2]); // Val1
+      APIOrderedArgs.push_back(Args[4]); // Val2
+      APIOrderedArgs.push_back(Args[1]); // Order
+      APIOrderedArgs.push_back(Args[3]); // OrderFail
+      break;
+#endif // INTEL_CUSTOMIZATION
     case GNUCmpXchg:
       APIOrderedArgs.push_back(Args[2]); // Val1
       APIOrderedArgs.push_back(Args[4]); // Val2
@@ -6092,10 +6100,10 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
     break;
 #if INTEL_CUSTOMIZATION
   case IntelCmpXchg:
-    SubExprs.push_back(Args[3]); // Order
-    SubExprs.push_back(Args[1]); // Val1
-    SubExprs.push_back(Args[4]); // OrderFail
-    SubExprs.push_back(Args[2]); // Val2
+    SubExprs.push_back(APIOrderedArgs[3]); // Order
+    SubExprs.push_back(APIOrderedArgs[1]); // Val1
+    SubExprs.push_back(APIOrderedArgs[4]); // OrderFail
+    SubExprs.push_back(APIOrderedArgs[2]); // Val2
     break;
 #endif // INTEL_CUSTOMIZATION
   case GNUCmpXchg:
