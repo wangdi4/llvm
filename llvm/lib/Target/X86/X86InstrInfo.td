@@ -1025,6 +1025,10 @@ def HasAMXFORMAT    : Predicate<"Subtarget->hasAMXFORMAT()">;
 def HasAMXTRANSPOSE : Predicate<"Subtarget->hasAMXTRANSPOSE()">;
 def HasAMXMEMORY    : Predicate<"Subtarget->hasAMXMEMORY()">;
 def HasAMXFP16   : Predicate<"Subtarget->hasAMXFP16()">;
+def HasAMXAVX512   : Predicate<"Subtarget->hasAMXAVX512()">;
+def HasAMXINT8EVEX    : Predicate<"Subtarget->hasAMXINT8EVEX()">;
+def HasAMXTILEEVEX    : Predicate<"Subtarget->hasAMXTILEEVEX()">;
+def HasAMXBF16EVEX    : Predicate<"Subtarget->hasAMXBF16EVEX()">;
 #endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
 def Not64BitMode : Predicate<"!Subtarget->is64Bit()">,

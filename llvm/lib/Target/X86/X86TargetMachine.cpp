@@ -60,14 +60,6 @@ static cl::opt<bool> EnableCondBrFoldingPass("x86-condbr-folding",
                                         "folding pass"),
                                cl::init(false), cl::Hidden);
 
-#if INTEL_CUSTOMIZATION
-// Temporary to enable testing of zmm=low support in xmain.
-static cl::opt<unsigned>
-MaxLegalVectorWidth("x86-experimental-max-legal-vector-width",
-                    cl::desc("Limit the maximum legal vector width"),
-                    cl::init(0), cl::Hidden);
-#endif // INTEL_CUSTOMIZATION
-
 extern "C" void LLVMInitializeX86Target() {
   // Register the target.
   RegisterTargetMachine<X86TargetMachine> X(getTheX86_32Target());

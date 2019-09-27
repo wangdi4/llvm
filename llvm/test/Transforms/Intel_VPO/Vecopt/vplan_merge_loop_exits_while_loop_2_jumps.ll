@@ -6,6 +6,8 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
+; Function Attrs: norecurse nounwind uwtable
+define dso_local i32 @main() #0 {
 ; CHECK-LABEL: After merge loop exits transformation.
 ; CHECK: REGION: {{region[0-9]+}} (BP: NULL)
 ; CHECK-NEXT: {{BB[0-9]+}} (BP: NULL) :
@@ -131,8 +133,6 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK-NEXT: END Region({{region[0-9]+}})
 
-; Function Attrs: norecurse nounwind uwtable
-define dso_local i32 @main() #0 {
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %loop1

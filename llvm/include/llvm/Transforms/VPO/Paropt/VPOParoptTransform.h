@@ -747,12 +747,6 @@ private:
                                 SmallVectorImpl<uint64_t> &MapTypes,
                                 bool &hasRuntimeEvaluationCaptureSize);
 
-  /// Return the map modifiers for the firstprivate.
-  uint64_t getMapModifiersForFirstPrivate();
-
-  /// Return the defaut map information.
-  uint64_t generateDefaultMap();
-
   /// Generate multithreaded for a given WRegion
   bool genMultiThreadedCode(WRegionNode *W);
 

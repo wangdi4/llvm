@@ -8,6 +8,7 @@
 ; }
 ; ModuleID = 't.c'
 ;RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -S %s -print-after-all 2>&1 | FileCheck %s
+;RUN: opt --passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert" -S %s -print-after-all 2>&1 | FileCheck %s
 ; CHECK-NOT:           llvm.intel.directive
 source_filename = "t.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

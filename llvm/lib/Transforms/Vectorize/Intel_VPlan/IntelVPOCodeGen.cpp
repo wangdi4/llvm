@@ -483,8 +483,13 @@ Value *VPOCodeGen::vectorizeInterleavedLoad(VPInstruction *VPLoad,
   auto InterleaveFactor = computeInterleaveFactor(Memref);
 
   Value *GroupLoad = getOrCreateWideLoadForGroup(Group);
-  Constant *ShuffleMask =
-      createStrideMask(Builder, InterleaveIndex, InterleaveFactor, VF);
+
+  // Extract a proper widened value from the wide load. A bit more sophisticated
+  // shuffle mask is required if the input type is itself a vector type.
+  Type *Ty = VPLoad->getType();
+  unsigned OriginalVL = Ty->isVectorTy() ? Ty->getVectorNumElements() : 1;
+  Constant *ShuffleMask = createVectorStrideMask(
+      Builder, InterleaveIndex, InterleaveFactor, VF, OriginalVL);
   return Builder.CreateShuffleVector(GroupLoad,
                                      UndefValue::get(GroupLoad->getType()),
                                      ShuffleMask, "groupShuffle");
@@ -554,9 +559,7 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
     // TODO: VLS optimization is disabled in masked basic blocks so far. It
     // should be enabled for uniform masks, though.
     OVLSGroup *Group = MaskValue ? nullptr : VLSA->getGroupsFor(Plan, VPInst);
-    // TODO: Enable VLS for vector types. We cannot generate correct shuffle
-    // mask yet.
-    if (Group && Group->size() > 1 && OriginalVL == 1) {
+    if (Group && Group->size() > 1) {
       Optional<int64_t> GroupStride = Group->getConstStride();
       assert(GroupStride && "Indexed loads are not supported");
       // Groups with gaps are not supported either.
@@ -634,8 +637,12 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
   // Concatenate all the values being stored into a single wide vector.
   Value *ConcatValue = concatenateVectors(Builder, GrpValues);
 
-  // Shuffle scalar values into the correct order.
-  Constant *ShuffleMask = createInterleaveMask(Builder, VF, InterleaveFactor);
+  // Shuffle values into the correct order. A bit more sophisticated shuffle
+  // mask is required if the original type is itself a vector type.
+  Type *Ty = VPStore->getOperand(0)->getType();
+  unsigned OriginalVL = Ty->isVectorTy() ? Ty->getVectorNumElements() : 1;
+  Constant *ShuffleMask =
+      createVectorInterleaveMask(Builder, VF, InterleaveFactor, OriginalVL);
   Value *StoredValue = Builder.CreateShuffleVector(
       ConcatValue, UndefValue::get(ConcatValue->getType()), ShuffleMask,
       "groupShuffle");
@@ -716,9 +723,7 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
     // TODO: VLS optimization is disabled in masked basic blocks so far. It
     // should be enabled for uniform masks, though.
     OVLSGroup *Group = MaskValue ? nullptr : VLSA->getGroupsFor(Plan, VPInst);
-    // TODO: Enable VLS for vector types. We cannot generate correct shuffle
-    // mask yet.
-    if (Group && Group->size() > 1 && OriginalVL == 1) {
+    if (Group && Group->size() > 1) {
       Optional<int64_t> GroupStride = Group->getConstStride();
       assert(GroupStride && "Indexed loads are not supported");
       // Groups with gaps are not supported either.
@@ -1581,6 +1586,91 @@ void VPOCodeGen::vectorizeVPInstruction(VPInstruction *VPInst) {
   case VPInstruction::AllZeroCheck: {
     Value *A = getVectorValue(VPInst->getOperand(0));
     Type *Ty = A->getType();
+
+    if (MaskValue) {
+      // Consider the inner loop that is executed under the mask, after loop CFU
+      // transformation and predication it looks something like this:
+      //
+      //   REGION: loop19 (BP: NULL)
+      //   BB16 (BP: NULL) :
+      //    i1 %vp24064 = block-predicate i1 %loop_incoming_mask
+      //   SUCCESSORS(1):BB11
+      //   no PREDECESSORS
+
+      //   BB11 (BP: NULL) :
+      //    i1 %vp24384 = block-predicate i1 %loop_incoming_mask
+      //    i64 %vp54864 = phi  [ i64 %vp20544, BB23 ],  [ i64 1, BB16 ]
+      //    i32 %vp55072 = phi  [ i32 %vp20704, BB23 ],  [ i32 %vp49616, BB16 ]
+      //    i1 %inner_loop_specific_mask =
+      //         phi  [ i1 true, BB16 ],
+      //              [ i1 %inner_loop_specific_mask.next, BB23 ]
+      //   SUCCESSORS(1):mask_region24
+      //   PREDECESSORS(2): BB16 BB23
+
+      //   REGION: mask_region24 (BP: NULL)
+      //   BB21 (BP: NULL) :
+      //    i1 %vp24544 = block-predicate i1 %loop_incoming_mask
+      //   SUCCESSORS(1):BB22
+      //   no PREDECESSORS
+
+      //   BB22 (BP: NULL) :
+      //    i1 %real_mask = and i1 %loop_incoming_mask i1, %inner_loop_specific_mask
+      //    i1 %real_mask_predicate = block-predicate i1 %real_mask
+      //    i32 addrspace(1)* %vp38496 =
+      //        getelementptr inbounds i32 addrspace(1)* %input i64 %vp54864
+      //    i32 %ld = load i32 addrspace(1)* %vp38496
+      //    i1 %vp55440 = icmp i32 %vp55072 i32 %ld
+      //    i32 %vp55616 =  select i1 %vp55440 i32 %ld i32 %vp55072
+      //    i64 %vp55888 = add i64 %vp54864 i64 1
+      //   SUCCESSORS(1):BB17
+      //   PREDECESSORS(1): BB21
+
+      //   BB17 (BP: NULL) :
+      //    i1 %vp25472 = not i1 %inner_loop_specific_mask
+      //    i1 %vp25632 = and i1 %loop_incoming_mask i1 %vp25472
+      //    i1 %vp25920 = block-predicate i1 %loop_incoming_mask
+      //    i1 %vp56048 = icmp i64 %vp55888 i64 %vp1824
+      //
+      //    ;; This "not" is because original latch was at false successor
+      //    i1 %continue_cond = not i1 %vp56048
+      //    i1 %inner_loop_specific_mask.next =
+      //       and i1 %continue_cond i1  %inner_loop_specific_mask
+      //
+      //    ;; Live-outs updates
+      //
+      //   i1 %vp20864 = all-zero-check i1 %inner_loop_specific_mask.next
+      //   no SUCCESSORS
+      //   PREDECESSORS(1): BB22
+      //
+      // After vectorizing the loop above we create something like
+      //
+      //    %wide.ld = gather %vector_gep, %real_mask, undef_vector
+      //
+      // All-zero-check is dependent on the result of this gather, including the
+      // lanes that were masked out by %real_mask (which includes
+      // %loop_incoming_mask). That means that for lanes masked out by
+      // %loop_incoming_mask we can only have undef values and naive
+      //
+      //   %vp1 bitcast <VF x i1> %innerl_loop_specific_mask.next to iVF
+      //   %should_exit %cmp %vp1, 0
+      //   br i1 %should_exit, %exit_bb, %header_bb
+      //
+      // would result in branching based on that undef, which is UB. To avoid
+      // this, use only the active lanes when calculating the all-zero-check.
+      // Note, that technically we can use either %loop_incoming_mask or
+      // %real_mask. The former is easily available, so use it. Also,
+      //
+      //   and undef, %vpval
+      //
+      // semantics isn't immediately obvious for the reader.
+      //
+      // Another approach to this issue is to modify Predicator/LoopCFU to have
+      // a single phi/value for the mask, but it looks like much more work.
+      // Changing the semantics of the all-zero-check VPInstruction to reflect
+      // the mask (similar to loads/stores/calls) doesn't seem to have any
+      // drawbacks and is much easier to do.
+      A = Builder.CreateAnd(A, MaskValue);
+    }
 
     // Bitcast <VF x i1> to an integer value VF bits long.
     Type *IntTy =

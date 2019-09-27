@@ -300,8 +300,24 @@ def FeatureAMXTRANSPOSE     : SubtargetFeature<"amx-transpose", "HasAMXTRANSPOSE
 def FeatureAMXMEMORY     : SubtargetFeature<"amx-memory", "HasAMXMEMORY", "true",
                                       "Support AMX amx-memory instructions",
                                       [FeatureAMXTILE]>;
-def FeatureAMXFP16     : SubtargetFeature<"amx-bf16", "HasAMXFP16", "true",
+def FeatureAMXFP16     : SubtargetFeature<"amx-fp16", "HasAMXFP16", "true",
                                       "Support AMX amx-fp16 instructions",
+                                      [FeatureAMXTILE]>;
+
+def FeatureAMXAVX512     : SubtargetFeature<"amx-avx512", "HasAMXAVX512", "true",
+                                      "Support AMX amx-avx512 instructions",
+                                      [FeatureAMXTILE]>;
+
+def FeatureAMXTILEEVEX     : SubtargetFeature<"amx-tile-evex", "HasAMXTILEEVEX", "true",
+                                      "Support AMX amx-tile-evex instructions",
+                                      [FeatureAMXTILE]>;
+
+def FeatureAMXINT8EVEX     : SubtargetFeature<"amx-int8-evex", "HasAMXINT8EVEX", "true",
+                                      "Support AMX amx-int8-evex instructions",
+                                      [FeatureAMXTILE]>;
+
+def FeatureAMXBF16EVEX     : SubtargetFeature<"amx-bf16-evex", "HasAMXBF16EVEX", "true",
+                                      "Support AMX amx-bf16-evex instructions",
                                       [FeatureAMXTILE]>;
 #endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION

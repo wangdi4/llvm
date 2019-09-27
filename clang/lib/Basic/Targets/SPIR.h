@@ -293,6 +293,11 @@ public:
       : WindowsX86_32SPIRTargetInfo(Triple, Opts) {
     LongDoubleWidth = LongDoubleAlign = 64;
     LongDoubleFormat = &llvm::APFloat::IEEEdouble();
+#if INTEL_COLLAB
+    if (Triple.getEnvironment() != llvm::Triple::SYCLDevice)
+      // Set Microsoft ABI in non-SYCL targetInfo compilations
+      TheCXXABI.set(TargetCXXABI::Microsoft);
+#endif  // INTEL_COLLAB
     assert(DataLayout->getPointerSizeInBits() == 32);
   }
 
@@ -351,6 +356,11 @@ public:
       : WindowsX86_64_SPIR64TargetInfo(Triple, Opts) {
     LongDoubleWidth = LongDoubleAlign = 64;
     LongDoubleFormat = &llvm::APFloat::IEEEdouble();
+#if INTEL_COLLAB
+    if (Triple.getEnvironment() != llvm::Triple::SYCLDevice)
+      // Set Microsoft ABI in non-SYCL targetInfo compilations
+      TheCXXABI.set(TargetCXXABI::Microsoft);
+#endif  // INTEL_COLLAB
     assert(DataLayout->getPointerSizeInBits() == 64);
   }
 

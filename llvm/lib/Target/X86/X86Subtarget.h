@@ -434,6 +434,10 @@ protected:
   bool HasAMXTRANSPOSE = false;
   bool HasAMXMEMORY = false;
   bool HasAMXFP16 = false;
+  bool HasAMXAVX512 = false;
+  bool HasAMXINT8EVEX = false;
+  bool HasAMXTILEEVEX = false;
+  bool HasAMXBF16EVEX = false;
 #endif // INTEL_FEATURE_ISA_AMX2
 
 #if INTEL_FEATURE_ISA_AVX_VNNI
@@ -805,6 +809,10 @@ public:
   bool hasAMXFORMAT() const { return HasAMXFORMAT; }
   bool hasAMXTRANSPOSE() const { return HasAMXTRANSPOSE; }
   bool hasAMXMEMORY() const { return HasAMXMEMORY; }
+  bool hasAMXAVX512() const { return HasAMXAVX512; }
+  bool hasAMXINT8EVEX() const { return HasAMXINT8EVEX; }
+  bool hasAMXTILEEVEX() const { return HasAMXTILEEVEX; }
+  bool hasAMXBF16EVEX() const { return HasAMXBF16EVEX; }
 #endif // INTEL_FEATURE_ISA_AMX2
 #if INTEL_FEATURE_ISA_AVX_VNNI
   bool hasAVXVNNI() const { return HasAVXVNNI; }

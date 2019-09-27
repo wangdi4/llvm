@@ -4,6 +4,11 @@
 ; REQUIRES: asserts
 ; RUN: opt -S < %s -VPlanDriver -vplan-force-vf=8 -disable-output -debug-only=VPlanHCFGBuilder 2>&1 | FileCheck %s
 
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+; Function Attrs: norecurse nounwind uwtable
+define dso_local i32 @main() #0 {
 ; CHECK-LABEL: Before merge loop exits transformation.
 ; CHECK-NEXT: VPlan IR for: HCFGBuilder: Plain CFG
 ; CHECK-EMPTY:
@@ -89,12 +94,6 @@
 ; CHECK-NEXT:    i1 [[vp_4000:%vp.*]] = phi  [ i1 [[vp_48064]], [[OrigLoopLatch]] ],  [ i1 true, [[IntermediateBB16]] ]
 ; CHECK-NEXT:   SUCCESSORS(2):[[IfBlock_17:IfBlock[0-9]+]](i1 [[vp_4000]]), [[LoopHeader]](!i1 [[vp_4000]])
 ; CHECK-NEXT:   PREDECESSORS(2): [[OrigLoopLatch]] [[IntermediateBB16]]
-
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
-
-; Function Attrs: norecurse nounwind uwtable
-define dso_local i32 @main() #0 {
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %loop1

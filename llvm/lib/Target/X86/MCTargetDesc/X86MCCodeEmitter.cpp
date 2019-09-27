@@ -924,11 +924,17 @@ void X86MCCodeEmitter::EmitVEXOpcodePrefix(uint64_t TSFlags, unsigned &CurByte,
     //   src1(ModR/M), src2(ModR/M), src3(VEX_4V)
     unsigned RegEnc = getX86RegEncoding(MI, CurOp++);
     VEX_R = ~(RegEnc >> 3) & 1;
+#if INTEL_CUSTOMIZATION
+    EVEX_R2 = ~(RegEnc >> 4) & 1;
 
     RegEnc = getX86RegEncoding(MI, CurOp++);
     VEX_B = ~(RegEnc >> 3) & 1;
+    VEX_X = ~(RegEnc >> 4) & 1;
 
-    VEX_4V = ~getX86RegEncoding(MI, CurOp++) & 0xf;
+    unsigned VRegEnc = getX86RegEncoding(MI, CurOp++);
+    VEX_4V = ~VRegEnc & 0xf;
+    EVEX_V2 = ~(VRegEnc >> 4) & 1;
+#endif // INTEL_CUSTOMIZATION
     break;
   }
   case X86II::MRMSrcRegOp4: {
@@ -979,6 +985,7 @@ void X86MCCodeEmitter::EmitVEXOpcodePrefix(uint64_t TSFlags, unsigned &CurByte,
     //  dst(ModR/M)
     unsigned RegEnc = getX86RegEncoding(MI, CurOp++);
     VEX_R = ~(RegEnc >> 3) & 1;
+    EVEX_R2 = ~(RegEnc >> 4) & 1;
     break;
   }
 #endif // INTEL_CUSTOMIZATION

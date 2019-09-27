@@ -1,5 +1,9 @@
 // RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-apple-darwin -target-feature +popcnt -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CHECK-POPCNT
 // RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-apple-darwin -emit-llvm -o - | FileCheck %s
+// INTEL_CUSTOMIZATION
+// RUN: %clang_cc1 -ffreestanding %s -triple=i686-apple-darwin -target-feature +popcnt -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CHECK-POPCNT
+// RUN: %clang_cc1 -ffreestanding %s -triple=i686-apple-darwin -emit-llvm -o - | FileCheck %s
+// end INTEL_CUSTOMIZATION
 
 
 #include <x86intrin.h>
@@ -21,7 +25,7 @@ int test__popcntd(unsigned int __X) {
   return __popcntd(__X);
 }
 
-#ifdef __x86_64__
+// #ifdef __x86_64__ //INTEL
 #ifdef __POPCNT__
 long long test_mm_popcnt_u64(unsigned long long __X) {
   //CHECK-POPCNT: call i64 @llvm.ctpop.i64
@@ -38,4 +42,4 @@ long long test__popcntq(unsigned long long __X) {
   //CHECK: call i64 @llvm.ctpop.i64
   return __popcntq(__X);
 }
-#endif
+// #endif //INTEL

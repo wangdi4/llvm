@@ -1000,8 +1000,9 @@ private:
     if (MainCurrent != MainEnd) {
       TempVector.push_back(MainCurrent->first);
       auto *LinkedList = IdiomList.getLinkedIdioms(MainCurrent->first);
-      for (auto Linked : *LinkedList)
-        TempVector.push_back(Linked);
+      if (LinkedList)
+        for (auto Linked : *LinkedList)
+          TempVector.push_back(Linked);
     }
   }
 

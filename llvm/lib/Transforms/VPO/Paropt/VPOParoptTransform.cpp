@@ -3408,6 +3408,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
           RegBuilder.CreateStore(Load, FprivI->getNew());
 
           FprivI->setOrig(Load);
+          FprivI->setIsPointer(true);
         }
       }
       else if (LprivI) { // && ForTask

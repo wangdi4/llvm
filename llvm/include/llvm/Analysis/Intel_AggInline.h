@@ -15,9 +15,9 @@
 
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Analysis/CallGraph.h"
-#include "llvm/IR/ValueHandle.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/IR/ValueHandle.h"
 #include "llvm/Pass.h"
 
 namespace llvm {
@@ -34,7 +34,6 @@ struct InlineAggressiveInfo {
 
   bool isAggInlineOccured(void);
 
-
 private:
   // List of calls that are marked as AggInline.
   std::vector<WeakTrackingVH> AggInlCalls;
@@ -44,8 +43,9 @@ private:
   bool setAggInlineInfo(CallBase &CB);
   void setAggInlInfoForCallSite(CallBase &CB);
   bool setAggInlineInfoForAllCallSites(Function *F);
-  bool trackUsesofAllocatedGlobalVariables(
-                             std::vector<GlobalVariable*> &Globals);
+  bool
+  trackUsesofAllocatedGlobalVariables(std::vector<GlobalVariable *> &Globals);
+  bool analyzeHugeMallocGlobalPointersHeuristic(Module &MI);
 };
 
 // Analysis pass providing a never-invalidated Inline Aggressive
@@ -80,6 +80,6 @@ public:
 
 ModulePass *createInlineAggressiveWrapperPassPass();
 
-}
+} // namespace llvm
 
 #endif

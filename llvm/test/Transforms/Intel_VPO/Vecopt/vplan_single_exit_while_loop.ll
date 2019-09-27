@@ -3,6 +3,11 @@
 ; REQUIRES: asserts
 ; RUN: opt -S %s -VPlanDriver -vplan-force-vf=8 -disable-vplan-codegen -debug 2>&1 | FileCheck %s
 
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+; Function Attrs: norecurse nounwind uwtable
+define dso_local i32 @main() #0 {
 ; CHECK-LABEL: Before single exit while loop transformation.
 ; CHECK: [[Header:BB[0-9]+]] (BP: NULL) :
 ; CHECK: i32 [[PHI0:%vp[0-9]+]] = phi  [ i32 0, {{BB[0-9]+}} ], [ i32 {{%vp[0-9]+}}, [[Latch:BB[0-9]+]] ]
@@ -105,12 +110,6 @@
 ; CHECK-NEXT: SUCCESSORS(1):{{BB[0-9]+}}
 ; CHECK-NEXT: PREDECESSORS(1): [[NewLoopLatch]]
 ; CHECK-EMPTY:
-
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
-
-; Function Attrs: norecurse nounwind uwtable
-define dso_local i32 @main() #0 {
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %loop1
