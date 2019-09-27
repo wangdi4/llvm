@@ -4229,36 +4229,6 @@ void CodeGenModule::generateIntelFPGAAnnotation(
       break;
     }
     Out << '}';
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-    if (getLangOpts().HLS ||
-        (getLangOpts().OpenCL &&
-         getContext().getTargetInfo().getTriple().isINTELFPGAEnvironment())) {
-      if (const DeclaratorDecl *DD = dyn_cast<DeclaratorDecl>(D)) {
-        QualType ElementTy = DD->getType();
-        Out << "{sizeinfo:";
-        // D can't be of type FunctionDecl (no attribute memory for a
-        // function declaration).
-        if (ElementTy->isConstantArrayType())
-          Out << getContext()
-                     .getTypeSizeInChars(
-                         getContext().getBaseElementType(ElementTy))
-                     .getQuantity();
-        else
-          Out << getContext().getTypeSizeInChars(ElementTy).getQuantity();
-        // Add to Out the dimenstion of the array.
-        while (const auto *AT = getContext().getAsArrayType(ElementTy)) {
-          // Expecting only constant array types, assert otherwise.
-          const auto *CAT = cast<ConstantArrayType>(AT);
-          Out << ",";
-          Out << CAT->getSize();
-          ElementTy = CAT->getElementType();
-        }
-        Out << '}';
-      }
-    }
-#endif // INTEL_CUSTOMIZATION
-=======
     if (const auto *DD = dyn_cast<DeclaratorDecl>(D)) {
       Out << "{sizeinfo:";
       // D can't be of type FunctionDecl (as no memory attribute can be applied
@@ -4277,7 +4247,6 @@ void CodeGenModule::generateIntelFPGAAnnotation(
       }
       Out << '}';
     }
->>>>>>> 8cae7b0712a60eae5a8681259dc9b22e98d312bb
   }
   if (D->hasAttr<IntelFPGASinglePumpAttr>())
     Out << "{pump:1}";
