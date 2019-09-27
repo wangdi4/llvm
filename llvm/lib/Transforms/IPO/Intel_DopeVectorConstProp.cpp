@@ -158,7 +158,8 @@ static bool replaceDopeVectorConstants(Argument &Arg,
       // specific dimension with constants, if we have determined them to
       // be constant.
       for (User *W : V->users()) {
-        auto LI = dyn_cast<LoadInst>(W);
+        // At this point, we have proved that only loads are the users of V
+        auto LI = cast<LoadInst>(W);
         Type *I64Ty = IntegerType::getInt64Ty(GEP.getContext());
         auto CI = ConstantInt::get(I64Ty, Values[I].getValue(), false);
         LI->replaceAllUsesWith(CI);
