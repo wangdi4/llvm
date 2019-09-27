@@ -230,6 +230,14 @@ bool ExecuteCompilerInvocation(CompilerInstance *Clang) {
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  // FIXME: This is a hack to remedy the buggy logic in community code at
+  // https://reviews.llvm.org/differential/changeset/?ref=1608090&
+  if (!Clang->getDiagnostics().isIgnored(
+      diag::warn_profile_data_misexpect, SourceLocation()))
+    Clang->getFrontendOpts().LLVMArgs.push_back("-pgo-warn-misexpect");
+#endif // INTEL_CUSTOMIZATION
+
   // Honor -mllvm.
   //
   // FIXME: Remove this, one day.
