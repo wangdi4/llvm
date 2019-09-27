@@ -352,7 +352,7 @@ static cl::opt<bool> EnableWPA("enable-npm-whole-program-analysis",
   cl::desc("Enable Whole Program analysis in the new pass manager"));
 #endif // INTEL_CUSTOMIZATION
 
-static Regex DefaultAliasRegex(
+static const Regex DefaultAliasRegex(
     "^(default|thinlto-pre-link|thinlto|lto-pre-link|lto)<(O[0123sz])>$");
 
 // This option is used in simplifying testing SampleFDO optimizations for

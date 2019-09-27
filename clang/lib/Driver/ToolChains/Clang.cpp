@@ -4872,6 +4872,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // Forward -sycl-std option to -cc1
   Args.AddLastArg(CmdArgs, options::OPT_sycl_std_EQ);
 
+  if (Args.hasFlag(options::OPT_fhip_new_launch_api,
+                   options::OPT_fno_hip_new_launch_api, false))
+    CmdArgs.push_back("-fhip-new-launch-api");
+
   if (Arg *A = Args.getLastArg(options::OPT_fcf_protection_EQ)) {
     CmdArgs.push_back(
         Args.MakeArgString(Twine("-fcf-protection=") + A->getValue()));
