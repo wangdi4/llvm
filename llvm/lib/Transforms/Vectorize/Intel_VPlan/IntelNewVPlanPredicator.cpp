@@ -329,7 +329,6 @@ VPlanPredicator::getOrCreateValueForPredicateTerm(PredicateTerm Term,
     auto *LiveIn = LiveValueMap[PredBB];
     if (!is_contained(IDFPHIBlocks, BB)) {
       LiveValueMap[BB] = LiveIn;
-      PredBB = BB;
       continue;
     }
     assert(BB != Block &&
@@ -359,7 +358,6 @@ VPlanPredicator::getOrCreateValueForPredicateTerm(PredicateTerm Term,
     // TODO: Should it be an assert instead?
     if (DA->isDivergent(*LiveIn))
       DA->markDivergent(*Phi);
-    PredBB = BB;
   }
 
   assert(LiveValueMap.count(AtBlock) == 1 && "Live for AtBlock not computed!");
