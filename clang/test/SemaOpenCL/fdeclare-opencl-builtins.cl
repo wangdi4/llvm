@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // This test is significantly modified, because
 // -finclude-default-header and -fdeclare-opencl-builtins
@@ -6,17 +5,9 @@
 // https://git-amr-2.devtools.intel.com/gerrit/194550
 // end INTEL_CUSTOMIZATION
 
-// RUN: %clang_cc1 %s -triple spir -verify -pedantic -fsyntax-only -cl-std=CL -fdeclare-opencl-builtins
-// RUN: %clang_cc1 %s -triple spir -verify -pedantic -fsyntax-only -cl-std=CL1.2 -fdeclare-opencl-builtins
-// RUN: %clang_cc1 %s -triple spir -verify -pedantic -fsyntax-only -cl-std=CL2.0 -fdeclare-opencl-builtins
-=======
-// RUN: %clang_cc1 %s -triple spir -verify -pedantic -Wconversion -Werror -fsyntax-only -cl-std=CL -fdeclare-opencl-builtins -DNO_HEADER
-// RUN: %clang_cc1 %s -triple spir -verify -pedantic -Wconversion -Werror -fsyntax-only -cl-std=CL -fdeclare-opencl-builtins -finclude-default-header
-// RUN: %clang_cc1 %s -triple spir -verify -pedantic -Wconversion -Werror -fsyntax-only -cl-std=CL1.2 -fdeclare-opencl-builtins -DNO_HEADER
-// RUN: %clang_cc1 %s -triple spir -verify -pedantic -Wconversion -Werror -fsyntax-only -cl-std=CL1.2 -fdeclare-opencl-builtins -finclude-default-header
-// RUN: %clang_cc1 %s -triple spir -verify -pedantic -Wconversion -Werror -fsyntax-only -cl-std=CL2.0 -fdeclare-opencl-builtins -DNO_HEADER
-// RUN: %clang_cc1 %s -triple spir -verify -pedantic -Wconversion -Werror -fsyntax-only -cl-std=CL2.0 -fdeclare-opencl-builtins -finclude-default-header
->>>>>>> 6c22eda1600c2933177ec82034f0890ba517b090
+// RUN: %clang_cc1 %s -triple spir -verify -pedantic -Wconversion -Werror -fsyntax-only -cl-std=CL -fdeclare-opencl-builtins
+// RUN: %clang_cc1 %s -triple spir -verify -pedantic -Wconversion -Werror -fsyntax-only -cl-std=CL1.2 -fdeclare-opencl-builtins
+// RUN: %clang_cc1 %s -triple spir -verify -pedantic -Wconversion -Werror -fsyntax-only -cl-std=CL2.0 -fdeclare-opencl-builtins
 
 #if __OPENCL_C_VERSION__ >= CL_VERSION_2_0
 // expected-no-diagnostics
