@@ -287,8 +287,10 @@ endif()
 set(CLANG_DEFAULT_OBJCOPY "objcopy" CACHE STRING
   "Default objcopy executable to use.")
 
-set(CLANG_DEFAULT_OPENMP_RUNTIME "libomp" CACHE STRING
+# INTEL_CUSTOMIZATION
+set(CLANG_DEFAULT_OPENMP_RUNTIME "libiomp5" CACHE STRING
   "Default OpenMP runtime used by -fopenmp.")
+# end INTEL_CUSTOMIZATION
 
 # OpenMP offloading requires at least sm_35 because we use shuffle instructions
 # to generate efficient code for reductions and the atomicMax instruction on
