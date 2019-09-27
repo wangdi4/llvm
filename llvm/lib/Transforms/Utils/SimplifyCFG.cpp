@@ -2462,16 +2462,11 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
           break;
         }
       }
-<<<<<<< HEAD
     }
     if (!CanBeSimplified) {
       // Continue to look for next "if condition".
       continue;
     }
-=======
-  }
-  assert(DomBlock && "Failed to find root DomBlock");
->>>>>>> b6d11def374cc8fb4186cba7c403110623e8d61d
 
     if (cast<BranchInst>(IfBlock2->getTerminator())->isConditional()) {
       IfBlock2 = nullptr;
@@ -2494,6 +2489,7 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
       continue;
     }
 
+    assert(CondBlock && "Failed to find root CondBlock");
     LLVM_DEBUG(dbgs() << "FOUND IF CONDITION!  " << *IfCond
                       << "  T: " << IfTrue->getName()
                       << "  F: " << IfFalse->getName() << "\n");
