@@ -119,8 +119,8 @@ bool computeUnrollCount(Loop *L, const TargetTransformInfo &TTI,
                         DominatorTree &DT, LoopInfo *LI, ScalarEvolution &SE,
                         const SmallPtrSetImpl<const Value *> &EphValues,
                         OptimizationRemarkEmitter *ORE, unsigned &TripCount,
-                        unsigned MaxTripCount, unsigned &TripMultiple,
-                        unsigned LoopSize,
+                        unsigned MaxTripCount, bool MaxOrZero,
+                        unsigned &TripMultiple, unsigned LoopSize,
                         TargetTransformInfo::UnrollingPreferences &UP,
                         bool &UseUpperBound);
 
