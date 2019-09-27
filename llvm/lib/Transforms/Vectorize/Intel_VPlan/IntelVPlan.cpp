@@ -902,6 +902,8 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "reduction-final";
   case VPInstruction::AllocatePrivate:
     return "allocate-priv";
+  case VPInstruction::Subscript:
+    return "subscript";
 #endif
   default:
     return Instruction::getOpcodeName(Opcode);

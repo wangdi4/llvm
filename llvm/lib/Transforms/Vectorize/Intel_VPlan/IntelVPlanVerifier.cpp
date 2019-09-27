@@ -14,6 +14,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "IntelVPlanUtils.h"
 #include "IntelVPlanVerifier.h"
 #include "llvm/Support/CommandLine.h"
 
@@ -687,6 +688,9 @@ void VPlanVerifier::verifySpecificInstruction(
   case Instruction::GetElementPtr:
     verifyGEPInstruction(cast<VPGEPInstruction>(VPInst));
     break;
+  case VPInstruction::Subscript:
+    verifySubscriptInst(cast<VPSubscriptInst>(VPInst));
+    break;
   case Instruction::ICmp:
     verifyICmpInst(VPInst);
     break;
@@ -807,6 +811,47 @@ void VPlanVerifier::verifyGEPInstruction(const VPGEPInstruction *GEP) const {
     assert((*OpIt)->getType()->isIntOrIntVectorTy() &&
            "GEP indexes must be integers.");
     (void)OpIt;
+  }
+}
+
+// Verify operands and type consistency of the given VPSubscriptInst
+// instruction.
+void VPlanVerifier::verifySubscriptInst(
+    const VPSubscriptInst *Subscript) const {
+  VPValue *Ptr = Subscript->getPointerOperand();
+  unsigned NumDims = Subscript->getNumDimensions();
+
+  Type *PtrTy = Ptr->getType();
+  assert(PtrTy->isPtrOrPtrVectorTy() &&
+         "SubscriptInst base ptr is not pointer type.");
+  (void)PtrTy;
+
+  Type *ResTy = Subscript->getType();
+  assert((ResTy->isPtrOrPtrVectorTy() &&
+          ResTy->getScalarType() == PtrTy->getScalarType()) &&
+         "SubscriptInst result type inconsistent with base pointer type.");
+  (void)ResTy;
+
+  assert(Subscript->getNumOperands() == 3 * NumDims + 1 &&
+         "SubscriptInst has invalid number of operands.");
+
+  for (int Dim = NumDims - 1; Dim >= 0; --Dim) {
+    unsigned Rank = Subscript->getRank(Dim);
+    VPValue *Lower = Subscript->getLower(Dim);
+    VPValue *Stride = Subscript->getStride(Dim);
+    VPValue *Index = Subscript->getIndex(Dim);
+
+    assert(
+        Rank <= 32 &&
+        "Rank cannot be greater than 32, max possible number of dimensions.");
+
+    VPValue *IntArgs[] = {Lower, Stride, Index};
+    assert(
+        all_of(IntArgs,
+               [](VPValue *V) { return V->getType()->isIntOrIntVectorTy(); }) &&
+        "SubscriptInst lower/stride/index must be integers.");
+    (void)IntArgs;
+    (void)Rank;
   }
 }
 

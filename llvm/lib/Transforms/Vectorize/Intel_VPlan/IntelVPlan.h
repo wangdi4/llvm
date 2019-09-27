@@ -489,6 +489,7 @@ public:
       ReductionInit,
       ReductionFinal,
       AllocatePrivate,
+      Subscript,
   };
 #else
   enum { Not = Instruction::OtherOpsEnd + 1 };
@@ -1015,6 +1016,193 @@ public:
     for (auto *O : make_range(op_begin()+1, op_end())) {
       Cloned->addOperand(O, isOperandStructOffset(O));
     }
+    return Cloned;
+  }
+};
+
+/// Concrete class to represent a single or multi-dimensional array access
+/// implemented using llvm.intel.subscript intrinsic calls in VPlan.
+// Consider the following two examples:
+//
+// 1. Single-dimension access
+//
+//    If the incoming IR contains:
+//    %0 = llvm.intel.subscript...(i8 %Rank, i32 %Lower, i32 %Stride,
+//                                 i32* %Base, i32 %Idx)
+//      (or)
+//    %0 = @(%Base)[%Idx]
+//
+//    The corresponding VPSubscriptInst in VPlan looks like:
+//    i32* %vp0 = subscript i32* %Base, i32 %Lower, i32 %Stride, i32 %Idx
+//
+//    where,
+//     getRank(0) = %Rank
+//     getLower(0) = %Lower
+//     getStride(0) = %Stride
+//     getIndex(0) = %Idx
+//
+// 2. Combined multi-dimensional access
+//
+//    If the incoming IR contains:
+//    %0 = llvm.intel.subscript...(i8 1, i32 %L1, i32 %S1, i32* %Base, i32 %I1)
+//    %1 = llvm.intel.subscript...(i8 0, i32 %L0, i32 %S0, i32* %0, i32 %I0)
+//      (or)
+//    %1 = @(%Base)[%I1][%I0]
+//
+//    The corresponding VPSubscriptInst in VPlan for combined access looks like:
+//    i32* %vp1 = subscript i32* %Base, i32 %L1, i32 %S1, i32 %I1,
+//                                      i32 %L0, i32 %S0, i32 %I0
+//
+//    where,
+//     getRank(1) = 1
+//     getLower(1) = %L1
+//     getStride(1) = %S1
+//     getIndex(1) = %I1
+//    and,
+//     getRank(0) = 0
+//     getLower(0) = %L0
+//     getStride(0) = %S0
+//     getIndex(0) = %I0
+class VPSubscriptInst final : public VPInstruction {
+public:
+  using DimStructOffsetsMapTy = DenseMap<unsigned, SmallVector<unsigned, 4>>;
+
+private:
+  // TODO: Below SmallVectors are currently assuming that dimensions are added
+  // in a fixed order i.e. outer-most dimension to inner-most dimension. To
+  // support flexibility in this ordering, DenseMaps will be needed. For
+  // example, for a 3-dimensional array access, Ranks = < 2, 1, 0 >.
+  SmallVector<unsigned, 4> Ranks;
+  // Struct offsets associated with each dimension of this array access. For
+  // example, incoming HIR contains:
+  // %1 = @(%Base)[%I1].0.1[%I2].0[%I3]
+  //
+  // then the map below will have following entries:
+  // Dim  --->  Offsets
+  //  2         {0, 1}
+  //  1          {0}
+  //  0          {}
+  //
+  // NOTE: This information is needed only if the subscript instruction
+  // is created via HIR-path. For LLVM-IR path the map will always be empty.
+  DimStructOffsetsMapTy DimStructOffsets;
+
+  /// Add a new dimension to represent the array access for this subscript
+  /// instruction.
+  void addDimension(unsigned Rank, VPValue *Lower, VPValue *Stride,
+                    VPValue *Index) {
+    if (Ranks.size() > 0) {
+      assert(Rank == Ranks.back() - 1 &&
+             "Dimension is being added in out-of-order fashion.");
+    }
+    assert(getNumOperands() > 0 &&
+           "Dimension is being added without base pointer.");
+    Ranks.push_back(Rank);
+    addOperand(Lower);
+    addOperand(Stride);
+    addOperand(Index);
+  }
+
+  unsigned getDimensionArrayIndex(unsigned Dim) const {
+    assert(Dim < getNumDimensions() && "Invalid dimension.");
+    unsigned Idx = getNumDimensions() - 1 - Dim;
+    return Idx;
+  }
+
+  /// Explicit copy constructor to copy the operand list, Ranks and struct
+  /// offsets map.
+  VPSubscriptInst(const VPSubscriptInst &Other)
+      : VPInstruction(VPInstruction::Subscript, Other.getType(), {}) {
+    for (auto *Op : Other.operands())
+      addOperand(Op);
+    Ranks = Other.Ranks;
+    DimStructOffsets = Other.DimStructOffsets;
+  }
+
+public:
+  /// Constructor to allow clients to create a VPSubscriptInst with a single
+  /// dimension only. Type of the instruction will be same as the type of the
+  /// base pointer operand.
+  VPSubscriptInst(unsigned Rank, VPValue *Lower, VPValue *Stride, VPValue *Base,
+                  VPValue *Index)
+      : VPInstruction(VPInstruction::Subscript, Base->getType(),
+                      {Base, Lower, Stride, Index}) {
+    Ranks.push_back(Rank);
+  }
+
+  /// Constructor to create a VPSubscriptInst that represents a combined
+  /// multi-dimensional array access. The fields are expected to be ordered from
+  /// highest-dimension to lowest-dimension.
+  VPSubscriptInst(unsigned NumDims, ArrayRef<VPValue *> Lowers,
+                  ArrayRef<VPValue *> Strides, VPValue *Base,
+                  ArrayRef<VPValue *> Indices)
+      : VPInstruction(VPInstruction::Subscript, Base->getType(), {Base}) {
+    assert((Lowers.size() == NumDims && Strides.size() == NumDims &&
+            Indices.size() == NumDims) &&
+           "Inconsistent parameters for multi-dimensional subscript access.");
+    for (unsigned I = 0; I < NumDims; ++I) {
+      unsigned Rank = NumDims - 1 - I;
+      addDimension(Rank, Lowers[I], Strides[I], Indices[I]);
+    }
+  }
+
+  /// Constructor to create a VPSubscriptInst that represents a combined
+  /// multi-dimensional array access when each dimension has corresponding
+  /// struct offsets. The fields are expected to be ordered from
+  /// highest-dimension to lowest-dimension.
+  VPSubscriptInst(unsigned NumDims, ArrayRef<VPValue *> Lowers,
+                  ArrayRef<VPValue *> Strides, VPValue *Base,
+                  ArrayRef<VPValue *> Indices,
+                  DimStructOffsetsMapTy StructOffsets)
+      : VPSubscriptInst(NumDims, Lowers, Strides, Base, Indices) {
+    DimStructOffsets = std::move(StructOffsets);
+  }
+
+  /// Get trailing struct offsets for given dimension.
+  ArrayRef<unsigned> getStructOffsets(unsigned Dim) const {
+    auto Iter = DimStructOffsets.find(Dim);
+    if (Iter != DimStructOffsets.end())
+      return Iter->second;
+    return ArrayRef<unsigned>(None);
+  }
+
+  /// Get number of dimensions associated with this array access.
+  unsigned getNumDimensions() const { return Ranks.size(); }
+
+  /// Get the rank for given dimension. For multi-dimensional accesses this
+  /// should be trivial as Dimension == Rank.
+  unsigned getRank(unsigned Dim) const {
+    return Ranks[getDimensionArrayIndex(Dim)];
+  }
+  /// Get the lower bound of index for given dimension.
+  VPValue *getLower(unsigned Dim) const {
+    unsigned OpIdx = (getDimensionArrayIndex(Dim) * 3) + 1;
+    return getOperand(OpIdx);
+  }
+  /// Get the stride of access for given dimension.
+  VPValue *getStride(unsigned Dim) const {
+    unsigned OpIdx = (getDimensionArrayIndex(Dim) * 3) + 2;
+    return getOperand(OpIdx);
+  }
+  /// Get the base pointer operand.
+  VPValue *getPointerOperand() const { return getOperand(0); }
+  /// Get the index operand for given dimension.
+  VPValue *getIndex(unsigned Dim) const {
+    unsigned OpIdx = (getDimensionArrayIndex(Dim) * 3) + 3;
+    return getOperand(OpIdx);
+  }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::Subscript;
+  }
+
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  virtual VPSubscriptInst *cloneImpl() const {
+    VPSubscriptInst *Cloned = new VPSubscriptInst(*this);
     return Cloned;
   }
 };

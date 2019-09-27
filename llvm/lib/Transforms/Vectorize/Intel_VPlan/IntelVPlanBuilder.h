@@ -273,6 +273,58 @@ public:
     return NewVPInst;
   }
 
+  // Build a single-dimensional VPSubscriptInst to represent a subscript
+  // intrinsic call.
+  VPSubscriptInst *createSubscriptInst(unsigned Rank, VPValue *Lower,
+                                       VPValue *Stride, VPValue *Base,
+                                       VPValue *Index,
+                                       Instruction *Inst = nullptr,
+                                       const Twine &Name = "subscript") {
+    VPSubscriptInst *NewSubscript =
+        new VPSubscriptInst(Rank, Lower, Stride, Base, Index);
+    NewSubscript->setName(Name);
+    if (BB)
+      BB->insert(NewSubscript, InsertPt);
+    if (Inst)
+      NewSubscript->setUnderlyingValue(*Inst);
+    return NewSubscript;
+  }
+
+  // Build a multi-dimensional VPSubscriptInst to represent a combined
+  // multi-dimensional array access implemented using subscript intrinsic calls.
+  // TODO: Such an access would usually have multiple underlying instructions,
+  // how to map the VPValue to multiple Values?
+  VPSubscriptInst *createSubscriptInst(unsigned NumDims,
+                                       ArrayRef<VPValue *> Lowers,
+                                       ArrayRef<VPValue *> Strides,
+                                       VPValue *Base,
+                                       ArrayRef<VPValue *> Indices,
+                                       const Twine &Name = "subscript") {
+    VPSubscriptInst *NewSubscript =
+        new VPSubscriptInst(NumDims, Lowers, Strides, Base, Indices);
+    NewSubscript->setName(Name);
+    if (BB)
+      BB->insert(NewSubscript, InsertPt);
+    return NewSubscript;
+  }
+
+  // Build a multi-dimensional VPSubscriptInst to represent a combined
+  // multi-dimensional array access implemented using subscript intrinsic calls
+  // when each dimension has associated struct offsets.
+  VPSubscriptInst *
+  createSubscriptInst(unsigned NumDims, ArrayRef<VPValue *> Lowers,
+                      ArrayRef<VPValue *> Strides, VPValue *Base,
+                      ArrayRef<VPValue *> Indices,
+                      VPSubscriptInst::DimStructOffsetsMapTy StructOffsets,
+                      const Twine &Name = "subscript") {
+    VPSubscriptInst *NewSubscript = new VPSubscriptInst(
+        NumDims, Lowers, Strides, Base, Indices, StructOffsets);
+    NewSubscript->setName(Name);
+    if (BB)
+      BB->insert(NewSubscript, InsertPt);
+    return NewSubscript;
+  }
+
   // Reduction init/final
   VPInstruction *createReductionInit(VPValue *Identity, VPValue *Start,
                                      const Twine &Name = "") {
