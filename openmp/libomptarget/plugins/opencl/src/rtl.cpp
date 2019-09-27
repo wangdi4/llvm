@@ -293,8 +293,8 @@ class RTLDeviceInfoTy {
 
 public:
   cl_uint numDevices;
+  cl_platform_id platformID;
   // per device information
-  std::vector<cl_platform_id> platformIDs;
   std::vector<cl_device_id> deviceIDs;
   std::vector<int32_t> maxWorkGroups;
   std::vector<size_t> maxWorkGroupSize;
@@ -311,6 +311,7 @@ public:
   int64_t flag;
   int32_t DataTransferLatency;
   int32_t DataTransferMethod;
+  cl_device_type DeviceType;
   const int64_t DEVICE_LIMIT_NUM_WORK_GROUPS = 0x1;
   const int64_t DATA_TRANSFER_LATENCY = 0x2;
 
@@ -350,6 +351,23 @@ public:
         DataTransferMethod = DATA_TRANSFER_METHOD_CLMEM;
       }
     }
+    // Read LIBOMPTARGET_DEVICETYPE
+    DeviceType = CL_DEVICE_TYPE_GPU;
+    if ((env = std::getenv("LIBOMPTARGET_DEVICETYPE"))) {
+      std::string value(env);
+      if (value == "GPU" || value == "gpu")
+        DeviceType = CL_DEVICE_TYPE_GPU;
+      else if (value == "ACCELERATOR" || value == "accelerator")
+        DeviceType = CL_DEVICE_TYPE_ACCELERATOR;
+      else if (value == "CPU" || value == "cpu")
+        DeviceType = CL_DEVICE_TYPE_CPU;
+      else
+        DP("Warning: Invalid LIBOMPTARGET_DEVICETYPE=%s\n", env);
+    }
+    DP("Target device type is set to %s\n",
+       (DeviceType == CL_DEVICE_TYPE_GPU) ? "GPU" : (
+       (DeviceType == CL_DEVICE_TYPE_ACCELERATOR) ? "ACCELERATOR" : (
+       (DeviceType == CL_DEVICE_TYPE_CPU) ? "CPU" : "INVALID")));
   }
 
   ~RTLDeviceInfoTy() {
@@ -455,9 +473,6 @@ int32_t __tgt_rtl_number_of_devices() {
   std::vector<cl_platform_id> platformIds(platformIdCount);
   clGetPlatformIDs(platformIdCount, platformIds.data(), nullptr);
 
-  std::vector<cl_device_id> deviceIDTail;
-  std::vector<cl_platform_id> platformIDTail;
-
   // OpenCL device IDs are stored in a list so that
   // 1. All device IDs from a single platform are stored consecutively.
   // 2. Device IDs from a platform having at least one GPU device appear
@@ -476,47 +491,21 @@ int32_t __tgt_rtl_number_of_devices() {
     if (rc != CL_SUCCESS || strncmp("OpenCL 2.1", buf.data(), 8)) {
       continue;
     }
-    cl_uint numGPU = 0, numACC = 0, numCPU = 0;
-    char *envStr = getenv("LIBOMPTARGET_DEVICETYPE");
-    if (!envStr || strncmp(envStr, "GPU", 3) == 0)
-      clGetDeviceIDs(id, CL_DEVICE_TYPE_GPU, 0, nullptr, &numGPU);
-    if (!envStr || strncmp(envStr, "ACCELERATOR", 11) == 0)
-      clGetDeviceIDs(id, CL_DEVICE_TYPE_ACCELERATOR, 0, nullptr, &numACC);
-    if (!envStr || strncmp(envStr, "CPU", 3) == 0)
-      clGetDeviceIDs(id, CL_DEVICE_TYPE_CPU, 0, nullptr, &numCPU);
-    cl_uint numCurrDevices = numGPU + numACC + numCPU;
-    if (numCurrDevices == 0)
+    cl_uint numDevices = 0;
+    clGetDeviceIDs(id, DeviceInfo.DeviceType, 0, nullptr, &numDevices);
+    if (numDevices == 0)
       continue;
 
-    DP("Platform %s has %d GPUs, %d ACCELERATORS, %d CPUs\n", buf.data(),
-       numGPU, numACC, numCPU);
-    std::vector<cl_device_id> currDeviceIDs(numCurrDevices);
-    std::vector<cl_platform_id> currPlatformIDs(numCurrDevices, id);
-    // There is at least one element in currDeviceIDs allocated
-    // at this point.
-    clGetDeviceIDs(id, CL_DEVICE_TYPE_GPU, numGPU, &currDeviceIDs[0],
-                   nullptr);
-    if (numACC > 0)
-      clGetDeviceIDs(id, CL_DEVICE_TYPE_ACCELERATOR, numACC,
-                     &currDeviceIDs[numGPU], nullptr);
-    if (numCPU > 0)
-      clGetDeviceIDs(id, CL_DEVICE_TYPE_CPU, numCPU,
-                     &currDeviceIDs[numGPU + numACC], nullptr);
-
-    std::vector<cl_device_id> *dID = &DeviceInfo.deviceIDs;
-    std::vector<cl_platform_id> *pID = &DeviceInfo.platformIDs;
-    if (numGPU == 0) {
-      dID = &deviceIDTail;
-      pID = &platformIDTail;
-    }
-    dID->insert(dID->end(), currDeviceIDs.begin(), currDeviceIDs.end());
-    pID->insert(pID->end(), currPlatformIDs.begin(), currPlatformIDs.end());
-    DeviceInfo.numDevices += numCurrDevices;
+    DP("Platform %s has %" PRIu32 " Devices\n", buf.data(), numDevices);
+    DeviceInfo.deviceIDs.resize(numDevices);
+    clGetDeviceIDs(id, DeviceInfo.DeviceType, numDevices,
+                   DeviceInfo.deviceIDs.data(), nullptr);
+    DeviceInfo.numDevices = numDevices;
+    DeviceInfo.platformID = id;
+    break;
+    // It is unrealistic to have multiple platforms that support the same
+    // device type, so breaking here should be fine.
   }
-  DeviceInfo.deviceIDs.insert(DeviceInfo.deviceIDs.end(),
-                              deviceIDTail.begin(), deviceIDTail.end());
-  DeviceInfo.platformIDs.insert(DeviceInfo.platformIDs.end(),
-                                platformIDTail.begin(), platformIDTail.end());
 
   DeviceInfo.maxWorkGroups.resize(DeviceInfo.numDevices);
   DeviceInfo.maxWorkGroupSize.resize(DeviceInfo.numDevices);
@@ -573,7 +562,7 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
          "bad device id");
 
   // create context
-  auto PlatformID = DeviceInfo.platformIDs[device_id];
+  auto PlatformID = DeviceInfo.platformID;
   cl_context_properties props[] = {
       CL_CONTEXT_PLATFORM,
       (cl_context_properties)PlatformID, 0};
@@ -765,7 +754,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
       ExtensionStatusEnabled)
     ExtCall = reinterpret_cast<decltype(ExtCall)>(
         clGetExtensionFunctionAddressForPlatform(
-            DeviceInfo.platformIDs[device_id],
+            DeviceInfo.platformID,
             "clGetDeviceGlobalVariablePointerINTEL"));
 
   if (!ExtCall) {
