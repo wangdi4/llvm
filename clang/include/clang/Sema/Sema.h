@@ -9404,6 +9404,20 @@ private:
                                                bool MightBeOdrUse);
 
 public:
+  /// Struct to store the context selectors info for declare variant directive.
+  struct OpenMPDeclareVariantCtsSelectorData {
+    OMPDeclareVariantAttr::CtxSelectorSetType CtxSet =
+        OMPDeclareVariantAttr::CtxSetUnknown;
+    OMPDeclareVariantAttr::CtxSelectorType Ctx =
+        OMPDeclareVariantAttr::CtxUnknown;
+    StringRef ImplVendor;
+    explicit OpenMPDeclareVariantCtsSelectorData() = default;
+    explicit OpenMPDeclareVariantCtsSelectorData(
+        OMPDeclareVariantAttr::CtxSelectorSetType CtxSet,
+        OMPDeclareVariantAttr::CtxSelectorType Ctx, StringRef ImplVendor)
+        : CtxSet(CtxSet), Ctx(Ctx), ImplVendor(ImplVendor) {}
+  };
+
   /// Checks if the variant/multiversion functions are compatible.
   bool areMultiversionVariantFunctionsCompatible(
       const FunctionDecl *OldFD, const FunctionDecl *NewFD,
@@ -9852,10 +9866,9 @@ public:
   /// \param VariantRef Expression that references the variant function, which
   /// must be used instead of the original one, specified in \p DG.
   /// \returns None, if the function/variant function are not compatible with
-  /// the pragma,pair of original function/variant ref expression otherwise.
-  Optional<std::pair<FunctionDecl *, Expr *>>
-  checkOpenMPDeclareVariantFunction(DeclGroupPtrTy DG, Expr *VariantRef,
-                                    SourceRange SR);
+  /// the pragma, pair of original function/variant ref expression otherwise.
+  Optional<std::pair<FunctionDecl *, Expr *>> checkOpenMPDeclareVariantFunction(
+      DeclGroupPtrTy DG, Expr *VariantRef, SourceRange SR);
 
   /// Called on well-formed '\#pragma omp declare variant' after parsing of
   /// the associated method/function.
@@ -9863,12 +9876,20 @@ public:
   /// applied to.
   /// \param VariantRef Expression that references the variant function, which
   /// must be used instead of the original one, specified in \p DG.
+<<<<<<< HEAD
   void ActOnOpenMPDeclareVariantDirective(FunctionDecl *FD, Expr *VariantRef,
 #if INTEL_CUSTOMIZATION
     SmallVectorImpl<OMPDeclareVariantAttr::ConstructTy> &Constructs,
     SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &Devices,
 #endif // INTEL_CUSTOMIZATION
                                           SourceRange SR);
+=======
+  /// \param Data Set of context-specific data for the specified context
+  /// selector.
+  void ActOnOpenMPDeclareVariantDirective(
+      FunctionDecl *FD, Expr *VariantRef, SourceRange SR,
+      const Sema::OpenMPDeclareVariantCtsSelectorData &Data);
+>>>>>>> 9ff34745a2e60712a2d79f8dde448841efb64ab6
 
   OMPClause *ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind,
                                          Expr *Expr,

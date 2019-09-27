@@ -799,6 +799,7 @@ Parser::ParseOMPDeclareSimdClauses(Parser::DeclGroupPtrTy Ptr,
       LinModifiers, Steps, SourceRange(Loc, EndLoc));
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Parses the 'construct' part of the match clause.
 ///
@@ -910,12 +911,71 @@ static bool parseMatchDevices(Parser &P,
   return IsError;
 }
 #endif // INTEL_CUSTOMIZATION
+=======
+/// Parse context selector for 'implementation' selector set:
+/// 'vendor' '(' <vendor> ')'
+static void
+parseImplementationSelector(Parser &P,
+                            Sema::OpenMPDeclareVariantCtsSelectorData &Data) {
+  const Token &Tok = P.getCurToken();
+  // Parse inner context selector set name, if any.
+  if (!Tok.is(tok::identifier)) {
+    P.Diag(Tok.getLocation(), diag::warn_omp_declare_variant_cs_name_expected)
+        << "implementation";
+    // Skip until either '}', ')', or end of directive.
+    while (!P.SkipUntil(tok::r_brace, tok::r_paren,
+                        tok::annot_pragma_openmp_end, Parser::StopBeforeMatch))
+      ;
+    return;
+  }
+  SmallString<16> Buffer;
+  StringRef CtxSelectorName = P.getPreprocessor().getSpelling(Tok, Buffer);
+  OMPDeclareVariantAttr::CtxSelectorType CSKind =
+      OMPDeclareVariantAttr::CtxUnknown;
+  (void)OMPDeclareVariantAttr::ConvertStrToCtxSelectorType(CtxSelectorName,
+                                                           CSKind);
+  (void)P.ConsumeToken();
+  switch (CSKind) {
+  case OMPDeclareVariantAttr::CtxVendor: {
+    // Parse '('.
+    BalancedDelimiterTracker T(P, tok::l_paren, tok::annot_pragma_openmp_end);
+    (void)T.expectAndConsume(diag::err_expected_lparen_after,
+                             CtxSelectorName.data());
+    // Parse <vendor>.
+    StringRef VendorName;
+    if (Tok.is(tok::identifier)) {
+      VendorName = P.getPreprocessor().getSpelling(P.getCurToken(), Buffer);
+      (void)P.ConsumeToken();
+    } else {
+      P.Diag(Tok.getLocation(), diag::err_omp_declare_variant_item_expected)
+          << "vendor identifier" << "vendor" << "implementation";
+    }
+    // Parse ')'.
+    (void)T.consumeClose();
+    if (!VendorName.empty())
+      Data.ImplVendor = VendorName;
+    break;
+  }
+  case OMPDeclareVariantAttr::CtxUnknown:
+    P.Diag(Tok.getLocation(), diag::warn_omp_declare_variant_cs_name_expected)
+        << "implementation";
+    // Skip until either '}', ')', or end of directive.
+    while (!P.SkipUntil(tok::r_brace, tok::r_paren,
+                        tok::annot_pragma_openmp_end, Parser::StopBeforeMatch))
+      ;
+    return;
+  }
+  Data.CtxSet = OMPDeclareVariantAttr::CtxSetImplementation;
+  Data.Ctx = CSKind;
+}
+>>>>>>> 9ff34745a2e60712a2d79f8dde448841efb64ab6
 
 /// Parses clauses for 'declare variant' directive.
 /// clause:
 /// <selector_set_name> '=' '{' <context_selectors> '}'
 /// [ ',' <selector_set_name> '=' '{' <context_selectors> '}' ]
 bool Parser::parseOpenMPContextSelectors(
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     SourceLocation Loc,
     llvm::function_ref<
@@ -926,6 +986,12 @@ bool Parser::parseOpenMPContextSelectors(
   SmallVector<OMPDeclareVariantAttr::DeviceTy, 3> Devices;
   bool IsError = false;
 #endif // INTEL_CUSTOMIZATION
+=======
+    SourceLocation Loc,
+    llvm::function_ref<void(SourceRange,
+                            const Sema::OpenMPDeclareVariantCtsSelectorData &)>
+        Callback) {
+>>>>>>> 9ff34745a2e60712a2d79f8dde448841efb64ab6
   do {
     // Parse inner context selector set name.
     if (!Tok.is(tok::identifier)) {
@@ -934,23 +1000,25 @@ bool Parser::parseOpenMPContextSelectors(
       return true;
     }
     SmallString<16> Buffer;
-    StringRef CtxSelectorName = PP.getSpelling(Tok, Buffer);
+    StringRef CtxSelectorSetName = PP.getSpelling(Tok, Buffer);
     // Parse '='.
     (void)ConsumeToken();
     if (Tok.isNot(tok::equal)) {
       Diag(Tok.getLocation(), diag::err_omp_declare_variant_equal_expected)
-          << CtxSelectorName;
+          << CtxSelectorSetName;
       return true;
     }
     (void)ConsumeToken();
     // TBD: add parsing of known context selectors.
     // Unknown selector - just ignore it completely.
+    Sema::OpenMPDeclareVariantCtsSelectorData Data;
     {
       // Parse '{'.
       BalancedDelimiterTracker TBr(*this, tok::l_brace,
                                    tok::annot_pragma_openmp_end);
       if (TBr.expectAndConsume(diag::err_expected_lbrace_after, "="))
         return true;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       if (getLangOpts().OpenMPLateOutline) {
         if (CtxSelectorName.equals("construct")) {
@@ -977,6 +1045,27 @@ bool Parser::parseOpenMPContextSelectors(
       Callback(Constructs, Devices, SR);
     }
 #endif // INTEL_CUSTOMIZATION
+=======
+      OMPDeclareVariantAttr::CtxSelectorSetType CSSKind =
+          OMPDeclareVariantAttr::CtxSetUnknown;
+      (void)OMPDeclareVariantAttr::ConvertStrToCtxSelectorSetType(
+          CtxSelectorSetName, CSSKind);
+      switch (CSSKind) {
+      case OMPDeclareVariantAttr::CtxSetImplementation:
+        parseImplementationSelector(*this, Data);
+        break;
+      case OMPDeclareVariantAttr::CtxSetUnknown:
+        // Skip until either '}', ')', or end of directive.
+        while (!SkipUntil(tok::r_brace, tok::r_paren,
+                          tok::annot_pragma_openmp_end, StopBeforeMatch))
+          ;
+        break;
+      }
+      // Parse '}'.
+      (void)TBr.consumeClose();
+    }
+    Callback(SourceRange(Loc, Tok.getLocation()), Data);
+>>>>>>> 9ff34745a2e60712a2d79f8dde448841efb64ab6
     // Consume ','
     if (Tok.isNot(tok::r_paren) && Tok.isNot(tok::annot_pragma_openmp_end))
       (void)ExpectAndConsume(tok::comma);
@@ -1049,6 +1138,7 @@ void Parser::ParseOMPDeclareVariantClauses(Parser::DeclGroupPtrTy Ptr,
   }
 
   // Parse inner context selectors.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (!parseOpenMPContextSelectors(
           Loc,
@@ -1064,6 +1154,17 @@ void Parser::ParseOMPDeclareVariantClauses(Parser::DeclGroupPtrTy Ptr,
                   Constructs, Devices, SR);
 #endif // INTEL_CUSTOMIZATION
       })) {
+=======
+  if (!parseOpenMPContextSelectors(
+          Loc, [this, &DeclVarData](
+                   SourceRange SR,
+                   const Sema::OpenMPDeclareVariantCtsSelectorData &Data) {
+            if (DeclVarData.hasValue())
+              Actions.ActOnOpenMPDeclareVariantDirective(
+                  DeclVarData.getValue().first, DeclVarData.getValue().second,
+                  SR, Data);
+          })) {
+>>>>>>> 9ff34745a2e60712a2d79f8dde448841efb64ab6
     // Parse ')'.
     (void)T.consumeClose();
     // Need to check for extra tokens.

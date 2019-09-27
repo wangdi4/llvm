@@ -472,10 +472,16 @@ static void instantiateOMPDeclareVariantAttr(
   if (!DeclVarData)
     return;
   // Instantiate the attribute.
+  Sema::OpenMPDeclareVariantCtsSelectorData Data(
+      Attr.getCtxSelectorSet(), Attr.getCtxSelector(), Attr.getImplVendor());
   S.ActOnOpenMPDeclareVariantDirective(DeclVarData.getValue().first,
                                        DeclVarData.getValue().second,
+<<<<<<< HEAD
                                        Constructs, Devices, // INTEL
                                        Attr.getRange());
+=======
+                                       Attr.getRange(), Data);
+>>>>>>> 9ff34745a2e60712a2d79f8dde448841efb64ab6
 }
 
 static void instantiateDependentAMDGPUFlatWorkGroupSizeAttr(

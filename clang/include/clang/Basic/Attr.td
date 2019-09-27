@@ -3651,6 +3651,7 @@ def OMPDeclareVariant : Attr {
   let HasCustomParsing = 1;
   let Documentation = [OMPDeclareVariantDocs];
   let Args = [
+<<<<<<< HEAD
     ExprArgument<"VariantFuncRef">
 // INTEL_CUSTOMIZATION
   , VariadicEnumArgument<"Construct", "ConstructTy",
@@ -3662,6 +3663,22 @@ def OMPDeclareVariant : Attr {
        VariadicEnumArgument<"Device", "DeviceTy",
           ["", "gen"], ["Device_None", "Device_Arch_Gen"]>
 // end INTEL_CUSTOMIZATION
+=======
+    ExprArgument<"VariantFuncRef">,
+    EnumArgument<"CtxSelectorSet", "CtxSelectorSetType",
+                 [ "", "implementation"
+                 ],
+                 [
+                   "CtxSetUnknown", "CtxSetImplementation"
+                 ]>,
+    EnumArgument<"CtxSelector", "CtxSelectorType",
+                 [ "", "vendor"
+                 ],
+                 [
+                   "CtxUnknown", "CtxVendor"
+                 ]>,
+    StringArgument<"ImplVendor", 1>
+>>>>>>> 9ff34745a2e60712a2d79f8dde448841efb64ab6
   ];
   let AdditionalMembers = [{
 // INTEL_CUSTOMIZATION
@@ -3680,13 +3697,33 @@ def OMPDeclareVariant : Attr {
 // end INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream & OS, const PrintingPolicy &Policy)
         const {
+      assert(getCtxSelectorSet() != CtxSetUnknown &&
+             getCtxSelector() != CtxUnknown && "Unknown context selector.");
       if (const Expr *E = getVariantFuncRef()) {
         OS << "(";
         E->printPretty(OS, nullptr, Policy);
         OS << ")";
       }
       // TODO: add printing of real context selectors.
-      OS << " match(unknown={})";
+      OS << " match(";
+      switch (getCtxSelectorSet()) {
+      case CtxSetImplementation:
+        OS << "implementation={";
+        switch (getCtxSelector()) {
+        case CtxVendor:
+          OS << "vendor(";
+          OS << getImplVendor();
+          OS << ")";
+          break;
+        case CtxUnknown:
+          llvm_unreachable("Unknown context selector.");
+        }
+        OS << "}";
+        break;
+      case CtxSetUnknown:
+        llvm_unreachable("Unknown context selector set.");
+      }
+      OS << ")";
     }
   }];
 }
