@@ -969,6 +969,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_under_exit:
     Changed |= setDoesNotReturn(F);
     return Changed;
+  case LibFunc_under_fileno:
+    return Changed;
   case LibFunc_under_invalid_parameter_noinfo_noreturn:
     Changed |= setDoesNotReturn(F);
     return Changed;
@@ -976,6 +978,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_under_set_errno:
+    return Changed;
+  case LibFunc_under_setmode:
     return Changed;
   case LibFunc_under_purecall:
     Changed |= setDoesNotReturn(F);
@@ -1795,6 +1799,10 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_under_time64:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_under_wassert:
+    Changed |= setDoesNotReturn(F);
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_tolower:
