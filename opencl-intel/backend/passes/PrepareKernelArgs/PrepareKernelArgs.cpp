@@ -212,7 +212,7 @@ namespace intel{
       currOffset = arguments.back().offset_in_bytes +
                    TypeAlignment::getSize(arguments.back());
       currOffset = ImplicitArgsUtils::getAdjustedAlignment(
-          currOffset, m_DL->getPointerABIAlignment(m_DL->getAllocaAddrSpace()));
+          currOffset, m_DL->getPointerABIAlignment(m_DL->getAllocaAddrSpace()).value());
     }
     // Handle implicit arguments
     // Set to the Work Group Info implicit arg, as soon as it is known. Used for
