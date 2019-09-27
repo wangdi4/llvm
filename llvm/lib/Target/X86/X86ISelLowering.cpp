@@ -21518,7 +21518,6 @@ SDValue X86TargetLowering::LowerSETCC(SDValue Op, SelectionDAG &DAG) const {
   SDLoc dl(Op);
   ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(2))->get();
 
-<<<<<<< HEAD
   // Handle f128 first, since one possible outcome is a normal integer
   // comparison which gets handled by emitFlagsForSetcc.
   if (Op0.getValueType() == MVT::f128) {
@@ -21532,21 +21531,6 @@ SDValue X86TargetLowering::LowerSETCC(SDValue Op, SelectionDAG &DAG) const {
     }
   }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-  if (Op0.getSimpleValueType() == MVT::f16) {
-    SDValue FSetCC =
-        LowerFPSETCC(X86ISD::FSETCCM, Op, MVT::v1i1, Subtarget, DAG);
-    SDValue Ins = DAG.getNode(ISD::INSERT_SUBVECTOR, dl, MVT::v8i1,
-                              DAG.getConstant(0, dl, MVT::v8i1),
-                              FSetCC, DAG.getIntPtrConstant(0, dl));
-    return DAG.getBitcast(MVT::i8, Ins);
-  }
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-
-=======
->>>>>>> ca31ee806ad4d1ece87879f39fb230dbda97e3ba
   SDValue X86CC;
   SDValue EFLAGS = emitFlagsForSetcc(Op0, Op1, CC, dl, DAG, X86CC);
   if (!EFLAGS)
