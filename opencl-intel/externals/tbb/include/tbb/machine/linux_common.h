@@ -1,21 +1,17 @@
 /*
-    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2019 Intel Corporation
 
-    The source code contained or described herein and all documents related
-    to the source code ("Material") are owned by Intel Corporation or its
-    suppliers or licensors.  Title to the Material remains with Intel
-    Corporation or its suppliers and licensors.  The Material is protected
-    by worldwide copyright laws and treaty provisions.  No part of the
-    Material may be used, copied, reproduced, modified, published, uploaded,
-    posted, transmitted, distributed, or disclosed in any way without
-    Intel's prior express written permission.
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    No license under any patent, copyright, trade secret or other
-    intellectual property right is granted to or conferred upon you by
-    disclosure or delivery of the Materials, either expressly, by
-    implication, inducement, estoppel or otherwise.  Any license under such
-    intellectual property rights must be express and approved by Intel in
-    writing.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
 */
 
 #ifndef __TBB_machine_H
@@ -30,19 +26,44 @@
 #include <sys/syscall.h>
 
 #if defined(SYS_futex)
+/* This header file is included for Linux and some other systems that may support futexes.*/
 
 #define __TBB_USE_FUTEX 1
+
+#if defined(__has_include)
+#define __TBB_has_include __has_include
+#else
+#define __TBB_has_include(x) 0
+#endif
+
+/*
+If available, use typical headers where futex API is defined. While Linux and OpenBSD
+are known to provide such headers, other systems might have them as well.
+*/
+#if defined(__linux__) || __TBB_has_include(<linux/futex.h>)
+#include <linux/futex.h>
+#elif defined(__OpenBSD__) || __TBB_has_include(<sys/futex.h>)
+#include <sys/futex.h>
+#endif
+
 #include <limits.h>
 #include <errno.h>
-// Unfortunately, some versions of Linux do not have a header that defines FUTEX_WAIT and FUTEX_WAKE.
 
-#ifdef FUTEX_WAIT
+/*
+Some systems might not define the macros or use different names. In such case we expect
+the actual parameter values to match Linux: 0 for wait, 1 for wake.
+*/
+#if defined(FUTEX_WAIT_PRIVATE)
+#define __TBB_FUTEX_WAIT FUTEX_WAIT_PRIVATE
+#elif defined(FUTEX_WAIT)
 #define __TBB_FUTEX_WAIT FUTEX_WAIT
 #else
 #define __TBB_FUTEX_WAIT 0
 #endif
 
-#ifdef FUTEX_WAKE
+#if defined(FUTEX_WAKE_PRIVATE)
+#define __TBB_FUTEX_WAKE FUTEX_WAKE_PRIVATE
+#elif defined(FUTEX_WAKE)
 #define __TBB_FUTEX_WAKE FUTEX_WAKE
 #else
 #define __TBB_FUTEX_WAKE 1

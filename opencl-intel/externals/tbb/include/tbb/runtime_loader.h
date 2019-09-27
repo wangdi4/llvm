@@ -1,25 +1,35 @@
 /*
-    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2019 Intel Corporation
 
-    The source code contained or described herein and all documents related
-    to the source code ("Material") are owned by Intel Corporation or its
-    suppliers or licensors.  Title to the Material remains with Intel
-    Corporation or its suppliers and licensors.  The Material is protected
-    by worldwide copyright laws and treaty provisions.  No part of the
-    Material may be used, copied, reproduced, modified, published, uploaded,
-    posted, transmitted, distributed, or disclosed in any way without
-    Intel's prior express written permission.
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    No license under any patent, copyright, trade secret or other
-    intellectual property right is granted to or conferred upon you by
-    disclosure or delivery of the Materials, either expressly, by
-    implication, inducement, estoppel or otherwise.  Any license under such
-    intellectual property rights must be express and approved by Intel in
-    writing.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
 */
+
+#include "internal/_deprecated_header_message_guard.h"
+
+#if !defined(__TBB_show_deprecation_message_runtime_loader_H) && defined(__TBB_show_deprecated_header_message)
+#define  __TBB_show_deprecation_message_runtime_loader_H
+#pragma message("TBB Warning: tbb/runtime_loader.h is deprecated. For details, please see Deprecated Features appendix in the TBB reference manual.")
+#endif
+
+#if defined(__TBB_show_deprecated_header_message)
+#undef __TBB_show_deprecated_header_message
+#endif
 
 #ifndef __TBB_runtime_loader_H
 #define __TBB_runtime_loader_H
+
+#define __TBB_runtime_loader_H_include_area
+#include "internal/_warning_suppress_enable_notice.h"
 
 #if ! TBB_PREVIEW_RUNTIME_LOADER
     #error Set TBB_PREVIEW_RUNTIME_LOADER to include runtime_loader.h
@@ -30,23 +40,13 @@
 
 #if _MSC_VER
     #if ! __TBB_NO_IMPLICIT_LINKAGE
-        #ifdef _WIN64
-            #ifdef _DEBUG
-                #pragma comment( linker, "/nodefaultlib:ocltbb64_debug.lib" )
-                #pragma comment( linker, "/defaultlib:tbbproxy_debug.lib" )
-            #else
-                #pragma comment( linker, "/nodefaultlib:ocltbb64.lib" )
-                #pragma comment( linker, "/defaultlib:tbbproxy.lib" )
-            #endif
+        #ifdef _DEBUG
+            #pragma comment( linker, "/nodefaultlib:tbb_debug.lib" )
+            #pragma comment( linker, "/defaultlib:tbbproxy_debug.lib" )
         #else
-            #ifdef _DEBUG
-                #pragma comment( linker, "/nodefaultlib:ocltbb32_debug.lib" )
-                #pragma comment( linker, "/defaultlib:tbbproxy_debug.lib" )
-            #else
-                #pragma comment( linker, "/nodefaultlib:ocltbb32.lib" )
-                #pragma comment( linker, "/defaultlib:tbbproxy.lib" )
-            #endif
-        #endif // _WIN64
+            #pragma comment( linker, "/nodefaultlib:tbb.lib" )
+            #pragma comment( linker, "/defaultlib:tbbproxy.lib" )
+        #endif
     #endif
 #endif
 
@@ -92,7 +92,7 @@ There are some implications:
 
 */
 
-class runtime_loader : tbb::internal::no_copy {
+class __TBB_DEPRECATED_VERBOSE runtime_loader : tbb::internal::no_copy {
 
     public:
 
@@ -185,6 +185,9 @@ class runtime_loader : tbb::internal::no_copy {
 using interface6::runtime_loader;
 
 } // namespace tbb
+
+#include "internal/_warning_suppress_disable_notice.h"
+#undef __TBB_runtime_loader_H_include_area
 
 #endif /* __TBB_runtime_loader_H */
 
