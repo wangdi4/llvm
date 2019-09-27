@@ -440,7 +440,6 @@ private:
 class BlockedRangeByDefaultTBB1d : public tbb::blocked_range<size_t>
 {
 public:
-    BlockedRangeByDefaultTBB1d() : tbb::blocked_range<size_t> () {};
     
     BlockedRangeByDefaultTBB1d( size_t left, 
                                 size_t right, 

@@ -1,5 +1,4 @@
 file (GLOB CL_API_HEADER_FILES ${CL_API_HEADERS}/CL/*.h ${CL_API_HEADERS}/CL/*.hpp)
-copy_to (${CL_API_HEADER_FILES} DESTINATION include/CL)
 install_to (${CL_API_HEADER_FILES} DESTINATION include/CL COMPONENT ocl-api-headers)
 
 if (NOT WIN32)

@@ -10,18 +10,13 @@ set(TARGET_SOURCE_FILES
 
 include_directories(
     ${LLVM_INCLUDE_DIRS}
+    ${CL_API_HEADERS}
     ${BACKEND_ROOT_DIR}/ocl_cpu_backend
     ${BACKEND_ROOT_DIR}/vectorizer/Utils
     ${BACKEND_ROOT_DIR}/metadata_api
     ${BACKEND_ROOT_DIR}/passes/ChannelPipeTransformation
     ${CMAKE_BINARY_DIR}/include/
 )
-
-if (OPENCL_INTREE_BUILD)
-  include_directories(
-    ${CL_API_HEADERS}
-  )
-endif()
 
 include_directories(
     ${BACKEND_ROOT_DIR}/arch_headers

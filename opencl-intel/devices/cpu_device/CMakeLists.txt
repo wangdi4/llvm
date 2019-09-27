@@ -100,15 +100,9 @@ set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${DEVICES_FOLDER_NAME} )
 if (WIN32)
     get_target_property(LK_FLAGS_DEBUG ${TARGET_NAME} LINK_FLAGS_DEBUG)
     get_target_property(LK_FLAGS_RELEASE ${TARGET_NAME} LINK_FLAGS_RELEASE)
-    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-        set_target_properties (${TARGET_NAME} PROPERTIES
-            LINK_FLAGS_DEBUG "${LK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT /DELAYLOAD:ocltbbmalloc64_debug.dll /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll"
-            LINK_FLAGS_RELEASE  "${LK_FLAGS_RELEASE} /DELAYLOAD:ocltbbmalloc64.dll /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll")
-    else(CMAKE_SIZEOF_VOID_P EQUAL 8)
-        set_target_properties (${TARGET_NAME} PROPERTIES
-            LINK_FLAGS_DEBUG "${LK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT /DELAYLOAD:ocltbbmalloc32_debug.dll /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll"
-            LINK_FLAGS_RELEASE  "${LK_FLAGS_RELEASE} /DELAYLOAD:ocltbbmalloc32.dll /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll")
-    endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set_target_properties (${TARGET_NAME} PROPERTIES
+        LINK_FLAGS_DEBUG "${LK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT /DELAYLOAD:tbbmalloc_debug.dll /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll"
+        LINK_FLAGS_RELEASE  "${LK_FLAGS_RELEASE} /DELAYLOAD:tbbmalloc.dll /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll")
 else (WIN32)
     if (INCLUDE_MKL)
         #need explicitly set the full path to prevent failure in cpu_device_type compilation
