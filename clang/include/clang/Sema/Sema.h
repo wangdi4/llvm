@@ -9876,20 +9876,15 @@ public:
   /// applied to.
   /// \param VariantRef Expression that references the variant function, which
   /// must be used instead of the original one, specified in \p DG.
-<<<<<<< HEAD
-  void ActOnOpenMPDeclareVariantDirective(FunctionDecl *FD, Expr *VariantRef,
-#if INTEL_CUSTOMIZATION
-    SmallVectorImpl<OMPDeclareVariantAttr::ConstructTy> &Constructs,
-    SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &Devices,
-#endif // INTEL_CUSTOMIZATION
-                                          SourceRange SR);
-=======
   /// \param Data Set of context-specific data for the specified context
   /// selector.
   void ActOnOpenMPDeclareVariantDirective(
       FunctionDecl *FD, Expr *VariantRef, SourceRange SR,
+#if INTEL_CUSTOMIZATION
+    SmallVectorImpl<OMPDeclareVariantAttr::ConstructTy> &Constructs,
+    SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &Devices,
+#endif // INTEL_CUSTOMIZATION
       const Sema::OpenMPDeclareVariantCtsSelectorData &Data);
->>>>>>> 9ff34745a2e60712a2d79f8dde448841efb64ab6
 
   OMPClause *ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind,
                                          Expr *Expr,

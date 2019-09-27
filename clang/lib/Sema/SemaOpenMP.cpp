@@ -5119,30 +5119,22 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
   return std::make_pair(FD, cast<Expr>(DRE));
 }
 
-<<<<<<< HEAD
-void Sema::ActOnOpenMPDeclareVariantDirective(FunctionDecl *FD,
-                                              Expr *VariantRef,
+void Sema::ActOnOpenMPDeclareVariantDirective(
+    FunctionDecl *FD, Expr *VariantRef, SourceRange SR,
 #if INTEL_CUSTOMIZATION
     SmallVectorImpl<OMPDeclareVariantAttr::ConstructTy> &Constructs,
     SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &Devices,
 #endif // INTEL_CUSTOMIZATION
-                                              SourceRange SR) {
-  auto *NewAttr =
-#if INTEL_CUSTOMIZATION
-      OMPDeclareVariantAttr::CreateImplicit(
-          Context, VariantRef, Constructs.data(), Constructs.size(),
-          Devices.data(), Devices.size(), SR);
-#endif // INTEL_CUSTOMIZATION
-=======
-void Sema::ActOnOpenMPDeclareVariantDirective(
-    FunctionDecl *FD, Expr *VariantRef, SourceRange SR,
     const Sema::OpenMPDeclareVariantCtsSelectorData &Data) {
+  if (Constructs.empty() && Devices.empty()) // INTEL
   if (Data.CtxSet == OMPDeclareVariantAttr::CtxSetUnknown ||
       Data.Ctx == OMPDeclareVariantAttr::CtxUnknown)
     return;
   auto *NewAttr = OMPDeclareVariantAttr::CreateImplicit(
-      Context, VariantRef, Data.CtxSet, Data.Ctx, Data.ImplVendor, SR);
->>>>>>> 9ff34745a2e60712a2d79f8dde448841efb64ab6
+#if INTEL_CUSTOMIZATION
+      Context, VariantRef, Constructs.data(), Constructs.size(), Devices.data(),
+      Devices.size(), Data.CtxSet, Data.Ctx, Data.ImplVendor, SR);
+#endif // INTEL_CUSTOMIZATION
   FD->addAttr(NewAttr);
 }
 

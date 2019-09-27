@@ -799,7 +799,6 @@ Parser::ParseOMPDeclareSimdClauses(Parser::DeclGroupPtrTy Ptr,
       LinModifiers, Steps, SourceRange(Loc, EndLoc));
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Parses the 'construct' part of the match clause.
 ///
@@ -911,7 +910,7 @@ static bool parseMatchDevices(Parser &P,
   return IsError;
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 /// Parse context selector for 'implementation' selector set:
 /// 'vendor' '(' <vendor> ')'
 static void
@@ -968,30 +967,26 @@ parseImplementationSelector(Parser &P,
   Data.CtxSet = OMPDeclareVariantAttr::CtxSetImplementation;
   Data.Ctx = CSKind;
 }
->>>>>>> 9ff34745a2e60712a2d79f8dde448841efb64ab6
 
 /// Parses clauses for 'declare variant' directive.
 /// clause:
 /// <selector_set_name> '=' '{' <context_selectors> '}'
 /// [ ',' <selector_set_name> '=' '{' <context_selectors> '}' ]
 bool Parser::parseOpenMPContextSelectors(
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-    SourceLocation Loc,
-    llvm::function_ref<
-        void(SmallVectorImpl<OMPDeclareVariantAttr::ConstructTy> &,
-             SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &, SourceRange)>
-        Callback) {
-  SmallVector<OMPDeclareVariantAttr::ConstructTy, 3> Constructs;
-  SmallVector<OMPDeclareVariantAttr::DeviceTy, 3> Devices;
-  bool IsError = false;
-#endif // INTEL_CUSTOMIZATION
-=======
     SourceLocation Loc,
     llvm::function_ref<void(SourceRange,
+#if INTEL_CUSTOMIZATION
+             SmallVectorImpl<OMPDeclareVariantAttr::ConstructTy> &,
+             SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &,
+#endif // INTEL_CUSTOMIZATION
                             const Sema::OpenMPDeclareVariantCtsSelectorData &)>
         Callback) {
->>>>>>> 9ff34745a2e60712a2d79f8dde448841efb64ab6
+#if INTEL_CUSTOMIZATION
+  SmallVector<OMPDeclareVariantAttr::ConstructTy, 3> Constructs;
+  SmallVector<OMPDeclareVariantAttr::DeviceTy, 3> Devices;
+  Sema::OpenMPDeclareVariantCtsSelectorData IData;
+  bool IsError = false;
+#endif // INTEL_CUSTOMIZATION
   do {
     // Parse inner context selector set name.
     if (!Tok.is(tok::identifier)) {
@@ -1018,34 +1013,6 @@ bool Parser::parseOpenMPContextSelectors(
                                    tok::annot_pragma_openmp_end);
       if (TBr.expectAndConsume(diag::err_expected_lbrace_after, "="))
         return true;
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-      if (getLangOpts().OpenMPLateOutline) {
-        if (CtxSelectorName.equals("construct")) {
-          IsError = parseMatchConstructs(*this, Constructs);
-        } else if (CtxSelectorName.equals("device")) {
-          IsError = parseMatchDevices(*this, Devices);
-        } else {
-          Diag(Tok, diag::err_omp_bad_context_selector_set)
-              << OMPDeclareVariantAttr::getSupportedSelectorSets();
-          TBr.skipToEnd();
-          return true;
-        }
-      } else
-#endif // INTEL_CUSTOMIZATION
-      while (!SkipUntil(tok::r_brace, tok::r_paren,
-                        tok::annot_pragma_openmp_end, StopBeforeMatch))
-        ;
-      // Parse '}'.
-      (void)TBr.consumeClose();
-    }
-#if INTEL_CUSTOMIZATION
-    if (!getLangOpts().OpenMPLateOutline) {
-      SourceRange SR(Loc, Tok.getLocation());
-      Callback(Constructs, Devices, SR);
-    }
-#endif // INTEL_CUSTOMIZATION
-=======
       OMPDeclareVariantAttr::CtxSelectorSetType CSSKind =
           OMPDeclareVariantAttr::CtxSetUnknown;
       (void)OMPDeclareVariantAttr::ConvertStrToCtxSelectorSetType(
@@ -1055,6 +1022,20 @@ bool Parser::parseOpenMPContextSelectors(
         parseImplementationSelector(*this, Data);
         break;
       case OMPDeclareVariantAttr::CtxSetUnknown:
+#if INTEL_CUSTOMIZATION
+        if (getLangOpts().OpenMPLateOutline) {
+          if (CtxSelectorSetName.equals("construct")) {
+            IsError = parseMatchConstructs(*this, Constructs);
+          } else if (CtxSelectorSetName.equals("device")) {
+            IsError = parseMatchDevices(*this, Devices);
+          } else {
+            Diag(Tok, diag::err_omp_bad_context_selector_set)
+                << OMPDeclareVariantAttr::getSupportedSelectorSets();
+            TBr.skipToEnd();
+            return true;
+          }
+        } else
+#endif // INTEL_CUSTOMIZATION
         // Skip until either '}', ')', or end of directive.
         while (!SkipUntil(tok::r_brace, tok::r_paren,
                           tok::annot_pragma_openmp_end, StopBeforeMatch))
@@ -1064,8 +1045,12 @@ bool Parser::parseOpenMPContextSelectors(
       // Parse '}'.
       (void)TBr.consumeClose();
     }
-    Callback(SourceRange(Loc, Tok.getLocation()), Data);
->>>>>>> 9ff34745a2e60712a2d79f8dde448841efb64ab6
+#if INTEL_CUSTOMIZATION
+    if (!getLangOpts().OpenMPLateOutline) {
+      SourceRange SR(Loc, Tok.getLocation());
+      Callback(SR, Constructs, Devices, Data);
+    }
+#endif // INTEL_CUSTOMIZATION
     // Consume ','
     if (Tok.isNot(tok::r_paren) && Tok.isNot(tok::annot_pragma_openmp_end))
       (void)ExpectAndConsume(tok::comma);
@@ -1075,7 +1060,7 @@ bool Parser::parseOpenMPContextSelectors(
     return true;
   if (getLangOpts().OpenMPLateOutline) {
     SourceRange SR(Loc, Tok.getLocation());
-    Callback(Constructs, Devices, SR);
+    Callback(SR, Constructs, Devices, IData);
   }
 #endif // INTEL_CUSTOMIZATION
   return false;
@@ -1138,33 +1123,19 @@ void Parser::ParseOMPDeclareVariantClauses(Parser::DeclGroupPtrTy Ptr,
   }
 
   // Parse inner context selectors.
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  if (!parseOpenMPContextSelectors(
-          Loc,
-          [this, &DeclVarData](
-              SmallVectorImpl<OMPDeclareVariantAttr::ConstructTy> &Constructs,
-              SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &Devices,
-              SourceRange SR) {
-#endif // INTEL_CUSTOMIZATION
-        if (DeclVarData.hasValue())
-          Actions.ActOnOpenMPDeclareVariantDirective(
-#if INTEL_CUSTOMIZATION
-                  DeclVarData.getValue().first, DeclVarData.getValue().second,
-                  Constructs, Devices, SR);
-#endif // INTEL_CUSTOMIZATION
-      })) {
-=======
   if (!parseOpenMPContextSelectors(
           Loc, [this, &DeclVarData](
                    SourceRange SR,
+#if INTEL_CUSTOMIZATION
+              SmallVectorImpl<OMPDeclareVariantAttr::ConstructTy> &Constructs,
+              SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &Devices,
+#endif // INTEL_CUSTOMIZATION
                    const Sema::OpenMPDeclareVariantCtsSelectorData &Data) {
             if (DeclVarData.hasValue())
               Actions.ActOnOpenMPDeclareVariantDirective(
                   DeclVarData.getValue().first, DeclVarData.getValue().second,
-                  SR, Data);
+                  SR, Constructs, Devices, Data); // INTEL
           })) {
->>>>>>> 9ff34745a2e60712a2d79f8dde448841efb64ab6
     // Parse ')'.
     (void)T.consumeClose();
     // Need to check for extra tokens.

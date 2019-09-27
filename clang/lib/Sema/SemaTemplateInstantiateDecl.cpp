@@ -476,12 +476,10 @@ static void instantiateOMPDeclareVariantAttr(
       Attr.getCtxSelectorSet(), Attr.getCtxSelector(), Attr.getImplVendor());
   S.ActOnOpenMPDeclareVariantDirective(DeclVarData.getValue().first,
                                        DeclVarData.getValue().second,
-<<<<<<< HEAD
-                                       Constructs, Devices, // INTEL
-                                       Attr.getRange());
-=======
-                                       Attr.getRange(), Data);
->>>>>>> 9ff34745a2e60712a2d79f8dde448841efb64ab6
+#if INTEL_CUSTOMIZATION
+                                       Attr.getRange(), Constructs, Devices,
+                                       Data);
+#endif // INTEL_CUSTOMIZATION
 }
 
 static void instantiateDependentAMDGPUFlatWorkGroupSizeAttr(

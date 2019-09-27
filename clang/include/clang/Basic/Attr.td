@@ -3651,20 +3651,17 @@ def OMPDeclareVariant : Attr {
   let HasCustomParsing = 1;
   let Documentation = [OMPDeclareVariantDocs];
   let Args = [
-<<<<<<< HEAD
-    ExprArgument<"VariantFuncRef">
+    ExprArgument<"VariantFuncRef">,
 // INTEL_CUSTOMIZATION
-  , VariadicEnumArgument<"Construct", "ConstructTy",
+    VariadicEnumArgument<"Construct", "ConstructTy",
        ["", "target", "teams", "parallel", "for", "simd",
         "target_variant_dispatch"],
        ["Construct_None", "Construct_Target", "Construct_Teams",
         "Construct_Parallel", "Construct_For", "Construct_Simd",
         "Construct_Target_Variant_Dispatch"]>,
-       VariadicEnumArgument<"Device", "DeviceTy",
-          ["", "gen"], ["Device_None", "Device_Arch_Gen"]>
+    VariadicEnumArgument<"Device", "DeviceTy",
+       ["", "gen"], ["Device_None", "Device_Arch_Gen"]>,
 // end INTEL_CUSTOMIZATION
-=======
-    ExprArgument<"VariantFuncRef">,
     EnumArgument<"CtxSelectorSet", "CtxSelectorSetType",
                  [ "", "implementation"
                  ],
@@ -3678,7 +3675,6 @@ def OMPDeclareVariant : Attr {
                    "CtxUnknown", "CtxVendor"
                  ]>,
     StringArgument<"ImplVendor", 1>
->>>>>>> 9ff34745a2e60712a2d79f8dde448841efb64ab6
   ];
   let AdditionalMembers = [{
 // INTEL_CUSTOMIZATION

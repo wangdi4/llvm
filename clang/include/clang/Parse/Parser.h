@@ -2939,23 +2939,14 @@ private:
                                             SourceLocation Loc);
   /// Parses OpenMP context selectors and calls \p Callback for each
   /// successfully parsed context selector.
-<<<<<<< HEAD
-  bool
-  parseOpenMPContextSelectors(SourceLocation Loc,
-#if INTEL_CUSTOMIZATION
-      llvm::function_ref<void(
-          llvm::SmallVectorImpl<clang::OMPDeclareVariantAttr::ConstructTy> &,
-          llvm::SmallVectorImpl<clang::OMPDeclareVariantAttr::DeviceTy> &,
-          SourceRange)>
-          Callback);
-#endif // INTEL_CUSTOMIZATION
-=======
   bool parseOpenMPContextSelectors(
       SourceLocation Loc,
-      llvm::function_ref<
-          void(SourceRange, const Sema::OpenMPDeclareVariantCtsSelectorData &)>
-          Callback);
->>>>>>> 9ff34745a2e60712a2d79f8dde448841efb64ab6
+#if INTEL_CUSTOMIZATION
+      llvm::function_ref<void(SourceRange,
+          llvm::SmallVectorImpl<clang::OMPDeclareVariantAttr::ConstructTy> &,
+          llvm::SmallVectorImpl<clang::OMPDeclareVariantAttr::DeviceTy> &,
+          const Sema::OpenMPDeclareVariantCtsSelectorData &)> Callback);
+#endif // INTEL_CUSTOMIZATION
 
   /// Parse clauses for '#pragma omp declare variant'.
   void ParseOMPDeclareVariantClauses(DeclGroupPtrTy Ptr, CachedTokens &Toks,
