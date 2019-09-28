@@ -330,7 +330,10 @@ private:
   bool genFirstPrivatizationCode(WRegionNode *W);
 
   /// Generate code for lastprivate variables
-  bool genLastPrivatizationCode(WRegionNode *W, BasicBlock *IfLastIterBB);
+  bool genLastPrivatizationCode(WRegionNode *W, BasicBlock *IfLastIterBB,
+                                Instruction *OMPLBForChunk = nullptr,
+                                Instruction *BranchToNextChunk = nullptr,
+                                Instruction *OMPZtt = nullptr);
 
   /// Generate destructor calls for [first|last]private variables
   bool genDestructorCode(WRegionNode *W);
@@ -531,6 +534,17 @@ private:
   void genLprivFini(Value *NewV, Value *OldV, Instruction *InsertPt);
   void genLprivFini(LastprivateItem *LprivI, Instruction *InsertPt);
 
+  /// Collect all stores done to the local copy of the lastprivate item \p
+  /// LprivI. Puts the collected store instructions in \p LprivIStores.
+  void
+  collectStoresToLastprivateNewI(WRegionNode *W, LastprivateItem *LprivI,
+                                 SmallVectorImpl<Instruction *> &LprivIStores);
+  /// Emit Init/Fini code for conditional lastprivate clause.
+  void genConditionalLPCode(WRegionNode *W, LastprivateItem *LprivI,
+                            Instruction *OMPLBForChunk, Instruction *OMPZtt,
+                            Instruction *BranchToNextChunk,
+                            Instruction *ConditionalLPBarrier);
+
   /// Generate the lastprivate update code for taskloop
   void genLprivFiniForTaskLoop(LastprivateItem *LprivI, Instruction *InsertPt);
 
@@ -541,10 +555,12 @@ private:
   /// calls, \p InsertLastIterCheckBeforeOut is set to point to the instruction
   /// before which the lastprivate/linear finalization code should be inserted.
   /// \p NewOmpLBInstOut is set to the load of omp.lb, which is computed for use
-  /// in the loop's ztt (lb < ub).
+  /// in the loop's ztt (lb < ub). \p NewOmpZttInstOut is set to the Instruction
+  /// computing the loop's ztt (lb < ub).
   bool genLoopSchedulingCode(WRegionNode *W, AllocaInst *&IsLastVal,
                              Instruction *&InsertLastIterCheckBeforeOut,
-                             Instruction *&NewOmpLBInstOut);
+                             Instruction *&NewOmpLBInstOut,
+                             Instruction *&NewOmpZttInstOut);
 
   /// Generate the code to replace the variables in the task loop with
   /// the thunk field dereferences
@@ -817,6 +833,10 @@ private:
   bool genBarrierForFpLpAndLinears(WRegionNode *W,
                                    Instruction *InsertBefore = nullptr);
 
+  /// Emit and return an implicit barrier if \p W has any conditional lasptivate
+  /// clause operands.
+  Instruction *genBarrierForConditionalLP(WRegionNode *W);
+
   /// Emits an if-then branch using \p IsLastVal and sets \p IfLastIterOut to
   /// the if-then BBlock. This is used for emitting the final copy-out code for
   /// linear and lastprivate clause operands.
@@ -861,8 +881,10 @@ private:
 
   /// Insert a barrier at the end of the construct if \p InsertBefore is
   /// null. Otherwise, insert the barrier before \p InsertBefore.
+  /// If \p BarrierOut is provided, it is set to point to the emitted barrier.
   bool genBarrier(WRegionNode *W, bool IsExplicit, bool IsTargetSPIRV = false,
-                  Instruction *InsertBefore = nullptr);
+                  Instruction *InsertBefore = nullptr,
+                  Instruction **BarrierOut = nullptr);
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
