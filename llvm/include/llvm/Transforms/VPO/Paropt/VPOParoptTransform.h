@@ -1397,6 +1397,9 @@ private:
                                  Instruction *KernelEntryDir = nullptr,
                                  Instruction *KernelExitDir = nullptr);
 
+  /// Replace printf() calls in \p F with _Z18__spirv_ocl_printfPU3AS2ci()
+  void replacePrintfWithOCLBuiltin(Function *F);
+
   /// Set the kernel arguments' address space as ADDRESS_SPACE_GLOBAL.
   /// Propagate the address space from the arguments to the usage of the
   /// arguments.

@@ -117,6 +117,68 @@ void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
   }
 }
 
+// Replace printf() calls in \p F with _Z18__spirv_ocl_printfPU3AS2ci()
+void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *F) {
+  Function *PrintfDecl = MT->getPrintfDecl();
+  if (!PrintfDecl)
+    // no printf() found in the module
+    return;
+
+  Function *OCLPrintfDecl = MT->getOCLPrintfDecl();
+  assert(OCLPrintfDecl != nullptr && "OCLPrintfDecl not initialized");
+
+  // find all printf's in this function and replace them with the OCL version
+  for (User *U : PrintfDecl->users())
+    if (CallInst *OldCall = dyn_cast<CallInst>(U)) {
+
+      if (OldCall->getParent()->getParent() != F)
+        // ignore printfs that are not in this function
+        continue;
+
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": old printf(): " << *OldCall
+                        << "\n");
+      SmallVector<Value *, 4> FnArgs(OldCall->arg_operands());
+
+      // First argument of the original printf() is of
+      // ADDRESS_SPACE_GENERIC (=4) due to its addrspacecast:
+      //
+      //   call i32 (i8 addrspace(4)*, ...) @printf(
+      //     i8 addrspace(4)* addrspacecast (
+      //       i8 addrspace(1)* getelementptr inbounds
+      //       ([25 x i8], [25 x i8] addrspace(1)* @.str, i64 0, i64 0)
+      //     to i8 addrspace(4)*)
+      //       , ...)
+      //
+      // The OCL printf does not expect that address space.
+      // We must remove the addrspacecast, resulting in:
+      //
+      //   call i32 (i8 addrspace(1)*, ...) @_Z18__spirv_ocl_printfPU3AS2ci(
+      //       i8 addrspace(1)* getelementptr inbounds
+      //       ([25 x i8], [25 x i8] addrspace(1)* @.str, i64 0, i64 0)
+      //       , ...)
+      if (auto *FirstParm = dyn_cast<ConstantExpr>(FnArgs[0]))
+        if (FirstParm->getOpcode() == Instruction::AddrSpaceCast)
+          FnArgs[0] = cast<Value>(FirstParm->getOperand(0));
+
+      // Create the new call based on OCLPrintfDecl and
+      // insert it before the old call
+      CallInst *NewCall =
+          CallInst::Create(OCLPrintfDecl, FnArgs, "oclPrint", OldCall);
+
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": new OCL printf(): " << *NewCall
+                        << "\n");
+
+      // Relace all uses of the old call's return value with
+      // that from the new call
+      for (User *OldU : OldCall->users())
+        if (Instruction *I = dyn_cast<Instruction>(OldU))
+          I->replaceUsesOfWith(OldCall, NewCall);
+
+      // Remove the old call
+      OldCall->eraseFromParent();
+    }
+}
+
 Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
                                                      Function *Fn,
                                                      CallInst *&Call) {
@@ -177,8 +239,28 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
     FunctionDIs.erase(DI);
     FunctionDIs[NFn] = SP;
   }
-  if (isTargetSPIRV())
+  if (isTargetSPIRV()) {
     InferAddrSpaces(*TTI, vpo::ADDRESS_SPACE_GENERIC, *NFn);
+
+    // We intentionally call the function below after InferAddrSpaces() to have
+    // the latter restructure addrspacecasts hidden inside GEP expressions.
+    // Otherwise, the code in replacePrintfWithOCLBuiltin() that strips off the
+    // addrspacecast in the printf's first argument would fail to find the cast.
+    // For example:
+    //   BEFORE:
+    //     i8 addrspace(4)* getelementptr inbounds ([25 x i8], [25 x i8]
+    //     addrspace(4)* addrspacecast (
+    //       [25 x i8] addrspace(1)* @.str to
+    //       [25 x i8] addrspace(4)*
+    //     ), i64 0, i64 0)
+    //   AFTER:
+    //     i8 addrspace(4)* addrspacecast (
+    //       i8 addrspace(1)* getelementptr inbounds ([25 x i8], [25 x i8]
+    //       addrspace(1)* @.str, i64 0, i64 0)
+    //     to i8 addrspace(4)*)
+    //
+    replacePrintfWithOCLBuiltin(NFn);
+  }
 
   return NFn;
 }

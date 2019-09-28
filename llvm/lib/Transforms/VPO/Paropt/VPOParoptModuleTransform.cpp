@@ -128,6 +128,37 @@ static void replaceMathFnWithOCLBuiltin(Function &F) {
   }
 }
 
+// Given the original printf() declaration \p F coming in from clang:
+//
+//   declare dso_local spir_func i32 @printf(i8 addrspace(4)*, ...)
+//
+// Create the corresponding decl for OCL printf called from offload kernels:
+//
+//   declare dso_local spir_func i32
+//     @_Z18__spirv_ocl_printfPU3AS2ci(i8 addrspace(1)*, ...)
+//
+// Save the former in \b PrintfDecl and the latter in \b OCLPrintfDecl
+// in the \b VPOParoptModuleTransform class.
+void VPOParoptModuleTransform::createOCLPrintfDecl(Function *F) {
+  PrintfDecl = F;
+
+  // Create FunctionType for OCLPrintfDecl
+  Type *ReturnTy = Type::getInt32Ty(C);
+  Type *Int8PtrTy = Type::getInt8PtrTy(C, ADDRESS_SPACE_GLOBAL /*=1*/);
+  FunctionType *FnTy = FunctionType::get(ReturnTy, {Int8PtrTy},
+                                         /* varargs= */ true);
+
+  // Get the function prototype from the module symbol table.
+  // If absent, create and insert it into the symbol table first.
+  FunctionCallee FnC =
+      M.getOrInsertFunction("_Z18__spirv_ocl_printfPU3AS2ci", FnTy);
+  OCLPrintfDecl = cast<Function>(FnC.getCallee());
+  OCLPrintfDecl->copyAttributesFrom(PrintfDecl);
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ":\nOld printf decl: " << *PrintfDecl
+                    << "\nOCL printf decl: " << *OCLPrintfDecl << "\n");
+}
+
 // Perform paropt transformations for the module. Each module's function is
 // transformed by a separate VPOParoptTransform instance which performs
 // paropt transformations on a function level. Then, after tranforming all
@@ -153,8 +184,12 @@ bool VPOParoptModuleTransform::doParoptTransforms(
   for (auto F = M.begin(), E = M.end(); F != E; ++F) {
     // TODO: need Front-End to set F->hasOpenMPDirective()
     if (F->isDeclaration()) { // if(!F->hasOpenMPDirective()))
-      if (IsTargetSPIRV)
-        replaceMathFnWithOCLBuiltin(*F);
+      if (IsTargetSPIRV) {
+        if (F->getName() == "printf")
+          createOCLPrintfDecl(&*F);
+        else
+          replaceMathFnWithOCLBuiltin(*F);
+      }
       continue;
     }
     LLVM_DEBUG(dbgs() << "\n=== VPOParoptPass func: " << F->getName()

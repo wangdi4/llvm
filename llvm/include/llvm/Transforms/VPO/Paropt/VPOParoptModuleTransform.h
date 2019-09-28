@@ -63,7 +63,7 @@ public:
         OptLevel(OptLevel), SwitchToOffload(SwitchToOffload),
         DisableOffload(DisableOffload), TgOffloadEntryTy(nullptr),
         TgDeviceImageTy(nullptr), TgBinaryDescriptorTy(nullptr),
-        DsoHandle(nullptr) {}
+        DsoHandle(nullptr), PrintfDecl(nullptr), OCLPrintfDecl(nullptr) {}
 
   ~VPOParoptModuleTransform() {
     DeleteContainerPointers(OffloadEntries);
@@ -157,6 +157,22 @@ private:
 
   /// Create a variable that binds the atexit to this shared object.
   GlobalVariable *DsoHandle;
+
+  /// Original declaration of printf() from clang:
+  ///   declare dso_local spir_func i32 @printf(i8 addrspace(4)*, ...)
+  /// This is populated during OpenCL offload compilation if printf() is used
+  /// in the module
+  Function *PrintfDecl;
+  Function *getPrintfDecl() { return PrintfDecl; }
+
+  /// Declaration of OCL's printf() created for OpenCL offload kernel code:
+  ///   declare dso_local spir_func i32
+  ///     @_Z18__spirv_ocl_printfPU3AS2ci(i8 addrspace(1)*, ...)
+  Function *OCLPrintfDecl;
+  Function *getOCLPrintfDecl() { return OCLPrintfDecl; }
+
+  /// Routine to populate PrintfDecl and OCLPrintfDecl
+  void createOCLPrintfDecl(Function *F);
 
   /// Base class for offload entries. It is not supposed to be instantiated.
   class OffloadEntry {
