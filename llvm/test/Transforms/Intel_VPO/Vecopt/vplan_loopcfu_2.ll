@@ -1,13 +1,21 @@
 ; Test inner loop control flow uniformity where inner loop exit condition is divergent memory reference.
 
 ; REQUIRES: asserts
-; RUN: opt -S %s -VPlanDriver -debug 2>&1 | FileCheck %s
+; RUN: opt -S < %s -VPlanDriver -vplan-print-after-loop-cfu -disable-output | FileCheck %s
 
-; ModuleID = 'case2.c'
-source_filename = "case2.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry()
+
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token)
+
+@A = common local_unnamed_addr global [100 x [100 x i64]] zeroinitializer, align 16
+
+; Function Attrs: norecurse nounwind uwtable
+define dso_local void @foo(i64 %N, i64* nocapture readonly %lb, i64* nocapture readonly %ub) local_unnamed_addr #0 {
 ; CHECK-LABEL: After inner loop control flow transformation
 ; CHECK: REGION: {{region[0-9]+}} (BP: NULL)
 ; CHECK-NEXT: {{BB[0-9]+}} (BP: NULL) :
@@ -94,17 +102,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-EMPTY:
 
 ; CHECK-NEXT: [[EXIT]] (BP: NULL) :
-
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry()
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token)
-
-@A = common local_unnamed_addr global [100 x [100 x i64]] zeroinitializer, align 16
-
-; Function Attrs: norecurse nounwind uwtable
-define dso_local void @foo(i64 %N, i64* nocapture readonly %lb, i64* nocapture readonly %ub) local_unnamed_addr #0 {
 entry:
   %outer.toptest = icmp sgt i64 %N, 0
   br i1 %outer.toptest, label %outer.preheader, label %func.exit
