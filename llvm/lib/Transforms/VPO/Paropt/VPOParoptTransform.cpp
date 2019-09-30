@@ -5513,7 +5513,7 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
 
   if (NumThreads || NumTeams) {
     LoadInst *Tid = new LoadInst(TidPtrHolder, "my.tid", ForkCI);
-    Tid->setAlignment(4);
+    Tid->setAlignment(MaybeAlign(4));
     if (W->getIsTeams())
       VPOParoptUtils::genKmpcPushNumTeams(W, IdentTy, Tid, NumTeams,
                                           NumThreads, ForkCI);
@@ -6770,7 +6770,7 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
       auto *InsertPt = CancelExitBBWithStaticFini->getTerminator();
 
       LoadInst *LoadTid = new LoadInst(TidPtrHolder, "my.tid", InsertPt);
-      LoadTid->setAlignment(4);
+      LoadTid->setAlignment(MaybeAlign(4));
       VPOParoptUtils::genKmpcStaticFini(W, IdentTy, LoadTid, InsertPt);
 
       CancelExitBB = CancelExitBBWithStaticFini;

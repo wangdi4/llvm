@@ -188,7 +188,7 @@ void InstCombiner::GenStructFieldsCopyFromMemcpy(MemIntrinsic *MI) {
     Indices.push_back(Builder.getInt32(i));
     GEPSrc = Builder.CreateInBoundsGEP(STy, StrippedSrc, Indices);
     LDSrc = Builder.CreateLoad(GEPSrc);
-    LDSrc->setAlignment(DL.getABITypeAlignment(ElemTy));
+    LDSrc->setAlignment(MaybeAlign(DL.getABITypeAlignment(ElemTy)));
     CopyMD = cast<MDNode>(M->getOperand(2 + i * 3));
     assert(CopyMD);
     LDSrc->setMetadata(LLVMContext::MD_tbaa, CopyMD);
