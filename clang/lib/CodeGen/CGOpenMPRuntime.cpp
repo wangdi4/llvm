@@ -9915,7 +9915,8 @@ bool CGOpenMPRuntime::emitTargetFunctions(GlobalDecl GD) {
 #if INTEL_CUSTOMIZATION
     if (CGM.getLangOpts().OpenMPLateOutlineTarget)
 #endif // INTEL_CUSTOMIZATION
-    if (HasTargetRegions && CGM.getLangOpts().OpenMPLateOutline) {
+    if (HasTargetRegions && CGM.getLangOpts().OpenMPLateOutline &&
+        !FD->hasAttr<OMPDeclareTargetDeclAttr>()) {
       // Force function to be emitted
       (void) CGM.GetAddrOfFunction(FD);
       return false;
