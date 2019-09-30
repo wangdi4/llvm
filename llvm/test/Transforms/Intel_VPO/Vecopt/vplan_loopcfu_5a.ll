@@ -86,10 +86,10 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT: [[EXIT]] (BP: NULL) :
 
 ; Function Attrs: nounwind
-declare token @llvm.directive.region.entry()
+declare token @llvm.directive.region.entry() nounwind
 
 ; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token)
+declare void @llvm.directive.region.exit(token) nounwind
 
 @A = common local_unnamed_addr global [100 x [100 x i64]] zeroinitializer, align 16
 
@@ -101,39 +101,39 @@ entry:
 
 simd.begin:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
-  br label %do.body.preheader.preheader
+  br label %outer.preheader
 
-do.body.preheader.preheader:                      ; preds = %entry
-  %wide.trip.count = sext i32 %m to i64
-  br label %do.body.preheader
+outer.preheader:
+  %m.sext = sext i32 %m to i64
+  br label %outer.header
 
-do.body.preheader:                                ; preds = %for.inc, %do.body.preheader.preheader
-  %indvars.iv = phi i64 [ 0, %do.body.preheader.preheader ], [ %indvars.iv.next, %for.inc ]
-  %arrayidx = getelementptr inbounds i32, i32* %ub, i64 %indvars.iv
-  %arrayidx2 = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
+outer.header:
+  %outer.iv = phi i64 [ 0, %outer.preheader ], [ %outer.iv.next, %outer.latch ]
+  %arrayidx = getelementptr inbounds i32, i32* %ub, i64 %outer.iv
+  %arrayidx2 = getelementptr inbounds i32, i32* %a, i64 %outer.iv
   %.pre = load i32, i32* %arrayidx, align 4
-  br label %do.body
+  br label %inner.header
 
-do.body:                                          ; preds = %do.body.preheader, %do.body
-  %0 = phi i32 [ %1, %do.body ], [ %.pre, %do.body.preheader ]
-  %j.0 = phi i32 [ %inc, %do.body ], [ 0, %do.body.preheader ]
-  %mul = mul nsw i32 %0, %j.0
+inner.header:
+  %inner.rec = phi i32 [ %inner.rec.next, %inner.header ], [ %.pre, %outer.header ]
+  %inner.iv = phi i32 [ %inner.iv.next, %inner.header ], [ 0, %outer.header ]
+  %mul = mul nsw i32 %inner.rec, %inner.iv
   store i32 %mul, i32* %arrayidx2, align 4
-  %inc = add nuw nsw i32 %j.0, 1
-  %1 = load i32, i32* %arrayidx, align 4
-  %cmp5 = icmp sgt i32 %1, 0
-  br i1 %cmp5, label %do.body, label %for.inc
+  %inner.iv.next = add nuw nsw i32 %inner.iv, 1
+  %inner.rec.next = load i32, i32* %arrayidx, align 4
+  %inner.exitcond = icmp sgt i32 %inner.rec, 0
+  br i1 %inner.exitcond, label %inner.header, label %outer.latch
 
-for.inc:                                          ; preds = %do.body
-  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
-  br i1 %exitcond, label %for.end.loopexit, label %do.body.preheader
+outer.latch:
+  %outer.iv.next = add nuw nsw i64 %outer.iv, 1
+  %exitcond = icmp eq i64 %outer.iv.next, %m.sext
+  br i1 %exitcond, label %outer.exit, label %outer.header
 
-for.end.loopexit:                                 ; preds = %for.inc
+outer.exit:
   call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"()]
   br label %for.end
 
-for.end:                                          ; preds = %for.end.loopexit, %entry
+for.end:
   ret void
 }
 

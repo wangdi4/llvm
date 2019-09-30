@@ -90,54 +90,50 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK-NEXT: [[EXIT]] (BP: NULL) :
 
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry()
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token)
+declare token @llvm.directive.region.entry() nounwind
+declare void @llvm.directive.region.exit(token) nounwind
 
 @A = common local_unnamed_addr global [100 x [100 x i64]] zeroinitializer, align 16
 
-; Function Attrs: norecurse nounwind uwtable writeonly
 define dso_local void @foo(i64 %N, i64 %lb, i64 %ub) local_unnamed_addr #0 {
 entry:
-  %cmp18 = icmp sgt i64 %N, 0
-  br i1 %cmp18, label %for.cond1.preheader.preheader, label %for.end7
+  %outer.toptest = icmp sgt i64 %N, 0
+  br i1 %outer.toptest, label %outer.preheader, label %func.exit
 
-for.cond1.preheader.preheader:                    ; preds = %entry
+outer.preheader:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
-  br label %for.cond1.preheader
+  br label %outer.header
 
-for.cond1.preheader:                              ; preds = %for.cond1.preheader.preheader, %for.inc5
-  %i.019 = phi i64 [ %inc6, %for.inc5 ], [ 0, %for.cond1.preheader.preheader ]
-  %cmp216 = icmp eq i64 %i.019, 0
-  br i1 %cmp216, label %for.inc5, label %for.body3.preheader
+outer.header:
+  %outer.iv = phi i64 [ %outer.iv.next, %outer.latch ], [ 0, %outer.preheader ]
+  %inner.toptest = icmp eq i64 %outer.iv, 0
+  br i1 %inner.toptest, label %outer.latch, label %inner.preheader
 
-for.body3.preheader:                              ; preds = %for.cond1.preheader
-  br label %for.body3
+inner.preheader:
+  br label %inner.header
 
-for.body3:                                        ; preds = %for.body3.preheader, %for.body3
-  %j.017 = phi i64 [ %inc, %for.body3 ], [ 0, %for.body3.preheader ]
-  %add = add nuw nsw i64 %j.017, %i.019
-  %arrayidx4 = getelementptr inbounds [100 x [100 x i64]], [100 x [100 x i64]]* @A, i64 0, i64 %j.017, i64 %i.019
+inner.header:
+  %inner.iv = phi i64 [ %inner.iv.next, %inner.header ], [ 0, %inner.preheader ]
+  %add = add nuw nsw i64 %inner.iv, %outer.iv
+  %arrayidx4 = getelementptr inbounds [100 x [100 x i64]], [100 x [100 x i64]]* @A, i64 0, i64 %inner.iv, i64 %outer.iv
   store i64 %add, i64* %arrayidx4, align 8
-  %inc = add nuw nsw i64 %j.017, 1
-  %exitcond = icmp eq i64 %inc, %i.019
-  br i1 %exitcond, label %for.inc5.loopexit, label %for.body3
+  %inner.iv.next = add nuw nsw i64 %inner.iv, 1
+  %inner.exitcond = icmp eq i64 %inner.iv, %outer.iv
+  br i1 %inner.exitcond, label %inner.exit, label %inner.header
 
-for.inc5.loopexit:                                ; preds = %for.body3
-  br label %for.inc5
+inner.exit:
+  br label %outer.latch
 
-for.inc5:                                         ; preds = %for.inc5.loopexit, %for.cond1.preheader
-  %inc6 = add nuw nsw i64 %i.019, 1
-  %exitcond21 = icmp eq i64 %inc6, %N
-  br i1 %exitcond21, label %for.end7.loopexit, label %for.cond1.preheader
+outer.latch:
+  %outer.iv.next = add nuw nsw i64 %outer.iv, 1
+  %outer.exitcond = icmp eq i64 %outer.iv, %N
+  br i1 %outer.exitcond, label %outer.exit, label %outer.header
 
-for.end7.loopexit:                                ; preds = %for.inc5
+outer.exit:
   call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"()]
-  br label %for.end7
+  br label %func.exit
 
-for.end7:                                         ; preds = %for.end7.loopexit, %entry
+func.exit:
   ret void
 }
 
