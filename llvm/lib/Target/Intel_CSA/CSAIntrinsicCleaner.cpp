@@ -40,6 +40,9 @@ static cl::opt<bool> DisableLoopStorageCheck{
 STATISTIC(NumSPMDizationsCleaned,
           "Number of unused SPMDization intrinsic pairs removed");
 
+STATISTIC(NumSPMDWorkerNumCleaned,
+          "Number of unused spmd_worker_num intrinsic removed");
+
 STATISTIC(NumPipelineCleaned,
           "Number of unused pipeline_loop intrinsic pairs removed");
 
@@ -73,6 +76,8 @@ private:
 
   // Removes any unused spmdization intrinsic pairs from a function.
   bool clean_spmdization(Function &);
+  // Removes any unused spmd_worker_num intrinsic from a function.
+  bool clean_spmd_worker_num(Function &);
   // Removes any unused pipeline_loop intrinsic pairs from a function
   bool clean_pipeline(Function &);
   // Removes any unused pipeline_limited_loop intrinsic pairs from a function
@@ -92,7 +97,7 @@ bool CSAIntrinsicCleaner::runOnFunction(Function &F) {
     }
   }
   return expandLicQueueIntrinsics(F) | clean_spmdization(F) |
-         clean_pipeline(F) | clean_pipeline_depth(F);
+    clean_spmd_worker_num(F) | clean_pipeline(F) | clean_pipeline_depth(F);
 }
 
 // convert init/write/read intrinsics to lower_init/lower_write/lower_read intrinsic
@@ -329,6 +334,24 @@ bool CSAIntrinsicCleaner::clean_spmdization(Function &F) {
     }
   }
   return cleaned_spmdizations;
+}
+
+bool CSAIntrinsicCleaner::clean_spmd_worker_num(Function &F) {
+  using namespace std;
+  bool cleaned_spmd_worker = false;
+  for (BasicBlock &BB : F) {
+    for (auto inst_it = begin(BB); inst_it != end(BB);) {
+      IntrinsicInst *const intr_inst = dyn_cast<IntrinsicInst>(&*inst_it);
+      if (intr_inst and
+          intr_inst->getIntrinsicID() == Intrinsic::csa_spmd_worker_num) {
+        cleaned_spmd_worker = true;
+        ++NumSPMDWorkerNumCleaned;
+        inst_it = erase_with_all_uses(intr_inst);
+      } else
+        ++inst_it;
+    }
+  }
+  return cleaned_spmd_worker;
 }
 
 bool CSAIntrinsicCleaner::clean_pipeline(Function &F) {

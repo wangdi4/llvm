@@ -113,6 +113,7 @@ private:
                               std::vector<Instruction *> &ReduceVarOrig,
                               std::vector<Instruction *> &OldInst);
   void lowerSPMDWorkerNum(Loop *L, int PE);
+  void cleanSPMDWorkerNum(llvm::SmallVector<Loop *, 4> &toClean);
   void setLoopAlreadySPMDized(Loop *L);
   void AddUnrollDisableMetadata(Loop *L);
   bool FindReductionVariables(Loop *L, ScalarEvolution *SE,
@@ -224,7 +225,7 @@ Branches to or from an OpenMP structured block are illegal
     std::vector<Instruction *> ReduceVarOrig(r);
     // there is OldInst foreach reduction variable
     std::vector<Instruction *> OldInsts(r);
-    if(!FindReductionVariables(L, SE, ReduceVarExitOrig, ReduceVarOrig))
+    if (!FindReductionVariables(L, SE, ReduceVarExitOrig, ReduceVarOrig))
       return false;
     // retrieve the minimum number of iterations of the loop in order to assess
     // whether to insert the zero trip count check or not
@@ -313,6 +314,8 @@ try a different SPMDization strategy instead.
     // Add CSA parallel intrinsics:
     AddParallelIntrinsicstoLoop(L, context, M, OrigPH, E);
     SmallVector<Value *, 128> NewReducedValues; // should be equal to NPEs
+    SmallVector<Loop *, 4> toClean;
+    toClean.push_back(OrigL);
     for (int PE = 1; PE < NPEs; PE++) {
       SmallVector<BasicBlock *, 8> NewLoopBlocks;
       BasicBlock *Exit = L->getExitBlock();
@@ -338,8 +341,8 @@ try a different SPMDization strategy instead.
       else
         DT->addNewBlock(NewE, NewLoop->getHeader());
 
-      //If __builtin_csa_spmd_worker_num is used in the loop
-      //lower this to a constant to scalarize the array of streams
+      // If __builtin_csa_spmd_worker_num is used in the loop
+      // lower this to a constant (+1)
       lowerSPMDWorkerNum(NewLoop, PE);
 
       Instruction *ExitTerm = Exit->getTerminator();
@@ -375,15 +378,14 @@ try a different SPMDization strategy instead.
                    "  ,as directed by the builtin_assume or the constant value "
                    "of the upper bound of the loop.");
         AssumptionCache *AC =
-          &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(*F);
+            &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(*F);
         Instruction *const terminator =
-          NewLoop->getLoopPreheader()->getTerminator();
+            NewLoop->getLoopPreheader()->getTerminator();
         IRBuilder<> Builder{terminator};
         Instruction *CondI = dyn_cast<Instruction>(Cond);
-        auto *assume = Builder.
-          CreateICmpSLT(NewInitV, CondI->getOperand(1));
+        auto *assume = Builder.CreateICmpSLT(NewInitV, CondI->getOperand(1));
         CallInst *workerAssume =
-          Builder.CreateIntrinsic(Intrinsic::assume, {}, assume);
+            Builder.CreateIntrinsic(Intrinsic::assume, {}, assume);
         AC->registerAssumption(workerAssume);
       }
       // This assumes menable-unsafe-fp-math is set
@@ -404,6 +406,7 @@ try a different SPMDization strategy instead.
       if (!success_p)
         return false;
       L = NewLoop;
+      toClean.push_back(L);
       // NOTE: we do not need to call setLoopAlreadySPMDized()
       // for the new loop, because the metadata was set previously
       // for the original loop and it will be copied to each new loop
@@ -433,6 +436,7 @@ try a different SPMDization strategy instead.
         }
       }
     }
+    cleanSPMDWorkerNum(toClean);
     ORE.emit(
         OptimizationRemark(DEBUG_TYPE, "", L->getStartLoc(), L->getHeader())
         << "Performed loop SPMDization as directed by the pragma.");
@@ -469,21 +473,55 @@ INITIALIZE_PASS_END(LoopSPMDization, DEBUG_TYPE, "Loop SPMDization", false,
 
 Pass *llvm::createLoopSPMDizationPass() { return new LoopSPMDization(); }
 
+void LoopSPMDization::cleanSPMDWorkerNum(
+    llvm::SmallVector<Loop *, 4> &toClean) {
+  SmallVector<Instruction *, 4> toDelete;
+  for (Loop *L : toClean) {
+    for (BasicBlock *const BB : L->getBlocks())
+      for (Instruction &inst_it : *BB) {
+        IntrinsicInst *const intr_inst = dyn_cast<IntrinsicInst>(&inst_it);
+        if (intr_inst and
+            intr_inst->getIntrinsicID() == Intrinsic::csa_spmd_worker_num) {
+          Value *pe = llvm::ConstantInt::get(intr_inst->getType(), 0);
+          inst_it.replaceAllUsesWith(pe);
+          toDelete.push_back(&inst_it);
+        }
+      }
+  }
+  for (auto I : toDelete)
+    I->eraseFromParent();
+  return;
+}
+
+// Each SPMD loop PE is cloned from the precedent loop PE-1
+// that's why a replacement of the csa_spmd_worker_num with +1
+// is needed
 void LoopSPMDization::lowerSPMDWorkerNum(Loop *L, int PE) {
   LLVMContext &Context = L->getHeader()->getContext();
-  SmallVector<Instruction *, 4> toDelete;
   for (BasicBlock *const BB : L->getBlocks()) {
     for (Instruction &inst : *BB)
       if (IntrinsicInst *intr_inst = dyn_cast<IntrinsicInst>(&inst))
         if (intr_inst->getIntrinsicID() == Intrinsic::csa_spmd_worker_num) {
-          Value *pe =
-            llvm::ConstantInt::get(llvm::Type::getInt32Ty(Context), PE);
-          inst.replaceAllUsesWith(pe);
-          toDelete.push_back(&inst);
+          if (PE != 0) {
+            Value *pe =
+                llvm::ConstantInt::get(llvm::Type::getInt32Ty(Context), 1);
+            IRBuilder<> Bnum(inst.getNextNode());
+            Value *Num =
+                Bnum.CreateAdd(intr_inst, pe, L->getName() + ".plusone");
+            // Replace users of the intrinsic with Num
+            for (auto UA = (dyn_cast<Value>(intr_inst))->user_begin(),
+                      EA = (dyn_cast<Value>(intr_inst))->user_end();
+                 UA != EA;) {
+              Instruction *User = cast<Instruction>(*UA++);
+              if (User != Num)
+                for (unsigned m = 0; m < User->getNumOperands(); m++)
+                  if (User->getOperand(m) == dyn_cast<Value>(intr_inst)) {
+                    User->setOperand(m, Num);
+                  }
+            }
+          }
         }
   }
-  for (auto I : toDelete)
-    I->eraseFromParent();
   return;
 }
 
@@ -542,8 +580,7 @@ unsigned LoopSPMDization::FindReductionVectorsSize(Loop *L) {
 }
 
 bool LoopSPMDization::FindReductionVariables(
-    Loop *L, ScalarEvolution *SE,
-    std::vector<Value *> &ReduceVarExitOrig,
+    Loop *L, ScalarEvolution *SE, std::vector<Value *> &ReduceVarExitOrig,
     std::vector<Instruction *> &ReduceVarOrig) {
   Function *F = L->getHeader()->getParent();
   OptimizationRemarkEmitter ORE(F);
@@ -554,10 +591,9 @@ bool LoopSPMDization::FindReductionVariables(
       continue;
     RecurrenceDescriptor RedDes;
     if (RecurrenceDescriptor::isReductionPHI(Phi, L, RedDes) ||
-        RecurrenceDescriptor::AddReductionVar(Phi,
-                                              RecurrenceDescriptor::
-                                              RecurrenceKind::RK_FloatMinMax,
-                                              L, true, RedDes)) {
+        RecurrenceDescriptor::AddReductionVar(
+            Phi, RecurrenceDescriptor::RecurrenceKind::RK_FloatMinMax, L, true,
+            RedDes)) {
       Value *ReduceVar;
       PHINode *Phiop = Phi;
       PHINode *redoperation;
@@ -593,9 +629,8 @@ bool LoopSPMDization::FindReductionVariables(
         if (ReduceVarExit == ReduceVar)
           ReduceVarExitOrig[r] = dyn_cast<Value>(PhiExit);
       }
-    }
-    else {
-      //OptimizationRemark is not able to detect phi location
+    } else {
+      // OptimizationRemark is not able to detect phi location
       // si we have to print the instruction that uses a phi
       // this might be a reduction that is not suported
       // or an operation that involves a loop carry dependency
@@ -605,18 +640,20 @@ bool LoopSPMDization::FindReductionVariables(
         errs().changeColor(raw_ostream::BLUE, true);
         errs() << "!! ERROR: COULD NOT PERFORM SPMDization !!\n";
         errs().resetColor();
-        errs() << " Detected unsupported loop carried value in a loop marked for SPMDization;"
-               <<" please remove the SPMDization marking"
-               <<" or, if this is a reduction, add –mllvm –csa-omp-paropt-loop-splitting"
-               <<" along with the OpenMP reduction clause to detect more reduction patterns \n\n";
+        errs() << " Detected unsupported loop carried value in a loop marked "
+                  "for SPMDization;"
+               << " please remove the SPMDization marking"
+               << " or, if this is a reduction, add –mllvm "
+                  "–csa-omp-paropt-loop-splitting"
+               << " along with the OpenMP reduction clause to detect more "
+                  "reduction patterns \n\n";
         Instruction *op = cast<Instruction>(Phi);
         for (auto UA = Phi->user_begin(), EA = Phi->user_end(); UA != EA;) {
           op = cast<Instruction>(*UA++);
         }
-        ORE.emit(
-                 OptimizationRemark(DEBUG_TYPE, "SPMD Reductions:", op)
+        ORE.emit(OptimizationRemark(DEBUG_TYPE, "SPMD Reductions:", op)
                  << "The unsupported loop carried value in a loop marked"
-                 <<" for SPMDization is");
+                 << " for SPMDization is");
         return false;
       }
     }
