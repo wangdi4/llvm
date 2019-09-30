@@ -553,8 +553,10 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
     Builder.defineMacro("__cpp_template_template_args", "201611L");
 
   // C++20 features.
-  if (LangOpts.CPlusPlus2a)
+  if (LangOpts.CPlusPlus2a) {
     Builder.defineMacro("__cpp_conditional_explicit", "201806L");
+    Builder.defineMacro("__cpp_constinit", "201907L");
+  }
   if (LangOpts.Char8)
     Builder.defineMacro("__cpp_char8_t", "201811L");
   Builder.defineMacro("__cpp_impl_destroying_delete", "201806L");
@@ -1113,6 +1115,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   // SYCL device compiler which doesn't produce host binary.
   if (LangOpts.SYCLIsDevice) {
     Builder.defineMacro("__SYCL_DEVICE_ONLY__", "1");
+    Builder.defineMacro("SYCL_EXTERNAL", "__attribute__((sycl_device))");
     if (!getenv("DISABLE_INFER_AS"))
       Builder.defineMacro("__SYCL_ENABLE_INFER_AS__", "1");
   }

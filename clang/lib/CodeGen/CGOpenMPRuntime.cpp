@@ -6849,9 +6849,9 @@ emitNumTeamsForTargetDirective(CodeGenFunction &CGF,
   case OMPD_teams_distribute_parallel_for_simd:
   case OMPD_target_update:
   case OMPD_declare_simd:
+  case OMPD_declare_variant:
   case OMPD_declare_target:
   case OMPD_end_declare_target:
-  case OMPD_declare_variant:         // INTEL
   case OMPD_target_variant_dispatch: // INTEL
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
@@ -7156,9 +7156,9 @@ emitNumThreadsForTargetDirective(CodeGenFunction &CGF,
   case OMPD_teams_distribute_parallel_for_simd:
   case OMPD_target_update:
   case OMPD_declare_simd:
+  case OMPD_declare_variant:
   case OMPD_declare_target:
   case OMPD_end_declare_target:
-  case OMPD_declare_variant:         // INTEL
   case OMPD_target_variant_dispatch: // INTEL
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
@@ -8969,10 +8969,10 @@ getNestedDistributeDirective(ASTContext &Ctx, const OMPExecutableDirective &D) {
     case OMPD_teams_distribute_parallel_for_simd:
     case OMPD_target_update:
     case OMPD_declare_simd:
+    case OMPD_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
     case OMPD_declare_reduction:
-    case OMPD_declare_variant:         // INTEL
     case OMPD_target_variant_dispatch: // INTEL
     case OMPD_declare_mapper:
     case OMPD_taskloop:
@@ -9744,9 +9744,9 @@ void CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S,
     case OMPD_teams_distribute_parallel_for_simd:
     case OMPD_target_update:
     case OMPD_declare_simd:
+    case OMPD_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
-    case OMPD_declare_variant:         // INTEL
     case OMPD_target_variant_dispatch: // INTEL
     case OMPD_declare_reduction:
     case OMPD_declare_mapper:
@@ -10416,9 +10416,9 @@ void CGOpenMPRuntime::emitTargetDataStandAloneCall(
     case OMPD_teams_distribute_parallel_for:
     case OMPD_teams_distribute_parallel_for_simd:
     case OMPD_declare_simd:
+    case OMPD_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
-    case OMPD_declare_variant:         // INTEL
     case OMPD_target_variant_dispatch: // INTEL
     case OMPD_declare_reduction:
     case OMPD_declare_mapper:

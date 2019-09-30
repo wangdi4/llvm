@@ -37,7 +37,7 @@
 
 # DISASM:      Disassembly of section .text:
 # DISASM:      {{.*}} func1:
-# DISASM-NEXT: {{.*}} callq   43 <func2+0x201030>
+# DISASM-NEXT: {{.*}} callq   {{.*}} <func2+{{.*}}>
 # DISASM-NEXT: {{.*}} retq
 
 # DISASM:      Disassembly of section .plt:

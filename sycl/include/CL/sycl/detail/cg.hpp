@@ -202,7 +202,7 @@ public:
   runOnHost(const NDRDescT &NDRDesc) {
     size_t XYZ[3] = {0};
     sycl::id<Dims> ID;
-    sycl::range<Dims> Range;
+    sycl::range<Dims> Range(InitializedVal<Dims, range>::template get<0>());
     for (int I = 0; I < Dims; ++I)
       Range[I] = NDRDesc.GlobalSize[I];
 
@@ -226,7 +226,7 @@ public:
   typename std::enable_if<
       std::is_same<ArgT, item<Dims, /*Offset=*/true>>::value>::type
   runOnHost(const NDRDescT &NDRDesc) {
-    sycl::range<Dims> Range;
+    sycl::range<Dims> Range(InitializedVal<Dims, range>::template get<0>());
     sycl::id<Dims> Offset;
     for (int I = 0; I < Dims; ++I) {
       Range[I] = NDRDesc.GlobalSize[I];
@@ -253,15 +253,19 @@ public:
   template <class ArgT = KernelArgType>
   typename std::enable_if<std::is_same<ArgT, nd_item<Dims>>::value>::type
   runOnHost(const NDRDescT &NDRDesc) {
-    sycl::range<Dims> GroupSize;
+    sycl::range<Dims> GroupSize(
+        InitializedVal<Dims, range>::template get<0>());
     for (int I = 0; I < Dims; ++I) {
+      if (NDRDesc.LocalSize[I] == 0 ||
+          NDRDesc.GlobalSize[I] % NDRDesc.LocalSize[I] != 0)
+        throw sycl::runtime_error("Invalid local size for global size");
       GroupSize[I] = NDRDesc.GlobalSize[I] / NDRDesc.LocalSize[I];
-      assert((NDRDesc.GlobalSize[I] % NDRDesc.LocalSize[I] == 0) &&
-             "SYCL requires the global size to be a multiple of local");
     }
 
-    sycl::range<Dims> GlobalSize;
-    sycl::range<Dims> LocalSize;
+    sycl::range<Dims> LocalSize(
+        InitializedVal<Dims, range>::template get<0>());
+    sycl::range<Dims> GlobalSize(
+        InitializedVal<Dims, range>::template get<0>());
     sycl::id<Dims> GlobalOffset;
     for (int I = 0; I < Dims; ++I) {
       GlobalOffset[I] = NDRDesc.GlobalOffset[I];
@@ -290,15 +294,19 @@ public:
   template <typename ArgT = KernelArgType>
   enable_if_t<std::is_same<ArgT, cl::sycl::group<Dims>>::value>
   runOnHost(const NDRDescT &NDRDesc) {
-    sycl::range<Dims> NGroups;
+    sycl::range<Dims> NGroups(InitializedVal<Dims, range>::template get<0>());
 
     for (int I = 0; I < Dims; ++I) {
+      if (NDRDesc.LocalSize[I] == 0 ||
+          NDRDesc.GlobalSize[I] % NDRDesc.LocalSize[I] != 0)
+        throw sycl::runtime_error("Invalid local size for global size");
       NGroups[I] = NDRDesc.GlobalSize[I] / NDRDesc.LocalSize[I];
-      assert(NDRDesc.GlobalSize[I] % NDRDesc.LocalSize[I] == 0);
     }
-    sycl::range<Dims> GlobalSize;
-    sycl::range<Dims> LocalSize;
 
+    sycl::range<Dims> LocalSize(
+      InitializedVal<Dims, range>::template get<0>());
+    sycl::range<Dims> GlobalSize(
+      InitializedVal<Dims, range>::template get<0>());
     for (int I = 0; I < Dims; ++I) {
       LocalSize[I] = NDRDesc.LocalSize[I];
       GlobalSize[I] = NDRDesc.GlobalSize[I];
@@ -397,6 +405,15 @@ public:
         MStreams(std::move(Streams)) {
     assert((getType() == RUN_ON_HOST_INTEL || getType() == KERNEL) &&
            "Wrong type of exec kernel CG.");
+
+    if (MNDRDesc.LocalSize.size() > 0) {
+      range<3> Excess = (MNDRDesc.GlobalSize % MNDRDesc.LocalSize);
+      for (int I = 0; I < 3; I++) {
+        if (Excess[I] != 0)
+          throw nd_range_error("Global size is not a multiple of local size",
+              CL_INVALID_WORK_GROUP_SIZE);
+      }
+    }
   }
 
   std::vector<ArgDesc> getArguments() const { return MArgs; }

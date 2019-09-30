@@ -2366,6 +2366,48 @@ public:
   bool SetParamDefaultArgument(ParmVarDecl *Param, Expr *DefaultArg,
                                SourceLocation EqualLoc);
 
+  // Contexts where using non-trivial C union types can be disallowed. This is
+  // passed to err_non_trivial_c_union_in_invalid_context.
+  enum NonTrivialCUnionContext {
+    // Function parameter.
+    NTCUC_FunctionParam,
+    // Function return.
+    NTCUC_FunctionReturn,
+    // Default-initialized object.
+    NTCUC_DefaultInitializedObject,
+    // Variable with automatic storage duration.
+    NTCUC_AutoVar,
+    // Initializer expression that might copy from another object.
+    NTCUC_CopyInit,
+    // Assignment.
+    NTCUC_Assignment,
+    // Compound literal.
+    NTCUC_CompoundLiteral,
+    // Block capture.
+    NTCUC_BlockCapture,
+    // lvalue-to-rvalue conversion of volatile type.
+    NTCUC_LValueToRValueVolatile,
+  };
+
+  /// Emit diagnostics if the initializer or any of its explicit or
+  /// implicitly-generated subexpressions require copying or
+  /// default-initializing a type that is or contains a C union type that is
+  /// non-trivial to copy or default-initialize.
+  void checkNonTrivialCUnionInInitializer(const Expr *Init, SourceLocation Loc);
+
+  // These flags are passed to checkNonTrivialCUnion.
+  enum NonTrivialCUnionKind {
+    NTCUK_Init = 0x1,
+    NTCUK_Destruct = 0x2,
+    NTCUK_Copy = 0x4,
+  };
+
+  /// Emit diagnostics if a non-trivial C union type or a struct that contains
+  /// a non-trivial C union is used in an invalid context.
+  void checkNonTrivialCUnion(QualType QT, SourceLocation Loc,
+                             NonTrivialCUnionContext UseContext,
+                             unsigned NonTrivialKind);
+
   void AddInitializerToDecl(Decl *dcl, Expr *init, bool DirectInit);
   void ActOnUninitializedDecl(Decl *dcl);
   void ActOnInitializerError(Decl *Dcl);
@@ -2844,48 +2886,44 @@ public:
   };
 
   /// Attribute merging methods. Return true if a new attribute was added.
-  AvailabilityAttr *mergeAvailabilityAttr(
-      NamedDecl *D, SourceRange Range, IdentifierInfo *Platform, bool Implicit,
-      VersionTuple Introduced, VersionTuple Deprecated, VersionTuple Obsoleted,
-      bool IsUnavailable, StringRef Message, bool IsStrict,
-      StringRef Replacement, AvailabilityMergeKind AMK, int Priority,
-      unsigned AttrSpellingListIndex);
-  TypeVisibilityAttr *mergeTypeVisibilityAttr(Decl *D, SourceRange Range,
-                                       TypeVisibilityAttr::VisibilityType Vis,
-                                              unsigned AttrSpellingListIndex);
-  VisibilityAttr *mergeVisibilityAttr(Decl *D, SourceRange Range,
-                                      VisibilityAttr::VisibilityType Vis,
-                                      unsigned AttrSpellingListIndex);
-  UuidAttr *mergeUuidAttr(Decl *D, SourceRange Range,
-                          unsigned AttrSpellingListIndex, StringRef Uuid);
-  DLLImportAttr *mergeDLLImportAttr(Decl *D, SourceRange Range,
-                                    unsigned AttrSpellingListIndex);
-  DLLExportAttr *mergeDLLExportAttr(Decl *D, SourceRange Range,
-                                    unsigned AttrSpellingListIndex);
+  AvailabilityAttr *
+  mergeAvailabilityAttr(NamedDecl *D, const AttributeCommonInfo &CI,
+                        IdentifierInfo *Platform, bool Implicit,
+                        VersionTuple Introduced, VersionTuple Deprecated,
+                        VersionTuple Obsoleted, bool IsUnavailable,
+                        StringRef Message, bool IsStrict, StringRef Replacement,
+                        AvailabilityMergeKind AMK, int Priority);
+  TypeVisibilityAttr *
+  mergeTypeVisibilityAttr(Decl *D, const AttributeCommonInfo &CI,
+                          TypeVisibilityAttr::VisibilityType Vis);
+  VisibilityAttr *mergeVisibilityAttr(Decl *D, const AttributeCommonInfo &CI,
+                                      VisibilityAttr::VisibilityType Vis);
+  UuidAttr *mergeUuidAttr(Decl *D, const AttributeCommonInfo &CI,
+                          StringRef Uuid);
+  DLLImportAttr *mergeDLLImportAttr(Decl *D, const AttributeCommonInfo &CI);
+  DLLExportAttr *mergeDLLExportAttr(Decl *D, const AttributeCommonInfo &CI);
   MSInheritanceAttr *
-  mergeMSInheritanceAttr(Decl *D, SourceRange Range, bool BestCase,
-                         unsigned AttrSpellingListIndex,
+  mergeMSInheritanceAttr(Decl *D, const AttributeCommonInfo &CI, bool BestCase,
                          MSInheritanceAttr::Spelling SemanticSpelling);
-  FormatAttr *mergeFormatAttr(Decl *D, SourceRange Range,
+  FormatAttr *mergeFormatAttr(Decl *D, const AttributeCommonInfo &CI,
                               IdentifierInfo *Format, int FormatIdx,
-                              int FirstArg, unsigned AttrSpellingListIndex);
-  SectionAttr *mergeSectionAttr(Decl *D, SourceRange Range, StringRef Name,
-                                unsigned AttrSpellingListIndex);
-  CodeSegAttr *mergeCodeSegAttr(Decl *D, SourceRange Range, StringRef Name,
-                                unsigned AttrSpellingListIndex);
-  AlwaysInlineAttr *mergeAlwaysInlineAttr(Decl *D, SourceRange Range,
-                                          IdentifierInfo *Ident,
-                                          unsigned AttrSpellingListIndex);
-  MinSizeAttr *mergeMinSizeAttr(Decl *D, SourceRange Range,
-                                unsigned AttrSpellingListIndex);
+                              int FirstArg);
+  SectionAttr *mergeSectionAttr(Decl *D, const AttributeCommonInfo &CI,
+                                StringRef Name);
+  CodeSegAttr *mergeCodeSegAttr(Decl *D, const AttributeCommonInfo &CI,
+                                StringRef Name);
+  AlwaysInlineAttr *mergeAlwaysInlineAttr(Decl *D,
+                                          const AttributeCommonInfo &CI,
+                                          const IdentifierInfo *Ident);
+  MinSizeAttr *mergeMinSizeAttr(Decl *D, const AttributeCommonInfo &CI);
   NoSpeculativeLoadHardeningAttr *
   mergeNoSpeculativeLoadHardeningAttr(Decl *D,
                                       const NoSpeculativeLoadHardeningAttr &AL);
   SpeculativeLoadHardeningAttr *
   mergeSpeculativeLoadHardeningAttr(Decl *D,
                                     const SpeculativeLoadHardeningAttr &AL);
-  OptimizeNoneAttr *mergeOptimizeNoneAttr(Decl *D, SourceRange Range,
-                                          unsigned AttrSpellingListIndex);
+  OptimizeNoneAttr *mergeOptimizeNoneAttr(Decl *D,
+                                          const AttributeCommonInfo &CI);
   InternalLinkageAttr *mergeInternalLinkageAttr(Decl *D, const ParsedAttr &AL);
   InternalLinkageAttr *mergeInternalLinkageAttr(Decl *D,
                                                 const InternalLinkageAttr &AL);
@@ -2996,6 +3034,9 @@ public:
                                              QualType ResultType,
                                              Expr *Value,
                                              bool AllowNRVO = true);
+
+  bool CanPerformAggregateInitializationForOverloadResolution(
+      const InitializedEntity &Entity, InitListExpr *From);
 
   bool CanPerformCopyInitialization(const InitializedEntity &Entity,
                                     ExprResult Init);
@@ -4913,8 +4954,12 @@ public:
                            MultiExprArg InitArgList,
                            SourceLocation RBraceLoc);
 
+  ExprResult BuildInitList(SourceLocation LBraceLoc,
+                           MultiExprArg InitArgList,
+                           SourceLocation RBraceLoc);
+
   ExprResult ActOnDesignatedInitializer(Designation &Desig,
-                                        SourceLocation Loc,
+                                        SourceLocation EqualOrColonLoc,
                                         bool GNUSyntax,
                                         ExprResult Init);
 
@@ -9130,74 +9175,72 @@ public:
   bool checkRangedIntegralArgument(Expr *E, const AttrType *TmpAttr,
                                    ExprResult &Result);
   template <typename AttrType>
-  void IntelFPGAAddOneConstantValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
-                                        unsigned SpellingListIndex);
+  void IntelFPGAAddOneConstantValueAttr(Decl *D, const AttributeCommonInfo &CI,
+                                        Expr *E);
   template <typename AttrType>
-  void IntelFPGAAddOneConstantPowerTwoValueAttr(SourceRange AttrRange, Decl *D,
-                                                Expr *E,
-                                                unsigned SpellingListIndex);
+  void IntelFPGAAddOneConstantPowerTwoValueAttr(
+      Decl *D, const AttributeCommonInfo &CI, Expr *E);
 
 #if INTEL_CUSTOMIZATION
-  void AddSchedulerTargetFmaxMHzAttr(SourceRange AttrRange, Decl *D, Expr *E,
-                                     unsigned SpellingListIndex);
-  void AddInternalMaxBlockRamDepthAttr(SourceRange AttrRange, Decl *D, Expr *E,
-                                       unsigned SpellingListIndex);
+  void AddSchedulerTargetFmaxMHzAttr(Decl *D, const AttributeCommonInfo &CI,
+                                     Expr *E);
+  void AddInternalMaxBlockRamDepthAttr(Decl *D, const AttributeCommonInfo &CI,
+                                       Expr *E);
   template <typename AttrType>
-  void HLSAddOneConstantValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
-                                  unsigned SpellingListIndex);
+  void HLSAddOneConstantValueAttr(Decl *D, const AttributeCommonInfo &CI,
+                                  Expr *E);
   template <typename AttrType>
-  void HLSAddOneConstantPowerTwoValueAttr(SourceRange AttrRange, Decl *D,
-                                          Expr *E, unsigned SpellingListIndex);
+  void HLSAddOneConstantPowerTwoValueAttr(Decl *D, const AttributeCommonInfo &CI,
+                                          Expr *E);
 
-  void AddBankBitsAttr(SourceRange AttrRange, Decl *D, Expr **Exprs,
-                       unsigned Size, unsigned SpellingListIndex);
+  void AddBankBitsAttr(Decl *D, const AttributeCommonInfo &CI, Expr **Exprs,
+                       unsigned Size);
 #endif // INTEL_CUSTOMIZATION
   /// AddAlignedAttr - Adds an aligned attribute to a particular declaration.
-  void AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E,
-                      unsigned SpellingListIndex, bool IsPackExpansion);
-  void AddAlignedAttr(SourceRange AttrRange, Decl *D, TypeSourceInfo *T,
-                      unsigned SpellingListIndex, bool IsPackExpansion);
+  void AddAlignedAttr(Decl *D, const AttributeCommonInfo &CI, Expr *E,
+                      bool IsPackExpansion);
+  void AddAlignedAttr(Decl *D, const AttributeCommonInfo &CI, TypeSourceInfo *T,
+                      bool IsPackExpansion);
 
   /// AddAssumeAlignedAttr - Adds an assume_aligned attribute to a particular
   /// declaration.
-  void AddAssumeAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E, Expr *OE,
-                            unsigned SpellingListIndex);
+  void AddAssumeAlignedAttr(Decl *D, const AttributeCommonInfo &CI, Expr *E,
+                            Expr *OE);
 
   /// AddAllocAlignAttr - Adds an alloc_align attribute to a particular
   /// declaration.
-  void AddAllocAlignAttr(SourceRange AttrRange, Decl *D, Expr *ParamExpr,
-                         unsigned SpellingListIndex);
+  void AddAllocAlignAttr(Decl *D, const AttributeCommonInfo &CI,
+                         Expr *ParamExpr);
 
   /// AddAlignValueAttr - Adds an align_value attribute to a particular
   /// declaration.
-  void AddAlignValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
-                         unsigned SpellingListIndex);
+  void AddAlignValueAttr(Decl *D, const AttributeCommonInfo &CI, Expr *E);
 
   /// AddLaunchBoundsAttr - Adds a launch_bounds attribute to a particular
   /// declaration.
-  void AddLaunchBoundsAttr(SourceRange AttrRange, Decl *D, Expr *MaxThreads,
-                           Expr *MinBlocks, unsigned SpellingListIndex);
+  void AddLaunchBoundsAttr(Decl *D, const AttributeCommonInfo &CI,
+                           Expr *MaxThreads, Expr *MinBlocks);
 
   /// AddModeAttr - Adds a mode attribute to a particular declaration.
-  void AddModeAttr(SourceRange AttrRange, Decl *D, IdentifierInfo *Name,
-                   unsigned SpellingListIndex, bool InInstantiation = false);
+  void AddModeAttr(Decl *D, const AttributeCommonInfo &CI, IdentifierInfo *Name,
+                   bool InInstantiation = false);
 
-  void AddParameterABIAttr(SourceRange AttrRange, Decl *D,
-                           ParameterABI ABI, unsigned SpellingListIndex);
+  void AddParameterABIAttr(Decl *D, const AttributeCommonInfo &CI,
+                           ParameterABI ABI);
 
   enum class RetainOwnershipKind {NS, CF, OS};
-  void AddXConsumedAttr(Decl *D, SourceRange SR, unsigned SpellingIndex,
+  void AddXConsumedAttr(Decl *D, const AttributeCommonInfo &CI,
                         RetainOwnershipKind K, bool IsTemplateInstantiation);
 
   /// addAMDGPUFlatWorkGroupSizeAttr - Adds an amdgpu_flat_work_group_size
   /// attribute to a particular declaration.
-  void addAMDGPUFlatWorkGroupSizeAttr(SourceRange AttrRange, Decl *D, Expr *Min,
-                                      Expr *Max, unsigned SpellingListIndex);
+  void addAMDGPUFlatWorkGroupSizeAttr(Decl *D, const AttributeCommonInfo &CI,
+                                      Expr *Min, Expr *Max);
 
   /// addAMDGPUWavePersEUAttr - Adds an amdgpu_waves_per_eu attribute to a
   /// particular declaration.
-  void addAMDGPUWavesPerEUAttr(SourceRange AttrRange, Decl *D, Expr *Min,
-                               Expr *Max, unsigned SpellingListIndex);
+  void addAMDGPUWavesPerEUAttr(Decl *D, const AttributeCommonInfo &CI,
+                               Expr *Min, Expr *Max);
 
   bool checkNSReturnsRetainedReturnType(SourceLocation loc, QualType type);
 
@@ -9348,7 +9391,22 @@ private:
                                      MapT &Map, unsigned Selector = 0,
                                      SourceRange SrcRange = SourceRange());
 
+  /// Marks all the functions that might be required for the currently active
+  /// OpenMP context.
+  void markOpenMPDeclareVariantFuncsReferenced(SourceLocation Loc,
+                                               FunctionDecl *Func,
+                                               bool MightBeOdrUse);
+
 public:
+  /// Checks if the variant/multiversion functions are compatible.
+  bool areMultiversionVariantFunctionsCompatible(
+      const FunctionDecl *OldFD, const FunctionDecl *NewFD,
+      const PartialDiagnostic &NoProtoDiagID,
+      const PartialDiagnosticAt &NoteCausedDiagIDAt,
+      const PartialDiagnosticAt &NoSupportDiagIDAt,
+      const PartialDiagnosticAt &DiffDiagIDAt, bool TemplatesSupported,
+      bool ConstexprSupported);
+
   /// Function tries to capture lambda's captured variables in the OpenMP region
   /// before the original lambda is captured.
   void tryCaptureOpenMPLambdas(ValueDecl *V);
@@ -9557,14 +9615,6 @@ public:
   StmtResult ActOnOpenMPTargetVariantDispatchDirective(
       ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
       SourceLocation EndLoc);
-
-  /// Called on well-formed '\#pragma omp declare variant' after parsing of
-  /// the associated method/function.
-  DeclGroupPtrTy ActOnOpenMPDeclareVariantDirective(
-      DeclGroupPtrTy DG, FunctionDecl *FD,
-      SmallVectorImpl<OMPDeclareVariantDeclAttr::ConstructTy> &Constructs,
-      SmallVectorImpl<OMPDeclareVariantDeclAttr::DeviceTy> &Devices,
-      SourceRange SR);
 #endif // INTEL_CUSTOMIZATION
 
   /// Called on well-formed '\#pragma omp single' after parsing of the
@@ -9788,6 +9838,20 @@ public:
       Expr *Simdlen, ArrayRef<Expr *> Uniforms, ArrayRef<Expr *> Aligneds,
       ArrayRef<Expr *> Alignments, ArrayRef<Expr *> Linears,
       ArrayRef<unsigned> LinModifiers, ArrayRef<Expr *> Steps, SourceRange SR);
+
+  /// Called on well-formed '\#pragma omp declare variant' after parsing of
+  /// the associated method/function.
+  /// \param DG Function declaration to which declare variant directive is
+  /// applied to.
+  /// \param VariantRef Expression that references the variant function, which
+  /// must be used instead of the original one, specified in \p DG.
+  DeclGroupPtrTy ActOnOpenMPDeclareVariantDirective(DeclGroupPtrTy DG,
+                                                    Expr *VariantRef,
+#if INTEL_CUSTOMIZATION
+    SmallVectorImpl<OMPDeclareVariantAttr::ConstructTy> &Constructs,
+    SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &Devices,
+#endif // INTEL_CUSTOMIZATION
+                                                    SourceRange SR);
 
   OMPClause *ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind,
                                          Expr *Expr,

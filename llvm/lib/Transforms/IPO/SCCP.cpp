@@ -13,8 +13,10 @@ using namespace llvm;
 
 PreservedAnalyses IPSCCPPass::run(Module &M, ModuleAnalysisManager &AM) {
   const DataLayout &DL = M.getDataLayout();
-  auto &TLI = AM.getResult<TargetLibraryAnalysis>(M);
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto GetTLI = [&FAM](Function &F) -> const TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(F);
+  };
   auto getAnalysis = [&FAM](Function &F) -> AnalysisResultsForFn {
     DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
     return {
@@ -22,7 +24,7 @@ PreservedAnalyses IPSCCPPass::run(Module &M, ModuleAnalysisManager &AM) {
         &DT, FAM.getCachedResult<PostDominatorTreeAnalysis>(F)};
   };
 
-  if (!runIPSCCP(M, DL, &TLI, getAnalysis))
+  if (!runIPSCCP(M, DL, GetTLI, getAnalysis))
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
   PA.preserve<DominatorTreeAnalysis>();
@@ -54,9 +56,9 @@ public:
     if (skipModule(M))
       return false;
     const DataLayout &DL = M.getDataLayout();
-    const TargetLibraryInfo *TLI =
-        &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
-
+    auto GetTLI = [this](Function &F) -> const TargetLibraryInfo & {
+      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+    };
     auto getAnalysis = [this](Function &F) -> AnalysisResultsForFn {
       DominatorTree &DT =
           this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
@@ -69,7 +71,7 @@ public:
           nullptr}; // manager, so set them to nullptr.
     };
 
-    return runIPSCCP(M, DL, TLI, getAnalysis);
+    return runIPSCCP(M, DL, GetTLI, getAnalysis);
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {

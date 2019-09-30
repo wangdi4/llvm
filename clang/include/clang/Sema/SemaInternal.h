@@ -345,7 +345,6 @@ bool Sema::checkRangedIntegralArgument(Expr *E, const AttrType *TmpAttr,
   return false;
 }
 
-
 } // end namespace clang
 
 #endif

@@ -2452,7 +2452,7 @@ public:
   ExprResult RebuildInitList(SourceLocation LBraceLoc,
                              MultiExprArg Inits,
                              SourceLocation RBraceLoc) {
-    return SemaRef.ActOnInitList(LBraceLoc, Inits, RBraceLoc);
+    return SemaRef.BuildInitList(LBraceLoc, Inits, RBraceLoc);
   }
 
   /// Build a new designated initializer expression.
@@ -11478,10 +11478,14 @@ TreeTransform<Derived>::TransformLambdaExpr(LambdaExpr *E) {
     }
   }
 
+  LambdaScopeInfo *LSI = getSema().PushLambdaScope();
+  Sema::FunctionScopeRAII FuncScopeCleanup(getSema());
+
   // Transform the template parameters, and add them to the current
   // instantiation scope. The null case is handled correctly.
   auto TPL = getDerived().TransformTemplateParameterList(
       E->getTemplateParameterList());
+  LSI->GLTemplateParameterList = TPL;
 
   // Transform the type of the original lambda's call operator.
   // The transformation MUST be done in the CurrentInstantiationScope since
@@ -11507,10 +11511,6 @@ TreeTransform<Derived>::TransformLambdaExpr(LambdaExpr *E) {
     NewCallOpTSI = NewCallOpTLBuilder.getTypeSourceInfo(getSema().Context,
                                                         NewCallOpType);
   }
-
-  LambdaScopeInfo *LSI = getSema().PushLambdaScope();
-  Sema::FunctionScopeRAII FuncScopeCleanup(getSema());
-  LSI->GLTemplateParameterList = TPL;
 
   // Create the local class that will describe the lambda.
   CXXRecordDecl *OldClass = E->getLambdaClass();

@@ -186,11 +186,11 @@ CreateFrontendAction(CompilerInstance &CI) {
 bool ExecuteCompilerInvocation(CompilerInstance *Clang) {
   // Honor -help.
   if (Clang->getFrontendOpts().ShowHelp) {
-    std::unique_ptr<OptTable> Opts = driver::createDriverOptTable();
-    Opts->PrintHelp(llvm::outs(), "clang -cc1 [options] file...",
-                    "LLVM 'Clang' Compiler: http://clang.llvm.org",
-                    /*Include=*/driver::options::CC1Option,
-                    /*Exclude=*/0, /*ShowAllAliases=*/false);
+    driver::getDriverOptTable().PrintHelp(
+        llvm::outs(), "clang -cc1 [options] file...",
+        "LLVM 'Clang' Compiler: http://clang.llvm.org",
+        /*Include=*/driver::options::CC1Option,
+        /*Exclude=*/0, /*ShowAllAliases=*/false);
     return true;
   }
 
@@ -229,6 +229,14 @@ bool ExecuteCompilerInvocation(CompilerInstance *Clang) {
       break;
     }
   }
+
+#if INTEL_CUSTOMIZATION
+  // FIXME: This is a hack to remedy the buggy logic in community code at
+  // https://reviews.llvm.org/differential/changeset/?ref=1608090&
+  if (!Clang->getDiagnostics().isIgnored(
+      diag::warn_profile_data_misexpect, SourceLocation()))
+    Clang->getFrontendOpts().LLVMArgs.push_back("-pgo-warn-misexpect");
+#endif // INTEL_CUSTOMIZATION
 
   // Honor -mllvm.
   //
@@ -277,6 +285,7 @@ bool ExecuteCompilerInvocation(CompilerInstance *Clang) {
                                   AnOpts,
                                   Clang->getDiagnostics(),
                                   Clang->getLangOpts());
+    return true;
   }
 
   // Honor -analyzer-config-help.

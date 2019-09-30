@@ -62,10 +62,12 @@ public:
         [this](Function &F) -> DominatorTree & {
       return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
     };
-
+    auto GetTLI = [this](Function &F) -> const TargetLibraryInfo & {
+      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+    };
     bool Changed = Impl.runImpl(
-        M, DTInfo, getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(),
-        getAnalysis<WholeProgramWrapperPass>().getResult(), GetDT);
+        M, DTInfo, GetTLI, getAnalysis<WholeProgramWrapperPass>().getResult(),
+        GetDT);
     return Changed;
   }
 
@@ -173,9 +175,9 @@ public:
   using CapacityValuesTy = SmallPtrSet<Value *, 4>;
 
   ClassInfo(const DataLayout &DL, DTransAnalysisInfo &DTInfo,
-            TargetLibraryInfo &TLI, MemInitDominatorTreeType GetDT,
+            MemGetTLITy GetTLI, MemInitDominatorTreeType GetDT,
             MemInitCandidateInfo *MICInfo, int32_t FieldIdx)
-      : DL(DL), DTInfo(DTInfo), TLI(TLI), GetDT(GetDT), MICInfo(MICInfo),
+      : DL(DL), DTInfo(DTInfo), GetTLI(GetTLI), GetDT(GetDT), MICInfo(MICInfo),
         FieldIdx(FieldIdx){};
 
   // Analyze each member function to detect functionality.
@@ -201,7 +203,7 @@ public:
 private:
   const DataLayout &DL;
   DTransAnalysisInfo &DTInfo;
-  TargetLibraryInfo &TLI;
+  MemGetTLITy GetTLI;
   MemInitDominatorTreeType GetDT;
 
   // Candidate struct info.
@@ -809,6 +811,7 @@ bool ClassInfo::checkAllocCall(Value *Val, Argument *ThisObj, Value *NumOfElems,
     return false;
 
   SmallPtrSet<const Value *, 3> Args;
+  auto &TLI = GetTLI(*AllocCall->getFunction());
   collectSpecialAllocArgs(AKind, AllocCall, Args, TLI);
   assert(Args.size() == 1 && "Unexpected allocation function");
   const Value *SizeArg = *Args.begin();
@@ -970,7 +973,8 @@ bool ClassInfo::checkAllocatedArrayPtr(
     if (!AllocCall)
       return false;
     // Ignore if it is a dummy allocated call.
-    if (isDummyFuncWithThisAndIntArgs(AllocCall, TLI)) {
+    if (isDummyFuncWithThisAndIntArgs(AllocCall,
+                                      GetTLI(*AllocCall->getFunction()))) {
       Visited.insert(AllocCall);
       Value *DSizeArg = AllocCall->getArgOperand(1);
       // Make sure size value that is passed to dummy allocation is
@@ -1286,6 +1290,7 @@ bool ClassInfo::checkEHBlock(BasicBlock *BB, Argument *ThisObj) {
   // Returns true if Call is a call to LibFunc LB.
   auto IsLibFunction = [this](CallBase *Call, LibFunc LB) {
     LibFunc LibF;
+    auto &TLI = GetTLI(*Call->getFunction());
     auto *F = dyn_cast_or_null<Function>(Call->getCalledFunction());
     if (!F || !TLI.getLibFunc(*F, LibF) || !TLI.has(LibF))
       return false;
@@ -1478,7 +1483,7 @@ const Value *ClassInfo::getFreeArg(FreeCallInfo *FInfo) {
   SmallPtrSet<const Value *, 3> Args;
 
   collectSpecialFreeArgs(FInfo->getFreeKind(), cast<CallBase>(CallI), Args,
-                         TLI);
+                         GetTLI(*CallI->getFunction()));
   assert(Args.size() == 1 && "Unexpected free function");
   return *Args.begin();
 }
@@ -1534,7 +1539,8 @@ const Value *ClassInfo::checkFree(FreeCallInfo *FInfo, Argument *ThisObj,
       continue;
     }
     DummyFreeCall = dyn_cast<CallBase>(U);
-    if (!DummyFreeCall || !isDummyFuncWithThisAndPtrArgs(DummyFreeCall, TLI))
+    if (!DummyFreeCall || !isDummyFuncWithThisAndPtrArgs(DummyFreeCall,
+                                             GetTLI(*CallI->getFunction())))
       return nullptr;
     if (!AreFreeCallsUnderSameCondition(cast<CallBase>(CallI), DummyFreeCall,
                                         ThisObj))
@@ -3951,9 +3957,9 @@ class MemInitTrimDownImpl {
 
 public:
   MemInitTrimDownImpl(Module &M, const DataLayout &DL,
-                      DTransAnalysisInfo &DTInfo, TargetLibraryInfo &TLI,
+                      DTransAnalysisInfo &DTInfo, MemGetTLITy GetTLI,
                       MemInitDominatorTreeType GetDT)
-      : M(M), DL(DL), DTInfo(DTInfo), TLI(TLI), GetDT(GetDT){};
+      : M(M), DL(DL), DTInfo(DTInfo), GetTLI(GetTLI), GetDT(GetDT){};
 
   ~MemInitTrimDownImpl() {
     for (auto *CInfo : Candidates)
@@ -3967,7 +3973,7 @@ private:
   Module &M;
   const DataLayout &DL;
   DTransAnalysisInfo &DTInfo;
-  TargetLibraryInfo &TLI;
+  MemGetTLITy GetTLI;
   MemInitDominatorTreeType GetDT;
 
   constexpr static int MaxNumCandidates = 1;
@@ -4050,7 +4056,7 @@ bool MemInitTrimDownImpl::verifyFinalSafetyChecks(void) {
 bool MemInitTrimDownImpl::analyzeCandidate(MemInitCandidateInfo *Cand) {
   for (auto Loc : Cand->candidate_fields()) {
     std::unique_ptr<ClassInfo> ClassI(
-        new ClassInfo(DL, DTInfo, TLI, GetDT, Cand, Loc));
+        new ClassInfo(DL, DTInfo, GetTLI, GetDT, Cand, Loc));
     if (!ClassI->analyzeClassFunctions())
       return false;
     // Continue checking remaining candidate fields if
@@ -4161,8 +4167,7 @@ bool MemInitTrimDownImpl::run(void) {
 }
 
 bool MemInitTrimDownPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
-                                  TargetLibraryInfo &TLI,
-                                  WholeProgramInfo &WPInfo,
+                                  MemGetTLITy GetTLI, WholeProgramInfo &WPInfo,
                                   dtrans::MemInitDominatorTreeType &GetDT) {
 
   auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
@@ -4174,7 +4179,7 @@ bool MemInitTrimDownPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
 
   auto &DL = M.getDataLayout();
 
-  MemInitTrimDownImpl MemInitTrimDownI(M, DL, DTInfo, TLI, GetDT);
+  MemInitTrimDownImpl MemInitTrimDownI(M, DL, DTInfo, GetTLI, GetDT);
   return MemInitTrimDownI.run();
 }
 
@@ -4186,9 +4191,11 @@ PreservedAnalyses MemInitTrimDownPass::run(Module &M,
   MemInitDominatorTreeType GetDT = [&FAM](Function &F) -> DominatorTree & {
     return FAM.getResult<DominatorTreeAnalysis>(F);
   };
+  auto GetTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(F);
+  };
 
-  if (!runImpl(M, DTransInfo, AM.getResult<TargetLibraryAnalysis>(M), WPInfo,
-               GetDT))
+  if (!runImpl(M, DTransInfo, GetTLI, WPInfo, GetDT))
     return PreservedAnalyses::all();
 
   // TODO: Mark the actual preserved analyses.

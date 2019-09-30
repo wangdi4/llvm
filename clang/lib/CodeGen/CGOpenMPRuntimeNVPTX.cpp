@@ -291,10 +291,11 @@ static RecordDecl *buildRecordForGlobalizedVars(
                                      static_cast<CharUnits::QuantityType>(
                                          GlobalMemoryAlignment)));
       Field->addAttr(AlignedAttr::CreateImplicit(
-          C, AlignedAttr::GNU_aligned, /*IsAlignmentExpr=*/true,
+          C, /*IsAlignmentExpr=*/true,
           IntegerLiteral::Create(C, Align,
                                  C.getIntTypeForBitwidth(32, /*Signed=*/0),
-                                 SourceLocation())));
+                                 SourceLocation()),
+          {}, AttributeCommonInfo::AS_GNU, AlignedAttr::GNU_aligned));
     }
     GlobalizedRD->addDecl(Field);
     MappedDeclsFields.try_emplace(VD, Field);
@@ -794,9 +795,9 @@ static bool hasNestedSPMDDirective(ASTContext &Ctx,
     case OMPD_teams_distribute_parallel_for_simd:
     case OMPD_target_update:
     case OMPD_declare_simd:
+    case OMPD_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
-    case OMPD_declare_variant:         // INTEL
     case OMPD_target_variant_dispatch: // INTEL
     case OMPD_declare_reduction:
     case OMPD_declare_mapper:
@@ -866,9 +867,9 @@ static bool supportsSPMDExecutionMode(ASTContext &Ctx,
   case OMPD_teams_distribute_parallel_for_simd:
   case OMPD_target_update:
   case OMPD_declare_simd:
+  case OMPD_declare_variant:
   case OMPD_declare_target:
   case OMPD_end_declare_target:
-  case OMPD_declare_variant:         // INTEL
   case OMPD_target_variant_dispatch: // INTEL
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
@@ -1031,10 +1032,10 @@ static bool hasNestedLightweightDirective(ASTContext &Ctx,
     case OMPD_teams_distribute_parallel_for_simd:
     case OMPD_target_update:
     case OMPD_declare_simd:
+    case OMPD_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
     case OMPD_declare_reduction:
-    case OMPD_declare_variant:         // INTEL
     case OMPD_target_variant_dispatch: // INTEL
     case OMPD_declare_mapper:
     case OMPD_taskloop:
@@ -1109,9 +1110,9 @@ static bool supportsLightweightRuntime(ASTContext &Ctx,
   case OMPD_teams_distribute_parallel_for_simd:
   case OMPD_target_update:
   case OMPD_declare_simd:
+  case OMPD_declare_variant:
   case OMPD_declare_target:
   case OMPD_end_declare_target:
-  case OMPD_declare_variant:         // INTEL
   case OMPD_target_variant_dispatch: // INTEL
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:

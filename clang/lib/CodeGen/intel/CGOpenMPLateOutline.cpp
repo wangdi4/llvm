@@ -1928,8 +1928,8 @@ bool OpenMPLateOutliner::needsVLAExprEmission() {
   case OMPD_declare_simd:
   case OMPD_declare_target:
   case OMPD_end_declare_target:
-#if INTEL_CUSTOMIZATION
   case OMPD_declare_variant:
+#if INTEL_CUSTOMIZATION
   case OMPD_target_variant_dispatch:
 #endif // INTEL_CUSTOMIZATION
   case OMPD_declare_reduction:
@@ -2238,7 +2238,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   // These directives do not create region directives.
   case OMPD_declare_target:
   case OMPD_end_declare_target:
-  case OMPD_declare_variant: // INTEL
+  case OMPD_declare_variant:
   case OMPD_threadprivate:
   case OMPD_declare_reduction:
   case OMPD_declare_simd:

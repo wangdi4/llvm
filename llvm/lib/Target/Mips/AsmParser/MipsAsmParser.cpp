@@ -39,6 +39,7 @@
 #include "llvm/MC/MCSymbolELF.h"
 #include "llvm/MC/MCValue.h"
 #include "llvm/MC/SubtargetFeature.h"
+#include "llvm/Support/Alignment.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
@@ -1804,8 +1805,9 @@ bool MipsAsmParser::processInstruction(MCInst &Inst, SMLoc IDLoc,
         break; // We'll deal with this situation later on when applying fixups.
       if (!isIntN(inMicroMipsMode() ? 17 : 18, Offset.getImm()))
         return Error(IDLoc, "branch target out of range");
-      if (OffsetToAlignment(Offset.getImm(),
-                            1LL << (inMicroMipsMode() ? 1 : 2)))
+      if (offsetToAlignment(
+              Offset.getImm(),
+              (inMicroMipsMode() ? llvm::Align(2) : llvm::Align(4))))
         return Error(IDLoc, "branch to misaligned address");
       break;
     case Mips::BGEZ:
@@ -1834,8 +1836,9 @@ bool MipsAsmParser::processInstruction(MCInst &Inst, SMLoc IDLoc,
         break; // We'll deal with this situation later on when applying fixups.
       if (!isIntN(inMicroMipsMode() ? 17 : 18, Offset.getImm()))
         return Error(IDLoc, "branch target out of range");
-      if (OffsetToAlignment(Offset.getImm(),
-                            1LL << (inMicroMipsMode() ? 1 : 2)))
+      if (offsetToAlignment(
+              Offset.getImm(),
+              (inMicroMipsMode() ? llvm::Align(2) : llvm::Align(4))))
         return Error(IDLoc, "branch to misaligned address");
       break;
     case Mips::BGEC:    case Mips::BGEC_MMR6:
@@ -1850,7 +1853,7 @@ bool MipsAsmParser::processInstruction(MCInst &Inst, SMLoc IDLoc,
         break; // We'll deal with this situation later on when applying fixups.
       if (!isIntN(18, Offset.getImm()))
         return Error(IDLoc, "branch target out of range");
-      if (OffsetToAlignment(Offset.getImm(), 1LL << 2))
+      if (offsetToAlignment(Offset.getImm(), llvm::Align(4)))
         return Error(IDLoc, "branch to misaligned address");
       break;
     case Mips::BLEZC:   case Mips::BLEZC_MMR6:
@@ -1863,7 +1866,7 @@ bool MipsAsmParser::processInstruction(MCInst &Inst, SMLoc IDLoc,
         break; // We'll deal with this situation later on when applying fixups.
       if (!isIntN(18, Offset.getImm()))
         return Error(IDLoc, "branch target out of range");
-      if (OffsetToAlignment(Offset.getImm(), 1LL << 2))
+      if (offsetToAlignment(Offset.getImm(), llvm::Align(4)))
         return Error(IDLoc, "branch to misaligned address");
       break;
     case Mips::BEQZC:   case Mips::BEQZC_MMR6:
@@ -1874,7 +1877,7 @@ bool MipsAsmParser::processInstruction(MCInst &Inst, SMLoc IDLoc,
         break; // We'll deal with this situation later on when applying fixups.
       if (!isIntN(23, Offset.getImm()))
         return Error(IDLoc, "branch target out of range");
-      if (OffsetToAlignment(Offset.getImm(), 1LL << 2))
+      if (offsetToAlignment(Offset.getImm(), llvm::Align(4)))
         return Error(IDLoc, "branch to misaligned address");
       break;
     case Mips::BEQZ16_MM:
@@ -1887,7 +1890,7 @@ bool MipsAsmParser::processInstruction(MCInst &Inst, SMLoc IDLoc,
         break; // We'll deal with this situation later on when applying fixups.
       if (!isInt<8>(Offset.getImm()))
         return Error(IDLoc, "branch target out of range");
-      if (OffsetToAlignment(Offset.getImm(), 2LL))
+      if (offsetToAlignment(Offset.getImm(), llvm::Align(2)))
         return Error(IDLoc, "branch to misaligned address");
       break;
     }
@@ -2870,7 +2873,8 @@ bool MipsAsmParser::loadAndAddSymbolAddress(const MCExpr *SymExpr,
                                             const MCSubtargetInfo *STI) {
   // FIXME: These expansions do not respect -mxgot.
   MipsTargetStreamer &TOut = getTargetStreamer();
-  bool UseSrcReg = SrcReg != Mips::NoRegister;
+  bool UseSrcReg = SrcReg != Mips::NoRegister && SrcReg != Mips::ZERO &&
+                   SrcReg != Mips::ZERO_64;
   warnIfNoMacro(IDLoc);
 
   if (inPicMode() && ABI.IsO32()) {
@@ -3493,7 +3497,7 @@ bool MipsAsmParser::expandUncondBranchMMPseudo(MCInst &Inst, SMLoc IDLoc,
     } else {
       if (!isInt<17>(Offset.getImm()))
         return Error(IDLoc, "branch target out of range");
-      if (OffsetToAlignment(Offset.getImm(), 1LL << 1))
+      if (offsetToAlignment(Offset.getImm(), llvm::Align(2)))
         return Error(IDLoc, "branch to misaligned address");
       Inst.clear();
       Inst.setOpcode(Mips::BEQ_MM);
@@ -3654,7 +3658,6 @@ void MipsAsmParser::expandMemInst(MCInst &Inst, SMLoc IDLoc, MCStreamer &Out,
   if (OffsetOp.isExpr()) {
     if (inPicMode()) {
       // FIXME:
-      // a) Fix lw/sw $reg, symbol($reg) instruction expanding.
       // c) Check that immediates of R_MIPS_GOT16/R_MIPS_LO16 relocations
       //    do not exceed 16-bit.
       // d) Use R_MIPS_GOT_PAGE/R_MIPS_GOT_OFST relocations instead
@@ -3670,23 +3673,28 @@ void MipsAsmParser::expandMemInst(MCInst &Inst, SMLoc IDLoc, MCStreamer &Out,
         return;
       }
 
-      loadAndAddSymbolAddress(Res.getSymA(), TmpReg, Mips::NoRegister,
+      loadAndAddSymbolAddress(Res.getSymA(), TmpReg, BaseReg,
                               !ABI.ArePtrs64bit(), IDLoc, Out, STI);
       TOut.emitRRI(Inst.getOpcode(), DstReg, TmpReg, Res.getConstant(), IDLoc,
                    STI);
     } else {
+      // FIXME: Implement 64-bit case.
+      // 1) lw $8, sym => lui $8,  %hi(sym)
+      //                  lw  $8,  %lo(sym)($8)
+      // 2) sw $8, sym => lui $at, %hi(sym)
+      //                  sw  $8,  %lo(sym)($at)
       const MCExpr *ExprOffset = OffsetOp.getExpr();
       MCOperand LoOperand = MCOperand::createExpr(
           MipsMCExpr::create(MipsMCExpr::MEK_LO, ExprOffset, getContext()));
       MCOperand HiOperand = MCOperand::createExpr(
           MipsMCExpr::create(MipsMCExpr::MEK_HI, ExprOffset, getContext()));
 
-      if (IsLoad)
-        TOut.emitLoadWithSymOffset(Inst.getOpcode(), DstReg, BaseReg, HiOperand,
-                                   LoOperand, TmpReg, IDLoc, STI);
-      else
-        TOut.emitStoreWithSymOffset(Inst.getOpcode(), DstReg, BaseReg,
-                                    HiOperand, LoOperand, TmpReg, IDLoc, STI);
+      // Generate the base address in TmpReg.
+      TOut.emitRX(Mips::LUi, TmpReg, HiOperand, IDLoc, STI);
+      if (BaseReg != Mips::ZERO)
+        TOut.emitRRR(Mips::ADDu, TmpReg, TmpReg, BaseReg, IDLoc, STI);
+      // Emit the load or store with the adjusted base and offset.
+      TOut.emitRRX(Inst.getOpcode(), DstReg, TmpReg, LoOperand, IDLoc, STI);
     }
     return;
   }

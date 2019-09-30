@@ -216,7 +216,11 @@ void TableSection::writeBody() {
 
   raw_ostream &os = bodyOutputStream;
   writeUleb128(os, 1, "table count");
-  WasmLimits limits = {WASM_LIMITS_FLAG_HAS_MAX, tableSize, tableSize};
+  WasmLimits limits;
+  if (config->growableTable)
+    limits = {0, tableSize, 0};
+  else
+    limits = {WASM_LIMITS_FLAG_HAS_MAX, tableSize, tableSize};
   writeTableType(os, WasmTable{WASM_TYPE_FUNCREF, limits});
 }
 
@@ -310,6 +314,15 @@ void ExportSection::writeBody() {
     writeExport(os, export_);
 }
 
+bool StartSection::isNeeded() const {
+  return !config->relocatable && numSegments && config->sharedMemory;
+}
+
+void StartSection::writeBody() {
+  raw_ostream &os = bodyOutputStream;
+  writeUleb128(os, WasmSym::initMemory->getFunctionIndex(), "function index");
+}
+
 void ElemSection::addEntry(FunctionSymbol *sym) {
   if (sym->hasTableIndex())
     return;
@@ -346,7 +359,7 @@ void DataCountSection::writeBody() {
 }
 
 bool DataCountSection::isNeeded() const {
-  return numSegments && config->passiveSegments;
+  return numSegments && config->sharedMemory;
 }
 
 static uint32_t getWasmFlags(const Symbol *sym) {

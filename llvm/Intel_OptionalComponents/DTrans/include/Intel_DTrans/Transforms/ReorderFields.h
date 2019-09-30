@@ -196,8 +196,10 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // This is used to share the core implementation with the legacy pass.
-  bool runImpl(Module &M, DTransAnalysisInfo &Info,
-               const TargetLibraryInfo &TLI, WholeProgramInfo &WPInfo);
+  bool
+  runImpl(Module &M, DTransAnalysisInfo &Info,
+          std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
+          WholeProgramInfo &WPInfo);
 
 private:
   // Collection of suitable StructInfo* types for field reordering

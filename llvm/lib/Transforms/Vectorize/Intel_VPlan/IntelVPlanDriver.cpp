@@ -146,7 +146,7 @@ bool VPlanDriver::processFunction(Function &Fn) {
   if (TTI->getRegisterBitWidth(true) == 0)
     return false;
 
-  TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+  TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(Fn);
   DL = &Fn.getParent()->getDataLayout();
 
   assert(!(VPlanVectCand && VPlanConstrStressTest) &&

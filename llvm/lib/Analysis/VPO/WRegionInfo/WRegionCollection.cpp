@@ -107,7 +107,7 @@ bool WRegionCollectionWrapperPass::runOnFunction(Function &F) {
   auto &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
   auto &AC = getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
-  auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+  auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
   auto &AA = getAnalysis<AAResultsWrapperPass>().getAAResults();
 #if INTEL_CUSTOMIZATION
   auto *HIRFA = getAnalysisIfAvailable<loopopt::HIRFrameworkWrapperPass>();

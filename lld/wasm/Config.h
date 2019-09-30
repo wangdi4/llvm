@@ -31,10 +31,10 @@ struct Configuration {
   bool exportAll;
   bool exportDynamic;
   bool exportTable;
+  bool growableTable;
   bool gcSections;
   bool importMemory;
   bool sharedMemory;
-  bool passiveSegments;
   bool importTable;
   bool mergeDataSegments;
   bool pie;

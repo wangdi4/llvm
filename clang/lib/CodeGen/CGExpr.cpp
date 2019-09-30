@@ -2389,7 +2389,7 @@ static LValue EmitGlobalVarDeclLValue(CodeGenFunction &CGF,
 
   // If it's thread_local, emit a call to its wrapper function instead.
   if (VD->getTLSKind() == VarDecl::TLS_Dynamic &&
-      CGF.CGM.getCXXABI().usesThreadWrapperFunction())
+      CGF.CGM.getCXXABI().usesThreadWrapperFunction(VD))
     return CGF.CGM.getCXXABI().EmitThreadLocalVarDeclLValue(CGF, VD, T);
   // Check if the variable is marked as declare target with link clause in
   // device codegen.
@@ -2574,6 +2574,11 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
         // Spill the constant value to a global.
         Addr = CGM.createUnnamedGlobalFrom(*VD, Val,
                                            getContext().getDeclAlign(VD));
+        llvm::Type *VarTy = getTypes().ConvertTypeForMem(VD->getType());
+        auto *PTy = llvm::PointerType::get(
+            VarTy, getContext().getTargetAddressSpace(VD->getType()));
+        if (PTy != Addr.getType())
+          Addr = Builder.CreatePointerBitCastOrAddrSpaceCast(Addr, PTy);
       } else {
         // Should we be using the alignment of the constant pointer we emitted?
         CharUnits Alignment =
@@ -4784,10 +4789,11 @@ static CGCallee EmitDirectCallee(CodeGenFunction &CGF, const FunctionDecl *FD) {
 #if INTEL_CUSTOMIZATION
   if (CGF.getLangOpts().OpenMPIsDevice && CGF.CapturedStmtInfo &&
       CGF.CapturedStmtInfo->inTargetVariantDispatchRegion()) {
-    for (const auto *DVDA : FD->specific_attrs<OMPDeclareVariantDeclAttr>()) {
+    for (const auto *DVA : FD->specific_attrs<OMPDeclareVariantAttr>()) {
       // Force target emission of variants as they are conditionally called
       // based on the device clause.
-      const FunctionDecl *VFD = DVDA->getFunctionDecl();
+      auto *DRE = cast<DeclRefExpr>(DVA->getVariantFuncRef());
+      FunctionDecl *VFD = cast<FunctionDecl>(DRE->getDecl());
       CGF.CGM.GetAddrOfFunction(VFD);
     }
   }

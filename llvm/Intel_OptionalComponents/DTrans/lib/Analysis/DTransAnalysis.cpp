@@ -170,6 +170,8 @@ static cl::opt<bool> DTransOutOfBoundsOK("dtrans-outofboundsok", cl::init(true),
 static cl::opt<bool> DTransUseCRuleCompat("dtrans-usecrulecompat",
                                           cl::init(false), cl::ReallyHidden);
 
+using GetTLIFnType = std::function<const TargetLibraryInfo &(const Function &)>;
+
 namespace {
 
 // FIXME: Find a better home for this very generic utility function.
@@ -840,8 +842,7 @@ private:
 //
 class DTransAllocAnalyzer {
 public:
-  DTransAllocAnalyzer(const TargetLibraryInfo &TLI, const Module &M)
-      : TLI(TLI) {
+  DTransAllocAnalyzer(GetTLIFnType GetTLI, const Module &M) : GetTLI(GetTLI) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     parseListOptions(M);
 #endif
@@ -872,8 +873,9 @@ private:
   // by malloc() to be considered isMallocPostDom() or free to be considered
   // isFreePostDom().
   SmallPtrSet<BasicBlock *, 4> SkipTestBlocks;
-  // Needed to detrmine if a function is malloc()
-  const TargetLibraryInfo &TLI;
+  // Needed to determine if a function is malloc()
+  GetTLIFnType GetTLI;
+
   // Needed to check argument types
   PointerType *Int8PtrTy;
 
@@ -1004,7 +1006,7 @@ int DTransAllocAnalyzer::skipTestSuccessor(BranchInst *BI) const {
   if (isa<Argument>(V))
     return ICI->getPredicate() == ICmpInst::ICMP_EQ ? 0 : 1;
   if (auto *Call = dyn_cast<CallBase>(V))
-    if (auto Kind = dtrans::getAllocFnKind(Call, TLI))
+    if (auto Kind = dtrans::getAllocFnKind(Call, GetTLI(*Call->getFunction())))
       if (Kind == dtrans::AK_Malloc || Kind == dtrans::AK_New)
         return ICI->getPredicate() == ICmpInst::ICMP_EQ ? 0 : 1;
   return -1;
@@ -1096,6 +1098,7 @@ bool DTransAllocAnalyzer::mallocBasedGEPChain(GetElementPtrInst *GV,
 
   Value *BasePtr = V->getPointerOperand();
   if (auto *Call = dyn_cast<CallBase>(BasePtr)) {
+    const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
     auto Kind = dtrans::getAllocFnKind(Call, TLI);
     if (Kind != dtrans::AK_Malloc && Kind != dtrans::AK_New)
       return false;
@@ -1247,6 +1250,7 @@ bool DTransAllocAnalyzer::returnValueIsMallocAddress(Value *RV,
     return false;
   VisitedBlocks.insert(BB);
   if (const auto *Call = dyn_cast<CallBase>(RV)) {
+    const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
     auto Kind = dtrans::getAllocFnKind(Call, TLI);
     return Kind == dtrans::AK_Malloc || Kind == dtrans::AK_New;
   }
@@ -1421,9 +1425,11 @@ bool DTransAllocAnalyzer::analyzeForIndirectStatus(const CallBase *Call,
 bool DTransAllocAnalyzer::hasFreeCall(BasicBlock *BB) const {
   for (auto BI = BB->rbegin(), BE = BB->rend(); BI != BE;) {
     Instruction *I = &*BI++;
-    if (auto *Call = dyn_cast<CallBase>(I))
+    if (auto *Call = dyn_cast<CallBase>(I)) {
+      const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
       if (dtrans::isFreeFn(Call, TLI))
         return true;
+    }
   }
   return false;
 }
@@ -1454,6 +1460,7 @@ void DTransAllocAnalyzer::populateAllocDeallocTable(const Module &M) {
       continue;
 
     // Deal with free.
+    const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
     if (dtrans::isFreeFn(Call, TLI)) {
       // Check all functions, calling free function F.
       for (auto &U : F.uses())
@@ -1960,6 +1967,7 @@ bool DTransAllocAnalyzer::isFreeWithStoredMMPtr(const Function *F) {
 // Returns true if the called function is user-defined malloc or dummy
 // function.
 bool DTransAllocAnalyzer::isUserAllocOrDummyFunc(const CallBase *Call) {
+  const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
   return (dtrans::isDummyFuncWithThisAndIntArgs(Call, TLI) ||
           isMallocPostDom(Call));
 }
@@ -1967,6 +1975,7 @@ bool DTransAllocAnalyzer::isUserAllocOrDummyFunc(const CallBase *Call) {
 // Returns true if the called function is user-defined free or dummy
 // function.
 bool DTransAllocAnalyzer::isUserFreeOrDummyFunc(const CallBase *Call) {
+  const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
   return (dtrans::isDummyFuncWithThisAndPtrArgs(Call, TLI) ||
           isFreePostDom(Call));
 }
@@ -2062,9 +2071,9 @@ void DTransAllocAnalyzer::parseListOptions(const Module &M) {
 
 class LocalPointerAnalyzer {
 public:
-  LocalPointerAnalyzer(const DataLayout &DL, const TargetLibraryInfo &TLI,
+  LocalPointerAnalyzer(const DataLayout &DL, GetTLIFnType GetTLI,
                        DTransAllocAnalyzer &DTAA)
-      : DL(DL), TLI(TLI), DTAA(DTAA) {}
+      : DL(DL), GetTLI(GetTLI), DTAA(DTAA) {}
 
   LocalPointerInfo &getLocalPointerInfo(Value *V) {
     LocalPointerInfo &Info = LocalMap[V];
@@ -2099,7 +2108,7 @@ public:
 
 private:
   const DataLayout &DL;
-  const TargetLibraryInfo &TLI;
+  GetTLIFnType GetTLI;
   DTransAllocAnalyzer &DTAA;
   // We cannot use DenseMap or ValueMap here because we are inserting values
   // during recursive calls to analyzeValue() and with a DenseMap or ValueMap
@@ -2278,6 +2287,7 @@ private:
 
   CallBase *getCallIfAlloc(Value *V) {
     if (auto *Call = dyn_cast<CallBase>(V)) {
+      const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
       if (dtrans::getAllocFnKind(Call, TLI) != dtrans::AK_NotAlloc ||
           DTAA.isMallocPostDom(Call))
         return Call;
@@ -3221,9 +3231,9 @@ class DTransBadCastingAnalyzer {
 
 public:
   DTransBadCastingAnalyzer(DTransAnalysisInfo &DTInfo,
-                           DTransAllocAnalyzer &DTAA,
-                           const TargetLibraryInfo &TLI, const Module &M)
-      : DTInfo(DTInfo), DTAA(DTAA), TLI(TLI), M(M), FoundViolation(false),
+                           DTransAllocAnalyzer &DTAA, GetTLIFnType GetTLI,
+                           const Module &M)
+      : DTInfo(DTInfo), DTAA(DTAA), GetTLI(GetTLI), M(M), FoundViolation(false),
         CandidateRootType(nullptr) {
     Int8PtrTy = llvm::Type::getInt8PtrTy(M.getContext());
   }
@@ -3254,7 +3264,8 @@ private:
   // Accessed class objects
   DTransAnalysisInfo &DTInfo;
   DTransAllocAnalyzer &DTAA;
-  const TargetLibraryInfo &TLI;
+  GetTLIFnType GetTLI;
+
   const Module &M;
 
   // A lattice which indicates:
@@ -3447,6 +3458,7 @@ DTransBadCastingAnalyzer::findSpecificArgType(Function *F, unsigned Index) {
     // Tolerate use in a call to a free-like function.
     auto CI = dyn_cast<CallInst>(U);
     if (CI) {
+      const TargetLibraryInfo &TLI = GetTLI(*CI->getFunction());
       if (!dtrans::isFreeFn(CI, TLI) && !DTAA.isFreePostDom(CI))
         return std::make_pair(false, nullptr);
       UserCount++;
@@ -3474,6 +3486,7 @@ BitCastInst *DTransBadCastingAnalyzer::findSingleBitCastAlloc(StoreInst *STI) {
   if (!CI)
     return nullptr;
   BitCastInst *RBC = nullptr;
+  const TargetLibraryInfo &TLI = GetTLI(*CI->getFunction());
   if (dtrans::getAllocFnKind(CI, TLI) == dtrans::AK_NotAlloc &&
       !DTAA.isMallocPostDom(CI))
     return nullptr;
@@ -4150,6 +4163,7 @@ bool DTransBadCastingAnalyzer::isInnocuousLoadOfCall(CallInst *CI, LoadInst *LI,
                                                      GetElementPtrInst *GEPI) {
   Function *F = CI->getCalledFunction();
   if (F) {
+    const TargetLibraryInfo &TLI = GetTLI(*CI->getFunction());
     if (!dtrans::isFreeFn(CI, TLI) && !DTAA.isFreePostDom(CI))
       return false;
   } else {
@@ -4236,6 +4250,7 @@ bool DTransBadCastingAnalyzer::allUseBBsConditionallyDead(Instruction *I) {
         auto CI = dyn_cast<CallInst>(SI->getValueOperand());
         if (!CI)
           continue;
+        const TargetLibraryInfo &TLI = GetTLI(*CI->getFunction());
         if (gepiMatchesCandidate(GEPI) &&
             (dtrans::getAllocFnKind(CI, TLI) != dtrans::AK_NotAlloc ||
              DTAA.isMallocPostDom(CI)))
@@ -4633,6 +4648,7 @@ bool DTransBadCastingAnalyzer::isPotentialBitCastOfAllocStore(
   if (!SI)
     return false;
   auto CI = dyn_cast<CallInst>(SI->getValueOperand());
+  const TargetLibraryInfo &TLI = GetTLI(*CI->getFunction());
   if (dtrans::getAllocFnKind(CI, TLI) == dtrans::AK_NotAlloc &&
       !DTAA.isMallocPostDom(CI))
     return false;
@@ -4708,10 +4724,10 @@ void DTransBadCastingAnalyzer::getConditionalFunctions(
 class DTransInstVisitor : public InstVisitor<DTransInstVisitor> {
 public:
   DTransInstVisitor(LLVMContext &Context, DTransAnalysisInfo &Info,
-                    const DataLayout &DL, const TargetLibraryInfo &TLI,
+                    const DataLayout &DL, GetTLIFnType GetTLI,
                     DTransAllocAnalyzer &DTAA, DTransBadCastingAnalyzer &DTBCA,
                     function_ref<BlockFrequencyInfo &(Function &)> &GetBFI)
-      : DTInfo(Info), DL(DL), TLI(TLI), LPA(DL, TLI, DTAA), DTAA(DTAA),
+      : DTInfo(Info), DL(DL), GetTLI(GetTLI), LPA(DL, GetTLI, DTAA), DTAA(DTAA),
         DTBCA(DTBCA), GetBFI(GetBFI), BFI(nullptr) {
     // Save pointers to some commonly referenced types.
     Int8PtrTy = llvm::Type::getInt8PtrTy(Context);
@@ -5079,6 +5095,7 @@ public:
 
     if (F && F->hasName()) {
       LibFunc TheLibFunc;
+      const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
       if (TLI.getLibFunc(F->getName(), TheLibFunc) && TLI.has(TheLibFunc)) {
 
         LLVM_DEBUG(dbgs() << "dtrans-safety: System object: "
@@ -5209,6 +5226,7 @@ public:
 
     // If the called function is a known allocation function, we need to
     // analyze the allocation.
+    const TargetLibraryInfo &TLI = GetTLI(*Call.getFunction());
     auto AllocKind = dtrans::getAllocFnKind(&Call, TLI);
     if (AllocKind == dtrans::AK_NotAlloc &&
         DTAA.isMallocPostDom(&Call))
@@ -6700,7 +6718,7 @@ public:
 private:
   DTransAnalysisInfo &DTInfo;
   const DataLayout &DL;
-  const TargetLibraryInfo &TLI;
+  GetTLIFnType GetTLI;
 
   // This helper class is used to track the types and aggregate elements to
   // which a local pointer value may refer. This information is created and
@@ -7421,6 +7439,7 @@ private:
     // is currently no guarantee to know which argument contains the TypeInfo.
     if (FK == dtrans::FK_Free || FK == dtrans::FK_Delete) {
       unsigned PtrArgInd = -1U;
+      const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
       getFreePtrArg(FK, Call, PtrArgInd, TLI);
       Value *Arg = Call->getArgOperand(PtrArgInd);
 
@@ -7449,6 +7468,7 @@ private:
   // Return true if the \p Call is to a suitably identified alloc
   // function.
   bool isSafeStoreForSingleAllocFunction(CallBase *Call) {
+    const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
     return dtrans::getAllocFnKind(Call, TLI) != dtrans::AK_NotAlloc ||
            DTAA.isMallocPostDom(Call);
   }
@@ -7766,9 +7786,11 @@ private:
         continue;
       // If the incoming value is a result of a non-returning function,
       // then skip it.
-      if (const auto *Call = dyn_cast<CallBase>(ValIn))
+      if (const auto *Call = dyn_cast<CallBase>(ValIn)) {
+        const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
         if (dtrans::isDummyFuncWithUnreachable(Call, TLI))
           continue;
+      }
       LocalPointerInfo &ValLPI = LPA.getLocalPointerInfo(ValIn);
       if (!ValLPI.canPointToType(DomTy->getPointerElementType())) {
         LLVM_DEBUG(dbgs() << "dtrans-safety: Unsafe pointer merge -- "
@@ -7804,6 +7826,7 @@ private:
     uint64_t ElementSize = DL.getTypeAllocSize(Ty->getElementType());
     unsigned AllocSizeInd = 0;
     unsigned AllocCountInd = 0;
+    const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
     getAllocSizeArgs(Kind, Call, AllocSizeInd, AllocCountInd, TLI);
 
     auto *AllocSizeVal = Call->getArgOperand(AllocSizeInd);
@@ -9652,11 +9675,13 @@ bool DTransAnalysisWrapper::runOnModule(Module &M) {
   auto GetBFI = [this](Function &F) -> BlockFrequencyInfo & {
     return this->getAnalysis<BlockFrequencyInfoWrapperPass>(F).getBFI();
   };
+  auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
+    return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+  };
 
   Invalidated = false;
   return Result.analyzeModule(
-      M, getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(),
-      getAnalysis<WholeProgramWrapperPass>().getResult(), GetBFI);
+      M, GetTLI, getAnalysis<WholeProgramWrapperPass>().getResult(), GetBFI);
 }
 
 DTransAnalysisInfo::DTransAnalysisInfo()
@@ -9910,7 +9935,7 @@ bool DTransAnalysisInfo::requiresBadCastValidation(
 }
 
 bool DTransAnalysisInfo::analyzeModule(
-    Module &M, TargetLibraryInfo &TLI, WholeProgramInfo &WPInfo,
+    Module &M, GetTLIFnType GetTLI, WholeProgramInfo &WPInfo,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI) {
   LLVM_DEBUG(dbgs() << "Running DTransAnalysisInfo::analyzeModule\n");
   if (!WPInfo.isWholeProgramSafe()) {
@@ -9923,12 +9948,12 @@ bool DTransAnalysisInfo::analyzeModule(
 
   if (!shouldComputeDTransAnalysis())
     return false;
-  DTransAllocAnalyzer DTAA(TLI, M);
-  DTransBadCastingAnalyzer DTBCA(*this, DTAA, TLI, M);
+  DTransAllocAnalyzer DTAA(GetTLI, M);
+  DTransBadCastingAnalyzer DTBCA(*this, DTAA, GetTLI, M);
   DTAA.populateAllocDeallocTable(M);
 
-  DTransInstVisitor Visitor(M.getContext(), *this, M.getDataLayout(), TLI, DTAA,
-                            DTBCA, GetBFI);
+  DTransInstVisitor Visitor(M.getContext(), *this, M.getDataLayout(), GetTLI,
+                            DTAA, DTBCA, GetBFI);
   parseIgnoreList();
 
   DTBCA.analyzeBeforeVisit();
@@ -10304,10 +10329,12 @@ DTransAnalysisInfo DTransAnalysis::run(Module &M, AnalysisManager<Module> &AM) {
   auto GetBFI = [&FAM](Function &F) -> BlockFrequencyInfo & {
     return FAM.getResult<BlockFrequencyAnalysis>(F);
   };
+  auto GetTLI = [&FAM](const Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function*>(&F)));
+  };
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
 
   DTransAnalysisInfo DTResult;
-  DTResult.analyzeModule(M, AM.getResult<TargetLibraryAnalysis>(M), WPInfo,
-                         GetBFI);
+  DTResult.analyzeModule(M, GetTLI, WPInfo, GetBFI);
   return DTResult;
 }

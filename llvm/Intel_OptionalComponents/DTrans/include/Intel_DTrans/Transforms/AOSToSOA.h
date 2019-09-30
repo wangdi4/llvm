@@ -1,6 +1,6 @@
 //===--------------- AOSToSOA.h - DTransAOSToSOAPass  ---------------------===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -39,9 +39,10 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // This is used to share the core implementation with the legacy pass.
-  bool runImpl(Module &M, DTransAnalysisInfo &DTInfo,
-               const TargetLibraryInfo &TLI, WholeProgramInfo &WPInfo,
-               DominatorTreeFuncType &GetDT);
+  bool
+  runImpl(Module &M, DTransAnalysisInfo &DTInfo,
+          std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
+          WholeProgramInfo &WPInfo, DominatorTreeFuncType &GetDT);
 
 private:
   // Populate the \p CandidateTypes vector with all the structure types

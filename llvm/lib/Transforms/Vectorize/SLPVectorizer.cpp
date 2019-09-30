@@ -317,10 +317,13 @@ static bool allSameBlock(ArrayRef<Value *> VL) {
   return true;
 }
 
-/// \returns True if all of the values in \p VL are constants.
+/// \returns True if all of the values in \p VL are constants (but not
+/// globals/constant expressions).
 static bool allConstant(ArrayRef<Value *> VL) {
+  // Constant expressions and globals can't be vectorized like normal integer/FP
+  // constants.
   for (Value *i : VL)
-    if (!isa<Constant>(i))
+    if (!isa<Constant>(i) || isa<ConstantExpr>(i) || isa<GlobalValue>(i))
       return false;
   return true;
 }
@@ -2182,12 +2185,12 @@ private:
       if (ReuseShuffleIndices.empty())
         dbgs() << "Emtpy";
       else
-        for (unsigned Idx : ReuseShuffleIndices)
-          dbgs() << Idx << ", ";
+        for (unsigned ReuseIdx : ReuseShuffleIndices)
+          dbgs() << ReuseIdx << ", ";
       dbgs() << "\n";
       dbgs() << "ReorderIndices: ";
-      for (unsigned Idx : ReorderIndices)
-        dbgs() << Idx << ", ";
+      for (unsigned ReorderIdx : ReorderIndices)
+        dbgs() << ReorderIdx << ", ";
       dbgs() << "\n";
       dbgs() << "UserTreeIndices: ";
       for (const auto &EInfo : UserTreeIndices)
@@ -5111,7 +5114,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
                 (unsigned) Instruction::ShuffleVector : S.getOpcode();
   switch (ShuffleOrOp) {
     case Instruction::PHI: {
-      PHINode *PH = dyn_cast<PHINode>(VL0);
+      auto *PH = cast<PHINode>(VL0);
 
       // Check for terminator values (e.g. invoke).
       for (unsigned j = 0; j < VL.size(); ++j)
@@ -5584,7 +5587,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       return;
     }
     case Instruction::Store: {
-      // Check if the stores are consecutive or of we need to swizzle them.
+      // Check if the stores are consecutive or if we need to swizzle them.
       for (unsigned i = 0, e = VL.size() - 1; i < e; ++i)
         if (!isConsecutiveAccess(VL[i], VL[i + 1], *DL, *SE)) {
           BS.cancelScheduling(VL, VL0);
@@ -5681,7 +5684,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         SmallVector<int, 4> OpDirection;
 #endif // INTEL_CUSTOMIZATION
         for (Value *V : VL) {
-          CallInst *CI2 = dyn_cast<CallInst>(V);
+          auto *CI2 = cast<CallInst>(V);
           Operands.push_back(CI2->getArgOperand(i));
 #if INTEL_CUSTOMIZATION
           OpDirection.push_back(i);
@@ -6566,6 +6569,7 @@ void BoUpSLP::setInsertPointAfterBundle(TreeEntry *E) {
         break;
     }
   }
+  assert(LastInst && "Failed to find last instruction in bundle");
 
   // Set the insertion point after the last instruction in the bundle. Set the
   // debug location to Front.
@@ -6720,7 +6724,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
       E->isAltShuffle() ? (unsigned)Instruction::ShuffleVector : E->getOpcode();
   switch (ShuffleOrOp) {
     case Instruction::PHI: {
-      PHINode *PH = dyn_cast<PHINode>(VL0);
+      auto *PH = cast<PHINode>(VL0);
       Builder.SetInsertPoint(PH->getParent()->getFirstNonPHI());
       Builder.SetCurrentDebugLocation(PH->getDebugLoc());
       PHINode *NewPhi = Builder.CreatePHI(VecTy, PH->getNumIncomingValues());
@@ -6844,7 +6848,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
         return E->VectorizedValue;
       }
 
-      CastInst *CI = dyn_cast<CastInst>(VL0);
+      auto *CI = cast<CastInst>(VL0);
       Value *V = Builder.CreateCast(CI->getOpcode(), InVec, VecTy);
       if (NeedToShuffleReuses) {
         V = Builder.CreateShuffleVector(V, UndefValue::get(VecTy),
@@ -8452,7 +8456,7 @@ struct SLPVectorizer : public FunctionPass {
     auto *SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
     auto *TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
     auto *TLIP = getAnalysisIfAvailable<TargetLibraryInfoWrapperPass>();
-    auto *TLI = TLIP ? &TLIP->getTLI() : nullptr;
+    auto *TLI = TLIP ? &TLIP->getTLI(F) : nullptr;
     auto *AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
     auto *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     auto *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
@@ -10043,10 +10047,9 @@ static bool findBuildVector(InsertElementInst *LastInsertElem,
 /// \return true if it matches.
 static bool findBuildAggregate(InsertValueInst *IV,
                                SmallVectorImpl<Value *> &BuildVectorOpds) {
-  Value *V;
   do {
     BuildVectorOpds.push_back(IV->getInsertedValueOperand());
-    V = IV->getAggregateOperand();
+    Value *V = IV->getAggregateOperand();
     if (isa<UndefValue>(V))
       break;
     IV = dyn_cast<InsertValueInst>(V);

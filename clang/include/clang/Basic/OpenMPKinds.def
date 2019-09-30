@@ -264,9 +264,9 @@ OPENMP_DIRECTIVE_EXT(target_teams_distribute_parallel_for, "target teams distrib
 OPENMP_DIRECTIVE_EXT(target_teams_distribute_parallel_for_simd, "target teams distribute parallel for simd")
 OPENMP_DIRECTIVE_EXT(target_teams_distribute_simd, "target teams distribute simd")
 OPENMP_DIRECTIVE(allocate)
+OPENMP_DIRECTIVE_EXT(declare_variant, "declare variant")
 
 #if INTEL_CUSTOMIZATION
-OPENMP_DIRECTIVE_EXT(declare_variant, "declare variant")
 OPENMP_DIRECTIVE_EXT(target_variant_dispatch, "target variant dispatch")
 
 // OpenMP directives in the -qopenmp-simd subset

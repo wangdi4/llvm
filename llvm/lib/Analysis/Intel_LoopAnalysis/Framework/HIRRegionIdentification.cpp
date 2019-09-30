@@ -113,7 +113,7 @@ bool HIRRegionIdentificationWrapperPass::runOnFunction(Function &F) {
       getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
       getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree(),
       getAnalysis<ScalarEvolutionWrapperPass>().getSE(),
-      getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(),
+      getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F),
       getAnalysis<XmainOptLevelWrapperPass>().getOptLevel()));
 
   return true;

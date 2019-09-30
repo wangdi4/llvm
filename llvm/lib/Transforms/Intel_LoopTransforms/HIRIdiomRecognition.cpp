@@ -754,7 +754,7 @@ public:
                getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
                getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
                getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-               getAnalysis<TargetLibraryInfoWrapperPass>().getTLI())
+               getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F))
         .run();
   }
 };

@@ -9,10 +9,6 @@
 // FIXME: Substitution doesn't seem to work on Windows.
 // UNSUPPORTED: system-windows
 
-// INTEL CUSTOMIZATION: This test fails in xmain. https://bugs.llvm.org/show_bug.cgi?id=42601
-// XFAIL: *
-// END INTEL CUSTOMIZATION
-
 struct S {
   S() {}
 };

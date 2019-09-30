@@ -154,13 +154,13 @@ private:
 public:
   // Constructor that takes parameters needed for the base class, plus a list of
   // types that have been qualified for the transformation.
-  AOSToSOATransformImpl(DTransAnalysisInfo &DTInfo, LLVMContext &Context,
-                        const DataLayout &DL, const TargetLibraryInfo &TLI,
-                        StringRef DepTypePrefix,
-                        DTransTypeRemapper *TypeRemapper,
-                        AOSToSOAMaterializer *Materializer,
-                        SmallVectorImpl<dtrans::StructInfo *> &Types)
-      : DTransOptBase(&DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper,
+  AOSToSOATransformImpl(
+      DTransAnalysisInfo &DTInfo, LLVMContext &Context, const DataLayout &DL,
+      std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
+      StringRef DepTypePrefix, DTransTypeRemapper *TypeRemapper,
+      AOSToSOAMaterializer *Materializer,
+      SmallVectorImpl<dtrans::StructInfo *> &Types)
+      : DTransOptBase(&DTInfo, Context, DL, GetTLI, DepTypePrefix, TypeRemapper,
                       Materializer),
         PeelIndexWidth(64), PeelIndexType(nullptr),
         PointerShrinkingEnabled(false), AnnotationFilenameGEP(nullptr) {
@@ -1670,6 +1670,7 @@ private:
     AllocKind Kind = AInfo->getAllocKind();
     unsigned OrigAllocSizeInd = 0;
     unsigned OrigAllocCountInd = 0;
+    const TargetLibraryInfo &TLI = GetTLI(*AllocCallInst->getFunction());
     getAllocSizeArgs(Kind, AllocCallInst, OrigAllocSizeInd, OrigAllocCountInd,
                      TLI);
 
@@ -1931,6 +1932,7 @@ private:
     SOAAddrAsI8Ptr->insertBefore(FreeCall);
 
     unsigned PtrArgInd = -1U;
+    const TargetLibraryInfo &TLI = GetTLI(*FreeCall->getFunction());
     getFreePtrArg(CInfo->getFreeKind(), cast<CallInst>(FreeCall), PtrArgInd,
                   TLI);
 
@@ -1986,6 +1988,7 @@ private:
       // Each memset created will multiply the size of the field by this
       // new value to set the expected number of bytes in the array.
       uint64_t OrigSize = DL.getTypeAllocSize(StructTy);
+      const TargetLibraryInfo &TLI = GetTLI(*I->getFunction());
       updateCallSizeOperand(I, CInfo, OrigSize, 1, TLI);
       CountToSet = I->getOperand(2);
     }
@@ -2082,6 +2085,7 @@ private:
       // Each memcpy/memmove created will multiply the size of the field by this
       // new value to set the expected number of bytes in the array.
       uint64_t OrigSize = DL.getTypeAllocSize(StructTy);
+      const TargetLibraryInfo &TLI = GetTLI(*I->getFunction());
       updateCallSizeOperand(I, CInfo, OrigSize, 1, TLI);
       CountToSet = I->getOperand(2);
     }
@@ -2240,6 +2244,8 @@ private:
 
     llvm::Type *OrigTy = StInfo->getLLVMType();
     llvm::Type *ReplTy = TypeRemapper->remapType(OrigTy);
+    const TargetLibraryInfo &TLI =
+        GetTLI(*AInfo->getInstruction()->getFunction());
     updateCallSizeOperand(AInfo->getInstruction(), AInfo, OrigTy, ReplTy, TLI);
   }
 
@@ -2256,6 +2262,8 @@ private:
 
     llvm::Type *OrigTy = StInfo->getLLVMType();
     llvm::Type *ReplTy = TypeRemapper->remapType(OrigTy);
+    const TargetLibraryInfo &TLI =
+        GetTLI(*CInfo->getInstruction()->getFunction());
     updateCallSizeOperand(CInfo->getInstruction(), CInfo, OrigTy, ReplTy, TLI);
   }
 
@@ -2513,7 +2521,10 @@ public:
       return false;
     auto &DTAnalysisWrapper = getAnalysis<DTransAnalysisWrapper>();
     DTransAnalysisInfo &DTInfo = DTAnalysisWrapper.getDTransInfo(M);
-    auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
+      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+    };
+
     auto &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
     // This lambda function is to allow getting the DominatorTree analysis for a
     // specific function to allow analysis of loops for the dynamic allocation
@@ -2523,7 +2534,7 @@ public:
       return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
     };
 
-    bool Changed = Impl.runImpl(M, DTInfo, TLI, WPInfo, GetDT);
+    bool Changed = Impl.runImpl(M, DTInfo, GetTLI, WPInfo, GetDT);
     if (Changed)
       DTAnalysisWrapper.setInvalidated();
     return Changed;
@@ -2560,10 +2571,10 @@ ModulePass *llvm::createDTransAOSToSOAWrapperPass() {
 namespace llvm {
 namespace dtrans {
 
-bool AOSToSOAPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
-                           const TargetLibraryInfo &TLI,
-                           WholeProgramInfo &WPInfo,
-                           AOSToSOAPass::DominatorTreeFuncType &GetDT) {
+bool AOSToSOAPass::runImpl(
+    Module &M, DTransAnalysisInfo &DTInfo,
+    std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
+    WholeProgramInfo &WPInfo, AOSToSOAPass::DominatorTreeFuncType &GetDT) {
 
   if (!WPInfo.isWholeProgramSafe()) {
     LLVM_DEBUG(
@@ -2592,7 +2603,7 @@ bool AOSToSOAPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
   DTransTypeRemapper TypeRemapper;
   AOSToSOAMaterializer Materializer(TypeRemapper);
   AOSToSOATransformImpl Transformer(DTInfo, M.getContext(), M.getDataLayout(),
-                                    TLI, "__SOADT_", &TypeRemapper,
+                                    GetTLI, "__SOADT_", &TypeRemapper,
                                     &Materializer, CandidateTypes);
   return Transformer.run(M);
 }
@@ -3014,14 +3025,16 @@ bool AOSToSOAPass::qualifyHeuristics(StructInfoVecImpl &CandidateTypes,
 
 PreservedAnalyses AOSToSOAPass::run(Module &M, ModuleAnalysisManager &AM) {
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
-  auto &TLI = AM.getResult<TargetLibraryAnalysis>(M);
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto GetTLI = [&FAM](const Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function*>(&F)));
+  };
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
   DominatorTreeFuncType GetDT = [&FAM](Function &F) -> DominatorTree & {
     return FAM.getResult<DominatorTreeAnalysis>(F);
   };
 
-  bool Changed = runImpl(M, DTransInfo, TLI, WPInfo, GetDT);
+  bool Changed = runImpl(M, DTransInfo, GetTLI, WPInfo, GetDT);
 
   if (!Changed)
     return PreservedAnalyses::all();

@@ -224,7 +224,7 @@ bool HIRParVecAnalysisWrapperPass::runOnFunction(Function &F) {
     return false;
   }
 
-  auto TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+  auto TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   auto DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
   auto SRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();

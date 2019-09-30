@@ -213,8 +213,8 @@ int cc1_main(ArrayRef<const char *> Argv, const char *Argv0, void *MainAddr) {
   IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts = new DiagnosticOptions();
   TextDiagnosticBuffer *DiagsBuffer = new TextDiagnosticBuffer;
   DiagnosticsEngine Diags(DiagID, &*DiagOpts, DiagsBuffer);
-  bool Success = CompilerInvocation::CreateFromArgs(
-      Clang->getInvocation(), Argv.begin(), Argv.end(), Diags);
+  bool Success =
+      CompilerInvocation::CreateFromArgs(Clang->getInvocation(), Argv, Diags);
 
   if (Clang->getFrontendOpts().TimeTrace) {
     llvm::timeTraceProfilerInitialize(
@@ -253,6 +253,7 @@ int cc1_main(ArrayRef<const char *> Argv, const char *Argv0, void *MainAddr) {
   // If any timers were active but haven't been destroyed yet, print their
   // results now.  This happens in -disable-free mode.
   llvm::TimerGroup::printAll(llvm::errs());
+  llvm::TimerGroup::clearAll();
 
   if (llvm::timeTraceProfilerEnabled()) {
     SmallString<128> Path(Clang->getFrontendOpts().OutputFile);

@@ -15,7 +15,6 @@
 
 #include "llvm/ADT/MapVector.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/Intel_VectorVariant.h" // INTEL
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/CheckedArithmetic.h"
@@ -28,6 +27,7 @@ class GetElementPtrInst;
 template <typename InstTy> class InterleaveGroup;
 class Loop;
 class ScalarEvolution;
+class TargetLibraryInfo;
 class TargetTransformInfo;
 class Type;
 class Value;

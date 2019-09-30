@@ -381,6 +381,37 @@ SourceLocation Preprocessor::CheckEndOfDirective(const char *DirType,
   return DiscardUntilEndOfDirective().getEnd();
 }
 
+Optional<unsigned> Preprocessor::getSkippedRangeForExcludedConditionalBlock(
+    SourceLocation HashLoc) {
+  if (!ExcludedConditionalDirectiveSkipMappings)
+    return None;
+  if (!HashLoc.isFileID())
+    return None;
+
+  std::pair<FileID, unsigned> HashFileOffset =
+      SourceMgr.getDecomposedLoc(HashLoc);
+  const llvm::MemoryBuffer *Buf = SourceMgr.getBuffer(HashFileOffset.first);
+  auto It = ExcludedConditionalDirectiveSkipMappings->find(Buf);
+  if (It == ExcludedConditionalDirectiveSkipMappings->end())
+    return None;
+
+  const PreprocessorSkippedRangeMapping &SkippedRanges = *It->getSecond();
+  // Check if the offset of '#' is mapped in the skipped ranges.
+  auto MappingIt = SkippedRanges.find(HashFileOffset.second);
+  if (MappingIt == SkippedRanges.end())
+    return None;
+
+  unsigned BytesToSkip = MappingIt->getSecond();
+  unsigned CurLexerBufferOffset = CurLexer->getCurrentBufferOffset();
+  assert(CurLexerBufferOffset >= HashFileOffset.second &&
+         "lexer is before the hash?");
+  // Take into account the fact that the lexer has already advanced, so the
+  // number of bytes to skip must be adjusted.
+  unsigned LengthDiff = CurLexerBufferOffset - HashFileOffset.second;
+  assert(BytesToSkip >= LengthDiff && "lexer is after the skipped range?");
+  return BytesToSkip - LengthDiff;
+}
+
 /// SkipExcludedConditionalBlock - We just read a \#if or related directive and
 /// decided that the subsequent tokens are in the \#if'd out portion of the
 /// file.  Lex the rest of the file, until we see an \#endif.  If
@@ -407,6 +438,11 @@ void Preprocessor::SkipExcludedConditionalBlock(SourceLocation HashTokenLoc,
   // disabling warnings, etc.
   CurPPLexer->LexingRawMode = true;
   Token Tok;
+  if (auto SkipLength =
+          getSkippedRangeForExcludedConditionalBlock(HashTokenLoc)) {
+    // Skip to the next '#endif' / '#else' / '#elif'.
+    CurLexer->skipOver(*SkipLength);
+  }
   while (true) {
     CurLexer->Lex(Tok);
 
@@ -1706,7 +1742,7 @@ Optional<FileEntryRef> Preprocessor::LookupHeaderIncludeOrImport(
     // Give the clients a chance to recover.
     SmallString<128> RecoveryPath;
     if (Callbacks->FileNotFound(Filename, RecoveryPath)) {
-      if (auto DE = FileMgr.getDirectory(RecoveryPath)) {
+      if (auto DE = FileMgr.getOptionalDirectoryRef(RecoveryPath)) {
         // Add the recovery path to the list of search paths.
         DirectoryLookup DL(*DE, SrcMgr::C_User, false);
         HeaderInfo.AddSearchPath(DL, isAngled);
@@ -1845,12 +1881,12 @@ Preprocessor::ImportAction Preprocessor::HandleHeaderIncludeOrImport(
   SourceLocation StartLoc = IsImportDecl ? IncludeTok.getLocation() : HashLoc;
 
   // Complain about attempts to #include files in an audit pragma.
-  if (PragmaARCCFCodeAuditedLoc.isValid()) {
+  if (PragmaARCCFCodeAuditedInfo.second.isValid()) {
     Diag(StartLoc, diag::err_pp_include_in_arc_cf_code_audited) << IsImportDecl;
-    Diag(PragmaARCCFCodeAuditedLoc, diag::note_pragma_entered_here);
+    Diag(PragmaARCCFCodeAuditedInfo.second, diag::note_pragma_entered_here);
 
     // Immediately leave the pragma.
-    PragmaARCCFCodeAuditedLoc = SourceLocation();
+    PragmaARCCFCodeAuditedInfo = {nullptr, SourceLocation()};
   }
 
   // Complain about attempts to #include files in an assume-nonnull pragma.
@@ -3238,7 +3274,8 @@ void Preprocessor::HandleDefineDirective(
   // If we need warning for not using the macro, add its location in the
   // warn-because-unused-macro set. If it gets used it will be removed from set.
   if (getSourceManager().isInMainFile(MI->getDefinitionLoc()) &&
-      !Diags->isIgnored(diag::pp_macro_not_used, MI->getDefinitionLoc())) {
+      !Diags->isIgnored(diag::pp_macro_not_used, MI->getDefinitionLoc()) &&
+      !MacroExpansionInDirectivesOverride) {
     MI->setIsWarnIfUnused(true);
     WarnUnusedMacroLocs.insert(MI->getDefinitionLoc());
   }
@@ -3347,6 +3384,9 @@ void Preprocessor::HandleIfdefDirective(Token &Result,
       Callbacks->Ifdef(DirectiveTok.getLocation(), MacroNameTok, MD);
   }
 
+  bool RetainExcludedCB = PPOpts->RetainExcludedConditionalBlocks &&
+    getSourceManager().isInMainFile(DirectiveTok.getLocation());
+
   // Should we include the stuff contained by this directive?
   if (PPOpts->SingleFileParseMode && !MI) {
     // In 'single-file-parse mode' undefined identifiers trigger parsing of all
@@ -3354,7 +3394,7 @@ void Preprocessor::HandleIfdefDirective(Token &Result,
     CurPPLexer->pushConditionalLevel(DirectiveTok.getLocation(),
                                      /*wasskip*/false, /*foundnonskip*/false,
                                      /*foundelse*/false);
-  } else if (!MI == isIfndef) {
+  } else if (!MI == isIfndef || RetainExcludedCB) {
     // Yes, remember that we are inside a conditional, then lex the next token.
     CurPPLexer->pushConditionalLevel(DirectiveTok.getLocation(),
                                      /*wasskip*/false, /*foundnonskip*/true,
@@ -3395,13 +3435,16 @@ void Preprocessor::HandleIfDirective(Token &IfToken,
         IfToken.getLocation(), DER.ExprRange,
         (ConditionalTrue ? PPCallbacks::CVK_True : PPCallbacks::CVK_False));
 
+  bool RetainExcludedCB = PPOpts->RetainExcludedConditionalBlocks &&
+    getSourceManager().isInMainFile(IfToken.getLocation());
+
   // Should we include the stuff contained by this directive?
   if (PPOpts->SingleFileParseMode && DER.IncludedUndefinedIds) {
     // In 'single-file-parse mode' undefined identifiers trigger parsing of all
     // the directive blocks.
     CurPPLexer->pushConditionalLevel(IfToken.getLocation(), /*wasskip*/false,
                                      /*foundnonskip*/false, /*foundelse*/false);
-  } else if (ConditionalTrue) {
+  } else if (ConditionalTrue || RetainExcludedCB) {
     // Yes, remember that we are inside a conditional, then lex the next token.
     CurPPLexer->pushConditionalLevel(IfToken.getLocation(), /*wasskip*/false,
                                    /*foundnonskip*/true, /*foundelse*/false);
@@ -3463,7 +3506,10 @@ void Preprocessor::HandleElseDirective(Token &Result, const Token &HashToken) {
   if (Callbacks)
     Callbacks->Else(Result.getLocation(), CI.IfLoc);
 
-  if (PPOpts->SingleFileParseMode && !CI.FoundNonSkip) {
+  bool RetainExcludedCB = PPOpts->RetainExcludedConditionalBlocks &&
+    getSourceManager().isInMainFile(Result.getLocation());
+
+  if ((PPOpts->SingleFileParseMode && !CI.FoundNonSkip) || RetainExcludedCB) {
     // In 'single-file-parse mode' undefined identifiers trigger parsing of all
     // the directive blocks.
     CurPPLexer->pushConditionalLevel(CI.IfLoc, /*wasskip*/false,
@@ -3505,7 +3551,10 @@ void Preprocessor::HandleElifDirective(Token &ElifToken,
     Callbacks->Elif(ElifToken.getLocation(), ConditionRange,
                     PPCallbacks::CVK_NotEvaluated, CI.IfLoc);
 
-  if (PPOpts->SingleFileParseMode && !CI.FoundNonSkip) {
+  bool RetainExcludedCB = PPOpts->RetainExcludedConditionalBlocks &&
+    getSourceManager().isInMainFile(ElifToken.getLocation());
+
+  if ((PPOpts->SingleFileParseMode && !CI.FoundNonSkip) || RetainExcludedCB) {
     // In 'single-file-parse mode' undefined identifiers trigger parsing of all
     // the directive blocks.
     CurPPLexer->pushConditionalLevel(ElifToken.getLocation(), /*wasskip*/false,

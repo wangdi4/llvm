@@ -1968,10 +1968,12 @@ static void addDeclareVariantAttributes(CodeGenModule &CGM,
                                         llvm::Function *F) {
   SmallString<256> S;
   unsigned NumAttrs = 0;
-  for (const auto *Attr : FD->specific_attrs<OMPDeclareVariantDeclAttr>()) {
+  for (const auto *Attr : FD->specific_attrs<OMPDeclareVariantAttr>()) {
     if (NumAttrs++ != 0)
       S += ";;";
-    GlobalDecl GD(Attr->getFunctionDecl());
+    auto *DRE = cast<DeclRefExpr>(Attr->getVariantFuncRef());
+    FunctionDecl *AFD = cast<FunctionDecl>(DRE->getDecl());
+    GlobalDecl GD(AFD);
     S += "name:";
     S += CGM.getMangledName(GD);
     S += ";construct:";
@@ -1979,14 +1981,14 @@ static void addDeclareVariantAttributes(CodeGenModule &CGM,
     for (const auto &C : Attr->construct()) {
       if (NumConstructs++ != 0)
         S += ',';
-      S += OMPDeclareVariantDeclAttr::ConvertConstructTyToStr(C);
+      S += OMPDeclareVariantAttr::ConvertConstructTyToStr(C);
     }
     S += ";arch:";
     unsigned NumDevices = 0;
     for (const auto &D : Attr->device()) {
       if (NumDevices++ != 0)
         S += ',';
-      S += OMPDeclareVariantDeclAttr::ConvertDeviceTyToStr(D);
+      S += OMPDeclareVariantAttr::ConvertDeviceTyToStr(D);
     }
   }
   if (!S.empty())
@@ -3060,11 +3062,13 @@ void CodeGenModule::emitMultiVersionFunctions() {
     llvm::Function *ResolverFunc;
     const TargetInfo &TI = getTarget();
 
-    if (TI.supportsIFunc() || FD->isTargetMultiVersion())
+    if (TI.supportsIFunc() || FD->isTargetMultiVersion()) {
       ResolverFunc = cast<llvm::Function>(
           GetGlobalValue((getMangledName(GD) + ".resolver").str()));
-    else
+      ResolverFunc->setLinkage(llvm::Function::WeakODRLinkage);
+    } else {
       ResolverFunc = cast<llvm::Function>(GetGlobalValue(getMangledName(GD)));
+    }
 
     if (supportsCOMDAT())
       ResolverFunc->setComdat(
@@ -3108,6 +3112,10 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
 
   auto *ResolverFunc = cast<llvm::Function>(GetOrCreateLLVMFunction(
       ResolverName, ResolverType, ResolverGD, /*ForVTable=*/false));
+  ResolverFunc->setLinkage(llvm::Function::WeakODRLinkage);
+  if (supportsCOMDAT())
+    ResolverFunc->setComdat(
+        getModule().getOrInsertComdat(ResolverFunc->getName()));
 
   SmallVector<CodeGenFunction::MultiVersionResolverOption, 10> Options;
   const TargetInfo &Target = getTarget();
@@ -3172,6 +3180,21 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
 
   CodeGenFunction CGF(*this);
   CGF.EmitMultiVersionResolver(ResolverFunc, Options);
+
+  if (getTarget().supportsIFunc()) {
+    std::string AliasName = getMangledNameImpl(
+        *this, GD, FD, /*OmitMultiVersionMangling=*/true);
+    llvm::Constant *AliasFunc = GetGlobalValue(AliasName);
+    if (!AliasFunc) {
+      auto *IFunc = cast<llvm::GlobalIFunc>(GetOrCreateLLVMFunction(
+          AliasName, DeclTy, GD, /*ForVTable=*/false, /*DontDefer=*/true,
+          /*IsThunk=*/false, llvm::AttributeList(), NotForDefinition));
+      auto *GA = llvm::GlobalAlias::create(
+         DeclTy, 0, getFunctionLinkage(GD), AliasName, IFunc, &getModule());
+      GA->setLinkage(llvm::Function::WeakODRLinkage);
+      SetCommonAttributes(GD, GA);
+    }
+  }
 }
 
 /// If a dispatcher for the specified mangled name is not in the module, create
@@ -3208,7 +3231,7 @@ llvm::Constant *CodeGenModule::GetOrCreateMultiVersionResolver(
         MangledName + ".resolver", ResolverType, GlobalDecl{},
         /*ForVTable=*/false);
     llvm::GlobalIFunc *GIF = llvm::GlobalIFunc::create(
-        DeclTy, 0, llvm::Function::ExternalLinkage, "", Resolver, &getModule());
+        DeclTy, 0, llvm::Function::WeakODRLinkage, "", Resolver, &getModule());
     GIF->setName(ResolverName);
     SetCommonAttributes(FD, GIF);
 

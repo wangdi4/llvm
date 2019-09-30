@@ -154,7 +154,7 @@ SOAToAOSStructMethodsCheckDebug::run(Function &F, FunctionAnalysisManager &AM) {
   const ModuleAnalysisManager &MAM =
       AM.getResult<ModuleAnalysisManagerFunctionProxy>(F).getManager();
   auto *DTInfo = MAM.getCachedResult<DTransAnalysis>(*F.getParent());
-  auto *TLI = MAM.getCachedResult<TargetLibraryAnalysis>(*F.getParent());
+  auto *TLI = AM.getCachedResult<TargetLibraryAnalysis>(F);
   if (!DTInfo || !TLI)
     report_fatal_error("DTransAnalysis was not run before "
                        "SOAToAOSStructMethodsCheckDebug.");
@@ -248,12 +248,13 @@ class SOAStructMethodReplacement : public DTransOptBase {
 public:
   SOAStructMethodReplacement(
       DTransAnalysisInfo &DTInfo, LLVMContext &Context, const DataLayout &DL,
-      const TargetLibraryInfo &TLI, const SummaryForIdiom &S,
-      const SmallVectorImpl<StructType *> &Arrays,
+      std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
+      const SummaryForIdiom &S, const SmallVectorImpl<StructType *> &Arrays,
       const SmallVectorImpl<unsigned> &Offsets,
       const SOAToAOSStructMethodsCheckDebugResult &InstsToTransform,
       StringRef DepTypePrefix, DTransTypeRemapper *TypeRemapper)
-      : DTransOptBase(&DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper),
+      : DTransOptBase(&DTInfo, Context, DL, GetTLI, DepTypePrefix,
+                      TypeRemapper),
         InstsToTransform(InstsToTransform), S(S), Arrays(Arrays),
         Offsets(Offsets) {}
 
@@ -383,8 +384,10 @@ SOAToAOSStructMethodsTransformDebug::run(Module &M, ModuleAnalysisManager &AM) {
     report_fatal_error("dtrans-soatoaos-base-ptr-off was not provided.");
 
   auto &DTInfo = AM.getResult<DTransAnalysis>(M);
-  auto &TLI = AM.getResult<TargetLibraryAnalysis>(M);
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto GetTLI = [&FAM](const Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function*>(&F)));
+  };
   // SOAToAOSStructMethodsCheckDebug uses SOAToAOSApproximationDebug internally.
   FAM.getResult<SOAToAOSApproximationDebug>(*MethodToTest);
   auto &InstsToTransformPtr =
@@ -392,7 +395,7 @@ SOAToAOSStructMethodsTransformDebug::run(Module &M, ModuleAnalysisManager &AM) {
 
   DTransTypeRemapper TypeRemapper;
   SOAStructMethodReplacement Transformer(
-      DTInfo, M.getContext(), M.getDataLayout(), TLI, S, P.first, P.second,
+      DTInfo, M.getContext(), M.getDataLayout(), GetTLI, S, P.first, P.second,
       *InstsToTransformPtr.get(), "__SOA_", &TypeRemapper);
 
   bool Changed = Transformer.run(M);

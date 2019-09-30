@@ -6,6 +6,18 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+option(SYCL_ENABLE_WERROR "Treat all warnings as errors in SYCL project" OFF)
+
+if(SYCL_ENABLE_WERROR)
+  if(MSVC)
+    set(CMAKE_CXX_FLAGS "/W4 /WX ${CMAKE_CXX_FLAGS}")
+    add_definitions(
+      -wd4996 # Suppress 'function': was declared deprecated'
+    )
+  else()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wall -Wextra -Wno-deprecated-declarations")
+  endif()
+endif()
 
 if(MSVC)
   set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -45,7 +57,15 @@ if( DEFINED ICD_LOADER_SRC_DIR )
 
   set(OpenCL_INCLUDE_DIRS ${OpenCL_INCLUDE_DIR})
 else()
-  find_package(OpenCL)
+  # Find OpenCL headers and libraries installed in the system and use them to
+  # build SYCL runtime.
+  # WARNING: use with caution, building SYCL runtime with OpenCL implementation
+  # instead of Khronos ICD loader might cause build and/or portability issues.
+  option(OpenCL_BUILD_WITH_SYSTEM_SDK OFF)
+
+  if( (OpenCL_INCLUDE_DIR AND OpenCL_LIBRARY) OR OpenCL_BUILD_WITH_SYSTEM_SDK)
+    find_package(OpenCL)
+  endif()
 endif()
 
 include(ExternalProject)
