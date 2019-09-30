@@ -44,6 +44,10 @@ cl::opt<bool> LoopMassagingEnabled(
     "vplan-enable-loop-massaging", cl::init(true), cl::Hidden,
     cl::desc("Enable loop massaging in VPlan (Multiple to Singular Exit)"));
 
+static cl::opt<bool> VPlanPrintAfterLoopMassaging(
+    "vplan-print-after-loop-massaging", cl::init(false),
+    cl::desc("Print plain dump after loop massaging"));
+
 static cl::opt<bool> DisableUniformRegions(
     "disable-uniform-regions", cl::init(false), cl::Hidden,
     cl::desc("Disable detection of uniform Regions in VPlan. All regions are "
@@ -513,7 +517,8 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   VPPHINode *VPPhi = cast<VPPHINode>(VPBldr.createPhiInstruction(Ty32));
   // This phi node is a marker of the backedge. It shows if the backedge is
   // taken.
-  VPPHINode *NewCondBit = cast<VPPHINode>(VPBldr.createPhiInstruction(Ty1));
+  VPPHINode *NewCondBit =
+      cast<VPPHINode>(VPBldr.createPhiInstruction(Ty1, "TakeBackedgeCond"));
   if (LatchExitBlock) {
     VPInstruction *OldCondBit =
         dyn_cast<VPInstruction>(NewLoopLatch->getCondBit());
@@ -665,7 +670,7 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   // in case 2.
   if (ExitBlocks.size() > 1) {
     VPBasicBlock *IfBlock =
-        new VPBasicBlock(VPlanUtils::createUniqueName("IfBlock"));
+        new VPBasicBlock(VPlanUtils::createUniqueName("CascadedIfBlock"));
     VPRegionBlock *Parent = NewLoopLatch->getParent();
     IfBlock->setParent(Parent);
     Parent->setSize(Parent->getSize() + 1);
@@ -687,7 +692,7 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
       VPBasicBlock *NextIfBlock = nullptr;
       // Emit cascaded if blocks.
       if (i != end - 1) {
-        NextIfBlock = new VPBasicBlock(VPlanUtils::createUniqueName("IfBlock"));
+        NextIfBlock = new VPBasicBlock(VPlanUtils::createUniqueName("CascadedIfBlock"));
         NextIfBlock->setParent(Parent);
         Parent->setSize(Parent->getSize() + 1);
         ParentLoop->addBasicBlockToLoop(NextIfBlock, *VPLInfo);
@@ -899,7 +904,7 @@ void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
   VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
   VPBasicBlock *NewLoopLatch = VPBlockUtils::splitBlock(
       OrigLoopLatch, VPLInfo, VPDomTree, VPPostDomTree);
-
+  NewLoopLatch->setName(VPlanUtils::createUniqueName("NewLoopLatch"));
   // Update the control-flow for the ExitingBlock, the NewLoopLatch and the
   // ExitBlock.
   VPBlockBase *ExitingBlock = VPL->getExitingBlock();
@@ -923,7 +928,7 @@ void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
   VPBuilder VPBldr;
   VPBldr.setInsertPoint(NewLoopLatch);
   VPPHINode *TakeBackedgeCond =
-      cast<VPPHINode>(VPBldr.createPhiInstruction(Int1Ty));
+      cast<VPPHINode>(VPBldr.createPhiInstruction(Int1Ty, "TakeBackedgeCond"));
   // TODO: The while-loop canonicalization does not preserve the SSA form. If a
   // value from the OrigLoopLatch feeds the phi in the BB1, then this value
   // stops dominating its use (not defined on the BB2->NEW_LOOP_LATCH edge).
@@ -1139,6 +1144,15 @@ void VPlanHCFGBuilder::simplifyPlainCFG() {
     // VPDomTree.print(dbgs()));
     singleExitWhileLoopCanonicalization(TopLoop);
     mergeLoopExits(TopLoop);
+#if INTEL_CUSTOMIZATION
+    if (VPlanPrintAfterLoopMassaging) {
+      errs() << "Print after loop massaging:\n";
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      Plan->dump();
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+    }
+#endif /* INTEL_CUSTOMIZATION */
+
     LLVM_DEBUG(Verifier->verifyHierarchicalCFG(Plan, TopRegion));
     // LLVM_DEBUG(dbgs() << "Dominator Tree After mergeLoopExits\n";
     // VPDomTree.print(dbgs()));
