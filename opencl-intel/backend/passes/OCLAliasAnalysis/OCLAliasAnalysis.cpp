@@ -103,7 +103,7 @@ bool OCLAliasAnalysis::runOnFunction(Function &F) {
   // previous object first, in this case replacing it with an empty one, before
   // registering new results.
   auto &TLIWP = getAnalysis<TargetLibraryInfoWrapperPass>();
-  OCLAAR.reset(new OCLAAResults(TLIWP.getTLI()));
+  OCLAAR.reset(new OCLAAResults(TLIWP.getTLI(F)));
 
   // BasicAA is always available for function analyses. Also, we add it first
   // so that it can trump TBAA results when it proves MustAlias.
