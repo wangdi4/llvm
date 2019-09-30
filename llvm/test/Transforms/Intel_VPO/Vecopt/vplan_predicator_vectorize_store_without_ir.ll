@@ -102,33 +102,33 @@ define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_inner_loop) 
 ; CHECK-NEXT:    [[BB15]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP8:%.*]] = block-predicate i1 [[VP_BB16_BR_VP_SOME_CMP_NOT]]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INNER_IV_NEXT]] i64 [[VP_OUTER_IV]]
-; CHECK-NEXT:    SUCCESSORS(1):IntermediateBB14
+; CHECK-NEXT:    SUCCESSORS(1):[[INTERMEDIATE_BB0:IntermediateBB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB14]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    IntermediateBB14 (BP: NULL) :
+; CHECK-NEXT:    [[INTERMEDIATE_BB0]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP9:%.*]] = block-predicate i1 [[VP_BB16_BR_VP_SOME_CMP]]
-; CHECK-NEXT:    SUCCESSORS(1):NewLoopLatch13
+; CHECK-NEXT:    SUCCESSORS(1):[[NEW_LOOP_LATCH0:NewLoopLatch[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB15]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    NewLoopLatch13 (BP: NULL) :
-; CHECK-NEXT:     [DA: Uniform]   i32 [[VP3]] = phi  [ i32 [[VP2]], [[BB15]] ],  [ i32 1, IntermediateBB14 ]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_NO_PHI_INST_USE:%.*]] = phi  [ i1 [[VP_SOME_CMP]], IntermediateBB14 ],  [ i1 false, [[BB15]] ]
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP_PHI_UPDATE_USE:%.*]] = phi  [ i64 [[VP_INNER_IV_NEXT]], IntermediateBB14 ],  [ i64 100, [[BB15]] ]
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP_PHI_USE:%.*]] = phi  [ i64 [[VP_INNER_IV]], IntermediateBB14 ],  [ i64 100, [[BB15]] ]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP10:%.*]] = phi  [ i1 [[VP_EXITCOND]], [[BB15]] ],  [ i1 true, IntermediateBB14 ]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP11:%.*]] = block-predicate i1 [[VP_BB23_BR_VP_LOOP_MASK]]
+; CHECK-NEXT:    [[NEW_LOOP_LATCH0]] (BP: NULL) :
+; CHECK-NEXT:     [DA: Uniform]   i32 [[VP3]] = phi  [ i32 [[VP2]], [[BB15]] ],  [ i32 1, [[INTERMEDIATE_BB0]] ]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_NO_PHI_INST_USE:%.*]] = phi  [ i1 [[VP_SOME_CMP]], [[INTERMEDIATE_BB0]] ],  [ i1 false, [[BB15]] ]
+; CHECK-NEXT:     [DA: Divergent] i64 [[VP_PHI_UPDATE_USE:%.*]] = phi  [ i64 [[VP_INNER_IV_NEXT]], [[INTERMEDIATE_BB0]] ],  [ i64 100, [[BB15]] ]
+; CHECK-NEXT:     [DA: Divergent] i64 [[VP_PHI_USE:%.*]] = phi  [ i64 [[VP_INNER_IV]], [[INTERMEDIATE_BB0]] ],  [ i64 100, [[BB15]] ]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_TAKEBACKEDGECOND:%.*]] = phi  [ i1 [[VP_EXITCOND]], [[BB15]] ],  [ i1 true, [[INTERMEDIATE_BB0]] ]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP10:%.*]] = block-predicate i1 [[VP_BB23_BR_VP_LOOP_MASK]]
 ; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): IntermediateBB14
+; CHECK-NEXT:    PREDECESSORS(1): [[INTERMEDIATE_BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB16:BB[0-9]+]]
 ; CHECK-NEXT:    END Region([[REGION3]])
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB16]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP12:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_CMP216_NOT]]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP__NOT:%.*]] = not i1 [[VP10]]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP__NOT]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP11:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_CMP216_NOT]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_TAKEBACKEDGECOND_NOT:%.*]] = not i1 [[VP_TAKEBACKEDGECOND]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_TAKEBACKEDGECOND_NOT]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP_PHI_USE_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i64 [[VP_PHI_USE]] i64 [[VP_PHI_USE_LIVE_OUT_PREV]]
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP13:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
+; CHECK-NEXT:     [DA: Uniform]   i1 [[VP12:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[REGION3]]
 ; CHECK-EMPTY:
@@ -136,14 +136,14 @@ define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_inner_loop) 
 ; CHECK-NEXT:    END Region(mask_[[REGION2]])
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP14:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_CMP216_NOT]]
-; CHECK-NEXT:     Condition([[BB16]]): [DA: Uniform]   i1 [[VP13]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB17:BB[0-9]+]](i1 [[VP13]]), [[BB8]](!i1 [[VP13]])
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP13:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_CMP216_NOT]]
+; CHECK-NEXT:     Condition([[BB16]]): [DA: Uniform]   i1 [[VP12]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB17:BB[0-9]+]](i1 [[VP12]]), [[BB8]](!i1 [[VP12]])
 ; CHECK-NEXT:    PREDECESSORS(1): mask_[[REGION2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB17]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP_PHI_USE_LIVE_OUT_LCSSA:%.*]] = phi  [ i64 [[VP_PHI_USE_LIVE_OUT_BLEND]], [[BB9]] ]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP15:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_CMP216_NOT]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP14:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_CMP216_NOT]]
 ; CHECK-NEXT:     [DA: Uniform]   i64* [[VP_STORE_USER_GEP:%.*]] = getelementptr inbounds i64* [[A0]] i64 0
 ; CHECK-NEXT:     [DA: Divergent] store i64 [[VP_PHI_USE_LIVE_OUT_LCSSA]] i64* [[VP_STORE_USER_GEP]]
 ; CHECK-NEXT:    no SUCCESSORS
