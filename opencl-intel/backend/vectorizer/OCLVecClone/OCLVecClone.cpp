@@ -586,6 +586,9 @@ static ContainerTy OCLBuiltinVecInfo() {
 
   addEntries(Info, "_Z13sub_group_all", TypeInfo{'i'}, {VectorKind::vector()}, true);
   addEntries(Info, "_Z13sub_group_any", TypeInfo{'i'}, {VectorKind::vector()}, true);
+  addEntries(Info, "_Z14work_group_all", TypeInfo{'i'}, {VectorKind::vector()}, false);
+  addEntries(Info, "_Z14work_group_any", TypeInfo{'i'}, {VectorKind::vector()}, false);
+
   addEntries(Info, "_Z22intel_sub_group_ballot", TypeInfo{'i'}, {VectorKind::vector()}, true);
 
   addSpecialBuiltins(Info);
@@ -644,6 +647,8 @@ static std::pair<const char *, VectorKind> OCLBuiltinReturnInfo[] = {
     // known as uniform too.
     {"_Z13sub_group_alli", VectorKind::uniform()},
     {"_Z13sub_group_anyi", VectorKind::uniform()},
+    {"_Z14work_group_alli", VectorKind::uniform()},
+    {"_Z14work_group_anyi", VectorKind::uniform()},
     {"_Z22intel_sub_group_balloti", VectorKind::uniform()},
     {"_Z19sub_group_broadcastij", VectorKind::uniform()},
     {"_Z19sub_group_broadcastjj", VectorKind::uniform()},
