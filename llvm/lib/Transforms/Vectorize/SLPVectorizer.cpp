@@ -725,15 +725,6 @@ public:
       MinVecRegSize = TTI->getMinVectorRegisterBitWidth();
   }
 
-#if INTEL_CUSTOMIZATION
-  ~BoUpSLP() {
-    if (PSLPEnabled) {
-      assert(PaddedInstrsEmittedByPSLP.empty() &&
-             SelectsEmittedByPSLP.empty() && "Should have been cleaned up!!!");
-    }
-  }
-#endif // INTEL_CUSTOMIZATION
-
   /// Vectorize the tree that starts with the elements in \p VL.
   /// Returns the vectorized root.
   Value *vectorizeTree();
@@ -3529,7 +3520,6 @@ template <> struct DOTGraphTraits<BoUpSLP *> : public DefaultDOTGraphTraits {
 
 } // end namespace llvm
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Initializations at the beginning of buildTree().
 void BoUpSLP::PSLPInit(void) {
@@ -3646,7 +3636,7 @@ void BoUpSLP::cleanupMultiNodeReordering() {
   MultiNodes.clear();
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 BoUpSLP::~BoUpSLP() {
   for (const auto &Pair : DeletedInstructions) {
     // Replace operands of ignored instructions with Undefs in case if they were
@@ -3662,6 +3652,12 @@ BoUpSLP::~BoUpSLP() {
            "trying to erase instruction with users.");
     Pair.getFirst()->eraseFromParent();
   }
+#if INTEL_CUSTOMIZATION
+  if (PSLPEnabled) {
+    assert(PaddedInstrsEmittedByPSLP.empty() && SelectsEmittedByPSLP.empty() &&
+           "Should have been cleaned up!!!");
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 void BoUpSLP::eraseInstructions(ArrayRef<Value *> AV) {
@@ -3670,7 +3666,6 @@ void BoUpSLP::eraseInstructions(ArrayRef<Value *> AV) {
       eraseInstruction(I, /*ReplaceWithUndef=*/true);
   };
 }
->>>>>>> 8b1eeafb91331c85570a172904460918c9785f29
 
 void BoUpSLP::buildTree(ArrayRef<Value *> Roots,
                         ArrayRef<Value *> UserIgnoreLst) {
@@ -8881,6 +8876,12 @@ bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
   bool Changed = false;
   bool CandidateFound = false;
   int MinCost = SLPCostThreshold;
+
+#if INTEL_CUSTOMIZATION
+  // This code was deleted in community, but we need it for OptimizationRemark
+  // Keep track of values that were deleted by vectorizing in the loop below.
+  SmallVector<WeakTrackingVH, 8> TrackValues(VL.begin(), VL.end());
+#endif // INTEL_CUSTOMIZATION
 
   unsigned NextInst = 0, MaxInst = VL.size();
   for (unsigned VF = MaxVF; NextInst + 1 < MaxInst && VF >= MinVF; VF /= 2) {
