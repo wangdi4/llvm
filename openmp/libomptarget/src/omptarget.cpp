@@ -649,27 +649,14 @@ int target(int64_t device_id, void *host_ptr, int32_t arg_num,
   std::vector<int> tgtArgsPositions(arg_num, -1);
 
 #if INTEL_COLLAB
-  uint64_t LoopLevel = 0;
-  uint64_t LoopCount = 0;
-  struct __tgt_loop_desc {
-    uint64_t lower, upper, stride;
-  };
-
   void *TgtNDLoopDesc = nullptr;
 #endif // INTEL_COLLAB
 
   for (int32_t i = 0; i < arg_num; ++i) {
     if (!(arg_types[i] & OMP_TGT_MAPTYPE_TARGET_PARAM)) {
 #if INTEL_COLLAB
-      if (arg_types[i] & OMP_TGT_MAPTYPE_ND_DESC) {
+      if (arg_types[i] & OMP_TGT_MAPTYPE_ND_DESC)
         TgtNDLoopDesc = (void *)args[i];
-        LoopLevel = *(uint64_t*)args[i];
-        if (LoopLevel == 1) {
-          struct __tgt_loop_desc *loop_desc =
-            (struct __tgt_loop_desc *)(((uint64_t*)args[i]) + 1);
-          LoopCount = loop_desc->upper;
-        }
-      }
 #endif // INTEL_COLLAB
       // This is not a target parameter, do not push it into tgt_args.
       // Check for lambda mapping.
@@ -801,32 +788,18 @@ int target(int64_t device_id, void *host_ptr, int32_t arg_num,
 
   // Pop loop trip count
   uint64_t ltc = 0;
-#if INTEL_COLLAB
-  if (LoopLevel == 1)
-    // FIXME: we'd better introduce a new interface,
-    //        e.g. __kmpc_push_target_ndrange, instead of passing
-    //        the NDrange via arguments to __tgt_target.
-    //        This will require accumulating trip-counts and NDranges
-    //        in loopTripCnt map, but it will better align with
-    //        the current trip-count management.
-    ltc = LoopCount;
-  else {
-    TblMapMtx.lock();
-    auto I = Device.LoopTripCnt.find(__kmpc_global_thread_num(NULL));
-    if (I != Device.LoopTripCnt.end())
-      std::swap(ltc, I->second);
-    TblMapMtx.unlock();
-  }
-#else  // INTEL_COLLAB
   TblMapMtx.lock();
   auto I = Device.LoopTripCnt.find(__kmpc_global_thread_num(NULL));
   if (I != Device.LoopTripCnt.end()) {
     ltc = I->second;
     Device.LoopTripCnt.erase(I);
+#if INTEL_COLLAB
+    DP("loop trip count is %" PRIu64 ".\n", ltc);
+#else  // INTEL_COLLAB
     DP("loop trip count is %lu.\n", ltc);
+#endif  // INTEL_COLLAB
   }
   TblMapMtx.unlock();
-#endif // INTEL_COLLAB
 
   // Launch device execution.
   DP("Launching target execution %s with pointer " DPxMOD " (index=%d).\n",
@@ -848,23 +821,19 @@ int target(int64_t device_id, void *host_ptr, int32_t arg_num,
   if (!tgt_offsets.empty())
     offsetsPtr = (ptrdiff_t *)&(tgt_offsets.data()[0]);
 
-  if (LoopLevel <= 1) {
-    if (IsTeamConstruct) {
-      rc = Device.run_team_region(TargetTable->EntriesBegin[TM->Index].addr,
-                                  argsPtr, offsetsPtr, tgt_args.size(),
-                                  team_num, thread_limit, ltc);
-    } else {
-      rc = Device.run_team_region(TargetTable->EntriesBegin[TM->Index].addr,
-                                  argsPtr, offsetsPtr, tgt_args.size(),
-                                  1, 0, ltc);
-    }
-  }
-  else
+  if (TgtNDLoopDesc)
+    // If NDRange is specified, use it.
     rc = Device.run_team_nd_region(TargetTable->EntriesBegin[TM->Index].addr,
                                    argsPtr, offsetsPtr, tgt_args.size(),
-                                   team_num <= 0 ? 1 : team_num,
-                                   thread_limit <= 0 ? 0 : thread_limit,
+                                   team_num, thread_limit,
                                    TgtNDLoopDesc);
+  else if (IsTeamConstruct)
+    rc = Device.run_team_region(TargetTable->EntriesBegin[TM->Index].addr,
+                                argsPtr, offsetsPtr, tgt_args.size(),
+                                team_num, thread_limit, ltc);
+  else
+    rc = Device.run_region(TargetTable->EntriesBegin[TM->Index].addr,
+                           argsPtr, offsetsPtr, tgt_args.size());
 #else  // INTEL_COLLAB
   if (IsTeamConstruct) {
     rc = Device.run_team_region(TargetTable->EntriesBegin[TM->Index].addr,

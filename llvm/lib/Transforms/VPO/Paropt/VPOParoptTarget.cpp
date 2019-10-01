@@ -936,15 +936,23 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
 
   for (int I = 0, IE = WL->getWRNLoopInfo().getNormIVSize(); I < IE; ++I) {
     auto *L = WL->getWRNLoopInfo().getLoop(I);
-    auto *UpperBoundAI =
+    auto *UpperBoundDef =
         cast<Instruction>(WRegionUtils::getOmpLoopUpperBound(L));
-    assert(UpperBoundAI->getParent() != NewEntryBB &&
-           "genTgtLoopParameter: how come UB alloca "
-           "is in target region's begin block?");
-    if (!DT->dominates(UpperBoundAI, NewEntryBB)) {
+    if (!VPOParoptUtils::mayCloneUBValueBeforeRegion(
+             UpperBoundDef, W)) {
+      // FIXME: if we stop calling this function for SPIR compilation,
+      //        then the check for isTargetSPIRV() has to be removed below.
+      if (isTargetSPIRV())
+        // This code may be executed only for ImplicitSIMDSPMDES mode.
+        F->getContext().diagnose(ParoptDiagInfo(*F,
+            WL->getEntryDirective()->getDebugLoc(),
+            Twine("'") + Twine(spirv::ExecutionSchemeOptionName) +
+            Twine("' option ignored for OpenMP region, since ") +
+            Twine("loop(s) bounds cannot be computed before the enclosing ") +
+            Twine("target region.  Consider using combined construct.")));
       LLVM_DEBUG(dbgs() << __FUNCTION__ <<
-                 ": upper bound AllocaInst for loop #" << I <<
-                 " does not dominate the enclosing target region.\n");
+                 ": loop bounds cannot be computed before the enclosing "
+                 "target region.\n");
       return nullptr;
     }
   }

@@ -54,6 +54,19 @@ static cl::opt<bool> StrictOutlineVerification(
     "vpo-paropt-strict-outline-verification", cl::Hidden, cl::init(true),
     cl::desc("Only allow pointers to be arguments of outlined routines."));
 
+// Undocumented option to control execution scheme for SPIR targets.
+cl::opt<spirv::ExecutionSchemeTy> SPIRExecutionScheme(
+    spirv::ExecutionSchemeOptionName, cl::Hidden,
+    cl::init(spirv::ImplicitSIMDSPMDES),
+    cl::desc(""),
+    cl::values(
+        clEnumValN(spirv::ImplicitSIMDES,
+            "0", "Default"),               // Implicit SIMD
+        clEnumValN(spirv::ImplicitSIMDSPMDES,
+            "1", "<undocumented>"),        // Implicit SIMD with SPMD
+        clEnumValN(spirv::ExplicitSIMDES,
+            "2", "<undocumented>")));      // Explicit SIMD
+
 static const unsigned StackAdjustedAlignment = 16;
 
 // If module M has a StructType of name Name, and element types ElementTypes,
@@ -642,6 +655,10 @@ CallInst *VPOParoptUtils::genTgtTargetTeams(WRegionNode *W, Value *HostAddr,
 
   Value *DeviceID       = WTarget->getDevice();
   Value *NumTeamsPtr    = W->getNumTeams();
+
+  assert((!useSPMDMode(W) || !NumTeamsPtr) &&
+         "SPMD mode cannot be used with num_teams.");
+
   Value *ThreadLimitPtr = W->getThreadLimit();
   CallInst *Call= genTgtCall("__tgt_target_teams", DeviceID, NumArgs,
                              ArgsBase, Args, ArgsSize, ArgsMaptype, InsertPt,
@@ -3340,6 +3357,58 @@ CallInst *VPOParoptUtils::removeOperandBundlesFromCall(
   return NewI;
 }
 
+// Check if the given value may be cloned before the given region.
+// This method does not do all the necessary checks to guarantee
+// cloneability in general. It works correctly only for a special
+// case of values of loops' upper bounds originating from normalized
+// upper bounds values produced by FE, for example:
+//   [ "DIR.OMP.TARGET"(), "QUAL.OMP.FIRSTPRIVATE"(i32 *%omp.ub) ]
+//   [ "DIR.OMP.TEAMS"(), "QUAL.OMP.SHARED"(i32 *%omp.ub) ]
+//   [ "DIR.OMP.DISTRIBUTE.PARLOOP"(), "QUAL.OMP.NORMALIZED.UB"(i32 *%omp.ub) ]
+//   %1 = load i32, i32* %omp.ub
+//   ...
+//   <use of %1 as a loop upper bound>
+//
+// We start from the use of %1, and trace it back to the load instruction
+// (we do allow some intermediate instructions). We check if the load's
+// address is firstprivate() to "omp target" region, and return true
+// in this case, otherwise we return false.
+//
+// Note that this is not enough in general, e.g.:
+//   [ "DIR.OMP.TARGET"(), "QUAL.OMP.FIRSTPRIVATE"(i32 *%x) ]
+//   [ "DIR.OMP.TEAMS"(), "QUAL.OMP.FIRSTPRIVATE"(i32 *%x) ]
+//   [ "DIR.OMP.DISTRIBUTE.PARLOOP"(), "QUAL.OMP.FIRSTPRIVATE"(i32 *%x) ]
+//   store i32 %val, i32* %x
+//   %1 = load i32, i32* %x
+//   ...
+//   <use of %1>
+//
+// We cannot legally rematerialize value of %1 before any of the regions,
+// since its value is changed by the intervening store instruction.
+bool VPOParoptUtils::mayCloneUBValueBeforeRegion(
+    Value *V, const WRegionNode *W) {
+  if (isa<Constant>(V))
+    return true;
+
+  if (!W->canHaveFirstprivate())
+    return false;
+
+  SmallVector<Instruction *, 3> ChainToBase;
+  auto *LI = cast<LoadInst>(findChainToLoad(V, ChainToBase));
+  auto *ChainBase = LI->getPointerOperand();
+
+  if (!std::any_of(W->getFpriv().items().begin(),
+                   W->getFpriv().items().end(),
+                   [ChainBase] (FirstprivateItem *FprivI) {
+                     if (ChainBase == FprivI->getOrig())
+                       return true;
+                     return false;
+                   }))
+    return false;
+
+  return true;
+}
+
 // Clones the load instruction and inserts before the InsertPt.
 Value *VPOParoptUtils::cloneInstructions(Value *V, Instruction *InsertBefore) {
   if (isa<Constant>(V))
@@ -3718,4 +3787,15 @@ Value *VPOParoptUtils::genSPIRVHorizontalReduction(
   return Result;
 }
 
+bool VPOParoptUtils::useSPMDMode(WRegionNode *W) {
+  WRegionNode *WT = WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
+  if (!WT)
+    return false;
+
+  return WT->getParLoopNdInfoAlloca() != nullptr;
+}
+
+spirv::ExecutionSchemeTy VPOParoptUtils::getSPIRExecutionScheme() {
+  return SPIRExecutionScheme;
+}
 #endif // INTEL_COLLAB

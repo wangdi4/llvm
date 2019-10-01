@@ -39,7 +39,6 @@
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IRBuilder.h"
@@ -92,29 +91,6 @@ static cl::opt<bool, true> UseOmpRegionsInLoopopt(
     "loopopt-use-omp-region", cl::desc("Handle OpenMP directives in LoopOpt"),
     cl::Hidden, cl::location(UseOmpRegionsInLoopoptFlag), cl::init(false));
 #endif  // INTEL_CUSTOMIZATION
-
-namespace {
-class ParoptTransformDiagInfo : public DiagnosticInfoWithLocationBase {
-  const Twine &Msg;
-
-public:
-  ParoptTransformDiagInfo(const Function &F, const DiagnosticLocation &Loc,
-                          const Twine &Msg, DiagnosticSeverity DS = DS_Warning)
-    : DiagnosticInfoWithLocationBase(
-          static_cast<DiagnosticKind>(getNextAvailablePluginDiagnosticKind()),
-          DS, F, Loc),
-      Msg(Msg)
-  {}
-
-  void print(DiagnosticPrinter &DP) const override {
-    if (isLocationAvailable())
-      DP << getLocationStr() << ": ";
-    DP << Msg;
-    if (!isLocationAvailable())
-      DP << " (use -g for location info)";
-  }
-};
-} // anonymous namespace
 
 //
 // Use with the WRNVisitor class (in WRegionUtils.h) to walk the WRGraph
@@ -192,7 +168,9 @@ void VPOParoptTransform::genLoopBoundUpdatePrep(
   bool IsDistParLoop = isa<WRNDistributeParLoopNode>(W);
   bool IsDistForLoop = isa<WRNDistributeNode>(W);
 
-  if (IsDistParLoop || IsDistForLoop) {
+  if ((IsDistParLoop || IsDistForLoop) &&
+      // No team partitioning for SPMD mode.
+      !VPOParoptUtils::useSPMDMode(W)) {
     TeamLowerBnd = Builder.CreateAlloca(IndValTy, nullptr, "team.lb");
 
     TeamUpperBnd = Builder.CreateAlloca(IndValTy, nullptr, "team.ub");
@@ -273,7 +251,11 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
     AllocaInst *TeamLowerBnd, AllocaInst *TeamUpperBnd, AllocaInst *TeamStride,
     WRNScheduleKind &DistSchedKind, Instruction *&TeamLB, Instruction *&TeamUB,
     Instruction *&TeamST) {
-  if (!W->getIsDistribute())
+  if (!W->getIsDistribute() ||
+      // Each iteration of the original loop is executed by a single WI,
+      // and we rely on OpenCL paritioning of WIs across WGs.
+      // Thus, there is no need to compute the team bounds.
+      VPOParoptUtils::useSPMDMode(W))
     return;
   assert(W->getIsOmpLoop() &&
          "genOCLDistParLoopBoundUpdateCode: W is not a loop-type WRN");
@@ -458,6 +440,19 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   Value *Ch = Builder.CreateSub(Chunk, ValueOne);
   Value *NewUB = Builder.CreateAdd(LB, Ch);
 
+  if (VPOParoptUtils::useSPMDMode(W)) {
+    // Discard all partitioning above for SPMD mode by setting
+    // lower and upper bound to get_global_id(). This will let
+    // each WI execute just one iteration of the loop.
+    CallInst *GlobalId =
+      VPOParoptUtils::genOCLGenericCall("_Z13get_global_idj",
+                                        GeneralUtils::getSizeTTy(F),
+                                        Arg, InsertPt);
+    Value *GlobalIdCasted = Builder.CreateSExtOrTrunc(GlobalId, LBType);
+    Builder.CreateStore(GlobalIdCasted, LowerBnd);
+    NewUB = GlobalIdCasted;
+  }
+
   Value *Compare = Builder.CreateICmp(ICmpInst::ICMP_ULT, NewUB, UB);
   Instruction *ThenTerm = SplitBlockAndInsertIfThen(
       Compare, InsertPt, false,
@@ -525,7 +520,9 @@ void VPOParoptTransform::genOCLLoopPartitionCode(
 
   setSchedKindForMultiLevelLoops(W, SchedKind, WRNScheduleStaticEven);
 
-  if (SchedKind == WRNScheduleStaticEven) {
+  if (SchedKind == WRNScheduleStaticEven ||
+      // Default to static even scheduling, when we use SPMD mode.
+      VPOParoptUtils::useSPMDMode(W)) {
     if (DT)
       DT->changeImmediateDominator(LoopExitBB, StaticInitBB);
 
@@ -547,7 +544,9 @@ void VPOParoptTransform::genOCLLoopPartitionCode(
     llvm_unreachable(
         "Unsupported loop schedule type in OpenCL based offloading!");
 
-  if (DistSchedKind == WRNScheduleDistributeStatic) {
+  if (DistSchedKind == WRNScheduleDistributeStatic &&
+      // No team paritioning for SPMD mode.
+      !VPOParoptUtils::useSPMDMode(W)) {
 
     Loop *OuterLoop = genDispatchLoopForTeamDistirbute(
         L, TeamLB, TeamUB, TeamST, TeamLowerBnd, TeamUpperBnd, TeamStride,
@@ -1193,11 +1192,7 @@ bool VPOParoptTransform::paroptTransforms() {
 
           // For the case of target parallel for (OpenCL), the compiler
           // constructs a loop parameter before the target region.
-          if (deviceTriplesHasSPIRV()) {
-            if (WRegionNode *WT =
-                    WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget))
-              WT->setParLoopNdInfoAlloca(genTgtLoopParameter(WT, W));
-          }
+          Changed |= constructNDRangeInfo(W);
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -1572,11 +1567,8 @@ bool VPOParoptTransform::paroptTransforms() {
           }
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
-          if (deviceTriplesHasSPIRV()) {
-            if (WRegionNode *WT =
-                    WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget))
-              WT->setParLoopNdInfoAlloca(genTgtLoopParameter(WT, W));
-          }
+          Changed |= constructNDRangeInfo(W);
+
           if (IsTargetSPIRV) {
             Changed |= genOCLParallelLoop(W);
             Changed |= genPrivatizationCode(W);
@@ -5923,6 +5915,8 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
   Value *NumTeams = nullptr;
   if (W->getIsTeams()) {
     NumTeams = W->getNumTeams();
+    assert((!VPOParoptUtils::useSPMDMode(W) || !NumTeams) &&
+           "SPMD mode cannot be used with num_teams.");
     NumThreads = W->getThreadLimit();
   } else
     NumThreads = W->getNumThreads();
@@ -6521,7 +6515,7 @@ bool VPOParoptTransform::genDoacrossWaitOrPost(WRNOrderedNode *W) {
 // Generates code for the OpenMP critical construct.
 bool VPOParoptTransform::genCriticalCode(WRNCriticalNode *CriticalNode) {
   if (isTargetSPIRV()) {
-    F->getContext().diagnose(ParoptTransformDiagInfo(*F,
+    F->getContext().diagnose(ParoptDiagInfo(*F,
         CriticalNode->getEntryDirective()->getDebugLoc(),
         "OpenMP critical is not supported"));
     return removeCompilerGeneratedFences(CriticalNode);
@@ -7754,4 +7748,59 @@ bool VPOParoptTransform::canonicalizeGlobalVariableReferences(WRegionNode *W) {
 
   return !HandledASCasts.empty();
 }
+
+bool VPOParoptTransform::constructNDRangeInfo(WRegionNode *W) {
+  if (VPOParoptUtils::getSPIRExecutionScheme() != spirv::ImplicitSIMDSPMDES)
+    return false;
+
+  if (!deviceTriplesHasSPIRV())
+    return false;
+
+  WRegionNode *WTarget =
+      WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
+
+  if (!WTarget) {
+    if (isTargetSPIRV())
+      // Emit warning only during SPIR compilation.
+      F->getContext().diagnose(ParoptDiagInfo(*F,
+          W->getEntryDirective()->getDebugLoc(),
+          Twine("'") + Twine(spirv::ExecutionSchemeOptionName) +
+          Twine("' option ignored for OpenMP region, since ") +
+          Twine("no enclosing 'target' region was found")));
+    return false;
+  }
+
+  // It is not really necessary to generate ND-range parameter
+  // during SPIR compilation, because it is only used in host code
+  // for passing to libomptarget. At the same time, we have to
+  // call setParLoopNdInfoAlloca() with some non-null value below,
+  // so we just do it for both host and target compilations.
+  auto *NDInfoAI = genTgtLoopParameter(WTarget, W);
+
+  if (!NDInfoAI)
+    return false;
+
+  // NDInfoAI is not null here, so we've made some changed to IR
+  // inside genTgtLoopParameter().
+
+  // Check if there is an inclosing teams region with num_teams() clause.
+  // num_teams() overrules ImplicitSIMDSPMDES mode.
+  WRegionNode *WTeams = WRegionUtils::getParentRegion(W, WRegionNode::WRNTeams);
+
+  if (WTeams && WTeams->getNumTeams()) {
+    if (isTargetSPIRV())
+      // Emit warning only during SPIR compilation.
+      F->getContext().diagnose(ParoptDiagInfo(*F,
+          W->getEntryDirective()->getDebugLoc(),
+          Twine("'") + Twine(spirv::ExecutionSchemeOptionName) +
+          Twine("' option ignored for OpenMP region, since ") +
+          Twine("the enclosing teams region specifies num_teams.")));
+    return true;
+  }
+
+  // Finally set ND-range info for the target region.
+  WTarget->setParLoopNdInfoAlloca(NDInfoAI);
+  return true;
+}
+
 #endif // INTEL_COLLAB

@@ -1593,7 +1593,18 @@ private:
 
   /// Replace loop construct with the mapped directive in IR
   bool replaceGenericLoop(WRegionNode *W);
+
+  /// The given \p W region is one of the kinds allowing internal normalized
+  /// upper bound clause (e.g. "omp parallel for").
+  /// For the given \p W region try to find the enclosing "omp target"
+  /// region and see if the normalized upper bound value may be computed
+  /// before the "omp target" region. If it is possible, this method
+  /// will setup ND-range information for the "omp target" region.
+  /// There are additional limitations to when we actually create
+  /// ND-range information (see implementation for details).
+  bool constructNDRangeInfo(WRegionNode *W);
 };
+
 } /// namespace vpo
 } /// namespace llvm
 
