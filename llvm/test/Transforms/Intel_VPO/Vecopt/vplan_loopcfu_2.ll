@@ -55,15 +55,14 @@ define dso_local void @foo(i64 %N, i64* nocapture readonly %lb, i64* nocapture r
 ; CHECK-NEXT:      [[BB7]] (BP: NULL) :
 ; CHECK-NEXT:       [DA: Divergent] i64 [[VP_INNER_IV:%.*]] = phi  [ i64 [[VP_INNER_IV_NEXT:%.*]], [[BB8:BB[0-9]+]] ],  [ i64 [[VP0]], [[BB6]] ]
 ; CHECK-NEXT:       [DA: Divergent] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_INNER_TOPTEST]], [[BB6]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB8]] ]
-; CHECK-NEXT:      SUCCESSORS(1):mask_[[REGION1:region[0-9]+]]
+; CHECK-NEXT:      SUCCESSORS(1):[[BB9:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB8]] [[BB6]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      REGION: mask_[[REGION1]] (BP: NULL)
-; CHECK-NEXT:      [[BB9:BB[0-9]+]] (BP: NULL) :
+; CHECK-NEXT:      [[BB9]] (BP: NULL) :
 ; CHECK-NEXT:       <Empty Block>
 ; CHECK-NEXT:       Condition([[BB7]]): [DA: Divergent] i1 [[VP_LOOP_MASK]] = phi  [ i1 [[VP_INNER_TOPTEST]], [[BB6]] ],  [ i1 [[VP_LOOP_MASK_NEXT]], [[BB8]] ]
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB10:BB[0-9]+]](i1 [[VP_LOOP_MASK]]), [[BB11:BB[0-9]+]](!i1 [[VP_LOOP_MASK]])
-; CHECK-NEXT:      no PREDECESSORS
+; CHECK-NEXT:      PREDECESSORS(1): [[BB7]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB10]] (BP: NULL) :
 ; CHECK-NEXT:         [DA: Divergent] i64 [[VP_SHL:%.*]] = shl i64 [[VP_INNER_IV]] i64 3
@@ -79,17 +78,14 @@ define dso_local void @foo(i64 %N, i64* nocapture readonly %lb, i64* nocapture r
 ; CHECK-NEXT:       [DA: Divergent] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_INNER_EXITCOND]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:       [DA: Uniform]   i1 [[VP3:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:       [DA: Uniform]   i1 [[VP4:%.*]] = not i1 [[VP3]]
-; CHECK-NEXT:      no SUCCESSORS
-; CHECK-NEXT:      PREDECESSORS(2): [[BB10]] [[BB9]]
-; CHECK-EMPTY:
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB8]]
-; CHECK-NEXT:      END Region(mask_[[REGION1]])
+; CHECK-NEXT:      PREDECESSORS(2): [[BB10]] [[BB9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB8]] (BP: NULL) :
 ; CHECK-NEXT:       <Empty Block>
 ; CHECK-NEXT:       Condition([[BB11]]): [DA: Uniform]   i1 [[VP4]] = not i1 [[VP3]]
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB7]](i1 [[VP4]]), [[BB12:BB[0-9]+]](!i1 [[VP4]])
-; CHECK-NEXT:      PREDECESSORS(1): mask_[[REGION1]]
+; CHECK-NEXT:      PREDECESSORS(1): [[BB11]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB12]] (BP: NULL) :
 ; CHECK-NEXT:       <Empty Block>

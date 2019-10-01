@@ -54,15 +54,14 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unna
 ; CHECK-NEXT:       [DA: Divergent] i64 [[VP_INNER_IV_LIVE_OUT_PREV:%.*]] = phi  [ i64 [[VP_INNER_IV_LIVE_OUT_BLEND:%.*]], [[BB9]] ],  [ i64 undef, [[BB7]] ]
 ; CHECK-NEXT:       [DA: Uniform]   i64 [[VP_INNER_IV:%.*]] = phi  [ i64 [[VP_INNER_IV_NEXT:%.*]], [[BB9]] ],  [ i64 0, [[BB7]] ]
 ; CHECK-NEXT:       [DA: Divergent] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_CMP216_NOT]], [[BB7]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB9]] ]
-; CHECK-NEXT:      SUCCESSORS(1):mask_[[REGION1:region[0-9]+]]
+; CHECK-NEXT:      SUCCESSORS(1):[[BB10:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB9]] [[BB7]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      REGION: mask_[[REGION1]] (BP: NULL)
-; CHECK-NEXT:      [[BB10:BB[0-9]+]] (BP: NULL) :
+; CHECK-NEXT:      [[BB10]] (BP: NULL) :
 ; CHECK-NEXT:       <Empty Block>
 ; CHECK-NEXT:       Condition([[BB8]]): [DA: Divergent] i1 [[VP_LOOP_MASK]] = phi  [ i1 [[VP_CMP216_NOT]], [[BB7]] ],  [ i1 [[VP_LOOP_MASK_NEXT]], [[BB9]] ]
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB11:BB[0-9]+]](i1 [[VP_LOOP_MASK]]), [[BB12:BB[0-9]+]](!i1 [[VP_LOOP_MASK]])
-; CHECK-NEXT:      no PREDECESSORS
+; CHECK-NEXT:      PREDECESSORS(1): [[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB11]] (BP: NULL) :
 ; CHECK-NEXT:         [DA: Uniform]   i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_INNER_IV]]
@@ -80,17 +79,14 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unna
 ; CHECK-NEXT:       [DA: Divergent] i1 [[VP_SOME_CMP_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_SOME_CMP]] i1 [[VP_SOME_CMP_LIVE_OUT_PREV]]
 ; CHECK-NEXT:       [DA: Divergent] i64 [[VP_INNER_IV_NEXT_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i64 [[VP_INNER_IV_NEXT]] i64 [[VP_INNER_IV_NEXT_LIVE_OUT_PREV]]
 ; CHECK-NEXT:       [DA: Uniform]   i1 [[VP0:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
-; CHECK-NEXT:      no SUCCESSORS
-; CHECK-NEXT:      PREDECESSORS(2): [[BB11]] [[BB10]]
-; CHECK-EMPTY:
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB9]]
-; CHECK-NEXT:      END Region(mask_[[REGION1]])
+; CHECK-NEXT:      PREDECESSORS(2): [[BB11]] [[BB10]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB9]] (BP: NULL) :
 ; CHECK-NEXT:       <Empty Block>
 ; CHECK-NEXT:       Condition([[BB12]]): [DA: Uniform]   i1 [[VP0]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB13:BB[0-9]+]](i1 [[VP0]]), [[BB8]](!i1 [[VP0]])
-; CHECK-NEXT:      PREDECESSORS(1): mask_[[REGION1]]
+; CHECK-NEXT:      PREDECESSORS(1): [[BB12]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB13]] (BP: NULL) :
 ; CHECK-NEXT:       [DA: Divergent] i64 [[VP_PHI_USE:%.*]] = phi  [ i64 [[VP_INNER_IV_LIVE_OUT_BLEND]], [[BB9]] ]

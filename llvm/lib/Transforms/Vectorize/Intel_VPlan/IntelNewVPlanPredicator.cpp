@@ -53,6 +53,14 @@ static cl::opt<bool> PreserveUniformCFG(
     "vplan-preserve-uniform-branches", cl::init(true), cl::Hidden,
     cl::desc("Preserve uniform branches during linearization."));
 
+namespace llvm {
+namespace vpo {
+cl::opt<bool> DisableLCFUMaskRegion(
+    "disable-vplan-cfu-mask-region", cl::init(true), cl::Hidden,
+    cl::desc("Disable construction of non-loop mask subregion in LoopCFU"));
+}
+} // namespace llvm
+
 // Generate a tree of ORs for all IncomingPredicates in  WorkList.
 // Note: This function destroys the original Worklist.
 //
