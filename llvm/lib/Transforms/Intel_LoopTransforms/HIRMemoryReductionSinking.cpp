@@ -219,7 +219,8 @@ bool HIRMemoryReductionSinking::collectMemoryReductions(HLLoop *Lp) {
     StoreInst = getReductionStore(LoadRef, HInst);
 
     if (!StoreInst && AlternateLoadRef) {
-      StoreInst = getReductionStore(AlternateLoadRef, HInst);
+      LoadRef = AlternateLoadRef;
+      StoreInst = getReductionStore(LoadRef, HInst);
     }
 
     if (!StoreInst || !HLNodeUtils::postDominates(StoreInst, FirstChild)) {

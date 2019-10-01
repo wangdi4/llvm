@@ -749,7 +749,7 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
     // First insert phi and store after existing PHIs in loop header block.
     // See comment before the routine.
     VPBasicBlock *Block = cast<VPBasicBlock>(Loop.getHeader());
-    Builder.setInsertPoint(Block, Block->getVPPhis().end());
+    Builder.setInsertPointFirstNonPhi(Block);
     VPPHINode *IndPhi = cast<VPPHINode>(Builder.createPhiInstruction(Ty));
     auto StoreInst = Builder.createNaryOp(Instruction::Store, Ty, {IndPhi, &PrivateMem});
     Plan.getVPlanDA()->markDivergent(*IndPhi);

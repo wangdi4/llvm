@@ -778,11 +778,9 @@ void VPlanHCFGBuilder::preserveSSAForLoopHeader(VPBasicBlock *LoopHeader,
   assert(llvm::is_contained(LoopHeader->getPredecessors(), NewLoopLatch) &&
          "NewLoopLatch must be LoopHeader's predecessor!");
 
-  for (VPRecipeBase &VPPhiRecipe : LoopHeader->getVPPhis()) {
-    VPPHINode *VPPhi = cast<VPPHINode>(&VPPhiRecipe);
-
+  for (VPPHINode &VPPhi : LoopHeader->getVPPhis()) {
     auto *IncomingValue =
-        dyn_cast<VPInstruction>(VPPhi->getIncomingValue(NewLoopLatch));
+        dyn_cast<VPInstruction>(VPPhi.getIncomingValue(NewLoopLatch));
     // Check if we have to generate a phi node for the current incoming value at
     // NewLoopLatch.
     if (!IncomingValue ||
@@ -794,7 +792,7 @@ void VPlanHCFGBuilder::preserveSSAForLoopHeader(VPBasicBlock *LoopHeader,
     VPPHINode *PreserveSSAPhi =
         cast<VPPHINode>(VPBldr.createPhiInstruction(IncomingValue->getType()));
     // Update the phi nodes of the loop header with the new phi.
-    VPPhi->setIncomingValue(NewLoopLatch, PreserveSSAPhi);
+    VPPhi.setIncomingValue(NewLoopLatch, PreserveSSAPhi);
 
     // Update the new phi node of the new loop latch.
     PreserveSSAPhi->addIncoming(IncomingValue,
