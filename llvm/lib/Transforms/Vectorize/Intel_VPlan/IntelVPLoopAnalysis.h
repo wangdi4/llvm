@@ -508,7 +508,7 @@ public:
 
   /// Get original memory pointer for an entity. Returns nullptr for
   /// in-register entities.
-  const VPValue* getOrigMemoryPtr(const VPLoopEntity *E) const {
+  const VPValue *getOrigMemoryPtr(const VPLoopEntity *E) const {
     const VPLoopEntityMemoryDescriptor *Descr = getMemoryDescriptor(E);
     return Descr ? Descr->getMemoryPtr() : nullptr;
   }
@@ -592,6 +592,9 @@ public:
   // removed from HCFG.
   void replaceDuplicateInductionPHIs();
   void doEscapeAnalysis();
+
+  /// Return VPPHINode that corresponds to a recurrent entity.
+  VPPHINode *getRecurrentVPHINode(const VPLoopEntity &E) const;
 
 private:
   VPlan &Plan;
@@ -717,7 +720,8 @@ private:
   // loop body. The second way increases register pressure but seems more
   // effective in terms of run-time.
   void createInductionCloseForm(VPInduction *Induction, VPBuilder &Builder,
-                                VPValue &InitStep, VPValue &PrivateMem);
+                                VPValue &Init, VPValue &InitStep,
+                                VPValue &PrivateMem);
 
   VPInstruction *getInductionLoopExitInstr(const VPInduction *Induction) const;
 };
@@ -900,6 +904,7 @@ public:
   void setStep(VPValue *V) { Step = V; }
   void setInductionBinOp(VPInstruction *V) { InductionBinOp = V; }
   void setBinOpcode(unsigned V) { BinOpcode = V; }
+  void setIsExplicitInduction(bool V) { IsExplicitInduction = V; }
 
   /// Clear the content.
   void clear() override {

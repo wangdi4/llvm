@@ -1089,6 +1089,8 @@ void VPlan::execute(VPTransformState *State) {
   // considerably. Instead of having INTEL_CUSTOMIZATION for every few lines
   // of code, we decided to seperate both versions with a single
   // INTEL_CUSTOMIZATION
+  auto VLoop = VPlanUtils::findFirstLoopDFS(this)->getVPLoop();
+  State->ILV->setVPlan(this, getLoopEntities(VLoop));
   BasicBlock *VectorPreHeaderBB = State->CFG.PrevBB;
   BasicBlock *VectorHeaderBB = VectorPreHeaderBB->getSingleSuccessor();
   assert(VectorHeaderBB && "Loop preheader does not have a single successor.");
@@ -1359,6 +1361,13 @@ void VPlan::dump(raw_ostream &OS, bool DumpDA) const {
   Entry->dump(OS, 1, DumpDA ? getVPlanDA() : nullptr);
   for (auto &Succ : Entry->getSuccessors()) {
     Succ->dump(OS, 1, DumpDA ? getVPlanDA() : nullptr);
+  }
+  if (!VPExternalUses.empty()) {
+    OS << "External Uses:\n";
+    for (auto &ExtUse : VPExternalUses) {
+      ExtUse.second->dump(OS);
+      OS << "\n";
+    }
   }
 }
 

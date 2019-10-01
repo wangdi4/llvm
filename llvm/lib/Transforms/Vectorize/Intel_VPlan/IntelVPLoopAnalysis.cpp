@@ -465,6 +465,7 @@ VPValue *VPLoopEntityList::createPrivateMemory(VPLoopEntity &E,
   AI = MemDescr->getMemoryPtr();
   bool MakeSOA = MemDescr->isSafeSOA() && MemDescr->isProfitableSOA();
   VPValue *Ret = Builder.createAllocaPrivate(AI->getType(), MakeSOA);
+  Plan.getVPlanDA()->markDivergent(*Ret);
   linkValue(&E, Ret);
   return Ret;
 }
@@ -474,7 +475,8 @@ void VPLoopEntityList::processInitValue(VPLoopEntity &E, VPValue *AI,
                                         VPValue &Init, Type *Ty,
                                         VPValue &Start) {
   if (PrivateMem) {
-    Builder.createNaryOp(Instruction::Store, Ty, {&Init, PrivateMem});
+    auto V = Builder.createNaryOp(Instruction::Store, Ty, {&Init, PrivateMem});
+    Plan.getVPlanDA()->markDivergent(*V);
     AI->replaceAllUsesWithInLoop(PrivateMem, Loop);
   }
   // Now replace Start by Init inside the loop. It may be a
@@ -489,6 +491,17 @@ void VPLoopEntityList::processInitValue(VPLoopEntity &E, VPValue *AI,
   linkValue(&E, &Init);
 }
 
+// Replace out-of-the-loop uses of the \p From by the calculated last value (\p
+// To). Code generation should transform those uses to the final IR.
+static void relinkLiveOuts(VPValue *From, VPValue *To, const VPLoop &Loop) {
+  for (auto *User : From->users())
+    // Don't replace use in \To itself. It can use original value as, e.g.,
+    // accumulator of reduction.
+    if (User != To && (isa<VPExternalUse>(User) ||
+                       !Loop.contains(cast<VPInstruction>(User)->getParent())))
+      User->replaceUsesOfWith(From, To);
+}
+
 void VPLoopEntityList::processFinalValue(VPLoopEntity &E, VPValue *AI,
                                          VPBuilder &Builder, VPValue &Final,
                                          Type *Ty, VPValue *Exit) {
@@ -497,13 +510,7 @@ void VPLoopEntityList::processFinalValue(VPLoopEntity &E, VPValue *AI,
     linkValue(&E, V);
   }
   if (Exit && !E.getIsMemOnly())
-    // Replace external uses of the Exit by the calculated last value. Code
-    // generation should transform those uses to the final IR.
-    for (auto *User : Exit->users())
-      if (User != &Final && (isa<VPExternalUse>(User) ||
-                             !Loop.contains(cast<VPBlockBase>(
-                                 cast<VPInstruction>(User)->getParent()))))
-        User->replaceUsesOfWith(Exit, &Final);
+    relinkLiveOuts(Exit, &Final, Loop);
   linkValue(&E, &Final);
 }
 
@@ -548,6 +555,7 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
             : Builder.createReductionInit(Identity);
     processInitValue(*Reduction, AI, PrivateMem, Builder, *Init, Ty,
                      *Reduction->getRecurrenceStartValue());
+    Plan.getVPlanDA()->markDivergent(*Init);
 
     // Create instruction for last value
     Builder.setInsertPoint(PostExit);
@@ -601,6 +609,7 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
         static_cast<Instruction::BinaryOps>(Induction->getInductionOpcode());
     VPInstruction *Init =
         Builder.createInductionInit(Start, Induction->getStep(), Opc);
+    Plan.getVPlanDA()->markDivergent(*Init);
     processInitValue(*Induction, AI, PrivateMem, Builder, *Init, Ty,
                      *Start);
     VPInstruction *InitStep =
@@ -613,7 +622,8 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
           if (!isa<VPInductionInit>(Instr))
             Instr->replaceUsesOfWith(Induction->getStep(), InitStep);
     } else {
-      createInductionCloseForm(Induction, Builder, *InitStep, *PrivateMem);
+      createInductionCloseForm(Induction, Builder, *Init, *InitStep,
+                               *PrivateMem);
     }
     VPInstruction *ExitInstr = getInductionLoopExitInstr(Induction);
     // Create instruction for last value
@@ -706,17 +716,19 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
 
 // The second variant looks preferrable.:
 //
-void VPLoopEntityList::createInductionCloseForm(
-    VPInduction *Induction, VPBuilder &Builder, VPValue &InitStep,
-    VPValue &PrivateMem) {
+void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
+                                                VPBuilder &Builder,
+                                                VPValue &Init,
+                                                VPValue &InitStep,
+                                                VPValue &PrivateMem) {
   VPBuilder::InsertPointGuard Guard(Builder);
   auto Opc = Induction->getInductionOpcode();
   Type *Ty = Induction->getStartValue()->getType();
-  if (Induction->getInductionBinOp()) {
+  if (auto BinOp = Induction->getInductionBinOp()) {
     // Non-memory induction.
     VPPHINode *StartPhi = findInductionStartPhi(Induction);
     assert(StartPhi && "null induction StartPhi");
-    VPBasicBlock *Block = Induction->getInductionBinOp()->getParent();
+    VPBasicBlock *Block = BinOp->getParent();
     Builder.setInsertPoint(Block);
     VPValue *NewInd = nullptr;
     // TODO. Replace by VPInstruction::clone
@@ -725,15 +737,23 @@ void VPLoopEntityList::createInductionCloseForm(
       NewInd = Builder.createInBoundsGEP(StartPhi, &InitStep, nullptr);
     else
       NewInd = Builder.createNaryOp(Opc, Ty, {StartPhi, &InitStep});
-    auto Ndx = StartPhi->getOperandIndex(Induction->getInductionBinOp());
+    Plan.getVPlanDA()->markDivergent(*NewInd);
+    auto Ndx = StartPhi->getOperandIndex(BinOp);
     StartPhi->setOperand(Ndx, NewInd);
+    VPInstruction *ExitIns = getInductionLoopExitInstr(Induction);
+    if (ExitIns == BinOp)
+      relinkLiveOuts(ExitIns, BinOp, Loop);
+    linkValue(Induction, NewInd);
   } else {
-    // First insert phi and store at the beginning of the block.
+    // In-memory induction.
+    // First insert phi and store after existing PHIs in loop header block.
+    // See comment before the routine.
     VPBasicBlock *Block = cast<VPBasicBlock>(Loop.getHeader());
-    Builder.setInsertPoint(Block, Block->begin());
+    Builder.setInsertPoint(Block, Block->getVPPhis().end());
     VPPHINode *IndPhi = cast<VPPHINode>(Builder.createPhiInstruction(Ty));
-    Builder.insert(IndPhi);
-    Builder.createNaryOp(Instruction::Store, Ty, {IndPhi, &PrivateMem});
+    auto StoreInst = Builder.createNaryOp(Instruction::Store, Ty, {IndPhi, &PrivateMem});
+    Plan.getVPlanDA()->markDivergent(*IndPhi);
+    Plan.getVPlanDA()->markDivergent(*StoreInst);
     // Then insert increment of induction and update phi.
     Block = cast<VPBasicBlock>(Loop.getLoopLatch());
     Builder.setInsertPoint(Block);
@@ -743,12 +763,21 @@ void VPLoopEntityList::createInductionCloseForm(
       NewInd = Builder.createInBoundsGEP(IndPhi, &InitStep, nullptr);
     else
       NewInd = Builder.createNaryOp(Opc, Ty, {IndPhi, &InitStep});
+    Plan.getVPlanDA()->markDivergent(*NewInd);
     // Step will be initialized in loop preheader always.
-    // TODO: Can there be cases where init-step is not in loop PH?
     VPBasicBlock *InitParent = cast<VPBasicBlock>(Loop.getLoopPreheader());
-    IndPhi->addIncoming(&InitStep, InitParent);
+    IndPhi->addIncoming(&Init, InitParent);
     IndPhi->addIncoming(NewInd, Block);
   }
+}
+
+VPPHINode *VPLoopEntityList::getRecurrentVPHINode(const VPLoopEntity &E) const {
+  for (auto *VPInst : E.getLinkedVPValues())
+    if (auto *VPHi = dyn_cast<VPPHINode>(VPInst))
+      if (Loop.getHeader() == VPHi->getParent())
+        return VPHi;
+
+  return nullptr;
 }
 
 static bool checkInstructionInLoop(const VPValue *V, const VPlan *Plan,
