@@ -314,6 +314,9 @@ protected:
 };
 
 //===----------------------------------------------------------------------===//
+/// Deprecated - do not create new passes as BasicBlockPasses. Use FunctionPass
+/// with a loop over the BasicBlocks instead.
+//
 /// BasicBlockPass class - This class is used to implement most local
 /// optimizations.  Optimizations should subclass this class if they
 /// meet the following constraints:
@@ -347,6 +350,8 @@ public:
   /// doFinalization - Virtual method overriden by BasicBlockPass subclasses to
   /// do any post processing needed after all passes have run.
   virtual bool doFinalization(Function &);
+
+  void preparePassManager(PMStack &PMS) override;
 
   void assignPassManager(PMStack &PMS, PassManagerType T) override;
 
