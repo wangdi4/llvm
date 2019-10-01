@@ -1282,6 +1282,74 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
   return;
 }
 
+static void splitMrfsStep(OVLSMemref *Memref,
+                          MemrefDistanceMapVector &AdjMemrefSetVec) {
+  bool AdjMrfSetFound = false;
+
+  // TODO: Currently finding the appropriate group is done using a linear
+  // search. It would be better to use a hashing algorithm for this search.
+  for (MemrefDistanceMap *AdjMemrefSet : AdjMemrefSetVec) {
+
+    OVLSMemref *SetFirstSeenMrf = (*AdjMemrefSet).find(0)->second;
+
+    if (Memref->getAccessKind() != SetFirstSeenMrf->getAccessKind())
+      continue;
+
+    if (Memref->getNumElements() != SetFirstSeenMrf->getNumElements())
+      continue;
+
+    // Currently we support grouping Memrefs with same elementsize.
+    if (Memref->getType().getElementSize() !=
+        SetFirstSeenMrf->getType().getElementSize())
+      continue;
+
+    // Dist is the distance to be added in Dist(SetFirstSeenMrf) to get
+    // Dist(Memref).
+    // Dist = Dist(Memref) - Dist(SetFirstSeenMrf)
+    // Eg-Mrfs :int32 a[2*i+1] , a[2*i]
+    //    FirstSeenMrf : a[2*i+1].
+    //    Memref : a[2*i], Dist = -4.
+    Optional<int64_t> Dist = Memref->getConstDistanceFrom(*SetFirstSeenMrf);
+    if (!Dist)
+      continue;
+
+    // Found a possible set.
+    // Look for duplicates first.
+    auto SearchDuplicate = AdjMemrefSet->find(*Dist);
+    if (SearchDuplicate == AdjMemrefSet->end()) {
+      // Duplicate not found. Memref can be grouped.
+      AdjMrfSetFound = true;
+      (*AdjMemrefSet).insert(std::pair<int, OVLSMemref *>(*Dist, Memref));
+      break;
+    }
+
+    // Found a possible redundant duplicate. Duplicate is Redundant if Memref
+    // can be moved to SearchDuplicate's location. Drop Memref and do not
+    // group it with any memref, if found to be a redundant duplicate, else
+    // try to group it with other sets in AdjMemrefSetVec.
+    OVLSMemref *ExistingDuplicateMemref = SearchDuplicate->second;
+    bool RedundantDuplicate = Memref->canMoveTo(*ExistingDuplicateMemref);
+    if (RedundantDuplicate) {
+      // Message on Duplicates Found.
+      OVLSDebug(OVLSdbgs() << "\t\tFound Duplicates: \n");
+      OVLSDebug(Memref->print(OVLSdbgs(), 2));
+      OVLSDebug(OVLSdbgs() << " and ");
+      OVLSDebug(ExistingDuplicateMemref->print(OVLSdbgs(), 2));
+      OVLSDebug(OVLSdbgs() << "\n");
+      // Break out of the loop and proceed to next memref.
+      break;
+    }
+  }
+
+  if (!AdjMrfSetFound) {
+    // No adjacent memref set exits for this memref, create a new set.
+    MemrefDistanceMap *AdjMemrefSet = new MemrefDistanceMap();
+    // Assign 0 as a distance to the first memref in the set.
+    (*AdjMemrefSet).insert(std::pair<int, OVLSMemref *>(0, Memref));
+    AdjMemrefSetVec.push_back(AdjMemrefSet);
+  }
+}
+
 // Split the memref-vector into groups where memrefs in each group
 // are neighbors(adjacent), means they
 //   1) have the same access kind
@@ -1297,73 +1365,8 @@ static void splitMrfs(const OVLSMemrefVector &Memrefs,
   OVLSDebug(OVLSdbgs() << "    Distance is (in bytes) from the first memref of"
                           " the set\n");
 
-  for (unsigned i = 0, Size = Memrefs.size(); i < Size; ++i) {
-    OVLSMemref *Memref = Memrefs[i];
-
-    bool AdjMrfSetFound = false;
-
-    // TODO: Currently finding the appropriate group is done using a linear
-    // search. It would be better to use a hashing algorithm for this search.
-    for (MemrefDistanceMap *AdjMemrefSet : AdjMemrefSetVec) {
-
-      OVLSMemref *SetFirstSeenMrf = (*AdjMemrefSet).find(0)->second;
-
-      if (Memref->getAccessKind() != SetFirstSeenMrf->getAccessKind())
-        continue;
-
-      if (Memref->getNumElements() != SetFirstSeenMrf->getNumElements())
-        continue;
-
-      // Currently we support grouping Memrefs with same elementsize.
-      if (Memref->getType().getElementSize() !=
-          SetFirstSeenMrf->getType().getElementSize())
-        continue;
-
-      // Dist is the distance to be added in Dist(SetFirstSeenMrf) to get
-      // Dist(Memref).
-      // Dist = Dist(Memref) - Dist(SetFirstSeenMrf)
-      // Eg-Mrfs :int32 a[2*i+1] , a[2*i]
-      //    FirstSeenMrf : a[2*i+1].
-      //    Memref : a[2*i], Dist = -4.
-      Optional<int64_t> Dist = Memref->getConstDistanceFrom(*SetFirstSeenMrf);
-      if (!Dist)
-        continue;
-
-      // Found a possible set.
-      // Look for duplicates first.
-      auto SearchDuplicate = AdjMemrefSet->find(*Dist);
-      if (SearchDuplicate == AdjMemrefSet->end()) {
-        // Duplicate not found. Memref can be grouped.
-        AdjMrfSetFound = true;
-        (*AdjMemrefSet).insert(std::pair<int, OVLSMemref *>(*Dist, Memref));
-        break;
-      }
-
-      // Found a possible redundant duplicate. Duplicate is Redundant if Memref
-      // can be moved to SearchDuplicate's location. Drop Memref and do not
-      // group it with any memref, if found to be a redundant duplicate, else
-      // try to group it with other sets in AdjMemrefSetVec.
-      OVLSMemref *ExistingDuplicateMemref = SearchDuplicate->second;
-      bool RedundantDuplicate = Memref->canMoveTo(*ExistingDuplicateMemref);
-      if (RedundantDuplicate) {
-        // Message on Duplicates Found.
-        OVLSDebug(OVLSdbgs() << "\t\tFound Duplicates: \n");
-        OVLSDebug(Memref->print(OVLSdbgs(), 2));
-        OVLSDebug(OVLSdbgs() << " and ");
-        OVLSDebug(ExistingDuplicateMemref->print(OVLSdbgs(), 2));
-        OVLSDebug(OVLSdbgs() << "\n");
-        // Break out of the loop and proceed to next memref.
-        break;
-      }
-    }
-    if (!AdjMrfSetFound) {
-      // No adjacent memref set exits for this memref, create a new set.
-      MemrefDistanceMap *AdjMemrefSet = new MemrefDistanceMap();
-      // Assign 0 as a distance to the first memref in the set.
-      (*AdjMemrefSet).insert(std::pair<int, OVLSMemref *>(0, Memref));
-      AdjMemrefSetVec.push_back(AdjMemrefSet);
-    }
-  }
+  for (OVLSMemref *Memref : Memrefs)
+    splitMrfsStep(Memref, AdjMemrefSetVec);
 
   // dump sorted set
   OVLSDebug(OptVLS::dumpMemrefDistanceMapVector(OVLSdbgs(), AdjMemrefSetVec));
