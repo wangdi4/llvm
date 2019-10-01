@@ -32,31 +32,31 @@ define dso_local i32 @main() #0 {
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Uniform]   i32 [[VP_PHI_INNER_LOOP_LATCH:%.*]] = phi  [ i32 0, [[BB4]] ],  [ i32 [[VP_INNER_LOOP_INDUCTION:%.*]], [[NEWLOOPLATCH0:NewLoopLatch[0-9]+]] ]
+; CHECK-NEXT:     [DA: Uniform]   i32 [[VP_PHI_INNER_LOOP_LATCH:%.*]] = phi  [ i32 0, [[BB4]] ],  [ i32 [[VP_INNER_LOOP_INDUCTION:%.*]], [[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]] ]
 ; CHECK-NEXT:     [DA: Uniform]   i32 [[VP_INNER_LOOP_INDUCTION]] = add i32 [[VP_PHI_INNER_LOOP_LATCH]] i32 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(2): [[NEWLOOPLATCH0]] [[BB4]]
+; CHECK-NEXT:    PREDECESSORS(2): [[NEW_LOOP_LATCH0]] [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Uniform]   i32 [[VP_INC:%.*]] = add i32 [[VP_PHI_INNER_LOOP_LATCH]] i32 1
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_CMP2:%.*]] = icmp i32 [[VP_INC]] i32 16
-; CHECK-NEXT:    SUCCESSORS(2):[[BB7:BB[0-9]+]](i1 [[VP_CMP2]]), [[NEWLOOPLATCH0]](!i1 [[VP_CMP2]])
+; CHECK-NEXT:    SUCCESSORS(2):[[BB7:BB[0-9]+]](i1 [[VP_CMP2]]), [[NEW_LOOP_LATCH0]](!i1 [[VP_CMP2]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB7]] (BP: NULL) :
 ; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:      SUCCESSORS(1):[[NEWLOOPLATCH0]]
+; CHECK-NEXT:      SUCCESSORS(1):[[NEW_LOOP_LATCH0]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB6]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[NEWLOOPLATCH0]] (BP: NULL) :
+; CHECK-NEXT:    [[NEW_LOOP_LATCH0]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_TAKEBACKEDGECOND:%.*]] = phi  [ i1 true, [[BB7]] ],  [ i1 false, [[BB6]] ]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB5]](i1 [[VP_TAKEBACKEDGECOND]]), [[BB8:BB[0-9]+]](!i1 [[VP_TAKEBACKEDGECOND]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB7]] [[BB6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB8]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Uniform]   i32 [[VP_LIVE_OUT:%.*]] = phi  [ i32 [[VP_INC]], [[NEWLOOPLATCH0]] ]
+; CHECK-NEXT:     [DA: Uniform]   i32 [[VP_LIVE_OUT:%.*]] = phi  [ i32 [[VP_INC]], [[NEW_LOOP_LATCH0]] ]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
-; CHECK-NEXT:    PREDECESSORS(1): [[NEWLOOPLATCH0]]
+; CHECK-NEXT:    PREDECESSORS(1): [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP_OUTER_LOOP_INDUCTION]] = add i32 [[VP_PHI_OUTER_LOOP_INDUCTION]] i32 1
