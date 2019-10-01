@@ -553,8 +553,10 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   /*TODO: Necessary in VPO?*/
   VectorizerValueMap ValMap(BestVF, 1 /*UF*/);
 
+  VPlan *Plan = getVPlanForVF(BestVF);
+  assert(Plan && "No VPlan found for BestVF.");
   VPTransformState State(BestVF, BestUF, LI, DT, ILV->getBuilder(), ValMap, ILV,
-                         CallbackILV, Legal);
+                         CallbackILV, Legal, Plan->getVPLoopInfo());
   State.CFG.PrevBB = ILV->getLoopVectorPH();
 
 #if INTEL_CUSTOMIZATION
@@ -562,8 +564,6 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   ILV->setTransformState(&State);
 #endif // INTEL_CUSTOMIZATION
 
-  VPlan *Plan = getVPlanForVF(BestVF);
-  assert(Plan && "No VPlan found for BestVF.");
   // TODO: This should be removed once we get proper divergence analysis
   State.UniformCBVs = &Plan->UniformCBVs;
 
