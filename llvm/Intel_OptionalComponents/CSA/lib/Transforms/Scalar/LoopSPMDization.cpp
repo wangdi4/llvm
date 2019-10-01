@@ -412,7 +412,6 @@ try a different SPMDization strategy instead.
       // for the original loop and it will be copied to each new loop
       // automatically, by cloneLoopWithPreheader().
     }
-    lowerSPMDWorkerNum(OrigL, 0);
 
     if (ZTCType == ZTCMode::Nested) {
       // Fix missed Phi operands in AfterLoop
@@ -473,6 +472,12 @@ INITIALIZE_PASS_END(LoopSPMDization, DEBUG_TYPE, "Loop SPMDization", false,
 
 Pass *llvm::createLoopSPMDizationPass() { return new LoopSPMDization(); }
 
+// Once the replacement of csa_spmd_worker_num() with csa_spmd_worker_num()+1 is
+// done in LoopSPMDization::lowerSPMDWorkerNum, we finally replace the
+// intrinsicwith zero as the +ones will generate the corresponding worker id
+// num. If SPMDization is not performed for whatever reason, we should still
+// remove these intrinsics. This is done in CSAIntrinsicCleaner.cpp
+// (CSAIntrinsicCleaner::clean_spmd_worker_num)
 void LoopSPMDization::cleanSPMDWorkerNum(
     llvm::SmallVector<Loop *, 4> &toClean) {
   SmallVector<Instruction *, 4> toDelete;
@@ -502,23 +507,19 @@ void LoopSPMDization::lowerSPMDWorkerNum(Loop *L, int PE) {
     for (Instruction &inst : *BB)
       if (IntrinsicInst *intr_inst = dyn_cast<IntrinsicInst>(&inst))
         if (intr_inst->getIntrinsicID() == Intrinsic::csa_spmd_worker_num) {
-          if (PE != 0) {
-            Value *pe =
-                llvm::ConstantInt::get(llvm::Type::getInt32Ty(Context), 1);
-            IRBuilder<> Bnum(inst.getNextNode());
-            Value *Num =
-                Bnum.CreateAdd(intr_inst, pe, L->getName() + ".plusone");
-            // Replace users of the intrinsic with Num
-            for (auto UA = (dyn_cast<Value>(intr_inst))->user_begin(),
-                      EA = (dyn_cast<Value>(intr_inst))->user_end();
-                 UA != EA;) {
-              Instruction *User = cast<Instruction>(*UA++);
-              if (User != Num)
-                for (unsigned m = 0; m < User->getNumOperands(); m++)
-                  if (User->getOperand(m) == dyn_cast<Value>(intr_inst)) {
-                    User->setOperand(m, Num);
-                  }
-            }
+          Value *pe =
+              llvm::ConstantInt::get(llvm::Type::getInt32Ty(Context), 1);
+          IRBuilder<> Bnum(inst.getNextNode());
+          Value *Num = Bnum.CreateAdd(intr_inst, pe, L->getName() + ".plusone");
+          // Replace users of the intrinsic with Num
+          for (auto UA = intr_inst->user_begin(), EA = intr_inst->user_end();
+               UA != EA;) {
+            Instruction *User = cast<Instruction>(*UA++);
+            if (User != Num)
+              for (unsigned m = 0; m < User->getNumOperands(); m++)
+                if (User->getOperand(m) == dyn_cast<Value>(intr_inst)) {
+                  User->setOperand(m, Num);
+                }
           }
         }
   }
