@@ -49,7 +49,7 @@ def timelimited(timeout, function, *args, **kwds):
 
         def _stop(self):
             # force the thread to stop by (ab)using the private __stop method
-            if not self._is_stopped:
+            if self.is_alive():
                 _Thread_stop(self)
 
     if not hasattr(function, '__call__'):

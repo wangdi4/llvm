@@ -118,6 +118,40 @@ def skipNotGDB(func):
                 return unittest.skip("Not supported in simulator testing.")
     return wrapper
 
+def skipNotCDB(func):
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        if sys.version_info < (2, 7):
+            logw("Warning: use Python >= 2.7 (current version is " \
+                + ".".join(map(str, sys.version_info)) + ")" \
+                + " for 'expected fail' support in testcase " + str(func))
+            func(self, *args, **kwargs)
+            return
+        else:
+            if self.use_cdb:
+                func(self, *args, **kwargs)
+            else:
+                print("Skipping test " + str(func))
+                return unittest.skip("Not supported in simulator testing.")
+    return wrapper
+
+def skipNotGDBorCDB(func):
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        if sys.version_info < (2, 7):
+            logw("Warning: use Python >= 2.7 (current version is " \
+                + ".".join(map(str, sys.version_info)) + ")" \
+                + " for 'expected fail' support in testcase " + str(func))
+            func(self, *args, **kwargs)
+            return
+        else:
+            if self.use_gdb or self.use_cdb:
+                func(self, *args, **kwargs)
+            else:
+                print("Skipping test " + str(func))
+                return unittest.skip("Not supported in simulator testing.")
+    return wrapper
+
 
 def _fix_stream_newlines(s):
     return '\n'.join(s.splitlines())
