@@ -1384,7 +1384,11 @@ public:
       AU.addPreserved<MemorySSAWrapperPass>();
     }
     AU.addPreserved<GlobalsAAWrapperPass>();
+<<<<<<< HEAD
     AU.addPreserved<AndersensAAWrapperPass>();       // INTEL
+=======
+    AU.addPreserved<AAResultsWrapperPass>();
+>>>>>>> 8299fd9dee7df7c5f92ab2572aad04ce2fbbf83e
     AU.setPreservesCFG();
   }
 };
