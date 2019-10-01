@@ -379,8 +379,10 @@ bool WholeProgramInfo::resolveAllLibFunctions(
   return all_resolved;
 }
 
-// Compute if all functions in the module M are internal with the exception
-// of libfuncs, main and functions added by the linker.
+// Compute if all functions in the module M that have at least one User are
+// internal with the exception of libfuncs, main and functions added by the
+// linker. The visibility is used to secure that all the functions are inside
+// the module.
 //
 void WholeProgramInfo::computeFunctionsVisibility(
     Module &M,
@@ -456,6 +458,11 @@ void WholeProgramInfo::computeFunctionsVisibility(
   for (Function &F : M) {
 
     if (!F.hasLocalLinkage()) {
+
+      // If there isn't any user then it means that the function is
+      // not needed.
+      if (F.user_empty())
+        continue;
 
       StringRef SymbolName = F.getName();
 

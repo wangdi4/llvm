@@ -37,9 +37,8 @@
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}Function
 ; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-O-NEXT: Running analysis: PassInstrumentationAnalysis
-; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
-; CHECK-O-NEXT: Running analysis: PassInstrumentationAnalysis
 ; CHECK-O-NEXT: Running analysis: TargetIRAnalysis
+; CHECK-O-NEXT: Running analysis: PassInstrumentationAnalysis
 ; CHECK-O-NEXT: Running pass: IPCloningPass
 ; end INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: ForceFunctionAttrsPass
@@ -61,11 +60,10 @@
 ; end INTEL_CUSTOMIZATION
 ; CHECK-O2-NEXT: Starting llvm::Function pass manager run.
 ; CHECK-O2-NEXT: Running pass: CallSiteSplittingPass on foo
+; CHECK-O2-NEXT: Running analysis: TargetLibraryAnalysis on foo
 ; INTEL_CUSTOMIZATION
-; The TargetLibraryAnalysis and TargetIRAnalysis are needed for the Intel
-; WholeProgramAnalysis. It will run with O1. The following CHECKs won't be
-; executed.
-; CHECK-O2-NEXT-: Running analysis: TargetLibraryAnalysis on foo
+; The TargetIRAnalysis isn't needed for the Intel WholeProgramAnalysis.
+; It will run with O1. The following CHECKs won't be executed.
 ; CHECK-O2-NEXT-: Running analysis: TargetIRAnalysis on foo
 ; end INTEL_CUSTOMIZATION
 ; CHECK-O2-NEXT: Running analysis: DominatorTreeAnalysis on foo
@@ -79,11 +77,11 @@
 ; CHECK-O2-NEXT: Running pass: ModuleToPostOrderCGSCCPassAdaptor<{{.*}}PostOrderFunctionAttrsPass>
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}SCC
 ; CHECK-O-NEXT: Running analysis: LazyCallGraphAnalysis
+; CHECK-O1-NEXT: Running analysis: TargetLibraryAnalysis
 ; INTEL_CUSTOMIZATION
-; The TargetLibraryAnalysis and PassInstrumentationAnalysis aren needed for
-; the Intel WholeProgramAnalysis. It should run at O1. The following CHECKs
+; The PassInstrumentationAnalysis isn't needed for the Intel
+; WholeProgramAnalysis. It should run at O1. The following CHECKs
 ; won't be executed.
-; CHECK-O1-NEXT-: Running analysis: TargetLibraryAnalysis
 ; CHECK-O1-NEXT-: Running analysis: PassInstrumentationAnalysis
 ; end INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running analysis: FunctionAnalysisManagerCGSCCProxy
