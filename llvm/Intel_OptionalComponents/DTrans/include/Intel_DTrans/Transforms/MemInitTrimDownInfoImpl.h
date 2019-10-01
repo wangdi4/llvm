@@ -26,7 +26,12 @@
 
 namespace llvm {
 
+class DominatorTree;
+
 namespace dtrans {
+
+using MemInitDominatorTreeType = std::function<DominatorTree &(Function &)>;
+using MemGetTLITy = std::function<const TargetLibraryInfo &(Function &)>;
 
 // Get class type of the given function if there is one.
 inline StructType *getClassType(const Function *F) {
@@ -122,9 +127,7 @@ public:
                       CandidateFieldMemberFuncs[FI].end());
   }
 
-  inline bool isStructMethod(Function *F) {
-    return StructMethods.count(F);
-  }
+  inline bool isStructMethod(Function *F) { return StructMethods.count(F); }
 
 private:
   // Candidate struct.
