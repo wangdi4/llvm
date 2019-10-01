@@ -4833,22 +4833,22 @@ bool VPOParoptTransform::genLoopSchedulingCode(
   // The required variables are LowerBnd, UpperBnd, Stride and UpperD.
   // The last one is only need for distribute loop.
   IsLastVal = REBuilder.CreateAlloca(Int32Ty, nullptr, "is.last");
-  IsLastVal->setAlignment(4);
+  IsLastVal->setAlignment(MaybeAlign(4));
   // Initialize %is.last with zero.
   REBuilder.CreateAlignedStore(REBuilder.getInt32(0), IsLastVal, 4);
 
   AllocaInst *LowerBnd = REBuilder.CreateAlloca(IndValTy, nullptr, "lower.bnd");
-  LowerBnd->setAlignment(4);
+  LowerBnd->setAlignment(MaybeAlign(4));
 
   AllocaInst *UpperBnd = REBuilder.CreateAlloca(IndValTy, nullptr, "upper.bnd");
-  UpperBnd->setAlignment(4);
+  UpperBnd->setAlignment(MaybeAlign(4));
 
   AllocaInst *Stride = REBuilder.CreateAlloca(IndValTy, nullptr, "stride");
-  Stride->setAlignment(4);
+  Stride->setAlignment(MaybeAlign(4));
 
   // UpperD is for distribute loop
   AllocaInst *UpperD = REBuilder.CreateAlloca(IndValTy, nullptr, "upperD");
-  UpperD->setAlignment(4);
+  UpperD->setAlignment(MaybeAlign(4));
 
   // Get Schedule kind and chunk information from W-Region node
   // Default: static_even.
@@ -4948,21 +4948,21 @@ bool VPOParoptTransform::genLoopSchedulingCode(
     // Create variables for the team distribution initialization.
     // Insert alloca instructions in the region's entry block.
     TeamIsLast = REBuilder.CreateAlloca(Int32Ty, nullptr, "team.is.last");
-    TeamIsLast->setAlignment(4);
+    TeamIsLast->setAlignment(MaybeAlign(4));
     // Initialize %team.is.last with zero.
     REBuilder.CreateAlignedStore(REBuilder.getInt32(0), TeamIsLast, 4);
 
     TeamLowerBnd = REBuilder.CreateAlloca(IndValTy, nullptr, "team.lower.bnd");
-    TeamLowerBnd->setAlignment(4);
+    TeamLowerBnd->setAlignment(MaybeAlign(4));
 
     TeamUpperBnd = REBuilder.CreateAlloca(IndValTy, nullptr, "team.upper.bnd");
-    TeamUpperBnd->setAlignment(4);
+    TeamUpperBnd->setAlignment(MaybeAlign(4));
 
     TeamStride = REBuilder.CreateAlloca(IndValTy, nullptr, "team.stride");
-    TeamStride->setAlignment(4);
+    TeamStride->setAlignment(MaybeAlign(4));
 
     TeamUpperD = REBuilder.CreateAlloca(IndValTy, nullptr, "team.upperD");
-    TeamUpperD->setAlignment(4);
+    TeamUpperD->setAlignment(MaybeAlign(4));
 
     // Initialize arguments for team distribution init call.
     // Insert store instructions and the call in the loop pre-header block.
