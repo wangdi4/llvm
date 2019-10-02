@@ -458,8 +458,10 @@ Value *VPOCodeGen::getOrCreateWideLoadForGroup(OVLSGroup *Group) {
   assert(Group->getNumElems() == VF &&
          "Group number of elements must match VF");
 
+  OVLSMemref *InsertPoint = Group->getInsertPoint();
+  int InterleaveIndex = computeInterleaveIndex(InsertPoint, Group);
   const VPInstruction *Leader =
-      cast<VPVLSClientMemref>(Group->getFirstMemref())->getInstruction();
+      cast<VPVLSClientMemref>(InsertPoint)->getInstruction();
 
   Type *GroupType =
       getWidenedType(getLoadStoreType(Leader), VF * Group->size());
@@ -468,6 +470,14 @@ Value *VPOCodeGen::getOrCreateWideLoadForGroup(OVLSGroup *Group) {
   assert(!MaskValue && "Scalar address may be invalid (masked out)");
   Value *ScalarAddress = Builder.CreateExtractElement(
       GatherAddress, (uint64_t)0, GatherAddress->getName() + "_0");
+
+  // If the group leader (lexically first load) does not access the lowest
+  // memory address address (InterleaveIndex != 0), we should adjust
+  // ScalarAddress to make it point to the beginning of the Group.
+  if (InterleaveIndex != 0)
+    ScalarAddress = Builder.CreateConstInBoundsGEP1_64(
+        ScalarAddress, -InterleaveIndex, "groupStart");
+
   auto AddressSpace =
       cast<PointerType>(ScalarAddress->getType())->getAddressSpace();
   Value *GroupPtr = Builder.CreateBitCast(
@@ -492,6 +502,9 @@ Value *VPOCodeGen::vectorizeInterleavedLoad(VPInstruction *VPLoad,
   auto InterleaveIndex = computeInterleaveIndex(Memref, Group);
   auto InterleaveFactor = computeInterleaveFactor(Memref);
 
+  assert((Group->getInsertPoint() == Memref ||
+          VLSGroupLoadMap.find(Group) != VLSGroupLoadMap.end()) &&
+         "Wide load must be emitted at the group insertion point");
   Value *GroupLoad = getOrCreateWideLoadForGroup(Group);
 
   // Extract a proper widened value from the wide load. A bit more sophisticated
@@ -628,11 +641,11 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
 
 void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
                                            OVLSGroup *Group) {
-  // First, check if the wide store has been already generated.
-  if (VLSGroupStoreMap.find(Group) != VLSGroupStoreMap.end())
+  // Don't do anything unless we're vectorizing an instruction that is the group
+  // insertion point.
+  auto *Memref = cast<VPVLSClientMemref>(Group->getInsertPoint());
+  if (Memref->getInstruction() != VPStore)
     return;
-
-  // If the wide store hasn't been generated yet, generate it.
 
   // FIXME: Currently VLS groups store instructions only if it is safe to move
   //        all the stores to the lexically first one (that means that all the
@@ -705,9 +718,7 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
 
   // Create the wide store.
   unsigned Align = getOriginalLoadStoreAlignment(VPStore);
-  StoreInst *GroupStore =
-      Builder.CreateAlignedStore(StoredValue, GroupPtr, Align);
-  VLSGroupStoreMap.insert(std::make_pair(Group, GroupStore));
+  Builder.CreateAlignedStore(StoredValue, GroupPtr, Align);
 }
 
 void VPOCodeGen::vectorizeUnitStrideStore(VPInstruction *VPInst, int StrideVal,
