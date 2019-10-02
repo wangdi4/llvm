@@ -1236,7 +1236,8 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
     MemrefDistanceMapIt AdjMemrefSetIt = (*AdjMemrefSet).begin();
 
     OVLSAccessKind AccessKind = AdjMemrefSetIt->second->getAccessKind();
-    OVLSGroup *CurrGrp = new OVLSGroup(VectorLength, AccessKind);
+    OVLSGroup *CurrGrp =
+        new OVLSGroup(AdjMemrefSetIt->second, VectorLength, AccessKind);
     int GrpFirstMDist = AdjMemrefSetIt->first;
 
     // Group memrefs in each set using a greedy approach, keep inserting the
@@ -1257,9 +1258,9 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
       if (!CurrGrp->empty() &&
           ( // capacity exceeded.
               (Dist - GrpFirstMDist + ElemSize) > VectorLength ||
-              !Memref->canMoveTo(*CurrGrp->getFirstMemref()))) {
+              !Memref->canMoveTo(*CurrGrp->getInsertPoint()))) {
         OVLSGrps.push_back(CurrGrp);
-        CurrGrp = new OVLSGroup(VectorLength, AccessKind);
+        CurrGrp = new OVLSGroup(Memref, VectorLength, AccessKind);
 
         // Reset GrpFirstMDist
         GrpFirstMDist = Dist;
@@ -1796,16 +1797,14 @@ bool OVLSShuffle::hasValidOperands(OVLSOperand *Op1, OVLSOperand *Op2,
   return true;
 }
 
-// getGroups() takes a vector of OVLSMemrefs and a group size in bytes
-// (which is the the maximum length of the underlying vector register
-// or any other desired size that clients want to consider, maximum size
-// can be 64), and returns a vector of OVLSGroups. It also optionally returns
-// a map where each memref is mapped to the group that it belongs to. Each
-// group contains one or more OVLSMemrefs, (and each OVLSMemref is contained by
-// 1 (and only 1) OVLSGroup) in a way where having all the memrefs in
-// OptVLSgroup (at one single point in the program, the location of first
-// memref in the group)does not violate any program semantics nor any memory
-// dependencies.
+// getGroups() takes a vector of OVLSMemrefs and a group size in bytes (which is
+// the the maximum length of the underlying vector register or any other desired
+// size that clients want to consider, maximum size can be 64), and returns a
+// vector of OVLSGroups. It also optionally returns a map where each memref is
+// mapped to the group that it belongs to. Each group contains one or more
+// OVLSMemrefs, (and each OVLSMemref is contained by 1 (and only 1) OVLSGroup)
+// in a way where having all the memrefs in OptVLSgroup (at group InsertPoint
+// location) does not violate any program semantics nor any memory dependencies.
 void OptVLSInterface::getGroups(const OVLSMemrefVector &Memrefs,
                                 OVLSGroupVector &Grps, unsigned VectorLength,
                                 OVLSMemrefToGroupMap *MemrefToGroupMap) {

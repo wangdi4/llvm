@@ -304,8 +304,8 @@ private:
 /// OVLSGroup represents a group of adjacent gathers/scatters.
 class OVLSGroup {
 public:
-  explicit OVLSGroup(int VLen, OVLSAccessKind AKind)
-      : VectorLength(VLen), AccessKind(AKind) {
+  OVLSGroup(OVLSMemref *InsertPoint, int VLen, OVLSAccessKind AKind)
+      : InsertPoint(InsertPoint), VectorLength(VLen), AccessKind(AKind) {
     NByteAccessMask = 0;
   }
 
@@ -333,6 +333,8 @@ public:
 
   // Returns the total number of memrefs that this group contains.
   uint32_t size() const { return MemrefVec.size(); }
+
+  OVLSMemref *getInsertPoint() const { return InsertPoint; }
 
   // Return the first OVLSMemref of this group.
   OVLSMemref *getFirstMemref() const {
@@ -388,6 +390,11 @@ private:
   /// physically existed. Which means, any missing memrefs are not represented
   /// by the vector. Support gap by creating a dummy memref.
   OVLSMemrefVector MemrefVec;
+
+  /// Valid location for the group. The whole group can be replaced with a
+  /// different code sequence if the new sequence is put at the location of this
+  /// memory reference.
+  OVLSMemref *InsertPoint;
 
   /// \brief Vector length in bytes, default/maximum supported length is 64.
   /// VectorLength can be the maximum length of the underlying vector register
