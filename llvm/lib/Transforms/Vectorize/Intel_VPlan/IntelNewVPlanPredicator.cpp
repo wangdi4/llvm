@@ -146,6 +146,8 @@ static void getPostDomFrontier(VPBlockBase *Block,
 }
 
 void VPlanPredicator::calculatePredicateTerms(VPBlockBase *CurrBlock) {
+  LLVM_DEBUG(dbgs() << "Calculating predicate terms for "
+                    << CurrBlock->getName() << ":\n");
   VPRegionBlock *Region = CurrBlock->getParent();
   // Blocks that dominate region exit inherit the predicate from the region.
   if (VPDomTree.dominates(CurrBlock, Region->getExit())) {
@@ -155,6 +157,10 @@ void VPlanPredicator::calculatePredicateTerms(VPBlockBase *CurrBlock) {
     Block2PredicateTermsAndUniformity[CurrBlock] = {
         {Term}, Block2PredicateTermsAndUniformity[Region].second};
     PredicateTerm2UseBlocks[Term].push_back(CurrBlock);
+    LLVM_DEBUG(dbgs() << " Re-using region's predicate, {Block: "
+                      << Region->getName() << ", Uniformity: "
+                      << Block2PredicateTermsAndUniformity[Region].second
+                      << "}\n");
     return;
   }
 
@@ -170,6 +176,10 @@ void VPlanPredicator::calculatePredicateTerms(VPBlockBase *CurrBlock) {
       Block2PredicateTermsAndUniformity[CurrBlock] = {
           {Term}, Block2PredicateTermsAndUniformity[PredBB].second};
       PredicateTerm2UseBlocks[Term].push_back(CurrBlock);
+      LLVM_DEBUG(dbgs() << " Re-using previous block predicate, {Block: "
+                        << PredBB->getName() << ", Uniformity: "
+                        << Block2PredicateTermsAndUniformity[PredBB].second
+                        << "}\n");
       return;
     }
   }
@@ -206,6 +216,12 @@ void VPlanPredicator::calculatePredicateTerms(VPBlockBase *CurrBlock) {
   bool Uniform = true;
   for (auto *InfluenceBB : Frontier) {
     auto *Cond = InfluenceBB->getCondBit();
+    LLVM_DEBUG(dbgs() << "  Influencing term: {Block: "
+                      << InfluenceBB->getName() << ", Cond: ";
+               if (Cond) Cond->printAsOperand(dbgs()); else dbgs() << "nullptr";
+               dbgs() << ", uniformity: "
+                      << Block2PredicateTermsAndUniformity[InfluenceBB].second
+                      << "}\n");
     Uniform &= Block2PredicateTermsAndUniformity[InfluenceBB].second;
     Uniform &= !Plan.getVPlanDA()->isDivergent(*Cond);
     assert((Cond || CurrBlock == InfluenceBB->getSuccessors()[0]) &&
