@@ -2867,9 +2867,16 @@ bool FunctionDecl::isMSVCRTEntryPoint() const {
   // Even though we aren't really targeting MSVCRT if we are freestanding,
   // semantic analysis for these functions remains the same.
 
+#if INTEL_COLLAB
+  // MSVCRT entry points exist on MSVCRT targets and Microsoft ABI.
+  if (!TUnit->getASTContext().getTargetInfo().getTriple().isOSMSVCRT() &&
+      !TUnit->getASTContext().getTargetInfo().getCXXABI().isMicrosoft())
+    return false;
+#else // INTEL_COLLAB
   // MSVCRT entry points only exist on MSVCRT targets.
   if (!TUnit->getASTContext().getTargetInfo().getTriple().isOSMSVCRT())
     return false;
+#endif // INTEL_COLLAB
 
   // Nameless functions like constructors cannot be entry points.
   if (!getIdentifier())
