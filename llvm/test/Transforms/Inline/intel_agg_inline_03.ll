@@ -3,8 +3,10 @@
 ; considered as candidate since it is used in more than one function (foo1
 ; and foo2).
 
-; RUN: opt < %s -inlineaggressiveanalysis -inline-agg-trace -whole-program-assume -disable-output  2>&1 | FileCheck %s
-; RUN: opt < %s -passes='require<inlineaggressive>' -inline-agg-trace -whole-program-assume -disable-output  2>&1 | FileCheck %s
+; REQUIRES: asserts
+
+; RUN: opt < %s -inlineaggressiveanalysis -debug-only=inlineaggressiveanalysis -whole-program-assume -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -passes='require<inlineaggressive>' -debug-only=inlineaggressiveanalysis -whole-program-assume -disable-output  2>&1 | FileCheck %s
 
 ; CHECK: Started AggInl SingleAccessFunctionGlobalVar Analysis
 ; CHECK-NOT:  GV selected as candidate: grad

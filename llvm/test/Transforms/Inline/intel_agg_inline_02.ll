@@ -2,8 +2,10 @@
 ; " Single Access Function GlobalVar Heuristic" since "bar3" is not leaf
 ; as expected by the heuristic. "bar3" calls "bar4" that calls "bar5".
 
-; RUN: opt < %s -inlineaggressiveanalysis -inline-agg-trace -whole-program-assume -disable-output  2>&1 | FileCheck %s
-; RUN: opt < %s -passes='require<inlineaggressive>' -inline-agg-trace -whole-program-assume -disable-output  2>&1 | FileCheck %s
+; REQUIRES: asserts
+
+; RUN: opt < %s -inlineaggressiveanalysis -debug-only=inlineaggressiveanalysis -whole-program-assume -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -passes='require<inlineaggressive>' -debug-only=inlineaggressiveanalysis -whole-program-assume -disable-output  2>&1 | FileCheck %s
 
 ; CHECK: Started AggInl SingleAccessFunctionGlobalVar Analysis
 ; CHECK:  GV selected as candidate: grad
