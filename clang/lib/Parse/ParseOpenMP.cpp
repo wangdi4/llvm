@@ -799,7 +799,6 @@ Parser::ParseOMPDeclareSimdClauses(Parser::DeclGroupPtrTy Ptr,
       LinModifiers, Steps, SourceRange(Loc, EndLoc));
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Parses the 'construct' part of the match clause.
 ///
@@ -912,7 +911,6 @@ static bool parseMatchDevices(Parser &P,
 }
 #endif // INTEL_CUSTOMIZATION
 
-=======
 /// Parse optional 'score' '(' <expr> ')' ':'.
 static ExprResult parseContextScore(Parser &P) {
   ExprResult ScoreExpr;
@@ -938,7 +936,6 @@ static ExprResult parseContextScore(Parser &P) {
   return ScoreExpr;
 }
 
->>>>>>> a15a1413ac63aee4de5a03d5aa0ff982751c8ca6
 /// Parse context selector for 'implementation' selector set:
 /// 'vendor' '(' <vendor> ')'
 static void
