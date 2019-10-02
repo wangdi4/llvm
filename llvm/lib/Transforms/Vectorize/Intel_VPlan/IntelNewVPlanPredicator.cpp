@@ -619,6 +619,7 @@ void VPlanPredicator::linearizeRegion(
         auto BlendPhi = new VPPHINode(Phi.getType());
         BlendPhi->setBlend(true);
         BlendBB->addRecipe(BlendPhi);
+        Plan.getVPlanDA()->markDivergent(*BlendPhi);
         int NumIncoming = Phi.getNumIncomingValues();
         // Ugly loop to protect against iterator invalidation due to removal
         // of incoming values.

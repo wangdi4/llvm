@@ -630,6 +630,10 @@ private:
   void vectorizeLoadInstruction(VPInstruction *VPInst,
                                 bool EmitIntrinsic = false);
 
+  // Generate a wide (un)masked load for a given consecutive stride load.
+  Value *vectorizeUnitStrideLoad(VPInstruction *VPInst, int StrideVal,
+                                 bool IsPvtPtr);
+
   // Widen the store of a linear value. We do a scalar store of the value in the
   // first vector lane.
   void vectorizeLinearStore(Instruction *Inst);
@@ -641,6 +645,10 @@ private:
   void vectorizeStoreInstruction(Instruction *Inst, bool EmitIntrinsic = false);
   void vectorizeStoreInstruction(VPInstruction *VPInst,
                                  bool EmitIntrinsic = false);
+
+  // Generate a wide (un)masked store for a given consecutive stride store.
+  void vectorizeUnitStrideStore(VPInstruction *VPInst, int StrideVal,
+                                bool IsPvtPtr);
 
   // Re-vectorize the given vector load instruction. The function handles 
   // only simple vectors.
@@ -736,6 +744,7 @@ private:
   /// load/store to consecutive memory locations
   Value *createWidenedBasePtrConsecutiveLoadStore(Instruction *I, Value *Ptr,
                                                   bool Reverse);
+  Value *createWidenedBasePtrConsecutiveLoadStore(VPValue *Ptr, bool Reverse);
 
   /// Create a wide load for the \p Group (or get existing one).
   Value *getOrCreateWideLoadForGroup(OVLSGroup *Group);
