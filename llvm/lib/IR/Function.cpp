@@ -706,11 +706,16 @@ enum IIT_Info {
   IIT_VEC_ELEMENT = 42,
   IIT_SCALABLE_VEC = 43,
   IIT_SUBDIVIDE2_ARG = 44,
+<<<<<<< HEAD
   IIT_SUBDIVIDE4_ARG = 45
 #if INTEL_CUSTOMIZATION
   ,
   IIT_STRUCT9 = 46
 #endif  // INTEL_CUSTOMIZATION
+=======
+  IIT_SUBDIVIDE4_ARG = 45,
+  IIT_VEC_OF_BITCASTS_TO_INT = 46
+>>>>>>> 76365b3b24dce0ab3c6a4bce3f84f632b6f825e0
 };
 
 static void DecodeIITType(unsigned &NextElt, ArrayRef<unsigned char> Infos,
@@ -902,6 +907,12 @@ static void DecodeIITType(unsigned &NextElt, ArrayRef<unsigned char> Infos,
     DecodeIITType(NextElt, Infos, OutputTable);
     return;
   }
+  case IIT_VEC_OF_BITCASTS_TO_INT: {
+    unsigned ArgInfo = (NextElt == Infos.size() ? 0 : Infos[NextElt++]);
+    OutputTable.push_back(IITDescriptor::get(IITDescriptor::VecOfBitcastsToInt,
+                                             ArgInfo));
+    return;
+  }
   }
   llvm_unreachable("unhandled");
 }
@@ -1027,6 +1038,12 @@ static Type *DecodeFixedType(ArrayRef<Intrinsic::IITDescriptor> &Infos,
     if (VectorType *VTy = dyn_cast<VectorType>(Ty))
       return VTy->getElementType();
     llvm_unreachable("Expected an argument of Vector Type");
+  }
+  case IITDescriptor::VecOfBitcastsToInt: {
+    Type *Ty = Tys[D.getArgumentNumber()];
+    VectorType *VTy = dyn_cast<VectorType>(Ty);
+    assert(VTy && "Expected an argument of Vector Type");
+    return VectorType::getInteger(VTy);
   }
   case IITDescriptor::VecOfAnyPtrsToElt:
     // Return the overloaded type (which determines the pointers address space)
@@ -1320,6 +1337,15 @@ static bool matchIntrinsicType(
         return true;
       return matchIntrinsicType(VTy, Infos, ArgTys, DeferredChecks,
                                 IsDeferredCheck);
+    }
+    case IITDescriptor::VecOfBitcastsToInt: {
+      if (D.getArgumentNumber() >= ArgTys.size())
+        return IsDeferredCheck || DeferCheck(Ty);
+      auto *ReferenceType = dyn_cast<VectorType>(ArgTys[D.getArgumentNumber()]);
+      auto *ThisArgVecTy = dyn_cast<VectorType>(Ty);
+      if (!ThisArgVecTy || !ReferenceType)
+        return true;
+      return ThisArgVecTy != VectorType::getInteger(ReferenceType);
     }
   }
   llvm_unreachable("unhandled");
