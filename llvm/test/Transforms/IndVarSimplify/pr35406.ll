@@ -44,18 +44,20 @@ exit:
   ret i32 0
 }
 
-define i32 @testRem(i8* %p, i64* %p1) {
+; INTEL - This test modified with "%maywrap{,2}" function arguments replacing
+; INTEL - literals to prevent SCEV improvements defeating the test.
+define i32 @testRem(i8* %p, i64* %p1, i32 %maywrap, i32 %maywrap2) {
 ; CHECK-LABEL: @testRem
 entry:
   br label %loop1
 
 loop1:
-  %local_0_ = phi i32 [ 8, %entry ], [ %9, %loop2.exit ]
+  %local_0_ = phi i32 [ %maywrap, %entry ], [ %9, %loop2.exit ]
   %local_2_ = phi i32 [ 63864, %entry ], [ %local_2_43, %loop2.exit ]
   %local_3_ = phi i32 [ 51, %entry ], [ %local_3_44, %loop2.exit ]
 ; CHECK:  udiv
 ; CHECK-NOT:  udiv
-  %0 = udiv i32 14, %local_0_
+  %0 = udiv i32 %maywrap2, %local_0_
   %1 = icmp ugt i32 %local_0_, 14
   br i1 %1, label %exit, label %general_case24
 

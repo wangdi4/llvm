@@ -7,7 +7,8 @@
 ;END INTEL_CUSTOMIZATION
 ;
 ; CHECK-LABEL: @foo(
-; CHECK: %[[EXIT:.+]] = add i32 %.sroa.speculated, 1           ;INTEL
+; INTEL - SCEV improvements prove stronger NoWrap flags
+; CHECK: %[[EXIT:.+]] = add nuw nsw i32 %.sroa.speculated, 1           ;INTEL
 ; CHECK: %DB.sroa.9.0.lcssa = phi i32 [ 1, %entry ], [ %[[EXIT]], %loopexit ]
 ;
 define void @foo(i32 %sub.ptr.div.i, i8* %ref.i1174) local_unnamed_addr {

@@ -121,7 +121,8 @@ define void @test_03(i32 *%arr, i32 %n, i32 %bound) {
 ; CHECK-NEXT:    [[TMP4:%.*]] = icmp sgt i32 [[SMIN]], -1
 ; CHECK-NEXT:    [[SMAX1:%.*]] = select i1 [[TMP4]], i32 [[SMIN]], i32 -1
 ; CHECK-NEXT:    [[TMP5:%.*]] = add nsw i32 [[SMAX1]], 1
-; CHECK-NEXT:    [[TMP6:%.*]] = mul i32 [[TMP2]], [[TMP5]]
+; INTEL - SCEV improvements prove stronger NoWrap flags
+; CHECK-NEXT:    [[TMP6:%.*]] = mul nsw i32 [[TMP2]], [[TMP5]]
 ; CHECK-NEXT:    [[TMP7:%.*]] = icmp slt i32 [[N]], [[TMP6]]
 ; CHECK-NEXT:    [[SMIN2:%.*]] = select i1 [[TMP7]], i32 [[N]], i32 [[TMP6]]
 ; CHECK-NEXT:    [[TMP8:%.*]] = icmp sgt i32 [[SMIN2]], 0
@@ -409,7 +410,8 @@ define void @test_07(i32 *%arr, i32 %n, i32 %bound) {
 ; CHECK-NEXT:    [[TMP4:%.*]] = icmp sgt i32 [[SMIN]], -1
 ; CHECK-NEXT:    [[SMAX1:%.*]] = select i1 [[TMP4]], i32 [[SMIN]], i32 -1
 ; CHECK-NEXT:    [[TMP5:%.*]] = add nsw i32 [[SMAX1]], 1
-; CHECK-NEXT:    [[TMP6:%.*]] = mul i32 [[TMP2]], [[TMP5]]
+; INTEL - SCEV improvements prove stronger NoWrap flags
+; CHECK-NEXT:    [[TMP6:%.*]] = mul nsw i32 [[TMP2]], [[TMP5]]
 ; CHECK-NEXT:    [[TMP7:%.*]] = icmp slt i32 [[N]], [[TMP6]]
 ; CHECK-NEXT:    [[SMIN2:%.*]] = select i1 [[TMP7]], i32 [[N]], i32 [[TMP6]]
 ; CHECK-NEXT:    [[TMP8:%.*]] = icmp sgt i32 [[SMIN2]], 0

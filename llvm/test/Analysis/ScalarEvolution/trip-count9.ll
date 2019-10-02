@@ -262,7 +262,8 @@ exit:
 }
 
 ; CHECK: Determining loop execution counts for: @even_start1_step2
-; CHECK: Loop %loop: backedge-taken count is ((-2 + (3 smax (2 * %n))) /u 2)
+; INTEL - SCEV improvements prove stronger NoWrap flags
+; CHECK: Loop %loop: backedge-taken count is ((-2 + (3 smax (2 * %n)))<nsw> /u 2)
 ; CHECK: Loop %loop: max backedge-taken count is 2
 define void @even_start1_step2(i4 %n) {
 entry:
@@ -364,7 +365,8 @@ exit:
 }
 
 ; CHECK: Determining loop execution counts for: @even_nsw_start1_step2
-; CHECK: Loop %loop: backedge-taken count is ((-2 + (3 smax (2 * %n))) /u 2)
+; INTEL - SCEV improvements prove stronger NoWrap flags
+; CHECK: Loop %loop: backedge-taken count is ((-2 + (3 smax (2 * %n)))<nsw> /u 2)
 ; CHECK: Loop %loop: max backedge-taken count is 2
 define void @even_nsw_start1_step2(i4 %n) {
 entry:
