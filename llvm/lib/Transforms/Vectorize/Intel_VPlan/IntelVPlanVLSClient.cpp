@@ -115,12 +115,19 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
     return false;
 
   // Check if it is safe to move FromInst past every instruction between it and
-  // ToInst. ToInst is assumed to precede FromInst.
-  // FIXME: It is expected that VLS will be changed so that loads are moved
-  // upward and stores are moved downward. We will need to support downward
-  // movement when such change is implemented.
-  for (const VPRecipeBase *I = FromInst->getPrevNode(); I != nullptr;
-       I = I->getPrevNode()) {
+  // ToInst. We consider only moving loads up and moving stores down.
+
+  SmallVector<const VPRecipeBase *, 64> RangeToCheck;
+  if (getAccessKind().isLoad())
+    for (const VPRecipeBase *I = FromInst->getPrevNode(); I != nullptr;
+         I = I->getPrevNode())
+      RangeToCheck.push_back(I);
+  else
+    for (const VPRecipeBase *I = FromInst->getNextNode(); I != nullptr;
+         I = I->getNextNode())
+      RangeToCheck.push_back(I);
+
+  for (const VPRecipeBase *I : RangeToCheck) {
     const VPInstruction *IterInst = dyn_cast<VPInstruction>(I);
 
     // Bail out if we run into an unexpected recipe.
@@ -130,11 +137,6 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
     // ToInst has been safely reached by the algorithm.
     if (IterInst == ToInst)
       return true;
-
-    // Cannot move a Store instruction past the definition of the stored value.
-    if (FromInst->getOpcode() == Instruction::Store &&
-        IterInst == FromInst->getOperand(0))
-      return false;
 
     // It is safe to move past an instruction without side effects nor memory
     // access.

@@ -301,7 +301,10 @@ private:
   OVLSAccessKind AccessKind; // Access kind of the Memref, e.g {S|I}{Load|store}
 };
 
-/// OVLSGroup represents a group of adjacent gathers/scatters.
+/// OVLSGroup represents a group of adjacent gathers/scatters. The memrefs in
+/// the group are sorted by their offsets. The information about lexical
+/// ordering of the memrefs is not preserved. The InsertPoint points to the
+/// Memref where the Group-wide memory access must be emitted.
 class OVLSGroup {
 public:
   OVLSGroup(OVLSMemref *InsertPoint, int VLen, OVLSAccessKind AKind)
@@ -336,7 +339,7 @@ public:
 
   OVLSMemref *getInsertPoint() const { return InsertPoint; }
 
-  // Return the first OVLSMemref of this group.
+  // Return OVLSMemref with the lowest offset.
   OVLSMemref *getFirstMemref() const {
     if (!MemrefVec.empty())
       return MemrefVec[0];
@@ -384,8 +387,8 @@ public:
 #endif
 
 private:
-  /// \brief MemrefVec contains the adjacent gathers/scatters by storing
-  /// them sequentially in this MemrefVec.
+  /// MemrefVec contains the adjacent gathers/scatters by storing them
+  /// sequentially in this MemrefVec. The memrefs are sorted by their offsets.
   /// TODO: please note that, MemrefVec only stores the memrefs that are
   /// physically existed. Which means, any missing memrefs are not represented
   /// by the vector. Support gap by creating a dummy memref.
@@ -965,13 +968,13 @@ public:
   /// contained by 1 (and only 1) OVLSGroup such that being
   /// together these memrefs in a group do not violate any program semantics or
   /// memory dependencies.
+  ///
   /// Current grouping is done using a greedy approach; i.e. it keeps inserting
-  /// adjacent memrefs into the same group until the total element size(
-  /// considering a single element from each memref) is less than or equal to
-  /// vector length. Currently, it only tries to form a group at the location
-  /// of a memref that has a lowest distance from the base, it does not try
-  /// other adjacent-memref-locations. Because of this greediness it can miss
-  /// some opportunities. This can be improved in the future if needed.
+  /// adjacent memrefs into the same group until the total element size
+  /// (considering a single element from each memref) is less than or equal to
+  /// vector length. At the moment, the grouping algorithm is far from perfect.
+  /// For best results it is recommended to keep Memrefs in reverse postorder.
+  /// This recommendation is to be removed after the algorithm is improved.
   static void getGroups(const OVLSMemrefVector &Memrefs, OVLSGroupVector &Grps,
                         uint32_t VectorLength,
                         OVLSMemrefToGroupMap *MemrefToGroupMap = nullptr);

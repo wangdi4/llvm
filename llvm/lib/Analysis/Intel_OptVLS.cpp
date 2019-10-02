@@ -31,12 +31,11 @@
 #include <set>
 using namespace llvm;
 constexpr uint32_t OVLSShuffle::UndefMask;
-// MemrefDistanceMap contains a set of distances where each distance gets
-// mapped to a memref. Basically, it contains a set of adjacent memrefs.
-// Keeping them in a map helps eliminate any duplicate distances and keeps them
-// sorted.
-typedef OVLSMap<int, OVLSMemref *> MemrefDistanceMap;
-typedef MemrefDistanceMap::iterator MemrefDistanceMapIt;
+
+// A set of adjacent memrefs and their distances from the first memref. The
+// choice of the vector is intentional, so that the original order of memrefs is
+// preserved.
+using MemrefDistanceMap = std::vector<std::pair<OVLSMemref *, int64_t>>;
 
 // MemrefDistanceMapVector is a vector of groups where each group contains a set
 // of adjacent memrefs.
@@ -1187,8 +1186,8 @@ dumpMemrefDistanceMapVector(OVLSostream &OS,
     OS << "  Set #" << ++Id << "\n";
     // print each adjacent memref-set
     for (const auto &AMapElem : *AdjMemrefSet) {
-      (AMapElem.second)->print(OS, 2);
-      OS << "   Dist: " << AMapElem.first << "\n";
+      AMapElem.first->print(OS, 2);
+      OS << "   Dist: " << AMapElem.second << "\n";
     }
   }
 }
@@ -1233,24 +1232,32 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
                        OVLSMemrefToGroupMap *MemrefToGroupMap) {
   for (MemrefDistanceMap *AdjMemrefSet : AdjMrfSetVec) {
     assert(!AdjMemrefSet->empty() && "Adjacent memref-set cannot be empty");
-    MemrefDistanceMapIt AdjMemrefSetIt = (*AdjMemrefSet).begin();
+    auto AdjMemrefSetIt = AdjMemrefSet->begin();
 
-    OVLSAccessKind AccessKind = AdjMemrefSetIt->second->getAccessKind();
+    OVLSAccessKind AccessKind = AdjMemrefSetIt->first->getAccessKind();
     OVLSGroup *CurrGrp =
-        new OVLSGroup(AdjMemrefSetIt->second, VectorLength, AccessKind);
-    int GrpFirstMDist = AdjMemrefSetIt->first;
+        new OVLSGroup(AdjMemrefSetIt->first, VectorLength, AccessKind);
+    int64_t GrpFirstMDist = 0;
+    assert(AdjMemrefSetIt->second == 0 &&
+           "Zero distance between first Memref and itself is expected");
 
     // Group memrefs in each set using a greedy approach, keep inserting the
     // memrefs into the same group until the group is full. Form a new group
     // for a memref that cannot be moved into the group.
-    for (MemrefDistanceMapIt E = (*AdjMemrefSet).end(); AdjMemrefSetIt != E;
-         ++AdjMemrefSetIt) {
-      OVLSMemref *Memref = AdjMemrefSetIt->second;
+    for (auto E = AdjMemrefSet->end(); AdjMemrefSetIt != E; ++AdjMemrefSetIt) {
+      OVLSMemref *Memref = AdjMemrefSetIt->first;
       unsigned ElemSize = Memref->getType().getElementSize() / BYTE; // in bytes
 
-      int Dist = AdjMemrefSetIt->first;
+      int64_t Dist = AdjMemrefSetIt->second;
 
       uint64_t AccMask = CurrGrp->getNByteAccessMask();
+
+      // Adjust mask and distance if the new memref precedes all the previously
+      // seen memrefs.
+      if (Dist < GrpFirstMDist) {
+        AccMask <<= GrpFirstMDist - Dist;
+        GrpFirstMDist = Dist;
+      }
 
       // If Current Group has members, and the new memref cannot be added to it
       // for either it is outside the register range or cannot be moved to the
@@ -1259,6 +1266,10 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
           ( // capacity exceeded.
               (Dist - GrpFirstMDist + ElemSize) > VectorLength ||
               !Memref->canMoveTo(*CurrGrp->getInsertPoint()))) {
+        // Sort memrefs in the group using their offsets.
+        sort(*CurrGrp, [](OVLSMemref *LHS, OVLSMemref *RHS) {
+          return *RHS->getConstDistanceFrom(*LHS) > 0;
+        });
         OVLSGrps.push_back(CurrGrp);
         CurrGrp = new OVLSGroup(Memref, VectorLength, AccessKind);
 
@@ -1275,6 +1286,10 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
             .insert(std::pair<OVLSMemref *, OVLSGroup *>(Memref, CurrGrp));
     }
 
+    // Sort memrefs in the group using their offsets.
+    sort(*CurrGrp, [](OVLSMemref *LHS, OVLSMemref *RHS) {
+      return *RHS->getConstDistanceFrom(*LHS) > 0;
+    });
     OVLSGrps.push_back(CurrGrp);
   }
 
@@ -1290,37 +1305,44 @@ static void splitMrfsStep(OVLSMemref *Memref,
   // TODO: Currently finding the appropriate group is done using a linear
   // search. It would be better to use a hashing algorithm for this search.
   for (MemrefDistanceMap *AdjMemrefSet : AdjMemrefSetVec) {
+    assert(!AdjMemrefSet->empty() && "Set cannot be empty");
+    OVLSMemref *SetFirstMrf = AdjMemrefSet->begin()->first;
 
-    OVLSMemref *SetFirstSeenMrf = (*AdjMemrefSet).find(0)->second;
-
-    if (Memref->getAccessKind() != SetFirstSeenMrf->getAccessKind())
+    if (Memref->getAccessKind() != SetFirstMrf->getAccessKind())
       continue;
 
-    if (Memref->getNumElements() != SetFirstSeenMrf->getNumElements())
+    if (Memref->getNumElements() != SetFirstMrf->getNumElements())
       continue;
 
     // Currently we support grouping Memrefs with same elementsize.
     if (Memref->getType().getElementSize() !=
-        SetFirstSeenMrf->getType().getElementSize())
+        SetFirstMrf->getType().getElementSize())
       continue;
 
-    // Dist is the distance to be added in Dist(SetFirstSeenMrf) to get
+    // Dist is the distance to be added in Dist(SetFirstMrf) to get
     // Dist(Memref).
-    // Dist = Dist(Memref) - Dist(SetFirstSeenMrf)
+    // Dist = Dist(Memref) - Dist(SetFirstMrf)
     // Eg-Mrfs :int32 a[2*i+1] , a[2*i]
     //    FirstSeenMrf : a[2*i+1].
     //    Memref : a[2*i], Dist = -4.
-    Optional<int64_t> Dist = Memref->getConstDistanceFrom(*SetFirstSeenMrf);
+    Optional<int64_t> Dist = Memref->getConstDistanceFrom(*SetFirstMrf);
     if (!Dist)
       continue;
 
     // Found a possible set.
     // Look for duplicates first.
-    auto SearchDuplicate = AdjMemrefSet->find(*Dist);
+    auto SearchDuplicate =
+        find_if(*AdjMemrefSet, [Dist](auto &x) { return x.second == *Dist; });
     if (SearchDuplicate == AdjMemrefSet->end()) {
+      // FIXME: We assume that this function is invoked in the lexical order of
+      //        memrefs for loads and in the reverse lexical order for stores. We
+      //        preserve this order in AdjMemrefSet. We should switch from relying
+      //        on such assumptions to proper ordering of incoming memrefs using
+      //        dominance information.
+
       // Duplicate not found. Memref can be grouped.
       AdjMrfSetFound = true;
-      (*AdjMemrefSet).insert(std::pair<int, OVLSMemref *>(*Dist, Memref));
+      AdjMemrefSet->emplace_back(Memref, *Dist);
       break;
     }
 
@@ -1328,7 +1350,7 @@ static void splitMrfsStep(OVLSMemref *Memref,
     // can be moved to SearchDuplicate's location. Drop Memref and do not
     // group it with any memref, if found to be a redundant duplicate, else
     // try to group it with other sets in AdjMemrefSetVec.
-    OVLSMemref *ExistingDuplicateMemref = SearchDuplicate->second;
+    OVLSMemref *ExistingDuplicateMemref = SearchDuplicate->first;
     bool RedundantDuplicate = Memref->canMoveTo(*ExistingDuplicateMemref);
     if (RedundantDuplicate) {
       // Message on Duplicates Found.
@@ -1346,7 +1368,7 @@ static void splitMrfsStep(OVLSMemref *Memref,
     // No adjacent memref set exits for this memref, create a new set.
     MemrefDistanceMap *AdjMemrefSet = new MemrefDistanceMap();
     // Assign 0 as a distance to the first memref in the set.
-    (*AdjMemrefSet).insert(std::pair<int, OVLSMemref *>(0, Memref));
+    AdjMemrefSet->emplace_back(Memref, 0);
     AdjMemrefSetVec.push_back(AdjMemrefSet);
   }
 }
@@ -1357,8 +1379,8 @@ static void splitMrfsStep(OVLSMemref *Memref,
 //   2) have same number of vector elements
 //   3) are a constant distance apart
 //
-// Adjacent memrefs in the group are sorted based on their distance from the
-// first memref in the group in an ascending order.
+// The relative order of adjacent loads is preserved, relative order of stores
+// is reversed (so that the first item in every set is a valid insertion point).
 static void splitMrfs(const OVLSMemrefVector &Memrefs,
                       MemrefDistanceMapVector &AdjMemrefSetVec) {
   OVLSDebug(OVLSdbgs() << "\n  Split the vector memrefs into sub groups of "
@@ -1366,10 +1388,25 @@ static void splitMrfs(const OVLSMemrefVector &Memrefs,
   OVLSDebug(OVLSdbgs() << "    Distance is (in bytes) from the first memref of"
                           " the set\n");
 
-  for (OVLSMemref *Memref : Memrefs)
-    splitMrfsStep(Memref, AdjMemrefSetVec);
+  // FIXME: Here we assume that refs inside \p Memref vector are in RPOT order.
+  //        If this assumption holds true, for every grouppable set of memory
+  //        references, the first reference to be processed by splitMrfsStep is
+  //        either the lexically first load or the lexically last store.
+  //        splitMrfsStep and formGroups rely on this and they are not able to
+  //        form groups if the order of references is wrong. The algorithm
+  //        should be changed in future to work even with shuffled \p Memref
+  //        vector and use dominance information to sort it.
 
-  // dump sorted set
+  // Process loads top down.
+  for (OVLSMemref *Memref : Memrefs)
+    if (Memref->getAccessKind().isLoad())
+      splitMrfsStep(Memref, AdjMemrefSetVec);
+
+  // Process stores bottom up.
+  for (OVLSMemref *Memref : reverse(Memrefs))
+    if (Memref->getAccessKind().isStore())
+      splitMrfsStep(Memref, AdjMemrefSetVec);
+
   OVLSDebug(OptVLS::dumpMemrefDistanceMapVector(OVLSdbgs(), AdjMemrefSetVec));
   return;
 }

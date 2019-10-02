@@ -647,16 +647,6 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
   if (Memref->getInstruction() != VPStore)
     return;
 
-  // FIXME: Currently VLS groups store instructions only if it is safe to move
-  //        all the stores to the lexically first one (that means that all the
-  //        stored values must be available at this point). That matches our
-  //        current behavior in VPlan: we generate wide store when we encounter
-  //        first store from a group. However, we may want to modify VLS
-  //        analysis, and for example check if it is safe to move all group
-  //        elements to the last store. If we do such change, the code below
-  //        will be broken, as it will keep generating wide store in place of
-  //        the first store.
-
   // Values to be stored.
   SmallVector<Value *, 8> GrpValues;
 
