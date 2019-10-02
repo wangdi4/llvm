@@ -522,15 +522,18 @@ static void ParseLangArgs(LangOptions &Opts, InputKind IK, const char *triple) {
   Opts.NoInlineDefine = !Opt;
 }
 
-ClangASTContext::ClangASTContext(const char *target_triple)
-    : TypeSystem(TypeSystem::eKindClang), m_target_triple(), m_ast_up(),
-      m_language_options_up(), m_source_manager_up(), m_diagnostics_engine_up(),
-      m_target_options_rp(), m_target_info_up(), m_identifier_table_up(),
-      m_selector_table_up(), m_builtins_up(), m_callback_tag_decl(nullptr),
-      m_callback_objc_decl(nullptr), m_callback_baton(nullptr),
-      m_pointer_byte_size(0), m_ast_owned(false) {
-  if (target_triple && target_triple[0])
+ClangASTContext::ClangASTContext(llvm::StringRef target_triple)
+    : TypeSystem(TypeSystem::eKindClang) {
+  if (!target_triple.empty())
     SetTargetTriple(target_triple);
+}
+
+ClangASTContext::ClangASTContext(ASTContext &existing_ctxt)
+  : TypeSystem(TypeSystem::eKindClang) {
+  SetTargetTriple(existing_ctxt.getTargetInfo().getTriple().str());
+
+  m_ast_up.reset(&existing_ctxt);
+  GetASTMap().Insert(&existing_ctxt, this);
 }
 
 // Destructor
@@ -676,20 +679,13 @@ const char *ClangASTContext::GetTargetTriple() {
   return m_target_triple.c_str();
 }
 
-void ClangASTContext::SetTargetTriple(const char *target_triple) {
+void ClangASTContext::SetTargetTriple(llvm::StringRef target_triple) {
   Clear();
-  m_target_triple.assign(target_triple);
+  m_target_triple = target_triple.str();
 }
 
 void ClangASTContext::SetArchitecture(const ArchSpec &arch) {
-  SetTargetTriple(arch.GetTriple().str().c_str());
-}
-
-bool ClangASTContext::HasExternalSource() {
-  ASTContext *ast = getASTContext();
-  if (ast)
-    return ast->getExternalSource() != nullptr;
-  return false;
+  SetTargetTriple(arch.GetTriple().str());
 }
 
 void ClangASTContext::SetExternalSource(
@@ -699,25 +695,6 @@ void ClangASTContext::SetExternalSource(
     ast->setExternalSource(ast_source_up);
     ast->getTranslationUnitDecl()->setHasExternalLexicalStorage(true);
   }
-}
-
-void ClangASTContext::RemoveExternalSource() {
-  ASTContext *ast = getASTContext();
-
-  if (ast) {
-    llvm::IntrusiveRefCntPtr<ExternalASTSource> empty_ast_source_up;
-    ast->setExternalSource(empty_ast_source_up);
-    ast->getTranslationUnitDecl()->setHasExternalLexicalStorage(false);
-  }
-}
-
-void ClangASTContext::setASTContext(clang::ASTContext *ast_ctx) {
-  if (!m_ast_owned) {
-    m_ast_up.release();
-  }
-  m_ast_owned = false;
-  m_ast_up.reset(ast_ctx);
-  GetASTMap().Insert(ast_ctx, this);
 }
 
 ASTContext *ClangASTContext::getASTContext() {
