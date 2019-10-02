@@ -799,6 +799,7 @@ Parser::ParseOMPDeclareSimdClauses(Parser::DeclGroupPtrTy Ptr,
       LinModifiers, Steps, SourceRange(Loc, EndLoc));
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Parses the 'construct' part of the match clause.
 ///
@@ -911,6 +912,33 @@ static bool parseMatchDevices(Parser &P,
 }
 #endif // INTEL_CUSTOMIZATION
 
+=======
+/// Parse optional 'score' '(' <expr> ')' ':'.
+static ExprResult parseContextScore(Parser &P) {
+  ExprResult ScoreExpr;
+  SmallString<16> Buffer;
+  StringRef SelectorName =
+      P.getPreprocessor().getSpelling(P.getCurToken(), Buffer);
+  OMPDeclareVariantAttr::ScoreType ScoreKind =
+      OMPDeclareVariantAttr::ScoreUnknown;
+  (void)OMPDeclareVariantAttr::ConvertStrToScoreType(SelectorName, ScoreKind);
+  if (ScoreKind == OMPDeclareVariantAttr::ScoreUnknown)
+    return ScoreExpr;
+  assert(ScoreKind == OMPDeclareVariantAttr::ScoreSpecified &&
+         "Expected \"score\" clause.");
+  (void)P.ConsumeToken();
+  SourceLocation RLoc;
+  ScoreExpr = P.ParseOpenMPParensExpr(SelectorName, RLoc);
+  // Parse ':'
+  if (P.getCurToken().is(tok::colon))
+    (void)P.ConsumeAnyToken();
+  else
+    P.Diag(P.getCurToken(), diag::warn_pragma_expected_colon)
+        << "context selector score clause";
+  return ScoreExpr;
+}
+
+>>>>>>> a15a1413ac63aee4de5a03d5aa0ff982751c8ca6
 /// Parse context selector for 'implementation' selector set:
 /// 'vendor' '(' <vendor> ')'
 static void
@@ -940,6 +968,7 @@ parseImplementationSelector(Parser &P,
     BalancedDelimiterTracker T(P, tok::l_paren, tok::annot_pragma_openmp_end);
     (void)T.expectAndConsume(diag::err_expected_lparen_after,
                              CtxSelectorName.data());
+    Data.CtxScore = parseContextScore(P);
     // Parse <vendor>.
     StringRef VendorName;
     if (Tok.is(tok::identifier)) {

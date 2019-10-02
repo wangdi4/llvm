@@ -456,6 +456,7 @@ static void instantiateOMPDeclareVariantAttr(
   if (Expr *E = Attr.getVariantFuncRef())
     VariantFuncRef = Subst(E);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   SmallVector<OMPDeclareVariantAttr::ConstructTy, 4> Constructs;
   SmallVector<OMPDeclareVariantAttr::DeviceTy, 4> Devices;
@@ -464,6 +465,11 @@ static void instantiateOMPDeclareVariantAttr(
   for (auto D : Attr.device())
     Devices.push_back(D);
 #endif // INTEL_CUSTOMIZATION
+=======
+  ExprResult Score;
+  if (Expr *E = Attr.getScore())
+    Score = Subst(E);
+>>>>>>> a15a1413ac63aee4de5a03d5aa0ff982751c8ca6
 
   // Check function/variant ref.
   Optional<std::pair<FunctionDecl *, Expr *>> DeclVarData =
@@ -472,8 +478,9 @@ static void instantiateOMPDeclareVariantAttr(
   if (!DeclVarData)
     return;
   // Instantiate the attribute.
-  Sema::OpenMPDeclareVariantCtsSelectorData Data(
-      Attr.getCtxSelectorSet(), Attr.getCtxSelector(), Attr.getImplVendor());
+  Sema::OpenMPDeclareVariantCtsSelectorData Data(Attr.getCtxSelectorSet(),
+                                                 Attr.getCtxSelector(),
+                                                 Attr.getImplVendor(), Score);
   S.ActOnOpenMPDeclareVariantDirective(DeclVarData.getValue().first,
                                        DeclVarData.getValue().second,
 #if INTEL_CUSTOMIZATION

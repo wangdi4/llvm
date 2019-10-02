@@ -5135,11 +5135,30 @@ void Sema::ActOnOpenMPDeclareVariantDirective(
   if (Data.CtxSet == OMPDeclareVariantAttr::CtxSetUnknown ||
       Data.Ctx == OMPDeclareVariantAttr::CtxUnknown)
     return;
+  Expr *Score = nullptr;
+  OMPDeclareVariantAttr::ScoreType ST = OMPDeclareVariantAttr::ScoreUnknown;
+  if (Data.CtxScore.isUsable()) {
+    ST = OMPDeclareVariantAttr::ScoreSpecified;
+    Score = Data.CtxScore.get();
+    if (!Score->isTypeDependent() && !Score->isValueDependent() &&
+        !Score->isInstantiationDependent() &&
+        !Score->containsUnexpandedParameterPack()) {
+      llvm::APSInt Result;
+      ExprResult ICE = VerifyIntegerConstantExpression(Score, &Result);
+      if (ICE.isInvalid())
+        return;
+    }
+  }
   auto *NewAttr = OMPDeclareVariantAttr::CreateImplicit(
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       Context, VariantRef, Constructs.data(), Constructs.size(), Devices.data(),
       Devices.size(), Data.CtxSet, Data.Ctx, Data.ImplVendor, SR);
 #endif // INTEL_CUSTOMIZATION
+=======
+      Context, VariantRef, Score, Data.CtxSet, ST, Data.Ctx, Data.ImplVendor,
+      SR);
+>>>>>>> a15a1413ac63aee4de5a03d5aa0ff982751c8ca6
   FD->addAttr(NewAttr);
 }
 

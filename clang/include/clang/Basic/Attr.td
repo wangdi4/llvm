@@ -3671,6 +3671,7 @@ def OMPDeclareVariant : InheritableAttr {
   let Documentation = [OMPDeclareVariantDocs];
   let Args = [
     ExprArgument<"VariantFuncRef">,
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
     VariadicEnumArgument<"Construct", "ConstructTy",
        ["", "target", "teams", "parallel", "for", "simd",
@@ -3681,11 +3682,20 @@ def OMPDeclareVariant : InheritableAttr {
     VariadicEnumArgument<"Device", "DeviceTy",
        ["", "gen"], ["Device_None", "Device_Arch_Gen"]>,
 // end INTEL_CUSTOMIZATION
+=======
+    ExprArgument<"Score">,
+>>>>>>> a15a1413ac63aee4de5a03d5aa0ff982751c8ca6
     EnumArgument<"CtxSelectorSet", "CtxSelectorSetType",
                  [ "", "implementation"
                  ],
                  [
                    "CtxSetUnknown", "CtxSetImplementation"
+                 ]>,
+    EnumArgument<"CtxScore", "ScoreType",
+                 [ "", "score"
+                 ],
+                 [
+                   "ScoreUnknown", "ScoreSpecified"
                  ]>,
     EnumArgument<"CtxSelector", "CtxSelectorType",
                  [ "", "vendor"
@@ -3696,6 +3706,7 @@ def OMPDeclareVariant : InheritableAttr {
     StringArgument<"ImplVendor", 1>
   ];
   let AdditionalMembers = [{
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
     static const char *getSupportedSelectorSets() {
       return "'construct' or 'device'";
@@ -3710,6 +3721,15 @@ def OMPDeclareVariant : InheritableAttr {
       return "'gen'";
     }
 // end INTEL_CUSTOMIZATION
+=======
+    void printScore(raw_ostream & OS, const PrintingPolicy &Policy) const {
+      if (const Expr *E = getScore()) {
+        OS << "score(";
+        E->printPretty(OS, nullptr, Policy);
+        OS << "):";
+      }
+    }
+>>>>>>> a15a1413ac63aee4de5a03d5aa0ff982751c8ca6
     void printPrettyPragma(raw_ostream & OS, const PrintingPolicy &Policy)
         const {
       assert(getCtxSelectorSet() != CtxSetUnknown &&
@@ -3727,6 +3747,7 @@ def OMPDeclareVariant : InheritableAttr {
         switch (getCtxSelector()) {
         case CtxVendor:
           OS << "vendor(";
+          printScore(OS, Policy);
           OS << getImplVendor();
           OS << ")";
           break;
