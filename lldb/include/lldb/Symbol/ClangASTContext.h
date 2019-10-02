@@ -52,7 +52,7 @@ public:
   }
 
   // Constructors and Destructors
-  ClangASTContext(llvm::StringRef triple = "");
+  explicit ClangASTContext(llvm::StringRef triple = "");
 
   /// Constructs a ClangASTContext that uses an existing ASTContext internally.
   /// Useful when having an existing ASTContext created by Clang.
@@ -862,7 +862,6 @@ public:
   static bool SetHasExternalStorage(lldb::opaque_compiler_type_t type,
                                     bool has_extern);
 
-  static bool GetHasExternalStorage(const CompilerType &type);
   // Tag Declarations
   static bool StartTagDeclarationDefinition(const CompilerType &type);
 
