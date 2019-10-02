@@ -11417,6 +11417,13 @@ static const FunctionDecl *getDeclareVariantFunction(const FunctionDecl *FD) {
 }
 
 bool CGOpenMPRuntime::emitDeclareVariant(GlobalDecl GD, bool IsForDefinition) {
+#if INTEL_COLLAB
+  if (CGM.getLangOpts().OpenMPLateOutline)
+#if INTEL_CUSTOMIZATION
+    if (CGM.getLangOpts().OpenMPLateOutlineTarget)
+#endif // INTEL_CUSTOMIZATION
+    return false;
+#endif // INTEL_COLLAB
   const auto *D = cast<FunctionDecl>(GD.getDecl());
   // If the original function is defined already, use its definition.
   StringRef MangledName = CGM.getMangledName(GD);
