@@ -810,6 +810,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_std_exception_destroy);
     TLI.setUnavailable(LibFunc_strncpy_s);
     TLI.setUnavailable(LibFunc_under_errno);
+    TLI.setUnavailable(LibFunc_under_fileno);
     TLI.setUnavailable(LibFunc_under_fstat64i32);
     TLI.setUnavailable(LibFunc_under_invalid_parameter_noinfo_noreturn);
     TLI.setUnavailable(LibFunc_under_localtime64);
@@ -817,10 +818,12 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_under_getcwd);
     TLI.setUnavailable(LibFunc_under_purecall);
     TLI.setUnavailable(LibFunc_under_set_errno);
+    TLI.setUnavailable(LibFunc_under_setmode);
     TLI.setUnavailable(LibFunc_under_stat64i32);
     TLI.setUnavailable(LibFunc_under_stricmp);
     TLI.setUnavailable(LibFunc_under_strnicmp);
     TLI.setUnavailable(LibFunc_under_time64);
+    TLI.setUnavailable(LibFunc_under_wassert);
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -2152,6 +2155,10 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
     return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isIntegerTy());
 
+  case LibFunc_under_fileno:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
   case LibFunc_under_invalid_parameter_noinfo_noreturn:
     return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
 
@@ -2165,6 +2172,11 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_under_set_errno:
     return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_under_setmode:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
 
   case LibFunc_under_stat64i32:
     return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
@@ -2185,6 +2197,12 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_under_time64:
     return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_under_wassert:
+    return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy(),
+            FTy.getParamType(1)->isPointerTy(),
+            FTy.getParamType(2)->isIntegerTy());
 
   case LibFunc_obstack_begin:
     return (NumParams == 5 && FTy.getReturnType()->isIntegerTy() &&

@@ -20,14 +20,11 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 
+#include "Intel_DTrans/Transforms/MemInitTrimDownInfoImpl.h"
+
 namespace llvm {
 
-class DominatorTree;
-
 namespace dtrans {
-
-using MemInitDominatorTreeType = std::function<DominatorTree &(Function &)>;
-using MemGetTLITy = std::function<const TargetLibraryInfo &(Function &)>;
 
 /// Pass to perform Initial Memory Allocation Trim Down optimization.
 class MemInitTrimDownPass : public PassInfoMixin<MemInitTrimDownPass> {

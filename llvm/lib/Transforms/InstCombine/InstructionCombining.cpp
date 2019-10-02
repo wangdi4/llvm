@@ -39,6 +39,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/None.h"
+#include "llvm/ADT/ScopeExit.h" // INTEL
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
@@ -1219,7 +1220,36 @@ Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap) {
   // Log base 2 of the scale. Negative if not a power of 2.
   int32_t logScale = Scale.exactLogBase2();
 
+#if INTEL_CUSTOMIZATION
+  SmallVector<std::pair<Instruction *, Instruction *>, 4> DuplicatedInsts;
+  bool Successful = false;
+  auto AutoDelete = make_scope_exit([&]() {
+    if (!Successful) {
+      for (auto &Pair : DuplicatedInsts) {
+        Pair.first->replaceAllUsesWith(Pair.second);
+        Pair.first->eraseFromParent();
+      }
+    }
+  });
+#endif // INTEL_CUSTOMIZATION
+
   for (;; Op = Parent.first->getOperand(Parent.second)) { // Drill down
+#if INTEL_CUSTOMIZATION
+    auto makeUniqueOp = [&](BinaryOperator *BO) {
+      if (!BO->hasOneUse()) {
+        Instruction *Clone = BO->clone();
+        Clone->insertAfter(BO);
+        DuplicatedInsts.push_back(std::make_pair(Clone, BO));
+        BO = cast<BinaryOperator>(Clone);
+        if (Op == Val)
+          Val = BO;
+        else
+          Parent.first->setOperand(Parent.second, BO);
+      }
+      return BO;
+    };
+#endif // INTEL_CUSTOMIZATION
+
     if (ConstantInt *CI = dyn_cast<ConstantInt>(Op)) {
       // If Op is a constant divisible by Scale then descale to the quotient.
       APInt Quotient(Scale), Remainder(Scale); // Init ensures right bitwidth.
@@ -1256,21 +1286,24 @@ Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap) {
           }
 
           // Otherwise drill down into the constant.
-          if (!Op->hasOneUse())
-            return nullptr;
-
-          Parent = std::make_pair(BO, 1);
+          Parent = std::make_pair(makeUniqueOp(BO), 1); // INTEL
           continue;
         }
 
         // Multiplication by something else. Drill down into the left-hand side
         // since that's where the reassociate pass puts the good stuff.
-        if (!Op->hasOneUse())
-          return nullptr;
-
-        Parent = std::make_pair(BO, 0);
+        Parent = std::make_pair(makeUniqueOp(BO), 0); // INTEL
         continue;
       }
+
+#if INTEL_CUSTOMIZATION
+      // If the value is -X, drill through X.
+      if (BO->getOpcode() == Instruction::Sub &&
+          match(BO->getOperand(0), m_Zero())) {
+        Parent = std::make_pair(makeUniqueOp(BO), 1);
+        continue;
+      }
+#endif // INTEL_CUSTOMIZATION
 
       if (logScale > 0 && BO->getOpcode() == Instruction::Shl &&
           isa<ConstantInt>(BO->getOperand(1))) {
@@ -1290,12 +1323,12 @@ Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap) {
           Op = LHS;
           break;
         }
-        if (Amt < logScale || !Op->hasOneUse())
+        if (Amt < logScale) // INTEL
           return nullptr;
 
         // Multiplication by more than the scale.  Reduce the multiplying amount
         // by the scale in the parent.
-        Parent = std::make_pair(BO, 1);
+        Parent = std::make_pair(makeUniqueOp(BO), 1); // INTEL
         Op = ConstantInt::get(BO->getType(), Amt - logScale);
         break;
       }
@@ -1352,6 +1385,11 @@ Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap) {
     return nullptr;
   }
 
+#if INTEL_CUSTOMIZATION
+  // If we reach this point, we know we can descale.
+  Successful = true;
+#endif // INTEL_CUSTOMIZATION
+
   // If Op is zero then Val = Op * Scale.
   if (match(Op, m_Zero())) {
     NoSignedWrap = true;
@@ -1368,7 +1406,8 @@ Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap) {
     return Op;
 
   // Rewrite the parent using the descaled version of its operand.
-  assert(Parent.first->hasOneUse() && "Drilled down when more than one use!");
+  assert((Parent.first == Val || Parent.first->hasOneUse()) && // INTEL
+      "Drilled down when more than one use!"); // INTEL
   assert(Op != Parent.first->getOperand(Parent.second) &&
          "Descaling was a no-op?");
   Parent.first->setOperand(Parent.second, Op);
