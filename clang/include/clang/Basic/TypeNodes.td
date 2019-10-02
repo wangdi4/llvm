@@ -102,5 +102,10 @@ def ObjCTypeParamType : Type, NeverCanonical;
 def ObjCObjectType : Type;
 def ObjCInterfaceType : DerivedType<ObjCObjectType>, LeafType;
 def ObjCObjectPointerType : Type;
+#if INTEL_CUSTOMIZATION
+def ChannelType : Type;
+def ArbPrecIntType : Type;
+def DependentSizedArbPrecIntType : Type, AlwaysDependent;
+#endif // INTEL_CUSTOMIZATION
 def PipeType : Type;
 def AtomicType : Type;
