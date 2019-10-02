@@ -514,11 +514,10 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   VPConstant *TrueConst = Plan->getVPConstant(ConstantInt::get(Ty1, 1));
   VPBuilder VPBldr;
   VPBldr.setInsertPoint(NewLoopLatch);
-  VPPHINode *VPPhi = cast<VPPHINode>(VPBldr.createPhiInstruction(Ty32));
+  VPPHINode *VPPhi = VPBldr.createPhiInstruction(Ty32);
   // This phi node is a marker of the backedge. It shows if the backedge is
   // taken.
-  VPPHINode *NewCondBit =
-      cast<VPPHINode>(VPBldr.createPhiInstruction(Ty1, "TakeBackedgeCond"));
+  VPPHINode *NewCondBit = VPBldr.createPhiInstruction(Ty1, "TakeBackedgeCond");
   if (LatchExitBlock) {
     VPInstruction *OldCondBit =
         dyn_cast<VPInstruction>(NewLoopLatch->getCondBit());
@@ -790,7 +789,7 @@ void VPlanHCFGBuilder::preserveSSAForLoopHeader(VPBasicBlock *LoopHeader,
     // Create a new phi node in the new loop latch for the values that are used
     // in the loop header.
     VPPHINode *PreserveSSAPhi =
-        cast<VPPHINode>(VPBldr.createPhiInstruction(IncomingValue->getType()));
+        VPBldr.createPhiInstruction(IncomingValue->getType());
     // Update the phi nodes of the loop header with the new phi.
     VPPhi.setIncomingValue(NewLoopLatch, PreserveSSAPhi);
 
@@ -926,7 +925,7 @@ void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
   VPBuilder VPBldr;
   VPBldr.setInsertPoint(NewLoopLatch);
   VPPHINode *TakeBackedgeCond =
-      cast<VPPHINode>(VPBldr.createPhiInstruction(Int1Ty, "TakeBackedgeCond"));
+      VPBldr.createPhiInstruction(Int1Ty, "TakeBackedgeCond");
   // TODO: The while-loop canonicalization does not preserve the SSA form. If a
   // value from the OrigLoopLatch feeds the phi in the BB1, then this value
   // stops dominating its use (not defined on the BB2->NEW_LOOP_LATCH edge).
