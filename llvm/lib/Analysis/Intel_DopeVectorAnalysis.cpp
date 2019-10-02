@@ -87,11 +87,29 @@ extern bool isDopeVectorType(const Type *Ty, const DataLayout &DL,
   return true;
 }
 
-bool isValidUseOfSubscriptCall(const SubscriptInst &Subs, const Value &Base,
-                               uint32_t ArrayRank, uint32_t Rank,
-                               bool CheckForTranspose,
-                               Optional<uint64_t> LowerBound,
-                               Optional<uint64_t> Stride) {
+extern bool isUplevelVarType(Type *Ty) {
+  // For now, just check the type of the variable as being named
+  // "%uplevel_type[.#]" In the future, the front-end should provide some
+  // metadata indicator that a variable is an uplevel.
+  auto *StTy = dyn_cast<StructType>(Ty);
+  if (!StTy || !StTy->hasName())
+    return false;
+
+  StringRef TypeName = StTy->getName();
+  // Strip a '.' and any characters that follow it from the name.
+  TypeName = TypeName.take_until([](char C) { return C == '.'; });
+  if (TypeName != "uplevel_type")
+    return false;
+
+  return true;
+}
+
+extern bool isValidUseOfSubscriptCall(const SubscriptInst &Subs,
+                                      const Value &Base,
+                                      uint32_t ArrayRank, uint32_t Rank,
+                                      bool CheckForTranspose,
+                                      Optional<uint64_t> LowerBound,
+                                      Optional<uint64_t> Stride) {
   LLVM_DEBUG({
     dbgs().indent((ArrayRank - Rank) * 2 + 4);
     dbgs() << "Checking call: " << Subs << "\n";
@@ -117,25 +135,6 @@ bool isValidUseOfSubscriptCall(const SubscriptInst &Subs, const Value &Base,
     if (!StrideVal || StrideVal->getLimitedValue() != *Stride)
       return false;
   }
-
-  return true;
-}
-
-// Helper routine to check whether a variable type is a type for an
-// uplevel variable.
-static bool isUplevelVarType(Type *Ty) {
-  // For now, just check the type of the variable as being named
-  // "%uplevel_type[.#]" In the future, the front-end should provide some
-  // metadata indicator that a variable is an uplevel.
-  auto *StTy = dyn_cast<StructType>(Ty);
-  if (!StTy || !StTy->hasName())
-    return false;
-
-  StringRef TypeName = StTy->getName();
-  // Strip a '.' and any characters that follow it from the name.
-  TypeName = TypeName.take_until([](char C) { return C == '.'; });
-  if (TypeName != "uplevel_type")
-    return false;
 
   return true;
 }
