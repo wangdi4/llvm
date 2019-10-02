@@ -4004,7 +4004,7 @@ static bool handleIncDec(EvalInfo &Info, const Expr *E, const LValue &LVal,
 /// Build an lvalue for the object argument of a member function call.
 static bool EvaluateObjectArgument(EvalInfo &Info, const Expr *Object,
                                    LValue &This) {
-  if (Object->getType()->isPointerType())
+  if (Object->getType()->isPointerType() && Object->isRValue())
     return EvaluatePointer(Object, This, Info);
 
   if (Object->isGLValue())
@@ -6263,7 +6263,7 @@ class BufferToAPValueConverter {
 #define NON_CANONICAL_UNLESS_DEPENDENT(Class, Base)                            \
   case Type::Class:                                                            \
     llvm_unreachable("either dependent or not canonical!");
-#include "clang/AST/TypeNodes.def"
+#include "clang/AST/TypeNodes.inc"
     }
     llvm_unreachable("Unhandled Type::TypeClass");
   }
@@ -9653,7 +9653,7 @@ EvaluateBuiltinClassifyType(QualType T, const LangOptions &LangOpts) {
 #define DEPENDENT_TYPE(ID, BASE) case Type::ID:
 #define NON_CANONICAL_TYPE(ID, BASE) case Type::ID:
 #define NON_CANONICAL_UNLESS_DEPENDENT_TYPE(ID, BASE) case Type::ID:
-#include "clang/AST/TypeNodes.def"
+#include "clang/AST/TypeNodes.inc"
   case Type::Auto:
   case Type::DeducedTemplateSpecialization:
       llvm_unreachable("unexpected non-canonical or dependent type");
