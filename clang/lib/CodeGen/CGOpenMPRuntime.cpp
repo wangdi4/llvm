@@ -7825,6 +7825,18 @@ public:
         llvm::Value *Size = getExprTypeSize(I->getAssociatedExpression());
         if (!IsMemberPointer) {
           BasePointers.push_back(BP.getPointer());
+#if INTEL_COLLAB
+          if (CGF.CGM.getLangOpts().OpenMPLateOutline &&
+              I->getAssociatedExpression()->getType()
+                                          ->isVariablyModifiedType()) {
+            // Generate LowerBound with section pointers for vla varible with
+            // [0:].
+            llvm::Value *Idx =
+                llvm::ConstantInt::getNullValue(CGF.CGM.IntPtrTy);
+            Pointers.push_back(CGF.Builder.CreateInBoundsGEP(LB.getPointer(),
+                                                             Idx, "arrayidx"));
+          } else
+#endif //INTEL_COLLAB
           Pointers.push_back(LB.getPointer());
           Sizes.push_back(
               CGF.Builder.CreateIntCast(Size, CGF.Int64Ty, /*isSigned=*/true));
