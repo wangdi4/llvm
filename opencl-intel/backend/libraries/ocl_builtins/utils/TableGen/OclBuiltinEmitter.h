@@ -62,6 +62,8 @@ public:
 
   std::string getExpandHiCPatternPtr() const;
 
+  std::string getSGBlockOpSuffix() const;
+
   std::string getCType(const OclBuiltin*, bool = false) const;
 
   std::string getNativeCType(const OclBuiltin*) const;
@@ -163,6 +165,8 @@ public:
   std::string getArgumentCNoASType(unsigned, const std::string&) const;
 
   std::string getArgumentCGenType(unsigned, const std::string&, const std::string&) const;
+
+  std::string getArgumentSGBlockOpSuffix(unsigned, const std::string&) const;
 
   std::string getReturnCGenType(const std::string& Generator, const std::string& TyName) const;
 

@@ -127,6 +127,8 @@ Attrs = [OVERLOADABLE] in {
       }
 
   // Sub group block read & write
+  // uint
+  // TBD: "ui" suffixed aliases for consitensy (cl_intel_subgroups_short)
   let Types = [ v1u32 ] in {
         // scalar
         def intel_sub_group_block_read  : OclBuiltin<"intel_sub_group_block_read",  (outs gentype:$ret), (ins cgpv1u32:$p), [], [], 1, 0>;
@@ -144,6 +146,46 @@ Attrs = [OVERLOADABLE] in {
               OclBuiltin<"intel_sub_group_block_write"#len#"_"#vf, (outs void:$ret), (ins gpv1u32:$data, !cast<OclType>("v"#!mul(len, vf)#"u32"):$src), [], [], 1, 0>;
           }
         }
+      }
+  // These are horribly inconvenient to represent in OpenCL TableGen.
+  // Non-triviality comes from the need to represent the ret type for read and arg1 for write as multiple of base vector size and VF
+  // and ushort
+  let Types = [ v1u64, v1u32, v1u16, v1u8 ] in {
+        def intel_sub_group_block_read_us  : OclBuiltin<"intel_sub_group_block_read_$Arg0SGBlockOpSuffix",   (outs gentype:$ret),  (ins cgpgentype:$p), [], [], 1, 0>;
+        def intel_sub_group_block_read_us2 : OclBuiltin<"intel_sub_group_block_read_$Arg0SGBlockOpSuffix#2", (outs gentype2:$ret), (ins cgpgentype:$p), [], [], 1, 0>;
+        def intel_sub_group_block_read_us4 : OclBuiltin<"intel_sub_group_block_read_$Arg0SGBlockOpSuffix#4", (outs gentype4:$ret), (ins cgpgentype:$p), [], [], 1, 0>;
+        def intel_sub_group_block_read_us8 : OclBuiltin<"intel_sub_group_block_read_$Arg0SGBlockOpSuffix#8", (outs gentype8:$ret), (ins cgpgentype:$p), [], [], 1, 0>;
+        // vectorized
+        def intel_sub_group_block_read_us1_4  : OclBuiltin<"intel_sub_group_block_read_$Arg0SGBlockOpSuffix#1_4",  (outs gentype4:$ret),  (ins cgpgentype:$p), [], [], 1, 0>;
+        def intel_sub_group_block_read_us1_8  : OclBuiltin<"intel_sub_group_block_read_$Arg0SGBlockOpSuffix#1_8",  (outs gentype8:$ret),  (ins cgpgentype:$p), [], [], 1, 0>;
+        def intel_sub_group_block_read_us1_16 : OclBuiltin<"intel_sub_group_block_read_$Arg0SGBlockOpSuffix#1_16", (outs gentype16:$ret), (ins cgpgentype:$p), [], [], 1, 0>;
+        def intel_sub_group_block_read_us2_4  : OclBuiltin<"intel_sub_group_block_read_$Arg0SGBlockOpSuffix#2_4",  (outs gentype8:$ret),  (ins cgpgentype:$p), [], [], 1, 0>;
+        def intel_sub_group_block_read_us2_8  : OclBuiltin<"intel_sub_group_block_read_$Arg0SGBlockOpSuffix#2_8",  (outs gentype16:$ret), (ins cgpgentype:$p), [], [], 1, 0>;
+        def intel_sub_group_block_read_us2_16 : OclBuiltin<"intel_sub_group_block_read_$Arg0SGBlockOpSuffix#2_16", (outs gentype32:$ret), (ins cgpgentype:$p), [], [], 1, 0>;
+        def intel_sub_group_block_read_us4_4  : OclBuiltin<"intel_sub_group_block_read_$Arg0SGBlockOpSuffix#4_4",  (outs gentype16:$ret), (ins cgpgentype:$p), [], [], 1, 0>;
+        def intel_sub_group_block_read_us4_8  : OclBuiltin<"intel_sub_group_block_read_$Arg0SGBlockOpSuffix#4_8",  (outs gentype32:$ret), (ins cgpgentype:$p), [], [], 1, 0>;
+        def intel_sub_group_block_read_us4_16 : OclBuiltin<"intel_sub_group_block_read_$Arg0SGBlockOpSuffix#4_16", (outs gentype64:$ret), (ins cgpgentype:$p), [], [], 1, 0>;
+        def intel_sub_group_block_read_us8_4  : OclBuiltin<"intel_sub_group_block_read_$Arg0SGBlockOpSuffix#8_4",  (outs gentype32:$ret), (ins cgpgentype:$p), [], [], 1, 0>;
+        def intel_sub_group_block_read_us8_8  : OclBuiltin<"intel_sub_group_block_read_$Arg0SGBlockOpSuffix#8_8",  (outs gentype64:$ret), (ins cgpgentype:$p), [], [], 1, 0>;
+        def intel_sub_group_block_read_us8_16 : OclBuiltin<"intel_sub_group_block_read_$Arg0SGBlockOpSuffix#8_16", (outs gentype128:$ret),(ins cgpgentype:$p), [], [], 1, 0>;
+        // write
+        def intel_sub_group_block_write_us  : OclBuiltin<"intel_sub_group_block_write_$Arg0SGBlockOpSuffix", (outs void:$ret), (ins gpgentype:$p, gentype:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us2 : OclBuiltin<"intel_sub_group_block_write_$Arg0SGBlockOpSuffix#2", (outs void:$ret), (ins gpgentype:$p, gentype2:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us4 : OclBuiltin<"intel_sub_group_block_write_$Arg0SGBlockOpSuffix#4", (outs void:$ret), (ins gpgentype:$p, gentype4:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us8 : OclBuiltin<"intel_sub_group_block_write_$Arg0SGBlockOpSuffix#8", (outs void:$ret), (ins gpgentype:$p, gentype8:$data), [], [], 1, 0>;
+        // vectorized
+        def intel_sub_group_block_write_us1_4  : OclBuiltin<"intel_sub_group_block_write_$Arg0SGBlockOpSuffix#1_4",  (outs void:$ret), (ins gpgentype:$p, gentype4:$data),  [], [], 1, 0>;
+        def intel_sub_group_block_write_us1_8  : OclBuiltin<"intel_sub_group_block_write_$Arg0SGBlockOpSuffix#1_8",  (outs void:$ret), (ins gpgentype:$p, gentype8:$data),  [], [], 1, 0>;
+        def intel_sub_group_block_write_us1_16 : OclBuiltin<"intel_sub_group_block_write_$Arg0SGBlockOpSuffix#1_16", (outs void:$ret), (ins gpgentype:$p, gentype16:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us2_4  : OclBuiltin<"intel_sub_group_block_write_$Arg0SGBlockOpSuffix#2_4",  (outs void:$ret), (ins gpgentype:$p, gentype8:$data),  [], [], 1, 0>;
+        def intel_sub_group_block_write_us2_8  : OclBuiltin<"intel_sub_group_block_write_$Arg0SGBlockOpSuffix#2_8",  (outs void:$ret), (ins gpgentype:$p, gentype16:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us2_16 : OclBuiltin<"intel_sub_group_block_write_$Arg0SGBlockOpSuffix#2_16", (outs void:$ret), (ins gpgentype:$p, gentype32:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us4_4  : OclBuiltin<"intel_sub_group_block_write_$Arg0SGBlockOpSuffix#4_4",  (outs void:$ret), (ins gpgentype:$p, gentype16:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us4_8  : OclBuiltin<"intel_sub_group_block_write_$Arg0SGBlockOpSuffix#4_8",  (outs void:$ret), (ins gpgentype:$p, gentype32:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us4_16 : OclBuiltin<"intel_sub_group_block_write_$Arg0SGBlockOpSuffix#4_16", (outs void:$ret), (ins gpgentype:$p, gentype64:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us8_4  : OclBuiltin<"intel_sub_group_block_write_$Arg0SGBlockOpSuffix#8_4",  (outs void:$ret), (ins gpgentype:$p, gentype32:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us8_8  : OclBuiltin<"intel_sub_group_block_write_$Arg0SGBlockOpSuffix#8_8",  (outs void:$ret), (ins gpgentype:$p, gentype64:$data), [], [], 1, 0>;
+        def intel_sub_group_block_write_us8_16 : OclBuiltin<"intel_sub_group_block_write_$Arg0SGBlockOpSuffix#8_16", (outs void:$ret), (ins gpgentype:$p, gentype128:$data),[], [], 1, 0>;
       }
 }
 
@@ -212,6 +254,39 @@ foreach func_name = [ "intel_sub_group_block_read", "intel_sub_group_block_write
     !cast<MapCell>(func_name#_#len#"_cell16"), //16
     nullCell],
     0,1>;          //not scalarizable, packetizable
+  }
+}
+
+foreach func_name = [ "intel_sub_group_block_read_us", "intel_sub_group_block_write_us"] in {
+  foreach type = [ v1u64, v1u32, v1u16, v1u8 ] in {
+    foreach len = [ "1" ] in {
+      def func_name#!cast<string>(type)#_cell1  : MapCell<!cast<OclBuiltin>(func_name), type>;
+      def func_name#!cast<string>(type)#_cell4  : MapCell<!cast<OclBuiltin>(func_name#len#_#"4"), type>;
+      def func_name#!cast<string>(type)#_cell8  : MapCell<!cast<OclBuiltin>(func_name#len#_#"8"), type>;
+      def func_name#!cast<string>(type)#_cell16 : MapCell<!cast<OclBuiltin>(func_name#len#_#"16"), type>;
+      def func_name#!cast<string>(type)#_vectorized : MapRow<[
+      !cast<MapCell>(func_name#!cast<string>(type)#"_cell1"),  //scalar
+      nullCell,
+      !cast<MapCell>(func_name#!cast<string>(type)#"_cell4"),  //v4
+      !cast<MapCell>(func_name#!cast<string>(type)#"_cell8"),  //v8
+      !cast<MapCell>(func_name#!cast<string>(type)#"_cell16"), //16
+      nullCell],
+      0,1>;          //not scalarizable, packetizable
+    }
+    foreach len = [ "2", "4", "8" ] in {
+      def func_name#!cast<string>(type)#_#len#_cell1  : MapCell<!cast<OclBuiltin>(func_name#len), type>;
+      def func_name#!cast<string>(type)#_#len#_cell4  : MapCell<!cast<OclBuiltin>(func_name#len#_#"4"), type>;
+      def func_name#!cast<string>(type)#_#len#_cell8  : MapCell<!cast<OclBuiltin>(func_name#len#_#"8"), type>;
+      def func_name#!cast<string>(type)#_#len#_cell16 : MapCell<!cast<OclBuiltin>(func_name#len#_#"16"), type>;
+      def func_name#!cast<string>(type)#_#len#_vectorized : MapRow<[
+      !cast<MapCell>(func_name#!cast<string>(type)#_#len#"_cell1"),  //scalar
+      nullCell,
+      !cast<MapCell>(func_name#!cast<string>(type)#_#len#"_cell4"),  //v4
+      !cast<MapCell>(func_name#!cast<string>(type)#_#len#"_cell8"),  //v8
+      !cast<MapCell>(func_name#!cast<string>(type)#_#len#"_cell16"), //16
+      nullCell],
+      0,1>;          //not scalarizable, packetizable
+    }
   }
 }
 

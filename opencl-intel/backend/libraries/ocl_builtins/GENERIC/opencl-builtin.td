@@ -387,6 +387,54 @@ def gentype16 : OclGenType<"gentype16"> {
   list<string> T6 = !foreach(n,  T5, !subst( "vX", "v16", n));
   list<string> Tout = T6;
 }
+// gentype32: 'vNtM' -> 'v32tM'
+def gentype32 : OclGenType<"gentype32"> {
+  list<string> Tin = Torig;
+  list<string> T0 = !foreach(n, Tin, !subst( "v3", "vX", n));
+  list<string> T1 = !foreach(n,  T0, !subst("v16", "v32", n));
+  list<string> T2 = !foreach(n,  T1, !subst( "v1", "v32", n));
+  list<string> T3 = !foreach(n,  T2, !subst( "v2", "v32", n));
+  list<string> T4 = !foreach(n,  T3, !subst( "v4", "v32", n));
+  list<string> T5 = !foreach(n,  T4, !subst( "v8", "v32", n));
+  list<string> T6 = !foreach(n,  T5, !subst( "vX", "v32", n));
+  list<string> Tout = T6;
+}
+// gentype64: 'vNtM' -> 'v64M'
+def gentype64 : OclGenType<"gentype64"> {
+  list<string> Tin = Torig;
+  list<string> T0 = !foreach(n, Tin, !subst( "v1", "v64", n));
+  list<string> T1 = !foreach(n,  T0, !subst( "v2", "v64", n));
+  list<string> T2 = !foreach(n,  T1, !subst( "v3", "v64", n));
+  list<string> T3 = !foreach(n,  T2, !subst( "v4", "v64", n));
+  list<string> T4 = !foreach(n,  T3, !subst( "v8", "v64", n));
+  list<string> T5 = !foreach(n,  T4, !subst( "v16","v64", n));
+  list<string> Tout = T5;
+}
+// gentype128: 'vNtM' -> 'v128M'
+def gentype128 : OclGenType<"gentype128"> {
+  list<string> Tin = Torig;
+  list<string> T0 = !foreach(n, Tin, !subst( "v16","vX", n));
+  list<string> T1 = !foreach(n,  T0, !subst( "v1", "vX", n));
+  list<string> T2 = !foreach(n,  T1, !subst( "v2", "v128", n));
+  list<string> T3 = !foreach(n,  T2, !subst( "v3", "v128", n));
+  list<string> T4 = !foreach(n,  T3, !subst( "v4", "v128", n));
+  list<string> T5 = !foreach(n,  T4, !subst( "v8", "v128", n));
+  list<string> T6 = !foreach(n,  T5, !subst( "vX", "v128", n));
+  list<string> Tout = T6;
+}
+// gentype256: 'vNtM' -> 'v256M'
+def gentype256 : OclGenType<"gentype256"> {
+  list<string> Tin = Torig;
+  list<string> T0 = !foreach(n, Tin, !subst( "v2", "vX", n));
+  list<string> T1 = !foreach(n,  T0, !subst( "v1", "v256", n));
+  list<string> T2 = !foreach(n,  T1, !subst( "v3", "v256", n));
+  list<string> T3 = !foreach(n,  T2, !subst( "v4", "v256", n));
+  list<string> T4 = !foreach(n,  T3, !subst( "v8", "v256", n));
+  list<string> T5 = !foreach(n,  T4, !subst( "v16","v256", n));
+  list<string> T6 = !foreach(n,  T5, !subst( "vX", "v256", n));
+  list<string> Tout = T6;
+
+}
 // ugentype2: 'vNtM' -> 'v2uM'
 def ugentype2 : OclGenType<"ugentype2"> {
   list<string> Tin = Torig;
