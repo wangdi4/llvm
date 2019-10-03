@@ -59,10 +59,14 @@ static cl::opt<std::string> ReqdSubGroupSizes("reqd-sub-group-size", cl::init(""
                                                  "size. Comma separated list of"
                                                  " name(num)"));
 
-static cl::opt<bool>
-    LT2GBWorkGroupSize("less-than-two-gig-max-work-group-size", cl::init(true),
-                       cl::Hidden,
-                       cl::desc("Max work group size is less than 2GB."));
+static cl::opt<bool> LT2GigWorkGroupSize(
+    "less-than-two-gig-max-work-group-size", cl::init(true), cl::Hidden,
+    cl::desc("Max work group size is less than 2 Gig elements."));
+
+static cl::opt<bool> LT2GigGlobalWorkSize(
+    "less-than-two-gig-max-global-work-size", cl::init(false), cl::Hidden,
+    cl::desc("Max global work size (global_work_offset + total work items) is "
+             "less than 2 Gig elements."));
 
 namespace intel {
 
@@ -184,25 +188,25 @@ static bool isShlAshrTruncationPattern(Value *V, unsigned TruncatedToBitSize) {
   return false;
 }
 
-static void updateAndMoveGetLID(Instruction *LIDCallInst, PHINode *Phi,
-                                BasicBlock *EntryBlock) {
+static void optimizedUpdateAndMoveTID(Instruction *TIDCallInst, PHINode *Phi,
+                                      BasicBlock *EntryBlock) {
   IRBuilder<> IRB(Phi);
   IRB.SetInsertPoint(Phi->getNextNode());
-  // TODO: assertions for type of LIDCallInst and Phi
-  // Truncate LID to Phi's type (we know LID is in range {0-8192} since max work
-  // group size is less than 2GB).
-  Instruction *LIDTrunc =
-      cast<Instruction>(IRB.CreateTrunc(LIDCallInst, Phi->getType()));
-  // Generates LID+ind.
-  Instruction *Add = cast<Instruction>(IRB.CreateNUWAdd(LIDTrunc, Phi, "add"));
+  // TODO: assertions for type of TIDCallInst and Phi
+  // Truncate TID to Phi's type (we know TID call return value is in 32-bit
+  // range, check LT2GBWorkGroupSize and LT2GigGlobalWorkSize).
+  Instruction *TIDTrunc =
+      cast<Instruction>(IRB.CreateTrunc(TIDCallInst, Phi->getType()));
+  // Generates TID+ind.
+  Instruction *Add = cast<Instruction>(IRB.CreateNUWAdd(TIDTrunc, Phi, "add"));
   unsigned AddTypeSize = Add->getType()->getPrimitiveSizeInBits();
-  // Sign extend result to 64-bit (LIDCallInst's type)
+  // Sign extend result to 64-bit (TIDCallInst's type)
   Instruction *AddSExt =
-      cast<Instruction>(IRB.CreateSExt(Add, LIDCallInst->getType()));
-  // Replace all uses of LID with AddSExt, except truncating sequences that go
-  // back to same size as Add. NOTE: This will also exclude LIDTrunc since Add
+      cast<Instruction>(IRB.CreateSExt(Add, TIDCallInst->getType()));
+  // Replace all uses of TID with AddSExt, except truncating sequences that go
+  // back to same size as Add. NOTE: This will also exclude TIDTrunc since Add
   // and Phi are of same type.
-  LIDCallInst->replaceUsesWithIf(AddSExt, [Add, AddTypeSize](Use &U) {
+  TIDCallInst->replaceUsesWithIf(AddSExt, [Add, AddTypeSize](Use &U) {
     User *Usr = U.getUser();
     if (auto *UsrTruncInst = dyn_cast<TruncInst>(Usr)) {
       if (UsrTruncInst->getDestTy() == Add->getType())
@@ -213,19 +217,19 @@ static void updateAndMoveGetLID(Instruction *LIDCallInst, PHINode *Phi,
     return true;
   });
 
-  // All the remaining users of LID are either LIDTrunc, trunc instructions or
+  // All the remaining users of TID are either TIDTrunc, trunc instructions or
   // truncating sequences (shl + ashr) from incoming IR which go back to same
   // size as Add. The last two cases are trivial and can be removed, with all
   // their uses replaced directly by Add (or AddSExt).
   SmallVector<std::pair<Instruction * /* From */, Instruction * /* To */>, 4>
       ReplacePairs;
-  for (auto *User : LIDCallInst->users()) {
+  for (auto *User : TIDCallInst->users()) {
     assert((isa<TruncInst>(User) ||
             isShlAshrTruncationPattern(User, AddTypeSize)) &&
-           "Invalid remaining user of get_local_id.");
+           "Invalid remaining user of TID.");
     Instruction *UserInst = cast<Instruction>(User);
 
-    if (UserInst == LIDTrunc)
+    if (UserInst == TIDTrunc)
       continue;
 
     if (isa<TruncInst>(UserInst)) {
@@ -233,7 +237,7 @@ static void updateAndMoveGetLID(Instruction *LIDCallInst, PHINode *Phi,
     } else {
       Instruction *AshrInst = cast<Instruction>(*UserInst->user_begin());
       ReplacePairs.emplace_back(AshrInst, AddSExt);
-      // The shl instruction using LID call needs to be only removed. A
+      // The shl instruction using TID call needs to be only removed. A
       // replacement is not needed since its only user (ashr) is already
       // removed.
       ReplacePairs.emplace_back(UserInst, nullptr);
@@ -252,11 +256,11 @@ static void updateAndMoveGetLID(Instruction *LIDCallInst, PHINode *Phi,
     From->eraseFromParent();
   }
 
-  // Reset the operand of LID's trunc, after all uses of LID are replaced.
-  assert(LIDTrunc->getOperand(0) == LIDCallInst && "LIDTrunc is corrupted.");
-  // Move LID and its trunc call outside of the loop.
-  LIDCallInst->moveBefore(EntryBlock->getTerminator());
-  LIDTrunc->moveBefore(EntryBlock->getTerminator());
+  // Reset the operand of TID's trunc, after all uses of TID are replaced.
+  assert(TIDTrunc->getOperand(0) == TIDCallInst && "TIDTrunc is corrupted.");
+  // Move TID and its trunc call outside of the loop.
+  TIDCallInst->moveBefore(EntryBlock->getTerminator());
+  TIDTrunc->moveBefore(EntryBlock->getTerminator());
 }
 
 void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
@@ -308,8 +312,11 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
         if (dim == 0) {
           // Currently, only zero dimension is vectorized.
           if (FuncName == CompilationUtils::mangledGetLID() &&
-              LT2GBWorkGroupSize)
-            updateAndMoveGetLID(CI, Phi, EntryBlock);
+              LT2GigWorkGroupSize)
+            optimizedUpdateAndMoveTID(CI, Phi, EntryBlock);
+          else if (FuncName == CompilationUtils::mangledGetGID() &&
+                   LT2GigGlobalWorkSize)
+            optimizedUpdateAndMoveTID(CI, Phi, EntryBlock);
           else
             updateAndMoveTID(CI, Phi, EntryBlock);
         } else
