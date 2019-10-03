@@ -176,23 +176,94 @@ static bool replaceDopeVectorConstants(Argument &Arg,
     return Change;
   };
 
-  bool Change = false;
-  for (User *U : Arg.users()) {
-    auto GEP = dyn_cast<GetElementPtrInst>(U);
-    if (!GEP)
-      continue;
+  // If 'GEP' points to the base of the per dimension array of a dope
+  // vector, use 'DVAFormal' and the lower bound 'LB', stride 'ST', and
+  // extent 'EX' to replace loads of these fields with constants.  Return
+  // 'true' if at least one field is replaced.
+  auto ReplaceFieldsForGEP = [&ReplaceField]
+                             (GetElementPtrInst *GEP,
+                              SmallVectorImpl<Optional<uint64_t>> &LB,
+                              SmallVectorImpl<Optional<uint64_t>> &ST,
+                              SmallVectorImpl<Optional<uint64_t>> &EX,
+                              DopeVectorAnalyzer &DVAFormal) -> bool {
+    bool Change = false;
     // Find the GEP accessing the array of lower bounds, strides, and extents
     // in the dope vector.
     auto DVFT = DVAFormal.identifyDopeVectorField(*GEP);
     if (DVFT != DopeVectorAnalyzer::DV_PerDimensionArray) {
       LLVM_DEBUG(dbgs() << "COULD NOT FIND PER DIMENSION ARRAY\n");
-      continue;
+      return Change;
     }
     // Replace constant lower bounds, strides, and extents with constants
     // in the IR.
     Change |= ReplaceField(EX, DopeVectorAnalyzer::DVR_Extent, *GEP);
     Change |= ReplaceField(ST, DopeVectorAnalyzer::DVR_Stride, *GEP);
     Change |= ReplaceField(LB, DopeVectorAnalyzer::DVR_LowerBound, *GEP);
+    return Change;
+  };
+
+  // Replace dope vector fields with constants in the function where 'Arg'
+  // is a dummy argument that is a pointer to a dope vector.
+  bool Change = false;
+  for (User *U : Arg.users()) {
+    auto GEP = dyn_cast<GetElementPtrInst>(U);
+    if (!GEP)
+      continue;
+    // If GEP points at the dope vector per dimension array, replace
+    // the lower bound, strides, and extents of the dope vector with
+    // constants when possible.
+    Change |= ReplaceFieldsForGEP(GEP, LB, ST, EX, DVAFormal);
+  }
+  // Replace dope vector fields with constants in that function's contained
+  // functions.
+  UplevelDVField UDVF = DVAFormal.getUplevelVar();
+  Value *UpVar = UDVF.first;
+  if (!UpVar)
+    return Change;
+  // The contained functions are a subset of the Users of UpVar.
+  for (User *U : UpVar->users()) {
+    auto CB = dyn_cast<CallBase>(U);
+    if (!CB)
+      continue;
+    auto CF = CB->getCalledFunction();
+    if (!CF)
+      continue;
+    // 'CF' is a contained function. Its 0th argument will be a pointer
+    // to a structure, each field of which points to an uplevel variable.
+    assert(CF->arg_size() != 0 && "Expecting at least one arg");
+    assert(CF->getArg(0)->getType()->isPointerTy() &&
+        isUplevelVarType(CF->getArg(0)->getType()->getPointerElementType()) &&
+        "Expecting pointer to uplevel type");
+    // Identify GEPs that refer to the dope vector uplevel variable.
+    Argument *Arg = CF->getArg(0);
+    for (User *V : Arg->users()) {
+      auto GEP = dyn_cast<GetElementPtrInst>(V);
+      if (!GEP || GEP->getPointerOperand() != Arg)
+        continue;
+      auto CI1 = dyn_cast<ConstantInt>(GEP->getOperand(1));
+      if (!CI1 || CI1->getZExtValue() != 0)
+        continue;
+      auto CI2 = dyn_cast<ConstantInt>(GEP->getOperand(2));
+      if (!CI2 || CI2->getZExtValue() != UDVF.second)
+        continue;
+      // The GEP selects out the address of the dope vector variable.
+      LLVM_DEBUG(dbgs() << "TESTING UPLEVEL #" << UDVF.second << " FOR "
+                        << CF->getName() << "\n");
+      for (User *W : GEP->users()) {
+        auto LI = dyn_cast<LoadInst>(W);
+        if (!LI || LI->getPointerOperand() != GEP)
+          continue;
+        for (User *X : LI->users()) {
+          auto GEPDV = dyn_cast<GetElementPtrInst>(X);
+          if (!GEPDV)
+            continue;
+          // If GEPDV points at the dope vector per dimension array, replace
+          // the lower bound, strides, and extents of the uplevel variable
+          // dope vector with constants when possible.
+          Change |= ReplaceFieldsForGEP(GEPDV, LB, ST, EX, DVAFormal);
+        }
+      }
+    }
   }
   return Change;
 }

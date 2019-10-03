@@ -82,6 +82,10 @@ extern bool isDopeVectorType(const Type *Ty, const DataLayout &DL,
                              uint32_t *ArrayRank,
                              Type **ElementType);
 
+// Helper routine to check whether a variable type is a type for an
+// uplevel variable.
+extern bool isUplevelVarType(Type *Ty);
+
 // Check for arguments of a subscript intrinsic call for the expected values.
 // The intrinsic call is declared as:
 //    declare <ty>* @llvm.intel.subscript...(i8 <rank>, <ty> <lb>,
@@ -93,11 +97,12 @@ extern bool isDopeVectorType(const Type *Ty, const DataLayout &DL,
 // value. If the LowerBound and Stride parameters are supplied, also
 // check those.
 //
-bool isValidUseOfSubscriptCall(const SubscriptInst &Subs, const Value &Base,
-                               uint32_t ArrayRank, uint32_t Rank,
-                               bool CheckForTranspose,
-                               Optional<uint64_t> LowerBound = None,
-                               Optional<uint64_t> Stride = None);
+extern bool isValidUseOfSubscriptCall(const SubscriptInst &Subs,
+                                      const Value &Base,
+                                      uint32_t ArrayRank, uint32_t Rank,
+                                      bool CheckForTranspose,
+                                      Optional<uint64_t> LowerBound = None,
+                                      Optional<uint64_t> Stride = None);
 
 // This class is used to collect information about a single field address that
 // points to one of the dope vector fields. This is used during dope vector
