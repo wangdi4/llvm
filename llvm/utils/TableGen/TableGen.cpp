@@ -73,89 +73,6 @@ bool TimeRegions = false;
 } // end namespace llvm
 
 namespace {
-<<<<<<< HEAD
-  cl::opt<ActionType>
-  Action(cl::desc("Action to perform:"),
-         cl::values(clEnumValN(PrintRecords, "print-records",
-                               "Print all records to stdout (default)"),
-                    clEnumValN(DumpJSON, "dump-json",
-                               "Dump all records as machine-readable JSON"),
-                    clEnumValN(GenEmitter, "gen-emitter",
-                               "Generate machine code emitter"),
-                    clEnumValN(GenRegisterInfo, "gen-register-info",
-                               "Generate registers and register classes info"),
-                    clEnumValN(GenInstrInfo, "gen-instr-info",
-                               "Generate instruction descriptions"),
-                    clEnumValN(GenInstrDocs, "gen-instr-docs",
-                               "Generate instruction documentation"),
-                    clEnumValN(GenCallingConv, "gen-callingconv",
-                               "Generate calling convention descriptions"),
-                    clEnumValN(GenAsmWriter, "gen-asm-writer",
-                               "Generate assembly writer"),
-                    clEnumValN(GenDisassembler, "gen-disassembler",
-                               "Generate disassembler"),
-                    clEnumValN(GenPseudoLowering, "gen-pseudo-lowering",
-                               "Generate pseudo instruction lowering"),
-                    clEnumValN(GenCompressInst, "gen-compress-inst-emitter",
-                               "Generate RISCV compressed instructions."),
-                    clEnumValN(GenAsmMatcher, "gen-asm-matcher",
-                               "Generate assembly instruction matcher"),
-                    clEnumValN(GenDAGISel, "gen-dag-isel",
-                               "Generate a DAG instruction selector"),
-                    clEnumValN(GenDFAPacketizer, "gen-dfa-packetizer",
-                               "Generate DFA Packetizer for VLIW targets"),
-                    clEnumValN(GenFastISel, "gen-fast-isel",
-                               "Generate a \"fast\" instruction selector"),
-                    clEnumValN(GenSubtarget, "gen-subtarget",
-                               "Generate subtarget enumerations"),
-                    clEnumValN(GenIntrinsicEnums, "gen-intrinsic-enums",
-                               "Generate intrinsic enums"),
-                    clEnumValN(GenIntrinsicImpl, "gen-intrinsic-impl",
-                               "Generate intrinsic information"),
-                    clEnumValN(GenTgtIntrinsicEnums, "gen-tgt-intrinsic-enums",
-                               "Generate target intrinsic enums"),
-                    clEnumValN(GenTgtIntrinsicImpl, "gen-tgt-intrinsic-impl",
-                               "Generate target intrinsic information"),
-                    clEnumValN(PrintEnums, "print-enums",
-                               "Print enum values for a class"),
-                    clEnumValN(PrintSets, "print-sets",
-                               "Print expanded sets for testing DAG exprs"),
-                    clEnumValN(GenOptParserDefs, "gen-opt-parser-defs",
-                               "Generate option definitions"),
-                    clEnumValN(GenCTags, "gen-ctags",
-                               "Generate ctags-compatible index"),
-                    clEnumValN(GenAttributes, "gen-attrs",
-                               "Generate attributes"),
-#if INTEL_COLLAB
-                    clEnumValN(GenDirectives, "gen-directives",
-                               "Generate directive enums and tables for \
-                                parallel/vector constructs and regions"),
-#endif // INTEL_COLLAB
-#if INTEL_CUSTOMIZATION
-                    clEnumValN(GenSVMLVariants, "gen-svml", // VEC to COLLAB
-                               "Generate SVML variant function names"),
-                    clEnumValN(GenLibmvecVariants, "gen-libmvec",
-                               "Generate Libmvec variant function names"),
-                    clEnumValN(GenMAPatterns, "gen-ma-patterns",
-                               "Generate MUL/ADD patterns"),
-#if INTEL_FEATURE_CSA
-                    clEnumValN(GenCSAOpTypes, "gen-csa-op-size",
-                               "Generate op size matches for CSA"),
-#endif  // INTEL_FEATURE_CSA
-#endif // INTEL_CUSTOMIZATION
-                    clEnumValN(GenSearchableTables, "gen-searchable-tables",
-                               "Generate generic binary-searchable table"),
-                    clEnumValN(GenGlobalISel, "gen-global-isel",
-                               "Generate GlobalISel selector"),
-                    clEnumValN(GenX86EVEX2VEXTables, "gen-x86-EVEX2VEX-tables",
-                               "Generate X86 EVEX to VEX compress tables"),
-                    clEnumValN(GenX86FoldTables, "gen-x86-fold-tables",
-                               "Generate X86 fold tables"),
-                    clEnumValN(GenRegisterBank, "gen-register-bank",
-                               "Generate registers bank descriptions"),
-                    clEnumValN(GenExegesis, "gen-exegesis",
-                               "Generate llvm-exegesis tables")));
-=======
 cl::opt<ActionType> Action(
     cl::desc("Action to perform:"),
     cl::values(
@@ -204,6 +121,23 @@ cl::opt<ActionType> Action(
                    "Generate option definitions"),
         clEnumValN(GenCTags, "gen-ctags", "Generate ctags-compatible index"),
         clEnumValN(GenAttributes, "gen-attrs", "Generate attributes"),
+#if INTEL_COLLAB
+        clEnumValN(GenDirectives, "gen-directives",
+                   "Generate directive enums and tables for "
+                   "parallel/vector constructs and regions"),
+#endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+        clEnumValN(GenSVMLVariants, "gen-svml", // VEC to COLLAB
+                   "Generate SVML variant function names"),
+        clEnumValN(GenLibmvecVariants, "gen-libmvec",
+                   "Generate Libmvec variant function names"),
+        clEnumValN(GenMAPatterns, "gen-ma-patterns",
+                   "Generate MUL/ADD patterns"),
+#if INTEL_FEATURE_CSA
+        clEnumValN(GenCSAOpTypes, "gen-csa-op-size",
+                   "Generate op size matches for CSA"),
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
         clEnumValN(GenSearchableTables, "gen-searchable-tables",
                    "Generate generic binary-searchable table"),
         clEnumValN(GenGlobalISel, "gen-global-isel",
@@ -216,7 +150,6 @@ cl::opt<ActionType> Action(
                    "Generate registers bank descriptions"),
         clEnumValN(GenExegesis, "gen-exegesis",
                    "Generate llvm-exegesis tables")));
->>>>>>> 9ac0cda40a495d6fd78e03fe6432a680a3854c62
 
 cl::OptionCategory PrintEnumsCat("Options for -print-enums");
 cl::opt<std::string> Class("class", cl::desc("Print Enum list for this class"),
