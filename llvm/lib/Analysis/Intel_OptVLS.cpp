@@ -1318,8 +1318,8 @@ static void splitMrfsStep(OVLSMemref *Memref,
       continue;
 
     // Currently we support grouping Memrefs with same elementsize.
-    if (Memref->getType().getElementSize() !=
-        SetFirstMrf->getType().getElementSize())
+    auto ElementSize = SetFirstMrf->getType().getElementSize();
+    if (Memref->getType().getElementSize() != ElementSize)
       continue;
 
     // Dist is the distance to be added in Dist(SetFirstMrf) to get
@@ -1332,39 +1332,30 @@ static void splitMrfsStep(OVLSMemref *Memref,
     if (!Dist)
       continue;
 
-    // Found a possible set.
-    // Look for duplicates first.
-    auto SearchDuplicate =
-        find_if(*AdjMemrefSet, [Dist](auto &x) { return x.second == *Dist; });
-    if (SearchDuplicate == AdjMemrefSet->end()) {
-      // FIXME: We assume that this function is invoked in the lexical order of
-      //        memrefs for loads and in the reverse lexical order for stores. We
-      //        preserve this order in AdjMemrefSet. We should switch from relying
-      //        on such assumptions to proper ordering of incoming memrefs using
-      //        dominance information.
+    // Found a possible set. Check if the memref overlaps any of the memrefs
+    // already in the set.
+    auto OverlappedMemref =
+        find_if(*AdjMemrefSet, [Dist, ElementSize](auto &x) {
+          return std::abs(x.second - *Dist) < ElementSize / BYTE;
+        });
 
-      // Duplicate not found. Memref can be grouped.
-      AdjMrfSetFound = true;
-      AdjMemrefSet->emplace_back(Memref, *Dist);
-      break;
+    if (OverlappedMemref != AdjMemrefSet->end()) {
+      OVLSDebug(OVLSdbgs() << "Cannot group a memref\n  " << *Memref
+                           << "\ndue to overlapping with\n  "
+                           << *OverlappedMemref->first << '\n');
+      continue;
     }
 
-    // Found a possible redundant duplicate. Duplicate is Redundant if Memref
-    // can be moved to SearchDuplicate's location. Drop Memref and do not
-    // group it with any memref, if found to be a redundant duplicate, else
-    // try to group it with other sets in AdjMemrefSetVec.
-    OVLSMemref *ExistingDuplicateMemref = SearchDuplicate->first;
-    bool RedundantDuplicate = Memref->canMoveTo(*ExistingDuplicateMemref);
-    if (RedundantDuplicate) {
-      // Message on Duplicates Found.
-      OVLSDebug(OVLSdbgs() << "\t\tFound Duplicates: \n");
-      OVLSDebug(Memref->print(OVLSdbgs(), 2));
-      OVLSDebug(OVLSdbgs() << " and ");
-      OVLSDebug(ExistingDuplicateMemref->print(OVLSdbgs(), 2));
-      OVLSDebug(OVLSdbgs() << "\n");
-      // Break out of the loop and proceed to next memref.
-      break;
-    }
+    // FIXME: We assume that this function is invoked in the lexical order of
+    //        memrefs for loads and in the reverse lexical order for stores. We
+    //        preserve this order in AdjMemrefSet. We should switch from relying
+    //        on such assumptions to proper ordering of incoming memrefs using
+    //        dominance information.
+
+    // Alright. Memref can be grouped.
+    AdjMrfSetFound = true;
+    AdjMemrefSet->emplace_back(Memref, *Dist);
+    break;
   }
 
   if (!AdjMrfSetFound) {

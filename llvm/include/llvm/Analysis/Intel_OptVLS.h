@@ -296,6 +296,11 @@ private:
   OVLSAccessKind AccessKind; // Access kind of the Memref, e.g {S|I}{Load|store}
 };
 
+static inline OVLSostream &operator<<(OVLSostream &OS, const OVLSMemref &M) {
+  M.print(OS);
+  return OS;
+}
+
 /// OVLSGroup represents a group of adjacent gathers/scatters. The memrefs in
 /// the group are sorted by their offsets. The information about lexical
 /// ordering of the memrefs is not preserved. The InsertPoint points to the
