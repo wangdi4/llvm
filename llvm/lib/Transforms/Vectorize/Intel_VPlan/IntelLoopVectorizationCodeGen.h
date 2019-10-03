@@ -722,6 +722,7 @@ private:
   // Vectorize the call to OpenCL SinCos function with the vector-variant from
   // SVML
   void vectorizeOpenCLSinCos(CallInst *Call, bool isMasked);
+  void vectorizeOpenCLSinCos(VPInstruction *VPCall, bool IsMasked);
 
   // Vectorize the write channel source argument for an OpenCL write channel
   // call. The source is the data that will be written to the channel.

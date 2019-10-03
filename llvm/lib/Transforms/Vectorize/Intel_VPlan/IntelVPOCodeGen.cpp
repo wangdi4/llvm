@@ -271,6 +271,94 @@ void VPOCodeGen::vectorizeCast(
     VPWidenMap[VPInst] = Builder.CreateAddrSpaceCast(VecOp, VecTy);
 }
 
+void VPOCodeGen::vectorizeOpenCLSinCos(VPInstruction *VPCall, bool IsMasked) {
+  // If we encounter a call to OpenCL sincos function, i.e., a call to
+  // _Z6sincosfPf, the code in Intel_SVMLEmitter.cpp, currently maps that call
+  // to _Z14sincos_ret2ptrDv<VF>_fPS_S1_ variant. The following code correctly
+  // sets up the input/output arguments for that function.  '_Z6sincosfPf' has
+  // the form,
+  //
+  // %sinVal = call float @_Z6sincosfPf(float %input, float* %cosPtr)
+  // %cosVal = load float, float* %cosPtr
+  //
+  // The following code replaces that function call with
+  // %16 = call <8 x float> @_Z14sincos_ret2ptrDv8_fPS_S1_(<8 x float>
+  //                                                       %wide.input,
+  //                                                       <8 x float>*
+  //                                                       %cosPtr.vec,
+  //                                                       <8 x float>*
+  //                                                       %sinPtr.vec)
+  // %wide.sin.InitVal = load <8 x float>, <8 x float>* %SinPtr.vec
+  // %wide.load2 = load <8 x float>, <8 x float>* %cosPtr.vec, align 4
+
+  // TODO: This is a temporary solution to fix performance issues with DPC++
+  // MonteCarlo simulation code. The desirable solution would be to write
+  // separate pre-processing pass that replaces 'SinCos' and other similar
+  // function with their scalar equivalent 'correct' SVML functions (which
+  // haven't been decided yet).  That way the vector code-generation does not
+  // have to shuffle function arguments.
+
+  CallInst *UnderlyingCI = dyn_cast<CallInst>(VPCall->getUnderlyingValue());
+  assert(UnderlyingCI &&
+         "VPVALCG: Need underlying CallInst for call-site attributes.");
+
+  SmallVector<Value *, 3> VecArgs;
+  SmallVector<Type *, 3> VecArgTys;
+  // For CallInsts represented as VPInstructions, arg operands are added first.
+  Value *Arg1 = getVectorValue(VPCall->getOperand(0));
+  VPValue *CosPtr = VPCall->getOperand(1);
+  assert(
+      (isa<VPAllocatePrivate>(CosPtr) && LoopPrivateVPWidenMap.count(CosPtr)) &&
+      "CosPtr is expected to be loop private.");
+
+  // Get the base-pointer for the widened CosPtr, i.e., <8 x float>*.
+  // While vectorizing VPAllocatePrivate created for CosPtr, the base pointer to
+  // wide alloca was added to LoopPrivateVPWidenMap.
+  AllocaInst *WideCosPtr = cast<AllocaInst>(LoopPrivateVPWidenMap[CosPtr]);
+  Instruction *WideSinPtr = WideCosPtr->clone();
+  WideSinPtr->insertAfter(WideCosPtr);
+  WideSinPtr->setName("sinPtr.vec");
+  VecArgs.push_back(Arg1);
+  VecArgs.push_back(WideCosPtr);
+  VecArgs.push_back(WideSinPtr);
+  VecArgTys.push_back(Arg1->getType());
+  VecArgTys.push_back(WideCosPtr->getType());
+  VecArgTys.push_back(WideSinPtr->getType());
+
+  Function *CalledFunc = getCalledFunction(VPCall);
+  assert(CalledFunc && "Unexpected null call function.");
+  Function *VectorF =
+      getOrInsertVectorFunction(CalledFunc, VF, VecArgTys, TLI,
+                                Intrinsic::not_intrinsic, nullptr, IsMasked);
+  assert(VectorF && "Vector function not created.");
+  CallInst *VecCall = Builder.CreateCall(VectorF, VecArgs);
+  // TODO: Fast math flags are not represented in VPValue yet, using underlying
+  // CallInst.
+  if (isa<FPMathOperator>(VecCall))
+    VecCall->copyFastMathFlags(UnderlyingCI);
+
+  // Make sure we don't lose attributes at the call site. E.g., IMF
+  // attributes are taken from call sites in MapIntrinToIml to refine
+  // SVML calls for precision.
+  copyRequiredAttributes(UnderlyingCI, VecCall);
+
+  // Set calling convention for SVML function calls
+  if (isSVMLFunction(TLI, CalledFunc->getName(), VectorF->getName()))
+    VecCall->setCallingConv(CallingConv::SVML);
+
+    // TODO: Need a VPValue based analysis for call arg memory references.
+    // VPValue-based stride info also needed.
+#if 0
+  Loop *Lp = LI->getLoopFor(Call->getParent());
+  analyzeCallArgMemoryReferences(Call, VecCall, TLI, PSE.getSE(), Lp);
+#endif
+
+  Value *WideSinLoad = Builder.CreateAlignedLoad(
+      WideSinPtr, cast<AllocaInst>(WideCosPtr)->getAlignment(),
+      "wide.sin.InitVal");
+  VPWidenMap[VPCall] = WideSinLoad;
+}
+
 void VPOCodeGen::vectorizeCallArgs(VPInstruction *VPCall,
                                    VectorVariant *VecVariant,
                                    SmallVectorImpl<Value *> &VecArgs,
@@ -944,11 +1032,8 @@ void VPOCodeGen::vectorizeCallInstruction(VPInstruction *VPCall) {
 
   // OpenCL SinCos, would have a 'nullptr' MatchedVariant.
   if (isOpenCLSinCos(CalledFunc->getName())) {
-    llvm_unreachable("VPVALCG: OpenCL sincos vectorization not uplifted.");
-#if 0
-    vectorizeOpenCLSinCos(Call, isMasked);
+    vectorizeOpenCLSinCos(VPCall, IsMasked);
     return;
-#endif
   }
 
   if (!TLI->isFunctionVectorizable(CalledFunc->getName()) &&
