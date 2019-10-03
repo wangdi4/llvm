@@ -60,6 +60,7 @@ enum ActionType {
   GenAttributes,
   GenSearchableTables,
   GenGlobalISel,
+  GenGICombiner,
   GenX86EVEX2VEXTables,
   GenX86FoldTables,
   GenRegisterBank,
@@ -142,6 +143,8 @@ cl::opt<ActionType> Action(
                    "Generate generic binary-searchable table"),
         clEnumValN(GenGlobalISel, "gen-global-isel",
                    "Generate GlobalISel selector"),
+        clEnumValN(GenGICombiner, "gen-global-isel-combiner",
+                   "Generate GlobalISel combiner"),
         clEnumValN(GenX86EVEX2VEXTables, "gen-x86-EVEX2VEX-tables",
                    "Generate X86 EVEX to VEX compress tables"),
         clEnumValN(GenX86FoldTables, "gen-x86-fold-tables",
@@ -279,6 +282,9 @@ bool LLVMTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
     break;
   case GenGlobalISel:
     EmitGlobalISel(Records, OS);
+    break;
+  case GenGICombiner:
+    EmitGICombiner(Records, OS);
     break;
   case GenRegisterBank:
     EmitRegisterBank(Records, OS);

@@ -43,6 +43,7 @@ add_tablegen(llvm-tblgen LLVM
   ExegesisEmitter.cpp
   FastISelEmitter.cpp
   FixedLenDecoderEmitter.cpp
+  GICombinerEmitter.cpp
   GlobalISelEmitter.cpp
   InfoByHwMode.cpp
   InstrInfoEmitter.cpp
