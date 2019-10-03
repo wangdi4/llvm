@@ -4222,7 +4222,9 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
 
   llvm::Module &M = CGM.getModule();
   llvm::LLVMContext &C = M.getContext();
-  SmallVector<const OffloadEntriesInfoManagerTy::OffloadEntryInfo *, 16>
+  SmallVector<std::tuple<const OffloadEntriesInfoManagerTy::OffloadEntryInfo *,
+                         SourceLocation, StringRef>,
+              16>
       OrderedEntries(OffloadEntriesInfoManager.size());
   llvm::SmallVector<StringRef, 16> ParentFunctions(
       OffloadEntriesInfoManager.size());
@@ -4240,12 +4242,17 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
 
   // Create function that emits metadata for each target region entry;
   auto &&TargetRegionMetadataEmitter =
+<<<<<<< HEAD
 #if INTEL_COLLAB
       [this, &C, MD, &OrderedEntries, &ParentFunctions, &GetMDInt,
        &GetMDString](
 #else // INTEL_COLLAB
       [&C, MD, &OrderedEntries, &ParentFunctions, &GetMDInt, &GetMDString](
 #endif // INTEL_COLLAB
+=======
+      [this, &C, MD, &OrderedEntries, &ParentFunctions, &GetMDInt,
+       &GetMDString](
+>>>>>>> ba643691ddbd7751f9c74859c6b3b3e281d36c5e
           unsigned DeviceID, unsigned FileID, StringRef ParentName,
           unsigned Line,
           const OffloadEntriesInfoManagerTy::OffloadEntryInfoTargetRegion &E) {
@@ -4271,13 +4278,27 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
                                  GetMDInt(FileID),      GetMDString(ParentName),
                                  GetMDInt(Line),        GetMDInt(E.getOrder())};
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
         if (CGM.getLangOpts().OpenMPLateOutline)
           Ops.push_back(GetMDInt(E.getFlags()));
 #endif // INTEL_COLLAB
 
+=======
+        SourceLocation Loc;
+        for (auto I = CGM.getContext().getSourceManager().fileinfo_begin(),
+                  E = CGM.getContext().getSourceManager().fileinfo_end();
+             I != E; ++I) {
+          if (I->getFirst()->getUniqueID().getDevice() == DeviceID &&
+              I->getFirst()->getUniqueID().getFile() == FileID) {
+            Loc = CGM.getContext().getSourceManager().translateFileLineCol(
+                I->getFirst(), Line, 1);
+            break;
+          }
+        }
+>>>>>>> ba643691ddbd7751f9c74859c6b3b3e281d36c5e
         // Save this entry in the right position of the ordered entries array.
-        OrderedEntries[E.getOrder()] = &E;
+        OrderedEntries[E.getOrder()] = std::make_tuple(&E, Loc, ParentName);
         ParentFunctions[E.getOrder()] = ParentName;
 
         // Add metadata to the named metadata node.
@@ -4305,7 +4326,8 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
             GetMDInt(E.getFlags()), GetMDInt(E.getOrder())};
 
         // Save this entry in the right position of the ordered entries array.
-        OrderedEntries[E.getOrder()] = &E;
+        OrderedEntries[E.getOrder()] =
+            std::make_tuple(&E, SourceLocation(), MangledName);
 
         // Add metadata to the named metadata node.
         MD->addOperand(llvm::MDNode::get(C, Ops));
@@ -4314,6 +4336,7 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
   OffloadEntriesInfoManager.actOnDeviceGlobalVarEntriesInfo(
       DeviceGlobalVarMetadataEmitter);
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
   if (CGM.getLangOpts().OpenMPLateOutline)
 #if INTEL_CUSTOMIZATION
@@ -4324,9 +4347,13 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
 
   for (const auto *E : OrderedEntries) {
     assert(E && "All ordered entries must exist!");
+=======
+  for (const auto &E : OrderedEntries) {
+    assert(std::get<0>(E) && "All ordered entries must exist!");
+>>>>>>> ba643691ddbd7751f9c74859c6b3b3e281d36c5e
     if (const auto *CE =
             dyn_cast<OffloadEntriesInfoManagerTy::OffloadEntryInfoTargetRegion>(
-                E)) {
+                std::get<0>(E))) {
       if (!CE->getID() || !CE->getAddress()) {
         // Do not blame the entry if the parent funtion is not emitted.
         StringRef FnName = ParentFunctions[CE->getOrder()];
@@ -4334,16 +4361,16 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
           continue;
         unsigned DiagID = CGM.getDiags().getCustomDiagID(
             DiagnosticsEngine::Error,
-            "Offloading entry for target region is incorrect: either the "
+            "Offloading entry for target region in %0 is incorrect: either the "
             "address or the ID is invalid.");
-        CGM.getDiags().Report(DiagID);
+        CGM.getDiags().Report(std::get<1>(E), DiagID) << FnName;
         continue;
       }
       createOffloadEntry(CE->getID(), CE->getAddress(), /*Size=*/0,
                          CE->getFlags(), llvm::GlobalValue::WeakAnyLinkage);
-    } else if (const auto *CE =
-                   dyn_cast<OffloadEntriesInfoManagerTy::
-                                OffloadEntryInfoDeviceGlobalVar>(E)) {
+    } else if (const auto *CE = dyn_cast<OffloadEntriesInfoManagerTy::
+                                             OffloadEntryInfoDeviceGlobalVar>(
+                   std::get<0>(E))) {
       OffloadEntriesInfoManagerTy::OMPTargetGlobalVarEntryKind Flags =
           static_cast<OffloadEntriesInfoManagerTy::OMPTargetGlobalVarEntryKind>(
               CE->getFlags());
@@ -4354,10 +4381,10 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
           continue;
         if (!CE->getAddress()) {
           unsigned DiagID = CGM.getDiags().getCustomDiagID(
-              DiagnosticsEngine::Error,
-              "Offloading entry for declare target variable is incorrect: the "
-              "address is invalid.");
-          CGM.getDiags().Report(DiagID);
+              DiagnosticsEngine::Error, "Offloading entry for declare target "
+                                        "variable %0 is incorrect: the "
+                                        "address is invalid.");
+          CGM.getDiags().Report(std::get<1>(E), DiagID) << std::get<2>(E);
           continue;
         }
         // The vaiable has no definition - no need to add the entry.
