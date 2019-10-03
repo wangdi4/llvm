@@ -165,8 +165,9 @@ bool SYCLPipesHack::runOnModule(Module &M) {
     // this hack with a proper solution has finally come.
 #ifndef NDEBUG
     for (auto *U : GV->users()) {
-      CastInst *Cast = cast<CastInst>(U);
-      for (auto *CastU : Cast->users()) {
+      assert(isa<CastInst>(U) ||
+             cast<ConstantExpr>(U)->getOpcode() == Instruction::AddrSpaceCast);
+      for (auto *CastU : U->users()) {
         CallInst *CI = cast<CallInst>(CastU);
         Function *F = CI->getCalledFunction();
         assert(F && "Indirect call is not expected");
