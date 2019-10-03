@@ -269,9 +269,15 @@ def ocl_types : TypeNameList<[
   atom_intptr_t.TypeName, atom_uintptr_t.TypeName,
 
   // Wide vectors for shuffles
+  v32i64.TypeName, v64i64.TypeName, v128i64.TypeName, v256i64.TypeName,
+  v32u64.TypeName, v64u64.TypeName, v128u64.TypeName, v256u64.TypeName,
   v32i32.TypeName, v64i32.TypeName, v128i32.TypeName, v256i32.TypeName,
   v32u32.TypeName, v64u32.TypeName, v128u32.TypeName, v256u32.TypeName,
   v32f32.TypeName, v64f32.TypeName, v128f32.TypeName, v256f32.TypeName,
+  v32i16.TypeName, v64i16.TypeName, v128i16.TypeName, v256i16.TypeName,
+  v32u16.TypeName, v64u16.TypeName, v128u16.TypeName, v256u16.TypeName,
+  v32i8.TypeName,  v64i8.TypeName,  v128i8.TypeName, v256i8.TypeName,
+  v32u8.TypeName,  v64u8.TypeName,  v128u8.TypeName, v256u8.TypeName,
 
   image1d_ro.TypeName, image1d_wo.TypeName, image1d_rw.TypeName,
   image2d_ro.TypeName, image2d_wo.TypeName, image2d_rw.TypeName,
