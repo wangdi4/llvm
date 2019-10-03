@@ -6442,9 +6442,8 @@ class BufferToAPValueConverter {
     QualType RepresentationType = Ty->getDecl()->getIntegerType();
     assert(!RepresentationType.isNull() &&
            "enum forward decl should be caught by Sema");
-    const BuiltinType *AsBuiltin =
-        RepresentationType.getCanonicalType()->getAs<BuiltinType>();
-    assert(AsBuiltin && "non-integral enum underlying type?");
+    const auto *AsBuiltin =
+        RepresentationType.getCanonicalType()->castAs<BuiltinType>();
     // Recurse into the underlying type. Treat std::byte transparently as
     // unsigned char.
     return visit(AsBuiltin, Offset, /*EnumTy=*/Ty);
@@ -9367,7 +9366,7 @@ VectorExprEvaluator::VisitInitListExpr(const InitListExpr *E) {
 
 bool
 VectorExprEvaluator::ZeroInitialization(const Expr *E) {
-  const VectorType *VT = E->getType()->getAs<VectorType>();
+  const auto *VT = E->getType()->castAs<VectorType>();
   QualType EltTy = VT->getElementType();
   APValue ZeroElement;
   if (EltTy->isIntegerType())
@@ -11870,7 +11869,7 @@ bool IntExprEvaluator::VisitBinaryOperator(const BinaryOperator *E) {
       Info.CCEDiag(E, diag::note_constexpr_pointer_subtraction_not_same_array);
 
     QualType Type = E->getLHS()->getType();
-    QualType ElementType = Type->getAs<PointerType>()->getPointeeType();
+    QualType ElementType = Type->castAs<PointerType>()->getPointeeType();
 
     CharUnits ElementSize;
     if (!HandleSizeof(Info, E->getExprLoc(), ElementType, ElementSize))
@@ -12767,9 +12766,9 @@ bool ComplexExprEvaluator::VisitCastExpr(const CastExpr *E) {
     if (!Visit(E->getSubExpr()))
       return false;
 
-    QualType To = E->getType()->getAs<ComplexType>()->getElementType();
+    QualType To = E->getType()->castAs<ComplexType>()->getElementType();
     QualType From
-      = E->getSubExpr()->getType()->getAs<ComplexType>()->getElementType();
+      = E->getSubExpr()->getType()->castAs<ComplexType>()->getElementType();
 
     return HandleFloatToFloatCast(Info, E, From, To, Result.FloatReal) &&
            HandleFloatToFloatCast(Info, E, From, To, Result.FloatImag);
@@ -12779,9 +12778,9 @@ bool ComplexExprEvaluator::VisitCastExpr(const CastExpr *E) {
     if (!Visit(E->getSubExpr()))
       return false;
 
-    QualType To = E->getType()->getAs<ComplexType>()->getElementType();
+    QualType To = E->getType()->castAs<ComplexType>()->getElementType();
     QualType From
-      = E->getSubExpr()->getType()->getAs<ComplexType>()->getElementType();
+      = E->getSubExpr()->getType()->castAs<ComplexType>()->getElementType();
     Result.makeComplexInt();
     return HandleFloatToIntCast(Info, E, From, Result.FloatReal,
                                 To, Result.IntReal) &&
@@ -12803,9 +12802,9 @@ bool ComplexExprEvaluator::VisitCastExpr(const CastExpr *E) {
     if (!Visit(E->getSubExpr()))
       return false;
 
-    QualType To = E->getType()->getAs<ComplexType>()->getElementType();
+    QualType To = E->getType()->castAs<ComplexType>()->getElementType();
     QualType From
-      = E->getSubExpr()->getType()->getAs<ComplexType>()->getElementType();
+      = E->getSubExpr()->getType()->castAs<ComplexType>()->getElementType();
 
     Result.IntReal = HandleIntToIntCast(Info, E, To, From, Result.IntReal);
     Result.IntImag = HandleIntToIntCast(Info, E, To, From, Result.IntImag);
