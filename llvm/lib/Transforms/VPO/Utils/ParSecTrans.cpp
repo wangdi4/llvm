@@ -772,7 +772,7 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
         NormalizedUB = TmpUB;
    
       StoreInst *SI = new StoreInst(UB, NormalizedUB, false, InsertPt);
-      SI->setAlignment(4);
+      SI->setAlignment(MaybeAlign(4));
 
       InsertPt = PreHeaderBB->getTerminator();
       UpperBnd = new LoadInst(NormalizedUB, "sloop.ub", false, InsertPt);

@@ -664,10 +664,10 @@ Loop *VPOParoptTransform::genDispatchLoopForTeamDistirbute(
   IncUB->insertBefore(TermInst);
 
   StoreInst *NewIncLB = new StoreInst(IncLB, TeamLowerBnd, false, TermInst);
-  NewIncLB->setAlignment(4);
+  NewIncLB->setAlignment(MaybeAlign(4));
 
   StoreInst *NewIncUB = new StoreInst(IncUB, TeamUpperBnd, false, TermInst);
-  NewIncUB->setAlignment(4);
+  NewIncUB->setAlignment(MaybeAlign(4));
 
   TermInst->setSuccessor(0, TeamDispHeaderBB);
 

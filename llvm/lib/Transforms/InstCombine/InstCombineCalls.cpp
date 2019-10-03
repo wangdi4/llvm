@@ -196,7 +196,7 @@ void InstCombiner::GenStructFieldsCopyFromMemcpy(MemIntrinsic *MI) {
 
     STDest = Builder.CreateStore(LDSrc, GEPDest);
     STDest->setMetadata(LLVMContext::MD_tbaa, CopyMD);
-    STDest->setAlignment(DL.getABITypeAlignment(ElemTy));
+    STDest->setAlignment(MaybeAlign(DL.getABITypeAlignment(ElemTy)));
   }
 }
 #endif
