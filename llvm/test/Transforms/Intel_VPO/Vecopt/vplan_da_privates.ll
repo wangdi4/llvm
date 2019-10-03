@@ -22,7 +22,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ;  return arr1[RetIdx];
 ;}
 
-;RUN: opt -S -VPlanDriver -enable-vp-value-codegen=true -disable-vplan-codegen -disable-output -debug-only=vplan-divergence-analysis -vplan-print-after-linearization %s 2>& 1| FileCheck %s
+;RUN: opt -S -VPlanDriver -enable-vp-value-codegen=true -disable-output -debug-only=vplan-divergence-analysis -vplan-print-after-linearization %s 2>& 1| FileCheck %s
 
 ; REQUIRES:asserts
 

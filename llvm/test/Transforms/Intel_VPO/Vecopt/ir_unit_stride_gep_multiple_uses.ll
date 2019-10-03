@@ -13,7 +13,7 @@ define i32 @multiple_uses(i32* %src, i32** %dest) {
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH]] ], [ [[TMP3:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds i32, <4 x i32*> [[SRC_BCAST:%.*]], <4 x i64> [[VEC_PHI]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = extractelement <4 x i32*> [[MM_VECTORGEP]], i32 0
-; CHECK-NEXT:    store i32* [[TMP0]], i32** [[DEST:%.*]]
+; CHECK-NEXT:    call void @llvm.masked.scatter.v4p0i32.v4p0p0i32(<4 x i32*> [[MM_VECTORGEP]], <4 x i32**> [[DEST_BCAST:%.*]], i32 8, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i32* [[TMP0]] to <4 x i32>*
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i32>, <4 x i32>* [[TMP1]], align 8
 ; CHECK-NEXT:    [[TMP2:%.*]] = add <4 x i32> [[WIDE_LOAD]], <i32 42, i32 42, i32 42, i32 42>
