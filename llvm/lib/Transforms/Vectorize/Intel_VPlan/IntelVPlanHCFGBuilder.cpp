@@ -41,6 +41,10 @@ static cl::opt<bool> DisableNonLoopSubRegions(
     "disable-vplan-subregions", cl::init(true), cl::Hidden,
     cl::desc("Disable construction of non-loop subregions in VPlan"));
 
+static cl::opt<bool> DisableLoopRegions(
+    "disable-vplan-loop-regions", cl::init(false), cl::Hidden,
+    cl::desc("Disable construction of loop regions in VPlan"));
+
 cl::opt<bool> LoopMassagingEnabled(
     "vplan-enable-loop-massaging", cl::init(true), cl::Hidden,
     cl::desc("Enable loop massaging in VPlan (Multiple to Singular Exit)"));
@@ -1216,7 +1220,9 @@ void VPlanHCFGBuilder::buildLoopRegions() {
   std::function<void(VPLoop *)> buildLoopRegionsImpl = [&](VPLoop *VPL) {
 
     // Create new loop region
-    VPLoopRegion *VPLR = createLoopRegion(VPL);
+    VPLoopRegion *VPLR = nullptr;
+    if (!DisableLoopRegions)
+      VPLR = createLoopRegion(VPL);
 
     // Set VPLoop's entry and exit.
     // Entry = loop preheader, Exit = loop single exit
@@ -1229,25 +1235,30 @@ void VPlanHCFGBuilder::buildLoopRegions() {
 #if INTEL_CUSTOMIZATION
     SmallVector<VPBlockBase *, 4> LoopExits;
     VPL->getUniqueExitBlocks(LoopExits);
-    VPBasicBlock *RegionExit =
-        cast<VPBasicBlock>(getNearestCommonPostDom(VPPostDomTree, LoopExits));
+    VPBasicBlock *RegionExit = nullptr;
+    if (!DisableLoopRegions)
+      RegionExit =
+          cast<VPBasicBlock>(getNearestCommonPostDom(VPPostDomTree, LoopExits));
 #else
     assert(VPL->getUniqueExitBlock() && "Only single-exit loops expected");
     VPBasicBlock *RegionExit = cast<VPBasicBlock>(VPL->getUniqueExitBlock());
 #endif // INTEL_CUSTOMIZATION
 
-    LLVM_DEBUG(dbgs() << "Creating new VPLoopRegion " << VPLR->getName() << "\n"
-                      << "   Entry: " << RegionEntry->getName() << "\n"
-                      << "   Exit: " << RegionExit->getName() << "\n");
+    if (!DisableLoopRegions) {
+      LLVM_DEBUG(dbgs() << "Creating new VPLoopRegion " << VPLR->getName()
+                        << "\n"
+                        << "   Entry: " << RegionEntry->getName() << "\n"
+                        << "   Exit: " << RegionExit->getName() << "\n");
 
-    // Connect loop region to graph
-    VPBlockUtils::insertRegion(VPLR, RegionEntry, RegionExit,
-                               false /*recomputeSize*/);
+      // Connect loop region to graph
+      VPBlockUtils::insertRegion(VPLR, RegionEntry, RegionExit,
+                                 false /*recomputeSize*/);
 
-    // Update VPLoopInfo. Add new VPLoopRegion to region entry's loop (loop PH)
-    // which, as expected, is not contained in this VPLoopRegion's VPLoop.
-    if (VPLoop *Loop = VPLInfo->getLoopFor(RegionEntry)) {
-      Loop->addBasicBlockToLoop(VPLR, *VPLInfo);
+      // Update VPLoopInfo. Add new VPLoopRegion to region entry's loop (loop
+      // PH) which, as expected, is not contained in this VPLoopRegion's VPLoop.
+      if (VPLoop *Loop = VPLInfo->getLoopFor(RegionEntry)) {
+        Loop->addBasicBlockToLoop(VPLR, *VPLInfo);
+      }
     }
 
     // Recursively build loop regions inside this loop
