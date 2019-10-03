@@ -750,7 +750,7 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
     // See comment before the routine.
     VPBasicBlock *Block = cast<VPBasicBlock>(Loop.getHeader());
     Builder.setInsertPointFirstNonPhi(Block);
-    VPPHINode *IndPhi = cast<VPPHINode>(Builder.createPhiInstruction(Ty));
+    VPPHINode *IndPhi = Builder.createPhiInstruction(Ty);
     auto StoreInst = Builder.createNaryOp(Instruction::Store, Ty, {IndPhi, &PrivateMem});
     Plan.getVPlanDA()->markDivergent(*IndPhi);
     Plan.getVPlanDA()->markDivergent(*StoreInst);

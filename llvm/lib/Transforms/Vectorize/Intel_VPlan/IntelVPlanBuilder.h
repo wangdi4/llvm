@@ -232,20 +232,19 @@ public:
     return Instr;
   }
 
-  VPInstruction *createPhiInstruction(Instruction *Inst,
-                                      const Twine &Name = "") {
+  VPPHINode *createPhiInstruction(Instruction *Inst, const Twine &Name = "") {
     assert(Inst != nullptr && "Instruction cannot be a nullptr");
-    VPInstruction *NewVPInst = createPhiInstruction(Inst->getType(), Name);
-    NewVPInst->setUnderlyingValue(*Inst);
-    return NewVPInst;
+    VPPHINode *NewVPPHINode = createPhiInstruction(Inst->getType(), Name);
+    NewVPPHINode->setUnderlyingValue(*Inst);
+    return NewVPPHINode;
   }
 
-  VPInstruction *createPhiInstruction(Type *BaseTy, const Twine &Name = "") {
-    VPInstruction *NewVPInst = new VPPHINode(BaseTy);
-    NewVPInst->setName(Name);
+  VPPHINode *createPhiInstruction(Type *BaseTy, const Twine &Name = "") {
+    VPPHINode *NewVPPHINode = new VPPHINode(BaseTy);
+    NewVPPHINode->setName(Name);
     if (BB)
-      BB->insert(NewVPInst, InsertPt);
-    return NewVPInst;
+      BB->insert(NewVPPHINode, InsertPt);
+    return NewVPPHINode;
   }
 
   // Build a VPGEPInstruction for the LLVM-IR instruction \p Inst using base

@@ -837,8 +837,7 @@ void VPDecomposerHIR::createLoopIVAndIVStart(HLLoop *HLp, VPBasicBlock *LpPH) {
   Builder.setInsertPoint(LpH, LpH->begin());
   // Base type for the VPPHINode is obtained from IVStart
   Type *BaseTy = IVStart->getType();
-  VPPHINode *IndVPPhi =
-      cast<VPPHINode>(Builder.createPhiInstruction(BaseTy, HLp));
+  VPPHINode *IndVPPhi = Builder.createPhiInstruction(BaseTy, HLp);
   IndVPPhi->addIncoming(IVStart, LpPH);
   assert(!HLLp2IVPhi.count(HLp) && "HLLoop has multiple IVs?");
   HLLp2IVPhi[HLp] = IndVPPhi;
@@ -1184,8 +1183,7 @@ void VPDecomposerHIR::addIDFPhiNodes() {
 
         assert(TrackedSymTypes.count(Sym) &&
                "PHI type for tracked symbase not found.");
-        auto *NewIDFPHI =
-            cast<VPPHINode>(Builder.createPhiInstruction(TrackedSymTypes[Sym]));
+        auto *NewIDFPHI = Builder.createPhiInstruction(TrackedSymTypes[Sym]);
         // Add the new empty PHI to list of phis to fix
         PhisToFix[VPBBSymPair] = std::make_pair(NewIDFPHI, nullptr);
 
@@ -1636,8 +1634,7 @@ VPValue *VPDecomposerHIR::VPBlobDecompVisitor::decomposeStandAloneBlob(
 
     // If no entry is found in PhisToFix then create a new VPPhi node and add it
     // to the map
-    auto *VPPhi =
-        cast<VPPHINode>(Decomposer.Builder.createPhiInstruction(BaseTy));
+    auto *VPPhi = Decomposer.Builder.createPhiInstruction(BaseTy);
     Decomposer.PhisToFix[VPBBSymPair] = std::make_pair(VPPhi, DDR);
 
     LLVM_DEBUG(dbgs() << "Adding a new empty PHI node for:\n");

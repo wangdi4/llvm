@@ -40,8 +40,8 @@
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT12:%.*]] = insertelement <2 x i1> undef, i1 [[TMP23]], i32 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT13:%.*]] = shufflevector <2 x i1> [[BROADCAST_SPLATINSERT12]], <2 x i1> undef, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP24:%.*]] = extractelement <2 x i1> [[BROADCAST_SPLAT13]], i32 0
-; CHECK-NEXT:    br i1 [[TMP24]], label [[VPLANNEDBB14:%.*]], label [[VPLANNEDBB]]
-; CHECK:       VPlannedBB14:
+; CHECK-NEXT:    br i1 [[TMP24]], label %[[VPLANNEDBB1:.*]], label [[VPLANNEDBB]]
+; CHECK:       [[VPLANNEDBB1]]:
 ; CHECK-NEXT:    [[TMP25:%.*]] = add <2 x i64> [[TMP20]], <i64 1, i64 1>
 ; CHECK-NEXT:    [[TMP26:%.*]] = add <2 x i64> [[TMP19]], <i64 1, i64 1>
 ; CHECK-NEXT:    [[TMP27:%.*]] = xor <2 x i1> [[TMP18]], <i1 true, i1 true>
