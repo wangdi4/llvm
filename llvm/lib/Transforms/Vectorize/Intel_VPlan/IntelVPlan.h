@@ -887,24 +887,6 @@ public:
 
   // Return true if this VPInstruction represents a cast operation.
   bool isCast() const { return Instruction::isCast(getOpcode()); }
-
-  // Return number of successors that this VPInstruction has. The instruction
-  // must be a terminator.
-  // TODO: Implement function when/if terminator instructions are added to
-  // VPlan. This function is needed to templatize common LLVM CFG algorithms
-  // (like GraphDiff).
-  unsigned getNumSuccessors() {
-    llvm_unreachable(
-        "VPlan function defined for GraphDiff compilation invoked.");
-  }
-  // Return the specified successor. This instruction must be a terminator.
-  // TODO: Implement function when/if terminator instructions are added to
-  // VPlan. This function is needed to templatize common LLVM CFG algorithms
-  // (like GraphDiff).
-  VPBlockBase *getSuccessor(unsigned Idx) {
-    llvm_unreachable(
-        "VPlan function defined for GraphDiff compilation invoked.");
-  }
 #endif // INTEL_CUSTOMIZATION
 
   /// Generate the instruction.
@@ -3575,6 +3557,15 @@ template <> struct GraphTraits<vpo::VPBlockBase *> {
   }
 };
 
+// This specialization is for the ChildrenGetterTy from
+// GenericIteratedDominanceFrontier.h. Clang's GraphTraits for clang::CFGBlock
+// do the same trick.
+// TODO: Consider fixing GenericIteratedDominanceFrontier.h during upstreaming
+// instead.
+template <>
+struct GraphTraits<vpo::VPBlockBase> : public GraphTraits<vpo::VPBlockBase *> {
+};
+
 template <> struct GraphTraits<const vpo::VPBlockBase *> {
   using NodeRef = const vpo::VPBlockBase *;
   using ChildIteratorType = SmallVectorImpl<vpo::VPBlockBase *>::const_iterator;
@@ -3675,21 +3666,6 @@ struct GraphTraits<Inverse<vpo::VPRegionBlock *>>
 
   static unsigned size(GraphRef N) { return N->getSize(); }
 };
-
-#if INTEL_CUSTOMIZATION
-// Successors iterating interfaces added to compile VPlan HCFG for GraphDiff
-// utility.The iterator requires terminator instruction for corresponding VPBB.
-// TODO: Implement function when/if terminator instructions are added to VPlan.
-// This function is needed to templatize common LLVM CFG algorithms (like
-// GraphDiff).
-using vp_succ_iterator = SuccIterator<vpo::VPInstruction, vpo::VPBlockBase>;
-inline vp_succ_iterator succ_begin(vpo::VPBlockBase *VPBB) {
-  llvm_unreachable("VPlan function defined for GraphDiff compilation invoked.");
-}
-inline vp_succ_iterator succ_end(vpo::VPBlockBase *VPBB) {
-  llvm_unreachable("VPlan function defined for GraphDiff compilation invoked.");
-}
-#endif // INTEL_CUSTOMIZATION
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLAN_H
