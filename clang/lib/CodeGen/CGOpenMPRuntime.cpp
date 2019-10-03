@@ -4242,17 +4242,8 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
 
   // Create function that emits metadata for each target region entry;
   auto &&TargetRegionMetadataEmitter =
-<<<<<<< HEAD
-#if INTEL_COLLAB
       [this, &C, MD, &OrderedEntries, &ParentFunctions, &GetMDInt,
        &GetMDString](
-#else // INTEL_COLLAB
-      [&C, MD, &OrderedEntries, &ParentFunctions, &GetMDInt, &GetMDString](
-#endif // INTEL_COLLAB
-=======
-      [this, &C, MD, &OrderedEntries, &ParentFunctions, &GetMDInt,
-       &GetMDString](
->>>>>>> ba643691ddbd7751f9c74859c6b3b3e281d36c5e
           unsigned DeviceID, unsigned FileID, StringRef ParentName,
           unsigned Line,
           const OffloadEntriesInfoManagerTy::OffloadEntryInfoTargetRegion &E) {
@@ -4278,13 +4269,11 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
                                  GetMDInt(FileID),      GetMDString(ParentName),
                                  GetMDInt(Line),        GetMDInt(E.getOrder())};
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
         if (CGM.getLangOpts().OpenMPLateOutline)
           Ops.push_back(GetMDInt(E.getFlags()));
 #endif // INTEL_COLLAB
 
-=======
         SourceLocation Loc;
         for (auto I = CGM.getContext().getSourceManager().fileinfo_begin(),
                   E = CGM.getContext().getSourceManager().fileinfo_end();
@@ -4296,7 +4285,6 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
             break;
           }
         }
->>>>>>> ba643691ddbd7751f9c74859c6b3b3e281d36c5e
         // Save this entry in the right position of the ordered entries array.
         OrderedEntries[E.getOrder()] = std::make_tuple(&E, Loc, ParentName);
         ParentFunctions[E.getOrder()] = ParentName;
@@ -4336,7 +4324,6 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
   OffloadEntriesInfoManager.actOnDeviceGlobalVarEntriesInfo(
       DeviceGlobalVarMetadataEmitter);
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   if (CGM.getLangOpts().OpenMPLateOutline)
 #if INTEL_CUSTOMIZATION
@@ -4345,12 +4332,8 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
     return;
 #endif // INTEL_COLLAB
 
-  for (const auto *E : OrderedEntries) {
-    assert(E && "All ordered entries must exist!");
-=======
   for (const auto &E : OrderedEntries) {
     assert(std::get<0>(E) && "All ordered entries must exist!");
->>>>>>> ba643691ddbd7751f9c74859c6b3b3e281d36c5e
     if (const auto *CE =
             dyn_cast<OffloadEntriesInfoManagerTy::OffloadEntryInfoTargetRegion>(
                 std::get<0>(E))) {
