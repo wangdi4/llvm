@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 set(INTEL_SOURCE_FILES_TO_BUILD)
 intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
@@ -16,6 +17,8 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
 
 add_subdirectory(GlobalISel)
 
+=======
+>>>>>>> 43817e1915bbe5fcead2f33d8effaaf7f10571a5
 set(LLVM_LINK_COMPONENTS Support)
 
 add_tablegen(llvm-tblgen LLVM
@@ -76,6 +79,5 @@ add_tablegen(llvm-tblgen LLVM
   X86RecognizableInstr.cpp
   WebAssemblyDisassemblerEmitter.cpp
   CTagsEmitter.cpp
-  $<TARGET_OBJECTS:obj.LLVMTableGenGlobalISel>
   )
 set_target_properties(llvm-tblgen PROPERTIES FOLDER "Tablegenning")
