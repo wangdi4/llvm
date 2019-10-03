@@ -1,22 +1,10 @@
-; REQUIRES: asserts
-; RUN: opt < %s -S -ip-manyreccalls-cloning-min-rec-callsites=2 -ip-cloning -debug-only=ipcloning 2>&1 | FileCheck %s
-; RUN: opt < %s -S -ip-manyreccalls-cloning-min-rec-callsites=2 -passes='module(ip-cloning)' -debug-only=ipcloning 2>&1 | FileCheck %s
+; RUN: opt < %s -S -ip-manyreccalls-cloning-min-rec-callsites=2 -ip-cloning 2>&1 | FileCheck %s
+; RUN: opt < %s -S -ip-manyreccalls-cloning-min-rec-callsites=2 -passes='module(ip-cloning)' 2>&1 | FileCheck %s
 
 ; Check that foo is selected for cloning as a "many recursive calls" cloning
 ; candidate.
-
-; Check the -ip-cloning trace output
-
-; CHECK: MRC Cloning: Testing: foo
-; CHECK: MRC Cloning: IF ARG #0
-; CHECK: MRC Cloning: IF ARG #1
-; CHECK: MRC Cloning: SWITCH ARG #2
-; CHECK: MRC Cloning: GOOD IF CB: goo   %call = call i32 @foo(i32 1, i32 1, i32 %1)
-; CHECK: MRC Cloning: GOOD SWITCH CB: goo   %call = call i32 @foo(i32 1, i32 1, i32 %1)
-; CHECK: MRC Cloning: BEST CB: goo   %call = call i32 @foo(i32 1, i32 1, i32 %1)
-; CHECK: MRC Cloning: OK: foo
-; CHECK: Selected many recursive calls cloning
-; CHECK: MRC Cloning: foo TO foo.1
+; This is the same test as ip_cloning_mrc01.ll, but checks for IR without
+; requiring asserts.
 
 ; Check changes to the IR
 

@@ -1,14 +1,10 @@
-; REQUIRES: asserts
-; RUN: opt < %s -S -ip-manyreccalls-cloning-min-rec-callsites=2 -ip-cloning -debug-only=ipcloning 2>&1 | FileCheck %s
-; RUN: opt < %s -S -ip-manyreccalls-cloning-min-rec-callsites=2 -passes='module(ip-cloning)' -debug-only=ipcloning 2>&1 | FileCheck %s
+; RUN: opt < %s -S -ip-manyreccalls-cloning-min-rec-callsites=2 -ip-cloning 2>&1 | FileCheck %s
+; RUN: opt < %s -S -ip-manyreccalls-cloning-min-rec-callsites=2 -passes='module(ip-cloning)' 2>&1 | FileCheck %s
 
 ; Check that foo is not selected for cloning as a "many recursive calls"
 ; cloning candidate, because it is varargs.
-
-; Check the -ip-cloning trace output
-
-; CHECK: MRC Cloning: Testing: foo
-; CHECK: MRC Cloning: Skipping: Is VarArgs
+; This is the same test as ip_cloning_mrc03.ll, but checks for IR without
+; requiring asserts.
 
 ; Check that no recursive clone of foo is made.
 ; CHECK-NOT: define internal i32 @foo.1

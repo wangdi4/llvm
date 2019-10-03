@@ -1,29 +1,10 @@
-; REQUIRES: asserts
-; RUN: opt < %s -ip-cloning -debug-only=ipcloning -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(ip-cloning)' -debug-only=ipcloning -S 2>&1 | FileCheck %s
+; RUN: opt < %s -ip-cloning -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(ip-cloning)' -S 2>&1 | FileCheck %s
 
 ; Test that the function foo is recognized as a recursive progression clone
 ; and four clones of it are created.
-
-; CHECK: Enter IP cloning: (Before inlining)
-; CHECK: Cloning Analysis for:  foo
-; CHECK: Selected RecProgression cloning
-; CHECK: Function: foo.1
-; CHECK: ArgPos : 0
-; CHECK: Argument : i32 %0
-; CHECK: Replacement:  i32 0
-; CHECK: Function: foo.2
-; CHECK: ArgPos : 0
-; CHECK: Argument : i32 %0
-; CHECK: Replacement:  i32 1
-; CHECK: Function: foo.3
-; CHECK: ArgPos : 0
-; CHECK: Argument : i32 %0
-; CHECK: Replacement:  i32 2
-; CHECK: Function: foo.4
-; CHECK: ArgPos : 0
-; CHECK: Argument : i32 %0
-; CHECK: Replacement:  i32 3
+; This is the same test as ip_cloning_recpro01.ll, but checks for IR without
+; requiring asserts.
 
 ; CHECK: define dso_local i32 @main()
 ; CHECK: tail call i32 @foo.1

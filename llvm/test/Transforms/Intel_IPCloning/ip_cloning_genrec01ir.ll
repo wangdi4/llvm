@@ -1,21 +1,19 @@
-; REQUIRES: asserts
-; RUN: opt < %s -ip-cloning -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-rec-callsites=4 -debug-only=ipcloning -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-rec-callsites=4 -debug-only=ipcloning -S 2>&1 | FileCheck %s
+; RUN: opt < %s -ip-cloning -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-rec-callsites=4 -print-ip-cloning -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-rec-callsites=4 -print-ip-cloning -S 2>&1 | FileCheck %s
 
-; Test that foo is not selected for generic cloning of a recursive routine
-; because it has more than one possible clone.
+; Test that foo is selected for generic cloning of a recursive routine.
+; This is the same test as ip_cloning_genrec01.ll, but checks for IR without
+; requiring asserts.
 
-; CHECK: Enter IP cloning: (Before inlining)
-; CHECK: Skipping not profitable candidate foo
-; CHECK: Skipping main
 ; CHECK: define internal i32 @foo
 ; CHECK: call i32 @foo
 ; CHECK: define dso_local i32 @main
+; CHECK: call i32 @foo.1
+; CHECK: call i32 @foo.1
+; CHECK: call i32 @foo.1
+; CHECK: call i32 @foo.1
+; CHECK: define internal i32 @foo.1
 ; CHECK: call i32 @foo
-; CHECK: call i32 @foo
-; CHECK: call i32 @foo
-; CHECK: call i32 @foo
-; CHECK-NOT: define internal i32 @foo.1
 
 define internal i32 @foo(i32 %count1, i32 %count2) #0 {
 entry:
@@ -48,11 +46,11 @@ return:                                           ; preds = %if.end3, %if.then2,
 define dso_local i32 @main() local_unnamed_addr {
 entry:
   %call = call i32 @foo(i32 0, i32 0)
-  %call1 = call i32 @foo(i32 0, i32 1)
+  %call1 = call i32 @foo(i32 0, i32 0)
   %add = add nsw i32 %call, %call1
-  %call2 = call i32 @foo(i32 1, i32 0)
+  %call2 = call i32 @foo(i32 0, i32 0)
   %add3 = add nsw i32 %add, %call2
-  %call4 = call i32 @foo(i32 1, i32 1)
+  %call4 = call i32 @foo(i32 0, i32 0)
   %add5 = add nsw i32 %add3, %call4
   ret i32 %add5
 }

@@ -1,14 +1,10 @@
-; REQUIRES: asserts
-; RUN: opt < %s -S -ip-cloning -debug-only=ipcloning 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes='module(ip-cloning)' -debug-only=ipcloning 2>&1 | FileCheck %s
+; RUN: opt < %s -S -ip-manyreccalls-cloning-min-rec-callsites=2 -ip-cloning 2>&1 | FileCheck %s
+; RUN: opt < %s -S -ip-manyreccalls-cloning-min-rec-callsites=2 -passes='module(ip-cloning)' 2>&1 | FileCheck %s
 
 ; Check that foo is not selected for cloning as a "many recursive calls"
-; cloning candidate, because it does not call itself enough times.
-
-; Check the -ip-cloning trace output
-
-; CHECK: MRC Cloning: Testing: foo
-; CHECK: MRC Cloning: Skipping: Not enough recursive callsites
+; cloning candidate, because no best callsite is identified.
+; This is the same test as ip_cloning_mrc06.ll, but checks for IR without
+; requiring asserts.
 
 ; Check that no recursive clone of foo is made.
 ; CHECK-NOT: define internal i32 @foo.1
@@ -29,12 +25,12 @@ entry:
 if.then:                                          ; preds = %entry
   %field2 = getelementptr inbounds %struct.MYSTRUCT, %struct.MYSTRUCT* %cacheptr, i32 0, i32 1
   %1 = load i32, i32* %field2, align 4
-  %call = call i32 @foo(i32 1, i32 1, i32 %1)
+  %call = call i32 @foo(i32 0, i32 %1, i32 %1)
   br label %return
 
 if.end:                                           ; preds = %entry
   %2 = load i32, i32* @myglobal, align 4
-  %call1 = call i32 @foo(i32 0, i32 %2, i32 0)
+  %call1 = call i32 @foo(i32 1, i32 0, i32 0)
   br label %return
 
 return:                                           ; preds = %if.end, %if.then

@@ -1,81 +1,34 @@
-; REQUIRES: asserts
-; RUN: opt < %s -ip-cloning -debug-only=ipcloning -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(ip-cloning)' -debug-only=ipcloning -S 2>&1 | FileCheck %s
+; RUN: opt < %s -ip-cloning -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(ip-cloning)' -S 2>&1 | FileCheck %s
 
 ; Test that the function @good is recognized as a recursive progression clone
 ; and eight clones of it are created. Also that it is a candidate for creating
 ; an extra clone, and that AVX512 has NOT been transformed to AVX2, because
-; a function uses a vector type.
-
-; CHECK: Enter IP cloning: (Before inlining)
-; CHECK: Cloning Analysis for:  good
-; CHECK: Selected RecProgression cloning
-; CHECK: Function: good.1
-; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
-; CHECK: IsByRef : T
-; CHECK: Replacement:  i32 1
-; CHECK: Function: good.2
-; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
-; CHECK: IsByRef : T
-; CHECK: Replacement:  i32 2
-; CHECK: Function: good.3
-; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
-; CHECK: IsByRef : T
-; CHECK: Replacement:  i32 3
-; CHECK: Function: good.4
-; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
-; CHECK: IsByRef : T
-; CHECK: Replacement:  i32 4
-; CHECK: Function: good.5
-; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
-; CHECK: IsByRef : T
-; CHECK: Replacement:  i32 5
-; CHECK: Function: good.6
-; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
-; CHECK: IsByRef : T
-; CHECK: Replacement:  i32 6
-; CHECK: Function: good.7
-; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
-; CHECK: IsByRef : T
-; CHECK: Replacement:  i32 7
-; CHECK: Function: good.8
-; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
-; CHECK: IsByRef : T
-; CHECK: Replacement:  i32 8
-; CHECK: Extra RecProClone Candidate: good.8
-; CHECK: Begin test for AVX512->AVX2 conversion
-; CHECK: No AVX512->AVX2 conversion: Vector operand type
+; a function has non skylake-avx512 target-features.
+; This is the same test as ip_cloning_recpro13.ll, but checks for IR without
+; requiring asserts.
 
 ; Check for sequence of eight clones with transformed attributes:
 
-; CHECK: define internal i32 @vtest(<4 x i32> %a) #2
-; CHECK: define dso_local void @MAIN__() #2
+; CHECK: define dso_local void @MAIN__()
 ; CHECK: call void @good.1
-; CHECK: define internal void @good{{.*}}#2
+; CHECK: define internal void @good{{.*}}#1
 ; CHECK: call void @good
-; CHECK: define internal void @good.1{{.*}}#3
+; CHECK: define internal void @good.1{{.*}}#2
 ; CHECK: call void @good.2
-; CHECK: define internal void @good.2{{.*}}#3
+; CHECK: define internal void @good.2{{.*}}#2
 ; CHECK: call void @good.3
-; CHECK: define internal void @good.3{{.*}}#3
+; CHECK: define internal void @good.3{{.*}}#2
 ; CHECK: call void @good.4
-; CHECK: define internal void @good.4{{.*}}#3
+; CHECK: define internal void @good.4{{.*}}#2
 ; CHECK: call void @good.5
-; CHECK: define internal void @good.5{{.*}}#3
+; CHECK: define internal void @good.5{{.*}}#2
 ; CHECK: call void @good.6
-; CHECK: define internal void @good.6{{.*}}#3
+; CHECK: define internal void @good.6{{.*}}#2
 ; CHECK: call void @good.7
-; CHECK: define internal void @good.7{{.*}}#3
+; CHECK: define internal void @good.7{{.*}}#2
 ; CHECK: call void @good.8
-; CHECK: define internal void @good.8{{.*}}#3
+; CHECK: define internal void @good.8{{.*}}#2
 ; CHECK-NOT: call void @good
 
 ; Check for special inserted test, call to extra clone, and constant loop
@@ -103,6 +56,11 @@
 ; CHECK: define internal void @good.8.9
 ; CHECK-NOT: call void @good
 
+; Check the attributes
+; CHECK: attributes #0 = { nounwind readnone speculatable }
+; CHECK: attributes #1 = { nounwind "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+mpx,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
+; CHECK: attributes #2 = { nounwind "contains-rec-pro-clone" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "prefer-inline-rec-pro-clone" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+mpx,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
+
 declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8, i64, i64, i32*, i64)
 declare i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8, i64, i32, i64*, i32)
 @brute_force_mp_sudoku1_ = common dso_local global [9 x [9 x i32]] zeroinitializer, align 8
@@ -112,21 +70,7 @@ declare i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8, i64, i32, i64*, i
 @brute_force_mp_soln_ = common dso_local global i32 0, align 8
 declare i32 @brute_force_mp_covered_({ i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* noalias nocapture readonly %"logic_$sudoku_", { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* noalias nocapture readonly %"logic_$pattern_")
 
-; Check the attributes
-; CHECK: attributes #0 = { nounwind readnone speculatable }
-; CHECK: attributes #1 = { nounwind }
-; CHECK: attributes #2 = { nounwind "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+mpx,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
-; CHECK: attributes #3 = { nounwind "contains-rec-pro-clone" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "prefer-inline-rec-pro-clone" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+mpx,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
-
-
-declare void @llvm.x86.clflushopt(i8* noalias nocapture readonly)
-
-define internal i32 @vtest(<4 x i32> %a) #0 {
-  %b = extractelement <4 x i32> %a, i64 1
-  ret i32 %b
-}
-
-define dso_local void @MAIN__() #0 {
+define dso_local void @MAIN__() {
   %1 = alloca i32, align 4
   store i32 1, i32* %1, align 4
   call void @good(i32* nonnull %1)
@@ -2052,4 +1996,5 @@ define internal void @good(i32* noalias nocapture readonly) #0 {
   ret void
 }
 
-attributes #0 = { nounwind "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+mpx,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
+attributes #0 = { nounwind "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+mpx,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
+

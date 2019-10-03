@@ -564,8 +564,7 @@ static void collectArgsSetsForSpecialization(Function &F, CallInst &CI,
   auto PHI_I = cast<Instruction>(*PhiValues.begin());
   // Skip CallSite if BasicBlock has too many preds.
   if (cast<PHINode>(PHI_I)->getNumIncomingValues() > IPSpeCloningCallLimit) {
-    if (IPCloningTrace)
-      dbgs() << "     More Preds ... Skipped Spe cloning  " << "\n";
+    LLVM_DEBUG(dbgs() << "     More Preds ... Skipped Spe cloning  " << "\n");
     return;
   }
 
@@ -616,8 +615,8 @@ static void collectArgsSetsForSpecialization(Function &F, CallInst &CI,
 
   // Check for minimum limit on size of Argument sets
   if (CallArgumentsSets.size() <= IPSpeCloningMinArgSetsLimit) {
-    if (IPCloningTrace)
-      dbgs() << "     Not enough sets... Skipped Spe cloning  " << "\n";
+    LLVM_DEBUG(dbgs() << "     Not enough sets... Skipped Spe cloning  "
+                      << "\n");
     return;
   }
 
@@ -629,7 +628,7 @@ static void collectArgsSetsForSpecialization(Function &F, CallInst &CI,
   CurrCallList.push_back(&CI);
 
   // Dump arg sets
-  if (IPCloningTrace) {
+  LLVM_DEBUG({
     dbgs() << "    Args sets collected \n";
     if (InexactArgsSetsCallList.count(&CI)) {
       dbgs() << "    Inexact args sets found \n";
@@ -642,7 +641,7 @@ static void collectArgsSetsForSpecialization(Function &F, CallInst &CI,
                   *(I->second) << "\n";
       }
     }
-  }
+  });
 }
 
 // Analyze CallInst 'CI' of 'F' and collect argument sets for
@@ -678,8 +677,7 @@ static bool analyzeCallForSpecialization(Function &F, CallInst &CI) {
 //
 static void analyzeCallSitesForSpecializationCloning(Function &F) {
   if (!IPSpecializationCloning) {
-    if (IPCloningTrace)
-      dbgs() << "   Specialization cloning disabled \n";
+    LLVM_DEBUG(dbgs() << "   Specialization cloning disabled \n");
     return;
   }
   FunctionLoopInfoMap.clear();
@@ -707,8 +705,8 @@ static bool analyzeAllCallsOfFunction(Function &F, IPCloneKind CloneType) {
   bool FunctionAddressTaken = false;
 
   if (CloneType == SpecializationClone) {
-    if (IPCloningTrace)
-      dbgs() << " Processing for Spe cloning  " << F.getName() << "\n";
+    LLVM_DEBUG(dbgs() << " Processing for Spe cloning  "
+                      << F.getName() << "\n");
     analyzeCallSitesForSpecializationCloning(F);
     return false;
   }
@@ -1450,14 +1448,12 @@ static void addSpecialRecProCloneCode(Function *F,
       CVUpper);
   Builder.CreateStore(C9, SIUB);
   Builder.CreateBr(BBLastExit);
-  if (IPCloningTrace) {
+  LLVM_DEBUG({
     dbgs() << "Inserting special extra clone test:\n";
-#ifndef NDEBUG
     BBCond->dump();
     BBCallClone->dump();
     BBConstStore->dump();
-#endif // NDEBUG
-  }
+  });
 }
 
 //
@@ -1545,14 +1541,12 @@ static bool tryToMakeRecProSubscriptsConstant(Function *F,
     auto LI = LV[I];
     if (hasThisRecProSubscript(LI, 8)) {
       auto CCI = ConstantInt::get(LI->getType(), Bound);
-      if (IPCloningTrace) {
+      LLVM_DEBUG({
         dbgs() << "Replacing Load in Function " << F->getName() << " with "
                << Bound << "\n";
-#ifndef NDEBUG
         LI->dump();
         CCI->dump();
-#endif // NDEBUG
-      }
+      });
       LI->replaceAllUsesWith(CCI);
     }
   }
@@ -1595,16 +1589,14 @@ static bool tryToMakeRecProSubscriptsSame(Function *F,
   for (unsigned I = 0; I < LV.size(); ++I) {
     auto LI = LV[I];
     if (hasThisRecProSubscript(LI, 8)) {
-      if (IPCloningTrace) {
+      LLVM_DEBUG({
         dbgs() << "Replacing Load in Function " << F->getName()
                << " with alternate bound\n";
-#ifndef NDEBUG
         LI->dump();
         LI->getPointerOperand()->dump();
         LILower->dump();
         LILower->getPointerOperand()->dump();
-#endif // NDEBUG
-      }
+      });
       LI->replaceAllUsesWith(LILower);
     }
   }
@@ -1807,13 +1799,13 @@ static void createRecProgressionClones(Function &F,
       ConstantType = ConstantType->getPointerElementType();
     Value *Rep = ConstantInt::get(ConstantType, FormalValue);
     FormalValue += Inc;
-    if (IPCloningTrace) {
+    LLVM_DEBUG({
       dbgs() << "        Function: " << NewF->getName() << "\n";
       dbgs() << "        ArgPos : " << ArgPos << "\n";
       dbgs() << "        Argument : " << *NewFormal << "\n";
       dbgs() << "        IsByRef : " << (IsByRef ? "T" : "F") << "\n";
       dbgs() << "        Replacement:  " << *Rep << "\n";
-    }
+    });
     if (IsByRef) {
       assert(NewFormal->hasOneUse() && "Expecting single use of ByRef Formal");
       auto LI = cast<LoadInst>(*(NewFormal->user_begin()));
@@ -1847,9 +1839,8 @@ static void createRecProgressionClones(Function &F,
       ExtraCloneF = CloneFunction(LastCloneF, VMapNew);
       ExtraCloneF->addFnAttr("prefer-inline-rec-pro-clone");
       ExtraCloneF->addFnAttr("contains-rec-pro-clone");
-      if (IPCloningTrace)
-        dbgs() << "Extra RecProClone Candidate: " << LastCloneF->getName()
-               << "\n";
+      LLVM_DEBUG(dbgs() << "Extra RecProClone Candidate: "
+                        << LastCloneF->getName() << "\n");
     }
     deleteRecProgressionRecCalls(F, *LastCloneF);
     if (ExtraCloneF) {
@@ -1884,8 +1875,10 @@ static void createRecProgressionClones(Function &F,
       addSpecialRecProCloneCode(LastCloneF, ExtraCloneF, BBLastExit,
         BBLastLatch, AILower, AIUpper, CVLower, CVUpper);
       deleteRecProgressionRecCalls(F, *ExtraCloneF);
-      if (IPCloningTrace && SubCount == 3)
-        dbgs() << "All desired subscript bounds substituted\n";
+      LLVM_DEBUG({
+        if (SubCount == 3)
+          dbgs() << "All desired subscript bounds substituted\n";
+      });
     }
   }
 }
@@ -2024,10 +2017,10 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
     if (ValList.size() == 0)
       continue;
 
-    if (IPCloningTrace) {
+    LLVM_DEBUG({
       dbgs() << " Collecting potential constants for Formal_";
       dbgs() << (f_count - 1) << "\n";
-    }
+    });
     if (AfterInl || IsGenRec) {
       unsigned IFCount = 0;
       unsigned SwitchCount = 0;
@@ -2037,8 +2030,7 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
         if (IFCount + SwitchCount == 0) {
           // Qualified unconditionally under the loop heuristic.
           WorthyFormalsForCloning.insert(V);
-          if (IPCloningTrace)
-            dbgs() << "  Selecting FORMAL_" << (f_count - 1) << "\n";
+          LLVM_DEBUG(dbgs() << "  Selecting FORMAL_" << (f_count - 1) << "\n");
         } else {
           // Qualified under the if-switch heuristic. Mark the formal as
           // pending for now, and qualify it later if the total number of
@@ -2047,19 +2039,19 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
           GlobalIFCount += IFCount;
           GlobalSwitchCount += SwitchCount;
           PossiblyWorthyFormalsForCloning.insert(V);
-          if (IPCloningTrace) {
+          LLVM_DEBUG({
             dbgs() << "  Pending FORMAL_" << (f_count - 1) << "\n";
             dbgs() << "    IFCount " << GlobalIFCount << " <- "
                    << IFCount << "\n";
             dbgs() << "    SwitchCount " << GlobalSwitchCount << " <- "
                    << SwitchCount << "\n";
-          }
+          });
         }
       } else {
-        if (IPCloningTrace) {
+        LLVM_DEBUG({
           dbgs() << "  Skipping FORMAL_" << (f_count - 1);
           dbgs() << " due to heuristics\n";
-        }
+        });
       }
     } else {
       // No heuristics for IPCloning before Inlining, unless IsGenRec
@@ -2070,27 +2062,25 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
       GlobalSwitchCount >= IPGenCloningMinSwitchCount) {
     // There are enough "if" and "switch" values to qualify the clone under
     // the if-switch heuristic. Convert the pending formals to qualified.
-    if (IPCloningTrace)
-      dbgs() << "  Selecting all Pending FORMALs\n";
+    LLVM_DEBUG(dbgs() << "  Selecting all Pending FORMALs\n");
     for (Value *W : PossiblyWorthyFormalsForCloning)
       WorthyFormalsForCloning.insert(W);
   } else if (IsGenRec && PossiblyWorthyFormalsForCloning.size() >=
       IPGenCloningMinRecFormalCount) {
-    if (IPCloningTrace)
-      dbgs() << "  Possibly selecting all Pending FORMALs in "
-             << "Recursive Function\n";
+    LLVM_DEBUG(dbgs() << "  Possibly selecting all Pending FORMALs in "
+                      << "Recursive Function\n");
     for (Value *W : PossiblyWorthyFormalsForCloning)
       WorthyFormalsForCloning.insert(W);
     *IsGenRecQualified = true;
   } else if (SawPending) {
-    if (IPCloningTrace) {
+    LLVM_DEBUG({
       if (GlobalIFCount < IPGenCloningMinIFCount)
         dbgs() << "  IFCount (" << GlobalIFCount << ") < Limit ("
                << IPGenCloningMinIFCount << ")\n";
       if (GlobalSwitchCount < IPGenCloningMinSwitchCount)
         dbgs() << "  SwitchCount (" << GlobalSwitchCount << ") < Limit ("
                << IPGenCloningMinSwitchCount << ")\n";
-    }
+    });
   }
   // Return false if none of formals is selected.
   if (WorthyFormalsForCloning.size() == 0)
@@ -2117,20 +2107,18 @@ static bool collectAllConstantArgumentsSets(Function &F) {
     CallInstArgumentSetIndexMap[CI] = index;
 
     if (FunctionAllArgumentsSets.size() > IPFunctionCloningLimit) {
-      if (IPCloningTrace)
-        dbgs() << "     Exceeding number of argument sets limit \n";
+      LLVM_DEBUG(dbgs() << "     Exceeding number of argument sets limit \n");
       return false;
     }
   }
   if (FunctionAllArgumentsSets.size() == 0) {
-    if (IPCloningTrace)
-      dbgs() << "     Zero argument sets found \n";
+    LLVM_DEBUG(dbgs() << "     Zero argument sets found \n");
     return false;
   }
-  if (IPCloningTrace) {
+  LLVM_DEBUG({
     dbgs() << "    Number of argument sets found: ";
     dbgs() << FunctionAllArgumentsSets.size() << "\n";
-  }
+  });
 
   return true;
 }
@@ -2213,9 +2201,7 @@ static void eliminateRecursionIfPossible(Function *ClonedFn,
         okayEliminateRecursion(ClonedFn, index, *CI)) {
       CI->setCalledFunction(ClonedFn);
       NumIPCallsCloned++;
-
-      if (IPCloningTrace)
-        dbgs() << " Replaced Cloned call:   " << *CI << "\n";
+      LLVM_DEBUG(dbgs() << " Replaced Cloned call:   " << *CI << "\n");
     }
   }
 }
@@ -2249,9 +2235,7 @@ static void cloneFunction(void) {
     CI->setCalledFunction(NewFn);
     NumIPCallsCloned++;
     eliminateRecursionIfPossible(NewFn, SrcFn, index);
-
-    if (IPCloningTrace)
-      dbgs() << " Cloned call:   " << *CI << "\n";
+    LLVM_DEBUG(dbgs() << " Cloned call:   " << *CI << "\n");
   }
 }
 
@@ -2289,8 +2273,7 @@ static Value* createGEPAtFrontInClonedFunction(Function* NewFn,
      Indices.push_back(ConstantInt::get(Int32Ty, 0));
 
    Rep = GetElementPtrInst::CreateInBounds(BaseAddr, Indices, "", InsertPt);
-   if (IPCloningTrace)
-     dbgs() << "     Created New GEP: " << *Rep << "\n";
+   LLVM_DEBUG(dbgs() << "     Created New GEP: " << *Rep << "\n");
 
    return Rep;
 }
@@ -2339,11 +2322,9 @@ static GlobalVariable* createGlobalVariableWithInit(Function* NewFn,
                 GlobalValue::PrivateLinkage, nullptr,
                 NewFn->getName()+".clone."+Twine(Counter));
 
-   NewGlobal->setInitializer(ConstantArray::get(ArrayArrayTy, ArrayArrayVec));
-   Counter++;
-
-  if (IPCloningTrace)
-    dbgs() << "     Created New Array:  " << *NewGlobal << "\n";
+  NewGlobal->setInitializer(ConstantArray::get(ArrayArrayTy, ArrayArrayVec));
+  Counter++;
+  LLVM_DEBUG(dbgs() << "     Created New Array:  " << *NewGlobal << "\n");
   return NewGlobal;
 }
 
@@ -2448,11 +2429,11 @@ static void propagateArgumentsToClonedFunction(Function* NewFn,
 
      Rep = getReplacementValueForArg(NewFn, V, Formal, CallI, DL, Counter);
 
-    if (IPCloningTrace) {
+    LLVM_DEBUG({
       dbgs() << "        Formal : " << *AI << "\n";
       dbgs() << "        Value : " << *V << "\n";
       dbgs() << "        Replacement:  " << *Rep << "\n";
-    }
+    });
 
     Formal->replaceAllUsesWith(Rep);
   }
@@ -2537,8 +2518,7 @@ static void cloneSpecializationFunction(void) {
     NewCondStmtBBs.clear();
     NewCondStmts.clear();
     CallInst *CI = CurrCallList[I];
-    if (IPCloningTrace)
-       dbgs() << "\n Call-Site (Spec): " << *CI << "\n\n";
+    LLVM_DEBUG(dbgs() << "\n Call-Site (Spec): " << *CI << "\n\n");
     auto &CallArgsSets = AllCallsArgumentsSets[CI];
 
     if (CallArgsSets.size() == 0)
@@ -2546,8 +2526,7 @@ static void cloneSpecializationFunction(void) {
 
     // No point to specialize, if there is only one arg set for this CallSite
     if (CallArgsSets.size() <= 1) {
-      if (IPCloningTrace)
-        dbgs() << "    Giving up: Not enough cases to specialize\n";
+      LLVM_DEBUG(dbgs() << "    Giving up: Not enough cases to specialize\n");
       continue;
     }
     // Split the BasicBlock containing the CallSite, so that the newly
@@ -2649,7 +2628,7 @@ static void cloneSpecializationFunction(void) {
       RPHI->setDebugLoc(CI->getDebugLoc());
       CI->replaceAllUsesWith(RPHI);
     }
-    if (IPCloningTrace) {
+    LLVM_DEBUG({
       for  (unsigned J = 0; J < CloneCount; J++) {
        if (J < NumConds) {
         dbgs() << "    Cond[" << J << "] = ";
@@ -2663,7 +2642,7 @@ static void cloneSpecializationFunction(void) {
           << *(NewClonedCallBBs[CloneCount]) << "\n\n";
       else
         dbgs() << "    No Fallback Call" << "\n\n";
-    }
+    });
     CI->eraseFromParent();
   }
 }
@@ -2729,49 +2708,46 @@ static bool canChangeCPUAttributes(Module &M) {
       "+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+mpx,+pclmul,"
       "+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,"
       "+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves");
-  if (IPCloningTrace)
-    dbgs() << "Begin test for AVX512->AVX2 conversion\n";
+  LLVM_DEBUG(dbgs() << "Begin test for AVX512->AVX2 conversion\n");
   unsigned FI = llvm::AttributeList::FunctionIndex;
   for (auto &F: M.getFunctionList()) {
     if (!F.hasFnAttribute("target-cpu"))
       continue;
     StringRef TCA = F.getAttribute(FI, "target-cpu").getValueAsString();
     if (TCA != "skylake-avx512") {
-      if (IPCloningTrace)
-        dbgs() << "No AVX512->AVX2 conversion: Not skylake-avx512\n";
+      LLVM_DEBUG(dbgs() << "No AVX512->AVX2 conversion: Not skylake-avx512\n");
       return false;
     }
     StringRef TFA = F.getAttribute(FI, "target-features").getValueAsString();
     if (TFA != SKLAttributes) {
-      if (IPCloningTrace)
-        dbgs() << "No AVX512->AVX2 conversion: Not skylake-avx512 attributes\n";
+      LLVM_DEBUG(dbgs() << "No AVX512->AVX2 conversion: Not skylake-avx512 "
+                           "attributes\n");
       return false;
     }
     for (auto &I : instructions(&F)) {
       if (containsVectorType(I.getType())) {
-        if (IPCloningTrace)
-          dbgs() << "No AVX512->AVX2 conversion: Vector return type\n";
+        LLVM_DEBUG(dbgs() << "No AVX512->AVX2 conversion: Vector return "
+                             "type\n");
         return false;
       }
       for (Value *Op : I.operands())
         if (containsVectorType(Op->getType())) {
-          if (IPCloningTrace)
-            dbgs() << "No AVX512->AVX2 conversion: Vector operand type\n";
+          LLVM_DEBUG(dbgs() << "No AVX512->AVX2 conversion: Vector operand "
+                               "type\n");
           return false;
         }
       auto II = dyn_cast<IntrinsicInst>(&I);
       if (II) {
         Function *Callee = II->getCalledFunction();
         if (Callee && Callee->getName().startswith("llvm.x86")) {
-          if (IPCloningTrace)
-            dbgs() << "No AVX512->AVX2 conversion: Vector intrinsic\n";
+          LLVM_DEBUG(dbgs() << "No AVX512->AVX2 conversion: Vector "
+                               "intrinsic\n");
           return false;
         }
       }
     }
   }
-  if (IPCloningTrace)
-    dbgs() << "AVX512->AVX2 conversion: All tests pass\n";
+  LLVM_DEBUG(dbgs() << "AVX512->AVX2 conversion: All tests pass\n");
   return true;
 }
 
@@ -2798,8 +2774,7 @@ static void changeCPUAttributes(Module &M) {
     Attrs.addAttribute("target-features", AVX2Attributes);
     F.addAttributes(FI, Attrs);
   }
-  if (IPCloningTrace)
-    dbgs() << "AVX512->AVX2 conversion: Conversion complete\n";
+  LLVM_DEBUG(dbgs() << "AVX512->AVX2 conversion: Conversion complete\n");
 }
 
 // END: AVX512->AVX2 conversion code
@@ -2953,53 +2928,53 @@ static bool isManyRecCallsCloneCandidate(Function &F,
   SmallPtrSet<CallBase *, 16> GoodIfCBs;
   SmallPtrSet<CallBase *, 16> GoodSwitchCBs;
   // Reject candidates that don't have enough recursive calls.
-  if (IPCloningTrace)
-    dbgs() << "MRC Cloning: Testing: " << F.getName() << "\n";
+  LLVM_DEBUG(dbgs() << "MRC Cloning: Testing: " << F.getName() << "\n");
   if (NumRecCalls(F) < IPManyRecCallsCloningMinRecCallsites) {
-    if (IPCloningTrace)
-      dbgs() << "MRC Cloning: Skipping: Not enough recursive callsites\n";
+    LLVM_DEBUG(dbgs() << "MRC Cloning: Skipping: Not enough recursive "
+                         "callsites\n");
     return false;
   }
   // Reject vargars candidates for simplicity.
   if (F.isVarArg()) {
-    if (IPCloningTrace)
-      dbgs() << "MRC Cloning: Skipping: Is VarArgs\n";
+    LLVM_DEBUG(dbgs() << "MRC Cloning: Skipping: Is VarArgs\n");
     return false;
   }
   // Collect formal Arguments corresponding to actual arguments with constant
   // values that feed if-tests and switch-tests in 'F'.
   FindArgConstCandidates(F, ConstArgs);
   FindArgTestCandidates(F, ConstArgs, IfArgs, SwitchArgs);
-  if (IPCloningTrace) {
+  LLVM_DEBUG({
     for (Argument *Arg : IfArgs)
       dbgs() << "MRC Cloning: IF ARG #" << Arg->getArgNo() << "\n";
     for (Argument *Arg : SwitchArgs)
       dbgs() << "MRC Cloning: SWITCH ARG #" << Arg->getArgNo() << "\n";
-  }
+  });
   // Reject candidates that don't have at least one if-test argument and only
   // one switch-test argument.
   if (IfArgs.size() == 0 || SwitchArgs.size() != 1)
     return false;
   // Find callsites that pass the if-test heuristic.
   FindGoodIfCallSites(F, IfArgs, GoodIfCBs);
-  if (IPCloningTrace)
+  LLVM_DEBUG({
     for (CallBase *CB : GoodIfCBs)
       dbgs() << "MRC Cloning: GOOD IF CB: " << CB->getCaller()->getName()
              << " " << *CB << "\n";
+  });
   if (GoodIfCBs.size() == 0) {
-    if (IPCloningTrace)
-      dbgs() << "MRC Cloning: Skipping: Not enough good IF candidates\n";
+    LLVM_DEBUG(dbgs() << "MRC Cloning: Skipping: Not enough good IF "
+                         "candidates\n");
     return false;
   }
   // Find callsites that pass the switch-test heuristic.
   FindGoodSwitchCallSites(F, SwitchArgs, GoodSwitchCBs);
-  if (IPCloningTrace)
+  LLVM_DEBUG({
     for (CallBase *CB : GoodSwitchCBs)
       dbgs() << "MRC Cloning: GOOD SWITCH CB: " << CB->getCaller()->getName()
              << " " << *CB << "\n";
+  });
   if (GoodSwitchCBs.size() == 0) {
-    if (IPCloningTrace)
-      dbgs() << "MRC Cloning: Skipping: Not enough good SWITCH candidates\n";
+    LLVM_DEBUG(dbgs() << "MRC Cloning: Skipping: Not enough good SWITCH "
+                         "candidates\n");
     return false;
   }
   // Get the intersection of the callsites that pass both the if-test heuristic
@@ -3007,16 +2982,16 @@ static bool isManyRecCallsCloneCandidate(Function &F,
   // i.e. the ones that should be transformed.
   FindBestCallSites(GoodIfCBs, GoodSwitchCBs, BestCBs);
   if (BestCBs.size() == 0) {
-    if (IPCloningTrace)
-      dbgs() << "MRC Cloning: Skipping: No BEST callsite identified\n";
+    LLVM_DEBUG(dbgs() << "MRC Cloning: Skipping: No BEST callsite "
+                         "identified\n");
     return false;
   }
-  if (IPCloningTrace)
+  LLVM_DEBUG({
     for (CallBase *CB : BestCBs)
       dbgs() << "MRC Cloning: BEST CB: " << CB->getCaller()->getName()
              << " " << *CB << "\n";
-  if (IPCloningTrace)
     dbgs() << "MRC Cloning: OK: " << F.getName() << "\n";
+  });
   return true;
 }
 
@@ -3250,9 +3225,8 @@ static void createManyRecCallsClone(Function &F,
     ValueToValueMapTy VMap;
     // Clone the original F to NewF
     Function *NewF = CloneFunction(&F, VMap);
-    if (IPCloningTrace)
-      dbgs() << "MRC Cloning: " << F.getName() << " TO "
-             << NewF->getName() << "\n";
+    LLVM_DEBUG(dbgs() << "MRC Cloning: " << F.getName() << " TO "
+                      << NewF->getName() << "\n");
     // Surround the best callsite with a test which allows the clone
     // to be called when the right arguments are constant.
     SmallArgConstMap ArgConstMap;
@@ -3312,34 +3286,31 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
                                         bool IFSwitchHeuristic) {
   bool FunctionAddressTaken;
 
-  if (IPCloningTrace) {
+  LLVM_DEBUG({
     dbgs() << " Enter IP cloning";
     if (AfterInl)
       dbgs() << ": (After inlining)\n";
     else
       dbgs() << ": (Before inlining)\n";
-  }
+  });
 
   ClonedFunctionList.clear();
 
   for (Function &F : M) {
 
     if (skipAnalyzeCallsOfFunction(F)) {
-      if (IPCloningTrace)
-        dbgs() << " Skipping " << F.getName() << "\n";
+      LLVM_DEBUG(dbgs() << " Skipping " << F.getName() << "\n");
       continue;
     }
 
     clearAllMaps();
 
-    if (IPCloningTrace)
-      dbgs() << " Cloning Analysis for:  " <<  F.getName() << "\n";
+    LLVM_DEBUG(dbgs() << " Cloning Analysis for:  " <<  F.getName() << "\n");
 
     IPCloneKind CloneType;
     if (AfterInl) {
       CloneType = GenericClone;
-      if (IPCloningTrace)
-        dbgs() << "    Selected generic cloning  " << "\n";
+      LLVM_DEBUG(dbgs() << "    Selected generic cloning  " << "\n");
     } else {
       int Start, Inc;
       unsigned ArgPos, Count;
@@ -3347,8 +3318,7 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
       if (isRecProgressionCloneCandidate(F, true,
           &ArgPos, &Count, &Start, &Inc, &IsByRef, &IsCyclic)) {
         CloneType = RecProgressionClone;
-        if (IPCloningTrace)
-          dbgs() << "    Selected RecProgression cloning  " << "\n";
+        LLVM_DEBUG(dbgs() << "    Selected RecProgression cloning  " << "\n");
         createRecProgressionClones(F, ArgPos, Count, Start, Inc, IsByRef,
                                    IsCyclic);
         if (!IsCyclic && canChangeCPUAttributes(M))
@@ -3361,26 +3331,24 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
       // function-pointer type argument.
       if (IsFunctionPtrCloneCandidate(F)) {
         CloneType = FuncPtrsClone;
-        if (IPCloningTrace)
-          dbgs() << "    Selected FuncPtrs cloning  " << "\n";
+        LLVM_DEBUG(dbgs() << "    Selected FuncPtrs cloning  " << "\n");
       } else if (isDirectlyRecursive(&F)) {
         SmallPtrSet<Argument *, 16> IfArgs;
         SmallPtrSet<Argument *, 16> SwitchArgs;
         SmallPtrSet<CallBase *, 16> BestCBs;
         if (isManyRecCallsCloneCandidate(F, IfArgs, SwitchArgs, BestCBs)) {
           CloneType = ManyRecCallsClone;
-          if (IPCloningTrace)
-            dbgs() << "    Selected many recursive calls cloning " << "\n";
+          LLVM_DEBUG(dbgs() << "    Selected many recursive calls cloning "
+                            << "\n");
           createManyRecCallsClone(F, IfArgs, SwitchArgs, BestCBs);
           continue;
         }
         CloneType = GenericClone;
-        if (IPCloningTrace)
-          dbgs() << "    Selected generic cloning (recursive) " << "\n";
+        LLVM_DEBUG(dbgs() << "    Selected generic cloning (recursive) "
+                          << "\n");
       } else {
         CloneType = SpecializationClone;
-        if (IPCloningTrace)
-          dbgs() << "    Selected Specialization cloning  " << "\n";
+        LLVM_DEBUG(dbgs() << "    Selected Specialization cloning  " << "\n");
       }
     }
 
@@ -3389,15 +3357,14 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
     // It is okay to enable cloning for address taken routines but
     // disable it for now.
     if (FunctionAddressTaken) {
-      if (IPCloningTrace)
-        dbgs() << " Skipping address taken " << F.getName() << "\n";
+      LLVM_DEBUG(dbgs() << " Skipping address taken " << F.getName() << "\n");
       continue;
     }
 
     if (CloneType == SpecializationClone && CurrCallList.size() != 0) {
       if (CurrCallList.size() > IPSpeCloningNumCallSitesLimit) {
-        if (IPCloningTrace)
-          dbgs() << " Too many CallSites: Skipping Specialization cloning\n";
+        LLVM_DEBUG(dbgs() << " Too many CallSites: Skipping Specialization "
+                             "cloning\n");
         continue;
       }
       // Transformation done here if Specialization cloning is kicked-in.
@@ -3406,25 +3373,23 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
     }
 
     if (FormalConstantValues.size() == 0 || CurrCallList.size() == 0) {
-      if (IPCloningTrace)
-        dbgs() << " Skipping non-candidate " << F.getName() << "\n";
+      LLVM_DEBUG(dbgs() << " Skipping non-candidate " << F.getName() << "\n");
       continue;
     }
 
-    if (IPCloningTrace)
-      dumpFormalsConstants(F);
+    LLVM_DEBUG(dumpFormalsConstants(F));
 
     unsigned MaxClones = getMaxClones();
     unsigned MinClones = getMinClones();
 
-    if (IPCloningTrace) {
+    LLVM_DEBUG({
       dbgs() << " Max clones:  " << MaxClones << "\n";
       dbgs() << " Min clones:  " << MinClones << "\n";
-    }
+    });
 
     if (MaxClones <= 1 || MinClones > IPFunctionCloningLimit) {
-      if (IPCloningTrace)
-        dbgs() << " Skipping not worthy candidate " << F.getName() << "\n";
+      LLVM_DEBUG(dbgs() << " Skipping not worthy candidate "
+                        << F.getName() << "\n");
       continue;
     }
 
@@ -3434,14 +3399,14 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
     bool IsGenRecQualified = false;
     if (!findWorthyFormalsForCloning(F, AfterInl, IFSwitchHeuristic, IsGenRec,
       &IsGenRecQualified)) {
-      if (IPCloningTrace)
-        dbgs() << " Skipping due to Heuristics " << F.getName() << "\n";
+      LLVM_DEBUG(dbgs() << " Skipping due to Heuristics "
+                        << F.getName() << "\n");
       continue;
     }
 
     if (!collectAllConstantArgumentsSets(F)) {
-      if (IPCloningTrace)
-        dbgs() << " Skipping not profitable candidate " << F.getName() << "\n";
+      LLVM_DEBUG(dbgs() << " Skipping not profitable candidate "
+                        << F.getName() << "\n");
       continue;
     }
 
@@ -3450,17 +3415,17 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
     // and at least 'IPGenCloningMinRecCallsites' callsites.
     if (IsGenRecQualified && (FunctionAllArgumentsSets.size() != 1
       || CurrCallList.size() < IPGenCloningMinRecCallsites)) {
-      if (IPCloningTrace)
+      LLVM_DEBUG({
         dbgs() << " Skipping not profitable recursive candidate "
                << F.getName() << "\n";
+      });
       continue;
     }
 
     cloneFunction();
   }
 
-  if (IPCloningTrace)
-    dbgs() << " Total clones:  " << NumIPCloned << "\n";
+  LLVM_DEBUG(dbgs() << " Total clones:  " << NumIPCloned << "\n");
 
   if (NumIPCloned != 0)
     return true;

@@ -1,22 +1,9 @@
 ; Test that generic cloning based on the if-switch heuristic occurred.
+; This is the same test as ip_cloning_6.ll, but checks the IR only without
+; requiring asserts.
 
-; REQUIRES: asserts
-; RUN: opt < %s -ip-gen-cloning-enable-morphology -debug-only=ipcloning -ip-cloning -ip-cloning-after-inl -ip-cloning-if-heuristic -ip-cloning-switch-heuristic -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=2 -ip-gen-cloning-min-switch-count=1 -S 2>&1 | FileCheck %s
-; RUN: opt < %s -ip-gen-cloning-enable-morphology -debug-only=ipcloning -passes='module(post-inline-ip-cloning)' -ip-cloning-if-heuristic -ip-cloning-switch-heuristic -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=2 -ip-gen-cloning-min-switch-count=1 -S 2>&1 | FileCheck %s
-
-; CHECK: Enter IP cloning: (After inlining)
-; CHECK: Cloning Analysis for:  foo
-; CHECK: Selected generic cloning
-; CHECK: Pending FORMAL_0
-; CHECK: IFCount 1 <- 1
-; CHECK: SwitchCount 0 <- 0
-; CHECK: Pending FORMAL_1
-; CHECK: IFCount 2 <- 1
-; CHECK: SwitchCount 0 <- 0
-; CHECK: Pending FORMAL_2
-; CHECK: IFCount 2 <- 0
-; CHECK: SwitchCount 1 <- 1
-; CHECK: Selecting all Pending FORMALs
+; RUN: opt < %s -ip-gen-cloning-enable-morphology -ip-cloning -ip-cloning-after-inl -ip-cloning-if-heuristic -ip-cloning-switch-heuristic -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=2 -ip-gen-cloning-min-switch-count=1 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -ip-gen-cloning-enable-morphology -passes='module(post-inline-ip-cloning)' -ip-cloning-if-heuristic -ip-cloning-switch-heuristic -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=2 -ip-gen-cloning-min-switch-count=1 -S 2>&1 | FileCheck %s
 
 ; CHECK: define dso_local i32 @main
 ; CHECK: call i32 @foo.2

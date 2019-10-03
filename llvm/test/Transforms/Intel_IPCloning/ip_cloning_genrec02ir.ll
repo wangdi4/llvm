@@ -1,13 +1,10 @@
-; REQUIRES: asserts
-; RUN: opt < %s -ip-cloning -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-rec-callsites=4 -debug-only=ipcloning -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-rec-callsites=4 -debug-only=ipcloning -S 2>&1 | FileCheck %s
+; RUN: opt < %s -ip-cloning -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-rec-callsites=4 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-rec-callsites=4 -S 2>&1 | FileCheck %s
 
 ; Test that foo is not selected for generic cloning of a recursive routine
 ; because it is not recursive.
-
-; CHECK: Enter IP cloning: (Before inlining)
-; CHECK: Skipping foo
-; CHECK: Skipping main
+; This is the same test as ip_cloning_genrec02.ll, but checks for IR without
+; requiring asserts.
 
 ; CHECK: define dso_local i32 @foo
 ; CHECK: define dso_local i32 @main

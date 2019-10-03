@@ -1,54 +1,12 @@
-; REQUIRES: asserts
-; RUN: opt < %s -ip-cloning -debug-only=ipcloning -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(ip-cloning)' -debug-only=ipcloning -S 2>&1 | FileCheck %s
+; RUN: opt < %s -ip-cloning -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(ip-cloning)' -S 2>&1 | FileCheck %s
 
 ; Test that the function foo is recognized as a recursive progression clone
 ; and eight clones of it are created. Also test that the recursive progression
 ; is not cyclic. This case is slightly more complicated than the
 ; ip_cloning_recpro04.ll case, and is closer to the case we care most about.
-
-; CHECK: Cloning Analysis for:  foo
-; CHECK: Selected RecProgression cloning
-; CHECK: Function: foo.1
-; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
-; CHECK: IsByRef : T
-; CHECK: Replacement:  i32 1
-; CHECK: Function: foo.2
-; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
-; CHECK: IsByRef : T
-; CHECK: Replacement:  i32 2
-; CHECK: Function: foo.3
-; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
-; CHECK: IsByRef : T
-; CHECK: Replacement:  i32 3
-; CHECK: Function: foo.4
-; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
-; CHECK: IsByRef : T
-; CHECK: Replacement:  i32 4
-; CHECK: Function: foo.5
-; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
-; CHECK: IsByRef : T
-; CHECK: Replacement:  i32 5
-; CHECK: Function: foo.6
-; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
-; CHECK: IsByRef : T
-; CHECK: Replacement:  i32 6
-; CHECK: Function: foo.7
-; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
-; CHECK: IsByRef : T
-; CHECK: Replacement:  i32 7
-; CHECK: Function: foo.8
-; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
-; CHECK: IsByRef : T
-; CHECK: Replacement:  i32 8
+; This is the same test as ip_cloning_recpro07.ll, but checks for IR without
+; requiring asserts.
 
 ; CHECK: define dso_local void @MAIN__
 ; CHECK: define internal void @foo

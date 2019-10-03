@@ -1,64 +1,18 @@
-; REQUIRES: asserts
-; RUN: opt < %s -ip-cloning -debug-only=ipcloning -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(ip-cloning)' -debug-only=ipcloning -S 2>&1 | FileCheck %s
+; RUN: opt < %s -ip-cloning -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(ip-cloning)' -S 2>&1 | FileCheck %s
 
 ; Test that the function @good is recognized as a recursive progression clone
 ; and eight clones of it are created. Also that it is a candidate for creating
 ; an extra clone, and that AVX512 has NOT been transformed to AVX2, because
-; a function uses a vector type.
-
-; CHECK: Enter IP cloning: (Before inlining)
-; CHECK: Cloning Analysis for:  good
-; CHECK: Selected RecProgression cloning
-; CHECK: Function: good.1
-; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
-; CHECK: IsByRef : T
-; CHECK: Replacement:  i32 1
-; CHECK: Function: good.2
-; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
-; CHECK: IsByRef : T
-; CHECK: Replacement:  i32 2
-; CHECK: Function: good.3
-; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
-; CHECK: IsByRef : T
-; CHECK: Replacement:  i32 3
-; CHECK: Function: good.4
-; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
-; CHECK: IsByRef : T
-; CHECK: Replacement:  i32 4
-; CHECK: Function: good.5
-; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
-; CHECK: IsByRef : T
-; CHECK: Replacement:  i32 5
-; CHECK: Function: good.6
-; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
-; CHECK: IsByRef : T
-; CHECK: Replacement:  i32 6
-; CHECK: Function: good.7
-; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
-; CHECK: IsByRef : T
-; CHECK: Replacement:  i32 7
-; CHECK: Function: good.8
-; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %0
-; CHECK: IsByRef : T
-; CHECK: Replacement:  i32 8
-; CHECK: Extra RecProClone Candidate: good.8
-; CHECK: Begin test for AVX512->AVX2 conversion
-; CHECK: No AVX512->AVX2 conversion: Vector operand type
+; a function calls a vector intrinsic.
+; This is the same test as ip_cloning_recpro14.ll, but checks for IR without
+; requiring asserts.
 
 ; Check for sequence of eight clones with transformed attributes:
 
-; CHECK: define internal i32 @vtest(<4 x i32> %a) #2
 ; CHECK: define dso_local void @MAIN__() #2
 ; CHECK: call void @good.1
+; CHECK: call void @llvm.x86.clflushopt
 ; CHECK: define internal void @good{{.*}}#2
 ; CHECK: call void @good
 ; CHECK: define internal void @good.1{{.*}}#3
@@ -121,15 +75,12 @@ declare i32 @brute_force_mp_covered_({ i32*, i64, i64, i64, i64, i64, [2 x { i64
 
 declare void @llvm.x86.clflushopt(i8* noalias nocapture readonly)
 
-define internal i32 @vtest(<4 x i32> %a) #0 {
-  %b = extractelement <4 x i32> %a, i64 1
-  ret i32 %b
-}
-
 define dso_local void @MAIN__() #0 {
   %1 = alloca i32, align 4
   store i32 1, i32* %1, align 4
   call void @good(i32* nonnull %1)
+  %2 = alloca i8, align 4
+  call void @llvm.x86.clflushopt(i8* nonnull %2)
   ret void
 }
 
