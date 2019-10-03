@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 set(INTEL_SOURCE_FILES_TO_BUILD)
 intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
@@ -15,10 +14,6 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
 # end INTEL_FEATURE_CSA
 # end INTEL_CUSTOMIZATION
 
-add_subdirectory(GlobalISel)
-
-=======
->>>>>>> 43817e1915bbe5fcead2f33d8effaaf7f10571a5
 set(LLVM_LINK_COMPONENTS Support)
 
 add_tablegen(llvm-tblgen LLVM
