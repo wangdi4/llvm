@@ -1426,7 +1426,7 @@ StoreInst::StoreInst(Value *val, Value *addr, bool isVolatile,
   Op<0>() = val;
   Op<1>() = addr;
   setVolatile(isVolatile);
-  setAlignment(Align);
+  setAlignment(MaybeAlign(Align));
   setAtomic(Order, SSID);
   AssertOK();
 }
@@ -1442,13 +1442,9 @@ StoreInst::StoreInst(Value *val, Value *addr, bool isVolatile,
   Op<0>() = val;
   Op<1>() = addr;
   setVolatile(isVolatile);
-  setAlignment(Align);
+  setAlignment(MaybeAlign(Align));
   setAtomic(Order, SSID);
   AssertOK();
-}
-
-void StoreInst::setAlignment(unsigned Align) {
-  setAlignment(llvm::MaybeAlign(Align));
 }
 
 void StoreInst::setAlignment(MaybeAlign Align) {
