@@ -2602,7 +2602,8 @@ RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
 // for use in generating the load/store HLInst.
 static RegDDRef *getPointerOperand(RegDDRef *PtrOp, HLNodeUtils &HNU,
                                    DDRefUtils &DDU, CanonExprUtils &CEU,
-                                   Type *VecRefDestTy, unsigned AddressSpace) {
+                                   Type *VecRefDestTy, unsigned AddressSpace,
+                                   unsigned VF) {
   RegDDRef *AddrRef;
   if (PtrOp->isAddressOf()) {
     // We generate an addressof ref from the GEP instruction. For
@@ -2621,6 +2622,11 @@ static RegDDRef *getPointerOperand(RegDDRef *PtrOp, HLNodeUtils &HNU,
     auto Int32Ty = Type::getInt32Ty(HNU.getContext());
     auto Int64Ty = Type::getInt64Ty(HNU.getContext());
     auto Zero = CEU.createCanonExpr(Is64Bit ? Int64Ty : Int32Ty);
+
+    // We need to set destination type of the created canon expression
+    // to VF wide vector type.
+    Zero->setDestType(VectorType::get(Zero->getSrcType(), VF));
+
     AddrRef->addDimension(Zero);
   }
   AddrRef->setBitCastDestType(PointerType::get(VecRefDestTy, AddressSpace));
@@ -3065,7 +3071,7 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
     unsigned AddressSpace =
         cast<PointerType>(VPInst->getOperand(0)->getType())->getAddressSpace();
     RegDDRef *AddrRef = getPointerOperand(WideOps[0], HNU, DDU, CEU,
-                                          VecRefDestTy, AddressSpace);
+                                          VecRefDestTy, AddressSpace, VF);
     // TODO - Alignment information needs to be obtained from VPInstruction.
     // For now we are forcing alignment based on RefDestTy.
     setRefAlignment(RefDestTy, AddrRef);
@@ -3078,7 +3084,7 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
     unsigned AddressSpace =
         cast<PointerType>(VPInst->getOperand(1)->getType())->getAddressSpace();
     RegDDRef *AddrRef = getPointerOperand(WideOps[1], HNU, DDU, CEU,
-                                          VecRefDestTy, AddressSpace);
+                                          VecRefDestTy, AddressSpace, VF);
     // TODO - Alignment information needs to be obtained from VPInstruction.
     // For now we are forcing alignment based on scalar type of value being
     // stored.

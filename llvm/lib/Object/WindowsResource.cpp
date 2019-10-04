@@ -722,7 +722,9 @@ WindowsResourceCOFFWriter::write(uint32_t TimeDateStamp) {
 static void coffnamecpy(char (&Dest)[COFF::NameSize], StringRef Src) {
   assert(Src.size() <= COFF::NameSize &&
          "Src is not larger than COFF::NameSize");
-  strncpy(Dest, Src.data(), (size_t)COFF::NameSize);
+#if INTEL_CUSTOMIZATION
+  memcpy(Dest, Src.data(), (size_t)COFF::NameSize);
+#endif // INTEL_CUSTOMIZATION
 }
 
 void WindowsResourceCOFFWriter::writeCOFFHeader(uint32_t TimeDateStamp) {
