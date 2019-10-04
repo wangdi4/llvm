@@ -19,29 +19,23 @@
 ;}
 
 ; REQUIRES: asserts
-; RUN: opt < %s -O2 -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -debug-only=ovls -disable-hir-complete-unroll -enable-vplan-vls-cg=false 2>&1 | FileCheck %s
+; RUN: opt < %s -O2 -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -debug-only=ovls -disable-hir-complete-unroll -enable-vplan-vls-cg=false -vplan-force-vf=8 2>&1 | FileCheck %s
 
-; CHECK-LABEL: Received a request from Client---FORM GROUPS
-; CHECK: Set #1
-; CHECK-NEXT: [[L1:#.*]] <[[VF:[0-9]+]] x 32> SLoad   Dist: 0
-; CHECK-NEXT: [[L2:#.*]] <[[VF]] x 32> SLoad   Dist: 4
-; CHECK-NEXT: [[L3:#.*]] <[[VF]] x 32> SLoad   Dist: 8
-; CHECK: Set #2
-; CHECK-NEXT: [[S1:#.*]] <[[VF]] x 32> SStore   Dist: 0
-; CHECK-NEXT: [[S2:#.*]] <[[VF]] x 32> SStore   Dist: 4
-; CHECK-NEXT: [[S3:#.*]] <[[VF]] x 32> SStore   Dist: 8
-; CHECK-LABEL: Printing Groups- Total Groups 2
-; CHECK: Group#1
-; CHECK: [[L1]] <[[VF]] x 32> SLoad
-; CHECK: [[L2]] <[[VF]] x 32> SLoad
-; CHECK: [[L3]] <[[VF]] x 32> SLoad
-; CHECK: Group#2
-; CHECK: [[S1]] <[[VF]] x 32> SStore
-; CHECK: [[S2]] <[[VF]] x 32> SStore
-; CHECK: [[S3]] <[[VF]] x 32> SStore
-
-; ModuleID = 'vectvls.cpp'
-source_filename = "vectvls.cpp"
+; CHECK:       Printing Groups- Total Groups 2
+; CHECK-NEXT:  Group#1
+; CHECK-NEXT:    Vector Length(in bytes): 64
+; CHECK-NEXT:    AccType: SLoad, Stride (in bytes): 12
+; CHECK-NEXT:    AccessMask(per byte, R to L): 111111111111
+; CHECK-NEXT:   #1 <8 x 32> SLoad
+; CHECK-NEXT:   #2 <8 x 32> SLoad
+; CHECK-NEXT:   #3 <8 x 32> SLoad
+; CHECK-NEXT:  Group#2
+; CHECK-NEXT:    Vector Length(in bytes): 64
+; CHECK-NEXT:    AccType: SStore, Stride (in bytes): 12
+; CHECK-NEXT:    AccessMask(per byte, R to L): 111111111111
+; CHECK-NEXT:   #4 <8 x 32> SStore
+; CHECK-NEXT:   #5 <8 x 32> SStore
+; CHECK-NEXT:   #6 <8 x 32> SStore
 
 @x = dso_local local_unnamed_addr global [300 x i32] zeroinitializer, align 16
 

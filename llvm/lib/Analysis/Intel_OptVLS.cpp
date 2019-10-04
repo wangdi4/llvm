@@ -1700,6 +1700,7 @@ void OVLSGroup::print(OVLSostream &OS, unsigned NumSpaces) const {
   // print accessType
   OS << "\n    AccType: ";
   getAccessKind().print(OS);
+  OS << ", Stride (in bytes): " << getConstStride();
 
   // Print result mask
   OS << "\n    AccessMask(per byte, R to L): ";

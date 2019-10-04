@@ -23,46 +23,46 @@ define void @foo(i32* nocapture %ary) {
 ; CHECK:       Printing Groups- Total Groups 8
 ; CHECK-NEXT:  Group#1
 ; CHECK-NEXT:    Vector Length(in bytes): 64
-; CHECK-NEXT:    AccType: SLoad
+; CHECK-NEXT:    AccType: SLoad, Stride (in bytes): 16
 ; CHECK-NEXT:    AccessMask(per byte, R to L): 111111111111
 ; CHECK-NEXT:   #2 <4 x 32> SLoad
 ; CHECK-NEXT:   #5 <4 x 32> SLoad
 ; CHECK-NEXT:   #3 <4 x 32> SLoad
 ; CHECK-NEXT:  Group#2
 ; CHECK-NEXT:    Vector Length(in bytes): 64
-; CHECK-NEXT:    AccType: SLoad
+; CHECK-NEXT:    AccType: SLoad, Stride (in bytes): 16
 ; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
 ; CHECK-NEXT:   #1 <4 x 32> SLoad
 ; CHECK-NEXT:  Group#3
 ; CHECK-NEXT:    Vector Length(in bytes): 64
-; CHECK-NEXT:    AccType: SLoad
+; CHECK-NEXT:    AccType: SLoad, Stride (in bytes): 16
 ; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
 ; CHECK-NEXT:   #4 <4 x 32> SLoad
 ; CHECK-NEXT:  Group#4
 ; CHECK-NEXT:    Vector Length(in bytes): 64
-; CHECK-NEXT:    AccType: SLoad
+; CHECK-NEXT:    AccType: SLoad, Stride (in bytes): 16
 ; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
 ; CHECK-NEXT:   #6 <4 x 32> SLoad
 ; CHECK-NEXT:  Group#5
 ; CHECK-NEXT:    Vector Length(in bytes): 64
-; CHECK-NEXT:    AccType: SStore
+; CHECK-NEXT:    AccType: SStore, Stride (in bytes): 16
 ; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
 ; CHECK-NEXT:   #10 <4 x 32> SStore
 ; CHECK-NEXT:  Group#6
 ; CHECK-NEXT:    Vector Length(in bytes): 64
-; CHECK-NEXT:    AccType: SStore
+; CHECK-NEXT:    AccType: SStore, Stride (in bytes): 16
 ; CHECK-NEXT:    AccessMask(per byte, R to L): 111111111111
 ; CHECK-NEXT:   #7 <4 x 32> SStore
 ; CHECK-NEXT:   #8 <4 x 32> SStore
 ; CHECK-NEXT:   #9 <4 x 32> SStore
 ; CHECK-NEXT:  Group#7
 ; CHECK-NEXT:    Vector Length(in bytes): 64
-; CHECK-NEXT:    AccType: SStore
+; CHECK-NEXT:    AccType: SStore, Stride (in bytes): 16
 ; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
 ; CHECK-NEXT:   #11 <4 x 32> SStore
 ; CHECK-NEXT:  Group#8
 ; CHECK-NEXT:    Vector Length(in bytes): 64
-; CHECK-NEXT:    AccType: SStore
+; CHECK-NEXT:    AccType: SStore, Stride (in bytes): 16
 ; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
 ; CHECK-NEXT:   #12 <4 x 32> SStore
 ;
