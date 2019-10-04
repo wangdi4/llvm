@@ -1,21 +1,17 @@
 /*
-    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2019 Intel Corporation
 
-    The source code contained or described herein and all documents related
-    to the source code ("Material") are owned by Intel Corporation or its
-    suppliers or licensors.  Title to the Material remains with Intel
-    Corporation or its suppliers and licensors.  The Material is protected
-    by worldwide copyright laws and treaty provisions.  No part of the
-    Material may be used, copied, reproduced, modified, published, uploaded,
-    posted, transmitted, distributed, or disclosed in any way without
-    Intel's prior express written permission.
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    No license under any patent, copyright, trade secret or other
-    intellectual property right is granted to or conferred upon you by
-    disclosure or delivery of the Materials, either expressly, by
-    implication, inducement, estoppel or otherwise.  Any license under such
-    intellectual property rights must be express and approved by Intel in
-    writing.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
 */
 
 #ifndef __TBB__x86_rtm_rw_mutex_impl_H
@@ -88,11 +84,11 @@ private:
 
     static x86_rtm_rw_mutex* internal_get_mutex( const spin_rw_mutex::scoped_lock& lock )
     {
-        return static_cast<x86_rtm_rw_mutex*>( lock.internal_get_mutex() );
+        return static_cast<x86_rtm_rw_mutex*>( lock.mutex );
     }
     static void internal_set_mutex( spin_rw_mutex::scoped_lock& lock, spin_rw_mutex* mtx )
     {
-        lock.internal_set_mutex( mtx );
+        lock.mutex = mtx;
     }
     //! @endcond
 public:
@@ -171,7 +167,8 @@ private:
         bool upgrade_to_writer() {
             x86_rtm_rw_mutex* mutex = x86_rtm_rw_mutex::internal_get_mutex(my_scoped_lock);
             __TBB_ASSERT( mutex, "lock is not acquired" );
-            __TBB_ASSERT( transaction_state==RTM_transacting_reader || transaction_state==RTM_real_reader, "Invalid state for upgrade" );
+            if (transaction_state == RTM_transacting_writer || transaction_state == RTM_real_writer)
+                return true; // Already a writer
             return mutex->internal_upgrade(*this);
         }
 
@@ -180,7 +177,8 @@ private:
         bool downgrade_to_reader() {
             x86_rtm_rw_mutex* mutex = x86_rtm_rw_mutex::internal_get_mutex(my_scoped_lock);
             __TBB_ASSERT( mutex, "lock is not acquired" );
-            __TBB_ASSERT( transaction_state==RTM_transacting_writer || transaction_state==RTM_real_writer, "Invalid state for downgrade" );
+            if (transaction_state == RTM_transacting_reader || transaction_state == RTM_real_reader)
+                return true; // Already a reader
             return mutex->internal_downgrade(*this);
         }
 

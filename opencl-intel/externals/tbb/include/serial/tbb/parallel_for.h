@@ -1,44 +1,46 @@
 /*
-    Copyright 2005-2017 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2019 Intel Corporation
 
-    The source code contained or described herein and all documents related
-    to the source code ("Material") are owned by Intel Corporation or its
-    suppliers or licensors.  Title to the Material remains with Intel
-    Corporation or its suppliers and licensors.  The Material is protected
-    by worldwide copyright laws and treaty provisions.  No part of the
-    Material may be used, copied, reproduced, modified, published, uploaded,
-    posted, transmitted, distributed, or disclosed in any way without
-    Intel's prior express written permission.
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    No license under any patent, copyright, trade secret or other
-    intellectual property right is granted to or conferred upon you by
-    disclosure or delivery of the Materials, either expressly, by
-    implication, inducement, estoppel or otherwise.  Any license under such
-    intellectual property rights must be express and approved by Intel in
-    writing.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
 */
+
+#include "../../tbb/internal/_deprecated_header_message_guard.h"
+
+#if !defined(__TBB_show_deprecation_message_parallel_for_H) && defined(__TBB_show_deprecated_header_message)
+#define  __TBB_show_deprecation_message_parallel_for_H
+#pragma message("TBB Warning: serial/tbb/parallel_for.h is deprecated. For details, please see Deprecated Features appendix in the TBB reference manual.")
+#endif
+
+#if defined(__TBB_show_deprecated_header_message)
+#undef __TBB_show_deprecated_header_message
+#endif
 
 #ifndef __TBB_SERIAL_parallel_for_H
 #define __TBB_SERIAL_parallel_for_H
-
-#if !TBB_USE_EXCEPTIONS && _MSC_VER
-    // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
-    #pragma warning (push)
-    #pragma warning (disable: 4530)
-#endif
-
-#include <stdexcept>
-#include <string> // required to construct std exception classes
-
-#if !TBB_USE_EXCEPTIONS && _MSC_VER
-    #pragma warning (pop)
-#endif
 
 #include "tbb_annotate.h"
 
 #ifndef __TBB_NORMAL_EXECUTION
 #include "tbb/blocked_range.h"
 #include "tbb/partitioner.h"
+#endif
+
+#if TBB_USE_EXCEPTIONS
+#include <stdexcept>
+#include <string> // required to construct std exception classes
+#else
+#include <cstdlib>
+#include <iostream>
 #endif
 
 namespace tbb {
@@ -103,44 +105,49 @@ void start_for< Range, Body, Partitioner >::execute() {
 //! Parallel iteration over range with default partitioner.
 /** @ingroup algorithms **/
 template<typename Range, typename Body>
-void parallel_for( const Range& range, const Body& body ) {
+__TBB_DEPRECATED_VERBOSE void parallel_for( const Range& range, const Body& body ) {
     serial::interface9::start_for<Range,Body,const __TBB_DEFAULT_PARTITIONER>::run(range,body,__TBB_DEFAULT_PARTITIONER());
 }
 
 //! Parallel iteration over range with simple partitioner.
 /** @ingroup algorithms **/
 template<typename Range, typename Body>
-void parallel_for( const Range& range, const Body& body, const simple_partitioner& partitioner ) {
+__TBB_DEPRECATED_VERBOSE void parallel_for( const Range& range, const Body& body, const simple_partitioner& partitioner ) {
     serial::interface9::start_for<Range,Body,const simple_partitioner>::run(range,body,partitioner);
 }
 
 //! Parallel iteration over range with auto_partitioner.
 /** @ingroup algorithms **/
 template<typename Range, typename Body>
-void parallel_for( const Range& range, const Body& body, const auto_partitioner& partitioner ) {
+__TBB_DEPRECATED_VERBOSE void parallel_for( const Range& range, const Body& body, const auto_partitioner& partitioner ) {
     serial::interface9::start_for<Range,Body,const auto_partitioner>::run(range,body,partitioner);
 }
 
 //! Parallel iteration over range with static_partitioner.
 /** @ingroup algorithms **/
 template<typename Range, typename Body>
-void parallel_for( const Range& range, const Body& body, const static_partitioner& partitioner ) {
+__TBB_DEPRECATED_VERBOSE void parallel_for( const Range& range, const Body& body, const static_partitioner& partitioner ) {
     serial::interface9::start_for<Range,Body,const static_partitioner>::run(range,body,partitioner);
 }
 
 //! Parallel iteration over range with affinity_partitioner.
 /** @ingroup algorithms **/
 template<typename Range, typename Body>
-void parallel_for( const Range& range, const Body& body, affinity_partitioner& partitioner ) {
+__TBB_DEPRECATED_VERBOSE void parallel_for( const Range& range, const Body& body, affinity_partitioner& partitioner ) {
     serial::interface9::start_for<Range,Body,affinity_partitioner>::run(range,body,partitioner);
 }
 
 //! Implementation of parallel iteration over stepped range of integers with explicit step and partitioner (ignored)
 template <typename Index, typename Function, typename Partitioner>
 void parallel_for_impl(Index first, Index last, Index step, const Function& f, Partitioner& ) {
-    if (step <= 0 )
+    if (step <= 0 ) {
+#if TBB_USE_EXCEPTIONS
         throw std::invalid_argument( "nonpositive_step" );
-    else if (last > first) {
+#else
+        std::cerr << "nonpositive step in a call to parallel_for" << std::endl;
+        std::abort();
+#endif
+    } else if (last > first) {
         // Above "else" avoids "potential divide by zero" warning on some platforms
         ANNOTATE_SITE_BEGIN( tbb_parallel_for );
         for( Index i = first; i < last; i = i + step ) {
@@ -154,53 +161,53 @@ void parallel_for_impl(Index first, Index last, Index step, const Function& f, P
 
 //! Parallel iteration over a range of integers with explicit step and default partitioner
 template <typename Index, typename Function>
-void parallel_for(Index first, Index last, Index step, const Function& f) {
+__TBB_DEPRECATED_VERBOSE void parallel_for(Index first, Index last, Index step, const Function& f) {
     parallel_for_impl<Index,Function,const auto_partitioner>(first, last, step, f, auto_partitioner());
 }
 //! Parallel iteration over a range of integers with explicit step and simple partitioner
 template <typename Index, typename Function>
-void parallel_for(Index first, Index last, Index step, const Function& f, const simple_partitioner& p) {
+__TBB_DEPRECATED_VERBOSE void parallel_for(Index first, Index last, Index step, const Function& f, const simple_partitioner& p) {
     parallel_for_impl<Index,Function,const simple_partitioner>(first, last, step, f, p);
 }
 //! Parallel iteration over a range of integers with explicit step and auto partitioner
 template <typename Index, typename Function>
-void parallel_for(Index first, Index last, Index step, const Function& f, const auto_partitioner& p) {
+__TBB_DEPRECATED_VERBOSE void parallel_for(Index first, Index last, Index step, const Function& f, const auto_partitioner& p) {
     parallel_for_impl<Index,Function,const auto_partitioner>(first, last, step, f, p);
 }
 //! Parallel iteration over a range of integers with explicit step and static partitioner
 template <typename Index, typename Function>
-void parallel_for(Index first, Index last, Index step, const Function& f, const static_partitioner& p) {
+__TBB_DEPRECATED_VERBOSE void parallel_for(Index first, Index last, Index step, const Function& f, const static_partitioner& p) {
     parallel_for_impl<Index,Function,const static_partitioner>(first, last, step, f, p);
 }
 //! Parallel iteration over a range of integers with explicit step and affinity partitioner
 template <typename Index, typename Function>
-void parallel_for(Index first, Index last, Index step, const Function& f, affinity_partitioner& p) {
+__TBB_DEPRECATED_VERBOSE void parallel_for(Index first, Index last, Index step, const Function& f, affinity_partitioner& p) {
     parallel_for_impl(first, last, step, f, p);
 }
 
 //! Parallel iteration over a range of integers with default step and default partitioner
 template <typename Index, typename Function>
-void parallel_for(Index first, Index last, const Function& f) {
+__TBB_DEPRECATED_VERBOSE void parallel_for(Index first, Index last, const Function& f) {
     parallel_for_impl<Index,Function,const auto_partitioner>(first, last, static_cast<Index>(1), f, auto_partitioner());
 }
 //! Parallel iteration over a range of integers with default step and simple partitioner
 template <typename Index, typename Function>
-void parallel_for(Index first, Index last, const Function& f, const simple_partitioner& p) {
+__TBB_DEPRECATED_VERBOSE void parallel_for(Index first, Index last, const Function& f, const simple_partitioner& p) {
     parallel_for_impl<Index,Function,const simple_partitioner>(first, last, static_cast<Index>(1), f, p);
 }
 //! Parallel iteration over a range of integers with default step and auto partitioner
 template <typename Index, typename Function>
-    void parallel_for(Index first, Index last, const Function& f, const auto_partitioner& p) {
+__TBB_DEPRECATED_VERBOSE void parallel_for(Index first, Index last, const Function& f, const auto_partitioner& p) {
     parallel_for_impl<Index,Function,const auto_partitioner>(first, last, static_cast<Index>(1), f, p);
 }
 //! Parallel iteration over a range of integers with default step and static partitioner
 template <typename Index, typename Function>
-void parallel_for(Index first, Index last, const Function& f, const static_partitioner& p) {
+__TBB_DEPRECATED_VERBOSE void parallel_for(Index first, Index last, const Function& f, const static_partitioner& p) {
     parallel_for_impl<Index,Function,const static_partitioner>(first, last, static_cast<Index>(1), f, p);
 }
 //! Parallel iteration over a range of integers with default step and affinity_partitioner
 template <typename Index, typename Function>
-void parallel_for(Index first, Index last, const Function& f, affinity_partitioner& p) {
+__TBB_DEPRECATED_VERBOSE void parallel_for(Index first, Index last, const Function& f, affinity_partitioner& p) {
     parallel_for_impl(first, last, static_cast<Index>(1), f, p);
 }
 
