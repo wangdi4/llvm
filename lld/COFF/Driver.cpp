@@ -1231,7 +1231,6 @@ void LinkerDriver::maybeExportMinGWSymbols(const opt::InputArgList &args) {
   });
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Return true if argv contains a response file (@) and the file calls "/lib".
 // This function basically wraps the process of extracting a response file (@)
@@ -1265,7 +1264,7 @@ bool LinkerDriver::processLibInResponseFile(ArrayRef<const char *> argv) {
   return false;
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 // lld has a feature to create a tar file containing all input files as well as
 // all command line options, so that other people can run lld again with exactly
 // the same inputs. This feature is accessible via /linkrepro and /reproduce.
@@ -1285,7 +1284,6 @@ Optional<std::string> getReproduceFile(const opt::InputArgList &args) {
 
   return None;
 }
->>>>>>> 0d53ac8096433cf36d5f605e7aab5ecb3f1becb3
 
 void LinkerDriver::link(ArrayRef<const char *> argsArr) {
   // Needed for LTO.
