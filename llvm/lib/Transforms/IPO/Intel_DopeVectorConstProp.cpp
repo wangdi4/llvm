@@ -214,6 +214,7 @@ static bool replaceDopeVectorConstants(Argument &Arg,
     // constants when possible.
     Change |= ReplaceFieldsForGEP(GEP, LB, ST, EX, DVAFormal);
   }
+  SmallPtrSet<Function *, 16> ContainedFunctionSet;
   // Replace dope vector fields with constants in that function's contained
   // functions.
   UplevelDVField UDVF = DVAFormal.getUplevelVar();
@@ -227,6 +228,10 @@ static bool replaceDopeVectorConstants(Argument &Arg,
       continue;
     auto CF = CB->getCalledFunction();
     if (!CF)
+      continue;
+    // No need to repeat this, if we have already handled the contained
+    // function.
+    if (!ContainedFunctionSet.insert(CF).second)
       continue;
     // 'CF' is a contained function. Its 0th argument will be a pointer
     // to a structure, each field of which points to an uplevel variable.

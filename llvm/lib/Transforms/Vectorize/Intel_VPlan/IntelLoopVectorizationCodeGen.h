@@ -453,6 +453,7 @@ private:
 
   /// Return the right vector mask for a OpenCL vector select build-in.
   Value *getOpenCLSelectVectorMask(Value *ScalarMask);
+  Value *getOpenCLSelectVectorMask(VPValue *ScalarMask);
 
   /// Generate vector code for reduction finalization.
   /// The final vector reduction value is reduced horizontally using

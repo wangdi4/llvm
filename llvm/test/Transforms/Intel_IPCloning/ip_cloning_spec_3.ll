@@ -2,8 +2,9 @@
 ; in "bar". It expects "foo" function is cloned 4 times with
 ; specialization.
 
-; RUN: opt < %s -ip-cloning -ip-specialization-cloning -print-ip-cloning  -disable-output  2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(ip-cloning)' -ip-specialization-cloning -print-ip-cloning  -disable-output  2>&1 | FileCheck %s
+; REQUIRES: asserts
+; RUN: opt < %s -ip-cloning -ip-specialization-cloning -debug-only=ipcloning  -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(ip-cloning)' -ip-specialization-cloning -debug-only=ipcloning  -disable-output  2>&1 | FileCheck %s
 
 ; CHECK: ClonedCall[
 ; CHECK: ClonedCall[
