@@ -1546,7 +1546,7 @@ ParamMappingResult ParamTform::mapBack(int ActParamInd, ParamIndSet &Res) {
 
   // Create the container for resulting "formula" - dependencies in DFS order:
   assert(ActParamFormulas[ActParamInd] == nullptr);
-  ActParamFormulas[ActParamInd] = llvm::make_unique<ActualParamFormula>();
+  ActParamFormulas[ActParamInd] = std::make_unique<ActualParamFormula>();
   auto &Formula = ActParamFormulas[ActParamInd];
 
   // maps a value to its DFS number to detect cycles, also serves as 'visited'
@@ -1930,7 +1930,8 @@ class CallTreeCloningImpl {
 public:
   CallTreeCloningImpl() {}
 
-  bool run(Module &M, Analyses &Anl, TargetLibraryInfo *TLI,
+  bool run(Module &M, Analyses &Anl,
+           std::function<const TargetLibraryInfo &(Function &F)> GetTLI,
            PreservedAnalyses &PA);
 
 protected:
@@ -2020,9 +2021,11 @@ public:
   PostProcessor(
       Module &M,
       std::map<Function *, SetOfParamIndSets, CompareFuncPtr> &LeafSeeds,
-      CloneRegistry &Clones, TargetLibraryInfo *TLI, CallTreeCloningImpl *CTCI)
+      CloneRegistry &Clones,
+      std::function<const TargetLibraryInfo &(Function &F)> GetTLI,
+      CallTreeCloningImpl *CTCI)
       : M(M), LeafSeeds(LeafSeeds), Clones(Clones), DL(M.getDataLayout()),
-        TLI(TLI), CTCI(CTCI) {}
+        GetTLI(std::move(GetTLI)), CTCI(CTCI) {}
 
   // Run post processing on the Module
   bool run();
@@ -2047,7 +2050,7 @@ private:
   std::map<Function *, SetOfParamIndSets, CompareFuncPtr> &LeafSeeds;
   CloneRegistry &Clones;
   const DataLayout &DL;
-  TargetLibraryInfo *TLI;
+  std::function<const TargetLibraryInfo &(Function &F)> GetTLI;
   CallTreeCloningImpl *CTCI;
 
   std::map<CallInst *, unsigned> PPCandidates;
@@ -2225,7 +2228,7 @@ public:
   MultiVersionImpl(
       Module &M,
       std::map<Function *, SetOfParamIndSets, CompareFuncPtr> &LeafSeeds,
-      CloneRegistry &Clones, TargetLibraryInfo *TLI, CallTreeCloningImpl *CTCI)
+      CloneRegistry &Clones, CallTreeCloningImpl *CTCI)
       : M(M), LeafSeeds(LeafSeeds), Clones(Clones), CTCI(CTCI) {
 
     // 2VarMV function matcher:
@@ -2518,8 +2521,10 @@ public:
 };
 } // end of namespace llvm
 
-bool CallTreeCloningImpl::run(Module &M, Analyses &Anls, TargetLibraryInfo *TLI,
-                              PreservedAnalyses &PA) {
+bool CallTreeCloningImpl::run(
+    Module &M, Analyses &Anls,
+    std::function<const TargetLibraryInfo &(Function &F)> GetTLI,
+    PreservedAnalyses &PA) {
 
   if (!checkThreshold(M)) {
     LLVM_DEBUG(dbgs() << "Disable CallTreeClone pass due to potential "
@@ -2540,10 +2545,10 @@ bool CallTreeCloningImpl::run(Module &M, Analyses &Anls, TargetLibraryInfo *TLI,
   std::map<Function *, SetOfParamIndSets, CompareFuncPtr> LeafSeeds;
 
   if (!CCloneSeeds.empty())
-    CM = llvm::make_unique<CTCDebugCostModel>(CCloneSeeds.begin(),
+    CM = std::make_unique<CTCDebugCostModel>(CCloneSeeds.begin(),
                                               CCloneSeeds.end());
   else
-    CM = llvm::make_unique<CTCLoopBasedCostModel>(Anls);
+    CM = std::make_unique<CTCLoopBasedCostModel>(Anls);
 
   LLVM_DEBUG(dbgs() << "--- Seeds for cloning:\n");
 
@@ -2589,14 +2594,14 @@ bool CallTreeCloningImpl::run(Module &M, Analyses &Anls, TargetLibraryInfo *TLI,
     return false;
 
   // Do Post Processing Cleanup:
-  PostProcessor PostProc(M, LeafSeeds, Clones, TLI, this);
+  PostProcessor PostProc(M, LeafSeeds, Clones, GetTLI, this);
   bool PPResult = PostProc.run();
 
   // Check + Do Multi-version (MV) transformation:
   if (!EnableMV)
     return PPResult;
 
-  MultiVersionImpl MV(M, LeafSeeds, Clones, TLI, this);
+  MultiVersionImpl MV(M, LeafSeeds, Clones, this);
   bool MVResult = MV.run();
 
   // Return true if at least 1 of the CTC, PP or MV is triggered and modified
@@ -2608,13 +2613,15 @@ bool llvm::CallTreeCloningLegacyPass::runOnModule(Module &M) {
   if (skipModule(M) || (CTCloningMaxDepth == 0) || DisableCallTreeCloning)
     return false;
 
-  auto *TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
   Analyses Anls([&](Function &F) -> LoopInfo & {
     return getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
   });
+  auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
+    return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+  };
   PreservedAnalyses PA;
   CallTreeCloningImpl Impl;
-  bool ModuleChanged = Impl.run(M, Anls, TLI, PA);
+  bool ModuleChanged = Impl.run(M, Anls, GetTLI, PA);
 
   // Verify Module if there is any change on the LLVM IR
 #ifndef NDEBUG
@@ -3188,7 +3195,7 @@ bool PostProcessor::collectPPCallInst(CallInst *CI) {
 
     // BinOp case: check if the BinOp on index is subject to constant fold
     BinaryOperator *BOp = dyn_cast<BinaryOperator>(arg);
-    if (ConstantFoldInstruction(BOp, DL, TLI)) {
+    if (ConstantFoldInstruction(BOp, DL, &GetTLI(*Callee))) {
       // record this index's position
       CFArgPos |= (1 << I);
     }
@@ -3291,7 +3298,9 @@ bool PostProcessor::foldConstantAndReplWithClone(CallInst *&CI, unsigned Pos) {
     } else { // BinOp case: do constant fold 1st
       BinaryOperator *BOp = dyn_cast<BinaryOperator>(arg);
       assert(BOp && "Expect the arg be a valid BinaryOperator\n");
-      if (Constant *C = ConstantFoldInstruction(BOp, DL, TLI)) {
+      Function *Callee = CI->getCalledFunction();
+      assert(Callee && "Called function is not valid\n");
+      if (Constant *C = ConstantFoldInstruction(BOp, DL, &GetTLI(*Callee))) {
         CI->setArgOperand(I, C);
         ConstantInt *ConstInt = dyn_cast<ConstantInt>(C);
         assert(ConstInt && "Expect the Constant is actually a ConstantInt, not "
@@ -4214,12 +4223,14 @@ PreservedAnalyses CallTreeCloningPass::run(Module &M,
   Analyses Anls([&](Function &F) -> LoopInfo & {
     return FAM.getResult<LoopAnalysis>(F);
   });
+  auto GetTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(F);
+  };
   PreservedAnalyses PA;
-  auto &TLI = MAM.getResult<TargetLibraryAnalysis>(M);
 
   // TODO FIXME add preserved analyses
   CallTreeCloningImpl Impl;
-  bool ModuleChanged = Impl.run(M, Anls, &TLI, PA);
+  bool ModuleChanged = Impl.run(M, Anls, GetTLI, PA);
 
   // Verify Module if there is any change on the LLVM IR
 #ifndef NDEBUG

@@ -158,7 +158,7 @@ namespace detail {
 // DefaultValue, truncation just removes extra values.
 template <int NewDim, int DefaultValue, template <int> class T, int OldDim>
 static T<NewDim> convertToArrayOfN(T<OldDim> OldObj) {
-  T<NewDim> NewObj;
+  T<NewDim> NewObj = InitializedVal<NewDim, T>::template get<0>();
   const int CopyDims = NewDim > OldDim ? OldDim : NewDim;
   for (int I = 0; I < CopyDims; ++I)
     NewObj[I] = OldObj[I];
@@ -193,12 +193,8 @@ protected:
   constexpr static bool IsAccessReadWrite =
       AccessMode == access::mode::read_write;
 
-  using RefType = typename std::conditional<
-      AS == access::address_space::constant_space,
-      typename detail::PtrValueType<DataT, AS>::type &, DataT &>::type;
-  using PtrType = typename std::conditional<
-      AS == access::address_space::constant_space,
-      typename detail::PtrValueType<DataT, AS>::type *, DataT *>::type;
+  using RefType = DataT &;
+  using PtrType = DataT *;
 
   using AccType =
       accessor<DataT, Dimensions, AccessMode, AccessTarget, IsPlaceholder>;
@@ -651,6 +647,12 @@ class accessor :
                  AccessTarget == access::target::host_buffer),
                 "Expected buffer type");
 
+  static_assert((AccessTarget == access::target::global_buffer ||
+                 AccessTarget == access::target::host_buffer) ||
+                (AccessTarget == access::target::constant_buffer &&
+                 AccessMode == access::mode::read),
+                "Access mode can be only read for constant buffers");
+
   using AccessorCommonT = detail::accessor_common<DataT, Dimensions, AccessMode,
                                                   AccessTarget, IsPlaceholder>;
 
@@ -667,13 +669,9 @@ class accessor :
   using AccessorSubscript =
       typename AccessorCommonT::template AccessorSubscript<Dims>;
 
-  using RefType = typename std::conditional<
-      AS == access::address_space::constant_space,
-      typename detail::PtrValueType<DataT, AS>::type &, DataT &>::type;
+  using RefType = DataT &;
   using ConcreteASPtrType = typename detail::PtrValueType<DataT, AS>::type *;
-  using PtrType =
-      typename std::conditional<AS == access::address_space::constant_space,
-                                ConcreteASPtrType, DataT *>::type;
+  using PtrType = DataT *;
 
   template <int Dims = Dimensions> size_t getLinearIndex(id<Dims> Id) const {
 
@@ -721,7 +719,10 @@ class accessor :
 
 public:
   // Default constructor for objects later initialized with __init member.
-  accessor() : impl({}) {}
+  accessor()
+    : impl({}, detail::InitializedVal<AdjustedDim, range>::template get<0>(),
+            detail::InitializedVal<AdjustedDim, range>::template get<0>()) {}
+
 #else
   using AccessorBaseHost::getAccessRange;
   using AccessorBaseHost::getMemoryRange;
@@ -741,11 +742,11 @@ public:
   using reference = DataT &;
   using const_reference = const DataT &;
 
-  template <int Dims = Dimensions>
-  accessor(
-      detail::enable_if_t<Dims == 0 && ((!IsPlaceH && IsHostBuf) ||
-                                (IsPlaceH && (IsGlobalBuf || IsConstantBuf))),
-                  buffer<DataT, 1>> &BufferRef)
+  template <int Dims = Dimensions, typename AllocatorT,
+            typename detail::enable_if_t<
+                Dims == 0 && ((!IsPlaceH && IsHostBuf) ||
+                (IsPlaceH && (IsGlobalBuf || IsConstantBuf)))>* = nullptr>
+  accessor(buffer<DataT, 1, AllocatorT> &BufferRef)
 #ifdef __SYCL_DEVICE_ONLY__
       : impl(id<AdjustedDim>(), BufferRef.get_range(), BufferRef.MemRange) {
 #else
@@ -762,11 +763,11 @@ public:
 #endif
   }
 
-  template <int Dims = Dimensions>
-  accessor(
-      buffer<DataT, 1> &BufferRef,
-      detail::enable_if_t<Dims == 0 && (!IsPlaceH && (IsGlobalBuf || IsConstantBuf)),
-                  handler> &CommandGroupHandler)
+  template <int Dims = Dimensions, typename AllocatorT>
+  accessor(buffer<DataT, 1, AllocatorT> &BufferRef,
+           detail::enable_if_t<Dims == 0 &&
+                               (!IsPlaceH && (IsGlobalBuf || IsConstantBuf)),
+                               handler> &CommandGroupHandler)
 #ifdef __SYCL_DEVICE_ONLY__
       : impl(id<AdjustedDim>(), BufferRef.get_range(), BufferRef.MemRange) {
   }
@@ -781,11 +782,12 @@ public:
   }
 #endif
 
-  template <int Dims = Dimensions,
-            typename = detail::enable_if_t<
+  template <int Dims = Dimensions, typename AllocatorT,
+            typename detail::enable_if_t<
                 (Dims > 0) && ((!IsPlaceH && IsHostBuf) ||
-                               (IsPlaceH && (IsGlobalBuf || IsConstantBuf)))>>
-  accessor(buffer<DataT, Dimensions> &BufferRef)
+                               (IsPlaceH && (IsGlobalBuf || IsConstantBuf)))>
+                * = nullptr>
+  accessor(buffer<DataT, Dimensions, AllocatorT> &BufferRef)
 #ifdef __SYCL_DEVICE_ONLY__
       : impl(id<Dimensions>(), BufferRef.get_range(), BufferRef.MemRange) {
   }
@@ -803,10 +805,11 @@ public:
   }
 #endif
 
-  template <int Dims = Dimensions,
+  template <int Dims = Dimensions, typename AllocatorT,
             typename = detail::enable_if_t<
                 (Dims > 0) && (!IsPlaceH && (IsGlobalBuf || IsConstantBuf))>>
-  accessor(buffer<DataT, Dimensions> &BufferRef, handler &CommandGroupHandler)
+  accessor(buffer<DataT, Dimensions, AllocatorT> &BufferRef,
+           handler &CommandGroupHandler)
 #ifdef __SYCL_DEVICE_ONLY__
       : impl(id<AdjustedDim>(), BufferRef.get_range(), BufferRef.MemRange) {
   }
@@ -821,12 +824,12 @@ public:
   }
 #endif
 
-  template <int Dims = Dimensions,
+  template <int Dims = Dimensions, typename AllocatorT,
             typename = detail::enable_if_t<
                 (Dims > 0) && ((!IsPlaceH && IsHostBuf) ||
                                (IsPlaceH && (IsGlobalBuf || IsConstantBuf)))>>
-  accessor(buffer<DataT, Dimensions> &BufferRef, range<Dimensions> AccessRange,
-           id<Dimensions> AccessOffset = {})
+  accessor(buffer<DataT, Dimensions, AllocatorT> &BufferRef,
+           range<Dimensions> AccessRange, id<Dimensions> AccessOffset = {})
 #ifdef __SYCL_DEVICE_ONLY__
       : impl(AccessOffset, AccessRange, BufferRef.MemRange) {
   }
@@ -843,11 +846,12 @@ public:
   }
 #endif
 
-  template <int Dims = Dimensions,
+  template <int Dims = Dimensions, typename AllocatorT,
             typename = detail::enable_if_t<
                 (Dims > 0) && (!IsPlaceH && (IsGlobalBuf || IsConstantBuf))>>
-  accessor(buffer<DataT, Dimensions> &BufferRef, handler &CommandGroupHandler,
-           range<Dimensions> AccessRange, id<Dimensions> AccessOffset = {})
+  accessor(buffer<DataT, Dimensions, AllocatorT> &BufferRef,
+           handler &CommandGroupHandler, range<Dimensions> AccessRange,
+           id<Dimensions> AccessOffset = {})
 #ifdef __SYCL_DEVICE_ONLY__
       : impl(AccessOffset, AccessRange, BufferRef.MemRange) {
   }
@@ -1003,13 +1007,9 @@ class accessor<DataT, Dimensions, AccessMode, access::target::local,
   using AccessorSubscript =
       typename AccessorCommonT::template AccessorSubscript<Dims>;
 
-  using RefType = typename std::conditional<
-      AS == access::address_space::constant_space,
-      typename detail::PtrValueType<DataT, AS>::type &, DataT &>::type;
+  using RefType = DataT &;
   using ConcreteASPtrType = typename detail::PtrValueType<DataT, AS>::type *;
-  using PtrType =
-      typename std::conditional<AS == access::address_space::constant_space,
-                                ConcreteASPtrType, DataT *>::type;
+  using PtrType = DataT *;
 
 #ifdef __SYCL_DEVICE_ONLY__
   detail::LocalAccessorBaseDevice<AdjustedDim> impl;
@@ -1026,7 +1026,8 @@ class accessor<DataT, Dimensions, AccessMode, access::target::local,
 
 public:
   // Default constructor for objects later initialized with __init member.
-  accessor() : impl({}) {}
+  accessor()
+      : impl(detail::InitializedVal<AdjustedDim, range>::template get<0>()) {}
 
 private:
   PtrType getQualifiedPtr() const { return MData; }

@@ -915,9 +915,11 @@ public:
   void executeHIR(VPOCodeGenHIR *CG) override;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Dump the VPInstruction.
-  void dump(raw_ostream &O) const override;
+  void dump(raw_ostream &O) const override { dump(O, nullptr); };
+  void dump(raw_ostream &O, const VPlanDivergenceAnalysis *DA) const;
 
   void dump() const override { dump(errs()); }
+  void dump(const VPlanDivergenceAnalysis *DA) const { dump(dbgs(), DA); }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
@@ -927,8 +929,7 @@ public:
   void print(raw_ostream &O, const Twine &Indent) const override;
 
   /// Print the VPInstruction.
-  void print(raw_ostream &O) const;
-
+  void print(raw_ostream &O, const VPlanDivergenceAnalysis *DA = nullptr) const;
   static const char *getOpcodeName(unsigned Opcode);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
@@ -1086,6 +1087,14 @@ public:
     setOperand(Idx, Value);
   }
 
+  /// Set the incoming value for a specific basic block.
+  void setIncomingValue(VPBasicBlock *VPBB, VPValue *Value) {
+    assert(Value && VPBB && "Value and VPBB must not be null.");
+    auto Idx = getBlockIndex(VPBB);
+    assert(Idx >= 0 && "VPBB should have a valid index.");
+    setIncomingValue(Idx, Value);
+  }
+
   /// Add an incoming value to the end of the PHI list
   void addIncoming(VPValue *Value, VPBasicBlock *Block) {
     assert(Value && "Value must not be null.");
@@ -1119,6 +1128,7 @@ public:
     auto it = VPBBUsers.begin();
     std::advance(it, Idx);
     VPBBUsers.erase(it);
+    removeOperand(Idx);
   }
 
   /// Return index for a given \p Block.
@@ -1474,10 +1484,10 @@ public:
         BinOpcode(BinOp), Signed(false) {}
 
   /// Constructor for index part of min/max+index reduction.
-  VPReductionFinal(unsigned BinOp, VPValue *ReducVec, VPValue *StartValue,
-                   bool Sign, VPReductionFinal *MinMax)
+  VPReductionFinal(unsigned BinOp, VPValue *ReducVec, VPValue *ParentExit,
+                   VPReductionFinal *ParentFinal, bool Sign)
       : VPInstruction(VPInstruction::ReductionFinal, ReducVec->getType(),
-                      {ReducVec, StartValue, MinMax}),
+                      {ReducVec, ParentExit, ParentFinal}),
         BinOpcode(BinOp), Signed(Sign) {}
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
@@ -1500,12 +1510,17 @@ public:
   /// Return operand that corresponds to the start value. Can be nullptr for
   /// optimized reduce.
   VPValue *getStartValueOperand() const {
-    return getNumOperands() > 1 ? getOperand(1) : nullptr;
+    return getNumOperands() == 2 ? getOperand(1) : nullptr;
   }
 
-  /// Return operand that corrrespond to min/max parent reduction.
-  VPValue *getParentValueOperand() const {
-    return getNumOperands() > 2 ? getOperand(2) : nullptr;
+  /// Return operand that corrresponds to min/max parent vector value.
+  VPValue *getParentExitValOperand() const {
+    return getNumOperands() == 3 ? getOperand(2) : nullptr;
+  }
+
+  /// Return operand that corrresponds to min/max parent final value.
+  VPValue *getParentFinalValOperand() const {
+    return getNumOperands() == 3 ? getOperand(1) : nullptr;
   }
 
   /// Return ID of the corresponding reduce intrinsic.
@@ -1969,6 +1984,8 @@ public:
 
   const std::string &getName() const { return Name; }
 
+  void setName(const Twine &newName) { Name = newName.str(); }
+
   /// \return an ID for the concrete type of this object.
   /// This is used to implement the classof checks. This should not be used
   /// for any other purpose, as the values may change as LLVM evolves.
@@ -2198,7 +2215,8 @@ public:
 
   virtual void dump() const = 0;
 
-  virtual void dump(raw_ostream &OS, unsigned Indent = 0) const = 0;
+  virtual void dump(raw_ostream &OS, unsigned Indent = 0,
+                    const VPlanDivergenceAnalysis *DA = nullptr) const = 0;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // Iterators and types to access Successors of a VPBlockBase
@@ -2384,18 +2402,21 @@ public:
     return &VPBasicBlock::Recipes;
   }
 
-  /// Returns a range that iterates over the VPPHINodes in the VPBasicBlock
-  iterator_range<iterator> getVPPhis() {
+  auto getVPPhis() {
+    auto AsVPPHINode = [](VPRecipeBase &Recipe) -> VPPHINode & {
+      return cast<VPPHINode>(Recipe);
+    };
+
     // If the block is empty or if it has no PHIs, return null range
     if (empty() || !isa<VPPHINode>(begin()))
-      return make_range(nullptr, nullptr);
+      return map_range(make_range(end(), end()), AsVPPHINode);
 
     // Increment iterator till a non PHI VPInstruction is found
     iterator It = begin();
     while (It != end() && isa<VPPHINode>(It))
       ++It;
 
-    return make_range(begin(), It);
+    return map_range(make_range(begin(), It), AsVPPHINode);
   }
 
   VPBasicBlock(const std::string &Name, VPRecipeBase *Recipe = nullptr)
@@ -2509,7 +2530,8 @@ public:
   }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const override;
-  void dump(raw_ostream &OS, unsigned Indent = 0) const override;
+  void dump(raw_ostream &OS, unsigned Indent = 0,
+            const VPlanDivergenceAnalysis *DA = nullptr) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   void setCBlock(BasicBlock *CB) { CBlock = CB; }
   void setFBlock(BasicBlock *FB) { FBlock = FB; }
@@ -2524,24 +2546,11 @@ public:
   void setOriginalBB(BasicBlock *BB) { OriginalBB = BB; }
   BasicBlock *getOriginalBB() const { return OriginalBB; }
 
-  // Pair of incoming edge mask and predecessor basic block. This
-  // information is used to convert phis to select blends.
-  using MaskBlockPair = std::pair<VPValue *, VPBasicBlock *>;
-
-  void addMaskBlockPair(VPValue *Mask, VPBasicBlock *Block) {
-    IncomingMasks.push_back(std::make_pair(Mask, Block));
-  }
-
-  const SmallVectorImpl<MaskBlockPair> &getIncomingMasks() const {
-    return IncomingMasks;
-  }
-
 private:
   BasicBlock *CBlock;
   BasicBlock *TBlock;
   BasicBlock *FBlock;
   BasicBlock *OriginalBB;
-  SmallVector<MaskBlockPair, 4> IncomingMasks;
 #endif
   /// Create an IR BasicBlock to hold the instructions vectorized from this
   /// VPBasicBlock, and return it. Update the CFGState accordingly.
@@ -2689,10 +2698,10 @@ public:
   /// Compute the Post-Dominator Tree for this region
   void computePDT(void);
 
-  void getOrderedBlocks(std::vector<const VPBlockBase *> &Blocks) const;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const override;
-  void dump(raw_ostream &OS, unsigned Indent = 0) const override;
+  void dump(raw_ostream &OS, unsigned Indent = 0,
+            const VPlanDivergenceAnalysis *DA = nullptr) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
@@ -2719,6 +2728,10 @@ private:
   std::unique_ptr<VPLoopInfo> VPLInfo;
   std::unique_ptr<VPlanDivergenceAnalysis> VPlanDA;
   const DataLayout *DL = nullptr;
+
+  // Ugly hack to enable full linearization for cases where while-loop
+  // canonicalization or merge loop exits transformation break SSA.
+  bool SSAIsBroken = false;
 #endif
 
 #if INTEL_CUSTOMIZATION
@@ -2820,6 +2833,9 @@ public:
 
   VPlanDivergenceAnalysis *getVPlanDA() const { return VPlanDA.get(); }
 
+  void markSSABroken() { SSAIsBroken = true; }
+  bool isSSABroken() { return SSAIsBroken; }
+
   const DataLayout* getDataLayout() const { return DL; }
 
   /// Return an existing or newly created LoopEntities for the loop \p L.
@@ -2870,7 +2886,7 @@ public:
   void printInst2Recipe();
 
   /// Print (in text format) VPlan blocks in order based on dominator tree.
-  void dump(raw_ostream &OS) const;
+  void dump(raw_ostream &OS, bool DumpDA = false) const;
   void dump() const;
   void dumpLivenessInfo(raw_ostream &OS) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -2905,7 +2921,7 @@ public:
 
   /// Create or retrieve a VPExternalDef for a given non-decomposable DDRef \p
   /// DDR.
-  VPExternalDef *getVPExternalDefForDDRef(loopopt::DDRef *DDR) {
+  VPExternalDef *getVPExternalDefForDDRef(const loopopt::DDRef *DDR) {
     return getExternalItemForDDRef(VPExternalDefsHIR, DDR);
   }
 
@@ -2928,7 +2944,7 @@ public:
 
   /// Create or retrieve a VPExternalUse for a given non-decomposable DDRef \p
   /// DDR.
-  VPExternalUse *getVPExternalUseForDDRef(loopopt::DDRef *DDR) {
+  VPExternalUse *getVPExternalUseForDDRef(const loopopt::DDRef *DDR) {
     return getExternalItemForDDRef(VPExternalUsesHIR, DDR);
   }
 
@@ -3018,7 +3034,8 @@ private:
   // Create or retrieve an external item from \p Table for given HIR unitary
   // DDRef \p DDR.
   template <typename Def>
-  Def *getExternalItemForDDRef(FoldingSet<Def> &Table, loopopt::DDRef *DDR) {
+  Def *getExternalItemForDDRef(FoldingSet<Def> &Table,
+                               const loopopt::DDRef *DDR) {
     assert(DDR->isNonDecomposable() && "Expected non-decomposable DDRef!");
     FoldingSetNodeID ID;
     ID.AddInteger(DDR->getSymbase());
@@ -3383,6 +3400,9 @@ public:
     }
     return Count;
   }
+
+  static VPBasicBlock *splitExitBlock(VPBlockBase *Block, VPLoopInfo *VPLInfo,
+                                      VPDominatorTree &DomTree);
 
   static VPBasicBlock *splitBlock(VPBlockBase *Block, VPLoopInfo *VPLInfo,
                                   VPDominatorTree &DomTree,

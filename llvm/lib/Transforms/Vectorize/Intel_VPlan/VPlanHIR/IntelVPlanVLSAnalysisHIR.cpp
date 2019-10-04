@@ -45,7 +45,6 @@ bool VPlanVLSAnalysisHIR::isUnitStride(const RegDDRef *Ref, unsigned Level) {
 }
 
 OVLSMemref *VPlanVLSAnalysisHIR::createVLSMemref(const VPInstruction *Inst,
-                                                 const VPVectorShape &Shape,
                                                  const unsigned VF) const {
   unsigned Opcode = Inst->getOpcode();
 

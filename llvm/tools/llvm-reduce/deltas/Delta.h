@@ -15,18 +15,12 @@
 #ifndef LLVM_TOOLS_LLVMREDUCE_LLVMREDUCE_DELTA_H
 #define LLVM_TOOLS_LLVMREDUCE_LLVMREDUCE_DELTA_H
 
-#include "../TestRunner.h"
-#include "llvm/IR/Verifier.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Path.h"
-#include "llvm/Support/ScopedPrinter.h"
-#include "llvm/Support/ToolOutputFile.h"
-#include "llvm/Transforms/Utils/Cloning.h"
-#include <fstream>
-#include <set>
+#include "TestRunner.h"
 #include <vector>
+#include <utility>
+#include <functional>
 
-using namespace llvm;
+namespace llvm {
 
 struct Chunk {
   unsigned begin;
@@ -36,10 +30,10 @@ struct Chunk {
   bool contains(unsigned Index) const { return Index >= begin && Index <= end; }
 
   void print() const {
-    outs() << "[" << begin;
+    errs() << "[" << begin;
     if (end - begin != 0)
-      outs() << "," << end;
-    outs() << "]";
+      errs() << "," << end;
+    errs() << "]";
   }
 
   /// Operator when populating CurrentChunks in Generic Delta Pass
@@ -52,8 +46,6 @@ struct Chunk {
     return std::tie(C1.begin, C1.end) < std::tie(C2.begin, C2.end);
   }
 };
-
-namespace llvm {
 
 /// This function implements the Delta Debugging algorithm, it receives a
 /// number of Targets (e.g. Functions, Instructions, Basic Blocks, etc.) and

@@ -165,10 +165,7 @@ static const EHPersonality &getCXXPersonality(const TargetInfo &Target,
     return EHPersonality::GNU_CPlusPlus;
   if (L.SEHExceptions)
     return EHPersonality::GNU_CPlusPlus_SEH;
-  // Wasm EH is a non-MVP feature for now.
-  if (Target.hasFeature("exception-handling") &&
-      (T.getArch() == llvm::Triple::wasm32 ||
-       T.getArch() == llvm::Triple::wasm64))
+  if (L.WasmExceptions)
     return EHPersonality::GNU_Wasm_CPlusPlus;
   return EHPersonality::GNU_CPlusPlus;
 }
@@ -733,7 +730,7 @@ llvm::BasicBlock *CodeGenFunction::getInvokeDestImpl() {
   }
 
   // CUDA and SYCL device code doesn't have exceptions.
-  if (LO.CUDA && LO.CUDAIsDevice || LO.SYCLIsDevice)
+  if ((LO.CUDA && LO.CUDAIsDevice) || LO.SYCLIsDevice)
     return nullptr;
 
   // Check the innermost scope for a cached landing pad.  If this is

@@ -246,9 +246,10 @@ public:
     if (skipModule(M))
       return false;
     WholeProgramWrapperPass &WPA = getAnalysis<WholeProgramWrapperPass>();
-    TargetLibraryInfoWrapperPass &TLI =
-        getAnalysis<TargetLibraryInfoWrapperPass>();
-    auto PA = Impl.runImpl(M, WPA.getResult(), TLI.getTLI());
+    auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
+      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+    };
+    auto PA = Impl.runImpl(M, WPA.getResult(), GetTLI);
     return !PA.areAllPreserved();
   }
 
@@ -274,9 +275,9 @@ ModulePass *llvm::createOptimizeDynamicCastsWrapperPass() {
   return new OptimizeDynamicCastsWrapper();
 }
 
-PreservedAnalyses OptimizeDynamicCastsPass::runImpl(Module &M,
-                                                    WholeProgramInfo &WPI,
-                                                    TargetLibraryInfo &TLI) {
+PreservedAnalyses OptimizeDynamicCastsPass::runImpl(
+    Module &M, WholeProgramInfo &WPI,
+    std::function<const TargetLibraryInfo &(Function &F)> GetTLI) {
   // Transformation is not supported for Microsoft ABI.
   Triple T(M.getTargetTriple());
   if (T.isKnownWindowsMSVCEnvironment())
@@ -300,7 +301,7 @@ PreservedAnalyses OptimizeDynamicCastsPass::runImpl(Module &M,
           continue;
 
         LibFunc Func = NumLibFuncs;
-        if (!TLI.getLibFunc(*DynCastFunc, Func) ||
+        if (!GetTLI(F).getLibFunc(*DynCastFunc, Func) ||
             Func != LibFunc::LibFunc_dynamic_cast)
           continue;
 
@@ -394,6 +395,10 @@ PreservedAnalyses OptimizeDynamicCastsPass::runImpl(Module &M,
 PreservedAnalyses OptimizeDynamicCastsPass::run(Module &M,
                                                 ModuleAnalysisManager &AM) {
   auto &WPI = AM.getResult<WholeProgramAnalysis>(M);
-  auto &TLI = AM.getResult<TargetLibraryAnalysis>(M);
-  return runImpl(M, WPI, TLI);
+  FunctionAnalysisManager &FAM =
+      AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto GetTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(F);
+  };
+  return runImpl(M, WPI, GetTLI);
 }

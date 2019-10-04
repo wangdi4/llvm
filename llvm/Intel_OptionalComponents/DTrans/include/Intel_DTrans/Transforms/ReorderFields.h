@@ -65,10 +65,6 @@ private:
   std::map<StructType *, StructType *> InclusiveStructTypeUnmap;
   std::map<Function *, bool> InclusiveStructTypeMapped;
 
-  // Alignment for Reordered StructType
-  DenseMap<StructType *, SmallVector<uint32_t, 8>> AlignMap;
-  DenseMap<StructType *, bool> AlignMapCreated;
-
 public:
   // Set new size of \p StructT after reordering fields.
   void setTransformedTypeNewSize(StructType *StructT, uint64_t NewSize) {
@@ -200,8 +196,10 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // This is used to share the core implementation with the legacy pass.
-  bool runImpl(Module &M, DTransAnalysisInfo &Info,
-               const TargetLibraryInfo &TLI, WholeProgramInfo &WPInfo);
+  bool
+  runImpl(Module &M, DTransAnalysisInfo &Info,
+          std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
+          WholeProgramInfo &WPInfo);
 
 private:
   // Collection of suitable StructInfo* types for field reordering

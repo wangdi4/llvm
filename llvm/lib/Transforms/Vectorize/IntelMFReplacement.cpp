@@ -27,6 +27,11 @@ using namespace llvm;
 
 #define DEBUG_TYPE "mf-replace"
 
+static cl::opt<bool> DisableMFReplacement(
+    "disable-mf-replacement", cl::init(false), cl::Hidden,
+    cl::desc("Disable replacement of math-instruction like u/i-div and i/s-rem "
+             "with scalar SVML function."));
+
 STATISTIC(NumInstConverted, "Number of instructions converted");
 
 struct MathLibraryFunctionsReplacementPass
@@ -38,11 +43,8 @@ struct MathLibraryFunctionsReplacementPass
 static bool isOptimizableOperation(Instruction *Inst) {
   Value *Divisor = Inst->getOperand(1);
 
-  assert(Divisor->getType()->isIntegerTy() &&
-         "Unexpected divisor element type");
-
-  // This change is only valid for 32-bit integers
-  if (cast<IntegerType>(Divisor->getType())->getBitWidth() != 32)
+  // This change is valid only for non-vectors and 32-bit integers.
+  if (!Divisor->getType()->isIntegerTy(32))
     return false;
 
   // Do not replace functions with constant divisors as they may be replaced
@@ -142,6 +144,11 @@ public:
   }
 
   bool runOnFunction(Function &F) override {
+    // Return without any change if instruction to function replacement is
+    // disabled.
+    if (DisableMFReplacement)
+      return false;
+
     if (skipFunction(F))
       return false;
 

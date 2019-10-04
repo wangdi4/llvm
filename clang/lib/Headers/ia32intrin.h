@@ -77,7 +77,7 @@ _bswap(int __A) {
 #define _bit_scan_forward(A) __bsfd((A))
 #define _bit_scan_reverse(A) __bsrd((A))
 
-#ifdef __x86_64__
+/* #ifdef __x86_64__ */ /* INTEL */
 /** Find the first set bit starting from the lsb. Result is undefined if
  *  input is 0.
  *
@@ -129,7 +129,7 @@ __bswapq(long long __A) {
 }
 
 #define _bswap64(A) __bswapq((A))
-#endif
+/* #endif */ /* INTEL */
 
 /** Counts the number of bits in the source operand having a value of 1.
  *
@@ -151,7 +151,7 @@ __popcntd(unsigned int __A)
 
 #define _popcnt32(A) __popcntd((A))
 
-#ifdef __x86_64__
+/* #ifdef __x86_64__ */ /* INTEL */
 /** Counts the number of bits in the source operand having a value of 1.
  *
  *  \headerfile <x86intrin.h>
@@ -171,7 +171,7 @@ __popcntq(unsigned long long __A)
 }
 
 #define _popcnt64(A) __popcntq((A))
-#endif /* __x86_64__ */
+/* #endif */ /* __x86_64__ */ /* INTEL */
 
 #ifdef __x86_64__
 static __inline__ unsigned long long __attribute__((__always_inline__, __nodebug__))

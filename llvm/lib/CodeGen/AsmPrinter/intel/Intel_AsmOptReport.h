@@ -154,7 +154,7 @@ private:
   // FunctionDescs collection.
   template<typename... ArgsT>
   void registerFunction(ArgsT &&... Args) {
-    FunctionDescs.push_back(make_unique<FunctionDesc>(
+    FunctionDescs.push_back(std::make_unique<FunctionDesc>(
                                 std::forward<ArgsT>(Args)...));
   }
 
@@ -168,7 +168,7 @@ private:
 
     auto *FunctionDesc = FunctionDescs.back().get();
 
-    FunctionDesc->OptReports.push_back(make_unique<OptReportDesc>(
+    FunctionDesc->OptReports.push_back(std::make_unique<OptReportDesc>(
                                            std::forward<ArgsT>(Args)...));
   }
 

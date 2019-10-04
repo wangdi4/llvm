@@ -19,9 +19,9 @@
 ; CHECK: [[GEP2:%.*]] = getelementptr inbounds <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>, <2 x <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>*> [[GEP1]], <2 x i64> zeroinitializer, <2 x i32> zeroinitializer
 ; CHECK: call void @llvm.masked.scatter.v2i32.v2p0i32(<2 x i32> <i32 28, i32 28>, <2 x i32*> [[GEP2]], i32 8, <2 x i1> {{.*}})
 ; CHECK: [[GEP3:%.*]] = getelementptr inbounds <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>, <2 x <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>*> [[GEP1]], <2 x i64> zeroinitializer, <2 x i32> <i32 1, i32 1>
-; CHECK: call void @llvm.masked.scatter.v2i32.v2p0i32(<2 x i32> <i32 8, i32 8>, <2 x i32*> [[GEP3]], i32 4, <2 x i1> [[XOR]])
+; CHECK: call void @llvm.masked.scatter.v2i32.v2p0i32(<2 x i32> <i32 8, i32 8>, <2 x i32*> [[GEP3]], i32 4, <2 x i1> <i1 true, i1 true>)
 ; CHECK: [[GEP4:%.*]] = getelementptr inbounds <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>, <2 x <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>*> [[GEP1]], <2 x i64> zeroinitializer, <2 x i32> <i32 2, i32 2>
-; CHECK: call void @llvm.masked.scatter.v2p4i8.v2p0p4i8(<2 x i8 addrspace(4)*> <i8 addrspace(4)* addrspacecast (i8* bitcast (void (i8 addrspace(4)*)* @__block_fn_block_invoke to i8*) to i8 addrspace(4)*), i8 addrspace(4)* addrspacecast (i8* bitcast (void (i8 addrspace(4)*)* @__block_fn_block_invoke to i8*) to i8 addrspace(4)*)>, <2 x i8 addrspace(4)**> [[GEP4]], i32 8, <2 x i1> [[XOR]])
+; CHECK: call void @llvm.masked.scatter.v2p4i8.v2p0p4i8(<2 x i8 addrspace(4)*> <i8 addrspace(4)* addrspacecast (i8* bitcast (void (i8 addrspace(4)*)* @__block_fn_block_invoke to i8*) to i8 addrspace(4)*), i8 addrspace(4)* addrspacecast (i8* bitcast (void (i8 addrspace(4)*)* @__block_fn_block_invoke to i8*) to i8 addrspace(4)*)>, <2 x i8 addrspace(4)**> [[GEP4]], i32 8, <2 x i1> <i1 true, i1 true>)
 
 
 ; ModuleID = 'main'

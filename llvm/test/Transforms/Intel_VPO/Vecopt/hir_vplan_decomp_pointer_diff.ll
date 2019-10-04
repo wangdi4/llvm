@@ -15,10 +15,10 @@
 ;     } while (p != name);
 ; }
 
-; CHECK: i64 [[NAME:%vp[0-9]+]] = ptrtoint i8* %name to i64
-; CHECK: i64 [[MUL:%vp[0-9]+]] = mul i64 [[NAME]] i64 -1
-; CHECK: i64 [[SPEC:%vp[0-9]+]] = ptrtoint i8* %spec.select to i64
-; CHECK: i64 [[ADD:%vp[0-9]+]] = add i64 [[MUL]] i64 [[SPEC]]
+; CHECK: i64 [[NAME:%vp.*]] = ptrtoint i8* %name to i64
+; CHECK: i64 [[MUL:%vp.*]] = mul i64 [[NAME]] i64 -1
+; CHECK: i64 [[SPEC:%vp.*]] = ptrtoint i8* %spec.select to i64
+; CHECK: i64 [[ADD:%vp.*]] = add i64 [[MUL]] i64 [[SPEC]]
 ; CHECK: i64 %vp{{[0-9]+}} = add i64 [[ADD]] i64 -1
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

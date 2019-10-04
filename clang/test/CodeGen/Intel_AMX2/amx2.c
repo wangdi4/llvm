@@ -1,6 +1,6 @@
 // REQUIRES: intel_feature_isa_amx2
 // RUN: %clang_cc1 %s -ffreestanding -triple=x86_64-unknown-unknown \
-// RUN: -target-feature +amx-int8 -target-feature +amx-bf16 -target-feature \
+// RUN: -target-feature +amx-int8 -target-feature +amx-bf16 -target-feature +amx-int8-evex -target-feature +amx-bf16-evex -target-feature +amx-tile-evex -target-feature\
 // RUN: +avx512f -emit-llvm -o - -Wall -Werror -pedantic \
 // RUN: -Wno-gnu-statement-expression| FileCheck %s
 
@@ -482,13 +482,93 @@ void test_tile_xord_mem(void *A) {
 // FP16
 void test_tile_dpfp16ps() {
   // CHECK-LABEL: @test_tile_dpfp16ps
-  //CHECK: call void asm sideeffect "tdpfp16ps %tmm1, %tmm2, %tmm3"
+  // CHECK: call void asm sideeffect "tdpfp16ps %tmm1, %tmm2, %tmm3"
   _tile_dpfp16ps(1, 2, 3);
 }
 // Tile to AVX512
-__m512 test_tile_mov2zmm() {
-  // CHECK-LABEL: @test_tile_mov2zmm
-  // CHECK: call <16 x float> asm sideeffect "tilemov2zmm $1, %tmm1, $0"
+__m512 test_tile_movrowe_imm() {
+  // CHECK-LABEL: @test_tile_movrowe_imm
+  // CHECK: call <16 x float> asm sideeffect "tilemovrowe $1, %tmm1, $0"
   // CHECK: ret <16 x float>
-  return _tile_mov2zmm(1,128);
+  return _tile_movrowe(1,4);
+}
+
+__m512 test_tile_movrowe_r32(__int32 row) {
+  // CHECK-LABEL: @test_tile_movrowe_r32
+  // CHECK: call <16 x float> asm sideeffect "tilemovrowe $1, %tmm1, $0"
+  // CHECK: ret <16 x float>
+  return _tile_movrowe(1,row);
+}
+
+__m512 test_tile_movrowe_xmm(__m128 row) {
+  // CHECK-LABEL: @test_tile_movrowe_xmm
+  // CHECK: call <16 x float> asm sideeffect "tilemovrowe $1, %tmm1, $0"
+  // CHECK: ret <16 x float>
+  return _tile_movrowe_x(1,row);
+}
+
+void test_tilemove() {
+  // CHECK-LABEL: @test_tilemove
+  // CHECK: call void asm sideeffect "tilemove %tmm13, %tmm1"
+  _tile_move(1,13);
+}
+
+void test_tile16move() {
+  // CHECK-LABEL: @test_tile16move
+  // CHECK: call void asm sideeffect "tile16move %zmm13, %tmm1"
+  _tile_16move(1,13);
+}
+
+void test_tileloadde(void *data){
+  // CHECK-LABEL: @test_tileloadde
+  // CHECK: call void asm sideeffect "tileloadde ($0,$1,1), %tmm4"
+  _tile_loadde(4,data,8);
+}
+
+void test_tileloaddt1e(void *data){
+  // CHECK-LABEL: @test_tileloaddt1e
+  // CHECK: call void asm sideeffect "tileloaddt1e  ($0,$1,1), %tmm4"
+  _tile_loaddt1e(4,data,8);
+}
+
+void test_tilestorede(void *data){
+  // CHECK-LABEL: @test_tilestorede
+  // CHECK: call void asm sideeffect "tilestorede  %tmm4, ($0,$1,1)"
+  _tile_storede(4,data,8);
+}
+
+void test_tilezeroe(void *data){
+  // CHECK-LABEL: @test_tilezeroe
+  // CHECK: call void asm sideeffect "tilezeroe %tmm4"
+  _tile_zeroe(4);
+}
+
+void test_tile_dpbf16pse() {
+  // CHECK-LABEL: @test_tile_dpbf16pse
+  //CHECK: call void asm sideeffect "tdpbf16pse %tmm3, %tmm2, %tmm1"
+  _tile_dpbf16pse(1, 2, 3);
+}
+
+void test_tile_dpbssde() {
+  // CHECK-LABEL: @test_tile_dpbssde
+  //CHECK: call void asm sideeffect "tdpbssde %tmm3, %tmm2, %tmm1"
+  _tile_dpbssde(1, 2, 3);
+}
+
+void test_tile_dpbsude() {
+  // CHECK-LABEL: @test_tile_dpbsude
+  //CHECK: call void asm sideeffect "tdpbsude %tmm3, %tmm2, %tmm1"
+  _tile_dpbsude(1, 2, 3);
+}
+
+void test_tile_dpbusde() {
+  // CHECK-LABEL: @test_tile_dpbusde
+  //CHECK: call void asm sideeffect "tdpbusde %tmm3, %tmm2, %tmm1"
+  _tile_dpbusde(1, 2, 3);
+}
+
+void test_tile_dpbuude() {
+  // CHECK-LABEL: @test_tile_dpbuude
+  //CHECK: call void asm sideeffect "tdpbuude %tmm3, %tmm2, %tmm1"
+  _tile_dpbuude(1, 2, 3);
 }

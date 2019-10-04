@@ -34,7 +34,8 @@
 #define DEBUG_TYPE "LoopVectorizationPlanner"
 
 #if INTEL_CUSTOMIZATION
-extern cl::opt<bool> VPlanConstrStressTest;
+extern llvm::cl::opt<bool> VPlanConstrStressTest;
+extern llvm::cl::opt<bool> EnableVPValueCodegen;
 
 cl::opt<uint64_t>
     VPlanDefaultEstTrip("vplan-default-est-trip", cl::init(300),
@@ -452,6 +453,8 @@ void LoopVectorizationPlanner::EnterExplicitData(WRNVecLoopNode *WRLp,
                                                  VPOVectorizationLegality &LVL) {
 #if INTEL_CUSTOMIZATION
   constexpr IRKind Kind = getIRKindByLegality<VPOVectorizationLegality>();
+  if (Kind == IRKind::LLVMIR && EnableVPValueCodegen)
+    VPlanUseVPEntityInstructions = true;
 #endif
   // Collect any SIMD loop private information
   if (WRLp) {

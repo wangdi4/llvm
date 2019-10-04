@@ -122,7 +122,7 @@ public:
       // Lastly: Check the dependence edge.
       if (Edge->getSrc() == Edge->getSink())
         return false;
-      if (Edge->isINPUTdep())
+      if (Edge->isInput())
         return false;
       return true;
     };

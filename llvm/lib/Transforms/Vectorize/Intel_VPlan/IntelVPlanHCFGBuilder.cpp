@@ -44,6 +44,10 @@ cl::opt<bool> LoopMassagingEnabled(
     "vplan-enable-loop-massaging", cl::init(true), cl::Hidden,
     cl::desc("Enable loop massaging in VPlan (Multiple to Singular Exit)"));
 
+static cl::opt<bool> VPlanPrintAfterLoopMassaging(
+    "vplan-print-after-loop-massaging", cl::init(false),
+    cl::desc("Print plain dump after loop massaging"));
+
 static cl::opt<bool> DisableUniformRegions(
     "disable-uniform-regions", cl::init(false), cl::Hidden,
     cl::desc("Disable detection of uniform Regions in VPlan. All regions are "
@@ -75,7 +79,7 @@ VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, ScalarEvolution *SE,
     : TheLoop(Lp), LI(LI), SE(SE), WRLp(WRL), Plan(Plan), Legal(Legal) {
   // TODO: Turn Verifier pointer into an object when Patch #3 of Patch Series
   // #1 lands into VPO and VPlanHCFGBuilderBase is removed.
-  Verifier = llvm::make_unique<VPlanVerifier>(Lp, LI, DL);
+  Verifier = std::make_unique<VPlanVerifier>(Lp, LI, DL);
   assert((!WRLp || WRLp->getTheLoop<Loop>() == TheLoop) &&
          "Inconsistent Loop information");
 }
@@ -451,6 +455,11 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   if ((ExitingBlocks.size() < 2) || ParentLoop == nullptr)
     return;
 
+  // FIXME: Don't break SSA form during the transformation.
+  if (!Plan->isSSABroken()   // Already marked, so...
+      && isBreakingSSA(VPL)) // don't try to analyze any more.
+    Plan->markSSABroken();
+
   // The merge loop exits transformation kicks-in.
 
   LLVM_DEBUG(dbgs() << "Before merge loop exits transformation.\n");
@@ -478,6 +487,13 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
     LatchExitBlock = BackedgeCond ? OrigLoopLatch->getSuccessors()[1]
                                   : OrigLoopLatch->getSuccessors()[0];
   }
+  VPlanDivergenceAnalysis *VPlanDA = Plan->getVPlanDA();
+  // The divergence information is later used to set the new condition bit
+  // that merge loops exits transformation introduces.
+  bool IsDivergent =
+      llvm::any_of(ExitingBlocks, [VPlanDA](VPBlockBase *ExitingBlock) {
+        return VPlanDA->isDivergent(*ExitingBlock->getCondBit());
+      });
 
   // Step 1 : Creates a new loop latch and fills it with all the necessary
   // instructions.
@@ -498,10 +514,10 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   VPConstant *TrueConst = Plan->getVPConstant(ConstantInt::get(Ty1, 1));
   VPBuilder VPBldr;
   VPBldr.setInsertPoint(NewLoopLatch);
-  VPPHINode *VPPhi = cast<VPPHINode>(VPBldr.createPhiInstruction(Ty32));
+  VPPHINode *VPPhi = VPBldr.createPhiInstruction(Ty32);
   // This phi node is a marker of the backedge. It shows if the backedge is
   // taken.
-  VPPHINode *NewCondBit = cast<VPPHINode>(VPBldr.createPhiInstruction(Ty1));
+  VPPHINode *NewCondBit = VPBldr.createPhiInstruction(Ty1, "TakeBackedgeCond");
   if (LatchExitBlock) {
     VPInstruction *OldCondBit =
         dyn_cast<VPInstruction>(NewLoopLatch->getCondBit());
@@ -513,8 +529,12 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   }
   // Update the condbit.
   NewLoopLatch->setCondBit(NewCondBit);
-  VPlanDivergenceAnalysis *VPlanDA = Plan->getVPlanDA();
-  VPlanDA->markDivergent(*NewCondBit);
+  // We should only mark divergent values. DA checks if a value is in
+  // DivergentValues set. If it is not there, then the value is considered
+  // uniform.
+  if (IsDivergent)
+    VPlanDA->markDivergent(*NewCondBit);
+
   // Add the original loop latch in the NewLoopLatch's phi node.
   VPPHINode *NewLoopHeaderPhiNode =
       updatePhiNodeInLoopHeader(LoopHeader, NewLoopLatch, VPPhi, Plan);
@@ -649,7 +669,7 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   // in case 2.
   if (ExitBlocks.size() > 1) {
     VPBasicBlock *IfBlock =
-        new VPBasicBlock(VPlanUtils::createUniqueName("IfBlock"));
+        new VPBasicBlock(VPlanUtils::createUniqueName("CascadedIfBlock"));
     VPRegionBlock *Parent = NewLoopLatch->getParent();
     IfBlock->setParent(Parent);
     Parent->setSize(Parent->getSize() + 1);
@@ -671,7 +691,7 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
       VPBasicBlock *NextIfBlock = nullptr;
       // Emit cascaded if blocks.
       if (i != end - 1) {
-        NextIfBlock = new VPBasicBlock(VPlanUtils::createUniqueName("IfBlock"));
+        NextIfBlock = new VPBasicBlock(VPlanUtils::createUniqueName("CascadedIfBlock"));
         NextIfBlock->setParent(Parent);
         Parent->setSize(Parent->getSize() + 1);
         ParentLoop->addBasicBlockToLoop(NextIfBlock, *VPLInfo);
@@ -718,10 +738,127 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   LLVM_DEBUG(Plan->dump());
 }
 
+// The following example shows why it is needed to preserve SSA. x is defined in
+// BB2 and it is used in BB1. After single-exit while loop transformation, a new
+// edge is added between BB1 and the NEW_LOOP_LATCH. This means that the value
+// of x can end up to the NEW_LOOP_LATCH from multiple paths. For this reason, a
+// new phi node is emitted in the NEW_LOOP_LATCH.
+// -----------------------------------------------------------------------------
+//  BEFORE                                          AFTER
+// -----------------------------------------------------------------------------
+//
+// -->BB1                               ------------>BB1
+// | x_phi1 = [x, BB3], [0, PreHeader]  | x_phi1 = [x_phi2, BB3], [0, PreHeader]
+// | ...=x                              |           ...=x_phi1
+// |   |\                               |             |\
+// |   | \                              |             | \
+// |  BB2 \       =>                    |            BB2 \
+// | x=... \                            |           x=... \
+// |   |    \                           |             |    \
+// |   |     \                          |             |     \
+// |   |     BB4                        |             |      |
+// ---BB3                               |            BB3     |
+//                                      |             |      |
+//                                      |             |      |
+//                                      ---------NEW_LOOP_LATCH
+//                                        x_phi2 = [x, BB3] [undef, BB1]
+//                                                    |
+//                                                    |
+//                                                   BB4
+//
+// TODO: Update preserveSSAForLoopHeader to work with IDF.
+void VPlanHCFGBuilder::preserveSSAForLoopHeader(VPBasicBlock *LoopHeader,
+                                                VPBasicBlock *NewLoopLatch,
+                                                VPBasicBlock *OrigLoopLatch,
+                                                VPBasicBlock *ExitingBlock) {
+  VPBuilder VPBldr;
+  VPBldr.setInsertPoint(NewLoopLatch);
+
+  assert(llvm::is_contained(LoopHeader->getPredecessors(), NewLoopLatch) &&
+         "NewLoopLatch must be LoopHeader's predecessor!");
+
+  for (VPPHINode &VPPhi : LoopHeader->getVPPhis()) {
+    auto *IncomingValue =
+        dyn_cast<VPInstruction>(VPPhi.getIncomingValue(NewLoopLatch));
+    // Check if we have to generate a phi node for the current incoming value at
+    // NewLoopLatch.
+    if (!IncomingValue ||
+        VPDomTree.dominates(IncomingValue->getParent(), ExitingBlock))
+      continue;
+
+    // Create a new phi node in the new loop latch for the values that are used
+    // in the loop header.
+    VPPHINode *PreserveSSAPhi =
+        VPBldr.createPhiInstruction(IncomingValue->getType());
+    // Update the phi nodes of the loop header with the new phi.
+    VPPhi.setIncomingValue(NewLoopLatch, PreserveSSAPhi);
+
+    // Update the new phi node of the new loop latch.
+    PreserveSSAPhi->addIncoming(IncomingValue,
+                                dyn_cast<VPBasicBlock>(OrigLoopLatch));
+    PreserveSSAPhi->addIncoming(
+        Plan->getVPConstant(UndefValue::get(IncomingValue->getType())),
+        cast<VPBasicBlock>(ExitingBlock));
+    VPlanDivergenceAnalysis *VPlanDA = Plan->getVPlanDA();
+    // Update the DA of the SSA phi based on the DA info that the
+    // condition bit has.
+    if (VPlanDA->isDivergent(*IncomingValue))
+      VPlanDA->markDivergent(*PreserveSSAPhi);
+  }
+}
+
+bool VPlanHCFGBuilder::isBreakingSSA(VPLoop *VPL) {
+  auto *VPLI = Plan->getVPLoopInfo();
+  SmallVector<VPBlockBase *, 2> ExitingBlocks;
+  VPL->getExitingBlocks(ExitingBlocks);
+
+  auto *Header = VPL->getHeader();
+  VPBasicBlock *LoopLatch = dyn_cast<VPBasicBlock>(VPL->getLoopLatch());
+  if (!LoopLatch)
+    return true;
+
+  for (VPBlockBase *BB : VPL->getBlocks()) {
+    if (VPLI->getLoopFor(BB) != VPL)
+      continue; // Inner loops already handled.
+
+    if (VPDomTree.dominates(BB, LoopLatch) &&
+        all_of(ExitingBlocks, [&](VPBlockBase *ExitingBlock) {
+            return VPDomTree.dominates(BB, ExitingBlock);
+        }))
+      // Defs in this block will be available in NewLoopLatch.
+      continue;
+
+    auto *BasicBlock = dyn_cast<VPBasicBlock>(BB);
+    if (!BasicBlock)
+      // We are operation on PlainCFG, so this shouldn't happen. Just be
+      // conservative if that's not true for some reason.
+      return true;
+
+    for (auto &Inst : BasicBlock->vpinstructions()) {
+      for (auto *User : Inst.users()) {
+        auto *UserInst = dyn_cast<VPInstruction>(User);
+        if (!UserInst)
+          return true;
+
+        if (!VPL->contains(UserInst))
+          return true;
+
+        if (UserInst->getParent() == Header) {
+          assert(isa<VPPHINode>(UserInst) &&
+                 "Can't have non-phi user in header!");
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
 // The single-exit while tranformation creates a new loop latch where the
 // side-exit is redirected.
 // -------------------------------------------
-//  FROM                          TO
+//  BEFORE                         AFTER
 // -------------------------------------------
 //
 // -->BB1                ----------->BB1
@@ -751,6 +888,12 @@ void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
   if (!VPL->getExitingBlock() || ParentLoop == nullptr)
     return;
 
+  // FIXME: Don't break SSA form during the transformation.
+  if (!Plan->isSSABroken()   // Already marked, so...
+      && isBreakingSSA(VPL)) // don't try to analyze any more.
+    Plan->markSSABroken();
+
+
   LLVM_DEBUG(dbgs() << "Before single exit while loop transformation.\n");
   LLVM_DEBUG(Plan->dump());
 
@@ -758,7 +901,7 @@ void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
   VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
   VPBasicBlock *NewLoopLatch = VPBlockUtils::splitBlock(
       OrigLoopLatch, VPLInfo, VPDomTree, VPPostDomTree);
-
+  NewLoopLatch->setName(VPlanUtils::createUniqueName("NewLoopLatch"));
   // Update the control-flow for the ExitingBlock, the NewLoopLatch and the
   // ExitBlock.
   VPBlockBase *ExitingBlock = VPL->getExitingBlock();
@@ -771,13 +914,18 @@ void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
                       cast<VPBasicBlock>(ExitingBlock), NewLoopLatch);
 
   // Fill-in NewLoopLatch with new instructions.
-  VPBuilder VPBldr;
-  VPBldr.setInsertPoint(NewLoopLatch);
+  VPBasicBlock *LoopHeader = dyn_cast<VPBasicBlock>(VPL->getHeader());
+  // Emit phi nodes that will preserve SSA form if it is needed.
+  preserveSSAForLoopHeader(LoopHeader, NewLoopLatch, OrigLoopLatch,
+                           cast<VPBasicBlock>(ExitingBlock));
+  // Emit the backedge condition.
   Type *Int1Ty = Type::getInt1Ty(*Plan->getLLVMContext());
   VPConstant *FalseConst = Plan->getVPConstant(ConstantInt::get(Int1Ty, 0));
   VPConstant *TrueConst = Plan->getVPConstant(ConstantInt::get(Int1Ty, 1));
+  VPBuilder VPBldr;
+  VPBldr.setInsertPoint(NewLoopLatch);
   VPPHINode *TakeBackedgeCond =
-      cast<VPPHINode>(VPBldr.createPhiInstruction(Int1Ty));
+      VPBldr.createPhiInstruction(Int1Ty, "TakeBackedgeCond");
   // TODO: The while-loop canonicalization does not preserve the SSA form. If a
   // value from the OrigLoopLatch feeds the phi in the BB1, then this value
   // stops dominating its use (not defined on the BB2->NEW_LOOP_LATCH edge).
@@ -791,14 +939,11 @@ void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
   VPInstruction *OldCondBit =
       dyn_cast_or_null<VPInstruction>(ExitingBlock->getCondBit());
   assert(OldCondBit && "ExitingBlock does not have a CondBit\n");
-  auto copyDivergence = [VPlanDA](VPInstruction *From, VPInstruction *To) {
-    // We should only mark divergent values. DA checks if a value is in
-    // DivergentValues set. If it is not there, then the value is considered
-    // uniform.
-    if (VPlanDA->isDivergent(*From))
-      VPlanDA->markDivergent(*To);
-  };
-  copyDivergence(OldCondBit, TakeBackedgeCond);
+  // We should only mark divergent values. DA checks if a value is in
+  // DivergentValues set. If it is not there, then the value is considered
+  // uniform.
+  if (VPlanDA->isDivergent(*OldCondBit))
+    VPlanDA->markDivergent(*TakeBackedgeCond);
 
   // TODO: CMPLRLLVM-9535 Update VPDomTree and VPPostDomTree instead of
   // recalculating it.
@@ -996,6 +1141,15 @@ void VPlanHCFGBuilder::simplifyPlainCFG() {
     // VPDomTree.print(dbgs()));
     singleExitWhileLoopCanonicalization(TopLoop);
     mergeLoopExits(TopLoop);
+#if INTEL_CUSTOMIZATION
+    if (VPlanPrintAfterLoopMassaging) {
+      errs() << "Print after loop massaging:\n";
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      Plan->dump();
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+    }
+#endif /* INTEL_CUSTOMIZATION */
+
     LLVM_DEBUG(Verifier->verifyHierarchicalCFG(Plan, TopRegion));
     // LLVM_DEBUG(dbgs() << "Dominator Tree After mergeLoopExits\n";
     // VPDomTree.print(dbgs()));
@@ -1216,7 +1370,7 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
 
   // TODO: If more efficient, we may want to "translate" LoopInfo to VPLoopInfo.
   // Compute VPLInfo and keep it in VPlan
-  Plan->setVPLoopInfo(llvm::make_unique<VPLoopInfo>());
+  Plan->setVPLoopInfo(std::make_unique<VPLoopInfo>());
   auto *VPLInfo = Plan->getVPLoopInfo();
   VPLInfo->analyze(VPDomTree);
 
@@ -1260,7 +1414,7 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
     // Currently, there is only one instance and no distinction between VFs.
     // i.e., values are either uniform or divergent for all VFs.
     VPLoop *CandidateLoop = *VPLInfo->begin();
-    auto VPDA = llvm::make_unique<VPlanDivergenceAnalysis>();
+    auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
     VPDA->compute(Plan, CandidateLoop, VPLInfo, VPDomTree, VPPostDomTree, true);
     Plan->setVPlanDA(std::move(VPDA));
   }
@@ -1268,7 +1422,7 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
   if (VPlanPrintPlainCFG) {
     errs() << "Print after buildPlainCFG\n";
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    Plan->dump(errs());
+    Plan->dump();
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   }
 #endif /* INTEL_CUSTOMIZATION */
@@ -1280,7 +1434,7 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
   if (VPlanPrintSimplifyCFG) {
     errs() << "Print after simplify plain CFG\n";
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    Plan->dump(errs());
+    Plan->dump();
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   }
 #endif
@@ -1320,7 +1474,7 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
   if (VPlanPrintHCFG) {
     errs() << "Print after building H-CFG:\n";
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    Plan->dump(errs());
+    Plan->dump();
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   }
   LLVM_DEBUG(Plan->dumpLivenessInfo(dbgs()));
@@ -1518,6 +1672,17 @@ void PlainCFGBuilder::setVPBBPredsFromBB(VPBasicBlock *VPBB, BasicBlock *BB) {
   VPBB->setPredecessors(VPBBPreds);
 }
 
+static void assertIsSingleElementAlloca(Value *CurValue) {
+  if (!CurValue)
+    return;
+  if (auto AllocaI = dyn_cast<AllocaInst>(CurValue)) {
+    Value *ArrSize = AllocaI->getArraySize();
+    assert((isa<ConstantInt>(ArrSize) && cast<ConstantInt>(ArrSize)->isOne()) &&
+           "Alloca is unsupported for privatization");
+    (void)ArrSize;
+  }
+}
+
 // Base class for VPLoopEntity conversion functors.
 class VPEntityConverterBase {
 public:
@@ -1547,10 +1712,8 @@ public:
         dyn_cast<VPInstruction>(Builder.getOrCreateVPOperand(CurValue.first)));
     Descriptor.setStart(
         Builder.getOrCreateVPOperand(RD.getRecurrenceStartValue()));
-    Descriptor.addUpdateVPInst(dyn_cast<VPInstruction>(
+    Descriptor.setExit(dyn_cast<VPInstruction>(
         Builder.getOrCreateVPOperand(RD.getLoopExitInstr())));
-    // Exit is not set here, it is determined based on some analyses in Phase 2
-    Descriptor.setExit(nullptr);
     Descriptor.setKind(RD.getRecurrenceKind());
     Descriptor.setMinMaxKind(RD.getMinMaxRecurrenceKind());
     Descriptor.setRecType(RD.getRecurrenceType());
@@ -1572,12 +1735,15 @@ public:
         dyn_cast<VPInstruction>(Builder.getOrCreateVPOperand(CurValue.first)));
     Descriptor.setStart(
         Builder.getOrCreateVPOperand(RD.getRecurrenceStartValue()));
-    Descriptor.setExit(dyn_cast<VPInstruction>(
+    Descriptor.addUpdateVPInst(dyn_cast<VPInstruction>(
         Builder.getOrCreateVPOperand(RD.getLoopExitInstr())));
+    // Exit is not set here, it is determined based on some analyses in Phase 2
+    Descriptor.setExit(nullptr);
     Descriptor.setKind(RD.getRecurrenceKind());
     Descriptor.setMinMaxKind(RD.getMinMaxRecurrenceKind());
     Descriptor.setRecType(RD.getRecurrenceType());
     Descriptor.setSigned(RD.isSigned());
+    assertIsSingleElementAlloca(CurValue.second.second);
     Descriptor.setAllocaInst(
         Builder.getOrCreateVPOperand(CurValue.second.second));
     Descriptor.setLinkPhi(nullptr);
@@ -1591,6 +1757,7 @@ public:
   void operator()(ReductionDescr &Descriptor,
                   const InMemoryReductionList::value_type &CurValue) {
     Descriptor.clear();
+    assertIsSingleElementAlloca(CurValue.first);
     VPValue *AllocaInst = Builder.getOrCreateVPOperand(CurValue.first);
     Descriptor.setStartPhi(nullptr);
     Descriptor.setStart(AllocaInst);
@@ -1681,8 +1848,10 @@ public:
 
     Descriptor.setInductionBinOp(nullptr);
     Descriptor.setBinOpcode(Instruction::Add);
+    assertIsSingleElementAlloca(CurValue.first);
     Descriptor.setAllocaInst(
         isa<AllocaInst>(CurValue.first) ? Descriptor.getStart() : nullptr);
+    Descriptor.setIsExplicitInduction(true);
   }
 };
 
@@ -1697,6 +1866,7 @@ public:
                   const PrivatesListTy::value_type &CurValue) {
 
     Descriptor.clear();
+    assertIsSingleElementAlloca(CurValue);
     auto *VPAllocaVal = Builder.getOrCreateVPOperand(CurValue);
     // TODO: This is a temporary solution. Aliases to the private descriptor
     // should be collected earlier with new descriptor representation in
@@ -1950,7 +2120,7 @@ void PlainCFGBuilder::addExternalUses(Value *Val, VPValue *NewVPInst) {
     if (auto Inst = dyn_cast<Instruction>(U))
       if (!TheLoop->contains(Inst)) {
         VPExternalUse *User = Plan->getVPExternalUse(Inst);
-        User->addOperand(NewVPInst);
+        User->addOperandWithUnderlyingValue(NewVPInst, Val);
       }
 }
 
@@ -2066,7 +2236,7 @@ void PlainCFGBuilder::createVPInstructionsForVPBB(VPBasicBlock *VPBB,
 
 std::unique_ptr<VPRegionBlock> PlainCFGBuilder::buildPlainCFG() {
   // 1. Create the Top Region. It will be the parent of all VPBBs.
-  TopRegion = llvm::make_unique<VPRegionBlock>(
+  TopRegion = std::make_unique<VPRegionBlock>(
       VPBlockBase::VPRegionBlockSC, VPlanUtils::createUniqueName("region"));
   TopRegionSize = 0;
 

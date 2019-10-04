@@ -558,7 +558,7 @@ void ScriptInterpreterPythonImpl::IOHandlerInputComplete(IOHandler &io_handler,
       if (!bp_options)
         continue;
 
-      auto data_up = llvm::make_unique<CommandDataPython>();
+      auto data_up = std::make_unique<CommandDataPython>();
       if (!data_up)
         break;
       data_up->user_source.SplitIntoLines(data);
@@ -583,7 +583,7 @@ void ScriptInterpreterPythonImpl::IOHandlerInputComplete(IOHandler &io_handler,
   case eIOHandlerWatchpoint: {
     WatchpointOptions *wp_options =
         (WatchpointOptions *)io_handler.GetUserData();
-    auto data_up = llvm::make_unique<WatchpointOptions::CommandData>();
+    auto data_up = std::make_unique<WatchpointOptions::CommandData>();
     data_up->user_source.SplitIntoLines(data);
 
     if (GenerateWatchpointCommandCallbackData(data_up->user_source,
@@ -615,6 +615,10 @@ void ScriptInterpreterPythonImpl::LeaveSession() {
   Log *log(lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_SCRIPT));
   if (log)
     log->PutCString("ScriptInterpreterPythonImpl::LeaveSession()");
+
+  // Unset the LLDB global variables.
+  PyRun_SimpleString("lldb.debugger = None; lldb.target = None; lldb.process "
+                     "= None; lldb.thread = None; lldb.frame = None");
 
   // checking that we have a valid thread state - since we use our own
   // threading and locking in some (rare) cases during cleanup Python may end
@@ -1290,7 +1294,7 @@ Status ScriptInterpreterPythonImpl::SetBreakpointCommandCallback(
 // Set a Python one-liner as the callback for the breakpoint.
 Status ScriptInterpreterPythonImpl::SetBreakpointCommandCallback(
     BreakpointOptions *bp_options, const char *command_body_text) {
-  auto data_up = llvm::make_unique<CommandDataPython>();
+  auto data_up = std::make_unique<CommandDataPython>();
 
   // Split the command_body_text into lines, and pass that to
   // GenerateBreakpointCommandCallbackData.  That will wrap the body in an
@@ -1313,7 +1317,7 @@ Status ScriptInterpreterPythonImpl::SetBreakpointCommandCallback(
 // Set a Python one-liner as the callback for the watchpoint.
 void ScriptInterpreterPythonImpl::SetWatchpointCommandCallback(
     WatchpointOptions *wp_options, const char *oneliner) {
-  auto data_up = llvm::make_unique<WatchpointOptions::CommandData>();
+  auto data_up = std::make_unique<WatchpointOptions::CommandData>();
 
   // It's necessary to set both user_source and script_source to the oneliner.
   // The former is used to generate callback description (as in watchpoint
@@ -2210,18 +2214,6 @@ bool ScriptInterpreterPythonImpl::GetScriptedSummary(
     callee_wrapper_sp = std::make_shared<StructuredPythonObject>(new_callee);
 
   return ret_val;
-}
-
-void ScriptInterpreterPythonImpl::Clear() {
-  // Release any global variables that might have strong references to
-  // LLDB objects when clearing the python script interpreter.
-  Locker locker(this, Locker::AcquireLock, Locker::FreeAcquiredLock);
-
-  // This may be called as part of Py_Finalize.  In that case the modules are
-  // destroyed in random order and we can't guarantee that we can access these.
-  if (Py_IsInitialized())
-    PyRun_SimpleString("lldb.debugger = None; lldb.target = None; lldb.process "
-                       "= None; lldb.thread = None; lldb.frame = None");
 }
 
 bool ScriptInterpreterPythonImpl::BreakpointCallbackFunction(

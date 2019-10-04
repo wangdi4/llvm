@@ -52,6 +52,10 @@ using namespace clang;
 static llvm::cl::extrahelp CommonHelp(CommonOptionsParser::HelpMessage);
 static llvm::cl::OptionCategory ClangDocCategory("clang-doc options");
 
+static llvm::cl::opt<std::string>
+    ProjectName("project-name", llvm::cl::desc("Name of project."),
+                llvm::cl::cat(ClangDocCategory));
+
 static llvm::cl::opt<bool> IgnoreMappingFailures(
     "ignore-map-errors",
     llvm::cl::desc("Continue if files are not mapped correctly."),
@@ -168,8 +172,8 @@ llvm::Expected<llvm::SmallString<128>> getInfoOutputFile(StringRef Root,
   llvm::sys::path::native(Root, Path);
   llvm::sys::path::append(Path, RelativePath);
   if (CreateDirectory(Path))
-    return llvm::make_error<llvm::StringError>("Unable to create directory.\n",
-                                               llvm::inconvertibleErrorCode());
+    return llvm::createStringError(llvm::inconvertibleErrorCode(),
+                                   "failed to create directory");
   llvm::sys::path::append(Path, Name + Ext);
   return Path;
 }
@@ -203,17 +207,12 @@ int main(int argc, const char **argv) {
                                   tooling::ArgumentInsertPosition::END),
         ArgAdjuster);
 
-  llvm::SmallString<128> SourceRootDir;
-  // Check if the --source-root flag has a value
-  if (SourceRoot.empty())
-    // If it's empty the current path is used as the default
-    llvm::sys::fs::current_path(SourceRootDir);
-
   clang::doc::ClangDocContext CDCtx = {
       Exec->get()->getExecutionContext(),
+      ProjectName,
       PublicOnly,
       OutDirectory,
-      SourceRootDir.str(),
+      SourceRoot,
       RepositoryUrl,
       {UserStylesheets.begin(), UserStylesheets.end()},
       {"index.js", "index_json.js"}};
@@ -304,7 +303,7 @@ int main(int argc, const char **argv) {
       }
       std::error_code FileErr;
       llvm::raw_fd_ostream InfoOS(InfoPath.get(), FileErr,
-                                  llvm::sys::fs::F_None);
+                                  llvm::sys::fs::OF_None);
       if (FileErr != OK) {
         llvm::errs() << "Error opening info file: " << FileErr.message()
                      << "\n";
@@ -327,8 +326,11 @@ int main(int argc, const char **argv) {
     return 1;
 
   llvm::outs() << "Generating assets for docs...\n";
-  if (!G->get()->createResources(CDCtx))
+  Err = G->get()->createResources(CDCtx);
+  if (Err) {
+    llvm::errs() << toString(std::move(Err)) << "\n";
     return 1;
+  }
 
   return 0;
 }

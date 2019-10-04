@@ -146,6 +146,9 @@ unsigned char X86Subtarget::classifyGlobalReference(const GlobalValue *GV,
       return X86II::MO_DLLIMPORT;
     return X86II::MO_COFFSTUB;
   }
+  // Some JIT users use *-win32-elf triples; these shouldn't use GOT tables.
+  if (isOSWindows())
+    return X86II::MO_NO_FLAG;
 
   if (is64Bit()) {
     // ELF supports a large, truly PIC code model with non-PC relative GOT
@@ -230,6 +233,12 @@ void X86Subtarget::initSubtargetFeatures(StringRef CPU, StringRef FS) {
 
   std::string FullFS = FS;
   if (In64BitMode) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+    // SSE2 is disabled in IceCode mode.
+    if (!InIceCodeMode)
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
     // SSE2 should default to enabled in 64-bit mode, but can be turned off
     // explicitly.
     if (!FullFS.empty())
@@ -311,6 +320,8 @@ void X86Subtarget::initSubtargetFeatures(StringRef CPU, StringRef FS) {
   // Consume the vector width attribute or apply any target specific limit.
   if (PreferVectorWidthOverride)
     PreferVectorWidth = PreferVectorWidthOverride;
+  else if (Prefer128Bit)
+    PreferVectorWidth = 128;
   else if (Prefer256Bit)
     PreferVectorWidth = 256;
 }

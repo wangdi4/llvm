@@ -1,8 +1,10 @@
-// RUN: %clangxx -fsycl %s -o %t.out -lOpenCL
+// RUN: %clangxx -fsycl %s -o %t.out
 // RUN: env SYCL_DEVICE_TYPE=HOST %t.out
 // RUN: %CPU_RUN_PLACEHOLDER %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 // RUN: %ACC_RUN_PLACEHOLDER %t.out
+// TODO: SYCL specific fail - windows+debug mode - analyze and enable
+// XFAIL: windows
 
 //==-- group.cpp - Regression tests for cl::sycl::group API bug fixes. -----==//
 //
@@ -34,7 +36,7 @@ bool group__get_group_range() {
   const range<DIMS> GlobalRange = LocalRange * GroupRange;
   using DataType = size_t;
   const int DataLen = GlobalRange.size() * DIMS;
-  std::unique_ptr<DataType> Data(new DataType[DataLen]);
+  std::unique_ptr<DataType[]> Data(new DataType[DataLen]);
   std::memset(Data.get(), 0, DataLen * sizeof(DataType));
 
   try {
@@ -100,7 +102,7 @@ bool group__get_linear_id() {
   const range<DIMS> GlobalRange = LocalRange * GroupRange;
   using DataType = size_t;
   const int DataLen = GlobalRange.size() * DIMS;
-  std::unique_ptr<DataType> Data(new DataType[DataLen]);
+  std::unique_ptr<DataType[]> Data(new DataType[DataLen]);
   std::memset(Data.get(), 0, DataLen * sizeof(DataType));
 
   try {

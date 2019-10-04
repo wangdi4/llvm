@@ -103,12 +103,8 @@ void HLSwitch::print_break(formatted_raw_ostream &OS, unsigned Depth,
 #endif // !INTEL_PRODUCT_RELEASE
 }
 
-void HLSwitch::print(formatted_raw_ostream &OS, unsigned Depth,
-                     bool Detailed) const {
-#if !INTEL_PRODUCT_RELEASE
-
-  indent(OS, Depth);
-
+void HLSwitch::printHeader(formatted_raw_ostream &OS, unsigned Depth,
+                           bool Detailed) const {
   OS << "switch(";
 
   auto Ref = getConditionDDRef();
@@ -116,6 +112,24 @@ void HLSwitch::print(formatted_raw_ostream &OS, unsigned Depth,
 
   OS << ")";
   printDistributePoint(OS);
+}
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+LLVM_DUMP_METHOD
+void HLSwitch::dumpHeader() const {
+  formatted_raw_ostream OS(dbgs());
+  indent(OS, 0);
+  printHeader(OS, 0, false);
+}
+#endif
+
+void HLSwitch::print(formatted_raw_ostream &OS, unsigned Depth,
+                     bool Detailed) const {
+#if !INTEL_PRODUCT_RELEASE
+
+  indent(OS, Depth);
+
+  printHeader(OS, Depth, Detailed);
 
   OS << "\n";
   indent(OS, Depth);

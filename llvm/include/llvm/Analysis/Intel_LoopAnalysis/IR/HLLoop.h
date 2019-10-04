@@ -1035,9 +1035,12 @@ public:
 
   bool normalize();
 
-  /// return false if loop cannot be stripmined - some stripmined
-  /// loop cannot be normalized. NotRequired set for tripCnt <= StripmineSize
-  bool canStripmine(unsigned StripmineSize, bool &NotRequired) const;
+  /// Return false if loop cannot be stripmined - some stripmined
+  /// loop cannot be normalized.
+  bool canStripmine(unsigned StripmineSize) const;
+
+  /// Stripmine is not required for trip counts <= \p StripmineSize.
+  bool isStripmineRequired(unsigned StripmineSize) const;
 
   const DebugLoc &getCmpDebugLoc() const { return CmpDbgLoc; }
   void setCmpTestDebugLoc(const DebugLoc &Loc) { CmpDbgLoc = Loc; }

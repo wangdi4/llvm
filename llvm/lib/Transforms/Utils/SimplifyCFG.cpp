@@ -97,6 +97,12 @@ static cl::opt<unsigned> PHINodeFoldingThreshold(
     cl::desc(
         "Control the amount of phi node folding to perform (default = 2)"));
 
+static cl::opt<unsigned> TwoEntryPHINodeFoldingThreshold(
+    "two-entry-phi-node-folding-threshold", cl::Hidden, cl::init(4),
+    cl::desc("Control the maximal total instruction cost that we are willing "
+             "to speculatively execute to fold a 2-entry PHI node into a "
+             "select (default = 4)"));
+
 static cl::opt<bool> DupRet(
     "simplifycfg-dup-ret", cl::Hidden, cl::init(false),
     cl::desc("Duplicate return instructions into unconditional branches"));
@@ -351,7 +357,7 @@ static unsigned ComputeSpeculationCost(const User *I,
 static bool
 CanDominateConditionalBranch(Value *V, BasicBlock *BB,
                              SmallPtrSetImpl<Instruction *> &AggressiveInsts,
-                             unsigned &CostRemaining,
+                             int &BudgetRemaining,
                              const TargetTransformInfo &TTI,
                              unsigned Depth = 0) {
   // It is possible to hit a zero-cost cycle (phi/gep instructions for example),
@@ -395,7 +401,7 @@ CanDominateConditionalBranch(Value *V, BasicBlock *BB,
   if (!isSafeToSpeculativelyExecute(I))
     return false;
 
-  unsigned Cost = ComputeSpeculationCost(I, TTI);
+  BudgetRemaining -= ComputeSpeculationCost(I, TTI);
 
   // Allow exactly one instruction to be speculated regardless of its cost
   // (as long as it is safe to do so).
@@ -403,18 +409,15 @@ CanDominateConditionalBranch(Value *V, BasicBlock *BB,
   // or other expensive operation. The speculation of an expensive instruction
   // is expected to be undone in CodeGenPrepare if the speculation has not
   // enabled further IR optimizations.
-  if (Cost > CostRemaining &&
+  if (BudgetRemaining < 0 &&
       (!SpeculateOneExpensiveInst || !AggressiveInsts.empty() || Depth > 0))
     return false;
-
-  // Avoid unsigned wrap.
-  CostRemaining = (Cost > CostRemaining) ? 0 : CostRemaining - Cost;
 
   // Okay, we can only really hoist these out if their operands do
   // not take us over the cost threshold.
   for (User::op_iterator i = I->op_begin(), e = I->op_end(); i != e; ++i)
     if (!CanDominateConditionalBranch(*i, BB, AggressiveInsts,
-                                      CostRemaining, TTI, Depth + 1))
+                                      BudgetRemaining, TTI, Depth + 1))
       return false;
   // Okay, it's safe to do this!  Remember this instruction.
   AggressiveInsts.insert(I);
@@ -1448,6 +1451,20 @@ HoistTerminator:
   return true;
 }
 
+// Check lifetime markers.
+static bool isLifeTimeMarker(const Instruction *I) {
+  if (auto II = dyn_cast<IntrinsicInst>(I)) {
+    switch (II->getIntrinsicID()) {
+    default:
+      break;
+    case Intrinsic::lifetime_start:
+    case Intrinsic::lifetime_end:
+      return true;
+    }
+  }
+  return false;
+}
+
 // All instructions in Insts belong to different blocks that all unconditionally
 // branch to a common successor. Analyze each instruction and return true if it
 // would be possible to sink them into their successor, creating one common
@@ -1502,20 +1519,25 @@ static bool canSinkInstructions(
       return false;
   }
 
-  // Because SROA can't handle speculating stores of selects, try not
-  // to sink loads or stores of allocas when we'd have to create a PHI for
-  // the address operand. Also, because it is likely that loads or stores
-  // of allocas will disappear when Mem2Reg/SROA is run, don't sink them.
+  // Because SROA can't handle speculating stores of selects, try not to sink
+  // loads, stores or lifetime markers of allocas when we'd have to create a
+  // PHI for the address operand. Also, because it is likely that loads or
+  // stores of allocas will disappear when Mem2Reg/SROA is run, don't sink
+  // them.
   // This can cause code churn which can have unintended consequences down
   // the line - see https://llvm.org/bugs/show_bug.cgi?id=30244.
   // FIXME: This is a workaround for a deficiency in SROA - see
   // https://llvm.org/bugs/show_bug.cgi?id=30188
   if (isa<StoreInst>(I0) && any_of(Insts, [](const Instruction *I) {
-        return isa<AllocaInst>(I->getOperand(1));
+        return isa<AllocaInst>(I->getOperand(1)->stripPointerCasts());
       }))
     return false;
   if (isa<LoadInst>(I0) && any_of(Insts, [](const Instruction *I) {
-        return isa<AllocaInst>(I->getOperand(0));
+        return isa<AllocaInst>(I->getOperand(0)->stripPointerCasts());
+      }))
+    return false;
+  if (isLifeTimeMarker(I0) && any_of(Insts, [](const Instruction *I) {
+        return isa<AllocaInst>(I->getOperand(1)->stripPointerCasts());
       }))
     return false;
 
@@ -1987,7 +2009,7 @@ static bool SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
 
   SmallVector<Instruction *, 4> SpeculatedDbgIntrinsics;
 
-  unsigned SpeculationCost = 0;
+  unsigned SpeculatedInstructions = 0;
   Value *SpeculatedStoreValue = nullptr;
   StoreInst *SpeculatedStore = nullptr;
   for (BasicBlock::iterator BBI = ThenBB->begin(),
@@ -2002,8 +2024,8 @@ static bool SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
 
     // Only speculatively execute a single instruction (not counting the
     // terminator) for now.
-    ++SpeculationCost;
-    if (SpeculationCost > 1)
+    ++SpeculatedInstructions;
+    if (SpeculatedInstructions > 1)
       return false;
 
     // Don't hoist the instruction if it's unsafe or expensive.
@@ -2040,8 +2062,8 @@ static bool SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
            E = SinkCandidateUseCounts.end();
        I != E; ++I)
     if (I->first->hasNUses(I->second)) {
-      ++SpeculationCost;
-      if (SpeculationCost > 1)
+      ++SpeculatedInstructions;
+      if (SpeculatedInstructions > 1)
         return false;
     }
 
@@ -2081,8 +2103,8 @@ static bool SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
     // getting expanded into Instructions.
     // FIXME: This doesn't account for how many operations are combined in the
     // constant expression.
-    ++SpeculationCost;
-    if (SpeculationCost > 1)
+    ++SpeculatedInstructions;
+    if (SpeculatedInstructions > 1)
       return false;
   }
 
@@ -2345,10 +2367,8 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
     // instructions.  While we are at it, keep track of the instructions
     // that need to be moved to the conditional block.
     SmallPtrSet<Instruction *, 4> AggressiveInsts;
-    unsigned MaxCostVal0 = PHINodeFoldingThreshold,
-             MaxCostVal1 = PHINodeFoldingThreshold;
-    MaxCostVal0 *= TargetTransformInfo::TCC_Basic;
-    MaxCostVal1 *= TargetTransformInfo::TCC_Basic;
+    int BudgetRemaining =
+        TwoEntryPHINodeFoldingThreshold * TargetTransformInfo::TCC_Basic;
 
     bool CanBeSimplified = true;
     unsigned NumPhis = 0;
@@ -2366,9 +2386,9 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
 
       if (TrueVal != FalseVal) {
         if (!CanDominateConditionalBranch(TrueVal, BB, AggressiveInsts,
-                                          MaxCostVal0, TTI) ||
+                                          BudgetRemaining, TTI) ||
             !CanDominateConditionalBranch(FalseVal, BB, AggressiveInsts,
-                                          MaxCostVal1, TTI)) {
+                                          BudgetRemaining, TTI)) {
           CanBeSimplified = false;
           break;
         }
@@ -2400,11 +2420,23 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
     Value *TrueVal = PN->getIncomingValueForBlock(IfTrue);
     Value *FalseVal = PN->getIncomingValueForBlock(IfFalse);
 
-    // Don't fold i1 branches on PHIs which contain binary operators. These
-    // can often be turned into switches and other things.
+    // Return true if at least one of these is a 'not', and another is either
+    // a 'not' too, or a constant.
+    auto CanHoistNotFromBothValues = [](Value *V0, Value *V1) {
+      if (!match(V0, m_Not(m_Value())))
+        std::swap(V0, V1);
+      auto Invertible = m_CombineOr(m_Not(m_Value()), m_AnyIntegralConstant());
+      return match(V0, m_Not(m_Value())) && match(V1, Invertible);
+    };
+
+    // Don't fold i1 branches on PHIs which contain binary operators, unless one
+    // of the incoming values is an 'not' and another one is freely invertible.
+    // These can often be turned into switches and other things.
     if (PN->getType()->isIntegerTy(1) &&
         (isa<BinaryOperator>(TrueVal) || isa<BinaryOperator>(FalseVal) ||
-         isa<BinaryOperator>(IfCond))) {
+         isa<BinaryOperator>(IfCond)) &&
+        !CanHoistNotFromBothValues(PN->getIncomingValue(0),
+                                   PN->getIncomingValue(1))) {
       // Continue to look for next "if condition".
       continue;
     }
@@ -3817,12 +3849,17 @@ static bool SimplifyBranchOnICmpChain(BranchInst *BI, IRBuilder<> &Builder,
 
   BasicBlock *BB = BI->getParent();
 
+  // MSAN does not like undefs as branch condition which can be introduced
+  // with "explicit branch".
+  if (ExtraCase && BB->getParent()->hasFnAttribute(Attribute::SanitizeMemory))
+    return false;
+
   LLVM_DEBUG(dbgs() << "Converting 'icmp' chain with " << Values.size()
                     << " cases into SWITCH.  BB is:\n"
                     << *BB);
 
   // If there are any extra values that couldn't be folded into the switch
-  // then we evaluate them with an explicit branch first.  Split the block
+  // then we evaluate them with an explicit branch first. Split the block
   // right before the condbr to handle it.
   if (ExtraCase) {
     BasicBlock *NewBB =
@@ -5098,12 +5135,64 @@ static bool EliminateRedundantCases(SwitchInst *SI) {
       CasesToBeRemoved.push_back(C);
   }
 
+  // If there is profile data on the switch instruction, collect
+  // a mapping of the case constant to the branch weight so that the
+  // profile weights can be reconstructed. We need this mapping because the
+  // update to the switch instruction may reorder the case value list, so we
+  // cannot just modify the branch weight list to drop entries from the indices
+  // of the cases being removed.
+  DenseMap<ConstantInt *, uint64_t> OrigValueToWeight;
+  uint64_t DefaultExecWeight = 0;
+  bool ProfileUpdateNeeded = false;
+  if (!CasesToBeRemoved.empty() && HasBranchWeights(SI)) {
+    SmallVector<uint64_t, 8> Weights;
+    GetBranchWeights(SI, Weights);
+
+    // Make sure there is a weight for each case. The IR verifier should
+    // report the module as broken, if this is not true.
+    if (Weights.size() == 1 + SI->getNumCases()) {
+      ProfileUpdateNeeded = true;
+      DefaultExecWeight = Weights[0];
+      uint32_t Idx = 1;
+      for (auto C = SI->case_begin(), E = SI->case_end(); C != E; ++C)
+        OrigValueToWeight.insert({ C->getCaseValue(), Weights[Idx++] });
+    }
+  }
+
   // Remove all redundant cases.
-  for (auto C = CasesToBeRemoved.rbegin(), 
-            E = CasesToBeRemoved.rend(); C != E; ++C) {
+  for (auto C = CasesToBeRemoved.rbegin(), E = CasesToBeRemoved.rend(); C != E;
+       ++C) {
+    if (ProfileUpdateNeeded) {
+      auto Weight = OrigValueToWeight[(*C)->getCaseValue()];
+      DefaultExecWeight += Weight;
+    }
+
     (*C)->getCaseSuccessor()->removePredecessor(SI->getParent());
     SI->removeCase(*C);
     Modified = true;
+  }
+
+  if (ProfileUpdateNeeded) {
+    // Construct a new vector of profile counts for the cases that remain, in
+    // the order the case constants now exist in the switch instruction.
+    //
+    // Note, the profile metadata uses 32 bit values, however the
+    // GetBranchWeights() routine extracts them as 64-bit values. If the default
+    // execution count value has exceeded to max for a 32-bit, we need to
+    // normalize the values.
+    SmallVector<uint32_t, 8> NewWeights;
+    uint64_t NormalizationValue =
+        DefaultExecWeight <= std::numeric_limits<uint32_t>::max()
+            ? 1
+            : DefaultExecWeight / std::numeric_limits<uint32_t>::max() + 1;
+
+    NewWeights.push_back(DefaultExecWeight / NormalizationValue);
+    for (auto C = SI->case_begin(), E = SI->case_end(); C != E; ++C) {
+      auto Weight = OrigValueToWeight[C->getCaseValue()] / NormalizationValue;
+      NewWeights.push_back(Weight);
+    }
+
+    setBranchWeights(SI, NewWeights);
   }
 
   return Modified;

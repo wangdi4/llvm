@@ -297,6 +297,14 @@ void TypePrinter::printBefore(const Type *T,Qualifiers Quals, raw_ostream &OS) {
   if (Policy.SuppressSpecifiers && T->isSpecifierType())
     return;
 
+  if (Policy.SuppressTypedefs && (T->getTypeClass() == Type::Typedef)) {
+    QualType UnderlyingType = T->getCanonicalTypeInternal();
+    SplitQualType Split = splitAccordingToPolicy(UnderlyingType, Policy);
+    Qualifiers FullQuals = Quals + Split.Quals;
+    printBefore(Split.Ty, FullQuals, OS);
+    return;
+  }
+
   SaveAndRestore<bool> PrevPHIsEmpty(HasEmptyPlaceHolder);
 
   // Print qualifiers as appropriate.
@@ -947,7 +955,6 @@ void TypePrinter::printFunctionNoProtoAfter(const FunctionNoProtoType *T,
 }
 
 void TypePrinter::printTypeSpec(NamedDecl *D, raw_ostream &OS) {
-
   // Compute the full nested-name-specifier for this type.
   // In C, this will always be empty except when the type
   // being printed is anonymous within other Record.
@@ -1357,7 +1364,8 @@ void TypePrinter::printElaboratedBefore(const ElaboratedType *T,
     if (T->getKeyword() != ETK_None)
       OS << " ";
     NestedNameSpecifier *Qualifier = T->getQualifier();
-    if (Qualifier)
+    if (Qualifier && !(Policy.SuppressTypedefs &&
+                       T->getNamedType()->getTypeClass() == Type::Typedef))
       Qualifier->print(OS, Policy);
   }
 

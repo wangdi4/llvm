@@ -99,10 +99,18 @@ protected:
 
   void simplifyPlainCFG();
   void splitLoopsPreheader(VPLoop *VPLp);
+  // After the transformation, the dominance might break for values that are
+  // defined inside the loop body and are used in the loop header. In these
+  // cases, we might need to generate a phi node for this value.
+  void preserveSSAForLoopHeader(VPBasicBlock *LoopHeader,
+                                VPBasicBlock *NewLoopLatch,
+                                VPBasicBlock *OrigLoopLatch,
+                                VPBasicBlock *ExitingBlock);
   void singleExitWhileLoopCanonicalization(VPLoop *VPLp);
   void mergeLoopExits(VPLoop *VPLp);
   void splitLoopsExit(VPLoop *VPLp);
   void simplifyNonLoopRegions();
+  bool isBreakingSSA(VPLoop *VPL);
 
   void buildLoopRegions();
   virtual void collectUniforms(VPRegionBlock *Region);

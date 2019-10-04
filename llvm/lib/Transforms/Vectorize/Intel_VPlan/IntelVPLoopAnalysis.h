@@ -228,13 +228,16 @@ public:
     return V->getID() == Reduction;
   }
 
-  unsigned getReductionOpcode() const;
+  unsigned getReductionOpcode() const {
+    return getReductionOpcode(getRecurrenceKind(), getMinMaxRecurrenceKind());
+  }
 
   bool isMinMax() const { return MinMaxKind != MRK_Invalid; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   virtual void dump(raw_ostream &OS) const;
 #endif
+  static unsigned getReductionOpcode(RecurrenceKind K, MinMaxRecurrenceKind MK);
 };
 
 /// Descriptor of the index part of min/max+index reduction.
@@ -505,7 +508,7 @@ public:
 
   /// Get original memory pointer for an entity. Returns nullptr for
   /// in-register entities.
-  const VPValue* getOrigMemoryPtr(const VPLoopEntity *E) const {
+  const VPValue *getOrigMemoryPtr(const VPLoopEntity *E) const {
     const VPLoopEntityMemoryDescriptor *Descr = getMemoryDescriptor(E);
     return Descr ? Descr->getMemoryPtr() : nullptr;
   }
@@ -590,6 +593,9 @@ public:
   void replaceDuplicateInductionPHIs();
   void doEscapeAnalysis();
 
+  /// Return VPPHINode that corresponds to a recurrent entity.
+  VPPHINode *getRecurrentVPHINode(const VPLoopEntity &E) const;
+
 private:
   VPlan &Plan;
   VPLoop &Loop;
@@ -661,6 +667,8 @@ private:
   void linkValue(VPLoopEntity *E, VPValue *Val) {
     if (auto Red = dyn_cast<VPReduction>(E))
       linkValue(ReductionMap, Red, Val);
+    else if (auto Red = dyn_cast<VPIndexReduction>(E))
+      linkValue(ReductionMap, Red, Val);
     else if (auto Ind = dyn_cast<VPInduction>(E))
       linkValue(InductionMap, Ind, Val);
     else if (auto Priv = dyn_cast<VPPrivate>(E))
@@ -712,7 +720,8 @@ private:
   // loop body. The second way increases register pressure but seems more
   // effective in terms of run-time.
   void createInductionCloseForm(VPInduction *Induction, VPBuilder &Builder,
-                                VPValue &InitStep, VPValue &PrivateMem);
+                                VPValue &Init, VPValue &InitStep,
+                                VPValue &PrivateMem);
 
   VPInstruction *getInductionLoopExitInstr(const VPInduction *Induction) const;
 };
@@ -895,6 +904,7 @@ public:
   void setStep(VPValue *V) { Step = V; }
   void setInductionBinOp(VPInstruction *V) { InductionBinOp = V; }
   void setBinOpcode(unsigned V) { BinOpcode = V; }
+  void setIsExplicitInduction(bool V) { IsExplicitInduction = V; }
 
   /// Clear the content.
   void clear() override {

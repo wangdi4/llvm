@@ -480,6 +480,15 @@ void ExecCGCommand::printDot(std::ostream &Stream) const {
   case detail::CG::COPY_PTR_TO_ACC:
     Stream << "CG type: copy ptr to acc\\n";
     break;
+  case detail::CG::COPY_USM:
+    Stream << "CG type: copy usm\\n";
+    break;
+  case detail::CG::FILL_USM:
+    Stream << "CG type: fill usm\\n";
+    break;
+  default:
+    Stream << "CG type: unknown\\n";
+    break;
   }
 
   Stream << "\"];" << std::endl;
@@ -528,6 +537,20 @@ static void adjustNDRangePerKernel(NDRDescT &NDR, RT::PiKernel Kernel,
     WGSize = {WGSize1D, 1, 1};
   }
   NDR.set(NDR.Dims, nd_range<3>(NDR.NumWorkGroups * WGSize, WGSize));
+}
+
+// The function initialize accessors and calls lambda.
+// The function is used as argument to piEnqueueNativeKernel which requires
+// that the passed function takes one void* argument.
+void DispatchNativeKernel(void *Blob) {
+  // First value is a pointer to Corresponding CGExecKernel object.
+  CGExecKernel *HostTask = *(CGExecKernel **)Blob;
+
+  // Other value are pointer to the buffers.
+  void **NextArg = (void **)Blob + 1;
+  for (detail::Requirement *Req : HostTask->MRequirements)
+    Req->MData = *(NextArg++);
+  HostTask->MHostKernel->call(HostTask->MNDRDesc);
 }
 
 cl_int ExecCGCommand::enqueueImp() {
@@ -603,6 +626,68 @@ cl_int ExecCGCommand::enqueueImp() {
                         Event);
     return CL_SUCCESS;
   }
+  case CG::CGTYPE::RUN_ON_HOST_INTEL: {
+    CGExecKernel *HostTask = (CGExecKernel *)MCommandGroup.get();
+
+    // piEnqueueNativeKernel takes arguments blob which is passes to user
+    // function.
+    // Reserve extra space for the pointer to CGExecKernel to restore context.
+    std::vector<void *> ArgsBlob(HostTask->MArgs.size() + 1);
+    ArgsBlob[0] = (void *)HostTask;
+    void **NextArg = ArgsBlob.data() + 1;
+
+    if (MQueue->is_host()) {
+      for (ArgDesc &Arg : HostTask->MArgs) {
+        assert(Arg.MType == kernel_param_kind_t::kind_accessor);
+
+        Requirement *Req = (Requirement *)(Arg.MPtr);
+        AllocaCommandBase *AllocaCmd = getAllocaForReq(Req);
+
+        *NextArg = AllocaCmd->getMemAllocation();
+        NextArg++;
+      }
+
+      if (!RawEvents.empty())
+        PI_CALL(RT::piEventsWait(RawEvents.size(), &RawEvents[0]));
+      DispatchNativeKernel((void*)ArgsBlob.data());
+      return CL_SUCCESS;
+    }
+
+    std::vector<pi_mem> Buffers;
+    // piEnqueueNativeKernel requires additional array of pointers to args blob,
+    // values that pointers point to are replaced with actual pointers to the
+    // memory before execution of user function.
+    std::vector<void*> MemLocs;
+
+    for (ArgDesc &Arg : HostTask->MArgs) {
+      assert(Arg.MType == kernel_param_kind_t::kind_accessor);
+
+      Requirement *Req = (Requirement *)(Arg.MPtr);
+      AllocaCommandBase *AllocaCmd = getAllocaForReq(Req);
+      pi_mem MemArg = (pi_mem)AllocaCmd->getMemAllocation();
+
+      Buffers.push_back(MemArg);
+      MemLocs.push_back(NextArg);
+      NextArg++;
+    }
+
+    pi_result Error = PI_CALL_RESULT(RT::piEnqueueNativeKernel(
+        MQueue->getHandleRef(), DispatchNativeKernel, (void *)ArgsBlob.data(),
+        ArgsBlob.size() * sizeof(ArgsBlob[0]), Buffers.size(), Buffers.data(),
+        const_cast<const void **>(MemLocs.data()), RawEvents.size(),
+        RawEvents.empty() ? nullptr : RawEvents.data(), &Event));
+
+    switch (Error) {
+    case PI_INVALID_OPERATION:
+      throw cl::sycl::runtime_error(
+          "Device doesn't support run_on_host_intel tasks.", Error);
+    case PI_SUCCESS:
+      return Error;
+    default:
+      throw cl::sycl::runtime_error(
+          "Enqueueing run_on_host_intel task has failed.", Error);
+    }
+  }
   case CG::CGTYPE::KERNEL: {
     CGExecKernel *ExecKernel = (CGExecKernel *)MCommandGroup.get();
 
@@ -632,7 +717,6 @@ cl_int ExecCGCommand::enqueueImp() {
       Kernel = detail::ProgramManager::getInstance().getOrCreateKernel(
           ExecKernel->MOSModuleHandle, Context, ExecKernel->MKernelName);
 
-    bool usesUSM = false;
     for (ArgDesc &Arg : ExecKernel->MArgs) {
       switch (Arg.MType) {
       case kernel_param_kind_t::kind_accessor: {
@@ -658,12 +742,12 @@ cl_int ExecCGCommand::enqueueImp() {
         break;
       }
       case kernel_param_kind_t::kind_pointer:  {
-        // TODO: Change to PI
-        usesUSM = true;
+        std::shared_ptr<usm::USMDispatcher> USMDispatch =
+            getSyclObjImpl(Context)->getUSMDispatch();
         auto PtrToPtr = reinterpret_cast<intptr_t*>(Arg.MPtr);
         auto DerefPtr = reinterpret_cast<void*>(*PtrToPtr);
-        auto theKernel = pi::cast<cl_kernel>(Kernel);
-        CHECK_OCL_CODE(clSetKernelArgMemPointerINTEL(theKernel, Arg.MIndex, DerefPtr));
+        pi::cast<RT::PiResult>(
+            USMDispatch->setKernelArgMemPointer(Kernel, Arg.MIndex, DerefPtr));
         break;
       }
       default:
@@ -675,39 +759,9 @@ cl_int ExecCGCommand::enqueueImp() {
                            detail::getSyclObjImpl(
                                MQueue->get_device())->getHandleRef());
 
-    // TODO: Replace CL with PI
-    auto clusm = GetCLUSM();
-    if (usesUSM && clusm) {
-      cl_bool t = CL_TRUE;
-      auto theKernel = pi::cast<cl_kernel>(Kernel);
-      // Enable USM Indirect Access for Kernels
-      if (clusm->useCLUSM()) {
-        CHECK_OCL_CODE(clusm->setKernelExecInfo(
-            theKernel, CL_KERNEL_EXEC_INFO_INDIRECT_HOST_ACCESS_INTEL,
-            sizeof(cl_bool), &t));
-        CHECK_OCL_CODE(clusm->setKernelExecInfo(
-            theKernel, CL_KERNEL_EXEC_INFO_INDIRECT_DEVICE_ACCESS_INTEL,
-            sizeof(cl_bool), &t));
-        CHECK_OCL_CODE(clusm->setKernelExecInfo(
-            theKernel, CL_KERNEL_EXEC_INFO_INDIRECT_SHARED_ACCESS_INTEL,
-            sizeof(cl_bool), &t));
-
-        // This passes all the allocations we've tracked as SVM Pointers
-        CHECK_OCL_CODE(clusm->setKernelIndirectUSMExecInfo(
-            pi::cast<cl_command_queue>(MQueue->getHandleRef()), theKernel));
-      } else if (clusm->isInitialized()) {
-        // Sanity check that nothing went wrong setting up clusm
-        CHECK_OCL_CODE(clSetKernelExecInfo(
-            theKernel, CL_KERNEL_EXEC_INFO_INDIRECT_HOST_ACCESS_INTEL,
-            sizeof(cl_bool), &t));
-        CHECK_OCL_CODE(clSetKernelExecInfo(
-            theKernel, CL_KERNEL_EXEC_INFO_INDIRECT_DEVICE_ACCESS_INTEL,
-            sizeof(cl_bool), &t));
-        CHECK_OCL_CODE(clSetKernelExecInfo(
-            theKernel, CL_KERNEL_EXEC_INFO_INDIRECT_SHARED_ACCESS_INTEL,
-            sizeof(cl_bool), &t));
-      }
-    }
+    std::shared_ptr<usm::USMDispatcher> USMDispatch =
+        getSyclObjImpl(Context)->getUSMDispatch();
+    USMDispatch->setKernelIndirectAccess(Kernel, MQueue->getHandleRef());
 
     PI_CALL(RT::piEnqueueKernelLaunch(
         MQueue->getHandleRef(), Kernel, NDRDesc.Dims, &NDRDesc.GlobalOffset[0],
@@ -718,10 +772,22 @@ cl_int ExecCGCommand::enqueueImp() {
 
     return PI_SUCCESS;
   }
+  case CG::CGTYPE::COPY_USM: {
+    CGCopyUSM *Copy = (CGCopyUSM *)MCommandGroup.get();
+    MemoryManager::copy_usm(Copy->getSrc(), MQueue, Copy->getLength(),
+        Copy->getDst(), std::move(RawEvents), MUseExclusiveQueue, Event);
+    return CL_SUCCESS;
   }
-
-  assert(!"CG type not implemented");
-  throw runtime_error("CG type not implemented.");
+  case CG::CGTYPE::FILL_USM: {
+    CGFillUSM *Fill = (CGFillUSM *)MCommandGroup.get();
+    MemoryManager::fill_usm(Fill->getDst(), MQueue, Fill->getLength(),
+        Fill->getFill(), std::move(RawEvents), Event);
+    return CL_SUCCESS;
+  }
+  case CG::CGTYPE::NONE:
+  default:
+    throw runtime_error("CG type not implemented.");
+  }
 }
 
 } // namespace detail

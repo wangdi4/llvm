@@ -179,7 +179,8 @@ Scheduler::GraphBuilder::insertMemCpyCmd(MemObjRecord *Record, Requirement *Req,
     Deps.insert(AllocaCmdDst);
   }
 
-  AllocaCommandBase *AllocaCmdSrc = findAllocaForReq(Record, Req, SrcQueue);
+  AllocaCommandBase *AllocaCmdSrc =
+      getOrCreateAllocaForReq(Record, Req, SrcQueue, true);
 
   // Full copy of buffer is needed to avoid loss of data that may be caused
   // by copying specific range form host to device and backwards.
@@ -592,8 +593,8 @@ void Scheduler::GraphBuilder::markModifiedIfWrite(
 Command *
 Scheduler::GraphBuilder::addCG(std::unique_ptr<detail::CG> CommandGroup,
                                QueueImplPtr Queue) {
-  std::vector<Requirement *> Reqs = CommandGroup->getRequirements();
-  std::vector<detail::EventImplPtr> Events = CommandGroup->getEvents();
+  const std::vector<Requirement *> &Reqs = CommandGroup->MRequirements;
+  const std::vector<detail::EventImplPtr> &Events = CommandGroup->MEvents;
   std::unique_ptr<ExecCGCommand> NewCmd(
       new ExecCGCommand(std::move(CommandGroup), Queue));
   if (!NewCmd)

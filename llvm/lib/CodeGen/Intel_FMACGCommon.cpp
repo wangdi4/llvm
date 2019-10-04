@@ -187,7 +187,7 @@ std::unique_ptr<unsigned[]> FMAExprSP::getTermsMappingToCompactTerms() {
     return nullptr;
 
   // Compact the term indices now.
-  auto TermsMapping = make_unique<unsigned[]>(MaxNumOfUniqueTermsInSP);
+  auto TermsMapping = std::make_unique<unsigned[]>(MaxNumOfUniqueTermsInSP);
   unsigned TheLastNewUsedTerm = 0;
   for (unsigned Term = 0; Term < MaxNumOfUniqueTermsInSP; Term++) {
     if (!IsTermUsed[Term])
@@ -331,7 +331,7 @@ void FMAPatterns::init() {
 const FMAExprSP *FMAPatterns::acquireSP(uint64_t EncodedDag) {
   auto &SP = EncodedDagToSPMap[EncodedDag];
   if (!SP) {
-    SP = make_unique<FMAExprSP>();
+    SP = std::make_unique<FMAExprSP>();
     SP->initForEncodedDag(EncodedDag);
   }
   return SP.get();
@@ -388,9 +388,9 @@ std::unique_ptr<FMADag> FMAPatterns::getDagForBestSPMatch(const FMAExprSP &SP) {
     auto *CandidateSP = acquireSP(Dag64);
 
     LLVM_DEBUG(dbgs() << "  MATCHING: let's try to match 2 SPs:\n    actual: ");
-    SP.print(dbgs());
+    LLVM_DEBUG(SP.print(dbgs()));
     LLVM_DEBUG(dbgs() << "    formal: ");
-    CandidateSP->print(dbgs());
+    LLVM_DEBUG(CandidateSP->print(dbgs()));
 
     FMASPToSPMatcher SPMatcher;
     if (auto *CandidateDag = SPMatcher.getDagToMatchSPs(*CandidateSP, SP)) {
@@ -404,7 +404,7 @@ std::unique_ptr<FMADag> FMAPatterns::getDagForBestSPMatch(const FMAExprSP &SP) {
   }
 
   if (BestDag)
-    return make_unique<FMADag>(*BestDag);
+    return std::make_unique<FMADag>(*BestDag);
   return nullptr;
 }
 
@@ -498,11 +498,11 @@ FMAExprSP *FMAExpr::generateSPRecursively(
       auto &TermSP = Node2SP[Term];
       if (!TermSP) {
         if (Term->isZero())
-          TermSP = make_unique<FMAExprSP>(FMAExprSPCommon::TermZERO);
+          TermSP = std::make_unique<FMAExprSP>(FMAExprSPCommon::TermZERO);
         else if (Term->isOne())
-          TermSP = make_unique<FMAExprSP>(FMAExprSPCommon::TermONE);
+          TermSP = std::make_unique<FMAExprSP>(FMAExprSPCommon::TermONE);
         else
-          TermSP = make_unique<FMAExprSP>(RootFMAExpr->getUsedTermIndex(Term));
+          TermSP = std::make_unique<FMAExprSP>(RootFMAExpr->getUsedTermIndex(Term));
       }
       OpnSP = TermSP.get();
     } else if (auto *Expr = dyn_cast<FMAExpr>(Opnd))
@@ -522,7 +522,7 @@ FMAExprSP *FMAExpr::generateSPRecursively(
   if (!MulSP.initForMul(*OperandSP[0], *OperandSP[1]))
     return nullptr;
 
-  auto &SP = Node2SP[this] = make_unique<FMAExprSP>();
+  auto &SP = Node2SP[this] = std::make_unique<FMAExprSP>();
   if (!SP->initForAdd(MulSP, *OperandSP[2], MulSign, AddSign))
     return nullptr;
 

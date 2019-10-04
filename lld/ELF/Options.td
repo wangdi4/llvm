@@ -171,6 +171,9 @@ defm fini: Eq<"fini", "Specify a finalizer function">, MetaVarName<"<symbol>">;
 def fix_cortex_a53_843419: F<"fix-cortex-a53-843419">,
   HelpText<"Apply fixes for AArch64 Cortex-A53 erratum 843419">;
 
+def fix_cortex_a8: F<"fix-cortex-a8">,
+  HelpText<"Apply fixes for ARM Cortex-A8 erratum 657417">;
+
 // This option is intentionally hidden from the user as the implementation
 // is not complete.
 def require_cet: F<"require-cet">;
@@ -217,6 +220,14 @@ defm init: Eq<"init", "Specify an initializer function">,
 // INTEL_CUSTOMIZATION
 // Option for -plugin-opt=fintel-advanced-optim
 def plugin_opt_intel_advanced_optim: F<"plugin-opt=fintel-advanced-optim">;
+
+// Option for debugging the memory freeing process when
+// shutting down LLD
+def intel_debug_mem: F<"intel-debug=mem">;
+
+// Option for keeping the information related to LLVM in
+// case LLD is embedded in the compiler
+def intel_embedded_linker: F<"intel-embedded-linker">;
 // END INTEL_CUSTOMIZATION
 
 defm just_symbols: Eq<"just-symbols", "Just link symbols">;
@@ -311,7 +322,7 @@ def push_state: F<"push-state">,
 def print_map: F<"print-map">,
   HelpText<"Print a link map to the standard output">;
 
-defm reproduce: Eq<"reproduce", "Dump linker invocation and input files for debugging">;
+defm reproduce: Eq<"reproduce", "Write a tar file containing input files and command line options to reproduce link">;
 
 defm rpath: Eq<"rpath", "Add a DT_RUNPATH to the output">;
 

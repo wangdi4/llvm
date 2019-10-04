@@ -2129,8 +2129,13 @@ bool HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
 
   } else if (auto CastSCEV = dyn_cast<SCEVCastExpr>(SC)) {
 
-    if (IsTop && !UnderCast) {
-      CE->setSrcType(CastSCEV->getOperand()->getType());
+    bool IsTrunc = isa<SCEVTruncateExpr>(CastSCEV);
+    auto *OpTy = CastSCEV->getOperand()->getType();
+    // If trunc's operand type does not fit in 64 bits, we want to parse it as a
+    // blob as CanonExpr cannot hold constants which are outside this range.
+    if (IsTop && !UnderCast &&
+        (!IsTrunc || OpTy->getPrimitiveSizeInBits() <= 64)) {
+      CE->setSrcType(OpTy);
       CE->setExtType(isa<SCEVSignExtendExpr>(CastSCEV));
       return parseRecursive(CastSCEV->getOperand(), CE, Level, true, true,
                             IndicateFailure);
@@ -2437,19 +2442,7 @@ static bool isKnownNonNegativeForLoop(ScalarEvolution &SE, const Loop *Lp,
 
 RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
                                       Type *IVType, const Loop *Lp) {
-  const Value *Val;
-  unsigned Symbase = 0;
   clearTempBlobLevelMap();
-
-  if (auto ConstSCEV = dyn_cast<SCEVConstant>(BETC)) {
-    Val = ConstSCEV->getValue();
-    Symbase = getOrAssignSymbase(Val);
-  } else if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(BETC)) {
-    Val = UnknownSCEV->getValue();
-    Symbase = getOrAssignSymbase(Val);
-  } else {
-    Symbase = GenericRvalSymbase;
-  }
 
   auto CE = getCanonExprUtils().createCanonExpr(IVType);
   auto BETCType = BETC->getType();
@@ -2484,6 +2477,10 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
     getCanonExprUtils().destroy(CE);
     return nullptr;
   }
+
+  // Symbase for self-blobs is updated after parsing below.
+  unsigned Symbase =
+      isa<SCEVConstant>(BETC) ? ConstantSymbase : GenericRvalSymbase;
 
   auto Ref = getDDRefUtils().createRegDDRef(Symbase);
   Ref->setSingleCanonExpr(CE);

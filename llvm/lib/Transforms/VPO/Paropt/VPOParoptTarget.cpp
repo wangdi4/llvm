@@ -79,12 +79,95 @@ void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
     for (int I = MapChain.size() - 1; I >= 0; --I) {
       MapAggrTy *Aggr = MapChain[I];
       Value *SectionPtr = Aggr->getSectionPtr();
-      resetValueInOmpClauseGeneric(W, SectionPtr);
+      // Do not reset section pointers in cases like this:
+      //   %12 = call i8* @llvm.launder.invariant.group.p0i8(
+      //       i8* bitcast (double** @f_global to i8*))
+      //   %f_global = bitcast i8* %12 to double**
+      //   %13 = call token @llvm.directive.region.entry() [
+      //       "DIR.OMP.TARGET"(),
+      //       "QUAL.OMP.MAP.TOFROM:AGGRHEAD"(double** %f_global,
+      //                                      double** %f_global, i64 8),
+      //       "QUAL.OMP.MAP.TOFROM:AGGR"(double** %f_global,
+      //                                  double* %6, i64 %10)
+      //
+      // Resetting section pointer of AGGRHEAD will cause removal
+      // of all references to %f_global.
+      //
+      // Due to the outlining differences between host and SPIR-V target,
+      // a reference to @f_global may be observable during compilation
+      // for SPIR-V target, but for host it may not be observable
+      // (e.g. the inner "parallel" region referencing @f_global
+      // is outlined). This difference may cause a mismatch between
+      // outlined functions generated for the host and the device.
+      if (SectionPtr != Aggr->getBasePtr())
+        resetValueInOmpClauseGeneric(W, SectionPtr);
       Value *Size = Aggr->getSize();
       if (!dyn_cast<ConstantInt>(Size))
         resetValueInOmpClauseGeneric(W, Size);
     }
   }
+}
+
+// Replace printf() calls in \p F with _Z18__spirv_ocl_printfPU3AS2ci()
+void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *F) {
+  Function *PrintfDecl = MT->getPrintfDecl();
+  if (!PrintfDecl)
+    // no printf() found in the module
+    return;
+
+  Function *OCLPrintfDecl = MT->getOCLPrintfDecl();
+  assert(OCLPrintfDecl != nullptr && "OCLPrintfDecl not initialized");
+
+  // find all printf's in this function and replace them with the OCL version
+  for (User *U : PrintfDecl->users())
+    if (CallInst *OldCall = dyn_cast<CallInst>(U)) {
+
+      if (OldCall->getParent()->getParent() != F)
+        // ignore printfs that are not in this function
+        continue;
+
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": old printf(): " << *OldCall
+                        << "\n");
+      SmallVector<Value *, 4> FnArgs(OldCall->arg_operands());
+
+      // First argument of the original printf() is of
+      // ADDRESS_SPACE_GENERIC (=4) due to its addrspacecast:
+      //
+      //   call i32 (i8 addrspace(4)*, ...) @printf(
+      //     i8 addrspace(4)* addrspacecast (
+      //       i8 addrspace(1)* getelementptr inbounds
+      //       ([25 x i8], [25 x i8] addrspace(1)* @.str, i64 0, i64 0)
+      //     to i8 addrspace(4)*)
+      //       , ...)
+      //
+      // The OCL printf does not expect that address space.
+      // We must remove the addrspacecast, resulting in:
+      //
+      //   call i32 (i8 addrspace(1)*, ...) @_Z18__spirv_ocl_printfPU3AS2ci(
+      //       i8 addrspace(1)* getelementptr inbounds
+      //       ([25 x i8], [25 x i8] addrspace(1)* @.str, i64 0, i64 0)
+      //       , ...)
+      if (auto *FirstParm = dyn_cast<ConstantExpr>(FnArgs[0]))
+        if (FirstParm->getOpcode() == Instruction::AddrSpaceCast)
+          FnArgs[0] = cast<Value>(FirstParm->getOperand(0));
+
+      // Create the new call based on OCLPrintfDecl and
+      // insert it before the old call
+      CallInst *NewCall =
+          CallInst::Create(OCLPrintfDecl, FnArgs, "oclPrint", OldCall);
+
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": new OCL printf(): " << *NewCall
+                        << "\n");
+
+      // Relace all uses of the old call's return value with
+      // that from the new call
+      for (User *OldU : OldCall->users())
+        if (Instruction *I = dyn_cast<Instruction>(OldU))
+          I->replaceUsesOfWith(OldCall, NewCall);
+
+      // Remove the old call
+      OldCall->eraseFromParent();
+    }
 }
 
 Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
@@ -123,14 +206,16 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
         cast<PointerType>(ArgV->getType())->getAddressSpace();
     unsigned OldAddressSpace =
         cast<PointerType>(I->getType())->getAddressSpace();
-    // Assert the correct addrspacecast here instead of failing
-    // during SPIRV emission.
-    assert(OldAddressSpace == vpo::ADDRESS_SPACE_GENERIC &&
-           "finalizeKernelFunction: OpenCL global addrspaces can only be "
-           "casted to generic.");
+
     Value *NewArgV = ArgV;
-    if (NewAddressSpace != OldAddressSpace)
+    if (NewAddressSpace != OldAddressSpace) {
+      // Assert the correct addrspacecast here instead of failing
+      // during SPIRV emission.
+      assert(OldAddressSpace == vpo::ADDRESS_SPACE_GENERIC &&
+             "finalizeKernelFunction: OpenCL global addrspaces can only be "
+             "casted to generic.");
       NewArgV = Builder.CreatePointerBitCastOrAddrSpaceCast(ArgV, I->getType());
+    }
     I->replaceAllUsesWith(NewArgV);
     NewArgI->takeName(&*I);
     ++NewArgI;
@@ -145,8 +230,28 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
     FunctionDIs.erase(DI);
     FunctionDIs[NFn] = SP;
   }
-  if (isTargetSPIRV())
+  if (isTargetSPIRV()) {
     InferAddrSpaces(*TTI, vpo::ADDRESS_SPACE_GENERIC, *NFn);
+
+    // We intentionally call the function below after InferAddrSpaces() to have
+    // the latter restructure addrspacecasts hidden inside GEP expressions.
+    // Otherwise, the code in replacePrintfWithOCLBuiltin() that strips off the
+    // addrspacecast in the printf's first argument would fail to find the cast.
+    // For example:
+    //   BEFORE:
+    //     i8 addrspace(4)* getelementptr inbounds ([25 x i8], [25 x i8]
+    //     addrspace(4)* addrspacecast (
+    //       [25 x i8] addrspace(1)* @.str to
+    //       [25 x i8] addrspace(4)*
+    //     ), i64 0, i64 0)
+    //   AFTER:
+    //     i8 addrspace(4)* addrspacecast (
+    //       i8 addrspace(1)* getelementptr inbounds ([25 x i8], [25 x i8]
+    //       addrspace(1)* @.str, i64 0, i64 0)
+    //     to i8 addrspace(4)*)
+    //
+    replacePrintfWithOCLBuiltin(NFn);
+  }
 
   return NFn;
 }
@@ -173,6 +278,7 @@ static bool isParOrTargetDirective(Instruction *Inst,
   switch (ID) {
     case DIR_OMP_PARALLEL:
     case DIR_OMP_PARALLEL_LOOP:
+    case DIR_OMP_PARALLEL_SECTIONS:
     case DIR_OMP_DISTRIBUTE_PARLOOP:
     case DIR_OMP_TEAMS:
     case DIR_OMP_SIMD:
@@ -204,7 +310,7 @@ static Instruction *getExitInstruction(Instruction *DirectiveBegin,
   // already been handled above.
   for (auto U : DirectiveBegin->users()) {
     if (auto DEnd = dyn_cast<IntrinsicInst>(U)) {
-      LLVM_DEBUG(dbgs() << "\n Direc End::" << *DEnd);
+      LLVM_DEBUG(dbgs() << "\n Directive End::" << *DEnd);
       return DEnd;
     }
   }
@@ -358,6 +464,15 @@ void VPOParoptTransform::guardSideEffectStatements(
       if (isa<IntrinsicInst>(&I))
         continue;
       if (I.mayHaveSideEffects()) {
+        // REMOVE this code when hierarchical parallelism is fully implemented.
+        // We avoid conditionalizing calls with return values, because the
+        // threads > 0 will get undefined values. We also might need a better
+        // filter than mayHaveSideEffects, which is very broad.
+        if (auto *Call = dyn_cast<CallInst>(&I)) {
+          auto *FnType = Call->getFunctionType();
+          if (!FnType->getReturnType()->isVoidTy() && Call->hasNUsesOrMore(1))
+            continue;
+        }
         if (ignoreSpecialOperands(&I, PrivateVariables))
           continue;
 
@@ -680,17 +795,6 @@ uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI,
   return Res;
 }
 
-// Return the map modifiers for the firstprivate.
-uint64_t VPOParoptTransform::getMapModifiersForFirstPrivate() {
-  return TGT_MAP_TO;
-}
-
-// Return the defaut map information.
-uint64_t VPOParoptTransform::generateDefaultMap() {
-  return getMapModifiersForFirstPrivate() | TGT_MAP_TARGET_PARAM |
-         TGT_MAP_IMPLICIT;
-}
-
 // Generate the sizes and map type flags for the given map type, map
 // modifier and the expression V.
 void VPOParoptTransform::genTgtInformationForPtrs(
@@ -752,10 +856,18 @@ void VPOParoptTransform::genTgtInformationForPtrs(
         continue;
       if (FprivI->getInMap())
         continue;
-      Type *T = FprivI->getOrig()->getType()->getPointerElementType();
-      ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
-                                            DL.getTypeAllocSize(T)));
-      MapTypes.push_back(generateDefaultMap());
+      Type *T = V->getType()->getPointerElementType();
+      if (FprivI->getIsPointer()) {
+        // firstprivate() pointers are mapped with zero size
+        // and map type NONE.
+        ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C), 0));
+        MapTypes.push_back(TGT_MAP_TARGET_PARAM);
+      }
+      else {
+        ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
+                                              DL.getTypeAllocSize(T)));
+        MapTypes.push_back(TGT_MAP_TARGET_PARAM | TGT_MAP_TO);
+      }
     }
   }
 
@@ -764,9 +876,26 @@ void VPOParoptTransform::genTgtInformationForPtrs(
     for (IsDevicePtrItem *IsDevicePtrI : IDevicePtrClause.items()) {
       if (IsDevicePtrI->getOrig() != V)
         continue;
-      Type *T = Type::getInt64Ty(C);
-      ConstSizes.push_back(ConstantInt::get(T, DL.getTypeAllocSize(T)));
-      MapTypes.push_back(TGT_MAP_LITERAL | TGT_MAP_TARGET_PARAM | TGT_MAP_IMPLICIT);
+      Type *T = V->getType()->getPointerElementType();
+      ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
+                                            DL.getTypeAllocSize(T)));
+      // Example:
+      //   int *p;
+      //   #pragma omp target is_device_ptr(p)
+      //
+      // is_device_ptr clause will refer to (i32 **%p), where
+      // %p is defined as:
+      //   %p = alloca i32 *
+      //
+      // We have to map 'p' as MAP_TO, so that device allocates
+      // a memory to hold the pointer value, and the pointer value
+      // is supposed to be a valid device pointer.
+      MapTypes.push_back(TGT_MAP_TARGET_PARAM | TGT_MAP_TO);
+      // TODO: we may get rid of the double pointer for is_device_ptr()
+      //       representation the same way as for firstprivate() clause.
+      //       See setIsPointer() call in VPOParoptTransform.cpp.
+      //       When we do this, we need to use the following mapping:
+      //         TGT_MAP_TARGET_PARAM | TGT_MAP_LITERAL
     }
   }
   if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca() == V) {

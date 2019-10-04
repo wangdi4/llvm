@@ -96,7 +96,6 @@ namespace {
         return;
 
       (void) llvm::createAAEvalPass();
-      (void) llvm::createAggInlAALegacyPass();  // INTEL
       (void) llvm::createAggressiveDCEPass();
       (void) llvm::createAggressiveInstCombinerPass();
       (void) llvm::createBitTrackingDCEPass();
@@ -278,6 +277,7 @@ namespace {
       (void) llvm::createStraightLineStrengthReducePass();
       (void) llvm::createMemDerefPrinter();
       (void) llvm::createMustExecutePrinter();
+      (void) llvm::createMustBeExecutedContextPrinter();
       (void) llvm::createFloat2IntPass();
       (void) llvm::createEliminateAvailableExternallyPass();
       (void) llvm::createScalarizeMaskedMemIntrinPass();
@@ -312,7 +312,6 @@ namespace {
       (void) llvm::createHIRLoopResourceWrapperPass();
       (void) llvm::createHIRLoopStatisticsWrapperPass();
       (void) llvm::createHIRParVecAnalysisPass();
-      (void) llvm::createHIRVectVLSAnalysisPass();
       (void) llvm::createHIRSafeReductionAnalysisPass();
       (void) llvm::createHIRSparseArrayReductionAnalysisPass();
       (void) llvm::createHIRSSADeconstructionLegacyPass();
@@ -351,6 +350,8 @@ namespace {
       (void) llvm::createHIRIdentityMatrixIdiomRecognitionPass();
       (void) llvm::createHIRPrefetchingPass();
       (void) llvm::createHIRSinkingForPerfectLoopnestPass();
+      (void) llvm::createHIRConditionalTempSinkingPass();
+      (void) llvm::createHIRMemoryReductionSinkingPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();

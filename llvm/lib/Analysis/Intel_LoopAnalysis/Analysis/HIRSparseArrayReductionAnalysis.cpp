@@ -342,7 +342,7 @@ bool HIRSparseArrayReductionAnalysis::findLoadInstWithinNHops(
     for (auto I2 = DDG.incoming_edges_begin(RRef),
               E2 = DDG.incoming_edges_end(RRef);
          I2 != E2; ++I2) {
-      assert((*I2)->isFLOWdep() &&
+      assert((*I2)->isFlow() &&
              "Incoming edges to blob refs should be flow edges only");
 
       auto *DDRefSrc = (*I2)->getSrc();
@@ -365,7 +365,7 @@ bool HIRSparseArrayReductionAnalysis::findLoadInstWithinNHops(
       for (auto I2 = DDG.incoming_edges_begin(BRRef),
                 E2 = DDG.incoming_edges_end(BRRef);
            I2 != E2; ++I2) {
-        assert((*I2)->isFLOWdep() &&
+        assert((*I2)->isFlow() &&
                "Incoming edges to blob refs should be flow edges only");
 
         auto *DDRefSrc = (*I2)->getSrc();
@@ -434,7 +434,7 @@ bool HIRSparseArrayReductionAnalysis::isReductionStmt(const HLInst *Inst,
     // We are hunting a load with index from another load (thus sparse array
     // reduction).
     auto *Edge = *(DDG.incoming_edges_begin(RRef));
-    assert(Edge->isFLOWdep() &&
+    assert(Edge->isFlow() &&
            "Incoming edges to blob refs should be flow edges only");
 
     DDRef *DDRefSrc = Edge->getSrc();
@@ -480,7 +480,7 @@ bool HIRSparseArrayReductionAnalysis::isLegallyValid(
 
   // Start walking through the incoming edge to %add46.
   auto *Edge = *(DDG.incoming_edges_begin(ReductionTempRef));
-  assert(Edge->isFLOWdep() &&
+  assert(Edge->isFlow() &&
          "Incoming edges to blob refs should be flow edges only");
 
   auto *DDRefSrc = Edge->getSrc();
@@ -498,7 +498,7 @@ bool HIRSparseArrayReductionAnalysis::isLegallyValid(
   // Check if that non-linear blob (%div) comes from a load.
   // Thus making the memory access sparse.
   Edge = *(DDG.incoming_edges_begin(NonLinearBRRef));
-  assert(Edge->isFLOWdep() &&
+  assert(Edge->isFlow() &&
          "Incoming edges to blob refs should be flow edges only");
 
   DDRefSrc = Edge->getSrc();

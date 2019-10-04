@@ -102,7 +102,7 @@ public:
 static std::vector<std::unique_ptr<File>>
 makeErrorFile(StringRef path, std::error_code ec) {
   std::vector<std::unique_ptr<File>> result;
-  result.push_back(llvm::make_unique<ErrorFile>(path, ec));
+  result.push_back(std::make_unique<ErrorFile>(path, ec));
   return result;
 }
 
@@ -167,7 +167,7 @@ static void addFile(StringRef path, MachOLinkingContext &ctx,
   std::vector<std::unique_ptr<File>> files =
       loadFile(ctx, path, loadWholeArchive, upwardDylib);
   for (std::unique_ptr<File> &file : files)
-    ctx.getNodes().push_back(llvm::make_unique<FileNode>(std::move(file)));
+    ctx.getNodes().push_back(std::make_unique<FileNode>(std::move(file)));
 }
 
 // Export lists are one symbol per line.  Blank lines are ignored.
@@ -434,6 +434,14 @@ bool parse(llvm::ArrayRef<const char *> args, MachOLinkingContext &ctx) {
   } else {
     // No min-os version on command line, check environment variables
   }
+
+#if INTEL_CUSTOMIZATION
+  if (parsedArgs.hasArg(OPT_intel_debug_mem))
+    errorHandler().intelDebugMem = true;
+
+  if (parsedArgs.hasArg(OPT_intel_embedded_linker))
+    errorHandler().intelEmbeddedLinker = true;
+#endif // INTEL_CUSTOMIZATION
 
   // Handle export_dynamic
   // FIXME: Should we warn when this applies to something other than a static
@@ -1145,7 +1153,7 @@ static void createFiles(MachOLinkingContext &ctx, bool Implicit) {
     ctx.createInternalFiles(Files);
   for (auto i = Files.rbegin(), e = Files.rend(); i != e; ++i) {
     auto &members = ctx.getNodes();
-    members.insert(members.begin(), llvm::make_unique<FileNode>(std::move(*i)));
+    members.insert(members.begin(), std::make_unique<FileNode>(std::move(*i)));
   }
 }
 
@@ -1192,7 +1200,7 @@ bool link(llvm::ArrayRef<const char *> args, bool CanExitEarly,
     merged = mergedFile.get();
     auto &members = ctx.getNodes();
     members.insert(members.begin(),
-                   llvm::make_unique<FileNode>(std::move(mergedFile)));
+                   std::make_unique<FileNode>(std::move(mergedFile)));
   }
   resolveTask.end();
 
@@ -1224,24 +1232,15 @@ bool link(llvm::ArrayRef<const char *> args, bool CanExitEarly,
     return false;
   }
 
-#if INTEL_CUSTOMIZATION
-  // The following code is commented out because is from the community and
-  // it will be replaced.
-
   // Call exit() if we can to avoid calling destructors.
-  // if (CanExitEarly)
-  //  exitLld(errorCount() ? 1 : 0);
-
-  // CMPLRLLVM-8800: We are going to replace exitLld with cleanIntelLld.
-  // This is because we want to prevent calling the early exit and use
-  // the destructors. Also, exitLld uses the value passed through the
-  // parameter as an exit value. We need to make sure that the same
-  // exit error is returned when CanExitEarly is triggered.
-  cleanIntelLld();
   if (CanExitEarly)
-    _exit(errorCount() ? 1 : 0);
-#endif // INTEL_CUSTOMIZATION
+    exitLld(errorCount() ? 1 : 0);
 
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-10208: This part here is for destroying the global data
+  // if the user doesn't need it (e.g. testing system).
+  cleanIntelLld();
+#endif
 
   return true;
 }

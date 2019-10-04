@@ -643,43 +643,6 @@ def ArbPrecInt : TypeAttr {
   let ASTNode = 0;
 }
 
-def OMPDeclareVariantDecl : Attr {
-  let Spellings = [Pragma<"omp", "declare variant">];
-  let Subjects = SubjectList<[Function]>;
-  let SemaHandler = 0;
-  let HasCustomParsing = 1;
-  let Documentation = [OMPDeclareVariantDocs];
-  let Args = [FunctionArgument<"FunctionDecl">,
-              VariadicEnumArgument<"Construct", "ConstructTy",
-                 ["", "target", "teams", "parallel", "for", "simd",
-                  "target_variant_dispatch"],
-                 ["Construct_None", "Construct_Target", "Construct_Teams",
-                  "Construct_Parallel", "Construct_For", "Construct_Simd",
-                  "Construct_Target_Variant_Dispatch"]>,
-              VariadicEnumArgument<"Device", "DeviceTy",
-                 ["", "gen"], ["Device_None", "Device_Arch_Gen"]>
-  ];
-
-  let AdditionalMembers = [{
-    static const char *getSupportedSelectorSets() {
-      return "'construct' or 'device'";
-    }
-    static const char *getSupportedConstructs() {
-      return "'target variant dispatch'";
-    }
-    static const char *getSupportedDevices() {
-      return "'arch'";
-    }
-    static const char *getSupportedArchs() {
-      return "'gen'";
-    }
-    void printPrettyPragma(raw_ostream & OS, const PrintingPolicy &Policy)
-        const {
-      OS << "(" << getFunctionDecl()->getName() << ")";
-    }
-  }];
-}
-
 // IntrinsicPromotion implementation.
 // This is an AST only attribute that should never appear in customer code.
 def TargetPromotion : InheritableAttr {

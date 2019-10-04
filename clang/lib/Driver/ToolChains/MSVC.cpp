@@ -303,12 +303,45 @@ static std::string FindVisualStudioExecutable(const ToolChain &TC,
   return llvm::sys::fs::can_execute(FilePath) ? FilePath.str() : Exe;
 }
 
+// Add a call to lib.exe to create an archive.  This is used to embed host
+// objects into the bundled fat FPGA device binary.
+void visualstudio::Linker::constructMSVCLibCommand(Compilation &C,
+                                                   const JobAction &JA,
+                                                   const InputInfo &Output,
+                                                   const InputInfoList &Input,
+                                                   const ArgList &Args) const {
+  ArgStringList CmdArgs;
+  for (const auto &II : Input) {
+    if (II.getType() == types::TY_Tempfilelist) {
+      // Take the list file and pass it in with '@'.
+      std::string FileName(II.getFilename());
+      const char *ArgFile = Args.MakeArgString("@" + FileName);
+      CmdArgs.push_back(ArgFile);
+      continue;
+    }
+    CmdArgs.push_back(II.getFilename());
+  }
+  CmdArgs.push_back(
+      C.getArgs().MakeArgString(Twine("-OUT:") + Output.getFilename()));
+
+  SmallString<128> ExecPath(getToolChain().GetProgramPath("lib"));
+  const char *Exec = C.getArgs().MakeArgString(ExecPath);
+  C.addCommand(std::make_unique<Command>(JA, *this, Exec, CmdArgs, None));
+}
+
 void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
                                         const InputInfo &Output,
                                         const InputInfoList &Inputs,
                                         const ArgList &Args,
                                         const char *LinkingOutput) const {
   ArgStringList CmdArgs;
+
+  // Create a library with -fsycl-link
+  if (Args.hasArg(options::OPT_fsycl_link_EQ) &&
+      JA.getType() == types::TY_Archive) {
+    constructMSVCLibCommand(C, JA, Output, Inputs, Args);
+    return;
+  }
 
   auto &TC = static_cast<const toolchains::MSVCToolChain &>(getToolChain());
 
@@ -454,6 +487,13 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   // Add filenames, libraries, and other linker inputs.
   for (const auto &Input : Inputs) {
     if (Input.isFilename()) {
+      if (Input.getType() == types::TY_Tempfilelist) {
+        // Take the list file and pass it in with '@'.
+        std::string FileName(Input.getFilename());
+        const char *ArgFile = Args.MakeArgString("@" + FileName);
+        CmdArgs.push_back(ArgFile);
+        continue;
+      }
       CmdArgs.push_back(Input.getFilename());
       continue;
     }
@@ -572,7 +612,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     linkPath = TC.GetProgramPath(Linker.str().c_str());
   }
 
-  auto LinkCmd = llvm::make_unique<Command>(
+  auto LinkCmd = std::make_unique<Command>(
       JA, *this, Args.MakeArgString(linkPath), CmdArgs, Inputs);
   if (!Environment.empty())
     LinkCmd->setEnvironment(Environment);
@@ -702,7 +742,7 @@ std::unique_ptr<Command> visualstudio::Compiler::GetCommand(
   CmdArgs.push_back(Fo);
 
   std::string Exec = FindVisualStudioExecutable(getToolChain(), "cl.exe");
-  return llvm::make_unique<Command>(JA, *this, Args.MakeArgString(Exec),
+  return std::make_unique<Command>(JA, *this, Args.MakeArgString(Exec),
                                     CmdArgs, Inputs);
 }
 

@@ -4,6 +4,7 @@
 
 
 ; RUN: opt < %s -wholeprogramanalysis -whole-program-assume -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='require<wholeprogram>' -whole-program-assume -S 2>&1 | FileCheck %s
 
 declare i1 @llvm.intel.wholeprogramsafe()
 

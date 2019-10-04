@@ -172,5 +172,5 @@ void llvm::endCSAAsmString(MCStreamer &OutStreamer) {
 
 std::unique_ptr<formatted_raw_ostream>
 llvm::wrapStreamForCSAAsmWrapping(raw_ostream &ToWrap) {
-  return make_unique<formatted_wrapping_raw_ostream>(ToWrap);
+  return std::make_unique<formatted_wrapping_raw_ostream>(ToWrap);
 }

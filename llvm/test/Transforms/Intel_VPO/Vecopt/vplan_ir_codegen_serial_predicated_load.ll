@@ -4,7 +4,7 @@
 ; RUN: opt %s -S -VPlanDriver -vplan-force-vf=2 -enable-vp-value-codegen | FileCheck %s
 
 ; CHECK:       vector.body:
-; CHECK:         [[MASK:%.*]] = icmp eq <2 x i64> [[BROADCAST_SPLAT:%.*]], <i64 42, i64 42>
+; CHECK:         [[MASK:%.*]] = icmp eq <2 x i64> [[VEC_IV:%.*]], <i64 42, i64 42>
 ; CHECK-NEXT:    [[GEP:%.*]] = getelementptr inbounds i64, i64* [[ARR:%.*]], i64 42
 ; CHECK-NEXT:    [[BC_MASK:%.*]] = bitcast <2 x i1> [[MASK]] to i2
 ; CHECK-NEXT:    [[NOT_AZ:%.*]] = icmp ne i2 [[BC_MASK]], 0
@@ -37,7 +37,7 @@ for.body.lr.ph:                                   ; preds = %entry
 
 for.body:
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.latch ]
-  %cond = icmp eq i64 %n, 42
+  %cond = icmp eq i64 %indvars.iv, 42
   br i1 %cond, label %if.then, label %for.latch
 
 if.then:

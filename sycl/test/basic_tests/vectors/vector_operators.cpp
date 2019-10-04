@@ -1,8 +1,10 @@
-// RUN: %clangxx -fsycl %s -o %t.out -lOpenCL
+// RUN: %clangxx -fsycl %s -o %t.out
 // RUN: env SYCL_DEVICE_TYPE=HOST %t.out
 // RUN: %CPU_RUN_PLACEHOLDER %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 // RUN: %ACC_RUN_PLACEHOLDER %t.out
+// TODO: SYCL specific fail - windows+debug mode - analyze and enable
+// XFAIL: windows
 
 //==---------- vector_operators.cpp - SYCL vec<> operators test ------------==//
 //
@@ -242,6 +244,28 @@ int main() {
       });
     }
     res_vec_type expected(-1, 0, -1, -1);
+    check_result_length_4<res_vec_type>(res, expected);
+  }
+
+  // as() function.
+  // reinterprets each element as a different datatype.
+  {
+    using res_vec_type = s::vec<s::cl_int, 4>;
+    res_vec_type res;
+    {
+      s::buffer<res_vec_type, 1> Buf(&res, s::range<1>(1));
+      s::queue Queue;
+      Queue.submit([&](s::handler &cgh) {
+        auto Acc = Buf.get_access<s::access::mode::write>(cgh);
+        cgh.single_task<class as_op>([=]() {
+          s::vec<s::cl_float, 4> vec1(4.5f, 0, 3.5f, -10.0f);
+          Acc[0] = vec1.template as<res_vec_type>();
+        });
+      });
+    }
+    res_vec_type expected(1083179008 /*0x40900000*/, 0,
+                          1080033280 /*0x40600000*/,
+                          -1054867456 /*0xc1200000*/);
     check_result_length_4<res_vec_type>(res, expected);
   }
 

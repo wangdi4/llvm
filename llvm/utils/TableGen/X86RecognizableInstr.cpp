@@ -808,7 +808,7 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
   case X86Local::RawFrmImm8:
   case X86Local::RawFrmImm16:
   case X86Local::AddCCFrm:
-    filter = llvm::make_unique<DumbFilter>();
+    filter = std::make_unique<DumbFilter>();
     break;
   case X86Local::MRMDestReg:
   case X86Local::MRMSrcReg:
@@ -817,7 +817,7 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
   case X86Local::MRMSrcRegCC:
   case X86Local::MRMXrCC:
   case X86Local::MRMXr:
-    filter = llvm::make_unique<ModFilter>(true);
+    filter = std::make_unique<ModFilter>(true);
     break;
   case X86Local::MRMDestMem:
   case X86Local::MRMDestMemFSIB: // INTEL
@@ -831,18 +831,18 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
   case X86Local::MRMSrcMemCC:
   case X86Local::MRMXmCC:
   case X86Local::MRMXm:
-    filter = llvm::make_unique<ModFilter>(false);
+    filter = std::make_unique<ModFilter>(false);
     break;
   case X86Local::MRM0r: case X86Local::MRM1r:
   case X86Local::MRM2r: case X86Local::MRM3r:
   case X86Local::MRM4r: case X86Local::MRM5r:
   case X86Local::MRM6r: case X86Local::MRM7r:
-    filter = llvm::make_unique<ExtendedFilter>(true, Form - X86Local::MRM0r);
+    filter = std::make_unique<ExtendedFilter>(true, Form - X86Local::MRM0r);
     break;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
   case X86Local::MRMr0:
-    filter = llvm::make_unique<ExtendedRMFilter>(true, Form - X86Local::MRMr0);
+    filter = std::make_unique<ExtendedRMFilter>(true, Form - X86Local::MRMr0);
     break;
 #endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
@@ -850,10 +850,10 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
   case X86Local::MRM2m: case X86Local::MRM3m:
   case X86Local::MRM4m: case X86Local::MRM5m:
   case X86Local::MRM6m: case X86Local::MRM7m:
-    filter = llvm::make_unique<ExtendedFilter>(false, Form - X86Local::MRM0m);
+    filter = std::make_unique<ExtendedFilter>(false, Form - X86Local::MRM0m);
     break;
   X86_INSTR_MRM_MAPPING
-    filter = llvm::make_unique<ExactFilter>(0xC0 + Form - X86Local::MRM_C0);
+    filter = std::make_unique<ExactFilter>(0xC0 + Form - X86Local::MRM_C0);
     break;
   } // switch (Form)
 
@@ -1048,6 +1048,7 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
   TYPE("VTILE",               TYPE_TMM)
 #endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX2
+  TYPE("VTILEX",              TYPE_TMM)
   TYPE("VTILEPair",           TYPE_TMM_PAIR)
 #endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
@@ -1099,6 +1100,9 @@ RecognizableInstr::immediateEncodingFromString(const std::string &s,
 #if INTEL_FEATURE_ISA_AMX
   ENCODING("VTILE",           ENCODING_IB)
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX2
+  ENCODING("VTILEX",          ENCODING_IB)
+#endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled immediate encoding " << s << "\n";
   llvm_unreachable("Unhandled immediate encoding");
@@ -1148,6 +1152,7 @@ RecognizableInstr::rmRegisterEncodingFromString(const std::string &s,
   ENCODING("VTILE",           ENCODING_RM)
 #endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX2
+  ENCODING("VTILEX",          ENCODING_RM)
   ENCODING("VTILEPAIR",       ENCODING_RM)
 #endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
@@ -1207,6 +1212,7 @@ RecognizableInstr::roRegisterEncodingFromString(const std::string &s,
   ENCODING("VTILE",           ENCODING_REG)
 #endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX2
+  ENCODING("VTILEX",           ENCODING_REG)
   ENCODING("VTILEPair",       ENCODING_REG)
 #endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION
@@ -1251,6 +1257,7 @@ RecognizableInstr::vvvvRegisterEncodingFromString(const std::string &s,
   ENCODING("VTILE",           ENCODING_VVVV)
 #endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX2
+  ENCODING("VTILEX",          ENCODING_VVVV)
   ENCODING("VTILEPAIR",       ENCODING_VVVV)
 #endif // INTEL_FEATURE_ISA_AMX2
 #endif // INTEL_CUSTOMIZATION

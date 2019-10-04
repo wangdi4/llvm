@@ -194,7 +194,7 @@ public:
   }
 
   static std::unique_ptr<CSAOperand> CreateToken(StringRef Str, SMLoc Start) {
-    auto Op        = make_unique<CSAOperand>(TOKEN);
+    auto Op        = std::make_unique<CSAOperand>(TOKEN);
     Op->Tok.Data   = Str.data();
     Op->Tok.Length = Str.size();
     Op->StartLoc   = Start;
@@ -204,7 +204,7 @@ public:
 
   static std::unique_ptr<CSAOperand> createReg(unsigned RegNum, SMLoc Start,
                                                SMLoc End) {
-    auto Op        = make_unique<CSAOperand>(REGISTER);
+    auto Op        = std::make_unique<CSAOperand>(REGISTER);
     Op->Reg.RegNum = RegNum;
     Op->StartLoc   = Start;
     Op->EndLoc     = End;
@@ -213,7 +213,7 @@ public:
 
   static std::unique_ptr<CSAOperand> createImm(const MCExpr *Value, SMLoc Start,
                                                SMLoc End) {
-    auto Op       = make_unique<CSAOperand>(IMMEDIATE);
+    auto Op       = std::make_unique<CSAOperand>(IMMEDIATE);
     Op->Imm.Value = Value;
     Op->StartLoc  = Start;
     Op->EndLoc    = End;

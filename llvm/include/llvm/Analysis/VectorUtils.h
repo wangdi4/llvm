@@ -15,7 +15,6 @@
 
 #include "llvm/ADT/MapVector.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/Intel_VectorVariant.h" // INTEL
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/CheckedArithmetic.h"
@@ -28,6 +27,7 @@ class GetElementPtrInst;
 template <typename InstTy> class InterleaveGroup;
 class Loop;
 class ScalarEvolution;
+class TargetLibraryInfo;
 class TargetTransformInfo;
 class Type;
 class Value;
@@ -237,6 +237,13 @@ Value *replicateVectorElts(Value *OrigVal, unsigned OriginalVL,
 Value *replicateVector(Value *OrigVal, unsigned OriginalVL,
                        IRBuilder<> &Builder, const Twine &Name = "");
 
+/// Create vector which contains \p V broadcasted \p VF times. \p V can be
+/// either another vector or a scalar value. So the resulting vector is
+/// - in case \p V is a scalar: {V, V,..,V}, vector of VF elements
+/// - in case \p V is vector: {v1,v2,...vN, v1,v2,...vN,...,v1,v2,...vN},
+///   vector of NxVF elements
+Value *createVectorSplat(Value *V, unsigned VF, IRBuilder<> &Builder,
+                         const Twine &Name = "");
 #endif // INTEL_CUSTOMIZATION
 
 /// Compute the union of two access-group lists.
@@ -321,6 +328,44 @@ Constant *createInterleaveMask(IRBuilder<> &Builder, unsigned VF,
 ///   <0, 2, 4, 6>
 Constant *createStrideMask(IRBuilder<> &Builder, unsigned Start,
                            unsigned Stride, unsigned VF);
+
+#if INTEL_CUSTOMIZATION
+/// Create an interleave shuffle mask for a "vector of vectors".
+///
+/// When vectorizing an IR with incoming vector types (e.g. float4), we have to
+/// flatten the resulting widened type. For example, ater applying VF=8 to
+/// float4, instead of <8 x <4 x float>> we have to generate <32 x float>. That
+/// means that masks produced by createInterleaveMask are not applicable to such
+/// widened values. This function adapts createInterleaveMask to be usable for
+/// vectors of size \p VecWidth.
+///
+/// For example, a mask to interleave 3 adjacent <4 x <3 x float>> vectors
+/// (VF = 4, NumVecs = 3, VecWidth = 3) is:
+///
+///     <(0, 1, 2), (12, 13, 14), (24, 25, 26),
+///      (3, 4, 5), (15, 16, 17), (27, 28, 29),
+///      (6, 7, 8), (18, 19, 20), (30, 31, 32),
+///      (9, 10, 11), (21, 22, 23), (33, 34, 35)>.
+Constant *createVectorInterleaveMask(IRBuilder<> &Builder, unsigned VF,
+                                     unsigned NumVecs, unsigned VecWidth);
+
+/// Create a stride shuffle mask for a "vector of vectors".
+///
+/// When vectorizing an IR with incoming vector types (e.g. float4), we have to
+/// flatten the resulting widened type. For example, ater applying VF=8 to
+/// float4, instead of <8 x <4 x float>> we have to generate <32 x float>. That
+/// means that masks produced by createStrideMask are not applicable to such
+/// widened values. This function adapts createStrideMask to be usable for
+/// vectors of size \p VecWidth.
+///
+/// For example, a mask with Stride=3 to extract 4 elements (VF=4) from vector
+/// <12 x <3 x float>> starting with the second element (Start=1) is:
+///
+///     <(3, 4, 5), (12, 13, 14), (21, 22, 23), (30, 31, 32)>.
+Constant *createVectorStrideMask(IRBuilder<> &Builder, unsigned Start,
+                                 unsigned Stride, unsigned VF,
+                                 unsigned VecWidth);
+#endif /* INTEL_CUSTOMIZATION */
 
 /// Create a sequential shuffle mask.
 ///

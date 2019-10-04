@@ -80,6 +80,11 @@ private:
 
   /// Represents the "base" type of the value, i.e. without VF/UF applied.
   Type *BaseTy;
+
+  // FIXME: To be moved out of the VPValue to some analogue of the
+  // llvm::Context (probably the separate HCFG class once we refactor it out of
+  // the VPlan).
+  std::string Name;
 #endif // INTEL_CUSTOMIZATION
 
   SmallVector<VPUser *, 1> Users;
@@ -106,6 +111,8 @@ protected:
       : SubclassID(SC), BaseTy(BaseTy), UnderlyingVal(UV),
         IsUnderlyingValueValid(UV ? true : false) {
     assert(BaseTy && "BaseTy can't be null!");
+    if (UV && !UV->getName().empty())
+      Name = ("vp." + UV->getName()).str();
   }
 #else
   VPValue(const unsigned char SC, Value *UV = nullptr)
@@ -127,6 +134,9 @@ protected:
     assert(!UnderlyingVal && "Underlying Value is already set.");
     UnderlyingVal = &Val;
     IsUnderlyingValueValid = true;
+
+    if (!Val.getName().empty())
+      Name = ("vp." + Val.getName()).str();
   }
 
   /// Return validity of underlying Value or HIR node.
@@ -172,6 +182,23 @@ public:
   // FIXME: Remove this when the cost model issues are resolved (see comments
   // for VPInstruction::getCMType())
   virtual Type *getCMType() const { return nullptr; }
+  // If \p BaseName starts with "vp.", set it as new name. Otherwise, prepend
+  // with "vp." and set the result as new name.
+  void setName(const Twine &BaseName) {
+    SmallString<256> NameData;
+    StringRef NameRef = BaseName.toStringRef(NameData);
+
+    if (NameRef.empty())
+      return;
+
+    if (NameRef.startswith("vp."))
+      Name = std::string(NameRef);
+    else
+      Name = ("vp." + NameRef).str();
+  }
+  StringRef getName() const {
+    return Name;
+  }
 #endif
 
   /// \return an ID for the concrete type of this object.
@@ -182,11 +209,8 @@ public:
 #if INTEL_CUSTOMIZATION
   virtual void dump(raw_ostream &OS) const { printAsOperand(OS); }
   virtual void dump() const { dump(errs()); }
-  virtual
+  virtual void printAsOperand(raw_ostream &OS) const;
 #endif
-void printAsOperand(raw_ostream &OS) const {
-    OS << *getType() << " %vp" << (unsigned short)(unsigned long long)this;
-}
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   unsigned getNumUsers() const { return Users.size(); }
@@ -388,12 +412,14 @@ class VPConstant : public VPValue {
   // VPlan is currently the context where we hold the pool of VPConstants.
   friend class VPlan;
   friend class VPlanDivergenceAnalysis;
-  friend class VPOCodeGenHIR;
-  friend class VPOCodeGen;
 
 protected:
   VPConstant(Constant *Const)
       : VPValue(VPValue::VPConstantSC, Const->getType(), Const) {}
+
+public:
+  VPConstant(const VPConstant &) = delete;
+  VPConstant &operator=(const VPConstant &) const = delete;
 
   /// Return the underlying Constant attached to this VPConstant. This interface
   /// is similar to getValue() but hides the cast when we are working with
@@ -414,10 +440,6 @@ protected:
            "ZExt value cannot be obtained for non-constant integers.");
     return cast<ConstantInt>(getUnderlyingValue())->getZExtValue();
   }
-
-public:
-  VPConstant(const VPConstant &) = delete;
-  VPConstant &operator=(const VPConstant &) const = delete;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAsOperand(raw_ostream &OS) const override {
@@ -443,6 +465,7 @@ class VPExternalDef : public VPValue, public FoldingSetNode {
   // VPlan is currently the context where the pool of VPExternalDefs is held.
   friend class VPlan;
   friend class VPOCodeGenHIR;
+  friend class VPOCodeGen;
 
 private:
   // Hold the DDRef or IV information related to this external definition.
@@ -454,7 +477,7 @@ private:
   }
 
   // Construct a VPExternalDef given an underlying DDRef \p DDR.
-  VPExternalDef(loopopt::DDRef *DDR)
+  VPExternalDef(const loopopt::DDRef *DDR)
       : VPValue(VPValue::VPExternalDefSC, DDR->getDestType()),
         HIROperand(new VPBlob(DDR)) {}
 
@@ -501,6 +524,7 @@ public:
 class VPExternalUse : public VPUser, public FoldingSetNode {
 private:
   friend class VPlan;
+  friend class VPOCodeGen;
 
   // Hold the DDRef or IV information related to this external use.
   std::unique_ptr<VPOperandHIR> HIROperand;
@@ -511,7 +535,7 @@ private:
     setUnderlyingValue(*ExtVal);
   }
   // Construct a VPExternalUse given an underlying DDRef \p DDR.
-  VPExternalUse(loopopt::DDRef *DDR)
+  VPExternalUse(const loopopt::DDRef *DDR)
       : VPUser(VPValue::VPExternalUseSC, DDR->getDestType()),
         HIROperand(new VPBlob(DDR)) {}
   // Construct a VPExternalUse given an underlying IV level \p IVLevel.
@@ -540,6 +564,45 @@ public:
 
   /// Method to support FoldingSet's hashing.
   void Profile(FoldingSetNodeID &ID) const { HIROperand->Profile(ID); }
+
+  /// Adds operand with an underlying value. The underlying value points to the
+  /// value which should be replaced by the new one generated from vector code.
+  /// The VPOperands can be replaced during vector transformations but the
+  /// underlying values shoud be kept as they point to the values outside of the
+  /// loop.
+  /// The VPUser::addOperand() should not be used with VPExternalUse. This
+  /// method is created to avoid virtual-ness on addOperand().
+  void addOperandWithUnderlyingValue(VPValue *Op, Value *Underlying) {
+    assert(isConsistent() && "Inconsistent VPExternalUse operands");
+    addOperand(Op);
+    UnderlyingOperands.push_back(Underlying);
+  }
+
+  // TODO: add this call to verification
+  bool isConsistent() const {
+    return getNumOperands() == UnderlyingOperands.size();
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump(raw_ostream &OS) const override {
+    if (getUnderlyingValue())
+      cast<Instruction>(getUnderlyingValue())->print(OS);
+    for (unsigned I = 0, E = getNumOperands(); I < E; ++I) {
+      getOperand(I)->printAsOperand(OS);
+      OS << " -> ";
+      getUnderlyingOperand(I)->printAsOperand(OS);
+      OS << ";\n";
+    }
+  }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+private:
+  const Value *getUnderlyingOperand(unsigned N) const {
+    assert(N < UnderlyingOperands.size() && "Operand index out of bounds");
+    return UnderlyingOperands[N];
+  }
+
+  SmallVector<Value *, 2> UnderlyingOperands;
 };
 
 /// This class augments VPValue with Metadata that is used as operand of another

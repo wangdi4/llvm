@@ -29,7 +29,7 @@ class Builder;
 // Implements a barrier accross work items within a work group.
 static inline void workGroupBarrier() {
 #ifdef __SYCL_DEVICE_ONLY__
-  uint32_t flags =
+  constexpr uint32_t flags =
       static_cast<uint32_t>(
           __spv::MemorySemanticsMask::SequentiallyConsistent) |
       static_cast<uint32_t>(__spv::MemorySemanticsMask::WorkgroupMemory);
@@ -77,7 +77,7 @@ private:
 #else
   // On serial host there is one private_memory<T> instance per work group, so
   // it must have space to hold separate value per WI in the group.
-  std::unique_ptr<T> Val;
+  std::unique_ptr<T[]> Val;
 #endif // #ifdef __SYCL_DEVICE_ONLY__
 };
 

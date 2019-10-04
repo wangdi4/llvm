@@ -937,55 +937,117 @@ void HLLoop::removePreheader() { HLNodeUtils::remove(pre_begin(), pre_end()); }
 
 void HLLoop::removePostexit() { HLNodeUtils::remove(post_begin(), post_end()); }
 
+static void demoteBlobs(RegDDRef *Ref, unsigned Level) {
+  if (Ref->isSelfBlob()) {
+    unsigned DefLevel = Ref->getSingleCanonExpr()->getDefinedAtLevel();
+
+    if (DefLevel != NonLinearLevel && DefLevel >= Level) {
+      Ref->getSingleCanonExpr()->setDefinedAtLevel(DefLevel - 1);
+    }
+
+  } else {
+    for (auto *BRef : make_range(Ref->blob_begin(), Ref->blob_end())) {
+      auto BlobLevel = BRef->getDefinedAtLevel();
+
+      if (BlobLevel != NonLinearLevel && BlobLevel >= Level) {
+        BRef->setDefinedAtLevel(BlobLevel - 1);
+      }
+    }
+  }
+}
+
+// Helper for replaceByFirstIteration().
+// \p Ref lies in \p ReplaceLp which is going is being replaced by its body.
+// \p MergedRef substituted ReplaceLp's IV in Ref.
+// \p InnerLoops is the sets of inner loops of ReplaceLp which have been
+// visited/processed.
+static unsigned demoteRef(RegDDRef *Ref, const HLLoop *ReplaceLp,
+                          const RegDDRef *MergedRef,
+                          SmallPtrSet<HLLoop *, 8> &InnerLoops) {
+
+  // Nothing special needs to be done for innermost loops.
+  if (ReplaceLp->isInnermost()) {
+    return ReplaceLp->getNestingLevel();
+  }
+
+  auto *Node = Ref->getHLDDNode();
+  auto *ParentLp = dyn_cast<HLLoop>(Node);
+
+  if (!ParentLp) {
+    ParentLp = Node->getLexicalParentLoop();
+  }
+
+  if (ParentLp != ReplaceLp) {
+    unsigned Level = ReplaceLp->getNestingLevel();
+
+    // Demote IVs for all inner loop levels.
+    Ref->demoteIVs(Level + 1);
+
+    // When we replace outer loop by first iteration, the definition level
+    // of blobs defined inside this loop reduces by 1.
+    // The use of these blobs in inner loop refs need to be updated.
+    demoteBlobs(Ref, Level);
+
+    // When IV is substituted in inner loop, temps in merged ref need to be
+    // marked as livein to that loop.
+    auto *TmpLp = ParentLp;
+
+    while (TmpLp != ReplaceLp && !InnerLoops.count(TmpLp)) {
+
+      for (auto *LowerBRef :
+           make_range(MergedRef->blob_begin(), MergedRef->blob_end())) {
+        TmpLp->addLiveInTemp(LowerBRef->getSymbase());
+      }
+
+      InnerLoops.insert(TmpLp);
+      TmpLp = TmpLp->getParentLoop();
+    }
+  }
+
+  return ParentLp->getNestingLevel();
+}
+
 void HLLoop::replaceByFirstIteration() {
   unsigned Level = getNestingLevel();
-  extractZtt(Level - 1);
-  extractPreheader();
-
-  bool IsInnermost = isInnermost();
-
   const RegDDRef *LB = getLowerDDRef();
-  SmallVector<const RegDDRef *, 4> Aux = {LB};
 
-  auto &HNU = getHLNodeUtils();
+  bool HaveExplicitLB = false;
+  SmallPtrSet<HLLoop *, 8> InnerLoops;
 
-  RegDDRef *ExplicitLB = nullptr;
+  extractZtt(Level - 1);
+  extractPreheaderAndPostexit();
 
   ForEach<RegDDRef>::visitRange(
       child_begin(), child_end(),
-      [this, &HNU, Level, &Aux, LB, &ExplicitLB, IsInnermost](RegDDRef *Ref) {
-        const CanonExpr *IVReplacement = nullptr;
+      [this, Level, &LB, &HaveExplicitLB, &InnerLoops](RegDDRef *Ref) {
+        if (Ref->hasIV(Level)) {
+          const CanonExpr *IVReplacement = LB->getSingleCanonExpr();
 
-        if (DDRefUtils::canReplaceIVByCanonExpr(
-                Ref, Level, LB->getSingleCanonExpr(), false)) {
-          IVReplacement = LB->getSingleCanonExpr();
-        } else {
-          if (!ExplicitLB) {
-            // Create explicit copy statement
-            HLInst *LBCopy = HNU.createCopyInst(getLowerDDRef()->clone(), "lb");
+          if (!HaveExplicitLB && !DDRefUtils::canReplaceIVByCanonExpr(
+                                     Ref, Level, IVReplacement, false)) {
+            // Insert explicit LB copy statement before loop.
+            HLInst *LBCopy =
+                getHLNodeUtils().createCopyInst(getLowerDDRef()->clone(), "lb");
             HLNodeUtils::insertBefore(this, LBCopy);
-            ExplicitLB = LBCopy->getLvalDDRef();
-            Aux.push_back(ExplicitLB);
+            LB = LBCopy->getLvalDDRef();
+            IVReplacement = LB->getSingleCanonExpr();
+            HaveExplicitLB = true;
           }
 
-          IVReplacement = ExplicitLB->getSingleCanonExpr();
+          // Expected to be always successful.
+          DDRefUtils::replaceIVByCanonExpr(Ref, Level, IVReplacement, IsNSW,
+                                           false);
         }
 
-        // Expected to be always successful.
-        DDRefUtils::replaceIVByCanonExpr(Ref, Level, IVReplacement, IsNSW,
-                                         false);
+        unsigned RefLevel = demoteRef(Ref, this, LB, InnerLoops);
 
-        if (!IsInnermost) {
-          // Innermost loops doesn't contain IVs deeper than Level.
-          Ref->demoteIVs(Level + 1);
-        }
-
-        Ref->makeConsistent(Aux, Level - 1);
+        // New level of ref decreases by 1.
+        Ref->makeConsistent({LB}, RefLevel - 1);
       });
 
   // To minimize the possibility of topsort numbers re-computation, detach the
   // loop before moving the body nodes.
-  HLNode *Marker = HNU.getOrCreateMarkerNode();
+  HLNode *Marker = getHLNodeUtils().getOrCreateMarkerNode();
   HLNodeUtils::replace(this, Marker);
 
   HLNodeUtils::moveAfter(Marker, child_begin(), child_end());
@@ -1337,19 +1399,13 @@ bool HLLoop::normalize() {
   return true;
 }
 
-bool HLLoop::canStripmine(unsigned StripmineSize, bool &NotRequired) const {
-
-  uint64_t TripCount;
-
+bool HLLoop::canStripmine(unsigned StripmineSize) const {
   assert(isNormalized() &&
          "Loop needs stripmine are expected to be normalized");
 
-  if (isConstTripLoop(&TripCount) && (TripCount <= StripmineSize)) {
-    NotRequired = true;
+  if (!isStripmineRequired(StripmineSize)) {
     return true;
   }
-
-  NotRequired = false;
 
   unsigned Level = getNestingLevel();
   if (Level == MaxLoopNestLevel) {
@@ -1373,6 +1429,14 @@ bool HLLoop::canStripmine(unsigned StripmineSize, bool &NotRequired) const {
 
   getCanonExprUtils().destroy(CE);
   return Result;
+}
+
+bool HLLoop::isStripmineRequired(unsigned StripmineSize) const {
+  assert(isNormalized() &&
+         "Loop needs stripmine are expected to be normalized");
+
+  uint64_t TripCount;
+  return !isConstTripLoop(&TripCount) || (TripCount > StripmineSize);
 }
 
 HLIf *HLLoop::getBottomTest() {
@@ -1683,6 +1747,7 @@ HLLoop *HLLoop::generatePeelLoop(const RegDDRef *PeelArrayRef, unsigned VF) {
                          LoopLevel - 1);
   PeelLpUBCanonExpr->setDefinedAtLevel(LoopLevel - 1);
   PeelLpUBCanonExpr->addConstant(-1, true /*IsMath*/);
+  PeelLpUB->setSymbase(GenericRvalSymbase);
   PeelLoop->setUpperDDRef(PeelLpUB);
 
   // RT check for peel iterations

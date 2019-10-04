@@ -5,7 +5,7 @@
 ; RUN: opt < %s -S -VPlanDriver -vplan-force-vf=2  | FileCheck %s
 
 ; Check VPValue-codegen path.
-; RUN: opt < %s -S -VPlanDriver -vplan-force-vf=2 -enable-vp-value-codegen | FileCheck %s
+; RUN: opt < %s -S -VPlanDriver -vplan-force-vf=2 -vplan-use-entity-instr -enable-vp-value-codegen | FileCheck %s
 
 ; CHECK-LABEL:@foo
 ;CHECK: [[VEC_BASE_PTR1:%.*]] = shufflevector <2 x i32*> {{.*}}, <2 x i32*> undef, <6 x i32> <i32 0, i32 0, i32 0, i32 1, i32 1, i32 1>
@@ -77,7 +77,9 @@ for.body:                                         ; preds = %for.body, %entry
   %base = getelementptr %Struct, %Struct *%a, i64 %indvars.iv
   %ptr = getelementptr inbounds %Struct, %Struct * %base, i32 0, i32 0
   %ld = load <3 x i32>, <3 x i32>* %ptr
-  br i1 %flag, label %block1, label %block2
+  %ld.0 = extractelement <3 x i32> %ld, i32 0
+  %cmp = icmp eq i32 %ld.0, 42
+  br i1 %cmp, label %block1, label %block2
 
 block1:
   %ptr1 = getelementptr inbounds %Struct, %Struct * %base, i32 0, i32 0

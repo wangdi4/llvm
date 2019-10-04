@@ -15,7 +15,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPOCodeGenHIR.h"
+#include "../IntelVPlanUtils.h"
 #include "../IntelVPlanVLSAnalysis.h"
+#include "IntelVPlanHCFGBuilderHIR.h"
 #include "IntelVPlanVLSClientHIR.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
@@ -491,21 +493,41 @@ void HandledCheck::visit(HLDDNode *Node) {
       return;
     }
 
+    // Handling liveouts for privates/inductions is not implemented in
+    // VPValue-based CG. The checks below enable the following -
+    // 1. For full VPValue-based CG all reductions are supported.
+    // 2. For mixed mode CG, minmax reductions are not supported if VPLoopEntity
+    // representation is not used.
+    // TODO: Revisit when VPLoopEntity representation for reductions is made
+    // default.
     auto TLval = Inst->getLvalDDRef();
-    if (EnableVPValueCodegenHIR && TLval && TLval->isTerminalRef() &&
+    if (TLval && TLval->isTerminalRef() &&
         OrigLoop->isLiveOut(TLval->getSymbase())) {
-      unsigned RedOpcode;
+      unsigned RedOpcode = 0;
       if (CG->isReductionRef(TLval, RedOpcode)) {
-        // VPValue-based CG for reductions is supported.
-        // TODO: Extend this check for explicit SIMD reduction variables using
-        // HIRLegality
+        if (EnableVPValueCodegenHIR)
+          // VPValue-based CG for reductions is supported.
+          return;
+        // Min/max reductions are not supported without VPLoopEntities.
+        if (!VPlanUseVPEntityInstructions &&
+            (RedOpcode == Instruction::Select ||
+             RedOpcode == VPInstruction::UMin ||
+             RedOpcode == VPInstruction::UMax ||
+             RedOpcode == VPInstruction::SMin ||
+             RedOpcode == VPInstruction::SMax ||
+             RedOpcode == VPInstruction::FMin ||
+             RedOpcode == VPInstruction::FMax))
+          IsHandled = false;
+      } else if (EnableVPValueCodegenHIR)
+        IsHandled = false;
+
+      if (!IsHandled) {
+        LLVM_DEBUG(Inst->dump());
+        LLVM_DEBUG(
+            dbgs() << "VPLAN_OPTREPORT: VPValCG liveout induction/private or "
+                      "min/max reduction not handled\n");
         return;
       }
-      LLVM_DEBUG(Inst->dump());
-      LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: VPValCG liveout induction/private "
-                           "not handled\n");
-      IsHandled = false;
-      return;
     }
 
     if (!CG->isSearchLoop() && TLval && TLval->isTerminalRef() &&
@@ -1210,6 +1232,17 @@ bool VPOCodeGenHIR::isReductionRef(const RegDDRef *Ref, unsigned &Opcode) {
   if (!Ref->getHLDDNode())
     return false;
 
+  // Check for explicit SIMD reductions.
+  if (auto *Descr = HIRLegality->isReduction(Ref)) {
+    Opcode = VPReduction::getReductionOpcode(Descr->Kind, Descr->MMKind);
+    return true;
+  }
+  // Check for minmax+index idiom.
+  if (HIRLegality->isMinMaxIdiomTemp(Ref, OrigLoop)) {
+    Opcode = Instruction::Select;
+    return true;
+  }
+  // Check for auto-recognized SafeReduction.
   return SRA->isReductionRef(Ref, Opcode);
 }
 
@@ -2549,7 +2582,7 @@ RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
       auto *CE = CEU.createCanonExpr(VecRefDestTy);
       CE->addIV(IVLevel, InvalidBlobIndex /* no blob */,
                 1 /* constant IV coefficient */);
-      WideRef = DDU.createScalarRegDDRef(DDU.getNewSymbase(), CE);
+      WideRef = DDU.createScalarRegDDRef(GenericRvalSymbase, CE);
     }
   } else {
     assert(isa<VPConstant>(VPVal) && "Expected a VPConstant");
@@ -2612,37 +2645,63 @@ void VPOCodeGenHIR::widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask) {
   // Blend marked PHIs using selects and incoming masks
   if (VPPhi->getBlend()) {
     unsigned NumIncomingValues = VPPhi->getNumIncomingValues();
-    auto *VPBB = VPPhi->getParent();
-    RegDDRef *BlendVal;
-    assert(NumIncomingValues && "Unexpected PHI with zero values");
+    assert(NumIncomingValues > 0 && "Unexpected PHI with zero values");
 
-    // Generate a sequence of selects of the form:
-    // SELECT(Mask3, In3,
-    //      SELECT(Mask2, In2,
-    //                   ( ...)))
-    const SmallVectorImpl<VPBasicBlock::MaskBlockPair> &IncomingMasks =
-        VPBB->getIncomingMasks();
+    if (NumIncomingValues == 1) {
+      // Blend phis should only be encountered in the linearized control flow.
+      // However, currently some preceding transformations mark some
+      // single-value phis as blends too (and codegen is probably relying on
+      // that as well). Bail out right now because general processing of phis
+      // with multiple incoming values relies on the control flow being
+      // linearized.
+      RegDDRef *Val = widenRef(VPPhi->getOperand(0), getVF());
+      addVPValueWideRefMapping(VPPhi, Val);
+      return;
+    }
 
-    for (unsigned In = 0; In < NumIncomingValues; In++) {
-      // We might have single edge PHIs (blocks) - use an identity
-      // 'select' for the first PHI operand.
-      auto *PredVPBB = IncomingMasks[In].second;
-      RegDDRef *IncomingVecVal =
-          widenRef(VPPhi->getIncomingValue(PredVPBB), getVF());
-      if (In == 0)
-        BlendVal = IncomingVecVal; // Initialize with the first incoming value.
-      else {
-        // Select between the current value and the previous incoming edge
-        // based on the incoming mask.
-        RegDDRef *Cond = widenRef(IncomingMasks[In].first, getVF());
-        Type *CondTy = Cond->getDestType();
-        Constant *OneVal = Constant::getAllOnesValue(CondTy->getScalarType());
-        RegDDRef *OneValRef = getConstantSplatDDRef(DDU, OneVal, getVF());
-        HLInst *BlendInst = HNU.createSelect(CmpInst::ICMP_EQ, Cond, OneValRef,
-                                             IncomingVecVal, BlendVal);
-        addInst(BlendInst, Mask);
-        BlendVal = BlendInst->getLvalDDRef()->clone();
+    // Sort incoming blocks according to their order in the linearized control
+    // flow. After linearization, the HCFG coming to the codegen might be
+    // something like this:
+    //
+    //   bb0:
+    //     %def0 =
+    //   bb1:
+    //     predicate %cond0
+    //     %def1 =
+    //   bb2:
+    //     predicate %cond1    ; %cond1 = %cond0 && %something
+    //     %def2 =
+    //   bb3:
+    //     %blend_phi = phi [ %def1, %bb1 ], [ %def0, %bb0 ], [ %def 2, %bb2 ]
+    //
+    // We need to generate
+    //
+    //  %sel = select %cond0, %def1, %def0
+    //  %blend = select %cond1 %def2, %sel
+    //
+    // Note, that the order of processing needs to be [ %def0, %def1, %def2 ]
+    // for such CFG.
+    SmallVector<VPBasicBlock *, 4> SortedBlocks;
+    sortBlendPhiIncomingBlocks(VPPhi, SortedBlocks);
+
+    // Generate a sequence of selects.
+    RegDDRef *BlendVal = nullptr;
+    for (auto *Block : SortedBlocks) {
+      auto *IncomingVecVal = widenRef(VPPhi->getIncomingValue(Block), getVF());
+      if (!BlendVal) {
+        BlendVal = IncomingVecVal;
+        continue;
       }
+
+      RegDDRef *Cond = widenRef(Block->getPredicate(), getVF());
+      Type *CondTy = Cond->getDestType();
+      Constant *OneVal = Constant::getAllOnesValue(CondTy->getScalarType());
+      RegDDRef *OneValRef = getConstantSplatDDRef(DDU, OneVal, getVF());
+      HLInst *BlendInst = HNU.createSelect(CmpInst::ICMP_EQ, Cond, OneValRef,
+                                           IncomingVecVal, BlendVal);
+      // TODO: Do we really need the Mask here?
+      addInst(BlendInst, Mask);
+      BlendVal = BlendInst->getLvalDDRef()->clone();
     }
     addVPValueWideRefMapping(VPPhi, BlendVal);
     return;
@@ -2672,7 +2731,7 @@ void VPOCodeGenHIR::widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask) {
   CE->getBlobUtils().createConstantBlob(ConstantVector::get(ConstVec), true,
                                         &Idx);
   CE->addBlob(Idx, 1);
-  auto *NewRef = DDU.createScalarRegDDRef(DDU.getNewSymbase(), CE);
+  auto *NewRef = DDU.createScalarRegDDRef(GenericRvalSymbase, CE);
   addVPValueWideRefMapping(VPPhi, NewRef);
 }
 

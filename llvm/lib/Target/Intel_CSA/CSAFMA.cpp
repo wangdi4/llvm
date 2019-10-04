@@ -308,7 +308,7 @@ public:
   FMAImmediateTerm *createImm(MVT VT, int64_t Imm) {
     auto &Term = Imms[{VT, Imm}];
     if (!Term)
-      Term = make_unique<CSAFMAImmediateTerm>(VT, this, Imm);
+      Term = std::make_unique<CSAFMAImmediateTerm>(VT, this, Imm);
     return Term.get();
   }
 
@@ -327,7 +327,8 @@ public:
     // then just return the existing term. Otherwise, create a new term.
     auto &Term = RegToRegTerm[Reg];
     if (!Term)
-      Term = make_unique<FMARegisterTerm>(VT, this, Reg, RegToRegTerm.size());
+      Term =
+          std::make_unique<FMARegisterTerm>(VT, this, Reg, RegToRegTerm.size());
     return Term.get();
   }
 
@@ -487,9 +488,9 @@ bool CSAGlobalFMA::runOnMachineFunction(MachineFunction &MF) {
 
   // Initialize patterns and opcodes if it has not yet been done.
   if (!Patterns)
-    Patterns = make_unique<CSAFMAPatterns>();
+    Patterns = std::make_unique<CSAFMAPatterns>();
   if (!Opcodes)
-    Opcodes = make_unique<FMAOpcodes>();
+    Opcodes = std::make_unique<FMAOpcodes>();
 
   // Init insturction latencies.
   AddSubLatency = 4;
@@ -509,7 +510,7 @@ CSAGlobalFMA::parseBasicBlock(MachineBasicBlock &MBB) {
   // Find MUL/ADD/SUB/FMA/etc operations in the input machine instructions
   // and create internal FMA structures for them.
   // Exit if there are not enough optimizable expressions.
-  auto FMABB = make_unique<CSAFMABasicBlock>(MBB);
+  auto FMABB = std::make_unique<CSAFMABasicBlock>(MBB);
   if (FMABB->parseBasicBlock(*Opcodes, MRI) < 2)
     return nullptr;
   return FMABB;

@@ -131,7 +131,8 @@ reassociateShiftAmtsOfTwoSameDirectionShifts(BinaryOperator *Sh0,
 //   c,d,e,f) (ShiftShAmt-MaskShAmt) s>= 0 (i.e. ShiftShAmt u>= MaskShAmt)
 static Instruction *
 dropRedundantMaskingOfLeftShiftInput(BinaryOperator *OuterShift,
-                                     const SimplifyQuery &SQ) {
+                                     const SimplifyQuery &SQ,
+                                     InstCombiner::BuilderTy &Builder) {
   assert(OuterShift->getOpcode() == Instruction::BinaryOps::Shl &&
          "The input must be 'shl'!");
 
@@ -153,17 +154,19 @@ dropRedundantMaskingOfLeftShiftInput(BinaryOperator *OuterShift,
   Value *X;
   if (match(Masked, m_c_And(m_CombineOr(MaskA, MaskB), m_Value(X)))) {
     // Can we simplify (MaskShAmt+ShiftShAmt) ?
-    Value *SumOfShAmts =
+    auto *SumOfShAmts = dyn_cast_or_null<Constant>(
         SimplifyAddInst(MaskShAmt, ShiftShAmt, /*IsNSW=*/false, /*IsNUW=*/false,
-                        SQ.getWithInstruction(OuterShift));
+                        SQ.getWithInstruction(OuterShift)));
     if (!SumOfShAmts)
       return nullptr; // Did not simplify.
-    // Is the total shift amount *not* smaller than the bit width?
-    // FIXME: could also rely on ConstantRange.
-    unsigned BitWidth = X->getType()->getScalarSizeInBits();
+    Type *Ty = X->getType();
+    unsigned BitWidth = Ty->getScalarSizeInBits();
+    // In this pattern SumOfShAmts correlates with the number of low bits that
+    // shall remain in the root value (OuterShift). If SumOfShAmts is less than
+    // bitwidth, we'll need to also produce a mask to keep SumOfShAmts low bits.
     if (!match(SumOfShAmts, m_SpecificInt_ICMP(ICmpInst::Predicate::ICMP_UGE,
                                                APInt(BitWidth, BitWidth))))
-      return nullptr;
+      return nullptr; // FIXME.
     // All good, we can do this fold.
   } else if (match(Masked, m_c_And(m_CombineOr(MaskC, MaskD), m_Value(X))) ||
              match(Masked, m_Shr(m_Shl(m_Value(X), m_Value(MaskShAmt)),
@@ -879,7 +882,7 @@ Instruction *InstCombiner::visitShl(BinaryOperator &I) {
   if (Instruction *V = commonShiftTransforms(I))
     return V;
 
-  if (Instruction *V = dropRedundantMaskingOfLeftShiftInput(&I, SQ))
+  if (Instruction *V = dropRedundantMaskingOfLeftShiftInput(&I, SQ, Builder))
     return V;
 
   Value *Op0 = I.getOperand(0), *Op1 = I.getOperand(1);
@@ -889,27 +892,15 @@ Instruction *InstCombiner::visitShl(BinaryOperator &I) {
   const APInt *ShAmtAPInt;
   if (match(Op1, m_APInt(ShAmtAPInt))) {
     unsigned ShAmt = ShAmtAPInt->getZExtValue();
-    unsigned BitWidth = Ty->getScalarSizeInBits();
 
+    // shl (zext X), ShAmt --> zext (shl X, ShAmt)
+    // This is only valid if X would have zeros shifted out.
     Value *X;
     if (match(Op0, m_OneUse(m_ZExt(m_Value(X))))) {
       unsigned SrcWidth = X->getType()->getScalarSizeInBits();
-      // shl (zext X), ShAmt --> zext (shl X, ShAmt)
-      // This is only valid if X would have zeros shifted out.
       if (ShAmt < SrcWidth &&
           MaskedValueIsZero(X, APInt::getHighBitsSet(SrcWidth, ShAmt), 0, &I))
         return new ZExtInst(Builder.CreateShl(X, ShAmt), Ty);
-
-      // shl (zext (mul MulOp, C2)), ShAmt --> mul (zext MulOp), (C2 << ShAmt)
-      // This is valid if the high bits of the wider multiply are shifted out.
-      Value *MulOp;
-      const APInt *C2;
-      if (ShAmt >= (BitWidth - SrcWidth) &&
-          match(X, m_Mul(m_Value(MulOp), m_APInt(C2)))) {
-        Value *Zext = Builder.CreateZExt(MulOp, Ty);
-        Constant *NewMulC = ConstantInt::get(Ty, C2->zext(BitWidth).shl(ShAmt));
-        return BinaryOperator::CreateMul(Zext, NewMulC);
-      }
     }
 
     // (X >> C) << C --> X & (-1 << C)

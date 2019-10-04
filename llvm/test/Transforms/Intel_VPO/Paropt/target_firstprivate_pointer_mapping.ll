@@ -13,7 +13,7 @@
 ; Check that 'out' is passed as a pointer vs pointer-to-pointer
 ; to the target region.
 
-; CHECK: @.offload_maptypes ={{.*}}[1 x i64] [i64 545]
+; CHECK: @.offload_maptypes ={{.*}}[1 x i64] [i64 32]
 ; CHECK: define internal void @__omp_offloading_804_52009e2_foo_l10(double*{{.*}})
 ; ModuleID = 'fp.c'
 source_filename = "fp.c"

@@ -156,7 +156,10 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
     }
 
     for (auto &Ref : make_range(If->ddref_begin(), If->ddref_end())) {
-      if (Ref->isMemRef() || Ref->isNonLinear()) {
+      // Only distribute conditions with linear and privatizable (non-livein)
+      // temps as they can be scalar-expanded.
+      if (!Ref->isTerminalRef() ||
+          (!Ref->isLinear() && Ref->isLiveIntoParentLoop())) {
         return false;
       }
     }
@@ -288,16 +291,6 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
       return true;
     }
 
-    //  Except blobs in Sparse Array Reductions,
-    //  We will not handle Blob DDREF for scalar expansion now
-    //  because of direct replacement is done w/o creating an assignment.
-    //  It is uncommon anyway.
-    //  TODO: Check it helps performance
-    DDRef *DDRefSink = Edge->getSink();
-    if (isa<BlobDDRef>(DDRefSink)) {
-      return true;
-    }
-
     return false;
   }
 
@@ -320,7 +313,7 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
     HLNode *SrcHIR = DDRefSrc->getHLDDNode();
     RegDDRef *RegRef = dyn_cast<RegDDRef>(DDRefSrc);
 
-    if (Edge->isOUTPUTdep()) {
+    if (Edge->isOutput()) {
       assert(RegRef && "RegDDRef expected");
       if (RegRef->isTerminalRef() &&
           Edge->getDVAtLevel(LoopLevel) == DVKind::ALL) {

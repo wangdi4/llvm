@@ -133,7 +133,7 @@ public:
 
   HLInst *findTempDef(const DDRef *TempRef) const {
     for (DDEdge *E : DDG.incoming(TempRef)) {
-      if (E->isFLOWdep()) {
+      if (E->isFlow()) {
         DDRef *Src = E->getSrc();
         if (HLInst *DefInst = dyn_cast<HLInst>(Src->getHLDDNode())) {
           return DefInst;
@@ -1127,7 +1127,7 @@ bool dependencyCheck(DDGraph G, const VecSeedInfoTy &VecSeedInfo, unsigned II) {
         }
 
         for (auto Edge : G.outgoing(Ref)) {
-          if (!Edge->isANTIdep()) {
+          if (!Edge->isAnti()) {
             continue;
           }
 

@@ -258,13 +258,22 @@ def RetCC_X86Common : CallingConv<[
   // can only be used by ABI non-compliant code. This vector type is only
   // supported while using the AVX-512 target feature.
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  CCIfSubtarget<"isIceCode()", CCIfType<[v64i8, v32i16, v16i32, v8i64, v16f32, v8f64],
+                                        CCAssignToReg<[ZMM16, ZMM17, ZMM18, ZMM19]>>>,
+  CCIfNotSubtarget<"isIceCode()",
+#endif // INTEL_FEATURE_ICECODE
 #if INTEL_FEATURE_ISA_FP16
   CCIfType<[v64i8, v32i16, v16i32, v8i64, v32f16, v16f32, v8f64],
 #else // INTEL_FEATURE_ISA_FP16
   CCIfType<[v64i8, v32i16, v16i32, v8i64, v16f32, v8f64],
 #endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+            CCAssignToReg<[ZMM0,ZMM1,ZMM2,ZMM3]>>>,
+#else // INTEL_FEATURE_ICECODE
             CCAssignToReg<[ZMM0,ZMM1,ZMM2,ZMM3]>>,
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 
   // MMX vector types are always returned in MM0. If the target doesn't have
   // MM0, it doesn't support these vector types.
@@ -581,14 +590,26 @@ def CC_X86_64_C : CallingConv<[
 
   // The first 8 FP/Vector arguments are passed in XMM registers.
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  CCIfType<[f32, f64, f128, v16i8, v8i16, v4i32, v2i64, v4f32, v2f64],
+            CCIfSubtarget<"isIceCode()",
+            CCAssignToReg<[XMM16, XMM17, XMM18, XMM19, XMM20, XMM21, XMM22, XMM23]>>>,
+#endif // INTEL_FEATURE_ICECODE
 #if INTEL_FEATURE_ISA_FP16
   CCIfType<[f16, f32, f64, f128, v16i8, v8i16, v4i32, v2i64, v8f16, v4f32, v2f64],
 #else // INTEL_FEATURE_ISA_FP16
   CCIfType<[f32, f64, f128, v16i8, v8i16, v4i32, v2i64, v4f32, v2f64],
 #endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+            CCIfNotSubtarget<"isIceCode()",
+#endif // INTEL_FEATURE_ICECODE
             CCIfSubtarget<"hasSSE1()",
+#if INTEL_FEATURE_ICECODE
+            CCAssignToReg<[XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7]>>>>,
+#else // INTEL_FEATURE_ICECODE
             CCAssignToReg<[XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7]>>>,
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 
   // The first 8 256-bit vector arguments are passed in YMM registers, unless
   // this is a vararg function.
@@ -596,26 +617,50 @@ def CC_X86_64_C : CallingConv<[
   // fixed arguments to vararg functions are supposed to be passed in
   // registers.  Actually modeling that would be a lot of work, though.
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  CCIfNotVarArg<CCIfType<[v32i8, v16i16, v8i32, v4i64, v8f32, v4f64],
+            CCIfSubtarget<"isIceCode()",
+            CCAssignToReg<[YMM16, YMM17, YMM18, YMM19, YMM20, YMM21, YMM22, YMM23]>>>>,
+#endif // INTEL_FEATURE_ICECODE
 #if INTEL_FEATURE_ISA_FP16
   CCIfNotVarArg<CCIfType<[v32i8, v16i16, v8i32, v4i64, v16f16, v8f32, v4f64],
 #else // INTEL_FEATURE_ISA_FP16
   CCIfNotVarArg<CCIfType<[v32i8, v16i16, v8i32, v4i64, v8f32, v4f64],
 #endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+            CCIfNotSubtarget<"isIceCode()",
+#endif // INTEL_FEATURE_ICECODE
                           CCIfSubtarget<"hasAVX()",
                           CCAssignToReg<[YMM0, YMM1, YMM2, YMM3,
+#if INTEL_FEATURE_ICECODE
+                                         YMM4, YMM5, YMM6, YMM7]>>>>>,
+#else // INTEL_FEATURE_ICECODE
                                          YMM4, YMM5, YMM6, YMM7]>>>>,
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 
   // The first 8 512-bit vector arguments are passed in ZMM registers.
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  CCIfNotVarArg<CCIfType<[v64i8, v32i16, v16i32, v8i64, v16f32, v8f64],
+            CCIfSubtarget<"isIceCode()",
+            CCAssignToReg<[ZMM16, ZMM17, ZMM18, ZMM19, ZMM20, ZMM21, ZMM22, ZMM23]>>>>,
+#endif // INTEL_FEATURE_ICECODE
 #if INTEL_FEATURE_ISA_FP16
   CCIfNotVarArg<CCIfType<[v64i8, v32i16, v16i32, v8i64, v32f16, v16f32, v8f64],
 #else // INTEL_FEATURE_ISA_FP16
   CCIfNotVarArg<CCIfType<[v64i8, v32i16, v16i32, v8i64, v16f32, v8f64],
 #endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+            CCIfNotSubtarget<"isIceCode()",
+#endif // INTEL_FEATURE_ICECODE
             CCIfSubtarget<"hasAVX512()",
+#if INTEL_FEATURE_ICECODE
+            CCAssignToReg<[ZMM0, ZMM1, ZMM2, ZMM3, ZMM4, ZMM5, ZMM6, ZMM7]>>>>>,
+#else // INTEL_FEATURE_ICECODE
             CCAssignToReg<[ZMM0, ZMM1, ZMM2, ZMM3, ZMM4, ZMM5, ZMM6, ZMM7]>>>>,
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 
   // Integer/FP values get stored in stack slots that are 8 bytes in size and
   // 8-byte aligned if there are no more registers to hold them.

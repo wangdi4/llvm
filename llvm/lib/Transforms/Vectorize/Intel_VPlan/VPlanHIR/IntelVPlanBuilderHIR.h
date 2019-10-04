@@ -70,14 +70,14 @@ public:
     return VPBuilder::createCmpInst(Pred, LHS, RHS);
   }
 
-  VPValue *createPhiInstruction(Type *BaseTy, loopopt::HLDDNode *DDNode) {
+  VPPHINode *createPhiInstruction(Type *BaseTy, loopopt::HLDDNode *DDNode) {
     assert(DDNode && "DDNode can't be null.");
-    VPInstruction *NewPhi = VPBuilder::createPhiInstruction(BaseTy);
+    VPPHINode *NewPhi = VPBuilder::createPhiInstruction(BaseTy);
     NewPhi->HIR.setUnderlyingNode(DDNode);
     return NewPhi;
   }
 
-  VPValue *createPhiInstruction(Type *BaseTy) {
+  VPPHINode *createPhiInstruction(Type *BaseTy) {
     return VPBuilder::createPhiInstruction(BaseTy);
   }
 

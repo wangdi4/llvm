@@ -455,7 +455,7 @@ void Scheduler::applySchedule() {
 }
 
 Scheduler::Scheduler(BasicBlock *BB, AAResults *AA) : BB(BB), AA(AA) {
-  DAG = llvm::make_unique<GroupDependenceGraph>(BB, AA);
+  DAG = std::make_unique<GroupDependenceGraph>(BB, AA);
 }
 
 bool LoadCoalescing::areAdjacentMemoryAccesses(LoadInst *I1, LoadInst *I2) {
@@ -612,7 +612,7 @@ bool LoadCoalescing::createGroupsAndGenerateCode(BasicBlock *CurrentBB) {
 bool LoadCoalescing::run(BasicBlock &Block) {
 
   // Initialize the scheduler
-  SCH = llvm::make_unique<Scheduler>(&Block, AA);
+  SCH = std::make_unique<Scheduler>(&Block, AA);
 
   // Collect vector loads based on their pointers.
   BBMemRefAnalysis.populateBasicBlockMemRefBuckets(&Block, AllowScalars);

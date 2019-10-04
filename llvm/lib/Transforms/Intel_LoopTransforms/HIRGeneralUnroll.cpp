@@ -80,8 +80,10 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopResource.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
@@ -128,20 +130,33 @@ static cl::opt<unsigned> MaxLoopCost(
     "hir-general-unroll-max-loop-cost", cl::init(40), cl::Hidden,
     cl::desc("Max allowed cost of the original loop which is to be unrolled"));
 
+static cl::opt<bool> DisableSwitchGeneration(
+    "hir-general-unroll-disable-switch-generation", cl::init(false), cl::Hidden,
+    cl::desc("Disable switch generation in HIR General Unroll"));
+
+static cl::opt<bool> DisableReplaceByFirstIteration(
+    "hir-general-unroll-disable-replace-by-first-iteration", cl::init(false),
+    cl::Hidden,
+    cl::desc("Disable replace by first iteration in HIR General Unroll"));
+
 namespace {
 
 class HIRGeneralUnroll {
 public:
   HIRGeneralUnroll(HIRFramework &HIRF, HIRLoopResource &HLR,
+                   HIRDDAnalysis &HDDA, HIRSafeReductionAnalysis &HSRA,
                    HIRLoopStatistics &HLS, bool PragmaOnlyUnroll)
-      : HIRF(HIRF), HLR(HLR), HLS(HLS), IsUnrollTriggered(false),
-        Is32Bit(false), PragmaOnlyUnroll(PragmaOnlyUnroll) {}
+      : HIRF(HIRF), HLR(HLR), HDDA(HDDA), HSRA(HSRA), HLS(HLS),
+        IsUnrollTriggered(false), Is32Bit(false),
+        PragmaOnlyUnroll(PragmaOnlyUnroll) {}
 
   bool run();
 
 private:
   HIRFramework &HIRF;
   HIRLoopResource &HLR;
+  HIRDDAnalysis &HDDA;
+  HIRSafeReductionAnalysis &HSRA;
   HIRLoopStatistics &HLS;
 
   bool IsUnrollTriggered;
@@ -170,6 +185,10 @@ private:
   /// Returns 0 if unrolling is not profitable.
   unsigned refineUnrollFactorUsingReuseAnalysis(const HLLoop *Loop,
                                                 unsigned CurUnrollFactor) const;
+
+  bool isSwitchGenerationLegal(HLLoop *RemainderLoop);
+
+  void replaceBySwitch(HLLoop *RemainderLoop, unsigned UnrollFactor);
 };
 } // namespace
 
@@ -192,6 +211,28 @@ struct PostLoopCollector final : public HLNodeVisitorBase {
 
   bool skipRecursion(HLNode *Node) { return Node == SkipNode; }
 };
+
+struct IVUpdater final : public HLNodeVisitorBase {
+  int UnrollNum;
+  unsigned LoopLevel;
+
+  IVUpdater(int UnrollNum, unsigned LoopLevel)
+      : UnrollNum(UnrollNum), LoopLevel(LoopLevel) {}
+
+  void visit(HLDDNode *Node);
+  void visit(const HLNode *Node) {}
+  void postVisit(const HLNode *Node) {}
+};
+
+void IVUpdater::visit(HLDDNode *Node) {
+  for (auto It = Node->ddref_begin(), Et = Node->ddref_end(); It != Et; It++) {
+    RegDDRef *OpRef = *It;
+
+    OpRef->replaceIVByConstant(LoopLevel, UnrollNum);
+
+    OpRef->makeConsistent({}, LoopLevel - 1);
+  }
+}
 
 bool HIRGeneralUnroll::run() {
   // Skip if DisableHIRGeneralUnroll is enabled
@@ -273,8 +314,112 @@ void HIRGeneralUnroll::processGeneralUnroll(
 
       IsUnrollTriggered = true;
       LoopsGenUnrolled++;
+
+      if (!RemainderLoop) {
+        continue;
+      }
+
+      if (RemainderLoop->isConstTripLoop()) {
+        // TODO: Perform complete unroll
+      } else if (UnrollFactor == 2) {
+        // Replace the remainder loop with the first iteration when the unroll
+        // factor is 2, because the remainder loop has at most one iteration
+        if (DisableReplaceByFirstIteration) {
+          continue;
+        }
+
+        RemainderLoop->replaceByFirstIteration();
+      } else {
+        replaceBySwitch(RemainderLoop, UnrollFactor);
+      }
     }
   }
+}
+
+static bool isSwitchGenerationProfitable(HLLoop *RemainderLoop,
+                                         unsigned UnrollFactor) {
+  if (!RemainderLoop->isInnermost()) {
+    return false;
+  }
+
+  if (UnrollFactor > 8) {
+    return false;
+  }
+
+  return true;
+}
+
+bool HIRGeneralUnroll::isSwitchGenerationLegal(HLLoop *RemainderLoop) {
+  bool IsLoopReversible = HIRTransformUtils::isLoopReversible(
+      RemainderLoop, HDDA, HSRA, HLS, false, true);
+
+  return IsLoopReversible;
+}
+
+void HIRGeneralUnroll::replaceBySwitch(HLLoop *RemainderLoop,
+                                       unsigned UnrollFactor) {
+  if (DisableSwitchGeneration) {
+    return;
+  }
+
+  if (!isSwitchGenerationProfitable(RemainderLoop, UnrollFactor)) {
+    return;
+  }
+
+  if (!isSwitchGenerationLegal(RemainderLoop)) {
+    return;
+  }
+
+  if (!RemainderLoop->normalize()) {
+    return;
+  }
+
+  RegDDRef *ConditionRef = RemainderLoop->removeUpperDDRef();
+
+  // We can skip ztt because if the trip count is zero, normalized upper bound
+  // will be a big positive number and go through default switch case which does
+  // nothing
+  auto &HNU = RemainderLoop->getHLNodeUtils();
+  auto &DDRU = HNU.getDDRefUtils();
+
+  unsigned LoopLevel = RemainderLoop->getNestingLevel();
+  ConditionRef->makeConsistent({}, LoopLevel - 1);
+
+  auto Switch = HNU.createHLSwitch(ConditionRef);
+
+  Type *IntType = ConditionRef->getDestType();
+  unsigned CaseNum = 1;
+
+  for (int I = UnrollFactor - 2; I >= 0; --I, ++CaseNum) {
+    RegDDRef *CaseRef = DDRU.createConstDDRef(IntType, I);
+    Switch->addCase(CaseRef);
+
+    // Generate HLlabel at the beginning of each case
+    HLLabel *Label = HNU.createHLLabel("L" + Twine(I));
+    HLNodeUtils::insertAsFirstChild(Switch, Label, CaseNum);
+
+    if (I != (int)(UnrollFactor - 2)) {
+      // Generate HLGoto at the end of last case
+      HLGoto *Goto = HNU.createHLGoto(Label);
+      HLNodeUtils::insertAsLastChild(Switch, Goto, CaseNum - 1);
+    }
+
+    HLContainerTy LoopBody;
+
+    // TODO:we should reuse the loop nodes once the HLNodeUtils::remove()
+    // utility is fixed to set the parent field to null
+    HLNodeUtils::cloneSequence(&LoopBody, RemainderLoop->getFirstChild(),
+                               RemainderLoop->getLastChild());
+
+    IVUpdater IVUD(I, LoopLevel);
+
+    // Update the IVs in the LoopBody
+    HLNodeUtils::visitRange(IVUD, &(LoopBody.front()), &(LoopBody.back()));
+
+    HLNodeUtils::insertAfter(Label, &LoopBody);
+  }
+
+  HLNodeUtils::replace(RemainderLoop, Switch);
 }
 
 unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop,
@@ -550,6 +695,8 @@ PreservedAnalyses HIRGeneralUnrollPass::run(llvm::Function &F,
                                             llvm::FunctionAnalysisManager &AM) {
   HIRGeneralUnroll(AM.getResult<HIRFrameworkAnalysis>(F),
                    AM.getResult<HIRLoopResourceAnalysis>(F),
+                   AM.getResult<HIRDDAnalysisPass>(F),
+                   AM.getResult<HIRSafeReductionAnalysisPass>(F),
                    AM.getResult<HIRLoopStatisticsAnalysis>(F), false)
       .run();
   return PreservedAnalyses::all();
@@ -569,6 +716,8 @@ public:
     AU.setPreservesAll();
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRLoopResourceWrapperPass>();
+    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
+    AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
   }
 
@@ -580,6 +729,8 @@ public:
     return HIRGeneralUnroll(
                getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
                getAnalysis<HIRLoopResourceWrapperPass>().getHLR(),
+               getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
+               getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR(),
                getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
                PragmaOnlyUnroll)
         .run();
@@ -591,6 +742,8 @@ INITIALIZE_PASS_BEGIN(HIRGeneralUnrollLegacyPass, "hir-general-unroll",
                       "HIR General Unroll", false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopResourceWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_END(HIRGeneralUnrollLegacyPass, "hir-general-unroll",
                     "HIR General Unroll", false, false)

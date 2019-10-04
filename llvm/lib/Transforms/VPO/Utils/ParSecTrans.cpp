@@ -645,7 +645,7 @@ void VPOUtils::doParSectTrans(
   //             i = phi(0, i')              |
   //             switch (i)                  |
   //             /  |  ...  \                |
-  //        sec1  sec2 ... DefualtCase       |
+  //        sec1  sec2 ... DefaultCase       |
   //          \      | ...  /                |
   //          SwitchEpilogBB                 |
   //                 |                       |
@@ -751,16 +751,31 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
       const DataLayout &DL = F->getParent()->getDataLayout();
 
       AllocaInst *TmpUB =
-          new AllocaInst(IntTy, DL.getAllocaAddrSpace(), "num.sects", InsertPt);
-      TmpUB->setAlignment(4);
-      NormalizedUB = TmpUB;
+        new AllocaInst(IntTy, DL.getAllocaAddrSpace(), "num.sects", InsertPt);
 
-      StoreInst *SI = new StoreInst(UB, TmpUB, false, InsertPt);
+      TmpUB->setAlignment(4);
+
+      Triple TargetTriple(InsertPt->getModule()->getTargetTriple());
+
+      if (TargetTriple.getArch() == Triple::ArchType::spir ||
+          TargetTriple.getArch() == Triple::ArchType::spir64) {
+
+        // Address space Casting to ADDRESS_SPACE_GENERIC = 4 for GPU device
+        PointerType *PtType = cast<PointerType>(TmpUB->getType());
+        IRBuilder<> Builder(InsertPt);
+        Value *V = Builder.CreatePointerBitCastOrAddrSpaceCast(
+                     TmpUB, PtType->getElementType()->getPointerTo(4),
+                     TmpUB->getName() + ".ascast");
+        NormalizedUB = V;
+      }
+      else  
+        NormalizedUB = TmpUB;
+   
+      StoreInst *SI = new StoreInst(UB, NormalizedUB, false, InsertPt);
       SI->setAlignment(4);
 
       InsertPt = PreHeaderBB->getTerminator();
-
-      UpperBnd = new LoadInst(TmpUB, "sloop.ub", false, InsertPt);
+      UpperBnd = new LoadInst(NormalizedUB, "sloop.ub", false, InsertPt);
     }
   }
 
@@ -774,9 +789,6 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
 
   Builder.SetInsertPoint(HeaderBB);
 
-  // Value *LoopZTT = Builder.CreateICmp(ICmpInst::ICMP_SLE, IV, UB);
-  // LoopZTT->setName(FName + ".sloop.ztt." + Twine(Counter));
-  // Builder.CreateCondBr(LoopZTT, BodyBB, ExitBB);
   Builder.CreateBr(BodyBB);
 
   // Loop BodyBB
@@ -833,7 +845,7 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
 //             |switch(i)         |
 //             --------------------
 //             /    |    ...  \
-//        case1  case2    ... DefualtCase
+//        case1  case2    ... DefaultCase
 //           \      |     ...  /
 //             SwitchEpilogBB
 //                  |
@@ -843,7 +855,6 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
 //             |......            |
 //             --------------------
 //
-//SwitchInst *VPOUtils::genParSectSwitch(
 void VPOUtils::genParSectSwitch(
   Value *SwitchCond,
   ParSectNode *Node,
@@ -920,6 +931,5 @@ void VPOUtils::genParSectSwitch(
   }
 
   return;
-  //return SwitchInstruction;
 }
 #endif // INTEL_COLLAB

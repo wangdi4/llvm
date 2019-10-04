@@ -133,9 +133,9 @@ TARGET_BUILTIN(__builtin_ia32_tile_storeconfig, "vvC*", "n", "amx-tile")
 TARGET_BUILTIN(__builtin_ia32_tilerelease, "v", "n", "amx-tile")
 TARGET_BUILTIN(__builtin_ia32_tilezero, "vUc", "n", "amx-tile")
 
-TARGET_BUILTIN(__builtin_ia32_tileloadd64, "vIUcULLiULLi", "n", "amx-tile")
-TARGET_BUILTIN(__builtin_ia32_tileloaddt164, "vIUcULLiULLi", "n", "amx-tile")
-TARGET_BUILTIN(__builtin_ia32_tilestored64, "vIUcULLiULLi", "n", "amx-tile")
+TARGET_BUILTIN(__builtin_ia32_tileloadd64, "vIUcvC*z", "n", "amx-tile")
+TARGET_BUILTIN(__builtin_ia32_tileloaddt164, "vIUcvC*z", "n", "amx-tile")
+TARGET_BUILTIN(__builtin_ia32_tilestored64, "vIUcv*z", "n", "amx-tile")
 
 TARGET_BUILTIN(__builtin_ia32_tdpbssd, "vIUcIUcIUc", "n", "amx-int8")
 TARGET_BUILTIN(__builtin_ia32_tdpbsud, "vIUcIUcIUc", "n", "amx-int8")

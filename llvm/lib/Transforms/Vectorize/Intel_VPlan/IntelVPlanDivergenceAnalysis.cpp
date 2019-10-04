@@ -53,10 +53,10 @@ using namespace llvm::vpo;
 #define DEBUG_TYPE "vplan-divergence-analysis"
 
 static cl::opt<bool>
-    VPlanDARecognizeOverflow("vplan-da-recognize-integer-overflow",
-                             cl::init(true), cl::Hidden,
-                             cl::desc("Allow VPlan's divergence analysis to "
-                                      "recognize integer overflow checks."));
+    VPlanDAIgnoreOverflow("vplan-da-ignore-integer-overflow", cl::init(false),
+                          cl::Hidden,
+                          cl::desc("Allow VPlan's divergence analysis to "
+                                   "ignore integer overflow checks."));
 
 #define Uni VPVectorShape::Uni
 #define Seq VPVectorShape::Seq
@@ -102,8 +102,8 @@ const VPVectorShape::VPShapeDescriptor
 GepConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
   /* ptr\index   Uni,   Seq,   Ptr,   Str,   Rnd,   Undef */
   /* Uni   */   {Uni,   Ptr,   Rnd,   Str,   Rnd,   Undef},
-  /* Seq   */   {Ptr,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
-  /* Ptr   */   {Ptr,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
+  /* Seq   */   {Str,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
+  /* Ptr   */   {Str,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
   /* Str   */   {Rnd,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
   /* Rnd   */   {Rnd,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
   /* Undef */   {Undef, Undef, Undef, Undef, Undef, Undef}
@@ -119,6 +119,15 @@ SelectConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
   /* Rnd   */  {Rnd,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
   /* Undef */  {Undef, Undef, Undef, Undef, Undef, Undef}
 };
+
+// Undefine the defines used in table initialization. Code below is
+// expected to use values from VPVectorShape directly.
+#undef Uni
+#undef Seq
+#undef Ptr
+#undef Str
+#undef Rnd
+#undef Undef
 
 void VPlanDivergenceAnalysis::markDivergent(const VPValue &DivVal) {
   // Community version also checks to see if DivVal is a function argument.
@@ -793,7 +802,7 @@ VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForBinaryInst(
       return new VPVectorShape(NewDesc, NewStride);
     }
     case Instruction::And: {
-      if (VPlanDARecognizeOverflow) {
+      if (VPlanDAIgnoreOverflow) {
         // AND operation with UINT_MAX indicates an integer overflow check and
         // clamping. Propagate the shape of the operand being checked for
         // overflow.
@@ -839,22 +848,6 @@ VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForGepInst(
   const VPValue* PtrOp = I->getOperand(0);
   VPVectorShape *PtrShape = getVectorShape(PtrOp);
   unsigned NumOperands = I->getNumOperands();
-
-  // Non-uniform GEPs on StructType pointers need further analysis to determine
-  // actual stride. Currently mark it as Random to stay conservative. Check JIRA
-  // : CMPLRLLVM-10122
-  if (auto *PtrOpTy = dyn_cast<PointerType>(PtrOp->getType())) {
-    if (isa<StructType>(PtrOpTy->getPointerElementType())) {
-      // If all operands of the GEP are uniform, then return Uniform shape for
-      // the resulting GEP.
-      if (llvm::all_of(I->operands(), [this](const VPValue *Op) {
-            return getVectorShape(Op)->isUniform();
-          }))
-        return getUniformVectorShape();
-
-      return getRandomVectorShape();
-    }
-  }
 
   // If any of the gep indices, except the last, are not uniform, then return
   // random shape.
@@ -913,6 +906,14 @@ VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForGepInst(
       uint64_t IdxStrideVal =
           cast<ConstantInt>(IdxStride->getUnderlyingValue())->getSExtValue();
       NewStride = getConstantInt(PtrStrideVal + PointedToTySize * IdxStrideVal);
+
+      // See if we can refine a strided pointer to a unit-strided pointer by
+      // checking if new stride value is the same as size of pointedto type.
+      const APInt &NewStrideVal =
+          cast<ConstantInt>(NewStride->getUnderlyingValue())->getValue();
+      uint64_t NewStrideValAbs = NewStrideVal.abs().getZExtValue();
+      if (NewDesc == VPVectorShape::Str && PointedToTySize == NewStrideValAbs)
+        NewDesc = VPVectorShape::Ptr;
     }
   }
   return new VPVectorShape(NewDesc, NewStride);
@@ -1223,7 +1224,7 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
 
 #if INTEL_CUSTOMIZATION
   // Propagate linearity - start at vector loop candidate header phi nodes.
-  UndefShape = llvm::make_unique<VPVectorShape>(VPVectorShape::Undef);
+  UndefShape = std::make_unique<VPVectorShape>(VPVectorShape::Undef);
   initializeShapes(PhiNodes);
 #endif
 

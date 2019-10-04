@@ -155,8 +155,9 @@ struct OutgoingValueHandler : public CallLowering::ValueHandler {
 
   bool assignArg(unsigned ValNo, MVT ValVT, MVT LocVT,
                  CCValAssign::LocInfo LocInfo,
-                 const CallLowering::ArgInfo &Info, CCState &State) override {
-    bool Res = AssignFn(ValNo, ValVT, LocVT, LocInfo, Info.Flags, State);
+                 const CallLowering::ArgInfo &Info, ISD::ArgFlagsTy Flags,
+                 CCState &State) override {
+    bool Res = AssignFn(ValNo, ValVT, LocVT, LocInfo, Flags, State);
     StackSize = State.getNextStackOffset();
 
     static const MCPhysReg XMMArgRegs[] = {X86::XMM0, X86::XMM1, X86::XMM2,
@@ -237,7 +238,7 @@ struct IncomingValueHandler : public CallLowering::ValueHandler {
     int FI = MFI.CreateFixedObject(Size, Offset, true);
     MPO = MachinePointerInfo::getFixedStack(MIRBuilder.getMF(), FI);
 
-    unsigned AddrReg = MRI.createGenericVirtualRegister(
+    Register AddrReg = MRI.createGenericVirtualRegister(
         LLT::pointer(0, DL.getPointerSizeInBits(0)));
     MIRBuilder.buildFrameIndex(AddrReg, FI);
     return AddrReg;
@@ -405,7 +406,7 @@ bool X86CallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
   for (const auto &OrigArg : Info.OrigArgs) {
 
     // TODO: handle not simple cases.
-    if (OrigArg.Flags.isByVal())
+    if (OrigArg.Flags[0].isByVal())
       return false;
 
     if (OrigArg.Regs.size() > 1)

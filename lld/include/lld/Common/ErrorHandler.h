@@ -92,6 +92,11 @@ public:
   bool verbose = false;
   bool vsDiagnostics = false;
 
+#if INTEL_CUSTOMIZATION
+  bool intelDebugMem = false;
+  bool intelEmbeddedLinker = false;
+#endif // INTEL_CUSTOMIZATION
+
   void error(const Twine &msg);
   LLVM_ATTRIBUTE_NORETURN void fatal(const Twine &msg);
   void log(const Twine &msg);

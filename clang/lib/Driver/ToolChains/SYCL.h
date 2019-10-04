@@ -56,10 +56,6 @@ private:
   void constructLlcCommand(Compilation &C, const JobAction &JA,
                            const InputInfo &Output,
                            const char *InputFile) const;
-  void constructPartialLinkCommand(Compilation &C, const JobAction &JA,
-                                   const InputInfo &Output,
-                                   const InputInfoList &InputFiles,
-                                   const llvm::opt::ArgList &Args) const;
 };
 
 /// Directly call FPGA Compiler and Linker
@@ -139,6 +135,10 @@ public:
   bool isPICDefault() const override { return false; }
   bool isPIEDefault() const override { return false; }
   bool isPICDefaultForced() const override { return false; }
+
+  virtual codegenoptions::DebugInfoFormat getDefaultDebugFormat() const {
+    return HostTC.getDefaultDebugFormat();
+  }
 
   void addClangWarningOptions(llvm::opt::ArgStringList &CC1Args) const override;
   CXXStdlibType GetCXXStdlibType(const llvm::opt::ArgList &Args) const override;

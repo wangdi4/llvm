@@ -38,6 +38,8 @@
 
 namespace llvm {
 
+using AndersGetTLITy = std::function<const TargetLibraryInfo &(Function &)>;
+
 // Forward declaration for use within AndersensAAResult class
 class IntelModRefImpl;
 class IntelModRef;
@@ -265,7 +267,7 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
   };
 
   const DataLayout &DL;
-  const TargetLibraryInfo &TLI;
+  AndersGetTLITy GetTLI;
 
   // This flag indicates whether wholeprogram safe is true or not.
   // This is computed from WholeProgramAnalysis. This is currently
@@ -418,7 +420,7 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
   // interface used by the AndersensAAResult.
   class IntelModRef {
   public:
-    IntelModRef(AndersensAAResult *AnderAA, const TargetLibraryInfo &TLI);
+    IntelModRef(AndersensAAResult *AnderAA, AndersGetTLITy GetTLI);
     ~IntelModRef();
 
     void runAnalysis(Module &M);
@@ -448,7 +450,7 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
   // List of callbacks for Values being tracked by this analysis.
   std::set<AndersensDeletionCallbackHandle> AndersensHandles;
 
-  explicit AndersensAAResult(const DataLayout &DL, const TargetLibraryInfo &TLI,
+  explicit AndersensAAResult(const DataLayout &DL, AndersGetTLITy GetTLI,
                              WholeProgramInfo *WPInfo);
 
 public:
@@ -460,9 +462,8 @@ public:
     Incomplete,              // At least one target is unsafe or invalid
   };
 
-  static AndersensAAResult analyzeModule(Module &M,
-              const TargetLibraryInfo &TLI, CallGraph &CG,
-              WholeProgramInfo *WPInfo);
+  static AndersensAAResult analyzeModule(Module &M, AndersGetTLITy GetTLI,
+              CallGraph &CG, WholeProgramInfo *WPInfo);
 
   // Interface routine to get possible targets of function pointers
   AndersenSetResult GetFuncPointerPossibleTargets(Value *FP, 

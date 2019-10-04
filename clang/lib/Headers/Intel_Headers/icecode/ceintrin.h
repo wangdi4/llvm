@@ -21,12 +21,13 @@
  *===------------------------------------------------------------------------===
  */
 
+#ifndef __IMMINTRIN_H
+#error "Never use <ceintrin.h> directly; include <immintrin.h> instead."
+#endif /* __IMMINTRIN_H */
+
 #ifndef __CEINTRIN_H
 #define __CEINTRIN_H
-
-#ifndef __ICECODE__
-#error "Must enable icecode before including ceintrin.h"
-#endif
+#ifdef __x86_64__
 
 typedef enum {
   _CE_SEGMENT_NONE = 0,
@@ -280,4 +281,5 @@ _ce_iceret_indirect(unsigned target, unsigned value) {
 
 #undef __DEFAULT_FN_ATTRS
 
+#endif /* __x86_64__ */
 #endif /* __CEINTRIN_H */

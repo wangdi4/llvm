@@ -372,8 +372,8 @@ protected:
   /// Processor has AVX-512 vp2intersect instructions
   bool HasVP2INTERSECT = false;
 
-  /// Processor supports MPX - Memory Protection Extensions
-  bool HasMPX = false;
+  /// Deprecated flag for MPX instructions.
+  bool DeprecatedHasMPX = false;
 
   /// Processor supports CET SHSTK - Control-Flow Enforcement Technology
   /// using Shadow Stack
@@ -434,6 +434,10 @@ protected:
   bool HasAMXTRANSPOSE = false;
   bool HasAMXMEMORY = false;
   bool HasAMXFP16 = false;
+  bool HasAMXAVX512 = false;
+  bool HasAMXINT8EVEX = false;
+  bool HasAMXTILEEVEX = false;
+  bool HasAMXBF16EVEX = false;
 #endif // INTEL_FEATURE_ISA_AMX2
 
 #if INTEL_FEATURE_ISA_AVX_VNNI
@@ -472,6 +476,9 @@ protected:
   /// Use software floating point for code generation.
   bool UseSoftFloat = false;
 
+  /// Use alias analysis during code generation.
+  bool UseAA = false;
+
   /// The minimum alignment known to hold of the stack frame on
   /// entry to the function and which must be maintained by every function.
   unsigned stackAlignment = 4;
@@ -480,6 +487,9 @@ protected:
   ///
   // FIXME: this is a known good value for Yonah. How about others?
   unsigned MaxInlineSizeThreshold = 128;
+
+  /// Indicates target prefers 128 bit instructions.
+  bool Prefer128Bit = false;
 
   /// Indicates target prefers 256 bit instructions.
   bool Prefer256Bit = false;
@@ -755,7 +765,6 @@ public:
   bool hasBF16() const { return HasBF16; }
   bool hasVP2INTERSECT() const { return HasVP2INTERSECT; }
   bool hasBITALG() const { return HasBITALG; }
-  bool hasMPX() const { return HasMPX; }
   bool hasSHSTK() const { return HasSHSTK; }
   bool hasCLFLUSHOPT() const { return HasCLFLUSHOPT; }
   bool hasCLWB() const { return HasCLWB; }
@@ -800,6 +809,10 @@ public:
   bool hasAMXFORMAT() const { return HasAMXFORMAT; }
   bool hasAMXTRANSPOSE() const { return HasAMXTRANSPOSE; }
   bool hasAMXMEMORY() const { return HasAMXMEMORY; }
+  bool hasAMXAVX512() const { return HasAMXAVX512; }
+  bool hasAMXINT8EVEX() const { return HasAMXINT8EVEX; }
+  bool hasAMXTILEEVEX() const { return HasAMXTILEEVEX; }
+  bool hasAMXBF16EVEX() const { return HasAMXBF16EVEX; }
 #endif // INTEL_FEATURE_ISA_AMX2
 #if INTEL_FEATURE_ISA_AVX_VNNI
   bool hasAVXVNNI() const { return HasAVXVNNI; }
@@ -844,6 +857,7 @@ public:
            X86ProcFamily == IntelTRM;
   }
   bool useSoftFloat() const { return UseSoftFloat; }
+  bool useAA() const override { return UseAA; }
 
   /// Use mfence if we have SSE2 or we're on x86-64 (even if we asked for
   /// no-sse2). There isn't any reason to disable it if the target processor

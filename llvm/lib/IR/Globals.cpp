@@ -68,6 +68,10 @@ void GlobalValue::copyAttributesFrom(const GlobalValue *Src) {
   setDLLStorageClass(Src->getDLLStorageClass());
   setDSOLocal(Src->isDSOLocal());
   setPartition(Src->getPartition());
+#if INTEL_COLLAB
+  setThreadPrivate(Src->isThreadPrivate());
+  setTargetDeclare(Src->isTargetDeclare());
+#endif  // INTEL_COLLAB
 }
 
 void GlobalValue::removeFromParent() {

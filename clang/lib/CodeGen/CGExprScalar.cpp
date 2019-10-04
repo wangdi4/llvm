@@ -2008,8 +2008,10 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
       // in AST, but in IR one of them may be in opencl_private, and another in
       // opencl_generic address space:
       //
-      //   int arr[5]; // automatic variable, default AS in AST, private AS in
-      //   IR char* p = arr; // default AS in AST, generic AS in IR
+      //   int arr[5];    // automatic variable, default AS in AST,
+      //                  // private AS in IR
+      //
+      //   char* p = arr; // default AS in AST, generic AS in IR
       //
       if (E->getType().getAddressSpace() != DestTy.getAddressSpace())
         llvm_unreachable("wrong cast for pointers in different address spaces"
@@ -2843,6 +2845,53 @@ Value *ScalarExprEmitter::VisitUnaryImag(const UnaryOperator *E) {
 //===----------------------------------------------------------------------===//
 //                           Binary Operators
 //===----------------------------------------------------------------------===//
+
+static Value *insertAddressSpaceCast(Value *V, unsigned NewAS) {
+  auto *VTy = cast<llvm::PointerType>(V->getType());
+  if (VTy->getAddressSpace() == NewAS)
+    return V;
+
+  llvm::PointerType *VTyNewAS =
+      llvm::PointerType::get(VTy->getElementType(), NewAS);
+
+  if (auto *Constant = dyn_cast<llvm::Constant>(V))
+    return llvm::ConstantExpr::getAddrSpaceCast(Constant, VTyNewAS);
+
+  llvm::Instruction *NewV =
+      new llvm::AddrSpaceCastInst(V, VTyNewAS, V->getName() + ".ascast");
+  NewV->insertAfter(cast<llvm::Instruction>(V));
+  return NewV;
+}
+
+static void ensureSameAddrSpace(Value *&RHS, Value *&LHS,
+                                bool CanInsertAddrspaceCast,
+                                const LangOptions &Opts,
+                                const ASTContext &Context) {
+  if (RHS->getType() == LHS->getType())
+    return;
+
+  auto *RHSTy = dyn_cast<llvm::PointerType>(RHS->getType());
+  auto *LHSTy = dyn_cast<llvm::PointerType>(LHS->getType());
+  if (!RHSTy || !LHSTy || RHSTy->getAddressSpace() == LHSTy->getAddressSpace())
+    return;
+
+  if (!CanInsertAddrspaceCast)
+    // Pointers have different address spaces and we cannot do anything with
+    // this.
+    llvm_unreachable("Pointers are expected to have the same address space.");
+
+  // Language rules define if it is legal to cast from one address space to
+  // another, and which address space we should use as a "common
+  // denominator". In SYCL, generic address space overlaps with all other
+  // address spaces.
+  if (Opts.SYCLIsDevice) {
+    unsigned GenericAS = Context.getTargetAddressSpace(LangAS::opencl_generic);
+    RHS = insertAddressSpaceCast(RHS, GenericAS);
+    LHS = insertAddressSpaceCast(LHS, GenericAS);
+  } else
+    llvm_unreachable("Unable to find a common address space for "
+                     "two pointers.");
+}
 
 BinOpInfo ScalarExprEmitter::EmitBinOps(const BinaryOperator *E) {
   TestAndClearIgnoreResultAssign();
@@ -3919,6 +3968,14 @@ Value *ScalarExprEmitter::EmitCompare(const BinaryOperator *E,
           RHS = Builder.CreateStripInvariantGroup(RHS);
       }
 
+      // Expression operands may have the same addrspace in AST, but different
+      // addrspaces in LLVM IR, in which case an addrspacecast should be valid.
+      bool CanInsertAddrspaceCast =
+             LHSTy.getAddressSpace() == RHSTy.getAddressSpace();
+
+      ensureSameAddrSpace(RHS, LHS, CanInsertAddrspaceCast, CGF.getLangOpts(),
+                          CGF.getContext());
+
       Result = Builder.CreateICmp(UICmpOpc, LHS, RHS, "cmp");
     }
 
@@ -4222,53 +4279,6 @@ static bool isCheapEnoughToEvaluateUnconditionally(const Expr *E,
   // outside the lambda, that function may have returned already. Reading its
   // locals is a bad idea. Also, these reads may introduce races there didn't
   // exist in the source-level program.
-}
-
-static Value *insertAddressSpaceCast(Value *V, unsigned NewAS) {
-  auto *VTy = cast<llvm::PointerType>(V->getType());
-  if (VTy->getAddressSpace() == NewAS)
-    return V;
-
-  llvm::PointerType *VTyNewAS =
-      llvm::PointerType::get(VTy->getElementType(), NewAS);
-
-  if (auto *Constant = dyn_cast<llvm::Constant>(V))
-    return llvm::ConstantExpr::getAddrSpaceCast(Constant, VTyNewAS);
-
-  llvm::Instruction *NewV =
-      new llvm::AddrSpaceCastInst(V, VTyNewAS, V->getName() + ".ascast");
-  NewV->insertAfter(cast<llvm::Instruction>(V));
-  return NewV;
-}
-
-static void ensureSameAddrSpace(Value *&RHS, Value *&LHS,
-                                bool CanInsertAddrspaceCast,
-                                const LangOptions &Opts,
-                                const ASTContext &Context) {
-  if (RHS->getType() == LHS->getType())
-    return;
-
-  auto *RHSTy = dyn_cast<llvm::PointerType>(RHS->getType());
-  auto *LHSTy = dyn_cast<llvm::PointerType>(LHS->getType());
-  if (!RHSTy || !LHSTy || RHSTy->getAddressSpace() == LHSTy->getAddressSpace())
-    return;
-
-  if (!CanInsertAddrspaceCast)
-    // Pointers have different address spaces and we cannot do anything with
-    // this.
-    llvm_unreachable("Pointers are expected to have the same address space.");
-
-  // Language rules define if it is legal to cast from one address space to
-  // another, and which address space we should use as a "common
-  // denominator". In SYCL, generic address space overlaps with all other
-  // address spaces.
-  if (Opts.SYCLIsDevice) {
-    unsigned GenericAS = Context.getTargetAddressSpace(LangAS::opencl_generic);
-    RHS = insertAddressSpaceCast(RHS, GenericAS);
-    LHS = insertAddressSpaceCast(LHS, GenericAS);
-  } else
-    llvm_unreachable("Unable to find a common address space for "
-                     "two pointers.");
 }
 
 Value *ScalarExprEmitter::
@@ -4681,31 +4691,24 @@ LValue CodeGenFunction::EmitCompoundAssignmentLValue(
   llvm_unreachable("Unhandled compound assignment operator");
 }
 
-Value *CodeGenFunction::EmitCheckedInBoundsGEP(Value *Ptr,
-                                               ArrayRef<Value *> IdxList,
-                                               bool SignedIndices,
-                                               bool IsSubtraction,
-                                               SourceLocation Loc,
-                                               const Twine &Name) {
-  Value *GEPVal = Builder.CreateInBoundsGEP(Ptr, IdxList, Name);
+struct GEPOffsetAndOverflow {
+  // The total (signed) byte offset for the GEP.
+  llvm::Value *TotalOffset;
+  // The offset overflow flag - true if the total offset overflows.
+  llvm::Value *OffsetOverflows;
+};
 
-  // If the pointer overflow sanitizer isn't enabled, do nothing.
-  if (!SanOpts.has(SanitizerKind::PointerOverflow))
-    return GEPVal;
-
-  // If the GEP has already been reduced to a constant, leave it be.
-  if (isa<llvm::Constant>(GEPVal))
-    return GEPVal;
-
-  // Only check for overflows in the default address space.
-  if (GEPVal->getType()->getPointerAddressSpace())
-    return GEPVal;
-
+/// Evaluate given GEPVal, which must be an inbounds GEP,
+/// and compute the total offset it applies from it's base pointer BasePtr.
+/// Returns offset in bytes and a boolean flag whether an overflow happened
+/// during evaluation.
+static GEPOffsetAndOverflow EmitGEPOffsetInBytes(Value *BasePtr, Value *GEPVal,
+                                                 llvm::LLVMContext &VMContext,
+                                                 CodeGenModule &CGM,
+                                                 CGBuilderTy Builder) {
   auto *GEP = cast<llvm::GEPOperator>(GEPVal);
   assert(GEP->isInBounds() && "Expected inbounds GEP");
 
-  SanitizerScope SanScope(this);
-  auto &VMContext = getLLVMContext();
   const auto &DL = CGM.getDataLayout();
   auto *IntPtrTy = DL.getIntPtrType(GEP->getPointerOperandType());
 
@@ -4775,41 +4778,89 @@ Value *CodeGenFunction::EmitCheckedInBoundsGEP(Value *Ptr,
       TotalOffset = eval(BO_Add, TotalOffset, LocalOffset);
   }
 
+  return {TotalOffset, OffsetOverflows};
+}
+
+Value *
+CodeGenFunction::EmitCheckedInBoundsGEP(Value *Ptr, ArrayRef<Value *> IdxList,
+                                        bool SignedIndices, bool IsSubtraction,
+                                        SourceLocation Loc, const Twine &Name) {
+  Value *GEPVal = Builder.CreateInBoundsGEP(Ptr, IdxList, Name);
+
+  // If the pointer overflow sanitizer isn't enabled, do nothing.
+  if (!SanOpts.has(SanitizerKind::PointerOverflow))
+    return GEPVal;
+
+  // If the GEP has already been reduced to a constant, leave it be.
+  if (isa<llvm::Constant>(GEPVal))
+    return GEPVal;
+
+  // Only check for overflows in the default address space.
+  if (GEPVal->getType()->getPointerAddressSpace())
+    return GEPVal;
+
+  SanitizerScope SanScope(this);
+
+  GEPOffsetAndOverflow EvaluatedGEP =
+      EmitGEPOffsetInBytes(Ptr, GEPVal, getLLVMContext(), CGM, Builder);
+
+  auto *GEP = cast<llvm::GEPOperator>(GEPVal);
+
+  const auto &DL = CGM.getDataLayout();
+  auto *IntPtrTy = DL.getIntPtrType(GEP->getPointerOperandType());
+
+  auto *Zero = llvm::ConstantInt::getNullValue(IntPtrTy);
+
   // Common case: if the total offset is zero, don't emit a check.
-  if (TotalOffset == Zero)
+  if (EvaluatedGEP.TotalOffset == Zero)
     return GEPVal;
 
   // Now that we've computed the total offset, add it to the base pointer (with
   // wrapping semantics).
   auto *IntPtr = Builder.CreatePtrToInt(GEP->getPointerOperand(), IntPtrTy);
-  auto *ComputedGEP = Builder.CreateAdd(IntPtr, TotalOffset);
+  auto *ComputedGEP = Builder.CreateAdd(IntPtr, EvaluatedGEP.TotalOffset);
+
+  llvm::SmallVector<std::pair<llvm::Value *, SanitizerMask>, 1> Checks;
 
   // The GEP is valid if:
   // 1) The total offset doesn't overflow, and
   // 2) The sign of the difference between the computed address and the base
   // pointer matches the sign of the total offset.
   llvm::Value *ValidGEP;
-  auto *NoOffsetOverflow = Builder.CreateNot(OffsetOverflows);
+  auto *NoOffsetOverflow = Builder.CreateNot(EvaluatedGEP.OffsetOverflows);
   if (SignedIndices) {
+    // GEP is computed as `unsigned base + signed offset`, therefore:
+    // * If offset was positive, then the computed pointer can not be
+    //   [unsigned] less than the base pointer, unless it overflowed.
+    // * If offset was negative, then the computed pointer can not be
+    //   [unsigned] greater than the bas pointere, unless it overflowed.
     auto *PosOrZeroValid = Builder.CreateICmpUGE(ComputedGEP, IntPtr);
-    auto *PosOrZeroOffset = Builder.CreateICmpSGE(TotalOffset, Zero);
+    auto *PosOrZeroOffset =
+        Builder.CreateICmpSGE(EvaluatedGEP.TotalOffset, Zero);
     llvm::Value *NegValid = Builder.CreateICmpULT(ComputedGEP, IntPtr);
-    ValidGEP = Builder.CreateAnd(
-        Builder.CreateSelect(PosOrZeroOffset, PosOrZeroValid, NegValid),
-        NoOffsetOverflow);
-  } else if (!SignedIndices && !IsSubtraction) {
-    auto *PosOrZeroValid = Builder.CreateICmpUGE(ComputedGEP, IntPtr);
-    ValidGEP = Builder.CreateAnd(PosOrZeroValid, NoOffsetOverflow);
+    ValidGEP = Builder.CreateSelect(PosOrZeroOffset, PosOrZeroValid, NegValid);
+  } else if (!IsSubtraction) {
+    // GEP is computed as `unsigned base + unsigned offset`,  therefore the
+    // computed pointer can not be [unsigned] less than base pointer,
+    // unless there was an overflow.
+    // Equivalent to `@llvm.uadd.with.overflow(%base, %offset)`.
+    ValidGEP = Builder.CreateICmpUGE(ComputedGEP, IntPtr);
   } else {
-    auto *NegOrZeroValid = Builder.CreateICmpULE(ComputedGEP, IntPtr);
-    ValidGEP = Builder.CreateAnd(NegOrZeroValid, NoOffsetOverflow);
+    // GEP is computed as `unsigned base - unsigned offset`, therefore the
+    // computed pointer can not be [unsigned] greater than base pointer,
+    // unless there was an overflow.
+    // Equivalent to `@llvm.usub.with.overflow(%base, sub(0, %offset))`.
+    ValidGEP = Builder.CreateICmpULE(ComputedGEP, IntPtr);
   }
+  ValidGEP = Builder.CreateAnd(ValidGEP, NoOffsetOverflow);
+  Checks.emplace_back(ValidGEP, SanitizerKind::PointerOverflow);
+
+  assert(!Checks.empty() && "Should have produced some checks.");
 
   llvm::Constant *StaticArgs[] = {EmitCheckSourceLocation(Loc)};
   // Pass the computed GEP to the runtime to avoid emitting poisoned arguments.
   llvm::Value *DynamicArgs[] = {IntPtr, ComputedGEP};
-  EmitCheck(std::make_pair(ValidGEP, SanitizerKind::PointerOverflow),
-            SanitizerHandler::PointerOverflow, StaticArgs, DynamicArgs);
+  EmitCheck(Checks, SanitizerHandler::PointerOverflow, StaticArgs, DynamicArgs);
 
   return GEPVal;
 }

@@ -3914,7 +3914,7 @@ HLNode *HLNodeUtils::getLexicalLowestCommonAncestorParent(HLNode *Node1,
       static_cast<const HLNode *>(Node1), static_cast<const HLNode *>(Node2)));
 }
 
-bool HLNodeUtils::areEqual(const HLIf *NodeA, const HLIf *NodeB) {
+bool HLNodeUtils::areEqualConditions(const HLIf *NodeA, const HLIf *NodeB) {
   if (NodeA->getNumPredicates() != NodeB->getNumPredicates()) {
     return false;
   }
@@ -3936,6 +3936,12 @@ bool HLNodeUtils::areEqual(const HLIf *NodeA, const HLIf *NodeB) {
   }
 
   return true;
+}
+
+bool HLNodeUtils::areEqualConditions(const HLSwitch *NodeA,
+                                     const HLSwitch *NodeB) {
+  return DDRefUtils::areEqual(NodeA->getConditionDDRef(),
+                              NodeB->getConditionDDRef());
 }
 
 HLNodeRangeTy HLNodeUtils::replaceNodeWithBody(HLIf *If, bool ThenBody) {

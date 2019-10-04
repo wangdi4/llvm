@@ -218,10 +218,6 @@ public:
     // to parse host code. So we allow compilation of exception_ptr but
     // if exceptions are used in device code we should emit a diagnostic.
     MaxAtomicInlineWidth = 32;
-    // This is workaround for mutex class.
-    // I'm not sure about this hack but I guess that mutex_class is same
-    // problem.
-    TLSSupported = true;
   }
 };
 
@@ -236,10 +232,6 @@ public:
     // to parse host code. So we allow compilation of exception_ptr but
     // if exceptions are used in device code we should emit a diagnostic.
     MaxAtomicInlineWidth = 64;
-    // This is workaround for mutex class.
-    // I'm not sure about this hack but I guess that mutex_class is same
-    // problem.
-    TLSSupported = true;
   }
 };
 
@@ -277,11 +269,6 @@ public:
       : WindowsTargetInfo<SPIR32SYCLDeviceTargetInfo>(Triple, Opts) {
     DoubleAlign = LongLongAlign = 64;
     WCharType = UnsignedShort;
-    bool IsWinCOFF =
-        getTriple().isOSWindows() && getTriple().isOSBinFormatCOFF();
-    resetDataLayout(IsWinCOFF
-                        ? "e-m:x-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32"
-                        : "e-m:e-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32");
   }
 
   BuiltinVaListKind getBuiltinVaListKind() const override {
@@ -306,6 +293,12 @@ public:
       : WindowsX86_32SPIRTargetInfo(Triple, Opts) {
     LongDoubleWidth = LongDoubleAlign = 64;
     LongDoubleFormat = &llvm::APFloat::IEEEdouble();
+#if INTEL_COLLAB
+    if (Triple.getEnvironment() != llvm::Triple::SYCLDevice)
+      // Set Microsoft ABI in non-SYCL targetInfo compilations
+      TheCXXABI.set(TargetCXXABI::Microsoft);
+#endif  // INTEL_COLLAB
+    assert(DataLayout->getPointerSizeInBits() == 32);
   }
 
   void getTargetDefines(const LangOptions &Opts,
@@ -339,11 +332,6 @@ public:
     PtrDiffType = SignedLongLong;
     IntPtrType = SignedLongLong;
     WCharType = UnsignedShort;
-    bool IsWinCOFF =
-        getTriple().isOSWindows() && getTriple().isOSBinFormatCOFF();
-    resetDataLayout(IsWinCOFF
-                        ? "e-m:x-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32"
-                        : "e-m:e-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32");
   }
 
   BuiltinVaListKind getBuiltinVaListKind() const override {
@@ -368,6 +356,12 @@ public:
       : WindowsX86_64_SPIR64TargetInfo(Triple, Opts) {
     LongDoubleWidth = LongDoubleAlign = 64;
     LongDoubleFormat = &llvm::APFloat::IEEEdouble();
+#if INTEL_COLLAB
+    if (Triple.getEnvironment() != llvm::Triple::SYCLDevice)
+      // Set Microsoft ABI in non-SYCL targetInfo compilations
+      TheCXXABI.set(TargetCXXABI::Microsoft);
+#endif  // INTEL_COLLAB
+    assert(DataLayout->getPointerSizeInBits() == 64);
   }
 
   void getTargetDefines(const LangOptions &Opts,

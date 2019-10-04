@@ -1,10 +1,12 @@
-// RUN: %clangxx %s -o %t1.out -lOpenCL -lsycl
+// RUN: %clangxx %s -o %t1.out -lsycl
 // RUN: env SYCL_DEVICE_TYPE=HOST %t1.out
-// RUN: %clangxx -fsycl %s -o %t2.out -lOpenCL
+// RUN: %clangxx -fsycl %s -o %t2.out
 // RUN: env SYCL_DEVICE_TYPE=HOST %t2.out
 // RUN: %CPU_RUN_PLACEHOLDER %t2.out
 // RUN: %GPU_RUN_PLACEHOLDER %t2.out
 // RUN: %ACC_RUN_PLACEHOLDER %t2.out
+// TODO: SYCL specific fail - windows+debug mode - analyze and enable
+// XFAIL: windows
 //==------------- buffer_full_copy.cpp - SYCL buffer basic test ------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.

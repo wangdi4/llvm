@@ -94,11 +94,11 @@ public:
 class VPBlob final : public VPOperandHIR {
 private:
   // Hold DDRef for uninaty DDRef operand.
-  loopopt::DDRef *OperandBlob;
+  const loopopt::DDRef *OperandBlob;
 
 public:
   /// Construct a VPBlob with the DDRef \p Operand.
-  VPBlob(loopopt::DDRef *Operand)
+  VPBlob(const loopopt::DDRef *Operand)
       : VPOperandHIR(VPBlobSC), OperandBlob(Operand) {
     assert(!Operand->isMetadata() && "Unexpected metadata!");
   }

@@ -34,9 +34,9 @@ template <typename T>
 llvm::Expected<std::unique_ptr<Info>>
 reduce(std::vector<std::unique_ptr<Info>> &Values) {
   if (Values.empty())
-    return llvm::make_error<llvm::StringError>(" No values to reduce.\n",
-                                               llvm::inconvertibleErrorCode());
-  std::unique_ptr<Info> Merged = llvm::make_unique<T>(Values[0]->USR);
+    return llvm::createStringError(llvm::inconvertibleErrorCode(),
+                                   "no value to reduce");
+  std::unique_ptr<Info> Merged = std::make_unique<T>(Values[0]->USR);
   T *Tmp = static_cast<T *>(Merged.get());
   for (auto &I : Values)
     Tmp->merge(std::move(*static_cast<T *>(I.get())));
@@ -96,8 +96,8 @@ void reduceChildren(std::vector<EnumInfo> &Children,
 llvm::Expected<std::unique_ptr<Info>>
 mergeInfos(std::vector<std::unique_ptr<Info>> &Values) {
   if (Values.empty())
-    return llvm::make_error<llvm::StringError>("No info values to merge.\n",
-                                               llvm::inconvertibleErrorCode());
+    return llvm::createStringError(llvm::inconvertibleErrorCode(),
+                                   "no info values to merge");
 
   switch (Values[0]->IT) {
   case InfoType::IT_namespace:
@@ -109,8 +109,8 @@ mergeInfos(std::vector<std::unique_ptr<Info>> &Values) {
   case InfoType::IT_function:
     return reduce<FunctionInfo>(Values);
   default:
-    return llvm::make_error<llvm::StringError>("Unexpected info type.\n",
-                                               llvm::inconvertibleErrorCode());
+    return llvm::createStringError(llvm::inconvertibleErrorCode(),
+                                   "unexpected info type");
   }
 }
 
@@ -178,6 +178,8 @@ void RecordInfo::merge(RecordInfo &&Other) {
     TagType = Other.TagType;
   if (Members.empty())
     Members = std::move(Other.Members);
+  if (Bases.empty())
+    Bases = std::move(Other.Bases);
   if (Parents.empty())
     Parents = std::move(Other.Parents);
   if (VirtualParents.empty())
@@ -245,6 +247,26 @@ llvm::SmallString<16> Info::extractName() const {
   return llvm::SmallString<16>("");
 }
 
+// Order is based on the Name attribute: case insensitive order
+bool Index::operator<(const Index &Other) const {
+  // Loop through each character of both strings
+  for (unsigned I = 0; I < Name.size() && I < Other.Name.size(); ++I) {
+    // Compare them after converting both to lower case
+    int D = tolower(Name[I]) - tolower(Other.Name[I]);
+    if (D == 0)
+      continue;
+    return D < 0;
+  }
+  // If both strings have the size it means they would be equal if changed to
+  // lower case. In here, lower case will be smaller than upper case
+  // Example: string < stRing = true
+  // This is the opposite of how operator < handles strings
+  if (Name.size() == Other.Name.size())
+    return Name > Other.Name;
+  // If they are not the same size; the shorter string is smaller
+  return Name.size() < Other.Name.size();
+}
+
 void Index::sort() {
   std::sort(Children.begin(), Children.end());
   for (auto &C : Children)
@@ -252,13 +274,19 @@ void Index::sort() {
 }
 
 ClangDocContext::ClangDocContext(tooling::ExecutionContext *ECtx,
-                                 bool PublicOnly, StringRef OutDirectory,
-                                 StringRef SourceRoot, StringRef RepositoryUrl,
+                                 StringRef ProjectName, bool PublicOnly,
+                                 StringRef OutDirectory, StringRef SourceRoot,
+                                 StringRef RepositoryUrl,
                                  std::vector<std::string> UserStylesheets,
                                  std::vector<std::string> JsScripts)
-    : ECtx(ECtx), PublicOnly(PublicOnly), OutDirectory(OutDirectory),
-      SourceRoot(SourceRoot), UserStylesheets(UserStylesheets),
+    : ECtx(ECtx), ProjectName(ProjectName), PublicOnly(PublicOnly),
+      OutDirectory(OutDirectory), UserStylesheets(UserStylesheets),
       JsScripts(JsScripts) {
+  llvm::SmallString<128> SourceRootDir(SourceRoot);
+  if (SourceRoot.empty())
+    // If no SourceRoot was provided the current path is used as the default
+    llvm::sys::fs::current_path(SourceRootDir);
+  this->SourceRoot = SourceRootDir.str();
   if (!RepositoryUrl.empty()) {
     this->RepositoryUrl = RepositoryUrl;
     if (!RepositoryUrl.empty() && RepositoryUrl.find("http://") != 0 &&

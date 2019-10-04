@@ -30,6 +30,10 @@ static cl::opt<bool>
     ShowLLVMInst("hir-details-llvm-inst", cl::init(false), cl::Hidden,
                  cl::desc("Show LLVM instructions instead of dummy HLInst"));
 
+static cl::opt<bool>
+  PrintSafeReductionOp("hir-safe-reduction-analysis-print-op", cl::init(false), cl::Hidden,
+                                              cl::desc("print reduction operation"));
+
 void HLInst::initialize() {
   /// This call is to get around calling virtual functions in the constructor.
   unsigned NumOp = getNumOperandsInternal();
@@ -322,6 +326,9 @@ void HLInst::printReductionInfo(formatted_raw_ostream &OS) const {
                                       .get<HIRSafeReductionAnalysis>();
   if (SRA && SRA->isSafeReduction(this)) {
     OS << " <Safe Reduction>";
+    if (PrintSafeReductionOp) {
+      OS << " Red Op: " << (SRA->getSafeRedInfo(this))->OpCode;
+    }
   }
 
   HIRSparseArrayReductionAnalysis *SARA =

@@ -5,12 +5,12 @@
 ; RUN: opt -S %s -VPlanDriver -disable-vplan-da=false -vplan-loop-cfu -debug 2>&1 | FileCheck %s
 
 ; CHECK: Basic Block: {{BB[0-9]+}}
-; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VAL1:%vp[0-9]+]] = phi  [ i32 0, {{BB[0-9]+}} ],  [ i32 [[VAL2:%vp[0-9]+]], {{BB[0-9]+}} ]
-; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i32* [[VAL3:%vp[0-9]+]] = phi  [ i32* %p, {{BB[0-9]+}} ],  [ i32* [[VAL4:%vp[0-9]+]], {{BB[0-9]+}} ]
+; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VAL1:%vp.*]] = phi  [ i32 0, {{BB[0-9]+}} ],  [ i32 [[VAL2:%vp.*]], {{BB[0-9]+}} ]
+; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i32* [[VAL3:%vp.*]] = phi  [ i32* %p, {{BB[0-9]+}} ],  [ i32* [[VAL4:%vp.*]], {{BB[0-9]+}} ]
 ; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i32 1] store i32 [[VAL1]] i32* [[VAL3]]
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride Pointer, Stride: i64 4] i32* [[VAL4]] = getelementptr inbounds i32* [[VAL3]] i64 1
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VAL2]] = add i32 [[VAL1]] i32 1
-; CHECK-NEXT: Uniform: [Shape: Uniform] i1 {{%vp[0-9]+}} = icmp i32 [[VAL2]] i32 256
+; CHECK-NEXT: Uniform: [Shape: Uniform] i1 {{%vp.*}} = icmp i32 [[VAL2]] i32 256
 
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo(i32* nocapture %p) local_unnamed_addr #0 {

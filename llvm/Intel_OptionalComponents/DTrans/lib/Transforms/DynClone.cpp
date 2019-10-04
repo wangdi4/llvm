@@ -98,10 +98,13 @@ public:
     dtrans::LoopInfoFuncType GetLI = [this](Function &F) -> LoopInfo & {
       return this->getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
     };
+    auto GetTLI = [this](Function &F) -> const TargetLibraryInfo & {
+      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+    };
 
     bool Changed = Impl.runImpl(
-        M, DTInfo, getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(),
-        getAnalysis<WholeProgramWrapperPass>().getResult(), GetLI);
+        M, DTInfo, GetTLI, getAnalysis<WholeProgramWrapperPass>().getResult(),
+        GetLI);
     if (Changed)
       DTAnalysisWrapper.setInvalidated();
     return Changed;
@@ -189,8 +192,8 @@ class DynCloneImpl {
 
 public:
   DynCloneImpl(Module &M, const DataLayout &DL, DTransAnalysisInfo &DTInfo,
-               LoopInfoFuncType &GetLI, TargetLibraryInfo &TLI)
-      : M(M), DL(DL), DTInfo(DTInfo), GetLI(GetLI), TLI(TLI),
+               LoopInfoFuncType &GetLI, DynGetTLITy GetTLI)
+      : M(M), DL(DL), DTInfo(DTInfo), GetLI(GetLI), GetTLI(GetTLI),
         ShrunkenIntTy(
             Type::getIntNTy(M.getContext(), DTransDynCloneShrTyWidth)),
         ShrunkenIntTyWithDelta(
@@ -206,7 +209,7 @@ private:
   const DataLayout &DL;
   DTransAnalysisInfo &DTInfo;
   LoopInfoFuncType &GetLI;
-  TargetLibraryInfo &TLI;
+  DynGetTLITy GetTLI;
 
   // Holds result Type after shrinking 64-bit to 16-bit integer values.
   llvm::Type *ShrunkenIntTy;
@@ -1882,6 +1885,7 @@ bool DynCloneImpl::verifyCallsInInitRoutine(void) {
   if (!LI.empty() && LI.getLoopFor(AllocBB))
     return false;
 
+  auto &TLI = GetTLI(*InitRoutine);
   DenseMap<Function *, CallInstSet> UserCallFuncs;
   // Check if InitRoutine has any unsafe lib or intrinsic
   // calls. Collect all user functions that are called and their
@@ -3439,7 +3443,7 @@ void DynCloneImpl::transformIR(void) {
     StructType *NewTy = TransformedTypeMap[OrigTy];
     Instruction *I = CInfo->getInstruction();
     LLVM_DEBUG(dbgs() << "MemFunc before convert: " << *I << "\n");
-    updateCallSizeOperand(I, CInfo, OrigTy, NewTy, TLI);
+    updateCallSizeOperand(I, CInfo, OrigTy, NewTy, GetTLI(*I->getFunction()));
     LLVM_DEBUG(dbgs() << "MemFunc after convert: " << *I << "\n");
   };
 
@@ -3738,7 +3742,7 @@ bool DynCloneImpl::run(void) {
 }
 
 bool DynClonePass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
-                           TargetLibraryInfo &TLI, WholeProgramInfo &WPInfo,
+                           DynGetTLITy GetTLI, WholeProgramInfo &WPInfo,
                            LoopInfoFuncType &GetLI) {
 
   auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
@@ -3750,7 +3754,7 @@ bool DynClonePass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
 
   auto &DL = M.getDataLayout();
 
-  DynCloneImpl DynCloneI(M, DL, DTInfo, GetLI, TLI);
+  DynCloneImpl DynCloneI(M, DL, DTInfo, GetLI, GetTLI);
   return DynCloneI.run();
 }
 
@@ -3764,9 +3768,10 @@ PreservedAnalyses DynClonePass::run(Module &M, ModuleAnalysisManager &AM) {
   LoopInfoFuncType GetLI = [&FAM](Function &F) -> LoopInfo & {
     return FAM.getResult<LoopAnalysis>(F);
   };
-
-  if (!runImpl(M, DTransInfo, AM.getResult<TargetLibraryAnalysis>(M), WPInfo,
-               GetLI))
+  auto GetTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(F);
+  };
+  if (!runImpl(M, DTransInfo, GetTLI, WPInfo, GetLI))
     return PreservedAnalyses::all();
 
   // TODO: Mark the actual preserved analyses.

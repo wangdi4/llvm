@@ -165,6 +165,14 @@ void tools::AddLinkerInputs(const ToolChain &TC, const InputInfoList &Inputs,
       // Don't try to pass LLVM inputs unless we have native support.
       D.Diag(diag::err_drv_no_linker_llvm_support) << TC.getTripleString();
 
+    if (II.getType() == types::TY_Tempfilelist) {
+      // Take the list file and pass it in with '@'.
+      std::string FileName(II.getFilename());
+      const char *ArgFile = Args.MakeArgString("@" + FileName);
+      CmdArgs.push_back(ArgFile);
+      continue;
+    }
+
     // Add filenames immediately.
     if (II.isFilename()) {
       CmdArgs.push_back(II.getFilename());
@@ -511,8 +519,8 @@ void tools::addArchSpecificRPath(const ToolChain &TC, const ArgList &Args,
 }
 
 bool tools::addOpenMPRuntime(ArgStringList &CmdArgs, const ToolChain &TC,
-                             const ArgList &Args, bool IsOffloadingHost,
-                             bool GompNeedsRT) {
+                             const ArgList &Args, bool ForceStaticHostRuntime,
+                             bool IsOffloadingHost, bool GompNeedsRT) {
   if (!Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
 #if INTEL_COLLAB
                     options::OPT_fno_openmp, false) &&
@@ -522,23 +530,34 @@ bool tools::addOpenMPRuntime(ArgStringList &CmdArgs, const ToolChain &TC,
 #endif // INTEL_COLLAB
     return false;
 
-  switch (TC.getDriver().getOpenMPRuntime(Args)) {
+  Driver::OpenMPRuntimeKind RTKind = TC.getDriver().getOpenMPRuntime(Args);
+
+  if (RTKind == Driver::OMPRT_Unknown)
+    // Already diagnosed.
+    return false;
+
+  if (ForceStaticHostRuntime)
+    CmdArgs.push_back("-Bstatic");
+
+  switch (RTKind) {
   case Driver::OMPRT_OMP:
     CmdArgs.push_back("-lomp");
     break;
   case Driver::OMPRT_GOMP:
     CmdArgs.push_back("-lgomp");
-
-    if (GompNeedsRT)
-      CmdArgs.push_back("-lrt");
     break;
   case Driver::OMPRT_IOMP5:
     CmdArgs.push_back("-liomp5");
     break;
   case Driver::OMPRT_Unknown:
-    // Already diagnosed.
-    return false;
+    break;
   }
+
+  if (ForceStaticHostRuntime)
+    CmdArgs.push_back("-Bdynamic");
+
+  if (RTKind == Driver::OMPRT_GOMP && GompNeedsRT)
+      CmdArgs.push_back("-lrt");
 
   if (IsOffloadingHost)
     CmdArgs.push_back("-lomptarget");
@@ -838,10 +857,10 @@ void tools::SplitDebugInfo(const ToolChain &TC, Compilation &C, const Tool &T,
   InputInfo II(types::TY_Object, Output.getFilename(), Output.getFilename());
 
   // First extract the dwo sections.
-  C.addCommand(llvm::make_unique<Command>(JA, T, Exec, ExtractArgs, II));
+  C.addCommand(std::make_unique<Command>(JA, T, Exec, ExtractArgs, II));
 
   // Then remove them from the original .o file.
-  C.addCommand(llvm::make_unique<Command>(JA, T, Exec, StripArgs, II));
+  C.addCommand(std::make_unique<Command>(JA, T, Exec, StripArgs, II));
 }
 
 // Claim options we don't want to warn if they are unused. We do this for

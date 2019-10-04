@@ -11,18 +11,18 @@
 ; RUN:          -o /dev/null -stats \
 ; RUN:  2>&1 | FileCheck %s -check-prefix=LAZY
 ; INTEL -- xmain produces different Metadata record sizes.
-; LAZY: 69 bitcode-reader  - Number of Metadata records loaded
+; LAZY: 71 bitcode-reader  - Number of Metadata records loaded
 ; LAZY: 2 bitcode-reader  - Number of MDStrings loaded
 
 ; RUN: llvm-lto -thinlto-action=import %t2.bc -thinlto-index=%t3.bc \
 ; RUN:          -o /dev/null -disable-ondemand-mds-loading -stats \
 ; RUN:  2>&1 | FileCheck %s -check-prefix=NOTLAZY
 ; INTEL -- xmain produces different Metadata record sizes.
-; NOTLAZY: 78 bitcode-reader  - Number of Metadata records loaded
+; NOTLAZY: 80 bitcode-reader  - Number of Metadata records loaded
 ; NOTLAZY: 7 bitcode-reader  - Number of MDStrings loaded
 
 
-target datalayout = "e-m:o-i64:64-f80:128-n8:16:32:64-S128"
+target datalayout = "e-m:o-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-apple-macosx10.11.0"
 
 define void @globalfunc1(i32 %arg) {

@@ -32,10 +32,12 @@ private:
 
 #if INTEL_CUSTOMIZATION
   VPInstruction *createInstruction(unsigned Opcode, Type *BaseTy,
-                                   ArrayRef<VPValue *> Operands) {
+                                   ArrayRef<VPValue *> Operands,
+                                   const Twine &Name = "") {
     VPInstruction *Instr = new VPInstruction(Opcode, BaseTy, Operands);
     if (BB)
       BB->insert(Instr, InsertPt);
+    Instr->setName(Name);
     return Instr;
   }
 
@@ -123,6 +125,14 @@ public:
     InsertPt = IP;
   }
 
+  void setInsertPointFirstNonPhi(VPBasicBlock *TheBB) {
+    BB = TheBB;
+    VPBasicBlock::iterator IP = TheBB->begin();
+    while (IP != TheBB->end() && isa<VPPHINode>(*IP))
+      ++IP;
+    InsertPt = IP;
+  }
+
   // Create an N-ary operation with \p Opcode, \p Operands and set \p Inst as
   // its underlying Instruction.
   VPValue *createNaryOp(unsigned Opcode, Type *BaseTy,
@@ -141,28 +151,29 @@ public:
 
   // Create a VPInstruction with \p LHS and \p RHS as operands and Add opcode.
   // For now, no no-wrap flags are used since they cannot be modeled in VPlan.
-  VPValue *createAdd(VPValue *LHS, VPValue *RHS) {
+  VPValue *createAdd(VPValue *LHS, VPValue *RHS, const Twine &Name = "") {
     return createInstruction(Instruction::BinaryOps::Add, LHS->getType(),
-                             {LHS, RHS});
+                             {LHS, RHS}, Name);
   }
 
-  VPValue *createAllZeroCheck(VPValue *Operand) {
+  VPValue *createAllZeroCheck(VPValue *Operand, const Twine &Name = "") {
     return createInstruction(VPInstruction::AllZeroCheck, Operand->getType(),
-                             {Operand});
+                             {Operand}, Name);
   }
 
-  VPValue *createAnd(VPValue *LHS, VPValue *RHS) {
+  VPValue *createAnd(VPValue *LHS, VPValue *RHS, const Twine &Name = "") {
     return createInstruction(Instruction::BinaryOps::And, LHS->getType(),
-                             {LHS, RHS});
+                             {LHS, RHS}, Name);
   }
 
-  VPValue *createNot(VPValue *Operand) {
-    return createInstruction(VPInstruction::Not, Operand->getType(), {Operand});
+  VPValue *createNot(VPValue *Operand, const Twine &Name = "") {
+    return createInstruction(VPInstruction::Not, Operand->getType(), {Operand},
+                             Name);
   }
 
-  VPValue *createOr(VPValue *LHS, VPValue *RHS) {
+  VPValue *createOr(VPValue *LHS, VPValue *RHS, const Twine &Name = "") {
     return createInstruction(Instruction::BinaryOps::Or, LHS->getType(),
-                             {LHS, RHS});
+                             {LHS, RHS}, Name);
   }
 
   VPValue *createPred(VPValue *Operand) {
@@ -170,9 +181,10 @@ public:
                              {Operand});
   }
 
-  VPValue *createSelect(VPValue *Mask, VPValue *Tval, VPValue *Fval) {
+  VPValue *createSelect(VPValue *Mask, VPValue *Tval, VPValue *Fval,
+                        const Twine &Name = "") {
     return createInstruction(Instruction::Select, Tval->getType(),
-                             {Mask, Tval, Fval});
+                             {Mask, Tval, Fval}, Name);
   }
 #else
 
@@ -203,9 +215,10 @@ public:
 
   /// \brief Create VPCmpInst with its two operands.
   VPCmpInst *createCmpInst(CmpInst::Predicate Pred, VPValue *LeftOp,
-                           VPValue *RightOp) {
+                           VPValue *RightOp, const Twine &Name = "") {
     assert(LeftOp && RightOp && "VPCmpInst's operands can't be null!");
     VPCmpInst *Instr = new VPCmpInst(LeftOp, RightOp, Pred);
+    Instr->setName(Name);
     if (BB)
       BB->insert(Instr, InsertPt);
     return Instr;
@@ -219,18 +232,19 @@ public:
     return Instr;
   }
 
-  VPInstruction *createPhiInstruction(Instruction *Inst) {
+  VPPHINode *createPhiInstruction(Instruction *Inst, const Twine &Name = "") {
     assert(Inst != nullptr && "Instruction cannot be a nullptr");
-    VPInstruction *NewVPInst = createPhiInstruction(Inst->getType());
-    NewVPInst->setUnderlyingValue(*Inst);
-    return NewVPInst;
+    VPPHINode *NewVPPHINode = createPhiInstruction(Inst->getType(), Name);
+    NewVPPHINode->setUnderlyingValue(*Inst);
+    return NewVPPHINode;
   }
 
-  VPInstruction *createPhiInstruction(Type *BaseTy) {
-    VPInstruction *NewVPInst = new VPPHINode(BaseTy);
+  VPPHINode *createPhiInstruction(Type *BaseTy, const Twine &Name = "") {
+    VPPHINode *NewVPPHINode = new VPPHINode(BaseTy);
+    NewVPPHINode->setName(Name);
     if (BB)
-      BB->insert(NewVPInst, InsertPt);
-    return NewVPInst;
+      BB->insert(NewVPPHINode, InsertPt);
+    return NewVPPHINode;
   }
 
   // Build a VPGEPInstruction for the LLVM-IR instruction \p Inst using base
@@ -270,28 +284,29 @@ public:
     return NewVPInst;
   }
 
-  VPInstruction *createReductionFinal(unsigned BinOp, VPValue *ReducVec,
-                                      VPValue *StartValue, bool Sign) {
-    VPInstruction *NewVPInst =
+  VPReductionFinal *createReductionFinal(unsigned BinOp, VPValue *ReducVec,
+                                         VPValue *StartValue, bool Sign) {
+    VPReductionFinal *NewVPInst =
         new VPReductionFinal(BinOp, ReducVec, StartValue, Sign);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;
   }
 
-  VPInstruction *createReductionFinal(unsigned BinOp, VPValue *ReducVec) {
-    VPInstruction *NewVPInst = new VPReductionFinal(BinOp, ReducVec);
+  VPReductionFinal *createReductionFinal(unsigned BinOp, VPValue *ReducVec) {
+    VPReductionFinal *NewVPInst = new VPReductionFinal(BinOp, ReducVec);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;
   }
 
   // Final value of index part of min/max+index
-  VPInstruction *createReductionFinal(unsigned BinOp, VPValue *ReducVec,
-                                      VPValue *StartValue, bool Sign,
-                                      VPReductionFinal *MinMax) {
-    VPInstruction *NewVPInst =
-        new VPReductionFinal(BinOp, ReducVec, StartValue, Sign, MinMax);
+  VPReductionFinal *createReductionFinal(unsigned BinOp, VPValue *ReducVec,
+                                         VPValue *ParentExit,
+                                         VPReductionFinal *ParentFinal,
+                                         bool Sign) {
+    VPReductionFinal *NewVPInst =
+        new VPReductionFinal(BinOp, ReducVec, ParentExit, ParentFinal, Sign);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;

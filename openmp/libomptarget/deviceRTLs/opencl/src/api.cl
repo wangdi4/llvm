@@ -96,13 +96,13 @@ EXTERN int omp_in_parallel(void) {
 }
 
 EXTERN int omp_get_device_num(void) {
+  KMP_UNSUPPORTED("omp_get_device_num()");
   // No built-ins to get this information
-  // FIXME: returning 0 for now
-  return 0;
+  return KMP_UNSPECIFIED;
 }
 
 EXTERN int omp_get_num_devices(void) {
-  // Unspecified
+  KMP_UNSUPPORTED("omp_get_num_devices()");
   return KMP_UNSPECIFIED;
 }
 
@@ -111,7 +111,7 @@ EXTERN int omp_is_initial_device(void) {
 }
 
 EXTERN int omp_get_initial_device(void) {
-  // Unspecified
+  KMP_UNSUPPORTED("omp_get_initial_device()");
   return KMP_UNSPECIFIED;
 }
 

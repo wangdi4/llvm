@@ -1095,45 +1095,47 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
 
   bool IsLvalAssumed = getHLDDNode() ? isLval() : AssumeLvalIfDetached;
 
-  if (isTerminalRef() && getSingleCanonExpr()->isSelfBlob()) {
-    unsigned SB = getBlobUtils().getTempBlobSymbase(
-        getSingleCanonExpr()->getSingleBlobIndex());
+  if (isTerminalRef()) {
+    if (getSingleCanonExpr()->isSelfBlob()) {
+      unsigned SB = getBlobUtils().getTempBlobSymbase(
+          getSingleCanonExpr()->getSingleBlobIndex());
 
-    // We need to modify the symbase if this DDRef was turned into a self blob
-    // as the associated blob DDRef is removed.
-    // Here's an illustration of why this is required-
-    //
-    // Before modification DDRef looks like this-
-    // <REG> LINEAR i32 2 * %k {sb:4}
-    // <BLOB> LINEAR i32 %k {sb:8}
-    //
-    // After modification it looks like this-
-    // <REG> LINEAR i32 %k {sb:4}   <<< symbase is not updated from 4 to 8
-    // which is wrong.
-    //
-    // We should not update symbase of lval DDRefs as lvals represent a store
-    // into that symbase. Changing it can affect correctness.
-    if (IsLvalAssumed) {
-      if ((getSymbase() == SB)) {
+      // We need to modify the symbase if this DDRef was turned into a self blob
+      // as the associated blob DDRef is removed.
+      // Here's an illustration of why this is required-
+      //
+      // Before modification DDRef looks like this-
+      // <REG> LINEAR i32 2 * %k {sb:4}
+      // <BLOB> LINEAR i32 %k {sb:8}
+      //
+      // After modification it looks like this-
+      // <REG> LINEAR i32 %k {sb:4}   <<< symbase is not updated from 4 to 8
+      // which is wrong.
+      //
+      // We should not update symbase of lval DDRefs as lvals represent a store
+      // into that symbase. Changing it can affect correctness.
+      if (IsLvalAssumed) {
+        if ((getSymbase() == SB)) {
+          removeAllBlobDDRefs();
+          return;
+        }
+      } else {
         removeAllBlobDDRefs();
+        setSymbase(SB);
         return;
       }
-    } else {
+    } else if (isConstant()) {
       removeAllBlobDDRefs();
-      setSymbase(SB);
+
+      if (!IsLvalAssumed) {
+        setSymbase(ConstantSymbase);
+      }
+
       return;
-    }
-  } else if (isConstant()) {
-    removeAllBlobDDRefs();
 
-    if (!IsLvalAssumed) {
-      setSymbase(ConstantSymbase);
+    } else if (!IsLvalAssumed) {
+      setSymbase(GenericRvalSymbase);
     }
-
-    return;
-  } else if (getSymbase() == ConstantSymbase) {
-    assert(!IsLvalAssumed && "Unexpected LVAL RegDDRef");
-    setSymbase(GenericRvalSymbase);
   }
 
   collectTempBlobIndices(BlobIndices);
@@ -1363,13 +1365,24 @@ void RegDDRef::verify() const {
     assert((CE->isSelfBlob() || CE->isStandAloneUndefBlob() || CE->isNull()) &&
            "BaseCE is not a self blob!");
 
+  } else if (isLval()) {
+    assert(getSymbase() > GenericRvalSymbase &&
+           "Invalid symbase for lval terminal ref!");
+
   } else {
-    // assert(isTerminalRef())
-    auto CE = getSingleCanonExpr();
-    if (CE->isSelfBlob() && !isLval()) {
+    auto *CE = getSingleCanonExpr();
+
+    if (CE->isSelfBlob()) {
       auto &BU = getBlobUtils();
-      assert(BU.getTempBlobSymbase(CE->getSingleBlobIndex()) == getSymbase());
+      assert(BU.getTempBlobSymbase(CE->getSingleBlobIndex()) == getSymbase() &&
+             "Inconsistent symbase for self blob ref!");
       (void)BU;
+    } else if (isConstant()) {
+      assert(getSymbase() == ConstantSymbase &&
+             "Constant symbase for ref expected!");
+    } else {
+      assert(getSymbase() == GenericRvalSymbase &&
+             "Generic rval symbase for ref expected!");
     }
   }
 

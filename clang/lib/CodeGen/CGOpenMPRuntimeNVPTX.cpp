@@ -107,6 +107,10 @@ enum OpenMPRTLFunctionNVPTX {
   /// Call to void __kmpc_barrier_simple_spmd(ident_t *loc, kmp_int32
   /// global_tid);
   OMPRTL__kmpc_barrier_simple_spmd,
+  /// Call to int32_t __kmpc_warp_active_thread_mask(void);
+  OMPRTL_NVPTX__kmpc_warp_active_thread_mask,
+  /// Call to void __kmpc_syncwarp(int32_t Mask);
+  OMPRTL_NVPTX__kmpc_syncwarp,
 };
 
 /// Pre(post)-action for different OpenMP constructs specialized for NVPTX.
@@ -287,10 +291,11 @@ static RecordDecl *buildRecordForGlobalizedVars(
                                      static_cast<CharUnits::QuantityType>(
                                          GlobalMemoryAlignment)));
       Field->addAttr(AlignedAttr::CreateImplicit(
-          C, AlignedAttr::GNU_aligned, /*IsAlignmentExpr=*/true,
+          C, /*IsAlignmentExpr=*/true,
           IntegerLiteral::Create(C, Align,
                                  C.getIntTypeForBitwidth(32, /*Signed=*/0),
-                                 SourceLocation())));
+                                 SourceLocation()),
+          {}, AttributeCommonInfo::AS_GNU, AlignedAttr::GNU_aligned));
     }
     GlobalizedRD->addDecl(Field);
     MappedDeclsFields.try_emplace(VD, Field);
@@ -790,9 +795,9 @@ static bool hasNestedSPMDDirective(ASTContext &Ctx,
     case OMPD_teams_distribute_parallel_for_simd:
     case OMPD_target_update:
     case OMPD_declare_simd:
+    case OMPD_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
-    case OMPD_declare_variant:         // INTEL
     case OMPD_target_variant_dispatch: // INTEL
     case OMPD_declare_reduction:
     case OMPD_declare_mapper:
@@ -862,9 +867,9 @@ static bool supportsSPMDExecutionMode(ASTContext &Ctx,
   case OMPD_teams_distribute_parallel_for_simd:
   case OMPD_target_update:
   case OMPD_declare_simd:
+  case OMPD_declare_variant:
   case OMPD_declare_target:
   case OMPD_end_declare_target:
-  case OMPD_declare_variant:         // INTEL
   case OMPD_target_variant_dispatch: // INTEL
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
@@ -1027,10 +1032,10 @@ static bool hasNestedLightweightDirective(ASTContext &Ctx,
     case OMPD_teams_distribute_parallel_for_simd:
     case OMPD_target_update:
     case OMPD_declare_simd:
+    case OMPD_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
     case OMPD_declare_reduction:
-    case OMPD_declare_variant:         // INTEL
     case OMPD_target_variant_dispatch: // INTEL
     case OMPD_declare_mapper:
     case OMPD_taskloop:
@@ -1105,9 +1110,9 @@ static bool supportsLightweightRuntime(ASTContext &Ctx,
   case OMPD_teams_distribute_parallel_for_simd:
   case OMPD_target_update:
   case OMPD_declare_simd:
+  case OMPD_declare_variant:
   case OMPD_declare_target:
   case OMPD_end_declare_target:
-  case OMPD_declare_variant:         // INTEL
   case OMPD_target_variant_dispatch: // INTEL
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
@@ -1802,6 +1807,20 @@ CGOpenMPRuntimeNVPTX::createNVPTXRuntimeFunction(unsigned Function) {
         ->addFnAttr(llvm::Attribute::Convergent);
     break;
   }
+  case OMPRTL_NVPTX__kmpc_warp_active_thread_mask: {
+    // Build int32_t __kmpc_warp_active_thread_mask(void);
+    auto *FnTy =
+        llvm::FunctionType::get(CGM.Int32Ty, llvm::None, /*isVarArg=*/false);
+    RTLFn = CGM.CreateRuntimeFunction(FnTy, "__kmpc_warp_active_thread_mask");
+    break;
+  }
+  case OMPRTL_NVPTX__kmpc_syncwarp: {
+    // Build void __kmpc_syncwarp(kmp_int32 Mask);
+    auto *FnTy =
+        llvm::FunctionType::get(CGM.VoidTy, CGM.Int32Ty, /*isVarArg=*/false);
+    RTLFn = CGM.CreateRuntimeFunction(FnTy, "__kmpc_syncwarp");
+    break;
+  }
   }
   return RTLFn;
 }
@@ -2038,7 +2057,7 @@ llvm::Function *CGOpenMPRuntimeNVPTX::emitTeamsOutlinedFunction(
         auto I = Rt.FunctionGlobalizedDecls.try_emplace(CGF.CurFn).first;
         I->getSecond().GlobalRecord = GlobalizedRD;
         I->getSecond().MappedParams =
-            llvm::make_unique<CodeGenFunction::OMPMapVars>();
+            std::make_unique<CodeGenFunction::OMPMapVars>();
         DeclToAddrMapTy &Data = I->getSecond().LocalVarData;
         for (const auto &Pair : MappedDeclsFields) {
           assert(Pair.getFirst()->isCanonicalDecl() &&
@@ -2708,6 +2727,9 @@ void CGOpenMPRuntimeNVPTX::emitCriticalRegion(
   llvm::BasicBlock *BodyBB = CGF.createBasicBlock("omp.critical.body");
   llvm::BasicBlock *ExitBB = CGF.createBasicBlock("omp.critical.exit");
 
+  // Get the mask of active threads in the warp.
+  llvm::Value *Mask = CGF.EmitRuntimeCall(
+      createNVPTXRuntimeFunction(OMPRTL_NVPTX__kmpc_warp_active_thread_mask));
   // Fetch team-local id of the thread.
   llvm::Value *ThreadID = getNVPTXThreadID(CGF);
 
@@ -2748,8 +2770,9 @@ void CGOpenMPRuntimeNVPTX::emitCriticalRegion(
   // Block waits for all threads in current team to finish then increments the
   // counter variable and returns to the loop.
   CGF.EmitBlock(SyncBB);
-  emitBarrierCall(CGF, Loc, OMPD_unknown, /*EmitChecks=*/false,
-                  /*ForceSimpleCall=*/true);
+  // Reconverge active threads in the warp.
+  (void)CGF.EmitRuntimeCall(
+      createNVPTXRuntimeFunction(OMPRTL_NVPTX__kmpc_syncwarp), Mask);
 
   llvm::Value *IncCounterVal =
       CGF.Builder.CreateNSWAdd(CounterVal, CGF.Builder.getInt32(1));
@@ -4645,7 +4668,7 @@ void CGOpenMPRuntimeNVPTX::emitFunctionProlog(CodeGenFunction &CGF,
     return;
   auto I = FunctionGlobalizedDecls.try_emplace(CGF.CurFn).first;
   I->getSecond().MappedParams =
-      llvm::make_unique<CodeGenFunction::OMPMapVars>();
+      std::make_unique<CodeGenFunction::OMPMapVars>();
   I->getSecond().GlobalRecord = GlobalizedVarsRecord;
   I->getSecond().EscapedParameters.insert(
       VarChecker.getEscapedParameters().begin(),

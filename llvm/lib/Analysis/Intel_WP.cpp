@@ -13,6 +13,7 @@
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Analysis/Intel_XmainOptLevelPass.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
@@ -73,6 +74,7 @@ INITIALIZE_PASS_BEGIN(WholeProgramWrapperPass, "wholeprogramanalysis",
                 "Whole program analysis", false, false)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(XmainOptLevelWrapperPass)
 INITIALIZE_PASS_END(WholeProgramWrapperPass, "wholeprogramanalysis",
                 "Whole program analysis", false, false)
 
@@ -95,12 +97,31 @@ bool WholeProgramWrapperPass::runOnModule(Module &M) {
   auto GTTI = [this](Function &F) -> TargetTransformInfo & {
     return this->getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
   };
+
   CallGraphWrapperPass *CGPass =
       getAnalysisIfAvailable<CallGraphWrapperPass>();
   CallGraph *CG = CGPass ? &CGPass->getCallGraph() : nullptr;
+
+  // NOTE: The old pass manager uses two variables to represent the
+  // optimization levels:
+  //
+  //   - OptLevel: stores the optimization level
+  //               0 = -O0, 1 = -O1, 2 = -O2, 3 = -O3
+  //
+  //   - SizeLevel: stores if we are optimizing for size
+  //               0 = no, 1 = Os, 2 = Oz
+  //
+  // The values of OptLevel can be 0, 1, 2 or 3.
+  unsigned OptLevel = getAnalysis<XmainOptLevelWrapperPass>().getOptLevel();
+
+  auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
+    return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+  };
+
   Result.reset(new WholeProgramInfo(
-                WholeProgramInfo::analyzeModule(
-      M, getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(), GTTI, CG)));
+               WholeProgramInfo::analyzeModule(M, GetTLI, GTTI,
+               CG, OptLevel)));
+
   return false;
 }
 
@@ -121,7 +142,8 @@ WholeProgramInfo::~WholeProgramInfo() {}
 // llvm.intel.wholeprogramsafe should be removed completely after
 // this process since it won't be lowered. See the language reference
 // manual for more information.
-void WholeProgramInfo::foldIntrinsicWholeProgramSafe(Module &M) {
+void WholeProgramInfo::foldIntrinsicWholeProgramSafe(Module &M,
+                                                     unsigned OptLevel) {
 
   Function *WhPrIntrin = M.getFunction("llvm.intel.wholeprogramsafe");
 
@@ -130,7 +152,11 @@ void WholeProgramInfo::foldIntrinsicWholeProgramSafe(Module &M) {
 
   LLVMContext &Context = M.getContext();
 
-  ConstantInt *InitVal = (isWholeProgramSafe()?
+  // If the optimization level is 0 then we are going to take the path
+  // when whole program is not safe. This means that any optimization
+  // wrapped in the intrinsic llvm.intel.wholeprogramsafe won't be
+  // applied (e.g. devirtualization).
+  ConstantInt *InitVal = ((isWholeProgramSafe() && OptLevel > 0) ?
                           ConstantInt::getTrue(Context) :
                           ConstantInt::getFalse(Context));
 
@@ -154,14 +180,15 @@ void WholeProgramInfo::foldIntrinsicWholeProgramSafe(Module &M) {
           " wasn't removed correctly.");
 }
 
-WholeProgramInfo
-WholeProgramInfo::analyzeModule(Module &M, const TargetLibraryInfo &TLI,
-                                function_ref<TargetTransformInfo
-                                    &(Function &)> GTTI, CallGraph *CG) {
+WholeProgramInfo WholeProgramInfo::analyzeModule(
+    Module &M,
+    std::function<const TargetLibraryInfo &(Function &)> GetTLI,
+    function_ref<TargetTransformInfo &(Function &)> GTTI, CallGraph *CG,
+    unsigned OptLevel) {
 
   WholeProgramInfo Result;
 
-  Result.wholeProgramAllExternsAreIntrins(M, TLI);
+  Result.wholeProgramAllExternsAreIntrins(M, GetTLI);
 
   if (AssumeWholeProgram) {
     if (WholeProgramTrace)
@@ -172,7 +199,7 @@ WholeProgramInfo::analyzeModule(Module &M, const TargetLibraryInfo &TLI,
 
   // Remove the uses of the intrinsic
   // llvm.intel.wholeprogramsafe
-  Result.foldIntrinsicWholeProgramSafe(M);
+  Result.foldIntrinsicWholeProgramSafe(M, OptLevel);
   Result.computeIsAdvancedOptEnabled(M, GTTI);
 
   return Result;
@@ -184,12 +211,15 @@ void WholeProgramWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
   AU.addRequired<TargetTransformInfoWrapperPass>();
+  AU.addRequired<XmainOptLevelWrapperPass>();
 }
 
 // This function takes Value that is an operand to call or invoke instruction
 // and checks if it can be resolved as a known function.
 bool WholeProgramInfo::resolveCalledValue(
-    const TargetLibraryInfo &TLI, const Value *Arg, const Function *Caller) {
+    std::function<const TargetLibraryInfo &(Function &)> GetTLI,
+    const Value *Arg, const Function *Caller) {
+
   assert(Arg && "Whole-Program-Analysis: invalid call argument");
   // Remove any potential cast before doing anything with the value.
   Arg = Arg->stripPointerCasts();
@@ -201,6 +231,8 @@ bool WholeProgramInfo::resolveCalledValue(
         LibFuncsFound.insert(Callee);
       return true;
     }
+
+    const TargetLibraryInfo &TLI = GetTLI(*const_cast<Function*>(Callee));
 
     LibFunc TheLibFunc;
     if (!TLI.getLibFunc(Callee->getName(), TheLibFunc) ||
@@ -227,8 +259,10 @@ bool WholeProgramInfo::resolveCalledValue(
 // This function returns true if all calls in "F" can be resolved using
 // "TLI" info. Otherwise, it returns false and sets "unresolved_funcs_count"
 // to number of unresolved calls in "F".
-bool WholeProgramInfo::resolveCallsInRoutine(const TargetLibraryInfo &TLI,
-                                             Function *F) {
+bool WholeProgramInfo::resolveCallsInRoutine(
+    std::function<const TargetLibraryInfo &(Function &)> GetTLI,
+    Function *F) {
+
   bool Resolved = true;
   for (auto &II : instructions(F)) {
     // Skip if it is not a call inst
@@ -237,15 +271,17 @@ bool WholeProgramInfo::resolveCallsInRoutine(const TargetLibraryInfo &TLI,
     }
 
     CallBase *CS = dyn_cast<CallBase>(&II);
-    Resolved &= resolveCalledValue(TLI, CS->getCalledValue(), F);
+    Resolved &= resolveCalledValue(GetTLI, CS->getCalledValue(), F);
     if (!Resolved && !WholeProgramTrace)
       return false;
   }
   return Resolved;
 }
 
-bool WholeProgramInfo::resolveAllLibFunctions(Module &M,
-                                       const TargetLibraryInfo &TLI) {
+bool WholeProgramInfo::resolveAllLibFunctions(
+    Module &M,
+    std::function<const TargetLibraryInfo &(Function &)> GetTLI) {
+
   bool all_resolved = true;
   bool main_def_seen_in_ir = false;
   int unresolved_globals_count = 0;
@@ -264,6 +300,8 @@ bool WholeProgramInfo::resolveAllLibFunctions(Module &M,
     // it is a LibFunc or an intrinsic
     if (!AssumeWholeProgram && F.isDeclaration() && !F.hasLocalLinkage()) {
 
+      const TargetLibraryInfo &TLI = GetTLI(F);
+
       // Check if the current function is a LibFunc or an intrinsic
       if (F.isIntrinsic() ||
           (TLI.getLibFunc(F.getName(), TheLibFunc) &&
@@ -278,7 +316,7 @@ bool WholeProgramInfo::resolveAllLibFunctions(Module &M,
       continue;
     }
 
-    all_resolved &= resolveCallsInRoutine(TLI, &F);
+    all_resolved &= resolveCallsInRoutine(GetTLI, &F);
   }
 
   // Walk through all aliases to find unresolved aliases.
@@ -341,11 +379,14 @@ bool WholeProgramInfo::resolveAllLibFunctions(Module &M,
   return all_resolved;
 }
 
-// Compute if all functions in the module M are internal with the exception
-// of libfuncs, main and functions added by the linker.
+// Compute if all functions in the module M that have at least one User are
+// internal with the exception of libfuncs, main and functions added by the
+// linker. The visibility is used to secure that all the functions are inside
+// the module.
 //
-void WholeProgramInfo::computeFunctionsVisibility(Module &M,
-    const TargetLibraryInfo &TLI) {
+void WholeProgramInfo::computeFunctionsVisibility(
+    Module &M,
+    std::function<const TargetLibraryInfo &(Function &)> GetTLI){
   LibFunc TheLibFunc;
 
   // Branch funnel functions are wrappers to the branch funnel intrinsics.
@@ -418,11 +459,18 @@ void WholeProgramInfo::computeFunctionsVisibility(Module &M,
 
     if (!F.hasLocalLinkage()) {
 
+      // If there isn't any user then it means that the function is
+      // not needed.
+      if (F.user_empty())
+        continue;
+
       StringRef SymbolName = F.getName();
 
       bool IsLinkerAddedSymbol = WPUtils.isLinkerAddedSymbol(SymbolName);
 
       bool IsMain = WPUtils.isMainEntryPoint(SymbolName);
+
+      const TargetLibraryInfo &TLI = GetTLI(F);
 
       bool IsLibFunc = F.isIntrinsic() ||
                        (TLI.getLibFunc(F.getName(), TheLibFunc) &&
@@ -445,14 +493,16 @@ void WholeProgramInfo::computeFunctionsVisibility(Module &M,
 
 // Detect whole program using intrinsic table.
 //
-void WholeProgramInfo::wholeProgramAllExternsAreIntrins(Module &M,
-                                            const TargetLibraryInfo &TLI) {
+void WholeProgramInfo::wholeProgramAllExternsAreIntrins(
+    Module &M,
+    std::function<const TargetLibraryInfo &(Function &)> GetTLI) {
+
     if (WholeProgramTrace)
       dbgs() << "\nWHOLE-PROGRAM-ANALYSIS: SIMPLE ANALYSIS\n\n";
 
     // Compute if all functions are internal
-    computeFunctionsVisibility(M, TLI);
-    bool resolved = resolveAllLibFunctions(M, TLI);
+    computeFunctionsVisibility(M, GetTLI);
+    bool resolved = resolveAllLibFunctions(M, GetTLI);
 
     if (resolved) {
       WholeProgramSeen = true;
@@ -572,9 +622,31 @@ WholeProgramInfo WholeProgramAnalysis::run(Module &M,
       [&FAM](Function &F) -> TargetTransformInfo & {
     return FAM.getResult<TargetIRAnalysis>(F);
   };
-  return WholeProgramInfo::analyzeModule(M,
-                                  AM.getResult<TargetLibraryAnalysis>(M), GTTI,
-                                  AM.getCachedResult<CallGraphAnalysis>(M));
+
+  // NOTE: The new pass manager uses an enum to represent the
+  // optimization levels:
+  //
+  //   - PassBuilder::OptimizationLevel
+  //
+  //     PassBuilder::OptimizationLevel::O0 = -O0
+  //     PassBuilder::OptimizationLevel::O1 = -O1
+  //     PassBuilder::OptimizationLevel::O2 = -O2
+  //     PassBuilder::OptimizationLevel::O3 = -O3
+  //     PassBuilder::OptimizationLevel::Os = -Os
+  //     PassBuilder::OptimizationLevel::Oz = -Oz
+  //
+  // The values of OptLevel can be 0, 1, 2, 3, 4 or 5. The options -Os and
+  // -Oz are optimization level but for size. The compiler will treat these
+  // two levels as -O2 but without increasing the size of the code. The main
+  // difference between -Os and -Oz is that the second one does more aggressive
+  // optimizations related to size.
+  unsigned OptLevel = AM.getResult<XmainOptLevelAnalysis>(M).getOptLevel();
+
+  auto GetTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(F);
+  };
+
+  return WholeProgramInfo::analyzeModule(M, GetTLI, GTTI,
+                                  AM.getCachedResult<CallGraphAnalysis>(M),
+                                  OptLevel);
 }
-
-

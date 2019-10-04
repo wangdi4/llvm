@@ -423,7 +423,7 @@ public:
   }
 
   /// Returns true if \p BlobIndex is a standalone blob (ex- 1 * %t) in the
-  /// canon expr.
+  /// canon expr and occurs nowhere else in the canon expr.
   bool containsStandAloneBlob(unsigned BlobIndex,
                               bool AllowConversion = true) const;
 

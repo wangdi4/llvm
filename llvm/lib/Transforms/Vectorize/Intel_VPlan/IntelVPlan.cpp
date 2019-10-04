@@ -52,6 +52,10 @@ static cl::opt<int>
     DumpVPlanLiveness("vplan-dump-liveness", cl::init(0), cl::Hidden,
                        cl::desc("Print VPlan instructions' liveness info"));
 
+static cl::opt<bool> EnableNames(
+    "vplan-enable-names", cl::init(false), cl::Hidden,
+    cl::desc("Print VP Operands using VPValue's Name member."));
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 raw_ostream &llvm::vpo::operator<<(raw_ostream &OS, const VPValue &V) {
   if (const VPInstruction *I = dyn_cast<VPInstruction>(&V))
@@ -94,6 +98,61 @@ VPBasicBlock *VPBlockBase::getExitBasicBlock() {
 }
 
 #if INTEL_CUSTOMIZATION
+VPBasicBlock *VPBlockUtils::splitExitBlock(VPBlockBase *Block,
+                                           VPLoopInfo *VPLInfo,
+                                           VPDominatorTree &DomTree) {
+  VPBasicBlock *BB = Block->getExitBasicBlock();
+  VPBasicBlock *NewBlock = new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
+  BB->moveConditionalEOBTo(NewBlock);
+  insertBlockAfter(NewBlock, BB);
+
+  // Add NewBlock to VPLoopInfo
+  if (VPLoop *Loop = VPLInfo->getLoopFor(BB)) {
+    Loop->addBasicBlockToLoop(NewBlock, *VPLInfo);
+  }
+
+
+  // Update incoming block of VPPHINodes in successors, if any
+  for (auto &Successor : NewBlock->getHierarchicalSuccessors()) {
+    // Iterate over all VPPHINodes in Successor. Successor can be a region so
+    // we should take its entry.
+    // NOTE: Here we assume that all VPPHINodes are always placed at the top of
+    // its parent VPBasicBlock
+    for (VPPHINode &VPN : Successor->getEntryBasicBlock()->getVPPhis()) {
+      if (VPN.getBlend())
+        continue;
+
+      // Transform the VPBBUsers vector of the PHI node by replacing any
+      // occurrence of Block with NewBlock
+      llvm::transform(VPN.blocks(), VPN.block_begin(),
+                      [BB, NewBlock](VPBasicBlock *A) -> VPBasicBlock * {
+                        if (A == BB)
+                          return NewBlock;
+                        return A;
+                      });
+    }
+  }
+
+  if (Block != BB)
+    // No DomTree updates because it's not recursive.
+    return NewBlock;
+
+  // Update dom information
+
+  VPDomTreeNode *BlockDT = DomTree.getNode(Block);
+  assert(BlockDT && "Expected node in dom tree!");
+  SmallVector<VPDomTreeNode *, 2> BlockDTChildren(BlockDT->begin(),
+                                                  BlockDT->end());
+  // Block is NewBlock's idom.
+  VPDomTreeNode *NewBlockDT = DomTree.addNewBlock(NewBlock, Block /*IDom*/);
+
+  // NewBlock dominates all other nodes dominated by Block.
+  for (VPDomTreeNode *Child : BlockDTChildren)
+    DomTree.changeImmediateDominator(Child, NewBlockDT);
+
+  return NewBlock;
+}
+
 // It turns A->B into A->NewSucc->B and updates VPLoopInfo, DomTree and
 // PostDomTree accordingly.
 VPBasicBlock *VPBlockUtils::splitBlock(VPBlockBase *Block,
@@ -116,14 +175,10 @@ VPBasicBlock *VPBlockUtils::splitBlock(VPBlockBase *Block,
     // we should take its entry.
     // NOTE: Here we assume that all VPPHINodes are always placed at the top of
     // its parent VPBasicBlock
-    for (auto &Inst : Successor->getEntryBasicBlock()->getVPPhis()) {
-      assert(isa<VPPHINode>(Inst) &&
-             "Non VPPHINode found in sublist returned by getVPPhis().");
-      VPPHINode *VPN = cast<VPPHINode>(&Inst);
-
+    for (VPPHINode &VPN : Successor->getEntryBasicBlock()->getVPPhis()) {
       // Transform the VPBBUsers vector of the PHI node by replacing any
       // occurrence of Block with NewBlock
-      llvm::transform(VPN->blocks(), VPN->block_begin(),
+      llvm::transform(VPN.blocks(), VPN.block_begin(),
                       [Block, NewBlock](VPBasicBlock *A) -> VPBasicBlock * {
                         if (A == cast<VPBasicBlock>(Block))
                           return NewBlock;
@@ -503,7 +558,8 @@ void VPRegionBlock::recomputeSize() {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPBasicBlock::dump(raw_ostream &OS, unsigned Indent) const {
+void VPBasicBlock::dump(raw_ostream &OS, unsigned Indent,
+                        const VPlanDivergenceAnalysis *DA) const {
   std::string StrIndent = std::string(2 * Indent, ' ');
   // Print name and predicate
   OS << StrIndent << getName() << " (BP: ";
@@ -518,6 +574,11 @@ void VPBasicBlock::dump(raw_ostream &OS, unsigned Indent) const {
     OS << StrIndent << " <Empty Block>\n";
   } else {
     for (const VPRecipeBase &Recipe : *this) {
+      if (auto *Inst = dyn_cast<VPInstruction>(&Recipe)) {
+        OS << StrIndent << " ";
+        Inst->dump(OS, DA);
+        continue;
+      }
       OS << StrIndent << " " << Recipe;
     }
   }
@@ -530,7 +591,8 @@ void VPBasicBlock::dump(raw_ostream &OS, unsigned Indent) const {
         if (CBI->getParent()) {
           OS << CBI->getParent()->getName();
         }
-        OS << "): " << *CBI;
+        OS << "): ";
+        CBI->dump(OS, DA);
       }
     } else {
       // We fall here if VPInstruction has no operands or Value is
@@ -579,10 +641,39 @@ void VPBasicBlock::dump() const {
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
+/// Return true if \p Recipe is a VPInstruction in a single-use chain of
+/// instructions ending in block-predicate instruction that is the last
+/// instruction in the block (and thus not really masking anything).
+static bool isDeadPredicateInst(VPRecipeBase &Recipe) {
+  auto *Inst = dyn_cast<VPInstruction>(&Recipe);
+  if (!Inst)
+    return false;
+  unsigned Opcode = Inst->getOpcode();
+  if (Opcode == VPInstruction::Pred) {
+    auto *BB = Inst->getParent();
+    return ++(Inst->getIterator()) == BB->end();
+  }
+
+  if (Opcode != VPInstruction::Not && Opcode != Instruction::And)
+    return false;
+
+  if (Inst->getNumUsers() != 1)
+    return false;
+
+  return isDeadPredicateInst(*cast<VPInstruction>(*Inst->user_begin()));
+}
+
+
 void VPBasicBlock::executeHIR(VPOCodeGenHIR *CG) {
   CG->setCurMaskValue(nullptr);
-  for (VPRecipeBase &Recipe : Recipes)
+  for (VPRecipeBase &Recipe : Recipes) {
+    if (isDeadPredicateInst(Recipe))
+      // This is not just emitted code clean-up, but something required to
+      // support our hacky search loop CG that crashes trying to emit code for
+      // "and/not" instructions that use "icmp" decomposed from the HLLoop.
+      continue;
     Recipe.executeHIR(CG);
+  }
 }
 
 void VPRegionBlock::computeDT(void) {
@@ -597,19 +688,11 @@ void VPRegionBlock::computePDT(void) {
   RegionPDT->recalculate(*this);
 }
 
-/// Get a list of the basic blocks which make up this region.
-void VPRegionBlock::getOrderedBlocks(std::vector<const VPBlockBase *> &Blocks) const {
-  ReversePostOrderTraversal<VPBlockBase *> RPOT(Entry);
-  for (VPBlockBase *Block : RPOT)
-    Blocks.push_back(Block);
-}
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPRegionBlock::dump(raw_ostream &OS, unsigned Indent) const {
+void VPRegionBlock::dump(raw_ostream &OS, unsigned Indent,
+                         const VPlanDivergenceAnalysis *DA) const {
   SetVector<const VPBlockBase *> Printed;
   SetVector<const VPBlockBase *> SuccList;
-  std::vector<const VPBlockBase *> Blocks;
-  getOrderedBlocks(Blocks);
 
   std::string StrIndent = std::string(2 * Indent, ' ');
   // Print name and predicate
@@ -632,8 +715,9 @@ void VPRegionBlock::dump(raw_ostream &OS, unsigned Indent) const {
   //    BB5   /         +1
   //      \  /
   //       BB7          +0
-  for (const VPBlockBase *BB : Blocks) {
-    BB->dump(OS, Indent + SuccList.size() - 1);
+  ReversePostOrderTraversal<VPBlockBase *> RPOT(Entry);
+  for (const VPBlockBase *BB : RPOT) {
+    BB->dump(OS, Indent + SuccList.size() - 1, DA);
     Printed.insert(BB);
     SuccList.remove(BB);
     for (auto *Succ : BB->getSuccessors())
@@ -868,14 +952,23 @@ void VPInstruction::print(raw_ostream &O, const Twine &Indent) const {
 }
 
 #if INTEL_CUSTOMIZATION
-void VPInstruction::dump(raw_ostream &O) const {
-  print(O);
+void VPInstruction::dump(raw_ostream &O,
+                         const VPlanDivergenceAnalysis *DA) const {
+  print(O, DA);
   O << "\n";
 }
 #endif /* INTEL_CUSTOMIZATION */
 
-void VPInstruction::print(raw_ostream &O) const {
+void VPInstruction::print(raw_ostream &O,
+                          const VPlanDivergenceAnalysis *DA) const {
 #if INTEL_CUSTOMIZATION
+  if (DA) {
+    if (DA->isDivergent(*this))
+      O << "[DA: Divergent] ";
+    else
+      O << "[DA: Uniform]   ";
+  }
+
   if (getOpcode() != Instruction::Store && !isa<VPBranchInst>(this)) {
     printAsOperand(O);
     O << " = ";
@@ -988,6 +1081,8 @@ void VPlan::execute(VPTransformState *State) {
   // considerably. Instead of having INTEL_CUSTOMIZATION for every few lines
   // of code, we decided to seperate both versions with a single
   // INTEL_CUSTOMIZATION
+  auto VLoop = VPlanUtils::findFirstLoopDFS(this)->getVPLoop();
+  State->ILV->setVPlan(this, getLoopEntities(VLoop));
   BasicBlock *VectorPreHeaderBB = State->CFG.PrevBB;
   BasicBlock *VectorHeaderBB = VectorPreHeaderBB->getSingleSuccessor();
   assert(VectorHeaderBB && "Loop preheader does not have a single successor.");
@@ -1246,7 +1341,7 @@ const Twine VPlanPrinter::getOrCreateName(const VPBlockBase *Block) {
 }
 
 #if INTEL_CUSTOMIZATION
-void VPlan::dump(raw_ostream &OS) const {
+void VPlan::dump(raw_ostream &OS, bool DumpDA) const {
   if (!getName().empty())
     OS << "VPlan IR for: " << getName() << "\n";
   for (auto EIter = LoopEntities.begin(), End = LoopEntities.end();
@@ -1255,14 +1350,21 @@ void VPlan::dump(raw_ostream &OS) const {
     E->dump(OS, EIter->first->getHeader());
   }
   const VPBlockBase *Entry = getEntry();
-  Entry->dump(OS, 1);
+  Entry->dump(OS, 1, DumpDA ? getVPlanDA() : nullptr);
   for (auto &Succ : Entry->getSuccessors()) {
-    Succ->dump(OS, 1);
+    Succ->dump(OS, 1, DumpDA ? getVPlanDA() : nullptr);
+  }
+  if (!VPExternalUses.empty()) {
+    OS << "External Uses:\n";
+    for (auto &ExtUse : VPExternalUses) {
+      ExtUse.second->dump(OS);
+      OS << "\n";
+    }
   }
 }
 
 void VPlan::dump() const {
-  dump(dbgs());
+  dump(dbgs(), true);
 }
 
 void VPlan::dumpLivenessInfo(raw_ostream &OS) const {
@@ -1845,6 +1947,18 @@ void VPValue::invalidateUnderlyingIR() {
     // invalidation should be propagated to users as well.
   }
 }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void VPValue::printAsOperand(raw_ostream &OS) const {
+  if (EnableNames && !Name.empty())
+    // There is no interface to enforce uniqueness of the names, so continue
+    // using the pointer-based name for the suffix.
+    OS << *getType() << " %" << Name << "."
+       << (unsigned short)(unsigned long long)this;
+  else
+    OS << *getType() << " %vp" << (unsigned short)(unsigned long long)this;
+}
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 void VPBlockUtils::setParentRegionForBody(VPRegionBlock *Region) {
   for (VPBlockBase *Block :

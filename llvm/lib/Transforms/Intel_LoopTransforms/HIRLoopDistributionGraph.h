@@ -237,6 +237,11 @@ public:
     return PPGraph->getControlDependence(Dst);
   }
 
+  bool hasControlDependences() const {
+    assert(PPGraph && "PPGraph is not initialized");
+    return PPGraph->hasControlDependences();
+  }
+
 private:
   void addPiBlock(ArrayRef<DistPPNode *> Nodes) {
     PiBlock *CurPiBlock = new PiBlock(Nodes, this);

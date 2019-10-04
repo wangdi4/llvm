@@ -86,7 +86,7 @@ struct PluginInputFile {
   std::unique_ptr<ld_plugin_input_file> File;
 
   PluginInputFile(void *Handle) : Handle(Handle) {
-    File = llvm::make_unique<ld_plugin_input_file>();
+    File = std::make_unique<ld_plugin_input_file>();
     if (get_input_file(Handle, File.get()) != LDPS_OK)
       message(LDPL_FATAL, "Failed to get file information");
   }
@@ -951,7 +951,7 @@ static std::unique_ptr<LTO> createLTO(IndexWriteCallback OnIndexWrite,
   Conf.DebugPassManager = options::debug_pass_manager;
 
   Conf.StatsFile = options::stats_file;
-  return llvm::make_unique<LTO>(std::move(Conf), Backend,
+  return std::make_unique<LTO>(std::move(Conf), Backend,
                                 options::ParallelCodeGenParallelismLevel);
 }
 
@@ -1001,7 +1001,7 @@ static std::unique_ptr<raw_fd_ostream> CreateLinkedObjectsFile() {
     return nullptr;
   assert(options::thinlto_index_only);
   std::error_code EC;
-  auto LinkedObjectsFile = llvm::make_unique<raw_fd_ostream>(
+  auto LinkedObjectsFile = std::make_unique<raw_fd_ostream>(
       options::thinlto_linked_objects_file, EC, sys::fs::OpenFlags::OF_None);
   if (EC)
     message(LDPL_FATAL, "Failed to create '%s': %s",
@@ -1038,7 +1038,7 @@ static std::vector<std::pair<SmallString<128>, bool>> runLTO() {
   for (claimed_file &F : Modules) {
     if (options::thinlto && !HandleToInputFile.count(F.leader_handle))
       HandleToInputFile.insert(std::make_pair(
-          F.leader_handle, llvm::make_unique<PluginInputFile>(F.handle)));
+          F.leader_handle, std::make_unique<PluginInputFile>(F.handle)));
     // In case we are thin linking with a minimized bitcode file, ensure
     // the module paths encoded in the index reflect where the backends
     // will locate the full bitcode files for compiling/importing.
@@ -1073,8 +1073,8 @@ static std::vector<std::pair<SmallString<128>, bool>> runLTO() {
     Files[Task].second = !SaveTemps;
     int FD = getOutputFileName(Filename, /* TempOutFile */ !SaveTemps,
                                Files[Task].first, Task);
-    return llvm::make_unique<lto::NativeObjectStream>(
-        llvm::make_unique<llvm::raw_fd_ostream>(FD, true));
+    return std::make_unique<lto::NativeObjectStream>(
+        std::make_unique<llvm::raw_fd_ostream>(FD, true));
   };
 
   auto AddBuffer = [&](size_t Task, std::unique_ptr<MemoryBuffer> MB) {

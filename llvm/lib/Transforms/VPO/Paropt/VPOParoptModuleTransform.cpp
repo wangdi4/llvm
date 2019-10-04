@@ -52,15 +52,26 @@ static cl::opt<bool> UseOffloadMetadata(
 // C; for C++ calls to fabs[f], etc. will be generated as-is.
 std::unordered_map<std::string, std::string> llvm::vpo::OCLBuiltin = {
     // float:
+    {"asinf",                 "_Z4asinf"},
+    {"asinhf",                "_Z5asinhf"},
     {"sinf",                  "_Z3sinf"},
+    {"sinhf",                 "_Z4sinhf"},
+    {"acosf",                 "_Z4acosf"},
+    {"acoshf",                "_Z5acoshf"},
     {"cosf",                  "_Z3cosf"},
+    {"coshf",                 "_Z4coshf"},
+    {"atanf",                 "_Z4atanf"},
+    {"atanhf",                "_Z5atanhf"},
+    {"atan2f",                "_Z5atan2f"},
     {"tanf",                  "_Z3tanf"},
+    {"tanhf",                 "_Z4tanhf"},
     {"erff",                  "_Z3erff"},
     {"expf",                  "_Z3expf"},
     {"logf",                  "_Z3logf"},
     {"log2f",                 "_Z4log2f"},
     {"powf",                  "_Z3powff"},
     {"sqrtf",                 "_Z4sqrtf"},
+    {"invsqrtf",              "_Z5rsqrtf"},   // from mathimf.h
     {"fmaxf",                 "_Z4fmaxff"},
     {"llvm.maxnum.f32",       "_Z4fmaxff"},
     {"fminf",                 "_Z4fminff"},
@@ -72,15 +83,26 @@ std::unordered_map<std::string, std::string> llvm::vpo::OCLBuiltin = {
     {"floorf",                "_Z5floorf"},
     {"llvm.floor.f32",        "_Z5floorf"},
     // double:
+    {"asin",                  "_Z4asind"},
+    {"asinh",                 "_Z5asinhd"},
     {"sin",                   "_Z3sind"},
+    {"sinh",                  "_Z4sinhd"},
+    {"acos",                  "_Z4acosd"},
+    {"acosh",                 "_Z5acoshd"},
     {"cos",                   "_Z3cosd"},
+    {"cosh",                  "_Z4coshd"},
+    {"atan",                  "_Z4atand"},
+    {"atanh",                 "_Z5atanhd"},
+    {"atan2",                 "_Z5atan2d"},
     {"tan",                   "_Z3tand"},
+    {"tanh",                  "_Z4tanhd"},
     {"erf",                   "_Z3erfd"},
     {"exp",                   "_Z3expd"},
     {"log",                   "_Z3logd"},
     {"log2",                  "_Z4log2d"},
     {"pow",                   "_Z3powdd"},
     {"sqrt",                  "_Z4sqrtd"},
+    {"invsqrt",               "_Z5rsqrtd"},   // from mathimf.h
     {"fmax",                  "_Z4fmaxdd"},
     {"llvm.maxnum.f64",       "_Z4fmaxdd"},
     {"fmin",                  "_Z4fmindd"},
@@ -104,6 +126,37 @@ static void replaceMathFnWithOCLBuiltin(Function &F) {
                       << NewName << '\n');
     F.setName(NewName);
   }
+}
+
+// Given the original printf() declaration \p F coming in from clang:
+//
+//   declare dso_local spir_func i32 @printf(i8 addrspace(4)*, ...)
+//
+// Create the corresponding decl for OCL printf called from offload kernels:
+//
+//   declare dso_local spir_func i32
+//     @_Z18__spirv_ocl_printfPU3AS2ci(i8 addrspace(1)*, ...)
+//
+// Save the former in \b PrintfDecl and the latter in \b OCLPrintfDecl
+// in the \b VPOParoptModuleTransform class.
+void VPOParoptModuleTransform::createOCLPrintfDecl(Function *F) {
+  PrintfDecl = F;
+
+  // Create FunctionType for OCLPrintfDecl
+  Type *ReturnTy = Type::getInt32Ty(C);
+  Type *Int8PtrTy = Type::getInt8PtrTy(C, ADDRESS_SPACE_GLOBAL /*=1*/);
+  FunctionType *FnTy = FunctionType::get(ReturnTy, {Int8PtrTy},
+                                         /* varargs= */ true);
+
+  // Get the function prototype from the module symbol table.
+  // If absent, create and insert it into the symbol table first.
+  FunctionCallee FnC =
+      M.getOrInsertFunction("_Z18__spirv_ocl_printfPU3AS2ci", FnTy);
+  OCLPrintfDecl = cast<Function>(FnC.getCallee());
+  OCLPrintfDecl->copyAttributesFrom(PrintfDecl);
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ":\nOld printf decl: " << *PrintfDecl
+                    << "\nOCL printf decl: " << *OCLPrintfDecl << "\n");
 }
 
 // Perform paropt transformations for the module. Each module's function is
@@ -131,8 +184,12 @@ bool VPOParoptModuleTransform::doParoptTransforms(
   for (auto F = M.begin(), E = M.end(); F != E; ++F) {
     // TODO: need Front-End to set F->hasOpenMPDirective()
     if (F->isDeclaration()) { // if(!F->hasOpenMPDirective()))
-      if (IsTargetSPIRV)
-        replaceMathFnWithOCLBuiltin(*F);
+      if (IsTargetSPIRV) {
+        if (F->getName() == "printf")
+          createOCLPrintfDecl(&*F);
+        else
+          replaceMathFnWithOCLBuiltin(*F);
+      }
       continue;
     }
     LLVM_DEBUG(dbgs() << "\n=== VPOParoptPass func: " << F->getName()

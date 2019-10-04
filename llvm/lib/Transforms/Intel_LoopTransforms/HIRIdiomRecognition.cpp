@@ -202,12 +202,12 @@ bool HIRIdiomRecognition::isLegalEdge(const RegDDRef *Ref, const DDEdge &E,
   }
 
   // No stores should be before the idiom DDRef.
-  if (IsStore && E.isOUTPUTdep()) {
+  if (IsStore && E.isOutput()) {
     DVKind Kind = DV[Level - 1];
     return (Kind == DVKind::EQ || Kind == DVKind::LT) && E.getSrc() == Ref;
   }
 
-  assert(!E.isINPUTdep() && "Input edges are not expected");
+  assert(!E.isInput() && "Input edges are not expected");
 
   // No loads should be before the idiom DDRef.
   // Legality table:
@@ -215,7 +215,7 @@ bool HIRIdiomRecognition::isLegalEdge(const RegDDRef *Ref, const DDEdge &E,
   // ANTI |   >   |   <   |
   // FLOW |   <   |   >   |
   DVKind Kind;
-  if (E.isANTIdep() ^ !IsStore) {
+  if (E.isAnti() ^ !IsStore) {
     Kind = DVKind::GT;
   } else {
     Kind = DVKind::LT;
@@ -754,7 +754,7 @@ public:
                getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
                getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
                getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-               getAnalysis<TargetLibraryInfoWrapperPass>().getTLI())
+               getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F))
         .run();
   }
 };

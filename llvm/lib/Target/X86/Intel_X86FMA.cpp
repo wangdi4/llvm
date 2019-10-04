@@ -780,14 +780,14 @@ FMAImmediateTerm *X86FMABasicBlock::createZeroTerm(MVT VT) {
   // be re-used as (v4f32)0.0.
   auto &Term = ZeroTerms[VT.getSizeInBits()];
   if (!Term)
-    Term = make_unique<X86FMAImmediateTerm>(VT, this, 0u);
+    Term = std::make_unique<X86FMAImmediateTerm>(VT, this, 0u);
   return Term.get();
 }
 
 FMAImmediateTerm *X86FMABasicBlock::createOneTerm(MVT VT) {
   auto &Term = OneTerms[VT];
   if (!Term)
-    Term = make_unique<X86FMAImmediateTerm>(VT, this, 1u);
+    Term = std::make_unique<X86FMAImmediateTerm>(VT, this, 1u);
   return Term.get();
 }
 
@@ -800,7 +800,7 @@ FMARegisterTerm *X86FMABasicBlock::createRegisterTerm(MVT VT,
   // then just return the existing term. Otherwise, create a new term.
   auto &Term = RegisterToFMARegisterTerm[Reg];
   if (!Term)
-    Term = make_unique<FMARegisterTerm>(VT, this, Reg,
+    Term = std::make_unique<FMARegisterTerm>(VT, this, Reg,
                                         RegisterToFMARegisterTerm.size() +
                                         MIToFMAMemoryTerm.size());
   if (MO.isKill())
@@ -830,7 +830,7 @@ FMAMemoryTerm *X86FMABasicBlock::createMemoryTerm(MVT VT, MachineInstr *MI) {
     // between those loads, then the memory term created for the first machine
     // instruction could be re-used in the next machine instruction.
     // Currently, we just create a new memory term.
-    Term = make_unique<FMAMemoryTerm>(VT, this, MI,
+    Term = std::make_unique<FMAMemoryTerm>(VT, this, MI,
                                       RegisterToFMARegisterTerm.size() +
                                       MIToFMAMemoryTerm.size());
   return Term.get();
@@ -1001,7 +1001,7 @@ bool X86GlobalFMA::runOnMachineFunction(MachineFunction &MFunc) {
   // if the patterns are initialized one way for AVX, another way for AVX2,
   // and there are functions with different target CPU settings.
   if (!Patterns)
-    Patterns = make_unique<X86FMAPatterns>();
+    Patterns = std::make_unique<X86FMAPatterns>();
 
   // TODO: CMPLRLLVM-9046: Need to fix the following block of code to
   // have correct latency values for SKL-client and Broadwell without
@@ -1037,7 +1037,7 @@ X86GlobalFMA::parseBasicBlock(MachineBasicBlock &MBB) {
   // Find MUL/ADD/SUB/FMA/etc operations in the input machine instructions
   // and create internal FMA structures for them.
   // Exit if there are not enough optimizable expressions.
-  auto FMABB = make_unique<X86FMABasicBlock>(MBB);
+  auto FMABB = std::make_unique<X86FMABasicBlock>(MBB);
   if (FMABB->parseBasicBlock(MRI, HasAVX512) < 2)
     return nullptr;
   return FMABB;

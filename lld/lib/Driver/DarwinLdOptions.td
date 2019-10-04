@@ -231,6 +231,16 @@ def error_limit : Separate<["-", "--"], "error-limit">,
      MetaVarName<"<number>">,
      HelpText<"Maximum number of errors to emit before stopping (0 = no limit)">;
 
+// INTEL_CUSTOMIZATION
+// Option for debugging the memory freeing process when
+// shutting down LLD
+def intel_debug_mem: Flag<["-"], "intel-debug=mem">;
+
+// Option for keeping the information related to LLVM in
+// case LLD is embedded in the compiler
+def intel_embedded_linker: Flag<["-"], "intel-embedded-linker">;
+// END INTEL_CUSTOMIZATION
+
 // Ignored options
 def lto_library : Separate<["-"], "lto_library">,
     MetaVarName<"<path>">,

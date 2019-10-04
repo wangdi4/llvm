@@ -38,7 +38,7 @@ std::unique_ptr<TargetMachine> createTargetMachine() {
 std::unique_ptr<CSAInstrInfo> createInstrInfo(TargetMachine *TM) {
   CSASubtarget ST(TM->getTargetTriple(), TM->getTargetCPU(),
                   TM->getTargetFeatureString(), *TM);
-  return llvm::make_unique<CSAInstrInfo>(ST);
+  return std::make_unique<CSAInstrInfo>(ST);
 }
 
 } // anonymous namespace

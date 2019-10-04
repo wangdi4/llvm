@@ -193,7 +193,6 @@ public:
   /// list of clients that are currently supported.
   enum OVLSMemrefKind {
     VLSK_ClientMemref, // Represents a test-client
-    VLSK_HIRVLSClientMemref, // Represents HIR-client
     VLSK_X86InterleavedClientMemref, // Represents X86InterleavedClient with LLVM-IR
     VLSK_VPlanVLSClientMemref, // Represents a VPlan-client
     VLSK_VPlanHIRVLSClientMemref, // Represents a VPlanHIR-client

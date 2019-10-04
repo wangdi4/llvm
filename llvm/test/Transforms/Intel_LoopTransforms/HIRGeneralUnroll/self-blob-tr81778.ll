@@ -1,17 +1,17 @@
 ; The origin test case is regC/tr81778
 
-; RUN: opt -hir-ssa-deconstruction -print-after=hir-general-unroll -disable-output -hir-general-unroll -hir-details < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-general-unroll,print<hir>" -disable-output -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -print-after=hir-general-unroll -disable-output -hir-general-unroll-disable-switch-generation -hir-general-unroll -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-general-unroll,print<hir>" -disable-output -hir-general-unroll-disable-switch-generation -hir-details < %s 2>&1 | FileCheck %s
 
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:       + DO i64 i1 = 8 * %tgu, %1, 1   <DO_LOOP>  <MAX_TC_EST = 7>
-; CHECK:       | <RVAL-REG> LINEAR i64 8 * %tgu {sb:14}
+; CHECK:       | <RVAL-REG> LINEAR i64 8 * %tgu {sb:2}
 ; CHECK:       |    <BLOB> LINEAR i64 %tgu {sb:12}
 ; CHECK:       | <RVAL-REG> LINEAR i64 %1 {sb:4}
 ;                                      ^ No blob DDRef for self blobs
-; CHECK:       | <ZTT-REG> LINEAR i64 8 * %tgu {sb:14}
+; CHECK:       | <ZTT-REG> LINEAR i64 8 * %tgu {sb:2}
 ; CHECK:       |    <BLOB> LINEAR i64 %tgu {sb:12}
-; CHECK:       | <ZTT-REG> LINEAR i64 %1 + 1 {sb:4}
+; CHECK:       | <ZTT-REG> LINEAR i64 %1 + 1 {sb:2}
 ; CHECK:       |    <BLOB> LINEAR i64 %1 {sb:4}
 ;                                     ^ Here should be a blob ddref as %1 + 1 is no longer a self-blob
 

@@ -9,9 +9,11 @@
 #pragma once
 
 #include <CL/sycl/accessor.hpp>
+#include <CL/sycl/builtins.hpp>
 #include <CL/sycl/detail/array.hpp>
 #include <CL/sycl/device_selector.hpp>
 #include <CL/sycl/queue.hpp>
+#include <CL/sycl/ordered_queue.hpp>
 
 namespace cl {
 namespace sycl {
@@ -322,15 +324,51 @@ inline unsigned append(char *Dst, const char *Src) {
   return Len;
 }
 
+template <typename T>
+inline typename std::enable_if<std::is_same<T, half>::value, unsigned>::type
+checkForInfNan(char *Buf, T Val) {
+  if (Val != Val)
+    return append(Buf, "nan");
+
+  // Extract the sign from the bits
+  const uint16_t Sign = reinterpret_cast<uint16_t &>(Val) & 0x8000;
+  // Extract the exponent from the bits
+  const uint16_t Exp16 = (reinterpret_cast<uint16_t &>(Val) & 0x7c00) >> 10;
+
+  if (Exp16 == 0x1f) {
+    if (Sign)
+      return append(Buf, "-inf");
+    return append(Buf, "inf");
+  }
+  return 0;
+}
+
+template <typename T>
+inline typename std::enable_if<std::is_same<T, float>::value ||
+                                   std::is_same<T, double>::value,
+                               unsigned>::type
+checkForInfNan(char *Buf, T Val) {
+  if (isnan(Val))
+    return append(Buf, "nan");
+  if (isinf(Val)) {
+    if (signbit(Val))
+      return append(Buf, "-inf");
+    return append(Buf, "inf");
+  }
+  return 0;
+}
+
 // Returns number of symbols written to the buffer
 template <typename T>
 inline EnableIfFP<T, unsigned> ScalarToStr(const T &Val, char *Buf,
                                            unsigned Flags, int Width,
                                            int Precision = -1) {
+  unsigned Offset = checkForInfNan(Buf, Val);
+  if (Offset)
+    return Offset;
+
   T Neg = -Val;
   auto AbsVal = Val < 0 ? Neg : Val;
-
-  unsigned Offset = 0;
 
   if (Val < 0) {
     Buf[Offset++] = '-';
@@ -576,10 +614,10 @@ template <int Dimensions>
 inline unsigned ItemToStr(char *Buf, const item<Dimensions, false> &Item) {
   unsigned Len = 0;
   Len += append(Buf, "item(");
-  Len += append(Buf + Len, "range: ");
-  Len += ArrayToStr(Buf + Len, Item.get_range());
-  Len += append(Buf + Len, ", id: ");
-  Len += ArrayToStr(Buf + Len, Item.get_id());
+  for (int I = 0; I < 2; ++I) {
+    Len += append(Buf + Len, I == 0 ? "range: " : ", id: ");
+    Len += ArrayToStr(Buf + Len, I == 0 ? Item.get_range() : Item.get_id());
+  }
   Buf[Len++] = ')';
   return Len;
 }
@@ -593,12 +631,14 @@ inline void writeHItem(stream_impl::OffsetAccessorType &OffsetAcc,
   char Buf[3 * MAX_ITEM_SIZE + 60];
   unsigned Len = 0;
   Len += append(Buf, "h_item(");
-  Len += append(Buf + Len, "\n  global ");
-  Len += ItemToStr(Buf + Len, HItem.get_global());
-  Len += append(Buf + Len, "\n  logical local ");
-  Len += ItemToStr(Buf + Len, HItem.get_logical_local());
-  Len += append(Buf + Len, "\n  physical local ");
-  Len += ItemToStr(Buf + Len, HItem.get_physical_local());
+  for (int I = 0; I < 3; ++I) {
+    Len += append(Buf + Len, I == 0 ? "\n  global "
+                                    : I == 1 ? "\n  logical local "
+                                             : "\n  physical local ");
+    Len += ItemToStr(Buf + Len, I == 0 ? HItem.get_global()
+                                       : I == 1 ? HItem.get_logical_local()
+                                                : HItem.get_physical_local());
+  }
   Len += append(Buf + Len, "\n)");
   write(OffsetAcc, Acc, Len, Buf);
 }
@@ -606,4 +646,3 @@ inline void writeHItem(stream_impl::OffsetAccessorType &OffsetAcc,
 } // namespace detail
 } // namespace sycl
 } // namespace cl
-

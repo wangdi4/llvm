@@ -7,9 +7,21 @@
 // whole or in part without explicit written authorization from the company.
 //
 // ===--------------------------------------------------------------------=== //
+#define VERSTR(x)  #x
+#define XSTR(x)    VERSTR(x)
+
 #define XMAIN_VERSION_NUMBER   "201900"
-#define XMAIN_VERSION_STRING   "dev.8.x.0"
-#define XMAIN_VERSION_MAJOR     dev
-#define XMAIN_VERSION_CLANG     8
+#define XMAIN_VERSION_STRING   "x.0"
 #define XMAIN_VERSION_MINOR     x
 #define XMAIN_VERSION_UPDATE    0
+
+#define DPCPP_VERSION_QUALITY   ""
+#define DPCPP_VERSION_MAJOR     2021
+#define DPCPP_VERSION_MINOR     1
+#define DPCPP_VERSION_MAJOR_STR XSTR(DPCPP_VERSION_MAJOR)
+#define DPCPP_VERSION_MINOR_STR XSTR(DPCPP_VERSION_MINOR)
+
+#ifndef BUILD_DATE_STAMP
+#define BUILD_DATE_STAMP        YYYYMMDD
+#endif
+#define XMAIN_BUILD_DATE_STAMP_STR XSTR(BUILD_DATE_STAMP)

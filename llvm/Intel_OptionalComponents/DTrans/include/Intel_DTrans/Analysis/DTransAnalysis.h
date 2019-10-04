@@ -88,9 +88,11 @@ public:
 
   DTransAnalysisInfo &operator=(DTransAnalysisInfo &&);
 
-  bool analyzeModule(Module &M, TargetLibraryInfo &TLI,
-                     WholeProgramInfo &WPInfo,
-                     function_ref<BlockFrequencyInfo &(Function &)> GetBFI);
+  bool
+  analyzeModule(Module &M,
+                std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
+                WholeProgramInfo &WPInfo,
+                function_ref<BlockFrequencyInfo &(Function &)> GetBFI);
   /// Parse command line option and create an internal map of
   /// <transform> -> <list_of_type_names>.
   void parseIgnoreList();

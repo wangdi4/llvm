@@ -113,7 +113,7 @@ bool HIRRegionIdentificationWrapperPass::runOnFunction(Function &F) {
       getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
       getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree(),
       getAnalysis<ScalarEvolutionWrapperPass>().getSE(),
-      getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(),
+      getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F),
       getAnalysis<XmainOptLevelWrapperPass>().getOptLevel()));
 
   return true;
@@ -1115,6 +1115,61 @@ static bool isOutermostConvolutionLoop(const Loop &Lp) {
   return true;
 }
 
+static bool containsInvariantSwitchInInnermostLoop(const Loop *Lp,
+                                                   const Loop *InnermostLp,
+                                                   PostDominatorTree &PDT) {
+
+  // Look for invariant switch in innermost child loop of Lp.
+  for (auto *BB :
+       make_range(InnermostLp->block_begin(), InnermostLp->block_end())) {
+    auto *Term = BB->getTerminator();
+
+    auto *Switch = dyn_cast<SwitchInst>(Term);
+
+    if (!Switch) {
+      continue;
+    }
+
+    auto *CondInst = dyn_cast<Instruction>(Switch->getCondition());
+
+    // Check loop invariance of switch condition w.r.t current loop 'Lp'.
+    if (CondInst && Lp->contains(CondInst->getParent())) {
+      continue;
+    }
+
+    // Check post-domination of switch w.r.t innermost loop's header. This is a
+    // profitability check for high possibility of 'unswitching' of switch.
+    if (!PDT.dominates(BB, InnermostLp->getHeader())) {
+      continue;
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
+static bool containsInvariantSwitchInInnermostLoop(const Loop *Lp,
+                                                   const SCEV *BECount,
+                                                   PostDominatorTree &PDT) {
+  // Only allow countable loops.
+  if (isa<SCEVCouldNotCompute>(BECount)) {
+    return false;
+  }
+
+  const Loop *InnermostLp = Lp;
+  // Recurse into single child loop to get to innermost loop.
+  while (!InnermostLp->empty()) {
+    if (std::distance(InnermostLp->begin(), InnermostLp->end()) != 1) {
+      return false;
+    }
+
+    InnermostLp = *(InnermostLp->begin());
+  }
+
+  return containsInvariantSwitchInInnermostLoop(Lp, InnermostLp, PDT);
+}
+
 bool HIRRegionIdentification::shouldThrottleLoop(
     const Loop &Lp, const SCEV *BECount, bool &ThrottleParentLoop) const {
 
@@ -1122,9 +1177,14 @@ bool HIRRegionIdentification::shouldThrottleLoop(
     return false;
   }
 
-  if ((OptLevel > 2) &&
-      (isOuterConvolutionLoop(Lp, BECount) || isOutermostConvolutionLoop(Lp))) {
-    return false;
+  if (OptLevel > 2) {
+    if (isOuterConvolutionLoop(Lp, BECount) || isOutermostConvolutionLoop(Lp)) {
+      return false;
+    }
+
+    if (containsInvariantSwitchInInnermostLoop(&Lp, BECount, PDT)) {
+      return false;
+    }
   }
 
   CostModelAnalyzer CMA(*this, Lp, BECount, ThrottleParentLoop);

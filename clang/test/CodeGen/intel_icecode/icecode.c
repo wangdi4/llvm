@@ -1,7 +1,7 @@
 // REQUIRES: intel_feature_icecode
 // RUN: %clang_cc1 %s -ffreestanding -triple=x86_icecode-unknown-unknown -emit-llvm -o - -Wall -Werror -pedantic | FileCheck %s
 
-#include <icecode/ceintrin.h>
+#include <immintrin.h>
 
 extern void* mem;
 

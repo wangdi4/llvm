@@ -240,6 +240,7 @@ sw.epilog:
 ; can be packed into a bitmap.
 
 define i32 @crud(i8 zeroext %c)  {
+; INTEL_CUSTOMIZATION
 ; CHECK-LABEL: @crud(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp ult i8 [[C:%.*]], 33
@@ -247,16 +248,16 @@ define i32 @crud(i8 zeroext %c)  {
 ; CHECK:       switch.early.test:
 ; CHECK-NEXT:    [[SWITCH_TABLEIDX:%.*]] = sub i8 [[C]], 34
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult i8 [[SWITCH_TABLEIDX]], 59
-; CHECK-NEXT:    br i1 [[TMP0]], label [[SWITCH_LOOKUP:%.*]], label [[LOR_END]]
-; CHECK:       switch.lookup:
 ; CHECK-NEXT:    [[SWITCH_CAST:%.*]] = zext i8 [[SWITCH_TABLEIDX]] to i59
 ; CHECK-NEXT:    [[SWITCH_SHIFTAMT:%.*]] = mul i59 [[SWITCH_CAST]], 1
 ; CHECK-NEXT:    [[SWITCH_DOWNSHIFT:%.*]] = lshr i59 -288230375765830623, [[SWITCH_SHIFTAMT]]
 ; CHECK-NEXT:    [[SWITCH_MASKED:%.*]] = trunc i59 [[SWITCH_DOWNSHIFT]] to i1
+; CHECK-NEXT:    [[TMP1:%.*]] = select i1 [[TMP0]], i1 [[SWITCH_MASKED]], i1 false
 ; CHECK-NEXT:    br label [[LOR_END]]
 ; CHECK:       lor.end:
-; CHECK-NEXT:    [[TMP1:%.*]] = phi i1 [ true, [[ENTRY:%.*]] ], [ [[SWITCH_MASKED]], [[SWITCH_LOOKUP]] ], [ false, [[SWITCH_EARLY_TEST]] ]
-; CHECK-NEXT:    [[LOR_EXT:%.*]] = zext i1 [[TMP1]] to i32
+; CHECK-NEXT:    [[TMP2:%.*]] = phi i1 [ true, [[ENTRY:%.*]] ], [ [[TMP1]], [[SWITCH_EARLY_TEST]] ]
+; CHECK-NEXT:    [[LOR_EXT:%.*]] = zext i1 [[TMP2]] to i32
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    ret i32 [[LOR_EXT]]
 ;
 entry:
@@ -1437,14 +1438,10 @@ define i32 @no_reuse_cmp2(i32 %x, i32 %y) {
 ; CHECK-LABEL: @no_reuse_cmp2(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[EC:%.*]] = icmp ne i32 [[Y:%.*]], 0
-; CHECK-NEXT:    br i1 [[EC]], label [[SWITCH_ENTRY:%.*]], label [[SW_EPILOG:%.*]]
-; CHECK:       switch.entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult i32 [[X:%.*]], 4
 ; CHECK-NEXT:    [[SWITCH_OFFSET:%.*]] = add i32 [[X]], 10
 ; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[TMP0]], i32 [[SWITCH_OFFSET]], i32 0
-; CHECK-NEXT:    br label [[SW_EPILOG]]
-; CHECK:       sw.epilog:
-; CHECK-NEXT:    [[R_0:%.*]] = phi i32 [ 100, [[ENTRY:%.*]] ], [ [[SPEC_SELECT]], [[SWITCH_ENTRY]] ]
+; CHECK-NEXT:    [[R_0:%.*]] = select i1 [[EC]], i32 [[SPEC_SELECT]], i32 100
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i32 [[R_0]], 0
 ; CHECK-NEXT:    [[DOTR_0:%.*]] = select i1 [[CMP]], i32 100, i32 [[R_0]]
 ; CHECK-NEXT:    ret i32 [[DOTR_0]]

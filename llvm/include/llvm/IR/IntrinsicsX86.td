@@ -5773,11 +5773,11 @@ let TargetPrefix = "x86" in {
   def int_x86_tilezero : GCCBuiltin<"__builtin_ia32_tilezero">,
               Intrinsic<[], [llvm_i8_ty], []>;
   def int_x86_tileloadd64 : GCCBuiltin<"__builtin_ia32_tileloadd64">,
-              Intrinsic<[], [llvm_i8_ty, llvm_i64_ty, llvm_i64_ty], []>;
+              Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty], []>;
   def int_x86_tileloaddt164 : GCCBuiltin<"__builtin_ia32_tileloaddt164">,
-              Intrinsic<[], [llvm_i8_ty, llvm_i64_ty, llvm_i64_ty], []>;
+              Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty], []>;
   def int_x86_tilestored64 : GCCBuiltin<"__builtin_ia32_tilestored64">,
-              Intrinsic<[], [llvm_i8_ty, llvm_i64_ty, llvm_i64_ty], []>;
+              Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty], []>;
   def int_x86_tdpbssd : GCCBuiltin<"__builtin_ia32_tdpbssd">,
               Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], []>;
   def int_x86_tdpbsud : GCCBuiltin<"__builtin_ia32_tdpbsud">,
