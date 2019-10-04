@@ -50,6 +50,30 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unna
 ; CHECK-NEXT:      SUCCESSORS(1):mask_[[REGION2:region[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB8]] [[BB6]]
 ; CHECK-EMPTY:
+; CHECK-NEXT:      REGION: mask_[[REGION2]] (BP: NULL)
+; CHECK-NEXT:      [[BB9:BB[0-9]+]] (BP: NULL) :
+; CHECK-NEXT:       <Empty Block>
+; CHECK-NEXT:       Condition([[BB7]]): [DA: Divergent] i1 [[VP_LOOP_MASK]] = phi  [ i1 [[VP_UNIFORM_TOP_TEST_NOT]], [[BB6]] ],  [ i1 [[VP_LOOP_MASK_NEXT]], [[BB8]] ]
+; CHECK-NEXT:      SUCCESSORS(2):[[BB10:BB[0-9]+]](i1 [[VP_LOOP_MASK]]), [[BB11:BB[0-9]+]](!i1 [[VP_LOOP_MASK]])
+; CHECK-NEXT:      no PREDECESSORS
+; CHECK-EMPTY:
+; CHECK-NEXT:        [[BB10]] (BP: NULL) :
+; CHECK-NEXT:         [DA: Uniform]   i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_INNER_IV]]
+; CHECK-NEXT:         [DA: Uniform]   i64 [[VP_INNER_IV_NEXT]] = add i64 [[VP_INNER_IV]] i64 1
+; CHECK-NEXT:        SUCCESSORS(1):[[BB11]]
+; CHECK-NEXT:        PREDECESSORS(1): [[BB9]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB11]] (BP: NULL) :
+; CHECK-NEXT:       [DA: Divergent] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INNER_IV_NEXT]] i64 [[VP_OUTER_IV]]
+; CHECK-NEXT:       [DA: Divergent] i1 [[VP_EXITCOND_NOT:%.*]] = not i1 [[VP_EXITCOND]]
+; CHECK-NEXT:       [DA: Divergent] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND_NOT]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:       [DA: Uniform]   i1 [[VP0:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
+; CHECK-NEXT:      no SUCCESSORS
+; CHECK-NEXT:      PREDECESSORS(2): [[BB10]] [[BB9]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      SUCCESSORS(1):[[BB8]]
+; CHECK-NEXT:      END Region(mask_[[REGION2]])
+; CHECK-EMPTY:
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

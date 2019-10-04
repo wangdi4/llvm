@@ -626,7 +626,7 @@ void VPlanPredicator::linearizeRegion(
     for (auto &It : EdgeToBlendBBs) {
       auto *IncomingBlock = It.first;
       IncomingBlock->getSuccessors().clear();
-      auto BlendBB = new VPBasicBlock(VPlanUtils::createUniqueName("BlendBB"));
+      auto BlendBB = new VPBasicBlock(VPlanUtils::createUniqueName("blend.bb"));
       BlendBB->setParent(CurrBlock->getParent());
       VPBlockUtils::connectBlocks(IncomingBlock, BlendBB);
       VPBlockUtils::connectBlocks(BlendBB, CurrBlock);

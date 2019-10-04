@@ -33,45 +33,45 @@ define dso_local i32 @main() #0 {
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Uniform]   i32 [[VP_PHI_INNER_LOOP_INDUCTION:%.*]] = phi  [ i32 0, [[BB4]] ],  [ i32 [[VP_INNER_LOOP_INDUCTION:%.*]], [[NEWLOOPLATCH0:NewLoopLatch[0-9]+]] ]
-; CHECK-NEXT:     [DA: Uniform]   i32 [[VP0:%.*]] = phi  [ i32 [[VP1:%.*]], [[NEWLOOPLATCH0]] ],  [ i32 0, [[BB4]] ]
+; CHECK-NEXT:     [DA: Uniform]   i32 [[VP_PHI_INNER_LOOP_INDUCTION:%.*]] = phi  [ i32 0, [[BB4]] ],  [ i32 [[VP_INNER_LOOP_INDUCTION:%.*]], [[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]] ]
+; CHECK-NEXT:     [DA: Uniform]   i32 [[VP0:%.*]] = phi  [ i32 [[VP1:%.*]], [[NEW_LOOP_LATCH0]] ],  [ i32 0, [[BB4]] ]
 ; CHECK-NEXT:     [DA: Uniform]   i32 [[VP_INNER_LOOP_INDUCTION]] = add i32 [[VP_PHI_INNER_LOOP_INDUCTION]] i32 1
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_CMP1:%.*]] = icmp i32 [[VP_INNER_LOOP_INDUCTION]] i32 16
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB6:BB[0-9]+]](i1 [[VP_CMP1]]), [[BB7:BB[0-9]+]](!i1 [[VP_CMP1]])
-; CHECK-NEXT:    PREDECESSORS(2): [[NEWLOOPLATCH0]] [[BB4]]
+; CHECK-NEXT:    PREDECESSORS(2): [[NEW_LOOP_LATCH0]] [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB7]] (BP: NULL) :
 ; CHECK-NEXT:       [DA: Uniform]   i32 [[VP_INC1:%.*]] = add i32 [[VP_PHI_INNER_LOOP_INDUCTION]] i32 2
 ; CHECK-NEXT:       [DA: Uniform]   i1 [[VP_CMP3:%.*]] = icmp i32 [[VP_INC1]] i32 16
-; CHECK-NEXT:      SUCCESSORS(2):[[BB6]](i1 [[VP_CMP3]]), [[INTERMEDIATEBB0:IntermediateBB[0-9]+]](!i1 [[VP_CMP3]])
+; CHECK-NEXT:      SUCCESSORS(2):[[BB6]](i1 [[VP_CMP3]]), [[INTERMEDIATE_BB0:intermediate.bb[0-9]+]](!i1 [[VP_CMP3]])
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]] (BP: NULL) :
 ; CHECK-NEXT:       [DA: Uniform]   i32 [[VP_INC2:%.*]] = add i32 [[VP_PHI_INNER_LOOP_INDUCTION]] i32 1
 ; CHECK-NEXT:       [DA: Uniform]   i1 [[VP_CMP2:%.*]] = icmp i32 [[VP_INC2]] i32 16
-; CHECK-NEXT:      SUCCESSORS(2):[[BB8:BB[0-9]+]](i1 [[VP_CMP2]]), [[INTERMEDIATEBB0]](!i1 [[VP_CMP2]])
+; CHECK-NEXT:      SUCCESSORS(2):[[BB8:BB[0-9]+]](i1 [[VP_CMP2]]), [[INTERMEDIATE_BB0]](!i1 [[VP_CMP2]])
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB7]] [[BB5]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[INTERMEDIATEBB0]] (BP: NULL) :
+; CHECK-NEXT:      [[INTERMEDIATE_BB0]] (BP: NULL) :
 ; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:      SUCCESSORS(1):[[NEWLOOPLATCH0]]
+; CHECK-NEXT:      SUCCESSORS(1):[[NEW_LOOP_LATCH0]]
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB7]] [[BB6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB8]] (BP: NULL) :
 ; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:      SUCCESSORS(1):[[NEWLOOPLATCH0]]
+; CHECK-NEXT:      SUCCESSORS(1):[[NEW_LOOP_LATCH0]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB6]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[NEWLOOPLATCH0]] (BP: NULL) :
-; CHECK-NEXT:     [DA: Uniform]   i32 [[VP1]] = phi  [ i32 [[VP0]], [[BB8]] ],  [ i32 1, [[INTERMEDIATEBB0]] ]
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_TAKEBACKEDGECOND:%.*]] = phi  [ i1 true, [[BB8]] ],  [ i1 false, [[INTERMEDIATEBB0]] ]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB5]](i1 [[VP_TAKEBACKEDGECOND]]), [[BB9:BB[0-9]+]](!i1 [[VP_TAKEBACKEDGECOND]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB8]] [[INTERMEDIATEBB0]]
+; CHECK-NEXT:    [[NEW_LOOP_LATCH0]] (BP: NULL) :
+; CHECK-NEXT:     [DA: Uniform]   i32 [[VP1]] = phi  [ i32 [[VP0]], [[BB8]] ],  [ i32 1, [[INTERMEDIATE_BB0]] ]
+; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_TAKE_BACKEDGE_COND:%.*]] = phi  [ i1 true, [[BB8]] ],  [ i1 false, [[INTERMEDIATE_BB0]] ]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB5]](i1 [[VP_TAKE_BACKEDGE_COND]]), [[BB9:BB[0-9]+]](!i1 [[VP_TAKE_BACKEDGE_COND]])
+; CHECK-NEXT:    PREDECESSORS(2): [[BB8]] [[INTERMEDIATE_BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
-; CHECK-NEXT:    PREDECESSORS(1): [[NEWLOOPLATCH0]]
+; CHECK-NEXT:    PREDECESSORS(1): [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP_OUTER_LOOP_INDUCTION]] = add i32 [[VP_PHI_OUTER_LOOP_INDUCTION]] i32 1

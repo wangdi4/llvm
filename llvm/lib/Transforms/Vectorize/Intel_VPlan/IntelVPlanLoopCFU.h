@@ -356,7 +356,7 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
 
     LLVM_DEBUG(
         dbgs() << "Subloop after inner loop control flow transformation\n");
-    LLVM_DEBUG(SubLoopRegion->dump(dbgs(), 0));
+    LLVM_DEBUG(SubLoopRegion->dump());
   }
 }
 #endif // INTEL_CUSTOMIZATION

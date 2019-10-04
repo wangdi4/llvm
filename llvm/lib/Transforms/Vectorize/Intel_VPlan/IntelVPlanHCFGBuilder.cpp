@@ -498,7 +498,7 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   // Step 1 : Creates a new loop latch and fills it with all the necessary
   // instructions.
   VPBasicBlock *NewLoopLatch =
-      new VPBasicBlock(VPlanUtils::createUniqueName("NewLoopLatch"));
+      new VPBasicBlock(VPlanUtils::createUniqueName("new.loop.latch"));
   OrigLoopLatch->moveConditionalEOBTo(NewLoopLatch);
   VPBlockUtils::insertBlockAfter(NewLoopLatch, OrigLoopLatch);
   VPL->addBasicBlockToLoop(NewLoopLatch, *VPLInfo);
@@ -517,7 +517,8 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   VPPHINode *VPPhi = VPBldr.createPhiInstruction(Ty32);
   // This phi node is a marker of the backedge. It shows if the backedge is
   // taken.
-  VPPHINode *NewCondBit = VPBldr.createPhiInstruction(Ty1, "TakeBackedgeCond");
+  VPPHINode *NewCondBit =
+      VPBldr.createPhiInstruction(Ty1, "take.backedge.cond");
   if (LatchExitBlock) {
     VPInstruction *OldCondBit =
         dyn_cast<VPInstruction>(NewLoopLatch->getCondBit());
@@ -572,7 +573,7 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
       VPBasicBlock *NewExitingBB = nullptr;
       if (ExitingBlock == LoopHeader) {
         NewExitingBB =
-            new VPBasicBlock(VPlanUtils::createUniqueName("IntermediateBB"));
+            new VPBasicBlock(VPlanUtils::createUniqueName("intermediate.bb"));
         VPL->addBasicBlockToLoop(NewExitingBB, *VPLInfo);
         VPRegionBlock *Parent = LoopHeader->getParent();
         NewExitingBB->setParent(Parent);
@@ -634,7 +635,7 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
       }
 
       VPBasicBlock *NewBlock =
-          new VPBasicBlock(VPlanUtils::createUniqueName("IntermediateBB"));
+          new VPBasicBlock(VPlanUtils::createUniqueName("intermediate.bb"));
       VPRegionBlock *Parent = ExitingBlock->getParent();
       NewBlock->setParent(Parent);
       Parent->setSize(Parent->getSize() + 1);
@@ -669,7 +670,7 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   // in case 2.
   if (ExitBlocks.size() > 1) {
     VPBasicBlock *IfBlock =
-        new VPBasicBlock(VPlanUtils::createUniqueName("CascadedIfBlock"));
+        new VPBasicBlock(VPlanUtils::createUniqueName("cascaded.if.block"));
     VPRegionBlock *Parent = NewLoopLatch->getParent();
     IfBlock->setParent(Parent);
     Parent->setSize(Parent->getSize() + 1);
@@ -691,7 +692,8 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
       VPBasicBlock *NextIfBlock = nullptr;
       // Emit cascaded if blocks.
       if (i != end - 1) {
-        NextIfBlock = new VPBasicBlock(VPlanUtils::createUniqueName("CascadedIfBlock"));
+        NextIfBlock =
+            new VPBasicBlock(VPlanUtils::createUniqueName("cascaded.if.block"));
         NextIfBlock->setParent(Parent);
         Parent->setSize(Parent->getSize() + 1);
         ParentLoop->addBasicBlockToLoop(NextIfBlock, *VPLInfo);
@@ -901,7 +903,7 @@ void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
   VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
   VPBasicBlock *NewLoopLatch = VPBlockUtils::splitBlock(
       OrigLoopLatch, VPLInfo, VPDomTree, VPPostDomTree);
-  NewLoopLatch->setName(VPlanUtils::createUniqueName("NewLoopLatch"));
+  NewLoopLatch->setName(VPlanUtils::createUniqueName("new.loop.latch"));
   // Update the control-flow for the ExitingBlock, the NewLoopLatch and the
   // ExitBlock.
   VPBlockBase *ExitingBlock = VPL->getExitingBlock();

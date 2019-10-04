@@ -2181,24 +2181,14 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAsOperand(raw_ostream &OS, bool PrintType) const {
-    formatted_raw_ostream FOS(OS);
-    print(FOS, 0);
+    (void)PrintType;
+    OS << getName();
   }
 
-  void print(raw_ostream &OS) const {
-    formatted_raw_ostream FOS(OS);
-    print(FOS, 0);
-  }
+  void print(raw_ostream &OS, unsigned Indent = 0,
+             const VPlanDivergenceAnalysis *DA = nullptr) const;
 
-  void print(formatted_raw_ostream &OS, unsigned Depth) const {
-    std::string Indent((Depth * 4), ' ');
-    OS << Indent << getName();
-  }
-
-  virtual void dump() const = 0;
-
-  virtual void dump(raw_ostream &OS, unsigned Indent = 0,
-                    const VPlanDivergenceAnalysis *DA = nullptr) const = 0;
+  void dump() const { print(dbgs()); };
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // Iterators and types to access Successors of a VPBlockBase
@@ -2511,9 +2501,8 @@ public:
     return make_range(It, ItEnd);
   }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void dump() const override;
-  void dump(raw_ostream &OS, unsigned Indent = 0,
-            const VPlanDivergenceAnalysis *DA = nullptr) const override;
+  void print(raw_ostream &OS, unsigned Indent = 0,
+             const VPlanDivergenceAnalysis *DA = nullptr) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   void setCBlock(BasicBlock *CB) { CBlock = CB; }
   void setFBlock(BasicBlock *FB) { FBlock = FB; }
@@ -2681,9 +2670,8 @@ public:
   void computePDT(void);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void dump() const override;
-  void dump(raw_ostream &OS, unsigned Indent = 0,
-            const VPlanDivergenceAnalysis *DA = nullptr) const override;
+  void print(raw_ostream &OS, unsigned Indent = 0,
+             const VPlanDivergenceAnalysis *DA = nullptr) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
@@ -3178,15 +3166,10 @@ inline raw_ostream &operator<<(raw_ostream &OS,
   P.dump(OS);
   return OS;
 }
-inline raw_ostream &operator<<(raw_ostream &OS, const VPBasicBlock &BB) {
-  BB.dump(OS, 2);
+inline raw_ostream &operator<<(raw_ostream &OS, const VPBlockBase &BB) {
+  BB.print(OS, 2);
   return OS;
 }
-inline raw_ostream &operator<<(raw_ostream &OS, const VPRegionBlock &RB) {
-  RB.dump(OS, 2);
-  return OS;
-}
-
 #endif // INTEL_CUSTOMIZATION
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 

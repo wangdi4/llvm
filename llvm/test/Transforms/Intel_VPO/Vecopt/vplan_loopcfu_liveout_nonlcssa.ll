@@ -81,12 +81,12 @@ define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_inner_loop) 
 ; CHECK-NEXT:        [[BB13:BB[0-9]+]] (BP: NULL) :
 ; CHECK-NEXT:         <Empty Block>
 ; CHECK-NEXT:         Condition([[BB11]]): [DA: Uniform]   i1 [[VP_SOME_CMP]] = icmp i64 [[VP_LD]] i64 42
-; CHECK-NEXT:        SUCCESSORS(2):[[INTERMEDIATE_BB0:IntermediateBB[0-9]+]](i1 [[VP_SOME_CMP]]), [[BB14:BB[0-9]+]](!i1 [[VP_SOME_CMP]])
+; CHECK-NEXT:        SUCCESSORS(2):[[INTERMEDIATE_BB0:intermediate.bb[0-9]+]](i1 [[VP_SOME_CMP]]), [[BB14:BB[0-9]+]](!i1 [[VP_SOME_CMP]])
 ; CHECK-NEXT:        no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:          [[BB14]] (BP: NULL) :
 ; CHECK-NEXT:           [DA: Divergent] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INNER_IV_NEXT]] i64 [[VP_OUTER_IV]]
-; CHECK-NEXT:          SUCCESSORS(1):[[NEW_LOOP_LATCH0:NewLoopLatch[0-9]+]]
+; CHECK-NEXT:          SUCCESSORS(1):[[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]]
 ; CHECK-NEXT:          PREDECESSORS(1): [[BB13]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:          [[INTERMEDIATE_BB0]] (BP: NULL) :
@@ -99,7 +99,7 @@ define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_inner_loop) 
 ; CHECK-NEXT:         [DA: Divergent] i1 [[VP_NO_PHI_INST_USE:%.*]] = phi  [ i1 [[VP_SOME_CMP]], [[INTERMEDIATE_BB0]] ],  [ i1 false, [[BB14]] ]
 ; CHECK-NEXT:         [DA: Divergent] i64 [[VP_PHI_UPDATE_USE:%.*]] = phi  [ i64 [[VP_INNER_IV_NEXT]], [[INTERMEDIATE_BB0]] ],  [ i64 100, [[BB14]] ]
 ; CHECK-NEXT:         [DA: Divergent] i64 [[VP_PHI_USE:%.*]] = phi  [ i64 [[VP_INNER_IV]], [[INTERMEDIATE_BB0]] ],  [ i64 100, [[BB14]] ]
-; CHECK-NEXT:         [DA: Divergent] i1 [[VP_TAKEBACKEDGECOND:%.*]] = phi  [ i1 [[VP_EXITCOND]], [[BB14]] ],  [ i1 true, [[INTERMEDIATE_BB0]] ]
+; CHECK-NEXT:         [DA: Divergent] i1 [[VP_TAKE_BACKEDGE_COND:%.*]] = phi  [ i1 [[VP_EXITCOND]], [[BB14]] ],  [ i1 true, [[INTERMEDIATE_BB0]] ]
 ; CHECK-NEXT:        no SUCCESSORS
 ; CHECK-NEXT:        PREDECESSORS(2): [[BB14]] [[INTERMEDIATE_BB0]]
 ; CHECK-EMPTY:
@@ -107,8 +107,8 @@ define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_inner_loop) 
 ; CHECK-NEXT:        END Region([[REGION3]])
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB12]] (BP: NULL) :
-; CHECK-NEXT:       [DA: Divergent] i1 [[VP_TAKEBACKEDGECOND_NOT:%.*]] = not i1 [[VP_TAKEBACKEDGECOND]]
-; CHECK-NEXT:       [DA: Divergent] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_TAKEBACKEDGECOND_NOT]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:       [DA: Divergent] i1 [[VP_TAKE_BACKEDGE_COND_NOT:%.*]] = not i1 [[VP_TAKE_BACKEDGE_COND]]
+; CHECK-NEXT:       [DA: Divergent] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_TAKE_BACKEDGE_COND_NOT]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:       [DA: Divergent] i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_NO_PHI_INST_USE]] i1 [[VP_NO_PHI_INST_USE_LIVE_OUT_PREV]]
 ; CHECK-NEXT:       [DA: Divergent] i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i64 [[VP_PHI_UPDATE_USE]] i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_PREV]]
 ; CHECK-NEXT:       [DA: Divergent] i64 [[VP_PHI_USE_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i64 [[VP_PHI_USE]] i64 [[VP_PHI_USE_LIVE_OUT_PREV]]

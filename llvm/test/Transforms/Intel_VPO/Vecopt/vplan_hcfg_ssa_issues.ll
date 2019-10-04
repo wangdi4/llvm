@@ -83,17 +83,17 @@ define dso_local void @header_use(i64 %N, i64 *%a, i64 %mask_out_inner_loop) loc
 ; CHECK-NEXT:     [DA: Uniform]   i64 [[VP_DEF]] = add i64 [[N0]] i64 1
 ; CHECK-NEXT:     [DA: Uniform]   i64 [[VP_INNER_IV_NEXT]] = add i64 [[VP_INNER_IV]] i64 1
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INNER_IV_NEXT]] i64 42
-; CHECK-NEXT:    SUCCESSORS(1):[[INTERMEDIATE_BB0:IntermediateBB[0-9]+]]
+; CHECK-NEXT:    SUCCESSORS(1):[[INTERMEDIATE_BB0:intermediate.bb[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB10]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[INTERMEDIATE_BB0]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP6:%.*]] = block-predicate i1 [[VP_BB7_BR_VP_SIDEEXIT_CMP]]
-; CHECK-NEXT:    SUCCESSORS(1):[[NEW_LOOP_LATCH0:NewLoopLatch[0-9]+]]
+; CHECK-NEXT:    SUCCESSORS(1):[[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB11]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[NEW_LOOP_LATCH0]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Uniform]   i32 [[VP1]] = phi  [ i32 [[VP0]], [[BB11]] ],  [ i32 1, [[INTERMEDIATE_BB0]] ]
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_TAKEBACKEDGECOND:%.*]] = phi  [ i1 [[VP_EXITCOND]], [[BB11]] ],  [ i1 true, [[INTERMEDIATE_BB0]] ]
+; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_TAKE_BACKEDGE_COND:%.*]] = phi  [ i1 [[VP_EXITCOND]], [[BB11]] ],  [ i1 true, [[INTERMEDIATE_BB0]] ]
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[INTERMEDIATE_BB0]]
 ; CHECK-EMPTY:
@@ -102,8 +102,8 @@ define dso_local void @header_use(i64 %N, i64 *%a, i64 %mask_out_inner_loop) loc
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:     Condition([[NEW_LOOP_LATCH0]]): [DA: Uniform]   i1 [[VP_TAKEBACKEDGECOND]] = phi  [ i1 [[VP_EXITCOND]], [[BB11]] ],  [ i1 true, [[INTERMEDIATE_BB0]] ]
-; CHECK-NEXT:    SUCCESSORS(2):[[CASCADED_IF_BLOCK0:CascadedIfBlock[0-9]+]](i1 [[VP_TAKEBACKEDGECOND]]), [[BB5]](!i1 [[VP_TAKEBACKEDGECOND]])
+; CHECK-NEXT:     Condition([[NEW_LOOP_LATCH0]]): [DA: Uniform]   i1 [[VP_TAKE_BACKEDGE_COND]] = phi  [ i1 [[VP_EXITCOND]], [[BB11]] ],  [ i1 true, [[INTERMEDIATE_BB0]] ]
+; CHECK-NEXT:    SUCCESSORS(2):[[CASCADED_IF_BLOCK0:cascaded.if.block[0-9]+]](i1 [[VP_TAKE_BACKEDGE_COND]]), [[BB5]](!i1 [[VP_TAKE_BACKEDGE_COND]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[REGION1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[CASCADED_IF_BLOCK0]] (BP: NULL) :
@@ -277,18 +277,18 @@ define dso_local void @side_exit_use(i64 %N, i64 *%a, i64 %mask_out_inner_loop) 
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP5:%.*]] = block-predicate i1 [[VP4]]
 ; CHECK-NEXT:     [DA: Uniform]   i64 [[VP_INNER_IV_NEXT]] = add i64 [[VP_INNER_IV]] i64 1
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INNER_IV_NEXT]] i64 42
-; CHECK-NEXT:    SUCCESSORS(1):[[INTERMEDIATE_BB0:IntermediateBB[0-9]+]]
+; CHECK-NEXT:    SUCCESSORS(1):[[INTERMEDIATE_BB0:intermediate.bb[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB10]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[INTERMEDIATE_BB0]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Uniform]   i64 [[VP_EXIT_USE:%.*]] = phi  [ i64 [[VP_DEF]], [[BB9]] ]
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP6:%.*]] = block-predicate i1 [[VP_BB7_BR_VP_SIDEEXIT_CMP]]
-; CHECK-NEXT:    SUCCESSORS(1):[[NEW_LOOP_LATCH0:NewLoopLatch[0-9]+]]
+; CHECK-NEXT:    SUCCESSORS(1):[[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB11]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[NEW_LOOP_LATCH0]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Uniform]   i32 [[VP1]] = phi  [ i32 [[VP0]], [[BB11]] ],  [ i32 1, [[INTERMEDIATE_BB0]] ]
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_TAKEBACKEDGECOND:%.*]] = phi  [ i1 [[VP_EXITCOND]], [[BB11]] ],  [ i1 true, [[INTERMEDIATE_BB0]] ]
+; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_TAKE_BACKEDGE_COND:%.*]] = phi  [ i1 [[VP_EXITCOND]], [[BB11]] ],  [ i1 true, [[INTERMEDIATE_BB0]] ]
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[INTERMEDIATE_BB0]]
 ; CHECK-EMPTY:
@@ -297,8 +297,8 @@ define dso_local void @side_exit_use(i64 %N, i64 *%a, i64 %mask_out_inner_loop) 
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:     Condition([[NEW_LOOP_LATCH0]]): [DA: Uniform]   i1 [[VP_TAKEBACKEDGECOND]] = phi  [ i1 [[VP_EXITCOND]], [[BB11]] ],  [ i1 true, [[INTERMEDIATE_BB0]] ]
-; CHECK-NEXT:    SUCCESSORS(2):[[CASCADED_IF_BLOCK0:CascadedIfBlock[0-9]+]](i1 [[VP_TAKEBACKEDGECOND]]), [[BB5]](!i1 [[VP_TAKEBACKEDGECOND]])
+; CHECK-NEXT:     Condition([[NEW_LOOP_LATCH0]]): [DA: Uniform]   i1 [[VP_TAKE_BACKEDGE_COND]] = phi  [ i1 [[VP_EXITCOND]], [[BB11]] ],  [ i1 true, [[INTERMEDIATE_BB0]] ]
+; CHECK-NEXT:    SUCCESSORS(2):[[CASCADED_IF_BLOCK0:cascaded.if.block[0-9]+]](i1 [[VP_TAKE_BACKEDGE_COND]]), [[BB5]](!i1 [[VP_TAKE_BACKEDGE_COND]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[REGION1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[CASCADED_IF_BLOCK0]] (BP: NULL) :
@@ -472,17 +472,17 @@ define dso_local void @exit_use(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local
 ; CHECK-NEXT:     [DA: Uniform]   i64 [[VP_DEF:%.*]] = add i64 [[N0]] i64 1
 ; CHECK-NEXT:     [DA: Uniform]   i64 [[VP_INNER_IV_NEXT]] = add i64 [[VP_INNER_IV]] i64 1
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INNER_IV_NEXT]] i64 42
-; CHECK-NEXT:    SUCCESSORS(1):[[INTERMEDIATE_BB0:IntermediateBB[0-9]+]]
+; CHECK-NEXT:    SUCCESSORS(1):[[INTERMEDIATE_BB0:intermediate.bb[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB10]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[INTERMEDIATE_BB0]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP6:%.*]] = block-predicate i1 [[VP_BB7_BR_VP_SIDEEXIT_CMP]]
-; CHECK-NEXT:    SUCCESSORS(1):[[NEW_LOOP_LATCH0:NewLoopLatch[0-9]+]]
+; CHECK-NEXT:    SUCCESSORS(1):[[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB11]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[NEW_LOOP_LATCH0]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Uniform]   i32 [[VP1]] = phi  [ i32 [[VP0]], [[BB11]] ],  [ i32 1, [[INTERMEDIATE_BB0]] ]
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_TAKEBACKEDGECOND:%.*]] = phi  [ i1 [[VP_EXITCOND]], [[BB11]] ],  [ i1 true, [[INTERMEDIATE_BB0]] ]
+; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_TAKE_BACKEDGE_COND:%.*]] = phi  [ i1 [[VP_EXITCOND]], [[BB11]] ],  [ i1 true, [[INTERMEDIATE_BB0]] ]
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[INTERMEDIATE_BB0]]
 ; CHECK-EMPTY:
@@ -491,8 +491,8 @@ define dso_local void @exit_use(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:     Condition([[NEW_LOOP_LATCH0]]): [DA: Uniform]   i1 [[VP_TAKEBACKEDGECOND]] = phi  [ i1 [[VP_EXITCOND]], [[BB11]] ],  [ i1 true, [[INTERMEDIATE_BB0]] ]
-; CHECK-NEXT:    SUCCESSORS(2):[[CASCADED_IF_BLOCK0:CascadedIfBlock[0-9]+]](i1 [[VP_TAKEBACKEDGECOND]]), [[BB5]](!i1 [[VP_TAKEBACKEDGECOND]])
+; CHECK-NEXT:     Condition([[NEW_LOOP_LATCH0]]): [DA: Uniform]   i1 [[VP_TAKE_BACKEDGE_COND]] = phi  [ i1 [[VP_EXITCOND]], [[BB11]] ],  [ i1 true, [[INTERMEDIATE_BB0]] ]
+; CHECK-NEXT:    SUCCESSORS(2):[[CASCADED_IF_BLOCK0:cascaded.if.block[0-9]+]](i1 [[VP_TAKE_BACKEDGE_COND]]), [[BB5]](!i1 [[VP_TAKE_BACKEDGE_COND]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[REGION1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[CASCADED_IF_BLOCK0]] (BP: NULL) :
@@ -660,14 +660,14 @@ define dso_local void @no_ssa_breakage(i64 %N, i64 *%a, i64 %mask_out_inner_loop
 ; CHECK-NEXT:       [DA: Uniform]   i1 [[VP_BB7_BR_VP_SIDEEXIT_CMP_NOT:%.*]] = and i1 [[VP_CMP]] i1 [[VP_SIDEEXIT_CMP_NOT]]
 ; CHECK-NEXT:       [DA: Uniform]   i1 [[VP_BB7_BR_VP_SIDEEXIT_CMP:%.*]] = and i1 [[VP_CMP]] i1 [[VP_SIDEEXIT_CMP]]
 ; CHECK-NEXT:       Condition([[BB8]]): [DA: Uniform]   i1 [[VP_SIDEEXIT_CMP]] = icmp i64 [[N0]] i64 13
-; CHECK-NEXT:      SUCCESSORS(2):[[INTERMEDIATE_BB0:IntermediateBB[0-9]+]](i1 [[VP_SIDEEXIT_CMP]]), [[BB10]](!i1 [[VP_SIDEEXIT_CMP]])
+; CHECK-NEXT:      SUCCESSORS(2):[[INTERMEDIATE_BB0:intermediate.bb[0-9]+]](i1 [[VP_SIDEEXIT_CMP]]), [[BB10]](!i1 [[VP_SIDEEXIT_CMP]])
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB10]] (BP: NULL) :
 ; CHECK-NEXT:       [DA: Uniform]   i1 [[VP_BB7_BR_VP_SIDEEXIT_CMP_NOT_PHI_BB9:%.*]] = phi  [ i1 false, [[BB9]] ],  [ i1 [[VP_BB7_BR_VP_SIDEEXIT_CMP_NOT]], [[BB11]] ]
 ; CHECK-NEXT:       [DA: Uniform]   i1 [[VP2:%.*]] = or i1 [[VP_BB7_BR_VP_SIDEEXIT_CMP_NOT_PHI_BB9]] i1 [[VP_CMP_NOT]]
 ; CHECK-NEXT:       [DA: Uniform]   i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INNER_IV_NEXT]] i64 42
-; CHECK-NEXT:      SUCCESSORS(1):[[NEW_LOOP_LATCH0:NewLoopLatch[0-9]+]]
+; CHECK-NEXT:      SUCCESSORS(1):[[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB9]] [[BB11]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[INTERMEDIATE_BB0]] (BP: NULL) :
@@ -677,7 +677,7 @@ define dso_local void @no_ssa_breakage(i64 %N, i64 *%a, i64 %mask_out_inner_loop
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[NEW_LOOP_LATCH0]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Uniform]   i32 [[VP1]] = phi  [ i32 [[VP0]], [[BB10]] ],  [ i32 1, [[INTERMEDIATE_BB0]] ]
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_TAKEBACKEDGECOND:%.*]] = phi  [ i1 [[VP_EXITCOND]], [[BB10]] ],  [ i1 true, [[INTERMEDIATE_BB0]] ]
+; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_TAKE_BACKEDGE_COND:%.*]] = phi  [ i1 [[VP_EXITCOND]], [[BB10]] ],  [ i1 true, [[INTERMEDIATE_BB0]] ]
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB10]] [[INTERMEDIATE_BB0]]
 ; CHECK-EMPTY:
@@ -686,8 +686,8 @@ define dso_local void @no_ssa_breakage(i64 %N, i64 *%a, i64 %mask_out_inner_loop
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:     Condition([[NEW_LOOP_LATCH0]]): [DA: Uniform]   i1 [[VP_TAKEBACKEDGECOND]] = phi  [ i1 [[VP_EXITCOND]], [[BB10]] ],  [ i1 true, [[INTERMEDIATE_BB0]] ]
-; CHECK-NEXT:    SUCCESSORS(2):[[CASCADED_IF_BLOCK0:CascadedIfBlock[0-9]+]](i1 [[VP_TAKEBACKEDGECOND]]), [[BB5]](!i1 [[VP_TAKEBACKEDGECOND]])
+; CHECK-NEXT:     Condition([[NEW_LOOP_LATCH0]]): [DA: Uniform]   i1 [[VP_TAKE_BACKEDGE_COND]] = phi  [ i1 [[VP_EXITCOND]], [[BB10]] ],  [ i1 true, [[INTERMEDIATE_BB0]] ]
+; CHECK-NEXT:    SUCCESSORS(2):[[CASCADED_IF_BLOCK0:cascaded.if.block[0-9]+]](i1 [[VP_TAKE_BACKEDGE_COND]]), [[BB5]](!i1 [[VP_TAKE_BACKEDGE_COND]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[REGION1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[CASCADED_IF_BLOCK0]] (BP: NULL) :
