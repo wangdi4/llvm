@@ -60,7 +60,7 @@ class TestBarriers(DebuggerTestCase):
         self.assertEqual(self.client.debug_run([bp]), bp)
         # initiallized to 0,1,2,3 and cell 0 was incremented 32 times by each WI
         # GDB and simulator clients print arrays with different notations...
-        if self.use_gdb:
+        if self.use_gdb or self.use_cdb:
             self.assertEqual(self.client.var_query_value('local_arr'), '32,1,1,1')
         else:
             self.assertEqual(self.client.var_query_value('local_arr'), '[32|1|1|1]')

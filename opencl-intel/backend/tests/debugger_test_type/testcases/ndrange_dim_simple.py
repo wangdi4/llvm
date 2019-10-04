@@ -1,7 +1,8 @@
-from testlib.debuggertestcase import DebuggerTestCase, expectedFailureGDB
+from testlib.debuggertestcase import DebuggerTestCase, expectedFailureGDB, expectedFailureCDB
 
 
 class NDRangeDimSimple(DebuggerTestCase):
+    @expectedFailureCDB
     def test_ndrange_1d_dimensions(self):
         # 16 work items, 8 per group ==> 2 groups
         # WI 13 is then in WG 2, and its local ID there is 5
@@ -32,6 +33,7 @@ class NDRangeDimSimple(DebuggerTestCase):
 
         self.client.debug_run_finish()
 
+    @expectedFailureCDB
     def test_ndrange_2d_dimensions(self):
         # x: 16 work items, 2 per group ==> 8 groups
         #    WI 13 is then in WG 6, and its local ID there is 1
@@ -75,6 +77,7 @@ class NDRangeDimSimple(DebuggerTestCase):
     # Expected to fail due to CSSD100014059
     # In larger kernels like this one, the overhead to evaluate a conditional
     # breakpoint causes a timeout.
+    @expectedFailureCDB
     @expectedFailureGDB
     def test_ndrange_3d_dimensions(self):
         # x: 16 work items, 2 per group ==> 8 groups

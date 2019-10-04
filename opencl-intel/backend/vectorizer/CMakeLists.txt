@@ -12,6 +12,7 @@ include_directories(BEFORE "ChooseVectorizationDimension")
 
 include_directories(
   ${LLVM_INCLUDE_DIRS}
+  ${CL_API_HEADERS}
   ${BACKEND_ROOT_DIR}/arch_headers
   ${BACKEND_ROOT_DIR}/reflection_module
   ${BACKEND_ROOT_DIR}/name_mangling
@@ -122,5 +123,7 @@ add_dependencies(${TARGET_NAME} LoopUtils OclBackendUtils)
 set( BACKEND_PASSES_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/passes )
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_PASSES_FOLDER_NAME})
 
-set_property( GLOBAL APPEND PROPERTY LLVM_LIBS ${TARGET_NAME} )
+if (NOT OPENCL_INTREE_BUILD)
+  set_property( GLOBAL APPEND PROPERTY LLVM_LIBS ${TARGET_NAME} )
+endif()
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_PASSES_FOLDER_NAME})

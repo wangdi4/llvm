@@ -44,12 +44,12 @@ def timelimited(timeout, function, *args, **kwds):
             try:
                 self._result_ = function(*args, **kwds)
                 self._error_ = None
-            except Exception, e:
+            except Exception as e:
                 self._error_ = e
 
         def _stop(self):
             # force the thread to stop by (ab)using the private __stop method
-            if self.isAlive():
+            if not self._is_stopped:
                 _Thread_stop(self)
 
     if not hasattr(function, '__call__'):
@@ -80,12 +80,12 @@ if __name__ == "__main__":
     import time
 
     def waiter(arg):
-        print 'got', arg
+        print('got', arg)
         time.sleep(3)
         return arg + 2
 
     try:
         result = timelimited(2, waiter, 72)
-        print 'result =', result
+        print('result =', result)
     except TimeLimitExpired as e:
-        print 'time limit expired'
+        print('time limit expired')

@@ -597,8 +597,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     ///
     /// @return function declaration Function* (if import succeed) or a
     /// bitcast if a function with the same name, but different type, is
-    /// already exist in the \p Dst.
-    static Function *importFunctionDecl(Module *Dst, const Function *Orig);
+    /// already exist in the \p Dst. If \DuplicateIfExists is true and
+    /// a declaration of the imported function already exists in the module
+    /// importFunctionDecl will create a new (duplicated) declaration.
+    static Function *importFunctionDecl(Module *Dst, const Function *Orig,
+                                        bool DuplicateIfExists = false);
 
     /// Check if at least one of the image types is defined in the module
     static bool isImagesUsed(const Module &M);

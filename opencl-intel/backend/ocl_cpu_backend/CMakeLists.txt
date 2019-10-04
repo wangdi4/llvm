@@ -1,8 +1,3 @@
-if( NOT DEFINED LLVM_PATH_FE )
-    message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM library location for backend using LLVM_PATH_FE parameter to CMAKE" )
-endif()
-set (LLVM_FE_INCLUDE_DIRS ${LLVM_PATH_FE}/include)
-
 set(TARGET_NAME OclCpuBackEnd${BUILD_PLATFORM})
 project(${TARGET_NAME})
 add_subdirectory(emutls)
@@ -21,7 +16,10 @@ set(OCL_CPU_BACKEND_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 # Settings for Linux compilation
 #
 if (NOT WIN32)
-    set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Werror -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-unused-function")
+    set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-unused-function")
+    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+      set ( WARNING_LEVEL "${WARNING_LEVEL} -Werror")
+    endif()
 
     # Compiler switches that CANNOT be modified during makefile generation
     set (ADD_COMMON_C_FLAGS  "-msse3 -mssse3 -fPIC -fdiagnostics-show-option -funsigned-bitfields")
@@ -181,6 +179,18 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     opencl_cpu_printf_ext.cpp
     opencl_printf_ext.cpp
   )
+if (WIN32)
+    list(APPEND OCL_CPU_BACKEND_INCLUDE_FILES
+        LLDJITBuilder.h
+        LLDJIT.h
+        AsmCompiler.h
+    )
+    list(APPEND OCL_CPU_BACKEND_SOURCE_FILES
+        LLDJITBuilder.cpp
+        LLDJIT.cpp
+        AsmCompiler.cpp
+    )
+endif (WIN32)
 
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     if (WIN32)
@@ -194,7 +204,7 @@ endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 # Add include directories
 set (INCLUDE_DIRS
     ${LLVM_INCLUDE_DIRS}
-    ${LLVM_FE_INCLUDE_DIRS}/cclang
+    ${CL_API_HEADERS}
     ${OCL_CPU_BACKEND_DIR}
     ${OCL_SOURCE_DIR}/utils/cache_binary_handler
     ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
@@ -208,7 +218,6 @@ set (INCLUDE_DIRS
     ${BACKEND_ROOT_DIR}/metadata_api
     ${BACKEND_ROOT_DIR}/passes/ChannelPipeTransformation
     ${CMAKE_BINARY_DIR}/include/
-    ${OCL_BINARY_DIR}
 )
 
 # Add additional link directories
@@ -219,6 +228,11 @@ endif( LLVM_USE_INTEL_JITEVENTS )
 if( LLVM_USE_OPROFILE )
     link_directories ( ${LLVM_OPROFILE_INCDIR} )
 endif( LLVM_USE_OPROFILE )
+
+if( WIN32 )
+    # Libraries in LLD_LIBS are in LLVM_LIBRARY_DIRS directory
+    link_directories(${LLVM_LIBRARY_DIRS})
+endif( WIN32 )
 
 set( BACKEND_PASSES
     LLVMBarrier
@@ -277,6 +291,13 @@ set(UTILS_LIBS
     OclOptimizer
 )
 
+if (WIN32)
+    set(LLD_LIBS
+        lldCOFF
+        lldCommon
+    )
+endif(WIN32)
+
 # Create DLL
 add_opencl_library (${TARGET_NAME} SHARED
     ${OCL_CPU_BACKEND_INCLUDE_FILES}
@@ -300,6 +321,7 @@ add_opencl_library (${TARGET_NAME} SHARED
       CacheBinaryHandler
       CLElfLib
       emutls
+      ${LLD_LIBS}
 
       # LLVM LIBS
       ${LLVM_MODULE_LIBS}

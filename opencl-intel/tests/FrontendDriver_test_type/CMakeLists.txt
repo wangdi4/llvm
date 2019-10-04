@@ -5,7 +5,8 @@ add_definitions( ${LLVM_DEFINITIONS} )
 # Add include directories
 include_directories(
     ${LLVM_INCLUDE_DIRS}
-    ${CCLANG_INCLUDE_DIRS}
+    # common_clang.h is in CCLANG_DEV_INCLUDE_DIRS
+    ${CCLANG_DEV_INCLUDE_DIRS}
     ${OCL_SOURCE_DIR}/FrontendDriver
     ${OCL_SOURCE_DIR}/externals/khronos/spirv/headers/include )
 
@@ -33,7 +34,7 @@ else ()
   set (SPIR_OPTIONS -triple spir-unknown-unknown -D __i386__)
 endif()
 
-set( INCLUDE_HEADERS_PATH ${CCLANG_INCLUDE_DIRS} )
+set( INCLUDE_HEADERS_PATH ${CCLANG_USER_INCLUDE_DIRS} )
 
 add_custom_command( TARGET ${TARGET}
   POST_BUILD

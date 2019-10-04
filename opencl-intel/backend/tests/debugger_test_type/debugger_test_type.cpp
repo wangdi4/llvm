@@ -149,7 +149,39 @@ HostProgramFunc get_host_program_by_name(string name)
 
     throw runtime_error("Unknown host program: '" + name + "'");
 }
+#ifdef _WIN32
+volatile char cdbGWorkitemInjectionBuffer[128] = { 0 };
 
+// This is required, because CDB doesn't provide a facility
+// to change the environment variables, like gdb.
+// This function will return the injected string from cdbGWorkitemInjectionBuffer.
+const char* cdbInjectWorkitemFocus()
+{
+    string gworkitem;
+    stringstream filename;
+    filename << "workitemfocus_inject_" << GetCurrentProcessId() << ".tmp";
+    ifstream injectionfile(filename.str());
+    if (injectionfile.is_open())
+    {
+        getline(injectionfile, gworkitem);
+        strcpy((char*)cdbGWorkitemInjectionBuffer, gworkitem.c_str());
+    }
+
+    if (cdbGWorkitemInjectionBuffer[0] == '(')
+        return (const char*)cdbGWorkitemInjectionBuffer;
+    else
+        return "";
+}
+#endif
+const char* getWorkitemFocus()
+{
+#ifdef _WIN32
+    const char* envValCdb = cdbInjectWorkitemFocus();
+    if (envValCdb[0] != 0)
+        return envValCdb;
+#endif
+    return getenv("GWORKITEM");
+}
 
 int main(int argc, char** argv)
 {
@@ -158,14 +190,19 @@ int main(int argc, char** argv)
     DTT_LOG("Starting debug_test_type");
 
 #ifdef _WIN32
-    // Create a thread that will simulate client configuration write
-    NamedPipeThread *thread = new NamedPipeThread();
-    thread->Start();
+    char* envVar = getenv("CL_CONFIG_USE_NATIVE_DEBUGGER");
+    bool useNativeDebugger = (envVar && *envVar == '1');
+    NamedPipeThread *thread = nullptr;
+    if (!useNativeDebugger)
+    {
+        // Create a thread that will simulate client configuration write
+        thread = new NamedPipeThread();
+        thread->Start();
 
-    // Allow thread to run (write the data)
-    Sleep(1000);
+        // Allow thread to run (write the data)
+        Sleep(1000);
+    }
 #endif
-
     vector<string> args = read_commandline(argc, argv);
 
     if (args.size() < 3) {
@@ -260,10 +297,17 @@ int main(int argc, char** argv)
         try {
             // Make possible to pass any build options to tests
             string build_flags = options.get("build_opts") + " ";
+            const char* gworkitem = getWorkitemFocus();
+            if (gworkitem) {
+                build_flags += "-gworkitem=";
+                build_flags += gworkitem;
+                build_flags += " ";
+            }
             if (options.get("debug_build") != "off") {
                 build_flags += "-g ";
             }
             build_flags += string("-s \"") + cl_file_name + "\"";
+            DTT_LOG("Build flags: " + build_flags);
             prog.build(devices, build_flags.c_str());
         }
         catch (cl::Error err) {
@@ -297,9 +341,12 @@ int main(int argc, char** argv)
     }
 
 #ifdef _WIN32
-    // Wait for thread to finish
-    thread->Join();
-#endif // _WIN32
+    if (!useNativeDebugger)
+    {
+        // Wait for thread to finish
+        thread->Join();
+    }
+#endif
 
     DTT_LOG("debug_test_type done.");
     DTT_LOG("--------------------------------->");

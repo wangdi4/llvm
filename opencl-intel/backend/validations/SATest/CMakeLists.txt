@@ -1,7 +1,10 @@
-if( NOT DEFINED LLVM_PATH_FE )
+if (NOT OPENCL_INTREE_BUILD)
+  if( NOT DEFINED LLVM_PATH_FE )
     message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM library location for backend using LLVM_PATH_FE parameter to CMAKE" )
+  endif()
+  set (LLVM_FE_INCLUDE_DIRS ${LLVM_PATH_FE}/include)
 endif()
-set (LLVM_FE_INCLUDE_DIRS ${LLVM_PATH_FE}/include)
+
 #
 # Settings for Linux compilation
 #
@@ -31,7 +34,6 @@ link_directories(
 
 include_directories(
   ${LLVM_INCLUDE_DIRS}
-  ${LLVM_FE_INCLUDE_DIRS}/cclang
   ${LLVM_ROOT}/lib/ExecutionEngine/Interpreter
   ${BACKEND_ROOT_DIR}/arch_headers
   ${BACKEND_ROOT_DIR}/dynamic_lib
@@ -56,6 +58,12 @@ include_directories(
   ${VALIDATIONS_ROOT}/OCLKernelDataGenerator
   ${VALIDATIONS_ROOT}/ProgramConfiguration
 )
+
+if (OPENCL_INTREE_BUILD)
+  include_directories(${CCLANG_DEV_INCLUDE_DIRS})
+else()
+  include_directories(${LLVM_FE_INCLUDE_DIRS}/cclang)
+endif()
 
 add_opencl_executable(${TARGET_NAME}
     mem_utils.cpp

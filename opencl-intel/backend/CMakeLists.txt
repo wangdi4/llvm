@@ -23,8 +23,9 @@ set( BACKEND_FOLDER_NAME       Backend )
 set( BACKEND_TESTS_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/tests )
 set( BACKEND_PASSES_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/passes )
 set( BACKEND_VALIDATION_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/validation )
-
-set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "")
+if (NOT OPENCL_INTREE_BUILD)
+  set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "")
+endif()
 
 # Version of cached binary
 add_definitions(-DOCL_CACHED_BINARY_VERSION=4)
@@ -38,7 +39,9 @@ if (NOT WIN32)
     set( CMAKE_CXX_FLAGS_RELEASE                "${CMAKE_CXX_FLAGS_RELEASE} -D_FORTIFY_SOURCE=2")
     set( CMAKE_C_FLAGS_RELEASE                  "${CMAKE_C_FLAGS_RELEASE}   -D_FORTIFY_SOURCE=2")
     set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-unused-function")
-    set( WARNING_LEVEL "${WARNING_LEVEL} -Werror" )
+    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+        set( WARNING_LEVEL "${WARNING_LEVEL} -Werror" )
+    endif()
     add_definitions( ${WARNING_LEVEL} )
 endif (NOT WIN32)
 
@@ -93,7 +96,8 @@ project(Backend C CXX)
 add_definitions(${LLVM_DEFINITIONS})
 use_rtti(FALSE)
 
-include_directories (${BACKEND_ROOT_DIR}/utils
+include_directories (BEFORE
+                     ${BACKEND_ROOT_DIR}/utils
                      ${OCL_SOURCE_DIR}/cl_api)
 
 if (LLVM_BUILD_OCL_CPU_BACKEND)

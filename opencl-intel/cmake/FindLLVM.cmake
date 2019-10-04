@@ -4,7 +4,45 @@
 #  LLVM_INCLUDE_DIRS - where to find llvm include files
 #  LLVM_MODULE_LIBS - list of llvm libs for working with modules.
 
-if(BUILD_LLVM_FROM_SOURCE )
+if (OPENCL_INTREE_BUILD)
+  get_target_property(CCLANG_USER_INCLUDE_DIRS cl_headers BINARY_DIR)
+  if (NOT CCLANG_USER_INCLUDE_DIRS)
+    message(FATAL_ERROR "Cannot find BINARY_DIR for cl_headers library.")
+  endif()
+  set(CCLANG_DEV_INCLUDE_DIRS ${OCL_BINARY_DIR}/include/cclang)
+  # This is a gross hack! LLVM_BINARY_DIR is a variable defined
+  # by LLVM package, and we override it here!
+  get_target_property(LLVM_BINARY_DIR clang RUNTIME_OUTPUT_DIRECTORY)
+
+  # common_clang target has different names on Windows.
+  if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+    set(ADDR 32)
+  else()
+    set(ADDR 64)
+  endif()
+  if (WIN32)
+    set(BUILD_PLATFORM ${ADDR})
+  else()
+    set(BUILD_PLATFORM "")
+  endif()
+
+  get_target_property(LLVM_LIBRARY_DIRS common_clang${BUILD_PLATFORM} ARCHIVE_OUTPUT_DIRECTORY)
+
+  # FIXME: we'd better setup dependencies explicitly for the targets
+  #        instead of requiring the whole LLVM build.
+  llvm_map_components_to_libnames(LLVM_MODULE_LIBS all)
+
+  #remove predefined unnecessary components
+  list(REMOVE_ITEM LLVM_MODULE_LIBS
+    gtest gtest_main
+    profile_rt-static
+    profile_rt-shared
+    LTO
+    LTO_static
+    Remarks
+    Remarks_static
+  )
+elseif(BUILD_LLVM_FROM_SOURCE )
   set (LLVM_INCLUDE_DIRS ${LLVM_SRC_ROOT}/include ${LLVM_SRC_ROOT}/include/Intel_OptionalComponents ${LLVM_SRC_ROOT}/tools/clang/include ${CMAKE_CURRENT_BINARY_DIR}/llvm/include ${CMAKE_CURRENT_BINARY_DIR}/llvm/tools/clang/include)
   set (LLVM_LIBRARY_DIRS ${CMAKE_CURRENT_BINARY_DIR}/llvm/lib/${CMAKE_CFG_INTDIR})
   set (LLVM_BINARY_DIR  ${CMAKE_CURRENT_BINARY_DIR}/llvm/bin/${CMAKE_CFG_INTDIR})
@@ -49,7 +87,8 @@ else(BUILD_LLVM_FROM_SOURCE )
   set(LLVM_INSTALL_PREFIX ${LLVM_PATH})
   set(LLVM_INCLUDE_DIRS ${LLVM_PATH}/include
                         ${LLVM_PATH}/include/Intel_OptionalComponents)
-  set(CCLANG_INCLUDE_DIRS ${LLVM_PATH}/include/cclang)
+  set(CCLANG_DEV_INCLUDE_DIRS ${LLVM_PATH}/include/cclang)
+  set(CCLANG_USER_INCLUDE_DIRS ${LLVM_PATH}/include/cclang)
   #LLVM_BINARY_DIR is set only if AddLLVM.cmake is used.
   set(LLVM_BINARY_DIR ${LLVM_INSTALL_PREFIX}/bin)
 
@@ -65,7 +104,7 @@ else(BUILD_LLVM_FROM_SOURCE )
     Remarks
     Remarks_static
   )
-endif(BUILD_LLVM_FROM_SOURCE)
+endif()
 
 #kept as comment for the debug purposes.
 #message( STATUS "LLVM libs: ${LLVM_MODULE_LIBS}")

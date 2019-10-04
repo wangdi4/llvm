@@ -1,4 +1,4 @@
-from testlib.debuggertestcase import DebuggerTestCase
+from testlib.debuggertestcase import DebuggerTestCase, expectedFailureCDB
 
 
 # Test a usage of query value for all variable types (global,local,private,volatile,restricted,regular and pointers)
@@ -44,14 +44,16 @@ class TestVariableTypes(DebuggerTestCase):
         self.assertEqual(self.client.var_query_value('vb'), '4')
         self.assertEqual(self.client.var_query_value('ab'), '5')
         self.assertEqual(self.client.var_query_value('rb'), '678')
-        self.assertEqual(self.client.var_query_value('globalInt'), '1')
+        if not self.use_cdb: # Takes 30 sec to evaluate with cdb
+            self.assertEqual(self.client.var_query_value('globalInt'), '1')
         # check main and global variables
         self.assertEqual(self.client.var_query_value('g'), '1')
         self.assertEqual(self.client.var_query_value('p'), '3')
         self.assertEqual(self.client.var_query_value('v'), '4')
         self.assertEqual(self.client.var_query_value('a'), '5')
         self.assertEqual(self.client.var_query_value('r'), '6')
-        self.assertEqual(self.client.var_query_value('globalInt'), '1')
+        if not self.use_cdb: # Takes 30 sec to evaluate with cdb
+            self.assertEqual(self.client.var_query_value('globalInt'), '1')
 
         # check variables values in while block before function call
         bp = (self.CLNAME, self.WHILE_BLOCK_ROW_BEFORE_FUNCTION)
@@ -74,7 +76,8 @@ class TestVariableTypes(DebuggerTestCase):
         self.assertEqual(self.client.var_query_value('v'), '4')
         self.assertEqual(self.client.var_query_value('a'), '5')
         self.assertEqual(self.client.var_query_value('r'), '6')
-        self.assertEqual(self.client.var_query_value('globalInt'), '1')
+        if not self.use_cdb: # Takes 30 sec to evaluate with cdb
+            self.assertEqual(self.client.var_query_value('globalInt'), '1')
 
         # check variables values in function called from while block
         bp = (self.CLNAME, self.FUNCTION_ROW)
@@ -86,8 +89,8 @@ class TestVariableTypes(DebuggerTestCase):
         self.assertEqual(self.client.var_query_value('vf'), '4')
         self.assertEqual(self.client.var_query_value('af'), '5')
         self.assertEqual(self.client.var_query_value('rf'), '67')
-        # check global variable
-        self.assertEqual(self.client.var_query_value('globalInt'), '1')
+        if not self.use_cdb: # Takes 30 sec to evaluate with cdb
+            self.assertEqual(self.client.var_query_value('globalInt'), '1')
 
         # check variables values in while block after function call
         bp = (self.CLNAME, self.WHILE_BLOCK_ROW_AFTER_FUNCTION)
@@ -110,7 +113,8 @@ class TestVariableTypes(DebuggerTestCase):
         self.assertEqual(self.client.var_query_value('v'), '4')
         self.assertEqual(self.client.var_query_value('a'), '5')
         self.assertEqual(self.client.var_query_value('r'), '6')
-        self.assertEqual(self.client.var_query_value('globalInt'), '1')
+        if not self.use_cdb: # Takes 30 sec to evaluate with cdb
+            self.assertEqual(self.client.var_query_value('globalInt'), '1')
 
         # check variables values in if block after while block
         bp = (self.CLNAME, self.IF_BLOCK_ROW2)
@@ -121,14 +125,16 @@ class TestVariableTypes(DebuggerTestCase):
         self.assertEqual(self.client.var_query_value('vb'), '4')
         self.assertEqual(self.client.var_query_value('ab'), '6')
         self.assertEqual(self.client.var_query_value('rb'), '678')
-        self.assertEqual(self.client.var_query_value('globalInt'), '1')
+        if not self.use_cdb: # Takes 30 sec to evaluate with cdb
+            self.assertEqual(self.client.var_query_value('globalInt'), '1')
         # check main and global variables
         self.assertEqual(self.client.var_query_value('g'), '1')
         self.assertEqual(self.client.var_query_value('p'), '3')
         self.assertEqual(self.client.var_query_value('v'), '4')
         self.assertEqual(self.client.var_query_value('a'), '5')
         self.assertEqual(self.client.var_query_value('r'), '6')
-        self.assertEqual(self.client.var_query_value('globalInt'), '1')
+        if not self.use_cdb: # Takes 30 sec to evaluate with cdb
+            self.assertEqual(self.client.var_query_value('globalInt'), '1')
 
         # check variables values in function
         bp = (self.CLNAME, self.FUNCTION_ROW)
@@ -140,8 +146,8 @@ class TestVariableTypes(DebuggerTestCase):
         self.assertEqual(self.client.var_query_value('vf'), '4')
         self.assertEqual(self.client.var_query_value('af'), '5')
         self.assertEqual(self.client.var_query_value('rf'), '67')
-        # check global variable
-        self.assertEqual(self.client.var_query_value('globalInt'), '1')
+        if not self.use_cdb: # Takes 30 sec to evaluate with cdb
+            self.assertEqual(self.client.var_query_value('globalInt'), '1')
 
         # check variables values in main
         bp = (self.CLNAME, self.MAIN_ROW)
@@ -152,9 +158,11 @@ class TestVariableTypes(DebuggerTestCase):
         self.assertEqual(self.client.var_query_value('v'), '4')
         self.assertEqual(self.client.var_query_value('a'), '5')
         self.assertEqual(self.client.var_query_value('r'), '6')
-        self.assertEqual(self.client.var_query_value('globalInt'), '1')
+        if not self.use_cdb: # Takes 30 sec to evaluate with cdb
+            self.assertEqual(self.client.var_query_value('globalInt'), '1')
         self.client.debug_run_finish()
 
+    @expectedFailureCDB
     def test_all_variable_types_are_available2(self):
     #
     #  Test - test all variable types (int, char, bool, etc..) are available, by checking variables values after an assignment

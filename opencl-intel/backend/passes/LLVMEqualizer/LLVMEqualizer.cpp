@@ -172,8 +172,10 @@ public:
         // import a non-blocking function to get a declaration ...
         NewF =
             CompilationUtils::importFunctionDecl(
-                M, PipesModule->getFunction(
-                    CompilationUtils::getPipeName(NonBlockingKind)));
+                M,
+                PipesModule->getFunction(
+                    CompilationUtils::getPipeName(NonBlockingKind)),
+                /*DuplicateIfExists*/ true);
         // ... and change it's name.
         NewF->setName(CompilationUtils::getPipeName(Kind));
       } else {

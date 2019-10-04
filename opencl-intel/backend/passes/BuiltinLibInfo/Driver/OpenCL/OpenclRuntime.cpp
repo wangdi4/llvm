@@ -196,6 +196,10 @@ bool OpenclRuntime::hasNoSideEffect(const std::string &func_name) const {
   if (isSyncWithNoSideEffect(func_name)) return true;
   if (isImageDescBuiltin(func_name)) return true;
 
+  // Respect horizontal built-ins here, treat them as having a side effect
+  // So far these are only VPlan style masked functions
+  if (needsVPlanStyleMask(func_name)) return false;
+
   // All built-ins that does not access memory and does not throw
   // have no side effects.
   if (funcRT->doesNotAccessMemory() && funcRT->doesNotThrow())
@@ -249,6 +253,27 @@ bool OpenclRuntime::isWorkItemBuiltin(const std::string &name) const {
     // The following is applicabble for OpenCL 2.0 or more recent versions.
     CompilationUtils::isGetEnqueuedLocalSize(name) ||
     CompilationUtils::isGetEnqueuedNumSubGroups(name);
+}
+
+bool OpenclRuntime::needsVPlanStyleMask(StringRef name) const {
+  return name.contains("intel_sub_group_ballot") ||
+         name.contains("sub_group_all") ||
+         name.contains("sub_group_any") ||
+         name.contains("sub_group_broadcast") ||
+         name.contains("sub_group_reduce_add") ||
+         name.contains("sub_group_reduce_min") ||
+         name.contains("sub_group_reduce_max") ||
+         name.contains("sub_group_scan_exclusive_add") ||
+         name.contains("sub_group_scan_exclusive_min") ||
+         name.contains("sub_group_scan_exclusive_max") ||
+         name.contains("sub_group_scan_inclusive_add") ||
+         name.contains("sub_group_scan_inclusive_min") ||
+         name.contains("sub_group_scan_inclusive_max") ||
+         name.contains("intel_sub_group_shuffle_up") ||
+         name.contains("intel_sub_group_shuffle_down") ||
+         name.contains("intel_sub_group_shuffle_xor") ||
+         name.contains("intel_sub_group_shuffle_xor") ||
+         name.contains("intel_sub_group_shuffle");
 }
 
 bool OpenclRuntime::isSyncWithSideEffect(const std::string &func_name) const {
@@ -334,6 +359,7 @@ bool OpenclRuntime::isScalarSelect(const std::string &funcName) const{
 }
 
 bool OpenclRuntime::isMaskedFunctionCall(const std::string &func_name) const{
+  if (needsVPlanStyleMask(func_name)) return true;
   return false;
 }
 

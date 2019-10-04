@@ -34,7 +34,7 @@ endif(NOT WIN32)
 #
 set( INCLUDE_DIRS
             ${LLVM_INCLUDE_DIRS}
-            ${CCLANG_INCLUDE_DIRS}
+            ${CCLANG_DEV_INCLUDE_DIRS}
             ${CL_API_HEADERS}
             ${OCL_SOURCE_DIR}/backend/name_mangling
             ${OCL_SOURCE_DIR}/backend/plugin_manager
@@ -48,6 +48,13 @@ set( INCLUDE_DIRS
             ${OCL_BINARY_DIR}
             ${CMAKE_BINARY_DIR}/include
             )
+
+if (OPENCL_INTREE_BUILD)
+  if (LLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR)
+    list(APPEND INCLUDE_DIRS ${LLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR}/include)
+    add_definitions(-DOPENCL_INTREE_BUILD=1)
+  endif()
+endif()
 
 if (WIN32)
     set(COMMON_CLANG_LIB ${LLVM_LIBRARY_DIRS}/common_clang${BUILD_PLATFORM}.lib)
@@ -116,6 +123,10 @@ add_opencl_library (${TARGET_NAME} SHARED
     RC_TEMPLATE DEFAULT
 )
 
+if (OPENCL_INTREE_BUILD)
+  add_dependencies(${TARGET_NAME} common_clang${BUILD_PLATFORM})
+endif()
+
 if (WIN32)
     set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "/DELAYLOAD:common_clang${BUILD_PLATFORM}.dll")
 endif (WIN32)
@@ -136,5 +147,7 @@ endif (WIN32)
 
 SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} FrontendDriver.map )
 
-copy_to (${COMMON_CLANG_FILES} DESTINATION lib/${OUTPUT_ARCH_SUFF})
+if (NOT OPENCL_INTREE_BUILD)
+  copy_to (${COMMON_CLANG_FILES} DESTINATION lib/${OUTPUT_ARCH_SUFF})
+endif()
 install_to (${COMMON_CLANG_FILES} DESTINATION lib/${OUTPUT_ARCH_SUFF} COMPONENT ocl-common_clang)

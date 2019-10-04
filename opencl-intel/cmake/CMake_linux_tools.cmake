@@ -16,30 +16,41 @@ else()
 endif()
 
 # Warning level
-add_definitions(-pedantic -Wall -Wextra -Werror -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-deprecated-declarations)
-# Additional warning switches for newer GCC.
-execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpversion OUTPUT_VARIABLE GCC_VERSION)
-if (GCC_VERSION VERSION_GREATER 4.6 OR GCC_VERSION VERSION_EQUAL 4.6)
-  add_definitions(-Wno-int-to-pointer-cast -Wno-unused-but-set-variable)
-endif ()
+add_definitions(-pedantic -Wall -Wextra -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-deprecated-declarations)
 
-# Compiler switches that CANNOT be modified during makefile generation
-if (GCC_VERSION VERSION_GREATER 4.9 OR GCC_VERSION VERSION_EQUAL 4.9)
-  set (FSTACK_PROTECTOR_C_FLAGS       "-fstack-protector-strong" )
-else (GCC_VERSION VERSION_GREATER 4.9 OR GCC_VERSION VERSION_EQUAL 4.9)
-  set (FSTACK_PROTECTOR_C_FLAGS       "-fstack-protector" )
-endif ()
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+  add_definitions(-Werror)
 
-# Additional warning switches for newer GCC.
-if (GCC_VERSION VERSION_GREATER 7.0 OR GCC_VERSION VERSION_EQUAL 7.0)
-  add_definitions(-Wno-implicit-fallthrough -Wno-ignored-attributes -DGCC_VER_7X)
+  # Additional warning switches for newer GCC.
+  execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpversion OUTPUT_VARIABLE GCC_VERSION)
+  if (GCC_VERSION VERSION_GREATER 4.6 OR GCC_VERSION VERSION_EQUAL 4.6)
+    add_definitions(-Wno-int-to-pointer-cast -Wno-unused-but-set-variable)
+  endif ()
+
+  # Compiler switches that CANNOT be modified during makefile generation
+  if (GCC_VERSION VERSION_GREATER 4.9 OR GCC_VERSION VERSION_EQUAL 4.9)
+    set (FSTACK_PROTECTOR_C_FLAGS       "-fstack-protector-strong" )
+  else (GCC_VERSION VERSION_GREATER 4.9 OR GCC_VERSION VERSION_EQUAL 4.9)
+    set (FSTACK_PROTECTOR_C_FLAGS       "-fstack-protector" )
+  endif ()
+
+  # Additional warning switches for newer GCC.
+  if (GCC_VERSION VERSION_GREATER 7.0 OR GCC_VERSION VERSION_EQUAL 7.0)
+    add_definitions(-Wno-implicit-fallthrough -Wno-ignored-attributes -DGCC_VER_7X)
+  endif()
 endif()
 
 set (ADD_COMMON_C_FLAGS         "-msse3 -mssse3 ${SSE4_VAL} ${ARCH_BIT} -fPIC -fdiagnostics-show-option -funsigned-bitfields -Wformat -Wformat-security ${FSTACK_PROTECTOR_C_FLAGS}" )
 
 set (ADD_C_FLAGS                "${ADD_COMMON_C_FLAGS} -std=gnu99" )
 set (ADD_C_FLAGS_DEBUG          "-O0 -ggdb3 -D _DEBUG" )
-set (ADD_C_FLAGS_RELEASE        "-O2 -ggdb2 -U _DEBUG")
+
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+  set (ADD_C_FLAGS_RELEASE        "-O2 -ggdb2 -U _DEBUG")
+else()
+  set (ADD_C_FLAGS_RELEASE        "-O2 -g2 -U _DEBUG -Wno-error")
+endif()
+
 set (ADD_C_FLAGS_RELWITHDEBINFO "-O2 -ggdb3 -U _DEBUG")
 
 set (ADD_CXX_FLAGS              "${ADD_COMMON_C_FLAGS} -std=c++14" )
@@ -60,7 +71,7 @@ set( CMAKE_CXX_FLAGS_RELEASE                "${CMAKE_CXX_FLAGS_RELEASE}         
 set( CMAKE_CXX_FLAGS_RELWITHDEBINFO         "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}        ${ADD_CXX_FLAGS_RELWITHDEBINFO}")
 
 # ASM switches
-set( CMAKE_ASM_FLAGS                        ${CMAKE_ASM_FLAGS}                        ${ASM_BIT} )
+set( CMAKE_ASM_FLAGS                        "${CMAKE_ASM_FLAGS}                        ${ASM_BIT}")
 set( CMAKE_ASM_INCLUDE_DIR_FLAG             -I )
 set( CMAKE_ASM_OUTPUT_NAME_FLAG             -o )
 

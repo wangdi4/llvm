@@ -88,6 +88,11 @@ public:
   //  synthesized name for internal usage.
   virtual bool isFakedFunction(StringRef) const = 0;
 
+  /// @brief Check wether the function needs 'VPlan' style masking,
+  ///  meaning it has i32 mask as the last argument.
+  /// @param the function name that is a subject to check
+  virtual bool needsVPlanStyleMask(StringRef) const = 0;
+
   /// @brief returns true iff whenever the there is vector argument to 
   ///        a vectorizeable scalar built-in it should be spread for 
   ///        the packertized version 

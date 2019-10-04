@@ -5,7 +5,10 @@ import imp
 import sys
 import traceback
 import unittest
-from StringIO import StringIO
+try:
+    from StringIO import StringIO # Python 2
+except ImportError:
+    from io import StringIO # Python 3
 
 from multiprocessing import JoinableQueue, Queue, Process
 from Queue import Empty
@@ -58,6 +61,9 @@ class RunnerProcess(Process):
         if self.config.test_client == "gdb":
             from testlib.clientgdb import ClientGDB
             self.CLIENT_CLASS = ClientGDB
+        elif self.config.test_client == "cdb":
+            from testlib.clientcdb import ClientCDB
+            self.CLIENT_CLASS = ClientCDB
         elif self.config.test_client == "simulator":
             from testlib.clientsimulator import ClientSimulator
             self.CLIENT_CLASS = ClientSimulator
@@ -155,6 +161,7 @@ class RunnerProcess(Process):
                     self.suite.addTest(DebuggerTestCase.create(
                                     klass,
                                     use_gdb=self.config.test_client == "gdb",
+                                    use_cdb=self.config.test_client == "cdb",
                                     client=client,
                                     dtt_exe_logfile=None))
 

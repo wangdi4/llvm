@@ -5,6 +5,7 @@ endif(INCLUDE_MKL)
 set( TARGET framework_test_type )
 
 include_directories( ${OCL_SOURCE_DIR}/framework/export
+                     ${OCL_SOURCE_DIR}/framework/Tracing
                      ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export )
 
 if (NOT WIN32)
@@ -37,23 +38,17 @@ add_ocl_unittest( ${TARGET} SOURCE_FILES ${TARGET_SOURCES}
     LINK_LIBRARIES ${TARGET_LIBS} )
 
 if (WIN32)
-  if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-    set_target_properties(${TARGET} PROPERTIES
-      LINK_FLAGS_RELEASE "${LINK_FLAGS_RELEASE} /DELAYLOAD:ocltbb64${TBB_BINARIES_POSTFIX}.dll"
-      LINK_FLAGS_DEBUG "${LINK_FLAGS_DEBUG} /DELAYLOAD:ocltbb64_debug${TBB_BINARIES_POSTFIX}.dll"
-    )
-  else(CMAKE_SIZEOF_VOID_P EQUAL 8)
-    set_target_properties(${TARGET} PROPERTIES
-      LINK_FLAGS_RELEASE "${LINK_FLAGS_RELEASE} /DELAYLOAD:ocltbb32${TBB_BINARIES_POSTFIX}.dll"
-      LINK_FLAGS_DEBUG "${LINK_FLAGS_DEBUG} /DELAYLOAD:ocltbb32_debug${TBB_BINARIES_POSTFIX}.dll"
-    )
-  endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
+  set_target_properties(${TARGET} PROPERTIES
+    LINK_FLAGS_RELEASE "${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb${TBB_BINARIES_POSTFIX}.dll"
+    LINK_FLAGS_DEBUG "${LINK_FLAGS_DEBUG} /DELAYLOAD:tbb_debug${TBB_BINARIES_POSTFIX}.dll"
+  )
+
   # set 8 MB of stack size
   set_target_properties( ${TARGET} PROPERTIES LINK_FLAGS /STACK:"16777216" )
 endif (WIN32)
 
 
-set( INCLUDE_HEADERS_PATH ${CCLANG_INCLUDE_DIRS})
+set( INCLUDE_HEADERS_PATH ${CCLANG_USER_INCLUDE_DIRS})
 
 set( INPUT_FILE test.cl )
 set( SPIR_OUTPUT_FILE test.bc )

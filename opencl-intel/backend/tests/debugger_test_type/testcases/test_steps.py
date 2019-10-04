@@ -1,4 +1,4 @@
-from testlib.debuggertestcase import DebuggerTestCase, expectedFailureGDB
+from testlib.debuggertestcase import DebuggerTestCase, expectedFailureGDB, expectedFailureCDB
 
 
 # Test a simple usage of steps for TC-10-24
@@ -8,6 +8,7 @@ class TestSteps(DebuggerTestCase):
     CLNAME2 = 'simple_program.cl'
     CLNAME3 = 'simple_function_call.cl'
     ERROR_MSG = 'Expected RUN to have been executed at least once\n'
+    @expectedFailureCDB
     def test_simple_step_in_and_incorrect_stack_trace_use(self):
     #
     # TC-10, TC-25
@@ -20,7 +21,7 @@ class TestSteps(DebuggerTestCase):
             cl_name=self.CLNAME2)
         self.client.connect_to_server()
         self.client.start_session(0, 0, 0)
-        if not self.use_gdb:
+        if not self.use_gdb and not self.use_cdb:
             # GDB (native) client get_stack_trace() is a no op, so this check
             # is invalid
             try:
@@ -35,6 +36,7 @@ class TestSteps(DebuggerTestCase):
                 self.assertEqual('this should not happen', '!!!')
         self.client.debug_run_finish()
 
+    @expectedFailureCDB
     def test_step_in_no_function_calls(self):
     #
     # TC-12
@@ -68,6 +70,7 @@ class TestSteps(DebuggerTestCase):
         self.assertEqual(self.client.debug_step_in(), bp)
         self.client.debug_run_finish()
 
+    @expectedFailureCDB
     def test_start_with_step_in(self):
     #
     # starting with step-in
@@ -79,8 +82,8 @@ class TestSteps(DebuggerTestCase):
         self.client.connect_to_server()
         self.client.start_session(0, 0, 0)
 
-        if self.use_gdb:
-            # GDB start-with-step behaviour is to step into the entry-point of the
+        if self.use_gdb or self.use_cdb:
+            # GDB start-with-step behavior is to step into the entry-point of the
             # program, not the entry of the CL kernel. So continue to CL kernel.
             bp = (self.CLNAME2, 3)
             self.assertEqual(self.client.debug_run([bp]), bp)
@@ -88,6 +91,7 @@ class TestSteps(DebuggerTestCase):
             self.assertEqual(self.client.debug_step_in(), (self.CLNAME2, 1))
         self.client.debug_run_finish()
 
+    @expectedFailureCDB
     def test_simple_step_over2(self):
     #
     # TC-15, TC-26
@@ -107,6 +111,7 @@ class TestSteps(DebuggerTestCase):
         self.assertEqual(self.client.stack_query_func_name(0), 'main_kernel')
         self.client.debug_run_finish()
 
+    @expectedFailureCDB
     def test_step_over_no_function_calls(self):
     #
     # TC-16
@@ -140,6 +145,7 @@ class TestSteps(DebuggerTestCase):
         self.assertEqual(self.client.debug_step_over(), bp)
         self.client.debug_run_finish()
 
+    @expectedFailureCDB
     def test_step_in_first_command_is_function_call(self):
     #
     # TC-13, TC-28
@@ -205,6 +211,7 @@ class TestSteps(DebuggerTestCase):
         self.assertEqual(self.client.debug_step_in(), bp)
         self.client.debug_run_finish()
 
+    @expectedFailureCDB
     def test_step_over_first_command_is_function_call(self):
     #
     # TC-17, TC-29
@@ -234,6 +241,7 @@ class TestSteps(DebuggerTestCase):
         bp = (self.CLNAME1, 35)
         self.client.debug_run_finish()
 
+    @expectedFailureCDB
     def test_step_over_function_call_in_function(self):
     #
     #
@@ -263,6 +271,7 @@ class TestSteps(DebuggerTestCase):
         self.assertEqual(self.client.debug_step_over(), bp)
         self.client.debug_run_finish()
 
+    @expectedFailureCDB
     def test_simple_stack_trace(self):
     #
     # TC-27
@@ -286,6 +295,7 @@ class TestSteps(DebuggerTestCase):
         self.assertEqual(self.client.stack_query_func_name(1), 'main_kernel')
         self.client.debug_run_finish()
 
+    @expectedFailureCDB
     @expectedFailureGDB
     def test_simple_step_out(self):
     #
@@ -321,7 +331,7 @@ class TestSteps(DebuggerTestCase):
         self.assertEqual(self.client.debug_step_out(), bp)
         self.client.debug_run_finish()
 
-
+    @expectedFailureCDB
     def test_step_out(self):
     #
     # TC-22, TC-23, TC-24, TC-30

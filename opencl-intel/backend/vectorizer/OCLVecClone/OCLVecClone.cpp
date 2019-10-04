@@ -58,6 +58,11 @@ static cl::opt<std::string> ReqdSubGroupSizes("reqd-sub-group-size", cl::init(""
                                                  "size. Comma separated list of"
                                                  " name(num)"));
 
+static cl::opt<bool>
+    LT2GBWorkGroupSize("less-than-two-gig-max-work-group-size", cl::init(true),
+                       cl::Hidden,
+                       cl::desc("Max work group size is less than 2GB."));
+
 namespace intel {
 
 using ContainerTy = std::vector<std::pair<std::string, VectorVariant>>;
@@ -129,6 +134,106 @@ static void updateAndMoveTID(Instruction *TIDCallInstr, PHINode *Phi,
   TIDCallInstr->moveBefore(EntryBlock->getTerminator());
 }
 
+// Check if a Value represents the following truncation pattern implemented
+// using shl and ashr instructions -
+// %1 = shl %0, <TruncatedToBitSize>
+// %2 = ashr %1, <TruncatedToBitSize>
+static bool isShlAshrTruncationPattern(Value *V, unsigned TruncatedToBitSize) {
+  if (!isa<Instruction>(V))
+    return false;
+
+  Instruction *I = cast<Instruction>(V);
+
+  // Capture only 'shl' instructions.
+  if (I->getOpcode() != Instruction::Shl)
+    return false;
+
+  // Check if shift is done by a constant int value.
+  if (!isa<ConstantInt>(I->getOperand(1)))
+    return false;
+
+  // Check if shift is happening to TruncatedToBitSize.
+  if (cast<ConstantInt>(I->getOperand(1))->getZExtValue() != TruncatedToBitSize)
+    return false;
+
+  // 'shl' is expected to have only a single user, the 'ashr' instruction.
+  if (I->getNumUses() != 1)
+    return false;
+
+  User *ShlSingleUsr = *I->user_begin();
+  if (auto *ShlSingleUsrInst = dyn_cast<Instruction>(ShlSingleUsr)) {
+    if (ShlSingleUsrInst->getOpcode() == Instruction::AShr) {
+      Value *AshrByVal = ShlSingleUsrInst->getOperand(1);
+      if (isa<ConstantInt>(AshrByVal) &&
+          cast<ConstantInt>(AshrByVal)->getZExtValue() == TruncatedToBitSize)
+        return true;
+    }
+  }
+
+  // Invalid single user of 'shl'.
+  return false;
+}
+
+static void updateAndMoveGetLID(Instruction *LIDCallInst, PHINode *Phi,
+                                BasicBlock *EntryBlock) {
+  IRBuilder<> IRB(Phi);
+  IRB.SetInsertPoint(Phi->getNextNode());
+  // TODO: assertions for type of LIDCallInst and Phi
+  // Truncate LID to Phi's type (we know LID is in range {0-8192} since max work
+  // group size is less than 2GB).
+  Instruction *LIDTrunc =
+      cast<Instruction>(IRB.CreateTrunc(LIDCallInst, Phi->getType()));
+  // Generates LID+ind.
+  Instruction *Add = cast<Instruction>(IRB.CreateNUWAdd(LIDTrunc, Phi, "add"));
+  unsigned AddTypeSize = Add->getType()->getPrimitiveSizeInBits();
+  // Sign extend result to 64-bit (LIDCallInst's type)
+  Instruction *AddSExt =
+      cast<Instruction>(IRB.CreateSExt(Add, LIDCallInst->getType()));
+  // Replace all uses of LID with AddSExt, except truncating sequences that go
+  // back to same size as Add. NOTE: This will also exclude LIDTrunc since Add
+  // and Phi are of same type.
+  LIDCallInst->replaceUsesWithIf(AddSExt, [Add, AddTypeSize](Use &U) {
+    User *Usr = U.getUser();
+    if (auto *UsrTruncInst = dyn_cast<TruncInst>(Usr)) {
+      if (UsrTruncInst->getDestTy() == Add->getType())
+        return false;
+    }
+    if (isShlAshrTruncationPattern(Usr, AddTypeSize))
+      return false;
+    return true;
+  });
+
+  // All the remaining users of LID are either LIDTrunc, trunc instructions or
+  // truncating sequences (shl + ashr) from incoming IR which go back to same
+  // size as Add. The last two cases are trivial and can be removed, with all
+  // their uses replaced directly by Add (or AddSExt).
+  for (auto *User : LIDCallInst->users()) {
+    assert((isa<TruncInst>(User) ||
+            isShlAshrTruncationPattern(User, AddTypeSize)) &&
+           "Invalid remaining user of get_local_id.");
+    Instruction *UserInst = cast<Instruction>(User);
+
+    if (UserInst == LIDTrunc)
+      continue;
+
+    if (isa<TruncInst>(UserInst)) {
+      UserInst->replaceAllUsesWith(Add);
+      UserInst->eraseFromParent();
+    } else {
+      Instruction *AshrInst = cast<Instruction>(*UserInst->user_begin());
+      AshrInst->replaceAllUsesWith(AddSExt);
+      AshrInst->eraseFromParent();
+      UserInst->eraseFromParent();
+    }
+  }
+
+  // Reset the operand of LID's trunc, after all uses of LID are replaced.
+  assert(LIDTrunc->getOperand(0) == LIDCallInst && "LIDTrunc is corrupted.");
+  // Move LID and its trunc call outside of the loop.
+  LIDCallInst->moveBefore(EntryBlock->getTerminator());
+  LIDTrunc->moveBefore(EntryBlock->getTerminator());
+}
+
 void OCLVecClone::handleLanguageSpecifics(Function &F, PHINode *Phi,
                                           Function *Clone,
                                           BasicBlock *EntryBlock) {
@@ -177,7 +282,11 @@ void OCLVecClone::handleLanguageSpecifics(Function &F, PHINode *Phi,
         assert(dim < 3 && "Argument is not in range");
         if (dim == 0) {
           // Currently, only zero dimension is vectorized.
-          updateAndMoveTID(CI, Phi, EntryBlock);
+          if (FuncName == CompilationUtils::mangledGetLID() &&
+              LT2GBWorkGroupSize)
+            updateAndMoveGetLID(CI, Phi, EntryBlock);
+          else
+            updateAndMoveTID(CI, Phi, EntryBlock);
         } else
           CI->moveBefore(EntryBlock->getTerminator());
         break;
@@ -373,7 +482,9 @@ static void addEntries(ContainerTy &Info, std::string ScalarBaseName,
   addEntries(Info, ScalarBaseName, Types, std::move(Params), Masked);
 }
 
-static void addBlockReadWriteBuiltins(ContainerTy &Info) {
+// Handle built-ins that have different base name and do not rely
+// solely on overloading to distinguish between widened versions.
+static void addSpecialBuiltins(ContainerTy &Info) {
   // Scalar -> [VF4, VF8, VF16]
   using BuiltinInfo = std::pair<std::string, std::array<std::string, 3>>;
 
@@ -413,13 +524,21 @@ static void addBlockReadWriteBuiltins(ContainerTy &Info) {
         "_Z30intel_sub_group_block_write8_8PU3AS1jDv64_j",
         "_Z31intel_sub_group_block_write8_16PU3AS1jDv128_j"}},
   };
+  // Handle unmangled ballot variant
+  BuiltinInfo BallotBuiltins[] = {
+      {"intel_sub_group_ballot",
+       {"intel_sub_group_ballot_vf4",
+        "intel_sub_group_ballot_vf8",
+        "intel_sub_group_ballot_vf16"}}
+  };
 
 
-  auto AddBuiltin = [&Info](BuiltinInfo &Builtin, std::vector<VectorKind> Params, unsigned VF,
+  auto AddBuiltin = [&Info](BuiltinInfo &Builtin, bool Masked,
+                                std::vector<VectorKind> Params, unsigned VF,
                                 unsigned Idx) -> void {
     Info.emplace_back(Builtin.first,
                       VectorVariant{VectorVariant::ISAClass::XMM,
-                                    false /*Masked*/,
+                                    Masked,
                                     VF,
                                     Params,
                                     "", // Empty BaseName - does not matter
@@ -428,7 +547,7 @@ static void addBlockReadWriteBuiltins(ContainerTy &Info) {
 
   auto AddReadBuiltin = [&AddBuiltin](BuiltinInfo &Builtin, unsigned VF,
                                 unsigned Idx) -> void {
-    AddBuiltin(Builtin, {VectorKind::uniform()}, VF, Idx);
+    AddBuiltin(Builtin, false /*Masked*/, {VectorKind::uniform()}, VF, Idx);
   };
 
   for (auto &ReadBuiltin : ReadBuiltins) {
@@ -439,7 +558,8 @@ static void addBlockReadWriteBuiltins(ContainerTy &Info) {
 
   auto AddWriteBuiltin = [&AddBuiltin](BuiltinInfo &Builtin, unsigned VF,
                                 unsigned Idx) -> void {
-    AddBuiltin(Builtin, {VectorKind::uniform(), VectorKind::vector()}, VF, Idx);
+    AddBuiltin(Builtin, false /*Masked*/, {VectorKind::uniform(), VectorKind::vector()},
+               VF, Idx);
   };
 
   for (auto &WriteBuiltin : WriteBuiltins) {
@@ -447,39 +567,55 @@ static void addBlockReadWriteBuiltins(ContainerTy &Info) {
     AddWriteBuiltin(WriteBuiltin, 8, 1);
     AddWriteBuiltin(WriteBuiltin, 16, 2);
   }
+
+  auto AddBallotBuiltin = [&AddBuiltin](BuiltinInfo &Builtin, unsigned VF,
+                                  unsigned Idx) -> void {
+    AddBuiltin(Builtin, true /*Masked*/, {VectorKind::vector()},
+               VF, Idx);
+  };
+
+  for (auto &BallotBuiltin : BallotBuiltins) {
+    AddBallotBuiltin(BallotBuiltin, 4, 0);
+    AddBallotBuiltin(BallotBuiltin, 8, 1);
+    AddBallotBuiltin(BallotBuiltin, 16, 2);
+  }
 }
 
 static ContainerTy OCLBuiltinVecInfo() {
   ContainerTy Info;
 
-  addEntries(Info, "_Z13sub_group_all", TypeInfo{'i'}, {VectorKind::vector()});
-  addEntries(Info, "_Z13sub_group_any", TypeInfo{'i'}, {VectorKind::vector()});
+  addEntries(Info, "_Z13sub_group_all", TypeInfo{'i'}, {VectorKind::vector()}, true);
+  addEntries(Info, "_Z13sub_group_any", TypeInfo{'i'}, {VectorKind::vector()}, true);
+  addEntries(Info, "_Z14work_group_all", TypeInfo{'i'}, {VectorKind::vector()}, false);
+  addEntries(Info, "_Z14work_group_any", TypeInfo{'i'}, {VectorKind::vector()}, false);
 
-  addBlockReadWriteBuiltins(Info);
+  addEntries(Info, "_Z22intel_sub_group_ballot", TypeInfo{'i'}, {VectorKind::vector()}, true);
+
+  addSpecialBuiltins(Info);
 
   TypeInfo Types[] = {{'i'}, {'j'}, {'l'}, {'m'}, {'f'}, {'d'}};
   for (TypeInfo &Type : Types) {
     addEntries(Info, std::string("_Z19sub_group_broadcast"), {Type, {'j'}},
-               {VectorKind::vector(), VectorKind::uniform()});
+               {VectorKind::vector(), VectorKind::uniform()}, true);
     addEntries(Info, std::string("_Z20sub_group_reduce_add"), Type,
-               {VectorKind::vector()});
+               {VectorKind::vector()}, true);
     addEntries(Info, std::string("_Z20sub_group_reduce_max"), Type,
-               {VectorKind::vector()});
+               {VectorKind::vector()}, true);
     addEntries(Info, std::string("_Z20sub_group_reduce_min"), Type,
-               {VectorKind::vector()});
+               {VectorKind::vector()}, true);
 
     addEntries(Info, std::string("_Z28sub_group_scan_exclusive_add"), Type,
-               {VectorKind::vector()});
+               {VectorKind::vector()}, true);
     addEntries(Info, std::string("_Z28sub_group_scan_exclusive_max"), Type,
-               {VectorKind::vector()});
+               {VectorKind::vector()}, true);
     addEntries(Info, std::string("_Z28sub_group_scan_exclusive_min"), Type,
-               {VectorKind::vector()});
+               {VectorKind::vector()}, true);
     addEntries(Info, std::string("_Z28sub_group_scan_inclusive_add"), Type,
-               {VectorKind::vector()});
+               {VectorKind::vector()}, true);
     addEntries(Info, std::string("_Z28sub_group_scan_inclusive_max"), Type,
-               {VectorKind::vector()});
+               {VectorKind::vector()}, true);
     addEntries(Info, std::string("_Z28sub_group_scan_inclusive_min"), Type,
-               {VectorKind::vector()});
+               {VectorKind::vector()}, true);
   }
   TypeInfo ShuffleTypes[] = {{'i'}, {'i', 2}, {'i', 4}, {'i', 8}, {'i', 16},
                              {'j'}, {'j', 2}, {'j', 4}, {'j', 8}, {'j', 16},
@@ -511,6 +647,9 @@ static std::pair<const char *, VectorKind> OCLBuiltinReturnInfo[] = {
     // known as uniform too.
     {"_Z13sub_group_alli", VectorKind::uniform()},
     {"_Z13sub_group_anyi", VectorKind::uniform()},
+    {"_Z14work_group_alli", VectorKind::uniform()},
+    {"_Z14work_group_anyi", VectorKind::uniform()},
+    {"_Z22intel_sub_group_balloti", VectorKind::uniform()},
     {"_Z19sub_group_broadcastij", VectorKind::uniform()},
     {"_Z19sub_group_broadcastjj", VectorKind::uniform()},
     {"_Z19sub_group_broadcastlj", VectorKind::uniform()},
