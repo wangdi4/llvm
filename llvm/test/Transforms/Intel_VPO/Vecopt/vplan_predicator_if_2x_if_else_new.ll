@@ -61,24 +61,22 @@ define void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b, i32* noal
 ; CHECK-NEXT:     [DA: Divergent] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[B0:%.*]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_CMP1:%.*]] = icmp i32 [[VP0]] i32 0
-; CHECK-NEXT:    SUCCESSORS(1):[[REGION1:region[0-9]+]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB1]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    REGION: [[REGION1]] (BP: NULL)
-; CHECK-NEXT:    [[BB4:BB[0-9]+]] (BP: NULL) :
+; CHECK-NEXT:    [[BB4]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[REGION2:region[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:    SUCCESSORS(1):[[BB5:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    REGION: [[REGION2]] (BP: NULL)
-; CHECK-NEXT:    [[BB5:BB[0-9]+]] (BP: NULL) :
+; CHECK-NEXT:    [[BB5]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP1:%.*]] = block-predicate i1 [[VP_CMP1]]
 ; CHECK-NEXT:     [DA: Divergent] i32* [[VP_ARRAYIDX3:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP2:%.*]] = load i32* [[VP_ARRAYIDX3]]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_CMP4:%.*]] = icmp i32 [[VP2]] i32 0
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_CMP4_NOT:%.*]] = not i1 [[VP_CMP4]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB4_BR_VP_CMP4_NOT:%.*]] = and i1 [[VP_CMP1]] i1 [[VP_CMP4_NOT]]
@@ -109,16 +107,13 @@ define void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b, i32* noal
 ; CHECK-NEXT:     [DA: Divergent] store i32 [[VP_MUL16]] i32* [[VP_ARRAYIDX15]]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_CMP21:%.*]] = icmp i32 [[VP_MUL16]] i32 0
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_CMP21_NOT:%.*]] = not i1 [[VP_CMP21]]
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB8]]
-; CHECK-EMPTY:
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB10:BB[0-9]+]]
-; CHECK-NEXT:    END Region([[REGION2]])
+; CHECK-NEXT:    PREDECESSORS(1): [[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB10]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP8:%.*]] = block-predicate i1 [[VP_CMP1]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB11:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[REGION2]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB11]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB16_BR_VP_CMP21_NOT:%.*]] = and i1 [[VP_CMP1]] i1 [[VP_CMP21_NOT]]
@@ -143,17 +138,14 @@ define void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b, i32* noal
 ; CHECK-NEXT:    [[BB14]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 300
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB13]]
-; CHECK-EMPTY:
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
-; CHECK-NEXT:    END Region([[REGION1]])
+; CHECK-NEXT:    PREDECESSORS(1): [[BB13]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:     Condition([[BB14]]): [DA: Uniform]   i1 [[VP_EXITCOND]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 300
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB15:BB[0-9]+]](i1 [[VP_EXITCOND]]), [[BB2]](!i1 [[VP_EXITCOND]])
-; CHECK-NEXT:    PREDECESSORS(1): [[REGION1]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB14]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB15]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>

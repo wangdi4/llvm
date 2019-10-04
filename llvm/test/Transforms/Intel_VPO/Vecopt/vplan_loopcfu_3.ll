@@ -32,15 +32,14 @@ define dso_local void @foo(i32** nocapture readonly %a, i32 %m, i32* nocapture r
 ; CHECK-NEXT:     [DA: Divergent] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[UB0:%.*]] i64 [[VP_OUTER_IV]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_INNER_TOPTEST:%.*]] = icmp i32 [[VP0]] i32 0
-; CHECK-NEXT:    SUCCESSORS(1):[[REGION1:region[0-9]+]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB1]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    REGION: [[REGION1]] (BP: NULL)
-; CHECK-NEXT:    [[BB4:BB[0-9]+]] (BP: NULL) :
+; CHECK-NEXT:    [[BB4]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_INNER_TOPTEST_NOT:%.*]] = not i1 [[VP_INNER_TOPTEST]]
 ; CHECK-NEXT:     Condition([[BB2]]): [DA: Divergent] i1 [[VP_INNER_TOPTEST]] = icmp i32 [[VP0]] i32 0
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP_INNER_TOPTEST]]), [[LOOP1:loop[0-9]+]](!i1 [[VP_INNER_TOPTEST]])
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      REGION: [[LOOP1]] (BP: NULL)
 ; CHECK-NEXT:      [[BB6:BB[0-9]+]] (BP: NULL) :
@@ -52,10 +51,10 @@ define dso_local void @foo(i32** nocapture readonly %a, i32 %m, i32* nocapture r
 ; CHECK-NEXT:       [DA: Uniform]   i64 [[VP_INNER_IV:%.*]] = phi  [ i64 0, [[BB6]] ],  [ i64 [[VP_INNER_IV_NEXT:%.*]], [[BB8:BB[0-9]+]] ]
 ; CHECK-NEXT:       [DA: Divergent] i32 [[VP2:%.*]] = phi  [ i32 [[VP0]], [[BB6]] ],  [ i32 [[VP3:%.*]], [[BB8]] ]
 ; CHECK-NEXT:       [DA: Divergent] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_INNER_TOPTEST_NOT]], [[BB6]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB8]] ]
-; CHECK-NEXT:      SUCCESSORS(1):mask_[[REGION2:region[0-9]+]]
+; CHECK-NEXT:      SUCCESSORS(1):mask_[[REGION1:region[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB8]] [[BB6]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      REGION: mask_[[REGION2]] (BP: NULL)
+; CHECK-NEXT:      REGION: mask_[[REGION1]] (BP: NULL)
 ; CHECK-NEXT:      [[BB9:BB[0-9]+]] (BP: NULL) :
 ; CHECK-NEXT:       <Empty Block>
 ; CHECK-NEXT:       Condition([[BB7]]): [DA: Divergent] i1 [[VP_LOOP_MASK]] = phi  [ i1 [[VP_INNER_TOPTEST_NOT]], [[BB6]] ],  [ i1 [[VP_LOOP_MASK_NEXT]], [[BB8]] ]
@@ -83,13 +82,13 @@ define dso_local void @foo(i32** nocapture readonly %a, i32 %m, i32* nocapture r
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB10]] [[BB9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB8]]
-; CHECK-NEXT:      END Region(mask_[[REGION2]])
+; CHECK-NEXT:      END Region(mask_[[REGION1]])
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB8]] (BP: NULL) :
 ; CHECK-NEXT:       <Empty Block>
 ; CHECK-NEXT:       Condition([[BB11]]): [DA: Uniform]   i1 [[VP7]] = not i1 [[VP6]]
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB7]](i1 [[VP7]]), [[BB12:BB[0-9]+]](!i1 [[VP7]])
-; CHECK-NEXT:      PREDECESSORS(1): mask_[[REGION2]]
+; CHECK-NEXT:      PREDECESSORS(1): mask_[[REGION1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB12]] (BP: NULL) :
 ; CHECK-NEXT:       <Empty Block>
@@ -102,17 +101,14 @@ define dso_local void @foo(i32** nocapture readonly %a, i32 %m, i32* nocapture r
 ; CHECK-NEXT:    [[BB5]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP_OUTER_IV_NEXT]] = add i64 [[VP_OUTER_IV]] i64 1
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_OUTER_EXITCOND:%.*]] = icmp i64 [[VP_OUTER_IV_NEXT]] i64 [[M_SEXT0:%.*]]
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(2): [[LOOP1]] [[BB4]]
-; CHECK-EMPTY:
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
-; CHECK-NEXT:    END Region([[REGION1]])
+; CHECK-NEXT:    PREDECESSORS(2): [[LOOP1]] [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:     Condition([[BB5]]): [DA: Uniform]   i1 [[VP_OUTER_EXITCOND]] = icmp i64 [[VP_OUTER_IV_NEXT]] i64 [[M_SEXT0]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB13:BB[0-9]+]](i1 [[VP_OUTER_EXITCOND]]), [[BB2]](!i1 [[VP_OUTER_EXITCOND]])
-; CHECK-NEXT:    PREDECESSORS(1): [[REGION1]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB13]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>

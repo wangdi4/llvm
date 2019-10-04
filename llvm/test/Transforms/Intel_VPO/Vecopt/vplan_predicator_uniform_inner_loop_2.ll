@@ -21,15 +21,14 @@ define void @foo(i32 %n1, i32 %n2) {
 ; CHECK-NEXT:    [[BB2]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ],  [ i64 0, [[BB1]] ]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP0:%.*]] = trunc i64 [[VP_INDVARS_IV]] to i32
-; CHECK-NEXT:    SUCCESSORS(1):[[REGION1:region[0-9]+]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB1]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    REGION: [[REGION1]] (BP: NULL)
-; CHECK-NEXT:    [[BB4:BB[0-9]+]] (BP: NULL) :
+; CHECK-NEXT:    [[BB4]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:     Condition(external): i1 [[CMP10:%.*]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[LOOP1:loop[0-9]+]](i1 [[CMP10]]), [[BB5:BB[0-9]+]](!i1 [[CMP10]])
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      REGION: [[LOOP1]] (BP: NULL)
 ; CHECK-NEXT:      [[BB6:BB[0-9]+]] (BP: NULL) :
@@ -62,17 +61,14 @@ define void @foo(i32 %n1, i32 %n2) {
 ; CHECK-NEXT:    [[BB5]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_EXITCOND15:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 1024
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(2): [[LOOP1]] [[BB4]]
-; CHECK-EMPTY:
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
-; CHECK-NEXT:    END Region([[REGION1]])
+; CHECK-NEXT:    PREDECESSORS(2): [[LOOP1]] [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:     Condition([[BB5]]): [DA: Uniform]   i1 [[VP_EXITCOND15]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 1024
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB10:BB[0-9]+]](i1 [[VP_EXITCOND15]]), [[BB2]](!i1 [[VP_EXITCOND15]])
-; CHECK-NEXT:    PREDECESSORS(1): [[REGION1]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB10]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>

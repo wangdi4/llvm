@@ -28,15 +28,14 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unna
 ; CHECK-NEXT:    [[BB2]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP_OUTER_IV:%.*]] = phi  [ i64 [[VP_OUTER_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ],  [ i64 0, [[BB1]] ]
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_UNIFORM_TOP_TEST:%.*]] = icmp i64 [[N0:%.*]] i64 0
-; CHECK-NEXT:    SUCCESSORS(1):[[REGION1:region[0-9]+]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB1]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    REGION: [[REGION1]] (BP: NULL)
-; CHECK-NEXT:    [[BB4:BB[0-9]+]] (BP: NULL) :
+; CHECK-NEXT:    [[BB4]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_UNIFORM_TOP_TEST_NOT:%.*]] = not i1 [[VP_UNIFORM_TOP_TEST]]
 ; CHECK-NEXT:     Condition([[BB2]]): [DA: Uniform]   i1 [[VP_UNIFORM_TOP_TEST]] = icmp i64 [[N0]] i64 0
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP_UNIFORM_TOP_TEST]]), [[LOOP1:loop[0-9]+]](!i1 [[VP_UNIFORM_TOP_TEST]])
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      REGION: [[LOOP1]] (BP: NULL)
 ; CHECK-NEXT:      [[BB6:BB[0-9]+]] (BP: NULL) :
@@ -47,10 +46,10 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unna
 ; CHECK-NEXT:      [[BB7]] (BP: NULL) :
 ; CHECK-NEXT:       [DA: Uniform]   i64 [[VP_INNER_IV:%.*]] = phi  [ i64 [[VP_INNER_IV_NEXT:%.*]], [[BB8:BB[0-9]+]] ],  [ i64 0, [[BB6]] ]
 ; CHECK-NEXT:       [DA: Divergent] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_UNIFORM_TOP_TEST_NOT]], [[BB6]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB8]] ]
-; CHECK-NEXT:      SUCCESSORS(1):mask_[[REGION2:region[0-9]+]]
+; CHECK-NEXT:      SUCCESSORS(1):mask_[[REGION1:region[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB8]] [[BB6]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      REGION: mask_[[REGION2]] (BP: NULL)
+; CHECK-NEXT:      REGION: mask_[[REGION1]] (BP: NULL)
 ; CHECK-NEXT:      [[BB9:BB[0-9]+]] (BP: NULL) :
 ; CHECK-NEXT:       <Empty Block>
 ; CHECK-NEXT:       Condition([[BB7]]): [DA: Divergent] i1 [[VP_LOOP_MASK]] = phi  [ i1 [[VP_UNIFORM_TOP_TEST_NOT]], [[BB6]] ],  [ i1 [[VP_LOOP_MASK_NEXT]], [[BB8]] ]
@@ -72,7 +71,7 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unna
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB10]] [[BB9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB8]]
-; CHECK-NEXT:      END Region(mask_[[REGION2]])
+; CHECK-NEXT:      END Region(mask_[[REGION1]])
 ; CHECK-EMPTY:
 ;
 entry:

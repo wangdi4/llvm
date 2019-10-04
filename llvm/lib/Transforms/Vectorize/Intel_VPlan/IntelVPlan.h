@@ -253,9 +253,11 @@ struct VPTransformState {
   VPTransformState(unsigned VF, unsigned UF, LoopInfo *LI,
                    class DominatorTree *DT, IRBuilder<> &Builder,
                    VectorizerValueMap &ValueMap, InnerLoopVectorizer *ILV,
-                   VPCallback &Callback, LoopVectorizationLegality *Legal)
+                   VPCallback &Callback, LoopVectorizationLegality *Legal,
+                   VPLoopInfo *VPLI)
       : VF(VF), UF(UF), Instance(), LI(LI), DT(DT), Builder(Builder),
-        ValueMap(ValueMap), ILV(ILV), Callback(Callback), Legal(Legal) {}
+        ValueMap(ValueMap), ILV(ILV), Callback(Callback), Legal(Legal),
+        VPLI(VPLI) {}
 #else
   VPTransformState(unsigned VF, unsigned UF, LoopInfo *LI,
                    class DominatorTree *DT, IRBuilder<> &Builder,
@@ -360,6 +362,8 @@ struct VPTransformState {
   /// The condition bit value carried by the VPValue.
   SmallDenseMap<VPValue *, Value *> CBVToConditionBitMap;
   UniformsTy *UniformCBVs;
+
+  VPLoopInfo *VPLI;
 #endif
 };
 

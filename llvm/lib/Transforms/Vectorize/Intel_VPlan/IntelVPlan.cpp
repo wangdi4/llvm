@@ -379,7 +379,15 @@ void VPBasicBlock::execute(VPTransformState *State) {
   VPBasicBlock *PrevVPBB = State->CFG.PrevVPBB;
   VPBlockBase *SingleHPred = nullptr;
   BasicBlock *NewBB = State->CFG.PrevBB; // Reuse it if possible.
-  VPLoopRegion *ParentLoop = nullptr;
+
+  VPLoopInfo *VPLI = State->VPLI;
+
+  // TODO: Won't take place with explicit peel/reminder. But we'd need much more
+  // fixes to support CG for such case anyway.
+  assert(std::distance(VPLI->begin(), VPLI->end()) == 1
+         && "Expected single outermost loop!");
+
+  VPLoop *OuterMostVPLoop = *VPLI->begin();
 
   // 1. Create an IR basic block, or reuse one already available if possible.
   // The last IR basic block is reused in four cases:
@@ -389,15 +397,7 @@ void VPBasicBlock::execute(VPTransformState *State) {
   //    is PrevVPBB and the latter has a single (hierarchical) successor; and
   // D. when the current VPBB is an entry of a region replica - where PrevVPBB
   //    is the exit of this region from a previous instance.
-  // TODO: We currently cannot use VPLoopRegion class here
-  if (PrevVPBB && (ParentLoop = dyn_cast<VPLoopRegion>(this->getParent())) &&
-      ParentLoop->getEntry() == PrevVPBB /* B */ &&
-      // TODO: We need to properly support outer-loop vectorization scenarios.
-      // Latches for inner loops are not removed and we don't have VPlan,
-      // VPLoopInfo, etc. accessible from State. Temporal fix: outermost loop's
-      // parent is TopRegion. TopRegion's parent is null.
-      !ParentLoop->getParent()->getParent()) {
-
+  if (OuterMostVPLoop->getHeader() == this) {
     // Set NewBB to loop H basic block
     BasicBlock *LoopPH = State->CFG.PrevBB;
     NewBB = LoopPH->getSingleSuccessor();
