@@ -942,6 +942,10 @@ static ExprResult parseContextScore(Parser &P) {
 static void parseImplementationSelector(
     Parser &P, SourceLocation Loc,
     llvm::function_ref<void(SourceRange,
+#if INTEL_CUSTOMIZATION
+             SmallVectorImpl<OMPDeclareVariantAttr::ConstructTy> &,
+             SmallVectorImpl<OMPDeclareVariantAttr::DeviceTy> &,
+#endif // INTEL_CUSTOMIZATION
                             const Sema::OpenMPDeclareVariantCtsSelectorData &)>
         Callback) {
   const Token &Tok = P.getCurToken();
@@ -986,7 +990,12 @@ static void parseImplementationSelector(
         Sema::OpenMPDeclareVariantCtsSelectorData Data(
             OMPDeclareVariantAttr::CtxSetImplementation, CSKind, VendorName,
             Score);
-        Callback(SourceRange(Loc, Tok.getLocation()), Data);
+#if INTEL_CUSTOMIZATION
+        SmallVector<OMPDeclareVariantAttr::ConstructTy, 3> Constructs;
+        SmallVector<OMPDeclareVariantAttr::DeviceTy, 3> Devices;
+        Callback(SourceRange(Loc, Tok.getLocation()), Constructs, Devices,
+                 Data);
+#endif // INTEL_CUSTOMIZATION
       }
       if (!P.TryConsumeToken(tok::comma) && Tok.isNot(tok::r_paren)) {
         P.Diag(Tok, diag::err_expected_punc)
@@ -1084,15 +1093,6 @@ bool Parser::parseOpenMPContextSelectors(
       // Parse '}'.
       (void)TBr.consumeClose();
     }
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-    if (!getLangOpts().OpenMPLateOutline) {
-      SourceRange SR(Loc, Tok.getLocation());
-      Callback(SR, Constructs, Devices, Data);
-    }
-#endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 1c9e1731b038d14d73aa7c7f9a3669b6edfc7c8b
     // Consume ','
     if (Tok.isNot(tok::r_paren) && Tok.isNot(tok::annot_pragma_openmp_end))
       (void)ExpectAndConsume(tok::comma);
