@@ -1,13 +1,18 @@
 ; Test inner loop control flow uniformity where inner loop is a while loop with loop index.
 
 ; REQUIRES: asserts
-; RUN: opt -S %s -VPlanDriver -debug 2>&1 | FileCheck %s
+; RUN: opt -S < %s -VPlanDriver -vplan-print-after-loop-cfu -disable-output | FileCheck %s
 
-; ModuleID = 'case2.c'
-source_filename = "case2.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
+declare token @llvm.directive.region.entry() nounwind
+declare void @llvm.directive.region.exit(token) nounwind
+
+@A = common local_unnamed_addr global [100 x [100 x i64]] zeroinitializer, align 16
+
+; Function Attrs: norecurse nounwind uwtable
+define dso_local void @foo(i32** nocapture readonly %a, i32 %m, i32* nocapture readonly %ub, i32 %k) local_unnamed_addr #0 {
 ; CHECK-LABEL: After inner loop control flow transformation
 ; CHECK: REGION: {{region[0-9]+}} (BP: NULL)
 ; CHECK-NEXT: {{BB[0-9]+}} (BP: NULL) :
@@ -96,67 +101,56 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-EMPTY:
 
 ; CHECK-NEXT: [[EXIT]] (BP: NULL) :
-
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry()
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token)
-
-@A = common local_unnamed_addr global [100 x [100 x i64]] zeroinitializer, align 16
-
-; Function Attrs: norecurse nounwind uwtable
-define dso_local void @foo(i32** nocapture readonly %a, i32 %m, i32* nocapture readonly %ub, i32 %k) local_unnamed_addr #0 {
 entry:
   %cmp20 = icmp sgt i32 %m, 0
-  br i1 %cmp20, label %simd.begin, label %for.end
+  br i1 %cmp20, label %simd.begin, label %func.exit
 
 simd.begin:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
-  br label %while.cond.preheader.preheader
+  br label %outer.preheader
 
-while.cond.preheader.preheader:                   ; preds = %entry
-  %wide.trip.count = sext i32 %m to i64
-  br label %while.cond.preheader
+outer.preheader:
+  %m.sext = sext i32 %m to i64
+  br label %outer.header
 
-while.cond.preheader:                             ; preds = %for.inc, %while.cond.preheader.preheader
-  %indvars.iv23 = phi i64 [ 0, %while.cond.preheader.preheader ], [ %indvars.iv.next24, %for.inc ]
-  %arrayidx = getelementptr inbounds i32, i32* %ub, i64 %indvars.iv23
+outer.header:
+  %outer.iv = phi i64 [ 0, %outer.preheader ], [ %outer.iv.next, %outer.latch ]
+  %arrayidx = getelementptr inbounds i32, i32* %ub, i64 %outer.iv
   %0 = load i32, i32* %arrayidx, align 4
-  %cmp118 = icmp slt i32 %0, 0
-  br i1 %cmp118, label %for.inc, label %while.body.preheader
+  %inner.toptest = icmp slt i32 %0, 0
+  br i1 %inner.toptest, label %outer.latch, label %inner.preheader
 
-while.body.preheader:                             ; preds = %while.cond.preheader
-  %1 = trunc i64 %indvars.iv23 to i32
-  br label %while.body
+inner.preheader:
+  %1 = trunc i64 %outer.iv to i32
+  br label %inner.header
 
-while.body:                                       ; preds = %while.body.preheader, %while.body
-  %indvars.iv = phi i64 [ 0, %while.body.preheader ], [ %indvars.iv.next, %while.body ]
-  %2 = phi i32 [ %0, %while.body.preheader ], [ %4, %while.body ]
+inner.header:
+  %inner.iv = phi i64 [ 0, %inner.preheader ], [ %inner.iv.next, %inner.header ]
+  %2 = phi i32 [ %0, %inner.preheader ], [ %4, %inner.header ]
   %mul = mul nsw i32 %2, %1
-  %arrayidx5 = getelementptr inbounds i32*, i32** %a, i64 %indvars.iv
+  %arrayidx5 = getelementptr inbounds i32*, i32** %a, i64 %inner.iv
   %3 = load i32*, i32** %arrayidx5, align 8
-  %arrayidx7 = getelementptr inbounds i32, i32* %3, i64 %indvars.iv23
+  %arrayidx7 = getelementptr inbounds i32, i32* %3, i64 %outer.iv
   store i32 %mul, i32* %arrayidx7, align 4
-  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %inner.iv.next = add nuw nsw i64 %inner.iv, 1
   %4 = load i32, i32* %arrayidx, align 4
   %5 = sext i32 %4 to i64
-  %cmp1 = icmp slt i64 %indvars.iv, %5
-  br i1 %cmp1, label %while.body, label %for.inc.loopexit
+  %inner.exitcond = icmp slt i64 %inner.iv, %5
+  br i1 %inner.exitcond, label %inner.header, label %outer.latch.loopexit
 
-for.inc.loopexit:                                 ; preds = %while.body
-  br label %for.inc
+outer.latch.loopexit:
+  br label %outer.latch
 
-for.inc:                                          ; preds = %for.inc.loopexit, %while.cond.preheader
-  %indvars.iv.next24 = add nuw nsw i64 %indvars.iv23, 1
-  %exitcond = icmp eq i64 %indvars.iv.next24, %wide.trip.count
-  br i1 %exitcond, label %for.end.loopexit, label %while.cond.preheader
+outer.latch:
+  %outer.iv.next = add nuw nsw i64 %outer.iv, 1
+  %outer.exitcond = icmp eq i64 %outer.iv.next, %m.sext
+  br i1 %outer.exitcond, label %outer.exit, label %outer.header
 
-for.end.loopexit:                                 ; preds = %for.inc
+outer.exit:
   call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"()]
-  br label %for.end
+  br label %func.exit
 
-for.end:                                          ; preds = %for.end.loopexit, %entry
+func.exit:
   ret void
 }
 

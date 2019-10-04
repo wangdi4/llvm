@@ -16,7 +16,7 @@
 #if INTEL_CUSTOMIZATION
 #include "IntelNewVPlanPredicator.h"
 #include "IntelVPlan.h"
-#include "llvm/Analysis/IteratedDominanceFrontier.h"
+#include "IntelVPlanIDF.h"
 #else
 #include "VPlanPredicator.h"
 #include "VPlan.h"

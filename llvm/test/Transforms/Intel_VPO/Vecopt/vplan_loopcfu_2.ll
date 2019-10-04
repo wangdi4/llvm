@@ -1,13 +1,21 @@
 ; Test inner loop control flow uniformity where inner loop exit condition is divergent memory reference.
 
 ; REQUIRES: asserts
-; RUN: opt -S %s -VPlanDriver -debug 2>&1 | FileCheck %s
+; RUN: opt -S < %s -VPlanDriver -vplan-print-after-loop-cfu -disable-output | FileCheck %s
 
-; ModuleID = 'case2.c'
-source_filename = "case2.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry()
+
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token)
+
+@A = common local_unnamed_addr global [100 x [100 x i64]] zeroinitializer, align 16
+
+; Function Attrs: norecurse nounwind uwtable
+define dso_local void @foo(i64 %N, i64* nocapture readonly %lb, i64* nocapture readonly %ub) local_unnamed_addr #0 {
 ; CHECK-LABEL: After inner loop control flow transformation
 ; CHECK: REGION: {{region[0-9]+}} (BP: NULL)
 ; CHECK-NEXT: {{BB[0-9]+}} (BP: NULL) :
@@ -94,60 +102,49 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-EMPTY:
 
 ; CHECK-NEXT: [[EXIT]] (BP: NULL) :
-
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry()
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token)
-
-@A = common local_unnamed_addr global [100 x [100 x i64]] zeroinitializer, align 16
-
-; Function Attrs: norecurse nounwind uwtable
-define dso_local void @foo(i64 %N, i64* nocapture readonly %lb, i64* nocapture readonly %ub) local_unnamed_addr #0 {
 entry:
-  %cmp21 = icmp sgt i64 %N, 0
-  br i1 %cmp21, label %for.body.preheader, label %for.end9
+  %outer.toptest = icmp sgt i64 %N, 0
+  br i1 %outer.toptest, label %outer.preheader, label %func.exit
 
-for.body.preheader:                               ; preds = %entry
+outer.preheader:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
-  br label %for.body
+  br label %outer.header
 
-for.body:                                         ; preds = %for.body.preheader, %for.inc7
-  %i.022 = phi i64 [ %inc8, %for.inc7 ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i64, i64* %lb, i64 %i.022
+outer.header:
+  %outer.iv = phi i64 [ %outer.iv.next, %outer.latch ], [ 0, %outer.preheader ]
+  %arrayidx = getelementptr inbounds i64, i64* %lb, i64 %outer.iv
   %0 = load i64, i64* %arrayidx, align 8
-  %arrayidx2 = getelementptr inbounds i64, i64* %ub, i64 %i.022
+  %arrayidx2 = getelementptr inbounds i64, i64* %ub, i64 %outer.iv
   %1 = load i64, i64* %arrayidx2, align 8
-  %cmp319 = icmp slt i64 %0, %1
-  br i1 %cmp319, label %for.body4.preheader, label %for.inc7
+  %inner.toptest = icmp slt i64 %0, %1
+  br i1 %inner.toptest, label %inner.preheader, label %outer.latch
 
-for.body4.preheader:                              ; preds = %for.body
-  br label %for.body4
+inner.preheader:
+  br label %inner.header
 
-for.body4:                                        ; preds = %for.body4.preheader, %for.body4
-  %j.020 = phi i64 [ %inc, %for.body4 ], [ %0, %for.body4.preheader ]
-  %shl = shl i64 %j.020, 3
-  %arrayidx6 = getelementptr inbounds [100 x [100 x i64]], [100 x [100 x i64]]* @A, i64 0, i64 %j.020, i64 %i.022
+inner.header:
+  %inner.iv = phi i64 [ %inner.iv.next, %inner.header ], [ %0, %inner.preheader ]
+  %shl = shl i64 %inner.iv, 3
+  %arrayidx6 = getelementptr inbounds [100 x [100 x i64]], [100 x [100 x i64]]* @A, i64 0, i64 %inner.iv, i64 %outer.iv
   store i64 %shl, i64* %arrayidx6, align 8
-  %inc = add nsw i64 %j.020, 1
+  %inner.iv.next = add nsw i64 %inner.iv, 1
   %2 = load i64, i64* %arrayidx2, align 8
-  %cmp3 = icmp slt i64 %inc, %2
-  br i1 %cmp3, label %for.body4, label %for.inc7.loopexit
+  %inner.exitcond = icmp slt i64 %inner.iv.next, %2
+  br i1 %inner.exitcond, label %inner.header, label %inner.exit
 
-for.inc7.loopexit:                                ; preds = %for.body4
-  br label %for.inc7
+inner.exit:
+  br label %outer.latch
 
-for.inc7:                                         ; preds = %for.inc7.loopexit, %for.body
-  %inc8 = add nuw nsw i64 %i.022, 1
-  %exitcond = icmp eq i64 %inc8, %N
-  br i1 %exitcond, label %for.end9.loopexit, label %for.body
+outer.latch:
+  %outer.iv.next = add nuw nsw i64 %outer.iv, 1
+  %outer.exitcond = icmp eq i64 %outer.iv.next, %N
+  br i1 %outer.exitcond, label %outer.exit, label %outer.header
 
-for.end9.loopexit:                                ; preds = %for.inc7
+outer.exit:
   call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"()]
-  br label %for.end9
+  br label %func.exit
 
-for.end9:                                         ; preds = %for.end9.loopexit, %entry
+func.exit:
   ret void
 }
 
