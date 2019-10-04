@@ -2706,9 +2706,14 @@ private:
   std::unique_ptr<VPlanDivergenceAnalysis> VPlanDA;
   const DataLayout *DL = nullptr;
 
-  // Ugly hack to enable full linearization for cases where while-loop
-  // canonicalization or merge loop exits transformation break SSA.
-  bool SSAIsBroken = false;
+  // We need to force full linearization for certain cases. Currently this
+  // happens for cases where while-loop canonicalization or merge loop exits
+  // transformation break SSA or for HIR vector code generation which needs
+  // to be extended to preserve uniform control flow. This flag is set to true
+  // when we need to force full linearization. Full linearization can still
+  // kick in when this flag is false such as cases where we use a command
+  // line option to do the same.
+  bool FullLinearizationForced = false;
 #endif
 
 #if INTEL_CUSTOMIZATION
@@ -2810,8 +2815,8 @@ public:
 
   VPlanDivergenceAnalysis *getVPlanDA() const { return VPlanDA.get(); }
 
-  void markSSABroken() { SSAIsBroken = true; }
-  bool isSSABroken() { return SSAIsBroken; }
+  void markFullLinearizationForced() { FullLinearizationForced = true; }
+  bool isFullLinearizationForced() const { return FullLinearizationForced; }
 
   const DataLayout* getDataLayout() const { return DL; }
 
