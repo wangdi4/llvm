@@ -1314,11 +1314,9 @@ static void splitMrfs(const OVLSMemrefVector &Memrefs,
       if (Memref->getNumElements() != SetFirstSeenMrf->getNumElements())
         continue;
 
-      // Currently we support grouping Memrefs with same elementsize. Note that
-      // this check redundantly also checks the number of vector elements. We
-      // still keep it, so that when we extend to support different sized
-      // neighbors, we only remove this check below.
-      if (!Memref->haveSameOVLSType(*SetFirstSeenMrf))
+      // Currently we support grouping Memrefs with same elementsize.
+      if (Memref->getType().getElementSize() !=
+          SetFirstSeenMrf->getType().getElementSize())
         continue;
 
       // Dist is the distance to be added in Dist(SetFirstSeenMrf) to get

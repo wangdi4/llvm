@@ -139,11 +139,8 @@ public:
   bool isValid() const { return ElementSize != 0 && NumElements != 0; }
 
   uint32_t getElementSize() const { return ElementSize; }
-  void setElementSize(uint32_t ESize) { ElementSize = ESize; }
-
   uint32_t getNumElements() const { return NumElements; }
   void setNumElements(uint32_t NElems) { NumElements = NElems; }
-
   uint32_t getSize() const { return NumElements * ElementSize; }
 
   /// \brief prints the type as "<NumElements x ElementSize>"
@@ -189,13 +186,10 @@ public:
   OVLSMemref(OVLSMemrefKind K, OVLSType Type, OVLSAccessKind AccessKind);
   virtual ~OVLSMemref() {}
 
-  OVLSType getType() const { return DType; }
-  void setType(OVLSType T) { DType = T; }
-
-  void setNumElements(uint32_t nelems) { DType.setNumElements(nelems); }
-  unsigned getNumElements() const { return DType.getNumElements(); };
   OVLSAccessKind getAccessKind() const { return AccessKind; }
-  void setAccessKind(const OVLSAccessKind &Kind) { AccessKind = Kind; }
+  OVLSType getType() const { return DType; }
+  unsigned getNumElements() const { return DType.getNumElements(); };
+  void setNumElements(uint32_t nelems) { DType.setNumElements(nelems); }
 
   unsigned getId() const { return Id; }
 
@@ -239,11 +233,6 @@ public:
   ///      = a[3i+2] {stride: j(12)-bytes} accessing every jth byte
   ///
   virtual Optional<int64_t> getConstDistanceFrom(const OVLSMemref &Memref) = 0;
-
-  /// \brief Returns true if this and Memref have the same OVLSType.
-  virtual bool haveSameOVLSType(const OVLSMemref &Memref) {
-    return (DType == Memref.getType());
-  }
 
   /// \brief Returns true if this can move to the location of \p Memref. This
   /// means it does not violate any program/control flow semantics nor any
