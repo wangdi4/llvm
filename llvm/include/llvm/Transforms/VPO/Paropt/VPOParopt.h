@@ -25,6 +25,7 @@
 #define LLVM_TRANSFORMS_VPO_PAROPT_H
 
 #include "llvm/Pass.h"
+#include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -139,6 +140,27 @@ private:
 // External storage for -loopopt-use-omp-region.
 extern bool UseOmpRegionsInLoopoptFlag;
 #endif  // INTEL_CUSTOMIZATION
+
+class ParoptDiagInfo : public DiagnosticInfoWithLocationBase {
+  const Twine &Msg;
+
+public:
+  ParoptDiagInfo(const Function &F, const DiagnosticLocation &Loc,
+                          const Twine &Msg, DiagnosticSeverity DS = DS_Warning)
+    : DiagnosticInfoWithLocationBase(
+          static_cast<DiagnosticKind>(getNextAvailablePluginDiagnosticKind()),
+          DS, F, Loc),
+      Msg(Msg)
+  {}
+
+  void print(DiagnosticPrinter &DP) const override {
+    if (isLocationAvailable())
+      DP << getLocationStr() << ": ";
+    DP << Msg;
+    if (!isLocationAvailable())
+      DP << " (use -g for location info)";
+  }
+};
 
 } // end namespace vpo
 } // end namespace llvm

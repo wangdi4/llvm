@@ -84,10 +84,12 @@ extern "C" {
 #if INTEL_COLLAB
 #ifdef _WIN32
 // libomp has to be linked in to satisfy these dependencies.
-__declspec(dllimport) int omp_get_default_device(void);
-__declspec(dllimport) int32_t __kmpc_omp_taskwait(void *loc_ref, int32_t gtid);
-__declspec(dllimport) int32_t __kmpc_global_thread_num(void *);
-__declspec(dllimport) int __kmpc_get_target_offload(void);
+// FIXME: we should actually include omp.h instead of declaring
+//        omp_get_default_device() ourselves.
+int __cdecl omp_get_default_device(void);
+int32_t __cdecl __kmpc_omp_taskwait(void *loc_ref, int32_t gtid);
+int32_t __cdecl __kmpc_global_thread_num(void *);
+int __cdecl __kmpc_get_target_offload(void);
 #else
 // We do not have to make these weak just to be able
 // to have undefined symbols in the shared library.
