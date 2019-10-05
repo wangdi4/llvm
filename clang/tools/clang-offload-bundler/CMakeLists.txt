@@ -21,11 +21,3 @@ clang_target_link_libraries(clang-offload-bundler
   PRIVATE
   ${CLANG_OFFLOAD_BUNDLER_LIB_DEPS}
   )
-<<<<<<< HEAD
-
-install(TARGETS clang-offload-bundler RUNTIME # INTEL https://reviews.llvm.org/D56112
-  COMPONENT clang-offload-bundler             # INTEL https://reviews.llvm.org/D56112
-  DESTINATION bin                             # INTEL https://reviews.llvm.org/D56112
-  )                                           # INTEL https://reviews.llvm.org/D56112
-=======
->>>>>>> 5cd0db7e92ef31d4a979f07800235d23bffa1de9
