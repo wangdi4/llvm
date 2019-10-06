@@ -6971,7 +6971,7 @@ static bool getTargetShuffleAndZeroables(SDValue N, SmallVectorImpl<int> &Mask,
     }
   }
 
-  assert(VT.getVectorNumElements() == Size &&
+  assert(VT.getVectorNumElements() == (unsigned)Size &&
          "Different mask size from vector size!");
   return true;
 }
