@@ -65,7 +65,6 @@ Getting Started, How-tos, Developer Guides, and Tutorials.
    :hidden:
 
    GettingStartedTutorials
-   ProgrammingDocumentation
    Reference
    SubsystemDocumentation
    UserGuides
@@ -75,9 +74,6 @@ Getting Started, How-tos, Developer Guides, and Tutorials.
 
 :doc:`UserGuides`
   User guides and How-tos.
-
-:doc:`ProgrammingDocumentation`
-  For developers of applications which use LLVM as a library.
 
 :doc:`SubsystemDocumentation`
   For API clients and LLVM developers.
