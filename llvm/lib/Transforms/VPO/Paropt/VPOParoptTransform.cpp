@@ -402,48 +402,47 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
     UB = Builder.CreateLoad(UpperBnd);
   }
 
-  Value *ItSpace = Builder.CreateSub(UB, LB);
-
   WRNScheduleKind SchedKind = VPOParoptUtils::getLoopScheduleKind(W);
 
   setSchedKindForMultiLevelLoops(W, SchedKind, WRNScheduleStaticEven);
 
   // All operands of math expressions below will be of LBType
   auto LBType = LB->getType();
+  Value *NewUB = nullptr;
 
-  Value *Chunk = nullptr;
-  Value *NumThreads = Builder.CreateSExtOrTrunc(LocalSize, LBType);
-  if (SchedKind == WRNScheduleStaticEven) {
-    Value *ItSpaceRounded = Builder.CreateAdd(ItSpace, NumThreads);
-    Chunk = Builder.CreateSDiv(ItSpaceRounded, NumThreads);
-  } else if (SchedKind == WRNScheduleStatic) {
-    Chunk = W->getSchedule().getChunkExpr();
-    Chunk = Builder.CreateSExtOrTrunc(Chunk, LBType);
-  } else
-    llvm_unreachable(
-        "Unsupported loop schedule type in OpenCL based offloading!");
+  if (!VPOParoptUtils::useSPMDMode(W)) {
+    Value *Chunk = nullptr;
+    Value *NumThreads = Builder.CreateSExtOrTrunc(LocalSize, LBType);
+    if (SchedKind == WRNScheduleStaticEven) {
+      Value *ItSpace = Builder.CreateSub(UB, LB);
+      Value *ItSpaceRounded = Builder.CreateAdd(ItSpace, NumThreads);
+      Chunk = Builder.CreateSDiv(ItSpaceRounded, NumThreads);
+    } else if (SchedKind == WRNScheduleStatic) {
+      Chunk = W->getSchedule().getChunkExpr();
+      Chunk = Builder.CreateSExtOrTrunc(Chunk, LBType);
+    } else
+      llvm_unreachable(
+          "Unsupported loop schedule type in OpenCL based offloading!");
 
-  Value *SchedStrideVal = Builder.CreateMul(NumThreads, Chunk);
-  Builder.CreateStore(SchedStrideVal, SchedStride);
+    Value *SchedStrideVal = Builder.CreateMul(NumThreads, Chunk);
+    Builder.CreateStore(SchedStrideVal, SchedStride);
 
-  CallInst *LocalId =
-      VPOParoptUtils::genOCLGenericCall("_Z12get_local_idj",
-                                        GeneralUtils::getSizeTTy(F),
-                                        Arg, InsertPt);
-  Value *LocalIdCasted = Builder.CreateSExtOrTrunc(LocalId, LBType);
+    CallInst *LocalId =
+        VPOParoptUtils::genOCLGenericCall("_Z12get_local_idj",
+                                          GeneralUtils::getSizeTTy(F),
+                                          Arg, InsertPt);
+    Value *LocalIdCasted = Builder.CreateSExtOrTrunc(LocalId, LBType);
 
-  Value *LBDiff = Builder.CreateMul(LocalIdCasted, Chunk);
-  LB = Builder.CreateAdd(LB, LBDiff);
-  Builder.CreateStore(LB, LowerBnd);
+    Value *LBDiff = Builder.CreateMul(LocalIdCasted, Chunk);
+    LB = Builder.CreateAdd(LB, LBDiff);
+    Builder.CreateStore(LB, LowerBnd);
 
-  ConstantInt *ValueOne = ConstantInt::get(cast<IntegerType>(LBType), 1);
-  Value *Ch = Builder.CreateSub(Chunk, ValueOne);
-  Value *NewUB = Builder.CreateAdd(LB, Ch);
-
-  if (VPOParoptUtils::useSPMDMode(W)) {
-    // Discard all partitioning above for SPMD mode by setting
-    // lower and upper bound to get_global_id(). This will let
-    // each WI execute just one iteration of the loop.
+    ConstantInt *ValueOne = ConstantInt::get(cast<IntegerType>(LBType), 1);
+    Value *Ch = Builder.CreateSub(Chunk, ValueOne);
+    NewUB = Builder.CreateAdd(LB, Ch);
+  } else {
+    // Use SPMD mode by setting lower and upper bound to get_global_id().
+    // This will let each WI execute just one iteration of the loop.
     CallInst *GlobalId =
       VPOParoptUtils::genOCLGenericCall("_Z13get_global_idj",
                                         GeneralUtils::getSizeTTy(F),
