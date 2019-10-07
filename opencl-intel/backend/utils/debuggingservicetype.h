@@ -28,7 +28,7 @@ enum DebuggingServiceType { None, Native, Simulator };
 /// CL_CONFIG_DBG_ENABLE (which toggles the Simulator debugging type)
 DebuggingServiceType getDebuggingServiceType(bool debuggingEnabled,
                                              llvm::Module *M,
-                                             bool useNativeDebugger = false);
+                                             bool useNativeDebugger);
 
 }
 
