@@ -207,6 +207,8 @@ static void updateAndMoveGetLID(Instruction *LIDCallInst, PHINode *Phi,
   // truncating sequences (shl + ashr) from incoming IR which go back to same
   // size as Add. The last two cases are trivial and can be removed, with all
   // their uses replaced directly by Add (or AddSExt).
+  SmallVector<std::pair<Instruction * /* From */, Instruction * /* To */>, 4>
+      ReplacePairs;
   for (auto *User : LIDCallInst->users()) {
     assert((isa<TruncInst>(User) ||
             isShlAshrTruncationPattern(User, AddTypeSize)) &&
@@ -217,14 +219,27 @@ static void updateAndMoveGetLID(Instruction *LIDCallInst, PHINode *Phi,
       continue;
 
     if (isa<TruncInst>(UserInst)) {
-      UserInst->replaceAllUsesWith(Add);
-      UserInst->eraseFromParent();
+      ReplacePairs.emplace_back(UserInst, Add);
     } else {
       Instruction *AshrInst = cast<Instruction>(*UserInst->user_begin());
-      AshrInst->replaceAllUsesWith(AddSExt);
-      AshrInst->eraseFromParent();
-      UserInst->eraseFromParent();
+      ReplacePairs.emplace_back(AshrInst, AddSExt);
+      // The shl instruction using LID call needs to be only removed. A
+      // replacement is not needed since its only user (ashr) is already
+      // removed.
+      ReplacePairs.emplace_back(UserInst, nullptr);
     }
+  }
+
+  for (auto &ReplacePair : ReplacePairs) {
+    Instruction *From = ReplacePair.first;
+    Instruction *To = ReplacePair.second;
+
+    assert((To || From->hasNUses(0)) &&
+           "Invalid instruction to replace/remove.");
+
+    if (To)
+      From->replaceAllUsesWith(To);
+    From->eraseFromParent();
   }
 
   // Reset the operand of LID's trunc, after all uses of LID are replaced.
