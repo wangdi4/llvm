@@ -15,9 +15,9 @@
 // version control.
 //
 // To run clang-tblgen to generate the .rst file:
-// clang-tblgen -gen-intel-docs -I <root>/llvm/tools/clang/include
-//   <root>/llvm/tools/clang/include/clang/Basic/intel/IntelCustDocs.td -o
-//   <root>/llvm/tools/clang/docs/IntelCustomizations.rst
+// clang-tblgen --gen-intel-cust-docs -I <root>/llvm/clang/include
+//   <root>/llvm/clang/include/clang/Basic/intel/IntelCustDocs.td -o
+//   <root>/llvm/clang/docs/Intel/IntelCustomizations.rst
 //
 // To run sphinx to generate the .html files (note that sphinx-build must be
 // available on the PATH):
@@ -30,6 +30,7 @@
 class DocumentationCategory<string name> {
   string Name = name;
   code Content = [{}];
+  code UserContent = [{}];
 }
 
 // New categories can be added by adding a new record here.
@@ -45,6 +46,7 @@ def DocCatMSCompat : DocumentationCategory<"Microsoft Compatibility">;
 class Documentation {
   DocumentationCategory Category;
   code Content;
+  code UserContent;
   // The Option is optional.  If used it allows splitting based on a tag.
   // This works well for options like IntelCompat which control many small
   // "features".
@@ -107,6 +109,10 @@ This behavior is off-by-default.
   2
 
   }];
+  let UserContent = [{
+Microsoft allows you to catch a string literal with catch (char *). Disabled
+by default.
+  }];
 }
 
 def AllowFewerMacroArgsDocs : Documentation {
@@ -159,6 +165,11 @@ behavior is off-by-default.
   #define FUNC(x,y) (0)
           ^
   2 warnings generated.
+  }];
+  let UserContent = [{
+Microsoft allows passing fewer arguments to function-like macros, replacing
+each missing argument with the empty string. A warning is given. This behavior
+is off-by-default.
   }];
 }
 
@@ -213,6 +224,11 @@ xage and zage2.
   !9 = !{!"short", !4, i64 0}
 
   }];
+  let UserContent = [{
+When loading (or storing) a bitfield, other bitfields may share the same
+location, which inhibits optimization. This option enables type-based alias
+analysis, which allows the compiler to better optimize these references.
+  }];
 }
 def FArgumentNoaliasDocs : Documentation {
   let Category = DocCatIntelOptimization;
@@ -242,6 +258,10 @@ IR:
   ; Function Attrs: noinline nounwind optnone
   define void @test1(i32* noalias %a, i32* noalias %b) #0 {
 
+  }];
+  let UserContent = [{
+Add support for -fargument-noalias, which speicfies that arguments do not
+alias each other.
   }];
 }
 
@@ -303,6 +323,9 @@ the same with Microsoft and GCC remove it.
   typename
   1 warning generated.
 
+  }];
+  let UserContent = [{
+Enables Microsoft compatibility by allowing a missing typename in some contexts.
   }];
 }
 
@@ -367,6 +390,10 @@ The Intel compiler allows this with warning in C. This behavior is off-by-defaul
   l:/x.c(10): warning C4020: 'foo': too many actual parameters
 
   }];
+  let UserContent = [{
+Microsoft allows, with warnings, extra arguments to function calls. Disabled
+by default (generates errors).
+  }];
 }
 
 def VaArgPackDocs : Documentation {
@@ -405,6 +432,9 @@ A correct usage of these builtin functions are as follows:
     return printf(format, __builtin_va_arg_pack());
   }
 
+  }];
+  let UserContent = [{
+Support GCC __builtin_va_arg_pack and __builtin_va_arg_pack_len builtins.
   }];
 }
 
@@ -464,6 +494,9 @@ IR:
 
   !2 = distinct !{!2, !3}
   !3 = !{!"llvm.loop.vector.vectorize.width", i32 1}
+  }];
+  let UserContent = [{
+Accept #pragma novector to indicate loop should never be vectorized.
   }];
 }
 
@@ -545,6 +578,11 @@ IR:
   !4 = distinct !{!4, !5, !3}
   !5 = !{!"llvm.loop.vectorize.ignore_profitability"}
   }];
+  let UserContent = [{
+Accept #pragma vector - indicates a loop should be vectorized according to the
+argument keywords 'assert', 'aligned', 'unaligned', 'vecremainder', and
+'novecremainder'.
+  }];
 }
 
 def PragmaFusionDocs : Documentation {
@@ -597,6 +635,10 @@ IR:
   !3 = !{!"llvm.loop.fusion.enable"}
 
   }];
+  let UserContent = [{
+Pragma fusion instructs the compiler to fuse the following loop with adjacent
+loops.
+  }];
 }
 
 def PragmaNoFusionDocs : Documentation {
@@ -644,6 +686,10 @@ IR:
   br label %for.cond, !llvm.loop !2
   !2 = distinct !{!2, !3}
   !3 = !{!"llvm.loop.fusion.disable"}
+  }];
+  let UserContent = [{
+The ``nofusion`` pragma instructs the compiler not to fuse the loop with
+adjacent loops.
   }];
 }
 
@@ -693,6 +739,9 @@ IR:
    #pragma unroll(0)
                ^
    1 error generated.
+  }];
+  let UserContent = [{
+Allow unroll value of zero, withe same semantics as nounroll.
   }];
 }
 
@@ -753,6 +802,10 @@ IR:
   !4 = distinct !{!4, !5}
   !5 = !{!"llvm.loop.unroll_and_jam.count", i32 4}
   }];
+  let UserContent = [{
+The ``unroll_and_jam`` pragma instructs the compiler to enable unrolling and
+jamming loops.
+  }];
 }
 
 def PragmaNoUnrollAndJamDocs : Documentation {
@@ -800,6 +853,10 @@ IR:
   br label %for.cond, !llvm.loop !2
   !2 = distinct !{!2, !3}
   !3 = !{!"llvm.loop.unroll_and_jam.disable"}
+  }];
+  let UserContent = [{
+The ``nounroll_and_jam`` pragma instructs the compiler to disable unrolling
+and jamming loops.
   }];
 }
 
@@ -858,6 +915,10 @@ IR:
   %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.BLOCK_LOOP"(), "QUAL.PRAGMA.PRIVATE"(i32* %var.addr), "QUAL.PRAGMA.LEVEL"(i32 1), "QUAL.PRAGMA.FACTOR"(i32 256), "QUAL.PRAGMA.LEVEL"(i32 2), "QUAL.PRAGMA.FACTOR"(i32 256) ]
 
   call void @llvm.directive.region.exit(token %0) [ "DIR.PRAGMA.END.BLOCK_LOOP"() ]
+  }];
+  let UserContent = [{
+The ``block_loop`` pragma lets you exert greater control over optimizations on
+a specific loop inside a nested loop.
   }];
 }
 
@@ -946,6 +1007,12 @@ IR:
   !4 = !{!"llvm.loop.intel.loopcount_minimum", i32 1}
   !5 = !{!"llvm.loop.intel.loopcount_maximum", i32 5}
   !6 = !{!"llvm.loop.intel.loopcount_average", i32 2}
+  }];
+  let UserContent = [{
+The ``loop_count`` pragma specifies the minimum, maximum, or average number of
+iterations for a for loop. In addition, a list of commonly occurring values
+can be specified to help the compiler generate multiple versions and perform
+complete unrolling.
   }];
 }
 
@@ -1099,6 +1166,10 @@ IR:
   !5 = !{!"llvm.loop.ivdep.safelen", i32 4}
 
   }];
+  let UserContent = [{
+The ``ivdep`` pragma instructs the compiler to ignore assumed vector
+dependencies in a loop.
+  }];
 }
 
 def MaxInterleavingDocs : Documentation {
@@ -1150,6 +1221,11 @@ IR:
 
   !2 = distinct !{!2, !3}
   !3 = !{!"llvm.loop.max_interleaving.count", i32 1}
+  }];
+  let UserContent = [{
+The ``max_interleaving`` pragma instructs the compiler to restrict the maximum
+number of interleaved invocations executing the loop to a limit specified on
+the integral parameter.
   }];
 }
 
@@ -1239,6 +1315,10 @@ IR:
   !4 = distinct !{!4, !3, !5}
   !5 = !{!"llvm.loop.intel.pipelining.disable"}
   }];
+  let UserContent = [{
+These are simple HLS/FPGA loop pragmas that either have one constant integral
+argument, or no arguments.
+  }];
 }
 
 def ForceHyperoptDocs : Documentation {
@@ -1307,6 +1387,12 @@ IR:
   !4 = distinct !{!4, !5}
   !5 = !{!"llvm.loop.intel.nohyperopt"}
   }];
+  let UserContent = [{
+These pragmas will force enable or disable 'hyperoptimizations' on the
+attached loop.  For example, on some architectures, hyperoptimization will
+optimize for initiation of loop iterations of a single loop invocation, at the
+possible expense of a delay between consecutive loop invocations.
+  }];
 }
 
 def RotateIntrinsicsDocs : Documentation {
@@ -1356,6 +1442,10 @@ The rotate intrinsic above is translated into shift's like this:
   %3 = or i32 %1, %2
   store i32 %3, i32* %result, align 4
 
+  }];
+  let UserContent = [{
+Support Microsoft's set of intrinsics for performing rotations on Linux:
+_rotl8 _rotl16 _rotl _lrotl _rrotl64 _rotr8 _rotr16 _rotr _lrotr _rotr64.
   }];
 }
 
@@ -1431,6 +1521,10 @@ The function EmitFakeLoadForRetPtr is then called to generate a new load with
 metadata.  The load and metadata is saved in a map and the fakeload intrinsic
 is created and emitted during EmitFunctionEpilog.
   }];
+  let UserContent = [{
+Adds an intrinsic to improve alias analysis for pointers returned from a
+function.
+  }];
 }
 
 def WholeProgramVTableWrapDocs : Documentation {
@@ -1484,6 +1578,10 @@ intrinsic returns true:
 
   whpr.continue:                                    ; preds = %whpr.wrap, %entry
     %vfn = getelementptr inbounds void (%struct.A*)*, void (%struct.A*)** %vtable, i64 0
+  }];
+  let UserContent = [{
+When used with ``-fwhole-program-vtables`` option, this optimization enables
+devirtualization with whole program analysis without hidden LTO visibility.
   }];
 }
 
@@ -1545,6 +1643,11 @@ Where:
  !9 = !{!"pointer@_ZTSPi", !6, i64 0}
 
   }];
+  let UserContent = [{
+Enables type-based alias analysis for when an array is nested in a struct.
+Allows assumption that if the address of a struct member is taken, it is valid
+to do arithmetic which yields addresses to other fields within the struct.
+  }];
 }
 
 def IMFAttributesDocs : Documentation {
@@ -1601,6 +1704,10 @@ IR:
   attributes #5 = { nobuiltin "imf-absolute-error"="0.00001" "imf-precision"="high" }
   attributes #6 = { nobuiltin "imf-precision"="high" }
   }];
+  let UserContent = [{
+Attaches IMF attributes specified by the user to the applicable LLVM math
+functions.
+  }];
 }
 
 def PredeclareAlignValTDocs : Documentation {
@@ -1650,6 +1757,10 @@ With -fintel-compatibility:
   $ clang -cc1 -fintel-compatibility -faligned-allocation t.cpp
   $
   }];
+  let UserContent = [{
+Enables support for automatically-aligned dynamic allocation per C++17
+std::align_val_t.
+  }];
 }
 
 def VolatileInOMPRegionsDocs : Documentation {
@@ -1693,6 +1804,10 @@ controlled by -fintel-compatibility, retains volatile.
   if.end:                                           ; preds = %if.then, %entry
     ret void
   }];
+  let UserContent = [{
+Community clang removes volatile from variables captured in OpenMP regions.
+This extension, controlled by -fintel-compatibility, retains volatile.
+  }];
 }
 
 def MayIUseFeatureDocs : Documentation {
@@ -1728,6 +1843,9 @@ followed by an equality check against it, similar to this pseudo-code:
 
 See additional documentation here:
 https://software.intel.com/en-us/node/523363
+  }];
+  let UserContent = [{
+Implement _may_i_use_cpu_feature function.
   }];
 }
 
@@ -1805,6 +1923,12 @@ IR:
 The second operand in the metadata is i32 1 if ``<user_string>`` is specified.
 It is i32 0 if not.
   }];
+  let UserContent = [{
+The ``cluster`` attribute is an FPGA function and lambda function attribute
+used in HLS and OpenCL to generate FPGA hardware for the function, grouping
+the functionality of clusters with the same name. The attribute takes 1
+optional string argument and adds metadata to the function/lambda definition.
+  }];
 }
 
 def StallEnableDocs : Documentation {
@@ -1858,6 +1982,12 @@ IR:
 
   define void @_Z4foo1v() #0 !stall_enable !2 {}
   !2 = !{i32 1}
+  }];
+  let UserContent = [{
+The ``stall_enable`` attribute is an FPGA function and lambda function
+attribute used in HLS and OpenCL to generate FPGA hardware for the function
+using stall/enable protocol. The attribute takes no arguments and adds
+metadata to the function/lambda definition.
   }];
 }
 
@@ -1960,6 +2090,12 @@ OpenCL IR:
   !5 = !{i32 1}
   !6 = !{i32 0}
   }];
+  let UserContent = [{
+This attribute turns on/off the stall latency protocol for the component or
+kernel. When off, a node immediately asserts a stall signal when it cannot
+accept data. When on, we pipeline signals and data between nodes to increase
+fmax at the expense of area.
+  }];
 }
 
 def MaxConcurrencyDocs : Documentation {
@@ -2046,6 +2182,18 @@ IR:
     %arr1 = bitcast [16 x i32]* %arr to i8*
     call void @llvm.var.annotation(i8* %arr1, i8* getelementptr inbounds ([38 x i8], [38 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str.1, i32 0, i32 0), i32 4)
   }
+  }];
+  let UserContent = [{
+This attribute provides the user of the PSG HLD compiler explicit control over
+an optimization applied to arrays declared in a loop body. On the FPGA, arrays
+and other large local variables are physically implemented in FPGA RAM. To
+support pipeline-parallel execution of loop iterations, the HLD compiler must
+create multiple physical copies of the array variable on the FPGA, so that
+each simultaneously executing loop iteration operates on an independent copy
+of the array. The user can apply `__attribute__((max_concurrency(n)))` to such
+an array to limit parallelism in the region of the pipeline containing array
+accesses to at most n, thus limiting the number of copies created by the
+compiler.
   }];
 }
 
@@ -2138,6 +2286,14 @@ IR:
     ret void
   }
   }];
+  let UserContent = [{
+This attribute is applied to variables (local, statics, constants ...) in both
+OpenCL and HLS. It specifies the maximum number of replicates the compiler is
+allowed to make for the associated variable. This attribute infers an
+attributes memory:default and can't be applied with register, numreadports or
+numwriteports attributes.  This attribute replaces the deprecated
+numreadports/numwriteports attributes.
+  }];
 }
 
 def SimpleDualPortDocs : Documentation {
@@ -2227,6 +2383,13 @@ IR:
      ret void
    }
   }];
+  let UserContent = [{
+This attribute applies to the same variables (local, statics, constants ...)
+that the memory attribute applies to in both OpenCl and HLS. It allows the
+user to control the memory associated with the variable, requesting that the
+memory is simple with dual port configuration mode. This attribute infers an
+attribute memory:default and can't be applied with register attribute.
+  }];
 }
 
 def HLSIIDocs : Documentation {
@@ -2278,6 +2441,13 @@ IR:
   define void @_Z3foov() #0 !loop_ii_count !2
   !2 = !{i32 8}
 
+  }];
+  let UserContent = [{
+The ``hls_ii`` attribute is a function attribute used to indicate that
+consecutive invocations of an HLS component will be exactly 'k' cycles apart,
+where 'k' is an unsigned integer argument greater than 0. This attribute is
+incompatible with ``hls_force_loop_pipelining(off)``, ``hls_min_ii`` and
+``hls_max_ii``.
   }];
 }
 
@@ -2331,6 +2501,13 @@ IR:
   !2 = !{i32 8}
 
   }];
+  let UserContent = [{
+The ``hls_min_ii`` attribute is a function attribute used to indicate that
+consecutive invocations of an HLS component will be at least 'k' cycles apart,
+where 'k' is an unsigned integer argument greater than 0. This attribute is
+incompatible with ``hls_force_loop_pipelining(off)``, ``hls_ii`` and
+``hls_max_ii``.
+  }];
 }
 
 def HLSMaxIIDocs : Documentation {
@@ -2382,6 +2559,13 @@ IR:
   define void @_Z3foov() #0 !max_ii !2
   !2 = !{i32 8}
 
+  }];
+  let UserContent = [{
+The ``hls_max_ii`` attribute is a function attribute used to indicate that
+consecutive invocations of an HLS component will be at most 'k' cycles apart,
+where 'k' is an unsigned integer argument greater than 0. This attribute is
+incompatible with ``hls_force_loop_pipelining(off)``, ``hls_ii`` and
+``hls_min_ii``.
   }];
 }
 
@@ -2435,6 +2619,14 @@ IR:
   !2 = !{i32 8}
 
   }];
+  let UserContent = [{
+The ``hls_max_invocation_delay`` attribute is a function attribute used to
+indicate that the delay between the end of an invocation and start of the next
+invocation, of an HLS component, will be at most 'k', where 'k' is an unsigned
+integer argument greater than or equal to 0. This attribute is incompatible
+with ``hls_force_loop_pipelining(off)``.
+  }];
+
 }
 
 def HLSForceLoopPipeliningDocs : Documentation {
@@ -2491,6 +2683,13 @@ IR:
   !3 =  !{!"off"}
 
   }];
+  let UserContent = [{
+The ``hls_force_loop_pipelining`` attribute is a function attribute used to
+indicate whether the component will be pipelined to support multiple
+invocations running concurrently. Valid attribute arguments are 'on' and
+'off'.  When 'off', this attribute is incompatible with ``hls_ii``,
+``hls_min_ii``, ``hls_max_ii``, and ``hls_max_invocation_delay``.
+  }];
 }
 
 def LongDoubleSizeConfigDocs : Documentation {
@@ -2518,6 +2717,13 @@ Note that this option is likely only to be exposed as /Qlong-double for the
 short term, so only 80 and Windows will be used. However, GCC has similar
 functionality to permit setting of these values, so support is left for the
 other two options in case those are useful in the future.
+  }];
+  let UserContent = [{
+The ``fintel-long-double-size`` CC1 option controls the size of a long-double.
+This is used as a part of the ICC compatibility option /Qlong-double, which on
+Windows sets the compiler to use 80 bit long doubles instead of 64 bit.
+
+This option has 3 valid values: 64, 80 and 128.
   }];
 }
 
@@ -2561,6 +2767,12 @@ which allows it to be quieted with the option -Wno-missing-prototype-for-cc.
   $ clang -cc1 -triple spir64 -fintel-compatibility -Wno-missing-prototype-for-cc t.c
   $
   }];
+  let UserContent = [{
+This change relaxes the 'function with no prototype cannot use the X calling
+convention' diagnostic from an error to a warning. This diagnostic is
+triggered for unprototyped function declarations for calling conventions that
+do not support variadic calls.
+  }];
 }
 
 def IntrinsicPromotionDocs : Documentation {
@@ -2594,6 +2806,13 @@ is to explicitly mark functions using the target attribute:
   }
 
 
+  }];
+  let UserContent = [{
+This change automatically promotes the target features of functions that use
+intrinsics or intrinsic builtins that would otherwise be disallowed due to
+always-inlining. The error message that this should prevent is '<intrin-name>
+needs target feature <feature>.' Only intrinsics defined in the system headers
+will cause this promotion to happen automatically.
   }];
 }
 
@@ -2644,8 +2863,8 @@ possibilities:
    Possibly update this field when new MS/GCC compilers are released and
    remove if we don't care about it anymore.
 
-The Content should describe the basic functionality, give a small code snippet,
-and describe any unusual or tricky parts of the implementation.
+The Content should describe the basic functionality, give a small
+code snippet, and describe any unusual or tricky parts of the implementation.
 
 Using Tags
 ==========
