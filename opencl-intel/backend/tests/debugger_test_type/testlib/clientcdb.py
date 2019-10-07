@@ -23,6 +23,7 @@ RPC_TIMEOUT = 30
 RPC_RETRY_DELAY = 10
 CDB_PROMPT_TIMEOUT = 100
 USE_GWORKITEM = False
+USE_BREAKPOINTS2 = True
 
 class ClientError(SimulatorError): pass
 class ClientTimeout(SimulatorError): pass
@@ -35,6 +36,12 @@ class ClientCDB(TestClient):
 
     REGEX_EVAL_VARIABLE_NUM = re.compile(',d +: ([\-.\dtruefals]+) \[Type: ([_ A-Za-z0-9<>-]+)\]')
     REGEX_EVAL_VARIABLE_TYPE = re.compile('\[Type: (.+)\]')
+
+    # example: &bb,d            : 0x1f5a5f520f : false [Type: bool *]
+    REGEX_EVAL_VARIABLE_ADDR = re.compile(',d +: (0x[a-f0-9]+) : .+ \[Type: .*\]')
+
+    # example: bb,d             : false [Type: bool]
+    REGEX_EVAL_VARIABLE_BOOL = re.compile(',d +: ([truefals]+) \[Type: .*bool.*\]')
 
     # example: r3,d             : 0x43 : Unable to read memory at Address 0x43 [Type: int *]
     REGEX_EVAL_VARIABLE_PTR = re.compile(',d +: (.+) \[Type: ([_ A-Za-z0-9<>-]+ .*\*.*)\]')
@@ -86,6 +93,7 @@ class ClientCDB(TestClient):
 
         self.child = None
         self.existing_breakpoints = []
+        self.cleared_breakpoints = []
 
     def __del__(self):
         """ Cleanup (and kill subprocess)
@@ -107,6 +115,7 @@ class ClientCDB(TestClient):
         self.child = None
         self.started = False
         self.existing_breakpoints = []
+        self.cleared_breakpoints = []
 
     def execute_debuggee(self, hostprog_name, cl_name, options={}, extra_args=[]):
         """ Loads the debuggee as a subprocess, under CDB
@@ -407,7 +416,7 @@ class ClientCDB(TestClient):
     def var_set_value(self, varname, value, stackframe=None):
         if stackframe is not None and stackframe != 0:
             self._frame(stackframe)
-        output = self._command("set var " + str(varname) + "=" + str(value))
+        output = self._assign(varname, value)
         logd("result of set command: " + output)
         return output
 
@@ -467,6 +476,10 @@ class ClientCDB(TestClient):
     def _set_breakpoints(self, breakpoints, timeout=100):
         """ Updates OpenCL breakpoints set in CDB """
 
+        if USE_BREAKPOINTS2:
+             self._set_breakpoints2(breakpoints, timeout)
+             return
+
         if self.gid_x == -1 or self.gid_y == -1 or self.gid_z == -1:
             raise ClientError("Uninitialized breakpoint global ID")
 
@@ -483,6 +496,69 @@ class ClientCDB(TestClient):
         # Set new breakpoints
         for loc in breakpoint_locations:
             output = self._command("bu " + loc + self.breakcondition)
+
+    def _set_breakpoints2(self, breakpoints, timeout=100):
+        """ Updates OpenCL breakpoints set in CDB in a way that can improve determinism"""
+        """ Multi-threaded applications execute in a non-deterministic manner.  This makes creating a
+            scripted test for debugging of multi-threaded applications very difficult.  This routine
+            attempts to minimize the impact of one issue, that being multiple threads hitting the
+            same breakpoint at the same time.  One such scenario believed to be seen in the CDB tests
+            is the following:
+                - Two threads hit a conditional bp at the same time.
+                - Thread #1 meets the condition and should cause execution to stop while thread #2
+                  does not meet the condition.
+                - The debugger processes thread #1 first and halts execution.
+                - The event associated with thread #2 becomes pending and remains in the queue to be
+                  processed.
+                - The test then instructs the debugger to remove all breakpoints and continue execution.
+                - The continue then allows the bp event for thread #2 to be seen again.
+                - Since the bp and associated condition that triggered the event have been removed, the
+                  debugger halts execution again.
+                - This second halt of execution is not expected by the test and causes a failure.
+            Setting ".bpsync 1" in CDB does not prevent this. I tried numerous ways to deal with this
+            (e.g. ~* gh, bc *, bd *) but the approach below is the only one that seemed to work.
+
+             The approach used below is to replace any deleted breakpoints with a breakpoint that will
+             instruct the debugger to continue execution.  This should allow any pending breakpoint
+             events to simply continue on unnoticed by the test.  This is not a preferred solution and
+             will cause tests to run a bit slower.
+        """
+
+        if self.gid_x == -1 or self.gid_y == -1 or self.gid_z == -1:
+            raise ClientError("Uninitialized breakpoint global ID")
+
+        isEqual = self.existing_breakpoints == breakpoints
+        if isEqual:
+            return
+
+        # Create list of new location strings "filname:lineno"
+        new_breakpoint_locations = ["`" + b[0] + ":" + str(b[1]) + "`" for b in breakpoints]
+
+        # Create list of old location strings "filname:lineno"
+        old_breakpoint_locations = \
+            ["`" + b[0] + ":" + str(b[1]) + "`" for b in self.existing_breakpoints]
+
+        # Create list of previously cleared location strings "filname:lineno"
+        cleared_breakpoint_locations = \
+            ["`" + b[0] + ":" + str(b[1]) + "`" for b in self.cleared_breakpoints]
+
+        # Delete all previous breakpoints
+        output = self._command("bc *")
+
+        # Reset breakpoints at previously cleared locations that stop but immediately continue
+        for old_loc in old_breakpoint_locations:
+            output = self._command("bu " + old_loc + " \"gc\"")
+
+        # Set new breakpoints at the old locations that stop but immediately continue
+        for old_loc in old_breakpoint_locations:
+            output = self._command("bu " + old_loc + " \"gc\"")
+
+        self.cleared_breakpoints.extend(self.existing_breakpoints)
+        self.existing_breakpoints = breakpoints[:]
+
+        # Set new breakpoints
+        for new_loc in new_breakpoint_locations:
+            output = self._command("bu " + new_loc + self.breakcondition)
 
     def _continue(self, timeout):
         """ Issues a 'continue' command in CDB and waits up to timeout * 2 seconds for the
@@ -536,41 +612,90 @@ class ClientCDB(TestClient):
             #num_type = s.group(2)
             ret = num_value
         else:
-            s = re.search(self.REGEX_EVAL_VARIABLE_ARR_HEADER, output)
+            s = re.search(self.REGEX_EVAL_VARIABLE_BOOL, output)
             if s is not None:
                 logd(str(s.groups()))
-                if len(s.groups()) == 3:
-                    arr_size = int(s.group(3))
-                    arr_type = s.group(2)
-                else:
-                    arr_size = int(s.group(2))
-                    arr_type = s.group(1)
-                cast_type = ""
-                if arr_type == "char":
-                    cast_type = "(unsigned char[" + str(arr_size) + "])"
-                output = self._command("dx -n -r1 " + cast_type + expression + ",d")
-
-                myarr = []
-                for match in re.finditer(self.REGEX_EVAL_VARIABLE_ARR_ITEM, output):
-                    myarr.append(self._fixRounding(match.group(2)))
-
-                if arr_size != len(myarr):
-                    raise ClientError("Unable to parse array: " + output)
-                ret = ','.join(myarr)
+                bool_value = s.group(1)
+                ret = str(bool_value)
             else:
-                s = re.search(self.REGEX_EVAL_VARIABLE_PTR, output)
+                s = re.search(self.REGEX_EVAL_VARIABLE_ARR_HEADER, output)
                 if s is not None:
                     logd(str(s.groups()))
-                    # if the variable is a pointer, then we need to return the address of the pointer in decimal encoding
-                    output = self._command("dx -n -r0 (size_t)" + expression + ",d")
-                    s = re.search(self.REGEX_EVAL_VARIABLE_NUM, output)
-                    if s is not None:
-                        num_value = int(s.group(1))
-                        ret = str(num_value)
+                    if len(s.groups()) == 3:
+                        arr_size = int(s.group(3))
+                        arr_type = s.group(2)
+                    else:
+                        arr_size = int(s.group(2))
+                        arr_type = s.group(1)
+                    cast_type = ""
+                    if arr_type == "char":
+                        cast_type = "(unsigned char[" + str(arr_size) + "])"
+                    output = self._command("dx -n -r1 " + cast_type + expression + ",d")
+
+                    myarr = []
+                    for match in re.finditer(self.REGEX_EVAL_VARIABLE_ARR_ITEM, output):
+                        myarr.append(self._fixRounding(match.group(2)))
+
+                    if arr_size != len(myarr):
+                        raise ClientError("Unable to parse array: " + output)
+                    ret = ','.join(myarr)
                 else:
-                    raise ClientError("Unable to parse number: " + output)
+                    s = re.search(self.REGEX_EVAL_VARIABLE_PTR, output)
+                    if s is not None:
+                        logd(str(s.groups()))
+                        # if the variable is a pointer, then we need to return the address of the pointer in decimal encoding
+                        output = self._command("dx -n -r0 (size_t)" + expression + ",d")
+                        s = re.search(self.REGEX_EVAL_VARIABLE_NUM, output)
+                        if s is not None:
+                            num_value = int(s.group(1))
+                            ret = str(num_value)
+                        else:
+                            raise ClientError("Unable to parse number: " + output)
 
         logd("result of print command: " + ret)
+        return ret
+
+    def _assign(self, varname, value):
+        """ Executes the CDB 'print' command and processes the output
+            to determine the proper 'set' command for the var type,
+            then assigned the given value to the variable.
+            Note: this only supports the few types tested by
+            test_variable_setting.py.
+        """
+
+        # operating on a global var takes extra time in CDB
+        timeout = 300
+        value_str = str(value)
+        output = self._print_type(varname)
+        if output == "bool":
+            """ Should be able to use the varname with the eb command but this
+                did not work, so use the address of the var instead for now.
+            """
+            addr_output = self._command("dx -n -r0 &" + str(varname) + ",d")
+            s = re.search(self.REGEX_EVAL_VARIABLE_ADDR, addr_output)
+            if s is not None:
+                var_address = s.group(1)
+            else:
+                raise ClientError("Unable to get address from: " + addr_output)
+            if value_str == "\"true\"":
+                num_value = 1
+            else:
+                if value_str == "\"false\"":
+                    num_value = 0
+                else:
+                    raise ClientError("Unrecognized bool value for assign: " + value)
+            ret = self._command("eb " + str(var_address) + " " + str(num_value), timeout)
+        else:
+            if output == "double":
+                ret = self._command("eD " + str(varname) + " " + str(value), timeout)
+            else:
+                if output == "float":
+                    ret = self._command("ef " + str(varname) + " " + str(value), timeout)
+                else:
+                    if output == "int":
+                        ret = self._command("ed " + str(varname) + " " + str(value), timeout)
+                    else:
+                        raise ClientError("Assign to unsupported type: " + output)
         return ret
 
     def _must_fix_float(self, v, t):
