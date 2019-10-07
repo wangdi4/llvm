@@ -107,6 +107,10 @@ struct CandidateInfo {
   bool HasNSW;
   bool HasNUW;
 
+  CandidateInfo()
+      : Opcode(0), LvalRef(nullptr), FirstRvalRef(nullptr), HasNSW(false),
+        HasNUW(false) {}
+
   bool matches(const HLInst *Inst) const {
     auto *LLVMInst = Inst->getLLVMInstruction();
     auto *FPMathOp = dyn_cast<FPMathOperator>(LLVMInst);
@@ -115,9 +119,10 @@ struct CandidateInfo {
     return (Opcode == LLVMInst->getOpcode()) &&
            DDRefUtils::areEqual(LvalRef, Inst->getLvalDDRef()) &&
            DDRefUtils::areEqual(FirstRvalRef, Inst->getOperandDDRef(1)) &&
-           (!FPMathOp || FPMathOp->isFast()) &&
-           (!OBinOp || ((HasNSW == OBinOp->hasNoSignedWrap()) &&
-                        (HasNUW == OBinOp->hasNoUnsignedWrap())));
+           (Inst->isCopyInst() ||
+            ((!FPMathOp || FPMathOp->isFast()) &&
+             (!OBinOp || ((HasNSW == OBinOp->hasNoSignedWrap()) &&
+                          (HasNUW == OBinOp->hasNoUnsignedWrap())))));
   }
 };
 
@@ -297,6 +302,18 @@ static bool isReductionLike(HLLoop *Lp, HLInst *Inst, CandidateInfo &CandInfo) {
   return true;
 }
 
+static bool isTempCopy(HLInst *Inst, CandidateInfo &CandInfo) {
+  if (!Inst->isCopyInst()) {
+    return false;
+  }
+
+  CandInfo.Opcode = Inst->getLLVMInstruction()->getOpcode();
+  CandInfo.LvalRef = Inst->getLvalDDRef();
+  CandInfo.FirstRvalRef = Inst->getRvalDDRef();
+
+  return true;
+}
+
 static bool
 hasNonReductionOccurences(unsigned ReductionTempIndex, const HLLoop *Lp,
                           const SmallVectorImpl<HLInst *> &ReductionDefs) {
@@ -323,14 +340,16 @@ void SinkCandidateFinder::visit(HLIf *If) {
 
   CandidateInfo CandInfo;
 
-  if (!isReductionLike(Lp, LastThenInst, CandInfo)) {
-    return;
+  bool IsReductionLike = isReductionLike(Lp, LastThenInst, CandInfo);
+
+  if (!IsReductionLike) {
+    if (!isTempCopy(LastThenInst, CandInfo)) {
+      return;
+    }
   }
 
   unsigned NumMissingDefs = 0;
 
-  // Passing first rval ref for ease of extension to handle sinking temp copies,
-  // if needed.
   if (!gatherCandidateDefs(If, CandInfo, NumMissingDefs)) {
     return;
   }
@@ -338,17 +357,24 @@ void SinkCandidateFinder::visit(HLIf *If) {
   assert(!CandidateDefs.empty() && "At least one definition expected!");
 
   // Profitability check for handling missing temp defs.
-  if (CandidateDefs.size() < 2 * NumMissingDefs) {
+  if (IsReductionLike) {
+    if (CandidateDefs.size() < 2 * NumMissingDefs) {
+      return;
+    }
+  } else if (NumMissingDefs > 0) {
     return;
   }
 
-  unsigned ReductionTempIndex = CandInfo.LvalRef->getSelfBlobIndex();
+  if (IsReductionLike) {
+    unsigned ReductionTempIndex = CandInfo.LvalRef->getSelfBlobIndex();
 
-  if (hasNonReductionOccurences(ReductionTempIndex, Lp, CandidateDefs)) {
-    return;
+    if (hasNonReductionOccurences(ReductionTempIndex, Lp, CandidateDefs)) {
+      return;
+    }
+
+    HasMissingDefs = (NumMissingDefs != 0);
   }
 
-  HasMissingDefs = (NumMissingDefs != 0);
   Found = true;
 }
 
@@ -440,6 +466,38 @@ static void sinkReduction(SmallVectorImpl<HLInst *> &CandidateDefs,
   HLNodeUtils::insertAfter(If, SinkInst);
 }
 
+static void sinkCopy(SmallVectorImpl<HLInst *> &CandidateDefs) {
+
+  // Transforms -
+  //
+  // if () {
+  //   t1 = t2;
+  // } else {
+  //   t1 = t2;
+  // }
+  //
+  // Into-
+  //
+  // if () {
+  //
+  // } else {
+  //
+  // }
+  // t1 = t2;
+  //
+  auto *FirstCopy = CandidateDefs.front();
+  auto *If = cast<HLIf>(FirstCopy->getParent());
+
+  for (auto *TempCopy : CandidateDefs) {
+    HLNodeUtils::remove(TempCopy);
+  }
+
+  HLNodeUtils::insertAfter(If, FirstCopy);
+
+  // HLIf can become empty after sinking so we need to run empty node removal.
+  HLNodeUtils::removeEmptyNodes(If);
+}
+
 bool HIRConditionalTempSinking::run(HLLoop *Lp) {
   // Profitability check.
   if (!Lp->isDo()) {
@@ -461,8 +519,11 @@ bool HIRConditionalTempSinking::run(HLLoop *Lp) {
     return false;
   }
 
-  // For now, assumes that the candidate is a reduction.
-  sinkReduction(CandidateDefs, RequiresInitialization);
+  if (CandidateDefs.front()->isReductionOp()) {
+    sinkReduction(CandidateDefs, RequiresInitialization);
+  } else {
+    sinkCopy(CandidateDefs);
+  }
 
   HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(Lp);
   return true;
