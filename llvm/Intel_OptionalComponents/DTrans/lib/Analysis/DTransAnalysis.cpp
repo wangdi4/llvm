@@ -7539,6 +7539,31 @@ private:
                                  Instruction &I, llvm::Type *ValTy,
                                  bool IsVolatile, bool IsLoad) {
 
+    // Analyze fields which are pointers to allocated arrays. Here, 'I' is
+    // an instruction which either loads or stores the field which points
+    // to the allocated array, and 'FI' is the field info that will store
+    // the result.  Because the means for storing into the allocated array
+    // fields are not exhaustively analyzed, for now, we always mark such
+    // field values as 'incomplete'.
+    auto AnalyzeIndirectArrays = [](dtrans::FieldInfo *FI, Instruction *I) {
+      if (!I)
+        return;
+      for (User *U : I->users()) {
+        auto GEPI = dyn_cast<GetElementPtrInst>(U);
+        if (!GEPI || GEPI->getPointerOperand() != I ||
+            GEPI->getNumIndices() != 1)
+          continue;
+        for (User *V : GEPI->users()) {
+          auto SI = dyn_cast<StoreInst>(V);
+          if (!SI)
+            continue;
+          auto CI = dyn_cast<Constant>(SI->getValueOperand());
+          if (CI)
+            FI->processNewSingleIAValue(CI);
+        }
+      }
+    };
+
     // Update LoadInfoMap and StoreInfoMap if the instruction I is accessing
     // a structure element.
     auto &PointeeSet = PtrInfo.getElementPointeeSet();
@@ -7621,6 +7646,7 @@ private:
             if (!identifyUnusedValue(cast<LoadInst>(I)))
               FI.setValueUnused(false);
             accumulateFrequency(FI, I);
+            AnalyzeIndirectArrays(&FI, &I);
           } else {
             if (auto *ConstVal = dyn_cast<llvm::Constant>(WriteVal)) {
               if (FI.processNewSingleValue(ConstVal)) {
@@ -7683,6 +7709,9 @@ private:
             }
             FI.setWritten(true);
             accumulateFrequency(FI, I);
+            Value *V = cast<StoreInst>(&I)->getValueOperand();
+            Instruction *II = dyn_cast<Instruction>(V);
+            AnalyzeIndirectArrays(&FI, II);
             DTBCA.analyzeStore(FI, I);
           }
         }
@@ -10150,11 +10179,35 @@ void DTransAnalysisInfo::printFieldInfo(dtrans::FieldInfo &Field,
                                     OutputStream.flush();
                                     return OutputVal;
                                   });
-    dbgs() << " ] <" << (Field.isValueSetComplete() ? "complete" : "incomplete")
+    dbgs() << " ] <" << (Field.isValueSetComplete() ?
+              "complete" : "incomplete")
            << ">";
   }
   if (IgnoredInTransform & dtrans::DT_FieldSingleValue)
     dbgs() << " (ignored)";
+  dbgs() << "\n";
+
+  if (Field.isNoIAValue())
+    dbgs() << "    No IA Value";
+  else if (Field.isSingleIAValue()) {
+    dbgs() << "    Single IA Value: ";
+    Field.getSingleValue()->printAsOperand(dbgs());
+  } else {
+    assert(Field.isMultipleIAValue() && "Expecting multiple value");
+    dbgs() << "    Multiple IA Value: [ ";
+    dtrans::printCollectionSorted(dbgs(), Field.iavalues().begin(),
+                                  Field.iavalues().end(), ", ",
+                                  [](llvm::Constant *C) {
+                                    std::string OutputVal;
+                                    raw_string_ostream OutputStream(OutputVal);
+                                    C->printAsOperand(OutputStream, false);
+                                    OutputStream.flush();
+                                    return OutputVal;
+                                  });
+    dbgs() << " ] <" << (Field.isIAValueSetComplete() ?
+              "complete" : "incomplete")
+           << ">";
+  }
   dbgs() << "\n";
 
   if (Field.isTopAllocFunction())
