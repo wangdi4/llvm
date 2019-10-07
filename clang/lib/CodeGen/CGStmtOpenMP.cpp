@@ -159,11 +159,6 @@ class OMPLoopScope : public CodeGenFunction::RunCleanupsScope {
       }
     }
     (void)PreCondVars.apply(CGF);
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-    if (!CGF.LoopBoundsHaveBeenHoisted(&S))
-#endif // INTEL_CUSTOMIZATION
-=======
     // Emit init, __range and __end variables for C++ range loops.
     const Stmt *Body =
         S.getInnermostCapturedStmt()->getCapturedStmt()->IgnoreContainers();
@@ -182,7 +177,9 @@ class OMPLoopScope : public CodeGenFunction::RunCleanupsScope {
         Body = CXXFor->getBody();
       }
     }
->>>>>>> bef93a98cd26012049b8e64bf27134885fcf9550
+#if INTEL_CUSTOMIZATION
+    if (!CGF.LoopBoundsHaveBeenHoisted(&S))
+#endif // INTEL_CUSTOMIZATION
     if (const auto *PreInits = cast_or_null<DeclStmt>(S.getPreInits())) {
       for (const auto *I : PreInits->decls())
         CGF.EmitVarDecl(cast<VarDecl>(*I));
