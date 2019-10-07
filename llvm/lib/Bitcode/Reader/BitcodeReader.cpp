@@ -1090,7 +1090,7 @@ static int getDecodedUnaryOpcode(unsigned Val, Type *Ty) {
   switch (Val) {
   default:
     return -1;
-  case bitc::UNOP_NEG:
+  case bitc::UNOP_FNEG:
     return IsFP ? Instruction::FNeg : -1;
   }
 }

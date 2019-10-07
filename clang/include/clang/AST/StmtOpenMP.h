@@ -1158,7 +1158,7 @@ public:
       Body = For->getBody();
     } else {
       assert(isa<CXXForRangeStmt>(Body) &&
-             "Expected caonical for loop or range-based for loop.");
+             "Expected canonical for loop or range-based for loop.");
       Body = cast<CXXForRangeStmt>(Body)->getBody();
     }
     for (unsigned Cnt = 1; Cnt < CollapsedNum; ++Cnt) {
@@ -1167,7 +1167,7 @@ public:
         Body = For->getBody();
       } else {
         assert(isa<CXXForRangeStmt>(Body) &&
-               "Expected caonical for loop or range-based for loop.");
+               "Expected canonical for loop or range-based for loop.");
         Body = cast<CXXForRangeStmt>(Body)->getBody();
       }
     }

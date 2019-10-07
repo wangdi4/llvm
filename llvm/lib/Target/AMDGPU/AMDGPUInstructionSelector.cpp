@@ -555,48 +555,6 @@ bool AMDGPUInstructionSelector::selectG_IMPLICIT_DEF(MachineInstr &I) const {
   return false;
 }
 
-// FIXME: TableGen should generate something to make this manageable for all
-// register classes. At a minimum we could use the opposite of
-// composeSubRegIndices and go up from the base 32-bit subreg.
-static unsigned getSubRegForSizeAndOffset(const SIRegisterInfo &TRI,
-                                          unsigned Size, unsigned Offset) {
-  switch (Size) {
-  case 32:
-    return TRI.getSubRegFromChannel(Offset / 32);
-  case 64: {
-    switch (Offset) {
-    case 0:
-      return AMDGPU::sub0_sub1;
-    case 32:
-      return AMDGPU::sub1_sub2;
-    case 64:
-      return AMDGPU::sub2_sub3;
-    case 96:
-      return AMDGPU::sub4_sub5;
-    case 128:
-      return AMDGPU::sub5_sub6;
-    case 160:
-      return AMDGPU::sub7_sub8;
-      // FIXME: Missing cases up to 1024 bits
-    default:
-      return AMDGPU::NoSubRegister;
-    }
-  }
-  case 96: {
-    switch (Offset) {
-    case 0:
-      return AMDGPU::sub0_sub1_sub2;
-    case 32:
-      return AMDGPU::sub1_sub2_sub3;
-    case 64:
-      return AMDGPU::sub2_sub3_sub4;
-    }
-  }
-  default:
-    return AMDGPU::NoSubRegister;
-  }
-}
-
 bool AMDGPUInstructionSelector::selectG_INSERT(MachineInstr &I) const {
   MachineBasicBlock *BB = I.getParent();
 
@@ -612,7 +570,7 @@ bool AMDGPUInstructionSelector::selectG_INSERT(MachineInstr &I) const {
   if (Offset % 32 != 0)
     return false;
 
-  unsigned SubReg = getSubRegForSizeAndOffset(TRI, InsSize, Offset);
+  unsigned SubReg = TRI.getSubRegFromChannel(Offset / 32, InsSize / 32);
   if (SubReg == AMDGPU::NoSubRegister)
     return false;
 
@@ -1472,31 +1430,38 @@ bool AMDGPUInstructionSelector::selectG_CONSTANT(MachineInstr &I) const {
     return constrainSelectedInstRegOperands(I, TII, TRI, RBI);
   }
 
-  DebugLoc DL = I.getDebugLoc();
-  const TargetRegisterClass *RC = IsSgpr ? &AMDGPU::SReg_32_XM0RegClass :
-                                           &AMDGPU::VGPR_32RegClass;
-  Register LoReg = MRI->createVirtualRegister(RC);
-  Register HiReg = MRI->createVirtualRegister(RC);
-  const APInt &Imm = APInt(Size, I.getOperand(1).getImm());
+  const DebugLoc &DL = I.getDebugLoc();
 
-  BuildMI(*BB, &I, DL, TII.get(Opcode), LoReg)
-          .addImm(Imm.trunc(32).getZExtValue());
+  APInt Imm(Size, I.getOperand(1).getImm());
 
-  BuildMI(*BB, &I, DL, TII.get(Opcode), HiReg)
-          .addImm(Imm.ashr(32).getZExtValue());
+  MachineInstr *ResInst;
+  if (IsSgpr && TII.isInlineConstant(Imm)) {
+    ResInst = BuildMI(*BB, &I, DL, TII.get(AMDGPU::S_MOV_B64), DstReg)
+      .addImm(I.getOperand(1).getImm());
+  } else {
+    const TargetRegisterClass *RC = IsSgpr ?
+      &AMDGPU::SReg_32_XM0RegClass : &AMDGPU::VGPR_32RegClass;
+    Register LoReg = MRI->createVirtualRegister(RC);
+    Register HiReg = MRI->createVirtualRegister(RC);
 
-  const MachineInstr *RS =
-      BuildMI(*BB, &I, DL, TII.get(AMDGPU::REG_SEQUENCE), DstReg)
-              .addReg(LoReg)
-              .addImm(AMDGPU::sub0)
-              .addReg(HiReg)
-              .addImm(AMDGPU::sub1);
+    BuildMI(*BB, &I, DL, TII.get(Opcode), LoReg)
+      .addImm(Imm.trunc(32).getZExtValue());
+
+    BuildMI(*BB, &I, DL, TII.get(Opcode), HiReg)
+      .addImm(Imm.ashr(32).getZExtValue());
+
+    ResInst = BuildMI(*BB, &I, DL, TII.get(AMDGPU::REG_SEQUENCE), DstReg)
+      .addReg(LoReg)
+      .addImm(AMDGPU::sub0)
+      .addReg(HiReg)
+      .addImm(AMDGPU::sub1);
+  }
 
   // We can't call constrainSelectedInstRegOperands here, because it doesn't
   // work for target independent opcodes
   I.eraseFromParent();
   const TargetRegisterClass *DstRC =
-      TRI.getConstrainedRegClassForOperand(RS->getOperand(0), *MRI);
+    TRI.getConstrainedRegClassForOperand(ResInst->getOperand(0), *MRI);
   if (!DstRC)
     return true;
   return RBI.constrainGenericRegister(DstReg, *DstRC, *MRI);
