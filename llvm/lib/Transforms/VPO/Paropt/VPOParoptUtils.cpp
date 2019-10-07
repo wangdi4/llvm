@@ -22,6 +22,7 @@
 //==------------------------------------------------------------------------==//
 
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
@@ -833,8 +834,14 @@ CallInst *VPOParoptUtils::genOCLGenericCall(StringRef FnName,
   BasicBlock *B  = InsertPt->getParent();
   Function *F    = B->getParent();
   LLVMContext &C = F->getContext();
+
+  SmallVector<Type *, 1> ArgType = { Type::getInt32Ty(C) };
+
+  if (FnArgs.empty())
+    ArgType.clear();
+
   CallInst *Call =
-      genCall(FnName, RetType, FnArgs, { Type::getInt32Ty(C) } , InsertPt);
+      genCall(FnName, RetType, FnArgs, ArgType, InsertPt);
   return Call;
 }
 
@@ -3788,6 +3795,10 @@ Value *VPOParoptUtils::genSPIRVHorizontalReduction(
 }
 
 bool VPOParoptUtils::useSPMDMode(WRegionNode *W) {
+  // We cannot support SPMD execution scheme with SIMD1 emulation.
+  if (W->mayHaveOMPCritical())
+    return false;
+
   WRegionNode *WT = WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
   if (!WT)
     return false;
@@ -3797,5 +3808,23 @@ bool VPOParoptUtils::useSPMDMode(WRegionNode *W) {
 
 spirv::ExecutionSchemeTy VPOParoptUtils::getSPIRExecutionScheme() {
   return SPIRExecutionScheme;
+}
+
+bool VPOParoptUtils::isOMPCritical(
+    const Instruction *I, const TargetLibraryInfo &TLI) {
+  const auto *CI = dyn_cast<const CallInst>(I);
+  if (!CI)
+    return false;
+
+  auto *CalledF =
+      dyn_cast<Function>(CI->getCalledOperand()->stripPointerCasts());
+  if (!CalledF)
+    return false;
+
+  LibFunc LF;
+  if (TLI.getLibFunc(*CalledF, LF))
+    return LF == LibFunc_kmpc_critical;
+
+  return false;
 }
 #endif // INTEL_COLLAB

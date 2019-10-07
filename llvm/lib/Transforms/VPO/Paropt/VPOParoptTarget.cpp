@@ -342,7 +342,9 @@ static bool ignoreSpecialOperands(const Instruction *I,
       "__kmpc_critical",     "__kmpc_end_critical", "omp_get_thread_num" };
 
   if (auto CallI = dyn_cast<CallInst>(I)) {
-    auto CalledF = CallI->getCalledFunction();
+    // Unprototyped function calls may result in a call of a bitcasted
+    // Function.
+    auto CalledF = CallI->getCalledOperand()->stripPointerCasts();
     assert(CalledF != nullptr && "Called Function not found ");
     if (CalledF->hasName() &&
         IgnoreCalls.find(CalledF->getName()) != IgnoreCalls.end())
@@ -375,8 +377,6 @@ void VPOParoptTransform::guardSideEffectStatements(
   Instruction *ParDirectiveExit     = nullptr;
   Instruction *TargetDirectiveBegin = nullptr;
   Instruction *TargetDirectiveExit  = nullptr;
-  BasicBlock *CriticalBegin  = nullptr;
-  BasicBlock *CriticalExit  = nullptr;
 
   SmallPtrSet<Instruction *, 6> InsertBarrierAt;
   SmallVector<BasicBlock *, 10> ParBBVector, TargetBBSet;
@@ -412,7 +412,6 @@ void VPOParoptTransform::guardSideEffectStatements(
 
       ParDirectiveBegin = nullptr;
       ParDirectiveExit = nullptr;
-
     } else if (TargetDirectiveBegin == nullptr &&
                isParOrTargetDirective(&*I, true)) {
       TargetDirectiveBegin = &*I;
@@ -422,31 +421,11 @@ void VPOParoptTransform::guardSideEffectStatements(
 
       GeneralUtils::collectBBSet(TargetDirectiveBegin->getParent(),
           TargetDirectiveExit->getParent(), TargetBBSet);
-    } else if (CriticalBegin == nullptr && isa<CallInst>(&*I)){
-      auto CallI = cast<CallInst>(&*I);
-      // Unprototyped function calls may result in a call of a bitcasted
-      // Function.
-      auto CalledF = CallI->getCalledOperand()->stripPointerCasts();
-      if (isa<Function>(CalledF) &&
-          CalledF->getName() == "__kmpc_critical") {
-        CriticalBegin = CallI->getParent();
-      }
-    } else if (CriticalExit == nullptr && isa<CallInst>(&*I)){
-      auto CallI = cast<CallInst>(&*I);
-      auto CalledF = CallI->getCalledOperand()->stripPointerCasts();
-      if (isa<Function>(CalledF) &&
-          CalledF->getName() == "__kmpc_end_critical") {
-        CriticalExit = CallI->getParent();
-        GeneralUtils::collectBBSet(CriticalBegin,
-            CriticalExit, CriticalSectionBlocks);
-      }
     }
   }
 
   SmallPtrSet<BasicBlock *, 10> ParBBSet(ParBBVector.begin(),
                                          ParBBVector.end());
-  SmallPtrSet<BasicBlock *, 10> CriticalBBSet(CriticalSectionBlocks.begin(),
-                                         CriticalSectionBlocks.end());
   // Iterate over all instructions and add the side effect instructions
   // to the set "SideEffectInstructions".
 
@@ -513,12 +492,6 @@ void VPOParoptTransform::guardSideEffectStatements(
 
     LLVM_DEBUG(dbgs()<<"\n Guarding::"<<*I);
     Instruction* Term = InsertPt->getNextNonDebugInstruction();
-    if (CriticalBBSet.find(ThisBB) != CriticalBBSet.end()){
-      // Add master thread guard the basic block in the critical section.
-      // That is, get the terminator instruction, and split that into another
-      // BB, and guard everything else under the condition.
-      Term = ThisBB->getTerminator();
-    }
 
     BasicBlock *TailBlock = SplitBlock(ThisBB, Term, DT, LI);
 
@@ -555,7 +528,7 @@ void VPOParoptTransform::guardSideEffectStatements(
       // TODO: select dimension of thread_id,
       initArgArray(&Arg, 0);
       VPOParoptUtils::genOCLGenericCall("_Z18work_group_barrierj",
-                                        GeneralUtils::getSizeTTy(F), Arg,
+                                        Builder.getVoidTy(), Arg,
                                         InsertPt);
     }
   }

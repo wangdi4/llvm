@@ -23,6 +23,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/VPO/Paropt/VPOParoptModuleTransform.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptAtomics.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParopt.h"
@@ -378,10 +379,21 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   IRBuilder<> Builder(InsertPt);
   SmallVector<Value *, 3> Arg;
   initArgArray(&Arg, Idx);
-  CallInst *LocalSize =
-      VPOParoptUtils::genOCLGenericCall("_Z14get_local_sizej",
-                                        GeneralUtils::getSizeTTy(F),
-                                        Arg, InsertPt);
+  bool MayHaveOMPCritical = W->mayHaveOMPCritical();
+
+  CallInst *LocalSize = nullptr;
+  if (MayHaveOMPCritical)
+    // Emulate SIMD1 by executing the same code in all SIMD channels
+    // of a sub-group.
+    LocalSize =
+        VPOParoptUtils::genOCLGenericCall("_Z18get_num_sub_groupsv",
+                                          Builder.getInt32Ty(),
+                                          {}, InsertPt);
+  else
+    LocalSize = VPOParoptUtils::genOCLGenericCall("_Z14get_local_sizej",
+                                                  GeneralUtils::getSizeTTy(F),
+                                                  Arg, InsertPt);
+
   assert(((TeamLowerBnd && TeamUpperBnd) ||
           (!TeamLowerBnd && !TeamUpperBnd)) &&
          "genOCLLoopBoundUpdateCode: team lower/upper bounds "
@@ -427,10 +439,17 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
     Value *SchedStrideVal = Builder.CreateMul(NumThreads, Chunk);
     Builder.CreateStore(SchedStrideVal, SchedStride);
 
-    CallInst *LocalId =
-        VPOParoptUtils::genOCLGenericCall("_Z12get_local_idj",
-                                          GeneralUtils::getSizeTTy(F),
-                                          Arg, InsertPt);
+    CallInst *LocalId = nullptr;
+    if (MayHaveOMPCritical)
+      LocalId =
+          VPOParoptUtils::genOCLGenericCall("_Z16get_sub_group_idv",
+                                            Builder.getInt32Ty(),
+                                            {}, InsertPt);
+    else
+      LocalId = VPOParoptUtils::genOCLGenericCall("_Z12get_local_idj",
+                                                  GeneralUtils::getSizeTTy(F),
+                                                  Arg, InsertPt);
+
     Value *LocalIdCasted = Builder.CreateSExtOrTrunc(LocalId, LBType);
 
     Value *LBDiff = Builder.CreateMul(LocalIdCasted, Chunk);
@@ -1182,6 +1201,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= propagateCancellationPointsToIR(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          setMayHaveOMPCritical(W);
           Changed |= clearCancellationPointAllocasFromIR(W);
           WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(W);
           Changed |= regularizeOMPLoop(W, false);
@@ -1537,6 +1557,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= propagateCancellationPointsToIR(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          setMayHaveOMPCritical(W);
           Changed |= clearCancellationPointAllocasFromIR(W);
           Changed |= regularizeOMPLoop(W, false);
 #if INTEL_CUSTOMIZATION
@@ -2045,16 +2066,23 @@ bool VPOParoptTransform::genReductionScalarFini(
     // This method may insert a new call before the store instruction (Tmp0)
     // and erase the store instruction, but in any case it does not invalidate
     // the IRBuilder.
-    auto *AtomicCall =
-        VPOParoptAtomics::handleAtomicUpdateInBlock(W, Tmp0->getParent(),
-                                                    nullptr, nullptr, true);
+    Instruction *AtomicCall = nullptr;
+
+    if (!W->mayHaveOMPCritical())
+      // For may-have-openmp-critical regions we use SIMD1 emulation,
+      // but atomic_op() functions imply horizontal reduction, which
+      // would produce incorrect results with SIMD1 emulation.
+      // Thus we avoid atomic updates for regions that use SIMD1 emulation.
+      // The final reduction update(s) will be done using __kmpc_critical.
+      AtomicCall =
+          VPOParoptAtomics::handleAtomicUpdateInBlock(W, Tmp0->getParent(),
+                                                      nullptr, nullptr, true);
 
     if (AtomicCall) {
       OptimizationRemark R(DEBUG_TYPE, "ReductionAtomic", AtomicCall);
       R << ore::NV("Kind", RedI->getOpName()) << " reduction update of type " <<
         ore::NV("Type", ScalarTy) << " made atomic";
       ORE.emit(R);
-
       return false;
     }
 
@@ -2069,19 +2097,23 @@ bool VPOParoptTransform::genReductionScalarFini(
     //
     // Insert new instruction(s) after the definition of the private
     // reduction value.
-    auto *TempRedLoad = Rhs2->clone();
-    TempRedLoad->insertAfter(Rhs2);
-    TempRedLoad->takeName(Rhs2);
-    auto HRed = VPOParoptUtils::genSPIRVHorizontalReduction(
-        RedI, ScalarTy, TempRedLoad, spirv::Scope::Subgroup);
+    if (!W->mayHaveOMPCritical()) {
+      // Horizontal reduction will produce incorrect results in regions
+      // using SIMD1 emulation.
+      auto *TempRedLoad = Rhs2->clone();
+      TempRedLoad->insertAfter(Rhs2);
+      TempRedLoad->takeName(Rhs2);
+      auto *HRed = VPOParoptUtils::genSPIRVHorizontalReduction(
+          RedI, ScalarTy, TempRedLoad, spirv::Scope::Subgroup);
 
-    if (HRed)
-      Rhs2->replaceAllUsesWith(HRed);
-    else
-      LLVM_DEBUG(dbgs() << __FUNCTION__ <<
-                 ": SPIRV horizontal reduction is not available "
-                 "for critical section reduction: " << RedI->getOpName() <<
-                 " with type " << *ScalarTy << "\n");
+      if (HRed)
+        Rhs2->replaceAllUsesWith(HRed);
+      else
+        LLVM_DEBUG(dbgs() << __FUNCTION__ <<
+                   ": SPIRV horizontal reduction is not available "
+                   "for critical section reduction: " << RedI->getOpName() <<
+                   " with type " << *ScalarTy << "\n");
+    }
 
     OptimizationRemarkMissed R(DEBUG_TYPE, "ReductionAtomic", Tmp0);
     R << ore::NV("Kind", RedI->getOpName()) << " reduction update of type " <<
@@ -6513,18 +6545,16 @@ bool VPOParoptTransform::genDoacrossWaitOrPost(WRNOrderedNode *W) {
 
 // Generates code for the OpenMP critical construct.
 bool VPOParoptTransform::genCriticalCode(WRNCriticalNode *CriticalNode) {
-  if (isTargetSPIRV()) {
-    F->getContext().diagnose(ParoptDiagInfo(*F,
-        CriticalNode->getEntryDirective()->getDebugLoc(),
-        "OpenMP critical is not supported"));
-    return removeCompilerGeneratedFences(CriticalNode);
-  }
+  bool Changed = false;
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genCriticalCode\n");
   assert(CriticalNode != nullptr && "Critical node is null.");
 
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(TidPtrHolder != nullptr && "TidPtr is null.");
+
+  if (isTargetSPIRV())
+    Changed = removeCompilerGeneratedFences(CriticalNode);
 
   // genKmpcCriticalSection() needs BBSet for error checking only;
   // In the future consider getting rid of this call to populateBBSet.
@@ -6549,7 +6579,7 @@ bool VPOParoptTransform::genCriticalCode(WRNCriticalNode *CriticalNode) {
 
   CriticalNode->resetBBSet(); // Invalidate BBSet
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genCriticalCode\n");
-  return CriticalCallsInserted;
+  return Changed || CriticalCallsInserted;
 }
 
 // Emits an implicit barrier at the end of WRgion W if W contains
@@ -7802,4 +7832,29 @@ bool VPOParoptTransform::constructNDRangeInfo(WRegionNode *W) {
   return true;
 }
 
+void VPOParoptTransform::setMayHaveOMPCritical(WRegionNode *W) const {
+  if (!isTargetSPIRV())
+    return;
+
+  W->populateBBSet();
+  for (auto *BB : make_range(W->bbset_begin(), W->bbset_end())) {
+    for (auto &I : *BB) {
+      const auto *CI = dyn_cast<const CallInst>(&I);
+      if (!CI)
+        continue;
+      auto *CalledF =
+          dyn_cast<Function>(CI->getCalledOperand()->stripPointerCasts());
+      // Check if it is an indirect call or call of a Function marked
+      // may-have-openmp-critical.
+      if (!CalledF ||
+          MT->mayHaveOMPCritical(CalledF)) {
+        W->setMayHaveOMPCritical();
+        LLVM_DEBUG(dbgs() << __FUNCTION__ <<
+                   ": region marked as may-have-openmp-critical: " <<
+                   *W->getEntryDirective() << "\n");
+        return;
+      }
+    }
+  }
+}
 #endif // INTEL_COLLAB
