@@ -5805,8 +5805,7 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
           << Ptr->getSourceRange();
       return ExprError();
     }
-<<<<<<< HEAD
-    ValType = AtomTy->getAs<AtomicType>()->getValueType();
+    ValType = AtomTy->castAs<AtomicType>()->getValueType();
 #if INTEL_CUSTOMIZATION
   } else if (getLangOpts().IntelCompat && AtomTy->isAtomicType()) {
     if (AtomTy.isConstQualified()) {
@@ -5814,11 +5813,8 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
         << 0 << Ptr->getType() << Ptr->getSourceRange();
       return ExprError();
     }
-    ValType = AtomTy->getAs<AtomicType>()->getValueType();
-#endif // INTEL_CUSTOMIZATION
-=======
     ValType = AtomTy->castAs<AtomicType>()->getValueType();
->>>>>>> dc4d908d6ebdee57f65e5b82bf598f45439e8f76
+#endif // INTEL_CUSTOMIZATION
   } else if (Form != Load && Form != LoadCopy) {
     if (ValType.isConstQualified()) {
       Diag(ExprRange.getBegin(), diag::err_atomic_op_needs_non_const_pointer)
