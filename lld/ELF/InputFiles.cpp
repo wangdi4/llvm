@@ -55,20 +55,12 @@ std::string toString(const elf::InputFile *f) {
 namespace elf {
 bool InputFile::isInGroup;
 uint32_t InputFile::nextGroupId;
-<<<<<<< HEAD
-std::vector<BinaryFile *> elf::binaryFiles;
-std::vector<BitcodeFile *> elf::bitcodeFiles;
-std::vector<LazyObjFile *> elf::lazyObjFiles;
-std::vector<InputFile *> elf::objectFiles;
-std::vector<SharedFile *> elf::sharedFiles;
-std::vector<InputFile *> elf::gNULTOFiles;    // INTEL
-=======
 std::vector<BinaryFile *> binaryFiles;
 std::vector<BitcodeFile *> bitcodeFiles;
 std::vector<LazyObjFile *> lazyObjFiles;
 std::vector<InputFile *> objectFiles;
 std::vector<SharedFile *> sharedFiles;
->>>>>>> bd8cfe65f5fee4ad573adc2172359c9552e8cdc0
+std::vector<InputFile *> gNULTOFiles;    // INTEL
 
 std::unique_ptr<TarWriter> tar;
 
