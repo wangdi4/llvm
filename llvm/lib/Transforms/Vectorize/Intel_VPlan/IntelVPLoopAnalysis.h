@@ -22,6 +22,7 @@
 #define LLVM_TRANSFORM_VECTORIZE_INTEL_VPLAN_INTELVPLOOPANALYSIS_H
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/Analysis/IVDescriptors.h"
 #include <map>
 
@@ -73,8 +74,6 @@ public:
     if (Val != nullptr)
       LinkedVPValues.push_back(Val);
   }
-
-  virtual void getAliases(SmallVectorImpl<VPValue *> &Aliases) {}
 
 protected:
   // No need for public constructor.
@@ -213,7 +212,40 @@ private:
 /// Private descriptor. Privates can be declared explicitly or detected
 /// by analysis.
 class VPPrivate : public VPLoopEntity {
+  friend class VPLoopEntityList;
 
+public:
+  // Currently only used for VPPrivates. In future, this can be hoisted to
+  // VPLoopEntity.
+  using VPEntityAliasesTy = MapVector<VPValue *, VPInstruction *>;
+
+  VPPrivate(VPInstruction *FinalI, VPEntityAliasesTy &&InAliases,
+            bool Conditional, bool Last, bool Explicit, bool IsMemOnly = false)
+      : VPLoopEntity(Private, IsMemOnly), IsConditional(Conditional),
+        IsLast(Last), IsExplicit(Explicit), FinalInst(FinalI),
+        Aliases(std::move(InAliases)) {}
+
+  bool isConditional() const { return IsConditional; }
+  bool isLast() const { return IsLast; }
+  bool isExplicit() const { return IsExplicit; }
+
+  // TODO: Consider making this method virtual and hence available to all
+  // entities.
+  // Iterator-range for the aliases-set.
+  iterator_range<VPEntityAliasesTy::const_iterator> aliases() const {
+    return iterator_range<VPEntityAliasesTy::const_iterator>(Aliases.begin(),
+                                                             Aliases.end());
+  }
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPLoopEntity *V) {
+    return V->getID() == Private;
+  }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump(raw_ostream &OS) const override;
+#endif
+
+private:
   // The assignment is under condition.
   bool IsConditional;
 
@@ -226,34 +258,9 @@ class VPPrivate : public VPLoopEntity {
   // The assignment instruction.
   VPInstruction *FinalInst;
 
-  // Aliases associated with a pointer
-  DenseSet<VPValue *> Aliases;
-
-public:
-  VPPrivate(VPInstruction *FinalI, DenseSet<VPValue *> &&InAliases,
-            bool Conditional, bool Last, bool Explicit, bool IsMemOnly = false)
-      : VPLoopEntity(Private, IsMemOnly), IsConditional(Conditional),
-        IsLast(Last), IsExplicit(Explicit), FinalInst(FinalI),
-        Aliases(std::move(InAliases)) {}
-
-  bool isConditional() const { return IsConditional; }
-  bool isLast() const { return IsLast; }
-  bool isExplicit() const { return IsExplicit; }
-  // TODO: Replace the deep-copying of Aliases with code that returns a
-  // reference to Aliases. This would be done when we have identified the need
-  // of 'aliases' for all other VP*
-  void getAliases(SmallVectorImpl<VPValue *> &AliasesVec) override {
-    for (auto *Val : Aliases)
-      AliasesVec.push_back(Val);
-  }
-
-  /// Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPLoopEntity *V) {
-    return V->getID() == Private;
-  }
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void dump(raw_ostream &OS) const override;
-#endif
+  // Map that stores the VPExternalDef->VPInstruction mapping. These are alias
+  // instructions to existing loop-private, which are outside the loop-region.
+  VPEntityAliasesTy Aliases;
 };
 
 /// Complimentary class that describes memory locations of the loop entities.
@@ -316,6 +323,7 @@ class VPLoopEntityList {
   using RecurrenceKind = VPReduction::RecurrenceKind;
   using MinMaxRecurrenceKind = VPReduction::MinMaxRecurrenceKind;
   using InductionKind = VPInduction::InductionKind;
+  using VPEntityAliasesTy = VPPrivate::VPEntityAliasesTy;
 
 public:
   /// Add reduction described by \p K, \p MK, and \p Signed,
@@ -349,7 +357,7 @@ public:
   /// instruction which writes to the private memory witin the for-loop. Also
   /// store other relavant attributes of the private like the conditional, last
   /// and explicit.
-  VPPrivate *addPrivate(VPInstruction *FinalI, DenseSet<VPValue *> &Aliases,
+  VPPrivate *addPrivate(VPInstruction *FinalI, VPEntityAliasesTy &PtrAliases,
                         bool IsConditional, bool IsLast, bool Explicit,
                         VPValue *AI = nullptr, bool ValidMemOnly = false);
 
@@ -408,15 +416,15 @@ public:
 
   /// Entities lists. We need a predictable way of iterating through lists so
   /// the init/fini code is generated always the same for the same loops.
-  typedef SmallVector<std::unique_ptr<VPReduction>, 4> VPReductionList;
-  typedef SmallVector<std::unique_ptr<VPInduction>, 4> VPInductionList;
-  typedef SmallVector<std::unique_ptr<VPPrivate>, 4> VPPrivatesList;
+  using VPReductionList = SmallVector<std::unique_ptr<VPReduction>, 4>;
+  using VPInductionList = SmallVector<std::unique_ptr<VPInduction>, 4>;
+  using VPPrivatesList = SmallVector<std::unique_ptr<VPPrivate>, 4>;
 
   /// Mapping of VPValues to entities. Created after entities lists are formed
   /// to ensure correct masking.
-  typedef DenseMap<const VPValue *, const VPReduction *> VPReductionMap;
-  typedef DenseMap<const VPValue *, const VPInduction *> VPInductionMap;
-  typedef DenseMap<const VPValue *, const VPPrivate *> VPPrivateMap;
+  using VPReductionMap = DenseMap<const VPValue *, const VPReduction *>;
+  using VPInductionMap = DenseMap<const VPValue *, const VPInduction *>;
+  using VPPrivateMap = DenseMap<const VPValue *, const VPPrivate *>;
 
   /// Iterators to iterate through entities lists.
   VPInductionList::iterator inductionsBegin();
@@ -429,8 +437,22 @@ public:
     return ReductionList.end();
   }
 
-  VPPrivatesList::iterator privatesBegin();
-  VPPrivatesList::iterator privatesEnd();
+  // Return the iterator-range to the list of privates loop-entities.
+  inline decltype(auto) vpprivates() const {
+    return map_range(make_range(PrivatesList.begin(), PrivatesList.end()),
+                     getRawPointer<VPPrivate>);
+  }
+  // Return the iterator-range to the list of reduction loop-entities.
+  inline decltype(auto) vpreductions() const {
+    return map_range(make_range(ReductionList.begin(), ReductionList.end()),
+                     getRawPointer<VPReduction>);
+  }
+
+  // Return the iterator-range to the list of induction loop-entities.
+  inline decltype(auto) vpinductions() const {
+    return map_range(make_range(InductionList.begin(), InductionList.end()),
+                     getRawPointer<VPInduction>);
+  }
 
   VPIndexReduction *getMinMaxIndex(const VPReduction *Red) {
     MinMaxIndexTy::const_iterator It = MinMaxIndexes.find(Red);
@@ -469,6 +491,8 @@ public:
   // DuplicateInductionPHIs after replacement. NOTE: The duplicate PHI is not
   // removed from HCFG.
   void replaceDuplicateInductionPHIs();
+
+  // Do Escape analysis on loop-privates.
   void doEscapeAnalysis();
 
   /// Return VPPHINode that corresponds to a recurrent entity.
@@ -602,6 +626,13 @@ private:
                                 VPValue &PrivateMem);
 
   VPInstruction *getInductionLoopExitInstr(const VPInduction *Induction) const;
+
+  // Mapping function that returns the underlying raw pointer.
+  template <typename EntityType>
+  static inline EntityType *
+  getRawPointer(const std::unique_ptr<EntityType> &En) {
+    return En.get();
+  }
 };
 
 class VPEntityImportDescr {
@@ -834,6 +865,7 @@ private:
 /// privates.
 class PrivateDescr : public VPEntityImportDescr {
   using BaseT = VPEntityImportDescr;
+  using VPEntityAliasesTy = VPPrivate::VPEntityAliasesTy;
 
 public:
   PrivateDescr() { clear(); }
@@ -872,7 +904,7 @@ public:
   void setIsLast(bool IsLastPriv) { IsLast = IsLastPriv; }
   void setIsExplicit(bool IsExplicitVal) { IsExplicit = IsExplicitVal; }
   void setIsMemOnly(bool IsMem) { setValidMemOnly(IsMem); }
-  void addAlias(VPValue *Val) { PtrAliases.insert(Val); }
+  void addAlias(VPValue *Alias, VPInstruction *I) { PtrAliases[Alias] = I; }
 
 private:
   VPValue *AllocaInst = nullptr;
@@ -881,7 +913,7 @@ private:
   // multiple aliases as opposed to memory descriptors for inductions or
   // reductions. Hence, we have a separate field. TODO: consider using a
   // single/same field for every memory descriptor.
-  DenseSet<VPValue *> PtrAliases;
+  VPEntityAliasesTy PtrAliases;
   bool IsConditional;
   bool IsLast;
   bool IsExplicit;

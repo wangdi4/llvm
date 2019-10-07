@@ -2740,6 +2740,12 @@ private:
   // kick in when this flag is false such as cases where we use a command
   // line option to do the same.
   bool FullLinearizationForced = false;
+
+  // The flag shows whether all steps needed for the loop entities privatization
+  // are finished. Particularly, all VPInstructions for private memory
+  // allocation are generated and the needed replacements in the VPLoop code are
+  // done.
+  bool LoopEntitiesPrivatizationIsDone = false;
 #endif
 
 #if INTEL_CUSTOMIZATION
@@ -2864,6 +2870,17 @@ public:
     if (Iter == LoopEntities.end())
       return nullptr;
     return Iter->second.get();
+  }
+
+  /// Return \p true if we have finished importing of loop-entities and
+  /// generated appropriate VPInstructions.
+  bool isLoopEntitiesPrivatizationDone() const {
+    return LoopEntitiesPrivatizationIsDone;
+  }
+
+  /// Mark the flag that indicates that importing of loop entities is done.
+  void setLoopEntitiesPrivatizationDone(bool LEImportsDone) {
+    LoopEntitiesPrivatizationIsDone = LEImportsDone;
   }
 #endif // INTEL_CUSTOMIZATION
 

@@ -40,6 +40,8 @@ cl::opt<bool> VPlanUseVPEntityInstructions(
     "vplan-use-entity-instr", cl::init(false), cl::Hidden,
     cl::desc("Generate VPInstructions for VPEntities"));
 
+extern cl::opt<bool> EnableVPValueCodegen;
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 void VPReduction::dump(raw_ostream &OS) const {
@@ -346,7 +348,7 @@ VPInduction *VPLoopEntityList::addInduction(VPInstruction *Start,
 }
 
 VPPrivate *VPLoopEntityList::addPrivate(VPInstruction *FinalI,
-                                        DenseSet<VPValue *> &Aliases,
+                                        VPEntityAliasesTy &Aliases,
                                         bool IsConditional, bool IsLast,
                                         bool Explicit, VPValue *AI,
                                         bool ValidMemOnly) {
@@ -526,6 +528,9 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
 
   DenseMap<const VPReduction *, std::pair<VPReductionFinal *, VPInstruction *>>
       RedFinalMap;
+
+  auto *DA = Plan.getVPlanDA();
+
   for (auto &RedPtr : ReductionList) {
     VPReduction *Reduction = RedPtr.get();
     Builder.setInsertPoint(Preheader);
@@ -552,7 +557,7 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
             : Builder.createReductionInit(Identity);
     processInitValue(*Reduction, AI, PrivateMem, Builder, *Init, Ty,
                      *Reduction->getRecurrenceStartValue());
-    Plan.getVPlanDA()->markDivergent(*Init);
+    DA->markDivergent(*Init);
 
     // Create instruction for last value
     Builder.setInsertPoint(PostExit);
@@ -606,7 +611,7 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
         static_cast<Instruction::BinaryOps>(Induction->getInductionOpcode());
     VPInstruction *Init =
         Builder.createInductionInit(Start, Induction->getStep(), Opc);
-    Plan.getVPlanDA()->markDivergent(*Init);
+    DA->markDivergent(*Init);
     processInitValue(*Induction, AI, PrivateMem, Builder, *Init, Ty,
                      *Start);
     VPInstruction *InitStep =
@@ -640,18 +645,58 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
   }
 
   // Process the list of Privates.
-  for (auto &Priv : PrivatesList) {
-    VPPrivate *PrivPtr = Priv.get();
-    Builder.setInsertPoint(Preheader);
+  Builder.setInsertPoint(Preheader, Preheader->begin());
+  for (std::unique_ptr<VPPrivate> &Priv : PrivatesList) {
     VPValue *AI = nullptr;
+    VPPrivate *PrivPtr = Priv.get();
     VPValue *PrivateMem = createPrivateMemory(*PrivPtr, Builder, AI);
     if (PrivateMem) {
       LLVM_DEBUG(dbgs() << "Replacing all instances of {" << AI << "} with "
                         << *PrivateMem << "\n");
+      // Mark the new private pointer as divergent.
+      DA->markDivergent(*PrivateMem);
+    }
+
+    // Handle aliases in two passes.
+    // Insert the aliases into the Loop preheader in the regular order first.
+    for (auto const &ValInstPair : PrivPtr->aliases()) {
+      auto *VPOperand = ValInstPair.first;
+      auto *VPInst = ValInstPair.second;
+      Builder.insert(VPInst);
+      DA->markDivergent(*VPInst);
+      auto *VectorShape = DA->getVectorShape(VPOperand);
+      assert(VectorShape && "Expecting a valid value for vector-shape.");
+      DA->updateVectorShape(VPInst, VectorShape->clone());
+    }
+
+    // Now do the replacement. We first replace all instances of VPOperand with
+    // VPInst within the preheader, where all aliases have been inserted. Then
+    // replace all instances of VPOperand with VPInst in the loop.
+    for (auto const &ValInstPair : PrivPtr->aliases()) {
+      auto *VPOperand = ValInstPair.first;
+      auto *VPInst = ValInstPair.second;
+      VPOperand->replaceAllUsesWithInBlock(VPInst, *Preheader);
+      VPOperand->replaceAllUsesWithInLoop(VPInst, Loop);
+    }
+
+    if (PrivateMem) {
+      // The uses of this allocate-private could also be instruction outside the
+      // loop. We have to replace instances which are in the pre-header, along
+      // with the ones in the loop.
+      AI->replaceAllUsesWithInBlock(PrivateMem, *Preheader);
       AI->replaceAllUsesWithInLoop(PrivateMem, Loop);
     }
     // Add special handling for 'Cond' and 'Last' - privates
   }
+  // If DA is run again after this point, this function-call will make sure
+  // that it would not mark the original memory-ptr of the Loop Entities as
+  // divergent. So, instructions which load data from the original memory
+  // pointer are not converted into 'gathers'.
+  Plan.setLoopEntitiesPrivatizationDone(true);
+  LLVM_DEBUG(
+      dbgs()
+      << "After replacement of private and aliases within the preheader.\n");
+  LLVM_DEBUG(Preheader->dump());
 }
 
 // Create so called "close-form calculation" for induction. The close-form
@@ -993,10 +1038,6 @@ void PrivateDescr::checkParentVPLoop(const VPlan *Plan,
 }
 
 void PrivateDescr::tryToCompleteByVPlan(const VPlan *Plan, const VPLoop *Loop) {
-  // Check that the aliases that we are concerned with are used within the loop
-  for (auto *Use : PtrAliases)
-    if (!checkInstructionInLoop(Use, Plan, Loop))
-      PtrAliases.erase(Use);
 
   for (auto User : AllocaInst->users()) {
     if (auto Inst = dyn_cast<VPInstruction>(User)) {
@@ -1278,7 +1319,7 @@ void InductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
 namespace llvm {
 namespace vpo {
 void VPLoopEntityList::doEscapeAnalysis() {
-  if (!VPlanUseVPEntityInstructions)
+  if (!VPlanUseVPEntityInstructions || !EnableVPValueCodegen)
     return;
 
   SmallPtrSet<VPLoopEntityMemoryDescriptor *, 4> AnalyzedMemDescr;
@@ -1288,6 +1329,11 @@ void VPLoopEntityList::doEscapeAnalysis() {
     // extend the vector with all the aliases.
     VPLoopEntityMemoryDescriptor *MemDescr = MemDescrIter.second.get();
 
+    // TODO: We have to do this analysis for all entities. Currently, we do it
+    // just for privates.
+    if (!isa<VPPrivate>(MemDescr->getVPLoopEntity()))
+      continue;
+
     LLVM_DEBUG(errs() << "MemDescr Val = " << *(MemDescr->getMemoryPtr())
                       << "\n";);
 
@@ -1296,9 +1342,10 @@ void VPLoopEntityList::doEscapeAnalysis() {
 
     struct WorkList {
 
-      WorkList(ArrayRef<VPValue *> Seed) {
-        for (auto *Val : Seed)
-          Queue.insert(Val);
+      WorkList(VPPrivate *PrivEntity) {
+        for (auto &Val : PrivEntity->aliases()) {
+          Queue.insert(Val.first);
+        }
       }
 
       void insert(const VPValue *Inst) {
@@ -1371,12 +1418,9 @@ void VPLoopEntityList::doEscapeAnalysis() {
     // destination orresponds to a different descriptor.
 
     bool FoundUnsafe = false;
-    SmallVector<VPValue *, 4> Aliases;
-    Aliases.push_back(MemDescr->getMemoryPtr());
-
-    MemDescr->getVPLoopEntity()->getAliases(Aliases);
-
-    WorkList WL(Aliases);
+    VPPrivate *PrivEntity = cast<VPPrivate>(MemDescr->getVPLoopEntity());
+    WorkList WL(PrivEntity);
+    WL.insert(MemDescr->getMemoryPtr());
 
     while (!WL.empty()) {
       const VPValue *CurrentI = WL.pop();
@@ -1385,15 +1429,15 @@ void VPLoopEntityList::doEscapeAnalysis() {
       Type *PointeeTy = cast<PointerType>(MemDescr->getMemoryPtr()->getType())
                             ->getPointerElementType();
 
+      if (!(PointeeTy->isAggregateType() || PointeeTy->isVectorTy() ||
+            PointeeTy->isPointerTy()))
+        break;
+
       LLVM_DEBUG(dbgs() << "CurrentI Type = " << *PointeeTy << " IsScalar = "
                         << !(PointeeTy->isAggregateType() ||
                              PointeeTy->isVectorTy() ||
                              PointeeTy->isPointerTy())
                         << "\n";);
-
-      if (!(PointeeTy->isAggregateType() || PointeeTy->isVectorTy() ||
-            PointeeTy->isPointerTy()))
-        break;
 
       // Get all the users of the current Instruction
       for (VPValue *User : CurrentI->users()) {
@@ -1401,7 +1445,13 @@ void VPLoopEntityList::doEscapeAnalysis() {
 
         LLVM_DEBUG(dbgs() << "CurrentI = " << *CurrentI
                           << "\n\t\t Use = " << *VPInst << "\n";);
-        if (!VPInst || !checkInstructionInLoop(VPInst, &Plan, &Loop))
+
+        // VPInst's, i.e., users of CurrentI which are aliases of the private
+        // and outside the loop-region, but created as part of entities import,
+        // are not inserted into the BB yet. We do not have to analyze these
+        // instructions for possible 'escape'.
+        if (!VPInst || !VPInst->getParent() ||
+            !(checkInstructionInLoop(VPInst, &Plan, &Loop)))
           continue;
         else if (isOpaqueCall(VPInst)) {
           FoundUnsafe = true;
