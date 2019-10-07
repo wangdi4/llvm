@@ -37,9 +37,6 @@
 extern llvm::cl::opt<bool> VPlanConstrStressTest;
 extern llvm::cl::opt<bool> EnableVPValueCodegen;
 
-cl::opt<uint64_t>
-    VPlanDefaultEstTrip("vplan-default-est-trip", cl::init(300),
-                        cl::desc("Default estimated trip count"));
 static cl::opt<unsigned>
 VecThreshold("vec-threshold",
              cl::desc("sets a threshold for the vectorization on the probability"
@@ -78,17 +75,6 @@ static unsigned getSafelen(const WRNVecLoopNode *WRLp) {
   return WRLp && WRLp->getSafelen() ? WRLp->getSafelen() : UINT_MAX;
 }
 #endif // INTEL_CUSTOMIZATION
-
-// Return trip count for a given VPlan for a first loop during DFS.
-// Assume, that VPlan has only 1 loop without peel and/or remainder(s).
-// FIXME: This function is incorrect if peel, main and remainder loop will be
-// explicitly represented in VPlan. Also it's incorrect for multi level loop
-// vectorization.
-static uint64_t getTripCountForFirstLoopInDfs(const VPlan *VPlan) {
-  const VPLoopRegion *Loop = VPlanUtils::findFirstLoopDFS(VPlan);
-
-  return VPlan->getVPLoopAnalysis()->getTripCountFor(Loop);
-}
 
 unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
                                                       const DataLayout *DL) {
@@ -233,7 +219,11 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
 
   // Even if TripCount is more than 2^32 we can safely assume that it's equal
   // to 2^32, otherwise all logic below will have a problem with overflow.
-  uint64_t TripCount = std::min(::getTripCountForFirstLoopInDfs(ScalarPlan),
+  VPLoopInfo *VPLI = ScalarPlan->getVPLoopInfo();
+  assert(std::distance(VPLI->begin(), VPLI->end()) == 1
+         && "Expected single outermost loop!");
+  VPLoop *OuterMostVPLoop = *VPLI->begin();
+  uint64_t TripCount = std::min(OuterMostVPLoop->getTripCountInfo().TripCount,
                                 (uint64_t)std::numeric_limits<unsigned>::max());
 #if INTEL_CUSTOMIZATION
   CostModelTy ScalarCM(ScalarPlan, 1, TTI, DL, VLSA);
@@ -429,7 +419,7 @@ std::shared_ptr<VPlan> LoopVectorizationPlanner::buildInitialVPlan(
     const DataLayout *DL) {
   // Create new empty VPlan
   std::shared_ptr<VPlan> SharedPlan =
-      std::make_shared<VPlan>(VPLA, Context, DL);
+      std::make_shared<VPlan>(Context, DL);
   VPlan *Plan = SharedPlan.get();
 
   // Build hierarchical CFG

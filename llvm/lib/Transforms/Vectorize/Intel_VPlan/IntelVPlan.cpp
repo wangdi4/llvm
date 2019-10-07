@@ -104,6 +104,7 @@ VPBasicBlock *VPBlockUtils::splitExitBlock(VPBlockBase *Block,
   VPBasicBlock *BB = Block->getExitBasicBlock();
   VPBasicBlock *NewBlock = new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
   BB->moveConditionalEOBTo(NewBlock);
+  NewBlock->moveTripCountInfoFrom(BB);
   insertBlockAfter(NewBlock, BB);
 
   // Add NewBlock to VPLoopInfo
@@ -160,8 +161,10 @@ VPBasicBlock *VPBlockUtils::splitBlock(VPBlockBase *Block,
                                        VPDominatorTree &DomTree,
                                        VPPostDominatorTree &PostDomTree) {
   VPBasicBlock *NewBlock = new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
-  if (isa<VPBasicBlock>(Block))
-    cast<VPBasicBlock>(Block)->moveConditionalEOBTo(NewBlock);
+  if (auto *BB = dyn_cast<VPBasicBlock>(Block)) {
+    BB->moveConditionalEOBTo(NewBlock);
+    NewBlock->moveTripCountInfoFrom(BB);
+  }
   insertBlockAfter(NewBlock, Block);
 
   // Add NewBlock to VPLoopInfo

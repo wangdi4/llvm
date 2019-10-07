@@ -9,12 +9,9 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// \file
-/// This file provides VPLoop-based analysis. Right now VPLoopAnalysisBase can
-/// only be used to compute min, known, estimated or max trip counts for a
-/// VPLoopRegion. In addition Min,max and average tripcounts are set based
-/// on the values specified by the user in pragma loop_count
-//
+/// \file
+/// This file provides VPLoop-based analyses.
+///
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPLoopAnalysis.h"
@@ -1280,112 +1277,6 @@ void InductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
 
 namespace llvm {
 namespace vpo {
-
-void VPLoopAnalysisBase::setTripCountsFromPragma(const VPLoopRegion *Lp,
-                                                 uint64_t MinTripCount,
-                                                 uint64_t MaxTripCount,
-                                                 uint64_t AvgTripCount) {
-  bool IsMaxTakenFromPragma = false;
-  bool IsMinTakenFromPragma = false;
-  bool IsAverageTakenFromPragma = false;
-
-  if (MaxTripCount) {
-    setMaxTripCountFor(Lp, MaxTripCount);
-    IsMaxTakenFromPragma = true;
-  } else
-    setMaxTripCountFor(Lp, DefaultTripCount);
-
-  if (MinTripCount) {
-    setMinTripCountFor(Lp, MinTripCount);
-    IsMinTakenFromPragma = true;
-  } else
-    setMinTripCountFor(Lp, 0);
-
-  if (AvgTripCount) {
-    setEstimatedTripCountFor(Lp, AvgTripCount);
-    IsAverageTakenFromPragma = true;
-  } else if (IsMaxTakenFromPragma && IsMinTakenFromPragma)
-    setEstimatedTripCountFor(Lp, (MaxTripCount + MinTripCount) >> 1);
-  else if (IsMaxTakenFromPragma)
-    setEstimatedTripCountFor(Lp, MaxTripCount);
-  else if (IsMinTakenFromPragma)
-    setEstimatedTripCountFor(Lp, MinTripCount);
-  else
-    setEstimatedTripCountFor(Lp, DefaultTripCount);
-
-  (void)IsMaxTakenFromPragma;
-  (void)IsMinTakenFromPragma;
-  (void)IsAverageTakenFromPragma;
-
-  LLVM_DEBUG(
-      dbgs()
-      << "Max trip count is " << getMaxTripCountFor(Lp)
-      << (IsMaxTakenFromPragma
-              ? " updated by loop opt upon retrieving loop count from pragma"
-              : " assumed default trip count by vectorizer")
-      << '\n');
-  LLVM_DEBUG(dbgs() << "Average trip count is " << getTripCountFor(Lp)
-                    << (IsAverageTakenFromPragma
-                            ? " set by pragma loop count"
-                            : " assumed default trip count by vectorizer")
-                    << '\n');
-  LLVM_DEBUG(dbgs() << "Min trip count is " << getMinTripCountFor(Lp)
-                    << (IsMinTakenFromPragma
-                            ? " set by pragma loop count"
-                            : " assumed default trip count by vectorizer")
-                    << '\n');
-}
-
-// Metadata is attached to the loop latch. Loop through the VPBasicBlocks to
-// find the underlying original basic block and get the LoopID.
-// Set the max, min and average trip counts from the metadata.
-// Fix Me: This fails when there is an outerloop and there are different
-// pragma values for inner and outer loop.
-void VPLoopAnalysis::computeTripCountImpl(const VPLoopRegion *Lp) {
-
-  StringRef MaxInfo = "llvm.loop.intel.loopcount_maximum";
-  StringRef MinInfo = "llvm.loop.intel.loopcount_minimum";
-  StringRef AvgInfo = "llvm.loop.intel.loopcount_average";
-
-  uint64_t MinTripCount = 0, MaxTripCount = 0, AvgTripCount = 0;
-
-  LoopTripCounts[Lp] = TripCountInfo();
-
-  for (const VPBlockBase *VPB :
-       make_range(df_iterator<const VPBlockBase *>::begin(Lp->getEntry()),
-                  df_iterator<const VPBlockBase *>::end(Lp->getExit()))) {
-    const VPBasicBlock *CurrentVPBB = cast<const VPBasicBlock>(VPB);
-
-    if (BasicBlock *OriginalBB = CurrentVPBB->getOriginalBB()) {
-      const Loop *Loop = LI->getLoopFor(OriginalBB);
-      if (Loop) {
-        MDNode *LoopID = Loop->getLoopID();
-        if (LoopID) {
-          for (unsigned i = 1, ie = LoopID->getNumOperands(); i < ie; ++i) {
-            MDNode *MD = dyn_cast<MDNode>(LoopID->getOperand(i));
-            if (MD) {
-              const MDString *S = dyn_cast<MDString>(MD->getOperand(0));
-              if (!S)
-                continue;
-              if (MaxInfo.equals(S->getString()))
-                MaxTripCount = mdconst::extract<ConstantInt>(MD->getOperand(1))
-                                   ->getZExtValue();
-              if (MinInfo.equals(S->getString()))
-                MinTripCount = mdconst::extract<ConstantInt>(MD->getOperand(1))
-                                   ->getZExtValue();
-              if (AvgInfo.equals(S->getString()))
-                AvgTripCount = mdconst::extract<ConstantInt>(MD->getOperand(1))
-                                   ->getZExtValue();
-            }
-          }
-        }
-      }
-      break;
-    }
-  }
-  setTripCountsFromPragma(Lp, MinTripCount, MaxTripCount, AvgTripCount);
-}
-
 void VPLoopEntityList::doEscapeAnalysis() {
   if (!VPlanUseVPEntityInstructions)
     return;
