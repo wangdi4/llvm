@@ -2757,13 +2757,6 @@ def resource_dir : Separate<["-"], "resource-dir">,
   HelpText<"The directory which holds the compiler resource files">;
 def resource_dir_EQ : Joined<["-"], "resource-dir=">, Flags<[DriverOption, CoreOption]>,
   Alias<resource_dir>;
-#if INTEL_CUSTOMIZATION
-def restrict : Flag<["-"], "restrict">, Flags<[DriverOption,CC1Option]>,
-  HelpText<"enable the 'restrict' keyword for disambiguating pointers">;
-def no_restrict : Flag<["-"], "no-restrict">, Flags<[DriverOption,CC1Option]>,
-  HelpText<"disable the 'restrict' keyword for disambiguating pointers">;
-#endif //INTEL_CUSTOMIZATION
-
 def rpath : Separate<["-"], "rpath">, Flags<[LinkerInput]>, Group<Link_Group>;
 def rtlib_EQ : Joined<["-", "--"], "rtlib=">,
   HelpText<"Compiler runtime library to use">;

@@ -5755,12 +5755,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-intel-libirc-allowed");
   }
 
-  if (Args.hasArg(options::OPT_restrict)) {
-    CmdArgs.push_back("-restrict");
-  }
-  else if (Args.hasArg(options::OPT_no_restrict)) {
-    CmdArgs.push_back("-no-restrict");
-  }
   if (Args.hasFlag(options::OPT_intel_mintrinsic_promote,
                    options::OPT_intel_mno_intrinsic_promote, false))
     CmdArgs.push_back("-mintrinsic-promote");

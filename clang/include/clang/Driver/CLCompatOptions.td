@@ -183,10 +183,6 @@ def _SLASH_Qintrinsic_promote : CLFlag<"Qintrinsic-promote">,
   "included by default">;
 def _SLASH_Qintrinsic_promote_ : CLFlag<"Qintrinsic-promote-">,
   Alias<intel_mno_intrinsic_promote>;
-def _SLASH_Qrestrict : CLFlag<"Qrestrict">, Alias<restrict>,
-  HelpText<"enable the 'restrict' keyword for disambiguating pointers">;
-def _SLASH_Qrestrict_ : CLFlag<"Qrestrict-">, Alias<no_restrict>,
-  HelpText<"disable the 'restrict' keyword for disambiguating pointers">;
 #endif //INTEL_CUSTOMIZATION
 def _SLASH_showIncludes : CLFlag<"showIncludes">,
   HelpText<"Print info about included files to stderr">,
