@@ -456,9 +456,9 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
     return;
 
   // FIXME: Don't break SSA form during the transformation.
-  if (!Plan->isSSABroken()   // Already marked, so...
-      && isBreakingSSA(VPL)) // don't try to analyze any more.
-    Plan->markSSABroken();
+  if (!Plan->isFullLinearizationForced() // Already marked, so...
+      && isBreakingSSA(VPL))             // don't try to analyze any more.
+    Plan->markFullLinearizationForced();
 
   // The merge loop exits transformation kicks-in.
 
@@ -891,10 +891,9 @@ void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
     return;
 
   // FIXME: Don't break SSA form during the transformation.
-  if (!Plan->isSSABroken()   // Already marked, so...
-      && isBreakingSSA(VPL)) // don't try to analyze any more.
-    Plan->markSSABroken();
-
+  if (!Plan->isFullLinearizationForced() // Already marked, so...
+      && isBreakingSSA(VPL))             // don't try to analyze any more.
+    Plan->markFullLinearizationForced();
 
   LLVM_DEBUG(dbgs() << "Before single exit while loop transformation.\n");
   LLVM_DEBUG(Plan->dump());

@@ -386,7 +386,7 @@ static void markPhisAsBlended(VPBlockBase *Block) {
 }
 
 bool VPlanPredicator::shouldPreserveUniformBranches() const {
-  if (Plan.isSSABroken())
+  if (Plan.isFullLinearizationForced())
     return false;
 
   return PreserveUniformCFG;
