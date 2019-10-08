@@ -1549,6 +1549,7 @@ LLVMTypeRef LLVMX86MMXType(void);
           macro(GlobalVariable)             \
       macro(UndefValue)                     \
     macro(Instruction)                      \
+      macro(UnaryOperator)                  \
       macro(BinaryOperator)                 \
       macro(CallInst)                       \
         macro(IntrinsicInst)                \
