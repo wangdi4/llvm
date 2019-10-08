@@ -597,11 +597,16 @@ static void clampCallSiteArgumentStates(Attributor &A, const AAType &QueryingAA,
   // The argument number which is also the call site argument number.
   unsigned ArgNo = QueryingAA.getIRPosition().getArgNo();
 
-  auto CallSiteCheck = [&](CallSite CS) {
-    const IRPosition &CSArgPos = IRPosition::callsite_argument(CS, ArgNo);
-    const AAType &AA = A.getAAFor<AAType>(QueryingAA, CSArgPos);
-    LLVM_DEBUG(dbgs() << "[Attributor] CS: " << *CS.getInstruction()
-                      << " AA: " << AA.getAsStr() << " @" << CSArgPos << "\n");
+  auto CallSiteCheck = [&](AbstractCallSite ACS) {
+    const IRPosition &ACSArgPos = IRPosition::callsite_argument(ACS, ArgNo);
+    // Check if a coresponding argument was found or if it is on not associated
+    // (which can happen for callback calls).
+    if (ACSArgPos.getPositionKind() == IRPosition::IRP_INVALID)
+      return false;
+
+    const AAType &AA = A.getAAFor<AAType>(QueryingAA, ACSArgPos);
+    LLVM_DEBUG(dbgs() << "[Attributor] ACS: " << *ACS.getInstruction()
+                      << " AA: " << AA.getAsStr() << " @" << ACSArgPos << "\n");
     const StateType &AAS = static_cast<const StateType &>(AA.getState());
     if (T.hasValue())
       *T &= AAS;
@@ -2077,7 +2082,7 @@ struct AAIsDeadImpl : public AAIsDead {
     for (const Instruction &I : BB)
       if (ImmutableCallSite ICS = ImmutableCallSite(&I))
         if (const Function *F = ICS.getCalledFunction())
-          if (F->hasInternalLinkage())
+          if (F->hasLocalLinkage())
             A.markLiveInternalFunction(*F);
   }
 
@@ -3101,9 +3106,12 @@ struct AAValueSimplifyArgument final : AAValueSimplifyImpl {
   ChangeStatus updateImpl(Attributor &A) override {
     bool HasValueBefore = SimplifiedAssociatedValue.hasValue();
 
-    auto PredForCallSite = [&](CallSite CS) {
-      return checkAndUpdate(A, *this, *CS.getArgOperand(getArgNo()),
-                            SimplifiedAssociatedValue);
+    auto PredForCallSite = [&](AbstractCallSite ACS) {
+      // Check if we have an associated argument or not (which can happen for
+      // callback calls).
+      if (Value *ArgOp = ACS.getCallArgOperand(getArgNo()))
+        return checkAndUpdate(A, *this, *ArgOp, SimplifiedAssociatedValue);
+      return false;
     };
 
     if (!A.checkForAllCallSites(PredForCallSite, *this, true))
@@ -3915,18 +3923,21 @@ bool Attributor::isAssumedDead(const AbstractAttribute &AA,
   return true;
 }
 
-bool Attributor::checkForAllCallSites(const function_ref<bool(CallSite)> &Pred,
-                                      const AbstractAttribute &QueryingAA,
-                                      bool RequireAllCallSites) {
+bool Attributor::checkForAllCallSites(
+    const function_ref<bool(AbstractCallSite)> &Pred,
+    const AbstractAttribute &QueryingAA, bool RequireAllCallSites) {
   // We can try to determine information from
   // the call sites. However, this is only possible all call sites are known,
   // hence the function has internal linkage.
   const IRPosition &IRP = QueryingAA.getIRPosition();
   const Function *AssociatedFunction = IRP.getAssociatedFunction();
-  if (!AssociatedFunction)
+  if (!AssociatedFunction) {
+    LLVM_DEBUG(dbgs() << "[Attributor] No function associated with " << IRP
+                      << "\n");
     return false;
+  }
 
-  if (RequireAllCallSites && !AssociatedFunction->hasInternalLinkage()) {
+  if (RequireAllCallSites && !AssociatedFunction->hasLocalLinkage()) {
     LLVM_DEBUG(
         dbgs()
         << "[Attributor] Function " << AssociatedFunction->getName()
@@ -3935,15 +3946,21 @@ bool Attributor::checkForAllCallSites(const function_ref<bool(CallSite)> &Pred,
   }
 
   for (const Use &U : AssociatedFunction->uses()) {
-    Instruction *I = dyn_cast<Instruction>(U.getUser());
-    // TODO: Deal with abstract call sites here.
-    if (!I)
+    AbstractCallSite ACS(&U);
+    if (!ACS) {
+      LLVM_DEBUG(dbgs() << "[Attributor] Function "
+                        << AssociatedFunction->getName()
+                        << " has non call site use " << *U.get() << " in "
+                        << *U.getUser() << "\n");
       return false;
+    }
 
+    Instruction *I = ACS.getInstruction();
     Function *Caller = I->getFunction();
 
-    const auto &LivenessAA = getAAFor<AAIsDead>(
-        QueryingAA, IRPosition::function(*Caller), /* TrackDependence */ false);
+    const auto &LivenessAA =
+        getAAFor<AAIsDead>(QueryingAA, IRPosition::function(*Caller),
+                           /* TrackDependence */ false);
 
     // Skip dead calls.
     if (LivenessAA.isAssumedDead(I)) {
@@ -3953,22 +3970,22 @@ bool Attributor::checkForAllCallSites(const function_ref<bool(CallSite)> &Pred,
       continue;
     }
 
-    CallSite CS(U.getUser());
-    if (!CS || !CS.isCallee(&U)) {
+    const Use *EffectiveUse =
+        ACS.isCallbackCall() ? &ACS.getCalleeUseForCallback() : &U;
+    if (!ACS.isCallee(EffectiveUse)) {
       if (!RequireAllCallSites)
         continue;
-
-      LLVM_DEBUG(dbgs() << "[Attributor] User " << *U.getUser()
+      LLVM_DEBUG(dbgs() << "[Attributor] User " << EffectiveUse->getUser()
                         << " is an invalid use of "
                         << AssociatedFunction->getName() << "\n");
       return false;
     }
 
-    if (Pred(CS))
+    if (Pred(ACS))
       continue;
 
     LLVM_DEBUG(dbgs() << "[Attributor] Call site callback failed for "
-                      << *CS.getInstruction() << "\n");
+                      << *ACS.getInstruction() << "\n");
     return false;
   }
 
@@ -4306,7 +4323,7 @@ ChangeStatus Attributor::run(Module &M) {
     // below fixpoint loop will identify and eliminate them.
     SmallVector<Function *, 8> InternalFns;
     for (Function &F : M)
-      if (F.hasInternalLinkage())
+      if (F.hasLocalLinkage())
         InternalFns.push_back(&F);
 
     bool FoundDeadFn = true;
@@ -4320,7 +4337,7 @@ ChangeStatus Attributor::run(Module &M) {
         const auto *LivenessAA =
             lookupAAFor<AAIsDead>(IRPosition::function(*F));
         if (LivenessAA &&
-            !checkForAllCallSites([](CallSite CS) { return false; },
+            !checkForAllCallSites([](AbstractCallSite ACS) { return false; },
                                   *LivenessAA, true))
           continue;
 
@@ -4621,7 +4638,7 @@ static bool runAttributorOnModule(Module &M, AnalysisGetter &AG) {
 
     // We look at internal functions only on-demand but if any use is not a
     // direct call, we have to do it eagerly.
-    if (F.hasInternalLinkage()) {
+    if (F.hasLocalLinkage()) {
       if (llvm::all_of(F.uses(), [](const Use &U) {
             return ImmutableCallSite(U.getUser()) &&
                    ImmutableCallSite(U.getUser()).isCallee(&U);
@@ -4772,7 +4789,6 @@ const char AAMemoryBehavior::ID = 0;
       SWITCH_PK_INV(CLASS, IRP_CALL_SITE, "call site")                         \
       SWITCH_PK_CREATE(CLASS, IRP, IRP_FUNCTION, Function)                     \
     }                                                                          \
-    AA->initialize(A);                                                         \
     return *AA;                                                                \
   }
 
@@ -4789,7 +4805,6 @@ const char AAMemoryBehavior::ID = 0;
       SWITCH_PK_CREATE(CLASS, IRP, IRP_CALL_SITE_RETURNED, CallSiteReturned)   \
       SWITCH_PK_CREATE(CLASS, IRP, IRP_CALL_SITE_ARGUMENT, CallSiteArgument)   \
     }                                                                          \
-    AA->initialize(A);                                                         \
     return *AA;                                                                \
   }
 
@@ -4814,7 +4829,9 @@ CREATE_FUNCTION_ONLY_ABSTRACT_ATTRIBUTE_FOR_POSITION(AAHeapToStack)
 
 CREATE_NON_RET_ABSTRACT_ATTRIBUTE_FOR_POSITION(AAMemoryBehavior)
 
+#undef CREATE_FUNCTION_ONLY_ABSTRACT_ATTRIBUTE_FOR_POSITION
 #undef CREATE_FUNCTION_ABSTRACT_ATTRIBUTE_FOR_POSITION
+#undef CREATE_NON_RET_ABSTRACT_ATTRIBUTE_FOR_POSITION
 #undef CREATE_VALUE_ABSTRACT_ATTRIBUTE_FOR_POSITION
 #undef CREATE_ALL_ABSTRACT_ATTRIBUTE_FOR_POSITION
 #undef SWITCH_PK_CREATE
