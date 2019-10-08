@@ -135,9 +135,6 @@ if(LLDB_INCLUDE_TESTS)
 
   if(NOT LLDB_BUILT_STANDALONE)
     add_lldb_test_dependency(yaml2obj)
-  endif()
-
-  if(TARGET dsymutil)
     add_lldb_test_dependency(dsymutil)
   endif()
 
@@ -240,7 +237,7 @@ if (NOT LLDB_DISABLE_PYTHON)
       add_dependencies(lldb-python-scripts finish_swig)
       install(DIRECTORY ${CMAKE_BINARY_DIR}/${LLDB_PYTHON_RELATIVE_PATH}/
               DESTINATION ${LLDB_PYTHON_RELATIVE_PATH}
-              COMPONENT lldb-scripts)
+              COMPONENT lldb-python-scripts)
       if (NOT LLVM_ENABLE_IDE)
         add_llvm_install_targets(install-lldb-python-scripts
                                  COMPONENT lldb-python-scripts
