@@ -306,13 +306,12 @@ define i1 @nocaptureInboundsGEPICmpRev(i32* %x) {
   ret i1 %3
 }
 
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; FIXME: after converting GEP to llvm.intel.subscript the pointer shouldn't be nocapture.
 ; FNATTR-NO-SUBSCRIPT: define i1 @captureGEPICmp(i32* readnone %x)
-; ATTRIBUTOR-NO-SUBSCRIPT: define i1 @captureGEPICmp(i32* %x)
+; ATTRIBUTOR-NO-SUBSCRIPT: define i1 @captureGEPICmp(i32* readnone %x)
 ; FNATTR-SUBSCRIPT: define i1 @captureGEPICmp(i32* nocapture readnone %x)
-; ATTRIBUTOR-SUBSCRIPT: define i1 @captureGEPICmp(i32* nocapture %x)
+; ATTRIBUTOR-SUBSCRIPT: define i1 @captureGEPICmp(i32* nocapture readnone %x)
 define i1 @captureGEPICmp(i32* %x) {
   %1 = getelementptr i32, i32* %x, i32 5
   %2 = bitcast i32* %1 to i8*
@@ -322,9 +321,9 @@ define i1 @captureGEPICmp(i32* %x) {
 
 ; FIXME: after converting GEP to llvm.intel.subscript the pointer shouldn't be nocapture.
 ; FNATTR-NO-SUBSCRIPT: define i1 @captureGEPICmpRev(i32* readnone %x)
-; ATTRIBUTOR-NO-SUBSCRIPT: define i1 @captureGEPICmpRev(i32* %x)
+; ATTRIBUTOR-NO-SUBSCRIPT: define i1 @captureGEPICmpRev(i32* readnone %x)
 ; FNATTR-SUBSCRIPT: define i1 @captureGEPICmpRev(i32* nocapture readnone %x)
-; ATTRIBUTOR-SUBSCRIPT: define i1 @captureGEPICmpRev(i32* nocapture %x)
+; ATTRIBUTOR-SUBSCRIPT: define i1 @captureGEPICmpRev(i32* nocapture readnone %x)
 define i1 @captureGEPICmpRev(i32* %x) {
   %1 = getelementptr i32, i32* %x, i32 5
   %2 = bitcast i32* %1 to i8*
@@ -333,11 +332,7 @@ define i1 @captureGEPICmpRev(i32* %x) {
 }
 ; end INTEL_CUSTOMIZATION
 
-; FNATTR: define i1 @nocaptureDereferenceableOrNullICmp(i32* nocapture readnone dereferenceable_or_null(4) %x)
-; ATTRIBUTOR: define i1 @nocaptureDereferenceableOrNullICmp(i32* nocapture dereferenceable_or_null(4) %x)
-=======
 ; EITHER: define i1 @nocaptureDereferenceableOrNullICmp(i32* nocapture readnone dereferenceable_or_null(4) %x)
->>>>>>> 1097fab1cf41e786a659b1fe45a1494170be6952
 define i1 @nocaptureDereferenceableOrNullICmp(i32* dereferenceable_or_null(4) %x) {
   %1 = bitcast i32* %x to i8*
   %2 = icmp eq i8* %1, null
