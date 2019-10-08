@@ -3525,8 +3525,17 @@ class OffloadingActionBuilder final {
           }
           continue;
         }
+        ActionList DeviceObjects;
+        ActionList LinkObjects;
+        for (const auto &I : LI) {
+          // FPGA aoco does not go through the link, everything else does.
+          if (I->getType() == types::TY_FPGA_AOCO)
+            DeviceObjects.push_back(I);
+          else
+            LinkObjects.push_back(I);
+        }
         auto *DeviceLinkAction =
-            C.MakeAction<LinkJobAction>(LI, types::TY_SPIRV);
+            C.MakeAction<LinkJobAction>(LinkObjects, types::TY_SPIRV);
         auto TT = SYCLTripleList[I];
         bool SYCLAOTCompile =
             (TT.getSubArch() != llvm::Triple::NoSubArch &&
@@ -3541,9 +3550,14 @@ class OffloadingActionBuilder final {
             OutType = FPGAOutType;
           // Do the additional Ahead of Time compilation when the specific
           // triple calls for it (provided a valid subarch).
-          auto *DeviceBECompileAction =
-              C.MakeAction<BackendCompileJobAction>(DeviceLinkAction, OutType);
-
+          Action *DeviceBECompileAction;
+          ActionList BEActionList;
+          BEActionList.push_back(DeviceLinkAction);
+          if (!DeviceObjects.empty())
+            for (const auto &A : DeviceObjects)
+              BEActionList.push_back(A);
+          DeviceBECompileAction =
+              C.MakeAction<BackendCompileJobAction>(BEActionList, OutType);
           auto *DeviceWrappingAction = C.MakeAction<OffloadWrapperJobAction>(
               DeviceBECompileAction, types::TY_Object);
           DA.add(*DeviceWrappingAction, **TC, /*BoundArch=*/nullptr,
@@ -3780,12 +3794,12 @@ public:
     return C.MakeAction<OffloadAction>(HDep, DDeps);
   }
 
-  bool HasFPGADeviceBinary(Compilation &C, std::string Object,
-                           bool CheckAOCX = false) {
+  bool hasFPGABinary(Compilation &C, std::string Object, types::ID Type) {
+    assert(types::isFPGA(Type) && "unexpected Type for FPGA binary check");
     // Temporary names for the output.
     const ToolChain *OTC = C.getSingleOffloadToolChain<Action::OFK_SYCL>();
     llvm::Triple TT;
-    TT.setArchName(CheckAOCX ? "fpga_aocx" : "fpga_aocr");
+    TT.setArchName(types::getTypeName(Type));
     TT.setVendorName("intel");
     TT.setOS(llvm::Triple(OTC->getTriple()).getOS());
     TT.setEnvironment(llvm::Triple::SYCLDevice);
@@ -3798,9 +3812,8 @@ public:
                          Object);
     // Always use -type=ao for aocx/aocr bundle checking.  The 'bundles' are
     // actually archives.
-    const char *Type = C.getArgs().MakeArgString("-type=ao");
     std::vector<StringRef> BundlerArgs = { "clang-offload-bundler",
-                                           Type,
+                                           "-type=ao",
                                            Targets,
                                            Inputs,
                                            "-check-section" };
@@ -3873,13 +3886,16 @@ public:
         Action *A(HostAction);
         // Only check for FPGA device information when using fpga SubArch.
         if (Args.hasArg(options::OPT_fintelfpga) &&
-            HostAction->getType() != types::TY_FPGA_AOCR &&
-            HostAction->getType() != types::TY_FPGA_AOCX &&
             !(HostAction->getType() == types::TY_Object &&
               isObjectFile(InputName))) {
-          if (HasFPGADeviceBinary(C, InputArg->getAsString(Args), true))
+          // Type FPGA aoco is a special case for -foffload-static-lib.
+          if (HostAction->getType() == types::TY_FPGA_AOCO) {
+            if (!hasFPGABinary(C, InputName, types::TY_FPGA_AOCO))
+              return false;
+            A = C.MakeAction<InputAction>(*InputArg, types::TY_FPGA_AOCO);
+          } else if (hasFPGABinary(C, InputName, types::TY_FPGA_AOCX))
             A = C.MakeAction<InputAction>(*InputArg, types::TY_FPGA_AOCX);
-          else if (HasFPGADeviceBinary(C, InputArg->getAsString(Args)))
+          else if (hasFPGABinary(C, InputName, types::TY_FPGA_AOCR))
             A = C.MakeAction<InputAction>(*InputArg, types::TY_FPGA_AOCR);
         }
         HostActionList.push_back(A);
@@ -4418,6 +4434,20 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
 #endif // INTEL_CUSTOMIZATION
       Arg *InputArg = MakeInputArg(Args, Opts, Args.MakeArgString(LibName));
       Action *Current = C.MakeAction<InputAction>(*InputArg, types::TY_Archive);
+      OffloadBuilder.addHostDependenceToDeviceActions(Current, InputArg, Args);
+      OffloadBuilder.addDeviceDependencesToHostAction(
+          Current, InputArg, phases::Link, PL.back(), PL);
+    }
+  }
+  // Pass along the -foffload-static-lib values to check if we need to
+  // add them for unbundling for FPGA AOT static lib usage.  Uses FPGA
+  // aoco type to differentiate if aoco unbundling is needed.
+  if (Args.hasArg(options::OPT_fintelfpga) &&
+      Args.hasArg(options::OPT_foffload_static_lib_EQ)) {
+    for (const auto *A : Args.filtered(options::OPT_foffload_static_lib_EQ)) {
+      Arg *InputArg = MakeInputArg(Args, getOpts(), A->getValue());
+      Action *Current = C.MakeAction<InputAction>(
+          *InputArg, types::TY_FPGA_AOCO);
       OffloadBuilder.addHostDependenceToDeviceActions(Current, InputArg, Args);
       OffloadBuilder.addDeviceDependencesToHostAction(
           Current, InputArg, phases::Link, PL.back(), PL);
@@ -5307,8 +5337,7 @@ InputInfo Driver::BuildJobsForActionNoCache(
                         C.addTempFile(C.getArgs().MakeArgString(TmpFileName),
                                       types::TY_Tempfilelist);
         CurI = InputInfo(types::TY_Tempfilelist, TmpFile, TmpFile);
-      } else if (JA->getType() == types::TY_FPGA_AOCX ||
-                 JA->getType() == types::TY_FPGA_AOCR) {
+      } else if (types::isFPGA(JA->getType())) {
         std::string Ext(types::getTypeTempSuffix(JA->getType()));
         types::ID TI = types::TY_Object;
         if (EffectiveTriple.getSubArch() == llvm::Triple::SPIRSubArch_fpga) {
@@ -5318,6 +5347,10 @@ InputInfo Driver::BuildJobsForActionNoCache(
             // Do not add the current info for Host with FPGA device.  The host
             // side isn't used
             continue;
+          }
+          if (JA->getType() == types::TY_FPGA_AOCO) {
+            TI = types::TY_Tempfilelist;
+            Ext = "txt";
           }
         } else if (EffectiveTriple.getSubArch() !=
                    llvm::Triple::SPIRSubArch_fpga) {

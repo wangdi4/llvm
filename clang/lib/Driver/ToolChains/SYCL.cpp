@@ -278,7 +278,12 @@ void SYCL::fpga::BackendCompiler::ConstructJob(Compilation &C,
 
   ArgStringList CmdArgs{"-o",  Output.getFilename()};
   for (const auto &II : Inputs) {
-    CmdArgs.push_back(II.getFilename());
+    // Add any FPGA library lists.  These come in as tempfile lists.
+    if (II.getType() == types::TY_Tempfilelist)
+      CmdArgs.push_back(Args.MakeArgString(Twine("-library-list=") +
+          II.getFilename()));
+    else
+      CmdArgs.push_back(II.getFilename());
   }
   CmdArgs.push_back("-sycl");
   if (Arg *A = Args.getLastArg(options::OPT_fsycl_link_EQ))
