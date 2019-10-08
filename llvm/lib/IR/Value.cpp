@@ -522,6 +522,7 @@ static const Value *stripPointerCastsAndOffsets(const Value *V) {
           switch (StripKind) {
           case PSK_ZeroIndicesSameRepresentation:
           case PSK_ZeroIndicesAndInvariantGroups:
+          case PSK_ZeroIndicesAndAliases:
           case PSK_ZeroIndices:
             return V;
           case PSK_InBoundsConstantIndices:
