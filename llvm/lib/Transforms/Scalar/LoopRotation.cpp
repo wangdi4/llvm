@@ -102,17 +102,13 @@ public:
       MemorySSA *MSSA = &getAnalysis<MemorySSAWrapperPass>().getMSSA();
       MSSAU = MemorySSAUpdater(MSSA);
     }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (MaxHeaderSize == (unsigned)-1)
       MaxHeaderSize = DefaultRotationThreshold.getNumOccurrences() > 0 ?
           DefaultRotationThreshold :
           TTI->getLoopRotationDefaultThreshold(true);
 #endif //INTEL_CUSTOMIZATION
-    return LoopRotation(L, LI, TTI, AC, DT, SE,
-=======
     return LoopRotation(L, LI, TTI, AC, DT, &SE,
->>>>>>> a70c5261436322a53187d67b8bdc0445d0463a9a
                         MSSAU.hasValue() ? MSSAU.getPointer() : nullptr, SQ,
                         false, MaxHeaderSize, false);
   }
