@@ -13,82 +13,75 @@
 ; <19>      + END LOOP
 ; <2>          %len_best.011.out = %len_limit + -1;
 
-; VPlan Output:
-; REGION: region1 (BP: NULL)
-; BB2 (BP: NULL) :
-;  <Empty Block>
-; SUCCESSORS(1):loop11
-
-; REGION: loop11 (BP: NULL)
-; BB3 (BP: NULL) :
-;  i32 %vp512 = add i32 %vp384 i32 -2
-; SUCCESSORS(1):BB5
-
-; BB5 (BP: NULL) :
-;  i32 %vp58864 = phi  [ i32 0, BB3 ],  [ i32 %vp112, BB7 ]
-;  i32 %vp59024 = load i32 %vp34848
-;  i32 %vp60224 = load i32 %vp54976
-;  i1 %vp60384 = icmp i32 %vp59024 i32 %vp60224
-; SUCCESSORS(1):BB10
-
-; BB10 (BP: NULL) :
-;  <Empty Block>
-;  Condition(BB5): i1 %vp60384 = icmp i32 %vp59024 i32 %vp60224
-; SUCCESSORS(2):BB6(i1 %vp60384), BB7(!i1 %vp60384)
-
-; BB7 (BP: NULL) :
-;  i32 %vp112 = add i32 %vp58864 i32 1
-;  i1 %vp672 = icmp i32 %vp112 i32 %vp512
-; SUCCESSORS(2):BB5(i1 %vp672), BB8(!i1 %vp672)
-
-; BB8 (BP: NULL) :
-;  <Empty Block>
-; SUCCESSORS(1):BB4
-
-; BB6 (BP: NULL) :
-;  <Empty Block>
-; SUCCESSORS(1):BB4
-
-; BB4 (BP: NULL) :
-;  <Empty Block>
-; END Block - no SUCCESSORS
-; SUCCESSORS(1):BB9
-; END Region(loop11)
-
-; BB9 (BP: NULL) :
-;  <Empty Block>
-; END Block - no SUCCESSORS
-; END Region(region1)
-
-
-; CHECK: REGION: loop{{[0-9]+}}
-
-; Loop PH.
-; CHECK: SUCCESSORS(1):[[H:BB[0-9]+]]
-
-; Loop H.
-; CHECK: [[H]] (BP: NULL) :
-
-; Early exit condition.
-; CHECK: SUCCESSORS(2):[[EEXIT:BB[0-9]+]](i1 %vp{{[0-9]+}}), [[LATCH:BB[0-9]+]]
-
-; Latch condition.
-; CHECK: SUCCESSORS(2):[[H]](i1 %vp{{[0-9]+}}), [[REG_EXIT:BB[0-9]+]]
-
-; Regular exit going to landing pad.
-; CHECK: [[REG_EXIT]] (BP: NULL)
-; CHECK: SUCCESSORS(1):[[LANDING_PAD:BB[0-9]+]]
-
-; Early exit going to landing pad.
-; CHECK: [[EEXIT]] (BP: NULL)
-; CHECK: SUCCESSORS(1):[[LANDING_PAD:BB[0-9]+]]
-
-; Landing pad.
-; CHECK: [[LANDING_PAD]] (BP: NULL)
-; CHECK: no SUCCESSORS
-
 ; Function Attrs: norecurse nounwind readonly uwtable
 define dso_local i32 @peel_example(i32 %delta2, i32 %len_limit, i32* nocapture readonly %cur) local_unnamed_addr #0 {
+; CHECK-LABEL:  Print after building H-CFG:
+; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]] (BP: NULL)
+; CHECK-NEXT:    [[BB0:BB[0-9]+]] (BP: NULL) :
+; CHECK-NEXT:     <Empty Block>
+; CHECK-NEXT:    SUCCESSORS(1):[[LOOP0:loop[0-9]+]]
+; CHECK-NEXT:    no PREDECESSORS
+; CHECK-EMPTY:
+; CHECK-NEXT:    REGION: [[LOOP0]] (BP: NULL)
+; CHECK-NEXT:    [[BB1:BB[0-9]+]] (BP: NULL) :
+; CHECK-NEXT:     [DA: Uniform]   i32 [[VP0:%.*]] = add i32 [[LEN_LIMIT0:%.*]] i32 -2
+; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
+; CHECK-NEXT:    no PREDECESSORS
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB2]] (BP: NULL) :
+; CHECK-NEXT:     [DA: Divergent] i32 [[VP1:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP2:%.*]], [[BB3:BB[0-9]+]] ]
+; CHECK-NEXT:     [DA: Uniform]   i64 [[VP3:%.*]] = zext i32 [[DELTA20:%.*]] to i64
+; CHECK-NEXT:     [DA: Uniform]   i64 [[VP4:%.*]] = mul i64 [[VP3]] i64 -1
+; CHECK-NEXT:     [DA: Divergent] i64 [[VP5:%.*]] = zext i32 [[VP1]] to i64
+; CHECK-NEXT:     [DA: Divergent] i64 [[VP6:%.*]] = add i64 [[VP4]] i64 [[VP5]]
+; CHECK-NEXT:     [DA: Divergent] i64 [[VP7:%.*]] = add i64 [[VP6]] i64 1
+; CHECK-NEXT:     [DA: Divergent] i32* [[VP8:%.*]] = getelementptr inbounds i32* [[CUR0:%.*]] i64 [[VP7]]
+; CHECK-NEXT:     [DA: Divergent] i32 [[VP9:%.*]] = load i32* [[VP8]]
+; CHECK-NEXT:     [DA: Divergent] i32 [[VP10:%.*]] = add i32 [[VP1]] i32 1
+; CHECK-NEXT:     [DA: Divergent] i64 [[VP11:%.*]] = zext i32 [[VP10]] to i64
+; CHECK-NEXT:     [DA: Divergent] i32* [[VP12:%.*]] = getelementptr inbounds i32* [[CUR0]] i64 [[VP11]]
+; CHECK-NEXT:     [DA: Divergent] i32 [[VP13:%.*]] = load i32* [[VP12]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP14:%.*]] = icmp i32 [[VP9]] i32 [[VP13]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB4]] (BP: NULL) :
+; CHECK-NEXT:     <Empty Block>
+; CHECK-NEXT:     Condition([[BB2]]): [DA: Divergent] i1 [[VP14]] = icmp i32 [[VP9]] i32 [[VP13]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP14]]), [[BB3]](!i1 [[VP14]])
+; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB3]] (BP: NULL) :
+; CHECK-NEXT:       [DA: Divergent] i32 [[VP2]] = add i32 [[VP1]] i32 1
+; CHECK-NEXT:       [DA: Divergent] i1 [[VP15:%.*]] = icmp i32 [[VP2]] i32 [[VP0]]
+; CHECK-NEXT:      SUCCESSORS(2):[[BB2]](i1 [[VP15]]), [[BB6:BB[0-9]+]](!i1 [[VP15]])
+; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB6]] (BP: NULL) :
+; CHECK-NEXT:       <Empty Block>
+; CHECK-NEXT:      SUCCESSORS(1):[[BB7:BB[0-9]+]]
+; CHECK-NEXT:      PREDECESSORS(1): [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB5]] (BP: NULL) :
+; CHECK-NEXT:       [DA: Uniform]   br for.end.loopexit
+; CHECK-NEXT:      SUCCESSORS(1):[[BB7]]
+; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB7]] (BP: NULL) :
+; CHECK-NEXT:     <Empty Block>
+; CHECK-NEXT:    no SUCCESSORS
+; CHECK-NEXT:    PREDECESSORS(2): [[BB5]] [[BB6]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    SUCCESSORS(1):[[BB8:BB[0-9]+]]
+; CHECK-NEXT:    END Region([[LOOP0]])
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB8]] (BP: NULL) :
+; CHECK-NEXT:     <Empty Block>
+; CHECK-NEXT:    no SUCCESSORS
+; CHECK-NEXT:    PREDECESSORS(1): [[LOOP0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    END Region([[REGION0]])
+;
 entry:
   %cmp10 = icmp eq i32 %len_limit, 1
   br i1 %cmp10, label %for.end, label %for.body.lr.ph
