@@ -709,14 +709,13 @@ define dso_local void @test_divergent_inner_loop_with_double_top_test(i64 %N, i6
 ; CHECK-NEXT:     [DA: Uniform]   i64 [[VP_INNER_IV:%.*]] = phi  [ i64 [[VP_INNER_IV_NEXT:%.*]], [[BB9]] ],  [ i64 0, [[BB7]] ]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_CMP216_NOT]], [[BB7]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB9]] ]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP2:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_CMP216_NOT]]
-; CHECK-NEXT:    SUCCESSORS(1):mask_[[REGION1:region[0-9]+]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB10:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB9]] [[BB7]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    REGION: mask_[[REGION1]] (BP: NULL)
-; CHECK-NEXT:    [[BB10:BB[0-9]+]] (BP: NULL) :
+; CHECK-NEXT:    [[BB10]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP3:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_CMP216_NOT]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB11:BB[0-9]+]]
-; CHECK-NEXT:    no PREDECESSORS
+; CHECK-NEXT:    PREDECESSORS(1): [[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB11]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB17_BR_VP_LOOP_MASK:%.*]] = and i1 [[VP_BB5_BR_VP_CMP216_NOT]] i1 [[VP_LOOP_MASK]]
@@ -739,17 +738,14 @@ define dso_local void @test_divergent_inner_loop_with_double_top_test(i64 %N, i6
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND_NOT]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INNER_IV_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i64 [[VP_INNER_IV]] i64 [[VP_INNER_IV_LIVE_OUT_PREV]]
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP6:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
-; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB12]]
-; CHECK-EMPTY:
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB9]]
-; CHECK-NEXT:    END Region(mask_[[REGION1]])
+; CHECK-NEXT:    PREDECESSORS(1): [[BB12]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP7:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_CMP216_NOT]]
 ; CHECK-NEXT:     Condition([[BB13]]): [DA: Uniform]   i1 [[VP6]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB14:BB[0-9]+]](i1 [[VP6]]), [[BB8]](!i1 [[VP6]])
-; CHECK-NEXT:    PREDECESSORS(1): mask_[[REGION1]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB13]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB14]] (BP: NULL) :
 ; CHECK-NEXT:     [DA: Divergent] i64 [[VP_PHI_USE:%.*]] = phi  [ i64 [[VP_INNER_IV_LIVE_OUT_BLEND]], [[BB9]] ]

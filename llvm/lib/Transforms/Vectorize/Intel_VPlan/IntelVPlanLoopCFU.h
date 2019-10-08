@@ -17,6 +17,12 @@
 
 #ifdef INTEL_CUSTOMIZATION
 
+namespace llvm {
+namespace vpo {
+extern cl::opt<bool> DisableLCFUMaskRegion;
+}
+} // namespace llvm
+
 void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
 
 #ifdef VPlanPredicator
@@ -335,23 +341,25 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
     RegionEntryBlock->appendSuccessor(RegionExitBlock);
     RegionExitBlock->appendPredecessor(RegionEntryBlock);
 
-    VPRegionBlock *MaskRegion =
-        new VPRegionBlock(VPBlockBase::VPRegionBlockSC,
-                          VPlanUtils::createUniqueName("mask_region"));
-    VPBlockUtils::insertRegion(MaskRegion, RegionEntryBlock, RegionExitBlock,
-                               false);
+    if (!DisableLCFUMaskRegion) {
+      VPRegionBlock *MaskRegion =
+          new VPRegionBlock(VPBlockBase::VPRegionBlockSC,
+                            VPlanUtils::createUniqueName("mask_region"));
+      VPBlockUtils::insertRegion(MaskRegion, RegionEntryBlock, RegionExitBlock,
+                                 false);
 
-    // The new region parent is the loop.
-    MaskRegion->setParent(SubLoopRegion);
-    SubLoop->addBasicBlockToLoop(MaskRegion, *VPLI);
+      // The new region parent is the loop.
+      MaskRegion->setParent(SubLoopRegion);
+      SubLoop->addBasicBlockToLoop(MaskRegion, *VPLI);
 
-    // All blocks in the new region must have the parent set to the new
-    // region.
-    for (VPBlockBase *RegionBlock :
-         make_range(df_iterator<VPRegionBlock *>::begin(MaskRegion),
-                    df_iterator<VPRegionBlock *>::end(MaskRegion))) {
-      if (RegionBlock->getParent() == SubLoopRegion)
-        RegionBlock->setParent(MaskRegion);
+      // All blocks in the new region must have the parent set to the new
+      // region.
+      for (VPBlockBase *RegionBlock :
+           make_range(df_iterator<VPRegionBlock *>::begin(MaskRegion),
+                      df_iterator<VPRegionBlock *>::end(MaskRegion))) {
+        if (RegionBlock->getParent() == SubLoopRegion)
+          RegionBlock->setParent(MaskRegion);
+      }
     }
 
     LLVM_DEBUG(
