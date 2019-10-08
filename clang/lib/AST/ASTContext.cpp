@@ -72,6 +72,7 @@
 #include "llvm/ADT/PointerUnion.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringRef.h"
@@ -81,6 +82,7 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
+#include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cassert>
@@ -834,6 +836,18 @@ static bool isAddrSpaceMapManglingEnabled(const TargetInfo &TI,
   llvm_unreachable("getAddressSpaceMapMangling() doesn't cover anything.");
 }
 
+static std::vector<std::string>
+getRealPaths(llvm::vfs::FileSystem &VFS, llvm::ArrayRef<std::string> Paths) {
+  std::vector<std::string> Result;
+  llvm::SmallString<128> Buffer;
+  for (const auto &File : Paths) {
+    if (std::error_code EC = VFS.getRealPath(File, Buffer))
+      llvm::report_fatal_error("can't open file '" + File + "': " + EC.message());
+    Result.push_back(Buffer.str());
+  }
+  return Result;
+}
+
 ASTContext::ASTContext(LangOptions &LOpts, SourceManager &SM,
                        IdentifierTable &idents, SelectorTable &sels,
                        Builtin::Context &builtins)
@@ -841,8 +855,15 @@ ASTContext::ASTContext(LangOptions &LOpts, SourceManager &SM,
       TemplateSpecializationTypes(this_()),
       DependentTemplateSpecializationTypes(this_()),
       SubstTemplateTemplateParmPacks(this_()), SourceMgr(SM), LangOpts(LOpts),
+<<<<<<< HEAD
       DisabledFPContract(false), // INTEL
       SanitizerBL(new SanitizerBlacklist(LangOpts.SanitizerBlacklistFiles, SM)),
+=======
+      SanitizerBL(new SanitizerBlacklist(
+          getRealPaths(SM.getFileManager().getVirtualFileSystem(),
+                       LangOpts.SanitizerBlacklistFiles),
+          SM)),
+>>>>>>> 3dab5e825b8c9ef0e7d129e6aaa382b69f813c48
       XRayFilter(new XRayFunctionFilter(LangOpts.XRayAlwaysInstrumentFiles,
                                         LangOpts.XRayNeverInstrumentFiles,
                                         LangOpts.XRayAttrListFiles, SM)),
