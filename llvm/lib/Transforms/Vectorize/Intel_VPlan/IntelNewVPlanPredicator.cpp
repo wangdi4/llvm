@@ -797,7 +797,7 @@ void VPlanPredicator::predicate(void) {
   VPBlockBase *PH = (*VPLI->begin())->getLoopPreheader();
   assert(PH && "Unexpected null pre-header!");
   VPLoopRegion *EntryLoopR = cast<VPLoopRegion>(PH->getParent());
-  const VPLoop *VPL = EntryLoopR->getVPLoop();
+  VPLoop *VPL = EntryLoopR->getVPLoop();
   SmallVector<VPBlockBase *, 4> Exits;
   VPL->getExitBlocks(Exits);
 
@@ -805,7 +805,7 @@ void VPlanPredicator::predicate(void) {
   if (VPlanLoopCFU) {
     LLVM_DEBUG(dbgs() << "Before inner loop control flow transformation\n");
     LLVM_DEBUG(Plan.dump());
-    handleInnerLoopBackedges(EntryLoopR);
+    handleInnerLoopBackedges(VPL);
     LLVM_DEBUG(dbgs() << "After inner loop control flow transformation\n");
     LLVM_DEBUG(Plan.dump());
 

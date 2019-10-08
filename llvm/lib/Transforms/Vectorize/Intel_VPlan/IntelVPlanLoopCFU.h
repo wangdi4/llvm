@@ -23,7 +23,7 @@ extern cl::opt<bool> DisableLCFUMaskRegion;
 }
 } // namespace llvm
 
-void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
+void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
 
 #ifdef VPlanPredicator
   // Community version stores VPlan reference - to minimize changes get a
@@ -32,13 +32,12 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
 #endif
   VPlanDivergenceAnalysis *VPDA = Plan->getVPlanDA();
 
-  for (auto *SubLoop : LoopRegion->getVPLoop()->getSubLoops()) {
-    auto *SubLoopRegion = cast<VPLoopRegion>(SubLoop->getHeader()->getParent());
+  for (auto *SubLoop : VPL->getSubLoops()) {
     // First recurse into inner loop.
-    handleInnerLoopBackedges(SubLoopRegion);
+    handleInnerLoopBackedges(SubLoop);
 
     LLVM_DEBUG(dbgs() << "Checking inner loop control flow uniformity for:\n");
-    LLVM_DEBUG(dbgs() << "SubLoopRegion: " << SubLoopRegion->getName() << "\n");
+    LLVM_DEBUG(dbgs() << "SubLoop at depth: " << SubLoop->getLoopDepth() << "\n");
     auto *SubLoopPreHeader = cast<VPBasicBlock>(SubLoop->getLoopPreheader());
     LLVM_DEBUG(dbgs() << "SubLoopPreHeader: " << SubLoopPreHeader->getName()
                       << "\n");
@@ -50,7 +49,8 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
     LLVM_DEBUG(dbgs() << "SubLoopExitBlock: " << SubLoopExitBlock->getName() << "\n");
     (void)SubLoopExitBlock; // Unused under old-predicator release build.
 
-    auto *SubLoopRegnPred = SubLoopRegion->getSinglePredecessor();
+    auto *SubLoopRegnPred =
+        SubLoopPreHeader->getSingleHierarchicalPredecessor();
     // Find inner loop top test
     assert(SubLoopRegnPred &&
            "Assumed a single predecessor of subloop contains top test");
@@ -77,7 +77,8 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
       auto *SubLoopRegnPredBlock = cast<VPBasicBlock>(SubLoopRegnPred);
       // If the subloop region is the false successor of the predecessor,
       // we need to negate the top test.
-      if (SubLoopRegnPredBlock->getSuccessors()[1] == SubLoopRegion) {
+      if (SubLoopRegnPredBlock->getHierarchicalSuccessors()[1]
+              ->getEntryBasicBlock() == SubLoopPreHeader) {
         VPBuilder::InsertPointGuard Guard(Builder);
         Builder.setInsertPoint(SubLoopRegnPredBlock);
         bool Divergent = VPDA->isDivergent(*TopTest);
@@ -89,10 +90,19 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
       LLVM_DEBUG(dbgs() << "Top Test: "; TopTest->dump(); errs() << "\n");
     }
 
-    SubLoopRegion->computeDT();
-    VPDominatorTree *DT = SubLoopRegion->getDT();
-    SubLoopRegion->computePDT();
-    VPPostDominatorTree *PDT = SubLoopRegion->getPDT();
+    // TODO: We're going to remove hierarchical region that currently keeps the
+    // DT/PDT. Once that's done, the owner would be either VPlan or HCFG,
+    // probably. But there are other possibilities in the middle of the
+    // transformation (like a single outermost region). Try to write this code
+    // in a more generic way for now, and update once the final data structures
+    // are settled.
+    auto *Parent = SubLoopHeader->getParent();
+    Parent->computeDT();
+    VPDominatorTree *DT = Parent->getDT();
+    Parent->computePDT();
+    VPPostDominatorTree *PDT = Parent->getPDT();
+
+    // Create a SESE region with a loop/bypass inside.
 
     VPBasicBlock *RegionEntryBlock =
         VPBlockUtils::splitBlock(SubLoopHeader, VPLI, *DT, *PDT);
@@ -347,6 +357,9 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
                             VPlanUtils::createUniqueName("mask_region"));
       VPBlockUtils::insertRegion(MaskRegion, RegionEntryBlock, RegionExitBlock,
                                  false);
+
+      auto *SubLoopRegion =
+          cast_or_null<VPLoopRegion>(SubLoop->getHeader()->getParent());
 
       // The new region parent is the loop.
       MaskRegion->setParent(SubLoopRegion);
