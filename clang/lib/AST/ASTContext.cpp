@@ -855,15 +855,11 @@ ASTContext::ASTContext(LangOptions &LOpts, SourceManager &SM,
       TemplateSpecializationTypes(this_()),
       DependentTemplateSpecializationTypes(this_()),
       SubstTemplateTemplateParmPacks(this_()), SourceMgr(SM), LangOpts(LOpts),
-<<<<<<< HEAD
       DisabledFPContract(false), // INTEL
-      SanitizerBL(new SanitizerBlacklist(LangOpts.SanitizerBlacklistFiles, SM)),
-=======
       SanitizerBL(new SanitizerBlacklist(
           getRealPaths(SM.getFileManager().getVirtualFileSystem(),
                        LangOpts.SanitizerBlacklistFiles),
           SM)),
->>>>>>> 96ac97a4213287003f08636d0c372b3f71e9cfca
       XRayFilter(new XRayFunctionFilter(LangOpts.XRayAlwaysInstrumentFiles,
                                         LangOpts.XRayNeverInstrumentFiles,
                                         LangOpts.XRayAttrListFiles, SM)),
