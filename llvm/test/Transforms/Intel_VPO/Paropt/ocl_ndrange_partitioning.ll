@@ -292,7 +292,7 @@ attributes #3 = { noinline nounwind optnone uwtable "contains-openmp-target"="tr
 !6 = !{i32 2, !"Dwarf Version", i32 4}
 !7 = !{i32 2, !"Debug Info Version", i32 3}
 !8 = !{i32 1, !"wchar_size", i32 4}
-!9 = !{!"DPC++ Compiler 2021.1 (YYYY.8.x.0.MMDD)"}
+!9 = !{!"clang version 8.0.0"}
 !10 = distinct !DISubprogram(name: "f1", scope: !1, file: !1, line: 2, type: !11, scopeLine: 2, spFlags: DISPFlagDefinition, unit: !0, retainedNodes: !2)
 !11 = !DISubroutineType(cc: DW_CC_LLVM_SpirFunction, types: !12)
 !12 = !{null}
