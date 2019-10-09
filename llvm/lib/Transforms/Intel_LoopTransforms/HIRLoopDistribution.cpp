@@ -256,17 +256,23 @@ void HIRLoopDistribution::processPiBlocksToHLNodes(
   }
 }
 
-bool HIRLoopDistribution::piEdgeIsRecurrence(const HLLoop *Lp,
-                                             const PiGraphEdge &PiEdge) const {
+bool HIRLoopDistribution::piEdgeIsMemRecurrence(
+    const HLLoop *Lp, const PiGraphEdge &PiEdge) const {
   for (auto &Edge :
        make_range(PiEdge.getDDEdges().begin(), PiEdge.getDDEdges().end())) {
+    // Skip edges between terminals because we are looking for memory
+    // recurrences.
+    if (Edge->getSrc()->isTerminalRef()) {
+      continue;
+    }
+
     // TODO: Use Edge->preventsVectorization(Lp->getNestingLevel())
-    // Will require to adjust some LIT test.
-    if (!Edge->getSrc()->isTerminalRef() &&
-        Edge->getDVAtLevel(Lp->getNestingLevel()) & DVKind::LT) {
+    //       Will require to adjust some LIT test.
+    if (Edge->getDVAtLevel(Lp->getNestingLevel()) & DVKind::LT) {
       return true;
     }
   }
+
   return false;
 }
 
@@ -893,8 +899,11 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
   unsigned NumRefCounter = 0;
   SmallVector<unsigned, 12> MemRefSBVector;
 
+  // To help vectorization we also split ranges of consecutive pi-blocks
+  // containing user calls, because loops with user calls are less likely to be
+  // vectorized.
   bool UserCallSeen = false;
-  bool PrevUserCallSeen = false;
+  bool PrevUserCallSeen;
 
   SRA.computeSafeReductionChains(Lp);
   bool HasSparseArrayReductions = SARA.getNumSparseArrayReductionChains(Lp) > 0;
@@ -961,6 +970,7 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
       }
     }
 
+    // Split loops over blocks containing user calls.
     if (!CurLoopPiBlkList.empty() && PrevUserCallSeen && !UserCallSeen) {
       CommitCurrentBlockList();
     }
@@ -982,7 +992,7 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
       // Once split, the two loops are non vectorizable. If legality was
       // the only concern, we can iterate over all dd edges indirectly by
       // looking at distppedges whos src/sink are in piblock
-      if (piEdgeIsRecurrence(Lp, *Edge)) {
+      if (piEdgeIsMemRecurrence(Lp, *Edge)) {
         CommitCurrentBlockList();
         break;
       }
