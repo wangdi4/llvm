@@ -1030,12 +1030,16 @@ bool Parser::parseOpenMPContextSelectors(
 #endif // INTEL_CUSTOMIZATION
                             const Sema::OpenMPDeclareVariantCtsSelectorData &)>
         Callback) {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   SmallVector<OMPDeclareVariantAttr::ConstructTy, 3> Constructs;
   SmallVector<OMPDeclareVariantAttr::DeviceTy, 3> Devices;
   Sema::OpenMPDeclareVariantCtsSelectorData IData;
   bool IsError = false;
 #endif // INTEL_CUSTOMIZATION
+=======
+  llvm::StringMap<SourceLocation> UsedCtxSets;
+>>>>>>> 5d154c3e7d9dcd8f651ac6b34ee21aa553c82c74
   do {
     // Parse inner context selector set name.
     if (!Tok.is(tok::identifier)) {
@@ -1045,6 +1049,16 @@ bool Parser::parseOpenMPContextSelectors(
     }
     SmallString<16> Buffer;
     StringRef CtxSelectorSetName = PP.getSpelling(Tok, Buffer);
+    auto Res = UsedCtxSets.try_emplace(CtxSelectorSetName, Tok.getLocation());
+    if (!Res.second) {
+      // OpenMP 5.0, 2.3.2 Context Selectors, Restrictions.
+      // Each trait-set-selector-name can only be specified once.
+      Diag(Tok.getLocation(), diag::err_omp_declare_variant_ctx_set_mutiple_use)
+          << CtxSelectorSetName;
+      Diag(Res.first->getValue(),
+           diag::note_omp_declare_variant_ctx_set_used_here)
+          << CtxSelectorSetName;
+    }
     // Parse '='.
     (void)ConsumeToken();
     if (Tok.isNot(tok::equal)) {
