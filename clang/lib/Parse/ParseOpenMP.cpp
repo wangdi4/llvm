@@ -901,6 +901,10 @@ static bool parseMatchDevices(Parser &P,
     } else {
       P.Diag(Tok, diag::err_omp_bad_context_selector)
           << "device" << OMPDeclareVariantAttr::getSupportedDevices();
+      while (!P.SkipUntil(tok::r_brace, tok::r_paren,
+                          tok::annot_pragma_openmp_end,
+                          Parser::StopBeforeMatch))
+        ;
       return true;
     }
     // Skip ',' if any.
@@ -1085,33 +1089,6 @@ bool Parser::parseOpenMPContextSelectors(
           OMPDeclareVariantAttr::CtxSetUnknown;
       (void)OMPDeclareVariantAttr::ConvertStrToCtxSelectorSetType(
           CtxSelectorSetName, CSSKind);
-<<<<<<< HEAD
-      switch (CSSKind) {
-      case OMPDeclareVariantAttr::CtxSetImplementation:
-        parseImplementationSelector(*this, Loc, Callback);
-        break;
-      case OMPDeclareVariantAttr::CtxSetUnknown:
-#if INTEL_CUSTOMIZATION
-        if (getLangOpts().OpenMPLateOutline) {
-          if (CtxSelectorSetName.equals("construct")) {
-            IsError = parseMatchConstructs(*this, Constructs);
-          } else if (CtxSelectorSetName.equals("device")) {
-            IsError = parseMatchDevices(*this, Devices);
-          } else {
-            Diag(Tok, diag::err_omp_bad_context_selector_set)
-                << OMPDeclareVariantAttr::getSupportedSelectorSets();
-            TBr.skipToEnd();
-            return true;
-          }
-        } else
-#endif // INTEL_CUSTOMIZATION
-        // Skip until either '}', ')', or end of directive.
-        while (!SkipUntil(tok::r_brace, tok::r_paren,
-                          tok::annot_pragma_openmp_end, StopBeforeMatch))
-          ;
-        break;
-      }
-=======
       llvm::StringMap<SourceLocation> UsedCtx;
       do {
         switch (CSSKind) {
@@ -1119,6 +1096,20 @@ bool Parser::parseOpenMPContextSelectors(
           parseImplementationSelector(*this, Loc, UsedCtx, Callback);
           break;
         case OMPDeclareVariantAttr::CtxSetUnknown:
+#if INTEL_CUSTOMIZATION
+          if (getLangOpts().OpenMPLateOutline) {
+            if (CtxSelectorSetName.equals("construct")) {
+              IsError = parseMatchConstructs(*this, Constructs);
+            } else if (CtxSelectorSetName.equals("device")) {
+              IsError = parseMatchDevices(*this, Devices);
+            } else {
+              Diag(Tok, diag::err_omp_bad_context_selector_set)
+                  << OMPDeclareVariantAttr::getSupportedSelectorSets();
+              TBr.skipToEnd();
+              return true;
+            }
+          } else
+#endif // INTEL_CUSTOMIZATION
           // Skip until either '}', ')', or end of directive.
           while (!SkipUntil(tok::r_brace, tok::r_paren,
                             tok::annot_pragma_openmp_end, StopBeforeMatch))
@@ -1131,7 +1122,6 @@ bool Parser::parseOpenMPContextSelectors(
               << (PrevTok.isAnnotation() ? "context selector trait"
                                          : PP.getSpelling(PrevTok));
       } while (Tok.is(tok::identifier));
->>>>>>> 70d2e5427ed31889456fac933c3e596b4bb5a762
       // Parse '}'.
       (void)TBr.consumeClose();
     }

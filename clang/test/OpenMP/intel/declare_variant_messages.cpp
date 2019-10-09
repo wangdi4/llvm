@@ -67,9 +67,7 @@ void bar(int);
 #pragma omp declare variant(foo) match(construct={arget})
 void bar(int);
 
-// expected-error@+3 {{unknown or unsupported 'device' context selector, expecting 'arch'}}
-// expected-error@+2 {{expected '}'}}
-// expected-note@+1 {{to match this '{'}}
+// expected-error@+1 {{unknown or unsupported 'device' context selector, expecting 'arch'}}
 #pragma omp declare variant(foo) match(construct={target variant dispatch},device={rch(gen)})
 void bar(int);
 
