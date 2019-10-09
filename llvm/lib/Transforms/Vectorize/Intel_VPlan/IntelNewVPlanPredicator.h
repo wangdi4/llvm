@@ -180,7 +180,7 @@ private:
   bool shouldPreserveOutgoingEdges(VPBlockBase *Block);
 
 #if INTEL_CUSTOMIZATION
-  void handleInnerLoopBackedges(VPLoopRegion *LoopRegion);
+  void handleInnerLoopBackedges(VPLoop *VPL);
 #endif // INTEL_CUSTOMIZATION
 public:
   VPlanPredicator(VPlan &Plan);

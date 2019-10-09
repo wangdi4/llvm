@@ -132,4 +132,4 @@ declare token @llvm.directive.region.entry() #1
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #1
 
-declare i32 @baz(...)
+declare i32 @baz(...) readonly nounwind

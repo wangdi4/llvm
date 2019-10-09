@@ -456,9 +456,9 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
     return;
 
   // FIXME: Don't break SSA form during the transformation.
-  if (!Plan->isSSABroken()   // Already marked, so...
-      && isBreakingSSA(VPL)) // don't try to analyze any more.
-    Plan->markSSABroken();
+  if (!Plan->isFullLinearizationForced() // Already marked, so...
+      && isBreakingSSA(VPL))             // don't try to analyze any more.
+    Plan->markFullLinearizationForced();
 
   // The merge loop exits transformation kicks-in.
 
@@ -514,7 +514,7 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   VPConstant *TrueConst = Plan->getVPConstant(ConstantInt::get(Ty1, 1));
   VPBuilder VPBldr;
   VPBldr.setInsertPoint(NewLoopLatch);
-  VPPHINode *VPPhi = VPBldr.createPhiInstruction(Ty32);
+  VPPHINode *ExitIDVPPhi = VPBldr.createPhiInstruction(Ty32, "exit.id.phi");
   // This phi node is a marker of the backedge. It shows if the backedge is
   // taken.
   VPPHINode *NewCondBit =
@@ -538,8 +538,8 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
 
   // Add the original loop latch in the NewLoopLatch's phi node.
   VPPHINode *NewLoopHeaderPhiNode =
-      updatePhiNodeInLoopHeader(LoopHeader, NewLoopLatch, VPPhi, Plan);
-  VPPhi->addIncoming(NewLoopHeaderPhiNode, cast<VPBasicBlock>(OrigLoopLatch));
+      updatePhiNodeInLoopHeader(LoopHeader, NewLoopLatch, ExitIDVPPhi, Plan);
+  ExitIDVPPhi->addIncoming(NewLoopHeaderPhiNode, cast<VPBasicBlock>(OrigLoopLatch));
 
   // This is needed for the generation of cascaded if blocks.
   if (LatchExitBlock) {
@@ -594,7 +594,7 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
       ExitID++;
       VPConstant *ExitIDConst =
           Plan->getVPConstant(ConstantInt::get(Ty32, ExitID));
-      VPPhi->addIncoming(ExitIDConst, NewExitingBB);
+      ExitIDVPPhi->addIncoming(ExitIDConst, NewExitingBB);
       // If the backedge is taken under the true condition, then the edge from
       // the exiting block is taken under the false condition.
       NewCondBit->addIncoming(BackedgeCond ? FalseConst : TrueConst,
@@ -655,7 +655,7 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
       ExitID++;
       VPConstant *ExitIDConst =
           Plan->getVPConstant(ConstantInt::get(Ty32, ExitID));
-      VPPhi->addIncoming(ExitIDConst, cast<VPBasicBlock>(NewBlock));
+      ExitIDVPPhi->addIncoming(ExitIDConst, cast<VPBasicBlock>(NewBlock));
       NewCondBit->addIncoming(BackedgeCond ? FalseConst : TrueConst,
                               cast<VPBasicBlock>(NewBlock));
       ExitBlockIDPairs.push_back(std::make_pair(ExitBlock, ExitIDConst));
@@ -687,7 +687,7 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
       const auto &Pair = ExitBlockIDPairs[i];
       VPBlockBase *ExitBlock = Pair.first;
       VPConstant *ExitID = Pair.second;
-      VPInstruction *CondBr = new VPCmpInst(VPPhi, ExitID, CmpInst::ICMP_EQ);
+      VPInstruction *CondBr = new VPCmpInst(ExitIDVPPhi, ExitID, CmpInst::ICMP_EQ);
       IfBlock->appendRecipe(CondBr);
       VPBasicBlock *NextIfBlock = nullptr;
       // Emit cascaded if blocks.
@@ -891,10 +891,9 @@ void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
     return;
 
   // FIXME: Don't break SSA form during the transformation.
-  if (!Plan->isSSABroken()   // Already marked, so...
-      && isBreakingSSA(VPL)) // don't try to analyze any more.
-    Plan->markSSABroken();
-
+  if (!Plan->isFullLinearizationForced() // Already marked, so...
+      && isBreakingSSA(VPL))             // don't try to analyze any more.
+    Plan->markFullLinearizationForced();
 
   LLVM_DEBUG(dbgs() << "Before single exit while loop transformation.\n");
   LLVM_DEBUG(Plan->dump());

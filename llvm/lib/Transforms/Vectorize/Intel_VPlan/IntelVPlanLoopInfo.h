@@ -28,6 +28,12 @@ class VPBlockBase;
 class VPBasicBlock;
 class VPValue;
 class VPInstruction;
+class VPlanDivergenceAnalysis;
+class VPLoop;
+
+/// VPLoopInfo provides analysis of natural loop for VPBlockBase-based
+/// Hierarchical CFG. It is a specialization of LoopInfoBase class.
+typedef LoopInfoBase<VPBlockBase, VPLoop> VPLoopInfo;
 
 /// A VPLoop holds analysis information for every loop detected by VPLoopInfo.
 /// It is an instantiation of LoopBase.
@@ -50,12 +56,22 @@ public:
   // LoopBase's contains isn't virtual so its I->getParent can't call our
   // overload, have to re-implement it too.
   bool contains(const VPInstruction *I) const;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void printRPOT(raw_ostream &OS, const VPLoopInfo *VPLI = nullptr,
+                 unsigned Indent = 0,
+                 const VPlanDivergenceAnalysis *DA = nullptr) const;
+
+  LLVM_DUMP_METHOD void dump() const { print(dbgs()); }
+  LLVM_DUMP_METHOD void dumpVerbose() const {
+    print(dbgs(), /*Depth=*/0, /*Verbose=*/true);
+  }
+  LLVM_DUMP_METHOD void dumpRPOT() const { printRPOT(dbgs()); };
+  LLVM_DUMP_METHOD void dumpRPOT(const VPLoopInfo *VPLI) const {
+    printRPOT(dbgs(), VPLI);
+  };
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 };
-
-/// VPLoopInfo provides analysis of natural loop for VPBlockBase-based
-/// Hierarchical CFG. It is a specialization of LoopInfoBase class.
-typedef LoopInfoBase<VPBlockBase, VPLoop> VPLoopInfo;
-
 } // namespace vpo
 
 template <> struct GraphTraits<vpo::VPLoop *> {

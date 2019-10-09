@@ -1492,16 +1492,8 @@ void VPOCodeGen::serializeInstruction(VPInstruction *VPInst) {
   assert(!VPInst->getType()->isAggregateType() &&
          "Can't serialize aggregate type instructions.");
 
-  auto HasLoopInvariantOperands = [&](const VPInstruction *VPI) {
-    return all_of(VPI->operands(),
-                  [&](VPValue *V) { return isVPValueUniform(V, Plan); });
-  };
-
-  // TODO: Currently using DA for HasLoopInvariantOperands
-  // TODO: Handle cases like - call i32 random_number_generator(void)
   unsigned Lanes =
-      HasLoopInvariantOperands(VPInst) || isVPValueUniform(VPInst, Plan) ? 1
-                                                                         : VF;
+      !VPInst->mayHaveSideEffects() && isVPValueUniform(VPInst, Plan) ? 1 : VF;
 
   for (unsigned Lane = 0; Lane < Lanes; ++Lane) {
     SmallVector<Value *, 4> ScalarOperands;

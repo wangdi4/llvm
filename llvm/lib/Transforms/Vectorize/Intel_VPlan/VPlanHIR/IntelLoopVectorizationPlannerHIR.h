@@ -61,6 +61,7 @@ private:
     VPlanHCFGBuilderHIR HCFGBuilder(WRLp, TheLoop, Plan, HIRLegality, DDG);
     HCFGBuilder.buildHierarchicalCFG();
 
+    Plan->markFullLinearizationForced();
     return SharedPlan;
   }
 

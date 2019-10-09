@@ -280,15 +280,16 @@ void VPBlockBase::deleteCFG(VPBlockBase *Entry) {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPBlockBase::print(raw_ostream &OS, unsigned Depth,
-                        const VPlanDivergenceAnalysis *DA) const {
+                        const VPlanDivergenceAnalysis *DA,
+                        const Twine &NamePrefix) const {
   formatted_raw_ostream FOS(OS);
   if (auto *Region = dyn_cast<VPRegionBlock>(this)) {
-    Region->print(FOS, Depth, DA);
+    Region->print(FOS, Depth, DA, NamePrefix);
     return;
   }
 
   auto *BB = cast<VPBasicBlock>(this);
-  BB->print(FOS, Depth, DA);
+  BB->print(FOS, Depth, DA, NamePrefix);
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
@@ -573,10 +574,11 @@ void VPRegionBlock::recomputeSize() {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPBasicBlock::print(raw_ostream &OS, unsigned Indent,
-                         const VPlanDivergenceAnalysis *DA) const {
+                         const VPlanDivergenceAnalysis *DA,
+                         const Twine &NamePrefix) const {
   std::string StrIndent = std::string(2 * Indent, ' ');
   // Print name and predicate
-  OS << StrIndent << getName() << " (BP: ";
+  OS << StrIndent << NamePrefix << getName() << " (BP: ";
   if (getPredicateRecipe())
     OS << *getPredicateRecipe();
   else
@@ -700,7 +702,8 @@ void VPRegionBlock::computePDT(void) {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPRegionBlock::print(raw_ostream &OS, unsigned Indent,
-                          const VPlanDivergenceAnalysis *DA) const {
+                          const VPlanDivergenceAnalysis *DA,
+                          const Twine &NamePrefix) const {
   SetVector<const VPBlockBase *> Printed;
   SetVector<const VPBlockBase *> SuccList;
 

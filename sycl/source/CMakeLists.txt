@@ -100,13 +100,17 @@ if (SYCL_USE_LIBCXX)
         message(FATAL_ERROR "Build with libc++ is not yet supported for this compiler")
     endif()
 else()
+# Don't use libcxx library to build sycl library if it is not explicitly stated to do so
+  string( REPLACE "-stdlib=libc++" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" )
+  string( REPLACE "-stdlib=libc++" "" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}" )
+  string( REPLACE "-stdlib=libc++" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" )
 
 # Workaround for bug in GCC version 5 and higher.
 # More information https://bugs.launchpad.net/ubuntu/+source/gcc-5/+bug/1568899
-if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND
-    CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 5.0)
-  target_link_libraries(sycl PRIVATE gcc_s gcc)
-endif()
+  if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND
+      CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 5.0)
+    target_link_libraries(sycl PRIVATE gcc_s gcc)
+  endif()
 
 endif()
 

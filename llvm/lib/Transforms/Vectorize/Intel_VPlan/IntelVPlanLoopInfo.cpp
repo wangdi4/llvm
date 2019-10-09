@@ -18,6 +18,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanLoopInfo.h"
+#include "IntelVPlanLoopIterator.h"
 #include "IntelVPlanValue.h"
 #include "IntelVPlan.h"
 
@@ -54,3 +55,36 @@ bool VPLoop::contains(const VPBasicBlock *BB) const {
 bool VPLoop::contains(const VPInstruction *I) const {
   return contains(I->getParent());
 }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+void VPLoop::printRPOT(raw_ostream &OS, const VPLoopInfo *VPLI, unsigned Indent,
+                       const VPlanDivergenceAnalysis *DA) const {
+  ReversePostOrderTraversal<
+      const VPLoop *, VPLoopBodyTraits,
+      std::set<std::pair<const VPLoop *, const VPBlockBase *>>>
+      RPOT(this);
+
+  auto *Header = getHeader();
+
+  for (std::pair<const VPLoop *, const VPBlockBase *> Pair : RPOT) {
+    const VPBlockBase *BB = Pair.second;
+    SmallString<32> NamePrefix;
+    if (BB == Header)
+      NamePrefix += "<header>";
+
+    if (isLoopLatch(BB))
+      NamePrefix += "<latch>";
+
+    if (isLoopExiting(BB))
+      NamePrefix += "<exiting>";
+
+    unsigned BBIndent = Indent;
+    if (VPLI)
+      BBIndent +=
+          (this->getLoopDepth() - VPLI->getLoopFor(BB)->getLoopDepth()) * 2;
+
+    BB->print(OS, BBIndent, DA, NamePrefix);
+  }
+  OS << "\n";
+}
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
