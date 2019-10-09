@@ -485,22 +485,17 @@ VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlan *Plan,
                                               const unsigned VF,
                                               const bool CheckSafety,
                                               RegDDRef *&PeelArrayRef) {
-  const VPRegionBlock *Entry = dyn_cast<const VPRegionBlock>(Plan->getEntry());
-  assert(Entry && "RegionBlock is expected.");
   // TODO: With explicit representation of peel loop, next code is not valid
-  // and has to be changed.
-  const VPLoopRegion *MELoop =
-      dyn_cast<const VPLoopRegion>(Entry->getEntry()->getSingleSuccessor());
-  LLVM_DEBUG(
-      dbgs() << "Idiom recognition: Trying to recognize search loop for VPlan "
-             << Plan << " with VF " << VF << ".\n");
-  if (!MELoop) {
-    LLVM_DEBUG(dbgs() << "    Search loop was NOT recognized.\n");
-    return VPlanIdioms::Unknown;
-  }
+  // and has to be changed. Also, any newly created VPInstruction in preheader
+  // could probably require bailout too. Seems to work for now though, and
+  // should be heavily refactored soon enough to be moved from cost modeling
+  // stage to early vectorizer transforms.
+  const VPLoopInfo *VPLI = Plan->getVPLoopInfo();
+  assert(std::distance(VPLI->begin(), VPLI->end()) == 1
+         && "Expected single outermost loop!");
 
   // For the search loop idiom we expect 1-2 exit blocks and two exiting block.
-  const VPLoop *VPL = MELoop->getVPLoop();
+  const VPLoop *VPL = *VPLI->begin();
   SmallVector<VPBlockBase *, 8> Exitings, Exits;
   VPL->getExitingBlocks(Exitings);
   VPL->getExitBlocks(Exits);
@@ -511,7 +506,6 @@ VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlan *Plan,
   }
 
   SmallDenseSet<const VPBlockBase *> IgnoreBlocks;
-  IgnoreBlocks.insert(MELoop->getEntry());
   const VPBasicBlock *Latch = dyn_cast<VPBasicBlock>(VPL->getLoopLatch());
   assert(Latch && "VPLoop does not have loop latch block.");
   if (!isSafeLatchBlockForSearchLoop(Latch)) {
@@ -530,7 +524,7 @@ VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlan *Plan,
   }
 
   const auto Header =
-      cast<const VPBasicBlock>(MELoop->getVPLoop()->getHeader());
+      cast<const VPBasicBlock>(VPL->getHeader());
   // Recognize specific patterns only for the header of the loop. All other
   // blocks will (except Exit block) will be treated unsafe.
   VPlanIdioms::Opcode Opcode = isStrEqSearchLoop(Header, false);
@@ -564,14 +558,14 @@ VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlan *Plan,
       IgnoreBlocks.insert(BB);
     }
 
-  ReversePostOrderTraversal<const VPBlockBase *> RPOT(MELoop->getEntry());
+  ReversePostOrderTraversal<const VPBlockBase *> RPOT(Header);
   // Visit the VPBlocks connected to "this", starting from it.
   for (const VPBlockBase *Block : RPOT) {
     // Blocks outside of the loop are safe to execute. Latch and Header blocks
     // were already visited.
     // Every other block is assumed to be unsafe for search loop vectorization.
     if (IgnoreBlocks.count(Block) || !isa<VPBasicBlock>(Block) ||
-        !MELoop->getVPLoop()->contains(Block))
+        !VPL->contains(Block))
       continue;
 
     LLVM_DEBUG(dbgs() << "        " << Block->getName() << " is unsafe\n");
