@@ -1030,16 +1030,13 @@ bool Parser::parseOpenMPContextSelectors(
 #endif // INTEL_CUSTOMIZATION
                             const Sema::OpenMPDeclareVariantCtsSelectorData &)>
         Callback) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   SmallVector<OMPDeclareVariantAttr::ConstructTy, 3> Constructs;
   SmallVector<OMPDeclareVariantAttr::DeviceTy, 3> Devices;
   Sema::OpenMPDeclareVariantCtsSelectorData IData;
   bool IsError = false;
 #endif // INTEL_CUSTOMIZATION
-=======
   llvm::StringMap<SourceLocation> UsedCtxSets;
->>>>>>> 5d154c3e7d9dcd8f651ac6b34ee21aa553c82c74
   do {
     // Parse inner context selector set name.
     if (!Tok.is(tok::identifier)) {
