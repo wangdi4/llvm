@@ -51,7 +51,9 @@ EnableScatterGather_v4i8("gather-scatter-v4i8", cl::init(false), cl::Hidden,
 // explicit value, otherwise we will be erroneously increasing the alignment while packetizing
 static unsigned generateExplicitAlignment(unsigned Alignment, const PointerType* PT) {
   if (!Alignment)
-    Alignment = std::max(1U, PT->getElementType()->getPrimitiveSizeInBits() / 8);
+    Alignment = std::max(
+        1U,
+        PT->getElementType()->getPrimitiveSizeInBits().getKnownMinSize() / 8);
   return Alignment;
 }
 
