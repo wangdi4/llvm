@@ -1877,12 +1877,9 @@ const char *Lexer::LexUDSuffix(Token &Result, const char *CurPtr,
 
     if (!IsUDSuffix) {
       if (!isLexingRawMode())
-#if INTEL_CUSTOMIZATION
-        //CQ#374374: in IntelCompat mode print a warning instead an error.
-        Diag(CurPtr, (getLangOpts().MSVCCompat || getLangOpts().IntelCompat)
-#endif // INTEL_CUSTOMIZATION
-                         ? diag::ext_ms_reserved_user_defined_literal
-                         : diag::ext_reserved_user_defined_literal)
+        Diag(CurPtr, getLangOpts().MSVCCompat
+	     ? diag::ext_ms_reserved_user_defined_literal
+	     : diag::ext_reserved_user_defined_literal)
           << FixItHint::CreateInsertion(getSourceLocation(CurPtr), " ");
       return CurPtr;
     }
