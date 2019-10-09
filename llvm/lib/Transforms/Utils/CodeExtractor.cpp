@@ -553,37 +553,27 @@ void CodeExtractor::findAllocas(const CodeExtractorAnalysisCache &CEAC,
     if (Blocks.count(BB))
       continue;
 
-<<<<<<< HEAD
-#if INTEL_COLLAB
-      // If a variable is mentioned in a directive, it should not be moved
-      // into/out of the extraction region, as it has special properties with
-      // regard to that region (OpenMP shared, for example).
-      bool foundDirective = false;
-      for (User *U : AI->users())
-        if (auto *IntrInst = dyn_cast<IntrinsicInst>(U))
-          if (IntrInst->getIntrinsicID() == Intrinsic::directive_region_entry) {
-            foundDirective = true;
-            break;
-          }
-      if (foundDirective)
-        continue;
-
-#endif // INTEL_COLLAB
-      LifetimeMarkerInfo MarkerInfo = getLifetimeMarkers(AI, ExitBlock);
-      bool Moved = moveOrIgnoreLifetimeMarkers(MarkerInfo);
-      if (Moved) {
-        LLVM_DEBUG(dbgs() << "Sinking alloca: " << *AI << "\n");
-        SinkCands.insert(AI);
-        continue;
-      }
-=======
     // As a prior call to extractCodeRegion() may have shrinkwrapped the alloca,
     // check whether it is actually still in the original function.
     Function *AIFunc = BB->getParent();
     if (AIFunc != Func)
       continue;
->>>>>>> 9852699dcb18dd26866695a861e31a07bcc16e82
 
+#if INTEL_COLLAB
+    // If a variable is mentioned in a directive, it should not be moved
+    // into/out of the extraction region, as it has special properties with
+    // regard to that region (OpenMP shared, for example).
+    bool foundDirective = false;
+    for (User *U : AI->users())
+      if (auto *IntrInst = dyn_cast<IntrinsicInst>(U))
+        if (IntrInst->getIntrinsicID() == Intrinsic::directive_region_entry) {
+          foundDirective = true;
+          break;
+        }
+    if (foundDirective)
+      continue;
+
+#endif // INTEL_COLLAB
     LifetimeMarkerInfo MarkerInfo = getLifetimeMarkers(CEAC, AI, ExitBlock);
     bool Moved = moveOrIgnoreLifetimeMarkers(MarkerInfo);
     if (Moved) {

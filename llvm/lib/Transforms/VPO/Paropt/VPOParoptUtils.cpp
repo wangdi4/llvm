@@ -3597,7 +3597,8 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
   W.getEntryDirective()->replaceAllUsesWith(llvm::ConstantTokenNone::get(
       W.getEntryDirective()->getModule()->getContext()));
 
-  auto *NewFunction = CE.extractCodeRegion();
+  CodeExtractorAnalysisCache CEAC(*W.getEntryBBlock()->getParent());
+  auto *NewFunction = CE.extractCodeRegion(CEAC);
   assert(NewFunction && "Code extraction failed for the region.");
   assert(NewFunction->hasOneUse() && "New function should have one use.");
 
