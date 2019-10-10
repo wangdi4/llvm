@@ -278,9 +278,12 @@ int main(int argc, char **argv) {
     // Do something with the grps.
     for (OVLSGroup *Grp : Grps) {
       OVLSInstructionVector InstVec;
-      if (OptVLSInterface::getSequence(*Grp, CM, InstVec))
+      if (OptVLSInterface::getSequence(*Grp, CM, InstVec)) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
         for (OVLSInstruction *I : InstVec)
           OVLSdbgs() << *I << "\n";
+#endif
+      }
     }
   }
 

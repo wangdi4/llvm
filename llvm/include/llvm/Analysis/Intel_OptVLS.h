@@ -93,8 +93,8 @@ public:
   bool isLoad() const { return AccessKind == ILoad || AccessKind == SLoad; }
   bool isStore() const { return AccessKind == IStore || AccessKind == SStore; }
 
-  void print(OVLSostream &OS) const;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void print(OVLSostream &OS) const;
   void dump() const;
 #endif
 
@@ -143,14 +143,12 @@ public:
   void setNumElements(uint32_t NElems) { NumElements = NElems; }
   uint32_t getSize() const { return NumElements * ElementSize; }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// \brief prints the type as "<NumElements x ElementSize>"
   void print(OVLSostream &OS) const {
     OS << "<" << NumElements << " x " << ElementSize << ">";
   }
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  /// This method is used for debugging.
-  ///
   void dump() const {
     print(OVLSdbgs());
     OVLSdbgs() << '\n';
@@ -158,11 +156,13 @@ public:
 #endif
 };
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // Printing of OVLStypes.
 static inline OVLSostream &operator<<(OVLSostream &OS, OVLSType T) {
   T.print(OS);
   return OS;
 }
+#endif
 
 class OVLSMemref {
 public:
@@ -193,8 +193,8 @@ public:
 
   unsigned getId() const { return Id; }
 
-  virtual void print(OVLSostream &OS, unsigned SpaceCount = 0) const;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  virtual void print(OVLSostream &OS, unsigned SpaceCount = 0) const;
   void dump() const;
 #endif
 
@@ -296,10 +296,12 @@ private:
   OVLSAccessKind AccessKind; // Access kind of the Memref, e.g {S|I}{Load|store}
 };
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static inline OVLSostream &operator<<(OVLSostream &OS, const OVLSMemref &M) {
   M.print(OS);
   return OS;
 }
+#endif
 
 /// OVLSGroup represents a group of adjacent gathers/scatters. The memrefs in
 /// the group are sorted by their offsets. The information about lexical
@@ -382,11 +384,8 @@ public:
   /// \brief Return the vector of memrefs of this group.
   const OVLSMemrefVector &getMemrefVec() const { return MemrefVec; }
 
-  void print(OVLSostream &OS, unsigned SpaceCount) const;
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  /// This method is used for debugging.
-  ///
+  void print(OVLSostream &OS, unsigned SpaceCount) const;
   void dump() const;
 #endif
 
@@ -444,11 +443,13 @@ public:
   void setType(OVLSType T) { Type = T; }
   virtual uint64_t getId() const { return -1; }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   virtual void print(OVLSostream &OS, unsigned NumSpaces) const {}
 
   virtual void printAsOperand(OVLSostream &OS) const {
     OS << Type << " %undef";
   }
+#endif
 
 private:
   OperandKind Kind;
@@ -474,6 +475,7 @@ public:
     return Operand->getKind() == OK_Constant;
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(OVLSostream &OS, unsigned NumSpaces) const {
     OVLSType Type = getType();
     uint32_t NumElems = Type.getNumElements();
@@ -495,6 +497,7 @@ public:
       break;
     }
   }
+#endif
 
   // Returns the 32bit value at \p index.
   uint32_t getElement(unsigned Index) const {
@@ -546,15 +549,17 @@ public:
     return *this;
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(OVLSostream &OS, unsigned NumSpaces) const {
     OS << getType() << "* "
        << "<Base:" << Base << " Offset:" << Offset << ">";
   }
+
   void printAsOperand(OVLSostream &OS) const {
     OS << getType() << "* "
        << "<Base:" << Base << " Offset:" << Offset << ">";
   }
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
   void dump() const {
     print(OVLSdbgs(), 0);
     OVLSdbgs() << '\n';
@@ -586,14 +591,12 @@ public:
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  /// This method is used for debugging.
-  ///
+  void printAsOperand(OVLSostream &OS) const { OS << Type << " %" << Id; }
   virtual void dump() const = 0;
 #endif
 
   uint64_t getId() const { return Id; }
 
-  void printAsOperand(OVLSostream &OS) const { OS << Type << " %" << Id; }
   OperationCode getKind() const { return OPCode; }
 
   virtual void setMask(uint64_t Mask) {}
@@ -622,9 +625,9 @@ public:
     return I->getKind() == OC_Load;
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(OVLSostream &OS, unsigned NumSpaces) const;
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const {
     print(OVLSdbgs(), 0);
     OVLSdbgs() << '\n';
@@ -670,9 +673,9 @@ public:
     return I->getKind() == OC_Store;
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(OVLSostream &OS, unsigned NumSpaces) const;
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const {
     print(OVLSdbgs(), 0);
     OVLSdbgs() << '\n';
@@ -744,9 +747,9 @@ public:
     return I->getKind() == OC_Shuffle;
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(OVLSostream &OS, unsigned NumSpaces) const;
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const {
     print(OVLSdbgs(), 0);
     OVLSdbgs() << '\n';
@@ -779,11 +782,13 @@ private:
   const OVLSOperand *Op3;
 };
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // Printing of OVLSOperand.
 static inline OVLSostream &operator<<(OVLSostream &OS, const OVLSOperand &Op) {
   Op.print(OS, 2);
   return OS;
 }
+#endif
 
 /// OVLS server works in a target independent manner. In order to estimate
 /// more accurate cost for a specific target (architecture), client needs to
