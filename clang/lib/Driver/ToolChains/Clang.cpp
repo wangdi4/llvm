@@ -6906,4 +6906,3 @@ void SPIRCheck::ConstructJob(Compilation &C, const JobAction &JA,
       TCArgs.MakeArgString(getToolChain().GetProgramPath(getShortName())),
       CheckArgs, None));
 }
-
