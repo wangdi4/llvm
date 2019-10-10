@@ -643,18 +643,6 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
                                                        IMBRDA, New);
       continue;
     }
-    const NumReadPortsAttr *NRPA = dyn_cast<NumReadPortsAttr>(TmplAttr);
-    if (NRPA) {
-      instantiateDependentHLSOneConstantValueAttr<NumReadPortsAttr>(
-          *this, TemplateArgs, NRPA, New);
-      continue;
-    }
-    const NumWritePortsAttr *NWPA = dyn_cast<NumWritePortsAttr>(TmplAttr);
-    if (NWPA) {
-      instantiateDependentHLSOneConstantValueAttr<NumWritePortsAttr>(
-          *this, TemplateArgs, NWPA, New);
-      continue;
-    }
     const IntelFPGAMaxReplicatesAttr *MRA =
         dyn_cast<IntelFPGAMaxReplicatesAttr>(TmplAttr);
     if (MRA) {

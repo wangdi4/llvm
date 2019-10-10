@@ -17,13 +17,7 @@ component int foo0a(int *j0,
                     slave_arg __attribute__((bankwidth(4)))        int *i3,
                     slave_arg __attribute__((singlepump))          int *i4,
                     slave_arg __attribute__((doublepump))          int *i5,
-                    slave_arg __attribute__((numports_readonly_writeonly(4,8)))
-                                                                   int *i6,
                     slave_arg __attribute__((bank_bits(4,3,2)))    int *i7,
-                    slave_arg __attribute__((numreadports(4)))     int *i8,
-                    slave_arg __attribute__((numwriteports(4)))    int *i9,
-                    slave_arg __attribute__((optimize_fmax))       int *i9a,
-                    slave_arg __attribute__((optimize_ram_usage))  int *i9b,
                     slave_arg __attribute__((internal_max_block_ram_depth(32)))
                                                                    int *i10)
 {
@@ -41,7 +35,6 @@ int foo0b(slave_arg __attribute__((memory("MLAB")))
                     __attribute__((bankwidth(4)))
                     __attribute__((numbanks(8)))
                     __attribute__((bank_bits(4,3,2)))
-                    __attribute__((numports_readonly_writeonly(4,2)))
                     __attribute__((internal_max_block_ram_depth(64)))
 
           int *i0)
@@ -57,17 +50,11 @@ int foo0b(slave_arg __attribute__((memory("MLAB")))
 //CHECK-SAME: !"{memory:DEFAULT}{sizeinfo:8}{bankwidth:4}",
 //CHECK-SAME: !"{memory:DEFAULT}{sizeinfo:8}{pump:1}",
 //CHECK-SAME: !"{memory:DEFAULT}{sizeinfo:8}{pump:2}",
-//CHECK-SAME: !"{memory:DEFAULT}{sizeinfo:8}{numreadports:4}{numwriteports:8}",
 //CHECK-SAME: !"{memory:DEFAULT}{sizeinfo:8}{numbanks:8}{bank_bits:4,3,2}",
-//CHECK-SAME: !"{memory:DEFAULT}{sizeinfo:8}{numreadports:4}",
-//CHECK-SAME: !"{memory:DEFAULT}{sizeinfo:8}{numwriteports:4}",
-//CHECK-SAME: !"{memory:DEFAULT}{sizeinfo:8}{optimize_fmax:1}",
-//CHECK-SAME: !"{memory:DEFAULT}{sizeinfo:8}{optimize_ram_usage:1}",
 //CHECK-SAME: !"{memory:DEFAULT}{sizeinfo:8}{internal_max_block_ram_depth:32}"}
 
 //CHECK: [[CFOO1A]] = !{!"_Z5foo0bPi", i32 undef}
 //CHECK: [[ATFOO1A]] = !{!"mm_slave"}
 //CHECK: [[MFOO1A]] = !{!"{memory:MLAB}{sizeinfo:8}{pump:1}{bankwidth:4}{numbanks:8}
-//CHECK-SAME: {numreadports:4}{numwriteports:2}
 //CHECK-SAME: {internal_max_block_ram_depth:64}{bank_bits:4,3,2}"
 //CHECK: [[LMSFOO1A]] = !{i32 32}

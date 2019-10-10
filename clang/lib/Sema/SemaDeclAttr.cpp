@@ -3126,10 +3126,6 @@ void Sema::AddSchedulerTargetFmaxMHzAttr(Decl *D, const AttributeCommonInfo &CI,
 static void handleHLSInternalMaxBlockRamDepthAttr(Sema &S, Decl *D,
                                                const ParsedAttr &Attr) {
   checkForDuplicateAttribute<InternalMaxBlockRamDepthAttr>(S, D, Attr);
-  if (checkAttrMutualExclusion<OptimizeFMaxAttr>(S, D, Attr))
-    return;
-  if (checkAttrMutualExclusion<OptimizeRamUsageAttr>(S, D, Attr))
-    return;
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
     return;
 
@@ -3324,102 +3320,6 @@ static void handleOpenCLLocalMemSizeAttr(Sema & S, Decl * D,
 
   D->addAttr(::new (S.Context) OpenCLLocalMemSizeAttr(
       S.Context, Attr, LocalMemSize));
-}
-
-static void handleHLSOptimizeFMaxAttr(Sema &S, Decl *D,
-                                      const ParsedAttr &Attr) {
-  checkForDuplicateAttribute<OptimizeFMaxAttr>(S, D, Attr);
-
-  if (checkAttrMutualExclusion<OptimizeRamUsageAttr>(S, D, Attr))
-    return;
-
-  if (checkAttrMutualExclusion<InternalMaxBlockRamDepthAttr>(S, D, Attr))
-    return;
-
-  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
-    return;
-
-  if (const auto *AIA = D->getAttr<ArgumentInterfaceAttr>()) {
-    if (AIA->getType() == ArgumentInterfaceAttr::Slave) {
-      (void)checkAttrMutualExclusion<ArgumentInterfaceAttr>(S, D, Attr);
-      return;
-    }
-  }
-
-  if (!D->hasAttr<IntelFPGAMemoryAttr>())
-    D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
-        S.Context, IntelFPGAMemoryAttr::Default));
-
-  handleSimpleAttribute<OptimizeFMaxAttr>(S, D, Attr);
-}
-
-static void handleOptimizeRamUsageAttr(Sema &S, Decl *D,
-                                       const ParsedAttr &Attr) {
-  checkForDuplicateAttribute<OptimizeRamUsageAttr>(S, D, Attr);
-
-  if (checkAttrMutualExclusion<OptimizeFMaxAttr>(S, D, Attr))
-    return;
-
-  if (checkAttrMutualExclusion<InternalMaxBlockRamDepthAttr>(S, D, Attr))
-    return;
-
-  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
-    return;
-
-  if (const auto *AIA = D->getAttr<ArgumentInterfaceAttr>()) {
-    if (AIA->getType() == ArgumentInterfaceAttr::Slave) {
-      (void)checkAttrMutualExclusion<ArgumentInterfaceAttr>(S, D, Attr);
-      return;
-    }
-  }
-
-  if (!D->hasAttr<IntelFPGAMemoryAttr>())
-    D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
-        S.Context, IntelFPGAMemoryAttr::Default));
-
-  handleSimpleAttribute<OptimizeRamUsageAttr>(S, D, Attr);
-}
-
-/// Handle the numreadports and numwriteports attributes.
-/// These require a single constant value that must be greater
-/// than zero. They are incompatible with the register and
-/// max_replicate(N) attributes.
-template <typename AttrType>
-static void handleHLSOneConstantValueAttr(Sema &S, Decl *D,
-                                       const ParsedAttr &Attr) {
-  // The attributes NumReadPorts/NumWritePorts will eventually be
-  // replaced by max_replicates attribute. Warn the user.
-  S.Diag(Attr.getLoc(), diag::warn_attribute_deprecated) << Attr;
-  checkForDuplicateAttribute<AttrType>(S, D, Attr);
-  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
-    return;
-
-  if (checkAttrMutualExclusion<IntelFPGAMaxReplicatesAttr>(S, D, Attr))
-    return;
-
-  S.HLSAddOneConstantValueAttr<AttrType>(D, Attr, Attr.getArgAsExpr(0));
-}
-
-/// Handle the numports_readonly_writeonly attribute.
-/// This requires two constant values greater than zero.
-/// This is incompatible with the register and max_replicate attributes.
-/// This generates a NumReadPortsAttr and a NumWritePortsAttr instead of
-/// its own attribute.
-static void handleNumPortsReadOnlyWriteOnlyAttr(Sema &S, Decl *D,
-                                                const ParsedAttr &Attr) {
-  // This attribute will eventually be replaced by max_replicates attribute.
-  // Warn the user.
-  S.Diag(Attr.getLoc(), diag::warn_attribute_deprecated) << Attr;
-  checkForDuplicateAttribute<NumReadPortsAttr>(S, D, Attr);
-  checkForDuplicateAttribute<NumWritePortsAttr>(S, D, Attr);
-  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
-    return;
-  if (checkAttrMutualExclusion<IntelFPGAMaxReplicatesAttr>(S, D, Attr))
-    return;
-
-  S.HLSAddOneConstantValueAttr<NumReadPortsAttr>(D, Attr, Attr.getArgAsExpr(0));
-  S.HLSAddOneConstantValueAttr<NumWritePortsAttr>(D, Attr,
-                                                  Attr.getArgAsExpr(1));
 }
 
 /// Handle the static_array_reset attribute.
@@ -3629,10 +3529,6 @@ static void handleArgumentInterfaceAttr(Sema & S, Decl * D,
   }
   if (Type == ArgumentInterfaceAttr::Slave) {
     if (checkAttrMutualExclusion<InternalMaxBlockRamDepthAttr>(S, D, Attr))
-      return;
-    if (checkAttrMutualExclusion<OptimizeFMaxAttr>(S, D, Attr))
-      return;
-    if (checkAttrMutualExclusion<OptimizeRamUsageAttr>(S, D, Attr))
       return;
   }
 
@@ -4741,8 +4637,7 @@ void Sema::IntelFPGAAddOneConstantValueAttr(Decl *D,
   }
 
 #if INTEL_CUSTOMIZATION
-  if (isa<NumReadPortsAttr>(TmpAttr) || isa<NumWritePortsAttr>(TmpAttr) ||
-      isa<IntelFPGAMaxReplicatesAttr>(TmpAttr) ||
+  if (isa<IntelFPGAMaxReplicatesAttr>(TmpAttr) ||
       (isa<MaxConcurrencyAttr>(TmpAttr) && isa<VarDecl>(D))) {
     if (!D->hasAttr<IntelFPGAMemoryAttr>())
       D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
@@ -6114,17 +6009,9 @@ static bool checkIntelFPGARegisterAttrCompatibility(Sema &S, Decl *D,
     InCompat = true;
   if (checkAttrMutualExclusion<BankBitsAttr>(S, D, Attr))
     InCompat = true;
-  if (checkAttrMutualExclusion<NumReadPortsAttr>(S, D, Attr))
-    InCompat = true;
-  if (checkAttrMutualExclusion<NumWritePortsAttr>(S, D, Attr))
-    InCompat = true;
   if (checkAttrMutualExclusion<StaticArrayResetAttr>(S, D, Attr))
     InCompat = true;
   if (checkAttrMutualExclusion<InternalMaxBlockRamDepthAttr>(S, D, Attr))
-    InCompat = true;
-  if (checkAttrMutualExclusion<OptimizeFMaxAttr>(S, D, Attr))
-    InCompat = true;
-  if (checkAttrMutualExclusion<OptimizeRamUsageAttr>(S, D, Attr))
     InCompat = true;
 #endif // INTEL_CUSTOMIZATION
   if (checkAttrMutualExclusion<IntelFPGAMaxReplicatesAttr>(S, D, Attr))
@@ -6215,15 +6102,6 @@ static void handleIntelFPGAMaxReplicatesAttr(Sema &S, Decl *D,
 
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
     return;
-
-#if INTEL_CUSTOMIZATION
-  if (checkAttrMutualExclusion<NumReadPortsAttr>(S, D, Attr))
-    return;
-  if (checkAttrMutualExclusion<NumWritePortsAttr>(S, D, Attr))
-    return;
-  if (checkAttrMutualExclusion<NumPortsReadOnlyWriteOnlyAttr>(S, D, Attr))
-    return;
-#endif // INTEL_CUSTOMIZATION
 
   S.IntelFPGAAddOneConstantValueAttr<IntelFPGAMaxReplicatesAttr>(
       D, Attr, Attr.getArgAsExpr(0));
@@ -8682,21 +8560,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleStallLatencyAttr(S, D, AL);
     break;
   // Intel HLS specific attributes
-  case ParsedAttr::AT_OptimizeFMax:
-    handleHLSOptimizeFMaxAttr(S, D, AL);
-    break;
-  case ParsedAttr::AT_OptimizeRamUsage:
-    handleOptimizeRamUsageAttr(S, D, AL);
-    break;
-  case ParsedAttr::AT_NumReadPorts:
-    handleHLSOneConstantValueAttr<NumReadPortsAttr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_NumWritePorts:
-    handleHLSOneConstantValueAttr<NumWritePortsAttr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_NumPortsReadOnlyWriteOnly:
-    handleNumPortsReadOnlyWriteOnlyAttr(S, D, AL);
-    break;
   case ParsedAttr::AT_BankBits:
     handleBankBitsAttr(S, D, AL);
     break;
@@ -8919,8 +8782,7 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
     if (diagnoseMemoryAttrs<
             IntelFPGAMemoryAttr, IntelFPGANumBanksAttr, IntelFPGABankWidthAttr,
             IntelFPGASinglePumpAttr, IntelFPGADoublePumpAttr, BankBitsAttr,
-            NumReadPortsAttr, NumWritePortsAttr, InternalMaxBlockRamDepthAttr,
-            OptimizeFMaxAttr, OptimizeRamUsageAttr>(*this, D))
+            InternalMaxBlockRamDepthAttr>(*this, D))
       D->setInvalidDecl();
   }
 #endif // INTEL_CUSTOMIZATION

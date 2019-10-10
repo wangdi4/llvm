@@ -7,8 +7,6 @@
 
 const int __attribute__((max_replicates(2))) gc1 = 0;
 
-const int __attribute__((numreadports(2), numwriteports(3))) gc2 = 0; // expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}} // expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-
 // expected-note@+2{{conflicting attribute is here}}
 // expected-error@+1{{'max_replicates' and 'register' attributes are not compatible}}
 const int __attribute__((register, max_replicates(2))) gc3 = 0;
@@ -29,28 +27,10 @@ const int __attribute__((register, simple_dual_port)) gc5 = 0;
 //CHECK: SimpleDualPortAttr
 const int __attribute__((max_replicates(2), simple_dual_port)) gc6 = 0;
 
-//expected-warning@+3{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-// expected-error@+2{{'numreadports' and 'max_replicates' attributes are not compatible}}
-// expected-note@+1{{conflicting attribute is here}}
-const int __attribute__((max_replicates(2), numreadports(2))) gc7 = 0;
-//expected-warning@+3{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-// expected-error@+2{{'numwriteports' and 'max_replicates' attributes are not compatible}}
-// expected-note@+1{{conflicting attribute is here}}
-const int __attribute__((max_replicates(2), numwriteports(3))) gc8 = 0;
-//expected-warning@+3{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-//expected-error@+2{{'numports_readonly_writeonly' and 'max_replicates' attributes are not compatible}}
-// expected-note@+1{{conflicting attribute is here}}
-const int __attribute__((max_replicates(2), numports_readonly_writeonly(3, 4))) gc9 = 0;
+const int __attribute__((max_replicates(2))) gc7 = 0;
+
 // expected-error@+1{{'simple_dual_port' attribute takes no arguments}}
 const int __attribute__((simple_dual_port(1))) gc10 = 0;
-//expected-warning@+3{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-//expected-error@+2{{'numports_readonly_writeonly' and 'max_replicates' attributes are not compatible}}
-// expected-note@+1{{conflicting attribute is here}}
-const int __attribute__((max_replicates(4),numports_readonly_writeonly(2,3))) gc11 = 0;
-//expected-warning@+3{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-//expected-error@+2{{'max_replicates' and 'numreadports' attributes are not compatible}}
-// expected-note@+1{{conflicting attribute is here}}
-const int __attribute__((numports_readonly_writeonly(2,3),max_replicates(3))) gc12 = 0;
 
 void foo() {
   //CHECK: VarDecl{{.*}}lc1
@@ -62,10 +42,6 @@ void foo() {
   // expected-error@+2{{'max_replicates' and 'register' attributes are not compatible}}
   // expected-note@+1{{conflicting attribute is here}}
   int __attribute__((register, max_replicates(2))) lc2;
-
-  // expected-warning@+2{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-  // expected-warning@+1{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-  int __attribute__((numreadports(2), numwriteports(3))) lc3;
 
   //CHECK: VarDecl{{.*}}lc4
   //CHECK: MemoryAttr{{.*}}Implicit
@@ -87,18 +63,6 @@ void foo() {
   int __attribute__((max_replicates(0))) lc7;
   //expected-error@+1{{'max_replicates' attribute requires integer constant between 1 and 1048576 inclusive}}
   int __attribute__((max_replicates(-1))) lc8;
-  //expected-warning@+3{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-  //expected-error@+2{{'numreadports' and 'max_replicates' attributes are not compatible}}
-  // expected-note@+1{{conflicting attribute is here}}
-  int __attribute__((max_replicates(2), numreadports(2))) lc9;
-  //expected-warning@+3{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-  //expected-error@+2{{'numwriteports' and 'max_replicates' attributes are not compatible}}
-  // expected-note@+1{{conflicting attribute is here}}
-  int __attribute__((max_replicates(2), numwriteports(3))) lc10;
-  //expected-warning@+3{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-  //expected-error@+2{{'numports_readonly_writeonly' and 'max_replicates' attributes are not compatible}}
-  // expected-note@+1{{conflicting attribute is here}}
-  int __attribute__((max_replicates(2), numports_readonly_writeonly(3, 4))) lc11;
   //expected-error@+1{{'simple_dual_port' attribute takes no arguments}}
   int __attribute__((simple_dual_port(0))) lc12;
 
@@ -138,14 +102,6 @@ void foo() {
 //CHECK-NEXT: ConstantExpr
 //CHECK-NEXT: SubstNonTypeTemplateParmExpr
 //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
-//CHECK: NumReadPortsAttr
-//CHECK-NEXT: ConstantExpr
-//CHECK-NEXT: SubstNonTypeTemplateParmExpr
-//CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
-//CHECK: NumWritePortsAttr
-//CHECK-NEXT: ConstantExpr
-//CHECK-NEXT: SubstNonTypeTemplateParmExpr
-//CHECK-NEXT: IntegerLiteral{{.*}}3{{$}}
 
 //CHECK: VarDecl{{.*}}var_three
 //CHECK: MemoryAttr{{.*}}Implicit
@@ -178,9 +134,6 @@ __attribute__((ihc_component)) void foo_one() {
                  max_replicates(num_replicates))) int var_one;
 
   __attribute__((bankwidth(bankwidth), numbanks(numbanks),
-                 // expected-note@+1{{conflicting attribute is here}}
-                 numports_readonly_writeonly(readports, writeports), // expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-                 // expected-error@+1{{'max_replicates' and 'numreadports' attributes are not compatible}}
                  max_replicates(num_replicates))) int var_two;
 
   __attribute__((bankwidth(bankwidth), numbanks(numbanks), simple_dual_port)) int var_three;
@@ -217,18 +170,12 @@ void call() {
 //CHECK-NEXT: SimpleDualPortAttr
 
 struct foo_two {
-  // expected-warning@+5{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-  // expected-error@+4{{'numreadports' and 'register' attributes are not compatible}}
-  // expected-note@+3{{conflicting attribute is here}}
-  // expected-error@+2{{'simple_dual_port' and 'register' attributes are not compatible}}
-  // expected-note@+1{{conflicting attribute is here}}
-  int __attribute__((register, numreadports(2), simple_dual_port)) f1;
-  // expected-warning@+5{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
-  // expected-error@+4{{'numreadports' and 'register' attributes are not compatible}}
-  // expected-note@+3{{conflicting attribute is here}}
-  // expected-error@+2{{'max_replicates' and 'register' attributes are not compatible}}
-  // expected-note@+1{{conflicting attribute is here}}
-  int __attribute__((register, numreadports(2), max_replicates(3))) f2;
+  // expected-note@+2{{conflicting attribute is here}}
+  // expected-error@+1{{'simple_dual_port' and 'register' attributes are not compatible}}
+  int __attribute__((register, simple_dual_port)) f1;
+  // expected-note@+2{{conflicting attribute is here}}
+  // expected-error@+1{{'max_replicates' and 'register' attributes are not compatible}}
+  int __attribute__((register, max_replicates(3))) f2;
   int __attribute__((max_replicates(2))) f3;
   int __attribute__((simple_dual_port)) f4;
   int __attribute__((max_replicates(2), simple_dual_port)) f5;

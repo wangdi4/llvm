@@ -4145,26 +4145,12 @@ void CodeGenModule::generateHLSAnnotation(const Decl *D,
     llvm::APSInt MCAInt = MCA->getValue()->EvaluateKnownConstInt(getContext());
     Out << '{' << MCA->getSpelling() << ':' << MCAInt << '}';
   }
-  if (const auto *NRPA = D->getAttr<NumReadPortsAttr>()) {
-    llvm::APSInt NRPAInt =
-        NRPA->getValue()->EvaluateKnownConstInt(getContext());
-    Out << '{' << NRPA->getSpelling() << ':' << NRPAInt << '}';
-  }
-  if (const auto *NWPA = D->getAttr<NumWritePortsAttr>()) {
-    llvm::APSInt NWPAInt =
-        NWPA->getValue()->EvaluateKnownConstInt(getContext());
-    Out << '{' << NWPA->getSpelling() << ':' << NWPAInt << '}';
-  }
   if (const auto *IMDA = D->getAttr<InternalMaxBlockRamDepthAttr>()) {
     llvm::APSInt IMDAInt =
         IMDA->getInternalMaxBlockRamDepth()->EvaluateKnownConstInt(
             getContext());
     Out << '{' << IMDA->getSpelling() << ':' << IMDAInt << '}';
   }
-  if (D->hasAttr<OptimizeFMaxAttr>())
-    Out << "{optimize_fmax:1}";
-  if (D->hasAttr<OptimizeRamUsageAttr>())
-    Out << "{optimize_ram_usage:1}";
   if (const auto *BBA = D->getAttr<BankBitsAttr>()) {
     Out << '{' << BBA->getSpelling() << ':';
     for (BankBitsAttr::args_iterator I = BBA->args_begin(), E = BBA->args_end();

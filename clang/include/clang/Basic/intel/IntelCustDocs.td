@@ -2058,9 +2058,7 @@ def MaxReplicatesDocs : Documentation {
 This attribute is applied to variables (local, statics, constants ...) in both
 OpenCL and HLS. It specifies the maximum number of replicates the compiler is
 allowed to make for the associated variable. This attributes infers
-an attribute memory:default and can't be applied with register, numreadports or
-numwriteports attributes.
-This attribute replaces the deprecated numreadports / numwriteports attributes.
+an attribute memory:default and can't be applied with register attribute.
 
 Syntax:
 
