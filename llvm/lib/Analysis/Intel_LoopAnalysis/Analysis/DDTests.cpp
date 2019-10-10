@@ -80,6 +80,23 @@ static cl::opt<bool> AssumeLoopFusion(
     "hir-dd-test-assume-loop-fusion", cl::init(false), cl::Hidden,
     cl::desc("Demand Driven DD test invoked from Loop Fusion"));
 
+enum class LoopCarriedDepMode { None, InnermostOnly, All };
+
+static cl::opt<LoopCarriedDepMode> AssumeNoLoopCarriedDep(
+    "hir-dd-test-assume-no-loop-carried-dep",
+    cl::init(LoopCarriedDepMode::None), cl::Hidden, cl::ValueOptional,
+    cl::desc("Assumes that no loop carried dependencies exist for certain "
+             "loops according to mode"),
+    cl::values(
+        clEnumValN(LoopCarriedDepMode::None, "0",
+                   "No assumptions about loop carried dependencies"),
+        clEnumValN(LoopCarriedDepMode::InnermostOnly, "1",
+                   "Assumes no loop carried dependencies exist for all "
+                   "innermost loops"),
+        clEnumValN(
+            LoopCarriedDepMode::All, "2",
+            "Assumes no loop carried dependencies exist for all loops")));
+
 #define DEBUG_TYPE "hir-dd-test"
 #define DEBUG_AA(X) DEBUG_WITH_TYPE("hir-dd-test-aa", X)
 
