@@ -586,7 +586,16 @@ void CodeGenModule::Release() {
   // TargetLibraryInfo.
   uint64_t WCharWidth =
       Context.getTypeSizeInChars(Context.getWideCharType()).getQuantity();
+#if INTEL_COLLAB
+  if (!LangOpts.OpenCL)
+    // Avoid emitting wchar_size, since wchar_t is not defined for OpenCL.
+    // For OpenCL WCharWidth may have an arbitrary value, which may not match
+    // correct WCharWidth for LLVM Modules created from C/C++ (e.g. with
+    // OpenMP offload), thus causing linking issues.
+    getModule().addModuleFlag(llvm::Module::Error, "wchar_size", WCharWidth);
+#else  // INTEL_COLLAB
   getModule().addModuleFlag(llvm::Module::Error, "wchar_size", WCharWidth);
+#endif  // INTEL_COLLAB
 
   llvm::Triple::ArchType Arch = Context.getTargetInfo().getTriple().getArch();
   if (   Arch == llvm::Triple::arm
