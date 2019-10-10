@@ -454,13 +454,15 @@ MachineInstr *FixupBWInstPass::tryReplaceInstr(MachineInstr *MI,
   switch (MI->getOpcode()) {
 
   case X86::MOV8rm:
+#if INTEL_CUSTOMIZATION
     // Only replace 8 bit loads with the zero extending versions if
-    // in an inner most loop and not optimizing for size. This takes
+    // in a loop and not optimizing for size. This takes
     // an extra byte to encode, and provides limited performance upside.
-    if (MachineLoop *ML = MLI->getLoopFor(&MBB))
-      if (ML->begin() == ML->end() && !OptForSize)
+    if (MLI->getLoopFor(&MBB))
+      if (!OptForSize)
         return tryReplaceLoad(X86::MOVZX32rm8, MI);
     break;
+#endif
 
   case X86::MOV16rm:
     // Always try to replace 16 bit load with 32 bit zero extending.
