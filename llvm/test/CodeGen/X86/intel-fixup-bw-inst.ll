@@ -119,8 +119,8 @@ define void @foo4(i16 *%dst, i16 *%src) {
   ret void
 }
 
-; This test contains two nested loops and a byte load in the inner loop. 
-; The upper portion should be dead, so the movb load should have been changed 
+; This test contains two nested loops and a byte load in the inner loop.
+; The upper portion should be dead, so the movb load should have been changed
 ; into movzbl instead.
 ; CHECK-LABEL: test_bytemov_inner_loop:
 ; CHECK: movzbl
@@ -156,12 +156,9 @@ end:                                       ; preds = %BB4
   ret void
 }
 
-; This test contains two nested loops and a byte load in the outer loop. 
-; The movb load should not be changed into movzbl.
+; This test contains two nested loops and a byte load in the outer loop.
 ; CHECK-LABEL: test_bytemov_outer_loop:
-; CHECK-NOT: movzbl
-; CHECK: movb
-; CHECK-NOT: movzbl
+; CHECK: movzbl
 define void @test_bytemov_outer_loop([100 x i32]* %a, [100 x i8]* %b) nounwind uwtable {
 entry:
   br label %BB2
