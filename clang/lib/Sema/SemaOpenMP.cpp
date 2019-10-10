@@ -5161,7 +5161,7 @@ void Sema::ActOnOpenMPDeclareVariantDirective(
   auto *NewAttr = OMPDeclareVariantAttr::CreateImplicit(
 #if INTEL_CUSTOMIZATION
       Context, VariantRef, Constructs.data(), Constructs.size(), Devices.data(),
-      Devices.size(), Score, Data.CtxSet, ST, Data.Ctx, Data.ImplVendor.begin(),
+      Devices.size(), Score, Data.CtxSet, ST, Data.Ctx, Data.ImplVendors.begin(),
       Data.ImplVendors.size(), SR);
 #endif // INTEL_CUSTOMIZATION
   FD->addAttr(NewAttr);
