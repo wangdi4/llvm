@@ -279,7 +279,15 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
     const HLInst *SrcInst = dyn_cast<HLInst>(Edge->getSrc()->getHLDDNode());
     if (SinkInst && SrcInst && SARA->isSparseArrayReduction(SinkInst) &&
         !SARA->isSparseArrayReduction(SrcInst)) {
-      return false;
+
+      // Do not create back edge for sparse array reduction terms (%add) but
+      // create them for the index (%idx):
+      //   %t = %p[%idx]
+      //   %p[%idx] = %t + %add
+      auto *SinkDDRef = dyn_cast<BlobDDRef>(Edge->getSink());
+      if (!SinkDDRef || SinkDDRef->getParentDDRef()->isTerminalRef()) {
+        return false;
+      }
     }
 
     //  When max level is reached, cannot stripmine
