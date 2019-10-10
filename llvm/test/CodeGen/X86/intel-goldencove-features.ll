@@ -40,11 +40,11 @@ define <16 x i8> @test_vgf2p8affineinvqb_128(<16 x i8> %src1, <16 x i8> %src2, <
 ; CHECK-LABEL: test_vgf2p8affineinvqb_128:
 ; CHECK:       ## %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
-; CHECK-NEXT:    vgf2p8affineinvqb $3, %xmm1, %xmm0, %xmm4
-; CHECK-NEXT:    vgf2p8affineinvqb $3, %xmm1, %xmm0, %xmm3 {%k1} {z}
+; CHECK-NEXT:    vgf2p8affineinvqb $3, %xmm1, %xmm0, %xmm3
+; CHECK-NEXT:    vgf2p8affineinvqb $3, %xmm1, %xmm0, %xmm4 {%k1} {z}
 ; CHECK-NEXT:    vgf2p8affineinvqb $3, %xmm1, %xmm0, %xmm2 {%k1}
-; CHECK-NEXT:    vpternlogq $150, %xmm2, %xmm4, %xmm3
-; CHECK-NEXT:    vmovdqa %xmm3, %xmm0
+; CHECK-NEXT:    vpxor %xmm2, %xmm4, %xmm0
+; CHECK-NEXT:    vpxor %xmm3, %xmm0, %xmm0
 ; CHECK-NEXT:    retq
   %1 = bitcast i16 %mask to <16 x i1>
   %2 = call <16 x i8> @llvm.x86.vgf2p8affineinvqb.128(<16 x i8> %src1, <16 x i8> %src2, i8 3)
