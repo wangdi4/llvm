@@ -1002,20 +1002,6 @@ static void parseImplementationSelector(
             << "vendor"
             << "implementation";
       }
-<<<<<<< HEAD
-      if (!VendorName.empty()) {
-        Sema::OpenMPDeclareVariantCtsSelectorData Data(
-            OMPDeclareVariantAttr::CtxSetImplementation, CSKind, VendorName,
-            Score);
-#if INTEL_CUSTOMIZATION
-        SmallVector<OMPDeclareVariantAttr::ConstructTy, 3> Constructs;
-        SmallVector<OMPDeclareVariantAttr::DeviceTy, 3> Devices;
-        Callback(SourceRange(Loc, Tok.getLocation()), Constructs, Devices,
-                 Data);
-#endif // INTEL_CUSTOMIZATION
-      }
-=======
->>>>>>> 303657a6c6f440f1855f6680c8bb1c8a7b815535
       if (!P.TryConsumeToken(tok::comma) && Tok.isNot(tok::r_paren)) {
         P.Diag(Tok, diag::err_expected_punc)
             << (VendorName.empty() ? "vendor name" : VendorName);
@@ -1030,7 +1016,12 @@ static void parseImplementationSelector(
       Sema::OpenMPDeclareVariantCtsSelectorData Data(
           OMPDeclareVariantAttr::CtxSetImplementation, CSKind, ImplVendors,
           Score);
-      Callback(SourceRange(Loc, Tok.getLocation()), Data);
+#if INTEL_CUSTOMIZATION
+        SmallVector<OMPDeclareVariantAttr::ConstructTy, 3> Constructs;
+        SmallVector<OMPDeclareVariantAttr::DeviceTy, 3> Devices;
+        Callback(SourceRange(Loc, Tok.getLocation()), Constructs, Devices,
+                 Data);
+#endif // INTEL_CUSTOMIZATION
     }
     break;
   }
