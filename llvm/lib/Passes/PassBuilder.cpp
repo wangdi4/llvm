@@ -90,13 +90,14 @@
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/IPO/Intel_AdvancedFastCall.h" // INTEL
-#include "llvm/Transforms/IPO/Intel_IPOPrefetch.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_ArgumentAlignment.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_CallTreeCloning.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_DopeVectorConstProp.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"       // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h"   // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"   // INTEL
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"       // INTEL
+#include "llvm/Transforms/IPO/Intel_IPOPrefetch.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"   //INTEL
 #include "llvm/Transforms/IPO/Intel_PartialInline.h" // INTEL
 #include "llvm/Transforms/IPO/Internalize.h"
@@ -1660,6 +1661,10 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
 #if INTEL_CUSTOMIZATION
 
 #if INTEL_INCLUDE_DTRANS
+  if (EnableDTrans)
+    // Compute the alignment of the arguments
+    MPM.addPass(IntelArgumentAlignmentPass());
+
   bool EnableIntelPartialInlining = EnableIntelPI && EnableDTrans;
 #else
   bool EnableIntelPartialInlining = false;
