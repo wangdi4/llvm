@@ -4185,6 +4185,13 @@ ABIArgInfo WinX86_64ABIInfo::classify(QualType Ty, unsigned &FreeSSERegs,
       return ABIArgInfo::getDirect(
           llvm::VectorType::get(llvm::Type::getInt64Ty(getVMContext()), 2));
 
+#if INTEL_CUSTOMIZATION
+    // Pass float128 return and arguments indirectly on x64 Windows to match
+    // icc.
+    case BuiltinType::Float128:
+      return ABIArgInfo::getIndirect(Align, /*ByVal=*/false);
+#endif
+
     default:
       break;
     }
