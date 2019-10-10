@@ -749,13 +749,9 @@ private:
 #else  // INTEL_COLLAB
     auto *UnRegFuncTy =
         FunctionType::get(Type::getVoidTy(C), {getBinDescPtrTy()}, false);
-<<<<<<< HEAD
 #endif  // INTEL_COLLAB
-    FunctionCallee UnRegFunc = M.getOrInsertFunction(UnregFuncName, UnRegFuncTy);
-=======
     FunctionCallee UnRegFunc =
         M.getOrInsertFunction(UnregFuncName, UnRegFuncTy);
->>>>>>> b5f1d79c58619c86b4ff1a4470648c3daa78c161
 
     // Construct function body
     IRBuilder<> Builder(BasicBlock::Create(C, "entry", Func));
