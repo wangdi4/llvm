@@ -196,6 +196,8 @@ install(DIRECTORY "${sycl_inc_dir}/." DESTINATION "${LLVM_INST_INC_DIRECTORY}" C
 
 # SYCL runtime library
 add_subdirectory(source)
+# TODO: remove me when support plugins in open-source   # INTEL_CUSTOMIZATION
+add_subdirectory(plugins)                               # INTEL_CUSTOMIZATION
 
 # SYCL toolchain builds all components: compiler, libraries, headers, etc.
 add_custom_target( sycl-toolchain

@@ -114,6 +114,14 @@ else()
 
 endif()
 
+# INTEL_CUSTOMIZATION
+# TODO: remove when PI plugins are implemented.
+if (CMAKE_SYCL_USE_LEVEL0)
+  add_definitions(-DSYCL_USE_LEVEL0=1)
+  target_link_libraries(sycl PRIVATE pi_level0)
+endif()
+# end INTEL_CUSTOMIZATION
+
 install(TARGETS sycl
     ARCHIVE DESTINATION "lib" COMPONENT sycl
     LIBRARY DESTINATION "lib" COMPONENT sycl

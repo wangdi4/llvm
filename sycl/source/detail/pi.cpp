@@ -11,6 +11,13 @@
 #include <iostream>
 #include <map>
 
+#if INTEL_CUSTOMIZATION
+// TODO: remove this when true plugins are added
+#define _PI_API(api) \
+  extern "C" decltype(::api) * api##OtherPtr;
+#include <CL/sycl/detail/pi.def>
+#endif // INTEL_CUSTOMIZATION
+
 namespace cl {
 namespace sycl {
 namespace detail {
@@ -58,14 +65,25 @@ void initialize() {
   if (Initialized) {
     return;
   }
-  if (!useBackend(SYCL_BE_PI_OPENCL)) {
+#if INTEL_CUSTOMIZATION
+// TODO: remove this when true plugins are added
+  if (useBackend(SYCL_BE_PI_OPENCL)) {
+    #define _PI_API(api)                          \
+      extern decltype(::api) * api##OclPtr;       \
+      api = api##OclPtr;
+    #include <CL/sycl/detail/pi.def>
+  }
+#ifdef SYCL_USE_LEVEL0
+  else if (useBackend(SYCL_BE_PI_OTHER)) {
+    #define _PI_API(api)                          \
+      api = api##OtherPtr;
+    #include <CL/sycl/detail/pi.def>
+  }
+#endif // SYCL_USE_LEVEL0
+  else {
     die("Unknown SYCL_BE");
   }
-  #define _PI_API(api)                          \
-    extern decltype(::api) * api##OclPtr; \
-    api = api##OclPtr;
-  #include <CL/sycl/detail/pi.def>
-
+#endif // INTEL_CUSTOMIZATION
   Initialized = true;
 }
 
