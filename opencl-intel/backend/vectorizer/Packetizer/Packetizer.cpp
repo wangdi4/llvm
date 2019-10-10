@@ -52,7 +52,7 @@ EnableScatterGather_v4i8("gather-scatter-v4i8", cl::init(false), cl::Hidden,
 static unsigned generateExplicitAlignment(unsigned Alignment, const PointerType* PT) {
   if (!Alignment)
     Alignment = std::max(
-        1U,
+        uint64_t(1U),
         PT->getElementType()->getPrimitiveSizeInBits().getKnownMinSize() / 8);
   return Alignment;
 }
