@@ -320,10 +320,6 @@ bool FileCheckPattern::parsePattern(StringRef PatternStr, StringRef Prefix,
                                     SourceMgr &SM,
                                     const FileCheckRequest &Req) {
   bool MatchFullLinesHere = Req.MatchFullLines && CheckTy != Check::CheckNot;
-<<<<<<< HEAD
-  IgnoreCase = Req.IgnoreCase;
-=======
->>>>>>> d3aed7fc7986971ea15313871e7ffe8b4a5efa18
 
   PatternLoc = SMLoc::getFromPointer(PatternStr.data());
 
@@ -333,7 +329,6 @@ bool FileCheckPattern::parsePattern(StringRef PatternStr, StringRef Prefix,
            (PatternStr.back() == ' ' || PatternStr.back() == '\t'))
       PatternStr = PatternStr.substr(0, PatternStr.size() - 1);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Ignore ;INTEL at the end of the line.  We allow this specially for
   // marking CHECK lines where some other INTEL_CUSTOMIZATION needed
@@ -350,8 +345,6 @@ bool FileCheckPattern::parsePattern(StringRef PatternStr, StringRef Prefix,
   }
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> d3aed7fc7986971ea15313871e7ffe8b4a5efa18
   // Check that there is something on the line.
   if (PatternStr.empty() && CheckTy != Check::CheckEmpty) {
     SM.PrintMessage(PatternLoc, SourceMgr::DK_Error,
@@ -642,12 +635,7 @@ Expected<size_t> FileCheckPattern::match(StringRef Buffer, size_t &MatchLen,
   // If this is a fixed string pattern, just match it now.
   if (!FixedStr.empty()) {
     MatchLen = FixedStr.size();
-<<<<<<< HEAD
-    size_t Pos = IgnoreCase ? Buffer.find_lower(FixedStr)
-                            : Buffer.find(FixedStr);
-=======
     size_t Pos = Buffer.find(FixedStr);
->>>>>>> d3aed7fc7986971ea15313871e7ffe8b4a5efa18
     if (Pos == StringRef::npos)
       return make_error<FileCheckNotFoundError>();
     return Pos;
@@ -685,14 +673,7 @@ Expected<size_t> FileCheckPattern::match(StringRef Buffer, size_t &MatchLen,
   }
 
   SmallVector<StringRef, 4> MatchInfo;
-<<<<<<< HEAD
-  unsigned int Flags = Regex::Newline;
-  if (IgnoreCase)
-    Flags |= Regex::IgnoreCase;
-  if (!Regex(RegExToMatch, Flags).match(Buffer, &MatchInfo))
-=======
   if (!Regex(RegExToMatch, Regex::Newline).match(Buffer, &MatchInfo))
->>>>>>> d3aed7fc7986971ea15313871e7ffe8b4a5efa18
     return make_error<FileCheckNotFoundError>();
 
   // Successful regex match.
