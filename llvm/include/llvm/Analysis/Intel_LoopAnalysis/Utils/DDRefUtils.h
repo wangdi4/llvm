@@ -273,8 +273,13 @@ public:
   static bool haveEqualBaseAndShape(const RegDDRef *Ref1, const RegDDRef *Ref2,
                                     bool RelaxedMode);
 
-  // Sorting comparator operator for two Mem-RegDDRef.
+  // Sorting comparator operator for two Mem-RegDDRef, placing LVals before
+  // RVals.
   static bool compareMemRef(const RegDDRef *Ref1, const RegDDRef *Ref2);
+
+  // Sorting comparator operator for two Mem-RegDDRef, ignoring LVal and RVal
+  // attribute.
+  static bool compareMemRefAddress(const RegDDRef *Ref1, const RegDDRef *Ref2);
 
   /// Check if replaceIVByCanonExpr(.) can actually succeed without doing it for
   /// real.
@@ -299,6 +304,26 @@ public:
   static void replaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
                                    const CanonExpr *CE, bool IsNSW,
                                    bool RelaxedMode = true);
+
+  /// Transform input single-dimension gep \p Refs to the multi-dimensional \p
+  /// OutRefs.
+  ///
+  /// for (long i = 0; i < x1; i++)
+  ///   for (long j = 0; j < x2; j++)
+  ///     for (long k = 0; k < x3; k++) {
+  ///
+  ///       A[m*n*i + n*j + k] = 1.0;
+  ///        -->
+  ///       A[i][j][k] = 1.0 // with dimension strides: (m*n), (n), (1).
+  ///
+  ///     }
+  ///
+  /// Note: the caller have to check the correctness of such mapping-
+  /// For all i,j,k: (0 <= i < x1) && (0 <= j <  x2) && (0 <= k < x3):
+  ///                (0 <= k <  n) && (0 <= j < m*n) && (0 <= i)
+  static bool delinearizeRefs(ArrayRef<const loopopt::RegDDRef *> GepRefs,
+                              SmallVectorImpl<loopopt::RegDDRef *> &OutRefs,
+                              SmallVectorImpl<BlobTy> *SizesPtr = nullptr);
 };
 
 } // End namespace loopopt

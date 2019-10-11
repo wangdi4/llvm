@@ -50,7 +50,7 @@ enum RuntimeDDResult {
   TOO_MANY_TESTS,
   UPPER_SUB_TYPE_MISMATCH,
   NON_NORMALIZED_BLOB_IV_COEFF,
-  SAME_BASE,
+  DELINEARIZATION_FAILED,
   NON_DO_LOOP,
   UNROLL_PRAGMA_LOOP,
   IVDEP_PRAGMA_LOOP,
@@ -60,6 +60,11 @@ enum RuntimeDDResult {
   DIFF_ADDR_SPACE,
   UNSIZED,
   SIMD_LOOP,
+  UNKNOWN_MIN_MAX,
+};
+
+enum RTDDMethod {
+  Compare,
 };
 
 // The struct represents a segment of memory. It is used to construct checks
@@ -90,21 +95,15 @@ struct Segment {
 // on the IV. This class is used to generate specific memory segments where
 // IV is replaced with a Lower and Upper bound.
 class IVSegment {
-  RegDDRef *Lower;
-  RegDDRef *Upper;
+  std::unique_ptr<RegDDRef> Lower;
+  std::unique_ptr<RegDDRef> Upper;
   const CanonExpr *BaseCE;
 
   bool IsWrite;
-
-  static void replaceIVByBound(RegDDRef *Ref, const HLLoop *Loop,
-                               const HLLoop *InnerLoop, bool IsLowerBound);
-
 public:
-  IVSegment(const RefGroupTy &Group);
+  IVSegment(const RefGroupTy &Group, bool IsWrite);
   IVSegment(const IVSegment &) = delete;
   IVSegment(IVSegment &&Segment);
-
-  ~IVSegment();
 
   RuntimeDDResult isSegmentSupported(const HLLoop *Loop,
                                      const HLLoop *InnermostLoop) const;
@@ -115,12 +114,12 @@ public:
 
   Segment genSegment() const;
 
-  bool isWrite() const { return IsWrite; }
-  RegDDRef *getLower() { return Lower; }
-  RegDDRef *getUpper() { return Upper; }
-  const RegDDRef *getLower() const { return Lower; }
-  const RegDDRef *getUpper() const { return Upper; }
-  const CanonExpr *getBaseCE() const { return BaseCE; }
+  bool isWrite() const {
+    assert(!isEmpty());
+    return IsWrite;
+  }
+
+  bool isEmpty() const { return BaseCE == nullptr; }
 
 #ifndef NDEBUG
   LLVM_DUMP_METHOD void dump() {
@@ -136,7 +135,9 @@ public:
 struct LoopContext {
   HLLoop *Loop;
   RefGroupVecTy Groups;
-  llvm::SmallVector<Segment, ExpectedNumberOfTests> SegmentList;
+  SmallVector<Segment, ExpectedNumberOfTests> SegmentList;
+  SmallVector<PredicateTuple, 8> PreConditions;
+  RTDDMethod Method = RTDDMethod::Compare;
 
 #ifndef NDEBUG
   LLVM_DUMP_METHOD void dump() {
@@ -153,7 +154,7 @@ class HIRRuntimeDD {
   HIRDDAnalysis &DDA;
   HIRLoopStatistics &HLS;
 
-  typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
+  typedef DDRefGatherer<RegDDRef, MemRefs | FakeRefs> MemRefGatherer;
 
 public:
   static char ID;
@@ -173,20 +174,17 @@ private:
   // Returns true if \p Loop is considered as profitable for multiversioning.
   bool isProfitable(const HLLoop *Loop);
 
+  RuntimeDDResult processDDGToGroupPairs(
+      const HLLoop *Loop, MemRefGatherer::VectorTy &Refs,
+      DenseMap<RegDDRef *, unsigned> &RefGroupIndex,
+      SmallSetVector<std::pair<unsigned, unsigned>, ExpectedNumberOfTests>
+          &Tests) const;
+
   // The method processes each IV segment and updates bounds according to
   // a specified loopnest.
   // It also fills the applicability vector for the further use.
   void processLoopnest(const HLLoop *OuterLoop, const HLLoop *InnerLoop,
                        SmallVectorImpl<IVSegment> &IVSegments);
-
-  // The predicate used in ref grouping. Returns true if two references
-  // belong to the same group.
-  static bool isGroupMemRefMatchForRTDD(const RegDDRef *Ref1,
-                                        const RegDDRef *Ref2);
-
-  // Finds or creates an appropriate group in \p Groups for the \p Ref. Returns
-  // a group number.
-  static unsigned findAndGroup(RefGroupVecTy &Groups, RegDDRef *Ref);
 
   // Returns required DD tests for an arbitrary loop L.
   RuntimeDDResult computeTests(HLLoop *Loop, LoopContext &Context);
@@ -199,8 +197,16 @@ private:
                                              HLContainerTy &Nodes, Segment &S1,
                                              Segment &S2);
 
+  // Generate runtime DD tests using inline compare method.
+  static HLIf *createCompareCondition(LoopContext &Context, HLIf *MasterIf,
+                                      HLContainerTy &Nodes);
+
+  // Create IF statement which will be selecting a loop version.
+  static HLIf *createMasterCondition(LoopContext &Context,
+                                     HLContainerTy &Nodes);
+
   // \brief Modifies HIR implementing specified tests.
-  static void generateDDTest(LoopContext &Context);
+  static void generateHLNodes(LoopContext &Context);
 
   // \brief Marks all DDRefs independent across groups.
   static void markDDRefsIndep(LoopContext &Context);
