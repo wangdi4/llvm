@@ -3010,6 +3010,7 @@ static void createManyRecCallsClone(Function &F,
 
   // Change 'CB' to call 'NewF' rather than 'OldF'
   auto SetCallBaseUser = [](CallBase *CB, Function *OldF, Function *NewF) {
+    assert(CB && "Expecting non-nullptr CB");
     for (Use &U : OldF->uses()) {
       auto *NCB = dyn_cast<CallBase>(U.getUser());
       if (NCB == CB) {
