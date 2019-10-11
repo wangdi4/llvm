@@ -28,6 +28,8 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
 
+#include "llvm/Analysis/TargetTransformInfo.h"
+
 namespace llvm {
 namespace loopopt {
 namespace runtimedd {
@@ -65,6 +67,7 @@ enum RuntimeDDResult {
 
 enum RTDDMethod {
   Compare,
+  LibraryCall,
 };
 
 // The struct represents a segment of memory. It is used to construct checks
@@ -153,14 +156,19 @@ class HIRRuntimeDD {
   HIRFramework &HIRF;
   HIRDDAnalysis &DDA;
   HIRLoopStatistics &HLS;
+  TargetLibraryInfo &TLI;
+  TargetTransformInfo &TTI;
+
+  bool EnableLibraryCallMethod = true;
 
   typedef DDRefGatherer<RegDDRef, MemRefs | FakeRefs> MemRefGatherer;
 
 public:
   static char ID;
 
-  HIRRuntimeDD(HIRFramework &HIRF, HIRDDAnalysis &DDA, HIRLoopStatistics &HLS)
-      : HIRF(HIRF), DDA(DDA), HLS(HLS) {}
+  HIRRuntimeDD(HIRFramework &HIRF, HIRDDAnalysis &DDA, HIRLoopStatistics &HLS,
+               TargetLibraryInfo &TLI, TargetTransformInfo &TTI)
+      : HIRF(HIRF), DDA(DDA), HLS(HLS), TLI(TLI), TTI(TTI) {}
 
   bool run();
 
@@ -191,7 +199,7 @@ private:
 
   // Creates UGE compare of \p Ref1 and \p Ref2, handles type mismatch.
   static HLInst *createUGECompare(HLNodeUtils &HNU, HLContainerTy &Nodes,
-                                  RegDDRef *Ref1, RegDDRef *Ref2);
+                                  RegDDRef *Lower, RegDDRef *Upper);
 
   static HLInst *createIntersectionCondition(HLNodeUtils &HNU,
                                              HLContainerTy &Nodes, Segment &S1,
@@ -201,9 +209,16 @@ private:
   static HLIf *createCompareCondition(LoopContext &Context, HLIf *MasterIf,
                                       HLContainerTy &Nodes);
 
+  // Generate runtime DD tests using library call method.
+  static HLIf *
+  createLibraryCallCondition(LoopContext &Context, HLIf *MasterIf,
+                             HLContainerTy &Nodes,
+                             SmallVectorImpl<unsigned> &NewSymbases);
+
   // Create IF statement which will be selecting a loop version.
-  static HLIf *createMasterCondition(LoopContext &Context,
-                                     HLContainerTy &Nodes);
+  static HLIf *
+  createMasterCondition(LoopContext &Context, HLContainerTy &Nodes,
+                        SmallVectorImpl<unsigned> &NewLiveinSymbases);
 
   // \brief Modifies HIR implementing specified tests.
   static void generateHLNodes(LoopContext &Context);
