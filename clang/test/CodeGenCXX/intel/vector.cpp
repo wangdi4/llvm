@@ -110,13 +110,13 @@ void foo2()
     foo1();
   }
 }
-// CHECK: ![[LOOP_2]] = distinct !{![[LOOP_2]], ![[VECTORIZE:.*]]}
-// CHECK: ![[VECTORIZE]] = !{!"llvm.loop.vectorize.width", i32 1}
-// CHECK: ![[LOOP_4]] = distinct !{![[LOOP_4]], ![[VECTORIZE]]}
-// CHECK: ![[LOOP_5]] = distinct !{![[LOOP_5]], ![[VECTORIZE]]}
-// CHECK: ![[LOOP_6]] = distinct !{![[LOOP_6]], ![[VECTORIZE]]}
-// CHECK: ![[LOOP_12]] = distinct !{![[LOOP_12]], ![[VENABLE:.*]]}
+// CHECK: ![[LOOP_2]] = distinct !{![[LOOP_2]], ![[VENABLE:.*]], ![[VECTORIZE:.*]]}
 // CHECK: ![[VENABLE]] = !{!"llvm.loop.vectorize.enable", i1 true}
+// CHECK: ![[VECTORIZE]] = !{!"llvm.loop.vectorize.width", i32 1}
+// CHECK: ![[LOOP_4]] = distinct !{![[LOOP_4]], ![[VENABLE]], ![[VECTORIZE]]}
+// CHECK: ![[LOOP_5]] = distinct !{![[LOOP_5]], ![[VENABLE]], ![[VECTORIZE]]}
+// CHECK: ![[LOOP_6]] = distinct !{![[LOOP_6]], ![[VENABLE]], ![[VECTORIZE]]}
+// CHECK: ![[LOOP_12]] = distinct !{![[LOOP_12]], ![[VENABLE]]}
 // CHECK: ![[LOOP_14]] = distinct !{![[LOOP_14]], ![[VENABLE]]}
 // CHECK: ![[LOOP_15]] = distinct !{![[LOOP_15]], ![[VENABLE]]}
 // CHECK: ![[LOOP_16]] = distinct !{![[LOOP_16]], ![[VENABLE]]}
@@ -125,5 +125,5 @@ void foo2()
 // CHECK: ![[LOOP_24]] = distinct !{![[LOOP_24]], ![[VALWAYS]], ![[VENABLE]]}
 // CHECK: ![[LOOP_25]] = distinct !{![[LOOP_25]], ![[VALWAYS]], ![[VENABLE]]}
 // CHECK: ![[LOOP_26]] = distinct !{![[LOOP_26]], ![[VALWAYS]], ![[VENABLE]]}
-// CHECK: ![[LOOP_7]] = distinct !{![[LOOP_7]], ![[VECTORIZE]]}
-// CHECK: ![[LOOP_8]] = distinct !{![[LOOP_8]], ![[VECTORIZE]]}
+// CHECK: ![[LOOP_7]] = distinct !{![[LOOP_7]], ![[VENABLE]], ![[VECTORIZE]]}
+// CHECK: ![[LOOP_8]] = distinct !{![[LOOP_8]], ![[VENABLE]], ![[VECTORIZE]]}
