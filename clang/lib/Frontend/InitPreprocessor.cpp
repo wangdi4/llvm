@@ -585,21 +585,11 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
 #undef TOSTR2
 #if INTEL_CUSTOMIZATION
   Builder.defineMacro("__clang_version__",
-<<<<<<< HEAD
                       "\"" CLANG_VERSION_STRING " (icx "
                       + getICXVersionString() + ")\"");
   Builder.defineMacro("__INTEL_LLVM_COMPILER", getICXVersionNumber());
   Builder.defineMacro("__INTEL_CLANG_COMPILER", getICXVersionNumber());
 #endif // INTEL_CUSTOMIZATION
-  if (!LangOpts.MSVCCompat) {
-    // Currently claim to be compatible with GCC 4.2.1-5621, but only if we're
-    // not compiling for MSVC compatibility
-    Builder.defineMacro("__GNUC_MINOR__", "2");
-    Builder.defineMacro("__GNUC_PATCHLEVEL__", "1");
-    Builder.defineMacro("__GNUC__", "4");
-=======
-                      "\"" CLANG_VERSION_STRING " "
-                      + getClangFullRepositoryVersion() + "\"");
 
   if (LangOpts.GNUCVersion != 0) {
     // Major, minor, patch, are given two decimal places each, so 4.2.1 becomes
@@ -610,7 +600,6 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     Builder.defineMacro("__GNUC__", Twine(GNUCMajor));
     Builder.defineMacro("__GNUC_MINOR__", Twine(GNUCMinor));
     Builder.defineMacro("__GNUC_PATCHLEVEL__", Twine(GNUCPatch));
->>>>>>> 5e866e411caad4c4e17e7e0c67b06d28451e1bf2
     Builder.defineMacro("__GXX_ABI_VERSION", "1002");
 
     if (LangOpts.CPlusPlus) {

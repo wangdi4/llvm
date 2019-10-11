@@ -26,8 +26,8 @@
 
 
 // CQ#369662
-// RUN: %clang_cc1 -x c++ -E -dM < %s | FileCheck -check-prefix CHECK_GNUG_1 %s
-// RUN: %clang_cc1 -x c++ -E -dM -fintel-compatibility < %s | FileCheck -check-prefix CHECK_GNUG_1 %s
+// RUN: %clang_cc1 -fgnuc-version=4.2.1 -x c++ -E -dM < %s | FileCheck -check-prefix CHECK_GNUG_1 %s
+// RUN: %clang_cc1 -fgnuc-version=4.2.1 -x c++ -E -dM -fintel-compatibility < %s | FileCheck -check-prefix CHECK_GNUG_1 %s
 // CHECK_GNUG_1: #define __GNUG__ 4
 
 // CQ#373889
