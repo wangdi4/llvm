@@ -1911,6 +1911,7 @@ bool OpenMPLateOutliner::needsVLAExprEmission() {
   case OMPD_target_update:
   case OMPD_taskloop:
   case OMPD_taskloop_simd:
+  case OMPD_master_taskloop:
     return true;
   case OMPD_cancel:
   case OMPD_cancellation_point:
@@ -2273,6 +2274,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   case OMPD_teams_distribute_simd:
   case OMPD_teams_distribute_parallel_for:
   case OMPD_teams_distribute_parallel_for_simd:
+  case OMPD_master_taskloop:
     llvm_unreachable("Combined directives not handled here");
   }
   Outliner << S.clauses();

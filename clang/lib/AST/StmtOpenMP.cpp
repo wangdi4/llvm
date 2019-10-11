@@ -1093,6 +1093,9 @@ OMPMasterTaskLoopDirective *OMPMasterTaskLoopDirective::Create(
   Dir->setCalcLastIteration(Exprs.CalcLastIteration);
   Dir->setPreCond(Exprs.PreCond);
   Dir->setCond(Exprs.Cond);
+#if INTEL_COLLAB
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+#endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setIsLastIterVariable(Exprs.IL);
