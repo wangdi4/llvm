@@ -1259,13 +1259,16 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
         GrpFirstMDist = Dist;
       }
 
-      // If Current Group has members, and the new memref cannot be added to it
-      // for either it is outside the register range or cannot be moved to the
-      // Group's firstmemref's location, we make a new group for the new memref.
-      if (!CurrGrp->empty() &&
-          ( // capacity exceeded.
-              (Dist - GrpFirstMDist + ElemSize) > VectorLength ||
-              !Memref->canMoveTo(*CurrGrp->getInsertPoint()))) {
+      // FIXME: We assume that the first memory reference in AdjMemrefSet is the
+      //        best InsertPoint to form a new group. Here we only check if it
+      //        is legal to group Memref with InsertPoint, but do not try to
+      //        find the really best InsertPoint yet. Though, we should use
+      //        dominance information to find the optimal InsertPoint.
+
+      // If it is not safe to insert the memref to the group, or if the group
+      // capacity has been exceeded, then we create a new group.
+      if (!CurrGrp->isSafeToInsert(*Memref) ||
+          (Dist - GrpFirstMDist + ElemSize) > VectorLength) {
         // Sort memrefs in the group using their offsets.
         sort(*CurrGrp, [](OVLSMemref *LHS, OVLSMemref *RHS) {
           return *RHS->getConstDistanceFrom(*LHS) > 0;
@@ -1734,6 +1737,18 @@ static void getLoadsOrStores(const OVLSGroup &Group, Graph &G,
   }
 } // end of getLoadsOrStores
 } // end of OptVLS namespace
+
+bool OVLSGroup::isSafeToInsert(OVLSMemref &Mrf) const {
+  if (!Mrf.canMoveTo(*InsertPoint))
+    return false;
+
+  if (Mrf.getAccessKind().isLoad())
+    return InsertPoint->dominates(Mrf);
+  else if (Mrf.getAccessKind().isStore())
+    return InsertPoint->postDominates(Mrf);
+
+  llvm_unreachable("Unknown AccessKind");
+}
 
 void OVLSGroup::print(OVLSostream &OS, unsigned NumSpaces) const {
 

@@ -98,6 +98,9 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
   const VPInstruction *FromInst = Inst;
   const SCEV *FromSCEV = ScevExpr;
 
+  if (ToInst == FromInst)
+    return true;
+
   // At this point, only same block movement is supported.
   if (ToInst->getParent() != FromInst->getParent())
     return false;
@@ -194,4 +197,34 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
 
 Optional<int64_t> VPVLSClientMemref::getConstStride() const {
   return getConstStrideImpl(ScevExpr, VLSA->getMainLoop());
+}
+
+bool VPVLSClientMemref::dominates(const OVLSMemref &Mrf) const {
+  const VPRecipeBase *Other = cast<VPVLSClientMemref>(Mrf).getInstruction();
+  // FIXME: we should check for basic block dominance if the two instructions
+  // are not in the same basic block.
+  if (Inst->getParent() != Other->getParent())
+    return false;
+
+  const VPRecipeBase *Iter = Other;
+  for (; Iter; Iter = Iter->getPrevNode())
+    if (Iter == Inst)
+      return true;
+
+  return false;
+}
+
+bool VPVLSClientMemref::postDominates(const OVLSMemref &Mrf) const {
+  const VPRecipeBase *Other = cast<VPVLSClientMemref>(Mrf).getInstruction();
+  // FIXME: we should check for basic block postdominance if the two
+  // instructions are not in the same basic block.
+  if (Inst->getParent() != Other->getParent())
+    return false;
+
+  const VPRecipeBase *Iter = Other;
+  for (; Iter; Iter = Iter->getNextNode())
+    if (Iter == Inst)
+      return true;
+
+  return false;
 }

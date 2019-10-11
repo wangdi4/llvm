@@ -295,6 +295,17 @@ public:
   /// Otherwise, the caller should ask about moving ld2 to the location of ld1.
   virtual unsigned getLocation() const = 0;
 
+  /// Check if this memory reference dominates/postdominates another one. It is
+  /// safe to form groups only at the location that dominates (in case of loads)
+  /// or postdominates (in case of stores) all memrefs in the group. It is
+  /// conservatively safe to return false even if there is in fact a dominance
+  /// relationship between memrefs. The memrefs will not be groupped in this
+  /// case.
+  /// \{
+  virtual bool dominates(const OVLSMemref &Mrf) const = 0;
+  virtual bool postDominates(const OVLSMemref &Mrf) const = 0;
+  /// \}
+
 private:
   unsigned Id;               // A unique Id, helps debugging.
   OVLSType DType;            // represents the memref data type.
@@ -320,10 +331,14 @@ public:
   inline const_iterator begin() const { return MemrefVec.begin(); }
   inline const_iterator end() const { return MemrefVec.end(); }
 
+  // Check if inserting \p Mrf into the group would preserve program semantics.
+  bool isSafeToInsert(OVLSMemref &Mrf) const;
+
   // Returns true if the group is empty.
   bool empty() const { return MemrefVec.empty(); }
   // Insert an element into the Group and set the masks accordingly.
   void insert(OVLSMemref *Mrf, uint64_t AMask) {
+    assert(isSafeToInsert(*Mrf) && "Not safe to insert");
     MemrefVec.push_back(Mrf);
     NByteAccessMask = AMask;
   }

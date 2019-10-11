@@ -89,6 +89,11 @@ public:
 
   Optional<int64_t> getConstStride() const override { return VecStride; }
 
+  // Returning true since in this application all the queiried memrefs have the
+  // same location.
+  bool dominates(const OVLSMemref &Mrf) const override { return true; }
+  bool postDominates(const OVLSMemref &Mrf) const override { return true; }
+
   unsigned getLocation() const override {
     return MId; // FIXME
   }
