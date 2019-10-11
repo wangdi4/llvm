@@ -713,8 +713,8 @@ struct AACallSiteReturnedFromReturned : public Base {
 /// Base class is required to have `followUse` method.
 
 /// bool followUse(Attributor &A, const Use *U, const Instruction *I)
-/// \param U Underlying use.
-/// \param I The user of the \p U.
+/// U - Underlying use.
+/// I - The user of the \p U.
 /// `followUse` returns true if the value should be tracked transitively.
 
 template <typename AAType, typename Base,
