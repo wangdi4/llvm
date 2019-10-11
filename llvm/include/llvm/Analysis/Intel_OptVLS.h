@@ -76,48 +76,30 @@ typedef OVLSVector<OVLSInstruction *> OVLSInstructionVector;
 typedef OVLSMap<OVLSMemref *, OVLSGroup *> OVLSMemrefToGroupMap;
 typedef OVLSMap<OVLSMemref *, OVLSInstruction *> OVLSMemrefToInstMap;
 
-// AccessType: {Strided|Indexed}{Load|Store}
-class OVLSAccessType {
-private:
-  // S:Strided I:Indexed
-  enum ATypeE { Unknown, SLoad, SStore, ILoad, IStore };
-
-  ATypeE AccType;
-
+// AccessKind: {Strided|Indexed}{Load|Store}
+class OVLSAccessKind {
 public:
-  explicit OVLSAccessType(ATypeE AccType) { this->AccType = AccType; }
-  bool operator==(const OVLSAccessType &Rhs) const {
-    return AccType == Rhs.AccType;
-  }
-  bool operator!=(const OVLSAccessType &Rhs) const { return !operator==(Rhs); }
+  // S:Strided I:Indexed
+  enum AKindE { Unknown, SLoad, SStore, ILoad, IStore };
+  OVLSAccessKind(AKindE AccessKind) : AccessKind(AccessKind) {}
 
-  bool isUnknown() const {
-    if (AccType > IStore || AccType < SLoad)
-      return true;
-    return false;
+  bool operator==(const OVLSAccessKind &Rhs) const {
+    return AccessKind == Rhs.AccessKind;
   }
+  bool operator!=(const OVLSAccessKind &Rhs) const { return !operator==(Rhs); }
+
+  bool isStrided() const { return AccessKind == SLoad || AccessKind == SStore; }
+  bool isIndexed() const { return AccessKind == ILoad || AccessKind == IStore; }
+  bool isLoad() const { return AccessKind == ILoad || AccessKind == SLoad; }
+  bool isStore() const { return AccessKind == IStore || AccessKind == SStore; }
 
   void print(OVLSostream &OS) const;
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  /// This method is used for debugging.
-  ///
   void dump() const;
 #endif
 
-  static OVLSAccessType getStridedLoadTy() { return OVLSAccessType(SLoad); }
-  static OVLSAccessType getStridedStoreTy() { return OVLSAccessType(SStore); }
-  static OVLSAccessType getIndexedLoadTy() { return OVLSAccessType(ILoad); }
-  static OVLSAccessType getIndexedStoreTy() { return OVLSAccessType(IStore); }
-  static OVLSAccessType getUnknownTy() { return OVLSAccessType(Unknown); }
-
-  bool isStridedAccess() const { return AccType == SLoad || AccType == SStore; }
-  bool isStridedLoad() const { return AccType == SLoad; }
-
-  bool isIndexedAccess() const { return AccType == ILoad || AccType == IStore; }
-
-  bool isGather() const { return AccType == ILoad || AccType == SLoad; }
-  bool isScatter() const { return AccType == IStore || AccType == SStore; }
+private:
+  AKindE AccessKind;
 };
 
 /// Defines OVLS data type which is a vector type, representing a vector of
@@ -157,11 +139,8 @@ public:
   bool isValid() const { return ElementSize != 0 && NumElements != 0; }
 
   uint32_t getElementSize() const { return ElementSize; }
-  void setElementSize(uint32_t ESize) { ElementSize = ESize; }
-
   uint32_t getNumElements() const { return NumElements; }
   void setNumElements(uint32_t NElems) { NumElements = NElems; }
-
   uint32_t getSize() const { return NumElements * ElementSize; }
 
   /// \brief prints the type as "<NumElements x ElementSize>"
@@ -204,26 +183,18 @@ private:
 public:
   OVLSMemrefKind getKind() const { return Kind; }
 
-  explicit OVLSMemref(OVLSMemrefKind K, OVLSType Type,
-                      const OVLSAccessType &AccType);
-
+  OVLSMemref(OVLSMemrefKind K, OVLSType Type, OVLSAccessKind AccessKind);
   virtual ~OVLSMemref() {}
 
+  OVLSAccessKind getAccessKind() const { return AccessKind; }
   OVLSType getType() const { return DType; }
-  void setType(OVLSType T) { DType = T; }
-
-  void setNumElements(uint32_t nelems) { DType.setNumElements(nelems); }
   unsigned getNumElements() const { return DType.getNumElements(); };
-  OVLSAccessType getAccessType() const { return AccType; }
-  void setAccessType(const OVLSAccessType &Type) { AccType = Type; }
+  void setNumElements(uint32_t nelems) { DType.setNumElements(nelems); }
 
   unsigned getId() const { return Id; }
 
-  void print(OVLSostream &OS, unsigned SpaceCount) const;
-
+  virtual void print(OVLSostream &OS, unsigned SpaceCount = 0) const;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  /// This method is used for debugging.
-  ///
   void dump() const;
 #endif
 
@@ -259,11 +230,6 @@ public:
   ///      = a[3i+2] {stride: j(12)-bytes} accessing every jth byte
   ///
   virtual Optional<int64_t> getConstDistanceFrom(const OVLSMemref &Memref) = 0;
-
-  /// \brief Returns true if this and Memref have the same OVLSType.
-  virtual bool haveSameOVLSType(const OVLSMemref &Memref) {
-    return (DType == Memref.getType());
-  }
 
   /// \brief Returns true if this can move to the location of \p Memref. This
   /// means it does not violate any program/control flow semantics nor any
@@ -330,16 +296,16 @@ public:
   virtual unsigned getLocation() const = 0;
 
 private:
-  unsigned Id;            // A unique Id, helps debugging.
-  OVLSType DType;         // represents the memref data type.
-  OVLSAccessType AccType; // Access type of the Memref, e.g {S|I}{Load|store}
+  unsigned Id;               // A unique Id, helps debugging.
+  OVLSType DType;            // represents the memref data type.
+  OVLSAccessKind AccessKind; // Access kind of the Memref, e.g {S|I}{Load|store}
 };
 
 /// OVLSGroup represents a group of adjacent gathers/scatters.
 class OVLSGroup {
 public:
-  explicit OVLSGroup(int VLen, const OVLSAccessType &AType)
-      : VectorLength(VLen), AccType(AType) {
+  explicit OVLSGroup(int VLen, OVLSAccessKind AKind)
+      : VectorLength(VLen), AccessKind(AKind) {
     NByteAccessMask = 0;
   }
 
@@ -362,15 +328,8 @@ public:
   // Returns group access mask.
   uint64_t getNByteAccessMask() const { return NByteAccessMask; }
   void setAccessMask(uint64_t Mask) { NByteAccessMask = Mask; }
-  OVLSAccessType getAccessType() const { return AccType; }
+  OVLSAccessKind getAccessKind() const { return AccessKind; }
   uint32_t getVectorLength() const { return VectorLength; }
-  bool hasStridedAccesses() const { return AccType.isStridedAccess(); }
-
-  // Gathers collectively refers to both indexed and strided loads.
-  bool hasGathers() const { return AccType.isGather(); }
-
-  // Scatters collectively refers to both indexed and strided stores.
-  bool hasScatters() const { return AccType.isScatter(); }
 
   // Returns the total number of memrefs that this group contains.
   uint32_t size() const { return MemrefVec.size(); }
@@ -445,8 +404,8 @@ private:
   /// MemrefVec.
   uint64_t NByteAccessMask;
 
-  /// \brief AccessType of the group.
-  OVLSAccessType AccType;
+  /// \brief AccessKind of the group.
+  OVLSAccessKind AccessKind;
 };
 
 /// OVLSOperand is used to define an operand object for OVLSInstruction.

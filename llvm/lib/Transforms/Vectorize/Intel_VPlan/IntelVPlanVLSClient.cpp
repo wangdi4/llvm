@@ -69,11 +69,10 @@ const SCEV *VPVLSClientMemref::getSCEVForVPValue(const VPValue *Val) const {
 }
 
 VPVLSClientMemref::VPVLSClientMemref(const OVLSMemrefKind &Kind,
-                                     const OVLSAccessType &AccTy,
-                                     const OVLSType &Ty,
+                                     OVLSAccessKind AccKind, const OVLSType &Ty,
                                      const VPInstruction *Inst,
                                      const VPlanVLSAnalysis *VLSA)
-    : OVLSMemref(Kind, Ty, AccTy), Inst(Inst), VLSA(VLSA) {
+    : OVLSMemref(Kind, Ty, AccKind), Inst(Inst), VLSA(VLSA) {
   if (Kind == OVLSMemref::VLSK_VPlanVLSClientMemref)
     ScevExpr = getSCEVForVPValue(getLoadStorePointerOperand(Inst));
 }

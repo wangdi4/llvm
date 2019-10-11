@@ -6,10 +6,10 @@
 ; REQUIRES: asserts
 ;
 
-; CHECK: Information about {{.*}} AccessType: SStore {{.*}}  Stride = 16(%tmp)[0][4 * i1]
-; CHECK-NEXT: {{.*}} AccessType: SStore {{.*}} 16(%tmp)[0][4 * i1 + 1] {{.*}} | can be moved
-; CHECK-NEXT: {{.*}} AccessType: SStore {{.*}} 16(%tmp)[0][4 * i1 + 2] {{.*}} | can be moved
-; CHECK-NEXT: {{.*}} AccessType: SStore {{.*}} 16(%tmp)[0][4 * i1 + 3] {{.*}} | can be moved
+; CHECK: Information about {{.*}} SStore: {{.*}} (%tmp)[0][4 * i1]
+; CHECK-NEXT:    SStore: {{.*}} (%tmp)[0][4 * i1 + 1]  -4 | can be moved
+; CHECK-NEXT:    SStore: {{.*}} (%tmp)[0][4 * i1 + 2]  -8 | can be moved
+; CHECK-NEXT:    SStore: {{.*}} (%tmp)[0][4 * i1 + 3]  -12 | can be moved
 
 source_filename = "pixel_hadamard_ac.cpp"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

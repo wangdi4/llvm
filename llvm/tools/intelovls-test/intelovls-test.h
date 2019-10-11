@@ -36,10 +36,10 @@ public:
   // Constructor for Indexed Accesses.
   ClientMemref(char MemrefId, int Distance, Type *ElemType,
                unsigned NumElements, // VectorType
-               OVLSAccessType AType, char IdxId, VectorType *IdxType)
+               OVLSAccessKind AKind, char IdxId, VectorType *IdxType)
       : OVLSMemref(VLSK_ClientMemref,
                    OVLSType(ElemType->getPrimitiveSizeInBits(), NumElements),
-                   AType) {
+                   AKind) {
     MId = MemrefId;
     Dist = Distance;
     IndexId = IdxId;
@@ -51,10 +51,10 @@ public:
   // Constructor for Strided Accesses with unknown strides.
   ClientMemref(char MemrefId, int Distance, Type *ElemType,
                unsigned NumElements, // VectorType
-               OVLSAccessType AType, bool CVStride, char VectorStrideId)
+               OVLSAccessKind AKind, bool CVStride, char VectorStrideId)
       : OVLSMemref(VLSK_ClientMemref,
                    OVLSType(ElemType->getPrimitiveSizeInBits(), NumElements),
-                   AType) {
+                   AKind) {
     MId = MemrefId;
     Dist = Distance;
     ConstVStride = CVStride;
@@ -65,10 +65,10 @@ public:
   // Constructor for Strided Accesses with constant strides.
   ClientMemref(char MemrefId, int Distance, Type *ElemType,
                unsigned NumElements, // VectorType
-               OVLSAccessType AType, bool CVStride, int VStride)
+               OVLSAccessKind AKind, bool CVStride, int VStride)
       : OVLSMemref(VLSK_ClientMemref,
                    OVLSType(ElemType->getPrimitiveSizeInBits(), NumElements),
-                   AType) {
+                   AKind) {
     MId = MemrefId;
     Dist = Distance;
     ConstVStride = CVStride;

@@ -12,12 +12,12 @@ define void @foo(i32* nocapture %ary) {
 ; CHECK:       Printing Groups- Total Groups 2
 ; CHECK-NEXT:  Group#1
 ; CHECK-NEXT:    Vector Length(in bytes): 64
-; CHECK-NEXT:    AccType: SLoad
+; CHECK-NEXT:    AccType: SLoad, Stride (in bytes): 4
 ; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
 ; CHECK-NEXT:   #1 <4 x 32> SLoad
 ; CHECK-NEXT:  Group#2
 ; CHECK-NEXT:    Vector Length(in bytes): 64
-; CHECK-NEXT:    AccType: SStore
+; CHECK-NEXT:    AccType: SStore, Stride (in bytes): 4
 ; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
 ; CHECK-NEXT:   #2 <4 x 32> SStore
 ;
