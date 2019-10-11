@@ -41542,10 +41542,6 @@ static SDValue combineStore(SDNode *N, SelectionDAG &DAG,
                              MVT::v16i8, St->getMemOperand());
   }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-=======
->>>>>>> ccc85ac85569c55b6915180d8b722812b4a226b6
   // Try to fold a vpmovuswb 256->128 into a truncating store.
   // FIXME: Generalize this to other types.
   // FIXME: Do the same for signed saturation.
@@ -41558,10 +41554,6 @@ static SDValue combineStore(SDNode *N, SelectionDAG &DAG,
                            dl, St->getValue().getOperand(0), St->getBasePtr(),
                            MVT::v16i8, St->getMemOperand(), DAG);
   }
-<<<<<<< HEAD
-#endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> ccc85ac85569c55b6915180d8b722812b4a226b6
 
   // Optimize trunc store (of multiple scalars) to shuffle and store.
   // First, pack all of the elements in one place. Next, store to memory
