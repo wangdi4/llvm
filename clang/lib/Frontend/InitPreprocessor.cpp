@@ -585,6 +585,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
 #undef TOSTR2
 #if INTEL_CUSTOMIZATION
   Builder.defineMacro("__clang_version__",
+<<<<<<< HEAD
                       "\"" CLANG_VERSION_STRING " (icx "
                       + getICXVersionString() + ")\"");
   Builder.defineMacro("__INTEL_LLVM_COMPILER", getICXVersionNumber());
@@ -596,7 +597,26 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     Builder.defineMacro("__GNUC_MINOR__", "2");
     Builder.defineMacro("__GNUC_PATCHLEVEL__", "1");
     Builder.defineMacro("__GNUC__", "4");
+=======
+                      "\"" CLANG_VERSION_STRING " "
+                      + getClangFullRepositoryVersion() + "\"");
+
+  if (LangOpts.GNUCVersion != 0) {
+    // Major, minor, patch, are given two decimal places each, so 4.2.1 becomes
+    // 40201.
+    unsigned GNUCMajor = LangOpts.GNUCVersion / 100 / 100;
+    unsigned GNUCMinor = LangOpts.GNUCVersion / 100 % 100;
+    unsigned GNUCPatch = LangOpts.GNUCVersion % 100;
+    Builder.defineMacro("__GNUC__", Twine(GNUCMajor));
+    Builder.defineMacro("__GNUC_MINOR__", Twine(GNUCMinor));
+    Builder.defineMacro("__GNUC_PATCHLEVEL__", Twine(GNUCPatch));
+>>>>>>> 5e866e411caad4c4e17e7e0c67b06d28451e1bf2
     Builder.defineMacro("__GXX_ABI_VERSION", "1002");
+
+    if (LangOpts.CPlusPlus) {
+      Builder.defineMacro("__GNUG__", Twine(GNUCMajor));
+      Builder.defineMacro("__GXX_WEAK__");
+    }
   }
 
   // Define macros for the C11 / C++11 memory orderings
@@ -642,7 +662,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   if (!LangOpts.GNUMode && !LangOpts.MSVCCompat)
     Builder.defineMacro("__STRICT_ANSI__");
 
-  if (!LangOpts.MSVCCompat && LangOpts.CPlusPlus11)
+  if (LangOpts.GNUCVersion && LangOpts.CPlusPlus11)
     Builder.defineMacro("__GXX_EXPERIMENTAL_CXX0X__");
 
   if (LangOpts.ObjC) {
@@ -722,7 +742,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
 
   if (!LangOpts.MSVCCompat && LangOpts.Exceptions)
     Builder.defineMacro("__EXCEPTIONS");
-  if (!LangOpts.MSVCCompat && LangOpts.RTTI)
+  if (LangOpts.GNUCVersion && LangOpts.RTTI)
     Builder.defineMacro("__GXX_RTTI");
 
   if (LangOpts.SjLjExceptions)
@@ -736,11 +756,8 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   if (LangOpts.Deprecated)
     Builder.defineMacro("__DEPRECATED");
 
-  if (!LangOpts.MSVCCompat && LangOpts.CPlusPlus) {
-    Builder.defineMacro("__GNUG__", "4");
-    Builder.defineMacro("__GXX_WEAK__");
+  if (!LangOpts.MSVCCompat && LangOpts.CPlusPlus)
     Builder.defineMacro("__private_extern__", "extern");
-  }
 
   if (LangOpts.MicrosoftExt) {
     if (LangOpts.WChar) {
@@ -975,7 +992,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     Builder.defineMacro("__FINITE_MATH_ONLY__", "0");
 #endif // INTEL_CUSTOMIZATION
 
-  if (!LangOpts.MSVCCompat) {
+  if (LangOpts.GNUCVersion) {
     if (LangOpts.GNUInline || LangOpts.CPlusPlus)
       Builder.defineMacro("__GNUC_GNU_INLINE__");
     else
@@ -1012,7 +1029,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
 #undef DEFINE_LOCK_FREE_MACRO
   };
   addLockFreeMacros("__CLANG_ATOMIC_");
-  if (!LangOpts.MSVCCompat)
+  if (LangOpts.GNUCVersion)
     addLockFreeMacros("__GCC_ATOMIC_");
 
   if (LangOpts.NoInlineDefine)
