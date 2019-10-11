@@ -30,7 +30,7 @@
 /// Unsupported feature
 #define KMP_UNSUPPORTED(Feature)                                               \
   do {                                                                         \
-    printf("Device does not support %s\n", Feature);                           \
+    printf("Device does not support " Feature "\n");                           \
   } while (0)
 
 ///
