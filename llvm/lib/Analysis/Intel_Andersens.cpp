@@ -5478,6 +5478,7 @@ unsigned IntelModRefImpl::getLibfuncModRefModel(LibFunc &TheLibFunc,
     unsigned Len = sizeof(LibFuncModelAttrs) / sizeof(LibFuncDetails);
     for (unsigned Idx = 0; Idx != Len; ++Idx) {
       LibFunc FuncId = LibFuncModelAttrs[Idx].LibFuncId;
+      assert(FuncId < NumLibFuncs && "Unexpected FuncId");
       assert(LibFuncModRefAttributes[FuncId] == LFMR_UNKNOWN &&
              "Duplicate table entry");
       assert(!((LibFuncModelAttrs[Idx].Mask & LFMR_NONE) &&
