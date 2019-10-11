@@ -410,7 +410,7 @@ static CallInst *createCallInstStub(CallInst *Call, Function *Func,
   return Result;
 }
 
-static Value *getPacketPtr(CallInst *ChannelCall,
+static Value *getPacketPtr(Module &M, CallInst *ChannelCall,
                            ChannelKind CK, AllocaMapType &AllocaMap) {
   auto DL = ChannelCall->getModule()->getDataLayout();
 
@@ -444,7 +444,53 @@ static Value *getPacketPtr(CallInst *ChannelCall,
   // Write channel:
   // void write_channel_intel(channel, <value ty>)
   // bool write_channel_nb_intel(channel, <value ty>)
+  // void write_channel_intel(channel, <value1 ty1>, <value2 ty2>)
+  // bool write_channel_nb_intel(channel, <value1 ty1>, <value2 ty2>)
 
+  assert(ChannelCall->getNumArgOperands() <= 3 &&
+               "Too many arguments for channel write function!");
+  if(ChannelCall->getNumArgOperands() == 3) {
+    // This is a channel write with coerced arguments
+    // At this time, struct size is > 8 bytes and <= 16 bytes
+    // Need to create a struct that contains the coerced arguments and
+    // the size of the new struct is the same as the original struct type
+    auto *PacketArg1 = ChannelCall->getArgOperand(1);
+    auto *PacketArg2 = ChannelCall->getArgOperand(2);
+
+    // At this time, the arguments are passed by value and not struct pointer
+    assert(!isa<PointerType>(PacketArg1->getType()) &&
+               "Expected not a pointer type");
+    assert(!isa<PointerType>(PacketArg2->getType()) &&
+               "Expected not a pointer type");
+
+    SmallVector<Type *, 2> CoercedTypeVec;
+    CoercedTypeVec.push_back(PacketArg1->getType());
+    CoercedTypeVec.push_back(PacketArg2->getType());
+    StructType *structMergeTy = StructType::create(M.getContext(), CoercedTypeVec,
+               "struct.channelpipetransformation.merge");
+
+    auto *&WritePacketPtr = AllocaMap[std::make_pair(TargetFn, structMergeTy)];
+    if(!WritePacketPtr)
+      WritePacketPtr = new AllocaInst(structMergeTy, DL.getAllocaAddrSpace(),
+               "write.src", &*AllocaInsertionPt);
+
+    SmallVector<Value *, 2> Indices(2,
+               ConstantInt::get(IntegerType::get(M.getContext(), 32), 0));
+    GetElementPtrInst *gepArg1 = GetElementPtrInst::Create(structMergeTy,
+                                    WritePacketPtr, Indices, "", ChannelCall);
+    new StoreInst(PacketArg1, gepArg1, ChannelCall);
+    Indices[1] = ConstantInt::get(IntegerType::get(M.getContext(), 32), 1);
+    GetElementPtrInst *gepArg2 = GetElementPtrInst::Create(structMergeTy,
+                                    WritePacketPtr, Indices, "", ChannelCall);
+    new StoreInst(PacketArg2, gepArg2, ChannelCall);
+
+    return WritePacketPtr;
+  }
+
+  // Normal channel write function, three cases:
+  // 1. argument is not struct
+  // 2. argument is struct with size > 16 bytes (not coerced)
+  // 3. argument is struct with size <= 8 bytes (coerced, but argument is not split)
   auto *Packet = ChannelCall->getArgOperand(1);
   if (isa<PointerType>(Packet->getType())) {
     // Struct is passed by pointer anyway
@@ -507,7 +553,7 @@ static void replaceChannelCallResult(CallInst *ChannelCall, ChannelKind CK,
   // void write_channel(channel, <value ty>)
 }
 
-static void replaceChannelBuiltinCall(CallInst *ChannelCall, Value *GlobalPipe,
+static void replaceChannelBuiltinCall(Module &M, CallInst *ChannelCall, Value *GlobalPipe,
                                       Value *Pipe, AllocaMapType &AllocaMap,
                                       OCLBuiltins &Builtins) {
   assert(GlobalPipe && "Failed to find corresponding global pipe");
@@ -521,7 +567,7 @@ static void replaceChannelBuiltinCall(CallInst *ChannelCall, Value *GlobalPipe,
   PK.Blocking = CK.Blocking;
   PK.FPGA = true;
 
-  Value *PacketPtr = getPacketPtr(ChannelCall, CK, AllocaMap);
+  Value *PacketPtr = getPacketPtr(M, ChannelCall, CK, AllocaMap);
   Function *Builtin = getPipeBuiltin(Builtins, PK);
   FunctionType *FTy = Builtin->getFunctionType();
 
@@ -712,7 +758,7 @@ static void replaceGlobalChannelUses(Module &M, Type *ChannelTy,
       if (CallInst *Call = dyn_cast<CallInst>(ChannelUser)) {
         ToDelete.insert(Call);
         if (isChannelBuiltinCall(Call)) {
-          replaceChannelBuiltinCall(Call, GlobalPipe, Pipe, AllocaMap,
+          replaceChannelBuiltinCall(M, Call, GlobalPipe, Pipe, AllocaMap,
                                     Builtins);
         } else {
           // handle calls to user-functions here
