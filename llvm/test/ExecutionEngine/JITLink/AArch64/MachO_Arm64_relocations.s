@@ -1,118 +1,137 @@
 # RUN: rm -rf %t && mkdir -p %t
-# RUN: llvm-mc -triple=x86_64-apple-macosx10.9 -filetype=obj -o %t/macho_reloc.o %s
+# RUN: llvm-mc -triple=arm64-apple-darwin19 -filetype=obj -o %t/macho_reloc.o %s
 # RUN: llvm-jitlink -noexec -define-abs external_data=0xdeadbeef -define-abs external_func=0xcafef00d -check=%s %t/macho_reloc.o
 
         .section        __TEXT,__text,regular,pure_instructions
 
-        .align  4, 0x90
+        .p2align  2
 Lanon_func:
-        retq
+        ret
 
         .globl  named_func
-        .align  4, 0x90
+        .p2align  2
 named_func:
-        xorq    %rax, %rax
-        retq
+        ret
 
-# Check X86_64_RELOC_BRANCH handling with a call to a local function.
+# Check ARM64_RELOC_BRANCH26 handling with a call to a local function.
+# The branch instruction only encodes 26 bits of the 28-bit possible branch
+# range, since the low 2 bits will always be zero.
 #
-# jitlink-check: decode_operand(test_local_call, 0) = named_func - next_pc(test_local_call)
+# jitlink-check: decode_operand(test_local_call, 0)[25:0] = (named_func - test_local_call)[27:2]
         .globl  test_local_call
-        .align  4, 0x90
+        .p2align  2
 test_local_call:
-        callq   named_func
-        retq
+        bl   named_func
 
         .globl  _main
-        .align  4, 0x90
+        .p2align  2
 _main:
-        retq
+        ret
 
-# Check X86_64_RELOC_GOTPCREL handling with a load from an external symbol.
-# Validate both the reference to the GOT entry, and also the content of the GOT
-# entry.
+# Check ARM64_RELOC_GOTPAGE21 / ARM64_RELOC_GOTPAGEOFF12 handling with a
+# reference to an external symbol. Validate both the reference to the GOT entry,
+# and also the content of the GOT entry.
 #
-# jitlink-check: decode_operand(test_gotld, 4) = got_addr(macho_reloc.o, external_data) - next_pc(test_gotld)
+# For the GOTPAGE21/ADRP instruction we have the 21-bit delta to the 4k page
+# containing the GOT entry for external_data.
+#
+# For the GOTPAGEOFF/LDR instruction we have the 12-bit offset of the entry
+# within the page.
+#
 # jitlink-check: *{8}(got_addr(macho_reloc.o, external_data)) = external_data
-        .globl  test_gotld
-        .align  4, 0x90
-test_gotld:
-        movq    external_data@GOTPCREL(%rip), %rax
-        retq
+# jitlink-check: decode_operand(test_gotpage21, 1) = (got_addr(macho_reloc.o, external_data)[32:12] - test_gotpage21[32:12])
+# jitlink-check: decode_operand(test_gotpageoff12, 2) = got_addr(macho_reloc.o, external_data)[11:3]
+        .globl  test_gotpage21
+        .p2align  2
+test_gotpage21:
+        adrp  x0, external_data@GOTPAGE
+        .globl  test_gotpageoff12
+test_gotpageoff12:
+        ldr   x0, [x0, external_data@GOTPAGEOFF]
+
+# Check ARM64_RELOC_PAGE21 / ARM64_RELOC_PAGEOFF12 handling with a reference to
+# a local symbol.
+#
+# For the PAGE21/ADRP instruction we have the 21-bit delta to the 4k page
+# containing the global.
+#
+# For the GOTPAGEOFF12 relocation we test the ADD instruction, all LDR/GPR
+# variants and all LDR/Neon variants.
+#
+# jitlink-check: decode_operand(test_page21, 1) = (named_data[32:12] - test_page21[32:12])
+# jitlink-check: decode_operand(test_pageoff12add, 2) = named_data[11:0]
+# jitlink-check: decode_operand(test_pageoff12gpr8, 2) = named_data[11:0]
+# jitlink-check: decode_operand(test_pageoff12gpr16, 2) = named_data[11:1]
+# jitlink-check: decode_operand(test_pageoff12gpr32, 2) = named_data[11:2]
+# jitlink-check: decode_operand(test_pageoff12gpr64, 2) = named_data[11:3]
+# jitlink-check: decode_operand(test_pageoff12neon8, 2) = named_data[11:0]
+# jitlink-check: decode_operand(test_pageoff12neon16, 2) = named_data[11:1]
+# jitlink-check: decode_operand(test_pageoff12neon32, 2) = named_data[11:2]
+# jitlink-check: decode_operand(test_pageoff12neon64, 2) = named_data[11:3]
+# jitlink-check: decode_operand(test_pageoff12neon128, 2) = named_data[11:4]
+        .globl  test_page21
+        .p2align  2
+test_page21:
+        adrp  x0, named_data@PAGE
+
+        .globl  test_pageoff12add
+test_pageoff12add:
+        add   x0, x0, named_data@PAGEOFF
+
+        .globl  test_pageoff12gpr8
+test_pageoff12gpr8:
+        ldrb  w0, [x0, named_data@PAGEOFF]
+
+        .globl  test_pageoff12gpr16
+test_pageoff12gpr16:
+        ldrh  w0, [x0, named_data@PAGEOFF]
+
+        .globl  test_pageoff12gpr32
+test_pageoff12gpr32:
+        ldr   w0, [x0, named_data@PAGEOFF]
+
+        .globl  test_pageoff12gpr64
+test_pageoff12gpr64:
+        ldr   x0, [x0, named_data@PAGEOFF]
+
+        .globl  test_pageoff12neon8
+test_pageoff12neon8:
+        ldr   b0, [x0, named_data@PAGEOFF]
+
+        .globl  test_pageoff12neon16
+test_pageoff12neon16:
+        ldr   h0, [x0, named_data@PAGEOFF]
+
+        .globl  test_pageoff12neon32
+test_pageoff12neon32:
+        ldr   s0, [x0, named_data@PAGEOFF]
+
+        .globl  test_pageoff12neon64
+test_pageoff12neon64:
+        ldr   d0, [x0, named_data@PAGEOFF]
+
+        .globl  test_pageoff12neon128
+test_pageoff12neon128:
+        ldr   q0, [x0, named_data@PAGEOFF]
 
 # Check that calls to external functions trigger the generation of stubs and GOT
 # entries.
 #
-# jitlink-check: decode_operand(test_external_call, 0) = stub_addr(macho_reloc.o, external_func) - next_pc(test_external_call)
+# jitlink-check: decode_operand(test_external_call, 0) = (stub_addr(macho_reloc.o, external_func) - test_external_call)[27:2]
 # jitlink-check: *{8}(got_addr(macho_reloc.o, external_func)) = external_func
         .globl  test_external_call
-        .align  4, 0x90
+        .p2align  2
 test_external_call:
-        callq   external_func
-        retq
-
-# Check signed relocation handling:
-#
-# X86_64_RELOC_SIGNED / Extern -- movq address of linker global
-# X86_64_RELOC_SIGNED1 / Extern -- movb immediate byte to linker global
-# X86_64_RELOC_SIGNED2 / Extern -- movw immediate word to linker global
-# X86_64_RELOC_SIGNED4 / Extern -- movl immediate long to linker global
-#
-# X86_64_RELOC_SIGNED / Anon -- movq address of linker private into register
-# X86_64_RELOC_SIGNED1 / Anon -- movb immediate byte to linker private
-# X86_64_RELOC_SIGNED2 / Anon -- movw immediate word to linker private
-# X86_64_RELOC_SIGNED4 / Anon -- movl immediate long to linker private
-signed_reloc_checks:
-        .globl signed
-# jitlink-check: decode_operand(signed, 4) = named_data - next_pc(signed)
-signed:
-        movq named_data(%rip), %rax
-
-        .globl signed1
-# jitlink-check: decode_operand(signed1, 3) = named_data - next_pc(signed1)
-signed1:
-        movb $0xAA, named_data(%rip)
-
-        .globl signed2
-# jitlink-check: decode_operand(signed2, 3) = named_data - next_pc(signed2)
-signed2:
-        movw $0xAAAA, named_data(%rip)
-
-        .globl signed4
-# jitlink-check: decode_operand(signed4, 3) = named_data - next_pc(signed4)
-signed4:
-        movl $0xAAAAAAAA, named_data(%rip)
-
-        .globl signedanon
-# jitlink-check: decode_operand(signedanon, 4) = section_addr(macho_reloc.o, __data) - next_pc(signedanon)
-signedanon:
-        movq Lanon_data(%rip), %rax
-
-        .globl signed1anon
-# jitlink-check: decode_operand(signed1anon, 3) = section_addr(macho_reloc.o, __data) - next_pc(signed1anon)
-signed1anon:
-        movb $0xAA, Lanon_data(%rip)
-
-        .globl signed2anon
-# jitlink-check: decode_operand(signed2anon, 3) = section_addr(macho_reloc.o, __data) - next_pc(signed2anon)
-signed2anon:
-        movw $0xAAAA, Lanon_data(%rip)
-
-        .globl signed4anon
-# jitlink-check: decode_operand(signed4anon, 3) = section_addr(macho_reloc.o, __data) - next_pc(signed4anon)
-signed4anon:
-        movl $0xAAAAAAAA, Lanon_data(%rip)
-
-
+        bl   external_func
 
         .section        __DATA,__data
 
-# Storage target for non-extern X86_64_RELOC_SIGNED_(1/2/4) relocs.
+# Storage target for non-extern ARM64_RELOC_SUBTRACTOR relocs.
         .p2align  3
 Lanon_data:
         .quad   0x1111111111111111
 
-# Check X86_64_RELOC_SUBTRACTOR Quad/Long in anonymous storage with anonymous
+# Check ARM64_RELOC_SUBTRACTOR Quad/Long in anonymous storage with anonymous
 # minuend: "LA: .quad LA - B + C". The anonymous subtrahend form
 # "LA: .quad B - LA + C" is not tested as subtrahends are not permitted to be
 # anonymous.
@@ -130,10 +149,12 @@ Lanon_minuend_long:
         .long Lanon_minuend_long - named_data + 2
 
 # Named quad storage target (first named atom in __data).
+# Align to 16 for use as 128-bit load target.
         .globl named_data
-        .p2align  3
+        .p2align  4
 named_data:
         .quad   0x2222222222222222
+        .quad   0x3333333333333333
 
 # An alt-entry point for named_data
         .globl named_data_alt_entry
@@ -142,7 +163,7 @@ named_data:
 named_data_alt_entry:
         .quad   0
 
-# Check X86_64_RELOC_UNSIGNED / quad / extern handling by putting the address of
+# Check ARM64_RELOC_UNSIGNED / quad / extern handling by putting the address of
 # a local named function into a quad symbol.
 #
 # jitlink-check: *{8}named_func_addr_quad = named_func
@@ -151,16 +172,7 @@ named_data_alt_entry:
 named_func_addr_quad:
         .quad   named_func
 
-# Check X86_64_RELOC_UNSIGNED / long / extern handling by putting the address of
-# an external function (defined to reside in the low 4Gb) into a long symbol.
-#
-# jitlink-check: *{4}named_func_addr_long = external_func
-        .globl  named_func_addr_long
-        .p2align  2
-named_func_addr_long:
-        .long   external_func
-
-# Check X86_64_RELOC_UNSIGNED / quad / non-extern handling by putting the
+# Check ARM64_RELOC_UNSIGNED / quad / non-extern handling by putting the
 # address of a local anonymous function into a quad symbol.
 #
 # jitlink-check: *{8}anon_func_addr_quad = section_addr(macho_reloc.o, __text)
@@ -169,7 +181,7 @@ named_func_addr_long:
 anon_func_addr_quad:
         .quad   Lanon_func
 
-# X86_64_RELOC_SUBTRACTOR Quad/Long in named storage with anonymous minuend
+# ARM64_RELOC_SUBTRACTOR Quad/Long in named storage with anonymous minuend
 #
 # jitlink-check: *{8}anon_minuend_quad1 = section_addr(macho_reloc.o, __data) - anon_minuend_quad1 + 2
 # Only the form "B: .quad LA - B + C" is tested. The form "B: .quad B - LA + C" is
@@ -185,7 +197,7 @@ anon_minuend_quad1:
 anon_minuend_long1:
         .long Lanon_data - anon_minuend_long1 + 2
 
-# Check X86_64_RELOC_SUBTRACTOR Quad/Long in named storage with minuend and subtrahend.
+# Check ARM64_RELOC_SUBTRACTOR Quad/Long in named storage with minuend and subtrahend.
 # Both forms "A: .quad A - B + C" and "A: .quad B - A + C" are tested.
 #
 # Check "A: .quad B - A + C".
@@ -216,7 +228,7 @@ minuend_quad3:
 minuend_long3:
         .long minuend_long3 - named_data - 2
 
-# Check X86_64_RELOC_SUBTRACTOR handling for exprs of the form
+# Check ARM64_RELOC_SUBTRACTOR handling for exprs of the form
 # "A: .quad/long B - C + D", where 'B' or 'C' is at a fixed offset from 'A'
 # (i.e. is part of an alt_entry chain that includes 'A').
 #
@@ -272,17 +284,14 @@ subtractor_with_alt_entry_subtrahend_quad:
 subtractor_with_alt_entry_subtrahend_quad_B:
         .quad 0
 
-# Check X86_64_RELOC_GOT handling.
-# X86_64_RELOC_GOT is the data-section counterpart to X86_64_RELOC_GOTLD. It is
-# handled exactly the same way, including having an implicit PC-rel offset of -4
-# (despite this not making sense in a data section, and requiring an explicit
-# +4 addend to cancel it out and get the correct result).
+# Check ARM64_POINTER_TO_GOT handling.
+# ARM64_POINTER_TO_GOT is a delta-32 to a GOT entry.
 #
 # jitlink-check: *{4}test_got = (got_addr(macho_reloc.o, external_data) - test_got)[31:0]
         .globl test_got
         .p2align  2
 test_got:
-        .long   external_data@GOTPCREL + 4
+        .long   external_data@got - .
 
 # Check that unreferenced atoms in no-dead-strip sections are not dead stripped.
 # We need to use a local symbol for this as any named symbol will end up in the
