@@ -1816,12 +1816,28 @@ def MayIUseFeatureDocs : Documentation {
   let Owner = "ekeane1";
   let Content = [{
 The Intel Compiler implements a cpu-id like function to determine the
-current processor's features called _may_i_use_cpu_feature. This function
-accepts a compile-time constant unsigned 64 bit integer that contains a
-bitmask to validate against the current processor's feature list.
+current processor's features called _may_i_use_cpu_feature. This feature
+consists of 3 different intrinsics:
 
-This function returns a boolean 'true' if every feature in the bitmask
-parameter is supported by the current host processor.
+int _may_i_use_cpu_feature(uint64_t mask) accepts a bitmask that is validated
+against the current processor's feature list. It returns an integer that is
+contextually convertible to bool (in C++) that would evaluate to 'true' if every
+feature in the bitmask parameter is supported by the current host processor.
+This function is limited to bitmask values in the first 'page' of the libirc
+cpu-id information.
+
+int _may_i_use_cpu_feature_ext(uint64_t mask, unsigned page) accepts a bitmask
+that is validated against the current processor's feature list. This works
+identically to the previous variant, except it also accepts a 'page' index that
+permits checking features on the 2nd page of the libirc information. When
+provided with a '0' in the 'page' parameter, this works identically to
+_may_i_use_cpu_feature.
+
+int _may_i_use_cpu_feature_str(<string literal> feature, ...) accepts a series
+of compile-time string literals that contain a list of feature names. These
+feature names are converted to a bitmask and uses the same infrastructure as
+_may_i_use_cpu_feature_ext to validate it. The behavior is the same as the
+previous variants.
 
 Most of this functionality is implemented in libirc. This library contains
 an init function (__intel_cpu_features_init/__intel_cpu_features_init_x)
@@ -2968,6 +2984,26 @@ intrinsics or intrinsic builtins that would otherwise be disallowed due to
 always-inlining. The error message that this should prevent is '<intrin-name>
 needs target feature <feature>.' Only intrinsics defined in the system headers
 will cause this promotion to happen automatically.
+  }];
+}
+
+def CpuDispatchUseLibIrcDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Option = "IntelCompat";
+  let RegressionTest = "CodeGen/intel/cpu-dispatch.c";
+  let Owner = "ekeane1";
+  let Content = [{
+Typically, the cpu-dispatch functionality uses libgcc's (or compiler-rt's)
+infrastructure to test the current cpu features list. However, due to some
+customizations to libirc, including a highjacking feature that is useful for
+validating multiversioning changes, using libirc is necessary and beneficial
+in Intel Compat mode.
+  }];
+  let UserContent = [{
+This change causes cpu-dispatch/cpu-specific multiversioning to use libirc
+as its source of cpu-feature data. This library features finer grained feature
+checking, as well as permits the highjacking of the feature list via environment
+variable, which can be used to validate versions on newer hardware.
   }];
 }
 

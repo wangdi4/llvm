@@ -221,6 +221,9 @@ def fno_math_builtin : Flag<["-"], "fno-math-builtin">,
 def disable_intel_proprietary_opts : Flag<["-"],
   "disable-intel-proprietary-opts">,
   HelpText<"Disable Intel proprietary optimizations">;
+def disable_cpudispatch_ifuncs : Flag<["-"], "disable-cpudispatch-ifuncs">,
+  HelpText<"Forces cpu_dispatch resolver generation to not use ifuncs on ELF "
+           "systems">;
 // endif INTEL_CUSTOMIZATION
 
 def disable_llvm_verifier : Flag<["-"], "disable-llvm-verifier">,

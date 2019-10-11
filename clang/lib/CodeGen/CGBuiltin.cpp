@@ -32,6 +32,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/Support/ConvertUTF.h"
+#include "llvm/Support/Intel_CPU_utils.h" // INTEL
 #include "llvm/Support/ScopedPrinter.h"
 #include "llvm/Support/TargetParser.h"
 #include <sstream>
@@ -1494,36 +1495,118 @@ RValue CodeGenFunction::EmitHLSMemMasterBuiltin(unsigned BuiltinID,
   return EmitCall(FuncInfo, CGCallee::forDirect(Func), ReturnValue, Args);
 }
 
-llvm::Value *CodeGenFunction::EmitX86MayIUseCpuFeature(const CallExpr *E) {
-  llvm::FunctionType *FTy = llvm::FunctionType::get(VoidTy,
-                                                    /*Variadic*/ false);
+void CodeGenFunction::EmitCpuFeaturesInit() {
+  llvm::FunctionType *FTy = llvm::FunctionType::get(VoidTy, /*Variadic*/ false);
   llvm::FunctionCallee Func =
       CGM.CreateRuntimeFunction(FTy, "__intel_cpu_features_init_x");
   Builder.CreateCall(Func);
+}
+
+static llvm::Value *MayIUseCpuFeatureHelper(CodeGenFunction &CGF,
+                                            llvm::ArrayRef<llvm::APSInt> Pages,
+                                            bool CreateInitCall = true,
+                                            bool ConvertToInt = true) {
+  if (CreateInitCall)
+    CGF.EmitCpuFeaturesInit();
+
+  ASTContext &Context = CGF.getContext();
 
   llvm::Constant *IndicatorPtr =
-      CGM.CreateRuntimeVariable(Int64Ty, "__intel_cpu_feature_indicator_x");
-  llvm::Value *Indicator = Builder.CreateAlignedLoad(
-      IndicatorPtr,
-      getContext().getTypeAlignInChars(E->getArg(0)->getType()),
-      "cpu_feature_indicator");
+      CGF.CGM.CreateRuntimeVariable(llvm::ArrayType::get(CGF.CGM.Int64Ty, 2),
+                                    "__intel_cpu_feature_indicator_x");
 
+  llvm::Value *RollingResult = nullptr;
+  for (unsigned CurPage = 0; CurPage < Pages.size(); ++CurPage) {
+    APSInt Feats = Pages[CurPage];
+    if (Feats == 0)
+      continue;
+
+    llvm::Value *OffsetIndicator = CGF.Builder.CreateConstGEP2_64(
+        IndicatorPtr, 0, CurPage, "cpu_feature_offset");
+    llvm::Value *Indicator = CGF.Builder.CreateAlignedLoad(
+        OffsetIndicator,
+        Context.getTypeAlignInChars(Context.getIntTypeForBitwidth(64, 0)),
+        "cpu_feature_indicator");
+    llvm::Value *Join =
+        CGF.Builder.CreateAnd(Indicator, Feats, "cpu_feature_join");
+    llvm::Value *Result = CGF.Builder.CreateICmpEQ(
+        Join, CGF.Builder.getInt(Feats), "cpu_feature_check");
+
+    if (RollingResult)
+      RollingResult = CGF.Builder.CreateAnd(RollingResult, Result, "page_join");
+    else
+      RollingResult = Result;
+  }
+
+  if (!ConvertToInt)
+    return RollingResult;
+
+  llvm::IntegerType *RetType = IntegerType::get(
+      CGF.getLLVMContext(), Context.getTypeSize(Context.IntTy));
+
+  return CGF.Builder.CreateZExt(RollingResult, RetType, "convert_to_int");
+}
+
+static llvm::Value *MayIUseCpuFeatureHelper(CodeGenFunction &CGF,
+                                            llvm::APSInt Features,
+                                            llvm::APSInt Page) {
+
+  return MayIUseCpuFeatureHelper(
+      CGF, {Page == 0 ? Features : APSInt{APInt(64, 0), true},
+            Page == 1 ? Features : APSInt{APInt(64, 0), true}});
+}
+
+llvm::Value *CodeGenFunction::EmitX86MayIUseCpuFeature(const CallExpr *E) {
   llvm::APSInt CompareFeatures;
   bool IsConst =
       E->getArg(0)->isIntegerConstantExpr(CompareFeatures, getContext());
   assert(IsConst && "Constant arg isn't actually constant?"); (void)IsConst;
 
-  llvm::Value *Join =
-      Builder.CreateAnd(Indicator, CompareFeatures, "cpu_feature_join");
+  return MayIUseCpuFeatureHelper(*this, CompareFeatures,
+                                 APSInt{APInt(64, 0), true});
+}
 
-  llvm::Value *Result = Builder.CreateICmpEQ(
-      Join, llvm::ConstantInt::get(Int64Ty, CompareFeatures),
-      "cpu_feature_check");
+llvm::Value *CodeGenFunction::EmitX86MayIUseCpuFeatureExt(const CallExpr *E) {
+  llvm::APSInt CompareFeatures;
+  bool IsConst =
+      E->getArg(0)->isIntegerConstantExpr(CompareFeatures, getContext());
+  assert(IsConst && "Constant arg isn't actually constant?");
+  (void)IsConst;
 
-  llvm::IntegerType *RetType = IntegerType::get(
-      getLLVMContext(), getContext().getTypeSize(E->getType()));
+  llvm::APSInt Page;
+  IsConst = E->getArg(1)->isIntegerConstantExpr(Page, getContext());
+  assert(IsConst && "Constant arg isn't actually constant?");
+  (void)IsConst;
 
-  return Builder.CreateZExt(Result, RetType, "convert_to_int");
+  return MayIUseCpuFeatureHelper(*this, CompareFeatures, Page);
+}
+
+llvm::Value *CodeGenFunction::EmitX86MayIUseCpuFeatureStr(const CallExpr *E) {
+  Expr::EvalResult Result;
+  SmallVector<StringRef, 4> Features;
+
+  for (const auto &Arg : E->arguments()) {
+    StringRef Feature =
+        cast<StringLiteral>(Arg->IgnoreParenImpCasts())->getString();
+    Features.push_back(Feature.trim());
+  }
+
+  std::array<uint64_t, 2> Bitmaps =
+      llvm::X86::getCpuFeatureBitmap(Features, /*OnlyAutoGen=*/false);
+
+  return MayIUseCpuFeatureHelper(*this, {APSInt{APInt(64, Bitmaps[0]), true},
+                                         APSInt{APInt(64, Bitmaps[1]), true}});
+}
+
+llvm::Value *CodeGenFunction::EmitX86CpuDispatchLibIrcFeaturesTest(
+    ArrayRef<StringRef> FeatureStrs) {
+  std::array<uint64_t, 2> Bitmaps =
+      llvm::X86::getCpuFeatureBitmap(FeatureStrs, /*OnlyAutoGen=*/true);
+  return MayIUseCpuFeatureHelper(*this,
+                                 {APSInt{APInt(64, Bitmaps[0]), true},
+                                  APSInt{APInt(64, Bitmaps[1]), true}},
+                                 /*CreateInitCall=*/false,
+                                 /*ConvertToInt=*/false);
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -11297,6 +11380,10 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
 #if INTEL_CUSTOMIZATION
   if (BuiltinID == X86::BI_may_i_use_cpu_feature)
     return EmitX86MayIUseCpuFeature(E);
+  if (BuiltinID == X86::BI_may_i_use_cpu_feature_ext)
+    return EmitX86MayIUseCpuFeatureExt(E);
+  if (BuiltinID == X86::BI_may_i_use_cpu_feature_str)
+    return EmitX86MayIUseCpuFeatureStr(E);
 
   // Enable FPGA feature built-ins for X86 target
   if (BuiltinID == X86::BIget_compute_id)

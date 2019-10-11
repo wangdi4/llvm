@@ -691,6 +691,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.DisableIntelProprietaryOpts = Args.hasArg(
     OPT_disable_intel_proprietary_opts);
   Opts.IntelAdvancedOptim = Args.hasArg(OPT_fintel_advanced_optim);
+  Opts.DisableCpuDispatchIFuncs = Args.hasArg(OPT_disable_cpudispatch_ifuncs);
 #endif // INTEL_CUSTOMIZATION
 
   // At O0 we want to fully disable inlining outside of cases marked with

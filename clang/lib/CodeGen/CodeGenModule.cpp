@@ -1063,7 +1063,10 @@ static void AppendCPUSpecificCPUDispatchMangling(const CodeGenModule &CGM,
   // supported.
   if (Attr)
     Out << getCPUSpecificMangling(CGM, Attr->getCPUName(CPUIndex)->getName());
-  else if (CGM.getTarget().supportsIFunc())
+#if INTEL_CUSTOMIZATION
+  else if (CGM.getTarget().supportsIFunc() &&
+           !CGM.getCodeGenOpts().DisableCpuDispatchIFuncs)
+#endif // INTEL_CUSTOMIZATION
     Out << ".resolver";
 }
 
@@ -3138,7 +3141,10 @@ void CodeGenModule::emitMultiVersionFunctions() {
           return TargetMVPriority(TI, LHS) > TargetMVPriority(TI, RHS);
         });
     CodeGenFunction CGF(*this);
-    CGF.EmitMultiVersionResolver(ResolverFunc, Options);
+#if INTEL_CUSTOMIZATION
+    CGF.EmitMultiVersionResolver(ResolverFunc, Options,
+                                 /*IsCpuDispatch*/ false);
+#endif // INTEL_CUSTOMIZATION
   }
 }
 
@@ -3158,7 +3164,9 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
 
   llvm::Type *ResolverType;
   GlobalDecl ResolverGD;
-  if (getTarget().supportsIFunc())
+#if INTEL_CUSTOMIZATION
+  if (getTarget().supportsIFunc() && !getCodeGenOpts().DisableCpuDispatchIFuncs)
+#endif // INTEL_CUSTOMIZATION
     ResolverType = llvm::FunctionType::get(
         llvm::PointerType::get(DeclTy,
                                Context.getTargetAddressSpace(FD->getType())),
@@ -3237,9 +3245,13 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
   }
 
   CodeGenFunction CGF(*this);
-  CGF.EmitMultiVersionResolver(ResolverFunc, Options);
+#if INTEL_CUSTOMIZATION
+  CGF.EmitMultiVersionResolver(ResolverFunc, Options,
+                               /*IsCpuDispatch*/ true);
 
-  if (getTarget().supportsIFunc()) {
+  if (getTarget().supportsIFunc() &&
+      !getCodeGenOpts().DisableCpuDispatchIFuncs) {
+#endif // INTEL_CUSTOMIZATION
     std::string AliasName = getMangledNameImpl(
         *this, GD, FD, /*OmitMultiVersionMangling=*/true);
     llvm::Constant *AliasFunc = GetGlobalValue(AliasName);
@@ -3265,7 +3277,11 @@ llvm::Constant *CodeGenModule::GetOrCreateMultiVersionResolver(
   // Holds the name of the resolver, in ifunc mode this is the ifunc (which has
   // a separate resolver).
   std::string ResolverName = MangledName;
-  if (getTarget().supportsIFunc())
+#if INTEL_CUSTOMIZATION
+  if (getTarget().supportsIFunc() &&
+      !(getCodeGenOpts().DisableCpuDispatchIFuncs &&
+        (FD->isCPUDispatchMultiVersion() || FD->isCPUSpecificMultiVersion())))
+#endif // INTEL_CUSTOMIZATION
     ResolverName += ".ifunc";
   else if (FD->isTargetMultiVersion())
     ResolverName += ".resolver";
@@ -3280,7 +3296,11 @@ llvm::Constant *CodeGenModule::GetOrCreateMultiVersionResolver(
   if (!FD->isCPUDispatchMultiVersion() && !FD->isCPUSpecificMultiVersion())
     MultiVersionFuncs.push_back(GD);
 
-  if (getTarget().supportsIFunc()) {
+#if INTEL_CUSTOMIZATION
+  if (getTarget().supportsIFunc() &&
+      !(getCodeGenOpts().DisableCpuDispatchIFuncs &&
+        (FD->isCPUDispatchMultiVersion() || FD->isCPUSpecificMultiVersion()))) {
+#endif // INTEL_CUSTOMIZATION
     llvm::Type *ResolverType = llvm::FunctionType::get(
         llvm::PointerType::get(
             DeclTy, getContext().getTargetAddressSpace(FD->getType())),

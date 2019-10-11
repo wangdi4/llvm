@@ -2519,14 +2519,25 @@ void CodeGenFunction::EmitSanitizerStatReport(llvm::SanitizerStatKind SSK) {
 }
 
 llvm::Value *
-CodeGenFunction::FormResolverCondition(const MultiVersionResolverOption &RO) {
+#if INTEL_CUSTOMIZATION
+CodeGenFunction::FormResolverCondition(const MultiVersionResolverOption &RO,
+                                       bool IsCpuDispatch) {
+#endif // INTEL_CUSTOMIZATION
   llvm::Value *Condition = nullptr;
 
   if (!RO.Conditions.Architecture.empty())
     Condition = EmitX86CpuIs(RO.Conditions.Architecture);
 
   if (!RO.Conditions.Features.empty()) {
-    llvm::Value *FeatureCond = EmitX86CpuSupports(RO.Conditions.Features);
+#if INTEL_CUSTOMIZATION
+    llvm::Value *FeatureCond = nullptr;
+    if (IsCpuDispatch &&
+        CGM.getLangOpts().isIntelCompat(LangOptions::CpuDispatchUseLibIrc))
+      FeatureCond =
+          EmitX86CpuDispatchLibIrcFeaturesTest(RO.Conditions.Features);
+    else
+      FeatureCond = EmitX86CpuSupports(RO.Conditions.Features);
+#endif // INTEL_CUSTOMIZATION
     Condition =
         Condition ? Builder.CreateAnd(Condition, FeatureCond) : FeatureCond;
   }
@@ -2557,7 +2568,10 @@ static void CreateMultiVersionResolverReturn(CodeGenModule &CGM,
 }
 
 void CodeGenFunction::EmitMultiVersionResolver(
-    llvm::Function *Resolver, ArrayRef<MultiVersionResolverOption> Options) {
+#if INTEL_CUSTOMIZATION
+    llvm::Function *Resolver, ArrayRef<MultiVersionResolverOption> Options,
+    bool IsCpuDispatch) {
+#endif // INTEL_CUSTOMIZATION
   assert((getContext().getTargetInfo().getTriple().getArch() ==
               llvm::Triple::x86 ||
           getContext().getTargetInfo().getTriple().getArch() ==
@@ -2565,15 +2579,28 @@ void CodeGenFunction::EmitMultiVersionResolver(
          "Only implemented for x86 targets");
 
   bool SupportsIFunc = getContext().getTargetInfo().supportsIFunc();
+#if INTEL_CUSTOMIZATION
+  SupportsIFunc =
+      SupportsIFunc &&
+      !(IsCpuDispatch && CGM.getCodeGenOpts().DisableCpuDispatchIFuncs);
+#endif // INTEL_CUSTOMIZATION
 
   // Main function's basic block.
   llvm::BasicBlock *CurBlock = createBasicBlock("resolver_entry", Resolver);
   Builder.SetInsertPoint(CurBlock);
-  EmitX86CpuInit();
+#if INTEL_CUSTOMIZATION
+  if (IsCpuDispatch &&
+      CGM.getLangOpts().isIntelCompat(LangOptions::CpuDispatchUseLibIrc))
+    EmitCpuFeaturesInit();
+  else
+    EmitX86CpuInit();
+#endif // INTEL_CUSTOMIZATION
 
   for (const MultiVersionResolverOption &RO : Options) {
     Builder.SetInsertPoint(CurBlock);
-    llvm::Value *Condition = FormResolverCondition(RO);
+#if INTEL_CUSTOMIZATION
+    llvm::Value *Condition = FormResolverCondition(RO, IsCpuDispatch);
+#endif // INTEL_CUSTOMIZATION
 
     // The 'default' or 'generic' case.
     if (!Condition) {
