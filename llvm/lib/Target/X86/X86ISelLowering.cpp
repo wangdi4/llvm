@@ -40935,7 +40935,11 @@ static SDValue combineTruncateWithSat(SDValue In, EVT VT, const SDLoc &DL,
     if (auto USatVal = detectUSatPattern(In, VT, DAG, DL))
       return DAG.getNode(X86ISD::VTRUNCUS, DL, VT, USatVal);
   }
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
+=======
+
+>>>>>>> 0e561437c5873a0406fab6dd7e1ba8247847bb92
   // If we're clamping a signed 32-bit vector to 0-255 and the 32-bit vector is
   // split across two registers. We can use a packusdw+perm to clamp to 0-65535
   // and concatenate at the same time. Then we can use a final vpmovuswb to
@@ -40949,7 +40953,10 @@ static SDValue combineTruncateWithSat(SDValue In, EVT VT, const SDLoc &DL,
       return DAG.getNode(X86ISD::VTRUNCUS, DL, VT, Mid);
     }
   }
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 0e561437c5873a0406fab6dd7e1ba8247847bb92
 
   if (VT.isVector() && isPowerOf2_32(VT.getVectorNumElements()) &&
       !(Subtarget.hasAVX512() && InSVT == MVT::i32) &&
