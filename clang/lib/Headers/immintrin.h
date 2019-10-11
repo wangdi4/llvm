@@ -94,11 +94,14 @@
 #include <vpclmulqdqintrin.h>
 #endif
 
+<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__BMI__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
+=======
+/* No feature check desired due to internal checks */
+>>>>>>> 282eff38477ebf665f88f52411edd591067af883
 #include <bmiintrin.h>
-#endif
 
 /* INTEL_CUSTOMIZATION */
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__BMI2__) || defined(__M_INTRINSIC_PROMOTE__)
