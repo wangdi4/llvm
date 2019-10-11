@@ -2555,20 +2555,15 @@ enum CXCursorKind {
    */
   CXCursor_BuiltinBitCastExpr = 280,
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  CXCursor_OMPTargetVariantDispatchDirective = 281,
-
-  CXCursor_LastStmt = CXCursor_OMPTargetVariantDispatchDirective,
-#endif /* INTEL_CUSTOMIZATION */
-=======
   /** OpenMP master taskloop directive.
    */
   CXCursor_OMPMasterTaskLoopDirective = 281,
 
+#if INTEL_CUSTOMIZATION
+  CXCursor_OMPTargetVariantDispatchDirective = 282,
 
-  CXCursor_LastStmt = CXCursor_OMPMasterTaskLoopDirective,
->>>>>>> 60e51c48033c5d6cfc7aa8e07d1143971e24261a
+  CXCursor_LastStmt = CXCursor_OMPTargetVariantDispatchDirective,
+#endif /* INTEL_CUSTOMIZATION */
 
   /**
    * Cursor that represents the translation unit itself.
