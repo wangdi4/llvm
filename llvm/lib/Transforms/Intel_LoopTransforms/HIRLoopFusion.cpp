@@ -157,8 +157,6 @@ static void copyLiveRangeInfo(HLLoop *DstLoop, const HLLoop *SrcLoop) {
                    SrcLoop->live_out_begin(), SrcLoop->live_out_end());
 }
 
-typedef std::tuple<RegDDRef *, HLPredicate, RegDDRef *> PredicateTuple;
-
 static void cloneOrRemoveZttPredicates(HLLoop *Loop,
                                        SmallVectorImpl<PredicateTuple> &ZTTs,
                                        bool Clone) {
@@ -185,7 +183,7 @@ static void cloneOrRemoveZttPredicates(HLLoop *Loop,
 static void mergeZtt(HLLoop *Loop, SmallVectorImpl<PredicateTuple> &ZTTs) {
   if (!ZTTs.empty()) {
     RegDDRef *LHS;
-    PredicateTy Pred;
+    HLPredicate Pred;
     RegDDRef *RHS;
 
     auto ZttI = ZTTs.begin();

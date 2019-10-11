@@ -13,11 +13,11 @@
 
 ; CHECK: After
 
-; CHECK: %mv.test = &((%src1)[sext.i32.i64(%i_width) + (sext.i32.i64((-1 + %i_height)) * smax(0, sext.i32.i64(%i_src1_stride))) + -1]) >=u &((%dst)[(sext.i32.i64((-1 + %i_height)) * smin(0, sext.i32.i64(%i_dst_stride)))]);
-; CHECK: %mv.test2 = &((%dst)[sext.i32.i64(%i_width) + (sext.i32.i64((-1 + %i_height)) * smax(0, sext.i32.i64(%i_dst_stride))) + -1]) >=u &((%src1)[(sext.i32.i64((-1 + %i_height)) * smin(0, sext.i32.i64(%i_src1_stride)))]);
+; CHECK-DAG: = &((%src1)[sext.i32.i64(%i_width) + (sext.i32.i64((-1 + %i_height)) * smax(0, sext.i32.i64(%i_src1_stride))) + -1]) >=u &((%dst)[(sext.i32.i64((-1 + %i_height)) * smin(0, sext.i32.i64(%i_dst_stride)))]);
+; CHECK-DAG: = &((%dst)[sext.i32.i64(%i_width) + (sext.i32.i64((-1 + %i_height)) * smax(0, sext.i32.i64(%i_dst_stride))) + -1]) >=u &((%src1)[(sext.i32.i64((-1 + %i_height)) * smin(0, sext.i32.i64(%i_src1_stride)))]);
 ; CHECK: %mv.and = %mv.test  &&  %mv.test2;
-; CHECK: %mv.test3 = &((%dst)[sext.i32.i64(%i_width) + (sext.i32.i64((-1 + %i_height)) * smax(0, sext.i32.i64(%i_dst_stride))) + -1]) >=u &((%src2)[(sext.i32.i64((-1 + %i_height)) * smin(0, sext.i32.i64(%i_src2_stride)))]);
-; CHECK: %mv.test4 = &((%src2)[sext.i32.i64(%i_width) + (sext.i32.i64((-1 + %i_height)) * smax(0, sext.i32.i64(%i_src2_stride))) + -1]) >=u &((%dst)[(sext.i32.i64((-1 + %i_height)) * smin(0, sext.i32.i64(%i_dst_stride)))]);
+; CHECK-DAG: = &((%dst)[sext.i32.i64(%i_width) + (sext.i32.i64((-1 + %i_height)) * smax(0, sext.i32.i64(%i_dst_stride))) + -1]) >=u &((%src2)[(sext.i32.i64((-1 + %i_height)) * smin(0, sext.i32.i64(%i_src2_stride)))]);
+; CHECK-DAG: = &((%src2)[sext.i32.i64(%i_width) + (sext.i32.i64((-1 + %i_height)) * smax(0, sext.i32.i64(%i_src2_stride))) + -1]) >=u &((%dst)[(sext.i32.i64((-1 + %i_height)) * smin(0, sext.i32.i64(%i_dst_stride)))]);
 ; CHECK: %mv.and5 = %mv.test3  &&  %mv.test4;
 ; CHECK: if (%mv.and == 0 && %mv.and5 == 0)
 

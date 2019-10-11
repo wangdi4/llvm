@@ -113,12 +113,7 @@ public:
       for (const DDRef *Ref : RefVec) {
         dbgs() << "\t";
         Ref->dump();
-
-        const RegDDRef *RegRef = dyn_cast<const RegDDRef>(Ref);
-        bool IsLval = RegRef ? RegRef->isLval() : false;
-
-        dbgs() << " {sb:" << Ref->getSymbase() << "} -> isWrite:" << IsLval
-               << "\n";
+        dbgs() << " {sb:" << Ref->getSymbase() << "}\n";
       }
     }
   }
