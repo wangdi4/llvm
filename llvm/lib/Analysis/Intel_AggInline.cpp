@@ -552,8 +552,8 @@ bool InlineAggressiveInfo::analyzeHugeMallocGlobalPointersHeuristic(Module &M) {
   }
   LLVM_DEBUG(dbgs() << " Total inst: " << TotalInstCount << "\n");
 
-  if (AllocRtn == nullptr) {
-    LLVM_DEBUG(dbgs() << " Skipped AggInl ... No malloc routine found");
+  if (MainRtn == nullptr || AllocRtn == nullptr) {
+    LLVM_DEBUG(dbgs() << " Skipped AggInl ... No main/malloc routine found");
     return false;
   }
 
