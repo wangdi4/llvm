@@ -102,12 +102,12 @@ Optional<int64_t> ClientMemref::getConstDistanceFrom(const OVLSMemref &Mrf) {
   assert(isa<ClientMemref>(&Mrf) && "Expected ClientMemref!!!");
   const ClientMemref *CLMrf = cast<const ClientMemref>(&Mrf);
   if ((MId == CLMrf->getMemrefId()) &&                // have same memref id
-      this->getAccessType() == Mrf.getAccessType() && // have same access type
+      this->getAccessKind() == Mrf.getAccessKind() && // have same access type
       // Indexed accesses have matching index-vectors.
-      ((this->getAccessType().isIndexedAccess() &&
+      ((this->getAccessKind().isIndexed() &&
         haveSameIndexVector(*CLMrf)) ||
        // Strided accesses have matching vector strides.
-       (this->getAccessType().isStridedAccess() &&
+       (this->getAccessKind().isStrided() &&
         haveSameVectorStride(*CLMrf)))) {
     return Dist - (CLMrf->getDistance());
   }
@@ -124,16 +124,16 @@ static void parseCommandLineOptions(int argc, char **argv,
 
 OVLSContext &getContext() { return Context; }
 
-static OVLSAccessType getAccessType(const std::string &AccType) {
-  if (AccType.compare("SLoad") == 0)
-    return OVLSAccessType::getStridedLoadTy();
-  else if (AccType.compare("SStore") == 0)
-    return OVLSAccessType::getStridedStoreTy();
-  else if (AccType.compare("ILoad") == 0)
-    return OVLSAccessType::getIndexedLoadTy();
-  else if (AccType.compare("IStore") == 0)
-    return OVLSAccessType::getIndexedStoreTy();
-  return OVLSAccessType::getUnknownTy();
+static OVLSAccessKind getAccessKind(const std::string &AccKind) {
+  if (AccKind.compare("SLoad") == 0)
+    return OVLSAccessKind::SLoad;
+  else if (AccKind.compare("SStore") == 0)
+    return OVLSAccessKind::SStore;
+  else if (AccKind.compare("ILoad") == 0)
+    return OVLSAccessKind::ILoad;
+  else if (AccKind.compare("IStore") == 0)
+    return OVLSAccessKind::IStore;
+  return OVLSAccessKind::Unknown;
 }
 
 static Type *getScalarType(const std::string ST) {
@@ -159,7 +159,7 @@ static void parseInput(unsigned &GroupSize, OVLSMemrefVector &Mrfs) {
 
   char MemrefId, InputChar;
   int Dist;
-  string SAccType, SElemType, line;
+  string SAccKind, SElemType, line;
   unsigned Id, NumElements;
   bool InputStarts = false;
 
@@ -182,16 +182,16 @@ static void parseInput(unsigned &GroupSize, OVLSMemrefVector &Mrfs) {
       }
     }
 
-    std::cin >> Id >> MemrefId >> Dist >> SElemType >> NumElements >> SAccType;
+    std::cin >> Id >> MemrefId >> Dist >> SElemType >> NumElements >> SAccKind;
 
-    OVLSAccessType AccType = getAccessType(SAccType);
-    assert(!AccType.isUnknown() && "Invalid Access Type!!!");
+    OVLSAccessKind AccKind = getAccessKind(SAccKind);
+    assert(AccKind != OVLSAccessKind::Unknown && "Invalid Access Type!!!");
 
     Type *ElemType = getScalarType(SElemType);
 
     OVLSMemref *mrf = NULL;
 
-    if (AccType.isIndexedAccess()) {
+    if (AccKind.isIndexed()) {
       char IndexId;
       string SIdxElemType;
       unsigned IdxNumElems;
@@ -200,7 +200,7 @@ static void parseInput(unsigned &GroupSize, OVLSMemrefVector &Mrfs) {
              "IdxNumElems needs to match the NumElements!");
       VectorType *IdxType =
           VectorType::get(getScalarType(SIdxElemType), IdxNumElems);
-      mrf = new ClientMemref(MemrefId, Dist, ElemType, NumElements, AccType,
+      mrf = new ClientMemref(MemrefId, Dist, ElemType, NumElements, AccKind,
                              IndexId, IdxType);
     } else {
       char VsId;
@@ -208,10 +208,10 @@ static void parseInput(unsigned &GroupSize, OVLSMemrefVector &Mrfs) {
       std::cin >> VsId;
       std::cin >> VStride;
       if (VsId == 'C') // memref has a constant vector stride
-        mrf = new ClientMemref(MemrefId, Dist, ElemType, NumElements, AccType,
+        mrf = new ClientMemref(MemrefId, Dist, ElemType, NumElements, AccKind,
                                true, VStride);
       else
-        mrf = new ClientMemref(MemrefId, Dist, ElemType, NumElements, AccType,
+        mrf = new ClientMemref(MemrefId, Dist, ElemType, NumElements, AccKind,
                                false, VsId);
     }
     Mrfs.push_back(mrf);

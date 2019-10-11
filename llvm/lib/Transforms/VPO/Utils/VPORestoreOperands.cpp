@@ -409,14 +409,31 @@ bool VPOUtils::removeBranchesFromBeginToEndDirective(Function &F) {
         // instructions used for lifetime begin/end markers, that the inliner
         // may have inserted. We collect users that need to be deleted here.
         SmallVector<Instruction *, 4> VAddrUsersToDelete;
+        bool DeleteVAddr = true;
 
         for (User *U : VAddr->users()) {
           if (U == CI)
             continue;
 
+          if (isa<CallInst>(U) &&
+              VPOAnalysisUtils::isOpenMPDirective(cast<CallInst>(U))) {
+            if (DirectivesToUpdate.find(cast<CallInst>(U)) ==
+                DirectivesToUpdate.end())
+              // Some other unhandled directive uses the same operand. Don't
+              // delete VAddr this time.
+              DeleteVAddr = false;
+            continue;
+          }
+
           if (auto *LI = dyn_cast<LoadInst>(U)) {
-            VLoad = LI;
-            VAddrUsersToDelete.push_back(VLoad);
+            if (!VLoad) {
+              // Delete one branch in one go. So if we've already found one load
+              // from VAddr, don't collect any more as there might be multiple
+              // branches associated with multiple directives, using the same
+              // VAddr.
+              VLoad = LI;
+              VAddrUsersToDelete.push_back(VLoad);
+            }
           } else if (auto *CastI = dyn_cast<CastInst>(U)) {
             for (User *CastUser : CastI->users()) {
               assert(isa<IntrinsicInst>(CastUser) &&
@@ -448,11 +465,10 @@ bool VPOUtils::removeBranchesFromBeginToEndDirective(Function &F) {
         for (Instruction *VAU : VAddrUsersToDelete)
           VAU->eraseFromParent();
 
-        assert(VAddr->hasOneUse() &&
-               "Expected only one use of 'QUAL.OMP.JUMP.TO.END.IF' operand, "
-               "which is in the directive.");
-        VAddr->replaceAllUsesWith(UndefValue::get(VAddr->getType()));
-        VAddr->eraseFromParent();
+        if (DeleteVAddr) {
+          VAddr->replaceAllUsesWith(UndefValue::get(VAddr->getType()));
+          VAddr->eraseFromParent();
+        }
 
         llvm::SimplifyInstructionsInBlock(BlockToSimplify);
         llvm::ConstantFoldTerminator(BlockToSimplify);
