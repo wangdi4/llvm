@@ -179,10 +179,7 @@ class MockGDBServerResponder:
         return "E04"
 
     def qfProcessInfo(self, packet):
-        if "all_users:1" in packet:
-            return "pid:10;ppid:1;uid:1;gid:1;euid:1;egid:1;name:" + binascii.hexlify("/a/test_process") + ";"
-        else:
-            return "E04"
+        return "E04"
 
     def qGetWorkingDir(self):
         return "2f"
