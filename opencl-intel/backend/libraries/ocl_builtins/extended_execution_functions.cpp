@@ -275,6 +275,7 @@ ADDR_SPACE_OVERLOADING(__private, __global)
 ADDR_SPACE_OVERLOADING(__local, __private)
 ADDR_SPACE_OVERLOADING(__local, __local)
 ADDR_SPACE_OVERLOADING(__local, __global)
+ADDR_SPACE_OVERLOADING(__generic, __generic)
 #undef ADDR_SPACE_OVERLOADING
 
 // This method computes the count of sub-groups accommodated
