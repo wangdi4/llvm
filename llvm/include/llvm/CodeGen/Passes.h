@@ -188,6 +188,9 @@ namespace llvm {
 #if INTEL_CUSTOMIZATION
   /// MachineLoopOptReportEmitter - This pass prints loop optimization reports.
   extern char &MachineLoopOptReportEmitterID;
+
+  /// Float128Expand - This pass expands fp128 operations to libcalls.
+  extern char &Float128ExpandID;
 #endif  // INTEL_CUSTOMIZATION
 
   /// createPostRAHazardRecognizer - This pass runs the post-ra hazard
@@ -459,6 +462,10 @@ namespace llvm {
   /// Create Hardware Loop pass. \see HardwareLoops.cpp
   FunctionPass *createHardwareLoopsPass();
 
+#if INTEL_CUSTOMIZATION
+  // Expand fp128 operations into libcalls.
+  FunctionPass *createFloat128ExpandPass();
+#endif // INTEL_CUSTOMIZATION
 } // End llvm namespace
 
 #endif

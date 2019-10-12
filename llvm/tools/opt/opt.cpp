@@ -571,6 +571,7 @@ int main(int argc, char **argv) {
   initializeIntel_LoopTransforms(Registry);
   initializeVecClonePass(Registry);
   initializeMapIntrinToImlPass(Registry);
+  initializeFloat128ExpandPass(Registry);
   initializeIntel_OpenCLTransforms(Registry);
 #if INTEL_INCLUDE_DTRANS
   initializeDTransPasses(Registry);

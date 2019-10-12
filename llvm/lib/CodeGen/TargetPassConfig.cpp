@@ -58,6 +58,11 @@ using namespace llvm;
 static cl::opt<bool> DisableMapIntrinToIml("disable-iml-trans",
   cl::init(false), cl::Hidden,
   cl::desc("Disable mapping vectorized math intrinsic calls to svml/libm."));
+
+static cl::opt<bool>
+IntelLibIRCAllowed("intel-libirc-allowed",
+                    cl::desc("Allow the generation of calls to libirc."),
+                    cl::init(false));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
@@ -414,6 +419,10 @@ TargetPassConfig::TargetPassConfig(LLVMTargetMachine &TM, PassManagerBase &pm)
   // Also register alias analysis passes required by codegen passes.
   initializeBasicAAWrapperPassPass(*PassRegistry::getPassRegistry());
   initializeAAResultsWrapperPassPass(*PassRegistry::getPassRegistry());
+
+#if INTEL_CUSTOMIZATION
+  TM.Options.IntelLibIRCAllowed = IntelLibIRCAllowed;
+#endif // INTEL_CUSTOMIZATION
 
   if (StringRef(PrintMachineInstrs.getValue()).equals(""))
     TM.Options.PrintMachineCode = true;

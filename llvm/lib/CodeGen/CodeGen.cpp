@@ -114,6 +114,7 @@ void llvm::initializeCodeGen(PassRegistry &Registry) {
   initializeXRayInstrumentationPass(Registry);
 #if INTEL_CUSTOMIZATION
   initializeMachineLoopOptReportEmitterPass(Registry);
+  initializeFloat128ExpandPass(Registry);
 #endif  // INTEL_CUSTOMIZATION
 }
 

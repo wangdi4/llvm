@@ -21,6 +21,7 @@
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       MapIntrinToIml
 ; CHECK-NEXT:       Expand Atomic instructions
+; CHECK-NEXT:       Expand fp128 instructions ;INTEL
 ; CHECK-NEXT:       Dominator Tree Construction
 ; CHECK-NEXT:       Basic Alias Analysis (stateless AA impl)
 ; CHECK-NEXT:       Module Verifier
