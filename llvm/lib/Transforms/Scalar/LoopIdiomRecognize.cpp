@@ -2235,7 +2235,7 @@ bool LoopIdiomRecognize::detectBCmpIdiom(ICmpInst *&BCmpInst,
                                       CurLoop->getHeader())
              << L;
     });
-    return false; // FIXME
+    return false; // FIXME: support non-simple loads.
   }
 
   LLVM_DEBUG(dbgs() << "Recognized bcmp idiom\n");
