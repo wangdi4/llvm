@@ -381,7 +381,6 @@ Type *RegDDRef::getTypeImpl(bool IsSrc) const {
   if (hasGEPInfo()) {
     CE = getBaseCE();
 
-    PointerType *BaseTy = cast<PointerType>(CE->getSrcType());
     auto *DestTy = getBitCastDestType();
 
     // Derive ref's destination type using BitCastDestType, if available.
@@ -396,7 +395,8 @@ Type *RegDDRef::getTypeImpl(bool IsSrc) const {
     // For DDRefs representing addresses, we need to return a pointer to
     // RefTy.
     if (isAddressOf()) {
-      return PointerType::get(RefTy, BaseTy->getAddressSpace());
+      return PointerType::get(RefTy,
+                              CE->getSrcType()->getPointerAddressSpace());
     } else {
       return RefTy;
     }
@@ -1352,14 +1352,15 @@ void RegDDRef::verify() const {
     auto CE = getBaseCE();
     (void)CE;
     assert(CE && "BaseCE is absent in RegDDRef containing GEPInfo!");
-    assert(isa<PointerType>(CE->getSrcType()) && "Invalid BaseCE src type!");
+    assert(isa<PointerType>(CE->getSrcType()->getScalarType()) &&
+           "Invalid BaseCE src type!");
 
     if (isAddressOf()) {
       // During vectorization DestType is set to a vector of pointers
       assert(isa<PointerType>(CE->getDestType()->getScalarType()) &&
              "Invalid BaseCE dest type!");
     } else {
-      assert(isa<PointerType>(CE->getDestType()) &&
+      assert(isa<PointerType>(CE->getDestType()->getScalarType()) &&
              "Invalid BaseCE dest type!");
     }
     assert((CE->isSelfBlob() || CE->isStandAloneUndefBlob() || CE->isNull()) &&

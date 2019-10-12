@@ -904,7 +904,7 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
   // can simply use the base value. Also, for opaque (forward declared) struct
   // types, LLVM doesn't allow any indices even if it is just a zero.
   if ((DimNum == 1) && !Ref->hasTrailingStructOffsets() &&
-      (*Ref->canon_begin())->isZero()) {
+      (*Ref->canon_begin())->isZero(true /*HandleSplat*/)) {
     // GEP is not needed.
   } else {
     assert(DimNum && "No dimensions");
