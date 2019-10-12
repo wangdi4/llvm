@@ -482,6 +482,8 @@ void LTOCodeGenerator::applyScopeRestrictions() {
 
   internalizeModule(*MergedModule, mustPreserveGV);
 
+  MergedModule->addModuleFlag(Module::Error, "LTOPostLink", 1);
+
   ScopeRestrictionsDone = true;
 }
 

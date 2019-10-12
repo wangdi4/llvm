@@ -1057,6 +1057,8 @@ Error LTO::runRegularLTO(AddStreamFn AddStream) {
         GV->setLinkage(GlobalValue::InternalLinkage);
     }
 
+    RegularLTO.CombinedModule->addModuleFlag(Module::Error, "LTOPostLink", 1);
+
     if (Conf.PostInternalizeModuleHook &&
         !Conf.PostInternalizeModuleHook(0, *RegularLTO.CombinedModule))
       return Error::success();
