@@ -530,12 +530,16 @@ void HandledCheck::visit(HLDDNode *Node) {
       }
     }
 
+    unsigned MaskedRedOpcode = 0;
     if (!CG->isSearchLoop() && TLval && TLval->isTerminalRef() &&
         OrigLoop->isLiveOut(TLval->getSymbase()) &&
-        Inst->getParent() != OrigLoop) {
+        Inst->getParent() != OrigLoop &&
+        !CG->isReductionRef(TLval, MaskedRedOpcode)) {
       LLVM_DEBUG(Inst->dump());
-      LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Liveout conditional scalar assign "
-                           "not handled\n");
+      LLVM_DEBUG(
+          dbgs()
+          << "VPLAN_OPTREPORT: Liveout conditional non-reduction scalar assign "
+             "not handled\n");
       IsHandled = false;
       return;
     }
@@ -3239,6 +3243,28 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
     }
 
     llvm_unreachable("Master VPInstruction with unexpected HLDDNode.");
+  }
+
+  // For mixed codegen, all instructions under if-else blocks are appropriately
+  // masked, hence we don't need to explicitly generate a select for a masked
+  // reduction's loop exit blend PHI instruction.
+  if (isa<VPPHINode>(VPInst) && ReductionRefs.count(VPInst)) {
+    auto *RednEntity = VPLoopEntities->getReduction(VPInst);
+    assert(RednEntity && "VPReduction not found for PHI.");
+    if (RednEntity->getLoopExitInstr() == VPInst) {
+      VPPHINode *StartPhi = VPLoopEntities->getRecurrentVPHINode(*RednEntity);
+      // Use the same map entry as the masked reduction's updating instruction
+      // for the exiting blend PHI.
+      assert(StartPhi && "Masked reduction does not have start PHI.");
+      VPValue *UpdatingVPVal = VPInst->getOperand(0) == StartPhi
+                                   ? VPInst->getOperand(1)
+                                   : VPInst->getOperand(0);
+      RegDDRef *Ref = getWideRefForVPVal(UpdatingVPVal);
+      assert(Ref && "Wide DDRef not found for UpdatingVPVal.");
+      addVPValueWideRefMapping(VPInst, Ref);
+
+      return;
+    }
   }
 
   widenNodeImpl(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,

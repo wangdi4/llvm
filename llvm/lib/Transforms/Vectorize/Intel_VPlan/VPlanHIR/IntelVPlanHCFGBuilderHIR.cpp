@@ -833,10 +833,7 @@ private:
 /// the common information about redcution type, operation, etc. The second list
 /// contains info about concrete statements. We need to iteratate through the
 /// all statements so this iterator goes through both lists, first taking the
-/// HIRSafeRedInfo and then going through its list of statements. Currently
-/// masked safe reductions are not converted since more analysis is needed in
-/// VPlan HCFG  to correctly capture loop exit instruction. (JIRA:
-/// CMPLRLLVM-9609)
+/// HIRSafeRedInfo and then going through its list of statements.
 class ReductionInputIteratorHIR {
   using RecurrenceKind = VPReduction::RecurrenceKind;
   using MinMaxRecurrenceKind = VPReduction::MinMaxRecurrenceKind;
@@ -897,21 +894,16 @@ private:
         // need to investigate whether we need other statements as reductions.
         RedCurrent = RedEnd;
         RedCurrent--;
-        if (!isMaskedReduction()) {
-          auto Opcode = ChainCurrent->OpCode;
-          // Predicate type is needed to determine reduction kind for min/max
-          // reductions. For other reductions predicate is undefined.
-          auto Pred = Opcode == Instruction::Select
-                          ? (*RedCurrent)->getPredicate().Kind
-                          : PredicateTy::BAD_ICMP_PREDICATE;
-          Descriptor.fillReductionKinds(
-              (*RedCurrent)->getLvalDDRef()->getDestType(), Opcode, Pred,
-              (*RedCurrent)->isMax());
-          break;
-        } else {
-          // invalidate iterators for masked reductions
-          RedCurrent = RedEnd = nullptr;
-        }
+        auto Opcode = ChainCurrent->OpCode;
+        // Predicate type is needed to determine reduction kind for min/max
+        // reductions. For other reductions predicate is undefined.
+        auto Pred = Opcode == Instruction::Select
+                        ? (*RedCurrent)->getPredicate().Kind
+                        : PredicateTy::BAD_ICMP_PREDICATE;
+        Descriptor.fillReductionKinds(
+            (*RedCurrent)->getLvalDDRef()->getDestType(), Opcode, Pred,
+            (*RedCurrent)->isMax());
+        break;
       }
       ChainCurrent++;
     }
@@ -922,16 +914,6 @@ private:
       Descriptor.HLInst = *RedCurrent;
     else
       Descriptor.clear();
-  }
-
-  bool isMaskedReduction() {
-    if (RedCurrent == RedEnd)
-      return false;
-
-    if (isa<HLIf>((*RedCurrent)->getParent()))
-      return true;
-
-    return false;
   }
 
 private:
