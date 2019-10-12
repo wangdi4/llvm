@@ -2866,15 +2866,13 @@ bool DevirtModule::run() {
     for (VTableBits &B : Bits)
       rebuildGlobal(B);
 
-<<<<<<< HEAD
-  runDevirtVerifier(M);  // INTEL
-=======
   // We have lowered or deleted the type checked load intrinsics, so we no
   // longer have enough information to reason about the liveness of virtual
   // function pointers in GlobalDCE.
   for (GlobalVariable &GV : M.globals())
     GV.eraseMetadata(LLVMContext::MD_vcall_visibility);
->>>>>>> 2d5ba8e66ce29d5f88cf22880c85d2d2c594402f
+
+  runDevirtVerifier(M);  // INTEL
 
   return true;
 }

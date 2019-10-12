@@ -17,13 +17,10 @@
 #include "llvm/Transforms/IPO/GlobalDCE.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
-<<<<<<< HEAD
 #include "llvm/Analysis/Intel_AggInline.h"   // INTEL
 #include "llvm/Analysis/Intel_Andersens.h"   // INTEL
 #include "llvm/Analysis/Intel_WP.h"          // INTEL
-=======
 #include "llvm/Analysis/TypeMetadataUtils.h"
->>>>>>> 2d5ba8e66ce29d5f88cf22880c85d2d2c594402f
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
