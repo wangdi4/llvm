@@ -126,12 +126,6 @@ static cl::opt<bool> ManifestInternal(
     cl::desc("Manifest Attributor internal string attributes."),
     cl::init(false));
 
-static cl::opt<bool> VerifyAttributor(
-    "attributor-verify", cl::Hidden,
-    cl::desc("Verify the Attributor deduction and "
-             "manifestation of attributes -- may issue false-positive errors"),
-    cl::init(false));
-
 static cl::opt<unsigned> DepRecInterval(
     "attributor-dependence-recompute-interval", cl::Hidden,
     cl::desc("Number of iterations until dependences are recomputed."),
@@ -2146,8 +2140,6 @@ struct AAIsDeadImpl : public AAIsDead {
       BasicBlock *BB = I->getParent();
       Instruction *SplitPos = I->getNextNode();
       // TODO: mark stuff before unreachable instructions as dead.
-      if (isa_and_nonnull<UnreachableInst>(SplitPos))
-        continue;
 
       if (auto *II = dyn_cast<InvokeInst>(I)) {
         // If we keep the invoke the split position is at the beginning of the
@@ -2190,14 +2182,22 @@ struct AAIsDeadImpl : public AAIsDead {
           //       also manifest.
           assert(!NormalDestBB->isLandingPad() &&
                  "Expected the normal destination not to be a landingpad!");
-          BasicBlock *SplitBB =
-              SplitBlockPredecessors(NormalDestBB, {BB}, ".dead");
-          // The split block is live even if it contains only an unreachable
-          // instruction at the end.
-          assumeLive(A, *SplitBB);
-          SplitPos = SplitBB->getTerminator();
+          if (NormalDestBB->getUniquePredecessor() == BB) {
+            assumeLive(A, *NormalDestBB);
+          } else {
+            BasicBlock *SplitBB =
+                SplitBlockPredecessors(NormalDestBB, {BB}, ".dead");
+            // The split block is live even if it contains only an unreachable
+            // instruction at the end.
+            assumeLive(A, *SplitBB);
+            SplitPos = SplitBB->getTerminator();
+            HasChanged = ChangeStatus::CHANGED;
+          }
         }
       }
+
+      if (isa_and_nonnull<UnreachableInst>(SplitPos))
+        continue;
 
       BB = SplitPos->getParent();
       SplitBlock(BB, SplitPos);
@@ -4435,8 +4435,6 @@ ChangeStatus Attributor::run(Module &M) {
 
   size_t NumFinalAAs = AllAbstractAttributes.size();
 
-  bool FinishedAtFixpoint = Worklist.empty();
-
   // Reset abstract arguments not settled in a sound fixpoint by now. This
   // happens when we stopped the fixpoint iteration early. Note that only the
   // ones marked as "changed" *and* the ones transitively depending on them
@@ -4501,24 +4499,6 @@ ChangeStatus Attributor::run(Module &M) {
   LLVM_DEBUG(dbgs() << "\n[Attributor] Manifested " << NumManifested
                     << " arguments while " << NumAtFixpoint
                     << " were in a valid fixpoint state\n");
-
-  // If verification is requested, we finished this run at a fixpoint, and the
-  // IR was changed, we re-run the whole fixpoint analysis, starting at
-  // re-initialization of the arguments. This re-run should not result in an IR
-  // change. Though, the (virtual) state of attributes at the end of the re-run
-  // might be more optimistic than the known state or the IR state if the better
-  // state cannot be manifested.
-  if (VerifyAttributor && FinishedAtFixpoint &&
-      ManifestChange == ChangeStatus::CHANGED) {
-    VerifyAttributor = false;
-    ChangeStatus VerifyStatus = run(M);
-    if (VerifyStatus != ChangeStatus::UNCHANGED)
-      llvm_unreachable(
-          "Attributor verification failed, re-run did result in an IR change "
-          "even after a fixpoint was reached in the original run. (False "
-          "positives possible!)");
-    VerifyAttributor = true;
-  }
 
   NumAttributesManifested += NumManifested;
   NumAttributesValidFixpoint += NumAtFixpoint;
