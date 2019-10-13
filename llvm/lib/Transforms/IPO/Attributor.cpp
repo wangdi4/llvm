@@ -594,8 +594,9 @@ struct AAComposeTwoGenericDeduction
 
   /// See AbstractAttribute::updateImpl(...).
   ChangeStatus updateImpl(Attributor &A) override {
-    return F<AAType, G<AAType, Base, StateType>, StateType>::updateImpl(A) |
-           G<AAType, Base, StateType>::updateImpl(A);
+    ChangeStatus ChangedF = F<AAType, G<AAType, Base, StateType>, StateType>::updateImpl(A);
+    ChangeStatus ChangedG = G<AAType, Base, StateType>::updateImpl(A);
+    return ChangedF | ChangedG;
   }
 };
 
@@ -1536,11 +1537,16 @@ struct AANoFreeCallSite final : AANoFreeImpl {
 static int64_t getKnownNonNullAndDerefBytesForUse(
     Attributor &A, AbstractAttribute &QueryingAA, Value &AssociatedValue,
     const Use *U, const Instruction *I, bool &IsNonNull, bool &TrackUse) {
-  // TODO: Add GEP support
   TrackUse = false;
 
+  const Value *UseV = U->get();
+  if (!UseV->getType()->isPointerTy())
+    return 0;
+
+  Type *PtrTy = UseV->getType();
   const Function *F = I->getFunction();
-  bool NullPointerIsDefined = F ? F->nullPointerIsDefined() : true;
+  bool NullPointerIsDefined =
+      F ? llvm::NullPointerIsDefined(F, PtrTy->getPointerAddressSpace()) : true;
   const DataLayout &DL = A.getInfoCache().getDL();
   if (ImmutableCallSite ICS = ImmutableCallSite(I)) {
     if (ICS.isBundleOperand(U))
@@ -1560,19 +1566,28 @@ static int64_t getKnownNonNullAndDerefBytesForUse(
 
   int64_t Offset;
   if (const Value *Base = getBasePointerOfAccessPointerOperand(I, Offset, DL)) {
-    if (Base == &AssociatedValue) {
+    if (Base == &AssociatedValue && getPointerOperand(I) == UseV) {
       int64_t DerefBytes =
-          Offset +
-          (int64_t)DL.getTypeStoreSize(
-              getPointerOperand(I)->getType()->getPointerElementType());
+          Offset + (int64_t)DL.getTypeStoreSize(PtrTy->getPointerElementType());
 
       IsNonNull |= !NullPointerIsDefined;
       return DerefBytes;
     }
   }
+  if (const Value *Base =
+          GetPointerBaseWithConstantOffset(UseV, Offset, DL,
+                                           /*AllowNonInbounds*/ false)) {
+    auto &DerefAA =
+        A.getAAFor<AADereferenceable>(QueryingAA, IRPosition::value(*Base));
+    IsNonNull |= (!NullPointerIsDefined && DerefAA.isKnownNonNull());
+    IsNonNull |= (!NullPointerIsDefined && (Offset != 0));
+    int64_t DerefBytes = DerefAA.getKnownDereferenceableBytes();
+    return std::max(int64_t(0), DerefBytes - Offset);
+  }
 
   return 0;
 }
+
 struct AANonNullImpl : AANonNull {
   AANonNullImpl(const IRPosition &IRP) : AANonNull(IRP) {}
 
@@ -2540,7 +2555,7 @@ struct AADereferenceableFloating
       // for overflows of the dereferenceable bytes.
       int64_t OffsetSExt = Offset.getSExtValue();
       if (OffsetSExt < 0)
-        Offset = 0;
+        OffsetSExt = 0;
 
       T.takeAssumedDerefBytesMinimum(
           std::max(int64_t(0), DerefBytes - OffsetSExt));
@@ -3824,16 +3839,22 @@ struct AAMemoryBehaviorArgument : AAMemoryBehaviorFloating {
   void initialize(Attributor &A) override {
     AAMemoryBehaviorFloating::initialize(A);
 
-    // TODO: From readattrs.ll: "inalloca parameters are always
-    //                           considered written"
-    if (hasAttr({Attribute::InAlloca}))
-      removeAssumedBits(NO_WRITES);
-
     // Initialize the use vector with all direct uses of the associated value.
     Argument *Arg = getAssociatedArgument();
     if (!Arg || !Arg->getParent()->hasExactDefinition())
       indicatePessimisticFixpoint();
   }
+
+  ChangeStatus manifest(Attributor &A) override {
+    // TODO: From readattrs.ll: "inalloca parameters are always
+    //                           considered written"
+    if (hasAttr({Attribute::InAlloca})) {
+      removeKnownBits(NO_WRITES);
+      removeAssumedBits(NO_WRITES);
+    }
+    return AAMemoryBehaviorFloating::manifest(A);
+  }
+
 
   /// See AbstractAttribute::trackStatistics()
   void trackStatistics() const override {
@@ -4003,10 +4024,13 @@ ChangeStatus AAMemoryBehaviorFloating::updateImpl(Attributor &A) {
 
   // Make sure the value is not captured (except through "return"), if
   // it is, any information derived would be irrelevant anyway as we cannot
-  // check the potential aliases introduced by the capture.
+  // check the potential aliases introduced by the capture. However, no need
+  // to fall back to anythign less optimistic than the function state.
   const auto &ArgNoCaptureAA = A.getAAFor<AANoCapture>(*this, IRP);
-  if (!ArgNoCaptureAA.isAssumedNoCaptureMaybeReturned())
-    return indicatePessimisticFixpoint();
+  if (!ArgNoCaptureAA.isAssumedNoCaptureMaybeReturned()) {
+    S.intersectAssumedBits(FnMemAA.getAssumed());
+    return ChangeStatus::CHANGED;
+  }
 
   // The current assumed state used to determine a change.
   auto AssumedState = S.getAssumed();
