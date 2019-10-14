@@ -172,7 +172,12 @@ threadid_t clMyParentThreadId()
 
     void clNUMASetLocalNodeAlloc()
     {
-        numa_set_localalloc();
+        static __thread bool isLocalAllocSet = false;
+        if (!isLocalAllocSet)
+        {
+            numa_set_localalloc();
+            isLocalallocSet = true;
+        }
     }
 #else
     bool clIsNumaAvailable()

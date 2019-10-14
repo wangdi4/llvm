@@ -298,41 +298,6 @@ cl_dev_err_code TaskDispatcher::init()
 
     m_pTaskExecutor->CreateDebugDeviceQueue(m_pRootDevice);
 
-    bool bInitTasksRequired = isDestributedAllocationRequired() || isThreadAffinityRequired();
-
-    if (!bInitTasksRequired)
-    {
-        return CL_DEV_SUCCESS;
-    }
-
-    //Pin threads
-    SharedPtr<AffinitizeThreads> pAffinitizeThreads =
-       AffinitizeThreads::Allocate(m_uiNumThreads, 0, m_pObserver);
-    if (0 == pAffinitizeThreads)
-    {
-        //Todo
-        assert(0);
-        return CL_DEV_OUT_OF_MEMORY;
-    }
-
-    SharedPtr<Intel::OpenCL::TaskExecutor::ITaskList> pTaskList = m_pRootDevice->CreateTaskList( CommandListCreationParam(TE_CMD_LIST_IN_ORDER, TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC) );
-    if (0 == pTaskList)
-    {
-        //Todo
-        assert(0);
-        return CL_DEV_OUT_OF_MEMORY;
-    }
-    pTaskList->Enqueue(pAffinitizeThreads);
-    pTaskList->Flush();
-    // we need to ensure that AffinitizeTask is completed BEFORE ANY OTHER TASK
-    // will appear in command queue, but there is a trap:
-    // pTaskList->WaitForCompletion is a NOOP when masters joining is disabled.
-    pTaskList->WaitForCompletion(nullptr);
-    // To avoid hanging of application when masters joining is disabled we need
-    // to call another one method below. It waits using hw_pause() until task is
-    // not finished.
-    pAffinitizeThreads->WaitForEndOfTask();
-
     return CL_DEV_SUCCESS;
 }
 
@@ -547,7 +512,7 @@ bool TaskDispatcher::TaskFailureNotification::Shoot(cl_dev_err_code err)
 
 void* TaskDispatcher::OnThreadEntry()
 {
-    unsigned int   position_in_device = m_pTaskExecutor->GetPosition();
+    const unsigned int position_in_device = m_pTaskExecutor->GetPosition();
 
     if ( !m_pTaskExecutor->IsMaster() )
     {
@@ -555,19 +520,23 @@ void* TaskDispatcher::OnThreadEntry()
         if ( isThreadAffinityRequired() )
         {
             // Only enter if affinity, in general, is required (OS-dependent)
-            bool bNeedToNotify = false;
+
             //We notify only for sub-devices by NAMES - in other cases, the user is not interested which cores to use
             cl_dev_internal_subdevice_id* pSubDevID = reinterpret_cast<cl_dev_internal_subdevice_id*>(m_pTaskExecutor->GetCurrentDevice().user_handle);
-            if (nullptr != pSubDevID)
-            {
-                bNeedToNotify = (nullptr != pSubDevID->legal_core_ids);
-            }
 
-            if (bNeedToNotify)
+            if (nullptr != pSubDevID && nullptr != pSubDevID->legal_core_ids)
             {
                 assert((nullptr != pSubDevID->legal_core_ids) && "For BY NAMES there should be an allocated array of legal core indices");
                 m_pObserver->NotifyAffinity( clMyThreadId(), pSubDevID->legal_core_ids[position_in_device] );
             }
+            else
+                m_pObserver->NotifyAffinity(clMyThreadId(), position_in_device);
+        }
+
+        if (isDestributedAllocationRequired())
+        {
+            // Set NUMA node
+            clNUMASetLocalNodeAlloc();
         }
     }
 
@@ -589,89 +558,4 @@ TE_BOOLEAN_ANSWER TaskDispatcher::MayThreadLeaveDevice( void* currentThreadData 
     }
 #endif
     return TE_USE_DEFAULT;
-}
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-AffinitizeThreads::AffinitizeThreads(unsigned int numThreads, cl_ulong timeOutInTicks, IAffinityChangeObserver* observer) :
-    m_numThreads(numThreads), m_timeOut(timeOutInTicks), m_failed(false), m_pObserver(observer), m_uiMasterHWId(0)
-{
-}
-
-AffinitizeThreads::~AffinitizeThreads()
-{
-}
-
-void AffinitizeThreads::WaitForEndOfTask() const
-{
-    while ((!m_failed) && (0 == m_endBarrier))
-    {
-        hw_pause();
-    }
-}
-
-int AffinitizeThreads::Init(size_t region[], unsigned int &dimCount, size_t numberOfThreads)
-{
-    m_uiMasterHWId = Intel::OpenCL::Utils::GetCpuId();
-    // copy execution parameters
-    unsigned int i;
-    for (i = 1; i < MAX_WORK_DIM; ++i)
-    {
-      region[i] = 1;
-    }
-    dimCount = 1;
-    region[0] = m_numThreads;
-    m_barrier = m_numThreads;
-
-    return CL_DEV_SUCCESS;
-}
-
-void* AffinitizeThreads::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGroups, size_t firstWGID[], size_t lastWGID[])
-{
-    // cast to WGContext* and only then to void* - in order to pass WGContext* to ExecuteIteration
-    // casting to and from void* must be done to the same type
-    return pWgContextBase; // return non-NULL
-}
-
-void AffinitizeThreads::DetachFromThread(void* pWgContext)
-{
-    return;
-}
-
-bool AffinitizeThreads::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext)
-{
-    if (m_failed)
-    {
-      return false;
-    }
-
-    ITaskExecutor* pTaskExecutor = reinterpret_cast<ITaskExecutor*>(pWgContext);
-
-    unsigned int   uiPositionInDevice = pTaskExecutor->GetPosition();
-    // If the target cpuid (uiPositionInDevice) is same as master thread's
-    // cpuid, will not set affinity.
-    if ( !pTaskExecutor->IsMaster() && (uiPositionInDevice != m_uiMasterHWId) )
-    {
-      m_pObserver->NotifyAffinity(clMyThreadId() , uiPositionInDevice);
-      // Set NUMA node
-      clNUMASetLocalNodeAlloc();
-    }
-
-    m_barrier--;
-    cl_ulong start = Intel::OpenCL::Utils::HostTime();
-    while ((m_barrier > 0) && (!m_failed))
-    {
-        if (m_timeOut > 0)
-        {
-          cl_ulong now = Intel::OpenCL::Utils::HostTime();
-          if (now - start > m_timeOut)
-          {
-            m_failed = true;
-            return false;
-          }
-        }
-        hw_pause();
-    }
-
-    return true;
 }

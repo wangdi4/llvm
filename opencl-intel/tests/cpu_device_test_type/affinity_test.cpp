@@ -205,6 +205,9 @@ bool AffinityRootDeviceTest(affinityMask_t* pMask)
     numUsedProcessors = numProcessors;
     if (NULL != pMask) 
     {
+        printf("Using mask 0x");
+        printAffinityMask(pMask);
+
         numUsedProcessors = CPU_COUNT(pMask);
 
         //use the first CPU set in mask

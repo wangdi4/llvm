@@ -684,7 +684,7 @@ TEST(CpuDeviceTestType, Test_KernelExecute_Math)
 }
 
 #ifndef _WIN32
-TEST(CpuDeviceTestType, DISABLED_Test_AffinityRootDevice)   // ticket CSSD100020139
+TEST(CpuDeviceTestType, Test_AffinityRootDevice)   // ticket CSSD100020139
 {
 	EXPECT_TRUE(AffinityRootDeviceTest(pMask));
 }
@@ -801,9 +801,6 @@ void initAndPrintRandomMask(affinityMask_t* affinityMask)
         CPU_SET(rand() % numProcessors, affinityMask);
         ++count;
     }
-
-    printf("Using mask 0x");
-    printAffinityMask(affinityMask);
 }
 
 void translateAndPrintMask(affinityMask_t* affinityMask, unsigned long val)
@@ -819,8 +816,6 @@ void translateAndPrintMask(affinityMask_t* affinityMask, unsigned long val)
         val >>= 1;
         ++i;
     }
-    printf("Using mask 0x");
-    printAffinityMask(affinityMask);
 }
 #endif
 
@@ -829,6 +824,7 @@ int main(int argc, char* argv[])
 	::testing::InitGoogleTest(&argc, argv);
 #ifndef _WIN32
     affinityMask_t affinityMask;
+    const char* param = nullptr;
     //Check for parameters not to gtest
     if (argc > 1)
     {
@@ -843,25 +839,23 @@ int main(int argc, char* argv[])
             printf("Usage: %s <-mask=val> where val is a number in hex format or RANDOM\n", argv[0]);
             return -1;
         }
-
-        if (!strcmp(param, "-mask=RANDOM"))
-        {
-            initAndPrintRandomMask(&affinityMask);
-        }
-        else
-        {
-            unsigned long aff = strtoul(param+6, NULL, 0);
-            if (0 == aff)
-            {
-                printf("illegal value specified for mask (%s)\n", param+6);
-                return -1;
-            }
-            translateAndPrintMask(&affinityMask, aff);
-        }
-
-        sched_setaffinity(0, sizeof(affinityMask), &affinityMask);
-        pMask = &affinityMask;
     }
+    if (!param || !strcmp(param, "-mask=RANDOM"))
+    {
+        initAndPrintRandomMask(&affinityMask);
+    }
+    else
+    {
+        unsigned long aff = strtoul(param+6, NULL, 0);
+        if (0 == aff)
+        {
+            printf("illegal value specified for mask (%s)\n", param+6);
+            return -1;
+        }
+        translateAndPrintMask(&affinityMask, aff);
+    }
+    sched_setaffinity(0, sizeof(affinityMask), &affinityMask);
+    pMask = &affinityMask;
 #endif
     int rc = CPUDeviceTest_Main();
 
