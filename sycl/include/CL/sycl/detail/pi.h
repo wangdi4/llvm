@@ -79,17 +79,23 @@ typedef enum : pi_uint64 {
 
 // TODO: populate and sync with cl::sycl::info::device
 typedef enum {
-  PI_DEVICE_INFO_TYPE           = CL_DEVICE_TYPE,
-  PI_DEVICE_INFO_PARENT         = CL_DEVICE_PARENT_DEVICE,
-  PI_DEVICE_INFO_PLATFORM       = CL_DEVICE_PLATFORM,
-  PI_DEVICE_INFO_PARTITION_TYPE = CL_DEVICE_PARTITION_TYPE,
-  PI_DEVICE_INFO_NAME           = CL_DEVICE_NAME
+  PI_DEVICE_INFO_TYPE               = CL_DEVICE_TYPE,
+  PI_DEVICE_INFO_PARENT             = CL_DEVICE_PARENT_DEVICE,
+  PI_DEVICE_INFO_PLATFORM           = CL_DEVICE_PLATFORM,
+  PI_DEVICE_INFO_PARTITION_TYPE     = CL_DEVICE_PARTITION_TYPE,
+  PI_DEVICE_INFO_VENDOR_ID          = CL_DEVICE_VENDOR_ID,
+  PI_DEVICE_INFO_EXTENSIONS         = CL_DEVICE_EXTENSIONS,
+  PI_DEVICE_INFO_COMPILER_AVAILABLE = CL_DEVICE_COMPILER_AVAILABLE,
+  PI_DEVICE_INFO_LINKER_AVAILABLE   = CL_DEVICE_LINKER_AVAILABLE,
+  PI_DEVICE_INFO_MAX_COMPUTE_UNITS  = CL_DEVICE_MAX_COMPUTE_UNITS,
+  PI_DEVICE_INFO_NAME               = CL_DEVICE_NAME 
 } _pi_device_info;
 
 // TODO: populate
 typedef enum {
   PI_CONTEXT_INFO_DEVICES     = CL_CONTEXT_DEVICES,
-  PI_CONTEXT_INFO_NUM_DEVICES = CL_CONTEXT_NUM_DEVICES
+  PI_CONTEXT_INFO_NUM_DEVICES = CL_CONTEXT_NUM_DEVICES,
+  PI_CONTEXT_INFO_REFERENCE_COUNT = CL_CONTEXT_REFERENCE_COUNT
 } _pi_context_info;
 
 // TODO: populate
@@ -107,6 +113,12 @@ typedef enum {
   PI_IMAGE_INFO_HEIGHT       = CL_IMAGE_HEIGHT,
   PI_IMAGE_INFO_DEPTH        = CL_IMAGE_DEPTH
 } _pi_image_info;
+
+// TODO: populate
+typedef enum {
+  PI_KERNEL_INFO_PROGRAM     = CL_KERNEL_PROGRAM,
+  PI_KERNEL_INFO_CONTEXT     = CL_KERNEL_CONTEXT
+} _pi_kernel_info;
 
 typedef enum {
   PI_MEM_TYPE_BUFFER         = CL_MEM_OBJECT_BUFFER,
@@ -213,6 +225,7 @@ typedef _pi_device_info             pi_device_info;
 typedef _pi_context_info            pi_context_info;
 typedef _pi_queue_info              pi_queue_info;
 typedef _pi_image_info              pi_image_info;
+typedef _pi_kernel_info             pi_kernel_info;
 typedef _pi_mem_type                pi_mem_type;
 typedef _pi_image_channel_order     pi_image_channel_order;
 typedef _pi_image_channel_type      pi_image_channel_type;
