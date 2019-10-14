@@ -417,6 +417,6 @@ bool HLIf::isKnownPredicate(bool *IsTrue) const {
 }
 
 bool HLIf::isUnknownLoopBottomTest() const {
-  auto ParentLoop = dyn_cast<HLLoop>(getParent());
+  auto ParentLoop = dyn_cast_or_null<HLLoop>(getParent());
   return (ParentLoop && (ParentLoop->getBottomTest() == this));
 }

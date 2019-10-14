@@ -53,8 +53,6 @@
 ; CHECK: %mv.and7 =
 ; CHECK: if (%mv.and == 0 && %mv.and7 == 0)
 
-; ModuleID = 'matmul-coremarkpro-x64.ll'
-source_filename = "matmul-coremarkpro-x86_3.ll"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -163,8 +161,4 @@ for.end37:                                        ; preds = %for.end37.loopexit,
   %call39 = tail call float @get_array_feedback(float* %1, i32 %mul)
   ret float %call39
 }
-
-attributes #0 = { "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="pentium4" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { nounwind "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="pentium4" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #2 = { nounwind }
 

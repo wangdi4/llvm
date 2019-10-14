@@ -16,6 +16,7 @@
 #include "llvm/Support/Debug.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -23,6 +24,12 @@ using namespace llvm::loopopt;
 static cl::opt<bool>
     PrintConstDDRefs("hir-details-constants", cl::init(false), cl::Hidden,
                      cl::desc("Print constant DDRefs in detailed print"));
+
+bool PredicateTuple::
+operator==(const llvm::loopopt::PredicateTuple &Cnd) const {
+  return Pred == Cnd.Pred && DDRefUtils::areEqual(Op1, Cnd.Op1) &&
+         DDRefUtils::areEqual(Op2, Cnd.Op2);
+}
 
 /// DDRefs are taken care of in the derived classes.
 HLDDNode::HLDDNode(HLNodeUtils &HNU, unsigned SCID)

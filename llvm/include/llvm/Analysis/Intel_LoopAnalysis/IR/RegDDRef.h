@@ -799,6 +799,7 @@ public:
     assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
     return CanonExprs[DimensionNum - 1];
   }
+
   const CanonExpr *getDimensionIndex(unsigned DimensionNum) const {
     return const_cast<RegDDRef *>(this)->getDimensionIndex(DimensionNum);
   }
