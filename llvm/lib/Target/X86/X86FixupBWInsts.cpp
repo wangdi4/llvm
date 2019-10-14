@@ -458,9 +458,12 @@ MachineInstr *FixupBWInstPass::tryReplaceInstr(MachineInstr *MI,
     // Only replace 8 bit loads with the zero extending versions if
     // in a loop and not optimizing for size. This takes
     // an extra byte to encode, and provides limited performance upside.
-    if (MLI->getLoopFor(&MBB))
-      if (!OptForSize)
+    if (MachineLoop *ML = MLI->getLoopFor(&MBB)) {
+      const TargetOptions &Options = MBB.getParent()->getTarget().Options;
+      if ((ML->begin() == ML->end() || Options.IntelAdvancedOptim) &&
+          !OptForSize)
         return tryReplaceLoad(X86::MOVZX32rm8, MI);
+    }
     break;
 #endif
 
