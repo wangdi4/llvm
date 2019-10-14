@@ -244,7 +244,7 @@ private:
 
   /// Creates a new Call instruction.
   std::pair<HLInst *, CallInst *>
-  createCallImpl(Function *F, const SmallVectorImpl<RegDDRef *> &CallArgs,
+  createCallImpl(FunctionCallee F, ArrayRef<RegDDRef *> CallArgs,
                  const Twine &Name = "call", RegDDRef *LvalRef = nullptr,
                  ArrayRef<OperandBundleDef> Bundle = {},
                  ArrayRef<RegDDRef *> BundleOps = {});
@@ -828,7 +828,7 @@ public:
                     const Twine &Name = "max");
 
   /// Creates a new Call instruction.
-  HLInst *createCall(Function *F, const SmallVectorImpl<RegDDRef *> &CallArgs,
+  HLInst *createCall(FunctionCallee F, ArrayRef<RegDDRef *> CallArgs,
                      const Twine &Name = "call", RegDDRef *LvalRef = nullptr,
                      ArrayRef<OperandBundleDef> Bundle = {},
                      ArrayRef<RegDDRef *> BundleOps = {});
