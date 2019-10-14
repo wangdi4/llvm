@@ -177,4 +177,19 @@ double foo_three(double *x) {
 
   return s_foo;
 }
+
+class BOO {
+public:
+// CHECK-LABEL: BOOC2
+  BOO() {
+  // CHECK: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET.ENTER.DATA
+  // CHECK-SAME: "QUAL.OMP.MAP.TO:AGGRHEAD"(%class.BOO* %arrayidx, %class.BOO* %arrayidx2, i64 8)
+#pragma omp target enter data map(to:this[0:1])
+      {
+       zoo[1] = 1.0;
+      }
+  }
+  double* zoo;
+};
+BOO * obj = new BOO();
 // end INTEL_COLLAB
