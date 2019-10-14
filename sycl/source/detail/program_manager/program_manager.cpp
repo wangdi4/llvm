@@ -235,6 +235,13 @@ static bool is_device_binary_type_supported(const context &C,
   if (Format != PI_DEVICE_BINARY_TYPE_SPIRV)
     return true;
 
+#if INTEL_CUSTOMIZATION
+  // Assume all versions of the "other" backend have a compiler.
+  // TODO: can we just query piDeviceGetInfo(PI_DEVICE_INFO_COMPILER_AVAILABLE)?
+  if (pi::useBackend(pi::SYCL_BE_PI_OTHER))
+    return true;
+#endif // INTEL_CUSTOMIZATION
+
   // OpenCL 2.1 and greater require clCreateProgramWithIL
   if (pi::useBackend(pi::SYCL_BE_PI_OPENCL) &&
       C.get_platform().get_info<info::platform::version>() >= "2.1")
