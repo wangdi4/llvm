@@ -1,5 +1,5 @@
-; RUN: opt < %s -S -dopevectorconstprop 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes=dopevectorconstprop 2>&1 | FileCheck %s
+; RUN: opt < %s -S -dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
+; RUN: opt < %s -S -passes=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
 
 ; Check that full load, stride, and extent dope vector constant values are
 ; determined for ARG #1 of new_solver_, but only some lower bound and stride
@@ -360,7 +360,7 @@ define internal void @new_solver_({ i32*, i64, i64, i64, i64, i64, [2 x { i64, i
 53:                                               ; preds = %80, %51
   %54 = phi i64 [ %81, %80 ], [ 1, %51 ]
   %55 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 %50, i32* %46, i64 %54)
-; NOTE DO NOT replace %50 with 36
+; NOTE: DO NOT replace %50 with 36
 ; CHECK-NOT: [[V:%[0-9]+]] = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36,{{.*}})
   %56 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %48, i32* %55, i64 %52)
 ; NOTE: replace %48 with 4

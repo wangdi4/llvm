@@ -273,7 +273,7 @@ static bool replaceDopeVectorConstants(Argument &Arg,
   return Change;
 }
 
-static bool DopeVectorConstPropImpl(Module &M) {
+static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo) {
 
   // Return 'true' if not all of 'F's uses are CallBase.
   auto HasNonCallBaseUser = [](Function &F) -> bool {
@@ -284,6 +284,15 @@ static bool DopeVectorConstPropImpl(Module &M) {
     }
     return false;
   };
+
+  // Check if AVX2 is supported.
+  LLVM_DEBUG(dbgs() << "DOPE VECTOR CONSTANT PROPAGATION: BEGIN\n");
+  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
+  if (!WPInfo.isAdvancedOptEnabled(TTIAVX2)) {
+    LLVM_DEBUG(dbgs() << "NOT AVX2\n");
+    LLVM_DEBUG(dbgs() << "DOPE VECTOR CONSTANT PROPAGATION: END\n");
+    return false;
+  }
 
   bool Change = false;
   const DataLayout &DL = M.getDataLayout();
@@ -356,6 +365,7 @@ static bool DopeVectorConstPropImpl(Module &M) {
           LowerBound, Stride, Extent);
     }
   }
+  LLVM_DEBUG(dbgs() << "DOPE VECTOR CONSTANT PROPAGATION: END\n");
   return Change;
 }
 
@@ -371,6 +381,7 @@ public:
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<WholeProgramWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();
     AU.addPreserved<InlineAggressiveWrapperPass>();
@@ -379,14 +390,18 @@ public:
   bool runOnModule(Module &M) override {
     if (skipModule(M))
       return false;
-    return DopeVectorConstPropImpl(M);
+    auto WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
+    return DopeVectorConstPropImpl(M, WPInfo);
   }
 };
 
 }
 
 char DopeVectorConstPropLegacyPass::ID = 0;
-INITIALIZE_PASS(DopeVectorConstPropLegacyPass, "dopevectorconstprop",
+INITIALIZE_PASS_BEGIN(DopeVectorConstPropLegacyPass, "dopevectorconstprop",
+    "DopeVectorConstProp", false, false)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
+INITIALIZE_PASS_END(DopeVectorConstPropLegacyPass, "dopevectorconstprop",
     "DopeVectorConstProp", false, false)
 
 ModulePass *llvm::createDopeVectorConstPropLegacyPass(void) {
@@ -397,7 +412,8 @@ DopeVectorConstPropPass::DopeVectorConstPropPass(void) {}
 
 PreservedAnalyses DopeVectorConstPropPass::run(Module &M,
                                                ModuleAnalysisManager &AM) {
-  if (!DopeVectorConstPropImpl(M))
+  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
+  if (!DopeVectorConstPropImpl(M, WPInfo))
     return PreservedAnalyses::all();
   auto PA = PreservedAnalyses();
   PA.preserve<AndersensAA>();

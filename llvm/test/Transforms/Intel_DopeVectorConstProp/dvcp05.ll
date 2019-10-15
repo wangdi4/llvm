@@ -1,12 +1,13 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -disable-output -dopevectorconstprop -debug-only=dopevectorconstprop 2>&1 | FileCheck %s
-; RUN: opt < %s -disable-output -passes=dopevectorconstprop -debug-only=dopevectorconstprop 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -dopevectorconstprop -debug-only=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -passes=dopevectorconstprop -debug-only=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
 
 ; Check that dope vector constants get propagated for uplevels #0 and #1 in
 ; new_solver_IP_specific_, a contained subroutine for new_solver_. Note that
 ; new_solver_IP_specific_ is called twice, but only needs to be processed by
 ; once for each dope vector used it in it.
 
+; CHECK: DOPE VECTOR CONSTANT PROPAGATION: BEGIN
 ; CHECK: DV FOUND: ARG #0 new_solver_ 1 x i32
 ; CHECK: VALID
 ; CHECK: LB[0] = 1
@@ -32,6 +33,7 @@
 ; CHECK: REPLACING 1 LOAD WITH 3
 ; CHECK: REPLACING 1 LOAD WITH 4
 ; CHECK: REPLACING 1 LOAD WITH 12
+; CHECK: DOPE VECTOR CONSTANT PROPAGATION: END
 
 %uplevel_type = type { { i32*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }*, { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* }
 

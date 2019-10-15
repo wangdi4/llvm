@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -disable-output -dopevectorconstprop -debug-only=dopevectorconstprop 2>&1 | FileCheck %s
-; RUN: opt < %s -disable-output -passes=dopevectorconstprop -debug-only=dopevectorconstprop 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -dopevectorconstprop -debug-only=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -passes=dopevectorconstprop -debug-only=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
 
 ; Check that full load, stride, and extent dope vector constant values are
 ; determined for ARG #1 of new_solver_, but only some lower bound and stride
@@ -8,6 +8,7 @@
 
 ; Check the trace output.
 
+; CHECK: DOPE VECTOR CONSTANT PROPAGATION: BEGIN
 ; CHECK: DV FOUND: ARG #0 new_solver_ 2 x i32
 ; CHECK: VALID
 ; CHECK: LB[0] = 1
@@ -35,6 +36,7 @@
 ; CHECK: REPLACING 1 LOAD WITH 4
 ; CHECK: REPLACING 1 LOAD WITH 36
 ; CHECK: REPLACING 1 LOAD WITH 324
+; CHECK: DOPE VECTOR CONSTANT PROPAGATION: END
 
 @"main_$PART1" = internal global [9 x [9 x i32]] zeroinitializer, align 16
 
