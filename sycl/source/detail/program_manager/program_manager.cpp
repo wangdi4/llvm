@@ -270,6 +270,7 @@ RT::PiProgram ProgramManager::loadProgram(OSModuleHandle M,
               << getRawSyclObjImpl(Context) << ")\n";
   }
 
+  const RT::PiContext &Ctx = getRawSyclObjImpl(Context)->getHandleRef();
   DeviceImage *Img = nullptr;
   bool UseKernelSpv = false;
   const std::string UseSpvEnv("SYCL_USE_KERNEL_SPV");
@@ -316,6 +317,10 @@ RT::PiProgram ProgramManager::loadProgram(OSModuleHandle M,
       std::cerr << "loaded device image from " << Fname << "\n";
     }
   } else {
+    // TODO: There may be cases with cl::sycl::program class usage in source code
+    // that will result in a multi-device context. This case needs to be handled
+    // here or at the program_impl class level
+
     // Take all device images in module M and ask the native runtime under the
     // given context to choose one it prefers.
     auto ImgIt = m_DeviceImages.find(M);
@@ -325,8 +330,8 @@ RT::PiProgram ProgramManager::loadProgram(OSModuleHandle M,
     }
     std::vector<DeviceImage *> *Imgs = (ImgIt->second).get();
 
-    PI_CALL(RT::piextDeviceSelectBinary(
-      0, Imgs->data(), (cl_uint)Imgs->size(), &Img));
+    PI_CALL(RT::piextDeviceSelectBinary(getFirstDevice(Ctx), Imgs->data(),
+                                        (cl_uint)Imgs->size(), &Img));
 
     if (DbgProgMgr > 0) {
       std::cerr << "available device images:\n";
@@ -407,7 +412,6 @@ RT::PiProgram ProgramManager::loadProgram(OSModuleHandle M,
   // Load the selected image
   if (!is_device_binary_type_supported(Context, Format))
     throw feature_not_supported("Online compilation is not supported in this context");
-  const RT::PiContext &Ctx = getRawSyclObjImpl(Context)->getHandleRef();
   RT::PiProgram Res = nullptr;
   Res = Format == PI_DEVICE_BINARY_TYPE_SPIRV
             ? createSpirvProgram(Ctx, Img->BinaryStart, ImgSize)
