@@ -100,9 +100,10 @@ exit:
 }
 
 define void @test_trunc(i32 %a, i32 %b, i32 %c, i32 %d, i32 %e, i32 %f) {
+; INTEL - Note: upstream doesn't prove the nowrap flags due to the truncate.
 ; CHECK-LABEL: @test_trunc
 ; CHECK:          %trunc2 = trunc i64 %iv2.inc to i32
-; CHECK-NEXT:     -->  {(trunc i64 (1 + {7,+,1}<%loop>) to i32),+,1}<%loop2>
+; CHECK-NEXT:     -->  {(trunc i64 (1 + {7,+,1}<%loop>)<nuw><nsw> to i32),+,1}<%loop2>
 entry:
   br label %loop
 

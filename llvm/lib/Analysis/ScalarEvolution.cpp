@@ -6118,6 +6118,21 @@ ScalarEvolution::getRangeRef(const SCEV *S,
     // TODO: non-affine addrec
     if (AddRec->isAffine()) {
       const SCEV *MaxBECount = getConstantMaxBackedgeTakenCount(AddRec->getLoop());
+#if INTEL_CUSTOMIZATION
+      // Try to reason about widened IVs, too. If we can prove that truncating
+      // a wide MaxBECount preserves the count then we use it to compute a more
+      // accurate range.
+      if (!isa<SCEVCouldNotCompute>(MaxBECount) &&
+              isa<SCEVConstant>(MaxBECount) &&
+              getTypeSizeInBits(MaxBECount->getType()) > BitWidth) {
+          unsigned WideBitWidth = getTypeSizeInBits(MaxBECount->getType());
+          ConstantRange SCR = getSignedRange(MaxBECount);
+          ConstantRange UCR = getUnsignedRange(MaxBECount);
+          if (SCR.truncate(BitWidth).signExtend(WideBitWidth) == SCR &&
+              UCR.truncate(BitWidth).zeroExtend(WideBitWidth) == UCR)
+              MaxBECount = getTruncateExpr(MaxBECount, AddRec->getType());
+      }
+#endif // INTEL_CUSTOMIZATION
       if (!isa<SCEVCouldNotCompute>(MaxBECount) &&
           getTypeSizeInBits(MaxBECount->getType()) <= BitWidth) {
         auto RangeFromAffine = getRangeForAffineAR(

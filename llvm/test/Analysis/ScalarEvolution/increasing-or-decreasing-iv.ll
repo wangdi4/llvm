@@ -141,11 +141,12 @@ leave:
 define void @f4(i1 %c) {
 ; CHECK-LABEL: Classifying expressions for: @f4
 
-; @f4() demonstrates a case where SCEV is not able to compute a
-; precise range for %iv.trunc, though it should be able to, in theory.
-; This is because SCEV looks into affine add recurrences only when the
-; backedge taken count of the loop has the same bitwidth as the
-; induction variable.
+; INTEL - This succeeds only with Intel SCEV improvements. Upstream cannot
+; INTEL - determine ranges for values where the backedge taken count is smaller
+; INTEL - than the IV.
+; @f4() demonstrates a case where SCEV is able to compute a
+; precise range for %iv.trunc even though the backedge taken count of the loop
+; has a larger bitwidth than the induction variable.
 entry:
   %start = select i1 %c, i32 127, i32 0
   %step  = select i1 %c, i32 -1,  i32 1
@@ -155,8 +156,9 @@ loop:
   %loop.iv = phi i32 [ 0, %entry ], [ %loop.iv.inc, %loop ]
   %iv = phi i32 [ %start, %entry ], [ %iv.next, %loop ]
   %iv.trunc = trunc i32 %iv to i16
+; INTEL - Note: in upstream the ranges for %iv.trunc are "full-set".
 ; CHECK:  %iv.trunc = trunc i32 %iv to i16
-; CHECK-NEXT:   -->  {(trunc i32 %start to i16),+,(trunc i32 %step to i16)}<%loop> U: full-set S: full-set
+; CHECK-NEXT:   -->  {(trunc i32 %start to i16),+,(trunc i32 %step to i16)}<%loop> U: [0,128) S: [0,128)
   %iv.next = add i32 %iv, %step
   %loop.iv.inc = add i32 %loop.iv, 1
   %be.cond = icmp ne i32 %loop.iv.inc, 128

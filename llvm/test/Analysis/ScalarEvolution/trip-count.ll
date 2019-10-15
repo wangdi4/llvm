@@ -33,9 +33,10 @@ return:         ; preds = %bb5
 }
 
 ; PR22795
+; INTEL - Note: upstream has "full-set" ranges because %v11 is wider than %iv.
 ; CHECK-LABEL: Classifying expressions for: @test2
 ; CHECK:   %iv = phi i32 [ -1, %entry ], [ %next.1, %for.inc.1 ]
-; CHECK-NEXT:  -->  {-1,+,2}<%preheader> U: full-set S: full-set             Exits: 13
+; CHECK-NEXT:  -->  {-1,+,2}<%preheader> U: [-1,14) S: [-1,14)             Exits: 13
 
 define i32 @test2() {
 entry:
