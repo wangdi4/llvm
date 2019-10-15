@@ -555,14 +555,18 @@ void HandledCheck::visit(HLDDNode *Node) {
       }
 
       StringRef CalledFunc = Fn->getName();
+      Intrinsic::ID ID = getVectorIntrinsicIDForCall(Call, TLI);
 
-      if (Inst->getParent() != OrigLoop &&
-          (VF > 1 && !TLI->isFunctionVectorizable(CalledFunc, VF))) {
-        // Masked svml calls are supported, but masked intrinsics are not at
-        // the moment.
+      bool TrivialVectorIntrinsic =
+          (ID != Intrinsic::not_intrinsic) && isTriviallyVectorizable(ID);
+      if (isa<HLIf>(Inst->getParent()) &&
+          (VF > 1 && !TrivialVectorIntrinsic &&
+           !TLI->isFunctionVectorizable(CalledFunc, VF))) {
+        // Masked svml calls are supported, but masked non-trivially
+        // vectorizable intrinsics are not at the moment.
         LLVM_DEBUG(Inst->dump());
-        LLVM_DEBUG(
-            dbgs() << "VPLAN_OPTREPORT: Loop not handled - masked intrinsic\n");
+        LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - masked "
+                             "non-trivially vectorizable intrinsic\n");
         IsHandled = false;
         return;
       }
@@ -581,7 +585,6 @@ void HandledCheck::visit(HLDDNode *Node) {
         return;
       }
 
-      Intrinsic::ID ID = getVectorIntrinsicIDForCall(Call, TLI);
       if ((VF > 1 && !TLI->isFunctionVectorizable(CalledFunc, VF)) && !ID) {
         LLVM_DEBUG(
             dbgs()
@@ -2238,7 +2241,10 @@ HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
   }
 
   bool Masked = false;
-  if (Mask) {
+  // Masked intrinsics will not have explicit mask parameter. They are handled
+  // like other BinOp HLInsts i.e. execute on all lanes and extract active lanes
+  // during HIR-CG.
+  if (Mask && ID == Intrinsic::not_intrinsic) {
     auto CE = Mask->getSingleCanonExpr();
     ArgTys.push_back(CE->getDestType());
     CallArgs.push_back(Mask->clone());
