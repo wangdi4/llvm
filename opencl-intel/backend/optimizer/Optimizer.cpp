@@ -886,7 +886,7 @@ void Optimizer::Optimize() {
   materializerPM.add(createBuiltinLibInfoPass(m_pRtlModuleList, ""));
   materializerPM.add(createLLVMEqualizerPass());
   Triple TargetTriple(m_pModule->getTargetTriple());
-  if (!m_IsFpgaEmulator && !m_IsEyeQEmulator && TargetTriple.isOSLinux() &&
+  if (!m_IsEyeQEmulator && TargetTriple.isOSLinux() &&
       TargetTriple.isArch64Bit())
     materializerPM.add(createCoerceTypesPass());
 
