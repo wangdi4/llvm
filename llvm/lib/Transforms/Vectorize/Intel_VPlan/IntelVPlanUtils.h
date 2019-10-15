@@ -177,45 +177,6 @@ inline Function *getCalledFunction(const VPInstruction *Call) {
   return cast<Function>(Func->getConstant());
 }
 
-// FIXME: BlendPhi to select lowering should be a separate VPlan-to-VPlan
-// transformation and this routine won't be necessary here. Currently it's
-// needed in both LLVM/HIR code gen, so I had to put it here.
-inline void
-sortBlendPhiIncomingBlocks(const VPPHINode *VPPhi,
-                           SmallVectorImpl<VPBasicBlock *> &SortedBlocks) {
-  assert(SortedBlocks.empty() && "SortedBlocks should be empty!");
-  assert(VPPhi->getBlend() && "Not a blend phi!");
-
-  const VPBasicBlock *VPBB = VPPhi->getParent();
-
-  for (auto *Block : VPPhi->blocks()) {
-    assert(Block != VPBB && "Unexpected backedge for a block with blend phi!");
-    VPBlockBase *Succ =
-        Block->getSingleHierarchicalSuccessor()->getExitBasicBlock();
-    assert(Succ && "Blend phi in non-linearized control flow?");
-
-    bool Inserted = false;
-    // Check if the cfg reaches VPPhi's block through any of the already visited
-    // blocks...
-    while (Succ != VPBB) {
-      auto It = find(SortedBlocks, Succ);
-      if (It != SortedBlocks.end()) {
-        // ... if so, this Block should be processed before the first block in
-        // the SortedBlocks that is on the path from Block to VPPhi's block.
-        SortedBlocks.insert(It, Block);
-        Inserted = true;
-        break;
-      }
-
-      Succ = Succ->getSingleHierarchicalSuccessor()->getExitBasicBlock();
-    }
-    if (!Inserted)
-      // Didn't go through any of the previously collected blocks. That means
-      // those blocks all come through this Block, insert it at the end.
-      SortedBlocks.push_back(Block);
-  }
-}
-
 } // namespace vpo
 } // namespace llvm
 
