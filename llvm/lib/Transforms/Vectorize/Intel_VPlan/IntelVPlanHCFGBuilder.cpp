@@ -443,10 +443,6 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
 
   VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
 
-  // Apply simplification to subloops.
-  for (auto VPSL : VPL->getSubLoops())
-    mergeLoopExits(VPSL);
-
   // Check if the loop has multiple exits. Merge loop exits transformation is
   // only applied in the inner loops of a loop nest.
   VPLoop *ParentLoop = VPL->getParentLoop();
@@ -879,8 +875,6 @@ bool VPlanHCFGBuilder::isBreakingSSA(VPLoop *VPL) {
 //                                  BB4
 //
 void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
-  for (auto VPSL : VPL->getSubLoops())
-    singleExitWhileLoopCanonicalization(VPSL);
 
   VPBasicBlock *OrigLoopLatch = dyn_cast<VPBasicBlock>(VPL->getLoopLatch());
   if (OrigLoopLatch->getNumSuccessors() > 1)
@@ -1137,11 +1131,15 @@ void VPlanHCFGBuilder::simplifyPlainCFG() {
 
   splitLoopsPreheader(TopLoop);
 
+  LLVM_DEBUG(dbgs() << "Dominator Tree Before mergeLoopExits\n";
+             VPDomTree.print(dbgs()));
+
   if (LoopMassagingEnabled) {
-    // LLVM_DEBUG(dbgs() << "Dominator Tree Before mergeLoopExits\n";
-    // VPDomTree.print(dbgs()));
-    singleExitWhileLoopCanonicalization(TopLoop);
-    mergeLoopExits(TopLoop);
+    for (auto *VPL : post_order(TopLoop)) {
+      singleExitWhileLoopCanonicalization(VPL);
+      mergeLoopExits(VPL);
+      LLVM_DEBUG(Verifier->verifyHierarchicalCFG(Plan, TopRegion));
+    }
 #if INTEL_CUSTOMIZATION
     if (VPlanPrintAfterLoopMassaging) {
       errs() << "Print after loop massaging:\n";
@@ -1151,9 +1149,8 @@ void VPlanHCFGBuilder::simplifyPlainCFG() {
     }
 #endif /* INTEL_CUSTOMIZATION */
 
-    LLVM_DEBUG(Verifier->verifyHierarchicalCFG(Plan, TopRegion));
-    // LLVM_DEBUG(dbgs() << "Dominator Tree After mergeLoopExits\n";
-    // VPDomTree.print(dbgs()));
+    LLVM_DEBUG(dbgs() << "Dominator Tree After mergeLoopExits\n";
+               VPDomTree.print(dbgs()));
   }
 
   splitLoopsExit(TopLoop);
