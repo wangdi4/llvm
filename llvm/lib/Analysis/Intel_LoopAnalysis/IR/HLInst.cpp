@@ -45,14 +45,14 @@ void HLInst::initialize() {
 
 HLInst::HLInst(HLNodeUtils &HNU, Instruction *Inst)
     : HLDDNode(HNU, HLNode::HLInstVal), Inst(Inst),
-      CmpOrSelectPred(PredicateTy::FCMP_TRUE) {
+      CmpOrSelectPred(PredicateTy::FCMP_TRUE), IsSinked(false) {
   assert(Inst && "LLVM Instruction for HLInst cannot be null!");
   initialize();
 }
 
 HLInst::HLInst(const HLInst &HLInstObj)
     : HLDDNode(HLInstObj), Inst(HLInstObj.Inst),
-      CmpOrSelectPred(HLInstObj.CmpOrSelectPred) {
+      CmpOrSelectPred(HLInstObj.CmpOrSelectPred), IsSinked(HLInstObj.IsSinked) {
 
   unsigned NumOp, Count = 0;
 

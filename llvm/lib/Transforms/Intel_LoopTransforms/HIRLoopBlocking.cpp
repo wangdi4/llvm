@@ -337,8 +337,11 @@ unsigned calcMaxVariantDimension(const MemRefGatherer::VectorTy &Refs,
   unsigned Max = 0;
   for (RegDDRef *Ref : Refs) {
     unsigned NumVariantDimensions = 0;
-    for (int I = 1, E = Ref->getNumDimensions(); I <= E; I++) {
+
+    for (unsigned I :
+         make_range(Ref->dim_index_begin(), Ref->dim_index_end())) {
       const CanonExpr *CE = Ref->getDimensionIndex(I);
+
       if (CE->isInvariantAtLevel(OutermostLoopLevel, false)) {
         continue;
       }
@@ -350,7 +353,7 @@ unsigned calcMaxVariantDimension(const MemRefGatherer::VectorTy &Refs,
     }
   }
   return Max;
-}
+} // namespace
 
 void populateTCs(const HLLoop *InnermostLoop, const HLLoop *OutermostLoop,
                  DenseMap<const HLLoop *, uint64_t> &LoopToTC) {
@@ -860,6 +863,8 @@ void doTransformation(BlockingLoopNestInfoTy &CandidateRangeToStrips) {
     HLLoop *InnermostLoop;
     LoopSetTy ToStripmines;
     std::tie(OutermostLoop, InnermostLoop, ToStripmines) = Triple;
+
+    InnermostLoop->setIsUndoSinkingCandidate(false);
 
     HLLoop *NewOutermostLoop = stripmineSelectedLoops(
         InnermostLoop, OutermostLoop, ToStripmines, ByStripLoops);

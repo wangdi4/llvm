@@ -469,7 +469,8 @@ bool SequenceChecker::getDistance(const VecCEsTy &CEList1,
     }
 
     // If there were differences in IVs, return false
-    for (unsigned Level = 1; Level < MaxLoopNestLevel; Level++) {
+    for (auto Level :
+         make_range(AllLoopLevelRange::begin(), AllLoopLevelRange::end())) {
       const CanonExpr *CEs[2] = {CE1, CE2};
       unsigned Indexes[2] = {InvalidBlobIndex, InvalidBlobIndex};
       int64_t Coeffs[2] = {0, 0};

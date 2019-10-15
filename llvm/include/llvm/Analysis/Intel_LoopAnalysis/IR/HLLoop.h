@@ -135,6 +135,8 @@ private:
 
   bool HasDistributePoint;
 
+  bool IsUndoSinkingCandidate;
+
 protected:
   HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop);
   HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
@@ -1070,6 +1072,9 @@ public:
 
   bool hasDistributePoint() const { return HasDistributePoint; }
   void setHasDistributePoint(bool Flag) { HasDistributePoint = Flag; }
+
+  bool isUndoSinkingCandidate() const { return IsUndoSinkingCandidate; }
+  void setIsUndoSinkingCandidate(bool Flag) { IsUndoSinkingCandidate = Flag; }
 
   /// Shifts by \p Amount all the RegDDRefs in the body of this loop.
   void shiftLoopBodyRegDDRefs(int64_t Amount);
