@@ -2681,11 +2681,6 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
        {DominatorTree::Delete, PredBB, RegionTop}});
   DTU->applyUpdatesPermissive(DTUpdates);
 
-  // Apply all updates we queued with DTU and get the updated Dominator Tree.
-  DominatorTree *DT = &DTU->getDomTree();
-  (void)DT;
-
-
   // If there were values defined in the region that are used outside the
   // region, then we now have to update all uses of the value to use either the
   // original value, the cloned value, or some PHI derived value. This can
