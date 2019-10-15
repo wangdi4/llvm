@@ -133,6 +133,9 @@ if (CXX_SUPPORTS_MISSING_FIELD_INITIALIZERS_FLAG)
 endif()
 
 if (OPENCL_INTREE_BUILD)
+# TODO: Temporarily diable warnings for OpenCL component when built in-tree on Windows, related to CORC-6069.
+  string(REGEX REPLACE "/WX" "/WX-" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+  string(REGEX REPLACE "/WX" "/WX-" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
   add_flag_if_supported("-Wno-cast-qual" CMPLR_NO_CAST_QUAL_FLAG)
   add_flag_if_supported("-Wno-discarded-qualifiers" CMPLR_NO_DISCARDED_QUALIFIERS)
 endif()
