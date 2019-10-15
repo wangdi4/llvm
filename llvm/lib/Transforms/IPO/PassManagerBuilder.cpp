@@ -1796,9 +1796,10 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
       PM.add(createHIRSinkingForPerfectLoopnestPass());
       PM.add(createHIRLoopDistributionForLoopNestPass());
       PM.add(createHIRLoopInterchangePass());
-      PM.add(createHIRDeadStoreEliminationPass());
       PM.add(createHIRGenerateMKLCallPass());
       PM.add(createHIRLoopBlockingPass());
+      PM.add(createHIRUndoSinkingForPerfectLoopnestPass());
+      PM.add(createHIRDeadStoreEliminationPass());
       PM.add(createHIRLoopReversalPass());
       PM.add(createHIRIdentityMatrixIdiomRecognitionPass());
     }

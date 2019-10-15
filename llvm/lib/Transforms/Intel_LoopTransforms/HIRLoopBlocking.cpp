@@ -864,6 +864,8 @@ void doTransformation(BlockingLoopNestInfoTy &CandidateRangeToStrips) {
     LoopSetTy ToStripmines;
     std::tie(OutermostLoop, InnermostLoop, ToStripmines) = Triple;
 
+    InnermostLoop->setIsUndoSinkingCandidate(false);
+
     HLLoop *NewOutermostLoop = stripmineSelectedLoops(
         InnermostLoop, OutermostLoop, ToStripmines, ByStripLoops);
 

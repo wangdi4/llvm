@@ -47,6 +47,7 @@ add_llvm_library(LLVMIntel_LoopTransforms
         HIRIdentityMatrixIdiomRecognition.cpp
         HIRPrefetching.cpp
         HIRSinkingForPerfectLoopnest.cpp
+        HIRUndoSinkingForPerfectLoopnest.cpp
         HIRConditionalTempSinking.cpp
         HIRMemoryReductionSinking.cpp
 

@@ -168,6 +168,9 @@ FunctionPass *createHIRPrefetchingPass();
 /// Create pass that enables sinking for perfect Loop nest.
 FunctionPass *createHIRSinkingForPerfectLoopnestPass();
 
+/// Create pass that enables undosinking for perfect Loop nest.
+FunctionPass *createHIRUndoSinkingForPerfectLoopnestPass();
+
 /// Create pass that enables sinking for conditional temps.
 FunctionPass *createHIRConditionalTempSinkingPass();
 /// Create pass that sinks loop invariant memory reductions.
