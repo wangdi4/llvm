@@ -669,7 +669,6 @@ void TargetPassConfig::addIRPasses() {
   // TODO: add a pass insertion point here
   addPass(createGCLoweringPass());
   addPass(createShadowStackGCLoweringPass());
-  addPass(createLowerConstantIntrinsicsPass());
 
   // Make sure that no unreachable blocks are instruction selected.
   addPass(createUnreachableBlockEliminationPass());

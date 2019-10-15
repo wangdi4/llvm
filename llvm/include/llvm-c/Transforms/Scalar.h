@@ -152,6 +152,7 @@ void LLVMAddEarlyCSEMemSSAPass(LLVMPassManagerRef PM);
 /** See llvm::createLowerExpectIntrinsicPass function */
 void LLVMAddLowerExpectIntrinsicPass(LLVMPassManagerRef PM);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /** See llvm::createLowerSubscriptIntrinsicLegacyPass function */
 void LLVMAddLowerSubscriptIntrinsicPass(LLVMPassManagerRef PM);
@@ -163,6 +164,8 @@ void LLVMAddConvertGEPToSubscriptIntrinsicPass(LLVMPassManagerRef PM);
 /** See llvm::createLowerConstantIntrinsicsPass function */
 void LLVMAddLowerConstantIntrinsicsPass(LLVMPassManagerRef PM);
 
+=======
+>>>>>>> 1a21f98ac3c57d027908000b8bac356daec51416
 /** See llvm::createTypeBasedAliasAnalysisPass function */
 void LLVMAddTypeBasedAliasAnalysisPass(LLVMPassManagerRef PM);
 
