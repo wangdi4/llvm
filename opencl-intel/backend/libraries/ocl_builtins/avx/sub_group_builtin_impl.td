@@ -73,6 +73,41 @@ OclBuiltinImpl sub_group_shuffle_avxv8uif32 = OclBuiltinImpl<sub_group_shuffle_a
     return res;
  }]>;
 
+OclBuiltinImpl sub_group_shuffle_avxv16uif32 = OclBuiltinImpl<sub_group_shuffle_avx, [v16u32, v16i32, v16f32], 0,
+  [{
+    $Arg0BaseType#4 t1 = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 0, 4, 8,  12);
+    $Arg0BaseType#4 t2 = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 1, 5, 9,  13);
+    $Arg0BaseType#4 t3 = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 2, 6, 10, 14);
+    $Arg0BaseType#4 t4 = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 3, 7, 11, 15);
+    $Arg0BaseType#16 res;
+    res.lo.lo = intel_sub_group_shuffle(t1, $Arg1VarName, $Arg2VarName);
+    res.lo.hi = intel_sub_group_shuffle(t2, $Arg1VarName, $Arg2VarName);
+    res.hi.lo = intel_sub_group_shuffle(t3, $Arg1VarName, $Arg2VarName);
+    res.hi.hi = intel_sub_group_shuffle(t4, $Arg1VarName, $Arg2VarName);
+    return res;
+  }]>;
+
+OclBuiltinImpl sub_group_shuffle_avxv32uif32 = OclBuiltinImpl<sub_group_shuffle_avx, [v32u32, v32i32, v32f32], 0,
+  [{
+    $Arg0BaseType#4 t1 = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 0, 8,  16, 24);
+    $Arg0BaseType#4 t2 = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 1, 9,  17, 25);
+    $Arg0BaseType#4 t3 = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 2, 10, 18, 26);
+    $Arg0BaseType#4 t4 = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 3, 11, 19, 27);
+    $Arg0BaseType#4 t5 = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 4, 12, 20, 28);
+    $Arg0BaseType#4 t6 = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 5, 13, 21, 29);
+    $Arg0BaseType#4 t7 = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 6, 14, 22, 30);
+    $Arg0BaseType#4 t8 = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 7, 15, 23, 31);
+    $Arg0BaseType#32 res;
+    res.lo.lo.lo = intel_sub_group_shuffle(t1, $Arg1VarName, $Arg2VarName);
+    res.lo.lo.hi = intel_sub_group_shuffle(t2, $Arg1VarName, $Arg2VarName);
+    res.lo.hi.lo = intel_sub_group_shuffle(t3, $Arg1VarName, $Arg2VarName);
+    res.lo.hi.hi = intel_sub_group_shuffle(t4, $Arg1VarName, $Arg2VarName);
+    res.hi.lo.lo = intel_sub_group_shuffle(t5, $Arg1VarName, $Arg2VarName);
+    res.hi.lo.hi = intel_sub_group_shuffle(t6, $Arg1VarName, $Arg2VarName);
+    res.hi.hi.lo = intel_sub_group_shuffle(t7, $Arg1VarName, $Arg2VarName);
+    res.hi.hi.hi = intel_sub_group_shuffle(t8, $Arg1VarName, $Arg2VarName);
+    return res;
+  }]>;
 
 //
 // Shuffle xor
