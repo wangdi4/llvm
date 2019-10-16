@@ -15,6 +15,7 @@
 //
 
 #include "X86.h"
+#include "X86Subtarget.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -268,15 +269,85 @@ public:
              "WinMain",
              "wWinMain",
              TM->getTargetTriple().isOSMSVCRT())
-      .Default(false);  
+      .Default(false);
   }
 
-  bool runOnFunction(Function &F) override {
-    TM = &getAnalysis<TargetPassConfig>().getTM<TargetMachine>();
+  // Finds first non alloca instruction in the entry block of a function.
+  // The way clang generates code, it puts allocas at the beginning of the
+  // first basic block. All code comes below that. We should follow the rule.
+  static Instruction *getFirstNonAllocaInTheEntryBlock(Function &F) {
+    for (Instruction &I : F.getEntryBlock())
+      if (!isa<AllocaInst>(&I))
+        return &I;
+    llvm_unreachable("No terminator in the entry block");
+  }
 
-    if (TM->Options.IntelAdvancedOptim == false)
+  // Enable Flush To Zero and Denormals Are Zero flags in MXCSR, will generate
+  // the following instruction in main route:
+  //     %tmp = alloca i32, align 4
+  //     %0 = bitcast i32* %tmp to i8*
+  //     call void @llvm.lifetime.start.p0i8(i64 4, i8* %0)
+  //     call void @llvm.x86.sse.stmxcsr(i8* %0)
+  //     %stmxcsr = load i32, i32* %tmp, align 4
+  //     %or = or i32 %stmxcsr, 32832
+  //     store i32 %or, i32* %tmp, align 4
+  //     call void @llvm.x86.sse.ldmxcsr(i8* %0)
+  //     call void @llvm.lifetime.end.p0i8(i64 4, i8* %0)
+  bool writeMXCSRFTZBits(Function &F) {
+
+    // stmxcsr and ldmxcsr need sse supported.
+    if (!TM->getSubtarget<X86Subtarget>(F).hasSSE1())
       return false;
-    if (isMainFunction(F) == false)
+
+    auto FirstNonAlloca = getFirstNonAllocaInTheEntryBlock(F);
+    IRBuilder<> IRB(FirstNonAlloca);
+
+    // %tmp = alloca i32, align 4
+    IntegerType *I32Ty = IRB.getInt32Ty();
+    AllocaInst *AI = IRB.CreateAlloca(I32Ty);
+    AI->setAlignment(MaybeAlign(4));
+
+    // %0 = bitcast i32* %tmp to i8*
+    PointerType *Int8PtrTy = IRB.getInt8PtrTy();
+    Value *Ptr8 = IRB.CreateBitCast(AI, Int8PtrTy);
+
+    // call void @llvm.lifetime.start.p0i8(i64 4, i8* %0)
+    ConstantInt *AllocaSize = IRB.getInt64(4);
+    IRB.CreateLifetimeStart(Ptr8, AllocaSize);
+
+    // call void @llvm.x86.sse.stmxcsr(i8* %0)
+    Module *Md = IRB.GetInsertBlock()->getModule();
+    Intrinsic::ID IID = Intrinsic::x86_sse_stmxcsr;
+    Function* FI = Intrinsic::getDeclaration(Md, IID);
+    IRB.CreateCall(FI, Ptr8);
+
+    // %stmxcsr = load i32, i32* %tmp, align 4
+    LoadInst *LI = IRB.CreateAlignedLoad(AI, 4, "stmxcsr");
+
+    // %or = or i32 %stmxcsr, 32832
+    ConstantInt *CInt = IRB.getInt32(0x8040);
+    Value *Or = IRB.CreateOr(LI, CInt, "ftz_daz");
+
+    //store i32 %or, i32* %tmp1, align 4
+    IRB.CreateStore(Or, AI);
+
+    //call void @llvm.x86.sse.ldmxcsr(i8* %1)
+    IID = Intrinsic::x86_sse_ldmxcsr;
+    FI = Intrinsic::getDeclaration(Md, IID);
+    IRB.CreateCall(FI, Ptr8);
+
+    // call void @llvm.lifetime.end.p0i8(i64 4, i8* %0)
+    IRB.CreateLifetimeEnd(Ptr8, AllocaSize);
+
+    return true;
+  }
+
+  bool insertProcInitCall(Function &F) {
+    // To Be Done
+    // Maybe better to follow icc's behavior, which is to call the base version
+    // of "__intel_new_feature_proc_init" even when Options.IntelAdvancedOptim
+    // are not enabled but Options.IntelLibIRCAllowed are enabled.
+    if (!TM->Options.IntelLibIRCAllowed || !TM->Options.IntelAdvancedOptim)
       return false;
 
     // Collect target feature mask
@@ -290,10 +361,11 @@ public:
 
     LLVM_DEBUG(dbgs() << "[Feature bitmap] : " << CpuBitMap << "\n");
 
-    auto Entry = &F.getEntryBlock();
-    IRBuilder<> IRB(Entry, Entry->getFirstInsertionPt());
+    auto FirstNonAlloca = getFirstNonAllocaInTheEntryBlock(F);
+    IRBuilder<> IRB(FirstNonAlloca);
+    uint32_t FtzDaz = TM->Options.IntelFtzDaz ? 0x11 : 0x0;
     Value *Args[] = {
-        ConstantInt::get(IRB.getInt32Ty(), 0),
+        ConstantInt::get(IRB.getInt32Ty(), FtzDaz),
         ConstantInt::get(IRB.getInt64Ty(), CpuBitMap[0]),
     };
     FunctionCallee FeatureInit = F.getParent()->getOrInsertFunction(
@@ -315,6 +387,22 @@ public:
     }
 
     return true;
+  }
+
+  bool runOnFunction(Function &F) override {
+    TM = &getAnalysis<TargetPassConfig>().getTM<TargetMachine>();
+    if (isMainFunction(F) == false)
+      return false;
+
+    bool ProcInit = insertProcInitCall(F);
+    bool FTZ = false;
+
+    // If FTZ + DAZ are set by libirc call __intel_new_feature_proc_init
+    // in insertProcInitCall, we should not set them again.
+    if (TM->Options.IntelFtzDaz && !ProcInit)
+      FTZ = writeMXCSRFTZBits(F);
+
+    return ProcInit || FTZ;
   }
 };
 

@@ -1,6 +1,7 @@
 ; RUN: opt %s -o %t.bc
 ; RUN: not ld.lld --lto-O2 -e main \
 ; RUN:    -plugin-opt=fintel-advanced-optim \
+; RUN:    -plugin-opt=-intel-libirc-allowed \
 ; RUN:    -mllvm -whole-program-advanced-opt-trace \
 ; RUN:    -mllvm -print-after-all \
 ; RUN:    -mllvm -whole-program-assume-executable %t.bc -o %t \

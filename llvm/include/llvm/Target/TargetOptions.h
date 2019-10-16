@@ -112,6 +112,7 @@ namespace llvm {
           HonorSignDependentRoundingFPMathOption(false), NoZerosInBSS(false),
           IntelAdvancedOptim(false),               // INTEL
           IntelLibIRCAllowed(false),               // INTEL
+          IntelFtzDaz(false),                      // INTEL
           GuaranteedTailCallOpt(false), StackSymbolOrdering(true),
           EnableFastISel(false), EnableGlobalISel(false), UseInitArray(false),
           DisableIntegratedAS(false), RelaxELFRelocations(false),
@@ -183,10 +184,15 @@ namespace llvm {
     /// not (controlled with -x).
     unsigned IntelAdvancedOptim : 1;
 
-    /// IntelLibIRCAllowed - When true, this indicates that libirc is 
+    /// IntelLibIRCAllowed - When true, this indicates that libirc is
     /// available for the compiler to make calls to.  When false, the
     /// compiler cannot generate libirc calls.
     unsigned IntelLibIRCAllowed : 1;
+
+    /// IntelFtzDaz - When true, this indicates that enable "Flush To Zero"
+    /// and "Denormals Are Zero" flags in MXCSR. It can improve the performance
+    /// in some FP mode.
+    unsigned IntelFtzDaz : 1;
 #endif // INTEL_CUSTOMIZATION
 
     /// GuaranteedTailCallOpt - This flag is enabled when -tailcallopt is
